@@ -6,7 +6,8 @@ option "sky-grid"	- "sky grid type (arcsin, plain_rectangular, sin_theta)" strin
 option "skymap-orientation" - "orientation of produced skymaps: equatorial, ecliptic, band_axis" string default="equatorial" no
 
 option "fine-factor"	-  "make fine grid this times finer"	int default="7" no
-option "resolution-ratio" - "ratio that determines the coarsness of the grid" double default="1.0" no
+option "skymap-resolution" - "specify skymap resolution explicitly" double no
+option "skymap-resolution-ratio" - "adjust default coarseness of the grid by this factor" double default="1.0" no
 option "small-weight-ratio" - "ratio that determines which weight is too small to include in max statistics" double default="0.2" no
 
 option "input"		i "path to input files (power or SFT)" string no

@@ -28,7 +28,8 @@ struct gengetopt_args_info
   char * sky_grid_arg;	/* sky grid type (arcsin, plain_rectangular, sin_theta) (default='sin_theta').  */
   char * skymap_orientation_arg;	/* orientation of produced skymaps: equatorial, ecliptic, band_axis (default='equatorial').  */
   int fine_factor_arg;	/* make fine grid this times finer (default='7').  */
-  double resolution_ratio_arg;	/* ratio that determines the coarsness of the grid (default='1.0').  */
+  double skymap_resolution_arg;	/* specify skymap resolution explicitly.  */
+  double skymap_resolution_ratio_arg;	/* adjust default coarseness of the grid by this factor (default='1.0').  */
   double small_weight_ratio_arg;	/* ratio that determines which weight is too small to include in max statistics (default='0.2').  */
   char * input_arg;	/* path to input files (power or SFT).  */
   char * input_munch_arg;	/* how to derive SFT name from --input (highly arcane) (default='%s%ld').  */
@@ -73,7 +74,8 @@ struct gengetopt_args_info
   int sky_grid_given ;	/* Whether sky-grid was given.  */
   int skymap_orientation_given ;	/* Whether skymap-orientation was given.  */
   int fine_factor_given ;	/* Whether fine-factor was given.  */
-  int resolution_ratio_given ;	/* Whether resolution-ratio was given.  */
+  int skymap_resolution_given ;	/* Whether skymap-resolution was given.  */
+  int skymap_resolution_ratio_given ;	/* Whether skymap-resolution-ratio was given.  */
   int small_weight_ratio_given ;	/* Whether small-weight-ratio was given.  */
   int input_given ;	/* Whether input was given.  */
   int input_munch_given ;	/* Whether input-munch was given.  */

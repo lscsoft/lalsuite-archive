@@ -38,50 +38,51 @@ cmdline_parser_print_help (void)
   "\n"
   "Usage: %s [OPTIONS]...\n", CMDLINE_PARSER_PACKAGE);
   printf("\n");
-  printf("  -h, --help                       Print help and exit\n");
-  printf("  -V, --version                    Print version and exit\n");
-  printf("  -c, --config=STRING              configuration file (in gengetopt format) to \n                                     pass parameters\n");
-  printf("      --sky-grid=STRING            sky grid type (arcsin, plain_rectangular, \n                                     sin_theta)  (default=`sin_theta')\n");
-  printf("      --skymap-orientation=STRING  orientation of produced skymaps: \n                                     equatorial, ecliptic, band_axis  (default=\n                                     `equatorial')\n");
-  printf("      --fine-factor=INT            make fine grid this times finer  (default=\n                                     `7')\n");
-  printf("      --resolution-ratio=DOUBLE    ratio that determines the coarsness of the \n                                     grid  (default=`1.0')\n");
-  printf("      --small-weight-ratio=DOUBLE  ratio that determines which weight is too \n                                     small to include in max statistics  \n                                     (default=`0.2')\n");
-  printf("  -i, --input=STRING               path to input files (power or SFT)\n");
-  printf("      --input-munch=STRING         how to derive SFT name from --input (highly \n                                     arcane)  (default=`%s%ld')\n");
-  printf("      --input-format=STRING        format of input files (GEO, SFT, Power)  \n                                     (default=`GEO')\n");
-  printf("      --segments-file=STRING       file with list of segments to process - \n                                     this allows subsetting of full SFT set\n");
-  printf("      --veto-segments-file=STRING  file with list of segments *NOT* to process \n                                     - this allows subsetting of full SFT set\n");
-  printf("  -o, --output=STRING              output directory\n");
-  printf("      --ephemeris-path=STRING      path to detresponse program from lalapps\n");
-  printf("      --earth-ephemeris=STRING     Earth ephemeris file, overrides \n                                     ephemeris-path argument\n");
-  printf("      --sun-ephemeris=STRING       Sun ephemeris file, overrides \n                                     ephemeris-path argument\n");
-  printf("  -f, --first-bin=INT              first frequency bin in the band to be \n                                     analyzed\n");
-  printf("  -n, --nbins=INT                  number of frequency bins to analyze  \n                                     (default=`501')\n");
-  printf("      --side-cut=INT               number of bins to cut from each side due to \n                                     corruption from doppler shifts\n");
-  printf("  -d, --detector=STRING            detector location (i.e. LHO or LLO), passed \n                                     to detresponse\n");
-  printf("      --spindown=DOUBLE            compensate for pulsar spindown during run \n                                     (fdot)  (default=`0')\n");
-  printf("      --orientation=DOUBLE         additional orientation phase, specifying \n                                     0.7853 will turn plus into cross  \n                                     (default=`0')\n");
-  printf("      --npolarizations=INT         number of linear polarizations to profile, \n                                     distributed uniformly between plus and \n                                     cross  (default=`3')\n");
-  printf("      --no-demodulation=INT        do not perform demodulation stage, analyze \n                                     background only  (default=`0')\n");
-  printf("      --no-decomposition=INT       do not perform noise decomposition stage, \n                                     output simple statistics only  (default=\n                                     `0')\n");
-  printf("      --no-am-response=INT         force AM_response() function to return 1.0 \n                                     irrespective of the arguments  (default=\n                                     `0')\n");
-  printf("      --three-bins=INT             average 3 neighbouring bins to broaden \n                                     Doppler curves  (default=`0')\n");
-  printf("      --do-cutoff=INT              neglect contribution from SFT with high \n                                     effective noise level  (default=`1')\n");
-  printf("      --filter-lines=INT           perform detection of lines in background \n                                     noise and veto corresponding frequency \n                                     bins  (default=`1')\n");
-  printf("      --nbands=INT                 split sky in this many bands for logging \n                                     maximum upper limits  (default=`9')\n");
-  printf("      --band-axis=STRING           which band axis to use for splitting sky \n                                     into bands (perpendicular to band axis) \n                                     (possible values: equatorial, auto, \n                                     explicit(float,float,float)  (default=\n                                     `auto')\n");
-  printf("      --fake-ra=DOUBLE             RA of fake signal to inject  (default=\n                                     `3.14')\n");
-  printf("      --fake-dec=DOUBLE            DEC of fake signal to inject  (default=\n                                     `0.0')\n");
-  printf("      --fake-orientation=DOUBLE    orientation of fake signal to inject  \n                                     (default=`0.0')\n");
-  printf("      --fake-spindown=DOUBLE       spindown of fake signal to inject  (default=\n                                     `0.0')\n");
-  printf("      --fake-strain=DOUBLE         amplitude of fake signal to inject  \n                                     (default=`1e-23')\n");
-  printf("      --fake-freq=DOUBLE           frequency of fake signal to inject\n");
-  printf("      --write-dat=STRING           regular expression describing which *.dat \n                                     files to write  (default=`.*')\n");
-  printf("      --write-png=STRING           regular expression describing which *.png \n                                     files to write  (default=`.*')\n");
-  printf("      --focus-ra=DOUBLE            focus computation on a circular area with \n                                     center at this RA\n");
-  printf("      --focus-dec=DOUBLE           focus computation on a circular area with \n                                     center at this DEC\n");
-  printf("      --focus-radius=DOUBLE        focus computation on a circular area with \n                                     this radius\n");
-  printf("      --only-large-cos=DOUBLE      restrict computation to point on the sky \n                                     with cos of angle to band axis larger \n                                     than a given number\n");
+  printf("  -h, --help                            Print help and exit\n");
+  printf("  -V, --version                         Print version and exit\n");
+  printf("  -c, --config=STRING                   configuration file (in gengetopt \n                                          format) to pass parameters\n");
+  printf("      --sky-grid=STRING                 sky grid type (arcsin, \n                                          plain_rectangular, sin_theta)  \n                                          (default=`sin_theta')\n");
+  printf("      --skymap-orientation=STRING       orientation of produced skymaps: \n                                          equatorial, ecliptic, band_axis  \n                                          (default=`equatorial')\n");
+  printf("      --fine-factor=INT                 make fine grid this times finer  \n                                          (default=`7')\n");
+  printf("      --skymap-resolution=DOUBLE        specify skymap resolution explicitly\n");
+  printf("      --skymap-resolution-ratio=DOUBLE  adjust default coarseness of the grid \n                                          by this factor  (default=`1.0')\n");
+  printf("      --small-weight-ratio=DOUBLE       ratio that determines which weight is \n                                          too small to include in max \n                                          statistics  (default=`0.2')\n");
+  printf("  -i, --input=STRING                    path to input files (power or SFT)\n");
+  printf("      --input-munch=STRING              how to derive SFT name from --input \n                                          (highly arcane)  (default=`%s%ld')\n");
+  printf("      --input-format=STRING             format of input files (GEO, SFT, \n                                          Power)  (default=`GEO')\n");
+  printf("      --segments-file=STRING            file with list of segments to process \n                                          - this allows subsetting of full SFT \n                                          set\n");
+  printf("      --veto-segments-file=STRING       file with list of segments *NOT* to \n                                          process - this allows subsetting of \n                                          full SFT set\n");
+  printf("  -o, --output=STRING                   output directory\n");
+  printf("      --ephemeris-path=STRING           path to detresponse program from \n                                          lalapps\n");
+  printf("      --earth-ephemeris=STRING          Earth ephemeris file, overrides \n                                          ephemeris-path argument\n");
+  printf("      --sun-ephemeris=STRING            Sun ephemeris file, overrides \n                                          ephemeris-path argument\n");
+  printf("  -f, --first-bin=INT                   first frequency bin in the band to be \n                                          analyzed\n");
+  printf("  -n, --nbins=INT                       number of frequency bins to analyze  \n                                          (default=`501')\n");
+  printf("      --side-cut=INT                    number of bins to cut from each side \n                                          due to corruption from doppler \n                                          shifts\n");
+  printf("  -d, --detector=STRING                 detector location (i.e. LHO or LLO), \n                                          passed to detresponse\n");
+  printf("      --spindown=DOUBLE                 compensate for pulsar spindown during \n                                          run (fdot)  (default=`0')\n");
+  printf("      --orientation=DOUBLE              additional orientation phase, \n                                          specifying 0.7853 will turn plus \n                                          into cross  (default=`0')\n");
+  printf("      --npolarizations=INT              number of linear polarizations to \n                                          profile, distributed uniformly \n                                          between plus and cross  (default=\n                                          `3')\n");
+  printf("      --no-demodulation=INT             do not perform demodulation stage, \n                                          analyze background only  (default=\n                                          `0')\n");
+  printf("      --no-decomposition=INT            do not perform noise decomposition \n                                          stage, output simple statistics only \n                                           (default=`0')\n");
+  printf("      --no-am-response=INT              force AM_response() function to return \n                                          1.0 irrespective of the arguments  \n                                          (default=`0')\n");
+  printf("      --three-bins=INT                  average 3 neighbouring bins to broaden \n                                          Doppler curves  (default=`0')\n");
+  printf("      --do-cutoff=INT                   neglect contribution from SFT with \n                                          high effective noise level  (default=\n                                          `1')\n");
+  printf("      --filter-lines=INT                perform detection of lines in \n                                          background noise and veto \n                                          corresponding frequency bins  \n                                          (default=`1')\n");
+  printf("      --nbands=INT                      split sky in this many bands for \n                                          logging maximum upper limits  \n                                          (default=`9')\n");
+  printf("      --band-axis=STRING                which band axis to use for splitting \n                                          sky into bands (perpendicular to \n                                          band axis) (possible values: \n                                          equatorial, auto, \n                                          explicit(float,float,float)  \n                                          (default=`auto')\n");
+  printf("      --fake-ra=DOUBLE                  RA of fake signal to inject  (default=\n                                          `3.14')\n");
+  printf("      --fake-dec=DOUBLE                 DEC of fake signal to inject  (default=\n                                          `0.0')\n");
+  printf("      --fake-orientation=DOUBLE         orientation of fake signal to inject  \n                                          (default=`0.0')\n");
+  printf("      --fake-spindown=DOUBLE            spindown of fake signal to inject  \n                                          (default=`0.0')\n");
+  printf("      --fake-strain=DOUBLE              amplitude of fake signal to inject  \n                                          (default=`1e-23')\n");
+  printf("      --fake-freq=DOUBLE                frequency of fake signal to inject\n");
+  printf("      --write-dat=STRING                regular expression describing which \n                                          *.dat files to write  (default=`.*')\n");
+  printf("      --write-png=STRING                regular expression describing which \n                                          *.png files to write  (default=`.*')\n");
+  printf("      --focus-ra=DOUBLE                 focus computation on a circular area \n                                          with center at this RA\n");
+  printf("      --focus-dec=DOUBLE                focus computation on a circular area \n                                          with center at this DEC\n");
+  printf("      --focus-radius=DOUBLE             focus computation on a circular area \n                                          with this radius\n");
+  printf("      --only-large-cos=DOUBLE           restrict computation to point on the \n                                          sky with cos of angle to band axis \n                                          larger than a given number\n");
 }
 
 
@@ -111,7 +112,8 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->sky_grid_given = 0 ;
   args_info->skymap_orientation_given = 0 ;
   args_info->fine_factor_given = 0 ;
-  args_info->resolution_ratio_given = 0 ;
+  args_info->skymap_resolution_given = 0 ;
+  args_info->skymap_resolution_ratio_given = 0 ;
   args_info->small_weight_ratio_given = 0 ;
   args_info->input_given = 0 ;
   args_info->input_munch_given = 0 ;
@@ -154,7 +156,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->sky_grid_arg = gengetopt_strdup("sin_theta") ;\
   args_info->skymap_orientation_arg = gengetopt_strdup("equatorial") ;\
   args_info->fine_factor_arg = 7 ;\
-  args_info->resolution_ratio_arg = 1.0 ;\
+  args_info->skymap_resolution_ratio_arg = 1.0 ;\
   args_info->small_weight_ratio_arg = 0.2 ;\
   args_info->input_arg = NULL; \
   args_info->input_munch_arg = gengetopt_strdup("%s%ld") ;\
@@ -206,7 +208,8 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
         { "sky-grid",	1, NULL, 0 },
         { "skymap-orientation",	1, NULL, 0 },
         { "fine-factor",	1, NULL, 0 },
-        { "resolution-ratio",	1, NULL, 0 },
+        { "skymap-resolution",	1, NULL, 0 },
+        { "skymap-resolution-ratio",	1, NULL, 0 },
         { "small-weight-ratio",	1, NULL, 0 },
         { "input",	1, NULL, 'i' },
         { "input-munch",	1, NULL, 0 },
@@ -378,17 +381,31 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
             break;
           }
           
-          /* ratio that determines the coarsness of the grid.  */
-          else if (strcmp (long_options[option_index].name, "resolution-ratio") == 0)
+          /* specify skymap resolution explicitly.  */
+          else if (strcmp (long_options[option_index].name, "skymap-resolution") == 0)
           {
-            if (args_info->resolution_ratio_given)
+            if (args_info->skymap_resolution_given)
               {
-                fprintf (stderr, "%s: `--resolution-ratio' option given more than once\n", CMDLINE_PARSER_PACKAGE);
+                fprintf (stderr, "%s: `--skymap-resolution' option given more than once\n", CMDLINE_PARSER_PACKAGE);
                 clear_args ();
                 exit (EXIT_FAILURE);
               }
-            args_info->resolution_ratio_given = 1;
-            args_info->resolution_ratio_arg = strtod (optarg, NULL);
+            args_info->skymap_resolution_given = 1;
+            args_info->skymap_resolution_arg = strtod (optarg, NULL);
+            break;
+          }
+          
+          /* adjust default coarseness of the grid by this factor.  */
+          else if (strcmp (long_options[option_index].name, "skymap-resolution-ratio") == 0)
+          {
+            if (args_info->skymap_resolution_ratio_given)
+              {
+                fprintf (stderr, "%s: `--skymap-resolution-ratio' option given more than once\n", CMDLINE_PARSER_PACKAGE);
+                clear_args ();
+                exit (EXIT_FAILURE);
+              }
+            args_info->skymap_resolution_ratio_given = 1;
+            args_info->skymap_resolution_ratio_arg = strtod (optarg, NULL);
             break;
           }
           
@@ -1028,14 +1045,32 @@ cmdline_parser_configfile (char * const filename, struct gengetopt_args_info *ar
                 }
               continue;
             }
-          if (!strcmp(fopt, "resolution-ratio"))
+          if (!strcmp(fopt, "skymap-resolution"))
             {
-              if (override || !args_info->resolution_ratio_given)
+              if (override || !args_info->skymap_resolution_given)
                 {
-                  args_info->resolution_ratio_given = 1;
+                  args_info->skymap_resolution_given = 1;
                   if (fnum == 2)
                     {
-                      args_info->resolution_ratio_arg = strtod (farg, NULL);
+                      args_info->skymap_resolution_arg = strtod (farg, NULL);
+                    }
+                  else
+                    {
+                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
+                               filename, line_num);
+                      exit (EXIT_FAILURE);
+                    }
+                }
+              continue;
+            }
+          if (!strcmp(fopt, "skymap-resolution-ratio"))
+            {
+              if (override || !args_info->skymap_resolution_ratio_given)
+                {
+                  args_info->skymap_resolution_ratio_given = 1;
+                  if (fnum == 2)
+                    {
+                      args_info->skymap_resolution_ratio_arg = strtod (farg, NULL);
                     }
                   else
                     {

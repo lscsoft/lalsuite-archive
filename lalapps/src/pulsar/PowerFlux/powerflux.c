@@ -391,7 +391,10 @@ init_ephemeris();
 /* PREP1 stage */
 
 fprintf(stderr,	"Initializing sky grids\n");
-resolution=(4500.0*args_info.resolution_ratio_arg)/(args_info.first_bin_arg+args_info.nbins_arg/2);
+resolution=(4500.0*args_info.skymap_resolution_ratio_arg)/(args_info.first_bin_arg+args_info.nbins_arg/2);
+if(args_info.skymap_resolution_given){
+	resolution=args_info.skymap_resolution_arg;
+	}
 if(!strcasecmp("sin_theta", args_info.sky_grid_arg)){
 	patch_grid=make_sin_theta_grid(resolution*args_info.fine_factor_arg);
 	super_grid=make_sin_theta_supergrid(patch_grid, args_info.fine_factor_arg);
