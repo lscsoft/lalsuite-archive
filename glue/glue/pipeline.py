@@ -880,6 +880,8 @@ class AnalysisNode(CondorDAGNode):
   def __init__(self):
     self.__start = 0
     self.__end = 0
+    self.__trig_start = 0
+    self.__trig_end = 0
     self.__ifo = None
     self.__ifo_tag = None
     self.__input = None
@@ -919,6 +921,37 @@ class AnalysisNode(CondorDAGNode):
     Get the GPS end time of the node.
     """
     return self.__end
+
+
+  def set_trig_start(self,time):
+     """
+     Set the trig start time of the analysis node by setting a 
+     --trig-start-time option to the node when it is executed.
+     @param time: trig start time of job.
+     """
+     self.add_var_opt('trig-start-time',time)
+     self.__trig_start = time
+
+   def get_trig_start(self):
+     """
+     Get the trig start time of the node.
+     """
+     return self.__trig_start
+
+   def set_trig_end(self,time):
+     """
+     Set the trig end time of the analysis node by setting a --trig-end-time
+     option to the node when it is executed.
+     @param time: trig end time of job.
+     """
+     self.add_var_opt('trig-end-time',time)
+     self.__trig_end = time
+
+   def get_trig_end(self):
+     """
+     Get the trig end time of the node.
+     """
+     return self.__trig_end
 
   def set_input(self,file):
     """
