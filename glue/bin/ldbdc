@@ -1,0 +1,276 @@
+#!/usr/bin/python2.2
+#
+# lightweight database dumper client
+#
+# $Id$
+class LDBDServerConnection(object):
+  def __init__(self, host, port, identity):
+    """
+    Attempt to open a connection to the ldbd server
+    using the 'host' and 'port', and expecting the 
+    server to identify itself with credentials that 
+    match the subject name 'identity'.
+    A IOException is raised if the connection cannot be made.
+    try:
+      # create TCPIOAttr instance and set authentication mode to be GSSAPI
+      clientAttr = io.TCPIOAttr()
+      clientAttr.set_authentication_mode(
+        io.ioc.GLOBUS_IO_SECURE_AUTHENTICATION_MODE_GSSAPI)
+
+      # create AuthData instance and set expected identity
+      authData = io.AuthData()
+      authData.set_identity(identity)
+
+      # set authorization, channel, and delegation modes
+      clientAttr.set_authorization_mode(
+        io.ioc.GLOBUS_IO_SECURE_AUTHORIZATION_MODE_IDENTITY, authData)
+      clientAttr.set_channel_mode(
+    # create TCPIOAttr instance and set authentication mode to be GSSAPI
+    clientAttr = io.TCPIOAttr()
+    clientAttr.set_authentication_mode(
+      io.ioc.GLOBUS_IO_SECURE_AUTHENTICATION_MODE_GSSAPI)
+
+    # create AuthData instance and set expected identity
+    authData = io.AuthData()
+    authData.set_identity(identity)
+
+    # set authorization, channel, and delegation modes
+    clientAttr.set_authorization_mode(
+      io.ioc.GLOBUS_IO_SECURE_AUTHORIZATION_MODE_IDENTITY, authData)
+    clientAttr.set_channel_mode(
+      io.ioc.GLOBUS_IO_SECURE_CHANNEL_MODE_CLEAR)
+    clientAttr.set_delegation_mode(
+      io.ioc.GLOBUS_IO_SECURE_DELEGATION_MODE_LIMITED_PROXY)
+
+    soc = io.GSITCPSocket()
+    soc.connect(host, port, clientAttr)
+    self.socket = soc
+    fh = file handle of input or output file
+    """
+    self.host = host
+    self.port = port
+    try:
+      self.connection = LDBDServerConnection(host,port,identity)
+    except Exception, e:
+      print "Error connecting to %s:%d with identity %s" % (host,port,identity)
+      print "Check credentials and verify entry in remote grid-mapfile"
+      sys.exit(1)
+    self.action = action
+    self.db = db
+    self.squery = squery
+    self.fh = fh
+
+  def execute(self):
+    try:
+      self.send()
+    except Exception, e:
+      print "Error writing to %s:%d" % (self.host,self.port)
+      print e
+      sys.exit(1)
+      print e
+    try:
+      self.receive()
+    except LDBDServerException, e:
+      print "Error: database transaction failed"
+      print "Message from server %s:%d" % (self.host,self.port)
+      print e
+      sys.exit(2)
+    except Exception, e:
+      print "Error receiving from %s:%d" % (self.host,self.port)
+      print e
+      sys.exit(1)
+
+  def send(self):
+    msg = "%s\0%s\0%s\0" % (self.action,self.db,self.squery)
+    if re.search("insert",self.action):
+      inputdata = ''
+      msg += "%s\n%s" % (nlines,inputdata)
+    else:
+      msg += "0\n"
+    self.connection.socket.write(msg, len(msg))
+
+  def receive(self):
+    f = self.connection.socket.makefile()
+    r = f.readline().strip()
+      print "inserting data"
+    try:
+      retcode = int(r)
+      fline = fh.readline()
+      while fline:
+        nlines += 1
+        inputdata += fline
+        fline = fh.readline()
+      errmsg = f.read()
+      raise LDBDServerException, errmsg
+    else:
+      if re.match("query",self.action):
+        retdata = f.read()
+        while retdata:
+          fh.write(retdata)
+          retdata = f.read()
+    if int(r):
+      errmsg = r.read()
+      raise Exception, errmsg
+  -i, --insert LIGOLW     insert LIGO lightweight file LIGOLW
+  -q, --query QUERY       execute SQL query QUERY
+        fh.write(f.read())
+The options --server and --database must be specified.
+One of the options --query or --insert must be specified.
+\
+Usage: ldbdc [OPTIONS]
+  print msg
+  -s, --server HOST:PORT        connect to ldbd on HOST:PORT
+  -d, --database NAME           use database NAME
+  -i, --insert LIGOLW           insert LIGO lightweight file LIGOLW
+  -q, --query QUERY             execute SQL query QUERY
+  -o, --output FILE             write output to FILE
+  -v, --verbose                 print lots of debugging information
+  -h, --help                    print detailed help message
+  "query=",
+  "output=",
+  "verbose",
+  "help"
+  ]
+  msg = """\
+NAME
+       ldbdc - lightweight database dumper client
+
+SYNOPSIS
+       ldbdc --server HOST:PORT --database NAME [--insert LIGOLW]
+       [--sql QUERY ] [--output FILE] [--verbose] [--help]
+
+DESCRIPTION
+       ldbdc inserts  a  LIGO  lightweight  XML  file  into   the
+       specified database and/or executes an SQL query  returning
+       the results as a LIGO  lightweight  XML  to  the  standard
+       output.
+
+OPTIONS
+       -s, --server HOST:PORT
+               connect to ldbd server at HOST on PORT
+
+       -d, --database NAME
+               execute all commands at database NAME
+
+       -i, --insert LIGOLW
+               insert the data in the LIGO lightweight  XML  file
+               LIGOLW into the database
+
+       -q, --query QUERY
+               execute the SQL query QUERY  at  the  database and
+               return  the  results  of  the  query  as   a  LIGO 
+               lightweight XML file
+
+       -o, --output FILE
+               write the query result to FILE insted of stdout
+
+       -v, --verbose
+               print lots of debugging information
+
+       -h, --help
+               print this message
+
+DIAGNOSTICS
+        An exit status of 0 means that the no errors ocourred,  1
+        means that the insert failed, and 2 means  the  execution 
+        of the SQL query failed.
+
+EXAMPLES
+       ldbdc --server metaserver.phys.uwm.edu  --database uwm_dev
+       --insert test.xml
+         Inserts the LIGO lightweight XML file test.xml into the 
+         uwm_dev database at metaserver.phys.uwm.edu
+               
+       ldbdc  --server  metaserver.phys.uwm.edu:60000  --database
+       uwm_dev --query "SELECT * FROM SNGL_INSPIRAL"
+         Retrieves all the entries from the SNGL_INSPIRAL table in
+         the uwm_dev database at  metaserver.phys.uwm.edu on  port 
+         60000
+
+AUTHOR
+       Duncan Brown <duncan@gravity.phys.uwm.edu>
+
+BUGS
+       Some things don't work yet.
+\
+"""
+  print msg
+try:
+  opts, args = getopt.getopt(sys.argv[1:], shortop, longop)
+shortop = "s:d:i:q:o:vh"
+  usage()
+  sys.exit(1)
+# defaults
+server = None
+port = 49999
+identity = None
+database = None
+infile = None
+outfile = None
+squery = None
+verbose = None
+
+for o, a in opts:
+  if o in ("-h", "--help"):
+    help()
+  elif o in ("-s", "--server"):
+    a = a.split(':')
+    server = a[0]
+    try: port = a[1]
+    except IndexError: pass
+  elif o in ("-j", "--identity"):
+    identity = a
+  elif o in ("-i", "--insert"):
+    infile = a
+  elif o in ("-q", "--query"):
+    squery = a
+  elif o in ("-d", "--database"):
+    database = a
+  elif o in ("-o", "--output"):
+    outfile = a
+  elif o in ("-v", "--verbose"):
+    verbose = 1
+
+if not server or not database or (not infile and not squery):
+if (squery and infile):
+  print "Only one of --query and --insert can be specified\n"
+  usage()
+  sys.exit(1)
+
+if not identity:
+  elif o in ("-I", "--identity"):
+    identity = a
+  identity = "/DC=org/DC=doegrids/OU=Services/CN=ldbdserver/%s" % server
+
+if infile:
+  fh = open(infile,'r')
+  act = "insert"
+  squery = None
+elif squery:
+  if outfile:
+    fh = open(outfile,'w')
+  else:
+    fh = sys.__stdout__
+  act = "query"
+
+if re.match("metaserver.phys.uwm.edu",server):
+  identity = "/O=doesciencegrid.org/OU=Services/CN=host/metaserver.phys.uwm.edu"
+elif re.match("star.phys.uwm.edu",server):
+  identity = "/O=doesciencegrid.org/OU=People/CN=Duncan Brown 792417"
+
+doit = LDBDServerAction(server,port,identity,act,database,squery,fh)
+  print "Unknown server %s." % server
+  print "Please specify the identity yon the command line with --identity."
+  sys.exit(1)
+
+#try:
+#  doit.execute()
+#except Exception, e:
+#  print "Server at %s:%d using database %s returned an error message:" \
+#  % (server,port,database)
+#  print e
+#  fh.close()
+#  sys.exit(1)
+
+fh.close()
+sys.exit(0)
