@@ -440,28 +440,40 @@ if(fine_grid->max_n_dec<800){
 plot=make_plot(p->width, p->height);
 
 snprintf(s,19999,"%s_weight.png",pol->name);
-plot_grid_f(p, fine_grid, pol->skymap.total_weight, 1);
-RGBPic_dump_png(s, p);
+if(clear_name_png(s)){
+	plot_grid_f(p, fine_grid, pol->skymap.total_weight, 1);
+	RGBPic_dump_png(s, p);
+	}
 
 snprintf(s,19999,"%s_cor1.png",pol->name);
-plot_grid_f(p, fine_grid, pol->skymap.cor1, 1);
-RGBPic_dump_png(s, p);
+if(clear_name_png(s)){
+	plot_grid_f(p, fine_grid, pol->skymap.cor1, 1);
+	RGBPic_dump_png(s, p);
+	}
 
 snprintf(s,19999,"%s_cor2.png",pol->name);
-plot_grid_f(p, fine_grid, pol->skymap.cor2, 1);
-RGBPic_dump_png(s, p);
+if(clear_name_png(s)){
+	plot_grid_f(p, fine_grid, pol->skymap.cor2, 1);
+	RGBPic_dump_png(s, p);
+	}
 
 snprintf(s,19999,"%s_max_upper_limit.png",pol->name);
-plot_grid_f(p, fine_grid, pol->skymap.max_upper_limit, 1);
-RGBPic_dump_png(s, p);
+if(clear_name_png(s)){
+	plot_grid_f(p, fine_grid, pol->skymap.max_upper_limit, 1);
+	RGBPic_dump_png(s, p);
+	}
 
 snprintf(s,19999,"%s_max_lower_limit.png",pol->name);
-plot_grid_f(p, fine_grid, pol->skymap.max_lower_limit, 1);
-RGBPic_dump_png(s, p);
+if(clear_name_png(s)){
+	plot_grid_f(p, fine_grid, pol->skymap.max_lower_limit, 1);
+	RGBPic_dump_png(s, p);
+	}
 
 snprintf(s,19999,"%s_arg_freq.png",pol->name);
-plot_grid_f(p, fine_grid, pol->skymap.freq_map, 1);
-RGBPic_dump_png(s, p);
+if(clear_name_png(s)){
+	plot_grid_f(p, fine_grid, pol->skymap.freq_map, 1);
+	RGBPic_dump_png(s, p);
+	}
 
 snprintf(s,19999,"%s_arg_freq.dat",pol->name);
 dump_floats(s,pol->skymap.freq_map,fine_grid->npoints,1);
@@ -605,27 +617,33 @@ for(i=0;i<args_info.nbands_arg;i++){
 				pol->skymap.freq_map[masked_max_band_arg[i]]);
 
 	snprintf(s,19999,"%s_max_upper_limit_band_%d.png",pol->name, i);
-	adjust_plot_limits_f(plot, freq_f, &(pol->spectral_plot.max_upper_limit[i*useful_bins]), useful_bins, 1, 1, 1);
-	draw_grid(p, plot, 0, 0);
-	draw_points_f(p, plot, COLOR(255,0,0), freq_f, &(pol->spectral_plot.max_upper_limit[i*useful_bins]), useful_bins, 1, 1);
-	RGBPic_dump_png(s, p);
+	if(clear_name_png(s)){
+		adjust_plot_limits_f(plot, freq_f, &(pol->spectral_plot.max_upper_limit[i*useful_bins]), useful_bins, 1, 1, 1);
+		draw_grid(p, plot, 0, 0);
+		draw_points_f(p, plot, COLOR(255,0,0), freq_f, &(pol->spectral_plot.max_upper_limit[i*useful_bins]), useful_bins, 1, 1);
+		RGBPic_dump_png(s, p);
+		}
 	snprintf(s,19999,"%s_max_upper_limit_band_%d.dat",pol->name, i);
 	dump_floats(s, &(pol->spectral_plot.max_upper_limit[i*useful_bins]), useful_bins, 1);
 	
 	snprintf(s,19999,"%s_max_dx_band_%d.png",pol->name, i);
-	adjust_plot_limits_f(plot, freq_f, &(pol->spectral_plot.max_dx[i*useful_bins]), useful_bins, 1, 1, 1);
-	draw_grid(p, plot, 0, 0);
-	draw_points_f(p, plot, COLOR(255,0,0), freq_f, &(pol->spectral_plot.max_dx[i*useful_bins]), useful_bins, 1, 1);
-	RGBPic_dump_png(s, p);
+	if(clear_name_png(s)){
+		adjust_plot_limits_f(plot, freq_f, &(pol->spectral_plot.max_dx[i*useful_bins]), useful_bins, 1, 1, 1);
+		draw_grid(p, plot, 0, 0);
+		draw_points_f(p, plot, COLOR(255,0,0), freq_f, &(pol->spectral_plot.max_dx[i*useful_bins]), useful_bins, 1, 1);
+		RGBPic_dump_png(s, p);
+		}
 	snprintf(s,19999,"%s_max_dx_band_%d.dat",pol->name, i);
 	dump_floats(s, &(pol->spectral_plot.max_dx[i*useful_bins]), useful_bins, 1);
 	
 	if(lines_list[0]>=0){
 		snprintf(s,19999,"%s_max_mask_ratio_band_%d.png",pol->name, i);
-		adjust_plot_limits_f(plot, freq_f, &(pol->spectral_plot.max_mask_ratio[i*useful_bins]), useful_bins, 1, 1, 1);
-		draw_grid(p, plot, 0, 0);
-		draw_points_f(p, plot, COLOR(255,0,0), freq_f, &(pol->spectral_plot.max_mask_ratio[i*useful_bins]), useful_bins, 1, 1);
-		RGBPic_dump_png(s, p);
+		if(clear_name_png(s)){
+			adjust_plot_limits_f(plot, freq_f, &(pol->spectral_plot.max_mask_ratio[i*useful_bins]), useful_bins, 1, 1, 1);
+			draw_grid(p, plot, 0, 0);
+			draw_points_f(p, plot, COLOR(255,0,0), freq_f, &(pol->spectral_plot.max_mask_ratio[i*useful_bins]), useful_bins, 1, 1);
+			RGBPic_dump_png(s, p);
+			}
 		snprintf(s,19999,"%s_max_mask_ratio_band_%d.dat",pol->name, i);
 		dump_floats(s, &(pol->spectral_plot.max_mask_ratio[i*useful_bins]), useful_bins, 1);
 		}
@@ -647,33 +665,45 @@ for(i=0;i<args_info.nbands_arg*useful_bins;i++){
 
 for(i=0;i<args_info.nbands_arg;i++){
 	snprintf(s,19999,"%s_max_upper_strain_band_%d.png",pol->name, i);
-	adjust_plot_limits_f(plot, freq_f, &(pol->spectral_plot.max_upper_limit[i*useful_bins]), useful_bins, 1, 1, 1);
-	draw_grid(p, plot, 0, 0);
-	draw_points_f(p, plot, COLOR(255,0,0), freq_f, &(pol->spectral_plot.max_upper_limit[i*useful_bins]), useful_bins, 1, 1);
-	RGBPic_dump_png(s, p);
+	if(clear_name_png(s)){
+		adjust_plot_limits_f(plot, freq_f, &(pol->spectral_plot.max_upper_limit[i*useful_bins]), useful_bins, 1, 1, 1);
+		draw_grid(p, plot, 0, 0);
+		draw_points_f(p, plot, COLOR(255,0,0), freq_f, &(pol->spectral_plot.max_upper_limit[i*useful_bins]), useful_bins, 1, 1);
+		RGBPic_dump_png(s, p);
+		}
 	snprintf(s,19999,"%s_max_upper_strain_band_%d.dat",pol->name, i);
 	dump_floats(s, &(pol->spectral_plot.max_upper_limit[i*useful_bins]), useful_bins, 1);
 	}
 	
 snprintf(s,19999,"%s_max_upper_strain.png",pol->name);
-plot_grid_f(p, fine_grid, pol->skymap.max_upper_limit, 1);
-RGBPic_dump_png(s, p);
+if(clear_name_png(s)){
+	plot_grid_f(p, fine_grid, pol->skymap.max_upper_limit, 1);
+	RGBPic_dump_png(s, p);
+	}
 
 snprintf(s,19999,"%s_max_lower_strain.png",pol->name);
-plot_grid_f(p, fine_grid, pol->skymap.max_lower_limit, 1);
-RGBPic_dump_png(s, p);
+if(clear_name_png(s)){
+	plot_grid_f(p, fine_grid, pol->skymap.max_lower_limit, 1);
+	RGBPic_dump_png(s, p);
+	}
 
 snprintf(s,19999,"%s_max_dx.png",pol->name);
-plot_grid_f(p, fine_grid, pol->skymap.max_dx, 1);
-RGBPic_dump_png(s, p);
+if(clear_name_png(s)){
+	plot_grid_f(p, fine_grid, pol->skymap.max_dx, 1);
+	RGBPic_dump_png(s, p);
+	}
 
 snprintf(s,19999,"%s_M_map.png",pol->name);
-plot_grid_f(p, fine_grid, pol->skymap.M_map, 1);
-RGBPic_dump_png(s, p);
+if(clear_name_png(s)){
+	plot_grid_f(p, fine_grid, pol->skymap.M_map, 1);
+	RGBPic_dump_png(s, p);
+	}
 
 snprintf(s,19999,"%s_S_map.png",pol->name);
-plot_grid_f(p, fine_grid, pol->skymap.S_map, 1);
-RGBPic_dump_png(s, p);
+if(clear_name_png(s)){
+	plot_grid_f(p, fine_grid, pol->skymap.S_map, 1);
+	RGBPic_dump_png(s, p);
+	}
 
 free_plot(plot);
 free_RGBPic(p);
