@@ -21,25 +21,26 @@ __version__='$Revision$'[0:0]
 import exceptions
 import sys
 
-try:
-        from pyGlobus import security
-except ImportError:
-        print >>sys.stderr, "\nCould not import a module from the pyGlobus library."
-        print >>sys.stderr, "\nPlease run your LSC Data Grid setup script:"
-        print >>sys.stderr, "   e.g.  prompt> . ~/ldg-3.0/setup.sh  # for the bash shell"
-        print >>sys.stderr, "         prompt> source ~/ldg-3.0/setup.csh # for (t)csh"
-        print >>sys.stderr, "\n or point your PYTHONPATH environment variable to the location of the pyGlobus modules."
-        sys.exit(1)
+#try:
+#        from pyGlobus import security
+#except ImportError:
+#        print >>sys.stderr, "\nCould not import a module from the pyGlobus library."
+#        print >>sys.stderr, "\nPlease run your LSC Data Grid setup script:"
+#        print >>sys.stderr, "   e.g.  prompt> . ~/ldg-3.0/setup.sh  # for the bash shell"
+#        print >>sys.stderr, "         prompt> source ~/ldg-3.0/setup.csh # for (t)csh"
+#        print >>sys.stderr, "\n or point your PYTHONPATH environment variable to the location of the pyGlobus modules."
+#        sys.exit(1)
         
 try:
         from LSCfileAdd import *
-except ImportError:
+except ImportError, e:
+        print >>sys.stderr, e
         print >>sys.stderr, "\nPython LSCfileAdd.py library is not found; please add its location to the PYTHONPATH environmental variable."
         print >>sys.stderr, "\nFor example, from the bash or (t)csh shell respectively, run:\n"
         print >>sys.stderr, "   export PYTHONPATH=$PYTHONPATH:$LSCSOFT/src/glue/lib"
         print >>sys.stderr, "or"
         print >>sys.stderr, "   setenv PYTHONPATH ${PYTHONPATH}:$LSCSOFT/src/glue/lib"
-        print >>sys.stderr, "\n where $LSCSOFT is the directory containing the lscsoft cvs repository."
+        print >>sys.stderr, "\nwhere $LSCSOFT is the directory containing the lscsoft cvs repository."
         sys.exit(1)
 
 def print_stats(successes,failures):
@@ -84,13 +85,15 @@ if __name__ == '__main__':
         
         #Publish the files with the metadata requested
         try:
-                successes, failures = files.publish(userparams.attr, userparams.filelist)
+                files.publish(userparams.attr, userparams.filelist,\
+                              userparams.urlType,userparams.host,userparams.port)
         except LSCfileAddException, e:
-                print >>sys.stderr, "Danger Will Robinson! Coder needs to write proper code."
+                print >>sys.stderr, "Error while publishing: %s" % e
                 sys.exit(3)
         
         # Print what was done to stdout and exit
-        print_stats(successes,failures)
+	if userparams.nonmetaparam.has_key('verbose'):
+		print_stats(files.successes,files.failures)
         sys.exit(0)
 
 ##### END Main #####
