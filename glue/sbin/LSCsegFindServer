@@ -298,7 +298,7 @@ configuration = {
   'gridmap' : '/export/grid/online/grid-mapfile',
   'certfile' : '/export/LDR-local/globus/etc/hostcert.pem',
   'keyfile' : '/export/LDR-local/globus/etc/hostkey.pem',
-  'db_name' : 'segfind',
+  'dbname' : 'segfind',
   'dbuser' : 'grid',
   'dbpasswd' : '',
   'max_client_byte_string': 2048,
@@ -485,7 +485,7 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
     # get metadata database access details from configuration
     dbuser = configuration['dbuser']
     dbpasswd = configuration ['dbpasswd']
-    dbname = configuration['db_name']
+    dbname = configuration['dbname']
 
     # assume failure
     code = 1
@@ -502,7 +502,7 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
         raise LSCsegFindServerHandlerException, \
           "Unknown select distinct method " + attribute
 
-      db = MySQLdb.connect(user=dbuser,passwd=dbpasswd,db=db_name)
+      db = MySQLdb.connect(user=dbuser,passwd=dbpasswd,db=dbname)
       c = db.cursor()
       c.execute(sql)
       result = c.fetchall()
