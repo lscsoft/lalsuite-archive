@@ -18,7 +18,7 @@
 #include "polarization.h"
 #include "statistics.h"
 
-extern int npolarizations;
+extern int ntotal_polarizations, nlinear_polarizations;
 extern POLARIZATION *polarizations;
 
 FILE *LOG=NULL, *FILE_LOG=NULL;
@@ -992,7 +992,7 @@ init_polarizations();
 
 /* Check AM_response for correctness */
 fprintf(stderr, "Verifying AM response computation\n");
-for(i=0;i<args_info.npolarizations_arg;i++){
+for(i=0;i<ntotal_polarizations;i++){
 	verify_whole_sky_AM_response(gps, nsegments, polarizations[i].orientation, 
 		fine_grid, 
 		polarizations[i].AM_coeffs, polarizations[i].name);	
@@ -1048,7 +1048,7 @@ fprintf(stderr,"Computing cutoff values\n");
 
 for(i=0;i<patch_grid->npoints;i++){
 	
-	for(m=0;m<npolarizations;m++){
+	for(m=0;m<ntotal_polarizations;m++){
 		if(patch_grid->band[i]<0){
 			polarizations[m].patch_CutOff[i]=0.0;
 			continue;
@@ -1058,7 +1058,7 @@ for(i=0;i<patch_grid->npoints;i++){
 		}
 	}
 
-for(m=0;m<npolarizations;m++){
+for(m=0;m<ntotal_polarizations;m++){
 	plot_grid_f(p, patch_grid, polarizations[m].patch_CutOff,1);
 	snprintf(s,20000,"patch_CutOff_%s.png",polarizations[m].name);
 	RGBPic_dump_png(s, p);

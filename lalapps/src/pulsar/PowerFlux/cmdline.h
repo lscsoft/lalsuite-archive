@@ -27,7 +27,7 @@ struct gengetopt_args_info
   char * config_arg;	/* configuration file (in gengetopt format) to pass parameters.  */
   char * sky_grid_arg;	/* sky grid type (arcsin, plain_rectangular, sin_theta) (default='sin_theta').  */
   char * skymap_orientation_arg;	/* orientation of produced skymaps: equatorial, ecliptic, band_axis (default='equatorial').  */
-  int fine_factor_arg;	/* make fine grid this times finer (default='7').  */
+  int fine_factor_arg;	/* make fine grid this times finer (default='5').  */
   double skymap_resolution_arg;	/* specify skymap resolution explicitly.  */
   double skymap_resolution_ratio_arg;	/* adjust default coarseness of the grid by this factor (default='1.0').  */
   double small_weight_ratio_arg;	/* ratio that determines which weight is too small to include in max statistics (default='0.2').  */
@@ -48,7 +48,7 @@ struct gengetopt_args_info
   double spindown_start_time_arg;	/* specify spindown start time in GPS sec. Assumed to be the first SFT segment by default.  */
   double spindown_arg;	/* compensate for pulsar spindown during run (fdot) (default='0').  */
   double orientation_arg;	/* additional orientation phase, specifying 0.7853 will turn plus into cross (default='0').  */
-  int npolarizations_arg;	/* even number of linear polarizations to profile, distributed uniformly between 0 and PI/2 (default='4').  */
+  int nlinear_polarizations_arg;	/* even number of linear polarizations to profile, distributed uniformly between 0 and PI/2 (default='4').  */
   int no_demodulation_arg;	/* do not perform demodulation stage, analyze background only (default='0').  */
   int no_decomposition_arg;	/* do not perform noise decomposition stage, output simple statistics only (default='0').  */
   int no_am_response_arg;	/* force AM_response() function to return 1.0 irrespective of the arguments (default='0').  */
@@ -99,7 +99,7 @@ struct gengetopt_args_info
   int spindown_start_time_given ;	/* Whether spindown-start-time was given.  */
   int spindown_given ;	/* Whether spindown was given.  */
   int orientation_given ;	/* Whether orientation was given.  */
-  int npolarizations_given ;	/* Whether npolarizations was given.  */
+  int nlinear_polarizations_given ;	/* Whether nlinear-polarizations was given.  */
   int no_demodulation_given ;	/* Whether no-demodulation was given.  */
   int no_decomposition_given ;	/* Whether no-decomposition was given.  */
   int no_am_response_given ;	/* Whether no-am-response was given.  */

@@ -9,6 +9,10 @@ typedef struct S_POLARIZATION {
 	float  plus_proj;
 	float  cross_proj;
 	struct S_POLARIZATION *conjugate; /* plus for cross and cross for plus */
+	/* For linear polarizations plus_factor is always 1.0 and
+	   cross factor is always 0.0 */
+	float plus_factor;
+	float cross_factor;
 	
 	SKY_GRID_TYPE *AM_coeffs;
 	float *patch_CutOff;

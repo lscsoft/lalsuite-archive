@@ -15,7 +15,7 @@
 #include "statistics.h"
 
 extern POLARIZATION *polarizations;
-extern int npolarizations;
+extern int nlinear_polarizations, ntotal_polarizations;
 
 extern float *power;
 extern float *TMedians,*expTMedians;
@@ -94,7 +94,7 @@ for(i=0,kk=super_grid->first_map[pi];kk>=0;kk=super_grid->list_map[kk],i++)
 
 	        beta=f_cross/f_plus;	
 
-		mod=1.0/(f_plus*f_plus); 
+		mod=1.0/(pol->plus_factor*f_plus*f_plus+pol->cross_factor*f_cross*f_cross); 
 
 		if(do_CutOff && (mod>CutOff))continue;
 
@@ -450,10 +450,13 @@ for(i=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[o
 			}
 			
 		/* circ_ul describes limit on circularly polarized signals */
-		a*=1.0/(1.0+pol->skymap.beta2[offset]);
-		if(a<circ_ul[i*useful_bins+k]){
-			circ_ul[i*useful_bins+k]=a;
-			circ_ul_freq[i*useful_bins+k]=(first_bin+side_cut+k)/1800.0;
+		/* this formula should only use linear polarizations */
+		if(pol->cross_factor==0){
+			a*=1.0/(1.0+pol->skymap.beta2[offset]);
+			if(a<circ_ul[i*useful_bins+k]){
+				circ_ul[i*useful_bins+k]=a;
+				circ_ul_freq[i*useful_bins+k]=(first_bin+side_cut+k)/1800.0;
+				}
 			}
 
 			
@@ -852,7 +855,7 @@ for(i=0;i<fine_grid->npoints;i++){
 	
 	skymap_high_ul[i]=polarizations[0].skymap.max_upper_limit[i];
 	skymap_high_ul_freq[i]=polarizations[0].skymap.freq_map[i];
-	for(k=1;k<npolarizations;k++){	
+	for(k=1;k<ntotal_polarizations;k++){	
 		if(skymap_high_ul[i]<polarizations[k].skymap.max_upper_limit[i]){
 			skymap_high_ul[i]=polarizations[k].skymap.max_upper_limit[i];
 			skymap_high_ul_freq[i]=polarizations[k].skymap.freq_map[i];
@@ -917,7 +920,7 @@ for(i=0;i<useful_bins*args_info.nbands_arg;i++){
 	spectral_plot_circ_ul[i]=sqrt(2.0*spectral_plot_circ_ul[i]*upper_limit_comp)/(1800.0*16384.0);
 	
 	spectral_plot_high_ul[i]=polarizations[0].spectral_plot.max_upper_limit[i];
-	for(k=1;k<npolarizations;k++){	
+	for(k=1;k<ntotal_polarizations;k++){	
 		if(spectral_plot_high_ul[i]<polarizations[k].spectral_plot.max_upper_limit[i])spectral_plot_high_ul[i]=polarizations[k].spectral_plot.max_upper_limit[i];
 		}
 	}
@@ -983,7 +986,7 @@ long offset;
 for(k=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[offset],k++){
 	if(fine_grid->band[offset]<0)continue;
 	
-	for(m=0;m<npolarizations;m++){
+	for(m=0;m<ntotal_polarizations;m++){
 		polarizations[m].skymap.max_sub_weight[offset]=0.0;
 
 		#ifdef WEIGHTED_SUM		
@@ -1032,7 +1035,7 @@ long i,k,offset,m;
 for(k=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[offset],k++){
 	if(fine_grid->band[offset]<0)continue;
 
-	for(m=0;m<npolarizations;m++){
+	for(m=0;m<ntotal_polarizations;m++){
 		polarizations[m].skymap.max_sub_weight[offset]=0.0;
 		
 		#ifdef WEIGHTED_SUM		
@@ -1113,7 +1116,7 @@ for(pi=0;pi<patch_grid->npoints;pi++){
 	for(k=0;k<nsegments;k++){
 		a=expTMedians[k];
 		
-		for(m=0;m<npolarizations;m++){
+		for(m=0;m<ntotal_polarizations;m++){
 			b=polarizations[m].patch_CutOff[pi];
 			/* process polarization */
 			if(!do_CutOff || (b*a*AM_response(k, patch_grid, pi, polarizations[m].AM_coeffs)<4))
@@ -1131,7 +1134,7 @@ for(pi=0;pi<patch_grid->npoints;pi++){
 				     make_fake_data */
 		}
 	/* compute upper limits */
-	for(i=0;i<npolarizations;i++){
+	for(i=0;i<ntotal_polarizations;i++){
 		make_limits(&(polarizations[i]), pi);
 		}
 	make_unified_limits(pi);
@@ -1147,7 +1150,7 @@ fflush(LOG);
 fprintf(stderr,"\nMaximum bin shift is %ld\n", max_shift);
 fprintf(stderr,"Minimum bin shift is %ld\n", min_shift);
 
-for(i=0;i<npolarizations;i++){
+for(i=0;i<ntotal_polarizations;i++){
 	output_limits(&(polarizations[i]));
 	}
 	

@@ -19,26 +19,30 @@ extern int lines_list[];
 extern long stored_fine_bins;
 extern long useful_bins;
 
-int npolarizations=2;
+int ntotal_polarizations=-1, nlinear_polarizations=-1;
 POLARIZATION *polarizations=NULL;
 
 
 void init_polarizations(void)
 {
-int i,k;
+int i,k, nderived=1;
 float a;
-npolarizations=args_info.npolarizations_arg;
-fprintf(LOG,"npolarizations: %d\n", npolarizations);
-if(npolarizations<2){
+
+nlinear_polarizations=args_info.nlinear_polarizations_arg;;
+ntotal_polarizations=nlinear_polarizations+nderived;
+
+fprintf(LOG,"nlinear_polarizations: %d\n", nlinear_polarizations);
+fprintf(LOG,"ntotal_polarizations : %d\n", ntotal_polarizations);
+if(nlinear_polarizations<2){
 	fprintf(stderr,"*** ERROR: number of polarizations is less than 2, aborting\n");
 	exit(-1);
 	}
-if(npolarizations & 1){
+if(nlinear_polarizations & 1){
 	fprintf(stderr,"*** ERROR: number of polarizations is not even, aborting\n");
 	exit(-1);
 	}
-polarizations=do_alloc(npolarizations, sizeof(*polarizations));
-memset(polarizations, 0, npolarizations*sizeof(*polarizations));
+polarizations=do_alloc(ntotal_polarizations, sizeof(*polarizations));
+memset(polarizations, 0, (ntotal_polarizations)*sizeof(*polarizations));
 
 fprintf(stderr,"Initializing polarizations:\n");
 
@@ -48,6 +52,8 @@ polarizations[0].conjugate=&(polarizations[1]);
 polarizations[0].plus_proj=1.0;
 polarizations[0].cross_proj=0.0;
 polarizations[0].AM_coeffs=AM_coeffs_plus;
+polarizations[0].plus_factor=1.0;
+polarizations[0].cross_factor=0.0;
 fprintf(stderr,"\t%s 0.0\n",polarizations[0].name);
 
 polarizations[1].orientation=M_PI/4.0;
@@ -56,21 +62,25 @@ polarizations[1].conjugate=&(polarizations[0]);
 polarizations[1].plus_proj=0.0;
 polarizations[1].cross_proj=1.0;
 polarizations[1].AM_coeffs=AM_coeffs_cross;
+polarizations[1].plus_factor=1.0;
+polarizations[1].cross_factor=0.0;
 fprintf(stderr,"\t%s %g\n",polarizations[1].name, M_PI/4.0);
 
-for(i=2;i<npolarizations;i++){
+for(i=2;i<nlinear_polarizations;i++){
 	polarizations[i].name=do_alloc(16,sizeof(char));
 	polarizations[i].conjugate=&(polarizations[i ^ 1]);
-	a=(i>>1)*M_PI/(2.0*npolarizations);
+	a=(i>>1)*M_PI/(2.0*nlinear_polarizations);
 	if(i & 1){
 		a+=M_PI/4.0;
-		snprintf(polarizations[i].name,16,"pi_%d_%d",((i+npolarizations)>>1), 2*npolarizations);
+		snprintf(polarizations[i].name,16,"pi_%d_%d",((i+nlinear_polarizations)>>1), 2*nlinear_polarizations);
 		} else {
-		snprintf(polarizations[i].name,16,"pi_%d_%d", (i>>1), 2*npolarizations);
+		snprintf(polarizations[i].name,16,"pi_%d_%d", (i>>1), 2*nlinear_polarizations);
 		}
 	polarizations[i].orientation=a;
 	polarizations[i].plus_proj=cos(2*a);
 	polarizations[i].cross_proj=sin(2*a);
+	polarizations[i].plus_factor=1.0;
+	polarizations[i].cross_factor=0.0;
 	fprintf(stderr,"\t%s a=%g\n",polarizations[i].name, a);
 	
 	polarizations[i].AM_coeffs=do_alloc(AM_coeffs_size,sizeof(*(polarizations[i].AM_coeffs)));
@@ -80,7 +90,20 @@ for(i=2;i<npolarizations;i++){
 		}
 	}
 
-for(i=0;i<npolarizations;i++){
+polarizations[nlinear_polarizations+0].orientation=0;
+polarizations[nlinear_polarizations+0].name="circular";
+polarizations[nlinear_polarizations+0].conjugate=&(polarizations[1]);
+polarizations[nlinear_polarizations+0].plus_proj=1.0;
+polarizations[nlinear_polarizations+0].cross_proj=0.0;
+polarizations[nlinear_polarizations+0].AM_coeffs=AM_coeffs_plus;
+polarizations[nlinear_polarizations+0].plus_factor=1.0;
+polarizations[nlinear_polarizations+0].cross_factor=1.0;
+fprintf(stderr,"\t%s %f %f\n",polarizations[nlinear_polarizations+0].name,
+	polarizations[nlinear_polarizations+0].plus_factor, 
+	polarizations[nlinear_polarizations+0].cross_factor);
+
+
+for(i=0;i<ntotal_polarizations;i++){
 	polarizations[i].patch_CutOff=do_alloc(patch_grid->npoints,sizeof(*polarizations[i].patch_CutOff));
 	}
 fflush(LOG);
@@ -89,17 +112,17 @@ fflush(LOG);
 void allocate_polarization_arrays(void)
 {
 long total,i,k;
-total=npolarizations*sizeof(*polarizations[0].fine_grid_sum);
+total=ntotal_polarizations*sizeof(*polarizations[0].fine_grid_sum);
 
 #ifdef COMPUTE_SIGMA
-total+=npolarizations*sizeof(*polarizations[0].fine_grid_sq_sum);
+total+=ntotal_polarizations*sizeof(*polarizations[0].fine_grid_sq_sum);
 #endif
 
 if(lines_list[0]>=0){
 	#ifdef WEIGHTED_SUM
-	total+=npolarizations*sizeof(*polarizations[0].fine_grid_sum);
+	total+=ntotal_polarizations*sizeof(*polarizations[0].fine_grid_sum);
 	#else
-	total+=npolarizations*sizeof(*polarizations[0].fine_grid_count);
+	total+=ntotal_polarizations*sizeof(*polarizations[0].fine_grid_count);
 	#endif
 	}
 
@@ -108,7 +131,7 @@ fprintf(stderr,"Allocating accumulation arrays, (%.1f KB total)\n",
 fprintf(LOG," accumulation set size: %f KB\n", 
 	(stored_fine_bins*useful_bins*total)/(1024.0));
 		
-for(i=0;i<npolarizations;i++){
+for(i=0;i<ntotal_polarizations;i++){
 	/* Accumulation arrays */
 	polarizations[i].fine_grid_sum=do_alloc(stored_fine_bins*useful_bins,sizeof(*polarizations[i].fine_grid_sum));
 	#ifdef COMPUTE_SIGMA
@@ -192,7 +215,7 @@ void clear_accumulation_arrays(void)
 {
 long i,k;
 
-for(k=0;k<npolarizations;k++){
+for(k=0;k<ntotal_polarizations;k++){
 	for(i=0;i<stored_fine_bins*useful_bins;i++){
 		polarizations[k].fine_grid_sum[i]=0.0;
 			#ifdef COMPUTE_SIGMA

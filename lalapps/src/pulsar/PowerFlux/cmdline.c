@@ -43,7 +43,7 @@ cmdline_parser_print_help (void)
   printf("  -c, --config=STRING                   configuration file (in gengetopt \n                                          format) to pass parameters\n");
   printf("      --sky-grid=STRING                 sky grid type (arcsin, \n                                          plain_rectangular, sin_theta)  \n                                          (default=`sin_theta')\n");
   printf("      --skymap-orientation=STRING       orientation of produced skymaps: \n                                          equatorial, ecliptic, band_axis  \n                                          (default=`equatorial')\n");
-  printf("      --fine-factor=INT                 make fine grid this times finer  \n                                          (default=`7')\n");
+  printf("      --fine-factor=INT                 make fine grid this times finer  \n                                          (default=`5')\n");
   printf("      --skymap-resolution=DOUBLE        specify skymap resolution explicitly\n");
   printf("      --skymap-resolution-ratio=DOUBLE  adjust default coarseness of the grid \n                                          by this factor  (default=`1.0')\n");
   printf("      --small-weight-ratio=DOUBLE       ratio that determines which weight is \n                                          too small to include in max \n                                          statistics  (default=`0.2')\n");
@@ -64,7 +64,7 @@ cmdline_parser_print_help (void)
   printf("      --spindown-start-time=DOUBLE      specify spindown start time in GPS \n                                          sec. Assumed to be the first SFT \n                                          segment by default\n");
   printf("      --spindown=DOUBLE                 compensate for pulsar spindown during \n                                          run (fdot)  (default=`0')\n");
   printf("      --orientation=DOUBLE              additional orientation phase, \n                                          specifying 0.7853 will turn plus \n                                          into cross  (default=`0')\n");
-  printf("      --npolarizations=INT              even number of linear polarizations to \n                                          profile, distributed uniformly \n                                          between 0 and PI/2  (default=`4')\n");
+  printf("      --nlinear-polarizations=INT       even number of linear polarizations to \n                                          profile, distributed uniformly \n                                          between 0 and PI/2  (default=`4')\n");
   printf("      --no-demodulation=INT             do not perform demodulation stage, \n                                          analyze background only  (default=\n                                          `0')\n");
   printf("      --no-decomposition=INT            do not perform noise decomposition \n                                          stage, output simple statistics only \n                                           (default=`0')\n");
   printf("      --no-am-response=INT              force AM_response() function to return \n                                          1.0 irrespective of the arguments  \n                                          (default=`0')\n");
@@ -143,7 +143,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->spindown_start_time_given = 0 ;
   args_info->spindown_given = 0 ;
   args_info->orientation_given = 0 ;
-  args_info->npolarizations_given = 0 ;
+  args_info->nlinear_polarizations_given = 0 ;
   args_info->no_demodulation_given = 0 ;
   args_info->no_decomposition_given = 0 ;
   args_info->no_am_response_given = 0 ;
@@ -173,7 +173,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->config_arg = NULL; \
   args_info->sky_grid_arg = gengetopt_strdup("sin_theta") ;\
   args_info->skymap_orientation_arg = gengetopt_strdup("equatorial") ;\
-  args_info->fine_factor_arg = 7 ;\
+  args_info->fine_factor_arg = 5 ;\
   args_info->skymap_resolution_ratio_arg = 1.0 ;\
   args_info->small_weight_ratio_arg = 0.2 ;\
   args_info->input_arg = NULL; \
@@ -190,7 +190,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->detector_arg = NULL; \
   args_info->spindown_arg = 0 ;\
   args_info->orientation_arg = 0 ;\
-  args_info->npolarizations_arg = 4 ;\
+  args_info->nlinear_polarizations_arg = 4 ;\
   args_info->no_demodulation_arg = 0 ;\
   args_info->no_decomposition_arg = 0 ;\
   args_info->no_am_response_arg = 0 ;\
@@ -250,7 +250,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
         { "spindown-start-time",	1, NULL, 0 },
         { "spindown",	1, NULL, 0 },
         { "orientation",	1, NULL, 0 },
-        { "npolarizations",	1, NULL, 0 },
+        { "nlinear-polarizations",	1, NULL, 0 },
         { "no-demodulation",	1, NULL, 0 },
         { "no-decomposition",	1, NULL, 0 },
         { "no-am-response",	1, NULL, 0 },
@@ -625,16 +625,16 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
           }
           
           /* even number of linear polarizations to profile, distributed uniformly between 0 and PI/2.  */
-          else if (strcmp (long_options[option_index].name, "npolarizations") == 0)
+          else if (strcmp (long_options[option_index].name, "nlinear-polarizations") == 0)
           {
-            if (args_info->npolarizations_given)
+            if (args_info->nlinear_polarizations_given)
               {
-                fprintf (stderr, "%s: `--npolarizations' option given more than once\n", CMDLINE_PARSER_PACKAGE);
+                fprintf (stderr, "%s: `--nlinear-polarizations' option given more than once\n", CMDLINE_PARSER_PACKAGE);
                 clear_args ();
                 exit (EXIT_FAILURE);
               }
-            args_info->npolarizations_given = 1;
-            args_info->npolarizations_arg = strtol (optarg,&stop_char,0);
+            args_info->nlinear_polarizations_given = 1;
+            args_info->nlinear_polarizations_arg = strtol (optarg,&stop_char,0);
             break;
           }
           
@@ -1542,14 +1542,14 @@ cmdline_parser_configfile (char * const filename, struct gengetopt_args_info *ar
                 }
               continue;
             }
-          if (!strcmp(fopt, "npolarizations"))
+          if (!strcmp(fopt, "nlinear-polarizations"))
             {
-              if (override || !args_info->npolarizations_given)
+              if (override || !args_info->nlinear_polarizations_given)
                 {
-                  args_info->npolarizations_given = 1;
+                  args_info->nlinear_polarizations_given = 1;
                   if (fnum == 2)
                     {
-                      args_info->npolarizations_arg = strtol (farg,&stop_char,0);
+                      args_info->nlinear_polarizations_arg = strtol (farg,&stop_char,0);
                     }
                   else
                     {
