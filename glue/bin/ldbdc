@@ -260,7 +260,7 @@ elif squery:
 if re.match("metaserver.phys.uwm.edu",server):
   identity = "/O=doesciencegrid.org/OU=Services/CN=host/metaserver.phys.uwm.edu"
 elif re.match("star.phys.uwm.edu",server):
-  identity = "/O=doesciencegrid.org/OU=People/CN=Duncan Brown 792417"
+  identity = "/O=doesciencegrid.org/OU=Services/CN=host/star.phys.uwm.edu"
 
 doit = LDBDServerAction(server,port,identity,act,database,squery,fh)
   print "Unknown server %s." % server
