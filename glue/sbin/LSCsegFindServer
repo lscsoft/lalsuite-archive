@@ -28,6 +28,7 @@ import types
 import exceptions
 import cPickle
 import MySQLdb
+import copy
 from pyGlobus import io
 from glue import segments
 from glue import gsiserverutils
@@ -235,7 +236,8 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
     methodDict = {
       'PING' : self.ping,
       'DISTINCT' : self.distinctAttribute,
-      'METASEGS' : self.segmentFindWithMetadata
+      'METASEGS' : self.segmentFindWithMetadata_v1
+      'METASEGSVX' : self.segmentFindWithMetadata_vx
     }
 
     try:
@@ -249,7 +251,7 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
 
       # the format should be a method string, followed by a null byte
       # followed by the arguments to the method encoded as null
-      # terminatd strings
+      # terminated strings
 
       # check if the last byte is a null byte
       if input[-1] != '\0':
@@ -400,7 +402,7 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
     self.__reply__(code, result)
 
 
-  def segmentFindWithMetadata(self, arg):
+  def segmentFindWithMetadata_v1(self, arg):
     """
     Given a SQL WHERE-type clause find segment(s) that have the matching
     attributes. Corresponds to the METASEGS method in the LSCsegFindServer RPC
@@ -437,11 +439,12 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
       try:
         segs = segments.segmentlist()
         for r in result:
-          segs |= segments.segmentlist([segments.segment(r[0],r[1])])
+          segs.append(segments.segment(r[0],r[1]))
+        segs.coalesce()
       except:
         pass
 
-      logger.debug("Method : segmentFindWithMetadata %d results found" % 
+      logger.debug("Method : segmentFindWithMetadata_v1 %d results found" % 
         len(result))
       code = 0
     except Exception, e:
@@ -454,7 +457,128 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
       del db
     except Exception, e:
       logger.error(
-        "Error closing connection to MySQL in method distinctAttribute")
+        "Error closing connection to MySQL in method segmentFindWithMetadata_v1")
+
+    self.__reply__(code, segs)
+
+
+  def segmentFindWithMetadata_vx(self, arg):
+    """
+    Given a list of attributes to query on, the first of which is the segfind
+    client/server communication protocol version.  Corresponds to the
+    METASEGSVX method in the LSCsegFindServer RPC protocol.
+
+    @param arg: list of strings representing messages sent by the client; see
+    the RPC protocol 
+
+    @return: None
+    """
+
+    logger.debug("Method segmentFindWithMetadata_vx called")
+    code = 0
+
+    # get the protocol version
+    try:
+      protcol = int(arg[0])
+    except Exception, e:
+      result = "Error parsing protocol version %s: %s" % (str(arg), e)
+      logger.error(result)
+      code = 1
+    if protocol is not 2:
+      result = "Unknown protocol version %s: %s" % (protocol, e)
+      logger.error(result)
+      code = 1
+
+    # parse out query information
+    try:
+      start = arg.pop(0)
+      end = arg.pop(0)
+      interferometer = arg.pop(0)
+      type = arg.pop(0)
+    except Exception, e:
+      result = "Error parsing v2 protocol arguments %s: %s" % (str(arg), e)
+      logger.error(result)
+      code = 1
+
+    # split the interferometers and types into lists
+    try:
+      ifoList = interferometer.split(',')
+      typeList = type.split(',')
+    except:
+      result = "Unable to parse ifo or type string %s : %s" % (str(arg), e)
+      logger.error(result)
+      code = 1
+    
+    # only executle a query if we managed to construct one
+    if code is not 1:
+
+      # assume failure
+      code = 1
+
+      # get database access details from configuration
+      dbuser = configuration['dbuser']
+      dbpasswd = configuration ['dbpasswd']
+      dbname = configuration['dbname']
+
+      ifoSegList = []
+
+      try:
+        db = MySQLdb.connect(user=dbuser,passwd=dbpasswd,db=dbname)
+        c = db.cursor()
+
+        for ifo in ifoList:
+          typeList_tmp = copy.deepcopy(typeList)
+          sql = "SELECT state_segment.start_time, state_segment.end_time "
+          sql += "FROM state_segment, state_vec WHERE "
+          sql += "((state_segment.start_time BETWEEN %s AND %s) OR " % \
+            (start, end)
+          sql += "(state_segment.end_time BETWEEN %s AND %s)) " % \
+            (start, end)
+          sql += "AND state_segment.ifo = '%s' AND (state_vec.state = '%s'" % \
+            (ifo, typeList_tmp.pop(0))
+          for x in typeList_tmp:
+            query += " OR state_vec.state = '%s'" % (x)
+          sql += ")"
+          sql += " AND state_segment.state_vec_id = state_vec.state_vec_id;"
+          del typeList_tmp
+
+          c.execute(sql)
+          result = c.fetchall()
+          logger.debug("Method : segmentFindWithMetadata_vx %d results found" % 
+            len(result))
+
+          ifoSegs = segments.segmentlist()
+          try:
+            for r in result:
+              segs.append(segments.segment(r[0],r[1]))
+            segs.coalesce()
+          except:
+            pass
+          ifoSegList.append(ifoSegs)
+
+      except Exception, e:
+        result = "Error querying metadata for segments" + \
+          "%s: %s" % (arg[0], e)
+        logger.error(result)
+
+      # take the intersection if there is more than one ifo queried
+      segs = ifoSegList.pop(0)
+      try:
+        for iseg in ifoSegList: segs &= iseg
+      except:
+        pass
+
+      try:
+        c.close()
+        db.close()
+        del db
+        code = 0
+      except Exception, e:
+        logger.error( "Error closing connection to MySQL in method " + 
+          "segmentFindWithMetadata_vx")
+
+    else:
+      logger.error( "segmentFindWithMetadata_vx skipped query" )
 
     self.__reply__(code, segs)
 

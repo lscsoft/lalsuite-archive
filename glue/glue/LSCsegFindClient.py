@@ -299,9 +299,9 @@ class LSCsegFindClient(object):
         raise LDRdataFindClientException, msg
 
     # prepare the messange to send down the socket
-    msg = "METASEGS\0"
+    msg = "METASEGSVX\0"
     for q in queryList:
-      msg += "%s" % q
+      msg += "%s\0" % q
     msg += "\0"
 
     self.sfile.write(msg)
@@ -408,10 +408,9 @@ class LSCsegFind(LSCsegFindClient):
 
     @return: None
     """
-    interferometer = argDict['interferometer']
-    type = argDict['type']
     start = argDict['start']
     end = argDict['end']
+    interferometer = argDict['interferometer']
     type = argDict['type']
     strict = argDict['strict']
 
@@ -427,23 +426,9 @@ be present when searching for groups of segments
     self.__check_gps(start)
     self.__check_gps(end)
 
-    try:
-      typeList = type.split(',')
-    except:
-      msg = "Unable to parse segment type string %s : %s" % (typeString, e)
-      raise LSCsegFindException, msg
+    queryList = ["02",str(start),str(end),str(interferometer),str(type)]
 
-    query = "((state_segment.start_time BETWEEN %s AND %s) OR " % \
-      (start, end)
-    query += "(state_segment.end_time BETWEEN %s AND %s)) " % \
-      (start, end)
-    query += "AND state_segment.ifo = '%s' AND (state_vec.state = '%s'" % \
-      (interferometer, typeList.pop(0))
-    for x in typeList:
-      query += " OR state_vec.state = '%s'" % (x)
-    query += ")"
-    
-    seglist = LSCsegFindClient.segmentQueryWithMetadata(self,[query])
+    seglist = LSCsegFindClient.segmentQueryWithMetadata(self,queryList)
 
     if strict:
       range = segments.segmentlist([segments.segment(long(start),long(end))])
