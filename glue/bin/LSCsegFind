@@ -181,8 +181,6 @@ be present when searching for groups of segments
       query += " OR state_vec.state = '%s'" % (x)
     query += ")"
     
-    print query
-
     seglist = LSCsegFindClient.segmentQueryWithMetadata(self,[query])
 
     if len( seglist ) == 0:
