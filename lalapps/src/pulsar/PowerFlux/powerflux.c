@@ -356,6 +356,14 @@ LOG=fopen(s,"w");
 snprintf(s,20000,"%s/file.log", output_dir);
 FILE_LOG=fopen(s,"w");
 
+if(gethostname(s, 19999)>=0){
+	fprintf(stderr, "Running on %s\n", s);
+	fprintf(LOG, "node: %s\n", s);
+	} else {
+	fprintf(stderr, "Could not obtain hostname\n");
+	fprintf(LOG, "node: unknown\n");
+	}
+
 init_hookup();
 
 do_CutOff=args_info.do_cutoff_arg;

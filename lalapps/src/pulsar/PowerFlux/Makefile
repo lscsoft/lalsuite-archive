@@ -36,22 +36,22 @@ all: powerflux
 
 test1: powerflux
 	time ./powerflux -i /nfs/node2-storage/LIGO/S2/S2.L1.op/power.L1. -f $(BAND) -n 501 \
-		--detresponse-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
+		--ephemeris-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
 		--detector=LLO
 
 test1a: powerflux
 	time ./powerflux -i /nfs/node2-storage-2/LIGO/S2/S2.H1.op/power.H1. -f $(BAND) -n 501 \
-		--detresponse-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
+		--ephemeris-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
 		--detector=LHO
 
 test1b: powerflux
 	time ./powerflux -i /nfs/node2-storage/LIGO/S2/S2.L1.op/power.L1. -f $(BAND) -n 501 \
-		--detresponse-path=/nfs/node2-storage/LIGO/detresponse \
+		--ephemeris-path=/nfs/node2-storage/LIGO/detresponse \
 		--detector=LLO
 
 test1c: powerflux
 	time ./powerflux -i /nfs/node2-storage-2/LIGO/S2/S2.H1.op/power.H1. -f $(BAND) -n 501 \
-		--detresponse-path=/nfs/node2-storage/LIGO/detresponse \
+		--ephemeris-path=/nfs/node2-storage/LIGO/detresponse \
 		--detector=LHO
 
 test2: test_rm
@@ -59,7 +59,7 @@ test2: test_rm
 
 test3: powerflux
 	time ./powerflux --input-format=Power -i /home/volodya/LIGO/S2/S2.L1.op/power.L1. -f $(BAND) -n 501 \
-		--detresponse-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
+		--ephemeris-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
 		--detector=LLO --three-bins=0 --do-cutoff=0 \
 		 --focus-ra=2.2 --focus-dec=0.3 --focus-radius=0.1 \
 		 --band-axis=explicit\(0.5,0.3,0.1\)
@@ -67,7 +67,7 @@ test3: powerflux
 
 test4: powerflux
 	valgrind --tool=cachegrind ./powerflux -i /home/volodya/LIGO/S2/S2.L1.op/power.L1. -f $(BAND) -n 501 \
-		--detresponse-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
+		--ephemeris-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
 		--detector=LLO --three-bins=0 --do-cutoff=0
 
 test4b: powerflux.hydra
@@ -81,20 +81,20 @@ test4b: powerflux.hydra
 
 test5: powerflux
 	time ./powerflux -i /home/volodya/LIGO/S2/S2.L1.op/power.L1. -f $(BAND) -n 501 \
-		--detresponse-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
+		--ephemeris-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
 		--detector=LLO --three-bins=0 --do-cutoff=0 --filter-lines=1 \
 		--fake-strain=0.3e-22 --config=test_conf --resolution-ratio=1.0 \
 		--fake-orientation=0.5 --fake-ra=5.785685 --fake-dec=-1.563849
 
 test.H1.inj.1: powerflux
 	time ./powerflux -i /home/volodya/LIGO/S2/inj/S2.H1.op.inj/power.H1. -f 2302000 \
-		--detresponse-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
+		--ephemeris-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
 		--detector=LHO --side-cut=300 --nbins=501 --do-cutoff=0 --filter-lines=0 \
 		--patch-N-RA=120 --patch-N-DEC=90
 
 test.L1.inj.1: powerflux
 	time ./powerflux -i /home/volodya/LIGO/S2/inj/S2.L1.op.inj/power.L1. -f 2302000 \
-		--detresponse-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
+		--ephemeris-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
 		--detector=LLO --side-cut=300 --nbins=501 --do-cutoff=0 --filter-lines=0 \
 		--patch-N-RA=120 --patch-N-DEC=90
 		
@@ -102,7 +102,7 @@ test.L1.inj.1: powerflux
 
 S3.H1.silver: powerflux
 	time ./powerflux -i /home/volodya/LIGO/S3/S3.H1.op/power.H1. -f $(BAND) -n 501 \
-		--detresponse-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
+		--ephemeris-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
 		--detector=LHO
 	
 
