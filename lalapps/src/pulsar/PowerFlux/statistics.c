@@ -15,7 +15,7 @@ return (1.0-gsl_sf_erf_Q(x));
 
 void compute_normal_sorted_ks_test(float *data, long count, NORMAL_STATS *stats)
 {
-long i;
+long i, ks_count;
 STAT_TYPE a,b,quantile2std;
 
 if(count==0)return;
@@ -31,12 +31,16 @@ quantile2std=1.22;
 stats->sigma=(data[(count*4)/5]-data[count/5])/quantile2std; 
 
 a=-2.0;
+ks_count=0;
 for(i=0;i<count;i++){
 	b=(((i+1)*1.0)/count)-normal_distribution((data[i]-stats->mean)/stats->sigma);
 	if(a<b)a=b;
+	if(b>0.07)ks_count++;
 	b=normal_distribution((data[i]-stats->mean)/stats->sigma)-((i*1.0)/count);
-	if(a<b)a=b;	
+	if(a<b)a=b;
+	if(b>0.07)ks_count++;
 	}
+stats->ks_count=ks_count;
 stats->ks_test=a;
 }
 

@@ -385,10 +385,16 @@ init_ephemeris();
 /* PREP1 stage */
 
 fprintf(stderr,	"Initializing sky grids\n");
-resolution=(4500.0*args_info.skymap_resolution_ratio_arg)/(args_info.first_bin_arg+args_info.nbins_arg/2);
+resolution=(4500.0)/(args_info.first_bin_arg+args_info.nbins_arg/2);
+fprintf(LOG,"resolution (auto) : %f\n", resolution);
+
+
+resolution*=args_info.skymap_resolution_ratio_arg;
 if(args_info.skymap_resolution_given){
 	resolution=args_info.skymap_resolution_arg;
 	}
+
+fprintf(LOG,"resolution : %f\n", resolution);
 if(!strcasecmp("sin_theta", args_info.sky_grid_arg)){
 	patch_grid=make_sin_theta_grid(resolution*args_info.fine_factor_arg);
 	super_grid=make_sin_theta_supergrid(patch_grid, args_info.fine_factor_arg);
@@ -472,12 +478,11 @@ fprintf(LOG,"nbins     : %ld\n",nbins);
 fprintf(LOG,"side_cut  : %ld\n",side_cut);
 fprintf(LOG,"useful bins : %ld\n",useful_bins);
 fprintf(LOG,"useful band start: %g Hz\n",(first_bin+side_cut)/1800.0);
-fprintf(LOG,"fine_factor: %ld\n", args_info.fine_factor_arg);
-fprintf(LOG,"resolution : %f\n", resolution);
 
 fprintf(LOG,"patch_type: %s\n", patch_grid->name);
 fprintf(LOG,"patch_grid: %ldx%ld\n", patch_grid->max_n_ra, patch_grid->max_n_dec);
 fprintf(LOG,"patch_grid npoints : %ld\n", patch_grid->npoints);
+fprintf(LOG,"fine_factor: %ld\n", args_info.fine_factor_arg);
 fprintf(LOG,"fine_type : %s\n",fine_grid->name);
 fprintf(LOG,"fine_grid npoints  : %ld\n", fine_grid->npoints);
 fprintf(LOG,"fine_grid : %ldx%ld\n", fine_grid->max_n_ra, fine_grid->max_n_dec);

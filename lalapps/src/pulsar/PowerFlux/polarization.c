@@ -126,6 +126,7 @@ for(i=0;i<npolarizations;i++){
 	polarizations[i].skymap.cor1=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
 	polarizations[i].skymap.cor2=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
 	polarizations[i].skymap.ks_test=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
+	polarizations[i].skymap.ks_count=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
 
 	for(k=0;k<fine_grid->npoints;k++){
 		polarizations[i].skymap.max_dx[k]=-1.0;
@@ -137,6 +138,7 @@ for(i=0;i<npolarizations;i++){
 		polarizations[i].skymap.cor1[k]=-1.0;
 		polarizations[i].skymap.cor2[k]=-1.0;
 		polarizations[i].skymap.ks_test[k]=-1.0;
+		polarizations[i].skymap.ks_count[k]=-1.0;
 		#ifdef WEIGHTED_SUM
 		polarizations[i].skymap.total_weight[k]=0.0;
 		#else

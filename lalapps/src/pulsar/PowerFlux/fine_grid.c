@@ -365,7 +365,8 @@ for(i=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[o
 	sort_floats(tmp, useful_bins);
 
 	compute_normal_sorted_ks_test(tmp, useful_bins, &nstats);
-	pol->skymap.cor2[offset]=nstats.ks_test;
+	pol->skymap.ks_test[offset]=nstats.ks_test;
+	pol->skymap.ks_count[offset]=nstats.ks_count;
 	
 	/* median */
 	M=tmp[useful_bins/2];
@@ -496,6 +497,12 @@ if(clear_name_png(s)){
 snprintf(s,19999,"%s_ks_test.png",pol->name);
 if(clear_name_png(s)){
 	plot_grid_f(p, fine_grid, pol->skymap.ks_test, 1);
+	RGBPic_dump_png(s, p);
+	}
+
+snprintf(s,19999,"%s_ks_count.png",pol->name);
+if(clear_name_png(s)){
+	plot_grid_f(p, fine_grid, pol->skymap.ks_count, 1);
 	RGBPic_dump_png(s, p);
 	}
 
