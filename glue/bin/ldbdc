@@ -1,8 +1,27 @@
-#!/usr/bin/python2.2
+#!/usr/bin/env python2
 #
 # lightweight database dumper client
 #
 # $Id$
+#
+# Copyright (C) 2003 Duncan Brown
+# 
+# This file is part of the lightweight datapase dumper (ldbd)
+#
+
+import os
+import sys
+import string
+import re
+import getopt
+from pyGlobus import io
+from pyGlobus.util import GlobusException
+
+class LDBDServerException(Exception):
+  """Exceptions returned by server"""
+  def __init__(self,args=None):
+    self.args = args
+
 class LDBDServerConnection(object):
   def __init__(self, host, port, identity):
     """
