@@ -506,7 +506,7 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
       c = db.cursor()
       c.execute(sql)
       result = c.fetchall()
-      c.delete()
+      c.close()
       
       print >>sys.stderr, str(result)
         
