@@ -729,10 +729,10 @@ patch_CutOff_plus=do_alloc(patch_grid->npoints,sizeof(*patch_CutOff_plus));
 patch_CutOff_cross=do_alloc(patch_grid->npoints,sizeof(*patch_CutOff_cross));
 
 for(i=0;i<patch_grid->npoints;i++){
-	for(j=0;j<nsegments;j++)tm[j]=1.0/(expTMedians[j]*AM_response(j, patch_grid, i, AM_coeffs_plus));
+	for(j=0;j<nsegments;j++)tm[j]=1.0/(sqrt(expTMedians[j])*AM_response(j, patch_grid, i, AM_coeffs_plus));
 	patch_CutOff_plus[i]=FindCutOff(tm);
 
-	for(j=0;j<nsegments;j++)tm[j]=1.0/(expTMedians[j]*AM_response(j, patch_grid, i, AM_coeffs_cross));
+	for(j=0;j<nsegments;j++)tm[j]=1.0/(sqrt(expTMedians[j])*AM_response(j, patch_grid, i, AM_coeffs_cross));
 	patch_CutOff_cross[i]=FindCutOff(tm);
 	}
 

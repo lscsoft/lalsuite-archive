@@ -895,11 +895,11 @@ for(pi=0;pi<patch_grid->npoints;pi++){
 		b=patch_CutOff_plus[pi];
 		/* process plus */
 		if(!do_CutOff || (b*a*AM_response(k, patch_grid, pi, AM_coeffs_plus)<4))
-			process_patch(&plus, pi,k,b*a);
+			process_patch(&plus, pi,k,b*sqrt(a));
 			b=patch_CutOff_cross[pi];
 		/* process cross */
 		if(!do_CutOff || (b*a*AM_response(k, patch_grid, pi, AM_coeffs_cross)<4))
-			process_patch(&cross, pi,k,b*a);
+			process_patch(&cross, pi,k,b*sqrt(a));
 		}
 	/* compute means */
 	if(lines_list[0]<0)compute_mean_no_lines(pi);
