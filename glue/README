@@ -118,9 +118,9 @@ add the lines (changing /opt/glue to wherever you installed Glue):
 If you are a csh user, edit your .login file and add the lines (changing
 /opt/glue to wherever you installed Glue):
 
-  setenv GLUE_LOCATION=/opt/glue
-  if ( -f ${GLUE_LOCATION}/etc/glue-user-env.sh ) then
-    source ${GLUE_LOCATION}/etc/glue-user-env.sh
+  setenv GLUE_LOCATION /opt/glue
+  if ( -f ${GLUE_LOCATION}/etc/glue-user-env.csh ) then
+    source ${GLUE_LOCATION}/etc/glue-user-env.csh
   endif
 
 Now log out and log back in to ensure that all environment variables have been
