@@ -100,6 +100,8 @@ for(i=0;i<new_size;i++){
 		}
 	if(k>=entries-1){
 		/* we run out of entries */
+		p[i].re=0.0;
+		p[i].im=0.0;
 		break;
 		}
 	p[i].re=(*data)[k].re*(1.0-delta)+(*data)[k+1].re*delta;
@@ -285,8 +287,12 @@ if(ab_free<=0){
 		exit(-1);
 		}
 	fprintf(stderr, "** No relevant alpha/beta constants were loaded, assuming alpha=beta=1.0.\n");
-	return;
+	/* Add three 1.0 alpha-beta constant pairs */
+	add_alpha_beta(gps_start, 1.0, 1.0);
+	add_alpha_beta((gps_start+gps_end)/2.0, 1.0, 1.0);
+	add_alpha_beta(gps_end, 1.0, 1.0);
 	}
+	
 /* sort alpha/beta values .. They should be sorted already but one more time does not hurt */
 qsort(ab_data, ab_free, sizeof(*ab_data), ab_cmp);
 #if 1
