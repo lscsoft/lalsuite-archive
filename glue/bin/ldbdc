@@ -59,6 +59,10 @@ class LDBDServerAction(object):
   the request and processing the result
   """
   def __init__(self,host,port,identity,action,db,squery,fh):
+    """
+    host = server host
+    port = server port
+    identity = globus identity of server
     action = specific action to perform (query or insert)
     db = the database to connect to on the server
     sql = the sql to execute in a query (or just insert for an insert)
