@@ -278,7 +278,7 @@ for(i=0;i<grid->npoints;i++){
 	ds=fabs(grid->e[0][i]*x0+
 	   grid->e[1][i]*y0+
 	   grid->e[2][i]*z0);
-	if(ds>cos_level){
+	if(ds<cos_level){
 		grid->band[i]=-1;
 		grid->band_f[i]=-1;
 		}
