@@ -565,7 +565,6 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
 
       for r in res:
         segs |= segments.segmentlist([segments.segment(r[0],r[1])])
-      print segs
 
       result = ""
       for s in segs:
