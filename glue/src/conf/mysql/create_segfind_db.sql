@@ -33,7 +33,7 @@ create table state_segment (
     insertion_time timestamp default null,
 
     primary key( ifo, start_time, start_time_ns, end_time, end_time_ns, state_vec_id ),
-    unique index( state_segment_id )
+    unique index( state_segment_id ),
     index( start_time, end_time, state_vec_id )
   ) type=myISAM;
 
