@@ -25,13 +25,14 @@ lightweight XML to the standard output or a file.
 .SH OPTIONS
 .TP
 .BI \-s,\-\-server " host:port"
-connect to ldbd server at \fIhost\fP on \fIport\fP
+connect to ldbd server at \fIhost\fP on \fIport\fP. If \fIport\fP is not
+specified, then the default of 49999 is used
 .TP
 .BI -j,\-\-identity " subject"
 Use \fIsubject\fP as the subject of the server's identity certificate.
 If no identity is specified, the client assumes that it should expect 
 an ldbdserver service certificate issued by the DOE for the hostname
-specifed by \fIhost\fP
+specifed by \fIhost\fP (see \fBAUTHENTICATION\fP below)
 .TP
 .BI -d,\-\-database " name"
 interact with the database called \fIname\fP on \fIhost\fP
@@ -62,11 +63,33 @@ returned an error to the client.
 .PP
 ldbdc --server metaserver.phys.uwm.edu --database uwm_dev --insert test.xml
 
-Inserts the LIGO lightweight XML file test.xml into the uwm_dev database at metaserver.phys.uwm.edu
+Inserts the LIGO lightweight XML file test.xml into the uwm_dev database at
+metaserver.phys.uwm.edu
 .PP
 ldbdc --server metaserver.phys.uwm.edu:60000 --database uwm_dev --query "SELECT * FROM SNGL_INSPIRAL" --output inspiralevents.xml
 
-Retrieves all the entries from the SNGL_INSPIRAL table in the uwm_dev database at metaserver.phys.uwm.edu on port 60000 and writes the results to the file inspiralevents.xml
+Retrieves all the entries from the SNGL_INSPIRAL table in the uwm_dev database
+at metaserver.phys.uwm.edu on port 60000 and writes the results to the file
+inspiralevents.xml
+.SH AUTHENTICATION
+.PP
+The ldbd package uses Globus GSI authentication using X.509 cerficates issued
+by a the DOEgrid certificate authority. Before running the client to connect
+to a server, the user must obtain an X.509 certificate and communcate the
+subject of the certificate to the database administrator so the the server can
+authenticate the client user. The user must also run the \fIgrid-proxy-init\fP
+program to give the client access to the users key.
+.PP
+The client program also expects the server to authenticate itself. To do this 
+the client needs to know the subject of the certificate that the server is 
+presenting. The is done by either specifying the subject directly with the
+\fI--identity\fP option or by letting the client assume that the server will
+present an ldbdserver service certificate issued by DOEgrids for the host that
+the server runs on. For example if the \fI--host\fP option is
+\fBmyhost.com\fP, then the client will expect the server to
+present a certificate with the subject:
+
+\fB/O=doesciencegrid.org/OU=Services/CN=ldbdserver/myhost.com\fP
 .SH COPYRIGHT
 .PP
 Copyright (C) 2003 Duncan Brown.
