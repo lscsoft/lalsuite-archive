@@ -10,6 +10,7 @@ class LDBDServerConnection(object):
     using the 'host' and 'port', and expecting the 
     server to identify itself with credentials that 
     match the subject name 'identity'.
+
     A IOException is raised if the connection cannot be made.
     try:
       # create TCPIOAttr instance and set authentication mode to be GSSAPI
@@ -72,7 +73,6 @@ class LDBDServerConnection(object):
       print "Error writing to %s:%d" % (self.host,self.port)
       print e
       sys.exit(1)
-      print e
     try:
       self.receive()
     except LDBDServerException, e:
