@@ -236,7 +236,7 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
     methodDict = {
       'PING' : self.ping,
       'DISTINCT' : self.distinctAttribute,
-      'METASEGS' : self.segmentFindWithMetadata_v1
+      'METASEGS' : self.segmentFindWithMetadata_v1,
       'METASEGSVX' : self.segmentFindWithMetadata_vx
     }
 
