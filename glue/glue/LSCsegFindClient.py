@@ -368,7 +368,7 @@ class LSCsegFind(LSCsegFindClient):
     @return: None
     """
     response = LSCsegFindClient.ping(self)
-    print response
+    return str(response)
 
 
   def showInterferometers(self, argDict):
@@ -382,7 +382,7 @@ class LSCsegFind(LSCsegFindClient):
     """
 
     response = LSCsegFindClient.distinctAttrValues(self, "interferometers")
-    print response
+    return str(response)
 
 
   def showTypes(self, argDict):
@@ -395,7 +395,7 @@ class LSCsegFind(LSCsegFindClient):
     @return: None
     """
     response = LSCsegFindClient.distinctAttrValues(self, "state")
-    print response
+    return str(response)
                 
 
   def findStateSegments(self, argDict):
@@ -450,32 +450,4 @@ be present when searching for groups of segments
       range = segments.segmentlist([segments.segment(long(start),long(end))])
       seglist &= range
 
-    if len( seglist ) == 0:
-      print >> sys.stderr, "No segments found!"
-    else:
-      if not format:
-        for seg in seglist:
-          print seg.get_start(), seg.get_end()
-      elif format is 'segwizard':
-        i = 0
-        for seg in seglist:
-          print i,seg.get_start(),seg.get_end(),seg.get_end()-seg.get_start()
-          i += 1
-      elif format is 'tcl' or format is 'python':
-        if format is 'tcl':
-          ldelim = '{ '
-          rdelim = ' }'
-          cdelim = ' '
-        else:
-          ldelim = '['
-          rdelim = ']'
-          cdelim = ', '
-        s = seglist.pop(0)
-        print ldelim + ldelim + str(s.get_start()) + cdelim + str(s.get_end()) + rdelim,
-        for seg in seglist:
-          print cdelim+ldelim+str(seg.get_start())+cdelim+str(seg.get_end())+rdelim,
-        print rdelim
-      else:
-        msg = "Error: unknown segment format : %s" % (format)
-        raise LSCsegFindException, msg
- 
+    return seglist

@@ -15,6 +15,7 @@ import os
 import getopt
 import re
 import exceptions
+from types import *
 
 try:
   from glue import segments
@@ -251,8 +252,42 @@ except Exception, e:
   sys.exit(1)
 
 try:
-  eval("myClient.%s(%s)" % (clientMethod, clientMethodArgDict))
+  eval("result = myClient.%s(%s)" % (clientMethod, clientMethodArgDict))
 
+  if type(result) is StringType:
+    print result
+  else:
+    if len( seglist ) == 0:
+      print >> sys.stderr, "No segments found!"
+    else:
+      if not format:
+        for seg in seglist:
+          print seg.get_start(), seg.get_end()
+      elif format is 'segwizard':
+        i = 0
+        for seg in seglist:
+          print i,seg.get_start(),seg.get_end(),seg.get_end()-seg.get_start()
+          i += 1
+      elif format is 'tcl' or format is 'python':
+        if format is 'tcl':
+          ldelim = '{ '
+          rdelim = ' }'
+          cdelim = ' '
+        else:
+          ldelim = '['
+          rdelim = ']'
+          cdelim = ', '
+        s = seglist.pop(0)
+        print ldelim + ldelim + str(s.get_start()) + cdelim + \
+          str(s.get_end()) + rdelim,
+        for seg in seglist:
+          print cdelim + ldelim + str(seg.get_start()) + cdelim + \
+            str(seg.get_end()) + rdelim,
+        print rdelim
+      else:
+        print >> sys.stderr, "Error: unknown segment format : %s" % format
+        sys.exit(1)
+ 
 except LSCsegFindException, e:
   print >>sys.stderr, str(e)
   print >>sys.stderr, "Enter 'LSCsegFind --help' for usage"
