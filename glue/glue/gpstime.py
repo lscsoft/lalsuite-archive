@@ -51,7 +51,7 @@ import time, math
 
 secsInWeek = 604800
 secsInDay = 86400
-gpsEpoch = (1980.0, 1.0, 6.0, 0.0, 0.0, 0.0)  # (year, month, day, hh, mm, ss)
+gpsEpoch = (1980, 1, 6, 0, 0, 0)  # (year, month, day, hh, mm, ss)
 
 def dayOfWeek(year, month, day):
     "returns day of week: 0=Sun, 1=Mon, .., 6=Sat"
