@@ -197,6 +197,35 @@ precompute_values(grid);
 return grid;
 }
 
+long find_sin_theta_closest(SKY_GRID *grid, float RA, float DEC)
+{
+int i,j_start,j_stop,k, k_start, k_stop, best_i;
+SIN_THETA_SKY_GRID_PRIV *priv=grid->grid_priv;
+SKY_GRID_TYPE ds, best_ds;
+
+k=floor((priv->num_dec*(DEC+M_PI_2))/M_PI+0.5);
+k_start=k-1;
+k_stop=k+1;
+if(k_start<0)k_start=0;
+if(k_stop>=priv->num_dec)k_stop=priv->num_dec-1;
+if(k_stop<k_start)k_start=k_stop;
+
+/* Find 3 lines worth of points to search .. Brute force, but reliable */
+for(i=0,j_start=0;i<k_start;i++)j_start+=priv->num_ra[i];
+for(j_stop=j_start;i<=k_stop;i++)j_stop+=priv->num_ra[i];
+
+/* Search them for closest point */
+best_i=-1;
+for(i=j_start;i<j_stop;i++){
+	ds=spherical_distance(RA, DEC, grid->longitude[i], grid->latitude[i]);
+	if((best_i<0) || (ds<best_ds)){
+		best_i=i;
+		best_ds=ds;
+		}
+	}
+return best_i;
+}
+
 void free_grid(SKY_GRID *grid)
 {
 long i;

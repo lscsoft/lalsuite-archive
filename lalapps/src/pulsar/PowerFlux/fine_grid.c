@@ -25,7 +25,8 @@ extern struct gengetopt_args_info args_info;
 
 extern long nsegments, nbins, first_bin, side_cut, useful_bins;
 
-extern INT64 *gps;
+INT64 *gps=NULL;
+INT64 spindown_start;
 
 extern int lines_list[];
 
@@ -98,7 +99,7 @@ for(i=0,kk=super_grid->first_map[pi];kk>=0;kk=super_grid->list_map[kk],i++)
 			fine_grid->e[1][kk]*det_velocity[3*k+1]+
 			fine_grid->e[2][kk]*det_velocity[3*k+2];
 
-		bin_shift=-rint((first_bin+nbins*0.5)*doppler+1800.0*spindown*(gps[k]-gps[0]));
+		bin_shift=-rint((first_bin+nbins*0.5)*doppler+1800.0*spindown*(gps[k]-spindown_start));
 
 		if(bin_shift>max_shift)max_shift=bin_shift;
 		if(bin_shift<min_shift)min_shift=bin_shift;
@@ -202,7 +203,7 @@ for(i=0,kk=super_grid->first_map[pi];kk>=0;kk=super_grid->list_map[kk],i++)
 			fine_grid->e[1][kk]*det_velocity[3*k+1]+
 			fine_grid->e[2][kk]*det_velocity[3*k+2];
 
-		bin_shift=-rint((first_bin+nbins*0.5)*doppler+1800.0*spindown*(gps[k]-gps[0]));
+		bin_shift=-rint((first_bin+nbins*0.5)*doppler+1800.0*spindown*(gps[k]-spindown_start));
 
 		if(bin_shift>max_shift)max_shift=bin_shift;
 		if(bin_shift<min_shift)min_shift=bin_shift;

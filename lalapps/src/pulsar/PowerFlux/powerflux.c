@@ -25,7 +25,8 @@ FILE *LOG=NULL, *FILE_LOG=NULL;
 time_t start_time, end_time;
 
 float *power=NULL; /* nsegments, nbins */
-INT64 *gps=NULL;
+extern INT64 *gps;
+extern INT64 spindown_start;
 long nsegments, nbins,side_cut;
 long useful_bins;
 
@@ -51,6 +52,7 @@ int do_CutOff=1;
 struct gengetopt_args_info args_info;
 
 double spindown;
+
 char *earth_ephemeris=NULL, *sun_ephemeris=NULL;
 double resolution; /* this is actual resolution, not the resolution argument passed on command line */
 int fake_injection=0;
@@ -260,6 +262,7 @@ double average_freq, weight, mixed, plus_sq, cross_sq;
 rng=gsl_rng_alloc(gsl_rng_default);
 
 fake_power=args_info.fake_strain_arg*args_info.fake_strain_arg*1800.0*16384.0*1800.0*16384.0;
+fprintf(LOG, "fake_power: %g\n", fake_power);
 
 average_freq=0.0;
 weight=0.0;
@@ -281,7 +284,7 @@ for(i=0;i<nsegments;i++){
 	e[0]=cos(args_info.fake_dec_arg)*cos(args_info.fake_ra_arg);
 	e[1]=cos(args_info.fake_dec_arg)*sin(args_info.fake_ra_arg);
 	e[2]=sin(args_info.fake_dec_arg);
-	b=args_info.fake_spindown_arg*(gps[i]-gps[0])+
+	b=args_info.fake_spindown_arg*(gps[i]-spindown_start)+
 	  args_info.fake_freq_arg*(1.0+(det_velocity[3*i]*e[0]+
 		det_velocity[3*i+1]*e[1]+
 		det_velocity[3*i+2]*e[2]));
@@ -307,7 +310,7 @@ int main(int argc, char *argv[])
 RGBPic *p;
 PLOT *plot;
 long i,j,m,count;
-float CutOff,b;
+float CutOff,b, ra, dec;
 double a,w,a1,a2;
 char s[20000];
 
@@ -514,6 +517,14 @@ if(nsegments==0){
 fprintf(LOG,"nsegments : %ld\n",nsegments);
 fprintf(LOG,"first gps : %lld\n",gps[0]);
 fprintf(LOG,"last gps  : %lld\n",gps[nsegments-1]);
+
+if((spindown==0.0) || !args_info.spindown_start_time_given){
+	spindown_start=gps[0];
+	} else {
+	spindown_start=args_info.spindown_start_time_arg;
+	}
+fprintf(LOG, "spindown start time: %lld\n", spindown_start);
+
 fflush(LOG);
 
 /* DIAG2 stage */
@@ -526,6 +537,15 @@ average_det_velocity[2]=0.0;
 for(i=0;i<nsegments;i++){
 	/* middle of the 30min interval */
 	get_detector_vel(gps[i]+900,&(det_velocity[3*i]));
+	
+	#if 0
+	dec=atan2f(det_velocity[3*i+2], 
+		sqrt(det_velocity[3*i+0]*det_velocity[3*i+0]+det_velocity[3*i+1]*det_velocity[3*i+1]));
+	ra=atan2f(det_velocity[3*i+1], det_velocity[3*i+0]);
+	if(ra<0)ra+=2.0*M_PI;
+	fprintf(stderr, "%d\n", find_sin_theta_closest(fine_grid, ra, dec));
+	#endif
+	
 	average_det_velocity[0]+=det_velocity[3*i];
 	average_det_velocity[1]+=det_velocity[3*i+1];
 	average_det_velocity[2]+=det_velocity[3*i+2];

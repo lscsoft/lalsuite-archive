@@ -45,6 +45,7 @@ struct gengetopt_args_info
   int side_cut_arg;	/* number of bins to cut from each side due to corruption from doppler shifts.  */
   int hist_bins_arg;	/* number of bins to use when producing histograms (default='200').  */
   char * detector_arg;	/* detector location (i.e. LHO or LLO), passed to detresponse.  */
+  double spindown_start_time_arg;	/* specify spindown start time in GPS sec. Assumed to be the first SFT segment by default.  */
   double spindown_arg;	/* compensate for pulsar spindown during run (fdot) (default='0').  */
   double orientation_arg;	/* additional orientation phase, specifying 0.7853 will turn plus into cross (default='0').  */
   int npolarizations_arg;	/* even number of linear polarizations to profile, distributed uniformly between 0 and PI/2 (default='4').  */
@@ -95,6 +96,7 @@ struct gengetopt_args_info
   int side_cut_given ;	/* Whether side-cut was given.  */
   int hist_bins_given ;	/* Whether hist-bins was given.  */
   int detector_given ;	/* Whether detector was given.  */
+  int spindown_start_time_given ;	/* Whether spindown-start-time was given.  */
   int spindown_given ;	/* Whether spindown was given.  */
   int orientation_given ;	/* Whether orientation was given.  */
   int npolarizations_given ;	/* Whether npolarizations was given.  */

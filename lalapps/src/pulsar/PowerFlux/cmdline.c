@@ -61,6 +61,7 @@ cmdline_parser_print_help (void)
   printf("      --side-cut=INT                    number of bins to cut from each side \n                                          due to corruption from doppler \n                                          shifts\n");
   printf("      --hist-bins=INT                   number of bins to use when producing \n                                          histograms  (default=`200')\n");
   printf("  -d, --detector=STRING                 detector location (i.e. LHO or LLO), \n                                          passed to detresponse\n");
+  printf("      --spindown-start-time=DOUBLE      specify spindown start time in GPS \n                                          sec. Assumed to be the first SFT \n                                          segment by default\n");
   printf("      --spindown=DOUBLE                 compensate for pulsar spindown during \n                                          run (fdot)  (default=`0')\n");
   printf("      --orientation=DOUBLE              additional orientation phase, \n                                          specifying 0.7853 will turn plus \n                                          into cross  (default=`0')\n");
   printf("      --npolarizations=INT              even number of linear polarizations to \n                                          profile, distributed uniformly \n                                          between 0 and PI/2  (default=`4')\n");
@@ -133,6 +134,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->side_cut_given = 0 ;
   args_info->hist_bins_given = 0 ;
   args_info->detector_given = 0 ;
+  args_info->spindown_start_time_given = 0 ;
   args_info->spindown_given = 0 ;
   args_info->orientation_given = 0 ;
   args_info->npolarizations_given = 0 ;
@@ -237,6 +239,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
         { "side-cut",	1, NULL, 0 },
         { "hist-bins",	1, NULL, 0 },
         { "detector",	1, NULL, 'd' },
+        { "spindown-start-time",	1, NULL, 0 },
         { "spindown",	1, NULL, 0 },
         { "orientation",	1, NULL, 0 },
         { "npolarizations",	1, NULL, 0 },
@@ -566,6 +569,20 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
               }
             args_info->hist_bins_given = 1;
             args_info->hist_bins_arg = strtol (optarg,&stop_char,0);
+            break;
+          }
+          
+          /* specify spindown start time in GPS sec. Assumed to be the first SFT segment by default.  */
+          else if (strcmp (long_options[option_index].name, "spindown-start-time") == 0)
+          {
+            if (args_info->spindown_start_time_given)
+              {
+                fprintf (stderr, "%s: `--spindown-start-time' option given more than once\n", CMDLINE_PARSER_PACKAGE);
+                clear_args ();
+                exit (EXIT_FAILURE);
+              }
+            args_info->spindown_start_time_given = 1;
+            args_info->spindown_start_time_arg = strtod (optarg, NULL);
             break;
           }
           
@@ -1417,6 +1434,24 @@ cmdline_parser_configfile (char * const filename, struct gengetopt_args_info *ar
                   if (fnum == 2)
                     {
                       args_info->detector_arg = gengetopt_strdup (farg);
+                    }
+                  else
+                    {
+                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
+                               filename, line_num);
+                      exit (EXIT_FAILURE);
+                    }
+                }
+              continue;
+            }
+          if (!strcmp(fopt, "spindown-start-time"))
+            {
+              if (override || !args_info->spindown_start_time_given)
+                {
+                  args_info->spindown_start_time_given = 1;
+                  if (fnum == 2)
+                    {
+                      args_info->spindown_start_time_arg = strtod (farg, NULL);
                     }
                   else
                     {

@@ -65,6 +65,8 @@ SKY_GRID *make_rect_grid(long num_ra, long num_dec);
 SKY_GRID *make_sin_theta_grid(SKY_GRID_TYPE resolution);
 void free_grid(SKY_GRID *grid);
 
+long find_sin_theta_closest(SKY_GRID *grid, float RA, float DEC);
+
 SKY_SUPERGRID *make_rect_supergrid(SKY_GRID *grid, int ra_factor, int dec_factor);
 SKY_SUPERGRID *make_sin_theta_supergrid(SKY_GRID *grid, int factor);
 

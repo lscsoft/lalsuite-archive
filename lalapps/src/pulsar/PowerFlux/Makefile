@@ -1,5 +1,5 @@
 PACKAGE=\"powerflux\"
-VERSION=\"1.1.25\"
+VERSION=\"1.2.1\"
 LALROOT=./../../../../
 LALINCLUDE=-I$(LALROOT)/include/
 LALLDFLAGS=-L$(LALROOT)/lib -L$(LALROOT)/support-lib -llalsupport -llal -lm
@@ -58,9 +58,9 @@ test2: test_rm
 	./test_rm
 
 test3: powerflux
-	time ./powerflux --input-format=Power -i /home/volodya/LIGO/S2/S2.L1.op/power.L1. -f $(BAND) -n 501 \
+	time ./powerflux --input-format=Power -i /home/volodya/LIGO/S3/S3.H1.op/power.H1. -f $(BAND) -n 501 \
 		--ephemeris-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
-		--detector=LLO --three-bins=0 --do-cutoff=0 --fine-factor=5 \
+		--detector=LHO --three-bins=0 --do-cutoff=0 --fine-factor=5 \
 		--subtract-background=1 --ks-test=1
 #		 --focus-ra=2.2 --focus-dec=0.3 --focus-radius=0.1 \
 		 --band-axis=explicit\(0.5,0.3,0.1\)
