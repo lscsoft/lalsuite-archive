@@ -605,7 +605,6 @@ for(i=0;i<args_info.dec_bands_arg;i++){
 	snprintf(s,19999,"%s_max_upper_limit_band_%d.dat",pol->name, i);
 	dump_floats(s, &(pol->spectral_plot.max_upper_limit[i*useful_bins]), useful_bins, 1);
 	
-
 	snprintf(s,19999,"%s_max_dx_band_%d.png",pol->name, i);
 	adjust_plot_limits_f(plot, freq_f, &(pol->spectral_plot.max_dx[i*useful_bins]), useful_bins, 1, 1, 1);
 	draw_grid(p, plot, 0, 0);
@@ -627,6 +626,20 @@ for(i=0;i<args_info.dec_bands_arg;i++){
 	fprintf(LOG, "max_band: %ld %s %g\n", i, pol->name, max_band[i]);
 	fprintf(LOG, "masked_max_band: %ld %s %g\n", i, pol->name, masked_max_band[i]);
 	*/
+	}
+
+for(i=0;i<args_info.dec_bands_arg*useful_bins;i++){
+	pol->spectral_plot.max_upper_limit[i]=sqrt(2.0*pol->spectral_plot.max_upper_limit[i]*upper_limit_comp)/(1800.0*16384.0);
+	}
+
+for(i=0;i<args_info.dec_bands_arg;i++){
+	snprintf(s,19999,"%s_max_upper_strain_band_%d.png",pol->name, i);
+	adjust_plot_limits_f(plot, freq_f, &(pol->spectral_plot.max_upper_limit[i*useful_bins]), useful_bins, 1, 1, 1);
+	draw_grid(p, plot, 0, 0);
+	draw_points_f(p, plot, COLOR(255,0,0), freq_f, &(pol->spectral_plot.max_upper_limit[i*useful_bins]), useful_bins, 1, 1);
+	RGBPic_dump_png(s, p);
+	snprintf(s,19999,"%s_max_upper_strain_band_%d.dat",pol->name, i);
+	dump_floats(s, &(pol->spectral_plot.max_upper_limit[i*useful_bins]), useful_bins, 1);
 	}
 	
 snprintf(s,19999,"%s_max_upper_strain.png",pol->name);
@@ -758,7 +771,7 @@ if(args_info.three_bins_arg){
 	fprintf(LOG,"mode: 1 bin\n");
 	}
 
-fprintf(stderr,"Main loop\n");
+fprintf(stderr,"Main loop: %ld patches to process.\n", patch_grid->npoints);
 for(pi=0;pi<patch_grid->npoints;pi++){
 	clear_accumulation_arrays();
 
