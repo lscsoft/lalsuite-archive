@@ -1,0 +1,66 @@
+#!/usr/bin/env python2
+
+"""
+LSCfileAdd
+ a tool to add files into an LDR instance.
+
+ Written by Ben Johnson
+ and is based on python (un)publishing routines by Hari Pulapaka,
+ as well as the LSCdataFind code. 
+ 
+ This file last edited on Thu Oct 07 15:43:27 PDT 2004 @988 /Internet Time/
+
+ TODO: Must define exceptions better, and of course, get it to work at all...
+ 
+"""
+
+__author__="Ben Johnson: publishes file lfn<->pfn mappings and associated metadata into a database"
+__date__='$Date$'
+__version__='$Revision$'[0:0]
+
+import exceptions
+import sys
+import LSCfileAdd
+
+def print_stats():
+        """
+        Prints what was done by the LSCfileAdd. i.e. the names of each file
+        And the effective metadata that was added to the database etc.
+        """
+        # stub
+        print "Script Finished"
+        
+## END print_stats()
+
+
+##### Begin Main #####
+if __name__ == '__main__':
+        # Init class instances
+        files = LSCFile()
+        userparams = CLIUtil()
+        grid = GridUtil()
+        
+        # Process command line
+        try:
+                userparams.get_user_parameters()
+        except:
+                sys.exit(1)
+        
+        # Make sure the user grid credentials are ok.
+        try:
+                grid.checkCredentials()
+        except:
+                sys.exit(2)
+        
+        #Publish the files with the metadata requested
+        try:
+                files.publish(userparams.attr, userparams.filelist)
+        except LSCfileAddException, e:
+                print >>sys.stderr, "Danger Will Robinson! Coder needs to write proper code."
+                sys.exit(3)
+        
+        # Print what was done to stdout and exit
+        print_stats()
+        sys.exit(0)
+
+##### END Main #####
