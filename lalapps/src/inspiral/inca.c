@@ -579,6 +579,7 @@ int main( int argc, char *argv[] )
     exit( 1 );
   }
 
+
   /* check for minimal match when doing a triggered bank */
   if ( trigBankFile && minMatch < 0 )
   {
@@ -586,16 +587,15 @@ int main( int argc, char *argv[] )
     exit( 1 );
   }
 
-  /* check that a playground option is not specified if */
-  /* doing a slide or a trig bank                       */
-  if ( ( trigBankFile || slideDataNS ) && havePlgOpt )
+  /* check that a playground option is not specified if doing a slide */
+  if ( slideDataNS && havePlgOpt )
   {
     fprintf( stderr, "--playground-only or --no-playground should not "
 	"be specified for a time slide\n" );
     exit( 1 );
   }
 
-  /* fill the comment, if a user has specified one, or leave it blank */
+  /* fill the comment, if a user has specified on, or leave it blank */
   if ( ! *comment )
   {
     LALSnprintf( proctable.processTable->comment, LIGOMETA_COMMENT_MAX, " " );
@@ -800,7 +800,6 @@ int main( int argc, char *argv[] )
 	    }
 	    else
 	    {
-#if 0
 	      /* check that effective distance was calculated using 
 	       * 1.4_1.4 solar mass inspiral and snr = 8 */
 	      if ( strncmp( thisSummValue->comment, "1.4_1.4_8",
@@ -815,7 +814,6 @@ int main( int argc, char *argv[] )
 	      }
 	      else
 	      {
-#endif
 		if ( vrbflg )
 		{  
 		  fprintf( stdout, "got inspiral effective distance of %f ",
@@ -862,7 +860,7 @@ int main( int argc, char *argv[] )
 			    thisSummValue->end_time.gpsSeconds, 
 			    thisSummValue->end_time.gpsNanoSeconds);
 		      }		
-		    } /* close if ( slideDataNS && j == 1) */
+		    }
 
 		    if ( ! inspEffRange[j] )
 		    {
@@ -878,9 +876,8 @@ int main( int argc, char *argv[] )
 		    thisSummValue = thisSummValue->next;
 		    currentEffRange[j]->next = NULL;
 		    break;
-		  } /* close if ( ! strncmp( ifoName[j], thisSummValue->ifo,
-                                               LIGOMETA_IFO_MAX ) ) */
-		} /*close for ( j = 0; j < numIFO ; ++j ) */
+		  }
+		}
 		if ( ! knownIFO )
 		{
 		  /* catch an unknown ifo name among the input files */
@@ -891,10 +888,8 @@ int main( int argc, char *argv[] )
 		  thisSummValue = thisSummValue->next;
 		  LALFree( tempSummValue );
 		}
-#if 0
-	      } /* close for second else */
-#endif
-	    } /* close for first else */
+	      } /* close for ( j = 0; j < numIFO ; ++j ) */
+	    }
 	  } /* close while ( thisSummValue ) */
 	}
       } /* close if( ! trigBankFile ) */
