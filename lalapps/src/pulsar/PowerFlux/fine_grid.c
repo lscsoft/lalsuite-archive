@@ -509,8 +509,8 @@ void output_limits(POLARIZATION *pol)
 char s[20000];
 RGBPic *p;
 PLOT *plot;
-int i, max_dx_i, masked, k;
-SUM_TYPE max_dx;
+int i, max_dx_i, largest_i, masked, k;
+SUM_TYPE max_dx, largest;
 float *max_band, *masked_max_band;
 int *max_band_arg, *masked_max_band_arg;
 float *freq_f;
@@ -584,9 +584,8 @@ for(i=0;i<fine_grid->npoints;i++){
 
 /* output interesting points around fake injection */
 if(fake_injection){
-	float largest;
 	double ds, best_ds;
-	int best_i=-1, largest_i=-1;
+	int best_i=-1;
 	fprintf(LOG,"Interesting points: index longitude latitude pol max_dx upper_strain lower_strain freq beta1 beta2\n");
 	for(i=0;i<fine_grid->npoints;i++){
 		/* e[2][i] is just cos of latitude */
@@ -642,12 +641,12 @@ if(fake_injection){
 		
 		}
 	if(best_i>=0)
-	fprintf(LOG, "closest: %d %f %f %s %f %g %g %f %f %f\n", best_i, fine_grid->longitude[best_i], fine_grid->latitude[best_i], 
+	fprintf(LOG, "i_closest: %d %f %f %s %f %g %g %f %f %f\n", best_i, fine_grid->longitude[best_i], fine_grid->latitude[best_i], 
 		pol->name, pol->skymap.max_dx[best_i], 
 		pol->skymap.max_upper_limit[best_i], pol->skymap.max_lower_limit[best_i], pol->skymap.freq_map[best_i],
 		pol->skymap.beta1[best_i], pol->skymap.beta2[best_i]);
 	if(largest_i>=0)
-	fprintf(LOG, "largest: %d %f %f %s %f %g %g %f %f %f\n", largest_i, fine_grid->longitude[largest_i], fine_grid->latitude[largest_i], 
+	fprintf(LOG, "i_largest: %d %f %f %s %f %g %g %f %f %f\n", largest_i, fine_grid->longitude[largest_i], fine_grid->latitude[largest_i], 
 		pol->name, pol->skymap.max_dx[largest_i], 
 		pol->skymap.max_upper_limit[largest_i], pol->skymap.max_lower_limit[largest_i], pol->skymap.freq_map[largest_i],
 		pol->skymap.beta1[largest_i], pol->skymap.beta2[largest_i]);
@@ -660,6 +659,8 @@ dump_floats(s,pol->skymap.max_upper_limit,fine_grid->npoints,1);
 
 max_dx=0.0;
 max_dx_i=0;
+largest=0.0;
+largest_i=0;
 masked=0;
 for(i=0;i<args_info.nbands_arg;i++){
 	max_band[i]=-1.0;
@@ -677,12 +678,19 @@ for(i=0;i<fine_grid->npoints;i++){
 		max_band_arg[k]=i;
 		}
 
+
 	if(pol->skymap.max_sub_weight[i]>=pol->skymap.total_weight[i]*(1-args_info.small_weight_ratio_arg)){
 		pol->skymap.max_upper_limit[i]=0.0;
 		pol->skymap.max_lower_limit[i]=0.0;
 		pol->skymap.max_dx[i]=0.0;
 		masked++;
 		}
+
+	if(pol->skymap.max_upper_limit[i]>largest){
+		largest=pol->skymap.max_upper_limit[i];
+		largest_i=i;
+		}
+
 	if(pol->skymap.max_dx[i]>max_dx){
 		max_dx=pol->skymap.max_dx[i];
 		max_dx_i=i;
@@ -694,11 +702,19 @@ for(i=0;i<fine_grid->npoints;i++){
 		}
 	}
 fprintf(LOG, "masked: %s %d\n", pol->name, masked);
-fprintf(LOG, "largest signal: longitude latitude pol max_dx upper_strain lower_strain freq\n");	
+fprintf(LOG, "strongest signal: longitude latitude pol max_dx upper_strain lower_strain freq\n");	
 fprintf(LOG, "max_dx: %f %f %s %f %g %g %f\n",fine_grid->longitude[max_dx_i], fine_grid->latitude[max_dx_i], 
 				pol->name, pol->skymap.max_dx[max_dx_i], 
 				pol->skymap.max_upper_limit[max_dx_i], 
-				pol->skymap.max_lower_limit[max_dx_i], pol->skymap.freq_map[max_dx_i]);
+				pol->skymap.max_lower_limit[max_dx_i], 
+				pol->skymap.freq_map[max_dx_i]);
+
+fprintf(LOG, "largest signal: longitude latitude pol max_dx upper_strain lower_strain freq\n");	
+fprintf(LOG, "largest: %f %f %s %f %g %g %f\n",fine_grid->longitude[largest_i], fine_grid->latitude[largest_i], 
+				pol->name, pol->skymap.max_dx[largest_i], 
+				pol->skymap.max_upper_limit[largest_i], 
+				pol->skymap.max_lower_limit[largest_i], 
+				pol->skymap.freq_map[largest_i]);
 
 fprintf(LOG, "max/masked band format: band_num longitude latitude pol max_dx upper_strain freq\n");
 for(i=0;i<args_info.nbands_arg;i++){
