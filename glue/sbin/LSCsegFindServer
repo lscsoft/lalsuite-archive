@@ -299,7 +299,7 @@ configuration = {
   'certfile' : '/export/LDR-local/globus/etc/hostcert.pem',
   'keyfile' : '/export/LDR-local/globus/etc/hostkey.pem',
   'db_name' : 'segfind',
-  'dbuser' : 'dbrown',
+  'dbuser' : 'grid',
   'dbpasswd' : '',
   'max_client_byte_string': 2048,
   'pidfile' : '/tmp/segfind.pid',
@@ -502,11 +502,13 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
         raise LSCsegFindServerHandlerException, \
           "Unknown select distinct method " + attribute
 
-      db = MySQLdb.connect(user=dbuser,passwd=dbpasswd,db=dbname)
+      db = MySQLdb.connect(user=dbuser,passwd=dbpasswd,db=db_name)
       c = db.cursor()
       c.execute(sql)
       result = c.fetchall()
       c.delete()
+      
+      print >>sys.stderr, str(result)
         
       logger.debug("Method distinctAttribute: %d results found" % 
         len(result))
