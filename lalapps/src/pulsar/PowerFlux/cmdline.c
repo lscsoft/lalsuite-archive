@@ -63,7 +63,7 @@ cmdline_parser_print_help (void)
   printf("  -d, --detector=STRING                 detector location (i.e. LHO or LLO), \n                                          passed to detresponse\n");
   printf("      --spindown=DOUBLE                 compensate for pulsar spindown during \n                                          run (fdot)  (default=`0')\n");
   printf("      --orientation=DOUBLE              additional orientation phase, \n                                          specifying 0.7853 will turn plus \n                                          into cross  (default=`0')\n");
-  printf("      --npolarizations=INT              number of linear polarizations to \n                                          profile, distributed uniformly \n                                          between plus and cross  (default=\n                                          `3')\n");
+  printf("      --npolarizations=INT              even number of linear polarizations to \n                                          profile, distributed uniformly \n                                          between 0 and PI/2  (default=`4')\n");
   printf("      --no-demodulation=INT             do not perform demodulation stage, \n                                          analyze background only  (default=\n                                          `0')\n");
   printf("      --no-decomposition=INT            do not perform noise decomposition \n                                          stage, output simple statistics only \n                                           (default=`0')\n");
   printf("      --no-am-response=INT              force AM_response() function to return \n                                          1.0 irrespective of the arguments  \n                                          (default=`0')\n");
@@ -180,7 +180,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->detector_arg = NULL; \
   args_info->spindown_arg = 0 ;\
   args_info->orientation_arg = 0 ;\
-  args_info->npolarizations_arg = 3 ;\
+  args_info->npolarizations_arg = 4 ;\
   args_info->no_demodulation_arg = 0 ;\
   args_info->no_decomposition_arg = 0 ;\
   args_info->no_am_response_arg = 0 ;\
@@ -597,7 +597,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
             break;
           }
           
-          /* number of linear polarizations to profile, distributed uniformly between plus and cross.  */
+          /* even number of linear polarizations to profile, distributed uniformly between 0 and PI/2.  */
           else if (strcmp (long_options[option_index].name, "npolarizations") == 0)
           {
             if (args_info->npolarizations_given)

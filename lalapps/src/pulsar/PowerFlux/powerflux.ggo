@@ -30,7 +30,7 @@ option "detector"   	d "detector location (i.e. LHO or LLO), passed to detrespon
 
 option "spindown"	- "compensate for pulsar spindown during run (fdot)" double default="0" no
 option "orientation"    - "additional orientation phase, specifying 0.7853 will turn plus into cross" double default="0" no
-option "npolarizations" - "number of linear polarizations to profile, distributed uniformly between plus and cross" int default="3" no
+option "npolarizations" - "even number of linear polarizations to profile, distributed uniformly between 0 and PI/2" int default="4" no
 
 option "no-demodulation" - "do not perform demodulation stage, analyze background only" int default="0" no
 option "no-decomposition" - "do not perform noise decomposition stage, output simple statistics only" int default="0" no

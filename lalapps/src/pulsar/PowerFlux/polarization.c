@@ -31,6 +31,11 @@ npolarizations=args_info.npolarizations_arg;
 fprintf(LOG,"npolarizations: %d\n", npolarizations);
 if(npolarizations<2){
 	fprintf(stderr,"*** ERROR: number of polarizations is less than 2, aborting\n");
+	exit(-1);
+	}
+if(npolarizations & 1){
+	fprintf(stderr,"*** ERROR: number of polarizations is not even, aborting\n");
+	exit(-1);
 	}
 polarizations=do_alloc(npolarizations, sizeof(*polarizations));
 memset(polarizations, 0, npolarizations*sizeof(*polarizations));
@@ -52,12 +57,17 @@ polarizations[1].AM_coeffs=AM_coeffs_cross;
 fprintf(stderr,"\t%s %g\n",polarizations[1].name, M_PI/4.0);
 
 for(i=2;i<npolarizations;i++){
-	a=(i-1)*M_PI/(4.0*(npolarizations-1));
+	polarizations[i].name=do_alloc(16,sizeof(char));
+	if(i-1<npolarizations/2){
+		a=(i-1)*M_PI/(2.0*npolarizations);
+		snprintf(polarizations[i].name,16,"pi_%d_%d",i-1, 2*npolarizations);
+		} else {
+		a=i*M_PI/(2.0*npolarizations);
+		snprintf(polarizations[i].name,16,"pi_%d_%d",i, 2*npolarizations);
+		}
 	polarizations[i].orientation=a;
 	polarizations[i].plus_proj=cos(2*a);
 	polarizations[i].cross_proj=sin(2*a);
-	polarizations[i].name=do_alloc(16,sizeof(char));
-	snprintf(polarizations[i].name,16,"pol_%d_%d",i-1, 4*(npolarizations-1));
 	fprintf(stderr,"\t%s a=%g\n",polarizations[i].name, a);
 	
 	polarizations[i].AM_coeffs=do_alloc(AM_coeffs_size,sizeof(*(polarizations[i].AM_coeffs)));

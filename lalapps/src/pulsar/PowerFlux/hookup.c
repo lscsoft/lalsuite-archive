@@ -487,6 +487,8 @@ for(k=0;k<count;k++){
 	if(chisq>1e-12){
 		fprintf(stderr,"** Sky grid approximation fault: non-zero chisq %g when computing gps[%d]=%lld, plus polarization - aborting !\n", 
 			chisq, k, gps[k]);
+		fprintf(LOG,"** Sky grid approximation fault: non-zero chisq %g when computing gps[%d]=%lld, plus polarization - aborting !\n", 
+			chisq, k, gps[k]);
 		exit(-1);
 		}
 	for(j=0;j<GRID_FIT_COUNT;j++){
@@ -496,6 +498,8 @@ for(k=0;k<count;k++){
 	gsl_multifit_linear(X, y_cross, c, cov, &chisq, workspace);
 	if(chisq>1e-12){
 		fprintf(stderr,"** Sky grid approximation fault: non-zero chisq %g when computing gps[%d]=%lld, cross polarization - aborting !\n", 
+			chisq, k, gps[k]);
+		fprintf(LOG,"** Sky grid approximation fault: non-zero chisq %g when computing gps[%d]=%lld, cross polarization - aborting !\n", 
 			chisq, k, gps[k]);
 		exit(-1);
 		}

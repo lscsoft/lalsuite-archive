@@ -47,7 +47,7 @@ struct gengetopt_args_info
   char * detector_arg;	/* detector location (i.e. LHO or LLO), passed to detresponse.  */
   double spindown_arg;	/* compensate for pulsar spindown during run (fdot) (default='0').  */
   double orientation_arg;	/* additional orientation phase, specifying 0.7853 will turn plus into cross (default='0').  */
-  int npolarizations_arg;	/* number of linear polarizations to profile, distributed uniformly between plus and cross (default='3').  */
+  int npolarizations_arg;	/* even number of linear polarizations to profile, distributed uniformly between 0 and PI/2 (default='4').  */
   int no_demodulation_arg;	/* do not perform demodulation stage, analyze background only (default='0').  */
   int no_decomposition_arg;	/* do not perform noise decomposition stage, output simple statistics only (default='0').  */
   int no_am_response_arg;	/* force AM_response() function to return 1.0 irrespective of the arguments (default='0').  */
