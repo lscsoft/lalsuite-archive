@@ -1,6 +1,26 @@
 """
-The ldbd module provides classes for manipulating 
-LIGO metadata database tables.
+lightweight database dumper
+
+Copyright (C) 2003 Duncan Brown
+ 
+This file is part of the lightweight datapase dumper (ldbd)
+
+The ldbd module provides classes for manipulating LIGO metadata database
+tables.
+
+References:
+http://www.ligo.caltech.edu/docs/T/T990101-02.pdf
+http://www.ligo.caltech.edu/docs/T/T990023-01.pdf
+http://ldas-sw.ligo.caltech.edu/doc/db2/doc/html/ilwdformat.html
+"""
+
+__author__ = 'Duncan Brown <duncan@gravity.phys.uwm.edu>'
+__date__ = '$Date$'
+__version__ = '$Revision$'[11:-2]
+# $Source$
+
+### Notes
+#  Presently only insertion of database tables is allowed,
 #  but the module can be extended to previde retrieval
 
 import os
@@ -9,8 +29,8 @@ import string
 import re
 import csv
 import mx.ODBC.DB2 as mxdb
-__date__ = '$Date$'
-__version__ = '$Revision$'[11:-2]
+from mx.ODBC.DB2 import SQL
+
 try:
   import thread
 except:
