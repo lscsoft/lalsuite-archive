@@ -551,13 +551,11 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
       sql = "SELECT state_segment.start_time, state_segment.end_time FROM state_segment, state_vec WHERE"
       sql += arg.pop(0)
 
-      print >> sys.stderr, sql
-
       db = MySQLdb.connect(user=dbuser,passwd=dbpasswd,db=dbname)
       c = db.cursor()
       c.execute(sql)
       res = c.fetchall()
-      result = '\n'.join([ x[0] for x in res ])
+      result = str(res)
       c.close()
       
       logger.debug("Method : segmentFindWithMetadata %d results found" % 

@@ -281,9 +281,6 @@ class LSCsegFindClient(object):
       msg += "%s" % q
     msg += "\0"
 
-    print "sending"
-    print msg
-
     self.sfile.write(msg)
 
     ret, output = self.__response__()
