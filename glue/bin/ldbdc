@@ -172,7 +172,7 @@ Usage: ldbdc.py [OPTIONS]
 The options --server and --database must be specified.
 One of the options --query or --insert must be specified.
 \
-Usage: ldbdc [OPTIONS]
+"""
   print msg
   -s, --server HOST:PORT     connect to ldbd on HOST:PORT (default port 49999)
   -j, --identity SUBJECT     the subject of the servers service certififcate
@@ -181,7 +181,7 @@ Usage: ldbdc [OPTIONS]
   -q, --query QUERY          execute SQL query QUERY
   -o, --output FILE          write output to FILE
   -v, --verbose              print lots of debugging information
-  -h, --help                 print detailed help message
+  -h, --help                 print this message
   "identity=",
 The option --server and one of --query or --insert must be specified.
   "query=",
@@ -189,77 +189,7 @@ The option --server and one of --query or --insert must be specified.
   "verbose",
   "help"
   ]
-  msg = """\
-NAME
-       ldbdc - lightweight database dumper client
 
-SYNOPSIS
-       ldbdc --server HOST:PORT --database NAME [--insert LIGOLW]
-       [--identity SUBJECT]     [--sql QUERY]     [--output FILE] 
-       [--verbose] [--help]
-
-DESCRIPTION
-       ldbdc inserts  a  LIGO  lightweight  XML  file  into   the
-       specified database and/or executes an SQL query  returning
-       the results as a LIGO  lightweight  XML  to  the  standard
-       output.
-
-OPTIONS
-       -s, --server HOST:PORT
-               connect to ldbd server at HOST on PORT
-
-       -j, --identity SUBJECT
-                the subject of the servers service  certififcate.
-                If no identity is specified, the  client  assumes
-                that it should expect an ldbdserver  DOE  service 
-                certificate from HOST.
-
-       -d, --database NAME
-               execute all commands at database NAME
-
-       -i, --insert LIGOLW
-               insert the data in the LIGO lightweight  XML  file
-               LIGOLW into the database
-
-       -q, --query QUERY
-               execute the SQL query QUERY  at  the  database and
-               return  the  results  of  the  query  as   a  LIGO 
-               lightweight XML file
-
-       -o, --output FILE
-               write the query result to FILE insted of stdout
-
-       -v, --verbose
-               print lots of debugging information
-
-       -h, --help
-               print this message
-
-DIAGNOSTICS
-        An exit status of 0 means that the no errors ocourred,  1
-        means that there  was an  error  communicating  with  the
-        server and 2 means that the server returned an error.
-
-EXAMPLES
-       ldbdc --server metaserver.phys.uwm.edu  --database uwm_dev
-       --insert test.xml
-         Inserts the LIGO lightweight XML file test.xml into the 
-         uwm_dev database at metaserver.phys.uwm.edu
-               
-       ldbdc  --server  metaserver.phys.uwm.edu:60000  --database
-       uwm_dev --query "SELECT * FROM SNGL_INSPIRAL"
-         Retrieves all the entries from the SNGL_INSPIRAL table in
-         the uwm_dev database at  metaserver.phys.uwm.edu on  port 
-         60000
-
-AUTHOR
-       Duncan Brown <duncan@gravity.phys.uwm.edu>
-
-BUGS
-       Getting large ammount of data is currently quite slow.
-\
-"""
-  print msg
 try:
   opts, args = getopt.getopt(sys.argv[1:], shortop, longop)
 except getopt.GetoptError:
