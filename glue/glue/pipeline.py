@@ -1189,6 +1189,7 @@ class ScienceSegment:
     self.__chunks = []
     self.__unused = self.dur()
     self.__ifo = None
+    self.__df_node = None
 
   def __getitem__(self,i):
     """
@@ -1323,9 +1324,20 @@ class ScienceSegment:
     """
     return self.__dur
 
+  def set_df_node(self,df_node):
+     """
+     Set the DataFind node associated with this ScienceSegment to df_node.
+     @param df_node: the DataFind node for this ScienceSegment.
+     """
+     self.__df_node = df_node
 
+   def get_df_node(self):
+     """
+     Returns the DataFind node for this ScienceSegment.
+     """
+     return self.__df_node
 
-
+    
 class ScienceData:
   """
   An object that can contain all the science data used in an analysis. Can
