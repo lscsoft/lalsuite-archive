@@ -13,6 +13,6 @@ setup( name = "glue",
   description = "Grid LSC User Engine",
   url = "http://www.lsc-group.phys.uwm.edu/daswg/",
   license = 'See file LICENSE',
-  package_dir = {'': 'lib'},
-  py_modules=["glue","gpsTime"]
+  packages = [ 'glue' ],
+  package_dir = {'glue': 'lib'}
   )
