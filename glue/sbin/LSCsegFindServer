@@ -569,7 +569,6 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
       result = ""
       for s in segs:
         result += "%d %d\n" % (s.start, s.end)
-      result = result[0,-1]
       
       logger.debug("Method : segmentFindWithMetadata %d results found" % 
         len(result))
