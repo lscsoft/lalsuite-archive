@@ -11,45 +11,14 @@
 #include "cmdline.h"
 #include "hookup.h"
 #include "grid.h"
+#include "polarization.h"
 
-typedef float SUM_TYPE;
-typedef short COUNT_TYPE;
-
-
-typedef struct {
-	char *name;
-	/* these arrays have stored_fine_bins*useful_bins entries */
-	SUM_TYPE *fine_grid_sum;
-	SUM_TYPE *fine_grid_sq_sum;
-	SUM_TYPE *fine_grid_weight;
-	COUNT_TYPE *fine_grid_count;
-	
-	/* results */
-	/* these arrays have find_grid->npoints entries */
-	SUM_TYPE *total_weight;
-	SUM_TYPE *max_sub_weight;
-	COUNT_TYPE *total_count;
-	SUM_TYPE *max_dx;
-	SUM_TYPE *M_map;
-	SUM_TYPE *S_map;
-	SUM_TYPE *max_upper_limit;
-	SUM_TYPE *max_lower_limit;
-	SUM_TYPE *freq_map;
-	SUM_TYPE *cor1;
-	SUM_TYPE *cor2;
-	} POLARIZATION;
-
-POLARIZATION plus={"plus",NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL};
-POLARIZATION cross={"cross",NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL};
-
-SUM_TYPE normalizing_weight;
-
-long stored_fine_bins=0;
+extern POLARIZATION *polarizations;
+extern int npolarizations;
 
 extern float *power;
 extern float *TMedians,*expTMedians;
 extern float TMedian;
-extern float *patch_CutOff_plus, *patch_CutOff_cross;
 
 extern struct gengetopt_args_info args_info;
 
@@ -63,9 +32,6 @@ extern SKY_GRID *fine_grid, *patch_grid;
 extern SKY_SUPERGRID *super_grid;
 extern float *det_velocity;
 
-long max_shift=0, min_shift=0;
-
-
 extern int do_CutOff;
 extern int fake_injection;
 
@@ -76,7 +42,13 @@ extern double resolution;
 
 extern INT64 *gps;
 
-extern float *AM_coeffs_plus, *AM_coeffs_cross;
+SUM_TYPE normalizing_weight;
+
+long stored_fine_bins=0;
+
+long max_shift=0, min_shift=0;
+
+
 
 /* the value 1.22 is obtained by S.R script. It is valid for single-bin processing
    the value 0.88 is obtained by the same script. It is valid for 3 averaged neighboring bins */
@@ -87,8 +59,6 @@ float quantile2std=1.22;
 /* We also divide by 0.85 to compensate for non bin centered signals */
 /* for 3 averaged neighbouring bins that value should be 3.0/0.85 */
 float upper_limit_comp=1/(0.7*0.85);
-
-#define WEIGHTED_SUM
 
 /* single bin version */
 
@@ -110,10 +80,7 @@ CutOff=2*CutOff; /* weighted sum can benefit from more SFTs */
 for(i=0,kk=super_grid->first_map[pi];kk>=0;kk=super_grid->list_map[kk],i++)
 		{
 
-		if(pol->name[0]=='p')
-			mod=1.0/(AM_response(k, fine_grid, kk, AM_coeffs_plus)); 
-			else 
-			mod=1.0/(AM_response(k, fine_grid, kk, AM_coeffs_cross)); 
+		mod=1.0/(AM_response(k, fine_grid, kk, pol->AM_coeffs)); 
 
 		if(do_CutOff && (mod>CutOff))continue;
 		
@@ -216,10 +183,7 @@ CutOff=2*CutOff/3.0; /* weighted sum can benefit from more SFTs */
 for(i=0,kk=super_grid->first_map[pi];kk>=0;kk=super_grid->list_map[kk],i++)
 		{
 
-		if(pol->name[0]=='p')
-			mod=1.0/(AM_response(k, fine_grid, kk, AM_coeffs_plus)); 
-			else 
-			mod=1.0/(AM_response(k, fine_grid, kk, AM_coeffs_cross)); 
+		mod=1.0/(AM_response(k, fine_grid, kk, pol->AM_coeffs)); 
 
 		if(do_CutOff && (mod>CutOff))continue;
 		
@@ -634,60 +598,38 @@ free(masked_max_band_arg);
 void compute_mean(long pi)
 {
 SUM_TYPE a,b,c;
-long i,k;
+long i,k,m;
 long offset;
 for(k=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[offset],k++){
-	plus.max_sub_weight[offset]=0.0;
-	cross.max_sub_weight[offset]=0.0;
+	for(m=0;m<npolarizations;m++){
+		polarizations[m].max_sub_weight[offset]=0.0;
 	
-	for(i=0;i<useful_bins;i++){
+		for(i=0;i<useful_bins;i++){
 
-		#ifdef WEIGHTED_SUM		
-		if(plus.fine_grid_weight[i+k*useful_bins]>plus.max_sub_weight[offset]){
-			plus.max_sub_weight[offset]=plus.fine_grid_weight[i+k*useful_bins];
-			}
-
-		c=(plus.total_weight[offset]-plus.fine_grid_weight[i+k*useful_bins]);
-		#else
-		c=(plus.total_count[offset]-plus.fine_grid_count[i+k*useful_bins]);
-		#endif
-		if(c>0){
-			a=plus.fine_grid_sum[i+k*useful_bins];
-			#ifdef COMPUTE_SIGMA
-			b=plus.fine_grid_sq_sum[i+k*useful_bins];
-			#endif
-	
 			#ifdef WEIGHTED_SUM		
-			plus.fine_grid_sum[i+k*useful_bins]=a/c;
-			#else
-			plus.fine_grid_sum[i+k*useful_bins]=a/c;
-			#endif
-			#ifdef COMPUTE_SIGMA
-			plus.fine_grid_sq_sum[i+k*useful_bins]=sqrt((b*plus.fine_grid_count[i+k*useful_bins]-a)/c);
-			#endif
-			}
+			if(polarizations[m].fine_grid_weight[i+k*useful_bins]>polarizations[m].max_sub_weight[offset]){
+				polarizations[m].max_sub_weight[offset]=polarizations[m].fine_grid_weight[i+k*useful_bins];
+				}
 	
-		#ifdef WEIGHTED_SUM		
-		if(cross.fine_grid_weight[i+k*useful_bins]>cross.max_sub_weight[offset]){
-			cross.max_sub_weight[offset]=cross.fine_grid_weight[i+k*useful_bins];
-			}
-		c=(cross.total_weight[offset]-cross.fine_grid_weight[i+k*useful_bins]);
-		#else
-		c=(cross.total_count[offset]-cross.fine_grid_count[i+k*useful_bins]);
-		#endif
-		if(c>0){
-			a=cross.fine_grid_sum[i+k*useful_bins];
-			#ifdef COMPUTE_SIGMA
-			b=cross.fine_grid_sq_sum[i+k*useful_bins];
-			#endif
-			#ifdef WEIGHTED_SUM		
-			cross.fine_grid_sum[i+k*useful_bins]=a/c;
+			c=(polarizations[m].total_weight[offset]-polarizations[m].fine_grid_weight[i+k*useful_bins]);
 			#else
-			cross.fine_grid_sum[i+k*useful_bins]=a/c;
+			c=(polarizations[m].total_count[offset]-polarizations[m].fine_grid_count[i+k*useful_bins]);
 			#endif
-			#ifdef COMPUTE_SIGMA
-			cross.fine_grid_sq_sum[i+k*useful_bins]=sqrt((b*cross.fine_grid_count[i+k*useful_bins]-a)/c);
-			#endif
+			if(c>0){
+				a=polarizations[m].fine_grid_sum[i+k*useful_bins];
+				#ifdef COMPUTE_SIGMA
+				b=polarizations[m].fine_grid_sq_sum[i+k*useful_bins];
+				#endif
+		
+				#ifdef WEIGHTED_SUM		
+				polarizations[m].fine_grid_sum[i+k*useful_bins]=a/c;
+				#else
+				polarizations[m].fine_grid_sum[i+k*useful_bins]=a/c;
+				#endif
+				#ifdef COMPUTE_SIGMA
+				polarizations[m].fine_grid_sq_sum[i+k*useful_bins]=sqrt((b*polarizations[m].fine_grid_count[i+k*useful_bins]-a)/c);
+				#endif
+				}
 			}
 		}
 	}
@@ -696,163 +638,50 @@ for(k=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[o
 void compute_mean_no_lines(long pi)
 {
 SUM_TYPE a,b,c;
-long i,k,offset;
+long i,k,offset,m;
 for(k=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[offset],k++){
-	plus.max_sub_weight[offset]=0.0;
-	cross.max_sub_weight[offset]=0.0;
-
-	for(i=0;i<useful_bins;i++){
-		#ifdef WEIGHTED_SUM		
-		c=(plus.total_weight[offset]);
-		#else
-		c=(plus.total_count[offset]);
-		#endif
-		if(c>0){
-			a=plus.fine_grid_sum[i+k*useful_bins];
-			#ifdef COMPUTE_SIGMA
-			b=plus.fine_grid_sq_sum[i+k*useful_bins];
-			#endif
-	
+	for(m=0;m<npolarizations;m++){
+		polarizations[m].max_sub_weight[offset]=0.0;
+		
+		for(i=0;i<useful_bins;i++){
+		
 			#ifdef WEIGHTED_SUM		
-			plus.fine_grid_sum[i+k*useful_bins]=a/c;
+			c=(polarizations[m].total_weight[offset]);
 			#else
-			plus.fine_grid_sum[i+k*useful_bins]=a/c;
+			c=(polarizations[m].total_count[offset]);
 			#endif
-			#ifdef COMPUTE_SIGMA
-			plus.fine_grid_sq_sum[i+k*useful_bins]=sqrt((b*plus.fine_grid_count[i+k*useful_bins]-a)/c);
-			#endif
-			}
-	
-		#ifdef WEIGHTED_SUM		
-		c=(cross.total_weight[offset]);
-		#else
-		c=(cross.total_count[offset]);
-		#endif
-		if(c>0){
-			a=cross.fine_grid_sum[i+k*useful_bins];
-			#ifdef COMPUTE_SIGMA
-			b=cross.fine_grid_sq_sum[i+k*useful_bins];
-			#endif
-			#ifdef WEIGHTED_SUM		
-			cross.fine_grid_sum[i+k*useful_bins]=a/c;
-			#else
-			cross.fine_grid_sum[i+k*useful_bins]=a/c;
-			#endif
-			#ifdef COMPUTE_SIGMA
-			cross.fine_grid_sq_sum[i+k*useful_bins]=sqrt((b*cross.fine_grid_count[i+k*useful_bins]-a)/c);
-			#endif
+			if(c>0){
+				a=polarizations[m].fine_grid_sum[i+k*useful_bins];
+				#ifdef COMPUTE_SIGMA
+				b=polarizations[m].fine_grid_sq_sum[i+k*useful_bins];
+				#endif
+		
+				#ifdef WEIGHTED_SUM		
+				polarizations[m].fine_grid_sum[i+k*useful_bins]=a/c;
+				#else
+				polarizations[m].fine_grid_sum[i+k*useful_bins]=a/c;
+				#endif
+				#ifdef COMPUTE_SIGMA
+				polarizations[m].fine_grid_sq_sum[i+k*useful_bins]=sqrt((b*polarizations[m].fine_grid_count[i+k*useful_bins]-a)/c);
+				#endif
+				}
 			}
 		}
-	}	
+	}
 }
 
 
 void fine_grid_stage(void)
 {
-long pi,i,j,k,kk;
+long pi,i,j,k,kk,m;
 double a,b;
 long total;
-/* allocate arrays */
-
-total=2*sizeof(*plus.fine_grid_sum);
-
-#ifdef COMPUTE_SIGMA
-total+=2*sizeof(*plus.fine_grid_sq_sum);
-#endif
-
-if(lines_list[0]>=0){
-	#ifdef WEIGHTED_SUM
-	total+=2*sizeof(*plus.fine_grid_sum);
-	#else
-	total+=2*sizeof(*plus.fine_grid_count);
-	#endif
-	}
 
 normalizing_weight=exp(-M_LN10*TMedian);
 
 stored_fine_bins=super_grid->max_npatch;
 
-fprintf(stderr,"Allocating accumulation arrays, (%.1f KB total)\n", 
-	(stored_fine_bins*useful_bins*total)/(1024.0));
-fprintf(LOG," accumulation set size: %f KB\n", 
-	(stored_fine_bins*useful_bins*total)/(1024.0));
-		
-		
-plus.fine_grid_sum=do_alloc(stored_fine_bins*useful_bins,sizeof(*plus.fine_grid_sum));
-cross.fine_grid_sum=do_alloc(stored_fine_bins*useful_bins,sizeof(*cross.fine_grid_sum));
-
-#ifdef COMPUTE_SIGMA
-plus.fine_grid_sq_sum=do_alloc(stored_fine_bins*useful_bins,sizeof(*plus.fine_grid_sq_sum));
-cross.fine_grid_sq_sum=do_alloc(stored_fine_bins*useful_bins,sizeof(*cross.fine_grid_sq_sum));
-#endif
-
-#ifdef WEIGHTED_SUM
-if(lines_list[0]>=0){
-	plus.fine_grid_weight=do_alloc(stored_fine_bins*useful_bins,sizeof(*plus.fine_grid_weight));
-	cross.fine_grid_weight=do_alloc(stored_fine_bins*useful_bins,sizeof(*cross.fine_grid_weight));
-	}
-
-plus.total_weight=do_alloc(fine_grid->npoints,sizeof(*plus.fine_grid_weight));
-cross.total_weight=do_alloc(fine_grid->npoints,sizeof(*cross.fine_grid_weight));
-#else
-if(lines_list[0]>=0){
-	plus.fine_grid_count=do_alloc(stored_fine_bins*useful_bins,sizeof(*plus.fine_grid_count));
-	cross.fine_grid_count=do_alloc(stored_fine_bins*useful_bins,sizeof(*cross.fine_grid_count));
-	}
-
-plus.total_count=do_alloc(fine_grid->npoints,sizeof(*plus.fine_grid_count));
-cross.total_count=do_alloc(fine_grid->npoints,sizeof(*cross.fine_grid_count));
-#endif
-
-plus.max_sub_weight=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
-plus.max_dx=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
-plus.M_map=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
-plus.S_map=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
-plus.max_upper_limit=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
-plus.max_lower_limit=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
-plus.freq_map=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
-plus.cor1=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
-plus.cor2=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
-
-cross.max_sub_weight=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
-cross.max_dx=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
-cross.M_map=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
-cross.S_map=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
-cross.max_upper_limit=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
-cross.max_lower_limit=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
-cross.freq_map=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
-cross.cor1=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
-cross.cor2=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
-
-
-fprintf(stderr,"Clearing output arrays\n");
-for(i=0;i<fine_grid->npoints;i++){
-	plus.max_dx[i]=-1.0;
-	plus.M_map[i]=-1.0;
-	plus.S_map[i]=-1.0;
-	plus.max_upper_limit[i]=-1.0;
-	plus.max_lower_limit[i]=-1.0;
-	plus.freq_map[i]=-1.0;
-	plus.cor1[i]=-1.0;
-	plus.cor2[i]=-1.0;
-
-	cross.max_dx[i]=-1.0;
-	cross.M_map[i]=-1.0;
-	cross.S_map[i]=-1.0;
-	cross.max_upper_limit[i]=-1.0;
-	cross.max_lower_limit[i]=-1.0;
-	cross.freq_map[i]=-1.0;
-	cross.cor1[i]=-1.0;
-	cross.cor2[i]=-1.0;
-
-	#ifdef WEIGHTED_SUM
-	plus.total_weight[i]=0.0;
-	cross.total_weight[i]=0.0;
-	#else
-	plus.total_count[i]=0;
-	cross.total_count[i]=0;	
-	#endif
-	}
+allocate_polarization_arrays();
 	
 /* see comments above variables */
 if(args_info.three_bins_arg){
@@ -870,43 +699,27 @@ if(args_info.three_bins_arg){
 
 fprintf(stderr,"Main loop\n");
 for(pi=0;pi<patch_grid->npoints;pi++){
-	/* clear accumulation arrays */
-	for(i=0;i<stored_fine_bins*useful_bins;i++){
-		plus.fine_grid_sum[i]=0.0;
-		cross.fine_grid_sum[i]=0.0;
-			#ifdef COMPUTE_SIGMA
-		plus.fine_grid_sq_sum[i]=0.0;
-		cross.fine_grid_sq_sum[i]=0.0;
-		#endif
-			if(lines_list[0]>=0){
-			#ifdef WEIGHTED_SUM	
-			plus.fine_grid_weight[i]=0.0;
-			cross.fine_grid_weight[i]=0.0;
-			#else	
-			plus.fine_grid_count[i]=0;
-			cross.fine_grid_count[i]=0;
-			#endif
-			}
-		}
+	clear_accumulation_arrays();
 
 	/* process single patch */
-	  for(k=0;k<nsegments;k++){
+	for(k=0;k<nsegments;k++){
 		a=expTMedians[k];
-		b=patch_CutOff_plus[pi];
-		/* process plus */
-		if(!do_CutOff || (b*a*AM_response(k, patch_grid, pi, AM_coeffs_plus)<4))
-			process_patch(&plus, pi,k,b*sqrt(a));
-			b=patch_CutOff_cross[pi];
-		/* process cross */
-		if(!do_CutOff || (b*a*AM_response(k, patch_grid, pi, AM_coeffs_cross)<4))
-			process_patch(&cross, pi,k,b*sqrt(a));
+		
+		for(m=0;m<npolarizations;m++){
+			b=polarizations[m].patch_CutOff[pi];
+			/* process polarization */
+			if(!do_CutOff || (b*a*AM_response(k, patch_grid, pi, polarizations[m].AM_coeffs)<4))
+				process_patch(&(polarizations[m]), pi,k,b*sqrt(a));
+			}
 		}
+		
 	/* compute means */
 	if(lines_list[0]<0)compute_mean_no_lines(pi);
 		else compute_mean(pi);
 	/* compute upper limits */
-	make_limits(&plus, pi);
-	make_limits(&cross, pi);
+	for(i=0;i<npolarizations;i++){
+		make_limits(&(polarizations[i]), pi);
+		}
 
 	if(! (pi % 100))fprintf(stderr,"%ld ",pi);
 	}
@@ -919,8 +732,8 @@ fflush(LOG);
 fprintf(stderr,"\nMaximum bin shift is %ld\n", max_shift);
 fprintf(stderr,"Minimum bin shift is %ld\n", min_shift);
 
-output_limits(&plus);
-output_limits(&cross);
-
+for(i=0;i<npolarizations;i++){
+	output_limits(&(polarizations[i]));
+	}
 }
 

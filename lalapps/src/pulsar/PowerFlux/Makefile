@@ -1,5 +1,5 @@
 PACKAGE=\"powerflux\"
-VERSION=\"0.9.2\"
+VERSION=\"0.10.0\"
 LALROOT=./../../../../
 LALINCLUDE=-I$(LALROOT)/include/
 LALLDFLAGS=-L$(LALROOT)/lib -L$(LALROOT)/support-lib -llalsupport -llal -lm
@@ -12,16 +12,17 @@ CFLAGS=-Wall -g $(OPTFLAGS) -DPACKAGE=$(PACKAGE) -DVERSION=$(VERSION) \
 	$(LALINCLUDE)
 CC=gcc $(CFLAGS)
 
-OBJS=cmdline.o rastermagic.o hookup.o fine_grid.o lines.o grid.o powerflux.o  png.o
+OBJS=cmdline.o rastermagic.o hookup.o fine_grid.o lines.o grid.o powerflux.o  \
+	png.o polarization.o
 
 # 199.75 hz
-#BAND=359650
+BAND=359650
 # 200 hz
 #BAND=360000
 # 352 hz
 #BAND=633600
 # 650 Hz
-BAND=1170000
+#BAND=1170000
 # 650.25 hz
 #BAND=1170450
 
@@ -57,7 +58,7 @@ test2: test_rm
 	./test_rm
 
 test3: powerflux
-	time ./powerflux -i /home/volodya/LIGO/S2/S2.L1.op/power.L1. -f $(BAND) -n 501 \
+	time ./powerflux --input-format=Power -i /home/volodya/LIGO/S2/S2.L1.op/power.L1. -f $(BAND) -n 501 \
 		--detresponse-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
 		--detector=LLO --three-bins=0 --do-cutoff=0
 

@@ -54,6 +54,7 @@ struct gengetopt_args_info
   double fake_spindown_arg;	/* spindown of fake signal to inject (default='0.0').  */
   double fake_strain_arg;	/* amplitude of fake signal to inject (default='1e-23').  */
   double fake_freq_arg;	/* frequency of fake signal to inject.  */
+  int npolarizations_arg;	/* number of linear polarizations to profile, distributed uniformly between plus and cross (default='3').  */
 
   int help_given ;	/* Whether help was given.  */
   int version_given ;	/* Whether version was given.  */
@@ -87,6 +88,7 @@ struct gengetopt_args_info
   int fake_spindown_given ;	/* Whether fake-spindown was given.  */
   int fake_strain_given ;	/* Whether fake-strain was given.  */
   int fake_freq_given ;	/* Whether fake-freq was given.  */
+  int npolarizations_given ;	/* Whether npolarizations was given.  */
 
 } ;
 

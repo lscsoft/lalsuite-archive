@@ -13,6 +13,10 @@
 #include "fine_grid.h"
 #include "lines.h"
 #include "grid.h"
+#include "polarization.h"
+
+extern int npolarizations;
+extern POLARIZATION *polarizations;
 
 FILE *LOG=NULL, *FILE_LOG=NULL;
 time_t start_time, end_time;
@@ -31,7 +35,6 @@ float TMedian,expTMedian;
 float *tm=NULL;
 double *mean=NULL,*weighted_mean=NULL,*weight=NULL,*sigma=NULL,*freq_d=NULL,*hours_d=NULL;
 
-float *patch_CutOff_plus=NULL, *patch_CutOff_cross=NULL;
 int do_CutOff=1;
 
 struct gengetopt_args_info args_info;
@@ -47,6 +50,7 @@ SKY_SUPERGRID *super_grid=NULL;
 SKY_GRID *patch_grid=NULL;
 
 SKY_GRID_TYPE *AM_coeffs_plus=NULL,*AM_coeffs_cross=NULL;
+long AM_coeffs_size=0;
 
 char *output_dir;
 
@@ -278,7 +282,7 @@ int main(int argc, char *argv[])
 {
 RGBPic *p;
 PLOT *plot;
-long i,j,count;
+long i,j,m,count;
 float CutOff,b;
 double a,w;
 char s[20000];
@@ -678,7 +682,9 @@ if(args_info.no_demodulation_arg){
 	exit(0);	
 	}
 
-get_whole_sky_AM_response(gps, nsegments, &AM_coeffs_plus, &AM_coeffs_cross);
+get_whole_sky_AM_response(gps, nsegments, &AM_coeffs_plus, &AM_coeffs_cross, &AM_coeffs_size);
+
+init_polarizations();
 
 #if 0 /* verify patch grid */
 {
@@ -725,23 +731,20 @@ RGBPic_dump_png("patch_cross_gps0.png", p);
 
 fprintf(stderr,"Computing cutoff values\n");
 /* compute CutOff values for each patch */
-patch_CutOff_plus=do_alloc(patch_grid->npoints,sizeof(*patch_CutOff_plus));
-patch_CutOff_cross=do_alloc(patch_grid->npoints,sizeof(*patch_CutOff_cross));
 
 for(i=0;i<patch_grid->npoints;i++){
-	for(j=0;j<nsegments;j++)tm[j]=1.0/(sqrt(expTMedians[j])*AM_response(j, patch_grid, i, AM_coeffs_plus));
-	patch_CutOff_plus[i]=FindCutOff(tm);
-
-	for(j=0;j<nsegments;j++)tm[j]=1.0/(sqrt(expTMedians[j])*AM_response(j, patch_grid, i, AM_coeffs_cross));
-	patch_CutOff_cross[i]=FindCutOff(tm);
+	for(m=0;m<npolarizations;m++){
+		for(j=0;j<nsegments;j++)tm[j]=1.0/(sqrt(expTMedians[j])*AM_response(j, patch_grid, i, polarizations[m].AM_coeffs));
+		polarizations[m].patch_CutOff[i]=FindCutOff(tm);
+		}
 	}
 
-plot_grid_f(p, patch_grid, patch_CutOff_plus,1);
-RGBPic_dump_png("patch_CutOff_plus.png", p);
-
-plot_grid_f(p, patch_grid, patch_CutOff_cross,1);
-RGBPic_dump_png("patch_CutOff_cross.png", p);
-
+for(m=0;m<npolarizations;m++){
+	plot_grid_f(p, patch_grid, polarizations[m].patch_CutOff,1);
+	snprintf(s,20000,"patch_CutOff_%s.png",polarizations[m].name);
+	RGBPic_dump_png(s, p);
+	}
+	
 #if 0
 /* free patch modulations data - it can be quite large, esp for S3 */
 free(patch_plus);

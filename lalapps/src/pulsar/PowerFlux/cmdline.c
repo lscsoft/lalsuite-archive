@@ -70,6 +70,7 @@ cmdline_parser_print_help (void)
   printf("      --fake-spindown=DOUBLE       spindown of fake signal to inject  (default=\n                                     `0.0')\n");
   printf("      --fake-strain=DOUBLE         amplitude of fake signal to inject  \n                                     (default=`1e-23')\n");
   printf("      --fake-freq=DOUBLE           frequency of fake signal to inject\n");
+  printf("      --npolarizations=INT         number of linear polarizations to profile, \n                                     distributed uniformly between plus and \n                                     cross  (default=`3')\n");
 }
 
 
@@ -125,6 +126,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->fake_spindown_given = 0 ;
   args_info->fake_strain_given = 0 ;
   args_info->fake_freq_given = 0 ;
+  args_info->npolarizations_given = 0 ;
 #define clear_args() { \
   args_info->config_arg = NULL; \
   args_info->sky_grid_arg = gengetopt_strdup("sin_theta") ;\
@@ -153,6 +155,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->fake_orientation_arg = 0.0 ;\
   args_info->fake_spindown_arg = 0.0 ;\
   args_info->fake_strain_arg = 1e-23 ;\
+  args_info->npolarizations_arg = 3 ;\
 }
 
   clear_args();
@@ -200,6 +203,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
         { "fake-spindown",	1, NULL, 0 },
         { "fake-strain",	1, NULL, 0 },
         { "fake-freq",	1, NULL, 0 },
+        { "npolarizations",	1, NULL, 0 },
         { NULL,	0, NULL, 0 }
       };
 
@@ -627,6 +631,20 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
               }
             args_info->fake_freq_given = 1;
             args_info->fake_freq_arg = strtod (optarg, NULL);
+            break;
+          }
+          
+          /* number of linear polarizations to profile, distributed uniformly between plus and cross.  */
+          else if (strcmp (long_options[option_index].name, "npolarizations") == 0)
+          {
+            if (args_info->npolarizations_given)
+              {
+                fprintf (stderr, "%s: `--npolarizations' option given more than once\n", CMDLINE_PARSER_PACKAGE);
+                clear_args ();
+                exit (EXIT_FAILURE);
+              }
+            args_info->npolarizations_given = 1;
+            args_info->npolarizations_arg = strtol (optarg,&stop_char,0);
             break;
           }
           
@@ -1268,6 +1286,24 @@ cmdline_parser_configfile (char * const filename, struct gengetopt_args_info *ar
                   if (fnum == 2)
                     {
                       args_info->fake_freq_arg = strtod (farg, NULL);
+                    }
+                  else
+                    {
+                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
+                               filename, line_num);
+                      exit (EXIT_FAILURE);
+                    }
+                }
+              continue;
+            }
+          if (!strcmp(fopt, "npolarizations"))
+            {
+              if (override || !args_info->npolarizations_given)
+                {
+                  args_info->npolarizations_given = 1;
+                  if (fnum == 2)
+                    {
+                      args_info->npolarizations_arg = strtol (farg,&stop_char,0);
                     }
                   else
                     {

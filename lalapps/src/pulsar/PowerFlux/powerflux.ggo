@@ -40,4 +40,4 @@ option "fake-spindown"	- "spindown of fake signal to inject" double default="0.0
 option "fake-strain"	- "amplitude of fake signal to inject" double default="1e-23" no
 option "fake-freq"	- "frequency of fake signal to inject" double no
 
-
+option "npolarizations" - "number of linear polarizations to profile, distributed uniformly between plus and cross" int default="3" no

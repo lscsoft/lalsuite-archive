@@ -25,6 +25,6 @@ void get_AM_response(INT64 gps, float latitude, float longitude,
 	float *plus, float *cross);
 void get_detector_vel(INT64 gps, float *velocity);
 /* there are count*GRID_FIT_COUNT coefficients */
-void get_whole_sky_AM_response(INT64 *gps, long count, float **coeffs_plus, float **coeffs_cross);
+void get_whole_sky_AM_response(INT64 *gps, long count, float **coeffs_plus, float **coeffs_cross, long *size);
 
 #endif

@@ -568,7 +568,7 @@ for(i=0;i<3;i++)velocity[i]=det_velocity[i];
 }
 
 /* there are count*GRID_FIT_COUNT coefficients */
-void get_whole_sky_AM_response(INT64 *gps, long count, float **coeffs_plus, float **coeffs_cross)
+void get_whole_sky_AM_response(INT64 *gps, long count, float **coeffs_plus, float **coeffs_cross, long *size)
 {
 long i, j, k;
 SKY_GRID *sample_grid=NULL;
@@ -581,8 +581,9 @@ double chisq;
 
 fprintf(stderr,"Computing whole sky AM response\n");
 fprintf(LOG, "AM coeffs size: %f MB\n", 2*count*GRID_FIT_COUNT*sizeof(*coeffs_plus)/(1024.0*1024.0));
-*coeffs_plus=do_alloc(count*GRID_FIT_COUNT,sizeof(**coeffs_plus));
-*coeffs_cross=do_alloc(count*GRID_FIT_COUNT,sizeof(**coeffs_cross));
+*size=count*GRID_FIT_COUNT;
+*coeffs_plus=do_alloc(*size, sizeof(**coeffs_plus));
+*coeffs_cross=do_alloc(*size, sizeof(**coeffs_cross));
 
 sample_grid=make_rect_grid(8,5);
 

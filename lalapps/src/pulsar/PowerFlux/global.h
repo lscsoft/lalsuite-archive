@@ -1,8 +1,19 @@
 #ifndef __GLOBAL_H__
 #define __GLOBAL_H__
 
+/* These affect compilation of entire program. 
+   Their are #define's not variables for efficiency */
+
+#define WEIGHTED_SUM
+
+
 
 typedef long long INT64;
+typedef float SUM_TYPE;
+typedef short COUNT_TYPE;
+
+
+
 #define TRACE(a)	{fprintf(stderr,"TRACE(" __FUNCTION__ "):" a); \
 			fprintf(stderr,"\n");}
 
@@ -15,20 +26,6 @@ void *do_alloc(long a, long b);
 	}  }
 
 #include "grid.h"
-
-static float inline AM_response(int segment, SKY_GRID *grid, int point, float *coeff)
-{
-float a;
-int ii;
-a=0.0;
-for(ii=0;ii<GRID_FIT_COUNT;ii++)
-	a+=coeff[segment*GRID_FIT_COUNT+ii]*grid->e[ii+GRID_FIT_START][point];
-#if 0 /* just for testing */
-return a;
-#else
-return (a*a);
-#endif
-}
 
 static float inline sqr_f(float a)
 {
