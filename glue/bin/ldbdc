@@ -12,6 +12,11 @@ class LDBDServerConnection(object):
     match the subject name 'identity'.
 
     A IOException is raised if the connection cannot be made.
+    """
+    self.host = host
+    self.port = port
+    self.identity = identity
+
     try:
       # create TCPIOAttr instance and set authentication mode to be GSSAPI
       clientAttr = io.TCPIOAttr()
@@ -104,6 +109,11 @@ class LDBDServerAction(object):
     msg = "%s\0%s\0%s\0" % (self.action,self.db,self.squery)
     if re.search("insert",self.action):
       inputdata = ''
+      nlines = 0
+      lines = fh.readlines()
+      nlines = len(lines)
+      inputdata = ''.join(lines)
+      if verbose: print "read %d lines from file" % nlines
       msg += "%s\n%s" % (nlines,inputdata)
     else:
       msg += "0\n"
@@ -129,10 +139,11 @@ class LDBDServerAction(object):
 
 def usage():
   msg = """\
-      raise Exception, "server close connection with returning an exit code"
+Usage: ldbdc.py [OPTIONS]
+
   -s, --server HOST:PORT  connect to ldbd on HOST:PORT (default port 49999)
   -j, --identity SUBJECT  the subject of the servers service certififcate
-      raise Exception, errmsg
+  -d, --database NAME     use database NAME
   -i, --insert LIGOLW     insert LIGO lightweight file LIGOLW
   -q, --query QUERY       execute SQL query QUERY
   -o, --output FILE       write output to FILE
@@ -197,8 +208,8 @@ OPTIONS
 
 DIAGNOSTICS
         An exit status of 0 means that the no errors ocourred,  1
-        means that the insert failed, and 2 means  the  execution 
-        of the SQL query failed.
+        means that there  was an  error  communicating  with  the
+        server and 2 means that the server returned an error.
 
 EXAMPLES
        ldbdc --server metaserver.phys.uwm.edu  --database uwm_dev
