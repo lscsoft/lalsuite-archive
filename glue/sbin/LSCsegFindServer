@@ -504,7 +504,7 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
       c = db.cursor()
       c.execute(sql)
       res = c.fetchall()
-      result = [ x[0] for x in res ]
+      result = '\n'.join([ x[0] for x in res ])
       c.close()
       
       logger.debug("Method distinctAttribute: %d results found" % 

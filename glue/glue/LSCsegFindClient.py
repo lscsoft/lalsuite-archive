@@ -33,7 +33,7 @@ class LSCsegFindClientException(exceptions.Exception):
 
     @param args: 
 
-    @return: Instance of class LDRdataFindClientException
+    @return: Instance of class LSCsegFindClientException
     """
     self.args = args
 
@@ -81,7 +81,7 @@ class LSCsegFindClient(object):
 
   def __del__(self):
     """
-    Disconnect from the LDRdataFindServer.
+    Disconnect from the LSCsegFindServer.
 
     @return: None
     """
@@ -98,10 +98,10 @@ class LSCsegFindClient(object):
     but this is caught by the __init__ method above and 
     turned into a LSCdataFindClient exception.
         
-    @param host: the host on which the LDRdataFindServer runs
+    @param host: the host on which the LSCsegFindServer runs
     @type host: string
 
-    @param port: port on which the LDRdataFindServer listens
+    @param port: port on which the LSCsegFindServer listens
     @type port: integer
 
     @return: None
@@ -176,7 +176,6 @@ class LSCsegFindClient(object):
       if input == "": break
       response += input
     
-
     # the response from the server must always end in a null byte
     if response[-1] != '\0':
       msg = "Bad format for response from server"
@@ -250,6 +249,6 @@ class LSCsegFindClient(object):
     if ret:
       msg = "Error querying LSCsegFindServer for distinct values of attributes: %s"\
         % str(output)
-      raise LDRdataFindClientException, msg
+      raise LSCsegFindClientException, msg
 
     return output
