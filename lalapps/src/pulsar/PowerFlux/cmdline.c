@@ -66,6 +66,7 @@ cmdline_parser_print_help (void)
   printf("      --do-cutoff=INT              neglect contribution from SFT with high \n                                     effective noise level  (default=`1')\n");
   printf("      --filter-lines=INT           perform detection of lines in background \n                                     noise and veto corresponding frequency \n                                     bins  (default=`1')\n");
   printf("      --nbands=INT                 split sky in this many bands for logging \n                                     maximum upper limits  (default=`9')\n");
+  printf("      --band-axis=STRING           which band axis to use for splitting sky \n                                     into bands (perpendicular to band axis) \n                                     (possible values: equatorial, auto, \n                                     explicit(float,float,float)  (default=\n                                     `auto')\n");
   printf("      --resolution-ratio=DOUBLE    ratio that determines the coarsness of the \n                                     grid  (default=`1.0')\n");
   printf("      --small-weight-ratio=DOUBLE  ratio that determines which weight is too \n                                     small to include in max statistics  \n                                     (default=`0.2')\n");
   printf("      --fake-ra=DOUBLE             RA of fake signal to inject  (default=\n                                     `3.14')\n");
@@ -132,6 +133,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->do_cutoff_given = 0 ;
   args_info->filter_lines_given = 0 ;
   args_info->nbands_given = 0 ;
+  args_info->band_axis_given = 0 ;
   args_info->resolution_ratio_given = 0 ;
   args_info->small_weight_ratio_given = 0 ;
   args_info->fake_ra_given = 0 ;
@@ -172,6 +174,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->do_cutoff_arg = 1 ;\
   args_info->filter_lines_arg = 1 ;\
   args_info->nbands_arg = 9 ;\
+  args_info->band_axis_arg = gengetopt_strdup("auto") ;\
   args_info->resolution_ratio_arg = 1.0 ;\
   args_info->small_weight_ratio_arg = 0.2 ;\
   args_info->fake_ra_arg = 3.14 ;\
@@ -226,6 +229,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
         { "do-cutoff",	1, NULL, 0 },
         { "filter-lines",	1, NULL, 0 },
         { "nbands",	1, NULL, 0 },
+        { "band-axis",	1, NULL, 0 },
         { "resolution-ratio",	1, NULL, 0 },
         { "small-weight-ratio",	1, NULL, 0 },
         { "fake-ra",	1, NULL, 0 },
@@ -614,6 +618,22 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
               }
             args_info->nbands_given = 1;
             args_info->nbands_arg = strtol (optarg,&stop_char,0);
+            break;
+          }
+          
+          /* which band axis to use for splitting sky into bands (perpendicular to band axis) (possible values: equatorial, auto, explicit(float,float,float).  */
+          else if (strcmp (long_options[option_index].name, "band-axis") == 0)
+          {
+            if (args_info->band_axis_given)
+              {
+                fprintf (stderr, "%s: `--band-axis' option given more than once\n", CMDLINE_PARSER_PACKAGE);
+                clear_args ();
+                exit (EXIT_FAILURE);
+              }
+            args_info->band_axis_given = 1;
+            if (args_info->band_axis_arg)
+              free (args_info->band_axis_arg); /* free default string */
+            args_info->band_axis_arg = gengetopt_strdup (optarg);
             break;
           }
           
@@ -1401,6 +1421,26 @@ cmdline_parser_configfile (char * const filename, struct gengetopt_args_info *ar
                   if (fnum == 2)
                     {
                       args_info->nbands_arg = strtol (farg,&stop_char,0);
+                    }
+                  else
+                    {
+                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
+                               filename, line_num);
+                      exit (EXIT_FAILURE);
+                    }
+                }
+              continue;
+            }
+          if (!strcmp(fopt, "band-axis"))
+            {
+              if (override || !args_info->band_axis_given)
+                {
+                  args_info->band_axis_given = 1;
+                  if (fnum == 2)
+                    {
+                      if (args_info->band_axis_arg)
+                        free (args_info->band_axis_arg); /* free default string */
+                      args_info->band_axis_arg = gengetopt_strdup (farg);
                     }
                   else
                     {

@@ -5,6 +5,8 @@
 #include <time.h>
 #include <string.h>
 #include <gsl/gsl_rng.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include "global.h"
 #include "hookup.h"
@@ -540,7 +542,39 @@ if(a<=0.0){
 	band_axis[2]/=a;
 	}
 
-fprintf(LOG,"band axis: %g %g %g\n", 
+fprintf(LOG,"auto band axis: %g %g %g\n", 
+	band_axis[0],
+	band_axis[1],
+	band_axis[2]);
+fprintf(stderr,"auto band axis: %g %g %g\n", 
+	band_axis[0],
+	band_axis[1],
+	band_axis[2]);
+
+fprintf(LOG, "band_axis: %s\n", args_info.band_axis_arg);
+fprintf(stderr, "band_axis: %s\n", args_info.band_axis_arg);
+if(!strcasecmp(args_info.band_axis_arg, "equatorial")){
+	band_axis[0]=0.0;
+	band_axis[1]=0.0;
+	band_axis[2]=1.0;	
+	} else
+if(!strncasecmp(args_info.band_axis_arg, "explicit", 8)){
+	int q;
+	q=sscanf(args_info.band_axis_arg+8, "(%lf,%lf,%lf)", 
+		&(band_axis[0]),
+		&(band_axis[1]),
+		&(band_axis[2]));
+	if(q!=3){
+		fprintf(stderr,"Warning ! not all explicit band axis values were assigned. Format error ?\n");
+		fprintf(LOG,"Warning ! not all explicit band axis values were assigned. Format error ?\n");
+		}
+	}
+	
+fprintf(LOG,"actual band axis: %g %g %g\n", 
+	band_axis[0],
+	band_axis[1],
+	band_axis[2]);
+fprintf(stderr,"actual band axis: %g %g %g\n", 
 	band_axis[0],
 	band_axis[1],
 	band_axis[2]);

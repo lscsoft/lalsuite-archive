@@ -33,6 +33,7 @@ option "three-bins"	- "average 3 neighbouring bins to broaden Doppler curves" in
 option "do-cutoff"      - "neglect contribution from SFT with high effective noise level" int default="1" no
 option "filter-lines"   - "perform detection of lines in background noise and veto corresponding frequency bins" int default="1" no
 option "nbands"		- "split sky in this many bands for logging maximum upper limits" int default="9" no
+option "band-axis"	- "which band axis to use for splitting sky into bands (perpendicular to band axis) (possible values: equatorial, auto, explicit(float,float,float)" string default="auto" no
 
 option "resolution-ratio" - "ratio that determines the coarsness of the grid" double default="1.0" no
 option "small-weight-ratio" - "ratio that determines which weight is too small to include in max statistics" double default="0.2" no

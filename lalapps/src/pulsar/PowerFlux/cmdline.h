@@ -50,6 +50,7 @@ struct gengetopt_args_info
   int do_cutoff_arg;	/* neglect contribution from SFT with high effective noise level (default='1').  */
   int filter_lines_arg;	/* perform detection of lines in background noise and veto corresponding frequency bins (default='1').  */
   int nbands_arg;	/* split sky in this many bands for logging maximum upper limits (default='9').  */
+  char * band_axis_arg;	/* which band axis to use for splitting sky into bands (perpendicular to band axis) (possible values: equatorial, auto, explicit(float,float,float) (default='auto').  */
   double resolution_ratio_arg;	/* ratio that determines the coarsness of the grid (default='1.0').  */
   double small_weight_ratio_arg;	/* ratio that determines which weight is too small to include in max statistics (default='0.2').  */
   double fake_ra_arg;	/* RA of fake signal to inject (default='3.14').  */
@@ -94,6 +95,7 @@ struct gengetopt_args_info
   int do_cutoff_given ;	/* Whether do-cutoff was given.  */
   int filter_lines_given ;	/* Whether filter-lines was given.  */
   int nbands_given ;	/* Whether nbands was given.  */
+  int band_axis_given ;	/* Whether band-axis was given.  */
   int resolution_ratio_given ;	/* Whether resolution-ratio was given.  */
   int small_weight_ratio_given ;	/* Whether small-weight-ratio was given.  */
   int fake_ra_given ;	/* Whether fake-ra was given.  */
