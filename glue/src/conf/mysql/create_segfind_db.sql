@@ -51,7 +51,7 @@ create table frame_file (
 -- Insertion time (automatically assigned by the database)
     insertion_time timestamp default null,
 
-    primary key( frame_file_id )
+    primary key( frame_file_id, lfn )
   ) type=myISAM;
 
 create table state_vec (
