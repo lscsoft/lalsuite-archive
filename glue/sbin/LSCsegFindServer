@@ -488,32 +488,35 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
     # assume failure
     code = 1
 
-    try:
-      attribute = arg[0]
+   # try:
+    attribute = arg[0]
 
-      sql = "SELECT DISTINCT "
-      if attribute == "interferometer":
-        sql += "ifo FROM state_segment"
-      elif attribute == "state":
-        sql += "state FROM state_vec"
-      else:
-        raise LSCsegFindServerHandlerException, \
-          "Unknown select distinct method " + attribute
+    sql = "SELECT DISTINCT "
+    if attribute == "interferometer":
+      sql += "ifo FROM state_segment"
+    elif attribute == "state":
+      sql += "state FROM state_vec"
+    else:
+      raise LSCsegFindServerHandlerException, \
+        "Unknown select distinct method " + attribute
 
-      db = MySQLdb(user=dbuser,passwd=dbpasswd,db=dbname)
-      c = db.cursor()
-      c.execute(sql)
-      result = c.fetchall()
+    print >>sys.stderr, sql
+
+    db = MySQLdb(user=dbuser,passwd=dbpasswd,db=dbname)
+    c = db.cursor()
+    c.execute(sql)
+    result = c.fetchall()
+    c.delete()
       
-      print >>sys.stderr, result
+    print >>sys.stderr, str(result)
 
-      logger.debug("Method distinctAttribute: %d results found" % 
-        len(result))
-      code = 0
-    except Exception, e:
-      result = "Error querying metadata for distinct values of attribute " + \
-        "%s: %s" % (arg[0], e)
-      logger.error(result)
+    logger.debug("Method distinctAttribute: %d results found" % 
+      len(result))
+    code = 0
+   # except Exception, e:
+   #   result = "Error querying metadata for distinct values of attribute " + \
+   #     "%s: %s" % (arg[0], e)
+   #   logger.error(result)
 
     try:
       db.close()
