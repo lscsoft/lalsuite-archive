@@ -23,7 +23,7 @@ except:
     return _tss
   def destroy_thread_storage():
     del _tss
-import from mx.ODBC.DB2 import SQL
+else:
   _tss = {}
   _tss_lock = thread.allocate_lock()
   def get_thread_storage():
