@@ -528,6 +528,21 @@ band_axis[0]=orbital_axis[1]*average_det_velocity[2]-orbital_axis[2]*average_det
 band_axis[1]=orbital_axis[2]*average_det_velocity[0]-orbital_axis[0]*average_det_velocity[2];
 band_axis[2]=orbital_axis[0]*average_det_velocity[1]-orbital_axis[1]*average_det_velocity[0];
 
+/* Normalize */
+a=sqrt(band_axis[0]*band_axis[0]+
+	band_axis[1]*band_axis[1]+
+	band_axis[2]*band_axis[2]);
+/* replace 0.0 with something more reasonable later */
+if(a<=0.0){
+	band_axis[0]=0.0;
+	band_axis[1]=0.0;
+	band_axis[2]=1.0;
+	} else {
+	band_axis[0]/=a;
+	band_axis[1]/=a;
+	band_axis[2]/=a;
+	}
+
 fprintf(LOG,"band axis: %g %g %g\n", 
 	band_axis[0],
 	band_axis[1],
