@@ -503,6 +503,7 @@ class CondorDAGNode:
     Write the parent/child relations for this job to the DAG file descriptor.
     @param fh: descriptor of open DAG file.
     """
+    print "parents"
     for parent in self.__parents:
       fh.write( 'PARENT ' + parent + ' CHILD ' + str(self) + '\n' )
 
@@ -630,21 +631,34 @@ class CondorDAG:
   NOTE: The log file must not be on an NFS mounted system as the Condor jobs
   must be able to get an exclusive file lock on the log file.
   """
-  def __init__(self,log):
+  def __init__(self,log,dax):
     """
     @param log: path to log file which must not be on an NFS mounted file system.
+    @param dax: Set to 1 to create an abstract DAG (a DAX)
     """
     self.__log_file_path = log
+    self.__is_dax = dax
     self.__dag_file_path = None
     self.__jobs = []
     self.__nodes = []
+    # now check if grid proxy is working
+    os.system('grid-proxy-info > grid.info')
+    f=open('grid.info', 'r')
+    lines=f.readlines()
+    timeLeft=lines[6][11:12]
+    if int(timeLeft)==0:
+      sys.exit('ERROR: Validty of proxy grid less one hour! Renew it!')
+    
 
   def set_dag_file(self, path):
     """
     Set the name of the file into which the DAG is written.
     @param path: path to DAG file.
     """
-    self.__dag_file_path = path
+    if self.__is_dax:
+      self.__dag_file_path=path+'.dax'
+    else:
+      self.__dag_file_path = path+'.dag'
 
   def get_dag_file(self):
     """
@@ -669,6 +683,7 @@ class CondorDAG:
     self.__nodes.append(node)
     if node.job() not in self.__jobs:
       self.__jobs.append(node.job())
+    print len(self.__nodes)
 
   def write_sub_files(self):
     """
@@ -688,6 +703,7 @@ class CondorDAG:
       dagfile = open( self.__dag_file_path, 'w' )
     except:
       raise CondorDAGError, "Cannot open file " + self.__dag_file_path
+    print len(self.__nodes)
     for node in self.__nodes:
       node.write_job(dagfile)
       node.write_vars(dagfile)
@@ -721,11 +737,13 @@ class CondorDAG:
     print >>dagfile, preamble
 
     # find unique input and output files from nodes
-    input_file_dict = {}
+    input_file_dict = []
     output_file_dict = {}
  
     for node in self.__nodes:
       input_files = node.get_input_files()
+      print input_files
+      
       output_files = node.get_output_files()
       for f in input_files:
          input_file_dict[f] = 1
@@ -992,6 +1010,18 @@ class AnalysisNode(CondorDAGNode):
     """
     self.add_var_opt('frame-cache', file)
     self.add_input_file(file)
+
+  def set_frame_data(self, input):
+    """
+    Set the information for the frame data. Either DAX or DAG
+    this is a frame cache or ???
+    """
+    if input is tuple:
+      for file in input:
+        self.add_input_files(file)
+        self.glob_framedata()
+    else:
+      self.set_cache(input)
 
   def calibration_cache_path(self):
     """
@@ -1746,7 +1776,7 @@ class LSCDataFindJob(CondorDAGJob, AnalysisJob):
   is directed to the logs directory. The job always runs in the scheduler
   universe. The path to the executable is determined from the ini file.
   """
-  def __init__(self,cache_dir,log_dir,config_file):
+  def __init__(self,cache_dir,log_dir, configParser, dax):
     """
     @param cache_dir: the directory to write the output lal cache files to.
     @param log_dir: the directory to write the stderr file to.
@@ -1754,14 +1784,16 @@ class LSCDataFindJob(CondorDAGJob, AnalysisJob):
     executable in the [condor] section and a [datafind] section from which
     the LSCdataFind options are read.
     """
-    self.__executable = config_file.get('condor','datafind')
-    self.__universe = 'scheduler'
+    self.__executable = configParser.get('condor','datafind')
+    self.__universe = 'scheduler'    
     CondorDAGJob.__init__(self,self.__universe,self.__executable)
-    AnalysisJob.__init__(self,config_file)
+    AnalysisJob.__init__(self,configParser)
     self.__cache_dir = cache_dir
+    self.__cp = configParser
+    self.__is_dax=dax
 
     for sec in ['datafind']:
-      self.add_ini_opts(config_file,sec)
+      self.add_ini_opts(configParser,sec)
     
     # we need a lal cache for files on the localhost
     self.add_opt('match','localhost')
@@ -1781,6 +1813,20 @@ class LSCDataFindJob(CondorDAGJob, AnalysisJob):
     """
     return self.__cache_dir
 
+  def get_dax(self):
+    """
+    returns the dax flag
+    """
+    return self.__is_dax
+
+  def get_configParser(self):
+    """
+    returns the config file parser
+    """
+    return self.__cp
+
+  
+
 
 class LSCDataFindNode(CondorDAGNode, AnalysisNode):
   """
@@ -1797,6 +1843,9 @@ class LSCDataFindNode(CondorDAGNode, AnalysisNode):
     self.__observatory = None
     self.__output = None
     self.__job = job
+    self.__cp=job.get_configParser()
+    self.__is_dax=job.get_dax()
+    self.__frames=[]  # no frames looked for (to avoid double work)
    
   def __set_output(self):
     """
@@ -1841,7 +1890,30 @@ class LSCDataFindNode(CondorDAGNode, AnalysisNode):
   def get_output(self):
     """
     Return the output file, i.e. the file containing the frame cache data.
+    or the files itself as tuple (for DAX)
     """
-    return self.__output
+
+    if self.__is_dax:
+      if self.__frames:
+
+        # do LSC data Find
+        return self.__frames;
+      else:
+        type=self.__cp.get('datafind','type')
+        server=self.__cp.get('datafind','server')
+        cmd='LSCdataFind --server='+server+' --observatory='+self.__observatory +' --type='+type+' --gps-start-time='+repr(self.__start)+' --gps-end-time='+repr(self.__end)+' --url-type=file --match=localhost > data.list'
+        print cmd
+        os.system(cmd)
+
+        # data IO required
+        f=open('data.list', 'r')
+        lines=f.readlines()
+        for line in lines:
+          print 'line: '+line
+          self.__frames.append(line)
+
+        return self.__frames;
+    else:
+      return self.__output
 
 
