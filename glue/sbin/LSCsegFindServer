@@ -144,7 +144,7 @@ except getopt.GetoptError:
 for o, a in opts:
   if o in ("-d", "--daemon"):
     runAsDaemon = True
-  if o in ("-C", "--configuration"):
+  if o in ("-c", "--config-file"):
     configFilePath = a
 
 try:
