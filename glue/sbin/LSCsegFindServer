@@ -335,12 +335,10 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
     try:
       hostname = socket.getfqdn()
       msg = "LSCsegFindServer at %s is alive" % hostname
-      code = 0
     except Exception, e:
-      msg = "Error pinging LSCsegFindServer %s : %s" % (hostname, e)
-      code = 1
+      msg = "LSCsegFindServer is alive"
 
-    self.__reply__(code, msg)
+    self.__reply__(0, msg)
 
 
   def distinctAttribute(self, arg):
