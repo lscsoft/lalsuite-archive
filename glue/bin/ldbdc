@@ -43,10 +43,21 @@ class LDBDServerConnection(object):
         sys.stdout = sys.__stdout__
         sys.stderr = sys.__stderr__
         f.close()
+
+    except GlobusException, e:
+      if not verbose:
+        sys.stdout = sys.__stdout__
+        sys.stderr = sys.__stderr__
         f.close()
       print "Error establising GSI connection to %s:%d" % (host,port)
       print e
       sys.exit(1)
+    
+class LDBDServerAction(object):
+  """
+  Does the work making the connection to the server, sending
+  the request and processing the result
+  """
   def __init__(self,host,port,identity,action,db,squery,fh):
     action = specific action to perform (query or insert)
     db = the database to connect to on the server
