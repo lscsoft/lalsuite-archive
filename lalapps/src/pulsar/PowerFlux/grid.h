@@ -3,6 +3,16 @@
 
 typedef float SKY_GRID_TYPE;
 
+SKY_GRID_TYPE spherical_distance(SKY_GRID_TYPE ra0, SKY_GRID_TYPE dec0,
+			  SKY_GRID_TYPE ra1, SKY_GRID_TYPE dec1);
+
+/* this saves a call to acos() and is different
+   from above by a monotonic function
+   It can be used for distance comparisons */
+SKY_GRID_TYPE fast_spherical_distance(SKY_GRID_TYPE ra0, SKY_GRID_TYPE dec0,
+			  SKY_GRID_TYPE ra1, SKY_GRID_TYPE dec1);
+
+
 #define GRID_E_COUNT	26
 #define GRID_FIT_START	2
 #define GRID_FIT_COUNT  24

@@ -35,11 +35,13 @@ option "no-demodulation" - "do not perform demodulation stage, analyze backgroun
 option "no-decomposition" - "do not perform noise decomposition stage, output simple statistics only" int default="0" no
 option "no-am-response"  - "force AM_response() function to return 1.0 irrespective of the arguments" int default="0" no
 
+option "subtract-background" - "subtract rank 1 matrix in order to flatten noise spectrum" int default="0" no
 option "three-bins"	- "average 3 neighbouring bins to broaden Doppler curves" int default="0" no
 option "do-cutoff"      - "neglect contribution from SFT with high effective noise level" int default="1" no
 option "filter-lines"   - "perform detection of lines in background noise and veto corresponding frequency bins" int default="1" no
 option "nbands"		- "split sky in this many bands for logging maximum upper limits" int default="9" no
 option "band-axis"	- "which band axis to use for splitting sky into bands (perpendicular to band axis) (possible values: equatorial, auto, explicit(float,float,float)" string default="auto" no
+option "ks-test"        - "perform Kolmogorov-Smirnov test for normality of averaged powers" int default="0" no
 
 option "fake-ra"	- "RA of fake signal to inject" double default="3.14" no
 option "fake-dec"	- "DEC of fake signal to inject" double default="0.0" no
@@ -50,6 +52,7 @@ option "fake-freq"	- "frequency of fake signal to inject" double no
 
 option "write-dat"      - "regular expression describing which *.dat files to write" string default=".*" no
 option "write-png"      - "regular expression describing which *.png files to write" string default=".*" no
+option "dump-points"	- "output averaged power bins for each point in the sky" int default="0" no
 
 option "focus-ra"	- "focus computation on a circular area with center at this RA" double no
 option "focus-dec"	- "focus computation on a circular area with center at this DEC" double no

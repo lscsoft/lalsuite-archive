@@ -66,11 +66,13 @@ cmdline_parser_print_help (void)
   printf("      --no-demodulation=INT             do not perform demodulation stage, \n                                          analyze background only  (default=\n                                          `0')\n");
   printf("      --no-decomposition=INT            do not perform noise decomposition \n                                          stage, output simple statistics only \n                                           (default=`0')\n");
   printf("      --no-am-response=INT              force AM_response() function to return \n                                          1.0 irrespective of the arguments  \n                                          (default=`0')\n");
+  printf("      --subtract-background=INT         subtract rank 1 matrix in order to \n                                          flatten noise spectrum  (default=\n                                          `0')\n");
   printf("      --three-bins=INT                  average 3 neighbouring bins to broaden \n                                          Doppler curves  (default=`0')\n");
   printf("      --do-cutoff=INT                   neglect contribution from SFT with \n                                          high effective noise level  (default=\n                                          `1')\n");
   printf("      --filter-lines=INT                perform detection of lines in \n                                          background noise and veto \n                                          corresponding frequency bins  \n                                          (default=`1')\n");
   printf("      --nbands=INT                      split sky in this many bands for \n                                          logging maximum upper limits  \n                                          (default=`9')\n");
   printf("      --band-axis=STRING                which band axis to use for splitting \n                                          sky into bands (perpendicular to \n                                          band axis) (possible values: \n                                          equatorial, auto, \n                                          explicit(float,float,float)  \n                                          (default=`auto')\n");
+  printf("      --ks-test=INT                     perform Kolmogorov-Smirnov test for \n                                          normality of averaged powers  \n                                          (default=`0')\n");
   printf("      --fake-ra=DOUBLE                  RA of fake signal to inject  (default=\n                                          `3.14')\n");
   printf("      --fake-dec=DOUBLE                 DEC of fake signal to inject  (default=\n                                          `0.0')\n");
   printf("      --fake-orientation=DOUBLE         orientation of fake signal to inject  \n                                          (default=`0.0')\n");
@@ -79,6 +81,7 @@ cmdline_parser_print_help (void)
   printf("      --fake-freq=DOUBLE                frequency of fake signal to inject\n");
   printf("      --write-dat=STRING                regular expression describing which \n                                          *.dat files to write  (default=`.*')\n");
   printf("      --write-png=STRING                regular expression describing which \n                                          *.png files to write  (default=`.*')\n");
+  printf("      --dump-points=INT                 output averaged power bins for each \n                                          point in the sky  (default=`0')\n");
   printf("      --focus-ra=DOUBLE                 focus computation on a circular area \n                                          with center at this RA\n");
   printf("      --focus-dec=DOUBLE                focus computation on a circular area \n                                          with center at this DEC\n");
   printf("      --focus-radius=DOUBLE             focus computation on a circular area \n                                          with this radius\n");
@@ -134,11 +137,13 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->no_demodulation_given = 0 ;
   args_info->no_decomposition_given = 0 ;
   args_info->no_am_response_given = 0 ;
+  args_info->subtract_background_given = 0 ;
   args_info->three_bins_given = 0 ;
   args_info->do_cutoff_given = 0 ;
   args_info->filter_lines_given = 0 ;
   args_info->nbands_given = 0 ;
   args_info->band_axis_given = 0 ;
+  args_info->ks_test_given = 0 ;
   args_info->fake_ra_given = 0 ;
   args_info->fake_dec_given = 0 ;
   args_info->fake_orientation_given = 0 ;
@@ -147,6 +152,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->fake_freq_given = 0 ;
   args_info->write_dat_given = 0 ;
   args_info->write_png_given = 0 ;
+  args_info->dump_points_given = 0 ;
   args_info->focus_ra_given = 0 ;
   args_info->focus_dec_given = 0 ;
   args_info->focus_radius_given = 0 ;
@@ -175,11 +181,13 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->no_demodulation_arg = 0 ;\
   args_info->no_decomposition_arg = 0 ;\
   args_info->no_am_response_arg = 0 ;\
+  args_info->subtract_background_arg = 0 ;\
   args_info->three_bins_arg = 0 ;\
   args_info->do_cutoff_arg = 1 ;\
   args_info->filter_lines_arg = 1 ;\
   args_info->nbands_arg = 9 ;\
   args_info->band_axis_arg = gengetopt_strdup("auto") ;\
+  args_info->ks_test_arg = 0 ;\
   args_info->fake_ra_arg = 3.14 ;\
   args_info->fake_dec_arg = 0.0 ;\
   args_info->fake_orientation_arg = 0.0 ;\
@@ -187,6 +195,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->fake_strain_arg = 1e-23 ;\
   args_info->write_dat_arg = gengetopt_strdup(".*") ;\
   args_info->write_png_arg = gengetopt_strdup(".*") ;\
+  args_info->dump_points_arg = 0 ;\
 }
 
   clear_args();
@@ -230,11 +239,13 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
         { "no-demodulation",	1, NULL, 0 },
         { "no-decomposition",	1, NULL, 0 },
         { "no-am-response",	1, NULL, 0 },
+        { "subtract-background",	1, NULL, 0 },
         { "three-bins",	1, NULL, 0 },
         { "do-cutoff",	1, NULL, 0 },
         { "filter-lines",	1, NULL, 0 },
         { "nbands",	1, NULL, 0 },
         { "band-axis",	1, NULL, 0 },
+        { "ks-test",	1, NULL, 0 },
         { "fake-ra",	1, NULL, 0 },
         { "fake-dec",	1, NULL, 0 },
         { "fake-orientation",	1, NULL, 0 },
@@ -243,6 +254,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
         { "fake-freq",	1, NULL, 0 },
         { "write-dat",	1, NULL, 0 },
         { "write-png",	1, NULL, 0 },
+        { "dump-points",	1, NULL, 0 },
         { "focus-ra",	1, NULL, 0 },
         { "focus-dec",	1, NULL, 0 },
         { "focus-radius",	1, NULL, 0 },
@@ -623,6 +635,20 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
             break;
           }
           
+          /* subtract rank 1 matrix in order to flatten noise spectrum.  */
+          else if (strcmp (long_options[option_index].name, "subtract-background") == 0)
+          {
+            if (args_info->subtract_background_given)
+              {
+                fprintf (stderr, "%s: `--subtract-background' option given more than once\n", CMDLINE_PARSER_PACKAGE);
+                clear_args ();
+                exit (EXIT_FAILURE);
+              }
+            args_info->subtract_background_given = 1;
+            args_info->subtract_background_arg = strtol (optarg,&stop_char,0);
+            break;
+          }
+          
           /* average 3 neighbouring bins to broaden Doppler curves.  */
           else if (strcmp (long_options[option_index].name, "three-bins") == 0)
           {
@@ -692,6 +718,20 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
             if (args_info->band_axis_arg)
               free (args_info->band_axis_arg); /* free default string */
             args_info->band_axis_arg = gengetopt_strdup (optarg);
+            break;
+          }
+          
+          /* perform Kolmogorov-Smirnov test for normality of averaged powers.  */
+          else if (strcmp (long_options[option_index].name, "ks-test") == 0)
+          {
+            if (args_info->ks_test_given)
+              {
+                fprintf (stderr, "%s: `--ks-test' option given more than once\n", CMDLINE_PARSER_PACKAGE);
+                clear_args ();
+                exit (EXIT_FAILURE);
+              }
+            args_info->ks_test_given = 1;
+            args_info->ks_test_arg = strtol (optarg,&stop_char,0);
             break;
           }
           
@@ -808,6 +848,20 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
             if (args_info->write_png_arg)
               free (args_info->write_png_arg); /* free default string */
             args_info->write_png_arg = gengetopt_strdup (optarg);
+            break;
+          }
+          
+          /* output averaged power bins for each point in the sky.  */
+          else if (strcmp (long_options[option_index].name, "dump-points") == 0)
+          {
+            if (args_info->dump_points_given)
+              {
+                fprintf (stderr, "%s: `--dump-points' option given more than once\n", CMDLINE_PARSER_PACKAGE);
+                clear_args ();
+                exit (EXIT_FAILURE);
+              }
+            args_info->dump_points_given = 1;
+            args_info->dump_points_arg = strtol (optarg,&stop_char,0);
             break;
           }
           
@@ -1445,6 +1499,24 @@ cmdline_parser_configfile (char * const filename, struct gengetopt_args_info *ar
                 }
               continue;
             }
+          if (!strcmp(fopt, "subtract-background"))
+            {
+              if (override || !args_info->subtract_background_given)
+                {
+                  args_info->subtract_background_given = 1;
+                  if (fnum == 2)
+                    {
+                      args_info->subtract_background_arg = strtol (farg,&stop_char,0);
+                    }
+                  else
+                    {
+                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
+                               filename, line_num);
+                      exit (EXIT_FAILURE);
+                    }
+                }
+              continue;
+            }
           if (!strcmp(fopt, "three-bins"))
             {
               if (override || !args_info->three_bins_given)
@@ -1527,6 +1599,24 @@ cmdline_parser_configfile (char * const filename, struct gengetopt_args_info *ar
                       if (args_info->band_axis_arg)
                         free (args_info->band_axis_arg); /* free default string */
                       args_info->band_axis_arg = gengetopt_strdup (farg);
+                    }
+                  else
+                    {
+                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
+                               filename, line_num);
+                      exit (EXIT_FAILURE);
+                    }
+                }
+              continue;
+            }
+          if (!strcmp(fopt, "ks-test"))
+            {
+              if (override || !args_info->ks_test_given)
+                {
+                  args_info->ks_test_given = 1;
+                  if (fnum == 2)
+                    {
+                      args_info->ks_test_arg = strtol (farg,&stop_char,0);
                     }
                   else
                     {
@@ -1675,6 +1765,24 @@ cmdline_parser_configfile (char * const filename, struct gengetopt_args_info *ar
                       if (args_info->write_png_arg)
                         free (args_info->write_png_arg); /* free default string */
                       args_info->write_png_arg = gengetopt_strdup (farg);
+                    }
+                  else
+                    {
+                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
+                               filename, line_num);
+                      exit (EXIT_FAILURE);
+                    }
+                }
+              continue;
+            }
+          if (!strcmp(fopt, "dump-points"))
+            {
+              if (override || !args_info->dump_points_given)
+                {
+                  args_info->dump_points_given = 1;
+                  if (fnum == 2)
+                    {
+                      args_info->dump_points_arg = strtol (farg,&stop_char,0);
                     }
                   else
                     {

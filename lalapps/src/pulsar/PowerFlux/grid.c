@@ -8,6 +8,22 @@
 extern FILE *LOG;
 extern double band_axis[3];
 
+SKY_GRID_TYPE spherical_distance(SKY_GRID_TYPE ra0, SKY_GRID_TYPE dec0,
+			  SKY_GRID_TYPE ra1, SKY_GRID_TYPE dec1)
+{
+SKY_GRID_TYPE ds;
+ds=acos(sin(dec0)*sin(dec1)+cos(dec0)*cos(dec1)*cos(ra0-ra1));
+return ds;
+}
+
+SKY_GRID_TYPE fast_spherical_distance(SKY_GRID_TYPE ra0, SKY_GRID_TYPE dec0,
+			  SKY_GRID_TYPE ra1, SKY_GRID_TYPE dec1)
+{
+SKY_GRID_TYPE ds;
+ds=1.0-(sin(dec0)*sin(dec1)+cos(dec0)*cos(dec1)*cos(ra0-ra1));
+return ds;
+}
+
 /* Precompute values that are used later */
 void precompute_values(SKY_GRID *grid)
 {
@@ -153,7 +169,7 @@ for(i=0;i<priv->num_dec;i++){
 	a=M_PI_2*(-1.0+(1.0+2.0*i)/priv->num_dec);
 	priv->num_ra[i]=ceil(2.0*M_PI*cos(a)/resolution);
 	/* make it always contain odd number of points.. makes plotting easier */
-	priv->num_ra[i]=2*(priv->num_ra[i]>>1)+1;
+	priv->num_ra[i]|=1;
 	if(priv->num_ra[i]>grid->max_n_ra)grid->max_n_ra=priv->num_ra[i];
 	grid->npoints+=priv->num_ra[i];
 	}
@@ -370,6 +386,7 @@ SKY_SUPERGRID *make_sin_theta_supergrid(SKY_GRID *grid, int factor)
 SKY_SUPERGRID *sg;
 SIN_THETA_SKY_GRID_PRIV *priv;
 long i,j,k, pi,pj, pk, ra_pk;
+SKY_GRID_TYPE ds, best_ds;
 if(strcmp(grid->name,"sin theta")){
    	fprintf(stderr,"** Internal error: cannot make sin theta supergrid from %s\n", grid->name);
 	exit(-1);
@@ -406,6 +423,8 @@ for(k=1;k<sg->super_grid->npoints-1;k++){
 		sg->super_grid->longitude[k], sg->super_grid->latitude[k]
 		);
 	#endif
+	
+	#if 0  /* older and really fast way.. is it right ?? */
 	if((sg->super_grid->longitude[k]<sg->super_grid->longitude[k-1])){
 			/* crossing RA=0 boundary */
 	//		fprintf(stderr, "@");
@@ -425,10 +444,54 @@ for(k=1;k<sg->super_grid->npoints-1;k++){
 			pk=ra_pk;
 			pi++;
 			}
-		
 	//fprintf(stderr, "k=%d pk=%d pi=%d\n", k, pk, pi);
 	sg->reverse_map[k]=pk;	
 	sg->first_map[pk]=k; /* not the most efficient, but it works */
+
+        #else /* a good deal slower, but much surer */
+	
+	if((sg->super_grid->longitude[k]<sg->super_grid->longitude[k-1])){
+			/* crossing RA=0 boundary */
+	//		fprintf(stderr, "@");
+			//pk=pk-priv->num_ra[pi]+1;
+			pk=ra_pk;
+			}
+			else
+	if((pk+1<grid->npoints)&& (grid->longitude[pk+1]>=grid->longitude[pk]) && 
+		(sg->super_grid->longitude[k]-grid->longitude[pk]>=
+			grid->longitude[pk+1]-sg->super_grid->longitude[k])){
+	//		fprintf(stderr, "+");
+			pk++;
+			}
+	if((pi+1<priv->num_dec) && (sg->super_grid->latitude[k]-grid->latitude[pk]>=
+		grid->latitude[ra_pk+priv->num_ra[pi]]-sg->super_grid->latitude[k])){
+	//		fprintf(stderr, "#");
+			ra_pk+=priv->num_ra[pi];
+			pk=ra_pk;
+			pi++;
+			}
+	
+
+	best_ds=10.0;
+	j=pk;
+	
+	i=pk-2*grid->max_n_ra-1;
+	if(i<0)i=0;
+	for(;(i<(pk+2*grid->max_n_ra+1)) && (i<grid->npoints);i++){
+		ds=spherical_distance(grid->longitude[i], grid->latitude[i],
+				sg->super_grid->longitude[k], sg->super_grid->latitude[k]);
+		if(ds<best_ds){
+			j=i;
+			best_ds=ds;
+			}
+		}
+
+	if(pk!=j)fprintf(stderr, "k=%d pk=%d pi=%d j=%d  %d\n", k, pk, pi, j, pk-j);
+	sg->reverse_map[k]=j;	
+	sg->first_map[j]=k; /* not the most efficient, but it works */
+
+	#endif
+
 	}
 compute_list_map(sg);
 return sg;

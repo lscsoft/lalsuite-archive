@@ -346,6 +346,12 @@ if(args_info.output_given){
 	}
 mkdir(output_dir, 0777);
 
+if(args_info.dump_points_arg){
+	snprintf(s, 20000, "%s/points", output_dir);
+	mkdir(s, 0777);
+	}
+
+
 snprintf(s,20000,"%s/powerflux.log", output_dir);
 LOG=fopen(s,"w");
 
@@ -783,6 +789,15 @@ min_residuals=do_alloc(nsegments, sizeof(*max_residuals));
 
 /* decompose noise into FMedians, TMedians and residuals */
 compute_noise_curves();
+
+if(args_info.subtract_background_arg){
+	fprintf(LOG, "subtract background: yes\n");
+	for(i=0;i<nsegments;i++){
+		for(j=0;j<nbins;j++){
+			power[i*nbins+j]-=exp(M_LN10*(TMedians[i]+FMedians[j]));
+			}
+		}
+	}
 
 /* DIAG4 stage */
 

@@ -327,6 +327,16 @@ NORMAL_STATS nstats;
 /* allocate on stack, for speed */
 tmp=alloca(useful_bins*sizeof(*tmp));
 
+/* sort to compute robust estimates */
+nstats.flag=STAT_FLAG_INPLACE_SORT_DATA
+	| STAT_FLAG_ESTIMATE_MEAN
+	| STAT_FLAG_ESTIMATE_SIGMA;
+
+if(args_info.ks_test_arg){
+	nstats.flag|=STAT_FLAG_ESTIMATE_KS_LEVEL
+		| STAT_FLAG_COMPUTE_KS_TEST;
+	}
+
 for(i=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[offset],i++){
 
         band=fine_grid->band[offset];
@@ -361,20 +371,46 @@ for(i=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[o
 		(a-tmp[0]*tmp[0]+tmp[useful_bins-1]*tmp[useful_bins-1]-c*c/(useful_bins-1))
 		));
 	
-	/* sort to compute robust estimates */
-	sort_floats(tmp, useful_bins);
+	/* Output point data if requested */
+	if(args_info.dump_points_arg){
+		char s[20000];
+		snprintf(s, 20000, "points/%s_%d.png", pol->name, offset);
+		if(clear_name_png(s)){
+			RGBPic *p;
+			PLOT *plot;
+			float *freq_f;
 
-	compute_normal_sorted_ks_test(tmp, useful_bins, &nstats);
+			freq_f=&(frequencies[side_cut]);
+		
+			if(fine_grid->max_n_dec<800)
+				p=make_RGBPic(fine_grid->max_n_ra*(800/fine_grid->max_n_dec)+140, fine_grid->max_n_dec*(800/fine_grid->max_n_dec));
+				else 
+				p=make_RGBPic(fine_grid->max_n_ra+140, fine_grid->max_n_dec);	
+
+			plot=make_plot(p->width, p->height);
+
+
+			adjust_plot_limits_f(plot, freq_f, tmp, useful_bins, 1, 1, 1);
+			draw_grid(p, plot, 0, 0);
+			draw_points_f(p, plot, COLOR(255,0,0), freq_f, tmp, useful_bins, 1, 1);
+			RGBPic_dump_png(s, p);
+
+			free_plot(plot);
+			free_RGBPic(p);
+			}
+			
+		snprintf(s, 20000, "points/%s_%d.dat", pol->name, offset);
+		dump_floats(s, tmp, useful_bins, 1);
+		}
+	
+	compute_normal_stats(tmp, useful_bins, &nstats);
+
 	pol->skymap.ks_test[offset]=nstats.ks_test;
 	pol->skymap.ks_count[offset]=nstats.ks_count;
 	
-	/* median */
-	M=tmp[useful_bins/2];
-	/* 0.8 quantile */
-	Q80=tmp[(useful_bins*4)/5];
-	/* 0.2 quantile */
-	Q20=tmp[useful_bins/5];
-	S=(Q80-Q20)/quantile2std;
+	M=nstats.mean;
+	S=nstats.sigma;
+	
 	pol->skymap.M_map[offset]=M;
 	pol->skymap.S_map[offset]=S;
 	pol->skymap.max_upper_limit[offset]=0;
@@ -494,18 +530,24 @@ if(clear_name_png(s)){
 	RGBPic_dump_png(s, p);
 	}
 
-snprintf(s,19999,"%s_ks_test.png",pol->name);
-if(clear_name_png(s)){
-	plot_grid_f(p, fine_grid, pol->skymap.ks_test, 1);
-	RGBPic_dump_png(s, p);
+if(args_info.ks_test_arg){
+	snprintf(s,19999,"%s_ks_test.png",pol->name);
+	if(clear_name_png(s)){
+		plot_grid_f(p, fine_grid, pol->skymap.ks_test, 1);
+		RGBPic_dump_png(s, p);
+		}
+	snprintf(s,19999,"%s_ks_test.dat",pol->name);
+	dump_floats(s,pol->skymap.ks_test,fine_grid->npoints,1);
+	
+	snprintf(s,19999,"%s_ks_count.png",pol->name);
+	if(clear_name_png(s)){
+		plot_grid_f(p, fine_grid, pol->skymap.ks_count, 1);
+		RGBPic_dump_png(s, p);
+		}
+	snprintf(s,19999,"%s_ks_count.dat",pol->name);
+	dump_floats(s,pol->skymap.ks_count,fine_grid->npoints,1);
 	}
-
-snprintf(s,19999,"%s_ks_count.png",pol->name);
-if(clear_name_png(s)){
-	plot_grid_f(p, fine_grid, pol->skymap.ks_count, 1);
-	RGBPic_dump_png(s, p);
-	}
-
+	
 snprintf(s,19999,"%s_max_upper_limit.png",pol->name);
 if(clear_name_png(s)){
 	plot_grid_f(p, fine_grid, pol->skymap.max_upper_limit, 1);
