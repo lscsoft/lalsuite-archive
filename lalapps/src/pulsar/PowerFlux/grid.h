@@ -60,6 +60,8 @@ SKY_SUPERGRID *make_sin_theta_supergrid(SKY_GRID *grid, int factor);
 
 void assign_bands(SKY_GRID *grid, int n_bands);
 void mask_far_points(SKY_GRID *grid, SKY_GRID_TYPE ra, SKY_GRID_TYPE dec, SKY_GRID_TYPE radius);
+void mask_small_cos(SKY_GRID *grid, SKY_GRID_TYPE x, SKY_GRID_TYPE y, SKY_GRID_TYPE z, SKY_GRID_TYPE cos_level);
+
 void propagate_far_points_to_super_grid(SKY_GRID *grid, SKY_SUPERGRID *super_grid);
 void propagate_far_points_from_super_grid(SKY_GRID *grid, SKY_SUPERGRID *super_grid);
 

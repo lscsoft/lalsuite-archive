@@ -265,6 +265,26 @@ for(i=0;i<grid->npoints;i++){
 	}
 }
 
+void mask_small_cos(SKY_GRID *grid, SKY_GRID_TYPE x, SKY_GRID_TYPE y, SKY_GRID_TYPE z, SKY_GRID_TYPE cos_level)
+{
+int i;
+SKY_GRID_TYPE ds,x0,y0,z0;
+ds=sqrt(x*x+y*y+z*z);
+x0=x/ds;
+y0=y/ds;
+z0=z/ds;
+
+for(i=0;i<grid->npoints;i++){
+	ds=fabs(grid->e[0][i]*x0+
+	   grid->e[1][i]*y0+
+	   grid->e[2][i]*z0);
+	if(ds>cos_level){
+		grid->band[i]=-1;
+		grid->band_f[i]=-1;
+		}
+	}
+}
+
 void propagate_far_points_to_super_grid(SKY_GRID *grid, SKY_SUPERGRID *super_grid)
 {
 long k, offset, pi;

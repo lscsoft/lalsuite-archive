@@ -81,6 +81,7 @@ cmdline_parser_print_help (void)
   printf("      --focus-ra=DOUBLE            focus computation on a circular area with \n                                     center at this RA\n");
   printf("      --focus-dec=DOUBLE           focus computation on a circular area with \n                                     center at this DEC\n");
   printf("      --focus-radius=DOUBLE        focus computation on a circular area with \n                                     this radius\n");
+  printf("      --only-large-cos=DOUBLE      restrict computation to point on the sky \n                                     with cos of angle to band axis larger \n                                     than a given number\n");
 }
 
 
@@ -147,6 +148,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->focus_ra_given = 0 ;
   args_info->focus_dec_given = 0 ;
   args_info->focus_radius_given = 0 ;
+  args_info->only_large_cos_given = 0 ;
 #define clear_args() { \
   args_info->config_arg = NULL; \
   args_info->sky_grid_arg = gengetopt_strdup("sin_theta") ;\
@@ -241,6 +243,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
         { "focus-ra",	1, NULL, 0 },
         { "focus-dec",	1, NULL, 0 },
         { "focus-radius",	1, NULL, 0 },
+        { "only-large-cos",	1, NULL, 0 },
         { NULL,	0, NULL, 0 }
       };
 
@@ -830,6 +833,20 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
               }
             args_info->focus_radius_given = 1;
             args_info->focus_radius_arg = strtod (optarg, NULL);
+            break;
+          }
+          
+          /* restrict computation to point on the sky with cos of angle to band axis larger than a given number.  */
+          else if (strcmp (long_options[option_index].name, "only-large-cos") == 0)
+          {
+            if (args_info->only_large_cos_given)
+              {
+                fprintf (stderr, "%s: `--only-large-cos' option given more than once\n", CMDLINE_PARSER_PACKAGE);
+                clear_args ();
+                exit (EXIT_FAILURE);
+              }
+            args_info->only_large_cos_given = 1;
+            args_info->only_large_cos_arg = strtod (optarg, NULL);
             break;
           }
           
@@ -1677,6 +1694,24 @@ cmdline_parser_configfile (char * const filename, struct gengetopt_args_info *ar
                   if (fnum == 2)
                     {
                       args_info->focus_radius_arg = strtod (farg, NULL);
+                    }
+                  else
+                    {
+                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
+                               filename, line_num);
+                      exit (EXIT_FAILURE);
+                    }
+                }
+              continue;
+            }
+          if (!strcmp(fopt, "only-large-cos"))
+            {
+              if (override || !args_info->only_large_cos_given)
+                {
+                  args_info->only_large_cos_given = 1;
+                  if (fnum == 2)
+                    {
+                      args_info->only_large_cos_arg = strtod (farg, NULL);
                     }
                   else
                     {

@@ -626,6 +626,12 @@ if(args_info.focus_ra_given &&
 	propagate_far_points_from_super_grid(patch_grid, super_grid);
    	}
 
+if(args_info.only_large_cos_given){
+	fprintf(LOG, "only large cos level: %f\n", args_info.only_large_cos_arg);
+   	mask_small_cos(fine_grid, band_axis[0], band_axis[1], band_axis[3], args_info.only_large_cos_arg);
+	propagate_far_points_from_super_grid(patch_grid, super_grid);
+	}
+
 /* now that we have new grid positions plot them */
 
 plot_grid_f(p, patch_grid, patch_grid->latitude,1);

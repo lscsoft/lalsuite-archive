@@ -65,6 +65,7 @@ struct gengetopt_args_info
   double focus_ra_arg;	/* focus computation on a circular area with center at this RA.  */
   double focus_dec_arg;	/* focus computation on a circular area with center at this DEC.  */
   double focus_radius_arg;	/* focus computation on a circular area with this radius.  */
+  double only_large_cos_arg;	/* restrict computation to point on the sky with cos of angle to band axis larger than a given number.  */
 
   int help_given ;	/* Whether help was given.  */
   int version_given ;	/* Whether version was given.  */
@@ -109,6 +110,7 @@ struct gengetopt_args_info
   int focus_ra_given ;	/* Whether focus-ra was given.  */
   int focus_dec_given ;	/* Whether focus-dec was given.  */
   int focus_radius_given ;	/* Whether focus-radius was given.  */
+  int only_large_cos_given ;	/* Whether only-large-cos was given.  */
 
 } ;
 

@@ -54,3 +54,4 @@ option "focus-ra"	- "focus computation on a circular area with center at this RA
 option "focus-dec"	- "focus computation on a circular area with center at this DEC" double no
 option "focus-radius"	- "focus computation on a circular area with this radius" double no
 
+option "only-large-cos" - "restrict computation to point on the sky with cos of angle to band axis larger than a given number" double no
