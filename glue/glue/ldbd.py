@@ -304,7 +304,7 @@ class LIGOMetadata:
     """
     Parses an XML document into a form read for insertion into the database
 
-    del self.lwtparser.unique
+    #del self.lwtparser.unique
     """
     ligolwtup = self.xmlparser(xml)
     self.lwtparser.unique = UniqueIds(self.curs)
