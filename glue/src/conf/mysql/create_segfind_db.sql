@@ -36,6 +36,8 @@ create table state_segment (
   ) type=myISAM;
 
 create table frame_file (
+-- A frame_file is a LFN from which some state information is derived
+
 -- A frame file used to construct state information
     frame_file_id integer(11) not null auto_increment,
 
@@ -55,8 +57,14 @@ create table frame_file (
 create table state_vec (
 -- Human readable representations of the state vector bits.
 
+-- Unique identifier for the state vector version and state
+    state_vec_id integer(11) not null auto_increment,
+
+-- Version number of the state vector
+    version integer(11) not null,
+    
 -- The value of the state vector
-    state_vec_id integer(11) not null,
+    value integer(11) not null,
 
 -- Description of the IFO state
     state varchar(255),
@@ -64,5 +72,6 @@ create table state_vec (
 -- Insertion time (automatically assigned by the database)
     insertion_time timestamp default null,
 
-    primary key (state_vec_id)
+    primary key (version, value),
+    index(state_vec_id)
   ) type=myISAM;
