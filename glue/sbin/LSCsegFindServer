@@ -47,10 +47,20 @@ def SIGHUPhandler(signum, frame):
         
   @return: None
   """
+  global logger
   global myServer
-        
+  global myConfigParser
+  
   myServer.stopService()
+  logger.info("Re-reading configuration file")
 
+  myConfigParser.read(configFilePath)
+  for k in configuration.keys():
+    value = c.get('LSCsegFindServer',k)
+    try:
+      configuration[o] = eval(value)
+    except:
+      configuration[o] = value
 
 
 def SIGTERMhandler(signum, frame):
@@ -91,13 +101,9 @@ def socketReadyCallback(arg, handle, result):
 
 
 # parse command line options
-shortop = "p:g:c:k:d:Dh"
+shortop = "c:gh"
 longop = [
-  "port=",
-  "gridmap=",
-  "certificate=",
-  "key=",
-  "database=",
+  "config-file=",
   "daemon",
   "help"
   ]
@@ -106,16 +112,21 @@ longop = [
 usage = """\
 Usage: LSCdataFindServer [OPTIONS]
 
-  -p, --port PORT           listen for connections on PORT (default 49999)
-  -g, --gridmap FILE        obtain authourized user credentials from FILE
-  -c, --certificate FILE    obtain service certificate from FILE
-  -k, --key FILE            obtain service private key form FILE
-  -d, --database DB         query database DB for segment information
-  -D, --daemon              run as a deamon
+  -c, --config-file FILE    read configuration from FILE
+  -d, --daemon              run as a deamon
   -h, --help                print detailed help message
 
-The --gridmap, --certificate,--key and --database options must be specified.
+If no configuration file is given, the server will attempt to use
+
+  ${GLUE_LOCATION}/etc/lscsegfindserver.ini
+
+Sending the server process a HUP will cause the confuration and grid-mapfile
+to be re-read and sending the process a TERM will shutdown the server.
 """
+
+#default for command-line options
+runAsDaemon = False
+configFilePath = None
 
 try:
   opts, args = getopt.getopt(sys.argv[1:], shortop, longop)
@@ -123,29 +134,53 @@ except getopt.GetoptError:
   print >>sys.stderr, "Error parsing command line"
   sys.exit(1)
 
-#default for command-line options
-runAsDaemon = False
+for o, a in opts:
+  if o in ("-d", "--daemon"):
+    runAsDaemon = True
+  if o in ("-C", "--configuration"):
+    configFilePath = a
+
+try:
+  GLUE_LOCATION = os.environ["GLUE_LOCATION"]
+except:
+  pass
+
+if not configFilePath:
+  configFilePath = os.path.join(LDR_LOCATION, "etc/lscsegfindserver.ini")
 
 # default configuration values may go here, but they will be replaced
 # by actual values if and when a ConfigurationManager instance is
 # created elsewhere
 configuration = {
-  'port' : 49999,
-  'gridmap' : '/export/grid/online/grid-mapfile',
-  'certfile' : '/export/LDR-local/globus/etc/hostcert.pem',
-  'keyfile' : '/export/LDR-local/globus/etc/hostkey.pem',
+  'port' : 30015,
+  'gridmap' : '/ldcg/glue/etc/grid-security/lscsegfind/grid-mapfile',
+  'certfile' : '/ldcg/glue/etc/grid-security/lscsegfind/lscsegfindcert.pem',
+  'keyfile' : '/ldcg/glue/etc/grid-security/lscsegfind/lscsegfindkey.pem',
   'dbname' : 'segfind',
   'dbuser' : 'grid',
   'dbpasswd' : '',
   'max_client_byte_string': 2048,
-  'pidfile' : '/tmp/segfind.pid',
-  'logfile' : '/tmp/segfind.log',
+  'pidfile' : '/ldcg/glue/var/run/segfind.pid',
+  'logfile' : '/tmp/glue/var/log/segfind.log',
   'logmaxbytes' : 1024 * 1024 * 1,
   'logbackupcount' : 5,
   'loglevel' : 'INFO'
   }
 
+# grab configuration
+myConfigParser = ConfigParser()
+try:
+  myConfigParser.read(configFilePath)
+except:
+  print >> sys.stderr, "Error: unable to read configuration file : %s"
+  sys.exit(1)
 
+for k in configuration.keys():
+  value = c.get('LSCsegFindServer',k)
+  try:
+    configuration[o] = eval(value)
+  except:
+    configuration[o] = value
 
 class LSCsegFindServerHandlerException(exceptions.Exception):
   """
@@ -508,6 +543,11 @@ class LSCsegFindServer(object):
     except Exception, e:
       print >>sys.__stderr__, "Unable to start logging: %s" % e
         
+    for k in configuration.keys():
+      logger.info("Configuration parameter: %s = %s" % 
+        (k, str(configuration[k]))
+
+
   def run(self):
     """
     Read configuration information in the initialize() method, write out
