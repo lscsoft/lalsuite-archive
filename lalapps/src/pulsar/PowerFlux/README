@@ -1,0 +1,15 @@
+PowerFlux
+
+Questions about the code ? E-mail Vladimir Dergachev volodya@mindspring.com
+
+You might need to adjust some variables in Makefile in accordance with the 
+particulars of your Linux distribution and architecture of your CPU.
+
+make powerflux                - compile powerflux for testing
+make powerflux.hydra          - compile condorized version for usage on clusters
+make clean                    - clean up, run before switching targets
+
+
+Utilities:
+
+    ./dump_dat.tcl filename   - dump in ASCII form *.dat files produced by PowerFlux
