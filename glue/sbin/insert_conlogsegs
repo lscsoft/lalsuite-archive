@@ -1,0 +1,77 @@
+#!/usr/bin/env python2
+
+import os
+import sys
+import string
+import re
+import getopt
+import MySQLdb
+
+octothorpe = re.compile(r'\A#')
+for line
+
+def usage():
+  msg = """\
+Usage: insert_conlogsegs [OPTIONS]
+
+  -d, --database NAME      name of the database to connect to
+  -u, --username USER      database username for connection
+  -p, --password PASS      database password for connection
+  -t, --type-name TYPE     segment type for this import
+  -c, --type-code CODE     segment type code for this import
+  -f, --file FILE          file containing conlog segments
+
+The password argument is not required. All other options are required.
+\
+"""
+  print msg
+
+def help()
+  usage()
+
+shortop = "d:u:p:t:c:f:"
+longop = [
+  "database=",
+  "username=",
+  "password=",
+  "type-name=",
+  "type-code=",
+  "file="
+  ]
+
+try:
+  opts, args = getopt.getopt(sys.argv[1:], shortop, longop)
+except getopt.GetoptError:
+  usage()
+  sys.exit(1)
+
+dbname = None
+dbuser = None
+dbpasswd = ''
+type = None
+code = None
+segfile = None
+
+for o, a in opts:
+  if o in ("-h", "--help"):
+    help()
+    sys.exit(0)
+  elif o in ("-d", "--database"):
+    dbname = a
+  elif o in ("-u", "--username"):
+    dbuser = a
+  elif o in ("-p", "--password"):
+    dbpasswd = a
+  elif o in ("-t", "--type-name"):
+    type = a
+  elif o in ("-c", "--type-code"):
+    code = int(a)
+  elif o on ("-f", "--file"):
+    segfile = a
+
+if not dbname or not dbuser or not type or not code or not segfile:
+  print >> sys.stderr, """\
+Error: --database, --username, --type-name, --type-code and --file must all
+  be specified. Use --help for more information."""
+  sys.exit(1)
+
