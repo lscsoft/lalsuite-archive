@@ -29,6 +29,7 @@ struct gengetopt_args_info
   int fine_factor_arg;	/* make fine grid this times finer (default='7').  */
   char * input_arg;	/* path to input files (power or SFT).  */
   char * input_format_arg;	/* format of input files (GEO, SFT, Power) (default='GEO').  */
+  char * segments_file_arg;	/* file with list of segments to process - this allows subsetting of full SFT set.  */
   char * output_arg;	/* output directory.  */
   char * detresponse_path_arg;	/* path to detresponse program from lalapps.  */
   char * pnmtopng_arg;	/* ppmtopng command (with path if necessary) for outputting images (default='pnmtopng').  */
@@ -70,6 +71,7 @@ struct gengetopt_args_info
   int fine_factor_given ;	/* Whether fine-factor was given.  */
   int input_given ;	/* Whether input was given.  */
   int input_format_given ;	/* Whether input-format was given.  */
+  int segments_file_given ;	/* Whether segments-file was given.  */
   int output_given ;	/* Whether output was given.  */
   int detresponse_path_given ;	/* Whether detresponse-path was given.  */
   int pnmtopng_given ;	/* Whether pnmtopng was given.  */

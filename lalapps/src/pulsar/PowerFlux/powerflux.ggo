@@ -7,6 +7,7 @@ option "fine-factor"	-  "make fine grid this times finer"	int default="7" no
 
 option "input"		i "path to input files (power or SFT)" string no
 option "input-format"   - "format of input files (GEO, SFT, Power)" string default="GEO" no 
+option "segments-file"   - "file with list of segments to process - this allows subsetting of full SFT set" string no
 option "output" 	o "output directory" string no
 option "detresponse-path" - "path to detresponse program from lalapps" string no
 option "pnmtopng"	- "ppmtopng command (with path if necessary) for outputting images" string default="pnmtopng" no	

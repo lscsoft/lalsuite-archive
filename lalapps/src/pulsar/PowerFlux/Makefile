@@ -1,5 +1,5 @@
 PACKAGE=\"powerflux\"
-VERSION=\"0.12.8\"
+VERSION=\"0.12.9\"
 LALROOT=./../../../../
 LALINCLUDE=-I$(LALROOT)/include/
 LALLDFLAGS=-L$(LALROOT)/lib -L$(LALROOT)/support-lib -llalsupport -llal -lm
@@ -13,7 +13,7 @@ CFLAGS=-Wall -g $(OPTFLAGS) -DPACKAGE=$(PACKAGE) -DVERSION=$(VERSION) \
 CC=gcc $(CFLAGS)
 
 OBJS=cmdline.o rastermagic.o hookup.o fine_grid.o lines.o grid.o powerflux.o  \
-	png.o polarization.o
+	png.o polarization.o intervals.o
 
 # 199.75 hz
 BAND=359650

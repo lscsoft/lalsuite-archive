@@ -17,6 +17,7 @@
 #include "global.h"
 #include "cmdline.h"
 #include "grid.h"
+#include "intervals.h"
 
 #ifndef PATH_MAX
 /* just in case it is not defined */
@@ -29,6 +30,8 @@ extern char *sun_ephemeris;
 extern struct gengetopt_args_info args_info;
 extern double orientation;
 extern char *output_dir;
+
+INTERVAL_SET *segment_list=NULL;
 
 regex_t write_dat, write_png;
 
@@ -45,6 +48,10 @@ if(regcomp(&write_dat, args_info.write_dat_arg, REG_EXTENDED | REG_NOSUB)){
 if(regcomp(&write_png, args_info.write_png_arg, REG_EXTENDED | REG_NOSUB)){
 	fprintf(stderr,"Cannot compile \"--write-dat=%s\"\n", args_info.write_dat_arg);
 	exit(-1);
+	}
+if(args_info.segments_file_given){
+	segment_list=new_interval_set();
+	add_intervals_from_file(segment_list, args_info.segments_file_arg);
 	}
 }
 
@@ -77,6 +84,10 @@ while(strncmp(s,"binary",6)){
 			}
 		if(!strncasecmp(p,"GPS start:",10)){
 			sscanf(p+10,"%Ld",gps);
+			if(!check_intervals(segment_list, *gps)){
+				fclose(fin);
+				return -1;
+				}
 			}
 		}
 	}
@@ -124,6 +135,12 @@ if(a!=1.0){
 /* gps */
 fread(&b, sizeof(b), 1, fin);
 *gps=b;
+
+if(!check_intervals(segment_list, *gps)){
+	fclose(fin);
+	return -1;
+	}
+
 
 /* skip nsec */
 fread(&b, sizeof(b), 1, fin);
