@@ -20,7 +20,8 @@ __version__='$Revision$'[0:0]
 
 import exceptions
 import sys
-import LSCfileAdd
+from pyGlobus import security
+from LSCfileAdd import *
 
 def print_stats():
         """
@@ -41,16 +42,18 @@ if __name__ == '__main__':
         grid = GridUtil()
         
         # Process command line
-        try:
-                userparams.get_user_parameters()
-        except:
-                sys.exit(1)
+        #try:
+        userparams.get_user_parameters()
+        #except:
+        #        print >>sys.stderr, "Error in get_user_parameters()"
+        #        sys.exit(1)
         
         # Make sure the user grid credentials are ok.
-        try:
-                grid.checkCredentials()
-        except:
-                sys.exit(2)
+        #try:
+        #        grid.checkCredentials()
+        #except:
+        #        print >>sys.stderr, "Grid credentials error"
+        #        sys.exit(2)
         
         #Publish the files with the metadata requested
         try:
