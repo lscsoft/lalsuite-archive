@@ -313,6 +313,8 @@ float CutOff,b;
 double a,w,a1,a2;
 char s[20000];
 
+/* INIT stage */
+
 time(&start_time);
 
 if(cmdline_parser(argc, argv, &args_info))exit(-1);
@@ -385,6 +387,8 @@ if(args_info.sun_ephemeris_given){
 	}
 	
 init_ephemeris();
+
+/* PREP1 stage */
 
 fprintf(stderr,	"Initializing sky grids\n");
 resolution=(4500.0*args_info.resolution_ratio_arg)/(args_info.first_bin_arg+args_info.nbins_arg/2);
@@ -486,6 +490,9 @@ fprintf(LOG,"orientation: %g\n", orientation);
 fprintf(LOG,"make cutoff: %s\n",do_CutOff ? "yes" : "no" );
 fflush(LOG);
 
+
+/* INPUT stage */
+
 read_directory(args_info.input_arg,1,4000, first_bin, nbins,
 	&nsegments, &power, &gps);
 if(nsegments==0){
@@ -496,6 +503,8 @@ fprintf(LOG,"nsegments : %ld\n",nsegments);
 fprintf(LOG,"first gps : %lld\n",gps[0]);
 fprintf(LOG,"last gps  : %lld\n",gps[nsegments-1]);
 fflush(LOG);
+
+/* DIAG2 stage */
 
 fprintf(stderr,"Computing detector speed\n");
 det_velocity=do_alloc(3*nsegments, sizeof(*det_velocity));
@@ -753,6 +762,8 @@ draw_points_f(p, plot, COLOR(255,0,0), frequencies, ks_test, nbins, 1, 1);
 RGBPic_dump_png("ks_test.png", p);
 dump_floats("ks_test.dat", ks_test, nbins, 1);
 
+/* COMP3 stage */
+
 if(args_info.no_decomposition_arg){
 	fprintf(stderr,"Exiting as requested (--no-decomposition=1\n");
 	fprintf(LOG,"Exiting as requested (--no-decomposition=1\n");
@@ -770,6 +781,8 @@ min_residuals=do_alloc(nsegments, sizeof(*max_residuals));
 
 /* decompose noise into FMedians, TMedians and residuals */
 compute_noise_curves();
+
+/* DIAG4 stage */
 
 for(i=0;i<nsegments;i++){
 	expTMedians[i]=exp(-M_LN10*2.0*(TMedians[i]-TMedian));
@@ -880,6 +893,8 @@ if(args_info.no_demodulation_arg){
 	exit(0);	
 	}
 
+/* PREP5 stage */
+
 get_whole_sky_AM_response(gps, nsegments, &AM_coeffs_plus, &AM_coeffs_cross, &AM_coeffs_size);
 
 init_polarizations();
@@ -927,6 +942,8 @@ RGBPic_dump_png("patch_cross_gps0.png", p);
 }
 #endif		
 
+/* PREP6 stage */
+
 fprintf(stderr,"Computing cutoff values\n");
 /* compute CutOff values for each patch */
 
@@ -956,6 +973,7 @@ free(patch_cross);
 patch_cross=NULL;
 #endif
 
+/* MAIN LOOP stage */
 fine_grid_stage();
 
 wrap_up();
