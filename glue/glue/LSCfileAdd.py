@@ -6,6 +6,13 @@ __author__="Ben Johnson: module contains the classes for the LSCfileAdd utility"
 __date__='$Date$'
 __version__='$Revision$'[0:0]
 
+import os
+import sys
+import getopt
+import exceptions
+import md5
+from pyGlobus import security
+
 class LSCfileAddMetadataAttr(object):
         """
         This class sets up a dictionary containing the LDR metadata fields
@@ -25,14 +32,153 @@ class LSCfileAddMetadataAttr(object):
                        4) Cli_arg_long # long version of cli argument with NO DASHES, e.g. "gpsStart"
                        5) Cli_arg_short # short version of cli argument with NO DASHES, e.g. "s"
                        6) Description # description of this field
-                       7) Requirements # list of other fields required to be set if this one is set by user,
-                                       # if Requirements contains the field name
-                                       # then it is required to be set on the command line.
-                                       # e.g. self.attr["runTag"]["Requirements"] contains a "runTag" element.
-                                       
+                       7) Test_method # method used to test the validity of this parameter
         
         """
         attr = {}
+        
+        def gps_processor(object):
+                """
+                Performs a consistancy check on start and end gps times
+                along with the duration parameter. 
+                
+                If the three fields are not None, makes sure they are consistent.
+
+                If two are specified, makes sure they are sane (e.g. start time < end time),
+                and if so, calculates third field.
+                
+                If only one field is specified, returns an error?
+                
+                Returns 0 if there are no errors, otherwise a string containing the error message.
+                """
+                # set some "booleans"
+                if self.attr['gpsStart']['Value']:
+                        start = 1
+                else:
+                        start = 0
+                if self.attr['gpsEnd']['Value']:
+                        end = 1
+                else:
+                        end = 0
+                if self.attr['duration']['Value']:
+                        duration = 1
+                else:
+                        duration = 0
+                
+                ## Now, according to what's been set perform various tests
+                
+                # make sure at least two parameters are set
+                if start + end + duration < 2:
+                        msg = "No fields specified!"
+                        if start:
+                                msg = "Only know the start time."
+                        if end:
+                                msg = "Only know the end time."
+                        if duration:
+                                msg = "Only know the data duration."
+                        return "Not enough information to fill gps start, end, and duration fields. %s" % (msg,)
+                # now perform basic "is this a valid gps time at all?" checks
+                if start:
+                        inputValue = self.attr['gpsStart']['Value']
+                        gpsString = str(inputValue)
+                        
+                        try:
+                                testValue = long(inputValue)
+                        except Exception, e:
+                                return "GPS start time must be an integer. Received \"%s\"" % (str(inputValue),)
+                        if testValue < 0L:
+                                return "GPS start time must be positive. Received \"%s\"" % (str(inputValue),)
+                        if testValue < 100000000:
+                                return "GPS start time must be at least nine digits long. Received \"%s\"" % (str(inputValue),)
+                if end:
+                        inputValue = self.attr['gpsEnd']['Value']
+                        gpsString = str(inputValue)
+                        
+                        try:
+                                testValue = long(inputValue)
+                        except Exception, e:
+                                return "GPS end time must be an integer. Received \"%s\"" % (str(inputValue),)
+                        if testValue < 0L:
+                                return "GPS end time must be positive. Received \"%s\"" % (str(inputValue),)
+                        if testValue < 100000000:
+                                return "GPS end time must be at least nine digits long. Received \"%s\"" % (str(inputValue),)
+                # see if duration is an integer etc.
+                if duration:
+                        inputValue = self.attr['duration']['Value']
+                        durString = str(inputValue)
+                        try:
+                                testValue = long(inputValue)
+                        except Exception, e:
+                                return "Duration time must be an integer. Received \"%s\"" % (str(inputValue),)
+                # now perform consistancy checks, and missing parameter calculations
+                starttime = self.attr['gpsStart']['Value']
+                endtime = self.attr['gpsEnd']['Value']
+                durtime = self.attr['duration']['Value']
+                if start and duration:
+                        self.attr['gpsEnd']['Value'] = starttime + durtime
+                        return 0
+                if end and duration:
+                        self.attr['gpsStart']['Value'] = endtime - durtime
+                        return 0
+                if start and end:
+                        if endtime <= starttime:
+                                return "GPS end time must be greater than start time. Received gps-start = %s, gps-end = %s" % (str(starttime), str(endtime))
+                        if duration:
+                                durtime = self.attr['duration']['Value']
+                                if durtime != (endtime - starttime):
+                                        return "Duration parameter does not match GPS start and end times. \
+                                        Recevied gps-start = %s, gps-end = %s, duration = %s" (str(starttime),str(endtime),str(durtime))
+                        else:
+                                self.attr['duration']['Value'] = endtime - starttime
+                                return 0
+        ## END gps_processor()
+        
+        def ifo_processor(object):
+                """
+                Checks given interferometer against list of accepted interferometers.
+                returns 0 if found, an error string if not.
+                """
+                ifo = self.attr['interferometer']['Value']
+                accepted_ifos = self.attr['interferometer']['Accepted_values']
+                if not ifo:
+                        return "Interferomter(s) must be specified. Accepted values are %s or any combination thereof." % (str(accepted_ifos),)
+                # now split ifos into \w\d+ groups, though I don't know how to do this with regular expressions
+                templist = list(ifo)
+                ifolist = []
+                for item in templist:
+                        if item.isalpha():
+                                ifolist.append(item)
+                                continue
+                        if item.isdigit():
+                                ifolist[len(ifolist) - 1] += item
+                for myifo in ifolist:
+                        if not accepted_ifos.count(myifo):
+                                return "Interferometer \"%s\" was not found in the list of accepted interferometers. Valid ifos are %s." % (ifo, str(accepted_ifos))
+                        if accepted_ifos.count(myifo) > 1:
+                                return "An interferometer value can only be specified once. At least two of ifo \"%s\" were specified." % (ifo,)
+                # all is well, then
+                return 0
+        ## END ifo_processor()
+        
+        def site_processor(object):
+                """
+                Check given site against list of accepted sites.
+                returns 0 if found, an error string if not
+                """
+                site = self.attr['site']['Value']
+                if not site:
+                        return site
+                # split site list
+                sitelist = list(site)
+                accepted_sites = self.attr['site']['Accepted_values']
+                for mysite in sitelist:
+                        if not accepted_sites.count(site):
+                                return "Site \"%s\" was not found in the list of accepted sites. Valid sites are %s" % (site,str(accepted_sites))
+                        if sitelist.count(site) > 1:
+                                return "Site \"%s\" can only be specified once." % (mysite,)
+                return 0
+        ## END site_processor()
+                
         def __init__(self):
                 self.attr = {
 "size":{
@@ -62,7 +208,8 @@ class LSCfileAddMetadataAttr(object):
         'UserSet':False,
         'Cli_arg_long':None,
         'Cli_arg_short':None,
-        'Description':"Interferometer site+ifonumber, e.g. H1,H2,L1",
+        'Description':"Interferometer site+ifonumber, e.g. H1,H2,L1,H1H2",
+        'Accepted_values':['H1','H2','L1','G1'],
         'Requirements':None
         },
 "site":{
@@ -73,7 +220,8 @@ class LSCfileAddMetadataAttr(object):
         'UserSet':False,
         'Cli_arg_long':None,
         'Cli_arg_short':None,
-        'Description':"Interferometer site+. e.g. H, L, GHLV",
+        'Description':"Interferometer site. e.g. H, L, GHLV",
+        'Accepted_values':['H','L','G','V'],
         'Requirements':None
         },
 "fileType":{
@@ -83,7 +231,8 @@ class LSCfileAddMetadataAttr(object):
         'Cli_arg_long':"type",
         'Cli_arg_short':"t",
         'Description':"Type of file",
-        'Requirements':['filetype']
+        'Accepted_values':['gwf','sft','xml'],
+        'Test_method':None
         },
 "frameType":{
         'Value':None,
@@ -93,7 +242,7 @@ class LSCfileAddMetadataAttr(object):
         'Cli_arg_long':None,
         'Cli_arg_short':None,
         'Description':"frame type, e.g. R, RDS_R_L1, RDS_R_L1, h_of_t",
-        'Requirements':None
+        'Test_method':None
         },
 "gpsStart":{
         'Value':None,
@@ -103,7 +252,7 @@ class LSCfileAddMetadataAttr(object):
         'Cli_arg_long':"gps-start-time",
         'Cli_arg_short':"s",
         'Description':"GPS start time of file data",
-        'Requirements':['gpsStart']
+        'Test_method':None
         },
 "gpsEnd":{
         'Value':None,
@@ -172,7 +321,7 @@ class LSCfileAddMetadataAttr(object):
         'UserSet':True,
         'Cli_arg_long':"group",
         'Cli_arg_short':"g",
-        'Description':"Analysis group to which this data is relevant. e.g. pulsar, burst",
+        'Description':"Analysis group to which this data is relevant. e.g. pulsar, burst.",
         'Requirements':None
         },
 "publisher":{
@@ -191,22 +340,22 @@ class LSCfileAddMetadataAttr(object):
         'Default':"Null",
         'UserSet':True,
         'Cli_arg_long':"author",
-        'Cli_arg_long':"a",
-        'Description':"Name of file's creator. That is the person ran the code which generated the data."
+        'Cli_arg_short':"a",
+        'Description':"Name of file's creator. That is the person ran the code which generated the data.",
         'Requirements':None
         },
 "comment":{
         'Value':None,
         'Type':"string",
         'Default':"Null",
-        'UsetSet':True,
-        'Cli_arg_long':"comment"
+        'UserSet':True,
+        'Cli_arg_long':"comment",
         'Cli_arg_short':"c",
-        'Description':"An arbitrary comment describing this file. e.g. \"generated Big Bang Search v0.1a. with fftw v12.2.4\"",
+        'Description':"An arbitrary comment describing this file. e.g. \"generated Big Bang Search v0.1a. with fftw v12.2.4\". (quotes on command line are necessary)",
         'Requirements':None
         }
                              } # end of attr dict.
-## END class LSCfileAddMetadataAttr(dict)
+## END class LSCfileAddMetadataAttr(object)
                 
 class LSCFile(LSCfileAddMetadataAttr):
         """
@@ -222,7 +371,7 @@ class LSCFile(LSCfileAddMetadataAttr):
         ## END def __init__(self)
         
         
-        def publish(self, filelist = []):
+        def publish(self,attributes = {}, filelist = []):
                 """
                 Adds a lfn <-> pfn mapping. After checking for existance
                 of previous mapping, and calculating md5s and any file
@@ -230,31 +379,44 @@ class LSCFile(LSCfileAddMetadataAttr):
                 """
                 # authentication stuff
                 #blah
+                # import use specified attributes
+                self.attr = attributes # dumb importation at the moment
+                # attempt to publish each specified file
                 for filename in filelist:
-                        # Set up necessary attributes???
-                        #blah?
                         # see if the physical file exists?
-                        #blah?
+                        filename = os.path.abspath(filename)
+                        if not os.path.isfile(filename):
+                                # print error and _skip_ files which do not exist (or are not files)
+                                print >>sys.stderr, "Filename %s does not exist. Skipping." % filename
+                                continue
+                        lfn = os.path.basename(filename)
+                        pfn = filename
                         # see if it already exists in database (respect --replace???)
-                        # Check also for LDR version, for the S4/S5 LDR, no metadatadeletion
-                        # will be supported.
-                        metaexists = self.metadata.exists(lfn)
-                        if metaexists:
-                                pass
+                        #   Check also for LDR version, for the S4/S5 LDR, no metadatadeletion
+                        #   will be supported.
+                        #metaexists = self.metadata.exists(lfn)
+                        ## DEBUG
+                        metaexists = 0
+                        ## END DEBUG
+                        #if metaexists:
+                        #        pass
                         if not metaexists:
+                                # fill in appropriate fields
+                                self.attr['size']['Value'] = os.path.getsize(filename)
                                 # calc md5sum, and other checksums
                                 # switch on fileType?, perform data format specific checksums?
-                                attr.md5['Value'] = computeMD5(self,filename)
+                                self.attr['md5']['Value'] = self.computeMD5(filename)
                                 # perform any other consistancy checks
                                 #blah
                                 # enter metadata into database
-                                self.addmetadata(fields)
+                                self.addmetadata(lfn)
                                 
                         # create lfn, pfn pair in LRC....
-                        if self.rli_lfn_exists(lfn):
-                                self.lrc_add(lfn,pfn)
-                        else:
-                                self.lrc_create_lfn(lfn,pfn)
+                        #if self.rli_lfn_exists(lfn):
+                        #        self.lrc_add(lfn,pfn)
+                                print "Will create lfn<->pfn mapping for\n%s <-> %s" % (lfn,pfn)
+                        #else:
+                        #        self.lrc_create_lfn(lfn,pfn)
         ## END def publish(self)
                 
         def remove_all(self):
@@ -262,7 +424,7 @@ class LSCFile(LSCfileAddMetadataAttr):
                 Removes ALL metadata and lfn<->pfn mappings associated
                 with a particular lfn.
                 """
-                print >>sys.stderr "Function not yet implemented."
+                print >>sys.stderr, "Function not yet implemented."
                 # authentication stuff
                 #blah
                 # see if it already exists in database, delete if so
@@ -275,12 +437,15 @@ class LSCFile(LSCfileAddMetadataAttr):
                 #        self.lrc_delete(lfn,mypfn)
         ## END def remove_all(self)
         
-        def addmetadata(self):
+        def addmetadata(self,lfn):
                 # Fields to be defined
                 # the following is from Publisher.py, certainly doesn't work now
-                self.metadata.add(lfn)
+                #self.metadata.add(self.lfn)
+                print "<logical_file_name>\n%s" % (lfn,)
                 for field, val in self.attr.iteritems():
-                        self.metadata.set_attr(lfn,field,val["Value"])
+                #        self.metadata.set_attr(lfn,field,val["Value"])
+                        print "\t<field>\n\t%s\n\t\t<Value>\n\t\t%s\n\t\t</Value>\n\t</field>\n" % (str(field), str(val['Value']))
+                print "</logical_file_name>"
         ## END def addmetadata(self)
         
         def computeMD5(self,filename):
@@ -318,23 +483,25 @@ class CLIUtil(LSCfileAddMetadataAttr):
         cli_long_name = {}
         # list of parameter tuples
         params = []
+        filelist = []
         
         def __init__(self):
                 """
                 Sets up appropriate strings and dictionaries.
                 The parameters here should reflect available database fields.
                 """
-                LSCfileAddMetadataAttr.__init__
+                LSCfileAddMetadataAttr.__init__(self)
                 #Initializes some shorthand variables from the attr dictionary.
-                for field, vals in attr.iteritems():
+                for field, vals in self.attr.iteritems():
                         if vals['UserSet']:
                                 if vals['Cli_arg_short']:
-                                        cli_short_name[vals['Cli_arg_short']] = field
+                                        self.cli_short_name[vals['Cli_arg_short']] = field
                                 if vals['Cli_arg_long']:
-                                        cli_long_name[vals['Cli_arg_long']] = field
+                                        self.cli_long_name[vals['Cli_arg_long']] = field
                 # Non-metadata specific fields, e.g. url-type etc.
-                shortop = "u:s"
-                longop = [
+                self.shortop = "u:s:h"
+                self.longop = [
+                        "help",
                         "url-type=",
                         "server="
                         ]
@@ -347,11 +514,11 @@ class CLIUtil(LSCfileAddMetadataAttr):
                 clientMethod = 'findFrameURLs'
                 # now collect non-metadata specific args with LSCfileAddMetadataAttr args
                 #    for use in getopts
-                for field, vals in cli_short_name.iteritems():
-                        shortop = shortop + "field"
-                for field, vals in cli_long_name.iteritems():
+                for field, vals in self.cli_short_name.iteritems():
+                        self.shortop = self.shortop + ":" + field
+                for field, vals in self.cli_long_name.iteritems():
                         field = field + "="
-                        longop.append(field)
+                        self.longop.append(field)
         ## END __init__
         
         
@@ -372,24 +539,37 @@ class CLIUtil(LSCfileAddMetadataAttr):
                 and sets the appropriate variables to be used later.
                 """
                 try:
-                        opts, args = getopt.getopt(sys.argv[1:], shortop, longop)
+                        opts, args = getopt.getopt(sys.argv[1:], self.shortop, self.longop)
                 except getopt.GetoptError:
                         print >>sys.stderr, "Error parsing command line"
+                        ## DEBUG
+                        print >>sys.stderr, "shoptop %s\nlongop %s" % (self.shortop,str(self.longop))
+                        ## END DEBUG
                         print >>sys.stderr, "Enter 'LSCfileAdd --help' for usage"
                         sys.exit(1)
-               
+                
                 for o, a in opts:
-                        if not cli_short_name[o] and not cli_long_name[o]:
+                        # strip leading "-"'s
+                        o = o.lstrip("-")
+                        if o == "h" or o == "help":
+                                self.print_usage()
+                                sys.exit(0)
+                        if not self.cli_short_name.has_key(o) and not self.cli_long_name.has_key(o):
                                 # invalid parameter
                                 print >>sys.stderr, "Bad option, %s" % (o,)
                                 print >>sys.stderr, "Enter 'LSCfileAdd --help' for usage"
                                 sys.exit(123)
-                        elif cli_short_name[o]:
+                        elif self.cli_short_name.has_key(o):
                                 # Still need to check and convert these to appropriate types etc.
-                                self.attr[cli_short_name[o]] = a
-                        elif cli_long_name[o]:
+                                self.attr[self.cli_short_name[o]]['Value'] = a
+                        elif self.cli_long_name.has_key(o):
                                 # Still need to check and convert these to appropriate types etc.
-                                self.attr[cli_long_name[o]] = a
+                                self.attr[self.cli_long_name[o]]['Value'] = a
+                if not args: # empty file list
+                        print >>sys.stderr, "You must specify at least one filename."
+                        print >>sys.stderr, "Enter 'LSCfileAdd --help' for usage"
+                else:
+                        self.filelist = args
                                 
                 # environment variables override defaults but not
                 # command line options
@@ -439,14 +619,37 @@ class CLIUtil(LSCfileAddMetadataAttr):
                 """
                 msg = """\
 NAME
-        LSCfileAdd
+        LSCfileAdd: Publishes a file with appropriate metadata to an LDR 
+        database.
 
 SYNOPSIS
-        LSCfileAdd <options> file1 file2...
-
-DESCRIPTION
-        TBD (to be done)
-
+        LSCfileAdd --help
+        
+        LSCfileAdd <options> file1 file2 ...
+        
+\
+"""
+                msg += "DESCRIPTION\n"
+                for field, vals in self.attr.iteritems():
+                        if vals['UserSet']:
+                                msg += "\t-%s, --%s\n" % (vals['Cli_arg_short'],vals['Cli_arg_long'])
+                                # format long description lines properly for standard terminal
+                                description = vals['Description']
+                                length = len(description)
+                                newdes = ""
+                                oldidx = 0
+                                idx = 55
+                                while idx < length:
+                                        while not description[idx].isspace() and idx > 0:
+                                                idx -= 1
+                                        newdes += "%s\n\t\t" % (description[oldidx:idx],)
+                                        oldidx = idx+1
+                                        idx += 55
+                                if newdes:
+                                        description = "%s%s" % (newdes,description[oldidx:length])
+                                msg += "\t\t%s\n\n" % (description,)
+                
+                msg += """\
 ENVIRONMENT
 
         LSC_ADDFILES_SERVER ...
@@ -460,6 +663,7 @@ $ LSCfileAdd .....
 
 \
 """
+
                 print >>sys.stderr, msg
         ## END def print_usage():
 
