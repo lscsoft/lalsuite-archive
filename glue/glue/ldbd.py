@@ -22,7 +22,7 @@ except:
   def get_thread_storage():
     return _tss
   def destroy_thread_storage():
-import mx.ODBC.DB2 as DB2
+    del _tss
   _tss = {}
   _tss_lock = thread.allocate_lock()
   def get_thread_storage():
@@ -84,7 +84,7 @@ class LIGOMetadataDatabase:
       except KeyError:
         self.uniqueids[tab] = {}
         self.uniqueids[tab][col] = 'ilwd:char'
-    conn = DB2.DriverConnect( 'DSN='+database+';UID=ldasdb;PWD=********')
+    curs.close()
     conn.close()
 
 class UniqueIds:
@@ -295,8 +295,8 @@ class LIGOMetadata:
 
   def reset(self):
     """Clear any existing table"""
-    self.dbcon = DB2.DriverConnect(
-      'DSN='+self.ldb.database+';UID=ldasdb;PWD=********')
+    if self.table:
+      del self.table
     self.table = {}
 
   def parse(self,xml):
@@ -348,7 +348,7 @@ class LIGOMetadata:
   def select(self,sql):
     """
     Execute an SQL select statement and stuff the results into a
-        except DB2.Error, e:
+    dictionary.
           print 'rolling back transaction'
     if len(self.table) != 0:
       raise LIGOLwDBError, 'attempt to fill non-empty table from database'
@@ -391,7 +391,7 @@ class LIGOMetadata:
       self.table[tab]['stream'] = self.curs.fetchall()
     except mxdb.Error, e:
       raise LIGOLwDBError, e[2]
-    except DB2.Error, e:
+
   def xml(self):
     """Convert a table dictionary to LIGO lightweight XML"""
     if len(self.table) == 0:
@@ -403,7 +403,7 @@ class LIGOMetadata:
 <!ATTLIST LIGO_LW
           Name CDATA #IMPLIED
           Type CDATA #IMPLIED>
-    except DB2.Error, e:
+
 <!ELEMENT Comment (#PCDATA)>
 
 <!ELEMENT Param (#PCDATA|Comment)*>
