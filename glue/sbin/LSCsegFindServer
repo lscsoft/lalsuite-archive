@@ -563,13 +563,13 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
       res = c.fetchall()
       c.close()
 
-      for s in res:
-        segs |= segments.segmentlist([segments.segment(s[0],s[1])])
+      for r in res:
+        segs |= segments.segmentlist([segments.segment(r[0],r[1])])
       print segs
 
       result = ""
       for s in segs:
-        result += "%d %d\n" % (seg.start, seg.end)
+        result += "%d %d\n" % (s.start, s.end)
       
       logger.debug("Method : segmentFindWithMetadata %d results found" % 
         len(result))
