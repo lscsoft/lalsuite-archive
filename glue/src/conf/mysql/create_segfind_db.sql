@@ -26,8 +26,8 @@ create table state_segment (
 -- The value of the state vector for this segment.
     state_vec_id integer(11) not null references state_vec(state_vec_id),
 
--- The frame file from which this state segment was derived.
-    frame_file_id integer(11) not null references frame_file(frame_file_id),
+-- The file from which this state segment was derived.
+    lfn_id integer(11) not null references lfn(lfn_id),
 
 -- Insertion time (automatically assigned by the database)
     insertion_time timestamp default null,
@@ -35,23 +35,25 @@ create table state_segment (
     primary key( state_segment_id )
   ) type=myISAM;
 
-create table frame_file (
--- A frame_file is a LFN from which some state information is derived
+create table lfn (
+-- A LFN from which some state information is derived
 
--- A frame file used to construct state information
-    frame_file_id integer(11) not null auto_increment,
+-- A unique identifier of this LFN
+    lfn_id integer(11) not null auto_increment,
 
--- The logial file name of the frame file
+-- The logial file name of the file
     lfn varchar(255) not null,
 
--- The start and end times of the frame file, in GPS seconds
+-- The start and end times of the file, in GPS seconds
     start_time integer not null,
     end_time integer not null,
 
 -- Insertion time (automatically assigned by the database)
     insertion_time timestamp default null,
 
-    primary key( frame_file_id, lfn )
+    primary key( lfn_id, lfn ),
+    unique index( lfn )
+
   ) type=myISAM;
 
 create table state_vec (
