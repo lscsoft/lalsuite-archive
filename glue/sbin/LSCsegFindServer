@@ -494,11 +494,11 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
       sql = "SELECT DISTINCT "
       if attribute == "interferometer":
         sql += "ifo FROM state_segment"
-      elif attribute == "type":
+      elif attribute == "state":
         sql += "state FROM state_vec"
       else:
         raise LSCsegFindServerHandlerException, \
-          "Unknown select distinct method" + attribute
+          "Unknown select distinct method " + attribute
 
       db = MySQLdb(user=dbuser,passwd=dbpasswd,db=dbname)
       c = db.cursor()
