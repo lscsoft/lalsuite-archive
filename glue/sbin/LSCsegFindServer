@@ -405,6 +405,8 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
 
     try:
       # call the method requested with the rest of strings as input
+      print method
+      print argStringList
       method(argStringList) 
     except Exception, e:
       logger.error("Error while calling method %s: %s" % (methodString, e))
