@@ -34,8 +34,22 @@ cfgDefaults['H1DMT_CM'] = { 'desc':'DMT Common-mode Segments', 'url':'http://blu
 
 cfgDefaults['H2DMT_CM'] = { 'desc':'DMT Common-mode Segments', 'url':'http://blue.ligo-wa.caltech.edu/gds/monitor_reports/SegGener/H2-CommonMode.txt', 'coalesce':True }
 
+cfgDefaults['E11H1'] = { 'desc':'Conlog Science-mode Segments', 'url':'http://blue.ligo-wa.caltech.edu/engrun/E11/LockStatistics/E11segments/E11H1v00_segs.txt', 'coalesce':False }
+
+cfgDefaults['E11H2'] = { 'desc':'Conlog Science-mode Segments', 'url':'http://blue.ligo-wa.caltech.edu/engrun/E11/LockStatistics/E11segments/E11H2v00_segs.txt', 'coalesce':False }
+
 cfgDefaults['M6L1'] = { 'desc':'Conlog Science-mode Segments', 'url':'http://london.ligo-la.caltech.edu/scirun/S4/LockStatistics/M6segments/M6L1v00_segs.txt', 'coalesce':False }
 
 cfgDefaults['M6H1'] = { 'desc':'Conlog Science-mode Segments', 'url':'http://blue.ligo-wa.caltech.edu/scirun/S4/LockStatistics/M6segments/M6H1v00_segs.txt', 'coalesce':False }
 
 cfgDefaults['M6H2'] = { 'desc':'Conlog Science-mode Segments', 'url':'http://blue.ligo-wa.caltech.edu/scirun/S4/LockStatistics/M6segments/M6H2v00_segs.txt', 'coalesce':False }
+
+cfgDefaults['L1DMT'] = { 'desc':'DMT Science-mode Segments', 'url':'http://london.ligo-la.caltech.edu/gds/monitor_reports/SegGener/L1-ScienceMode.txt', 'coalesce':True }
+
+cfgDefaults['L1DMT_CM'] = { 'desc':'DMT Common-mode Segments', 'url':'http://london.ligo-la.caltech.edu/gds/monitor_reports/SegGener/L1-CommonMode.txt', 'coalesce':True }
+
+cfgDefaults['E12H1'] = { 'desc':'Conlog Science-mode Segments', 'url':'http://blue.ligo-wa.caltech.edu/scirun/S4/LockStatistics/E12segments/E12H1v00_segs.txt', 'coalesce':False }
+
+cfgDefaults['E12H2'] = { 'desc':'Conlog Science-mode Segments', 'url':'http://blue.ligo-wa.caltech.edu/scirun/S4/LockStatistics/E12segments/E12H2v00_segs.txt', 'coalesce':False }
+
+cfgDefaults['E12L1'] = { 'desc':'Conlog Science-mode Segments', 'url':'http://london.ligo-la.caltech.edu/scirun/S4/LockStatistics/E12segments/E12L1v00_segs.txt', 'coalesce':False }
