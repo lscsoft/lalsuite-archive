@@ -126,7 +126,11 @@ class LDBDServerAction(object):
         while retdata:
           fh.write(retdata)
           retdata = f.read()
-    if int(r):
+
+def usage():
+  msg = """\
+      raise Exception, "server close connection with returning an exit code"
+  -s, --server HOST:PORT  connect to ldbd on HOST:PORT (default port 49999)
   -j, --identity SUBJECT  the subject of the servers service certififcate
       raise Exception, errmsg
   -i, --insert LIGOLW     insert LIGO lightweight file LIGOLW
