@@ -1,13 +1,13 @@
 #!/usr/bin/env python
 """
-LDRdataFindServer listens on a socket for connections from a client,
+LSCsegFindServer listens on a socket for connections from a client,
 processes the requests and then returns the results to the client.
-It is used to expose the metadata and LRC information from LDR to
+It is used to expose the information in the segfind database to
 clients.
 
-The RPC protocol for LDRdataFindServer is detailed at
+The RPC protocol for LDCsegFindServer is detailed at
 
-U{http://www.lsc-group.phys.uwm.edu/LDR/ldrprotocol.html}
+U{http://www.lsc-group.phys.uwm.edu/daswg/projects/glue/segfindprotocol.html}
 
 The server is built on top of the ThreadingGSITCPSocketServer from
 the io module in U{pyGlobus<http://www-itg.lbl.gov/gtg/projects/pyGlobus/>},
@@ -29,968 +29,887 @@ import exceptions
 import MySQLdb
 from pyGlobus import io
 
+class Gridmap(object):
+  """
+  Class to represent the grid-mapfile used for the server. 
+  Methods __getitem__ and __setitem__ are added for convenience
+  so that an instance can be treated like a dictionary.
+
+  Entries in the grid-mapfile should be on a single line and
+  surrounded by double quotes. No mapping to a local user ID 
+  is necessary.
+  """
+  def __init__(self, filePath=None, logger=None):
+    """
+    Initialize a new instance. If filePath is None then check
+    the environment for the variable GRIDMAP and uses the 
+    path found as the path to the grid-mapfile to open and parse.
+    
+    @return: an instance that can be treated like a dictionary
+    """
+    if not filePath:
+      try: 
+        path = os.environ["GRIDMAP"]
+      except:
+        if logger:
+          logger.error("Error parsing GRIDMAP from environment: %s" % e)
+          logger.error("Authentication to server will fail for all subjects")
+    else:   
+      path = filePath
+      self.path = path
+      self.logger = logger
+
+
+  def __getitem__(self, key):
+    f = None
+    try:
+      f = open(self.path, 'r')
+    except Exception, e:
+      if self.logger:
+        self.logger.error("Error opening grid-mapfile %s: %s" % (self.path, e))
+        self.logger.error("Authentication to server will fail for all subjects")
+                
+    try:
+      subjects = []
+      lines = [ s.strip() for s in f.readlines()]
+      for s in lines:
+        a = s.split('"')
+        for b in a:
+          if b == '': continue
+          else:
+            subjects.append(b)
+            break
+    except Exception, e:
+      if self.logger:
+        self.logger.error("Error parsing grid-mapfile %s: %s" % (self.path, e))
+        self.logger.error("Authentication to server may fail for some subjects")
+
+    self.d = {} 
+    for s in subjects:
+      self.d[s] = 1
+
+    if f:
+      f.close()
+
+    if self.d.has_key(key): return 1
+    else: return 0
+
+
+class AuthCallback(object):
+  def __init__(self, gridmap, logger, callback=None):
+    self.gridmap = gridmap
+    self.logger = logger
+    self.callback = callback
+
+  def __call__(self, arg, handle, identity, context):
+    """
+    Callback function for GSI authentication. Each time this 
+    function is called a new instance of the GridMap class is created
+    that reads the grid-mapfile. If the subject passed in as the identity
+    is in the grid-mapfile then 1 is returned and the connection is
+    authenticated and allowed to continue. If the subject passed is
+    not in grid-mapfile then a 0 is returned and the connection is
+    broken.
+
+    This function is supplied to help create an instance of io.AuthData
+    which is then supplied to help create an instance of io.TCPIOAttr,
+    which is then supplied to help create the instance of 
+    io.ThreadingGSITCPSocketServer. See the
+    U{pyGlobus<http://www-itg.lbl.gov/gtg/projects/pyGlobus/>} documentation.
+
+    Everything is within a try/except clause since if an exception is raised
+    within this function experience shows that the connection will be
+    allowed to authenticate!
+
+    @param logger:  an instance of a logger to which the identity can be
+      logged, or None
+    @param handle: handle to the io.AuthData instance, not used here
+    @param identity: the identity of the party trying to authenticate
+    @type identity: string
+    @param context: the GSI context, not used here
+
+    @return: 1 to accept and 0 to reject
+    """
+    try:
+      # load gridmap file
+      if self.gridmap[identity]:
+        if self.logger:
+          self.logger.info("Accepted connection from %s" % identity)
+        if self.callback:
+          self.callback(arg, 1)
+        return 1
+      else:
+        if self.logger:
+          self.logger.info("Rejected connection from %s" % identity)
+        if self.callback:
+          self.callback(arg, 0)
+        return 0
+    except Exception, e:
+      try:
+        self.logger.error("Error within authentication callback: %s" % e)
+      except Exception, e:
+        pass
+      return 0
+
+
+def daemon():
+  """
+  Common code for making a process into a daemon. 
+
+  Fork once, change directory to /, get a new session, set the umask to 0,
+  then fork again.
+
+  @return: Parent never returns. The child gets None.
+  """
+  # do the first fork
+  try:
+    pid = os.fork()
+    if pid > 0:
+      # exit first parent
+      sys.exit(0)
+  except OSError, e:
+    print >>sys.stderr, "fork #1 failed: %d (%s)" % (e.errno, e.strerror)
+    sys.exit(1)
+        
+  # decouple from parent environment
+  os.chdir("/")
+  os.setsid()
+  os.umask(0)
+        
+  # do the second fork
+  try:
+    pid = os.fork()
+    if pid > 0:
+      # exit from second parent
+      sys.exit(0)
+  except OSError, e:
+    print >>sys.stderr, "fork #2 failed: %d (%s)" % (e.errno, e.strerror)
+    sys.exit(1)
+        
+  # send stdout and stderr to /dev/null
+  try:
+    devnull = open("/dev/null", "w")
+    sys.stdout = devnull
+    sys.stderr = devnull
+  except Exception, e:
+    print >>sys.__stderr__, "Unable to direct to /dev/null: %s" % e
+    sys.exit(1)
+
+
+
 def SIGHUPhandler(signum, frame):
-        """
-        Handle SIGHUP signals by asking the server to stop its 
-        service, then read the configuration information again
-        and reconfigure, after which the service will automatically
-        start again.
+  """
+  Handle SIGHUP signals by asking the server to stop its 
+  service, then read the gridmap file again and reconfigure, 
+  after which the service will automatically start again.
 
-        @param signum: signal number; see the documentation for the 
-                signal module
+  @param signum: signal number; see the documentation for the 
+    signal module
 
-        @param frame: current stack frame; see the documentation for
-                the signal module
+  @param frame: current stack frame; see the documentation for
+    the signal module
         
-        @return: None
-        """
-        global myServer
-        global myConfigurationManager
-        global myConfigParser
+  @return: None
+  """
+  global myServer
         
-        myServer.stopService()
+  myServer.stopService()
 
-        myConfigParser.read(configFilePath) 
-        myConfigurationManager.reconfigure() 
 
 
 def SIGTERMhandler(signum, frame):
-        """
-        Handle SIGTERM signals by asking the server to stop and die.
+  """
+  Handle SIGTERM signals by asking the server to stop and die.
 
-        @param signum: signal number; see the documentation for the 
-                signal module
+  @param signum: signal number; see the documentation for the 
+    signal module
 
-        @param frame: current stack frame; see the documentation for
-                the signal module
+  @param frame: current stack frame; see the documentation for
+    the signal module
         
-        @return: None
-        """
-        global myServer
+  @return: None
+  """
+  global myServer
 
-        myServer.die()
+  myServer.die()
+
 
 
 def socketReadyCallback(arg, handle, result):
-        """
-        Called when a socket is ready for reading (when a connection has been made
-        and there is something to read).
+  """
+  Called when a socket is ready for reading (when a connection has been made
+  and there is something to read).
 
-        This function simply sets a flag to let the server loop know the socket
-        is ready for reading.
+  This function simply sets a flag to let the server loop know the socket
+  is ready for reading.
 
-        @param arg: User supplied argument. Here it is used to carry the socket ready
-                flag.
-        @param handle: a pointer to the SWIG'ized globus_io_handle_t
-        @param result: a pointer to the SWIG'ized globus_result_t
+  @param arg: User supplied argument. Here it is used to carry the socket ready
+    flag.
+  @param handle: a pointer to the SWIG'ized globus_io_handle_t
+  @param result: a pointer to the SWIG'ized globus_result_t
 
-        @return: None
-        """
-        arg.mySocketReady = 1
+  @return: None
+  """
+  arg.mySocketReady = 1
+
+
 
 # parse command line options
-shortop = "dC:"
+shortop = "p:g:c:k:d:Dh"
 longop = [
-          "daemon",
-          "configuration=",
-         ]
+  "port=",
+  "gridmap=",
+  "certificate=",
+  "key=",
+  "database=",
+  "daemon",
+  "help"
+  ]
 
-#default for command-line options
-runAsDaemon = False
-configFilePath = None
 
 usage = """\
-LDRdataFindServer --configuration=<path to config file>
-        --daemon
+Usage: LSCdataFindServer [OPTIONS]
+
+  -p, --port PORT           listen for connections on PORT (default 49999)
+  -g, --gridmap FILE        obtain authourized user credentials from FILE
+  -c, --certificate FILE    obtain service certificate from FILE
+  -k, --key FILE            obtain service private key form FILE
+  -d, --database DB         query database DB for segment information
+  -D, --daemon              run as a deamon
+  -h, --help                print detailed help message
+
+The --gridmap, --certificate,--key and --database options must be specified.
 """
 
 try:
-        opts, args = getopt.getopt(sys.argv[1:], shortop, longop)
+  opts, args = getopt.getopt(sys.argv[1:], shortop, longop)
 except getopt.GetoptError:
-        print >>sys.stderr, "Error parsing command line"
-        sys.exit(1)
+  print >>sys.stderr, "Error parsing command line"
+  sys.exit(1)
 
-for o, a in opts:
-        if o in ("-d", "--daemon"):
-                runAsDaemon = True
-        if o in ("-C", "--configuration"):
-                configFilePath = a
-
-# grab LDR_LOCATION from environment or complain
-try:
-        LDR_LOCATION = os.environ["LDR_LOCATION"]
-except:
-        print >>sys.stderr, "LDR_LOCATION environment variable undefined"
-        sys.exit(1)
-
-sys.path.append(os.path.join(LDR_LOCATION, "ldr", "lib"))
-
-# import LDR specific modules
-from LDRConfig import ConfigurationManager
-import LDRUtil
-import LDRMetadata
+#default for command-line options
+runAsDaemon = False
 
 # default configuration values may go here, but they will be replaced
 # by actual values if and when a ConfigurationManager instance is
 # created elsewhere
 configuration = {
-        'max_client_byte_string': 2048,
-        'metadata_db_name': 'LDRmetadata',
-        'lrc_db_name': 'lrc1000'
-        }
+  'port' : 49999,
+  'gridmap' : '/etc/grid-security/grid-mapfile',
+  'certfile' : '/etc/grid-security/hostcert.pem',
+  'keyfile' : '/etc/grid-security/hostkey.pem',
+  'db_name' : 'segfind',
+  'dbuser' : 'dbrown',
+  'dbpasswd' : '',
+  'max_client_byte_string': 2048,
+  'pidfile' : '/tmp/segfind.pid',
+  'logfile' : '/tmp/segfind.log',
+  'logmaxbytes' : 1024 * 1024 * 1,
+  'logbackupcount' : 5,
+  'loglevel' : 'INFO'
+  }
 
-# grab configuration
-if not configFilePath:
-        configFilePath = os.path.join(LDR_LOCATION, "ldr/etc/ldr.ini")
-
-myConfigParser = ConfigParser()
-myConfigParser.read(configFilePath)
-myConfigurationManager = ConfigurationManager(myConfigParser)
 
 
-class LDRdataFindServerHandlerException(exceptions.Exception):
-        """
-        Class representing exceptions within the LDRdataFindServer class.
-        """
-        def __init__(self, args=None):
-                """
-                Initialize an instance.
+class LSCsegFindServerHandlerException(exceptions.Exception):
+  """
+  Class representing exceptions within the LSCsegFindServer class.
+  """
+  def __init__(self, args=None):
+    """
+    Initialize an instance.
 
-                @param args: 
+    @param args: 
 
-                @return: Instance of class LDRdataFindServerHandlerException
-                """
-                self.args = args
+    @return: Instance of class LSCsegFindServerHandlerException
+    """
+    self.args = args
         
 
-class LDRdataFindServerHandler(SocketServer.BaseRequestHandler):
-        """
-        An instance of this class is created to service each request of the server.
-        """
-        def handle(self):
-                """
-                This method does all the work of servicing a request to the server. See
-                the documentation for the standard module SocketServer.
 
-                The input from the socket is parsed for the method with the remaining
-                strings stripped of null bytes passed to the method in a list.
+class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
+  """
+  An instance of this class is created to service each request of the server.
+  """
+  def handle(self):
+    """
+    This method does all the work of servicing a request to the server. See
+    the documentation for the standard module SocketServer.
 
-                There are no parameters. When the instance of the class is created to process
-                the request all necessary information is made attributes of the class
-                instance.
+    The input from the socket is parsed for the method with the remaining
+    strings stripped of null bytes passed to the method in a list.
 
-                @return: None
-                """
-                global logger
-                global configuration
+    There are no parameters. When the instance of the class is created to
+    process the request all necessary information is made attributes of the
+    class instance.
 
-                logger.debug("handle method of LDRdataFindServerHandler class called")
+    @return: None
+    """
+    global logger
 
-                # mapping of LDRdataFindServer RPC protocol names to methods of this class
-                methodDict = {
-                               'PING' : self.ping,
-                               'DISTINCT': self.distinctAttribute,
-                               'LFNPFN': self.pfnFindWithLFN,
-                               'METALFN': self.lfnFindWithMetadata,                               
-                               'METAPFN': self.pfnFindWithMetadata,
-                             }
+    logger.debug("handle method of LSCsegFindServerHandler class called")
 
-                try:
-                        # from the socket object create a file object
-                        self.sfile = self.request.makefile("rw")
-                        f = self.sfile
+    # mapping of LSCsegFindServer RPC protocol names to methods of this class
+    methodDict = {
+      'PING' : self.ping,
+      'DISTINCT': self.distinctAttribute
+    }
 
-                        # read all of the input up to limited number of bytes
-                        max = configuration['max_client_byte_string']
-                        input = f.read(size=max,waitForBytes=2)
+    try:
+      # from the socket object create a file object
+      self.sfile = self.request.makefile("rw")
+      f = self.sfile
 
-                        # the format should be a method string, followed by a null byte
-                        # followed by the arguments to the method encoded as null
-                        # terminatd strings
+      # read all of the input up to limited number of bytes
+      max = configuration['max_client_byte_string']
+      input = f.read(size=max,waitForBytes=2)
 
+      # the format should be a method string, followed by a null byte
+      # followed by the arguments to the method encoded as null
+      # terminatd strings
 
-                        # check if the last byte is a null byte
-                        if input[-1] != '\0':
-                                raise LDRdataFindServerHandlerException, "Last byte of input is not null byte"
+      # check if the last byte is a null byte
+      if input[-1] != '\0':
+        raise LSCsegFindServerHandlerException, \
+          "Last byte of input is not null byte"
+    except Exception, e:
+      logger.error("Error reading input on socket: %s" %  e)
+      return
 
-                except Exception, e:
-                        logger.error("Error reading input on socket: %s" %  e)
-                        return
+    logger.debug("Input on socket: %s" % input[0:-1])
 
-                logger.debug("Input on socket: %s" % input[0:-1])
-
-                try:
-                        # parse out the method and arguments 
-                        stringList = input.split('\0')
-                        methodString = stringList[0]
-                        argStringList = stringList[1:-1]
+    try:
+      # parse out the method and arguments 
+      stringList = input.split('\0')
+      methodString = stringList[0]
+      argStringList = stringList[1:-1]
                         
-                except Exception, e:
-                        logger.error("Error parsing method and argument string: %s" % e)
+    except Exception, e:
+      logger.error("Error parsing method and argument string: %s" % e)
 
-                        msg = "ERROR LDRdataFindServer Error: Error parsing method and argument string: %s" % e
-                        self.__reply__(1, msg)
-                        return
-
+      msg = "ERROR LSCsegFindServer Error: " + \
+        "Error parsing method and argument string: %s" % e
+      self.__reply__(1, msg)
+      return
                 
-                try:
-                        # look up method in dictionary
-                        method = methodDict[methodString]
-        
-                except Exception, e:
-                        msg = "Error converting method string %s to method call: %s" % (methodString, e)
-                        logger.error(msg)
-        
-                        self.__reply__(1, msg)
-                        return
-
-                try:
-                        # call the method requested with the rest of strings as input
-                        method(argStringList) 
-                except Exception, e:
-                        logger.error("Error while calling method %s: %s" % (methodString, e))
-
-                return
-        
-        def __reply__(self, code, msg):
-                """
-                Format and send a reply back down the socket to the client. The file
-                representing the socket is closed at the end of this method.
-
-                @param code: integer representing the error code with 0 for success
-                
-                @param msg: object to be passed back to the client, either a string
-                        or a list of items that can be represented by strings
+    try:
+      # look up method in dictionary
+      method = methodDict[methodString]
+    except Exception, e:
+      msg = "Error converting method string %s to method call: %s" % \
+        (methodString, e)
+      logger.error(msg)
                         
-                @return: None
-                """
-                f = self.sfile
+      self.__reply__(1, msg)
+      return
 
-                # check type of msg object and format appropriately
-                msgType = type(msg)
+    try:
+      # call the method requested with the rest of strings as input
+      method(argStringList) 
+    except Exception, e:
+      logger.error("Error while calling method %s: %s" % (methodString, e))
 
-                if msgType == types.StringType:
-                        reply = "%d\0%s\0" % (code, msg)
-                        f.write(reply)
+    return
+        
+  def __reply__(self, code, msg):
+    """
+    Format and send a reply back down the socket to the client. The file
+    representing the socket is closed at the end of this method.
 
-                elif msgType == types.ListType:
-                        # pack the list of items as null byte seperated strings
-                        reply = "%d\0" % code
-                        for a in msg:
-                                reply += "%s\0" % str(a)
-                        f.write(reply)
-
-                else:
-                        logger.error("Invalid response type: %s" % (msgType) )
-
-
-                # close the file associated with the socket
-                f.close()
-
-
+    @param code: integer representing the error code with 0 for success
                 
+    @param msg: object to be passed back to the client, either a string
+    or a list of items that can be represented by strings
+                        
+    @return: None
+    """
+    f = self.sfile
 
-        def ping(self, arg):
-                """
-                Bounce back alive statment. Corresponds to the PING method in the
-                LDRdataFindServer RPC protocol.
-
-                @param arg: list (perhaps empty) of strings representing message sent
-                        by client to server
-
-                @return: None
-                """
-
-                logger.debug("Method ping() called")
-                try:
-                        hostname = socket.getfqdn()
-                        msg = "LDRdataFindServer at %s is alive" % hostname
-                except Exception, e:
-                        msg = "LDRdataFindServer is alive"
-
-                self.__reply__(0, msg)
-
-
-        def distinctAttribute(self, arg):
-                """
-                Find distinct values for an attribute. Corresponds to the DISTINCT method in
-                the LDRdataFindServer RPC protocol.
-
-                @param arg: list of strings representing messages sent by client; first
-                        one should be the attribute to be examined
-
-                @return: None
-                """
-
-                logger.debug("Method distinctAttribute called")
-
-                # get metadata database access details from configuration
-                metadataDbName = configuration['metadata_db_name']
-                dbuser = configuration['dbuser']
-                dbpasswd = configuration ['dbpasswd']
-
-                # assume failure
-                code = 1
-
-                try:
-                        url = "mysql://%s:%s@localhost/%s" % (dbuser, dbpasswd, metadataDbName)
-                        metadataCatalog = LDRMetadata.metadata(url)
-
-                        attribute = arg[0]
-
-                        if attribute == "instrument":
-                            # dataFindServer uses an obsolete name.
-                            # cross fingers that nobody really wants
-                            # instrument.
-                            attribute = "interferometer"
-
-                        result = metadataCatalog.list_distinct_attribute_values(attribute)
-                        logger.debug("Method distinctAttribute: %d results found" % len(result))
-                        code = 0
-                except Exception, e:
-                        result = "Error querying metadata for distinct values of attribute %s: %s" % (arg[0], e)
-                        logger.error(result)
-
-
-                try:
-                        metadataCatalog.close()
-                        del metadataCatalog
-                except Exception, e:
-                        logger.error("Error closing connection to MySQL in method distinctAttribute")
-
-                self.__reply__(code, result)
-
-        def pfnFindWithLFN(self, arg):
-                """
-                Given a LFN find the associated PFNs. Corresponds to the LFNPFN method in
-                the LDRdataFindServer RPC protocol.
-
-                @param arg: list of strings representing messages sent by the client; first
-                        one should be the LFN
-
-                @return: None
-                """
-
-                logger.debug("Method pfnFindWithLFN called")
-
-                # get lrc database name from configuration
-                lrcDbName = configuration['lrc_db_name']
-                dbuser = configuration['dbuser']
-                dbpasswd = configuration['dbpasswd']
-
-                # parse out argument
-                lfn = arg[0]
-
-                # create database handle
-                try:
-                        db = MySQLdb.connect(user=dbuser,passwd=dbpasswd)
-                        c = db.cursor()
-               
-                except Exception, e:
-                        msg = "Unable to connect to MySQL database %s: %s" % (lrcDbName, e)
-                        logger.error(msg)
-                        self.__reply__(1, msg)
-                        return
-
-                # create sql string and query
-                template = """\
-SELECT %(lrcDbName)s.t_pfn.name FROM %(lrcDbName)s.t_lfn JOIN %(lrcDbName)s.t_map ON \
-%(lrcDbName)s.t_lfn.id = %(lrcDbName)s.t_map.lfn_id JOIN %(lrcDbName)s.t_pfn ON \
-%(lrcDbName)s.t_map.pfn_id = %(lrcDbName)s.t_pfn.id WHERE %(lrcDbName)s.t_lfn.name = '%(lfn)s'"""
-                sql = template % {
-                                   'lrcDbName' : lrcDbName,
-                                   'lfn' : lfn
-                                  }
-
-                # assume failure
-                code = 1
-
-                try:
-                        out = c.execute(sql)
-                        result = [ x[0] for x in c.fetchall() ]
-                        logger.debug("Method pfnFindWithLFN: %d results found" % len(result))
-                        code = 0
-                except Exception, e:
-                        result = "Error querying database with sql -> %s: %s" % (sql, e)
-                        logger.error(result)
-                       
- 
-                c.close()
-                db.close()
-                del db
-                self.__reply__(code, result)
-
-        def lfnFindWithMetadata(self, arg):
-            logger.debug("Method lfnFindWithMetadata called")
-            return self.findWithMetadata(arg)
-
-        def pfnFindWithMetadata(self, arg):
-            logger.debug("Method pfnFindWithMetadata called")
-            return self.findWithMetadata(arg, pfn=1)
-
-        def findWithMetadata(self, arg, pfn=0):
-                """
-                Given a SQL WHERE-type clause find PFNs or LFNs that have
-                the matching attributes. Corresponds to the METALFN method
-                in the LDRdataFindServer RPC protocol.
-
-                @param arg: list of strings representing messages sent by the client; see the RPC
-                            protocol 
-
-                @return: None
-                """
-
-                logger.debug("Method findWithMetadata called")
-
-                # get metadata database name from configuration
-                metadataDbName = configuration['metadata_db_name']
-                dbuser = configuration['dbuser']
-                dbpasswd = configuration ['dbpasswd']
-
-                # parse out arguments for each query set
-                queryDict = {}
-                queryDict['whereClause'] = arg.pop(0)
-                queryDict['regex'] = arg.pop(0)
-                queryDict['offset'] = int(arg.pop(0))
-                queryDict['number'] = int(arg.pop(0))
-                queryDict['orderby'] = arg.pop(0)
-                queryDict['ascdesc'] = arg.pop(0)
-
-
-                # Fix up the queryDict
-
-                queryDict['metadatadb'] = metadataDbName
-                queryDict['lrcdb'] = configuration['lrc_db_name']
-
-                if queryDict['number'] < 0:
-                        print "==> Original number", queryDict['number']
-                        queryDict['number'] = 9999999999
-
-                if queryDict['orderby'] == 'NONE':
-                        # Default order is name of things were finding.
-                        if pfn: queryDict['orderby'] = 'pfn'
-                        else:   queryDict['orderby'] = 'lfn'
-
-
-                # XXX TBD strict
-
-                # Use the client "WHERE" thing to draw out he original
-                # values.
-                whereClauseDict = self.parseClientWhereClause(queryDict['whereClause'], queryDict)
-
-                if queryDict['regex'] == 'NONE':
-                    queryDict['regex'] = ""
-
-
-                # create database handle
-                try:
-                        db = MySQLdb.connect(user=dbuser,passwd=dbpasswd)
-                        c = db.cursor()
-               
-                except Exception, e:
-                        msg = "Unable to connect to MySQL database %s: %s" % (lrcDbName, e)
-                        logger.error(msg)
-                        self.__reply__(1, msg)
-                        return
-
-                # set database to use
-                sql = "USE %s" % metadataDbName
-                try:
-                        out = c.execute(sql)
-                except Exception, e:
-                        msg = "Error querying database with sql -> %s: %s" % (sql, e)
-                        logger.error(msg)
-                        self.__reply__(1, msg)
-
-                sql = self._makeQueryString(queryDict, getPFNs=pfn, strict=0)
-
-                # assume failure
-                code = 1
-
-                try:
-                        out = c.execute(sql)
-                        result = [ x[0] for x in c.fetchall() ]
-                        logger.debug("Method lfnFindWithMetadata: %d results found" % len(result))
-                        code = 0
-                except Exception, e:
-                        result = "Error querying database with sql -> %s: %s" % (sql, e)
-                        logger.error(result)
-                       
- 
-                del db
-                self.__reply__(code, result)
-
-
-        def _makeQueryString(self, query, getPFNs=0, strict=0):
-
-            q = query.copy()
-
-            if getPFNs:
-                q['selection'] = "pfn.name"
-                if q['regex']:
-                    q['regex'] = """AND pfn.name REGEXP '%(regex)s'""" % query
-                q['pfnJoin'] = """
-JOIN %(lrcdb)s.t_lfn lfn2 ON lfn2.name = lfn.name
-JOIN %(lrcdb)s.t_map map ON lfn2.id = map.lfn_id
-JOIN %(lrcdb)s.t_pfn pfn ON map.pfn_id = pfn.id""" % query
-            else:
-                q['selection'] = "lfn.name"
-                if q['regex']:
-                    q['regex'] = """AND lfn.name REGEXP '%(regex)s'""" % query
-                q['pfnJoin'] = ""
-
-            # Regex matching on results.
-            #
-            if q['regex'] == 'NONE':
-                # Client says 'NONE' when there is no regex
-                q['regex'] = ""
-
-            # Ordering.  We need to find which magic id goes with
-            # the selected value.
-
-            # q['orderby'] is what comes from the client
-            # q['order']   is the SQL fragment that we use in the query.
-
-            # Hmm.  Apparently the client ALWAYS says to order by
-            # gpsStart ascending.  The server can intervene and
-            # put in a default lfn or pfn ordering.  Anything
-            # else is ... gpsStart, I guess.  And the client
-            # ALWAYS specifies ascending.  So there.
-            #
-            # You know, there's an entry in the dictionary
-            # called 'ascdesc' that is getting ignored, but
-            # it looks like the client ALWAYS sets it to ASC.
-            #
-            if q['orderby'] == 'lfn':
-                q['order'] = "ORDER BY lfn.name ASC"
-            if q['orderby'] == 'pfn':
-                q['order'] = "ORDER BY pfn.name ASC"
-            else: q['order'] = "ORDER BY inta2.value ASC"
-
-            q['limit'] = "LIMIT %d, %d" % (q['offset'], q['number'])
-
-            baseTemplate = """
-SELECT DISTINCT
-%(selection)s
-FROM
-%(metadatadb)s.integer_attribute       inta
-JOIN %(metadatadb)s.attribute          attr  ON attr.oid = inta.attr_ptr
-JOIN %(metadatadb)s.lfn                lfn   ON inta.lfn_ptr = lfn.oid
-JOIN %(metadatadb)s.attribute          attr2 ON attr2.oid = stra.attr_ptr
-JOIN %(metadatadb)s.string_attribute   stra  ON stra.lfn_ptr = inta.lfn_ptr
-JOIN %(metadatadb)s.attribute          attr3 ON attr3.oid = stra2.attr_ptr
-JOIN %(metadatadb)s.string_attribute   stra2 ON stra2.lfn_ptr = inta.lfn_ptr
-JOIN %(metadatadb)s.integer_attribute  inta2 ON inta2.lfn_ptr = inta.lfn_ptr
-JOIN %(metadatadb)s.attribute          attr4 ON attr4.oid = inta2.attr_ptr
-
-%(pfnJoin)s
-
-WHERE (attr.name = 'gpsStart' OR attr.name = 'gpsEnd')
-AND attr2.name = 'frameType'
-AND attr3.name = 'site'
-AND (inta.value >= %(gpsStart)s AND inta.value < %(gpsEnd)s)
-AND stra.value = '%(frameType)s'
-AND stra2.value = '%(instrument)s'
-AND attr4.name = 'gpsStart'
-%(regex)s
-%(order)s
-%(limit)s
-"""
-
-            return baseTemplate % q
-
-        def parseClientWhereClause(self, query, queryDict=None):
-            queryList = query.replace("AND ","").replace("(","").replace(")","").replace("'","").split(" ")
-            if queryDict is None:
-                queryDict = {}
-            for i in range(0,len(queryList),3):
-                    if i == 0:
-                        queryDict["gpsStart"] = queryList[i+2]
-                    elif i == 3:
-                        queryDict["gpsEnd"] = queryList[i+2]
-                    else:
-                        queryDict[queryList[i]] = queryList[i+2]
-            return queryDict
-
-
-class LDRdataFindServer(object):
-        """
-        An instance of this class is a multi-threadead server that will listen on a socket/port for
-        connections from a client and will process requests.
-        """
-        def __init__(self):
-                """
-                Perform any checks that are necessary before becoming a daemon and
-                starting a socket service to listen on. If any check fail print
-                to stderr and exit.
-
-                @param:
-
-                @return: instance of class LDRdataFindServer
-                """
-                # verify that we have access to the certificate, key, grid-mapfile
-                certFilePath = configuration["certfile"]
-                if not os.access(certFilePath, os.R_OK):
-                        print >>sys.stderr, "LDRdataFindServer: Cannot access certificate file at %s" % certFilePath
-                        sys.exit(1)
-
-                keyFilePath = configuration["keyfile"]
-                if not os.access(keyFilePath, os.R_OK):
-                        print >>sys.stderr, "LDRdataFindServer: Cannot access key file at %s" % keyFilePath
-                        sys.exit(1)
-
-                gridmapFilePath = configuration["gridmap"]
-                if not os.access(gridmapFilePath, os.R_OK):
-                        print >>sys.stderr, "LDRdataFindServer: Cannot access grid-mapfile at %s" % gridmapFilePath
-                        sys.exit(1)
-
-                # verify that we can write PID file
-                failure = 0
-                pidFilePath = configuration["pidfile"]
-                exists  = os.access(pidFilePath, os.F_OK)
-                if exists:
-                        if not os.access(pidFilePath, os.W_OK):
-                                failure = 1
-                else:
-                        try:
-                                f = open(pidFilePath, "w")
-                                f.close()
-                        except:
-                                failure = 1
+    # check type of msg object and format appropriately
+    msgType = type(msg)
+
+    if msgType == types.StringType:
+      reply = "%d\0%s\0" % (code, msg)
+      f.write(reply)
+    elif msgType == types.ListType:
+      # pack the list of items as null byte seperated strings
+      reply = "%d\0" % code
+      for a in msg:
+        reply += "%s\0" % str(a)
+        f.write(reply)
+    else:
+      logger.error("Invalid response type: %s" % (msgType) )
+
+    # close the file associated with the socket
+    f.close()
+
+
+
+  def ping(self, arg):
+    """
+    Bounce back alive statment. Corresponds to the PING method in the
+    LSCsegFindServer RPC protocol.
+
+    @param arg: list (perhaps empty) of strings representing message sent
+      by client to server
+
+    @return: None
+     """
+
+    logger.debug("Method ping() called")
+    try:
+      hostname = socket.getfqdn()
+      msg = "LSCsegFindServer at %s is alive" % hostname
+    except Exception, e:
+      msg = "LCSsegFindServer is alive"
+
+    self.__reply__(0, msg)
+
+
+
+  def distinctAttribute(self, arg):
+    """
+    Find distinct values for an attribute. Corresponds to the DISTINCT method
+    in the LSCsegFindServer RPC protocol.
+
+    @param arg: list of strings representing messages sent by client; first
+      one should be the attribute to be examined
+
+    @return: None
+    """
+
+    logger.debug("Method distinctAttribute called")
+
+    # get metadata database access details from configuration
+    dbname = configuration['db_name']
+    dbuser = configuration['dbuser']
+    dbpasswd = configuration ['dbpasswd']
+
+    # assume failure
+    code = 1
+
+    try:
+      #url = "mysql://%s:%s@localhost/%s" % (dbuser, dbpasswd, metadataDbName)
+      #metadataCatalog = LDRMetadata.metadata(url)
+
+      attribute = arg[0]
+
+      if attribute == "instrument":
+        # dataFindServer uses an obsolete name.
+        # cross fingers that nobody really wants
+        # instrument.
+        attribute = "interferometer"
+
+        #result = metadataCatalog.list_distinct_attribute_values(attribute)
+        logger.debug("Method distinctAttribute: %d results found" % 
+          len(result))
+        code = 0
+    except Exception, e:
+      result = "Error querying metadata for distinct values of attribute " + \
+        "%s: %s" % (arg[0], e)
+      logger.error(result)
+
+
+    try:
+      pass
+      # metadataCatalog.close()
+      # del metadataCatalog
+    except Exception, e:
+      logger.error(
+        "Error closing connection to MySQL in method distinctAttribute")
+
+    self.__reply__(code, result)
+
+
+class LSCsegFindServer(object):
+  """
+  An instance of this class is a multi-threadead server that will listen on a
+  socket/port for connections from a client and will process requests.
+  """
+  def __init__(self):
+    """
+    Perform any checks that are necessary before becoming a daemon and
+    starting a socket service to listen on. If any check fail print
+    to stderr and exit.
+
+    @param:
+
+    @return: instance of class LSCsegFindServer
+    """
+    self.server = None
+
+    # verify that we have access to the certificate, key, grid-mapfile
+    certFilePath = configuration["certfile"]
+    if not os.access(certFilePath, os.R_OK):
+      print >>sys.stderr, "LSCsegFindServer: " + \
+      "Cannot access certificate file at %s" % certFilePath
+      sys.exit(1)
+
+    keyFilePath = configuration["keyfile"]
+    if not os.access(keyFilePath, os.R_OK):
+      print >>sys.stderr, \
+        "LSCsegFindServer: Cannot access key file at %s" % keyFilePath
+      sys.exit(1)
+
+    gridmapFilePath = configuration["gridmap"]
+    if not os.access(gridmapFilePath, os.R_OK):
+      print >>sys.stderr, \
+        "LSCsegFindServer: Cannot access grid-mapfile at %s" % gridmapFilePath
+      sys.exit(1)
+
+    # verify that we can write PID file
+    failure = 0
+    pidFilePath = configuration["pidfile"]
+    exists  = os.access(pidFilePath, os.F_OK)
+    if exists:
+      if not os.access(pidFilePath, os.W_OK):
+        failure = 1
+    else:
+      try:
+        f = open(pidFilePath, "w")
+        f.close()
+      except:
+        failure = 1
                         
 
-                if failure:
-                        print >>sys.stderr, "LDRdataFindServer: Cannot write PID to file %s" % pidFilePath
-                        sys.exit(1)
+    if failure:
+      print >>sys.stderr, \
+        "LSCsegFindServer: Cannot write PID to file %s" % pidFilePath
+      sys.exit(1)
 
 
-        def initialize(self):
-                """
-                Grab information from configuration and record it for this instance. Set up logging.
+  def initialize(self):
+    """
+    Grab information from configuration and record it for this instance. Set
+    up logging.
 
-                @param:
+    @param:
                 
-                @return: None
-                
-                """
-                global logger
+    @return: None
 
-                try:
-                        self.certFilePath = configuration["certfile"]
-                        self.keyFilePath  = configuration["keyfile"]
-                        self.gridmapFilePath = configuration["gridmap"]
-                        self.pidFilePath = configuration["pidfile"]
-                        self.port = configuration["port"]
+    """
+    global logger
+
+    try:
+      self.certFilePath = configuration["certfile"]
+      self.keyFilePath  = configuration["keyfile"]
+      self.gridmapFilePath = configuration["gridmap"]
+      self.pidFilePath = configuration["pidfile"]
+      self.port = configuration["port"]
                         
-                        myLogger = logging.getLogger('LDRdataFindServer')
+      myLogger = logging.getLogger('LSCsegFindServer')
 
-                        # remove any existing handlers
-                        for h in myLogger.handlers:
-                                myLogger.removeHandler(h)
+      # remove any existing handlers
+      for h in myLogger.handlers:
+        myLogger.removeHandler(h)
 
 
-                        logFilePath = configuration["logfile"]
+      logFilePath = configuration["logfile"]
 
-                        handler = logging.handlers.RotatingFileHandler(logFilePath, 'a', configuration['logmaxbytes'], configuration['logbackupcount'])
-                        formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
-                        handler.setFormatter(formatter)
-                        myLogger.addHandler(handler)
-                        logFileLevel = configuration["loglevel"]
-                        myLogger.setLevel(eval("logging." + logFileLevel))
+      handler = logging.handlers.RotatingFileHandler(
+        logFilePath, 'a', configuration['logmaxbytes'], 
+        configuration['logbackupcount'])
+      formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+      handler.setFormatter(formatter)
+      myLogger.addHandler(handler)
+      logFileLevel = configuration["loglevel"]
+      myLogger.setLevel(eval("logging." + logFileLevel))
 
-                        self.logger = myLogger
-                        logger = myLogger
+      self.logger = myLogger
+      logger = myLogger
 
-                except Exception, e:
-                        print >>sys.__stderr__, "Unable to start logging: %s" % e
+    except Exception, e:
+      print >>sys.__stderr__, "Unable to start logging: %s" % e
         
-        def run(self):
-                """
-                Read configuration information in the initialize() method, write out pid, set up our
-                environment, start the GSI TCP service on the socket, then start listening forever.
+  def run(self):
+    """
+    Read configuration information in the initialize() method, write out
+    pid, set up our environment, start the GSI TCP service on the socket,
+    then start listening forever.
 
-                @param:
+    @param:
 
-                @return: None
-                """
-                self.initialize()
-                self.writePID()
-                self.setEnvironment()
-                self.startService()
-                self.serveForever()
+    @return: None
+    """
+    self.initialize()
+    self.writePID()
+    self.setEnvironment()
+    self.startService()
+    self.serveForever()
 
-        def stopService(self):
-                """
-                Set a flag on this instance of LDRdataFindServer so that when the main loop in
-                the serveForever() method sees the flag set the service is stopped.
+  def stopService(self):
+    """
+    Set a flag on this instance of LSCsegFindServer so that when the main
+    loop in the serveForever() method sees the flag set the service is
+    stopped.
 
-                @param:
+    @param:
 
-                @return: None
-                """
-                self.logger.info("stopNow flag set; server will stop during next loop")
-                self.stopNow = 1
+    @return: None
+    """
+    self.logger.info("stopNow flag set; server will stop during next loop")
+    self.stopNow = 1
         
-        def die(self):
-                """
-                Set a flag on this instance of LDRdataFindServer so that when the main loop in
-                the serveForever() method sees the flag set the service is stopped and then
-                the executable exits.
+  def die(self):
+    """
+    Set a flag on this instance of LSCsegFindServer so that when the main
+    loop in the serveForever() method sees the flag set the service is
+    stopped and then the executable exits.
 
-                @param:
+    @param:
 
-                @return: None
-                """
-                self.logger.info("dieNow flag set; executable will exit during next loop")
-                self.stopService()
-                self.dieNow = 1
+    @return: None
+    """
+    self.logger.info("dieNow flag set; executable will exit during next loop")
+    self.stopService()
+    self.dieNow = 1
 
-        def writePID(self):
-                """
-                Write pid out to a file.
+  def writePID(self):
+    """
+    Write pid out to a file.
                 
-                @param:
+    @param:
 
-                @return: None
-                """
+    @return: None
+    """
 
-                # write PID out to file
-                myPIDfd = os.open(self.pidFilePath, os.O_WRONLY | os.O_CREAT, 0644)
-                os.write(myPIDfd, "%d\n" % os.getpid())
-                os.close(myPIDfd)
+    # write PID out to file
+    myPIDfd = os.open(self.pidFilePath, os.O_WRONLY | os.O_CREAT, 0644)
+    os.write(myPIDfd, "%d\n" % os.getpid())
+    os.close(myPIDfd)
 
-        def clearPID(self):
-                """
-                Delete pid file.
+  def clearPID(self):
+    """
+    Delete pid file.
                 
-                @param:
+    @param:
 
-                @return: None
-                """
+    @return: None
+    """
 
-                try:
-                        os.unlink(self.pidFilePath)
-                except:
-                        pass
+    try:
+      os.unlink(self.pidFilePath)
+    except:
+      pass
 
 
-        def setEnvironment(self):
-                """
-                Set environment variables that this instance of LDRdataFindServer needs, in particular
-                for GSI services.
+  def setEnvironment(self):
+    """
+    Set environment variables that this instance of LSCsegFindServer needs,
+    in particular for GSI services.
                 
-                @param:
+    @param:
 
-                @return: None
-                """
-                os.environ["X509_USER_CERT"] = self.certFilePath
-                os.environ["X509_USER_KEY"] = self.keyFilePath
-                os.environ["GRIDMAP"] = self.gridmapFilePath
-
-
-        def startService(self):
-                """
-                Create instance of io.ThreadingGSITCPSocketServer that this server will use to listen
-                for incoming requests from clients. See the 
-                U{pyGlobus<http://www-itg.lbl.gov/gtg/projects/pyGlobus/>} documentation.
-
-                If the ThreadingGSITCPSocketServer cannot be started sleep and then try again, with
-                the time between retries growing exponentially.
+    @return: None
+    """
+    os.environ["X509_USER_CERT"] = self.certFilePath
+    os.environ["X509_USER_KEY"] = self.keyFilePath
+    os.environ["GRIDMAP"] = self.gridmapFilePath
 
 
-                This server requires GSI authentication. 
+  def startService(self):
+    """
+    Create instance of io.ThreadingGSITCPSocketServer that this server will
+    use to listen for incoming requests from clients. See the
+    U{pyGlobus<http://www-itg.lbl.gov/gtg/projects/pyGlobus/>} documentation.
 
-                @param:
+    If the ThreadingGSITCPSocketServer cannot be started sleep and then try
+    again, with the time between retries growing exponentially.
 
-                @return: None
-                """
-                # create a callback to use for authorization
-                gridmap = LDRUtil.Gridmap(self.gridmapFilePath, self.logger)
-                callback = LDRUtil.AuthCallback(gridmap, self.logger, callback=None)
+    This server requires GSI authentication. 
 
-                # create authorization data object and set callback
-                authData = io.AuthData()
-                authData.set_callback(callback, self)
-                self.authData = authData
+    @param:
+
+    @return: None
+    """
+    # create a callback to use for authorization
+    gridmap = Gridmap(self.gridmapFilePath, self.logger)
+    callback = AuthCallback(gridmap, self.logger, callback=None)
+
+    # create authorization data object and set callback
+    authData = io.AuthData()
+    authData.set_callback(callback, self)
+    self.authData = authData
         
-                # create TCPIO Attribute object and initialize to pass to server        
-                #
-                # we use secure IO authentication using GSSAPI and authorization back
-                # to a callback function, which reads a gridmap file
-                tcpIOAttr = io.TCPIOAttr()
-                tcpIOAttr.set_authentication_mode(io.ioc.GLOBUS_IO_SECURE_AUTHENTICATION_MODE_GSSAPI)
-                tcpIOAttr.set_authorization_mode(io.ioc.GLOBUS_IO_SECURE_AUTHORIZATION_MODE_CALLBACK, authData)
-                tcpIOAttr.set_channel_mode(io.ioc.GLOBUS_IO_SECURE_CHANNEL_MODE_CLEAR)
-                tcpIOAttr.set_delegation_mode(io.ioc.GLOBUS_IO_SECURE_DELEGATION_MODE_FULL_PROXY)
+    # create TCPIO Attribute object and initialize to pass to server        
+    #
+    # we use secure IO authentication using GSSAPI and authorization back
+    # to a callback function, which reads a gridmap file
+    tcpIOAttr = io.TCPIOAttr()
+    tcpIOAttr.set_authentication_mode(
+      io.ioc.GLOBUS_IO_SECURE_AUTHENTICATION_MODE_GSSAPI)
+    tcpIOAttr.set_authorization_mode(
+      io.ioc.GLOBUS_IO_SECURE_AUTHORIZATION_MODE_CALLBACK, authData)
+    tcpIOAttr.set_channel_mode(
+      io.ioc.GLOBUS_IO_SECURE_CHANNEL_MODE_CLEAR)
+    tcpIOAttr.set_delegation_mode(
+      io.ioc.GLOBUS_IO_SECURE_DELEGATION_MODE_FULL_PROXY)
                 
+    self.tcpIOAttr = tcpIOAttr
 
-                self.tcpIOAttr = tcpIOAttr
+    # start the server
+    self.running = 0
+    self.nap = 1
+    while not self.running:
+      try:
+        self.logger.info("Starting server on port %d" % self.port)
+        server = io.ThreadingGSITCPSocketServer(
+          addr=("", self.port), 
+          RequestHandlerClass=LSCsegFindServerHandler,
+          #io.ioc.GLOBUS_IO_SECURE_CHANNEL_MODE_CLEAR,
+          channel_mode=io.ioc.GLOBUS_IO_SECURE_CHANNEL_MODE_CLEAR,
+          delegation_mode=io.ioc.GLOBUS_IO_SECURE_DELEGATION_MODE_FULL_PROXY,
+          tcpAttr=self.tcpIOAttr
+          )
+        self.server = server
+        self.logger.info("Server running on port %d" % self.port)
 
-                # start the server
-                self.running = 0
-                self.nap = 1
-                while not self.running:
-                        try:
-                                self.logger.info("Starting server on port %d" % self.port)
-                                server = io.ThreadingGSITCPSocketServer(
-                                        addr=("", self.port), 
-                                        RequestHandlerClass=LDRdataFindServerHandler,
-                                        #io.ioc.GLOBUS_IO_SECURE_CHANNEL_MODE_CLEAR,
-                                        channel_mode=io.ioc.GLOBUS_IO_SECURE_CHANNEL_MODE_CLEAR,
-                                        delegation_mode=io.ioc.GLOBUS_IO_SECURE_DELEGATION_MODE_FULL_PROXY,
-                                        tcpAttr=self.tcpIOAttr
-                                        )
-                                self.server = server
-
-                                self.running = 1
-                                self.nap = 1
+        self.running = 1
+        self.nap = 1
                                 
-                                self.stopNow = 0
-                                self.dieNow = 0
+        self.stopNow = 0
+        self.dieNow = 0
                         
-                        except Exception, e:
-                                self.logger.warning("Error starting server: %s" % e)
-                                self.logger.warning("Will retry in %d seconds" % self.nap)
+      except Exception, e:
+        self.logger.warning("Error starting server: %s" % e)
+        self.logger.warning("Will retry in %d seconds" % self.nap)
 
-                                try:
-                                        del server
-                                        del self.server
-                                except:
-                                        pass
+        try:
+          del server
+          del self.server
+        except:
+          pass
 
-                                time.sleep(self.nap)
-                                self.nap = self.nap * 2
+        time.sleep(self.nap)
+        self.nap = self.nap * 2
                                 
                         
-        def serveForever(self):
-              """
-              Our own version of the server_forever() method for the GSITCPServer and
-              SocketServer.BaseServer classes. Normally the call sequence is
+  def serveForever(self):
+    """
+    Our own version of the server_forever() method for the GSITCPServer and
+    SocketServer.BaseServer classes. Normally the call sequence is
 
-              get_request()
-              verify_request()
-              process_request()
+    get_request()
+    verify_request()
+    process_request()
 
-              and this is normally done with error handling by the handle_request() 
-              method. In turn server_forever() is usually just
+    and this is normally done with error handling by the handle_request() 
+    method. In turn server_forever() is usually just
 
-              while 1: handle_request()
+    while 1: handle_request()
 
-              The get_request() for GSITCPServer is normally a blocking listen() on the
-              socket followed by the accept() call.
+    The get_request() for GSITCPServer is normally a blocking listen() on the
+    socket followed by the accept() call.
 
-              In order to not block we instead use a register_listen() call and have the
-              callback set a flag when a socket is ready to be answered and a call to
-              accept() made.
+    In order to not block we instead use a register_listen() call and have the
+    callback set a flag when a socket is ready to be answered and a call to
+    accept() made.
 
-              Since the loop is not blocking on the socket IO, it can be interrupted
-              by signals, such as a SIGHUP.
+    Since the loop is not blocking on the socket IO, it can be interrupted
+    by signals, such as a SIGHUP.
 
-              @param:
+    @param:
         
-              @return: None
-              """
-              # set socket ready flag to false and register a listening callback
-              # that is called when the socket is ready
-              self.mySocketReady = 0
-              handle = self.server.socket.register_listen(socketReadyCallback, self)
-              
-              while self.running:
-                       # is my socket ready? 
-                       if self.mySocketReady:
-                                # socket is ready so accept the connection, then process it
-                                # the process_request() method used here will be that from
-                                # the SocketServer.ThreadingMixIn class so inside of that a
-                                # new thread is started.
-                                try:
-                                        self.logger.debug("calling accept method for socket instance")
-                                        (request, client_address) = self.server.socket.accept(self.server.attr)
-                                        process = 1
-                                except io.GSITCPSocketException, ex:
-                                        self.server.socket.shutdown(2)
-                                        process = 0
+    @return: None
+    """
+    # set socket ready flag to false and register a listening callback
+    # that is called when the socket is ready
+    self.mySocketReady = 0
+    handle = self.server.socket.register_listen(socketReadyCallback, self)
 
-                                if process:
-                                        try:
-                                                self.logger.debug("processing request on socket now...")
-                                                self.server.process_request(request, client_address)
-                                                self.logger.debug("finished processing request")
-                                        except Exception, e: 
-                                                self.logger.error("Error during server.process_request(): %s" % e)
-                                                self.server.handle_error(request, client_address)
-                                                self.server.close_request(request)
+    while self.running:
+      # is my socket ready? 
+      if self.mySocketReady:
+        # socket is ready so accept the connection, then process it
+        # the process_request() method used here will be that from
+        # the SocketServer.ThreadingMixIn class so inside of that a
+        # new thread is started.
+        try:
+          self.logger.debug("calling accept method for socket instance")
+          (request, client_address) = self.server.socket.accept(self.server.attr)
+          process = 1
+        except io.GSITCPSocketException, ex:
+          self.server.socket.shutdown(2)
+          process = 0
 
-                                # free callback handle used for the register_listen
-                                self.server.socket.free_callback(handle)
+        if process:
+          try:
+            self.logger.debug("processing request on socket now...")
+            self.server.process_request(request, client_address)
+            self.logger.debug("finished processing request")
+          except Exception, e: 
+            self.logger.error("Error during server.process_request(): %s" % e)
+            self.server.handle_error(request, client_address)
+            self.server.close_request(request)
 
-                                # prepare for next connection by setting ready flag to false and
-                                # registering a new listener
-                                self.mySocketReady = 0
-                                handle = self.server.socket.register_listen(socketReadyCallback, self)
-                                continue
+        # free callback handle used for the register_listen
+        self.server.socket.free_callback(handle)
 
-                       # have I been told to shutdown?
-                       if self.stopNow:
-                                # close and delete the server
-                                self.server.server_close()
-                                del self.server
+        # prepare for next connection by setting ready flag to false and
+        # registering a new listener
+        self.mySocketReady = 0
+        handle = self.server.socket.register_listen(socketReadyCallback, self)
+        continue
 
-                                # have I been told to die?
-                                if self.dieNow:
-                                        self.clearPID()
-                                        raise SystemExit
+      # have I been told to shutdown?
+      if self.stopNow:
+        # close and delete the server
+        self.logger.info('closing server')
+        self.server.server_close()
+        del self.server
 
-                                # give 5 seconds for the socket to be freed up
-                                time.sleep(5)
-                                self.running = 0
+        # have I been told to die?
+        if self.dieNow:
+          self.clearPID()
+          raise SystemExit
 
-                                continue
+        # give 5 seconds for the socket to be freed up
+        time.sleep(5)
+        self.running = 0
+
+        continue
                         
 
-                       # no socket is ready and I have not been told to shutdown
-                       # so sleep for a bit so that we don't burn CPU all the time
-                       time.sleep(0.1)
+      # no socket is ready and I have not been told to shutdown
+      # so sleep for a bit so that we don't burn CPU all the time
+      time.sleep(0.1)
 
 
 # set up logging but don't set handler here since that is
 # configurable in the .ini file
-logger = logging.getLogger('LDRdataFindServer')
+logger = logging.getLogger('LSCsegFindServer')
 
 # setup to cach HUP and SIGTERM
 signal.signal(signal.SIGHUP, SIGHUPhandler)
 signal.signal(signal.SIGTERM, SIGTERMhandler)
 
 # initialize server
-myServer = LDRdataFindServer()
+myServer = LSCsegFindServer()
 
 # become a daemon
 if runAsDaemon:
-        LDRUtil.daemon()
+  daemon()
 
 running = 1
 
 try:
-
-        while running:
-                # start server
-                myServer.run()
+  while running:
+    # start server
+    myServer.run()
 
 except SystemExit:
-        logger.info("LDRdataFindServer shutting down")
-        sys.exit()
+  logger.info("LSCsegFindServer shutting down")
+  sys.exit()
 
 except KeyboardInterrupt:
-        logger.info("LDRdataFindServer shutting down")
-        sys.exit()
+  logger.info("LSCsegFindServer shutting down")
+  sys.exit()
 
 except Exception, e:
-        msg = "LDRdataFindServer is stopping due to unhandled error: %s" % e
-        print >>sys.stderr, msg
-        logger.critical(msg)
+  msg = "LSCsegFindServer is stopping due to unhandled error: %s" % e
+  print >>sys.stderr, msg
+  logger.critical(msg)
 
 del logger
 logger = None
 sys.exit()
-
-
-
