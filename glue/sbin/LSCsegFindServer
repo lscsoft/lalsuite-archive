@@ -296,8 +296,8 @@ runAsDaemon = False
 configuration = {
   'port' : 49999,
   'gridmap' : '/etc/grid-security/grid-mapfile',
-  'certfile' : '/etc/grid-security/hostcert.pem',
-  'keyfile' : '/etc/grid-security/hostkey.pem',
+  'certfile' : '/ldcg/LDR/globus/etc/hostcert.pem',
+  'keyfile' : '/ldcg/LDR/globus/etc/hostkey.pem',
   'db_name' : 'segfind',
   'dbuser' : 'dbrown',
   'dbpasswd' : '',
