@@ -116,12 +116,6 @@ class segment:
 
 	# accessors
 
-	def get_start(self):
-		return self.start
-
-	def get_end(self):
-		return self.end
-
 	def duration(self):
 		"""
 		Returns the length of the interval represented by the segment.
@@ -202,6 +196,22 @@ class segment:
 		Return True if self and other are not disjoint.
 		"""
 		return (self.end >= other.start) and (self.start <= other.end)
+
+	# protraction and contraction
+
+	def protract(self, x):
+		"""
+		Move both the start and the end of the segment a distance x
+		away from the other.
+		"""
+		return segment(self.start - x, self.end + x)
+
+	def contract(self, x):
+		"""
+		Move both the start and the end of the segment a distance x
+		towards the the other.
+		"""
+		return segment(self.start + x, self.end - x)
 
 
 #
@@ -359,6 +369,8 @@ class segmentlist(list):
 		"""
 		return segmentlist([segment(-infinity(), infinity())]) - self
 
+	# other operations
+
 	def split(self, value):
 		"""
 		Break all segments that stradle the given value at that value.
@@ -373,7 +385,6 @@ class segmentlist(list):
 				i += 1
 		except IndexError:
 			pass
-		return
 
 	def coalesce(self):
 		"""
@@ -387,6 +398,21 @@ class segmentlist(list):
 					self[i:i+2] = [ self[i] | self[i+1] ]
 		except IndexError:
 			pass
+		return self
+
+	def protract(self, x):
+		"""
+		For each segment in the list, move both the start and the end a
+		distance x away from the other.  Coalesce the result.
+		"""
+		return segmentlist([seg.protract(x) for seg in self]).coalesce()
+
+	def contract(self, x):
+		"""
+		For each segment in the list, move both the start and the end a
+		distance x towards the other.  Coalesce the result.
+		"""
+		return segmentlist([seg.contract(x) for seg in self]).coalesce()
 
 
 #
@@ -516,6 +542,16 @@ def module_verify():
 	test_continuous(True, segment(-2, 2), segment(-2, 2))
 	test_continuous(True, segment(-2, 2), segment(-1, 1))
 
+	print "=== test segment manipulation"
+	def test_contraction(r,a,x):
+		b = a.contract(x)
+		if b == r:
+			s = "pass:  "
+		else:
+			s = "fail:  "
+		print s + str(a) + ".contract(" + str(x) + ") = " + str(b)
+	test_contraction(segment(5, 15), segment(0, 20), 5)
+
 	print "=== test segment list excision"
 	def test_excision(r,a,b):
 		if a - b == r:
@@ -551,3 +587,13 @@ def module_verify():
 	test_inversion(segmentlist([segment(-infinity(), infinity())]), segmentlist([]))
 	test_inversion(segmentlist([]), segmentlist([segment(-infinity(), infinity())]))
 	test_inversion(segmentlist([segment(-infinity(), -5), segment(5, infinity())]), segmentlist([segment(-5,5)]))
+
+	print "=== test segment list contraction"
+	def test_listcontraction(r,a,x):
+		b = a.contract(x)
+		if b == r:
+			s = "pass:  "
+		else:
+			s = "fail:  "
+		print s + str(a) + ".contract(" + str(x) + ") = " + str(b)
+	test_listcontraction(segmentlist([segment(0, 20)]), segmentlist([segment(3, 7), segment(13, 17)]), -3)
