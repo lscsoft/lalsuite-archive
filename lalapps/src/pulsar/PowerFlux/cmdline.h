@@ -60,6 +60,7 @@ struct gengetopt_args_info
   int nbands_arg;	/* split sky in this many bands for logging maximum upper limits (default='9').  */
   char * band_axis_arg;	/* which band axis to use for splitting sky into bands (perpendicular to band axis) (possible values: equatorial, auto, explicit(float,float,float) (default='auto').  */
   int ks_test_arg;	/* perform Kolmogorov-Smirnov test for normality of averaged powers (default='1').  */
+  int compute_betas_arg;	/* compute beta coefficients as described in PowerFlux polarizations document (default='0').  */
   char * write_dat_arg;	/* regular expression describing which *.dat files to write (default='.*').  */
   char * write_png_arg;	/* regular expression describing which *.png files to write (default='.*').  */
   int dump_points_arg;	/* output averaged power bins for each point in the sky (default='0').  */
@@ -112,6 +113,7 @@ struct gengetopt_args_info
   int nbands_given ;	/* Whether nbands was given.  */
   int band_axis_given ;	/* Whether band-axis was given.  */
   int ks_test_given ;	/* Whether ks-test was given.  */
+  int compute_betas_given ;	/* Whether compute-betas was given.  */
   int write_dat_given ;	/* Whether write-dat was given.  */
   int write_png_given ;	/* Whether write-png was given.  */
   int dump_points_given ;	/* Whether dump-points was given.  */

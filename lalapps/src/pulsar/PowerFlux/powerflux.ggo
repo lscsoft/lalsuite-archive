@@ -46,6 +46,7 @@ option "filter-lines"   - "perform detection of lines in background noise and ve
 option "nbands"		- "split sky in this many bands for logging maximum upper limits" int default="9" no
 option "band-axis"	- "which band axis to use for splitting sky into bands (perpendicular to band axis) (possible values: equatorial, auto, explicit(float,float,float)" string default="auto" no
 option "ks-test"        - "perform Kolmogorov-Smirnov test for normality of averaged powers" int default="1" no
+option "compute-betas"  - "compute beta coefficients as described in PowerFlux polarizations document" int default="0" no
 
 option "write-dat"      - "regular expression describing which *.dat files to write" string default=".*" no
 option "write-png"      - "regular expression describing which *.png files to write" string default=".*" no

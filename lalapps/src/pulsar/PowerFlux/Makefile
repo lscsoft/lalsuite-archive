@@ -1,5 +1,5 @@
 PACKAGE=\"powerflux\"
-VERSION=\"1.2.12\"
+VERSION=\"1.2.15\"
 LALROOT=./../../../../
 LALINCLUDE=-I$(LALROOT)/include/
 LALLDFLAGS=-L$(LALROOT)/lib -L$(LALROOT)/support-lib -llalsupport -llal -lm
@@ -115,7 +115,7 @@ powerflux: $(OBJS)
 
 powerflux.hydra: $(OBJS)
 	(export PATH=/opt/condor/bin:$$PATH ; \
-	 export CONDOR_CONFIG=/opt/condor-6.6.5/etc/condor_config ; \
+	 export CONDOR_CONFIG=/opt/condor-6.7.3/etc/condor_config ; \
 	 condor_compile $(CC) $(OBJS) -o powerflux.hydra -static $(LDFLAGS) -lgsl -lgslcblas \
 	 )
 	ls -l powerflux.hydra

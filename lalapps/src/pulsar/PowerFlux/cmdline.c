@@ -76,6 +76,7 @@ cmdline_parser_print_help (void)
   printf("      --nbands=INT                      split sky in this many bands for \n                                          logging maximum upper limits  \n                                          (default=`9')\n");
   printf("      --band-axis=STRING                which band axis to use for splitting \n                                          sky into bands (perpendicular to \n                                          band axis) (possible values: \n                                          equatorial, auto, \n                                          explicit(float,float,float)  \n                                          (default=`auto')\n");
   printf("      --ks-test=INT                     perform Kolmogorov-Smirnov test for \n                                          normality of averaged powers  \n                                          (default=`1')\n");
+  printf("      --compute-betas=INT               compute beta coefficients as described \n                                          in PowerFlux polarizations document  \n                                          (default=`0')\n");
   printf("      --write-dat=STRING                regular expression describing which \n                                          *.dat files to write  (default=`.*')\n");
   printf("      --write-png=STRING                regular expression describing which \n                                          *.png files to write  (default=`.*')\n");
   printf("      --dump-points=INT                 output averaged power bins for each \n                                          point in the sky  (default=`0')\n");
@@ -156,6 +157,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->nbands_given = 0 ;
   args_info->band_axis_given = 0 ;
   args_info->ks_test_given = 0 ;
+  args_info->compute_betas_given = 0 ;
   args_info->write_dat_given = 0 ;
   args_info->write_png_given = 0 ;
   args_info->dump_points_given = 0 ;
@@ -204,6 +206,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->nbands_arg = 9 ;\
   args_info->band_axis_arg = gengetopt_strdup("auto") ;\
   args_info->ks_test_arg = 1 ;\
+  args_info->compute_betas_arg = 0 ;\
   args_info->write_dat_arg = gengetopt_strdup(".*") ;\
   args_info->write_png_arg = gengetopt_strdup(".*") ;\
   args_info->dump_points_arg = 0 ;\
@@ -265,6 +268,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
         { "nbands",	1, NULL, 0 },
         { "band-axis",	1, NULL, 0 },
         { "ks-test",	1, NULL, 0 },
+        { "compute-betas",	1, NULL, 0 },
         { "write-dat",	1, NULL, 0 },
         { "write-png",	1, NULL, 0 },
         { "dump-points",	1, NULL, 0 },
@@ -795,6 +799,20 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
               }
             args_info->ks_test_given = 1;
             args_info->ks_test_arg = strtol (optarg,&stop_char,0);
+            break;
+          }
+          
+          /* compute beta coefficients as described in PowerFlux polarizations document.  */
+          else if (strcmp (long_options[option_index].name, "compute-betas") == 0)
+          {
+            if (args_info->compute_betas_given)
+              {
+                fprintf (stderr, "%s: `--compute-betas' option given more than once\n", CMDLINE_PARSER_PACKAGE);
+                clear_args ();
+                exit (EXIT_FAILURE);
+              }
+            args_info->compute_betas_given = 1;
+            args_info->compute_betas_arg = strtol (optarg,&stop_char,0);
             break;
           }
           
@@ -1768,6 +1786,24 @@ cmdline_parser_configfile (char * const filename, struct gengetopt_args_info *ar
                   if (fnum == 2)
                     {
                       args_info->ks_test_arg = strtol (farg,&stop_char,0);
+                    }
+                  else
+                    {
+                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
+                               filename, line_num);
+                      exit (EXIT_FAILURE);
+                    }
+                }
+              continue;
+            }
+          if (!strcmp(fopt, "compute-betas"))
+            {
+              if (override || !args_info->compute_betas_given)
+                {
+                  args_info->compute_betas_given = 1;
+                  if (fnum == 2)
+                    {
+                      args_info->compute_betas_arg = strtol (farg,&stop_char,0);
                     }
                   else
                     {

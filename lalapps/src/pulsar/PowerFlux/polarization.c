@@ -126,10 +126,23 @@ if(lines_list[0]>=0){
 	#endif
 	}
 
-fprintf(stderr,"Allocating accumulation arrays, (%.1f KB total)\n", 
+if(args_info.compute_betas_arg){
+	fprintf(LOG,"Compute betas: true\n");
+	} else {
+	fprintf(LOG,"Compute betas: false\n");
+	}
+
+
+fprintf(stderr, "Allocating accumulation arrays, (%.1f KB total)\n", 
 	(stored_fine_bins*useful_bins*total)/(1024.0));
-fprintf(LOG," accumulation set size: %f KB\n", 
+fprintf(LOG, "Accumulation set size: %f KB\n", 
 	(stored_fine_bins*useful_bins*total)/(1024.0));
+	
+fprintf(stderr, "Skymap arrays size: %.1f MB\n", ntotal_polarizations*(11.0+2.0*args_info.compute_betas_arg)*fine_grid->npoints*sizeof(SUM_TYPE)/(1024.0*1024.0));
+fprintf(LOG, "Skymap arrays size: %f MB\n", ntotal_polarizations*(11.0+2.0*args_info.compute_betas_arg)*fine_grid->npoints*sizeof(SUM_TYPE)/(1024.0*1024.0));
+
+fprintf(stderr, "Spectral plot arrays size: %.1f KB\n", ntotal_polarizations*7.0*useful_bins*args_info.nbands_arg*sizeof(SUM_TYPE)/1024.0);
+fprintf(LOG, "Spectral plot arrays size: %f KB\n", ntotal_polarizations*7.0*useful_bins*args_info.nbands_arg*sizeof(SUM_TYPE)/1024.0);
 		
 for(i=0;i<ntotal_polarizations;i++){
 	/* Accumulation arrays */
@@ -166,8 +179,13 @@ for(i=0;i<ntotal_polarizations;i++){
 	polarizations[i].skymap.ks_test=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
 	polarizations[i].skymap.ks_count=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
 
-	polarizations[i].skymap.beta1=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
-	polarizations[i].skymap.beta2=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
+	if(args_info.compute_betas_arg){
+		polarizations[i].skymap.beta1=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
+		polarizations[i].skymap.beta2=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
+		} else {
+		polarizations[i].skymap.beta1=NULL;
+		polarizations[i].skymap.beta2=NULL;
+		}
 
 	for(k=0;k<fine_grid->npoints;k++){
 		polarizations[i].skymap.max_dx[k]=-1.0;
@@ -186,8 +204,10 @@ for(i=0;i<ntotal_polarizations;i++){
 		polarizations[i].skymap.total_count[k]=0;
 		#endif
 
-		polarizations[i].skymap.beta1[k]=0.0;
-		polarizations[i].skymap.beta2[k]=0.0;
+		if(args_info.compute_betas_arg){
+			polarizations[i].skymap.beta1[k]=0.0;
+			polarizations[i].skymap.beta2[k]=0.0;
+			}
 		}
 	/* Output arrays - spectral plots */
 	polarizations[i].spectral_plot.max_upper_limit=do_alloc(useful_bins*args_info.nbands_arg, sizeof(SUM_TYPE));

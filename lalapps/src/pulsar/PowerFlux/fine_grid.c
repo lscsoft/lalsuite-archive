@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
+/* We need this define to get NAN values */
+#define __USE_ISOC99
 #include <math.h>
 #include <unistd.h>
 #include <sys/stat.h>
@@ -78,7 +80,7 @@ SUM_TYPE a,w,w2;
 SUM_TYPE *sum,*sq_sum;
 float *p;
 float doppler;
-float f_plus, f_cross, beta;
+float f_plus, f_cross, beta1, beta2;
 
 CutOff=2*CutOff; /* weighted sum can benefit from more SFTs */
 
@@ -92,7 +94,6 @@ for(i=0,kk=super_grid->first_map[pi];kk>=0;kk=super_grid->list_map[kk],i++)
 		f_plus=F_plus(k, fine_grid, kk, pol->AM_coeffs);
 		f_cross=F_plus(k, fine_grid, kk, pol->conjugate->AM_coeffs);
 
-	        beta=f_cross/f_plus;	
 
 		mod=1.0/(pol->plus_factor*f_plus*f_plus+pol->cross_factor*f_cross*f_cross); 
 
@@ -116,19 +117,28 @@ for(i=0,kk=super_grid->first_map[pi];kk>=0;kk=super_grid->list_map[kk],i++)
 			exit(-1);
 			}
 		
+		if(args_info.compute_betas_arg){
+		        beta1=f_cross*f_plus*mod;	
+			beta2=(-pol->cross_factor*f_plus*f_plus+pol->plus_factor*f_cross*f_cross)*mod;
+			}
+
 		/* prime array pointers */
 		#ifdef WEIGHTED_SUM
 		w2=expTMedians[k]/mod;
 		w=w2/mod;
 		pol->skymap.total_weight[kk]+=w;
 	        
-                a=w*beta;	
-		pol->skymap.beta1[kk]+=a;
-		pol->skymap.beta2[kk]+=a*beta;
+		if(args_info.compute_betas_arg){
+			pol->skymap.beta1[kk]+=w*beta1;
+			pol->skymap.beta2[kk]+=w*beta2;
+			}
 		#else
 		pol->skymap.total_count[kk]++;
-		pol->skymap.beta1[kk]+=beta;
-		pol->skymap.beta2[kk]+=beta*beta;
+
+		if(args_info.compute_betas_arg){
+			pol->skymap.beta1[kk]+=beta1;
+			pol->skymap.beta2[kk]+=beta2;
+			}
 		#endif
 		
 		sum=&(pol->fine_grid_sum[b0-side_cut+bin_shift+useful_bins*i]);
@@ -196,6 +206,7 @@ SUM_TYPE a,w,w2;
 SUM_TYPE *sum,*sq_sum;
 float *p;
 float doppler;
+float f_plus, f_cross, beta1, beta2;
 
 CutOff=2*CutOff/3.0; /* weighted sum can benefit from more SFTs */
 
@@ -204,9 +215,15 @@ for(i=0,kk=super_grid->first_map[pi];kk>=0;kk=super_grid->list_map[kk],i++)
 		{
 		if(fine_grid->band[kk]<0)continue;
 
-		mod=1.0/(AM_response(k, fine_grid, kk, pol->AM_coeffs)); 
+		/* Get amplitude response */
+		f_plus=F_plus(k, fine_grid, kk, pol->AM_coeffs);
+		f_cross=F_plus(k, fine_grid, kk, pol->conjugate->AM_coeffs);
+
+
+		mod=1.0/(pol->plus_factor*f_plus*f_plus+pol->cross_factor*f_cross*f_cross); 
 
 		if(do_CutOff && (mod>CutOff))continue;
+
 		
 		/* this assumes that both relfreq and spindown are small enough that the bin number
 		   down not change much within the band - usually true */
@@ -226,13 +243,28 @@ for(i=0,kk=super_grid->first_map[pi];kk>=0;kk=super_grid->list_map[kk],i++)
 			exit(-1);
 			}
 		
+		if(args_info.compute_betas_arg){
+		        beta1=f_cross*f_plus*mod;	
+			beta2=(-pol->cross_factor*f_plus*f_plus+pol->plus_factor*f_cross*f_cross)*mod;
+			}
+
 		/* prime array pointers */
 		#ifdef WEIGHTED_SUM
 		w2=expTMedians[k]/mod;
 		w=w2/(3.0*mod);
 		pol->skymap.total_weight[kk]+=w;
+
+		if(args_info.compute_betas_arg){
+			pol->skymap.beta1[kk]+=w*beta1;
+			pol->skymap.beta2[kk]+=w*beta2;
+			}
 		#else
 		pol->skymap.total_count[kk]++;
+
+		if(args_info.compute_betas_arg){
+			pol->skymap.beta1[kk]+=beta1;
+			pol->skymap.beta2[kk]+=beta2;
+			}
 		#endif
 		
 		sum=&(pol->fine_grid_sum[b0-side_cut+bin_shift+useful_bins*i]);
@@ -451,7 +483,7 @@ for(i=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[o
 			
 		/* circ_ul describes limit on circularly polarized signals */
 		/* this formula should only use linear polarizations */
-		if(pol->cross_factor==0){
+		if(args_info.compute_betas_arg && (pol->cross_factor==0)){
 			a*=1.0/(1.0+pol->skymap.beta2[offset]);
 			if(a<circ_ul[i*useful_bins+k]){
 				circ_ul[i*useful_bins+k]=a;
@@ -544,8 +576,10 @@ plot=make_plot(p->width, p->height);
 
 OUTPUT_SKYMAP("%s_weight", total_weight);
 
-OUTPUT_SKYMAP("%s_beta1", beta1);
-OUTPUT_SKYMAP("%s_beta2", beta2);
+if(args_info.compute_betas_arg){
+	OUTPUT_SKYMAP("%s_beta1", beta1);
+	OUTPUT_SKYMAP("%s_beta2", beta2);
+	}
 
 OUTPUT_SKYMAP("%s_cor1", cor1);
 OUTPUT_SKYMAP("%s_cor2", cor2);
@@ -617,8 +651,8 @@ if(fake_injection){
 				pol->name, pol->skymap.max_dx[i], 
 				pol->skymap.max_upper_limit[i], pol->skymap.max_lower_limit[i],
 				pol->skymap.freq_map[i], 
-				pol->skymap.beta1[i],
-				pol->skymap.beta2[i]);
+				args_info.compute_betas_arg?pol->skymap.beta1[i]:NAN,
+				args_info.compute_betas_arg?pol->skymap.beta2[i]:NAN);
 
 			if(largest_i<0){
 				largest=pol->skymap.max_upper_limit[i];
@@ -649,7 +683,8 @@ if(fake_injection){
 	fprintf(LOG, "i_largest: %d %f %f %s %f %g %g %f %f %f\n", largest_i, fine_grid->longitude[largest_i], fine_grid->latitude[largest_i], 
 		pol->name, pol->skymap.max_dx[largest_i], 
 		pol->skymap.max_upper_limit[largest_i], pol->skymap.max_lower_limit[largest_i], pol->skymap.freq_map[largest_i],
-		pol->skymap.beta1[largest_i], pol->skymap.beta2[largest_i]);
+		args_info.compute_betas_arg?pol->skymap.beta1[largest_i]:NAN, 
+		args_info.compute_betas_arg?pol->skymap.beta2[largest_i]:NAN);
 	}
 
 
@@ -702,32 +737,40 @@ for(i=0;i<fine_grid->npoints;i++){
 		}
 	}
 fprintf(LOG, "masked: %s %d\n", pol->name, masked);
-fprintf(LOG, "strongest signal: longitude latitude pol max_dx upper_strain lower_strain freq\n");	
-fprintf(LOG, "max_dx: %f %f %s %f %g %g %f\n",fine_grid->longitude[max_dx_i], fine_grid->latitude[max_dx_i], 
+fprintf(LOG, "strongest signal: longitude latitude pol max_dx upper_strain lower_strain freq beta1 beta2\n");	
+fprintf(LOG, "max_dx: %f %f %s %f %g %g %f %f %f\n",fine_grid->longitude[max_dx_i], fine_grid->latitude[max_dx_i], 
 				pol->name, pol->skymap.max_dx[max_dx_i], 
 				pol->skymap.max_upper_limit[max_dx_i], 
 				pol->skymap.max_lower_limit[max_dx_i], 
-				pol->skymap.freq_map[max_dx_i]);
+				pol->skymap.freq_map[max_dx_i],
+				args_info.compute_betas_arg?pol->skymap.beta1[max_dx_i]:NAN, 
+				args_info.compute_betas_arg?pol->skymap.beta2[max_dx_i]:NAN);
 
-fprintf(LOG, "largest signal: longitude latitude pol max_dx upper_strain lower_strain freq\n");	
-fprintf(LOG, "largest: %f %f %s %f %g %g %f\n",fine_grid->longitude[largest_i], fine_grid->latitude[largest_i], 
+fprintf(LOG, "largest signal: longitude latitude pol max_dx upper_strain lower_strain freq beta1 beta2\n");	
+fprintf(LOG, "largest: %f %f %s %f %g %g %f %f %f\n",fine_grid->longitude[largest_i], fine_grid->latitude[largest_i], 
 				pol->name, pol->skymap.max_dx[largest_i], 
 				pol->skymap.max_upper_limit[largest_i], 
 				pol->skymap.max_lower_limit[largest_i], 
-				pol->skymap.freq_map[largest_i]);
+				pol->skymap.freq_map[largest_i],
+				args_info.compute_betas_arg?pol->skymap.beta1[largest_i]:NAN, 
+				args_info.compute_betas_arg?pol->skymap.beta2[largest_i]:NAN);
 
-fprintf(LOG, "max/masked band format: band_num longitude latitude pol max_dx upper_strain freq\n");
+fprintf(LOG, "max/masked band format: band_num longitude latitude pol max_dx upper_strain freq beta1 beta2\n");
 for(i=0;i<args_info.nbands_arg;i++){
 
-	fprintf(LOG, "max_band: %d %f %f %s %f %g %f\n", i, fine_grid->longitude[max_band_arg[i]], fine_grid->latitude[max_band_arg[i]], 
+	fprintf(LOG, "max_band: %d %f %f %s %f %g %f %f %f\n", i, fine_grid->longitude[max_band_arg[i]], fine_grid->latitude[max_band_arg[i]], 
 				pol->name, pol->skymap.max_dx[max_band_arg[i]], 
 				max_band[i], 
-				pol->skymap.freq_map[max_band_arg[i]]);
+				pol->skymap.freq_map[max_band_arg[i]],
+				args_info.compute_betas_arg?pol->skymap.beta1[max_band_arg[i]]:NAN, 
+				args_info.compute_betas_arg?pol->skymap.beta2[max_band_arg[i]]:NAN);
 
-	fprintf(LOG, "masked_max_band: %d %f %f %s %f %g %f\n", i, fine_grid->longitude[masked_max_band_arg[i]], fine_grid->latitude[masked_max_band_arg[i]], 
+	fprintf(LOG, "masked_max_band: %d %f %f %s %f %g %f %f %f\n", i, fine_grid->longitude[masked_max_band_arg[i]], fine_grid->latitude[masked_max_band_arg[i]], 
 				pol->name, pol->skymap.max_dx[masked_max_band_arg[i]], 
 				masked_max_band[i], 
-				pol->skymap.freq_map[masked_max_band_arg[i]]);
+				pol->skymap.freq_map[masked_max_band_arg[i]],
+				args_info.compute_betas_arg?pol->skymap.beta1[masked_max_band_arg[i]]:NAN, 
+				args_info.compute_betas_arg?pol->skymap.beta2[masked_max_band_arg[i]]:NAN);
 
 	snprintf(s,19999,"%s_max_upper_limit_band_%d.png",pol->name, i);
 	if(clear_name_png(s)){
@@ -915,13 +958,15 @@ if(max_circ_ul_i>=0){
 		);
 	}
 
-if(clear_name_png("circ_ul.png")){
-	plot_grid_f(p, fine_grid, skymap_circ_ul, 1);
-	RGBPic_dump_png("circ_ul.png", p);
+if(args_info.compute_betas_arg){
+	if(clear_name_png("circ_ul.png")){
+		plot_grid_f(p, fine_grid, skymap_circ_ul, 1);
+		RGBPic_dump_png("circ_ul.png", p);
+		}
+	dump_floats("circ_ul.dat", skymap_circ_ul, fine_grid->npoints, 1);
+	compute_histogram_f(hist, skymap_circ_ul, fine_grid->band, fine_grid->npoints);
+	print_histogram(LOG, hist, "hist_circ_ul");
 	}
-dump_floats("circ_ul.dat", skymap_circ_ul, fine_grid->npoints, 1);
-compute_histogram_f(hist, skymap_circ_ul, fine_grid->band, fine_grid->npoints);
-print_histogram(LOG, hist, "hist_circ_ul");
 
 if(clear_name_png("high_ul.png")){
 	plot_grid_f(p, fine_grid, skymap_high_ul, 1);
@@ -1012,8 +1057,10 @@ for(k=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[o
 		#endif
 
 		if(c>0){	
-		    polarizations[m].skymap.beta1[offset]/=c;
-		    polarizations[m].skymap.beta2[offset]/=c;
+			if(args_info.compute_betas_arg){
+			    polarizations[m].skymap.beta1[offset]/=c;
+			    polarizations[m].skymap.beta2[offset]/=c;
+			    }
 
 		    for(i=0;i<useful_bins;i++){
 
@@ -1062,8 +1109,10 @@ for(k=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[o
 
 
 		if(c>0){
-			polarizations[m].skymap.beta1[offset]/=c;
-			polarizations[m].skymap.beta2[offset]/=c;
+			if(args_info.compute_betas_arg){
+				polarizations[m].skymap.beta1[offset]/=c;
+				polarizations[m].skymap.beta2[offset]/=c;
+				}
 
 			for(i=0;i<useful_bins;i++){
 				a=polarizations[m].fine_grid_sum[i+k*useful_bins];
