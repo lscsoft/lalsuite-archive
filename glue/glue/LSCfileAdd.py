@@ -241,14 +241,15 @@ class LSCFile(LSCfileAddMetadataAttr):
                         metaexists = self.metadata.exists(lfn)
                         if metaexists:
                                 pass
-                                if not metaexists:
-                                        # calc md5sum, and other checksums
-                                        # switch on fileType?, perform data format specific checksums?
-                                        attr.md5['Value'] = computeMD5(self,filename)
-                                        # perform any other consistancy checks
-                                        #blah
-                                        # enter metadata into database
-                                        self.addmetadata(fields)
+                        if not metaexists:
+                                # calc md5sum, and other checksums
+                                # switch on fileType?, perform data format specific checksums?
+                                attr.md5['Value'] = computeMD5(self,filename)
+                                # perform any other consistancy checks
+                                #blah
+                                # enter metadata into database
+                                self.addmetadata(fields)
+                                
                         # create lfn, pfn pair in LRC....
                         if self.rli_lfn_exists(lfn):
                                 self.lrc_add(lfn,pfn)
@@ -386,6 +387,9 @@ class CLIUtil(LSCfileAddMetadataAttr):
                         elif cli_short_name[o]:
                                 # Still need to check and convert these to appropriate types etc.
                                 self.attr[cli_short_name[o]] = a
+                        elif cli_long_name[o]:
+                                # Still need to check and convert these to appropriate types etc.
+                                self.attr[cli_long_name[o]] = a
                                 
                 # environment variables override defaults but not
                 # command line options
