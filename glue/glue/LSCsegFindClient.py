@@ -199,8 +199,12 @@ class LSCsegFindClient(object):
       response += input
     
     # the response from the server must always end in a null byte
-    if response[-1] != '\0':
-      msg = "Bad format for response from server"
+    try:
+      if response[-1] != '\0':
+        msg = "Bad server reponse format. Contact server administrator"
+        raise LSCsegFindClientException, msg
+    except:
+      msg = "Empty response from server. Contact server administrator"
       raise LSCsegFindClientException, msg
 
     # delete the last \0 before splitting into strings
