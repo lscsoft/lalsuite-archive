@@ -555,8 +555,8 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
           ifoSegs = segments.segmentlist()
           try:
             for r in result:
-              segs.append(segments.segment(r[0],r[1]))
-            segs.coalesce()
+              ifoSegs.append(segments.segment(r[0],r[1]))
+            ifoSegs.coalesce()
           except:
             pass
           ifoSegList.append(ifoSegs)
