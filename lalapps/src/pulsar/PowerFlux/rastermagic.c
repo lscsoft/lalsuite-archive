@@ -701,6 +701,57 @@ if(replace){
 	}
 }
 
+void adjust_masked_density_map_limits_f(DENSITY_MAP *dm, float *z, int *mask, int count, int step, int replace)
+{
+float z0,z1;
+int i, set;
+set=0;
+
+for(i=0;i<count;i++){
+	if(mask[i*step]<0)continue;
+	if(!set){
+		z0=z[i*step];
+		z1=z0;
+		set=1;
+		}
+	if(z0>z[i*step])z0=z[i*step];
+	if(z1<z[i*step])z1=z[i*step];
+	}
+if(!set)return;
+if(replace){
+	dm->lower_z=z0;
+	dm->upper_z=z1;
+	} else {
+	if(dm->lower_z>z0)dm->lower_z=z0;
+	if(dm->upper_z<z1)dm->upper_z=z1;
+	}
+}
+
+void adjust_masked_density_map_limits_d(DENSITY_MAP *dm, double *z, int *mask, int count, int step, int replace)
+{
+double z0,z1;
+int i, set;
+set=0;
+
+for(i=1;i<count;i++){
+	if(mask[i*step]<0)continue;
+	if(!set){
+		z0=z[i*step];
+		z1=z0;
+		set=1;
+		}
+	if(z0>z[i*step])z0=z[i*step];
+	if(z1<z[i*step])z1=z[i*step];
+	}
+if(!set)return;
+if(replace){
+	dm->lower_z=z0;
+	dm->upper_z=z1;
+	} else {
+	if(dm->lower_z>z0)dm->lower_z=z0;
+	if(dm->upper_z<z1)dm->upper_z=z1;
+	}
+}
 
 static inline long z_to_color(PALETTE *p,float z0)
 {
@@ -1014,7 +1065,7 @@ if(!strcmp(grid->name,"arcsin") || !strcmp(grid->name,"plain rectangular")){
 	DENSITY_MAP *dm;
 	RECT_SKY_GRID_PRIV *priv=grid->grid_priv;
 	dm=make_density_map(1,1);
-	adjust_density_map_limits_f(dm, z, grid->npoints, step, 1);
+	adjust_masked_density_map_limits_f(dm, z, grid->band, grid->npoints, step, 1);
 	plot_single_density_map_f(p, dm, z, priv->num_ra, priv->num_dec, step*priv->num_dec, step);
 	free_density_map(dm);
 	return;
@@ -1022,7 +1073,7 @@ if(!strcmp(grid->name,"arcsin") || !strcmp(grid->name,"plain rectangular")){
 if(!strcmp(grid->name,"sin theta")){
 	DENSITY_MAP *dm;
 	dm=make_density_map(1,1);
-	adjust_density_map_limits_f(dm, z, grid->npoints, step, 1);
+	adjust_masked_density_map_limits_f(dm, z, grid->band, grid->npoints, step, 1);
 	layout_density_map_plot(p, dm, grid->max_n_ra, grid->max_n_dec);
 	plot_sin_theta_f(p, 0, 0, dm, grid, z, step);
 	return;
@@ -1100,7 +1151,7 @@ if(!strcmp(grid->name,"arcsin") || !strcmp(grid->name,"plain rectangular")){
 	DENSITY_MAP *dm;
 	RECT_SKY_GRID_PRIV *priv=grid->grid_priv;
 	dm=make_density_map(1,1);
-	adjust_density_map_limits_d(dm, z, grid->npoints, step, 1);
+	adjust_masked_density_map_limits_d(dm, z, grid->band, grid->npoints, step, 1);
 	plot_single_density_map_d(p, dm, z, priv->num_ra, priv->num_dec, step*priv->num_dec, step);
 	free_density_map(dm);
 	return;
@@ -1108,7 +1159,7 @@ if(!strcmp(grid->name,"arcsin") || !strcmp(grid->name,"plain rectangular")){
 if(!strcmp(grid->name,"sin theta")){
 	DENSITY_MAP *dm;
 	dm=make_density_map(1,1);
-	adjust_density_map_limits_d(dm, z, grid->npoints, step, 1);
+	adjust_masked_density_map_limits_d(dm, z, grid->band, grid->npoints, step, 1);
 	layout_density_map_plot(p, dm, grid->max_n_ra, grid->max_n_dec);
 	plot_sin_theta_d(p, 0, 0, dm, grid, z, step);
 	return;
