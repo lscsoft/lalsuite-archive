@@ -8,6 +8,8 @@ http://www.sistema.it
 
 Modifications for GPS seconds by Duncan Brown
 
+PyUTCFromGpsSeconds added by Ben Johnson
+
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU Lesser General Public License as published by the Free
 Software Foundation; either version 2 of the License, or (at your option) any
@@ -157,6 +159,14 @@ def GpsSecondsFromPyUTC( pyUTC, leapSecs=13 ):
     t = t=gpsFromUTC(*ymdhmsFromPyUTC( pyUTC ))
     return int(t[0] * 60 * 60 * 24 * 7 + t[1])
 
+def PyUTCFromGpsSeconds(gpsseconds):
+    """converts gps seconds to the
+    python epoch. That is, the time
+    that would be returned from time.time()
+    at gpsseconds.
+    """
+    pyUTC
+    
 #===== Tests  =========================================
 
 def testTimeStuff():

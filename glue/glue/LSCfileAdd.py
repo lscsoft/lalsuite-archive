@@ -62,9 +62,11 @@ class Publisher(object):
                 self.lrc = RLS.getCatalog(self.rliurl)
                 self.gsiurl = self.config.get("Storage", "hostname")
                 
-                self.regenHandle_timeout =  300.0 # seconds = 5 minutes
+                # setup variables for periodic handle regeneration
+                self.regenHandle_timeout =  300.0
                 self.regenHandle_timer = time.time()
                 
+                # set default attrib generator handle
                 self.attribute_generator_attach(self.default_attribute_generator)
                 
                 # list containing files successfully published
@@ -82,6 +84,8 @@ class Publisher(object):
                 """
                 now = time.time()
                 if now - self.regenHandle_timer > self.regenHandle_timeout:
+                        print "checkHandle branch taken."
+                        sys.stdout.flush()
                         self.regenHandle_timer = now
                         self.regenHandle()
         ## END checkHandle(self)
@@ -93,7 +97,7 @@ class Publisher(object):
                 """
                 self.metadata = LDRMetadataCatalog.LDRMetadataCatalog(self.config)
                 self.lrc = RLS.getCatalog(self.rliurl)
-                print >>sys.stderr, "Renegerated the lrc and metadata handle at %s" % time.asctime()
+                print >>sys.stderr, "Regenerated the lrc and metadata handle at %s" % time.asctime()
                 sys.stderr.flush()
         ## END regenHandle(self)
         
@@ -172,30 +176,62 @@ class Publisher(object):
                 # Map each pfn one at a time
                 for data in datalist:
                         lfn = data["name"]
+                        
+                        # Check for LFN existance
+                        lfn_exists = False
+                        try:
+                                lfn_exists = self.lrc.lfn_exists(lfn) 
+                        except rlsClient.RlsClientException, e:
+                                msg = "Caught excfeption from self.lrc.lfn_exists(%s). Error message was: %s" % (lfn,str(e))
+                                msg += "\nRegenerating handle to LDR and RLS and trying again."
+                                print >>sys.stderr,msg
+                                self.regenHandle()
+                                try:
+                                        lfn_exists = self.lrc.lfn_exists(lfn)
+                                except rlsClient.RlsClientException, e:
+                                        msg = "Caught exception from self.lrc.lfn_exists(%s) Again! Error message was: %s" % (lfn,str(e))
+                                        print >>sys.stderr,msg
+                                        raise LSCfileAddException, msg
+                        
                         pfnlist = data["urls"]
                         for pfn in pfnlist:
-                                try:
-                                        print "Publisher: rls 1 lfn = %s pfn = %s" % (lfn,pfn)
-                                        sys.stdout.flush()
-                                        sys.stderr.flush()
-                                        self.lrc.add(lfn,pfn)
-                                        print "Publisher: rls 2 lfn = %s pfn = %s" % (lfn,pfn)
-                                        sys.stdout.flush()
-                                        sys.stderr.flush()
-                                except rlsClient.RlsClientException, e:
-                                        msg = "Caught Exception from self.lrc.lrc.add(%s,%s). \
-                                        Error message was \"%s\"" % (lfn,pfn,e)
-                                        msg += "Regenerating handle to LDR and RLS and trying again."
+                                # Now see if pfn exists
+                                pfn_exists = False
+                                if lfn_exists:
+                                        try:
+                                                pfn_exists = self.lrc.pfn_exists(pfn) 
+                                        except rlsClient.RlsClientException, e:
+                                                msg = "Caught excfeption from self.lrc.lfn_exists(%s). Error message was: %s" % (lfn,str(e))
+                                                msg += "\nRegenerating handle to LDR and RLS and trying again."
+                                                print >>sys.stderr,msg
+                                                self.regenHandle()
+                                                try:
+                                                        pfn_exists = self.lrc.pfn_exists(pfn)
+                                                except rlsClient.RlsClientException, e:
+                                                        msg = "Caught exception from self.lrc.lfn_exists(%s) Again! Error message was: %s" % (lfn,str(e))
+                                                        print >>sys.stderr,msg
+                                                        raise LSCfileAddException, msg
+                                if pfn_exists and lfn_exists:
+                                        msg = "LFN \"%s\" and PFN \"%s\" already exists in database. This script will not perform the pfn insertion operation." % (lfn,pfn)
                                         print >>sys.stderr, msg
-                                        self.regenHandle()
+                                        self.failures.add((lfn,msg))
+                                else:
                                         try:
                                                 self.lrc.add(lfn,pfn)
                                         except rlsClient.RlsClientException, e:
-                                                msg = "Caught Exception from self.lrc.add(lfn,pfn[i]). \
-                                                Again!. Error message from rlsClient \"%s\"" % (e,)
+                                                msg = "Caught Exception from self.lrc.add(%s,%s). \
+                                                Error message was \"%s\"" % (lfn,pfn,e)
+                                                msg += "\nRegenerating handle to LDR and RLS and trying again."
                                                 print >>sys.stderr, msg
-                                                self.failures.append((lfn,msg))
-                                                rls_failure = True
+                                                self.regenHandle()
+                                                try:
+                                                        self.lrc.add(lfn,pfn)
+                                                except rlsClient.RlsClientException, e:
+                                                        msg = "Caught Exception from self.lrc.add(lfn,pfn[i]). \
+                                                        Again!. Error message from rlsClient \"%s\"" % (e,)
+                                                        print >>sys.stderr, msg
+                                                        self.failures.append((lfn,msg))
+                                                        rls_failure = True
                                                 
                 ### End RLS entry publishing
                 
@@ -210,19 +246,26 @@ class Publisher(object):
                 Removes ALL metadata and lfn<->pfn mappings associated
                 with a particular lfn.
                 """
-                
                 # see if database handles need to be regenerated
                 self.checkHandle()
                 
                 for lfn in lfnlist:
-                        # remove ALL lfn, pfn pairs
-                        pfnlist = self.lrc.get_pfn(lfn)
-                        for mypfn in pfnlist:
-                                self.lrc.delete(lfn,mypfn)
-                        # see if it already exists in database, delete if so
-                        if self.metadata.exists(lfn):
-                               self.metadata.delete(lfn)
-        ## END def completely_remove(self)
+                        try:
+                                # remove ALL lfn, pfn pairs
+                                pfnlist = self.lrc.get_pfn(lfn)
+                                for mypfn in pfnlist:
+                                        self.lrc.delete(lfn,mypfn)
+                        except rlsClient.RlsClientException,e:
+                                msg = "completely_remove(): Caught RlsClientException while attempting to delete \"%s\" Error was: %s" % (lfn,str(e))
+                                raise LSCfileAddException, msg
+                        try:
+                                # see if it already exists in database, delete if so
+                                if self.metadata.exists(lfn):
+                                       self.metadata.delete(lfn)
+                        except Exception,e:
+                                msg = "completely_remove(): Caught an exception while calling either metadata.exists() or metadtaa.delete() on \"%s\". Error was: %s" % (lfn,str(e))
+                                raise LSCfileAddException, msg
+       ## END def completely_remove(self)
         
         def mv_url(self,source,destination):
                 """
@@ -349,22 +392,13 @@ class Publisher(object):
         
         def add_metadata(self,lfn,attribs):
                 try:
-                        print "Publisher: metadata 3a lfn = %s" % (lfn,)
-                        sys.stdout.flush()
-                        sys.stderr.flush()
                         self.metadata.add(lfn)
-                        print "Publisher: metadata 3b lfn = %s" % (lfn,)
-                        sys.stdout.flush()
-                        sys.stderr.flush()
                 except LDRMetadataCatalogException,e:
                         msg = "Caught LDRMetadataCatalogException while calling self.metadata.add(%s). Message was: %s" \
                         % (lfn,str(e))   
                         raise LSCfileAddException
                 try:
                         for field, val in attribs.iteritems():
-                                print "Publisher: metadata 3c lfn = %s, val %s" % (lfn,val['Value'])
-                                sys.stdout.flush()
-                                sys.stderr.flush()
                                 self.metadata.set_attr(lfn,field,val['Value'])
                 except LDRMetadataCatalogException,e:
                         msg = "Caught LDRMetadataCatalogException while calling self.metadata.set_attr(%s,%s,%s). Message was: %s" \
