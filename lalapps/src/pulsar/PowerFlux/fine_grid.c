@@ -51,8 +51,8 @@ long stored_fine_bins=0;
 long max_shift=0, min_shift=0;
 
 
-SUM_TYPE  *low_ul;  /* lower (over polarizations) accumulation limits */
-SUM_TYPE *skymap_low_ul; /* skymap */
+SUM_TYPE  *low_ul, *low_ul_freq;  /* lower (over polarizations) accumulation limits */
+SUM_TYPE *skymap_low_ul, *skymap_low_ul_freq; /* skymaps */
 SUM_TYPE *spectral_plot_low_ul; /* spectral plots */
 
 /* the value 1.22 is obtained by S.R script. It is valid for single-bin processing
@@ -393,7 +393,10 @@ for(i=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[o
 			pol->spectral_plot.dx_ra[k+band*useful_bins]=fine_grid->longitude[offset];
 			pol->spectral_plot.dx_dec[k+band*useful_bins]=fine_grid->latitude[offset];
 			}
-		if(a<low_ul[i*useful_bins+k])low_ul[i*useful_bins+k]=a;
+		if(a<low_ul[i*useful_bins+k]){
+			low_ul[i*useful_bins+k]=a;
+			low_ul_freq[i*useful_bins+k]=(first_bin+side_cut+k)/1800.0;
+			}
 
 			
 		a=lower_limit95(dx)*S;
@@ -434,6 +437,7 @@ for(i=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[o
 			}
 		if(a>skymap_low_ul[offset]){
 			skymap_low_ul[offset]=a;
+			skymap_low_ul_freq[offset]=low_ul_freq[i*useful_bins+k];
 			}
 		}
 	}
@@ -753,8 +757,8 @@ char s[20000];
 SUM_TYPE *skymap_high_ul, *skymap_high_ul_freq;
 SUM_TYPE *spectral_plot_high_ul;
 float *freq_f;
-SUM_TYPE max_high_ul;
-int max_high_ul_i;
+SUM_TYPE max_high_ul, max_low_ul;
+int max_high_ul_i, max_low_ul_i;
 
 freq_f=&(frequencies[side_cut]);
 
@@ -770,6 +774,7 @@ if(fine_grid->max_n_dec<800){
 plot=make_plot(p->width, p->height);
 
 max_high_ul_i=-1;
+max_low_ul_i=-1;
 for(i=0;i<fine_grid->npoints;i++){
 	if(fine_grid->band[i]<0){
 		skymap_low_ul[i]=-1.0;
@@ -796,6 +801,15 @@ for(i=0;i<fine_grid->npoints;i++){
 			max_high_ul=skymap_high_ul[i];
 			}
 		}
+	if(max_low_ul_i<0){
+		max_low_ul_i=i;
+		max_low_ul=skymap_low_ul[i];
+		} else {
+		if(max_low_ul<skymap_low_ul[i]){
+			max_low_ul_i=i;
+			max_low_ul=skymap_low_ul[i];
+			}
+		}
 	}
 if(max_high_ul_i>=0){
 	fprintf(LOG, "max_high_ul legend: RA DEC high_ul freq\n");
@@ -804,6 +818,15 @@ if(max_high_ul_i>=0){
 		fine_grid->latitude[max_high_ul_i],
 		max_high_ul,
 		skymap_high_ul_freq[max_high_ul_i]
+		);
+	}
+if(max_low_ul_i>=0){
+	fprintf(LOG, "max_low_ul legend: RA DEC low_ul freq\n");
+	fprintf(LOG, "max_low_ul: %f %f %g %f\n", 
+		fine_grid->longitude[max_low_ul_i],
+		fine_grid->latitude[max_low_ul_i],
+		max_low_ul,
+		skymap_low_ul_freq[max_low_ul_i]
 		);
 	}
 
@@ -829,7 +852,32 @@ for(i=0;i<useful_bins*args_info.nbands_arg;i++){
 		}
 	}
 
+fprintf(LOG,"band upper limits: band UL freq\n");
+
 for(i=0;i<args_info.nbands_arg;i++){
+
+	max_high_ul_i=0;
+	max_high_ul=spectral_plot_high_ul[i*useful_bins];
+	for(k=1;k<useful_bins;k++){
+		if(max_high_ul<spectral_plot_high_ul[i*useful_bins+k]){
+			max_high_ul_i=k;
+			max_high_ul=spectral_plot_high_ul[i*useful_bins+k];
+			}
+		}
+	fprintf(LOG, "max_high_ul_band: %d %g %f\n", 
+		i, max_high_ul, freq_f[max_high_ul_i]);
+	
+	max_low_ul_i=0;
+	max_low_ul=spectral_plot_low_ul[i*useful_bins];
+	for(k=1;k<useful_bins;k++){
+		if(max_low_ul<spectral_plot_low_ul[i*useful_bins+k]){
+			max_low_ul_i=k;
+			max_low_ul=spectral_plot_low_ul[i*useful_bins+k];
+			}
+		}
+	fprintf(LOG, "max_low_ul_band: %d %g %f\n", 
+		i, max_low_ul, freq_f[max_low_ul_i]);
+	
 	snprintf(s,19999,"low_band_%d_ul.png", i);
 	if(clear_name_png(s)){
 		adjust_plot_limits_f(plot, freq_f, &(spectral_plot_low_ul[i*useful_bins]), useful_bins, 1, 1, 1);
@@ -949,11 +997,14 @@ stored_fine_bins=super_grid->max_npatch;
 allocate_polarization_arrays();
 	
 low_ul=do_alloc(stored_fine_bins*useful_bins, sizeof(*low_ul));
+low_ul_freq=do_alloc(stored_fine_bins*useful_bins, sizeof(*low_ul_freq));
 skymap_low_ul=do_alloc(fine_grid->npoints, sizeof(*skymap_low_ul));
+skymap_low_ul_freq=do_alloc(fine_grid->npoints, sizeof(*skymap_low_ul_freq));
 spectral_plot_low_ul=do_alloc(useful_bins*args_info.nbands_arg, sizeof(*spectral_plot_low_ul));
 
 for(i=0;i<fine_grid->npoints;i++){
 	skymap_low_ul[i]=-1.0;
+	skymap_low_ul_freq[i]=-1.0;	
 	}
 for(i=0;i<useful_bins*args_info.nbands_arg;i++){
 	spectral_plot_low_ul[i]=-1.0;
