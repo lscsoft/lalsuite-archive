@@ -790,6 +790,8 @@ if(args_info.three_bins_arg){
 
 fprintf(stderr,"Main loop: %ld patches to process.\n", patch_grid->npoints);
 for(pi=0;pi<patch_grid->npoints;pi++){
+	if(patch_grid->band[pi]<0)continue;
+	
 	clear_accumulation_arrays();
 
 	/* process single patch */

@@ -265,6 +265,37 @@ for(i=0;i<grid->npoints;i++){
 	}
 }
 
+void propagate_far_points_to_super_grid(SKY_GRID *grid, SKY_SUPERGRID *super_grid)
+{
+long k, offset, pi;
+for(pi=0;pi<=grid->npoints;pi++){
+	if(grid->band[pi]>=0)continue;
+	for(k=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[offset],k++){
+		super_grid->super_grid->band[offset]=-1;
+		super_grid->super_grid->band_f[offset]=-1;
+		}
+	}
+}
+
+void propagate_far_points_from_super_grid(SKY_GRID *grid, SKY_SUPERGRID *super_grid)
+{
+long k, offset, pi;
+int nonzero;
+for(pi=0;pi<=grid->npoints;pi++){
+	nonzero=0;
+	for(k=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[offset],k++){
+		if(super_grid->super_grid->band[offset]>=0){
+			nonzero=1;
+			break;
+			}
+		}
+	if(!nonzero){
+		grid->band[pi]=-1;
+		grid->band_f[pi]=-1;
+		}
+	}
+}
+
 SKY_SUPERGRID *make_rect_supergrid(SKY_GRID *grid, int ra_factor, int dec_factor)
 {
 SKY_SUPERGRID *sg;

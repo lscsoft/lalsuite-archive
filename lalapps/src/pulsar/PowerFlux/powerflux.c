@@ -588,8 +588,8 @@ if(args_info.focus_ra_given &&
    	fprintf(LOG, "focus ra    : %f\n", args_info.focus_ra_arg);
    	fprintf(LOG, "focus dec   : %f\n", args_info.focus_dec_arg);
    	fprintf(LOG, "focus radius: %f\n", args_info.focus_radius_arg);
-   	mask_far_points(patch_grid, args_info.focus_ra_arg, args_info.focus_dec_arg, args_info.focus_radius_arg);
    	mask_far_points(fine_grid, args_info.focus_ra_arg, args_info.focus_dec_arg, args_info.focus_radius_arg);
+	propagate_far_points_from_super_grid(patch_grid, super_grid);
    	}
 
 /* now that we have new grid positions plot them */
@@ -883,7 +883,12 @@ fprintf(stderr,"Computing cutoff values\n");
 /* compute CutOff values for each patch */
 
 for(i=0;i<patch_grid->npoints;i++){
+	
 	for(m=0;m<npolarizations;m++){
+		if(patch_grid->band[i]<0){
+			polarizations[m].patch_CutOff[i]=0.0;
+			continue;
+			}
 		for(j=0;j<nsegments;j++)tm[j]=1.0/(sqrt(expTMedians[j])*AM_response(j, patch_grid, i, polarizations[m].AM_coeffs));
 		polarizations[m].patch_CutOff[i]=FindCutOff(tm);
 		}
