@@ -249,6 +249,22 @@ for(i=0;i<grid->npoints;i++){
 	}
 }
 
+void mask_far_points(SKY_GRID *grid, SKY_GRID_TYPE ra, SKY_GRID_TYPE dec, SKY_GRID_TYPE radius)
+{
+int i;
+SKY_GRID_TYPE ds;
+for(i=0;i<grid->npoints;i++){
+	ds=acos(sin(grid->latitude[i])*sin(dec)+
+		cos(grid->latitude[i])*cos(dec)*
+		cos(grid->longitude[i]-ra));
+	if(dec*grid->latitude[i]<0)ds=M_PI;
+	if(ds>radius){
+		grid->band[i]=-1;
+		grid->band_f[i]=-1;
+		}
+	}
+}
+
 SKY_SUPERGRID *make_rect_supergrid(SKY_GRID *grid, int ra_factor, int dec_factor)
 {
 SKY_SUPERGRID *sg;

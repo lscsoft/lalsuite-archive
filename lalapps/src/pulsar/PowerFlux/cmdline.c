@@ -75,6 +75,9 @@ cmdline_parser_print_help (void)
   printf("      --write-dat=STRING           regular expression describing which *.dat \n                                     files to write  (default=`.*')\n");
   printf("      --write-png=STRING           regular expression describing which *.png \n                                     files to write  (default=`.*')\n");
   printf("      --skymap-orientation=STRING  orientation of produced skymaps: \n                                     equatorial, ecliptic, band_axis  (default=\n                                     `equatorial')\n");
+  printf("      --focus-ra=DOUBLE            focus computation on a circular area with \n                                     center at this RA\n");
+  printf("      --focus-dec=DOUBLE           focus computation on a circular area with \n                                     center at this DEC\n");
+  printf("      --focus-radius=DOUBLE        focus computation on a circular area with \n                                     this radius\n");
 }
 
 
@@ -135,6 +138,9 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->write_dat_given = 0 ;
   args_info->write_png_given = 0 ;
   args_info->skymap_orientation_given = 0 ;
+  args_info->focus_ra_given = 0 ;
+  args_info->focus_dec_given = 0 ;
+  args_info->focus_radius_given = 0 ;
 #define clear_args() { \
   args_info->config_arg = NULL; \
   args_info->sky_grid_arg = gengetopt_strdup("sin_theta") ;\
@@ -220,6 +226,9 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
         { "write-dat",	1, NULL, 0 },
         { "write-png",	1, NULL, 0 },
         { "skymap-orientation",	1, NULL, 0 },
+        { "focus-ra",	1, NULL, 0 },
+        { "focus-dec",	1, NULL, 0 },
+        { "focus-radius",	1, NULL, 0 },
         { NULL,	0, NULL, 0 }
       };
 
@@ -723,6 +732,48 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
             if (args_info->skymap_orientation_arg)
               free (args_info->skymap_orientation_arg); /* free default string */
             args_info->skymap_orientation_arg = gengetopt_strdup (optarg);
+            break;
+          }
+          
+          /* focus computation on a circular area with center at this RA.  */
+          else if (strcmp (long_options[option_index].name, "focus-ra") == 0)
+          {
+            if (args_info->focus_ra_given)
+              {
+                fprintf (stderr, "%s: `--focus-ra' option given more than once\n", CMDLINE_PARSER_PACKAGE);
+                clear_args ();
+                exit (EXIT_FAILURE);
+              }
+            args_info->focus_ra_given = 1;
+            args_info->focus_ra_arg = strtod (optarg, NULL);
+            break;
+          }
+          
+          /* focus computation on a circular area with center at this DEC.  */
+          else if (strcmp (long_options[option_index].name, "focus-dec") == 0)
+          {
+            if (args_info->focus_dec_given)
+              {
+                fprintf (stderr, "%s: `--focus-dec' option given more than once\n", CMDLINE_PARSER_PACKAGE);
+                clear_args ();
+                exit (EXIT_FAILURE);
+              }
+            args_info->focus_dec_given = 1;
+            args_info->focus_dec_arg = strtod (optarg, NULL);
+            break;
+          }
+          
+          /* focus computation on a circular area with this radius.  */
+          else if (strcmp (long_options[option_index].name, "focus-radius") == 0)
+          {
+            if (args_info->focus_radius_given)
+              {
+                fprintf (stderr, "%s: `--focus-radius' option given more than once\n", CMDLINE_PARSER_PACKAGE);
+                clear_args ();
+                exit (EXIT_FAILURE);
+              }
+            args_info->focus_radius_given = 1;
+            args_info->focus_radius_arg = strtod (optarg, NULL);
             break;
           }
           
@@ -1460,6 +1511,60 @@ cmdline_parser_configfile (char * const filename, struct gengetopt_args_info *ar
                       if (args_info->skymap_orientation_arg)
                         free (args_info->skymap_orientation_arg); /* free default string */
                       args_info->skymap_orientation_arg = gengetopt_strdup (farg);
+                    }
+                  else
+                    {
+                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
+                               filename, line_num);
+                      exit (EXIT_FAILURE);
+                    }
+                }
+              continue;
+            }
+          if (!strcmp(fopt, "focus-ra"))
+            {
+              if (override || !args_info->focus_ra_given)
+                {
+                  args_info->focus_ra_given = 1;
+                  if (fnum == 2)
+                    {
+                      args_info->focus_ra_arg = strtod (farg, NULL);
+                    }
+                  else
+                    {
+                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
+                               filename, line_num);
+                      exit (EXIT_FAILURE);
+                    }
+                }
+              continue;
+            }
+          if (!strcmp(fopt, "focus-dec"))
+            {
+              if (override || !args_info->focus_dec_given)
+                {
+                  args_info->focus_dec_given = 1;
+                  if (fnum == 2)
+                    {
+                      args_info->focus_dec_arg = strtod (farg, NULL);
+                    }
+                  else
+                    {
+                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
+                               filename, line_num);
+                      exit (EXIT_FAILURE);
+                    }
+                }
+              continue;
+            }
+          if (!strcmp(fopt, "focus-radius"))
+            {
+              if (override || !args_info->focus_radius_given)
+                {
+                  args_info->focus_radius_given = 1;
+                  if (fnum == 2)
+                    {
+                      args_info->focus_radius_arg = strtod (farg, NULL);
                     }
                   else
                     {

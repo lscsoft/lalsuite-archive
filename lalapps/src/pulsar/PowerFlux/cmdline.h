@@ -59,6 +59,9 @@ struct gengetopt_args_info
   char * write_dat_arg;	/* regular expression describing which *.dat files to write (default='.*').  */
   char * write_png_arg;	/* regular expression describing which *.png files to write (default='.*').  */
   char * skymap_orientation_arg;	/* orientation of produced skymaps: equatorial, ecliptic, band_axis (default='equatorial').  */
+  double focus_ra_arg;	/* focus computation on a circular area with center at this RA.  */
+  double focus_dec_arg;	/* focus computation on a circular area with center at this DEC.  */
+  double focus_radius_arg;	/* focus computation on a circular area with this radius.  */
 
   int help_given ;	/* Whether help was given.  */
   int version_given ;	/* Whether version was given.  */
@@ -97,6 +100,9 @@ struct gengetopt_args_info
   int write_dat_given ;	/* Whether write-dat was given.  */
   int write_png_given ;	/* Whether write-png was given.  */
   int skymap_orientation_given ;	/* Whether skymap-orientation was given.  */
+  int focus_ra_given ;	/* Whether focus-ra was given.  */
+  int focus_dec_given ;	/* Whether focus-dec was given.  */
+  int focus_radius_given ;	/* Whether focus-radius was given.  */
 
 } ;
 

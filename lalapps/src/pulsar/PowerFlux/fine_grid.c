@@ -82,6 +82,8 @@ CutOff=2*CutOff; /* weighted sum can benefit from more SFTs */
 for(i=0,kk=super_grid->first_map[pi];kk>=0;kk=super_grid->list_map[kk],i++)
 		{
 
+		if(fine_grid->band[kk]<0)continue;
+		
 		mod=1.0/(AM_response(k, fine_grid, kk, pol->AM_coeffs)); 
 
 		if(do_CutOff && (mod>CutOff))continue;
@@ -184,6 +186,7 @@ CutOff=2*CutOff/3.0; /* weighted sum can benefit from more SFTs */
 
 for(i=0,kk=super_grid->first_map[pi];kk>=0;kk=super_grid->list_map[kk],i++)
 		{
+		if(fine_grid->band[kk]<0)continue;
 
 		mod=1.0/(AM_response(k, fine_grid, kk, pol->AM_coeffs)); 
 
@@ -320,8 +323,12 @@ long i,j,k,offset,band;
 tmp=alloca(useful_bins*sizeof(*tmp));
 
 for(i=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[offset],i++){
+
+        band=fine_grid->band[offset];
+	if(band<0)continue;
+
 	/* figure out offset to put results into */
-		
+
 	memcpy(tmp,pol->fine_grid_sum+i*useful_bins,useful_bins*sizeof(*tmp));
 	/* compute correlations - for diagnostics only */
 	a=0.0;
@@ -362,8 +369,6 @@ for(i=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[o
 	pol->skymap.S_map[offset]=S;
 	pol->skymap.max_upper_limit[offset]=0;
 	
-        band=fine_grid->band[offset];
-
 	for(k=0;k<useful_bins;k++){
 		dx=(pol->fine_grid_sum[i*useful_bins+k]-M)/S;		
 		a=upper_limit95(dx)*S;
@@ -556,6 +561,7 @@ for(i=0;i<args_info.nbands_arg;i++){
 	
 for(i=0;i<fine_grid->npoints;i++){
 	k=fine_grid->band[i];
+	if(k<0)continue;
 
 	if(pol->skymap.max_upper_limit[i]>max_band[k]){
 		max_band[k]=pol->skymap.max_upper_limit[i];
@@ -628,7 +634,7 @@ for(i=0;i<args_info.nbands_arg;i++){
 		if(max_ratio<pol->spectral_plot.max_mask_ratio[i*useful_bins+k]){
 			max_ratio=pol->spectral_plot.max_mask_ratio[i*useful_bins+k];
 			}
-	fprintf(LOG,"max_ratio: %s %f\n", pol->name, max_ratio);
+	fprintf(LOG,"max_ratio: %d %s %f\n", i, pol->name, max_ratio);
         /* old 
 	fprintf(LOG, "max_band: %ld %s %g\n", i, pol->name, max_band[i]);
 	fprintf(LOG, "masked_max_band: %ld %s %g\n", i, pol->name, masked_max_band[i]);
@@ -683,6 +689,8 @@ SUM_TYPE a,c;
 long i,k,m;
 long offset;
 for(k=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[offset],k++){
+	if(fine_grid->band[offset]<0)continue;
+	
 	for(m=0;m<npolarizations;m++){
 		polarizations[m].skymap.max_sub_weight[offset]=0.0;
 	
@@ -722,6 +730,8 @@ void compute_mean_no_lines(long pi)
 SUM_TYPE a,c;
 long i,k,offset,m;
 for(k=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[offset],k++){
+	if(fine_grid->band[offset]<0)continue;
+
 	for(m=0;m<npolarizations;m++){
 		polarizations[m].skymap.max_sub_weight[offset]=0.0;
 		

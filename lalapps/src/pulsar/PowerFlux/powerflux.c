@@ -555,10 +555,6 @@ fprintf(stderr,"band axis DEC (degrees): %f\n", band_axis_dec*180.0/M_PI);
 fprintf(LOG,"band axis RA (degrees) : %f\n", band_axis_ra*180.0/M_PI);
 fprintf(LOG,"band axis DEC (degrees): %f\n", band_axis_dec*180.0/M_PI);
 
-/* assign bands */
-assign_bands(patch_grid, args_info.nbands_arg);
-assign_bands(fine_grid, args_info.nbands_arg);
-
 fprintf(LOG, "sky map orientation: %s\n", args_info.skymap_orientation_arg);
 
 if(!strcasecmp("ecliptic", args_info.skymap_orientation_arg)){
@@ -581,6 +577,20 @@ if(!strcasecmp("band_axis", args_info.skymap_orientation_arg)){
 	rotate_grid_xy(patch_grid, band_axis_ra);
 	rotate_grid_xy(fine_grid, band_axis_ra);
 	}
+
+/* assign bands */
+assign_bands(patch_grid, args_info.nbands_arg);
+assign_bands(fine_grid, args_info.nbands_arg);
+
+if(args_info.focus_ra_given && 
+   args_info.focus_dec_given && 
+   args_info.focus_radius_given){
+   	fprintf(LOG, "focus ra    : %f\n", args_info.focus_ra_arg);
+   	fprintf(LOG, "focus dec   : %f\n", args_info.focus_dec_arg);
+   	fprintf(LOG, "focus radius: %f\n", args_info.focus_radius_arg);
+   	mask_far_points(patch_grid, args_info.focus_ra_arg, args_info.focus_dec_arg, args_info.focus_radius_arg);
+   	mask_far_points(fine_grid, args_info.focus_ra_arg, args_info.focus_dec_arg, args_info.focus_radius_arg);
+   	}
 
 /* now that we have new grid positions plot them */
 
