@@ -381,7 +381,7 @@ class LIGOMetadata:
     except mxdb.Error, e:
       raise LIGOLwDBError, e[2]
     desc = self.curs.description
-      tab = re.compile(r'FROM\s+([A-Z0-0_]+)[,\s]+').search(sql).group(1)
+    for col,typ,disp,intsz,prec,sca,nul in desc:
       try:
         self.table[tab]['column'][col] = sqltypes[typ]
       except KeyError:
