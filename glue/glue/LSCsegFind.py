@@ -52,9 +52,6 @@ class LSCsegFind(object):
         # tuple of allowed sources of GPS segments
         segSourceTypes = ('none','url')
         
-        # tuple of allowed interferometers
-        ifos = ('H1', 'H2', 'L1')
-
         # tuple of allowed segment types; this is currently unused
         # segTypes = ('none', 'SCIENCE_MODE')
         
@@ -67,199 +64,154 @@ class LSCsegFind(object):
                                 
                 # get defaults from local config file
                 self.urlDefaultsExist = False
-                self.urlDefaultName = 'urlDefault_%s' % ifo
                 if cfgFile != None:
+                   self.cfgFile = self.__get_STR('cfgFile',cfgFile)
                    try:
-                       exec ( "from %s import %s" % (cfgFile, self.urlDefaultName) )
+                       #exec ( "from %s import %s" % (cfgFile, self.urlDefaultName) )
+                       exec ( "from %s import urlDefaults" % self.cfgFile )
                        self.urlDefaultsExist = True
                    except ImportError:
                        # config could be a local file; try execfile:
                        try:
-                           execfile(cfgFile)
-                           self.urlDefaultsExist = True                           
+                           execfile(self.cfgFile)
+                           self.urlDefaultsExist = True
                        except:
                            # Will handle this error below only when values from config file are needed.
                            pass
+                else:
+                   self.cfgFile = cfgFile
+                   
+                # Check that required parameters are set
                 
-                # Check that required arguments are set
-                if segSourceType == None:
-                      msg = "\nMissing or bad input data: 'segSourceType' not found"
-                      raise LSCsegFindException, msg
+                self.segSourceType = self.__get_STR('segSourceType',segSourceType)
+                if not (segSourceType in LSCsegFind.segSourceTypes):
+                        msg = "\nMissing or bad input data: 'segSourceType' = '%s' is invalid; current valid values are %s" % (segSourceType, LSCsegFind.segSourceTypes)
+                        raise LSCsegFindException, msg
                 
-                if ifo == None:
-                      msg = "\nMissing or bad input data: 'ifo' not found"
-                      raise LSCsegFindException, msg
-                         
-                if startTime == None:
-                      msg = "\nMissing or bad input data: 'startTime' not found"
-                      raise LSCsegFindException, msg
-                        
-                if endTime == None:
-                      msg = "\nMissing or bad input data: 'endTime' not found"
-                      raise LSCsegFindException, msg
+                self.ifo = self.__get_STR('ifo',ifo)
                 
+                self.startTime = self.__get_GPSLONG('startTime',startTime)
+                self.endTime = self.__get_GPSLONG('endTime',endTime)
+                if self.startTime >= self.endTime:
+                      msg = "\nMissing or bad input data: 'startTime' must be less than argument 'endTime'"
+                      raise LSCsegFindException, msg
+                                         
                 if segURL == None:
+                      # if no segURL input, then try to get this from the urlDefaults dictionary set in the config file.
                       if self.urlDefaultsExist:
                            try:
-                                exec ( "segURL = %s" % self.urlDefaultName)
+                                segURL = urlDefaults[self.ifo]
                            except:
-                                msg = "\nMissing or bad input data: a default for 'segURL' was not found in config file %s for ifo %s" % (cfgFile, ifo)
+                                try:
+                                     msg = "\nMissing or bad input data: a default URL for ifo '%s' was not found in config file '%s'; defaults exist for these ifos: %s" % (ifo, self.cfgFile, urlDefaults.keys())
+                                except:
+                                     msg = "\nMissing or bad input data: a default URL for ifo '%s' was not found in config file '%s'; no defaults were found." % (ifo, self.cfgFile)
                                 raise LSCsegFindException, msg                           
                       else:
-                           if cfgFile != None:
-                                msg = "\nMissing or bad input data: 'segURL' not found; the config file %s does not exist or is corrupt" % cfgFile
+                           if self.cfgFile != None:
+                                msg = "\nMissing or bad input data: 'segURL' not found; the config file %s does not exist or is corrupt" % self.cfgFile
                                 raise LSCsegFindException, msg
                            else:
                                 msg = "\nMissing or bad input data: 'segURL' not found"
                                 raise LSCsegFindException, msg
-
-                if minLength == None:
-                      msg = "\nMissing or bad input data: 'minLength' not found"
-                      raise LSCsegFindException, msg
+                self.segURL = self.__get_STR('segURL',segURL)
                 
-                if addStart == None:
-                      msg = "\nMissing or bad input data: 'addStart' not found"
-                      raise LSCsegFindException, msg
-                
-                if reduceEnd == None:
-                      msg = "\nMissing or bad input data: 'reduceEnd' not found"
-                      raise LSCsegFindException, msg
-                
-                if outputFormat == None:
-                      msg = "\nMissing or bad input data: 'outputFormat' not found"
-                      raise LSCsegFindException, msg
-                      
-                if strict == None:
-                      msg = "\nMissing or bad input data: 'strict' not found"
-                      raise LSCsegFindException, msg
-                
-                if saveFiles == None:
-                      msg = "\nMissing or bad input data: 'saveFiles' not found"
-                      raise LSCsegFindException, msg
-                      
-                # Check arguments are arguments are of the required type and have valid values
-                            
-                if type(segSourceType) != types.StringType:
-                        msg = "\nMissing or bad input data: 'segSourceType' must be a string"
-                        raise LSCsegFindException, msg
-
-                if not (segSourceType in LSCsegFind.segSourceTypes):
-                        msg = "\nMissing or bad input data: 'segSourceType' = '%s' is invalid; current valid values are %s" % (segSourceType, LSCsegFind.segSourceTypes)
-                        raise LSCsegFindException, msg
-
-                if type(ifo) != types.StringType:
-                        msg = "\nMissing or bad input data: 'ifo' must be a string"
-                        raise LSCsegFindException, msg                        
-
-                if not (ifo in LSCsegFind.ifos):
-                        msg = "\nMissing or bad input data: 'ifo' = '%s' is invalid; current valid values are %s" % (ifo, LSCsegFind.ifos)
-                        raise LSCsegFindException, msg
-                                                                              
-                try:
-                        self.__check_gps(str(startTime))
-                except Exception, e:
-                        msg = "\nMissing or bad input data: GPS 'startTime' must be positive integer at least 9 digits long"
-                        raise LSCsegFindException, msg
-
-                try:
-                        self.__check_gps(str(endTime))
-                except Exception, e:
-                        msg = "\nMissing or bad input data: GPS 'endTime' must be positive integer at least 9 digits long"
-                        raise LSCsegFindException, msg
-                        
-                if long(startTime) >= long(endTime):
-                        msg = "\nMissing or bad input data: 'startTime' must be less than argument 'endTime'"
-                        raise LSCsegFindException, msg
-                        
-
-                if type(segURL) != types.StringType:
-                        msg = "\nMissing or bad input data: 'segURL' must be a string"
-                        raise LSCsegFindException, msg
-                
-                # TO DO: test URL
-                
-                if type(minLength) != types.LongType:
-                        msg = "\nMissing or bad input data: 'minLength' must be an integer "
-                        raise LSCsegFindException, msg
-                
-                if type(minLength) < 0L:
-                        msg = "\nMissing or bad input data: 'minLength' must be a positive integer "
-                        raise LSCsegFindException, msg
-
-                if type(addStart) != types.LongType:
-                        msg = "\nMissing or bad input data: 'addStart' must be an integer "
-                        raise LSCsegFindException, msg
-                
-                if type(addStart) < 0L:
-                        msg = "\nMissing or bad input data: 'addStart' must be a positive integer "
-                        raise LSCsegFindException, msg
-                        
-                if type(reduceEnd) != types.LongType:
-                        msg = "\nMissing or bad input data: 'reduceEnd' must be an integer "
-                        raise LSCsegFindException, msg
-                
-                if type(reduceEnd) < 0L:
-                        msg = "\nMissing or bad input data: 'reduceEnd' must be a positive integer "
-                        raise LSCsegFindException, msg
-                
-                if type(outputFormat) != types.StringType:
-                        msg = "\nMissing or bad input data: 'outputFormat' must be a string"
-                        raise LSCsegFindException, msg
-                                    
-                try:
-                        if (strict != True) and (strict != False):
-                           msg = "\nMissing or bad input data: 'strict' must be True or False"
-                           raise LSCsegFindException, msg
-                except Exception, e:
-                        msg = "\nMissing or bad input data: 'strict' must be True or False"
-                        raise LSCsegFindException, msg
-
-                try:
-                        if (saveFiles != True) and (saveFiles != False):
-                           msg = "\nMissing or bad input data: 'saveFiles' must be True or False"
-                           raise LSCsegFindException, msg
-                except Exception, e:
-                        msg = "\nMissing or bad input data: 'saveFiles' must be True or False"
-                        raise LSCsegFindException, msg
-                        
-
-                self.segSourceType = segSourceType
-                self.ifo = ifo
-                self.startTime = long(startTime)
-                self.endTime = long(endTime)
-                self.segURL = segURL
+                # segType is currently unused, so no testing:
                 self.segType = segType
-                self.minLength = long(minLength)
-                self.addStart = long(addStart)
-                self.reduceEnd = long(reduceEnd)
-                self.outputFormat = outputFormat
-                self.strict = strict
-                self.saveFiles = saveFiles
-
+                
+                self.minLength = self.__get_PLONG('minLength',minLength)
+                self.addStart = self.__get_ULONG('addStart',addStart)
+                self.reduceEnd = self.__get_ULONG('reduceEnd',reduceEnd)
+                self.outputFormat = self.__get_STR('outputFormat',outputFormat)
+                self.strict = self.__get_BOOLEAN('strict',strict)
+                self.saveFiles = self.__get_BOOLEAN('saveFiles',saveFiles)
+                
+                # data not from parameters
                 self.myScienceData = ScienceData()
                 self.mySegList = []
-                
-        def __check_gps(self, gpsString):
+                           
+        def __check_exists(self, inputName, inputValue):
                 """
-                Minimal checking on GPS time strings. Raises a LSCsegFindException if
-                the GPS time string is not at least 9 digits long.
-
-                @param gpsString: The string representing the 9+ digit GPS time.
-
-                @returns: None
+                   Check that a value exists, else raise an exception
+                """        
+                if inputValue == None:
+                      msg = "\nMissing or bad input data: '%s' not found" % inputName
+                      raise LSCsegFindException, msg
+                                                           
+        def __get_STR(self, inputName, inputValue):
                 """
-                if len(gpsString) < 9:
-                        msg = "GPS time must be at least 9 digits"
-                        raise LSCsegFindException, msg
-
+                   Convert inputValue to type str; raise exceptions if value does not exist or conversion fails
+                """        
+                self.__check_exists(inputName, inputValue)
                 try:
-                        a = long(gpsString)
+                   testValue = str(inputValue)
+                   return testValue
+                except: 
+                   msg = "\nMissing or bad input data: '%s' must be a string" % inputName
+                   raise LSCsegFindException, msg
+                        
+        def __get_ULONG(self, inputName, inputValue):
+                """
+                   Convert inputValue to nonnegative long integer; raise exceptions if value does not exist or conversion fails
+                """        
+                self.__check_exists(inputName, inputValue)
+                msg = "\nMissing or bad input data: '%s' must be integer >= 0; value given was %s" % ( str(inputName), str(inputValue) )
+                try:
+                   testValue = long(inputValue)
+                   if testValue < 0L:
+                      raise LSCsegFindException, msg                   
+                   else:
+                       return testValue
+                except:
+                   raise LSCsegFindException, msg
+        
+        def __get_PLONG(self, inputName, inputValue):
+                """
+                   Convert inputValue to nonnegative long integer; raise exceptions if value does not exist or conversion fails
+                """        
+                self.__check_exists(inputName, inputValue)
+                msg = "\nMissing or bad input data: '%s' must be integer > 0; value given was %s" % ( str(inputName), str(inputValue) )
+                try:
+                   testValue = long(inputValue)
+                   if testValue <= 0L:
+                      raise LSCsegFindException, msg                   
+                   else:
+                       return testValue
+                except:
+                   raise LSCsegFindException, msg
+        
+        def __get_GPSLONG(self, inputName, inputValue):
+                """
+                   Convert inputValue to positive long integer with at least 9 digits.
+                   Raise exceptions if the value does not exist or conversion fails                
+                """
+                self.__check_exists(inputName, inputValue)
+                msg = "\nMissing or bad input data: '%s' must be a valid GPS time with at least 9 digits; value given was %s" % ( str(inputName), str(inputValue) )
+                gpsString = str(inputValue)
+                if len(gpsString) < 9:
+                        raise LSCsegFindException, msg
+                try:
+                        testValue = long(inputValue)
                 except Exception, e:
-                        msg = "GPS time must be an integer"
                         raise LSCsegFindException, msg
                 
-                if a < 0:
-                        msg = "GPS time must be a positive integer"
+                if testValue < 0L:
+                        raise LSCsegFindException, msg
+                else:
+                        return testValue
+                
+        def __get_BOOLEAN(self, inputName, inputValue):
+                """
+                   Convert inputValue to nonnegative long integer; raise exceptions if value does not exist or conversion fails
+                """        
+                self.__check_exists(inputName, inputValue)
+                msg = "\nMissing or bad input data: '%s' must be True or False; value given was %s" % ( str(inputName), str(inputValue) )
+                try:
+                        if (inputValue != True) and (inputValue != False):
+                           raise LSCsegFindException, msg
+                        else:
+                           return inputValue
+                except:
                         raise LSCsegFindException, msg
 
         def GetSegments(self):
@@ -288,7 +240,7 @@ class LSCsegFind(object):
                     segID = segment.id()
                     segStart = long(segment.start())
                     segEnd = long(segment.end())
-                    segDuration = segment.dur()
+                    segDuration = long(segment.dur())
                     
                     if  (segStart >= self.endTime) or (segEnd <= self.startTime):
                          # This segment is not in the interval [self.startTime,self.endTime)
@@ -304,10 +256,13 @@ class LSCsegFind(object):
                             segStart += self.addStart
                     if self.reduceEnd > 0L:                            
                             segEnd -= self.reduceEnd
-                    if (segEnd - segStart) < self.minLength:
+                    
+                    # update value and check against minLength
+                    segDuration = segEnd - segStart                  
+                    if segDuration < self.minLength:
                          # This segment is too short
                          continue
-                    
+                         
                     # Print out the segment
                     
                     if (self.outputFormat == 'PYTHON_LIST') or (self.outputFormat == 'TCL_LIST'):

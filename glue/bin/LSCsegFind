@@ -88,17 +88,16 @@ DESCRIPTION
                 Type of segments (currently unused; the type is determined by the URL)
        
         -c, --config-file
-                Specifies an alternative name for a configuration file. The default is to use the
-                first occurance of LSCsegFindCfg.py, if it exists, in your PYTHONPATH. Note that
-                it is not necessary for a configuration file to exist to run this program, but
-                then the URL to get segments from must be specfied on the command line. Use of
-                this option overwrites that default config filename, but setting the URL from the
-                command line overwrites any URL found in the config file. For maximum speed, end
-                the config filename in .py, add its path to your PYTHONPATH environmental variable,
-                but do NOT give .py extension when using this option. However, files used with this
-                option not in your PYTHONPATH must include the complete path and filename. See
-                LSCsegFindCfgExample.py for an example config file (run 'echo $PYTHONPATH' to see
-                possible paths to this file).
+                Note that it is not necessary for a configuration file to exist to run this program,
+                but then the URL to get segments from must be specfied on the command line using
+                -u or --seg-url. Setting the URL from the command line overrides any URL found in the
+                config file. For maximum speed, end the config filename in .py so that python can create
+                a .pyc version of it, and add its path to your PYTHONPATH environmental variable. In
+                this case, you do NOT need to give the path or the .py extension when specifying the
+                config filename. However, config files not in your PYTHONPATH must be specified with
+                the complete path and filename. See LSCsegFindCfgExample.py for an example config file
+                (run 'echo $PYTHONPATH' to see possible paths to this file). The CONFIG_FILE can also
+                be specified by the environmental variable LSCSEGFIND_CONFIGFILE.
         
         -m, --min-length
                minimum duration of output segments in seconds (default = 300).
@@ -259,11 +258,11 @@ for o, a in opts:
         elif o in ("-c", "--config-file"):
                 cfgFile = a
         elif o in ("-m", "--min-length"):
-                minLength = long(a)
+                minLength = a
         elif o in ("-a", "--add-start"):
-                addStart = long(a)
+                addStart = a
         elif o in ("-r", "--reduce-end"):
-                reduceEnd = long(a)
+                reduceEnd = a
         elif o in ("-o", "--output-format"):
                 outputFormat = a
         elif o in ("--strict-off",):
@@ -273,7 +272,7 @@ for o, a in opts:
                                 
 #print segSourceType,ifo,startTime,endTime,segURL,segType,cfgFile,minLength,addStart,reduceEnd,outputFormat,strict,saveFiles
 
-# Initiate the LSCsegFind Class; note that the class does all vetting of parameters.       
+# Initiate the LSCsegFind Class; note that the class does all vetting of parameters.
 myLSCsegFind = LSCsegFind(segSourceType,ifo,startTime,endTime,segURL,segType,cfgFile,minLength,addStart,reduceEnd,outputFormat,strict,saveFiles)
 
 # Get the segments; the results are printed to stdout.
