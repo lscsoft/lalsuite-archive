@@ -3,7 +3,11 @@ The LDRdataFindClient module provides an API for connecting to
 and making requests of a LDRdataFindServer.
 
 This module requires U{pyGlobus<http://www-itg.lbl.gov/gtg/projects/pyGlobus/>}.
+
+$Id$
 """
+
+__version__ = '$Revision$'[11:-2]
 
 import sys
 import os

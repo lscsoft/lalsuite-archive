@@ -4,7 +4,11 @@
 Client for querying a LDRdataFindServer to find LSC data.
 
 Uses pyGlobus and the LDRdataFindClient modules.
+
+$Id$
 """
+
+__version__ = '$Revision$'[11:-2]
 
 import sys
 import os
