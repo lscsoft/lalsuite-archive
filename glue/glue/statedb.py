@@ -82,7 +82,7 @@ class StateSegmentDatabase:
       msg = "Error disconnecting from database: %s" % e
       raise StateSegmentDatabaseException, msg
 
-      
+
   def register_lfn(self,lfn,start=None,end=None):
     """
     Start publishing state information for a new logical file name
@@ -119,7 +119,7 @@ class StateSegmentDatabase:
 
 
   def publish_state(self, 
-      ifo, start_time, start_time_ns, end_time, end_time_ns, ver, id ):
+      ifo, start_time, start_time_ns, end_time, end_time_ns, ver, val ):
     """
     Publish a state segment for a state vector in the database
     """
@@ -129,22 +129,22 @@ class StateSegmentDatabase:
       msg = "No LFN registered to publish state information"
       raise StateSegmentDatabaseException, msg
 
-    # see if we need a new state id or if we know it already
-    if (ver, id) not in self.state_vec:
+    # see if we need a new state val or if we know it already
+    if (ver, val) not in self.state_vec:
       try:
         sql = "INSERT INTO state_vec (version,value) VALUES (%s,%s)"
-        self.cursor.execute(sql,(ver,id))
+        self.cursor.execute(sql,(ver,val))
         sql = "SELECT LAST_INSERT_ID()"
         self.cursor.execute(sql)
-        self.state_vec[(ver,id)] = self.cursor.fetchall()[0][0]
+        self.state_vec[(ver,val)] = self.cursor.fetchall()[0][0]
       except:
         msg = "Error inserting new state vector type into database : %s" % e
         raise StateSegmentDatabaseException, e
       if self.debug:
         print "DEBUG: create a new state vec type (%d,%d) -> %d" % \
-          (ver,id,self.state_vec[(ver,id)])
+          (ver,val,self.state_vec[(ver,val)])
 
-    sv_id = self.state_vec[(ver,id)]
+    sv_id = self.state_vec[(ver,val)]
 
     # insert the state segment 
     sql = "INSERT INTO state_segment (ifo,start_time,start_time_ns,"
@@ -167,14 +167,29 @@ class StateSegmentDatabase:
       id = self.cursor.fetchall()[0][0]
       print "DEBUG: inserted with id", id
 
-  def set_state_name(self,ver,id,name):
+
+  def set_state_name(self,ver,val,name):
     try:
       sql = "INSERT INTO state_vec (version,value,state) VALUES (%s,%s,%s)"
-      self.cursor.execute(sql,(ver,id,name))
+      self.cursor.execute(sql,(ver,val,name))
     except _mysql_exceptions.IntegrityError, e:
       sql = "UPDATE state_vec SET state = '%s'" % name
-      sql += "WHERE version = %s AND value = %s" % (ver,id)
+      sql += "WHERE version = %s AND value = %s" % (ver,val)
       self.cursor.execute(sql)
     except Exception, e:
-      msg = "Unable to state state name for state %s,%s : %s" % (ver,id,e)
+      msg = "Unable to state state name for state %s,%s : %s" % (ver,val,e)
+      raise StateSegmentDatabaseException, msg
+
+
+  def get_state_name(self,ver,val):
+    """
+    Get the name of a state by version and value
+    """
+    sql = "SELECT state from state_vec WHERE version = %s AND value = %s" % \
+      (ver,val)
+    try:
+      self.cursor.execute(sql)
+      r = str(self.cursor.fetchall()[0][0])
+    except Excpetion, e:
+      msg = "error getting state name : %s" % e
       raise StateSegmentDatabaseException, msg
