@@ -247,8 +247,51 @@ class LSCsegFindClient(object):
     ret, output = self.__response__()
 
     if ret:
-      msg = "Error querying LSCsegFindServer for distinct values of attributes: %s"\
+      msg = \
+        "Error querying LSCsegFindServer for distinct values of attributes: %s"\
         % str(output)
+      raise LSCsegFindClientException, msg
+
+    return output
+
+  def segmentQueryWithMetadata(self, queryList):
+    """
+    Query LSCsegFindServer to find the segment(s) with the appropriate
+    metadata values.
+
+    @param queryList: list of instances of the query parameters, each
+      describing a query to be done
+                        
+    @return: list of strings representing the union of all segments(s) found
+      from the queries
+    """
+
+    # check arguments
+    if not isinstance(queryList, list):
+      msg = "Argument must be a list of query strings"
+      raise LSCsegFindClientException, msg
+    for query in queryList:
+      if not isinstance(query, str):
+        msg = "Argument must be a query string"
+        raise LDRdataFindClientException, msg
+
+    # prepare the messange to send down the socket
+    msg = "METASEGS\0"
+    for q in queryList:
+      msg += "%s" % q
+    msg += "\0"
+
+    print "sending"
+    print msg
+
+    self.sfile.write(msg)
+
+    ret, output = self.__response__()
+
+    if ret:
+      msg = \
+        "Error querying LSCsegFindServer for segments with metadata %s : %s" \
+        % (str(queryList), str(output[0]))
       raise LSCsegFindClientException, msg
 
     return output

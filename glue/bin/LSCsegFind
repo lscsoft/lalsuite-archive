@@ -141,18 +141,69 @@ class LSCsegFind(LSCsegFindClient):
     for v in distinctValueList:
       print v
 
+  def findStateSegments(self, argDict):
+    """
+    Query the LDRdataFindServer for state segments from a particular
+    interferometer, with a particular state type, for a particular range of
+    GPS times.
+
+    @param argDict: Dictionary of arguments passed to all methods.
+
+    @return: None
+    """
+    interferometer = argDict['interferometer']
+    type = argDict['type']
+    start = argDict['start']
+    end = argDict['end']
+    type = argDict['type']
+
+    # check that combination of command-line arguments is sound
+    if (not interferometer) or (not type) or (not start) or (not end):
+      msg = """\
+Bad combination of command line arguments:
+--interferometer --type --gps-start-time --gps-end-time must all
+be present when searching for groups of segments 
+"""
+      raise LSCsegFindException, msg
+
+    self.__check_gps(start)
+    self.__check_gps(end)
+
+    try:
+      typeList = type.split(',')
+    except:
+      msg = "Unable to parse segment type string %s : %s" % (typeString, e)
+      raise LSCsegFindException, msg
+
+    query = "state_segment.ifo = '%s' AND (state_vec.state = '%s'" % \
+      ( interferometer, typeList.pop(0) )
+    for x in typeList:
+      query += " OR state_vec.state = '%s'" % (x)
+    query += ")"
+    
+    print query
+
+    seglist = LSCsegFindClient.segmentQueryWithMetadata(self,[query])
+
+    if len( seglist ) == 0:
+      print >> sys.stderr, "No segments found!"
+    else:
+      for seg in seglist:
+        print seg
+
 
 def checkCredentials():
     """
-    Check to make sure that the proper Grid Credentials (a proxy certificate) is
-    available in order to authenticate to the remote LSCsegFindServer.
+    Check to make sure that the proper Grid Credentials (a proxy certificate)
+    is available in order to authenticate to the remote LSCsegFindServer.
     """
     # verify that we have access to credentials
     try:
       proxyText = security.grid_proxy_info()
     except Exception, e:
       print >>sys.stderr, "Error verifying credentials: %s" % e
-      print >>sys.stderr, "Run 'grid-proxy-init' to generate a proxy certificate"
+      print >>sys.stderr, \
+        "Run 'grid-proxy-init' to generate a proxy certificate"
       sys.exit(1)
 
     pat = re.compile(r'timeleft : (\d{1,3}):(\d\d):(\d\d)')
@@ -189,11 +240,16 @@ NAME
         LSCsegFind
 
 SYNOPSIS
+        LSCdataFind --server=NAME:PORT --interferometer=NAME --type=NAME 
+               --gps-start-time=GPS --gps-end-time=GPS [ --lfns ] 
+
         LSCsegFind --server=NAME:PORT --show-interferometers
 
         LSCsegFind --server=NAME:PORT --show-types
 
         LSCsegFind --server=NAME:PORT --ping
+
+        LSCsegFind --server=NAME:PORT --version
 
         LSCsegFind --server=NAME:PORT --help
 
@@ -204,6 +260,20 @@ DESCRIPTION
         -v, --version
                 Print version information for LSCdataFind client
 
+        -i, --interferometer
+                interferometer that generated state vector information
+                Use --show-interferometers to see what is available
+
+        -t, --type  
+                comma separated list of interferometer state types
+                Use --show-types to see what is available
+
+        -s, --gps-start-time 
+                start of GPS time range
+
+        -e, --gps-end-time   
+                end of GPS time range
+
         -r, --server
                 hostname and optional port of server to query, in the form
                 host:port
@@ -213,6 +283,11 @@ DESCRIPTION
 
         -y, --show-types
                 list available types
+
+        -l, --lfns
+                show logical file names of the frame files from which
+                the state segment information was derived insted of 
+                the actual segments
 
         -p, --ping
                 ping the LSCsegFind server
@@ -227,20 +302,28 @@ ENVIRONMENT
 
 EXAMPLE
 
-none yet.
-
+[dbrown@neutron dbrown]$ LSCsegFind --server ldas-test.ligo.caltech.edu --show-types
+Unlocked
+Up
+Science
+Injection
 \
 """
   print >>sys.stderr, msg
 
 
 # grab command line options
-shortop = "vr:wyph"
+shortop = "vi:t:s:e:r:wylph"
 longop = [
   "version",
+  "interferometer=",
+  "type=",
+  "gps-start-time=",
+  "gps-end-time=",
   "server=",
   "show-interferometers",
   "show-types",
+  "lfns",
   "ping",
   "help" ]
 
@@ -257,20 +340,15 @@ port = 49999
 
 clientMethodArgDict = {
   'interferometer': None,
+  'type': None,
   'end': None,
   'start': None,
-  'type': None,
-  'lalcache': False,
-  'filename': None,
-  'urlType': None,
-  'match': None,
-  'limit': None,
-  'offset': None,
-  'strict': None
+  'lfns': False
 }
 
 # default method 
-clientMethod = 'ping'
+clientMethod = 'findStateSegments'
+typeString = None
 
 # environment variables override defaults but not
 # command line options
@@ -278,7 +356,6 @@ try:
   hostPortString = os.environ['LSC_DATAFIND_SERVER']
 except:
   pass
-
 
 for o, a in opts:
   if o in ("-h", "--help"):
@@ -290,14 +367,25 @@ for o, a in opts:
     print 'Built on top of LSCsegFindClient version', \
       glue.LSCsegFindClient.version()
     sys.exit(0)
+  elif o in ("-i", "--interferometer"):
+    clientMethodArgDict['interferometer'] = a
+  elif o in ("-t", "--type"):
+    clientMethodArgDict['type'] = a
+  elif o in ("-s", "--gps-start-time"):
+    clientMethodArgDict['start'] = a
+  elif o in ("-e", "--gps-end-time"):
+    clientMethodArgDict['end'] = a
+  elif o in ("-r", "--server"):
+    hostPortString = a
   elif o in ("-p", "--ping"):
     clientMethod = 'ping'
   elif o in ("-w", "--show-interferometers"):
     clientMethod = 'showInterferometers'
   elif o in ("-y", "--show-types"):
     clientMethod = 'showTypes'
-  elif o in ("-r", "--server"):
-    hostPortString = a
+  elif o in ("-l", "--lfns"):
+    lfns = True
+    clientMethod = 'findStateLFNs'
 
 if not clientMethod:
   print >>sys.stderr, "Bad combination or missing options"

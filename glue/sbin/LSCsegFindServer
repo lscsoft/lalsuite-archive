@@ -353,6 +353,7 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
     methodDict = {
       'PING' : self.ping,
       'DISTINCT': self.distinctAttribute
+      'METASEGS': self.segmentFindWithMetadata
     }
 
     try:
@@ -480,7 +481,7 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
 
     logger.debug("Method distinctAttribute called")
 
-    # get metadata database access details from configuration
+    # get database access details from configuration
     dbuser = configuration['dbuser']
     dbpasswd = configuration ['dbpasswd']
     dbname = configuration['dbname']
@@ -523,6 +524,28 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
         "Error closing connection to MySQL in method distinctAttribute")
 
     self.__reply__(code, result)
+
+  def segmentFindWithMetadata(self, arg):
+    """
+    Given a SQL WHERE-type clause find segment(s) that have the matching
+    attributes. Corresponds to the METASEGS method in the LSCsegFindServer RPC
+    protocol.
+
+    @param arg: list of strings representing messages sent by the client; see
+    the RPC protocol 
+
+    @return: None
+    """
+
+    logger.debug("Method segmentFindWithMetadata called")
+
+    # get database access details from configuration
+    dbuser = configuration['dbuser']
+    dbpasswd = configuration ['dbpasswd']
+    dbname = configuration['dbname']
+
+    print >> sys.stderr, arg
+    print >> sys.stderr, str(arg)
 
 
 class LSCsegFindServer(object):
@@ -830,7 +853,8 @@ class LSCsegFindServer(object):
         # new thread is started.
         try:
           self.logger.debug("calling accept method for socket instance")
-          (request, client_address) = self.server.socket.accept(self.server.attr)
+          (request, client_address) = self.server.socket.accept(
+            self.server.attr)
           process = 1
         except io.GSITCPSocketException, ex:
           self.server.socket.shutdown(2)
