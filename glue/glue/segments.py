@@ -116,6 +116,12 @@ class segment:
 
 	# accessors
 
+	def start(self):
+		return self.start
+
+	def end(end):
+		return self.end
+
 	def duration(self):
 		"""
 		Returns the length of the interval represented by the segment.
