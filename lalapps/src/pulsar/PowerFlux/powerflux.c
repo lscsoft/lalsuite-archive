@@ -27,6 +27,8 @@ long nsegments, nbins,side_cut;
 long useful_bins;
 
 float *det_velocity=NULL;
+double average_det_velocity[3];
+float det_vel_ra, det_vel_dec;
 
 long first_bin;
 
@@ -36,6 +38,7 @@ float *TMedians=NULL,*FMedians=NULL, *expTMedians=NULL, *hours=NULL,*frequencies
 float TMedian,expTMedian;
 float *tm=NULL;
 double *mean=NULL,*weighted_mean=NULL,*weight=NULL,*sigma=NULL,*freq_d=NULL,*hours_d=NULL;
+
 
 int do_CutOff=1;
 
@@ -391,15 +394,6 @@ fine_grid=super_grid->super_grid;
 assign_dec_bands(patch_grid, args_info.dec_bands_arg);
 assign_dec_bands(fine_grid, args_info.dec_bands_arg);
 
-rotate_grid_xy(patch_grid, -M_PI*90.0/180.0);
-rotate_grid_xy(fine_grid, -M_PI*90.0/180.0);
-
-rotate_grid_xz(patch_grid, M_PI*23.0/180.0);
-rotate_grid_xz(fine_grid, M_PI*23.0/180.0);
-
-rotate_grid_xy(patch_grid, M_PI*90.0/180.0);
-rotate_grid_xy(fine_grid, M_PI*90.0/180.0);
-
 fprintf(stderr,"fine grid: max_n_ra=%d max_n_dec=%d\n", 
 	fine_grid->max_n_ra, fine_grid->max_n_dec);
 
@@ -421,22 +415,6 @@ if(fine_grid->max_n_dec<800){
 	p=make_RGBPic(fine_grid->max_n_ra+140, fine_grid->max_n_dec);
 
 plot=make_plot(p->width, p->height);
-
-plot_grid_f(p, patch_grid, patch_grid->latitude,1);
-RGBPic_dump_png("patch_latitude.png", p);
-dump_floats("patch_latitude.dat", patch_grid->latitude, patch_grid->npoints, 1);
-
-plot_grid_f(p, patch_grid, patch_grid->longitude,1);
-RGBPic_dump_png("patch_longitude.png", p);
-dump_floats("patch_longitude.dat", patch_grid->longitude, patch_grid->npoints, 1);
-
-plot_grid_f(p, fine_grid, fine_grid->latitude,1);
-RGBPic_dump_png("fine_latitude.png", p);
-dump_floats("fine_latitude.dat", fine_grid->latitude, fine_grid->npoints, 1);
-
-plot_grid_f(p, fine_grid, fine_grid->longitude,1);
-RGBPic_dump_png("fine_longitude.png", p);
-dump_floats("fine_longitude.dat", fine_grid->longitude, fine_grid->npoints, 1);
 
 #if 0  /* Debugging.. - do not remove unless structures and algorithm change */
 {
@@ -510,10 +488,68 @@ fflush(LOG);
 
 fprintf(stderr,"Computing detector speed\n");
 det_velocity=do_alloc(3*nsegments, sizeof(*det_velocity));
+average_det_velocity[0]=0.0;
+average_det_velocity[1]=0.0;
+average_det_velocity[2]=0.0;
 for(i=0;i<nsegments;i++){
 	/* middle of the 30min interval */
 	get_detector_vel(gps[i]+900,&(det_velocity[3*i]));
+	average_det_velocity[0]+=det_velocity[3*i];
+	average_det_velocity[1]+=det_velocity[3*i+1];
+	average_det_velocity[2]+=det_velocity[3*i+2];
 	}
+average_det_velocity[0]/=nsegments;
+average_det_velocity[1]/=nsegments;
+average_det_velocity[2]/=nsegments;
+fprintf(LOG,"average detector velocity: %g %g %g\n", 
+	average_det_velocity[0],
+	average_det_velocity[1],
+	average_det_velocity[2]);
+det_vel_dec=atan2f(average_det_velocity[2], 
+	sqrt(average_det_velocity[0]*average_det_velocity[0]+average_det_velocity[1]*average_det_velocity[1]));
+det_vel_ra=atan2f(average_det_velocity[1], average_det_velocity[0]);
+if(det_vel_ra<0)det_vel_ra+=2*M_PI;
+fprintf(LOG,"average detector velocity DEC: %f\n", det_vel_dec);
+fprintf(LOG,"average detector velocity RA : %f\n", det_vel_ra);
+
+
+/* now that we know where the average detector velocity is pointing rotate
+   so that band structure is perpendicular to it */
+   
+rotate_grid_xy(patch_grid, -det_vel_ra);
+rotate_grid_xy(fine_grid, -det_vel_ra);
+
+rotate_grid_xz(patch_grid, -det_vel_dec+M_PI/2.0);
+rotate_grid_xz(fine_grid, -det_vel_dec+M_PI/2.0);
+   
+#if 0
+rotate_grid_xy(patch_grid, -M_PI*90.0/180.0);
+rotate_grid_xy(fine_grid, -M_PI*90.0/180.0);
+
+rotate_grid_xz(patch_grid, M_PI*23.0/180.0);
+rotate_grid_xz(fine_grid, M_PI*23.0/180.0);
+
+rotate_grid_xy(patch_grid, M_PI*90.0/180.0);
+rotate_grid_xy(fine_grid, M_PI*90.0/180.0);
+#endif
+
+/* now that we have new grid positions plot them */
+
+plot_grid_f(p, patch_grid, patch_grid->latitude,1);
+RGBPic_dump_png("patch_latitude.png", p);
+dump_floats("patch_latitude.dat", patch_grid->latitude, patch_grid->npoints, 1);
+
+plot_grid_f(p, patch_grid, patch_grid->longitude,1);
+RGBPic_dump_png("patch_longitude.png", p);
+dump_floats("patch_longitude.dat", patch_grid->longitude, patch_grid->npoints, 1);
+
+plot_grid_f(p, fine_grid, fine_grid->latitude,1);
+RGBPic_dump_png("fine_latitude.png", p);
+dump_floats("fine_latitude.dat", fine_grid->latitude, fine_grid->npoints, 1);
+
+plot_grid_f(p, fine_grid, fine_grid->longitude,1);
+RGBPic_dump_png("fine_longitude.png", p);
+dump_floats("fine_longitude.dat", fine_grid->longitude, fine_grid->npoints, 1);
 
 /* do we need to inject fake signal ? */
 if(args_info.fake_ra_given ||
