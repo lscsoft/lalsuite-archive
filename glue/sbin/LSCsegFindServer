@@ -550,7 +550,8 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
     code = 1
 
     try:
-      sql = "SELECT state_segment.start_time, state_segment.end_time FROM state_segment, state_vec WHERE "
+      sql = "SELECT state_segment.start_time, state_segment.end_time "
+      sql += "FROM state_segment, state_vec WHERE "
       sql += arg.pop(0)
       sql += " AND state_segment.state_vec_id = state_vec.state_vec_id;"
 
@@ -560,11 +561,15 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
       c = db.cursor()
       c.execute(sql)
       res = c.fetchall()
+      c.close()
+
       for s in res:
         segs |= segments.segmentlist([segments.segment(s[0],s[1])])
       print segs
-      result = str(segs)
-      c.close()
+
+      result = ""
+      for s in segs:
+        result += "%d %d\n" % (seg.start, seg.end)
       
       logger.debug("Method : segmentFindWithMetadata %d results found" % 
         len(result))
