@@ -147,6 +147,9 @@ for o, a in opts:
     runAsDaemon = True
   if o in ("-c", "--config-file"):
     configFilePath = a
+  if o in ("-h", "--help"):
+    print usage
+    sys.exit(0)
 
 try:
   GLUE_LOCATION = os.environ["GLUE_LOCATION"]
