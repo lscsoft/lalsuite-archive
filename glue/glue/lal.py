@@ -3,6 +3,10 @@ This module contains bits and pieces of use when interacting with LAL and
 LAL-derived code (eg. LALApps programs)
 """
 
+__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__date__ = "$Date$"
+__version__ = "$Revision$"
+
 class LIGOTimeGPS(object):
 	"""
 	An object for storing times with nanosecond resolution.  LAL defines an
