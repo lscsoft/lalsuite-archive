@@ -295,9 +295,9 @@ runAsDaemon = False
 # created elsewhere
 configuration = {
   'port' : 49999,
-  'gridmap' : '/etc/grid-security/grid-mapfile',
-  'certfile' : '/ldcg/LDR/globus/etc/hostcert.pem',
-  'keyfile' : '/ldcg/LDR/globus/etc/hostkey.pem',
+  'gridmap' : '/export/grid/online/grid-mapfile',
+  'certfile' : '/export/LDR-local/globus/etc/hostcert.pem',
+  'keyfile' : '/export/LDR-local/globus/etc/hostkey.pem',
   'db_name' : 'segfind',
   'dbuser' : 'dbrown',
   'dbpasswd' : '',
