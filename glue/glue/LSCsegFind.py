@@ -216,7 +216,7 @@ class LSCsegFind(object):
 
         def GetSegments(self):
                 
-                fileName = 'tmpLSCsegFindWebPage.txt'
+                fileName = 'tmpDataFromURL_LSCsegFind.txt'
 
                 try:
                     webPageString = os.system('/usr/bin/curl %s 1> %s 2>/dev/null' % (self.segURL, fileName))
@@ -293,7 +293,7 @@ class LSCsegFind(object):
                 # clean up                
                 # TODO: handle saving and reusing of files; for now just keep the temporary file if saveFiles is true
                 if self.saveFiles:
-                     savedFileName = 'LSCsegFindWebPage.txt'                
+                     savedFileName = 'dataFromURL_LSCsegFind.txt'
                      try:
                          rmOut = os.system('/bin/mv %s %s 1>/dev/null 2>/dev/null' % (fileName, savedFileName))
                      except:
