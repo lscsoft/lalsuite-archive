@@ -112,7 +112,7 @@ median=tmp[nb>>1];
 qlines=tmp[nb-lr->nlines];
 qmost=tmp[nb-lr->nlittle];
 
-/* first pass - mark suspision bins */
+/* first pass - mark suspicious bins */
 for(i=lr->x0;i<=lr->x1;i++){
 	lr->lines[i]=0;
 	if(z[i]>qmost)lr->lines[i]|=LINE_HIGH;

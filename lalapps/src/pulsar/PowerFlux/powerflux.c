@@ -582,9 +582,9 @@ FMedians=do_alloc(nbins, sizeof(*FMedians));
 compute_noise_curves();
 
 for(i=0;i<nsegments;i++){
-	expTMedians[i]=exp(-M_LN10*(TMedians[i]-TMedian));
+	expTMedians[i]=exp(-M_LN10*2.0*(TMedians[i]-TMedian));
 	}
-expTMedian=exp(-M_LN10*TMedian);
+expTMedian=exp(-M_LN10*2.0*TMedian);
 
 adjust_plot_limits_f(plot, hours, TMedians, nsegments, 1, 1, 1);
 draw_grid(p, plot, 0, 0);
@@ -608,7 +608,7 @@ for(i=0;i<nbins;i++){
 	weight[i]=0;
 	}
 for(i=0;i<nsegments;i++){
-	w=exp(-M_LN10*TMedians[i]);
+	w=expTMedians[i];
 	for(j=0;j<nbins;j++){
 		a=power[i*nbins+j];
 		weight[j]+=w;
