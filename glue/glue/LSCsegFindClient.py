@@ -322,7 +322,7 @@ class LSCsegFind(LSCsegFindClient):
   Class that represents this client interacting with a LSCsegFindServer in
   order to find state segments.
   """
-  def __init__(self, host, port):
+  def __init__(self, host, port=30015):
     """
     Open a connection to a LSCsegFindServer and return an instance of
     class LSCsegFind. One of the public methods can then be called to send a
