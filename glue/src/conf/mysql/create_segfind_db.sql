@@ -32,8 +32,8 @@ create table state_segment (
 -- Insertion time (automatically assigned by the database)
     insertion_time timestamp default null,
 
-    primary key( state_segment_id ),
-    unique index( ifo, start_time, start_time_ns, end_time, end_time_ns, state_vec_id ),
+    primary key( ifo, start_time, start_time_ns, end_time, end_time_ns, state_vec_id ),
+    unique index( state_segment_id )
     index( start_time, end_time, state_vec_id )
   ) type=myISAM;
 
@@ -53,8 +53,9 @@ create table lfn (
 -- Insertion time (automatically assigned by the database)
     insertion_time timestamp default null,
 
-    primary key( lfn_id, lfn ),
-    unique index( lfn )
+    primary key( lfn, start_time, end_time ),
+    index( lfn ),
+    unique index( lfn_id )
 
   ) type=myISAM;
 
@@ -76,6 +77,9 @@ create table state_vec (
 -- Insertion time (automatically assigned by the database)
     insertion_time timestamp default null,
 
-    primary key (version, value),
-    index(state_vec_id)
+    primary key( version, value ),
+    unique index( state_vec_id ),
+    unique index( version, value, state ),
+    index( state )
+
   ) type=myISAM;
