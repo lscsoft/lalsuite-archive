@@ -174,16 +174,17 @@ One of the options --query or --insert must be specified.
 \
 """
   print msg
-  -s, --server HOST:PORT     connect to ldbd on HOST:PORT (default port 49999)
-  -j, --identity SUBJECT     the subject of the servers service certififcate
-  -d, --database NAME        use database NAME
-  -i, --insert LIGOLW        insert LIGO lightweight file LIGOLW
-  -q, --query QUERY          execute SQL query QUERY
-  -o, --output FILE          write output to FILE
-  -v, --verbose              print lots of debugging information
-  -h, --help                 print this message
+
+def help():
+  usage()
+  sys.exit(0)
+
+shortop = "s:j:d:i:q:o:vh"
+longop = [
+  "server=",
   "identity=",
-The option --server and one of --query or --insert must be specified.
+  "database=",
+  "insert=",
   "query=",
   "output=",
   "verbose",
