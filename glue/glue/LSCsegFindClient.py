@@ -17,6 +17,8 @@ import types
 from pyGlobus import io
 from pyGlobus import security
 
+from glue import segments
+
 def version():
   return __version__
 
