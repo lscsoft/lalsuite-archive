@@ -1,896 +1,31 @@
 """
-LSCfileAdd.py module contains the classes for the LSCfileAdd utility
+Main classes for publishing S4 data 
+and possibly <reverb>beyond...</reverb>
+
+Now being used as LSCfileAdd.py
+
 """
 
-__author__="Ben Johnson: module contains the classes for the LSCfileAdd utility"
+_author__="Ben Johnson: module contains the classes for the LSCfileAdd utility"
 __date__='$Date$'
 __version__='$Revision$'[0:0]
 
-import os
-import sys
-import getopt
 import exceptions
+import os
+import urlparse
 import md5
+import time
+import sys
 import re
-#from pyGlobus import security
+from types import *
 
-## LDR specific(?) modules
-#try:
-#        ldrHome = os.environ["LDR_LOCATION"]
-#except:
-#        sys.stderr.write("LDR_LOCATION environment variable undefined\n")
-#        sys.exit(1)
+# LDR-specific modules
+import LDRUtil
+import RLS
+import LDRMetadataCatalog
+import rlsClient
 
-#sys.path.append(os.path.join(ldrHome, "ldr/lib"))
-
-#import LDRUtil
-#import RLS
-#import LDRMetadataCatalog
-
-class LSCfileAddMetadataAttr(object):
-        """
-        This class sets up a dictionary containing the LDR metadata fields
-        available to this routine, and defines how they are used in the
-        context of this script.
-        
-        The dictionary is layed out as follows:
-                FieldName:DescriptionDict
-                
-                FieldName is the metadata field, e.g. "size" or "md5"
-                
-                DescriptionList contains the following:
-                       0) Value    # field value which is put into database
-                       1) Type     # data type, must be acceptable by database, e.g. int, string, float
-                       2) Default  # default if any
-                       3) UserSet  # If this can be set via the program's user, True or False
-                       4) Cli_arg_long # long version of cli argument with NO DASHES, e.g. "gpsStart"
-                       5) Cli_arg_short # short version of cli argument with NO DASHES, e.g. "s"
-                       6) Description # description of this field
-                       7) Test_method # Function pointers, baby!
-                                      # method used to test the validity of this parameter
-                                      # format is 'Test_method':getattr(self,"FUNCTION_NAME")
-                                      
-        
-        """
-        attr = {}
-        
-        def gps_processor(self):
-                """
-                Performs a consistancy check on start and end gps times
-                along with the duration parameter. 
-                
-                If the three fields are not None, makes sure they are consistent.
-
-                If two are specified, makes sure they are sane (e.g. start time < end time),
-                and if so, calculates third field.
-                
-                If only one field is specified, returns an error?
-                
-                Returns 0 if there are no errors, otherwise a string containing the error message.
-                """
-                # set some "booleans"
-                if self.attr['gpsStart']['Value']:
-                        start = 1
-                else:
-                        start = 0
-                if self.attr['gpsEnd']['Value']:
-                        end = 1
-                else:
-                        end = 0
-                if self.attr['duration']['Value']:
-                        duration = 1
-                else:
-                        duration = 0
-                
-                ## Now, according to what's been set perform various tests
-                
-                # make sure at least two parameters are set
-                if start + end + duration < 2:
-                        msg = "No fields specified!"
-                        if start:
-                                msg = "Only know the start time."
-                        if end:
-                                msg = "Only know the end time."
-                        if duration:
-                                msg = "Only know the data duration."
-                        return "Not enough information to fill gps start, end, and duration fields. %s" % (msg,)
-                # now perform basic "is this a valid gps time at all?" checks
-                if start:
-                        inputValue = self.attr['gpsStart']['Value']
-                        gpsString = str(inputValue)
-                        
-                        try:
-                                testValue = long(inputValue)
-                        except Exception, e:
-                                return "GPS start time must be an integer. Received \"%s\"" % (str(inputValue),)
-                        if testValue < 0L:
-                                return "GPS start time must be positive. Received \"%s\"" % (str(inputValue),)
-                        if testValue < 100000000:
-                                return "GPS start time must be at least nine digits long. Received \"%s\"" % (str(inputValue),)
-                if end:
-                        inputValue = self.attr['gpsEnd']['Value']
-                        gpsString = str(inputValue)
-                        
-                        try:
-                                testValue = long(inputValue)
-                        except Exception, e:
-                                return "GPS end time must be an integer. Received \"%s\"" % (str(inputValue),)
-                        if testValue < 0L:
-                                return "GPS end time must be positive. Received \"%s\"" % (str(inputValue),)
-                        if testValue < 100000000:
-                                return "GPS end time must be at least nine digits long. Received \"%s\"" % (str(inputValue),)
-                # see if duration is an integer etc.
-                if duration:
-                        inputValue = self.attr['duration']['Value']
-                        durString = str(inputValue)
-                        try:
-                                testValue = long(inputValue)
-                        except Exception, e:
-                                return "Duration time must be an integer. Received \"%s\"" % (str(inputValue),)
-                # now perform consistancy checks, and missing parameter calculations
-                starttime = self.attr['gpsStart']['Value']
-                endtime = self.attr['gpsEnd']['Value']
-                durtime = self.attr['duration']['Value']
-                if start and duration:
-                        self.attr['gpsEnd']['Value'] = starttime + durtime
-                        return 0
-                if end and duration:
-                        self.attr['gpsStart']['Value'] = endtime - durtime
-                        return 0
-                if start and end:
-                        if endtime <= starttime:
-                                return "GPS end time must be greater than start time. Received gps-start = %s, gps-end = %s" % (str(starttime), str(endtime))
-                        if duration:
-                                durtime = self.attr['duration']['Value']
-                                if durtime != (endtime - starttime):
-                                        return "Duration parameter does not match GPS start and end times. \
-                                        Recevied gps-start = %s, gps-end = %s, duration = %s" (str(starttime),str(endtime),str(durtime))
-                        else:
-                                self.attr['duration']['Value'] = endtime - starttime
-                                return 0
-        ## END gps_processor()
-        
-        def ifo_processor(self):
-                """
-                Checks given interferometer against list of accepted interferometers.
-                returns 0 if found, an error string if not.
-                """
-                ifo = self.attr['interferometer']['Value']
-                accepted_ifos = self.attr['interferometer']['Accepted_values']
-                if not ifo:
-                        return "Interferomter(s) must be specified. Accepted values are %s or any combination thereof." % (str(accepted_ifos),)
-                # now split ifos into \w\d+ groups, though I don't know how to do this with regular expressions
-                templist = list(ifo)
-                ifolist = []
-                for item in templist:
-                        if item.isalpha():
-                                ifolist.append(item)
-                                continue
-                        if item.isdigit():
-                                ifolist[len(ifolist) - 1] += item
-                for myifo in ifolist:
-                        if not accepted_ifos.count(myifo):
-                                return "Interferometer \"%s\" was not found in the list of accepted interferometers. Valid ifos are any combination of the following: %s." % (ifo, str(accepted_ifos))
-                        if accepted_ifos.count(myifo) > 1:
-                                return "An interferometer value can only be specified once. At least two of ifo \"%s\" were specified." % (ifo,)
-                # all is well, then
-                return 0
-        ## END ifo_processor()
-        
-        def site_processor(self):
-                """
-                Check given site against list of accepted sites.
-                returns 0 if found, an error string if not
-                """
-                site = self.attr['site']['Value']
-                if not site:
-                        return site
-                # split site list
-                sitelist = list(site)
-                accepted_sites = self.attr['site']['Accepted_values']
-                for mysite in sitelist:
-                        if not accepted_sites.count(site):
-                                return "Site \"%s\" was not found in the list of accepted sites. Valid sites are %s" % (site,str(accepted_sites))
-                        if sitelist.count(site) > 1:
-                                return "Site \"%s\" can only be specified once." % (mysite,)
-                return 0
-        ## END site_processor()
-        
-        def filetype_processor(self):
-                """
-                Makes sure that the file type (a.k.a. file extension), matches one that is allowed in
-                the database.
-                """
-                thistype = self.attr['fileType']['Value']
-                accepted_types = self.attr['fileType']['Accepted_values']
-                if not accepted_types.count(thistype):
-                        return "File type \"%s\" is not accepted. Acceptable values %s" % (thistype,str(accepted_types))
-                else:
-                        return 0
-        ##END filetype_processor()
-        
-        def group_processor(self):
-                """
-                Makes sure the given group paramter is one of the allowed values.
-                """
-                group = self.attr['group']['Value']
-                accepted_groups = self.attr['group']['Accepted_values']
-                if not accepted_groups.count(group):
-                        return "Group \"%s\" is not among the accepted list. Acceptable values %s" % (group,str(accepted_groups))
-                else:
-                        return 0
-        ##END group_processor()
-        
-        
-        def __init__(self):
-                self.attr = {
-"size":{
-        'Value':None,
-        'Type':"int",
-        'Default':"Null",
-        'UserSet':False,
-        'Cli_arg_long':None,
-        'Cli_arg_short':None,
-        'Description':"Size of file",
-        'Test_method':None
-       },
-"md5":{
-        'Value':None,
-        'Type':"string",
-        'Default':"Null",
-        'UserSet':False,
-        'Cli_arg_long':None,
-        'Cli_arg_short':None,
-        'Description':"md5 sum of file",
-        'Test_method':None
-        },
-"interferometer":{
-        'Value':None,
-        'Default':"Null",
-        'Type':"string",
-        'UserSet':True,
-        'Cli_arg_long':"interferometer",
-        'Cli_arg_short':"i",
-        'Description':"Interferometer site+ifonumber, e.g. H1,H2,L1,H1H2",
-        'Accepted_values':['H1','H2','L1','G1'],
-        'Test_method':getattr(self,"ifo_processor")
-        },
-"site":{
-        'Value':None,
-        'Type':"string",
-        'Default':"Null",
-        'Type':"string",
-        'UserSet':False,
-        'Cli_arg_long':None,
-        'Cli_arg_short':None,
-        'Description':"Interferometer site. e.g. H, L, GHLV",
-        'Accepted_values':['H','L','G','V'],
-        'Test_method':getattr(self,"site_processor")
-        },
-"fileType":{
-        'Value':None,
-        'Default':"Null",
-        'UserSet':False,
-        'Cli_arg_long':"type",
-        'Cli_arg_short':"t",
-        'Description':"Type of file",
-        'Accepted_values':['gwf','sft','xml'],
-        'Test_method':getattr(self,"filetype_processor")
-        },
-"frameType":{
-        'Value':None,
-        'Type':"string",
-        'Default':"Null",
-        'UserSet':False,
-        'Cli_arg_long':None,
-        'Cli_arg_short':None,
-        'Description':"frame type, e.g. R, RDS_R_L1, RDS_R_L1, h_of_t",
-        'Test_method':None
-        },
-"gpsStart":{
-        'Value':None,
-        'Type':"int",
-        'Default':"Null",
-        'UserSet':True,
-        'Cli_arg_long':"gps-start-time",
-        'Cli_arg_short':"s",
-        'Description':"GPS start time of file data",
-        'Test_method':getattr(self,"gps_processor")
-        },
-"gpsEnd":{
-        'Value':None,
-        'Type':"int",
-        'Default':"Null",
-        'UserSet':True,
-        'Cli_arg_long':"gps-end-time",
-        'Cli_arg_short':"e",
-        'Description':"GPS end time of file data",
-        'Test_method':getattr(self,"gps_processor")
-        },
-"duration":{
-        'Value':None,
-        'Type':"int",
-        'Default':"Null",
-        'UserSet':False,
-        'Cli_arg_long':None,
-        'Cli_arg_short':None,
-        'Description':"Time duration of file",
-        'Test_method':getattr(self,"gps_processor")
-        },
-"locked":{
-        'Value':None,
-        'Type':"int",
-        'Default':"Null",
-        'UserSet':False,
-        'Cli_arg_long':None,
-        'Cli_arg_short':None,
-        'Description':"IFO locked bitmask",
-        'Test_method':None
-        },
-"scienceMode":{
-        'Value':None,
-        'Type':"int",
-        'Default':"Null",
-        'UserSet':False,
-        'Cli_arg_long':None,
-        'Cli_arg_short':None,
-        'Description':"science mode bitmask",
-        'Test_method':None
-        },
-"playground":{
-        'Value':None,
-        'Type':"int",
-        'Default':"Null",
-        'UserSet':False,
-        'Cli_arg_long':None,
-        'Cli_arg_short':None,
-        'Description':"Bit mask for playground data",
-        'Test_method':None
-        },
-"runTag":{
-        'Value':None,
-        'Type':"string",
-        'Default':"Null",
-        'UserSet':False,
-        'Cli_arg_long':None,
-        'Cli_arg_short':None,
-        'Description':"LDR run tag",
-        'Test_method':None
-        },
-"group":{
-        'Value':None,
-        'Type':"string",
-        'Default':"Null",
-        'UserSet':True,
-        'Cli_arg_long':"group",
-        'Cli_arg_short':"g",
-        'Accepted_values':['pulsar','burst','cw','other'],
-        'Description':"Analysis group to which this data is relevant. e.g. pulsar, burst.",
-        'Test_method':getattr(self,"group_processor")
-        },
-"publisher":{
-        'Value':None,
-        'Type':"string",
-        'Default':"Null",
-        'UserSet':True,
-        'Cli_arg_long':"publisher",
-        'Cli_arg_short':"p",
-        'Description':"Name of person publishing this file.",
-        'Test_method':None
-        },
-"author":{
-        'Value':None,
-        'Type':"string",
-        'Default':"Null",
-        'UserSet':True,
-        'Cli_arg_long':"author",
-        'Cli_arg_short':"a",
-        'Description':"Name of file's creator. That is the person that ran the code which generated this data.",
-        'Test_method':None
-        },
-"comment":{
-        'Value':None,
-        'Type':"string",
-        'Default':"Null",
-        'UserSet':True,
-        'Cli_arg_long':"comment",
-        'Cli_arg_short':"c",
-        'Description':"An arbitrary comment describing this file. e.g. \"generated Big Bang Search v0.1a. with fftw v16.2.4 alpha\". (quotes on command line are necessary)",
-        'Test_method':None
-        }
-                             } # end of attr dict.
-## END class LSCfileAddMetadataAttr(object)
-                
-class LSCFile(LSCfileAddMetadataAttr):
-        """
-        This class contains routines for publishing and unpublishing files
-        into and out of an LDR instance.
-        """
-        
-        def __init__(self):
-                LSCfileAddMetadataAttr.__init__(self)
-                # Initialize LDR stuff
-                #self.config = LDRUtil.getConfig("local", "DEFAULT")
-                #self.metadata = LDRMetadataCatalog.LDRMetadataCatalog(self.config)
-                #self.rliurl = self.config["rli"]
-                #self.lrc = RLS.getCatalog(self.rliurl)
-                #self.gsiurl = self.config.get("Storage", "hostname")
-                
-                # create attributes in LRC if needed and pass on exception
-                # if attributes already exist
-                #try:
-                #        self.lrc.create_attr("size")
-                #except:
-                #        pass
-
-                #try:
-                #        self.lrc.create_attr("md5")
-                #except:
-                #        pass
-                
-                # list containing files successfully published
-                self.successes = []
-                # list of tuples containing files which failed to be published
-                #    and the reasons they were not (hopefully).
-                self.failures = [()]
-        ## END __init__(self)
-        
-        def __attr_self_test_methods(self,filename = "Filename not supplied"):
-                for field,vals in self.attr.iteritems():
-                                if vals['Test_method'] is not None:
-                                        result = vals['Test_method']()
-                                        if result:
-                                                self.failures.append((filename,result))
-                                                raise LSCfileAddException, "Error, skipping file: %s" % (result,)
-        ## END __attr_self_test_methods(self,filename = "Filename not supplied")
-        
-        def __create_lfn_pfn_strings(self,filename = "NO_NAME",urlType = "file"):
-                if urlType is "file":
-                        pfn = "file://localhost" + filename # need to switch on --url-type (e.g. file, gsiftp, etc.)
-                else:
-                        msg = "Error creating lfn pfn pair for %s . urlType %s not yet defined." % (filename,urlType)
-                        raise LSCfileAddException, msg
-                
-                lfn = os.path.basename(filename)
-                
-                return (lfn,pfn) # MUST BE IN EL FN to PEA FN ORDER!!!!
-        
-        def __get_attribs_from_filename(self,filename,lfn):
-                #  name fields
-                filepat = re.compile(r'^(\w+)-([\w\d]+)\-(\d+)\-(\d+)\..+')
-                try:
-                        parsedfilename = filepat.search(lfn).groups()
-                except Exception, e:
-                        msg = "Invalid filename format \"%s\"" % (lfn,)
-                        print >>sys.stderr, "%s Skipping file %s" % (msg,filename)
-                        self.failures.append((filename,msg))
-                        raise LSCfileAddException
-                      
-                # Must have 4 parts to name field
-                if len(parsedfilename) is not 4:
-                        msg = "Invalid filename format \"%s\"" % (lfn,)
-                        print >>sys.stderr, "%s Skipping file %s" % (msg,filename)
-                        self.failures.append((filename,msg))
-                        raise LSCfileAddException
-                        
-                # set the name fields in attribute dictionary
-        #  NEEDS TO BE RECONCILED WITH --gps-start-time and --gps-end-time OPTIONS!!!!!
-                self.attr['site']['Value'] = parsedfilename[0]
-                self.attr['frameType']['Value'] = parsedfilename[1]
-                self.attr['gpsStart']['Value'] = parsedfilename[2]
-                self.attr['duration']['Value'] = parsedfilename[3]
-                
-                # fill in appropriate fields
-                self.attr['size']['Value'] = os.path.getsize(filename)
-        ## END __get_attribs_from_filename(self,filename,lfn)
-                
-        def publish(self,attributes = {}, filelist = [], urlType = "file", host = "", port = 0):
-                """
-                Adds a lfn <-> pfn mapping. After checking for existance
-                of previous mapping, and calculating md5s and any file
-                format specific checksums?
-                """
-                # authentication stuff
-                #blah
-                # import use specified attributes
-                self.attr = attributes # dumb importation at the moment
-                # attempt to publish each specified file
-                for filename in filelist:
-                        # see if the physical file exists?
-                        filename = os.path.abspath(filename)
-                        if not os.path.isfile(filename):
-                                # print error and _skip_ files which do not exist (or are not files)
-                                msg = "Filename %s does not exist (or is a directory)." % (filename,)
-                                print >>sys.stderr,  "%s Skipping." % msg
-                                failures.append((filename,msg))
-                                continue
-                        # create lfn<->pair
-                        lfn, pfn = self.__create_lfn_pfn_strings(filename,urlType)
-                        
-                        # see if it already exists in database (respect --replace???)
-                        #   Check also for LDR version, for the S4/S5 LDR, no metadatadeletion
-                        #   will be supported.
-                        #metaexists = self.metadata.exists(lfn)
-                        ## DEBUG
-                        metaexists = 0
-                        ## END DEBUG
-                        #if metaexists:
-                        #        failures.append((filename,"Metadata for this lfn already exists."))
-                        if not metaexists:
-                                # Get extension here, may want to process files
-                                #   in an extension dependant manner in the future
-                                dummy, extension = os.path.splitext(lfn)
-                                extension = extension.strip(".")
-                                self.attr['fileType']['Value'] = extension
-                                
-                                try:
-                                        self.__get_attribs_from_filename(filename,lfn)
-                                
-                                except LSCfileAddException:
-                                        # skip this file
-                                        continue
-
-                                # perform any other consistancy checks
-                                try:
-                                        self.__attr_self_test_methods(filename)
-                                        
-                                except LSCfileAddException, e:
-                                        print >>sys.stderr, e
-                                        continue
-                                
-                                # calc md5sum, and other checksums
-                                # switch on fileType?, perform data format specific checksums?
-                                self.attr['md5']['Value'] = self.computeMD5(filename)
-                                # enter metadata into database
-                                self.addmetadata(lfn)
-                                
-                        # create lfn, pfn pair in LRC....
-                        #if self.rli_lfn_exists(lfn):
-                        #        self.lrc_add(lfn,pfn)
-                                print "Will create lfn<->pfn mapping for\n%s <-> %s" % (lfn,pfn)
-                        #else:
-                        #        self.lrc_create_lfn(lfn,pfn)
-                        # if all DB additions and checks were successful, then
-                        self.successes.append(filename)
-                        
-                        # END loop over filelist 
-        ## END def publish(self)
-                
-        def remove_all(self):
-                """
-                Removes ALL metadata and lfn<->pfn mappings associated
-                with a particular lfn.
-                """
-                print >>sys.stderr, "Function not yet implemented."
-                # authentication stuff
-                #blah
-                # see if it already exists in database, delete if so
-                #if metadata.exists(lfn):
-                #       metadata.delete(lfn)
-                        # NEED TO MAKE EXCEPTION ABOUT NON EXISTANCE!!!
-                # remove ALL lfn, pfn pairs
-                #pfn_list = lrc.lrc_get_pfn(lfn,0,0)
-                #for mypfn in pfn_list:
-                #        self.lrc_delete(lfn,mypfn)
-        ## END def remove_all(self)
-        
-        def addmetadata(self,lfn):
-                # Fields to be defined
-                # the following is from Publisher.py, certainly doesn't work now
-                #self.metadata.add(self.lfn)
-                print "Adding lfn \"%s\" with following metadata" % (lfn,)
-                print "<logical_file_name>\n%s" % (lfn,)
-                for field, val in self.attr.iteritems():
-                #        self.metadata.set_attr(lfn,field,val['Value'])
-                        print "\t<field>\n\t%s\n\t\t<Value>\n\t\t%s\n\t\t</Value>\n\t</field>\n" % (str(field), str(val['Value']))
-                print "</logical_file_name>"
-        ## END def addmetadata(self)
-        
-        def computeMD5(self,filename):
-                """
-                Compute md5sum of a file. Must be given a filesystem
-                path.
-                """
-                m = md5.new()
-                f = open(filename,"r")
-                aMeg = 1048576  # 1024 *1024
-                line = f.read(aMeg)
-                while line:
-                        m.update(line)
-                        line = f.read(aMeg)
-                return m.hexdigest()
-        ## END computeMD5(self,filename)
-                
-## END class LSCFile(LSCfileAddMetadataAttr)
-
-
-class CLIUtil(LSCfileAddMetadataAttr):
-        """
-        Contains methods etc. for handling the command line.
-        Some of these methods set up the metadata field dictionaries
-        """
-        
-        def __init__(self):
-                """
-                Sets up appropriate strings and dictionaries.
-                The parameters here should reflect available database fields.
-                """
-                LSCfileAddMetadataAttr.__init__(self)
-		# Some class attributes
-		self.shortop = ""
-		self.longop = []
-                self.urlType = None
-		self.hostPortString = None
-                self.host = None
-		self.port = None
-		# defaults
-		self.default_port = 30100
-		self.default_urlType = "file"
-		# maps command line options to their appropriate fields
-		self.cli_short_name = {}
-		self.cli_long_name = {}
-		# contains results for non-metadata cli parameters
-		self.nonmetaparam = {}
-		# list of parameter tuples
-		self.params = []
-		self.filelist = []
-                #Initializes some shorthand variables from the attr dictionary.
-                for field, vals in self.attr.iteritems():
-                        if vals['UserSet']:
-                                if vals['Cli_arg_short']:
-                                        self.cli_short_name[vals['Cli_arg_short']] = field
-                                if vals['Cli_arg_long']:
-                                        self.cli_long_name[vals['Cli_arg_long']] = field
-                # Non-metadata specific fields, e.g. url-type etc.
-                self.shortop = "u:s:hv"
-                self.longop = [
-                        "help",
-                        "url-type=",
-                        "server=",
-                        "verbose"
-                        ]
-                # more defaults
-                self.port = self.default_port
-     
-                # now collect non-metadata specific args with LSCfileAddMetadataAttr args
-                #    for use in getopts
-                for field, vals in self.cli_short_name.iteritems():
-                        self.shortop = self.shortop + field + ":"
-                for field, vals in self.cli_long_name.iteritems():
-                        field = field + "="
-                        self.longop.append(field)
-        ## END __init__
-        
-        
-        def class_sanity_check(self):
-                """
-                Meant to be run by the programmer to make sure that this class is sane.
-                For example, this checks to make sure the attribute dictionary is self consistant
-                (should be in LSCfileAddMetadataAttr...), but also compares with non-metadata
-                specific CLI args to make sure nothing gets clobbered inappropriately.
-                """
-		### PRESNENTLY NOT WORKING EITHER
-                exit = "NO"
-                for op in self.shortop.split(":"):
-                        for field,vals in self.attr.iteritems():
-                                if vals['Cli_arg_short'] == op:
-                                        exit = "YES"
-                                        print >>sys.stderr, "Option collision shortop is \"%s\"\nField is %s" % (op,field)
-                for op in self.longop:
-                        for field,vals in self.attr.iteritems():
-                                if vals['Cli_arg_short'] == op:
-                                        exit = "YES"
-                                        print >>sys.stderr, "Option collision shortop is \"%s\"\nField is %s" % (op,field)
-                
-                if exit is "YES":
-                        print >>sys.stderr, "Sanity Check Failed."
-                        sys.exit(123)
-        ## END class_sanity_check(self)
-        
-        def __put_opts_in_place(self,opts):
-                """
-                Populates various data structures as per command line.
-                """
-                for o, a in opts:
-                        # strip leading "-"'s
-                        o = o.lstrip("-")
-                        
-                        if o == "h" or o == "help":
-                                self.print_usage()
-                                sys.exit(0)
-                        elif o == "u" or o == "url-type":
-                                self.nonmetaparam['url-type'] = a
-                        elif o == "s" or o == "server":
-                                self.nonmetaparam['server'] = a
-                        elif o == "v" or o == ['verbose']:
-                                self.nonmetaparam['verbose'] = True
-                        elif not self.cli_short_name.has_key(o) and not self.cli_long_name.has_key(o):
-                                # invalid parameter
-                                print >>sys.stderr, "Bad option, %s" % (o,)
-                                print >>sys.stderr, "Enter 'LSCfileAdd --help' for usage"
-                                sys.exit(123)
-                        elif self.cli_short_name.has_key(o):
-                                self.attr[self.cli_short_name[o]]['Value'] = a
-                        elif self.cli_long_name.has_key(o):
-                                self.attr[self.cli_long_name[o]]['Value'] = a
-        ## END __put_opts_in_place(self,opts,args)
-        
-        def __process_nonmetadata_opts(self,args):
-                """
-                processes nonmeteadata options. e.g. host and port URL parts.
-                """
-                ## environment variables override defaults but not
-                ## command line options
-                # Configure serverl url
-                hostPortString = None
-                try:
-                        hostPortString = os.environ['LSC_FILEADD_SERVER']
-                except:
-                        pass
-                try:
-                        hostPortString = self.nonmetaparam['server']
-                except:
-                        pass
-                
-                # URL type of pfns to publish for this session
-                if not self.nonmetaparam.has_key('urlType'):
-                        try:   
-                                self.nonmetaparam['urlType'] = os.environ['LSC_FILEADD_URL_TYPE'] 
-                        except:
-                                self.nonmetaparam['urlType'] = self.default_urlType;
-                self.urlType = self.nonmetaparam['urlType']
-                
-                # determine server and port
-                if not hostPortString:
-                        print >>sys.stderr, "No LDRfileAddServer specified"
-                        print >>sys.stderr, "Enter 'LSCfileAdd --help' for usage"
-                        sys.exit(1)
-
-                if hostPortString.find(':') < 0:
-                        # no port specified
-                        host = hostPortString
-                else:
-                        # server and port specified
-                        host, portString = hostPortString.split(':')
-                        self.host = host
-                        self.port = int(portString)
-                
-                # See if any files were specified
-                if not args: # empty file list
-                        print >>sys.stderr, "You must specify at least one filename."
-                        print >>sys.stderr, "Enter 'LSCfileAdd --help' for usage"
-                        sys.exit(10)
-                else:
-                        self.filelist = args
-        ## __process_nonmetadata_opts(self)
-        
-        def get_user_parameters(self):
-                """
-                Grabs data from command line, user environment, etc.
-                and sets the appropriate variables to be used later.
-                """
-                # Get options and args from command line
-                try:
-                        opts, args = getopt.getopt(sys.argv[1:], self.shortop, self.longop)
-                except getopt.GetoptError:
-                        print >>sys.stderr, "Error parsing command line"
-                        print >>sys.stderr, "Enter 'LSCfileAdd --help' for usage"
-                        sys.exit(1)
-                        
-                # Process options and arguments
-                self.__put_opts_in_place(opts)
-                
-                ## Handle non-metadata options
-                self.__process_nonmetadata_opts(args)
-                
-        ## END def get_user_parameters
-                        
-        def print_usage(self):
-                """
-                Prints a usage message to stderr.
-                Usage will be partially generated dynamically from the
-                LSCfileAddMetadataAttr dictionary.
-                """
-                msg = """\
-NAME
-        LSCfileAdd: Publishes a file with appropriate metadata to an LDR 
-        database.
-
-SYNOPSIS
-        LSCfileAdd --help
-        
-        LSCfileAdd <options> file1 file2 ...
-        
-\
-"""
-                msg += "DESCRIPTION\n"
-                for field, vals in self.attr.iteritems():
-                        if vals['UserSet']:
-                                msg += "\t-%s, --%s\n" % (vals['Cli_arg_short'],vals['Cli_arg_long'])
-                                # format long description lines properly for standard terminal
-                                description = vals['Description']
-                                length = len(description)
-                                newdes = ""
-                                oldidx = 0
-                                idx = 55
-                                while idx < length:
-                                        while not description[idx].isspace() and idx > 0:
-                                                idx -= 1
-                                        newdes += "%s\n\t\t" % (description[oldidx:idx],)
-                                        oldidx = idx+1
-                                        idx += 55
-                                if newdes:
-                                        description = "%s%s" % (newdes,description[oldidx:length])
-                                msg += "\t\t%s\n\n" % (description,)
-                
-                msg += """\
-ENVIRONMENT
-
-        LSC_FILEADD_SERVER defines the database server where metadata and 
-                           lfn<->pfn mappings will go, overridden by the 
-                           --server option.
-
-        LSC_FILEADD_URLTYPE defines the url type for lfn<->pfn mappings. 
-                            Same arguments as --url-type. This is also 
-                            overridden by that option.
-
-        ....
-
-EXAMPLE
-$ LSCfileAdd .....
-
-\
-"""
-
-                print >>sys.stderr, msg
-        ## END def print_usage():
-
-## END class CLIUtil(LSCfileAddMetadataAttr)
-
-
-class GridUtil:
-        """
-        Class containing grid-specific utilities.
-        """
-        def checkCredentials(self):
-                """
-                Check to make sure that the proper Grid Credentials (a proxy certificate) is
-                available in order to authenticate to the remote LDRdataFindServer.
-                """
-                # verify that we have access to credentials
-                try:
-                        proxyText = security.grid_proxy_info()
-                except Exception, e:
-                        print >>sys.stderr, "Error verifying credentials: %s" % e
-                        print >>sys.stderr, "Run 'grid-proxy-init' to generate a proxy certificate"
-                        sys.exit(1)
-
-                pat = re.compile(r'timeleft : (\d{1,3}):(\d\d):(\d\d)')
-
-                try:
-                        if isinstance(proxyText, str):
-                                m = pat.search(proxyText)
-                        elif isinstance(proxyText, tuple):
-                                m = pat.search(proxyText[0])
-                        else:
-                                raise RuntimeError, "bad format for proxyText in checkCredentials"
-                                
-                        hours, minutes, seconds = map(int, m.groups())
-                except Exception, e:
-                        print >>sys.stderr, "Error parsing proxy information: %s" % e
-                        sys.exit(1)
-
-                timeleft = seconds + 60 * minutes + 3600 * hours
-
-                if timeleft < 300:
-                        print >>sys.stderr, "Less than 5 minutes left for proxy certificate."
-                        print >>sys.stderr, "Run 'grid-proxy-init' to generate a new proxy certificate"
-                        sys.exit(1)
-            ## END checkCredentials()
-                        
-## END GridUtil(object)
-
-
+# pulled from LSCfileAdd
 class LSCfileAddException(exceptions.Exception):
         """
         Exceptions raised by the classes and methods in this client
@@ -909,11 +44,644 @@ class LSCfileAddException(exceptions.Exception):
 ## END LSCaddFileClientException(exceptions.Exception)
 
 
-class LSCfileAddClient:
+class Publisher(object):
         """
-        Class that interacts with the LDRfileAddServer.
+        Class for publishing Engineering and/or science run data at
+        at the LIGO observatories.
         """
-        pass
-## END LSCaddFileClient(object)
+        def __init__(self):
+                #LSCrunMetadataAttr.__init__(self)
+                # set some default flags
+                self.PRESERVE_METADATA  = 0x01
+                self.OVERWRITE_METADATA = 0x02
+                
+                # Initialize LDR stuff
+                self.config = LDRUtil.getConfig("local", "DEFAULT")
+                self.metadata = LDRMetadataCatalog.LDRMetadataCatalog(self.config)
+                self.rliurl = self.config["rli"]
+                self.lrc = RLS.getCatalog(self.rliurl)
+                self.gsiurl = self.config.get("Storage", "hostname")
+                
+                self.regenHandle_timeout =  300.0 # seconds = 5 minutes
+                self.regenHandle_timer = time.time()
+                
+                self.attribute_generator_attach(self.default_attribute_generator)
+                
+                # list containing files successfully published
+                self.successes = []
+                # list of tuples containing files which failed to be published
+                #    and the reasons they were not (hopefully).
+                self.failures = []
+        ## END __init__
+        
+        def checkHandle(self):
+                """
+                Sees if regenHandle_timer is older than now by,
+                regenHandle_timeout. If so it updates the timer to the current time,
+                and regenerates the metadata and rls handles.
+                """
+                now = time.time()
+                if now - self.regenHandle_timer > self.regenHandle_timeout:
+                        self.regenHandle_timer = now
+                        self.regenHandle()
+        ## END checkHandle(self)
+        
+        def regenHandle(self):
+                """
+                Regenerates handle to rls... in case of rlsClient.RlsClientException
+                during publishing.
+                """
+                self.metadata = LDRMetadataCatalog.LDRMetadataCatalog(self.config)
+                self.lrc = RLS.getCatalog(self.rliurl)
+                print >>sys.stderr, "Renegerated the lrc and metadata handle at %s" % time.asctime()
+                sys.stderr.flush()
+        ## END regenHandle(self)
+        
+        
+        def default_attribute_generator(self,data = None):
+                # simply return given object unmodified
+                return data
+        ## END default_attribute_generator(lfn)
+        
+        def attribute_generator_attach(self,myobject):
+                self.attribute_generator = myobject
+        ## END attribute_generator_attach(myobject)
+        
+        def publish(self, datalist, flags = 0x01):
+                """
+                Adds a lfn <-> pfn mapping, and adds metadata provided or
+                calculated with the Publisher.attribute_generator() method.
+                
+                Grabs appropriate locked/sciencemode segments from segments dictionary.
+                
+                Paramters:
+                        datalist == dictionary containing LFNs and associated
+                                    PFNs and metadata to publish. See below
+                                    for details.
+                        
+                        flags == Determines whether or not to overwrite
+                                 Existing entries. Defaults to PRESERVE_METADATA.
+                                 The other option is OVERWRITE_METADATA.
+                
+                datalist format:
+                        datalist is a list of dictionaries, ultimately keyed on LFN
+                        
+                        datalist[n] --> ["name"] --> "<LFN>"
+                                    --> ["urls"] --> ["<PFN1>","<PFN2>",...]
+                                    --> ["metadata"] --> ["<attribute>"]["Value"]
+                """
+                
+                ### Need to perform some basic checking of the
+                ### data list structure...                
+                
+                # to be implemented
+                
+                # see if database handles need to be regenerated
+                self.checkHandle()
+                
+                #### Attempt to publish metadata
+                metadata_failure = False # though, any metadata failure should 
+                                         # most likely warrant raising an exception
+                for data in datalist:
+                        lfn = data["name"]
+                        
+                        metaexists = self.metadata.exists(lfn)
 
+                        if metaexists & (flags & self.PRESERVE_METADATA):
+                                pass
+                                #self.failures.append((filename,"Metadata for this lfn already exists."))
+                        else:
+                                try:
+                                        data = self.attribute_generator(data)
+                                except LSCfileAddException, e:
+                                        msg = "Caught exception while running the attribute_generator() on LFN \"%s\":\
+                                        Message received was: %s" % (str(lfn),str(e))
+                                        metadata_failure = True
+                                        raise LSCfileAddException
+                                        
+                                # enter metadata into database
+                                try:
+                                        self.add_metadata(lfn,data["metadata"])
+                                except Exception, e:
+                                        msg = "Caught exception while publishing metadata \"%s\"! Error was: %s" % (lfn,str(e))
+                                        metadata_failure = True
+                                        raise LSCfileAddException, msg
+                                        
+                #### Attempt to publish RLS entries
+                rls_failure = False
+                # Map each pfn one at a time
+                for data in datalist:
+                        lfn = data["name"]
+                        pfnlist = data["urls"]
+                        for pfn in pfnlist:
+                                try:
+                                        print "Publisher: rls 1 lfn = %s pfn = %s" % (lfn,pfn)
+                                        sys.stdout.flush()
+                                        sys.stderr.flush()
+                                        self.lrc.add(lfn,pfn)
+                                        print "Publisher: rls 2 lfn = %s pfn = %s" % (lfn,pfn)
+                                        sys.stdout.flush()
+                                        sys.stderr.flush()
+                                except rlsClient.RlsClientException, e:
+                                        msg = "Caught Exception from self.lrc.lrc.add(%s,%s). \
+                                        Error message was \"%s\"" % (lfn,pfn,e)
+                                        msg += "Regenerating handle to LDR and RLS and trying again."
+                                        print >>sys.stderr, msg
+                                        self.regenHandle()
+                                        try:
+                                                self.lrc.add(lfn,pfn)
+                                        except rlsClient.RlsClientException, e:
+                                                msg = "Caught Exception from self.lrc.add(lfn,pfn[i]). \
+                                                Again!. Error message from rlsClient \"%s\"" % (e,)
+                                                print >>sys.stderr, msg
+                                                self.failures.append((lfn,msg))
+                                                rls_failure = True
+                                                
+                ### End RLS entry publishing
+                
+                # if all DB additions and checks were successful, then
+                if not rls_failure and not metadata_failure:
+                        self.successes.append(lfn)
+                        
+        ## END def publish(self)
+                
+        def completely_remove(self,lfnlist):
+                """
+                Removes ALL metadata and lfn<->pfn mappings associated
+                with a particular lfn.
+                """
+                
+                # see if database handles need to be regenerated
+                self.checkHandle()
+                
+                for lfn in lfnlist:
+                        # remove ALL lfn, pfn pairs
+                        pfnlist = self.lrc.get_pfn(lfn)
+                        for mypfn in pfnlist:
+                                self.lrc.delete(lfn,mypfn)
+                        # see if it already exists in database, delete if so
+                        if self.metadata.exists(lfn):
+                               self.metadata.delete(lfn)
+        ## END def completely_remove(self)
+        
+        def mv_url(self,source,destination):
+                """
+                Used like UNIX /bin/mv on RLS entries.
+                
+                usage:
+                        foo.mv_url("<Original PFN>","<Destination PFN>")
+                        
+                Upon error, appends error message to failures[] and raises
+                an LSCfileAddException. Otherwise adds a message to successes[].
+                """
+                # see if database handles need to be regenerated
+                self.checkHandle()
+                try:
+                        if not self.lrc.pfn_exists(source):
+                                msg = "mv_url(%s,%s): Source PFN, %s, does not exist. Nothing done." % (source,destination,source)
+                                self.failures.append(msg)
+                                raise LSCfileAddException, msg
+                        else:
+                                lfn = self.lrc.get_lfn(source)[0]
+                                self.lrc.add(lfn,destination)
+                                # assume new entry exists, remove source pfn
+                                self.lrc.delete(lfn,source)
+                                msg = "Moved \"%s\" to \"%s\"." % (source,destination)
+                                successes.append(msg)
+                                return
+                except rlsClient.RlsClientException, e:
+                        msg = "mv_url(%s,%s): Caught RLS exception. Error message received was: %s" % (source,destination,str(e))
+                        self.failures.append(msg)
+                        raise LSCfileAddException, msg
+        ## END mv_url(self,source,destination)
+        
+        def rm_url(self,pfnlist):
+                """
+                Used similar to UNIX /bin/rm.
+                
+                usage:
+                        Multiple file removal: foo.rm_url(pfnlist)
+                        Single file removal: foo.rm_url("single_pfn_string")
+                        
+                NOTE:
+                        If the URL happens to be the only one to which the 
+                        listing (LFN) is mapped, the entire listing will also be deleted.
+                        This code presently does not alert the user to this, so beware!
+                        
+                Upon error, appends error message to failures[] and raises
+                an LSCfileAddException. Otherwise adds a message to successes[].
+                """
+               
+                
+                if isinstance(pfnlist,StringType):
+                        pfnlist = [pfnlist]
+                elif not isinstance(pfnlist,ListType):
+                        msg = "rm_url(var): var must be either a string or a list of strings."
+                        self.failures.append(msg)
+                        raise LSCfileAddException, msg
+                        
+                # see if database handles need to be regenerated
+                self.checkHandle()
+                try:
+                        for name in pfnlist:
+                                if not self.lrc.pfn_exists(name):
+                                        msg = "rm_url(): URL %s, does not exist in RLS database. Nothing done." % (name,)
+                                        self.failures.append(msg)
+                                        #raise LSCfileAddException, msg
+                                else:
+                                        lfn = self.lrc.get_lfn(name)[0]
+                                        self.lrc.delete(lfn,name)
+                                        msg = "Deleted URL %s. " % (name,)
+                                        self.successes.append(msg)
+                except rlsClient.RlsClientException, e:
+                        msg = "rm_url(%s): Caught RLS exception. Message was: %s" % (name,str(e))
+                        self.failures.append(msg)
+                        raise LSCfileAddException, msg
+        ## END rm_url(self,pfnlist)
+        
+        def rm_listing(self,lfnlist):
+                """
+                Used similar to UNIX /bin/rm.
+                
+                usage:
+                        Multiple LFN removal: foo.rm_listing(lfnlist)
+                        Single LFN removal: foo.rm_listing("single_lfn_string")
+                        
+                Removes a an LFN -> PFN url listing. i.e. After successful
+                usage of rm_listing(), clients should not be able to "see"
+                that a particular LFN exists.
+                        
+                Upon error, appends error message to failures[] and raises
+                an LSCfileAddException. Otherwise adds a message to successes[].
+                """
+                if isinstance(lfnlist,StringType):
+                        lfnlist = [lfnlist]
+                elif not isinstance(lfnlist,ListType):
+                        msg = "rm_listing(var): var must be either a string or a list of strings."
+                        self.failures.append(msg)
+                        raise LSCfileAddException, msg
+                # see if database handles need to be regenerated
+                self.checkHandle()
+                try:
+                        for name in lfnlist:
+                                if not self.lrc.lfn_exists(name):
+                                        msg = "rm_listing(%s,%s): URL %s, does not exist in RLS database. Nothing done." % (source,destination,source)
+                                        self.failures.append(msg)
+                                        raise LSCfileAddException, msg
+                                else:
+                                        pfns = self.lrc.get_pfn(name)
+                                        for element in pfns:
+                                                self.lrc.delete(name,element)
+                                        # Check again, in case this code is buggy!
+                                        if not self.lrc.lfn_exists(name):
+                                                msg = "rm_listing: Deleted listing for LFN %s." % (name,)
+                                                successes.append(msg)
+                                                return
+                                        else:
+                                                msg = "Failed to remove listing for LFN %s. This code is buggy!" % (name,)
+                                                self.failures.append(msg)
+                                                raise LSCfileAddException, msg
+                except rlsClient.RlsClientException, e:
+                        msg = "rm_listing(%s): Caught RLS exception. Message was: %s" % (name,str(e))
+                        self.failures.append(msg)
+                        raise LSCfileAddException, msg
+        ## END rm_listing(self,lfnlist)
+        
+        def add_metadata(self,lfn,attribs):
+                try:
+                        print "Publisher: metadata 3a lfn = %s" % (lfn,)
+                        sys.stdout.flush()
+                        sys.stderr.flush()
+                        self.metadata.add(lfn)
+                        print "Publisher: metadata 3b lfn = %s" % (lfn,)
+                        sys.stdout.flush()
+                        sys.stderr.flush()
+                except LDRMetadataCatalogException,e:
+                        msg = "Caught LDRMetadataCatalogException while calling self.metadata.add(%s). Message was: %s" \
+                        % (lfn,str(e))   
+                        raise LSCfileAddException
+                try:
+                        for field, val in attribs.iteritems():
+                                print "Publisher: metadata 3c lfn = %s, val %s" % (lfn,val['Value'])
+                                sys.stdout.flush()
+                                sys.stderr.flush()
+                                self.metadata.set_attr(lfn,field,val['Value'])
+                except LDRMetadataCatalogException,e:
+                        msg = "Caught LDRMetadataCatalogException while calling self.metadata.set_attr(%s,%s,%s). Message was: %s" \
+                        % (lfn,field,val['Value'],str(e))
+                        raise LSCfileAddException
+        ## END def add_metadata(self)
+        
+        def get_metadata(self,lfnlist):
+                """
+                Returns dictionary containing metadata for each member of the lfn list.
+                If metadata does not exist for a member, a that lfn entry will point to
+                the string "LFN does not exist in database.".
+                
+                A dicionary element will be of the format,
+                        foo_dict[<some_lfn>][<field>]["Value"] = <some_value>
+                        
+                Unless the entry does not exist in the database, then it will be
+                        foo_dict[<missing_lfn>] = "LFN does not exist in database."
+                Also, this will result in the lfn + string mentioned above to be appended
+                to the failures[].
+                        
+                Other failures will be reported by adding to the failures[], and raising
+                an LSCfileAddException.
+                """
+                if isinstance(lfnlist,StringType):
+                        lfnlist = [lfnlist]
+                elif not isinstance(lfnlist,ListType):
+                        msg = "get_metadata(var): var must be either a string or a list of strings."
+                        self.failures.append(msg)
+                        raise LSCfileAddException, msg
+                ret = {}
+                # see if database handles need to be regenerated
+                self.checkHandle()
+                try: # catch metadata exceptions.
+                        for lfn in lfnlist:
+                                ret[lfn] = {}
+                                if not self.metadata.exists(lfn):
+                                        msg = "LFN does not exist in database."
+                                        self.failures.append(msg)
+                                        ret[lfn] = msg
+                                else:
+                                        for item in self.metadata.get_attrs(lfn).iteritems():
+                                                temp = {}
+                                                temp["Value"] = item[1]
+                                                ret[lfn][item[0]] = temp
+                                        
+                        # return lfn attribute dictionary
+                        return ret
+                except LDRMetadataCatalog.LDRMetadataCatalogException,e:
+                        msg = "get_metadata(%s): Caught LDRMetadataCatalogException. Message was: %s" % (lfn,str(e))
+                        raise LSCfileAddException, msg
+        ## END get_metadata(self,lfnlist)
+        
+        def get_urls(self,lfnlist):
+                """
+                Given a list of LFNs, lfnlist, this will return
+                a mapping dictionary of the form,
+                
+                retdict[LFN] = [PFN1,PFN2,...]
+                
+                If the LFN does not exist or does not have any PFNs
+                associated with it, the PFN list will be of length 0,
+                and an entry will be appended to failures[].
+                """
+                if isinstance(lfnlist,StringType):
+                        lfnlist = [lfnlist]
+                if not isinstance(lfnlist,ListType):
+                        msg = "get_urls: Argument must be a single lfn string, or an lfn list."
+                        raise LSCfileAddException, msg
+                # now, query RLS for the PFN list, for each lfn in lfnlist
+                ret = {}
+                # see if database handles need to be regenerated
+                self.checkHandle()
+                for name in lfnlist:
+                        try:
+                                pfns = self.lrc.get_pfn(name)
+                                ret[name] = pfns
+                                if len(pfns) == 0:
+                                        msg = "get_urls: could not find any URLs that map to LFN \"%s\"." % (name,)
+                                        self.failures.append(msg)
+                                return ret
+                        except rlsClient.RlsClientException, e:
+                                msg = "get_urls: Caught RlsClientException on \"%s\"" % (name,)
+                                self.failures.append(msg)
+                                raise LSCfileAddException, msg
+                
+        ## END get_urls(self,lfnlist)
+        
+        def print_urls(self,lfnlist):
+                """
+                Prints urls for each entry in lfnlist in the following format.
+                
+                ${LFN}:\t${PFN1}\n\t\t${PFN2}\n...\t\t${PFNn}\n\n
+                
+                lfnlist can be either a python list of lfns or a single-lfn string.
+                """
+                if isinstance(lfnlist,StringType):
+                        lfnlist = [lfnlist]
+                elif not isinstance(lfnlist,ListType):
+                        msg = "get_metadata(var): var must be either a string or a list of strings."
+                        self.failures.append(msg)
+                        raise LSCfileAddException, msg
+                # print urls as they are found
+                i = 0
+                step = 32
+                j = step
+                f = lambda x: x - len(lfnlist) < 0 and x or len(lfnlist)
+                templist = lfnlist[i:f(j)]
+                # see if database handles need to be regenerated
+                self.checkHandle()
+                try:
+                        while(templist):
+                                for name in templist:
+                                        urls = self.get_urls(name)[name]
+                                        mystr = name + ':\n'
+                                        # Handle strings given 
+                                        #(most likely, lfn doesn't exist messages)
+                                        if isinstance(urls,StringType):
+                                                mystr += '\t' + urls + '\n'
+                                                continue
+                                        if len(urls) >= 1:
+                                                for pfn in urls:
+                                                        mystr += "\t\t%s\n" % (pfn,)
+                                                print "%s" % (mystr,)
+                                        else:
+                                                print "%s\n" % mystr
+                                # end for name in templist
+                                sys.stdout.flush()
+                                i = f(j)
+                                j = i + step
+                                templist = lfnlist[i:f(j)]
+                except LSCfileAddException, e:
+                        msg = "print_urls: Generated LSCfileAddException which processing lfn \"%s\". Message was: %s" % (name,str(e))
+                        print >>sys.stderr, msg
+                        self.failures.append(msg)
+                        
+        ## END print_urls(self,lfnlist)
+        
+        def print_metadata(self,lfnlist):
+                """
+                Prints metadata for each entry in lfnlist in the following format.
+                
+                ${LFN}:\t${PFN1}\n\t\t${PFN2}\n...\t\t${PFNn}\n\n
+                
+                lfnlist can be either a python list of lfns or a single-lfn string.
+                """
+                if isinstance(lfnlist,StringType):
+                        lfnlist = [lfnlist]
+                elif not isinstance(lfnlist,ListType):
+                        msg = "get_metadata(var): var must be either a string or a list of strings."
+                        self.failures.append(msg)
+                        raise LSCfileAddException, msg
+                # print urls as they are found
+                mydict = {}
+                # Query and print 32 records at a time.
+                #   though get_metadata() ultimately queries
+                #   one at a time presently.
+                i = 0
+                step = 32
+                j = step
+                f = lambda x: x - len(lfnlist) < 0 and x or len(lfnlist)
+                templist = lfnlist[i:f(j)]
+                # see if database handles need to be regenerated
+                self.checkHandle()
+                try:
+                        
+                        while len(templist):
+                                for name in templist:
+                                        # Convert LFN's attributes
+                                        # to a list of tuples????
+                                        meta = self.get_metadata(name)[name]
+                                        if isinstance(meta,StringType):
+                                                mystr = name + ':\n' + '\t' + meta + '\n'
+                                                print mystr
+                                                continue
+                                        myitems = meta.items()
+                                        mystr = name + ':\n'
+                                        if len(myitems):
+                                                for temp in myitems:
+                                                        field = str(temp[0])
+                                                        value = str(temp[1]["Value"])
+                                                        #value = value.rjust(10)
+                                                        field = field.rjust(12)
+                                                        mystr += "\t\t%s: %s\n" % (field,value)
 
+                                                print "%s" % (mystr,)
+                                        else:
+                                                continue
+                                # end for name in templist
+                                sys.stdout.flush()
+                                i = f(j)
+                                j = i + step
+                                templist = lfnlist[i:f(j)]
+                        # end while len(templist)        
+                except LSCfileAddException, e:
+                        msg = "print_metadata: Generated LSCfileAddException which processing lfn \"%s\". Message was: %s" % (name,str(e))
+                        self.failures.append(msg)
+        ## END print_metadata(self,lfnlist)
+        
+        def computeMD5(self,filename):
+                """
+                Compute md5sum of a file. Must be given a filesystem
+                path.
+                """
+                m = md5.new()
+                f = open(filename,"r")
+                aMeg = 1048576  # 1024 *1024
+                line = f.read(aMeg)
+                while line:
+                        m.update(line)
+                        line = f.read(aMeg)
+                return m.hexdigest()
+        ## END computeMD5(self,filename)
+## END class Publisher(LSCrunMetadataAttr)
+
+class successList(list):
+        """
+        Simple list class for recording and handling successful actions.
+        """
+        def __init__(self):
+                list.__init__()
+                # by default the handler is never called
+                self.limit = 0
+                self.count = 0
+                self.Handler = getattr(self,"default_Handler")
+        def append(self,item):
+                self.data.append(item)
+                self.count += 1
+                if self.count - self.limit == 0:
+                        self.count = 0
+                        self.Handler()
+        def default_Handler():
+                pass
+        def SetHandler(self,object):
+                """
+                Sets hander to be called when success limit is reached
+                """
+                self.Handler = object
+        def SetLimit(self,newlimit):
+                """
+                Number of events before calling handler.
+                If zero is specified, handler is _NEVER_ called
+                """
+                self.limit[level] = newlimit
+        def clear(self):
+                self.data = []
+## END class successList(list)
+
+class failureList(list):
+        """
+        List class for recording and reporting failed actions.
+        """
+        def __init__(self):
+                """
+                Inits class. Sets the three default failure levels.
+                """
+                list.__init__()
+                # by default the handler is never called
+                self.limit['NOTICE'] = self.count['NOTICE'] = NoticeLimit = 0
+                self.limit['WARNING'] = self.count['WARNING'] = WarningLimit = 0
+                self.limit['ERROR'] = self.count['ERROR'] = ErrorLimit = 0
+                self.Handler['NOTICE'] = getattr(self,"default_Handler")
+                self.Handler['WARNING'] = getattr(self,"default_Handler")
+                self.Handler['ERROR'] = getattr(self,"default_Handler")
+                
+        def append(self,item):
+                """
+                Typical list append, but checks size of
+                """
+                self.data.append(item)
+                # In case of syntax errors in script (i.e. bad levels).
+                #   at least the error will be recorded somehow
+                #   but this does result in possibly skipping a desired
+                #   error handler.
+                if not self.limit.has_key(item[0]):
+                        self.NewFailLevel(item[0])
+                
+                self.count[item[0]] += 1
+                
+                if self.count[item[0]] - self.limit[item[0]] == 0:
+                        # reset error counter
+                        self.count[item[0]] = 0
+                        # call handler
+                        self.Handler[item[0]]()
+                        
+        def default_Handler():
+                """
+                simply passes
+                """
+                pass
+                
+        def NewFailLevel(self,level):
+                """
+                Creates a new (or redefines an old) failure level.
+                """
+                self.limit[level] = 0
+                self.count[level] = 0
+                self.Handler[level] = getattr(self,"default_Handler")
+                
+        def SetHandler(self,level,object):
+                """
+                Ties a handler to a given failure level. Creates/redefines new level as needed.
+                1st arg is the failure level string
+                2nd arg is the object that is to become the handler
+                """
+                if not self.limit.has_key(level):
+                        self.NewFailLevel(level)
+                self.Handler[level] = object
+                
+        def SetLimit(self,level,newlimit):
+                """
+                Sets number of failure events (at level of first arg) to second arg.
+                If the limit is set to 0, handler is _NEVER_ called (unless limit is changed later).
+                """
+                if not self.limit.has_key(level):
+                        self.NewFailLevel(level)
+                self.limit[level] = newlimit
+        def clear(self):
+                self.data = []
+## END class failureList(list)
