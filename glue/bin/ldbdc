@@ -251,7 +251,7 @@ elif squery:
   act = "query"
 
 doit = LDBDServerAction(server,port,identity,act,database,squery,fh)
-  identity = "/O=doesciencegrid.org/OU=Services/CN=ldbdserver/%s" % server
+doit.execute()
 
 #try:
 #  doit.execute()
