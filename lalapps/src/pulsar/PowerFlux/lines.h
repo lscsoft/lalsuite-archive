@@ -5,10 +5,11 @@
 #define LINE_CANDIDATE 	(1<<0)
 #define LINE_HIGH	(1<<1)
 #define LINE_VERY_HIGH 	(1<<2)
+#define LINE_CLUSTERED	(1<<3)
 
 #define LINE_YES	(1<<7)
 
-#define LINE_MARK	(7<<0)
+#define LINE_MARK	(0xf<<0)
 
 typedef struct {
 	int x0;

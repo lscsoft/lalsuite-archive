@@ -87,8 +87,8 @@ free(tmp);
 void detect_lines_d(double *z, LINES_REPORT *lr)
 {
 double *tmp;
-double median,qlines,qmost;
-long i,j,nb, vh_count=0;
+double median, qlines, qmost;
+long i, j, k, nb, vh_count=0;
 
 nb=lr->x1-lr->x0+1;
 
@@ -123,16 +123,22 @@ for(i=lr->x0;i<=lr->x1;i++){
 		}
 	}
 
-/* second pass - decide what will be considered to be a line */
+/* second pass - mark clustered lines */
+for(i=lr->x0;i<=lr->x1;i++){
+	if(lr->lines[i] & LINE_HIGH){
+		for(j=i;(j<=lr->x1)&&(lr->lines[j]&LINE_HIGH);j++);
+		if((j-i)>=5){
+			for(k=i;k<j;k++)lr->lines[j]|=LINE_CLUSTERED;
+			}
+		}
+	}
+	
+/* third pass - decide what will be considered to be a line */
 for(i=lr->x0+1;i<=lr->x1-1;i++){
 	/* be very conservative mark only points which are LINE_VERY_HIGH
 	   and have both neighbours  below 0.4 level of the center line (i.e. side lobes (due to Hann window)
 	    of strictly bin-centered line */
-	 if(((lr->lines[i] & (LINE_CANDIDATE | LINE_VERY_HIGH))==(LINE_CANDIDATE | LINE_VERY_HIGH))
-	 #if 0 
-	 && ((z[i-1]-median)<0.4*(z[i]-median)) && ((z[i+1]-median)<0.4*(z[i]-median))
-	 #endif
-	 	){
+	 if(((lr->lines[i] & (LINE_CANDIDATE | LINE_VERY_HIGH | LINE_CLUSTERED))==(LINE_CANDIDATE | LINE_VERY_HIGH))){
 		lr->lines[i]|=LINE_YES;
 		fprintf(stderr,"line detected: i=%ld z[i]=%g\n", i, z[i]);
 	
@@ -156,19 +162,17 @@ for(i=lr->x0+1;i<=lr->x1-1;i++){
 lr->median=median;
 lr->qmost=qmost;
 lr->qlines=qlines;
-fprintf(stderr,"bins marked \"very high\": %ld\n", vh_count);
-if(lines[i]>=0){
-	fprintf(stderr,"median=%g qmost=%g qlines=%g\n",
+fprintf(stderr,"median=%g qmost=%g qlines=%g\n",
 		 median, qmost, qlines);
-	}
+fprintf(stderr,"bins marked \"very high\": %ld\n", vh_count);
 free(tmp);
 }
 
 void detect_lines_f(float *z, LINES_REPORT *lr)
 {
 float *tmp;
-float median,qlines,qmost;
-long i,j,nb;
+float median, qlines, qmost;
+long i, j, k, nb;
 long vh_count=0;
 
 nb=lr->x1-lr->x0+1;
@@ -204,13 +208,22 @@ for(i=lr->x0;i<=lr->x1;i++){
 		}
 	}
 
-/* second pass - decide what will be considered to be a line */
+/* second pass - mark clustered lines */
+for(i=lr->x0;i<=lr->x1;i++){
+	if(lr->lines[i] & LINE_HIGH){
+		for(j=i;(j<=lr->x1)&&(lr->lines[j]&LINE_HIGH);j++);
+		if((j-i)>=5){
+			for(k=i;k<j;k++)lr->lines[j]|=LINE_CLUSTERED;
+			}
+		}
+	}
+	
+/* third pass - decide what will be considered to be a line */
 for(i=lr->x0+1;i<=lr->x1-1;i++){
 	/* be very conservative: mark only points which are LINE_VERY_HIGH
 	   and have both neighbours  below 0.4 level of the center line (i.e. side lobes (due to Hann window)
 	    of strictly bin-centered line */
-	 if(((lr->lines[i] & (LINE_CANDIDATE | LINE_VERY_HIGH))==(LINE_CANDIDATE | LINE_VERY_HIGH)) &&
-	    ((z[i-1]-median)<0.4*(z[i]-median)) && ((z[i+1]-median)<0.4*(z[i]-median))){
+	 if(((lr->lines[i] & (LINE_CANDIDATE | LINE_VERY_HIGH | LINE_CLUSTERED))==(LINE_CANDIDATE | LINE_VERY_HIGH))){
 		lr->lines[i]|=LINE_YES;
 		fprintf(stderr,"line detected: i=%ld z[i]=%g\n", i, z[i]);
 	
