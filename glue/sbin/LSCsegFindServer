@@ -28,6 +28,7 @@ import types
 import exceptions
 import MySQLdb
 from pyGlobus import io
+from glue import segments
 
 class Gridmap(object):
   """
@@ -525,6 +526,7 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
 
     self.__reply__(code, result)
 
+
   def segmentFindWithMetadata(self, arg):
     """
     Given a SQL WHERE-type clause find segment(s) that have the matching
@@ -552,11 +554,16 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
       sql += arg.pop(0)
       sql += " AND state_segment.state_vec_id = state_vec.state_vec_id;"
 
+      segs = segments.segmentlist()
+
       db = MySQLdb.connect(user=dbuser,passwd=dbpasswd,db=dbname)
       c = db.cursor()
       c.execute(sql)
       res = c.fetchall()
-      result = str(res)
+      for s in res:
+        segs |= segments.segmentlist([segments.segment(s[0],s[1])])
+      print segs
+      result = str(segs)
       c.close()
       
       logger.debug("Method : segmentFindWithMetadata %d results found" % 
