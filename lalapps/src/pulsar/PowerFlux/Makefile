@@ -1,8 +1,8 @@
 PACKAGE=\"powerflux\"
 VERSION=\"0.8.8\"
-LIGOROOT=/home/volodya/LIGO
-LALINCLUDE=-I$(LIGOROOT)/LAL/include/
-LALLDFLAGS=-L$(LIGOROOT)/LAL/lib -L$(LIGOROOT)/LAL/support-lib -llalsupport -llal -lm
+LALROOT=./../../../../
+LALINCLUDE=-I$(LALROOT)/include/
+LALLDFLAGS=-L$(LALROOT)/lib -L$(LALROOT)/support-lib -llalsupport -llal -lm
 LDFLAGS=$(LALLDFLAGS) -lpng -lz
 #OPTFLAGS=-O2 -funroll-loops 
 OPTFLAGS=-O6 -mmmx -msse -mcpu=i686
@@ -30,7 +30,7 @@ BAND=1170000
 #
 none:
 
-all: powerflux test5
+all: powerflux
 
 
 test1: powerflux
