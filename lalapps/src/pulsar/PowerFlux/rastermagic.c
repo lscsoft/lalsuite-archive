@@ -647,6 +647,8 @@ dm->flip_x=0;
 dm->flip_y=0;
 dm->swap_xy=0;
 dm->logscale_z=0;
+dm->dec_bands=args_info.dec_bands_arg;
+dm->dec_band_color=COLOR(127,127,127);
 dm->palette=make_hue_palette(230);
 return dm;
 }
@@ -745,6 +747,7 @@ int i,j,k,m;
 float z0,dz;
 long color,x0,y0;
 int lz;
+char tmp[10];
 
 if(dm->flip_x){
 	z=z+(x_count-1)*step_x;
@@ -785,6 +788,18 @@ if(lz){
 	}
 
 RGBPic_clear_area(p,dm->bg_color,x,y,x+dm->actual_width-1,y+dm->actual_height-1);
+
+if(dm->dec_bands>=2){
+	for(j=0;j<=dm->dec_bands;j++){
+		RGBPic_draw_line(p, dm->dec_band_color, 
+			x, y+(j*dm->actual_height-1)/dm->dec_bands,
+			x+dm->actual_width-1, y+(j*dm->actual_height-1)/dm->dec_bands);
+		}
+	for(j=0;j<dm->dec_bands;j++){
+		RGBPic_printf(p,x+2,y+((2*j+1)*(dm->actual_height-1))/(2*dm->dec_bands),
+			dm->fg_color, dm->bg_color, "%d", j);
+		}
+	}
 
 for(j=0;j<y_count;j++)
 	for(i=0;i<x_count;i++){
@@ -874,6 +889,18 @@ if(fabsf(dz)<=0)dz=1;
 
 RGBPic_clear_area(p,dm->bg_color,x,y,x+dm->actual_width-1,y+dm->actual_height-1);
 
+if(dm->dec_bands>=2){
+	for(j=0;j<=dm->dec_bands;j++){
+		RGBPic_draw_line(p, dm->dec_band_color, 
+			x, y+(j*dm->actual_height-1)/dm->dec_bands,
+			x+dm->actual_width-1, y+(j*dm->actual_height-1)/dm->dec_bands);
+		}
+	for(j=0;j<dm->dec_bands;j++){
+		RGBPic_printf(p,x+2,y+((2*j+1)*(dm->actual_height-1))/(2*dm->dec_bands),
+			dm->fg_color, dm->bg_color, "%d", j);
+		}
+	}
+
 if(dm->logscale_z)fprintf(stderr,"logscale_z is not implemented yet\n");
 
 for(j=0;j<y_count;j++)
@@ -937,6 +964,19 @@ if(lz){
 	if(dz<=0)dz=1;
 	}
 RGBPic_clear_area(p,dm->bg_color,x,y,x+dm->actual_width-1,y+dm->actual_height-1);
+
+if(dm->dec_bands>=2){
+	for(j=0;j<=dm->dec_bands;j++){
+		RGBPic_draw_line(p, dm->dec_band_color, 
+			x, y+(j*dm->actual_height-1)/dm->dec_bands,
+			x+dm->actual_width-1, y+(j*dm->actual_height-1)/dm->dec_bands);
+		}
+	for(j=0;j<dm->dec_bands;j++){
+		RGBPic_printf(p,x+2,y+((2*j+1)*(dm->actual_height-1))/(2*dm->dec_bands),
+			dm->fg_color, dm->bg_color, "%d", j);
+		}
+	}
+
 
 kk=0;
 for(j=0;j<priv->num_dec;j++){

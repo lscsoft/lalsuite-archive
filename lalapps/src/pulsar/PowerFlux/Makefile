@@ -1,5 +1,5 @@
 PACKAGE=\"powerflux\"
-VERSION=\"0.11.3\"
+VERSION=\"0.11.5\"
 LALROOT=./../../../../
 LALINCLUDE=-I$(LALROOT)/include/
 LALLDFLAGS=-L$(LALROOT)/lib -L$(LALROOT)/support-lib -llalsupport -llal -lm

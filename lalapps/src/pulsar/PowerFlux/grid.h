@@ -14,6 +14,7 @@ typedef struct {
 	char *name; 
 	SKY_GRID_TYPE *latitude;
 	SKY_GRID_TYPE *longitude;
+	int *band;
 	SKY_GRID_TYPE *e[GRID_E_COUNT];  /* 3d coordinates: 
 				0,1,2 - coordinates of the unit vector
 				2  - cos(M_PI_2-latitude)
@@ -55,6 +56,8 @@ void free_grid(SKY_GRID *grid);
 
 SKY_SUPERGRID *make_rect_supergrid(SKY_GRID *grid, int ra_factor, int dec_factor);
 SKY_SUPERGRID *make_sin_theta_supergrid(SKY_GRID *grid, int factor);
+
+void assign_dec_bands(SKY_GRID *grid, int n_bands);
 
 void rotate_grid_xz(SKY_GRID *grid, SKY_GRID_TYPE angle);
 void rotate_grid_xy(SKY_GRID *grid, SKY_GRID_TYPE angle);

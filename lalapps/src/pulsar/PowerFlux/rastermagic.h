@@ -134,6 +134,10 @@ typedef struct {
 	int swap_xy;  /* swap x and y axis */
 	int logscale_z;
 	
+	/* dec_bands - assign value less than 2 to disable */
+	int dec_bands;
+	long dec_band_color;
+	
 	PALETTE *palette; /* precomputed palette */
 	
 	/* the following values are computed by the code, 

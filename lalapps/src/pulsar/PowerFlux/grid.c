@@ -69,6 +69,7 @@ grid->max_n_ra=num_ra;
 grid->name="arcsin rectangular";
 grid->latitude=do_alloc(grid->npoints, sizeof(SKY_GRID_TYPE));
 grid->longitude=do_alloc(grid->npoints, sizeof(SKY_GRID_TYPE));
+grid->band=do_alloc(grid->npoints, sizeof(*grid->band));
 for(i=0;i<GRID_E_COUNT;i++)
 	grid->e[i]=do_alloc(grid->npoints, sizeof(SKY_GRID_TYPE));
 priv=do_alloc(1, sizeof(*priv));
@@ -105,6 +106,7 @@ grid->max_n_ra=num_ra;
 grid->name="plain rectangular";
 grid->latitude=do_alloc(grid->npoints, sizeof(SKY_GRID_TYPE));
 grid->longitude=do_alloc(grid->npoints, sizeof(SKY_GRID_TYPE));
+grid->band=do_alloc(grid->npoints, sizeof(*grid->band));
 for(i=0;i<GRID_E_COUNT;i++)
 	grid->e[i]=do_alloc(grid->npoints, sizeof(SKY_GRID_TYPE));
 priv=do_alloc(1, sizeof(*priv));
@@ -155,6 +157,7 @@ for(i=0;i<priv->num_dec;i++){
 
 grid->latitude=do_alloc(grid->npoints, sizeof(SKY_GRID_TYPE));
 grid->longitude=do_alloc(grid->npoints, sizeof(SKY_GRID_TYPE));
+grid->band=do_alloc(grid->npoints, sizeof(*grid->band));
 for(i=0;i<GRID_E_COUNT;i++)
 	grid->e[i]=do_alloc(grid->npoints, sizeof(SKY_GRID_TYPE));
 grid->grid_priv=priv;
@@ -198,6 +201,7 @@ if(!strcmp(grid->name,"arcsin")){
 	}
 free(grid->latitude);
 free(grid->longitude);
+free(grid->band);
 for(i=0;i<GRID_E_COUNT;i++)free(grid->e[i]);
 free(grid);
 }
@@ -213,6 +217,17 @@ for(i=0;i<sg->super_grid->npoints;i++){
 	for(n=2;sg->list_map[j]>=0;j=sg->list_map[j],n++);
 	sg->list_map[j]=i;
 	if(n>sg->max_npatch)sg->max_npatch=n;
+	}
+}
+
+void assign_dec_bands(SKY_GRID *grid, int n_bands)
+{
+int i,k;
+for(i=0;i<grid->npoints;i++){
+	k=floor((0.5+grid->latitude[i]/M_PI)*n_bands);
+	if(k<0)k=0;
+	if(k==n_bands)k=n_bands-1;
+	grid->band[i]=k;
 	}
 }
 

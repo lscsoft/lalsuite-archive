@@ -360,7 +360,7 @@ for(i=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[o
 	pol->skymap.S_map[offset]=S;
 	pol->skymap.max_upper_limit[offset]=0;
 	
-	band=floor((0.5+fine_grid->latitude[offset]/M_PI)*args_info.dec_bands_arg);
+        band=fine_grid->band[offset];
 
 	for(k=0;k<useful_bins;k++){
 		dx=(pol->fine_grid_sum[i*useful_bins+k]-M)/S;		
@@ -552,9 +552,7 @@ for(i=0;i<args_info.dec_bands_arg;i++){
 	}
 	
 for(i=0;i<fine_grid->npoints;i++){
-	k=floor((0.5+fine_grid->latitude[i]/M_PI)*args_info.dec_bands_arg);
-	if(k==args_info.dec_bands_arg)k=args_info.dec_bands_arg-1;
-	if(k<0)k=0;
+	k=fine_grid->band[i];
 
 	if(pol->skymap.max_upper_limit[i]>max_band[k]){
 		max_band[k]=pol->skymap.max_upper_limit[i];

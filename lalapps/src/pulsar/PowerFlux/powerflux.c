@@ -31,7 +31,8 @@ float *det_velocity=NULL;
 long first_bin;
 
 
-float *TMedians=NULL,*FMedians=NULL, *expTMedians=NULL, *hours=NULL,*frequencies=NULL,*ks_test=NULL,*median=NULL;
+float *TMedians=NULL,*FMedians=NULL, *expTMedians=NULL, *hours=NULL,*frequencies=NULL,*ks_test=NULL,*median=NULL,
+      *max_residuals, *min_residuals;
 float TMedian,expTMedian;
 float *tm=NULL;
 double *mean=NULL,*weighted_mean=NULL,*weight=NULL,*sigma=NULL,*freq_d=NULL,*hours_d=NULL;
@@ -155,6 +156,20 @@ while(b>0){
 	if(!((nsegments &1)&&(nbins&1)) && (b<(b_initial*(1E-16))))break;
 	}
 TRACE("Factored log power")
+
+for(i=0;i<nsegments;i++){
+	max_residuals[i]=tmp[i*nbins];
+	min_residuals[i]=tmp[i*nbins];
+	for(j=1;j<nbins;j++){
+		if(max_residuals[i]<tmp[i*nbins+j]){
+			max_residuals[i]=tmp[i*nbins+j];
+			}
+		if(min_residuals[i]>tmp[i*nbins+j]){
+			min_residuals[i]=tmp[i*nbins+j];
+			}
+		}
+	}
+
 free(tmp);
 TMedian=compute_median(TMedians,1,nsegments);
 fprintf(LOG,"Median noise level (TMedian): %g\n",TMedian);
@@ -372,6 +387,9 @@ if(!strcasecmp("arcsin", args_info.sky_grid_arg)){
 	exit(-1);
 	}
 fine_grid=super_grid->super_grid;
+
+assign_dec_bands(patch_grid, args_info.dec_bands_arg);
+assign_dec_bands(fine_grid, args_info.dec_bands_arg);
 
 rotate_grid_xy(patch_grid, -M_PI*90.0/180.0);
 rotate_grid_xy(fine_grid, -M_PI*90.0/180.0);
@@ -600,6 +618,8 @@ TMedians=do_alloc(nsegments, sizeof(*TMedians));
 expTMedians=do_alloc(nsegments, sizeof(*expTMedians));
 tm=do_alloc(nsegments, sizeof(*tm));
 FMedians=do_alloc(nbins, sizeof(*FMedians));
+max_residuals=do_alloc(nsegments, sizeof(*max_residuals));
+min_residuals=do_alloc(nsegments, sizeof(*max_residuals));
 
 /* decompose noise into FMedians, TMedians and residuals */
 compute_noise_curves();
@@ -614,6 +634,18 @@ draw_grid(p, plot, 0, 0);
 draw_points_f(p, plot, COLOR(255,0,0), hours, TMedians, nsegments, 1, 1);
 RGBPic_dump_png("TMedians.png", p);
 dump_floats("TMedians.dat", TMedians, nsegments, 1);
+
+adjust_plot_limits_f(plot, hours, max_residuals, nsegments, 1, 1, 1);
+draw_grid(p, plot, 0, 0);
+draw_points_f(p, plot, COLOR(255,0,0), hours, max_residuals, nsegments, 1, 1);
+RGBPic_dump_png("max_residuals.png", p);
+dump_floats("max_residuals.dat", max_residuals, nsegments, 1);
+
+adjust_plot_limits_f(plot, hours, min_residuals, nsegments, 1, 1, 1);
+draw_grid(p, plot, 0, 0);
+draw_points_f(p, plot, COLOR(255,0,0), hours, min_residuals, nsegments, 1, 1);
+RGBPic_dump_png("min_residuals.png", p);
+dump_floats("min_residuals.dat", min_residuals, nsegments, 1);
 
 adjust_plot_limits_f(plot, frequencies, FMedians,nbins, 1, 1, 1);
 draw_grid(p, plot, 0, 0);
