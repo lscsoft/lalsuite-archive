@@ -225,7 +225,9 @@ be present when searching for groups of segments
         for seg in seglist:
           print cdelim+ldelim+str(seg.get_start())+cdelim+str(seg.get_end())+rdelim,
         print rdelim
-           
+      else:
+        print >> sys.stderr, "Error: unknown segment format %s" % format
+        sys.exit(1)
        
 
 
