@@ -31,7 +31,7 @@ to determine the version of python installed on your machine. For example:
   Python 2.2.2
 
 On some operating systems (e.g. Red Hat 7.3) the program named python runs
-python version 1 and the version 2 executable is names python2. If python -V
+python version 1 and the version 2 executable is named python2. If python -V
 does not return 2.2 or greater, type:
 
   python2 -V
@@ -45,12 +45,12 @@ If you do not have version 2.2 or greater installed, contact your system
 administrator for help installing Python.
 
 Set the environment variable PYTHON to be the name of your python version 2
-executable. For example if you executable is names python, bash or sh users
+executable. For example if your executable is named python, bash or sh users
 should type:
 
   export PYTHON=python
 
-csh users should type:
+and csh users should type:
 
   setenv PYTHON python
 
@@ -58,7 +58,7 @@ If your executable is named python2, bash or sh users should type:
 
   export PYTHON=python2
 
-csh users should type:
+and csh users should type:
 
   setenv PYTHON python2
 
@@ -70,12 +70,12 @@ csh users should type:
 First choose a directory in which to install the Glue sources. In this
 example, we install the sources into ${HOME}/src. If you decide to install
 somewhere else, change ${HOME}/src to the directory you have chosen. Change
-USERNAME below to your lscsoft CVS user name (or anonymous if you do not have
-write access to the lscsoft CVS archive). Type:
+anonymous in the cvs checkout below to your lscsoft CVS user name, if you have
+one. Type:
 
   mkdir -p ${HOME}/src
   cd ${HOME}/src
-  cvs -d :pserver:USERNAME@gravity.phys.uwm.edu:2402/usr/local/cvs/lscsoft checkout glue
+  cvs -d :pserver:anonymous@gravity.phys.uwm.edu:2402/usr/local/cvs/lscsoft checkout glue
 
 This will create a directory ${HOME}/src/glue containing the Glue sources.
 
@@ -87,11 +87,11 @@ This will create a directory ${HOME}/src/glue containing the Glue sources.
 Choose a location in which to install Glue. In this example we choose
 /opt/glue. You must have write access to this directory, so you may wish to
 install in ${HOME}, for example. Set the environment variable ${GLUE_LOCATION}
-to point to your chosen install directory. In bash or sh type:
+to point to your chosen install directory. Bash or sh users should type:
 
   export GLUE_LOCATION=/opt/glue
 
-and in csh type:
+and csh users should type:
 
   setenv GLUE_LOCATION /opt/glue
 
@@ -108,7 +108,7 @@ This will build and install all the glue modules and programs.
 4. Set up your Environment for Using Glue
 
 If you are a bash or sh user, edit your .profile (or .bash_profile) file and
-add the lines (changing /opt/glue to wherever you installed Glue)
+add the lines (changing /opt/glue to wherever you installed Glue):
 
   export GLUE_LOCATION=/opt/glue
   if [ -f ${GLUE_LOCATION}/etc/glue-user-env.sh ] ; then
@@ -116,7 +116,7 @@ add the lines (changing /opt/glue to wherever you installed Glue)
   fi
 
 If you are a csh user, edit your .login file and add the lines (changing
-/opt/glue to wherever you installed Glue)
+/opt/glue to wherever you installed Glue):
 
   setenv GLUE_LOCATION=/opt/glue
   if ( -f ${GLUE_LOCATION}/etc/glue-user-env.sh ) then
