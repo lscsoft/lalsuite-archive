@@ -591,7 +591,7 @@ static inline long hue_z_to_color(float z0)
 long color;
 float H,S,B; /* HSB coordinates */
 int r,g,b; /* R, G, B coordinates */
-float c,s,r1;
+float c,s,r1, rf, gf, bf;
 
 B=0.7;
 S=1.0;
@@ -599,17 +599,20 @@ H=(4.5*z0*M_PI-M_PI)/3.0;
 		
 c=cos(H)*0.5;
 s=sin(H)*0.5;		
-r1=sqrt(3)/2;
-		
-r=255*B*((1-S)+S*(0.5-0.5*s-r1*c));
-g=255*B*((1-S)+S*(0.5+s));
-b=255*B*((1-S)+S*(0.5-0.5*s+r1*c));
-		
-		
-#define CLAMP(a)	{ if((a)<0)a=0; if ((a)>255) a=255; }
-CLAMP(r)
-CLAMP(g)
-CLAMP(b)
+r1=sqrt(3.0)/2.0;
+
+rf=((1-S)+S*(0.5-0.5*s-r1*c));
+gf=((1-S)+S*(0.5+s));
+bf=((1-S)+S*(0.5-0.5*s+r1*c));
+
+r1=rf;
+if(gf>r1)r1=gf;
+if(bf>r1)r1=bf;
+
+/* make it so that at least one color is saturated */
+r=floor(rf*255.0/r1);
+g=floor(gf*255.0/r1);
+b=floor(bf*255.0/r1);
 		
 color=COLOR(r,g,b);
 return color;

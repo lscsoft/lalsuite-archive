@@ -63,7 +63,7 @@ float quantile2std=1.22;
 /* We divide by 0.7 to compensate for spreading due to Hanning window */
 /* We also divide by 0.85 to compensate for non bin centered signals */
 /* for 3 averaged neighbouring bins that value should be 3.0/0.85 */
-float upper_limit_comp=1/(0.7*0.85);
+float upper_limit_comp=1.0/(0.7*0.85);
 
 /* single bin version */
 
@@ -1019,7 +1019,7 @@ if(args_info.three_bins_arg){
 	} else 
 	{
 	quantile2std=1.22;
-	upper_limit_comp=1/(0.7*0.85);
+	upper_limit_comp=1.0/(0.7*0.85);
 	process_patch=process_patch1;
 	fprintf(LOG,"mode: 1 bin\n");
 	}
