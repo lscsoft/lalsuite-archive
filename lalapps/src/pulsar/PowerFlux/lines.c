@@ -88,7 +88,7 @@ void detect_lines_d(double *z, LINES_REPORT *lr)
 {
 double *tmp;
 double median,qlines,qmost;
-long i,j,nb;
+long i,j,nb, vh_count=0;
 
 nb=lr->x1-lr->x0+1;
 
@@ -117,18 +117,22 @@ for(i=lr->x0;i<=lr->x1;i++){
 	lr->lines[i]=0;
 	if(z[i]>qmost)lr->lines[i]|=LINE_HIGH;
 	if(z[i]>qlines)lr->lines[i]|=LINE_CANDIDATE;
-	if(z[i]>(2*qmost-median))lr->lines[i]|=LINE_VERY_HIGH;
+	if(z[i]>(2*qmost-median)){
+		lr->lines[i]|=LINE_VERY_HIGH;
+		vh_count++;
+		}
 	}
 
 /* second pass - decide what will be considered to be a line */
 for(i=lr->x0+1;i<=lr->x1-1;i++){
 	/* be very conservative mark only points which are LINE_VERY_HIGH
-	   and have both neighbours  below 0.25 level of the center line (i.e. side lobes (due to Hann window)
+	   and have both neighbours  below 0.4 level of the center line (i.e. side lobes (due to Hann window)
 	    of strictly bin-centered line */
-	 if(((lr->lines[i] & (LINE_CANDIDATE | LINE_VERY_HIGH))==(LINE_CANDIDATE | LINE_VERY_HIGH)) &&
-	    (z[i-1]-median<0.25*(z[i]-median)) && (z[i+1]-median<0.25*(z[i]-median))){
+	 if(((lr->lines[i] & (LINE_CANDIDATE | LINE_VERY_HIGH))==(LINE_CANDIDATE | LINE_VERY_HIGH)) 
+	 && ((z[i-1]-median)<0.4*(z[i]-median)) && ((z[i+1]-median)<0.4*(z[i]-median))
+	 	){
 		lr->lines[i]|=LINE_YES;
-		fprintf(stderr,"line detected: i=%d z[i]=%g\n", i, z[i]);
+		fprintf(stderr,"line detected: i=%ld z[i]=%g\n", i, z[i]);
 	
 		for(j=0;j<lr->nlines;j++){
 			/* this can happen if we are adding new lines */
@@ -140,10 +144,17 @@ for(i=lr->x0+1;i<=lr->x1-1;i++){
 				}
 			}
 		}
+	  if(lr->lines[i] & LINE_CANDIDATE){
+	  	fprintf(stderr,"i=%ld %g %g %g\n", i,
+			z[i-1]-median, 
+			z[i]-median, 
+			z[i+1]-median);
+	  	}
 	}
 lr->median=median;
 lr->qmost=qmost;
 lr->qlines=qlines;
+fprintf(stderr,"bins marked \"very high\": %ld\n", vh_count);
 if(lines[i]>=0){
 	fprintf(stderr,"median=%g qmost=%g qlines=%g\n",
 		 median, qmost, qlines);
@@ -156,6 +167,7 @@ void detect_lines_f(float *z, LINES_REPORT *lr)
 float *tmp;
 float median,qlines,qmost;
 long i,j,nb;
+long vh_count=0;
 
 nb=lr->x1-lr->x0+1;
 
@@ -184,18 +196,21 @@ for(i=lr->x0;i<=lr->x1;i++){
 	lr->lines[i]=0;
 	if(z[i]>qmost)lr->lines[i]|=LINE_HIGH;
 	if(z[i]>qlines)lr->lines[i]|=LINE_CANDIDATE;
-	if(z[i]>(2*qmost-median))lr->lines[i]|=LINE_VERY_HIGH;
+	if(z[i]>(2*qmost-median)){
+		lr->lines[i]|=LINE_VERY_HIGH;
+		vh_count++;
+		}
 	}
 
 /* second pass - decide what will be considered to be a line */
 for(i=lr->x0+1;i<=lr->x1-1;i++){
-	/* be very conservative mark only points which are LINE_VERY_HIGH
-	   and have both neighbours  below 0.25 level of the center line (i.e. side lobes (due to Hann window)
+	/* be very conservative: mark only points which are LINE_VERY_HIGH
+	   and have both neighbours  below 0.4 level of the center line (i.e. side lobes (due to Hann window)
 	    of strictly bin-centered line */
 	 if(((lr->lines[i] & (LINE_CANDIDATE | LINE_VERY_HIGH))==(LINE_CANDIDATE | LINE_VERY_HIGH)) &&
-	    (z[i-1]-median<0.25*(z[i]-median)) && (z[i+1]-median<0.25*(z[i]-median))){
+	    ((z[i-1]-median)<0.4*(z[i]-median)) && ((z[i+1]-median)<0.4*(z[i]-median))){
 		lr->lines[i]|=LINE_YES;
-		fprintf(stderr,"line detected: i=%d z[i]=%g\n", i, z[i]);
+		fprintf(stderr,"line detected: i=%ld z[i]=%g\n", i, z[i]);
 	
 		for(j=0;j<lr->nlines;j++){
 			/* this can happen if we are adding new lines */
@@ -213,6 +228,7 @@ lr->median=median;
 lr->qmost=qmost;
 lr->qlines=qlines;
 fprintf(stderr,"median=%g qmost=%g qlines=%g\n", median, qmost, qlines);
+fprintf(stderr,"bins marked \"very high\": %ld\n", vh_count);
 
 free(tmp);
 }
