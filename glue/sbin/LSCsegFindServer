@@ -548,7 +548,7 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
     code = 1
 
     try:
-      sql = "SELECT state_segment.start_time, state_segment.end_time FROM state_segment, state_vec WHERE"
+      sql = "SELECT state_segment.start_time, state_segment.end_time FROM state_segment, state_vec WHERE "
       sql += arg.pop(0)
 
       db = MySQLdb.connect(user=dbuser,passwd=dbpasswd,db=dbname)
