@@ -25,26 +25,31 @@ class LDBDServerConnection(object):
       clientAttr.set_authorization_mode(
         io.ioc.GLOBUS_IO_SECURE_AUTHORIZATION_MODE_IDENTITY, authData)
       clientAttr.set_channel_mode(
-    # create TCPIOAttr instance and set authentication mode to be GSSAPI
-    clientAttr = io.TCPIOAttr()
-    clientAttr.set_authentication_mode(
-      io.ioc.GLOBUS_IO_SECURE_AUTHENTICATION_MODE_GSSAPI)
+        io.ioc.GLOBUS_IO_SECURE_CHANNEL_MODE_CLEAR)
+      clientAttr.set_delegation_mode(
+        io.ioc.GLOBUS_IO_SECURE_DELEGATION_MODE_LIMITED_PROXY)
 
-    # create AuthData instance and set expected identity
-    authData = io.AuthData()
-    authData.set_identity(identity)
+      if not verbose:
+        f = open("/dev/null", "w")
+        sys.stdout = f
+        sys.stderr = f
+  
+      soc = io.GSITCPSocket()
+      soc.connect(host, port, clientAttr)
+      self.socket = soc
 
-    # set authorization, channel, and delegation modes
-    clientAttr.set_authorization_mode(
-      io.ioc.GLOBUS_IO_SECURE_AUTHORIZATION_MODE_IDENTITY, authData)
-    clientAttr.set_channel_mode(
-      io.ioc.GLOBUS_IO_SECURE_CHANNEL_MODE_CLEAR)
-    clientAttr.set_delegation_mode(
-      io.ioc.GLOBUS_IO_SECURE_DELEGATION_MODE_LIMITED_PROXY)
-
-    soc = io.GSITCPSocket()
-    soc.connect(host, port, clientAttr)
-    self.socket = soc
+      if not verbose:
+        sys.stdout = sys.__stdout__
+        sys.stderr = sys.__stderr__
+        f.close()
+        f.close()
+      print "Error establising GSI connection to %s:%d" % (host,port)
+      print e
+      sys.exit(1)
+  def __init__(self,host,port,identity,action,db,squery,fh):
+    action = specific action to perform (query or insert)
+    db = the database to connect to on the server
+    sql = the sql to execute in a query (or just insert for an insert)
     fh = file handle of input or output file
     """
     self.host = host
@@ -92,7 +97,6 @@ class LDBDServerConnection(object):
   def receive(self):
     f = self.connection.socket.makefile()
     r = f.readline().strip()
-      print "inserting data"
     try:
       retcode = int(r)
       fline = fh.readline()
