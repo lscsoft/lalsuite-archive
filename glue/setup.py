@@ -18,10 +18,10 @@ setup( name = "glue",
     os.path.join('bin','LSCsegFind'),
     os.path.join('bin','LSCfileAdd'),
     os.path.join('bin','ldbdc'),
-    os.path.join('bin','ldbdd') ],
+    os.path.join('sbin','ldbdd'),
+    os.path.join('sbin','LSCsegFindServer') ],
   data_files = [ ('etc',[
     os.path.join('etc','glue-user-env.sh'),
-    os.path.join('etc','glue-user-env.csh'),
-    os.path.join('etc','LSCsegFindCfgExample.py'),
-    ]) ]
+    os.path.join('etc','glue-user-env.csh')
+    ] ) ]
   )
