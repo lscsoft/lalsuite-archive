@@ -67,15 +67,11 @@ class LIGOMetadataDatabase:
   """
   def __init__(self,database):
     """
-  def __len__(self):
-    return len(self.args)
     database = the name of the LIGO database to initalize
     """
     self.database = database
     self.uniqueids = {}
     conn = mxdb.Connect(database)
-  def __len__(self):
-    return len(self.args)
     curs = conn.cursor()
     curs.execute("SELECT tabname FROM syscat.tables WHERE definer<>'SYSIBM'")
     self.tables = curs.fetchall()
