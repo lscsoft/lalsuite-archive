@@ -16,6 +16,7 @@
 /* free refers to the first unoccupied entry */
 COMPLEX8 *R_0=NULL, *H_0=NULL, *C_0=NULL;
 long R_size=-1, R_free=0, C_size=-1, C_free=0, H_size=-1, H_free=0;
+double R_rate, C_rate;
 long cal_sft_length=0;
 
 /* from make_sft.c */
@@ -26,11 +27,11 @@ extern long total_samples;
 extern int dont_fail_on_missing_calibration;
 extern int dont_fail_on_zero_ds;
 
-void load_response_file(char *name, COMPLEX8 **data, long *_size, long *_free)
+void load_response_file(char *name, COMPLEX8 **data, long *_size, long *_free, double *rate)
 {
 FILE *f;
 unsigned char s[2000];
-REAL4 magnitude, phase;
+REAL4 magnitude, phase, freq;
 COMPLEX8 *p;
 if(*_size<0){
 	*_size=cal_sft_length/2+1; /* a good value to start with - this is what current files use at the moment */
@@ -50,7 +51,7 @@ while(!feof(f)){
 	if((s[0]=='#')||(s[0]=='%')||(s[0]==0))continue; /* skip comments and empty lines */
 	/* we assume that entries in response files are from 0 up to whatever
 	   last bin is there */
-	sscanf(s, "%*g %g %g", &magnitude, &phase);
+	sscanf(s, "%g %g %g", &freq, &magnitude, &phase);
 	if(*_free>=*_size){
 		*_size*=2;
 		p=do_alloc(*_size, sizeof(**data));
@@ -70,6 +71,7 @@ while(!feof(f)){
 	(*data)[*_free].im=magnitude*sin(phase);
 	(*_free)++;
 	}
+*rate=(*_free-1)/freq;
 fclose(f);
 }
 
@@ -114,7 +116,8 @@ if(R_free>0){
 	exit(-1);
 	}
 fprintf(stderr,"Attempting to load R_file \"%s\"\n", name);
-load_response_file(name, &R_0, &R_size, &R_free);
+load_response_file(name, &R_0, &R_size, &R_free, &R_rate);
+fprintf(stderr,"Loaded R_file: %d samples, rate=%f\n", R_free, R_rate);
 }
 
 void load_C(char *name)
@@ -125,7 +128,8 @@ if(C_free>0){
 	exit(-1);
 	}
 fprintf(stderr,"Attempting to load C_file \"%s\"\n", name);
-load_response_file(name, &C_0, &C_size, &C_free);
+load_response_file(name, &C_0, &C_size, &C_free, &C_rate);
+fprintf(stderr,"Loaded C_file: %d samples, rate=%f\n", C_free, C_rate);
 }
 
 void post_init_response_files(void)
@@ -160,6 +164,14 @@ if(R_free<C_free){
 	fprintf(stderr, "** extra entries in C file or missing entries in R file\n");
 	C_free=R_free;
 	}
+if(R_rate!=C_rate){
+	fprintf(stderr, "** C_rate!=R_rate, diff=%g\n", R_rate-C_rate);
+	if(fabs(R_rate-C_rate)>1e-6){
+		fprintf(stderr, "*** Large mismatch in C_rate versus R_rate, aborting\n");
+		exit(-1);
+		}
+	R_rate=C_rate;
+	}
 
 H_size=cal_sft_length/2+1;
 if(H_size<R_free)H_size=R_free;
@@ -176,8 +188,8 @@ for(i=0;i<R_free;i++){
 	printf("R=[%g,%g] C=[%g,%g] H=[%g,%g]\n", ar, ai, br, bi, H_0[i].re, H_0[i].im);
 	#endif
 	}
-C_free=resample_array(&C_0, cal_sft_length/2+1, C_free, 64, 60);
-H_free=resample_array(&H_0, cal_sft_length/2+1, H_free, 64, 60);
+C_free=resample_array(&C_0, cal_sft_length/2+1, C_free, C_rate, 60);
+H_free=resample_array(&H_0, cal_sft_length/2+1, H_free, C_rate, 60);
 C_size=cal_sft_length/2+1;
 H_size=C_size;
 }
