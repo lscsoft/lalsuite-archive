@@ -914,7 +914,7 @@ print_histogram(LOG, hist, "hist_high_ul");
 
 
 for(i=0;i<useful_bins*args_info.nbands_arg;i++){
-	spectral_plot_circ_ul[i]=sqrt(spectral_plot_circ_ul[i]*upper_limit_comp)/(1800.0*16384.0);
+	spectral_plot_circ_ul[i]=sqrt(2.0*spectral_plot_circ_ul[i]*upper_limit_comp)/(1800.0*16384.0);
 	
 	spectral_plot_high_ul[i]=polarizations[0].spectral_plot.max_upper_limit[i];
 	for(k=1;k<npolarizations;k++){	
