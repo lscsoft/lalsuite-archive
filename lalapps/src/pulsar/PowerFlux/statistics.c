@@ -236,7 +236,7 @@ for(i=0;i<count;i++){
 void print_histogram(FILE *f, HISTOGRAM *h, char *prefix)
 {
 int i,j,k;
-fprintf(f,"%s: band min max counts..\n", prefix);
+fprintf(f,"histogram: band min max counts..\n");
 for(k=0;k<h->nbands;k++){
 	fprintf(f, "%s: %d %g %g", prefix, k, h->min[k], h->max[k]);
 	for(i=0;i<h->nbins;i++)
