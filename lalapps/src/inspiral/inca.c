@@ -618,6 +618,12 @@ int main( int argc, char *argv[] )
           "generating a triggered bank or doing time slide coincidences\n" );
       exit( 1 );
     }
+
+    /* free the unused process params row */
+    ProcessParamsTable *tmpProc = processParamsTable.processParamsTable;
+    processParamsTable.processParamsTable = 
+      processParamsTable.processParamsTable->next;
+    free( tmpProc );
   }
   else
   {
@@ -647,14 +653,6 @@ int main( int argc, char *argv[] )
           LIGOMETA_PARAM_MAX, "--no-playground" );
     }
   }
-  else
-  {
-    ProcessParamsTable *tmpProc = processParamsTable.processParamsTable;
-    processParamsTable.processParamsTable = 
-      processParamsTable.processParamsTable->next;
-    free( tmpProc );
-  }
-
 
   /* decide how many ifos we have based on what we are doing */
   if ( trigBankFile )
