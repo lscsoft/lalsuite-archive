@@ -14,7 +14,7 @@ http://www.ligo.caltech.edu/docs/T/T990023-01.pdf
 http://ldas-sw.ligo.caltech.edu/doc/db2/doc/html/ilwdformat.html
 """
 
-__author__ = 'Duncan Brown <duncan@gravity.phys.uwm.edu>'
+__author__ = 'Duncan Brown <dbrown@ligo.caltech.edu>'
 __date__ = '$Date$'
 __version__ = '$Revision$'[11:-2]
 # $Source$
