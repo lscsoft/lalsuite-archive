@@ -99,9 +99,9 @@ class StateSegmentDatabase:
           lfn
         raise StateSegmentDatabaseException, msg
     else:
-      start = long(framereg.search(x).group(3))
-      end = long(framereg.search(x).group(3)) + \
-        long(framereg.search(x).group(4))
+      start = long(self.framereg.search(lfn).group(3))
+      end = long(self.framereg.search(lfn).group(3)) + \
+        long(self.framereg.search(lfn).group(4))
     
     try:
       sql = "INSERT INTO lfn (lfn,start_time,end_time) values (%s,%s,%s)"
