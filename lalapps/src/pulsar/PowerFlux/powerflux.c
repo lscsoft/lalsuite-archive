@@ -411,6 +411,33 @@ init_ephemeris();
 /* PREP1 stage */
 
 fprintf(stderr,	"Initializing sky grids\n");
+
+	/* Compute resolution from frequency.
+	
+	   The resolution needs to be fine enough so that 
+	   the doppler shifts stay within 1/1800 Hz within 
+	   single sky bin on a fine grid.
+	  
+	   This is usually much finer than the resolution needed
+	   to resolve amplitude modulation.
+	   
+	   The variation of the Doppler shift depending on the sky
+	   position is determined by the angle between average velocity
+	   vector and the sky position.
+	   
+	   Thus VARIATION=CONST * AVERAGE_VELOCITY_VECTOR * FREQUENCY * RESOLUTION
+	   
+	   Since we need the condition to hold during the entire run, we use
+	   
+	   RESOLUTION = VARIATION/(CONST * MAX_AVERAGE_VELOCITY_VECTOR * FREQUENCY)
+	   
+	   We can now take both the VARIATION and FREQUENCY to be measured in 
+	   frequency bins. 
+	   
+	   The value VARIATION/(CONST * MAX_AVERAGE_VELOCITY_VECTOR) can be
+	   determined empirically from a few bands of PowerFlux.
+	 */
+	 
 resolution=(4500.0)/(args_info.first_bin_arg+args_info.nbins_arg/2);
 fprintf(LOG,"resolution (auto) : %f\n", resolution);
 
@@ -441,6 +468,20 @@ fine_grid=super_grid->super_grid;
 fprintf(stderr,"fine grid: max_n_ra=%d max_n_dec=%d\n", 
 	fine_grid->max_n_ra, fine_grid->max_n_dec);
 
+
+	/* Determine side_cut - amount of extra bins to load to accomodate 
+	   Doppler shifts and spindown.
+
+	   Since sky positions directly ahead and directly benhind average velocity
+	   vector are the extrema of Doppler shifts the side_cut can be chosen 
+	   large enough to be independent of the duration of the run, but without
+	   loading an excessively large amount of data.
+	   
+	   Since the Doppler shifts do not change by more than 1/1800 Hz when moving
+	   the distance of resolution radians on the sky the total variation is less than
+	   M_PI/resolution. We use this as an upper bounds which turns out to be reasonably 
+	   precise.
+	*/
 
 side_cut=args_info.side_cut_arg;
 if(!args_info.side_cut_given){
