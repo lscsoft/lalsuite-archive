@@ -28,11 +28,8 @@ import sys
 import string
 import re
 import csv
-try:
-  import mx.ODBC.DB2 as mxdb
-  from mx.ODBC.DB2 import SQL
-except:
-  print >> sys.stderr, "Error: unable to import DB2 ODBC modules from mx."
+import mx.ODBC.DB2 as mxdb
+from mx.ODBC.DB2 import SQL
 
 try:
   import thread
