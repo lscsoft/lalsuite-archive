@@ -1,0 +1,332 @@
+#!/usr/bin/python2.2
+#
+# lightweight database dumper server
+#
+# $Id$
+  Class to represent the grid-mapfile used for the server. Inherits
+  from standard 'file' class and adds __getitem__ and __setitem__
+  methods for convenience.
+  """
+  def __init__(self):
+    self.path = os.environ["GRIDMAP"]
+    mode = 'r'
+    file.__init__(self,self.path,mode)
+    lines = [ s.strip() for s in self.readlines()]
+    subjects = [ s.split('"')[1] for s in lines]
+    self.d = {}
+    for s in subjects:
+      self.d[s] = 1
+    file.close(self)
+
+  def __getitem__(self,key):
+    if self.d.has_key(key):
+      return 1
+    else:
+      return 0
+
+  def __setitem__(self,key,value):
+    self.d[key] = value
+
+  def __delitem__(self,key):
+    del self.d[key]
+
+def auth_callback(arg, handle, identity, context):
+  ldbdGridMap = GridMap()
+  if ldbdGridMap[identity]:
+    if verbose: print "accepted connection from %s" % identity
+    return 1
+  else:
+    if verbose: print "denied connection to %s" % identity
+    return 0
+
+class LDBDRequestHandler(SocketServer.StreamRequestHandler):
+  def handle(self):
+    indata = ''
+    if verbose:
+      print "Got a connection from %s" % (self.client_address,)
+    # determine the parameters of this transaction
+    msg = self.rfile.readline().strip()
+    (action, database, squery, nl) = msg.split("\0")
+    nlines = int(nl)
+    # create a ligo metadata object
+    try:
+      if verbose: print "accessing database %s" % database
+      dbobj = dbs[database]
+    except KeyError:
+      errmsg = "1\nUnknown database name: %s" % database
+      self.wfile.write(errmsg)
+      if verbose: print errmsg
+      return
+    try:
+      if verbose: print "creating a ligo metadata object"
+      self.ligomd = ldbd.LIGOMetadata(dbobj,xmlparser,lwtparser)
+    except ldbd.LIGOLwDBError, e:
+        del self.ligomd
+        errmsg = "1\n%s" % e
+        self.wfile.write(errmsg)
+        if verbose: print errmsg
+        return
+    if re.match("insert",action):
+      # read the the xml data from the client
+      if verbose: print "recieved xml data from client"
+      n = 0
+      while ( n < nlines ):
+        indata += self.rfile.readline()
+        n += 1
+      # now parse the xml data and try and insert it into the database
+      if verbose: print "parsing xml data into ligo metadata object"
+      try:
+        self.ligomd.parse(indata)
+      except ldbd.LIGOLwParseError, e:
+        del self.ligomd
+        errmsg = "1\n%s" % e
+        self.wfile.write(errmsg)
+        if verbose: print errmsg
+        return
+      try:
+        if verbose: print "inserting ligo metadata object into %s" % database
+        self.ligomd.insert()
+        retdata = "0\n"
+        self.wfile.write(retdata)
+      except ldbd.LIGOLwDBError, e:
+        del self.ligomd
+        errmsg = "1\n%s" % e
+        self.wfile.write(errmsg)
+        if verbose: print errmsg
+        return
+    elif re.match("query",action):
+      # try and execute a database query and return the result as xml
+      try:
+        if verbose: 
+          print "trying to execute sql query on %s" % database
+          print squery
+        self.ligomd.select(squery)
+        if verbose: print "trying to convert results to xml"
+        xmldata = self.ligomd.xml()
+      except ldbd.LIGOLwDBError, e:
+        del self.ligomd
+        errmsg = "1\n%s" % e
+        self.wfile.write(errmsg)
+        if verbose: print errmsg
+        return
+      retdata = "0\n%s" % xmldata
+      self.wfile.write(retdata)
+    else:
+      # unknown action, so give up
+      errmsg = "1\nunknown method recieved by server: %s" % action 
+      self.wfile.write(errmsg)
+      if verbose: print errmsg
+    if verbose: print "transaction complete"
+    del self.ligomd
+    return
+
+def usage():
+  msg = """\
+Usage: ldbdd [OPTIONS]
+
+  -p, --port PORT           listen for connections on PORT (default 49999)
+  -g, --gridmap FILE        obtain user credentials from FILE
+  -c, --certificate FILE    obtain service certificate from FILE
+  -k, --key FILE            obtain service private key form FILE
+  -d, --databases db1,db2   comma separated list of databases to use
+  -v, --verbose             don't fork and print lots of debugging information
+  -h, --help                print detailed help message
+
+The --gridmap, --certificate,--key and --databases options must be specified.
+\
+"""
+  print msg
+
+def help():
+  msg = """\
+NAME
+       ldbdd - lightweight database dumper server daemon
+
+SYNOPSIS
+       ldbdd  [--port PORT]  --gridmap  FILE  --certificate  FILE
+       --key FILE [--verbose] [--help]
+
+DESCRIPTION
+       ldbdd  is  the server daemon for the lightweight  database 
+       dumper. It listens on a specified port (the  default  port
+       is 49999) for connections from ldbdc client  programs.  It
+       executes any requests from the client programs  to  insert 
+       data into or retrive data from the databases it has access
+       to. ldbdd should be run as the user who owns the  database
+       instance that contains the desired  databases.  Users  may
+       insert LIGO lightweight data into a  database  or  execute
+       SQL SELECT queries to retrieve  data.  Administrators  may
+       execute arbitrary SQL and  edit  the  user  gridmap  file. 
+       ldbdd forks  into  the  background  on  entry  and  serves
+       requests. A SIGHUP causes it to cleanup  and  exit  and  a 
+       SIGUSR1 causes it to reconnect to the database to  rebuild
+       it's database hash tables. SIGUSR2 causes it to reload the
+       gridmap files.
+
+OPTIONS
+       -p, --port PORT
+               listen on PORT (defaults to 49999)
+
+       -g, --gridmap FILE
+               obtain user grid credentials from FILE
+  
+       -c, --certificate FILE
+                obtain service certificate from FILE
+  
+       -k, --key FILE
+                obtain service private key form FILE
+  
+       -d, --databases db1,db2
+                comma separated list of databases to use
+
+       -v, --verbose
+               don't fork and print lots of debugging information
+
+       -h, --help
+               print this message
+
+ENVIRONMENT
+        The IBM DB2 driver requires that the DB2INSTANCE variable
+        be set to the name  of the  database  instance  that  the
+        driver is using.
+
+DIAGNOSTICS
+        An exit  status  of  0  means  that  the  deamon  started
+        sucessfully and no errors ocourred and 1 that the  daemon
+        was unable to fork and detach from the parent process.
+
+AUTHOR
+       Duncan Brown <duncan@gravity.phys.uwm.edu>
+
+BUGS
+       Some things are slow, some things are wrong and some things
+       just don't work yet. Check out the  justification  on  this
+       help message, though. Done by hand that is.
+\
+"""
+  print msg
+  sys.exit(0)
+
+shortop = "p:g:c:k:d:vh"
+longop = [
+  "port=",
+  "gridmap=",
+  "certificate=",
+  "key=",
+  "databases=",
+  "verbose",
+  "help"
+  ]
+
+try:
+  opts, args = getopt.getopt(sys.argv[1:], shortop, longop)
+except getopt.GetoptError:
+  usage()
+  sys.exit(1)
+
+# defaults
+port = 49999
+userfile = None
+gridmap = None
+certfile = None
+keyfile = None
+verbose = None
+dblist = None
+
+for o, a in opts:
+  if o in ("-h", "--help"):
+    help()
+  elif o in ("-p", "--port"):
+    port = a
+  elif o in ("-g", "--gridmap"):
+    gridmap = a
+  elif o in ("-c", "--certificate"):
+    certfile = a
+  elif o in ("-k", "--key"):
+    keyfile = a
+  elif o in ("-d", "--databases"):
+    dblist = a.split(',')
+  elif o in ("-v", "--verbose"):
+    verbose = 1
+
+if not gridmap or not certfile or not keyfile or not dblist:
+  usage()
+  sys.exit(1)
+
+# set up the environment variables
+os.environ["X509_USER_CERT"] = certfile
+os.environ["X509_USER_KEY"] = keyfile
+os.environ["GRIDMAP"] = gridmap
+
+# initialize the database hash table
+dbs = {}
+for database in dblist:
+  dbs[database] = ldbd.LIGOMetadataDatabase(database)
+
+# create the xml and ligolw parsers
+xmlparser = pyRXP.Parser()
+lwtparser = ldbd.LIGOLwParser()
+
+if not verbose:
+  # do the first fork
+  try:
+    pid = os.fork()
+    if pid > 0:
+      # exit first parent
+      sys.exit(0)
+  except OSError, e:
+    print >>sys.stderr, "fork #1 failed: %d (%s)" % (e.errno, e.strerror)
+    sys.exit(1)
+  
+  # decouple from parent environment
+  os.chdir("/")
+  os.setsid()
+  os.umask(0)
+  
+  # do the second fork
+  try:
+    pid = os.fork()
+    if pid > 0:
+      # exit from second parent
+      sys.exit(0)
+  except OSError, e:
+    print >>sys.stderr, "fork #2 failed: %d (%s)" % (e.errno, e.strerror)
+    sys.exit(1)
+
+else:
+  print "verbose mode enable, not forking"
+
+# create the server
+authData = io.AuthData()
+authData.set_callback(auth_callback, None)
+
+servAttr = io.TCPIOAttr()
+servAttr.set_authentication_mode(
+  io.ioc.GLOBUS_IO_SECURE_AUTHENTICATION_MODE_GSSAPI
+  )
+servAttr.set_authorization_mode(
+  io.ioc.GLOBUS_IO_SECURE_AUTHORIZATION_MODE_CALLBACK, authData
+  )
+
+serv = io.GSITCPSocketServer(
+  ("", port), 
+  LDBDRequestHandler,
+  io.ioc.GLOBUS_IO_SECURE_CHANNEL_MODE_CLEAR,
+  io.ioc.GLOBUS_IO_SECURE_DELEGATION_MODE_FULL_PROXY,
+  servAttr
+  )
+
+sys.stdout.write ('Daemon started with pid %d\n' % os.getpid() )
+
+# Open file descriptors and print start message
+stdout = '/dev/null'
+stderr = '/dev/null'
+stdin = '/dev/null'
+si = file(stdin, 'r')
+so = file(stdout, 'a+')
+se = file(stderr, 'a+', 0)
+os.dup2(si.fileno(), sys.stdin.fileno())
+os.dup2(so.fileno(), sys.stdout.fileno())
+os.dup2(se.fileno(), sys.stderr.fileno())
+
+serv.serve_forever()
