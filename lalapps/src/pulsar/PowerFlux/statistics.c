@@ -9,9 +9,72 @@
 #include "global.h"
 #include "statistics.h"
 
-static inline STAT_TYPE normal_distribution(STAT_TYPE x)
+#define LEFT_NORMAL_BOUND   -4.0
+#define RIGHT_NORMAL_BOUND   4.0
+#define NORMAL_SAMPLE_COUNT  200
+#define NORMAL_RANGE   (RIGHT_NORMAL_BOUND-LEFT_NORMAL_BOUND)
+#define NORMAL_STEP    (NORMAL_RANGE/NORMAL_SAMPLE_COUNT)
+
+STAT_TYPE normal_distribution_table[NORMAL_SAMPLE_COUNT];
+
+static inline STAT_TYPE exact_normal_distribution(STAT_TYPE x)
 {
 return (1.0-gsl_sf_erf_Q(x));
+}
+
+
+STAT_TYPE sampled_normal_distribution(STAT_TYPE x)
+{
+int i;
+if(x<LEFT_NORMAL_BOUND)return 0.0;
+if(x>RIGHT_NORMAL_BOUND)return 1.0;
+i=floor((x-LEFT_NORMAL_BOUND)/NORMAL_STEP-0.5);
+if(i>=NORMAL_SAMPLE_COUNT)i=NORMAL_SAMPLE_COUNT-1;
+return normal_distribution_table[i];
+}
+
+STAT_TYPE interpolated_normal_distribution(STAT_TYPE x)
+{
+int i;
+STAT_TYPE dx;
+if(x<LEFT_NORMAL_BOUND)return 0.0;
+if(x>RIGHT_NORMAL_BOUND)return 1.0;
+if(x<(LEFT_NORMAL_BOUND+NORMAL_STEP*0.5)){
+	return normal_distribution_table[0]*(x-LEFT_NORMAL_BOUND)/(NORMAL_STEP*0.5);
+	}
+if(x>(RIGHT_NORMAL_BOUND-NORMAL_STEP*0.5)){
+	return normal_distribution_table[NORMAL_SAMPLE_COUNT-1]*
+		(RIGHT_NORMAL_BOUND-x)/(NORMAL_STEP*0.5)+
+		(x+NORMAL_STEP*0.5-RIGHT_NORMAL_BOUND)/(NORMAL_STEP*0.5);
+	}
+i=floor((x-LEFT_NORMAL_BOUND-NORMAL_STEP*0.5)/NORMAL_STEP);
+if(i>=NORMAL_SAMPLE_COUNT-1)i=NORMAL_SAMPLE_COUNT-2;
+dx=(x-LEFT_NORMAL_BOUND)/NORMAL_STEP-(i+0.5);
+return normal_distribution_table[i]*(1.0-dx)+normal_distribution_table[i+1]*dx;
+}
+
+#define normal_distribution interpolated_normal_distribution
+
+extern FILE *LOG;
+
+void init_statistics(void)
+{
+int i;
+STAT_TYPE x,y,err;
+for(i=0;i<NORMAL_SAMPLE_COUNT;i++){
+	normal_distribution_table[i]=
+		exact_normal_distribution((NORMAL_STEP/2.0)
+				        +LEFT_NORMAL_BOUND
+					+i*NORMAL_STEP);
+	}
+err=0.0;
+/* do it the brute force way - much harder to screw up */
+for(x=-10.0;x<10.0;x+=0.001){
+	y=fabs(normal_distribution(x)-exact_normal_distribution(x));
+	if(y>err)err=y;
+	}
+fprintf(stderr, "Normal distribution approximation error is %f\n", err);
+fprintf(LOG, "Normal distribution approximation error is %f\n", err);
 }
 
 void compute_normal_sorted_stats(float *data, long count, NORMAL_STATS *stats)

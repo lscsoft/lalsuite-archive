@@ -40,6 +40,8 @@ typedef struct {
 	long *hist; /* counts */
 	} HISTOGRAM;
 
+void init_statistics(void);
+
 HISTOGRAM * new_histogram(int nbins, int nbands);
 void free_histogram(HISTOGRAM *h);
 void compute_histogram_f(HISTOGRAM *h, float *data, int *bands, long count);

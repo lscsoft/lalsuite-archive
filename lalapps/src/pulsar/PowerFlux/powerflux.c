@@ -373,6 +373,7 @@ if(gethostname(s, 19999)>=0){
 	}
 
 init_hookup();
+init_statistics();
 
 do_CutOff=args_info.do_cutoff_arg;
 spindown=args_info.spindown_arg;

@@ -42,7 +42,7 @@ option "do-cutoff"      - "neglect contribution from SFT with high effective noi
 option "filter-lines"   - "perform detection of lines in background noise and veto corresponding frequency bins" int default="1" no
 option "nbands"		- "split sky in this many bands for logging maximum upper limits" int default="9" no
 option "band-axis"	- "which band axis to use for splitting sky into bands (perpendicular to band axis) (possible values: equatorial, auto, explicit(float,float,float)" string default="auto" no
-option "ks-test"        - "perform Kolmogorov-Smirnov test for normality of averaged powers" int default="0" no
+option "ks-test"        - "perform Kolmogorov-Smirnov test for normality of averaged powers" int default="1" no
 
 option "fake-ra"	- "RA of fake signal to inject" double default="3.14" no
 option "fake-dec"	- "DEC of fake signal to inject" double default="0.0" no
