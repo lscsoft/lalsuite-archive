@@ -74,7 +74,7 @@ for(x=-10.0;x<10.0;x+=0.001){
 	if(y>err)err=y;
 	}
 fprintf(stderr, "Normal distribution approximation error is %f\n", err);
-fprintf(LOG, "Normal distribution approximation error is %f\n", err);
+fprintf(LOG, "Normal distribution approximation error: %f\n", err);
 }
 
 void compute_normal_sorted_stats(float *data, long count, NORMAL_STATS *stats)

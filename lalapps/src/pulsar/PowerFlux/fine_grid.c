@@ -299,14 +299,14 @@ if(dx>=0.0)return dx+1.64;
 return dx+sqrt(dx*dx+1.64);
 }
 
-static float upper_limit95(float dx)
+static inline float upper_limit95(float dx)
 {
 if(dx>=-0.1)return dx+1.96;
 dx+=0.1;
 return dx+sqrt(dx*dx+1.86);
 }
 
-static float lower_limit95(float dx)
+static inline float lower_limit95(float dx)
 {
 if(dx<1.7)return 0;
 if(dx>=2.1)return (0.455+0.766*(dx-2.1));
