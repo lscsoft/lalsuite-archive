@@ -14,9 +14,9 @@ import exceptions
 #from pyGlobus import security
 
 try:
-        from LSCsegments import *
+        from glue.pipeline import *
 except ImportError:
-        print >>sys.stderr, "\nPython LSCsegments.py library not found; please add its location to the PYTHONPATH environmental variable.\n"
+        print >>sys.stderr, "\nPython glue.pipeline library not found; please add its location to the PYTHONPATH environmental variable.\n"
         print >>sys.stderr, "For example, from the bash or csh shell respectively, run:\n"
         print >>sys.stderr, "    export PYTHONPATH=$PYTHONPATH:$LSCSOFT/src/glue/lib"
         print >>sys.stderr, "or "

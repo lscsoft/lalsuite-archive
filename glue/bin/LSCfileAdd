@@ -32,7 +32,7 @@ import sys
 #        sys.exit(1)
         
 try:
-        from LSCfileAdd import *
+        from glue.LSCfileAdd import *
 except ImportError, e:
         print >>sys.stderr, e
         print >>sys.stderr, "\nPython LSCfileAdd.py library is not found; please add its location to the PYTHONPATH environmental variable."
