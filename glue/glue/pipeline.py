@@ -867,7 +867,10 @@ class AnalysisJob:
     @param cp: ConfigParser object that contains the configuration for this job.
     """
     self.__cp = cp
-    self.__channel = string.strip(self.__cp.get('input','channel'))
+    try:
+      self.__channel = string.strip(self.__cp.get('input','channel'))
+    except:
+      self.__channel = None
 
   def get_config(self,sec,opt):
     """
@@ -877,6 +880,13 @@ class AnalysisJob:
     @param opt: option from section sec.
     """
     return string.strip(self.__cp.get(sec,opt))
+
+  def set_channel(self,channel):
+    """
+    Set the name of the channel that this job is filtering.  This will 
+    overwrite the value obtained at initialization.
+    """
+    self.__channel = channel
 
   def channel(self):
     """
