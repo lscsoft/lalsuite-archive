@@ -88,6 +88,8 @@ RCSID("$Id$");
 "\n"\
 "  --no-playground           do not select triggers from playground\n"\
 "  --playground-only         only use triggers that are in playground\n"\
+"  --all-data                use triggers from all the data\n"\
+"\n"\
 "  --write-uniq-triggers     make sure triggers from IFO A are unique\n" \
 "\n"\
 "[LIGOLW XML input files] list of the input trigger files.\n"\
@@ -111,6 +113,7 @@ int main( int argc, char *argv[] )
   extern int vrbflg;
   static INT4  writeUniqTrigs = 0;
   static INT4  usePlayground = 1;
+  static INT4  useAllData = 0;
   INT4  havePlgOpt = 0;
   INT4  startCoincidence = -1;
   INT4  endCoincidence = -1;
@@ -175,6 +178,7 @@ int main( int argc, char *argv[] )
     {"single-ifo",              no_argument,       &singleIfo,        1 },
     {"no-playground",           no_argument,       0,                'Q'},
     {"playground-only",         no_argument,       0,                'R'},
+    {"all-data",                no_argument,       0,                'B'},
     {"ifo-a",                   required_argument, 0,                'a'},
     {"ifo-b",                   required_argument, 0,                'b'},
     {"epsilon",                 required_argument, 0,                'e'},
@@ -458,14 +462,38 @@ int main( int argc, char *argv[] )
 	break;
 
       case 'Q':
-	usePlayground = 0;
-	havePlgOpt = 1;
+        if ( havePlgOpt )
+        {
+          fprintf( stderr, "only one of --playground-only, --all-data or "
+              "--no-playground can be given" );
+          exit( 1 );
+        }
+        usePlayground = 0;
+        havePlgOpt = 1;
 	break;
 
       case 'R':
+        if ( havePlgOpt )
+        {
+          fprintf( stderr, "only one of --playground-only, --all-data or "
+              "--no-playground can be given" );
+          exit( 1 );
+        }
 	usePlayground = 1;
 	havePlgOpt = 1;
 	break;
+
+      case 'B':
+        if ( havePlgOpt )
+        {
+          fprintf( stderr, "only one of --playground-only, --all-data or "
+              "--no-playground can be given" );
+          exit( 1 );
+        }
+        useAllData = 1;
+        usePlayground = 0;
+        havePlgOpt = 1;
+        break;
 
       case 'h':
 	/* help message */
@@ -587,11 +615,11 @@ int main( int argc, char *argv[] )
     exit( 1 );
   }
 
-  /* check that a playground option is not specified if doing a slide */
-  if ( slideDataNS && havePlgOpt )
+  /* check that a playground option is specified if doing a slide */
+  if ( ! havePlgOpt )
   {
-    fprintf( stderr, "--playground-only or --no-playground should not "
-	"be specified for a time slide\n" );
+    fprintf( stderr, "one of --playground-only, --all-data or --no-playground"
+	" must be specified\n" );
     exit( 1 );
   }
 
@@ -649,7 +677,7 @@ int main( int argc, char *argv[] )
     LALSnprintf( this_proc_param->value, LIGOMETA_TYPE_MAX, " " );
   }
 
-  if ( trigBankFile || slideDataNS )
+  if ( trigBankFile )
   {
     /* erase the first empty process params */
     ProcessParamsTable *tmpProc = processParamsTable.processParamsTable;
@@ -670,6 +698,11 @@ int main( int argc, char *argv[] )
     {
       LALSnprintf( processParamsTable.processParamsTable->param, 
 	  LIGOMETA_PARAM_MAX, "--playground-only" );
+    }
+    else if ( useAllData )
+    {
+      LALSnprintf( processParamsTable.processParamsTable->param, 
+	  LIGOMETA_PARAM_MAX, "--all-data" );
     }
     else
     {
@@ -1252,7 +1285,8 @@ int main( int argc, char *argv[] )
 
     if( singleIfo )
     {
-      if ( ( usePlayground && isPlay ) || ( ! usePlayground && ! isPlay) )
+      if ( ( usePlayground && isPlay ) || ( ! usePlayground && ! isPlay) || 
+          useAllData )
       {
 	/* record the triggers */
 	for ( j = 0; j < numIFO; ++j )
@@ -1296,9 +1330,9 @@ int main( int argc, char *argv[] )
 
       /* if we are playground only and the trigger is in playground or    */
       /* we are not using playground and the trigger is not in the        */
-      /* playground or we have a non-zero time-slide...                   */
+      /* playground or we have a non-zero time-slide, or use all data...  */
       if ( ( usePlayground && isPlay ) || ( ! usePlayground && ! isPlay) ||
-	  (slideDataNS) )
+	  slideDataNS || useAllData )
       {
 
 	/* determine whether we should expect to see a trigger in ifo b  */
