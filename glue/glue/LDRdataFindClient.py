@@ -17,6 +17,9 @@ import types
 from pyGlobus import io
 from pyGlobus import security
 
+def version():
+        return __version__
+
 class LDRMetadataQuery(object):
         """
         """
@@ -152,6 +155,7 @@ class LDRdataFindClient(object):
                 except Exception, e:
                         raise LDRdataFindClientException, e
 
+
         def __del__(self):
                 """
                 Disconnect from the LDRdataFindServer.
@@ -271,7 +275,6 @@ class LDRdataFindClient(object):
                 f.close()
 
                 return code, output
-
 
         def ping(self):
                 """

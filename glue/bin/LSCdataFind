@@ -441,7 +441,7 @@ SYNOPSIS
                --gps-start-time=GPS --gps-end-time=GPS [ --lal-cache ] 
                [ --url-type=SCHEME ]  [ --match=EXPRESSION ]
                [ --names-only ] [ --limit=LIMIT ] [ --offset=OFFSET ]
-               [ --strict-time-check ]
+               [ --strict-time-check ] [ --version ]
 
         LSCdataFind --server=NAME:PORT --filename
 
@@ -458,6 +458,8 @@ DESCRIPTION
         or URLs for data files from a certain instrument and of 
         a particular frame type within a GPS range.
 
+        -v, --version
+                Print version information for LSCdataFind client
 
         -o, --observatory    
                 observatory(ies) that generated frame file 
@@ -547,8 +549,9 @@ file://localhost/netdata/s001/S1/R/H/714023808-714029599/H-R-714024336-16.gwf
 
 
 # grab command line options
-shortop = "t:s:e:wyphlr:f:u:m:o:n"
+shortop = "vt:s:e:wyphlr:f:u:m:o:n"
 longop = [
+          "version",
           "help", 
           "show-observatories",
           "show-types",
@@ -620,6 +623,11 @@ except:
 for o, a in opts:
         if o in ("-h", "--help"):
                 usage()
+                sys.exit(0)
+        elif o in ("-v", "--version"):
+                print 'LSCdataFind client version', __version__
+                import LDRdataFindClient
+                print 'Built on top of LDRdataFindClient version', LDRdataFindClient.version()
                 sys.exit(0)
         elif o in ("-p", "--ping"):
                 clientMethod = 'ping'
