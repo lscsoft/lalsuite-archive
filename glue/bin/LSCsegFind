@@ -170,13 +170,13 @@ clientMethodArgDict = {
   'end': None,
   'start': None,
   'lfns': False,
-  'strict' : True,
-  'format' : None
+  'strict' : True
 }
 
 # default method 
 clientMethod = 'findStateSegments'
 typeString = None
+format = None
 
 # environment variables override defaults but not
 # command line options
@@ -217,7 +217,7 @@ for o, a in opts:
   elif o in ("-S", "--strict-off"):
     clientMethodArgDict['strict'] = False
   elif o in ("-o", "--output-format"):
-    clientMethodArgDict['format'] = a
+    format = a
 
 if not clientMethod:
   print >>sys.stderr, "Bad combination or missing options"
@@ -252,10 +252,10 @@ except Exception, e:
   sys.exit(1)
 
 try:
-  eval("result = myClient.%s(%s)" % (clientMethod, clientMethodArgDict))
+  seglist = eval("myClient.%s(%s)" % (clientMethod, clientMethodArgDict))
 
-  if type(result) is StringType:
-    print result
+  if type(seglist) is StringType:
+    print seglist
   else:
     if len( seglist ) == 0:
       print >> sys.stderr, "No segments found!"
@@ -263,13 +263,13 @@ try:
       if not format:
         for seg in seglist:
           print seg.get_start(), seg.get_end()
-      elif format is 'segwizard':
+      elif format == 'segwizard':
         i = 0
         for seg in seglist:
           print i,seg.get_start(),seg.get_end(),seg.get_end()-seg.get_start()
           i += 1
-      elif format is 'tcl' or format is 'python':
-        if format is 'tcl':
+      elif format == 'tcl' or format == 'python':
+        if format == 'tcl':
           ldelim = '{ '
           rdelim = ' }'
           cdelim = ' '
@@ -285,10 +285,10 @@ try:
             str(seg.get_end()) + rdelim,
         print rdelim
       else:
-        print >> sys.stderr, "Error: unknown segment format : %s" % format
-        sys.exit(1)
+        msg = "Error: unknown segment format : %s" % format
+        raise LSCsegFindClient.LSCsegFindException, msg
  
-except LSCsegFindException, e:
+except LSCsegFindClient.LSCsegFindException, e:
   print >>sys.stderr, str(e)
   print >>sys.stderr, "Enter 'LSCsegFind --help' for usage"
   sys.exit(1)

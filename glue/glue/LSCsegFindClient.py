@@ -414,7 +414,6 @@ class LSCsegFind(LSCsegFindClient):
     end = argDict['end']
     type = argDict['type']
     strict = argDict['strict']
-    format = argDict['format']
 
     # check that combination of command-line arguments is sound
     if (not interferometer) or (not type) or (not start) or (not end):
