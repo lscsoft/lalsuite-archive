@@ -29,6 +29,9 @@ long useful_bins;
 float *det_velocity=NULL;
 double average_det_velocity[3];
 float det_vel_ra, det_vel_dec;
+double orbital_axis[3];
+double band_axis[3];
+float band_axis_ra, band_axis_dec;
 
 long first_bin;
 
@@ -509,11 +512,49 @@ fprintf(LOG,"average detector velocity: %g %g %g\n",
 det_vel_dec=atan2f(average_det_velocity[2], 
 	sqrt(average_det_velocity[0]*average_det_velocity[0]+average_det_velocity[1]*average_det_velocity[1]));
 det_vel_ra=atan2f(average_det_velocity[1], average_det_velocity[0]);
-if(det_vel_ra<0)det_vel_ra+=2*M_PI;
-fprintf(LOG,"average detector velocity DEC: %f\n", det_vel_dec);
-fprintf(LOG,"average detector velocity RA : %f\n", det_vel_ra);
+if(det_vel_ra<0)det_vel_ra+=2.0*M_PI;
+fprintf(LOG,"average detector velocity RA (degrees) : %f\n", det_vel_ra*180.0/M_PI);
+fprintf(LOG,"average detector velocity DEC (degrees): %f\n", det_vel_dec*180.0/M_PI);
+fprintf(stderr,"average detector velocity RA (degrees) : %f\n", det_vel_ra*180.0/M_PI);
+fprintf(stderr,"average detector velocity DEC (degrees): %f\n", det_vel_dec*180.0/M_PI);
 
+orbital_axis[0]=0.0;
+orbital_axis[1]=sin(M_PI*23.44/180.0);
+orbital_axis[2]=cos(M_PI*23.44/180.0);
 
+/* crossproduct gives the vector perpedicular to both the average doppler shift and
+  orbital axis */
+band_axis[0]=orbital_axis[1]*average_det_velocity[2]-orbital_axis[2]*average_det_velocity[1];
+band_axis[1]=orbital_axis[2]*average_det_velocity[0]-orbital_axis[0]*average_det_velocity[2];
+band_axis[2]=orbital_axis[0]*average_det_velocity[1]-orbital_axis[1]*average_det_velocity[0];
+
+fprintf(LOG,"band axis: %g %g %g\n", 
+	band_axis[0],
+	band_axis[1],
+	band_axis[2]);
+
+band_axis_dec=atan2f(band_axis[2], 
+	sqrt(band_axis[0]*band_axis[0]+band_axis[1]*band_axis[1]));
+band_axis_ra=atan2f(band_axis[1], band_axis[0]);
+
+if(band_axis_ra<0)band_axis_ra+=2.0*M_PI;
+fprintf(stderr,"band axis RA (degrees) : %f\n", band_axis_ra*180.0/M_PI);
+fprintf(stderr,"band axis DEC (degrees): %f\n", band_axis_dec*180.0/M_PI);
+fprintf(LOG,"band axis RA (degrees) : %f\n", band_axis_ra*180.0/M_PI);
+fprintf(LOG,"band axis DEC (degrees): %f\n", band_axis_dec*180.0/M_PI);
+
+/* now that we know where band_axis is rotate the sky so the it points to the north pole */
+
+rotate_grid_xy(patch_grid, -band_axis_ra);
+rotate_grid_xy(fine_grid, -band_axis_ra);
+
+rotate_grid_xz(patch_grid, -band_axis_dec+M_PI/2.0);
+rotate_grid_xz(fine_grid, -band_axis_dec+M_PI/2.0);
+
+rotate_grid_xy(patch_grid, band_axis_ra);
+rotate_grid_xy(fine_grid, band_axis_ra);
+
+#if 0
 /* now that we know where the average detector velocity is pointing rotate
    so that band structure is perpendicular to it */
 
@@ -543,19 +584,18 @@ fprintf(LOG, "new RA: %f\nnew DEC: %f\n",
 
 
 /* make sure average_det_velocity is in the middle of the map */   
-rotate_grid_xy(patch_grid, -a+M_PI);
-rotate_grid_xy(fine_grid, -a+M_PI);
+rotate_grid_xy(patch_grid, -a+M_PI/2.0);
+rotate_grid_xy(fine_grid, -a+M_PI/2.0);
 
 /* rotate 90 degrees */
-
-rotate_grid_xy(patch_grid, -M_PI*90.0/180.0);
-rotate_grid_xy(fine_grid, -M_PI*90.0/180.0);
 
 rotate_grid_xz(patch_grid, M_PI*90.0/180.0);
 rotate_grid_xz(fine_grid, M_PI*90.0/180.0);
 
 rotate_grid_xy(patch_grid, M_PI*90.0/180.0);
 rotate_grid_xy(fine_grid, M_PI*90.0/180.0);
+
+#endif
 
 /* now that we have new grid positions plot them */
 

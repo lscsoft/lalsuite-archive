@@ -1,13 +1,13 @@
 PACKAGE=\"powerflux\"
-VERSION=\"0.11.8\"
+VERSION=\"0.11.9\"
 LALROOT=./../../../../
 LALINCLUDE=-I$(LALROOT)/include/
 LALLDFLAGS=-L$(LALROOT)/lib -L$(LALROOT)/support-lib -llalsupport -llal -lm
 LDFLAGS=$(LALLDFLAGS) -lpng -lz
 #OPTFLAGS=-O2 -funroll-loops 
 OPTFLAGS=-O6 -mmmx -msse -mcpu=i686
-OPTFLAGS=-O6 -mcpu=i686
-#OPTFLAGS=-O6 -msse2 -mcpu=i686
+OPTFLAGS=-O6 -mcpu=i686 -funroll-loops
+OPTFLAGS=-O6 -msse2 -mcpu=i686 -funroll-loops
 CFLAGS=-Wall -g $(OPTFLAGS) -DPACKAGE=$(PACKAGE) -DVERSION=$(VERSION) \
 	$(LALINCLUDE)
 CC=gcc $(CFLAGS)
@@ -119,4 +119,7 @@ clean:
 
 upload: powerflux.hydra
 	scp -S globus-ssh -C powerflux.hydra hydra.phys.uwm.edu:PowerFlux/powerflux
+	
+upload.g: powerflux.hydra
+	scp -C powerflux.hydra gallatin.physics.lsa.umich.edu:PowerFlux/powerflux
 	

@@ -392,7 +392,7 @@ return !regexec(&write_dat, name, 0, NULL, 0);
 
 int clear_name_png(char *name)
 {
-return !regexec(&write_dat, name, 0, NULL, 0);
+return !regexec(&write_png, name, 0, NULL, 0);
 }
 
 void dump_shorts(char *name, short *x, long count, long step)
@@ -501,7 +501,8 @@ if(!strcasecmp("LHO", args_info.detector_arg)){
 if(!strcasecmp("LLO", args_info.detector_arg)){
 	detector=lalCachedDetectors[LALDetectorIndexLLODIFF];
 	} else {
-	fprintf(stderr,"Unrecognized detector: \"%s\"\n", args_info.detector_arg);
+	fprintf(stderr,"Unrecognized detector site: \"%s\"\n", args_info.detector_arg);
+	exit(-1);
 	}
 fprintf(LOG,"detector  : %s (%s)\n", args_info.detector_arg, detector.frDetector.name);
 ephemeris.ephiles.earthEphemeris=earth_ephemeris;
