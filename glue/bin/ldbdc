@@ -101,7 +101,7 @@ class LDBDServerConnection(object):
       retcode = int(r)
     except ValueError:
       errmsg = "server closed connection without returning an exit code"
-      inputdata = '\n'.join(lines)
+      raise LDBDServerException, errmsg
     if retcode:
       errmsg = f.read()
       raise LDBDServerException, errmsg
