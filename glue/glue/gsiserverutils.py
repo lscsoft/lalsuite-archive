@@ -8,6 +8,8 @@ __version__ = "$Revision$"
 
 import os
 import sys
+import re
+from pyGlobus import security
 
 class Gridmap(object):
   """
@@ -175,3 +177,40 @@ def daemon():
     print >>sys.__stderr__, "Unable to direct to /dev/null: %s" % e
     sys.exit(1)
 
+
+def checkCredentials():
+    """
+    Check to make sure that the proper Grid Credentials (a proxy certificate)
+    is available in order to authenticate to the remote LSCsegFindServer.
+    """
+    # verify that we have access to credentials
+    try:
+      proxyText = security.grid_proxy_info()
+    except Exception, e:
+      print >>sys.stderr, "Error verifying credentials: %s" % e
+      print >>sys.stderr, \
+        "Run 'grid-proxy-init' to generate a proxy certificate"
+      sys.exit(1)
+
+    pat = re.compile(r'timeleft : (\d{1,3}):(\d\d):(\d\d)')
+
+    try:
+      if isinstance(proxyText, str):
+        m = pat.search(proxyText)
+      elif isinstance(proxyText, tuple):
+        m = pat.search(proxyText[0])
+      else:
+        raise RuntimeError, "bad format for proxyText in checkCredentials"
+      hours, minutes, seconds = map(int, m.groups())
+
+    except Exception, e:
+      print >>sys.stderr, "Error parsing proxy information: %s" % e
+      sys.exit(1)
+
+    timeleft = seconds + 60 * minutes + 3600 * hours
+
+    if timeleft < 300:
+      print >>sys.stderr, "Less than 5 minutes left for proxy certificate."
+      print >>sys.stderr, \
+        "Run 'grid-proxy-init' to generate a new proxy certificate"
+      sys.exit(1)

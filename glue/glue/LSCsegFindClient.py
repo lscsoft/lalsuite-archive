@@ -20,8 +20,25 @@ from pyGlobus import security
 
 from glue import segments
 
+
 def version():
   return __version__
+
+
+class LSCsegFindException(exceptions.Exception):
+  """
+  Exceptions raised by the classes and methods in this client
+  will be instances of this class.
+  """
+  def __init__(self, args=None):
+    """
+    Create an instance of this class, ie. an LSCSegFindException.
+
+    @param args:
+
+    @return: Instance of class LSCsegFindException
+    """
+    self.args = args
 
 
 class LSCsegFindClientException(exceptions.Exception):
@@ -298,3 +315,167 @@ class LSCsegFindClient(object):
       raise LSCsegFindClientException, msg
 
     return output
+
+
+class LSCsegFind(LSCsegFindClient):
+  """
+  Class that represents this client interacting with a LSCsegFindServer in
+  order to find state segments.
+  """
+  def __init__(self, host, port):
+    """
+    Open a connection to a LSCsegFindServer and return an instance of
+    class LSCsegFind. One of the public methods can then be called to send a
+    request to the server.
+
+    @param host: the host on which the LSCsegFindServer runs
+    @type host: string
+
+    @param port: port on which the LSCsegFindServer listens
+    @type port: integer
+
+
+    @return: Instance of LSCsegFindClient
+    """
+    LSCsegFindClient.__init__(self, host, port)
+
+  def __check_gps(self, gpsString):
+    """
+    Minimal checking on GPS time strings. Raises a LSCdataFindClientException if
+    the GPS time string is not 9 digits long.
+
+    @param gpsString: The string representing the 9 digit GPS time.
+
+    @returns: None
+    """
+    if len(gpsString) != 9:
+      msg = "GPS times must be 9 digits"
+      raise LSCsegFindException, msg
+
+    try:
+      a = int(gpsString)
+    except Exception, e:
+      msg = "GPS times must be 9 digits"
+      raise LSCsegFindException, msg
+
+
+  def ping(self, argDict):
+    """
+    Ping the LSCsegFindServer and print any response sent back.
+
+    @param argDict: Dictionary of arguments passed to all methods.
+
+    @return: None
+    """
+    response = LSCsegFindClient.ping(self)
+    print response
+
+
+  def showInterferometers(self, argDict):
+    """
+    Query LSCsegFindServer for the distinct values for the 'state_segment.ifo'
+    attribute in the metadata table.
+
+    @param argDict: Dictionary of arguments passed to all methods.
+
+    @return: None
+    """
+
+    response = LSCsegFindClient.distinctAttrValues(self, "interferometers")
+    print response
+
+
+  def showTypes(self, argDict):
+    """
+    Query LSCsegFindServer for the distinct values for the 'state_vec.state'
+    attribute in the metadata table.
+
+    @param argDict: Dictionary of arguments passed to all methods.
+
+    @return: None
+    """
+    response = LSCsegFindClient.distinctAttrValues(self, "state")
+    print response
+                
+
+  def findStateSegments(self, argDict):
+    """
+    Query the LDRdataFindServer for state segments from a particular
+    interferometer, with a particular state type, for a particular range of
+    GPS times.
+
+    @param argDict: Dictionary of arguments passed to all methods.
+
+    @return: None
+    """
+    interferometer = argDict['interferometer']
+    type = argDict['type']
+    start = argDict['start']
+    end = argDict['end']
+    type = argDict['type']
+    strict = argDict['strict']
+    format = argDict['format']
+
+    # check that combination of command-line arguments is sound
+    if (not interferometer) or (not type) or (not start) or (not end):
+      msg = """\
+Bad combination of command line arguments:
+--interferometer --type --gps-start-time --gps-end-time must all
+be present when searching for groups of segments 
+"""
+      raise LSCsegFindException, msg
+
+    self.__check_gps(start)
+    self.__check_gps(end)
+
+    try:
+      typeList = type.split(',')
+    except:
+      msg = "Unable to parse segment type string %s : %s" % (typeString, e)
+      raise LSCsegFindException, msg
+
+    query = "((state_segment.start_time BETWEEN %s AND %s) OR " % \
+      (start, end)
+    query += "(state_segment.end_time BETWEEN %s AND %s)) " % \
+      (start, end)
+    query += "AND state_segment.ifo = '%s' AND (state_vec.state = '%s'" % \
+      (interferometer, typeList.pop(0))
+    for x in typeList:
+      query += " OR state_vec.state = '%s'" % (x)
+    query += ")"
+    
+    seglist = LSCsegFindClient.segmentQueryWithMetadata(self,[query])
+
+    if strict:
+      range = segments.segmentlist([segments.segment(long(start),long(end))])
+      seglist &= range
+
+    if len( seglist ) == 0:
+      print >> sys.stderr, "No segments found!"
+    else:
+      if not format:
+        for seg in seglist:
+          print seg.get_start(), seg.get_end()
+      elif format is 'segwizard':
+        i = 0
+        for seg in seglist:
+          print i,seg.get_start(),seg.get_end(),seg.get_end()-seg.get_start()
+          i += 1
+      elif format is 'tcl' or format is 'python':
+        if format is 'tcl':
+          ldelim = '{ '
+          rdelim = ' }'
+          cdelim = ' '
+        else:
+          ldelim = '['
+          rdelim = ']'
+          cdelim = ', '
+        s = seglist.pop(0)
+        print ldelim + ldelim + str(s.get_start()) + cdelim + str(s.get_end()) + rdelim,
+        for seg in seglist:
+          print cdelim+ldelim+str(seg.get_start())+cdelim+str(seg.get_end())+rdelim,
+        print rdelim
+      else:
+        msg = "Error: unknown segment format : %s" % (format)
+        raise LSCsegFindException, msg
+ 
