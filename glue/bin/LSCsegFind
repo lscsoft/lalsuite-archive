@@ -1,17 +1,14 @@
 #!/usr/bin/env python2
 
 """
-Returns GPS segments in an interval from a URL with e.g., science-mode segments
-"""
-__author__ = "Greg Mendell: returns GPS segments in an interval from a URL with e.g., science-mode segments"
-__date__ = '$Date$'
-__version__ = '$Revision$'[0:0]
+Client for querying a LDRdataFindServer to find LSC data.
 
-# Revisions:
-# 01/19/05 gam; change default for minLength to 1 second.
-# 01/19/05 gam; clarify instructions; fix typos.
-# 01/19/05 gam; allow path to curl to be set.
-# 01/19/05 gam; fix error message when invalid type given.
+Uses pyGlobus and the LDRdataFindClient modules.
+
+$Id$
+"""
+
+__version__ = '$Revision$'[11:-2]
 
 import sys
 import os
@@ -19,341 +16,725 @@ import getopt
 import re
 import exceptions
 
-#from pyGlobus import io
-#from pyGlobus import security
+try:
+        from pyGlobus import security
+except ImportError:
+        print >> sys.stderr, """
+Error: unable to import security module from pyGlobus.
 
-#PYTHONPATH = os.getenv('PYTHONPATH', None)
+Check that pyGlobus is correctly installed and in your PYTHONPATH.
+"""
+        sys.exit(1)
+
+# this client should have its PYTHONPATH set for it during installation
+# to find LDRdataFindClient.py, but if it does not we can try to find
+# it by looking for LDR_LOCATION
+
+PYTHONPATH = os.getenv('PYTHONPATH', None)
+
+if not PYTHONPATH:
+        LDR_LOCATION = os.getenv('LDR_LOCATION', None)
+        if LDR_LOCATION:
+                sys.path.append("%s/ldr/lib" % LDR_LOCATION)
+
 
 try:
-        from glue.LSCsegFind import *
+        from glue.LDRdataFindClient import LDRdataFindClient
 except ImportError:
-        # print >>sys.stderr, "\nPython glue.LSCsegFind library not found; please add its location to the PYTHONPATH environmental variable.\n"
-        print >>sys.stderr, "\nPython glue.LSCsegFind library not found; please follow the instructions in the glue README file or add the location of glue to the PYTHONPATH environmental variable.\n"
-        print >>sys.stderr, "For example, from the bash or csh shell respectively, run:\n"
-        print >>sys.stderr, "    export PYTHONPATH=$PYTHONPATH:$LSCSOFT/src/glue"
-        print >>sys.stderr, "or "
-        print >>sys.stderr, "    setenv PYTHONPATH ${PYTHONPATH}:$LSCSOFT/src/glue"
-        print >>sys.stderr, "\nwhere $LSCSOFT needs to be replaced with the local directory with software from the lscsoft cvs repository.\n"
+        print >> sys.stderr, """
+Error: unable to import LDRdataFindClient module from glue.
+
+Check that glue is correctly installed and in your PYTHONPATH.
+"""
         sys.exit(1)
-        
-def shortUsage():
+
+
+class LSCdataFindClientException(exceptions.Exception):
         """
-        Print short usage message to stderr.
+        Exceptions raised by the classes and methods in this client
+        will be instances of this class.
+        """
+        def __init__(self, args=None):
+                """
+                Create an instance of this class, ie. an LSCdataFindClientException.
+
+                @param args:
+
+                @return: Instance of class LSCdataFindClientException
+                """
+                self.args = args
+
+class LSCdataFindClient(LDRdataFindClient):
+        """
+        Class that represents this client interacting with a LDRdataFindServer in
+        order to find LSC data.
+        """
+        def __init__(self, host, port):
+                """
+                Open a connection to a LDRdataFindServer and return an instance of
+                class LDRdataFindClient. One of the public methods can then be 
+                called to send a request to the server.
+
+                @param host: the host on which the LDRdataFindServer runs
+                @type host: string
+
+                @param port: port on which the LDRdataFindServer listens
+                @type port: integer
+
+
+                @return: Instance of LSCdataFindClient
+                """
+                LDRdataFindClient.__init__(self, host, port)
+
+        def __check_gps(self, gpsString):
+                """
+                Minimal checking on GPS time strings. Raises a LSCdataFindClientException if
+                the GPS time string is not 9 digits long.
+
+                @param gpsString: The string representing the 9 digit GPS time.
+
+                @returns: None
+                """
+                if len(gpsString) != 9:
+                        msg = "GPS times must be 9 digits"
+                        raise LSCdataFindClientException, msg
+
+                try:
+                        a = int(gpsString)
+                except Exception, e:
+                        msg = "GPS times must be 9 digits"
+                        raise LSCdataFindClientException, msg
+
+
+        def ping(self, argDict):
+                """
+                Ping the LDRdataFindServer and print any response sent back.
+
+                @param argDict: Dictionary of arguments passed to all methods.
+
+                @return: None
+                """
+                response = LDRdataFindClient.ping(self)
+                print response
+
+        
+        def showObservatories(self, argDict):
+                """
+                Query LDRdataFindServer for the distinct values for the 'instrument' attribute
+                in the metadata table.
+
+                
+
+                @param argDict: Dictionary of arguments passed to all methods.
+
+                @return: None
+                """
+
+                distinctValueList = LDRdataFindClient.distinctAttrValues(self, "instrument")
+
+                for v in distinctValueList:
+                        print v
+
+        def showTypes(self, argDict):
+                """
+                Query LDRdataFindServer for the distinct values for the 'frameType' attribute
+                in the metadata table.
+
+                @param argDict: Dictionary of arguments passed to all methods.
+
+                @return: None
+                """
+                distinctValueList = LDRdataFindClient.distinctAttrValues(self, "frameType")
+                
+                for v in distinctValueList:
+                        print v
+
+        def singleFrameFind(self, argDict):
+                """
+                Query the LDRdataFindServer for URLs for a given file.
+                
+                @param argDict: Dictionary of arguments passed to all methods.
+
+                @return: None
+                """
+
+                lfn = argDict['filename']
+                pfnList = LDRdataFindClient.pfnQuery(self, lfn)
+
+                if len(pfnList) == 0:
+                        print >>sys.stderr, "No URLs found!"
+
+                for pfn in pfnList:
+                        print pfn
+
+        def findFrameNames(self, argDict):
+                """
+                Query the LDRdataFindServer for frame files from a particular observatory,
+                with a particular frame type, for a particular range of GPS times.
+
+                
+                @param argDict: Dictionary of arguments passed to all methods.
+
+                @return: None
+                """
+                instrument = argDict['observatory']
+                type = argDict['type']
+                start = argDict['start']
+                end = argDict['end']
+                offset = argDict['offset']
+                number = argDict['limit']
+                strict = argDict['strict']
+
+                # check that combination of command-line arguments is sound
+                if (not instrument) or (not type) or (not start) or (not end):
+                        msg = """\
+Bad combination of command line arguments:
+--observatory --type --gps-start-time --gps-end-time must all
+be present when searching for groups of files
+"""
+                        raise LSCdataFindClientException, msg
+
+                self.__check_gps(start)
+                self.__check_gps(end)
+
+
+                from glue.LDRdataFindClient import LDRMetadataQuery
+                
+                q1 = LDRMetadataQuery()
+                q2 = LDRMetadataQuery()
+
+                if strict:
+                        q1.set_query("(gpsStart >= '%s' AND gpsStart < '%s') AND gpsEnd < '%s' AND instrument = '%s' AND frameType = '%s'" % (start, end, end, instrument, type))
+                        q1.set_sort_attribute("gpsStart")
+                        q1.set_sort_order("ASC")
+
+                        if offset: q1.set_offset(offset)
+                        if number: q1.set_limit(number)
+
+                        lfnList = LDRdataFindClient.lfnQueryWithMetadata(self, [q1])
+                else:
+                        q1.set_query("gpsStart >= '%s' AND gpsStart < '%s' AND instrument = '%s' AND frameType = '%s'" % (start, end, instrument, type))
+                        q1.set_sort_attribute("gpsStart")
+                        q1.set_sort_order("ASC")
+
+                        q2.set_query("gpsEnd > '%s' AND gpsEnd <= '%s' AND instrument = '%s' AND frameType = '%s'" % (start, end, instrument, type))
+                        q2.set_sort_attribute("gpsStart")
+                        q2.set_sort_order("ASC")
+
+                        if offset:
+                                q1.set_offset(offset)
+                                q2.set_offset(offset)
+
+                        if number:
+                                q1.set_limit(number)
+                                q2.set_limit(number)
+                                
+                        lfnList = LDRdataFindClient.lfnQueryWithMetadata(self, [q1, q2])
+
+
+                if len(lfnList) == 0:
+                        print >>sys.stderr, "No files found!"
+
+                for lfn in lfnList:
+                        print lfn
+                
+
+        def findFrameURLs(self, argDict):
+                """
+                Query the LDRdataFindServer for the URLs for frame files from a particular
+                observatory, with a particular frame type, for a particular range of GPS times.
+                """
+                instrument = argDict['observatory']
+                type = argDict['type']
+                start = argDict['start']
+                end = argDict['end']
+                lalcache = argDict['lalcache']
+                offset = argDict['offset']
+                number = argDict['limit']
+                strict = argDict['strict']
+
+                # check that combintation of command-line arguments is sound
+                if (not instrument) or (not type) or (not start) or (not end):
+                        msg = """\
+Bad combination of command line arguments:
+--observatory --type --gps-start-time --gps-end-time must all
+be present when searching for groups of files
+"""
+                        raise LSCdataFindClientException, msg
+
+
+                self.__check_gps(start)
+                self.__check_gps(end)
+
+
+                from glue.LDRdataFindClient import LDRMetadataQuery
+                
+                q1 = LDRMetadataQuery()
+                q2 = LDRMetadataQuery()
+
+                if strict:
+                        q1.set_query("(gpsStart >= '%s' AND gpsStart < '%s') AND gpsEnd < '%s' AND instrument = '%s' AND frameType = '%s'" % (start, end, end, instrument, type))
+                        q1.set_sort_attribute("gpsStart")
+                        q1.set_sort_order("ASC")
+
+                        if offset: q1.set_offset(offset)
+                        if number: q1.set_limit(number)
+
+                        pfnList = LDRdataFindClient.pfnQueryWithMetadata(self, [q1])
+                else:
+                        q1.set_query("gpsStart >= '%s' AND gpsStart < '%s' AND instrument = '%s' AND frameType = '%s'" % (start, end, instrument, type))
+                        q1.set_sort_attribute("gpsStart")
+                        q1.set_sort_order("ASC")
+
+                        q2.set_query("gpsEnd > '%s' AND gpsEnd <= '%s' AND instrument = '%s' AND frameType = '%s'" % (start, end, instrument, type))
+                        q2.set_sort_attribute("gpsStart")
+                        q2.set_sort_order("ASC")
+
+                        if offset:
+                                q1.set_offset(offset)
+                                q2.set_offset(offset)
+
+                        if number:
+                                q1.set_limit(number)
+                                q2.set_limit(number)
+                                
+                        pfnList = LDRdataFindClient.pfnQueryWithMetadata(self, [q1, q2])
+
+
+                if len(pfnList) == 0:
+                        print >>sys.stderr, "No URLs found!"
+
+                if lalcache:
+                       for pfn in pfnList:
+                                lfn = os.path.basename(pfn)
+                                head, ext = os.path.splitext(lfn)
+                                a, b, c, d = head.split('-') 
+                                print "%s %s %s %s %s" % (a, b, c, d, pfn)
+
+                else:
+                        for pfn in pfnList:
+                                print pfn
+
+
+        def findFrameURLsFilter(self, argDict):
+                """
+                Query the LDRdataFindServer for the URLs for frame files from a particular
+                observatory, with a particular frame type, for a particular range of GPS times,
+                and filter the results using either the type of URL or by matching against a
+                regular expression.
+                """
+                instrument = argDict['observatory']
+                type = argDict['type']
+                start = argDict['start']
+                end = argDict['end']
+                lalcache = argDict['lalcache']
+                match = argDict['match']
+                urlType = argDict['urlType']
+                offset = argDict['offset']
+                number = argDict['limit']
+                strict = argDict['strict']
+
+                if (not instrument) or (not type) or (not start) or (not end):
+                        msg = """\
+Bad combination of command line arguments:
+--observatory --type --gps-start-time --gps-end-time must all
+be present when searching for groups of files
+"""
+                        raise LSCdataFindClientException, msg
+
+                if offset and not number:
+                        msg = "--limit must be used if --offset is used"
+                        raise LSCdataFindClientException, msg
+
+                self.__check_gps(start)
+                self.__check_gps(end)
+
+                # should do sanity check here on the urlType and match that have been passed
+                # and check for proper quoting
+                if match and urlType:
+                        rexp = "^%s.*%s" % (str(urlType), str(match))
+                elif match and not urlType:
+                        rexp = "%s" % str(match)
+                elif not match and urlType:
+                        rexp = "^%s" % str(urlType)
+
+                from glue.LDRdataFindClient import LDRMetadataQuery
+                
+                q1 = LDRMetadataQuery()
+                q2 = LDRMetadataQuery()
+
+                if strict:
+                        q1.set_query("(gpsStart >= '%s' AND gpsStart < '%s') AND gpsEnd < '%s' AND instrument = '%s' AND frameType = '%s'" % (start, end, end, instrument, type))
+                        q1.set_sort_attribute("gpsStart")
+                        q1.set_sort_order("ASC")
+                        q1.set_regex_filter(rexp)
+
+                        if offset: q1.set_offset(offset)
+                        if number: q1.set_limit(number)
+
+                        pfnList = LDRdataFindClient.pfnQueryWithMetadata(self, [q1])
+                else:
+                        q1.set_query("gpsStart >= '%s' AND gpsStart < '%s' AND instrument = '%s' AND frameType = '%s'" % (start, end, instrument, type))
+                        q1.set_sort_attribute("gpsStart")
+                        q1.set_sort_order("ASC")
+                        q1.set_regex_filter(rexp)
+
+                        q2.set_query("gpsEnd > '%s' AND gpsEnd <= '%s' AND instrument = '%s' AND frameType = '%s'" % (start, end, instrument, type))
+                        q2.set_sort_attribute("gpsStart")
+                        q2.set_sort_order("ASC")
+                        q2.set_regex_filter(rexp)
+
+                        if offset:
+                                q1.set_offset(offset)
+                                q2.set_offset(offset)
+
+                        if number:
+                                q1.set_limit(number)
+                                q2.set_limit(number)
+                                
+                        pfnList = LDRdataFindClient.pfnQueryWithMetadata(self, [q1, q2])
+
+                if len(pfnList) == 0:
+                        print >>sys.stderr, "No URLs found!"
+
+                if lalcache:
+                       for pfn in pfnList:
+                                lfn = os.path.basename(pfn)
+                                head, ext = os.path.splitext(lfn)
+                                a, b, c, d = head.split('-') 
+                                print "%s %s %s %s %s" % (a, b, c, d, pfn)
+
+                else:
+                        for pfn in pfnList:
+                                print pfn
+
+
+def checkCredentials():
+        """
+        Check to make sure that the proper Grid Credentials (a proxy certificate) is
+        available in order to authenticate to the remote LDRdataFindServer.
+        """
+        # verify that we have access to credentials
+        try:
+                proxyText = security.grid_proxy_info()
+        except Exception, e:
+                print >>sys.stderr, "Error verifying credentials: %s" % e
+                print >>sys.stderr, "Run 'grid-proxy-init' to generate a proxy certificate"
+                sys.exit(1)
+
+        pat = re.compile(r'timeleft : (\d{1,3}):(\d\d):(\d\d)')
+
+        try:
+                if isinstance(proxyText, str):
+                        m = pat.search(proxyText)
+                elif isinstance(proxyText, tuple):
+                        m = pat.search(proxyText[0])
+                else:
+                        raise RuntimeError, "bad format for proxyText in checkCredentials"
+                        
+                hours, minutes, seconds = map(int, m.groups())
+        except Exception, e:
+                print >>sys.stderr, "Error parsing proxy information: %s" % e
+                sys.exit(1)
+
+        timeleft = seconds + 60 * minutes + 3600 * hours
+
+        if timeleft < 300:
+                print >>sys.stderr, "Less than 5 minutes left for proxy certificate."
+                print >>sys.stderr, "Run 'grid-proxy-init' to generate a new proxy certificate"
+                sys.exit(1)
+
+
+
+def usage():
+        """
+        Print a usage message to stderr.
         """
         msg = """\
 NAME
-     LSCsegFind: Returns GPS segments in the interval [gps-start-time, gps-end-time)
+        LSCdataFind
 
 SYNOPSIS
-     help:       
-        LSCsegFind --help
-        LSCsegFind --help-long (use this option for further help)
-        
-     if the LSC_SEGFIND_SERVER environmental variable is set:
-        LSCsegFind --show-types        
-        LSCsegFind --gps-start-time=GPS --gps-end-time=GPS --type=NAME
-           
-     else:               
-        LSCsegFind --server=NAME:PORT --show-types
-        LSCsegFind --server=NAME:PORT --gps-start-time=GPS --gps-end-time=GPS --type=NAME
+        LSCdataFind --server=NAME:PORT --observatory=NAME --type=NAME 
+               --gps-start-time=GPS --gps-end-time=GPS [ --lal-cache ] 
+               [ --url-type=SCHEME ]  [ --match=EXPRESSION ]
+               [ --names-only ] [ --limit=LIMIT ] [ --offset=OFFSET ]
+               [ --strict-time-check ] [ --version ]
 
-     other options:        
-        LSCsegFind --gps-start-time=GPS --gps-end-time=GPS < --server=NAME:PORT --type=NAME | 
-        --local-config-file=CONFIG_FILE --type=NAME | --local-seg-file=NAME [--coalesce] >
-        [--min-length=SEC] [--add-start=SEC] [--reduce-end=SEC] [--output-format=STRING]
-        [--curl-path=PATH] [--strict-off] [--save-files]
+        LSCdataFind --server=NAME:PORT --filename
 
-        LSCsegFind --show-types --local-config-file=CONFIG_FILE
+        LSCdataFind --server=NAME:PORT --show-observatories
 
-IMPORTANT CAVEATS     
-     1) Currently the segments returned are determined by web pages produced by either
-     DMT or Conlog scripts, along with the options given to this script. The web page
-     used is completely determined by the --type option.  The server used has no
-     bearing on the segments returned nor any relationship to what data is actually
-     available at the site of that server. The server returns to LSCsegFind a list of
-     web pages with segments; all servers return the same list. Thus, the actual server
-     name used does not matter as long as the list of web pages exists on that server.
-     
-     2) The default value for the --min-length option is 1 second.
-     
-     3) Run LSCsegFind --help-long to get further help.
+        LSCdataFind --server=NAME:PORT --show-types
 
-EXAMPLE
-     $ LSCsegFind --server=ldas-gridmon.ligo-wa.caltech.edu --gps-start-time=757838000 --gps-end-time=757881848 --type=S3H1
-     757842133 757849258
-     757874829 757881843
-\
-"""
-        print >>sys.stdout, msg
-                
-def usage():
-        """
-        Print long usage message to stderr.
-        """
-        
-        # First print short usage message
-        shortUsage()
-        
-        msg = """\
+        LSCdataFind --server=NAME:PORT --ping
+
+        LSCdataFind --server=NAME:PORT --help
+
 DESCRIPTION
-        
-     -r NAME, --server=NAME:PORT
-            Replace NAME with the server with segment information (PORT is optional
-            and currently unused). If the environmental variable LSC_SEGFIND_SERVER
-            is defined this is used for the default NAME:PORT value and the --server
-            option is not needed.  Note that giving the --server option over-rides
-            the environmental variable.
-                
-     -y --show-types
-            Show a list of names that can be used with the --type option to designate
-            the type of segments to return.
-       
-     -t NAME, --type=NAME
-            Replace NAME with a name that designates the type of segments to return
-            Use -y or --show-types to see what names are available
-        
-     -s GPS, --gps-start-time=GPS
-            GPS = gps start-time of range (inclusive)
+        Query a LDRdataFindServer to obtain physical filenames 
+        or URLs for data files from a certain instrument and of 
+        a particular frame type within a GPS range.
 
-     -e GPS, --gps-end-time=GPS
-            GPS = gps end-time of range (exclusive)
-               
-     -m SEC, --min-length=SEC
-            SEC = minimum duration of output segments in seconds (default = 1).
-        
-     -a SEC, --add-start=SEC
-            SEC = number of seconds to add to output segments start times (default = 0).
-        
-     -d SEC, --reduce-end=SEC
-           SEC  = number of seconds to reduce output segments end times (default = 0).
-        
-     -o STRING, --output-format=STRING
-            Replace STRING with a string that specifies the output format. The default
-            is "%s %e" which prints out 'start-time end-time', in the format:
-                  757842133 757849258
-                  757874829 757881843
-                  ...
-            The format options are:
-                   %i = prints segment id
-                   %s = prints segment start time (inclusive)
-                   %e = prints segment end time (exclusive)
-                   %d = prints segment duration
-            For example "%i %s %e %d" outputs 'id start-time end-time duration'
-                  507 757842133 757849258 7125
-                  508 757874829 757881843 7014               
-                  ...
-            Other characters can be included, but must be space separated for the format options.
-            Examples:
-                  1. "%s , %e" prints:
-                     757842133 , 757849258
-                     ...
-                  2. "{ %s %e }" prints:
-                     { 757842133 757849258 }
-                     ...
-            In addition to formatted output, special values of the format string are:
-                 SCIENCE_SEGMENTS = prints segments as objects of the LSC python Class ScienceSegment
-                 PYTHON_LIST = prints start times and end times as a python list
-                 TCL_LIST = prints start times and end times as a tcl list
-                      
-     --strict-off
-            The default behavior is to truncate segments so that returned segments are
-            entirely in the interval [gps-start-time, gps-end-time).  However if this 
-            option is given, the entire non-truncated segment is returned if any part
-            of it overlaps the interval.               
-     
-     --save-files
-            The default behavior is to remove temporary files after each call. Use this option
-            to keep temporary configuration and segment files on disk. These files can then be
-            used locally with the --local-config-file and --local-seg-file options.  These
-            files will end in _LSCsegFind.py and _LSCsegFind.txt respectively
-        
-     -c NAME, --local-config-file=NAME
-            A local configuration file can be used, rather than the configuration from the server.
-            For an example, see LSCsegFindCfgExample.py in the glue etc directory.
-        
-     -f NAME, --local-seg-file=NAME
-            Name of a local file with segments with the format "seg-id-number start-time end-time duration"
-            The numbers can be separated by any amount of white space.
-     
-     -p PATH, --curl-path=PATH
-            Complete path to the curl (copy URL) utility. The default value used is either that set by the
-            environmental variable LSC_SEGFIND_CURL_PATH or "/usr/bin/curl" if this variable is not set.
+        -v, --version
+                Print version information for LSCdataFind client
 
-     --coalesce
-            Used only when the --local-seg-file option is used; otherwise coalesces is determined by the
-            server or the config file.  If --coalesce is given, the segments in the local segment file
-            will be coalesced (in memory only) before using them.
-        
-     -h, --help
-            show short usage message
-        
-     --help-long
-            show long usage message
+        -o, --observatory    
+                observatory(ies) that generated frame file 
+                Use --show-observatories to see what is available
+
+        -t, --type  
+                type of frame file 
+                Use --show-types to see what is available
+
+        -s, --gps-start-time 
+                start of GPS time range
+
+        -e, --gps-end-time   
+                end of GPS time range
+
+        -r, --server
+                hostname and optional port of server to query, in the form
+                host:port
+
+        -l, --lal-cache
+                format output for use as a LAL cache file
+
+        -m, --match
+                return only results that match a regular expression
+
+        -n, --names-only
+                return only the names of files with particular values for
+                instrument, type, start, and end rather than full URLs
+
+        -u, --url-type
+                return only URLs with particular scheme or head such as
+                'file' or 'gsiftp'
+
+        -w, --show-observatories
+                list available observatory data
+
+        -y, --show-types
+                list available types
+
+        -p, --ping
+                ping the LDRDataFind server
+
+        -f, --filename
+                return URL(s) for a particular file
+
+        --limit
+                limit the number of results returned
+
+        --offset
+                offset from which to count the limit of results returned,
+                requires using --limit
+
+        --strict-time-check
+                return only frame files within the GPS times and with
+                no padding on the boundaries; this may break LAL frame
+                cache reading routines
+
+        -h, --help  
+                show this usage message
 
 ENVIRONMENT
-     PYTHONPATH: The path with the lib directory which contains LSCsegFind.py must be added to the
-                 PYTHONPATH environmental variable.                
- 
-     LSC_SEGFIND_SERVER: the default server NAME:PORT to use.
-     
-     LSC_SEGFIND_CURL_PATH: complete path to the curl (copy URL) utility; default is "/usr/bin/curl"
 
-EXAMPLES
- 
- $ LSCsegFind --server=ldas-gridmon.ligo-wa.caltech.edu --show-types
-                                                                                                                             
-  Available types : description
-            H1DMT : DMT Science-mode Segments
-         H1DMT_CM : DMT Common-mode Segments
-            H2DMT : DMT Science-mode Segments
-         H2DMT_CM : DMT Common-mode Segments
-             M5H1 : Conlog Science-mode Segments
-             M5H2 : Conlog Science-mode Segments
-             S3H1 : Conlog Science-mode Segments
-             S3H2 : Conlog Science-mode Segments
-             S3L1 : Conlog Science-mode Segments
+        LSC_DATAFIND_SERVER can be set to avoid having to use the 
+        --server option on the command line. 
 
- $ LSCsegFind --server=ldas-gridmon.ligo-wa.caltech.edu --type=H2DMT --gps-start-time=782635107 --gps-end-time=782641908
- 782635107 782637268
- 782637631 782641908
+        LSC_DATAFIND_URL_TYPE can be set to avoid having to use the
+        --url-type option on the command line.
 
- $ LSCsegFind --server=ldas-gridmon.ligo-wa.caltech.edu --type=M5H2 --gps-start-time=782635107 --gps-end-time=782641908
- 782635107 782637268
- 782637630 782641908
+        LSC_DATAFIND_MATCH can be set to avoid having to use the
+        --match option on the command line. 
 
- $ LSCsegFind --server=ldas-gridmon.ligo-wa.caltech.edu --type=H2DMT --gps-start-time=782635107 --gps-end-time=782641908 --output-format="%i %s %e %d"
- 34 782635107 782637268 2161
- 59 782637631 782641908 4277
+EXAMPLE
 
- $ LSCsegFind --server=ldas-gridmon.ligo-wa.caltech.edu --type=H2DMT --gps-start-time=782635107 --gps-end-time=782641908 --output-format=SCIENCE_SEGMENTS
- <ScienceSegment: id 34, start 782635107, end 782637268, dur 2161, unused 2161>
- <ScienceSegment: id 59, start 782637631, end 782641908, dur 4277, unused 4277>
-  
- $ LSCsegFind --server=ldas-gridmon.ligo-wa.caltech.edu --type=H2DMT --gps-start-time=782635107 --gps-end-time=782641908 --output-format=TCL_LIST
- { { 782635107 782637268 } { 782637631 782641908 } }
-
- $ LSCsegFind --server=ldas-gridmon.ligo-wa.caltech.edu --type=H2DMT --gps-start-time=782635107 --gps-end-time=782641908 --output-format=PYTHON_LIST
- [[782635107L, 782637268L], [782637631L, 782641908L]]
+[hydra]$ LSCdataFind --server=dataserver.phys.uwm.edu --observatory=H 
+--type=R --gps-start-time=714024240 --gps-end-time=714024340 --url-type=file --match=localhost
+file://localhost/netdata/s001/S1/R/H/714023808-714029599/H-R-714024224-16.gwf
+file://localhost/netdata/s001/S1/R/H/714023808-714029599/H-R-714024240-16.gwf
+file://localhost/netdata/s001/S1/R/H/714023808-714029599/H-R-714024256-16.gwf
+file://localhost/netdata/s001/S1/R/H/714023808-714029599/H-R-714024272-16.gwf
+file://localhost/netdata/s001/S1/R/H/714023808-714029599/H-R-714024288-16.gwf
+file://localhost/netdata/s001/S1/R/H/714023808-714029599/H-R-714024304-16.gwf
+file://localhost/netdata/s001/S1/R/H/714023808-714029599/H-R-714024320-16.gwf
+file://localhost/netdata/s001/S1/R/H/714023808-714029599/H-R-714024336-16.gwf
 \
 """
-        print >>sys.stdout, msg
+        print >>sys.stderr, msg
 
-################################################################
-# MAIN CODE STARTS HERE
-#
-#
 
-# set defaults
-LSC_SEGFIND_SERVER = os.getenv('LSC_SEGFIND_SERVER', None)
-server=LSC_SEGFIND_SERVER
-startTime = None
-endTime = None
-segType = None
-# 01/19/05 gam; minLength = long(200)
-minLength = long(1)
-addStart = long(0)
-reduceEnd = long(0)
-outputFormat = "%s %e"
-strict = True
-saveFiles = False
-cfgFile = None
-localSegFile=None
-coalesce=False
-showTypes = False
-LSC_SEGFIND_CURL_PATH = os.getenv('LSC_SEGFIND_CURL_PATH', None)
-curlPath = LSC_SEGFIND_CURL_PATH
-if curlPath == None:
-   curlPath = "/usr/bin/curl" 
-
-# check credentials (currently disabled)
-# checkCredentials()
-        
 # grab command line options
-shortop = "r:s:e:t:m:a:d:o:c:f:p:yh"
+shortop = "vt:s:e:wyphlr:f:u:m:o:n"
 longop = [
-          "help",
-          "help-long",
-          "server=",
+          "version",
+          "help", 
+          "show-observatories",
+          "show-types",
+          "observatory=",
           "gps-start-time=",
           "gps-end-time=",
           "type=",
-          "min-length=",
-          "add-start=",
-          "reduce-end=",
-          "output-format=",          
-          "strict-off",
-          "save-files",
-          "local-config-file=",
-          "local-seg-file=",
-          "curl-path=",
-          "coalesce",
-          "show-types",
+          "ping",
+          "server=",
+          "lal-cache",
+          "filename=",
+          "url-type=",
+          "match=",
+          "names-only",
+          "limit=",
+          "offset=",
+          "strict-time-check",
           ]
 
 try:
-        opts, args = getopt.getopt(sys.argv[1:], shortop, longop)
+	opts, args = getopt.getopt(sys.argv[1:], shortop, longop)
 except getopt.GetoptError:
         print >>sys.stderr, "Error parsing command line"
-        print >>sys.stderr, "Run %s with -h, --help, or --help-long to get help with command line arguments" % sys.argv[0]
+        print >>sys.stderr, "Enter 'LSCdataFind --help' for usage"
         sys.exit(1)
 
-if len(opts) < 1:
-        print >>sys.stderr, "Run %s with -h, --help, or --help-long to get help with command line arguments" % sys.argv[0]
-        sys.exit(1)
+# defaults
+hostPortString = None
+port = 30010
+
+clientMethodArgDict = {
+        'observatory': None,
+        'end': None,
+        'start': None,
+        'type': None,
+        'lalcache': False,
+        'filename': None,
+        'urlType': None,
+        'match': None,
+        'limit': None,
+        'offset': None,
+        'strict': None
+        }
+
+# default method 
+clientMethod = 'findFrameURLs'
+
+# environment variables override defaults but not
+# command line options
+try:
+        hostPortString = os.environ['LSC_DATAFIND_SERVER']
+except:
+        pass
+
+try:   
+        clientMethodArgDict['urlType'] = os.environ['LSC_DATAFIND_URL_TYPE'] 
+        clientMethod = 'findFrameURLsFilter'
+except:
+        pass
+
+try:
+        clientMethodArgDict['match'] = os.environ['LSC_DATAFIND_MATCH']
+        clientMethod = 'findFrameURLsFilter'
+except:
+        pass
+        
+        
 
 for o, a in opts:
         if o in ("-h", "--help"):
-                shortUsage()
-                sys.exit(0)
-        elif o in ("--help-long",):
                 usage()
                 sys.exit(0)
-        elif o in ("-r", "--server"):
-                server = a
-        elif o in ("-s", "--gps-start-time"):
-                startTime = a
-        elif o in ("-e", "--gps-end-time"):
-                endTime = a
-        elif o in ("-t", "--type"):
-                segType = a
-        elif o in ("-m", "--min-length"):
-                minLength = a
-        elif o in ("-a", "--add-start"):
-                addStart = a
-        elif o in ("-d", "--reduce-end"):
-                reduceEnd = a
-        elif o in ("-o", "--output-format"):
-                outputFormat = a
-        elif o in ("--strict-off",):
-                strict = False
-        elif o in ("--save-files",):
-                saveFiles = True
-        elif o in ("-c", "--local-config-file"):
-                cfgFile = a
-        elif o in ("-f", "--local-seg-file"):
-                localSegFile = a
-        elif o in ("-p", "--curl-path"):
-                curlPath = a
-        elif o in ("--coalesce",):
-                coalesce = True
+        elif o in ("-v", "--version"):
+                print 'LSCdataFind client version', __version__
+                import glue.LDRdataFindClient
+                print 'Built on top of LDRdataFindClient version', glue.LDRdataFindClient.version()
+                sys.exit(0)
+        elif o in ("-p", "--ping"):
+                clientMethod = 'ping'
+        elif o in ("-w", "--show-observatories"):
+                clientMethod = 'showObservatories'
         elif o in ("-y", "--show-types"):
-                showTypes = True
+                clientMethod = 'showTypes'
+        elif o in ("-o", "--observatory"):
+                clientMethodArgDict['observatory'] = a
+        elif o in ("-s", "--gps-start-time"):
+                clientMethodArgDict['start'] = a
+        elif o in ("-e", "--gps-end-time"):
+                clientMethodArgDict['end'] = a
+        elif o in ("-t", "--type"):
+                clientMethodArgDict['type'] = a
+        elif o in ("-l", "--lal-cache"):
+                clientMethodArgDict['lalcache'] = True
+        elif o in ("-f", "--filename"):
+                clientMethodArgDict['filename'] = a
+                clientMethod = 'singleFrameFind'
+        elif o in ("-r", "--server"):
+                hostPortString = a
+        elif o in ("-u", "--url-type"):
+                pat = re.compile("rl-type")
+                m = pat.match(a)
+                if m:
+                        print >>sys.stderr, "The correct option is --url-type"
+                        print >>sys.stderr, "Enter 'LSCdataFind --help' for usage"
+                        sys.exit(1)
+                clientMethodArgDict['urlType'] = a
+                clientMethod = 'findFrameURLsFilter'
+        elif o in ("-m", "--match"):
+                clientMethodArgDict['match'] = a
+                clientMethod = 'findFrameURLsFilter'
+        elif o in ("-n", "--names-only"):
+                clientMethodArgDict['namesOnly'] = True
+                clientMethod = 'findFrameNames'
+        elif o in ("--limit",):
+                clientMethodArgDict['limit'] = int(a)
+        elif o in ("--offset",):
+                clientMethodArgDict['offset'] = int(a)
+        elif o in ("--strict-time-check",):
+                clientMethodArgDict['strict'] = True
 
-# coalesce used only if localSegFile used
-if localSegFile == None:
-   coalesce=False
+if not clientMethod:
+        print >>sys.stderr, "Bad combination or missing options"
+        print >>sys.stderr, "Enter 'LSCdataFind --help' for usage"
+        sys.exit(1)
 
-#print server,startTime,endTime,segType,minLength,addStart,reduceEnd,outputFormat,strict,saveFiles,cfgFile,localSegFile,coalesce,showTypes
-        
-# Initiate the LSCsegFind Class; note that the class does all vetting of parameters.
-# 01/19/05 gam; myLSCsegFind = LSCsegFind(server,startTime,endTime,segType,minLength,addStart,reduceEnd,outputFormat,strict,saveFiles,cfgFile,localSegFile,coalesce,showTypes)
-myLSCsegFind = LSCsegFind(server,startTime,endTime,segType,minLength,addStart,reduceEnd,outputFormat,strict,saveFiles,cfgFile,localSegFile,coalesce,showTypes,curlPath)
+# determine server and port
+if not hostPortString:
+        print >>sys.stderr, "No LDRdataFindServer specified"
+        print >>sys.stderr, "Enter 'LSCdataFind --help' for usage"
+        sys.exit(1)
 
-if showTypes:
-     # LSCsegFind will have displayed a list of segment types; just continue to exit.
-     pass
+if hostPortString.find(':') < 0:
+        # no port specified
+        host = hostPortString
 else:
-     # Get the segments; the results are printed to stdout.
-     myLSCsegFind.GetSegments()
+        # server and port specified
+        host, portString = hostPortString.split(':')
+        port = int(portString)
 
-sys.exit(0)
+# check credentials
+checkCredentials()
+
+# open connection to LDRdataFindServer
+try:
+        myClient = LSCdataFindClient(host, port)
+
+except Exception, e:
+        print >>sys.stderr, "Unable to connect to LDRdataFindServer %s:%d : %s" % (host, port, e)
+        print >>sys.stderr, "Enter 'LSCdataFind --help' for usage"
+        sys.exit(1)
+
+        
+try:
+        eval("myClient.%s(%s)" % (clientMethod, clientMethodArgDict))
+
+except LSCdataFindClientException, e:
+        print >>sys.stderr, str(e)
+        print >>sys.stderr, "Enter 'LSCdataFind --help' for usage"
+        sys.exit(1)
+
+except Exception, e:
+        print >>sys.stderr, "Error querying LDRdataFindServer: %s" % str(e)
+        print >>sys.stderr, "Enter 'LSCdataFind --help' for usage"
+        sys.exit(1)
+
+
+
+
