@@ -503,7 +503,7 @@ class CondorDAGNode:
     Write the parent/child relations for this job to the DAG file descriptor.
     @param fh: descriptor of open DAG file.
     """
-    print "parents"
+   # print "parents"
     for parent in self.__parents:
       fh.write( 'PARENT ' + parent + ' CHILD ' + str(self) + '\n' )
 
@@ -683,7 +683,7 @@ class CondorDAG:
     self.__nodes.append(node)
     if node.job() not in self.__jobs:
       self.__jobs.append(node.job())
-    print len(self.__nodes)
+    #print len(self.__nodes)
 
   def write_sub_files(self):
     """
@@ -703,7 +703,7 @@ class CondorDAG:
       dagfile = open( self.__dag_file_path, 'w' )
     except:
       raise CondorDAGError, "Cannot open file " + self.__dag_file_path
-    print len(self.__nodes)
+    #print len(self.__nodes)
     for node in self.__nodes:
       node.write_job(dagfile)
       node.write_vars(dagfile)
@@ -828,7 +828,7 @@ class CondorDAG:
           template = """<profile namespace="vds" key="group">%s</profile>"""
           xml = xml + template % (node.get_vds_group())
 
-        print >>dagfile, xml
+        #print >>dagfile, xml
 
         for f in node.get_input_files():
                 print >>dagfile, """\
@@ -840,7 +840,7 @@ class CondorDAG:
      <uses file="%s" link="output" dontRegister="false" dontTransfer="false"/>\
 """ % f
 
-        print >>dagfile, "</job>"
+        #print >>dagfile, "</job>"
 
     # print parent-child relationships to DAX
     
@@ -854,7 +854,7 @@ class CondorDAG:
                 print >>dagfile, '</child>'
 
 
-    print >>dagfile, "</adag>"
+    #print >>dagfile, "</adag>"
 
     dagfile.close()
 
@@ -1902,14 +1902,14 @@ class LSCDataFindNode(CondorDAGNode, AnalysisNode):
         type=self.__cp.get('datafind','type')
         server=self.__cp.get('datafind','server')
         cmd='LSCdataFind --server='+server+' --observatory='+self.__observatory +' --type='+type+' --gps-start-time='+repr(self.__start)+' --gps-end-time='+repr(self.__end)+' --url-type=file --match=localhost > data.list'
-        print cmd
+        #print cmd
         os.system(cmd)
 
         # data IO required
         f=open('data.list', 'r')
         lines=f.readlines()
         for line in lines:
-          print 'line: '+line
+          #print 'line: '+line
           self.__frames.append(line)
 
         return self.__frames;
