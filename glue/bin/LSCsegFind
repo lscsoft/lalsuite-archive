@@ -218,7 +218,7 @@ EXAMPLES
 #
 
 # set defaults
-LSC_SEGFIND_SERVER = os.getenv('LSCSEGFIND_CONFIGFILE', None)
+LSC_SEGFIND_SERVER = os.getenv('LSC_SEGFIND_SERVER', None)
 server=LSC_SEGFIND_SERVER
 startTime = None
 endTime = None
