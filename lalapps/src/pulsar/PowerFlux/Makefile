@@ -13,7 +13,7 @@ CFLAGS=-Wall -g $(OPTFLAGS) -DPACKAGE=$(PACKAGE) -DVERSION=$(VERSION) \
 CC=gcc $(CFLAGS)
 
 OBJS=cmdline.o rastermagic.o hookup.o fine_grid.o lines.o grid.o powerflux.o  \
-	png.o polarization.o intervals.o
+	png.o polarization.o intervals.o statistics.o
 
 # 199.75 hz
 BAND=359650

@@ -16,6 +16,7 @@
 #include "lines.h"
 #include "grid.h"
 #include "polarization.h"
+#include "statistics.h"
 
 extern int npolarizations;
 extern POLARIZATION *polarizations;
@@ -82,20 +83,13 @@ while(r==NULL){
 return r;
 }
 
-int float_cmp(float *a, float *b)
-{
-if(*a<*b)return -1;
-if(*a>*b)return 1;
-return 0;
-}
-
 static float compute_median(float *firstbin, long step, long count)
 {
 float *tmp;
 long i;
 tmp=alloca(count*sizeof(float));
 for(i=0;i<count;i++)tmp[i]=firstbin[i*step];
-qsort(tmp,count,sizeof(float),float_cmp);
+sort_floats(tmp, count);
 if(!(count & 1))return (tmp[count>>1]+tmp[(count>>1)-1])/2.0;
 return tmp[count>>1];
 }
@@ -192,7 +186,7 @@ long i;
 double sum,sum_squared,mean,sigma;
 double best_cutoff,smallest_sigma;
 long best_i;
-qsort(tm,nsegments,sizeof(float),float_cmp);
+sort_floats(tm, nsegments);
 sum=0;
 sum_squared=0;
 best_i=0;
@@ -227,7 +221,7 @@ double a,b,lambda;
 long i;
 tmp=alloca(count*sizeof(float));
 for(i=0;i<count;i++)tmp[i]=firstbin[i*step];
-qsort(tmp,count,sizeof(float),float_cmp);
+sort_floats(tmp, count);
 if(count & 1)*median=(tmp[count>>1]+tmp[(count>>1)+1])/2.0;
 	else *median=tmp[count>>1];
 if(*median==0)return;

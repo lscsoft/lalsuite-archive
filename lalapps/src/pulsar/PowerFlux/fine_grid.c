@@ -12,6 +12,7 @@
 #include "hookup.h"
 #include "grid.h"
 #include "polarization.h"
+#include "statistics.h"
 
 extern POLARIZATION *polarizations;
 extern int npolarizations;
@@ -360,7 +361,7 @@ for(i=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[o
 		));
 	
 	/* sort to compute robust estimates */
-	qsort(tmp,useful_bins,sizeof(*tmp),float_cmp);
+	sort_floats(tmp, useful_bins);
 	/* median */
 	M=tmp[useful_bins/2];
 	/* 0.8 quantile */
