@@ -1055,9 +1055,9 @@ for(j=0;j<priv->num_dec;j++){
 			x0=x+(shift+i)*dm->x_pixels_per_point;
 			}
 		if(dm->flip_y){
-			y0=y+j*dm->y_pixels_per_point;
-			} else {
 			y0=y+(priv->num_dec-j-1)*dm->y_pixels_per_point;
+			} else {
+			y0=y+j*dm->y_pixels_per_point;
 			}
 		for(m=0;m<dm->y_pixels_per_point;m++)
 			for(k=0;k<dm->x_pixels_per_point;k++)
@@ -1143,8 +1143,16 @@ for(j=0;j<priv->num_dec;j++){
 
 		color=z_to_color(dm->palette,z0);
 
-		x0=x+(shift+i)*dm->x_pixels_per_point;
-		y0=y+j*dm->y_pixels_per_point;
+		if(dm->flip_x){
+			x0=x+(shift+priv->num_ra[j]-i-1)*dm->x_pixels_per_point;
+			} else {
+			x0=x+(shift+i)*dm->x_pixels_per_point;
+			}
+		if(dm->flip_y){
+			y0=y+(priv->num_dec-j-1)*dm->y_pixels_per_point;
+			} else {
+			y0=y+j*dm->y_pixels_per_point;
+			}
 		for(m=0;m<dm->y_pixels_per_point;m++)
 			for(k=0;k<dm->x_pixels_per_point;k++)
 				DRAW_POINT(p,x0+k,y0+m,color);
