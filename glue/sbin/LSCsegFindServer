@@ -331,15 +331,16 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
     @return: None
      """
 
-    logger.debug("Method ping() called")
+    logger.debug("Method ping called")
     try:
       hostname = socket.getfqdn()
       msg = "LSCsegFindServer at %s is alive" % hostname
+      code = 0
     except Exception, e:
-      msg = "LCSsegFindServer is alive"
+      msg = "Error pinging LSCsegFindServer %s : %s" % (hostname, e)
+      code = 1
 
-    self.__reply__(0, msg)
-
+    self.__reply__(code, msg)
 
 
   def distinctAttribute(self, arg):
@@ -392,7 +393,7 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
       code = 0
     except Exception, e:
       result = "Error querying metadata for distinct values of attribute " + \
-        "%s: %s" % (arg[0], e)
+        "%s: %s" % (attribute, e)
       logger.error(result)
 
     try:
@@ -430,39 +431,39 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
     try:
       sql = "SELECT state_segment.start_time, state_segment.end_time "
       sql += "FROM state_segment, state_vec WHERE "
-      sql += arg.pop(0)
+      sql += arg[0]
       sql += " AND state_segment.state_vec_id = state_vec.state_vec_id;"
 
       db = MySQLdb.connect(user=dbuser,passwd=dbpasswd,db=dbname)
       c = db.cursor()
       c.execute(sql)
-      result = c.fetchall()
+      dbresult = c.fetchall()
+      logger.debug("Method : segmentFindWithMetadata_v1 %d results found" % 
+        len(dbresult))
       c.close()
 
       try:
-        segs = segments.segmentlist()
-        for r in result:
-          segs.append(segments.segment(r[0],r[1]))
-        segs.coalesce()
+        result = segments.segmentlist()
+        for r in dbresult:
+          result.append(segments.segment(r[0],r[1]))
+        result.coalesce()
       except:
         pass
 
-      logger.debug("Method : segmentFindWithMetadata_v1 %d results found" % 
-        len(result))
       code = 0
+
     except Exception, e:
-      result = "Error querying metadata for segments" + \
-        "%s: %s" % (arg[0], e)
+      result = "Error querying metadata for segments %s: %s" % (arg[0], e)
       logger.error(result)
 
     try:
       db.close()
       del db
     except Exception, e:
-      logger.error(
-        "Error closing connection to MySQL in method segmentFindWithMetadata_v1")
+      logger.error( "Error closing connection to MySQL in method " + 
+        "segmentFindWithMetadata_v1")
 
-    self.__reply__(code, segs)
+    self.__reply__(code, result)
 
 
   def segmentFindWithMetadata_vx(self, arg):
@@ -565,9 +566,9 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
         logger.error(result)
 
       # take the intersection if there is more than one ifo queried
-      segs = ifoSegList.pop(0)
+      result = ifoSegList.pop(0)
       try:
-        for iseg in ifoSegList: segs &= iseg
+        for iseg in ifoSegList: result &= iseg
       except:
         pass
 
@@ -583,7 +584,7 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
     else:
       logger.error( "segmentFindWithMetadata_vx skipped query" )
 
-    self.__reply__(code, segs)
+    self.__reply__(code, result)
 
 
 class LSCsegFindServer(object):
