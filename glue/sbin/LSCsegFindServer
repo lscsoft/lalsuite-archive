@@ -555,20 +555,23 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
       sql += arg.pop(0)
       sql += " AND state_segment.state_vec_id = state_vec.state_vec_id;"
 
-      segs = segments.segmentlist()
-
       db = MySQLdb.connect(user=dbuser,passwd=dbpasswd,db=dbname)
       c = db.cursor()
       c.execute(sql)
       res = c.fetchall()
       c.close()
 
-      for r in res:
-        segs |= segments.segmentlist([segments.segment(r[0],r[1])])
-
       result = ""
-      for s in segs:
-        result += "%d %d\n" % (s.start, s.end)
+
+      try:
+        segs = segments.segmentlist()
+        for r in res:
+          segs |= segments.segmentlist([segments.segment(r[0],r[1])])
+        for s in segs:
+          result += "%d %d\n" % (s.start, s.end)
+        result = result[0:-1]
+      except:
+        pass
       
       logger.debug("Method : segmentFindWithMetadata %d results found" % 
         len(result))
