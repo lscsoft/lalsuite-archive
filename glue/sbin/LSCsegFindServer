@@ -514,6 +514,9 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
     # only executle a query if we managed to construct one
     if code is not 1:
 
+      logger.debug("Query parameters [%s,%s); %s; %s" % 
+        (start,end,str(ifoList),str(typeList)))
+
       # assume failure
       code = 1
 
@@ -539,7 +542,7 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
           sql += "AND state_segment.ifo = '%s' AND (state_vec.state = '%s'" % \
             (ifo, typeList_tmp.pop(0))
           for x in typeList_tmp:
-            query += " OR state_vec.state = '%s'" % (x)
+            sql += " OR state_vec.state = '%s'" % (x)
           sql += ")"
           sql += " AND state_segment.state_vec_id = state_vec.state_vec_id;"
           del typeList_tmp
