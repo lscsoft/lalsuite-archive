@@ -46,7 +46,7 @@ struct gengetopt_args_info
   int three_bins_arg;	/* average 3 neighbouring bins to broaden Doppler curves (default='0').  */
   int do_cutoff_arg;	/* neglect contribution from SFT with high effective noise level (default='1').  */
   int filter_lines_arg;	/* perform detection of lines in background noise and veto corresponding frequency bins (default='1').  */
-  int dec_bands_arg;	/* split sky in this many bands in declination for logging maximum upper limits (default='9').  */
+  int nbands_arg;	/* split sky in this many bands for logging maximum upper limits (default='9').  */
   double resolution_ratio_arg;	/* ratio that determines the coarsness of the grid (default='1.0').  */
   double small_weight_ratio_arg;	/* ratio that determines which weight is too small to include in max statistics (default='0.2').  */
   double fake_ra_arg;	/* RA of fake signal to inject (default='3.14').  */
@@ -58,6 +58,7 @@ struct gengetopt_args_info
   int npolarizations_arg;	/* number of linear polarizations to profile, distributed uniformly between plus and cross (default='3').  */
   char * write_dat_arg;	/* regular expression describing which *.dat files to write (default='.*').  */
   char * write_png_arg;	/* regular expression describing which *.png files to write (default='.*').  */
+  char * skymap_orientation_arg;	/* orientation of produced skymaps: equatorial, ecliptic, band_axis (default='equatorial').  */
 
   int help_given ;	/* Whether help was given.  */
   int version_given ;	/* Whether version was given.  */
@@ -83,7 +84,7 @@ struct gengetopt_args_info
   int three_bins_given ;	/* Whether three-bins was given.  */
   int do_cutoff_given ;	/* Whether do-cutoff was given.  */
   int filter_lines_given ;	/* Whether filter-lines was given.  */
-  int dec_bands_given ;	/* Whether dec-bands was given.  */
+  int nbands_given ;	/* Whether nbands was given.  */
   int resolution_ratio_given ;	/* Whether resolution-ratio was given.  */
   int small_weight_ratio_given ;	/* Whether small-weight-ratio was given.  */
   int fake_ra_given ;	/* Whether fake-ra was given.  */
@@ -95,6 +96,7 @@ struct gengetopt_args_info
   int npolarizations_given ;	/* Whether npolarizations was given.  */
   int write_dat_given ;	/* Whether write-dat was given.  */
   int write_png_given ;	/* Whether write-png was given.  */
+  int skymap_orientation_given ;	/* Whether skymap-orientation was given.  */
 
 } ;
 

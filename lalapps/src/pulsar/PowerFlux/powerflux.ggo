@@ -29,7 +29,7 @@ option "no-am-response"  - "force AM_response() function to return 1.0 irrespect
 option "three-bins"	- "average 3 neighbouring bins to broaden Doppler curves" int default="0" no
 option "do-cutoff"      - "neglect contribution from SFT with high effective noise level" int default="1" no
 option "filter-lines"   - "perform detection of lines in background noise and veto corresponding frequency bins" int default="1" no
-option "dec-bands"	- "split sky in this many bands in declination for logging maximum upper limits" int default="9" no
+option "nbands"		- "split sky in this many bands for logging maximum upper limits" int default="9" no
 
 option "resolution-ratio" - "ratio that determines the coarsness of the grid" double default="1.0" no
 option "small-weight-ratio" - "ratio that determines which weight is too small to include in max statistics" double default="0.2" no
@@ -46,3 +46,4 @@ option "npolarizations" - "number of linear polarizations to profile, distribute
 option "write-dat"      - "regular expression describing which *.dat files to write" string default=".*" no
 option "write-png"      - "regular expression describing which *.png files to write" string default=".*" no
 
+option "skymap-orientation" - "orientation of produced skymaps: equatorial, ecliptic, band_axis" string default="equatorial" no

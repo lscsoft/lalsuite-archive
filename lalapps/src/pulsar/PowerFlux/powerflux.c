@@ -555,20 +555,32 @@ fprintf(stderr,"band axis DEC (degrees): %f\n", band_axis_dec*180.0/M_PI);
 fprintf(LOG,"band axis RA (degrees) : %f\n", band_axis_ra*180.0/M_PI);
 fprintf(LOG,"band axis DEC (degrees): %f\n", band_axis_dec*180.0/M_PI);
 
-/* now that we know where band_axis is rotate the sky so the it points to the north pole */
-
-rotate_grid_xy(patch_grid, -band_axis_ra);
-rotate_grid_xy(fine_grid, -band_axis_ra);
-
-rotate_grid_xz(patch_grid, -band_axis_dec+M_PI/2.0);
-rotate_grid_xz(fine_grid, -band_axis_dec+M_PI/2.0);
-
-rotate_grid_xy(patch_grid, band_axis_ra);
-rotate_grid_xy(fine_grid, band_axis_ra);
-
 /* assign bands */
-assign_dec_bands(patch_grid, args_info.dec_bands_arg);
-assign_dec_bands(fine_grid, args_info.dec_bands_arg);
+assign_bands(patch_grid, args_info.nbands_arg);
+assign_bands(fine_grid, args_info.nbands_arg);
+
+fprintf(LOG, "sky map orientation: %s\n", args_info.skymap_orientation_arg);
+
+if(!strcasecmp("ecliptic", args_info.skymap_orientation_arg)){
+	rotate_grid_xy(patch_grid, -M_PI/2.0);
+	rotate_grid_xy(fine_grid, -M_PI/2.0);
+
+	rotate_grid_xz(patch_grid, -M_PI*23.44/180.0);
+	rotate_grid_xz(fine_grid, -M_PI*23.44/180.0);
+
+	rotate_grid_xy(patch_grid, M_PI/2.0);
+	rotate_grid_xy(fine_grid, M_PI/2.0);
+	} else
+if(!strcasecmp("band_axis", args_info.skymap_orientation_arg)){
+	rotate_grid_xy(patch_grid, -band_axis_ra);
+	rotate_grid_xy(fine_grid, -band_axis_ra);
+
+	rotate_grid_xz(patch_grid, -band_axis_dec+M_PI/2.0);
+	rotate_grid_xz(fine_grid, -band_axis_dec+M_PI/2.0);
+
+	rotate_grid_xy(patch_grid, band_axis_ra);
+	rotate_grid_xy(fine_grid, band_axis_ra);
+	}
 
 /* now that we have new grid positions plot them */
 

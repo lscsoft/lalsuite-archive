@@ -225,7 +225,7 @@ for(i=0;i<sg->super_grid->npoints;i++){
 	}
 }
 
-void assign_dec_bands(SKY_GRID *grid, int n_bands)
+void assign_bands(SKY_GRID *grid, int n_bands)
 {
 int i,k;
 SKY_GRID_TYPE angle, proj, x,y,z;

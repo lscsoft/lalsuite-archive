@@ -62,7 +62,7 @@ cmdline_parser_print_help (void)
   printf("      --three-bins=INT             average 3 neighbouring bins to broaden \n                                     Doppler curves  (default=`0')\n");
   printf("      --do-cutoff=INT              neglect contribution from SFT with high \n                                     effective noise level  (default=`1')\n");
   printf("      --filter-lines=INT           perform detection of lines in background \n                                     noise and veto corresponding frequency \n                                     bins  (default=`1')\n");
-  printf("      --dec-bands=INT              split sky in this many bands in declination \n                                     for logging maximum upper limits  \n                                     (default=`9')\n");
+  printf("      --nbands=INT                 split sky in this many bands for logging \n                                     maximum upper limits  (default=`9')\n");
   printf("      --resolution-ratio=DOUBLE    ratio that determines the coarsness of the \n                                     grid  (default=`1.0')\n");
   printf("      --small-weight-ratio=DOUBLE  ratio that determines which weight is too \n                                     small to include in max statistics  \n                                     (default=`0.2')\n");
   printf("      --fake-ra=DOUBLE             RA of fake signal to inject  (default=\n                                     `3.14')\n");
@@ -74,6 +74,7 @@ cmdline_parser_print_help (void)
   printf("      --npolarizations=INT         number of linear polarizations to profile, \n                                     distributed uniformly between plus and \n                                     cross  (default=`3')\n");
   printf("      --write-dat=STRING           regular expression describing which *.dat \n                                     files to write  (default=`.*')\n");
   printf("      --write-png=STRING           regular expression describing which *.png \n                                     files to write  (default=`.*')\n");
+  printf("      --skymap-orientation=STRING  orientation of produced skymaps: \n                                     equatorial, ecliptic, band_axis  (default=\n                                     `equatorial')\n");
 }
 
 
@@ -121,7 +122,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->three_bins_given = 0 ;
   args_info->do_cutoff_given = 0 ;
   args_info->filter_lines_given = 0 ;
-  args_info->dec_bands_given = 0 ;
+  args_info->nbands_given = 0 ;
   args_info->resolution_ratio_given = 0 ;
   args_info->small_weight_ratio_given = 0 ;
   args_info->fake_ra_given = 0 ;
@@ -133,6 +134,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->npolarizations_given = 0 ;
   args_info->write_dat_given = 0 ;
   args_info->write_png_given = 0 ;
+  args_info->skymap_orientation_given = 0 ;
 #define clear_args() { \
   args_info->config_arg = NULL; \
   args_info->sky_grid_arg = gengetopt_strdup("sin_theta") ;\
@@ -154,7 +156,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->three_bins_arg = 0 ;\
   args_info->do_cutoff_arg = 1 ;\
   args_info->filter_lines_arg = 1 ;\
-  args_info->dec_bands_arg = 9 ;\
+  args_info->nbands_arg = 9 ;\
   args_info->resolution_ratio_arg = 1.0 ;\
   args_info->small_weight_ratio_arg = 0.2 ;\
   args_info->fake_ra_arg = 3.14 ;\
@@ -165,6 +167,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->npolarizations_arg = 3 ;\
   args_info->write_dat_arg = gengetopt_strdup(".*") ;\
   args_info->write_png_arg = gengetopt_strdup(".*") ;\
+  args_info->skymap_orientation_arg = gengetopt_strdup("equatorial") ;\
 }
 
   clear_args();
@@ -204,7 +207,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
         { "three-bins",	1, NULL, 0 },
         { "do-cutoff",	1, NULL, 0 },
         { "filter-lines",	1, NULL, 0 },
-        { "dec-bands",	1, NULL, 0 },
+        { "nbands",	1, NULL, 0 },
         { "resolution-ratio",	1, NULL, 0 },
         { "small-weight-ratio",	1, NULL, 0 },
         { "fake-ra",	1, NULL, 0 },
@@ -216,6 +219,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
         { "npolarizations",	1, NULL, 0 },
         { "write-dat",	1, NULL, 0 },
         { "write-png",	1, NULL, 0 },
+        { "skymap-orientation",	1, NULL, 0 },
         { NULL,	0, NULL, 0 }
       };
 
@@ -534,17 +538,17 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
             break;
           }
           
-          /* split sky in this many bands in declination for logging maximum upper limits.  */
-          else if (strcmp (long_options[option_index].name, "dec-bands") == 0)
+          /* split sky in this many bands for logging maximum upper limits.  */
+          else if (strcmp (long_options[option_index].name, "nbands") == 0)
           {
-            if (args_info->dec_bands_given)
+            if (args_info->nbands_given)
               {
-                fprintf (stderr, "%s: `--dec-bands' option given more than once\n", CMDLINE_PARSER_PACKAGE);
+                fprintf (stderr, "%s: `--nbands' option given more than once\n", CMDLINE_PARSER_PACKAGE);
                 clear_args ();
                 exit (EXIT_FAILURE);
               }
-            args_info->dec_bands_given = 1;
-            args_info->dec_bands_arg = strtol (optarg,&stop_char,0);
+            args_info->nbands_given = 1;
+            args_info->nbands_arg = strtol (optarg,&stop_char,0);
             break;
           }
           
@@ -703,6 +707,22 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
             if (args_info->write_png_arg)
               free (args_info->write_png_arg); /* free default string */
             args_info->write_png_arg = gengetopt_strdup (optarg);
+            break;
+          }
+          
+          /* orientation of produced skymaps: equatorial, ecliptic, band_axis.  */
+          else if (strcmp (long_options[option_index].name, "skymap-orientation") == 0)
+          {
+            if (args_info->skymap_orientation_given)
+              {
+                fprintf (stderr, "%s: `--skymap-orientation' option given more than once\n", CMDLINE_PARSER_PACKAGE);
+                clear_args ();
+                exit (EXIT_FAILURE);
+              }
+            args_info->skymap_orientation_given = 1;
+            if (args_info->skymap_orientation_arg)
+              free (args_info->skymap_orientation_arg); /* free default string */
+            args_info->skymap_orientation_arg = gengetopt_strdup (optarg);
             break;
           }
           
@@ -1210,14 +1230,14 @@ cmdline_parser_configfile (char * const filename, struct gengetopt_args_info *ar
                 }
               continue;
             }
-          if (!strcmp(fopt, "dec-bands"))
+          if (!strcmp(fopt, "nbands"))
             {
-              if (override || !args_info->dec_bands_given)
+              if (override || !args_info->nbands_given)
                 {
-                  args_info->dec_bands_given = 1;
+                  args_info->nbands_given = 1;
                   if (fnum == 2)
                     {
-                      args_info->dec_bands_arg = strtol (farg,&stop_char,0);
+                      args_info->nbands_arg = strtol (farg,&stop_char,0);
                     }
                   else
                     {
@@ -1420,6 +1440,26 @@ cmdline_parser_configfile (char * const filename, struct gengetopt_args_info *ar
                       if (args_info->write_png_arg)
                         free (args_info->write_png_arg); /* free default string */
                       args_info->write_png_arg = gengetopt_strdup (farg);
+                    }
+                  else
+                    {
+                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
+                               filename, line_num);
+                      exit (EXIT_FAILURE);
+                    }
+                }
+              continue;
+            }
+          if (!strcmp(fopt, "skymap-orientation"))
+            {
+              if (override || !args_info->skymap_orientation_given)
+                {
+                  args_info->skymap_orientation_given = 1;
+                  if (fnum == 2)
+                    {
+                      if (args_info->skymap_orientation_arg)
+                        free (args_info->skymap_orientation_arg); /* free default string */
+                      args_info->skymap_orientation_arg = gengetopt_strdup (farg);
                     }
                   else
                     {

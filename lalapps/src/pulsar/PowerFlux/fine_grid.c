@@ -419,10 +419,10 @@ float *freq_f;
 
 freq_f=&(frequencies[side_cut]);
 
-max_band=do_alloc(args_info.dec_bands_arg, sizeof(*max_band));
-masked_max_band=do_alloc(args_info.dec_bands_arg, sizeof(*max_band));
-max_band_arg=do_alloc(args_info.dec_bands_arg, sizeof(*max_band_arg));
-masked_max_band_arg=do_alloc(args_info.dec_bands_arg, sizeof(*max_band_arg));
+max_band=do_alloc(args_info.nbands_arg, sizeof(*max_band));
+masked_max_band=do_alloc(args_info.nbands_arg, sizeof(*max_band));
+max_band_arg=do_alloc(args_info.nbands_arg, sizeof(*max_band_arg));
+masked_max_band_arg=do_alloc(args_info.nbands_arg, sizeof(*max_band_arg));
 
 if(fine_grid->max_n_dec<800){
 	p=make_RGBPic(fine_grid->max_n_ra*(800/fine_grid->max_n_dec)+140, fine_grid->max_n_dec*(800/fine_grid->max_n_dec));
@@ -544,7 +544,7 @@ dump_floats(s,pol->skymap.max_upper_limit,fine_grid->npoints,1);
 max_dx=0.0;
 max_dx_i=0;
 masked=0;
-for(i=0;i<args_info.dec_bands_arg;i++){
+for(i=0;i<args_info.nbands_arg;i++){
 	max_band[i]=-1.0;
 	masked_max_band[i]=-1.0;
 	max_band_arg[i]=-1;
@@ -583,7 +583,7 @@ fprintf(LOG, "max_dx: %f %f %s %f %g %g %f\n",fine_grid->longitude[max_dx_i], fi
 				pol->skymap.max_lower_limit[max_dx_i], pol->skymap.freq_map[max_dx_i]);
 
 fprintf(LOG, "max/masked band format: band_num longitude latitude pol max_dx upper_strain freq\n");
-for(i=0;i<args_info.dec_bands_arg;i++){
+for(i=0;i<args_info.nbands_arg;i++){
 
 	fprintf(LOG, "max_band: %ld %f %f %s %f %g %f\n", i, fine_grid->longitude[max_band_arg[i]], fine_grid->latitude[max_band_arg[i]], 
 				pol->name, pol->skymap.max_dx[max_band_arg[i]], 
@@ -626,11 +626,11 @@ for(i=0;i<args_info.dec_bands_arg;i++){
 	*/
 	}
 
-for(i=0;i<args_info.dec_bands_arg*useful_bins;i++){
+for(i=0;i<args_info.nbands_arg*useful_bins;i++){
 	pol->spectral_plot.max_upper_limit[i]=sqrt(2.0*pol->spectral_plot.max_upper_limit[i]*upper_limit_comp)/(1800.0*16384.0);
 	}
 
-for(i=0;i<args_info.dec_bands_arg;i++){
+for(i=0;i<args_info.nbands_arg;i++){
 	snprintf(s,19999,"%s_max_upper_strain_band_%d.png",pol->name, i);
 	adjust_plot_limits_f(plot, freq_f, &(pol->spectral_plot.max_upper_limit[i*useful_bins]), useful_bins, 1, 1, 1);
 	draw_grid(p, plot, 0, 0);
