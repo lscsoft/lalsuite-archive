@@ -155,13 +155,16 @@ One of the options --query or --insert must be specified.
 \
 Usage: ldbdc [OPTIONS]
   print msg
-  -s, --server HOST:PORT        connect to ldbd on HOST:PORT
-  -d, --database NAME           use database NAME
-  -i, --insert LIGOLW           insert LIGO lightweight file LIGOLW
-  -q, --query QUERY             execute SQL query QUERY
-  -o, --output FILE             write output to FILE
-  -v, --verbose                 print lots of debugging information
-  -h, --help                    print detailed help message
+  -s, --server HOST:PORT     connect to ldbd on HOST:PORT (default port 49999)
+  -j, --identity SUBJECT     the subject of the servers service certififcate
+  -d, --database NAME        use database NAME
+  -i, --insert LIGOLW        insert LIGO lightweight file LIGOLW
+  -q, --query QUERY          execute SQL query QUERY
+  -o, --output FILE          write output to FILE
+  -v, --verbose              print lots of debugging information
+  -h, --help                 print detailed help message
+  "identity=",
+The option --server and one of --query or --insert must be specified.
   "query=",
   "output=",
   "verbose",
@@ -173,7 +176,8 @@ NAME
 
 SYNOPSIS
        ldbdc --server HOST:PORT --database NAME [--insert LIGOLW]
-       [--sql QUERY ] [--output FILE] [--verbose] [--help]
+       [--identity SUBJECT]     [--sql QUERY]     [--output FILE] 
+       [--verbose] [--help]
 
 DESCRIPTION
        ldbdc inserts  a  LIGO  lightweight  XML  file  into   the
@@ -184,6 +188,12 @@ DESCRIPTION
 OPTIONS
        -s, --server HOST:PORT
                connect to ldbd server at HOST on PORT
+
+       -j, --identity SUBJECT
+                the subject of the servers service  certififcate.
+                If no identity is specified, the  client  assumes
+                that it should expect an ldbdserver  DOE  service 
+                certificate from HOST.
 
        -d, --database NAME
                execute all commands at database NAME
@@ -227,15 +237,16 @@ AUTHOR
        Duncan Brown <duncan@gravity.phys.uwm.edu>
 
 BUGS
-       Some things don't work yet.
+       Getting large ammount of data is currently quite slow.
 \
 """
   print msg
 try:
   opts, args = getopt.getopt(sys.argv[1:], shortop, longop)
-shortop = "s:d:i:q:o:vh"
+except getopt.GetoptError:
   usage()
   sys.exit(1)
+
 # defaults
 server = None
 port = 49999
@@ -268,14 +279,14 @@ for o, a in opts:
     verbose = 1
 
 if not server or not database or (not infile and not squery):
+  usage()
+    infile = a
 if (squery and infile):
   print "Only one of --query and --insert can be specified\n"
   usage()
   sys.exit(1)
 
 if not identity:
-  elif o in ("-I", "--identity"):
-    identity = a
   identity = "/DC=org/DC=doegrids/OU=Services/CN=ldbdserver/%s" % server
 
 if infile:
@@ -289,15 +300,8 @@ elif squery:
     fh = sys.__stdout__
   act = "query"
 
-if re.match("metaserver.phys.uwm.edu",server):
-  identity = "/O=doesciencegrid.org/OU=Services/CN=host/metaserver.phys.uwm.edu"
-elif re.match("star.phys.uwm.edu",server):
-  identity = "/O=doesciencegrid.org/OU=Services/CN=host/star.phys.uwm.edu"
-
 doit = LDBDServerAction(server,port,identity,act,database,squery,fh)
-  print "Unknown server %s." % server
-  print "Please specify the identity yon the command line with --identity."
-  sys.exit(1)
+  identity = "/O=doesciencegrid.org/OU=Services/CN=ldbdserver/%s" % server
 
 #try:
 #  doit.execute()
