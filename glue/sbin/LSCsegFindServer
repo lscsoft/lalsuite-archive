@@ -26,10 +26,12 @@ import socket
 import SocketServer
 import types
 import exceptions
+import pickle
 import MySQLdb
 from pyGlobus import io
 from glue import segments
 from glue import gsiserverutils
+
 
 def SIGHUPhandler(signum, frame):
   """
@@ -258,27 +260,13 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
                         
     @return: None
     """
-    f = self.sfile
 
-    # check type of msg object and format appropriately
-    msgType = type(msg)
-
-    if msgType == types.StringType:
-      reply = "%d\0%s\0" % (code, msg)
-      f.write(reply)
-    elif msgType == types.ListType:
-      # pack the list of items as null byte seperated strings
-      reply = "%d\0" % code
-      for a in msg:
-        reply += "%s\0" % str(a)
-        f.write(reply)
-    else:
-      logger.error("Invalid response type: %s" % (msgType) )
+    pmsg = pickle.dumps(msg)
+    reply = "%d\0%s\0" % (code, pmsg)
+    f.write(reply)
 
     # close the file associated with the socket
     f.close()
-
-
 
   def ping(self, arg):
     """

@@ -13,6 +13,7 @@ import sys
 import os
 import exceptions
 import types
+import pickle
 
 from pyGlobus import io
 from pyGlobus import security
@@ -188,8 +189,11 @@ class LSCsegFindClient(object):
 
     try:
       stringList = response.split('\0')
+      if len(stringList) is not 2:
+        msg = "Malformatted response from server"
+        raise LSCsegFindClientException, msg
       code = int(stringList[0])
-      output = stringList[1:]
+      output = pickle.loads(stringList[1])
     except Exception, e:
       msg = "Error parsing response from server : %s" % e
       try:
