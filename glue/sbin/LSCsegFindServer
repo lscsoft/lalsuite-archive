@@ -493,10 +493,10 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
 
     # parse out query information
     try:
-      start = arg.pop(0)
-      end = arg.pop(0)
-      interferometer = arg.pop(0)
-      type = arg.pop(0)
+      start = arg[1]
+      end = arg[2]
+      interferometer = arg[3]
+      type = arg[4]
     except Exception, e:
       result = "Error parsing v2 protocol arguments %s: %s" % (str(arg), e)
       logger.error(result)
