@@ -24,6 +24,7 @@ option "orientation"    - "orientation of the source" double default="0" no
 
 option "no-demodulation" - "do not perform demodulation stage, analyze background only" int default="0" no
 option "no-decomposition" - "do not perform noise decomposition stage, output simple statistics only" int default="0" no
+option "no-am-response"  - "force AM_response() function to return 1.0 irrespective of the arguments" int default="0" no
 
 option "three-bins"	- "average 3 neighbouring bins to broaden Doppler curves" int default="0" no
 option "do-cutoff"      - "neglect contribution from SFT with high effective noise level" int default="1" no

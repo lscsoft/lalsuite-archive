@@ -42,6 +42,7 @@ struct gengetopt_args_info
   double orientation_arg;	/* orientation of the source (default='0').  */
   int no_demodulation_arg;	/* do not perform demodulation stage, analyze background only (default='0').  */
   int no_decomposition_arg;	/* do not perform noise decomposition stage, output simple statistics only (default='0').  */
+  int no_am_response_arg;	/* force AM_response() function to return 1.0 irrespective of the arguments (default='0').  */
   int three_bins_arg;	/* average 3 neighbouring bins to broaden Doppler curves (default='0').  */
   int do_cutoff_arg;	/* neglect contribution from SFT with high effective noise level (default='1').  */
   int filter_lines_arg;	/* perform detection of lines in background noise and veto corresponding frequency bins (default='1').  */
@@ -76,6 +77,7 @@ struct gengetopt_args_info
   int orientation_given ;	/* Whether orientation was given.  */
   int no_demodulation_given ;	/* Whether no-demodulation was given.  */
   int no_decomposition_given ;	/* Whether no-decomposition was given.  */
+  int no_am_response_given ;	/* Whether no-am-response was given.  */
   int three_bins_given ;	/* Whether three-bins was given.  */
   int do_cutoff_given ;	/* Whether do-cutoff was given.  */
   int filter_lines_given ;	/* Whether filter-lines was given.  */

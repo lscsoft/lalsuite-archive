@@ -68,6 +68,7 @@ for(i=2;i<npolarizations;i++){
 for(i=0;i<npolarizations;i++){
 	polarizations[i].patch_CutOff=do_alloc(patch_grid->npoints,sizeof(*polarizations[i].patch_CutOff));
 	}
+fflush(LOG);
 }
 
 void allocate_polarization_arrays(void)

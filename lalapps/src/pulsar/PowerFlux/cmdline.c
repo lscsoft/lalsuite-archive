@@ -58,6 +58,7 @@ cmdline_parser_print_help (void)
   printf("      --orientation=DOUBLE         orientation of the source  (default=`0')\n");
   printf("      --no-demodulation=INT        do not perform demodulation stage, analyze \n                                     background only  (default=`0')\n");
   printf("      --no-decomposition=INT       do not perform noise decomposition stage, \n                                     output simple statistics only  (default=\n                                     `0')\n");
+  printf("      --no-am-response=INT         force AM_response() function to return 1.0 \n                                     irrespective of the arguments  (default=\n                                     `0')\n");
   printf("      --three-bins=INT             average 3 neighbouring bins to broaden \n                                     Doppler curves  (default=`0')\n");
   printf("      --do-cutoff=INT              neglect contribution from SFT with high \n                                     effective noise level  (default=`1')\n");
   printf("      --filter-lines=INT           perform detection of lines in background \n                                     noise and veto corresponding frequency \n                                     bins  (default=`1')\n");
@@ -114,6 +115,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->orientation_given = 0 ;
   args_info->no_demodulation_given = 0 ;
   args_info->no_decomposition_given = 0 ;
+  args_info->no_am_response_given = 0 ;
   args_info->three_bins_given = 0 ;
   args_info->do_cutoff_given = 0 ;
   args_info->filter_lines_given = 0 ;
@@ -144,6 +146,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->orientation_arg = 0 ;\
   args_info->no_demodulation_arg = 0 ;\
   args_info->no_decomposition_arg = 0 ;\
+  args_info->no_am_response_arg = 0 ;\
   args_info->three_bins_arg = 0 ;\
   args_info->do_cutoff_arg = 1 ;\
   args_info->filter_lines_arg = 1 ;\
@@ -191,6 +194,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
         { "orientation",	1, NULL, 0 },
         { "no-demodulation",	1, NULL, 0 },
         { "no-decomposition",	1, NULL, 0 },
+        { "no-am-response",	1, NULL, 0 },
         { "three-bins",	1, NULL, 0 },
         { "do-cutoff",	1, NULL, 0 },
         { "filter-lines",	1, NULL, 0 },
@@ -463,6 +467,20 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
               }
             args_info->no_decomposition_given = 1;
             args_info->no_decomposition_arg = strtol (optarg,&stop_char,0);
+            break;
+          }
+          
+          /* force AM_response() function to return 1.0 irrespective of the arguments.  */
+          else if (strcmp (long_options[option_index].name, "no-am-response") == 0)
+          {
+            if (args_info->no_am_response_given)
+              {
+                fprintf (stderr, "%s: `--no-am-response' option given more than once\n", CMDLINE_PARSER_PACKAGE);
+                clear_args ();
+                exit (EXIT_FAILURE);
+              }
+            args_info->no_am_response_given = 1;
+            args_info->no_am_response_arg = strtol (optarg,&stop_char,0);
             break;
           }
           
@@ -1070,6 +1088,24 @@ cmdline_parser_configfile (char * const filename, struct gengetopt_args_info *ar
                   if (fnum == 2)
                     {
                       args_info->no_decomposition_arg = strtol (farg,&stop_char,0);
+                    }
+                  else
+                    {
+                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
+                               filename, line_num);
+                      exit (EXIT_FAILURE);
+                    }
+                }
+              continue;
+            }
+          if (!strcmp(fopt, "no-am-response"))
+            {
+              if (override || !args_info->no_am_response_given)
+                {
+                  args_info->no_am_response_given = 1;
+                  if (fnum == 2)
+                    {
+                      args_info->no_am_response_arg = strtol (farg,&stop_char,0);
                     }
                   else
                     {

@@ -47,10 +47,13 @@ typedef struct {
 		} spectral_plot;
 	} POLARIZATION;
 
+extern int no_am_response;
+
 static float inline AM_response(int segment, SKY_GRID *grid, int point, float *coeff)
 {
 float a;
 int ii;
+if(no_am_response)return 1.0;
 a=0.0;
 for(ii=0;ii<GRID_FIT_COUNT;ii++)
 	a+=coeff[segment*GRID_FIT_COUNT+ii]*grid->e[ii+GRID_FIT_START][point];

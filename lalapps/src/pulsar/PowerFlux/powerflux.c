@@ -30,6 +30,7 @@ float *det_velocity=NULL;
 
 long first_bin;
 
+
 float *TMedians=NULL,*FMedians=NULL, *expTMedians=NULL, *hours=NULL,*frequencies=NULL,*ks_test=NULL,*median=NULL;
 float TMedian,expTMedian;
 float *tm=NULL;
@@ -44,6 +45,8 @@ double orientation;
 char *earth_ephemeris=NULL, *sun_ephemeris=NULL;
 double resolution; /* this is actual resolution, not the resolution argument passed on command line */
 int fake_injection=0;
+
+int no_am_response;
 
 SKY_GRID *fine_grid=NULL;
 SKY_SUPERGRID *super_grid=NULL;
@@ -438,7 +441,14 @@ dump_floats("e4.dat",patch_grid->e[4],patch_grid->npoints,1);
 dump_floats("e5.dat",patch_grid->e[5],patch_grid->npoints,1);
 #endif
 
+no_am_response=args_info.no_am_response_arg;
+
+
 fprintf(LOG,"powerflux : %s\n",VERSION);
+if(no_am_response){
+	fprintf(LOG,"no_am_response : true\n");
+	fprintf(stderr,"NO_AM_RESPONSE flag passed\n");
+	}
 fprintf(LOG,"firstbin  : %ld\n",first_bin);
 fprintf(LOG,"band start: %g Hz\n",first_bin/1800.0);
 fprintf(LOG,"nbins     : %ld\n",nbins);
