@@ -38,7 +38,6 @@ regex_t write_dat, write_png;
 
 EphemerisData ephemeris;
 LALDetector detector;
-AvgVelPar detectorvel_inputs;
 
 void init_hookup(void)
 {
@@ -341,7 +340,6 @@ void init_ephemeris(void)
 LALStatus status={level:0, statusPtr:NULL};
 
 memset(&ephemeris, 0, sizeof(ephemeris));
-memset(&detectorvel_inputs, 0, sizeof(detectorvel_inputs));
 
 if(!strcasecmp("LHO", args_info.detector_arg)){
 	detector=lalCachedDetectors[LALDetectorIndexLHODIFF];
@@ -358,8 +356,10 @@ ephemeris.ephiles.sunEphemeris=sun_ephemeris;
 LALInitBarycenter(&status, &ephemeris);
 TESTSTATUS(&status);
 
+#if 0
 detectorvel_inputs.detector=detector;
 detectorvel_inputs.edat=&ephemeris;
+#endif
 fprintf(stderr,"Successfully initialized ephemeris data\n");
 }
 
@@ -378,11 +378,6 @@ memset(&gps_and_acc, 0, sizeof(gps_and_acc));
 gps_and_acc.accuracy=leapsec_info.accuracy;
 gps_and_acc.gps.gpsSeconds=gps; 
 gps_and_acc.gps.gpsNanoSeconds=0;
-
-#if 0 
-LALLeapSecs(&status, &tmp_leapsecs, &(gps_and_acc.gps), &leapsec_info);
-TESTSTATUS(&status);
-#endif
 
 memset(&source, 0, sizeof(source));
 source.equatorialCoords.system=COORDINATESYSTEM_EQUATORIAL;
@@ -420,9 +415,9 @@ gps_and_acc.gps.gpsNanoSeconds=0;
  
 LALLeapSecs(&status, &tmp_leapsecs, &(gps_and_acc.gps), &leapsec_info);
 TESTSTATUS(&status);
-detectorvel_inputs.edat->leap = (INT2)tmp_leapsecs; 
+ephemeris.leap = (INT2)tmp_leapsecs; 
 
-LALDetectorVel(&status, det_velocity, &(gps_and_acc.gps), &detectorvel_inputs);
+LALDetectorVel(&status, det_velocity, &(gps_and_acc.gps), detector, &ephemeris);
 TESTSTATUS(&status);
 
 #if 0
@@ -432,13 +427,13 @@ fprintf(stderr,"powerflux: det_velocity=(%g,%g,%g)\n",
 	det_velocity[2]
 	);
 fprintf(stderr,"gps=%d (nano=%d)\n",gps_and_acc.gps.gpsSeconds, gps_and_acc.gps.gpsNanoSeconds);
-fprintf(stderr,"detector=%s\n", detectorvel_inputs.detector.frDetector.name);
+fprintf(stderr,"detector=%s\n", detector.frDetector.name);
 fprintf(stderr,"powerflux leap=%d nE=%d nS=%d dE=%g dS=%g\n", 
-	detectorvel_inputs.edat->leap,
-	detectorvel_inputs.edat->nentriesE,
-	detectorvel_inputs.edat->nentriesS,
-	detectorvel_inputs.edat->dtEtable,
-	detectorvel_inputs.edat->dtStable);
+	ephemeris.leap,
+	ephemeris.nentriesE,
+	ephemeris.nentriesS,
+	ephemeris.dtEtable,
+	ephemeris.dtStable);
 #endif
 
 for(i=0;i<3;i++)velocity[i]=det_velocity[i];

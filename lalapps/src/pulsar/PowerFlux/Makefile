@@ -70,6 +70,15 @@ test4: powerflux
 		--detresponse-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
 		--detector=LLO --three-bins=0 --do-cutoff=0
 
+test4b: powerflux.hydra
+	valgrind --tool=memcheck --error-limit=no ./powerflux.hydra --input-format=Power -i /home/volodya/LIGO/S2/S2.L1.op/power.L1. -f $(BAND) -n 501 \
+		--ephemeris-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
+		--detector=LLO --three-bins=0 --do-cutoff=0 \
+		 --focus-ra=2.2 --focus-dec=0.3 --focus-radius=0.1 \
+		 --only-large-cos=0.34
+#		 --band-axis=explicit\(0.5,0.3,0.1\)
+#		 --write-dat=NONE --write-png=ul\.png\$ \
+
 test5: powerflux
 	time ./powerflux -i /home/volodya/LIGO/S2/S2.L1.op/power.L1. -f $(BAND) -n 501 \
 		--detresponse-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
