@@ -226,10 +226,8 @@ be present when searching for groups of segments
           print cdelim+ldelim+str(seg.get_start())+cdelim+str(seg.get_end())+rdelim,
         print rdelim
       else:
-        print >> sys.stderr, "Error: unknown segment format %s" % format
-        sys.exit(1)
-       
-
+        msg = "Error: unknown segment format : %s" % (format)
+        raise LSCsegFindException, msg
 
 
 def checkCredentials():
@@ -502,3 +500,5 @@ except Exception, e:
   print >>sys.stderr, "Error querying LSCsegFindServer: %s" % str(e)
   print >>sys.stderr, "Enter 'LSCsegFind --help' for usage"
   sys.exit(1)
+
+sys.exit(0)
