@@ -51,7 +51,6 @@ int do_CutOff=1;
 struct gengetopt_args_info args_info;
 
 double spindown;
-double orientation;
 char *earth_ephemeris=NULL, *sun_ephemeris=NULL;
 double resolution; /* this is actual resolution, not the resolution argument passed on command line */
 int fake_injection=0;
@@ -259,7 +258,6 @@ gsl_rng *rng=NULL;
 double average_freq, weight, mixed, plus_sq, cross_sq;
 
 rng=gsl_rng_alloc(gsl_rng_default);
-orientation=args_info.fake_orientation_arg;
 
 fake_power=args_info.fake_strain_arg*args_info.fake_strain_arg*1800.0*16384.0*1800.0*16384.0;
 
@@ -267,7 +265,9 @@ average_freq=0.0;
 weight=0.0;
 mixed=0.0;
 for(i=0;i<nsegments;i++){
-	get_AM_response(gps[i]+900, args_info.fake_dec_arg, args_info.fake_ra_arg,
+	get_AM_response(gps[i]+900, 
+		args_info.fake_dec_arg, args_info.fake_ra_arg,
+		args_info.fake_orientation_arg,
 		&plus, &cross);
 	/* effective power, ignoring phase, and taking into account windowing and
 	   fourier coefficient (we are keeping only half of them)*/
@@ -299,8 +299,6 @@ fprintf(LOG,"mixed: %g\n",mixed/nsegments);
 fprintf(LOG,"plus_sq: %g\n",plus_sq/nsegments);
 fprintf(LOG,"cross_sq: %g\n",cross_sq/nsegments);
 
-/* restore old value */
-orientation=args_info.orientation_arg;
 gsl_rng_free(rng);
 }
 
@@ -377,7 +375,6 @@ init_statistics();
 
 do_CutOff=args_info.do_cutoff_arg;
 spindown=args_info.spindown_arg;
-orientation=args_info.orientation_arg;
 
 if(args_info.earth_ephemeris_given){
 	earth_ephemeris=args_info.earth_ephemeris_arg;
@@ -501,7 +498,7 @@ fprintf(LOG,"fine_grid npoints  : %ld\n", fine_grid->npoints);
 fprintf(LOG,"fine_grid : %ldx%ld\n", fine_grid->max_n_ra, fine_grid->max_n_dec);
 fprintf(LOG,"input_data: %s\n",args_info.input_arg);
 fprintf(LOG,"spindown  : %g\n", spindown);
-fprintf(LOG,"orientation: %g\n", orientation);
+fprintf(LOG,"orientation: %g\n", args_info.orientation_arg);
 fprintf(LOG,"make cutoff: %s\n",do_CutOff ? "yes" : "no" );
 fflush(LOG);
 
@@ -919,9 +916,17 @@ if(args_info.no_demodulation_arg){
 
 /* PREP5 stage */
 
-get_whole_sky_AM_response(gps, nsegments, &AM_coeffs_plus, &AM_coeffs_cross, &AM_coeffs_size);
+get_whole_sky_AM_response(gps, nsegments, args_info.orientation_arg, &AM_coeffs_plus, &AM_coeffs_cross, &AM_coeffs_size);
 
 init_polarizations();
+
+/* Check AM_response for correctness */
+fprintf(stderr, "Verifying AM response computation\n");
+for(i=0;i<args_info.npolarizations_arg;i++){
+	verify_whole_sky_AM_response(gps, nsegments, polarizations[i].orientation, 
+		fine_grid, 
+		polarizations[i].AM_coeffs, polarizations[i].name);	
+	}
 
 #if 0 /* verify patch grid */
 {

@@ -13,11 +13,13 @@
 
 #include <gsl/gsl_multifit.h>
 #include <gsl/gsl_matrix.h>
+#include <gsl/gsl_rng.h>
 
 #include "global.h"
 #include "cmdline.h"
 #include "grid.h"
 #include "intervals.h"
+#include "polarization.h"
 
 #ifndef PATH_MAX
 /* just in case it is not defined */
@@ -28,7 +30,6 @@ extern FILE *LOG, *FILE_LOG;
 extern char *earth_ephemeris;
 extern char *sun_ephemeris;
 extern struct gengetopt_args_info args_info;
-extern double orientation;
 extern char *output_dir;
 
 INTERVAL_SET *segment_list=NULL;
@@ -363,7 +364,7 @@ detectorvel_inputs.edat=&ephemeris;
 fprintf(stderr,"Successfully initialized ephemeris data\n");
 }
 
-void get_AM_response(INT64 gps, float latitude, float longitude,
+void get_AM_response(INT64 gps, float latitude, float longitude, float orientation,
 	float *plus, float *cross)
 {
 LALStatus status={level:0, statusPtr:NULL};
@@ -441,7 +442,7 @@ for(i=0;i<3;i++)velocity[i]=det_velocity[i];
 
 
 /* there are count*GRID_FIT_COUNT coefficients */
-void get_whole_sky_AM_response(INT64 *gps, long count, float **coeffs_plus, float **coeffs_cross, long *size)
+void get_whole_sky_AM_response(INT64 *gps, long count, float orientation, float **coeffs_plus, float **coeffs_cross, long *size)
 {
 long i, j, k;
 SKY_GRID *sample_grid=NULL;
@@ -471,7 +472,9 @@ X=gsl_matrix_alloc(sample_grid->npoints, GRID_FIT_COUNT);
 
 for(k=0;k<count;k++){
 	for(i=0;i<sample_grid->npoints;i++){
-		get_AM_response(gps[k]+900, sample_grid->latitude[i], sample_grid->longitude[i],
+		get_AM_response(gps[k]+900, 
+			sample_grid->latitude[i], sample_grid->longitude[i], 
+			orientation,
 			&plus, &cross);
 		gsl_vector_set(y_plus, i, plus);
 		gsl_vector_set(y_cross, i, cross);
@@ -509,4 +512,33 @@ gsl_vector_free(c);
 
 gsl_multifit_linear_free(workspace);
 free_grid(sample_grid);
+}
+
+/* there are count*GRID_FIT_COUNT coefficients */
+void verify_whole_sky_AM_response(INT64 *gps, long count, float orientation,  SKY_GRID *sample_grid, float *coeffs_plus, char *name)
+{
+int i,j;
+long offset;
+float plus, cross;
+float max_err,err;
+gsl_rng *rng=NULL;
+rng=gsl_rng_alloc(gsl_rng_default);
+
+max_err=0;
+for(i=0;i<count;i++){
+	/* 20 points per segment ought to be enough */
+	for(j=0;j<20;j++){
+		/* test in random grid points */
+		offset=floor(sample_grid->npoints*gsl_rng_uniform(rng));
+		get_AM_response(gps[i]+900, 
+			sample_grid->latitude[offset], sample_grid->longitude[offset], 
+			orientation,
+			&plus, &cross);
+		err=fabs(plus*plus-AM_response(i, sample_grid, offset, coeffs_plus));
+		if(err>max_err)max_err=err;
+		}
+	}
+fprintf(stderr, "%s AM coeffs error: %g\n", name, max_err);
+fprintf(LOG, "%s AM coeffs error: %g\n", name, max_err);
+gsl_rng_free(rng);
 }

@@ -37,12 +37,14 @@ memset(polarizations, 0, npolarizations*sizeof(*polarizations));
 
 fprintf(stderr,"Initializing polarizations:\n");
 
+polarizations[0].orientation=0;
 polarizations[0].name="plus";
 polarizations[0].plus_proj=1.0;
 polarizations[0].cross_proj=0.0;
 polarizations[0].AM_coeffs=AM_coeffs_plus;
 fprintf(stderr,"\t%s 0.0\n",polarizations[0].name);
 
+polarizations[1].orientation=M_PI/4.0;
 polarizations[1].name="cross";
 polarizations[1].plus_proj=0.0;
 polarizations[1].cross_proj=1.0;
@@ -51,6 +53,7 @@ fprintf(stderr,"\t%s %g\n",polarizations[1].name, M_PI/4.0);
 
 for(i=2;i<npolarizations;i++){
 	a=(i-1)*M_PI/(4.0*(npolarizations-1));
+	polarizations[i].orientation=a;
 	polarizations[i].plus_proj=cos(2*a);
 	polarizations[i].cross_proj=sin(2*a);
 	polarizations[i].name=do_alloc(16,sizeof(char));
@@ -62,7 +65,6 @@ for(i=2;i<npolarizations;i++){
 		polarizations[i].AM_coeffs[k]=AM_coeffs_plus[k]*polarizations[i].plus_proj+
 			AM_coeffs_cross[k]*polarizations[i].cross_proj;
 		}
-		
 	}
 
 for(i=0;i<npolarizations;i++){

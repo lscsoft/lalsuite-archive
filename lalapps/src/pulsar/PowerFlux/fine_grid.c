@@ -597,7 +597,7 @@ if(fake_injection){
 	float largest;
 	double ds, best_ds;
 	long best_i=-1, largest_i=-1;
-	fprintf(LOG,"Interesting points: longitude latitude pol max_dx upper_strain lower_strain freq\n");
+	fprintf(LOG,"Interesting points: index longitude latitude pol max_dx upper_strain lower_strain freq\n");
 	for(i=0;i<fine_grid->npoints;i++){
 		/* e[2][i] is just cos of latitude */
 		/* Approximate spherical distance */
@@ -622,7 +622,9 @@ if(fake_injection){
 		if(ds<3*resolution){
 		#endif
 		
-		   	fprintf(LOG, "%f %f %s %f %g %g %f\n",fine_grid->longitude[i], fine_grid->latitude[i], 
+		   	fprintf(LOG, "%d %f %f %s %f %g %g %f\n",
+				i,
+				fine_grid->longitude[i], fine_grid->latitude[i], 
 				pol->name, pol->skymap.max_dx[i], 
 				pol->skymap.max_upper_limit[i], pol->skymap.max_lower_limit[i],
 				pol->skymap.freq_map[i]);

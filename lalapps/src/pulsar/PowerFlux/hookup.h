@@ -17,10 +17,12 @@ void dump_floats(char *name, float *x, long count, long step);
 void dump_doubles(char *name, double *x, long count, long step);
 
 void init_ephemeris(void);
-void get_AM_response(INT64 gps, float latitude, float longitude,
+void get_AM_response(INT64 gps, float latitude, float longitude, float orientation,
 	float *plus, float *cross);
 void get_detector_vel(INT64 gps, float *velocity);
 /* there are count*GRID_FIT_COUNT coefficients */
-void get_whole_sky_AM_response(INT64 *gps, long count, float **coeffs_plus, float **coeffs_cross, long *size);
+void get_whole_sky_AM_response(INT64 *gps, long count, float orientation, float **coeffs_plus, float **coeffs_cross, long *size);
+/* Accepts one set of coefficients for a fixed polarization */
+void verify_whole_sky_AM_response(INT64 *gps, long count, float orientation,  SKY_GRID *grid, float *coeffs_plus, char *name);
 
 #endif

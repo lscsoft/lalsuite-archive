@@ -5,6 +5,7 @@
 #include "global.h"
 
 typedef struct {
+	float orientation;
 	float  plus_proj;
 	float  cross_proj;
 	
