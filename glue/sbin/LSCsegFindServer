@@ -20,7 +20,7 @@ import signal
 import logging
 import logging.handlers
 import getopt
-from ConfigParser import ConfigParser
+import ConfigParser
 import time
 import socket
 import SocketServer
@@ -56,11 +56,18 @@ def SIGHUPhandler(signum, frame):
 
   myConfigParser.read(configFilePath)
   for k in configuration.keys():
-    value = c.get('LSCsegFindServer',k)
     try:
-      configuration[o] = eval(value)
+      value = myConfigParser.get('LSCsegFindServer',k)
+    except ConfigParser.NoOptionError:
+      try:
+        logger.error("Error: missing configuration option : %s" % (k))
+      except:
+        print >> sys.stderr, "Error: missing configuration option : %s" % (k)
+      sys.exit(1)
+    try:
+      configuration[k] = eval(value)
     except:
-      configuration[o] = value
+      configuration[k] = value
 
 
 def SIGTERMhandler(signum, frame):
@@ -146,7 +153,7 @@ except:
   pass
 
 if not configFilePath:
-  configFilePath = os.path.join(LDR_LOCATION, "etc/lscsegfindserver.ini")
+  configFilePath = os.path.join(GLUE_LOCATION, "etc/lscsegfindserver.ini")
 
 # default configuration values may go here, but they will be replaced
 # by actual values if and when a ConfigurationManager instance is
@@ -168,7 +175,7 @@ configuration = {
   }
 
 # grab configuration
-myConfigParser = ConfigParser()
+myConfigParser = ConfigParser.ConfigParser()
 try:
   myConfigParser.read(configFilePath)
 except:
@@ -176,11 +183,15 @@ except:
   sys.exit(1)
 
 for k in configuration.keys():
-  value = c.get('LSCsegFindServer',k)
   try:
-    configuration[o] = eval(value)
+    value = myConfigParser.get('LSCsegFindServer',k)
+  except ConfigParser.NoOptionError:
+    print >> sys.stderr, "Error: missing configuration option : %s" % (k)
+    sys.exit(1)
+  try:
+    configuration[k] = eval(value)
   except:
-    configuration[o] = value
+    configuration[k] = value
 
 class LSCsegFindServerHandlerException(exceptions.Exception):
   """
@@ -544,8 +555,8 @@ class LSCsegFindServer(object):
       print >>sys.__stderr__, "Unable to start logging: %s" % e
         
     for k in configuration.keys():
-      logger.info("Configuration parameter: %s = %s" % 
-        (k, str(configuration[k]))
+      logger.info("Configuration parameter: %s = %s" %
+        (k, str(configuration[k])))
 
 
   def run(self):
