@@ -1,4 +1,6 @@
 """
+A Python implementation of GPS related time conversions.
+
 --------------------------------------------------------------------------------
 Copyright 2002 by Bud P. Bruegger, Sistema, Italy
 mailto:bud@sistema.it
