@@ -41,6 +41,7 @@ cmdline_parser_print_help (void)
   printf("  -h, --help                            Print help and exit\n");
   printf("  -V, --version                         Print version and exit\n");
   printf("  -c, --config=STRING                   configuration file (in gengetopt \n                                          format) to pass parameters\n");
+  printf("      --label=STRING                    arbitrary string to be printed in the \n                                          beginning of PowerFlux log file\n");
   printf("      --sky-grid=STRING                 sky grid type (arcsin, \n                                          plain_rectangular, sin_theta)  \n                                          (default=`sin_theta')\n");
   printf("      --skymap-orientation=STRING       orientation of produced skymaps: \n                                          equatorial, ecliptic, band_axis  \n                                          (default=`equatorial')\n");
   printf("      --fine-factor=INT                 make fine grid this times finer  \n                                          (default=`5')\n");
@@ -120,6 +121,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->help_given = 0 ;
   args_info->version_given = 0 ;
   args_info->config_given = 0 ;
+  args_info->label_given = 0 ;
   args_info->sky_grid_given = 0 ;
   args_info->skymap_orientation_given = 0 ;
   args_info->fine_factor_given = 0 ;
@@ -171,6 +173,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->fake_freq_given = 0 ;
 #define clear_args() { \
   args_info->config_arg = NULL; \
+  args_info->label_arg = NULL; \
   args_info->sky_grid_arg = gengetopt_strdup("sin_theta") ;\
   args_info->skymap_orientation_arg = gengetopt_strdup("equatorial") ;\
   args_info->fine_factor_arg = 5 ;\
@@ -227,6 +230,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
         { "help",	0, NULL, 'h' },
         { "version",	0, NULL, 'V' },
         { "config",	1, NULL, 'c' },
+        { "label",	1, NULL, 0 },
         { "sky-grid",	1, NULL, 0 },
         { "skymap-orientation",	1, NULL, 0 },
         { "fine-factor",	1, NULL, 0 },
@@ -364,8 +368,22 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
 
 
         case 0:	/* Long option with no short option */
+          /* arbitrary string to be printed in the beginning of PowerFlux log file.  */
+          if (strcmp (long_options[option_index].name, "label") == 0)
+          {
+            if (args_info->label_given)
+              {
+                fprintf (stderr, "%s: `--label' option given more than once\n", CMDLINE_PARSER_PACKAGE);
+                clear_args ();
+                exit (EXIT_FAILURE);
+              }
+            args_info->label_given = 1;
+            args_info->label_arg = gengetopt_strdup (optarg);
+            break;
+          }
+          
           /* sky grid type (arcsin, plain_rectangular, sin_theta).  */
-          if (strcmp (long_options[option_index].name, "sky-grid") == 0)
+          else if (strcmp (long_options[option_index].name, "sky-grid") == 0)
           {
             if (args_info->sky_grid_given)
               {
@@ -1110,6 +1128,24 @@ cmdline_parser_configfile (char * const filename, struct gengetopt_args_info *ar
                   if (fnum == 2)
                     {
                       args_info->config_arg = gengetopt_strdup (farg);
+                    }
+                  else
+                    {
+                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
+                               filename, line_num);
+                      exit (EXIT_FAILURE);
+                    }
+                }
+              continue;
+            }
+          if (!strcmp(fopt, "label"))
+            {
+              if (override || !args_info->label_given)
+                {
+                  args_info->label_given = 1;
+                  if (fnum == 2)
+                    {
+                      args_info->label_arg = gengetopt_strdup (farg);
                     }
                   else
                     {

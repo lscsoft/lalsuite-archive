@@ -53,12 +53,12 @@ if(regcomp(&write_png, args_info.write_png_arg, REG_EXTENDED | REG_NOSUB)){
 if(args_info.segments_file_given){
 	segment_list=new_interval_set();
 	add_intervals_from_file(segment_list, args_info.segments_file_arg);
-	fprintf(LOG, "Read %d intervals from file: %s\n", segment_list->free, args_info.segments_file_arg);
+	fprintf(LOG, "Read %ld intervals from file: %s\n", segment_list->free, args_info.segments_file_arg);
 	}
 if(args_info.veto_segments_file_given){
 	veto_segment_list=new_interval_set();
 	add_intervals_from_file(veto_segment_list, args_info.veto_segments_file_arg);
-	fprintf(LOG, "Read %d veto intervals from file: %s\n", veto_segment_list->free, args_info.veto_segments_file_arg);
+	fprintf(LOG, "Read %ld veto intervals from file: %s\n", veto_segment_list->free, args_info.veto_segments_file_arg);
 	}
 }
 
@@ -121,8 +121,6 @@ return 0;
 int get_geo_range(char *filename, long startbin, long count, float *data, INT64 *gps)
 {
 FILE *fin;
-char s[PATH_MAX];
-char *p;
 REAL8 a, timebase;
 INT4 b, bin_start, nbins;
 REAL4 *tmp;
@@ -192,12 +190,12 @@ return 0;
 }
 
 
-void read_directory(char *prefix, long first,long last, 
-	long first_bin,long bin_count,
-	long *nsegments, float **power, INT64 **gps)
+void read_directory(char *prefix, int first, int last, 
+	int first_bin, int bin_count,
+	int *nsegments, float **power, INT64 **gps)
 {
 char s[PATH_MAX];
-long i;
+int i;
 int (*get_range)(char *filename, long startbin, long count, float *data, INT64 *gps);
 
 fprintf(LOG,"power data size: %f MB\n",(last-first+1)*bin_count*sizeof(**power)/(1024.0*1024.0));
@@ -218,13 +216,13 @@ if(!strcasecmp("Power", args_info.input_format_arg)){
 fprintf(stderr,"Reading files %s*:", prefix);
 for(i=first;i<=last;i++){
 	snprintf(s,PATH_MAX, args_info.input_munch_arg, prefix, i);
-	fprintf(stderr," %ld",i);
+	fprintf(stderr," %d",i);
 	if(!get_range(s,first_bin,bin_count,*power+(*nsegments)*bin_count,(*gps)+(*nsegments))){
 		fprintf(stderr,"(%Ld)",(*gps)[*nsegments]);
 		(*nsegments)++;
 		}
 	}
-fprintf(stderr,"\nRead %ld files\n", *nsegments);
+fprintf(stderr,"\nRead %d files\n", *nsegments);
 /* free memory we did not use */
 if(*nsegments<(last-first+1)){
 	*power=realloc(*power,(*nsegments)*bin_count*sizeof(**power));
@@ -444,7 +442,7 @@ for(i=0;i<3;i++)velocity[i]=det_velocity[i];
 /* there are count*GRID_FIT_COUNT coefficients */
 void get_whole_sky_AM_response(INT64 *gps, long count, float orientation, float **coeffs_plus, float **coeffs_cross, long *size)
 {
-long i, j, k;
+int i, j, k;
 SKY_GRID *sample_grid=NULL;
 float plus, cross;
 

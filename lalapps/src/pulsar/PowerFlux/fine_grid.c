@@ -23,7 +23,7 @@ extern float TMedian;
 
 extern struct gengetopt_args_info args_info;
 
-extern long nsegments, nbins, first_bin, side_cut, useful_bins;
+extern int nsegments, nbins, first_bin, side_cut, useful_bins;
 
 INT64 *gps=NULL;
 INT64 spindown_start;
@@ -46,9 +46,9 @@ extern float *frequencies;
 
 SUM_TYPE normalizing_weight;
 
-long stored_fine_bins=0;
+int stored_fine_bins=0;
 
-long max_shift=0, min_shift=0;
+int max_shift=0, min_shift=0;
 
 
 SUM_TYPE  *circ_ul, *circ_ul_freq;  /* lower (over polarizations) accumulation limits */
@@ -67,12 +67,12 @@ float upper_limit_comp=1.0/(0.7*0.85);
 
 /* single bin version */
 
-void (*process_patch)(POLARIZATION *pol, long pi, long k, float CutOff);
+void (*process_patch)(POLARIZATION *pol, int pi, int k, float CutOff);
 
-static void process_patch1(POLARIZATION *pol, long pi, long k, float CutOff)
+static void process_patch1(POLARIZATION *pol, int pi, int k, float CutOff)
 {
-long i,kk,b,b0,b1,n,offset;
-long bin_shift;
+int i,kk,b,b0,b1,n,offset;
+int bin_shift;
 SUM_TYPE mod;
 SUM_TYPE a,w,w2;
 SUM_TYPE *sum,*sq_sum;
@@ -111,7 +111,7 @@ for(i=0,kk=super_grid->first_map[pi];kk>=0;kk=super_grid->list_map[kk],i++)
 		b0=side_cut-bin_shift;
 		b1=(nbins-side_cut)-bin_shift;
 		if((b0<0)||(b1>nbins)){
-			fprintf(stderr,"Working frequency range obscured by bin_shift shift: bin_shift=%ld kk=%ld i=%ld pi=%ld\n",
+			fprintf(stderr,"Working frequency range obscured by bin_shift shift: bin_shift=%d kk=%d i=%d pi=%d\n",
 				bin_shift, kk, i, pi);
 			exit(-1);
 			}
@@ -187,10 +187,10 @@ for(i=0,kk=super_grid->first_map[pi];kk>=0;kk=super_grid->list_map[kk],i++)
 
 /* three bin version */
 
-static void process_patch3(POLARIZATION *pol, long pi, long k, float CutOff)
+static void process_patch3(POLARIZATION *pol, int pi, int k, float CutOff)
 {
-long i,kk,b,b0,b1,n,offset;
-long bin_shift;
+int i,kk,b,b0,b1,n,offset;
+int bin_shift;
 SUM_TYPE mod;
 SUM_TYPE a,w,w2;
 SUM_TYPE *sum,*sq_sum;
@@ -221,7 +221,7 @@ for(i=0,kk=super_grid->first_map[pi];kk>=0;kk=super_grid->list_map[kk],i++)
 		b0=side_cut-bin_shift;
 		b1=(nbins-side_cut)-bin_shift;
 		if((b0<1)||(b1>(nbins-1))){
-			fprintf(stderr,"Working frequency range obscured by bin_shift shift: bin_shift=%ld kk=%ld i=%ld pi=%ld\n",
+			fprintf(stderr,"Working frequency range obscured by bin_shift shift: bin_shift=%d kk=%d i=%d pi=%d\n",
 				bin_shift, kk, i, pi);
 			exit(-1);
 			}
@@ -328,12 +328,12 @@ if(dx<2.0)return 0.35;
 return 0.455;
 }
 
-void make_limits(POLARIZATION *pol, long pi)
+void make_limits(POLARIZATION *pol, int pi)
 {
 SUM_TYPE M,Q80,Q20,S,dx;
 SUM_TYPE a,b,c;
 SUM_TYPE *tmp=NULL;
-long i,j,k,offset,band;
+int i,j,k,offset,band;
 NORMAL_STATS nstats;
 
 /* allocate on stack, for speed */
@@ -481,9 +481,9 @@ for(i=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[o
 
 }
 
-void make_unified_limits(long pi)
+void make_unified_limits(int pi)
 {
-long i, offset;
+int i, offset;
 int band, k;
 SUM_TYPE a,b,c;
 for(i=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[offset],i++){
@@ -509,10 +509,10 @@ void output_limits(POLARIZATION *pol)
 char s[20000];
 RGBPic *p;
 PLOT *plot;
-long i, max_dx_i, masked, k;
+int i, max_dx_i, masked, k;
 SUM_TYPE max_dx;
 float *max_band, *masked_max_band;
-long *max_band_arg, *masked_max_band_arg;
+int *max_band_arg, *masked_max_band_arg;
 float *freq_f;
 float max_ratio;
 HISTOGRAM *hist;
@@ -586,7 +586,7 @@ for(i=0;i<fine_grid->npoints;i++){
 if(fake_injection){
 	float largest;
 	double ds, best_ds;
-	long best_i=-1, largest_i=-1;
+	int best_i=-1, largest_i=-1;
 	fprintf(LOG,"Interesting points: index longitude latitude pol max_dx upper_strain lower_strain freq beta1 beta2\n");
 	for(i=0;i<fine_grid->npoints;i++){
 		/* e[2][i] is just cos of latitude */
@@ -693,7 +693,7 @@ for(i=0;i<fine_grid->npoints;i++){
 		masked_max_band_arg[k]=i;
 		}
 	}
-fprintf(LOG, "masked: %s %ld\n", pol->name, masked);
+fprintf(LOG, "masked: %s %d\n", pol->name, masked);
 fprintf(LOG, "largest signal: longitude latitude pol max_dx upper_strain lower_strain freq\n");	
 fprintf(LOG, "max_dx: %f %f %s %f %g %g %f\n",fine_grid->longitude[max_dx_i], fine_grid->latitude[max_dx_i], 
 				pol->name, pol->skymap.max_dx[max_dx_i], 
@@ -703,12 +703,12 @@ fprintf(LOG, "max_dx: %f %f %s %f %g %g %f\n",fine_grid->longitude[max_dx_i], fi
 fprintf(LOG, "max/masked band format: band_num longitude latitude pol max_dx upper_strain freq\n");
 for(i=0;i<args_info.nbands_arg;i++){
 
-	fprintf(LOG, "max_band: %ld %f %f %s %f %g %f\n", i, fine_grid->longitude[max_band_arg[i]], fine_grid->latitude[max_band_arg[i]], 
+	fprintf(LOG, "max_band: %d %f %f %s %f %g %f\n", i, fine_grid->longitude[max_band_arg[i]], fine_grid->latitude[max_band_arg[i]], 
 				pol->name, pol->skymap.max_dx[max_band_arg[i]], 
 				max_band[i], 
 				pol->skymap.freq_map[max_band_arg[i]]);
 
-	fprintf(LOG, "masked_max_band: %ld %f %f %s %f %g %f\n", i, fine_grid->longitude[masked_max_band_arg[i]], fine_grid->latitude[masked_max_band_arg[i]], 
+	fprintf(LOG, "masked_max_band: %d %f %f %s %f %g %f\n", i, fine_grid->longitude[masked_max_band_arg[i]], fine_grid->latitude[masked_max_band_arg[i]], 
 				pol->name, pol->skymap.max_dx[masked_max_band_arg[i]], 
 				masked_max_band[i], 
 				pol->skymap.freq_map[masked_max_band_arg[i]]);
@@ -751,8 +751,8 @@ for(i=0;i<args_info.nbands_arg;i++){
 			}
 	fprintf(LOG,"max_ratio: %d %s %f\n", i, pol->name, max_ratio);
         /* old 
-	fprintf(LOG, "max_band: %ld %s %g\n", i, pol->name, max_band[i]);
-	fprintf(LOG, "masked_max_band: %ld %s %g\n", i, pol->name, masked_max_band[i]);
+	fprintf(LOG, "max_band: %d %s %g\n", i, pol->name, max_band[i]);
+	fprintf(LOG, "masked_max_band: %d %s %g\n", i, pol->name, masked_max_band[i]);
 	*/
 	}
 
@@ -819,7 +819,7 @@ void output_unified_limits(void)
 {
 RGBPic *p;
 PLOT *plot;
-long i,k;
+int i,k;
 char s[20000];
 SUM_TYPE *skymap_high_ul, *skymap_high_ul_freq;
 SUM_TYPE *spectral_plot_high_ul;
@@ -978,11 +978,11 @@ free_RGBPic(p);
 free(skymap_high_ul);
 }
 
-void compute_mean(long pi)
+void compute_mean(int pi)
 {
 SUM_TYPE a,c;
-long i,k,m;
-long offset;
+int i,k,m;
+int offset;
 for(k=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[offset],k++){
 	if(fine_grid->band[offset]<0)continue;
 	
@@ -1028,10 +1028,10 @@ for(k=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[o
 	}
 }
 
-void compute_mean_no_lines(long pi)
+void compute_mean_no_lines(int pi)
 {
 SUM_TYPE a,c;
-long i,k,offset,m;
+int i,k,offset,m;
 for(k=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[offset],k++){
 	if(fine_grid->band[offset]<0)continue;
 
@@ -1069,7 +1069,7 @@ for(k=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[o
 
 void fine_grid_stage(void)
 {
-long pi,i,k,m;
+int pi,i,k,m;
 double a,b;
 
 normalizing_weight=exp(-M_LN10*TMedian);
@@ -1106,7 +1106,7 @@ if(args_info.three_bins_arg){
 	fprintf(LOG,"mode: 1 bin\n");
 	}
 
-fprintf(stderr,"Main loop: %ld patches to process.\n", patch_grid->npoints);
+fprintf(stderr,"Main loop: %d patches to process.\n", patch_grid->npoints);
 for(pi=0;pi<patch_grid->npoints;pi++){
 	if(patch_grid->band[pi]<0)continue;
 	
@@ -1139,16 +1139,16 @@ for(pi=0;pi<patch_grid->npoints;pi++){
 		}
 	make_unified_limits(pi);
 
-	if(! (pi % 100))fprintf(stderr,"%ld ",pi);
+	if(! (pi % 100))fprintf(stderr,"%d ",pi);
 	}
-fprintf(stderr,"%ld ",pi);
+fprintf(stderr,"%d ",pi);
 
-fprintf(LOG,"Maximum bin shift: %ld\n", max_shift);
-fprintf(LOG,"Minimum bin shift: %ld\n", min_shift);
+fprintf(LOG,"Maximum bin shift: %d\n", max_shift);
+fprintf(LOG,"Minimum bin shift: %d\n", min_shift);
 fflush(LOG);
 
-fprintf(stderr,"\nMaximum bin shift is %ld\n", max_shift);
-fprintf(stderr,"Minimum bin shift is %ld\n", min_shift);
+fprintf(stderr,"\nMaximum bin shift is %d\n", max_shift);
+fprintf(stderr,"Minimum bin shift is %d\n", min_shift);
 
 for(i=0;i<ntotal_polarizations;i++){
 	output_limits(&(polarizations[i]));

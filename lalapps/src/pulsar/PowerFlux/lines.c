@@ -56,7 +56,7 @@ void detect_lines(double *mean)
 {
 double *tmp;
 double median,q5,q30;
-long i,j;
+int i,j;
 lines=do_alloc(nbins, sizeof(*lines));
 tmp=do_alloc(nbins, sizeof(*tmp));
 memcpy(tmp, mean, nbins*sizeof(*tmp));
@@ -71,7 +71,7 @@ for(i=0;i<nbins;i++){
 		else {
 		if(mean[i]>(2*q30-median)){
 			lines[i]=1;
-			fprintf(stderr,"Line found in %ld bin: \t%g Hz\n",
+			fprintf(stderr,"Line found in %d bin: \t%g Hz\n",
 				i, (first_bin+i)/1800.0);
 			for(j=0;j<5;j++){
 				if(lines_list[j]<0)lines_list[j]=i;
@@ -88,7 +88,7 @@ void detect_lines_d(double *z, LINES_REPORT *lr)
 {
 double *tmp;
 double median, qlines, qmost;
-long i, j, k, nb, vh_count=0;
+int i, j, k, nb, vh_count=0;
 
 nb=lr->x1-lr->x0+1;
 
@@ -140,7 +140,7 @@ for(i=lr->x0+1;i<=lr->x1-1;i++){
 	    of strictly bin-centered line */
 	 if(((lr->lines[i] & (LINE_CANDIDATE | LINE_VERY_HIGH | LINE_CLUSTERED))==(LINE_CANDIDATE | LINE_VERY_HIGH))){
 		lr->lines[i]|=LINE_YES;
-		fprintf(stderr,"line detected: i=%ld z[i]=%g\n", i, z[i]);
+		fprintf(stderr,"line detected: i=%d z[i]=%g\n", i, z[i]);
 	
 		for(j=0;j<lr->nlines;j++){
 			/* this can happen if we are adding new lines */
@@ -153,7 +153,7 @@ for(i=lr->x0+1;i<=lr->x1-1;i++){
 			}
 		}
 	  if(lr->lines[i] & LINE_CANDIDATE){
-	  	fprintf(stderr,"i=%ld %g %g %g\n", i,
+	  	fprintf(stderr,"i=%d %g %g %g\n", i,
 			z[i-1]-median, 
 			z[i]-median, 
 			z[i+1]-median);
@@ -164,7 +164,7 @@ lr->qmost=qmost;
 lr->qlines=qlines;
 fprintf(stderr,"median=%g qmost=%g qlines=%g\n",
 		 median, qmost, qlines);
-fprintf(stderr,"bins marked \"very high\": %ld\n", vh_count);
+fprintf(stderr,"bins marked \"very high\": %d\n", vh_count);
 free(tmp);
 }
 
@@ -172,8 +172,8 @@ void detect_lines_f(float *z, LINES_REPORT *lr)
 {
 float *tmp;
 float median, qlines, qmost;
-long i, j, k, nb;
-long vh_count=0;
+int i, j, k, nb;
+int vh_count=0;
 
 nb=lr->x1-lr->x0+1;
 
@@ -225,7 +225,7 @@ for(i=lr->x0+1;i<=lr->x1-1;i++){
 	    of strictly bin-centered line */
 	 if(((lr->lines[i] & (LINE_CANDIDATE | LINE_VERY_HIGH | LINE_CLUSTERED))==(LINE_CANDIDATE | LINE_VERY_HIGH))){
 		lr->lines[i]|=LINE_YES;
-		fprintf(stderr,"line detected: i=%ld z[i]=%g\n", i, z[i]);
+		fprintf(stderr,"line detected: i=%d z[i]=%g\n", i, z[i]);
 	
 		for(j=0;j<lr->nlines;j++){
 			/* this can happen if we are adding new lines */
@@ -243,7 +243,7 @@ lr->median=median;
 lr->qmost=qmost;
 lr->qlines=qlines;
 fprintf(stderr,"median=%g qmost=%g qlines=%g\n", median, qmost, qlines);
-fprintf(stderr,"bins marked \"very high\": %ld\n", vh_count);
+fprintf(stderr,"bins marked \"very high\": %d\n", vh_count);
 
 free(tmp);
 }
@@ -257,7 +257,7 @@ fprintf(f,"%s qlines: %g\n",tag,lr->qlines);
 fprintf(f,"%s cutoff: %g\n",tag,2*lr->qmost-lr->median);
 for(i=0;i<lr->nlines;i++)
 	if(lr->lines_list[i]>=0)
-		fprintf(f,"%s line bin: %ld\n",tag,lr->lines_list[i]);
+		fprintf(f,"%s line bin: %d\n",tag,lr->lines_list[i]);
 for(i=0;i<lr->nlines;i++)
 	if(lr->lines_list[i]>=0)
 		fprintf(f,"%s line freq: %g Hz\n",tag,(first_bin+lr->lines_list[i])/1800.0);

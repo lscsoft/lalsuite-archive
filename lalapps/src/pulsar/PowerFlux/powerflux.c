@@ -27,8 +27,8 @@ time_t start_time, end_time;
 float *power=NULL; /* nsegments, nbins */
 extern INT64 *gps;
 extern INT64 spindown_start;
-long nsegments, nbins,side_cut;
-long useful_bins;
+int nsegments, nbins,side_cut;
+int useful_bins;
 
 float *det_velocity=NULL;
 double average_det_velocity[3];
@@ -37,7 +37,7 @@ double orbital_axis[3];
 double band_axis[3];
 float band_axis_ra, band_axis_dec;
 
-long first_bin;
+int first_bin;
 
 
 float *TMedians=NULL,*FMedians=NULL, *expTMedians=NULL, *hours=NULL,*frequencies=NULL,*ks_test=NULL,*median=NULL,
@@ -64,7 +64,7 @@ SKY_SUPERGRID *super_grid=NULL;
 SKY_GRID *patch_grid=NULL;
 
 SKY_GRID_TYPE *AM_coeffs_plus=NULL,*AM_coeffs_cross=NULL;
-long AM_coeffs_size=0;
+int AM_coeffs_size=0;
 
 char *output_dir;
 
@@ -84,10 +84,10 @@ while(r==NULL){
 return r;
 }
 
-static float compute_median(float *firstbin, long step, long count)
+static float compute_median(float *firstbin, int step, int count)
 {
 float *tmp;
-long i;
+int i;
 tmp=alloca(count*sizeof(float));
 for(i=0;i<count;i++)tmp[i]=firstbin[i*step];
 sort_floats(tmp, count);
@@ -100,11 +100,10 @@ void compute_noise_curves(void)
 float *tmp;
 float *p,*t;
 float a;
-long i,j;
+int i,j;
 float b, b_initial;
 HISTOGRAM *hist;
 tmp=do_alloc(nsegments*nbins,sizeof(float));
-TRACE("Computing log10")
 for(i=0;i<nsegments;i++){
 	t=&(tmp[i*nbins]);
 	p=&(power[i*nbins]);
@@ -112,8 +111,6 @@ for(i=0;i<nsegments;i++){
 		t[j]=log10(p[j]);
 		}
 	}
-TRACE("Computed log10")
-TRACE("Factoring log power")
 b=0;
 for(i=0;i<nsegments;i++){
 	a=compute_median(tmp+i*nbins,1,nbins);
@@ -159,7 +156,6 @@ while(b>0){
 	   magnitude, do not try to solve exactly */
 	if(!((nsegments &1)&&(nbins&1)) && (b<(b_initial*(1E-16))))break;
 	}
-TRACE("Factored log power")
 
 for(i=0;i<nsegments;i++){
 	max_residuals[i]=tmp[i*nbins];
@@ -189,10 +185,10 @@ fflush(LOG);
   tm[i]=exp(log(10)*TMedians[i])/Modulation[i] */
 float FindCutOff(float *tm)
 {
-long i;
+int i;
 double sum,sum_squared,mean,sigma;
 double best_cutoff,smallest_sigma;
-long best_i;
+int best_i;
 sort_floats(tm, nsegments);
 sum=0;
 sum_squared=0;
@@ -211,7 +207,7 @@ for(i=0;i<nsegments;i++){
 		best_cutoff=tm[i];
 		}
 	}
-//fprintf(stderr,"Cutoff: i=%ld sigma=%g cutoff=%g (%g,%g,..)\n",best_i, smallest_sigma, best_cutoff,tm[0],tm[1]);
+//fprintf(stderr,"Cutoff: i=%d sigma=%g cutoff=%g (%g,%g,..)\n",best_i, smallest_sigma, best_cutoff,tm[0],tm[1]);
 return best_cutoff;
 }
 
@@ -221,11 +217,11 @@ if(x<=0.0)return 0.0;
 return (1-exp(-lambda*x));
 }
 
-void nonparametric(float *firstbin, long step, long count, float *median, float *ks_test)
+void nonparametric(float *firstbin, int step, int count, float *median, float *ks_test)
 {
 float *tmp;
 double a,b,lambda;
-long i;
+int i;
 tmp=alloca(count*sizeof(float));
 for(i=0;i<count;i++)tmp[i]=firstbin[i*step];
 sort_floats(tmp, count);
@@ -254,7 +250,7 @@ fclose(FILE_LOG);
 
 void inject_fake_signal(void)
 {
-long i, bin;
+int i, bin;
 float plus, cross, a, b, e[3], fake_power;
 gsl_rng *rng=NULL;
 double average_freq, weight, mixed, plus_sq, cross_sq;
@@ -274,6 +270,8 @@ fprintf(LOG, "fake_power: %g\n", fake_power);
 average_freq=0.0;
 weight=0.0;
 mixed=0.0;
+plus_sq=0.0;
+cross_sq=0.0;
 for(i=0;i<nsegments;i++){
 	get_AM_response(gps[i]+900, 
 		args_info.fake_dec_arg, args_info.fake_ra_arg,
@@ -322,9 +320,9 @@ int main(int argc, char *argv[])
 {
 RGBPic *p;
 PLOT *plot;
-long i,j,m,count;
-float CutOff,b, ra, dec;
-double a,w,a1,a2;
+int i,j,m,count;
+float CutOff;
+double a,w;
 char s[20000];
 
 /* INIT stage */
@@ -378,6 +376,11 @@ LOG=fopen(s,"w");
 snprintf(s,20000,"%s/file.log", output_dir);
 FILE_LOG=fopen(s,"w");
 
+if(args_info.label_given){
+	fprintf(LOG, "%s\n", args_info.label_arg);
+	fprintf(stderr, "%s\n", args_info.label_arg);
+	}
+	
 if(gethostname(s, 19999)>=0){
 	fprintf(stderr, "Running on %s\n", s);
 	fprintf(LOG, "node: %s\n", s);
@@ -539,20 +542,20 @@ if(no_am_response){
 	fprintf(LOG,"no_am_response : true\n");
 	fprintf(stderr,"NO_AM_RESPONSE flag passed\n");
 	}
-fprintf(LOG,"firstbin  : %ld\n",first_bin);
+fprintf(LOG,"firstbin  : %d\n",first_bin);
 fprintf(LOG,"band start: %g Hz\n",first_bin/1800.0);
-fprintf(LOG,"nbins     : %ld\n",nbins);
-fprintf(LOG,"side_cut  : %ld\n",side_cut);
-fprintf(LOG,"useful bins : %ld\n",useful_bins);
+fprintf(LOG,"nbins     : %d\n",nbins);
+fprintf(LOG,"side_cut  : %d\n",side_cut);
+fprintf(LOG,"useful bins : %d\n",useful_bins);
 fprintf(LOG,"useful band start: %g Hz\n",(first_bin+side_cut)/1800.0);
 
 fprintf(LOG,"patch_type: %s\n", patch_grid->name);
-fprintf(LOG,"patch_grid: %ldx%ld\n", patch_grid->max_n_ra, patch_grid->max_n_dec);
-fprintf(LOG,"patch_grid npoints : %ld\n", patch_grid->npoints);
-fprintf(LOG,"fine_factor: %ld\n", args_info.fine_factor_arg);
+fprintf(LOG,"patch_grid: %dx%d\n", patch_grid->max_n_ra, patch_grid->max_n_dec);
+fprintf(LOG,"patch_grid npoints : %d\n", patch_grid->npoints);
+fprintf(LOG,"fine_factor: %d\n", args_info.fine_factor_arg);
 fprintf(LOG,"fine_type : %s\n",fine_grid->name);
-fprintf(LOG,"fine_grid npoints  : %ld\n", fine_grid->npoints);
-fprintf(LOG,"fine_grid : %ldx%ld\n", fine_grid->max_n_ra, fine_grid->max_n_dec);
+fprintf(LOG,"fine_grid npoints  : %d\n", fine_grid->npoints);
+fprintf(LOG,"fine_grid : %dx%d\n", fine_grid->max_n_ra, fine_grid->max_n_dec);
 fprintf(LOG,"input_data: %s\n",args_info.input_arg);
 fprintf(LOG,"spindown  : %g\n", spindown);
 fprintf(LOG,"orientation: %g\n", args_info.orientation_arg);
@@ -568,7 +571,7 @@ if(nsegments==0){
 	fprintf(stderr,"ERROR: no input data found !\n");
 	return -1;
 	}
-fprintf(LOG,"nsegments : %ld\n",nsegments);
+fprintf(LOG,"nsegments : %d\n",nsegments);
 fprintf(LOG,"first gps : %lld\n",gps[0]);
 fprintf(LOG,"last gps  : %lld\n",gps[nsegments-1]);
 

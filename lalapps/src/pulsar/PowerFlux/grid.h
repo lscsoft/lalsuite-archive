@@ -18,9 +18,9 @@ SKY_GRID_TYPE fast_spherical_distance(SKY_GRID_TYPE ra0, SKY_GRID_TYPE dec0,
 #define GRID_FIT_COUNT  24
 
 typedef struct {
-	long npoints; /* total number of points in this grid */
-	long max_n_ra;
-	long max_n_dec;
+	int npoints; /* total number of points in this grid */
+	int max_n_ra;
+	int max_n_dec;
 	char *name; 
 	SKY_GRID_TYPE *latitude;
 	SKY_GRID_TYPE *longitude;
@@ -42,22 +42,22 @@ typedef struct {
 	} SKY_GRID;
 
 typedef struct {
-	long num_ra;
-	long num_dec;
+	int num_ra;
+	int num_dec;
 	} RECT_SKY_GRID_PRIV;	
 
 typedef struct {
 	SKY_GRID_TYPE resolution;
-	long num_dec;
-	long *num_ra;
+	int num_dec;
+	int *num_ra;
 	} SIN_THETA_SKY_GRID_PRIV;
 
 typedef struct {
 	SKY_GRID *super_grid;		/* larger grid */
-	long *first_map;      /* these are indices of subgrid points */
-	long *reverse_map;    /* reverse map from grid to nearest subgrid point */
-	long *list_map;    /* these indices form lists of nearest neighbours */
-	long max_npatch;    /* maximum number of fine points in a patch */
+	int *first_map;      /* these are indices of subgrid points */
+	int *reverse_map;    /* reverse map from grid to nearest subgrid point */
+	int *list_map;    /* these indices form lists of nearest neighbours */
+	int max_npatch;    /* maximum number of fine points in a patch */
 	} SKY_SUPERGRID;
 
 SKY_GRID *make_arcsin_grid(long num_ra, long num_dec);

@@ -201,7 +201,7 @@ long find_sin_theta_closest(SKY_GRID *grid, float RA, float DEC)
 {
 int i,j_start,j_stop,k, k_start, k_stop, best_i;
 SIN_THETA_SKY_GRID_PRIV *priv=grid->grid_priv;
-SKY_GRID_TYPE ds, best_ds;
+SKY_GRID_TYPE ds, best_ds=10.0;
 
 k=floor((priv->num_dec*(DEC+M_PI_2))/M_PI+0.5);
 k_start=k-1;
@@ -413,7 +413,7 @@ SKY_SUPERGRID *make_sin_theta_supergrid(SKY_GRID *grid, int factor)
 {
 SKY_SUPERGRID *sg;
 SIN_THETA_SKY_GRID_PRIV *priv;
-long i,j,k, pi,pj, pk, ra_pk;
+int i,j,k, pi, pk, ra_pk;
 SKY_GRID_TYPE ds, best_ds;
 if(strcmp(grid->name,"sin theta")){
    	fprintf(stderr,"** Internal error: cannot make sin theta supergrid from %s\n", grid->name);

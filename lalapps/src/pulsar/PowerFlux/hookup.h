@@ -7,9 +7,9 @@ void init_hookup(void);
 int clear_name_dat(char *name);
 int clear_name_png(char *name);
 
-void read_directory(char *prefix, long first,long last, 
-	long first_bin,long bin_count,
-	long *nsegments, float **power, INT64 **gps);
+void read_directory(char *prefix, int first,int last, 
+	int first_bin,int bin_count,
+	int *nsegments, float **power, INT64 **gps);
 
 void dump_shorts(char *name, short *x, long count, long step);
 void dump_ints(char *name, int *x, long count, long step);

@@ -25,6 +25,7 @@ extern "C" {
 struct gengetopt_args_info
 {
   char * config_arg;	/* configuration file (in gengetopt format) to pass parameters.  */
+  char * label_arg;	/* arbitrary string to be printed in the beginning of PowerFlux log file.  */
   char * sky_grid_arg;	/* sky grid type (arcsin, plain_rectangular, sin_theta) (default='sin_theta').  */
   char * skymap_orientation_arg;	/* orientation of produced skymaps: equatorial, ecliptic, band_axis (default='equatorial').  */
   int fine_factor_arg;	/* make fine grid this times finer (default='5').  */
@@ -76,6 +77,7 @@ struct gengetopt_args_info
   int help_given ;	/* Whether help was given.  */
   int version_given ;	/* Whether version was given.  */
   int config_given ;	/* Whether config was given.  */
+  int label_given ;	/* Whether label was given.  */
   int sky_grid_given ;	/* Whether sky-grid was given.  */
   int skymap_orientation_given ;	/* Whether skymap-orientation was given.  */
   int fine_factor_given ;	/* Whether fine-factor was given.  */
