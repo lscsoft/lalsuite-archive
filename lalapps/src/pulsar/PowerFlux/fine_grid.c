@@ -51,6 +51,9 @@ long stored_fine_bins=0;
 long max_shift=0, min_shift=0;
 
 
+SUM_TYPE  *low_ul;  /* lower (over polarizations) accumulation limits */
+SUM_TYPE *skymap_low_ul; /* skymap */
+SUM_TYPE *spectral_plot_low_ul; /* spectral plots */
 
 /* the value 1.22 is obtained by S.R script. It is valid for single-bin processing
    the value 0.88 is obtained by the same script. It is valid for 3 averaged neighboring bins */
@@ -390,6 +393,7 @@ for(i=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[o
 			pol->spectral_plot.dx_ra[k+band*useful_bins]=fine_grid->longitude[offset];
 			pol->spectral_plot.dx_dec[k+band*useful_bins]=fine_grid->latitude[offset];
 			}
+		if(a<low_ul[i*useful_bins+k])low_ul[i*useful_bins+k]=a;
 
 			
 		a=lower_limit95(dx)*S;
@@ -411,6 +415,28 @@ for(i=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[o
 		}
 	}
 
+}
+
+void make_unified_limits(long pi)
+{
+long i, offset;
+int band, k;
+SUM_TYPE a,b,c;
+for(i=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[offset],i++){
+
+        band=fine_grid->band[offset];
+	if(band<0)continue;
+
+	for(k=0;k<useful_bins;k++){
+		a=low_ul[i*useful_bins+k];
+		if(a>spectral_plot_low_ul[k+band*useful_bins]){
+			spectral_plot_low_ul[k+band*useful_bins]=a;
+			}
+		if(a>skymap_low_ul[offset]){
+			skymap_low_ul[offset]=a;
+			}
+		}
+	}
 }
 
 void output_limits(POLARIZATION *pol)
@@ -486,6 +512,11 @@ dump_floats(s,pol->skymap.S_map,fine_grid->npoints,1);
 	
 
 for(i=0;i<fine_grid->npoints;i++){
+	if(fine_grid->band[i]<0){
+		pol->skymap.max_upper_limit[i]=-1.0;
+		pol->skymap.max_lower_limit[i]=-1.0;
+		continue;
+		}
 	pol->skymap.max_upper_limit[i]=sqrt(2.0*pol->skymap.max_upper_limit[i]*upper_limit_comp)/(1800.0*16384.0);
 	/* lower limit is unchanged */
 	pol->skymap.max_lower_limit[i]=sqrt(2.0*pol->skymap.max_lower_limit[i])/(1800.0*16384.0);
@@ -713,6 +744,119 @@ free(max_band_arg);
 free(masked_max_band_arg);
 }
 
+void output_unified_limits(void)
+{
+RGBPic *p;
+PLOT *plot;
+long i,k;
+char s[20000];
+SUM_TYPE *skymap_high_ul, *skymap_high_ul_freq;
+SUM_TYPE *spectral_plot_high_ul;
+float *freq_f;
+SUM_TYPE max_high_ul;
+int max_high_ul_i;
+
+freq_f=&(frequencies[side_cut]);
+
+skymap_high_ul=do_alloc(fine_grid->npoints, sizeof(*skymap_high_ul));
+skymap_high_ul_freq=do_alloc(fine_grid->npoints, sizeof(*skymap_high_ul_freq));
+spectral_plot_high_ul=do_alloc(useful_bins*args_info.nbands_arg, sizeof(*spectral_plot_high_ul));
+
+if(fine_grid->max_n_dec<800){
+	p=make_RGBPic(fine_grid->max_n_ra*(800/fine_grid->max_n_dec)+140, fine_grid->max_n_dec*(800/fine_grid->max_n_dec));
+	} else 
+	p=make_RGBPic(fine_grid->max_n_ra+140, fine_grid->max_n_dec);	
+
+plot=make_plot(p->width, p->height);
+
+max_high_ul_i=-1;
+for(i=0;i<fine_grid->npoints;i++){
+	if(fine_grid->band[i]<0){
+		skymap_low_ul[i]=-1.0;
+		skymap_high_ul[i]=-1.0;
+		skymap_high_ul_freq[i]=-1.0;
+		continue;
+		}
+	skymap_low_ul[i]=sqrt(2.0*skymap_low_ul[i]*upper_limit_comp)/(1800.0*16384.0);
+	
+	skymap_high_ul[i]=polarizations[0].skymap.max_upper_limit[i];
+	skymap_high_ul_freq[i]=polarizations[0].skymap.freq_map[i];
+	for(k=1;k<npolarizations;k++){	
+		if(skymap_high_ul[i]<polarizations[k].skymap.max_upper_limit[i]){
+			skymap_high_ul[i]=polarizations[k].skymap.max_upper_limit[i];
+			skymap_high_ul_freq[i]=polarizations[k].skymap.freq_map[i];
+			}
+		}
+	if(max_high_ul_i<0){
+		max_high_ul_i=i;
+		max_high_ul=skymap_high_ul[i];
+		} else {
+		if(max_high_ul<skymap_high_ul[i]){
+			max_high_ul_i=i;
+			max_high_ul=skymap_high_ul[i];
+			}
+		}
+	}
+if(max_high_ul_i>=0){
+	fprintf(LOG, "max_high_ul legend: RA DEC high_ul freq\n");
+	fprintf(LOG, "max_high_ul: %f %f %g %f\n", 
+		fine_grid->longitude[max_high_ul_i],
+		fine_grid->latitude[max_high_ul_i],
+		max_high_ul,
+		skymap_high_ul_freq[max_high_ul_i]
+		);
+	}
+
+if(clear_name_png("low_ul.png")){
+	plot_grid_f(p, fine_grid, skymap_low_ul, 1);
+	RGBPic_dump_png("low_ul.png", p);
+	}
+dump_floats("low_ul.dat", skymap_low_ul, fine_grid->npoints, 1);
+
+if(clear_name_png("high_ul.png")){
+	plot_grid_f(p, fine_grid, skymap_high_ul, 1);
+	RGBPic_dump_png("high_ul.png", p);
+	}
+dump_floats("high_ul.dat", skymap_high_ul, fine_grid->npoints, 1);
+
+
+for(i=0;i<useful_bins*args_info.nbands_arg;i++){
+	spectral_plot_low_ul[i]=sqrt(2.0*spectral_plot_low_ul[i]*upper_limit_comp)/(1800.0*16384.0);
+	
+	spectral_plot_high_ul[i]=polarizations[0].spectral_plot.max_upper_limit[i];
+	for(k=1;k<npolarizations;k++){	
+		if(spectral_plot_high_ul[i]<polarizations[k].spectral_plot.max_upper_limit[i])spectral_plot_high_ul[i]=polarizations[k].spectral_plot.max_upper_limit[i];
+		}
+	}
+
+for(i=0;i<args_info.nbands_arg;i++){
+	snprintf(s,19999,"low_band_%d_ul.png", i);
+	if(clear_name_png(s)){
+		adjust_plot_limits_f(plot, freq_f, &(spectral_plot_low_ul[i*useful_bins]), useful_bins, 1, 1, 1);
+		draw_grid(p, plot, 0, 0);
+		draw_points_f(p, plot, COLOR(255,0,0), freq_f, &(spectral_plot_low_ul[i*useful_bins]), useful_bins, 1, 1);
+		RGBPic_dump_png(s, p);
+		}
+	snprintf(s,19999,"low_band_%d_ul.dat", i);
+	dump_floats(s, &(spectral_plot_low_ul[i*useful_bins]), useful_bins, 1);
+
+	snprintf(s,19999,"high_band_%d_ul.png", i);
+	if(clear_name_png(s)){
+		adjust_plot_limits_f(plot, freq_f, &(spectral_plot_high_ul[i*useful_bins]), useful_bins, 1, 1, 1);
+		draw_grid(p, plot, 0, 0);
+		draw_points_f(p, plot, COLOR(255,0,0), freq_f, &(spectral_plot_high_ul[i*useful_bins]), useful_bins, 1, 1);
+		RGBPic_dump_png(s, p);
+		}
+	snprintf(s,19999,"high_band_%d_ul.dat", i);
+	dump_floats(s, &(spectral_plot_high_ul[i*useful_bins]), useful_bins, 1);
+	}
+
+
+free_plot(plot);
+free_RGBPic(p);
+free(skymap_high_ul);
+}
+
 void compute_mean(long pi)
 {
 SUM_TYPE a,c;
@@ -804,6 +948,17 @@ stored_fine_bins=super_grid->max_npatch;
 
 allocate_polarization_arrays();
 	
+low_ul=do_alloc(stored_fine_bins*useful_bins, sizeof(*low_ul));
+skymap_low_ul=do_alloc(fine_grid->npoints, sizeof(*skymap_low_ul));
+spectral_plot_low_ul=do_alloc(useful_bins*args_info.nbands_arg, sizeof(*spectral_plot_low_ul));
+
+for(i=0;i<fine_grid->npoints;i++){
+	skymap_low_ul[i]=-1.0;
+	}
+for(i=0;i<useful_bins*args_info.nbands_arg;i++){
+	spectral_plot_low_ul[i]=-1.0;
+	}
+	
 /* see comments above variables */
 if(args_info.three_bins_arg){
 	quantile2std=0.88;
@@ -840,10 +995,14 @@ for(pi=0;pi<patch_grid->npoints;pi++){
 	if(lines_list[0]<0)compute_mean_no_lines(pi);
 		else compute_mean(pi);
 		
+	for(i=0;i<stored_fine_bins*useful_bins;i++){
+		low_ul[i]=100.0; /* hopefully our resolution will only be better :) */
+		}
 	/* compute upper limits */
 	for(i=0;i<npolarizations;i++){
 		make_limits(&(polarizations[i]), pi);
 		}
+	make_unified_limits(pi);
 
 	if(! (pi % 100))fprintf(stderr,"%ld ",pi);
 	}
@@ -859,5 +1018,7 @@ fprintf(stderr,"Minimum bin shift is %ld\n", min_shift);
 for(i=0;i<npolarizations;i++){
 	output_limits(&(polarizations[i]));
 	}
+	
+output_unified_limits();
 }
 

@@ -62,7 +62,7 @@ test3: powerflux
 		--detresponse-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
 		--detector=LLO --three-bins=0 --do-cutoff=0 \
 		 --focus-ra=2.2 --focus-dec=0.3 --focus-radius=0.3 \
-		 --write-dat=NONE --write-png=NONE
+		 --write-dat=NONE --write-png=ul\.png\$
 
 test4: powerflux
 	valgrind --tool=cachegrind ./powerflux -i /home/volodya/LIGO/S2/S2.L1.op/power.L1. -f $(BAND) -n 501 \
