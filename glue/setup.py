@@ -22,6 +22,7 @@ setup( name = "glue",
     os.path.join('sbin','LSCsegFindServer') ],
   data_files = [ ('etc',[
     os.path.join('etc','glue-user-env.sh'),
-    os.path.join('etc','glue-user-env.csh')
+    os.path.join('etc','glue-user-env.csh'),
+    os.path.join('etc','lscsegfindserver.ini')
     ] ) ]
   )
