@@ -1,5 +1,6 @@
 import sys
 import re
+import exceptions
 import MySQLdb
 import _mysql_exceptions
 
@@ -20,7 +21,7 @@ class StateSegmentDatabaseException(exceptions.Exception):
     self.args = args
 
 
-class StateSegmentDatabase():
+class StateSegmentDatabase:
   """
   Class that represents an instance of a state segment database
   """
@@ -57,8 +58,8 @@ class StateSegmentDatabase():
     # build a dictionary of the state vector types
     sql = "SELECT version, value, state_vec_id from state_vec"
     try:
-      cursor.execute(sql)
-      result = cursor.fetchall()
+      self.cursor.execute(sql)
+      result = self.cursor.fetchall()
     except Exception, e:
       msg = "Error fetching state vector values from database: %s" % e
       raise StateSegmentDatabaseException, e
@@ -104,7 +105,7 @@ class StateSegmentDatabase():
     
     try:
       sql = "INSERT INTO lfn (lfn,start_time,end_time) values (%s,%s,%s)"
-      self.cursor.execute(sql,(lfn,start,end)))
+      self.cursor.execute(sql,(lfn,start,end))
       sql = "SELECT LAST_INSERT_ID()"
       self.cursor.execute(sql)
     except _mysql_exceptions.IntegrityError, e:
@@ -140,9 +141,10 @@ class StateSegmentDatabase():
         msg = "Error inserting new state vector type into database : %s" % e
         raise StateSegmentDatabaseException, e
       if self.debug:
-        print "DEBUG: create a new state vec type (%d,%d) -> %d", % \
+        print "DEBUG: create a new state vec type (%d,%d) -> %d" % \
           (ver,id,self.state_vec[(ver,id)])
-    sv_id = state_vec[(ver,id)]
+
+    sv_id = self.state_vec[(ver,id)]
 
     # insert the state segment 
     sql = "INSERT INTO state_segment (ifo,start_time,start_time_ns,"
@@ -152,15 +154,27 @@ class StateSegmentDatabase():
     try:
       self.cursor.execute(sql,(ifo,start_time,start_time_ns,
             end_time,end_time_ns,sv_id,self.lfn_id))
+    except _mysql_exceptions.IntegrityError, e:
+      msg = "error : this state segment already exists in the database"
+      raise StateSegmentDatabaseException, msg
     except Exception, e:
-      msg = "error inserting segment information : %e" % e
+      msg = "error inserting segment information : %s" % e
       raise StateSegmentDatabaseException, msg
 
     if self.debug:
       sql = "SELECT LAST_INSERT_ID()"
       self.cursor.execute(sql)
       id = self.cursor.fetchall()[0][0]
-      sql = "SELECT * from state_segment WHERE state_segment_id = %s" % id
+      print "DEBUG: inserted with id", id
+
+  def set_state_name(self,ver,id,name):
+    try:
+      sql = "INSERT INTO state_vec (version,value,state) VALUES (%s,%s,%s)"
+      self.cursor.execute(sql,(ver,id,name))
+    except _mysql_exceptions.IntegrityError, e:
+      sql = "UPDATE state_vec SET state = '%s'" % name
+      sql += "WHERE version = %s AND value = %s" % (ver,id)
       self.cursor.execute(sql)
-      r = self.cursor.fetchall()
-      print r
+    except Exception, e:
+      msg = "Unable to state state name for state %s,%s : %s" % (ver,id,e)
+      raise StateSegmentDatabaseException, msg

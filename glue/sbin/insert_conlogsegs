@@ -5,10 +5,7 @@ import sys
 import string
 import re
 import getopt
-import MySQLdb
-
-octothorpe = re.compile(r'\A#')
-for line
+from glue import statedb
 
 def usage():
   msg = """\
@@ -19,6 +16,7 @@ Usage: insert_conlogsegs [OPTIONS]
   -p, --password PASS      database password for connection
   -t, --type-name TYPE     segment type for this import
   -c, --type-code CODE     segment type code for this import
+  -i, --ifo IFO            interferometer name
   -f, --file FILE          file containing conlog segments
 
 The password argument is not required. All other options are required.
@@ -26,16 +24,17 @@ The password argument is not required. All other options are required.
 """
   print msg
 
-def help()
+def help():
   usage()
 
-shortop = "d:u:p:t:c:f:"
+shortop = "d:u:p:t:c:i:f:"
 longop = [
   "database=",
   "username=",
   "password=",
   "type-name=",
   "type-code=",
+  "ifo=",
   "file="
   ]
 
@@ -50,6 +49,7 @@ dbuser = None
 dbpasswd = ''
 type = None
 code = None
+ifo = None
 segfile = None
 
 for o, a in opts:
@@ -66,12 +66,35 @@ for o, a in opts:
     type = a
   elif o in ("-c", "--type-code"):
     code = int(a)
-  elif o on ("-f", "--file"):
+  elif o in ("-i", "--ifo"):
+    ifo = a
+  elif o in ("-f", "--file"):
     segfile = a
 
-if not dbname or not dbuser or not type or not code or not segfile:
+if not dbname or not dbuser or not type or not code or not ifo or not segfile:
   print >> sys.stderr, """\
-Error: --database, --username, --type-name, --type-code and --file must all
-  be specified. Use --help for more information."""
+Error: --database, --username, --type-name, --type-code, --ifo and --file must
+all be specified. Use --help for more information."""
   sys.exit(1)
 
+segments = []
+
+octothorpe = re.compile(r'\A#')
+for line in open(segfile):
+ if not octothorpe.match(line):
+   (id,st,en,du) = map(int,line.split())
+   segments.append(tuple([st,en]))
+
+start = segments[0][0]
+end = segments[-1][1]
+
+sdb = statedb.StateSegmentDatabase(dbname,dbuser,dbpasswd)
+sdb.register_lfn(os.path.basename(segfile),start,end)
+for seg in segments:
+  sdb.publish_state(ifo,seg[0],0,seg[1],0,0,code)
+
+sdb.set_state_name(0,code,type)
+
+sdb.close()
+
+sys.exit(0)
