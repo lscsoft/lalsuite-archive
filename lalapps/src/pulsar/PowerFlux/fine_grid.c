@@ -597,7 +597,7 @@ free(masked_max_band_arg);
 
 void compute_mean(long pi)
 {
-SUM_TYPE a,b,c;
+SUM_TYPE a,c;
 long i,k,m;
 long offset;
 for(k=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[offset],k++){
@@ -637,7 +637,7 @@ for(k=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[o
 
 void compute_mean_no_lines(long pi)
 {
-SUM_TYPE a,b,c;
+SUM_TYPE a,c;
 long i,k,offset,m;
 for(k=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[offset],k++){
 	for(m=0;m<npolarizations;m++){
@@ -673,9 +673,8 @@ for(k=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[o
 
 void fine_grid_stage(void)
 {
-long pi,i,j,k,kk,m;
+long pi,i,k,m;
 double a,b;
-long total;
 
 normalizing_weight=exp(-M_LN10*TMedian);
 
