@@ -26,7 +26,7 @@ import socket
 import SocketServer
 import types
 import exceptions
-import pickle
+import cPickle
 import MySQLdb
 from pyGlobus import io
 from glue import segments
@@ -260,8 +260,9 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
                         
     @return: None
     """
+    pmsg = cPickle.dumps(msg)
 
-    pmsg = pickle.dumps(msg)
+    f = self.sfile
     reply = "%d\0%s\0" % (code, pmsg)
     f.write(reply)
 
@@ -379,21 +380,16 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
       db = MySQLdb.connect(user=dbuser,passwd=dbpasswd,db=dbname)
       c = db.cursor()
       c.execute(sql)
-      res = c.fetchall()
+      result = c.fetchall()
       c.close()
-
-      result = ""
 
       try:
         segs = segments.segmentlist()
-        for r in res:
+        for r in result:
           segs |= segments.segmentlist([segments.segment(r[0],r[1])])
-        for s in segs:
-          result += "%d %d\n" % (s.start, s.end)
-        result = result[0:-1]
       except:
         pass
-      
+
       logger.debug("Method : segmentFindWithMetadata %d results found" % 
         len(result))
       code = 0
@@ -409,7 +405,7 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
       logger.error(
         "Error closing connection to MySQL in method distinctAttribute")
 
-    self.__reply__(code, result)
+    self.__reply__(code, segs)
 
 
 class LSCsegFindServer(object):
