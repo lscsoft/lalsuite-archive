@@ -20,16 +20,43 @@ __version__='$Revision$'[0:0]
 
 import exceptions
 import sys
-from pyGlobus import security
-from LSCfileAdd import *
 
-def print_stats():
+try:
+        from pyGlobus import security
+except ImportError:
+        print >>sys.stderr, "\nCould not import a module from the pyGlobus library."
+        print >>sys.stderr, "\nPlease run your LSC Data Grid setup script:"
+        print >>sys.stderr, "   e.g.  prompt> . ~/ldg-3.0/setup.sh  # for the bash shell"
+        print >>sys.stderr, "         prompt> source ~/ldg-3.0/setup.csh # for (t)csh"
+        print >>sys.stderr, "\n or point your PYTHONPATH environment variable to the location of the pyGlobus modules."
+        sys.exit(1)
+        
+try:
+        from LSCfileAdd import *
+except ImportError:
+        print >>sys.stderr, "\nPython LSCfileAdd.py library is not found; please add its location to the PYTHONPATH environmental variable."
+        print >>sys.stderr, "\nFor example, from the bash or (t)csh shell respectively, run:\n"
+        print >>sys.stderr, "   export PYTHONPATH=$PYTHONPATH:$LSCSOFT/src/glue/lib"
+        print >>sys.stderr, "or"
+        print >>sys.stderr, "   setenv PYTHONPATH ${PYTHONPATH}:$LSCSOFT/src/glue/lib"
+        print >>sys.stderr, "\n where $LSCSOFT is the directory containing the lscsoft cvs repository."
+        sys.exit(1)
+
+def print_stats(successes,failures):
         """
         Prints what was done by the LSCfileAdd. i.e. the names of each file
         And the effective metadata that was added to the database etc.
         """
-        # stub
-        print "Script Finished"
+        print "Publishing finished"
+        print "Successfully published filenames:"
+        for item in successes:
+                print "\t%s" % (item,)
+        print "Filenames which failed to be published (plus reason):"
+        for item in failures:
+                print "\t%s\n\t\t%s" % (item[0],item[1])
+        print "Total files successfully published: %s" % (len(successes),)
+        print "Total files which were not published: %s" % (len(failures),)
+                
         
 ## END print_stats()
 
@@ -57,13 +84,13 @@ if __name__ == '__main__':
         
         #Publish the files with the metadata requested
         try:
-                files.publish(userparams.attr, userparams.filelist)
+                successes, failures = files.publish(userparams.attr, userparams.filelist)
         except LSCfileAddException, e:
                 print >>sys.stderr, "Danger Will Robinson! Coder needs to write proper code."
                 sys.exit(3)
         
         # Print what was done to stdout and exit
-        print_stats()
+        print_stats(successes,failures)
         sys.exit(0)
 
 ##### END Main #####
