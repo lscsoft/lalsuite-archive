@@ -492,7 +492,7 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
       attribute = arg[0]
 
       sql = "SELECT DISTINCT "
-      if attribute == "interferometer":
+      if attribute == "interferometers":
         sql += "ifo FROM state_segment"
       elif attribute == "state":
         sql += "state FROM state_vec"
@@ -503,7 +503,7 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
       db = MySQLdb.connect(user=dbuser,passwd=dbpasswd,db=dbname)
       c = db.cursor()
       c.execute(sql)
-      result = c.fetchall()
+      result = '\n'.join(c.fetchall())
       c.close()
       
       logger.debug("Method distinctAttribute: %d results found" % 
