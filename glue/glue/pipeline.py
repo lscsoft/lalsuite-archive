@@ -630,21 +630,37 @@ class CondorDAG:
   NOTE: The log file must not be on an NFS mounted system as the Condor jobs
   must be able to get an exclusive file lock on the log file.
   """
-  def __init__(self,log):
+  def __init__(self,log,dax=0):
     """
     @param log: path to log file which must not be on an NFS mounted file system.
+    @param dax: Set to 1 to create an abstract DAG (a DAX)
     """
     self.__log_file_path = log
+    self.__is_dax = dax
     self.__dag_file_path = None
     self.__jobs = []
     self.__nodes = []
+    
+    # now check if grid proxy is working if dax = 1
+    if self.__is_dax:
+      os.system('grid-proxy-info > .dummy') 	 
+      f=open('.dummy', 'r') 	 
+      lines=f.readlines()
+      f.close()	 
+      timeLeft=lines[6][11:12] 	 
+      if int(timeLeft)==0: 	 
+        sys.exit('ERROR: Validty of proxy grid less one hour! Needs to be renwewd.')
 
+      
   def set_dag_file(self, path):
     """
     Set the name of the file into which the DAG is written.
     @param path: path to DAG file.
     """
-    self.__dag_file_path = path
+    #if self.__is_dax:
+    self.__dag_file_path = path 	 
+    #else: 	 
+    # self.__dag_file_path = path+'.dag'
 
   def get_dag_file(self):
     """
@@ -1025,7 +1041,19 @@ class AnalysisNode(CondorDAGNode):
     """
     self.add_var_opt('frame-cache', file)
     self.add_input_file(file)
-
+    
+    def set_frame_data(self, input): 	 
+      """ 	 
+      Set the information for the frame data. Either DAX or DAG 	 
+      this is a frame cache or ??? 	 
+      """ 	 
+      if input is tuple: 	 
+        for file in input: 	 
+          self.add_input_files(file) 	 
+          self.glob_framedata() 	 
+        else: 	 
+          self.set_cache(input) 	 
+ 
   def calibration_cache_path(self):
     """
     Determine the path to the correct calibration cache file to use.
@@ -1801,7 +1829,7 @@ class LSCDataFindJob(CondorDAGJob, AnalysisJob):
   is directed to the logs directory. The job always runs in the scheduler
   universe. The path to the executable is determined from the ini file.
   """
-  def __init__(self,cache_dir,log_dir,config_file):
+  def __init__(self,cache_dir,log_dir,config_file, dax=0):
     """
     @param cache_dir: the directory to write the output lal cache files to.
     @param log_dir: the directory to write the stderr file to.
@@ -1814,7 +1842,9 @@ class LSCDataFindJob(CondorDAGJob, AnalysisJob):
     CondorDAGJob.__init__(self,self.__universe,self.__executable)
     AnalysisJob.__init__(self,config_file)
     self.__cache_dir = cache_dir
-
+    self.__config_file=config_file
+    self.__is_dax=dax
+ 
     for sec in ['datafind']:
       self.add_ini_opts(config_file,sec)
     
@@ -1834,6 +1864,18 @@ class LSCDataFindJob(CondorDAGJob, AnalysisJob):
     """
     return self.__cache_dir
 
+  def get_dax(self): 	 
+    """ 	 
+    returns the dax flag 	 
+    """ 	 
+    return self.__is_dax 	 
+  
+  def get_config_file(self): 	 
+    """ 	 
+    returns the config file parser 	 
+    """ 	 
+    return self.__config_file
+
 
 class LSCDataFindNode(CondorDAGNode, AnalysisNode):
   """
@@ -1850,7 +1892,10 @@ class LSCDataFindNode(CondorDAGNode, AnalysisNode):
     self.__observatory = None
     self.__output = None
     self.__job = job
-   
+    self.__config_file=job.get_config_file()
+    self.__is_dax=job.get_dax() 	 
+    self.__frames=[]  # no frames looked for (to avoid double work)
+     
   def __set_output(self):
     """
     Private method to set the file to write the cache to. Automaticaly set
@@ -1894,7 +1939,30 @@ class LSCDataFindNode(CondorDAGNode, AnalysisNode):
   def get_output(self):
     """
     Return the output file, i.e. the file containing the frame cache data.
-    """
-    return self.__output
+    or the files itself as tuple (for DAX) 	 
+    """	 
+    
+    if self.__is_dax: 	 
+      if self.__frames: 	 
+        
+        # return frames if already available
+        return self.__frames;
+      
+      else: 	 
 
+        # start LSCdataFind job to find data
+        type=self.__config_file.get('datafind','type') 	 
+        server=self.__config_file.get('datafind','server') 	 
+        cmd='LSCdataFind --server='+server+' --observatory='+self.__observatory +' --type='+type+' --gps-start-time='+repr(self.__start)+' --gps-end-time='+repr(self.__end)+' --url-type=file --match=localhost > .dummy2' 	 
+        #print cmd 	 
+        os.system(cmd) 	 
+        
+        # read data into 
+        f=open('.dummy2', 'r') 	 
+        lines=f.readlines() 	 
+        for line in lines: 	 
+          self.__frames.append(line) 	           
+        return self.__frames; 	 
+    else: 	 
+      return self.__output
 
