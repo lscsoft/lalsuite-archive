@@ -21,6 +21,7 @@ setup( name = "glue",
     os.path.join('bin','ldbdd') ],
   data_files = [ ('etc',[
     os.path.join('etc','glue-user-env.sh'),
+    os.path.join('etc','glue-user-env.csh'),
     os.path.join('etc','LSCsegFindCfgExample.py'),
     ]) ]
   )
