@@ -174,8 +174,8 @@ class LSCsegFindClient(object):
     while 1: 
       input = f.read(512)
       if input == "": break
-
-    response += input
+      response += input
+    
 
     # the response from the server must always end in a null byte
     if response[-1] != '\0':

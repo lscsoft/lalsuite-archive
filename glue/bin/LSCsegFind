@@ -120,7 +120,8 @@ class LSCsegFind(LSCsegFindClient):
     @return: None
     """
 
-    distinctValueList = LSCsegFindClient.distinctAttrValues(self, "ifo")
+    distinctValueList = LSCsegFindClient.distinctAttrValues(self,
+      "interferometers")
 
     for v in distinctValueList:
       print v
@@ -134,7 +135,8 @@ class LSCsegFind(LSCsegFindClient):
 
     @return: None
     """
-    distinctValueList = LSCsegFindClient.distinctAttrValues(self, "state")
+    distinctValueList = LSCsegFindClient.distinctAttrValues(self, 
+      "state")
                 
     for v in distinctValueList:
       print v
@@ -268,7 +270,7 @@ clientMethodArgDict = {
 }
 
 # default method 
-clientMethod = 'findFrameURLs'
+clientMethod = 'ping'
 
 # environment variables override defaults but not
 # command line options
@@ -290,8 +292,8 @@ for o, a in opts:
     sys.exit(0)
   elif o in ("-p", "--ping"):
     clientMethod = 'ping'
-  elif o in ("-w", "--show-observatories"):
-    clientMethod = 'showObservatories'
+  elif o in ("-w", "--show-interferometers"):
+    clientMethod = 'showInterferometers'
   elif o in ("-y", "--show-types"):
     clientMethod = 'showTypes'
   elif o in ("-r", "--server"):
@@ -329,7 +331,6 @@ except Exception, e:
   print >>sys.stderr, "Enter 'LSCsegFind --help' for usage"
   sys.exit(1)
 
-        
 try:
   eval("myClient.%s(%s)" % (clientMethod, clientMethodArgDict))
 
@@ -342,4 +343,3 @@ except Exception, e:
   print >>sys.stderr, "Error querying LSCsegFindServer: %s" % str(e)
   print >>sys.stderr, "Enter 'LSCsegFind --help' for usage"
   sys.exit(1)
-
