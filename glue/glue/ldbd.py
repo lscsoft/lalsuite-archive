@@ -19,10 +19,6 @@ __date__ = '$Date$'
 __version__ = '$Revision$'[11:-2]
 # $Source$
 
-### Notes
-#  Presently only insertion of database tables is allowed,
-#  but the module can be extended to previde retrieval
-
 import os
 import sys
 import string
