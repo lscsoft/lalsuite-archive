@@ -274,6 +274,8 @@ void dump_pic(char *file, double *z)
 {
 RGBPic *p;
 
+if(!clear_name_png(file))return;
+
 p=make_RGBPic(fine_grid->max_n_ra+140, fine_grid->max_n_dec);
 
 plot_grid_d(p, fine_grid, z, 1);
@@ -416,6 +418,7 @@ SUM_TYPE max_dx;
 float *max_band, *masked_max_band;
 long *max_band_arg, *masked_max_band_arg;
 float *freq_f;
+float max_ratio;
 
 freq_f=&(frequencies[side_cut]);
 
@@ -620,6 +623,12 @@ for(i=0;i<args_info.nbands_arg;i++){
 		snprintf(s,19999,"%s_max_mask_ratio_band_%d.dat",pol->name, i);
 		dump_floats(s, &(pol->spectral_plot.max_mask_ratio[i*useful_bins]), useful_bins, 1);
 		}
+	max_ratio=pol->spectral_plot.max_mask_ratio[i*useful_bins];
+	for(k=1;k<useful_bins;k++)
+		if(max_ratio<pol->spectral_plot.max_mask_ratio[i*useful_bins+k]){
+			max_ratio=pol->spectral_plot.max_mask_ratio[i*useful_bins+k];
+			}
+	fprintf(LOG,"max_ratio: %s %f\n", pol->name, max_ratio);
         /* old 
 	fprintf(LOG, "max_band: %ld %s %g\n", i, pol->name, max_band[i]);
 	fprintf(LOG, "masked_max_band: %ld %s %g\n", i, pol->name, masked_max_band[i]);
