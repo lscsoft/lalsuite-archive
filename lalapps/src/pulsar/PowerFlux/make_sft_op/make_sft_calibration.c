@@ -32,6 +32,7 @@ void load_response_file(char *name, COMPLEX8 **data, long *_size, long *_free, d
 FILE *f;
 unsigned char s[2000];
 REAL4 magnitude, phase, freq;
+int count;
 COMPLEX8 *p;
 if(*_size<0){
 	*_size=cal_sft_length/2+1; /* a good value to start with - this is what current files use at the moment */
@@ -46,12 +47,14 @@ if(f==NULL){
 	exit(-1);
 	}
 *_free=0;
+count=0;
 while(!feof(f)){
 	fgets(s, 2000, f);
 	if((s[0]=='#')||(s[0]=='%')||(s[0]==0))continue; /* skip comments and empty lines */
 	/* we assume that entries in response files are from 0 up to whatever
 	   last bin is there */
 	sscanf(s, "%g %g %g", &freq, &magnitude, &phase);
+	count++;
 	if(*_free>=*_size){
 		*_size*=2;
 		p=do_alloc(*_size, sizeof(**data));
@@ -71,7 +74,7 @@ while(!feof(f)){
 	(*data)[*_free].im=magnitude*sin(phase);
 	(*_free)++;
 	}
-*rate=(*_free-1)/freq;
+*rate=(count-1)/freq;
 fclose(f);
 }
 
