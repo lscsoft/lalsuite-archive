@@ -373,6 +373,15 @@ if(!strcasecmp("arcsin", args_info.sky_grid_arg)){
 	}
 fine_grid=super_grid->super_grid;
 
+rotate_grid_xy(patch_grid, -M_PI*90.0/180.0);
+rotate_grid_xy(fine_grid, -M_PI*90.0/180.0);
+
+rotate_grid_xz(patch_grid, M_PI*23.0/180.0);
+rotate_grid_xz(fine_grid, M_PI*23.0/180.0);
+
+rotate_grid_xy(patch_grid, M_PI*90.0/180.0);
+rotate_grid_xy(fine_grid, M_PI*90.0/180.0);
+
 fprintf(stderr,"fine grid: max_n_ra=%d max_n_dec=%d\n", 
 	fine_grid->max_n_ra, fine_grid->max_n_dec);
 

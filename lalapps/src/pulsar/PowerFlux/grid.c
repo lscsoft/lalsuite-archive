@@ -333,3 +333,67 @@ for(k=1;k<sg->super_grid->npoints-1;k++){
 compute_list_map(sg);
 return sg;
 }
+
+void rotate_xz(SKY_GRID_TYPE RA_in, SKY_GRID_TYPE DEC_in, 
+			SKY_GRID_TYPE * RA_out, SKY_GRID_TYPE * DEC_out, 
+			SKY_GRID_TYPE angle)
+{
+SKY_GRID_TYPE x,y,z,x2,y2,z2;
+
+/* convert into 3d */
+x=cos(RA_in)*cos(DEC_in);
+y=sin(RA_in)*cos(DEC_in);
+z=sin(DEC_in);
+
+x2=cos(angle)*x-sin(angle)*z;
+y2=y;
+z2=sin(angle)*x+cos(angle)*z;
+
+*DEC_out=atan2f(z2, sqrt(x2*x2+y2*y2));
+*RA_out=atan2f(y2, x2);
+if(*RA_out <0) *RA_out+=2*M_PI;
+//fprintf(stderr,"%f %f --> %f %f\n", RA_in, DEC_in, *RA_out, *DEC_out);
+}
+
+void rotate_xy(SKY_GRID_TYPE RA_in, SKY_GRID_TYPE DEC_in, 
+			SKY_GRID_TYPE * RA_out, SKY_GRID_TYPE * DEC_out, 
+			SKY_GRID_TYPE angle)
+{
+SKY_GRID_TYPE x,y,z,x2,y2,z2;
+
+/* convert into 3d */
+x=cos(RA_in)*cos(DEC_in);
+y=sin(RA_in)*cos(DEC_in);
+z=sin(DEC_in);
+
+x2=cos(angle)*x-sin(angle)*y;
+y2=sin(angle)*x+cos(angle)*y;
+z2=z;
+
+*DEC_out=atan2f(z2, sqrt(x2*x2+y2*y2));
+*RA_out=atan2f(y2, x2);
+if(*RA_out <0) *RA_out+=2*M_PI;
+//fprintf(stderr,"%f %f --> %f %f\n", RA_in, DEC_in, *RA_out, *DEC_out);
+}
+
+void rotate_grid_xz(SKY_GRID *grid, SKY_GRID_TYPE angle)
+{
+long i;
+for(i=0;i<grid->npoints;i++){
+	rotate_xz((grid->longitude[i]), (grid->latitude[i]),
+		&(grid->longitude[i]), &(grid->latitude[i]),
+		angle);
+	}
+precompute_values(grid);
+}
+
+void rotate_grid_xy(SKY_GRID *grid, SKY_GRID_TYPE angle)
+{
+long i;
+for(i=0;i<grid->npoints;i++){
+	rotate_xy((grid->longitude[i]), (grid->latitude[i]),
+		&(grid->longitude[i]), &(grid->latitude[i]),
+		angle);
+	}
+precompute_values(grid);
+}

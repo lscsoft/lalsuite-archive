@@ -562,6 +562,7 @@ fprintf(stderr,"powerflux leap=%d nE=%d nS=%d dE=%g dS=%g\n",
 for(i=0;i<3;i++)velocity[i]=det_velocity[i];
 }
 
+
 /* there are count*GRID_FIT_COUNT coefficients */
 void get_whole_sky_AM_response(INT64 *gps, long count, float **coeffs_plus, float **coeffs_cross, long *size)
 {
@@ -593,7 +594,7 @@ X=gsl_matrix_alloc(sample_grid->npoints, GRID_FIT_COUNT);
 
 for(k=0;k<count;k++){
 	for(i=0;i<sample_grid->npoints;i++){
-		get_AM_response(gps[k]+900,sample_grid->latitude[i],sample_grid->longitude[i],
+		get_AM_response(gps[k]+900, sample_grid->latitude[i], sample_grid->longitude[i],
 			&plus, &cross);
 		gsl_vector_set(y_plus, i, plus);
 		gsl_vector_set(y_cross, i, cross);
