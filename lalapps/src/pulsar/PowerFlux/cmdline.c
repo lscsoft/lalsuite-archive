@@ -73,7 +73,7 @@ cmdline_parser_print_help (void)
   printf("      --filter-lines=INT                perform detection of lines in \n                                          background noise and veto \n                                          corresponding frequency bins  \n                                          (default=`1')\n");
   printf("      --nbands=INT                      split sky in this many bands for \n                                          logging maximum upper limits  \n                                          (default=`9')\n");
   printf("      --band-axis=STRING                which band axis to use for splitting \n                                          sky into bands (perpendicular to \n                                          band axis) (possible values: \n                                          equatorial, auto, \n                                          explicit(float,float,float)  \n                                          (default=`auto')\n");
-  printf("      --ks-test=INT                     perform Kolmogorov-Smirnov test for \n                                          normality of averaged powers  \n                                          (default=`0')\n");
+  printf("      --ks-test=INT                     perform Kolmogorov-Smirnov test for \n                                          normality of averaged powers  \n                                          (default=`1')\n");
   printf("      --fake-ra=DOUBLE                  RA of fake signal to inject  (default=\n                                          `3.14')\n");
   printf("      --fake-dec=DOUBLE                 DEC of fake signal to inject  (default=\n                                          `0.0')\n");
   printf("      --fake-orientation=DOUBLE         orientation of fake signal to inject  \n                                          (default=`0.0')\n");
@@ -190,7 +190,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->filter_lines_arg = 1 ;\
   args_info->nbands_arg = 9 ;\
   args_info->band_axis_arg = gengetopt_strdup("auto") ;\
-  args_info->ks_test_arg = 0 ;\
+  args_info->ks_test_arg = 1 ;\
   args_info->fake_ra_arg = 3.14 ;\
   args_info->fake_dec_arg = 0.0 ;\
   args_info->fake_orientation_arg = 0.0 ;\

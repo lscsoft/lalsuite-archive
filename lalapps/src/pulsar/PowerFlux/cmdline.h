@@ -57,7 +57,7 @@ struct gengetopt_args_info
   int filter_lines_arg;	/* perform detection of lines in background noise and veto corresponding frequency bins (default='1').  */
   int nbands_arg;	/* split sky in this many bands for logging maximum upper limits (default='9').  */
   char * band_axis_arg;	/* which band axis to use for splitting sky into bands (perpendicular to band axis) (possible values: equatorial, auto, explicit(float,float,float) (default='auto').  */
-  int ks_test_arg;	/* perform Kolmogorov-Smirnov test for normality of averaged powers (default='0').  */
+  int ks_test_arg;	/* perform Kolmogorov-Smirnov test for normality of averaged powers (default='1').  */
   double fake_ra_arg;	/* RA of fake signal to inject (default='3.14').  */
   double fake_dec_arg;	/* DEC of fake signal to inject (default='0.0').  */
   double fake_orientation_arg;	/* orientation of fake signal to inject (default='0.0').  */
