@@ -129,10 +129,12 @@ class LSCsegFindClient(object):
 
       # create AuthData instance
       authData = io.AuthData()
+      authData.set_identity("/DC=org/DC=doegrids/OU=Services/CN=lscsegfind/%s" 
+        % (host))
 
       # set authorization, channel, and delegation modes
       myAttr.set_authorization_mode(
-        io.ioc.GLOBUS_IO_SECURE_AUTHORIZATION_MODE_HOST, authData)
+        io.ioc.GLOBUS_IO_SECURE_AUTHORIZATION_MODE_IDENTITY, authData)
       myAttr.set_channel_mode(io.ioc.GLOBUS_IO_SECURE_CHANNEL_MODE_CLEAR)
       myAttr.set_delegation_mode(
         io.ioc.GLOBUS_IO_SECURE_DELEGATION_MODE_LIMITED_PROXY)

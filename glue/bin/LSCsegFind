@@ -399,7 +399,7 @@ except getopt.GetoptError:
 
 # defaults
 hostPortString = None
-port = 49999
+port = 30015
 
 clientMethodArgDict = {
   'interferometer': None,
@@ -418,7 +418,7 @@ typeString = None
 # environment variables override defaults but not
 # command line options
 try:
-  hostPortString = os.environ['LSC_DATAFIND_SERVER']
+  hostPortString = os.environ['LSC_SEGFIND_SERVER']
 except:
   pass
 
