@@ -1002,7 +1002,6 @@ priv=grid->grid_priv;
 dm->actual_width=grid->max_n_ra*dm->x_pixels_per_point;
 dm->actual_height=grid->max_n_dec*dm->y_pixels_per_point;
 
-
 lz=dm->logscale_z;
 
 
@@ -1039,7 +1038,7 @@ for(j=0;j<priv->num_dec;j++){
 	shift=(grid->max_n_ra-priv->num_ra[j])>>1;
 	for(i=0;i<priv->num_ra[j];i++){
 		z0=z[kk]-dm->lower_z;
-		kk++;
+		kk+=step;
 		if(z0<-0.0001)continue;
 		if(lz){
 			z0=log10(z0)/dz; /* normalize so it is between 0 and 1 */
@@ -1050,8 +1049,16 @@ for(j=0;j<priv->num_dec;j++){
 
 		color=z_to_color(dm->palette,z0);
 
-		x0=x+(shift+i)*dm->x_pixels_per_point;
-		y0=y+j*dm->y_pixels_per_point;
+		if(dm->flip_x){
+			x0=x+(shift+priv->num_ra[j]-i-1)*dm->x_pixels_per_point;
+			} else {
+			x0=x+(shift+i)*dm->x_pixels_per_point;
+			}
+		if(dm->flip_y){
+			y0=y+j*dm->y_pixels_per_point;
+			} else {
+			y0=y+(priv->num_dec-j-1)*dm->y_pixels_per_point;
+			}
 		for(m=0;m<dm->y_pixels_per_point;m++)
 			for(k=0;k<dm->x_pixels_per_point;k++)
 				DRAW_POINT(p,x0+k,y0+m,color);
