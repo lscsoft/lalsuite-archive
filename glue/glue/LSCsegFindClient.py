@@ -13,7 +13,7 @@ import sys
 import os
 import exceptions
 import types
-import pickle
+import cPickle
 
 from pyGlobus import io
 from pyGlobus import security
@@ -193,7 +193,7 @@ class LSCsegFindClient(object):
         msg = "Malformatted response from server"
         raise LSCsegFindClientException, msg
       code = int(stringList[0])
-      output = pickle.loads(stringList[1])
+      output = cPickle.loads(stringList[1])
     except Exception, e:
       msg = "Error parsing response from server : %s" % e
       try:
@@ -219,13 +219,11 @@ class LSCsegFindClient(object):
 
     ret, output = self.__response__()
 
-    reply = str(output[0])
-
     if ret:
       msg = "Error pinging server %d:%s" % (ret, reply)
       raise LSCsegFindClientException, msg
 
-    return reply
+    return output
 
 
   def distinctAttrValues(self, attr):

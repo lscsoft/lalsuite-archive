@@ -26,6 +26,17 @@ Check that pyGlobus is correctly installed and in your PYTHONPATH.
 """
   sys.exit(1)
 
+try:
+  from glue import segments
+except ImportError:
+  print >> sys.stderr, """
+Error: unable to import segment module from glue.
+
+Check that glue is correctly installed and in your PYTHONPATH.
+"""
+  sys.exit(1)
+
+
 # this client should have its PYTHONPATH set for it during installation
 
 PYTHONPATH = os.getenv('PYTHONPATH', None)
@@ -109,7 +120,7 @@ class LSCsegFind(LSCsegFindClient):
     response = LSCsegFindClient.ping(self)
     print response
 
-        
+
   def showInterferometers(self, argDict):
     """
     Query LSCsegFindServer for the distinct values for the 'state_segment.ifo'
@@ -120,11 +131,9 @@ class LSCsegFind(LSCsegFindClient):
     @return: None
     """
 
-    distinctValueList = LSCsegFindClient.distinctAttrValues(self,
-      "interferometers")
+    response = LSCsegFindClient.distinctAttrValues(self, "interferometers")
+    print response
 
-    for v in distinctValueList:
-      print v
 
   def showTypes(self, argDict):
     """
@@ -135,11 +144,9 @@ class LSCsegFind(LSCsegFindClient):
 
     @return: None
     """
-    distinctValueList = LSCsegFindClient.distinctAttrValues(self, 
-      "state")
+    response = LSCsegFindClient.distinctAttrValues(self, "state")
+    print response
                 
-    for v in distinctValueList:
-      print v
 
   def findStateSegments(self, argDict):
     """
@@ -156,6 +163,8 @@ class LSCsegFind(LSCsegFindClient):
     start = argDict['start']
     end = argDict['end']
     type = argDict['type']
+    strict = argDict['strict']
+    format = argDict['format']
 
     # check that combination of command-line arguments is sound
     if (not interferometer) or (not type) or (not start) or (not end):
@@ -175,19 +184,50 @@ be present when searching for groups of segments
       msg = "Unable to parse segment type string %s : %s" % (typeString, e)
       raise LSCsegFindException, msg
 
-    query = "state_segment.ifo = '%s' AND (state_vec.state = '%s'" % \
-      ( interferometer, typeList.pop(0) )
+    query = "((state_segment.start_time BETWEEN %s AND %s) OR " % \
+      (start, end)
+    query += "(state_segment.end_time BETWEEN %s AND %s)) " % \
+      (start, end)
+    query += "AND state_segment.ifo = '%s' AND (state_vec.state = '%s'" % \
+      (interferometer, typeList.pop(0))
     for x in typeList:
       query += " OR state_vec.state = '%s'" % (x)
     query += ")"
     
     seglist = LSCsegFindClient.segmentQueryWithMetadata(self,[query])
 
+    if strict:
+      range = segments.segmentlist([segments.segment(long(start),long(end))])
+      seglist &= range
+
     if len( seglist ) == 0:
       print >> sys.stderr, "No segments found!"
     else:
-      for seg in seglist:
-        print seg
+      if not format:
+        for seg in seglist:
+          print seg.get_start(), seg.get_end()
+      elif format is 'segwizard':
+        i = 0
+        for seg in seglist:
+          print i,seg.get_start(),seg.get_end(),seg.get_end()-seg.get_start()
+          i += 1
+      elif format is 'tcl' or format is 'python':
+        if format is 'tcl':
+          ldelim = '{ '
+          rdelim = ' }'
+          cdelim = ' '
+        else:
+          ldelim = '['
+          rdelim = ']'
+          cdelim = ', '
+        s = seglist.pop(0)
+        print ldelim + ldelim + str(s.get_start()) + cdelim + str(s.get_end()) + rdelim,
+        for seg in seglist:
+          print cdelim+ldelim+str(seg.get_start())+cdelim+str(seg.get_end())+rdelim,
+        print rdelim
+           
+       
+
 
 
 def checkCredentials():
@@ -240,6 +280,7 @@ NAME
 SYNOPSIS
         LSCdataFind --server=NAME:PORT --interferometer=NAME --type=NAME 
                --gps-start-time=GPS --gps-end-time=GPS [ --lfns ] 
+               [ --strict-off ] [ --output-format (tcl|python|segwizard) ]
 
         LSCsegFind --server=NAME:PORT --show-interferometers
 
@@ -287,6 +328,19 @@ DESCRIPTION
                 the state segment information was derived insted of 
                 the actual segments
 
+        -S, --strict-off
+                the default behavior is to truncate segments so that 
+                returned segments are entirely in the interval
+                [gps-start-time, gps-end-time).  However if this option
+                is given, the entire non-truncated segment is returned 
+                if any part of it overlaps the interval.               
+
+        -o, --output-format (tcl|python|segwizard)
+                return the segments as a TCL list, a python list or in
+                segwizard format. If not specified the default is two 
+                space separated columns containing segment start and 
+                end times
+
         -p, --ping
                 ping the LSCsegFind server
 
@@ -300,18 +354,26 @@ ENVIRONMENT
 
 EXAMPLE
 
-[dbrown@neutron dbrown]$ LSCsegFind --server ldas-test.ligo.caltech.edu --show-types
+[user@host]$ LSCsegFind --server ldas-test.ligo.caltech.edu --show-types
 Unlocked
 Up
 Science
 Injection
+
+[user@host] LSCsegFind --server ldas-test.ligo.caltech.edu --interferometer L1
+  --type Science --gps-start-time 700000163 --gps-end-time 700000400
+700000163 700000223
+700000324 700000400
+
+
+
 \
 """
   print >>sys.stderr, msg
 
 
 # grab command line options
-shortop = "vi:t:s:e:r:wylph"
+shortop = "vi:t:s:e:r:wySlo:ph"
 longop = [
   "version",
   "interferometer=",
@@ -321,8 +383,11 @@ longop = [
   "server=",
   "show-interferometers",
   "show-types",
+  "loose",
   "lfns",
+  "strict-off",
   "ping",
+  "output-format=",
   "help" ]
 
 try:
@@ -341,7 +406,9 @@ clientMethodArgDict = {
   'type': None,
   'end': None,
   'start': None,
-  'lfns': False
+  'lfns': False,
+  'strict' : True,
+  'format' : None
 }
 
 # default method 
@@ -384,6 +451,10 @@ for o, a in opts:
   elif o in ("-l", "--lfns"):
     lfns = True
     clientMethod = 'findStateLFNs'
+  elif o in ("-S", "--strict-off"):
+    clientMethodArgDict['strict'] = False
+  elif o in ("-o", "--output-format"):
+    clientMethodArgDict['format'] = a
 
 if not clientMethod:
   print >>sys.stderr, "Bad combination or missing options"
