@@ -305,7 +305,7 @@ RGBPic *p;
 PLOT *plot;
 long i,j,m,count;
 float CutOff,b;
-double a,w;
+double a,w,a1,a2;
 char s[20000];
 
 time(&start_time);
@@ -515,14 +515,8 @@ fprintf(LOG,"average detector velocity RA : %f\n", det_vel_ra);
 
 /* now that we know where the average detector velocity is pointing rotate
    so that band structure is perpendicular to it */
-   
-rotate_grid_xy(patch_grid, -det_vel_ra);
-rotate_grid_xy(fine_grid, -det_vel_ra);
 
-rotate_grid_xz(patch_grid, -det_vel_dec+M_PI/2.0);
-rotate_grid_xz(fine_grid, -det_vel_dec+M_PI/2.0);
-   
-#if 0
+/* change to ecliptic coordinates */   
 rotate_grid_xy(patch_grid, -M_PI*90.0/180.0);
 rotate_grid_xy(fine_grid, -M_PI*90.0/180.0);
 
@@ -531,7 +525,36 @@ rotate_grid_xz(fine_grid, M_PI*23.0/180.0);
 
 rotate_grid_xy(patch_grid, M_PI*90.0/180.0);
 rotate_grid_xy(fine_grid, M_PI*90.0/180.0);
-#endif
+
+
+a1=average_det_velocity[1];
+a2=average_det_velocity[2];
+a=M_PI*23.0/180.0;
+average_det_velocity[1]=cos(a)*a1-sin(a)*a2;
+average_det_velocity[2]=sin(a)*a1+cos(a)*a2;
+
+/* compute new "RA" */
+a=atan2f(average_det_velocity[1], average_det_velocity[0]);
+fprintf(LOG, "new RA: %f\nnew DEC: %f\n", 
+	a, atan2f(average_det_velocity[2], 
+	sqrt(average_det_velocity[0]*average_det_velocity[0]+average_det_velocity[1]*average_det_velocity[1]))
+	);
+
+
+/* make sure average_det_velocity is in the middle of the map */   
+rotate_grid_xy(patch_grid, -a+M_PI);
+rotate_grid_xy(fine_grid, -a+M_PI);
+
+/* rotate 90 degrees */
+
+rotate_grid_xy(patch_grid, -M_PI*90.0/180.0);
+rotate_grid_xy(fine_grid, -M_PI*90.0/180.0);
+
+rotate_grid_xz(patch_grid, M_PI*90.0/180.0);
+rotate_grid_xz(fine_grid, M_PI*90.0/180.0);
+
+rotate_grid_xy(patch_grid, M_PI*90.0/180.0);
+rotate_grid_xy(fine_grid, M_PI*90.0/180.0);
 
 /* now that we have new grid positions plot them */
 
@@ -550,6 +573,8 @@ dump_floats("fine_latitude.dat", fine_grid->latitude, fine_grid->npoints, 1);
 plot_grid_f(p, fine_grid, fine_grid->longitude,1);
 RGBPic_dump_png("fine_longitude.png", p);
 dump_floats("fine_longitude.dat", fine_grid->longitude, fine_grid->npoints, 1);
+
+dump_ints("bands.dat", fine_grid->band, fine_grid->npoints, 1);
 
 /* do we need to inject fake signal ? */
 if(args_info.fake_ra_given ||

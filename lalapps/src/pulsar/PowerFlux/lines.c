@@ -128,8 +128,10 @@ for(i=lr->x0+1;i<=lr->x1-1;i++){
 	/* be very conservative mark only points which are LINE_VERY_HIGH
 	   and have both neighbours  below 0.4 level of the center line (i.e. side lobes (due to Hann window)
 	    of strictly bin-centered line */
-	 if(((lr->lines[i] & (LINE_CANDIDATE | LINE_VERY_HIGH))==(LINE_CANDIDATE | LINE_VERY_HIGH)) 
+	 if(((lr->lines[i] & (LINE_CANDIDATE | LINE_VERY_HIGH))==(LINE_CANDIDATE | LINE_VERY_HIGH))
+	 #if 0 
 	 && ((z[i-1]-median)<0.4*(z[i]-median)) && ((z[i+1]-median)<0.4*(z[i]-median))
+	 #endif
 	 	){
 		lr->lines[i]|=LINE_YES;
 		fprintf(stderr,"line detected: i=%ld z[i]=%g\n", i, z[i]);
