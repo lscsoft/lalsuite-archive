@@ -116,10 +116,10 @@ class segment:
 
 	# accessors
 
-	def s(self):
+	def get_start(self):
 		return self.start
 
-	def e(end):
+	def get_end(end):
 		return self.end
 
 	def duration(self):
