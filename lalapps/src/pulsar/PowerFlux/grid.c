@@ -302,7 +302,6 @@ for(i=0;i<grid->npoints;i++){
 	ds=acos(sin(grid->latitude[i])*sin(dec)+
 		cos(grid->latitude[i])*cos(dec)*
 		cos(grid->longitude[i]-ra));
-	if(dec*grid->latitude[i]<0)ds=M_PI;
 	if(ds>radius){
 		grid->band[i]=-1;
 		grid->band_f[i]=-1;
