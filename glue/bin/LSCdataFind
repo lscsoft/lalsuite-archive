@@ -15,7 +15,16 @@ import os
 import getopt
 import re
 import exceptions
-from pyGlobus import security
+
+try:
+        from pyGlobus import security
+except ImportError:
+        print >> sys.stderr, """
+Error: unable to import security module from pyGlobus.
+
+Check that pyGlobus is correctly installed and in your PYTHONPATH.
+"""
+        sys.exit(1)
 
 # this client should have its PYTHONPATH set for it during installation
 # to find LDRdataFindClient.py, but if it does not we can try to find
@@ -29,7 +38,16 @@ if not PYTHONPATH:
                 sys.path.append("%s/ldr/lib" % LDR_LOCATION)
 
 
-from LDRdataFindClient import LDRdataFindClient
+try:
+        from glue.LDRdataFindClient import LDRdataFindClient
+except ImportError:
+        print >> sys.stderr, """
+Error: unable to import LDRdataFindClient module from glue.
+
+Check that glue is correctly installed and in your PYTHONPATH.
+"""
+        sys.exit(1)
+
 
 class LSCdataFindClientException(exceptions.Exception):
         """
@@ -180,7 +198,7 @@ be present when searching for groups of files
                 self.__check_gps(end)
 
 
-                from LDRdataFindClient import LDRMetadataQuery
+                from glue.LDRdataFindClient import LDRMetadataQuery
                 
                 q1 = LDRMetadataQuery()
                 q2 = LDRMetadataQuery()
@@ -249,7 +267,7 @@ be present when searching for groups of files
                 self.__check_gps(end)
 
 
-                from LDRdataFindClient import LDRMetadataQuery
+                from glue.LDRdataFindClient import LDRMetadataQuery
                 
                 q1 = LDRMetadataQuery()
                 q2 = LDRMetadataQuery()
@@ -340,7 +358,7 @@ be present when searching for groups of files
                 elif not match and urlType:
                         rexp = "^%s" % str(urlType)
 
-                from LDRdataFindClient import LDRMetadataQuery
+                from glue.LDRdataFindClient import LDRMetadataQuery
                 
                 q1 = LDRMetadataQuery()
                 q2 = LDRMetadataQuery()
@@ -626,8 +644,8 @@ for o, a in opts:
                 sys.exit(0)
         elif o in ("-v", "--version"):
                 print 'LSCdataFind client version', __version__
-                import LDRdataFindClient
-                print 'Built on top of LDRdataFindClient version', LDRdataFindClient.version()
+                import glue.LDRdataFindClient
+                print 'Built on top of LDRdataFindClient version', glue.LDRdataFindClient.version()
                 sys.exit(0)
         elif o in ("-p", "--ping"):
                 clientMethod = 'ping'

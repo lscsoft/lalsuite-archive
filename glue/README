@@ -1,2 +1,7 @@
-This the the Grid LSC User Environment (glue) a collection of utilities for
-running data analysis pipelines for online and offline analysis.
+
+ GLUE: Grid LSC User Environment
+
+Glue is a collection of utilities for running data analysis pipelines for
+online and offline analysis as well as accessing various grid utilities.
+
+

@@ -1,9 +1,8 @@
-#!/usr/bin/env python
-#
 # $Id$
 # 
 # setup for glue
 
+import os
 from distutils.core import setup
 
 setup( name = "glue",
@@ -14,5 +13,15 @@ setup( name = "glue",
   url = "http://www.lsc-group.phys.uwm.edu/daswg/",
   license = 'See file LICENSE',
   packages = [ 'glue' ],
-  package_dir = {'glue': 'lib'}
+  package_dir = { 'glue' : 'lib'},
+  scripts = [ os.path.join('bin','LSCdataFind'),
+    os.path.join('bin','LSCdataFind'),
+    os.path.join('bin','LSCsegFind'),
+    os.path.join('bin','LSCfileAdd'),
+    os.path.join('bin','ldbdc'),
+    os.path.join('bin','ldbdd') ],
+  data_files = [ ('etc',[
+    os.path.join('etc','glue-user-env.sh'),
+    os.path.join('etc','LSCsegFindCfgExample.py'),
+    ]) ]
   )
