@@ -175,15 +175,16 @@ class Publisher(object):
                                          # most likely warrant raising an exception
                 for data in datalist:
                         lfn = data["name"]
-                        
+                       
                         # check for existance
                         if self.md.getAttribute(lfn,"md5"):
                                 metaexists = True
+                                print "meta md5 %s" % (self.md.getAttribute(lfn,"md5"),)
                         else:
                                 metaexists = False
 
                         if metaexists & (flags & self.PRESERVE_METADATA):
-                                pass
+                                metadata_failure = False
                                 #self.failures.append((filename,"Metadata for this lfn already exists."))
                         else:
                                 try:
@@ -206,70 +207,96 @@ class Publisher(object):
                                 metadata_failure = False
                 #### Attempt to publish RLS entries
                 rls_failure = True
-                # Build mapping dict for bulk add
-                mapdict = {}
+                # list of mapdicts
+                maps = []
+                
                 for data in datalist:
-                        if len(data['urls']) == 1 and isinstance(data['urls'],ListType):
-                                mapdict[data['name']] = data['urls'][0]
+                        # build mapdicts of the form
+                        # mapdict[lfn] = SINGLE_URL_STRING
+                        # then make list of these mapdicts
+                        if not len(data['urls']):
+                                # no urls to publish
+                                print "Publisher.publish(): No urls to publish for lfn \"%s\"" % (data['name'],)
                         else:
-                                mapdict[data['name']] = data['urls']
-                if mapdict:
-                        try:
-                                rls_failed = self.rls.lrc_create_lfn_bulk(mapdict)
-                        except rlsClient.RlsClientException,e:
-                                msg = "Caught exception from self.rls.lrc_create_lfn_bulk(). Error was: %s" % (str(e),)
-                                msg += "\nRegenerating handle to LDR and RLS and trying again."
-                                print >>sys.stderr,msg
-                                self.regenHandle()
+                                i = 0
+                                lfn = data['name']
+                                for url in data['urls']:
+                                        if i == len(maps):
+                                                maps.append({})
+                                        maps[i][lfn] = url
+                                        i = i + 1
+                                
+                for mapdict in maps:                              
+                        if mapdict:
                                 try:
                                         rls_failed = self.rls.lrc_create_lfn_bulk(mapdict)
                                 except rlsClient.RlsClientException,e:
-                                        msg = "Caught exception from self.rls.lrc_create_lfn_bulk(). Again!. Error was: %s" % (str(e),)
-                                        print >>sys.stderr,msg
-                                        raise LSCfileAddException,msg
-                                
-                        if rls_failed:
-                                msg = "Some RLS mappings failed while running self.rls.lrc_create_lfn_bulk()."
-                                msg += "\nTrying the self.rls.lrc_add_bulk() method."
-                                print >>sys.stderr,msg
-                                try:
-                                        temp_failed = self.rls.lrc_add_bulk(rls_failed)
-                                except rlsClient.RlsClientException,e:
-                                        msg = "Caught exception while running self.rls.lrc_add_bulk(). Error was: %s" % (str(e),)
+                                        msg = "Caught exception from self.rls.lrc_create_lfn_bulk(). Error was: %s" % (str(e),)
                                         msg += "\nRegenerating handle to LDR and RLS and trying again."
+                                        print >>sys.stderr,msg
+                                        self.regenHandle()
+                                        try:
+                                                rls_failed = self.rls.lrc_create_lfn_bulk(mapdict)
+                                        except rlsClient.RlsClientException,e:
+                                                msg = "Caught exception from self.rls.lrc_create_lfn_bulk(). Again!. Error was: %s" % (str(e),)
+                                                print >>sys.stderr,msg
+                                                raise LSCfileAddException,msg
+                                        
+                                if rls_failed:
+                                        msg = "Some RLS mappings failed while running self.rls.lrc_create_lfn_bulk()."
+                                        msg += "\nTrying the self.rls.lrc_add_bulk() method."
                                         print >>sys.stderr,msg
                                         try:
                                                 temp_failed = self.rls.lrc_add_bulk(rls_failed)
                                         except rlsClient.RlsClientException,e:
-                                                msg = "Caught exception while running self.rls.lrc_add_bulk(). Again!. Attempted to map, %s" % (rls_failed,)
-                                                msg += " Error was: %s" % (str(e),)
-                                                raise LSCfileAddException,msg
-                                if temp_failed:
-                                        rls_failure = True
-                                        msg = "Some RLS mappings failed on second attempt to self.rls.lrc_add_bulk() them. The mapping dict (of failures) for this was \"%s\"" % (str(temp_failed),)
-                                        raise LSCfileAddException, msg
+                                                msg = "Caught exception while running self.rls.lrc_add_bulk(). Error was: %s" % (str(e),)
+                                                msg += "\nRegenerating handle to LDR and RLS and trying again."
+                                                print >>sys.stderr,msg
+                                                try:
+                                                        temp_failed = self.rls.lrc_add_bulk(rls_failed)
+                                                except rlsClient.RlsClientException,e:
+                                                        msg = "Caught exception while running self.rls.lrc_add_bulk(). Again!. Attempted to map, %s" % (rls_failed,)
+                                                        msg += " Error was: %s" % (str(e),)
+                                                        raise LSCfileAddException,msg
+                                        if temp_failed:
+                                                ## Check for existance
+                                                temp_failed2 = self.rls.lrc_get_pfn_bulk(temp_failed.keys())
+                                                for key in temp_failed2.keys():
+                                                        if isinstance(temp_failed[key],ListType):
+                                                                for item in temp_failed[key]:
+                                                                        if not temp_failed2[key].count(item):
+                                                                                msg = "For some reason, could not add PFN %s" % (item)
+                                                                                raise LSCfileAddException,e
+                                                        else: # assume StringType
+                                                                if not temp_failed2[key].count(temp_failed[key]):
+                                                                        msg = "For some reason, could not add PFN %s" % (item)
+                                                                        raise LSCfileAddException,e
+                                                # At this point this code decalres all is good,
+                                                # these URLs were published at some earlier time
+                                                msg = "Could not add, %s. These URLs already exist in the database." % (temp_failed,)
+                                                rls_failure = False
+                                        else:
+                                                # declare rls success
+                                                rls_failure = False
                                 else:
                                         # declare rls success
                                         rls_failure = False
-                        else:
-                                # declare rls success
-                                rls_failure = False
-                                
-                        
-                        # if all DB additions and checks were successful, then
-                        if not rls_failure and not metadata_failure:
-                                #self.successes.append(data)
-                                pass
-                        else:
-                                #self.failures.append(data)
-                                temp = ""
-                                if metadata_failure:
-                                        temp += "metadata failure, "
-                                if rls_failure:
-                                        temp += "rls failure"
-                                msg = "There is an algorithmic failure with the publish() method. Exception wasn't handled properly? The failures were of type, %s" % (temp,)
-                                raise LSCfileAddException,msg
-                        
+        
+        
+                                # if all DB additions and checks were successful, then
+                                if not rls_failure and not metadata_failure:
+                                        #self.successes.append(data)
+                                        pass
+                                else:
+                                        #self.failures.append(data)
+                                        temp = ""
+                                        if metadata_failure:
+                                                temp += "metadata failure, "
+                                        if rls_failure:
+                                                temp += "rls failure"
+                                        msg = "There is an algorithmic failure with the publish() method. Exception wasn't handled properly? The failures were of type, %s" % (temp,)
+                                        raise LSCfileAddException,msg
+
         ## END def publish(self)
                 
         def completely_remove(self,lfnlist):
@@ -383,16 +410,22 @@ class Publisher(object):
                         # see if database handles need to be regenerated
                         self.checkHandle()
                         try:
-                                mapdict = self.rls.lfn_get_bulk(pfnlist)
-                                failed = self.rls.lrc_delete_bulk(mapdict)
+                                for pfn in pfnlist:
+                                        if self.rls.lrc_exists(pfn,rlsClient.obj_lrc_pfn):
+                                                lfn = self.rls.lrc_get_lfn(pfn)
+                                                print "RLS lfn %s" % (lfn,)
+                                                self.rls.lrc_delete(lfn[0],pfn)
+                                        else:
+                                                print 'PFN %s does not exist?' % (pfn,)
+                                                
+                                #mapdict = self.rls.lrc_get_lfn_bulk(pfnlist)
+                                #failed = self.rls.lrc_delete_bulk(mapdict)
                                 
                         except rlsClient.RlsClientException, e:
-                                msg = "rm_url(%s): Caught RLS exception. Message was: %s" % (name,str(e))
-                                self.failures.append(msg)
+                                msg = "rm_url(%s): Caught RLS exception. Message was: %s" % (littlelist,str(e))
                                 raise LSCfileAddException, msg
-                        if failed:
-                                print >>sys.stderr, "Could not delete the following urls %s" % (failed,)
-                                self.failures.append(failed)
+                        #if failed:
+                               # print >>sys.stderr, "Could not delete the following urls %s" % (failed,)
                         i = j
                         j = i + rms_per_loop
                         littlelist = pfnlist[i:f(j)]
@@ -671,7 +704,7 @@ class Publisher(object):
                         self.failures.append(msg)
         ## END print_metadata(self,lfnlist)
         
-        def new_pset(self,name):
+        def new_pset(self,name,createnew = False):
                 """
                 Creates a new pset if it does not already exist.
                 """
@@ -680,7 +713,11 @@ class Publisher(object):
                         raise LSCfileAddException
                         
                 if not self.md.psets().count(name):
-                        self.md.addPSet(name)
+                        if createnew:
+                                self.md.addPSet(name)
+                        else:
+                                msg = 'pset, \"%s\", does not exist. User has elected not to create new psets, so the requested pset was not created.' % (name,)
+                                raise LSCfileAddException,msg
         ## END new_pset(self,name)
         
         def computeMD5(self,filename):
