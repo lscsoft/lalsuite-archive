@@ -99,11 +99,10 @@ class LDBDServerConnection(object):
     r = f.readline().strip()
     try:
       retcode = int(r)
-      fline = fh.readline()
-      while fline:
-        nlines += 1
-        inputdata += fline
-        fline = fh.readline()
+    except ValueError:
+      errmsg = "server closed connection without returning an exit code"
+      inputdata = '\n'.join(lines)
+    if retcode:
       errmsg = f.read()
       raise LDBDServerException, errmsg
     else:
