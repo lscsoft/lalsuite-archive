@@ -352,8 +352,8 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
     # mapping of LSCsegFindServer RPC protocol names to methods of this class
     methodDict = {
       'PING' : self.ping,
-      'DISTINCT': self.distinctAttribute
-      'METASEGS': self.segmentFindWithMetadata
+      'DISTINCT' : self.distinctAttribute,
+      'METASEGS' : self.segmentFindWithMetadata
     }
 
     try:
@@ -544,8 +544,38 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
     dbpasswd = configuration ['dbpasswd']
     dbname = configuration['dbname']
 
-    print >> sys.stderr, arg
-    print >> sys.stderr, str(arg)
+    # assume failure
+    code = 1
+
+    try:
+      sql = "SELECT state_segment.start_time, state_segment.end_time FROM state_segment, state_vec WHERE"
+      sql += arg.pop(0)
+
+      print >> sys.stderr, sql
+
+      db = MySQLdb.connect(user=dbuser,passwd=dbpasswd,db=dbname)
+      c = db.cursor()
+      c.execute(sql)
+      res = c.fetchall()
+      result = '\n'.join([ x[0] for x in res ])
+      c.close()
+      
+      logger.debug("Method : segmentFindWithMetadata %d results found" % 
+        len(result))
+      code = 0
+    except Exception, e:
+      result = "Error querying metadata for segments" + \
+        "%s: %s" % (arg[0], e)
+      logger.error(result)
+
+    try:
+      db.close()
+      del db
+    except Exception, e:
+      logger.error(
+        "Error closing connection to MySQL in method distinctAttribute")
+
+    self.__reply__(code, result)
 
 
 class LSCsegFindServer(object):
