@@ -828,7 +828,7 @@ class CondorDAG:
           template = """<profile namespace="vds" key="group">%s</profile>"""
           xml = xml + template % (node.get_vds_group())
 
-        #print >>dagfile, xml
+        print >>dagfile, xml
 
         for f in node.get_input_files():
                 print >>dagfile, """\
@@ -840,7 +840,7 @@ class CondorDAG:
      <uses file="%s" link="output" dontRegister="false" dontTransfer="false"/>\
 """ % f
 
-        #print >>dagfile, "</job>"
+        print >>dagfile, "</job>"
 
     # print parent-child relationships to DAX
     
@@ -854,7 +854,7 @@ class CondorDAG:
                 print >>dagfile, '</child>'
 
 
-    #print >>dagfile, "</adag>"
+    print >>dagfile, "</adag>"
 
     dagfile.close()
 
