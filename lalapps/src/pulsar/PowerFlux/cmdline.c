@@ -59,6 +59,7 @@ cmdline_parser_print_help (void)
   printf("  -f, --first-bin=INT                   first frequency bin in the band to be \n                                          analyzed\n");
   printf("  -n, --nbins=INT                       number of frequency bins to analyze  \n                                          (default=`501')\n");
   printf("      --side-cut=INT                    number of bins to cut from each side \n                                          due to corruption from doppler \n                                          shifts\n");
+  printf("      --hist-bins=INT                   number of bins to use when producing \n                                          histograms  (default=`200')\n");
   printf("  -d, --detector=STRING                 detector location (i.e. LHO or LLO), \n                                          passed to detresponse\n");
   printf("      --spindown=DOUBLE                 compensate for pulsar spindown during \n                                          run (fdot)  (default=`0')\n");
   printf("      --orientation=DOUBLE              additional orientation phase, \n                                          specifying 0.7853 will turn plus \n                                          into cross  (default=`0')\n");
@@ -130,6 +131,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->first_bin_given = 0 ;
   args_info->nbins_given = 0 ;
   args_info->side_cut_given = 0 ;
+  args_info->hist_bins_given = 0 ;
   args_info->detector_given = 0 ;
   args_info->spindown_given = 0 ;
   args_info->orientation_given = 0 ;
@@ -174,6 +176,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->earth_ephemeris_arg = NULL; \
   args_info->sun_ephemeris_arg = NULL; \
   args_info->nbins_arg = 501 ;\
+  args_info->hist_bins_arg = 200 ;\
   args_info->detector_arg = NULL; \
   args_info->spindown_arg = 0 ;\
   args_info->orientation_arg = 0 ;\
@@ -232,6 +235,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
         { "first-bin",	1, NULL, 'f' },
         { "nbins",	1, NULL, 'n' },
         { "side-cut",	1, NULL, 0 },
+        { "hist-bins",	1, NULL, 0 },
         { "detector",	1, NULL, 'd' },
         { "spindown",	1, NULL, 0 },
         { "orientation",	1, NULL, 0 },
@@ -548,6 +552,20 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
               }
             args_info->side_cut_given = 1;
             args_info->side_cut_arg = strtol (optarg,&stop_char,0);
+            break;
+          }
+          
+          /* number of bins to use when producing histograms.  */
+          else if (strcmp (long_options[option_index].name, "hist-bins") == 0)
+          {
+            if (args_info->hist_bins_given)
+              {
+                fprintf (stderr, "%s: `--hist-bins' option given more than once\n", CMDLINE_PARSER_PACKAGE);
+                clear_args ();
+                exit (EXIT_FAILURE);
+              }
+            args_info->hist_bins_given = 1;
+            args_info->hist_bins_arg = strtol (optarg,&stop_char,0);
             break;
           }
           
@@ -1363,6 +1381,24 @@ cmdline_parser_configfile (char * const filename, struct gengetopt_args_info *ar
                   if (fnum == 2)
                     {
                       args_info->side_cut_arg = strtol (farg,&stop_char,0);
+                    }
+                  else
+                    {
+                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
+                               filename, line_num);
+                      exit (EXIT_FAILURE);
+                    }
+                }
+              continue;
+            }
+          if (!strcmp(fopt, "hist-bins"))
+            {
+              if (override || !args_info->hist_bins_given)
+                {
+                  args_info->hist_bins_given = 1;
+                  if (fnum == 2)
+                    {
+                      args_info->hist_bins_arg = strtol (farg,&stop_char,0);
                     }
                   else
                     {

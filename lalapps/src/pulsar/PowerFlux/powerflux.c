@@ -101,6 +101,7 @@ float *p,*t;
 float a;
 long i,j;
 float b, b_initial;
+HISTOGRAM *hist;
 tmp=do_alloc(nsegments*nbins,sizeof(float));
 TRACE("Computing log10")
 for(i=0;i<nsegments;i++){
@@ -171,6 +172,11 @@ for(i=0;i<nsegments;i++){
 			}
 		}
 	}
+hist=new_histogram(args_info.hist_bins_arg, 1);
+compute_histogram_f(hist, tmp, NULL, nsegments*nbins);
+print_histogram(LOG, hist, "hist_residuals");
+print_histogram(stderr, hist, "hist_residuals");
+free_histogram(hist);
 
 free(tmp);
 TMedian=compute_median(TMedians,1,nsegments);

@@ -1,6 +1,8 @@
 #ifndef __STATISTICS_H__
 #define __STATISTICS_H__
 
+#include <stdio.h>
+
 typedef double STAT_TYPE;
 
 #define STAT_FLAG_SORT_DATA		(1<<0)
@@ -26,10 +28,21 @@ typedef struct {
 
 void compute_normal_sorted_stats(float *data, long count, NORMAL_STATS *stats);
 
-
 void compute_normal_stats(float *data, long count, NORMAL_STATS *stats);
 
-
 void sort_floats(float *data, long count);
+
+typedef struct {
+	int nbands;
+	int nbins;  /* these are histogram bins.. */
+	STAT_TYPE *max;
+	STAT_TYPE *min;
+	long *hist; /* counts */
+	} HISTOGRAM;
+
+HISTOGRAM * new_histogram(int nbins, int nbands);
+void free_histogram(HISTOGRAM *h);
+void compute_histogram_f(HISTOGRAM *h, float *data, int *bands, long count);
+void print_histogram(FILE *f, HISTOGRAM *h, char *prefix);
 
 #endif

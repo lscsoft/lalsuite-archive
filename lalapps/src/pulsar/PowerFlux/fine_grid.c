@@ -497,6 +497,7 @@ float *max_band, *masked_max_band;
 long *max_band_arg, *masked_max_band_arg;
 float *freq_f;
 float max_ratio;
+HISTOGRAM *hist;
 
 freq_f=&(frequencies[side_cut]);
 
@@ -504,6 +505,7 @@ max_band=do_alloc(args_info.nbands_arg, sizeof(*max_band));
 masked_max_band=do_alloc(args_info.nbands_arg, sizeof(*max_band));
 max_band_arg=do_alloc(args_info.nbands_arg, sizeof(*max_band_arg));
 masked_max_band_arg=do_alloc(args_info.nbands_arg, sizeof(*max_band_arg));
+hist=new_histogram(args_info.hist_bins_arg, args_info.nbands_arg);
 
 if(fine_grid->max_n_dec<800){
 	p=make_RGBPic(fine_grid->max_n_ra*(800/fine_grid->max_n_dec)+140, fine_grid->max_n_dec*(800/fine_grid->max_n_dec));
@@ -538,6 +540,9 @@ if(args_info.ks_test_arg){
 		}
 	snprintf(s,19999,"%s_ks_test.dat",pol->name);
 	dump_floats(s,pol->skymap.ks_test,fine_grid->npoints,1);
+	compute_histogram_f(hist, pol->skymap.ks_test, fine_grid->band, fine_grid->npoints);
+	snprintf(s,19999,"hist_%s_ks_test",pol->name);
+	print_histogram(LOG, hist, s);
 	
 	snprintf(s,19999,"%s_ks_count.png",pol->name);
 	if(clear_name_png(s)){
@@ -776,6 +781,9 @@ if(clear_name_png(s)){
 	plot_grid_f(p, fine_grid, pol->skymap.max_upper_limit, 1);
 	RGBPic_dump_png(s, p);
 	}
+compute_histogram_f(hist, pol->skymap.max_upper_limit, fine_grid->band, fine_grid->npoints);
+snprintf(s,19999,"hist_%s_max_upper_strain",pol->name);
+print_histogram(LOG, hist, s);
 
 snprintf(s,19999,"%s_max_lower_strain.png",pol->name);
 if(clear_name_png(s)){
@@ -801,6 +809,8 @@ if(clear_name_png(s)){
 	RGBPic_dump_png(s, p);
 	}
 
+fflush(LOG);
+free_histogram(hist);
 free_plot(plot);
 free_RGBPic(p);
 free(max_band);
@@ -820,12 +830,14 @@ SUM_TYPE *spectral_plot_high_ul;
 float *freq_f;
 SUM_TYPE max_high_ul, max_low_ul;
 int max_high_ul_i, max_low_ul_i;
+HISTOGRAM *hist;
 
 freq_f=&(frequencies[side_cut]);
 
 skymap_high_ul=do_alloc(fine_grid->npoints, sizeof(*skymap_high_ul));
 skymap_high_ul_freq=do_alloc(fine_grid->npoints, sizeof(*skymap_high_ul_freq));
 spectral_plot_high_ul=do_alloc(useful_bins*args_info.nbands_arg, sizeof(*spectral_plot_high_ul));
+hist=new_histogram(args_info.hist_bins_arg, args_info.nbands_arg);
 
 if(fine_grid->max_n_dec<800){
 	p=make_RGBPic(fine_grid->max_n_ra*(800/fine_grid->max_n_dec)+140, fine_grid->max_n_dec*(800/fine_grid->max_n_dec));
@@ -896,12 +908,16 @@ if(clear_name_png("low_ul.png")){
 	RGBPic_dump_png("low_ul.png", p);
 	}
 dump_floats("low_ul.dat", skymap_low_ul, fine_grid->npoints, 1);
+compute_histogram_f(hist, skymap_low_ul, fine_grid->band, fine_grid->npoints);
+print_histogram(LOG, hist, "hist_low_ul");
 
 if(clear_name_png("high_ul.png")){
 	plot_grid_f(p, fine_grid, skymap_high_ul, 1);
 	RGBPic_dump_png("high_ul.png", p);
 	}
 dump_floats("high_ul.dat", skymap_high_ul, fine_grid->npoints, 1);
+compute_histogram_f(hist, skymap_high_ul, fine_grid->band, fine_grid->npoints);
+print_histogram(LOG, hist, "hist_high_ul");
 
 
 for(i=0;i<useful_bins*args_info.nbands_arg;i++){
@@ -960,7 +976,7 @@ for(i=0;i<args_info.nbands_arg;i++){
 	dump_floats(s, &(spectral_plot_high_ul[i*useful_bins]), useful_bins, 1);
 	}
 
-
+free_histogram(hist);
 free_plot(plot);
 free_RGBPic(p);
 free(skymap_high_ul);

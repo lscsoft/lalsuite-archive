@@ -43,6 +43,7 @@ struct gengetopt_args_info
   int first_bin_arg;	/* first frequency bin in the band to be analyzed.  */
   int nbins_arg;	/* number of frequency bins to analyze (default='501').  */
   int side_cut_arg;	/* number of bins to cut from each side due to corruption from doppler shifts.  */
+  int hist_bins_arg;	/* number of bins to use when producing histograms (default='200').  */
   char * detector_arg;	/* detector location (i.e. LHO or LLO), passed to detresponse.  */
   double spindown_arg;	/* compensate for pulsar spindown during run (fdot) (default='0').  */
   double orientation_arg;	/* additional orientation phase, specifying 0.7853 will turn plus into cross (default='0').  */
@@ -92,6 +93,7 @@ struct gengetopt_args_info
   int first_bin_given ;	/* Whether first-bin was given.  */
   int nbins_given ;	/* Whether nbins was given.  */
   int side_cut_given ;	/* Whether side-cut was given.  */
+  int hist_bins_given ;	/* Whether hist-bins was given.  */
   int detector_given ;	/* Whether detector was given.  */
   int spindown_given ;	/* Whether spindown was given.  */
   int orientation_given ;	/* Whether orientation was given.  */

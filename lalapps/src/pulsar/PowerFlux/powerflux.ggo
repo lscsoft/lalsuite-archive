@@ -24,6 +24,7 @@ option "sun-ephemeris" 	- "Sun ephemeris file, overrides ephemeris-path argument
 option "first-bin"   	f "first frequency bin in the band to be analyzed" int no
 option "nbins"   	n "number of frequency bins to analyze" int default="501" no
 option "side-cut"    	- "number of bins to cut from each side due to corruption from doppler shifts" int no
+option "hist-bins"      - "number of bins to use when producing histograms" int default="200" no
 
 option "detector"   	d "detector location (i.e. LHO or LLO), passed to detresponse" string no
 

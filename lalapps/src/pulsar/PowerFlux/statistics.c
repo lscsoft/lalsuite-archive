@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 #include <gsl/gsl_sf.h>
 
@@ -163,5 +164,83 @@ if(stats->flag & STAT_FLAG_INPLACE_SORT_DATA){
 	
 	compute_normal_sorted_stats(data, count, stats);
 	
+	}
+}
+
+HISTOGRAM * new_histogram(int nbins, int nbands)
+{
+HISTOGRAM *h;
+
+h=do_alloc(1, sizeof(*h));
+h->nbands=nbands;
+h->nbins=nbins;
+h->max=do_alloc(nbands, sizeof(*h->max));
+h->min=do_alloc(nbands, sizeof(*h->min));
+h->hist=do_alloc(nbands*nbins, sizeof(*h->hist));
+
+return h;
+}
+
+void free_histogram(HISTOGRAM *h)
+{
+free(h->hist);
+free(h->max);
+free(h->min);
+free(h);
+}
+
+void compute_histogram_f(HISTOGRAM *h, float *data, int *bands, long count)
+{
+int i,j,k;
+float f;
+
+for(i=0;i<h->nbands;i++){
+	h->max[i]=-2e6;
+	h->min[i]=-1e6;
+	}
+for(i=0;i<h->nbins*h->nbands;i++)h->hist[i]=0;
+/* 1st pass */
+/* computer histogram limits */
+k=0; /* in case bands==NULL */
+for(i=0;i<count;i++){
+	if(bands!=NULL){
+		k=bands[i];
+		if((k<0) || (k>=h->nbands))continue;
+		}
+	f=data[i];
+	if(h->min[k]>h->max[k]){
+		h->min[k]=f;
+		h->max[k]=f;
+		continue;
+		}
+	if(f<h->min[k])h->min[k]=f;
+	if(f>h->max[k])h->max[k]=f;
+	}
+/* make sure that max>min */
+for(i=0;i<h->nbands;i++){
+	if(h->min[i]==h->max[i])h->max[i]*=2.0;
+	}
+/* 2nd pass */
+/* compute histogram */
+for(i=0;i<count;i++){
+	if(bands!=NULL){
+		k=bands[i];
+		if((k<0) || (k>=h->nbands))continue;
+		}
+	j=floor((h->nbins*(data[i]-h->min[k]))/(h->max[k]-h->min[k]));
+	if(j>=h->nbins)j=h->nbins-1;
+	h->hist[k*h->nbins+j]++;
+	}
+}
+
+void print_histogram(FILE *f, HISTOGRAM *h, char *prefix)
+{
+int i,j,k;
+fprintf(f,"%s: band min max counts..\n", prefix);
+for(k=0;k<h->nbands;k++){
+	fprintf(f, "%s: %d %g %g", prefix, k, h->min[k], h->max[k]);
+	for(i=0;i<h->nbins;i++)
+		fprintf(f, " %ld", h->hist[k*h->nbins+i]);
+	fprintf(f,"\n");
 	}
 }
