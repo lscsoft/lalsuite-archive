@@ -42,3 +42,7 @@ option "fake-strain"	- "amplitude of fake signal to inject" double default="1e-2
 option "fake-freq"	- "frequency of fake signal to inject" double no
 
 option "npolarizations" - "number of linear polarizations to profile, distributed uniformly between plus and cross" int default="3" no
+
+option "write-dat"      - "regular expression describing which *.dat files to write" string default=".*" no
+option "write-png"      - "regular expression describing which *.png files to write" string default=".*" no
+

@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <png.h>
 #include "rastermagic.h"
+#include "hookup.h"
 
 extern char *output_dir;
 
@@ -14,6 +15,8 @@ png_structp png_ptr;
 png_infop info_ptr;
 png_byte *row,*tmp;
 unsigned char *r,*g,*b;
+
+if(!clear_name_png(filename))return;
 
 snprintf(s,20000,"%s%s", output_dir, filename);
 fout=fopen(s, "wb");

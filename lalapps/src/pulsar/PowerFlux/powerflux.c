@@ -333,6 +333,7 @@ if(!args_info.detector_given){
 	}
 
 gsl_rng_env_setup();
+init_hookup();
 
 /* create output directories if not present */
 if(args_info.output_given){

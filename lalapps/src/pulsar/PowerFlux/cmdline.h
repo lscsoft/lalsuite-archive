@@ -56,6 +56,8 @@ struct gengetopt_args_info
   double fake_strain_arg;	/* amplitude of fake signal to inject (default='1e-23').  */
   double fake_freq_arg;	/* frequency of fake signal to inject.  */
   int npolarizations_arg;	/* number of linear polarizations to profile, distributed uniformly between plus and cross (default='3').  */
+  char * write_dat_arg;	/* regular expression describing which *.dat files to write (default='.*').  */
+  char * write_png_arg;	/* regular expression describing which *.png files to write (default='.*').  */
 
   int help_given ;	/* Whether help was given.  */
   int version_given ;	/* Whether version was given.  */
@@ -91,6 +93,8 @@ struct gengetopt_args_info
   int fake_strain_given ;	/* Whether fake-strain was given.  */
   int fake_freq_given ;	/* Whether fake-freq was given.  */
   int npolarizations_given ;	/* Whether npolarizations was given.  */
+  int write_dat_given ;	/* Whether write-dat was given.  */
+  int write_png_given ;	/* Whether write-png was given.  */
 
 } ;
 

@@ -3,6 +3,10 @@
 
 #include "global.h"
 
+void init_hookup(void);
+int clear_name_dat(char *name);
+int clear_name_png(char *name);
+
 void read_directory(char *prefix, long first,long last, 
 	long first_bin,long bin_count,
 	long *nsegments, float **power, INT64 **gps);

@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <regex.h>
 
 #include <lal/LALInitBarycenter.h>
 #include <lal/DetResponse.h>
@@ -29,9 +30,23 @@ extern struct gengetopt_args_info args_info;
 extern double orientation;
 extern char *output_dir;
 
+regex_t write_dat, write_png;
+
 EphemerisData ephemeris;
 LALDetector detector;
 AvgVelPar detectorvel_inputs;
+
+void init_hookup(void)
+{
+if(regcomp(&write_dat, args_info.write_dat_arg, REG_EXTENDED | REG_NOSUB)){
+	fprintf(stderr,"Cannot compile \"--write-dat=%s\"\n", args_info.write_dat_arg);
+	exit(-1);
+	}
+if(regcomp(&write_png, args_info.write_png_arg, REG_EXTENDED | REG_NOSUB)){
+	fprintf(stderr,"Cannot compile \"--write-dat=%s\"\n", args_info.write_dat_arg);
+	exit(-1);
+	}
+}
 
 int get_power_range(char *filename, long startbin, long count, float *data, INT64 *gps)
 {
@@ -370,11 +385,23 @@ if(rmdir(tmp)){
 chdir(pwd);
 }
 
+int clear_name_dat(char *name)
+{
+return !regexec(&write_dat, name, 0, NULL, 0);
+}
+
+int clear_name_png(char *name)
+{
+return !regexec(&write_dat, name, 0, NULL, 0);
+}
+
 void dump_shorts(char *name, short *x, long count, long step)
 {
 FILE *fout;
 long i;
 char s[PATH_MAX];
+
+if(!clear_name_dat(name))return;
 
 snprintf(s,PATH_MAX,"%s%s", output_dir, name);
 fout=fopen(s, "w");
@@ -397,6 +424,8 @@ FILE *fout;
 long i;
 char s[PATH_MAX];
 
+if(!clear_name_dat(name))return;
+
 snprintf(s,PATH_MAX,"%s%s", output_dir, name);
 fout=fopen(s, "w");
 if(fout==NULL){
@@ -418,6 +447,8 @@ FILE *fout;
 long i;
 char s[PATH_MAX];
 
+if(!clear_name_dat(name))return;
+
 snprintf(s,PATH_MAX,"%s%s", output_dir, name);
 fout=fopen(s, "w");
 if(fout==NULL){
@@ -438,6 +469,8 @@ void dump_doubles(char *name, double *x, long count, long step)
 FILE *fout;
 long i;
 char s[PATH_MAX];
+
+if(!clear_name_dat(name))return;
 
 snprintf(s,PATH_MAX,"%s%s", output_dir, name);
 fout=fopen(s, "w");

@@ -72,6 +72,8 @@ cmdline_parser_print_help (void)
   printf("      --fake-strain=DOUBLE         amplitude of fake signal to inject  \n                                     (default=`1e-23')\n");
   printf("      --fake-freq=DOUBLE           frequency of fake signal to inject\n");
   printf("      --npolarizations=INT         number of linear polarizations to profile, \n                                     distributed uniformly between plus and \n                                     cross  (default=`3')\n");
+  printf("      --write-dat=STRING           regular expression describing which *.dat \n                                     files to write  (default=`.*')\n");
+  printf("      --write-png=STRING           regular expression describing which *.png \n                                     files to write  (default=`.*')\n");
 }
 
 
@@ -129,6 +131,8 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->fake_strain_given = 0 ;
   args_info->fake_freq_given = 0 ;
   args_info->npolarizations_given = 0 ;
+  args_info->write_dat_given = 0 ;
+  args_info->write_png_given = 0 ;
 #define clear_args() { \
   args_info->config_arg = NULL; \
   args_info->sky_grid_arg = gengetopt_strdup("sin_theta") ;\
@@ -159,6 +163,8 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->fake_spindown_arg = 0.0 ;\
   args_info->fake_strain_arg = 1e-23 ;\
   args_info->npolarizations_arg = 3 ;\
+  args_info->write_dat_arg = gengetopt_strdup(".*") ;\
+  args_info->write_png_arg = gengetopt_strdup(".*") ;\
 }
 
   clear_args();
@@ -208,6 +214,8 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
         { "fake-strain",	1, NULL, 0 },
         { "fake-freq",	1, NULL, 0 },
         { "npolarizations",	1, NULL, 0 },
+        { "write-dat",	1, NULL, 0 },
+        { "write-png",	1, NULL, 0 },
         { NULL,	0, NULL, 0 }
       };
 
@@ -663,6 +671,38 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
               }
             args_info->npolarizations_given = 1;
             args_info->npolarizations_arg = strtol (optarg,&stop_char,0);
+            break;
+          }
+          
+          /* regular expression describing which *.dat files to write.  */
+          else if (strcmp (long_options[option_index].name, "write-dat") == 0)
+          {
+            if (args_info->write_dat_given)
+              {
+                fprintf (stderr, "%s: `--write-dat' option given more than once\n", CMDLINE_PARSER_PACKAGE);
+                clear_args ();
+                exit (EXIT_FAILURE);
+              }
+            args_info->write_dat_given = 1;
+            if (args_info->write_dat_arg)
+              free (args_info->write_dat_arg); /* free default string */
+            args_info->write_dat_arg = gengetopt_strdup (optarg);
+            break;
+          }
+          
+          /* regular expression describing which *.png files to write.  */
+          else if (strcmp (long_options[option_index].name, "write-png") == 0)
+          {
+            if (args_info->write_png_given)
+              {
+                fprintf (stderr, "%s: `--write-png' option given more than once\n", CMDLINE_PARSER_PACKAGE);
+                clear_args ();
+                exit (EXIT_FAILURE);
+              }
+            args_info->write_png_given = 1;
+            if (args_info->write_png_arg)
+              free (args_info->write_png_arg); /* free default string */
+            args_info->write_png_arg = gengetopt_strdup (optarg);
             break;
           }
           
@@ -1340,6 +1380,46 @@ cmdline_parser_configfile (char * const filename, struct gengetopt_args_info *ar
                   if (fnum == 2)
                     {
                       args_info->npolarizations_arg = strtol (farg,&stop_char,0);
+                    }
+                  else
+                    {
+                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
+                               filename, line_num);
+                      exit (EXIT_FAILURE);
+                    }
+                }
+              continue;
+            }
+          if (!strcmp(fopt, "write-dat"))
+            {
+              if (override || !args_info->write_dat_given)
+                {
+                  args_info->write_dat_given = 1;
+                  if (fnum == 2)
+                    {
+                      if (args_info->write_dat_arg)
+                        free (args_info->write_dat_arg); /* free default string */
+                      args_info->write_dat_arg = gengetopt_strdup (farg);
+                    }
+                  else
+                    {
+                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
+                               filename, line_num);
+                      exit (EXIT_FAILURE);
+                    }
+                }
+              continue;
+            }
+          if (!strcmp(fopt, "write-png"))
+            {
+              if (override || !args_info->write_png_given)
+                {
+                  args_info->write_png_given = 1;
+                  if (fnum == 2)
+                    {
+                      if (args_info->write_png_arg)
+                        free (args_info->write_png_arg); /* free default string */
+                      args_info->write_png_arg = gengetopt_strdup (farg);
                     }
                   else
                     {
