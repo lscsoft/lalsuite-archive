@@ -44,6 +44,7 @@ fprintf(stderr,"Initializing polarizations:\n");
 
 polarizations[0].orientation=0;
 polarizations[0].name="plus";
+polarizations[0].conjugate=&(polarizations[1]);
 polarizations[0].plus_proj=1.0;
 polarizations[0].cross_proj=0.0;
 polarizations[0].AM_coeffs=AM_coeffs_plus;
@@ -51,6 +52,7 @@ fprintf(stderr,"\t%s 0.0\n",polarizations[0].name);
 
 polarizations[1].orientation=M_PI/4.0;
 polarizations[1].name="cross";
+polarizations[1].conjugate=&(polarizations[0]);
 polarizations[1].plus_proj=0.0;
 polarizations[1].cross_proj=1.0;
 polarizations[1].AM_coeffs=AM_coeffs_cross;
@@ -58,12 +60,13 @@ fprintf(stderr,"\t%s %g\n",polarizations[1].name, M_PI/4.0);
 
 for(i=2;i<npolarizations;i++){
 	polarizations[i].name=do_alloc(16,sizeof(char));
-	if(i-1<npolarizations/2){
-		a=(i-1)*M_PI/(2.0*npolarizations);
-		snprintf(polarizations[i].name,16,"pi_%d_%d",i-1, 2*npolarizations);
+	polarizations[i].conjugate=&(polarizations[i ^ 1]);
+	a=(i>>1)*M_PI/(2.0*npolarizations);
+	if(i & 1){
+		a+=M_PI/4.0;
+		snprintf(polarizations[i].name,16,"pi_%d_%d",((i+npolarizations)>>1), 2*npolarizations);
 		} else {
-		a=i*M_PI/(2.0*npolarizations);
-		snprintf(polarizations[i].name,16,"pi_%d_%d",i, 2*npolarizations);
+		snprintf(polarizations[i].name,16,"pi_%d_%d", (i>>1), 2*npolarizations);
 		}
 	polarizations[i].orientation=a;
 	polarizations[i].plus_proj=cos(2*a);
@@ -140,6 +143,9 @@ for(i=0;i<npolarizations;i++){
 	polarizations[i].skymap.ks_test=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
 	polarizations[i].skymap.ks_count=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
 
+	polarizations[i].skymap.beta1=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
+	polarizations[i].skymap.beta2=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
+
 	for(k=0;k<fine_grid->npoints;k++){
 		polarizations[i].skymap.max_dx[k]=-1.0;
 		polarizations[i].skymap.M_map[k]=-1.0;
@@ -156,6 +162,9 @@ for(i=0;i<npolarizations;i++){
 		#else
 		polarizations[i].skymap.total_count[k]=0;
 		#endif
+
+		polarizations[i].skymap.beta1[k]=0.0;
+		polarizations[i].skymap.beta2[k]=0.0;
 		}
 	/* Output arrays - spectral plots */
 	polarizations[i].spectral_plot.max_upper_limit=do_alloc(useful_bins*args_info.nbands_arg, sizeof(SUM_TYPE));

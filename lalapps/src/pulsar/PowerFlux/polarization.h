@@ -4,10 +4,11 @@
 #include "grid.h"
 #include "global.h"
 
-typedef struct {
+typedef struct S_POLARIZATION {
 	float orientation;
 	float  plus_proj;
 	float  cross_proj;
+	struct S_POLARIZATION *conjugate; /* plus for cross and cross for plus */
 	
 	SKY_GRID_TYPE *AM_coeffs;
 	float *patch_CutOff;
@@ -35,6 +36,21 @@ typedef struct {
 		SUM_TYPE *cor2;
 		SUM_TYPE *ks_test;
 		SUM_TYPE *ks_count;
+		
+		/* universality coefficients - these are needed to 
+		   translate from several sampled linear polarizations 
+		   to limits on circular and arbitrary linear polarizations.
+		   
+		   They can also be used to set limits on arbitrary pulsar
+		   signal 
+		   
+		   WARNING: they are *not* applicable for signals with many
+		   vetoed bins
+		   
+		   */
+		   
+		SUM_TYPE *beta1;
+		SUM_TYPE *beta2;
 		} skymap;
 	
 	/* results - spectral plots, projection along sky bands */
@@ -52,7 +68,7 @@ typedef struct {
 
 extern int no_am_response;
 
-static float inline AM_response(int segment, SKY_GRID *grid, int point, float *coeff)
+static float inline F_plus(int segment, SKY_GRID *grid, int point, float *coeff)
 {
 float a;
 int ii;
@@ -60,11 +76,14 @@ if(no_am_response)return 1.0;
 a=0.0;
 for(ii=0;ii<GRID_FIT_COUNT;ii++)
 	a+=coeff[segment*GRID_FIT_COUNT+ii]*grid->e[ii+GRID_FIT_START][point];
-#if 0 /* just for testing */
 return a;
-#else
+}
+
+static float inline AM_response(int segment, SKY_GRID *grid, int point, float *coeff)
+{
+float a;
+a=F_plus(segment, grid, point, coeff);
 return (a*a);
-#endif
 }
 
 
