@@ -24,8 +24,11 @@ import sys
 import string
 import re
 import csv
-import mx.ODBC.DB2 as mxdb
-from mx.ODBC.DB2 import SQL
+try:
+  import mx.ODBC.DB2 as mxdb
+  from mx.ODBC.DB2 import SQL
+except:
+  pass
 
 try:
   import thread
