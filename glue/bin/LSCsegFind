@@ -12,7 +12,7 @@ import os
 import getopt
 import re
 import exceptions
-import types
+
 #from pyGlobus import io
 #from pyGlobus import security
 
@@ -35,25 +35,32 @@ def shortUsage():
         """
         msg = """\
 NAME
-        LSCsegFind: Returns GPS segments in interval [gps-start-time, gps-end-time)
+     LSCsegFind: Returns GPS segments in interval [gps-start-time, gps-end-time)
 
 SYNOPSIS
+     help:       
         LSCsegFind --help
-        LSCsegFind --help-long (Use this option for further help)
-                
-        LSCsegFind --ifo=IFO --gps-start-time=GPS --gps-end-time=GPS [--seg-url=URL] 
-        [--config-file=CONFIG_FILE] [--min-length=SEC] [--add-start=SEC] [--reduce-end=SEC]
-        [--output-format=STRING] [--seg-type=SEGMENT_TYPE] [--strict-off] [--save-files]
+        LSCsegFind --help-long (use this option for further help)
         
-        The URL must be given by either the --seg-url option or set in the CONFIG_FILE. Note that
-        the command line option takes precedence over the CONFIG_FILE. The CONFIG_FILE can be
-        specified by the environmental variable LSCSEGFIND_CONFIGFILE.  IFO can be anything; to
-        add default URLs add lines using the syntax urlDefault["IFO"] = "URL" to the CONFIG_FILE.
+     if LSC_SEGFIND_SERVER environmental variable is set:        
+        LSCsegFind --show-types        
+        LSCsegFind --gps-start-time=GPS --gps-end-time=GPS --type=NAME
+           
+     else:               
+        LSCsegFind --server=NAME:PORT --show-types
+        LSCsegFind --server=NAME:PORT --gps-start-time=GPS --gps-end-time=GPS --type=NAME
+
+     other options:        
+        LSCsegFind --gps-start-time=GPS --gps-end-time=GPS < --server=NAME:PORT --type=NAME | 
+        --local-config-file=CONFIG_FILE --type=NAME | --local-seg-file=NAME [--coalesce] >
+        [--min-length=SEC] [--add-start=SEC] [--reduce-end=SEC] [--output-format=STRING] [--strict-off] [--save-files] 
+
+        LSCsegFind --show-types --local-config-file=CONFIG_FILE
 
 EXAMPLE
-        $ LSCsegFind --ifo=H1 --gps-start-time=757838000 --gps-end-time=757881848 --config-file=LSCsegFindCfgExample
-        757842133 757849258
-        757874829 757881843
+     $ LSCsegFind --server=ldas-gridmon.ligo-wa.caltech.edu --gps-start-time=757838000 --gps-end-time=757881848 --type=S3H1
+     757842133 757849258
+     757874829 757881843
 \
 """
         print >>sys.stdout, msg
@@ -68,119 +75,139 @@ def usage():
         
         msg = """\
 DESCRIPTION
-        -i, --ifo
-                Can be anything; if --seg-url is not given then the value of this option
-                is used to find the default URLs given as urlDefault["IFO"] = "URL" in the
-                CONFIG_FILE.  For example, to use '--ifo=H1' to get the default URL for
-                'H1' a line in the config file must look like this:
+        
+     -r NAME, --server=NAME:PORT
+            Replace NAME with server with segment information (PORT is optional and
+            currently unused). If the environmental variable LSC_SEGFIND_SERVER is
+            defined this is used for the default NAME:PORT value and the --server
+            option is not needed.  Note that giving the --server option over-rides
+            the environmental variable.
                 
-                urlDefault["H1"] = "http://blue.ligo-wa.caltech.edu/scirun/S3/LockStatistics/S3segments/S3H1v00_segs.txt"
-
-        -s, --gps-start-time
-                Start of GPS time range (inclusive)
-
-        -e, --gps-end-time
-                End of GPS time range (exclusive)
-        
-        -u, --seg-url
-                URL to get segments from (can start with http:// or file:// to use a local file)
-
-        -t, --seg-type
-                Type of segments (currently unused; the URL used must be for one specific type)
+     -y --show-types
+            Show a list of names that can be used with the --type option to designate
+            the type of segments to return.
        
-        -c, --config-file
-                Note that it is not necessary for a configuration file to exist to run this program,
-                but then the URL to get segments from must be specfied on the command line using
-                -u or --seg-url. Setting the URL from the command line overrides any URL found in the
-                config file. For maximum speed, end the config filename in .py so that python can create
-                a .pyc version of it, and add its path to your PYTHONPATH environmental variable. In
-                this case, you should not give the path or the .py extension when specifying the
-                config filename. However, config files not in your PYTHONPATH must be specified with
-                the complete path and filename. See LSCsegFindCfgExample.py for an example config file
-                (run 'echo $PYTHONPATH' to see possible paths to this file). The CONFIG_FILE can also
-                be specified by the environmental variable LSCSEGFIND_CONFIGFILE.
+     -t NAME, --type=NAME
+            Replace NAME with a name that designates the type of segments to return
+            Use -y or --show-types to see what names are available
         
-        -m, --min-length
-               minimum duration of output segments in seconds (default = 300).
+     -s GPS, --gps-start-time=GPS
+            GPS = gps start-time of range (inclusive)
+
+     -e GPS, --gps-end-time=GPS
+            GPS = gps end-time of range (exclusive)
+               
+     -m SEC, --min-length=SEC
+            SEC = minimum duration of output segments in seconds (default = 200).
         
-        -a, --add-start
-               add this many seconds to output segments start times (default = 0).
+     -a SEC, --add-start=SEC
+            SEC = number of seconds to add to output segments start times (default = 0).
         
-        -r, --reduce-end
-               reduce output segments end times by this many seconds (default = 0).
+     -d SEC, --reduce-end=SEC
+           SEC  = number of seconds to reduce output segments end times (default = 0).
         
-        -o, --output-format
-               String that specifies output format. The default is "%s %e" which prints
-               out 'start-time end-time', in the format:
-                     757842133 757849258
-                     757874829 757881843
+     -o STRING, --output-format=STRING
+            Replace STRING with a string that specifies the output format. The default
+            is "%s %e" which prints out 'start-time end-time', in the format:
+                  757842133 757849258
+                  757874829 757881843
+                  ...
+            The format options are:
+                   %i = prints segment id
+                   %s = prints segment start time (inclusive)
+                   %e = prints segment end time (exclusive)
+                   %d = prints segment duration
+            For example "%i %s %e %d" outputs 'id start-time end-time duration'
+                  507 757842133 757849258 7125
+                  508 757874829 757881843 7014               
+                  ...
+            Other characters can be included, but must be space separated for the format options.
+            Examples:
+                  1. "%s , %e" prints:
+                     757842133 , 757849258
                      ...
-               The format options are:
-                      %i = prints segment id
-                      %s = prints segment start time (inclusive)
-                      %e = prints segment end time (exclusive)
-                      %d = prints segment duration
-               For example "%i %s %e %d" outputs 'id start-time end-time duration'
-                     507 757842133 757849258 7125
-                     508 757874829 757881843 7014               
+                  2. "{ %s %e }" prints:
+                     { 757842133 757849258 }
                      ...
-               Other characters can be included, but must be space separated for the format options.
-               Examples:
-                     1. "%s , %e" prints:
-                        757842133 , 757849258
-                         ...
-                     2. "{ %s %e }" prints:
-                        { 757842133 757849258 }
-                         ...
-               In addition to formatted output, special values of the format string are:
-                    SCIENCE_SEGMENTS = prints segments as objects of the LSC python Class ScienceSegment
-                    PYTHON_LIST = prints start times and end times as a python list
-                    TCL_LIST = prints start times and end times as a tcl list
+            In addition to formatted output, special values of the format string are:
+                 SCIENCE_SEGMENTS = prints segments as objects of the LSC python Class ScienceSegment
+                 PYTHON_LIST = prints start times and end times as a python list
+                 TCL_LIST = prints start times and end times as a tcl list
                       
-        --strict-off
-                The default behavior is to truncate segments so that returned segments are
-                entirely in the interval [gps-start-time, gps-end-time).  However if this 
-                option is given, the entire non-truncated segment is returned if any part
-                of it overlaps the interval.               
+     --strict-off
+            The default behavior is to truncate segments so that returned segments are
+            entirely in the interval [gps-start-time, gps-end-time).  However if this 
+            option is given, the entire non-truncated segment is returned if any part
+            of it overlaps the interval.               
+     
+     --save-files
+            The default behavior is to remove temporary files after each call. Use this option
+            to keep temporary configuration and segment files on disk. These files can then be
+            used locally with the --local-config-file and --local-seg-file options.  These
+            files will end in _LSCsegFind.py and _LSCsegFind.txt respectively
         
-        --save-files
-               The default behavior is to remove temporary files after each call. Using this option will keep
-               the temporary file dataFromURL_LSCsegFind.txt on disk. The option to automatically reuse and/or
-               merge temporary files with new files has not been implemented. However, the current use of
-               --save-files does allow one to get a file from a http:// URL the first time, and then to use
-               --seg-url=file://dataFromURL_LSCsegFind.txt --save-files to use the local copy on subsequent calls.
-                       
-        -h, --help
-                show short usage message
-        --help-long
-                show long usage message
+     -c NAME, --local-config-file=NAME
+            A local configuration file can be used, rather than the configuration on the server.
+            For an example, see LSCsegFindCfgExample.py in the lib directory with LSCsegFind.py.
+            (Run 'echo PYTHONPATH' to find possible paths to this directory)
+        
+     -f NAME, --local-seg-file=NAME
+            Name of a local file with segments with the format "seg-number start-time end-time duration"
+            The numbers can be separated by any amount of white space.
+        
+     --coalesce
+            Used only when --local-seg-file option is used; otherwise coalesces is determined by the
+            server or the config file.  If --coalesce is given, the segments in the local segment file
+            will be coalesced (in memory only) before using them.
+        
+     -h, --help
+            show short usage message
+        
+     --help-long
+            show long usage message
+
 ENVIRONMENT
-        PYTHONPATH: The path with the lib directory which contains LSCsegFind.py must be added to the
-                    PYTHONPATH environmental variable.                
-           
-        LSCSEGFIND_CONFIGFILE: the default CONFIG_FILE to use. For example, see LSCsegFindCfgExample.py
+     PYTHONPATH: The path with the lib directory which contains LSCsegFind.py must be added to the
+                 PYTHONPATH environmental variable.                
+ 
+    LSC_SEGFIND_SERVER: the default server NAME:PORT to use.
 
 EXAMPLES
-        $ LSCsegFind --ifo=H1 --gps-start-time=757838000 --gps-end-time=757881848 --config-file=LSCsegFindCfgExample
-        757842133 757849258
-        757874829 757881843
-                
-        $ LSCsegFind --ifo=L1 --gps-start-time=757838000 --gps-end-time=757881848 --config-file=LSCsegFindCfgExample
-        --output-format="%i %s %e %d"
-        533 757879447 757881848 5354
  
-        $ LSCsegFind --ifo=H1 --gps-start-time=757838000 --gps-end-time=757881848 --config-file=LSCsegFindCfgExample
-        --output-format=SCIENCE_SEGMENTS
-        <ScienceSegment: id 507, start 757842133, end 757849258, dur 7125, unused 7125>
-        <ScienceSegment: id 508, start 757874829, end 757881843, dur 7014, unused 7014>
-        
-        $ LSCsegFind --ifo=H2 --gps-start-time=757838000 --gps-end-time=757881848 --config-file=LSCsegFindCfgExample
-        --output-format=PYTHON_LIST
-        [[757840695L, 757844152L], [757844868L, 757849257L], [757874819L, 757881848L]]
-        
-        $ LSCsegFind --ifo=H2 --gps-start-time=757838000 --gps-end-time=757881848 --config-file=LSCsegFindCfgExample
-        --output-format=TCL_LIST
-        { { 757840695 757844152 } { 757844868 757849257 } { 757874819 757881848 } }         
+ $ LSCsegFind --server=ldas-gridmon.ligo-wa.caltech.edu --show-types
+                                                                                                                             
+  Available types : description
+            H1DMT : DMT Science-mode Segments
+         H1DMT_CM : DMT Common-mode Segments
+            H2DMT : DMT Science-mode Segments
+         H2DMT_CM : DMT Common-mode Segments
+             M5H1 : Conlog Science-mode Segments
+             M5H2 : Conlog Science-mode Segments
+             S3H1 : Conlog Science-mode Segments
+             S3H2 : Conlog Science-mode Segments
+             S3L1 : Conlog Science-mode Segments
+
+ $ LSCsegFind --server=ldas-gridmon.ligo-wa.caltech.edu --type=H2DMT --gps-start-time=782635107 --gps-end-time=782641908
+ 782635107 782637268
+ 782637631 782641908
+
+ $ LSCsegFind --server=ldas-gridmon.ligo-wa.caltech.edu --type=M5H2 --gps-start-time=782635107 --gps-end-time=782641908
+ 782635107 782637268
+ 782637630 782641908
+
+ $ LSCsegFind --server=ldas-gridmon.ligo-wa.caltech.edu --type=H2DMT --gps-start-time=782635107 --gps-end-time=782641908 --output-format="%i %s %e %d"
+ 34 782635107 782637268 2161
+ 59 782637631 782641908 4277
+
+ $ LSCsegFind --server=ldas-gridmon.ligo-wa.caltech.edu --type=H2DMT --gps-start-time=782635107 --gps-end-time=782641908 --output-format=SCIENCE_SEGMENTS
+ <ScienceSegment: id 34, start 782635107, end 782637268, dur 2161, unused 2161>
+ <ScienceSegment: id 59, start 782637631, end 782641908, dur 4277, unused 4277>
+  
+ $ LSCsegFind --server=ldas-gridmon.ligo-wa.caltech.edu --type=H2DMT --gps-start-time=782635107 --gps-end-time=782641908 --output-format=TCL_LIST
+ { { 782635107 782637268 } { 782637631 782641908 } }
+
+ $ LSCsegFind --server=ldas-gridmon.ligo-wa.caltech.edu --type=H2DMT --gps-start-time=782635107 --gps-end-time=782641908 --output-format=PYTHON_LIST
+ [[782635107L, 782637268L], [782637631L, 782641908L]]
 \
 """
         print >>sys.stdout, msg
@@ -190,42 +217,45 @@ EXAMPLES
 #
 #
 
-# set defaults        
-segSourceType = 'url'
-ifo = None
+# set defaults
+LSC_SEGFIND_SERVER = os.getenv('LSCSEGFIND_CONFIGFILE', None)
+server=LSC_SEGFIND_SERVER
 startTime = None
 endTime = None
-segURL = None
 segType = None
-LSCSEGFIND_CONFIGFILE = os.getenv('LSCSEGFIND_CONFIGFILE', None)
-cfgFile = LSCSEGFIND_CONFIGFILE
-minLength = long(300)
+minLength = long(200)
 addStart = long(0)
 reduceEnd = long(0)
 outputFormat = "%s %e"
 strict = True
 saveFiles = False
+cfgFile = None
+localSegFile=None
+coalesce=False
+showTypes = False
 
 # check credentials (currently disabled)
 # checkCredentials()
         
 # grab command line options
-shortop = "i:s:e:u:t:c:m:a:r:o:h"
+shortop = "r:s:e:t:m:a:d:o:c:f:yh"
 longop = [
           "help",
           "help-long",
-          "ifo=",
+          "server=",
           "gps-start-time=",
           "gps-end-time=",
-          "seg-url=",
-          "seg-type=",
-          "config-file=",
+          "type=",
           "min-length=",
           "add-start=",
           "reduce-end=",
           "output-format=",          
           "strict-off",
           "save-files",
+          "local-config-file=",
+          "local-seg-file=",
+          "coalesce",
+          "show-types",
           ]
 
 try:
@@ -245,24 +275,20 @@ for o, a in opts:
                 sys.exit(0)
         elif o in ("--help-long",):
                 usage()
-                sys.exit(0)                
-        elif o in ("-i", "--ifo"):
-                ifo = a
+                sys.exit(0)
+        elif o in ("-r", "--server"):
+                server = a
         elif o in ("-s", "--gps-start-time"):
                 startTime = a
         elif o in ("-e", "--gps-end-time"):
                 endTime = a
-        elif o in ("-u", "--seg-url"):
-                segURL = a                
-        elif o in ("-t", "--seg-type"):
+        elif o in ("-t", "--type"):
                 segType = a
-        elif o in ("-c", "--config-file"):
-                cfgFile = a
         elif o in ("-m", "--min-length"):
                 minLength = a
         elif o in ("-a", "--add-start"):
                 addStart = a
-        elif o in ("-r", "--reduce-end"):
+        elif o in ("-d", "--reduce-end"):
                 reduceEnd = a
         elif o in ("-o", "--output-format"):
                 outputFormat = a
@@ -270,14 +296,29 @@ for o, a in opts:
                 strict = False
         elif o in ("--save-files",):
                 saveFiles = True
-                                
-#print segSourceType,ifo,startTime,endTime,segURL,segType,cfgFile,minLength,addStart,reduceEnd,outputFormat,strict,saveFiles
+        elif o in ("-c", "--local-config-file"):
+                cfgFile = a
+        elif o in ("-f", "--local-seg-file"):
+                localSegFile = a
+        elif o in ("--coalesce",):
+                coalesce = True
+        elif o in ("-y", "--show-types"):
+                showTypes = True
 
+# coalesce used only if localSegFile used
+if localSegFile == None:
+   coalesce=False
+
+#print server,startTime,endTime,segType,minLength,addStart,reduceEnd,outputFormat,strict,saveFiles,cfgFile,localSegFile,coalesce,showTypes
+        
 # Initiate the LSCsegFind Class; note that the class does all vetting of parameters.
-myLSCsegFind = LSCsegFind(segSourceType,ifo,startTime,endTime,segURL,segType,cfgFile,minLength,addStart,reduceEnd,outputFormat,strict,saveFiles)
+myLSCsegFind = LSCsegFind(server,startTime,endTime,segType,minLength,addStart,reduceEnd,outputFormat,strict,saveFiles,cfgFile,localSegFile,coalesce,showTypes)
 
-# Get the segments; the results are printed to stdout.
-myLSCsegFind.GetSegments()
+if showTypes:
+     # LSCsegFind will have displayed a list of segment types; just continue to exit.
+     pass
+else:
+     # Get the segments; the results are printed to stdout.
+     myLSCsegFind.GetSegments()
 
 sys.exit(0)
-

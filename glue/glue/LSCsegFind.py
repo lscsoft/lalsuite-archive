@@ -9,7 +9,6 @@ __version__ = '$Revision$'[0:0]
 import sys
 import os
 import exceptions
-import types
 
 #from pyGlobus import io
 #from pyGlobus import security
@@ -38,7 +37,7 @@ class LSCsegFindException(exceptions.Exception):
 
                 @return: Instance of class LSCsegFindClientException
                 """
-                print 'An exception was raised in Class LSCsegFind:'
+                print 'An exception was raised and handled in Class LSCsegFind. See last message:'
                 self.args = args
                 
 
@@ -48,77 +47,114 @@ class LSCsegFind(object):
         """
         
         # Class data:
+          
         
-        # tuple of allowed sources of GPS segments
-        segSourceTypes = ('none','url')
-        
-        # tuple of allowed segment types; this is currently unused
-        # segTypes = ('none', 'SCIENCE_MODE')
-        
-        def __init__(self, segSourceType=None, ifo=None, startTime=None, endTime=None,\
-        segURL=None, segType=None, cfgFile=None, minLength=None, addStart=None, reduceEnd=None,\
-        outputFormat=None, strict=None, saveFiles=None):
+        def __init__(self, server=None, startTime=None, endTime=None, segType=None,\
+        minLength=None, addStart=None, reduceEnd=None, outputFormat=None, strict=None,\
+        saveFiles=False, cfgFile=None, localSegFile=None, coalesce=False, showTypes=False):
                 """
                   See help for LSCsegFind for definitions of parameters.
                 """
+
+                # Define defaults for local temporary files and local files to save if saveFiles is True.
+                self.tmpCfgDefaultsFileName  = 'tmpCfgDefaults_LSCsegFind.py'
+                self.tmpCfgDefaultsFileNameC = 'tmpCfgDefaults_LSCsegFind.pyc'
+                self.savCfgDefaultsFileName  = 'savCfgDefaults_LSCsegFind.py'
+                self.tmpSegDataFileName = 'tmpSegData_LSCsegFind.txt'
+                self.savSegDataFileName = 'savSegData_LSCsegFind.txt'
+                self.saveFiles = saveFiles
+                self.saveFiles = self.__get_BOOLEAN('saveFiles',saveFiles)                
+                self.showTypes = self.__get_BOOLEAN('showTypes',showTypes)
                                 
-                # get defaults from local config file
-                self.urlDefaultsExist = False
-                if cfgFile != None:
-                   self.cfgFile = self.__get_STR('cfgFile',cfgFile)
+                if localSegFile == None:
+                   # Usual case; use server or config file to find segments.
+                   # get defaults from server or local config file
+                   if cfgFile == None:
+                      # Usual case: get the default config file from a web server; save as temporary file
+                      # Set up the server host name 
+                      self.server = self.__get_STR('server',server)
+                      if self.server.find(':') < 0:
+                          # no port specified
+                          self.host = self.server
+                          self.port = 0L
+                      else:
+                          # server and port specified
+                          hostString, portString = self.server.split(':')
+                          self.host = self.__get_STR('host',hostString)
+                          self.port = self.__get_PLONG('minLength',portString)
+
+                      # set up serverURL (note that the file name on the server is hard-coded here.)                                      
+                      self.serverFileName = "lscsegfind/LSCsegFindCfgDefaults.txt"
+                      self.serverURL = "%s/%s" % (self.host, self.serverFileName)
+                   
+                      self.cfgFile = self.tmpCfgDefaultsFileName                
+                      self.__getWebPage(self.serverURL,self.cfgFile)
+                   else: 
+                      self.cfgFile = self.__get_STR('cfgFile',cfgFile)
+                
+                   self.cfgDefaultsExist = False
                    try:
                        #exec ( "from %s import %s" % (cfgFile, self.urlDefaultName) )
-                       exec ( "from %s import urlDefaults" % self.cfgFile )
-                       self.urlDefaultsExist = True
+                       exec ( "from %s import cfgDefaults" % self.cfgFile )
+                       self.cfgDefaultsExist = True
                    except ImportError:
-                       # config could be a local file; try execfile:
+                       # config file could be a local file; try execfile:
                        try:
-                           execfile(self.cfgFile)
-                           self.urlDefaultsExist = True
+                          execfile(self.cfgFile)
+                          self.cfgDefaultsExist = True
                        except:
-                           # Will handle this error below only when values from config file are needed.
-                           pass
-                else:
-                   self.cfgFile = cfgFile
-                   
-                # Check that required parameters are set
+                          # Will handle this error below only when values from config file are needed.
+                          pass
+
+                   if self.showTypes:
+                       # just display the default segTypes and return
+                       print "\n Available types : description "
+                       setTypeList = cfgDefaults.keys()
+                       setTypeList.sort()
+                       for segType in setTypeList:
+                               print "%16s : %s  " % (segType,  cfgDefaults[segType]['desc'])
+                       return
+
+
+                   # Try to get segURL from the cfgDefaults dictionary set in the config file.
+                   self.segType = self.__get_STR('type',segType)                   
+                   segURL = None
+                   if self.cfgDefaultsExist:
+                        try:
+                            segURL = cfgDefaults[self.segType]['url']
+                            coalesce = cfgDefaults[self.segType]['coalesce']                                
+                        except:
+                            try:
+                               msg = "\nMissing or bad input data: the type '%s' was not found; found these types: %s" % (self.segType, cfgDefaults.keys())
+                            except:
+                               msg = "\nMissing or bad input data: the type '%s' was not found; failed to find any defined types" % self.segType
+                               raise LSCsegFindException, msg                           
+                   else:
+                        if self.cfgFile != None:
+                            msg = "\nMissing or bad input data: the type '%s' was not found." % self.segType
+                            raise LSCsegFindException, msg
+                        else:
+                            msg = "\nMissing or bad input data: invalid server or config file"
+                            raise LSCsegFindException, msg
+                   # Will get the segment file from a URL; set the local file to the tmp file name
+                   self.segURL = self.__get_STR('segURL',segURL)
+                   self.localSegFile = self.tmpSegDataFileName                   
+                else:   
+                   # Will use the localSegFile parameter
+                   self.segURL = None                   
+                   self.localSegFile = self.__get_STR('localSegFile',localSegFile)                   
+                   if self.showTypes:
+                      msg = "\nMissing or bad input data:: cannot show types when localSegFile is given"
+                      raise LSCsegFindException, msg
+                # End if localSegFile == None
                 
-                self.segSourceType = self.__get_STR('segSourceType',segSourceType)
-                if not (segSourceType in LSCsegFind.segSourceTypes):
-                        msg = "\nMissing or bad input data: 'segSourceType' = '%s' is invalid; current valid values are %s" % (segSourceType, LSCsegFind.segSourceTypes)
-                        raise LSCsegFindException, msg
-                
-                self.ifo = self.__get_STR('ifo',ifo)
-                
+                # Set up remaining parameters
+                self.coalesce = self.__get_BOOLEAN('coalesce',coalesce)
                 self.startTime = self.__get_GPSLONG('startTime',startTime)
                 self.endTime = self.__get_GPSLONG('endTime',endTime)
                 if self.startTime >= self.endTime:
                       msg = "\nMissing or bad input data: 'startTime' must be less than argument 'endTime'"
                       raise LSCsegFindException, msg
-                                         
-                if segURL == None:
-                      # if no segURL input, then try to get this from the urlDefaults dictionary set in the config file.
-                      if self.urlDefaultsExist:
-                           try:
-                                segURL = urlDefaults[self.ifo]
-                           except:
-                                try:
-                                     msg = "\nMissing or bad input data: a default URL for ifo '%s' was not found in config file '%s'; defaults exist for these ifos: %s" % (ifo, self.cfgFile, urlDefaults.keys())
-                                except:
-                                     msg = "\nMissing or bad input data: a default URL for ifo '%s' was not found in config file '%s'; no defaults were found." % (ifo, self.cfgFile)
-                                raise LSCsegFindException, msg                           
-                      else:
-                           if self.cfgFile != None:
-                                msg = "\nMissing or bad input data: 'segURL' not found; the config file %s does not exist or is corrupt" % self.cfgFile
-                                raise LSCsegFindException, msg
-                           else:
-                                msg = "\nMissing or bad input data: 'segURL' not found"
-                                raise LSCsegFindException, msg
-                self.segURL = self.__get_STR('segURL',segURL)
-                
-                # segType is currently unused, so no testing:
-                self.segType = segType
-                
                 self.minLength = self.__get_PLONG('minLength',minLength)
                 self.addStart = self.__get_ULONG('addStart',addStart)
                 self.reduceEnd = self.__get_ULONG('reduceEnd',reduceEnd)
@@ -129,7 +165,44 @@ class LSCsegFind(object):
                 # data not from parameters
                 self.myScienceData = ScienceData()
                 self.mySegList = []
-                           
+
+        def __del__(self):
+                """
+                   Clean up and remove temporary files or save if requested
+                """ 
+                
+                # Always remove the tmp .pyc cfg file
+                try:
+                    rmOut = os.system('/bin/rm -f %s 1>/dev/null 2>/dev/null' % self.tmpCfgDefaultsFileNameC)
+
+                except:
+                    # Just leave the file on disk for now; will not hurt anything.
+                    pass                         
+                
+                # Remove tmp files or mv tmp files to sav files
+                if self.saveFiles:
+
+                     # Append the segtype name to the beginning the name of a segment file to save.
+                     try:
+                         tmpName = '%s_%s' % (self.segType, self.savSegDataFileName)
+                         self.savSegDataFileName = tmpName
+                     except:
+                         pass
+                     
+                     try:
+                         mvOut = os.system('/bin/mv %s %s 1>/dev/null 2>/dev/null' % (self.tmpCfgDefaultsFileName, self.savCfgDefaultsFileName))
+                         mvOut = os.system('/bin/mv %s %s 1>/dev/null 2>/dev/null' % (self.tmpSegDataFileName, self.savSegDataFileName))
+                     except:
+                         # Just leave the file on disk for now; will not hurt anything.
+                         pass
+                else:
+                     try:
+                         rmOut = os.system('/bin/rm -f %s 1>/dev/null 2>/dev/null' % self.tmpCfgDefaultsFileName)
+                         rmOut = os.system('/bin/rm -f %s 1>/dev/null 2>/dev/null' % self.tmpSegDataFileName)                         
+                     except:
+                         # Just leave the file on disk for now; will not hurt anything.
+                         pass                         
+
         def __check_exists(self, inputName, inputValue):
                 """
                    Check that a value exists, else raise an exception
@@ -167,7 +240,7 @@ class LSCsegFind(object):
         
         def __get_PLONG(self, inputName, inputValue):
                 """
-                   Convert inputValue to nonnegative long integer; raise exceptions if value does not exist or conversion fails
+                   Convert inputValue to positive long integer; raise exceptions if value does not exist or conversion fails
                 """        
                 self.__check_exists(inputName, inputValue)
                 msg = "\nMissing or bad input data: '%s' must be integer > 0; value given was %s" % ( str(inputName), str(inputValue) )
@@ -214,26 +287,50 @@ class LSCsegFind(object):
                 except:
                         raise LSCsegFindException, msg
 
-        def GetSegments(self):
-                
-                fileName = 'tmpDataFromURL_LSCsegFind.txt'
-
+        def __getWebPage(self,urlString,localFileName):
+                """
+                   returns a url to a local file.
+                """
                 try:
-                    webPageString = os.system('/usr/bin/curl %s 1> %s 2>/dev/null' % (self.segURL, fileName))
+                    for i in range (0,2):
+                        curlExit = os.system('/usr/bin/curl --fail --connect-timeout 100 %s 1> %s 2>/dev/null' % (urlString, localFileName))
+                        if long(curlExit) == 0L:
+                             curlFailed = False
+                             break
+                    if curlFailed:
+                        msg = "Error retrieving web page '%s', make sure web page exists; error was %s" % (urlString, str(curlExit))
+                        raise LSCsegFindException, msg
                 except:
-                    msg = "Could not retrieve web page '%s', make sure /usr/bin/curl and web page exists." % self.segURL
+                    msg = "Could not retrieve web page '%s', make sure /usr/bin/curl and web page exist." % urlString
                     raise LSCsegFindException, msg
-  
-                if webPageString:
-                    msg = "Error retrieving web page '%s', make sure web page exists." % self.segURL
-                    raise LSCsegFindException, msg
+        
+        def GetSegments(self):
+                """
+                   Get segments and print those that match LSCsegFind input parameters to stdout
+                """
                 
+                if self.segURL != None:
+                   # Get the segments from a web page; save them to a local file.                
+                   self.__getWebPage(self.segURL,self.tmpSegDataFileName)
+
+                # Read in the segments in the ScienceData Class
                 try: 
-                    self.myScienceData.read(fileName,self.minLength)
+                    if self.coalesce:
+                         # Get all the segments; will coalesce segments below
+                         self.myScienceData.read(self.localSegFile,1)
+                    else:
+                         self.myScienceData.read(self.localSegFile,self.minLength)
                 except:
-                    msg = "Could not read file %s" % fileName
+                    msg = "Could not read file %s" % self.localSegFile
                     raise LSCsegFindException, msg
-                                                    
+
+                if self.coalesce:
+                    try:                 
+                        numSciSegs = self.myScienceData.coalesce()
+                    except:
+                        msg = "An error occured trying to coalesce the data." 
+                        raise LSCsegFindException, msg
+                                                                        
                 formatList = self.outputFormat.split()
                 for i in range (0,self.myScienceData.__len__()):
                     segment = self.myScienceData.__getitem__(i)
@@ -288,27 +385,9 @@ class LSCsegFind(object):
                      print "{",
                      for thisSegment in self.mySegList:
                          print "{ %s %s }" % (thisSegment[0],thisSegment[1]),
-                     print "}"                      
-                
-                # clean up                
-                # TODO: handle saving and reusing of files; for now just keep the temporary file if saveFiles is true
-                if self.saveFiles:
-                     savedFileName = 'dataFromURL_LSCsegFind.txt'
-                     try:
-                         rmOut = os.system('/bin/mv %s %s 1>/dev/null 2>/dev/null' % (fileName, savedFileName))
-                     except:
-                         # Just leave the file on disk for now; will not hurt anything.
-                         pass
-                else:
+                     print "}"                    
 
-                     try:
-                         rmOut = os.system('/bin/rm -f %s 1>/dev/null 2>/dev/null' % fileName)
-                     except:
-                         # Just leave the file on disk for now; will not hurt anything.
-                         pass
-                    
-        # End def GetSegments(self)
-        
+        # End def GetSegments(self)        
 # End class LSCsegFind(object)
 
 #def checkCredentials():
