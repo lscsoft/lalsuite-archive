@@ -21,6 +21,23 @@ class StateSegmentDatabaseException(exceptions.Exception):
     self.args = args
 
 
+class StateSegmentDatabaseSegmentExistsException(exceptions.Exception):
+  """
+  Exceptions raised by the classes and methods in this module
+  will be instances of this class.
+  """
+  def __init__(self, args=None):
+    """
+    Create an instance of this class, ie. a StateSegmentDatabaseException
+    exception.
+
+    @param args: 
+
+    @return: Instance of class StateSegmentDatabaseException
+    """
+    self.args = args
+
+
 class StateSegmentDatabase:
   """
   Class that represents an instance of a state segment database
@@ -156,7 +173,7 @@ class StateSegmentDatabase:
             end_time,end_time_ns,sv_id,self.lfn_id))
     except _mysql_exceptions.IntegrityError, e:
       msg = "error : this state segment already exists in the database"
-      raise StateSegmentDatabaseException, msg
+      raise StateSegmentDatabaseSegmentExistsException, msg
     except Exception, e:
       msg = "error inserting segment information : %s" % e
       raise StateSegmentDatabaseException, msg
