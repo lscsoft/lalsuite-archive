@@ -505,7 +505,7 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
       c.execute(sql)
       result = c.fetchall()
       
-      print > sys.stderr, result
+      print >>sys.stderr, result
 
       logger.debug("Method distinctAttribute: %d results found" % 
         len(result))
