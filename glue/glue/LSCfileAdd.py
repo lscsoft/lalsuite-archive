@@ -177,9 +177,8 @@ class Publisher(object):
                         lfn = data["name"]
                        
                         # check for existance
-                        if self.md.getAttribute(lfn,"md5"):
+                        if self.md.lfn_exists(lfn):
                                 metaexists = True
-                                print "meta md5 %s" % (self.md.getAttribute(lfn,"md5"),)
                         else:
                                 metaexists = False
 
@@ -318,7 +317,7 @@ class Publisher(object):
                                 raise LSCfileAddException, msg
                         try:
                                 # see if it already exists in database, delete if so
-                                if self.md.getAttribute(lfn,"md5"):
+                                if self.md.lfn_exists(lfn):
                                         self.md.delete(lfn)
                         except Exception,e:
                                 msg = "completely_remove(): Caught an exception while calling either metadata.exists() or metadtaa.delete() on \"%s\". Error was: %s" % (lfn,str(e))
@@ -477,17 +476,15 @@ class Publisher(object):
         
         def add_metadata(self,pset,lfn,attribs):
                 # new method
-                # add lfn
+                # Using 'atomic' metadata method.
+                tempdict = {}
+                for field, val in attribs.iteritems():
+                        tempdict[field] = val['Value']
+                
                 try:
-                        self.md.add(lfn,pset)
+                        self.md.addWithAttributes(lfn,pset,tempdict)
                 except Exception,e:
-                        msg = "Caught exception while calling self.md.add(%s). Message was: %s" % (lfn,str(e))   
-                        raise LSCfileAddException, msg
-                try:
-                        for field, val in attribs.iteritems():
-                                self.md.setAttribute(lfn,field,val['Value'])
-                except Exception,e:
-                        msg = "Caught exception while calling self.md.setAttribute() for lfn, \"%s\". Error was: %s" % (lfn,str(e))
+                        msg = "Caught exception while calling self.md.add(). Message was: %s" % (lfn,str(e))
                         raise LSCfileAddException, msg
                 
         ## END def add_metadata(self)
@@ -521,7 +518,7 @@ class Publisher(object):
                 try: # catch metadata exceptions.
                         for lfn in lfnlist:
                                 ret[lfn] = {}
-                                if not self.md.getAttribute(lfn,"md5"):
+                                if not self.md.lfn_exists(lfn):
                                         msg = "LFN does not exist in database."
                                         self.failures.append(msg)
                                         ret[lfn] = msg
