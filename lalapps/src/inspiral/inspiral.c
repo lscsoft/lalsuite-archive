@@ -38,7 +38,6 @@
 #include <lal/LALConstants.h>
 #include <lal/FrameStream.h>
 #include <lal/ResampleTimeSeries.h>
-#include <lal/Calibration.h>
 #include <lal/FrameCalibration.h>
 #include <lal/Window.h>
 #include <lal/TimeFreqFFT.h>
@@ -61,9 +60,6 @@ RCSID( "$Id$" );
 #define CVS_ID_STRING "$Id$"
 #define CVS_NAME_STRING "$Name$"
 #define CVS_REVISION "$Revision$"
-#define CVS_ID_STRING "$Id$"
-#define CVS_NAME_STRING "$Name$"
-#define CVS_REVISION "$Revision$"
 #define CVS_SOURCE "$Source$"
 #define CVS_DATE "$Date$"
 #define PROGRAM_NAME "inspiral"
@@ -72,29 +68,6 @@ RCSID( "$Id$" );
 #define CANDLE_MASS1 1.4
 #define CANDLE_MASS2 1.4
 #define CANDLE_RHOSQ 64.0
-
-
-#define ADD_SUMM_VALUE( sv_name, sv_comment, val, intval ) \
-if ( this_summ_value ) \
-{ \
-  this_summ_value = this_summ_value->next = (SummValueTable *) \
-    LALCalloc( 1, sizeof(SummValueTable) ); \
-} \
-else \
-{ \
-  summvalue.summValueTable = this_summ_value = (SummValueTable *) \
-    LALCalloc( 1, sizeof(SummValueTable) ); \
-} \
-this_summ_value->version = 0; \
-this_summ_value->start_time = searchsumm.searchSummaryTable->out_start_time; \
-this_summ_value->end_time = searchsumm.searchSummaryTable->out_end_time; \
-this_summ_value->value = (REAL4) val; \
-this_summ_value->intvalue = (INT4) intval; \
-LALSnprintf( this_summ_value->name, LIGOMETA_SUMMVALUE_NAME_MAX, "%s", \
-    sv_name ); \
-LALSnprintf( this_summ_value->ifo, LIGOMETA_IFO_MAX, "%s", ifo ); \
-LALSnprintf( this_summ_value->comment, LIGOMETA_SUMMVALUE_COMM_MAX, \
-    "%s", sv_comment ); \
 
 double rint(double x);
 int arg_parse_check( int argc, char *argv[], MetadataTable procparams );
@@ -105,6 +78,12 @@ void init_image_with_file_name( char *ckpt_file_name );
 void ckpt_and_exit( void );
 #endif
 
+#define FR_CHECK_GAPS \
+    if ( frStream->state == LAL_FR_GAP ) \
+    { \
+      fprintf( stderr, "error: frame stream contains gaps\n" ); \
+      exit( 1 ); \
+    }
 
 /*
  *
@@ -136,10 +115,10 @@ CHAR  ifo[3];                           /* two character ifo code       */
 CHAR *channelName = NULL;               /* channel string               */
 UINT4 inputDataLength = 0;              /* number of points in input    */
 REAL4 minimalMatch = -1;                /* override bank minimal match  */
+INT4  geoData = 0;                      /* input is REAL8 GEO data      */
 REAL4 geoHighPassFreq = -1;             /* GEO high pass frequency      */
 INT4  geoHighPassOrder = -1;            /* GEO high pass filter order   */
 REAL4 geoHighPassAtten = -1;            /* GEO high pass attenuation    */
-enum { undefined, real_4, real_8 } cal_data = undefined; /* cal data type */
 
 /* data conditioning parameters */
 LIGOTimeGPS slideData   = {0,0};        /* slide data for time shifting */
@@ -259,7 +238,7 @@ int main( int argc, char *argv[] )
   MetadataTable         searchsummvars;
   SearchSummvarsTable  *this_search_summvar;
   MetadataTable         summvalue;
-  SummValueTable       *this_summ_value = NULL;
+  SummValueTable        candleTable;
   ProcessParamsTable   *this_proc_param;
   LIGOLwXMLStream       results;
 
@@ -275,14 +254,9 @@ int main( int argc, char *argv[] )
   UINT4 resampleChan = 0;
   REAL8 tsLength;
   INT8  durationNS	= 0;
-  CalibrationUpdateParams calfacts, inj_calfacts;
-  REAL4 alpha;
-  REAL4 alphabeta;
-  REAL4 inj_alpha;
-  REAL4 inj_alphabeta;
+  LIGOTimeGPS duration	= {0,0};
   CHAR tmpChName[LALNameLength];
   REAL8 inputDeltaT;
-  REAL8 dynRange = 1.0;
 
   /* random number generator parameters */
   RandomParams *randParams = NULL;
@@ -301,7 +275,7 @@ int main( int argc, char *argv[] )
   SimInstParamsTable *prevSimInstParams = NULL;
   MetadataTable simResults;
 
- 
+
 
   /*
    *
@@ -390,6 +364,8 @@ int main( int argc, char *argv[] )
   savedEvents.snglInspiralTable = NULL;
 
   /* create the standard candle and database table */
+  summvalue.summValueTable = &candleTable;
+  memset( &candleTable, 0, sizeof(SummValueTable) );
   memset( &candle, 0, sizeof(FindChirpStandardCandle) );
   strncpy( candle.ifo, ifo, 2 * sizeof(CHAR) );
   candle.tmplt.mass1 = CANDLE_MASS1;
@@ -399,9 +375,6 @@ int main( int argc, char *argv[] )
   candle.tmplt.mu = candle.tmplt.mass1 * candle.tmplt.mass2 / 
     candle.tmplt.totalMass;
   candle.tmplt.eta = candle.tmplt.mu / candle.tmplt.totalMass;
-
-  /* create the dynamic range exponent */
-  dynRange = pow( 2.0, dynRangeExponent );
 
 
   /*
@@ -514,7 +487,7 @@ int main( int argc, char *argv[] )
   /* copy the start time into the GEO time series */
   geoChan.epoch = chan.epoch;
 
-  /* open a frame cache or files */
+  /* open a frame cache or files, seek to required epoch and set chan name */
   if ( frInCacheName )
   {
     LAL_CALL( LALFrCacheImport( &status, &frInCache, frInCacheName), &status );
@@ -524,19 +497,20 @@ int main( int argc, char *argv[] )
   {
     LAL_CALL( LALFrOpen( &status, &frStream, NULL, "*.gwf" ), &status );
   }
-
-  /* set the mode of the frame stream to fail on gaps or time errors */
-  frStream->mode = LAL_FR_VERBOSE_MODE;
-
-  /* seek to required epoch and set chan name */
   LAL_CALL( LALFrSeek( &status, &(chan.epoch), frStream ), &status );
   frChan.name = fqChanName;
 
-  if ( cal_data == real_8 )
+  /* XXX check that there are no gaps in the data XXX */
+  FR_CHECK_GAPS;
+
+  if ( geoData )
   {
     /* determine the sample rate of the raw data */
     LAL_CALL( LALFrGetREAL8TimeSeries( &status, &geoChan, &frChan, frStream ),
         &status );
+
+    /* XXX check that there are no gaps in the data XXX */
+    FR_CHECK_GAPS;
 
     /* copy the data paramaters from the GEO channel to input data channel */
     LALSnprintf( chan.name, LALNameLength * sizeof(CHAR), "%s", geoChan.name );
@@ -550,6 +524,9 @@ int main( int argc, char *argv[] )
     /* determine the sample rate of the raw data */
     LAL_CALL( LALFrGetREAL4TimeSeries( &status, &chan, &frChan, frStream ),
         &status );
+
+    /* XXX check that there are no gaps in the data XXX */
+    FR_CHECK_GAPS;
   }
 
   /* store the input sample rate */
@@ -585,7 +562,7 @@ int main( int argc, char *argv[] )
   inputLengthNS = 
     (REAL8) ( gpsEndTimeNS - gpsStartTimeNS + 2000000000LL * padData );
   numInputPoints = (UINT4) floor( inputLengthNS / (chan.deltaT * 1.0e9) + 0.5 );
-  if ( cal_data == real_8 )
+  if ( geoData )
   {
     /* create storage for the GEO input data */
     LAL_CALL( LALDCreateVector( &status, &(geoChan.data), numInputPoints ), 
@@ -598,7 +575,7 @@ int main( int argc, char *argv[] )
       "(deltaT) = %e\nreading %d points from frame stream\n", fqChanName, 
       chan.deltaT, numInputPoints );
 
-  if ( cal_data == real_8 )
+  if ( geoData )
   {
     /* read in the GEO data here */
     PassBandParamStruc geoHighpassParam;
@@ -609,6 +586,9 @@ int main( int argc, char *argv[] )
 
     LAL_CALL( LALFrGetREAL8TimeSeries( &status, &geoChan, &frChan, frStream ),
         &status);
+
+    /* XXX check that there are no gaps in the data XXX */
+    FR_CHECK_GAPS;
 
     if ( vrbflg ) fprintf( stdout, "done\n" );
 
@@ -627,9 +607,9 @@ int main( int argc, char *argv[] )
 
     /* cast the GEO data to REAL4 in the chan time series       */
     /* which already has the correct amount of memory allocated */
-    for ( j = 0 ; j < numInputPoints ; ++j )
+    for ( i = 0 ; i < numInputPoints ; ++i )
     {
-      chan.data->data[j] = (REAL4) ( geoChan.data->data[j] * dynRange );
+      chan.data->data[i] = (REAL4) geoChan.data->data[i];
     }
 
     /* re-copy the data paramaters from the GEO channel to input data channel */
@@ -648,14 +628,9 @@ int main( int argc, char *argv[] )
     /* read the data channel time series from frames */
     LAL_CALL( LALFrGetREAL4TimeSeries( &status, &chan, &frChan, frStream ),
         &status );
-    if ( cal_data == real_4 )
-    {
-      /* multiply the input data by dynRange */
-      for ( j = 0 ; j < numInputPoints ; ++j )
-      {
-        chan.data->data[j] *= dynRange;
-      }
-    } 
+
+    /* XXX check that there are no gaps in the data XXX */
+    FR_CHECK_GAPS;
   }
   memcpy( &(chan.sampleUnits), &lalADCCountUnit, sizeof(LALUnit) );
 
@@ -783,24 +758,18 @@ int main( int argc, char *argv[] )
   /* generate the response function for the current time */
   if ( vrbflg ) fprintf( stdout, "generating response at time %d sec %d ns\n",
       resp.epoch.gpsSeconds, resp.epoch.gpsNanoSeconds );
-
-  /* initialize the calfacts */
-  memset( &calfacts, 0, sizeof(CalibrationUpdateParams) );
-  calfacts.ifo = ifo;
-  
   /* determine length of chunk */
   durationNS = gpsEndTimeNS - gpsStartTimeNS;
-  LAL_CALL( LALINT8toGPS( &status, &(calfacts.duration), 
+  LAL_CALL( LALINT8toGPS( &status, &duration, 
 	&durationNS ), &status );
 
-  
-  if ( cal_data )
+  if ( geoData )
   {
-    /* if we are using calibrated data set the response to unity */
-    for( k = 0; k < resp.data->length; ++k )
+    /* if we are using geo data set the response to unity */
+    for( i = 0; i < resp.data->length; ++i )
     {
-      resp.data->data[k].re = (REAL4) (1.0 / dynRange);
-      resp.data->data[k].im = 0.0;
+      resp.data->data[i].re = 1.0;
+      resp.data->data[i].im = 0.0;
     }
     if ( writeResponse ) outFrame = fr_add_proc_COMPLEX8FrequencySeries( 
         outFrame, &resp, "strain/ct", "RESPONSE_GEO" );
@@ -808,14 +777,9 @@ int main( int argc, char *argv[] )
   else
   {
     /* get the response from the frame data */
-    LAL_CALL( LALExtractFrameResponse( &status, &resp, calCacheName, 
-	  &calfacts), &status );
-    alpha = (REAL4) calfacts.alpha.re;
-    alphabeta = (REAL4) calfacts.alphabeta.re;
-    if ( vrbflg ) fprintf( stdout, 
-	"for calibration of data, alpha = %f and alphabeta = %f\n",
-	alpha, alphabeta);
- 
+    LAL_CALL( LALExtractFrameResponse( &status, &resp, calCacheName, ifo, 
+          &duration ), &status );
+  
     if ( writeResponse ) 
       outFrame = fr_add_proc_COMPLEX8FrequencySeries( outFrame, &resp, 
           "strain/ct", "RESPONSE" );
@@ -890,20 +854,18 @@ int main( int argc, char *argv[] )
         injResp.sampleUnits = strainPerCount;
         strcpy( injResp.name, chan.name );
 
-	if ( cal_data )
+	if ( geoData )
         {
-          /* if we are using calibrated data set the response to unity */
-          if ( vrbflg ) fprintf( stdout, 
-	      "setting injection response to inverse dynRange... " );
+          /* generate a unity response function for GEO */
+          if ( vrbflg ) fprintf( stdout, "setting GEO response to unity... " );
           for ( k = 0; k < injResp.data->length; ++k )
           {
-            injResp.data->data[k].re = (REAL4)(1.0/dynRange);
-            injResp.data->data[k].im = 0.0;
+            injResp.data->data[k].re = 1.0;
+            injResp.data->data[k].im = 0;
           }
-	  injRespPtr = &injResp;
           if ( writeResponse ) 
             outFrame = fr_add_proc_COMPLEX8FrequencySeries( outFrame, 
-                &injResp, "strain/ct", "RESPONSE_INJ_CAL" );
+                &injResp, "strain/ct", "RESPONSE_INJ_GEO" );
         }
         else
         {
@@ -914,20 +876,8 @@ int main( int argc, char *argv[] )
               resp.epoch.gpsSeconds, resp.epoch.gpsNanoSeconds,
               injResp.data->length, injResp.deltaF );
 
-	  /* initialize the inj_calfacts */
-          memset( &inj_calfacts, 0, sizeof(CalibrationUpdateParams) );
-	  inj_calfacts.ifo = ifo;
-          LAL_CALL( LALINT8toGPS( &status, &(inj_calfacts.duration), 
-		&durationNS ), &status );
-
-
           LAL_CALL( LALExtractFrameResponse( &status, &injResp, calCacheName, 
-                &inj_calfacts ), &status );
-	  inj_alpha = (REAL4) calfacts.alpha.re;
-	  inj_alphabeta = (REAL4) calfacts.alphabeta.re;
-	  if ( vrbflg ) fprintf( stdout, 
-	      "for injections, alpha = %f and alphabeta = %f\n",
-	      inj_alpha, inj_alphabeta);
+                ifo, &duration ), &status );
 
           injRespPtr = &injResp;
 
@@ -1340,7 +1290,8 @@ int main( int argc, char *argv[] )
   LAL_CALL( LALFindChirpTemplateInit( &status, &fcTmpltParams, 
         fcInitParams ), &status );
 
-  fcDataParams->dynRange = fcTmpltParams->dynRange = dynRange;
+  fcDataParams->dynRange = fcTmpltParams->dynRange = 
+    pow( 2.0, dynRangeExponent );
   fcDataParams->deltaT = fcTmpltParams->deltaT = 1.0 / (REAL4) sampleRate;
   fcTmpltParams->fLow = fLow;
 
@@ -1504,90 +1455,36 @@ int main( int argc, char *argv[] )
     }
     else
     {
-      if ( approximant == TaylorF2 ) 
+      /* compute the standard candle */
+      REAL4 cannonDist = 1.0; /* Mpc */
+      REAL4 m  = (REAL4) candle.tmplt.totalMass;
+      REAL4 mu = (REAL4) candle.tmplt.mu;
+      REAL4 distNorm = 2.0 * LAL_MRSUN_SI / (cannonDist * 1e6 * LAL_PC_SI);
+      REAL4 candleTmpltNorm = sqrt( (5.0*mu) / 96.0 ) *
+        pow( m / (LAL_PI*LAL_PI) , 1.0/3.0 ) *
+        pow( LAL_MTSUN_SI / (REAL4) chan.deltaT, -1.0/6.0 );
+
+      distNorm *= fcTmpltParams->dynRange;
+      candleTmpltNorm *= candleTmpltNorm;
+      candleTmpltNorm *= distNorm * distNorm;
+
+      candle.sigmasq = 4.0 * ( (REAL4) chan.deltaT / (REAL4) numPoints );
+      candle.sigmasq *= candleTmpltNorm * fcSegVec->data->segNorm;
+
+      candle.effDistance = sqrt( candle.sigmasq / candle.rhosq );
+
+      if ( vrbflg ) 
       {
-        /* compute the standard candle */
-        REAL4 cannonDist = 1.0; /* Mpc */
-        REAL4 m  = (REAL4) candle.tmplt.totalMass;
-        REAL4 mu = (REAL4) candle.tmplt.mu;
-        REAL4 distNorm = 2.0 * LAL_MRSUN_SI / (cannonDist * 1e6 * LAL_PC_SI);
-        REAL4 candleTmpltNorm = sqrt( (5.0*mu) / 96.0 ) *
-          pow( m / (LAL_PI*LAL_PI) , 1.0/3.0 ) *
-          pow( LAL_MTSUN_SI / (REAL4) chan.deltaT, -1.0/6.0 );
-
-        distNorm *= fcTmpltParams->dynRange;
-        candleTmpltNorm *= candleTmpltNorm;
-        candleTmpltNorm *= distNorm * distNorm;
-
-        candle.sigmasq = 4.0 * ( (REAL4) chan.deltaT / (REAL4) numPoints );
-        candle.sigmasq *= candleTmpltNorm * 
-          fcSegVec->data->segNorm->data[fcSegVec->data->segNorm->length-1];
-
-        candle.effDistance = sqrt( candle.sigmasq / candle.rhosq );
-
-        if ( vrbflg ) 
-        {
-          fprintf( stdout, "candle m = %e\ncandle mu = %e\n"
-              "candle.rhosq = %e\nchan.deltaT = %e\nnumPoints = %d\n"
-              "fcSegVec->data->segNorm->data[fcSegVec->data->segNorm->length-1]"
-              " = %e\ncandleTmpltNorm = %e\ncandle.effDistance = %e Mpc\n"
-              "candle.sigmasq = %e\n",
-              m, mu, candle.rhosq, chan.deltaT, numPoints, 
-              fcSegVec->data->segNorm->data[fcSegVec->data->segNorm->length-1], 
-              candleTmpltNorm, candle.effDistance, candle.sigmasq );
-          fflush( stdout );
-        }
+        fprintf( stdout, "candle m = %e\ncandle mu = %e\n"
+            "candle.rhosq = %e\nchan.deltaT = %e\n"
+            "numPoints = %d\nfcSegVec->data->segNorm = %e\n"
+            "candleTmpltNorm = %e\ncandle.effDistance = %e Mpc\n"
+            "candle.sigmasq = %e\n",
+            m, mu, candle.rhosq, chan.deltaT, numPoints, 
+            fcSegVec->data->segNorm, candleTmpltNorm, candle.effDistance,
+            candle.sigmasq );
+        fflush( stdout );
       }
-      else if ( approximant == BCV )
-      {
-        /* compute the standard candle for a  5-5 Msun inspiral*/
-        REAL4 cannonDist = 1.0; /* Mpc */
-        REAL4 m  = 10.0;
-        REAL4 mu = 2.5;
-        REAL4 k1 = numPoints * chan.deltaT ;
-        UINT4 kmax = 432 * k1 ; /* 432 = fISCO for 5-5 */
-        REAL4 distNorm = 2.0 * LAL_MRSUN_SI / (cannonDist * 1e6 * LAL_PC_SI);
-        REAL4 candleTmpltNorm = sqrt( (5.0*mu) / 96.0 ) *
-              pow( m/(LAL_PI*LAL_PI) , 1.0/3.0 ) * 
-              pow(LAL_MTSUN_SI / (REAL4) chan.deltaT, -1.0/6.0);
-        distNorm *= fcTmpltParams->dynRange;
-        candleTmpltNorm *= candleTmpltNorm;
-        candleTmpltNorm *= distNorm * distNorm;
-        candle.sigmasq = 4.0 * ( (REAL4) chan.deltaT / (REAL4) numPoints );
-        candle.sigmasq *= candleTmpltNorm *
-          fcSegVec->data->segNorm->data[kmax];
-        candle.effDistance = sqrt( candle.sigmasq / candle.rhosq );
-
-        /* for 5-5 Msun... */
-        candle.tmplt.mass1 = 5.0;
-        candle.tmplt.mass2 = 5.0;
-        candle.tmplt.totalMass = 10.0;
-        candle.tmplt.mu = 2.5;
-        candle.tmplt.eta = 0.25;
-
-        if ( vrbflg ) 
-        {
-          fprintf( stdout, "candle m = %e\ncandle mu = %e\n"
-               "candle.rhosq = %e\nchan.deltaT = %e\nnumPoints = %d\n"
-               "fcSegVec->data->segNorm->data[kmax] = %e\n"
-               "kmax = %d\ncandleTmpltNorm = %e\ncandle.effDistance = %e Mpc \n"
-               "candle.sigmasq=%e\n",
-               m,mu,candle.rhosq,chan.deltaT,
-               numPoints,fcSegVec->data->segNorm->data[kmax],kmax,
-               candleTmpltNorm,candle.effDistance,candle.sigmasq);
-           fflush(stdout);
-         }
-      }
-      else 
-      {
-        if ( vrbflg )
-        {
-           fprintf( stdout, "standard candle not calculated; \n"
-              "chan.deltaT = %e\nnumPoints = %d\n",
-              chan.deltaT, numPoints );
-           fflush( stdout );
-        }
-      }  
     }
 
 
@@ -1669,14 +1566,23 @@ int main( int argc, char *argv[] )
           }
           else if ( approximant == BCV )
           {
+#if 0
+            fcFilterInput->segment->tmpltPowerVec =
+              fcDataParams->tmpltPowerVec;
+            fcFilterInput->segment->tmpltPowerVecBCV =
+              fcDataParams->tmpltPowerVecBCV;
             LAL_CALL( LALFindChirpBCVFilterSegment( &status,
                   &eventList, fcFilterInput, fcFilterParams ), &status );
+#endif
+            fprintf( stderr, "BCV Filtering not implemented in " 
+                CVS_NAME_STRING " " CVS_REVISION"\n" );
+            exit( 1 );
           }
           else if ( approximant == BCVSpin )
           {
             LAL_CALL( LALFindChirpBCVSpinFilterSegment( &status,
-                  &eventList, fcFilterInput, fcFilterParams, fcDataParams 
-                  ), &status );
+                  &eventList, fcFilterInput, fcFilterParams, fcDataParams, 
+                  fcSegVec, dataSegVec), &status );
           } 
           else
           {
@@ -1908,7 +1814,6 @@ int main( int argc, char *argv[] )
   LAL_CALL( LALDestroyFindChirpSegmentVector( &status, &fcSegVec ),
       &status );
   LALFree( fcInitParams );
-  
 
   /* free the template bank */
   while ( bankHead )
@@ -2031,41 +1936,27 @@ int main( int argc, char *argv[] )
   }
 
   /* write the summ_value table with the standard candle distance */
-  if ( approximant == TaylorF2 && ! bankSim )
+  if ( ! bankSim )
   {
     if ( vrbflg ) fprintf( stdout, "  summ_value table...\n" );
-    ADD_SUMM_VALUE( "inspiral_effective_distance", "1.4_1.4_8", 
-      candle.effDistance, 0);
-  }
-  else if ( approximant == BCV && ! bankSim )
-  {
-    if ( vrbflg ) fprintf( stdout, "  summ_value table...\n" );
-    ADD_SUMM_VALUE( "inspiral_effective_distance", "5.0_5.0_8",
-      candle.effDistance, 0);
-  }
-  if ( !bankSim )
-  {
-    /* store calibration information */
-    ADD_SUMM_VALUE( "calibration alpha", "analysis", alpha, 0 );
-    ADD_SUMM_VALUE( "calibration alphabeta", "analysis", alphabeta, 0 );
-    if (injectionFile) 
-    {
-      ADD_SUMM_VALUE( "calibration alpha", "injection", inj_alpha, 0 );
-      ADD_SUMM_VALUE( "calibration alphabeta", "injection", inj_alphabeta, 0 );
-    }
+    LALSnprintf( summvalue.summValueTable->program, LIGOMETA_PROGRAM_MAX, 
+        "%s", PROGRAM_NAME );
+    summvalue.summValueTable->version = 0;
+    summvalue.summValueTable->start_time = 
+	searchsumm.searchSummaryTable->out_start_time;
+    summvalue.summValueTable->end_time = 
+	searchsumm.searchSummaryTable->out_end_time;
+    LALSnprintf( summvalue.summValueTable->ifo, LIGOMETA_IFO_MAX, "%s", ifo );
+    LALSnprintf( summvalue.summValueTable->name, LIGOMETA_SUMMVALUE_NAME_MAX, 
+        "%s", "inspiral_effective_distance" );
+    LALSnprintf( summvalue.summValueTable->comment, LIGOMETA_SUMMVALUE_COMM_MAX,
+        "%s", "1.4_1.4_8" );
+    summvalue.summValueTable->value = candle.effDistance;
     LAL_CALL( LALBeginLIGOLwXMLTable( &status, &results, summ_value_table ), 
         &status );
     LAL_CALL( LALWriteLIGOLwXMLTable( &status, &results, summvalue, 
           summ_value_table ), &status );
     LAL_CALL( LALEndLIGOLwXMLTable ( &status, &results ), &status );
-    
-    
-    while ( summvalue.summValueTable )
-    {
-      this_summ_value = summvalue.summValueTable;
-      summvalue.summValueTable = summvalue.summValueTable->next;
-      LALFree( this_summ_value );
-    }
   }
 
   /* free the search summary table */
@@ -2096,9 +1987,8 @@ int main( int argc, char *argv[] )
         LAL_CALL( LALGPStoINT8( &status, &trigTimeNS, &(event->end_time) ), 
             &status );
 
-        if ( trigTimeNS &&
-            ((trigStartTimeNS && (trigTimeNS < trigStartTimeNS)) ||
-            (trigEndTimeNS && (trigTimeNS >= trigEndTimeNS))) )
+        if ( ! ( ! trigTimeNS || (trigTimeNS >= trigStartTimeNS) ) && 
+            ( ! trigEndTimeNS || (trigTimeNS < trigEndTimeNS) ) )
         {
           /* throw this trigger away */
           SnglInspiralTable *tmpEvent = event;
@@ -2214,7 +2104,7 @@ this_proc_param = this_proc_param->next = (ProcessParamsTable *) \
 "  --frame-cache                obtain frame data from LAL frame cache FILE\n"\
 "  --calibration-cache FILE     obtain calibration from LAL frame cache FILE\n"\
 "  --channel-name CHAN          read data from interferometer channel CHAN\n"\
-"  --calibrated-data TYPE       calibrated data of TYPE real_4 or real_8\n"\
+"  --geo-data                   data in frame files is REAL8 GEO data\n"\
 "  --geo-high-pass-freq F       high pass GEO data above F Hz using an IIR filter\n"\
 "  --geo-high-pass-order O      set the order of the GEO high pass filter to O\n"\
 "  --geo-high-pass-atten A      set the attenuation of the high pass filter to A\n"\
@@ -2292,6 +2182,7 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
     {"disable-high-pass",       no_argument,       &highPass,         0 },
     {"inject-overhead",		no_argument,	   &injectOverhead,   1 },
     {"data-checkpoint",         no_argument,       &dataCheckpoint,   1 },
+    {"geo-data",                no_argument,       &geoData,          1 },
     /* these options don't set a flag */
     {"gps-start-time",          required_argument, 0,                'a'},
     {"gps-start-time-ns",       required_argument, 0,                'A'},
@@ -2304,7 +2195,6 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
     {"number-of-segments",      required_argument, 0,                'e'},
     {"segment-overlap",         required_argument, 0,                'f'},
     {"sample-rate",             required_argument, 0,                'g'},
-    {"calibrated-data",         required_argument, 0,                'y'},
     {"geo-high-pass-freq",      required_argument, 0,                'E'},
     {"geo-high-pass-order",     required_argument, 0,                'P'},
     {"geo-high-pass-atten",     required_argument, 0,                'Q'},
@@ -2377,7 +2267,7 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
 
     c = getopt_long_only( argc, argv, 
         "A:B:C:D:E:F:G:H:I:J:K:L:M:N:O:P:Q:R:T:U:V:W:X:Y:Z:"
-        "a:b:c:d:e:f:g:h:i:j:k:l:m:n:o:p:q:r:s:t:u:v:w:x:y:z:",
+        "a:b:c:d:e:f:g:h:i:j:k:l:m:n:o:p:q:r:s:t:u:v:w:x:z:",
         long_options, &option_index );
 
     /* detect the end of the options */
@@ -2639,29 +2529,6 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
           exit( 1 );
         }
         ADD_PROCESS_PARAM( "int", "%d", sampleRate );
-        break;
-
-
-      case 'y':	
-	/* specify which type of calibrated data */
-	{
-	  if ( ! strcmp( "real_4", optarg ) )
-	  {
-	    cal_data = real_4;
-	  }
-	  else if ( ! strcmp( "real_8", optarg ) )
-	  {
-	    cal_data = real_8;
-	  }
-	  else
-	  {
-	    fprintf( stderr, "invalid argument to --%s:\n"
-		"unknown data type specified;\n"
-		"%s (must be one of: real_4, real_8)\n",
-		long_options[option_index].name, optarg);
-	  }
-	  ADD_PROCESS_PARAM( "string", "%s", optarg );
-        }
         break;
 
       case 'E':
@@ -3333,8 +3200,6 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
   }
   else if ( ! highPass )
   {
-    this_proc_param = this_proc_param->next = (ProcessParamsTable *)
-	calloc( 1, sizeof(ProcessParamsTable) );
     LALSnprintf( this_proc_param->program, LIGOMETA_PROGRAM_MAX, 
         "%s", PROGRAM_NAME );
     LALSnprintf( this_proc_param->param, LIGOMETA_PARAM_MAX, 
@@ -3357,7 +3222,7 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
     }
   }
 
-  if ( cal_data == real_8 )
+  if ( geoData )
   {
     /* check that geo high pass parameters have been specified */
     if ( geoHighPassFreq < 0 )
@@ -3471,7 +3336,7 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
     fprintf( stderr, "--frame-cache must be specified\n" );
     exit( 1 );
   }
-  if ( ! cal_data && ! calCacheName )
+  if ( ! calCacheName )
   {
     fprintf( stderr, "--calibration-cache must be specified\n" );
     exit( 1 );
