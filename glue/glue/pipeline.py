@@ -1764,12 +1764,11 @@ class LSCDataFindJob(CondorDAGJob, AnalysisJob):
       self.add_ini_opts(config_file,sec)
     
     # we need a lal cache for files on the localhost
-    self.add_opt('match','localhost')
     self.add_opt('lal-cache','')
     self.add_opt('url-type','file')
 
     self.add_condor_cmd('environment',
-      """LD_LIBRARY_PATH=$ENV(LD_LIBRARY_PATH);PYTHONPATH=$ENV(PYTHONPATH);LSC_DATAFIND_SERVER=$ENV(LSC_DATAFIND_SERVER)""" )
+      """LD_LIBRARY_PATH=$ENV(LD_LIBRARY_PATH);PYTHONPATH=$ENV(PYTHONPATH);LSC_DATAFIND_SERVER=$ENV(LSC_DATAFIND_SERVER);X509_USER_CERT=$ENV(X509_USER_CERT);X509_USER_KEY=$ENV(X509_USER_KEY)""" )
 
     self.set_stderr_file(log_dir + '/datafind-$(macroobservatory)-$(macrogpsstarttime)-$(macrogpsendtime)-$(cluster)-$(process).err')
     self.set_stdout_file(self.__cache_dir + '/$(macroobservatory)-$(macrogpsstarttime)-$(macrogpsendtime).cache')
