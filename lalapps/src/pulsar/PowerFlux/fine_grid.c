@@ -650,11 +650,11 @@ if(fake_injection){
 		
 		}
 	if(best_i>=0)
-	fprintf(LOG, "closest: %f %f %s %f %g %g %f\n",fine_grid->longitude[best_i], fine_grid->latitude[best_i], 
+	fprintf(LOG, "closest: %d %f %f %s %f %g %g %f\n", best_i, fine_grid->longitude[best_i], fine_grid->latitude[best_i], 
 		pol->name, pol->skymap.max_dx[best_i], 
 		pol->skymap.max_upper_limit[best_i], pol->skymap.max_lower_limit[best_i], pol->skymap.freq_map[best_i]);
 	if(largest_i>=0)
-	fprintf(LOG, "largest: %f %f %s %f %g %g %f\n",fine_grid->longitude[largest_i], fine_grid->latitude[largest_i], 
+	fprintf(LOG, "largest: %d %f %f %s %f %g %g %f\n", largest_i, fine_grid->longitude[largest_i], fine_grid->latitude[largest_i], 
 		pol->name, pol->skymap.max_dx[largest_i], 
 		pol->skymap.max_upper_limit[largest_i], pol->skymap.max_lower_limit[largest_i], pol->skymap.freq_map[largest_i]);
 	}
