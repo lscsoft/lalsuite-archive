@@ -33,3 +33,9 @@ cfgDefaults['H2DMT'] = { 'desc':'DMT Science-mode Segments', 'url':'http://blue.
 cfgDefaults['H1DMT_CM'] = { 'desc':'DMT Common-mode Segments', 'url':'http://blue.ligo-wa.caltech.edu/gds/monitor_reports/SegGener/H1-CommonMode.txt', 'coalesce':True }
 
 cfgDefaults['H2DMT_CM'] = { 'desc':'DMT Common-mode Segments', 'url':'http://blue.ligo-wa.caltech.edu/gds/monitor_reports/SegGener/H2-CommonMode.txt', 'coalesce':True }
+
+cfgDefaults['M6L1'] = { 'desc':'Conlog Science-mode Segments', 'url':'http://london.ligo-la.caltech.edu/scirun/S4/LockStatistics/M6segments/M6L1v00_segs.txt', 'coalesce':False }
+
+cfgDefaults['M6H1'] = { 'desc':'Conlog Science-mode Segments', 'url':'http://blue.ligo-wa.caltech.edu/scirun/S4/LockStatistics/M6segments/M6H1v00_segs.txt', 'coalesce':False }
+
+cfgDefaults['M6H2'] = { 'desc':'Conlog Science-mode Segments', 'url':'http://blue.ligo-wa.caltech.edu/scirun/S4/LockStatistics/M6segments/M6H2v00_segs.txt', 'coalesce':False }
