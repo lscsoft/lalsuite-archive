@@ -554,49 +554,6 @@ rotate_grid_xz(fine_grid, -band_axis_dec+M_PI/2.0);
 rotate_grid_xy(patch_grid, band_axis_ra);
 rotate_grid_xy(fine_grid, band_axis_ra);
 
-#if 0
-/* now that we know where the average detector velocity is pointing rotate
-   so that band structure is perpendicular to it */
-
-/* change to ecliptic coordinates */   
-rotate_grid_xy(patch_grid, -M_PI*90.0/180.0);
-rotate_grid_xy(fine_grid, -M_PI*90.0/180.0);
-
-rotate_grid_xz(patch_grid, M_PI*23.0/180.0);
-rotate_grid_xz(fine_grid, M_PI*23.0/180.0);
-
-rotate_grid_xy(patch_grid, M_PI*90.0/180.0);
-rotate_grid_xy(fine_grid, M_PI*90.0/180.0);
-
-
-a1=average_det_velocity[1];
-a2=average_det_velocity[2];
-a=M_PI*23.0/180.0;
-average_det_velocity[1]=cos(a)*a1-sin(a)*a2;
-average_det_velocity[2]=sin(a)*a1+cos(a)*a2;
-
-/* compute new "RA" */
-a=atan2f(average_det_velocity[1], average_det_velocity[0]);
-fprintf(LOG, "new RA: %f\nnew DEC: %f\n", 
-	a, atan2f(average_det_velocity[2], 
-	sqrt(average_det_velocity[0]*average_det_velocity[0]+average_det_velocity[1]*average_det_velocity[1]))
-	);
-
-
-/* make sure average_det_velocity is in the middle of the map */   
-rotate_grid_xy(patch_grid, -a+M_PI/2.0);
-rotate_grid_xy(fine_grid, -a+M_PI/2.0);
-
-/* rotate 90 degrees */
-
-rotate_grid_xz(patch_grid, M_PI*90.0/180.0);
-rotate_grid_xz(fine_grid, M_PI*90.0/180.0);
-
-rotate_grid_xy(patch_grid, M_PI*90.0/180.0);
-rotate_grid_xy(fine_grid, M_PI*90.0/180.0);
-
-#endif
-
 /* now that we have new grid positions plot them */
 
 plot_grid_f(p, patch_grid, patch_grid->latitude,1);
