@@ -81,7 +81,7 @@ insert into state_segment (ifo, start_time, end_time, state_vec_id, frame_file_i
   AND state_vec.version = 0
   AND state_vec.value = 65535;
 
-insert into frame_file (lfn,start_time,end_time) values('L-R-700000192-32.gwf',700000192,700000223);
+insert into frame_file (lfn,start_time,end_time) values('L-R-700000192-32.gwf',700000192,700000224);
 insert into state_segment (ifo, start_time, end_time, state_vec_id, frame_file_id)
   SELECT 'L1', 700000192, 700000223, state_vec.state_vec_id, frame_file.frame_file_id
   FROM state_vec, frame_file
@@ -193,6 +193,167 @@ insert into state_segment (ifo, start_time, end_time, state_vec_id, frame_file_i
   AND state_vec.version = 0
   AND state_vec.value = 0;
 
+insert into frame_file (lfn,start_time,end_time) values('H-R-700000000-32.gwf',700000000,700000032);
+insert into state_segment (ifo, start_time, end_time, state_vec_id, frame_file_id)
+  SELECT 'H1', 700000000, 700000032, state_vec.state_vec_id, frame_file.frame_file_id
+  FROM state_vec, frame_file
+  WHERE frame_file.lfn = 'H-R-700000000-32.gwf'
+  AND state_vec.version = 0
+  AND state_vec.value = 0;
+  
+insert into frame_file (lfn,start_time,end_time) values('H-R-700000032-32.gwf',700000032,700000064);
+insert into state_segment (ifo, start_time, end_time, state_vec_id, frame_file_id)
+  SELECT 'H1', 700000032, 700000050, state_vec.state_vec_id, frame_file.frame_file_id
+  FROM state_vec, frame_file
+  WHERE frame_file.lfn = 'H-R-700000032-32.gwf'
+  AND state_vec.version = 0
+  AND state_vec.value = 0;
+
+-- then they get it up
+insert into state_segment (ifo, start_time, end_time, state_vec_id, frame_file_id)
+  SELECT 'H1', 700000050, 700000064, state_vec.state_vec_id, frame_file.frame_file_id
+  FROM state_vec, frame_file
+  WHERE frame_file.lfn = 'H-R-700000032-32.gwf'
+  AND state_vec.version = 0
+  AND state_vec.value = 1024;
+
+insert into frame_file (lfn,start_time,end_time) values('H-R-700000064-32.gwf',700000064,700000096);
+insert into state_segment (ifo, start_time, end_time, state_vec_id, frame_file_id)
+  SELECT 'H1', 700000064, 700000075, state_vec.state_vec_id, frame_file.frame_file_id
+  FROM state_vec, frame_file
+  WHERE frame_file.lfn = 'H-R-700000064-32.gwf'
+  AND state_vec.version = 0
+  AND state_vec.value = 1024;
+
+-- and into science mode
+insert into state_segment (ifo, start_time, end_time, state_vec_id, frame_file_id)
+  SELECT 'H1', 700000075, 700000096, state_vec.state_vec_id, frame_file.frame_file_id
+  FROM state_vec, frame_file
+  WHERE frame_file.lfn = 'H-R-700000064-32.gwf'
+  AND state_vec.version = 0
+  AND state_vec.value = 65535;
+
+insert into frame_file (lfn,start_time,end_time) values('H-R-700000096-32.gwf',700000096,700000128);
+insert into state_segment (ifo, start_time, end_time, state_vec_id, frame_file_id)
+  SELECT 'H1', 700000096, 700000128, state_vec.state_vec_id, frame_file.frame_file_id
+  FROM state_vec, frame_file
+  WHERE frame_file.lfn = 'H-R-700000096-32.gwf'
+  AND state_vec.version = 0
+  AND state_vec.value = 65535;
+
+insert into frame_file (lfn,start_time,end_time) values('H-R-700000128-32.gwf',700000128,700000160);
+insert into state_segment (ifo, start_time, end_time, state_vec_id, frame_file_id)
+  SELECT 'H1', 700000128, 700000160, state_vec.state_vec_id, frame_file.frame_file_id
+  FROM state_vec, frame_file
+  WHERE frame_file.lfn = 'H-R-700000128-32.gwf'
+  AND state_vec.version = 0
+  AND state_vec.value = 65535;
+
+insert into frame_file (lfn,start_time,end_time) values('H-R-700000160-32.gwf',700000160,700000192);
+insert into state_segment (ifo, start_time, end_time, state_vec_id, frame_file_id)
+  SELECT 'H1', 700000160, 700000192, state_vec.state_vec_id, frame_file.frame_file_id
+  FROM state_vec, frame_file
+  WHERE frame_file.lfn = 'H-R-700000160-32.gwf'
+  AND state_vec.version = 0
+  AND state_vec.value = 65535;
+
+insert into frame_file (lfn,start_time,end_time) values('H-R-700000192-32.gwf',700000192,700000224);
+insert into state_segment (ifo, start_time, end_time, state_vec_id, frame_file_id)
+  SELECT 'H1', 700000192, 700000224, state_vec.state_vec_id, frame_file.frame_file_id
+  FROM state_vec, frame_file
+  WHERE frame_file.lfn = 'H-R-700000192-32.gwf'
+  AND state_vec.version = 0
+  AND state_vec.value = 65535;
+
+insert into frame_file (lfn,start_time,end_time) values('H-R-700000224-32.gwf',700000224,700000256);
+insert into state_segment (ifo, start_time, end_time, state_vec_id, frame_file_id)
+  SELECT 'H1', 700000224, 700000256, state_vec.state_vec_id, frame_file.frame_file_id
+  FROM state_vec, frame_file
+  WHERE frame_file.lfn = 'H-R-700000224-32.gwf'
+  AND state_vec.version = 0
+  AND state_vec.value = 65535;
+
+insert into frame_file (lfn,start_time,end_time) values('H-R-700000256-32.gwf',700000256,700000288);
+insert into state_segment (ifo, start_time, end_time, state_vec_id, frame_file_id)
+  SELECT 'H1', 700000256, 700000288, state_vec.state_vec_id, frame_file.frame_file_id
+  FROM state_vec, frame_file
+  WHERE frame_file.lfn = 'H-R-700000256-32.gwf'
+  AND state_vec.version = 0
+  AND state_vec.value = 65535;
+
+insert into frame_file (lfn,start_time,end_time) values('H-R-700000288-32.gwf',700000288,700000320);
+insert into state_segment (ifo, start_time, end_time, state_vec_id, frame_file_id)
+  SELECT 'H1', 700000288, 700000320, state_vec.state_vec_id, frame_file.frame_file_id
+  FROM state_vec, frame_file
+  WHERE frame_file.lfn = 'H-R-700000288-32.gwf'
+  AND state_vec.version = 0
+  AND state_vec.value = 65535;
+
+insert into frame_file (lfn,start_time,end_time) values('H-R-700000320-32.gwf',700000320,700000352);
+insert into state_segment (ifo, start_time, end_time, state_vec_id, frame_file_id)
+  SELECT 'H1', 700000320, 700000352, state_vec.state_vec_id, frame_file.frame_file_id
+  FROM state_vec, frame_file
+  WHERE frame_file.lfn = 'H-R-700000320-32.gwf'
+  AND state_vec.version = 0
+  AND state_vec.value = 65535;
+
+insert into frame_file (lfn,start_time,end_time) values('H-R-700000352-32.gwf',700000352,700000384);
+insert into state_segment (ifo, start_time, end_time, state_vec_id, frame_file_id)
+  SELECT 'H1', 700000352, 700000384, state_vec.state_vec_id, frame_file.frame_file_id
+  FROM state_vec, frame_file
+  WHERE frame_file.lfn = 'H-R-700000352-32.gwf'
+  AND state_vec.version = 0
+  AND state_vec.value = 65535;
+
+insert into frame_file (lfn,start_time,end_time) values('H-R-700000384-32.gwf',700000384,700000416);
+insert into state_segment (ifo, start_time, end_time, state_vec_id, frame_file_id)
+  SELECT 'H1', 700000384, 700000416, state_vec.state_vec_id, frame_file.frame_file_id
+  FROM state_vec, frame_file
+  WHERE frame_file.lfn = 'H-R-700000384-32.gwf'
+  AND state_vec.version = 0
+  AND state_vec.value = 65535;
+
+insert into frame_file (lfn,start_time,end_time) values('H-R-700000416-32.gwf',700000416,700000448);
+insert into state_segment (ifo, start_time, end_time, state_vec_id, frame_file_id)
+  SELECT 'H1', 700000416, 700000448, state_vec.state_vec_id, frame_file.frame_file_id
+  FROM state_vec, frame_file
+  WHERE frame_file.lfn = 'H-R-700000416-32.gwf'
+  AND state_vec.version = 0
+  AND state_vec.value = 65535;
+
+insert into frame_file (lfn,start_time,end_time) values('H-R-700000448-32.gwf',700000448,700000480);
+insert into state_segment (ifo, start_time, end_time, state_vec_id, frame_file_id)
+  SELECT 'H1', 700000448, 700000452, state_vec.state_vec_id, frame_file.frame_file_id
+  FROM state_vec, frame_file
+  WHERE frame_file.lfn = 'H-R-700000448-32.gwf'
+  AND state_vec.version = 0
+  AND state_vec.value = 65535;
+
+-- here come the badgers!
+insert into state_segment (ifo, start_time, end_time, state_vec_id, frame_file_id)
+  SELECT 'H1', 700000452, 700000453, state_vec.state_vec_id, frame_file.frame_file_id
+  FROM state_vec, frame_file
+  WHERE frame_file.lfn = 'H-R-700000448-32.gwf'
+  AND state_vec.version = 0
+  AND state_vec.value = 2048;
+
+-- curse them, lost lock...
+insert into state_segment (ifo, start_time, end_time, state_vec_id, frame_file_id)
+  SELECT 'H1', 700000453, 700000480, state_vec.state_vec_id, frame_file.frame_file_id
+  FROM state_vec, frame_file
+  WHERE frame_file.lfn = 'H-R-700000448-32.gwf'
+  AND state_vec.version = 0
+  AND state_vec.value = 0;
+
+insert into frame_file (lfn,start_time,end_time) values('H-R-700000480-32.gwf',700000480,700000512);
+insert into state_segment (ifo, start_time, end_time, state_vec_id, frame_file_id)
+  SELECT 'H1', 700000480, 700000512, state_vec.state_vec_id, frame_file.frame_file_id
+  FROM state_vec, frame_file
+  WHERE frame_file.lfn = 'H-R-700000480-32.gwf'
+  AND state_vec.version = 0
+  AND state_vec.value = 0;
+
+
 -- now get some information back from the database
 
 -- greg wants the science mode segments from l1
@@ -215,5 +376,14 @@ select distinct ifo from state_segment;
 -- (cf the types query in LSCdataFind)
 select distinct state from state_vec;
 
--- what was our duty cycle?
+-- what times do we know about
+select sum(state_segment.end_time - state_segment.start_time) from state_segment;
+select sum(frame_file.end_time - frame_file.start_time) from frame_file;
 
+-- what was our duty cycle?
+select 'L1 Science Mode', sum(state_segment.end_time-state_segment.start_time) from state_segment, state_vec where state_segment.ifo = 'L1' and state_vec.state = 'Science' and state_segment.state_vec_id = state_vec.state_vec_id;
+select 'H1 Science Mode', sum(state_segment.end_time-state_segment.start_time) from state_segment, state_vec where state_segment.ifo = 'H1' and state_vec.state = 'Science' and state_segment.state_vec_id = state_vec.state_vec_id;
+
+-- and who did injections?
+select 'L1 Injection', sum(state_segment.end_time-state_segment.start_time) from state_segment, state_vec where state_segment.ifo = 'L1' and state_vec.state = 'Injection' and state_segment.state_vec_id = state_vec.state_vec_id;
+select 'H1 Injection', sum(state_segment.end_time-state_segment.start_time) from state_segment, state_vec where state_segment.ifo = 'H1' and state_vec.state = 'Injection' and state_segment.state_vec_id = state_vec.state_vec_id;
