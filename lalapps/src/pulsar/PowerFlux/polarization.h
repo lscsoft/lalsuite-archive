@@ -32,6 +32,7 @@ typedef struct {
 		SUM_TYPE *freq_map;
 		SUM_TYPE *cor1;
 		SUM_TYPE *cor2;
+		SUM_TYPE *ks_test;
 		} skymap;
 	
 	/* results - spectral plots, projection along sky bands */
