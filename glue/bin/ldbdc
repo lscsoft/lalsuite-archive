@@ -230,7 +230,7 @@ for o, a in opts:
 
 if not server or not database or (not infile and not squery):
   usage()
-    infile = a
+  sys.exit(1)
 if (squery and infile):
   print "Only one of --query and --insert can be specified\n"
   usage()
