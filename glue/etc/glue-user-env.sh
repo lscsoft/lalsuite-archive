@@ -10,12 +10,12 @@ if [ -z "${GLUE_LOCATION}" ]; then
 fi
 
 PATH=`echo "${PATH}" | sed -e "s%:${GLUE_LOCATION}[^:]*%%g" -e "s%^${GLUE_LOCATION}[^:]*:\{0,1\}%%"`
+PYTHONPATH=`echo "${PYTHONPATH}" | sed -e "s%:${GLUE_LOCATION}[^:]*%%g" -e "s%^${GLUE_LOCATION}[^:]*:\{0,1\}%%"`
 LD_LIBRARY_PATH=`echo "${LD_LIBRARY_PATH}" | sed -e "s%:${GLUE_LOCATION}[^:]*%%g" -e "s%^${GLUE_LOCATION}[^:]*:\{0,1\}%%"`
-if [ -n "${MANPATH}" ]; then
+
 if [ -n "${MANPATH}" ]; then
     MANPATH=`echo "${MANPATH}" | sed -e "s%:${GLUE_LOCATION}[^:]*%%g" -e "s%^${GLUE_LOCATION}[^:]*:\{0,1\}%%"`
 fi
-PYTHONPATH=`echo "${PYTHONPATH}" | sed -e "s%:${GLUE_LOCATION}[^:]*%%g" -e "s%^${GLUE_LOCATION}[^:]*:\{0,1\}%%"`
 
 GLUE_PATH=${GLUE_LOCATION}
 PATH="${GLUE_LOCATION}/bin:${GLUE_LOCATION}/sbin:${PATH}";
