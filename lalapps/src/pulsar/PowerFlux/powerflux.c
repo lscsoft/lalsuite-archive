@@ -285,7 +285,7 @@ for(i=0;i<nsegments;i++){
 		a=plus*plus*fake_power*0.7*0.5;
 		} else 
 	if(args_info.fake_circular_given){
-		a=((plus*plus+cross*cross)*0.5)*fake_power*0.7*0.5;
+		a=(plus*plus+cross*cross)*fake_power*0.7*0.5;
 		} else {
 		fprintf(stderr, "*** INTERNAL ERROR: unrecognized fake injection mode\n");
 		exit(-1);

@@ -450,7 +450,7 @@ for(i=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[o
 			}
 			
 		/* circ_ul describes limit on circularly polarized signals */
-		a*=4.0/(1.0+pol->skymap.beta2[offset]);
+		a*=1.0/(1.0+pol->skymap.beta2[offset]);
 		if(a<circ_ul[i*useful_bins+k]){
 			circ_ul[i*useful_bins+k]=a;
 			circ_ul_freq[i*useful_bins+k]=(first_bin+side_cut+k)/1800.0;
@@ -848,7 +848,7 @@ for(i=0;i<fine_grid->npoints;i++){
 		skymap_high_ul_freq[i]=-1.0;
 		continue;
 		}
-	skymap_circ_ul[i]=sqrt(skymap_circ_ul[i]*upper_limit_comp)/(1800.0*16384.0);
+	skymap_circ_ul[i]=sqrt(2.0*skymap_circ_ul[i]*upper_limit_comp)/(1800.0*16384.0);
 	
 	skymap_high_ul[i]=polarizations[0].skymap.max_upper_limit[i];
 	skymap_high_ul_freq[i]=polarizations[0].skymap.freq_map[i];
