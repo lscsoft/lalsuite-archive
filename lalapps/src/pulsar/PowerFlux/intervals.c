@@ -22,7 +22,7 @@ INTERVAL *p;
 if(is->free>=is->size){
 	is->size+=is->size+10;
 	p=do_alloc(is->size, sizeof(*p));
-	if(is->free>0)memcpy(p, is->i, is->free*sizeof(is->i));
+	if(is->free>0)memcpy(p, is->i, is->free*sizeof(*(is->i)));
 	free(is->i);
 	is->i=p;
 	}

@@ -52,6 +52,7 @@ if(regcomp(&write_png, args_info.write_png_arg, REG_EXTENDED | REG_NOSUB)){
 if(args_info.segments_file_given){
 	segment_list=new_interval_set();
 	add_intervals_from_file(segment_list, args_info.segments_file_arg);
+	fprintf(LOG, "Read %d intervals from file \"%s\"\n", args_info.segments_file_arg);
 	}
 }
 

@@ -336,7 +336,6 @@ if(!args_info.detector_given){
 	}
 
 gsl_rng_env_setup();
-init_hookup();
 
 /* create output directories if not present */
 if(args_info.output_given){
@@ -355,6 +354,7 @@ LOG=fopen(s,"w");
 snprintf(s,20000,"%s/file.log", output_dir);
 FILE_LOG=fopen(s,"w");
 
+init_hookup();
 
 do_CutOff=args_info.do_cutoff_arg;
 spindown=args_info.spindown_arg;
