@@ -45,13 +45,6 @@ option "nbands"		- "split sky in this many bands for logging maximum upper limit
 option "band-axis"	- "which band axis to use for splitting sky into bands (perpendicular to band axis) (possible values: equatorial, auto, explicit(float,float,float)" string default="auto" no
 option "ks-test"        - "perform Kolmogorov-Smirnov test for normality of averaged powers" int default="1" no
 
-option "fake-ra"	- "RA of fake signal to inject" double default="3.14" no
-option "fake-dec"	- "DEC of fake signal to inject" double default="0.0" no
-option "fake-orientation"	- "orientation of fake signal to inject" double default="0.0" no
-option "fake-spindown"	- "spindown of fake signal to inject" double default="0.0" no
-option "fake-strain"	- "amplitude of fake signal to inject" double default="1e-23" no
-option "fake-freq"	- "frequency of fake signal to inject" double no
-
 option "write-dat"      - "regular expression describing which *.dat files to write" string default=".*" no
 option "write-png"      - "regular expression describing which *.png files to write" string default=".*" no
 option "dump-points"	- "output averaged power bins for each point in the sky" int default="0" no
@@ -59,5 +52,16 @@ option "dump-points"	- "output averaged power bins for each point in the sky" in
 option "focus-ra"	- "focus computation on a circular area with center at this RA" double no
 option "focus-dec"	- "focus computation on a circular area with center at this DEC" double no
 option "focus-radius"	- "focus computation on a circular area with this radius" double no
+option "only-large-cos" - "restrict computation to points on the sky with cos of angle to band axis larger than a given number" double no
 
-option "only-large-cos" - "restrict computation to point on the sky with cos of angle to band axis larger than a given number" double no
+defgroup "injection" groupdesc=""
+groupoption "fake-linear" - "Inject linearly polarized fake signal" group="injection"
+groupoption "fake-circular" - "Inject linearly polarized fake signal" group="injection"
+
+option "fake-ra"	- "RA of fake signal to inject" double default="3.14" no
+option "fake-dec"	- "DEC of fake signal to inject" double default="0.0" no
+option "fake-orientation"	- "orientation of fake signal to inject" double default="0.0" no
+option "fake-spindown"	- "spindown of fake signal to inject" double default="0.0" no
+option "fake-strain"	- "amplitude of fake signal to inject" double default="1e-23" no
+option "fake-freq"	- "frequency of fake signal to inject" double no
+

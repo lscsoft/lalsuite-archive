@@ -59,19 +59,19 @@ struct gengetopt_args_info
   int nbands_arg;	/* split sky in this many bands for logging maximum upper limits (default='9').  */
   char * band_axis_arg;	/* which band axis to use for splitting sky into bands (perpendicular to band axis) (possible values: equatorial, auto, explicit(float,float,float) (default='auto').  */
   int ks_test_arg;	/* perform Kolmogorov-Smirnov test for normality of averaged powers (default='1').  */
-  double fake_ra_arg;	/* RA of fake signal to inject (default='3.14').  */
-  double fake_dec_arg;	/* DEC of fake signal to inject (default='0.0').  */
-  double fake_orientation_arg;	/* orientation of fake signal to inject (default='0.0').  */
-  double fake_spindown_arg;	/* spindown of fake signal to inject (default='0.0').  */
-  double fake_strain_arg;	/* amplitude of fake signal to inject (default='1e-23').  */
-  double fake_freq_arg;	/* frequency of fake signal to inject.  */
   char * write_dat_arg;	/* regular expression describing which *.dat files to write (default='.*').  */
   char * write_png_arg;	/* regular expression describing which *.png files to write (default='.*').  */
   int dump_points_arg;	/* output averaged power bins for each point in the sky (default='0').  */
   double focus_ra_arg;	/* focus computation on a circular area with center at this RA.  */
   double focus_dec_arg;	/* focus computation on a circular area with center at this DEC.  */
   double focus_radius_arg;	/* focus computation on a circular area with this radius.  */
-  double only_large_cos_arg;	/* restrict computation to point on the sky with cos of angle to band axis larger than a given number.  */
+  double only_large_cos_arg;	/* restrict computation to points on the sky with cos of angle to band axis larger than a given number.  */
+  double fake_ra_arg;	/* RA of fake signal to inject (default='3.14').  */
+  double fake_dec_arg;	/* DEC of fake signal to inject (default='0.0').  */
+  double fake_orientation_arg;	/* orientation of fake signal to inject (default='0.0').  */
+  double fake_spindown_arg;	/* spindown of fake signal to inject (default='0.0').  */
+  double fake_strain_arg;	/* amplitude of fake signal to inject (default='1e-23').  */
+  double fake_freq_arg;	/* frequency of fake signal to inject.  */
 
   int help_given ;	/* Whether help was given.  */
   int version_given ;	/* Whether version was given.  */
@@ -110,12 +110,6 @@ struct gengetopt_args_info
   int nbands_given ;	/* Whether nbands was given.  */
   int band_axis_given ;	/* Whether band-axis was given.  */
   int ks_test_given ;	/* Whether ks-test was given.  */
-  int fake_ra_given ;	/* Whether fake-ra was given.  */
-  int fake_dec_given ;	/* Whether fake-dec was given.  */
-  int fake_orientation_given ;	/* Whether fake-orientation was given.  */
-  int fake_spindown_given ;	/* Whether fake-spindown was given.  */
-  int fake_strain_given ;	/* Whether fake-strain was given.  */
-  int fake_freq_given ;	/* Whether fake-freq was given.  */
   int write_dat_given ;	/* Whether write-dat was given.  */
   int write_png_given ;	/* Whether write-png was given.  */
   int dump_points_given ;	/* Whether dump-points was given.  */
@@ -123,6 +117,14 @@ struct gengetopt_args_info
   int focus_dec_given ;	/* Whether focus-dec was given.  */
   int focus_radius_given ;	/* Whether focus-radius was given.  */
   int only_large_cos_given ;	/* Whether only-large-cos was given.  */
+  int fake_linear_given ;	/* Whether fake-linear was given.  */
+  int fake_circular_given ;	/* Whether fake-circular was given.  */
+  int fake_ra_given ;	/* Whether fake-ra was given.  */
+  int fake_dec_given ;	/* Whether fake-dec was given.  */
+  int fake_orientation_given ;	/* Whether fake-orientation was given.  */
+  int fake_spindown_given ;	/* Whether fake-spindown was given.  */
+  int fake_strain_given ;	/* Whether fake-strain was given.  */
+  int fake_freq_given ;	/* Whether fake-freq was given.  */
 
 } ;
 

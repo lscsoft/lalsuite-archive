@@ -75,19 +75,23 @@ cmdline_parser_print_help (void)
   printf("      --nbands=INT                      split sky in this many bands for \n                                          logging maximum upper limits  \n                                          (default=`9')\n");
   printf("      --band-axis=STRING                which band axis to use for splitting \n                                          sky into bands (perpendicular to \n                                          band axis) (possible values: \n                                          equatorial, auto, \n                                          explicit(float,float,float)  \n                                          (default=`auto')\n");
   printf("      --ks-test=INT                     perform Kolmogorov-Smirnov test for \n                                          normality of averaged powers  \n                                          (default=`1')\n");
-  printf("      --fake-ra=DOUBLE                  RA of fake signal to inject  (default=\n                                          `3.14')\n");
-  printf("      --fake-dec=DOUBLE                 DEC of fake signal to inject  (default=\n                                          `0.0')\n");
-  printf("      --fake-orientation=DOUBLE         orientation of fake signal to inject  \n                                          (default=`0.0')\n");
-  printf("      --fake-spindown=DOUBLE            spindown of fake signal to inject  \n                                          (default=`0.0')\n");
-  printf("      --fake-strain=DOUBLE              amplitude of fake signal to inject  \n                                          (default=`1e-23')\n");
-  printf("      --fake-freq=DOUBLE                frequency of fake signal to inject\n");
   printf("      --write-dat=STRING                regular expression describing which \n                                          *.dat files to write  (default=`.*')\n");
   printf("      --write-png=STRING                regular expression describing which \n                                          *.png files to write  (default=`.*')\n");
   printf("      --dump-points=INT                 output averaged power bins for each \n                                          point in the sky  (default=`0')\n");
   printf("      --focus-ra=DOUBLE                 focus computation on a circular area \n                                          with center at this RA\n");
   printf("      --focus-dec=DOUBLE                focus computation on a circular area \n                                          with center at this DEC\n");
   printf("      --focus-radius=DOUBLE             focus computation on a circular area \n                                          with this radius\n");
-  printf("      --only-large-cos=DOUBLE           restrict computation to point on the \n                                          sky with cos of angle to band axis \n                                          larger than a given number\n");
+  printf("      --only-large-cos=DOUBLE           restrict computation to points on the \n                                          sky with cos of angle to band axis \n                                          larger than a given number\n");
+  printf("\n");
+  printf(" Group: injection \n");
+  printf("      --fake-linear                     Inject linearly polarized fake signal\n");
+  printf("      --fake-circular                   Inject linearly polarized fake signal\n");
+  printf("      --fake-ra=DOUBLE                  RA of fake signal to inject  (default=\n                                          `3.14')\n");
+  printf("      --fake-dec=DOUBLE                 DEC of fake signal to inject  (default=\n                                          `0.0')\n");
+  printf("      --fake-orientation=DOUBLE         orientation of fake signal to inject  \n                                          (default=`0.0')\n");
+  printf("      --fake-spindown=DOUBLE            spindown of fake signal to inject  \n                                          (default=`0.0')\n");
+  printf("      --fake-strain=DOUBLE              amplitude of fake signal to inject  \n                                          (default=`1e-23')\n");
+  printf("      --fake-freq=DOUBLE                frequency of fake signal to inject\n");
 }
 
 
@@ -110,6 +114,8 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
 {
   int c;	/* Character of the parsed option.  */
   int missing_required_options = 0;
+  int injection_group_counter = 0;
+  
 
   args_info->help_given = 0 ;
   args_info->version_given = 0 ;
@@ -148,12 +154,6 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->nbands_given = 0 ;
   args_info->band_axis_given = 0 ;
   args_info->ks_test_given = 0 ;
-  args_info->fake_ra_given = 0 ;
-  args_info->fake_dec_given = 0 ;
-  args_info->fake_orientation_given = 0 ;
-  args_info->fake_spindown_given = 0 ;
-  args_info->fake_strain_given = 0 ;
-  args_info->fake_freq_given = 0 ;
   args_info->write_dat_given = 0 ;
   args_info->write_png_given = 0 ;
   args_info->dump_points_given = 0 ;
@@ -161,6 +161,14 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->focus_dec_given = 0 ;
   args_info->focus_radius_given = 0 ;
   args_info->only_large_cos_given = 0 ;
+  args_info->fake_linear_given = 0 ;
+  args_info->fake_circular_given = 0 ;
+  args_info->fake_ra_given = 0 ;
+  args_info->fake_dec_given = 0 ;
+  args_info->fake_orientation_given = 0 ;
+  args_info->fake_spindown_given = 0 ;
+  args_info->fake_strain_given = 0 ;
+  args_info->fake_freq_given = 0 ;
 #define clear_args() { \
   args_info->config_arg = NULL; \
   args_info->sky_grid_arg = gengetopt_strdup("sin_theta") ;\
@@ -193,14 +201,14 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->nbands_arg = 9 ;\
   args_info->band_axis_arg = gengetopt_strdup("auto") ;\
   args_info->ks_test_arg = 1 ;\
+  args_info->write_dat_arg = gengetopt_strdup(".*") ;\
+  args_info->write_png_arg = gengetopt_strdup(".*") ;\
+  args_info->dump_points_arg = 0 ;\
   args_info->fake_ra_arg = 3.14 ;\
   args_info->fake_dec_arg = 0.0 ;\
   args_info->fake_orientation_arg = 0.0 ;\
   args_info->fake_spindown_arg = 0.0 ;\
   args_info->fake_strain_arg = 1e-23 ;\
-  args_info->write_dat_arg = gengetopt_strdup(".*") ;\
-  args_info->write_png_arg = gengetopt_strdup(".*") ;\
-  args_info->dump_points_arg = 0 ;\
 }
 
   clear_args();
@@ -253,12 +261,6 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
         { "nbands",	1, NULL, 0 },
         { "band-axis",	1, NULL, 0 },
         { "ks-test",	1, NULL, 0 },
-        { "fake-ra",	1, NULL, 0 },
-        { "fake-dec",	1, NULL, 0 },
-        { "fake-orientation",	1, NULL, 0 },
-        { "fake-spindown",	1, NULL, 0 },
-        { "fake-strain",	1, NULL, 0 },
-        { "fake-freq",	1, NULL, 0 },
         { "write-dat",	1, NULL, 0 },
         { "write-png",	1, NULL, 0 },
         { "dump-points",	1, NULL, 0 },
@@ -266,6 +268,14 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
         { "focus-dec",	1, NULL, 0 },
         { "focus-radius",	1, NULL, 0 },
         { "only-large-cos",	1, NULL, 0 },
+        { "fake-linear",	0, NULL, 0 },
+        { "fake-circular",	0, NULL, 0 },
+        { "fake-ra",	1, NULL, 0 },
+        { "fake-dec",	1, NULL, 0 },
+        { "fake-orientation",	1, NULL, 0 },
+        { "fake-spindown",	1, NULL, 0 },
+        { "fake-strain",	1, NULL, 0 },
+        { "fake-freq",	1, NULL, 0 },
         { NULL,	0, NULL, 0 }
       };
 
@@ -770,90 +780,6 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
             break;
           }
           
-          /* RA of fake signal to inject.  */
-          else if (strcmp (long_options[option_index].name, "fake-ra") == 0)
-          {
-            if (args_info->fake_ra_given)
-              {
-                fprintf (stderr, "%s: `--fake-ra' option given more than once\n", CMDLINE_PARSER_PACKAGE);
-                clear_args ();
-                exit (EXIT_FAILURE);
-              }
-            args_info->fake_ra_given = 1;
-            args_info->fake_ra_arg = strtod (optarg, NULL);
-            break;
-          }
-          
-          /* DEC of fake signal to inject.  */
-          else if (strcmp (long_options[option_index].name, "fake-dec") == 0)
-          {
-            if (args_info->fake_dec_given)
-              {
-                fprintf (stderr, "%s: `--fake-dec' option given more than once\n", CMDLINE_PARSER_PACKAGE);
-                clear_args ();
-                exit (EXIT_FAILURE);
-              }
-            args_info->fake_dec_given = 1;
-            args_info->fake_dec_arg = strtod (optarg, NULL);
-            break;
-          }
-          
-          /* orientation of fake signal to inject.  */
-          else if (strcmp (long_options[option_index].name, "fake-orientation") == 0)
-          {
-            if (args_info->fake_orientation_given)
-              {
-                fprintf (stderr, "%s: `--fake-orientation' option given more than once\n", CMDLINE_PARSER_PACKAGE);
-                clear_args ();
-                exit (EXIT_FAILURE);
-              }
-            args_info->fake_orientation_given = 1;
-            args_info->fake_orientation_arg = strtod (optarg, NULL);
-            break;
-          }
-          
-          /* spindown of fake signal to inject.  */
-          else if (strcmp (long_options[option_index].name, "fake-spindown") == 0)
-          {
-            if (args_info->fake_spindown_given)
-              {
-                fprintf (stderr, "%s: `--fake-spindown' option given more than once\n", CMDLINE_PARSER_PACKAGE);
-                clear_args ();
-                exit (EXIT_FAILURE);
-              }
-            args_info->fake_spindown_given = 1;
-            args_info->fake_spindown_arg = strtod (optarg, NULL);
-            break;
-          }
-          
-          /* amplitude of fake signal to inject.  */
-          else if (strcmp (long_options[option_index].name, "fake-strain") == 0)
-          {
-            if (args_info->fake_strain_given)
-              {
-                fprintf (stderr, "%s: `--fake-strain' option given more than once\n", CMDLINE_PARSER_PACKAGE);
-                clear_args ();
-                exit (EXIT_FAILURE);
-              }
-            args_info->fake_strain_given = 1;
-            args_info->fake_strain_arg = strtod (optarg, NULL);
-            break;
-          }
-          
-          /* frequency of fake signal to inject.  */
-          else if (strcmp (long_options[option_index].name, "fake-freq") == 0)
-          {
-            if (args_info->fake_freq_given)
-              {
-                fprintf (stderr, "%s: `--fake-freq' option given more than once\n", CMDLINE_PARSER_PACKAGE);
-                clear_args ();
-                exit (EXIT_FAILURE);
-              }
-            args_info->fake_freq_given = 1;
-            args_info->fake_freq_arg = strtod (optarg, NULL);
-            break;
-          }
-          
           /* regular expression describing which *.dat files to write.  */
           else if (strcmp (long_options[option_index].name, "write-dat") == 0)
           {
@@ -942,7 +868,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
             break;
           }
           
-          /* restrict computation to point on the sky with cos of angle to band axis larger than a given number.  */
+          /* restrict computation to points on the sky with cos of angle to band axis larger than a given number.  */
           else if (strcmp (long_options[option_index].name, "only-large-cos") == 0)
           {
             if (args_info->only_large_cos_given)
@@ -953,6 +879,118 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
               }
             args_info->only_large_cos_given = 1;
             args_info->only_large_cos_arg = strtod (optarg, NULL);
+            break;
+          }
+          
+          /* Inject linearly polarized fake signal.  */
+          else if (strcmp (long_options[option_index].name, "fake-linear") == 0)
+          {
+            if (args_info->fake_linear_given)
+              {
+                fprintf (stderr, "%s: `--fake-linear' option given more than once\n", CMDLINE_PARSER_PACKAGE);
+                clear_args ();
+                exit (EXIT_FAILURE);
+              }
+            args_info->fake_linear_given = 1; injection_group_counter += 1;
+          
+            break;
+          }
+          
+          /* Inject linearly polarized fake signal.  */
+          else if (strcmp (long_options[option_index].name, "fake-circular") == 0)
+          {
+            if (args_info->fake_circular_given)
+              {
+                fprintf (stderr, "%s: `--fake-circular' option given more than once\n", CMDLINE_PARSER_PACKAGE);
+                clear_args ();
+                exit (EXIT_FAILURE);
+              }
+            args_info->fake_circular_given = 1; injection_group_counter += 1;
+          
+            break;
+          }
+          
+          /* RA of fake signal to inject.  */
+          else if (strcmp (long_options[option_index].name, "fake-ra") == 0)
+          {
+            if (args_info->fake_ra_given)
+              {
+                fprintf (stderr, "%s: `--fake-ra' option given more than once\n", CMDLINE_PARSER_PACKAGE);
+                clear_args ();
+                exit (EXIT_FAILURE);
+              }
+            args_info->fake_ra_given = 1;
+            args_info->fake_ra_arg = strtod (optarg, NULL);
+            break;
+          }
+          
+          /* DEC of fake signal to inject.  */
+          else if (strcmp (long_options[option_index].name, "fake-dec") == 0)
+          {
+            if (args_info->fake_dec_given)
+              {
+                fprintf (stderr, "%s: `--fake-dec' option given more than once\n", CMDLINE_PARSER_PACKAGE);
+                clear_args ();
+                exit (EXIT_FAILURE);
+              }
+            args_info->fake_dec_given = 1;
+            args_info->fake_dec_arg = strtod (optarg, NULL);
+            break;
+          }
+          
+          /* orientation of fake signal to inject.  */
+          else if (strcmp (long_options[option_index].name, "fake-orientation") == 0)
+          {
+            if (args_info->fake_orientation_given)
+              {
+                fprintf (stderr, "%s: `--fake-orientation' option given more than once\n", CMDLINE_PARSER_PACKAGE);
+                clear_args ();
+                exit (EXIT_FAILURE);
+              }
+            args_info->fake_orientation_given = 1;
+            args_info->fake_orientation_arg = strtod (optarg, NULL);
+            break;
+          }
+          
+          /* spindown of fake signal to inject.  */
+          else if (strcmp (long_options[option_index].name, "fake-spindown") == 0)
+          {
+            if (args_info->fake_spindown_given)
+              {
+                fprintf (stderr, "%s: `--fake-spindown' option given more than once\n", CMDLINE_PARSER_PACKAGE);
+                clear_args ();
+                exit (EXIT_FAILURE);
+              }
+            args_info->fake_spindown_given = 1;
+            args_info->fake_spindown_arg = strtod (optarg, NULL);
+            break;
+          }
+          
+          /* amplitude of fake signal to inject.  */
+          else if (strcmp (long_options[option_index].name, "fake-strain") == 0)
+          {
+            if (args_info->fake_strain_given)
+              {
+                fprintf (stderr, "%s: `--fake-strain' option given more than once\n", CMDLINE_PARSER_PACKAGE);
+                clear_args ();
+                exit (EXIT_FAILURE);
+              }
+            args_info->fake_strain_given = 1;
+            args_info->fake_strain_arg = strtod (optarg, NULL);
+            break;
+          }
+          
+          /* frequency of fake signal to inject.  */
+          else if (strcmp (long_options[option_index].name, "fake-freq") == 0)
+          {
+            if (args_info->fake_freq_given)
+              {
+                fprintf (stderr, "%s: `--fake-freq' option given more than once\n", CMDLINE_PARSER_PACKAGE);
+                clear_args ();
+                exit (EXIT_FAILURE);
+              }
+            args_info->fake_freq_given = 1;
+            args_info->fake_freq_arg = strtod (optarg, NULL);
             break;
           }
           
@@ -967,6 +1005,12 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
         } /* switch */
     } /* while */
 
+  if ( injection_group_counter > 1)
+    {
+      fprintf (stderr, "%s: %d options of group injection were given. At most one is required\n", CMDLINE_PARSER_PACKAGE, injection_group_counter);
+      missing_required_options = 1;
+    }
+  
 
   if ( missing_required_options )
     exit (EXIT_FAILURE);
@@ -1698,114 +1742,6 @@ cmdline_parser_configfile (char * const filename, struct gengetopt_args_info *ar
                 }
               continue;
             }
-          if (!strcmp(fopt, "fake-ra"))
-            {
-              if (override || !args_info->fake_ra_given)
-                {
-                  args_info->fake_ra_given = 1;
-                  if (fnum == 2)
-                    {
-                      args_info->fake_ra_arg = strtod (farg, NULL);
-                    }
-                  else
-                    {
-                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
-                               filename, line_num);
-                      exit (EXIT_FAILURE);
-                    }
-                }
-              continue;
-            }
-          if (!strcmp(fopt, "fake-dec"))
-            {
-              if (override || !args_info->fake_dec_given)
-                {
-                  args_info->fake_dec_given = 1;
-                  if (fnum == 2)
-                    {
-                      args_info->fake_dec_arg = strtod (farg, NULL);
-                    }
-                  else
-                    {
-                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
-                               filename, line_num);
-                      exit (EXIT_FAILURE);
-                    }
-                }
-              continue;
-            }
-          if (!strcmp(fopt, "fake-orientation"))
-            {
-              if (override || !args_info->fake_orientation_given)
-                {
-                  args_info->fake_orientation_given = 1;
-                  if (fnum == 2)
-                    {
-                      args_info->fake_orientation_arg = strtod (farg, NULL);
-                    }
-                  else
-                    {
-                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
-                               filename, line_num);
-                      exit (EXIT_FAILURE);
-                    }
-                }
-              continue;
-            }
-          if (!strcmp(fopt, "fake-spindown"))
-            {
-              if (override || !args_info->fake_spindown_given)
-                {
-                  args_info->fake_spindown_given = 1;
-                  if (fnum == 2)
-                    {
-                      args_info->fake_spindown_arg = strtod (farg, NULL);
-                    }
-                  else
-                    {
-                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
-                               filename, line_num);
-                      exit (EXIT_FAILURE);
-                    }
-                }
-              continue;
-            }
-          if (!strcmp(fopt, "fake-strain"))
-            {
-              if (override || !args_info->fake_strain_given)
-                {
-                  args_info->fake_strain_given = 1;
-                  if (fnum == 2)
-                    {
-                      args_info->fake_strain_arg = strtod (farg, NULL);
-                    }
-                  else
-                    {
-                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
-                               filename, line_num);
-                      exit (EXIT_FAILURE);
-                    }
-                }
-              continue;
-            }
-          if (!strcmp(fopt, "fake-freq"))
-            {
-              if (override || !args_info->fake_freq_given)
-                {
-                  args_info->fake_freq_given = 1;
-                  if (fnum == 2)
-                    {
-                      args_info->fake_freq_arg = strtod (farg, NULL);
-                    }
-                  else
-                    {
-                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
-                               filename, line_num);
-                      exit (EXIT_FAILURE);
-                    }
-                }
-              continue;
-            }
           if (!strcmp(fopt, "write-dat"))
             {
               if (override || !args_info->write_dat_given)
@@ -1926,6 +1862,132 @@ cmdline_parser_configfile (char * const filename, struct gengetopt_args_info *ar
                   if (fnum == 2)
                     {
                       args_info->only_large_cos_arg = strtod (farg, NULL);
+                    }
+                  else
+                    {
+                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
+                               filename, line_num);
+                      exit (EXIT_FAILURE);
+                    }
+                }
+              continue;
+            }
+          if (!strcmp(fopt, "fake-linear"))
+            {
+              if (override || !args_info->fake_linear_given)
+                {
+                  args_info->fake_linear_given = 1;
+                  
+                }
+              continue;
+            }
+          if (!strcmp(fopt, "fake-circular"))
+            {
+              if (override || !args_info->fake_circular_given)
+                {
+                  args_info->fake_circular_given = 1;
+                  
+                }
+              continue;
+            }
+          if (!strcmp(fopt, "fake-ra"))
+            {
+              if (override || !args_info->fake_ra_given)
+                {
+                  args_info->fake_ra_given = 1;
+                  if (fnum == 2)
+                    {
+                      args_info->fake_ra_arg = strtod (farg, NULL);
+                    }
+                  else
+                    {
+                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
+                               filename, line_num);
+                      exit (EXIT_FAILURE);
+                    }
+                }
+              continue;
+            }
+          if (!strcmp(fopt, "fake-dec"))
+            {
+              if (override || !args_info->fake_dec_given)
+                {
+                  args_info->fake_dec_given = 1;
+                  if (fnum == 2)
+                    {
+                      args_info->fake_dec_arg = strtod (farg, NULL);
+                    }
+                  else
+                    {
+                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
+                               filename, line_num);
+                      exit (EXIT_FAILURE);
+                    }
+                }
+              continue;
+            }
+          if (!strcmp(fopt, "fake-orientation"))
+            {
+              if (override || !args_info->fake_orientation_given)
+                {
+                  args_info->fake_orientation_given = 1;
+                  if (fnum == 2)
+                    {
+                      args_info->fake_orientation_arg = strtod (farg, NULL);
+                    }
+                  else
+                    {
+                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
+                               filename, line_num);
+                      exit (EXIT_FAILURE);
+                    }
+                }
+              continue;
+            }
+          if (!strcmp(fopt, "fake-spindown"))
+            {
+              if (override || !args_info->fake_spindown_given)
+                {
+                  args_info->fake_spindown_given = 1;
+                  if (fnum == 2)
+                    {
+                      args_info->fake_spindown_arg = strtod (farg, NULL);
+                    }
+                  else
+                    {
+                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
+                               filename, line_num);
+                      exit (EXIT_FAILURE);
+                    }
+                }
+              continue;
+            }
+          if (!strcmp(fopt, "fake-strain"))
+            {
+              if (override || !args_info->fake_strain_given)
+                {
+                  args_info->fake_strain_given = 1;
+                  if (fnum == 2)
+                    {
+                      args_info->fake_strain_arg = strtod (farg, NULL);
+                    }
+                  else
+                    {
+                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
+                               filename, line_num);
+                      exit (EXIT_FAILURE);
+                    }
+                }
+              continue;
+            }
+          if (!strcmp(fopt, "fake-freq"))
+            {
+              if (override || !args_info->fake_freq_given)
+                {
+                  args_info->fake_freq_given = 1;
+                  if (fnum == 2)
+                    {
+                      args_info->fake_freq_arg = strtod (farg, NULL);
                     }
                   else
                     {

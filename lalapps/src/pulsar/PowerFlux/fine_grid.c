@@ -584,7 +584,7 @@ if(fake_injection){
 	float largest;
 	double ds, best_ds;
 	long best_i=-1, largest_i=-1;
-	fprintf(LOG,"Interesting points: index longitude latitude pol max_dx upper_strain lower_strain freq\n");
+	fprintf(LOG,"Interesting points: index longitude latitude pol max_dx upper_strain lower_strain freq beta1 beta2\n");
 	for(i=0;i<fine_grid->npoints;i++){
 		/* e[2][i] is just cos of latitude */
 		/* Approximate spherical distance */
@@ -609,12 +609,14 @@ if(fake_injection){
 		if(ds<3*resolution){
 		#endif
 		
-		   	fprintf(LOG, "%d %f %f %s %f %g %g %f\n",
+		   	fprintf(LOG, "%d %f %f %s %f %g %g %f %f %f\n",
 				i,
 				fine_grid->longitude[i], fine_grid->latitude[i], 
 				pol->name, pol->skymap.max_dx[i], 
 				pol->skymap.max_upper_limit[i], pol->skymap.max_lower_limit[i],
-				pol->skymap.freq_map[i]);
+				pol->skymap.freq_map[i], 
+				pol->skymap.beta1[i],
+				pol->skymap.beta2[i]);
 
 			if(largest_i<0){
 				largest=pol->skymap.max_upper_limit[i];
@@ -637,13 +639,15 @@ if(fake_injection){
 		
 		}
 	if(best_i>=0)
-	fprintf(LOG, "closest: %d %f %f %s %f %g %g %f\n", best_i, fine_grid->longitude[best_i], fine_grid->latitude[best_i], 
+	fprintf(LOG, "closest: %d %f %f %s %f %g %g %f %f %f\n", best_i, fine_grid->longitude[best_i], fine_grid->latitude[best_i], 
 		pol->name, pol->skymap.max_dx[best_i], 
-		pol->skymap.max_upper_limit[best_i], pol->skymap.max_lower_limit[best_i], pol->skymap.freq_map[best_i]);
+		pol->skymap.max_upper_limit[best_i], pol->skymap.max_lower_limit[best_i], pol->skymap.freq_map[best_i],
+		pol->skymap.beta1[best_i], pol->skymap.beta2[best_i]);
 	if(largest_i>=0)
-	fprintf(LOG, "largest: %d %f %f %s %f %g %g %f\n", largest_i, fine_grid->longitude[largest_i], fine_grid->latitude[largest_i], 
+	fprintf(LOG, "largest: %d %f %f %s %f %g %g %f %f %f\n", largest_i, fine_grid->longitude[largest_i], fine_grid->latitude[largest_i], 
 		pol->name, pol->skymap.max_dx[largest_i], 
-		pol->skymap.max_upper_limit[largest_i], pol->skymap.max_lower_limit[largest_i], pol->skymap.freq_map[largest_i]);
+		pol->skymap.max_upper_limit[largest_i], pol->skymap.max_lower_limit[largest_i], pol->skymap.freq_map[largest_i],
+		pol->skymap.beta1[largest_i], pol->skymap.beta2[largest_i]);
 	}
 
 

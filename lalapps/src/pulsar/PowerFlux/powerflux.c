@@ -255,11 +255,18 @@ fclose(FILE_LOG);
 void inject_fake_signal(void)
 {
 long i, bin;
-float plus, cross, a, b, e[3], fake_power, factor;
+float plus, cross, a, b, e[3], fake_power;
 gsl_rng *rng=NULL;
 double average_freq, weight, mixed, plus_sq, cross_sq;
 
 rng=gsl_rng_alloc(gsl_rng_default);
+
+if(args_info.fake_linear_given){
+	fprintf(LOG, "fake_injection: linear\n");
+	} else 
+if(args_info.fake_circular_given){
+	fprintf(LOG, "fake_injection: circular\n");
+	}
 
 fake_power=args_info.fake_strain_arg*args_info.fake_strain_arg*1800.0*16384.0*1800.0*16384.0;
 fprintf(LOG, "fake_power: %g\n", fake_power);
@@ -274,12 +281,18 @@ for(i=0;i<nsegments;i++){
 		&plus, &cross);
 	/* effective power, ignoring phase, and taking into account windowing and
 	   fourier coefficient (we are keeping only half of them)*/
-//	a=plus*plus*fake_power*0.7*0.5;
+	if(args_info.fake_linear_given){
+		a=plus*plus*fake_power*0.7*0.5;
+		} else 
+	if(args_info.fake_circular_given){
+		a=((plus*plus+cross*cross)*0.5)*fake_power*0.7*0.5;
+		} else {
+		fprintf(stderr, "*** INTERNAL ERROR: unrecognized fake injection mode\n");
+		exit(-1);
+		}
 	mixed+=plus*cross;
 	plus_sq+=plus*plus;
 	cross_sq+=cross*cross;
-	factor=plus;
-	a=factor*factor*fake_power*0.7*0.5;
 	/* effective frequency */
 	e[0]=cos(args_info.fake_dec_arg)*cos(args_info.fake_ra_arg);
 	e[1]=cos(args_info.fake_dec_arg)*sin(args_info.fake_ra_arg);
@@ -704,12 +717,8 @@ RGBPic_dump_png("bands.png", p);
 dump_ints("bands.dat", fine_grid->band, fine_grid->npoints, 1);
 
 /* do we need to inject fake signal ? */
-if(args_info.fake_ra_given ||
-   args_info.fake_dec_given ||
-   args_info.fake_strain_given ||
-   args_info.fake_orientation_given ||
-   args_info.fake_spindown_given){
-
+if(args_info.fake_linear_given ||
+   args_info.fake_circular_given){
 	fake_injection=1;
 	if(!args_info.fake_freq_given){
 		args_info.fake_freq_arg=(first_bin+nbins/2)/1800.0;
