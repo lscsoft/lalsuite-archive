@@ -136,3 +136,6 @@ upload: powerflux.hydra
 upload.g: powerflux.hydra
 	scp -C powerflux.hydra gallatin.physics.lsa.umich.edu:PowerFlux/powerflux
 	
+upload.h: powerflux.hydra
+	scp -S globus-ssh -C powerflux.hydra ldas-grid.ligo-wa.caltech.edu:PowerFlux/powerflux
+

@@ -56,7 +56,7 @@ option "only-large-cos" - "restrict computation to points on the sky with cos of
 
 defgroup "injection" groupdesc=""
 groupoption "fake-linear" - "Inject linearly polarized fake signal" group="injection"
-groupoption "fake-circular" - "Inject linearly polarized fake signal" group="injection"
+groupoption "fake-circular" - "Inject circularly polarized fake signal" group="injection"
 
 option "fake-ra"	- "RA of fake signal to inject" double default="3.14" no
 option "fake-dec"	- "DEC of fake signal to inject" double default="0.0" no

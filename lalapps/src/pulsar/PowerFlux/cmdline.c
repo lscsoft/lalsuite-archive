@@ -85,7 +85,7 @@ cmdline_parser_print_help (void)
   printf("\n");
   printf(" Group: injection \n");
   printf("      --fake-linear                     Inject linearly polarized fake signal\n");
-  printf("      --fake-circular                   Inject linearly polarized fake signal\n");
+  printf("      --fake-circular                   Inject circularly polarized fake \n                                          signal\n");
   printf("      --fake-ra=DOUBLE                  RA of fake signal to inject  (default=\n                                          `3.14')\n");
   printf("      --fake-dec=DOUBLE                 DEC of fake signal to inject  (default=\n                                          `0.0')\n");
   printf("      --fake-orientation=DOUBLE         orientation of fake signal to inject  \n                                          (default=`0.0')\n");
@@ -896,7 +896,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
             break;
           }
           
-          /* Inject linearly polarized fake signal.  */
+          /* Inject circularly polarized fake signal.  */
           else if (strcmp (long_options[option_index].name, "fake-circular") == 0)
           {
             if (args_info->fake_circular_given)
