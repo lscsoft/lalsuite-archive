@@ -12,7 +12,20 @@ import getopt
 import exceptions
 import md5
 import re
-from pyGlobus import security
+#from pyGlobus import security
+
+## LDR specific(?) modules
+#try:
+#        ldrHome = os.environ["LDR_LOCATION"]
+#except:
+#        sys.stderr.write("LDR_LOCATION environment variable undefined\n")
+#        sys.exit(1)
+
+#sys.path.append(os.path.join(ldrHome, "ldr/lib"))
+
+#import LDRUtil
+#import RLS
+#import LDRMetadataCatalog
 
 class LSCfileAddMetadataAttr(object):
         """
@@ -396,21 +409,87 @@ class LSCFile(LSCfileAddMetadataAttr):
         
         def __init__(self):
                 LSCfileAddMetadataAttr.__init__(self)
-                # File is essentially an lfn,pfn pair
-                self.lfn = None
-                self.pfn = None
-        ## END def __init__(self)
+                # Initialize LDR stuff
+                #self.config = LDRUtil.getConfig("local", "DEFAULT")
+                #self.metadata = LDRMetadataCatalog.LDRMetadataCatalog(self.config)
+                #self.rliurl = self.config["rli"]
+                #self.lrc = RLS.getCatalog(self.rliurl)
+                #self.gsiurl = self.config.get("Storage", "hostname")
+                
+                # create attributes in LRC if needed and pass on exception
+                # if attributes already exist
+                #try:
+                #        self.lrc.create_attr("size")
+                #except:
+                #        pass
+
+                #try:
+                #        self.lrc.create_attr("md5")
+                #except:
+                #        pass
+                
+                # list containing files successfully published
+                self.successes = []
+                # list of tuples containing files which failed to be published
+                #    and the reasons they were not (hopefully).
+                self.failures = [()]
+        ## END __init__(self)
         
+        def __attr_self_test_methods(self,filename = "Filename not supplied"):
+                for field,vals in self.attr.iteritems():
+                                if vals['Test_method'] is not None:
+                                        result = vals['Test_method']()
+                                        if result:
+                                                self.failures.append((filename,result))
+                                                raise LSCfileAddException, "Error, skipping file: %s" % (result,)
+        ## END __attr_self_test_methods(self,filename = "Filename not supplied")
         
-        def publish(self,attributes = {}, filelist = []):
+        def __create_lfn_pfn_strings(self,filename = "NO_NAME",urlType = "file"):
+                if urlType is "file":
+                        pfn = "file://localhost" + filename # need to switch on --url-type (e.g. file, gsiftp, etc.)
+                else:
+                        msg = "Error creating lfn pfn pair for %s . urlType %s not yet defined." % (filename,urlType)
+                        raise LSCfileAddException, msg
+                
+                lfn = os.path.basename(filename)
+                
+                return (lfn,pfn) # MUST BE IN EL FN to PEA FN ORDER!!!!
+        
+        def __get_attribs_from_filename(self,filename,lfn):
+                #  name fields
+                filepat = re.compile(r'^(\w+)-([\w\d]+)\-(\d+)\-(\d+)\..+')
+                try:
+                        parsedfilename = filepat.search(lfn).groups()
+                except Exception, e:
+                        msg = "Invalid filename format \"%s\"" % (lfn,)
+                        print >>sys.stderr, "%s Skipping file %s" % (msg,filename)
+                        self.failures.append((filename,msg))
+                        raise LSCfileAddException
+                      
+                # Must have 4 parts to name field
+                if len(parsedfilename) is not 4:
+                        msg = "Invalid filename format \"%s\"" % (lfn,)
+                        print >>sys.stderr, "%s Skipping file %s" % (msg,filename)
+                        self.failures.append((filename,msg))
+                        raise LSCfileAddException
+                        
+                # set the name fields in attribute dictionary
+        #  NEEDS TO BE RECONCILED WITH --gps-start-time and --gps-end-time OPTIONS!!!!!
+                self.attr['site']['Value'] = parsedfilename[0]
+                self.attr['frameType']['Value'] = parsedfilename[1]
+                self.attr['gpsStart']['Value'] = parsedfilename[2]
+                self.attr['duration']['Value'] = parsedfilename[3]
+                
+                # fill in appropriate fields
+                self.attr['size']['Value'] = os.path.getsize(filename)
+        ## END __get_attribs_from_filename(self,filename,lfn)
+                
+        def publish(self,attributes = {}, filelist = [], urlType = "file", host = "", port = 0):
                 """
                 Adds a lfn <-> pfn mapping. After checking for existance
                 of previous mapping, and calculating md5s and any file
                 format specific checksums?
                 """
-                # record of successfully published files
-                successes = []
-                failures = []
                 # authentication stuff
                 #blah
                 # import use specified attributes
@@ -425,8 +504,9 @@ class LSCFile(LSCfileAddMetadataAttr):
                                 print >>sys.stderr,  "%s Skipping." % msg
                                 failures.append((filename,msg))
                                 continue
-                        pfn = filename
-                        lfn = os.path.basename(filename)
+                        # create lfn<->pair
+                        lfn, pfn = self.__create_lfn_pfn_strings(filename,urlType)
+                        
                         # see if it already exists in database (respect --replace???)
                         #   Check also for LDR version, for the S4/S5 LDR, no metadatadeletion
                         #   will be supported.
@@ -435,52 +515,32 @@ class LSCFile(LSCfileAddMetadataAttr):
                         metaexists = 0
                         ## END DEBUG
                         #if metaexists:
-                        #        pass
+                        #        failures.append((filename,"Metadata for this lfn already exists."))
                         if not metaexists:
-                                # Parse filename
-                                #  extension
+                                # Get extension here, may want to process files
+                                #   in an extension dependant manner in the future
                                 dummy, extension = os.path.splitext(lfn)
                                 extension = extension.strip(".")
                                 self.attr['fileType']['Value'] = extension
-                                #  name fields
-                                filepat = re.compile(r'^(\w+)-([\w\d]+)\-(\d+)\-(\d+)\..+')
-                                try:
-                                        parsedfilename = filepat.search(lfn).groups()
-                                except Exception, e:
-                                        msg = "Invalid filename format \"%s\"" % (lfn,)
-                                        print >>sys.stderr, "%s Skipping file %s" % (msg,filename)
-                                        failures.append((filename,msg))
-                                        continue
-                                # Must have 4 parts to name field
-                                if len(parsedfilename) is not 4:
-                                        msg = "Invalid filename format \"%s\"" % (lfn,)
-                                        print >>sys.stderr, "%s Skipping file %s" % (msg,filename)
-                                        failures.append((filename,msg))
-                                        continue
-                                # set the name fields in attribute dictionary
-                        #  NEEDS TO BE RECONCILED WITH --gps-start-time and --gps-end-time OPTIONS!!!!!
-                                self.attr['site']['Value'] = parsedfilename[0]
-                                self.attr['frameType']['Value'] = parsedfilename[1]
-                                self.attr['gpsStart']['Value'] = parsedfilename[2]
-                                self.attr['duration']['Value'] = parsedfilename[3]
                                 
-                                # fill in appropriate fields
-                                self.attr['size']['Value'] = os.path.getsize(filename)
-                                # calc md5sum, and other checksums
-                                # switch on fileType?, perform data format specific checksums?
-                                self.attr['md5']['Value'] = self.computeMD5(filename)
+                                try:
+                                        self.__get_attribs_from_filename(filename,lfn)
+                                
+                                except LSCfileAddException:
+                                        # skip this file
+                                        continue
+
                                 # perform any other consistancy checks
                                 try:
-                                        for field,vals in self.attr.iteritems():
-                                                if vals['Test_method'] is not None:
-                                                        result = vals['Test_method']()
-                                                        if result:
-                                                                failures.append((filename,result))
-                                                                raise LSCfileAddException, "Error, skipping file: %s" % (result,)
+                                        self.__attr_self_test_methods(filename)
+                                        
                                 except LSCfileAddException, e:
                                         print >>sys.stderr, e
                                         continue
-                                                
+                                
+                                # calc md5sum, and other checksums
+                                # switch on fileType?, perform data format specific checksums?
+                                self.attr['md5']['Value'] = self.computeMD5(filename)
                                 # enter metadata into database
                                 self.addmetadata(lfn)
                                 
@@ -491,13 +551,9 @@ class LSCFile(LSCfileAddMetadataAttr):
                         #else:
                         #        self.lrc_create_lfn(lfn,pfn)
                         # if all DB additions and checks were successful, then
-                        successes.append(filename)
+                        self.successes.append(filename)
                         
                         # END loop over filelist 
-                        
-                # Return successes and failures
-                return (successes,failures)
-                
         ## END def publish(self)
                 
         def remove_all(self):
@@ -525,7 +581,7 @@ class LSCFile(LSCfileAddMetadataAttr):
                 print "Adding lfn \"%s\" with following metadata" % (lfn,)
                 print "<logical_file_name>\n%s" % (lfn,)
                 for field, val in self.attr.iteritems():
-                #        self.metadata.set_attr(lfn,field,val["Value"])
+                #        self.metadata.set_attr(lfn,field,val['Value'])
                         print "\t<field>\n\t%s\n\t\t<Value>\n\t\t%s\n\t\t</Value>\n\t</field>\n" % (str(field), str(val['Value']))
                 print "</logical_file_name>"
         ## END def addmetadata(self)
@@ -553,19 +609,6 @@ class CLIUtil(LSCfileAddMetadataAttr):
         Contains methods etc. for handling the command line.
         Some of these methods set up the metadata field dictionaries
         """
-        # Some class attributes
-        shortop = ""
-        longop = []
-        hostPortString = None
-        port = None
-        clientMethodArgDict = {}
-        clientMethod = ''
-        # maps command line options to their appropriate fields
-        cli_short_name = {}
-        cli_long_name = {}
-        # list of parameter tuples
-        params = []
-        filelist = []
         
         def __init__(self):
                 """
@@ -573,6 +616,24 @@ class CLIUtil(LSCfileAddMetadataAttr):
                 The parameters here should reflect available database fields.
                 """
                 LSCfileAddMetadataAttr.__init__(self)
+		# Some class attributes
+		self.shortop = ""
+		self.longop = []
+                self.urlType = None
+		self.hostPortString = None
+                self.host = None
+		self.port = None
+		# defaults
+		self.default_port = 30100
+		self.default_urlType = "file"
+		# maps command line options to their appropriate fields
+		self.cli_short_name = {}
+		self.cli_long_name = {}
+		# contains results for non-metadata cli parameters
+		self.nonmetaparam = {}
+		# list of parameter tuples
+		self.params = []
+		self.filelist = []
                 #Initializes some shorthand variables from the attr dictionary.
                 for field, vals in self.attr.iteritems():
                         if vals['UserSet']:
@@ -581,19 +642,16 @@ class CLIUtil(LSCfileAddMetadataAttr):
                                 if vals['Cli_arg_long']:
                                         self.cli_long_name[vals['Cli_arg_long']] = field
                 # Non-metadata specific fields, e.g. url-type etc.
-                self.shortop = "u:s:h"
+                self.shortop = "u:s:hv"
                 self.longop = [
                         "help",
                         "url-type=",
-                        "server="
+                        "server=",
+                        "verbose"
                         ]
                 # more defaults
-                port = 30010
-                clientMethodArgDict = {
-                        'urlType': None
-                }
-                # default method OBVIOUSLY NEEDS TO BE CHANGED FOR THIS CLASS
-                clientMethod = 'findFrameURLs'
+                self.port = self.default_port
+     
                 # now collect non-metadata specific args with LSCfileAddMetadataAttr args
                 #    for use in getopts
                 for field, vals in self.cli_short_name.iteritems():
@@ -611,6 +669,7 @@ class CLIUtil(LSCfileAddMetadataAttr):
                 (should be in LSCfileAddMetadataAttr...), but also compares with non-metadata
                 specific CLI args to make sure nothing gets clobbered inappropriately.
                 """
+		### PRESNENTLY NOT WORKING EITHER
                 exit = "NO"
                 for op in self.shortop.split(":"):
                         for field,vals in self.attr.iteritems():
@@ -628,18 +687,10 @@ class CLIUtil(LSCfileAddMetadataAttr):
                         sys.exit(123)
         ## END class_sanity_check(self)
         
-        
-        def get_user_parameters(self):
+        def __put_opts_in_place(self,opts):
                 """
-                Grabs data from command line, user environment, etc.
-                and sets the appropriate variables to be used later.
+                Populates various data structures as per command line.
                 """
-                try:
-                        opts, args = getopt.getopt(sys.argv[1:], self.shortop, self.longop)
-                except getopt.GetoptError:
-                        print >>sys.stderr, "Error parsing command line"
-                        print >>sys.stderr, "Enter 'LSCfileAdd --help' for usage"
-                        sys.exit(1)
                 for o, a in opts:
                         # strip leading "-"'s
                         o = o.lstrip("-")
@@ -647,61 +698,91 @@ class CLIUtil(LSCfileAddMetadataAttr):
                         if o == "h" or o == "help":
                                 self.print_usage()
                                 sys.exit(0)
-                        if not self.cli_short_name.has_key(o) and not self.cli_long_name.has_key(o):
+                        elif o == "u" or o == "url-type":
+                                self.nonmetaparam['url-type'] = a
+                        elif o == "s" or o == "server":
+                                self.nonmetaparam['server'] = a
+                        elif o == "v" or o == ['verbose']:
+                                self.nonmetaparam['verbose'] = True
+                        elif not self.cli_short_name.has_key(o) and not self.cli_long_name.has_key(o):
                                 # invalid parameter
                                 print >>sys.stderr, "Bad option, %s" % (o,)
                                 print >>sys.stderr, "Enter 'LSCfileAdd --help' for usage"
                                 sys.exit(123)
                         elif self.cli_short_name.has_key(o):
-                                # Still need to check and convert these to appropriate types etc.
                                 self.attr[self.cli_short_name[o]]['Value'] = a
                         elif self.cli_long_name.has_key(o):
-                                # Still need to check and convert these to appropriate types etc.
                                 self.attr[self.cli_long_name[o]]['Value'] = a
+        ## END __put_opts_in_place(self,opts,args)
+        
+        def __process_nonmetadata_opts(self,args):
+                """
+                processes nonmeteadata options. e.g. host and port URL parts.
+                """
+                ## environment variables override defaults but not
+                ## command line options
+                # Configure serverl url
+                hostPortString = None
+                try:
+                        hostPortString = os.environ['LSC_FILEADD_SERVER']
+                except:
+                        pass
+                try:
+                        hostPortString = self.nonmetaparam['server']
+                except:
+                        pass
+                
+                # URL type of pfns to publish for this session
+                if not self.nonmetaparam.has_key('urlType'):
+                        try:   
+                                self.nonmetaparam['urlType'] = os.environ['LSC_FILEADD_URL_TYPE'] 
+                        except:
+                                self.nonmetaparam['urlType'] = self.default_urlType;
+                self.urlType = self.nonmetaparam['urlType']
+                
+                # determine server and port
+                if not hostPortString:
+                        print >>sys.stderr, "No LDRfileAddServer specified"
+                        print >>sys.stderr, "Enter 'LSCfileAdd --help' for usage"
+                        sys.exit(1)
+
+                if hostPortString.find(':') < 0:
+                        # no port specified
+                        host = hostPortString
+                else:
+                        # server and port specified
+                        host, portString = hostPortString.split(':')
+                        self.host = host
+                        self.port = int(portString)
+                
+                # See if any files were specified
                 if not args: # empty file list
                         print >>sys.stderr, "You must specify at least one filename."
                         print >>sys.stderr, "Enter 'LSCfileAdd --help' for usage"
+                        sys.exit(10)
                 else:
                         self.filelist = args
-                                
-                # environment variables override defaults but not
-                # command line options
-                # NEEDS TO BE CUSTOMIZED FOR THE LSCfileAdd SCRIPT
-                #try:
-                #        hostPortString = os.environ['LSC_FILEADD_SERVER']
-                #except:
-                #        pass
-
-                #try:   
-                #        clientMethodArgDict['urlType'] = os.environ['LSC_FILEADD_URL_TYPE'] 
-                #        clientMethod = 'addFileURLsFilter'
-                #except:
-                #        pass
-
-                #try:
-                #        clientMethodArgDict['match'] = os.environ['LSC_FILEADD_MATCH']
-                #        clientMethod = 'addFileURLsFilter'
-                #except:
-                #        pass
-                # Now actually process command line arguments
-                #if not clientMethod:
-                #        print >>sys.stderr, "Bad combination or missing options"
-                #        print >>sys.stderr, "Enter 'LSCfileAdd --help' for usage"
-                #        sys.exit(1)
-
-                # determine server and port
-                #if not hostPortString:
-                #        print >>sys.stderr, "No LDRdataFindServer specified"
-                #        print >>sys.stderr, "Enter 'LSCfileAdd --help' for usage"
-                #        sys.exit(1)
-
-                #if hostPortString.find(':') < 0:
-                        # no port specified
-                #        host = hostPortString
-                #else:
-                        # server and port specified
-                #        host, portString = hostPortString.split(':')
-                #        port = int(portString)
+        ## __process_nonmetadata_opts(self)
+        
+        def get_user_parameters(self):
+                """
+                Grabs data from command line, user environment, etc.
+                and sets the appropriate variables to be used later.
+                """
+                # Get options and args from command line
+                try:
+                        opts, args = getopt.getopt(sys.argv[1:], self.shortop, self.longop)
+                except getopt.GetoptError:
+                        print >>sys.stderr, "Error parsing command line"
+                        print >>sys.stderr, "Enter 'LSCfileAdd --help' for usage"
+                        sys.exit(1)
+                        
+                # Process options and arguments
+                self.__put_opts_in_place(opts)
+                
+                ## Handle non-metadata options
+                self.__process_nonmetadata_opts(args)
+                
         ## END def get_user_parameters
                         
         def print_usage(self):
@@ -745,9 +826,13 @@ SYNOPSIS
                 msg += """\
 ENVIRONMENT
 
-        LSC_ADDFILES_SERVER ...
+        LSC_FILEADD_SERVER defines the database server where metadata and 
+                           lfn<->pfn mappings will go, overridden by the 
+                           --server option.
 
-        ....
+        LSC_FILEADD_URLTYPE defines the url type for lfn<->pfn mappings. 
+                            Same arguments as --url-type. This is also 
+                            overridden by that option.
 
         ....
 
