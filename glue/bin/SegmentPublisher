@@ -1,0 +1,1015 @@
+#!/ldcg/bin/python
+
+"""
+main driver script for publishing data
+"""
+
+import os
+import re
+import sys
+import time
+import getopt
+import popen2
+import gsiurlparse
+from types import *
+
+execfile('publisher.conf')
+
+## Need to check vars here
+## end var check
+
+# import non-official python mods
+try:
+        from glue.LSCfileAdd import LSCfileAddException
+        from glue import gpstime
+        from glue import statedb
+        
+except Exception,e:
+        msg = "Unable to import one or more modules from lscsoft's glue. Error message was: %s" % (str(e),)
+        print >>sys.stderr, msg
+        sys.stdout.flush()
+        sys.stderr.flush()
+        sys.exit(2)
+
+### Begin Function/Procedure/Subroutine/Method Definitions ###
+
+def CreatePIDFile():
+        """
+        Creates file with name CONFIG['PID_FILE_PATH']
+        containing the PID of this script's process.
+        """
+        try:
+                pidfile = open(str(CONFIG['PID_FILE_PATH']),'w')
+                mypid = os.getpid()
+                pidfile.write(str(mypid))
+                pidfile.close()
+        except Exception,e:
+                msg = "Could not create PID file, \"%s\". Error was: %s" % (str(CONFIG['PID_FILE_PATH']),str(e))
+                raise LSCfileAddException,msg
+## END CreatePIDFile()
+
+def HeartBeat():
+        """
+        Updates mtime of PID file, a.k.a. "touch PID_FILE"
+        """
+        try:
+                os.utime(str(CONFIG['PID_FILE_PATH']),None)
+        except Exception,e:
+                msg = "HeartBeat(): Cannot update mtime of PID file, \"%s\". Error was: %s" % (str(CONFIG['PID_FILE_PATH']),str(e))
+                raise LSCfileAddException,msg
+## END HeartBeat()
+
+def DelPIDFile():
+        """
+        deletes PID file.
+        
+        Usually done on exit
+        """
+        try:
+                pidfilename = str(CONFIG['PID_FILE_PATH'])
+                os.remove(pidfilename)
+        except Exception,e:
+                msg = "Could not delete PID file, \"%s\". Error was: %s" % (str(CONFIG['PID_FILE_PATH']),str(e))
+## END DelPIDFile
+
+def Process_Command_Line():
+        """
+        Grabs parameters from command line
+        Returns a urlType list and main_dir from which to search for files.
+        """
+        shortop = "h"
+        longop = ['help']
+    
+        try:
+                opts, args = getopt.getopt(sys.argv[1:], shortop, longop)
+        except getopt.GetoptError:
+                print >>sys.stderr, "Error parsing command line"
+                print >>sys.stderr, "Enter 'Segment_Publisher --help' for usage"
+                sys.exit(1)
+
+        if len(opts) < 1:
+                print >>sys.stderr, "At least one option must be specified."
+                print >>sys.stderr, "Enter 'Segment_Publisher --help' for usage"
+                sys.exit(1)
+        temptypes = tempruntag = tempfile = tempdir = tempftphost = tempftpport = restart = None
+        filemethod = dirmethod = None
+        for s,a in opts:
+                o = s.lstrip("-")
+
+                if o == "h" or o == "help":
+                        Print_Usage()
+                        sys.exit(0)
+                        restart = True
+                else:
+                        print "Option \"%s\" , not recognized. Please run \"Segment_Publisher --help\" for usage."
+                        sys.exit(1)
+        
+        return 0
+## END Process_Command_Line
+
+def Print_Usage():
+        """
+        Prints usage instructions for this script.
+        """
+        msg = \
+        """
+        No usage instructions for this program yet.
+        """
+        print msg
+## END Print_Usage:
+
+
+class Cluster(object):
+        """
+        Class for containing specific methods
+        pertaining to near real-time publishing
+        onto the obseratories' clusters.
+        """
+        
+        def __init__(self):
+                """
+                Initializes Cluster Class.
+                Sets default file limit.
+                """
+                self.set_number_of_files(0)
+		# in order for FrameCacheQuery to work
+		# and for the returned list to be of
+                # reasonable size, truncate what's asked for
+                # to 90 days
+		now = long(gpstime.GpsSecondsFromPyUTC(time.time()))
+		truncated_start = now - 90*86400
+                self.last_gpstime = truncated_start
+                self.limit = 1
+                self.framelist = []
+        ## END __init__(self)
+        
+        def set_number_of_files(self,given_limit):
+                """
+                Sets total number of files to
+                keep in cluster lfn<->pfn mappings.
+                
+                Must be an integer :-)
+                
+                """
+                if isinstance(given_limit,IntType):
+                        self.limit = given_limit
+                else:
+                        msg = "Cluster.set_number_of_files(): must supply an integer."
+                        raise LSCfileAddException, msg
+        ## END set_number_of_files(self,given_limit)
+        
+        def Add(self,mydata):
+                """
+                Adds lfn and pfns into an internal
+                lfn->pfnlist dictionary.
+        
+                This is mainly for publishing on the cluster from /frames.
+                The dictionary that is created by this is is ultimately
+                used by self.Del(). See its doc string.
+                
+                """
+               
+                for entry in mydata:
+                        tempdict = {}
+                        tempdict[entry['name']] =  entry['urls']
+                        self.framelist.append(tempdict)
+        ## END Add(self,lfn,pfnlist)
+
+        def Del(self,files):
+                """
+                Removes appropriate entries from 
+                self.framelist and removes the same entries
+                from the rls database.
+                
+                It's basic algorithm is to keep the length
+                of framelist at or below self.limit.
+                """
+                
+                residue = len(self.framelist) - self.limit
+                while residue > 0:
+                        tempdict = self.framelist.pop(0)
+                        residue = residue - 1
+                        templist = []
+                        # now remove rls entries
+                        for key in tempdict.keys():
+                                templist.append(key)
+                        templist.sort()
+                        for item in templist:
+                                try:
+                                        files.rm_url(tempdict[item])
+                                        print "Cluster.Del(): deleted %s" % (tempdict[item],)
+                                except LSCfileAddException, e:
+                                        msg = "Cluster.Del() caught exception from files.rm_url() while trying to delete %s. Rls problems?: %s" \
+                                        % (tempdict,str(e))
+                                        raise LSCfileAddException, msg
+        ## END Del(self):
+        
+        def Get_New_File_List(self,main_path):
+                """
+                Attemps to find files which are newer than the times
+                found in the self.old_gpstime
+                
+                Currently uses FrameCacheQuery to get its list of files.
+                
+                """
+                filelist = []
+                pat1 = '^%s' % (main_path,)
+                
+                dirpat = re.compile(pat1)
+                filepat = re.compile(r'^\w+-[\w\d_]+\-(\d+)\-(\d+)\..+')
+                
+                gpsnow = long(gpstime.GpsSecondsFromPyUTC(time.time()))
+                cmd = '%s %s-%s' % (CONFIG['FRAME_CACHE_QUERY'],self.last_gpstime,gpsnow)
+                fcqcmd = popen2.Popen3(cmd)
+                
+                lines = []
+                lines.extend(fcqcmd.fromchild.readlines())
+                fcqcmd.wait()
+                lines.extend(fcqcmd.fromchild.readlines())
+                
+                for path in lines:
+			path = path.strip()
+                        if dirpat.search(path):
+                                base = os.path.basename(path)
+                                if filepat.search(base):
+                                        times = filepat.search(base).groups()
+                                        if long(times[0]) > self.last_gpstime:
+                                                self.last_gpstime = long(times[0]) 
+                                                filelist.append(path)
+                
+                return filelist
+        ## END Get_New_File_List()
+        
+        def cleanup_previous_state(self,main_path,files,urlType):
+                """
+                Gets list of /frames/full pfns
+                and adds them to self.framelist.
+                
+                Then runs self.Get_New_File_List, and self.Del()
+                any files which are GPS older than the oldest
+                in the framelist.
+                """
+                gps_to_pfn = {}
+                gpslist = []
+                self.framelist = []
+                
+                try:
+                        mapdict = files.rls.lrc_get_lfn_wc("*%s*" % (main_path,))
+                except Exception,e:
+                        msg = "Caught exception while running files.rls.get_pfn_wc_pfnpattern(\"*%s*\")" % (main_path,)
+                        print msg
+                        print "Exiting!"
+                        sys.stdout.flush()
+                        sys.stderr.flush()
+                        sys.exit(255)
+                        
+                if not mapdict:
+                        print "No pfns found matching \"*%s*\".  No previous state to clean up?" % (main_path,)
+                        sys.stdout.flush()
+                        return
+                        
+               
+                # Now find out which entries match main_path.
+                # and create the histlist
+                histlist = []
+                #for pfnlist in mapdict.items(): BUG!!???
+                for pfn in mapdict.keys():
+                        if pfn.find(main_path) != -1:
+                                histlist.append(pfn)
+                del mapdict
+                histlist.sort()
+              
+                filepat = re.compile(r'^[A-Za-z]+\-\w+\-(\d+)\-(\d+)\..+')
+                # now sort them
+                for name in histlist:
+                        lfn = os.path.basename(name)
+                        if filepat.match(lfn):
+                                gps = long(filepat.search(lfn).groups()[0])
+                                gps_to_pfn[gps] = name
+                                gpslist.append(gps)
+                sys.stdout.flush()
+                # Now sort gps times
+                gpslist.sort()
+                newest_gps = gpslist[-1]
+                        
+                # get file list, it is already sorted by mtime
+                # and therefore, hopefully, gps time....
+                newfilelist = self.Get_New_File_List(main_path)
+                
+                sys.stdout.flush()
+                if len(newfilelist) > self.limit:
+                        templim = -1 * self.limit
+                        tempfilelist = newfilelist[templim:]
+                        newfilelist = tempfilelist
+                # find oldest file's gps time
+                fullpath = newfilelist[0]
+                filename = os.path.basename(fullpath)
+                if filepat.match(filename):
+                       filegps = long(filepat.search(filename).groups()[0])
+                else:
+                        print >>sys.stderr, "Could not process previous state. Bad file name? Will start from oldest file."
+                        return
+                        
+                # create new frame list,
+                # then set limit such that 
+                # all pfns up to the oldest file gps 
+                # in newly acquired filelist will be
+                # Del()'d
+                count = 0
+                check = True
+                old_limit = self.limit # restored after loop
+                self.limit = len(gpslist)
+                # see if all old pfns are stage
+                if filegps > gpslist[-1]:
+                        self.limit = 0
+                        for gps in gpslist:
+                                # And add next element to the framelist
+                                pfn = []
+                                pfn = gps_to_pfn[gps]
+                                lfn = ""
+                                lfn = os.path.basename(pfn)
+                                tempdict = {}
+                                tempdict[lfn] = pfn
+                                self.framelist.append(tempdict)
+                else:
+                        # find out which point the old pfns are stale
+                        for gps in gpslist:
+                                if check and filegps < gps:
+                                        self.limit = len(gpslist) - count # number of files to keep!
+                                        startgps = gps
+                                        check = False
+                                count = count + 1
+                                # And add next element to the framelist
+                                pfn = []
+                                pfn = gps_to_pfn[gps]
+                                lfn = ""
+                                lfn = os.path.basename(pfn)
+                                tempdict = {}
+                                tempdict[lfn] = pfn
+                                self.framelist.append(tempdict)
+                
+                
+                self.Del(files)
+                
+                # now set up last_mtime, for next Get_New_File_List()
+                if not check:
+                        start_file = gsiurlparse.urlsplit(gps_to_pfn[gpslist[-1]])[2]
+                else:
+                        start_file = newfilelist[0]
+                
+                print "Starting _after_ file %s" % (start_file,)
+                sys.stdout.flush()
+                base = os.path.basename(start_file)
+                temp = filepat.search(base).groups()
+                self.last_gpstime = long(temp[0])
+                
+                # restore users's file limit
+                self.limit = old_limit
+        ## END  cleanup_previous_state(main_path,files)                                    
+## END Cluster() class definition
+
+class ScienceData(object):
+        """
+        class for retrieving and processing
+        file lists
+        """
+        
+        def __init__(self):
+                """
+                Initializes ScienceData class.
+                Sets default file limit.
+                """
+                # in order for FrameCacheQuery to work
+		# and for the returned list to be of
+                # reasonable size, truncate what's asked for
+                # to 90 days
+		now = long(gpstime.GpsSecondsFromPyUTC(time.time()))
+		truncated_start = now - 90*86400
+                self.last_gpstime = truncated_start
+                self.first_file_list = []
+                self.first_time_through = True
+                self.wait_time = 0
+        ## END __init__(self)
+        
+        def Set_Wait_Time(self,wait_time):
+                """
+                Sets how far behind "now" to truncate gps
+                time for FrameCacheQuery
+                
+                wait_time should be given in seconds
+                """
+                self.wait_time = wait_time
+        ## END Set_Wait_Time(self,wait_time)
+     
+        def cleanup_previous_state(self,main_path,files,urlType):
+                """
+                Gets list of files from each directory under main_path,
+                filters out only frame files, and sees if they are in the database.
+                
+                Then I have a list of what isn't published yet.
+                
+                """
+                gps_to_pfn = {}
+                gpslist = []
+                histlist = []
+                
+                filepat = re.compile(r'^[A-Za-z]+-\w+\-(\d+)\-\d+\.gwf')
+                
+                ## Find what hasn't been published yet.
+                # build list of directories under main_path
+                templist = os.listdir(main_path)
+                dirlist = []
+                for element in templist:
+                        element = os.path.join(main_path,element)
+                        if os.path.isdir(element):
+                                dirlist.append(element)
+                                
+                # now find frame files in each dir 
+                # and find out which files I need to publish
+                
+                for directory in dirlist:
+                        flist = []
+                        print "Searching though directory %s " % (directory,)
+                        sys.stdout.flush()
+                        temp = os.listdir(directory)
+                        for name in temp:
+                                if filepat.search(name):
+                                        flist.append(name)
+                        del temp
+                        try:
+                                mapdict = files.rls.lrc_get_pfn_bulk(flist)
+                        except Exception,e:
+                                msg = "Caught exception while running files.rls.lrc_get_pfn_wc(\"*%s*\")" % (main_path,)
+                                print msg
+                                print "Exiting!"
+                                sys.stdout.flush()
+                                sys.stderr.flush()
+                                sys.exit(255)
+                                
+                        # See if any new urls need to be set up.s
+                        # and create the histlist
+                        count = 0
+                        for name in flist:
+                                pfns = mapdict[name]
+                                # no entry exists at all
+                                if not pfns:
+                                        count = count + 1
+                                        histlist.append(os.path.join(directory,name))
+                                else:
+                                        # by default assume file needs to be added,
+                                        # addcount reflects the number of pfns
+                                        # which have *already* been published!
+                                        addcount = 0
+                                        # see what pfns need to be created
+                                        lfn, templist = create_lfn_and_pfns(os.path.join(directory,name), urlType)
+                                        if isinstance(pfns,StringType):
+                                                for temp in templist:
+                                                        if pfns == temp:
+                                                                addcount = addcount + 1
+                                        else:   # assume its a list
+                                                for temp in templist:
+                                                        if pfns.count(temp):
+                                                                addcount = addcount + 1
+                                        # If even one PFN is not published, 
+                                        # add full path to histlist
+                                        if addcount < len(templist):
+                                                count = count + 1
+                                                histlist.append(os.path.join(directory,name))
+                        print "Found %s files to publish under %s" % (count,directory)
+                        sys.stdout.flush()
+                        if mapdict:
+                                del mapdict
+                        if flist:
+                                del flist
+                # End directory traversal
+                
+                print "Found %s total files to publish under %s" % (len(histlist),main_path)
+                sys.stdout.flush()
+                
+                # now sort them by gps
+                for name in histlist:
+                        lfn = os.path.basename(name)
+                        gps = long(filepat.search(lfn).groups()[0])
+                        gps_to_pfn[gps] = name
+                        gpslist.append(gps)
+                del histlist
+                # Now sort gps times
+                gpslist.sort()
+                
+                # now create first file list to process
+                for gps in gpslist:
+                        self.first_file_list.append(gps_to_pfn[gps])
+                
+        ## END  cleanup_previous_state(main_path,files,urlType)
+        
+          
+        def Get_New_File_List(self,main_path):
+                """
+                Attemps to find files which are newer than the times
+                found in the self.old_gpstime
+                
+                Currently uses FrameCacheQuery to get its list of files.
+                
+                """
+                filelist = []
+                
+                filepat = re.compile(r'^[A-Za-z]+\-\w+\-(\d+)\-(\d+)\.gwf$')
+                if self.first_time_through:
+                        self.first_time_through = False
+                        filelist = self.first_file_list[:]
+                        del self.first_file_list
+                        if filelist:
+                                base = os.path.basename(filelist[-1])
+                                temp = filepat.search(base).groups()
+                                self.last_gpstime = long(temp[0])      
+                        return filelist
+                
+                pat1 = '^%s' % (main_path,)
+                
+                dirpat = re.compile(pat1)
+                
+
+                gpsnow = long(gpstime.GpsSecondsFromPyUTC(time.time()))
+                gps_trunc = gpsnow - self.wait_time
+                cmd = '%s %s-%s' % (CONFIG['FRAME_CACHE_QUERY'],self.last_gpstime,gps_trunc)
+                fcqcmd = popen2.Popen3(cmd)
+                
+                lines = []
+                lines.extend(fcqcmd.fromchild.readlines())
+                fcqcmd.wait()
+                lines.extend(fcqcmd.fromchild.readlines())
+                
+                for path in lines:
+			path = path.strip()
+                        if dirpat.search(path):
+                                base = os.path.basename(path)
+                                if filepat.search(base):
+                                        times = filepat.search(base).groups()
+                                        if long(times[0]) > self.last_gpstime:
+                                                self.last_gpstime = long(times[0]) 
+                                                filelist.append(path)
+                
+                return filelist
+        ## END Get_New_File_List()  
+        
+## END class ScienceData(object)
+
+
+class FileListData(object):
+        """
+        class for retrieving and processing
+        file lists, from a single file.
+        
+        It "tails" the file.
+        
+        """
+        
+        def __init__(self,filename):
+                """
+                Initializes FileListData class.
+                
+                """
+                try:
+                        self.fd = open(filename,'r')
+                except Exception,e:
+                        msg = "Could not open file, %s. Reason was: %s" % (main_path,)
+                        raise LSCfileAddException,e
+                
+        
+        def Set_Wait_Time(self,wait_time):
+                """
+                Sets how far behind "now" to truncate gps
+                time for FrameCacheQuery
+                
+                wait_time should be given in seconds
+                """
+                self.wait_time = wait_time
+        ## END Set_Wait_Time(self,wait_time)
+     
+        def cleanup_previous_state(self,main_path,files,urlType):
+                pass
+                
+        ## END  cleanup_previous_state(main_path,files,urlType)
+        
+          
+        def Get_New_File_List(self,main_path):
+                """
+                Creates a python list of 
+                
+                """
+                filelist = []
+                
+                filepat = re.compile(r'[A-Za-z]+\-\w+\-\d+\-\d+\.gwf$')
+                
+                for line in self.fd.readlines():
+                        line = line.strip()
+                        if filepat.search(line):
+                                filelist.append(line)
+                
+                return filelist
+        ## END Get_New_File_List()          
+## END FileListData()
+
+
+def Get_Segments(filelist):
+        """
+        Runs and handles segment publishing
+        """
+        
+        datalist = [] # to be filled with dictionaries
+        if not len(filelist):
+                return datalist
+        
+        # Also remotely execute segment generation
+        SVcmd = "%s " % (CONFIG['STATEVECTOR_COMMAND'],)
+        ACTcmd = "%s " % (CONFIG['ACTSTATE_COMMAND'],)
+        
+        toSV = ""
+        toACT = ""
+        
+        count = 0
+        for fullpath in filelist:
+                count += 1
+                
+                toSV += " %s" % (fullpath,)
+                toACT += " %s" % (fullpath,)
+                
+        sys.stdout.flush()
+        
+        # Now start up md5sum and seggen processes, 
+        #  if there are any files to run on.
+        if count:
+                if toSV:
+                        SV_gen = popen2.Popen3(SVcmd)
+                        SV_gen.tochild.writelines(toSV)
+                        SV_gen.tochild.flush()
+                        SV_gen.tochild.close()
+                
+                if toACT:
+                        ACT_gen = popen2.Popen3(ACTcmd)
+                        ACT_gen.tochild.writelines(toACT)
+                        ACT_gen.tochild.flush()
+                        ACT_gen.tochild.close()
+        else:
+                return datalist
+        
+     
+        for fullpath in filelist:
+                data = {}
+                datalist.append(data)
+        # end for fullpath in filelist
+        
+        # wait for activity channel seg gen process to finish
+        ACT_lines = []
+        if toACT:
+                try:
+                        ACT_lines.extend(ACT_gen.fromchild.readlines())
+                        ACT_gen.wait()
+                        ACT_lines.extend(ACT_gen.fromchild.readlines())
+                except Exception:
+                        msg = "Caught exception waiting for Activity State segment generation process to finish XOR reading output from process. Command was: %s" % (ACTcmd,)
+        
+        # Now wait for state vector seg gen process to finish
+        SV_lines = []
+        if toSV:
+                try:
+                        SV_lines.extend(SV_gen.fromchild.readlines())
+                        SV_gen.wait()
+                        SV_lines.extend(SV_gen.fromchild.readlines())
+                except Exception:
+                        msg = "Caught exception waiting for State Vector segment generation process to finish XOR reading output from process. Command was: %s" % (SVcmd,)
+                
+        # Now parse output and put into segresult and ifodict dictionaries
+        segresult = {}
+        segresult, ifodict = Describe_Segments(SV_lines,ACT_lines)
+        
+        if bool(toSV) or bool(toACT):
+                #print "SEGRESULT: %s " % (segresult,)
+                for path in toSV.split():
+                        lfn = os.path.basename(path)
+                        if not segresult.has_key(lfn):
+                                msg = "Error. Did not find State Vector segment result for lfn \"%s\"" % (lfn,)
+                                SV_gen.wait()
+                                ACT_gen.wait()
+                                
+                                raise LSCfileAddException,msg
+                        elif not ifodict.has_key(lfn):
+                                msg = "Error. Did not find ifo list for lfn \"%s\"" % (lfn,)
+                                SV_gen.wait()
+                                ACT_gen.wait()
+                                
+                                raise LSCfileAddException,msg
+                for path in toACT.split():
+                        lfn = os.path.basename(path)
+                        if not segresult.has_key(lfn):
+                                msg = "Error. Did not find Activity State segment result for lfn \"%s\"" % (lfn,)
+                                SV_gen.wait()
+                                ACT_gen.wait()
+                                
+                                raise LSCfileAddException,msg
+                        elif not ifodict.has_key(lfn):
+                                msg = "Error. Did not find ifo list for lfn \"%s\"" % (lfn,)
+                                SV_gen.wait()
+                                ACT_gen.wait()
+                                
+                                raise LSCfileAddException,msg
+        # end SV sanity check
+                
+        # now insert segment and md5 results into datalist
+        # This loop effectively brings the results of the
+        #  extrnal programs into the datalist
+        for i in range(0,len(datalist)):
+                lfn = datalist[i]["name"]
+                
+                datalist[i]["seginfo"] = {}
+                # script currently doesn't handle these separately so they must be TRUE!!!!
+                if bool(toSV) and bool(toACT):
+                        # for publishing into segment database
+                        datalist[i]["seginfo"] = segresult[lfn]
+        return datalist
+## END Gen_Science_Attribs(...)
+
+
+def Read_Command_File():
+        """
+        Returns true if command file exists.
+        
+        This will be more sophisticated later.
+        """
+        if os.path.exists("sHuTdOwN"):
+                os.remove("sHuTdOwN")
+                return True
+        else:
+                return False
+## END Read_Command_File(object)
+
+def main_loop(main_path)): 
+        """
+        Loops until told to stop.
+        """ 
+        
+        try:
+                CreatePIDFile()
+        except LSCfileAddException,e:
+                msg = "%s" % (str(e),)
+                msg +="\nExiting!"
+                print >>sys.stderr,msg
+                sys.stdout.flush()
+                sys.stderr.flush()
+                sys.exit(14)
+        
+       
+        ##### IF CLUSTER PUBLISING ######
+        if CONFIG['SLASH_FRAMES_REALTIME']:
+                ops = Cluster()
+		ops.set_number_of_files(CONFIG['SLASH_FRAMES_FILECOUNT'])
+        elif CONFIG['PUBLISH_GIVEN_FILE_LIST']:
+                ops = FileListData(CONFIG['FILE_LIST'])
+        else:
+                # class for some science publishing operations
+                ops = ScienceData()
+                ops.Set_Wait_Time(CONFIG['NEW_FILE_WAIT_TIME'])
+        # default sleep time
+        sleep_time = CONFIG['SLEEP_TIME'] ;# seconds
+        
+        # Number of files to attempt to publish at
+        # once
+        file_loop_size = CONFIG['FILES_PER_LOOP']
+       
+        # The attribute generator is run on the given file
+        # list. This function acutally determines the
+        # field contents.
+        #files.attribute_generator_attach(SOMEMETHOD)
+        print "Cleaning up from previous state."
+        sys.stdout.flush()
+        ops.cleanup_previous_state(main_path,files,urlType)
+       
+        # Begin Main Publishing Loop Proper
+        while True:
+
+                # Get next list of files
+                biglist = ops.Get_New_File_List(main_path)
+                
+                # for postS3 and one-percent data
+                #sub_segments = Get_Submitted_Segs(sub_seg_file)
+                
+                if not len(biglist):
+		        if Read_Command_File():
+                                print "Found shutdown file. Exiting."
+                                DelPIDFile()
+                                sys.stdout.flush()
+                                sys.stderr.flush()
+                                sys.exit(0)
+                        print "No new files found. Sleeping for %s seconds." % (sleep_time,)
+			sys.stdout.flush()
+			sys.stderr.flush()
+                        time.sleep(sleep_time)
+                
+                else:
+                        # Only publish up to file_loop_size files at a time
+                        i = 0
+                        j = file_loop_size
+                        f = lambda x: x - len(biglist) < 0 and x or len(biglist)
+                        littlelist = biglist[i:f(j)]
+                        while len(littlelist):
+                                # Checks for existence of $PWD/sHuTdOwN
+                                if Read_Command_File():
+                                        print "Found shutdown file. Exiting."
+                                        DelPIDFile()
+                                        sys.stdout.flush()
+                                        sys.stderr.flush()
+                                        sys.exit(0)
+                                
+                                try:
+                                        HeartBeat()
+                                except LSCfileAddException,e:
+                                        msg = "Caught exception performing HeartBeat(). Continuing anyway. By the way, the error was: %s" % (str(e),)
+                                        print >>sys.stderr,msg
+                                        sys.stderr.flush()
+                                        
+                                try:
+                                        mydata = Get_Segments(littlelist)
+                                except LSCfileAddException, e:
+                                        msg = "Caught exception while running, Gen_Lightweight_Science_Attribs(). Not publishing this list of files. Message was: %s" % (str(e),)
+                                        print >>sys.stderr, msg
+                                        sys.stderr.flush()
+                                        # get next chunk of biglist
+                                        i = f(j)
+                                        j = i + file_loop_size
+                                        littlelist = biglist[i:f(j)]
+                                        continue
+                                # The following branch actually does the
+                                # database transactions (a.k.a. (un)publication
+                                if not CONFIG['DRY_RUN']:
+                                        try:
+                                                Publish_Segments(mydata)
+                                        except LSCfileAddException, e:
+                                                msg = "Error during segment publishing: %s" % (str(e),)
+                                                print >>sys.stderr, msg
+                                                print >>sys.stderr, "EXITING!!!"
+                                                sys.stdout.flush()
+                                                sys.stderr.flush()
+                                                sys.exit(2)
+                                ## END if not CONFIG['DRY_RUN']
+                                
+                                # now print what was published
+                                for item in mydata:
+                                        print "Name: %s" % (item["name"],)
+                                        print "Segments: %s" % (item["seginfo"],)
+                                        print ""
+                                print "%s" % (time.ctime(),)
+                                # force del of mydata
+                                if mydata:
+                                        del mydata
+                                # flush stdout and stderr
+                                sys.stdout.flush()
+                                sys.stderr.flush()
+                                # now take next slice out of biglist
+                                i = f(j)
+                                j = i + file_loop_size
+                                littlelist = biglist[i:f(j)]
+                        ## END while len(littlelist)
+        # END while True
+## END main_loop(main_path, urlType, runtag)
+
+def Publish_Segments(datalist):
+        """
+        Publishes segments
+        """
+        try:
+                # Open connection to sdb database
+                sdb = statedb.StateSegmentDatabase(CONFIG['SEG_DBNAME'],CONFIG['SEG_USER'],CONFIG['SEG_PASS'])
+        except StateSegmentDatabaseException,e:
+                msg = "Publish_Segments(): Could not open connection to segment database. Error was: %s" % (str(e),)
+                raise LSCfileAddException,msg
+                
+        # for each file
+        for item in datalist:
+                name = item["name"]
+                segments = item["seginfo"]
+                fstart = item["metadata"]["gpsStart"]["Value"]
+                fend = item["metadata"]["gpsEnd"]["Value"]
+                try:
+                        sdb.register_lfn(name,fstart,fend)
+                except statedb.StateSegmentDatabaseException,e:
+                        msg = "Publish_Segments(): Could not register lfn in segment database. Error was: %s" % (str(e),)
+                        raise LSCfileAddException,msg
+                for seg in segments:
+                        try:
+                                sdb.publish_state(seg[0],seg[1],seg[2],seg[3],seg[4],seg[5],seg[6])
+                        except statedb.StateSegmentDatabaseSegmentExistsException,e:
+                                msg = "Publish_Segments(): Segment already exists in database.  Segment tuple was: \"%s\" Error from statedb code was: %s" % (str(seg),str(e))
+                                # no need to raise an exception any higher up the food chain
+                        except statedb.StateSegmentDatabaseException,e:
+                                msg = "Publish_Segments(): Could not publish state. Error was: %s" % (str(e),)
+                                raise LSCfileAddException
+                        #sdb.set_state_name(0,code,type)
+                # close sdb connection
+        sdb.close()
+## END Publish_Segments()
+
+def Describe_Segments(SV_lines,ACT_lines):
+        """
+        Takes out put of State Vector Fetcher and Activity State Fetcher,
+        and puts them into a dictionary, segresult, which is keyed on lfn.
+        
+        segresult[lfn] itself is a list of tuples,
+        each tuple is formatted for the input of statedb.publish_state
+        
+        index           Description
+        -----           -----------
+        0               ifo (string)
+        1               start (long)
+        2               start_nano (long)
+        3               end (long)
+        4               end_nano (long)
+        5               seg_version (long, could be int I guess)
+        6               state vector (long)
+        
+        """
+        
+        sv_seg_version = CONFIG['SV_SEGMENT_VERSION']
+        act_seg_version = CONFIG['ACT_SEGMENT_VERSION']
+        
+        # Both processes' output is identically formatted
+        segpat = re.compile(r'^(\d+)\s(\d+)\s(\d+)\s(\d+)\s(\d+)\s(\d+)\s([A-Z][0-9]+)\s(.+)')
+        
+        segresult = {}
+        ifodict = {}
+        
+        # process state vector first
+        for single_line in SV_lines:
+                single_line = single_line.strip()
+                if segpat.search(single_line):
+                        temp = segpat.search(single_line).groups()
+                        start = long(temp[0])
+                        start_nano = long(temp[1])
+                        end = long(temp[2])
+                        end_nano = long(temp[3])
+                        sv = long(temp[4])
+                        # sv_mantissa = long(temp[5])
+                        ifo = str(temp[6])
+                        name = temp[7]
+                else:
+                        # Output did not match regex, will be (partially) caught later when 
+                        # the results for a file name are not found in the segresult dictionary
+                        continue
+                basename = os.path.basename(name)
+            
+                # for interferometer metadata later
+                if not ifodict.has_key(basename):       
+                        ifodict[basename] = {}
+                
+                # make segresult[basename] list
+                if segresult.has_key(basename):
+                        ifodict[basename][ifo] = 1
+                        segresult[basename].append(tuple([ifo,start,start_nano,end,end_nano,sv_seg_version,sv]))
+                else:
+                        segresult[basename] = []
+                        
+                        ifodict[basename][ifo] = 1
+                        segresult[basename].append(tuple([ifo,start,start_nano,end,end_nano,sv_seg_version,sv]))
+        
+        # process state vector first
+        for single_line in ACT_lines:
+                single_line = single_line.strip()
+                if segpat.search(single_line):
+                        temp = segpat.search(single_line).groups()
+                        start = long(temp[0])
+                        start_nano = long(temp[1])
+                        end = long(temp[2])
+                        end_nano = long(temp[3])
+                        sv = long(temp[4])
+                        # sv_mantissa = long(temp[5])
+                        ifo = str(temp[6])
+                        name = temp[7]
+                else:
+                        # Output did not match regex, will be (partially) caught later when 
+                        # the results for a file name are not found in the segresult dictionary
+                        continue
+                basename = os.path.basename(name)
+                
+                # for interferometer metadata later
+                if not ifodict.has_key(basename):       
+                        ifodict[basename] = {}
+                
+                # make segresult[basename] list
+                if segresult.has_key(basename):
+                        ifodict[basename][ifo] = 1
+                        segresult[basename].append(tuple([ifo,start,start_nano,end,end_nano,act_seg_version,sv]))
+                else:
+                        segresult[basename] = []
+                        
+                        ifodict[basename][ifo] = 1
+                        segresult[basename].append(tuple([ifo,start,start_nano,end,end_nano,act_seg_version,sv]))
+                        
+                        
+        return segresult,ifodict
+## END Describe_Segments(SV_lines,ACT_lines)
+
+if __name__ == '__main__':
+        urlType = Process_Command_Line()
+        main_path = CONFIG['MAIN_PATH']
+        main_loop(main_path)
+        sys.exit(255) # never reached....
+        
