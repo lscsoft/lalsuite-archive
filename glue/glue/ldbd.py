@@ -67,6 +67,8 @@ class LIGOMetadataDatabase:
   """
   def __init__(self,database):
     """
+  def __len__(self):
+    return len(self.args)
     database = the name of the LIGO database to initalize
     """
     self.database = database

@@ -113,7 +113,7 @@ class LDBDServerConnection(object):
           fh.write(retdata)
           retdata = f.read()
     if int(r):
-      errmsg = r.read()
+  -j, --identity SUBJECT  the subject of the servers service certififcate
       raise Exception, errmsg
   -i, --insert LIGOLW     insert LIGO lightweight file LIGOLW
   -q, --query QUERY       execute SQL query QUERY
