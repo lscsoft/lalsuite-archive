@@ -498,7 +498,7 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
         sql += "state FROM state_vec"
       else:
         raise LSCsegFindServerHandlerException, \
-          "Unknown select distinct method" + attibute
+          "Unknown select distinct method" + attribute
 
       db = MySQLdb(user=dbuser,passwd=dbpasswd,db=dbname)
       c = db.cursor()
