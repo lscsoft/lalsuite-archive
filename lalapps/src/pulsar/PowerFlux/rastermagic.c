@@ -593,6 +593,9 @@ float H,S,B; /* HSB coordinates */
 int r,g,b; /* R, G, B coordinates */
 float c,s,r1, rf, gf, bf;
 
+/* initially these were HSB, but now the
+   meaning is only qualitative - there is a
+   non-linear adjustment done later on */
 B=0.7;
 S=1.0;
 H=(4.5*z0*M_PI-M_PI)/3.0;
@@ -605,9 +608,13 @@ rf=((1-S)+S*(0.5-0.5*s-r1*c));
 gf=((1-S)+S*(0.5+s));
 bf=((1-S)+S*(0.5-0.5*s+r1*c));
 
+rf*=1.2;
+
 r1=rf;
 if(gf>r1)r1=gf;
 if(bf>r1)r1=bf;
+
+r1/=B;
 
 /* make it so that at least one color is saturated */
 r=floor(rf*255.0/r1);
