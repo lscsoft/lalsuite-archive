@@ -559,12 +559,6 @@ int main( int argc, char *argv[] )
     exit( 1 );
   }
 
-  if ( usePlayground < 0 )
-  {
-    fprintf( stderr, 
-        "--no-playground or --playground-only must be specified\n" );
-  }
-
   /* check for minimal match when doing a triggered bank */
   if ( trigBankFile && minMatch < 0 )
   {
@@ -613,8 +607,28 @@ int main( int argc, char *argv[] )
     LALSnprintf( this_proc_param->value, LIGOMETA_TYPE_MAX, " " );
   }
 
-  if ( ! trigBankFile )
+  /* if we are generating a trigbank or sliding the data */
+  if ( trigBankFile || slideData.gpsSeconds || slideData.gpsNanoSeconds )
   {
+    /* make sure that the playground control flags are not given */
+    if ( usePlayground != -1 )
+    {
+      fprintf( stderr, 
+          "--no-playground or --playground-only cannot be specified when\n"
+          "generating a triggered bank or doing time slide coincidences\n" );
+      exit( 1 );
+    }
+  }
+  else
+  {
+    /* check that one of the playground control flags has been given */
+    if ( usePlayground < 0 )
+    {
+      fprintf( stderr, 
+          "one of --no-playground or --playground-only must be specified\n" );
+      exit( 1 );
+    }
+
     /* store the playground argument in the process_params */
     LALSnprintf( processParamsTable.processParamsTable->program, 
         LIGOMETA_PROGRAM_MAX, "%s", PROGRAM_NAME );
