@@ -403,9 +403,9 @@ fprintf(stderr,"fine grid: max_n_ra=%d max_n_dec=%d\n",
 
 side_cut=args_info.side_cut_arg;
 if(!args_info.side_cut_given){
-	/* determine side cut from resolution */
+	/* determine side cut from resolution, 6.0 factor is empirical */
 	/* also add in spindown contribution - for now just plan for 4 months of data */
-	side_cut=ceil(M_PI/resolution)+ceil(fabs((1800.0)*args_info.spindown_arg*10368000));
+	side_cut=10+ceil(M_PI/resolution)/6.0+ceil(fabs((1800.0)*args_info.spindown_arg*10368000));
 	}
 fprintf(stderr,"side_cut=%d\n", side_cut);
 first_bin=args_info.first_bin_arg-side_cut;
