@@ -7,6 +7,12 @@ __author__ = "Greg Mendell: returns GPS segments in an interval from a URL with 
 __date__ = '$Date$'
 __version__ = '$Revision$'[0:0]
 
+# Revisions:
+# 01/19/05 gam; change default for minLength to 1 second.
+# 01/19/05 gam; clarify instructions; fix typos.
+# 01/19/05 gam; allow path to curl to be set.
+# 01/19/05 gam; fix error message when invalid type given.
+
 import sys
 import os
 import getopt
@@ -21,12 +27,13 @@ import exceptions
 try:
         from glue.LSCsegFind import *
 except ImportError:
-        print >>sys.stderr, "\nPython glue.LSCsegFind library not found; please add its location to the PYTHONPATH environmental variable.\n"
+        # print >>sys.stderr, "\nPython glue.LSCsegFind library not found; please add its location to the PYTHONPATH environmental variable.\n"
+        print >>sys.stderr, "\nPython glue.LSCsegFind library not found; please follow the instructions in the glue README file or add the location of glue to the PYTHONPATH environmental variable.\n"
         print >>sys.stderr, "For example, from the bash or csh shell respectively, run:\n"
-        print >>sys.stderr, "    export PYTHONPATH=$PYTHONPATH:$LSCSOFT/src/glue/lib"
+        print >>sys.stderr, "    export PYTHONPATH=$PYTHONPATH:$LSCSOFT/src/glue"
         print >>sys.stderr, "or "
-        print >>sys.stderr, "    setenv PYTHONPATH ${PYTHONPATH}:$LSCSOFT/src/glue/lib"
-        print >>sys.stderr, "\nwhere $LSCSOFT needs to be replaced with the local directory with software from the lscsoft cvs repository."
+        print >>sys.stderr, "    setenv PYTHONPATH ${PYTHONPATH}:$LSCSOFT/src/glue"
+        print >>sys.stderr, "\nwhere $LSCSOFT needs to be replaced with the local directory with software from the lscsoft cvs repository.\n"
         sys.exit(1)
         
 def shortUsage():
@@ -35,14 +42,14 @@ def shortUsage():
         """
         msg = """\
 NAME
-     LSCsegFind: Returns GPS segments in interval [gps-start-time, gps-end-time)
+     LSCsegFind: Returns GPS segments in the interval [gps-start-time, gps-end-time)
 
 SYNOPSIS
      help:       
         LSCsegFind --help
         LSCsegFind --help-long (use this option for further help)
         
-     if LSC_SEGFIND_SERVER environmental variable is set:        
+     if the LSC_SEGFIND_SERVER environmental variable is set:
         LSCsegFind --show-types        
         LSCsegFind --gps-start-time=GPS --gps-end-time=GPS --type=NAME
            
@@ -53,9 +60,23 @@ SYNOPSIS
      other options:        
         LSCsegFind --gps-start-time=GPS --gps-end-time=GPS < --server=NAME:PORT --type=NAME | 
         --local-config-file=CONFIG_FILE --type=NAME | --local-seg-file=NAME [--coalesce] >
-        [--min-length=SEC] [--add-start=SEC] [--reduce-end=SEC] [--output-format=STRING] [--strict-off] [--save-files] 
+        [--min-length=SEC] [--add-start=SEC] [--reduce-end=SEC] [--output-format=STRING]
+        [--curl-path=PATH] [--strict-off] [--save-files]
 
         LSCsegFind --show-types --local-config-file=CONFIG_FILE
+
+IMPORTANT CAVEATS     
+     1) Currently the segments returned are determined by web pages produced by either
+     DMT or Conlog scripts, along with the options given to this script. The web page
+     used is completely determined by the --type option.  The server used has no
+     bearing on the segments returned nor any relationship to what data is actually
+     available at the site of that server. The server returns to LSCsegFind a list of
+     web pages with segments; all servers return the same list. Thus, the actual server
+     name used does not matter as long as the list of web pages exists on that server.
+     
+     2) The default value for the --min-length option is 1 second.
+     
+     3) Run LSCsegFind --help-long to get further help.
 
 EXAMPLE
      $ LSCsegFind --server=ldas-gridmon.ligo-wa.caltech.edu --gps-start-time=757838000 --gps-end-time=757881848 --type=S3H1
@@ -77,9 +98,9 @@ def usage():
 DESCRIPTION
         
      -r NAME, --server=NAME:PORT
-            Replace NAME with server with segment information (PORT is optional and
-            currently unused). If the environmental variable LSC_SEGFIND_SERVER is
-            defined this is used for the default NAME:PORT value and the --server
+            Replace NAME with the server with segment information (PORT is optional
+            and currently unused). If the environmental variable LSC_SEGFIND_SERVER
+            is defined this is used for the default NAME:PORT value and the --server
             option is not needed.  Note that giving the --server option over-rides
             the environmental variable.
                 
@@ -98,7 +119,7 @@ DESCRIPTION
             GPS = gps end-time of range (exclusive)
                
      -m SEC, --min-length=SEC
-            SEC = minimum duration of output segments in seconds (default = 200).
+            SEC = minimum duration of output segments in seconds (default = 1).
         
      -a SEC, --add-start=SEC
             SEC = number of seconds to add to output segments start times (default = 0).
@@ -147,16 +168,19 @@ DESCRIPTION
             files will end in _LSCsegFind.py and _LSCsegFind.txt respectively
         
      -c NAME, --local-config-file=NAME
-            A local configuration file can be used, rather than the configuration on the server.
-            For an example, see LSCsegFindCfgExample.py in the lib directory with LSCsegFind.py.
-            (Run 'echo PYTHONPATH' to find possible paths to this directory)
+            A local configuration file can be used, rather than the configuration from the server.
+            For an example, see LSCsegFindCfgExample.py in the glue etc directory.
         
      -f NAME, --local-seg-file=NAME
-            Name of a local file with segments with the format "seg-number start-time end-time duration"
+            Name of a local file with segments with the format "seg-id-number start-time end-time duration"
             The numbers can be separated by any amount of white space.
-        
+     
+     -p PATH, --curl-path=PATH
+            Complete path to the curl (copy URL) utility. The default value used is either that set by the
+            environmental variable LSC_SEGFIND_CURL_PATH or "/usr/bin/curl" if this variable is not set.
+
      --coalesce
-            Used only when --local-seg-file option is used; otherwise coalesces is determined by the
+            Used only when the --local-seg-file option is used; otherwise coalesces is determined by the
             server or the config file.  If --coalesce is given, the segments in the local segment file
             will be coalesced (in memory only) before using them.
         
@@ -170,7 +194,9 @@ ENVIRONMENT
      PYTHONPATH: The path with the lib directory which contains LSCsegFind.py must be added to the
                  PYTHONPATH environmental variable.                
  
-    LSC_SEGFIND_SERVER: the default server NAME:PORT to use.
+     LSC_SEGFIND_SERVER: the default server NAME:PORT to use.
+     
+     LSC_SEGFIND_CURL_PATH: complete path to the curl (copy URL) utility; default is "/usr/bin/curl"
 
 EXAMPLES
  
@@ -223,7 +249,8 @@ server=LSC_SEGFIND_SERVER
 startTime = None
 endTime = None
 segType = None
-minLength = long(200)
+# 01/19/05 gam; minLength = long(200)
+minLength = long(1)
 addStart = long(0)
 reduceEnd = long(0)
 outputFormat = "%s %e"
@@ -233,12 +260,16 @@ cfgFile = None
 localSegFile=None
 coalesce=False
 showTypes = False
+LSC_SEGFIND_CURL_PATH = os.getenv('LSC_SEGFIND_CURL_PATH', None)
+curlPath = LSC_SEGFIND_CURL_PATH
+if curlPath == None:
+   curlPath = "/usr/bin/curl" 
 
 # check credentials (currently disabled)
 # checkCredentials()
         
 # grab command line options
-shortop = "r:s:e:t:m:a:d:o:c:f:yh"
+shortop = "r:s:e:t:m:a:d:o:c:f:p:yh"
 longop = [
           "help",
           "help-long",
@@ -254,6 +285,7 @@ longop = [
           "save-files",
           "local-config-file=",
           "local-seg-file=",
+          "curl-path=",
           "coalesce",
           "show-types",
           ]
@@ -300,6 +332,8 @@ for o, a in opts:
                 cfgFile = a
         elif o in ("-f", "--local-seg-file"):
                 localSegFile = a
+        elif o in ("-p", "--curl-path"):
+                curlPath = a
         elif o in ("--coalesce",):
                 coalesce = True
         elif o in ("-y", "--show-types"):
@@ -312,7 +346,8 @@ if localSegFile == None:
 #print server,startTime,endTime,segType,minLength,addStart,reduceEnd,outputFormat,strict,saveFiles,cfgFile,localSegFile,coalesce,showTypes
         
 # Initiate the LSCsegFind Class; note that the class does all vetting of parameters.
-myLSCsegFind = LSCsegFind(server,startTime,endTime,segType,minLength,addStart,reduceEnd,outputFormat,strict,saveFiles,cfgFile,localSegFile,coalesce,showTypes)
+# 01/19/05 gam; myLSCsegFind = LSCsegFind(server,startTime,endTime,segType,minLength,addStart,reduceEnd,outputFormat,strict,saveFiles,cfgFile,localSegFile,coalesce,showTypes)
+myLSCsegFind = LSCsegFind(server,startTime,endTime,segType,minLength,addStart,reduceEnd,outputFormat,strict,saveFiles,cfgFile,localSegFile,coalesce,showTypes,curlPath)
 
 if showTypes:
      # LSCsegFind will have displayed a list of segment types; just continue to exit.

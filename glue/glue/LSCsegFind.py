@@ -6,6 +6,12 @@ __author__ = "Greg Mendell: module that contains Classes e.g., used by LSCsegFin
 __date__ = '$Date$'
 __version__ = '$Revision$'[0:0]
 
+# Revisions:
+# 01/19/05 gam; change default for minLength to 1 second.
+# 01/19/05 gam; clarify instructions; fix typos.
+# 01/19/05 gam; allow path to curl to be set.
+# 01/19/05 gam; fix error message when invalid type given.
+
 import sys
 import os
 import exceptions
@@ -16,12 +22,13 @@ import exceptions
 try:
         from glue.pipeline import *
 except ImportError:
-        print >>sys.stderr, "\nPython glue.pipeline library not found; please add its location to the PYTHONPATH environmental variable.\n"
+        # print >>sys.stderr, "\nPython glue.pipeline library not found; please add its location to the PYTHONPATH environmental variable.\n"
+        print >>sys.stderr, "\nPython glue.LSCsegFind library not found; please follow the instructions in the glue README file or add the location of glue to the PYTHONPATH environmental variable.\n"        
         print >>sys.stderr, "For example, from the bash or csh shell respectively, run:\n"
-        print >>sys.stderr, "    export PYTHONPATH=$PYTHONPATH:$LSCSOFT/src/glue/lib"
+        print >>sys.stderr, "    export PYTHONPATH=$PYTHONPATH:$LSCSOFT/src/glue"
         print >>sys.stderr, "or "
-        print >>sys.stderr, "    setenv PYTHONPATH ${PYTHONPATH}:$LSCSOFT/src/glue/lib"
-        print >>sys.stderr, "\nwhere $LSCSOFT needs to be replaced with the local directory with software from the lscsoft cvs repository."
+        print >>sys.stderr, "    setenv PYTHONPATH ${PYTHONPATH}:$LSCSOFT/src/glue"
+        print >>sys.stderr, "\nwhere $LSCSOFT needs to be replaced with the local directory with software from the lscsoft cvs repository.\n"
         sys.exit(1)
 
 class LSCsegFindException(exceptions.Exception):
@@ -51,7 +58,7 @@ class LSCsegFind(object):
         
         def __init__(self, server=None, startTime=None, endTime=None, segType=None,\
         minLength=None, addStart=None, reduceEnd=None, outputFormat=None, strict=None,\
-        saveFiles=False, cfgFile=None, localSegFile=None, coalesce=False, showTypes=False):
+        saveFiles=False, cfgFile=None, localSegFile=None, coalesce=False, showTypes=False, curlPath="/usr/bin/curl"):
                 """
                   See help for LSCsegFind for definitions of parameters.
                 """
@@ -65,7 +72,8 @@ class LSCsegFind(object):
                 self.saveFiles = saveFiles
                 self.saveFiles = self.__get_BOOLEAN('saveFiles',saveFiles)                
                 self.showTypes = self.__get_BOOLEAN('showTypes',showTypes)
-                                
+                self.curlPath = self.__get_STR('curlPath',curlPath)
+                
                 if localSegFile == None:
                    # Usual case; use server or config file to find segments.
                    # get defaults from server or local config file
@@ -81,7 +89,7 @@ class LSCsegFind(object):
                           # server and port specified
                           hostString, portString = self.server.split(':')
                           self.host = self.__get_STR('host',hostString)
-                          self.port = self.__get_PLONG('minLength',portString)
+                          self.port = self.__get_PLONG('portString',portString)
 
                       # set up serverURL (note that the file name on the server is hard-coded here.)                                      
                       self.serverFileName = "lscsegfind/LSCsegFindCfgDefaults.txt"
@@ -122,13 +130,13 @@ class LSCsegFind(object):
                    if self.cfgDefaultsExist:
                         try:
                             segURL = cfgDefaults[self.segType]['url']
-                            coalesce = cfgDefaults[self.segType]['coalesce']                                
+                            coalesce = cfgDefaults[self.segType]['coalesce']
                         except:
                             try:
                                msg = "\nMissing or bad input data: the type '%s' was not found; found these types: %s" % (self.segType, cfgDefaults.keys())
                             except:
                                msg = "\nMissing or bad input data: the type '%s' was not found; failed to find any defined types" % self.segType
-                               raise LSCsegFindException, msg                           
+                            raise LSCsegFindException, msg
                    else:
                         if self.cfgFile != None:
                             msg = "\nMissing or bad input data: the type '%s' was not found." % self.segType
@@ -293,7 +301,8 @@ class LSCsegFind(object):
                 """
                 try:
                     for i in range (0,2):
-                        curlExit = os.system('/usr/bin/curl --fail --connect-timeout 100 %s 1> %s 2>/dev/null' % (urlString, localFileName))
+                        #curlExit = os.system('/usr/bin/curl --fail --connect-timeout 100 %s 1> %s 2>/dev/null' % (urlString, localFileName))
+                        curlExit = os.system('%s --fail --connect-timeout 100 %s 1> %s 2>/dev/null' % (self.curlPath, urlString, localFileName))
                         if long(curlExit) == 0L:
                              curlFailed = False
                              break
@@ -301,7 +310,8 @@ class LSCsegFind(object):
                         msg = "Error retrieving web page '%s', make sure web page exists; error was %s" % (urlString, str(curlExit))
                         raise LSCsegFindException, msg
                 except:
-                    msg = "Could not retrieve web page '%s', make sure /usr/bin/curl and web page exist." % urlString
+                    #msg = "Could not retrieve web page '%s', make sure /usr/bin/curl and web page exist." % urlString
+                    msg = "Could not retrieve the web page: '%s'. The path to the curl utility used was '%s'. Make sure the web page exist and the path to curl is correct." % (urlString, self.curlPath)
                     raise LSCsegFindException, msg
         
         def GetSegments(self):
