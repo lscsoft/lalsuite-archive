@@ -204,7 +204,7 @@ class LSCsegFindClient(object):
         msg = "Bad server reponse format. Contact server administrator"
         raise LSCsegFindClientException, msg
     except:
-      msg = "Empty response from server. Contact server administrator"
+      msg = "Connection refused. Contact server administrator"
       raise LSCsegFindClientException, msg
 
     # delete the last \0 before splitting into strings
