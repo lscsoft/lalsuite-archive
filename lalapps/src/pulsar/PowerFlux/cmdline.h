@@ -28,8 +28,10 @@ struct gengetopt_args_info
   char * sky_grid_arg;	/* sky grid type (arcsin, plain_rectangular, sin_theta) (default='sin_theta').  */
   int fine_factor_arg;	/* make fine grid this times finer (default='7').  */
   char * input_arg;	/* path to input files (power or SFT).  */
+  char * input_munch_arg;	/* how to derive SFT name from --input (highly arcane) (default='%s%ld').  */
   char * input_format_arg;	/* format of input files (GEO, SFT, Power) (default='GEO').  */
   char * segments_file_arg;	/* file with list of segments to process - this allows subsetting of full SFT set.  */
+  char * veto_segments_file_arg;	/* file with list of segments *NOT* to process - this allows subsetting of full SFT set.  */
   char * output_arg;	/* output directory.  */
   char * detresponse_path_arg;	/* path to detresponse program from lalapps.  */
   char * pnmtopng_arg;	/* ppmtopng command (with path if necessary) for outputting images (default='pnmtopng').  */
@@ -70,8 +72,10 @@ struct gengetopt_args_info
   int sky_grid_given ;	/* Whether sky-grid was given.  */
   int fine_factor_given ;	/* Whether fine-factor was given.  */
   int input_given ;	/* Whether input was given.  */
+  int input_munch_given ;	/* Whether input-munch was given.  */
   int input_format_given ;	/* Whether input-format was given.  */
   int segments_file_given ;	/* Whether segments-file was given.  */
+  int veto_segments_file_given ;	/* Whether veto-segments-file was given.  */
   int output_given ;	/* Whether output was given.  */
   int detresponse_path_given ;	/* Whether detresponse-path was given.  */
   int pnmtopng_given ;	/* Whether pnmtopng was given.  */

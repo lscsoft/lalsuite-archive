@@ -44,8 +44,10 @@ cmdline_parser_print_help (void)
   printf("      --sky-grid=STRING            sky grid type (arcsin, plain_rectangular, \n                                     sin_theta)  (default=`sin_theta')\n");
   printf("      --fine-factor=INT            make fine grid this times finer  (default=\n                                     `7')\n");
   printf("  -i, --input=STRING               path to input files (power or SFT)\n");
+  printf("      --input-munch=STRING         how to derive SFT name from --input (highly \n                                     arcane)  (default=`%s%ld')\n");
   printf("      --input-format=STRING        format of input files (GEO, SFT, Power)  \n                                     (default=`GEO')\n");
   printf("      --segments-file=STRING       file with list of segments to process - \n                                     this allows subsetting of full SFT set\n");
+  printf("      --veto-segments-file=STRING  file with list of segments *NOT* to process \n                                     - this allows subsetting of full SFT set\n");
   printf("  -o, --output=STRING              output directory\n");
   printf("      --detresponse-path=STRING    path to detresponse program from lalapps\n");
   printf("      --pnmtopng=STRING            ppmtopng command (with path if necessary) \n                                     for outputting images  (default=\n                                     `pnmtopng')\n");
@@ -108,8 +110,10 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->sky_grid_given = 0 ;
   args_info->fine_factor_given = 0 ;
   args_info->input_given = 0 ;
+  args_info->input_munch_given = 0 ;
   args_info->input_format_given = 0 ;
   args_info->segments_file_given = 0 ;
+  args_info->veto_segments_file_given = 0 ;
   args_info->output_given = 0 ;
   args_info->detresponse_path_given = 0 ;
   args_info->pnmtopng_given = 0 ;
@@ -148,8 +152,10 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->sky_grid_arg = gengetopt_strdup("sin_theta") ;\
   args_info->fine_factor_arg = 7 ;\
   args_info->input_arg = NULL; \
+  args_info->input_munch_arg = gengetopt_strdup("%s%ld") ;\
   args_info->input_format_arg = gengetopt_strdup("GEO") ;\
   args_info->segments_file_arg = NULL; \
+  args_info->veto_segments_file_arg = NULL; \
   args_info->output_arg = NULL; \
   args_info->detresponse_path_arg = NULL; \
   args_info->pnmtopng_arg = gengetopt_strdup("pnmtopng") ;\
@@ -198,8 +204,10 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
         { "sky-grid",	1, NULL, 0 },
         { "fine-factor",	1, NULL, 0 },
         { "input",	1, NULL, 'i' },
+        { "input-munch",	1, NULL, 0 },
         { "input-format",	1, NULL, 0 },
         { "segments-file",	1, NULL, 0 },
+        { "veto-segments-file",	1, NULL, 0 },
         { "output",	1, NULL, 'o' },
         { "detresponse-path",	1, NULL, 0 },
         { "pnmtopng",	1, NULL, 0 },
@@ -351,6 +359,22 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
             break;
           }
           
+          /* how to derive SFT name from --input (highly arcane).  */
+          else if (strcmp (long_options[option_index].name, "input-munch") == 0)
+          {
+            if (args_info->input_munch_given)
+              {
+                fprintf (stderr, "%s: `--input-munch' option given more than once\n", CMDLINE_PARSER_PACKAGE);
+                clear_args ();
+                exit (EXIT_FAILURE);
+              }
+            args_info->input_munch_given = 1;
+            if (args_info->input_munch_arg)
+              free (args_info->input_munch_arg); /* free default string */
+            args_info->input_munch_arg = gengetopt_strdup (optarg);
+            break;
+          }
+          
           /* format of input files (GEO, SFT, Power).  */
           else if (strcmp (long_options[option_index].name, "input-format") == 0)
           {
@@ -378,6 +402,20 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
               }
             args_info->segments_file_given = 1;
             args_info->segments_file_arg = gengetopt_strdup (optarg);
+            break;
+          }
+          
+          /* file with list of segments *NOT* to process - this allows subsetting of full SFT set.  */
+          else if (strcmp (long_options[option_index].name, "veto-segments-file") == 0)
+          {
+            if (args_info->veto_segments_file_given)
+              {
+                fprintf (stderr, "%s: `--veto-segments-file' option given more than once\n", CMDLINE_PARSER_PACKAGE);
+                clear_args ();
+                exit (EXIT_FAILURE);
+              }
+            args_info->veto_segments_file_given = 1;
+            args_info->veto_segments_file_arg = gengetopt_strdup (optarg);
             break;
           }
           
@@ -971,6 +1009,26 @@ cmdline_parser_configfile (char * const filename, struct gengetopt_args_info *ar
                 }
               continue;
             }
+          if (!strcmp(fopt, "input-munch"))
+            {
+              if (override || !args_info->input_munch_given)
+                {
+                  args_info->input_munch_given = 1;
+                  if (fnum == 2)
+                    {
+                      if (args_info->input_munch_arg)
+                        free (args_info->input_munch_arg); /* free default string */
+                      args_info->input_munch_arg = gengetopt_strdup (farg);
+                    }
+                  else
+                    {
+                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
+                               filename, line_num);
+                      exit (EXIT_FAILURE);
+                    }
+                }
+              continue;
+            }
           if (!strcmp(fopt, "input-format"))
             {
               if (override || !args_info->input_format_given)
@@ -999,6 +1057,24 @@ cmdline_parser_configfile (char * const filename, struct gengetopt_args_info *ar
                   if (fnum == 2)
                     {
                       args_info->segments_file_arg = gengetopt_strdup (farg);
+                    }
+                  else
+                    {
+                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
+                               filename, line_num);
+                      exit (EXIT_FAILURE);
+                    }
+                }
+              continue;
+            }
+          if (!strcmp(fopt, "veto-segments-file"))
+            {
+              if (override || !args_info->veto_segments_file_given)
+                {
+                  args_info->veto_segments_file_given = 1;
+                  if (fnum == 2)
+                    {
+                      args_info->veto_segments_file_arg = gengetopt_strdup (farg);
                     }
                   else
                     {

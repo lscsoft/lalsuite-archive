@@ -1028,7 +1028,7 @@ fprintf(stderr,"Main loop: %ld patches to process.\n", patch_grid->npoints);
 for(pi=0;pi<patch_grid->npoints;pi++){
 	if(patch_grid->band[pi]<0)continue;
 	
-	clear_accumulation_arrays();
+	clear_accumulation_arrays();	
 
 	/* process single patch */
 	for(k=0;k<nsegments;k++){
@@ -1047,7 +1047,9 @@ for(pi=0;pi<patch_grid->npoints;pi++){
 		else compute_mean(pi);
 		
 	for(i=0;i<stored_fine_bins*useful_bins;i++){
-		low_ul[i]=100.0; /* hopefully our resolution will only be better :) */
+		low_ul[i]=1.0e23; /* Sufficiently large number, 
+		                     even for SFTs done with 
+				     make_fake_data */
 		}
 	/* compute upper limits */
 	for(i=0;i<npolarizations;i++){

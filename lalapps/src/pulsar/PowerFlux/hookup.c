@@ -32,6 +32,7 @@ extern double orientation;
 extern char *output_dir;
 
 INTERVAL_SET *segment_list=NULL;
+INTERVAL_SET *veto_segment_list=NULL;
 
 regex_t write_dat, write_png;
 
@@ -52,7 +53,12 @@ if(regcomp(&write_png, args_info.write_png_arg, REG_EXTENDED | REG_NOSUB)){
 if(args_info.segments_file_given){
 	segment_list=new_interval_set();
 	add_intervals_from_file(segment_list, args_info.segments_file_arg);
-	fprintf(LOG, "Read %d intervals from file \"%s\"\n", args_info.segments_file_arg);
+	fprintf(LOG, "Read %d intervals from file: %s\n", segment_list->free, args_info.segments_file_arg);
+	}
+if(args_info.veto_segments_file_given){
+	veto_segment_list=new_interval_set();
+	add_intervals_from_file(veto_segment_list, args_info.veto_segments_file_arg);
+	fprintf(LOG, "Read %d veto intervals from file: %s\n", veto_segment_list->free, args_info.veto_segments_file_arg);
 	}
 }
 
@@ -86,6 +92,10 @@ while(strncmp(s,"binary",6)){
 		if(!strncasecmp(p,"GPS start:",10)){
 			sscanf(p+10,"%Ld",gps);
 			if(!check_intervals(segment_list, *gps)){
+				fclose(fin);
+				return -1;
+				}
+			if(check_intervals(veto_segment_list, *gps)>0){
 				fclose(fin);
 				return -1;
 				}
@@ -138,6 +148,10 @@ fread(&b, sizeof(b), 1, fin);
 *gps=b;
 
 if(!check_intervals(segment_list, *gps)){
+	fclose(fin);
+	return -1;
+	}
+if(check_intervals(veto_segment_list, *gps)>0){
 	fclose(fin);
 	return -1;
 	}
@@ -203,7 +217,7 @@ if(!strcasecmp("Power", args_info.input_format_arg)){
 
 fprintf(stderr,"Reading files %s*:", prefix);
 for(i=first;i<=last;i++){
-	snprintf(s,PATH_MAX,"%s%ld", prefix, i);
+	snprintf(s,PATH_MAX, args_info.input_munch_arg, prefix, i);
 	fprintf(stderr," %ld",i);
 	if(!get_range(s,first_bin,bin_count,*power+(*nsegments)*bin_count,(*gps)+(*nsegments))){
 		fprintf(stderr,"(%Ld)",(*gps)[*nsegments]);

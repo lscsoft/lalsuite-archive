@@ -53,9 +53,10 @@ fclose(fin);
 int check_intervals(INTERVAL_SET *is, INT64 gps)
 {
 long i;
-if(is==NULL)return 1; /* we are not really checking anything */
+if(is==NULL)return -1; /* we are not really checking anything */
 for(i=0;i<is->free;i++){
 	if((gps>=is->i[i].gps_start)&&(gps<is->i[i].gps_stop))return 1;
 	}
 return 0;
 }
+
