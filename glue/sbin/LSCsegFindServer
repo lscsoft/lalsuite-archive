@@ -481,7 +481,7 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
 
     # get the protocol version
     try:
-      protcol = int(arg[0])
+      protocol = int(arg[0])
     except Exception, e:
       result = "Error parsing protocol version %s: %s" % (str(arg), e)
       logger.error(result)
