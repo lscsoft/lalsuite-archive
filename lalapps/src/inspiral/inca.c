@@ -465,7 +465,7 @@ int main( int argc, char *argv[] )
         if ( havePlgOpt )
         {
           fprintf( stderr, "only one of --playground-only, --all-data or "
-              "--no-playground can be given" );
+              "--no-playground can be given\n" );
           exit( 1 );
         }
         usePlayground = 0;
@@ -476,7 +476,7 @@ int main( int argc, char *argv[] )
         if ( havePlgOpt )
         {
           fprintf( stderr, "only one of --playground-only, --all-data or "
-              "--no-playground can be given" );
+              "--no-playground can be given\n" );
           exit( 1 );
         }
 	usePlayground = 1;
@@ -487,7 +487,7 @@ int main( int argc, char *argv[] )
         if ( havePlgOpt )
         {
           fprintf( stderr, "only one of --playground-only, --all-data or "
-              "--no-playground can be given" );
+              "--no-playground can be given\n" );
           exit( 1 );
         }
         useAllData = 1;
@@ -615,8 +615,8 @@ int main( int argc, char *argv[] )
     exit( 1 );
   }
 
-  /* check that a playground option is specified if doing a slide */
-  if ( ! havePlgOpt )
+  /* check that playground option is specified if not generating a trigbank */
+  if ( (! trigBankFile) && (! havePlgOpt) )
   {
     fprintf( stderr, "one of --playground-only, --all-data or --no-playground"
 	" must be specified\n" );
@@ -1330,9 +1330,9 @@ int main( int argc, char *argv[] )
 
       /* if we are playground only and the trigger is in playground or    */
       /* we are not using playground and the trigger is not in the        */
-      /* playground or we have a non-zero time-slide, or use all data...  */
+      /* playground or we are using all the data (for a slide)            */
       if ( ( usePlayground && isPlay ) || ( ! usePlayground && ! isPlay) ||
-	  slideDataNS || useAllData )
+	   useAllData )
       {
 
 	/* determine whether we should expect to see a trigger in ifo b  */
