@@ -18,19 +18,33 @@ typedef struct {
 	SUM_TYPE *fine_grid_weight;
 	COUNT_TYPE *fine_grid_count;
 	
-	/* results */
-	/* these arrays have find_grid->npoints entries */
-	SUM_TYPE *total_weight;
-	SUM_TYPE *max_sub_weight;
-	COUNT_TYPE *total_count;
-	SUM_TYPE *max_dx;
-	SUM_TYPE *M_map;
-	SUM_TYPE *S_map;
-	SUM_TYPE *max_upper_limit;
-	SUM_TYPE *max_lower_limit;
-	SUM_TYPE *freq_map;
-	SUM_TYPE *cor1;
-	SUM_TYPE *cor2;
+	/* results - sky maps, projection along frequency */
+	/* these arrays have fine_grid->npoints entries */
+	struct {
+		SUM_TYPE *total_weight;
+		SUM_TYPE *max_sub_weight;
+		COUNT_TYPE *total_count;
+		SUM_TYPE *max_dx;
+		SUM_TYPE *M_map;
+		SUM_TYPE *S_map;
+		SUM_TYPE *max_upper_limit;
+		SUM_TYPE *max_lower_limit;
+		SUM_TYPE *freq_map;
+		SUM_TYPE *cor1;
+		SUM_TYPE *cor2;
+		} skymap;
+	
+	/* results - spectral plots, projection along sky bands */
+	/* these arrays have useful_bins*args_info.dec_bands_arg entries */
+	struct {
+		SUM_TYPE *max_upper_limit;
+		SUM_TYPE *ul_dec;
+		SUM_TYPE *ul_ra;
+		SUM_TYPE *max_dx;
+		SUM_TYPE *dx_dec;
+		SUM_TYPE *dx_ra;
+		SUM_TYPE *max_mask_ratio;
+		} spectral_plot;
 	} POLARIZATION;
 
 static float inline AM_response(int segment, SKY_GRID *grid, int point, float *coeff)

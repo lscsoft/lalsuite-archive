@@ -517,13 +517,8 @@ det_and_source.pSource=&source;
 LALComputeDetAMResponse(&status, &response, &det_and_source, &gps_and_acc);
 TESTSTATUS(&status);
 
-#if 0          
-*cross=response.cross*response.cross;
-*plus=response.plus*response.plus;
-#else /* bare - for research and debugging */
 *cross=response.cross;
 *plus=response.plus;
-#endif
 }
 
 void get_detector_vel(INT64 gps, float *velocity)

@@ -19,9 +19,6 @@ extern int lines_list[];
 extern long stored_fine_bins;
 extern long useful_bins;
 
-POLARIZATION plus={1.0, 0.0, NULL, NULL, "plus",NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL};
-POLARIZATION cross={0.0, 1.0, NULL, NULL, "cross",NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL};
-
 int npolarizations=2;
 POLARIZATION *polarizations=NULL;
 
@@ -39,12 +36,17 @@ polarizations=do_alloc(npolarizations, sizeof(*polarizations));
 memset(polarizations, 0, npolarizations*sizeof(*polarizations));
 
 fprintf(stderr,"Initializing polarizations:\n");
-plus.AM_coeffs=AM_coeffs_plus;
-memcpy(&(polarizations[0]), &plus, sizeof(plus));
+
+polarizations[0].name="plus";
+polarizations[0].plus_proj=1.0;
+polarizations[0].cross_proj=0.0;
+polarizations[0].AM_coeffs=AM_coeffs_plus;
 fprintf(stderr,"\t%s 0.0\n",polarizations[0].name);
 
-cross.AM_coeffs=AM_coeffs_cross;
-memcpy(&(polarizations[1]), &cross, sizeof(cross));
+polarizations[1].name="cross";
+polarizations[1].plus_proj=0.0;
+polarizations[1].cross_proj=1.0;
+polarizations[1].AM_coeffs=AM_coeffs_cross;
 fprintf(stderr,"\t%s %g\n",polarizations[1].name, M_PI/4.0);
 
 for(i=2;i<npolarizations;i++){
@@ -57,8 +59,8 @@ for(i=2;i<npolarizations;i++){
 	
 	polarizations[i].AM_coeffs=do_alloc(AM_coeffs_size,sizeof(*(polarizations[i].AM_coeffs)));
 	for(k=0;k<AM_coeffs_size;k++){
-		polarizations[i].AM_coeffs[k]=plus.AM_coeffs[k]*polarizations[i].plus_proj+
-			cross.AM_coeffs[k]*polarizations[i].cross_proj;
+		polarizations[i].AM_coeffs[k]=AM_coeffs_plus[k]*polarizations[i].plus_proj+
+			AM_coeffs_cross[k]*polarizations[i].cross_proj;
 		}
 		
 	}
@@ -71,17 +73,17 @@ for(i=0;i<npolarizations;i++){
 void allocate_polarization_arrays(void)
 {
 long total,i,k;
-total=npolarizations*sizeof(*plus.fine_grid_sum);
+total=npolarizations*sizeof(*polarizations[0].fine_grid_sum);
 
 #ifdef COMPUTE_SIGMA
-total+=npolarizations*sizeof(*plus.fine_grid_sq_sum);
+total+=npolarizations*sizeof(*polarizations[0].fine_grid_sq_sum);
 #endif
 
 if(lines_list[0]>=0){
 	#ifdef WEIGHTED_SUM
-	total+=npolarizations*sizeof(*plus.fine_grid_sum);
+	total+=npolarizations*sizeof(*polarizations[0].fine_grid_sum);
 	#else
-	total+=npolarizations*sizeof(*plus.fine_grid_count);
+	total+=npolarizations*sizeof(*polarizations[0].fine_grid_count);
 	#endif
 	}
 
@@ -103,40 +105,58 @@ for(i=0;i<npolarizations;i++){
 		polarizations[i].fine_grid_weight=do_alloc(stored_fine_bins*useful_bins,sizeof(*polarizations[i].fine_grid_weight));
 		}
 	
-	polarizations[i].total_weight=do_alloc(fine_grid->npoints,sizeof(*polarizations[i].fine_grid_weight));
+	polarizations[i].skymap.total_weight=do_alloc(fine_grid->npoints,sizeof(*polarizations[i].fine_grid_weight));
 	#else
 	if(lines_list[0]>=0){
 		polarizations[i].fine_grid_count=do_alloc(stored_fine_bins*useful_bins,sizeof(*polarizations[i].fine_grid_count));
 		}
 	
-	polarizations[i].total_count=do_alloc(fine_grid->npoints,sizeof(*polarizations[i].fine_grid_count));
+	polarizations[i].skymap.total_count=do_alloc(fine_grid->npoints,sizeof(*polarizations[i].fine_grid_count));
 	#endif
 
-	/* Output arrrays */
-	polarizations[i].max_sub_weight=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
-	polarizations[i].max_dx=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
-	polarizations[i].M_map=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
-	polarizations[i].S_map=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
-	polarizations[i].max_upper_limit=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
-	polarizations[i].max_lower_limit=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
-	polarizations[i].freq_map=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
-	polarizations[i].cor1=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
-	polarizations[i].cor2=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
+	/* Output arrrays - skymaps*/
+	polarizations[i].skymap.max_sub_weight=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
+	polarizations[i].skymap.max_dx=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
+	polarizations[i].skymap.M_map=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
+	polarizations[i].skymap.S_map=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
+	polarizations[i].skymap.max_upper_limit=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
+	polarizations[i].skymap.max_lower_limit=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
+	polarizations[i].skymap.freq_map=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
+	polarizations[i].skymap.cor1=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
+	polarizations[i].skymap.cor2=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
 
 	for(k=0;k<fine_grid->npoints;k++){
-		polarizations[i].max_dx[k]=-1.0;
-		polarizations[i].M_map[k]=-1.0;
-		polarizations[i].S_map[k]=-1.0;
-		polarizations[i].max_upper_limit[k]=-1.0;
-		polarizations[i].max_lower_limit[k]=-1.0;
-		polarizations[i].freq_map[k]=-1.0;
-		polarizations[i].cor1[k]=-1.0;
-		polarizations[i].cor2[k]=-1.0;
+		polarizations[i].skymap.max_dx[k]=-1.0;
+		polarizations[i].skymap.M_map[k]=-1.0;
+		polarizations[i].skymap.S_map[k]=-1.0;
+		polarizations[i].skymap.max_upper_limit[k]=-1.0;
+		polarizations[i].skymap.max_lower_limit[k]=-1.0;
+		polarizations[i].skymap.freq_map[k]=-1.0;
+		polarizations[i].skymap.cor1[k]=-1.0;
+		polarizations[i].skymap.cor2[k]=-1.0;
 		#ifdef WEIGHTED_SUM
-		polarizations[i].total_weight[k]=0.0;
+		polarizations[i].skymap.total_weight[k]=0.0;
 		#else
-		polarizations[i].total_count[k]=0;
+		polarizations[i].skymap.total_count[k]=0;
 		#endif
+		}
+	/* Output arrays - spectral plots */
+	polarizations[i].spectral_plot.max_upper_limit=do_alloc(useful_bins*args_info.dec_bands_arg, sizeof(SUM_TYPE));
+	polarizations[i].spectral_plot.ul_dec=do_alloc(useful_bins*args_info.dec_bands_arg, sizeof(SUM_TYPE));
+	polarizations[i].spectral_plot.ul_ra=do_alloc(useful_bins*args_info.dec_bands_arg, sizeof(SUM_TYPE));
+	polarizations[i].spectral_plot.max_dx=do_alloc(useful_bins*args_info.dec_bands_arg, sizeof(SUM_TYPE));
+	polarizations[i].spectral_plot.dx_dec=do_alloc(useful_bins*args_info.dec_bands_arg, sizeof(SUM_TYPE));
+	polarizations[i].spectral_plot.dx_ra=do_alloc(useful_bins*args_info.dec_bands_arg, sizeof(SUM_TYPE));
+	polarizations[i].spectral_plot.max_mask_ratio=do_alloc(useful_bins*args_info.dec_bands_arg, sizeof(SUM_TYPE));
+
+	for(k=0;k<useful_bins*args_info.dec_bands_arg;k++){
+		polarizations[i].spectral_plot.max_upper_limit[k]=-1.0;
+		polarizations[i].spectral_plot.ul_dec[k]=-10.0;
+		polarizations[i].spectral_plot.ul_ra[k]=-10.0;
+		polarizations[i].spectral_plot.max_dx[k]=-1.0;
+		polarizations[i].spectral_plot.dx_dec[k]=-10.0;
+		polarizations[i].spectral_plot.dx_ra[k]=-10.0;
+		polarizations[i].spectral_plot.max_mask_ratio[k]=-1.0;
 		}
 	}
 

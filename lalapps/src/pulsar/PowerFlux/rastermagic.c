@@ -483,7 +483,7 @@ RGBPic_draw_line(p,plot->fg_color,plot->px0-1,plot->py1+1,plot->px1+1,plot->py1+
 RGBPic_draw_line(p,plot->fg_color,plot->px0-1,plot->py0-1,plot->px0-1,plot->py1+1);
 RGBPic_draw_line(p,plot->fg_color,plot->px1+1,plot->py0-1,plot->px1+1,plot->py1+1);
 /* draw x marks */
-TRACE("x marks")
+//TRACE("x marks")
 for(a=rint(plot->lx0/dsx)*dsx; a<=plot->lx1;a+=dsx){
 	/* special case a=0.0 or we run into precision problems */
 	if(fabs(a)<0.5*dsx)a=0.0;
@@ -500,7 +500,7 @@ if(e10x!=1){
 	RGBPic_printf(p,x+plot->width-1-8*k,plot->py1+5,plot->fg_color, plot->bg_color, s);
 	}
 /* draw y marks */
-TRACE("y marks")
+//TRACE("y marks")
 for(a=rint(plot->ly0/dsy)*dsy; a<=plot->ly1;a+=dsy){
 	/* special case a=0.0 or we run into precision problems */
 	if(fabs(a)<0.5*dsy)a=0.0;

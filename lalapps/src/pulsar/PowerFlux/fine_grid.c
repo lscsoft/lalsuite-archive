@@ -40,6 +40,8 @@ extern FILE *LOG;
 extern double spindown;
 extern double resolution;
 
+extern float *frequencies;
+
 extern INT64 *gps;
 
 SUM_TYPE normalizing_weight;
@@ -106,9 +108,9 @@ for(i=0,kk=super_grid->first_map[pi];kk>=0;kk=super_grid->list_map[kk],i++)
 		#ifdef WEIGHTED_SUM
 		w2=expTMedians[k]/mod;
 		w=w2/mod;
-		pol->total_weight[kk]+=w;
+		pol->skymap.total_weight[kk]+=w;
 		#else
-		pol->total_count[kk]++;
+		pol->skymap.total_count[kk]++;
 		#endif
 		
 		sum=&(pol->fine_grid_sum[b0-side_cut+bin_shift+useful_bins*i]);
@@ -209,9 +211,9 @@ for(i=0,kk=super_grid->first_map[pi];kk>=0;kk=super_grid->list_map[kk],i++)
 		#ifdef WEIGHTED_SUM
 		w2=expTMedians[k]/mod;
 		w=w2/(3.0*mod);
-		pol->total_weight[kk]+=w;
+		pol->skymap.total_weight[kk]+=w;
 		#else
-		pol->total_count[kk]++;
+		pol->skymap.total_count[kk]++;
 		#endif
 		
 		sum=&(pol->fine_grid_sum[b0-side_cut+bin_shift+useful_bins*i]);
@@ -310,7 +312,7 @@ void make_limits(POLARIZATION *pol, long pi)
 SUM_TYPE M,Q80,Q20,S,dx;
 SUM_TYPE a,b,c;
 SUM_TYPE *tmp=NULL;
-long i,j,k,offset;
+long i,j,k,offset,band;
 
 /* allocate on stack, for speed */
 tmp=alloca(useful_bins*sizeof(*tmp));
@@ -323,13 +325,13 @@ for(i=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[o
 	a=0.0;
 	b=0.0;
 	for(j=0;j<useful_bins-2;j++){
-		pol->cor1[offset]+=(tmp[j]*normalizing_weight)*(tmp[j+1]*normalizing_weight);
-		pol->cor2[offset]+=(tmp[j]*normalizing_weight)*(tmp[j+2]*normalizing_weight);
+		pol->skymap.cor1[offset]+=(tmp[j]*normalizing_weight)*(tmp[j+1]*normalizing_weight);
+		pol->skymap.cor2[offset]+=(tmp[j]*normalizing_weight)*(tmp[j+2]*normalizing_weight);
 		b+=(tmp[j]*normalizing_weight);
 		a+=(tmp[j]*normalizing_weight)*(tmp[j]*normalizing_weight);
 		}
 	c=(b-tmp[0]-tmp[1]+tmp[useful_bins-2]+tmp[useful_bins-1]);
-	pol->cor2[offset]=(pol->cor2[offset]-b*c/(useful_bins-2))/
+	pol->skymap.cor2[offset]=(pol->skymap.cor2[offset]-b*c/(useful_bins-2))/
 		(sqrt((a-b*b/(useful_bins-2))*
 		(a-tmp[0]*tmp[0]-tmp[1]*tmp[1]
 			+tmp[useful_bins-2]*tmp[useful_bins-2]+tmp[useful_bins-1]*tmp[useful_bins-1]
@@ -337,9 +339,9 @@ for(i=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[o
 			
 	b+=tmp[useful_bins-2];
 	a+=tmp[useful_bins-2]*tmp[useful_bins-2];
-	pol->cor1[offset]+=tmp[useful_bins-2]*tmp[useful_bins-1];
+	pol->skymap.cor1[offset]+=tmp[useful_bins-2]*tmp[useful_bins-1];
 	c=b-tmp[0]+tmp[useful_bins-1];
-	pol->cor1[offset]=(pol->cor1[offset]-b*c/(useful_bins-1))/
+	pol->skymap.cor1[offset]=(pol->skymap.cor1[offset]-b*c/(useful_bins-1))/
 		(sqrt(
 		(a-b*b/(useful_bins-1))*
 		(a-tmp[0]*tmp[0]+tmp[useful_bins-1]*tmp[useful_bins-1]-c*c/(useful_bins-1))
@@ -354,23 +356,50 @@ for(i=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[o
 	/* 0.2 quantile */
 	Q20=tmp[useful_bins/5];
 	S=(Q80-Q20)/quantile2std;
-	pol->M_map[offset]=M;
-	pol->S_map[offset]=S;
-	pol->max_upper_limit[offset]=0;
+	pol->skymap.M_map[offset]=M;
+	pol->skymap.S_map[offset]=S;
+	pol->skymap.max_upper_limit[offset]=0;
+	
+	band=floor((0.5+fine_grid->latitude[offset]/M_PI)*args_info.dec_bands_arg);
+
 	for(k=0;k<useful_bins;k++){
 		dx=(pol->fine_grid_sum[i*useful_bins+k]-M)/S;		
 		a=upper_limit95(dx)*S;
-		if(a>pol->max_upper_limit[offset]){
-			pol->max_upper_limit[offset]=a;
-			pol->freq_map[offset]=(first_bin+side_cut+k)/1800.0;
+		if(a>pol->skymap.max_upper_limit[offset]){
+			pol->skymap.max_upper_limit[offset]=a;
+			pol->skymap.freq_map[offset]=(first_bin+side_cut+k)/1800.0;
 			}
-		if(dx>pol->max_dx[offset]){
-			pol->max_dx[offset]=dx;
+		if(a>pol->spectral_plot.max_upper_limit[k+band*useful_bins]){
+			pol->spectral_plot.max_upper_limit[k+band*useful_bins]=a;
+			pol->spectral_plot.ul_ra[k+band*useful_bins]=fine_grid->longitude[offset];
+			pol->spectral_plot.ul_dec[k+band*useful_bins]=fine_grid->latitude[offset];
 			}
+
+		if(dx>pol->skymap.max_dx[offset]){
+			pol->skymap.max_dx[offset]=dx;
+			}
+		if(dx>pol->spectral_plot.max_dx[k+band*useful_bins]){
+			pol->spectral_plot.max_dx[k+band*useful_bins]=dx;
+			pol->spectral_plot.dx_ra[k+band*useful_bins]=fine_grid->longitude[offset];
+			pol->spectral_plot.dx_dec[k+band*useful_bins]=fine_grid->latitude[offset];
+			}
+
 			
 		a=lower_limit95(dx)*S;
-		if(a>pol->max_lower_limit[offset]){
-			pol->max_lower_limit[offset]=a;
+		if(a>pol->skymap.max_lower_limit[offset]){
+			pol->skymap.max_lower_limit[offset]=a;
+			}
+			
+		if(lines_list[0]<0)a=0.0;
+			else {
+			#ifdef WEIGHTED_SUM
+			a=pol->fine_grid_weight[i*useful_bins+k]/pol->skymap.total_weight[offset];
+			#else
+			a=pol->fine_grid_count[i*useful_bins+k]/pol->skymap.total_count[offset];
+			#endif
+			}
+		if(a>pol->spectral_plot.max_mask_ratio[k+band*useful_bins]){
+			pol->spectral_plot.max_mask_ratio[k+band*useful_bins]=a;
 			}
 		}
 	}
@@ -381,10 +410,14 @@ void output_limits(POLARIZATION *pol)
 {
 char s[20000];
 RGBPic *p;
+PLOT *plot;
 long i, max_dx_i, masked, k;
 SUM_TYPE max_dx;
 float *max_band, *masked_max_band;
 long *max_band_arg, *masked_max_band_arg;
+float *freq_f;
+
+freq_f=&(frequencies[side_cut]);
 
 max_band=do_alloc(args_info.dec_bands_arg, sizeof(*max_band));
 masked_max_band=do_alloc(args_info.dec_bands_arg, sizeof(*max_band));
@@ -396,44 +429,46 @@ if(fine_grid->max_n_dec<800){
 	} else 
 	p=make_RGBPic(fine_grid->max_n_ra+140, fine_grid->max_n_dec);	
 
+plot=make_plot(p->width, p->height);
+
 snprintf(s,19999,"%s_weight.png",pol->name);
-plot_grid_f(p, fine_grid, pol->total_weight, 1);
+plot_grid_f(p, fine_grid, pol->skymap.total_weight, 1);
 RGBPic_dump_png(s, p);
 
 snprintf(s,19999,"%s_cor1.png",pol->name);
-plot_grid_f(p, fine_grid, pol->cor1, 1);
+plot_grid_f(p, fine_grid, pol->skymap.cor1, 1);
 RGBPic_dump_png(s, p);
 
 snprintf(s,19999,"%s_cor2.png",pol->name);
-plot_grid_f(p, fine_grid, pol->cor2, 1);
+plot_grid_f(p, fine_grid, pol->skymap.cor2, 1);
 RGBPic_dump_png(s, p);
 
 snprintf(s,19999,"%s_max_upper_limit.png",pol->name);
-plot_grid_f(p, fine_grid, pol->max_upper_limit, 1);
+plot_grid_f(p, fine_grid, pol->skymap.max_upper_limit, 1);
 RGBPic_dump_png(s, p);
 
 snprintf(s,19999,"%s_max_lower_limit.png",pol->name);
-plot_grid_f(p, fine_grid, pol->max_lower_limit, 1);
+plot_grid_f(p, fine_grid, pol->skymap.max_lower_limit, 1);
 RGBPic_dump_png(s, p);
 
 snprintf(s,19999,"%s_arg_freq.png",pol->name);
-plot_grid_f(p, fine_grid, pol->freq_map, 1);
+plot_grid_f(p, fine_grid, pol->skymap.freq_map, 1);
 RGBPic_dump_png(s, p);
 
 snprintf(s,19999,"%s_arg_freq.dat",pol->name);
-dump_floats(s,pol->freq_map,fine_grid->npoints,1);
+dump_floats(s,pol->skymap.freq_map,fine_grid->npoints,1);
 
 snprintf(s,19999,"%s_max_dx.dat",pol->name);
-dump_floats(s,pol->max_dx,fine_grid->npoints,1);
+dump_floats(s,pol->skymap.max_dx,fine_grid->npoints,1);
 
 snprintf(s,19999,"%s_S_map.dat",pol->name);
-dump_floats(s,pol->S_map,fine_grid->npoints,1);
+dump_floats(s,pol->skymap.S_map,fine_grid->npoints,1);
 	
 
 for(i=0;i<fine_grid->npoints;i++){
-	pol->max_upper_limit[i]=sqrt(2.0*pol->max_upper_limit[i]*upper_limit_comp)/(1800.0*16384.0);
+	pol->skymap.max_upper_limit[i]=sqrt(2.0*pol->skymap.max_upper_limit[i]*upper_limit_comp)/(1800.0*16384.0);
 	/* lower limit is unchanged */
-	pol->max_lower_limit[i]=sqrt(2.0*pol->max_lower_limit[i])/(1800.0*16384.0);
+	pol->skymap.max_lower_limit[i]=sqrt(2.0*pol->skymap.max_lower_limit[i])/(1800.0*16384.0);
 	}
 
 /* output interesting points around fake injection */
@@ -467,16 +502,16 @@ if(fake_injection){
 		#endif
 		
 		   	fprintf(LOG, "%f %f %s %f %g %g %f\n",fine_grid->longitude[i], fine_grid->latitude[i], 
-				pol->name, pol->max_dx[i], 
-				pol->max_upper_limit[i], pol->max_lower_limit[i],
-				pol->freq_map[i]);
+				pol->name, pol->skymap.max_dx[i], 
+				pol->skymap.max_upper_limit[i], pol->skymap.max_lower_limit[i],
+				pol->skymap.freq_map[i]);
 
 			if(largest_i<0){
-				largest=pol->max_upper_limit[i];
+				largest=pol->skymap.max_upper_limit[i];
 				largest_i=i;
 				} else 
-			if(largest<pol->max_upper_limit[i]){
-				largest=pol->max_upper_limit[i];
+			if(largest<pol->skymap.max_upper_limit[i]){
+				largest=pol->skymap.max_upper_limit[i];
 				largest_i=i;
 				}
 		   	}
@@ -493,18 +528,18 @@ if(fake_injection){
 		}
 	if(best_i>=0)
 	fprintf(LOG, "closest: %f %f %s %f %g %g %f\n",fine_grid->longitude[best_i], fine_grid->latitude[best_i], 
-		pol->name, pol->max_dx[best_i], 
-		pol->max_upper_limit[best_i], pol->max_lower_limit[best_i], pol->freq_map[best_i]);
+		pol->name, pol->skymap.max_dx[best_i], 
+		pol->skymap.max_upper_limit[best_i], pol->skymap.max_lower_limit[best_i], pol->skymap.freq_map[best_i]);
 	if(largest_i>=0)
 	fprintf(LOG, "largest: %f %f %s %f %g %g %f\n",fine_grid->longitude[largest_i], fine_grid->latitude[largest_i], 
-		pol->name, pol->max_dx[largest_i], 
-		pol->max_upper_limit[largest_i], pol->max_lower_limit[largest_i], pol->freq_map[largest_i]);
+		pol->name, pol->skymap.max_dx[largest_i], 
+		pol->skymap.max_upper_limit[largest_i], pol->skymap.max_lower_limit[largest_i], pol->skymap.freq_map[largest_i]);
 	}
 
 
 
 snprintf(s,19999,"%s_max_strain.dat",pol->name);
-dump_floats(s,pol->max_upper_limit,fine_grid->npoints,1);
+dump_floats(s,pol->skymap.max_upper_limit,fine_grid->npoints,1);
 
 max_dx=0.0;
 max_dx_i=0;
@@ -521,47 +556,73 @@ for(i=0;i<fine_grid->npoints;i++){
 	if(k==args_info.dec_bands_arg)k=args_info.dec_bands_arg-1;
 	if(k<0)k=0;
 
-	if(pol->max_upper_limit[i]>max_band[k]){
-		max_band[k]=pol->max_upper_limit[i];
+	if(pol->skymap.max_upper_limit[i]>max_band[k]){
+		max_band[k]=pol->skymap.max_upper_limit[i];
 		max_band_arg[k]=i;
 		}
 
-	if(pol->max_sub_weight[i]>=pol->total_weight[i]*(1-args_info.small_weight_ratio_arg)){
-		pol->max_upper_limit[i]=0.0;
-		pol->max_lower_limit[i]=0.0;
-		pol->max_dx[i]=0.0;
+	if(pol->skymap.max_sub_weight[i]>=pol->skymap.total_weight[i]*(1-args_info.small_weight_ratio_arg)){
+		pol->skymap.max_upper_limit[i]=0.0;
+		pol->skymap.max_lower_limit[i]=0.0;
+		pol->skymap.max_dx[i]=0.0;
 		masked++;
 		}
-	if(pol->max_dx[i]>max_dx){
-		max_dx=pol->max_dx[i];
+	if(pol->skymap.max_dx[i]>max_dx){
+		max_dx=pol->skymap.max_dx[i];
 		max_dx_i=i;
 		}
 
-	if(pol->max_upper_limit[i]>masked_max_band[k]){
-		masked_max_band[k]=pol->max_upper_limit[i];
+	if(pol->skymap.max_upper_limit[i]>masked_max_band[k]){
+		masked_max_band[k]=pol->skymap.max_upper_limit[i];
 		masked_max_band_arg[k]=i;
 		}
 	}
 fprintf(LOG, "masked: %s %ld\n", pol->name, masked);
 fprintf(LOG, "largest signal: longitude latitude pol max_dx upper_strain lower_strain freq\n");	
 fprintf(LOG, "max_dx: %f %f %s %f %g %g %f\n",fine_grid->longitude[max_dx_i], fine_grid->latitude[max_dx_i], 
-				pol->name, pol->max_dx[max_dx_i], 
-				pol->max_upper_limit[max_dx_i], 
-				pol->max_lower_limit[max_dx_i], pol->freq_map[max_dx_i]);
+				pol->name, pol->skymap.max_dx[max_dx_i], 
+				pol->skymap.max_upper_limit[max_dx_i], 
+				pol->skymap.max_lower_limit[max_dx_i], pol->skymap.freq_map[max_dx_i]);
 
 fprintf(LOG, "max/masked band format: band_num longitude latitude pol max_dx upper_strain freq\n");
 for(i=0;i<args_info.dec_bands_arg;i++){
 
 	fprintf(LOG, "max_band: %ld %f %f %s %f %g %f\n", i, fine_grid->longitude[max_band_arg[i]], fine_grid->latitude[max_band_arg[i]], 
-				pol->name, pol->max_dx[max_band_arg[i]], 
+				pol->name, pol->skymap.max_dx[max_band_arg[i]], 
 				max_band[i], 
-				pol->freq_map[max_band_arg[i]]);
+				pol->skymap.freq_map[max_band_arg[i]]);
 
 	fprintf(LOG, "masked_max_band: %ld %f %f %s %f %g %f\n", i, fine_grid->longitude[masked_max_band_arg[i]], fine_grid->latitude[masked_max_band_arg[i]], 
-				pol->name, pol->max_dx[masked_max_band_arg[i]], 
+				pol->name, pol->skymap.max_dx[masked_max_band_arg[i]], 
 				masked_max_band[i], 
-				pol->freq_map[masked_max_band_arg[i]]);
+				pol->skymap.freq_map[masked_max_band_arg[i]]);
 
+	snprintf(s,19999,"%s_max_upper_limit_band_%d.png",pol->name, i);
+	adjust_plot_limits_f(plot, freq_f, &(pol->spectral_plot.max_upper_limit[i*useful_bins]), useful_bins, 1, 1, 1);
+	draw_grid(p, plot, 0, 0);
+	draw_points_f(p, plot, COLOR(255,0,0), freq_f, &(pol->spectral_plot.max_upper_limit[i*useful_bins]), useful_bins, 1, 1);
+	RGBPic_dump_png(s, p);
+	snprintf(s,19999,"%s_max_upper_limit_band_%d.dat",pol->name, i);
+	dump_floats(s, &(pol->spectral_plot.max_upper_limit[i*useful_bins]), useful_bins, 1);
+	
+
+	snprintf(s,19999,"%s_max_dx_band_%d.png",pol->name, i);
+	adjust_plot_limits_f(plot, freq_f, &(pol->spectral_plot.max_dx[i*useful_bins]), useful_bins, 1, 1, 1);
+	draw_grid(p, plot, 0, 0);
+	draw_points_f(p, plot, COLOR(255,0,0), freq_f, &(pol->spectral_plot.max_dx[i*useful_bins]), useful_bins, 1, 1);
+	RGBPic_dump_png(s, p);
+	snprintf(s,19999,"%s_max_dx_band_%d.dat",pol->name, i);
+	dump_floats(s, &(pol->spectral_plot.max_dx[i*useful_bins]), useful_bins, 1);
+	
+	if(lines_list[0]>=0){
+		snprintf(s,19999,"%s_max_mask_ratio_band_%d.png",pol->name, i);
+		adjust_plot_limits_f(plot, freq_f, &(pol->spectral_plot.max_mask_ratio[i*useful_bins]), useful_bins, 1, 1, 1);
+		draw_grid(p, plot, 0, 0);
+		draw_points_f(p, plot, COLOR(255,0,0), freq_f, &(pol->spectral_plot.max_mask_ratio[i*useful_bins]), useful_bins, 1, 1);
+		RGBPic_dump_png(s, p);
+		snprintf(s,19999,"%s_max_mask_ratio_band_%d.dat",pol->name, i);
+		dump_floats(s, &(pol->spectral_plot.max_mask_ratio[i*useful_bins]), useful_bins, 1);
+		}
         /* old 
 	fprintf(LOG, "max_band: %ld %s %g\n", i, pol->name, max_band[i]);
 	fprintf(LOG, "masked_max_band: %ld %s %g\n", i, pol->name, masked_max_band[i]);
@@ -569,25 +630,26 @@ for(i=0;i<args_info.dec_bands_arg;i++){
 	}
 	
 snprintf(s,19999,"%s_max_upper_strain.png",pol->name);
-plot_grid_f(p, fine_grid, pol->max_upper_limit, 1);
+plot_grid_f(p, fine_grid, pol->skymap.max_upper_limit, 1);
 RGBPic_dump_png(s, p);
 
 snprintf(s,19999,"%s_max_lower_strain.png",pol->name);
-plot_grid_f(p, fine_grid, pol->max_lower_limit, 1);
+plot_grid_f(p, fine_grid, pol->skymap.max_lower_limit, 1);
 RGBPic_dump_png(s, p);
 
 snprintf(s,19999,"%s_max_dx.png",pol->name);
-plot_grid_f(p, fine_grid, pol->max_dx, 1);
+plot_grid_f(p, fine_grid, pol->skymap.max_dx, 1);
 RGBPic_dump_png(s, p);
 
 snprintf(s,19999,"%s_M_map.png",pol->name);
-plot_grid_f(p, fine_grid, pol->M_map, 1);
+plot_grid_f(p, fine_grid, pol->skymap.M_map, 1);
 RGBPic_dump_png(s, p);
 
 snprintf(s,19999,"%s_S_map.png",pol->name);
-plot_grid_f(p, fine_grid, pol->S_map, 1);
+plot_grid_f(p, fine_grid, pol->skymap.S_map, 1);
 RGBPic_dump_png(s, p);
 
+free_plot(plot);
 free_RGBPic(p);
 free(max_band);
 free(masked_max_band);
@@ -602,18 +664,18 @@ long i,k,m;
 long offset;
 for(k=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[offset],k++){
 	for(m=0;m<npolarizations;m++){
-		polarizations[m].max_sub_weight[offset]=0.0;
+		polarizations[m].skymap.max_sub_weight[offset]=0.0;
 	
 		for(i=0;i<useful_bins;i++){
 
 			#ifdef WEIGHTED_SUM		
-			if(polarizations[m].fine_grid_weight[i+k*useful_bins]>polarizations[m].max_sub_weight[offset]){
-				polarizations[m].max_sub_weight[offset]=polarizations[m].fine_grid_weight[i+k*useful_bins];
+			if(polarizations[m].fine_grid_weight[i+k*useful_bins]>polarizations[m].skymap.max_sub_weight[offset]){
+				polarizations[m].skymap.max_sub_weight[offset]=polarizations[m].fine_grid_weight[i+k*useful_bins];
 				}
 	
-			c=(polarizations[m].total_weight[offset]-polarizations[m].fine_grid_weight[i+k*useful_bins]);
+			c=(polarizations[m].skymap.total_weight[offset]-polarizations[m].fine_grid_weight[i+k*useful_bins]);
 			#else
-			c=(polarizations[m].total_count[offset]-polarizations[m].fine_grid_count[i+k*useful_bins]);
+			c=(polarizations[m].skymap.total_count[offset]-polarizations[m].fine_grid_count[i+k*useful_bins]);
 			#endif
 			if(c>0){
 				a=polarizations[m].fine_grid_sum[i+k*useful_bins];
@@ -641,14 +703,14 @@ SUM_TYPE a,c;
 long i,k,offset,m;
 for(k=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[offset],k++){
 	for(m=0;m<npolarizations;m++){
-		polarizations[m].max_sub_weight[offset]=0.0;
+		polarizations[m].skymap.max_sub_weight[offset]=0.0;
 		
 		for(i=0;i<useful_bins;i++){
 		
 			#ifdef WEIGHTED_SUM		
-			c=(polarizations[m].total_weight[offset]);
+			c=(polarizations[m].skymap.total_weight[offset]);
 			#else
-			c=(polarizations[m].total_count[offset]);
+			c=(polarizations[m].skymap.total_count[offset]);
 			#endif
 			if(c>0){
 				a=polarizations[m].fine_grid_sum[i+k*useful_bins];
@@ -715,6 +777,7 @@ for(pi=0;pi<patch_grid->npoints;pi++){
 	/* compute means */
 	if(lines_list[0]<0)compute_mean_no_lines(pi);
 		else compute_mean(pi);
+		
 	/* compute upper limits */
 	for(i=0;i<npolarizations;i++){
 		make_limits(&(polarizations[i]), pi);
