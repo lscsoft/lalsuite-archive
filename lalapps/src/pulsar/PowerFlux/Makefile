@@ -25,6 +25,10 @@ BAND=1170000
 # 650.25 hz
 #BAND=1170450
 
+#
+# Do not build anything by default
+#
+none:
 
 all: powerflux test5
 
