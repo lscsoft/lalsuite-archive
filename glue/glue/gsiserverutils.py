@@ -6,6 +6,9 @@ __author__ = "Scott Koranda <skoranda@gravity.phys.uwm.edu>"
 __date__ = "$Date$"
 __version__ = "$Revision$"
 
+import os
+import sys
+
 class Gridmap(object):
   """
   Class to represent the grid-mapfile used for the server. 
