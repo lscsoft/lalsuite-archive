@@ -11,6 +11,7 @@ import sys
 import getopt
 import exceptions
 import md5
+import re
 from pyGlobus import security
 
 class LSCfileAddMetadataAttr(object):
@@ -32,12 +33,15 @@ class LSCfileAddMetadataAttr(object):
                        4) Cli_arg_long # long version of cli argument with NO DASHES, e.g. "gpsStart"
                        5) Cli_arg_short # short version of cli argument with NO DASHES, e.g. "s"
                        6) Description # description of this field
-                       7) Test_method # method used to test the validity of this parameter
+                       7) Test_method # Function pointers, baby!
+                                      # method used to test the validity of this parameter
+                                      # format is 'Test_method':getattr(self,"FUNCTION_NAME")
+                                      
         
         """
         attr = {}
         
-        def gps_processor(object):
+        def gps_processor(self):
                 """
                 Performs a consistancy check on start and end gps times
                 along with the duration parameter. 
@@ -133,7 +137,7 @@ class LSCfileAddMetadataAttr(object):
                                 return 0
         ## END gps_processor()
         
-        def ifo_processor(object):
+        def ifo_processor(self):
                 """
                 Checks given interferometer against list of accepted interferometers.
                 returns 0 if found, an error string if not.
@@ -153,14 +157,14 @@ class LSCfileAddMetadataAttr(object):
                                 ifolist[len(ifolist) - 1] += item
                 for myifo in ifolist:
                         if not accepted_ifos.count(myifo):
-                                return "Interferometer \"%s\" was not found in the list of accepted interferometers. Valid ifos are %s." % (ifo, str(accepted_ifos))
+                                return "Interferometer \"%s\" was not found in the list of accepted interferometers. Valid ifos are any combination of the following: %s." % (ifo, str(accepted_ifos))
                         if accepted_ifos.count(myifo) > 1:
                                 return "An interferometer value can only be specified once. At least two of ifo \"%s\" were specified." % (ifo,)
                 # all is well, then
                 return 0
         ## END ifo_processor()
         
-        def site_processor(object):
+        def site_processor(self):
                 """
                 Check given site against list of accepted sites.
                 returns 0 if found, an error string if not
@@ -178,7 +182,33 @@ class LSCfileAddMetadataAttr(object):
                                 return "Site \"%s\" can only be specified once." % (mysite,)
                 return 0
         ## END site_processor()
-                
+        
+        def filetype_processor(self):
+                """
+                Makes sure that the file type (a.k.a. file extension), matches one that is allowed in
+                the database.
+                """
+                thistype = self.attr['fileType']['Value']
+                accepted_types = self.attr['fileType']['Accepted_values']
+                if not accepted_types.count(thistype):
+                        return "File type \"%s\" is not accepted. Acceptable values %s" % (thistype,str(accepted_types))
+                else:
+                        return 0
+        ##END filetype_processor()
+        
+        def group_processor(self):
+                """
+                Makes sure the given group paramter is one of the allowed values.
+                """
+                group = self.attr['group']['Value']
+                accepted_groups = self.attr['group']['Accepted_values']
+                if not accepted_groups.count(group):
+                        return "Group \"%s\" is not among the accepted list. Acceptable values %s" % (group,str(accepted_groups))
+                else:
+                        return 0
+        ##END group_processor()
+        
+        
         def __init__(self):
                 self.attr = {
 "size":{
@@ -189,7 +219,7 @@ class LSCfileAddMetadataAttr(object):
         'Cli_arg_long':None,
         'Cli_arg_short':None,
         'Description':"Size of file",
-        'Requirements':['size']
+        'Test_method':None
        },
 "md5":{
         'Value':None,
@@ -199,18 +229,18 @@ class LSCfileAddMetadataAttr(object):
         'Cli_arg_long':None,
         'Cli_arg_short':None,
         'Description':"md5 sum of file",
-        'Requirements':['md5']
+        'Test_method':None
         },
 "interferometer":{
         'Value':None,
         'Default':"Null",
         'Type':"string",
-        'UserSet':False,
-        'Cli_arg_long':None,
-        'Cli_arg_short':None,
+        'UserSet':True,
+        'Cli_arg_long':"interferometer",
+        'Cli_arg_short':"i",
         'Description':"Interferometer site+ifonumber, e.g. H1,H2,L1,H1H2",
         'Accepted_values':['H1','H2','L1','G1'],
-        'Requirements':None
+        'Test_method':getattr(self,"ifo_processor")
         },
 "site":{
         'Value':None,
@@ -222,7 +252,7 @@ class LSCfileAddMetadataAttr(object):
         'Cli_arg_short':None,
         'Description':"Interferometer site. e.g. H, L, GHLV",
         'Accepted_values':['H','L','G','V'],
-        'Requirements':None
+        'Test_method':getattr(self,"site_processor")
         },
 "fileType":{
         'Value':None,
@@ -232,7 +262,7 @@ class LSCfileAddMetadataAttr(object):
         'Cli_arg_short':"t",
         'Description':"Type of file",
         'Accepted_values':['gwf','sft','xml'],
-        'Test_method':None
+        'Test_method':getattr(self,"filetype_processor")
         },
 "frameType":{
         'Value':None,
@@ -252,7 +282,7 @@ class LSCfileAddMetadataAttr(object):
         'Cli_arg_long':"gps-start-time",
         'Cli_arg_short':"s",
         'Description':"GPS start time of file data",
-        'Test_method':None
+        'Test_method':getattr(self,"gps_processor")
         },
 "gpsEnd":{
         'Value':None,
@@ -262,7 +292,7 @@ class LSCfileAddMetadataAttr(object):
         'Cli_arg_long':"gps-end-time",
         'Cli_arg_short':"e",
         'Description':"GPS end time of file data",
-        'Requirements':['gpsEnd']
+        'Test_method':getattr(self,"gps_processor")
         },
 "duration":{
         'Value':None,
@@ -272,7 +302,7 @@ class LSCfileAddMetadataAttr(object):
         'Cli_arg_long':None,
         'Cli_arg_short':None,
         'Description':"Time duration of file",
-        'Requirements':['duration']
+        'Test_method':getattr(self,"gps_processor")
         },
 "locked":{
         'Value':None,
@@ -282,7 +312,7 @@ class LSCfileAddMetadataAttr(object):
         'Cli_arg_long':None,
         'Cli_arg_short':None,
         'Description':"IFO locked bitmask",
-        'Requirements':None
+        'Test_method':None
         },
 "scienceMode":{
         'Value':None,
@@ -292,7 +322,7 @@ class LSCfileAddMetadataAttr(object):
         'Cli_arg_long':None,
         'Cli_arg_short':None,
         'Description':"science mode bitmask",
-        'Requirements':None
+        'Test_method':None
         },
 "playground":{
         'Value':None,
@@ -302,7 +332,7 @@ class LSCfileAddMetadataAttr(object):
         'Cli_arg_long':None,
         'Cli_arg_short':None,
         'Description':"Bit mask for playground data",
-        'Requirements':None
+        'Test_method':None
         },
 "runTag":{
         'Value':None,
@@ -312,7 +342,7 @@ class LSCfileAddMetadataAttr(object):
         'Cli_arg_long':None,
         'Cli_arg_short':None,
         'Description':"LDR run tag",
-        'Requirements':None
+        'Test_method':None
         },
 "group":{
         'Value':None,
@@ -321,8 +351,9 @@ class LSCfileAddMetadataAttr(object):
         'UserSet':True,
         'Cli_arg_long':"group",
         'Cli_arg_short':"g",
+        'Accepted_values':['pulsar','burst','cw','other'],
         'Description':"Analysis group to which this data is relevant. e.g. pulsar, burst.",
-        'Requirements':None
+        'Test_method':getattr(self,"group_processor")
         },
 "publisher":{
         'Value':None,
@@ -332,7 +363,7 @@ class LSCfileAddMetadataAttr(object):
         'Cli_arg_long':"publisher",
         'Cli_arg_short':"p",
         'Description':"Name of person publishing this file.",
-        'Requirements':None
+        'Test_method':None
         },
 "author":{
         'Value':None,
@@ -341,8 +372,8 @@ class LSCfileAddMetadataAttr(object):
         'UserSet':True,
         'Cli_arg_long':"author",
         'Cli_arg_short':"a",
-        'Description':"Name of file's creator. That is the person ran the code which generated the data.",
-        'Requirements':None
+        'Description':"Name of file's creator. That is the person that ran the code which generated this data.",
+        'Test_method':None
         },
 "comment":{
         'Value':None,
@@ -351,8 +382,8 @@ class LSCfileAddMetadataAttr(object):
         'UserSet':True,
         'Cli_arg_long':"comment",
         'Cli_arg_short':"c",
-        'Description':"An arbitrary comment describing this file. e.g. \"generated Big Bang Search v0.1a. with fftw v12.2.4\". (quotes on command line are necessary)",
-        'Requirements':None
+        'Description':"An arbitrary comment describing this file. e.g. \"generated Big Bang Search v0.1a. with fftw v16.2.4 alpha\". (quotes on command line are necessary)",
+        'Test_method':None
         }
                              } # end of attr dict.
 ## END class LSCfileAddMetadataAttr(object)
@@ -377,6 +408,9 @@ class LSCFile(LSCfileAddMetadataAttr):
                 of previous mapping, and calculating md5s and any file
                 format specific checksums?
                 """
+                # record of successfully published files
+                successes = []
+                failures = []
                 # authentication stuff
                 #blah
                 # import use specified attributes
@@ -387,10 +421,12 @@ class LSCFile(LSCfileAddMetadataAttr):
                         filename = os.path.abspath(filename)
                         if not os.path.isfile(filename):
                                 # print error and _skip_ files which do not exist (or are not files)
-                                print >>sys.stderr, "Filename %s does not exist. Skipping." % filename
+                                msg = "Filename %s does not exist (or is a directory)." % (filename,)
+                                print >>sys.stderr,  "%s Skipping." % msg
+                                failures.append((filename,msg))
                                 continue
-                        lfn = os.path.basename(filename)
                         pfn = filename
+                        lfn = os.path.basename(filename)
                         # see if it already exists in database (respect --replace???)
                         #   Check also for LDR version, for the S4/S5 LDR, no metadatadeletion
                         #   will be supported.
@@ -401,13 +437,50 @@ class LSCFile(LSCfileAddMetadataAttr):
                         #if metaexists:
                         #        pass
                         if not metaexists:
+                                # Parse filename
+                                #  extension
+                                dummy, extension = os.path.splitext(lfn)
+                                extension = extension.strip(".")
+                                self.attr['fileType']['Value'] = extension
+                                #  name fields
+                                filepat = re.compile(r'^(\w+)-([\w\d]+)\-(\d+)\-(\d+)\..+')
+                                try:
+                                        parsedfilename = filepat.search(lfn).groups()
+                                except Exception, e:
+                                        msg = "Invalid filename format \"%s\"" % (lfn,)
+                                        print >>sys.stderr, "%s Skipping file %s" % (msg,filename)
+                                        failures.append((filename,msg))
+                                        continue
+                                # Must have 4 parts to name field
+                                if len(parsedfilename) is not 4:
+                                        msg = "Invalid filename format \"%s\"" % (lfn,)
+                                        print >>sys.stderr, "%s Skipping file %s" % (msg,filename)
+                                        failures.append((filename,msg))
+                                        continue
+                                # set the name fields in attribute dictionary
+                        #  NEEDS TO BE RECONCILED WITH --gps-start-time and --gps-end-time OPTIONS!!!!!
+                                self.attr['site']['Value'] = parsedfilename[0]
+                                self.attr['frameType']['Value'] = parsedfilename[1]
+                                self.attr['gpsStart']['Value'] = parsedfilename[2]
+                                self.attr['duration']['Value'] = parsedfilename[3]
+                                
                                 # fill in appropriate fields
                                 self.attr['size']['Value'] = os.path.getsize(filename)
                                 # calc md5sum, and other checksums
                                 # switch on fileType?, perform data format specific checksums?
                                 self.attr['md5']['Value'] = self.computeMD5(filename)
                                 # perform any other consistancy checks
-                                #blah
+                                try:
+                                        for field,vals in self.attr.iteritems():
+                                                if vals['Test_method'] is not None:
+                                                        result = vals['Test_method']()
+                                                        if result:
+                                                                failures.append((filename,result))
+                                                                raise LSCfileAddException, "Error, skipping file: %s" % (result,)
+                                except LSCfileAddException, e:
+                                        print >>sys.stderr, e
+                                        continue
+                                                
                                 # enter metadata into database
                                 self.addmetadata(lfn)
                                 
@@ -417,6 +490,14 @@ class LSCFile(LSCfileAddMetadataAttr):
                                 print "Will create lfn<->pfn mapping for\n%s <-> %s" % (lfn,pfn)
                         #else:
                         #        self.lrc_create_lfn(lfn,pfn)
+                        # if all DB additions and checks were successful, then
+                        successes.append(filename)
+                        
+                        # END loop over filelist 
+                        
+                # Return successes and failures
+                return (successes,failures)
+                
         ## END def publish(self)
                 
         def remove_all(self):
@@ -441,6 +522,7 @@ class LSCFile(LSCfileAddMetadataAttr):
                 # Fields to be defined
                 # the following is from Publisher.py, certainly doesn't work now
                 #self.metadata.add(self.lfn)
+                print "Adding lfn \"%s\" with following metadata" % (lfn,)
                 print "<logical_file_name>\n%s" % (lfn,)
                 for field, val in self.attr.iteritems():
                 #        self.metadata.set_attr(lfn,field,val["Value"])
@@ -515,7 +597,7 @@ class CLIUtil(LSCfileAddMetadataAttr):
                 # now collect non-metadata specific args with LSCfileAddMetadataAttr args
                 #    for use in getopts
                 for field, vals in self.cli_short_name.iteritems():
-                        self.shortop = self.shortop + ":" + field
+                        self.shortop = self.shortop + field + ":"
                 for field, vals in self.cli_long_name.iteritems():
                         field = field + "="
                         self.longop.append(field)
@@ -529,7 +611,21 @@ class CLIUtil(LSCfileAddMetadataAttr):
                 (should be in LSCfileAddMetadataAttr...), but also compares with non-metadata
                 specific CLI args to make sure nothing gets clobbered inappropriately.
                 """
-                pass
+                exit = "NO"
+                for op in self.shortop.split(":"):
+                        for field,vals in self.attr.iteritems():
+                                if vals['Cli_arg_short'] == op:
+                                        exit = "YES"
+                                        print >>sys.stderr, "Option collision shortop is \"%s\"\nField is %s" % (op,field)
+                for op in self.longop:
+                        for field,vals in self.attr.iteritems():
+                                if vals['Cli_arg_short'] == op:
+                                        exit = "YES"
+                                        print >>sys.stderr, "Option collision shortop is \"%s\"\nField is %s" % (op,field)
+                
+                if exit is "YES":
+                        print >>sys.stderr, "Sanity Check Failed."
+                        sys.exit(123)
         ## END class_sanity_check(self)
         
         
@@ -542,15 +638,12 @@ class CLIUtil(LSCfileAddMetadataAttr):
                         opts, args = getopt.getopt(sys.argv[1:], self.shortop, self.longop)
                 except getopt.GetoptError:
                         print >>sys.stderr, "Error parsing command line"
-                        ## DEBUG
-                        print >>sys.stderr, "shoptop %s\nlongop %s" % (self.shortop,str(self.longop))
-                        ## END DEBUG
                         print >>sys.stderr, "Enter 'LSCfileAdd --help' for usage"
                         sys.exit(1)
-                
                 for o, a in opts:
                         # strip leading "-"'s
                         o = o.lstrip("-")
+                        
                         if o == "h" or o == "help":
                                 self.print_usage()
                                 sys.exit(0)
@@ -593,13 +686,13 @@ class CLIUtil(LSCfileAddMetadataAttr):
                 # Now actually process command line arguments
                 #if not clientMethod:
                 #        print >>sys.stderr, "Bad combination or missing options"
-                #        print >>sys.stderr, "Enter 'LSCdataFind --help' for usage"
+                #        print >>sys.stderr, "Enter 'LSCfileAdd --help' for usage"
                 #        sys.exit(1)
 
                 # determine server and port
                 #if not hostPortString:
                 #        print >>sys.stderr, "No LDRdataFindServer specified"
-                #        print >>sys.stderr, "Enter 'LSCdataFind --help' for usage"
+                #        print >>sys.stderr, "Enter 'LSCfileAdd --help' for usage"
                 #        sys.exit(1)
 
                 #if hostPortString.find(':') < 0:
