@@ -26,23 +26,26 @@ struct gengetopt_args_info
 {
   char * config_arg;	/* configuration file (in gengetopt format) to pass parameters.  */
   char * sky_grid_arg;	/* sky grid type (arcsin, plain_rectangular, sin_theta) (default='sin_theta').  */
+  char * skymap_orientation_arg;	/* orientation of produced skymaps: equatorial, ecliptic, band_axis (default='equatorial').  */
   int fine_factor_arg;	/* make fine grid this times finer (default='7').  */
+  double resolution_ratio_arg;	/* ratio that determines the coarsness of the grid (default='1.0').  */
+  double small_weight_ratio_arg;	/* ratio that determines which weight is too small to include in max statistics (default='0.2').  */
   char * input_arg;	/* path to input files (power or SFT).  */
   char * input_munch_arg;	/* how to derive SFT name from --input (highly arcane) (default='%s%ld').  */
   char * input_format_arg;	/* format of input files (GEO, SFT, Power) (default='GEO').  */
   char * segments_file_arg;	/* file with list of segments to process - this allows subsetting of full SFT set.  */
   char * veto_segments_file_arg;	/* file with list of segments *NOT* to process - this allows subsetting of full SFT set.  */
   char * output_arg;	/* output directory.  */
-  char * detresponse_path_arg;	/* path to detresponse program from lalapps.  */
-  char * pnmtopng_arg;	/* ppmtopng command (with path if necessary) for outputting images (default='pnmtopng').  */
-  char * earth_ephemeris_arg;	/* Earth ephemeris file.  */
-  char * sun_ephemeris_arg;	/* Sun ephemeris file.  */
+  char * ephemeris_path_arg;	/* path to detresponse program from lalapps.  */
+  char * earth_ephemeris_arg;	/* Earth ephemeris file, overrides ephemeris-path argument.  */
+  char * sun_ephemeris_arg;	/* Sun ephemeris file, overrides ephemeris-path argument.  */
   int first_bin_arg;	/* first frequency bin in the band to be analyzed.  */
   int nbins_arg;	/* number of frequency bins to analyze (default='501').  */
   int side_cut_arg;	/* number of bins to cut from each side due to corruption from doppler shifts.  */
   char * detector_arg;	/* detector location (i.e. LHO or LLO), passed to detresponse.  */
   double spindown_arg;	/* compensate for pulsar spindown during run (fdot) (default='0').  */
-  double orientation_arg;	/* orientation of the source (default='0').  */
+  double orientation_arg;	/* additional orientation phase, specifying 0.7853 will turn plus into cross (default='0').  */
+  int npolarizations_arg;	/* number of linear polarizations to profile, distributed uniformly between plus and cross (default='3').  */
   int no_demodulation_arg;	/* do not perform demodulation stage, analyze background only (default='0').  */
   int no_decomposition_arg;	/* do not perform noise decomposition stage, output simple statistics only (default='0').  */
   int no_am_response_arg;	/* force AM_response() function to return 1.0 irrespective of the arguments (default='0').  */
@@ -51,18 +54,14 @@ struct gengetopt_args_info
   int filter_lines_arg;	/* perform detection of lines in background noise and veto corresponding frequency bins (default='1').  */
   int nbands_arg;	/* split sky in this many bands for logging maximum upper limits (default='9').  */
   char * band_axis_arg;	/* which band axis to use for splitting sky into bands (perpendicular to band axis) (possible values: equatorial, auto, explicit(float,float,float) (default='auto').  */
-  double resolution_ratio_arg;	/* ratio that determines the coarsness of the grid (default='1.0').  */
-  double small_weight_ratio_arg;	/* ratio that determines which weight is too small to include in max statistics (default='0.2').  */
   double fake_ra_arg;	/* RA of fake signal to inject (default='3.14').  */
   double fake_dec_arg;	/* DEC of fake signal to inject (default='0.0').  */
   double fake_orientation_arg;	/* orientation of fake signal to inject (default='0.0').  */
   double fake_spindown_arg;	/* spindown of fake signal to inject (default='0.0').  */
   double fake_strain_arg;	/* amplitude of fake signal to inject (default='1e-23').  */
   double fake_freq_arg;	/* frequency of fake signal to inject.  */
-  int npolarizations_arg;	/* number of linear polarizations to profile, distributed uniformly between plus and cross (default='3').  */
   char * write_dat_arg;	/* regular expression describing which *.dat files to write (default='.*').  */
   char * write_png_arg;	/* regular expression describing which *.png files to write (default='.*').  */
-  char * skymap_orientation_arg;	/* orientation of produced skymaps: equatorial, ecliptic, band_axis (default='equatorial').  */
   double focus_ra_arg;	/* focus computation on a circular area with center at this RA.  */
   double focus_dec_arg;	/* focus computation on a circular area with center at this DEC.  */
   double focus_radius_arg;	/* focus computation on a circular area with this radius.  */
@@ -71,15 +70,17 @@ struct gengetopt_args_info
   int version_given ;	/* Whether version was given.  */
   int config_given ;	/* Whether config was given.  */
   int sky_grid_given ;	/* Whether sky-grid was given.  */
+  int skymap_orientation_given ;	/* Whether skymap-orientation was given.  */
   int fine_factor_given ;	/* Whether fine-factor was given.  */
+  int resolution_ratio_given ;	/* Whether resolution-ratio was given.  */
+  int small_weight_ratio_given ;	/* Whether small-weight-ratio was given.  */
   int input_given ;	/* Whether input was given.  */
   int input_munch_given ;	/* Whether input-munch was given.  */
   int input_format_given ;	/* Whether input-format was given.  */
   int segments_file_given ;	/* Whether segments-file was given.  */
   int veto_segments_file_given ;	/* Whether veto-segments-file was given.  */
   int output_given ;	/* Whether output was given.  */
-  int detresponse_path_given ;	/* Whether detresponse-path was given.  */
-  int pnmtopng_given ;	/* Whether pnmtopng was given.  */
+  int ephemeris_path_given ;	/* Whether ephemeris-path was given.  */
   int earth_ephemeris_given ;	/* Whether earth-ephemeris was given.  */
   int sun_ephemeris_given ;	/* Whether sun-ephemeris was given.  */
   int first_bin_given ;	/* Whether first-bin was given.  */
@@ -88,6 +89,7 @@ struct gengetopt_args_info
   int detector_given ;	/* Whether detector was given.  */
   int spindown_given ;	/* Whether spindown was given.  */
   int orientation_given ;	/* Whether orientation was given.  */
+  int npolarizations_given ;	/* Whether npolarizations was given.  */
   int no_demodulation_given ;	/* Whether no-demodulation was given.  */
   int no_decomposition_given ;	/* Whether no-decomposition was given.  */
   int no_am_response_given ;	/* Whether no-am-response was given.  */
@@ -96,18 +98,14 @@ struct gengetopt_args_info
   int filter_lines_given ;	/* Whether filter-lines was given.  */
   int nbands_given ;	/* Whether nbands was given.  */
   int band_axis_given ;	/* Whether band-axis was given.  */
-  int resolution_ratio_given ;	/* Whether resolution-ratio was given.  */
-  int small_weight_ratio_given ;	/* Whether small-weight-ratio was given.  */
   int fake_ra_given ;	/* Whether fake-ra was given.  */
   int fake_dec_given ;	/* Whether fake-dec was given.  */
   int fake_orientation_given ;	/* Whether fake-orientation was given.  */
   int fake_spindown_given ;	/* Whether fake-spindown was given.  */
   int fake_strain_given ;	/* Whether fake-strain was given.  */
   int fake_freq_given ;	/* Whether fake-freq was given.  */
-  int npolarizations_given ;	/* Whether npolarizations was given.  */
   int write_dat_given ;	/* Whether write-dat was given.  */
   int write_png_given ;	/* Whether write-png was given.  */
-  int skymap_orientation_given ;	/* Whether skymap-orientation was given.  */
   int focus_ra_given ;	/* Whether focus-ra was given.  */
   int focus_dec_given ;	/* Whether focus-dec was given.  */
   int focus_radius_given ;	/* Whether focus-radius was given.  */

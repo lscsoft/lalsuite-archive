@@ -1,5 +1,5 @@
 PACKAGE=\"powerflux\"
-VERSION=\"1.1.0\"
+VERSION=\"1.1.1\"
 LALROOT=./../../../../
 LALINCLUDE=-I$(LALROOT)/include/
 LALLDFLAGS=-L$(LALROOT)/lib -L$(LALROOT)/support-lib -llalsupport -llal -lm
@@ -7,7 +7,7 @@ LDFLAGS=$(LALLDFLAGS) -lpng -lz
 #OPTFLAGS=-O2 -funroll-loops 
 OPTFLAGS=-O6 -mmmx -msse -mcpu=i686
 OPTFLAGS=-O6 -mcpu=i686 -funroll-loops
-OPTFLAGS=-O6 -msse2 -mcpu=i686 -funroll-loops
+#OPTFLAGS=-O6 -msse2 -mcpu=i686 -funroll-loops
 CFLAGS=-Wall -g $(OPTFLAGS) -DPACKAGE=$(PACKAGE) -DVERSION=$(VERSION) \
 	$(LALINCLUDE)
 CC=gcc $(CFLAGS)

@@ -323,7 +323,7 @@ if(!args_info.input_given){
 	fprintf(stderr,"** You must specify patch to input files (--input)\n");
 	exit(-1);
 	}
-if(!args_info.detresponse_path_given &&
+if(!args_info.ephemeris_path_given &&
 	!(args_info.earth_ephemeris_given && args_info.sun_ephemeris_given)){
 	fprintf(stderr,"** You must specify patch to ephemeris files (--detreponse-path or --XXX-ephemeris)\n");
 	exit(-1);
@@ -365,15 +365,15 @@ orientation=args_info.orientation_arg;
 if(args_info.earth_ephemeris_given){
 	earth_ephemeris=args_info.earth_ephemeris_arg;
 	} else {
-	earth_ephemeris=do_alloc(strlen(args_info.detresponse_path_arg)+20,1);
-	sprintf(earth_ephemeris,"%s/earth00-04.dat",args_info.detresponse_path_arg);
+	earth_ephemeris=do_alloc(strlen(args_info.ephemeris_path_arg)+20,1);
+	sprintf(earth_ephemeris,"%s/earth00-04.dat",args_info.ephemeris_path_arg);
 	}
 	
 if(args_info.sun_ephemeris_given){
 	sun_ephemeris=args_info.sun_ephemeris_arg;
 	} else {
-	sun_ephemeris=do_alloc(strlen(args_info.detresponse_path_arg)+20,1);
-	sprintf(sun_ephemeris,"%s/sun00-04.dat",args_info.detresponse_path_arg);
+	sun_ephemeris=do_alloc(strlen(args_info.ephemeris_path_arg)+20,1);
+	sprintf(sun_ephemeris,"%s/sun00-04.dat",args_info.ephemeris_path_arg);
 	}
 	
 init_ephemeris();

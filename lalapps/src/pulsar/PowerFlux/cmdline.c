@@ -42,23 +42,26 @@ cmdline_parser_print_help (void)
   printf("  -V, --version                    Print version and exit\n");
   printf("  -c, --config=STRING              configuration file (in gengetopt format) to \n                                     pass parameters\n");
   printf("      --sky-grid=STRING            sky grid type (arcsin, plain_rectangular, \n                                     sin_theta)  (default=`sin_theta')\n");
+  printf("      --skymap-orientation=STRING  orientation of produced skymaps: \n                                     equatorial, ecliptic, band_axis  (default=\n                                     `equatorial')\n");
   printf("      --fine-factor=INT            make fine grid this times finer  (default=\n                                     `7')\n");
+  printf("      --resolution-ratio=DOUBLE    ratio that determines the coarsness of the \n                                     grid  (default=`1.0')\n");
+  printf("      --small-weight-ratio=DOUBLE  ratio that determines which weight is too \n                                     small to include in max statistics  \n                                     (default=`0.2')\n");
   printf("  -i, --input=STRING               path to input files (power or SFT)\n");
   printf("      --input-munch=STRING         how to derive SFT name from --input (highly \n                                     arcane)  (default=`%s%ld')\n");
   printf("      --input-format=STRING        format of input files (GEO, SFT, Power)  \n                                     (default=`GEO')\n");
   printf("      --segments-file=STRING       file with list of segments to process - \n                                     this allows subsetting of full SFT set\n");
   printf("      --veto-segments-file=STRING  file with list of segments *NOT* to process \n                                     - this allows subsetting of full SFT set\n");
   printf("  -o, --output=STRING              output directory\n");
-  printf("      --detresponse-path=STRING    path to detresponse program from lalapps\n");
-  printf("      --pnmtopng=STRING            ppmtopng command (with path if necessary) \n                                     for outputting images  (default=\n                                     `pnmtopng')\n");
-  printf("      --earth-ephemeris=STRING     Earth ephemeris file\n");
-  printf("      --sun-ephemeris=STRING       Sun ephemeris file\n");
+  printf("      --ephemeris-path=STRING      path to detresponse program from lalapps\n");
+  printf("      --earth-ephemeris=STRING     Earth ephemeris file, overrides \n                                     ephemeris-path argument\n");
+  printf("      --sun-ephemeris=STRING       Sun ephemeris file, overrides \n                                     ephemeris-path argument\n");
   printf("  -f, --first-bin=INT              first frequency bin in the band to be \n                                     analyzed\n");
   printf("  -n, --nbins=INT                  number of frequency bins to analyze  \n                                     (default=`501')\n");
   printf("      --side-cut=INT               number of bins to cut from each side due to \n                                     corruption from doppler shifts\n");
   printf("  -d, --detector=STRING            detector location (i.e. LHO or LLO), passed \n                                     to detresponse\n");
   printf("      --spindown=DOUBLE            compensate for pulsar spindown during run \n                                     (fdot)  (default=`0')\n");
-  printf("      --orientation=DOUBLE         orientation of the source  (default=`0')\n");
+  printf("      --orientation=DOUBLE         additional orientation phase, specifying \n                                     0.7853 will turn plus into cross  \n                                     (default=`0')\n");
+  printf("      --npolarizations=INT         number of linear polarizations to profile, \n                                     distributed uniformly between plus and \n                                     cross  (default=`3')\n");
   printf("      --no-demodulation=INT        do not perform demodulation stage, analyze \n                                     background only  (default=`0')\n");
   printf("      --no-decomposition=INT       do not perform noise decomposition stage, \n                                     output simple statistics only  (default=\n                                     `0')\n");
   printf("      --no-am-response=INT         force AM_response() function to return 1.0 \n                                     irrespective of the arguments  (default=\n                                     `0')\n");
@@ -67,18 +70,14 @@ cmdline_parser_print_help (void)
   printf("      --filter-lines=INT           perform detection of lines in background \n                                     noise and veto corresponding frequency \n                                     bins  (default=`1')\n");
   printf("      --nbands=INT                 split sky in this many bands for logging \n                                     maximum upper limits  (default=`9')\n");
   printf("      --band-axis=STRING           which band axis to use for splitting sky \n                                     into bands (perpendicular to band axis) \n                                     (possible values: equatorial, auto, \n                                     explicit(float,float,float)  (default=\n                                     `auto')\n");
-  printf("      --resolution-ratio=DOUBLE    ratio that determines the coarsness of the \n                                     grid  (default=`1.0')\n");
-  printf("      --small-weight-ratio=DOUBLE  ratio that determines which weight is too \n                                     small to include in max statistics  \n                                     (default=`0.2')\n");
   printf("      --fake-ra=DOUBLE             RA of fake signal to inject  (default=\n                                     `3.14')\n");
   printf("      --fake-dec=DOUBLE            DEC of fake signal to inject  (default=\n                                     `0.0')\n");
   printf("      --fake-orientation=DOUBLE    orientation of fake signal to inject  \n                                     (default=`0.0')\n");
   printf("      --fake-spindown=DOUBLE       spindown of fake signal to inject  (default=\n                                     `0.0')\n");
   printf("      --fake-strain=DOUBLE         amplitude of fake signal to inject  \n                                     (default=`1e-23')\n");
   printf("      --fake-freq=DOUBLE           frequency of fake signal to inject\n");
-  printf("      --npolarizations=INT         number of linear polarizations to profile, \n                                     distributed uniformly between plus and \n                                     cross  (default=`3')\n");
   printf("      --write-dat=STRING           regular expression describing which *.dat \n                                     files to write  (default=`.*')\n");
   printf("      --write-png=STRING           regular expression describing which *.png \n                                     files to write  (default=`.*')\n");
-  printf("      --skymap-orientation=STRING  orientation of produced skymaps: \n                                     equatorial, ecliptic, band_axis  (default=\n                                     `equatorial')\n");
   printf("      --focus-ra=DOUBLE            focus computation on a circular area with \n                                     center at this RA\n");
   printf("      --focus-dec=DOUBLE           focus computation on a circular area with \n                                     center at this DEC\n");
   printf("      --focus-radius=DOUBLE        focus computation on a circular area with \n                                     this radius\n");
@@ -109,15 +108,17 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->version_given = 0 ;
   args_info->config_given = 0 ;
   args_info->sky_grid_given = 0 ;
+  args_info->skymap_orientation_given = 0 ;
   args_info->fine_factor_given = 0 ;
+  args_info->resolution_ratio_given = 0 ;
+  args_info->small_weight_ratio_given = 0 ;
   args_info->input_given = 0 ;
   args_info->input_munch_given = 0 ;
   args_info->input_format_given = 0 ;
   args_info->segments_file_given = 0 ;
   args_info->veto_segments_file_given = 0 ;
   args_info->output_given = 0 ;
-  args_info->detresponse_path_given = 0 ;
-  args_info->pnmtopng_given = 0 ;
+  args_info->ephemeris_path_given = 0 ;
   args_info->earth_ephemeris_given = 0 ;
   args_info->sun_ephemeris_given = 0 ;
   args_info->first_bin_given = 0 ;
@@ -126,6 +127,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->detector_given = 0 ;
   args_info->spindown_given = 0 ;
   args_info->orientation_given = 0 ;
+  args_info->npolarizations_given = 0 ;
   args_info->no_demodulation_given = 0 ;
   args_info->no_decomposition_given = 0 ;
   args_info->no_am_response_given = 0 ;
@@ -134,39 +136,38 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->filter_lines_given = 0 ;
   args_info->nbands_given = 0 ;
   args_info->band_axis_given = 0 ;
-  args_info->resolution_ratio_given = 0 ;
-  args_info->small_weight_ratio_given = 0 ;
   args_info->fake_ra_given = 0 ;
   args_info->fake_dec_given = 0 ;
   args_info->fake_orientation_given = 0 ;
   args_info->fake_spindown_given = 0 ;
   args_info->fake_strain_given = 0 ;
   args_info->fake_freq_given = 0 ;
-  args_info->npolarizations_given = 0 ;
   args_info->write_dat_given = 0 ;
   args_info->write_png_given = 0 ;
-  args_info->skymap_orientation_given = 0 ;
   args_info->focus_ra_given = 0 ;
   args_info->focus_dec_given = 0 ;
   args_info->focus_radius_given = 0 ;
 #define clear_args() { \
   args_info->config_arg = NULL; \
   args_info->sky_grid_arg = gengetopt_strdup("sin_theta") ;\
+  args_info->skymap_orientation_arg = gengetopt_strdup("equatorial") ;\
   args_info->fine_factor_arg = 7 ;\
+  args_info->resolution_ratio_arg = 1.0 ;\
+  args_info->small_weight_ratio_arg = 0.2 ;\
   args_info->input_arg = NULL; \
   args_info->input_munch_arg = gengetopt_strdup("%s%ld") ;\
   args_info->input_format_arg = gengetopt_strdup("GEO") ;\
   args_info->segments_file_arg = NULL; \
   args_info->veto_segments_file_arg = NULL; \
   args_info->output_arg = NULL; \
-  args_info->detresponse_path_arg = NULL; \
-  args_info->pnmtopng_arg = gengetopt_strdup("pnmtopng") ;\
+  args_info->ephemeris_path_arg = NULL; \
   args_info->earth_ephemeris_arg = NULL; \
   args_info->sun_ephemeris_arg = NULL; \
   args_info->nbins_arg = 501 ;\
   args_info->detector_arg = NULL; \
   args_info->spindown_arg = 0 ;\
   args_info->orientation_arg = 0 ;\
+  args_info->npolarizations_arg = 3 ;\
   args_info->no_demodulation_arg = 0 ;\
   args_info->no_decomposition_arg = 0 ;\
   args_info->no_am_response_arg = 0 ;\
@@ -175,17 +176,13 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->filter_lines_arg = 1 ;\
   args_info->nbands_arg = 9 ;\
   args_info->band_axis_arg = gengetopt_strdup("auto") ;\
-  args_info->resolution_ratio_arg = 1.0 ;\
-  args_info->small_weight_ratio_arg = 0.2 ;\
   args_info->fake_ra_arg = 3.14 ;\
   args_info->fake_dec_arg = 0.0 ;\
   args_info->fake_orientation_arg = 0.0 ;\
   args_info->fake_spindown_arg = 0.0 ;\
   args_info->fake_strain_arg = 1e-23 ;\
-  args_info->npolarizations_arg = 3 ;\
   args_info->write_dat_arg = gengetopt_strdup(".*") ;\
   args_info->write_png_arg = gengetopt_strdup(".*") ;\
-  args_info->skymap_orientation_arg = gengetopt_strdup("equatorial") ;\
 }
 
   clear_args();
@@ -205,15 +202,17 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
         { "version",	0, NULL, 'V' },
         { "config",	1, NULL, 'c' },
         { "sky-grid",	1, NULL, 0 },
+        { "skymap-orientation",	1, NULL, 0 },
         { "fine-factor",	1, NULL, 0 },
+        { "resolution-ratio",	1, NULL, 0 },
+        { "small-weight-ratio",	1, NULL, 0 },
         { "input",	1, NULL, 'i' },
         { "input-munch",	1, NULL, 0 },
         { "input-format",	1, NULL, 0 },
         { "segments-file",	1, NULL, 0 },
         { "veto-segments-file",	1, NULL, 0 },
         { "output",	1, NULL, 'o' },
-        { "detresponse-path",	1, NULL, 0 },
-        { "pnmtopng",	1, NULL, 0 },
+        { "ephemeris-path",	1, NULL, 0 },
         { "earth-ephemeris",	1, NULL, 0 },
         { "sun-ephemeris",	1, NULL, 0 },
         { "first-bin",	1, NULL, 'f' },
@@ -222,6 +221,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
         { "detector",	1, NULL, 'd' },
         { "spindown",	1, NULL, 0 },
         { "orientation",	1, NULL, 0 },
+        { "npolarizations",	1, NULL, 0 },
         { "no-demodulation",	1, NULL, 0 },
         { "no-decomposition",	1, NULL, 0 },
         { "no-am-response",	1, NULL, 0 },
@@ -230,18 +230,14 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
         { "filter-lines",	1, NULL, 0 },
         { "nbands",	1, NULL, 0 },
         { "band-axis",	1, NULL, 0 },
-        { "resolution-ratio",	1, NULL, 0 },
-        { "small-weight-ratio",	1, NULL, 0 },
         { "fake-ra",	1, NULL, 0 },
         { "fake-dec",	1, NULL, 0 },
         { "fake-orientation",	1, NULL, 0 },
         { "fake-spindown",	1, NULL, 0 },
         { "fake-strain",	1, NULL, 0 },
         { "fake-freq",	1, NULL, 0 },
-        { "npolarizations",	1, NULL, 0 },
         { "write-dat",	1, NULL, 0 },
         { "write-png",	1, NULL, 0 },
-        { "skymap-orientation",	1, NULL, 0 },
         { "focus-ra",	1, NULL, 0 },
         { "focus-dec",	1, NULL, 0 },
         { "focus-radius",	1, NULL, 0 },
@@ -349,6 +345,22 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
             break;
           }
           
+          /* orientation of produced skymaps: equatorial, ecliptic, band_axis.  */
+          else if (strcmp (long_options[option_index].name, "skymap-orientation") == 0)
+          {
+            if (args_info->skymap_orientation_given)
+              {
+                fprintf (stderr, "%s: `--skymap-orientation' option given more than once\n", CMDLINE_PARSER_PACKAGE);
+                clear_args ();
+                exit (EXIT_FAILURE);
+              }
+            args_info->skymap_orientation_given = 1;
+            if (args_info->skymap_orientation_arg)
+              free (args_info->skymap_orientation_arg); /* free default string */
+            args_info->skymap_orientation_arg = gengetopt_strdup (optarg);
+            break;
+          }
+          
           /* make fine grid this times finer.  */
           else if (strcmp (long_options[option_index].name, "fine-factor") == 0)
           {
@@ -360,6 +372,34 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
               }
             args_info->fine_factor_given = 1;
             args_info->fine_factor_arg = strtol (optarg,&stop_char,0);
+            break;
+          }
+          
+          /* ratio that determines the coarsness of the grid.  */
+          else if (strcmp (long_options[option_index].name, "resolution-ratio") == 0)
+          {
+            if (args_info->resolution_ratio_given)
+              {
+                fprintf (stderr, "%s: `--resolution-ratio' option given more than once\n", CMDLINE_PARSER_PACKAGE);
+                clear_args ();
+                exit (EXIT_FAILURE);
+              }
+            args_info->resolution_ratio_given = 1;
+            args_info->resolution_ratio_arg = strtod (optarg, NULL);
+            break;
+          }
+          
+          /* ratio that determines which weight is too small to include in max statistics.  */
+          else if (strcmp (long_options[option_index].name, "small-weight-ratio") == 0)
+          {
+            if (args_info->small_weight_ratio_given)
+              {
+                fprintf (stderr, "%s: `--small-weight-ratio' option given more than once\n", CMDLINE_PARSER_PACKAGE);
+                clear_args ();
+                exit (EXIT_FAILURE);
+              }
+            args_info->small_weight_ratio_given = 1;
+            args_info->small_weight_ratio_arg = strtod (optarg, NULL);
             break;
           }
           
@@ -424,36 +464,20 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
           }
           
           /* path to detresponse program from lalapps.  */
-          else if (strcmp (long_options[option_index].name, "detresponse-path") == 0)
+          else if (strcmp (long_options[option_index].name, "ephemeris-path") == 0)
           {
-            if (args_info->detresponse_path_given)
+            if (args_info->ephemeris_path_given)
               {
-                fprintf (stderr, "%s: `--detresponse-path' option given more than once\n", CMDLINE_PARSER_PACKAGE);
+                fprintf (stderr, "%s: `--ephemeris-path' option given more than once\n", CMDLINE_PARSER_PACKAGE);
                 clear_args ();
                 exit (EXIT_FAILURE);
               }
-            args_info->detresponse_path_given = 1;
-            args_info->detresponse_path_arg = gengetopt_strdup (optarg);
+            args_info->ephemeris_path_given = 1;
+            args_info->ephemeris_path_arg = gengetopt_strdup (optarg);
             break;
           }
           
-          /* ppmtopng command (with path if necessary) for outputting images.  */
-          else if (strcmp (long_options[option_index].name, "pnmtopng") == 0)
-          {
-            if (args_info->pnmtopng_given)
-              {
-                fprintf (stderr, "%s: `--pnmtopng' option given more than once\n", CMDLINE_PARSER_PACKAGE);
-                clear_args ();
-                exit (EXIT_FAILURE);
-              }
-            args_info->pnmtopng_given = 1;
-            if (args_info->pnmtopng_arg)
-              free (args_info->pnmtopng_arg); /* free default string */
-            args_info->pnmtopng_arg = gengetopt_strdup (optarg);
-            break;
-          }
-          
-          /* Earth ephemeris file.  */
+          /* Earth ephemeris file, overrides ephemeris-path argument.  */
           else if (strcmp (long_options[option_index].name, "earth-ephemeris") == 0)
           {
             if (args_info->earth_ephemeris_given)
@@ -467,7 +491,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
             break;
           }
           
-          /* Sun ephemeris file.  */
+          /* Sun ephemeris file, overrides ephemeris-path argument.  */
           else if (strcmp (long_options[option_index].name, "sun-ephemeris") == 0)
           {
             if (args_info->sun_ephemeris_given)
@@ -509,7 +533,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
             break;
           }
           
-          /* orientation of the source.  */
+          /* additional orientation phase, specifying 0.7853 will turn plus into cross.  */
           else if (strcmp (long_options[option_index].name, "orientation") == 0)
           {
             if (args_info->orientation_given)
@@ -520,6 +544,20 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
               }
             args_info->orientation_given = 1;
             args_info->orientation_arg = strtod (optarg, NULL);
+            break;
+          }
+          
+          /* number of linear polarizations to profile, distributed uniformly between plus and cross.  */
+          else if (strcmp (long_options[option_index].name, "npolarizations") == 0)
+          {
+            if (args_info->npolarizations_given)
+              {
+                fprintf (stderr, "%s: `--npolarizations' option given more than once\n", CMDLINE_PARSER_PACKAGE);
+                clear_args ();
+                exit (EXIT_FAILURE);
+              }
+            args_info->npolarizations_given = 1;
+            args_info->npolarizations_arg = strtol (optarg,&stop_char,0);
             break;
           }
           
@@ -637,34 +675,6 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
             break;
           }
           
-          /* ratio that determines the coarsness of the grid.  */
-          else if (strcmp (long_options[option_index].name, "resolution-ratio") == 0)
-          {
-            if (args_info->resolution_ratio_given)
-              {
-                fprintf (stderr, "%s: `--resolution-ratio' option given more than once\n", CMDLINE_PARSER_PACKAGE);
-                clear_args ();
-                exit (EXIT_FAILURE);
-              }
-            args_info->resolution_ratio_given = 1;
-            args_info->resolution_ratio_arg = strtod (optarg, NULL);
-            break;
-          }
-          
-          /* ratio that determines which weight is too small to include in max statistics.  */
-          else if (strcmp (long_options[option_index].name, "small-weight-ratio") == 0)
-          {
-            if (args_info->small_weight_ratio_given)
-              {
-                fprintf (stderr, "%s: `--small-weight-ratio' option given more than once\n", CMDLINE_PARSER_PACKAGE);
-                clear_args ();
-                exit (EXIT_FAILURE);
-              }
-            args_info->small_weight_ratio_given = 1;
-            args_info->small_weight_ratio_arg = strtod (optarg, NULL);
-            break;
-          }
-          
           /* RA of fake signal to inject.  */
           else if (strcmp (long_options[option_index].name, "fake-ra") == 0)
           {
@@ -749,20 +759,6 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
             break;
           }
           
-          /* number of linear polarizations to profile, distributed uniformly between plus and cross.  */
-          else if (strcmp (long_options[option_index].name, "npolarizations") == 0)
-          {
-            if (args_info->npolarizations_given)
-              {
-                fprintf (stderr, "%s: `--npolarizations' option given more than once\n", CMDLINE_PARSER_PACKAGE);
-                clear_args ();
-                exit (EXIT_FAILURE);
-              }
-            args_info->npolarizations_given = 1;
-            args_info->npolarizations_arg = strtol (optarg,&stop_char,0);
-            break;
-          }
-          
           /* regular expression describing which *.dat files to write.  */
           else if (strcmp (long_options[option_index].name, "write-dat") == 0)
           {
@@ -792,22 +788,6 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
             if (args_info->write_png_arg)
               free (args_info->write_png_arg); /* free default string */
             args_info->write_png_arg = gengetopt_strdup (optarg);
-            break;
-          }
-          
-          /* orientation of produced skymaps: equatorial, ecliptic, band_axis.  */
-          else if (strcmp (long_options[option_index].name, "skymap-orientation") == 0)
-          {
-            if (args_info->skymap_orientation_given)
-              {
-                fprintf (stderr, "%s: `--skymap-orientation' option given more than once\n", CMDLINE_PARSER_PACKAGE);
-                clear_args ();
-                exit (EXIT_FAILURE);
-              }
-            args_info->skymap_orientation_given = 1;
-            if (args_info->skymap_orientation_arg)
-              free (args_info->skymap_orientation_arg); /* free default string */
-            args_info->skymap_orientation_arg = gengetopt_strdup (optarg);
             break;
           }
           
@@ -993,6 +973,26 @@ cmdline_parser_configfile (char * const filename, struct gengetopt_args_info *ar
                 }
               continue;
             }
+          if (!strcmp(fopt, "skymap-orientation"))
+            {
+              if (override || !args_info->skymap_orientation_given)
+                {
+                  args_info->skymap_orientation_given = 1;
+                  if (fnum == 2)
+                    {
+                      if (args_info->skymap_orientation_arg)
+                        free (args_info->skymap_orientation_arg); /* free default string */
+                      args_info->skymap_orientation_arg = gengetopt_strdup (farg);
+                    }
+                  else
+                    {
+                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
+                               filename, line_num);
+                      exit (EXIT_FAILURE);
+                    }
+                }
+              continue;
+            }
           if (!strcmp(fopt, "fine-factor"))
             {
               if (override || !args_info->fine_factor_given)
@@ -1001,6 +1001,42 @@ cmdline_parser_configfile (char * const filename, struct gengetopt_args_info *ar
                   if (fnum == 2)
                     {
                       args_info->fine_factor_arg = strtol (farg,&stop_char,0);
+                    }
+                  else
+                    {
+                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
+                               filename, line_num);
+                      exit (EXIT_FAILURE);
+                    }
+                }
+              continue;
+            }
+          if (!strcmp(fopt, "resolution-ratio"))
+            {
+              if (override || !args_info->resolution_ratio_given)
+                {
+                  args_info->resolution_ratio_given = 1;
+                  if (fnum == 2)
+                    {
+                      args_info->resolution_ratio_arg = strtod (farg, NULL);
+                    }
+                  else
+                    {
+                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
+                               filename, line_num);
+                      exit (EXIT_FAILURE);
+                    }
+                }
+              continue;
+            }
+          if (!strcmp(fopt, "small-weight-ratio"))
+            {
+              if (override || !args_info->small_weight_ratio_given)
+                {
+                  args_info->small_weight_ratio_given = 1;
+                  if (fnum == 2)
+                    {
+                      args_info->small_weight_ratio_arg = strtod (farg, NULL);
                     }
                   else
                     {
@@ -1123,34 +1159,14 @@ cmdline_parser_configfile (char * const filename, struct gengetopt_args_info *ar
                 }
               continue;
             }
-          if (!strcmp(fopt, "detresponse-path"))
+          if (!strcmp(fopt, "ephemeris-path"))
             {
-              if (override || !args_info->detresponse_path_given)
+              if (override || !args_info->ephemeris_path_given)
                 {
-                  args_info->detresponse_path_given = 1;
+                  args_info->ephemeris_path_given = 1;
                   if (fnum == 2)
                     {
-                      args_info->detresponse_path_arg = gengetopt_strdup (farg);
-                    }
-                  else
-                    {
-                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
-                               filename, line_num);
-                      exit (EXIT_FAILURE);
-                    }
-                }
-              continue;
-            }
-          if (!strcmp(fopt, "pnmtopng"))
-            {
-              if (override || !args_info->pnmtopng_given)
-                {
-                  args_info->pnmtopng_given = 1;
-                  if (fnum == 2)
-                    {
-                      if (args_info->pnmtopng_arg)
-                        free (args_info->pnmtopng_arg); /* free default string */
-                      args_info->pnmtopng_arg = gengetopt_strdup (farg);
+                      args_info->ephemeris_path_arg = gengetopt_strdup (farg);
                     }
                   else
                     {
@@ -1295,6 +1311,24 @@ cmdline_parser_configfile (char * const filename, struct gengetopt_args_info *ar
                   if (fnum == 2)
                     {
                       args_info->orientation_arg = strtod (farg, NULL);
+                    }
+                  else
+                    {
+                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
+                               filename, line_num);
+                      exit (EXIT_FAILURE);
+                    }
+                }
+              continue;
+            }
+          if (!strcmp(fopt, "npolarizations"))
+            {
+              if (override || !args_info->npolarizations_given)
+                {
+                  args_info->npolarizations_given = 1;
+                  if (fnum == 2)
+                    {
+                      args_info->npolarizations_arg = strtol (farg,&stop_char,0);
                     }
                   else
                     {
@@ -1451,42 +1485,6 @@ cmdline_parser_configfile (char * const filename, struct gengetopt_args_info *ar
                 }
               continue;
             }
-          if (!strcmp(fopt, "resolution-ratio"))
-            {
-              if (override || !args_info->resolution_ratio_given)
-                {
-                  args_info->resolution_ratio_given = 1;
-                  if (fnum == 2)
-                    {
-                      args_info->resolution_ratio_arg = strtod (farg, NULL);
-                    }
-                  else
-                    {
-                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
-                               filename, line_num);
-                      exit (EXIT_FAILURE);
-                    }
-                }
-              continue;
-            }
-          if (!strcmp(fopt, "small-weight-ratio"))
-            {
-              if (override || !args_info->small_weight_ratio_given)
-                {
-                  args_info->small_weight_ratio_given = 1;
-                  if (fnum == 2)
-                    {
-                      args_info->small_weight_ratio_arg = strtod (farg, NULL);
-                    }
-                  else
-                    {
-                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
-                               filename, line_num);
-                      exit (EXIT_FAILURE);
-                    }
-                }
-              continue;
-            }
           if (!strcmp(fopt, "fake-ra"))
             {
               if (override || !args_info->fake_ra_given)
@@ -1595,24 +1593,6 @@ cmdline_parser_configfile (char * const filename, struct gengetopt_args_info *ar
                 }
               continue;
             }
-          if (!strcmp(fopt, "npolarizations"))
-            {
-              if (override || !args_info->npolarizations_given)
-                {
-                  args_info->npolarizations_given = 1;
-                  if (fnum == 2)
-                    {
-                      args_info->npolarizations_arg = strtol (farg,&stop_char,0);
-                    }
-                  else
-                    {
-                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
-                               filename, line_num);
-                      exit (EXIT_FAILURE);
-                    }
-                }
-              continue;
-            }
           if (!strcmp(fopt, "write-dat"))
             {
               if (override || !args_info->write_dat_given)
@@ -1643,26 +1623,6 @@ cmdline_parser_configfile (char * const filename, struct gengetopt_args_info *ar
                       if (args_info->write_png_arg)
                         free (args_info->write_png_arg); /* free default string */
                       args_info->write_png_arg = gengetopt_strdup (farg);
-                    }
-                  else
-                    {
-                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
-                               filename, line_num);
-                      exit (EXIT_FAILURE);
-                    }
-                }
-              continue;
-            }
-          if (!strcmp(fopt, "skymap-orientation"))
-            {
-              if (override || !args_info->skymap_orientation_given)
-                {
-                  args_info->skymap_orientation_given = 1;
-                  if (fnum == 2)
-                    {
-                      if (args_info->skymap_orientation_arg)
-                        free (args_info->skymap_orientation_arg); /* free default string */
-                      args_info->skymap_orientation_arg = gengetopt_strdup (farg);
                     }
                   else
                     {

@@ -11,14 +11,6 @@ void read_directory(char *prefix, long first,long last,
 	long first_bin,long bin_count,
 	long *nsegments, float **power, INT64 **gps);
 
-void get_patch_modulations(char *detresponse_path, char *ifo,
-	int Nx, int Ny, int Nsegments, 
-	INT64 *gps, double **patch_cross, double **patch_plus);
-
-void get_modulations(char *detresponse_path, char *ifo,
-	int Nx, int Ny, INT64 gps,
-	 double *cross, double *plus, double *relfreq);
-
 void dump_shorts(char *name, short *x, long count, long step);
 void dump_ints(char *name, int *x, long count, long step);
 void dump_floats(char *name, float *x, long count, long step);

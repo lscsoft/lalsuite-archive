@@ -3,7 +3,11 @@ purpose "Powerflux analysis program"
 option "config"		c "configuration file (in gengetopt format) to pass parameters" string no
 
 option "sky-grid"	- "sky grid type (arcsin, plain_rectangular, sin_theta)" string default="sin_theta" no
+option "skymap-orientation" - "orientation of produced skymaps: equatorial, ecliptic, band_axis" string default="equatorial" no
+
 option "fine-factor"	-  "make fine grid this times finer"	int default="7" no
+option "resolution-ratio" - "ratio that determines the coarsness of the grid" double default="1.0" no
+option "small-weight-ratio" - "ratio that determines which weight is too small to include in max statistics" double default="0.2" no
 
 option "input"		i "path to input files (power or SFT)" string no
 option "input-munch"    - "how to derive SFT name from --input (highly arcane)" string default="%s%ld" no
@@ -11,10 +15,10 @@ option "input-format"   - "format of input files (GEO, SFT, Power)" string defau
 option "segments-file"   - "file with list of segments to process - this allows subsetting of full SFT set" string no
 option "veto-segments-file"   - "file with list of segments *NOT* to process - this allows subsetting of full SFT set" string no
 option "output" 	o "output directory" string no
-option "detresponse-path" - "path to detresponse program from lalapps" string no
-option "pnmtopng"	- "ppmtopng command (with path if necessary) for outputting images" string default="pnmtopng" no	
-option "earth-ephemeris" - "Earth ephemeris file" string no
-option "sun-ephemeris" 	- "Sun ephemeris file" string no
+
+option "ephemeris-path" - "path to detresponse program from lalapps" string no
+option "earth-ephemeris" - "Earth ephemeris file, overrides ephemeris-path argument" string no
+option "sun-ephemeris" 	- "Sun ephemeris file, overrides ephemeris-path argument" string no
 
 option "first-bin"   	f "first frequency bin in the band to be analyzed" int no
 option "nbins"   	n "number of frequency bins to analyze" int default="501" no
@@ -23,7 +27,8 @@ option "side-cut"    	- "number of bins to cut from each side due to corruption 
 option "detector"   	d "detector location (i.e. LHO or LLO), passed to detresponse" string no
 
 option "spindown"	- "compensate for pulsar spindown during run (fdot)" double default="0" no
-option "orientation"    - "orientation of the source" double default="0" no
+option "orientation"    - "additional orientation phase, specifying 0.7853 will turn plus into cross" double default="0" no
+option "npolarizations" - "number of linear polarizations to profile, distributed uniformly between plus and cross" int default="3" no
 
 option "no-demodulation" - "do not perform demodulation stage, analyze background only" int default="0" no
 option "no-decomposition" - "do not perform noise decomposition stage, output simple statistics only" int default="0" no
@@ -35,9 +40,6 @@ option "filter-lines"   - "perform detection of lines in background noise and ve
 option "nbands"		- "split sky in this many bands for logging maximum upper limits" int default="9" no
 option "band-axis"	- "which band axis to use for splitting sky into bands (perpendicular to band axis) (possible values: equatorial, auto, explicit(float,float,float)" string default="auto" no
 
-option "resolution-ratio" - "ratio that determines the coarsness of the grid" double default="1.0" no
-option "small-weight-ratio" - "ratio that determines which weight is too small to include in max statistics" double default="0.2" no
-
 option "fake-ra"	- "RA of fake signal to inject" double default="3.14" no
 option "fake-dec"	- "DEC of fake signal to inject" double default="0.0" no
 option "fake-orientation"	- "orientation of fake signal to inject" double default="0.0" no
@@ -45,12 +47,8 @@ option "fake-spindown"	- "spindown of fake signal to inject" double default="0.0
 option "fake-strain"	- "amplitude of fake signal to inject" double default="1e-23" no
 option "fake-freq"	- "frequency of fake signal to inject" double no
 
-option "npolarizations" - "number of linear polarizations to profile, distributed uniformly between plus and cross" int default="3" no
-
 option "write-dat"      - "regular expression describing which *.dat files to write" string default=".*" no
 option "write-png"      - "regular expression describing which *.png files to write" string default=".*" no
-
-option "skymap-orientation" - "orientation of produced skymaps: equatorial, ecliptic, band_axis" string default="equatorial" no
 
 option "focus-ra"	- "focus computation on a circular area with center at this RA" double no
 option "focus-dec"	- "focus computation on a circular area with center at this DEC" double no
