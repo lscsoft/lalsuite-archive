@@ -395,9 +395,6 @@ if(!strcasecmp("arcsin", args_info.sky_grid_arg)){
 	}
 fine_grid=super_grid->super_grid;
 
-assign_dec_bands(patch_grid, args_info.dec_bands_arg);
-assign_dec_bands(fine_grid, args_info.dec_bands_arg);
-
 fprintf(stderr,"fine grid: max_n_ra=%d max_n_dec=%d\n", 
 	fine_grid->max_n_ra, fine_grid->max_n_dec);
 
@@ -519,7 +516,7 @@ fprintf(stderr,"average detector velocity RA (degrees) : %f\n", det_vel_ra*180.0
 fprintf(stderr,"average detector velocity DEC (degrees): %f\n", det_vel_dec*180.0/M_PI);
 
 orbital_axis[0]=0.0;
-orbital_axis[1]=sin(M_PI*23.44/180.0);
+orbital_axis[1]=-sin(M_PI*23.44/180.0);
 orbital_axis[2]=cos(M_PI*23.44/180.0);
 
 /* crossproduct gives the vector perpedicular to both the average doppler shift and
@@ -569,6 +566,10 @@ rotate_grid_xz(fine_grid, -band_axis_dec+M_PI/2.0);
 rotate_grid_xy(patch_grid, band_axis_ra);
 rotate_grid_xy(fine_grid, band_axis_ra);
 
+/* assign bands */
+assign_dec_bands(patch_grid, args_info.dec_bands_arg);
+assign_dec_bands(fine_grid, args_info.dec_bands_arg);
+
 /* now that we have new grid positions plot them */
 
 plot_grid_f(p, patch_grid, patch_grid->latitude,1);
@@ -587,6 +588,8 @@ plot_grid_f(p, fine_grid, fine_grid->longitude,1);
 RGBPic_dump_png("fine_longitude.png", p);
 dump_floats("fine_longitude.dat", fine_grid->longitude, fine_grid->npoints, 1);
 
+plot_grid_f(p, fine_grid, fine_grid->band_f,1);
+RGBPic_dump_png("bands.png", p);
 dump_ints("bands.dat", fine_grid->band, fine_grid->npoints, 1);
 
 /* do we need to inject fake signal ? */

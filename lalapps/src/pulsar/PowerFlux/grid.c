@@ -6,6 +6,7 @@
 #include "grid.h"
 
 extern FILE *LOG;
+extern double band_axis[3];
 
 /* Precompute values that are used later */
 void precompute_values(SKY_GRID *grid)
@@ -70,6 +71,7 @@ grid->name="arcsin rectangular";
 grid->latitude=do_alloc(grid->npoints, sizeof(SKY_GRID_TYPE));
 grid->longitude=do_alloc(grid->npoints, sizeof(SKY_GRID_TYPE));
 grid->band=do_alloc(grid->npoints, sizeof(*grid->band));
+grid->band_f=do_alloc(grid->npoints, sizeof(*grid->band_f));
 for(i=0;i<GRID_E_COUNT;i++)
 	grid->e[i]=do_alloc(grid->npoints, sizeof(SKY_GRID_TYPE));
 priv=do_alloc(1, sizeof(*priv));
@@ -107,6 +109,7 @@ grid->name="plain rectangular";
 grid->latitude=do_alloc(grid->npoints, sizeof(SKY_GRID_TYPE));
 grid->longitude=do_alloc(grid->npoints, sizeof(SKY_GRID_TYPE));
 grid->band=do_alloc(grid->npoints, sizeof(*grid->band));
+grid->band_f=do_alloc(grid->npoints, sizeof(*grid->band_f));
 for(i=0;i<GRID_E_COUNT;i++)
 	grid->e[i]=do_alloc(grid->npoints, sizeof(SKY_GRID_TYPE));
 priv=do_alloc(1, sizeof(*priv));
@@ -158,6 +161,7 @@ for(i=0;i<priv->num_dec;i++){
 grid->latitude=do_alloc(grid->npoints, sizeof(SKY_GRID_TYPE));
 grid->longitude=do_alloc(grid->npoints, sizeof(SKY_GRID_TYPE));
 grid->band=do_alloc(grid->npoints, sizeof(*grid->band));
+grid->band_f=do_alloc(grid->npoints, sizeof(*grid->band_f));
 for(i=0;i<GRID_E_COUNT;i++)
 	grid->e[i]=do_alloc(grid->npoints, sizeof(SKY_GRID_TYPE));
 grid->grid_priv=priv;
@@ -202,6 +206,7 @@ if(!strcmp(grid->name,"arcsin")){
 free(grid->latitude);
 free(grid->longitude);
 free(grid->band);
+free(grid->band_f);
 for(i=0;i<GRID_E_COUNT;i++)free(grid->e[i]);
 free(grid);
 }
@@ -223,11 +228,24 @@ for(i=0;i<sg->super_grid->npoints;i++){
 void assign_dec_bands(SKY_GRID *grid, int n_bands)
 {
 int i,k;
+SKY_GRID_TYPE angle, proj, x,y,z;
 for(i=0;i<grid->npoints;i++){
-	k=floor((0.5+grid->latitude[i]/M_PI)*n_bands);
+	/* convert into 3d */
+	x=cos(grid->longitude[i])*cos(grid->latitude[i]);
+	y=sin(grid->longitude[i])*cos(grid->latitude[i]);
+	z=sin(grid->latitude[i]);
+
+	proj=x*band_axis[0]+y*band_axis[1]+z*band_axis[2];
+	if(proj<-1.0)proj=-1.0;
+	if(proj>1.0)proj=1.0;
+	
+	angle=acosf(proj);
+	
+	k=floor((angle/M_PI)*n_bands);
 	if(k<0)k=0;
 	if(k==n_bands)k=n_bands-1;
 	grid->band[i]=k;
+	grid->band_f[i]=k;
 	}
 }
 
@@ -360,9 +378,9 @@ x=cos(RA_in)*cos(DEC_in);
 y=sin(RA_in)*cos(DEC_in);
 z=sin(DEC_in);
 
-x2=cos(angle)*x-sin(angle)*z;
+x2=cos(angle)*x+sin(angle)*z;
 y2=y;
-z2=sin(angle)*x+cos(angle)*z;
+z2=-sin(angle)*x+cos(angle)*z;
 
 *DEC_out=atan2f(z2, sqrt(x2*x2+y2*y2));
 *RA_out=atan2f(y2, x2);

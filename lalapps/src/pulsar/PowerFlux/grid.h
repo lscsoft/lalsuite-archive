@@ -15,6 +15,7 @@ typedef struct {
 	SKY_GRID_TYPE *latitude;
 	SKY_GRID_TYPE *longitude;
 	int *band;
+	float *band_f;  /* just a convenience data.. */
 	SKY_GRID_TYPE *e[GRID_E_COUNT];  /* 3d coordinates: 
 				0,1,2 - coordinates of the unit vector
 				2  - cos(M_PI_2-latitude)
