@@ -503,7 +503,8 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
       db = MySQLdb.connect(user=dbuser,passwd=dbpasswd,db=dbname)
       c = db.cursor()
       c.execute(sql)
-      result = [ x[0] for x in c.fetchall() ]
+      res = c.fetchall()
+      result = [ x[0] for x in res ]
       c.close()
       
       logger.debug("Method distinctAttribute: %d results found" % 
