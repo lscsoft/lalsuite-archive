@@ -42,8 +42,8 @@ NAME
 
 SYNOPSIS
         LSCdataFind --server=NAME:PORT --interferometer=NAME --type=NAME 
-               --gps-start-time=GPS --gps-end-time=GPS [ --lfns ] 
-               [ --strict-off ] [ --output-format (tcl|python|segwizard) ]
+               --gps-start-time=GPS --gps-end-time=GPS [ --strict-off ] 
+               [ --output-format (tcl|python|segwizard) ]
 
         LSCsegFind --server=NAME:PORT --show-interferometers
 
@@ -60,75 +60,76 @@ DESCRIPTION
         certain instrument and of a particular frame type within a GPS range.
 
         -v, --version
-                Print version information for LSCdataFind client
+                Print version information for LSCdataFind client.
 
         -i, --interferometer
-                interferometer that generated state vector information
-                Use --show-interferometers to see what is available
+                Comma separated list of interferometer names. The 
+                intersection of segments from each interferometer is
+                returned. Use --show-interferometers to see what is 
+                available.
 
         -t, --type  
-                comma separated list of interferometer state types
-                Use --show-types to see what is available
+                Comma separated list of interferometer states. The 
+                union of segments from all types specified is 
+                returned. Use --show-types to see what is available.
 
         -s, --gps-start-time 
-                start of GPS time range
+                Start of GPS time range.
 
         -e, --gps-end-time   
-                end of GPS time range
+                End of GPS time range.
 
         -r, --server
-                hostname and optional port of server to query, in the form
+                Hostname and optional port of server to query, in the form
                 host:port
 
         -w, --show-interferometers
-                list available observatory data
+                List available interferometer names.
 
         -y, --show-types
-                list available types
-
-        -l, --lfns
-                show logical file names of the frame files from which
-                the state segment information was derived insted of 
-                the actual segments
+                List available segment types.
 
         -S, --strict-off
-                the default behavior is to truncate segments so that 
+                The default behavior is to truncate segments so that 
                 returned segments are entirely in the interval
                 [gps-start-time, gps-end-time).  However if this option
                 is given, the entire non-truncated segment is returned 
                 if any part of it overlaps the interval.               
 
         -o, --output-format (tcl|python|segwizard)
-                return the segments as a TCL list, a python list or in
+                Return the segments as a TCL list, a python list or in
                 segwizard format. If not specified the default is two 
                 space separated columns containing segment start and 
-                end times
+                end times.
 
         -p, --ping
-                ping the LSCsegFind server
+                Ping the LSCsegFind server.
 
         -h, --help  
-                show this usage message
+                Show this usage message.
 
 ENVIRONMENT
 
         LSC_SEGFIND_SERVER can be set to avoid having to use the 
         --server option on the command line. 
 
-EXAMPLE
+EXAMPLES
 
-[user@host]$ LSCsegFind --server ldas-test.ligo.caltech.edu --show-types
-Unlocked
-Up
-Science
+[user@host]$ LSCsegFind --server ldas-cit.ligo.caltech.edu --show-types
+Commissioning_Up
+Commissioning_Up_PSL_Error
 Injection
+Science
+Science_Conlog
+Science_Loss
+Science_Up
 
-[user@host] LSCsegFind --server ldas-test.ligo.caltech.edu --interferometer L1
-  --type Science --gps-start-time 700000163 --gps-end-time 700000400
-700000163 700000223
-700000324 700000400
-
-
+[user@host]$ LSCsegFind --server=ldas.ligo-la.caltech.edu --interferometer L1 --type Science --gps-start-time 793756813 --gps-end-time 793802413
+793756813 793761885
+793763207 793767231
+793767680 793784113
+793784732 793787382
+793788056 793796486
 
 \
 """
@@ -211,9 +212,6 @@ for o, a in opts:
     clientMethod = 'showInterferometers'
   elif o in ("-y", "--show-types"):
     clientMethod = 'showTypes'
-  elif o in ("-l", "--lfns"):
-    lfns = True
-    clientMethod = 'findStateLFNs'
   elif o in ("-S", "--strict-off"):
     clientMethodArgDict['strict'] = False
   elif o in ("-o", "--output-format"):
