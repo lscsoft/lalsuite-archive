@@ -74,6 +74,8 @@ class LIGOMetadataDatabase:
     self.database = database
     self.uniqueids = {}
     conn = mxdb.Connect(database)
+  def __len__(self):
+    return len(self.args)
     curs = conn.cursor()
     curs.execute("SELECT tabname FROM syscat.tables WHERE definer<>'SYSIBM'")
     self.tables = curs.fetchall()
