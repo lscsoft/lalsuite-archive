@@ -128,7 +128,13 @@ if(fread(tmp,4,count*2,fin)<count*2){
 	return -1;
 	}
 /* reverse normalization applied to geo format files */
-factor=1.0; /* make_sft_op does not apply normalization .. */
+if(timebase < 0) {
+	factor=1.0; /* make_sft_op did not apply normalization .. */
+	fprintf(stderr,"** Timebase is negative, assuming unnormalized data\n");
+	fprintf(LOG,"** Timebase is negative, assuming unnormalized data\n");
+	} else {
+	factor=(0.5*1800.0*16384.0)/nbins; /* use fixed normalization for 1800 sec SFTs .. */
+	}
 factor*=factor; /* square it */
 for(i=0;i<count;i++){
 	data[i]=(tmp[2*i]*tmp[2*i]+tmp[2*i+1]*tmp[2*i+1])*factor;
