@@ -369,7 +369,7 @@ class LIGOMetadata:
       tab = re.compile(r'FROM\s+([A-Z0-0_]+)([,\s]+|$)').search(sql).group(1)
     except AttributeError:
       raise LIGOLwDBError, 'could not find table name in query '+sql
-    sql = sql.lower()
+    self.table[tab] = {
       'pos' : 0,
       'column' : {},
       'stream' : (), 
@@ -380,7 +380,7 @@ class LIGOMetadata:
     except mxdb.Error, e:
       raise LIGOLwDBError, e[2]
     desc = self.curs.description
-      tab = re.compile(r'from\s([a-z0-0_]+)[,\s]+').search(sql).group(1)
+      tab = re.compile(r'FROM\s+([A-Z0-0_]+)[,\s]+').search(sql).group(1)
       try:
         self.table[tab]['column'][col] = sqltypes[typ]
       except KeyError:
@@ -395,7 +395,6 @@ class LIGOMetadata:
   def xml(self):
     """Convert a table dictionary to LIGO lightweight XML"""
     if len(self.table) == 0:
-      col = col.lower()
       raise LIGOLwDBError, 'attempt to convert empty table to xml'
     ligolw = """\
 <?xml version='1.0' encoding='utf-8' ?>
@@ -486,7 +485,8 @@ class LIGOMetadata:
       for tup in self.table[tab]['stream']:
         if stridx != 0:
           ligolw += ',\n      '
-<LIGO_LW>"""
+        colidx = 0
+        for tupi in tup:
           if tupi is not None:
             coltype = self.table[tab]['column'][self.table[tab]['orderedcol'][colidx]]
             if re.match(r'\Ailwd:char_u\Z',coltype):
