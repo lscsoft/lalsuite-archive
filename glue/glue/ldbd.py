@@ -341,22 +341,20 @@ class LIGOMetadata:
           raise LIGOLwDBError, e[2]
       except KeyError:
         pass
-
     self.dbcon.commit()
 
 
-        print self.table[tab]['query']
   def select(self,sql):
     """
     Execute an SQL select statement and stuff the results into a
     dictionary.
-          print 'rolling back transaction'
+
+    sql = the (case insensitve) SQL statment to execute
+    """
     if len(self.table) != 0:
       raise LIGOLwDBError, 'attempt to fill non-empty table from database'
     ligolw = ''
     sql = sql.upper()
-
-    print 'committing transaction'
     self.table = {}
     sqltypes = {
       -2 : 'ilwd:char_u',
