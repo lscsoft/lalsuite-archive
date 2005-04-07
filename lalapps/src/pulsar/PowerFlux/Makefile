@@ -109,6 +109,9 @@ S3.H1.silver: powerflux
 
 WL=-Wl,--rpath -Wl,/home/volodya/LIGO/LAL/support-lib/.libs -Wl,--rpath -Wl,/home/volodya/LIGO/LAL/lib/.libs -Wl,--rpath -Wl,/usr/local/lib -Wl,--rpath -Wl,/usr/local/lib
 
+dat2skymap: grid.o rastermagic.o dat2skymap.o png.o
+	$(CC) grid.o rastermagic.o dat2skymap.o png.o -o dat2skymap -static $(LDFLAGS)
+
 powerflux: $(OBJS)
 	$(CC) $(OBJS) -o powerflux -static $(LDFLAGS) -lgsl -lgslcblas
 	ls -l powerflux
