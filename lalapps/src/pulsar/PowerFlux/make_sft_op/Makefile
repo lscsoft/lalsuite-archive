@@ -22,7 +22,7 @@ UPLOAD_FILES1=README.txt Makefile make_sft.c weighted_sum.c make_sft_conf.l \
 	make_cross_section.c cross_section.tcl op_method.c op_method.h \
 	make_sft_utils.c make_sft_td_data.c make_sft_op.c make_sft_op_conf.l
 	
-UPLOAD_FILES=make_sft_op make_sft	
+UPLOAD_FILES=make_sft_op make_sft_stiched	
 	
 TAR_FILES=SFT-3/README.txt SFT-3/Makefile SFT-3/make_sft.c SFT-3/weighted_sum.c \
 	 SFT-3/make_sft_conf.l SFT-3/make_sft_global.h SFT-3/input.example \
@@ -33,17 +33,17 @@ TAR_FILES=SFT-3/README.txt SFT-3/Makefile SFT-3/make_sft.c SFT-3/weighted_sum.c 
 all: 
 # Do nothing so lalapps build does not break
 
-programs: make_sft weighted_sum make_cross_section make_sft_op
+programs: make_sft_stiched weighted_sum make_cross_section make_sft_op
 
 
-example: make_sft
-	time ./make_sft < input.example
+example: make_sft_stiched
+	time ./make_sft_stiched < input.example
 
-test1: make_sft
-	time ./make_sft < input.test1
+test1: make_sft_stiched
+	time ./make_sft_stiched < input.test1
 	
-test2: make_sft
-	time ./make_sft < input.test2
+test2: make_sft_stiched
+	time ./make_sft_stiched < input.test2
 	
 testop1: make_sft_op
 	time ./make_sft_op < input.testop1
@@ -65,12 +65,12 @@ make_sft_op_conf.c: make_sft_op_conf.l
 	flex -omake_sft_op_conf.c make_sft_op_conf.l
 
 	
-make_sft: make_sft.c make_sft_conf.c make_sft_global.h make_sft_calibration.c op_method.h op_method.c\
+make_sft_stiched: make_sft.c make_sft_conf.c make_sft_global.h make_sft_calibration.c op_method.h op_method.c\
 	make_sft_utils.c make_sft_td_data.c
 	$(CC) $(CFLAGS) $(LDFLAGS) make_sft.c make_sft_conf.c make_sft_calibration.c \
 	op_method.c make_sft_utils.c make_sft_td_data.c \
-	-o make_sft -static -lFrame -llal -lm -lfftw3f -lfftw3
-	ls -l make_sft
+	-o make_sft_stiched -static -lFrame -llal -lm -lfftw3f -lfftw3
+	ls -l make_sft_stiched
 
 make_sft_op: make_sft_op.c make_sft_op_conf.c make_sft_global.h make_sft_calibration.c op_method.h op_method.c\
 	make_sft_utils.c make_sft_td_data.c
@@ -92,11 +92,11 @@ make_sft_condor: make_sft.c make_sft_conf.c make_sft_global.h make_sft_calibrati
 
 hydra: make_sft_hydra make_sft_op_hydra
 
-make_sft_hydra: make_sft.c make_sft_conf.c make_sft_global.h make_sft_calibration.c \
+make_sft_stiched_hydra: make_sft.c make_sft_conf.c make_sft_global.h make_sft_calibration.c \
 	op_method.h op_method.c make_sft_utils.c
 	gcc $(CFLAGS) -L../framelib/bin -L../LAL/lib  make_sft.c make_sft_conf.c make_sft_calibration.c \
 	op_method.c make_sft_utils.c make_sft_td_data.c \
-	-o make_sft_hydra -static -lFrame -llal -lsrfftw -lsfftw -lm
+	-o make_sft_stiched_hydra -static -lFrame -llal -lsrfftw -lsfftw -lm
 
 
 make_sft_op_hydra: make_sft_op.c make_sft_op_conf.c make_sft_global.h make_sft_calibration.c op_method.h op_method.c\
