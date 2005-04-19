@@ -31,7 +31,10 @@ option "hist-bins"      - "number of bins to use when producing histograms" int 
 option "detector"   	d "detector location (i.e. LHO or LLO), passed to detresponse" string no
 
 option "spindown-start-time" - "specify spindown start time in GPS sec. Assumed to be the first SFT segment by default" double no
-option "spindown"	- "compensate for pulsar spindown during run (fdot)" double default="0" no
+option "spindown-start"	- "first spindown value to process" double default="0.0" no
+option "spindown-step"	- "step for processing multiple spindown values" double default="0.0" no
+option "spindown-count" - "how many separate spindown values to process" int default="1" no
+
 option "orientation"    - "additional orientation phase, specifying 0.7853 will turn plus into cross" double default="0" no
 option "nlinear-polarizations" - "even number of linear polarizations to profile, distributed uniformly between 0 and PI/2" int default="4" no
 

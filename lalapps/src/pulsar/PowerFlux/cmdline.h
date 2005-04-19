@@ -47,7 +47,9 @@ struct gengetopt_args_info
   int hist_bins_arg;	/* number of bins to use when producing histograms (default='200').  */
   char * detector_arg;	/* detector location (i.e. LHO or LLO), passed to detresponse.  */
   double spindown_start_time_arg;	/* specify spindown start time in GPS sec. Assumed to be the first SFT segment by default.  */
-  double spindown_arg;	/* compensate for pulsar spindown during run (fdot) (default='0').  */
+  double spindown_start_arg;	/* first spindown value to process (default='0.0').  */
+  double spindown_step_arg;	/* step for processing multiple spindown values (default='0.0').  */
+  int spindown_count_arg;	/* how many separate spindown values to process (default='1').  */
   double orientation_arg;	/* additional orientation phase, specifying 0.7853 will turn plus into cross (default='0').  */
   int nlinear_polarizations_arg;	/* even number of linear polarizations to profile, distributed uniformly between 0 and PI/2 (default='4').  */
   int no_demodulation_arg;	/* do not perform demodulation stage, analyze background only (default='0').  */
@@ -100,7 +102,9 @@ struct gengetopt_args_info
   int hist_bins_given ;	/* Whether hist-bins was given.  */
   int detector_given ;	/* Whether detector was given.  */
   int spindown_start_time_given ;	/* Whether spindown-start-time was given.  */
-  int spindown_given ;	/* Whether spindown was given.  */
+  int spindown_start_given ;	/* Whether spindown-start was given.  */
+  int spindown_step_given ;	/* Whether spindown-step was given.  */
+  int spindown_count_given ;	/* Whether spindown-count was given.  */
   int orientation_given ;	/* Whether orientation was given.  */
   int nlinear_polarizations_given ;	/* Whether nlinear-polarizations was given.  */
   int no_demodulation_given ;	/* Whether no-demodulation was given.  */

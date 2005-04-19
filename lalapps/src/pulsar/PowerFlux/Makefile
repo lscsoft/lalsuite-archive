@@ -1,5 +1,5 @@
 PACKAGE=\"powerflux\"
-VERSION=\"1.2.15\"
+VERSION=\"1.2.16\"
 LALROOT=./../../../../
 LALINCLUDE=-I$(LALROOT)/include/
 LALLDFLAGS=-L$(LALROOT)/lib -L$(LALROOT)/support-lib -llalsupport -llal -lm
@@ -60,8 +60,9 @@ test2: test_rm
 test3: powerflux
 	time ./powerflux --input-format=Power -i /home/volodya/LIGO/S3/S3.H1.op/power.H1. -f $(BAND) -n 501 \
 		--ephemeris-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
-		--detector=LHO --three-bins=0 --do-cutoff=0 --fine-factor=5 \
-		--subtract-background=1 --ks-test=1
+		--detector=LHO --three-bins=0 --do-cutoff=0 \
+		--subtract-background=1 --ks-test=1 \
+		--spindown-start=0.0 --spindown-step=1e-9 --spindown-count=2
 #		 --focus-ra=2.2 --focus-dec=0.3 --focus-radius=0.1 \
 		 --band-axis=explicit\(0.5,0.3,0.1\)
 #		 --write-dat=NONE --write-png=ul\.png\$ \
@@ -69,7 +70,7 @@ test3: powerflux
 test4: powerflux
 	valgrind --tool=cachegrind ./powerflux -i /home/volodya/LIGO/S2/S2.L1.op/power.L1. -f $(BAND) -n 501 \
 		--ephemeris-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
-		--detector=LLO --three-bins=0 --do-cutoff=0
+		--detector=LLO --three-bins=0 --do-cutoff=0 --ks-test=1 --subtract-background=1
 
 test4b: powerflux.hydra
 	valgrind --tool=memcheck --error-limit=no ./powerflux.hydra --input-format=Power -i /home/volodya/LIGO/S2/S2.L1.op/power.L1. -f $(BAND) -n 501 \

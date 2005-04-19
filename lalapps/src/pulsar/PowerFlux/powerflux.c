@@ -22,7 +22,7 @@ extern int ntotal_polarizations, nlinear_polarizations;
 extern POLARIZATION *polarizations;
 
 FILE *LOG=NULL, *FILE_LOG=NULL;
-time_t start_time, end_time;
+time_t start_time, end_time, stage_time;
 
 float *power=NULL; /* nsegments, nbins */
 extern INT64 *gps;
@@ -46,6 +46,8 @@ float TMedian,expTMedian;
 float *tm=NULL;
 double *mean=NULL,*weighted_mean=NULL,*weight=NULL,*sigma=NULL,*freq_d=NULL,*hours_d=NULL;
 
+int subinstance;
+char *subinstance_name;
 
 int do_CutOff=1;
 
@@ -393,7 +395,6 @@ init_hookup();
 init_statistics();
 
 do_CutOff=args_info.do_cutoff_arg;
-spindown=args_info.spindown_arg;
 
 if(args_info.earth_ephemeris_given){
 	earth_ephemeris=args_info.earth_ephemeris_arg;
@@ -488,9 +489,13 @@ fprintf(stderr,"fine grid: max_n_ra=%d max_n_dec=%d\n",
 
 side_cut=args_info.side_cut_arg;
 if(!args_info.side_cut_given){
+	double max_spindown;
+	
+	max_spindown=fabs(args_info.spindown_start_arg+(args_info.spindown_count_arg-1)*args_info.spindown_step_arg);
+	if(fabs(args_info.spindown_start_arg)>max_spindown)max_spindown=fabs(args_info.spindown_start_arg);
 	/* determine side cut from resolution, 6.0 factor is empirical */
 	/* also add in spindown contribution - for now just plan for 4 months of data */
-	side_cut=10+ceil(M_PI/resolution)/6.0+ceil(fabs((1800.0)*args_info.spindown_arg*10368000));
+	side_cut=10+ceil(M_PI/resolution)/6.0+ceil((1800.0)*max_spindown*10368000);
 	}
 fprintf(stderr,"side_cut=%d\n", side_cut);
 first_bin=args_info.first_bin_arg-side_cut;
@@ -557,7 +562,9 @@ fprintf(LOG,"fine_type : %s\n",fine_grid->name);
 fprintf(LOG,"fine_grid npoints  : %d\n", fine_grid->npoints);
 fprintf(LOG,"fine_grid : %dx%d\n", fine_grid->max_n_ra, fine_grid->max_n_dec);
 fprintf(LOG,"input_data: %s\n",args_info.input_arg);
-fprintf(LOG,"spindown  : %g\n", spindown);
+fprintf(LOG,"first spindown: %g\n", args_info.spindown_start_arg);
+fprintf(LOG,"spindown step : %g\n", args_info.spindown_step_arg);
+fprintf(LOG,"spindown count: %d\n", args_info.spindown_count_arg);
 fprintf(LOG,"orientation: %g\n", args_info.orientation_arg);
 fprintf(LOG,"make cutoff: %s\n",do_CutOff ? "yes" : "no" );
 fflush(LOG);
@@ -575,7 +582,7 @@ fprintf(LOG,"nsegments : %d\n",nsegments);
 fprintf(LOG,"first gps : %lld\n",gps[0]);
 fprintf(LOG,"last gps  : %lld\n",gps[nsegments-1]);
 
-if((spindown==0.0) || !args_info.spindown_start_time_given){
+if(!args_info.spindown_start_time_given){
 	spindown_start=gps[0];
 	} else {
 	spindown_start=args_info.spindown_start_time_arg;
@@ -1075,8 +1082,28 @@ free(patch_cross);
 patch_cross=NULL;
 #endif
 
-/* MAIN LOOP stage */
-fine_grid_stage();
+init_fine_grid_stage();
+
+subinstance_name=do_alloc(20, 1);
+for(subinstance=0;subinstance<args_info.spindown_count_arg;subinstance++){
+	time(&stage_time);
+	fprintf(LOG, "instance_start: %d\n", stage_time-start_time);
+	fprintf(stderr, "instance_start: %d\n", stage_time-start_time);
+
+	if(args_info.spindown_count_arg<2)subinstance_name[0]=0;
+		else snprintf(subinstance_name, 20, "si_%d_", subinstance);
+
+	spindown=args_info.spindown_start_arg+subinstance*args_info.spindown_step_arg;
+	fprintf(LOG,"-------------------------------- SUBINSTANCE %d ------------------------------\n", subinstance);
+	fprintf(LOG,"subinstance: %d\n", subinstance);
+	fprintf(LOG,"spindown  : %g\n", spindown);
+
+	fprintf(stderr,"-------------------------------- SUBINSTANCE %d ------------------------------\n", subinstance);
+	/* MAIN LOOP stage */
+	fine_grid_stage();
+
+	fflush(LOG);
+	}
 
 wrap_up();
 return 0;

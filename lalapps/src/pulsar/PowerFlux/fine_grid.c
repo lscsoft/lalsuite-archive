@@ -46,6 +46,9 @@ extern double resolution;
 
 extern float *frequencies;
 
+extern int subinstance;
+extern char *subinstance_name;
+
 SUM_TYPE normalizing_weight;
 
 int stored_fine_bins=0;
@@ -418,7 +421,7 @@ for(i=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[o
 	/* Output point data if requested */
 	if(args_info.dump_points_arg){
 		char s[20000];
-		snprintf(s, 20000, "points/%s_%d.png", pol->name, offset);
+		snprintf(s, 20000, "points/%s%s_%d.png", subinstance_name, pol->name, offset);
 		if(clear_name_png(s)){
 			RGBPic *p;
 			PLOT *plot;
@@ -443,7 +446,7 @@ for(i=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[o
 			free_RGBPic(p);
 			}
 			
-		snprintf(s, 20000, "points/%s_%d.dat", pol->name, offset);
+		snprintf(s, 20000, "points/%s%s_%d.dat", subinstance_name, pol->name, offset);
 		dump_floats(s, tmp, useful_bins, 1);
 		}
 	
@@ -565,12 +568,12 @@ if(fine_grid->max_n_dec<800){
 plot=make_plot(p->width, p->height);
 
 #define OUTPUT_SKYMAP(format, field)	{\
-	snprintf(s,19999, format ".png",pol->name); \
+	snprintf(s,19999, "%s" format ".png", subinstance_name, pol->name); \
 	if(clear_name_png(s)){ \
 		plot_grid_f(p, fine_grid, pol->skymap.field, 1); \
 		RGBPic_dump_png(s, p); \
 		} \
-	snprintf(s,19999, format ".dat",pol->name); \
+	snprintf(s,19999, "%s" format ".dat", subinstance_name, pol->name); \
 	dump_floats(s, pol->skymap.field, fine_grid->npoints, 1); \
 	}
 
@@ -588,7 +591,7 @@ if(args_info.ks_test_arg){
 	OUTPUT_SKYMAP("%s_ks_test", ks_test);
 
 	compute_histogram_f(hist, pol->skymap.ks_test, fine_grid->band, fine_grid->npoints);
-	snprintf(s,19999,"hist_%s_ks_test",pol->name);
+	snprintf(s,19999,"%shist_%s_ks_test", subinstance_name, pol->name);
 	print_histogram(LOG, hist, s);
 	
 	OUTPUT_SKYMAP("%s_ks_count", ks_count);
@@ -598,10 +601,10 @@ OUTPUT_SKYMAP("%s_max_upper_limit", max_upper_limit);
 OUTPUT_SKYMAP("%s_max_lower_limit", max_lower_limit);
 OUTPUT_SKYMAP("%s_arg_freq", freq_map);
 
-snprintf(s,19999,"%s_max_dx.dat",pol->name);
+snprintf(s,19999,"%s%s_max_dx.dat", subinstance_name, pol->name);
 dump_floats(s,pol->skymap.max_dx,fine_grid->npoints,1);
 
-snprintf(s,19999,"%s_S_map.dat",pol->name);
+snprintf(s,19999,"%s%s_S_map.dat", subinstance_name, pol->name);
 dump_floats(s,pol->skymap.S_map,fine_grid->npoints,1);
 	
 
@@ -689,7 +692,7 @@ if(fake_injection){
 
 
 
-snprintf(s,19999,"%s_max_strain.dat",pol->name);
+snprintf(s,19999,"%s%s_max_strain.dat", subinstance_name, pol->name);
 dump_floats(s,pol->skymap.max_upper_limit,fine_grid->npoints,1);
 
 max_dx=0.0;
@@ -772,35 +775,35 @@ for(i=0;i<args_info.nbands_arg;i++){
 				args_info.compute_betas_arg?pol->skymap.beta1[masked_max_band_arg[i]]:NAN, 
 				args_info.compute_betas_arg?pol->skymap.beta2[masked_max_band_arg[i]]:NAN);
 
-	snprintf(s,19999,"%s_max_upper_limit_band_%d.png",pol->name, i);
+	snprintf(s,19999,"%s%s_max_upper_limit_band_%d.png", subinstance_name, pol->name, i);
 	if(clear_name_png(s)){
 		adjust_plot_limits_f(plot, freq_f, &(pol->spectral_plot.max_upper_limit[i*useful_bins]), useful_bins, 1, 1, 1);
 		draw_grid(p, plot, 0, 0);
 		draw_points_f(p, plot, COLOR(255,0,0), freq_f, &(pol->spectral_plot.max_upper_limit[i*useful_bins]), useful_bins, 1, 1);
 		RGBPic_dump_png(s, p);
 		}
-	snprintf(s,19999,"%s_max_upper_limit_band_%d.dat",pol->name, i);
+	snprintf(s,19999,"%s%s_max_upper_limit_band_%d.dat", subinstance_name, pol->name, i);
 	dump_floats(s, &(pol->spectral_plot.max_upper_limit[i*useful_bins]), useful_bins, 1);
 	
-	snprintf(s,19999,"%s_max_dx_band_%d.png",pol->name, i);
+	snprintf(s,19999,"%s%s_max_dx_band_%d.png", subinstance_name, pol->name, i);
 	if(clear_name_png(s)){
 		adjust_plot_limits_f(plot, freq_f, &(pol->spectral_plot.max_dx[i*useful_bins]), useful_bins, 1, 1, 1);
 		draw_grid(p, plot, 0, 0);
 		draw_points_f(p, plot, COLOR(255,0,0), freq_f, &(pol->spectral_plot.max_dx[i*useful_bins]), useful_bins, 1, 1);
 		RGBPic_dump_png(s, p);
 		}
-	snprintf(s,19999,"%s_max_dx_band_%d.dat",pol->name, i);
+	snprintf(s,19999,"%s%s_max_dx_band_%d.dat", subinstance_name, pol->name, i);
 	dump_floats(s, &(pol->spectral_plot.max_dx[i*useful_bins]), useful_bins, 1);
 	
 	if(lines_list[0]>=0){
-		snprintf(s,19999,"%s_max_mask_ratio_band_%d.png",pol->name, i);
+		snprintf(s,19999,"%s%s_max_mask_ratio_band_%d.png", subinstance_name, pol->name, i);
 		if(clear_name_png(s)){
 			adjust_plot_limits_f(plot, freq_f, &(pol->spectral_plot.max_mask_ratio[i*useful_bins]), useful_bins, 1, 1, 1);
 			draw_grid(p, plot, 0, 0);
 			draw_points_f(p, plot, COLOR(255,0,0), freq_f, &(pol->spectral_plot.max_mask_ratio[i*useful_bins]), useful_bins, 1, 1);
 			RGBPic_dump_png(s, p);
 			}
-		snprintf(s,19999,"%s_max_mask_ratio_band_%d.dat",pol->name, i);
+		snprintf(s,19999,"%s%s_max_mask_ratio_band_%d.dat", subinstance_name, pol->name, i);
 		dump_floats(s, &(pol->spectral_plot.max_mask_ratio[i*useful_bins]), useful_bins, 1);
 		}
 	max_ratio=pol->spectral_plot.max_mask_ratio[i*useful_bins];
@@ -820,45 +823,45 @@ for(i=0;i<args_info.nbands_arg*useful_bins;i++){
 	}
 
 for(i=0;i<args_info.nbands_arg;i++){
-	snprintf(s,19999,"%s_max_upper_strain_band_%d.png",pol->name, i);
+	snprintf(s,19999,"%s%s_max_upper_strain_band_%d.png", subinstance_name, pol->name, i);
 	if(clear_name_png(s)){
 		adjust_plot_limits_f(plot, freq_f, &(pol->spectral_plot.max_upper_limit[i*useful_bins]), useful_bins, 1, 1, 1);
 		draw_grid(p, plot, 0, 0);
 		draw_points_f(p, plot, COLOR(255,0,0), freq_f, &(pol->spectral_plot.max_upper_limit[i*useful_bins]), useful_bins, 1, 1);
 		RGBPic_dump_png(s, p);
 		}
-	snprintf(s,19999,"%s_max_upper_strain_band_%d.dat",pol->name, i);
+	snprintf(s,19999,"%s%s_max_upper_strain_band_%d.dat", subinstance_name, pol->name, i);
 	dump_floats(s, &(pol->spectral_plot.max_upper_limit[i*useful_bins]), useful_bins, 1);
 	}
 	
-snprintf(s,19999,"%s_max_upper_strain.png",pol->name);
+snprintf(s,19999,"%s%s_max_upper_strain.png", subinstance_name, pol->name);
 if(clear_name_png(s)){
 	plot_grid_f(p, fine_grid, pol->skymap.max_upper_limit, 1);
 	RGBPic_dump_png(s, p);
 	}
 compute_histogram_f(hist, pol->skymap.max_upper_limit, fine_grid->band, fine_grid->npoints);
-snprintf(s,19999,"hist_%s_max_upper_strain",pol->name);
+snprintf(s,19999,"%shist_%s_max_upper_strain", subinstance_name, pol->name);
 print_histogram(LOG, hist, s);
 
-snprintf(s,19999,"%s_max_lower_strain.png",pol->name);
+snprintf(s,19999,"%s%s_max_lower_strain.png", subinstance_name, pol->name);
 if(clear_name_png(s)){
 	plot_grid_f(p, fine_grid, pol->skymap.max_lower_limit, 1);
 	RGBPic_dump_png(s, p);
 	}
 
-snprintf(s,19999,"%s_max_dx.png",pol->name);
+snprintf(s,19999,"%s%s_max_dx.png", subinstance_name, pol->name);
 if(clear_name_png(s)){
 	plot_grid_f(p, fine_grid, pol->skymap.max_dx, 1);
 	RGBPic_dump_png(s, p);
 	}
 
-snprintf(s,19999,"%s_M_map.png",pol->name);
+snprintf(s,19999,"%s%s_M_map.png", subinstance_name, pol->name);
 if(clear_name_png(s)){
 	plot_grid_f(p, fine_grid, pol->skymap.M_map, 1);
 	RGBPic_dump_png(s, p);
 	}
 
-snprintf(s,19999,"%s_S_map.png",pol->name);
+snprintf(s,19999,"%s%s_S_map.png", subinstance_name, pol->name);
 if(clear_name_png(s)){
 	plot_grid_f(p, fine_grid, pol->skymap.S_map, 1);
 	RGBPic_dump_png(s, p);
@@ -1012,24 +1015,24 @@ for(i=0;i<args_info.nbands_arg;i++){
 	fprintf(LOG, "max_circ_ul_band: %d %g %f\n", 
 		i, max_circ_ul, freq_f[max_circ_ul_i]);
 	
-	snprintf(s,19999,"low_band_%d_ul.png", i);
+	snprintf(s,19999,"%slow_band_%d_ul.png", subinstance_name, i);
 	if(clear_name_png(s)){
 		adjust_plot_limits_f(plot, freq_f, &(spectral_plot_circ_ul[i*useful_bins]), useful_bins, 1, 1, 1);
 		draw_grid(p, plot, 0, 0);
 		draw_points_f(p, plot, COLOR(255,0,0), freq_f, &(spectral_plot_circ_ul[i*useful_bins]), useful_bins, 1, 1);
 		RGBPic_dump_png(s, p);
 		}
-	snprintf(s,19999,"low_band_%d_ul.dat", i);
+	snprintf(s,19999,"%slow_band_%d_ul.dat", subinstance_name, i);
 	dump_floats(s, &(spectral_plot_circ_ul[i*useful_bins]), useful_bins, 1);
 
-	snprintf(s,19999,"high_band_%d_ul.png", i);
+	snprintf(s,19999,"%shigh_band_%d_ul.png", subinstance_name, i);
 	if(clear_name_png(s)){
 		adjust_plot_limits_f(plot, freq_f, &(spectral_plot_high_ul[i*useful_bins]), useful_bins, 1, 1, 1);
 		draw_grid(p, plot, 0, 0);
 		draw_points_f(p, plot, COLOR(255,0,0), freq_f, &(spectral_plot_high_ul[i*useful_bins]), useful_bins, 1, 1);
 		RGBPic_dump_png(s, p);
 		}
-	snprintf(s,19999,"high_band_%d_ul.dat", i);
+	snprintf(s,19999,"%shigh_band_%d_ul.dat", subinstance_name, i);
 	dump_floats(s, &(spectral_plot_high_ul[i*useful_bins]), useful_bins, 1);
 	}
 
@@ -1131,11 +1134,8 @@ for(k=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[o
 	}
 }
 
-
-void fine_grid_stage(void)
+void init_fine_grid_stage(void)
 {
-int pi,i,k,m;
-double a,b;
 
 normalizing_weight=exp(-M_LN10*TMedian);
 
@@ -1149,14 +1149,6 @@ skymap_circ_ul=do_alloc(fine_grid->npoints, sizeof(*skymap_circ_ul));
 skymap_circ_ul_freq=do_alloc(fine_grid->npoints, sizeof(*skymap_circ_ul_freq));
 spectral_plot_circ_ul=do_alloc(useful_bins*args_info.nbands_arg, sizeof(*spectral_plot_circ_ul));
 
-for(i=0;i<fine_grid->npoints;i++){
-	skymap_circ_ul[i]=-1.0;
-	skymap_circ_ul_freq[i]=-1.0;	
-	}
-for(i=0;i<useful_bins*args_info.nbands_arg;i++){
-	spectral_plot_circ_ul[i]=-1.0;
-	}
-	
 /* see comments above variables */
 if(args_info.three_bins_arg){
 	quantile2std=0.88;
@@ -1171,6 +1163,21 @@ if(args_info.three_bins_arg){
 	fprintf(LOG,"mode: 1 bin\n");
 	}
 
+}
+
+void fine_grid_stage(void)
+{
+int pi,i,k,m;
+double a,b;
+
+for(i=0;i<fine_grid->npoints;i++){
+	skymap_circ_ul[i]=-1.0;
+	skymap_circ_ul_freq[i]=-1.0;	
+	}
+for(i=0;i<useful_bins*args_info.nbands_arg;i++){
+	spectral_plot_circ_ul[i]=-1.0;
+	}
+	
 fprintf(stderr,"Main loop: %d patches to process.\n", patch_grid->npoints);
 for(pi=0;pi<patch_grid->npoints;pi++){
 	if(patch_grid->band[pi]<0)continue;

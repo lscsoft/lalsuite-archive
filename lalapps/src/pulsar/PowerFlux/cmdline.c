@@ -63,7 +63,9 @@ cmdline_parser_print_help (void)
   printf("      --hist-bins=INT                   number of bins to use when producing \n                                          histograms  (default=`200')\n");
   printf("  -d, --detector=STRING                 detector location (i.e. LHO or LLO), \n                                          passed to detresponse\n");
   printf("      --spindown-start-time=DOUBLE      specify spindown start time in GPS \n                                          sec. Assumed to be the first SFT \n                                          segment by default\n");
-  printf("      --spindown=DOUBLE                 compensate for pulsar spindown during \n                                          run (fdot)  (default=`0')\n");
+  printf("      --spindown-start=DOUBLE           first spindown value to process  \n                                          (default=`0.0')\n");
+  printf("      --spindown-step=DOUBLE            step for processing multiple spindown \n                                          values  (default=`0.0')\n");
+  printf("      --spindown-count=INT              how many separate spindown values to \n                                          process  (default=`1')\n");
   printf("      --orientation=DOUBLE              additional orientation phase, \n                                          specifying 0.7853 will turn plus \n                                          into cross  (default=`0')\n");
   printf("      --nlinear-polarizations=INT       even number of linear polarizations to \n                                          profile, distributed uniformly \n                                          between 0 and PI/2  (default=`4')\n");
   printf("      --no-demodulation=INT             do not perform demodulation stage, \n                                          analyze background only  (default=\n                                          `0')\n");
@@ -144,7 +146,9 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->hist_bins_given = 0 ;
   args_info->detector_given = 0 ;
   args_info->spindown_start_time_given = 0 ;
-  args_info->spindown_given = 0 ;
+  args_info->spindown_start_given = 0 ;
+  args_info->spindown_step_given = 0 ;
+  args_info->spindown_count_given = 0 ;
   args_info->orientation_given = 0 ;
   args_info->nlinear_polarizations_given = 0 ;
   args_info->no_demodulation_given = 0 ;
@@ -193,7 +197,9 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->nbins_arg = 501 ;\
   args_info->hist_bins_arg = 200 ;\
   args_info->detector_arg = NULL; \
-  args_info->spindown_arg = 0 ;\
+  args_info->spindown_start_arg = 0.0 ;\
+  args_info->spindown_step_arg = 0.0 ;\
+  args_info->spindown_count_arg = 1 ;\
   args_info->orientation_arg = 0 ;\
   args_info->nlinear_polarizations_arg = 4 ;\
   args_info->no_demodulation_arg = 0 ;\
@@ -255,7 +261,9 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
         { "hist-bins",	1, NULL, 0 },
         { "detector",	1, NULL, 'd' },
         { "spindown-start-time",	1, NULL, 0 },
-        { "spindown",	1, NULL, 0 },
+        { "spindown-start",	1, NULL, 0 },
+        { "spindown-step",	1, NULL, 0 },
+        { "spindown-count",	1, NULL, 0 },
         { "orientation",	1, NULL, 0 },
         { "nlinear-polarizations",	1, NULL, 0 },
         { "no-demodulation",	1, NULL, 0 },
@@ -618,17 +626,45 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
             break;
           }
           
-          /* compensate for pulsar spindown during run (fdot).  */
-          else if (strcmp (long_options[option_index].name, "spindown") == 0)
+          /* first spindown value to process.  */
+          else if (strcmp (long_options[option_index].name, "spindown-start") == 0)
           {
-            if (args_info->spindown_given)
+            if (args_info->spindown_start_given)
               {
-                fprintf (stderr, "%s: `--spindown' option given more than once\n", CMDLINE_PARSER_PACKAGE);
+                fprintf (stderr, "%s: `--spindown-start' option given more than once\n", CMDLINE_PARSER_PACKAGE);
                 clear_args ();
                 exit (EXIT_FAILURE);
               }
-            args_info->spindown_given = 1;
-            args_info->spindown_arg = strtod (optarg, NULL);
+            args_info->spindown_start_given = 1;
+            args_info->spindown_start_arg = strtod (optarg, NULL);
+            break;
+          }
+          
+          /* step for processing multiple spindown values.  */
+          else if (strcmp (long_options[option_index].name, "spindown-step") == 0)
+          {
+            if (args_info->spindown_step_given)
+              {
+                fprintf (stderr, "%s: `--spindown-step' option given more than once\n", CMDLINE_PARSER_PACKAGE);
+                clear_args ();
+                exit (EXIT_FAILURE);
+              }
+            args_info->spindown_step_given = 1;
+            args_info->spindown_step_arg = strtod (optarg, NULL);
+            break;
+          }
+          
+          /* how many separate spindown values to process.  */
+          else if (strcmp (long_options[option_index].name, "spindown-count") == 0)
+          {
+            if (args_info->spindown_count_given)
+              {
+                fprintf (stderr, "%s: `--spindown-count' option given more than once\n", CMDLINE_PARSER_PACKAGE);
+                clear_args ();
+                exit (EXIT_FAILURE);
+              }
+            args_info->spindown_count_given = 1;
+            args_info->spindown_count_arg = strtol (optarg,&stop_char,0);
             break;
           }
           
@@ -1560,14 +1596,50 @@ cmdline_parser_configfile (char * const filename, struct gengetopt_args_info *ar
                 }
               continue;
             }
-          if (!strcmp(fopt, "spindown"))
+          if (!strcmp(fopt, "spindown-start"))
             {
-              if (override || !args_info->spindown_given)
+              if (override || !args_info->spindown_start_given)
                 {
-                  args_info->spindown_given = 1;
+                  args_info->spindown_start_given = 1;
                   if (fnum == 2)
                     {
-                      args_info->spindown_arg = strtod (farg, NULL);
+                      args_info->spindown_start_arg = strtod (farg, NULL);
+                    }
+                  else
+                    {
+                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
+                               filename, line_num);
+                      exit (EXIT_FAILURE);
+                    }
+                }
+              continue;
+            }
+          if (!strcmp(fopt, "spindown-step"))
+            {
+              if (override || !args_info->spindown_step_given)
+                {
+                  args_info->spindown_step_given = 1;
+                  if (fnum == 2)
+                    {
+                      args_info->spindown_step_arg = strtod (farg, NULL);
+                    }
+                  else
+                    {
+                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
+                               filename, line_num);
+                      exit (EXIT_FAILURE);
+                    }
+                }
+              continue;
+            }
+          if (!strcmp(fopt, "spindown-count"))
+            {
+              if (override || !args_info->spindown_count_given)
+                {
+                  args_info->spindown_count_given = 1;
+                  if (fnum == 2)
+                    {
+                      args_info->spindown_count_arg = strtol (farg,&stop_char,0);
                     }
                   else
                     {
