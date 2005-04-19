@@ -23,8 +23,6 @@ class LIGOTimeGPS(object):
 
 	# basic class methods
 
-	__slots__ = ["seconds", "nanoseconds"]
-
 	def __atoparts(self, s):
 		"""
 		Internal routine for ASCII string conversion.  Users should
