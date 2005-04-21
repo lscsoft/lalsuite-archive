@@ -78,7 +78,7 @@ class infinity:
 # The segment class
 #
 
-class segment:
+class segment(tuple):
 	"""
 	The segment class defines objects that represent a range of values.  A
 	segment has a start and an end, and is taken to represent the range of
@@ -102,42 +102,39 @@ class segment:
 
 	# basic class methods
 
-	def __init__(self, start, end):
+	def __new__(cls, start, end):
 		if start <= end:
-			self.start, self.end = start, end
+			return tuple.__new__(cls, [start, end])
 		else:
-			self.start, self.end = end, start
+			return tuple.__new__(cls, [end, start])
 
 	def __repr__(self):
-		return "segment(" + str(self.start) + ", " + str(self.end) + ")"
+		return "segment(" + str(self[0]) + ", " + str(self[1]) + ")"
 
 	def __str__(self):
-		return str(self.start) + "_" + str(self.end)
+		return str(self[0]) + "_" + str(self[1])
 
 	# accessors
+
+	def __getattr__(self, key):
+		return self[{"start" : 0, "end" : 1}[key]]
+
+	def __setattr__(self, key, value):
+		self[{"start" : 0, "end" : 1}[key]] = value
 
 	def duration(self):
 		"""
 		Returns the length of the interval represented by the segment.
 		"""
-		return self.end - self.start
+		return self[1] - self[0]
 
 	# comparisons
 
-	def __cmp__(self, other):
-		"""
-		Compare one segment to another using the rules for comparing
-		two two-element tuples
-		"""
-		if type(self) != type(other):
-			return -1
-		return cmp((self.start, self.end), (other.start, other.end))
-	
 	def __nonzero__(self):
 		"""
 		Test for segment having non-zero duration.
 		"""
-		return self.start != self.end
+		return self[0] != self[1]
 
 	# some arithmetic operations that (mostly) make sense for segments
 
@@ -148,7 +145,7 @@ class segment:
 		"""
 		if not self.intersects(other):
 			return None
-		return segment(max(self.start, other.start), min(self.end, other.end))
+		return segment(max(self[0], other[0]), min(self[1], other[1]))
 
 	def __or__(self, other):
 		"""
@@ -157,7 +154,7 @@ class segment:
 		"""
 		if not self.continuous(other):
 			return None
-		return segment(min(self.start, other.start), max(self.end, other.end))
+		return segment(min(self[0], other[0]), max(self[1], other[1]))
 
 	# addition is defined to be the union operation
 	__add__ = __or__
@@ -170,11 +167,11 @@ class segment:
 		"""
 		if not self.intersects(other):
 			return self
-		if (self in other) or ((self.start < other.start) and (self.end > other.end)):
+		if (self in other) or ((self[0] < other[0]) and (self[1] > other[1])):
 			return None
-		if self.start < other.start:
-			return segment(self.start, other.start)
-		return segment(other.end, self.end)
+		if self[0] < other[0]:
+			return segment(self[0], other[0])
+		return segment(other[1], self[1])
 
 	# check for proper intersection, containment, and continuity
 
@@ -183,19 +180,19 @@ class segment:
 		Return True if the intersection of self and other is not a null
 		segment.
 		"""
-		return (self.end > other.start) and (self.start < other.end)
+		return (self[1] > other[0]) and (self[0] < other[1])
 
 	def __contains__(self, other):
 		"""
 		Return True if other is wholly contained in self.
 		"""
-		return (self.start <= other.start) and (self.end >= other.end)
+		return (self[0] <= other[0]) and (self[1] >= other[1])
 
 	def continuous(self, other):
 		"""
 		Return True if self and other are not disjoint.
 		"""
-		return (self.end >= other.start) and (self.start <= other.end)
+		return (self[1] >= other[0]) and (self[0] <= other[1])
 
 	# protraction and contraction
 
@@ -204,14 +201,14 @@ class segment:
 		Move both the start and the end of the segment a distance x
 		away from the other.
 		"""
-		return segment(self.start - x, self.end + x)
+		return segment(self[0] - x, self[1] + x)
 
 	def contract(self, x):
 		"""
 		Move both the start and the end of the segment a distance x
 		towards the the other.
 		"""
-		return segment(self.start + x, self.end - x)
+		return segment(self[0] + x, self[1] - x)
 
 
 #
@@ -287,7 +284,7 @@ class segmentlist(list):
 		Return the segment whose end-points denote the maximum and
 		minimum extent of the segmentlist self.
 		"""
-		return segment(min([seg.start for seg in self]), max([seg.end for seg in self]))
+		return segment(min([seg[0] for seg in self]), max([seg[1] for seg in self]))
 
 	# arithmetic operations that are sensible with segment lists
 
@@ -340,15 +337,15 @@ class segmentlist(list):
 		another.
 		"""
 		for b in other:
-			self.split(b.start)
+			self.split(b[0])
 		try:
 			i = 0
 			for b in other:
-				while self[i].end <= b.start:
+				while self[i][1] <= b[0]:
 					i += 1
 				while self[i] in b:
 					self[i:i+1] = []
-				while self[i].start < b.end:
+				while self[i][0] < b[1]:
 					self[i] -= b
 					i += 1
 		except IndexError:
@@ -380,7 +377,7 @@ class segmentlist(list):
 			i = 0
 			while 1:
 				if self[i].intersects(segment(value,value)):
-					self[i:i+1] = [segment(self[i].start, value), segment(value, self[i].end)]
+					self[i:i+1] = [segment(self[i][0], value), segment(value, self[i][1])]
 					i += 1
 				i += 1
 		except IndexError:
