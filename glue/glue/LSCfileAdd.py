@@ -306,15 +306,21 @@ class Publisher(object):
                 # see if database handles need to be regenerated
                 self.checkHandle()
                 
+                # remove ALL lfn, pfn pairs
+                try:
+                        mapdict = self.rls.lrc_get_pfn_bulk(lfnlist)
+                except rlsClient.RlsClientException,e:
+                        msg = "completely_remove(): Caught RlsClientException while attempting to pfns in bulk. Error was: %s" % (lfn,str(e))
+                        raise LSCfileAddException, msg
+                
+                try:
+                        self.rls.lrc_delete_bulk(mapdict)
+                except rlsClient.RlsClientException,e:
+                        msg = "completely_remove(): Caught RlsClientException while attempting to bulk delete. Error was: %s" % (lfn,str(e))
+                        raise LSCfileAddException, msg
+                        
+                # Now delete the LDR metadata
                 for lfn in lfnlist:
-                        try:
-                                # remove ALL lfn, pfn pairs
-                                pfnlist = self.lrc.get_pfn(lfn)
-                                for mypfn in pfnlist:
-                                        self.lrc.delete(lfn,mypfn)
-                        except rlsClient.RlsClientException,e:
-                                msg = "completely_remove(): Caught RlsClientException while attempting to delete \"%s\" Error was: %s" % (lfn,str(e))
-                                raise LSCfileAddException, msg
                         try:
                                 # see if it already exists in database, delete if so
                                 if self.md.lfn_exists(lfn):
