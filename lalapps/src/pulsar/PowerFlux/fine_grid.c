@@ -760,6 +760,12 @@ fprintf(LOG, "largest: %f %f %s %f %g %g %f %f %f\n",fine_grid->longitude[larges
 
 fprintf(LOG, "max/masked band format: band_num longitude latitude pol max_dx upper_strain freq beta1 beta2\n");
 for(i=0;i<args_info.nbands_arg;i++){
+	if(max_band_arg[i]<0){
+		fprintf(LOG, "max_band: %d NAN NAN %s NAN NAN NAN NAN NAN\n", i, pol->name); 
+		fprintf(LOG, "masked_max_band: %d NAN NAN %s NAN NAN NAN NAN NAN\n", i, pol->name);
+		fprintf(LOG,"max_ratio: %d %s NAN\n", i, pol->name);
+		continue;
+		}
 
 	fprintf(LOG, "max_band: %d %f %f %s %f %g %f %f %f\n", i, fine_grid->longitude[max_band_arg[i]], fine_grid->latitude[max_band_arg[i]], 
 				pol->name, pol->skymap.max_dx[max_band_arg[i]], 

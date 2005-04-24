@@ -72,6 +72,17 @@ test4: powerflux
 		--ephemeris-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
 		--detector=LLO --three-bins=0 --do-cutoff=0 --ks-test=1 --subtract-background=1
 
+test4a: powerflux.dyn
+	( export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):$(LALROOT)/lib:$(LALROOT)/support-lib ; \
+	valgrind --tool=memcheck  --error-limit=no --leak-check=full ./powerflux.dyn --input-format=Power -i /home/volodya/LIGO/S3/S3.H1.op/power.H1. -f $(BAND) -n 501 \
+		--ephemeris-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
+		--detector=LHO --three-bins=0 --do-cutoff=0 \
+		--subtract-background=1 --ks-test=1 \
+		--spindown-start=0.0 --spindown-step=1e-9 --spindown-count=2 \
+		--focus-ra=2.2 --focus-dec=0.3 --focus-radius=0.03 \
+		--write-dat=NONE --write-png=NONE \
+	)
+
 test4b: powerflux.hydra
 	valgrind --tool=memcheck --error-limit=no ./powerflux.hydra --input-format=Power -i /home/volodya/LIGO/S2/S2.L1.op/power.L1. -f $(BAND) -n 501 \
 		--ephemeris-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
@@ -116,6 +127,10 @@ dat2skymap: grid.o rastermagic.o dat2skymap.o png.o
 powerflux: $(OBJS)
 	$(CC) $(OBJS) -o powerflux -static $(LDFLAGS) -lgsl -lgslcblas
 	ls -l powerflux
+
+powerflux.dyn: $(OBJS)
+	$(CC) $(OBJS) -o powerflux.dyn $(LDFLAGS) -lgsl -lgslcblas
+	ls -l powerflux.dyn
 
 powerflux.hydra: $(OBJS)
 	(export PATH=/opt/condor/bin:$$PATH ; \
