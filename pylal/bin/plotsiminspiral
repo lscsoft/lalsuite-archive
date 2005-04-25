@@ -1,0 +1,74 @@
+#!/usr/bin/env python
+
+import sys
+import os
+import getopt
+import re
+import exceptions
+from types import *
+
+from matplotlib.patches import Patch
+from pylab import *
+from lgen import readMeta
+
+
+# grab command line options
+shortop = "vi:d:h"
+longop = [
+  "version",
+  "input=",
+  "max-distance=",
+  "help" ]
+
+try:
+  opts, args = getopt.getopt(sys.argv[1:], shortop, longop)
+except getopt.GetoptError:
+  print >>sys.stderr, "Error parsing command line"
+  print >>sys.stderr, "Enter 'plotburst --help' for usage"
+  sys.exit(1)
+
+# defaul values
+inputFilename = None
+myEpoch = None
+myDuration = 100
+
+for o, a in opts:
+  if o in ("-h", "--help"):
+    sys.exit(0)
+  elif o in ("-v", "--version"):
+    sys.exit(0)
+  elif o in ("-i", "--input"):
+    inputFilename = a
+  elif o in ("-d", "--max-distance"):
+    maxDistance = float(a)
+
+if not inputFilename:
+  print >>sys.stderr, "Bad combination or missing options"
+  print >>sys.stderr, "Enter 'plotburst --help' for usage"
+  sys.exit(1)
+
+# read in the data from the input file
+insp=readMeta.SimInspiralTable(inputFilename)
+
+# set the start time for the plot
+if not myEpoch: 
+  myEpoch = insp.geo_end_time[0,]
+
+eff_dist_h = sort(insp.eff_dist_h[(insp.eff_dist_h < maxDistance) & (insp.eff_dist_l < maxDistance)])
+a = 1 + 0 * eff_dist_h
+number = cumsum(a)/44
+loglog(eff_dist_h,number)
+hold(True)
+eff_dist_l = sort(insp.eff_dist_l[(insp.eff_dist_h < maxDistance) & (insp.eff_dist_l < maxDistance)])
+a = 1 + 0 * eff_dist_l
+number = cumsum(a)/44
+loglog(eff_dist_l,number)
+grid(True)
+xlabel(r'D_eff (Mpc)', size='x-large')
+ylabel(r'Galaxies (MWEG)', size='x-large')
+title(r'Number of Galaxies')
+grid(True)
+#colorbar()
+axis([0.1,100,1,1000])
+savefig('nmweg.png')
+show()

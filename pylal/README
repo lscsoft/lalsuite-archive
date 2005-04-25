@@ -1,0 +1,118 @@
+LGEN: LSC Graphics Engine
+
+Lgen is a collection of utilities for plotting the ooutput files from LSC
+analysis pipelines
+
+This README file explains how to build and install Lgen.
+
+------------------------------------------------------------------------------
+
+1. Determine your Python version
+
+Python version 2.2 or greater is required to install Lgen. Type:
+
+  python -V
+
+to determine the version of python installed on your machine. For example:
+
+  [duncan@contra lalapps]$ python -V
+  Python 2.2.2
+
+On some operating systems (e.g. Red Hat 7.3) the program named python runs
+python version 1 and the version 2 executable is named python2. If python -V
+does not return 2.2 or greater, type:
+
+  python2 -V
+
+For example:
+
+  [dbrown@neutron dbrown]$ python2 -V
+  Python 2.3
+
+If you do not have version 2.2 or greater installed, contact your system
+administrator for help installing Python.
+
+Set the environment variable PYTHON to be the name of your python version 2
+executable. For example if your executable is named python, bash or sh users
+should type:
+
+  export PYTHON=python
+
+and csh users should type:
+
+  setenv PYTHON python
+
+If your executable is named python2, bash or sh users should type:
+
+  export PYTHON=python2
+
+and csh users should type:
+
+  setenv PYTHON python2
+
+
+------------------------------------------------------------------------------
+
+2. Get Lgen from CVS
+
+First choose a directory in which to install the Lgen sources. In this
+example, we install the sources into ${HOME}/src. If you decide to install
+somewhere else, change ${HOME}/src to the directory you have chosen. Change
+anonymous in the cvs checkout below to your lscsoft CVS user name, if you have
+one. Type:
+
+  mkdir -p ${HOME}/src
+  cd ${HOME}/src
+  cvs -d :pserver:anonymous@gravity.phys.uwm.edu:2402/usr/local/cvs/lscsoft checkout lsware
+
+This will create a directory ${HOME}/src/lsware/lgen containing the Lgen sources.
+
+
+------------------------------------------------------------------------------
+
+3. Build and Install Lgen
+
+Choose a location in which to install Lgen. In this example we choose
+/opt/lgen. You must have write access to this directory, so you may wish to
+install in ${HOME}, for example. Set the environment variable ${GLUE_LOCATION}
+to point to your chosen install directory. Bash or sh users should type:
+
+  export LGEN_LOCATION=/opt/lgen
+
+and csh users should type:
+
+  setenv LGEN_LOCATION /opt/lgen
+
+Assuming you have installed the lgen sources in ${HOME}/src/lgen, type:
+
+  cd ${HOME}/src/glue
+  ${PYTHON} setup.py install --home=${LGEN_LOCATION}
+
+This will build and install all the glue modules and programs.
+
+
+------------------------------------------------------------------------------
+
+4. Set up your Environment for Using Lgen
+
+If you are a bash or sh user, edit your .profile (or .bash_profile) file and
+add the lines (changing /opt/glue to wherever you installed Lgen):
+
+  export GLUE_LOCATION=/opt/glue
+  if [ -f ${GLUE_LOCATION}/etc/glue-user-env.sh ] ; then
+    source ${GLUE_LOCATION}/etc/glue-user-env.sh
+  fi
+
+If you are a csh user, edit your .login file and add the lines (changing
+/opt/glue to wherever you installed Lgen):
+
+  setenv GLUE_LOCATION /opt/glue
+  if ( -f ${GLUE_LOCATION}/etc/glue-user-env.csh ) then
+    source ${GLUE_LOCATION}/etc/glue-user-env.csh
+  endif
+
+Now log out and log back in to ensure that all environment variables have been
+updated. 
+
+You may now use Lgen! Please report any problems via the Gnats database linked
+from the Lgen home page.

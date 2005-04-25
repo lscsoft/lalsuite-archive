@@ -1,0 +1,86 @@
+#!/usr/bin/env python
+
+import sys
+import os
+import getopt
+import re
+import exceptions
+import time
+from types import *
+
+from matplotlib.patches import Patch
+from pylab import *
+from lgen import readMeta
+from glue.gpstime import *
+
+
+# grab command line options
+shortop = "vi:s:d:h"
+longop = [
+  "version",
+  "input=",
+  "gps-start-time=",
+  "duration=",
+  "help" ]
+
+try:
+  opts, args = getopt.getopt(sys.argv[1:], shortop, longop)
+except getopt.GetoptError:
+  print >>sys.stderr, "Error parsing command line"
+  print >>sys.stderr, "Enter 'plotburst --help' for usage"
+  sys.exit(1)
+
+# defaul values
+inputFilename = None
+myEpoch = None
+myDuration = 100
+
+for o, a in opts:
+  if o in ("-h", "--help"):
+    sys.exit(0)
+  elif o in ("-v", "--version"):
+    sys.exit(0)
+  elif o in ("-i", "--input"):
+    inputFilename = a
+  elif o in ("-s", "--gps-start-time"):
+    myEpoch = float(a)
+  elif o in ("-d", "--duration"):
+    myDuration = float(a)
+
+if not inputFilename:
+  print >>sys.stderr, "Bad combination or missing options"
+  print >>sys.stderr, "Enter 'plotburst --help' for usage"
+  sys.exit(1)
+
+# read in the data from the input file
+myfig=figure()
+e12=readMeta.SnglBurstTable(inputFilename)
+
+# set the start time for the plot
+if not myEpoch: 
+  myEpoch = e12.start_time[0,]
+  
+starttime = e12.start_time - myEpoch
+confidence = e12.confidence[(starttime>0) & (starttime<myDuration)]
+freq = e12.central_freq-0.5*e12.bandwidth
+central_freq = e12.central_freq[(starttime>0) & (starttime<myDuration)]
+
+subplot(223)
+p=e12.tfplot(starttime,e12.duration,freq,e12.bandwidth,e12.confidence)
+set(p, 'alpha', 0.75)
+grid(True)
+axis([0,myDuration,0,1000])
+#colorbar()
+subplot(224)
+plot(-confidence,central_freq,'ro')
+xlabel(r'|Confidence|')
+grid(True)
+axis([0,700,0,1000])
+subplot(221)
+plot(starttime,-e12.confidence,'ro')
+ylabel(r'|Confidence|')
+grid(True)
+axis([0,myDuration,0,700])
+text(1.25*myDuration, 650, r'Start Time %s' % UTCFromGps(int(myEpoch)))
+savefig('epfill.png')
+show()
