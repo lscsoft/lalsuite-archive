@@ -1176,6 +1176,8 @@ void fine_grid_stage(void)
 int pi,i,k,m;
 double a,b;
 
+clear_polarization_arrays();
+
 for(i=0;i<fine_grid->npoints;i++){
 	skymap_circ_ul[i]=-1.0;
 	skymap_circ_ul_freq[i]=-1.0;	

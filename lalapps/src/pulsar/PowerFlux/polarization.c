@@ -187,6 +187,23 @@ for(i=0;i<ntotal_polarizations;i++){
 		polarizations[i].skymap.beta2=NULL;
 		}
 
+	/* Output arrays - spectral plots */
+	polarizations[i].spectral_plot.max_upper_limit=do_alloc(useful_bins*args_info.nbands_arg, sizeof(SUM_TYPE));
+	polarizations[i].spectral_plot.ul_dec=do_alloc(useful_bins*args_info.nbands_arg, sizeof(SUM_TYPE));
+	polarizations[i].spectral_plot.ul_ra=do_alloc(useful_bins*args_info.nbands_arg, sizeof(SUM_TYPE));
+	polarizations[i].spectral_plot.max_dx=do_alloc(useful_bins*args_info.nbands_arg, sizeof(SUM_TYPE));
+	polarizations[i].spectral_plot.dx_dec=do_alloc(useful_bins*args_info.nbands_arg, sizeof(SUM_TYPE));
+	polarizations[i].spectral_plot.dx_ra=do_alloc(useful_bins*args_info.nbands_arg, sizeof(SUM_TYPE));
+	polarizations[i].spectral_plot.max_mask_ratio=do_alloc(useful_bins*args_info.nbands_arg, sizeof(SUM_TYPE));
+
+	}
+
+}
+
+void clear_polarization_arrays(void)
+{
+int i,k;
+for(i=0;i<ntotal_polarizations;i++){
 	for(k=0;k<fine_grid->npoints;k++){
 		polarizations[i].skymap.max_dx[k]=-1.0;
 		polarizations[i].skymap.M_map[k]=-1.0;
@@ -209,14 +226,6 @@ for(i=0;i<ntotal_polarizations;i++){
 			polarizations[i].skymap.beta2[k]=0.0;
 			}
 		}
-	/* Output arrays - spectral plots */
-	polarizations[i].spectral_plot.max_upper_limit=do_alloc(useful_bins*args_info.nbands_arg, sizeof(SUM_TYPE));
-	polarizations[i].spectral_plot.ul_dec=do_alloc(useful_bins*args_info.nbands_arg, sizeof(SUM_TYPE));
-	polarizations[i].spectral_plot.ul_ra=do_alloc(useful_bins*args_info.nbands_arg, sizeof(SUM_TYPE));
-	polarizations[i].spectral_plot.max_dx=do_alloc(useful_bins*args_info.nbands_arg, sizeof(SUM_TYPE));
-	polarizations[i].spectral_plot.dx_dec=do_alloc(useful_bins*args_info.nbands_arg, sizeof(SUM_TYPE));
-	polarizations[i].spectral_plot.dx_ra=do_alloc(useful_bins*args_info.nbands_arg, sizeof(SUM_TYPE));
-	polarizations[i].spectral_plot.max_mask_ratio=do_alloc(useful_bins*args_info.nbands_arg, sizeof(SUM_TYPE));
 
 	for(k=0;k<useful_bins*args_info.nbands_arg;k++){
 		polarizations[i].spectral_plot.max_upper_limit[k]=-1.0;
@@ -228,7 +237,6 @@ for(i=0;i<ntotal_polarizations;i++){
 		polarizations[i].spectral_plot.max_mask_ratio[k]=-1.0;
 		}
 	}
-
 }
 
 void clear_accumulation_arrays(void)

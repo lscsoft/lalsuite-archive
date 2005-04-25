@@ -93,6 +93,7 @@ return (a*a);
 
 void init_polarizations(void);
 void allocate_polarization_arrays(void);
+void clear_polarization_arrays(void);
 void clear_accumulation_arrays(void);
 
 #endif
