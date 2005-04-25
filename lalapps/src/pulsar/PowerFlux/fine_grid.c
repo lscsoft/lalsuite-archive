@@ -1178,6 +1178,9 @@ double a,b;
 
 clear_polarization_arrays();
 
+min_shift=0;
+max_shift=0;
+
 for(i=0;i<fine_grid->npoints;i++){
 	skymap_circ_ul[i]=-1.0;
 	skymap_circ_ul_freq[i]=-1.0;	
