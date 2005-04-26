@@ -136,6 +136,16 @@ class segment(tuple):
 		"""
 		return self[0] != self[1]
 
+	def order(self, other):
+		"""
+		Equivalent to cmp(self, other) except that a result of 0
+		indicates that other is contained in self rather than being
+		identically equal to self.
+		"""
+		if other in self:
+			return 0
+		return cmp(self, other)
+
 	# some arithmetic operations that (mostly) make sense for segments
 
 	def __and__(self, other):
@@ -299,6 +309,18 @@ class segmentlist(list):
 			if max < seg[1]:
 				max = seg[1]
 		return segment(min, max)
+
+	def find(self, item):
+		"""
+		Return the smallest i such that i is the index of an element
+		that wholly contains the given segment.  Raises ValueError if
+		no such element exists.  Does not require the segmentlist to be
+		coalesced.
+		"""
+		for i in range(len(self)):
+			if item in self[i]:
+				return i
+		raise ValueError, "segmentlist.find(x): x not contained in segmentlist"
 
 	# arithmetic operations that are sensible with segment lists
 
