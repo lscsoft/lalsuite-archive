@@ -275,16 +275,29 @@ class segmentlist(list):
 
 	def duration(self):
 		"""
-		Return the sum of the durations of all segments in self.
+		Return the sum of the durations of all segments in self.  Does
+		not require the segmentlist to be coalesced.
 		"""
-		return sum([seg.duration() for seg in self])
-	
+		d = 0
+		for seg in self:
+			d += seg.duration()
+		return d
+
 	def extent(self):
 		"""
 		Return the segment whose end-points denote the maximum and
-		minimum extent of the segmentlist self.
+		minimum extent of the segmentlist.  Does not require the
+		segmentlist to be coalesced.
 		"""
-		return segment(min([seg[0] for seg in self]), max([seg[1] for seg in self]))
+		if not len(self):
+			raise ValueError, "segmentlist.extent(): empty list"
+		(min, max) = self[0]
+		for seg in self:
+			if min > seg[0]:
+				min = seg[0]
+			if max < seg[1]:
+				max = seg[1]
+		return segment(min, max)
 
 	# arithmetic operations that are sensible with segment lists
 
