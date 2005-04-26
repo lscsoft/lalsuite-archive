@@ -372,18 +372,20 @@ class segmentlist(list):
 		Replace the segmentlist with the difference between itself and
 		another.
 		"""
-		for b in other:
-			self.split(b[0])
+		for seg in other:
+			if bool(seg):
+				self.split(seg[0])
 		try:
 			i = 0
-			for b in other:
-				while self[i][1] <= b[0]:
-					i += 1
-				while self[i] in b:
-					self[i:i+1] = []
-				while self[i][0] < b[1]:
-					self[i] -= b
-					i += 1
+			for seg in other:
+				if bool(seg):
+					while self[i][1] <= seg[0]:
+						i += 1
+					while self[i] in seg:
+						self[i:i+1] = []
+					while self[i][0] < seg[1]:
+						self[i] -= seg
+						i += 1
 		except IndexError:
 			pass
 		return self
@@ -610,6 +612,7 @@ def module_verify():
 	test_excision(segmentlist([segment(-10, 5)]), segmentlist([segment(-10,10)]), segmentlist([segment(5,15)]))
 
 	test_excision(segmentlist([segment(0,5), segment(45,50)]), segmentlist([segment(0,10), segment(20,30), segment(40,50)]), segmentlist([segment(5, 45)]))
+	test_excision(segmentlist([segment(-5,5)]), segmentlist([segment(-5,5)]), segmentlist([segment(0,0)]))
 
 	print "=== test segment list inversion"
 	def test_inversion(r,a):
