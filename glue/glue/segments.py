@@ -263,8 +263,9 @@ class segmentlist(list):
 
 	def __contains__(self, item):
 		"""
-		Returns True if item (a segment) is wholly contained within one
-		of the segments in self.
+		Returns True if the given segment is wholly contained within
+		one of the segments in self.  Does not require the segmentlist
+		to be coalesced.
 		"""
 		for seg in self:
 			if item in seg:
@@ -384,7 +385,8 @@ class segmentlist(list):
 	def split(self, value):
 		"""
 		Break all segments that stradle the given value at that value.
-		Note that the result is, by definition, not coalesced.
+		Does not require the segmentlist to be coalesced, and the
+		result is not coalesced by definition.
 		"""
 		try:
 			i = 0
