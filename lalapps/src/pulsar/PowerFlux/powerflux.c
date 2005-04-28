@@ -492,7 +492,7 @@ fprintf(stderr,"fine grid: max_n_ra=%d max_n_dec=%d\n",
 	   
 	   Compare to formula used:
 	   
-	   side_cut = M_PI/resolution = M_PI*freq_in_bins/(6*4500) = 1.1e-4
+	   side_cut = M_PI/(6.0*resolution) = M_PI*freq_in_bins/(6*4500) = 1.1e-4 * freq_in_bins
 	*/
 
 side_cut=args_info.side_cut_arg;
