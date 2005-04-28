@@ -485,6 +485,14 @@ fprintf(stderr,"fine grid: max_n_ra=%d max_n_dec=%d\n",
 	   the distance of resolution radians on the sky the total variation is less than
 	   M_PI/resolution. We use this as an upper bounds which turns out to be reasonably 
 	   precise.
+	   
+	   Earth speed is approx v=30km/sec c=300000 km/sec
+	   v/c=1e-4
+	   sidecut = 1e-4 * freq_in_bins
+	   
+	   Compare to formula used:
+	   
+	   side_cut = M_PI/resolution = M_PI*freq_in_bins/(6*4500) = 1.1e-4
 	*/
 
 side_cut=args_info.side_cut_arg;
