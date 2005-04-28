@@ -111,7 +111,7 @@ fflush(LOG);
 
 void allocate_polarization_arrays(void)
 {
-long total,i,k;
+long total,i;
 total=ntotal_polarizations*sizeof(*polarizations[0].fine_grid_sum);
 
 #ifdef COMPUTE_SIGMA
