@@ -84,7 +84,7 @@ def build_metaio(ext_modules, packages):
     BUILT_METAIO = True
 
 
-def build_metaio(ext_modules, packages):
+def build_date(ext_modules, packages):
     global BUILT_DATE
     if BUILT_DATE: return # only build it if you you haven't already
 
