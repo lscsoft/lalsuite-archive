@@ -568,7 +568,7 @@ class LSCdataFindClient(LDRdataFindClient):
         Class that represents this client interacting with a LDRdataFindServer in
         order to find LSC data.
         """
-        def __init__(self, host, port=30000):
+        def __init__(self, host, port=30010):
                 """
                 Open a connection to a LDRdataFindServer and return an instance of
                 class LDRdataFindClient. One of the public methods can then be 
