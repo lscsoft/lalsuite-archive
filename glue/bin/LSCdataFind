@@ -203,14 +203,13 @@ except getopt.GetoptError:
 # defaults
 hostPortString = None
 port = 30010
-lalcache = false
+lalcache = False
 
 clientMethodArgDict = {
         'observatory': None,
         'end': None,
         'start': None,
         'type': None,
-        'lalcache': False,
         'filename': None,
         'urlType': None,
         'match': None,
