@@ -328,9 +328,15 @@ except Exception, e:
         
 try:
         result = eval("myClient.%s(%s)" % (clientMethod, clientMethodArgDict))
+        print type(result)
         print result
 
-except LDRdataFindClient.LSCdataFindClientException, e:
+except LDRdataFindClient.LDRdataFindClientException, e:
+        print >>sys.stderr, str(e)
+        print >>sys.stderr, "Enter 'LSCdataFind --help' for usage"
+        sys.exit(1)
+
+except LDRdataFindClient.LSCdataFindException, e:
         print >>sys.stderr, str(e)
         print >>sys.stderr, "Enter 'LSCdataFind --help' for usage"
         sys.exit(1)
