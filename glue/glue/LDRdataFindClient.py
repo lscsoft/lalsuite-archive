@@ -54,11 +54,11 @@ class LDRdataFindClientException(exceptions.Exception):
                 self.args = args
 
 
-class pflist(list):
+class pfnlist(list):
         pass
 
 
-class lfnist(list):
+class lfnlist(list):
         pass
 
 
