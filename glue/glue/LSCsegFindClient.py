@@ -57,6 +57,7 @@ class LSCsegFindClientException(exceptions.Exception):
     """
     self.args = args
 
+
 class LSCsegFindClient(object):
   """
   Class that represents a client interacting with a LSCsegFindServer. It is
@@ -204,7 +205,7 @@ class LSCsegFindClient(object):
         msg = "Bad server reponse format. Contact server administrator"
         raise LSCsegFindClientException, msg
     except:
-      msg = "Connection refused. Contact server administrator"
+      msg = "Connection refused. The server may be down or you may not have authorization to access this server. Contact server administrator"
       raise LSCsegFindClientException, msg
 
     # delete the last \0 before splitting into strings
