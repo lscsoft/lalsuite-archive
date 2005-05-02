@@ -2,8 +2,7 @@
 # NOTE:  the logic in this code is unintuitively complicated.  Small,
 # apparently irrelevant, changes to conditionals can have subtly unexpected
 # consequences to the behaviour of the class methods.  ALWAYS make sure that
-# the module_test() function returns pass on ALL tests after any changes you
-# make.
+# the test suite returns OK on ALL tests after any changes you make.
 #
 
 """
@@ -14,6 +13,8 @@ infinity object used to define semi-infinite and infinite segments.
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __date__ = "$Date$"
 __version__ = "$Revision$"
+
+import bisect
 
 
 #
@@ -249,18 +250,6 @@ class segmentlist(list):
 	the coalesce method when manipulating segmentlists exclusively via the
 	arithmetic operators.
 
-	Note the difference between the standard Python "in" operator for
-	sequence-like objects, and the same operator for segmentlists:  in the
-	case of standard sequence-like objects the in operator checks for an
-	exact match between the given item and one of the contents of the list;
-	for segmentlists, the in operator checks if the given item (a segment)
-	is contained within any of the segments in the segmentlist.
-
-	The union operation, and the coalesce method which it uses, are O(n log
-	n).  The subtraction operation is O(n^2), as are all other arithmetic
-	operations (as they are implemented on top of the subtraction
-	operation).
-
 	Example use:
 		x = segmentlist([segment(-10, 10)])
 		x |= segmentlist([segment(20, 30)])
@@ -276,6 +265,14 @@ class segmentlist(list):
 		Returns True if the given segment is wholly contained within
 		one of the segments in self.  Does not require the segmentlist
 		to be coalesced.
+
+		Note the difference between this operator, and the standard
+		Python "in" operator for sequence-like objects:  in the case of
+		standard sequence-like objects the in operator checks for an
+		exact match between the given item and one of the contents of
+		the list; for segmentlists, the in operator checks if the given
+		item is contained within any of the segments in the
+		segmentlist.
 		"""
 		for seg in self:
 			if item in seg:
@@ -317,8 +314,8 @@ class segmentlist(list):
 		no such element exists.  Does not require the segmentlist to be
 		coalesced.
 		"""
-		for i in range(len(self)):
-			if item in self[i]:
+		for i, seg in enumerate(self):
+			if item in seg:
 				return i
 		raise ValueError, "segmentlist.find(x): x not contained in segmentlist"
 
@@ -327,14 +324,15 @@ class segmentlist(list):
 	def __iand__(self, other):
 		"""
 		Replace the segmentlist with the intersection of itself and
-		another.
+		another.  This operation is O(n^2).
 		"""
 		self -= self - other
 		return self
 
 	def __and__(self, other):
 		"""
-		Return the intersection of the segmentlist and another.
+		Return the intersection of the segmentlist and another.  This
+		operation is O(n^2).
 		"""
 		x = segmentlist(self[:])
 		x &= other
@@ -343,23 +341,54 @@ class segmentlist(list):
 	def __ior__(self, other):
 		"""
 		Replace the segmentlist with the union of itself and another.
+		If the two lists have numbers of elements m and n respectively,
+		then this algorithm is O(n log m), which means it is optimized
+		for the case when the latter list contains a small number of
+		segments.  If you have two large lists of n elements each, then
+		it is faster to do
+
+			list1.extend(list2)
+			list1.coalesce()
+
+		which is also O(n log n), but with a smaller (by about 25%)
+		leading coefficient.
 		"""
-		self.extend(other)
-		self.coalesce()
+		low = 0
+		for seg in other:
+			low = bisect.bisect_right(self, seg, low)
+			self.insert(low, seg)
+			if low:
+				if self[low-1].continuous(self[low]):
+					self[low-1:low+1] = [ self[low-1] | self[low] ]
+					low -= 1
+			try:
+				while self[low].continuous(self[low+1]):
+					self[low:low+2] = [ self[low] | self[low+1] ]
+			except IndexError:
+				pass
+			low += 1
 		return self
 
 	def __or__(self, other):
 		"""
-		Return the union of the segment list and another.
+		Return the union of the segment list and another.  The comment
+		in the segmentlist.__ior__() method about performance
+		optimization when computing the union of large lists of similar
+		size applies here as well.
 		"""
-		x = segmentlist(self[:])
-		x |= other
+		if len(self) >= len(other):
+			x = segmentlist(self[:])
+			x |= other
+		else:
+			x = segmentlist(other[:])
+			x |= self
 		return x
 
 	def __xor__(self, other):
 		"""
 		Return the segmentlist that is the list of all intervals
-		contained in exactly one of this and another list.
+		contained in exactly one of this and another list.  This
+		operation is O(n^2).
 		"""
 		return (self | other) - (self & other)
 
@@ -370,7 +399,7 @@ class segmentlist(list):
 	def __isub__(self, other):
 		"""
 		Replace the segmentlist with the difference between itself and
-		another.
+		another.  This operation is O(n^2).
 		"""
 		for seg in other:
 			if bool(seg):
@@ -415,7 +444,7 @@ class segmentlist(list):
 		try:
 			i = 0
 			while 1:
-				if self[i].intersects(segment(value,value)):
+				if (self[i][0] < value) and (self[i][1] > value):
 					self[i:i+1] = [segment(self[i][0], value), segment(value, self[i][1])]
 					i += 1
 				i += 1
@@ -425,7 +454,8 @@ class segmentlist(list):
 	def coalesce(self):
 		"""
 		Sort the elements of a list into ascending order, and merge
-		continuous segments into single segments.
+		continuous segments into single segments.  This operation is
+		O(n log n), and is dominated by the sort.
 		"""
 		self.sort()
 		try:
