@@ -17,8 +17,42 @@ import types
 from pyGlobus import io
 from pyGlobus import security
 
+
 def version():
         return __version__
+
+
+class LSCdataFindException(exceptions.Exception):
+        """
+        Exceptions raised by the classes and methods in this client
+        will be instances of this class.
+        """
+        def __init__(self, args=None):
+                """
+                Create an instance of this class, ie. an LSCdataFindException.
+
+                @param args:
+
+                @return: Instance of class LSCdataFindException
+                """
+                self.args = args
+
+
+class LDRdataFindClientException(exceptions.Exception):
+        """
+        Exceptions raised by the classes and methods in this module
+        will be instances of this class.
+        """
+        def __init__(self, args=None):
+                """
+                Create an instance of this class, ie. an LDRdataFindClientException.
+
+                @param args:
+
+                @return: Instance of class LDRdataFindClientException
+                """
+                self.args = args
+
 
 class LDRMetadataQuery(object):
         """
@@ -97,22 +131,6 @@ class LDRMetadataQuery(object):
                 return s
 
 
-class LDRdataFindClientException(exceptions.Exception):
-        """
-        Exceptions raised by the classes and methods in this module
-        will be instances of this class.
-        """
-        def __init__(self, args=None):
-                """
-                Create an instance of this class, ie. an LDRdataFindClient
-                exception.
-
-                @param args: 
-
-                @return: Instance of class LDRdataFindClientException
-                """
-                self.args = args
-
 class LDRdataFindClient(object):
         """
         Class that represents a client interacting with a LDRdataFindServer. It is expected
@@ -137,15 +155,15 @@ class LDRdataFindClient(object):
                 # check arguments
                 if type(host) != types.StringType:
                         msg = "Argument 'host' must be a string"
-                        raise LSCdataFindClientException, msg
+                        raise LDRdataFindClientException, msg
 
                 if type(port) != types.IntType:
                         msg = "Argument 'port' must be a positive integer"
-                        raise LSCdataFindClientException, msg
+                        raise LDRdataFindClientException, msg
 
                 if port <= 0:
                         msg = "Argument 'port' must be a positive integer"
-                        raise LSCdataFindClientException, msg
+                        raise LDRdataFindClientException, msg
                  
                 
                 # try to connect and if there are any exceptions catch them
@@ -173,7 +191,7 @@ class LDRdataFindClient(object):
 
                 A IOException is raised if the connection cannot be made,
                 but this is caught by the __init__ method above and 
-                turned into a LSCdataFindClient exception.
+                turned into a LDRdataFindClient exception.
         
                 @param host: the host on which the LDRdataFindServer runs
                 @type host: string
@@ -253,8 +271,12 @@ class LDRdataFindClient(object):
                         response += input
 
                 # the response from the server must always end in a null byte
-                if response[-1] != '\0':
-                        msg = "Bad format for response from server"
+                try:
+                        if response[-1] != '\0':
+                                msg = "Bad server reponse format. Contact server administrator."
+                                raise LDRdataFindClientException, msg
+                except:
+                        msg = "Connection refused. The server may be down or you may not have authorization to access this server. Contact server administrator."
                         raise LDRdataFindClientException, msg
 
                 # delete the last \0 before splitting into strings
@@ -530,3 +552,304 @@ class LDRdataFindClient(object):
                 
 
                 return output
+
+class LSCdataFindClient(LDRdataFindClient):
+        """
+        Class that represents this client interacting with a LDRdataFindServer in
+        order to find LSC data.
+        """
+        def __init__(self, host, port=30000):
+                """
+                Open a connection to a LDRdataFindServer and return an instance of
+                class LDRdataFindClient. One of the public methods can then be 
+                called to send a request to the server.
+
+                @param host: the host on which the LDRdataFindServer runs
+                @type host: string
+
+                @param port: port on which the LDRdataFindServer listens
+                @type port: integer
+
+
+                @return: Instance of LSCdataFindClient
+                """
+                LDRdataFindClient.__init__(self, host, port)
+
+        def __check_gps(self, gpsString):
+                """
+                Minimal checking on GPS time strings. Raises a LSCdataFindClientException if
+                the GPS time string is not 9 digits long.
+
+                @param gpsString: The string representing the 9 digit GPS time.
+
+                @returns: None
+                """
+                if len(gpsString) != 9:
+                        msg = "GPS times must be 9 digits"
+                        raise LSCdataFindClientException, msg
+
+                try:
+                        a = int(gpsString)
+                except Exception, e:
+                        msg = "GPS times must be 9 digits"
+                        raise LSCdataFindClientException, msg
+
+
+        def ping(self, argDict):
+                """
+                Ping the LDRdataFindServer and print any response sent back.
+
+                @param argDict: Dictionary of arguments passed to all methods.
+
+                @return: None
+                """
+                response = LDRdataFindClient.ping(self)
+                return response
+
+        
+        def showObservatories(self, argDict):
+                """
+                Query LDRdataFindServer for the distinct values for the 'instrument' attribute
+                in the metadata table.
+
+                
+
+                @param argDict: Dictionary of arguments passed to all methods.
+
+                @return: None
+                """
+
+                distinctValueList = LDRdataFindClient.distinctAttrValues(self, "instrument")
+                return distinctValueList
+
+
+        def showTypes(self, argDict):
+                """
+                Query LDRdataFindServer for the distinct values for the 'frameType' attribute
+                in the metadata table.
+
+                @param argDict: Dictionary of arguments passed to all methods.
+
+                @return: None
+                """
+                distinctValueList = LDRdataFindClient.distinctAttrValues(self, "frameType")
+                return distinctValueList
+
+
+        def singleFrameFind(self, argDict):
+                """
+                Query the LDRdataFindServer for URLs for a given file.
+                
+                @param argDict: Dictionary of arguments passed to all methods.
+
+                @return: None
+                """
+
+                lfn = argDict['filename']
+                pfnList = LDRdataFindClient.pfnQuery(self, lfn)
+                return pfnList
+
+
+        def findFrameNames(self, argDict):
+                """
+                Query the LDRdataFindServer for frame files from a particular observatory,
+                with a particular frame type, for a particular range of GPS times.
+
+                
+                @param argDict: Dictionary of arguments passed to all methods.
+
+                @return: None
+                """
+                instrument = argDict['observatory']
+                type = argDict['type']
+                start = argDict['start']
+                end = argDict['end']
+                offset = argDict['offset']
+                number = argDict['limit']
+                strict = argDict['strict']
+
+                # check that combination of command-line arguments is sound
+                if (not instrument) or (not type) or (not start) or (not end):
+                        msg = """\
+Bad combination of command line arguments:
+--observatory --type --gps-start-time --gps-end-time must all
+be present when searching for groups of files
+"""
+                        raise LSCdataFindClientException, msg
+
+                self.__check_gps(start)
+                self.__check_gps(end)
+
+                q1 = LDRMetadataQuery()
+                q2 = LDRMetadataQuery()
+
+                if strict:
+                        q1.set_query("(gpsStart >= '%s' AND gpsStart < '%s') AND gpsEnd < '%s' AND instrument = '%s' AND frameType = '%s'" % (start, end, end, instrument, type))
+                        q1.set_sort_attribute("gpsStart")
+                        q1.set_sort_order("ASC")
+
+                        if offset: q1.set_offset(offset)
+                        if number: q1.set_limit(number)
+
+                        lfnList = LDRdataFindClient.lfnQueryWithMetadata(self, [q1])
+                else:
+                        q1.set_query("gpsStart >= '%s' AND gpsStart < '%s' AND instrument = '%s' AND frameType = '%s'" % (start, end, instrument, type))
+                        q1.set_sort_attribute("gpsStart")
+                        q1.set_sort_order("ASC")
+
+                        q2.set_query("gpsEnd > '%s' AND gpsEnd <= '%s' AND instrument = '%s' AND frameType = '%s'" % (start, end, instrument, type))
+                        q2.set_sort_attribute("gpsStart")
+                        q2.set_sort_order("ASC")
+
+                        if offset:
+                                q1.set_offset(offset)
+                                q2.set_offset(offset)
+
+                        if number:
+                                q1.set_limit(number)
+                                q2.set_limit(number)
+                                
+                        lfnList = LDRdataFindClient.lfnQueryWithMetadata(self, [q1, q2])
+
+
+                return lfnList
+                
+
+        def findFrameURLs(self, argDict):
+                """
+                Query the LDRdataFindServer for the URLs for frame files from a particular
+                observatory, with a particular frame type, for a particular range of GPS times.
+                """
+                instrument = argDict['observatory']
+                type = argDict['type']
+                start = argDict['start']
+                end = argDict['end']
+                lalcache = argDict['lalcache']
+                offset = argDict['offset']
+                number = argDict['limit']
+                strict = argDict['strict']
+
+                # check that combintation of command-line arguments is sound
+                if (not instrument) or (not type) or (not start) or (not end):
+                        msg = """\
+Bad combination of command line arguments:
+--observatory --type --gps-start-time --gps-end-time must all
+be present when searching for groups of files
+"""
+                        raise LSCdataFindClientException, msg
+
+
+                self.__check_gps(start)
+                self.__check_gps(end)
+
+                q1 = LDRMetadataQuery()
+                q2 = LDRMetadataQuery()
+
+                if strict:
+                        q1.set_query("(gpsStart >= '%s' AND gpsStart < '%s') AND gpsEnd < '%s' AND instrument = '%s' AND frameType = '%s'" % (start, end, end, instrument, type))
+                        q1.set_sort_attribute("gpsStart")
+                        q1.set_sort_order("ASC")
+
+                        if offset: q1.set_offset(offset)
+                        if number: q1.set_limit(number)
+
+                        pfnList = LDRdataFindClient.pfnQueryWithMetadata(self, [q1])
+                else:
+                        q1.set_query("gpsStart >= '%s' AND gpsStart < '%s' AND instrument = '%s' AND frameType = '%s'" % (start, end, instrument, type))
+                        q1.set_sort_attribute("gpsStart")
+                        q1.set_sort_order("ASC")
+
+                        q2.set_query("gpsEnd > '%s' AND gpsEnd <= '%s' AND instrument = '%s' AND frameType = '%s'" % (start, end, instrument, type))
+                        q2.set_sort_attribute("gpsStart")
+                        q2.set_sort_order("ASC")
+
+                        if offset:
+                                q1.set_offset(offset)
+                                q2.set_offset(offset)
+
+                        if number:
+                                q1.set_limit(number)
+                                q2.set_limit(number)
+                                
+                        pfnList = LDRdataFindClient.pfnQueryWithMetadata(self, [q1, q2])
+
+                return pfnList
+
+
+        def findFrameURLsFilter(self, argDict):
+                """
+                Query the LDRdataFindServer for the URLs for frame files from a particular
+                observatory, with a particular frame type, for a particular range of GPS times,
+                and filter the results using either the type of URL or by matching against a
+                regular expression.
+                """
+                instrument = argDict['observatory']
+                type = argDict['type']
+                start = argDict['start']
+                end = argDict['end']
+                lalcache = argDict['lalcache']
+                match = argDict['match']
+                urlType = argDict['urlType']
+                offset = argDict['offset']
+                number = argDict['limit']
+                strict = argDict['strict']
+
+                if (not instrument) or (not type) or (not start) or (not end):
+                        msg = """\
+Bad combination of command line arguments:
+--observatory --type --gps-start-time --gps-end-time must all
+be present when searching for groups of files
+"""
+                        raise LSCdataFindClientException, msg
+
+                if offset and not number:
+                        msg = "--limit must be used if --offset is used"
+                        raise LSCdataFindClientException, msg
+
+                self.__check_gps(start)
+                self.__check_gps(end)
+
+                # should do sanity check here on the urlType and match that have been passed
+                # and check for proper quoting
+                if match and urlType:
+                        rexp = "^%s.*%s" % (str(urlType), str(match))
+                elif match and not urlType:
+                        rexp = "%s" % str(match)
+                elif not match and urlType:
+                        rexp = "^%s" % str(urlType)
+
+                q1 = LDRMetadataQuery()
+                q2 = LDRMetadataQuery()
+
+                if strict:
+                        q1.set_query("(gpsStart >= '%s' AND gpsStart < '%s') AND gpsEnd < '%s' AND instrument = '%s' AND frameType = '%s'" % (start, end, end, instrument, type))
+                        q1.set_sort_attribute("gpsStart")
+                        q1.set_sort_order("ASC")
+                        q1.set_regex_filter(rexp)
+
+                        if offset: q1.set_offset(offset)
+                        if number: q1.set_limit(number)
+
+                        pfnList = LDRdataFindClient.pfnQueryWithMetadata(self, [q1])
+                else:
+                        q1.set_query("gpsStart >= '%s' AND gpsStart < '%s' AND instrument = '%s' AND frameType = '%s'" % (start, end, instrument, type))
+                        q1.set_sort_attribute("gpsStart")
+                        q1.set_sort_order("ASC")
+                        q1.set_regex_filter(rexp)
+
+                        q2.set_query("gpsEnd > '%s' AND gpsEnd <= '%s' AND instrument = '%s' AND frameType = '%s'" % (start, end, instrument, type))
+                        q2.set_sort_attribute("gpsStart")
+                        q2.set_sort_order("ASC")
+                        q2.set_regex_filter(rexp)
+
+                        if offset:
+                                q1.set_offset(offset)
+                                q2.set_offset(offset)
+
+                        if number:
+                                q1.set_limit(number)
+                                q2.set_limit(number)
+                                
+                        pfnList = LDRdataFindClient.pfnQueryWithMetadata(self, [q1, q2])
+
+                return pfnList
