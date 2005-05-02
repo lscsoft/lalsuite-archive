@@ -54,6 +54,22 @@ class LDRdataFindClientException(exceptions.Exception):
                 self.args = args
 
 
+class pfnlist(list):
+        """
+        Defines a list of physical file names (PFNs)
+        """
+        def __init__(self):
+                list.__init__(self)
+
+
+class lfnlist(list):
+        """
+        Defines a list of logical file names (LFNs)
+        """
+        def __init__(self):
+                list.__init__(self)
+
+
 class LDRMetadataQuery(object):
         """
         """
@@ -310,7 +326,6 @@ class LDRdataFindClient(object):
                 self.sfile.write(msg)
 
                 ret, output = self.__response__()
-
                 reply = str(output[0])
 
                 if ret:
@@ -597,7 +612,7 @@ class LSCdataFindClient(LDRdataFindClient):
 
         def ping(self, argDict):
                 """
-                Ping the LDRdataFindServer and print any response sent back.
+                Ping the LDRdataFindServer and return any response sent back.
 
                 @param argDict: Dictionary of arguments passed to all methods.
 
@@ -611,8 +626,6 @@ class LSCdataFindClient(LDRdataFindClient):
                 """
                 Query LDRdataFindServer for the distinct values for the 'instrument' attribute
                 in the metadata table.
-
-                
 
                 @param argDict: Dictionary of arguments passed to all methods.
 
@@ -647,7 +660,9 @@ class LSCdataFindClient(LDRdataFindClient):
 
                 lfn = argDict['filename']
                 pfnList = LDRdataFindClient.pfnQuery(self, lfn)
-                return pfnList
+                result = pfnlist()
+                result = pfnList
+                return result
 
 
         def findFrameNames(self, argDict):
@@ -711,8 +726,9 @@ be present when searching for groups of files
                                 
                         lfnList = LDRdataFindClient.lfnQueryWithMetadata(self, [q1, q2])
 
-
-                return lfnList
+                result = lfnlist()
+                result = lfnList
+                return result
                 
 
         def findFrameURLs(self, argDict):
@@ -773,7 +789,9 @@ be present when searching for groups of files
                                 
                         pfnList = LDRdataFindClient.pfnQueryWithMetadata(self, [q1, q2])
 
-                return pfnList
+                result = pfnlist()
+                result = pfnList
+                return result
 
 
         def findFrameURLsFilter(self, argDict):
@@ -852,4 +870,6 @@ be present when searching for groups of files
                                 
                         pfnList = LDRdataFindClient.pfnQueryWithMetadata(self, [q1, q2])
 
-                return pfnList
+                result = pfnlist()
+                result = pfnList
+                return result
