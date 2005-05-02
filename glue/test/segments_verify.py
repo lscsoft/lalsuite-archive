@@ -1,9 +1,31 @@
 from glue.segments import *
+import random
 import unittest
 
-class TestInfinity(unittest.TestCase):
-	def testcmp(self):
-		# __cmp__()
+
+#
+# Some useful code.
+#
+
+def randomlist(n):
+	"""
+	Return a coalesced segmentlist of n elements with random boundaries.
+	"""
+	if n < 1:
+		raise ValueError, "randomlist(n): n must be >= 1"
+	list = segmentlist([segment(random.random(), random.random())])
+	for i in range(n - 1):
+		x = list[-1][1] + random.random()
+		list.append(segment(x, x + random.random()))
+	return list
+
+
+#
+# Define the components of the test suite.
+#
+
+class test_infinity(unittest.TestCase):
+	def test__cmp__(self):
 		a = infinity()
 		self.assertEqual( 0, cmp(-a, -a))
 		self.assertEqual(-1, cmp(-a,  0))
@@ -14,8 +36,7 @@ class TestInfinity(unittest.TestCase):
 		self.assertEqual( 1, cmp( a,  0))
 		self.assertEqual( 0, cmp( a,  a))
 
-	def testadd(self):
-		# __add__()
+	def test__add__(self):
 		a = infinity()
 		b = infinity()
 		self.assertEqual( b, (  a) + ( 10))
@@ -29,8 +50,7 @@ class TestInfinity(unittest.TestCase):
 		self.assertEqual( b, (  a) + (  a))
 		self.assertEqual(-b, ( -a) + ( -a))
 
-	def testsub(self):
-		# __sub__()
+	def test__sub__(self):
 		a = infinity()
 		b = infinity()
 		self.assertEqual( b, (  a) - ( 10))
@@ -47,9 +67,41 @@ class TestInfinity(unittest.TestCase):
 		self.assertEqual(-b, ( -a) - (  a))
 
 
-class TestSegment(unittest.TestCase):
-	def testdefinition(self):
-		# segment creation
+class test_segment(unittest.TestCase):
+	set1 = [
+		segment(-2, 2),
+		segment(-2, 2),
+		segment(-2, 2),
+		segment(-2, 2),
+		segment(-2, 2),
+		segment(-2, 2),
+		segment(-2, 2),
+		segment(-2, 2),
+		segment(-2, 2),
+		segment(-2, 2),
+		segment(-2, 2),
+		segment(-2, 2),
+		segment(-2, 2),
+		segment(-2, 2)
+	]
+	set2 = [
+		segment(-4, -3),
+		segment(-4, -2),
+		segment(-4,  0),
+		segment(-4,  2),
+		segment(-4,  4),
+		segment(-2,  4),
+		segment( 0,  4),
+		segment( 2,  4),
+		segment( 3,  4),
+		segment(-2,  2),
+		segment(-1,  1),
+		segment(-infinity(), infinity()),
+		segment(0, infinity()),
+		segment(-infinity(), 0)
+	]
+
+	def test__new__(self):
 		self.assertEqual((-2, 2), tuple(segment(-2, 2)))
 		self.assertEqual((-2, 2), tuple(segment(2, -2)))
 		self.assertEqual((-infinity(), 2), tuple(segment(-infinity(), 2)))
@@ -59,58 +111,103 @@ class TestSegment(unittest.TestCase):
 		self.assertEqual((-infinity(), infinity()), tuple(segment(-infinity(), infinity())))
 
 	def testduration(self):
-		# duration()
-		self.assertEqual(4, segment(-2, 2).duration())
-		self.assertEqual(infinity(), segment(0, infinity()).duration())
-		self.assertEqual(infinity(), segment(-infinity(), 0).duration())
-		self.assertEqual(infinity(), segment(-infinity(), infinity()).duration())
+		results = [
+			1,
+			2,
+			4,
+			6,
+			8,
+			6,
+			4,
+			2,
+			1,
+			4,
+			2,
+			infinity(),
+			infinity(),
+			infinity()
+		]
+		map(lambda i, r, a: self.assertEqual((i, r), (i, a.duration())), range(len(results)), results, self.set2)
 
 	def testintersects(self):
-		self.assertEqual(False, segment(-2, 2).intersects(segment(-4, -3)))
-		self.assertEqual(False, segment(-2, 2).intersects(segment(-4, -2)))
-		self.assertEqual( True, segment(-2, 2).intersects(segment(-4,  0)))
-		self.assertEqual( True, segment(-2, 2).intersects(segment(-4,  2)))
-		self.assertEqual( True, segment(-2, 2).intersects(segment(-4,  4)))
-		self.assertEqual( True, segment(-2, 2).intersects(segment(-2,  4)))
-		self.assertEqual( True, segment(-2, 2).intersects(segment( 0,  4)))
-		self.assertEqual(False, segment(-2, 2).intersects(segment( 2,  4)))
-		self.assertEqual(False, segment(-2, 2).intersects(segment( 3,  4)))
-		self.assertEqual( True, segment(-2, 2).intersects(segment(-2,  2)))
-		self.assertEqual( True, segment(-2, 2).intersects(segment(-1,  1)))
+		results = [
+			False,
+			False,
+			True,
+			True,
+			True,
+			True,
+			True,
+			False,
+			False,
+			True,
+			True,
+			True,
+			True,
+			True
+		]
+		map(lambda i, r, a, b: self.assertEqual((i, r), (i, a.intersects(b))), range(len(results)), results, self.set1, self.set2)
 
-	def testcontains(self):
-		self.assertEqual(False, segment(-4, -3) in segment(-2, 2))
-		self.assertEqual(False, segment(-4, -2) in segment(-2, 2))
-		self.assertEqual(False, segment(-4, 0) in segment(-2, 2))
-		self.assertEqual(False, segment(-4, 2) in segment(-2, 2))
-		self.assertEqual(False, segment(-4, 4) in segment(-2, 2))
-		self.assertEqual(False, segment(-2, 4) in segment(-2, 2))
-		self.assertEqual(False, segment(0, 4) in segment(-2, 2))
-		self.assertEqual(False, segment(2, 4) in segment(-2, 2))
-		self.assertEqual(False, segment(3, 4) in segment(-2, 2))
-		self.assertEqual( True, segment(-2, 2) in segment(-2, 2))
-		self.assertEqual( True, segment(-1, 1) in segment(-2, 2))
+	def test__contains__(self):
+		results = [
+			False,
+			False,
+			False,
+			False,
+			False,
+			False,
+			False,
+			False,
+			False,
+			True,
+			True,
+			False,
+			False,
+			False
+		]
+		map(lambda i, r, a, b: self.assertEqual((i, r), (i, a.__contains__(b))), range(len(results)), results, self.set1, self.set2)
 
 	def testcontinuous(self):
-		self.assertEqual(False, segment(-2, 2).continuous(segment(-4, -3)))
-		self.assertEqual( True, segment(-2, 2).continuous(segment(-4, -2)))
-		self.assertEqual( True, segment(-2, 2).continuous(segment(-4,  0)))
-		self.assertEqual( True, segment(-2, 2).continuous(segment(-4,  2)))
-		self.assertEqual( True, segment(-2, 2).continuous(segment(-4,  4)))
-		self.assertEqual( True, segment(-2, 2).continuous(segment(-2,  4)))
-		self.assertEqual( True, segment(-2, 2).continuous(segment( 0,  4)))
-		self.assertEqual( True, segment(-2, 2).continuous(segment( 2,  4)))
-		self.assertEqual(False, segment(-2, 2).continuous(segment( 3,  4)))
-		self.assertEqual( True, segment(-2, 2).continuous(segment(-2,  2)))
-		self.assertEqual( True, segment(-2, 2).continuous(segment(-1,  1)))
+		results = [
+			False,
+			True,
+			True,
+			True,
+			True,
+			True,
+			True,
+			True,
+			False,
+			True,
+			True,
+			True,
+			True,
+			True
+		]
+		map(lambda i, r, a, b: self.assertEqual((i, r), (i, a.continuous(b))), range(len(results)), results, self.set1, self.set2)
 
-	def testcontraction(self):
-		self.assertEqual(segment(5, 15), segment(0, 20).contract(5))
+	def testcontract(self):
+		results = [
+			segment(-5, -2),
+			segment(-4, -2),
+			segment(-2, -2),
+			segment(-2,  0),
+			segment(-2,  2),
+			segment( 0,  2),
+			segment( 2,  2),
+			segment( 2,  4),
+			segment( 2,  5),
+			segment( 0,  0),
+			segment(-1,  1),
+			segment(-infinity(), infinity()),
+			segment(2, infinity()),
+			segment(-infinity(), -2)
+		]
+		map(lambda i, r, a: self.assertEqual((i, r), (i, a.contract(2))), range(len(results)), results, self.set2)
 
 
-class TestSegmentList(unittest.TestCase):
-	def testsub(self):
-		# __sub__()
+class test_segmentlist(unittest.TestCase):
+	def test__sub__(self):
 		self.assertEqual(segmentlist([]), segmentlist([]) - segmentlist([]))
 		self.assertEqual(segmentlist([]), segmentlist([]) - segmentlist([segment(-1,1)]))
 		self.assertEqual(segmentlist([segment(-1,1)]) - segmentlist([segment(-1,1)]), segmentlist([]))
@@ -129,16 +226,34 @@ class TestSegmentList(unittest.TestCase):
 		self.assertEqual(segmentlist([segment(0,5), segment(45,50)]), segmentlist([segment(0,10), segment(20,30), segment(40,50)]) - segmentlist([segment(5, 45)]))
 		self.assertEqual(segmentlist([segment(-5,5)]), segmentlist([segment(-5,5)]) - segmentlist([segment(0,0)]))
 
-	def testinvert(self):
-		# __invert__()
+	def test__invert__(self):
 		self.assertEqual(segmentlist([segment(-infinity(), infinity())]), ~segmentlist([]))
 		self.assertEqual(segmentlist([]), ~segmentlist([segment(-infinity(), infinity())]))
 		self.assertEqual(segmentlist([segment(-infinity(), -5), segment(5, infinity())]), ~segmentlist([segment(-5,5)]))
 
+	def test__or__(self):
+		for i in range(10000):
+			a = randomlist(random.randint(1, 50))
+			b = randomlist(random.randint(1, 50))
+			c = a | b
+			# make sure c contains all of a
+			self.assertEqual(a, c & a)
+			# make sure c contains all of b
+			self.assertEqual(b, c & b)
+			# make sure c contains nothing except a and b
+			self.assertEqual(segmentlist([]), c - a - b)
+
 	def testcontract(self):
-		# contract()
 		self.assertEqual(segmentlist([segment(0, 20)]), segmentlist([segment(3, 7), segment(13, 17)]).contract(-3))
 
 
-if __name__ == "__main__":
-	unittest.main()
+#
+# Manually construct and run the test suite in order to control the verbosity.
+#
+
+suite = unittest.TestSuite()
+suite.addTest(unittest.makeSuite(test_infinity))
+suite.addTest(unittest.makeSuite(test_segment))
+suite.addTest(unittest.makeSuite(test_segmentlist))
+
+unittest.TextTestRunner(verbosity=2).run(suite)
