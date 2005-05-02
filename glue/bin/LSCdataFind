@@ -326,10 +326,31 @@ except Exception, e:
         sys.exit(1)
 
         
+# execute the query and print the result
 try:
         result = eval("myClient.%s(%s)" % (clientMethod, clientMethodArgDict))
-        print type(result)
-        print result
+        if isinstance( result, str ):
+                print result
+        elif isinstance( result, list ):
+                for r in result:
+                        print r
+        elif isinstance( result, glue.LDRdataFindClient.lfnlist ):
+                for r in result:
+                        print r
+        elif isinstance( result, glue.LDRdataFindClient.pfnlist ):
+                if lalcache:
+                       for pfn in result:
+                                lfn = os.path.basename(pfn)
+                                head, ext = os.path.splitext(lfn)
+                                a, b, c, d = head.split('-') 
+                                print "%s %s %s %s %s" % (a, b, c, d, pfn)
+
+                else:
+                        for r in result:
+                                print r
+        else:
+                msg = "Error: unknown result format : %s" % result
+                raise LDRdataFindClient.LDRdataFindException, msg
 
 except Exception, e:
         print >>sys.stderr, "Error querying LDRdataFindServer: %s" % str(e)
