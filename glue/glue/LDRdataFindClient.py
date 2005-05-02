@@ -54,22 +54,6 @@ class LDRdataFindClientException(exceptions.Exception):
                 self.args = args
 
 
-class pfnlist(list):
-        """
-        Defines a list of physical file names (PFNs)
-        """
-        def __init__(self):
-                list.__init__(self)
-
-
-class lfnlist(list):
-        """
-        Defines a list of logical file names (LFNs)
-        """
-        def __init__(self):
-                list.__init__(self)
-
-
 class LDRMetadataQuery(object):
         """
         """
@@ -568,6 +552,7 @@ class LDRdataFindClient(object):
 
                 return output
 
+
 class LSCdataFindClient(LDRdataFindClient):
         """
         Class that represents this client interacting with a LDRdataFindServer in
@@ -660,9 +645,7 @@ class LSCdataFindClient(LDRdataFindClient):
 
                 lfn = argDict['filename']
                 pfnList = LDRdataFindClient.pfnQuery(self, lfn)
-                result = pfnlist()
-                result = pfnList
-                return result
+                return pfnList
 
 
         def findFrameNames(self, argDict):
@@ -726,9 +709,7 @@ be present when searching for groups of files
                                 
                         lfnList = LDRdataFindClient.lfnQueryWithMetadata(self, [q1, q2])
 
-                result = lfnlist()
-                result = lfnList
-                return result
+                return lfnList
                 
 
         def findFrameURLs(self, argDict):
@@ -789,9 +770,7 @@ be present when searching for groups of files
                                 
                         pfnList = LDRdataFindClient.pfnQueryWithMetadata(self, [q1, q2])
 
-                result = pfnlist()
-                result = pfnList
-                return result
+                return pfnList
 
 
         def findFrameURLsFilter(self, argDict):
@@ -870,6 +849,4 @@ be present when searching for groups of files
                                 
                         pfnList = LDRdataFindClient.pfnQueryWithMetadata(self, [q1, q2])
 
-                result = pfnlist()
-                result = pfnList
-                return result
+                return pfnList
