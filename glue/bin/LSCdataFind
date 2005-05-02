@@ -203,6 +203,7 @@ except getopt.GetoptError:
 # defaults
 hostPortString = None
 port = 30010
+lalcache = false
 
 clientMethodArgDict = {
         'observatory': None,
@@ -266,7 +267,7 @@ for o, a in opts:
         elif o in ("-t", "--type"):
                 clientMethodArgDict['type'] = a
         elif o in ("-l", "--lal-cache"):
-                clientMethodArgDict['lalcache'] = True
+                lalcache = True
         elif o in ("-f", "--filename"):
                 clientMethodArgDict['filename'] = a
                 clientMethod = 'singleFrameFind'
