@@ -13,11 +13,21 @@ def randomlist(n):
 	"""
 	if n < 1:
 		raise ValueError, "randomlist(n): n must be >= 1"
-	list = segmentlist([segment(random.random(), random.random())])
+	x = random.random()
+	list = segmentlist([segment(x, x + random.random())])
 	for i in range(n - 1):
 		x = list[-1][1] + random.random()
 		list.append(segment(x, x + random.random()))
 	return list
+
+def iscoalesced(l):
+	"""
+	Return True if the segmentlist l is coalesced.
+	"""
+	for i in range(len(l)-1):
+		if l[i][1] >= l[i+1][0]:
+			return False
+	return True
 
 
 #
@@ -236,19 +246,24 @@ class test_segmentlist(unittest.TestCase):
 			a = randomlist(random.randint(1, 50))
 			b = randomlist(random.randint(1, 50))
 			c = a | b
-			# make sure c contains all of a
-			self.assertEqual(a, c & a)
-			# make sure c contains all of b
-			self.assertEqual(b, c & b)
-			# make sure c contains nothing except a and b
-			self.assertEqual(segmentlist([]), c - a - b)
+			try:
+				# make sure c is coalesced
+				self.assertEqual(True, iscoalesced(c))
+				# make sure c contains all of a
+				self.assertEqual(a, c & a)
+				# make sure c contains all of b
+				self.assertEqual(b, c & b)
+				# make sure c contains nothing except a and b
+				self.assertEqual(segmentlist([]), c - a - b)
+			except AssertionError, e:
+				raise AssertionError, str(e) + "\na = " + str(a) + "\nb = " + str(b)
 
 	def testcontract(self):
 		self.assertEqual(segmentlist([segment(0, 20)]), segmentlist([segment(3, 7), segment(13, 17)]).contract(-3))
 
 
 #
-# Manually construct and run the test suite in order to control the verbosity.
+# Construct and run the test suite.
 #
 
 suite = unittest.TestSuite()
