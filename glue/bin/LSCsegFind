@@ -286,11 +286,6 @@ try:
         msg = "Error: unknown segment format : %s" % format
         raise LSCsegFindClient.LSCsegFindException, msg
  
-except LSCsegFindClient.LSCsegFindException, e:
-  print >>sys.stderr, str(e)
-  print >>sys.stderr, "Enter 'LSCsegFind --help' for usage"
-  sys.exit(1)
-
 except Exception, e:
   print >>sys.stderr, "Error querying LSCsegFindServer: %s" % str(e)
   print >>sys.stderr, "Enter 'LSCsegFind --help' for usage"

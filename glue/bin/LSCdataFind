@@ -331,16 +331,6 @@ try:
         print type(result)
         print result
 
-except LDRdataFindClient.LDRdataFindClientException, e:
-        print >>sys.stderr, str(e)
-        print >>sys.stderr, "Enter 'LSCdataFind --help' for usage"
-        sys.exit(1)
-
-except LDRdataFindClient.LSCdataFindException, e:
-        print >>sys.stderr, str(e)
-        print >>sys.stderr, "Enter 'LSCdataFind --help' for usage"
-        sys.exit(1)
-
 except Exception, e:
         print >>sys.stderr, "Error querying LDRdataFindServer: %s" % str(e)
         print >>sys.stderr, "Enter 'LSCdataFind --help' for usage"
