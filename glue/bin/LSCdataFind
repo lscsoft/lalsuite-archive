@@ -39,7 +39,8 @@ if not PYTHONPATH:
 
 
 try:
-        from glue.LDRdataFindClient import LDRdataFindClient
+        from glue import LDRdataFindClient
+        from glue import gsiserverutils
 except ImportError:
         print >> sys.stderr, """
 Error: unable to import LDRdataFindClient module from glue.
