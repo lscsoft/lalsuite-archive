@@ -1894,17 +1894,21 @@ class LSCDataFindJob(CondorDAGJob, AnalysisJob):
     self.__executable = config_file.get('condor','datafind')
     self.__universe = 'scheduler'
     CondorDAGJob.__init__(self,self.__universe,self.__executable)
-    AnalysisJob.__init__(self,config_file,dax)
+    AnalysisJob.__init__(self,config_file)
     self.__cache_dir = cache_dir
-    self.__config_file=config_file
-    self.__dax=dax
- 
+    self.__dax = dax
+    self.__config_file = config_file
+
     for sec in ['datafind']:
       self.add_ini_opts(config_file,sec)
     
-    # we need a lal cache for files on the localhost
-    self.add_opt('lal-cache','')
-    self.add_opt('url-type','file')
+    if self.__dax:
+      # only get the LFNs not the PFNs
+      self.add_opt('names-only','')
+    else:
+      # we need a lal cache for file PFNs
+      self.add_opt('lal-cache','')
+      self.add_opt('url-type','file')
 
     self.add_condor_cmd('getenv','True')
 
@@ -1918,18 +1922,18 @@ class LSCDataFindJob(CondorDAGJob, AnalysisJob):
     """
     return self.__cache_dir
 
-  def get_dax(self): 	 
+  def is_dax(self): 	 
     """ 	 
     returns the dax flag 	 
     """ 	 
     return self.__dax 	 
-  
-  def get_config_file(self): 	 
-    """ 	 
-    returns the config file parser 	 
-    """ 	 
-    return self.__config_file
 
+  def get_config_file(self):
+    """
+    return the configuration file object
+    """
+    return self.__config_file
+  
 
 class LSCDataFindNode(CondorDAGNode, AnalysisNode):
   """
@@ -1946,10 +1950,15 @@ class LSCDataFindNode(CondorDAGNode, AnalysisNode):
     self.__observatory = None
     self.__output = None
     self.__job = job
-    self.__config_file=job.get_config_file()
-    self.__dax=job.get_dax() 	 
-    self.__frames=[]  # no frames looked for (to avoid double work)
+    self.__dax = job.is_dax() 	 
+    self.__lfn_list = None
      
+    # try and get a type from the ini file and default to type None
+    try:
+      self.__type = self.job().get_config_file().get('datafind','type')
+    except:
+      self.__type = None
+ 
   def __set_output(self):
     """
     Private method to set the file to write the cache to. Automaticaly set
@@ -1969,6 +1978,12 @@ class LSCDataFindNode(CondorDAGNode, AnalysisNode):
     self.__start = time
     self.__set_output()
 
+  def get_start(self):
+    """
+    Return the start time of the datafind query
+    """
+    return self.__start
+
   def set_end(self,time):
     """
     Set the end time of the datafind query.
@@ -1977,6 +1992,12 @@ class LSCDataFindNode(CondorDAGNode, AnalysisNode):
     self.add_var_opt('gps-end-time', time)
     self.__end = time
     self.__set_output()
+
+  def get_end(self):
+    """
+    Return the start time of the datafind query
+    """
+    return self.__end
 
   def set_observatory(self,obs):
     """
@@ -1990,32 +2011,78 @@ class LSCDataFindNode(CondorDAGNode, AnalysisNode):
     self.__observatory = obs
     self.__set_output()
 
+  def get_observatory(self):
+    """
+    Return the start time of the datafind query
+    """
+    return self.__observatory
+
+  def set_type(self,type):
+    """
+    sets the frame type that we are querying
+    """
+    self.__type = type
+
+  def get_type(self):
+    """
+    gets the frame type that we are querying
+    """
+    return self.__type
+
   def get_output(self):
     """
     Return the output file, i.e. the file containing the frame cache data.
     or the files itself as tuple (for DAX) 	 
     """	 
-    if self.__dax: 	 
-      if self.__frames: 	 
+    if self.__dax:
+      if not self.__lfn_list:
+        print "running LSCdataFind:"
+        print "  --gps-start-time " + str(self.get_start())
+        print "  --gps-start-time " + str(self.get_end())
+        print "  --observatory " + self.get_observatory()
+        print "  --type " + self.get_type()
         
-        # return frames if already available
-        return self.__frames;
-      
-      else: 	 
+        # call the datafind client to get the LFNs
+        from pyGlobus import security
+        from glue import LDRdataFindClient
+        from glue import gsiserverutils
 
-        # start LSCdataFind job to find data
-        type=self.__config_file.get('datafind','type') 	 
-        server=self.__config_file.get('datafind','server') 	 
-        cmd='LSCdataFind --server='+server+' --observatory='+self.__observatory +' --type='+type+' --gps-start-time='+repr(self.__start)+' --gps-end-time='+repr(self.__end)+' --url-type=file --match=localhost > .dummy2' 	 
-        #print cmd 	 
-        os.system(cmd) 	 
+        hostPortString = os.environ['LSC_DATAFIND_SERVER']
+        if hostPortString.find(':') < 0:
+          # no port specified
+          myClient = LDRdataFindClient.LSCdataFindClient(hostPortString)
+        else:
+          # server and port specified
+          host, portString = hostPortString.split(':')
+          port = int(portString)
+          myClient = LDRdataFindClient.LSCdataFindClient(host,port)
+
+        clientMethod = 'findFrameNames'
+        clientMethodArgDict = {
+          'observatory': self.get_observatory(),
+          'end': str(self.get_end()),
+          'start': str(self.get_start()),
+          'type': self.get_type(),
+          'filename': None,
+          'urlType': None,
+          'match': None,
+          'limit': None,
+          'offset': None,
+          'strict' : None,
+          'namesOnly' : True
+          }
+
+        result = eval("myClient.%s(%s)" % (clientMethod, clientMethodArgDict))
         
-        # read data into 
-        f=open('.dummy2', 'r') 	 
-        lines=f.readlines() 	 
-        for line in lines: 	 
-          self.__frames.append(line) 	           
-        return self.__frames; 	 
+        if not isinstance(result,LDRdataFindClient.lfnlist):
+          msg = "datafind server did not return LFN list : " + str(result)
+          raise SegmentError, msg
+        if len(result) == 0:
+          msg = "No LFNs returned for segment %d %d" % ( str(self.get_start()),
+            str(self.get_end()) )
+          raise SegmentError, msg
+        self.__lfn_list = result
+      return self.__lfn_list
     else: 	 
       return self.__output
 
