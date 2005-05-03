@@ -245,7 +245,7 @@ except Exception, e:
   print >>sys.stderr, \
     "Unable to connect to LSCsegFindServer %s:%d" % (host, port)
   if gsiserverutils.checkCredentials():
-    print >>sys.stderr, "Got the following error : " + e
+    print >>sys.stderr, "Got the following error : " + str(e)
     print >>sys.stderr, "Enter 'LSCdataFind --help' for usage"
   sys.exit(1)
 
