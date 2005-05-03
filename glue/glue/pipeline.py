@@ -465,13 +465,24 @@ class CondorDAGNode:
     self.__args.append(arg)
     self.__job.add_var_arg()
 
+  def add_file_arg(self, file):
+    """
+    Add a variable (or macro) file name argument to the condor job. The
+    argument is added to the submit file and a different value of the 
+    argument can be set for each node in the DAG. The file name is also
+    added to the list of input files for the DAX.
+    @param arg: name of option to add.
+    """
+    self.__args.append(file)
+    self.__job.add_var_arg()
+    self.add_input_file(file)
+
   def get_args(self):
     """
     Return the arguments for this node. Note that this returns
     only the arguments for this instance of the node and not those
     associated with the underlying job template.
     """
-
     return self.__args
 
   def set_retry(self, retry):
