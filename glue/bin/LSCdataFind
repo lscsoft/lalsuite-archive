@@ -331,13 +331,10 @@ try:
         result = eval("myClient.%s(%s)" % (clientMethod, clientMethodArgDict))
         if isinstance( result, str ):
                 print result
-        elif isinstance( result, list ):
+        elif isinstance( result, LDRdataFindClient.lfnlist ):
                 for r in result:
                         print r
-        elif isinstance( result, glue.LDRdataFindClient.lfnlist ):
-                for r in result:
-                        print r
-        elif isinstance( result, glue.LDRdataFindClient.pfnlist ):
+        elif isinstance( result, LDRdataFindClient.pfnlist ):
                 if lalcache:
                        for pfn in result:
                                 lfn = os.path.basename(pfn)
@@ -348,6 +345,9 @@ try:
                 else:
                         for r in result:
                                 print r
+        elif isinstance( result, list ):
+                for r in result:
+                        print r
         else:
                 msg = "Error: unknown result format : %s" % result
                 raise LDRdataFindClient.LDRdataFindException, msg
