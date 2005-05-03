@@ -236,8 +236,6 @@ else:
   host, portString = hostPortString.split(':')
   port = int(portString)
 
-# check credentials
-gsiserverutils.checkCredentials()
 
 # open connection to LSCsegFindServer
 try:
@@ -245,8 +243,10 @@ try:
 
 except Exception, e:
   print >>sys.stderr, \
-    "Unable to connect to LSCsegFindServer %s:%d : %s" % (host, port, e)
-  print >>sys.stderr, "Enter 'LSCsegFind --help' for usage"
+    "Unable to connect to LSCsegFindServer %s:%d" % (host, port)
+  if gsiserverutils.checkCredentials():
+    print >>sys.stderr, "Got the following error : " + e
+    print >>sys.stderr, "Enter 'LSCdataFind --help' for usage"
   sys.exit(1)
 
 try:
