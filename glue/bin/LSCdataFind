@@ -317,9 +317,9 @@ else:
 # open connection to LDRdataFindServer
 try:
         myClient = LDRdataFindClient.LSCdataFindClient(host, port)
-
 except Exception, e:
         print >>sys.stderr, "Unable to connect to LDRdataFindServer %s:%d : %s" % (host, port, e)
+        gsiserverutils.checkCredentials()
         print >>sys.stderr, "Enter 'LSCdataFind --help' for usage"
         sys.exit(1)
 
@@ -359,7 +359,6 @@ try:
 except Exception, e:
         print >>sys.stderr, "Error querying LDRdataFindServer: %s" % str(e)
         print >>sys.stderr, "Enter 'LSCdataFind --help' for usage"
-        gsiserverutils.checkCredentials()
         sys.exit(1)
 
 sys.exit(0)
