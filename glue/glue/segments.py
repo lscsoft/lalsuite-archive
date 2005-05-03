@@ -390,7 +390,7 @@ class segmentlist(list):
 		contained in exactly one of this and another list.  This
 		operation is O(n^2).
 		"""
-		return (self | other) - (self & other)
+		return (self - other) | (other - self)
 
 	# addition is defined to be the union operation
 	__iadd__ = __ior__
