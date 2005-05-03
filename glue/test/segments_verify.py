@@ -8,16 +8,18 @@ import unittest
 #
 
 def randomlist(n):
+	def r():
+		return float(random.randint(1,99))/100
 	"""
 	Return a coalesced segmentlist of n elements with random boundaries.
 	"""
 	if n < 1:
 		raise ValueError, "randomlist(n): n must be >= 1"
-	x = random.random()
-	list = segmentlist([segment(x, x + random.random())])
+	x = r()
+	list = segmentlist([segment(x, x + r())])
 	for i in range(n - 1):
-		x = list[-1][1] + random.random()
-		list.append(segment(x, x + random.random()))
+		x = list[-1][1] + r()
+		list.append(segment(x, x + r()))
 	return list
 
 def iscoalesced(l):
