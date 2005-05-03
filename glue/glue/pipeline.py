@@ -16,6 +16,7 @@ import time
 import random
 import md5
 import math
+import urlparse
 
 def s2play(t):
   """
@@ -71,8 +72,10 @@ class CondorJob:
     self.__out_file = None
     self.__sub_file_path = None
 
-  def getExec(self):
-    
+  def get_executable(self):
+    """
+    Return the name of the executable for this job.
+    """
     return self.__executable
 
   def add_condor_cmd(self, cmd, value):
@@ -508,7 +511,7 @@ class CondorDAGNode:
     @param fh: descriptor of open DAG file.
     """
     for parent in self.__parents:
-      fh.write( 'PARENT ' + parent + ' CHILD ' + str(self) + '\n' )
+      fh.write( 'PARENT ' + str(parent) + ' CHILD ' + str(self) + '\n' )
 
   def write_pre_script(self,fh):
     """
@@ -565,7 +568,7 @@ class CondorDAGNode:
     """
     if not isinstance(node, CondorDAGNode):
       raise CondorDAGNodeError, "Parent must be a Condor DAG node"
-    self.__parents.append( str(node) )
+    self.__parents.append( node )
 
   def get_cmd_line(self):
     """
@@ -582,7 +585,7 @@ class CondorDAGNode:
 
     cmd = ""
     # printing out for test purposes
-    print "************\nexec: ",self.job().getExec()
+    print "************\nexec: ",self.job().get_executable()
     print options
     
     for k in options:
@@ -640,7 +643,7 @@ class CondorDAG:
   NOTE: The log file must not be on an NFS mounted system as the Condor jobs
   must be able to get an exclusive file lock on the log file.
   """
-  def __init__(self,log,dax=0):
+  def __init__(self,log,dax=False):
     """
     @param log: path to log file which must not be on an NFS mounted file system.
     @param dax: Set to 1 to create an abstract DAG (a DAX)
@@ -650,6 +653,12 @@ class CondorDAG:
     self.__dag_file_path = None
     self.__jobs = []
     self.__nodes = []
+
+  def is_dax(self):
+    """
+    Returns true if this DAG is really a DAX
+    """
+    return self.__dax
 
   def set_dag_file(self, path):
     """
@@ -690,10 +699,11 @@ class CondorDAG:
     Write all the submit files used by the dag to disk. Each submit file is
     written to the file name set in the CondorJob.
     """
-    for job in self.__jobs:
-      job.write_sub_file()
+    if not self.is_dax():
+      for job in self.__jobs:
+        job.write_sub_file()
 
-  def write_dag(self):
+  def write_concrete_dag(self):
     """
     Write all the nodes in the DAG to the DAG file.
     """
@@ -712,7 +722,7 @@ class CondorDAG:
       node.write_parents(dagfile)
     dagfile.close()
 
-  def write_dax(self):
+  def write_abstract_dag(self):
     """
     Write all the nodes in the workflow to the DAX file.
     """
@@ -732,7 +742,6 @@ class CondorDAG:
         http://www.griphyn.org/chimera/dax-1.8.xsd"
         name="inspiral" index="0" count="1" version="1.8">
 """
-
     print >>dagfile, preamble
 
     # find unique input and output files from nodes
@@ -741,12 +750,15 @@ class CondorDAG:
  
     # creating dictionary for input- and output-files
     for node in self.__nodes:
-      input_files = node.get_input_files()
-      output_files = node.get_output_files()
-      for f in input_files:
-         input_file_dict[f] = 1
-      for f in output_files:
-         output_file_dict[f] = 1
+      if isinstance(node, LSCDataFindNode):
+        print "skipping input and output of LSCDataFindNode " + str(node)
+      else:
+        input_files = node.get_input_files()
+        output_files = node.get_output_files()
+        for f in input_files:
+          input_file_dict[f] = 1
+        for f in output_files:
+          output_file_dict[f] = 1
 
     # move union of input and output into inout
     inout_file_dict = {}
@@ -796,6 +808,9 @@ class CondorDAG:
 
     id = 0
     for node in self.__nodes:
+      if isinstance(node, LSCDataFindNode):
+        print "skipping LSCDataFindNode " + str(node)
+      else:
         executable = node.job()._CondorJob__executable
         node_name = node._CondorDAGNode__name
 
@@ -841,14 +856,19 @@ class CondorDAG:
         print >>dagfile, "</job>"
 
     # print parent-child relationships to DAX
-    
     for node in self.__nodes:
+      if isinstance(node, LSCDataFindNode):
+        pass
+      else:
         child_id = node_name_id_dict[str(node)]
         if node._CondorDAGNode__parents:
                 print >>dagfile, '<child ref="%s">' % child_id
                 for parent in node._CondorDAGNode__parents:
-                    parent_id = node_name_id_dict[parent]
-                    print >>dagfile, '     <parent ref="%s"/>' % parent_id
+                    if isinstance(parent, LSCDataFindNode):
+                      print "skipping parent LSCDataFindNode " + str(parent)
+                    else:
+                      parent_id = node_name_id_dict[str(parent)]
+                      print >>dagfile, '     <parent ref="%s"/>' % parent_id
                 print >>dagfile, '</child>'
 
 
@@ -856,23 +876,37 @@ class CondorDAG:
 
     dagfile.close()
 
+  def write_dag(self):
+    """
+    Write either a dag or a dax.
+    """
+    if self.is_dax():
+      self.write_abstract_dag()
+    else:
+      self.write_concrete_dag()
+
 
 class AnalysisJob:
   """
   Describes a generic analysis job that filters LIGO data as configured by
   an ini file.
   """
-  def __init__(self,cp,dax=0):
+  def __init__(self,cp,dax=False):
     """
     @param cp: ConfigParser object that contains the configuration for this job.
-    @ param dax: Specifies if to create a DAX a DAG (default)
     """
     self.__cp = cp
-    self.__dax=dax;
+    self.__dax = dax
     try:
       self.__channel = string.strip(self.__cp.get('input','channel'))
     except:
       self.__channel = None
+
+  def is_dax(self):
+    """
+    Returns true if this job should behave as a DAX
+    """
+    return self.__dax
 
   def get_config(self,sec,opt):
     """
@@ -898,13 +932,6 @@ class AnalysisJob:
     """
     return self.__channel
 
-  def is_dax(self):
-    """
-    Returns a flag indicating if the DAX-flag is set
-    """
-    return self.__dax 
-
-
 
 class AnalysisNode(CondorDAGNode):
   """
@@ -923,7 +950,8 @@ class AnalysisNode(CondorDAGNode):
     self.__calibration = None
     self.__calibration_cache = None
     self.__LHO2k = re.compile(r'H2')
-    self.__dax=self.job().is_dax();
+    print self.job()
+    print self.job().is_dax()
 
   def set_start(self,time):
     """
@@ -956,7 +984,6 @@ class AnalysisNode(CondorDAGNode):
     Get the GPS end time of the node.
     """
     return self.__end
-
 
   def set_trig_start(self,time):
     """
@@ -1058,22 +1085,27 @@ class AnalysisNode(CondorDAGNode):
     with the --frame-cache argument.
     @param file: calibration file to use.
     """
-    if not self.__dax:
+    if isinstance( file, str ):
+      # the name of a lal cache file created by a datafind node
       self.add_var_opt('frame-cache', file)
       self.add_input_file(file)
+    else:
+      # check we have an LFN list
+      from glue import LDRdataFindClient
+      if isinstance( file, LDRdataFindClient.lfnlist ):
+        self.add_var_opt('glob-frame-data',' ')
+        # only add the LFNs that actually overlap with this job
+        for lfn in file:
+          a, b, c, d = lfn.split('.')[0].split('-')
+          t_start = int(c)
+          t_end = int(c) + int(d)
+          if ( t_start <= self.__end and t_end >= self.__start ):
+            self.add_input_file(lfn)
+        # set the frame type based on the LFNs returned by datafind
+        self.add_var_opt('frame-type',b)
+      else:
+        raise CondorDAGNodeError, "Unknown LFN cache format"
     
-    def set_frame_data(self, input): 	 
-      """ 	 
-      Set the information for the frame data. Either DAX or DAG 	 
-      this is a frame cache or ??? 	 
-      """ 	 
-      if input is tuple: 	 
-        for file in input: 	 
-          self.add_input_files(file) 	 
-          self.glob_framedata() 	 
-        else: 	 
-          self.set_cache(input) 	 
- 
   def calibration_cache_path(self):
     """
     Determine the path to the correct calibration cache file to use.
@@ -1105,50 +1137,46 @@ class AnalysisNode(CondorDAGNode):
     During S2 the Hanford 2km IFO had two calibration epochs, so 
     if the start time is during S2, we use the correct cache file.
     """
-
     # figure out the name of the calibration cache files
     # as specified in the ini-file
     self.calibration_cache_path()
 
-    if self.__dax:
-    
-        # new code for DAX
-        self.add_var_opt('glob-calibration-data','')
-        cache_filename=self.get_calibration()
-        pat = re.compile(r'(file://.*)')
-        try:
-            f = open(cache_filename, 'r')
-            lines = f.readlines()
+    print self.job()
+    print self.job().is_dax()
 
-            # loop over entries in the cache-file...
-            for line in lines:
-                m = pat.search(line)
-                if not m:
-                    raise IOError
-                url = m.group(1)
+    print "setting up calibration for ",
 
-                # ... and add files to input-file list
-                path = urlparse.urlparse(url)[2]
-                calibration_lfn = os.path.basename(path)
-                self.add_input_file(calibration_lfn)
-                
-        except Exception, e:
-            print >>sys.stdout, "Error parsing calibration cache file %s: %s" % (cache_filename, e)
-            sys.exit(1)
-            
+    if self.job().is_dax():
+      print "dax"
+      # new code for DAX
+      self.add_var_opt('glob-calibration-data','')
+      cache_filename=self.get_calibration()
+      pat = re.compile(r'(file://.*)')
+      f = open(cache_filename, 'r')
+      lines = f.readlines()
+
+      # loop over entries in the cache-file...
+      for line in lines:
+        m = pat.search(line)
+        if not m:
+          raise IOError
+        url = m.group(1)
+        # ... and add files to input-file list
+        path = urlparse.urlparse(url)[2]
+        calibration_lfn = os.path.basename(path)
+        self.add_input_file(calibration_lfn)
     else:
-
-        # old .calibration for DAG's
-        self.add_var_opt('calibration-cache', self.__calibration_cache)
-        self.__calibration = self.__calibration_cache
-        self.add_input_file(self.__calibration)
+      print "dag"
+      # old .calibration for DAG's
+      self.add_var_opt('calibration-cache', self.__calibration_cache)
+      self.__calibration = self.__calibration_cache
+      self.add_input_file(self.__calibration)
 
   def get_calibration(self):
     """
     Return the calibration cache file to be used by the
     DAG.
     """
-
     return self.__calibration_cache
 
 
@@ -2036,7 +2064,7 @@ class LSCDataFindNode(CondorDAGNode, AnalysisNode):
     """	 
     if self.__dax:
       if not self.__lfn_list:
-        print "running LSCdataFind:"
+        print "running LSCdataFind to obtain LFNs:"
         print "  --gps-start-time " + str(self.get_start())
         print "  --gps-start-time " + str(self.get_end())
         print "  --observatory " + self.get_observatory()
@@ -2085,4 +2113,3 @@ class LSCDataFindNode(CondorDAGNode, AnalysisNode):
       return self.__lfn_list
     else: 	 
       return self.__output
-
