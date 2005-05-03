@@ -71,6 +71,10 @@ class CondorJob:
     self.__out_file = None
     self.__sub_file_path = None
 
+  def getExec(self):
+    
+    return self.__executable
+
   def add_condor_cmd(self, cmd, value):
     """
     Add a Condor command to the submit file (e.g. a class add or evironment).
@@ -577,7 +581,8 @@ class CondorDAGNode:
     macros = self.get_opts()
 
     cmd = ""
-
+    print "******\nexec: ",self.job().getExec()
+    print options
     for k in options:
         val = options[k]
         m = pat.match(val)
@@ -607,16 +612,23 @@ class CondorDAGNode:
     args = self.job().get_args()
     macros = self.get_args()
 
-    for k in args:
-        val = args[k]
-        m = pat.match(val)
+    print "macros= ",macros
+    print "args= ", args
+    for a in args:
+        #print k, args
+        #val = args[k]
+        print "a= ",a
+        m = pat.match(a)
+        print m
         if m:
-            key = m.group(1)
-            value = macros[key]
+            #key = m.group(1)
+            print key
+            #value = macros[key]
+            value = ' '.join(macros)
 
-            cmd += "%s " % (k, value)
+            cmd += "%s " % (value)
         else:
-            cmd += "%s " % (k, val)
+            cmd += "%s " % (a)
 
     return cmd
     
@@ -698,6 +710,7 @@ class CondorDAG:
     """
     Write all the nodes in the DAG to the DAG file.
     """
+    print "blabla"
     if not self.__dag_file_path:
       raise CondorDAGError, "No path for DAG file"
     try:
@@ -740,6 +753,7 @@ class CondorDAG:
     input_file_dict = {}
     output_file_dict = {}
  
+    # creating dictionary for 
     for node in self.__nodes:
       input_files = node.get_input_files()
       output_files = node.get_output_files()
@@ -1951,7 +1965,7 @@ class LSCDataFindNode(CondorDAGNode, AnalysisNode):
     Return the output file, i.e. the file containing the frame cache data.
     or the files itself as tuple (for DAX) 	 
     """	 
-    
+    #print "bla"
     if self.__is_dax: 	 
       if self.__frames: 	 
         
