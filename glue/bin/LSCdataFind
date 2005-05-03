@@ -313,8 +313,6 @@ else:
         host, portString = hostPortString.split(':')
         port = int(portString)
 
-# check credentials
-gsiserverutils.checkCredentials()
 
 # open connection to LDRdataFindServer
 try:
@@ -355,6 +353,7 @@ try:
 except Exception, e:
         print >>sys.stderr, "Error querying LDRdataFindServer: %s" % str(e)
         print >>sys.stderr, "Enter 'LSCdataFind --help' for usage"
+        gsiserverutils.checkCredentials():
         sys.exit(1)
 
 sys.exit(0)

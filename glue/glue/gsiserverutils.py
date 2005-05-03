@@ -190,7 +190,7 @@ def checkCredentials():
       print >>sys.stderr, "Error verifying credentials: %s" % e
       print >>sys.stderr, \
         "Run 'grid-proxy-init' to generate a proxy certificate"
-      sys.exit(1)
+      return False
 
     pat = re.compile(r'timeleft : (\d{1,3}):(\d\d):(\d\d)')
 
@@ -205,7 +205,7 @@ def checkCredentials():
 
     except Exception, e:
       print >>sys.stderr, "Error parsing proxy information: %s" % e
-      sys.exit(1)
+      return False
 
     timeleft = seconds + 60 * minutes + 3600 * hours
 
@@ -213,4 +213,6 @@ def checkCredentials():
       print >>sys.stderr, "Less than 5 minutes left for proxy certificate."
       print >>sys.stderr, \
         "Run 'grid-proxy-init' to generate a new proxy certificate"
-      sys.exit(1)
+      return False
+
+    return True
