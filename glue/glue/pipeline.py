@@ -1138,7 +1138,7 @@ class AnalysisNode(CondorDAGNode):
     """
     # figure out the name of the calibration cache files
     # as specified in the ini-file
-    self.calibration_cache_path()
+    self.__calibration_cache = self.calibration_cache_path()
 
     if self.job().is_dax():
       # new code for DAX
@@ -2062,6 +2062,7 @@ class LSCDataFindNode(CondorDAGNode, AnalysisNode):
         from glue import gsiserverutils
 
         hostPortString = os.environ['LSC_DATAFIND_SERVER']
+        print >>sys.stderr, ".",
         if hostPortString.find(':') < 0:
           # no port specified
           myClient = LDRdataFindClient.LSCdataFindClient(hostPortString)
@@ -2086,6 +2087,7 @@ class LSCDataFindNode(CondorDAGNode, AnalysisNode):
           'namesOnly' : True
           }
 
+        print >>sys.stderr, ".",
         result = eval("myClient.%s(%s)" % (clientMethod, clientMethodArgDict))
         
         if not isinstance(result,LDRdataFindClient.lfnlist):
