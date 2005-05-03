@@ -1138,7 +1138,7 @@ class AnalysisNode(CondorDAGNode):
     """
     # figure out the name of the calibration cache files
     # as specified in the ini-file
-    self.__calibration_cache = self.calibration_cache_path()
+    self.calibration_cache_path()
 
     if self.job().is_dax():
       # new code for DAX
