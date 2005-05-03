@@ -324,7 +324,7 @@ class segmentlist(list):
 	def __iand__(self, other):
 		"""
 		Replace the segmentlist with the intersection of itself and
-		another.  This operation is O(n^2).
+		another.  This operation is O(n).
 		"""
 		self -= self - other
 		return self
@@ -332,7 +332,7 @@ class segmentlist(list):
 	def __and__(self, other):
 		"""
 		Return the intersection of the segmentlist and another.  This
-		operation is O(n^2).
+		operation is O(n).
 		"""
 		x = segmentlist(self[:])
 		x &= other
@@ -388,7 +388,7 @@ class segmentlist(list):
 		"""
 		Return the segmentlist that is the list of all intervals
 		contained in exactly one of this and another list.  This
-		operation is O(n^2).
+		operation is O(n log n).
 		"""
 		return (self - other) | (other - self)
 
@@ -399,29 +399,33 @@ class segmentlist(list):
 	def __isub__(self, other):
 		"""
 		Replace the segmentlist with the difference between itself and
-		another.  This operation is O(n^2).
+		another.  This operation is O(n).
 		"""
-		for seg in other:
-			if bool(seg):
-				self.split(seg[0])
 		try:
+			other_it = iter(other)
+			other_seg = other_it.next()
 			i = 0
-			for seg in other:
-				if bool(seg):
-					while self[i][1] <= seg[0]:
-						i += 1
-					while self[i] in seg:
-						self[i:i+1] = []
-					while self[i][0] < seg[1]:
-						self[i] -= seg
-						i += 1
-		except IndexError:
+			while 1:
+				seg = self[i]
+				while (seg[0] >= other_seg[1]) or not bool(other_seg):
+					other_seg = other_it.next()
+				if seg[1] <= other_seg[0]:
+					i += 1
+				elif seg in other_seg:
+					self[i:i+1] = []
+				elif (other_seg[0] > seg[0]) and (other_seg[1] < seg[1]):
+					self[i:i+1] = [segment(seg[0], other_seg[0]), segment(other_seg[1], seg[1])]
+					i += 1
+				else:
+					self[i] -= other_seg
+		except (StopIteration, IndexError):
 			pass
 		return self
 
 	def __sub__(self, other):
 		"""
 		Return the difference between the segmentlist and another.
+		This operation is O(n).
 		"""
 		x = segmentlist(self[:])
 		x -= other
@@ -430,6 +434,7 @@ class segmentlist(list):
 	def __invert__(self):
 		"""
 		Return the segmentlist that is the inversion of the given list.
+		This operation is O(n).
 		"""
 		return segmentlist([segment(-infinity(), infinity())]) - self
 
@@ -439,7 +444,7 @@ class segmentlist(list):
 		"""
 		Break all segments that stradle the given value at that value.
 		Does not require the segmentlist to be coalesced, and the
-		result is not coalesced by definition.
+		result is not coalesced by definition.  This operation is O(n).
 		"""
 		for i, seg in enumerate(self):
 			if (seg[0] < value) and (seg[1] > value):
