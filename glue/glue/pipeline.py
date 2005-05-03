@@ -862,11 +862,13 @@ class AnalysisJob:
   Describes a generic analysis job that filters LIGO data as configured by
   an ini file.
   """
-  def __init__(self,cp):
+  def __init__(self,cp,dax=0):
     """
     @param cp: ConfigParser object that contains the configuration for this job.
+    @ param dax: Specifies if to create a DAX a DAG (default)
     """
     self.__cp = cp
+    self.__dax=dax;
     try:
       self.__channel = string.strip(self.__cp.get('input','channel'))
     except:
@@ -896,6 +898,12 @@ class AnalysisJob:
     """
     return self.__channel
 
+  def is_dax(self):
+    """
+    Returns a flag indicating if the DAX-flag is set
+    """
+    return self.__dax 
+
 
 
 class AnalysisNode(CondorDAGNode):
@@ -913,8 +921,9 @@ class AnalysisNode(CondorDAGNode):
     self.__input = None
     self.__output = None
     self.__calibration = None
-    self.__calibration_cache_path = None
+    self.__calibration_cache = None
     self.__LHO2k = re.compile(r'H2')
+    self.__dax=self.job().is_dax();
 
   def set_start(self,time):
     """
@@ -1049,8 +1058,9 @@ class AnalysisNode(CondorDAGNode):
     with the --frame-cache argument.
     @param file: calibration file to use.
     """
-    self.add_var_opt('frame-cache', file)
-    self.add_input_file(file)
+    if not self.__dax:
+      self.add_var_opt('frame-cache', file)
+      self.add_input_file(file)
     
     def set_frame_data(self, input): 	 
       """ 	 
@@ -1071,6 +1081,7 @@ class AnalysisNode(CondorDAGNode):
     if self.__ifo and self.__start > 0:
         cal_path = self.job().get_config('calibration','path')
 
+        # check if this is S2: split calibration epochs
         if ( self.__LHO2k.match(self.__ifo) and 
           (self.__start >= 729273613) and (self.__start <= 734367613) ):
           if self.__start < int(
@@ -1079,12 +1090,13 @@ class AnalysisNode(CondorDAGNode):
           else:
             cal_file = self.job().get_config('calibration','H2-2')
         else:
-          cal_file = self.job().get_config('calibration',self.__ifo)
+            # if not: just add calibration cache
+            cal_file = self.job().get_config('calibration',self.__ifo)
 
         cal = os.path.join(cal_path,cal_file)
-        self.__calibration_cache_path = cal
+        self.__calibration_cache = cal
     else:
-       msg = "__ifo and __start attributes must be set first"
+       msg = "IFO and start-time must be set first"
        raise CondorDAGNodeError, msg 
 
   def calibration(self):
@@ -1094,10 +1106,42 @@ class AnalysisNode(CondorDAGNode):
     if the start time is during S2, we use the correct cache file.
     """
 
+    # figure out the name of the calibration cache files
+    # as specified in the ini-file
     self.calibration_cache_path()
-    self.add_var_opt('calibration-cache', self.__calibration_cache_path)
-    self.__calibration = self.__calibration_cache_path
-    self.add_input_file(self.__calibration)
+
+    if self.__dax:
+    
+        # new code for DAX
+        self.add_var_opt('glob-calibration-data','')
+        cache_filename=self.get_calibration()
+        pat = re.compile(r'(file://.*)')
+        try:
+            f = open(cache_filename, 'r')
+            lines = f.readlines()
+
+            # loop over entries in the cache-file...
+            for line in lines:
+                m = pat.search(line)
+                if not m:
+                    raise IOError
+                url = m.group(1)
+
+                # ... and add files to input-file list
+                path = urlparse.urlparse(url)[2]
+                calibration_lfn = os.path.basename(path)
+                self.add_input_file(calibration_lfn)
+                
+        except Exception, e:
+            print >>sys.stdout, "Error parsing calibration cache file %s: %s" % (cache_filename, e)
+            sys.exit(1)
+            
+    else:
+
+        # old .calibration for DAG's
+        self.add_var_opt('calibration-cache', self.__calibration_cache)
+        self.__calibration = self.__calibration_cache
+        self.add_input_file(self.__calibration)
 
   def get_calibration(self):
     """
@@ -1105,7 +1149,7 @@ class AnalysisNode(CondorDAGNode):
     DAG.
     """
 
-    return self.__calibration_cache_path
+    return self.__calibration_cache
 
 
 
