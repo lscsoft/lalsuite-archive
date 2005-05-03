@@ -646,38 +646,27 @@ class CondorDAG:
     @param dax: Set to 1 to create an abstract DAG (a DAX)
     """
     self.__log_file_path = log
-    self.__is_dax = dax
+    self.__dax = dax
     self.__dag_file_path = None
     self.__jobs = []
     self.__nodes = []
-    
-    # now check if grid proxy is working if dax = 1
-    if self.__is_dax:
-      os.system('grid-proxy-info > .dummy') 	 
-      f=open('.dummy', 'r') 	 
-      lines=f.readlines()
-      f.close()	 
-      timeLeft=lines[6][11:12] 	 
-      if int(timeLeft)==0: 	 
-        sys.exit('ERROR: Validty of proxy grid less one hour! Needs to be renwewd.')
 
-      
   def set_dag_file(self, path):
     """
     Set the name of the file into which the DAG is written.
     @param path: path to DAG file.
     """
-    #if self.__is_dax:
-    self.__dag_file_path = path 	 
-    #else: 	 
-    # self.__dag_file_path = path+'.dag'
+    if self.__dax:
+      self.__dag_file_path = path + '.dax'
+    else:
+      self.__dag_file_path = path + '.dag'
 
   def get_dag_file(self):
     """
     Return the path to the DAG file.
     """
     if not self.__log_file_path:
-      raise CondorDAGError, "No path for DAG file"
+      raise CondorDAGError, "No path for DAG or DAX file"
     else:
       return self.__dag_file_path
 
@@ -1850,7 +1839,7 @@ class LSCDataFindJob(CondorDAGJob, AnalysisJob):
   is directed to the logs directory. The job always runs in the scheduler
   universe. The path to the executable is determined from the ini file.
   """
-  def __init__(self,cache_dir,log_dir,config_file, dax=0):
+  def __init__(self,cache_dir,log_dir,config_file,dax=0):
     """
     @param cache_dir: the directory to write the output lal cache files to.
     @param log_dir: the directory to write the stderr file to.
@@ -1861,10 +1850,10 @@ class LSCDataFindJob(CondorDAGJob, AnalysisJob):
     self.__executable = config_file.get('condor','datafind')
     self.__universe = 'scheduler'
     CondorDAGJob.__init__(self,self.__universe,self.__executable)
-    AnalysisJob.__init__(self,config_file)
+    AnalysisJob.__init__(self,config_file,dax)
     self.__cache_dir = cache_dir
     self.__config_file=config_file
-    self.__is_dax=dax
+    self.__dax=dax
  
     for sec in ['datafind']:
       self.add_ini_opts(config_file,sec)
@@ -1889,7 +1878,7 @@ class LSCDataFindJob(CondorDAGJob, AnalysisJob):
     """ 	 
     returns the dax flag 	 
     """ 	 
-    return self.__is_dax 	 
+    return self.__dax 	 
   
   def get_config_file(self): 	 
     """ 	 
@@ -1914,7 +1903,7 @@ class LSCDataFindNode(CondorDAGNode, AnalysisNode):
     self.__output = None
     self.__job = job
     self.__config_file=job.get_config_file()
-    self.__is_dax=job.get_dax() 	 
+    self.__dax=job.get_dax() 	 
     self.__frames=[]  # no frames looked for (to avoid double work)
      
   def __set_output(self):
@@ -1962,7 +1951,7 @@ class LSCDataFindNode(CondorDAGNode, AnalysisNode):
     Return the output file, i.e. the file containing the frame cache data.
     or the files itself as tuple (for DAX) 	 
     """	 
-    if self.__is_dax: 	 
+    if self.__dax: 	 
       if self.__frames: 	 
         
         # return frames if already available
