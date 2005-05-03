@@ -229,6 +229,9 @@ class test_segmentlist(unittest.TestCase):
 		self.assertEqual(segmentlist([segment(2,3)]), segmentlist([segment(0,1), segment(2,3)]) - segmentlist([segment(0,1)]))
 		self.assertEqual(segmentlist([segment(0,1), segment(4,5)]), segmentlist([segment(0,1), segment(2,3), segment(4,5)]) - segmentlist([segment(2,3)]))
 
+		self.assertEqual(segmentlist([segment(0,1)]), segmentlist([segment(0,2)]) - segmentlist([segment(1,2)]))
+		self.assertEqual(segmentlist([segment(0.8, 0.9), segment(1.0, 1.8)]), segmentlist([segment(0, 2)]) - segmentlist([segment(0, 0.8), segment(0.9, 1.0), segment(1.8, 2)]))
+
 		self.assertEqual(segmentlist([segment(-5, 10)]), segmentlist([segment(-10,10)]) - segmentlist([segment(-15,-5)]))
 		self.assertEqual(segmentlist([segment(-10, -5), segment(5, 10)]), segmentlist([segment(-10,10)]) - segmentlist([segment(-5,5)]))
 		self.assertEqual(segmentlist([segment(-10, 5)]), segmentlist([segment(-10,10)]) - segmentlist([segment(5,15)]))
