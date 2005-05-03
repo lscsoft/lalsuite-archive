@@ -1,4 +1,4 @@
-#!/usr/bin/env python2 -W ignore
+#!/usr/bin/env python2
 
 """
 Client for querying a LDRdataFindServer to find LSC data.
