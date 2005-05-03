@@ -538,7 +538,6 @@ class CondorDAGNode:
 
     @param fh: descriptor of open DAG file.
     """
-
     for f in self.__input_files:
        print >>fh, "## Job %s requires input file %s" % (self.__name, f)
  
@@ -549,7 +548,6 @@ class CondorDAGNode:
 
     @param fh: descriptor of open DAG file.
     """
-
     for f in self.__output_files:
        print >>fh, "## Job %s generates output file %s" % (self.__name, f)
 
@@ -584,9 +582,6 @@ class CondorDAGNode:
     macros = self.get_opts()
 
     cmd = ""
-    # printing out for test purposes
-    print "************\nexec: ",self.job().get_executable()
-    print options
     
     for k in options:
         val = options[k]
@@ -617,14 +612,9 @@ class CondorDAGNode:
     args = self.job().get_args()
     macros = self.get_args()
 
-    print "macros= ",macros
-    print "args= ", args
     for a in args:
-        print "a= ",a
         m = pat.match(a)
-        print m
         if m:
-            print key
             value = ' '.join(macros)
 
             cmd += "%s " % (value)
@@ -751,7 +741,7 @@ class CondorDAG:
     # creating dictionary for input- and output-files
     for node in self.__nodes:
       if isinstance(node, LSCDataFindNode):
-        print "skipping input and output of LSCDataFindNode " + str(node)
+        pass
       else:
         input_files = node.get_input_files()
         output_files = node.get_output_files()
@@ -809,7 +799,7 @@ class CondorDAG:
     id = 0
     for node in self.__nodes:
       if isinstance(node, LSCDataFindNode):
-        print "skipping LSCDataFindNode " + str(node)
+        pass
       else:
         executable = node.job()._CondorJob__executable
         node_name = node._CondorDAGNode__name
@@ -865,7 +855,7 @@ class CondorDAG:
                 print >>dagfile, '<child ref="%s">' % child_id
                 for parent in node._CondorDAGNode__parents:
                     if isinstance(parent, LSCDataFindNode):
-                      print "skipping parent LSCDataFindNode " + str(parent)
+                      pass
                     else:
                       parent_id = node_name_id_dict[str(parent)]
                       print >>dagfile, '     <parent ref="%s"/>' % parent_id
@@ -950,8 +940,6 @@ class AnalysisNode(CondorDAGNode):
     self.__calibration = None
     self.__calibration_cache = None
     self.__LHO2k = re.compile(r'H2')
-    print self.job()
-    print self.job().is_dax()
 
   def set_start(self,time):
     """
@@ -1141,13 +1129,7 @@ class AnalysisNode(CondorDAGNode):
     # as specified in the ini-file
     self.calibration_cache_path()
 
-    print self.job()
-    print self.job().is_dax()
-
-    print "setting up calibration for ",
-
     if self.job().is_dax():
-      print "dax"
       # new code for DAX
       self.add_var_opt('glob-calibration-data','')
       cache_filename=self.get_calibration()
@@ -1166,7 +1148,6 @@ class AnalysisNode(CondorDAGNode):
         calibration_lfn = os.path.basename(path)
         self.add_input_file(calibration_lfn)
     else:
-      print "dag"
       # old .calibration for DAG's
       self.add_var_opt('calibration-cache', self.__calibration_cache)
       self.__calibration = self.__calibration_cache
@@ -2064,12 +2045,6 @@ class LSCDataFindNode(CondorDAGNode, AnalysisNode):
     """	 
     if self.__dax:
       if not self.__lfn_list:
-        print "running LSCdataFind to obtain LFNs:"
-        print "  --gps-start-time " + str(self.get_start())
-        print "  --gps-start-time " + str(self.get_end())
-        print "  --observatory " + self.get_observatory()
-        print "  --type " + self.get_type()
-        
         # call the datafind client to get the LFNs
         from pyGlobus import security
         from glue import LDRdataFindClient
