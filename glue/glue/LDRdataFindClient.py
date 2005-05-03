@@ -22,7 +22,7 @@ def version():
         return __version__
 
 
-class LSCdataFindException(exceptions.Exception):
+class LSCdataFindClientException(exceptions.Exception):
         """
         Exceptions raised by the classes and methods in this client
         will be instances of this class.
@@ -160,20 +160,6 @@ class LDRdataFindClient(object):
 
                 @return: Instance of LDRdataFindClient
                 """
-                # check arguments
-                if type(host) != types.StringType:
-                        msg = "Argument 'host' must be a string"
-                        raise LDRdataFindClientException, msg
-
-                if type(port) != types.IntType:
-                        msg = "Argument 'port' must be a positive integer"
-                        raise LDRdataFindClientException, msg
-
-                if port <= 0:
-                        msg = "Argument 'port' must be a positive integer"
-                        raise LDRdataFindClientException, msg
-                 
-                
                 # try to connect and if there are any exceptions catch them
                 # and turn them into LDRdataFindClientException
                 try:
@@ -583,6 +569,19 @@ class LSCdataFindClient(LDRdataFindClient):
 
                 @return: Instance of LSCdataFindClient
                 """
+                # check arguments
+                if type(host) != types.StringType:
+                        msg = "Argument 'host' must be a string"
+                        raise LSCdataFindClientException, msg
+
+                if type(port) != types.IntType:
+                        msg = "Argument 'port' must be a positive integer"
+                        raise LSCdataFindClientException, msg
+
+                if port <= 0:
+                        msg = "Argument 'port' must be a positive integer"
+                        raise LSCdataFindClientException, msg
+                 
                 LDRdataFindClient.__init__(self, host, port)
 
         def __check_gps(self, gpsString):
