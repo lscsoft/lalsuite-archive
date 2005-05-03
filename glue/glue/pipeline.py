@@ -581,8 +581,10 @@ class CondorDAGNode:
     macros = self.get_opts()
 
     cmd = ""
-    print "******\nexec: ",self.job().getExec()
+    # printing out for test purposes
+    print "************\nexec: ",self.job().getExec()
     print options
+    
     for k in options:
         val = options[k]
         m = pat.match(val)
@@ -615,15 +617,11 @@ class CondorDAGNode:
     print "macros= ",macros
     print "args= ", args
     for a in args:
-        #print k, args
-        #val = args[k]
         print "a= ",a
         m = pat.match(a)
         print m
         if m:
-            #key = m.group(1)
             print key
-            #value = macros[key]
             value = ' '.join(macros)
 
             cmd += "%s " % (value)
@@ -710,7 +708,6 @@ class CondorDAG:
     """
     Write all the nodes in the DAG to the DAG file.
     """
-    print "blabla"
     if not self.__dag_file_path:
       raise CondorDAGError, "No path for DAG file"
     try:
@@ -753,7 +750,7 @@ class CondorDAG:
     input_file_dict = {}
     output_file_dict = {}
  
-    # creating dictionary for 
+    # creating dictionary for input- and output-files
     for node in self.__nodes:
       input_files = node.get_input_files()
       output_files = node.get_output_files()
@@ -1965,7 +1962,6 @@ class LSCDataFindNode(CondorDAGNode, AnalysisNode):
     Return the output file, i.e. the file containing the frame cache data.
     or the files itself as tuple (for DAX) 	 
     """	 
-    #print "bla"
     if self.__is_dax: 	 
       if self.__frames: 	 
         
