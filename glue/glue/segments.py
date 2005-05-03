@@ -441,15 +441,9 @@ class segmentlist(list):
 		Does not require the segmentlist to be coalesced, and the
 		result is not coalesced by definition.
 		"""
-		try:
-			i = 0
-			while 1:
-				if (self[i][0] < value) and (self[i][1] > value):
-					self[i:i+1] = [segment(self[i][0], value), segment(value, self[i][1])]
-					i += 1
-				i += 1
-		except IndexError:
-			pass
+		for i, seg in enumerate(self):
+			if (seg[0] < value) and (seg[1] > value):
+				self[i:i+1] = [segment(seg[0], value), segment(value, seg[1])]
 
 	def coalesce(self):
 		"""
