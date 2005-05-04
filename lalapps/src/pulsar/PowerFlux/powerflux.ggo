@@ -50,6 +50,9 @@ option "nbands"		- "split sky in this many bands for logging maximum upper limit
 option "band-axis"	- "which band axis to use for splitting sky into bands (perpendicular to band axis) (possible values: equatorial, auto, explicit(float,float,float)" string default="auto" no
 option "ks-test"        - "perform Kolmogorov-Smirnov test for normality of averaged powers" int default="1" no
 option "compute-betas"  - "compute beta coefficients as described in PowerFlux polarizations document" int default="0" no
+option "upper-limit-comp" - "upper limit compensation factor - used to account for windowing in SFTs (possible values: Hann, flat, arbitrary number)" string default="Hann" no
+option "lower-limit-comp" - "lower limit compensation factor - used to account for windowing in SFTs (possible values: Hann, flat, arbitrary number)" string default="Hann" no
+
 
 option "write-dat"      - "regular expression describing which *.dat files to write" string default=".*" no
 option "write-png"      - "regular expression describing which *.png files to write" string default=".*" no

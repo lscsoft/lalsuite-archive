@@ -65,10 +65,8 @@ SUM_TYPE *spectral_plot_circ_ul; /* spectral plots */
 
 float quantile2std=1.22;
 
-/* We divide by 0.7 to compensate for spreading due to Hanning window */
-/* We also divide by 0.85 to compensate for non bin centered signals */
-/* for 3 averaged neighbouring bins that value should be 3.0/0.85 */
-float upper_limit_comp=1.0/(0.7*0.85);
+float upper_limit_comp;
+float lower_limit_comp;
 
 /* single bin version */
 
@@ -614,9 +612,9 @@ for(i=0;i<fine_grid->npoints;i++){
 		pol->skymap.max_lower_limit[i]=-1.0;
 		continue;
 		}
-	pol->skymap.max_upper_limit[i]=sqrt(2.0*pol->skymap.max_upper_limit[i]*upper_limit_comp)/(1800.0*16384.0);
+	pol->skymap.max_upper_limit[i]=sqrt(pol->skymap.max_upper_limit[i])*upper_limit_comp;
 	/* lower limit is unchanged */
-	pol->skymap.max_lower_limit[i]=sqrt(2.0*pol->skymap.max_lower_limit[i])/(1800.0*16384.0);
+	pol->skymap.max_lower_limit[i]=sqrt(pol->skymap.max_lower_limit[i])*lower_limit_comp;
 	}
 
 /* output interesting points around fake injection */
@@ -825,7 +823,7 @@ for(i=0;i<args_info.nbands_arg;i++){
 	}
 
 for(i=0;i<args_info.nbands_arg*useful_bins;i++){
-	pol->spectral_plot.max_upper_limit[i]=sqrt(2.0*pol->spectral_plot.max_upper_limit[i]*upper_limit_comp)/(1800.0*16384.0);
+	pol->spectral_plot.max_upper_limit[i]=sqrt(pol->spectral_plot.max_upper_limit[i])*upper_limit_comp;
 	}
 
 for(i=0;i<args_info.nbands_arg;i++){
@@ -919,7 +917,7 @@ for(i=0;i<fine_grid->npoints;i++){
 		skymap_high_ul_freq[i]=-1.0;
 		continue;
 		}
-	skymap_circ_ul[i]=sqrt(2.0*skymap_circ_ul[i]*upper_limit_comp)/(1800.0*16384.0);
+	skymap_circ_ul[i]=sqrt(skymap_circ_ul[i])*upper_limit_comp;
 	
 	skymap_high_ul[i]=polarizations[0].skymap.max_upper_limit[i];
 	skymap_high_ul_freq[i]=polarizations[0].skymap.freq_map[i];
@@ -987,7 +985,7 @@ print_histogram(LOG, hist, "hist_high_ul");
 
 
 for(i=0;i<useful_bins*args_info.nbands_arg;i++){
-	spectral_plot_circ_ul[i]=sqrt(2.0*spectral_plot_circ_ul[i]*upper_limit_comp)/(1800.0*16384.0);
+	spectral_plot_circ_ul[i]=sqrt(spectral_plot_circ_ul[i])*upper_limit_comp;
 	
 	spectral_plot_high_ul[i]=polarizations[0].spectral_plot.max_upper_limit[i];
 	for(k=1;k<ntotal_polarizations;k++){	
@@ -1155,19 +1153,63 @@ skymap_circ_ul=do_alloc(fine_grid->npoints, sizeof(*skymap_circ_ul));
 skymap_circ_ul_freq=do_alloc(fine_grid->npoints, sizeof(*skymap_circ_ul_freq));
 spectral_plot_circ_ul=do_alloc(useful_bins*args_info.nbands_arg, sizeof(*spectral_plot_circ_ul));
 
-/* see comments above variables */
 if(args_info.three_bins_arg){
 	quantile2std=0.88;
-	upper_limit_comp=3.0/(0.85);
 	process_patch=process_patch3;
 	fprintf(LOG,"mode: 3 bins\n");
 	} else 
 	{
 	quantile2std=1.22;
-	upper_limit_comp=1.0/(0.7*0.85);
 	process_patch=process_patch1;
 	fprintf(LOG,"mode: 1 bin\n");
 	}
+
+if(!strcasecmp("Hann", args_info.upper_limit_comp_arg)){
+	if(args_info.three_bins_arg){
+		/* 3 bins should contain the entire signal, regardless
+		   of positioning */
+		upper_limit_comp=sqrt(3.0);
+		} else 
+		{
+		/* 0.85 is a ratio between amplitude of 
+		   half-bin centered signal and bin centered signal
+		   *amplitude*
+
+		   */
+		upper_limit_comp=1.0/0.85;
+		}
+	} else {
+	upper_limit_comp=atof(args_info.upper_limit_comp_arg);
+	}
+fprintf(LOG, "upper limit compensation factor: %8f\n", upper_limit_comp);
+
+	/* Extra factor to convert to amplitude from RMS power */
+upper_limit_comp*=sqrt(2.0);
+	/* Extra factor to convert to strain from raw SFT units */
+upper_limit_comp/=(1800.0*16384.0);
+	/* Extra factor to account for the fact that only half of SFT
+	   coefficients is stored */
+upper_limit_comp*=sqrt(2.0);
+
+if(!strcasecmp("Hann", args_info.lower_limit_comp_arg)){
+	if(args_info.three_bins_arg){
+		lower_limit_comp=sqrt(3.0);
+		} else 
+		{
+		lower_limit_comp=1.0;
+		}
+	} else {
+	lower_limit_comp=atof(args_info.lower_limit_comp_arg);
+	}
+fprintf(LOG, "lower limit compensation factor: %8f\n", lower_limit_comp);
+
+	/* Extra factor to  convert to amplitude from RMS power */
+lower_limit_comp*=2.0;
+	/* Extra factor to convert to strain from raw SFT units */
+lower_limit_comp/=(1800.0*16384.0);
+	/* Extra factor to account for the fact that only half of SFT
+	   coefficients is stored */
+lower_limit_comp*=sqrt(2.0);
 
 }
 
