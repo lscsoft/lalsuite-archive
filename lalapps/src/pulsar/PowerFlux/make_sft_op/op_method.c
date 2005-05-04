@@ -90,7 +90,7 @@ for(i=0;i<pgram->length;i++){
 			d=phi_data.inverse[j][k]*phi_r.phi_r_im[k];
 			a+=phi[j]->data[i].re*c-phi[j]->data[i].im*d;
 			b+=phi[j]->data[i].re*d+phi[j]->data[i].im*c;
-			}
+			}		
 	pgram->data[i].re=a/window_sum;
 	pgram->data[i].im=b/window_sum;
 	}

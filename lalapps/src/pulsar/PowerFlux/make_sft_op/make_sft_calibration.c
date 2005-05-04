@@ -466,6 +466,39 @@ fprintf(stderr,"Computed Phi: ab_free=%ld det=%g a[]=(%g,%g,%g,%g,%g)\n",
 	phi_data->a[2],
 	phi_data->a[3],
 	phi_data->a[4]);
+fprintf(stderr,"Phi inverse:\n");
+fprintf(stderr,"     %g\t%g\t%g\n",
+	phi_data->inverse[0][0],
+	phi_data->inverse[0][1],
+	phi_data->inverse[0][2]);
+fprintf(stderr,"     %g\t%g\t%g\n",
+	phi_data->inverse[1][0],
+	phi_data->inverse[1][1],
+	phi_data->inverse[1][2]);
+fprintf(stderr,"     %g\t%g\t%g\n",
+	phi_data->inverse[2][0],
+	phi_data->inverse[2][1],
+	phi_data->inverse[2][2]);
+	
+}
+
+/* Assume unity response */
+void compute_void_phi_r(PHI_RESPONSE3 *phi_response)
+{
+int i;
+double a,b;
+for(i=0;i<3;i++)phi_response->phi_r_re[i]=0.0;
+for(i=0;i<3;i++)phi_response->phi_r_im[i]=0.0;
+
+for(i=0;i<ab_free;i++){
+	/* load alpha/beta data */
+	a=((2*ab_data[i].samples_start-total_samples)*1.0)/total_samples;
+	b=a*a;
+	
+	phi_response->phi_r_re[0]+=1.0;	
+	phi_response->phi_r_re[1]+=a;	
+	phi_response->phi_r_re[2]+=b;	
+	}
 }
 
 void compute_phi_r(PHI_RESPONSE3 *phi_response, long n)
@@ -475,8 +508,13 @@ double alpha, alphabeta,a,b;
 double dr,di,ds,nr,ni,xr,xi;
 for(i=0;i<3;i++)phi_response->phi_r_re[i]=0.0;
 for(i=0;i<3;i++)phi_response->phi_r_im[i]=0.0;
+
 n=(n+15)/30; /* we only have data every 60 seconds, not every 1800 */
-if((n)>=H_free)return; /* this actually hardcodes the length of the segment as 1800 sec */
+
+if((n)>=H_free){
+	if(dont_fail_on_missing_calibration)compute_void_phi_r(phi_response);
+	return; /* this actually hardcodes the length of the segment as 1800 sec */
+	}
 
 for(i=0;i<ab_free;i++){
 	/* load alpha/beta data */
@@ -606,7 +644,7 @@ double dr,di,ds,nr,ni;
 int n;
 n=(frequency*60.0+0.5);
 if(n>H_free){
-	*re=0.0;
+	*re=1.0;
 	*im=0.0;
 	return;
 	}

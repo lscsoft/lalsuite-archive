@@ -150,6 +150,11 @@ chan.deltaT=1.0/samples_per_second;
 chan.epoch.gpsSeconds=gps_start; /* no need */
 chan.epoch.gpsNanoSeconds=0;
 
+if(trace_power){
+	fprintf(stderr, "Input data total power=%.*g\n",
+		precision, sum_r4_squares(data, total_samples)/samples_per_second);
+	}
+
 if(!bypass_highpass_filter && (highpass_filter_f>0) && (highpass_filter_a>0)){
 	fprintf(stderr,"Applying high pass filter, f=%g a=%g order=%d\n",
 		highpass_filter_f, highpass_filter_a, highpass_filter_order);
@@ -166,6 +171,11 @@ if(!bypass_highpass_filter && (highpass_filter_f>0) && (highpass_filter_a>0)){
 	chan.data=(REAL4Sequence *)td_data;
 	LALDButterworthREAL4TimeSeries(&status, &chan, &filterpar);
 	TESTSTATUS(&status);
+
+	if(trace_power){
+		fprintf(stderr, "After highpass filter total power=%.*g\n",
+			precision, sum_r4_squares(data, total_samples)/samples_per_second);
+		}
 	}
 	
 if(!bypass_lowpass_filter && (lowpass_filter_f>0) && (lowpass_filter_a > 0)){
@@ -188,6 +198,11 @@ if(!bypass_lowpass_filter && (lowpass_filter_f>0) && (lowpass_filter_a > 0)){
 	chan.data=(REAL4Sequence *)td_data;
 	LALDButterworthREAL4TimeSeries(&status, &chan, &filterpar);
 	TESTSTATUS(&status);
+
+	if(trace_power){
+		fprintf(stderr, "After lowpass filter total power=%.*g\n",
+			precision, sum_r4_squares(data, total_samples)/samples_per_second);
+		}
 	}
 
 if(!bypass_first_window){
@@ -196,6 +211,11 @@ if(!bypass_first_window){
 	window_sum=0.5;
 	} else {
 	window_sum=1.0;
+	}
+
+if(trace_power){
+	fprintf(stderr, "After windowing total power=%.*g\n",
+		precision, sum_r4_squares(data, total_samples)/samples_per_second);
 	}
 
 for(i=0;i<3;i++){
