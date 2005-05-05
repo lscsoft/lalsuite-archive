@@ -613,7 +613,6 @@ for(i=0;i<fine_grid->npoints;i++){
 		continue;
 		}
 	pol->skymap.max_upper_limit[i]=sqrt(pol->skymap.max_upper_limit[i])*upper_limit_comp;
-	/* lower limit is unchanged */
 	pol->skymap.max_lower_limit[i]=sqrt(pol->skymap.max_lower_limit[i])*lower_limit_comp;
 	}
 
