@@ -1,0 +1,237 @@
+#
+#
+#  Position of the characters matter !
+#    
+#     If line starts with # it is a comment.
+#
+#     Commands (i.e. CHANNEL) will *ONLY* be recognized
+#     if they are at the beginning of the line, with no whitespace preceding them
+#
+#     filenames *CAN* be preceded by whitespace - it will be stripped in this event.
+#
+
+#
+# Channel to process
+#
+CHANNEL "FAKE_DATA-GAUSSIAN"
+SAMPLES_PER_SECOND 16384
+
+#
+# Specify duration: start time and stop time. 
+#
+#DURATION 729277000 729278800
+DURATION 733974628 733976428
+
+#
+#  What to do when data is missing ?
+#  
+#  Usually the program will notice it and exit with a warning message on stderr.
+#
+#  However, it can be told to ignore the condition and continue.
+#
+#  The following will instruct the program not to abort when not all data
+#  specified in the SEGMENTS statement has been found
+#  useful when you don't know which data is available
+#
+#DONT_FAIL_ON_MISSING_DATA
+#
+#  The following will instruct the program not to abort when calibration
+#  coefficients are missing. It is recommended that it is commented out,
+#  unless you are making SFTs with no calibration at all.
+#
+DONT_FAIL_ON_MISSING_CALIBRATION
+#
+#
+
+#
+#
+#  You can modify how program processes data
+#  by bypassing certain stages
+#
+
+#  Do not perform high-pass Butterworth filter
+#BYPASS_HIGHPASS_FILTER
+
+#  Do not perform low-pass Butterworth filter
+#BYPASS_LOWPASS_FILTER
+
+#  Do not perform first time-domain window
+#BYPASS_FIRST_WINDOW
+
+#  Commands to generate simulated data for testing
+#  When present, these commands are applied to each sample
+#  in the same order they appear in this file.
+#
+#
+#  Initialize all input data samples with a constant
+#  The forces all data in the input to be marked as present
+#  whether or not any frame files have been loaded
+#  One argument: amplitude
+#  FAKE_DATA_CONSTANT_FILL 1.0
+#
+#  Add constant to input data
+#  One argument: amplitude
+#  FAKE_DATA_CONSTANT  1.0
+#
+#  Add independent normal variable to each input sample.
+#  One argument: amplitude
+#  FAKE_DATA_RANDOM_GAUSSIAN 1.0
+#
+#  Add sine wave.
+#  Three arguments: phase (in degrees), frequency in Hz, amplitude
+#  FAKE_DATA_SINE_WAVE 0.0 10.0 1.0
+#
+
+FAKE_DATA_CONSTANT_FILL 0.0
+# 197+1/4 * 1/1800.0
+FAKE_DATA_SINE_WAVE 35.0 197.0001388889 1.0
+# 200+1/2 * 1/1800.0
+FAKE_DATA_SINE_WAVE 35.0 200.0002777778 1.0
+# 200+2/3 * 1/1800.0
+FAKE_DATA_SINE_WAVE 35.0 205.0003703704 1.0
+FAKE_DATA_SINE_WAVE 35.0 210.0 1.0
+
+#
+#
+# Specify highpass filter parameters: ORDER F A
+# (see LAL documentation for Butterworth filter)
+# Default parameters are 5 100.0 0.5
+#
+HIGHPASS_FILTER	5 20 0.5
+
+#
+#
+# Specify lowpass filter parameters: ORDER F A
+# (see LAL documentation for Butterworth filter)
+# Default parameters are -1 -1 -1 - which means the filter is not applied
+#
+LOWPASS_FILTER	5 2500 0.5
+
+#
+#
+# Windowing:
+#
+#  Data is windowed three times:
+#    * once in time domain on input to calibration code
+#    * once in frequency domain before converting calibration result to time domain
+#    * once in time domain before applying large SFT to the calibrated time domain data
+#
+#  Window type: one of Hann, Welch (other types from LAL library can be added easily).
+#
+#  Window tail size - the program creates Hann window of twice the size
+#  then splits it into two equal tails and applies them appropriately.
+# (in the ends of time-domain data and in the ends of valid frequency-domain data)
+#   
+WINDOW1_TAIL_SIZE 491520
+WINDOW1_TYPE "Hann"
+
+#
+#
+#  Calibration
+#
+#  We need three files: R file, C file and file with alpha beta constants
+#  If necessary I can add the ability to specify alpha beta constants directly
+#  within this file.
+#  
+#  It is possible to specify more than one file of alpha beta constants - 
+#  they would be merged in this case. Not sure whether this is useful or not.
+#
+#
+
+#R_FILE "S2/S02-H1-CAL-RESPONSE-734073939.txt"
+#C_FILE "S2/S02-H1-CAL-CAV_GAIN-734073939.txt"
+#ALPHA_BETA_FILE "S2/H1.AlphaBeta.734073939.dat" 
+
+#R_FILE "V3Cal/S02-H1-CAL-RESPONSE-734073939.txt"
+#C_FILE "V3Cal/S02-H1-CAL-CAV_GAIN-734073939.txt"
+#ALPHA_BETA_FILE "V3Cal/H1AlphaBeta.txt"
+
+#
+# Files to write intermediate debugging output into
+# 
+
+#DEBUG1 "testop1.out1"
+#DEBUG2 "testop1.out2"
+
+#
+#  Compute and print out on standard error total power
+#  during various stages of computation.
+#
+#  Note that power printout during calibration are for the 60 sec
+#  segment being processed.
+#
+TRACE_POWER
+# TRACE_CALIBRATION_POWER
+
+#
+# Which frequency band to write into output file
+# OUTPUT_BAND
+#
+OUTPUT_BAND	195 	215
+
+#
+#
+# One can also specify it using bins:
+#
+# OUTPUT_BAND_BINS	0	3686400
+
+#
+# Files to write results into
+#
+
+#
+#
+# Calibrated data
+#
+#OUTPUT_CALIBRATED_DATA "testop1.cal_data"
+
+#
+#
+# Complete SFT
+#
+#
+#OUTPUT_SFT	"test1.op.sft"
+
+#
+# Power only
+#
+
+OUTPUT_POWER "output2.power"
+
+#
+# Output mode.
+#  OUTPUT_MODE_TEXT writes data as ascii file
+#  OUTPUT_MODE_BINARY writes comments as text, but actual data as binary
+#  OUTPUT_MODE_GEO writes SFT in GEO format (short header), but for everything
+#     else it is like OUTPUT_MODE_BINARY
+#  
+# Debug output is always using OUTPUT_MODE_TEXT
+# Default is OUTPUT_MODE_TEXT
+#
+
+OUTPUT_MODE_TEXT
+
+#
+#
+# Precision of decimal representation of floating point numbers.
+# Used in debug output and when OUTPUT_MODE_TEXT is used.
+#
+# If not specified precision is 6
+#
+
+PRECISION 6
+
+#
+# Valid segments
+#
+# Segment specification is start-stop.
+#
+# It can be either second granularity, subsecond granularity
+# or sample granularity
+#
+# second granularity - gps times as integers
+#
+SEGMENTS
+714179400 714181200
+
+

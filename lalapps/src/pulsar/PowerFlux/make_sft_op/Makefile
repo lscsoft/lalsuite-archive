@@ -22,7 +22,7 @@ UPLOAD_FILES1=README.txt Makefile make_sft.c weighted_sum.c make_sft_conf.l \
 	make_cross_section.c cross_section.tcl op_method.c op_method.h \
 	make_sft_utils.c make_sft_td_data.c make_sft_op.c make_sft_op_conf.l
 	
-UPLOAD_FILES=make_sft_op make_sft_stiched	
+UPLOAD_FILES=make_sft_op make_sft_stiched make_sft_plain
 	
 TAR_FILES=SFT-3/README.txt SFT-3/Makefile SFT-3/make_sft.c SFT-3/weighted_sum.c \
 	 SFT-3/make_sft_conf.l SFT-3/make_sft_global.h SFT-3/input.example \
@@ -78,6 +78,13 @@ make_sft_op: make_sft_op.c make_sft_op_conf.c make_sft_global.h make_sft_calibra
 	op_method.c make_sft_utils.c make_sft_td_data.c \
 	-o make_sft_op  -lFrame  -llal -llalsupport -lm  -lfftw3f -lfftw3
 	ls -l make_sft_op
+
+make_sft_plain: make_sft_plain.c make_sft_op_conf.c make_sft_global.h make_sft_calibration.c\
+	make_sft_utils.c make_sft_td_data.c
+	$(CC) -static $(CFLAGS) $(LDFLAGS) make_sft_plain.c make_sft_op_conf.c make_sft_calibration.c \
+	op_method.c make_sft_utils.c make_sft_td_data.c \
+	-o make_sft_plain  -lFrame  -llal -llalsupport -lm  -lfftw3f -lfftw3
+	ls -l make_sft_plain
 
 weighted_sum: weighted_sum.c
 	$(CC) $(CFLAGS) $(LDFLAGS) weighted_sum.c -lm -o weighted_sum

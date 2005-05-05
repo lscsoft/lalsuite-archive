@@ -63,12 +63,13 @@ void compute_calibrated_periodogram3(COMPLEX8Vector **phi, long freq_start, long
 {
 long i;
 int j,k;
-double a,b,c,d;
+double a,b,c,d, window_sum_inv;
 PHI_DATA3 phi_data;
 PHI_RESPONSE3 phi_r;
 double max1,max3;
 
 compute_Phi(&phi_data);
+window_sum_inv=1.0/window_sum;
 
 for(i=0;i<pgram->length;i++){
 	compute_phi_r(&phi_r, i+freq_start);
@@ -91,7 +92,7 @@ for(i=0;i<pgram->length;i++){
 			a+=phi[j]->data[i].re*c-phi[j]->data[i].im*d;
 			b+=phi[j]->data[i].re*d+phi[j]->data[i].im*c;
 			}		
-	pgram->data[i].re=a/window_sum;
-	pgram->data[i].im=b/window_sum;
+	pgram->data[i].re=a*window_sum_inv;
+	pgram->data[i].im=b*window_sum_inv;
 	}
 }
