@@ -115,7 +115,7 @@ class LIGOTimeGPS(object):
 
 	def ns(self):
 		"""
-		Convert a LIGOTimeGPS to a cound of nanoseconds as a long.
+		Convert a LIGOTimeGPS to a count of nanoseconds as a long.
 
 		Example use:
 			LIGOTimeGPS(100.5).ns()
