@@ -1203,7 +1203,7 @@ if(!strcasecmp("Hann", args_info.lower_limit_comp_arg)){
 fprintf(LOG, "lower limit compensation factor: %8f\n", lower_limit_comp);
 
 	/* Extra factor to  convert to amplitude from RMS power */
-lower_limit_comp*=2.0;
+lower_limit_comp*=sqrt(2.0);
 	/* Extra factor to convert to strain from raw SFT units */
 lower_limit_comp/=(1800.0*16384.0);
 	/* Extra factor to account for the fact that only half of SFT
