@@ -266,7 +266,20 @@ if(args_info.fake_circular_given){
 	fprintf(LOG, "fake_injection: circular\n");
 	}
 
-fake_power=args_info.fake_strain_arg*args_info.fake_strain_arg*1800.0*16384.0*1800.0*16384.0;
+/* First compute the amplitude. Do not take windowing effects into account */
+
+fake_power=args_info.fake_strain_arg;
+	/* Extra factor to convert to amplitude from RMS power */
+fake_power/=sqrt(2.0);
+	/* Extra factor to convert to strain from raw SFT units */
+fake_power*=(1800.0*16384.0);
+	/* Extra factor to account for the fact that only half of SFT
+	   coefficients is stored */
+fake_power/=sqrt(2.0);
+
+/* Now square to obtain power */
+fake_power=fake_power*fake_power;
+
 fprintf(LOG, "fake_power: %g\n", fake_power);
 
 average_freq=0.0;
@@ -282,10 +295,10 @@ for(i=0;i<nsegments;i++){
 	/* effective power, ignoring phase, and taking into account windowing and
 	   fourier coefficient (we are keeping only half of them)*/
 	if(args_info.fake_linear_given){
-		a=plus*plus*fake_power*0.7*0.5;
+		a=plus*plus*fake_power;
 		} else 
 	if(args_info.fake_circular_given){
-		a=(plus*plus+cross*cross)*fake_power*0.7*0.5;
+		a=(plus*plus+cross*cross)*fake_power;
 		} else {
 		fprintf(stderr, "*** INTERNAL ERROR: unrecognized fake injection mode\n");
 		exit(-1);
