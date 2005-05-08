@@ -12,3 +12,6 @@ test1:	test1.op
 
 test2:	test2.plain
 	$(MAKESFTPLAIN) < test2.plain
+
+test3:	test3.plain
+	$(MAKESFTPLAIN) < test3.plain

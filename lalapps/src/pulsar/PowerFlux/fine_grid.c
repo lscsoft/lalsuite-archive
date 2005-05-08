@@ -68,6 +68,12 @@ float quantile2std=1.22;
 float upper_limit_comp;
 float lower_limit_comp;
 
+/* Include file with Feldman-Cousins upper limits directly
+   so as to benifit from function inlining */
+   
+#include "fc.c"
+
+
 /* single bin version */
 
 void (*process_patch)(POLARIZATION *pol, int pi, int k, float CutOff);
@@ -337,29 +343,6 @@ free_RGBPic(p);
 }
 
 int float_cmp(float *a, float *b);
-
-static float upper_limit90(float dx)
-{
-if(dx>=0.0)return dx+1.64;
-return dx+sqrt(dx*dx+1.64);
-}
-
-static inline float upper_limit95(float dx)
-{
-if(dx>=-0.1)return dx+1.96;
-dx+=0.1;
-return dx+sqrt(dx*dx+1.86);
-}
-
-static inline float lower_limit95(float dx)
-{
-if(dx<1.7)return 0;
-if(dx>=2.1)return (0.455+0.766*(dx-2.1));
-if(dx<1.8)return 0.16;
-if(dx<1.9)return 0.26;
-if(dx<2.0)return 0.35;
-return 0.455;
-}
 
 void make_limits(POLARIZATION *pol, int pi)
 {
@@ -1139,6 +1122,9 @@ for(k=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[o
 
 void init_fine_grid_stage(void)
 {
+init_fc_ul();
+init_fc_ll();
+verify_limits();
 
 normalizing_weight=exp(-M_LN10*TMedian);
 

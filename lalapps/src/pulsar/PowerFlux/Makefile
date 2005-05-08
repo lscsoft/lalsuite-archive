@@ -1,5 +1,5 @@
 PACKAGE=\"powerflux\"
-VERSION=\"1.2.18\"
+VERSION=\"1.2.21\"
 LALROOT=./../../../../
 LALINCLUDE=-I$(LALROOT)/include/
 LALLDFLAGS=-L$(LALROOT)/lib -L$(LALROOT)/support-lib -llalsupport -llal -lm
@@ -67,6 +67,18 @@ test3: powerflux
 		 --band-axis=explicit\(0.5,0.3,0.1\)
 #		 --write-dat=NONE --write-png=ul\.png\$ \
 
+test3a: powerflux
+	time ./powerflux --input-format=Power -i /home/volodya/LIGO/S3/S3.H1.op/power.H1. -f $(BAND) -n 501 \
+		--ephemeris-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
+		--detector=LHO --three-bins=0 --do-cutoff=0 \
+		--subtract-background=0 --ks-test=1 --filter-lines=0 \
+		--spindown-start=1e-9 \
+		--fake-linear --fake-ra=3.141593 --fake-dec=0.006233 --fake-freq=199.85 --fake-strain=1e-20 \
+		--fake-spindown=1e-9
+#		 --focus-ra=2.2 --focus-dec=0.3 --focus-radius=0.1 \
+		 --band-axis=explicit\(0.5,0.3,0.1\)
+#		 --write-dat=NONE --write-png=ul\.png\$ \
+
 test4: powerflux
 	valgrind --tool=cachegrind ./powerflux -i /home/volodya/LIGO/S2/S2.L1.op/power.L1. -f $(BAND) -n 501 \
 		--ephemeris-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
@@ -86,7 +98,7 @@ test4a: powerflux.dyn
 test4b: powerflux.hydra
 	valgrind --tool=memcheck --error-limit=no ./powerflux.hydra --input-format=Power -i /home/volodya/LIGO/S2/S2.L1.op/power.L1. -f $(BAND) -n 501 \
 		--ephemeris-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
-		--detector=LLO --three-bins=0 --do-cutoff=0 \
+		--detector=LLO --three-bins=0 --do-cutoff=0\
 		 --focus-ra=2.2 --focus-dec=0.3 --focus-radius=0.1 \
 		 --only-large-cos=0.34
 #		 --band-axis=explicit\(0.5,0.3,0.1\)
