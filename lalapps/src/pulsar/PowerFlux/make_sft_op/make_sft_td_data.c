@@ -299,6 +299,7 @@ long i;
 float *p1;
 float *p2;
 unsigned char *p3;
+double *p2d;
 long offset;
 long nsamples,bit;
 if(vect->next!=NULL){
@@ -349,9 +350,41 @@ switch(vect->type){
 		/* copy and mark the remaining bits */
 		*p3|=(1<<(nsamples-i))-1;
 		for(;i<nsamples;i++){ COPY_REAL }
+		#undef COPY_REAL
+		break;
+	case FR_VECT_8R:
+		p2d=&(vect->dataD[i]);
+		p1=&(data[offset]);
+		p3=&(data_present[offset>>3]);
+			#define COPY_REAL *p1=*p2d;p1++;p2d++;
+		/* start copying - we might not have offset to be a multiple of 8 */
+		bit=offset&7;
+		i=0;
+		if(bit){
+			*p3|=((1<<(bit))-1)<<(8-(bit));
+			p3++;
+			for(;(bit)&&(i<nsamples);i++,bit--){ COPY_REAL }
+			}
+		/* continue copying in chunks of 8 */
+		for(;i+8<=nsamples;i+=8){
+			/* copy 8 reals to their new places */
+			COPY_REAL
+			COPY_REAL
+			COPY_REAL
+			COPY_REAL
+			COPY_REAL
+			COPY_REAL
+			COPY_REAL
+			COPY_REAL
+			/* mark all 8 bits at once */
+			*p3=0xff;p3++;
+			}			
+		/* copy and mark the remaining bits */
+		*p3|=(1<<(nsamples-i))-1;
+		for(;i<nsamples;i++){ COPY_REAL }
+		#undef COPY_REAL
 		break;
 	case FR_VECT_2S:
-	case FR_VECT_8R:
 	default:
 		fprintf(stderr,"** format %d for FrVect data is not supported yet\n", vect->type);
 		break;

@@ -121,8 +121,11 @@ if(freq_stop<0)freq_stop=total_samples;
 
 /* post_init various subsystems */
 
+/* We do not calibrate in this program */
+#if 0
 post_init_response_files();
 post_init_alpha_beta();
+#endif
 
 /* print settings */
 print_settings(stderr);
