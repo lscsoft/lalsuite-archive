@@ -326,7 +326,13 @@ class CondorDAGNode:
     self.__output_files = []
     self.__input_files = []
     self.__vds_group = None
-    self.set_name()
+
+    # generate the md5 node name
+    t = str( long( time.time() * 1000 ) )
+    r = str( long( random.random() * 100000000000000000L ) )
+    a = str( self.__class__ )
+    self.__name = md5.md5(t + r + a).hexdigest()
+    self.__md5name = self.__name
 
   def __repr__(self):
     return self.__name
@@ -367,14 +373,17 @@ class CondorDAGNode:
     """
     self.__post_script_args.append(arg)
 
-  def set_name(self):
+  def set_name(self,name):
     """
-    Generate a unique name for this node in the DAG.
+    Set the name for this node in the DAG.
     """
-    t = str( long( time.time() * 1000 ) )
-    r = str( long( random.random() * 100000000000000000L ) )
-    a = str( self.__class__ )
-    self.__name = md5.md5(t + r + a).hexdigest()
+    self.__name = str(name)
+
+  def get_name(self):
+    """
+    Get the name for this node in the DAG.
+    """
+    return self.__name
 
   def add_input_file(self, filename):
     """
@@ -654,12 +663,20 @@ class CondorDAG:
     self.__dag_file_path = None
     self.__jobs = []
     self.__nodes = []
+    self.__integer_node_names = 0
+    self.__node_count = 0
 
   def is_dax(self):
     """
     Returns true if this DAG is really a DAX
     """
     return self.__dax
+
+  def set_integer_node_names(self):
+    """
+    Use integer node names for the DAG
+    """
+    self.__integer_node_names = 1
 
   def set_dag_file(self, path):
     """
@@ -692,6 +709,9 @@ class CondorDAG:
       raise CondorDAGError, "Nodes must be class CondorDAGNode or subclass"
     node.set_log_file(self.__log_file_path)
     self.__nodes.append(node)
+    if self.__integer_node_names:
+      node.set_name(str(self.__node_count))
+    self.__node_count += 1
     if node.job() not in self.__jobs:
       self.__jobs.append(node.job())
 
