@@ -1952,8 +1952,8 @@ class LSCDataFindJob(CondorDAGJob, AnalysisJob):
 
     self.add_condor_cmd('getenv','True')
 
-    self.set_stderr_file(log_dir + '/datafind-$(macroobservatory)-$(macrogpsstarttime)-$(macrogpsendtime)-$(cluster)-$(process).err')
-    self.set_stdout_file(self.__cache_dir + '/$(macroobservatory)-$(macrogpsstarttime)-$(macrogpsendtime).cache')
+    self.set_stderr_file(log_dir + '/datafind-$(macroobservatory)-$(macrotype)-$(macrogpsstarttime)-$(macrogpsendtime)-$(cluster)-$(process).err')
+    self.set_stdout_file(self.__cache_dir + '/$(macroobservatory)-$(macrotype)-$(macrogpsstarttime)-$(macrogpsendtime).cache')
     self.set_sub_file('datafind.sub')
 
   def get_cache_dir(self):
@@ -2004,8 +2004,9 @@ class LSCDataFindNode(CondorDAGNode, AnalysisNode):
     Private method to set the file to write the cache to. Automaticaly set
     once the ifo, start and end times have been set.
     """
-    if self.__start and self.__end and self.__observatory:
+    if self.__start and self.__end and self.__observatory and self.__type:
       self.__output = self.__job.get_cache_dir() + '/' + self.__observatory + '-'  
+      self.__output += self.__type + '-'
       self.__output += str(self.__start) + '-' + str(self.__end) + '.cache'
       self.add_output_file(self.__output)
 
@@ -2048,7 +2049,7 @@ class LSCDataFindNode(CondorDAGNode, AnalysisNode):
     @param obs: IFO to obtain data for.
     """
     self.add_var_opt('observatory',obs)
-    self.__observatory = obs
+    self.__observatory = str(obs)
     self.__set_output()
 
   def get_observatory(self):
@@ -2061,7 +2062,8 @@ class LSCDataFindNode(CondorDAGNode, AnalysisNode):
     """
     sets the frame type that we are querying
     """
-    self.__type = type
+    self.__type = str(type)
+    self.__set_output()
 
   def get_type(self):
     """
