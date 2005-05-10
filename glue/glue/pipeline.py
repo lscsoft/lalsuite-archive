@@ -1939,9 +1939,13 @@ class LSCDataFindJob(CondorDAGJob, AnalysisJob):
     self.__dax = dax
     self.__config_file = config_file
 
-    for sec in ['datafind']:
-      self.add_ini_opts(config_file,sec)
-    
+    # we have to do this manually for backwards compatibility with type
+    for o in self.__config_file.options('datafind'):
+      opt = string.strip(o)
+      if opt is not "type":
+        arg = string.strip(self.__config_file.get('datafind',opt))
+        self.add_opt(opt,arg)
+
     if self.__dax:
       # only get the LFNs not the PFNs
       self.add_opt('names-only','')
@@ -1995,7 +1999,7 @@ class LSCDataFindNode(CondorDAGNode, AnalysisNode):
      
     # try and get a type from the ini file and default to type None
     try:
-      self.__type = self.job().get_config_file().get('datafind','type')
+      self.set_type(self.job().get_config_file().get('datafind','type'))
     except:
       self.__type = None
  
@@ -2062,6 +2066,7 @@ class LSCDataFindNode(CondorDAGNode, AnalysisNode):
     """
     sets the frame type that we are querying
     """
+    self.add_var_opt('type',str(type))
     self.__type = str(type)
     self.__set_output()
 
