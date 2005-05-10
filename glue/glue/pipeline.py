@@ -835,7 +835,7 @@ class CondorDAG:
      <argument>%s
      </argument>\
 """
-        xml = template % (id_tag, executable, node_name, cmd_line)
+        xml = template % (id_tag, os.path.basename(executable), node_name, cmd_line)
 
         # write the group if this node has one
         if node.get_vds_group():
