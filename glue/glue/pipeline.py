@@ -480,7 +480,7 @@ class CondorDAGNode:
     argument is added to the submit file and a different value of the 
     argument can be set for each node in the DAG. The file name is also
     added to the list of input files for the DAX.
-    @param arg: name of option to add.
+    @param file: name of option to add.
     """
     self.__args.append(file)
     self.__job.add_var_arg()
