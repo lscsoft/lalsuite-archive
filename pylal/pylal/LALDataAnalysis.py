@@ -13,13 +13,22 @@ class snglInspiral(readSnglInspiralTable,Axes):
   def __init__(self, triggerfile):
     readSnglInspiralTable.__init__(self,triggerfile)
 
+  def nevents(self):
+    return len(self.table)
+
+  def mkarray(self, colname):
+    myarray = asarray( [ self.table[i][colname] for i in range(self.nevents())] )
+    return myarray
+
   def summary(self):
     subplot(221)
-    hist(self.snr)
+    snr = self.mkarray("snr")
+    hist(snr)
     xlabel(r'SNR', size='x-large')
     ylabel(r'# triggers', size='x-large')
     subplot(222)
-    hist(self.mass1)
+    mass1 = self.mkarray("mass1")
+    hist(mass1)
     title(r'Excess power trigger')
 
   def plot_snr_v_chisq(self):
