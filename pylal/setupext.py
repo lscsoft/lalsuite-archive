@@ -29,6 +29,16 @@ else:
     True = True
     False = False
 
+try:
+  lal_location = os.environ['LAL_LOCATION']
+except:
+  print >>sys.stderr, "Error getting environment LAL_LOCATION"
+  print >>sys.stderr, "Please set LAL_LOCATION environment variable"
+  sys.exit(1)
+
+lal_include = lal_location + '/include'
+lal_lib = lal_location + '/lib'
+
 BUILT_METAIO   = False
 
 class CleanUpFile:
@@ -71,12 +81,13 @@ def build_metaio(ext_modules, packages):
     global BUILT_METAIO
     if BUILT_METAIO: return # only build it if you you haven't already
 
+
     module = Extension( 'lgen.metaio', ['src/metaio.c'], 
         libraries = ['stdc++', 'lal', 'lalmetaio', 'lalsupport',
           'metaio'], 
-        include_dirs = ['/home/patrick/lscsoft/lal/include', 
+        include_dirs = [lal_include, 
           '/opt/lscsoft/libmetaio/include'], 
-        library_dirs = ['/home/patrick/lscsoft/lal/lib',
+        library_dirs = [lal_lib,
         '/opt/lscsoft/libmetaio/lib'])    
     ext_modules.append(module)    
 
