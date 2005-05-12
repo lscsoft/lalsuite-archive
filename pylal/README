@@ -1,15 +1,23 @@
 LGEN: LSC Graphics Engine
 
-Lgen is a collection of utilities for plotting the ooutput files from LSC
+LGEn is a collection of utilities for plotting the ooutput files from LSC
 analysis pipelines
 
-This README file explains how to build and install Lgen.
+This README file explains how to build and install LGEn.
 
 ------------------------------------------------------------------------------
 
+0. Prerequisites
+
+LGEn needs matplotlib and numarray to provide plotting and good
+scientific data manipulation.  The LIGO lightweigth reading stuff
+requires LAL, Metaio and Python.  At the present time,  you must 
+hack setupext.py to get it to compile.
+
+
 1. Determine your Python version
 
-Python version 2.2 or greater is required to install Lgen. Type:
+Python version 2.2 or greater is required to install LGEn. Type:
 
   python -V
 
@@ -53,9 +61,9 @@ and csh users should type:
 
 ------------------------------------------------------------------------------
 
-2. Get Lgen from CVS
+2. Get LGEn from CVS
 
-First choose a directory in which to install the Lgen sources. In this
+First choose a directory in which to install the LGEn sources. In this
 example, we install the sources into ${HOME}/src. If you decide to install
 somewhere else, change ${HOME}/src to the directory you have chosen. Change
 anonymous in the cvs checkout below to your lscsoft CVS user name, if you have
@@ -65,16 +73,16 @@ one. Type:
   cd ${HOME}/src
   cvs -d :pserver:anonymous@gravity.phys.uwm.edu:2402/usr/local/cvs/lscsoft checkout lsware
 
-This will create a directory ${HOME}/src/lsware/lgen containing the Lgen sources.
+This will create a directory ${HOME}/src/lsware/lgen containing the LGEn sources.
 
 
 ------------------------------------------------------------------------------
 
-3. Build and Install Lgen
+3. Build and Install LGEn
 
-Choose a location in which to install Lgen. In this example we choose
+Choose a location in which to install LGEn. In this example we choose
 /opt/lgen. You must have write access to this directory, so you may wish to
-install in ${HOME}, for example. Set the environment variable ${GLUE_LOCATION}
+install in ${HOME}, for example. Set the environment variable ${LGEN_LOCATION}
 to point to your chosen install directory. Bash or sh users should type:
 
   export LGEN_LOCATION=/opt/lgen
@@ -85,34 +93,38 @@ and csh users should type:
 
 Assuming you have installed the lgen sources in ${HOME}/src/lgen, type:
 
-  cd ${HOME}/src/glue
+  cd ${HOME}/src/lsware/lgen
+
+Now edit setupext.py so that include_dirs and library_dirs have the 
+directory paths for your setup,  then type:
+
   ${PYTHON} setup.py install --home=${LGEN_LOCATION}
 
-This will build and install all the glue modules and programs.
+This will build and install all the LGEn modules and programs.
 
 
 ------------------------------------------------------------------------------
 
-4. Set up your Environment for Using Lgen
+4. Set up your Environment for Using LGEn
 
 If you are a bash or sh user, edit your .profile (or .bash_profile) file and
-add the lines (changing /opt/glue to wherever you installed Lgen):
+add the lines (changing /opt/lgen to wherever you installed LGEn):
 
-  export GLUE_LOCATION=/opt/glue
-  if [ -f ${GLUE_LOCATION}/etc/glue-user-env.sh ] ; then
-    source ${GLUE_LOCATION}/etc/glue-user-env.sh
+  export LGEN_LOCATION=/opt/lgen
+  if [ -f ${LGEN_LOCATION}/etc/lgen-user-env.sh ] ; then
+    source ${LGEN_LOCATION}/etc/lgen-user-env.sh
   fi
 
 If you are a csh user, edit your .login file and add the lines (changing
-/opt/glue to wherever you installed Lgen):
+/opt/lgen to wherever you installed LGEn):
 
-  setenv GLUE_LOCATION /opt/glue
-  if ( -f ${GLUE_LOCATION}/etc/glue-user-env.csh ) then
-    source ${GLUE_LOCATION}/etc/glue-user-env.csh
+  setenv LGEN_LOCATION /opt/lgen
+  if ( -f ${LGEN_LOCATION}/etc/lgen-user-env.csh ) then
+    source ${LGEN_LOCATION}/etc/lgen-user-env.csh
   endif
 
 Now log out and log back in to ensure that all environment variables have been
 updated. 
 
-You may now use Lgen! Please report any problems via the Gnats database linked
-from the Lgen home page.
+You may now use LGEn! Please report any problems via the Gnats database linked
+from the LGEn home page.
