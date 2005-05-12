@@ -5,15 +5,15 @@ import os
 import getopt
 import re
 import exceptions
+import glob
 from types import *
 
-from matplotlib.patches import Patch
 from pylab import *
 from lgen import readMeta
 
 
 # grab command line options
-shortop = "vi:s:d:h"
+shortop = "vg:s:d:h"
 longop = [
   "version",
   "input=",
@@ -29,7 +29,7 @@ except getopt.GetoptError:
   sys.exit(1)
 
 # defaul values
-inputFilename = None
+myGlob = None
 myEpoch = None
 myDuration = 100
 
@@ -38,33 +38,41 @@ for o, a in opts:
     sys.exit(0)
   elif o in ("-v", "--version"):
     sys.exit(0)
-  elif o in ("-i", "--input"):
-    inputFilename = a
+  elif o in ("-g", "--glob"):
+    myGlob = a
   elif o in ("-s", "--gps-start-time"):
     myEpoch = float(a)
   elif o in ("-d", "--duration"):
     myDuration = float(a)
 
-if not inputFilename:
+if not myGlob:
   print >>sys.stderr, "Bad combination or missing options"
   print >>sys.stderr, "Enter 'plotburst --help' for usage"
   sys.exit(1)
 
-# read in the data from the input file
-inspTriggers=readMeta.SnglInspiralTable(inputFilename)
+# glob the list of files to read in
+myfiles = glob.glob(myGlob);
 
+# an instance of the snglInspiralTable
+inspTriggers=readMeta.snglInspiralTable()
+
+# read in the triggers
+inspTriggers.readfiles(myfiles)
+
+# use the supplied method to convert these columns into numarrays
+time = inspTriggers.mkarray("end_time")
+snr = inspTriggers.mkarray("snr")
+  
 # set the start time for the plot
 if not myEpoch: 
-  myEpoch = inspTriggers.end_time[0,]
-  
+  myEpoch = time[0,]
 
-#print(inspTriggers.snr)
-inspTriggers.summary()
-#xlabel(r'Time (seconds since %s)' % myEpoch, size='x-large')
-#ylabel(r'Frequency (Hz)', size='x-large')
-#title(r'Excess power trigger')
-#grid(True)
-#colorbar()
-#axis([0,myDuration,0,1000])
-savefig('epfill.png')
+print myEpoch
+
+plot(time - myEpoch, snr, "ro")
+xlabel(r'Time (seconds since %s)' % myEpoch, size='x-large')
+ylabel(r'SNR', size='x-large')
+title(r'Sample of Time v SNR Plot')
+grid(True)
+savefig('inspiral-sample.png')
 show()

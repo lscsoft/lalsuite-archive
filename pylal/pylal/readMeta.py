@@ -7,6 +7,7 @@ class searchSummaryTable:
   def readfiles(self, triggerfile):
     self.table = metaio.read_search_summary(triggerfile)
 
+
 class snglInspiralTable:
   def readfiles(self, triggerfile):
     self.table = metaio.read_sngl_inspiral(triggerfile)
@@ -17,6 +18,7 @@ class snglInspiralTable:
   def mkarray(self, colname):
     myarray = asarray( [ self.table[i][colname] for i in range(self.nevents())] )
     return myarray
+
 
 class snglBurstTable:
   def readfiles(self, triggerfile):
@@ -29,10 +31,6 @@ class snglBurstTable:
     myarray = asarray( [ self.table[i][colname] for i in range(self.nevents())] )
     return myarray
 
-class simInspiralTable: 
-  def __init__(self, triggerfile):
-    self.filename = triggerfile
-    self.table = metaio.read_sim_inspiral(triggerfile)
 
 def usage():
         print "readMeta.py -x xml file"
