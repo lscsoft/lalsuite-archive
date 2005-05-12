@@ -18,17 +18,22 @@ class snglInspiralTable:
     myarray = asarray( [ self.table[i][colname] for i in range(self.nevents())] )
     return myarray
 
+class snglBurstTable:
+  def readfiles(self, triggerfile):
+    self.table = metaio.read_sngl_burst(triggerfile)
+
+  def nevents(self):
+    return len(self.table)
+
+  def mkarray(self, colname):
+    myarray = asarray( [ self.table[i][colname] for i in range(self.nevents())] )
+    return myarray
 
 class simInspiralTable: 
   def __init__(self, triggerfile):
     self.filename = triggerfile
     self.table = metaio.read_sim_inspiral(triggerfile)
 
-class snglBurstTable: 
-  def __init__(self, triggerfile):
-    self.filename = triggerfile
-    self.table = metaio.read_sngl_burst(triggerfile)
-    
 def usage():
         print "readMeta.py -x xml file"
         sys.exit(0)

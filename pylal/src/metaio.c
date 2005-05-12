@@ -68,40 +68,70 @@ read_search_summary(PyObject *self, PyObject *args)           /* self unused in 
     PyList_SetItem(outlist, j, tmpvalue);
   }
 
+  while(eventHead) {
+    event = eventHead;
+    eventHead = eventHead->next;
+    LALFree(event);
+  }
+
   return outlist;
 }
 
 /* module functions */
 static PyObject *                                 /* returns object */
-read_sngl_burst(PyObject *self, PyObject *args)   /* self unused in modules */
-{                                                 /* args from python call */
-    char *fromPython;
-    SnglBurstTable *eventHead=NULL;
-    SnglBurstTable *event=NULL;
-    int j, m=0, n=0;
-    double *result;
-    
-    if (! PyArg_Parse(args, "(s)", &fromPython))  /* convert Python -> C */
-        return NULL;                              /* null=raise exception */
-    else {
-        eventHead = XLALSnglBurstTableFromLIGOLw ( fromPython );
-        m = XLALCountSnglBurst ( eventHead );
-        n=9;
-        result = (double *) malloc( m*n*sizeof(double) );
-        for ( j=0, event = eventHead; event ; j++, event = event->next )
-        {
-          result[j*n] = (double)event->start_time.gpsSeconds;
-          result[j*n+1] = (double)event->start_time.gpsNanoSeconds;
-          result[j*n+2] = (double)event->peak_time.gpsSeconds;
-          result[j*n+3] = (double)event->peak_time.gpsNanoSeconds;
-          result[j*n+4] = (double)event->duration;
-          result[j*n+5] = (double)event->central_freq;
-          result[j*n+6] = (double)event->bandwidth;
-          result[j*n+7] = (double)event->snr;
-          result[j*n+8] = (double)event->confidence;
-        }
-    }
-    return NA_NewArray((void *)result, tFloat64, 2, m, n);
+read_sngl_burst(PyObject *self, PyObject *args)           /* self unused in modules */
+{ 
+  SnglBurstTable *eventHead=NULL;
+  SnglBurstTable **addevent=&eventHead;
+  SnglBurstTable *event=NULL;
+  PyObject *fromPython;
+  int j, m=0, n=0, nelement=0, len;
+  int startEvent = 0, stopEvent = -1;
+  PyObject *outlist;
+  PyObject *tmpvalue;
+
+  if (! PyArg_ParseTuple(args, "O", &fromPython))  /* convert Python -> C */
+    return NULL;                              /* null=raise exception */
+
+  if (! PyList_Check(fromPython) )
+    return NULL;
+
+  len = PyList_Size(fromPython);
+  for(n=0;n<len;n++)
+  {
+    *addevent = XLALSnglBurstTableFromLIGOLw (
+        PyString_AsString(PyList_GetItem(fromPython, n)) );
+
+    while(*addevent)
+      addevent = &(*addevent)->next;
+
+  }
+  nelement = XLALCountSnglBurst ( eventHead );
+
+  outlist = PyList_New(nelement);
+  for ( j=0, event = eventHead; event ; j++, event = event->next )
+  {
+    tmpvalue = Py_BuildValue(
+        "{s:s, s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:d}",
+        "ifo", event->ifo,
+        "start_time", (double)event->start_time.gpsSeconds,
+        "peak_time", (double)event->peak_time.gpsSeconds,
+        "duration", event->duration,
+        "central_freq", event->central_freq,
+        "bandwidth", event->bandwidth,
+        "amplitude", event->amplitude,
+        "snr", event->snr,
+        "confidence", event->confidence);
+    PyList_SetItem(outlist, j, tmpvalue);
+  }
+
+  while(eventHead) {
+    event = eventHead;
+    eventHead = eventHead->next;
+    LALFree(event);
+  }
+
+  return outlist;
 }
 
 /* module functions */
@@ -154,6 +184,12 @@ read_sngl_inspiral(PyObject *self, PyObject *args)           /* self unused in m
         "chisq_dof", event->chisq_dof,
         "sigmasq", event->sigmasq);
     PyList_SetItem(outlist, j, tmpvalue);
+  }
+
+  while(eventHead) {
+    event = eventHead;
+    eventHead = eventHead->next;
+    LALFree(event);
   }
 
   return outlist;

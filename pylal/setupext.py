@@ -30,7 +30,6 @@ else:
     False = False
 
 BUILT_METAIO   = False
-BUILT_DATE   = False
 
 class CleanUpFile:
     """CleanUpFile deletes the specified filename when self is destroyed."""
@@ -82,24 +81,3 @@ def build_metaio(ext_modules, packages):
     ext_modules.append(module)    
 
     BUILT_METAIO = True
-
-
-def build_date(ext_modules, packages):
-    global BUILT_DATE
-    if BUILT_DATE: return # only build it if you you haven't already
-
-    module = Extension( 'lgen.date', ['src/date.c'], 
-        libraries = ['stdc++', 'lal', 'lalmetaio', 'lalsupport',
-          'metaio'], 
-        include_dirs = ['/home/patrick/lscsoft/lal/include', 
-          '/opt/lscsoft/libmetaio/include'], 
-        library_dirs = ['/home/patrick/lscsoft/lal/lib',
-        '/opt/lscsoft/libmetaio/lib'])    
-    ext_modules.append(module)    
-
-    BUILT_DATE = True
-
-
-
-
-
