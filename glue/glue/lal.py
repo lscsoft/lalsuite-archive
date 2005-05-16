@@ -156,7 +156,7 @@ class LIGOTimeGPS(object):
 		LIGOTimeGPS is not also a LIGOTimeGPS, then an attempt is made
 		to convert it to a LIGOTimeGPS.
 
-		Example use (all are equivalent:
+		Example use (all are equivalent):
 			LIGOTimeGPS(100.5) + LIGOTimeGPS(3)
 			LIGOTimeGPS(100.5) + 3
 			LIGOTimeGPS(100.5) + "3"
@@ -164,6 +164,12 @@ class LIGOTimeGPS(object):
 		if not type(other) == LIGOTimeGPS:
 			other = LIGOTimeGPS(other)
 		return LIGOTimeGPS(self.seconds + other.seconds, self.nanoseconds + other.nanoseconds)
+
+	def __radd__(self, other):
+		"""
+		Add a LIGOTimeGPS to a value.
+		"""
+		return self.__add__(self, other)
 
 	def __sub__(self, other):
 		"""
@@ -179,6 +185,14 @@ class LIGOTimeGPS(object):
 		if not type(other) == LIGOTimeGPS:
 			other = LIGOTimeGPS(other)
 		return LIGOTimeGPS(self.seconds - other.seconds, self.nanoseconds - other.nanoseconds)
+
+	def __rsub__(self, other):
+		"""
+		Subtract a LIGOTimeGPS from a value.
+		"""
+		if not type(other) == LIGOTimeGPS:
+			other = LIGOTimeGPS(other)
+		return LIGOTimeGPS(other.seconds - self.seconds, other.nanoseconds - self.nanoseconds)
 
 	def __mul__(self, other):
 		"""
