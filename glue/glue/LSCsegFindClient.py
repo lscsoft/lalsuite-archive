@@ -431,7 +431,7 @@ be present when searching for groups of segments
     self.__check_gps(start)
     self.__check_gps(end)
 
-    queryList = ["02",str(start),str(end),str(interferometer),str(type)]
+    queryList = ["03",str(start),str(end),str(interferometer),str(type)]
 
     seglist = LSCsegFindClient.segmentQueryWithMetadata(self,queryList)
 
