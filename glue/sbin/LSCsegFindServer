@@ -30,7 +30,6 @@ import cPickle
 import MySQLdb
 import copy
 from pyGlobus import io
-from glue import segments
 from glue import gsiserverutils
 
 
@@ -440,6 +439,9 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
         len(dbresult))
       c.close()
 
+      import glue
+      glue.__path__.insert(0, glue.__path__[0] + "/segfind/protocol01")
+      from glue import segments
       try:
         result = segments.segmentlist()
         for r in dbresult:
@@ -447,6 +449,8 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
         result.coalesce()
       except:
         pass
+      del sys.modules["glue.segments"]
+      del sys.modules["glue"]
 
       code = 0
 
@@ -552,6 +556,9 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
           logger.debug("Method : segmentFindWithMetadata_vx %d results found" % 
             len(result))
 
+          import glue
+          glue.__path__.insert(0, glue.__path__[0] + "/segfind/protocol%02u" % protocol)
+          from glue import segments
           ifoSegs = segments.segmentlist()
           try:
             for r in result:
@@ -560,6 +567,8 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
           except:
             pass
           ifoSegList.append(ifoSegs)
+          del sys.modules["glue.segments"]
+          del sys.modules["glue"]
 
       except Exception, e:
         result = "Error querying metadata for segments" + \
