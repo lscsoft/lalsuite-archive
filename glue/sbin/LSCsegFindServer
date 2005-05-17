@@ -31,6 +31,7 @@ import MySQLdb
 import copy
 from pyGlobus import io
 from glue import gsiserverutils
+from glue import segments
 
 
 def SIGHUPhandler(signum, frame):
@@ -439,9 +440,11 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
         len(dbresult))
       c.close()
 
+      del segments
       import glue
       glue.__path__.insert(0, glue.__path__[0] + "/segfind/protocol01")
       from glue import segments
+
       try:
         result = segments.segmentlist()
         for r in dbresult:
@@ -449,8 +452,6 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
         result.coalesce()
       except:
         pass
-      del sys.modules["glue.segments"]
-      del sys.modules["glue"]
 
       code = 0
 
@@ -466,6 +467,11 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
         "segmentFindWithMetadata_v1")
 
     self.__reply__(code, result)
+
+    del results
+    del segments
+    del glue
+    from glue import segments
 
 
   def segmentFindWithMetadata_vx(self, arg):
@@ -556,9 +562,6 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
           logger.debug("Method : segmentFindWithMetadata_vx %d results found" % 
             len(result))
 
-          import glue
-          glue.__path__.insert(0, glue.__path__[0] + "/segfind/protocol%02u" % protocol)
-          from glue import segments
           ifoSegs = segments.segmentlist()
           try:
             for r in result:
