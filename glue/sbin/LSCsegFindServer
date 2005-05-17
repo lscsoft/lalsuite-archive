@@ -570,8 +570,6 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
           except:
             pass
           ifoSegList.append(ifoSegs)
-          del sys.modules["glue.segments"]
-          del sys.modules["glue"]
 
       except Exception, e:
         result = "Error querying metadata for segments" + \
