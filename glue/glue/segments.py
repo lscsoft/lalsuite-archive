@@ -117,12 +117,6 @@ class segment(tuple):
 
 	# accessors
 
-	def __getattr__(self, key):
-		return self[{"start" : 0, "end" : 1}[key]]
-
-	def __setattr__(self, key, value):
-		self[{"start" : 0, "end" : 1}[key]] = value
-
 	def duration(self):
 		"""
 		Returns the length of the interval represented by the segment.
