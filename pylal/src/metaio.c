@@ -168,8 +168,13 @@ read_sngl_inspiral(PyObject *self, PyObject *args)           /* self unused in m
   outlist = PyList_New(nelement);
   for ( j=0, event = eventHead; event ; j++, event = event->next )
   {
+    long long tmpid = 0;
+    
+    if (  event->event_id )
+      tmpid =  event->event_id->id;
+    
     tmpvalue = Py_BuildValue(
-        "{s:s, s:i, s:i, s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:i, s:d}",
+        "{s:s, s:i, s:i, s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:i, s:d, s:L}",
         "ifo", event->ifo,
         "end_time", event->end_time.gpsSeconds,
         "end_time_ns", event->end_time.gpsNanoSeconds,
@@ -183,15 +188,17 @@ read_sngl_inspiral(PyObject *self, PyObject *args)           /* self unused in m
         "snr", event->snr,
         "chisq", event->chisq,
         "chisq_dof", event->chisq_dof,
-        "sigmasq", event->sigmasq);
+        "sigmasq", event->sigmasq,
+        "event_id", tmpid);
     PyList_SetItem(outlist, j, tmpvalue);
   }
 
   while(eventHead) {
     event = eventHead;
     eventHead = eventHead->next;
-    LALFree(event);
+    XLALFreeSnglInspiral ( &event );
   }
+
 
   return outlist;
 }
