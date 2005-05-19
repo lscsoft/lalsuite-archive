@@ -30,8 +30,8 @@ import cPickle
 import MySQLdb
 import copy
 from pyGlobus import io
-from glue import segments
 from glue import gsiserverutils
+from glue import segments
 
 
 def SIGHUPhandler(signum, frame):
@@ -426,6 +426,12 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
     # assume failure
     code = 1
 
+    # remove the segments module and re-load the old one
+    del segments
+    import glue
+    glue.__path__.insert(0, glue.__path__[0] + "/segfindserver/segments_1.7")
+    from glue import segments
+
     try:
       sql = "SELECT state_segment.start_time, state_segment.end_time "
       sql += "FROM state_segment, state_vec WHERE "
@@ -463,6 +469,13 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
 
     self.__reply__(code, result)
 
+    del result
+
+    # reload the regular version of the segment package
+    del segments
+    del glue
+    from glue import segments
+
 
   def segmentFindWithMetadata_vx(self, arg):
     """
@@ -486,10 +499,17 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
       result = "Error parsing protocol version %s: %s" % (str(arg), e)
       logger.error(result)
       code = 1
-    if protocol is not 2:
-      result = "Unknown protocol version %s: %s" % (protocol, e)
+    if protocol < 2 or protocol > 3:
+      result = "Unknown protocol version %d" % (protocol)
       logger.error(result)
       code = 1
+
+    if protocol == 2:
+      # use the old segments package
+      del segments
+      import glue
+      glue.__path__.insert(0, glue.__path__[0] + "/segfindserver/segments_1.7")
+      from glue import segments
 
     # parse out query information
     try:
@@ -586,6 +606,14 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
       logger.error( "segmentFindWithMetadata_vx skipped query" )
 
     self.__reply__(code, result)
+
+    del result
+
+    if protocol == 2:
+      # reload the regular version of the segment package
+      del segments
+      del glue
+      from glue import segments
 
 
 class LSCsegFindServer(object):
