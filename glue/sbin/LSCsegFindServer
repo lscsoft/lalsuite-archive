@@ -427,7 +427,7 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
     code = 1
 
     # remove the segments module and re-load the old one
-    del segments
+    del sys.modules["glue.segments"]
     import glue
     glue.__path__.insert(0, glue.__path__[0] + "/segfindserver/segments_1.7")
     from glue import segments
@@ -472,8 +472,8 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
     del result
 
     # reload the regular version of the segment package
-    del segments
-    del glue
+    del sys.modules["glue.segments"]
+    del sys.modules["glue"]
     from glue import segments
 
 
@@ -506,7 +506,7 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
 
     if protocol == 2:
       # use the old segments package
-      del segments
+      del sys.modules["glue.segments"]
       import glue
       glue.__path__.insert(0, glue.__path__[0] + "/segfindserver/segments_1.7")
       from glue import segments
@@ -611,8 +611,8 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
 
     if protocol == 2:
       # reload the regular version of the segment package
-      del segments
-      del glue
+      del sys.modules["glue.segments"]
+      del sys.modules["glue"]
       from glue import segments
 
 
