@@ -99,21 +99,12 @@ if(stats->flag & STAT_FLAG_ESTIMATE_MEAN){
 	}
 
 if(stats->flag & STAT_FLAG_ESTIMATE_SIGMA){
-	/* add a method to autocompute this value later */
-	quantile2std=1.22;
-	/* 1.62 appears to work better.. */
-	quantile2std=1.62;
-	/* 1.69 even better.. */
-	quantile2std=1.69;
-
-	stats->sigma=(data[(count*4)/5]-data[count/5])/quantile2std; 
-	
 	sigma=0.0;
 	mean=stats->mean;
 	for(i=50;i<count-50;i++){
 		sigma+=(data[i]-mean)*(i-50.0)/400.0;
 		}
-	stats->sigma=sigma*5.0/400.0;
+	stats->sigma=sigma*5.22/401.0;
 	}
 	
 if(stats->flag & STAT_FLAG_ESTIMATE_KS_LEVEL){
