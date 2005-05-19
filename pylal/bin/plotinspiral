@@ -54,13 +54,11 @@ if not myGlob:
 myfiles = glob.glob(myGlob);
 
 # an instance of the snglInspiralTable
-inspTriggers=readMeta.snglInspiralTable()
-
-# read in the triggers
-inspTriggers.readfiles(myfiles)
+inspTriggers=readMeta.metaDataTable(myfiles, "sngl_inspiral")
 
 # use the supplied method to convert these columns into numarrays
 time = inspTriggers.mkarray("end_time")
+timens = inspTriggers.mkarray("end_time_ns")
 snr = inspTriggers.mkarray("snr")
   
 # set the start time for the plot
@@ -69,7 +67,7 @@ if not myEpoch:
 
 print myEpoch
 
-plot(time - myEpoch, snr, "ro")
+plot(time + 1.0e-9 * timens - myEpoch, snr, "ro")
 xlabel(r'Time (seconds since %s)' % myEpoch, size='x-large')
 ylabel(r'SNR', size='x-large')
 title(r'Sample of Time v SNR Plot')

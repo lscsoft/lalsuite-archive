@@ -54,7 +54,7 @@ if not inputFilename:
 
 # read in the data from the input file
 myfig=figure()
-e12=readMeta.SnglBurstTable(inputFilename)
+e12=readMeta.metaDataTable(inputFilename, "sngl_burst")
 
 # set the start time for the plot
 if not myEpoch: 
