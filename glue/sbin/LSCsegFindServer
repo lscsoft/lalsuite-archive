@@ -427,10 +427,10 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
     code = 1
 
     # remove the segments module and re-load the old one
-    #del sys.modules["glue.segments"]
-    #import glue
-    #glue.__path__.insert(0, glue.__path__[0] + "/segfindserver/segments_1.7")
-    #from glue import segments
+    del sys.modules["glue.segments"]
+    import glue
+    glue.__path__.insert(0, glue.__path__[0] + "/segfindserver/segments_1_7")
+    from glue import segments
 
     try:
       sql = "SELECT state_segment.start_time, state_segment.end_time "
@@ -472,9 +472,9 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
     del result
 
     # reload the regular version of the segment package
-    #del sys.modules["glue.segments"]
-    #del sys.modules["glue"]
-    #from glue import segments
+    del sys.modules["glue.segments"]
+    del sys.modules["glue"]
+    from glue import segments
 
 
   def segmentFindWithMetadata_vx(self, arg):
@@ -506,11 +506,10 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
 
     if protocol == 2:
       # use the old segments package
-      #del sys.modules["glue.segments"]
-      #import glue
-      #glue.__path__.insert(0, glue.__path__[0] + "/segfindserver/segments_1.7")
-      #from glue import segments
-      pass
+      del sys.modules["glue.segments"]
+      import glue
+      glue.__path__.insert(0, glue.__path__[0] + "/segfindserver/segments_1_7")
+      from glue import segments
 
     # parse out query information
     try:
@@ -612,10 +611,9 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
 
     if protocol == 2:
       # reload the regular version of the segment package
-      #del sys.modules["glue.segments"]
-      #del sys.modules["glue"]
-      #from glue import segments
-      pass
+      del sys.modules["glue.segments"]
+      del sys.modules["glue"]
+      from glue import segments
 
 
 class LSCsegFindServer(object):
