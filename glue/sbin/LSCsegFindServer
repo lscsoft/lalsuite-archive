@@ -458,10 +458,6 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
       result = "Error querying metadata for segments %s: %s" % (arg[0], e)
       logger.error(result)
 
-    # unload the segments module
-    del sys.modules["glue.segments"]
-    del sys.modules["glue"]
-
     try:
       db.close()
       del db
@@ -472,6 +468,10 @@ class LSCsegFindServerHandler(SocketServer.BaseRequestHandler):
     self.__reply__(code, result)
 
     del result
+
+    # unload the segments module
+    del sys.modules["glue.segments"]
+    del sys.modules["glue"]
 
 
   def segmentFindWithMetadata_vx(self, arg):
