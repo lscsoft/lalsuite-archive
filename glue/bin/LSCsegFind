@@ -260,11 +260,11 @@ try:
     else:
       if not format:
         for seg in seglist:
-          print seg.start, seg.end
+          print seg[0], seg[1]
       elif format == 'segwizard':
         i = 0
         for seg in seglist:
-          print i,seg.start,seg.end,seg.duration()
+          print i,seg[0],seg[1],seg.duration()
           i += 1
       elif format == 'tcl' or format == 'python':
         if format == 'tcl':
@@ -276,11 +276,11 @@ try:
           rdelim = ']'
           cdelim = ', '
         s = seglist.pop(0)
-        print ldelim + ldelim + str(s.start) + cdelim + \
-          str(s.end) + rdelim,
+        print ldelim + ldelim + str(s[0]) + cdelim + \
+          str(s[1]) + rdelim,
         for seg in seglist:
-          print cdelim + ldelim + str(seg.start) + cdelim + \
-            str(seg.end) + rdelim,
+          print cdelim + ldelim + str(seg[0]) + cdelim + \
+            str(seg[1]) + rdelim,
         print rdelim
       else:
         msg = "Error: unknown segment format : %s" % format
