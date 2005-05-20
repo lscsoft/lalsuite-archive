@@ -196,6 +196,13 @@ class LDRdataFindClient(object):
                 @return: None
                 """
 
+                # remove the globus tcp port range environment variable if set
+                try:
+                        port_range = os.environ["GLOBUS_TCP_PORT_RANGE"]
+                        os.environ["GLOBUS_TCP_PORT_RANGE"] = ""
+                except:
+                        pass
+
                 self.host = host
                 self.port = port
 
