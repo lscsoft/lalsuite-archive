@@ -1,6 +1,5 @@
 /******************************************************************** 
- * A simple C extension module for Python, called "hello"; compile
- * this into a ".so" on python path, import and call hello.message;
+ * A C extension module for Python, called "metaio"
  ********************************************************************/
 
 #include <Python.h>
@@ -20,10 +19,11 @@ extern void _Py_CountReferences(FILE *);
 #define DESCRIBE_HEX(x)     CURIOUS(fprintf(stderr,"  " #x "=%08x\n",x))
 #define COUNTREFS()     CURIOUS(_Py_CountReferences(stderr))
 
-
-/* module functions */
-static PyObject *                                 /* returns object */
-read_search_summary(PyObject *self, PyObject *args)           /* self unused in modules */
+/******************************************************************** 
+ * Search Summary Reading Function
+ ********************************************************************/
+static PyObject *                   
+read_search_summary(PyObject *self, PyObject *args)
 { 
   int j, m=0, n=0, nelement=0, len;
   SearchSummaryTable *eventHead=NULL;
@@ -33,8 +33,8 @@ read_search_summary(PyObject *self, PyObject *args)           /* self unused in 
   PyObject *outlist;
   PyObject *tmpvalue;
 
-  if (! PyArg_ParseTuple(args, "O", &fromPython))  /* convert Python -> C */
-    return NULL;                              /* null=raise exception */
+  if (! PyArg_ParseTuple(args, "O", &fromPython)) 
+    return NULL;                             
 
   if (! PyList_Check(fromPython) )
     return NULL;
@@ -76,9 +76,67 @@ read_search_summary(PyObject *self, PyObject *args)           /* self unused in 
   return outlist;
 }
 
-/* module functions */
-static PyObject *                                 /* returns object */
-read_sngl_burst(PyObject *self, PyObject *args)           /* self unused in modules */
+/******************************************************************** 
+ * SummValue Reading Function
+ ********************************************************************/
+static PyObject *     
+read_summ_value(PyObject *self, PyObject *args)
+{ 
+  int j, m=0, n=0, nelement=0, len;
+  SummValueTable *eventHead=NULL;
+  SummValueTable **addevent=&eventHead;
+  SummValueTable *event=NULL;
+  PyObject *fromPython;
+  PyObject *outlist;
+  PyObject *tmpvalue;
+
+  if (! PyArg_ParseTuple(args, "O", &fromPython))
+    return NULL;                           
+
+  if (! PyList_Check(fromPython) )
+    return NULL;
+
+  len = PyList_Size(fromPython);
+  for(n=0;n<len;n++)
+  {
+    m = SummValueTableFromLIGOLw ( addevent,
+        PyString_AsString(PyList_GetItem(fromPython, n)));
+
+    while(*addevent)
+      addevent = &(*addevent)->next;
+
+    nelement += m;
+  }
+
+  outlist = PyList_New(nelement);
+  for ( j=0, event = eventHead; event ; j++, event = event->next )
+  {
+    tmpvalue = Py_BuildValue(
+        "{s:s, s:d, s:d, s:s, s:s, s:d, s:s}",
+        "program", event->program,
+        "start_time", (double)event->start_time.gpsSeconds,
+        "end_time", (double)event->end_time.gpsSeconds,
+        "ifo", event->ifo,
+        "name", event->name,
+        "value", event->value,
+        "comment", event->comment);
+    PyList_SetItem(outlist, j, tmpvalue);
+  }
+
+  while(eventHead) {
+    event = eventHead;
+    eventHead = eventHead->next;
+    LALFree(event);
+  }
+
+  return outlist;
+}
+
+/******************************************************************** 
+ * Single Burst Reading Function
+ ********************************************************************/
+static PyObject *   
+read_sngl_burst(PyObject *self, PyObject *args)
 { 
   SnglBurstTable *eventHead=NULL;
   SnglBurstTable **addevent=&eventHead;
@@ -89,8 +147,8 @@ read_sngl_burst(PyObject *self, PyObject *args)           /* self unused in modu
   PyObject *outlist;
   PyObject *tmpvalue;
 
-  if (! PyArg_ParseTuple(args, "O", &fromPython))  /* convert Python -> C */
-    return NULL;                              /* null=raise exception */
+  if (! PyArg_ParseTuple(args, "O", &fromPython))
+    return NULL;                             
 
   if (! PyList_Check(fromPython) )
     return NULL;
@@ -133,9 +191,11 @@ read_sngl_burst(PyObject *self, PyObject *args)           /* self unused in modu
   return outlist;
 }
 
-/* module functions */
-static PyObject *                                 /* returns object */
-read_sngl_inspiral(PyObject *self, PyObject *args)           /* self unused in modules */
+/******************************************************************** 
+ * Single Inspiral Reading Function
+ ********************************************************************/
+static PyObject *   
+read_sngl_inspiral(PyObject *self, PyObject *args) 
 { 
   SnglInspiralTable *eventHead=NULL;
   SnglInspiralTable **addevent=&eventHead;
@@ -146,8 +206,8 @@ read_sngl_inspiral(PyObject *self, PyObject *args)           /* self unused in m
   PyObject *outlist;
   PyObject *tmpvalue;
 
-  if (! PyArg_ParseTuple(args, "O", &fromPython))  /* convert Python -> C */
-    return NULL;                              /* null=raise exception */
+  if (! PyArg_ParseTuple(args, "O", &fromPython)) 
+    return NULL;                             
 
   if (! PyList_Check(fromPython) )
     return NULL;
@@ -199,21 +259,21 @@ read_sngl_inspiral(PyObject *self, PyObject *args)           /* self unused in m
     XLALFreeSnglInspiral ( &event );
   }
 
-
   return outlist;
 }
 
 /* registration table  */
 static struct PyMethodDef metaio_methods[] = {
     {"read_search_summary", read_search_summary, 1},  
+    {"read_summ_value", read_summ_value, 1},  
     {"read_sngl_burst", read_sngl_burst, 1},  
     {"read_sngl_inspiral", read_sngl_inspiral, 1}, 
-    {NULL, NULL}                   /* end of table marker */
+    {NULL, NULL} 
 };
 
 /* module initializer */
-void initmetaio()                       /* called on first import */
-{                                      /* name matters if loaded dynamically */
-    (void) Py_InitModule("lgen.metaio", metaio_methods);   /* mod name, table ptr */
-      /* import_libnumarray(); */
+void initmetaio()               /* called on first import */
+{                               /* name matters if loaded dynamically */
+    /* mod name, table ptr */
+    (void) Py_InitModule("lgen.metaio", metaio_methods);
 }
