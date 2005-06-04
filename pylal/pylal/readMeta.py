@@ -22,6 +22,8 @@ class metaDataTable:
   def readfiles(self, triggerfile, tabletype):
     if tabletype == "search_summary":
       self.table = metaio.read_search_summary(triggerfile)
+    if tabletype == "summ_value":
+      self.table = metaio.read_summ_value(triggerfile)
     if tabletype == "sngl_inspiral":
       self.table = metaio.read_sngl_inspiral(triggerfile)
     if tabletype == "sngl_burst":
