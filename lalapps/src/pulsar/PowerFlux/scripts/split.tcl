@@ -5,7 +5,13 @@
 # and creates files that can be loaded by R (or other analysis program)
 #
 
-set SUFFIX .H1
+source params.tcl
+
+foreach $PARAMS_FORMAT $PARAMS {
+        set $var [subst -nocommands -nobackslashes $value]
+        }
+
+set SUFFIX .$IFO
 
 set FIELDS {
 	"^useful band start"	band 0

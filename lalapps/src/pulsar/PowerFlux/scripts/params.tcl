@@ -8,6 +8,8 @@ set PARAMS {
 	CONF_DIR "$ROOT_DIR/in/"
 	OUTPUT_DIR "$ROOT_DIR/output/"
 	ERR_DIR "$ROOT_DIR/err/"
+	STATS_DIR "$ROOT_DIR/stats"
+	STATS_SUFFIX ".$IFO"
 	DAG_LOG "/people/volodya/$RUN_NAME.log"
 	FREQ_START	50
 	FREQ_STEP	0.25
