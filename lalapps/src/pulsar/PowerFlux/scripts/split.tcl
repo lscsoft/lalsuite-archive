@@ -11,8 +11,6 @@ foreach $PARAMS_FORMAT $PARAMS {
         set $var [subst -nocommands -nobackslashes $value]
         }
 
-set SUFFIX .$IFO
-
 set FIELDS {
 	"^useful band start"	band 0
 	"^seconds elapsed"	cputime 0
@@ -88,8 +86,10 @@ foreach $FIELDS_LAYOUT $FIELDS {
 		}
 	}
 
+file mkdir $STATS_DIR
+
 foreach $FIELDS_LAYOUT $FIELDS {
-	set FOUT [open $var${SUFFIX}.dat "a"]
+	set FOUT [open $STATS_DIR/$var${STATS_SUFFIX}.dat "a"]
 	switch -exact $pol {
 		1  	{
 			foreach value [set $var] {
