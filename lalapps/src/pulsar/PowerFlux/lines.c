@@ -129,12 +129,19 @@ for(i=lr->x0;i<=lr->x1;i++){
 		for(j=i;(j<=lr->x1)&&(lr->lines[j]&LINE_HIGH);j++);
 		if((j-i)>=5){
 			for(k=i;k<j;k++)lr->lines[j]|=LINE_CLUSTERED;
-			}
+			} else
+		if((i>0) && (i<lr->x1) && ((z[i]-median)>2*(z[i-1]-median)) && ((z[i]-median)>2*(z[i+1]-median)))
+			lr->lines[i]|=LINE_ISOLATED;
 		}
 	}
 	
 /* third pass - decide what will be considered to be a line */
 for(i=lr->x0+1;i<=lr->x1-1;i++){
+	 if(lr->lines[i]){
+	 	fprintf(stderr, "line detected: bin=%d z=%g flag=0x%08x\n", i, z[i], lr->lines[i]);
+	 	fprintf(LOG, "line detected: bin=%d z=%g flag=0x%08x\n", i, z[i], lr->lines[i]);
+		}		
+	 
 	/* be very conservative mark only points which are LINE_VERY_HIGH
 	   and have both neighbours  below 0.4 level of the center line (i.e. side lobes (due to Hann window)
 	    of strictly bin-centered line */
@@ -214,12 +221,20 @@ for(i=lr->x0;i<=lr->x1;i++){
 		for(j=i;(j<=lr->x1)&&(lr->lines[j]&LINE_HIGH);j++);
 		if((j-i)>=5){
 			for(k=i;k<j;k++)lr->lines[j]|=LINE_CLUSTERED;
-			}
+			} else
+		if((i>0) && (i<lr->x1) && ((z[i]-median)>2*(z[i-1]-median)) && ((z[i]-median)>2*(z[i+1]-median)))
+			lr->lines[i]|=LINE_ISOLATED;
+
 		}
 	}
 	
 /* third pass - decide what will be considered to be a line */
 for(i=lr->x0+1;i<=lr->x1-1;i++){
+	 if(lr->lines[i]){
+	 	fprintf(stderr, "line detected: bin=%d z=%g flag=0x%08x\n", i, z[i], lr->lines[i]);
+	 	fprintf(LOG, "line detected: bin=%d z=%g flag=0x%08x\n", i, z[i], lr->lines[i]);
+		}		
+
 	/* be very conservative: mark only points which are LINE_VERY_HIGH
 	   and have both neighbours  below 0.4 level of the center line (i.e. side lobes (due to Hann window)
 	    of strictly bin-centered line */

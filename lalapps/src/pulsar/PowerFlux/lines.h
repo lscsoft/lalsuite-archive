@@ -6,10 +6,9 @@
 #define LINE_HIGH	(1<<1)
 #define LINE_VERY_HIGH 	(1<<2)
 #define LINE_CLUSTERED	(1<<3)
+#define LINE_ISOLATED	(1<<4)
 
 #define LINE_YES	(1<<7)
-
-#define LINE_MARK	(0xf<<0)
 
 typedef struct {
 	int x0;
