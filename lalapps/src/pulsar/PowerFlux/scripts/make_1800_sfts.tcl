@@ -138,7 +138,7 @@ close $SUBMIT_FILE
 
 set DAG_FILE [open $dag_file "w"]
 for { set k 0 } { $k < $i } { incr k } {
-	puts $DAG_FILE "JOB A$k dag_sub.$interferometer"
+	puts $DAG_FILE "JOB A$k submit"
 	puts $DAG_FILE "VARS A$k PID=\"$k\""
 	}
 close $DAG_FILE
