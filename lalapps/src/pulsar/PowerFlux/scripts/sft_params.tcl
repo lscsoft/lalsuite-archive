@@ -25,6 +25,7 @@ foreach {var value} {
         overlap 900
 	seg_start 0
 	seg_step    20499
+	frame_length  16
 	make_sft_prog "make_sft_plain"
 	veto_expr {~0}
 	non_veto_expr {$FLAG_NO_CALIB_LINE_V01 | $FLAG_AIRPLANE | $FLAG_DUST | $FLAG_SEISMIC_TRANSIENT | $FLAG_INJECTION_STOCHASTIC | $FLAG_HUMAN_INTRUSION | $FLAG_SEISMIC_ELEVATED | $FLAG_SEISMIC_HIGH}

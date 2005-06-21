@@ -31,7 +31,7 @@ close $FILE
 puts stderr "Total groups: $groups"
 
 proc find_data { start end } {
-global seg_start seg_step epoch_regexp
+global seg_start seg_step epoch_regexp frame_length
 set START1 [expr ($start/$seg_step-1)*$seg_step+$seg_start]
 set END1 [expr (($end+$seg_step-1)/$seg_step)*$seg_step+$seg_start]
 set L [list ]
@@ -42,7 +42,7 @@ for { set i $START1 } { $i < $END1 } { incr i $seg_step } {
                 foreach line [set frames_$group] {
 			set epoch 0
                        	regexp -- $epoch_regexp $line {} epoch
-                        if { (($epoch+16) >= $start) && ($epoch < $end) } {
+                        if { (($epoch+$frame_length) >= $start) && ($epoch < $end) } {
                                 lappend L $line
                                 }
                         }
