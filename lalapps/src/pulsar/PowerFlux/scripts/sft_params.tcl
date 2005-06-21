@@ -1,4 +1,5 @@
-#
+#!/usr/bin/env tclsh
+
 # This is Tcl/Tk file meant to be loaded with make_1800_sfts script
 #
 foreach {var value} {
@@ -10,14 +11,15 @@ foreach {var value} {
         frame_library "/scratch4/volodya/${data_set}.${interferometer}.${sft_kind}.txt"
         sc_files  "/home/volodya/${data_set}/sc.tcl"
         control_info_dir   "${storage_dir}/sfts_control/${data_set}.${interferometer}.${sft_kind}.geo/"
-	config_dir "$control_info_prefix/in/"
-	err_dir "$control_info_prefix/err/"
-	dag_file "$control_info_prefix/dag"
-	submit_file "$control_info_prefix/submit"
+	config_dir "$control_info_dir/in/"
+	err_dir "$control_info_dir/err/"
+	dag_file "$control_info_dir/dag"
+	submit_file "$control_info_dir/submit"
 	log_file "/people/volodya/${data_set}.${interferometer}.${sft_kind}.log"
 	sfts_dir "$storage_dir/SFT-3/${data_set}.${sft_kind}.geo/"
 	group_regexp {/([0-9]*)-([0-9]*)/.-.._RDS_C0._LX}
 	filename_regexp {(/netdat./.*)$}
+	epoch_regexp {-([0-9]*)-16.gwf}
         timebase 1800
         overlap 900
 	seg_start 0
@@ -39,7 +41,7 @@ foreach {var value} $argv {
 # Expand variables that depend on other variables
 foreach {var} {frame_library control_info_dir 
 	config_dir err_dir dag_file submit_file
-	sfts_dir } {
+	sfts_dir sc_files } {
         global $var
         set $var [subst -nocommands [set $var]]
         }

@@ -5,6 +5,7 @@ source sft_params.tcl
 file mkdir $control_info_dir
 file mkdir $config_dir
 file mkdir $err_dir
+file mkdir $sfts_dir
 
 
 puts stderr "Loading frame library from \"$frame_library\""
@@ -30,7 +31,7 @@ close $FILE
 puts stderr "Total groups: $groups"
 
 proc find_data { start end } {
-global seg_start seg_step
+global seg_start seg_step epoch_regexp
 set START1 [expr ($start/$seg_step-1)*$seg_step+$seg_start]
 set END1 [expr (($end+$seg_step-1)/$seg_step)*$seg_step+$seg_start]
 set L [list ]
@@ -40,7 +41,7 @@ for { set i $START1 } { $i < $END1 } { incr i $seg_step } {
         if { [info exists frames_$group] } {
                 foreach line [set frames_$group] {
 			set epoch 0
-                       	regexp -- {-([0-9]*)-16.gwf} $line {} epoch
+                       	regexp -- $epoch_regexp $line {} epoch
                         if { (($epoch+16) >= $start) && ($epoch < $end) } {
                                 lappend L $line
                                 }
@@ -123,10 +124,10 @@ close $SEGMENTS_FILE
 puts stderr "Generated $i input files (out of possible $i_possible)"
 
 set SUBMIT_FILE [open $submit_file "w"]
-puts $SUBMIT_FILE [subst nocommands {
+puts $SUBMIT_FILE [subst -nocommands {
 universe=vanilla
 executable=/home/volodya/SFT-3/make_sft_plain
-input=$input_dir/in.\$(PID)
+input=$config_dir/in.\$(PID)
 output=$err_dir/out.\$(PID)
 error=$err_dir/err.\$(PID)
 arguments=
