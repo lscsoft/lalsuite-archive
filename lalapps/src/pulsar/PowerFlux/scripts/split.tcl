@@ -39,7 +39,7 @@ foreach band {0 1 2 3 4 5 6 7 8 } {
         lappend FIELDS "^max_band: $band" "max_band.$band" 1
         lappend FIELDS "^masked_max_band: $band" "masked_max_band.$band" 1
 	lappend FIELDS "^max_ratio: $band" "max_ratio.$band" 1
-	#lappend FIELDS "hist_.*_ks_test: $band" "ks_hist.$band" 1	
+	lappend FIELDS "hist_.*_ks_test: $band" "ks_hist.$band" 1	
         }
 
 
