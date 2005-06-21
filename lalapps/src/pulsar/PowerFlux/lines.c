@@ -87,7 +87,7 @@ free(tmp);
 void detect_lines_d(double *z, LINES_REPORT *lr)
 {
 double *tmp;
-double median, qlines, qmost;
+double median, qlines, qmost, unit_strength;
 int i, j, k, nb, vh_count=0;
 
 nb=lr->x1-lr->x0+1;
@@ -111,6 +111,9 @@ qsort(tmp, nb, sizeof(*tmp), double_cmp);
 median=tmp[nb>>1];
 qlines=tmp[nb-lr->nlines];
 qmost=tmp[nb-lr->nlittle];
+
+unit_strength=qmost-median;
+if(unit_strength<=0.0)unit_strength=1.0;
 
 /* first pass - mark suspicious bins */
 for(i=lr->x0;i<=lr->x1;i++){
@@ -138,8 +141,11 @@ for(i=lr->x0;i<=lr->x1;i++){
 /* third pass - decide what will be considered to be a line */
 for(i=lr->x0+1;i<=lr->x1-1;i++){
 	 if(lr->lines[i]){
-	 	fprintf(stderr, "line detected: bin=%d z=%g flag=0x%08x\n", i, z[i], lr->lines[i]);
-	 	fprintf(LOG, "line detected: bin=%d z=%g flag=0x%08x\n", i, z[i], lr->lines[i]);
+	 	/* Note: strength is in units of unit_strength, 
+		   which is something like 2-3 sigma, 
+		   depending on what was passed in */
+	 	fprintf(stderr, "line detected: bin=%d z=%g strength=%f flag=0x%08x\n", i, z[i], (z[i]-median)/unit_strength,lr->lines[i]);
+	 	fprintf(LOG, "line detected: bin=%d z=%g strength=%f flag=0x%08x\n", i, z[i], (z[i]-median)/unit_strength, lr->lines[i]);
 		}		
 	 
 	/* be very conservative mark only points which are LINE_VERY_HIGH
@@ -178,7 +184,7 @@ free(tmp);
 void detect_lines_f(float *z, LINES_REPORT *lr)
 {
 float *tmp;
-float median, qlines, qmost;
+float median, qlines, qmost, unit_strength;
 int i, j, k, nb;
 int vh_count=0;
 
@@ -203,6 +209,9 @@ qsort(tmp, nb, sizeof(*tmp), double_cmp);
 median=tmp[nb>>1];
 qlines=tmp[nb-lr->nlines];
 qmost=tmp[nb-lr->nlittle];
+
+unit_strength=qmost-median;
+if(unit_strength<=0.0)unit_strength=1.0;
 
 /* first pass - mark suspision bins */
 for(i=lr->x0;i<=lr->x1;i++){
@@ -231,8 +240,11 @@ for(i=lr->x0;i<=lr->x1;i++){
 /* third pass - decide what will be considered to be a line */
 for(i=lr->x0+1;i<=lr->x1-1;i++){
 	 if(lr->lines[i]){
-	 	fprintf(stderr, "line detected: bin=%d z=%g flag=0x%08x\n", i, z[i], lr->lines[i]);
-	 	fprintf(LOG, "line detected: bin=%d z=%g flag=0x%08x\n", i, z[i], lr->lines[i]);
+	 	/* Note: strength is in units of unit_strength, 
+		   which is something like 2-3 sigma, 
+		   depending on what was passed in */
+	 	fprintf(stderr, "line detected: bin=%d z=%g strength=%f flag=0x%08x\n", i, z[i], (z[i]-median)/unit_strength,lr->lines[i]);
+	 	fprintf(LOG, "line detected: bin=%d z=%g strength=%f flag=0x%08x\n", i, z[i], (z[i]-median)/unit_strength, lr->lines[i]);
 		}		
 
 	/* be very conservative: mark only points which are LINE_VERY_HIGH
