@@ -133,7 +133,7 @@ for(i=lr->x0;i<=lr->x1;i++){
 		if((j-i)>=5){
 			for(k=i;k<j;k++)lr->lines[j]|=LINE_CLUSTERED;
 			} else
-		if((i>0) && (i<lr->x1) && ((z[i]-median)>2*(z[i-1]-median)) && ((z[i]-median)>2*(z[i+1]-median)))
+		if((i>lr->x0) && (i<lr->x1) && ((z[i]-median)>2*(z[i-1]-median)) && ((z[i]-median)>2*(z[i+1]-median)))
 			lr->lines[i]|=LINE_ISOLATED;
 		}
 	}
@@ -231,7 +231,7 @@ for(i=lr->x0;i<=lr->x1;i++){
 		if((j-i)>=5){
 			for(k=i;k<j;k++)lr->lines[j]|=LINE_CLUSTERED;
 			} else
-		if((i>0) && (i<lr->x1) && ((z[i]-median)>2*(z[i-1]-median)) && ((z[i]-median)>2*(z[i+1]-median)))
+		if((i>lr->x0) && (i<lr->x1) && ((z[i]-median)>2*(z[i-1]-median)) && ((z[i]-median)>2*(z[i+1]-median)))
 			lr->lines[i]|=LINE_ISOLATED;
 
 		}
