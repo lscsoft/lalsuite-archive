@@ -1,0 +1,26 @@
+Scripts used in PowerFlux analysis:
+
+Run preparation:
+	make_1800_sfts.tcl	- setup condor run for producing SFTs
+	sft_params.tcl	        - example parameter file for the above script, 
+				  customize for each individual instance
+				  
+	make_run.tcl		- setup condor run to analyze a range
+				  of frequencies and spindowns with 
+				  PowerFlux
+	params.tcl		- example parameter file for the above
+				  script
+
+Run analysis:
+	get_param.tcl		- query run parameter file (param.tcl)
+	split.tcl		- utility to split fields from PowerFlux log
+				  file into separate files (one per field)
+	get_lines.tcl		- utility to extract background artifact
+				  information from powerflux log file
+				  
+	all_stats.sh		- gather statistics information about the run
+				  result is stored in subdirectory "stats"
+				  within main run tree
+	lines.sh		- gather line information about the run
+				  and print it on standard output
+				  Standard error will display progress messages
