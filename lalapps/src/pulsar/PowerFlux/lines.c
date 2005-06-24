@@ -131,7 +131,7 @@ for(i=lr->x0;i<=lr->x1;i++){
 	if(lr->lines[i] & LINE_HIGH){
 		for(j=i;(j<=lr->x1)&&(lr->lines[j]&LINE_HIGH);j++);
 		if((j-i)>=5){
-			for(k=i;k<j;k++)lr->lines[j]|=LINE_CLUSTERED;
+			for(k=i;k<j;k++)lr->lines[k]|=LINE_CLUSTERED;
 			} else
 		if((i>lr->x0) && (i<lr->x1) && ((z[i]-median)>2*(z[i-1]-median)) && ((z[i]-median)>2*(z[i+1]-median)))
 			lr->lines[i]|=LINE_ISOLATED;
@@ -153,7 +153,8 @@ for(i=lr->x0+1;i<=lr->x1-1;i++){
 	    of strictly bin-centered line */
 	 if(((lr->lines[i] & (LINE_CANDIDATE | LINE_VERY_HIGH | LINE_CLUSTERED))==(LINE_CANDIDATE | LINE_VERY_HIGH))){
 		lr->lines[i]|=LINE_YES;
-		fprintf(stderr,"line detected: i=%d z[i]=%g\n", i, z[i]);
+	 	fprintf(stderr, "line marked: bin=%d z=%g strength=%f flag=0x%08x\n", i, z[i], (z[i]-median)/unit_strength,lr->lines[i]);
+	 	fprintf(LOG, "line marked: bin=%d z=%g strength=%f flag=0x%08x\n", i, z[i], (z[i]-median)/unit_strength, lr->lines[i]);
 	
 		for(j=0;j<lr->nlines;j++){
 			/* this can happen if we are adding new lines */
@@ -229,7 +230,7 @@ for(i=lr->x0;i<=lr->x1;i++){
 	if(lr->lines[i] & LINE_HIGH){
 		for(j=i;(j<=lr->x1)&&(lr->lines[j]&LINE_HIGH);j++);
 		if((j-i)>=5){
-			for(k=i;k<j;k++)lr->lines[j]|=LINE_CLUSTERED;
+			for(k=i;k<j;k++)lr->lines[k]|=LINE_CLUSTERED;
 			} else
 		if((i>lr->x0) && (i<lr->x1) && ((z[i]-median)>2*(z[i-1]-median)) && ((z[i]-median)>2*(z[i+1]-median)))
 			lr->lines[i]|=LINE_ISOLATED;
@@ -252,7 +253,8 @@ for(i=lr->x0+1;i<=lr->x1-1;i++){
 	    of strictly bin-centered line */
 	 if(((lr->lines[i] & (LINE_CANDIDATE | LINE_VERY_HIGH | LINE_CLUSTERED))==(LINE_CANDIDATE | LINE_VERY_HIGH))){
 		lr->lines[i]|=LINE_YES;
-		fprintf(stderr,"line detected: i=%d z[i]=%g\n", i, z[i]);
+	 	fprintf(stderr, "line marked: bin=%d z=%g strength=%f flag=0x%08x\n", i, z[i], (z[i]-median)/unit_strength,lr->lines[i]);
+	 	fprintf(LOG, "line marked: bin=%d z=%g strength=%f flag=0x%08x\n", i, z[i], (z[i]-median)/unit_strength, lr->lines[i]);
 	
 		for(j=0;j<lr->nlines;j++){
 			/* this can happen if we are adding new lines */
