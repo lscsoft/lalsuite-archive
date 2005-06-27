@@ -32,13 +32,20 @@ class snglInspiral(readSnglInspiralTable,Axes):
     title(r'Excess power trigger')
 
   def plot_snr_v_chisq(self):
-    plot(self.snr,self.chisq)
+    plot(self.snr,self.chisq,'rx')
+    title('SNR vs CHISQ')
+    xlabel('snr')
+    ylabel('chisq')
     gca().grid(True)
 
   def plot_snr_v_time(self):
     S3start = 751651213
+    S4start = 793130413
     secsPerDay = 3600*24
     plot((self.end_time - S3start) / secsPerDay,self.snr,'rx')
+    title('SNR vs TIME')
+    xlabel('time')
+    ylabel('snr')
     gca().grid(True)
  
   def histHistc_snr(self):
@@ -72,11 +79,32 @@ class snglInspiral(readSnglInspiralTable,Axes):
 
 class doubleCoincInspiral(readSnglInspiralTable,Axes):
 
-  def __init__(self, triggerfile):
-    self.table1 = readSnglInspiralTable(triggerfile)
-    self.table2 = readSnglInspiralTable(triggerfile)
-    # can't do the following
+  def __init__(self, triggerfile1, triggerfile2):
+    self.table1 = readSnglInspiralTable(triggerfile1)
+    self.table2 = readSnglInspiralTable(triggerfile2)
+    # can't do the followingh
     #readSnglInspiralTable.__init__(self.table1,triggerfile)
+
+  def plot_m1_v_m2(self):
+    plot(self.table1.mass1,self.table1.mass2,'rx')
+    plot(self.table2.mass1,self.table2.mass2,'b+')
+    gca().grid(True)
+
+
+class tripleCoincInspiral(readSnglInspiralTable,Axes):
+
+  def __init__(self, triggerfile1, triggerfile2, triggerfile3):
+    self.table1 = readSnglInspiralTable(triggerfile1)
+    self.table2 = readSnglInspiralTable(triggerfile2)
+    self.table3 = readSnglInspiralTable(triggerfile3)
+    # can't do the followingh
+    #readSnglInspiralTable.__init__(self.table1,triggerfile)
+
+  def plot_m1_v_m2(self):
+    plot(self.table1.mass1,self.table1.mass2,'r+')
+    plot(self.table2.mass1,self.table2.mass2,'bx')
+    plot(self.table3.mass1,self.table3.mass2,'gx')
+    gca().grid(True)
 
 
 class SnglBurst(readSnglBurstTable,Axes,Patch,PolyCollection):
@@ -163,31 +191,114 @@ class SnglBurst(readSnglBurstTable,Axes,Patch,PolyCollection):
 
 
 def usage():
-  print "LALDataAnalysis.py -x <xml-file>"
-  sys.exit(0)
+  helpmsg = """
+Usage: 
+python LALDataAnalysis.py [OPTIONS] FILE1 FILE2 FILE3 ....
+
+   -a, --snglInsp-snrVtime       plot snr vs time from single inspiral xml 
+   -b, --snglInsp-snrVchisq      plot snr vs chisq from single inspiral xml
+   -c, --snglInsp-histHistc-snr  plot snr histograms from single inspiral xml 
+   -d, --snglInsp-summary        plot summary info from single inspiral xml
+   -p, --show-plot               display plot 
+   -s, --save-fig                save plot in .png and .ps format
+   -t, --temporary-test		 only for developers to test this program
+   -h, --help                    show this usage message
+
+Example: 
+python LALDataAnalysis.py -a -s G1-INSPVETO-SIRE.xml
+...
+Saved plot to file G1-INSPVETO-SIRE.snglInsp-snrVtime.png
+Saved plot to file G1-INSPVETO-SIRE.snglInsp-snrVtime.ps
+  """
+  print helpmsg
+
 
 def main():
-  # parse options
+  # initialise variables
+  show_plot = False
+  save_fig  = False
+  xml_file  = None
+  plot_type = None
+
+  # define short and long option names
+  shortopts = "abcdpsth"
+  longopts = [
+    "snglInsp-snrVtime",
+    "snglInsp-snrVchisq",
+    "snglInsp-histHistc-snr",
+    "snglInsp-summary",
+    "show-plot",
+    "save-fig",
+    "temporary-test",
+    "help"]
+  
+  # parse command line options
   try:
-    opts,args=getopt.getopt(sys.argv[1:],"x:h",["xmlfile=","help"])            
+    options,arguments = getopt.getopt(sys.argv[1:],shortopts,longopts)            
   except getopt.GetoptError:
     usage()
     sys.exit(2)
-  for o,a in opts:
-    if o in ("-x","--xmlfile"):
-             xmlfile = a
-    if o in ("-h", "--help"):
-             usage()
-             sys.exit()
-  
-  # testing snglInspiral class
-  trigs = snglInspiral(xmlfile)
-  trigs.histHistc_snr()
-  #trigs.plot_snr_v_time()
-  #trigs.plot_snr_v_chisq()
-  #trigs.summary()
-  show()
 
+  print options
+  print arguments
+
+  for o,a in options:
+    if o in ("-a","--snglInsp-snrVtime"):
+      xml_files  = arguments
+      plot_type = "snglInsp-snrVtime"
+    if o in ("-b","--snglInsp-snrVchisq"):
+      xml_files  = arguments
+      plot_type = "snglInsp-snrVchisq"
+    if o in ("-c","--snglInsp-histHistc-snr"):
+      xml_files  = arguments
+      plot_type = "snglInsp-histHistc-snr"
+    if o in ("-d","--snglInsp-summary"):
+      xml_files  = arguments
+      plot_type = "snglInsp-summary"
+    if o in ("-p","--show-plot"):
+      show_plot = True 
+    if o in ("-s","--save-fig"):
+      save_fig  = True   
+    if o in ("-t","--temporary-test"):
+      # test new code here
+      sys.exit(0)
+    if o in ("-h", "--help"):
+      usage()
+      sys.exit(0)
+
+  # check options are sane 
+  if not plot_type:
+    print >> sys.stderr, "No plot option specified"
+    sys.exit(1)
+  if not xml_files:
+    print >> sys.stderr, "No trigger file specified"
+    sys.exit(1)
+
+  # read data file and call plotting function desired
+  if plot_type == "snglInsp-snrVtime":
+    trigs = snglInspiral(xml_files[0])
+    trigs.plot_snr_v_time()
+  elif plot_type == "snglInsp-snrVchisq":
+    trigs = snglInspiral(xml_files[0])
+    trigs.plot_snr_v_chisq()
+  elif plot_type == "snglInsp-histHistc-snr":
+    trigs = snglInspiral(xml_files[0])
+    trigs.histHistc_snr()
+  elif plot_type == "snglInsp-summary":
+    trigs = snglInspiral(xml_files[0])
+    trigs.summary()
+  
+
+  # save and show plot if desired
+  if save_fig:
+    png_file = xml_file[:-3] + plot_type + ".png"
+    ps_file  = xml_file[:-3] + plot_type + ".ps"
+    savefig(png_file)
+    savefig(ps_file)
+    print "Saved plot to file %s" % (png_file)
+    print "Saved plot to file %s" % (ps_file)
+  if show_plot:
+    show()
 
 # execute main if this module is explicitly invoked by the user
 if __name__=="__main__":
