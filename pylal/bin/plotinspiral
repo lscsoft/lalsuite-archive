@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 
 import sys
 import os
@@ -13,13 +13,15 @@ from lgen import readMeta
 
 
 # grab command line options
-shortop = "vg:s:d:h"
+shortop = "b:vf:g:hst:"
 longop = [
+  "bins=",
   "version",
-  "input=",
-  "gps-start-time=",
-  "duration=",
-  "help" ]
+  "figure",
+  "glob=",
+  "help",
+  "show",
+  "title="]
 
 try:
   opts, args = getopt.getopt(sys.argv[1:], shortop, longop)
@@ -30,20 +32,26 @@ except getopt.GetoptError:
 
 # defaul values
 myGlob = None
-myEpoch = None
-myDuration = 100
+myFigure = None
+myTitle = "SNR v CHISQ"
+showflag = 0
+nbins = 10
 
 for o, a in opts:
   if o in ("-h", "--help"):
     sys.exit(0)
   elif o in ("-v", "--version"):
     sys.exit(0)
+  elif o in ("-b", "--bins"):
+    nbins = int(a)
   elif o in ("-g", "--glob"):
     myGlob = a
-  elif o in ("-s", "--gps-start-time"):
-    myEpoch = float(a)
-  elif o in ("-d", "--duration"):
-    myDuration = float(a)
+  elif o in ("-f", "--figure"):
+    myFigure = a
+  elif o in ("-s", "--show"):
+    showflag = 1
+  elif o in ("-t", "--title"):
+    myTitle = a
 
 if not myGlob:
   print >>sys.stderr, "Bad combination or missing options"
@@ -57,20 +65,46 @@ myfiles = glob.glob(myGlob);
 inspTriggers=readMeta.metaDataTable(myfiles, "sngl_inspiral")
 
 # use the supplied method to convert these columns into numarrays
-time = inspTriggers.mkarray("end_time")
-timens = inspTriggers.mkarray("end_time_ns")
 snr = inspTriggers.mkarray("snr")
+chisq = inspTriggers.mkarray("chisq")
   
-# set the start time for the plot
-if not myEpoch: 
-  myEpoch = time[0,]
-
-print myEpoch
-
-plot(time + 1.0e-9 * timens - myEpoch, snr, "ro")
-xlabel(r'Time (seconds since %s)' % myEpoch, size='x-large')
-ylabel(r'SNR', size='x-large')
-title(r'Sample of Time v SNR Plot')
+plot(snr, chisq, "rx")
+hold(True)
+x=arange(6.0,10,0.1)
+y=0.01*(x*x*x*x)/(1+0.01*x*x)
+plot(x,1*y,'b-',x,2*y,'k-',x,3*y,'g-')
+hold(False)
+axis([6.5,10,0,90])
+xlabel(r'snr', size='x-large')
+ylabel(r'chisq', size='x-large')
+title(r' ' + myTitle)
 grid(True)
-savefig('inspiral-sample.png')
-show()
+if myFigure:
+  savefig(myFigure + "-snrvchisq.png")
+
+
+figure() 
+n = len(snr)
+r = arange(len(snr))
+snrsq = sort(snr)
+semilogy(snrsq, n - r, 'bv')
+xlabel(r'snr', size='x-large')
+ylabel(r'Cumulative #', size='x-large')
+title(r' ' + myTitle)
+grid(True)
+if myFigure:
+  savefig(myFigure + "-snrhist.png")
+
+figure() 
+hist(chisq, nbins)
+xlabel(r'chisq', size='x-large')
+ylabel(r'Number', size='x-large')
+title(r' ' + myTitle)
+grid(True)
+if myFigure:
+  savefig(myFigure + "-chisqhist.png")
+
+if showflag:
+  show()
+
+
