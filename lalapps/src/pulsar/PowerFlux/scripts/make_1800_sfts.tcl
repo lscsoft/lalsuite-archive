@@ -126,7 +126,7 @@ puts stderr "Generated $i input files (out of possible $i_possible)"
 set SUBMIT_FILE [open $submit_file "w"]
 puts $SUBMIT_FILE [subst -nocommands {
 universe=vanilla
-executable=/home/volodya/SFT-3/make_sft_plain
+executable=$sft_program
 input=$config_dir/in.\$(PID)
 output=$err_dir/out.\$(PID)
 error=$err_dir/err.\$(PID)

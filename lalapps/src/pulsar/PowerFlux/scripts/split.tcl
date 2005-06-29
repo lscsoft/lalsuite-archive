@@ -48,7 +48,7 @@ foreach $FIELDS_LAYOUT $FIELDS {
 	}
 
 # Comment this out to check for completed jobs
-set cputime "seconds elapsed: NA"
+set cputime [list "seconds elapsed: NA"]
 
 set spindown_count 1
 
@@ -105,7 +105,7 @@ foreach $FIELDS_LAYOUT $FIELDS {
 			}
 		0	{
                         for { set i 0 } { $i < $NPOL*$spindown_count } { incr i } {
-                                puts $FOUT [set $var]
+                                puts $FOUT [lindex [set $var] end]
                                 }
 			}
 		}

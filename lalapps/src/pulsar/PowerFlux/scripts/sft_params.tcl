@@ -7,6 +7,7 @@ foreach {var value} {
 	data_set "S3"
         interferometer "H1"
         instrument "H"
+	sft_program "/home/volodya/SFT-3/make_sft_plain"
 	channel "${interferometer}:Calibrated-Strain"
         storage_dir "/scratch4/volodya"
         frame_library "/scratch4/volodya/${data_set}.${interferometer}.${sft_kind}.txt"
