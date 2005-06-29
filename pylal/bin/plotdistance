@@ -1,0 +1,91 @@
+#!/usr/bin/python
+
+import sys
+import os
+import getopt
+import re
+import exceptions
+import glob
+from types import *
+
+from pylab import *
+from lgen import readMeta
+
+
+# grab command line options
+shortop = "b:vf:g:hst:"
+longop = [
+  "bins=",
+  "version",
+  "figure=",
+  "glob=",
+  "help",
+  "show",
+  "title="]
+
+try:
+  opts, args = getopt.getopt(sys.argv[1:], shortop, longop)
+except getopt.GetoptError:
+  print >>sys.stderr, "Error parsing command line"
+  print >>sys.stderr, "Enter 'plotburst --help' for usage"
+  sys.exit(1)
+
+# defaul values
+myGlob = None
+myFigure = None
+myTitle = "SNR v CHISQ"
+showflag = 0
+nbins = 10
+
+for o, a in opts:
+  if o in ("-h", "--help"):
+    sys.exit(0)
+  elif o in ("-v", "--version"):
+    sys.exit(0)
+  elif o in ("-b", "--bins"):
+    nbins = int(a)
+  elif o in ("-g", "--glob"):
+    myGlob = a
+  elif o in ("-f", "--figure"):
+    myFigure = a
+  elif o in ("-s", "--show"):
+    showflag = 1
+  elif o in ("-t", "--title"):
+    myTitle = a
+
+def readdistances(filelist):
+  # an instance of the snglInspiralTable
+  summvalue=readMeta.metaDataTable(filelist, "summ_value")
+
+  # use the supplied method to convert these columns into numarrays
+  distances=readMeta.metaDataTable("", "summ_value")
+  distances.table = [e for e in summvalue.table if (re.match("inspiral_effective_distance",e["name"]))]
+
+  # 793065613  751593613
+  time = distances.mkarray("start_time")
+  time = (time -  751593613) / (3600 * 24)
+  effdistance = distances.mkarray("value")
+
+  return time, effdistance
+
+# glob the list of files to read in
+myfiles = glob.glob("H1-INSPIRAL-7*");
+h1time, h1effdistance = readdistances(myfiles)
+
+myfiles = glob.glob("L1-INSPIRAL-7*");
+l1time, l1effdistance = readdistances(myfiles)
+
+l = plot(h1time, h1effdistance, "bo", l1time, l1effdistance, "ro")
+xlabel(r'Time (Days)', size='x-large')
+ylabel(r'Max Distance (Mpc)', size='x-large')
+title(r' ' + myTitle)
+grid(True)
+locs, labels = xticks()
+set(labels, fontsize=16)
+locs, labels = yticks()
+set(labels, fontsize=16)
+legend(('H1','L1'))
+axis([0, 70, 0, 25])
+if myFigure:
+  savefig(myFigure + "-range.png")
+show()
