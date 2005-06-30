@@ -14,6 +14,7 @@ set PARAMS {
 	FREQ_START	50
 	FREQ_STEP	0.25
 	FREQ_END	250
+	ANALYSIS_PROGRAM "/home/volodya/PowerFlux/powerflux"
 	}
 
 set PARAMS_FORMAT { var value }	
