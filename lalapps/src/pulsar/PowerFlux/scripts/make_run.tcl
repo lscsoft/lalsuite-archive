@@ -18,7 +18,7 @@ file mkdir $CONF_DIR $OUTPUT_DIR $ERR_DIR
 	
 set CONDOR_FILE {
 universe=standard
-executable=/home/volodya/PowerFlux/powerflux
+executable=$ANALYSIS_PROGRAM
 input=/dev/null
 output=$ERR_DIR/out.\$(PID)
 error=$ERR_DIR/err.\$(PID)
