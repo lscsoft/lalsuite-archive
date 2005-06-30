@@ -38,7 +38,7 @@ while { ! [eof $FILE] } {
 			append comment " bin-centered"
 			}
 		if { $comment != "" } {
-			puts "[expr ($FIRSTBIN+$fbin)] [expr ($FIRSTBIN+$fbin)/1800.0] $z $strength $comment"
+			puts "[expr ($FIRSTBIN+$fbin)] [expr ($FIRSTBIN+$fbin)/1800.0] $z $strength $flag \"$comment\""
 			}
 		}
 	}
