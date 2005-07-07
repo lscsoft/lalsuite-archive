@@ -150,7 +150,7 @@ RedDiamonds<-data.frame(Band=band[plus,4][factor & highResMax[plus]],
 		max_dx[plus,5], 
 		max_dx[pol1,5], 
 		max_dx[pol2,5], 
-		max_dx[circ,5])[factor & highDxAny],
+		max_dx[circ,5])[factor & highResMax[plus]],
 	resMax=hist_residuals[plus,4][factor & highResMax[plus]]
 	)
 
