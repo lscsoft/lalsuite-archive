@@ -9,10 +9,10 @@ from optparse import *
 from pylab    import *
 from readMeta import *
 
-class snglInspiral(metaDataTable,Axes): 
+class snglInspiral(readSnglInspiralTable,Axes): 
 
   def __init__(self, triggerfile):
-    metaDataTable.__init__(self,triggerfile,"sngl_inspiral")
+    readSnglInspiralTable.__init__(self,triggerfile)
 
   def summary(self):
     subplot(221)
@@ -34,7 +34,7 @@ class snglInspiral(metaDataTable,Axes):
     S3start = 751651213
     S4start = 793130413
     secsPerDay = 3600*24
-    plot((self.table.end_time - S3start) / secsPerDay,self.table.snr,'rx')
+    plot((self.end_time - S3start) / secsPerDay,self.snr,'rx')
     title('SNR vs TIME')
     xlabel('time')
     ylabel('snr')
@@ -69,13 +69,13 @@ class snglInspiral(metaDataTable,Axes):
     #gca().set_ylim( (0.001,1000))
 
 
-class doubleCoincInspiral(Axes):
+class doubleCoincInspiral(readSnglInspiralTable,Axes):
 
   def __init__(self, triggerfile1, triggerfile2):
-    self.table1 = metaio.read_sngl_inspiral(triggerfile1)
-    self.table2 = metaio.read_sngl_inspiral(triggerfile2)
-    # can't do the followingh
-    #metaio.read_sngl_inspiral.__init__(self.table1,triggerfile)
+    self.table1 = readSnglInspiralTable(triggerfile1)
+    self.table2 = readSnglInspiralTable(triggerfile2)
+    # can't do the following
+    # readSnglInspiralTable.__init__(self.table1,triggerfile)
 
   def plot_m1_v_m2(self):
     plot(self.table1.mass1,self.table1.mass2,'rx')
@@ -83,14 +83,14 @@ class doubleCoincInspiral(Axes):
     gca().grid(True)
 
 
-class tripleCoincInspiral(Axes):
+class tripleCoincInspiral(readSnglInspiralTable,Axes):
 
   def __init__(self, triggerfile1, triggerfile2, triggerfile3):
-    self.table1 = metaio.read_sngl_inspiral(triggerfile1)
-    self.table2 = metaio.read_sngl_inspiral(triggerfile2)
-    self.table3 = metaio.read_sngl_inspiral(triggerfile3)
-    # can't do the followingh
-    #metaio.read_sngl_inspiral.__init__(self.table1,triggerfile)
+    self.table1 = readSnglInspiralTable(triggerfile1)
+    self.table2 = readSnglInspiralTable(triggerfile2)
+    self.table3 = readSnglInspiralTable(triggerfile3)
+    # can't do the following
+    # readSnglInspiralTable.__init__(self.table1,triggerfile)
 
   def plot_m1_v_m2(self):
     plot(self.table1.mass1,self.table1.mass2,'r+')
@@ -99,7 +99,7 @@ class tripleCoincInspiral(Axes):
     gca().grid(True)
 
 
-class SnglBurst(Axes,Patch,PolyCollection):
+class SnglBurst(readSnglBurstTable,Axes,Patch,PolyCollection):
 
   def __init__(self, triggerfile):
     readSnglBurstTable.__init__(self,triggerfile)
@@ -188,7 +188,7 @@ def main():
   parser = OptionParser( usage )
 
   opts_snglInsp = OptionGroup( parser, "Single Inspiral plotting functions",\
-	"Example LALDataAnalysis.py -a -s G1-INSPVETO-SIRE.xml" )
+	"Example ..." )
   opts_snglInsp.add_option( "-a", "--snglInsp_snrVtime",\
 	action="store_true", default=False,\
 	help="plot snr vs time from a single inspiral xml" )
