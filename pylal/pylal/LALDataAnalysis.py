@@ -5,30 +5,22 @@ from matplotlib.patches     import Patch
 from matplotlib.axes        import Axes
 from matplotlib.collections import PolyCollection
 from matplotlib.colors      import normalize, Colormap
+from optparse import * 
 from pylab    import *
 from readMeta import *
 
-class snglInspiral(readSnglInspiralTable,Axes): 
+class snglInspiral(metaDataTable,Axes): 
 
   def __init__(self, triggerfile):
-    readSnglInspiralTable.__init__(self,triggerfile)
-
-  def nevents(self):
-    return len(self.table)
-
-  def mkarray(self, colname):
-    myarray = asarray( [ self.table[i][colname] for i in range(self.nevents())] )
-    return myarray
+    metaDataTable.__init__(self,triggerfile,"sngl_inspiral")
 
   def summary(self):
     subplot(221)
-    snr = self.mkarray("snr")
-    hist(snr)
+    hist(self.snr)
     xlabel(r'SNR', size='x-large')
     ylabel(r'# triggers', size='x-large')
     subplot(222)
-    mass1 = self.mkarray("mass1")
-    hist(mass1)
+    hist(self.mass1)
     title(r'Excess power trigger')
 
   def plot_snr_v_chisq(self):
@@ -42,7 +34,7 @@ class snglInspiral(readSnglInspiralTable,Axes):
     S3start = 751651213
     S4start = 793130413
     secsPerDay = 3600*24
-    plot((self.end_time - S3start) / secsPerDay,self.snr,'rx')
+    plot((self.table.end_time - S3start) / secsPerDay,self.table.snr,'rx')
     title('SNR vs TIME')
     xlabel('time')
     ylabel('snr')
@@ -77,13 +69,13 @@ class snglInspiral(readSnglInspiralTable,Axes):
     #gca().set_ylim( (0.001,1000))
 
 
-class doubleCoincInspiral(readSnglInspiralTable,Axes):
+class doubleCoincInspiral(Axes):
 
   def __init__(self, triggerfile1, triggerfile2):
-    self.table1 = readSnglInspiralTable(triggerfile1)
-    self.table2 = readSnglInspiralTable(triggerfile2)
+    self.table1 = metaio.read_sngl_inspiral(triggerfile1)
+    self.table2 = metaio.read_sngl_inspiral(triggerfile2)
     # can't do the followingh
-    #readSnglInspiralTable.__init__(self.table1,triggerfile)
+    #metaio.read_sngl_inspiral.__init__(self.table1,triggerfile)
 
   def plot_m1_v_m2(self):
     plot(self.table1.mass1,self.table1.mass2,'rx')
@@ -91,14 +83,14 @@ class doubleCoincInspiral(readSnglInspiralTable,Axes):
     gca().grid(True)
 
 
-class tripleCoincInspiral(readSnglInspiralTable,Axes):
+class tripleCoincInspiral(Axes):
 
   def __init__(self, triggerfile1, triggerfile2, triggerfile3):
-    self.table1 = readSnglInspiralTable(triggerfile1)
-    self.table2 = readSnglInspiralTable(triggerfile2)
-    self.table3 = readSnglInspiralTable(triggerfile3)
+    self.table1 = metaio.read_sngl_inspiral(triggerfile1)
+    self.table2 = metaio.read_sngl_inspiral(triggerfile2)
+    self.table3 = metaio.read_sngl_inspiral(triggerfile3)
     # can't do the followingh
-    #readSnglInspiralTable.__init__(self.table1,triggerfile)
+    #metaio.read_sngl_inspiral.__init__(self.table1,triggerfile)
 
   def plot_m1_v_m2(self):
     plot(self.table1.mass1,self.table1.mass2,'r+')
@@ -107,7 +99,7 @@ class tripleCoincInspiral(readSnglInspiralTable,Axes):
     gca().grid(True)
 
 
-class SnglBurst(readSnglBurstTable,Axes,Patch,PolyCollection):
+class SnglBurst(Axes,Patch,PolyCollection):
 
   def __init__(self, triggerfile):
     readSnglBurstTable.__init__(self,triggerfile)
@@ -190,114 +182,77 @@ class SnglBurst(readSnglBurstTable,Axes,Patch,PolyCollection):
     return collection
 
 
-def usage():
-  helpmsg = """
-Usage: 
-python LALDataAnalysis.py [OPTIONS] FILE1 FILE2 FILE3 ....
-
-   -a, --snglInsp-snrVtime       plot snr vs time from single inspiral xml 
-   -b, --snglInsp-snrVchisq      plot snr vs chisq from single inspiral xml
-   -c, --snglInsp-histHistc-snr  plot snr histograms from single inspiral xml 
-   -d, --snglInsp-summary        plot summary info from single inspiral xml
-   -p, --show-plot               display plot 
-   -s, --save-fig                save plot in .png and .ps format
-   -t, --temporary-test		 only for developers to test this program
-   -h, --help                    show this usage message
-
-Example: 
-python LALDataAnalysis.py -a -s G1-INSPVETO-SIRE.xml
-...
-Saved plot to file G1-INSPVETO-SIRE.snglInsp-snrVtime.png
-Saved plot to file G1-INSPVETO-SIRE.snglInsp-snrVtime.ps
-  """
-  print helpmsg
-
-
 def main():
-  # initialise variables
-  show_plot = False
-  save_fig  = False
-  xml_file  = None
-  plot_type = None
+  # define usage and command line options and arguments - parse
+  usage = "usage: %prog ..."
+  parser = OptionParser( usage )
 
-  # define short and long option names
-  shortopts = "abcdpsth"
-  longopts = [
-    "snglInsp-snrVtime",
-    "snglInsp-snrVchisq",
-    "snglInsp-histHistc-snr",
-    "snglInsp-summary",
-    "show-plot",
-    "save-fig",
-    "temporary-test",
-    "help"]
+  opts_snglInsp = OptionGroup( parser, "Single Inspiral plotting functions",\
+	"Example LALDataAnalysis.py -a -s G1-INSPVETO-SIRE.xml" )
+  opts_snglInsp.add_option( "-a", "--snglInsp_snrVtime",\
+	action="store_true", default=False,\
+	help="plot snr vs time from a single inspiral xml" )
+  opts_snglInsp.add_option( "-b", "--snglInsp_snrVchisq",\
+        action="store_true", default=False,\
+        help="plot snr vs chisq from single inspiral xml")
+  opts_snglInsp.add_option( "-c", "--snglInsp_histHistc_snr",\
+        action="store_true", default=False,\
+        help="plot snr histograms from single inspiral xml" )
+  opts_snglInsp.add_option( "-d", "--snglInsp_summary",\
+        action="store_true", default=False,\
+        help="plot summary info from single inspiral xml" )
+
+  parser.add_option_group( opts_snglInsp )
+
+  parser.add_option( "-p", "--show_plot",\
+        action="store_true", default=False,\
+        help="display plot" )
+  # change this so that by default the fig is always saved using 
+  # the name convention already implemented. Now instead of --save-fig
+  # you have --save-off and --save-as flag to override
+  # the standard name. Also add the date+time to the standard name OR
+  # check for the existence of the standard name + 001, 002, 003, ...
+  # Remove where possible the defns of dest in favour of the long option name
+  parser.add_option( "-s", "--save_fig",\
+        action="store_true", default=False,\
+        help="save figure in .png and .ps format" )
+  parser.add_option( "-t", "--temporary-test",\
+        action="store_true", default=False,\
+        help="only for developers to test this program" )
+
+  ( options, xml_files ) = parser.parse_args()
   
-  # parse command line options
-  try:
-    options,arguments = getopt.getopt(sys.argv[1:],shortopts,longopts)            
-  except getopt.GetoptError:
-    usage()
-    sys.exit(2)
-
-  print options
-  print arguments
-
-  for o,a in options:
-    if o in ("-a","--snglInsp-snrVtime"):
-      xml_files  = arguments
-      plot_type = "snglInsp-snrVtime"
-    if o in ("-b","--snglInsp-snrVchisq"):
-      xml_files  = arguments
-      plot_type = "snglInsp-snrVchisq"
-    if o in ("-c","--snglInsp-histHistc-snr"):
-      xml_files  = arguments
-      plot_type = "snglInsp-histHistc-snr"
-    if o in ("-d","--snglInsp-summary"):
-      xml_files  = arguments
-      plot_type = "snglInsp-summary"
-    if o in ("-p","--show-plot"):
-      show_plot = True 
-    if o in ("-s","--save-fig"):
-      save_fig  = True   
-    if o in ("-t","--temporary-test"):
-      # test new code here
-      sys.exit(0)
-    if o in ("-h", "--help"):
-      usage()
-      sys.exit(0)
-
-  # check options are sane 
-  if not plot_type:
-    print >> sys.stderr, "No plot option specified"
-    sys.exit(1)
+  # check xml_files have been given as required arguments 
   if not xml_files:
     print >> sys.stderr, "No trigger file specified"
     sys.exit(1)
 
-  # read data file and call plotting function desired
-  if plot_type == "snglInsp-snrVtime":
+  # read data files and call plotting function desired
+  if   options.snglInsp_snrVtime:
     trigs = snglInspiral(xml_files[0])
     trigs.plot_snr_v_time()
-  elif plot_type == "snglInsp-snrVchisq":
+  elif options.snglInsp_snrVchisq:
     trigs = snglInspiral(xml_files[0])
     trigs.plot_snr_v_chisq()
-  elif plot_type == "snglInsp-histHistc-snr":
+  elif options.snglInsp_histHistc_snr:
     trigs = snglInspiral(xml_files[0])
     trigs.histHistc_snr()
-  elif plot_type == "snglInsp-summary":
+  elif options.snglInsp_summary:
     trigs = snglInspiral(xml_files[0])
     trigs.summary()
+  else:
+    print >> sys.stderr, "No plot option specified"
+    sys.exit(1)
   
-
   # save and show plot if desired
-  if save_fig:
+  if options.save_fig:
     png_file = xml_file[:-3] + plot_type + ".png"
     ps_file  = xml_file[:-3] + plot_type + ".ps"
     savefig(png_file)
     savefig(ps_file)
     print "Saved plot to file %s" % (png_file)
     print "Saved plot to file %s" % (ps_file)
-  if show_plot:
+  if options.show_plot:
     show()
 
 # execute main if this module is explicitly invoked by the user
