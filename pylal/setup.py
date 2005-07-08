@@ -35,6 +35,7 @@ setup(
 	scripts = [
 		os.path.join("bin", "plotburst"),
 		os.path.join("bin", "plotsiminspiral"),
+		os.path.join("bin", "plotgbb"),
 		os.path.join("bin", "plotinspiral")
 	],
 	data_files = [
