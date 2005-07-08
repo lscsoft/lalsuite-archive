@@ -206,6 +206,7 @@ read_sngl_inspiral(PyObject *self, PyObject *args)
   PyObject *outlist;
   PyObject *tmpvalue;
 
+
   if (! PyArg_ParseTuple(args, "O", &fromPython)) 
     return NULL;                             
 
@@ -262,12 +263,76 @@ read_sngl_inspiral(PyObject *self, PyObject *args)
   return outlist;
 }
 
+// The following function is under construction.  gbb : 8 July 2005
+/******************************************************************** 
+ * Simulated Inspiral Reading Function
+ ********************************************************************/
+static PyObject *   
+read_sim_inspiral(PyObject *self, PyObject *args) 
+{ 
+  SimInspiralTable *eventHead=NULL;
+  SimInspiralTable **addevent=&eventHead;
+  SimInspiralTable *event=NULL;
+  PyObject *fromPython;
+  int j, m=0, n=0, nelement=0, len;
+  int startEvent = 0, stopEvent = 0;
+  PyObject *outlist;
+  PyObject *tmpvalue;
+
+
+  if (! PyArg_ParseTuple(args, "O", &fromPython)) 
+    return NULL;                             
+
+  if (! PyList_Check(fromPython) )
+    return NULL;
+
+  len = PyList_Size(fromPython);
+  for(n=0;n<len;n++)
+  {
+    m = SimInspiralTableFromLIGOLw ( addevent,
+        PyString_AsString(PyList_GetItem(fromPython, n)), 
+        startEvent, stopEvent);
+
+    while(*addevent)
+      addevent = &(*addevent)->next;
+
+    nelement += m;
+  }
+
+fprintf(stdout,"Got here %i\n", nelement);
+
+  outlist = PyList_New(nelement);
+  for ( j=0, event = eventHead; event ; j++, event = event->next )
+  {
+    long long tmpid = 0;
+    
+    if (  event->event_id )
+      tmpid =  event->event_id->id;
+    
+    tmpvalue = Py_BuildValue(
+        "{s:s, s:s}",
+        "waveform", event->waveform,
+        "source", event->source);
+    PyList_SetItem(outlist, j, tmpvalue);
+  }
+
+  while(eventHead) {
+    event = eventHead;
+    eventHead = eventHead->next;
+    XLALFreeSimInspiral ( &event );
+  }
+
+  return outlist;
+}
+
+
 /* registration table  */
 static struct PyMethodDef metaio_methods[] = {
     {"read_search_summary", read_search_summary, 1},  
     {"read_summ_value", read_summ_value, 1},  
     {"read_sngl_burst", read_sngl_burst, 1},  
     {"read_sngl_inspiral", read_sngl_inspiral, 1}, 
+    {"read_sim_inspiral", read_sim_inspiral, 1}, 
     {NULL, NULL} 
 };
 
