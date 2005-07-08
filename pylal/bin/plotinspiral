@@ -11,13 +11,41 @@ from types import *
 from pylab import *
 from lgen import readMeta
 
+##############################################################################
+# help message
+
+
+def usage():
+  msg = """\
+Usage: plotinspiral [options]
+
+  SUMMARY:  
+  
+  Generate a set of summary plots from triggers stored as sngl_inspiral 
+  tables in LIGO lightweight format.  The plots are
+
+    1.  SNR v CHISQ
+    2.  Cumulative Histogram of SNR values
+    3.  Histogram of CHISQ values
+
+  OPTIONS:
+  
+    -h, --help              display this message
+  
+    -g, --glob STRING       filename glob, e.g. \"H1-INSPIRAL-*.xml\"
+    -f, --figure STRING     generate png figures with name STRING-fig.png
+    -t, --title TITLE       title string for plots
+    -s, --show              display the figures on the terminal.
+
+"""
+  print >> sys.stderr, msg
+
 
 # grab command line options
-shortop = "b:vf:g:hst:"
+shortop = "b:f:g:hst:"
 longop = [
   "bins=",
-  "version",
-  "figure",
+  "figure=",
   "glob=",
   "help",
   "show",
@@ -39,6 +67,7 @@ nbins = 10
 
 for o, a in opts:
   if o in ("-h", "--help"):
+    usage()
     sys.exit(0)
   elif o in ("-v", "--version"):
     sys.exit(0)

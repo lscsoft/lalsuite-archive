@@ -92,12 +92,11 @@ and csh users should type:
 
   setenv LGEN_LOCATION /opt/lgen
 
-Assuming you have installed the lgen sources in ${HOME}/src/lgen, type:
+Assuming you have installed the lgen sources in ${HOME}/src/lsware/lgen, type:
 
   cd ${HOME}/src/lsware/lgen
 
-Now edit setupext.py so that include_dirs and library_dirs have the 
-directory paths for your setup,  then type:
+Then type:
 
   ${PYTHON} setup.py install --home=${LGEN_LOCATION}
 
