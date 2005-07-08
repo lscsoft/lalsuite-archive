@@ -1,0 +1,101 @@
+#!/usr/bin/python
+
+import sys
+import os
+import getopt
+import re
+import exceptions
+import glob
+from types import *
+
+from pylab import *
+from lgen import readMeta
+
+##############################################################################
+# help message
+
+
+def usage():
+  msg = """\
+Usage: plotinspiral [options]
+
+  SUMMARY:  
+  
+  Generate a set of summary plots from triggers stored as sngl_inspiral 
+  tables in LIGO lightweight format.  The plots are
+
+    1.  SNR v CHISQ
+    2.  Cumulative Histogram of SNR values
+    3.  Histogram of CHISQ values
+
+  OPTIONS:
+  
+    -h, --help              display this message
+  
+    -g, --glob STRING       filename glob, e.g. \"H1-INSPIRAL-*.xml\"
+    -f, --figure STRING     generate png figures with name STRING-fig.png
+    -t, --title TITLE       title string for plots
+    -s, --show              display the figures on the terminal.
+
+"""
+  print >> sys.stderr, msg
+
+
+# grab command line options
+shortop = "b:f:g:hst:"
+longop = [
+  "bins=",
+  "figure=",
+  "glob=",
+  "help",
+  "show",
+  "title="]
+
+try:
+  opts, args = getopt.getopt(sys.argv[1:], shortop, longop)
+except getopt.GetoptError:
+  print >>sys.stderr, "Error parsing command line"
+  print >>sys.stderr, "Enter 'plotgbb --help' for usage"
+  sys.exit(1)
+
+# defaul values
+myGlob = None
+myFigure = None
+myTitle = "SNR v CHISQ"
+showflag = 0
+nbins = 10
+
+for o, a in opts:
+  if o in ("-h", "--help"):
+    usage()
+    sys.exit(0)
+  elif o in ("-v", "--version"):
+    sys.exit(0)
+  elif o in ("-b", "--bins"):
+    nbins = int(a)
+  elif o in ("-g", "--glob"):
+    myGlob = a
+  elif o in ("-f", "--figure"):
+    myFigure = a
+  elif o in ("-s", "--show"):
+    showflag = 1
+  elif o in ("-t", "--title"):
+    myTitle = a
+
+if not myGlob:
+  print >>sys.stderr, "Bad combination or missing options"
+  print >>sys.stderr, "Enter 'plotgbb --help' for usage"
+  sys.exit(1)
+
+# glob the list of files to read in
+myfiles = glob.glob(myGlob);
+
+# an instance of the simInspiralTable
+inspTriggers=readMeta.metaDataTable(myfiles, "sim_inspiral")
+
+# use the supplied method to convert these columns into numarrays
+#waveform = inspTriggers.mkarray("waveform")
+#source = inspTriggers.mkarray("source")
+  
+# simple test
+print >> sys.stderr, inspTriggers.table

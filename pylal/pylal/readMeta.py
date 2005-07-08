@@ -55,6 +55,8 @@ class metaDataTable:
       self.table = metaio.read_summ_value(triggerfile)
     if tabletype == "sngl_inspiral":
       self.table = metaio.read_sngl_inspiral(triggerfile)
+    if tabletype == "sim_inspiral":
+      self.table = metaio.read_sim_inspiral(triggerfile)
     if tabletype == "sngl_burst":
       self.table = metaio.read_sngl_burst(triggerfile)
 
