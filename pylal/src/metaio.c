@@ -298,8 +298,6 @@ read_sim_inspiral(PyObject *self, PyObject *args)
     nelement += m;
   }
 
-fprintf(stdout,"Got here %i\n", nelement);
-
   outlist = PyList_New(nelement);
   for ( j=0, event = eventHead; event ; j++, event = event->next )
   {
