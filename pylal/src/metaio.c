@@ -263,7 +263,6 @@ read_sngl_inspiral(PyObject *self, PyObject *args)
   return outlist;
 }
 
-// The following function is under construction.  gbb : 8 July 2005
 /******************************************************************** 
  * Simulated Inspiral Reading Function
  ********************************************************************/
@@ -304,15 +303,47 @@ fprintf(stdout,"Got here %i\n", nelement);
   outlist = PyList_New(nelement);
   for ( j=0, event = eventHead; event ; j++, event = event->next )
   {
-    long long tmpid = 0;
-    
-    if (  event->event_id )
-      tmpid =  event->event_id->id;
-    
     tmpvalue = Py_BuildValue(
-        "{s:s, s:s}",
+        "{s:s, s:s, s:i, s:i, s:i, s:i, s:i, s:i, s:i, s:i,\
+	  s:i, s:i, s:i, s:i, s:d, s:d, s:d, s:d, s:d, s:d,\
+	  s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:d,\
+	  s:d, s:d, s:d}",
         "waveform", event->waveform,
-        "source", event->source);
+        "source", event->source,
+        "geocent_end_time", event->geocent_end_time.gpsSeconds,
+        "geocent_end_time_ns", event->geocent_end_time.gpsNanoSeconds,
+        "h_end_time", event->h_end_time.gpsSeconds,
+        "h_end_time_ns", event->h_end_time.gpsNanoSeconds,
+        "l_end_time", event->l_end_time.gpsSeconds,
+        "l_end_time_ns", event->l_end_time.gpsNanoSeconds,
+        "g_end_time", event->g_end_time.gpsSeconds,
+        "g_end_time_ns", event->g_end_time.gpsNanoSeconds,
+
+        "t_end_time", event->t_end_time.gpsSeconds,
+        "t_end_time_ns", event->t_end_time.gpsNanoSeconds,
+        "v_end_time", event->v_end_time.gpsSeconds,
+        "v_end_time_ns", event->v_end_time.gpsNanoSeconds,
+        "end_time_gmst", event->end_time_gmst,
+	"mass1", event->mass1, 
+	"mass2", event->mass2, 
+	"eta", event->eta, 
+	"distance", event->distance, 
+	"longitude", event->longitude, 
+
+	"latitude", event->latitude, 
+	"inclination", event->inclination, 
+	"coa_phase", event->coa_phase, 
+	"polarization", event->polarization, 
+        "phi0", event->phi0,
+        "f_lower", event->f_lower,
+        "f_final", event->f_final,
+	"mchirp", event->mchirp,
+	"eff_dist_h", event->eff_dist_h,
+	"eff_dist_l", event->eff_dist_l,
+
+	"eff_dist_g", event->eff_dist_g,
+	"eff_dist_t", event->eff_dist_t,
+	"eff_dist_v", event->eff_dist_v);
     PyList_SetItem(outlist, j, tmpvalue);
   }
 
