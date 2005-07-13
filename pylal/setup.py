@@ -27,7 +27,7 @@ setup(
 	license = "See file LICENSE",
 	packages = ["lgen"],
 	ext_modules = [
-		Extension("lgen.metaio", ["src/metaio.c"],
+		Extension("lgen.support", ["src/support.c"],
 			include_dirs = lalincdirs,
 			libraries = lallibs,
 			library_dirs = lallibdirs)
