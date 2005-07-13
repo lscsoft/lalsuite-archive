@@ -1,5 +1,5 @@
 /******************************************************************** 
- * A C extension module for Python, called "metaio"
+ * A C extension module for Python, called "support"
  ********************************************************************/
 
 #include <Python.h>
@@ -356,7 +356,7 @@ read_sim_inspiral(PyObject *self, PyObject *args)
 
 
 /* registration table  */
-static struct PyMethodDef metaio_methods[] = {
+static struct PyMethodDef support_methods[] = {
     {"read_search_summary", read_search_summary, 1},  
     {"read_summ_value", read_summ_value, 1},  
     {"read_sngl_burst", read_sngl_burst, 1},  
@@ -366,8 +366,8 @@ static struct PyMethodDef metaio_methods[] = {
 };
 
 /* module initializer */
-void initmetaio()               /* called on first import */
+void initsupport()               /* called on first import */
 {                               /* name matters if loaded dynamically */
     /* mod name, table ptr */
-    (void) Py_InitModule("lgen.metaio", metaio_methods);
+    (void) Py_InitModule("lgen.support", support_methods);
 }
