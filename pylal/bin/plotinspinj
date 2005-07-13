@@ -153,13 +153,13 @@ for i in range(-nbins, nbins):
 # extract the interesting columns from injections
 inj_chirp = inspInj.mkarray("mchirp")
 # for now assume all triggers from same IFO.
-if inspTrig.table[1]["ifo"] == 'H1'  or \
-  inspTrig.table[1]["ifo"] == 'H2':
+ifo = inspTrig.table[1]["ifo"]
+if ifo == 'H1'  or  ifo == 'H2':
   inj_time =  inspInj.mkarray("h_end_time") + \
     1e-9 * inspInj.mkarray("h_end_time_ns")
   inj_dist =  inspInj.mkarray("eff_dist_h")
   
-elif  inspTrig.table[1]["ifo"] == ('L1'):
+elif ifo == ('L1'):
   inj_time =  inspInj.mkarray("l_end_time") + \
     1e-9 * inspInj.mkarray("l_end_time_ns")
   inj_dist =  inspInj.mkarray("eff_dist_l")
@@ -184,13 +184,12 @@ if "found_missed" in plots:
     sys.exit(1)
 
   inspMissed = readMeta.metaDataTable(missedFile, "sim_inspiral")
-  if inspTrig.table[1]["ifo"] == 'H1'  or \
-    inspTrig.table[1]["ifo"] == 'H2':
+  if ifo == 'H1'  or  ifo == 'H2':
     missed_time =  inspMissed.mkarray("h_end_time") + \
       1e-9 * inspMissed.mkarray("h_end_time_ns")
     missed_dist =  inspMissed.mkarray("eff_dist_h")
   
-  elif  inspTrig.table[1]["ifo"] == ('L1'):
+  elif ifo == ('L1'):
     missed_time =  inspMissed.mkarray("l_end_time") + \
       1e-9 * inspMissed.mkarray("l_end_time_ns")
     missed_dist =  inspMissed.mkarray("eff_dist_l")
@@ -200,7 +199,7 @@ if "found_missed" in plots:
 # plot of mchirp error vs mchirp
 if "mchirp" in plots:
   figure(1)
-  plot(inj_chirp,chirp_err,'bx',linewidth=2)
+  plot(inj_chirp,chirp_err,'bx')
   title('Chirp Mass Accuracy', size='x-large')
   xlabel('Injected Chirp Mass (M_sun)', size='x-large')
   ylabel('Detected - Injected Chirp Mass (M_sun)',size='x-large')
@@ -209,7 +208,7 @@ if "mchirp" in plots:
   gca().grid(True)
 
   if myFigure:
-    savefig(myFigure + "_chirp_mass_accuracy.png")
+    savefig(myFigure + '_' + ifo + "_chirp_mass_accuracy.png")
   
 ###############################  
 # histogram of chirp mass error
@@ -221,13 +220,13 @@ if "chirp_hist" in plots:
   title('Chirp Mass Histogram', size='x-large')
   gca().grid(True)
   if myFigure:
-    savefig(myFigure + "_chirp_mass_hist.png")
+    savefig(myFigure + '_' + ifo + "_chirp_mass_hist.png")
 
 ################################
 # plot of timing error vs time
 if "mchirp" in plots:
   figure(3)
-  plot(inj_time,time_err,'bx',linewidth=2)
+  plot(inj_time,time_err,'bx')
   title('Timing Accuracy', size='x-large')
   xlabel('Injected End Time (GPS sec.)', size='x-large')
   ylabel('Detected - Injected End Time (s)',size='x-large')
@@ -236,7 +235,7 @@ if "mchirp" in plots:
   gca().grid(True)
 
   if myFigure:
-    savefig(myFigure + "_timing_accuracy.png")
+    savefig(myFigure + '_' + ifo + "_timing_accuracy.png")
   
 ###############################  
 # histogram of timing error
@@ -248,13 +247,13 @@ if "time_hist" in plots:
   title('Timing Accuracy Histogram', size='x-large')
   gca().grid(True)
   if myFigure:
-    savefig(myFigure + "_timing_hist.png")
+    savefig(myFigure + '_' + ifo + "_timing_hist.png")
 
 ################################
 # plot of distamce error vs dist
 if "dist" in plots:
   figure(5)
-  semilogx(inj_dist,dist_err/inj_dist,'bx',linewidth=2)
+  semilogx(inj_dist,dist_err/inj_dist,'bx')
   title('Effective Distance Accuracy', size='x-large')
   xlabel('Injected Effective Distance (Mpc)', size='x-large')
   ylabel('(Detected/Injected - 1) Effective Distance ',size='x-large')
@@ -263,7 +262,7 @@ if "dist" in plots:
   gca().grid(True)
 
   if myFigure:
-    savefig(myFigure + "_eff_dist_accuracy.png")
+    savefig(myFigure + '_' + ifo + "_eff_dist_accuracy.png")
   
 ###############################  
 # histogram of dist error
@@ -275,14 +274,14 @@ if "dist_hist" in plots:
   title('Effective Distance Accuracy Histogram', size='x-large')
   gca().grid(True)
   if myFigure:
-    savefig(myFigure + "_eff_dist_hist.png")
+    savefig(myFigure + '_' + ifo + "_eff_dist_hist.png")
 
 
 #######################################
 # plot of injected vs detected distamce    
 if "dist_dist" in plots:  
   figure(7)
-  loglog(inj_dist,trig_dist,'bx',linewidth=2)
+  loglog(inj_dist,trig_dist,'bx')
   title('Effective Distance Recovery', size='x-large')
   xlabel('Injected Effective Distance (Mpc)', size='x-large')
   ylabel('Detected Effective Distance (Mpc)',size='x-large')
@@ -291,14 +290,14 @@ if "dist_dist" in plots:
   gca().grid(True)
 
   if myFigure:
-    savefig(myFigure + "_eff_dist_recovery.png")
+    savefig(myFigure + '_' + ifo + "_eff_dist_recovery.png")
 
 
 ####################################################
 # plot of injected eff dist vs time for found/missed    
 if "found_missed" in plots:  
   figure(8)
-  semilogy(inj_time,inj_dist,'bx',label='Found',linewidth=2)
+  semilogy(inj_time,inj_dist,'bx',label='Found')
   hold(True)
   semilogy(missed_time,missed_dist,'rx',label='Missed')
   legend()
@@ -310,7 +309,7 @@ if "found_missed" in plots:
   gca().grid(True)
 
   if myFigure:
-    savefig(myFigure + "_eff_dist_recovery.png")
+    savefig(myFigure + '_' + ifo + "_eff_dist_recovery.png")
 
   
 
