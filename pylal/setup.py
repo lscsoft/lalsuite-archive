@@ -36,7 +36,8 @@ setup(
 		os.path.join("bin", "plotburst"),
 		os.path.join("bin", "plotsiminspiral"),
 		os.path.join("bin", "plotgbb"),
-		os.path.join("bin", "plotinspiral")
+		os.path.join("bin", "plotinspiral"),
+		os.path.join("bin", "plotinspinj")
 	],
 	data_files = [
 		("etc", [
