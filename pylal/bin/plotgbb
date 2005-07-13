@@ -17,11 +17,11 @@ from lgen import readMeta
 
 def usage():
   msg = """\
-Usage: plotinspiral [options]
+Usage: plotsimInspiral [options]
 
   SUMMARY:  
   
-  Generate a set of summary plots from triggers stored as sngl_inspiral 
+  Generate a set of summary plots from triggers stored as sngl_simInspiral 
   tables in LIGO lightweight format.  The plots are
 
     1.  SNR v CHISQ
@@ -54,8 +54,8 @@ longop = [
 try:
   opts, args = getopt.getopt(sys.argv[1:], shortop, longop)
 except getopt.GetoptError:
-  print >>sys.stderr, "Error parsing command line"
-  print >>sys.stderr, "Enter 'plotgbb --help' for usage"
+  print >> sys.stderr, "Error parsing command line"
+  print >> sys.stderr, "Enter 'plotgbb --help' for usage"
   sys.exit(1)
 
 # defaul values
@@ -83,19 +83,83 @@ for o, a in opts:
     myTitle = a
 
 if not myGlob:
-  print >>sys.stderr, "Bad combination or missing options"
-  print >>sys.stderr, "Enter 'plotgbb --help' for usage"
+  print >> sys.stderr, "Bad combination or missing options"
+  print >> sys.stderr, "Enter 'plotgbb --help' for usage"
   sys.exit(1)
 
 # glob the list of files to read in
 myfiles = glob.glob(myGlob);
 
 # an instance of the simInspiralTable
-inspTriggers=readMeta.metaDataTable(myfiles, "sim_inspiral")
+simInspTriggers=readMeta.metaDataTable(myfiles, "sim_inspiral")
 
-# use the supplied method to convert these columns into numarrays
-#waveform = inspTriggers.mkarray("waveform")
-#source = inspTriggers.mkarray("source")
-  
-# simple test
-print >> sys.stderr, inspTriggers.table
+# make a regular plot.
+# The following line determines the number of sources named GBB.
+numSources = len([e for e in simInspTriggers.table if (re.match("GBB",e["source"]))])
+
+hold(True)
+grid(True)
+
+h=simInspTriggers.mkarray("eff_dist_h")
+index=arange(0,len(h))*7.45/numSources
+hs=sort(h)
+plot(hs, index)
+
+l=simInspTriggers.mkarray("eff_dist_l")
+ls=sort(l)
+plot(ls, index)
+
+g=simInspTriggers.mkarray("eff_dist_g")
+gs=sort(g)
+plot(gs, index)
+
+t=simInspTriggers.mkarray("eff_dist_t")
+ts=sort(t)
+plot(ts, index)
+
+v=simInspTriggers.mkarray("eff_dist_v")
+vs=sort(v)
+plot(vs, index)
+
+axis([0,40,0,300])
+xlabel('Effective Distance (Mpc)')
+ylabel('N_G')
+legend( ('Hanford', 'Livingston', 'GEO', 'TAMA', 'VIRGO'), loc=0)
+if myFigure:
+  savefig(myFigure + ".ps")
+
+# make a loglog plot.
+figure()
+hold(True)
+grid(True)
+eps=0.00001	# to prevent log(0) craziness.
+index=index+eps
+
+h=simInspTriggers.mkarray("eff_dist_h")
+hs=sort(h)
+loglog(hs, index)
+
+l=simInspTriggers.mkarray("eff_dist_l")
+ls=sort(l)
+loglog(ls, index)
+
+g=simInspTriggers.mkarray("eff_dist_g")
+gs=sort(g)
+loglog(gs, index)
+
+t=simInspTriggers.mkarray("eff_dist_t")
+ts=sort(t)
+loglog(ts, index)
+
+v=simInspTriggers.mkarray("eff_dist_v")
+vs=sort(v)
+loglog(vs, index)
+
+axis([0.1,40,0.1,300])
+xlabel('Effective Distance (Mpc)')
+ylabel('N_G')
+legend( ('Hanford', 'Livingston', 'GEO', 'TAMA', 'VIRGO'), loc=0)
+if myFigure:
+  savefig(myFigure + "_loglog.ps")
+
+show()
