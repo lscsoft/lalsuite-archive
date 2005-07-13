@@ -173,7 +173,7 @@ trig_dist = inspTrig.mkarray("eff_distance")
 # and the errors:
 chirp_err = trig_chirp - inj_chirp
 time_err = trig_time - inj_time
-dist_err = trig_dist - inj_dist
+dist_err = trig_dist / inj_dist - 1
 
 # and the missed injections:
 if "found_missed" in plots:
@@ -215,6 +215,8 @@ if "mchirp" in plots:
 if "chirp_hist" in plots:
   figure(2)
   hist(chirp_err, chirp_bins)
+  figtext(0.13,0.8,'mean = %6.3e' % mean(chirp_err))
+  figtext(0.13,0.75,'sigma = %6.3e' % std(chirp_err))
   xlabel('Chirp mass error (M_sun)', size='x-large')
   ylabel('Number', size='x-large')
   title('Chirp Mass Histogram', size='x-large')
@@ -242,6 +244,8 @@ if "mchirp" in plots:
 if "time_hist" in plots:
   figure(4)
   hist(time_err, time_bins)
+  figtext(0.13,0.8,'mean = %6.3e' % mean(time_err))
+  figtext(0.13,0.75,'sigma = %6.3e' % std(time_err))
   xlabel('Timing error (s)', size='x-large')
   ylabel('Number', size='x-large')
   title('Timing Accuracy Histogram', size='x-large')
@@ -253,12 +257,12 @@ if "time_hist" in plots:
 # plot of distamce error vs dist
 if "dist" in plots:
   figure(5)
-  semilogx(inj_dist,dist_err/inj_dist,'bx')
+  semilogx(inj_dist,dist_err,'bx')
   title('Effective Distance Accuracy', size='x-large')
   xlabel('Injected Effective Distance (Mpc)', size='x-large')
   ylabel('(Detected/Injected - 1) Effective Distance ',size='x-large')
   axis([0.95*min(inj_dist), 1.05*max(inj_dist), \
-    (1.1 * min(dist_err/inj_dist)),(1.1 * max(dist_err/inj_dist))])
+    (1.1 * min(dist_err)),(1.1 * max(dist_err))])
   gca().grid(True)
 
   if myFigure:
@@ -269,6 +273,10 @@ if "dist" in plots:
 if "dist_hist" in plots:
   figure(6)
   hist(dist_err, dist_bins)
+  figtext(0.13,0.8,'mean = %6.3e' % mean(dist_err))
+  figtext(0.13,0.75,'sigma = %6.3e' % std(dist_err))
+  figtext(0.13,0.8,'mean = %6.3e' % mean(dist_err))
+  figtext(0.13,0.75,'sigma = %6.3e' % std(dist_err))
   xlabel('(Detected/Injected - 1) Effective Distance', size='x-large')
   ylabel('Number', size='x-large')
   title('Effective Distance Accuracy Histogram', size='x-large')
@@ -305,11 +313,11 @@ if "found_missed" in plots:
   xlabel('Injected End Time (GPS seconds)', size='x-large')
   ylabel('Injected Effective Distance (Mpc)', size='x-large')
   axis([min(inj_time), max(inj_time), \
-    0.95 * min(inj_dist), 1.05 * max(inj_dist)])
+    0.95 * min(inj_dist), 1.05 * max(missed_dist)])
   gca().grid(True)
 
   if myFigure:
-    savefig(myFigure + '_' + ifo + "_eff_dist_recovery.png")
+    savefig(myFigure + '_' + ifo + "_found_missed.png")
 
   
 
