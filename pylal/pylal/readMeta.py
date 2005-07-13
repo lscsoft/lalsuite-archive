@@ -12,7 +12,7 @@ __version__ = '$Revision$'[11:-2]
 
 import sys, getopt
 import re
-from lgen import metaio
+from lgen import support
 from pylab    import *
 
 def uniq(list):
@@ -50,15 +50,15 @@ class metaDataTable:
     Populate the table from the list of files 
     """
     if tabletype == "search_summary":
-      self.table = metaio.read_search_summary(triggerfile)
+      self.table = support.read_search_summary(triggerfile)
     if tabletype == "summ_value":
-      self.table = metaio.read_summ_value(triggerfile)
+      self.table = support.read_summ_value(triggerfile)
     if tabletype == "sngl_inspiral":
-      self.table = metaio.read_sngl_inspiral(triggerfile)
+      self.table = support.read_sngl_inspiral(triggerfile)
     if tabletype == "sim_inspiral":
-      self.table = metaio.read_sim_inspiral(triggerfile)
+      self.table = support.read_sim_inspiral(triggerfile)
     if tabletype == "sngl_burst":
-      self.table = metaio.read_sngl_burst(triggerfile)
+      self.table = support.read_sngl_burst(triggerfile)
 
   def nevents(self):
     """
