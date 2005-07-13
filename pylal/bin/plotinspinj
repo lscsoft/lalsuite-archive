@@ -23,39 +23,44 @@ Usage: plotinspinj [options]
   
   Generate a set of summary plots from triggers and found injections stored as 
   sngl_inspiral and sim_inspiral table in LIGO lightweight format respectively.
-  The plots are
-
-    1.  chirp mass accuracy
+  The plots can be turned on by selecting them.  The WIDTH of the histograms
+  must also be specified.
 
   OPTIONS:
   
-    -h, --help               display this message
-  
+    -h, --help                display this message
+    -v, --version             display version information
     -t, --trig-file   TRIGS   xml file with triggers and found injections
     -m, --missed-file MISSED  xml file with missed injections
     -f, --figure-name FNAME   generate png figures with name FNAME-fig.png
     -s, --show                display the figures on the terminal.
     -n, --nbins       NBINS   number of bins for the histogram plots
-    -c, --plot-mchirp         plot the chirp mass accuracy
-    -d, --hist-mchirp         histogram of the chirp mass accuracy
-    -u, --plot-timing         plot of the timing accuracy
-    -v, --hist-timing         histogram of the timing accuracy
-    
-
+    -a, --plot-mchirp         plot the chirp mass accuracy
+    -b, --hist-mchirp WIDTH   histogram of the chirp mass accuracy
+    -c, --plot-timing         plot of the timing accuracy
+    -d, --hist-timing WIDTH   histogram of the timing accuracy
+    -i, --plot-dist           plot of the effective distance accuracy
+    -j, --hist-dist   WIDTH   histogram of the effective distance accuracy
+    -k, --dist-dist           plot of injected vs recovered distance 
+    -l, --found-missed        plot of eff dist vs time for found/missed inj
 """
   print >> sys.stderr, msg
 
 
 # grab command line options
-shortop = "cdf:hm:n:st:uv"
+shortop = "ab:cd:f:hij:kln:st:"
 longop = [
   "nbins=",
   "figure-name=",
   "trig-file=",
   "plot-mchirp",
-  "hist-mchirp",
+  "hist-mchirp=",
   "plot-timing",
-  "hist-timing",
+  "hist-timing=",
+  "plot-dist",
+  "hist-dist=",
+  "dist-dist",
+  "found-missed",
   "help",
   "show",
   "missed-file="]
@@ -87,14 +92,25 @@ for o, a in opts:
     trigFile.append(a)
   elif o in ("-m", "--missed-file"):
     missedFile.append(a)
-  elif o in ("-c", "--plot-mchirp"):
+  elif o in ("-a", "--plot-mchirp"):
     plots.append("mchirp")
-  elif o in ("-d", "--hist-mchirp"):
+  elif o in ("-b", "--hist-mchirp"):
     plots.append("chirp_hist")
-  elif o in ("-u", "--plot-timing"):
+    chirp_width = float(a)
+  elif o in ("-c", "--plot-timing"):
     plots.append("time")
-  elif o in ("-v", "--hist-timing"):
+  elif o in ("-d", "--hist-timing"):
     plots.append("time_hist")
+    time_width = float(a)
+  elif o in ("-i", "--plot-dist"):
+    plots.append("dist")
+  elif o in ("-j", "--hist-dist"):
+    plots.append("dist_hist")
+    dist_width = float(a)
+  elif o in ("-k", "--dist-dist"):
+    plots.append("dist_dist")
+  elif o in ("-l", "--found-missed"):
+    plots.append("found_missed")
   elif o in ("-f", "--figure-name"):
     myFigure = a
   elif o in ("-n", "--nbins"):
@@ -107,19 +123,38 @@ if not trigFile:
   print >>sys.stderr, "Enter 'plotinspinj --help' for usage"
   sys.exit(1)
 
+if "found_missed" in plots:
+  if not missedFile:
+    print >>sys.stderr, "--missed-file must be specified"
+    print >>sys.stderr, "when making plots of missed injections"
+    print >>sys.stderr, "Enter 'plotinspinj --help' for usage"
+    sys.exit(1)
+
 # read in the triggers, found and missed injections:
 inspTrig   = readMeta.metaDataTable(trigFile, "sngl_inspiral")
 inspInj    = readMeta.metaDataTable(trigFile, "sim_inspiral")
-# inspMissed = readMeta.metaDataTable(missedFile, "sim_inspiral")a
 
 if inspTrig.nevents() != inspInj.nevents():
   print >>sys.stderr, "number of triggers and found injections must be equal"
   sys.exit(1)
 
+# set the bin boundaries for the various histograms
+chirp_bins = []
+time_bins = []
+dist_bins = []
+for i in range(-nbins, nbins):
+  if "chirp_hist" in plots:
+    chirp_bins.append(chirp_width * i/nbins)
+  if "time_hist" in plots:
+    time_bins.append(time_width * i/nbins)
+  if "dist_hist" in plots:
+    dist_bins.append(dist_width * i/nbins)
+
 # extract the interesting columns from injections
 inj_chirp = inspInj.mkarray("mchirp")
 # for now assume all triggers from same IFO.
-if inspTrig.table[1]["ifo"] == ('H1' or 'H2'):
+if inspTrig.table[1]["ifo"] == 'H1'  or \
+  inspTrig.table[1]["ifo"] == 'H2':
   inj_time =  inspInj.mkarray("h_end_time") + \
     1e-9 * inspInj.mkarray("h_end_time_ns")
   inj_dist =  inspInj.mkarray("eff_dist_h")
@@ -140,11 +175,32 @@ chirp_err = trig_chirp - inj_chirp
 time_err = trig_time - inj_time
 dist_err = trig_dist - inj_dist
 
+# and the missed injections:
+if "found_missed" in plots:
+  if not missedFile:
+    print >>sys.stderr, "--missed-file must be specified"
+    print >>sys.stderr, "when making plots of missed injections"
+    print >>sys.stderr, "Enter 'plotinspinj --help' for usage"
+    sys.exit(1)
+
+  inspMissed = readMeta.metaDataTable(missedFile, "sim_inspiral")
+  if inspTrig.table[1]["ifo"] == 'H1'  or \
+    inspTrig.table[1]["ifo"] == 'H2':
+    missed_time =  inspMissed.mkarray("h_end_time") + \
+      1e-9 * inspMissed.mkarray("h_end_time_ns")
+    missed_dist =  inspMissed.mkarray("eff_dist_h")
+  
+  elif  inspTrig.table[1]["ifo"] == ('L1'):
+    missed_time =  inspMissed.mkarray("l_end_time") + \
+      1e-9 * inspMissed.mkarray("l_end_time_ns")
+    missed_dist =  inspMissed.mkarray("eff_dist_l")
+
+
 ################################
 # plot of mchirp error vs mchirp
 if "mchirp" in plots:
   figure(1)
-  plot(inj_chirp,chirp_err,'bx')
+  plot(inj_chirp,chirp_err,'bx',linewidth=2)
   title('Chirp Mass Accuracy', size='x-large')
   xlabel('Injected Chirp Mass (M_sun)', size='x-large')
   ylabel('Detected - Injected Chirp Mass (M_sun)',size='x-large')
@@ -159,7 +215,7 @@ if "mchirp" in plots:
 # histogram of chirp mass error
 if "chirp_hist" in plots:
   figure(2)
-  hist(chirp_err, nbins)
+  hist(chirp_err, chirp_bins)
   xlabel('Chirp mass error (M_sun)', size='x-large')
   ylabel('Number', size='x-large')
   title('Chirp Mass Histogram', size='x-large')
@@ -171,10 +227,10 @@ if "chirp_hist" in plots:
 # plot of timing error vs time
 if "mchirp" in plots:
   figure(3)
-  plot(inj_time,time_err,'bx')
+  plot(inj_time,time_err,'bx',linewidth=2)
   title('Timing Accuracy', size='x-large')
   xlabel('Injected End Time (GPS sec.)', size='x-large')
-  ylabel('Detected - Injected End Time (ms)',size='x-large')
+  ylabel('Detected - Injected End Time (s)',size='x-large')
   axis([min(inj_time), max(inj_time), \
     (1.1 * min(time_err)),(1.1 * max(time_err))])
   gca().grid(True)
@@ -186,14 +242,78 @@ if "mchirp" in plots:
 # histogram of timing error
 if "time_hist" in plots:
   figure(4)
-  hist(time_err, nbins)
-  xlabel('Timing error (ms)', size='x-large')
+  hist(time_err, time_bins)
+  xlabel('Timing error (s)', size='x-large')
   ylabel('Number', size='x-large')
   title('Timing Accuracy Histogram', size='x-large')
   gca().grid(True)
   if myFigure:
     savefig(myFigure + "_timing_hist.png")
+
+################################
+# plot of distamce error vs dist
+if "dist" in plots:
+  figure(5)
+  semilogx(inj_dist,dist_err/inj_dist,'bx',linewidth=2)
+  title('Effective Distance Accuracy', size='x-large')
+  xlabel('Injected Effective Distance (Mpc)', size='x-large')
+  ylabel('(Detected/Injected - 1) Effective Distance ',size='x-large')
+  axis([0.95*min(inj_dist), 1.05*max(inj_dist), \
+    (1.1 * min(dist_err/inj_dist)),(1.1 * max(dist_err/inj_dist))])
+  gca().grid(True)
+
+  if myFigure:
+    savefig(myFigure + "_eff_dist_accuracy.png")
   
+###############################  
+# histogram of dist error
+if "dist_hist" in plots:
+  figure(6)
+  hist(dist_err, dist_bins)
+  xlabel('(Detected/Injected - 1) Effective Distance', size='x-large')
+  ylabel('Number', size='x-large')
+  title('Effective Distance Accuracy Histogram', size='x-large')
+  gca().grid(True)
+  if myFigure:
+    savefig(myFigure + "_eff_dist_hist.png")
+
+
+#######################################
+# plot of injected vs detected distamce    
+if "dist_dist" in plots:  
+  figure(7)
+  loglog(inj_dist,trig_dist,'bx',linewidth=2)
+  title('Effective Distance Recovery', size='x-large')
+  xlabel('Injected Effective Distance (Mpc)', size='x-large')
+  ylabel('Detected Effective Distance (Mpc)',size='x-large')
+  axis([0.95 * min(inj_dist), 1.05 *max(inj_dist), \
+    0.95 * min(trig_dist), 1.05 * max(trig_dist)])
+  gca().grid(True)
+
+  if myFigure:
+    savefig(myFigure + "_eff_dist_recovery.png")
+
+
+####################################################
+# plot of injected eff dist vs time for found/missed    
+if "found_missed" in plots:  
+  figure(8)
+  semilogy(inj_time,inj_dist,'bx',label='Found',linewidth=2)
+  hold(True)
+  semilogy(missed_time,missed_dist,'rx',label='Missed')
+  legend()
+  title('Distance vs Time', size='x-large')
+  xlabel('Injected End Time (GPS seconds)', size='x-large')
+  ylabel('Injected Effective Distance (Mpc)', size='x-large')
+  axis([min(inj_time), max(inj_time), \
+    0.95 * min(inj_dist), 1.05 * max(inj_dist)])
+  gca().grid(True)
+
+  if myFigure:
+    savefig(myFigure + "_eff_dist_recovery.png")
+
+  
+
   
 if showflag:
   show()
