@@ -103,25 +103,21 @@ grid(True)
 h=simInspTriggers.mkarray("eff_dist_h")
 index=arange(0,len(h))*7.45/numSources
 hs=sort(h)
-plot(hs, index)
 
 l=simInspTriggers.mkarray("eff_dist_l")
 ls=sort(l)
-plot(ls, index)
 
 g=simInspTriggers.mkarray("eff_dist_g")
 gs=sort(g)
-plot(gs, index)
 
 t=simInspTriggers.mkarray("eff_dist_t")
 ts=sort(t)
-plot(ts, index)
 
 v=simInspTriggers.mkarray("eff_dist_v")
 vs=sort(v)
-plot(vs, index)
 
-axis([0,40,0,300])
+plot(hs, index, ls, index, gs, index, ts, index, vs, index)
+axis([0, 40, 0, 300])
 xlabel('Effective Distance (Mpc)')
 ylabel('N_G')
 legend( ('Hanford', 'Livingston', 'GEO', 'TAMA', 'VIRGO'), loc=0)
@@ -137,29 +133,26 @@ index=index+eps
 
 h=simInspTriggers.mkarray("eff_dist_h")
 hs=sort(h)
-loglog(hs, index)
 
 l=simInspTriggers.mkarray("eff_dist_l")
 ls=sort(l)
-loglog(ls, index)
 
 g=simInspTriggers.mkarray("eff_dist_g")
 gs=sort(g)
-loglog(gs, index)
 
 t=simInspTriggers.mkarray("eff_dist_t")
 ts=sort(t)
-loglog(ts, index)
 
 v=simInspTriggers.mkarray("eff_dist_v")
 vs=sort(v)
-loglog(vs, index)
 
-axis([0.1,40,0.1,300])
+loglog(hs, index, ls, index, gs, index, ts, index, vs, index)
+axis([eps, 40, eps, 300])
 xlabel('Effective Distance (Mpc)')
 ylabel('N_G')
 legend( ('Hanford', 'Livingston', 'GEO', 'TAMA', 'VIRGO'), loc=0)
 if myFigure:
   savefig(myFigure + "_loglog.ps")
 
-show()
+if showflag:
+  show()
