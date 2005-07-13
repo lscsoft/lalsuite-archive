@@ -1,0 +1,202 @@
+#!/usr/bin/python
+
+import sys
+import os
+import getopt
+import re
+import exceptions
+import glob
+from types import *
+
+from pylab import *
+from lgen import readMeta
+
+##############################################################################
+# help message
+
+
+def usage():
+  msg = """\
+Usage: plotinspinj [options]
+
+  SUMMARY:  
+  
+  Generate a set of summary plots from triggers and found injections stored as 
+  sngl_inspiral and sim_inspiral table in LIGO lightweight format respectively.
+  The plots are
+
+    1.  chirp mass accuracy
+
+  OPTIONS:
+  
+    -h, --help               display this message
+  
+    -t, --trig-file   TRIGS   xml file with triggers and found injections
+    -m, --missed-file MISSED  xml file with missed injections
+    -f, --figure-name FNAME   generate png figures with name FNAME-fig.png
+    -s, --show                display the figures on the terminal.
+    -n, --nbins       NBINS   number of bins for the histogram plots
+    -c, --plot-mchirp         plot the chirp mass accuracy
+    -d, --hist-mchirp         histogram of the chirp mass accuracy
+    -u, --plot-timing         plot of the timing accuracy
+    -v, --hist-timing         histogram of the timing accuracy
+    
+
+"""
+  print >> sys.stderr, msg
+
+
+# grab command line options
+shortop = "cdf:hm:n:st:uv"
+longop = [
+  "nbins=",
+  "figure-name=",
+  "trig-file=",
+  "plot-mchirp",
+  "hist-mchirp",
+  "plot-timing",
+  "hist-timing",
+  "help",
+  "show",
+  "missed-file="]
+
+try:
+  opts, args = getopt.getopt(sys.argv[1:], shortop, longop)
+except getopt.GetoptError:
+  print >>sys.stderr, "Error parsing command line"
+  print >>sys.stderr, "Enter 'plotinspinj --help' for usage"
+  sys.exit(1)
+
+# defaul values
+trigFile = []
+missedFile = []
+plots = []
+
+myFigure = None
+showflag = 0
+nbins = 10
+
+
+for o, a in opts:
+  if o in ("-h", "--help"):
+    usage()
+    sys.exit(0)
+  elif o in ("-v", "--version"):
+    sys.exit(0)
+  elif o in ("-t", "--trig-file"):
+    trigFile.append(a)
+  elif o in ("-m", "--missed-file"):
+    missedFile.append(a)
+  elif o in ("-c", "--plot-mchirp"):
+    plots.append("mchirp")
+  elif o in ("-d", "--hist-mchirp"):
+    plots.append("chirp_hist")
+  elif o in ("-u", "--plot-timing"):
+    plots.append("time")
+  elif o in ("-v", "--hist-timing"):
+    plots.append("time_hist")
+  elif o in ("-f", "--figure-name"):
+    myFigure = a
+  elif o in ("-n", "--nbins"):
+    nbins = int(a)
+  elif o in ("-s", "--show"):
+    showflag = 1
+
+if not trigFile:
+  print >>sys.stderr, "--trig-file must be specified"
+  print >>sys.stderr, "Enter 'plotinspinj --help' for usage"
+  sys.exit(1)
+
+# read in the triggers, found and missed injections:
+inspTrig   = readMeta.metaDataTable(trigFile, "sngl_inspiral")
+inspInj    = readMeta.metaDataTable(trigFile, "sim_inspiral")
+# inspMissed = readMeta.metaDataTable(missedFile, "sim_inspiral")a
+
+if inspTrig.nevents() != inspInj.nevents():
+  print >>sys.stderr, "number of triggers and found injections must be equal"
+  sys.exit(1)
+
+# extract the interesting columns from injections
+inj_chirp = inspInj.mkarray("mchirp")
+# for now assume all triggers from same IFO.
+if inspTrig.table[1]["ifo"] == ('H1' or 'H2'):
+  inj_time =  inspInj.mkarray("h_end_time") + \
+    1e-9 * inspInj.mkarray("h_end_time_ns")
+  inj_dist =  inspInj.mkarray("eff_dist_h")
+  
+elif  inspTrig.table[1]["ifo"] == ('L1'):
+  inj_time =  inspInj.mkarray("l_end_time") + \
+    1e-9 * inspInj.mkarray("l_end_time_ns")
+  inj_dist =  inspInj.mkarray("eff_dist_l")
+
+# extract interesting columns from triggers
+trig_chirp = inspTrig.mkarray("mchirp")
+trig_time = inspTrig.mkarray("end_time") + \
+  1e-9 * inspTrig.mkarray("end_time_ns")
+trig_dist = inspTrig.mkarray("eff_distance")
+
+# and the errors:
+chirp_err = trig_chirp - inj_chirp
+time_err = trig_time - inj_time
+dist_err = trig_dist - inj_dist
+
+################################
+# plot of mchirp error vs mchirp
+if "mchirp" in plots:
+  figure(1)
+  plot(inj_chirp,chirp_err,'bx')
+  title('Chirp Mass Accuracy', size='x-large')
+  xlabel('Injected Chirp Mass (M_sun)', size='x-large')
+  ylabel('Detected - Injected Chirp Mass (M_sun)',size='x-large')
+  axis([min(inj_chirp),max(inj_chirp), \
+    (1.1 * min(chirp_err)),(1.1 * max(chirp_err))])
+  gca().grid(True)
+
+  if myFigure:
+    savefig(myFigure + "_chirp_mass_accuracy.png")
+  
+###############################  
+# histogram of chirp mass error
+if "chirp_hist" in plots:
+  figure(2)
+  hist(chirp_err, nbins)
+  xlabel('Chirp mass error (M_sun)', size='x-large')
+  ylabel('Number', size='x-large')
+  title('Chirp Mass Histogram', size='x-large')
+  gca().grid(True)
+  if myFigure:
+    savefig(myFigure + "_chirp_mass_hist.png")
+
+################################
+# plot of timing error vs time
+if "mchirp" in plots:
+  figure(3)
+  plot(inj_time,time_err,'bx')
+  title('Timing Accuracy', size='x-large')
+  xlabel('Injected End Time (GPS sec.)', size='x-large')
+  ylabel('Detected - Injected End Time (ms)',size='x-large')
+  axis([min(inj_time), max(inj_time), \
+    (1.1 * min(time_err)),(1.1 * max(time_err))])
+  gca().grid(True)
+
+  if myFigure:
+    savefig(myFigure + "_timing_accuracy.png")
+  
+###############################  
+# histogram of timing error
+if "time_hist" in plots:
+  figure(4)
+  hist(time_err, nbins)
+  xlabel('Timing error (ms)', size='x-large')
+  ylabel('Number', size='x-large')
+  title('Timing Accuracy Histogram', size='x-large')
+  gca().grid(True)
+  if myFigure:
+    savefig(myFigure + "_timing_hist.png")
+  
+  
+if showflag:
+  show()
+   
+
+
