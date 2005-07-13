@@ -10,6 +10,7 @@ from types import *
 
 from pylab import *
 from lgen import readMeta
+from lgen import viz
 
 ##############################################################################
 # help message
@@ -97,17 +98,13 @@ inspTriggers=readMeta.metaDataTable(myfiles, "sngl_inspiral")
 snr = inspTriggers.mkarray("snr")
 chisq = inspTriggers.mkarray("chisq")
   
-plot(snr, chisq, "rx")
+viz.simpleplot(inspTriggers,"snr","chisq")
 hold(True)
 x=arange(6.0,10,0.1)
 y=0.01*(x*x*x*x)/(1+0.01*x*x)
 plot(x,1*y,'b-',x,2*y,'k-',x,3*y,'g-')
 hold(False)
 axis([6.5,10,0,90])
-xlabel(r'snr', size='x-large')
-ylabel(r'chisq', size='x-large')
-title(r' ' + myTitle)
-grid(True)
 if myFigure:
   savefig(myFigure + "-snrvchisq.png")
 

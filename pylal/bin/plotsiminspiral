@@ -1,74 +1,101 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 
 import sys
 import os
 import getopt
 import re
 import exceptions
+import glob
 from types import *
 
-from matplotlib.patches import Patch
 from pylab import *
 from lgen import readMeta
+from lgen import viz
+
+##############################################################################
+# help message
+
+
+def usage():
+  msg = """\
+Usage: plotsimInspiral [options]
+
+  SUMMARY:  
+  
+  Generate a set of summary plots from triggers stored as sngl_simInspiral 
+  tables in LIGO lightweight format.  The plots are
+
+    1.  SNR v CHISQ
+    2.  Cumulative Histogram of SNR values
+    3.  Histogram of CHISQ values
+
+  OPTIONS:
+  
+    -h, --help              display this message
+  
+    -g, --glob STRING       filename glob, e.g. \"H1-INSPIRAL-*.xml\"
+    -f, --figure STRING     generate png figures with name STRING-fig.png
+    -t, --title TITLE       title string for plots
+    -s, --show              display the figures on the terminal.
+
+"""
+  print >> sys.stderr, msg
 
 
 # grab command line options
-shortop = "vi:d:h"
+shortop = "b:f:g:hst:"
 longop = [
-  "version",
-  "input=",
-  "max-distance=",
-  "help" ]
+  "bins=",
+  "figure=",
+  "glob=",
+  "help",
+  "show",
+  "title="]
 
 try:
   opts, args = getopt.getopt(sys.argv[1:], shortop, longop)
 except getopt.GetoptError:
-  print >>sys.stderr, "Error parsing command line"
-  print >>sys.stderr, "Enter 'plotburst --help' for usage"
+  print >> sys.stderr, "Error parsing command line"
+  print >> sys.stderr, "Enter 'plotgbb --help' for usage"
   sys.exit(1)
 
 # defaul values
-inputFilename = None
-myEpoch = None
-myDuration = 100
+myGlob = None
+myFigure = None
+myTitle = "SNR v CHISQ"
+showflag = 0
+nbins = 10
 
 for o, a in opts:
   if o in ("-h", "--help"):
+    usage()
     sys.exit(0)
   elif o in ("-v", "--version"):
     sys.exit(0)
-  elif o in ("-i", "--input"):
-    inputFilename = a
-  elif o in ("-d", "--max-distance"):
-    maxDistance = float(a)
+  elif o in ("-b", "--bins"):
+    nbins = int(a)
+  elif o in ("-g", "--glob"):
+    myGlob = a
+  elif o in ("-f", "--figure"):
+    myFigure = a
+  elif o in ("-s", "--show"):
+    showflag = 1
+  elif o in ("-t", "--title"):
+    myTitle = a
 
-if not inputFilename:
-  print >>sys.stderr, "Bad combination or missing options"
-  print >>sys.stderr, "Enter 'plotburst --help' for usage"
+if not myGlob:
+  print >> sys.stderr, "Bad combination or missing options"
+  print >> sys.stderr, "Enter 'plotgbb --help' for usage"
   sys.exit(1)
 
-# read in the data from the input file
-insp=readMeta.SimInspiralTable(inputFilename)
+# glob the list of files to read in
+myfiles = glob.glob(myGlob);
 
-# set the start time for the plot
-if not myEpoch: 
-  myEpoch = insp.geo_end_time[0,]
+# an instance of the simInspiralTable
+simInspTriggers=readMeta.metaDataTable(myfiles, "sim_inspiral")
 
-eff_dist_h = sort(insp.eff_dist_h[(insp.eff_dist_h < maxDistance) & (insp.eff_dist_l < maxDistance)])
-a = 1 + 0 * eff_dist_h
-number = cumsum(a)/44
-loglog(eff_dist_h,number)
-hold(True)
-eff_dist_l = sort(insp.eff_dist_l[(insp.eff_dist_h < maxDistance) & (insp.eff_dist_l < maxDistance)])
-a = 1 + 0 * eff_dist_l
-number = cumsum(a)/44
-loglog(eff_dist_l,number)
+viz.simpleplot(simInspTriggers,"eff_dist_l","eff_dist_h")
+axis([0, 160, 0, 160])
 grid(True)
-xlabel(r'D_eff (Mpc)', size='x-large')
-ylabel(r'Galaxies (MWEG)', size='x-large')
-title(r'Number of Galaxies')
-grid(True)
-#colorbar()
-axis([0.1,100,1,1000])
-savefig('nmweg.png')
 show()
+
