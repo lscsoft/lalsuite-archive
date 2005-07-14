@@ -54,19 +54,32 @@ return $L
 
 set cwd [pwd]
 
-puts "\nProcessing flags"
+puts -nonewline "\nInitializing flags:"
+set veto(ALL) 0
+
 set SEGMENT_FLAGS [open $segment_flags "r"]
 while { ! [eof $SEGMENT_FLAGS] } {
 	gets $SEGMENT_FLAGS line
 	if { $line == "" } { continue }
 	if { [regexp {^#} $line ] } { continue }
-	regsub {\^} [lindex $line 1] "," args
-	set FLAG_[lindex $line 0] [expr round(pow($args))]
-	puts "FLAG_[lindex $line 0]=[set FLAG_[lindex $line 0]]"
-	}
 
-set VETO_VALUE [expr $veto_expr]
-set NON_VETO_VALUE [expr $non_veto_expr]
+	set flag [lindex $line 0]
+
+	puts -nonewline " $flag"
+
+	# Initialize veto and non_veto sets
+	set veto($flag)   0
+	set non_veto($flag) 0
+	}
+puts ""
+
+foreach value $veto_set {
+	set veto($value) 1
+	}
+	
+foreach value $non_veto_set {
+	set non_veto($value) 1
+	}
 
 set SEGMENTS_FILE [open $segments_file "r"]
 set i 0
@@ -77,11 +90,16 @@ while { ! [eof $SEGMENTS_FILE] } {
         gets $SEGMENTS_FILE line
         if { $line == "" } { continue }
 	if { [regexp {^#} $line ] } { continue }
-        # skip segments with non-zero flags
-        if { (([lindex $line 4] & ~$NON_VETO_VALUE) & $VETO_VALUE) != 0 } { 
-		puts stderr "Skipping segment [lrange $line 0 2]"
-		puts stderr "\tFlags: [lrange $line 5 end]"
-		continue 
+	#
+	# Use symbolic flags
+	#
+	set flags [lrange $line 5 end]
+	foreach value  $flags {
+		if { !$non_veto($value) && ($veto(ALL) || $veto($value)) } {
+			puts stderr "Skipping segment [lrange $line 0 2] due to flag $value"
+			puts stderr "\tFlags: $flags"
+			continue 
+			}
 		}
 
         set START [lindex $line 1]

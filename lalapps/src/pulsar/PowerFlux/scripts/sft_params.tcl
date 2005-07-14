@@ -4,32 +4,31 @@
 #
 foreach {var value} {
 	sft_kind "ht"
-	data_set "S3"
-        interferometer "H1"
-        instrument "H"
-	sft_program "/home/volodya/SFT-3/make_sft_plain"
-	channel "${interferometer}:Calibrated-Strain"
-        storage_dir "/scratch4/volodya"
-        frame_library "/scratch4/volodya/${data_set}.${interferometer}.${sft_kind}.txt"
-        sc_files  "/home/volodya/${data_set}/sc.tcl"
+	data_set "S4"
+        interferometer "L1"
+        instrument "L"
+	sft_program "/dso-test/volodya/SFT-3/make_sft_plain"
+	channel "${interferometer}:LSC-STRAIN"
+        storage_dir "/dso-test/volodya"
+        frame_library "/dso-test/volodya/${data_set}.${interferometer}.list.${sft_kind}.txt"
+        sc_files  "/dso-test/volodya/${data_set}/sc.tcl"
         control_info_dir   "${storage_dir}/sfts_control/${data_set}.${interferometer}.${sft_kind}.geo/"
 	config_dir "$control_info_dir/in/"
 	err_dir "$control_info_dir/err/"
 	dag_file "$control_info_dir/dag"
 	submit_file "$control_info_dir/submit"
-	log_file "/people/volodya/${data_set}.${interferometer}.${sft_kind}.log"
+	log_file "/usr1/volodya/${data_set}.${interferometer}.${sft_kind}.log"
 	sfts_dir "$storage_dir/SFT-3/${data_set}.${interferometer}.${sft_kind}.geo/"
-	group_regexp {/([0-9]*)-([0-9]*)/.-.._RDS_C0._LX}
-	filename_regexp {(/netdat./.*)$}
-	epoch_regexp {-([0-9]*)-16.gwf}
+	group_regexp {_RDS_C01_LX-([0-9]*)-256.gwf}
+	filename_regexp {(/archive/.*)$}
+	epoch_regexp {-([0-9]*)-256.gwf}
         timebase 1800
         overlap 900
 	seg_start 0
 	seg_step    20499
-	frame_length  16
-	make_sft_prog "make_sft_plain"
-	veto_expr {~0}
-	non_veto_expr {$FLAG_NO_CALIB_LINE_V01 | $FLAG_AIRPLANE | $FLAG_DUST | $FLAG_SEISMIC_TRANSIENT | $FLAG_INJECTION_STOCHASTIC | $FLAG_HUMAN_INTRUSION | $FLAG_SEISMIC_ELEVATED | $FLAG_SEISMIC_HIGH}
+	frame_length 256
+	non_veto_set {}
+	veto_set {ADC_OVERFLOW OUT_OF_LOCK NO_DATA NO_RDS OUTSIDE_S4 CALIB_LINE_V01 PRELOCKLOSS_10 CALIB_LINE_V03_60_SEC}
         } {
         global $var
         set $var $value
@@ -44,7 +43,7 @@ foreach {var value} $argv {
 # Expand variables that depend on other variables
 foreach {var} {frame_library control_info_dir 
 	config_dir err_dir dag_file submit_file
-	sfts_dir sc_files log_file channel } {
+	sfts_dir sc_files log_file channel} {
         global $var
         set $var [subst -nocommands [set $var]]
         }
@@ -56,7 +55,7 @@ set make_sft_config {
 #
 # Channel to process
 #
-CHANNEL "$channel"
+CHANNEL "${channel}"
 SAMPLES_PER_SECOND 16384
 
 #
