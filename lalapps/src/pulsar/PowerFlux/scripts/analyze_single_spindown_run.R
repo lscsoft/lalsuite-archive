@@ -125,17 +125,17 @@ FancyPlot <- function(UL, f0=NULL, f1=NULL, ylab="y", title=ylab, median_shift=2
 
 # Plot of general limits on h0
 start_plot("h0UL")
-FancyPlot(log10(pulsarUL[plus]), title="h0 UL for S4 H1", ylab="Log10 Strain")
+FancyPlot(log10(pulsarUL[plus]), title=h0ULtitle, ylab="Log10 Strain")
 dev.off()
 #
 # Plot of most sensitive polarization - circular
 start_plot("circUL")
-FancyPlot(log10(circularUL), title="Circular UL for S4 H1", ylab="Log10 Strain")
+FancyPlot(log10(circularUL), title=circULtitle, ylab="Log10 Strain")
 dev.off()
 #
 # Detection strength plot, over all polarizations sampled
 start_plot("max_dx")
-FancyPlot(DxMaxBandPCapped, title="Maximum detection strength for S4 H1", ylab="Capped detection strength", median_shift=370, median_scale=10)
+FancyPlot(DxMaxBandPCapped, title=DXtitle, ylab="Capped detection strength", median_shift=370, median_scale=10)
 dev.off()
 
 #
