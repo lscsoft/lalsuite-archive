@@ -21,10 +21,12 @@ Usage: plotinspinj [options]
 
   SUMMARY:  
   
-  Generate a set of summary plots from triggers and found injections stored as 
-  sngl_inspiral and sim_inspiral table in LIGO lightweight format respectively.
-  The plots can be turned on by selecting them.  The WIDTH of the histograms
-  must also be specified.
+  Generate a set of summary plots from triggers and found injections stored as
+  sngl_inspiral and sim_inspiral table in LIGO lightweight format
+  respectively.  The plots can be turned on by selecting them.  For plots, the
+  AXIS must be specified (this is the Y-axis scale).  If either AXIS = 0 then
+  the range is set automatically.  The WIDTH of the histograms must also be
+  specified.  If either AXIS = 0 then the range is set automatically.
 
   OPTIONS:
   
@@ -35,32 +37,36 @@ Usage: plotinspinj [options]
     -f, --figure-name FNAME   generate png figures with name FNAME-fig.png
     -s, --show                display the figures on the terminal.
     -n, --nbins       NBINS   number of bins for the histogram plots
-    -a, --plot-mchirp         plot the chirp mass accuracy
+    -a, --plot-mchirp AXIS    plot the chirp mass accuracy
     -b, --hist-mchirp WIDTH   histogram of the chirp mass accuracy
-    -c, --plot-timing         plot of the timing accuracy
+    -c, --plot-timing AXIS    plot of the timing accuracy
     -d, --hist-timing WIDTH   histogram of the timing accuracy
-    -i, --plot-dist           plot of the effective distance accuracy
+    -i, --plot-dist   AXIS    plot of the effective distance accuracy
     -j, --hist-dist   WIDTH   histogram of the effective distance accuracy
-    -k, --dist-dist           plot of injected vs recovered distance 
+    -k, --dist-dist           plot of injected vs recovered distance
     -l, --found-missed        plot of eff dist vs time for found/missed inj
+    -o, --chirp-dist  AXIS    plot of chirp mass accuracy vs effective dist
+    -p, --time-dist   AXIS    plot of timing accuracy vs effective dist
 """
   print >> sys.stderr, msg
 
 
 # grab command line options
-shortop = "ab:cd:f:hij:kln:st:"
+shortop = "ab:cd:f:hij:kln:opst:"
 longop = [
   "nbins=",
   "figure-name=",
   "trig-file=",
-  "plot-mchirp",
+  "plot-mchirp=",
   "hist-mchirp=",
-  "plot-timing",
+  "plot-timing=",
   "hist-timing=",
-  "plot-dist",
+  "plot-dist=",
   "hist-dist=",
   "dist-dist",
   "found-missed",
+  "chirp-dist=",
+  "time-dist=",
   "help",
   "show",
   "missed-file="]
@@ -94,16 +100,19 @@ for o, a in opts:
     missedFile.append(a)
   elif o in ("-a", "--plot-mchirp"):
     plots.append("mchirp")
+    chirp_axis = float(a)
   elif o in ("-b", "--hist-mchirp"):
     plots.append("chirp_hist")
     chirp_width = float(a)
   elif o in ("-c", "--plot-timing"):
     plots.append("time")
+    time_axis = float(a)
   elif o in ("-d", "--hist-timing"):
     plots.append("time_hist")
     time_width = float(a)
   elif o in ("-i", "--plot-dist"):
     plots.append("dist")
+    dist_axis = float(a)
   elif o in ("-j", "--hist-dist"):
     plots.append("dist_hist")
     dist_width = float(a)
@@ -111,6 +120,12 @@ for o, a in opts:
     plots.append("dist_dist")
   elif o in ("-l", "--found-missed"):
     plots.append("found_missed")
+  elif o in ("-o", "--chirp-dist"):
+    plots.append("chirp_dist")
+    chirp_dist_axis = float(a)
+  elif o in ("-p", "--time-dist"):
+    plots.append("time_dist")
+    time_dist_axis = float(a)
   elif o in ("-f", "--figure-name"):
     myFigure = a
   elif o in ("-n", "--nbins"):
@@ -200,11 +215,16 @@ if "found_missed" in plots:
 if "mchirp" in plots:
   figure(1)
   plot(inj_chirp,chirp_err,'bx')
-  title('Chirp Mass Accuracy', size='x-large')
+  title(ifo + ' Chirp Mass Accuracy', size='x-large')
   xlabel('Injected Chirp Mass (M_sun)', size='x-large')
   ylabel('Detected - Injected Chirp Mass (M_sun)',size='x-large')
-  axis([min(inj_chirp),max(inj_chirp), \
-    (1.1 * min(chirp_err)),(1.1 * max(chirp_err))])
+  if chirp_axis:
+    axis([min(inj_chirp),max(inj_chirp), \
+      - chirp_axis, chirp_axis ])
+  else:
+    axis([min(inj_chirp),max(inj_chirp), \
+      (1.1 * min(chirp_err)),(1.1 * max(chirp_err))])
+
   gca().grid(True)
 
   if myFigure:
@@ -219,21 +239,26 @@ if "chirp_hist" in plots:
   figtext(0.13,0.75,'sigma = %6.3e' % std(chirp_err))
   xlabel('Chirp mass error (M_sun)', size='x-large')
   ylabel('Number', size='x-large')
-  title('Chirp Mass Histogram', size='x-large')
+  title(ifo + ' Chirp Mass Histogram', size='x-large')
   gca().grid(True)
   if myFigure:
     savefig(myFigure + '_' + ifo + "_chirp_mass_hist.png")
 
 ################################
 # plot of timing error vs time
-if "mchirp" in plots:
+if "time" in plots:
   figure(3)
   plot(inj_time,time_err,'bx')
-  title('Timing Accuracy', size='x-large')
+  title(ifo + ' Timing Accuracy', size='x-large')
   xlabel('Injected End Time (GPS sec.)', size='x-large')
   ylabel('Detected - Injected End Time (s)',size='x-large')
-  axis([min(inj_time), max(inj_time), \
-    (1.1 * min(time_err)),(1.1 * max(time_err))])
+  if time_axis:
+    axis([min(inj_time), max(inj_time), \
+    - time_axis, time_axis])
+  else:
+    axis([min(inj_time),max(inj_time), \
+      (1.1 * min(time_err)),(1.1 * max(time_err))])
+
   gca().grid(True)
 
   if myFigure:
@@ -248,7 +273,7 @@ if "time_hist" in plots:
   figtext(0.13,0.75,'sigma = %6.3e' % std(time_err))
   xlabel('Timing error (s)', size='x-large')
   ylabel('Number', size='x-large')
-  title('Timing Accuracy Histogram', size='x-large')
+  title(ifo + ' Timing Accuracy Histogram', size='x-large')
   gca().grid(True)
   if myFigure:
     savefig(myFigure + '_' + ifo + "_timing_hist.png")
@@ -258,11 +283,15 @@ if "time_hist" in plots:
 if "dist" in plots:
   figure(5)
   semilogx(inj_dist,dist_err,'bx')
-  title('Effective Distance Accuracy', size='x-large')
+  title(ifo + ' Effective Distance Accuracy', size='x-large')
   xlabel('Injected Effective Distance (Mpc)', size='x-large')
   ylabel('(Detected/Injected - 1) Effective Distance ',size='x-large')
-  axis([0.95*min(inj_dist), 1.05*max(inj_dist), \
-    (1.1 * min(dist_err)),(1.1 * max(dist_err))])
+  if dist_axis:
+    axis([0.95*min(inj_dist), 1.05*max(inj_dist), \
+      - dist_axis, dist_axis])
+  else:
+    axis([0.95*min(inj_dist), 1.05*max(inj_dist), \
+      (1.1 * min(dist_err)),(1.1 * max(dist_err))])
   gca().grid(True)
 
   if myFigure:
@@ -279,7 +308,7 @@ if "dist_hist" in plots:
   figtext(0.13,0.75,'sigma = %6.3e' % std(dist_err))
   xlabel('(Detected/Injected - 1) Effective Distance', size='x-large')
   ylabel('Number', size='x-large')
-  title('Effective Distance Accuracy Histogram', size='x-large')
+  title(ifo + ' Effective Distance Accuracy Histogram', size='x-large')
   gca().grid(True)
   if myFigure:
     savefig(myFigure + '_' + ifo + "_eff_dist_hist.png")
@@ -290,7 +319,7 @@ if "dist_hist" in plots:
 if "dist_dist" in plots:  
   figure(7)
   loglog(inj_dist,trig_dist,'bx')
-  title('Effective Distance Recovery', size='x-large')
+  title(ifo + ' Effective Distance Recovery', size='x-large')
   xlabel('Injected Effective Distance (Mpc)', size='x-large')
   ylabel('Detected Effective Distance (Mpc)',size='x-large')
   axis([0.95 * min(inj_dist), 1.05 *max(inj_dist), \
@@ -309,7 +338,7 @@ if "found_missed" in plots:
   hold(True)
   semilogy(missed_time,missed_dist,'rx',label='Missed')
   legend()
-  title('Distance vs Time', size='x-large')
+  title(ifo + ' Distance vs Time', size='x-large')
   xlabel('Injected End Time (GPS seconds)', size='x-large')
   ylabel('Injected Effective Distance (Mpc)', size='x-large')
   axis([min(inj_time), max(inj_time), \
@@ -319,7 +348,44 @@ if "found_missed" in plots:
   if myFigure:
     savefig(myFigure + '_' + ifo + "_found_missed.png")
 
-  
+################################
+# plot of mchirp error vs mchirp
+if "chirp_dist" in plots:
+  figure(9)
+  semilogx(inj_dist,chirp_err,'bx')
+  title(ifo + ' Chirp Mass Accuracy', size='x-large')
+  xlabel('Injected Effective Distance (Mpc)', size='x-large')
+  ylabel('Detected - Injected Chirp Mass (M_sun)',size='x-large')
+  if chirp_dist_axis:
+    axis([0.95*min(inj_dist), 1.05*max(inj_dist), \
+      - chirp_dist_axis, chirp_dist_axis])
+  else:
+    axis([0.95 * min(inj_dist), 1.05 * max(inj_dist), \
+      (1.1 * min(chirp_err)),(1.1 * max(chirp_err))])
+  gca().grid(True)
+
+  if myFigure:
+    savefig(myFigure + '_' + ifo + "_chirp_mass_vs_dist.png")
+
+################################
+# plot of mchirp error vs mchirp
+if "time_dist" in plots:
+  figure(10)
+  semilogx(inj_dist,time_err,'bx')
+  title(ifo + ' End Time Accuracy', size='x-large')
+  xlabel('Injected Effective Distance (Mpc)', size='x-large')
+  ylabel('Detected - Injected End Time (ms)',size='x-large')
+  if time_dist_axis:
+    axis([0.95*min(inj_dist), 1.05*max(inj_dist), \
+      - time_dist_axis, time_dist_axis])
+  else:
+    axis([0.95 * min(inj_dist),1.05 * max(inj_dist), \
+      (1.1 * min(time_err)),(1.1 * max(time_err))])
+  gca().grid(True)
+
+  if myFigure:
+    savefig(myFigure + '_' + ifo + "_time_vs_dist.png")
+
 
   
 if showflag:
