@@ -151,7 +151,8 @@ RedDiamonds<-data.frame(Band=band[plus,4][factor & highResMax[plus]],
 		max_dx[pol1,5], 
 		max_dx[pol2,5], 
 		max_dx[circ,5])[factor & highResMax[plus]],
-	resMax=hist_residuals[plus,4][factor & highResMax[plus]]
+	resMax=hist_residuals[plus,4][factor & highResMax[plus]],
+	spindown=circularUL[factor & highResMax[plus]]*0.0
 	)
 
 file<-ofn("RedDiamonds.txt")
@@ -168,7 +169,8 @@ RedPoints<-data.frame(Band=band[plus,4][factor & highDxAny],
 		max_dx[pol1,5], 
 		max_dx[pol2,5], 
 		max_dx[circ,5])[factor & highDxAny],
-	resMax=hist_residuals[plus,4][factor & highDxAny]
+	resMax=hist_residuals[plus,4][factor & highDxAny],
+	spindown=circularUL[factor & highDxAny]*0.0
 	)
 
 file<-ofn("RedPoints.txt")
