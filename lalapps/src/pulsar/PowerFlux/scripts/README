@@ -24,3 +24,10 @@ Run analysis:
 	lines.sh		- gather line information about the run
 				  and print it on standard output
 				  Standard error will display progress messages
+	analyze_single_spindown_run.R
+				- Read in files produced by all_stats.sh and
+				  produce summary plots using R
+	params.R		- Example parameter file for above script
+	
+				  
+				
