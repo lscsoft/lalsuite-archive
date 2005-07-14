@@ -59,7 +59,7 @@ return [lsort $L]
 }
 
 #
-# Find earliest start time of frame file covering [start, end]
+# Find earliest time within [start, end] for which the data exists
 #
 proc bump_start { start end } {
 global seg_start seg_step frame_start_length_regexp LOG
