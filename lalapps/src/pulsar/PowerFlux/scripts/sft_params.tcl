@@ -17,18 +17,17 @@ foreach {var value} {
 	err_dir "$control_info_dir/err/"
 	dag_file "$control_info_dir/dag"
 	submit_file "$control_info_dir/submit"
+	generation_log_file "$control_info_dir/generation.log"
 	log_file "/usr1/volodya/${data_set}.${interferometer}.${sft_kind}.log"
 	sfts_dir "$storage_dir/SFT-3/${data_set}.${interferometer}.${sft_kind}.geo/"
-	group_regexp {_RDS_C01_LX-([0-9]*)-256.gwf}
 	filename_regexp {(/archive/.*)$}
-	epoch_regexp {-([0-9]*)-256.gwf}
+	frame_start_length_regexp {-([0-9]*)-([0-9]*).gwf}
         timebase 1800
         overlap 900
 	seg_start 0
 	seg_step    20499
-	frame_length 256
 	non_veto_set {}
-	veto_set {ADC_OVERFLOW OUT_OF_LOCK NO_DATA NO_RDS OUTSIDE_S4 CALIB_LINE_V01 PRELOCKLOSS_10 CALIB_LINE_V03_60_SEC}
+	veto_set {ADC_OVERFLOW OUT_OF_LOCK NO_DATA NO_RDS OUTSIDE_S4 CALIB_LINE_V01 PRELOCKLOSS_10 }
         } {
         global $var
         set $var $value
@@ -43,7 +42,8 @@ foreach {var value} $argv {
 # Expand variables that depend on other variables
 foreach {var} {frame_library control_info_dir 
 	config_dir err_dir dag_file submit_file
-	sfts_dir sc_files log_file channel} {
+	sfts_dir sc_files log_file channel
+	generation_log_file } {
         global $var
         set $var [subst -nocommands [set $var]]
         }

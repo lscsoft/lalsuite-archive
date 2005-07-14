@@ -7,31 +7,38 @@ file mkdir $config_dir
 file mkdir $err_dir
 file mkdir $sfts_dir
 
+# Open log file
+global LOG
+set LOG [open $generation_log_file "w"]
 
+puts $LOG "Loading frame library from \"$frame_library\""
 puts stderr "Loading frame library from \"$frame_library\""
 set FILE [open $frame_library "r"]
 set groups 0
 while { ! [eof $FILE] } {
         gets $FILE line
 	if { $line == "" } { continue }
-        regexp -- $group_regexp $line {} group
         regexp -- $filename_regexp $line {} filename
-	set group [expr $group / $seg_step]
+        regexp -- $frame_start_length_regexp $filename {} frame_start frame_length
+	set group [expr $frame_start / $seg_step]
         global frames_$group
         if { [info exists frames_$group] } {
                 lappend frames_$group $filename
                 } {
                 set frames_$group $filename
-                puts stderr "New group $group"
+                puts $LOG "New group $group"
 		incr groups
                 }
         }
 close $FILE
 
-puts stderr "Total groups: $groups"
+puts $LOG "Total groups: $groups"
 
+#
+# Find frame files covering segment [start, end]
+#
 proc find_data { start end } {
-global seg_start seg_step epoch_regexp frame_length
+global seg_start seg_step frame_start_length_regexp LOG
 set START1 [expr ($start/$seg_step-1)*$seg_step+$seg_start]
 set END1 [expr (($end+$seg_step-1)/$seg_step)*$seg_step+$seg_start]
 set L [list ]
@@ -39,16 +46,56 @@ for { set i $START1 } { $i < $END1 } { incr i $seg_step } {
 	set group [expr $i/$seg_step]
         global frames_$group
         if { [info exists frames_$group] } {
-                foreach line [set frames_$group] {
-			set epoch 0
-                       	regexp -- $epoch_regexp $line {} epoch
-                        if { (($epoch+$frame_length) >= $start) && ($epoch < $end) } {
-                                lappend L $line
+                foreach filename [set frames_$group] {
+			set frame_start 0
+                       	regexp -- $frame_start_length_regexp $filename {} frame_start frame_length
+                        if { (($frame_start+$frame_length) >= $start) && ($frame_start < $end) } {
+                                lappend L $filename
                                 }
                         }
                 }
         }
-return $L
+return [lsort $L]
+}
+
+#
+# Find earliest start time of frame file covering [start, end]
+#
+proc bump_start { start end } {
+global seg_start seg_step frame_start_length_regexp LOG
+set START1 [expr ($start/$seg_step-1)*$seg_step+$seg_start]
+set END1 [expr (($end+$seg_step-1)/$seg_step)*$seg_step+$seg_start]
+set t 0
+for { set i $START1 } { $i < $END1 } { incr i $seg_step } {
+	set group [expr $i/$seg_step]
+        global frames_$group
+        if { [info exists frames_$group] } {
+                foreach filename [set frames_$group] {
+			set frame_start 0
+			set frame_length 0
+                       	regexp -- $frame_start_length_regexp $filename {} frame_start frame_length
+
+                        if { (($frame_start+$frame_length) >= $start) && ($frame_start < $end) } {
+				if { $t == 0 } { 
+					set t $frame_start
+					}
+				if { $frame_start < $t } { 
+					set t $frame_start
+					}
+                                }
+                        }
+                }
+	if { $t > 0 } {
+		# Found something - other segments will be later
+		if { $t <= $start } { 
+			set t $start
+			} {
+			puts $LOG "Moved start $start to $t"
+			}
+		return $t
+		}
+        }
+return $end
 }
 
 
@@ -94,16 +141,20 @@ while { ! [eof $SEGMENTS_FILE] } {
 	# Use symbolic flags
 	#
 	set flags [lrange $line 5 end]
+	set do_veto 0
 	foreach value  $flags {
 		if { !$non_veto($value) && ($veto(ALL) || $veto($value)) } {
-			puts stderr "Skipping segment [lrange $line 0 2] due to flag $value"
-			puts stderr "\tFlags: $flags"
-			continue 
+			puts $LOG "Skipping segment [lrange $line 0 2] due to flag $value"
+			puts $LOG "\tFlags: $flags"
+			set do_veto 1
+			break
 			}
 		}
+	if { $do_veto } { continue }
 
         set START [lindex $line 1]
         set END [lindex $line 2]
+        puts $LOG "processing i=$i segment $START-$END"
         puts stderr "processing i=$i segment $START-$END"
         #
         # Make sure to have some valid data in case we don't use all data from the segment
@@ -114,7 +165,9 @@ while { ! [eof $SEGMENTS_FILE] } {
 		set START $START_PREVIOUS
 		} {
 		# Brand new chunk of data
-	        if { (($END-$START) % 1800)>31 } { incr START 15 }
+		
+		# Move START so there is a frame file covering it
+		set START [bump_start $START $END]
 		}
         for { set k 0 } { 1 } { incr k } {
                 set start [expr $START+$k*$overlap]
@@ -128,7 +181,10 @@ while { ! [eof $SEGMENTS_FILE] } {
 		incr i_possible
 
                 set FRAME_FILES [find_data $start $end]
-		if { $FRAME_FILES == "" } { continue }
+		if { $FRAME_FILES == "" } { 
+			puts $LOG "** Did not find any frame files for segment $start $end"
+			continue 
+			}
 
                 set FILE [open "$config_dir/in.$i" "w"]
                 set num [expr 1+$i]
@@ -139,6 +195,7 @@ while { ! [eof $SEGMENTS_FILE] } {
                 }
         }
 close $SEGMENTS_FILE
+puts $LOG "Generated $i input files (out of possible $i_possible)"
 puts stderr "Generated $i input files (out of possible $i_possible)"
 
 set SUBMIT_FILE [open $submit_file "w"]
