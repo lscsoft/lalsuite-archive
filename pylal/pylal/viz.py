@@ -24,7 +24,292 @@ def simpleplot(*args):
   title(col1 + ' v ' + col2)
   grid(True)
 
+###################################################
+# function to plot the difference between 
+def readcol(table1, table2, col_name ):
+  
+  if table1 is not None: assert(isinstance(table1, metaDataTable))
+  if table2 is not None: assert(isinstance(table2, metaDataTable))
 
+  if table1.nevents() != table2.nevents():
+    print >>sys.stderr, "nevents in table1 and table2 must be equal"
+    sys.exit(1)
+ 
+  if table1.table[1].has_key('ifo'):
+    ifo = table1.table[1]["ifo"]
+  elif table2.table[1].has_key('ifo'):
+    ifo = table2.table[1]["ifo"]
+  else:
+    ifo = None
+
+  col_names = [col_name]
+  if ifo:
+    col_names.append(col_name + '_' + ifo[0].lower())
+    col_names.append(ifo[0].lower() + '_' + col_name)
+
+  if 'dist' in col_name:
+    col_names.append(col_name + 'ance')
+
+  for c_name in col_names:
+    
+    if table1.table[1].has_key(c_name):
+      tmpvar1 = table1.mkarray(c_name)
+      if 'time' in c_name:
+        tmpvar1 = tmpvar1 + 1e-9 * table1.mkarray(c_name + '_ns')
+
+    if table2.table[1].has_key(c_name):
+      tmpvar2 = table2.mkarray(c_name)
+      if 'time' in c_name:
+        tmpvar2 = tmpvar2 + 1e-9 * table2.mkarray(c_name + '_ns')
+
+  cols = []
+  cols.append(tmpvar1)
+  cols.append(tmpvar2)
+  cols.append(ifo)
+
+  return cols
+ 
+###################################################
+# function to plot the difference between values of 'col_name' in
+# two tables, table1 and table2
+def plotdiff(table1, table2, col_name, plot_type, units=None, 
+  axis_range=[0,0,0,0], output_name = None):
+  
+  [tmpvar1, tmpvar2, ifo ] = readcol(table1, table2, col_name)
+
+  tmp_diff = tmpvar2 - tmpvar1
+
+  if plot_type == 'plot':
+    plot(tmpvar1, tmp_diff,'bx')
+  elif plot_type == 'log':
+    semilogx(tmpvar1, tmp_diff,'bx')
+    
+  if units:
+    xlabel(col_name + ' (' + units +')', size='x-large')
+    ylabel(col_name + ' difference (' + units +')', size='x-large')
+  else:
+    xlabel(col_name, size='x-large')
+    ylabel(col_name + ' difference', size='x-large')
+  
+  if not axis_range[0]:
+    axis_range[0] = min(tmpvar1)
+  if not axis_range[1]:
+    axis_range[1] = max(tmpvar1)
+  if not axis_range[2]:
+    if min(tmp_diff) > 0:
+      axis_range[2] = 0.9 * min(tmp_diff)
+    else:
+      axis_range[2] = 1.1 * min(tmp_diff)
+  if not axis_range[3]:
+    if max(tmp_diff) > 0:
+      axis_range[3] = 1.1 * max(tmp_diff)
+    else:
+      axis_range[3] = 0.9 * max(tmp_diff)
+
+  if ifo:
+    title(ifo + ' ' + col_name + '  Accuracy', size='x-large')
+  else:
+    title(col_name + '  Accuracy', size='x-large')
+  
+  
+  axis(axis_range)
+  grid(True)
+
+  if output_name:
+    if ifo:
+      output_name += '_' + ifo
+    output_name += '_' + col_name + '_accuracy.png'
+    savefig(output_name)
+
+
+############################################################################
+# function to plot the fractional difference between values of 'col_name' in
+# two tables, table1 and table2
+def plotfracdiff(table1, table2, col_name, plot_type, units=None, 
+  axis_range=[0,0,0,0], output_name = None):
+  
+  [tmpvar1, tmpvar2, ifo ] = readcol(table1, table2, col_name)
+
+  frac_diff = (tmpvar2 - tmpvar1)/tmpvar1
+
+  if plot_type == 'plot':
+    plot(tmpvar1, frac_diff,'bx')
+  elif plot_type == 'log':
+    semilogx(tmpvar1, frac_diff,'bx')
+    
+  if units:
+    xlabel(col_name + ' (' + units +')', size='x-large')
+  else:
+    xlabel(col_name, size='x-large')
+  
+  ylabel(col_name + ' fractional difference', size='x-large')
+  
+  if not axis_range[0]:
+    axis_range[0] = min(tmpvar1)
+  if not axis_range[1]:
+    axis_range[1] = max(tmpvar1)
+  if not axis_range[2]:
+    if min(frac_diff) > 0:
+      axis_range[2] = 0.9 * min(frac_diff)
+    else:
+      axis_range[2] = 1.1 * min(frac_diff)
+  if not axis_range[3]:
+    if max(frac_diff) > 0:
+      axis_range[3] = 1.1 * max(frac_diff)
+    else:
+      axis_range[3] = 0.9 * max(frac_diff)
+
+  if ifo:
+    title(ifo + ' ' + col_name + '  Accuracy', size='x-large')
+  else:
+    title(col_name + '  Accuracy', size='x-large')
+  
+  
+  axis(axis_range)
+  grid(True)
+
+  if output_name:
+    if ifo:
+      output_name += '_' + ifo
+    output_name += '_' + col_name + '_frac_accuracy.png'
+    savefig(output_name)
+ 
+
+
+######################################################################
+# function to histogram the difference between values of 'col_name' in
+# two tables, table1 and table2
+def histdiff(table1, table2, col_name, plot_type, units=None, 
+  nbins = None, width = None, output_name = None):
+  
+  [tmpvar1, tmpvar2, ifo ] = readcol(table1, table2, col_name)
+
+  tmp_diff = tmpvar2 - tmpvar1
+
+  if (plot_type == 'frac_hist'):
+    tmp_diff /= tmpvar1
+
+  if not nbins:
+    nbins = 10
+  
+  bins = []
+  if width:
+    for i in range(-nbins,nbins):
+      bins.append(width * i/nbins)
+  
+  if bins:
+    hist(tmp_diff,bins)
+  else:
+    hist(tmp_diff,nbins)
+
+  figtext(0.13,0.8,'mean = %6.3e' % mean(tmp_diff))
+  figtext(0.13,0.75,'sigma = %6.3e' % std(tmp_diff))
+   
+  label = col_name 
+  if (plot_type == 'frac_hist'):
+    label += ' fractional'
+  label += ' difference'
+  if units and not (plot_type == 'frac_hist'):
+    label += ' (' + units +')'
+  xlabel(label, size='x-large')
+
+  ylabel('Number', size='x-large')
+  
+  if ifo:
+    title(ifo + ' ' + col_name + '  Histogram', size='x-large')
+  else:
+    title(col_name + ' Histogram', size='x-large')
+  
+  grid(True)
+
+  if output_name:
+    if ifo:
+      output_name += '_' + ifo  
+    if (plot_type == 'frac_hist'):  
+      output_name += '_' + col_name + '_frac_histogram.png'
+    else:
+      output_name += '_' + col_name + '_histogram.png'
+    savefig(output_name)
+  
+
+###################################################
+# function to plot the value of 'col_name' in table1 vs its
+# value in table2 
+def plotval(table1, table2, col_name, plot_type, units=None, xlab=None, \
+  ylab=None, axis_range=[0,0,0,0], output_name=None):
+  
+  [tmpvar1, tmpvar2, ifo ] = readcol(table1, table2, col_name)
+
+  if plot_type == 'plot':
+    plot(tmpvar1, tmpvar2,'bx')
+  elif plot_type == 'log':
+    loglog(tmpvar1, tmpvar2,'bx')
+    
+  if xlab:
+    xlab += ' ' + col_name
+  else:
+    xlab = col_name
+
+  if ylab:
+    ylab += ' ' + col_name
+  else:
+    ylab = col_name
+    
+  if units:
+    xlab +=' (' + units +')'
+    ylab += ' (' + units +')'
+    
+  xlabel(xlab, size='x-large')
+  ylabel(ylab, size='x-large')
+ 
+  
+  if not axis_range[0]:
+    axis_range[0] = min(tmpvar1)
+  if not axis_range[1]:
+    axis_range[1] = max(tmpvar1)
+
+  if not axis_range[0]:
+    if min(tmpvar1) > 0:
+      axis_range[0] = 0.9 * min(tmpvar1)
+    else:
+      axis_range[0] = 1.1 * min(tmpvar1)
+  if not axis_range[1]:
+    if max(tmpvar1) > 0:
+      axis_range[1] = 1.1 * max(tmpvar1)
+    else:
+      axis_range[1] = 0.9 * max(tmpvar1)
+  
+  if not axis_range[2]:
+    if min(tmpvar2) > 0:
+      axis_range[2] = 0.9 * min(tmpvar2)
+    else:
+      axis_range[2] = 1.1 * min(tmpvar2)
+  if not axis_range[3]:
+    if max(tmpvar2) > 0:
+      axis_range[3] = 1.1 * max(tmpvar2)
+    else:
+      axis_range[3] = 0.9 * max(tmpvar2)
+
+  if ifo:
+    title(ifo + ' ' + col_name, size='x-large')
+  else:
+    title(col_name, size='x-large')
+  
+  
+  axis(axis_range)
+  grid(True)
+
+  if output_name:
+    if ifo:
+      output_name += '_' + ifo
+    output_name += '_' + col_name + '_plot.png'
+    savefig(output_name)
+ 
+
+
+ 
+  
+   
 
 def tfplot(*args, **kwargs):
   """\
