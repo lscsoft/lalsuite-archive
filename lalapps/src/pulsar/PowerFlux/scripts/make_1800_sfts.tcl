@@ -121,10 +121,16 @@ while { ! [eof $SEGMENT_FLAGS] } {
 puts ""
 
 foreach value $veto_set {
+	# Check that we know about this flag - this would produce Tcl error
+	# if flag is not known
+	set veto($value)
 	set veto($value) 1
 	}
 	
 foreach value $non_veto_set {
+	# Check that we know about this flag - this would produce Tcl error
+	# if flag is not known
+	set non_veto($value)
 	set non_veto($value) 1
 	}
 
@@ -170,8 +176,8 @@ while { ! [eof $SEGMENTS_FILE] } {
 		set START [bump_start $START $END]
 		}
         for { set k 0 } { 1 } { incr k } {
-                set start [expr $START+$k*$overlap]
-                set end [expr $START+$k*$overlap+$timebase]
+                set start [expr $START+$k*($timebase-$overlap)]
+                set end [expr $START+$k*($timebase-$overlap)+$timebase]
                 if { $end > $END } { 
 			set END_PREVIOUS $END
 			set START_PREVIOUS $start
