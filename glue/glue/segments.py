@@ -74,6 +74,9 @@ class infinity:
 		x.__sign = -self.__sign
 		return x
 
+	def __pos__(self):
+		return self
+
 
 #
 # The segment class
