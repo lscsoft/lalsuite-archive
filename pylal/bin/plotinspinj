@@ -10,6 +10,8 @@ from types import *
 
 from pylab import *
 from lgen import readMeta
+from lgen import viz
+
 
 ##############################################################################
 # help message
@@ -153,18 +155,6 @@ if inspTrig.nevents() != inspInj.nevents():
   print >>sys.stderr, "number of triggers and found injections must be equal"
   sys.exit(1)
 
-# set the bin boundaries for the various histograms
-chirp_bins = []
-time_bins = []
-dist_bins = []
-for i in range(-nbins, nbins):
-  if "chirp_hist" in plots:
-    chirp_bins.append(chirp_width * i/nbins)
-  if "time_hist" in plots:
-    time_bins.append(time_width * i/nbins)
-  if "dist_hist" in plots:
-    dist_bins.append(dist_width * i/nbins)
-
 # extract the interesting columns from injections
 inj_chirp = inspInj.mkarray("mchirp")
 # for now assume all triggers from same IFO.
@@ -214,121 +204,50 @@ if "found_missed" in plots:
 # plot of mchirp error vs mchirp
 if "mchirp" in plots:
   figure(1)
-  plot(inj_chirp,chirp_err,'bx')
-  title(ifo + ' Chirp Mass Accuracy', size='x-large')
-  xlabel('Injected Chirp Mass (M_sun)', size='x-large')
-  ylabel('Detected - Injected Chirp Mass (M_sun)',size='x-large')
-  if chirp_axis:
-    axis([min(inj_chirp),max(inj_chirp), \
-      - chirp_axis, chirp_axis ])
-  else:
-    axis([min(inj_chirp),max(inj_chirp), \
-      (1.1 * min(chirp_err)),(1.1 * max(chirp_err))])
-
-  gca().grid(True)
-
-  if myFigure:
-    savefig(myFigure + '_' + ifo + "_chirp_mass_accuracy.png")
+  viz.plotdiff(inspInj, inspTrig, 'mchirp', 'plot', 'M_sun', 
+    [0,0,-chirp_axis,chirp_axis], myFigure)
   
 ###############################  
 # histogram of chirp mass error
 if "chirp_hist" in plots:
   figure(2)
-  hist(chirp_err, chirp_bins)
-  figtext(0.13,0.8,'mean = %6.3e' % mean(chirp_err))
-  figtext(0.13,0.75,'sigma = %6.3e' % std(chirp_err))
-  xlabel('Chirp mass error (M_sun)', size='x-large')
-  ylabel('Number', size='x-large')
-  title(ifo + ' Chirp Mass Histogram', size='x-large')
-  gca().grid(True)
-  if myFigure:
-    savefig(myFigure + '_' + ifo + "_chirp_mass_hist.png")
+  viz.histdiff(inspInj, inspTrig, 'mchirp', 'hist', 'M_sun', nbins, 
+    chirp_width, myFigure)
 
 ################################
 # plot of timing error vs time
 if "time" in plots:
   figure(3)
-  plot(inj_time,time_err,'bx')
-  title(ifo + ' Timing Accuracy', size='x-large')
-  xlabel('Injected End Time (GPS sec.)', size='x-large')
-  ylabel('Detected - Injected End Time (s)',size='x-large')
-  if time_axis:
-    axis([min(inj_time), max(inj_time), \
-    - time_axis, time_axis])
-  else:
-    axis([min(inj_time),max(inj_time), \
-      (1.1 * min(time_err)),(1.1 * max(time_err))])
-
-  gca().grid(True)
-
-  if myFigure:
-    savefig(myFigure + '_' + ifo + "_timing_accuracy.png")
+  viz.plotdiff(inspInj, inspTrig, 'end_time', 'plot', 'seconds', 
+    [0,0,-time_axis,time_axis], myFigure)
   
 ###############################  
 # histogram of timing error
 if "time_hist" in plots:
   figure(4)
-  hist(time_err, time_bins)
-  figtext(0.13,0.8,'mean = %6.3e' % mean(time_err))
-  figtext(0.13,0.75,'sigma = %6.3e' % std(time_err))
-  xlabel('Timing error (s)', size='x-large')
-  ylabel('Number', size='x-large')
-  title(ifo + ' Timing Accuracy Histogram', size='x-large')
-  gca().grid(True)
-  if myFigure:
-    savefig(myFigure + '_' + ifo + "_timing_hist.png")
+  viz.histdiff(inspInj, inspTrig, 'end_time', 'hist', 'seconds', nbins, 
+    time_width, myFigure)
 
 ################################
 # plot of distamce error vs dist
 if "dist" in plots:
   figure(5)
-  semilogx(inj_dist,dist_err,'bx')
-  title(ifo + ' Effective Distance Accuracy', size='x-large')
-  xlabel('Injected Effective Distance (Mpc)', size='x-large')
-  ylabel('(Detected/Injected - 1) Effective Distance ',size='x-large')
-  if dist_axis:
-    axis([0.95*min(inj_dist), 1.05*max(inj_dist), \
-      - dist_axis, dist_axis])
-  else:
-    axis([0.95*min(inj_dist), 1.05*max(inj_dist), \
-      (1.1 * min(dist_err)),(1.1 * max(dist_err))])
-  gca().grid(True)
-
-  if myFigure:
-    savefig(myFigure + '_' + ifo + "_eff_dist_accuracy.png")
+  viz.plotfracdiff(inspInj, inspTrig, 'eff_dist', 'log', 'Mpc', 
+    [0,0,-dist_axis,dist_axis], myFigure)
   
 ###############################  
 # histogram of dist error
 if "dist_hist" in plots:
   figure(6)
-  hist(dist_err, dist_bins)
-  figtext(0.13,0.8,'mean = %6.3e' % mean(dist_err))
-  figtext(0.13,0.75,'sigma = %6.3e' % std(dist_err))
-  figtext(0.13,0.8,'mean = %6.3e' % mean(dist_err))
-  figtext(0.13,0.75,'sigma = %6.3e' % std(dist_err))
-  xlabel('(Detected/Injected - 1) Effective Distance', size='x-large')
-  ylabel('Number', size='x-large')
-  title(ifo + ' Effective Distance Accuracy Histogram', size='x-large')
-  gca().grid(True)
-  if myFigure:
-    savefig(myFigure + '_' + ifo + "_eff_dist_hist.png")
-
+  viz.histdiff(inspInj, inspTrig, 'eff_dist', 'frac_hist', 'Mpc', nbins, 
+    dist_width, myFigure)
 
 #######################################
 # plot of injected vs detected distamce    
 if "dist_dist" in plots:  
   figure(7)
-  loglog(inj_dist,trig_dist,'bx')
-  title(ifo + ' Effective Distance Recovery', size='x-large')
-  xlabel('Injected Effective Distance (Mpc)', size='x-large')
-  ylabel('Detected Effective Distance (Mpc)',size='x-large')
-  axis([0.95 * min(inj_dist), 1.05 *max(inj_dist), \
-    0.95 * min(trig_dist), 1.05 * max(trig_dist)])
-  gca().grid(True)
-
-  if myFigure:
-    savefig(myFigure + '_' + ifo + "_eff_dist_recovery.png")
-
+  viz.plotval(inspInj, inspTrig, 'eff_dist', 'log', 'Mpc', 'Injected',
+    'Recovered', [0,0,0,0], myFigure)
 
 ####################################################
 # plot of injected eff dist vs time for found/missed    
