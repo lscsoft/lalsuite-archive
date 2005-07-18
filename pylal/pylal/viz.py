@@ -24,9 +24,9 @@ def simpleplot(*args):
   title(col1 + ' v ' + col2)
   grid(True)
 
-###################################################
-# function to plot the difference between 
-def readcol(table1, table2, col_name ):
+##############################################
+# function to read in a column from two tables 
+def readcolfrom2tables(table1, table2, col_name ):
   
   if table1 is not None: assert(isinstance(table1, metaDataTable))
   if table2 is not None: assert(isinstance(table2, metaDataTable))
@@ -68,21 +68,46 @@ def readcol(table1, table2, col_name ):
   cols.append(ifo)
 
   return cols
+
+  
+#################################################
+# function to read in a column from a given table 
+def readcol(table, col_name, ifo=None ):
+  
+  if table is not None: assert(isinstance(table, metaDataTable))
+
+  col_names = [col_name]
+  if ifo:
+    col_names.append(col_name + '_' + ifo[0].lower())
+    col_names.append(ifo[0].lower() + '_' + col_name)
+
+  if 'dist' in col_name:
+    col_names.append(col_name + 'ance')
+
+  for c_name in col_names:
+    
+    if table.table[1].has_key(c_name):
+      col_data = table.mkarray(c_name)
+      if 'time' in c_name:
+        col_data = col_data + 1e-9 * table.mkarray(c_name + '_ns')
+
+
+  return col_data
  
 ###################################################
 # function to plot the difference between values of 'col_name' in
 # two tables, table1 and table2
-def plotdiff(table1, table2, col_name, plot_type, units=None, 
+def plotdiff(table1, table2, col_name, plot_type, plot_sym, units=None, 
   axis_range=[0,0,0,0], output_name = None):
   
-  [tmpvar1, tmpvar2, ifo ] = readcol(table1, table2, col_name)
+  [tmpvar1, tmpvar2, ifo ] = readcolfrom2tables(table1, table2, col_name)
 
   tmp_diff = tmpvar2 - tmpvar1
 
   if plot_type == 'plot':
-    plot(tmpvar1, tmp_diff,'bx')
+    plot(tmpvar1, tmp_diff, plot_sym,markersize=12)
   elif plot_type == 'log':
-    semilogx(tmpvar1, tmp_diff,'bx')
+    semilogx(tmpvar1, tmp_diff, plot_sym,markersize=12)
     
   if units:
     xlabel(col_name + ' (' + units +')', size='x-large')
@@ -125,17 +150,17 @@ def plotdiff(table1, table2, col_name, plot_type, units=None,
 ############################################################################
 # function to plot the fractional difference between values of 'col_name' in
 # two tables, table1 and table2
-def plotfracdiff(table1, table2, col_name, plot_type, units=None, 
+def plotfracdiff(table1, table2, col_name, plot_type, plot_sym, units=None, 
   axis_range=[0,0,0,0], output_name = None):
   
-  [tmpvar1, tmpvar2, ifo ] = readcol(table1, table2, col_name)
+  [tmpvar1, tmpvar2, ifo ] = readcolfrom2tables(table1, table2, col_name)
 
   frac_diff = (tmpvar2 - tmpvar1)/tmpvar1
 
   if plot_type == 'plot':
-    plot(tmpvar1, frac_diff,'bx')
+    plot(tmpvar1, frac_diff,plot_sym,markersize=12)
   elif plot_type == 'log':
-    semilogx(tmpvar1, frac_diff,'bx')
+    semilogx(tmpvar1, frac_diff,plot_sym,markersize=12)
     
   if units:
     xlabel(col_name + ' (' + units +')', size='x-large')
@@ -173,16 +198,77 @@ def plotfracdiff(table1, table2, col_name, plot_type, units=None,
       output_name += '_' + ifo
     output_name += '_' + col_name + '_frac_accuracy.png'
     savefig(output_name)
+
+
+############################################################################
+# function to plot the fractional difference between values of 'col_name_a' in
+# two tables, table1 and table2 against the values of 'col_name_b' in table1
+def plotdiffa_vs_b(table1, table2, col_name_a, col_name_b, plot_type, 
+  plot_sym, units_a=None, units_b=None,axis_range=[0,0,0,0], 
+  output_name = None):
+  
+  [tmpvar1, tmpvar2, ifo ] = readcolfrom2tables(table1, table2, col_name_a)
+
+  diff_a = (tmpvar2 - tmpvar1)
+  col_b = readcol(table1, col_name_b, ifo ) 
+
+  if plot_type == 'plot':
+    plot(col_b, diff_a,plot_sym,markersize=12)
+  elif plot_type == 'log':
+    semilogx(col_b, diff_a,plot_sym,markersize=12)
+    
+  if units_b:
+    xlabel(col_name_b + ' (' + units_b +')', size='x-large')
+  else:
+    xlabel(col_name_b, size='x-large')
+  
+  if units_a:
+    ylabel(col_name_a + ' difference (' + units_a + ')', size='x-large')
+  else:
+    ylabel(col_name_a + ' difference', size='x-large')
+    
+  if not axis_range[0]:
+    axis_range[0] = min(col_b)
+  if not axis_range[1]:
+    axis_range[1] = max(col_b)
+  if not axis_range[2]:
+    if min(diff_a) > 0:
+      axis_range[2] = 0.9 * min(diff_a)
+    else:
+      axis_range[2] = 1.1 * min(diff_a)
+  if not axis_range[3]:
+    if max(diff_a) > 0:
+      axis_range[3] = 1.1 * max(diff_a)
+    else:
+      axis_range[3] = 0.9 * max(diff_a)
+
+  if ifo:
+    title(ifo + ' ' + col_name_a + '  Accuracy', size='x-large')
+  else:
+    title(col_name + '  Accuracy', size='x-large')
+  
+  
+  axis(axis_range)
+  grid(True)
+
+  if output_name:
+    if ifo:
+      output_name += '_' + ifo
+    output_name += '_' + col_name + '_frac_accuracy.png'
+    savefig(output_name)
  
+
 
 
 ######################################################################
 # function to histogram the difference between values of 'col_name' in
 # two tables, table1 and table2
-def histdiff(table1, table2, col_name, plot_type, units=None, 
+def histdiff(table1, table2, col_name, plot_type, sym, units=None, 
   nbins = None, width = None, output_name = None):
   
-  [tmpvar1, tmpvar2, ifo ] = readcol(table1, table2, col_name)
+  histcolors = ['r','b','k']
+  
+  [tmpvar1, tmpvar2, ifo ] = readcolfrom2tables(table1, table2, col_name)
 
   tmp_diff = tmpvar2 - tmpvar1
 
@@ -198,12 +284,15 @@ def histdiff(table1, table2, col_name, plot_type, units=None,
       bins.append(width * i/nbins)
   
   if bins:
-    hist(tmp_diff,bins)
+    out = hist(tmp_diff,bins)
   else:
-    hist(tmp_diff,nbins)
+    out = hist(tmp_diff,nbins)
+ 
+  width = out[1][1] - out[1][0]
+  bar(out[1],out[0],width,color=histcolors[sym])
 
-  figtext(0.13,0.8,'mean = %6.3e' % mean(tmp_diff))
-  figtext(0.13,0.75,'sigma = %6.3e' % std(tmp_diff))
+  figtext(0.13,0.8 - 0.1* sym," mean = %6.3e" % mean(tmp_diff))
+  figtext(0.13,0.75 - 0.1 * sym,'sigma = %6.3e' % std(tmp_diff))
    
   label = col_name 
   if (plot_type == 'frac_hist'):
@@ -238,7 +327,7 @@ def histdiff(table1, table2, col_name, plot_type, units=None,
 def plotval(table1, table2, col_name, plot_type, units=None, xlab=None, \
   ylab=None, axis_range=[0,0,0,0], output_name=None):
   
-  [tmpvar1, tmpvar2, ifo ] = readcol(table1, table2, col_name)
+  [tmpvar1, tmpvar2, ifo ] = readcolfrom2tables(table1, table2, col_name)
 
   if plot_type == 'plot':
     plot(tmpvar1, tmpvar2,'bx')
