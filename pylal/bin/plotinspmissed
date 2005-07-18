@@ -1,0 +1,399 @@
+#!/usr/bin/python
+
+import sys
+import os
+import getopt
+import re
+import exceptions
+import glob
+from types import *
+
+from pylab import *
+from lgen import readMeta
+from lgen import viz
+
+
+##############################################################################
+# help message
+
+
+def usage():
+  msg = """\
+Usage: plotinspinj [options] [trigs1 missed1 trigs2 missed2]
+
+  SUMMARY:  
+  
+  Generate a set of summary plots from triggers and found injections stored as
+  sngl_inspiral and sim_inspiral table in LIGO lightweight format
+  respectively.  The plots can be turned on by selecting them.  For plots, the
+  AXIS must be specified (this is the Y-axis scale).  If either AXIS = 0 then
+  the range is set automatically.  The WIDTH of the histograms must also be
+  specified.  If either AXIS = 0 then the range is set automatically.
+
+  OPTIONS:
+  
+    -h, --help                display this message
+    -v, --version             display version information
+    -t, --trig-file   TRIGS   xml file with triggers and found injections
+    -m, --missed-file MISSED  xml file with missed injections
+    -f, --figure-name FNAME   generate png figures with name FNAME-fig.png
+    -s, --show                display the figures on the terminal.
+    -n, --nbins       NBINS   number of bins for the histogram plots
+    -a, --plot-mchirp AXIS    plot the chirp mass accuracy
+    -b, --hist-mchirp WIDTH   histogram of the chirp mass accuracy
+    -c, --plot-timing AXIS    plot of the timing accuracy
+    -d, --hist-timing WIDTH   histogram of the timing accuracy
+    -i, --plot-dist   AXIS    plot of the effective distance accuracy
+    -j, --hist-dist   WIDTH   histogram of the effective distance accuracy
+    -k, --dist-dist           plot of injected vs recovered distance
+    -l, --found-missed        plot of eff dist vs time for found/missed inj
+    -o, --chirp-dist  AXIS    plot of chirp mass accuracy vs effective dist
+    -p, --time-dist   AXIS    plot of timing accuracy vs effective dist
+"""
+  print >> sys.stderr, msg
+
+
+# grab command line options
+shortop = "ab:cd:f:hij:kln:opst:"
+longop = [
+  "nbins=",
+  "figure-name=",
+  "trig-file=",
+  "plot-mchirp=",
+  "hist-mchirp=",
+  "plot-timing=",
+  "hist-timing=",
+  "plot-dist=",
+  "hist-dist=",
+  "dist-dist",
+  "found-missed",
+  "chirp-dist=",
+  "time-dist=",
+  "help",
+  "show",
+  "missed-file="]
+
+try:
+  opts, args = getopt.getopt(sys.argv[1:], shortop, longop)
+except getopt.GetoptError:
+  print >>sys.stderr, "Error parsing command line"
+  print >>sys.stderr, "Enter 'plotinspinj --help' for usage"
+  sys.exit(1)
+
+# defaul values
+trigFile = []
+missedFile = []
+plots = []
+
+myFigure = None
+showflag = 0
+nbins = 10
+
+for o, a in opts:
+  if o in ("-h", "--help"):
+    usage()
+    sys.exit(0)
+  elif o in ("-v", "--version"):
+    sys.exit(0)
+  elif o in ("-a", "--plot-mchirp"):
+    plots.append("mchirp")
+    chirp_axis = float(a)
+  elif o in ("-b", "--hist-mchirp"):
+    plots.append("chirp_hist")
+    chirp_width = float(a)
+  elif o in ("-c", "--plot-timing"):
+    plots.append("time")
+    time_axis = float(a)
+  elif o in ("-d", "--hist-timing"):
+    plots.append("time_hist")
+    time_width = float(a)
+  elif o in ("-i", "--plot-dist"):
+    plots.append("dist")
+    dist_axis = float(a)
+  elif o in ("-j", "--hist-dist"):
+    plots.append("dist_hist")
+    dist_width = float(a)
+  elif o in ("-k", "--dist-dist"):
+    plots.append("dist_dist")
+  elif o in ("-l", "--found-missed"):
+    plots.append("found_missed")
+  elif o in ("-o", "--chirp-dist"):
+    plots.append("chirp_dist")
+    chirp_dist_axis = float(a)
+  elif o in ("-p", "--time-dist"):
+    plots.append("time_dist")
+    time_dist_axis = float(a)
+  elif o in ("-f", "--figure-name"):
+    myFigure = a
+  elif o in ("-n", "--nbins"):
+    nbins = int(a)
+  elif o in ("-s", "--show"):
+    showflag = 1
+
+# check at least one trig file was specified
+if not args:
+  print >>sys.stderr, "a trig-file must be specified"
+  print >>sys.stderr, "Enter 'plotinspinj --help' for usage"
+  sys.exit(1)
+
+# check if "found_missed": trig and missed inj files are paired
+# then fill lists of injection and missed injection files
+injFiles = []
+misFiles = []
+
+if "found_missed" in plots:
+  if len(args)<2:
+    print >>sys.stderr, "a missed-file must be specified"
+    print >>sys.stderr, "when making plots of missed injections"
+    print >>sys.stderr, "Enter 'plotinspinj --help' for usage"
+    sys.exit(1)
+  elif len(args)%2:
+    print >>sys.stderr, "mismatched pair"
+    print >>sys.stderr, "when making plots of missed injections"
+    print >>sys.stderr, "Enter 'plotinspinj --help' for usage"
+  else:
+    for i in range(len(args)):
+      if i%2:
+        misFiles.append(args[i])
+      else:
+        injFiles.append(args[i])
+else:
+    injFiles = args        
+
+# read in tables into dictionaries of paired sets
+injSets = []
+
+for i in range(len(injFiles)):
+  injSet = {}
+  injDict = {}
+  misDict = {}
+  # 
+  flist = []
+  flist.append(injFiles[i])
+  injDict["sngl_inspiral"] = readMeta.metaDataTable(flist, "sngl_inspiral")
+  injDict["sim_inspiral"]  = readMeta.metaDataTable(flist, "sim_inspiral")
+  #
+  injDict["ifo"] = injDict["sngl_inspiral"].table[1]["ifo"]
+  if injDict["ifo"] == 'H1'  or  injDict["ifo"] == 'H2':
+    injDict["inj_time"] =  injDict["sim_inspiral"].mkarray("h_end_time") + \
+      1e-9 * injDict["sim_inspiral"].mkarray("h_end_time_ns")
+    injDict["inj_dist"] =  injDict["sim_inspiral"].mkarray("eff_dist_h")
+  elif injDict["ifo"] == ('L1'):
+    injDict["inj_time"] =  injDict["sim_inspiral"].mkarray("l_end_time") + \
+      1e-9 * injDict["sim_inspiral"].mkarray("l_end_time_ns")
+    injDict["inj_dist"] =  injDict["sim_inspiral"].mkarray("eff_dist_l")
+  injDict["inj_chirp"]  = injDict["sim_inspiral"].mkarray("mchirp")
+  injDict["trig_chirp"] = injDict["sngl_inspiral"].mkarray("mchirp")
+  injDict["trig_time"]  = injDict["sngl_inspiral"].mkarray("end_time") + \
+    1e-9 * injDict["sngl_inspiral"].mkarray("end_time_ns")
+  injDict["trig_dist"]  = injDict["sngl_inspiral"].mkarray("eff_distance")
+  injDict["chirp_err"]  = injDict["trig_chirp"] - injDict["inj_chirp"]
+  injDict["time_err"]   = injDict["trig_time"]  - injDict["inj_time"]
+  injDict["dist_err"]   = injDict["trig_dist"]  / injDict["inj_dist"] - 1
+
+  # test sire clustering
+  if injDict['sngl_inspiral'].nevents() != injDict['sim_inspiral'].nevents():
+    print >>sys.stderr, "number of triggers and found injections must be equal"
+    sys.exit(1)
+  #
+  if misFiles:
+    flist = []
+    flist.append(misFiles[i])
+    misDict["sim_inspiral"]  = readMeta.metaDataTable(flist, "sim_inspiral")
+  #
+  if injDict["ifo"] == 'H1'  or  injDict["ifo"] == 'H2':
+    misDict["mis_time"] =  misDict["sim_inspiral"].mkarray("h_end_time") + \
+      1e-9 * misDict["sim_inspiral"].mkarray("h_end_time_ns")
+    misDict["mis_dist"] =  misDict["sim_inspiral"].mkarray("eff_dist_h")
+  elif injDict["ifo"] == ('L1'):
+    misDict["mis_time"] =  misDict["sim_inspiral"].mkarray("l_end_time") + \
+      1e-9 * misDict["sim_inspiral"].mkarray("l_end_time_ns")
+    misDict["mis_dist"] =  misDict["sim_inspiral"].mkarray("eff_dist_l")
+
+  #
+  injSet["injections"] = injDict
+  injSet["missedinjs"] = misDict
+  injSets.append(injSet)
+
+############
+# TESTING OUTPUT
+#for set in injSets:
+#  for key in dict.keys():
+#    print set['injections']['sim_inspiral'].nevents()
+#    print set['injections']['sngl_inspiral'].nevents()
+#sys.exit(3)
+
+# set lists of plot symbols
+plot1symbol=['bx','b+']
+plot2symbol=['rx','r+']
+
+################################
+# plot of mchirp error vs mchirp
+if "mchirp" in plots:
+  figure(1)
+  sym=0
+  for set in injSets:
+    viz.plotdiff(set['injections']['sim_inspiral'], \
+                 set['injections']['sngl_inspiral'],\
+                 'mchirp', 'plot', 'M_sun', \
+                 [0,0,-chirp_axis,chirp_axis], myFigure)
+    hold(True) 
+    sym+=1
+
+###############################  
+# histogram of chirp mass error
+if "chirp_hist" in plots:
+  figure(2)
+  sym=0
+  for set in injSets:
+    viz.histdiff(set['injections']['sim_inspiral'], \
+                 set['injections']['sngl_inspiral'],\
+                 'mchirp', 'hist', 'M_sun', nbins, \
+                 chirp_width, myFigure)
+    hold(True) 
+    sym+=1
+
+################################
+# plot of timing error vs time
+if "time" in plots:
+  figure(3)
+  sym=0
+  for set in injSets:
+    viz.plotdiff(set['injections']['sim_inspiral'], \
+                 set['injections']['sngl_inspiral'],\
+                 'end_time', 'plot', 'seconds', \
+                 [0,0,-time_axis,time_axis], myFigure)
+    hold(True) 
+    sym+=1
+
+###############################  
+# histogram of timing error
+if "time_hist" in plots:
+  figure(4)
+  sym=0
+  for set in injSets:
+    viz.histdiff(set['injections']['sim_inspiral'], \
+                 set['injections']['sngl_inspiral'],\
+                 'end_time', 'hist', 'seconds', nbins,\
+                 time_width, myFigure)
+    hold(True) 
+    sym+=1
+
+################################
+# plot of distamce error vs dist
+if "dist" in plots:
+  figure(5)
+  sym=0
+  for set in injSets:
+    viz.plotfracdiff(set['injections']['sim_inspiral'], \
+                     set['injections']['sngl_inspiral'],\
+                     'eff_dist', 'log', 'Mpc', \
+                     [0,0,-dist_axis,dist_axis], myFigure)
+    hold(True) 
+    sym+=1
+
+###############################  
+# histogram of dist error
+if "dist_hist" in plots:
+  figure(6)
+  sym=0
+  for set in injSets:
+    viz.histdiff(set['injections']['sim_inspiral'], \
+                 set['injections']['sngl_inspiral'],\
+                 'eff_dist', 'frac_hist', 'Mpc', nbins, \
+                 dist_width, myFigure)
+    hold(True) 
+    sym+=1
+
+#######################################
+# plot of injected vs detected distamce    
+if "dist_dist" in plots:  
+  figure(7)
+  sym=0
+  for set in injSets:
+    viz.plotval(set['injections']['sim_inspiral'], \
+                set['injections']['sngl_inspiral'],\
+                'eff_dist', 'log', 'Mpc', 'Injected',\
+                'Recovered', [0,0,0,0], myFigure)
+    hold(True) 
+    sym+=1
+
+####################################################
+# plot of injected eff dist vs time for found/missed    
+if "found_missed" in plots:  
+  figure(8)
+  sym=0
+  for set in injSets:
+    semilogy(set['injections']['inj_time'],set['injections']['inj_dist'],\
+             plot1symbol[sym],label='Found')
+    hold(True)
+    semilogy(set['missedinjs']['mis_time'],set['missedinjs']['mis_dist'],\
+              plot2symbol[sym],label='Missed')
+    hold(True) 
+    sym+=1
+  legend()
+  title(set['injections']['ifo'] + ' Distance vs Time', size='x-large')
+  xlabel('Injected End Time (GPS seconds)', size='x-large')
+  ylabel('Injected Effective Distance (Mpc)', size='x-large')
+  #axis([min(inj_time), max(inj_time), \
+  #  0.95 * min(inj_dist), 1.05 * max(missed_dist)])
+  gca().grid(True)
+
+  if myFigure:
+    savefig(myFigure + '_' + set['injections']['ifo'] + "_found_missed.png")
+
+################################
+# plot of mchirp error vs mchirp
+if "chirp_dist" in plots:
+  figure(9)
+  sym=0
+  for set in injSets:
+    semilogx(set['injections']['inj_dist'],set['injections']['chirp_err'],\
+             plot1symbol[sym])
+    hold(True) 
+    sym+=1
+  title(set['injections']['ifo'] + ' Chirp Mass Accuracy', size='x-large')
+  xlabel('Injected Effective Distance (Mpc)', size='x-large')
+  ylabel('Detected - Injected Chirp Mass (M_sun)',size='x-large')
+  #if chirp_dist_axis:
+  #  axis([0.95*min(inj_dist), 1.05*max(inj_dist), \
+  #    - chirp_dist_axis, chirp_dist_axis])
+  #else:
+  #  axis([0.95 * min(inj_dist), 1.05 * max(inj_dist), \
+  #    (1.1 * min(chirp_err)),(1.1 * max(chirp_err))])
+  gca().grid(True)
+
+  if myFigure:
+    savefig(myFigure + '_' + ifo + "_chirp_mass_vs_dist.png")
+
+################################
+# plot of mchirp error vs mchirp
+if "time_dist" in plots:
+  figure(10)
+  sym=0
+  for set in injSets:
+    semilogx(set['injections']['inj_dist'],set['injections']['time_err'],\
+             plot1symbol[sym])
+    hold(True) 
+    sym+=1
+  title(set['injections']['ifo'] + ' End Time Accuracy', size='x-large')
+  xlabel('Injected Effective Distance (Mpc)', size='x-large')
+  ylabel('Detected - Injected End Time (ms)',size='x-large')
+  #if time_dist_axis:
+  #  axis([0.95*min(inj_dist), 1.05*max(inj_dist), \
+  #    - time_dist_axis, time_dist_axis])
+  #else:
+  #  axis([0.95 * min(inj_dist),1.05 * max(inj_dist), \
+  #    (1.1 * min(time_err)),(1.1 * max(time_err))])
+  gca().grid(True)
+
+  if myFigure:
+    savefig(myFigure + '_' + ifo + "_time_vs_dist.png")
+
+
+  
+if showflag:
+  show()
+   
+
+
