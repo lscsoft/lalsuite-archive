@@ -142,21 +142,6 @@ grid(True)
 eps=0.00001	# to prevent log(0) craziness.
 index=index+eps
 
-h=simInspTriggers.mkarray("eff_dist_h")
-hs=sort(h)
-
-l=simInspTriggers.mkarray("eff_dist_l")
-ls=sort(l)
-
-g=simInspTriggers.mkarray("eff_dist_g")
-gs=sort(g)
-
-t=simInspTriggers.mkarray("eff_dist_t")
-ts=sort(t)
-
-v=simInspTriggers.mkarray("eff_dist_v")
-vs=sort(v)
-
 loglog(hs, index, ls, index, gs, index, ts, index, vs, index)
 axis([eps, 40, eps, 300])
 xlabel('Effective Distance (Mpc)')
@@ -168,8 +153,14 @@ if myFigure:
 
 # new plot
 figure()
-P_x, x, dx = foo(30,1)
-plot( x, P_x*dx )
+P_x, x, dx = foo(50,1)
+#plot( x, P_x*dx )
+#axis([0, len(x), 0, 1])
+
+N_f = [len([ e for e in simInspTriggers.table if (-0.5 < e["eff_dist_h"] - i <= 0.5 )]) for i in x]
+print >> sys.stderr, N_f
+
+plot( x, P_x*N_f*dx )
 axis([0, len(x), 0, 1])
 
 if showflag:
