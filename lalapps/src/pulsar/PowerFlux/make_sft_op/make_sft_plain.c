@@ -23,7 +23,7 @@
 
 extern long total_samples;
 extern long samples_per_second;
-extern float *data;
+extern double *data;
 extern INT64 gps_start, gps_end;
 extern char * channel;
 extern int precision;
@@ -63,9 +63,8 @@ MAKE_SFT_WINDOW window2={
 	debug: NULL
 	};
 
-REAL4Vector *td_data=NULL, *power=NULL;
-COMPLEX8Vector *phi[3]={NULL,NULL,NULL};
-COMPLEX8Vector *pgram=NULL;
+REAL8Vector *td_data=NULL;
+REAL4Vector *power=NULL;
 
 void print_settings(FILE *f)
 {
@@ -104,9 +103,11 @@ long i;
 double window_sum, window_sum_inv;
 LALStatus status={level:0, statusPtr: NULL};
 PassBandParamStruc filterpar;
-REAL4TimeSeries chan; /* must zero the f0 field */
-RealFFTPlan *fft_plan=NULL;
-COMPLEX8Vector *fft=NULL;
+REAL8TimeSeries chan; /* must zero the f0 field */
+REAL8FFTPlan *fft_plan=NULL;
+COMPLEX16Vector *fft=NULL;
+COMPLEX8Vector *fft2=NULL;
+double total_power;
 
 fprintf(stderr,"make_sft_op version %s\n", MAKE_SFT_VERSION);
 fprintf(stderr,"Using frame library %s\n", FrLibVersionF());
@@ -157,7 +158,7 @@ chan.epoch.gpsNanoSeconds=0;
 
 if(trace_power){
 	fprintf(stderr, "Input data total power=%.*g\n",
-		precision, sum_r4_squares(data, total_samples)/samples_per_second);
+		precision, sum_r8_squares(data, total_samples)/samples_per_second);
 	}
 
 if(!bypass_highpass_filter && (highpass_filter_f>0) && (highpass_filter_a>0)){
@@ -172,14 +173,14 @@ if(!bypass_highpass_filter && (highpass_filter_f>0) && (highpass_filter_a>0)){
 	filterpar.f1=-1.0;
 	filterpar.a1=-1.0;
 	
-	/* REAL4Sequence is the same as REAL4Vector - according to lal/Datatypes.h */
-	chan.data=(REAL4Sequence *)td_data;
-	LALDButterworthREAL4TimeSeries(&status, &chan, &filterpar);
+	/* REAL8Sequence is the same as REAL8Vector - according to lal/Datatypes.h */
+	chan.data=(REAL8Sequence *)td_data;
+	LALButterworthREAL8TimeSeries(&status, &chan, &filterpar);
 	TESTSTATUS(&status);
 
 	if(trace_power){
 		fprintf(stderr, "After highpass filter total power=%.*g\n",
-			precision, sum_r4_squares(data, total_samples)/samples_per_second);
+			precision, sum_r8_squares(data, total_samples)/samples_per_second);
 		}
 	}
 	
@@ -199,14 +200,14 @@ if(!bypass_lowpass_filter && (lowpass_filter_f>0) && (lowpass_filter_a > 0)){
 	   The maximum frequency is Nyquist, hence 2*nsamples is definitely out of range */
 	filterpar.f2=2*total_samples;
 	filterpar.a2=-1.0;
-		/* REAL4Sequence is the same as REAL4Vector - according to lal/Datatypes.h */
-	chan.data=(REAL4Sequence *)td_data;
-	LALDButterworthREAL4TimeSeries(&status, &chan, &filterpar);
+		/* REAL8Sequence is the same as REAL8Vector - according to lal/Datatypes.h */
+	chan.data=(REAL8Sequence *)td_data;
+	LALButterworthREAL8TimeSeries(&status, &chan, &filterpar);
 	TESTSTATUS(&status);
 
 	if(trace_power){
 		fprintf(stderr, "After lowpass filter total power=%.*g\n",
-			precision, sum_r4_squares(data, total_samples)/samples_per_second);
+			precision, sum_r8_squares(data, total_samples)/samples_per_second);
 		}
 	}
 
@@ -220,32 +221,43 @@ if(!bypass_first_window){
 
 if(trace_power){
 	fprintf(stderr, "After windowing total power=%.*g\n",
-		precision, sum_r4_squares(data, total_samples)/samples_per_second);
+		precision, sum_r8_squares(data, total_samples)/samples_per_second);
 	}
 
-LALCCreateVector(&status, &fft, td_data->length/2+1);
+LALZCreateVector(&status, &fft, td_data->length/2+1);
 TESTSTATUS(&status);
 
-LALCreateForwardRealFFTPlan(&status, &fft_plan, td_data->length, 0);
+LALCreateForwardREAL8FFTPlan(&status, &fft_plan, td_data->length, 0);
 TESTSTATUS(&status);
 
-LALForwardRealFFT(&status, fft, td_data, fft_plan);
+LALForwardREAL8FFT(&status, fft, td_data, fft_plan);
 TESTSTATUS(&status);
 
+
+LALCCreateVector(&status, &fft2, freq_stop-freq_start);
+TESTSTATUS(&status);
+
+LALSCreateVector(&status, &power, freq_stop-freq_start);
+TESTSTATUS(&status);
+
+/* free time domain data - we don't need it anymore */
+free(data);
+
+/* Normalize the SFT and convert to REAL4 - we only touch the bins we care about, no reason to waste CPU cycles */
 window_sum_inv=1.0/window_sum;
-/* Normalize SFT - we only touch the bins we care about, no reason to waste CPU cycles */
+total_power=0;
 for(i=freq_start;i<freq_stop;i++){
-	fft->data[i].re*=window_sum_inv;
-	fft->data[i].im*=window_sum_inv;
-	}
+		fft2->data[i-freq_start].re=fft->data[i].re*window_sum_inv;
+		fft2->data[i-freq_start].im=fft->data[i].im*window_sum_inv;
+		power->data[i-freq_start]=(fft2->data[i-freq_start].re*fft2->data[i-freq_start].re+fft2->data[i-freq_start].im*fft2->data[i-freq_start].im);
+		total_power+=power->data[i-freq_start]+fft->data[i].re*fft->data[i].re+fft->data[i].im*fft->data[i].im;
+		}
+fprintf(stderr, "Power in active range: %g\n", total_power);
 
-print_COMPLEX8Vector(fft, output_sft, "CALIBRATED FREQUENCY DOMAIN DATA", output_mode, freq_start, freq_stop);
+
+print_COMPLEX8Vector(fft2, output_sft, "CALIBRATED FREQUENCY DOMAIN DATA", output_mode, 0, freq_stop-freq_start);
 
 if(output_power!=NULL){
-	LALSCreateVector(&status, &power, freq_stop-freq_start);
-	TESTSTATUS(&status);
-	for(i=freq_start;i<freq_stop;i++)
-		power->data[i-freq_start]=(fft->data[i].re*fft->data[i].re+fft->data[i].im*fft->data[i].im);
 	print_REAL4Vector(power, output_power, "CALIBRATED POWER", output_mode, 0, freq_stop-freq_start);
 	}
 

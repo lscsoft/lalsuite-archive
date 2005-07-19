@@ -60,12 +60,44 @@ while(p==NULL){
 return p;
 }
 
+int c_r8(REAL8 *a, REAL8 *b)
+{
+if(*a<*b)return -1;
+if(*a>*b)return 1;
+return 0;
+}
+
+REAL8 sum_r8_squares(REAL8 *array, long count)
+{
+int i,c;
+REAL8 *squares, a;
+squares=do_alloc(count, sizeof(*squares));
+for(i=0;i<count;i++)squares[i]=array[i]*array[i];
+qsort(squares, count, sizeof(*squares), c_r8);
+c=count;
+while(c>1){
+	for(i=0;(i+2)<=c;i+=2){
+		squares[i>>1]=squares[i]+squares[i+1];
+		}
+	if(c & 1){
+		squares[(c>>1)]=squares[c-1];
+		c=(c>>1)+1;
+		} else {
+		c=(c>>1);
+		}
+	}
+a=squares[0];
+free(squares);
+return a;
+}
+
 int c_r4(REAL4 *a, REAL4 *b)
 {
 if(*a<*b)return -1;
 if(*a>*b)return 1;
 return 0;
 }
+
 
 REAL4 sum_r4_squares(REAL4 *array, long count)
 {
@@ -352,6 +384,7 @@ switch(mode){
 	}
 fclose(f);
 }
+
 
 char *dup_quoted_name(char *p)
 {

@@ -83,6 +83,7 @@ char *dup_quoted_name(char *p);
 
 void *do_alloc(long a, long b);
 
+REAL8 sum_r8_squares(REAL8 *array, long count);
 REAL4 sum_r4_squares(REAL4 *array, long count);
 
 REAL4 sum_positive_r4(REAL4 *array, long count);

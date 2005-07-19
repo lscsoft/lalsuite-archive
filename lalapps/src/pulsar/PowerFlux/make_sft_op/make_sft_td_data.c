@@ -44,7 +44,12 @@ INT64 gps_start=-1, gps_end=-1;
 long samples_per_second=-1;
 
 /* data we read from the frames */
+#ifdef DOUBLE_DATA
+double *data=NULL;
+#else
 float *data=NULL;
+#endif
+
 /* bitmap that indicates which data is present */
 unsigned char *data_present=NULL;
 /* bitmap that indicates valid data segments */
@@ -296,7 +301,11 @@ switch(vect->type){
 void assimilate_data(FrVect *vect)
 {
 long i;
-float *p1;
+#ifdef DOUBLE_DATA
+	double *p1;
+#else
+	float *p1;
+#endif
 float *p2;
 unsigned char *p3;
 double *p2d;

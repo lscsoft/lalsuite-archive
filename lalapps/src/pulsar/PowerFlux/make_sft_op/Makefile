@@ -81,7 +81,7 @@ make_sft_op: make_sft_op.c make_sft_op_conf.c make_sft_global.h make_sft_calibra
 
 make_sft_plain: make_sft_plain.c make_sft_op_conf.c make_sft_global.h make_sft_calibration.c\
 	make_sft_utils.c make_sft_td_data.c
-	$(CC) -static $(CFLAGS) $(LDFLAGS) make_sft_plain.c make_sft_op_conf.c make_sft_calibration.c \
+	$(CC) -static $(CFLAGS) $(LDFLAGS) -DDOUBLE_DATA make_sft_plain.c make_sft_op_conf.c make_sft_calibration.c \
 	op_method.c make_sft_utils.c make_sft_td_data.c \
 	-o make_sft_plain  -lFrame  -llal -llalsupport -lm  -lfftw3f -lfftw3
 	ls -l make_sft_plain
