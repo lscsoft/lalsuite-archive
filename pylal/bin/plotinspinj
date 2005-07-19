@@ -203,7 +203,8 @@ if "mchirp" in plots:
                  [0,0,-chirp_axis,chirp_axis], myFigure)
     hold(True) 
     sym+=1
-  legend(tags)
+  if tags:
+    legend(tags)
   
 ###############################  
 # histogram of chirp mass error
@@ -216,7 +217,8 @@ if "chirp_hist" in plots:
                  nbins, chirp_axis, myFigure)
     hold(True) 
     sym+=1
-  legend(tags)
+  if tags:
+    legend(tags)
 
 ################################
 # plot of timing error vs time
@@ -229,7 +231,8 @@ if "time" in plots:
                  [0,0,-time_axis,time_axis], myFigure)
     hold(True) 
     sym+=1
-  legend(tags)
+  if tags:
+    legend(tags)
 
 
 
@@ -244,7 +247,8 @@ if "time_hist" in plots:
                  time_axis, myFigure)
     hold(True) 
     sym+=1
-  legend(tags)
+  if tags:
+    legend(tags)
 
 ################################
 # plot of distamce error vs dist
@@ -257,7 +261,8 @@ if "dist" in plots:
                      [0,0,-dist_axis,dist_axis], myFigure)
     hold(True) 
     sym+=1
-  legend(tags)
+  if tags:
+    legend(tags)
 
 ###############################  
 # histogram of dist error
@@ -270,6 +275,8 @@ if "dist_hist" in plots:
                  dist_axis, myFigure)
     hold(True) 
     sym+=1
+  if tags:
+    legend(tags)
   legend(tags)
 
 #######################################
@@ -284,7 +291,8 @@ if "dist_dist" in plots:
                 'Recovered', [0,0,0,0], myFigure)
     hold(True) 
     sym+=1
-  legend(tags)
+  if tags:
+    legend(tags)
 
 ################################
 # plot of mchirp error vs eff_dist
@@ -298,7 +306,8 @@ if "chirp_dist" in plots:
                  myFigure)
     hold(True) 
     sym+=1
-  legend(tags)
+  if tags:
+    legend(tags)
 
 
 ################################
@@ -313,7 +322,8 @@ if "time_dist" in plots:
                  myFigure)
     hold(True) 
     sym+=1
-  legend(tags)
+  if tags:
+    legend(tags)
 
 
 ################################
@@ -328,7 +338,8 @@ if "chirp_snr" in plots:
                  myFigure)
     hold(True) 
     sym+=1
-  legend(tags)
+  if tags:
+    legend(tags)
 
 ################################
 # plot of mchirp error vs snr
@@ -342,7 +353,8 @@ if "time_snr" in plots:
                  myFigure)
     hold(True) 
     sym+=1
-  legend(tags)
+  if tags:
+    legend(tags)
 
  
 if showflag:
