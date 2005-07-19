@@ -154,14 +154,14 @@ if myFigure:
 # new plot
 figure()
 P_x, x, dx = foo(50,1)
-#plot( x, P_x*dx )
-#axis([0, len(x), 0, 1])
 
-N_f = [len([ e for e in simInspTriggers.table if (-0.5 < e["eff_dist_h"] - i <= 0.5 )]) for i in x]
-print >> sys.stderr, N_f
+n_g = [len([ e for e in simInspTriggers.table if (-0.5 < e["eff_dist_h"] - i <= 0.5 )]) for i in x]
+print >> sys.stderr, n_g
 
-plot( x, P_x*N_f*dx )
+plot( x, P_x*n_g*dx )
 axis([0, len(x), 0, 1])
+xlabel('eff_dist_h (Mpc)')
+ylabel('N_G?')
 
 if showflag:
   show()
