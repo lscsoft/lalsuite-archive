@@ -254,7 +254,7 @@ def plotdiffa_vs_b(table1, table2, col_name_a, col_name_b, plot_type,
   if output_name:
     if ifo:
       output_name += '_' + ifo
-    output_name += '_' + col_name + '_frac_accuracy.png'
+    output_name += '_' + col_name_a + 'vs' + col_name_b + '_accuracy.png'
     savefig(output_name)
  
 
