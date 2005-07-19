@@ -36,6 +36,7 @@ Usage: plotinspinj [options] [trigs1 trigs2]
     -v, --version             display version information
     -s, --show                display the figures on the terminal.
     -n, --nbins       NBINS   number of bins for the histogram plots
+    -f, --figure-name FNAME   the identifier with which the fig names start
     -a, --plot-mchirp         plot the chirp mass accuracy
     -b, --hist-mchirp         histogram of the chirp mass accuracy
     -c, --plot-timing         plot of the timing accuracy
@@ -59,7 +60,7 @@ Usage: plotinspinj [options] [trigs1 trigs2]
 
 
 # grab command line options
-shortop = "abcdhijkn:opqrsC:D:E:F:G:H;"
+shortop = "abcdf:hijkn:opqrsC:D:E:F:G:H;"
 longop = [
   "nbins=",
   "figure-name=",
