@@ -2,7 +2,7 @@
 
 import sys
 import os
-import getopt
+from optparse import *
 import re
 import exceptions
 import glob
@@ -12,146 +12,71 @@ from pylab import *
 from lgen import readMeta
 from lgen import viz
 
-
 ##############################################################################
-# help message
+usage = """usage: %prog [options] file1 (file2 file3)
 
+Inspiral Injection Plotting Functions
 
-def usage():
-  msg = """\
-Usage: plotinspinj [options] [trigs1 trigs2]
+Generate a set of summary plots from triggers and found injections stored as
+sngl_inspiral and sim_inspiral table in LIGO lightweight format
+respectively.  The plots can be turned on by selecting them.  For plots, the
+AXIS must be specified (this is the Y-axis scale).  If either AXIS = 0 then
+the range is set automatically.  The WIDTH of the histograms must also be
+specified.  If either AXIS = 0 then the range is set automatically.
 
-  SUMMARY:  
-  
-  Generate a set of summary plots from triggers and found injections stored as
-  sngl_inspiral and sim_inspiral table in LIGO lightweight format
-  respectively.  The plots can be turned on by selecting them.  For plots, the
-  AXIS must be specified (this is the Y-axis scale).  If either AXIS = 0 then
-  the range is set automatically.  The WIDTH of the histograms must also be
-  specified.  If either AXIS = 0 then the range is set automatically.
-
-  OPTIONS:
-  
-    -h, --help                display this message
-    -v, --version             display version information
-    -s, --show                display the figures on the terminal.
-    -n, --nbins       NBINS   number of bins for the histogram plots
-    -f, --figure-name FNAME   the identifier with which the fig names start
-    -a, --plot-mchirp         plot the chirp mass accuracy
-    -b, --hist-mchirp         histogram of the chirp mass accuracy
-    -c, --plot-timing         plot of the timing accuracy
-    -d, --hist-timing         histogram of the timing accuracy
-    -i, --plot-dist           plot of the effective distance accuracy
-    -j, --hist-dist           histogram of the effective distance accuracy
-    -k, --dist-dist           plot of injected vs recovered distance
-    -o, --chirp-dist          plot of chirp mass accuracy vs effective dist
-    -p, --time-dist           plot of timing accuracy vs effective dist
-    -q, --chirp-snr           plot of chirp mass accuracy vs snr
-    -r, --time-snr            plot of timing accuracy vs snr
-    -C, --chirp-axis  M_SUN   width of chirp mass accuracy in plots
-    -D, --dist-axis   FRAC_DIFF width of distance accuracy in plots
-    -E, --time-axis   SEC     width of timing accuracy in plots
-    -F, --tag-one     TAG1    identifier for first input file
-    -G, --tag-two     TAG2    identifier for second input file
-    -H, --tag-three   TAG3    identifier for third input file
-
+Example 1: ...
+Example 2: ...
 """
-  print >> sys.stderr, msg
+parser = OptionParser( usage )
+parser.add_option("-v","--version",action="store_true",default=False,\
+    help="display version information " )
+parser.add_option("-a","--plot-mchirp",action="store_true",default=False,\
+    help="plot the chirp mass accuracy" )
+parser.add_option("-b","--hist-mchirp",action="store_true",default=False,\
+    help="histogram of the chirp mass accuracy" )
+parser.add_option("-c","--plot-timing",action="store_true",default=False,\
+    help="plot of the timing accuracy" )
+parser.add_option("-d","--hist-timing",action="store_true",default=False,\
+    help="histogram of the timing accuracy" )
+parser.add_option("-i","--plot-dist",action="store_true",default=False,\
+    help="plot of the effective distance accuracy" )
+parser.add_option("-j","--hist-dist",action="store_true",default=False,\
+    help="histogram of the effective distance accuracy" )
+parser.add_option("-k","--dist-dist",action="store_true",default=False,\
+    help="plot of injected vs recovered distance" )
+parser.add_option("-o","--chirp-dist",action="store_true",default=False,\
+    help="plot of chirp mass accuracy vs effective dist" )
+parser.add_option("-p","--time-dist",action="store_true",default=False,\
+    help="plot of timing accuracy vs effective dist" )
+parser.add_option("-q","--chirp-snr",action="store_true",default=False,\
+    help="plot of chirp mass accuracy vs snr" )
+parser.add_option("-r","--time-snr",action="store_true",default=False,\
+    help="plot of timing accuracy vs snr" )
+parser.add_option("-C","--chirp-axis",action="store",type="float",\
+    default=0, metavar=" M_SUN",help="width of chirp mass accuracy in plots" )
+parser.add_option("-D","--dist-axis",action="store",type="float",\
+    default=0, metavar=" FRAC_DIFF",help="width of distance accuracy in plots" )
+parser.add_option("-E","--time-axis",action="store",type="float",\
+    default=0, metavar=" SEC",help="width of timing accuracy in plots" )
+parser.add_option("-F","--tag-one",action="store",type="string",\
+    default=None, metavar=" TAG1",help="identifier for first input file" )
+parser.add_option("-G","--tag-two",action="store",type="string",\
+    default=None, metavar=" TAG2",help="identifier for second input file" )
+parser.add_option("-H","--tag-three",action="store",type="string",\
+    default=None, metavar=" TAG3",help="identifier for third input file" )
+parser.add_option("-s","--show-plot",action="store_true",default=False,\
+    help="display the figures on the terminal" )
+parser.add_option("-n","--nbins",action="store",type="int",default=10,\
+    metavar=" NBINS", help="number of bins for the histogram plots" )
+parser.add_option("-f","--figure-name",action="store",type="string",\
+    default=None, metavar=" FNAME",\
+    help="generate png figures with name FNAME-fig.png" ) 
 
+(opts,args) = parser.parse_args()
 
-# grab command line options
-shortop = "abcdf:hijkn:opqrsC:D:E:F:G:H;"
-longop = [
-  "nbins=",
-  "figure-name=",
-  "plot-mchirp",
-  "hist-mchirp",
-  "plot-timing",
-  "hist-timing",
-  "plot-dist",
-  "hist-dist",
-  "dist-dist",
-  "found-missed",
-  "chirp-dist",
-  "time-dist",
-  "chirp-snr",
-  "time-snr",
-  "chirp-axis=",
-  "dist-axis=",
-  "time-axis=",
-  "tag-one=",
-  "tag-two=",
-  "tag-three=",
-  "help",
-  "show"]
-
-try:
-  opts, args = getopt.getopt(sys.argv[1:], shortop, longop)
-except getopt.GetoptError:
-  print >>sys.stderr, "Error parsing command line"
-  print >>sys.stderr, "Enter 'plotinspinj --help' for usage"
-  sys.exit(1)
-
-# defaul values
-trigFile = []
-plots = []
-
-myFigure = None
-showflag = 0
-nbins = 10
-chirp_axis = 0
-dist_axis = 0
-time_axis = 0
-tag_one = None
-tag_two = None
-tag_three = None
-
-for o, a in opts:
-  if o in ("-h", "--help"):
-    usage()
-    sys.exit(0)
-  elif o in ("-v", "--version"):
-    sys.exit(0)
-  elif o in ("-a", "--plot-mchirp"):
-    plots.append("mchirp")
-  elif o in ("-b", "--hist-mchirp"):
-    plots.append("chirp_hist")
-  elif o in ("-c", "--plot-timing"):
-    plots.append("time")
-  elif o in ("-d", "--hist-timing"):
-    plots.append("time_hist")
-  elif o in ("-i", "--plot-dist"):
-    plots.append("dist")
-  elif o in ("-j", "--hist-dist"):
-    plots.append("dist_hist")
-  elif o in ("-k", "--dist-dist"):
-    plots.append("dist_dist")
-  elif o in ("-o", "--chirp-dist"):
-    plots.append("chirp_dist")
-  elif o in ("-p", "--time-dist"):
-    plots.append("time_dist")
-  elif o in ("-q", "--chirp-snr"):
-    plots.append("chirp_snr")
-  elif o in ("-r", "--time-snr"):
-    plots.append("time_snr")
-  elif o in ("-C", "--chirp-axis"):
-    chirp_axis = float(a)
-  elif o in ("-D", "--dist-axis"):
-    dist_axis = float(a)
-  elif o in ("-E", "--time-axis"):
-    time_axis = float(a)
-  elif o in ("-F", "--tag-one"):
-    tag_one = a
-  elif o in ("-G", "--tag-two"):
-    tag_two = a
-  elif o in ("-H", "--tag-three"):
-    tag_three = a
-  elif o in ("-f", "--figure-name"):
-    myFigure = a
-  elif o in ("-n", "--nbins"):
-    nbins = int(a)
-  elif o in ("-s", "--show"):
-    showflag = 1
+# if --version flagged
+if opts.version:
+  sys.exit(0)
 
 # check at least one trig file was specified
 if not args:
@@ -162,12 +87,12 @@ if not args:
 injFiles = args        
 
 tags = []
-if tag_one:
-  tags.append(tag_one)
-  if tag_two:
-    tags.append(tag_two)
-    if tag_three:
-      tags.append(tag_three)
+if opts.tag_one:
+  tags.append(opts.tag_one)
+  if opts.tag_two:
+    tags.append(opts.tag_two)
+    if opts.tag_three:
+      tags.append(opts.tag_three)
       
 # read in tables into dictionaries of paired sets
 injSets = []
@@ -182,7 +107,7 @@ for i in range(len(injFiles)):
   #
   # test sire clustering
   if injDict['sngl_inspiral'].nevents() != injDict['sim_inspiral'].nevents():
-    print >>sys.stderr, "number of triggers and found injections must be equal"
+    print >>sys.stderr,"number of triggers and found injections must be equal"
     sys.exit(1)
   #
   injSets.append(injDict)
@@ -194,13 +119,13 @@ histcolors = ['r','b','k']
 
 ################################
 # plot of mchirp error vs mchirp
-if "mchirp" in plots:
+if opts.plot_mchirp:
   figure(1)
   sym=0
   for set in injSets:
     viz.plotdiff(set['sim_inspiral'], set['sngl_inspiral'],\
                  'mchirp', 'plot', plotsymbols[sym], 'M_sun', \
-                 [0,0,-chirp_axis,chirp_axis], myFigure)
+                 [0,0,-opts.chirp_axis,opts.chirp_axis], opts.figure_name)
     hold(True) 
     sym+=1
   if tags:
@@ -208,13 +133,13 @@ if "mchirp" in plots:
   
 ###############################  
 # histogram of chirp mass error
-if "chirp_hist" in plots:
+if opts.hist_mchirp:
   figure(2)
   sym=0
   for set in injSets:
     viz.histdiff(set['sim_inspiral'], set['sngl_inspiral'],\
                  'mchirp', 'hist', sym,'M_sun', \
-                 nbins, chirp_axis, myFigure)
+                 opts.nbins, opts.chirp_axis, opts.figure_name)
     hold(True) 
     sym+=1
   if tags:
@@ -222,13 +147,13 @@ if "chirp_hist" in plots:
 
 ################################
 # plot of timing error vs time
-if "time" in plots:
+if opts.plot_timing:
   figure(3)
   sym=0
   for set in injSets:
     viz.plotdiff(set['sim_inspiral'], set['sngl_inspiral'],\
                  'end_time', 'plot', plotsymbols[sym],'seconds', \
-                 [0,0,-time_axis,time_axis], myFigure)
+                 [0,0,-opts.time_axis,opts.time_axis], opts.figure_name)
     hold(True) 
     sym+=1
   if tags:
@@ -238,13 +163,13 @@ if "time" in plots:
 
 ###############################  
 # histogram of timing error
-if "time_hist" in plots:
+if opts.hist_timing:
   figure(4)
   sym=0
   for set in injSets:
     viz.histdiff(set['sim_inspiral'], set['sngl_inspiral'],\
-                 'end_time', 'hist', sym, 'seconds', nbins,\
-                 time_axis, myFigure)
+                 'end_time', 'hist', sym, 'seconds',opts.nbins,\
+                 opts.time_axis, opts.figure_name)
     hold(True) 
     sym+=1
   if tags:
@@ -252,13 +177,13 @@ if "time_hist" in plots:
 
 ################################
 # plot of distamce error vs dist
-if "dist" in plots:
+if opts.plot_dist:
   figure(5)
   sym=0
   for set in injSets:
     viz.plotfracdiff(set['sim_inspiral'], set['sngl_inspiral'],\
                      'eff_dist', 'log', plotsymbols[sym], 'Mpc', \
-                     [0,0,-dist_axis,dist_axis], myFigure)
+                     [0,0,-opts.dist_axis,opts.dist_axis], opts.figure_name)
     hold(True) 
     sym+=1
   if tags:
@@ -266,13 +191,13 @@ if "dist" in plots:
 
 ###############################  
 # histogram of dist error
-if "dist_hist" in plots:
+if opts.hist_dist:
   figure(6)
   sym=0
   for set in injSets:
     viz.histdiff(set['sim_inspiral'], set['sngl_inspiral'],\
-                 'eff_dist', 'frac_hist', sym, 'Mpc', nbins, \
-                 dist_axis, myFigure)
+                 'eff_dist', 'frac_hist', sym, 'Mpc', opts.nbins, \
+                 opts.dist_axis, opts.figure_name)
     hold(True) 
     sym+=1
   if tags:
@@ -281,14 +206,14 @@ if "dist_hist" in plots:
 
 #######################################
 # plot of injected vs detected distamce    
-if "dist_dist" in plots:  
+if opts.dist_dist:  
   figure(7)
   sym=0
   for set in injSets:
     viz.plotval(set['sim_inspiral'], \
                 set['sngl_inspiral'],\
                 'eff_dist', 'log', 'Mpc', 'Injected',\
-                'Recovered', [0,0,0,0], myFigure)
+                'Recovered', [0,0,0,0], opts.figure_name)
     hold(True) 
     sym+=1
   if tags:
@@ -296,14 +221,14 @@ if "dist_dist" in plots:
 
 ################################
 # plot of mchirp error vs eff_dist
-if "chirp_dist" in plots:
+if opts.chirp_dist:
   figure(8)
   sym=0
   for set in injSets:
     viz.plotdiffa_vs_b(set['sim_inspiral'], set['sngl_inspiral'],\
                  'mchirp', 'eff_dist', 'log', plotsymbols[sym], \
-                 'M_sun','Mpc', [0,0,-chirp_axis,chirp_axis], \
-                 myFigure)
+                 'M_sun','Mpc', [0,0,-opts.chirp_axis,opts.chirp_axis], \
+                 opts.figure_name)
     hold(True) 
     sym+=1
   if tags:
@@ -312,14 +237,14 @@ if "chirp_dist" in plots:
 
 ################################
 # plot of mchirp error vs mchirp
-if "time_dist" in plots:
+if opts.time_dist:
   figure(9)
   sym=0
   for set in injSets:
     viz.plotdiffa_vs_b(set['sim_inspiral'], set['sngl_inspiral'],\
                  'end_time', 'eff_dist', 'log', plotsymbols[sym], \
-                 'seconds','Mpc', [0,0,-time_axis,time_axis], \
-                 myFigure)
+                 'seconds','Mpc', [0,0,-opts.time_axis,opts.time_axis], \
+                 opts.figure_name)
     hold(True) 
     sym+=1
   if tags:
@@ -328,14 +253,14 @@ if "time_dist" in plots:
 
 ################################
 # plot of mchirp error vs snr
-if "chirp_snr" in plots:
+if opts.chirp_snr:
   figure(10)
   sym=0
   for set in injSets:
     viz.plotdiffa_vs_b(set['sngl_inspiral'], set['sim_inspiral'],\
                  'mchirp', 'snr', 'log', plotsymbols[sym], \
-                 'M_sun',None, [0,0,-chirp_axis,chirp_axis], \
-                 myFigure)
+                 'M_sun',None, [0,0,-opts.chirp_axis,opts.chirp_axis], \
+                 opts.figure_name)
     hold(True) 
     sym+=1
   if tags:
@@ -343,19 +268,19 @@ if "chirp_snr" in plots:
 
 ################################
 # plot of mchirp error vs snr
-if "time_snr" in plots:
+if opts.time_snr:
   figure(11)
   sym=0
   for set in injSets:
     viz.plotdiffa_vs_b(set['sngl_inspiral'], set['sim_inspiral'],\
                  'end_time', 'snr', 'log', plotsymbols[sym], \
-                 'seconds',None, [0,0,-time_axis,time_axis], \
-                 myFigure)
+                 'seconds',None, [0,0,-opts.time_axis,opts.time_axis], \
+                 opts.figure_name)
     hold(True) 
     sym+=1
   if tags:
     legend(tags)
 
  
-if showflag:
+if opts.show_plot:
   show()
