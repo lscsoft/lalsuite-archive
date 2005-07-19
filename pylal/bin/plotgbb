@@ -33,7 +33,7 @@ Usage: plotsimInspiral [options]
     -h, --help              display this message
   
     -g, --glob STRING       filename glob, e.g. \"H1-INSPIRAL-*.xml\"
-    -f, --figure STRING     generate png figures with name STRING-fig.png
+    -f, --figure STRING     generate ps figures with name STRING.ps
     -t, --title TITLE       title string for plots
     -s, --show              display the figures on the terminal.
 
@@ -41,6 +41,17 @@ Usage: plotsimInspiral [options]
   print >> sys.stderr, msg
 
 
+
+##############################################################################
+# temp "file"
+def foo(max, dx):
+# returns x, dx
+  x  = arange(0,max,dx)
+
+  return 1.0/(x+1.0)**2.0, x, dx
+
+
+##############################################################################
 # grab command line options
 shortop = "b:f:g:hst:"
 longop = [
@@ -153,6 +164,13 @@ ylabel('N_G')
 legend( ('Hanford', 'Livingston', 'GEO', 'TAMA', 'VIRGO'), loc=0)
 if myFigure:
   savefig(myFigure + "_loglog.ps")
+
+
+# new plot
+figure()
+P_x, x, dx = foo(30,1)
+plot( x, P_x*dx )
+axis([0, len(x), 0, 1])
 
 if showflag:
   show()
