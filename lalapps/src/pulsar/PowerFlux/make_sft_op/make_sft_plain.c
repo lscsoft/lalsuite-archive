@@ -250,7 +250,7 @@ for(i=freq_start;i<freq_stop;i++){
 		fft2->data[i-freq_start].re=fft->data[i].re*window_sum_inv;
 		fft2->data[i-freq_start].im=fft->data[i].im*window_sum_inv;
 		power->data[i-freq_start]=(fft2->data[i-freq_start].re*fft2->data[i-freq_start].re+fft2->data[i-freq_start].im*fft2->data[i-freq_start].im);
-		total_power+=power->data[i-freq_start]+fft->data[i].re*fft->data[i].re+fft->data[i].im*fft->data[i].im;
+		total_power+=power->data[i-freq_start];
 		}
 fprintf(stderr, "Power in active range: %g\n", total_power);
 
