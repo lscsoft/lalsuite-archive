@@ -203,6 +203,8 @@ class LIGOTimeGPS(object):
 		"""
 		return LIGOTimeGPS(self.seconds * other, self.nanoseconds * other)
 
+	__rmul__ = __mul__
+
 	def __div__(self, other):
 		"""
 		Divide a LIGOTimeGPS by a number.
