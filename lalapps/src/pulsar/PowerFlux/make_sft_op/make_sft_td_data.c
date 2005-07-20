@@ -338,7 +338,7 @@ switch(vect->type){
 		bit=offset&7;
 		i=0;
 		if(bit){
-			*p3|=((1<<(bit))-1)<<(8-(bit));
+			*p3|=((1<<(8-bit))-1)<<bit;
 			p3++;
 			for(;(bit)&&(i<nsamples);i++,bit--){ COPY_REAL }
 			}
@@ -370,7 +370,7 @@ switch(vect->type){
 		bit=offset&7;
 		i=0;
 		if(bit){
-			*p3|=((1<<(bit))-1)<<(8-(bit));
+			*p3|=((1<<(8-bit))-1)<<bit;
 			p3++;
 			for(;(bit)&&(i<nsamples);i++,bit--){ COPY_REAL }
 			}
