@@ -17,7 +17,7 @@ from lgen import readMeta
 
 def usage():
   msg = """\
-Usage: plotsimInspiral [options]
+Usage: plotgbb [options]
 
   SUMMARY:  
   
@@ -44,10 +44,9 @@ Usage: plotsimInspiral [options]
 
 ##############################################################################
 # temp "file"
-def foo(max, dx):
+def makeData(max, dx):
 # returns P(x), x, dx
   x  = arange(0,max,dx)
-
   return 1.0/(x+1.0)**2.0, x, dx
 
 
@@ -108,9 +107,6 @@ simInspTriggers=readMeta.metaDataTable(myfiles, "sim_inspiral")
 # The following line determines the number of sources named GBB.
 numSources = len([e for e in simInspTriggers.table if (re.match("GBB",e["source"]))])
 
-hold(True)
-grid(True)
-
 h=simInspTriggers.mkarray("eff_dist_h")
 index=arange(0,len(h))*7.45/numSources
 hs=sort(h)
@@ -128,6 +124,7 @@ v=simInspTriggers.mkarray("eff_dist_v")
 vs=sort(v)
 
 plot(hs, index, ls, index, gs, index, ts, index, vs, index)
+grid(True)
 axis([0, 40, 0, 300])
 xlabel('Effective Distance (Mpc)')
 ylabel('N_G')
@@ -137,12 +134,11 @@ if myFigure:
 
 # make a loglog plot.
 figure()
-hold(True)
-grid(True)
 eps=0.00001	# to prevent log(0) craziness.
 index=index+eps
 
 loglog(hs, index, ls, index, gs, index, ts, index, vs, index)
+grid(True)
 axis([1, 40, 1, 300])
 xlabel('Effective Distance (Mpc)')
 ylabel('N_G')
@@ -151,16 +147,18 @@ if myFigure:
   savefig(myFigure + "_loglog.ps")
 
 
-# new plots
+# effective distance plot.
 figure()
-P_x, x, dx = foo(50,1)
+P_x, x, dx = makeData(50,1)
 
 Ng_h, Ng_l = [], []
+# Find the number of galaxies with effective distance close to "i".
 for i in x:
   Ng_h.append( len([ e for e in simInspTriggers.table if (-0.5 < e["eff_dist_h"] - i <= 0.5 )]) )
   Ng_l.append( len([ e for e in simInspTriggers.table if (-0.5 < e["eff_dist_l"] - i <= 0.5 )]) )
 
 plot( x, P_x*Ng_h*dx, x, P_x*Ng_l*dx )
+grid(True)
 axis([0, len(x), 0, 1])
 xlabel('eff_dist (Mpc)')
 ylabel('N_G?')
