@@ -45,7 +45,7 @@ Usage: plotsimInspiral [options]
 ##############################################################################
 # temp "file"
 def foo(max, dx):
-# returns x, dx
+# returns P(x), x, dx
   x  = arange(0,max,dx)
 
   return 1.0/(x+1.0)**2.0, x, dx
@@ -143,7 +143,7 @@ eps=0.00001	# to prevent log(0) craziness.
 index=index+eps
 
 loglog(hs, index, ls, index, gs, index, ts, index, vs, index)
-axis([eps, 40, eps, 300])
+axis([1, 40, 1, 300])
 xlabel('Effective Distance (Mpc)')
 ylabel('N_G')
 legend( ('Hanford', 'Livingston', 'GEO', 'TAMA', 'VIRGO'), loc=0)
@@ -151,17 +151,22 @@ if myFigure:
   savefig(myFigure + "_loglog.ps")
 
 
-# new plot
+# new plots
 figure()
 P_x, x, dx = foo(50,1)
 
-n_g = [len([ e for e in simInspTriggers.table if (-0.5 < e["eff_dist_h"] - i <= 0.5 )]) for i in x]
-print >> sys.stderr, n_g
+Ng_h, Ng_l = [], []
+for i in x:
+  Ng_h.append( len([ e for e in simInspTriggers.table if (-0.5 < e["eff_dist_h"] - i <= 0.5 )]) )
+  Ng_l.append( len([ e for e in simInspTriggers.table if (-0.5 < e["eff_dist_l"] - i <= 0.5 )]) )
 
-plot( x, P_x*n_g*dx )
+plot( x, P_x*Ng_h*dx, x, P_x*Ng_l*dx )
 axis([0, len(x), 0, 1])
-xlabel('eff_dist_h (Mpc)')
+xlabel('eff_dist (Mpc)')
 ylabel('N_G?')
+legend( ('eff_dist_h', 'eff_dist_l'), loc=0)
+if myFigure:
+  savefig(myFigure + "_temp.ps")
 
 if showflag:
   show()
