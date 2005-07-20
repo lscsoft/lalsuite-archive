@@ -1,68 +1,36 @@
 #!/usr/bin/python
 
-import sys
-import os
-import getopt
-import re
-import exceptions
-import glob
-from types import *
+import sys, os, re, glob, exceptions
+from types    import *
+from optparse import *
+from pylab    import *
+from lgen     import readMeta
+from lgen     import viz
 
-from pylab import *
-from lgen import readMeta
-from lgen import viz
+##########################################################################
 
-##############################################################################
-# help message
-def usage():
-  msg = """\
-Usage: plotinspinj [options] [trigs1 missed1 trigs2 missed2]
+usage = """Usage: %prog [options] [trigs1 missed1 trigs2 missed2]
 
-  SUMMARY:  
-  
-  Generate found and missed trig plot: snr V end-time
+Generate found and missed trig plots
 
-  OPTIONS:
-  
-    -h, --help                display this message
-    -f, --figure-name FNAME   generate png figures with name FNAME-fig.png
-    -s, --show                display the figures on the terminal.
-    -l, --found-missed        plot of eff dist vs time for found/missed inj
+Example: plotinspmissed --time-snr --show found.xml missed.xml
 """
-  print >> sys.stderr, msg
+parser = OptionParser( usage )
+parser.add_option("-t","--time-snr",action="store_true",default=False,\
+    help="plot snr v trig end time" )
+parser.add_option("-a","--tag1",action="store",type="string",\
+    default=None, metavar=" TAG",help="identifier for first input file" )
+parser.add_option("-b","--tag2",action="store",type="string",\
+    default=None, metavar=" TAG",help="identifier for second input file" )
+parser.add_option("-c","--tag3",action="store",type="string",\
+    default=None, metavar=" TAG",help="identifier for third input file" )
+parser.add_option("-s","--show-plot",action="store_true",default=False,\
+    help="display the figures on the terminal" )
+parser.add_option("-f","--fig-name",action="store",type="string",\
+    default=None, metavar=" NAME",\
+    help="generate png figures with name NAME-fig.png" )
 
-
-# grab command line options
-shortop = "f:hls"
-longop = [
-  "figure-name=",
-  "found-missed",
-  "help",
-  "show"]
-
-try:
-  opts, args = getopt.getopt(sys.argv[1:], shortop, longop)
-except getopt.GetoptError:
-  print >>sys.stderr, "Error parsing command line"
-  print >>sys.stderr, "Enter 'plotinspinj --help' for usage"
-  sys.exit(1)
-
-# defaul values
-plots = []
-
-myFigure = None
-showflag = 0
-
-for o, a in opts:
-  if o in ("-h", "--help"):
-    usage()
-    sys.exit(0)
-  elif o in ("-l", "--found-missed"):
-    plots.append("found_missed")
-  elif o in ("-f", "--figure-name"):
-    myFigure = a
-  elif o in ("-s", "--show"):
-    showflag = 1
+(opts,args) = parser.parse_args()
 
 # check at least one trig file was specified
 if not args:
@@ -75,24 +43,21 @@ if not args:
 injFiles = []
 misFiles = []
 
-if "found_missed" in plots:
-  if len(args)<2:
-    print >>sys.stderr, "a missed-file must be specified"
-    print >>sys.stderr, "when making plots of missed injections"
-    print >>sys.stderr, "Enter 'plotinspinj --help' for usage"
-    sys.exit(1)
-  elif len(args)%2:
-    print >>sys.stderr, "mismatched pair"
-    print >>sys.stderr, "when making plots of missed injections"
-    print >>sys.stderr, "Enter 'plotinspinj --help' for usage"
-  else:
-    for i in range(len(args)):
-      if i%2:
-        misFiles.append(args[i])
-      else:
-        injFiles.append(args[i])
+if len(args)<2:
+  print >>sys.stderr, "a missed-file must be specified"
+  print >>sys.stderr, "when making plots of missed injections"
+  print >>sys.stderr, "Enter 'plotinspinj --help' for usage"
+  sys.exit(1)
+elif len(args)%2:
+  print >>sys.stderr, "mismatched pair"
+  print >>sys.stderr, "when making plots of missed injections"
+  print >>sys.stderr, "Enter 'plotinspinj --help' for usage"
 else:
-    injFiles = args        
+  for i in range(len(args)):
+    if i%2:
+      misFiles.append(args[i])
+    else:
+      injFiles.append(args[i])       
 
 # read in tables into dictionaries of paired sets
 injSets = []
@@ -141,22 +106,23 @@ for i in range(len(injFiles)):
   injSet["injections"] = injDict
   injSet["missedinjs"] = misDict
   injSets.append(injSet)
+
 ###################################################
 # set lists of plot symbols
 plot1symbol=['bx','b+','bo']
 plot2symbol=['rx','r+','ro']
     
-if "found_missed" in plots:  
-  figure(8)
+if opts.time_snr:  
+  figure()
   sym=0
   for set in injSets:
     semilogy(set['injections']['inj_time'],set['injections']['inj_dist'],\
              plot1symbol[sym],label='Found',\
-             markerfacecolor=None,markeredgecolor='b')
+             markerfacecolor=None,markeredgecolor='b',markersize=10)
     hold(True)
     semilogy(set['missedinjs']['mis_time'],set['missedinjs']['mis_dist'],\
               plot2symbol[sym],label='Missed',\
-	      markerfacecolor=None,markeredgecolor='r')
+	      markerfacecolor=None,markeredgecolor='r',markersize=10)
     hold(True) 
     sym+=1
   #legend()
@@ -167,8 +133,8 @@ if "found_missed" in plots:
   #  0.95 * min(inj_dist), 1.05 * max(missed_dist)])
   gca().grid(True)
 
-  if myFigure:
-    savefig(myFigure + '_' + set['injections']['ifo'] + "_found_missed.png")
+  if opts.fig_name:
+    savefig(opts.fig_name + '_' + set['injections']['ifo'] + "_time-snr.png")
   
-if showflag:
+if opts.show_plot:
   show()
