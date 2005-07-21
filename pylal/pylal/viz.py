@@ -105,9 +105,9 @@ def plotdiff(table1, table2, col_name, plot_type, plot_sym, units=None,
   tmp_diff = tmpvar2 - tmpvar1
 
   if plot_type == 'plot':
-    plot(tmpvar1, tmp_diff, plot_sym,markersize=12)
+    plot(tmpvar1, tmp_diff, plot_sym, markersize=12)
   elif plot_type == 'log':
-    semilogx(tmpvar1, tmp_diff, plot_sym,markersize=12)
+    semilogx(tmpvar1, tmp_diff, plot_sym, markersize=12)
     
   if units:
     xlabel(col_name + ' (' + units +')', size='x-large')
@@ -254,7 +254,7 @@ def plotdiffa_vs_b(table1, table2, col_name_a, col_name_b, plot_type,
   if output_name:
     if ifo:
       output_name += '_' + ifo
-    output_name += '_' + col_name_a + 'vs' + col_name_b + '_accuracy.png'
+    output_name += '_' + col_name_a + '_vs_' + col_name_b + '_accuracy.png'
     savefig(output_name)
  
 
@@ -395,9 +395,60 @@ def plotval(table1, table2, col_name, plot_type, units=None, xlab=None, \
     savefig(output_name)
  
 
-
+###################################################
+# function to plot the difference between values of 'col_name' in
+# two tables, table1 and table2
+def histdiffdiff(ifo1_trig, ifo2_trig, inj, col_name, sym, units=None, 
+  nbins = None, width = None, output_name = None):
  
+  histcolors = ['b','r','k']
+
+  [tmpvar1, injvar1, ifo1 ] = readcolfrom2tables(ifo1_trig, inj, col_name)
+  [tmpvar2, injvar2, ifo2 ] = readcolfrom2tables(ifo2_trig, inj, col_name)
   
+  diff1 = injvar1 - tmpvar1
+  diff2 = injvar2 - tmpvar2
+  
+  diffdiff = diff1 - diff2
+  
+  if not nbins:
+    nbins = 10
+  
+  bins = []
+  if width:
+    for i in range(-nbins,nbins):
+      bins.append(width * i/nbins)
+
+  if bins:
+    out = hist(diffdiff,bins)
+  else:
+    out = hist(diffdiff,nbins)
+
+  width = out[1][1] - out[1][0]
+  bar(out[1],out[0],width,color=histcolors[sym])
+
+  figtext(0.13,0.8 - 0.1* sym," mean = %6.3e" % mean(diffdiff))
+  figtext(0.13,0.75 - 0.1 * sym,'sigma = %6.3e' % std(diffdiff))
+ 
+  label = col_name 
+  label += ' difference'
+  if units:
+    label += ' (' + units +')'
+  xlabel(label, size='x-large')
+
+  ylabel('Number', size='x-large')
+  
+  title(ifo1 + ' - ' + ifo2 + ' ' + col_name + ' difference histogram', \
+    size='x-large')
+  
+  grid(True)
+
+  if output_name:
+    output_name += '_' + ifo1 + '_' + ifo2 
+    output_name += '_' + col_name + '_histogram.png'
+    savefig(output_name)
+  
+
    
 
 def tfplot(*args, **kwargs):
