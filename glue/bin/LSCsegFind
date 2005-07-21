@@ -21,6 +21,7 @@ try:
   from glue import segments
   from glue import LSCsegFindClient
   from glue import gsiserverutils
+  from glue.lal import LIGOTimeGPS
 except ImportError, e:
   print >> sys.stderr, """
 Error: unable to import modules from glue.
@@ -201,9 +202,13 @@ for o, a in opts:
   elif o in ("-t", "--type"):
     clientMethodArgDict['type'] = a
   elif o in ("-s", "--gps-start-time"):
-    clientMethodArgDict['start'] = a
+    clientMethodArgDict['start'] = str(LIGOTimeGPS(a).seconds)
   elif o in ("-e", "--gps-end-time"):
-    clientMethodArgDict['end'] = a
+    a = LIGOTimeGPS(a)
+    if a.nanoseconds:
+      clientMethodArgDict['end'] = str(a.seconds + 1)
+    else:
+      clientMethodArgDict['end'] = str(a.seconds)
   elif o in ("-r", "--server"):
     hostPortString = a
   elif o in ("-p", "--ping"):

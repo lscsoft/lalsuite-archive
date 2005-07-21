@@ -41,12 +41,15 @@ if not PYTHONPATH:
 try:
         from glue import LDRdataFindClient
         from glue import gsiserverutils
-except ImportError:
+        from glue.lal import LIGOTimeGPS
+except ImportError, e:
         print >> sys.stderr, """
-Error: unable to import LDRdataFindClient module from glue.
+Error: unable to import modules from glue.
 
 Check that glue is correctly installed and in your PYTHONPATH.
-"""
+
+%s
+""" % e
         sys.exit(1)
 
 
@@ -260,9 +263,13 @@ for o, a in opts:
         elif o in ("-o", "--observatory"):
                 clientMethodArgDict['observatory'] = a
         elif o in ("-s", "--gps-start-time"):
-                clientMethodArgDict['start'] = a
+                clientMethodArgDict['start'] = str(LIGOTimeGPS(a).seconds)
         elif o in ("-e", "--gps-end-time"):
-                clientMethodArgDict['end'] = a
+                a = LIGOTimeGPS(a)
+                if a.nanoseconds:
+                        clientMethodArgDict['end'] = str(a.seconds + 1)
+                else:
+                        clientMethodArgDict['end'] = str(a.seconds)
         elif o in ("-t", "--type"):
                 clientMethodArgDict['type'] = a
         elif o in ("-l", "--lal-cache"):
