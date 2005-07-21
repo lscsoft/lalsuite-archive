@@ -38,7 +38,8 @@ setup(
 		os.path.join("bin", "plotgbb"),
 		os.path.join("bin", "plotinspiral"),
 		os.path.join("bin", "plotinspinj"),
-                os.path.join("bin", "plotinspmissed")
+    os.path.join("bin", "plotinspdiff"),
+    os.path.join("bin", "plotinspmissed")
 	],
 	data_files = [
 		("etc", [
