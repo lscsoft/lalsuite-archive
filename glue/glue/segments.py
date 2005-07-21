@@ -102,15 +102,23 @@ class segment(tuple):
 		segment(0, 10) < segment(5, 15)
 		segment(1, 2) in segment(0, 10)
 		bool(segment(0, 0))
+
+	Notes:
+	It is also possible to type cast 2-element tuples, lists, and other
+	container types to segments.  For example segment([0, 1])
 	"""
 
 	# basic class methods
 
-	def __new__(cls, start, end):
-		if start <= end:
-			return tuple.__new__(cls, [start, end])
+	def __new__(cls, *args):
+		if len(args) == 1:
+			args = args[0]
+		if len(args) != 2:
+			raise TypeError, "__new__() takes 3 arguments or 2 arguments when the second is a 2-element container type"
+		if args[0] <= args[1]:
+			return tuple.__new__(cls, args)
 		else:
-			return tuple.__new__(cls, [end, start])
+			return tuple.__new__(cls, (args[1], args[0]))
 
 	def __repr__(self):
 		return "segment(" + str(self[0]) + ", " + str(self[1]) + ")"
