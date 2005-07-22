@@ -58,6 +58,8 @@ parser.add_option("-r","--time-snr",action="store_true",default=False,\
     help="plot of timing accuracy vs snr" )
 parser.add_option("-C","--chirp-axis",action="store",type="float",\
     default=0, metavar=" M_SUN",help="width of chirp mass accuracy in plots" )
+parser.add_option("-F","--eta-axis",action="store",type="float",\
+    default=0, metavar=" UNITS",help="width of eta accuracy in plots" )
 parser.add_option("-D","--dist-axis",action="store",type="float",\
     default=0,metavar=" FRAC_DIFF",help="width of distance accuracy in plots" )
 parser.add_option("-S","--time-axis",action="store",type="float",\
