@@ -1,0 +1,115 @@
+#!/usr/bin/python
+
+import sys
+import os
+from optparse import *
+import re
+import exceptions
+import glob
+from types import *
+
+from pylab import *
+from lgen import readMeta
+from lgen import viz
+
+##############################################################################
+usage = """usage: %prog [options] 
+
+Thinca Triggers Plotting Function
+
+Generate a set of summary plots from a list of thinca files.
+
+"""
+
+parser = OptionParser( usage )
+parser.add_option("-v","--version",action="store_true",default=False,\
+    help="display version information " )
+parser.add_option("-g","--glob",action="store",type="string",\
+    default=None, metavar=" GLOB",help="GLOB of thinca files to read" )
+parser.add_option("-f","--figure-name",action="store",type="string",\
+    default=None, metavar=" FNAME",\
+    help="generate png figures with name FNAME-fig.png" ) 
+parser.add_option("-x","--min-snr",action="store",type="float",\
+    default=0, metavar=" MIN_SNR",help="minimum value of snr on plot" )
+parser.add_option("-X","--max-snr",action="store",type="float",\
+    default=0, metavar=" MAX_SNR",help="maximum value of snr on plot" )
+parser.add_option("-s","--show-plot",action="store_true",default=False,\
+    help="display the figures on the terminal" )
+parser.add_option("-a","--h1-h2-snr",action="store_true",default=False,\
+    help="plot the snr of coinc h1-h2 triggers" )
+parser.add_option("-b","--hl-snr",action="store_true",default=False,\
+    help="plot the snr of coinc hanford livingston triggers" )
+parser.add_option("-t","--plot-type",action="store",type="string",\
+    default="linear",metavar=" PLOT_TYPE", \
+    help="make either linear or log or plots" )
+
+(opts,args) = parser.parse_args()
+
+# if --version flagged
+if opts.version:
+  sys.exit(0)
+
+if not opts.glob:
+  print >>sys.stderr, "Must specify a GLOB of files to read"
+  print >>sys.stderr, "Enter 'plotthinca --help' for usage"
+  sys.exit(1)
+
+if opts.plot_type not in ['log', 'linear']:
+  print >>sys.stderr, "plot-type must be either \"log\" or \"linear\""
+  sys.exit(1)
+
+# glob the list of files to read in
+myfiles = glob.glob(opts.glob)
+
+inspTriggers = readMeta.metaDataTable(myfiles,"sngl_inspiral")
+coincTriggers = readMeta.coincInspiralTable(inspTriggers)
+
+
+if not opts.max_snr:
+  xhigh = max( inspTriggers.mkarray('snr') )
+else:
+  xhigh = opts.max_snr
+
+if not opts.min_snr:
+  xlow = min( inspTriggers.mkarray('snr') )
+else:
+  xlow = opts.min_snr
+
+################################
+# plot of h1 vs h2 snr
+
+if opts.h1_h2_snr:
+  figure(1)
+  viz.plotcoincval(coincTriggers, 'snr', 'H1', 'H2', 'kx',opts.plot_type)
+  axis([xlow, xhigh, xlow, xhigh])
+
+  xlabel('SNR H1', size='x-large')
+  ylabel('SNR_H2', size='x-large')
+  title('H1 vs H2 coincident event SNR')
+  grid(True)
+  if opts.figure_name:
+    savefig(myFigure + "h1_vs_h2_snr.png")
+
+
+################################
+# plot of h1 vs h2 snr
+
+if opts.hl_snr:
+  figure(2)
+  viz.plotcoincval(coincTriggers, 'snr', 'H1', 'L1', 'kx',opts.plot_type)
+  hold(True)
+  viz.plotcoincval(coincTriggers, 'snr', 'H2', 'L1', 'r+')
+  viz.plotcoinchanford(coincTriggers, 'snr', 'L1', 'sum', 'gx')
+  axis([xlow, xhigh, xlow, xhigh])
+
+
+  legend(['H1L1','H2L1','H1H2L1'])
+  xlabel('SNR Hanford', size='x-large')
+  ylabel('SNR Livingston', size='x-large')
+  title('Hanford vs Livingston coincident event SNR')
+  grid(True)
+  if opts.figure_name:
+    savefig(myFigure + "h_vs_l_snr.png")
+
+
+show()
