@@ -72,7 +72,7 @@ user name, if you have one. Type:
   cd ${HOME}/src
   cvs -d :pserver:anonymous@gravity.phys.uwm.edu:2402/usr/local/cvs/lscsoft checkout pylal
 
-This will create a directory ${HOME}/src/pylal/pylal containing the
+This will create a directory ${HOME}/src/pylal containing the
 PyLAL sources.
 
 
@@ -92,9 +92,9 @@ and csh users should type:
 
   setenv PYLAL_LOCATION /opt/pylal
 
-Assuming you have installed the pylal sources in ${HOME}/src/pylal/pylal, type:
+Assuming you have installed the pylal sources in ${HOME}/src/pylal, type:
 
-  cd ${HOME}/src/pylal/pylal
+  cd ${HOME}/src/pylal
 
 Then type:
 
