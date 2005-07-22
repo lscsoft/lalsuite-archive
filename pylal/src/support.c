@@ -20,6 +20,125 @@ extern void _Py_CountReferences(FILE *);
 #define COUNTREFS()     CURIOUS(_Py_CountReferences(stderr))
 
 /******************************************************************** 
+ * Process Params Table Reading Function
+ ********************************************************************/
+static PyObject *   
+read_process_params(PyObject *self, PyObject *args)
+{ 
+  ProcessParamsTable *eventHead=NULL;
+  ProcessParamsTable **addevent=&eventHead;
+  ProcessParamsTable *event=NULL;
+  PyObject *fromPython;
+  int j, m=0, n=0, nelement=0, len;
+  int startEvent = 0, stopEvent = -1;
+  PyObject *outlist;
+  PyObject *tmpvalue;
+
+  if (! PyArg_ParseTuple(args, "O", &fromPython))
+    return NULL;                             
+
+  if (! PyList_Check(fromPython) )
+    return NULL;
+
+  len = PyList_Size(fromPython);
+  for(n=0;n<len;n++)
+  {
+    *addevent = XLALProcessParamsTableFromLIGOLw (
+        PyString_AsString(PyList_GetItem(fromPython, n)) );
+
+    while(*addevent)
+      addevent = &(*addevent)->next;
+
+  }
+  nelement = XLALCountProcessParamsTable ( eventHead );
+
+  outlist = PyList_New(nelement);
+  for ( j=0, event = eventHead; event ; j++, event = event->next )
+  {
+    tmpvalue = Py_BuildValue(
+        "{s:s, s:s, s:s, s:s}",
+        "program", event->program,
+        "param", event->param,
+        "type", event->type,
+        "value", event->value
+        );
+    PyList_SetItem(outlist, j, tmpvalue);
+  }
+
+  while(eventHead) {
+    event = eventHead;
+    eventHead = eventHead->next;
+    LALFree(event);
+  }
+
+  return outlist;
+}
+
+/******************************************************************** 
+ * Process Table Reading Function
+ ********************************************************************/
+static PyObject *   
+read_process(PyObject *self, PyObject *args)
+{ 
+  ProcessTable *eventHead=NULL;
+  ProcessTable **addevent=&eventHead;
+  ProcessTable *event=NULL;
+  PyObject *fromPython;
+  int j, m=0, n=0, nelement=0, len;
+  int startEvent = 0, stopEvent = -1;
+  PyObject *outlist;
+  PyObject *tmpvalue;
+
+  if (! PyArg_ParseTuple(args, "O", &fromPython))
+    return NULL;                             
+
+  if (! PyList_Check(fromPython) )
+    return NULL;
+
+  len = PyList_Size(fromPython);
+  for(n=0;n<len;n++)
+  {
+    *addevent = XLALProcessTableFromLIGOLw (
+        PyString_AsString(PyList_GetItem(fromPython, n)) );
+
+    while(*addevent)
+      addevent = &(*addevent)->next;
+
+  }
+  nelement = XLALCountProcessTable ( eventHead );
+
+  outlist = PyList_New(nelement);
+  for ( j=0, event = eventHead; event ; j++, event = event->next )
+  {
+    tmpvalue = Py_BuildValue(
+        "{s:s, s:s, s:s, s:d, s:s, s:d, s:s, s:s, s:d, s:d, s:d, s:s, s:s}",
+        "program", event->program,
+        "version", event->version,
+        "cvs_repository", event->version,
+        "cvs_entry_time", (double)event->cvs_entry_time.gpsSeconds,
+        "comment", event->comment,
+        "is_online", (double)event->is_online,
+        "node", event->node,
+        "username", event->username,
+        "start_time", (double)event->start_time.gpsSeconds,
+        "end_time", (double)event->end_time.gpsSeconds,
+        "jobid", (double)event->jobid,
+        "domain", event->domain,
+        "ifos", event->ifos
+        );
+    PyList_SetItem(outlist, j, tmpvalue);
+  }
+
+  while(eventHead) {
+    event = eventHead;
+    eventHead = eventHead->next;
+    LALFree(event);
+  }
+
+  return outlist;
+}
+
+/******************************************************************** 
  * Search Summary Reading Function
  ********************************************************************/
 static PyObject *                   
@@ -357,6 +476,8 @@ read_sim_inspiral(PyObject *self, PyObject *args)
 
 /* registration table  */
 static struct PyMethodDef support_methods[] = {
+    {"read_process_params", read_process_params, 1},  
+    {"read_process", read_process, 1},  
     {"read_search_summary", read_search_summary, 1},  
     {"read_summ_value", read_summ_value, 1},  
     {"read_sngl_burst", read_sngl_burst, 1},  

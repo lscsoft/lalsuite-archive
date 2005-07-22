@@ -49,6 +49,10 @@ class metaDataTable:
     """
     Populate the table from the list of files 
     """
+    if tabletype == "process_params":
+      self.table = support.read_process_params(triggerfile)
+    if tabletype == "process":
+      self.table = support.read_process(triggerfile)
     if tabletype == "search_summary":
       self.table = support.read_search_summary(triggerfile)
     if tabletype == "summ_value":
