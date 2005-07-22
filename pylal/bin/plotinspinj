@@ -68,7 +68,7 @@ parser.add_option("-s","--show-plot",action="store_true",default=False,\
     help="display the figures on the terminal" )
 parser.add_option("-n","--nbins",action="store",type="int",default=10,\
     metavar=" NBINS", help="number of bins for the histogram plots" )
-parser.add_option("-f","--figure-name",action="store",type="string",\
+parser.add_option("-f","--fig-name",action="store",type="string",\
     default=None, metavar=" FNAME",\
     help="generate png figures with name FNAME-fig.png" ) 
 
@@ -125,7 +125,7 @@ if opts.plot_mchirp:
   for set in injSets:
     viz.plotdiff(set['sim_inspiral'], set['sngl_inspiral'],\
                  'mchirp', 'plot', plotsymbols[sym], 'M_sun', \
-                 [0,0,-opts.chirp_axis,opts.chirp_axis], opts.figure_name)
+                 [0,0,-opts.chirp_axis,opts.chirp_axis], opts.fig_name)
     hold(True) 
     sym+=1
   if tags:
@@ -139,7 +139,7 @@ if opts.hist_mchirp:
   for set in injSets:
     viz.histdiff(set['sim_inspiral'], set['sngl_inspiral'],\
                  'mchirp', 'hist', sym,'M_sun', \
-                 opts.nbins, opts.chirp_axis, opts.figure_name)
+                 opts.nbins, opts.chirp_axis, opts.fig_name)
     hold(True) 
     sym+=1
   if tags:
@@ -153,7 +153,7 @@ if opts.plot_timing:
   for set in injSets:
     viz.plotdiff(set['sim_inspiral'], set['sngl_inspiral'],\
                  'end_time', 'plot', plotsymbols[sym],'seconds', \
-                 [0,0,-opts.time_axis,opts.time_axis], opts.figure_name)
+                 [0,0,-opts.time_axis,opts.time_axis], opts.fig_name)
     hold(True) 
     sym+=1
   if tags:
@@ -169,7 +169,7 @@ if opts.hist_timing:
   for set in injSets:
     viz.histdiff(set['sim_inspiral'], set['sngl_inspiral'],\
                  'end_time', 'hist', sym, 'seconds',opts.nbins,\
-                 opts.time_axis, opts.figure_name)
+                 opts.time_axis, opts.fig_name)
     hold(True) 
     sym+=1
   if tags:
@@ -183,7 +183,7 @@ if opts.plot_dist:
   for set in injSets:
     viz.plotfracdiff(set['sim_inspiral'], set['sngl_inspiral'],\
                      'eff_dist', 'log', plotsymbols[sym], 'Mpc', \
-                     [0,0,-opts.dist_axis,opts.dist_axis], opts.figure_name)
+                     [0,0,-opts.dist_axis,opts.dist_axis], opts.fig_name)
     hold(True) 
     sym+=1
   if tags:
@@ -197,7 +197,7 @@ if opts.hist_dist:
   for set in injSets:
     viz.histdiff(set['sim_inspiral'], set['sngl_inspiral'],\
                  'eff_dist', 'frac_hist', sym, 'Mpc', opts.nbins, \
-                 opts.dist_axis, opts.figure_name)
+                 opts.dist_axis, opts.fig_name)
     hold(True) 
     sym+=1
   if tags:
@@ -213,7 +213,7 @@ if opts.dist_dist:
     viz.plotval(set['sim_inspiral'], \
                 set['sngl_inspiral'],\
                 'eff_dist', 'log', 'Mpc', 'Injected',\
-                'Recovered', [0,0,0,0], opts.figure_name)
+                'Recovered', [0,0,0,0], opts.fig_name)
     hold(True) 
     sym+=1
   if tags:
@@ -228,7 +228,7 @@ if opts.chirp_dist:
     viz.plotdiffa_vs_b(set['sim_inspiral'], set['sngl_inspiral'],\
                  'mchirp', 'eff_dist', 'log', plotsymbols[sym], \
                  'M_sun','Mpc', [0,0,-opts.chirp_axis,opts.chirp_axis], \
-                 opts.figure_name)
+                 opts.fig_name)
     hold(True) 
     sym+=1
   if tags:
@@ -244,7 +244,7 @@ if opts.time_dist:
     viz.plotdiffa_vs_b(set['sim_inspiral'], set['sngl_inspiral'],\
                  'end_time', 'eff_dist', 'log', plotsymbols[sym], \
                  'seconds','Mpc', [0,0,-opts.time_axis,opts.time_axis], \
-                 opts.figure_name)
+                 opts.fig_name)
     hold(True) 
     sym+=1
   if tags:
@@ -260,7 +260,7 @@ if opts.chirp_snr:
     viz.plotdiffa_vs_b(set['sngl_inspiral'], set['sim_inspiral'],\
                  'mchirp', 'snr', 'log', plotsymbols[sym], \
                  'M_sun',None, [0,0,-opts.chirp_axis,opts.chirp_axis], \
-                 opts.figure_name)
+                 opts.fig_name)
     hold(True) 
     sym+=1
   if tags:
@@ -275,7 +275,7 @@ if opts.time_snr:
     viz.plotdiffa_vs_b(set['sngl_inspiral'], set['sim_inspiral'],\
                  'end_time', 'snr', 'log', plotsymbols[sym], \
                  'seconds',None, [0,0,-opts.time_axis,opts.time_axis], \
-                 opts.figure_name)
+                 opts.fig_name)
     hold(True) 
     sym+=1
   if tags:
