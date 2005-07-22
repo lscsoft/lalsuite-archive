@@ -55,15 +55,15 @@ parser.add_option("-r","--time-snr",action="store_true",default=False,\
 parser.add_option("-C","--chirp-axis",action="store",type="float",\
     default=0, metavar=" M_SUN",help="width of chirp mass accuracy in plots" )
 parser.add_option("-D","--dist-axis",action="store",type="float",\
-    default=0, metavar=" FRAC_DIFF",help="width of distance accuracy in plots" )
+    default=0,metavar=" FRAC_DIFF",help="width of distance accuracy in plots" )
 parser.add_option("-E","--time-axis",action="store",type="float",\
     default=0, metavar=" SEC",help="width of timing accuracy in plots" )
-parser.add_option("-F","--tag-one",action="store",type="string",\
-    default=None, metavar=" TAG1",help="identifier for first input file" )
-parser.add_option("-G","--tag-two",action="store",type="string",\
-    default=None, metavar=" TAG2",help="identifier for second input file" )
-parser.add_option("-H","--tag-three",action="store",type="string",\
-    default=None, metavar=" TAG3",help="identifier for third input file" )
+parser.add_option("-1","--tag1",action="store",type="string",\
+    default=None, metavar=" TAG",help="identifier for first input file" )
+parser.add_option("-2","--tag2",action="store",type="string",\
+    default=None, metavar=" TAG",help="identifier for second input file" )
+parser.add_option("-3","--tag3",action="store",type="string",\
+    default=None, metavar=" TAG",help="identifier for third input file" )
 parser.add_option("-s","--show-plot",action="store_true",default=False,\
     help="display the figures on the terminal" )
 parser.add_option("-n","--nbins",action="store",type="int",default=10,\
@@ -87,12 +87,12 @@ if not args:
 injFiles = args        
 
 tags = []
-if opts.tag_one:
-  tags.append(opts.tag_one)
-  if opts.tag_two:
-    tags.append(opts.tag_two)
-    if opts.tag_three:
-      tags.append(opts.tag_three)
+if opts.tag1:
+  tags.append(opts.tag1)
+  if opts.tag2:
+    tags.append(opts.tag2)
+    if opts.tag3:
+      tags.append(opts.tag3)
       
 # read in tables into dictionaries of paired sets
 injSets = []
