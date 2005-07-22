@@ -490,5 +490,5 @@ static struct PyMethodDef support_methods[] = {
 void initsupport()               /* called on first import */
 {                               /* name matters if loaded dynamically */
     /* mod name, table ptr */
-    (void) Py_InitModule("lgen.support", support_methods);
+    (void) Py_InitModule("pylal.support", support_methods);
 }
