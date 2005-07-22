@@ -6,9 +6,10 @@ from optparse import *
 from pylab    import *
 from lgen     import readMeta
 from lgen     import viz
+from matplotlib.ticker import FormatStrFormatter
 
-##########################################################################
-
+##############################################################################
+# parse options and arguments
 usage = """Usage: %prog [options] [trigs1 missed1 trigs2 missed2]
 
 Generate found and missed trig plots
@@ -16,19 +17,23 @@ Generate found and missed trig plots
 Example: plotinspmissed --time-snr --show found.xml missed.xml
 """
 parser = OptionParser( usage )
-parser.add_option("-t","--time-snr",action="store_true",default=False,\
+parser.add_option("-a","--time-snr",action="store_true",default=False,\
     help="plot snr v trig end time" )
-parser.add_option("-a","--tag1",action="store",type="string",\
+parser.add_option("-x","--tag1",action="store",type="string",\
     default=None, metavar=" TAG",help="identifier for first input file" )
-parser.add_option("-b","--tag2",action="store",type="string",\
+parser.add_option("-y","--tag2",action="store",type="string",\
     default=None, metavar=" TAG",help="identifier for second input file" )
-parser.add_option("-c","--tag3",action="store",type="string",\
+parser.add_option("-z","--tag3",action="store",type="string",\
     default=None, metavar=" TAG",help="identifier for third input file" )
 parser.add_option("-s","--show-plot",action="store_true",default=False,\
     help="display the figures on the terminal" )
 parser.add_option("-f","--fig-name",action="store",type="string",\
     default=None, metavar=" NAME",\
     help="generate png figures with name NAME-fig.png" )
+parser.add_option("-t","--title",action="store",type="string",\
+    default="", metavar=" TITLE", help="add more info to standard title" )
+parser.add_option("-l","--legend",action="store_true",default=False,\
+    help="include legend on plot" )  
 
 (opts,args) = parser.parse_args()
 
@@ -38,6 +43,16 @@ if not args:
   print >>sys.stderr, "Enter 'plotinspinj --help' for usage"
   sys.exit(1)
 
+tags = ["","",""]
+if opts.tag1:
+  tags[0]=(opts.tag1 + ": " )
+  if opts.tag2:
+    tags[1]=(opts.tag2 + ": " )
+    if opts.tag3:
+      tags[3]=(opts.tag3 + ": " )
+
+if opts.title != "":
+  opts.title += ": "
 # check if "found_missed": trig and missed inj files are paired
 # then fill lists of injection and missed injection files
 injFiles = []
@@ -59,6 +74,7 @@ else:
     else:
       injFiles.append(args[i])       
 
+##############################################################################
 # read in tables into dictionaries of paired sets
 injSets = []
 
@@ -85,8 +101,9 @@ for i in range(len(injFiles)):
   
   # test sire clustering
   if injDict['sngl_inspiral'].nevents() != injDict['sim_inspiral'].nevents():
-    print >>sys.stderr, "number of triggers and found injections must be equal"
+    print >>sys.stderr,"number of triggers and found injections must be equal"
     sys.exit(1)
+
   #
   if misFiles:
     flist = []
@@ -102,39 +119,47 @@ for i in range(len(injFiles)):
       1e-9 * misDict["sim_inspiral"].mkarray("l_end_time_ns")
     misDict["mis_dist"] =  misDict["sim_inspiral"].mkarray("eff_dist_l")
 
-  #
+  # append combination of tables to list as a dictionary
   injSet["injections"] = injDict
   injSet["missedinjs"] = misDict
   injSets.append(injSet)
 
-###################################################
+##############################################################################
 # set lists of plot symbols
-plot1symbol=['bx','b+','bo']
-plot2symbol=['rx','r+','ro']
-    
+plot1symbol=['bx','bo','b+']
+plot2symbol=['rx','ro','r+']
+
+gpsDigits = "9"
+xmajorFormatter = FormatStrFormatter("%"+gpsDigits+"d")  
+
+# plot time V snr
 if opts.time_snr:  
   figure()
   sym=0
-  for set in injSets:
-    semilogy(set['injections']['inj_time'],set['injections']['inj_dist'],\
-             plot1symbol[sym],label='Found',\
+  t=0
+  for injSet in injSets:
+    semilogy(injSet['injections']['inj_time'],injSet['injections']['inj_dist'],\
+             plot1symbol[sym],label=tags[t]+"find",\
              markerfacecolor=None,markeredgecolor='b',markersize=10)
     hold(True)
-    semilogy(set['missedinjs']['mis_time'],set['missedinjs']['mis_dist'],\
-              plot2symbol[sym],label='Missed',\
+    semilogy(injSet['missedinjs']['mis_time'],injSet['missedinjs']['mis_dist'],\
+              plot2symbol[sym],label=tags[t]+"miss",\
 	      markerfacecolor=None,markeredgecolor='r',markersize=10)
     hold(True) 
     sym+=1
-  #legend()
-  title(set['injections']['ifo'] + ' Distance vs Time', size='x-large')
+    t+=1
+  if opts.legend:
+    legend()
+  title(opts.title + 'Distance vs Time', size='x-large')
   xlabel('Injected End Time (GPS seconds)', size='x-large')
   ylabel('Injected Effective Distance (Mpc)', size='x-large')
   #axis([min(inj_time), max(inj_time), \
   #  0.95 * min(inj_dist), 1.05 * max(missed_dist)])
   gca().grid(True)
-
+  gca().xaxis.set_major_formatter(xmajorFormatter)
+  #set(gca().get_xticklabels(), 'rotation', 25)
   if opts.fig_name:
-    savefig(opts.fig_name + '_' + set['injections']['ifo'] + "_time-snr.png")
+    savefig(opts.fig_name + "_time-snr.png")
   
 if opts.show_plot:
   show()
