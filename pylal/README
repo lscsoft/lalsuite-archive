@@ -11,7 +11,9 @@ This README file explains how to build and install PyLAL.
 
 PyLAL needs matplotlib and numarray to provide plotting and good
 scientific data manipulation.  The LIGO lightweight reading stuff
-requires LAL, Metaio and Python.  
+requires LAL, Metaio and Python.  These packages should be available at
+
+http://www.lsc-group.phys.uwm.edu/daswg/download/repositories.html
 
 
 1. Determine your Python version
