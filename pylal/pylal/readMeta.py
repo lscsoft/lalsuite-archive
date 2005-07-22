@@ -12,7 +12,7 @@ __version__ = '$Revision$'[11:-2]
 
 import sys, getopt
 import re
-from lgen import support
+from pylal import support
 from pylab    import *
 
 def uniq(list):

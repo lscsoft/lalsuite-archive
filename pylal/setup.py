@@ -1,6 +1,6 @@
 # $Id$
 # 
-# setup for lgen
+# setup for pylal
 
 import os
 from distutils.core import setup, Extension
@@ -18,16 +18,16 @@ lalincdirs = lalincdirs + map(stripfirsttwo, os.popen("pkg-config libmetaio --cf
 
 
 setup(
-	name = "lgen",
+	name = "pylal",
 	version = "0.1",
 	author = "Patrick Brady",
 	author_email = "patrick@gravity.phys.uwm.edu",
 	description = "LSC Graphics Toolkit",
 	url = "http://www.lsc-group.phys.uwm.edu/daswg/",
 	license = "See file LICENSE",
-	packages = ["lgen"],
+	packages = ["pylal"],
 	ext_modules = [
-		Extension("lgen.support", ["src/support.c"],
+		Extension("pylal.support", ["src/support.c"],
 			include_dirs = lalincdirs,
 			libraries = lallibs,
 			library_dirs = lallibdirs)
@@ -45,8 +45,8 @@ setup(
 	],
 	data_files = [
 		("etc", [
-			os.path.join("etc", "lgen-user-env.sh"),
-			os.path.join("etc", "lgen-user-env.csh")
+			os.path.join("etc", "pylal-user-env.sh"),
+			os.path.join("etc", "pylal-user-env.csh")
 		])
 	]
 )
