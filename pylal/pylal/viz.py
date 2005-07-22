@@ -93,8 +93,42 @@ def readcol(table, col_name, ifo=None ):
 
 
   return col_data
- 
-###################################################
+
+#################################################################
+# function to plot the col1 vs col2 from the table
+def plot_a_v_b(table, col_name_a, col_name_b, plot_type, output_name = None):
+
+  if table1.table[1].has_key('ifo'):
+    ifo = table1.table[1]["ifo"]
+  else:
+    ifo = None
+
+  col_a = readcol(table1, col_name_a, ifo )
+  col_b = readcol(table1, col_name_b, ifo )
+
+  if plot_type == 'plot':
+    plot(col_a, col_b, markersize=12)
+  elif plot_type == 'logx':
+    semilogx(col_a, col_b, markersize=12)
+  elif plot_type == 'logy':
+    semilogx(col_a, col_b, markersize=12)
+  elif plot_type == 'loglog':
+    loglog(col_a, col_b, markersize=12)
+  
+  if ifo:
+    title(ifo + ' ' + col_name_a + ' vs ' + col_name_b, size='x-large')
+  else:
+    title(col_name_a + ' vs ' + col_name_b, size='x-large')
+
+  grid(True)
+
+  if output_name:
+    if ifo:
+      output_name += '_' + ifo
+    output_name += '_' + col_name_a + '_vs_' + col_name_b + '.png'
+    savefig(output_name)
+
+#################################################################
 # function to plot the difference between values of 'col_name' in
 # two tables, table1 and table2
 def plotdiff(table1, table2, col_name, plot_type, plot_sym, units=None, 
@@ -257,70 +291,6 @@ def plotdiffa_vs_b(table1, table2, col_name_a, col_name_b, plot_type,
     output_name += '_' + col_name_a + '_vs_' + col_name_b + '_accuracy.png'
     savefig(output_name)
  
-
-
-
-######################################################################
-# function to histogram the difference between values of 'col_name' in
-# two tables, table1 and table2
-def histdiff(table1, table2, col_name, plot_type, sym, units=None, 
-  nbins = None, width = None, output_name = None):
-  
-  histcolors = ['r','b','k']
-  
-  [tmpvar1, tmpvar2, ifo ] = readcolfrom2tables(table1, table2, col_name)
-
-  tmp_diff = tmpvar2 - tmpvar1
-
-  if (plot_type == 'frac_hist'):
-    tmp_diff /= tmpvar1
-
-  if not nbins:
-    nbins = 10
-  
-  bins = []
-  if width:
-    for i in range(-nbins,nbins):
-      bins.append(width * i/nbins)
-  
-  if bins:
-    out = hist(tmp_diff,bins)
-  else:
-    out = hist(tmp_diff,nbins)
- 
-  width = out[1][1] - out[1][0]
-  bar(out[1],out[0],width,color=histcolors[sym])
-
-  figtext(0.13,0.8 - 0.1* sym," mean = %6.3e" % mean(tmp_diff))
-  figtext(0.13,0.75 - 0.1 * sym,'sigma = %6.3e' % std(tmp_diff))
-   
-  label = col_name 
-  if (plot_type == 'frac_hist'):
-    label += ' fractional'
-  label += ' difference'
-  if units and not (plot_type == 'frac_hist'):
-    label += ' (' + units +')'
-  xlabel(label, size='x-large')
-
-  ylabel('Number', size='x-large')
-  
-  if ifo:
-    title(ifo + ' ' + col_name + '  Histogram', size='x-large',weight='bold')
-  else:
-    title(col_name + ' Histogram', size='x-large',weight='bold')
-  
-  grid(True)
-
-  if output_name:
-    if ifo:
-      output_name += '_' + ifo  
-    if (plot_type == 'frac_hist'):  
-      output_name += '_' + col_name + '_frac_histogram.png'
-    else:
-      output_name += '_' + col_name + '_histogram.png'
-    savefig(output_name)
-  
-
 ###################################################
 # function to plot the value of 'col_name' in table1 vs its
 # value in table2 
@@ -393,7 +363,205 @@ def plotval(table1, table2, col_name, plot_type, units=None, xlab=None, \
       output_name += '_' + ifo
     output_name += '_' + col_name + '_plot.png'
     savefig(output_name)
+
+
+###########################################################
+# function to plot the value of 'col_name' in ifo1  vs its
+# value in ifo2 
+def plotcoincval(coinctable, col_name, ifo1, ifo2, plot_sym, plot_type):
+  
+  ifo_coinc = coinctable.coinctype(ifo1,ifo2)
+
+  ifo1_val = ifo_coinc.mkarray(col_name,ifo1)
+  ifo2_val = ifo_coinc.mkarray(col_name,ifo2)
+  
+  if plot_type == 'linear':
+    plot(ifo1_val, ifo2_val,plot_sym)
+  elif plot_type == 'log':
+    loglog(ifo1_val, ifo2_val,plot_sym)
+
+###########################################################
+# function to plot the value of 'col_name' in hanford  vs its
+# value in ifo.  
+def plotcoinchanford(coinctable, col_name, ifo, hanford_method, plot_sym,\
+  plot_type):
+  
+  ifo_coinc = coinctable.coinctype(ifo,'H1','H2')
+
+  ifo_val = ifo_coinc.mkarray(col_name,ifo)
+  h1_val = ifo_coinc.mkarray(col_name,'H1')
+  h2_val = ifo_coinc.mkarray(col_name,'H2')
+
+  if hanford_method == 'sum':
+    h_val = h1_val + h2_val
+  if hanford_method == 'mean':
+    h_val = (h1_val + h2_val)/2
+   
+  if ifo_val: 
+    if plot_type == 'linear':
+      plot(ifo_val, h_val,plot_sym)
+    elif plot_type == 'log':
+      loglog(ifo1_val, ifo2_val,plot_sym)
+
+
+
+
+######################################################################
+# function to histogram the difference between values of 'col_name' in
+# two tables, table1 and table2
+def histcol(table1, col_name,nbins = None, width = None, output_name = None):
  
+  if table1.table[1].has_key('ifo'):
+    ifo = table1.table[1]["ifo"]
+  else:
+    ifo = None
+
+  data = readcol(table1, col_name, ifo )
+
+  if not nbins:
+    nbins = 10
+  
+  bins = []
+  if width:
+    for i in range(-nbins,nbins):
+      bins.append(width * i/nbins)
+  
+  xlabel(col_name, size='x-large')
+  ylabel('Number', size='x-large')
+
+  if bins:
+    out = hist(data,bins)
+  else:
+    out = hist(data,nbins)
+
+  width = out[1][1] - out[1][0]
+  bar(out[1],out[0],width)
+  
+  if ifo:
+    title(ifo + ' ' + col_name + ' histogram', size='x-large')
+  else:
+    title(col_name + ' histogram', size='x-large')
+
+  grid(True)
+
+  if output_name:
+    if ifo:
+      output_name += '_' + ifo
+    output_name += '_' + col_name + '_histogram.png'
+    savefig(output_name)
+
+
+######################################################################
+# function to histogram the difference between values of 'col_name' in
+# two tables, table1 and table2
+def cumhistcol(table1, col_name, normalization=None,output_name = None):
+ 
+  if table1.table[1].has_key('ifo'):
+    ifo = table1.table[1]["ifo"]
+  else:
+    ifo = None
+
+  data = readcol(table1, col_name, ifo )
+
+  data_len = len(data)
+  data_sort = sort(data)
+  data_range = arange(len(data))
+
+  y_data = data_len - data_range
+  if normalization:
+    y_data = y_data/float(normalization)
+  
+  semilogy(data_sort, y_data,'b-')
+  
+  xlabel(col_name, size='x-large')
+  
+  if normalization:
+    ylabel('Probability', size='x-large')
+  else:  
+    ylabel('Cumulative Number', size='x-large')
+
+  if ifo:
+    title_string = ifo + ' ' + col_name
+  else:
+    title_string = col_name
+  if normalization:
+    title_string += ' normalized'
+  title_string += ' cumulative histogram'
+  title(title_string, size='x-large')
+
+  grid(True)
+
+  if output_name:
+    if ifo:
+      output_name += '_' + ifo
+    if normalization:
+      output_name += '_' + col_name + '_norm_hist.png'
+    else:
+      output_name += '_' + col_name + '_cum_hist.png'
+    savefig(output_name)
+
+
+
+######################################################################
+# function to histogram the difference between values of 'col_name' in
+# two tables, table1 and table2
+def histdiff(table1, table2, col_name, plot_type, sym, units=None, 
+  nbins = None, width = None, output_name = None):
+  
+  histcolors = ['r','b','k']
+  
+  [tmpvar1, tmpvar2, ifo ] = readcolfrom2tables(table1, table2, col_name)
+
+  tmp_diff = tmpvar2 - tmpvar1
+
+  if (plot_type == 'frac_hist'):
+    tmp_diff /= tmpvar1
+
+  if not nbins:
+    nbins = 10
+  
+  bins = []
+  if width:
+    for i in range(-nbins,nbins):
+      bins.append(width * i/nbins)
+  
+  if bins:
+    out = hist(tmp_diff,bins)
+  else:
+    out = hist(tmp_diff,nbins)
+ 
+  width = out[1][1] - out[1][0]
+  bar(out[1],out[0],width,color=histcolors[sym])
+
+  figtext(0.13,0.8 - 0.1* sym," mean = %6.3e" % mean(tmp_diff))
+  figtext(0.13,0.75 - 0.1 * sym,'sigma = %6.3e' % std(tmp_diff))
+   
+  label = col_name 
+  if (plot_type == 'frac_hist'):
+    label += ' fractional'
+  label += ' difference'
+  if units and not (plot_type == 'frac_hist'):
+    label += ' (' + units +')'
+  xlabel(label, size='x-large')
+
+  ylabel('Number', size='x-large')
+  
+  if ifo:
+    title(ifo + ' ' + col_name + '  Histogram', size='x-large')
+  else:
+    title(col_name + ' Histogram', size='x-large')
+  
+  grid(True)
+
+  if output_name:
+    if ifo:
+      output_name += '_' + ifo  
+    if (plot_type == 'frac_hist'):  
+      output_name += '_' + col_name + '_frac_histogram.png'
+    else:
+      output_name += '_' + col_name + '_histogram.png'
+    savefig(output_name)
+  
 
 ###################################################
 # function to plot the difference between values of 'col_name' in
