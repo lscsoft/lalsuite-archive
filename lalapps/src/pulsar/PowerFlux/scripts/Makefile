@@ -1,5 +1,6 @@
 
-UPLOAD_FILES=make_run.tcl split.tcl get_param.tcl make_1800_sfts.tcl get_lines.tcl
+UPLOAD_FILES=make_run.tcl split.tcl get_param.tcl make_1800_sfts.tcl \
+	get_lines.tcl make_power_injection_run.tcl
 
 all:
 

@@ -10,6 +10,11 @@ Run preparation:
 				  PowerFlux
 	params.tcl		- example parameter file for the above
 				  script
+	make_power_injection_run.tcl
+				- prepare Monte-Carlo power injection run
+	power_injection_params.tcl
+				- example parameter file for the above
+				  script
 
 Run analysis:
 	get_param.tcl		- query run parameter file (param.tcl)
