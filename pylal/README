@@ -1,22 +1,22 @@
-LGEN: LSC Graphics Engine
+PyLAL: LSC Graphics Engine
 
-LGEn is a collection of utilities for plotting the output files from LSC
+PyLAL is a collection of utilities for plotting the output files from LSC
 analysis pipelines
 
-This README file explains how to build and install LGEn.
+This README file explains how to build and install PyLAL.
 
 ------------------------------------------------------------------------------
 
 0. Prerequisites
 
-LGEn needs matplotlib and numarray to provide plotting and good
+PyLAL needs matplotlib and numarray to provide plotting and good
 scientific data manipulation.  The LIGO lightweight reading stuff
 requires LAL, Metaio and Python.  
 
 
 1. Determine your Python version
 
-Python version 2.2 or greater is required to install LGEn. Type:
+Python version 2.2 or greater is required to install PyLAL. Type:
 
   python -V
 
@@ -60,9 +60,9 @@ and csh users should type:
 
 ------------------------------------------------------------------------------
 
-2. Get LGEn from CVS
+2. Get PyLAL from CVS
 
-First choose a directory in which to install the LGEn sources. In this
+First choose a directory in which to install the PyLAL sources. In this
 example, we install the sources into ${HOME}/src. If you decide to
 install somewhere else, change ${HOME}/src to the directory you have
 chosen. Change anonymous in the cvs checkout below to your lscsoft CVS
@@ -70,62 +70,62 @@ user name, if you have one. Type:
 
   mkdir -p ${HOME}/src
   cd ${HOME}/src
-  cvs -d :pserver:anonymous@gravity.phys.uwm.edu:2402/usr/local/cvs/lscsoft checkout lsware
+  cvs -d :pserver:anonymous@gravity.phys.uwm.edu:2402/usr/local/cvs/lscsoft checkout pylal
 
-This will create a directory ${HOME}/src/lsware/lgen containing the
-LGEn sources.
+This will create a directory ${HOME}/src/pylal/pylal containing the
+PyLAL sources.
 
 
 ------------------------------------------------------------------------------
 
-3. Build and Install LGEn
+3. Build and Install PyLAL
 
-Choose a location in which to install LGEn. In this example we choose
-/opt/lgen. You must have write access to this directory, so you may
+Choose a location in which to install PyLAL. In this example we choose
+/opt/pylal. You must have write access to this directory, so you may
 wish to install in ${HOME}, for example. Set the environment variable
-${LGEN_LOCATION} to point to your chosen install directory. Bash or sh
+${PYLAL_LOCATION} to point to your chosen install directory. Bash or sh
 users should type:
 
-  export LGEN_LOCATION=/opt/lgen
+  export PYLAL_LOCATION=/opt/pylal
 
 and csh users should type:
 
-  setenv LGEN_LOCATION /opt/lgen
+  setenv PYLAL_LOCATION /opt/pylal
 
-Assuming you have installed the lgen sources in ${HOME}/src/lsware/lgen, type:
+Assuming you have installed the pylal sources in ${HOME}/src/pylal/pylal, type:
 
-  cd ${HOME}/src/lsware/lgen
+  cd ${HOME}/src/pylal/pylal
 
 Then type:
 
-  ${PYTHON} setup.py install --home=${LGEN_LOCATION}
+  ${PYTHON} setup.py install --home=${PYLAL_LOCATION}
 
-This will build and install all the LGEn modules and programs.
+This will build and install all the PyLAL modules and programs.
 
 
 ------------------------------------------------------------------------------
 
-4. Set up your Environment for Using LGEn
+4. Set up your Environment for Using PyLAL
 
 If you are a bash or sh user, edit your .profile (or .bash_profile)
-file and add the lines (changing /opt/lgen to wherever you installed
-LGEn):
+file and add the lines (changing /opt/pylal to wherever you installed
+PyLAL):
 
-  export LGEN_LOCATION=/opt/lgen
-  if [ -f ${LGEN_LOCATION}/etc/lgen-user-env.sh ] ; then
-    source ${LGEN_LOCATION}/etc/lgen-user-env.sh
+  export PYLAL_LOCATION=/opt/pylal
+  if [ -f ${PYLAL_LOCATION}/etc/pylal-user-env.sh ] ; then
+    source ${PYLAL_LOCATION}/etc/pylal-user-env.sh
   fi
 
 If you are a csh user, edit your .login file and add the lines (changing
-/opt/lgen to wherever you installed LGEn):
+/opt/pylal to wherever you installed PyLAL):
 
-  setenv LGEN_LOCATION /opt/lgen
-  if ( -f ${LGEN_LOCATION}/etc/lgen-user-env.csh ) then
-    source ${LGEN_LOCATION}/etc/lgen-user-env.csh
+  setenv PYLAL_LOCATION /opt/pylal
+  if ( -f ${PYLAL_LOCATION}/etc/pylal-user-env.csh ) then
+    source ${PYLAL_LOCATION}/etc/pylal-user-env.csh
   endif
 
 Now log out and log back in to ensure that all environment variables
 have been updated. 
 
-You may now use LGEn! Please report any problems via the Gnats
-database linked from the LGEn home page.
+You may now use PyLAL! Please report any problems via the Gnats
+database linked from the PyLAL home page.
