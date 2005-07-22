@@ -77,50 +77,75 @@ class metaDataTable:
 
 
 class coincInspiralTable:
-  def __init__(self, inspTriggers): 
-    # an instance of the snglInspiralTable
-    h1triggers = metaDataTable("", "sngl_inspiral")
-    h1triggers.table = [e for e in inspTriggers.table if (re.match("H1",e["ifo"]))]
-    h2triggers = metaDataTable("", "sngl_inspiral")
-    h2triggers.table = [e for e in inspTriggers.table if (re.match("H2",e["ifo"]))]
-    l1triggers = metaDataTable("", "sngl_inspiral")
-    l1triggers.table = [e for e in inspTriggers.table if (re.match("L1",e["ifo"]))]
+  def __init__(self, inspTriggers = None):
+    if not inspTriggers:
+      self.table = []
+    else:
+      h1triggers = metaDataTable("", "sngl_inspiral")
+      h1triggers.table = [entry for entry in inspTriggers.table \
+        if (re.match("H1",entry["ifo"]))]
+      h2triggers = metaDataTable("", "sngl_inspiral")
+      h2triggers.table = [entry for entry in inspTriggers.table \
+        if (re.match("H2",entry["ifo"]))]
+      l1triggers = metaDataTable("", "sngl_inspiral")
+      l1triggers.table = [entry for entry in inspTriggers.table \
+        if (re.match("L1",entry["ifo"]))]
 
-    # use the supplied method to convert these columns into numarrays
-    eventidlist = asarray(uniq(inspTriggers.mkarray("event_id")))
-    self.table = []
-    for m in eventidlist: 
-      self.table.append({ "event_id":m, "H1":{}, "H2":{}, "L1":{} })
+      # use the supplied method to convert these columns into numarrays
+      eventidlist = asarray(uniq(inspTriggers.mkarray("event_id")))
+      self.table = []
+      for event_id in eventidlist: 
+        self.table.append({ "event_id":event_id, "numifos":0 })
   
-    for m in self.table:
-      for k in h1triggers.table:
-        if m["event_id"] == k["event_id"]:
-          m["H1"] = k
-          break
+      for coinc in self.table:
+        for h1_trig in h1triggers.table:
+          if coinc["event_id"] == h1_trig["event_id"]:
+            coinc["H1"] = h1_trig
+            coinc["numifos"] += 1
+            break
   
-    for m in self.table:
-      for k in h2triggers.table:
-        if m["event_id"] == k["event_id"]:
-          m["H2"] = k
-          break
-  
-    for m in self.table:
-      for k in l1triggers.table:
-        if m["event_id"] == k["event_id"]:
-          m["L1"] = k
-          break
+      for coinc in self.table:
+        for h2_trig in h2triggers.table:
+          if coinc["event_id"] == h2_trig["event_id"]:
+            coinc["H2"] = h2_trig
+            coinc["numifos"] += 1
+            break
+    
+      for coinc in self.table:
+        for l1_trig in l1triggers.table:
+          if coinc["event_id"] == l1_trig["event_id"]:
+            coinc["L1"] = l1_trig
+            coinc["numifos"] += 1
+            break
+
+
+  def nevents(self):
+    """
+    Return the number of rows in the resulting table
+    """
+    return len(self.table)
 
   def mkarray(self, colname, ifoname):
     mylist = []
     for i in range(len(self.table)):
       tmpvalue = 0;
-      if self.table[i][ifoname].has_key(colname):
+      if self.table[i].has_key(ifoname) and \
+        self.table[i][ifoname].has_key(colname):
         tmpvalue += (self.table[i][ifoname][colname])
       mylist.append( tmpvalue )
 
     return asarray( mylist )
 
-
+  def coinctype(self, ifo1, ifo2, ifo3 = None):
+    
+    selected_coincs = coincInspiralTable()
+    for coinc in self.table:
+      if coinc.has_key(ifo1) and coinc.has_key(ifo2):
+        if (ifo3 and coinc.has_key(ifo3)) \
+          or (not ifo3 and (coinc['numifos'] == 2)):
+          selected_coincs.table.append(coinc)
+        
+    return selected_coincs
 
 def usage():
         print "readMeta.py -x xml file"
