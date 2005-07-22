@@ -99,7 +99,7 @@ def readcol(table, col_name, ifo=None ):
 # two tables, table1 and table2
 def plotdiff(table1, table2, col_name, plot_type, plot_sym, units=None, 
   axis_range=[0,0,0,0], output_name = None):
-  
+
   [tmpvar1, tmpvar2, ifo ] = readcolfrom2tables(table1, table2, col_name)
 
   tmp_diff = tmpvar2 - tmpvar1
@@ -132,9 +132,9 @@ def plotdiff(table1, table2, col_name, plot_type, plot_sym, units=None,
       axis_range[3] = 0.9 * max(tmp_diff)
 
   if ifo:
-    title(ifo + ' ' + col_name + '  Accuracy', size='x-large')
+    title(ifo + ' ' + col_name + '  Accuracy', size='x-large',weight='bold')
   else:
-    title(col_name + '  Accuracy', size='x-large')
+    title(col_name + '  Accuracy', size='x-large',weight='bold')
   
   
   axis(axis_range)
@@ -305,9 +305,9 @@ def histdiff(table1, table2, col_name, plot_type, sym, units=None,
   ylabel('Number', size='x-large')
   
   if ifo:
-    title(ifo + ' ' + col_name + '  Histogram', size='x-large')
+    title(ifo + ' ' + col_name + '  Histogram', size='x-large',weight='bold')
   else:
-    title(col_name + ' Histogram', size='x-large')
+    title(col_name + ' Histogram', size='x-large',weight='bold')
   
   grid(True)
 
