@@ -1,7 +1,7 @@
-PyLAL: LSC Graphics Engine
+PyLAL: Python LAL.
 
 PyLAL is a collection of utilities for plotting the output files from LSC
-analysis pipelines
+analysis pipelines.
 
 This README file explains how to build and install PyLAL.
 
