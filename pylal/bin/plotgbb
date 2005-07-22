@@ -21,7 +21,7 @@ Usage: plotgbb [options]
 
   SUMMARY:  
   
-  Generate a set of summary plots from triggers stored as sngl_simInspiral 
+  Generate a set of summary plots from triggers stored as simInspiral 
   tables in LIGO lightweight format.  The plots are
 
     1.  SNR v CHISQ
@@ -32,7 +32,7 @@ Usage: plotgbb [options]
   
     -h, --help              display this message
   
-    -g, --glob STRING       filename glob, e.g. \"H1-INSPIRAL-*.xml\"
+    -g, --glob STRING       filename glob, e.g. \"HL-INSPIRAL-*.xml\"
     -f, --figure STRING     generate ps figures with name STRING.ps
     -t, --title TITLE       title string for plots
     -s, --show              display the figures on the terminal.
@@ -44,10 +44,10 @@ Usage: plotgbb [options]
 
 ##############################################################################
 # temp "file"
-def makeData(max, dx):
+def makeData( max, dx ):
 # returns P(x), x, dx
-  x  = arange(0,max,dx)
-  return 1.0/(x+1.0)**2.0, x, dx
+  x  = arange( 0, max, dx )
+  return 1.0/( x+1.0 )**2.0, x, dx
 
 
 ##############################################################################
@@ -62,109 +62,112 @@ longop = [
   "title="]
 
 try:
-  opts, args = getopt.getopt(sys.argv[1:], shortop, longop)
+  opts, args = getopt.getopt( sys.argv[1:], shortop, longop )
 except getopt.GetoptError:
   print >> sys.stderr, "Error parsing command line"
   print >> sys.stderr, "Enter 'plotgbb --help' for usage"
-  sys.exit(1)
+  sys.exit( 1 )
 
 # defaul values
 myGlob = None
 myFigure = None
-myTitle = "SNR v CHISQ"
+myTitle = "Title"
 showflag = 0
 nbins = 10
 
 for o, a in opts:
-  if o in ("-h", "--help"):
+  if o in ( "-h", "--help" ):
     usage()
-    sys.exit(0)
-  elif o in ("-v", "--version"):
-    sys.exit(0)
-  elif o in ("-b", "--bins"):
-    nbins = int(a)
-  elif o in ("-g", "--glob"):
+    sys.exit( 0 )
+  elif o in ( "-v", "--version" ):
+    sys.exit( 0 )
+  elif o in ( "-b", "--bins" ):
+    nbins = int( a )
+  elif o in ( "-g", "--glob" ):
     myGlob = a
-  elif o in ("-f", "--figure"):
+  elif o in ( "-f", "--figure" ):
     myFigure = a
-  elif o in ("-s", "--show"):
+  elif o in ( "-s", "--show" ):
     showflag = 1
-  elif o in ("-t", "--title"):
+  elif o in ( "-t", "--title" ):
     myTitle = a
 
 if not myGlob:
   print >> sys.stderr, "Bad combination or missing options"
   print >> sys.stderr, "Enter 'plotgbb --help' for usage"
-  sys.exit(1)
+  sys.exit( 1 )
 
 # glob the list of files to read in
-myfiles = glob.glob(myGlob);
+myfiles = glob.glob( myGlob );
 
 # an instance of the simInspiralTable
-simInspTriggers=readMeta.metaDataTable(myfiles, "sim_inspiral")
+simInspTriggers=readMeta.metaDataTable( myfiles, "sim_inspiral" )
 
 # make a regular plot.
 # The following line determines the number of sources named GBB.
-numSources = len([e for e in simInspTriggers.table if (re.match("GBB",e["source"]))])
+numSources = len( [e for e in simInspTriggers.table if ( re.match("GBB",e["source"]) )] )
 
-h=simInspTriggers.mkarray("eff_dist_h")
-index=arange(0,len(h))*7.45/numSources
+h=simInspTriggers.mkarray( "eff_dist_h" )
+index=arange( 0, len(h) )*7.45/numSources
 hs=sort(h)
 
-l=simInspTriggers.mkarray("eff_dist_l")
-ls=sort(l)
+l=simInspTriggers.mkarray( "eff_dist_l" )
+ls=sort( l )
 
-g=simInspTriggers.mkarray("eff_dist_g")
-gs=sort(g)
+g=simInspTriggers.mkarray( "eff_dist_g" )
+gs=sort( g )
 
-t=simInspTriggers.mkarray("eff_dist_t")
-ts=sort(t)
+t=simInspTriggers.mkarray( "eff_dist_t" )
+ts=sort( t )
 
-v=simInspTriggers.mkarray("eff_dist_v")
-vs=sort(v)
+v=simInspTriggers.mkarray( "eff_dist_v" )
+vs=sort( v )
 
-plot(hs, index, ls, index, gs, index, ts, index, vs, index)
-grid(True)
-axis([0, 40, 0, 300])
-xlabel('Effective Distance (Mpc)')
-ylabel('N_G')
-legend( ('Hanford', 'Livingston', 'GEO', 'TAMA', 'VIRGO'), loc=0)
+plot( hs, index, ls, index, gs, index, ts, index, vs, index )
+grid( True )
+axis( [0, 40, 0, 300] )
+xlabel( 'Effective Distance (Mpc)' )
+ylabel('N_G' )
+title( myTitle )
+legend( ('Hanford', 'Livingston', 'GEO', 'TAMA', 'VIRGO'), loc=0 )
 if myFigure:
-  savefig(myFigure + ".ps")
+  savefig( myFigure + ".ps" )
 
 # make a loglog plot.
 figure()
 eps=0.00001	# to prevent log(0) craziness.
 index=index+eps
 
-loglog(hs, index, ls, index, gs, index, ts, index, vs, index)
-grid(True)
-axis([1, 40, 1, 300])
-xlabel('Effective Distance (Mpc)')
-ylabel('N_G')
-legend( ('Hanford', 'Livingston', 'GEO', 'TAMA', 'VIRGO'), loc=0)
+loglog( hs, index, ls, index, gs, index, ts, index, vs, index )
+grid( True )
+axis( [1, 40, 1, 300] )
+xlabel( 'Effective Distance (Mpc)' )
+ylabel( 'N_G' )
+title( myTitle )
+legend( ('Hanford', 'Livingston', 'GEO', 'TAMA', 'VIRGO'), loc=0 )
 if myFigure:
-  savefig(myFigure + "_loglog.ps")
+  savefig( myFigure + "_loglog.ps" )
 
 
 # effective distance plot.
 figure()
-P_x, x, dx = makeData(50,1)
+P_x, x, dx = makeData( 50, 1 )
 
 Ng_h, Ng_l = [], []
 # Find the number of galaxies with effective distance close to "i".
 for i in x:
-  Ng_h.append( len([ e for e in simInspTriggers.table if (-0.5 < e["eff_dist_h"] - i <= 0.5 )]) )
-  Ng_l.append( len([ e for e in simInspTriggers.table if (-0.5 < e["eff_dist_l"] - i <= 0.5 )]) )
+  Ng_h.append( len([ e for e in simInspTriggers.table if (-0.5 < e["eff_dist_h"] - i <= 0.5 ) ]) )
+  Ng_l.append( len([ e for e in simInspTriggers.table if (-0.5 < e["eff_dist_l"] - i <= 0.5 ) ]) )
 
 plot( x, P_x*Ng_h*dx, x, P_x*Ng_l*dx )
-grid(True)
-axis([0, len(x), 0, 1])
-xlabel('eff_dist (Mpc)')
-ylabel('N_G?')
-legend( ('eff_dist_h', 'eff_dist_l'), loc=0)
+grid( True )
+axis( [0, len(x), 0, 1] )
+xlabel( 'eff_dist (Mpc)' )
+ylabel( 'N_G?' )
+title( myTitle )
+legend( ('eff_dist_h', 'eff_dist_l'), loc=0 )
 if myFigure:
-  savefig(myFigure + "_temp.ps")
+  savefig( myFigure + "_temp.ps" )
 
 if showflag:
   show()
