@@ -126,7 +126,7 @@ histcolors = ['r','b','k']
 ################################
 # plot of mchirp error vs mchirp
 if opts.plot_mchirp:
-  figure(1)
+  figure()
   sym=0
   for set in injSets:
     viz.plotdiff(set['sim_inspiral'], set['sngl_inspiral'],\
@@ -140,7 +140,7 @@ if opts.plot_mchirp:
 ###############################  
 # histogram of chirp mass error
 if opts.hist_mchirp:
-  figure(2)
+  figure()
   sym=0
   for set in injSets:
     viz.histdiff(set['sim_inspiral'], set['sngl_inspiral'],\
@@ -154,7 +154,7 @@ if opts.hist_mchirp:
 ################################
 # plot of eta error vs eta
 if opts.plot_eta:
-  figure(1)
+  figure()
   sym=0
   for set in injSets:
     viz.plotdiff(set['sim_inspiral'], set['sngl_inspiral'],\
@@ -168,7 +168,7 @@ if opts.plot_eta:
 ###############################  
 # histogram of chirp mass error
 if opts.hist_eta:
-  figure(2)
+  figure()
   sym=0
   for set in injSets:
     viz.histdiff(set['sim_inspiral'], set['sngl_inspiral'],\
@@ -183,7 +183,7 @@ if opts.hist_eta:
 ################################
 # plot of timing error vs time
 if opts.plot_timing:
-  figure(3)
+  figure()
   sym=0
   for set in injSets:
     viz.plotdiff(set['sim_inspiral'], set['sngl_inspiral'],\
@@ -199,7 +199,7 @@ if opts.plot_timing:
 ###############################  
 # histogram of timing error
 if opts.hist_timing:
-  figure(4)
+  figure()
   sym=0
   for set in injSets:
     viz.histdiff(set['sim_inspiral'], set['sngl_inspiral'],\
@@ -213,7 +213,7 @@ if opts.hist_timing:
 ################################
 # plot of distamce error vs dist
 if opts.plot_dist:
-  figure(5)
+  figure()
   sym=0
   for set in injSets:
     viz.plotfracdiff(set['sim_inspiral'], set['sngl_inspiral'],\
@@ -227,7 +227,7 @@ if opts.plot_dist:
 ###############################  
 # histogram of dist error
 if opts.hist_dist:
-  figure(6)
+  figure()
   sym=0
   for set in injSets:
     viz.histdiff(set['sim_inspiral'], set['sngl_inspiral'],\
@@ -242,7 +242,7 @@ if opts.hist_dist:
 #######################################
 # plot of injected vs detected distamce    
 if opts.dist_dist:  
-  figure(7)
+  figure()
   sym=0
   for set in injSets:
     viz.plotval(set['sim_inspiral'], \
@@ -257,7 +257,7 @@ if opts.dist_dist:
 ################################
 # plot of mchirp error vs eff_dist
 if opts.chirp_dist:
-  figure(8)
+  figure()
   sym=0
   for set in injSets:
     viz.plotdiffa_vs_b(set['sim_inspiral'], set['sngl_inspiral'],\
@@ -273,7 +273,7 @@ if opts.chirp_dist:
 ################################
 # plot of mchirp error vs mchirp
 if opts.time_dist:
-  figure(9)
+  figure()
   sym=0
   for set in injSets:
     viz.plotdiffa_vs_b(set['sim_inspiral'], set['sngl_inspiral'],\
@@ -289,7 +289,7 @@ if opts.time_dist:
 ################################
 # plot of mchirp error vs snr
 if opts.chirp_snr:
-  figure(10)
+  figure()
   sym=0
   for set in injSets:
     viz.plotdiffa_vs_b(set['sngl_inspiral'], set['sim_inspiral'],\
@@ -304,7 +304,7 @@ if opts.chirp_snr:
 ################################
 # plot of mchirp error vs snr
 if opts.time_snr:
-  figure(11)
+  figure()
   sym=0
   for set in injSets:
     viz.plotdiffa_vs_b(set['sngl_inspiral'], set['sim_inspiral'],\
