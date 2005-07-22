@@ -9,8 +9,8 @@ import glob
 from types import *
 
 from pylab import *
-from lgen import readMeta
-from lgen import viz
+from pylal import readMeta
+from pylal import viz
 
 ##############################################################################
 usage = """usage: %prog [options] 
