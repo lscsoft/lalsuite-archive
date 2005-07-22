@@ -30,17 +30,21 @@ Example 2: ...
 parser = OptionParser( usage )
 parser.add_option("-v","--version",action="store_true",default=False,\
     help="display version information " )
-parser.add_option("-a","--plot-mchirp",action="store_true",default=False,\
+parser.add_option("-m","--plot-mchirp",action="store_true",default=False,\
     help="plot the chirp mass accuracy" )
-parser.add_option("-b","--hist-mchirp",action="store_true",default=False,\
+parser.add_option("-M","--hist-mchirp",action="store_true",default=False,\
     help="histogram of the chirp mass accuracy" )
-parser.add_option("-c","--plot-timing",action="store_true",default=False,\
+parser.add_option("-e","--plot-eta",action="store_true",default=False,\
+    help="plot the chirp mass accuracy" )
+parser.add_option("-E","--hist-eta",action="store_true",default=False,\
+    help="histogram of the eta accuracy" )    
+parser.add_option("-t","--plot-timing",action="store_true",default=False,\
     help="plot of the timing accuracy" )
-parser.add_option("-d","--hist-timing",action="store_true",default=False,\
+parser.add_option("-T","--hist-timing",action="store_true",default=False,\
     help="histogram of the timing accuracy" )
 parser.add_option("-i","--plot-dist",action="store_true",default=False,\
     help="plot of the effective distance accuracy" )
-parser.add_option("-j","--hist-dist",action="store_true",default=False,\
+parser.add_option("-I","--hist-dist",action="store_true",default=False,\
     help="histogram of the effective distance accuracy" )
 parser.add_option("-k","--dist-dist",action="store_true",default=False,\
     help="plot of injected vs recovered distance" )
@@ -56,7 +60,7 @@ parser.add_option("-C","--chirp-axis",action="store",type="float",\
     default=0, metavar=" M_SUN",help="width of chirp mass accuracy in plots" )
 parser.add_option("-D","--dist-axis",action="store",type="float",\
     default=0,metavar=" FRAC_DIFF",help="width of distance accuracy in plots" )
-parser.add_option("-E","--time-axis",action="store",type="float",\
+parser.add_option("-S","--time-axis",action="store",type="float",\
     default=0, metavar=" SEC",help="width of timing accuracy in plots" )
 parser.add_option("-1","--tag1",action="store",type="string",\
     default=None, metavar=" TAG",help="identifier for first input file" )
@@ -144,6 +148,35 @@ if opts.hist_mchirp:
     sym+=1
   if tags:
     legend(tags)
+
+################################
+# plot of eta error vs eta
+if opts.plot_eta:
+  figure(1)
+  sym=0
+  for set in injSets:
+    viz.plotdiff(set['sim_inspiral'], set['sngl_inspiral'],\
+                 'eta', 'plot', plotsymbols[sym], 'units', \
+                 [0,0,-opts.eta_axis,opts.eta_axis], opts.fig_name)
+    hold(True) 
+    sym+=1
+  if tags:
+    legend(tags)
+  
+###############################  
+# histogram of chirp mass error
+if opts.hist_eta:
+  figure(2)
+  sym=0
+  for set in injSets:
+    viz.histdiff(set['sim_inspiral'], set['sngl_inspiral'],\
+                 'eta', 'hist', sym,'units', \
+                 opts.nbins, opts.eta_axis, opts.fig_name)
+    hold(True) 
+    sym+=1
+  if tags:
+    legend(tags)
+
 
 ################################
 # plot of timing error vs time
