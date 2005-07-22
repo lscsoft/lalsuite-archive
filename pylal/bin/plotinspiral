@@ -2,7 +2,7 @@
 
 import sys
 import os
-import getopt
+from optparse import *
 import re
 import exceptions
 import glob
@@ -13,124 +13,111 @@ from lgen import readMeta
 from lgen import viz
 
 ##############################################################################
-# help message
+usage = """usage: %prog [options] file1 (file2 file3)
 
+Inspiral Plotting Functions
 
-def usage():
-  msg = """\
-Usage: plotinspiral [options]
-
-  SUMMARY:  
-  
-  Generate a set of summary plots from triggers stored as sngl_inspiral 
-  tables in LIGO lightweight format.  The plots are
+The plots are
 
     1.  SNR v CHISQ
     2.  Cumulative Histogram of SNR values
     3.  Histogram of CHISQ values
 
-  OPTIONS:
-  
-    -h, --help              display this message
-  
-    -g, --glob STRING       filename glob, e.g. \"H1-INSPIRAL-*.xml\"
-    -f, --figure STRING     generate png figures with name STRING-fig.png
-    -t, --title TITLE       title string for plots
-    -s, --show              display the figures on the terminal.
-
+Example 1: ...
+Example 2: ...
 """
-  print >> sys.stderr, msg
 
+parser = OptionParser( usage )
+parser.add_option("-v","--version",action="store_true",default=False,\
+    help="display version information " )
+parser.add_option("-f","--figure-name",action="store",type="string",\
+    default=None,metavar=" FNAME",\
+    help="generate png figures with name FNAME-fig.png")
+parser.add_option("-t","--title",action="store",type="string",default=None,\
+    metavar=" STRING",help="title string for plots")
+parser.add_option("-s","--show-plot",action="store_true",default=False,\
+    help="display the figures on the terminal" )
+parser.add_option("-a","--snr-chisq",action="store_true",default=False,\
+    help="make a plot of snr vs chisq" )
+parser.add_option("-b","--log-snr-chisq",action="store_true",default=False,\
+    help="make a log plot of snr vs chisq" )
+parser.add_option("-c","--cum-hist-snr",action="store_true",default=False,\
+    help="cumulative histogram of the snr" )
+parser.add_option("-d","--hist-snr",action="store_true",default=False,\
+    help="histogram of the snr" )
+parser.add_option("-e","--norm-hist-snr",action="store_true",default=False,\
+    help="normalized cumulative histogram of the snr" )
+parser.add_option("-g","--hist-chisq",action="store_true",default=False,\
+    help="histogram of the chisq values" )
+parser.add_option("-n","--nbins",action="store",type="int",default=10,\
+    metavar=" NBINS", help="number of bins for the histogram plots" )
+parser.add_option("-m","--maximization-interval",action="store",\
+    type="int",default=10,\
+    metavar=" MAX_INT", help="maximization interval used (in ms)" )
+parser.add_option("-T","--analyzed-time",action="store",type="int",\
+    metavar=" SECONDS", help="amount of time analyzed" )
 
-# grab command line options
-shortop = "b:f:g:hst:"
-longop = [
-  "bins=",
-  "figure=",
-  "glob=",
-  "help",
-  "show",
-  "title="]
+(opts,args) = parser.parse_args()
 
-try:
-  opts, args = getopt.getopt(sys.argv[1:], shortop, longop)
-except getopt.GetoptError:
-  print >>sys.stderr, "Error parsing command line"
-  print >>sys.stderr, "Enter 'plotburst --help' for usage"
+# if --version flagged
+if opts.version:
+  sys.exit(0)
+
+# check at least one trig file was specified
+if not args:
+  print >>sys.stderr, "at least one trigger file must be specified"
+  print >>sys.stderr, "Enter 'plotinspiral --help' for usage"
   sys.exit(1)
 
-# defaul values
-myGlob = None
-myFigure = None
-myTitle = "SNR v CHISQ"
-showflag = 0
-nbins = 10
-
-for o, a in opts:
-  if o in ("-h", "--help"):
-    usage()
-    sys.exit(0)
-  elif o in ("-v", "--version"):
-    sys.exit(0)
-  elif o in ("-b", "--bins"):
-    nbins = int(a)
-  elif o in ("-g", "--glob"):
-    myGlob = a
-  elif o in ("-f", "--figure"):
-    myFigure = a
-  elif o in ("-s", "--show"):
-    showflag = 1
-  elif o in ("-t", "--title"):
-    myTitle = a
-
-if not myGlob:
-  print >>sys.stderr, "Bad combination or missing options"
-  print >>sys.stderr, "Enter 'plotburst --help' for usage"
+if opts.norm_hist_snr and not opts.analyzed_time:
+  print >>sys.stderr, "to make the normalized cumulative histogram"
+  print >>sys.stderr, "the --analyzed-time must be specified"
   sys.exit(1)
 
-# glob the list of files to read in
-myfiles = glob.glob(myGlob);
+trigFiles = args
 
 # an instance of the snglInspiralTable
-inspTriggers=readMeta.metaDataTable(myfiles, "sngl_inspiral")
+inspTriggers=readMeta.metaDataTable(trigFiles, "sngl_inspiral")
 
-# use the supplied method to convert these columns into numarrays
-snr = inspTriggers.mkarray("snr")
-chisq = inspTriggers.mkarray("chisq")
+###################################
+# plot of snr vs chisq
+if opts.snr_chisq:
+  figure(1)
+  viz.plot_a_v_b(inspTriggers,'snr','chisq','plot',opts.figure_name)
+
+###################################
+# plot of snr vs chisq
+if opts.log_snr_chisq:
+  figure(2)
+  viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog',opts.figure_name)
+
+
+###################################
+# cumulative histogram of snr
+if opts.cum_hist_snr:
+  figure(3)
+  viz.cumhistcol(inspTriggers,'snr',None,opts.figure_name)
+
+###################################
+# histogram of snr
+if opts.hist_snr:
+  figure(4)
+  viz.histcol(inspTriggers,'snr',opts.nbins,opts.figure_name)
+
+###################################
+# histogram of snr
+if opts.norm_hist_snr:
+  max_poss_trigs = (1000 / float (opts.maximization_interval)) * \
+    opts.analyzed_time
+  figure(5)
+  viz.cumhistcol(inspTriggers,'snr',max_poss_trigs,opts.figure_name)
   
-viz.simpleplot(inspTriggers,"snr","chisq")
-hold(True)
-x=arange(6.0,10,0.1)
-y=0.01*(x*x*x*x)/(1+0.01*x*x)
-plot(x,1*y,'b-',x,2*y,'k-',x,3*y,'g-')
-hold(False)
-axis([6.5,10,0,90])
-if myFigure:
-  savefig(myFigure + "-snrvchisq.png")
+###################################
+# histogram of chisq values
+if opts.hist_chisq:
+  figure(5)
+  viz.histcol(inspTriggers,'chisq',opts.nbins,opts.figure_name)
 
 
-figure() 
-n = len(snr)
-r = arange(len(snr))
-snrsq = sort(snr)
-semilogy(snrsq, n - r, 'bv')
-xlabel(r'snr', size='x-large')
-ylabel(r'Cumulative #', size='x-large')
-title(r' ' + myTitle)
-grid(True)
-if myFigure:
-  savefig(myFigure + "-snrhist.png")
-
-figure() 
-hist(chisq, nbins)
-xlabel(r'chisq', size='x-large')
-ylabel(r'Number', size='x-large')
-title(r' ' + myTitle)
-grid(True)
-if myFigure:
-  savefig(myFigure + "-chisqhist.png")
-
-if showflag:
+if opts.show_plot:
   show()
-
-
