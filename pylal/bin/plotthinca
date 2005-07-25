@@ -80,7 +80,7 @@ else:
 
 if opts.h1_h2_snr:
   figure(1)
-  viz.plotcoincval(coincTriggers, 'snr', 'H1', 'H2', 'kx',opts.plot_type)
+  viz.plotcoincval(coincTriggers, 'snr', 'H1', 'H2', 'kx','linear')
   axis([xlow, xhigh, xlow, xhigh])
 
   xlabel('SNR H1', size='x-large')
@@ -88,7 +88,7 @@ if opts.h1_h2_snr:
   title('H1 vs H2 coincident event SNR')
   grid(True)
   if opts.figure_name:
-    savefig(myFigure + "h1_vs_h2_snr.png")
+    savefig(opts.figure_name + "h1_vs_h2_snr.png")
 
 
 ################################
@@ -98,8 +98,8 @@ if opts.hl_snr:
   figure(2)
   viz.plotcoincval(coincTriggers, 'snr', 'H1', 'L1', 'kx',opts.plot_type)
   hold(True)
-  viz.plotcoincval(coincTriggers, 'snr', 'H2', 'L1', 'r+')
-  viz.plotcoinchanford(coincTriggers, 'snr', 'L1', 'sum', 'gx')
+  viz.plotcoincval(coincTriggers, 'snr', 'H2', 'L1', 'r+',opts.plot_type)
+  viz.plotcoinchanford(coincTriggers, 'snr', 'L1', 'sum', 'gx',opts.plot_type)
   axis([xlow, xhigh, xlow, xhigh])
 
 
@@ -109,7 +109,7 @@ if opts.hl_snr:
   title('Hanford vs Livingston coincident event SNR')
   grid(True)
   if opts.figure_name:
-    savefig(myFigure + "h_vs_l_snr.png")
+    savefig(opts.figure_name + "h_vs_l_snr.png")
 
 
 show()
