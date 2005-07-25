@@ -2,7 +2,8 @@
 
 import sys
 import os
-import getopt
+from optparse import *
+#import getopt
 import re
 import exceptions
 import glob
@@ -10,37 +11,7 @@ from types import *
 
 from pylab import *
 from pylal import readMeta
-
-##############################################################################
-# help message
-
-
-def usage():
-  msg = """\
-Usage: plotgbb [options]
-
-  SUMMARY:  
-  
-  Generate a set of summary plots from triggers stored as simInspiral 
-  tables in LIGO lightweight format.  The plots are
-
-    1.  SNR v CHISQ
-    2.  Cumulative Histogram of SNR values
-    3.  Histogram of CHISQ values
-
-  OPTIONS:
-  
-    -h, --help              display this message
-  
-    -g, --glob STRING       filename glob, e.g. \"HL-INSPIRAL-*.xml\"
-    -f, --figure STRING     generate ps figures with name STRING.ps
-    -t, --title TITLE       title string for plots
-    -s, --show              display the figures on the terminal.
-
-"""
-  print >> sys.stderr, msg
-
-
+from pylal import viz
 
 ##############################################################################
 # temp "file"
@@ -49,59 +20,52 @@ def makeData( max, dx ):
   x  = arange( 0, max, dx )
   return 1.0/( x+1.0 )**2.0, x, dx
 
+##############################################################################
+# help message
+usage = """\
+Usage: plotgbb [options]
+
+  SUMMARY:  
+  
+  Generate a set of summary plots from triggers stored as simInspiral 
+  tables in LIGO lightweight format.  The plots are
+
+    1.
+    2.
+    3.
+
+"""
 
 ##############################################################################
-# grab command line options
-shortop = "b:f:g:hst:"
-longop = [
-  "bins=",
-  "figure=",
-  "glob=",
-  "help",
-  "show",
-  "title="]
+parser = OptionParser( usage )
+parser.add_option("-v","--version",action="store_true",default=False,\
+    help="display version information " )
+parser.add_option("-f","--figure-name",action="store",type="string",\
+    default=None,metavar=" FNAME",\
+    help="generate ps figures with name FNAME.ps and FNAME_loglog.ps")
+parser.add_option("-t","--title",action="store",type="string",default=None,\
+    metavar=" STRING",help="title string for plots")
+parser.add_option("-s","--show-plot",action="store_true",default=False,\
+    help="display the figures on the terminal" )
 
-try:
-  opts, args = getopt.getopt( sys.argv[1:], shortop, longop )
-except getopt.GetoptError:
-  print >> sys.stderr, "Error parsing command line"
-  print >> sys.stderr, "Enter 'plotgbb --help' for usage"
-  sys.exit( 1 )
+(opts,args) = parser.parse_args()
 
-# defaul values
-myGlob = None
-myFigure = None
-myTitle = "Title"
-showflag = 0
-nbins = 10
+# if --version flagged
+if opts.version:
+  sys.exit(0)
 
-for o, a in opts:
-  if o in ( "-h", "--help" ):
-    usage()
-    sys.exit( 0 )
-  elif o in ( "-v", "--version" ):
-    sys.exit( 0 )
-  elif o in ( "-b", "--bins" ):
-    nbins = int( a )
-  elif o in ( "-g", "--glob" ):
-    myGlob = a
-  elif o in ( "-f", "--figure" ):
-    myFigure = a
-  elif o in ( "-s", "--show" ):
-    showflag = 1
-  elif o in ( "-t", "--title" ):
-    myTitle = a
+# check at least one trig file was specified
+if not args:
+  print >>sys.stderr, "at least one trigger file must be specified"
+  print >>sys.stderr, "Enter 'plotgbb --help' for usage"
+  sys.exit(1)
 
-if not myGlob:
-  print >> sys.stderr, "Bad combination or missing options"
-  print >> sys.stderr, "Enter 'plotgbb --help' for usage"
-  sys.exit( 1 )
+trigFiles = args
 
-# glob the list of files to read in
-myfiles = glob.glob( myGlob );
+##############################################################################
 
 # an instance of the simInspiralTable
-simInspTriggers=readMeta.metaDataTable( myfiles, "sim_inspiral" )
+simInspTriggers=readMeta.metaDataTable( trigFiles, "sim_inspiral" )
 
 # make a regular plot.
 # The following line determines the number of sources named GBB.
@@ -128,10 +92,11 @@ grid( True )
 axis( [0, 40, 0, 300] )
 xlabel( 'Effective Distance (Mpc)' )
 ylabel('N_G' )
-title( myTitle )
 legend( ('Hanford', 'Livingston', 'GEO', 'TAMA', 'VIRGO'), loc=0 )
-if myFigure:
-  savefig( myFigure + ".ps" )
+if opts.title:
+  title( opts.title )
+if opts.figure_name:
+  savefig( opts.figure_name + ".ps" )
 
 # make a loglog plot.
 figure()
@@ -143,10 +108,11 @@ grid( True )
 axis( [1, 40, 1, 300] )
 xlabel( 'Effective Distance (Mpc)' )
 ylabel( 'N_G' )
-title( myTitle )
 legend( ('Hanford', 'Livingston', 'GEO', 'TAMA', 'VIRGO'), loc=0 )
-if myFigure:
-  savefig( myFigure + "_loglog.ps" )
+if opts.title:
+  title( opts.title )
+if opts.figure_name:
+  savefig( opts.figure_name + "_loglog.ps" )
 
 
 # effective distance plot.
@@ -164,10 +130,11 @@ grid( True )
 axis( [0, len(x), 0, 1] )
 xlabel( 'eff_dist (Mpc)' )
 ylabel( 'N_G?' )
-title( myTitle )
 legend( ('eff_dist_h', 'eff_dist_l'), loc=0 )
-if myFigure:
-  savefig( myFigure + "_temp.ps" )
+if opts.title:
+  title( opts.title )
+if opts.figure_name:
+  savefig( opts.figure_name + "_temp.ps" )
 
-if showflag:
+if opts.show_plot:
   show()
