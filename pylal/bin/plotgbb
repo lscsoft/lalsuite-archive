@@ -13,8 +13,6 @@ from pylab import *
 from pylal import readMeta
 from pylal import viz
 
-L_MAX = 7.45   # Luminosity constant.
-
 ##############################################################################
 # temp "file"
 def makeData( max, dx ):
@@ -65,6 +63,11 @@ if not args:
 trigFiles = args
 
 ##############################################################################
+# Constants:
+X_MAX = 40	# x-axis max for plots.
+Y_MAX = 300	# y-axis max for plots.
+L_MAX = 7.45	# Luminosity constant.
+
 
 # an instance of the simInspiralTable
 simInspTriggers=readMeta.metaDataTable( trigFiles, "sim_inspiral" )
@@ -91,7 +94,7 @@ vs=sort( v )
 
 plot( hs, index, ls, index, gs, index, ts, index, vs, index )
 grid( True )
-axis( [0, 40, 0, 300] )
+axis( [0, X_MAX, 0, Y_MAX] )
 xlabel( 'Effective Distance (Mpc)' )
 ylabel('N_G' )
 legend( ('Hanford', 'Livingston', 'GEO', 'TAMA', 'VIRGO'), loc=0 )
@@ -107,7 +110,7 @@ log_i=index+eps
 
 loglog( hs, log_i, ls, log_i, gs, log_i, ts, log_i, vs, log_i )
 grid( True )
-axis( [1, 40, 1, 300] )
+axis( [1, X_MAX, 1, Y_MAX] )
 xlabel( 'Effective Distance (Mpc)' )
 ylabel( 'N_G' )
 legend( ('Hanford', 'Livingston', 'GEO', 'TAMA', 'VIRGO'), loc=0 )
@@ -123,7 +126,7 @@ P_x, x, dx = makeData( 50, 1 )
 
 ng,a,b = hist( hs, x )
 grid( True )
-axis( [0, 40, 0, max( ng[0:49] )] )
+axis( [0, X_MAX, 0, max( ng[0:X_MAX+1] )] )
 xlabel( 'Effective Distance (Mpc)' )
 ylabel('N_G' )
 if opts.title:
@@ -137,9 +140,9 @@ ng = ng*L_MAX/numSources  	# normalize.
 for i in range(1,len(x)):
   ng[i] = ng[i-1] + ng[i]
 
-plot( x[0:50], ng[0:50] )
+plot( x[0:X_MAX+1], ng[0:X_MAX+1] )
 grid( True )
-axis( [0, 40, 0, 300] )
+axis( [0, X_MAX, 0, Y_MAX] )
 xlabel( 'Effective Distance (Mpc)' )
 ylabel('N_G' )
 if opts.title:
