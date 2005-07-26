@@ -14,6 +14,25 @@ from pylal import readMeta
 from pylal import viz
 
 ##############################################################################
+# Chop a simInspiralTable into segments that we care about.
+def getSegments ( sim_table, t_start, t_end, t_seg, t_between_seg ):
+# getSegments returns a new simInspiralTable consisting only of sources
+# occurring during the specified time intervals.
+  t1 = t_start + t_seg
+  
+  while t1 < t_end:
+    t2 = t1 + t_between_seg
+
+    for e in sim_table.table:
+      if ( t1 <= e["h_end_time"] <= t2 ):
+        sim_table.table.remove( e )
+
+    t1 = t2 + t_seg
+
+  return sim_table
+
+
+##############################################################################
 # temp "file"
 def makeData( max, dx ):
 # returns P(x), x, dx
@@ -67,14 +86,26 @@ trigFiles = args
 X_MAX = 40	# x-axis max for plots.
 Y_MAX = 300	# y-axis max for plots.
 L_MAX = 7.45	# Luminosity constant.
+START_TIME = 799000000
+STOP_TIME = 810000000
+SEG_LEN = 2.5*8.64*10**4
+GAP_LEN = 0.33*8.64*10**4
 
 
 # an instance of the simInspiralTable
 simInspTriggers=readMeta.metaDataTable( trigFiles, "sim_inspiral" )
 
-# make a regular plot.
+# TEST!!!
+
+simInspTriggers = getSegments( simInspTriggers, START_TIME, \
+     STOP_TIME, SEG_LEN, GAP_LEN )
+
+#print >> sys.stderr, simInspTriggers
+
 # The following line determines the number of sources named GBB.
 numSources = len( [e for e in simInspTriggers.table if ( re.match("GBB",e["source"]) )] )
+
+print >> sys.stderr, numSources
 
 h=simInspTriggers.mkarray( "eff_dist_h" )
 index=arange( 0, len(h) )*L_MAX/numSources
@@ -92,6 +123,7 @@ ts=sort( t )
 v=simInspTriggers.mkarray( "eff_dist_v" )
 vs=sort( v )
 
+# make a regular plot.
 plot( hs, index, ls, index, gs, index, ts, index, vs, index )
 grid( True )
 axis( [0, X_MAX, 0, Y_MAX] )
@@ -152,3 +184,15 @@ if opts.figure_name:
 
 if opts.show_plot:
   show()
+
+################################
+# Segment reading
+
+h_time=simInspTriggers.mkarray( "h_end_time" )
+
+
+
+
+#print >>sys.stderr, h_time
+
+
