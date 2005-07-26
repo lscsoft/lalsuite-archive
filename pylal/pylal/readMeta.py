@@ -79,6 +79,16 @@ class metaDataTable:
     myarray = asarray( [ self.table[i][colname] for i in range(self.nevents())] )
     return myarray
 
+  def ifocut(self, ifo):
+    """
+    Return a subset of the table, containing only events from the specified ifo
+    """
+    ifocuttable = metaDataTable(None, self.tabletype )
+
+    ifocuttable.table = [entry for entry in self.table \
+      if (re.match(ifo,entry["ifo"]))]
+
+    return ifocuttable
 
 class coincInspiralTable:
   def __init__(self, inspTriggers = None):
