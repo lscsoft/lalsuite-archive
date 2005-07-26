@@ -13,6 +13,8 @@ from pylab import *
 from pylal import readMeta
 from pylal import viz
 
+L_MAX = 7.45   # Luminosity constant.
+
 ##############################################################################
 # temp "file"
 def makeData( max, dx ):
@@ -42,7 +44,7 @@ parser.add_option("-v","--version",action="store_true",default=False,\
     help="display version information " )
 parser.add_option("-f","--figure-name",action="store",type="string",\
     default=None,metavar=" FNAME",\
-    help="generate ps figures with name FNAME.ps and FNAME_loglog.ps")
+    help="generate ps figures with name FNAME_PlotType.ps")
 parser.add_option("-t","--title",action="store",type="string",default=None,\
     metavar=" STRING",help="title string for plots")
 parser.add_option("-s","--show-plot",action="store_true",default=False,\
@@ -72,7 +74,7 @@ simInspTriggers=readMeta.metaDataTable( trigFiles, "sim_inspiral" )
 numSources = len( [e for e in simInspTriggers.table if ( re.match("GBB",e["source"]) )] )
 
 h=simInspTriggers.mkarray( "eff_dist_h" )
-index=arange( 0, len(h) )*7.45/numSources
+index=arange( 0, len(h) )*L_MAX/numSources
 hs=sort(h)
 
 l=simInspTriggers.mkarray( "eff_dist_l" )
@@ -96,14 +98,14 @@ legend( ('Hanford', 'Livingston', 'GEO', 'TAMA', 'VIRGO'), loc=0 )
 if opts.title:
   title( opts.title )
 if opts.figure_name:
-  savefig( opts.figure_name + ".ps" )
+  savefig( opts.figure_name + "_plot.ps" )
 
 # make a loglog plot.
 figure()
 eps=0.00001	# to prevent log(0) craziness.
-index=index+eps
+log_i=index+eps
 
-loglog( hs, index, ls, index, gs, index, ts, index, vs, index )
+loglog( hs, log_i, ls, log_i, gs, log_i, ts, log_i, vs, log_i )
 grid( True )
 axis( [1, 40, 1, 300] )
 xlabel( 'Effective Distance (Mpc)' )
@@ -119,22 +121,31 @@ if opts.figure_name:
 figure()
 P_x, x, dx = makeData( 50, 1 )
 
-Ng_h, Ng_l = [], []
-# Find the number of galaxies with effective distance close to "i".
-for i in x:
-  Ng_h.append( len([ e for e in simInspTriggers.table if (-0.5 < e["eff_dist_h"] - i <= 0.5 ) ]) )
-  Ng_l.append( len([ e for e in simInspTriggers.table if (-0.5 < e["eff_dist_l"] - i <= 0.5 ) ]) )
-
-plot( x, P_x*Ng_h*dx, x, P_x*Ng_l*dx )
+ng,a,b = hist( hs, x )
 grid( True )
-axis( [0, len(x), 0, 1] )
-xlabel( 'eff_dist (Mpc)' )
-ylabel( 'N_G?' )
-legend( ('eff_dist_h', 'eff_dist_l'), loc=0 )
+axis( [0, 40, 0, max( ng[0:49] )] )
+xlabel( 'Effective Distance (Mpc)' )
+ylabel('N_G' )
 if opts.title:
   title( opts.title )
 if opts.figure_name:
-  savefig( opts.figure_name + "_temp.ps" )
+  savefig( opts.figure_name + "_hist.ps" )
+
+# cumulative sum plot (approximation of first plot)
+figure()
+ng = ng*L_MAX/numSources  	# normalize.
+for i in range(1,len(x)):
+  ng[i] = ng[i-1] + ng[i]
+
+plot( x[0:50], ng[0:50] )
+grid( True )
+axis( [0, 40, 0, 300] )
+xlabel( 'Effective Distance (Mpc)' )
+ylabel('N_G' )
+if opts.title:
+  title( opts.title )
+if opts.figure_name:
+  savefig( opts.figure_name + "_sum_plot.ps" )
 
 if opts.show_plot:
   show()
