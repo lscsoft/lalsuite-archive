@@ -124,7 +124,7 @@ for i in range(len(injFiles)):
 
 
 # set lists of plot symbols
-plotsymbols= ['ro','b+','kx']
+plotsymbols= ['rx','b+','ko']
 histcolors = ['r','b','k']
 
 ################################
