@@ -13,8 +13,23 @@ PyLAL needs matplotlib and numarray to provide plotting and good
 scientific data manipulation.  The LIGO lightweight reading stuff
 requires LAL, Metaio and Python.  These packages should be available at
 
-http://www.lsc-group.phys.uwm.edu/daswg/download/repositories.html
+  http://www.lsc-group.phys.uwm.edu/daswg/download/repositories.html
 
+Note: matplotlib and numarray are now part of the standard LSCSOFT stack (at
+least for FC3) and can be obtained using:
+
+  yum groupinstall "LSCSOFT"
+
+However, there is a small bug in the matplotlib rpm which can be fixed by
+finding the .matplotlibrc file by typing:
+
+  locate .matplotlibrc
+
+then opening the file and replacing the line
+   "numerix      : Numeric" 
+by "numerix      : numarray"
+
+------------------------------------------------------------------------------
 
 1. Determine your Python version
 
