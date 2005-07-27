@@ -77,6 +77,10 @@ parser.add_option("-n","--nbins",action="store",type="int",default=10,\
 parser.add_option("-f","--fig-name",action="store",type="string",\
     default=None, metavar=" FNAME",\
     help="generate png figures with name FNAME-fig.png" ) 
+parser.add_option("-x","--title-text",action="store",type="string",\
+    default=None, metavar=" TEXT",\
+    help="add TEXT at start of plot titles" ) 
+    
 
 (opts,args) = parser.parse_args()
 
@@ -126,195 +130,187 @@ histcolors = ['r','b','k']
 ################################
 # plot of mchirp error vs mchirp
 if opts.plot_mchirp:
-  figure()
+  figure(1)
+  hold(True) 
   sym=0
   for set in injSets:
     viz.plotdiff(set['sim_inspiral'], set['sngl_inspiral'],\
-                 'mchirp', 'plot', plotsymbols[sym], 'M_sun', \
-                 [0,0,-opts.chirp_axis,opts.chirp_axis], opts.fig_name)
-    hold(True) 
+                 'mchirp', 'linear', plotsymbols[sym])
     sym+=1
-  if tags:
-    legend(tags)
+  viz.labeldiff('mchirp', 'M_sun', [0,0,-opts.chirp_axis,opts.chirp_axis],\
+    tags,opts.title_text, opts.fig_name) 
   
 ###############################  
 # histogram of chirp mass error
 if opts.hist_mchirp:
-  figure()
+  figure(2)
+  hold(True) 
   sym=0
   for set in injSets:
     viz.histdiff(set['sim_inspiral'], set['sngl_inspiral'],\
-                 'mchirp', 'hist', sym,'M_sun', \
-                 opts.nbins, opts.chirp_axis, opts.fig_name)
-    hold(True) 
+                 'mchirp', 'hist', histcolors[sym],\
+                 opts.nbins, opts.chirp_axis)
     sym+=1
-  if tags:
-    legend(tags)
+  viz.labelhistdiff('mchirp', 'hist', 'M_sun', tags, opts.title_text,\
+    opts.fig_name)
 
+ 
 ################################
 # plot of eta error vs eta
 if opts.plot_eta:
-  figure()
+  figure(3)
+  hold(True) 
   sym=0
   for set in injSets:
     viz.plotdiff(set['sim_inspiral'], set['sngl_inspiral'],\
-                 'eta', 'plot', plotsymbols[sym], 'units', \
-                 [0,0,-opts.eta_axis,opts.eta_axis], opts.fig_name)
-    hold(True) 
+                 'eta', 'linear', plotsymbols[sym])
     sym+=1
-  if tags:
-    legend(tags)
-  
+  viz.labeldiff('eta', None, [0,0,-opts.eta_axis,opts.eta_axis],\
+    tags,opts.title_text, opts.fig_name) 
+ 
+ 
 ###############################  
 # histogram of chirp mass error
 if opts.hist_eta:
-  figure()
+  figure(4)
+  hold(True)
   sym=0
   for set in injSets:
     viz.histdiff(set['sim_inspiral'], set['sngl_inspiral'],\
-                 'eta', 'hist', sym,'units', \
-                 opts.nbins, opts.eta_axis, opts.fig_name)
-    hold(True) 
+                 'eta', 'hist', histcolors[sym],\
+                 opts.nbins, opts.eta_axis)
     sym+=1
-  if tags:
-    legend(tags)
+  viz.labelhistdiff('eta', 'hist', None, tags, opts.title_text,\
+    opts.fig_name)
 
 
 ################################
 # plot of timing error vs time
 if opts.plot_timing:
-  figure()
+  figure(5)
+  hold(True) 
   sym=0
   for set in injSets:
     viz.plotdiff(set['sim_inspiral'], set['sngl_inspiral'],\
-                 'end_time', 'plot', plotsymbols[sym],'seconds', \
-                 [0,0,-opts.time_axis,opts.time_axis], opts.fig_name)
-    hold(True) 
+                 'end_time', 'linear', plotsymbols[sym] )
     sym+=1
-  if tags:
-    legend(tags)
-
+  viz.labeldiff('end_time', 'seconds', [0,0,-opts.time_axis,opts.time_axis],\
+    tags,opts.title_text, opts.fig_name) 
 
 
 ###############################  
 # histogram of timing error
 if opts.hist_timing:
-  figure()
+  figure(6)
+  hold(True) 
   sym=0
   for set in injSets:
     viz.histdiff(set['sim_inspiral'], set['sngl_inspiral'],\
-                 'end_time', 'hist', sym, 'seconds',opts.nbins,\
-                 opts.time_axis, opts.fig_name)
-    hold(True) 
+                 'end_time', 'hist', histcolors[sym],\
+                 opts.nbins, opts.time_axis)
     sym+=1
-  if tags:
-    legend(tags)
+  viz.labelhistdiff('end_time', 'hist', 'seconds', tags, opts.title_text,\
+    opts.fig_name)
+
 
 ################################
-# plot of distamce error vs dist
+# plot of distance error vs dist
 if opts.plot_dist:
-  figure()
+  figure(7)
+  hold(True) 
   sym=0
   for set in injSets:
     viz.plotfracdiff(set['sim_inspiral'], set['sngl_inspiral'],\
-                     'eff_dist', 'log', plotsymbols[sym], 'Mpc', \
-                     [0,0,-opts.dist_axis,opts.dist_axis], opts.fig_name)
-    hold(True) 
+                     'eff_dist', 'log', plotsymbols[sym] )
     sym+=1
-  if tags:
-    legend(tags)
+  viz.labelfracdiff('eff_dist', 'Mpc', [0,0,-opts.dist_axis,opts.dist_axis],\
+    tags,opts.title_text, opts.fig_name) 
 
 ###############################  
 # histogram of dist error
 if opts.hist_dist:
-  figure()
+  figure(8)
+  hold(True)
   sym=0
   for set in injSets:
     viz.histdiff(set['sim_inspiral'], set['sngl_inspiral'],\
-                 'eff_dist', 'frac_hist', sym, 'Mpc', opts.nbins, \
-                 opts.dist_axis, opts.fig_name)
-    hold(True) 
+                 'eff_dist', 'frac_hist', histcolors[sym],\
+                 opts.nbins, opts.dist_axis)
     sym+=1
-  if tags:
-    legend(tags)
-  legend(tags)
+  viz.labelhistdiff('eff_dist', 'hist', 'Mpc', tags, opts.title_text,\
+    opts.fig_name)
+
 
 #######################################
 # plot of injected vs detected distamce    
 if opts.dist_dist:  
-  figure()
+  figure(9)
+  hold(True)
   sym=0
   for set in injSets:
-    viz.plotval(set['sim_inspiral'], \
-                set['sngl_inspiral'],\
-                'eff_dist', 'log', 'Mpc', 'Injected',\
-                'Recovered', [0,0,0,0], opts.fig_name)
-    hold(True) 
+    viz.plotval(set['sim_inspiral'], set['sngl_inspiral'],\
+                'eff_dist', 'log', plotsymbols[sym] )
     sym+=1
-  if tags:
-    legend(tags)
+  viz.labelval('eff_dist', 'Mpc', [0,0,0,0],'Injected','Recovered',\
+    tags,opts.title_text, opts.fig_name) 
 
 ################################
 # plot of mchirp error vs eff_dist
 if opts.chirp_dist:
-  figure()
+  figure(10)
+  hold(True) 
   sym=0
   for set in injSets:
     viz.plotdiffa_vs_b(set['sim_inspiral'], set['sngl_inspiral'],\
-                 'mchirp', 'eff_dist', 'log', plotsymbols[sym], \
-                 'M_sun','Mpc', [0,0,-opts.chirp_axis,opts.chirp_axis], \
-                 opts.fig_name)
-    hold(True) 
+                 'mchirp', 'eff_dist', 'log', plotsymbols[sym])
     sym+=1
-  if tags:
-    legend(tags)
-
+  viz.labeldiffa_vs_b('mchirp', 'eff_dist','M_sun','Mpc', \
+    [0,0,-opts.chirp_axis,opts.chirp_axis], tags, opts.title_text,\
+    opts.fig_name)
 
 ################################
 # plot of mchirp error vs mchirp
 if opts.time_dist:
-  figure()
+  figure(11)
+  hold(True)
   sym=0
   for set in injSets:
     viz.plotdiffa_vs_b(set['sim_inspiral'], set['sngl_inspiral'],\
-                 'end_time', 'eff_dist', 'log', plotsymbols[sym], \
-                 'seconds','Mpc', [0,0,-opts.time_axis,opts.time_axis], \
-                 opts.fig_name)
-    hold(True) 
+                 'end_time', 'eff_dist', 'log', plotsymbols[sym])
     sym+=1
-  if tags:
-    legend(tags)
+  viz.labeldiffa_vs_b('end_time', 'eff_dist','M_sun','Mpc', \
+    [0,0,-opts.time_axis,opts.time_axis], tags, opts.title_text,\
+    opts.fig_name)
 
 
 ################################
 # plot of mchirp error vs snr
 if opts.chirp_snr:
-  figure()
+  figure(12)
+  hold(True)
   sym=0
   for set in injSets:
-    viz.plotdiffa_vs_b(set['sngl_inspiral'], set['sim_inspiral'],\
-                 'mchirp', 'snr', 'log', plotsymbols[sym], \
-                 'M_sun',None, [0,0,-opts.chirp_axis,opts.chirp_axis], \
-                 opts.fig_name)
-    hold(True) 
+    viz.plotdiffa_vs_b(set['sngl_inspiral'], set['sim_inspiral'], \
+                 'mchirp', 'snr', 'linear', plotsymbols[sym])
     sym+=1
-  if tags:
-    legend(tags)
+  viz.labeldiffa_vs_b('mchirp', 'snr','M_sun',None, \
+    [0,0,-opts.chirp_axis,opts.chirp_axis], tags, opts.title_text,\
+    opts.fig_name)
+
 
 ################################
 # plot of mchirp error vs snr
 if opts.time_snr:
-  figure()
+  figure(13)
+  hold(True)
   sym=0
   for set in injSets:
-    viz.plotdiffa_vs_b(set['sngl_inspiral'], set['sim_inspiral'],\
-                 'end_time', 'snr', 'log', plotsymbols[sym], \
-                 'seconds',None, [0,0,-opts.time_axis,opts.time_axis], \
-                 opts.fig_name)
-    hold(True) 
+    viz.plotdiffa_vs_b(set['sngl_inspiral'], set['sim_inspiral'], \
+                 'end_time', 'snr', 'linear', plotsymbols[sym])
     sym+=1
-  if tags:
-    legend(tags)
+  viz.labeldiffa_vs_b('end_time', 'snr','seconds',None, \
+    [0,0,-opts.time_axis,opts.time_axis], tags, opts.title_text,\
+    opts.fig_name)
 
  
 if opts.show_plot:

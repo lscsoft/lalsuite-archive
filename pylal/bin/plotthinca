@@ -39,6 +39,8 @@ parser.add_option("-a","--h1-h2-snr",action="store_true",default=False,\
     help="plot the snr of coinc h1-h2 triggers" )
 parser.add_option("-b","--hl-snr",action="store_true",default=False,\
     help="plot the snr of coinc hanford livingston triggers" )
+parser.add_option("-c","--snr-time",action="store_true",default=False,\
+    help="plot the snr vs time of coinc triggers" )
 parser.add_option("-t","--plot-type",action="store",type="string",\
     default="linear",metavar=" PLOT_TYPE", \
     help="make either linear or log or plots" )
@@ -75,6 +77,8 @@ if not opts.min_snr:
 else:
   xlow = opts.min_snr
 
+plotsymbols= ['ko','b+','rx']
+
 ################################
 # plot of h1 vs h2 snr
 
@@ -88,7 +92,7 @@ if opts.h1_h2_snr:
   title('H1 vs H2 coincident event SNR')
   grid(True)
   if opts.figure_name:
-    savefig(opts.figure_name + "h1_vs_h2_snr.png")
+    savefig(opts.figure_name + "_h1_vs_h2_snr.png")
 
 
 ################################
@@ -109,7 +113,35 @@ if opts.hl_snr:
   title('Hanford vs Livingston coincident event SNR')
   grid(True)
   if opts.figure_name:
-    savefig(opts.figure_name + "h_vs_l_snr.png")
+    savefig(opts.figure_name + "_h_vs_l_snr.png")
 
 
-show()
+####################################
+# plot of snr vs time (for each ifo)
+if opts.snr_time:
+  figure(3)
+  hold(True)
+  sym = 0
+  for ifo in ["H1","H2","L1"]:
+    ifoTrigs = inspTriggers.ifocut(ifo)
+    if opts.plot_type == 'linear':
+      plot_type = 'plot'
+    elif opts.plot_type == 'log':
+      plot_type = 'logy'
+      
+    viz.plot_a_v_b(ifoTrigs, 'end_time', 'snr', plot_type, plotsymbols[sym])
+    legend(['H1','H2','L1'])
+    title( 'snr vs end_time' )
+    xlabel('end time (days into run)',size='x-large')
+    ylabel('snr',size='x-large')
+    grid(True)
+    sym += 1
+    
+  if opts.figure_name:
+    savefig(opts.figure_name + "_snr_vs_time.png")
+
+
+
+
+if opts.show_plot:
+  show()

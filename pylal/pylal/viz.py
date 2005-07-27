@@ -24,55 +24,19 @@ def simpleplot(*args):
   title(col1 + ' v ' + col2)
   grid(True)
 
-##############################################
-# function to read in a column from two tables 
-def readcolfrom2tables(table1, table2, col_name ):
-  
-  if table1 is not None: assert(isinstance(table1, metaDataTable))
-  if table2 is not None: assert(isinstance(table2, metaDataTable))
 
-  if table1.nevents() != table2.nevents():
-    print >>sys.stderr, "nevents in table1 and table2 must be equal"
-    sys.exit(1)
- 
-  if table1.table[1].has_key('ifo'):
-    ifo = table1.table[1]["ifo"]
-  elif table2.table[1].has_key('ifo'):
-    ifo = table2.table[1]["ifo"]
-  else:
-    ifo = None
-
-  col_names = [col_name]
-  if ifo:
-    col_names.append(col_name + '_' + ifo[0].lower())
-    col_names.append(ifo[0].lower() + '_' + col_name)
-
-  if 'dist' in col_name:
-    col_names.append(col_name + 'ance')
-
-  for c_name in col_names:
-    
-    if table1.table[1].has_key(c_name):
-      tmpvar1 = table1.mkarray(c_name)
-      if 'time' in c_name:
-        tmpvar1 = tmpvar1 + 1e-9 * table1.mkarray(c_name + '_ns')
-
-    if table2.table[1].has_key(c_name):
-      tmpvar2 = table2.mkarray(c_name)
-      if 'time' in c_name:
-        tmpvar2 = tmpvar2 + 1e-9 * table2.mkarray(c_name + '_ns')
-
-  cols = []
-  cols.append(tmpvar1)
-  cols.append(tmpvar2)
-  cols.append(ifo)
-
-  return cols
-
-  
 #################################################
 # function to read in a column from a given table 
 def readcol(table, col_name, ifo=None ):
+  """
+  function to read in a column from a given table.  If the column is ifo
+  dependent (eg, end_time or eff_dist) then the ifo is used to select the
+  appropriate value.
+  
+  @param table: metaDataTable
+  @param col_name: name of column to read in 
+  @param ifo: name of ifo (used to extract the appropriate end_time/eff_dist
+  """
   
   if table is not None: assert(isinstance(table, metaDataTable))
 
@@ -91,29 +55,68 @@ def readcol(table, col_name, ifo=None ):
       if 'time' in c_name:
         col_data = col_data + 1e-9 * table.mkarray(c_name + '_ns')
 
-
   return col_data
 
-#################################################################
-# function to plot the col1 vs col2 from the table
-def plot_a_v_b(table, col_name_a, col_name_b, plot_type, output_name = None):
+##############################################
+# function to read in a column from two tables 
+def readcolfrom2tables(table1, table2, col_name ):
+  """
+  function to read in a column from a two tables.  If the column is ifo
+  dependent (eg, end_time or eff_dist) then the ifo of one table is used to 
+  select the appropriate value in the other table.  The number of events in
+  the two tables must be equal.
+  
+  @param table1: metaDataTable
+  @param table2: metaDataTable
+  @param col_name: name of column to read in 
+  """
+  
+  if table1 is not None: assert(isinstance(table1, metaDataTable))
+  if table2 is not None: assert(isinstance(table2, metaDataTable))
 
+  if table1.nevents() != table2.nevents():
+    print >>sys.stderr, "nevents in table1 and table2 must be equal"
+    sys.exit(1)
+ 
   if table1.table[1].has_key('ifo'):
     ifo = table1.table[1]["ifo"]
+  elif table2.table[1].has_key('ifo'):
+    ifo = table2.table[1]["ifo"]
   else:
     ifo = None
 
-  col_a = readcol(table1, col_name_a, ifo )
-  col_b = readcol(table1, col_name_b, ifo )
+  col1 = readcol(table1, col_name, ifo)
+  col2 = readcol(table2, col_name, ifo)
+
+  cols = []
+  cols.append(col1)
+  cols.append(col2)
+  cols.append(ifo)
+
+  return cols
+
+
+#################################################################
+# function to plot the col1 vs col2 from the table
+def plot_a_v_b(table, col_name_a, col_name_b, plot_type, plot_sym, \
+  output_name = None):
+
+  if table.table[1].has_key('ifo'):
+    ifo = table.table[1]["ifo"]
+  else:
+    ifo = None
+
+  col_a = readcol(table, col_name_a, ifo )
+  col_b = readcol(table, col_name_b, ifo )
 
   if plot_type == 'plot':
-    plot(col_a, col_b, markersize=12)
+    plot(col_a, col_b,plot_sym, markersize=12,markerfacecolor=None)
   elif plot_type == 'logx':
-    semilogx(col_a, col_b, markersize=12)
+    semilogx(col_a, col_b, plot_sym, markersize=12,markerfacecolor=None)
   elif plot_type == 'logy':
-    semilogx(col_a, col_b, markersize=12)
+    semilogx(col_a, col_b, plot_sym, markersize=12,markerfacecolor=None)
   elif plot_type == 'loglog':
-    loglog(col_a, col_b, markersize=12)
+    loglog(col_a, col_b, plot_sym, markersize=12,markerfacecolor=None)
   
   if ifo:
     title(ifo + ' ' + col_name_a + ' vs ' + col_name_b, size='x-large')
@@ -131,52 +134,68 @@ def plot_a_v_b(table, col_name_a, col_name_b, plot_type, output_name = None):
 #################################################################
 # function to plot the difference between values of 'col_name' in
 # two tables, table1 and table2
-def plotdiff(table1, table2, col_name, plot_type, plot_sym, units=None, 
-  axis_range=[0,0,0,0], output_name = None):
+def plotdiff(table1, table2, col_name, plot_type, plot_sym):
+  """
+  function to plot the difference between the value of col_name stored in 2
+  tables (of equal length).  
+  
+  @param table1: metaDataTable
+  @param table2: metaDataTable
+  @param col_name: name of column to plot
+  @param plot_type: either 'linear' or 'log' plot on x-axis
+  @param plot_sym: the symbol to use when plotting
+  """
 
   [tmpvar1, tmpvar2, ifo ] = readcolfrom2tables(table1, table2, col_name)
 
   tmp_diff = tmpvar2 - tmpvar1
 
-  if plot_type == 'plot':
-    plot(tmpvar1, tmp_diff, plot_sym, markersize=12)
+  if plot_type == 'linear':
+    plot(tmpvar1, tmp_diff, plot_sym, markersize=12,markerfacecolor=None)
   elif plot_type == 'log':
-    semilogx(tmpvar1, tmp_diff, plot_sym, markersize=12)
+    semilogx(tmpvar1, tmp_diff, plot_sym, markersize=12,markerfacecolor=None)
     
+#################################################################
+# function to label above plot
+def labeldiff(col_name, units = None, axis = [0,0,0,0], leg = None, 
+  title_text = None, output_name = None):
+  """
+  function to label the output of plotdiff
+  
+  @param col_name: name of column to plot
+  @param units: the units of the column
+  @param axis: axis limits [xmin,xmax,ymin,ymax].  If both min and max of x or
+               y is zero then that axis is not set.
+  @param leg: legend to add to plot
+  @param title_text: text to add at start of title
+  @param output_name: used in naming output file
+  """
+  
   if units:
     xlabel(col_name + ' (' + units +')', size='x-large')
     ylabel(col_name + ' difference (' + units +')', size='x-large')
   else:
     xlabel(col_name, size='x-large')
     ylabel(col_name + ' difference', size='x-large')
-  
-  if not axis_range[0]:
-    axis_range[0] = min(tmpvar1)
-  if not axis_range[1]:
-    axis_range[1] = max(tmpvar1)
-  if not axis_range[2]:
-    if min(tmp_diff) > 0:
-      axis_range[2] = 0.9 * min(tmp_diff)
-    else:
-      axis_range[2] = 1.1 * min(tmp_diff)
-  if not axis_range[3]:
-    if max(tmp_diff) > 0:
-      axis_range[3] = 1.1 * max(tmp_diff)
-    else:
-      axis_range[3] = 0.9 * max(tmp_diff)
 
-  if ifo:
-    title(ifo + ' ' + col_name + '  Accuracy', size='x-large',weight='bold')
-  else:
-    title(col_name + '  Accuracy', size='x-large',weight='bold')
-  
-  
-  axis(axis_range)
+  if axis[0] or axis[1]:
+    xlim(axis[0], axis[1])
+
+  if axis[2] or axis[3]:
+    ylim(axis[2], axis[3])
+
+  if leg:
+    legend(leg)
+ 
   grid(True)
 
+  if title_text:
+    title(title_text + ' ' + col_name + '  Accuracy', size='x-large',
+      weight='bold')
+  else:
+    title(col_name + ' Accuracy', size='x-large',weight='bold')
+  
   if output_name:
-    if ifo:
-      output_name += '_' + ifo
     output_name += '_' + col_name + '_accuracy.png'
     savefig(output_name)
 
@@ -184,52 +203,74 @@ def plotdiff(table1, table2, col_name, plot_type, plot_sym, units=None,
 ############################################################################
 # function to plot the fractional difference between values of 'col_name' in
 # two tables, table1 and table2
-def plotfracdiff(table1, table2, col_name, plot_type, plot_sym, units=None, 
-  axis_range=[0,0,0,0], output_name = None):
+def plotfracdiff(table1, table2, col_name, plot_type, plot_sym):
+  """
+  function to plot the fractional difference between the value of 
+  col_name stored in 2 tables (of equal length).  
   
+  @param table1: metaDataTable
+  @param table2: metaDataTable
+  @param col_name: name of column to plot
+  @param plot_type: either 'linear' or 'log' plot on x-axis
+  @param plot_sym: the symbol to use when plotting
+  """
+
   [tmpvar1, tmpvar2, ifo ] = readcolfrom2tables(table1, table2, col_name)
 
   frac_diff = (tmpvar2 - tmpvar1)/tmpvar1
 
-  if plot_type == 'plot':
-    plot(tmpvar1, frac_diff,plot_sym,markersize=12)
+  if plot_type == 'linear':
+    plot(tmpvar1, frac_diff,plot_sym,markersize=12,markerfacecolor=None)
   elif plot_type == 'log':
-    semilogx(tmpvar1, frac_diff,plot_sym,markersize=12)
-    
+    semilogx(tmpvar1, frac_diff,plot_sym,markersize=12,markerfacecolor=None)
+
+
+#################################################################
+# function to label above plot
+def labelfracdiff(col_name, units = None, axis = [0,0,0,0], leg = None, 
+  title_text = None, output_name = None):
+  """
+  function to label the output of plotfracdiff
+  
+  @param col_name: name of column to plot
+  @param units: the units of the column
+  @param axis: axis limits [xmin,xmax,ymin,ymax].  If both min and max of x or
+               y is zero then that axis is not set.
+  @param leg: legend to add to plot
+  @param title_text: text to add at start of title
+  @param output_name: used in naming output file
+  """
+
   if units:
     xlabel(col_name + ' (' + units +')', size='x-large')
   else:
     xlabel(col_name, size='x-large')
   
   ylabel(col_name + ' fractional difference', size='x-large')
-  
-  if not axis_range[0]:
-    axis_range[0] = min(tmpvar1)
-  if not axis_range[1]:
-    axis_range[1] = max(tmpvar1)
-  if not axis_range[2]:
-    if min(frac_diff) > 0:
-      axis_range[2] = 0.9 * min(frac_diff)
-    else:
-      axis_range[2] = 1.1 * min(frac_diff)
-  if not axis_range[3]:
-    if max(frac_diff) > 0:
-      axis_range[3] = 1.1 * max(frac_diff)
-    else:
-      axis_range[3] = 0.9 * max(frac_diff)
 
-  if ifo:
-    title(ifo + ' ' + col_name + '  Accuracy', size='x-large')
-  else:
-    title(col_name + '  Accuracy', size='x-large')
-  
-  
-  axis(axis_range)
+  if axis[0] or axis[1]:
+    xlim(axis[0], axis[1])
+
+  if axis[2] or axis[3]:
+    ylim(axis[2], axis[3])
+
+  if leg:
+    legend(leg)
+ 
   grid(True)
 
+  if title_text:
+    title(title_text + ' ' + col_name + '  Accuracy', size='x-large',
+      weight='bold')
+  else:
+    title(col_name + ' Accuracy', size='x-large',weight='bold')
+  
   if output_name:
-    if ifo:
-      output_name += '_' + ifo
+    output_name += '_' + col_name + '_accuracy.png'
+    savefig(output_name)
+
+
+  if output_name:
     output_name += '_' + col_name + '_frac_accuracy.png'
     savefig(output_name)
 
@@ -238,18 +279,47 @@ def plotfracdiff(table1, table2, col_name, plot_type, plot_sym, units=None,
 # function to plot the fractional difference between values of 'col_name_a' in
 # two tables, table1 and table2 against the values of 'col_name_b' in table1
 def plotdiffa_vs_b(table1, table2, col_name_a, col_name_b, plot_type, 
-  plot_sym, units_a=None, units_b=None,axis_range=[0,0,0,0], 
-  output_name = None):
+  plot_sym):
+  """
+  function to plot the difference if col_name_a in two tables against the
+  value of col_name_b in table1.  
+  
+  @param table1: metaDataTable
+  @param table2: metaDataTable
+  @param col_name_a: name of column to plot difference of on y-axis
+  @param col_name_b: name of column to plot on x-axis
+  @param plot_type: either 'linear' or 'log' plot on x-axis
+  @param plot_sym: the symbol to use when plotting
+  """
   
   [tmpvar1, tmpvar2, ifo ] = readcolfrom2tables(table1, table2, col_name_a)
 
   diff_a = (tmpvar2 - tmpvar1)
   col_b = readcol(table1, col_name_b, ifo ) 
 
-  if plot_type == 'plot':
-    plot(col_b, diff_a,plot_sym,markersize=12)
+  if plot_type == 'linear':
+    plot(col_b, diff_a,plot_sym,markersize=12,markerfacecolor=None)
   elif plot_type == 'log':
-    semilogx(col_b, diff_a,plot_sym,markersize=12)
+    semilogx(col_b, diff_a,plot_sym,markersize=12,markerfacecolor=None)
+  
+  
+#################################################################
+# function to label above plot
+def labeldiffa_vs_b(col_name_a, col_name_b, units_a=None, units_b=None,
+  axis=[0,0,0,0], leg = None, title_text = None, output_name = None):
+  """
+  function to label the output of plotdiffa_vs_b
+  
+  @param col_name_a: name of column to plot
+  @param col_name_b: name of column to plot
+  @param units_a: the units of column a
+  @param units_b: the units of column b
+  @param axis: axis limits [xmin,xmax,ymin,ymax].  If both min and max of x or
+               y is zero then that axis is not set.
+  @param leg: legend to add to plot
+  @param title_text: text to add at start of title
+  @param output_name: used in naming output file
+  """
     
   if units_b:
     xlabel(col_name_b + ' (' + units_b +')', size='x-large')
@@ -260,50 +330,69 @@ def plotdiffa_vs_b(table1, table2, col_name_a, col_name_b, plot_type,
     ylabel(col_name_a + ' difference (' + units_a + ')', size='x-large')
   else:
     ylabel(col_name_a + ' difference', size='x-large')
-    
-  if not axis_range[0]:
-    axis_range[0] = min(col_b)
-  if not axis_range[1]:
-    axis_range[1] = max(col_b)
-  if not axis_range[2]:
-    if min(diff_a) > 0:
-      axis_range[2] = 0.9 * min(diff_a)
-    else:
-      axis_range[2] = 1.1 * min(diff_a)
-  if not axis_range[3]:
-    if max(diff_a) > 0:
-      axis_range[3] = 1.1 * max(diff_a)
-    else:
-      axis_range[3] = 0.9 * max(diff_a)
+ 
+  if axis[0] or axis[1]:
+    xlim(axis[0], axis[1])
 
-  if ifo:
-    title(ifo + ' ' + col_name_a + '  Accuracy', size='x-large')
-  else:
-    title(col_name + '  Accuracy', size='x-large')
-  
-  
-  axis(axis_range)
+  if axis[2] or axis[3]:
+    ylim(axis[2], axis[3])
+
+  if leg:
+    legend(leg)
+ 
   grid(True)
 
+  if title_text:
+    title(title_text + ' ' + col_name_a + ' Accuracy vs ' + col_name_b, 
+      size='x-large', weight='bold')
+  else:
+    title(col_name_a + ' Accuracy vs ' + col_name_b,
+      size='x-large',weight='bold')
+
   if output_name:
-    if ifo:
-      output_name += '_' + ifo
     output_name += '_' + col_name_a + '_vs_' + col_name_b + '_accuracy.png'
     savefig(output_name)
  
 ###################################################
 # function to plot the value of 'col_name' in table1 vs its
 # value in table2 
-def plotval(table1, table2, col_name, plot_type, units=None, xlab=None, \
-  ylab=None, axis_range=[0,0,0,0], output_name=None):
+def plotval(table1, table2, col_name, plot_type, plot_sym):
+  """
+  function to plot the value of col_name in table1 vs its value in table2  
+  
+  @param table1: metaDataTable
+  @param table2: metaDataTable
+  @param col_name: name of column to plot
+  @param plot_type: either 'linear' or 'log' plot on x-axis
+  @param plot_sym: the symbol to use when plotting
+  """
   
   [tmpvar1, tmpvar2, ifo ] = readcolfrom2tables(table1, table2, col_name)
 
-  if plot_type == 'plot':
-    plot(tmpvar1, tmpvar2,'bx')
+  if plot_type == 'linear':
+    plot(tmpvar1, tmpvar2,plot_sym,markersize=12,markerfacecolor=None)
   elif plot_type == 'log':
-    loglog(tmpvar1, tmpvar2,'bx')
-    
+    loglog(tmpvar1, tmpvar2,plot_sym,markersize=12,markerfacecolor=None)
+   
+
+#################################################################
+# function to label above plot
+def labelval(col_name, units = None, axis = [0,0,0,0], xlab = None, \
+  ylab = None, leg = None, title_text = None, output_name = None):
+  """
+  function to label the output of plotval
+  
+  @param col_name: name of column to plot
+  @param units: the units of the column
+  @param axis: axis limits [xmin,xmax,ymin,ymax].  If both min and max of x or
+               y is zero then that axis is not set.
+  @param xlab: label for x-axis
+  @param ylab: label for y-axis
+  @param leg: legend to add to plot
+  @param title_text: text to add at start of title
+  @param output_name: used in naming output file
+  """
+
   if xlab:
     xlab += ' ' + col_name
   else:
@@ -321,49 +410,26 @@ def plotval(table1, table2, col_name, plot_type, units=None, xlab=None, \
   xlabel(xlab, size='x-large')
   ylabel(ylab, size='x-large')
  
-  
-  if not axis_range[0]:
-    axis_range[0] = min(tmpvar1)
-  if not axis_range[1]:
-    axis_range[1] = max(tmpvar1)
+  if axis[0] or axis[1]:
+    xlim(axis[0], axis[1])
 
-  if not axis_range[0]:
-    if min(tmpvar1) > 0:
-      axis_range[0] = 0.9 * min(tmpvar1)
-    else:
-      axis_range[0] = 1.1 * min(tmpvar1)
-  if not axis_range[1]:
-    if max(tmpvar1) > 0:
-      axis_range[1] = 1.1 * max(tmpvar1)
-    else:
-      axis_range[1] = 0.9 * max(tmpvar1)
-  
-  if not axis_range[2]:
-    if min(tmpvar2) > 0:
-      axis_range[2] = 0.9 * min(tmpvar2)
-    else:
-      axis_range[2] = 1.1 * min(tmpvar2)
-  if not axis_range[3]:
-    if max(tmpvar2) > 0:
-      axis_range[3] = 1.1 * max(tmpvar2)
-    else:
-      axis_range[3] = 0.9 * max(tmpvar2)
+  if axis[2] or axis[3]:
+    ylim(axis[2], axis[3])
 
-  if ifo:
-    title(ifo + ' ' + col_name, size='x-large')
-  else:
-    title(col_name, size='x-large')
-  
-  
-  axis(axis_range)
+  if leg:
+    legend(leg)
+ 
   grid(True)
 
+  if title_text:
+    title(title_text + ' ' + col_name, size='x-large', weight='bold')
+  else:
+    title(col_name,size='x-large',weight='bold')
+
   if output_name:
-    if ifo:
-      output_name += '_' + ifo
     output_name += '_' + col_name + '_plot.png'
     savefig(output_name)
-
+  
 
 ###########################################################
 # function to plot the value of 'col_name' in ifo1  vs its
@@ -376,9 +442,9 @@ def plotcoincval(coinctable, col_name, ifo1, ifo2, plot_sym, plot_type):
   ifo2_val = ifo_coinc.mkarray(col_name,ifo2)
   
   if plot_type == 'linear':
-    plot(ifo1_val, ifo2_val,plot_sym)
+    plot(ifo1_val, ifo2_val,plot_sym,markersize=12)
   elif plot_type == 'log':
-    loglog(ifo1_val, ifo2_val,plot_sym)
+    loglog(ifo1_val, ifo2_val,plot_sym,markersize=12)
 
 ###########################################################
 # function to plot the value of 'col_name' in hanford  vs its
@@ -399,9 +465,9 @@ def plotcoinchanford(coinctable, col_name, ifo, hanford_method, plot_sym,\
    
   if ifo_val: 
     if plot_type == 'linear':
-      plot(ifo_val, h_val,plot_sym)
+      plot(ifo_val, h_val,plot_sym,markersize=12)
     elif plot_type == 'log':
-      loglog(ifo1_val, ifo2_val,plot_sym)
+      loglog(ifo1_val, ifo2_val,plot_sym,markersize=12)
 
 
 
@@ -505,11 +571,21 @@ def cumhistcol(table1, col_name, normalization=None,output_name = None):
 ######################################################################
 # function to histogram the difference between values of 'col_name' in
 # two tables, table1 and table2
-def histdiff(table1, table2, col_name, plot_type, sym, units=None, 
-  nbins = None, width = None, output_name = None):
+def histdiff(table1, table2, col_name, plot_type, hist_col, nbins=None, 
+  width=None):
+  """
+  function to plot a histogram of the difference of the value of col_name
+  between table1 and table2  
   
-  histcolors = ['r','b','k']
-  
+  @param table1: metaDataTable
+  @param table2: metaDataTable
+  @param col_name: name of column to plot
+  @param plot_type: either 'hist' or 'frac_hist' 
+  @param hist_col: the colour of the histogram
+  @param nbins: number of bins to plot in histogram (default = 10)
+  @param width: the maximum difference to be shown
+  """
+
   [tmpvar1, tmpvar2, ifo ] = readcolfrom2tables(table1, table2, col_name)
 
   tmp_diff = tmpvar2 - tmpvar1
@@ -531,11 +607,28 @@ def histdiff(table1, table2, col_name, plot_type, sym, units=None,
     out = hist(tmp_diff,nbins)
  
   width = out[1][1] - out[1][0]
-  bar(out[1],out[0],width,color=histcolors[sym])
+  bar(out[1],out[0],width,color=hist_col)
 
-  figtext(0.13,0.8 - 0.1* sym," mean = %6.3e" % mean(tmp_diff))
-  figtext(0.13,0.75 - 0.1 * sym,'sigma = %6.3e' % std(tmp_diff))
-   
+  #figtext(0.13,0.8 - 0.1* sym," mean = %6.3e" % mean(tmp_diff))
+  #figtext(0.13,0.75 - 0.1 * sym,'sigma = %6.3e' % std(tmp_diff))
+  
+######################################################################
+# function to histogram the difference between values of 'col_name' in
+# two tables, table1 and table2
+def labelhistdiff(col_name, plot_type, units, leg = None, title_text = None, 
+  output_name = None):
+  """
+  function to label the output of histdiff
+
+  @param col_name: name of column to plot
+  @param plot_type: either 'hist' or 'frac_hist' 
+  @param units: the units of the column
+  @param leg: legend to add to plot
+  @param title_text: text to add at start of title
+  @param output_name: used in naming output file
+  """
+
+
   label = col_name 
   if (plot_type == 'frac_hist'):
     label += ' fractional'
@@ -546,22 +639,20 @@ def histdiff(table1, table2, col_name, plot_type, sym, units=None,
 
   ylabel('Number', size='x-large')
   
-  if ifo:
-    title(ifo + ' ' + col_name + '  Histogram', size='x-large')
+  if title_text:
+    title(title_text + ' ' + col_name + '  Histogram', size='x-large')
   else:
     title(col_name + ' Histogram', size='x-large')
   
   grid(True)
 
   if output_name:
-    if ifo:
-      output_name += '_' + ifo  
     if (plot_type == 'frac_hist'):  
       output_name += '_' + col_name + '_frac_histogram.png'
     else:
       output_name += '_' + col_name + '_histogram.png'
     savefig(output_name)
-  
+
 
 ###################################################
 # function to plot the difference between values of 'col_name' in
