@@ -26,6 +26,8 @@ parser.add_option("-v","--version",action="store_true",default=False,\
     help="display version information " )
 parser.add_option("-g","--glob",action="store",type="string",\
     default=None, metavar=" GLOB",help="GLOB of thinca files to read" )
+parser.add_option("-G","--slide-glob",action="store",type="string",\
+    default=None, metavar=" GLOB",help="GLOB of thinca_slide files to read" )
 parser.add_option("-f","--figure-name",action="store",type="string",\
     default=None, metavar=" FNAME",\
     help="generate png figures with name FNAME-fig.png" ) 
@@ -41,6 +43,12 @@ parser.add_option("-b","--hl-snr",action="store_true",default=False,\
     help="plot the snr of coinc hanford livingston triggers" )
 parser.add_option("-c","--snr-time",action="store_true",default=False,\
     help="plot the snr vs time of coinc triggers" )
+parser.add_option("-d","--hist-slides",action="store_true",default=False,\
+    help="plot histograms of number of triggers in time slides")
+parser.add_option("-e","--add-zero-lag",action="store_true",default=False,\
+    help="add the zero lag info to slide histograms")
+parser.add_option("-n","--num-slides",action="store",type="int",default=0,\
+    help="number of time slides performed" )
 parser.add_option("-t","--plot-type",action="store",type="string",\
     default="linear",metavar=" PLOT_TYPE", \
     help="make either linear or log or plots" )
@@ -50,41 +58,61 @@ parser.add_option("-t","--plot-type",action="store",type="string",\
 # if --version flagged
 if opts.version:
   sys.exit(0)
-
-if not opts.glob:
-  print >>sys.stderr, "Must specify a GLOB of files to read"
-  print >>sys.stderr, "Enter 'plotthinca --help' for usage"
-  sys.exit(1)
-
+  
 if opts.plot_type not in ['log', 'linear']:
   print >>sys.stderr, "plot-type must be either \"log\" or \"linear\""
   sys.exit(1)
 
+# if doing any foreground plots:
+if opts.h1_h2_snr or opts.hl_snr or opts.snr_time or opts.add_zero_lag:
+  if not opts.glob:
+    print >>sys.stderr, "Must specify a GLOB of files to read"
+    print >>sys.stderr, "Enter 'plotthinca --help' for usage"
+    sys.exit(1)
+
+# if doing any slide plots:
+if opts.hist_slides:
+  if not opts.slide_glob:
+    print >>sys.stderr, "--slide-glob must be specified if --plot-slides is"
+    sys.exit(1)
+  if not opts.num_slides:
+    print >>sys.stderr, "--num-slides must be specified if --plot-slides is"
+    sys.exit(1)
+
+
+###################################
 # glob the list of files to read in
-myfiles = glob.glob(opts.glob)
+if opts.glob:  
+  myfiles = glob.glob(opts.glob)
 
-inspTriggers = readMeta.metaDataTable(myfiles,"sngl_inspiral")
-coincTriggers = readMeta.coincInspiralTable(inspTriggers)
+  inspTriggers = readMeta.metaDataTable(myfiles,"sngl_inspiral")
+  coincTriggers = readMeta.coincInspiralTable(inspTriggers)
+
+  if not opts.max_snr:
+    xhigh = max( inspTriggers.mkarray('snr') )
+  else:
+    xhigh = opts.max_snr
+
+  if not opts.min_snr:
+    xlow = min( inspTriggers.mkarray('snr') )
+  else:
+    xlow = opts.min_snr
+
+########################
+# read in slide triggers
+if opts.slide_glob:
+  slidefiles = glob.glob(opts.slide_glob)
+  inspSlide = readMeta.metaDataTable(slidefiles,"sngl_inspiral")
+  coincSlide = readMeta.coincInspiralTable(inspSlide)
 
 
-if not opts.max_snr:
-  xhigh = max( inspTriggers.mkarray('snr') )
-else:
-  xhigh = opts.max_snr
-
-if not opts.min_snr:
-  xlow = min( inspTriggers.mkarray('snr') )
-else:
-  xlow = opts.min_snr
-
-plotsymbols= ['ko','b+','rx']
 
 ################################
 # plot of h1 vs h2 snr
 
 if opts.h1_h2_snr:
   figure(1)
-  viz.plotcoincval(coincTriggers, 'snr', 'H1', 'H2', 'kx','linear')
+  viz.plotcoincval(coincTriggers, 'snr', 'H1', 'H2', 'kx',opts.plot_type)
   axis([xlow, xhigh, xlow, xhigh])
 
   xlabel('SNR H1', size='x-large')
@@ -125,7 +153,7 @@ if opts.snr_time:
   for ifo in ["H1","H2","L1"]:
     ifoTrigs = inspTriggers.ifocut(ifo)
     if opts.plot_type == 'linear':
-      plot_type = 'plot'
+      plot_type = 'linear'
     elif opts.plot_type == 'log':
       plot_type = 'logy'
       
@@ -141,7 +169,60 @@ if opts.snr_time:
     savefig(opts.figure_name + "_snr_vs_time.png")
 
 
+######################################
+# get the triggers for each time slide
+if opts.hist_slides:
+  slide_num = range(1 , opts.num_slides + 1)
+  slide_num.extend(range(5001, opts.num_slides + 5001))
+
+  slideTriggers = []
+  for slide in slide_num:
+    this_slide = {}
+    this_slide["slide_num"] = slide
+    this_slide["triggers"] = coincSlide.getslide(slide)
+    this_slide["nevents"] = this_slide["triggers"].nevents()
+    slideTriggers.append(this_slide)
+
+  nevents = []
+  for slide in slideTriggers:
+    nevents.append(slide["nevents"])
+  
+  figure(4)
+  hist(nevents)
+  figtext(0.13,0.8, " mean = %6.3e" % mean(nevents))
+  figtext(0.13,0.75,"sigma = %6.3e" % std(nevents))
+  if opts.add_zero_lag:
+    hold(True)
+    nfgevents = coincTriggers.nevents()
+    figtext(0.13,0.70,"zero lag = %6.3e" % nfgevents)
+    axvline(nfgevents,color='r',linewidth=2)
+    
+  title('Histogram of number coincident triggers per time slide',size='x-large')
+  if opts.figure_name:
+    savefig(opts.figure_name + "_slide_trigs.png")
 
 
+  fig_num = 5
+  for ifos in [['H1','H2'],['H1','L1'],['H2','L1']]:
+    nevents = []
+    for slide in slideTriggers:
+      nevents.append( slide["triggers"].coinctype(ifos[0],ifos[1]).nevents() )
+    figure(fig_num)
+    fig_num += 1
+    hist(nevents)
+    figtext(0.13,0.8, " mean = %6.3e" % mean(nevents))
+    figtext(0.13,0.75, 'sigma = %6.3e' % std(nevents))
+    if opts.add_zero_lag:
+      hold(True)
+      nfgevents = coincTriggers.coinctype(ifos[0],ifos[1]).nevents() 
+      figtext(0.13,0.70,"zero lag = %6.3e" % nfgevents)
+      axvline(nfgevents,color='r',linewidth=2)
+ 
+    title('Histogram of number of coincident ' + ifos[0] + ' ' +\
+      ifos[1] + ' triggers per time slide',size='x-large')
+  
+    if opts.figure_name:
+      savefig(opts.figure_name + ifos[0] + '_' + ifos[1] + "_slide_trigs.png")
+      
 if opts.show_plot:
   show()
