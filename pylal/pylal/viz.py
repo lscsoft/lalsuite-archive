@@ -96,6 +96,31 @@ def readcolfrom2tables(table1, table2, col_name ):
   return cols
 
 
+##############################################
+# function to read in a column from two tables 
+def timeindays(col_data ):
+  """
+  function to re-express the time in days after the start of the run
+  
+  @param col_data: array containing times
+  """
+  s2times = [729273613, 734367613]
+  s3times = [751658413, 757699213]
+  s4times = [793130413, 795679213]
+  
+  if col_data[0] > s2times[0] and col_data[0] < s2times[1]:
+    start = s2times[0]
+  elif col_data[0] > s3times[0] and col_data[0] < s3times[1]:
+    start = s3times[0]
+  elif col_data[0] > s4times[0] and col_data[0] < s4times[1]:
+    start = s4times[0]
+  else:
+    print >> sys.stderr, "events not from a known science run"
+
+  col_data = (col_data - start)/(60 * 60 * 24.0)
+
+  return col_data
+
 #################################################################
 # function to plot the col1 vs col2 from the table
 def plot_a_v_b(table, col_name_a, col_name_b, plot_type, plot_sym, \
@@ -109,7 +134,12 @@ def plot_a_v_b(table, col_name_a, col_name_b, plot_type, plot_sym, \
   col_a = readcol(table, col_name_a, ifo )
   col_b = readcol(table, col_name_b, ifo )
 
-  if plot_type == 'plot':
+  if 'time' in col_name_a:
+    col_a = timeindays(col_a)
+  if 'time' in col_name_b:
+    col_b = timeindays(col_b)
+    
+  if plot_type == 'linear':
     plot(col_a, col_b,plot_sym, markersize=12,markerfacecolor=None)
   elif plot_type == 'logx':
     semilogx(col_a, col_b, plot_sym, markersize=12,markerfacecolor=None)
@@ -149,6 +179,9 @@ def plotdiff(table1, table2, col_name, plot_type, plot_sym):
   [tmpvar1, tmpvar2, ifo ] = readcolfrom2tables(table1, table2, col_name)
 
   tmp_diff = tmpvar2 - tmpvar1
+
+  if 'time' in col_name:
+    tmpvar1 = timeindays(tmpvar1)
 
   if plot_type == 'linear':
     plot(tmpvar1, tmp_diff, plot_sym, markersize=12,markerfacecolor=None)
@@ -218,6 +251,9 @@ def plotfracdiff(table1, table2, col_name, plot_type, plot_sym):
   [tmpvar1, tmpvar2, ifo ] = readcolfrom2tables(table1, table2, col_name)
 
   frac_diff = (tmpvar2 - tmpvar1)/tmpvar1
+
+  if 'time' in col_name:
+    tmpvar1 = timeindays(tmpvar1)
 
   if plot_type == 'linear':
     plot(tmpvar1, frac_diff,plot_sym,markersize=12,markerfacecolor=None)
@@ -291,6 +327,9 @@ def plotdiffa_vs_b(table1, table2, col_name_a, col_name_b, plot_type,
 
   diff_a = (tmpvar2 - tmpvar1)
   col_b = readcol(table1, col_name_b, ifo ) 
+
+  if 'time' in col_name_b:
+    col_b = timeindays(col_b)
 
   if plot_type == 'linear':
     plot(col_b, diff_a,plot_sym,markersize=12,markerfacecolor=None)
