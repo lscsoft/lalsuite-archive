@@ -161,6 +161,17 @@ class coincInspiralTable:
         
     return selected_coincs
 
+
+  def getslide(self, slide_num):
+
+    slide_coincs = coincInspiralTable()
+    for coinc in self.table:
+      if ( (coinc['event_id'] % 1000000000) / 100000 ) == slide_num:
+        slide_coincs.table.append(coinc)
+     
+    return slide_coincs 
+
+    
 def usage():
         print "readMeta.py -x xml file"
         sys.exit(0)
