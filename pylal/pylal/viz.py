@@ -266,11 +266,6 @@ def labelfracdiff(col_name, units = None, axis = [0,0,0,0], leg = None,
     title(col_name + ' Accuracy', size='x-large',weight='bold')
   
   if output_name:
-    output_name += '_' + col_name + '_accuracy.png'
-    savefig(output_name)
-
-
-  if output_name:
     output_name += '_' + col_name + '_frac_accuracy.png'
     savefig(output_name)
 
