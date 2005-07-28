@@ -742,6 +742,94 @@ def histdiffdiff(ifo1_trig, ifo2_trig, inj, col_name, sym, units=None,
     savefig(output_name)
   
 
+######################################################################
+# function to histogram the difference between values of 'col_name' in
+# two tables, table1 and table2
+def histslides(slide_trigs, zerolag_trigs = None, ifos = None):
+  """
+  function to make a histogram of the number of triggers per time slide
+  
+  @param slide_trigs: dictionary of time slide triggers
+  @param zerolag_trigs: coincInspiralTable
+  @param ifos: list of ifos
+  """
+
+  nevents = []
+  slides = []
+  for slide in slide_trigs:
+    if ifos:
+      nevents.append( slide["triggers"].coinctype(ifos[0],ifos[1]).nevents() )
+    else:  
+      nevents.append(slide["nevents"])
+    slides.append(slide["slide_num"])
+ 
+    
+  hist(nevents)
+  figtext(0.13,0.8, " mean = %6.3e" % mean(nevents))
+  figtext(0.13,0.75,"sigma = %6.3e" % std(nevents))
+  if zerolag_trigs:
+    hold(True)
+    if ifos:
+      nfgevents = zerolag_trigs.coinctype(ifos[0],ifos[1]).nevents()
+    else:
+      nfgevents = zerolag_trigs.nevents()
+    figtext(0.13,0.70,"zero lag = %6.3e" % nfgevents )
+    axvline(nfgevents,color='r',linewidth=2)
+  
+  xlabel('Number of triggers',size='x-large')
+  title_text = 'Histogram of number coincident '
+  if ifos:
+    for ifo in ifos:
+      title_text += ifo + ' '
+  title_text += 'triggers per time slide'
+  title(title_text, size='x-large')
+  
+  
+######################################################################
+# function to histogram the difference between values of 'col_name' in
+# two tables, table1 and table2
+def plotslides(slide_trigs, zerolag_trigs = None, ifos = None):
+  """
+  function to make a histogram of the number of triggers per time slide
+  
+  @param slide_trigs: dictionary of time slide triggers
+  @param zerolag_trigs: coincInspiralTable
+  @param ifos: list of ifos
+  """
+  nevents = []
+  slides = []
+  for slide in slide_trigs:
+    if ifos:
+      nevents.append( slide["triggers"].coinctype(ifos[0],ifos[1]).nevents() )
+    else:  
+      nevents.append(slide["nevents"])
+    slides.append(slide["slide_num"])
+ 
+  mean_events = mean(nevents)
+  std_events = std(nevents)
+  plot(slides,nevents,'bx',markersize=12)
+  axhline(mean_events,color='k',linewidth=2)
+  axhline(mean_events + std_events,color='k',linestyle='--',linewidth=2)
+  axhline(mean_events - std_events,color='k',linestyle='--',linewidth=2)
+ 
+  if zerolag_trigs:
+    hold(True)
+    if ifos:
+      nfgevents = zerolag_trigs.coinctype(ifos[0],ifos[1]).nevents()
+    else:
+      nfgevents = zerolag_trigs.nevents()
+    plot([0],[nfgevents],'rx',markersize=12)
+ 
+  
+  xlabel('Number of time slide',size='x-large')
+  ylabel('Number of triggers in slide',size='x-large')
+  title_text = 'Plot of number coincident '
+  if ifos:
+    for ifo in ifos:
+      title_text += ifo + ' '
+  title_text += 'triggers per time slide'
+  title(title_text, size='x-large')
+
    
 
 def tfplot(*args, **kwargs):

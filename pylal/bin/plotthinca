@@ -45,6 +45,8 @@ parser.add_option("-c","--snr-time",action="store_true",default=False,\
     help="plot the snr vs time of coinc triggers" )
 parser.add_option("-d","--hist-slides",action="store_true",default=False,\
     help="plot histograms of number of triggers in time slides")
+parser.add_option("-i","--plot-slides",action="store_true",default=False,\
+    help="plot of number of triggers vs slide number")
 parser.add_option("-e","--add-zero-lag",action="store_true",default=False,\
     help="add the zero lag info to slide histograms")
 parser.add_option("-n","--num-slides",action="store",type="int",default=0,\
@@ -52,7 +54,6 @@ parser.add_option("-n","--num-slides",action="store",type="int",default=0,\
 parser.add_option("-t","--plot-type",action="store",type="string",\
     default="linear",metavar=" PLOT_TYPE", \
     help="make either linear or log or plots" )
-
 (opts,args) = parser.parse_args()
 
 # if --version flagged
@@ -106,12 +107,13 @@ if opts.slide_glob:
   coincSlide = readMeta.coincInspiralTable(inspSlide)
 
 
-
+fig_num = 1
 ################################
 # plot of h1 vs h2 snr
 
 if opts.h1_h2_snr:
-  figure(1)
+  figure(fig_num)
+  fig_num += 1
   viz.plotcoincval(coincTriggers, 'snr', 'H1', 'H2', 'kx',opts.plot_type)
   axis([xlow, xhigh, xlow, xhigh])
 
@@ -127,7 +129,8 @@ if opts.h1_h2_snr:
 # plot of h1 vs h2 snr
 
 if opts.hl_snr:
-  figure(2)
+  figure(fig_num)
+  fig_num += 1
   viz.plotcoincval(coincTriggers, 'snr', 'H1', 'L1', 'kx',opts.plot_type)
   hold(True)
   viz.plotcoincval(coincTriggers, 'snr', 'H2', 'L1', 'r+',opts.plot_type)
@@ -147,7 +150,8 @@ if opts.hl_snr:
 ####################################
 # plot of snr vs time (for each ifo)
 if opts.snr_time:
-  figure(3)
+  figure(fig_num)
+  fig_num += 1
   hold(True)
   sym = 0
   for ifo in ["H1","H2","L1"]:
@@ -171,58 +175,56 @@ if opts.snr_time:
 
 ######################################
 # get the triggers for each time slide
-if opts.hist_slides:
+if opts.hist_slides or opts.plot_slides:
   slide_num = range(1 , opts.num_slides + 1)
-  slide_num.extend(range(5001, opts.num_slides + 5001))
+  slide_num.extend(range(-opts.num_slides, 0))
 
   slideTriggers = []
   for slide in slide_num:
     this_slide = {}
     this_slide["slide_num"] = slide
-    this_slide["triggers"] = coincSlide.getslide(slide)
+    if slide > 0:
+      this_slide["triggers"] = coincSlide.getslide(slide)
+    else:
+      this_slide["triggers"] = coincSlide.getslide(5000 - slide)
     this_slide["nevents"] = this_slide["triggers"].nevents()
     slideTriggers.append(this_slide)
 
-  nevents = []
-  for slide in slideTriggers:
-    nevents.append(slide["nevents"])
-  
-  figure(4)
-  hist(nevents)
-  figtext(0.13,0.8, " mean = %6.3e" % mean(nevents))
-  figtext(0.13,0.75,"sigma = %6.3e" % std(nevents))
   if opts.add_zero_lag:
-    hold(True)
-    nfgevents = coincTriggers.nevents()
-    figtext(0.13,0.70,"zero lag = %6.3e" % nfgevents)
-    axvline(nfgevents,color='r',linewidth=2)
+    coincTrigs = coincTriggers
+  else:
+    coincTrigs = None
     
-  title('Histogram of number coincident triggers per time slide',size='x-large')
-  if opts.figure_name:
-    savefig(opts.figure_name + "_slide_trigs.png")
-
-
-  fig_num = 5
-  for ifos in [['H1','H2'],['H1','L1'],['H2','L1']]:
-    nevents = []
-    for slide in slideTriggers:
-      nevents.append( slide["triggers"].coinctype(ifos[0],ifos[1]).nevents() )
+  if opts.hist_slides:
     figure(fig_num)
     fig_num += 1
-    hist(nevents)
-    figtext(0.13,0.8, " mean = %6.3e" % mean(nevents))
-    figtext(0.13,0.75, 'sigma = %6.3e' % std(nevents))
-    if opts.add_zero_lag:
-      hold(True)
-      nfgevents = coincTriggers.coinctype(ifos[0],ifos[1]).nevents() 
-      figtext(0.13,0.70,"zero lag = %6.3e" % nfgevents)
-      axvline(nfgevents,color='r',linewidth=2)
- 
-    title('Histogram of number of coincident ' + ifos[0] + ' ' +\
-      ifos[1] + ' triggers per time slide',size='x-large')
-  
+    viz.histslides(slideTriggers,coincTrigs)
     if opts.figure_name:
-      savefig(opts.figure_name + ifos[0] + '_' + ifos[1] + "_slide_trigs.png")
+      savefig(opts.figure_name + "_hist_slide_trigs.png")
       
+  if opts.plot_slides:
+    figure(fig_num)
+    fig_num += 1
+    viz.plotslides(slideTriggers,coincTrigs)
+    if opts.figure_name:
+      savefig(opts.figure_name + "_plot_slide_trigs.png")
+     
+  for ifos in [['H1','H2'],['H1','L1'],['H2','L1']]:
+     if opts.hist_slides:
+       figure(fig_num)
+       fig_num += 1
+       viz.histslides(slideTriggers,coincTrigs,ifos)
+       if opts.figure_name:
+         savefig(opts.figure_name + '_' +ifos[0] + '_' + ifos[1] + \
+           "_hist_slide_trigs.png")
+
+     if opts.plot_slides:
+       figure(fig_num)
+       fig_num += 1
+       viz.plotslides(slideTriggers,coincTrigs,ifos)
+       if opts.figure_name:
+         savefig(opts.figure_name + '_' + ifos[0] + '_' + ifos[1] + \
+           "_plot_slide_trigs.png")
+
 if opts.show_plot:
   show()
