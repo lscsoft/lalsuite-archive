@@ -601,6 +601,38 @@ def cumhistcol(table1, col_name, normalization=None,output_name = None):
     savefig(output_name)
 
 
+######################################################################
+# function to histogram the difference between values of 'col_name' in
+# two tables, table1 and table2
+def cumhistsnr(trigs, ifos = None, min_val = None, max_val = None, \
+  nbins = None):
+ 
+  if ifos:
+    trigs = trigs.coinctype(ifos[0],ifos[1])
+  snr = asarray([ pow(trigs.table[i]["snrsq"],0.5) for i in range(trigs.nevents()) ] )
+
+  # set up the bin boundaries
+  if not nbins:
+    nbins = 20
+
+
+  bins = []
+  if max_val and min_val:
+    for i in range(nbins):
+      bins.append(min_val + i*(max_val - min_val)/nbins)
+  
+  if bins:
+    [num,bin,info] = hist(snr,bins)
+  else:
+    [num,bin,info] = hist(snr,nbins)
+ 
+  cum_num = [sum(num)]
+  cum_num.extend(sum(num) - cumsum(num))
+  cum_num.pop()
+  figure(23)
+  semilogy(cum_num,bins,'kx')
+
+
 
 ######################################################################
 # function to histogram the difference between values of 'col_name' in
@@ -760,7 +792,7 @@ def histslides(slide_trigs, zerolag_trigs = None, ifos = None):
     if ifos:
       nevents.append( slide["triggers"].coinctype(ifos[0],ifos[1]).nevents() )
     else:  
-      nevents.append(slide["nevents"])
+      nevents.append(slide["triggers"].nevents())
     slides.append(slide["slide_num"])
  
     
@@ -802,7 +834,7 @@ def plotslides(slide_trigs, zerolag_trigs = None, ifos = None):
     if ifos:
       nevents.append( slide["triggers"].coinctype(ifos[0],ifos[1]).nevents() )
     else:  
-      nevents.append(slide["nevents"])
+      nevents.append(slide["triggers"].nevents())
     slides.append(slide["slide_num"])
  
   mean_events = mean(nevents)
