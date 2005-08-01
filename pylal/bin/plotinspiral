@@ -41,6 +41,12 @@ parser.add_option("-a","--snr-chisq",action="store_true",default=False,\
     help="make a plot of snr vs chisq" )
 parser.add_option("-b","--log-snr-chisq",action="store_true",default=False,\
     help="make a log plot of snr vs chisq" )
+parser.add_option("-C","--chisq-threshold",action="store",type="float",\
+    help="specify the chisq threshold (so we can add to plot)" )
+parser.add_option("-D","--chisq-delta",action="store",type="float",\
+    help="specify the delta param for the chisq " )
+parser.add_option("-B","--chisq-bins",action="store",type="int",\
+    help="specify the number of chisq bins")
 parser.add_option("-c","--cum-hist-snr",action="store_true",default=False,\
     help="cumulative histogram of the snr" )
 parser.add_option("-d","--hist-snr",action="store_true",default=False,\
@@ -78,18 +84,34 @@ trigFiles = args
 
 # an instance of the snglInspiralTable
 inspTriggers=readMeta.metaDataTable(trigFiles, "sngl_inspiral")
+plotsymbols= ['r+','bx','ko']
 
+snr_range = arange( int(min(inspTriggers.mkarray('snr'))), \
+  int(max(inspTriggers.mkarray('snr'))) )
+
+if opts.chisq_threshold and not ( opts.chisq_bins and opts.chisq_delta):
+  print >>sys.stderr, "when --chisq-threshold is specified, must also give"
+  print >>sys.stderr, "the --chisq-bins and --chisq-delta"
+  sys.exit(1)
+  
+chisq_thresh = opts.chisq_threshold * ( opts.chisq_bins + \
+  opts.chisq_delta * snr_range * snr_range )
+  
 ###################################
 # plot of snr vs chisq
 if opts.snr_chisq:
   figure(1)
-  viz.plot_a_v_b(inspTriggers,'snr','chisq','plot',opts.figure_name)
+  if opts.chisq_threshold:
+    plot(snr_range, chisq_thresh)
+  viz.plot_a_v_b(inspTriggers,'snr','chisq','linear','kx',opts.figure_name)
 
 ###################################
 # plot of snr vs chisq
 if opts.log_snr_chisq:
   figure(2)
-  viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog',opts.figure_name)
+  if opts.chisq_threshold:
+    loglog(snr_range, chisq_thresh)
+  viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','kx',opts.figure_name)
 
 
 ###################################

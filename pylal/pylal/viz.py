@@ -140,7 +140,7 @@ def plot_a_v_b(table, col_name_a, col_name_b, plot_type, plot_sym, \
     col_b = timeindays(col_b)
     
   if plot_type == 'linear':
-    plot(col_a, col_b,plot_sym, markersize=12,markerfacecolor=None)
+    plot(col_a, col_b, plot_sym, markersize=12,markerfacecolor=None)
   elif plot_type == 'logx':
     semilogx(col_a, col_b, plot_sym, markersize=12,markerfacecolor=None)
   elif plot_type == 'logy':
