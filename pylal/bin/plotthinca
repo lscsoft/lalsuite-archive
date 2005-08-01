@@ -28,9 +28,11 @@ parser.add_option("-g","--glob",action="store",type="string",\
     default=None, metavar=" GLOB",help="GLOB of thinca files to read" )
 parser.add_option("-G","--slide-glob",action="store",type="string",\
     default=None, metavar=" GLOB",help="GLOB of thinca_slide files to read" )
+parser.add_option("-C","--cluster-window",action="store",type="int",default=0,\
+    help="length of time over which to cluster triggers" )
 parser.add_option("-f","--figure-name",action="store",type="string",\
     default=None, metavar=" FNAME",\
-    help="generate png figures with name FNAME-fig.png" ) 
+    help="generate png figures with name FNAME-fig.png" )
 parser.add_option("-x","--min-snr",action="store",type="float",\
     default=0, metavar=" MIN_SNR",help="minimum value of snr on plot" )
 parser.add_option("-X","--max-snr",action="store",type="float",\
@@ -43,12 +45,16 @@ parser.add_option("-b","--hl-snr",action="store_true",default=False,\
     help="plot the snr of coinc hanford livingston triggers" )
 parser.add_option("-c","--snr-time",action="store_true",default=False,\
     help="plot the snr vs time of coinc triggers" )
-parser.add_option("-d","--hist-slides",action="store_true",default=False,\
+parser.add_option("-d","--slide-snr",action="store_true",default=False,\
+    help="make snr vs snr plots of time slide triggers" )
+parser.add_option("-k","--snr-dist",action="store_true",default=False,\
+    help="plot distribution of snr" )
+parser.add_option("-i","--hist-slides",action="store_true",default=False,\
     help="plot histograms of number of triggers in time slides")
-parser.add_option("-i","--plot-slides",action="store_true",default=False,\
+parser.add_option("-j","--plot-slides",action="store_true",default=False,\
     help="plot of number of triggers vs slide number")
-parser.add_option("-e","--add-zero-lag",action="store_true",default=False,\
-    help="add the zero lag info to slide histograms")
+parser.add_option("-z","--add-zero-lag",action="store_true",default=False,\
+    help="add the zero lag info to slide plots")
 parser.add_option("-n","--num-slides",action="store",type="int",default=0,\
     help="number of time slides performed" )
 parser.add_option("-t","--plot-type",action="store",type="string",\
@@ -80,6 +86,11 @@ if opts.hist_slides:
     print >>sys.stderr, "--num-slides must be specified if --plot-slides is"
     sys.exit(1)
 
+plotsymbols= ['r+','bx','ko']
+
+f_name = opts.figure_name
+if opts.cluster_window and f_name:
+  f_name += '_clust_' + str(opts.cluster_window) + 'sec'
 
 ###################################
 # glob the list of files to read in
@@ -88,6 +99,9 @@ if opts.glob:
 
   inspTriggers = readMeta.metaDataTable(myfiles,"sngl_inspiral")
   coincTriggers = readMeta.coincInspiralTable(inspTriggers)
+
+  if opts.cluster_window:
+    coincTriggers = coincTriggers.cluster(opts.cluster_window)
 
   if not opts.max_snr:
     xhigh = max( inspTriggers.mkarray('snr') )
@@ -106,45 +120,90 @@ if opts.slide_glob:
   inspSlide = readMeta.metaDataTable(slidefiles,"sngl_inspiral")
   coincSlide = readMeta.coincInspiralTable(inspSlide)
 
+  slide_num = range(1 , opts.num_slides + 1)
+  slide_num.extend(range(-opts.num_slides, 0))
+
+  slideTriggers = []
+  for slide in slide_num:
+    this_slide = {}
+    this_slide["slide_num"] = slide
+    if slide > 0:
+      this_slide["triggers"] = coincSlide.getslide(slide)
+    else:
+      this_slide["triggers"] = coincSlide.getslide(5000 - slide)
+    slideTriggers.append(this_slide)
+
+
+  if opts.cluster_window:
+    for this_slide in slideTriggers:
+      this_slide["triggers"] = \
+        this_slide["triggers"].cluster(opts.cluster_window)
+
+  slide_high = max( inspSlide.mkarray('snr') )
+  slide_low = min( inspSlide.mkarray('snr') )
 
 fig_num = 1
 ################################
 # plot of h1 vs h2 snr
 
-if opts.h1_h2_snr:
+if opts.h1_h2_snr or opts.slide_snr:
   figure(fig_num)
   fig_num += 1
-  viz.plotcoincval(coincTriggers, 'snr', 'H1', 'H2', 'kx',opts.plot_type)
+  hold(True)
+  if opts.slide_snr:
+    for slide in slideTriggers:
+      viz.plotcoincval(slide["triggers"], 'snr', 'H1', 'H2', 'kx',\
+        opts.plot_type)
+    xlow = min(xlow,slide_low)
+    xhigh = max(xhigh,slide_high)
+  if opts.h1_h2_snr:
+    viz.plotcoincval(coincTriggers, 'snr', 'H1', 'H2', 'r+',opts.plot_type)
   axis([xlow, xhigh, xlow, xhigh])
 
   xlabel('SNR H1', size='x-large')
   ylabel('SNR_H2', size='x-large')
   title('H1 vs H2 coincident event SNR')
   grid(True)
-  if opts.figure_name:
-    savefig(opts.figure_name + "_h1_vs_h2_snr.png")
+  if f_name:
+    savefig(f_name + "_h1_vs_h2_snr.png")
 
 
 ################################
-# plot of h1 vs h2 snr
+# plot of h vs l snr
 
-if opts.hl_snr:
+if opts.hl_snr or opts.slide_snr:
   figure(fig_num)
   fig_num += 1
-  viz.plotcoincval(coincTriggers, 'snr', 'H1', 'L1', 'kx',opts.plot_type)
   hold(True)
-  viz.plotcoincval(coincTriggers, 'snr', 'H2', 'L1', 'r+',opts.plot_type)
-  viz.plotcoinchanford(coincTriggers, 'snr', 'L1', 'sum', 'gx',opts.plot_type)
+  if opts.slide_snr:
+    for slide in slideTriggers:
+      viz.plotcoincval(slide["triggers"], 'snr', 'H1', 'L1', 'kx',\
+        opts.plot_type)
+      viz.plotcoincval(slide["triggers"], 'snr', 'H2', 'L1', 'kx',\
+        opts.plot_type)
+      viz.plotcoinchanford(slide["triggers"], 'snr', 'L1', 'sum', 'kx',\
+        opts.plot_type)
+     
+  if opts.hl_snr:
+    sym = 0
+    viz.plotcoincval(coincTriggers, 'snr', 'H1', 'L1', plotsymbols[sym],\
+      opts.plot_type)
+    if not opts.slide_snr: sym += 1
+    viz.plotcoincval(coincTriggers, 'snr', 'H2', 'L1', plotsymbols[sym],\
+      opts.plot_type)
+    if not opts.slide_snr: sym += 1 
+    viz.plotcoinchanford(coincTriggers, 'snr', 'L1', 'sum', plotsymbols[sym],\
+      opts.plot_type)
   axis([xlow, xhigh, xlow, xhigh])
 
-
-  legend(['H1L1','H2L1','H1H2L1'])
+  if not opts.slide_snr:
+    legend(['H1L1','H2L1','H1H2L1'])
   xlabel('SNR Hanford', size='x-large')
   ylabel('SNR Livingston', size='x-large')
   title('Hanford vs Livingston coincident event SNR')
   grid(True)
-  if opts.figure_name:
-    savefig(opts.figure_name + "_h_vs_l_snr.png")
+  if f_name:
+    savefig(f_name + "_h_vs_l_snr.png")
 
 
 ####################################
@@ -155,7 +214,7 @@ if opts.snr_time:
   hold(True)
   sym = 0
   for ifo in ["H1","H2","L1"]:
-    ifoTrigs = inspTriggers.ifocut(ifo)
+    ifoTrigs = coincTriggers.getsngls(ifo)
     if opts.plot_type == 'linear':
       plot_type = 'linear'
     elif opts.plot_type == 'log':
@@ -169,27 +228,12 @@ if opts.snr_time:
     grid(True)
     sym += 1
     
-  if opts.figure_name:
-    savefig(opts.figure_name + "_snr_vs_time.png")
+  if f_name:
+    savefig(f_name + "_snr_vs_time.png")
 
-
-######################################
-# get the triggers for each time slide
+################################################
+# make plot/hist of number of triggers per slide
 if opts.hist_slides or opts.plot_slides:
-  slide_num = range(1 , opts.num_slides + 1)
-  slide_num.extend(range(-opts.num_slides, 0))
-
-  slideTriggers = []
-  for slide in slide_num:
-    this_slide = {}
-    this_slide["slide_num"] = slide
-    if slide > 0:
-      this_slide["triggers"] = coincSlide.getslide(slide)
-    else:
-      this_slide["triggers"] = coincSlide.getslide(5000 - slide)
-    this_slide["nevents"] = this_slide["triggers"].nevents()
-    slideTriggers.append(this_slide)
-
   if opts.add_zero_lag:
     coincTrigs = coincTriggers
   else:
@@ -199,32 +243,43 @@ if opts.hist_slides or opts.plot_slides:
     figure(fig_num)
     fig_num += 1
     viz.histslides(slideTriggers,coincTrigs)
-    if opts.figure_name:
-      savefig(opts.figure_name + "_hist_slide_trigs.png")
+    if f_name:
+      savefig(f_name + "_hist_slide_trigs.png")
       
   if opts.plot_slides:
     figure(fig_num)
     fig_num += 1
     viz.plotslides(slideTriggers,coincTrigs)
-    if opts.figure_name:
-      savefig(opts.figure_name + "_plot_slide_trigs.png")
+    if f_name:
+      savefig(f_name + "_plot_slide_trigs.png")
      
   for ifos in [['H1','H2'],['H1','L1'],['H2','L1']]:
      if opts.hist_slides:
        figure(fig_num)
        fig_num += 1
        viz.histslides(slideTriggers,coincTrigs,ifos)
-       if opts.figure_name:
-         savefig(opts.figure_name + '_' +ifos[0] + '_' + ifos[1] + \
+       if f_name:
+         savefig(f_name + '_' +ifos[0] + '_' + ifos[1] + \
            "_hist_slide_trigs.png")
 
      if opts.plot_slides:
        figure(fig_num)
        fig_num += 1
        viz.plotslides(slideTriggers,coincTrigs,ifos)
-       if opts.figure_name:
-         savefig(opts.figure_name + '_' + ifos[0] + '_' + ifos[1] + \
+       if f_name:
+         savefig(f_name + '_' + ifos[0] + '_' + ifos[1] + \
            "_plot_slide_trigs.png")
+
+
+################################################
+# make histogram of snr distribution
+if opts.snr_dist:
+ 
+  viz.cumhistsnr(coincTriggers, None, xlow, xhigh, 100)
+
+
 
 if opts.show_plot:
   show()
+
+  
