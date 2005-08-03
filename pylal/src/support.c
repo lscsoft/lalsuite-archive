@@ -349,7 +349,7 @@ read_sngl_inspiral(PyObject *self, PyObject *args)
       tmpid =  event->event_id->id;
     
     tmpvalue = Py_BuildValue(
-        "{s:s, s:i, s:i, s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:i, s:d, s:L}",
+        "{s:s, s:i, s:i, s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:i, s:d, s:L}",
         "ifo", event->ifo,
         "end_time", event->end_time.gpsSeconds,
         "end_time_ns", event->end_time.gpsNanoSeconds,
@@ -360,7 +360,10 @@ read_sngl_inspiral(PyObject *self, PyObject *args)
         "mchirp", event->mchirp,
         "mtotal", event->mtotal,
         "eta", event->eta,
-        "snr", event->snr,
+	"psi0", event->psi0,
+	"psi3", event->psi3,
+	"alpha", event->alpha,
+	"snr", event->snr,
         "chisq", event->chisq,
         "chisq_dof", event->chisq_dof,
         "sigmasq", event->sigmasq,
