@@ -487,7 +487,7 @@ static struct PyMethodDef support_methods[] = {
 };
 
 /* module initializer */
-void initsupport()               /* called on first import */
+void initsupport(void)           /* called on first import */
 {                               /* name matters if loaded dynamically */
     /* mod name, table ptr */
     (void) Py_InitModule("pylal.support", support_methods);
