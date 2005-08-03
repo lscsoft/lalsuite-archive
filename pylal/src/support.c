@@ -261,48 +261,43 @@ read_sngl_burst(PyObject *self, PyObject *args)
   SnglBurstTable **addevent=&eventHead;
   SnglBurstTable *event=NULL;
   PyObject *fromPython;
-  int j, m=0, n=0, nelement=0, len;
-  int startEvent = 0, stopEvent = -1;
   PyObject *outlist;
-  PyObject *tmpvalue;
+  int n, len;
 
-  if (! PyArg_ParseTuple(args, "O", &fromPython))
-    return NULL;                             
-
-  if (! PyList_Check(fromPython) )
+  if(!PyArg_ParseTuple(args, "O", &fromPython)) {
+    PyErr_SetString(PyExc_TypeError, "failure parsing arguments");
     return NULL;
+  }
+
+  if(!PyList_Check(fromPython)) {
+    PyErr_SetString(PyExc_TypeError, "argument is not a list");
+    return NULL;
+  }
 
   len = PyList_Size(fromPython);
-  for(n=0;n<len;n++)
+  for(n = 0; n < len; n++)
   {
-    *addevent = XLALSnglBurstTableFromLIGOLw (
-        PyString_AsString(PyList_GetItem(fromPython, n)) );
+    *addevent = XLALSnglBurstTableFromLIGOLw(PyString_AsString(PyList_GetItem(fromPython, n)));
 
     while(*addevent)
       addevent = &(*addevent)->next;
-
   }
-  nelement = XLALCountSnglBurst ( eventHead );
 
-  outlist = PyList_New(nelement);
-  for ( j=0, event = eventHead; event ; j++, event = event->next )
+  outlist = PyList_New(0);
+  while(eventHead)
   {
-    tmpvalue = Py_BuildValue(
+    event = eventHead;
+    PyList_Append(outlist, Py_BuildValue(
         "{s:s, s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:d}",
         "ifo", event->ifo,
-        "start_time", (double)event->start_time.gpsSeconds,
-        "peak_time", (double)event->peak_time.gpsSeconds,
+        "start_time", (double) event->start_time.gpsSeconds + event->start_time.gpsNanoSeconds * 1e-9,
+        "peak_time", (double) event->peak_time.gpsSeconds + event->peak_time.gpsNanoSeconds * 1e-9,
         "duration", event->duration,
         "central_freq", event->central_freq,
         "bandwidth", event->bandwidth,
         "amplitude", event->amplitude,
         "snr", event->snr,
-        "confidence", event->confidence);
-    PyList_SetItem(outlist, j, tmpvalue);
-  }
-
-  while(eventHead) {
-    event = eventHead;
+        "confidence", event->confidence));
     eventHead = eventHead->next;
     LALFree(event);
   }
