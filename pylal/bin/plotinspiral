@@ -86,8 +86,9 @@ trigFiles = args
 inspTriggers=readMeta.metaDataTable(trigFiles, "sngl_inspiral")
 plotsymbols= ['r+','bx','ko']
 
-snr_range = arange( int(min(inspTriggers.mkarray('snr'))), \
-  int(max(inspTriggers.mkarray('snr'))) )
+max_snr = max(inspTriggers.mkarray('snr'))
+min_snr = min(inspTriggers.mkarray('snr'))
+snr_range = arange( min_snr, max_snr, (max_snr - min_snr)/100  )
 
 if opts.chisq_threshold:
   if not ( opts.chisq_bins and opts.chisq_delta):
@@ -107,6 +108,7 @@ if opts.snr_chisq:
     hold(True)
     
   viz.plot_a_v_b(inspTriggers,'snr','chisq','linear','kx',opts.figure_name)
+  xlim(min_snr, max_snr)
 
 ###################################
 # plot of snr vs chisq
@@ -117,7 +119,7 @@ if opts.log_snr_chisq:
     hold(True)
     
   viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','kx',opts.figure_name)
-
+  xlim(min_snr, max_snr)
 
 ###################################
 # cumulative histogram of snr
