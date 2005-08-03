@@ -30,7 +30,8 @@ setup(
 		Extension("pylal.support", ["src/support.c"],
 			include_dirs = lalincdirs,
 			libraries = lallibs,
-			library_dirs = lallibdirs)
+			library_dirs = lallibdirs,
+			runtime_library_dirs = lallibdirs)
 	],
 	scripts = [
 		os.path.join("bin", "plotburst"),
