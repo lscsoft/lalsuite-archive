@@ -54,15 +54,13 @@ class LIGOTimeGPS(object):
 			LIGOTimeGPS(100, 500000000)
 			LIGOTimeGPS(0, 100500000000L)
 			LIGOTimeGPS(100.2, 300000000)
-
-		Bugs:
-			If the time in seconds is provided as an ASCII string,
-			then the nanoseconds parameter is ignored.
 		"""
+		if type(nanoseconds) == str:
+			nanoseconds = float(nanoseconds)
 		if type(seconds) == str:
-			[self.seconds, self.nanoseconds] = self.__atoparts(seconds)
-			return
-		if not type(seconds) in [float, int, long]:
+			[seconds, self.nanoseconds] = self.__atoparts(seconds)
+			nanoseconds += self.nanoseconds
+		elif not type(seconds) in [float, int, long]:
 			raise TypeError, "Cannot convert \"%s\" to LIGOTimeGPS" % repr(seconds)
 		frac_seconds = round(seconds % 1 * 1000000000)
 		if seconds < 0 and frac_seconds:
