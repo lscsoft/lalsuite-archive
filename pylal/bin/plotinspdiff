@@ -13,7 +13,7 @@ from pylal import readMeta
 from pylal import viz
 
 ##############################################################################
-usage = """usage: %prog [options] file1 (file2 file3)
+usage = """usage: %prog [options] file1 file2 
 
 Inspiral Injection Plotting Functions
 
@@ -102,7 +102,7 @@ if opts.hist_timing:
   sym = 0
   viz.histdiffdiff(injSets[0]['sngl_inspiral'], injSets[1]['sngl_inspiral'],\
                  injSets[0]['sim_inspiral'], 'end_time', sym,'seconds', \
-                 opts.nbins, opts.chirp_axis, opts.figure_name)
+                 opts.nbins, opts.time_axis, opts.figure_name)
 
  
 if opts.show_plot:

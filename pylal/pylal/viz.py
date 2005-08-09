@@ -147,7 +147,9 @@ def plot_a_v_b(table, col_name_a, col_name_b, plot_type, plot_sym, \
     semilogx(col_a, col_b, plot_sym, markersize=12,markerfacecolor=None)
   elif plot_type == 'loglog':
     loglog(col_a, col_b, plot_sym, markersize=12,markerfacecolor=None)
-  
+    xlim(0.95 * min(col_a), 1.05 * max(col_a))
+    ylim(0.95 * min(col_b), 1.05 * max(col_b))
+
   if ifo:
     title(ifo + ' ' + col_name_a + ' vs ' + col_name_b, size='x-large')
   else:
@@ -604,35 +606,106 @@ def cumhistcol(table1, col_name, normalization=None,output_name = None):
 ######################################################################
 # function to histogram the difference between values of 'col_name' in
 # two tables, table1 and table2
-def cumhistsnr(trigs, ifos = None, min_val = None, max_val = None, \
-  nbins = None):
- 
-  if ifos:
-    trigs = trigs.coinctype(ifos[0],ifos[1])
-  snr = asarray([ pow(trigs.table[i]["snrsq"],0.5) for i in range(trigs.nevents()) ] )
+def cumhistsnr(trigs=None, slideTrigs=None,ifos = None, min_val = None, \
+  max_val = None, nbins = None):
+
+  hold(False)
+  
+  # read in zero lag triggers
+  if trigs:
+    if ifos:
+      trigs = trigs.coinctype(ifos[0],ifos[1])
+    snr = asarray([ pow(trigs.table[i]["snrsq"],0.5) for i in \
+        range(trigs.nevents()) ] )
+
+    if not min_val:
+      min_val = min(snr)
+    if not max_val:
+      max_val = max(snr)
+  
+  # read in slide triggers
+  
+  if slideTrigs:
+    slide_min = 0
+    slide_max = 0
+    
+    slide_snr_list = []
+    for this_slide in slideTrigs:
+      if ifos:
+        slide_trigs = this_slide['triggers'].coinctype(ifos[0],ifos[1])
+      else:
+        slide_trigs = this_slide['triggers']
+
+      slide_snr = asarray([ pow(slide_trigs.table[i]["snrsq"],0.5) \
+        for i in range(slide_trigs.nevents()) ] )
+
+      slide_snr_list.append(slide_snr)
+
+      slide_max = max(slide_max, max(slide_snr))
+      slide_min = min(slide_min, min(slide_snr))
+    
+    if not min_val:
+      min_val = slide_min
+    if not max_val:
+      max_val = slide_max
 
   # set up the bin boundaries
   if not nbins:
     nbins = 20
 
-
-  bins = []
-  if max_val and min_val:
-    for i in range(nbins):
-      bins.append(min_val + i*(max_val - min_val)/nbins)
+  bins = []    
+  for i in range(nbins):
+    bins.append(min_val + i*(max_val - min_val)/nbins)
   
-  if bins:
-    [num,bin,info] = hist(snr,bins)
-  else:
-    [num,bin,info] = hist(snr,nbins)
+
+  # hist of the zero lag:
+  if trigs:
+    [zero_dist,bin,info] = hist(snr,bins)
+
+    cum_dist_zero = [sum(zero_dist)]
+    cum_dist_zero.extend(sum(zero_dist) - cumsum(zero_dist))
+    cum_dist_zero.pop()
+
+  # hist of the slides:
+  if slideTrigs:  
+    slide_dist = []
+    cum_dist_slide = []
+    slide_mean = []
+    slide_std = []
+    for slide_snr in slide_snr_list:
+      [num_slide,bin,info] = hist(slide_snr,bins)
+      slide_dist.append(num_slide)
+      cum_slide = [sum(num_slide)]
+      cum_slide.extend(sum(num_slide) - cumsum(num_slide))
+      cum_slide.pop()
+      cum_dist_slide.append(cum_slide)
+    slide_mean = []
+
+    cum_dist_slide = reshape(array(cum_dist_slide), \
+      (len(slide_snr_list),nbins))
+    slide_mean = mean(cum_dist_slide)
+    slide_std = std(cum_dist_slide)
+
+  clf()
+  hold(True)
+  if trigs: 
+    plot(bins,log10(cum_dist_zero),'rx',markersize=12)
+  if slideTrigs:
+    slide_min = []
+    for i in range( len(slide_mean) ):
+      slide_min.append( max(slide_mean[i] - slide_std[i], 0.0001) )
+      slide_mean[i] = max(slide_mean[i], 0.0001)
+    errorbar(bins,log10(slide_mean), 
+      [log10(slide_mean) - log10(slide_min), 
+      log10(slide_mean + slide_std) - log10(slide_mean)],markersize=12)
+
+  xlabel('Combined SNR', size='x-large')
+  ylabel('Number of events', size='x-large')
+  title_text = 'Cumulative histogram of Number of events vs SNR'
+  if ifos:
+    title_text += ' for ' + ifos[0] + ' and ' + ifos[1]
  
-  cum_num = [sum(num)]
-  cum_num.extend(sum(num) - cumsum(num))
-  cum_num.pop()
-  figure(23)
-  semilogy(cum_num,bins,'kx')
-
-
+  title(title_text, size='x-large')
 
 ######################################################################
 # function to histogram the difference between values of 'col_name' in

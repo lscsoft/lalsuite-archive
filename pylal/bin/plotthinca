@@ -47,15 +47,17 @@ parser.add_option("-c","--snr-time",action="store_true",default=False,\
     help="plot the snr vs time of coinc triggers" )
 parser.add_option("-d","--slide-snr",action="store_true",default=False,\
     help="make snr vs snr plots of time slide triggers" )
-parser.add_option("-k","--snr-dist",action="store_true",default=False,\
-    help="plot distribution of snr" )
 parser.add_option("-i","--hist-slides",action="store_true",default=False,\
     help="plot histograms of number of triggers in time slides")
 parser.add_option("-j","--plot-slides",action="store_true",default=False,\
     help="plot of number of triggers vs slide number")
 parser.add_option("-z","--add-zero-lag",action="store_true",default=False,\
     help="add the zero lag info to slide plots")
-parser.add_option("-n","--num-slides",action="store",type="int",default=0,\
+parser.add_option("-k","--snr-dist",action="store_true",default=False,\
+    help="plot distribution of snr" )
+parser.add_option("-n","--nbins",action="store",type="int",default=10,\
+    metavar=" NBINS", help="number of bins for the histogram plots" )
+parser.add_option("-N","--num-slides",action="store",type="int",default=0,\
     help="number of time slides performed" )
 parser.add_option("-t","--plot-type",action="store",type="string",\
     default="linear",metavar=" PLOT_TYPE", \
@@ -196,6 +198,7 @@ if opts.hl_snr or opts.slide_snr:
       opts.plot_type)
   axis([xlow, xhigh, xlow, xhigh])
 
+
   if not opts.slide_snr:
     legend(['H1L1','H2L1','H1H2L1'])
   xlabel('SNR Hanford', size='x-large')
@@ -274,8 +277,23 @@ if opts.hist_slides or opts.plot_slides:
 ################################################
 # make histogram of snr distribution
 if opts.snr_dist:
- 
-  viz.cumhistsnr(coincTriggers, None, xlow, xhigh, 100)
+  figure(fig_num) 
+  fig_num += 1
+  viz.cumhistsnr(coincTriggers, slideTriggers, None, opts.min_snr, 
+    opts.max_snr, opts.nbins)
+  if f_name:  
+    savefig(f_name + "_cum_hist_snr.png")
+
+  
+
+  for ifos in [['H1','H2'],['H1','L1'],['H2','L1']]:
+    figure(fig_num) 
+    fig_num += 1
+    viz.cumhistsnr(coincTriggers, slideTriggers, ifos, opts.min_snr, 
+    opts.max_snr, opts.nbins)
+    if f_name:
+      savefig(f_name + '_' +ifos[0] + '_' + ifos[1] + \
+        "_cum_hist_snr.png")
 
 
 
