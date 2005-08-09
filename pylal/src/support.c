@@ -257,9 +257,8 @@ read_summ_value(PyObject *self, PyObject *args)
 static PyObject *   
 read_sngl_burst(PyObject *self, PyObject *args)
 { 
-  SnglBurstTable *eventHead=NULL;
-  SnglBurstTable **addevent=&eventHead;
-  SnglBurstTable *event=NULL;
+  SnglBurstTable *eventHead;
+  SnglBurstTable *event;
   PyObject *fromPython;
   PyObject *outlist;
   int n, len;
@@ -275,31 +274,28 @@ read_sngl_burst(PyObject *self, PyObject *args)
   }
 
   len = PyList_Size(fromPython);
+  outlist = PyList_New(0);
   for(n = 0; n < len; n++)
   {
-    *addevent = XLALSnglBurstTableFromLIGOLw(PyString_AsString(PyList_GetItem(fromPython, n)));
+    eventHead = XLALSnglBurstTableFromLIGOLw(PyString_AsString(PyList_GetItem(fromPython, n)));
 
-    while(*addevent)
-      addevent = &(*addevent)->next;
-  }
-
-  outlist = PyList_New(0);
-  while(eventHead)
-  {
-    event = eventHead;
-    PyList_Append(outlist, Py_BuildValue(
-        "{s:s, s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:d}",
-        "ifo", event->ifo,
-        "start_time", (double) event->start_time.gpsSeconds + event->start_time.gpsNanoSeconds * 1e-9,
-        "peak_time", (double) event->peak_time.gpsSeconds + event->peak_time.gpsNanoSeconds * 1e-9,
-        "duration", event->duration,
-        "central_freq", event->central_freq,
-        "bandwidth", event->bandwidth,
-        "amplitude", event->amplitude,
-        "snr", event->snr,
-        "confidence", event->confidence));
-    eventHead = eventHead->next;
-    LALFree(event);
+    while(eventHead)
+    {
+      event = eventHead;
+      PyList_Append(outlist, Py_BuildValue(
+          "{s:s, s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:d}",
+          "ifo", event->ifo,
+          "start_time", event->start_time.gpsSeconds + event->start_time.gpsNanoSeconds * (double) 1e-9,
+          "peak_time", event->peak_time.gpsSeconds + event->peak_time.gpsNanoSeconds * (double) 1e-9,
+          "duration", event->duration,
+          "central_freq", event->central_freq,
+          "bandwidth", event->bandwidth,
+          "amplitude", event->amplitude,
+          "snr", event->snr,
+          "confidence", event->confidence));
+      eventHead = eventHead->next;
+      LALFree(event);
+    }
   }
 
   return outlist;
