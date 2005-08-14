@@ -89,15 +89,22 @@ for i in range(len(injFiles)):
   injDict["sim_inspiral"]  = readMeta.metaDataTable(flist, "sim_inspiral")
   #
   injDict["ifo"] = injDict["sngl_inspiral"].table[1]["ifo"]
-  if injDict["ifo"] == 'H1'  or  injDict["ifo"] == 'H2':
-    injDict["inj_time"] =  injDict["sim_inspiral"].mkarray("h_end_time") + \
-      1e-9 * injDict["sim_inspiral"].mkarray("h_end_time_ns")
-    injDict["inj_dist"] =  injDict["sim_inspiral"].mkarray("eff_dist_h")
-  elif injDict["ifo"] == ('L1'):
-    injDict["inj_time"] =  injDict["sim_inspiral"].mkarray("l_end_time") + \
-      1e-9 * injDict["sim_inspiral"].mkarray("l_end_time_ns")
-    injDict["inj_dist"] =  injDict["sim_inspiral"].mkarray("eff_dist_l")
-  injDict["inj_chirp"]  = injDict["sim_inspiral"].mkarray("mchirp")
+  injDict["inj_time"] = viz.timeindays( viz.readcol(injDict["sim_inspiral"], \
+    "end_time", injDict["ifo"] ) )
+  injDict["inj_dist"] = viz.readcol(injDict["sim_inspiral"], "eff_dist", \
+    injDict["ifo"] )
+  injDict["inj_chirp"]  = viz.readcol(injDict["sim_inspiral"], "mchirp" )
+  
+    
+  #if injDict["ifo"] == 'H1'  or  injDict["ifo"] == 'H2':
+  #  injDict["inj_time"] =  injDict["sim_inspiral"].mkarray("h_end_time") + \
+  #    1e-9 * injDict["sim_inspiral"].mkarray("h_end_time_ns")
+  #  injDict["inj_dist"] =  injDict["sim_inspiral"].mkarray("eff_dist_h")
+  #elif injDict["ifo"] == ('L1'):
+  #  injDict["inj_time"] =  injDict["sim_inspiral"].mkarray("l_end_time") + \
+  #    1e-9 * injDict["sim_inspiral"].mkarray("l_end_time_ns")
+  #  injDict["inj_dist"] =  injDict["sim_inspiral"].mkarray("eff_dist_l")
+  #injDict["inj_chirp"]  = injDict["sim_inspiral"].mkarray("mchirp")
   
   # test sire clustering
   if injDict['sngl_inspiral'].nevents() != injDict['sim_inspiral'].nevents():
@@ -110,14 +117,22 @@ for i in range(len(injFiles)):
     flist.append(misFiles[i])
     misDict["sim_inspiral"]  = readMeta.metaDataTable(flist, "sim_inspiral")
   #
-  if injDict["ifo"] == 'H1'  or  injDict["ifo"] == 'H2':
-    misDict["mis_time"] =  misDict["sim_inspiral"].mkarray("h_end_time") + \
-      1e-9 * misDict["sim_inspiral"].mkarray("h_end_time_ns")
-    misDict["mis_dist"] =  misDict["sim_inspiral"].mkarray("eff_dist_h")
-  elif injDict["ifo"] == ('L1'):
-    misDict["mis_time"] =  misDict["sim_inspiral"].mkarray("l_end_time") + \
-      1e-9 * misDict["sim_inspiral"].mkarray("l_end_time_ns")
-    misDict["mis_dist"] =  misDict["sim_inspiral"].mkarray("eff_dist_l")
+  
+  misDict["mis_time"] = viz.timeindays( viz.readcol(misDict["sim_inspiral"], \
+    "end_time", injDict["ifo"] ) )
+  misDict["mis_dist"] = viz.readcol(misDict["sim_inspiral"], "eff_dist", \
+    injDict["ifo"] )
+  misDict["mis_chirp"]  = viz.readcol(misDict["sim_inspiral"], "mchirp" )
+
+  
+  #if injDict["ifo"] == 'H1'  or  injDict["ifo"] == 'H2':
+  #  misDict["mis_time"] =  misDict["sim_inspiral"].mkarray("h_end_time") + \
+  #    1e-9 * misDict["sim_inspiral"].mkarray("h_end_time_ns")
+  #  misDict["mis_dist"] =  misDict["sim_inspiral"].mkarray("eff_dist_h")
+  #elif injDict["ifo"] == ('L1'):
+  #  misDict["mis_time"] =  misDict["sim_inspiral"].mkarray("l_end_time") + \
+  #    1e-9 * misDict["sim_inspiral"].mkarray("l_end_time_ns")
+  #  misDict["mis_dist"] =  misDict["sim_inspiral"].mkarray("eff_dist_l")
 
   # append combination of tables to list as a dictionary
   injSet["injections"] = injDict
@@ -151,7 +166,7 @@ if opts.time_snr:
   if opts.legend:
     legend()
   title(opts.title + 'Distance vs Time', size='x-large')
-  xlabel('Injected End Time (GPS seconds)', size='x-large')
+  xlabel('Injected End Time (days after start of run)', size='x-large')
   ylabel('Injected Effective Distance (Mpc)', size='x-large')
   #axis([min(inj_time), max(inj_time), \
   #  0.95 * min(inj_dist), 1.05 * max(missed_dist)])
