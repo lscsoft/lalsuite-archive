@@ -6,6 +6,9 @@
 #include "grid.h"
 
 extern FILE *LOG;
+
+extern double average_det_velocity[3];
+extern double band_axis_norm;
 extern double band_axis[3];
 
 SKY_GRID_TYPE spherical_distance(SKY_GRID_TYPE ra0, SKY_GRID_TYPE dec0,
@@ -270,7 +273,7 @@ for(i=0;i<sg->super_grid->npoints;i++){
 	}
 }
 
-void assign_bands(SKY_GRID *grid, int n_bands)
+void angle_assign_bands(SKY_GRID *grid, int n_bands)
 {
 int i,k;
 SKY_GRID_TYPE angle, proj, x,y,z;
@@ -289,6 +292,39 @@ for(i=0;i<grid->npoints;i++){
 	k=floor((angle/M_PI)*n_bands);
 	if(k<0)k=0;
 	if(k==n_bands)k=n_bands-1;
+	grid->band[i]=k;
+	grid->band_f[i]=k;
+	}
+}
+
+void S_assign_bands(SKY_GRID *grid, int n_bands, double s_f)
+{
+int i,k;
+double S;
+SKY_GRID_TYPE angle, proj, x,y,z;
+
+for(i=0;i<grid->npoints;i++){
+	/* convert into 3d */
+	x=cos(grid->longitude[i])*cos(grid->latitude[i]);
+	y=sin(grid->longitude[i])*cos(grid->latitude[i]);
+	z=sin(grid->latitude[i]);
+
+ 	S=s_f+
+		x*(average_det_velocity[0]*s_f+band_axis_norm*band_axis[0])+
+		y*(average_det_velocity[1]*s_f+band_axis_norm*band_axis[1])+
+		z*(average_det_velocity[2]*s_f+band_axis_norm*band_axis[2]);
+
+	S=fabs(S)/band_axis_norm;
+	
+	if(S>=0.5){
+		grid->band[i]=0;
+		grid->band_f[i]=0;
+		continue;
+		}
+	k=n_bands-floor(2.0*S*(n_bands-1));
+	if(k>=n_bands)k=n_bands-1;
+	if(k<1)k=1;
+
 	grid->band[i]=k;
 	grid->band_f[i]=k;
 	}

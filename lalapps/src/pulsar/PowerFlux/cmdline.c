@@ -75,7 +75,7 @@ cmdline_parser_print_help (void)
   printf("      --three-bins=INT                  average 3 neighbouring bins to broaden \n                                          Doppler curves  (default=`0')\n");
   printf("      --do-cutoff=INT                   neglect contribution from SFT with \n                                          high effective noise level  (default=\n                                          `1')\n");
   printf("      --filter-lines=INT                perform detection of lines in \n                                          background noise and veto \n                                          corresponding frequency bins  \n                                          (default=`1')\n");
-  printf("      --nbands=INT                      split sky in this many bands for \n                                          logging maximum upper limits  \n                                          (default=`9')\n");
+  printf("      --nbands=INT                      split sky in this many bands for \n                                          logging maximum upper limits  \n                                          (default=`5')\n");
   printf("      --band-axis=STRING                which band axis to use for splitting \n                                          sky into bands (perpendicular to \n                                          band axis) (possible values: \n                                          equatorial, auto, \n                                          explicit(float,float,float)  \n                                          (default=`auto')\n");
   printf("      --ks-test=INT                     perform Kolmogorov-Smirnov test for \n                                          normality of averaged powers  \n                                          (default=`1')\n");
   printf("      --compute-betas=INT               compute beta coefficients as described \n                                          in PowerFlux polarizations document  \n                                          (default=`0')\n");
@@ -213,7 +213,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->three_bins_arg = 0 ;\
   args_info->do_cutoff_arg = 1 ;\
   args_info->filter_lines_arg = 1 ;\
-  args_info->nbands_arg = 9 ;\
+  args_info->nbands_arg = 5 ;\
   args_info->band_axis_arg = gengetopt_strdup("auto") ;\
   args_info->ks_test_arg = 1 ;\
   args_info->compute_betas_arg = 0 ;\

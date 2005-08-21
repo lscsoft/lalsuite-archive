@@ -70,7 +70,8 @@ long find_sin_theta_closest(SKY_GRID *grid, float RA, float DEC);
 SKY_SUPERGRID *make_rect_supergrid(SKY_GRID *grid, int ra_factor, int dec_factor);
 SKY_SUPERGRID *make_sin_theta_supergrid(SKY_GRID *grid, int factor);
 
-void assign_bands(SKY_GRID *grid, int n_bands);
+void angle_assign_bands(SKY_GRID *grid, int n_bands);
+void S_assign_bands(SKY_GRID *grid, int n_bands, double s_f);
 void mask_far_points(SKY_GRID *grid, SKY_GRID_TYPE ra, SKY_GRID_TYPE dec, SKY_GRID_TYPE radius);
 void mask_small_cos(SKY_GRID *grid, SKY_GRID_TYPE x, SKY_GRID_TYPE y, SKY_GRID_TYPE z, SKY_GRID_TYPE cos_level);
 

@@ -34,6 +34,7 @@ float *det_velocity=NULL;
 double average_det_velocity[3];
 float det_vel_ra, det_vel_dec;
 double orbital_axis[3];
+double band_axis_norm;
 double band_axis[3];
 float band_axis_ra, band_axis_dec;
 
@@ -662,20 +663,25 @@ band_axis[1]=orbital_axis[2]*average_det_velocity[0]-orbital_axis[0]*average_det
 band_axis[2]=orbital_axis[0]*average_det_velocity[1]-orbital_axis[1]*average_det_velocity[0];
 
 /* Normalize */
-a=sqrt(band_axis[0]*band_axis[0]+
+band_axis_norm=sqrt(band_axis[0]*band_axis[0]+
 	band_axis[1]*band_axis[1]+
 	band_axis[2]*band_axis[2]);
 /* replace 0.0 with something more reasonable later */
-if(a<=0.0){
+if(band_axis_norm<=0.0){
 	band_axis[0]=0.0;
 	band_axis[1]=0.0;
 	band_axis[2]=1.0;
 	} else {
-	band_axis[0]/=a;
-	band_axis[1]/=a;
-	band_axis[2]/=a;
+	band_axis[0]/=band_axis_norm;
+	band_axis[1]/=band_axis_norm;
+	band_axis[2]/=band_axis_norm;
 	}
+/* 
+  Normalize band_axis_norm so it matches the definition of \vec{u}
+*/
+band_axis_norm*=2*M_PI/(365.0*24.0*3600.0);
 
+fprintf(LOG, "band axis norm: %g\n", band_axis_norm);
 fprintf(LOG,"auto band axis: %g %g %g\n", 
 	band_axis[0],
 	band_axis[1],
@@ -746,10 +752,6 @@ if(!strcasecmp("band_axis", args_info.skymap_orientation_arg)){
 	rotate_grid_xy(fine_grid, band_axis_ra);
 	}
 
-/* assign bands */
-assign_bands(patch_grid, args_info.nbands_arg);
-assign_bands(fine_grid, args_info.nbands_arg);
-
 if(args_info.focus_ra_given && 
    args_info.focus_dec_given && 
    args_info.focus_radius_given){
@@ -783,10 +785,6 @@ dump_floats("fine_latitude.dat", fine_grid->latitude, fine_grid->npoints, 1);
 plot_grid_f(p, fine_grid, fine_grid->longitude,1);
 RGBPic_dump_png("fine_longitude.png", p);
 dump_floats("fine_longitude.dat", fine_grid->longitude, fine_grid->npoints, 1);
-
-plot_grid_f(p, fine_grid, fine_grid->band_f,1);
-RGBPic_dump_png("bands.png", p);
-dump_ints("bands.dat", fine_grid->band, fine_grid->npoints, 1);
 
 /* do we need to inject fake signal ? */
 if(args_info.fake_linear_given ||
@@ -1120,6 +1118,18 @@ for(subinstance=0;subinstance<args_info.spindown_count_arg;subinstance++){
 	fprintf(LOG,"spindown  : %g\n", spindown);
 
 	fprintf(stderr,"-------------------------------- SUBINSTANCE %d ------------------------------\n", subinstance);
+	fprintf(stderr, "subinstance name: \"%s\"\n", subinstance_name);
+
+	/* assign bands */
+	S_assign_bands(patch_grid, args_info.nbands_arg, spindown/(first_bin+nbins*0.5));
+	S_assign_bands(fine_grid, args_info.nbands_arg, spindown/(first_bin+nbins*0.5));
+
+	plot_grid_f(p, fine_grid, fine_grid->band_f,1);
+	snprintf(s, 20000, "%sbands.png", subinstance_name);
+	RGBPic_dump_png(s, p);
+	snprintf(s, 20000, "%sbands.dat", subinstance_name);
+	dump_ints(s, fine_grid->band, fine_grid->npoints, 1);
+
 	/* MAIN LOOP stage */
 	fine_grid_stage();
 

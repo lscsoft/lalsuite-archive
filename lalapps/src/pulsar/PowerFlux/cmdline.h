@@ -59,7 +59,7 @@ struct gengetopt_args_info
   int three_bins_arg;	/* average 3 neighbouring bins to broaden Doppler curves (default='0').  */
   int do_cutoff_arg;	/* neglect contribution from SFT with high effective noise level (default='1').  */
   int filter_lines_arg;	/* perform detection of lines in background noise and veto corresponding frequency bins (default='1').  */
-  int nbands_arg;	/* split sky in this many bands for logging maximum upper limits (default='9').  */
+  int nbands_arg;	/* split sky in this many bands for logging maximum upper limits (default='5').  */
   char * band_axis_arg;	/* which band axis to use for splitting sky into bands (perpendicular to band axis) (possible values: equatorial, auto, explicit(float,float,float) (default='auto').  */
   int ks_test_arg;	/* perform Kolmogorov-Smirnov test for normality of averaged powers (default='1').  */
   int compute_betas_arg;	/* compute beta coefficients as described in PowerFlux polarizations document (default='0').  */
