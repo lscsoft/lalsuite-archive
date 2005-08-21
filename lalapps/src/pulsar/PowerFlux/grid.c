@@ -321,7 +321,7 @@ for(i=0;i<grid->npoints;i++){
 		grid->band_f[i]=0;
 		continue;
 		}
-	k=n_bands-floor(2.0*S*(n_bands-1));
+	k=n_bands-floor(2.0*S*(n_bands-1))-1;
 	if(k>=n_bands)k=n_bands-1;
 	if(k<1)k=1;
 
