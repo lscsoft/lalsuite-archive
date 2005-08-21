@@ -33,7 +33,7 @@ set FIELDS {
 
 set FIELDS_LAYOUT {exp var pol}
 
-foreach band {0 1 2 3 4 5 6 7 8 } {
+for { set band 0 } { $band < $NBANDS } { incr band } {
 	lappend FIELDS "^max_high_ul_band: $band" "max_high_ul_band.$band" 3
 	lappend FIELDS "^max_circ_ul_band: $band" "max_circ_ul_band.$band" 3
         lappend FIELDS "^max_band: $band" "max_band.$band" 1

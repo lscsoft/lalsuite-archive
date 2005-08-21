@@ -14,6 +14,7 @@ set PARAMS {
 	FREQ_START	50
 	FREQ_STEP	0.25
 	FREQ_END	250
+	NBANDS	10
 	ANALYSIS_PROGRAM "/home/volodya/PowerFlux/powerflux"
 	}
 
@@ -32,6 +33,7 @@ three-bins 0
 filter-lines 1
 write-dat NONE
 write-png NONE
+nbands	$NBANDS
 subtract-background 1
 ks-test 1
 compute-betas 0
