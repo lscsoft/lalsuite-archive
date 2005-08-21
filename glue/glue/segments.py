@@ -104,7 +104,7 @@ class segment(tuple):
 		bool(segment(0, 0))
 
 	Notes:
-	It is also possible to type cast 2-element tuples, lists, and other
+	It is also possible to cast 2-element tuples, lists, and other
 	container types to segments.  For example segment([0, 1])
 	"""
 
