@@ -45,7 +45,7 @@ class LIGOTimeGPS(object):
 		Create a LIGOTimeGPS instance.  The first parameter is the
 		count of seconds, and the second (optional) parameter is the
 		count of nanoseconds.  If the nanoseconds parameter is not
-		supplied, it is assumed to be 0.  The seconds parameter can be
+		supplied, it is assumed to be 0.  Either parameter can be
 		a numeric type or an ASCII string.
 
 		Example use (all are equivalent):
@@ -57,6 +57,8 @@ class LIGOTimeGPS(object):
 		"""
 		if type(nanoseconds) == str:
 			nanoseconds = float(nanoseconds)
+		elif not type(nanoseconds) in [float, int, long]:
+			raise TypeError, "Cannot convert \"%s\" to LIGOTimeGPS" % repr(seconds)
 		if type(seconds) == str:
 			[seconds, self.nanoseconds] = self.__atoparts(seconds)
 			nanoseconds += self.nanoseconds
@@ -163,11 +165,8 @@ class LIGOTimeGPS(object):
 			other = LIGOTimeGPS(other)
 		return LIGOTimeGPS(self.seconds + other.seconds, self.nanoseconds + other.nanoseconds)
 
-	def __radd__(self, other):
-		"""
-		Add a LIGOTimeGPS to a value.
-		"""
-		return self.__add__(self, other)
+	# addition is commutative.
+	__radd__ = __add__
 
 	def __sub__(self, other):
 		"""
@@ -201,6 +200,7 @@ class LIGOTimeGPS(object):
 		"""
 		return LIGOTimeGPS(self.seconds * other, self.nanoseconds * other)
 
+	# multiplication is commutative
 	__rmul__ = __mul__
 
 	def __div__(self, other):
