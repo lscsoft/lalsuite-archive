@@ -199,13 +199,18 @@ class LSCsegFindClient(object):
        
     response = ""
 
-    # read in 512 byte chunks until there is nothing left to read
+    # Read in 512 byte chunks until there is nothing left to read.
     # this blocks until the socket is ready for reading
+    # This blocks until the socket is ready for reading and until
+    # 512 bytes are received. If the message is less then 512 bytes
+    # this will block until the server closes the socket. Since
+    # the server always shuts down the socket after sending its
+    # reply this should continue to work for now.
     while 1: 
-      input = f.read(512)
-      if input == "": break
+      input = f.read(size = 512, waitForBytes = 512)
       response += input
-    
+      if len(input) < 512: break
+
     # the response from the server must always end in a null byte
     try:
       if response[-1] != '\0':
