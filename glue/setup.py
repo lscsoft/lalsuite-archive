@@ -23,7 +23,6 @@ if version_info >= (2, 3):
     scripts = [ os.path.join('bin','LSCdataFind'),
       os.path.join('bin','LSCdataFind'),
       os.path.join('bin','LSCsegFind'),
-      os.path.join('bin','WebsegFind'),
       os.path.join('bin','LSCfileAdd'),
       os.path.join('bin','ldbdc'),
       os.path.join('sbin','ldbdd'),
