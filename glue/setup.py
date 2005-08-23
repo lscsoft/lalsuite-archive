@@ -12,7 +12,7 @@ from sys import version_info
 # altogether.
 if version_info >= (2, 3):
   setup( name = "glue",
-    version = "0.1",
+    version = "1.0",
     author = "Duncan Brown",
     author_email = "dbrown@ligo.caltech.edu",
     description = "Grid LSC User Engine",

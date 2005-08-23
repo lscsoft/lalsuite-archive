@@ -1,0 +1,5 @@
+include README MANIFEST.in
+include src/conf/*.sql
+include man/man1/*
+include etc/*
+include test/*
