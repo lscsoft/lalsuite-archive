@@ -679,7 +679,7 @@ if(band_axis_norm<=0.0){
 /* 
   Normalize band_axis_norm so it matches the definition of \vec{u}
 */
-band_axis_norm*=2*M_PI/(365.0*24.0*3600.0);
+band_axis_norm*=2.0*M_PI/(365.0*24.0*3600.0);
 
 fprintf(LOG, "band axis norm: %g\n", band_axis_norm);
 fprintf(LOG,"auto band axis: %g %g %g\n", 
@@ -1121,8 +1121,8 @@ for(subinstance=0;subinstance<args_info.spindown_count_arg;subinstance++){
 	fprintf(stderr, "subinstance name: \"%s\"\n", subinstance_name);
 
 	/* assign bands */
-	S_assign_bands(patch_grid, args_info.nbands_arg, spindown/(first_bin+nbins*0.5));
-	S_assign_bands(fine_grid, args_info.nbands_arg, spindown/(first_bin+nbins*0.5));
+	S_assign_bands(patch_grid, args_info.nbands_arg, spindown*1800.0/(first_bin+nbins*0.5));
+	S_assign_bands(fine_grid, args_info.nbands_arg, spindown*1800.0/(first_bin+nbins*0.5));
 
 	plot_grid_f(p, fine_grid, fine_grid->band_f,1);
 	snprintf(s, 20000, "%sbands.png", subinstance_name);

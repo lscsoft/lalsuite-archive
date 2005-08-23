@@ -291,7 +291,7 @@ for(i=0;i<grid->npoints;i++){
 	
 	k=floor((angle/M_PI)*n_bands);
 	if(k<0)k=0;
-	if(k==n_bands)k=n_bands-1;
+	if(k>=n_bands)k=n_bands-1;
 	grid->band[i]=k;
 	grid->band_f[i]=k;
 	}
@@ -300,7 +300,7 @@ for(i=0;i<grid->npoints;i++){
 void S_assign_bands(SKY_GRID *grid, int n_bands, double s_f)
 {
 int i,k;
-double S;
+double S, large_S=0.5;
 SKY_GRID_TYPE angle, proj, x,y,z;
 
 for(i=0;i<grid->npoints;i++){
@@ -316,12 +316,12 @@ for(i=0;i<grid->npoints;i++){
 
 	S=fabs(S)/band_axis_norm;
 	
-	if(S>=0.5){
+	if(S>=large_S){
 		grid->band[i]=0;
 		grid->band_f[i]=0;
 		continue;
 		}
-	k=n_bands-floor(2.0*S*(n_bands-1))-1;
+	k=n_bands-floor(S*(n_bands-1)/large_S)-1;
 	if(k>=n_bands)k=n_bands-1;
 	if(k<1)k=1;
 
