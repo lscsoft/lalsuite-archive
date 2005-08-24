@@ -35,7 +35,7 @@ if version_info >= (2, 3):
     )
 else:
   setup( name = "glue",
-    version = "0.1",
+    version = "1.0",
     author = "Duncan Brown",
     author_email = "dbrown@ligo.caltech.edu",
     description = "Grid LSC User Engine",
@@ -45,7 +45,6 @@ else:
     scripts = [ os.path.join('bin','LSCdataFind'),
       os.path.join('bin','LSCdataFind'),
       os.path.join('bin','LSCsegFind'),
-      os.path.join('bin','WebsegFind'),
       os.path.join('bin','LSCfileAdd'),
       os.path.join('bin','ldbdc'),
       os.path.join('sbin','ldbdd'),
