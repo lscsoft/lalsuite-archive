@@ -263,10 +263,8 @@ read_sngl_burst(PyObject *self, PyObject *args)
   PyObject *outlist;
   int n, len;
 
-  if(!PyArg_ParseTuple(args, "O", &fromPython)) {
-    PyErr_SetString(PyExc_TypeError, "failure parsing arguments");
+  if(!PyArg_ParseTuple(args, "O", &fromPython))
     return NULL;
-  }
 
   if(!PyList_Check(fromPython)) {
     PyErr_SetString(PyExc_TypeError, "argument is not a list");
