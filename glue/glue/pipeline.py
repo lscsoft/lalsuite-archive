@@ -866,12 +866,12 @@ class CondorDAG:
 
         for f in node.get_input_files():
                 print >>dagfile, """\
-     <uses file="%s" link="input" dontRegister="false" dontTransfer="false"/>\
+     <uses file="%s" link="input" dontRegister="true" dontTransfer="false"/>\
 """ % f
 
         for f in node.get_output_files():
                 print >>dagfile, """\
-     <uses file="%s" link="output" dontRegister="false" dontTransfer="false"/>\
+     <uses file="%s" link="output" dontRegister="true" dontTransfer="false"/>\
 """ % f
 
         print >>dagfile, "</job>"
