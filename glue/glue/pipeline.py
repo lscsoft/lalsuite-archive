@@ -2117,6 +2117,7 @@ class LSCDataFindNode(CondorDAGNode, AnalysisNode):
           }
 
         print >>sys.stderr, ".",
+        time.sleep( 1 )
         result = eval("myClient.%s(%s)" % (clientMethod, clientMethodArgDict))
         
         if not isinstance(result,LDRdataFindClient.lfnlist):
