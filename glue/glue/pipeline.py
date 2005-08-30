@@ -880,6 +880,8 @@ class CondorDAG:
     for node in self.__nodes:
       if isinstance(node, LSCDataFindNode):
         pass
+      elif ( len(node._CondorDAGNode__parents) == 1 ) and isinstance(node._CondorDAGNode__parents[0], LSCDataFindNode):
+        pass
       else:
         child_id = node_name_id_dict[str(node)]
         if node._CondorDAGNode__parents:
