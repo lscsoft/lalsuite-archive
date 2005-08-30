@@ -44,6 +44,11 @@ cmdline_parser_print_help (void)
   printf("      --label=STRING                    arbitrary string to be printed in the \n                                          beginning of PowerFlux log file\n");
   printf("      --sky-grid=STRING                 sky grid type (arcsin, \n                                          plain_rectangular, sin_theta)  \n                                          (default=`sin_theta')\n");
   printf("      --skymap-orientation=STRING       orientation of produced skymaps: \n                                          equatorial, ecliptic, band_axis  \n                                          (default=`equatorial')\n");
+  printf("      --skyband-method=STRING           method of assigning band numbers: \n                                          angle, S  (default=`S')\n");
+  printf("      --nskybands=INT                   split sky in this many bands for \n                                          logging maximum upper limits  \n                                          (default=`5')\n");
+  printf("      --largeS=DOUBLE                   value of S to consider good enough  \n                                          (default=`0.243')\n");
+  printf("      --band-axis=STRING                which band axis to use for splitting \n                                          sky into bands (perpendicular to \n                                          band axis) (possible values: \n                                          equatorial, auto, \n                                          explicit(float,float,float)  \n                                          (default=`auto')\n");
+  printf("      --band-axis-norm=DOUBLE           norm of band axis vector to use in S \n                                          value calculation\n");
   printf("      --fine-factor=INT                 make fine grid this times finer  \n                                          (default=`5')\n");
   printf("      --skymap-resolution=DOUBLE        specify skymap resolution explicitly\n");
   printf("      --skymap-resolution-ratio=DOUBLE  adjust default coarseness of the grid \n                                          by this factor  (default=`1.0')\n");
@@ -75,8 +80,6 @@ cmdline_parser_print_help (void)
   printf("      --three-bins=INT                  average 3 neighbouring bins to broaden \n                                          Doppler curves  (default=`0')\n");
   printf("      --do-cutoff=INT                   neglect contribution from SFT with \n                                          high effective noise level  (default=\n                                          `1')\n");
   printf("      --filter-lines=INT                perform detection of lines in \n                                          background noise and veto \n                                          corresponding frequency bins  \n                                          (default=`1')\n");
-  printf("      --nbands=INT                      split sky in this many bands for \n                                          logging maximum upper limits  \n                                          (default=`5')\n");
-  printf("      --band-axis=STRING                which band axis to use for splitting \n                                          sky into bands (perpendicular to \n                                          band axis) (possible values: \n                                          equatorial, auto, \n                                          explicit(float,float,float)  \n                                          (default=`auto')\n");
   printf("      --ks-test=INT                     perform Kolmogorov-Smirnov test for \n                                          normality of averaged powers  \n                                          (default=`1')\n");
   printf("      --compute-betas=INT               compute beta coefficients as described \n                                          in PowerFlux polarizations document  \n                                          (default=`0')\n");
   printf("      --upper-limit-comp=STRING         upper limit compensation factor - used \n                                          to account for windowing in SFTs \n                                          (possible values: Hann, flat, \n                                          arbitrary number)  (default=`Hann')\n");
@@ -129,6 +132,11 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->label_given = 0 ;
   args_info->sky_grid_given = 0 ;
   args_info->skymap_orientation_given = 0 ;
+  args_info->skyband_method_given = 0 ;
+  args_info->nskybands_given = 0 ;
+  args_info->largeS_given = 0 ;
+  args_info->band_axis_given = 0 ;
+  args_info->band_axis_norm_given = 0 ;
   args_info->fine_factor_given = 0 ;
   args_info->skymap_resolution_given = 0 ;
   args_info->skymap_resolution_ratio_given = 0 ;
@@ -160,8 +168,6 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->three_bins_given = 0 ;
   args_info->do_cutoff_given = 0 ;
   args_info->filter_lines_given = 0 ;
-  args_info->nbands_given = 0 ;
-  args_info->band_axis_given = 0 ;
   args_info->ks_test_given = 0 ;
   args_info->compute_betas_given = 0 ;
   args_info->upper_limit_comp_given = 0 ;
@@ -186,6 +192,10 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->label_arg = NULL; \
   args_info->sky_grid_arg = gengetopt_strdup("sin_theta") ;\
   args_info->skymap_orientation_arg = gengetopt_strdup("equatorial") ;\
+  args_info->skyband_method_arg = gengetopt_strdup("S") ;\
+  args_info->nskybands_arg = 5 ;\
+  args_info->largeS_arg = 0.243 ;\
+  args_info->band_axis_arg = gengetopt_strdup("auto") ;\
   args_info->fine_factor_arg = 5 ;\
   args_info->skymap_resolution_ratio_arg = 1.0 ;\
   args_info->small_weight_ratio_arg = 0.2 ;\
@@ -213,8 +223,6 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->three_bins_arg = 0 ;\
   args_info->do_cutoff_arg = 1 ;\
   args_info->filter_lines_arg = 1 ;\
-  args_info->nbands_arg = 5 ;\
-  args_info->band_axis_arg = gengetopt_strdup("auto") ;\
   args_info->ks_test_arg = 1 ;\
   args_info->compute_betas_arg = 0 ;\
   args_info->upper_limit_comp_arg = gengetopt_strdup("Hann") ;\
@@ -248,6 +256,11 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
         { "label",	1, NULL, 0 },
         { "sky-grid",	1, NULL, 0 },
         { "skymap-orientation",	1, NULL, 0 },
+        { "skyband-method",	1, NULL, 0 },
+        { "nskybands",	1, NULL, 0 },
+        { "largeS",	1, NULL, 0 },
+        { "band-axis",	1, NULL, 0 },
+        { "band-axis-norm",	1, NULL, 0 },
         { "fine-factor",	1, NULL, 0 },
         { "skymap-resolution",	1, NULL, 0 },
         { "skymap-resolution-ratio",	1, NULL, 0 },
@@ -279,8 +292,6 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
         { "three-bins",	1, NULL, 0 },
         { "do-cutoff",	1, NULL, 0 },
         { "filter-lines",	1, NULL, 0 },
-        { "nbands",	1, NULL, 0 },
-        { "band-axis",	1, NULL, 0 },
         { "ks-test",	1, NULL, 0 },
         { "compute-betas",	1, NULL, 0 },
         { "upper-limit-comp",	1, NULL, 0 },
@@ -431,6 +442,80 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
             if (args_info->skymap_orientation_arg)
               free (args_info->skymap_orientation_arg); /* free default string */
             args_info->skymap_orientation_arg = gengetopt_strdup (optarg);
+            break;
+          }
+          
+          /* method of assigning band numbers: angle, S.  */
+          else if (strcmp (long_options[option_index].name, "skyband-method") == 0)
+          {
+            if (args_info->skyband_method_given)
+              {
+                fprintf (stderr, "%s: `--skyband-method' option given more than once\n", CMDLINE_PARSER_PACKAGE);
+                clear_args ();
+                exit (EXIT_FAILURE);
+              }
+            args_info->skyband_method_given = 1;
+            if (args_info->skyband_method_arg)
+              free (args_info->skyband_method_arg); /* free default string */
+            args_info->skyband_method_arg = gengetopt_strdup (optarg);
+            break;
+          }
+          
+          /* split sky in this many bands for logging maximum upper limits.  */
+          else if (strcmp (long_options[option_index].name, "nskybands") == 0)
+          {
+            if (args_info->nskybands_given)
+              {
+                fprintf (stderr, "%s: `--nskybands' option given more than once\n", CMDLINE_PARSER_PACKAGE);
+                clear_args ();
+                exit (EXIT_FAILURE);
+              }
+            args_info->nskybands_given = 1;
+            args_info->nskybands_arg = strtol (optarg,&stop_char,0);
+            break;
+          }
+          
+          /* value of S to consider good enough.  */
+          else if (strcmp (long_options[option_index].name, "largeS") == 0)
+          {
+            if (args_info->largeS_given)
+              {
+                fprintf (stderr, "%s: `--largeS' option given more than once\n", CMDLINE_PARSER_PACKAGE);
+                clear_args ();
+                exit (EXIT_FAILURE);
+              }
+            args_info->largeS_given = 1;
+            args_info->largeS_arg = strtod (optarg, NULL);
+            break;
+          }
+          
+          /* which band axis to use for splitting sky into bands (perpendicular to band axis) (possible values: equatorial, auto, explicit(float,float,float).  */
+          else if (strcmp (long_options[option_index].name, "band-axis") == 0)
+          {
+            if (args_info->band_axis_given)
+              {
+                fprintf (stderr, "%s: `--band-axis' option given more than once\n", CMDLINE_PARSER_PACKAGE);
+                clear_args ();
+                exit (EXIT_FAILURE);
+              }
+            args_info->band_axis_given = 1;
+            if (args_info->band_axis_arg)
+              free (args_info->band_axis_arg); /* free default string */
+            args_info->band_axis_arg = gengetopt_strdup (optarg);
+            break;
+          }
+          
+          /* norm of band axis vector to use in S value calculation.  */
+          else if (strcmp (long_options[option_index].name, "band-axis-norm") == 0)
+          {
+            if (args_info->band_axis_norm_given)
+              {
+                fprintf (stderr, "%s: `--band-axis-norm' option given more than once\n", CMDLINE_PARSER_PACKAGE);
+                clear_args ();
+                exit (EXIT_FAILURE);
+              }
+            args_info->band_axis_norm_given = 1;
+            args_info->band_axis_norm_arg = strtod (optarg, NULL);
             break;
           }
           
@@ -799,36 +884,6 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
               }
             args_info->filter_lines_given = 1;
             args_info->filter_lines_arg = strtol (optarg,&stop_char,0);
-            break;
-          }
-          
-          /* split sky in this many bands for logging maximum upper limits.  */
-          else if (strcmp (long_options[option_index].name, "nbands") == 0)
-          {
-            if (args_info->nbands_given)
-              {
-                fprintf (stderr, "%s: `--nbands' option given more than once\n", CMDLINE_PARSER_PACKAGE);
-                clear_args ();
-                exit (EXIT_FAILURE);
-              }
-            args_info->nbands_given = 1;
-            args_info->nbands_arg = strtol (optarg,&stop_char,0);
-            break;
-          }
-          
-          /* which band axis to use for splitting sky into bands (perpendicular to band axis) (possible values: equatorial, auto, explicit(float,float,float).  */
-          else if (strcmp (long_options[option_index].name, "band-axis") == 0)
-          {
-            if (args_info->band_axis_given)
-              {
-                fprintf (stderr, "%s: `--band-axis' option given more than once\n", CMDLINE_PARSER_PACKAGE);
-                clear_args ();
-                exit (EXIT_FAILURE);
-              }
-            args_info->band_axis_given = 1;
-            if (args_info->band_axis_arg)
-              free (args_info->band_axis_arg); /* free default string */
-            args_info->band_axis_arg = gengetopt_strdup (optarg);
             break;
           }
           
@@ -1280,6 +1335,100 @@ cmdline_parser_configfile (char * const filename, struct gengetopt_args_info *ar
                       if (args_info->skymap_orientation_arg)
                         free (args_info->skymap_orientation_arg); /* free default string */
                       args_info->skymap_orientation_arg = gengetopt_strdup (farg);
+                    }
+                  else
+                    {
+                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
+                               filename, line_num);
+                      exit (EXIT_FAILURE);
+                    }
+                }
+              continue;
+            }
+          if (!strcmp(fopt, "skyband-method"))
+            {
+              if (override || !args_info->skyband_method_given)
+                {
+                  args_info->skyband_method_given = 1;
+                  if (fnum == 2)
+                    {
+                      if (args_info->skyband_method_arg)
+                        free (args_info->skyband_method_arg); /* free default string */
+                      args_info->skyband_method_arg = gengetopt_strdup (farg);
+                    }
+                  else
+                    {
+                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
+                               filename, line_num);
+                      exit (EXIT_FAILURE);
+                    }
+                }
+              continue;
+            }
+          if (!strcmp(fopt, "nskybands"))
+            {
+              if (override || !args_info->nskybands_given)
+                {
+                  args_info->nskybands_given = 1;
+                  if (fnum == 2)
+                    {
+                      args_info->nskybands_arg = strtol (farg,&stop_char,0);
+                    }
+                  else
+                    {
+                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
+                               filename, line_num);
+                      exit (EXIT_FAILURE);
+                    }
+                }
+              continue;
+            }
+          if (!strcmp(fopt, "largeS"))
+            {
+              if (override || !args_info->largeS_given)
+                {
+                  args_info->largeS_given = 1;
+                  if (fnum == 2)
+                    {
+                      args_info->largeS_arg = strtod (farg, NULL);
+                    }
+                  else
+                    {
+                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
+                               filename, line_num);
+                      exit (EXIT_FAILURE);
+                    }
+                }
+              continue;
+            }
+          if (!strcmp(fopt, "band-axis"))
+            {
+              if (override || !args_info->band_axis_given)
+                {
+                  args_info->band_axis_given = 1;
+                  if (fnum == 2)
+                    {
+                      if (args_info->band_axis_arg)
+                        free (args_info->band_axis_arg); /* free default string */
+                      args_info->band_axis_arg = gengetopt_strdup (farg);
+                    }
+                  else
+                    {
+                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
+                               filename, line_num);
+                      exit (EXIT_FAILURE);
+                    }
+                }
+              continue;
+            }
+          if (!strcmp(fopt, "band-axis-norm"))
+            {
+              if (override || !args_info->band_axis_norm_given)
+                {
+                  args_info->band_axis_norm_given = 1;
+                  if (fnum == 2)
+                    {
+                      args_info->band_axis_norm_arg = strtod (farg, NULL);
                     }
                   else
                     {
@@ -1842,44 +1991,6 @@ cmdline_parser_configfile (char * const filename, struct gengetopt_args_info *ar
                   if (fnum == 2)
                     {
                       args_info->filter_lines_arg = strtol (farg,&stop_char,0);
-                    }
-                  else
-                    {
-                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
-                               filename, line_num);
-                      exit (EXIT_FAILURE);
-                    }
-                }
-              continue;
-            }
-          if (!strcmp(fopt, "nbands"))
-            {
-              if (override || !args_info->nbands_given)
-                {
-                  args_info->nbands_given = 1;
-                  if (fnum == 2)
-                    {
-                      args_info->nbands_arg = strtol (farg,&stop_char,0);
-                    }
-                  else
-                    {
-                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
-                               filename, line_num);
-                      exit (EXIT_FAILURE);
-                    }
-                }
-              continue;
-            }
-          if (!strcmp(fopt, "band-axis"))
-            {
-              if (override || !args_info->band_axis_given)
-                {
-                  args_info->band_axis_given = 1;
-                  if (fnum == 2)
-                    {
-                      if (args_info->band_axis_arg)
-                        free (args_info->band_axis_arg); /* free default string */
-                      args_info->band_axis_arg = gengetopt_strdup (farg);
                     }
                   else
                     {

@@ -657,7 +657,7 @@ dm->flip_x=1;
 dm->flip_y=1;
 dm->swap_xy=0;
 dm->logscale_z=0;
-dm->nbands=args_info.nbands_arg;
+dm->nbands=args_info.nskybands_arg;
 dm->dec_band_color=COLOR(127,127,127);
 dm->palette=make_hue_palette(230);
 return dm;

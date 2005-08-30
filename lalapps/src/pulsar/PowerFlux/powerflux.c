@@ -681,7 +681,15 @@ if(band_axis_norm<=0.0){
 */
 band_axis_norm*=2.0*M_PI/(365.0*24.0*3600.0);
 
-fprintf(LOG, "band axis norm: %g\n", band_axis_norm);
+fprintf(LOG, "auto band axis norm: %g\n", band_axis_norm);
+
+if(args_info.band_axis_norm_given) {
+	band_axis_norm=args_info.band_axis_norm_arg;
+	}
+
+fprintf(LOG, "actual band axis norm: %g\n", band_axis_norm);
+
+
 fprintf(LOG,"auto band axis: %g %g %g\n", 
 	band_axis[0],
 	band_axis[1],
@@ -1121,8 +1129,20 @@ for(subinstance=0;subinstance<args_info.spindown_count_arg;subinstance++){
 	fprintf(stderr, "subinstance name: \"%s\"\n", subinstance_name);
 
 	/* assign bands */
-	S_assign_bands(patch_grid, args_info.nbands_arg, spindown*1800.0/(first_bin+nbins*0.5));
-	S_assign_bands(fine_grid, args_info.nbands_arg, spindown*1800.0/(first_bin+nbins*0.5));
+	if(!strcasecmp("S", args_info.skyband_method_arg)) {
+		S_assign_bands(patch_grid, args_info.nskybands_arg, spindown*1800.0/(first_bin+nbins*0.5));
+		S_assign_bands(fine_grid, args_info.nskybands_arg, spindown*1800.0/(first_bin+nbins*0.5));
+		} else 
+	if(!strcasecmp("angle", args_info.skyband_method_arg)) {
+		angle_assign_bands(patch_grid, args_info.nskybands_arg);
+		angle_assign_bands(fine_grid, args_info.nskybands_arg);		
+		} else {
+		fprintf(stderr, "*** ERROR: unknown band assigment method \"%s\"\n",
+			args_info.skyband_method_arg);
+		fprintf(LOG, "*** ERROR: unknown band assigment method \"%s\"\n",
+			args_info.skyband_method_arg);
+		exit(-1);
+		}
 
 	plot_grid_f(p, fine_grid, fine_grid->band_f,1);
 	snprintf(s, 20000, "%sbands.png", subinstance_name);

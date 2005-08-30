@@ -141,8 +141,8 @@ fprintf(LOG, "Accumulation set size: %f KB\n",
 fprintf(stderr, "Skymap arrays size: %.1f MB\n", ntotal_polarizations*(11.0+2.0*args_info.compute_betas_arg)*fine_grid->npoints*sizeof(SUM_TYPE)/(1024.0*1024.0));
 fprintf(LOG, "Skymap arrays size: %f MB\n", ntotal_polarizations*(11.0+2.0*args_info.compute_betas_arg)*fine_grid->npoints*sizeof(SUM_TYPE)/(1024.0*1024.0));
 
-fprintf(stderr, "Spectral plot arrays size: %.1f KB\n", ntotal_polarizations*7.0*useful_bins*args_info.nbands_arg*sizeof(SUM_TYPE)/1024.0);
-fprintf(LOG, "Spectral plot arrays size: %f KB\n", ntotal_polarizations*7.0*useful_bins*args_info.nbands_arg*sizeof(SUM_TYPE)/1024.0);
+fprintf(stderr, "Spectral plot arrays size: %.1f KB\n", ntotal_polarizations*7.0*useful_bins*args_info.nskybands_arg*sizeof(SUM_TYPE)/1024.0);
+fprintf(LOG, "Spectral plot arrays size: %f KB\n", ntotal_polarizations*7.0*useful_bins*args_info.nskybands_arg*sizeof(SUM_TYPE)/1024.0);
 		
 for(i=0;i<ntotal_polarizations;i++){
 	/* Accumulation arrays */
@@ -188,13 +188,13 @@ for(i=0;i<ntotal_polarizations;i++){
 		}
 
 	/* Output arrays - spectral plots */
-	polarizations[i].spectral_plot.max_upper_limit=do_alloc(useful_bins*args_info.nbands_arg, sizeof(SUM_TYPE));
-	polarizations[i].spectral_plot.ul_dec=do_alloc(useful_bins*args_info.nbands_arg, sizeof(SUM_TYPE));
-	polarizations[i].spectral_plot.ul_ra=do_alloc(useful_bins*args_info.nbands_arg, sizeof(SUM_TYPE));
-	polarizations[i].spectral_plot.max_dx=do_alloc(useful_bins*args_info.nbands_arg, sizeof(SUM_TYPE));
-	polarizations[i].spectral_plot.dx_dec=do_alloc(useful_bins*args_info.nbands_arg, sizeof(SUM_TYPE));
-	polarizations[i].spectral_plot.dx_ra=do_alloc(useful_bins*args_info.nbands_arg, sizeof(SUM_TYPE));
-	polarizations[i].spectral_plot.max_mask_ratio=do_alloc(useful_bins*args_info.nbands_arg, sizeof(SUM_TYPE));
+	polarizations[i].spectral_plot.max_upper_limit=do_alloc(useful_bins*args_info.nskybands_arg, sizeof(SUM_TYPE));
+	polarizations[i].spectral_plot.ul_dec=do_alloc(useful_bins*args_info.nskybands_arg, sizeof(SUM_TYPE));
+	polarizations[i].spectral_plot.ul_ra=do_alloc(useful_bins*args_info.nskybands_arg, sizeof(SUM_TYPE));
+	polarizations[i].spectral_plot.max_dx=do_alloc(useful_bins*args_info.nskybands_arg, sizeof(SUM_TYPE));
+	polarizations[i].spectral_plot.dx_dec=do_alloc(useful_bins*args_info.nskybands_arg, sizeof(SUM_TYPE));
+	polarizations[i].spectral_plot.dx_ra=do_alloc(useful_bins*args_info.nskybands_arg, sizeof(SUM_TYPE));
+	polarizations[i].spectral_plot.max_mask_ratio=do_alloc(useful_bins*args_info.nskybands_arg, sizeof(SUM_TYPE));
 
 	}
 
@@ -227,7 +227,7 @@ for(i=0;i<ntotal_polarizations;i++){
 			}
 		}
 
-	for(k=0;k<useful_bins*args_info.nbands_arg;k++){
+	for(k=0;k<useful_bins*args_info.nskybands_arg;k++){
 		polarizations[i].spectral_plot.max_upper_limit[k]=-1.0;
 		polarizations[i].spectral_plot.ul_dec[k]=-10.0;
 		polarizations[i].spectral_plot.ul_ra[k]=-10.0;

@@ -300,7 +300,7 @@ for(i=0;i<grid->npoints;i++){
 void S_assign_bands(SKY_GRID *grid, int n_bands, double s_f)
 {
 int i,k;
-double S, large_S=0.5;
+double S, large_S=0.7;
 SKY_GRID_TYPE angle, proj, x,y,z;
 
 for(i=0;i<grid->npoints;i++){

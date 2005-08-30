@@ -535,11 +535,11 @@ HISTOGRAM *hist;
 
 freq_f=&(frequencies[side_cut]);
 
-max_band=do_alloc(args_info.nbands_arg, sizeof(*max_band));
-masked_max_band=do_alloc(args_info.nbands_arg, sizeof(*max_band));
-max_band_arg=do_alloc(args_info.nbands_arg, sizeof(*max_band_arg));
-masked_max_band_arg=do_alloc(args_info.nbands_arg, sizeof(*max_band_arg));
-hist=new_histogram(args_info.hist_bins_arg, args_info.nbands_arg);
+max_band=do_alloc(args_info.nskybands_arg, sizeof(*max_band));
+masked_max_band=do_alloc(args_info.nskybands_arg, sizeof(*max_band));
+max_band_arg=do_alloc(args_info.nskybands_arg, sizeof(*max_band_arg));
+masked_max_band_arg=do_alloc(args_info.nskybands_arg, sizeof(*max_band_arg));
+hist=new_histogram(args_info.hist_bins_arg, args_info.nskybands_arg);
 
 if(fine_grid->max_n_dec<800){
 	p=make_RGBPic(fine_grid->max_n_ra*(800/fine_grid->max_n_dec)+140, fine_grid->max_n_dec*(800/fine_grid->max_n_dec));
@@ -680,7 +680,7 @@ max_dx_i=0;
 largest=0.0;
 largest_i=0;
 masked=0;
-for(i=0;i<args_info.nbands_arg;i++){
+for(i=0;i<args_info.nskybands_arg;i++){
 	max_band[i]=-1.0;
 	masked_max_band[i]=-1.0;
 	max_band_arg[i]=-1;
@@ -739,7 +739,7 @@ fprintf(LOG, "largest: %f %f %s %f %g %g %f %f %f\n",fine_grid->longitude[larges
 				args_info.compute_betas_arg?pol->skymap.beta2[largest_i]:NAN);
 
 fprintf(LOG, "max/masked band format: band_num longitude latitude pol max_dx upper_strain freq beta1 beta2\n");
-for(i=0;i<args_info.nbands_arg;i++){
+for(i=0;i<args_info.nskybands_arg;i++){
 	if(max_band_arg[i]<0){
 		fprintf(LOG, "max_band: %d NAN NAN %s NAN NAN NAN NAN NAN\n", i, pol->name); 
 		fprintf(LOG, "masked_max_band: %d NAN NAN %s NAN NAN NAN NAN NAN\n", i, pol->name);
@@ -804,11 +804,11 @@ for(i=0;i<args_info.nbands_arg;i++){
 	*/
 	}
 
-for(i=0;i<args_info.nbands_arg*useful_bins;i++){
+for(i=0;i<args_info.nskybands_arg*useful_bins;i++){
 	pol->spectral_plot.max_upper_limit[i]=sqrt(pol->spectral_plot.max_upper_limit[i])*upper_limit_comp;
 	}
 
-for(i=0;i<args_info.nbands_arg;i++){
+for(i=0;i<args_info.nskybands_arg;i++){
 	snprintf(s,19999,"%s%s_max_upper_strain_band_%d.png", subinstance_name, pol->name, i);
 	if(clear_name_png(s)){
 		adjust_plot_limits_f(plot, freq_f, &(pol->spectral_plot.max_upper_limit[i*useful_bins]), useful_bins, 1, 1, 1);
@@ -880,8 +880,8 @@ freq_f=&(frequencies[side_cut]);
 
 skymap_high_ul=do_alloc(fine_grid->npoints, sizeof(*skymap_high_ul));
 skymap_high_ul_freq=do_alloc(fine_grid->npoints, sizeof(*skymap_high_ul_freq));
-spectral_plot_high_ul=do_alloc(useful_bins*args_info.nbands_arg, sizeof(*spectral_plot_high_ul));
-hist=new_histogram(args_info.hist_bins_arg, args_info.nbands_arg);
+spectral_plot_high_ul=do_alloc(useful_bins*args_info.nskybands_arg, sizeof(*spectral_plot_high_ul));
+hist=new_histogram(args_info.hist_bins_arg, args_info.nskybands_arg);
 
 if(fine_grid->max_n_dec<800){
 	p=make_RGBPic(fine_grid->max_n_ra*(800/fine_grid->max_n_dec)+140, fine_grid->max_n_dec*(800/fine_grid->max_n_dec));
@@ -966,7 +966,7 @@ compute_histogram_f(hist, skymap_high_ul, fine_grid->band, fine_grid->npoints);
 print_histogram(LOG, hist, "hist_high_ul");
 
 
-for(i=0;i<useful_bins*args_info.nbands_arg;i++){
+for(i=0;i<useful_bins*args_info.nskybands_arg;i++){
 	spectral_plot_circ_ul[i]=sqrt(spectral_plot_circ_ul[i])*upper_limit_comp;
 	
 	spectral_plot_high_ul[i]=polarizations[0].spectral_plot.max_upper_limit[i];
@@ -977,7 +977,7 @@ for(i=0;i<useful_bins*args_info.nbands_arg;i++){
 
 fprintf(LOG,"band upper limits: band UL freq\n");
 
-for(i=0;i<args_info.nbands_arg;i++){
+for(i=0;i<args_info.nskybands_arg;i++){
 
 	max_high_ul_i=0;
 	max_high_ul=spectral_plot_high_ul[i*useful_bins];
@@ -1136,7 +1136,7 @@ circ_ul=do_alloc(stored_fine_bins*useful_bins, sizeof(*circ_ul));
 circ_ul_freq=do_alloc(stored_fine_bins*useful_bins, sizeof(*circ_ul_freq));
 skymap_circ_ul=do_alloc(fine_grid->npoints, sizeof(*skymap_circ_ul));
 skymap_circ_ul_freq=do_alloc(fine_grid->npoints, sizeof(*skymap_circ_ul_freq));
-spectral_plot_circ_ul=do_alloc(useful_bins*args_info.nbands_arg, sizeof(*spectral_plot_circ_ul));
+spectral_plot_circ_ul=do_alloc(useful_bins*args_info.nskybands_arg, sizeof(*spectral_plot_circ_ul));
 
 if(args_info.three_bins_arg){
 	quantile2std=0.88;
@@ -1212,7 +1212,7 @@ for(i=0;i<fine_grid->npoints;i++){
 	skymap_circ_ul[i]=-1.0;
 	skymap_circ_ul_freq[i]=-1.0;	
 	}
-for(i=0;i<useful_bins*args_info.nbands_arg;i++){
+for(i=0;i<useful_bins*args_info.nskybands_arg;i++){
 	spectral_plot_circ_ul[i]=-1.0;
 	}
 	

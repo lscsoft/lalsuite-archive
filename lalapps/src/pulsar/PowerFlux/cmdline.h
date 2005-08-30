@@ -28,6 +28,11 @@ struct gengetopt_args_info
   char * label_arg;	/* arbitrary string to be printed in the beginning of PowerFlux log file.  */
   char * sky_grid_arg;	/* sky grid type (arcsin, plain_rectangular, sin_theta) (default='sin_theta').  */
   char * skymap_orientation_arg;	/* orientation of produced skymaps: equatorial, ecliptic, band_axis (default='equatorial').  */
+  char * skyband_method_arg;	/* method of assigning band numbers: angle, S (default='S').  */
+  int nskybands_arg;	/* split sky in this many bands for logging maximum upper limits (default='5').  */
+  double largeS_arg;	/* value of S to consider good enough (default='0.243').  */
+  char * band_axis_arg;	/* which band axis to use for splitting sky into bands (perpendicular to band axis) (possible values: equatorial, auto, explicit(float,float,float) (default='auto').  */
+  double band_axis_norm_arg;	/* norm of band axis vector to use in S value calculation.  */
   int fine_factor_arg;	/* make fine grid this times finer (default='5').  */
   double skymap_resolution_arg;	/* specify skymap resolution explicitly.  */
   double skymap_resolution_ratio_arg;	/* adjust default coarseness of the grid by this factor (default='1.0').  */
@@ -59,8 +64,6 @@ struct gengetopt_args_info
   int three_bins_arg;	/* average 3 neighbouring bins to broaden Doppler curves (default='0').  */
   int do_cutoff_arg;	/* neglect contribution from SFT with high effective noise level (default='1').  */
   int filter_lines_arg;	/* perform detection of lines in background noise and veto corresponding frequency bins (default='1').  */
-  int nbands_arg;	/* split sky in this many bands for logging maximum upper limits (default='5').  */
-  char * band_axis_arg;	/* which band axis to use for splitting sky into bands (perpendicular to band axis) (possible values: equatorial, auto, explicit(float,float,float) (default='auto').  */
   int ks_test_arg;	/* perform Kolmogorov-Smirnov test for normality of averaged powers (default='1').  */
   int compute_betas_arg;	/* compute beta coefficients as described in PowerFlux polarizations document (default='0').  */
   char * upper_limit_comp_arg;	/* upper limit compensation factor - used to account for windowing in SFTs (possible values: Hann, flat, arbitrary number) (default='Hann').  */
@@ -85,6 +88,11 @@ struct gengetopt_args_info
   int label_given ;	/* Whether label was given.  */
   int sky_grid_given ;	/* Whether sky-grid was given.  */
   int skymap_orientation_given ;	/* Whether skymap-orientation was given.  */
+  int skyband_method_given ;	/* Whether skyband-method was given.  */
+  int nskybands_given ;	/* Whether nskybands was given.  */
+  int largeS_given ;	/* Whether largeS was given.  */
+  int band_axis_given ;	/* Whether band-axis was given.  */
+  int band_axis_norm_given ;	/* Whether band-axis-norm was given.  */
   int fine_factor_given ;	/* Whether fine-factor was given.  */
   int skymap_resolution_given ;	/* Whether skymap-resolution was given.  */
   int skymap_resolution_ratio_given ;	/* Whether skymap-resolution-ratio was given.  */
@@ -116,8 +124,6 @@ struct gengetopt_args_info
   int three_bins_given ;	/* Whether three-bins was given.  */
   int do_cutoff_given ;	/* Whether do-cutoff was given.  */
   int filter_lines_given ;	/* Whether filter-lines was given.  */
-  int nbands_given ;	/* Whether nbands was given.  */
-  int band_axis_given ;	/* Whether band-axis was given.  */
   int ks_test_given ;	/* Whether ks-test was given.  */
   int compute_betas_given ;	/* Whether compute-betas was given.  */
   int upper_limit_comp_given ;	/* Whether upper-limit-comp was given.  */

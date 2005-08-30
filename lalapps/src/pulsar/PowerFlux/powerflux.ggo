@@ -6,6 +6,11 @@ option "label"		- "arbitrary string to be printed in the beginning of PowerFlux 
 
 option "sky-grid"	- "sky grid type (arcsin, plain_rectangular, sin_theta)" string default="sin_theta" no
 option "skymap-orientation" - "orientation of produced skymaps: equatorial, ecliptic, band_axis" string default="equatorial" no
+option "skyband-method"   - "method of assigning band numbers: angle, S" string default="S" no
+option "nskybands"		- "split sky in this many bands for logging maximum upper limits" int default="5" no
+option "largeS"		- "value of S to consider good enough" double default="0.243" no
+option "band-axis"	- "which band axis to use for splitting sky into bands (perpendicular to band axis) (possible values: equatorial, auto, explicit(float,float,float)" string default="auto" no
+option "band-axis-norm"	- "norm of band axis vector to use in S value calculation" double no
 
 option "fine-factor"	-  "make fine grid this times finer"	int default="5" no
 option "skymap-resolution" - "specify skymap resolution explicitly" double no
@@ -46,8 +51,6 @@ option "subtract-background" - "subtract rank 1 matrix in order to flatten noise
 option "three-bins"	- "average 3 neighbouring bins to broaden Doppler curves" int default="0" no
 option "do-cutoff"      - "neglect contribution from SFT with high effective noise level" int default="1" no
 option "filter-lines"   - "perform detection of lines in background noise and veto corresponding frequency bins" int default="1" no
-option "nbands"		- "split sky in this many bands for logging maximum upper limits" int default="5" no
-option "band-axis"	- "which band axis to use for splitting sky into bands (perpendicular to band axis) (possible values: equatorial, auto, explicit(float,float,float)" string default="auto" no
 option "ks-test"        - "perform Kolmogorov-Smirnov test for normality of averaged powers" int default="1" no
 option "compute-betas"  - "compute beta coefficients as described in PowerFlux polarizations document" int default="0" no
 option "upper-limit-comp" - "upper limit compensation factor - used to account for windowing in SFTs (possible values: Hann, flat, arbitrary number)" string default="Hann" no
