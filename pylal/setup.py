@@ -8,7 +8,7 @@ from distutils.core import setup, Extension
 def stripfirsttwo(string):
 	return string[2:]
 
-lallibs = map(stripfirsttwo, os.popen("pkg-config lal lalmetaio --libs-only-l").read().split())
+lallibs = map(stripfirsttwo, os.popen("pkg-config lal lalmetaio lalsupport --libs-only-l").read().split())
 
 lallibdirs = map(stripfirsttwo, os.popen("pkg-config lal --libs-only-L").read().split())
 lallibdirs = lallibdirs + map(stripfirsttwo, os.popen("pkg-config libmetaio --libs-only-L").read().split())
