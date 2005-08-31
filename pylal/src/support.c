@@ -540,7 +540,7 @@ write_sire(PyObject *self, PyObject *args)
     return NULL; 
 
   /* setting xlal error to zero */
-  xlalErrno=0;
+  XLALClearErrno();
 
   /* open output file */
   memset(  &xmlStream, 0, sizeof(LIGOLwXMLStream) );
