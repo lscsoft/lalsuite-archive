@@ -13,7 +13,7 @@ __version__ = '$Revision$'[11:-2]
 import sys, getopt
 import re
 from pylal import support
-from pylab    import *
+from pylab import *
 
 def uniq(list):
   """
@@ -90,6 +90,12 @@ class metaDataTable:
       if (re.match(ifo,entry["ifo"]))]
 
     return ifocuttable
+
+  def append(self, table):
+    """
+    Appends another table to the current table
+    """
+    self.table.extend(table.table);
 
 class coincInspiralTable:
   """
