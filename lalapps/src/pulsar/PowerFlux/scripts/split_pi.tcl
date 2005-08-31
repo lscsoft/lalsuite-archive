@@ -35,6 +35,8 @@ set FIELDS {
 	"^fake spindown" i_spindown 0
 	"^fake strain" i_strain 0
 	"^fake frequency" i_frequency 0
+	"^min_bin:"	i_min_bin	0
+	"^max_bin:"	i_max_bin	0	
 	"^i_closest"	i_closest 1
 	"^i_largest"	i_largest 1
 	}

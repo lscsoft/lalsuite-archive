@@ -253,7 +253,7 @@ fclose(FILE_LOG);
 
 void inject_fake_signal(void)
 {
-int i, bin;
+int i, bin, min_bin=-1, max_bin=-1;
 float plus, cross, a, b, e[3], fake_power;
 gsl_rng *rng=NULL;
 double average_freq, weight, mixed, plus_sq, cross_sq;
@@ -321,6 +321,13 @@ for(i=0;i<nsegments;i++){
 	if(bin<first_bin)continue;
 	if(bin>=first_bin+nbins)continue;
 	power[i*nbins+bin-first_bin]+=a+2.0*sqrt(a*power[i*nbins+bin-first_bin])*cos(gsl_rng_uniform(rng)*M_PI);
+	if(!i){
+		min_bin=bin;
+		max_bin=bin;
+		continue;
+		}
+	if(min_bin>bin)min_bin=bin;
+	if(max_bin<bin)max_bin=bin;
 	}
 
 average_freq/=weight;
@@ -328,6 +335,8 @@ fprintf(LOG,"average effective fake frequency: %f\n", average_freq);
 fprintf(LOG,"mixed: %g\n",mixed/nsegments);
 fprintf(LOG,"plus_sq: %g\n",plus_sq/nsegments);
 fprintf(LOG,"cross_sq: %g\n",cross_sq/nsegments);
+fprintf(LOG,"min_bin: %d\n",min_bin);
+fprintf(LOG,"max_bin: %d\n",max_bin);
 
 gsl_rng_free(rng);
 }
