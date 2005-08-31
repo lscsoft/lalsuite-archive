@@ -6,6 +6,8 @@ foreach $PARAMS_FORMAT $PARAMS {
 	set $var [subst -nocommands -nobackslashes $value]
 	}
 
+puts stderr "ROOT_DIR=$ROOT_DIR"
+
 file mkdir $ROOT_DIR
 file mkdir $CONF_DIR $OUTPUT_DIR $ERR_DIR
 	
