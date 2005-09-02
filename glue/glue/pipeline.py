@@ -964,6 +964,8 @@ class AnalysisNode(CondorDAGNode):
   def __init__(self):
     self.__start = 0
     self.__end = 0
+    self.__data_start = 0
+    self.__data_end = 0
     self.__trig_start = 0
     self.__trig_end = 0
     self.__ifo = None
@@ -982,6 +984,7 @@ class AnalysisNode(CondorDAGNode):
     """
     self.add_var_opt('gps-start-time',time)
     self.__start = time
+    self.__data_start = time
     #if not self.__calibration and self.__ifo and self.__start > 0:
     #  self.calibration()
 
@@ -999,12 +1002,39 @@ class AnalysisNode(CondorDAGNode):
     """
     self.add_var_opt('gps-end-time',time)
     self.__end = time
+    self.__data_end = time
 
   def get_end(self):
     """
     Get the GPS end time of the node.
     """
     return self.__end
+
+  def set_data_start(self,time):
+    """
+    Set the GPS start time of the data needed by this analysis node.
+    @param time: GPS start time of job.
+    """
+    self.__data_start = time
+
+  def get_data_start(self):
+    """
+    Get the GPS start time of the data needed by this node.
+    """
+    return self.__data_start
+    
+  def set_data_end(self,time):
+    """
+    Set the GPS end time of the data needed by this analysis node.
+    @param time: GPS end time of job.
+    """
+    self.__data_end = time
+
+  def get_data_end(self):
+    """
+    Get the GPS end time of the data needed by this node.
+    """
+    return self.__data_end
 
   def set_trig_start(self,time):
     """
@@ -1120,7 +1150,7 @@ class AnalysisNode(CondorDAGNode):
           a, b, c, d = lfn.split('.')[0].split('-')
           t_start = int(c)
           t_end = int(c) + int(d)
-          if ( t_start <= self.__end and t_end >= self.__start ):
+          if ( t_start <= self.__data_end and t_end >= self.__data_start ):
             self.add_input_file(lfn)
         # set the frame type based on the LFNs returned by datafind
         self.add_var_opt('frame-type',b)
