@@ -1,5 +1,5 @@
 PACKAGE=\"powerflux\"
-VERSION=\"1.3.2\"
+VERSION=\"1.3.4\"
 LALROOT=./../../../../
 LALINCLUDE=-I$(LALROOT)/include/
 LALLDFLAGS=-L$(LALROOT)/lib -L$(LALROOT)/support-lib -llalsupport -llal -lm
@@ -15,6 +15,8 @@ CC=gcc $(CFLAGS)
 OBJS=cmdline.o rastermagic.o hookup.o fine_grid.o lines.o grid.o powerflux.o  \
 	png.o polarization.o intervals.o statistics.o
 
+# 50 hz
+#BAND=359650
 # 199.75 hz
 BAND=359650
 # 200 hz
@@ -24,7 +26,7 @@ BAND=359650
 # 650 Hz
 #BAND=1170000
 # 650.25 hz
-#BAND=1170450
+BAND=1170450
 
 #
 # Do not build anything by default

@@ -297,10 +297,32 @@ for(i=0;i<grid->npoints;i++){
 	}
 }
 
-void S_assign_bands(SKY_GRID *grid, int n_bands, double s_f)
+void print_grid_statistics(FILE *file, char *prefix, SKY_GRID *grid)
+{
+long *count;
+int nband;
+int i,k;
+
+nband=0;
+for(i=0;i<grid->npoints;i++)
+	if(grid->band[i]>nband)nband=grid->band[i];
+nband++;
+count=alloca(nband*sizeof(*count));
+
+for(i=0;i<nband;i++)count[i]=0;
+
+for(i=0;i<grid->npoints;i++){
+	count[grid->band[i]]++;	
+	}
+for(i=0;i<nband;i++){
+	fprintf(file, "%sgrid_points: %d %ld\n", prefix, i, count[i]);
+	}
+}
+
+void S_assign_bands(SKY_GRID *grid, int n_bands, double large_S, double spindown, double frequency)
 {
 int i,k;
-double S, large_S=0.7;
+double S;
 SKY_GRID_TYPE angle, proj, x,y,z;
 
 for(i=0;i<grid->npoints;i++){
@@ -309,12 +331,12 @@ for(i=0;i<grid->npoints;i++){
 	y=sin(grid->longitude[i])*cos(grid->latitude[i]);
 	z=sin(grid->latitude[i]);
 
- 	S=s_f+
-		x*(average_det_velocity[0]*s_f+band_axis_norm*band_axis[0])+
-		y*(average_det_velocity[1]*s_f+band_axis_norm*band_axis[1])+
-		z*(average_det_velocity[2]*s_f+band_axis_norm*band_axis[2]);
+ 	S=spindown+
+		band_axis_norm*frequency*(x*band_axis[0]+
+		y*band_axis[1]+
+		z*band_axis[2]);
 
-	S=fabs(S)/band_axis_norm;
+	S=fabs(S);
 	
 	if(S>=large_S){
 		grid->band[i]=0;

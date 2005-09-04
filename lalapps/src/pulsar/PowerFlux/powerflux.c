@@ -37,6 +37,7 @@ double orbital_axis[3];
 double band_axis_norm;
 double band_axis[3];
 float band_axis_ra, band_axis_dec;
+double large_S=-1;
 
 int first_bin;
 
@@ -691,6 +692,7 @@ if(band_axis_norm<=0.0){
 band_axis_norm*=2.0*M_PI/(365.0*24.0*3600.0);
 
 fprintf(LOG, "auto band axis norm: %g\n", band_axis_norm);
+fprintf(LOG, "maximum S contribution from Doppler shifts: %g\n", band_axis_norm*(first_bin+nbins*0.5)/1800.0);
 
 if(args_info.band_axis_norm_given) {
 	band_axis_norm=args_info.band_axis_norm_arg;
@@ -698,6 +700,15 @@ if(args_info.band_axis_norm_given) {
 
 fprintf(LOG, "actual band axis norm: %g\n", band_axis_norm);
 
+large_S=6.0/(1800.0*(gps[nsegments-1]-gps[0]+1800.0));
+
+fprintf(LOG, "auto large S: %g\n", large_S);
+
+if(args_info.large_S_given){
+	large_S=args_info.large_S_arg;
+	}
+fprintf(LOG, "large S: %g\n", large_S);
+	
 
 fprintf(LOG,"auto band axis: %g %g %g\n", 
 	band_axis[0],
@@ -808,7 +819,7 @@ if(args_info.fake_linear_given ||
    args_info.fake_circular_given){
 	fake_injection=1;
 	if(!args_info.fake_freq_given){
-		args_info.fake_freq_arg=(first_bin+nbins/2)/1800.0;
+		args_info.fake_freq_arg=(first_bin+nbins*0.5)/1800.0;
 		}
 
 
@@ -1139,8 +1150,8 @@ for(subinstance=0;subinstance<args_info.spindown_count_arg;subinstance++){
 
 	/* assign bands */
 	if(!strcasecmp("S", args_info.skyband_method_arg)) {
-		S_assign_bands(patch_grid, args_info.nskybands_arg, spindown*1800.0/(first_bin+nbins*0.5));
-		S_assign_bands(fine_grid, args_info.nskybands_arg, spindown*1800.0/(first_bin+nbins*0.5));
+		S_assign_bands(patch_grid, args_info.nskybands_arg, large_S, spindown, (first_bin+nbins*0.5)/1800.0);
+		S_assign_bands(fine_grid, args_info.nskybands_arg, large_S, spindown, (first_bin+nbins*0.5)/1800.0);
 		} else 
 	if(!strcasecmp("angle", args_info.skyband_method_arg)) {
 		angle_assign_bands(patch_grid, args_info.nskybands_arg);
@@ -1158,6 +1169,9 @@ for(subinstance=0;subinstance<args_info.spindown_count_arg;subinstance++){
 	RGBPic_dump_png(s, p);
 	snprintf(s, 20000, "%sbands.dat", subinstance_name);
 	dump_ints(s, fine_grid->band, fine_grid->npoints, 1);
+	print_grid_statistics(LOG, subinstance_name, fine_grid);
+	
+	fflush(LOG);
 
 	/* MAIN LOOP stage */
 	fine_grid_stage();

@@ -30,7 +30,7 @@ struct gengetopt_args_info
   char * skymap_orientation_arg;	/* orientation of produced skymaps: equatorial, ecliptic, band_axis (default='equatorial').  */
   char * skyband_method_arg;	/* method of assigning band numbers: angle, S (default='S').  */
   int nskybands_arg;	/* split sky in this many bands for logging maximum upper limits (default='5').  */
-  double largeS_arg;	/* value of S to consider good enough (default='0.243').  */
+  double large_S_arg;	/* value of S to consider good enough.  */
   char * band_axis_arg;	/* which band axis to use for splitting sky into bands (perpendicular to band axis) (possible values: equatorial, auto, explicit(float,float,float) (default='auto').  */
   double band_axis_norm_arg;	/* norm of band axis vector to use in S value calculation.  */
   int fine_factor_arg;	/* make fine grid this times finer (default='5').  */
@@ -90,7 +90,7 @@ struct gengetopt_args_info
   int skymap_orientation_given ;	/* Whether skymap-orientation was given.  */
   int skyband_method_given ;	/* Whether skyband-method was given.  */
   int nskybands_given ;	/* Whether nskybands was given.  */
-  int largeS_given ;	/* Whether largeS was given.  */
+  int large_S_given ;	/* Whether large-S was given.  */
   int band_axis_given ;	/* Whether band-axis was given.  */
   int band_axis_norm_given ;	/* Whether band-axis-norm was given.  */
   int fine_factor_given ;	/* Whether fine-factor was given.  */

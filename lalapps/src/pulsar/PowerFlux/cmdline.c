@@ -46,7 +46,7 @@ cmdline_parser_print_help (void)
   printf("      --skymap-orientation=STRING       orientation of produced skymaps: \n                                          equatorial, ecliptic, band_axis  \n                                          (default=`equatorial')\n");
   printf("      --skyband-method=STRING           method of assigning band numbers: \n                                          angle, S  (default=`S')\n");
   printf("      --nskybands=INT                   split sky in this many bands for \n                                          logging maximum upper limits  \n                                          (default=`5')\n");
-  printf("      --largeS=DOUBLE                   value of S to consider good enough  \n                                          (default=`0.243')\n");
+  printf("      --large-S=DOUBLE                  value of S to consider good enough\n");
   printf("      --band-axis=STRING                which band axis to use for splitting \n                                          sky into bands (perpendicular to \n                                          band axis) (possible values: \n                                          equatorial, auto, \n                                          explicit(float,float,float)  \n                                          (default=`auto')\n");
   printf("      --band-axis-norm=DOUBLE           norm of band axis vector to use in S \n                                          value calculation\n");
   printf("      --fine-factor=INT                 make fine grid this times finer  \n                                          (default=`5')\n");
@@ -134,7 +134,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->skymap_orientation_given = 0 ;
   args_info->skyband_method_given = 0 ;
   args_info->nskybands_given = 0 ;
-  args_info->largeS_given = 0 ;
+  args_info->large_S_given = 0 ;
   args_info->band_axis_given = 0 ;
   args_info->band_axis_norm_given = 0 ;
   args_info->fine_factor_given = 0 ;
@@ -194,7 +194,6 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->skymap_orientation_arg = gengetopt_strdup("equatorial") ;\
   args_info->skyband_method_arg = gengetopt_strdup("S") ;\
   args_info->nskybands_arg = 5 ;\
-  args_info->largeS_arg = 0.243 ;\
   args_info->band_axis_arg = gengetopt_strdup("auto") ;\
   args_info->fine_factor_arg = 5 ;\
   args_info->skymap_resolution_ratio_arg = 1.0 ;\
@@ -258,7 +257,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
         { "skymap-orientation",	1, NULL, 0 },
         { "skyband-method",	1, NULL, 0 },
         { "nskybands",	1, NULL, 0 },
-        { "largeS",	1, NULL, 0 },
+        { "large-S",	1, NULL, 0 },
         { "band-axis",	1, NULL, 0 },
         { "band-axis-norm",	1, NULL, 0 },
         { "fine-factor",	1, NULL, 0 },
@@ -476,16 +475,16 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
           }
           
           /* value of S to consider good enough.  */
-          else if (strcmp (long_options[option_index].name, "largeS") == 0)
+          else if (strcmp (long_options[option_index].name, "large-S") == 0)
           {
-            if (args_info->largeS_given)
+            if (args_info->large_S_given)
               {
-                fprintf (stderr, "%s: `--largeS' option given more than once\n", CMDLINE_PARSER_PACKAGE);
+                fprintf (stderr, "%s: `--large-S' option given more than once\n", CMDLINE_PARSER_PACKAGE);
                 clear_args ();
                 exit (EXIT_FAILURE);
               }
-            args_info->largeS_given = 1;
-            args_info->largeS_arg = strtod (optarg, NULL);
+            args_info->large_S_given = 1;
+            args_info->large_S_arg = strtod (optarg, NULL);
             break;
           }
           
@@ -1383,14 +1382,14 @@ cmdline_parser_configfile (char * const filename, struct gengetopt_args_info *ar
                 }
               continue;
             }
-          if (!strcmp(fopt, "largeS"))
+          if (!strcmp(fopt, "large-S"))
             {
-              if (override || !args_info->largeS_given)
+              if (override || !args_info->large_S_given)
                 {
-                  args_info->largeS_given = 1;
+                  args_info->large_S_given = 1;
                   if (fnum == 2)
                     {
-                      args_info->largeS_arg = strtod (farg, NULL);
+                      args_info->large_S_arg = strtod (farg, NULL);
                     }
                   else
                     {
