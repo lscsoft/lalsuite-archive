@@ -780,22 +780,6 @@ if(!strcasecmp("band_axis", args_info.skymap_orientation_arg)){
 	rotate_grid_xy(fine_grid, band_axis_ra);
 	}
 
-if(args_info.focus_ra_given && 
-   args_info.focus_dec_given && 
-   args_info.focus_radius_given){
-   	fprintf(LOG, "focus ra    : %f\n", args_info.focus_ra_arg);
-   	fprintf(LOG, "focus dec   : %f\n", args_info.focus_dec_arg);
-   	fprintf(LOG, "focus radius: %f\n", args_info.focus_radius_arg);
-   	mask_far_points(fine_grid, args_info.focus_ra_arg, args_info.focus_dec_arg, args_info.focus_radius_arg);
-	propagate_far_points_from_super_grid(patch_grid, super_grid);
-   	}
-
-if(args_info.only_large_cos_given){
-	fprintf(LOG, "only large cos level: %f\n", args_info.only_large_cos_arg);
-   	mask_small_cos(fine_grid, band_axis[0], band_axis[1], band_axis[3], args_info.only_large_cos_arg);
-	propagate_far_points_from_super_grid(patch_grid, super_grid);
-	}
-
 /* now that we have new grid positions plot them */
 
 plot_grid_f(p, patch_grid, patch_grid->latitude,1);
@@ -1163,6 +1147,26 @@ for(subinstance=0;subinstance<args_info.spindown_count_arg;subinstance++){
 			args_info.skyband_method_arg);
 		exit(-1);
 		}
+		
+	/* mask points if requested */
+	
+	if(args_info.focus_ra_given && 
+	   args_info.focus_dec_given && 
+	   args_info.focus_radius_given){
+   		fprintf(LOG, "focus ra    : %f\n", args_info.focus_ra_arg);
+   		fprintf(LOG, "focus dec   : %f\n", args_info.focus_dec_arg);
+   		fprintf(LOG, "focus radius: %f\n", args_info.focus_radius_arg);
+   		mask_far_points(fine_grid, args_info.focus_ra_arg, args_info.focus_dec_arg, args_info.focus_radius_arg);
+		propagate_far_points_from_super_grid(patch_grid, super_grid);
+   		}
+
+	if(args_info.only_large_cos_given){
+		fprintf(LOG, "only large cos level: %f\n", args_info.only_large_cos_arg);
+   		mask_small_cos(fine_grid, band_axis[0], band_axis[1], band_axis[3], args_info.only_large_cos_arg);
+		propagate_far_points_from_super_grid(patch_grid, super_grid);
+		}
+
+
 
 	plot_grid_f(p, fine_grid, fine_grid->band_f,1);
 	snprintf(s, 20000, "%sbands.png", subinstance_name);
