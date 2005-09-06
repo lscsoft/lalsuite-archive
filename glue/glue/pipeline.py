@@ -1389,7 +1389,7 @@ class ScienceSegment:
     @param pad_data: exclude the first and last pad_data seconds of the segment
     when generating chunks
     """
-    time_left = self.dur() + (2 * pad_data)
+    time_left = self.dur() - (2 * pad_data)
     start = self.start() + pad_data
     increment = length - overlap
     while time_left >= length:
