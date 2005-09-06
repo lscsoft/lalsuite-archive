@@ -314,7 +314,6 @@ read_sngl_inspiral(PyObject *self, PyObject *args)
   PyObject *outlist;
   PyObject *tmpvalue;
 
-
   if (! PyArg_ParseTuple(args, "O", &fromPython)) 
     return NULL;                             
 
@@ -337,11 +336,21 @@ read_sngl_inspiral(PyObject *self, PyObject *args)
   outlist = PyList_New(nelement);
   for ( j=0, event = eventHead; event ; j++, event = event->next )
   {
+
     long long tmpid = 0;
     
     if (  event->event_id )
       tmpid =  event->event_id->id;
 
+    /*printf("a4.5j: %d\n",j);
+    printf("%ld ", event->end_time.gpsSeconds);
+    printf("%ld ", event->end_time.gpsNanoSeconds);
+    printf("%ld ", event->impulse_time.gpsSeconds);
+    printf("%ld ", event->impulse_time.gpsNanoSeconds);
+    printf("%f ",  event->end_time_gmst);
+    printf("%ld ", tmpid);
+    printf("\n");*/
+  
     tmpvalue = Py_BuildValue("{s:s, s:i, s:i, s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:i, s:d, s:L,\
 			     s:s, s:s, s:d, s:i, s:i, s:d, s:d, s:d, s:d, s:d, \
 			     s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:d,	\
@@ -392,6 +401,7 @@ read_sngl_inspiral(PyObject *self, PyObject *args)
 	"rsqveto_duration", event->rsqveto_duration);
 
     PyList_SetItem(outlist, j, tmpvalue);
+
   }
 
   while(eventHead) {
@@ -417,7 +427,6 @@ read_sim_inspiral(PyObject *self, PyObject *args)
   int startEvent = 0, stopEvent = 0;
   PyObject *outlist;
   PyObject *tmpvalue;
-
 
   if (! PyArg_ParseTuple(args, "O", &fromPython)) 
     return NULL;                             
@@ -518,73 +527,85 @@ read_sim_inspiral(PyObject *self, PyObject *args)
   return outlist;
 }
 
-/******************************************************************** 
- * Sire Writing Function
- ********************************************************************/
-/* writing sire-object to file... */
-static PyObject*
-write_sire(PyObject *self, PyObject *args) 
-{ 
-  int mode;
-  char* filename;
-  PyObject *processList;
-  PyObject *processParamsList;
-  PyObject *snglInspiralList;
-  PyObject *simInspiralList;
-  LIGOLwXMLStream  xmlStream;
-  static LALStatus status;
 
+/******************************************************************** 
+ * XML opening Function
+ ********************************************************************/
+static PyObject*
+open_xml(PyObject *self, PyObject *args)
+{
+  char* filename;
+  LIGOLwXMLStream* xmlStream;
+  static LALStatus status;
+  PyObject* fileObj;
+  
   /* extract arguments */
-  if (! PyArg_ParseTuple(args, "isOOOO",  &mode, &filename,  
-			 &processList, &processParamsList, &simInspiralList, &snglInspiralList)) 
+  if (! PyArg_ParseTuple(args, "s",  &filename))
     return NULL; 
 
   /* setting xlal error to zero */
   XLALClearErrno();
+  
+  /* open output file */ 
+  xmlStream=(LIGOLwXMLStream *) LALCalloc( 1, sizeof(LIGOLwXMLStream) );
+  LALOpenLIGOLwXMLFile ( &status, xmlStream, filename );
 
-  /* open output file */
-  memset(  &xmlStream, 0, sizeof(LIGOLwXMLStream) );
-  LALOpenLIGOLwXMLFile ( &status, &xmlStream, filename );
+  /* convert to python object */
+  fileObj=PyCObject_FromVoidPtr((void*)(xmlStream),NULL);
+  return fileObj;
+}
 
-  /* write tables */
-  if (mode==1) {
-    /* writing process and process_params table only for FOUND XML file */
-    if ( !write_process( &xmlStream, processList) )
-      return NULL;
-    if ( !write_process_params( &xmlStream, processParamsList) )
-      return NULL;
-  }
-  /* writing sim_inspiral and sngl_inspiral tables for both XML files (FOUND and MISSED)*/
-  if ( !write_sim_inspiral( &xmlStream, simInspiralList) )
-    return NULL;
-  if ( !write_sngl_inspiral( &xmlStream, snglInspiralList) )
-    return NULL;
+/******************************************************************** 
+ * XML closing Function
+ ********************************************************************/
+static PyObject* 
+close_xml(PyObject *self, PyObject *args) 
+{  
+  PyObject* fileObj;
+  LIGOLwXMLStream* xmlStream;
+  static LALStatus status;
+  
+  /* extract arguments */
+  if (! PyArg_ParseTuple(args, "O",  &fileObj))
+    return NULL; 
 
+  /* get the file stream */
+  xmlStream=(LIGOLwXMLStream*)PyCObject_AsVoidPtr(fileObj);
 
-  /* close output file */
-  LALCloseLIGOLwXMLFile( &status,  &xmlStream );
+  /* and close the file */
+  LALCloseLIGOLwXMLFile( &status, xmlStream );
+  LALFree(xmlStream);
 
-  return snglInspiralList;
- }
+  return PyInt_FromLong(1);
+}
 
 
 /******************************************************************** 
  * Process Writing Function
  ********************************************************************/
-int write_process(LIGOLwXMLStream* xmlStream, PyObject *inlist) 
+static PyObject* 
+write_process(PyObject *self, PyObject *args) 
 {  
   ProcessTable *eventHead=NULL;
   ProcessTable *event=NULL;
   int n=0, len;
-  PyObject *tmpvalue;
-  char* filename;
+  PyObject* fileObj;
+  PyObject* inlist;
+  PyObject* tmpvalue;
+  LIGOLwXMLStream* xmlStream;
   MetadataTable outputTable;
   static LALStatus status;
 
+  /* extract arguments */
+  if (! PyArg_ParseTuple(args, "OO",  &fileObj, &inlist))
+    return NULL; 
+  
   /* check input file */
   if ( !PyList_Check(inlist) ) 
-    return 0;
+    return NULL;
 
+  /* get the file stream */
+  xmlStream=(LIGOLwXMLStream*)PyCObject_AsVoidPtr(fileObj);
 
   /* fill SnglInspiralTable */
   len = PyList_Size(inlist);
@@ -621,7 +642,6 @@ int write_process(LIGOLwXMLStream* xmlStream, PyObject *inlist)
     LALSnprintf( event->ifos, LIGOMETA_IFOS_MAX  * sizeof(CHAR),
 		 "%s", PyString_AsString(PyDict_GetItem(tmpvalue,  PyString_FromString("ifos") )) );
 
-
   }
 
   /* write data to XML file */
@@ -636,25 +656,38 @@ int write_process(LIGOLwXMLStream* xmlStream, PyObject *inlist)
     eventHead = eventHead->next;
     LALFree(event);
   }
-  return 1;
 
+  //return PyCObject_FromVoidPtr((void*)xmlStream,NULL);
+  return PyInt_FromLong(1);
  }
+
 
 /******************************************************************** 
  * Process Params Writing Function
  ********************************************************************/
- int write_process_params(LIGOLwXMLStream* xmlStream, PyObject *inlist) 
+static PyObject* 
+write_process_params(PyObject *self, PyObject *args) 
 {  
   ProcessParamsTable *eventHead=NULL;
   ProcessParamsTable *event=NULL;
   int n=0, len;
-  PyObject *tmpvalue;
+  PyObject* fileObj;
+  PyObject* inlist;
+  PyObject* tmpvalue;
+  LIGOLwXMLStream* xmlStream;
   MetadataTable outputTable;
   static LALStatus status;
 
-  /* check input object */
-  if (! PyList_Check(inlist) )
-    return 0;
+  /* extract arguments */
+  if (! PyArg_ParseTuple(args, "OO",  &fileObj, &inlist))
+    return NULL; 
+  
+  /* check input file */
+  if ( !PyList_Check(inlist) ) 
+    return NULL;
+
+  /* get the file stream */
+  xmlStream=(LIGOLwXMLStream*)PyCObject_AsVoidPtr(fileObj);
 
   /* fill SnglInspiralTable */
   len = PyList_Size(inlist);
@@ -693,29 +726,40 @@ int write_process(LIGOLwXMLStream* xmlStream, PyObject *inlist)
     LALFree(event);
   }
 
-  return 1;
+  return PyInt_FromLong(1);
  }
 
 
 /******************************************************************** 
  * Sim Inspiral Writing Function
  ********************************************************************/
- int write_sim_inspiral(LIGOLwXMLStream* xmlStream, PyObject *inlist)
-{ 
+static PyObject* 
+write_sim_inspiral(PyObject *self, PyObject *args) 
+{  
   SimInspiralTable *eventHead=NULL;
   SimInspiralTable *event=NULL;
   int n=0, len;
-  PyObject *tmpvalue;
+  PyObject* fileObj;
+  PyObject* inlist;
+  PyObject* tmpvalue;
+  LIGOLwXMLStream* xmlStream;
   MetadataTable outputTable;
   static LALStatus status;
 
-  /* check input object */
-  if (! PyList_Check(inlist) )
-    return 0;
+  /* extract arguments */
+  if (! PyArg_ParseTuple(args, "OO",  &fileObj, &inlist))
+    return NULL; 
+  
+  /* check input file */
+  if ( !PyList_Check(inlist) ) 
+    return NULL;
+
+  /* get the file stream */
+  xmlStream=(LIGOLwXMLStream*)PyCObject_AsVoidPtr(fileObj);
 
   /* fill SnglInspiralTable */
   len = PyList_Size(inlist);
-  if (!len) return 1;
+  if (!len) return PyInt_FromLong(1);
   for(n=0;n<len;n++)  {
     
     /* allocate new memory for next table */
@@ -801,29 +845,65 @@ int write_process(LIGOLwXMLStream* xmlStream, PyObject *inlist)
 
   LALCheckMemoryLeaks();
  
-  return 1;
+  return PyInt_FromLong(1);
 }
 
-
 /******************************************************************** 
- * Sngl Inspiral Writing Function
+ * Sngl Inspiral Writing Function (BEGIN)
  ********************************************************************/
- int write_sngl_inspiral(LIGOLwXMLStream* xmlStream, PyObject *inlist)
-{ 
+static PyObject* 
+write_sngl_inspiral_begin(PyObject *self, PyObject *args) 
+{  
   SnglInspiralTable *eventHead=NULL;
   SnglInspiralTable *event=NULL;
   int n=0, len;
-  PyObject *tmpvalue;
+  PyObject* fileObj;
+  PyObject* inlist;
+  PyObject* tmpvalue;
+  LIGOLwXMLStream* xmlStream;
   MetadataTable outputTable;
   static LALStatus status;
 
-  /* check input object */
-  if (! PyList_Check(inlist) )
-    return 0;
+  /* extract arguments */
+  if (! PyArg_ParseTuple(args, "O",  &fileObj))
+    return NULL; 
+  
+  /* open the table */
+  xmlStream=(LIGOLwXMLStream*)PyCObject_AsVoidPtr(fileObj);
+  LALBeginLIGOLwXMLTable( &status, xmlStream, sngl_inspiral_table );
+  
+  return PyInt_FromLong(1);
+}
+
+/******************************************************************** 
+ * Sngl Inspiral Writing Function(WRITE)
+ ********************************************************************/
+static PyObject* 
+write_sngl_inspiral_write(PyObject *self, PyObject *args) 
+{  
+  SnglInspiralTable *eventHead=NULL;
+  SnglInspiralTable *event=NULL;
+  int n=0, len;
+  PyObject* fileObj;
+  PyObject* inlist;
+  PyObject* tmpvalue;
+  LIGOLwXMLStream* xmlStream;
+  MetadataTable outputTable;
+  static LALStatus status;
+
+  /* extract arguments */
+  if (! PyArg_ParseTuple(args, "OO",  &fileObj, &inlist))
+    return NULL; 
+  
+  /* check input file */
+  if ( !PyList_Check(inlist) ) 
+    return NULL;
+
+  /* get the file stream */
+  xmlStream=(LIGOLwXMLStream*)PyCObject_AsVoidPtr(fileObj);
 
   /* fill SnglInspiralTable */
   len = PyList_Size(inlist);
-  if (!len) return 1;
   for(n=0;n<len;n++)  {
     
     /* allocate new memory for next table */
@@ -887,14 +967,11 @@ int write_process(LIGOLwXMLStream* xmlStream, PyObject *inlist)
     event->event_id = (EventIDColumn *) LALCalloc( 1, sizeof(EventIDColumn) );
     event->event_id->id = PyLong_AsLongLong(PyDict_GetItem(tmpvalue, PyString_FromString("event_id")));
     event->event_id->snglInspiralTable = event;
-
   }
 
   /* write data to XML file */
   outputTable.snglInspiralTable = eventHead;
-  LALBeginLIGOLwXMLTable( &status, xmlStream, sngl_inspiral_table );
   LALWriteLIGOLwXMLTable( &status, xmlStream, outputTable, sngl_inspiral_table );
-  LALEndLIGOLwXMLTable(   &status, xmlStream );
   
   /* deleting entries in the SnglInspiralTable */
   while(eventHead) {
@@ -902,10 +979,36 @@ int write_process(LIGOLwXMLStream* xmlStream, PyObject *inlist)
     eventHead = eventHead->next;
     XLALFreeSnglInspiral ( &event );
   }
-
   LALCheckMemoryLeaks();
  
-  return 1;
+  return PyInt_FromLong(1);
+}
+
+/******************************************************************** 
+ * Sngl Inspiral Writing Function (END)
+ ********************************************************************/
+static PyObject* 
+write_sngl_inspiral_end(PyObject *self, PyObject *args) 
+{  
+  SnglInspiralTable *eventHead=NULL;
+  SnglInspiralTable *event=NULL;
+  int n=0, len;
+  PyObject* fileObj;
+  PyObject* inlist;
+  PyObject* tmpvalue;
+  LIGOLwXMLStream* xmlStream;
+  MetadataTable outputTable;
+  static LALStatus status;
+
+  /* extract arguments */
+  if (! PyArg_ParseTuple(args, "O",  &fileObj))
+    return NULL; 
+  
+  /* close the table */
+  xmlStream=(LIGOLwXMLStream*)PyCObject_AsVoidPtr(fileObj);
+  LALEndLIGOLwXMLTable( &status, xmlStream);
+  
+  return PyInt_FromLong(1);
 }
 
 
@@ -921,7 +1024,14 @@ static struct PyMethodDef support_methods[] = {
     {"read_sngl_burst", read_sngl_burst, 1},  
     {"read_sngl_inspiral", read_sngl_inspiral, 1}, 
     {"read_sim_inspiral", read_sim_inspiral, 1}, 
-    {"write_sire", write_sire, 1}, 
+    {"open_xml", open_xml, 1}, 
+    {"close_xml", close_xml, 1}, 
+    {"write_process", write_process, 1}, 
+    {"write_process_params", write_process_params, 1}, 
+    {"write_sim_inspiral", write_sim_inspiral, 1}, 
+    {"write_sngl_inspiral_begin", write_sngl_inspiral_begin, 1},
+    {"write_sngl_inspiral_write", write_sngl_inspiral_write, 1},
+    {"write_sngl_inspiral_end", write_sngl_inspiral_end, 1},
     {NULL, NULL} 
 };
 
