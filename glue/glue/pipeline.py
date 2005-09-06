@@ -1577,7 +1577,7 @@ class ScienceData:
       self.__sci_segs.append(x)
 
 
-  def make_chunks(self,length,overlap=0,play=0,sl=0,excl_play=0):
+  def make_chunks(self,length,overlap=0,play=0,sl=0,excl_play=0,pad_data=0):
     """
     Divide each ScienceSegment contained in this object into AnalysisChunks.
     @param length: length of chunk in seconds.
@@ -1589,7 +1589,7 @@ class ScienceData:
     of the chunk when computing if the chunk overlaps with playground.
     """
     for seg in self.__sci_segs:
-      seg.make_chunks(length,overlap,play,sl,excl_play)
+      seg.make_chunks(length,overlap,play,sl,excl_play,pad_data)
 
   def make_chunks_from_unused(self,length,trig_overlap,play=0,min_length=0,
     sl=0,excl_play=0,pad_data=0):
