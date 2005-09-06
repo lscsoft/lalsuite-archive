@@ -1369,7 +1369,7 @@ class ScienceSegment:
     """
     return cmp(self.start(),other.start())
 
-  def make_chunks(self,length=0,overlap=0,play=0,sl=0,excl_play=0):
+  def make_chunks(self,length=0,overlap=0,play=0,sl=0,excl_play=0,pad_data=0):
     """
     Divides the science segment into chunks of length seconds overlapped by
     overlap seconds. If the play option is set, only chunks that contain S2
@@ -1381,36 +1381,38 @@ class ScienceSegment:
     @param length: length of chunk in seconds.
     @param overlap: overlap between chunks in seconds.
     @param play: 1 : only generate chunks that overlap with S2 playground data.
-                 2 : as play = 1 plus compute trig start and end times to coincide
-                 with the start/end of the playground
+                 2 : as play = 1 plus compute trig start and end times to 
+                     coincide with the start/end of the playground
     @param sl: slide by sl seconds before determining playground data.
     @param excl_play: exclude the first excl_play second from the start and end
     of the chunk when computing if the chunk overlaps with playground.
+    @param pad_data: exclude the first and last pad_data seconds of the segment
+    when generating chunks
     """
-    time_left = self.dur()
-    start = self.start()
+    time_left = self.dur() + (2 * pad_data)
+    start = self.start() + pad_data
     increment = length - overlap
     while time_left >= length:
       end = start + length
       if (not play) or (play and (((end-sl-excl_play-729273613) % 6370) < 
         (600+length-2*excl_play))):
-	if (play == 2):
-	  # calculate the start of the playground preceeding the chunk end
-	  play_start = 729273613 + 6370 * \
-		math.floor((end-sl-excl_play-729273613) / 6370)
- 	  play_end = play_start + 600
-	  trig_start = 0
-	  trig_end = 0
-	  if ( (play_end - 6370) > start ):
-	    print "Two playground segments in this chunk:",
-	    print "  Code to handle this case has not been implemented"
-	    sys.exit(1)
+        if (play == 2):
+        # calculate the start of the playground preceeding the chunk end
+          play_start = 729273613 + 6370 * \
+           math.floor((end-sl-excl_play-729273613) / 6370)
+          play_end = play_start + 600
+          trig_start = 0
+          trig_end = 0
+          if ( (play_end - 6370) > start ):
+            print "Two playground segments in this chunk:",
+            print "  Code to handle this case has not been implemented"
+            sys.exit(1)
           else:
-	    if play_start > start:
-	      trig_start = int(play_start)
-	    if play_end < end:
-	      trig_end = int(play_end)
-	  self.__chunks.append(AnalysisChunk(start,end,trig_start,trig_end))
+            if play_start > start:
+              trig_start = int(play_start)
+            if play_end < end:
+              trig_end = int(play_end)
+          self.__chunks.append(AnalysisChunk(start,end,trig_start,trig_end))
         else:
           self.__chunks.append(AnalysisChunk(start,end))
       start += increment
@@ -1560,7 +1562,7 @@ class ScienceData:
   def tama_read(self,file):
     """
     Parse the science segments from a tama list of locked segments contained in
-	 	file.
+                file.
     @param file: input text file containing a list of tama segments.
     """
     self.__file = file
@@ -1569,7 +1571,7 @@ class ScienceData:
       id = int(columns[0])
       start = int(math.ceil(float(columns[3])))
       end = int(math.floor(float(columns[4])))
-      dur = end - start	
+      dur = end - start 
     
       x = ScienceSegment(tuple([id, start, end, dur]))
       self.__sci_segs.append(x)
@@ -1580,7 +1582,8 @@ class ScienceData:
     Divide each ScienceSegment contained in this object into AnalysisChunks.
     @param length: length of chunk in seconds.
     @param overlap: overlap between segments.
-    @param play: if true, only generate chunks that overlap with S2 playground data.
+    @param play: if true, only generate chunks that overlap with S2 playground 
+    data.
     @param sl: slide by sl seconds before determining playground data.
     @param excl_play: exclude the first excl_play second from the start and end
     of the chunk when computing if the chunk overlaps with playground.
@@ -1588,7 +1591,8 @@ class ScienceData:
     for seg in self.__sci_segs:
       seg.make_chunks(length,overlap,play,sl,excl_play)
 
-  def make_chunks_from_unused(self,length,trig_overlap,play=0,min_length=0,sl=0,excl_play=0):
+  def make_chunks_from_unused(self,length,trig_overlap,play=0,min_length=0,
+    sl=0,excl_play=0,pad_data=0):
     """
     Create an extra chunk that uses up the unused data in the science segment.
     @param length: length of chunk in seconds.
@@ -1603,32 +1607,34 @@ class ScienceData:
     @param sl: slide by sl seconds before determining playground data.
     @param excl_play: exclude the first excl_play second from the start and end
     of the chunk when computing if the chunk overlaps with playground.
+    @param pad_data: exclude the first and last pad_data seconds of the segment
+    when generating chunks
+
     """
     for seg in self.__sci_segs:
       # if there is unused data longer than the minimum chunk length
       if seg.unused() > min_length:
-        start = seg.end() - length
-        end = seg.end()
-        middle = start + length / 2
+        end = seg.end() - pad_data
+        start = end - length
         if (not play) or (play and (((end-sl-excl_play-729273613)%6370) < 
           (600+length-2*excl_play))):
           trig_start = end - seg.unused() - trig_overlap
-	  if (play == 2):
+          if (play == 2):
             # calculate the start of the playground preceeding the chunk end
-	    play_start = 729273613 + 6370 * \
+            play_start = 729273613 + 6370 * \
               math.floor((end-sl-excl_play-729273613) / 6370)
- 	    play_end = play_start + 600
-	    trig_end = 0
-	    if ( (play_end - 6370) > start ):
-	      print "Two playground segments in this chunk"
-	      print "  Code to handle this case has not been implemented"
-	      sys.exit(1)
+            play_end = play_start + 600
+            trig_end = 0
+            if ( (play_end - 6370) > start ):
+              print "Two playground segments in this chunk"
+              print "  Code to handle this case has not been implemented"
+              sys.exit(1)
             else:
-	      if play_start > trig_start:
-	        trig_start = int(play_start)
-	      if (play_end < end):
-	        trig_end = int(play_end)
-	      if (trig_end == 0) or (trig_end > trig_start):
+              if play_start > trig_start:
+                trig_start = int(play_start)
+              if (play_end < end):
+                trig_end = int(play_end)
+              if (trig_end == 0) or (trig_end > trig_start):
                 seg.add_chunk(start, end, trig_start, trig_end)
           else:
             seg.add_chunk(start, end, trig_start)
@@ -1897,27 +1903,27 @@ class ScienceData:
      
       # select first playground segment which ends after start of seg
       play_start = begin_s2+play_space*( 1 + 
-	int((start - begin_s2 - play_len)/play_space) )
+        int((start - begin_s2 - play_len)/play_space) )
 
       while play_start < stop:
-	if play_start > start:
-	  ostart = play_start
-	else:
-	  ostart = start
+        if play_start > start:
+          ostart = play_start
+        else:
+          ostart = start
         
         
-	play_stop = play_start + play_len
+        play_stop = play_start + play_len
 
-	if play_stop < stop:
-	  ostop = play_stop
-	else:
-	  ostop = stop
+        if play_stop < stop:
+          ostop = play_stop
+        else:
+          ostop = stop
 
         x = ScienceSegment(tuple([id, ostart, ostop, ostop-ostart]))
         outlist.append(x)
 
         # step forward
-	play_start = play_start + play_space 
+        play_start = play_start + play_space 
 
     # save the playground segs and return the length
     self.__sci_segs = outlist
@@ -1998,11 +2004,11 @@ class LSCDataFindJob(CondorDAGJob, AnalysisJob):
     """
     return self.__cache_dir
 
-  def is_dax(self): 	 
-    """ 	 
-    returns the dax flag 	 
-    """ 	 
-    return self.__dax 	 
+  def is_dax(self):      
+    """          
+    returns the dax flag         
+    """          
+    return self.__dax    
 
   def get_config_file(self):
     """
@@ -2026,7 +2032,7 @@ class LSCDataFindNode(CondorDAGNode, AnalysisNode):
     self.__observatory = None
     self.__output = None
     self.__job = job
-    self.__dax = job.is_dax() 	 
+    self.__dax = job.is_dax()    
     self.__lfn_list = None
      
     # try and get a type from the ini file and default to type None
@@ -2111,8 +2117,8 @@ class LSCDataFindNode(CondorDAGNode, AnalysisNode):
   def get_output(self):
     """
     Return the output file, i.e. the file containing the frame cache data.
-    or the files itself as tuple (for DAX) 	 
-    """	 
+    or the files itself as tuple (for DAX)       
+    """  
     if self.__dax:
       if not self.__lfn_list:
         # call the datafind client to get the LFNs
@@ -2159,5 +2165,5 @@ class LSCDataFindNode(CondorDAGNode, AnalysisNode):
           raise SegmentError, msg
         self.__lfn_list = result
       return self.__lfn_list
-    else: 	 
+    else:        
       return self.__output
