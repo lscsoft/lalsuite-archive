@@ -340,16 +340,7 @@ read_sngl_inspiral(PyObject *self, PyObject *args)
     long long tmpid = 0;
     
     if (  event->event_id )
-      tmpid =  event->event_id->id;
-
-    /*printf("a4.5j: %d\n",j);
-    printf("%ld ", event->end_time.gpsSeconds);
-    printf("%ld ", event->end_time.gpsNanoSeconds);
-    printf("%ld ", event->impulse_time.gpsSeconds);
-    printf("%ld ", event->impulse_time.gpsNanoSeconds);
-    printf("%f ",  event->end_time_gmst);
-    printf("%ld ", tmpid);
-    printf("\n");*/
+      tmpid =  event->event_id->id;  
   
     tmpvalue = Py_BuildValue("{s:s, s:i, s:i, s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:i, s:d, s:L,\
 			     s:s, s:s, s:d, s:i, s:i, s:d, s:d, s:d, s:d, s:d, \
@@ -657,7 +648,6 @@ write_process(PyObject *self, PyObject *args)
     LALFree(event);
   }
 
-  //return PyCObject_FromVoidPtr((void*)xmlStream,NULL);
   return PyInt_FromLong(1);
  }
 
