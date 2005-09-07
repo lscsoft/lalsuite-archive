@@ -520,6 +520,69 @@ read_sim_inspiral(PyObject *self, PyObject *args)
 
 
 /******************************************************************** 
+ * Multi Inspiral Table Reading Function
+ ********************************************************************/
+static PyObject *   
+read_multi_inspiral(PyObject *self, PyObject *args)
+{ 
+  MultiInspiralTable *eventHead=NULL;
+  MultiInspiralTable **addevent=&eventHead;
+  MultiInspiralTable *event=NULL;
+  PyObject *fromPython;
+  int j, m=0, n=0, nelement=0, len;
+  int startEvent = 0, stopEvent = -1;
+  PyObject *outlist;
+  PyObject *tmpvalue;
+
+  if (! PyArg_ParseTuple(args, "O", &fromPython))
+    return NULL;                             
+
+  if (! PyList_Check(fromPython) )
+    return NULL;
+
+  len = PyList_Size(fromPython);
+  
+  for(n=0;n<len;n++)
+  {
+    *addevent = XLALMultiInspiralTableFromLIGOLw (
+        PyString_AsString(PyList_GetItem(fromPython, n)) );
+
+    while(*addevent)
+      addevent = &(*addevent)->next;
+
+  }
+   nelement = XLALCountMultiInspiralTable ( eventHead );
+
+  outlist = PyList_New(nelement);
+  for ( j=0, event = eventHead; event ; j++, event = event->next )
+  {
+    tmpvalue = Py_BuildValue(
+        "{s:s, s:i, s:i, s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:i, s:L}",
+        "ifos", event->ifos,
+        "end_time", event->end_time.gpsSeconds,
+        "end_time_ns", event->end_time.gpsNanoSeconds,
+        "coa_phase", event->coa_phase,
+        "mass1", event->mass1,
+        "mass2", event->mass2,
+        "mchirp", event->mchirp,
+        "eta", event->eta,
+	      "snr", event->snr,
+        "chisq", event->chisq,
+        "chisq_dof", event->chisq_dof,
+        "sigmasq", event->sigmasq);
+    PyList_SetItem(outlist, j, tmpvalue);
+  }
+
+  while(eventHead) {
+    event = eventHead;
+    eventHead = eventHead->next;
+    LALFree(event);
+  }
+  return outlist;
+}
+
+
+/******************************************************************** 
  * XML opening Function
  ********************************************************************/
 static PyObject*
@@ -1014,6 +1077,8 @@ static struct PyMethodDef support_methods[] = {
     {"read_sngl_burst", read_sngl_burst, 1},  
     {"read_sngl_inspiral", read_sngl_inspiral, 1}, 
     {"read_sim_inspiral", read_sim_inspiral, 1}, 
+    {"read_multi_inspiral", read_multi_inspiral, 1}, 
+    {"write_sire", write_sire, 1}, 
     {"open_xml", open_xml, 1}, 
     {"close_xml", close_xml, 1}, 
     {"write_process", write_process, 1}, 

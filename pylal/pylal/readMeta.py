@@ -63,6 +63,8 @@ class metaDataTable:
       self.table = support.read_sim_inspiral(triggerfile)
     if tabletype == "sngl_burst":
       self.table = support.read_sngl_burst(triggerfile)
+    if tabletype == "multi_inspiral":
+      self.table = support.read_multi_inspiral(triggerfile)
 
   def nevents(self):
     """
