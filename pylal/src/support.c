@@ -1078,7 +1078,6 @@ static struct PyMethodDef support_methods[] = {
     {"read_sngl_inspiral", read_sngl_inspiral, 1}, 
     {"read_sim_inspiral", read_sim_inspiral, 1}, 
     {"read_multi_inspiral", read_multi_inspiral, 1}, 
-    {"write_sire", write_sire, 1}, 
     {"open_xml", open_xml, 1}, 
     {"close_xml", close_xml, 1}, 
     {"write_process", write_process, 1}, 
