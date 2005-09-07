@@ -342,10 +342,11 @@ read_sngl_inspiral(PyObject *self, PyObject *args)
     if (  event->event_id )
       tmpid =  event->event_id->id;  
   
-    tmpvalue = Py_BuildValue("{s:s, s:i, s:i, s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:i, s:d, s:L,\
-			     s:s, s:s, s:d, s:i, s:i, s:d, s:d, s:d, s:d, s:d, \
-			     s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:d,	\
-			     s:d, s:d, s:d, s:d, s:d, s:d}",
+    tmpvalue = Py_BuildValue(
+        "{s:s, s:i, s:i, s:d, s:d, s:d, s:d, s:d, s:d, s:d,\
+        s:d, s:d, s:i, s:d, s:L, s:s, s:s, s:d, s:i, s:i,\
+        s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:d,\
+        s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:d}",
         "ifo", event->ifo,
         "end_time", event->end_time.gpsSeconds,
         "end_time_ns", event->end_time.gpsNanoSeconds,
@@ -356,40 +357,40 @@ read_sngl_inspiral(PyObject *self, PyObject *args)
         "mchirp", event->mchirp,
         "mtotal", event->mtotal,
         "eta", event->eta,
+        
         "snr", event->snr,
         "chisq", event->chisq,
         "chisq_dof", event->chisq_dof,
         "sigmasq", event->sigmasq,
         "event_id", tmpid,
-
-	"search", event->search,
-	"channel",event->channel,
-	"end_time_gmst", event->end_time_gmst,
-	"impulse_time", event->impulse_time.gpsSeconds,
-	"impulse_time_ns", event->impulse_time.gpsNanoSeconds,
-	"template_duration", event->template_duration,
-	"event_duration", event->event_duration,
-	"amplitude", event->amplitude,
-	"tau0", event->tau0,
-	"tau2", event->tau2,
-
-	"tau3", event->tau3,
-	"tau4", event->tau4,
-	"tau5", event->tau5,
-	"ttotal", event->ttotal,
-	"psi0", event->psi0,
-	"psi3", event->psi3,
-	"alpha", event->alpha,
-	"alpha1", event->alpha1,
-	"alpha2", event->alpha2,
-	"alpha3", event->alpha3,
-
-	"alpha4", event->alpha4,
-	"alpha5", event->alpha5,
-	"alpha6", event->alpha6,
-	"beta", event->beta,
-	"f_final", event->f_final,
-	"rsqveto_duration", event->rsqveto_duration);
+        "search", event->search,
+        "channel",event->channel,
+        "end_time_gmst", event->end_time_gmst,
+        "impulse_time", event->impulse_time.gpsSeconds,
+        "impulse_time_ns", event->impulse_time.gpsNanoSeconds,
+        
+        "template_duration", event->template_duration,
+        "event_duration", event->event_duration,
+        "amplitude", event->amplitude,
+        "tau0", event->tau0,
+        "tau2", event->tau2,
+        "tau3", event->tau3,
+        "tau4", event->tau4,
+        "tau5", event->tau5,
+        "ttotal", event->ttotal,
+        "psi0", event->psi0,
+        
+        "psi3", event->psi3,
+        "alpha", event->alpha,
+        "alpha1", event->alpha1,
+        "alpha2", event->alpha2,
+        "alpha3", event->alpha3,
+        "alpha4", event->alpha4,
+        "alpha5", event->alpha5,
+        "alpha6", event->alpha6,
+        "beta", event->beta,
+        "f_final", event->f_final,
+        "rsqveto_duration", event->rsqveto_duration);
 
     PyList_SetItem(outlist, j, tmpvalue);
 
@@ -448,10 +449,10 @@ read_sim_inspiral(PyObject *self, PyObject *args)
   {
     tmpvalue = Py_BuildValue(
         "{s:s, s:s, s:i, s:i, s:i, s:i, s:i, s:i, s:i, s:i,\
-	  s:i, s:i, s:i, s:i, s:d, s:d, s:d, s:d, s:d, s:d,\
-	  s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:d,\
-	  s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:d,\
-	  s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:d}",
+        s:i, s:i, s:i, s:i, s:d, s:d, s:d, s:d, s:d, s:d,\
+        s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:d,\
+        s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:d,\
+        s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:d}",
         "waveform", event->waveform,
         "source", event->source,
         "geocent_end_time", event->geocent_end_time.gpsSeconds,
@@ -468,44 +469,44 @@ read_sim_inspiral(PyObject *self, PyObject *args)
         "v_end_time", event->v_end_time.gpsSeconds,
         "v_end_time_ns", event->v_end_time.gpsNanoSeconds,
         "end_time_gmst", event->end_time_gmst,
-	"mass1", event->mass1, 
-	"mass2", event->mass2, 
-	"eta", event->eta, 
-	"distance", event->distance, 
-	"longitude", event->longitude, 
+        "mass1", event->mass1, 
+        "mass2", event->mass2, 
+        "eta", event->eta, 
+        "distance", event->distance, 
+        "longitude", event->longitude, 
 
-	"latitude", event->latitude, 
-	"inclination", event->inclination, 
-	"coa_phase", event->coa_phase, 
-	"polarization", event->polarization,
-	"psi0", event->psi0,
-	"psi3", event->psi3,
-	"alpha", event->alpha,
-	"alpha1", event->alpha1,
-	"alpha2", event->alpha2,
-	"alpha3", event->alpha3,
+        "latitude", event->latitude, 
+        "inclination", event->inclination, 
+        "coa_phase", event->coa_phase, 
+        "polarization", event->polarization,
+        "psi0", event->psi0,
+        "psi3", event->psi3,
+        "alpha", event->alpha,
+        "alpha1", event->alpha1,
+        "alpha2", event->alpha2,
+        "alpha3", event->alpha3,
 
-	"alpha4", event->alpha4,
-	"alpha5", event->alpha5,
-	"alpha6", event->alpha6,
-	"beta", event->beta,
-	"spin1x", event->spin1x,
-	"spin1y", event->spin1y,
-	"spin1z", event->spin1z,
-	"spin2x", event->spin2x,
-	"spin2y", event->spin2y,
-	"spin2z", event->spin2z,
+        "alpha4", event->alpha4,
+        "alpha5", event->alpha5,
+        "alpha6", event->alpha6,
+        "beta", event->beta,
+        "spin1x", event->spin1x,
+        "spin1y", event->spin1y,
+        "spin1z", event->spin1z,
+        "spin2x", event->spin2x,
+        "spin2y", event->spin2y,
+        "spin2z", event->spin2z,
 
-	"theta0", event->theta0,
+        "theta0", event->theta0,
         "phi0", event->phi0,
         "f_lower", event->f_lower,
         "f_final", event->f_final,
-	"mchirp", event->mchirp,
-	"eff_dist_h", event->eff_dist_h,
-	"eff_dist_l", event->eff_dist_l,
-	"eff_dist_g", event->eff_dist_g,
-	"eff_dist_t", event->eff_dist_t,
-	"eff_dist_v", event->eff_dist_v);
+        "mchirp", event->mchirp,
+        "eff_dist_h", event->eff_dist_h,
+        "eff_dist_l", event->eff_dist_l,
+        "eff_dist_g", event->eff_dist_g,
+        "eff_dist_t", event->eff_dist_t,
+        "eff_dist_v", event->eff_dist_v);
     PyList_SetItem(outlist, j, tmpvalue);
   }
 
@@ -566,7 +567,7 @@ read_multi_inspiral(PyObject *self, PyObject *args)
         "mass2", event->mass2,
         "mchirp", event->mchirp,
         "eta", event->eta,
-	      "snr", event->snr,
+              "snr", event->snr,
         "chisq", event->chisq,
         "chisq_dof", event->chisq_dof,
         "sigmasq", event->sigmasq);
@@ -675,26 +676,26 @@ write_process(PyObject *self, PyObject *args)
     /* get a 'row' from the python list */
     tmpvalue=PyList_GetItem(inlist, n);
     LALSnprintf( event->program, LIGOMETA_PROGRAM_MAX  * sizeof(CHAR),
-		 "%s", PyString_AsString(PyDict_GetItem(tmpvalue,  PyString_FromString("program") )) );
+                 "%s", PyString_AsString(PyDict_GetItem(tmpvalue,  PyString_FromString("program") )) );
     LALSnprintf( event->version, LIGOMETA_VERSION_MAX  * sizeof(CHAR),
-		 "%s", PyString_AsString(PyDict_GetItem(tmpvalue,  PyString_FromString("version") )) );
+                 "%s", PyString_AsString(PyDict_GetItem(tmpvalue,  PyString_FromString("version") )) );
     LALSnprintf( event->cvs_repository, LIGOMETA_CVS_REPOSITORY_MAX  * sizeof(CHAR),
-		 "%s", PyString_AsString(PyDict_GetItem(tmpvalue,  PyString_FromString("cvs_repository") )) );
+                 "%s", PyString_AsString(PyDict_GetItem(tmpvalue,  PyString_FromString("cvs_repository") )) );
     event->cvs_entry_time.gpsSeconds = (int)PyFloat_AsDouble(PyDict_GetItem(tmpvalue, PyString_FromString("cvs_entry_time") ));
     LALSnprintf( event->comment, LIGOMETA_COMMENT_MAX  * sizeof(CHAR),
-		 "%s", PyString_AsString(PyDict_GetItem(tmpvalue,  PyString_FromString("comment") )) );
+                 "%s", PyString_AsString(PyDict_GetItem(tmpvalue,  PyString_FromString("comment") )) );
     event->is_online = (int)PyFloat_AsDouble(PyDict_GetItem(tmpvalue, PyString_FromString("is_online") ));
     LALSnprintf( event->node, LIGOMETA_NODE_MAX  * sizeof(CHAR),
-		 "%s", PyString_AsString(PyDict_GetItem(tmpvalue,  PyString_FromString("node") )) );
+                 "%s", PyString_AsString(PyDict_GetItem(tmpvalue,  PyString_FromString("node") )) );
     LALSnprintf( event->username, LIGOMETA_USERNAME_MAX  * sizeof(CHAR),
-		 "%s", PyString_AsString(PyDict_GetItem(tmpvalue,  PyString_FromString("username") )) );
+                 "%s", PyString_AsString(PyDict_GetItem(tmpvalue,  PyString_FromString("username") )) );
     event->start_time.gpsSeconds = (int)PyFloat_AsDouble( PyDict_GetItem( tmpvalue, PyString_FromString("start_time") ));
     event->end_time.gpsSeconds   = (int)PyFloat_AsDouble( PyDict_GetItem( tmpvalue, PyString_FromString("end_time") ));
     event->jobid = (int)PyFloat_AsDouble( PyDict_GetItem( tmpvalue, PyString_FromString("jobid") ));
     LALSnprintf( event->domain, LIGOMETA_DOMAIN_MAX  * sizeof(CHAR),
-		 "%s", PyString_AsString(PyDict_GetItem(tmpvalue,  PyString_FromString("domain") )) );
+                 "%s", PyString_AsString(PyDict_GetItem(tmpvalue,  PyString_FromString("domain") )) );
     LALSnprintf( event->ifos, LIGOMETA_IFOS_MAX  * sizeof(CHAR),
-		 "%s", PyString_AsString(PyDict_GetItem(tmpvalue,  PyString_FromString("ifos") )) );
+                 "%s", PyString_AsString(PyDict_GetItem(tmpvalue,  PyString_FromString("ifos") )) );
 
   }
 
@@ -756,13 +757,13 @@ write_process_params(PyObject *self, PyObject *args)
     /* get a 'row' from the python list */
     tmpvalue=PyList_GetItem(inlist, n);
     LALSnprintf( event->program, LIGOMETA_PROGRAM_MAX  * sizeof(CHAR),
-		 "%s", PyString_AsString(PyDict_GetItem(tmpvalue,  PyString_FromString("program") )) );
+                 "%s", PyString_AsString(PyDict_GetItem(tmpvalue,  PyString_FromString("program") )) );
     LALSnprintf( event->param, LIGOMETA_PARAM_MAX  * sizeof(CHAR),
-		 "%s", PyString_AsString(PyDict_GetItem(tmpvalue,  PyString_FromString("param") )) );
+                 "%s", PyString_AsString(PyDict_GetItem(tmpvalue,  PyString_FromString("param") )) );
     LALSnprintf( event->type, LIGOMETA_TYPE_MAX  * sizeof(CHAR),
-		 "%s", PyString_AsString(PyDict_GetItem(tmpvalue,  PyString_FromString("type") )) );
+                 "%s", PyString_AsString(PyDict_GetItem(tmpvalue,  PyString_FromString("type") )) );
     LALSnprintf( event->value, LIGOMETA_VALUE_MAX  * sizeof(CHAR),
-		 "%s", PyString_AsString(PyDict_GetItem(tmpvalue,  PyString_FromString("value") )) );
+                 "%s", PyString_AsString(PyDict_GetItem(tmpvalue,  PyString_FromString("value") )) );
   }
 
   /* write data to XML file */
@@ -826,9 +827,9 @@ write_sim_inspiral(PyObject *self, PyObject *args)
     tmpvalue=PyList_GetItem(inlist, n);
 
     LALSnprintf( event->waveform, LIGOMETA_WAVEFORM_MAX * sizeof(CHAR),
-		 "%s", PyString_AsString(PyDict_GetItem(tmpvalue,  PyString_FromString("waveform"))) );
+                 "%s", PyString_AsString(PyDict_GetItem(tmpvalue,  PyString_FromString("waveform"))) );
     LALSnprintf( event->source, LIGOMETA_SOURCE_MAX * sizeof(CHAR),
-		 "%s", PyString_AsString(PyDict_GetItem(tmpvalue,  PyString_FromString("source"))) );
+                 "%s", PyString_AsString(PyDict_GetItem(tmpvalue,  PyString_FromString("source"))) );
     event->geocent_end_time.gpsSeconds     = PyInt_AsLong(PyDict_GetItem(tmpvalue,  PyString_FromString("geocent_end_time")));
     event->geocent_end_time.gpsNanoSeconds = PyInt_AsLong(PyDict_GetItem(tmpvalue,  PyString_FromString("geocent_end_time_ns")));
     event->h_end_time.gpsSeconds= PyInt_AsLong(PyDict_GetItem(tmpvalue,  PyString_FromString("h_end_time")));
@@ -971,11 +972,11 @@ write_sngl_inspiral_write(PyObject *self, PyObject *args)
 
     /* fill eht values into the event structure */  
     LALSnprintf( event->ifo, LIGOMETA_IFO_MAX  * sizeof(CHAR),
-		 "%s", PyString_AsString(PyDict_GetItem(tmpvalue,  PyString_FromString("ifo") )) );
+                 "%s", PyString_AsString(PyDict_GetItem(tmpvalue,  PyString_FromString("ifo") )) );
     LALSnprintf( event->search, LIGOMETA_SEARCH_MAX  * sizeof(CHAR),
-		 "%s", PyString_AsString(PyDict_GetItem(tmpvalue,  PyString_FromString("search") )) );
+                 "%s", PyString_AsString(PyDict_GetItem(tmpvalue,  PyString_FromString("search") )) );
     LALSnprintf( event->channel, LIGOMETA_CHANNEL_MAX  * sizeof(CHAR),
-		 "%s", PyString_AsString(PyDict_GetItem(tmpvalue,  PyString_FromString("channel") )) );
+                 "%s", PyString_AsString(PyDict_GetItem(tmpvalue,  PyString_FromString("channel") )) );
     event->end_time.gpsSeconds    = PyInt_AsLong(PyDict_GetItem(tmpvalue, PyString_FromString("end_time") ));
     event->end_time.gpsNanoSeconds = PyInt_AsLong(PyDict_GetItem(tmpvalue, PyString_FromString("end_time_ns") ));
     event->end_time_gmst = PyFloat_AsDouble(PyDict_GetItem(tmpvalue, PyString_FromString("end_time_gmst") ));
