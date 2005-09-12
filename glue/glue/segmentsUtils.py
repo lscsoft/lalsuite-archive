@@ -7,8 +7,36 @@ __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __date__ = "$Date$"
 __version__ = "$Revision$"
 
+import re
 import shlex
 import segments
+
+
+def fromfilenames(filenames, coltype=long):
+	"""
+	Return a segmentlist describing the intervals spanned by the files
+	whose names are given in the list filenames.  The segmentlist is
+	constructed by parsing the file names, and the boundaries of each
+	segment are coerced to type coltype.
+
+	The file names are parsed using a generalization of the format
+	described in Technical Note LIGO-T010150-00-E, which allows the
+	start time and duration appearing in the file name to be
+	non-integers (if coltype is a non-integer type).
+
+	NOTE:  the output is a segmentlist as described by the file names;
+	if the file names are not in time order, or describe overlaping
+	segments, then thusly shall be the output of this function.  It is
+	recommended that this function's output be coalesced before use.
+	"""
+	pattern = re.compile(r"-([\d.]+)-([\d.]+)\.[\D]")
+	list = segments.segmentlist()
+	for name in filenames:
+		[(s, d)] = pattern.findall(name)
+		s = coltype(s)
+		d = coltype(d)
+		list.append(segments.segment(s, s + d))
+	return list
 
 
 def fromsegwizard(file, coltype=long, strict=True):
@@ -19,10 +47,12 @@ def fromsegwizard(file, coltype=long, strict=True):
 	created with segments whose boundaries are of type coltype, which
 	should raise ValueError if it cannot convert its string argument.
 	If strict is True, then each segment's duration is checked against
-	the input file.  NOTE:  the output is a segmentlist as described by
-	the file;  if the segments in the input file are not coalesced or
-	out of order, then thusly shall be the output of this function.  It
-	is recommended that this function's output be coalesced before use.
+	the input file.
+
+	NOTE:  the output is a segmentlist as described by the file;  if
+	the segments in the input file are not coalesced or out of order,
+	then thusly shall be the output of this function.  It is
+	recommended that this function's output be coalesced before use.
 	"""
 	list = segments.segmentlist()
 	for line in file:
