@@ -49,13 +49,13 @@ def readcol(table, col_name, ifo=None ):
     col_names.append(col_name + 'ance')
 
   if table.nevents():
-      for c_name in col_names:
-        if table.table[0].has_key(c_name):
-          col_data = table.mkarray(c_name)
-          if 'time' in c_name:
-            col_data = col_data + 1e-9 * table.mkarray(c_name + '_ns')
-    else:
-      col_data = []
+    for c_name in col_names:
+      if table.table[0].has_key(c_name):
+        col_data = table.mkarray(c_name)
+        if 'time' in c_name:
+          col_data = col_data + 1e-9 * table.mkarray(c_name + '_ns')
+  else:
+    col_data = []
 
   return col_data
 
@@ -81,12 +81,12 @@ def readcolfrom2tables(table1, table2, col_name ):
     sys.exit(1)
  
   if table1.nevents():
-      if table1.table[0].has_key('ifo'):
-        ifo = table1.table[0]["ifo"]
-      elif table2.table[0].has_key('ifo'):
-        ifo = table2.table[0]["ifo"]
-      else:
-        ifo = None
+    if table1.table[0].has_key('ifo'):
+      ifo = table1.table[0]["ifo"]
+    elif table2.table[0].has_key('ifo'):
+      ifo = table2.table[0]["ifo"]
+    else:
+      ifo = None
   else:
     ifo = None
 
