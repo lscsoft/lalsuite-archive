@@ -48,12 +48,14 @@ def readcol(table, col_name, ifo=None ):
   if 'dist' in col_name:
     col_names.append(col_name + 'ance')
 
-  for c_name in col_names:
-    
-    if table.table[1].has_key(c_name):
-      col_data = table.mkarray(c_name)
-      if 'time' in c_name:
-        col_data = col_data + 1e-9 * table.mkarray(c_name + '_ns')
+  if table.nevents():
+      for c_name in col_names:
+        if table.table[0].has_key(c_name):
+          col_data = table.mkarray(c_name)
+          if 'time' in c_name:
+            col_data = col_data + 1e-9 * table.mkarray(c_name + '_ns')
+    else:
+      col_data = []
 
   return col_data
 
@@ -78,10 +80,13 @@ def readcolfrom2tables(table1, table2, col_name ):
     print >>sys.stderr, "nevents in table1 and table2 must be equal"
     sys.exit(1)
  
-  if table1.table[1].has_key('ifo'):
-    ifo = table1.table[1]["ifo"]
-  elif table2.table[1].has_key('ifo'):
-    ifo = table2.table[1]["ifo"]
+  if table1.nevents():
+      if table1.table[0].has_key('ifo'):
+        ifo = table1.table[0]["ifo"]
+      elif table2.table[0].has_key('ifo'):
+        ifo = table2.table[0]["ifo"]
+      else:
+        ifo = None
   else:
     ifo = None
 
@@ -116,6 +121,7 @@ def timeindays(col_data ):
     start = s4times[0]
   else:
     print >> sys.stderr, "events not from a known science run"
+    sys.exit(1)
 
   col_data = (col_data - start)/(60 * 60 * 24.0)
 
@@ -126,8 +132,8 @@ def timeindays(col_data ):
 def plot_a_v_b(table, col_name_a, col_name_b, plot_type, plot_sym, \
   output_name = None):
 
-  if table.table[1].has_key('ifo'):
-    ifo = table.table[1]["ifo"]
+  if table.table[0].has_key('ifo'):
+    ifo = table.table[0]["ifo"]
   else:
     ifo = None
 
@@ -406,9 +412,12 @@ def plotval(table1, table2, col_name, plot_type, plot_sym):
   [tmpvar1, tmpvar2, ifo ] = readcolfrom2tables(table1, table2, col_name)
 
   if plot_type == 'linear':
-    plot(tmpvar1, tmpvar2,plot_sym,markersize=12,markerfacecolor=None)
+    plot(tmpvar1, tmpvar2,plot_sym,markersize=12,markerfacecolor=None, \
+      markeredgewidth=1)
   elif plot_type == 'log':
-    loglog(tmpvar1, tmpvar2,plot_sym,markersize=12,markerfacecolor=None)
+    loglog(tmpvar1, tmpvar2,plot_sym,markersize=12,markerfacecolor=None, \
+      markeredgewidth=1)
+
    
 
 #################################################################
