@@ -1,0 +1,24 @@
+# VDS properties file needed by pegasus to create a concrete DAG
+#
+# $Id$
+#
+vds.rc.url = rls://ldas-cit.ligo.caltech.edu
+vds.rc.restricted.sites = lho,llo
+vds.rc.selector = restricted
+vds.rc.lrc.restrict = rls://ldas.ligo-la.caltech.edu,rls://ldas.ligo-wa.caltech.edu
+vds.rls.query = bulk
+vds.rls.query.attrib = true
+vds.rls.exit = never
+vds.cache.asrc = true
+vds.transfer = Bundle
+vds.transfer.links = true
+vds.transfer.force = true
+vds.sc = xml
+vds.sc.file = ./sites.xml
+vds.tc = File
+vds.tc.file = ./tc.data
+vds.tc.mapper = Submit
+vds.dir.exec = workdir
+vds.dir.storage = storagedir
+vds.exitcode = all
+vds.exitcode.arguments = -e
