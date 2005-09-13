@@ -28,6 +28,7 @@ if version_info >= (2, 3):
       os.path.join('sbin','ldbdd'),
       os.path.join('sbin','LSCsegFindServer') ],
     data_files = [ ('etc',[
+      os.path.join('etc','vdsproperties'),
       os.path.join('etc','glue-user-env.sh'),
       os.path.join('etc','glue-user-env.csh'),
       os.path.join('etc','lscsegfindserver.ini')
@@ -50,6 +51,7 @@ else:
       os.path.join('sbin','ldbdd'),
       os.path.join('sbin','LSCsegFindServer') ],
     data_files = [ ('etc',[
+      os.path.join('etc','vdsproperties'),
       os.path.join('etc','glue-user-env.sh'),
       os.path.join('etc','glue-user-env.csh'),
       os.path.join('etc','lscsegfindserver.ini')
