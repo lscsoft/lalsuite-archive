@@ -637,7 +637,7 @@ class LSCdataFindClient(LDRdataFindClient):
                 @return: None
                 """
 
-                distinctValueList = LDRdataFindClient.distinctAttrValues(self, "instrument")
+                distinctValueList = LDRdataFindClient.distinctAttrValues(self, "site")
                 return distinctValueList
 
 
