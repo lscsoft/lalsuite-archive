@@ -22,7 +22,7 @@ sngl_inspiral and sim_inspiral table in LIGO lightweight format
 respectively.  The plots can be turned on by selecting them.  For plots, the
 AXIS must be specified (this is the Y-axis scale).  If either AXIS = 0 then
 the range is set automatically.  The WIDTH of the histograms must also be
-specified.  If either AXIS = 0 then the range is set automatically.
+specified. 
 
 Example 1: ...
 Example 2: ...
@@ -122,10 +122,8 @@ for i in range(len(injFiles)):
   #
   injSets.append(injDict)
 
-
 # set lists of plot symbols
 plotsymbols= ['rx','b+','ko']
-histcolors = ['r','b','k']
 
 ################################
 # plot of mchirp error vs mchirp
@@ -147,13 +145,13 @@ if opts.hist_mchirp:
   hold(True) 
   sym=0
   for set in injSets:
-    viz.histdiff(set['sim_inspiral'], set['sngl_inspiral'],\
-                 'mchirp', 'hist', histcolors[sym],\
-                 opts.nbins, opts.chirp_axis)
+    viz.histdiff(set['sim_inspiral'], set['sngl_inspiral'], 'mchirp', \
+                 'hist', sym, len(injSets), opts.nbins, \
+                 [-opts.chirp_axis,opts.chirp_axis])
     sym+=1
   viz.labelhistdiff('mchirp', 'hist', 'M_sun', tags, opts.title_text,\
-    opts.fig_name)
-
+                    opts.fig_name)
+  
  
 ################################
 # plot of eta error vs eta
@@ -176,12 +174,12 @@ if opts.hist_eta:
   hold(True)
   sym=0
   for set in injSets:
-    viz.histdiff(set['sim_inspiral'], set['sngl_inspiral'],\
-                 'eta', 'hist', histcolors[sym],\
-                 opts.nbins, opts.eta_axis)
+    viz.histdiff(set['sim_inspiral'], set['sngl_inspiral'], 'eta', \
+                 'hist', sym, len(injSets), opts.nbins, \
+                 [-opts.eta_axis,opts.eta_axis])
     sym+=1
-  viz.labelhistdiff('eta', 'hist', None, tags, opts.title_text,\
-    opts.fig_name)
+  viz.labelhistdiff('eta', 'hist', None, tags, opts.title_text, \
+                    opts.fig_name)
 
 
 ################################
@@ -205,12 +203,12 @@ if opts.hist_timing:
   hold(True) 
   sym=0
   for set in injSets:
-    viz.histdiff(set['sim_inspiral'], set['sngl_inspiral'],\
-                 'end_time', 'hist', histcolors[sym],\
-                 opts.nbins, opts.time_axis)
+    viz.histdiff(set['sim_inspiral'], set['sngl_inspiral'], 'end_time', \
+                 'hist', sym, len(injSets), opts.nbins, \
+                 [-opts.time_axis,opts.time_axis])
     sym+=1
-  viz.labelhistdiff('end_time', 'hist', 'seconds', tags, opts.title_text,\
-    opts.fig_name)
+  viz.labelhistdiff('end_time', 'hist', 'seconds', tags, opts.title_text, \
+                    opts.fig_name)
 
 
 ################################
@@ -233,12 +231,12 @@ if opts.hist_dist:
   hold(True)
   sym=0
   for set in injSets:
-    viz.histdiff(set['sim_inspiral'], set['sngl_inspiral'],\
-                 'eff_dist', 'frac_hist', histcolors[sym],\
-                 opts.nbins, opts.dist_axis)
+    viz.histdiff(set['sim_inspiral'], set['sngl_inspiral'], 'eff_dist', \
+                 'frac_hist', sym, len(injSets), opts.nbins, 
+                 [-opts.dist_axis,opts.dist_axis])
     sym+=1
-  viz.labelhistdiff('eff_dist', 'hist', 'Mpc', tags, opts.title_text,\
-    opts.fig_name)
+  viz.labelhistdiff('eff_dist', 'hist', 'Mpc', tags, opts.title_text, \
+                    opts.fig_name)
 
 
 #######################################
