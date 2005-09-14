@@ -42,11 +42,12 @@ parser.add_option("-a","--snr-chisq",action="store_true",default=False,\
 parser.add_option("-b","--log-snr-chisq",action="store_true",default=False,\
     help="make a log plot of snr vs chisq" )
 parser.add_option("-C","--chisq-threshold",action="store",type="float",\
+    metavar=" CHISQ_THRESH",\
     help="specify the chisq threshold (so we can add to plot)" )
 parser.add_option("-D","--chisq-delta",action="store",type="float",\
-    help="specify the delta param for the chisq " )
+    metavar=" CHISQ_DELTA", help="specify the delta param for the chisq " )
 parser.add_option("-B","--chisq-bins",action="store",type="int",\
-    help="specify the number of chisq bins")
+    metavar=" CHISQ_BINS", help="specify the number of chisq bins")
 parser.add_option("-c","--cum-hist-snr",action="store_true",default=False,\
     help="cumulative histogram of the snr" )
 parser.add_option("-d","--hist-snr",action="store_true",default=False,\
