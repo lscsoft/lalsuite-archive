@@ -719,8 +719,8 @@ def cumhistsnr(trigs=None, slideTrigs=None,ifos = None, min_val = None, \
 ######################################################################
 # function to histogram the difference between values of 'col_name' in
 # two tables, table1 and table2
-def histdiff(table1, table2, col_name, plot_type, hist_col, nbins=None, 
-  width=None):
+def histdiff(table1, table2, col_name, plot_type, hist_num, 
+  total_hists=1,  nbins=20, hist_width=None, hist_norm=None):
   """
   function to plot a histogram of the difference of the value of col_name
   between table1 and table2  
@@ -729,33 +729,46 @@ def histdiff(table1, table2, col_name, plot_type, hist_col, nbins=None,
   @param table2: metaDataTable
   @param col_name: name of column to plot
   @param plot_type: either 'hist' or 'frac_hist' 
-  @param hist_col: the colour of the histogram
-  @param nbins: number of bins to plot in histogram (default = 10)
-  @param width: the maximum difference to be shown
+  @param hist_num: the number of the histogram (used for color + placement)
+  @param total_hists: total number of histograms (used to place bars)
+  @param nbins: number of bins to plot in histogram (default = 20)
+  @param hist_width:the minimum/maximum difference to be shown (2 element list)
+  @param hist_norm: normalization of the histogram (total nevents)
   """
 
-  [tmpvar1, tmpvar2, ifo ] = readcolfrom2tables(table1, table2, col_name)
+  histcolors = ['r','b','g','k']
 
+  [tmpvar1, tmpvar2, ifo ] = readcolfrom2tables(table1, table2, col_name)
   tmp_diff = tmpvar2 - tmpvar1
 
   if (plot_type == 'frac_hist'):
     tmp_diff /= tmpvar1
 
-  if not nbins:
-    nbins = 10
+  figure(100)
+  if hist_width:
+    bins = []
+    
+    for i in range(nbins):
+      bins.append(hist_width[0] + (hist_width[1] - hist_width[0]) * i / nbins)
   
-  bins = []
-  if width:
-    for i in range(-nbins,nbins):
-      bins.append(width * i/nbins)
-  
-  if bins:
     out = hist(tmp_diff,bins)
   else:
     out = hist(tmp_diff,nbins)
- 
+  close(100)
+  
   width = out[1][1] - out[1][0]
-  bar(out[1],out[0],width,color=hist_col)
+  
+  height = out[0]
+  if hist_norm:
+    height = height / float(hist_norm)
+  width = width / total_hists
+  left = []
+  for val in out[1]:
+    val = val + (width * hist_num)/2
+    left.append(val)
+ 
+ 
+  bar(left,height,width,color=histcolors[hist_num])
 
   #figtext(0.13,0.8 - 0.1* sym," mean = %6.3e" % mean(tmp_diff))
   #figtext(0.13,0.75 - 0.1 * sym,'sigma = %6.3e' % std(tmp_diff))
