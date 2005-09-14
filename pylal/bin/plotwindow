@@ -1,0 +1,294 @@
+#!/usr/bin/python
+
+import sys
+import os
+from optparse import *
+import re
+import exceptions
+import glob
+from types import *
+
+from pylab import *
+from pylal import readMeta
+from pylal import viz
+
+##############################################################################
+def coinctest(table1, table2, col_name,window):
+  """
+  function to test for coincidence between entries in two tables and remove 
+  entries from both lists which fail coincidence.  assumes that the length of
+  the two lists is equal and entries are sorted (so that entry i in table1 is 
+  coincident with entry i in table2)
+
+  @param table1: metaDataTable
+  @param table2: metaDataTable
+  @col_name: name of column to use for coincidence test
+  @window: size of coincidence window
+  """
+  [detval, injval, ifo ] = viz.readcolfrom2tables(table1,table2,col_name)
+  diff = injval - detval
+  event_nums = range(table1.nevents())
+  event_nums.reverse()
+  for i in event_nums:
+    if diff[i] < window[0] or diff[i] > window[1]:
+      table1.table.pop(i)
+      table2.table.pop(i)
+
+######################################################################
+# function to histogram the difference between values of 'col_name' in
+# two tables, table1 and table2
+def histdiff(table1, table2, col_name, hist_width, nbins=None):
+  """
+  function to plot a histogram of the difference of the value of col_name
+  between table1 and table2  
+  
+  @param table1: metaDataTable
+  @param table2: metaDataTable
+  @param col_name: name of column to plot
+  @param hist_width: the width of the histogram
+  @param nbins: number of bins to plot in histogram (default = 10)
+  """
+  [tmpvar1, tmpvar2, ifo ] = viz.readcolfrom2tables(table1, table2, col_name)
+  tmp_diff = tmpvar2 - tmpvar1
+  if not nbins:
+    nbins = 10
+  bins = []
+  for i in range(nbins):
+    bins.append(hist_width[0] + i * (hist_width[1] - hist_width[0])/nbins)
+  figure(100)
+  out = hist(tmp_diff,bins)
+  close(100)
+  height = out[0]
+  bins = out[1]
+  return [bins,height]
+
+######################################################################
+# function to histogram the difference between values of 'col_name' in
+# two tables, table1 and table2
+def revisewindow(bins,foreground,background):
+  """
+  function to determine a revised window for the parameter.
+
+  @param bins: the bin boundaries
+  @param foreground: the number of foreground entries in each bin
+  @param background: the number of background entries in each bin
+  """
+  bin_width = bins[1] - bins[0]
+  bin_num = range(len(bins))
+  sum(background)
+  low_window = bins[0]
+  high_window = bins[0] + bin_width * len(bins)
+  for i in bin_num:
+    if foreground[i] > background[i]:
+      # stop if 
+      # 1) fg > 2 and fg > 2 * bg
+      if foreground[i] >= 2 and foreground[i] > 2 * background[i]:
+        low_window = bins[i]
+        break
+      # 2) fg > bg for two consecutive bins
+      if foreground[i+1] > background[i+1]:
+        low_window = bins[i]
+        break
+      # 3) no background so keep everything
+      if foreground[i] > 0 and sum(background) == 0:
+        low_window = bins[i]
+        break
+  bin_num.reverse()
+  for i in bin_num:
+    if foreground[i] > background[i]:
+      # stop if 
+      # 1) fg > 2 and fg > 2 * bg
+      if foreground[i] > 2 and foreground[i] > 2 * background[i]:
+        high_window = bins[i] + bin_width
+        break
+      # 2) fg > bg for two consecutive bins
+      if foreground[i-1] > background[i-1]:
+        high_window = bins[i] + bin_width
+        break
+      # 3) no background so keep everything
+      if foreground[i] >0 and sum(background) == 0:
+        high_window = bins[i] + bin_width
+        break
+  return [low_window,high_window]
+ 
+######################################################################
+# function to histogram the difference between values of 'col_name' in
+# two tables, table1 and table2
+def makeplot(injDict,col_name,width,nevents):
+  """
+  make the plot we want
+
+  @param injDict:  dictionary containing the data
+  @param col_name: name of column to use
+  @param width:    width of the histogram
+  @param nevents:  number of events
+  """
+  hold(True) 
+  sym=0
+  viz.histdiff(injDict['fg_sngl'], injDict['fg_sim'], col_name,'hist',sym,2,
+      20,width)
+  sym+=1
+  if injDict['bg_sim'].nevents():
+    viz.histdiff(injDict['bg_sngl'], injDict['bg_sim'], col_name,'hist',sym,2,
+        20,width,nevents['bg']/float(nevents['fg']) ) 
+ 
+ 
+##############################################################################
+usage = """usage: %prog [options] 
+
+Thinca Triggers Plotting Function
+
+Generate a set of summary plots from a list of thinca files.
+
+"""
+
+parser = OptionParser( usage )
+parser.add_option("-v","--version",action="store_true",default=False,\
+    help="display version information " )
+parser.add_option("-g","--glob-found",action="store",type="string",\
+    default=None, metavar=" GLOB",\
+    help="GLOB of found injection trigger files" )
+parser.add_option("-G","--glob-bg-found",action="store",type="string",\
+    default=None, metavar=" GLOB",
+    help="GLOB of background found injection trigger files" )
+parser.add_option("-m","--glob-missed",action="store",type="string",\
+    default=None, metavar=" GLOB",\
+    help="GLOB of missed injection trigger files" )
+parser.add_option("-M","--glob-bg-missed",action="store",type="string",\
+    default=None, metavar=" GLOB",\
+    help="GLOB of background missed injection trigger files" )
+parser.add_option("-f","--figure-name",action="store",type="string",\
+    default=None, metavar=" FNAME",\
+    help="generate png figures with name FNAME-fig.png" )
+parser.add_option("-s","--show-plot",action="store_true",default=False,\
+    help="display the figures on the terminal" )
+parser.add_option("-n","--nbins",action="store",type="int",default=20,\
+    metavar=" NBINS", help="number of bins for the histogram plots" )
+parser.add_option("-S","--max-step",action="store",type="float",default=1./3,\
+    metavar=" MAXSTEP",\
+    help="maximum fractional step made when revising the coincidence window" )
+(opts,args) = parser.parse_args()
+
+
+if not opts.glob_found:
+  print >>sys.stderr, "Must specify a GLOB of found files to read"
+  print >>sys.stderr, "Enter 'plotwindow --help' for usage"
+  sys.exit(1)
+
+if not opts.glob_missed:
+  print >>sys.stderr, "Must specify a GLOB of missed files to read"
+  print >>sys.stderr, "Enter 'plotwindow --help' for usage"
+  sys.exit(1)
+
+if not opts.glob_bg_found:
+  print >>sys.stderr, "Must specify a GLOB of bg found files to read"
+  print >>sys.stderr, "Enter 'plotwindow --help' for usage"
+  sys.exit(1)
+
+if not opts.glob_bg_missed:
+  print >>sys.stderr, "Must specify a GLOB of bg missed files to read"
+  print >>sys.stderr, "Enter 'plotwindow --help' for usage"
+  sys.exit(1)
+
+
+
+
+# glob for files
+injFFiles = glob.glob(opts.glob_found)
+injMFiles = glob.glob(opts.glob_missed)
+bgFFiles = glob.glob(opts.glob_bg_found)
+bgMFiles = glob.glob(opts.glob_bg_missed)
+
+# read in the foreground and background triggers
+injDict = {}
+injDict["fg_sngl"] = readMeta.metaDataTable(injFFiles, "sngl_inspiral")
+injDict["fg_sim"]  = readMeta.metaDataTable(injFFiles, "sim_inspiral")
+injDict["bg_sngl"] = readMeta.metaDataTable(bgFFiles, "sngl_inspiral")
+injDict["bg_sim"]  = readMeta.metaDataTable(bgFFiles, "sim_inspiral")
+
+# check that we have events:
+if not injDict["fg_sngl"].nevents():
+  print >>sys.stderr, "No found injections! Exiting"
+  sys.exit(1)
+
+injDict["fg_mis"] = readMeta.metaDataTable(injMFiles, "sim_inspiral")
+injDict["bg_mis"] = readMeta.metaDataTable(bgMFiles, "sim_inspiral")
+
+num_inj = {}
+num_inj['fg'] = injDict["fg_sim"].nevents() + injDict["fg_mis"].nevents()
+num_inj['bg'] = injDict["bg_sim"].nevents() + injDict["bg_mis"].nevents()
+
+
+# find the initial coincidence windows (1.2 times the furthest outlier)
+# and remove all background outside this
+coinc_cols = ['mchirp','eta','end_time']
+window = {}
+fig_num = 0
+
+for col_name in coinc_cols:
+  [detval, injval, ifo ] = viz.readcolfrom2tables(injDict["fg_sngl"], 
+      injDict["fg_sim"], col_name)
+  window[col_name] = [1.2 * min(injval - detval), 1.2 * max(injval - detval)]
+
+revision_number = 0
+revision = True
+min_col = None
+while revision == True:
+  # make plots of the coincidence windows
+  for col_name in coinc_cols:
+    coinctest(injDict["fg_sngl"], injDict["fg_sim"], col_name,window[col_name])
+    if injDict["bg_sngl"].nevents():
+      coinctest(injDict["bg_sngl"], injDict["bg_sim"], col_name,
+          window[col_name])
+    fig_num +=1
+    figure(fig_num)
+    makeplot(injDict,col_name,window[col_name],num_inj)
+    ylim(0,10)
+    title(col_name, size='x-large')
+    
+    if opts.figure_name:
+      output_name = opts.figure_name + '_' + col_name + '_revised_' + \
+          str(revision_number) + '.png'
+      savefig(output_name)
+
+  # work out the revised windows
+  new_window = {}
+  win_ratio = {}
+  for col_name in coinc_cols:
+    [bins,fg] = histdiff(injDict['fg_sngl'],injDict['fg_sim'],col_name, \
+        window[col_name],20)
+    if injDict['bg_sngl'].nevents():
+      [bins,bg] = histdiff(injDict['bg_sngl'],injDict['bg_sim'],col_name, \
+          window[col_name],20)
+      bg = bg * float(num_inj['fg']) / float(num_inj['bg'])
+    else:
+      bg = zeros(len(bins))
+    new_window[col_name] = revisewindow(bins,fg,bg)
+    win_ratio[col_name] = (new_window[col_name][1] - new_window[col_name][0]) \
+        / (window[col_name][1] - window[col_name][0]) 
+  sys.stdout.flush()
+  min_ratio = 1
+  for col_name, col_ratio in win_ratio.iteritems():
+    if col_ratio < min_ratio:
+      min_ratio = col_ratio
+      min_col = col_name
+  if min_ratio == 1:
+    revision = False
+  revision_number += 1
+
+  
+  # only reduce the window by 1/3 in any step
+  if win_ratio[min_col] < (1 - opts.max_step):
+    scale_factor = opts.max_step / ( 1 - win_ratio[min_col] )
+    window[min_col][0] = window[min_col][0] + \
+        scale_factor * (new_window[min_col][0] - window[min_col][0])
+    window[min_col][1] = window[min_col][1] + \
+        scale_factor * (new_window[min_col][1] - window[min_col][1])
+  else:
+    window[min_col] = new_window[min_col]
+
+  print min_col
+
+print window
+if opts.show_plot:
+  show()
