@@ -381,12 +381,13 @@ class LIGOMetadata:
       4  : 'int_4s',
       7 : 'real_4',
       8 : 'real_8',
-      12 : 'lstring'
+      12 : 'lstring',
+      93 : 'lstring', 
       }
     try:
       tab = re.compile(r'FROM\s+([A-Z0-0_]+)([,\s]+|$)').search(sql).group(1)
     except AttributeError:
-      raise LIGOLwDBError, 'could not find table name in query '+sql
+      raise LIGOLwDBError, 'could not find table name in query ' + str(sql)
     self.table[tab] = {
       'pos' : 0,
       'column' : {},
@@ -402,7 +403,7 @@ class LIGOMetadata:
       try:
         self.table[tab]['column'][col] = sqltypes[typ]
       except KeyError:
-        raise LIGOLwDBError, 'unknown type returned by database '+typ
+        raise LIGOLwDBError, 'unknown type returned by database ' + str(typ)
       self.table[tab].setdefault('orderedcol',[]).append(col)
 
     try:
