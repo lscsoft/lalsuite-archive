@@ -33,16 +33,14 @@ def usage():
   msg = """\
 Usage: ldbdc.py [OPTIONS]
 
-  -s, --server HOST:PORT  connect to ldbd on HOST:PORT (default port 49999)
+  -r, --server HOST:PORT  connect to ldbd on HOST:PORT (default port 30020)
   -j, --identity SUBJECT  the subject of the servers service certififcate
-  -d, --database NAME     use database NAME
   -i, --insert LIGOLW     insert LIGO lightweight file LIGOLW
   -q, --query QUERY       execute SQL query QUERY
   -o, --output FILE       write output to FILE
   -p, --ping              ping the server
   -h, --help              print this message
 
-The options --server and --database must be specified.
 One of the options --query or --insert must be specified.
 \
 """
@@ -52,7 +50,7 @@ def help():
   usage()
   sys.exit(0)
 
-shortop = "s:j:d:i:q:o:vph"
+shortop = "r:j:d:i:q:o:vph"
 longop = [
   "server=",
   "identity=",
@@ -71,23 +69,26 @@ except getopt.GetoptError:
   sys.exit(1)
 
 # defaults
-server = None
+hostPortString = None
 port = 30020
 identity = None
-database = None
 infile = None
 outfile = None
 squery = None
 ping = None
 
+# environment variables override defaults but not
+# command line options
+try:
+  hostPortString = os.environ['LDBD_SERVER']
+except:
+  pass
+
 for o, a in opts:
   if o in ("-h", "--help"):
     help()
-  elif o in ("-s", "--server"):
-    a = a.split(':')
-    server = a[0]
-    try: port = a[1]
-    except IndexError: pass
+  elif o in ("-r", "--server"):
+    hostPortString = a
   elif o in ("-j", "--identity"):
     identity = a
   elif o in ("-i", "--insert"):
@@ -101,24 +102,39 @@ for o, a in opts:
   elif o in ("-p", "--ping"):
     ping = 1
 
-if not server or not database or (not infile and not squery and not ping):
+# determine server and port
+if not hostPortString:
+  print >>sys.stderr, "No ldbd server specified"
+  print >>sys.stderr, "Enter 'ldbdc --help' for usage"
+  sys.exit(1)
+
+if hostPortString.find(':') < 0:
+  # no port specified
+  host = hostPortString
+else:
+  # server and port specified
+  host, portString = hostPortString.split(':')
+  port = int(portString)
+
+if not infile and not squery and not ping:
+  print "\nNo operation specified\n"
   usage()
   sys.exit(1)
 if (squery and infile):
-  print "Only one of --query and --insert can be specified\n"
+  print "\nOnly one of --query and --insert can be specified\n"
   usage()
   sys.exit(1)
 
 if not identity:
-  identity = "/DC=org/DC=doegrids/OU=Services/CN=ldbd/%s" % server
+  identity = "/DC=org/DC=doegrids/OU=Services/CN=ldbd/%s" % host
 
 # open connection to LDBD Server
 try:
-  myClient = LDBDClient.LDBDClient(server, port, identity)
+  myClient = LDBDClient.LDBDClient(host, port, identity)
 
 except Exception, e:
   print >>sys.stderr, \
-    "Unable to connect to LDBD Server %s:%d" % (server, port)
+    "Unable to connect to LDBD Server %s:%d" % (host, port)
   if gsiserverutils.checkCredentials():
     print >>sys.stderr, "Got the following error : " + str(e)
     print >>sys.stderr, "Enter 'LSCsegFind --help' for usage"
