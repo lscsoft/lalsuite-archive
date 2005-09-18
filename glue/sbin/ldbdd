@@ -165,7 +165,7 @@ configuration = {
   'dbname' : 'ldbd_tst',
   'dbuser' : 'grid',
   'dbpasswd' : '',
-  'max_client_byte_string': 2048,
+  'max_client_byte_string': 1048576,
   'pidfile' : '/ldcg/glue/var/run/ldbdd.pid',
   'logfile' : '/ldcg/glue/var/log/ldbdd.log',
   'logmaxbytes' : 1024 * 1024 * 1,
@@ -406,9 +406,9 @@ class LDBDServerHandler(SocketServer.BaseRequestHandler):
       ligomd.parse(arg[0])
 
       # insert the metadata into the database
-      ligomd.insert()
+      result = str(ligomd.insert())
 
-      logger.debug("Method insert: metadata inserted")
+      logger.info("Method insert: %s rows affected by insert" % result)
       code = 0
     except Exception, e:
       result = ("Error inserting metadata into database: %s" % e)
