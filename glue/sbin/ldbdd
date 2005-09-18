@@ -1,350 +1,823 @@
 #!/usr/bin/python
-#
-# lightweight database dumper daemon
-#
-# $Id$
-#
-# Copyright (C) 2003 Duncan Brown
-# 
-# This file is part of the lightweight datapase dumper (ldbd)
-#
+"""
+ldbdd listens on a socket for connections from a client, processes the
+requests and then returns the results to the client.
 
-import os
+The server is built on top of the ThreadingGSITCPSocketServer from
+the io module in U{pyGlobus<http://www-itg.lbl.gov/gtg/projects/pyGlobus/>},
+which is build on top of the standard module SocketServer.
+"""
+
 import sys
-import string
-import re
+import os
+import signal
+import logging
+import logging.handlers
 import getopt
-import pyRXP
-from glue import ldbd
+import ConfigParser
+import time
+import socket
 import SocketServer
+import types
+import exceptions
+import cPickle
+import copy
+import pyRXP
+import re
 from pyGlobus import io
+from glue import gsiserverutils
+from glue import ldbd
 
-class GridMap(file):
+
+def SIGHUPhandler(signum, frame):
   """
-  Class to represent the grid-mapfile used for the server. Inherits
-  from standard 'file' class and adds __getitem__ and __setitem__
-  methods for convenience.
+  Handle SIGHUP signals by asking the server to stop its 
+  service, then read the gridmap file again and reconfigure, 
+  after which the service will automatically start again.
+
+  @param signum: signal number; see the documentation for the 
+    signal module
+
+  @param frame: current stack frame; see the documentation for
+    the signal module
+        
+  @return: None
   """
-  def __init__(self):
-    self.path = os.environ["GRIDMAP"]
-    mode = 'r'
-    file.__init__(self,self.path,mode)
-    lines = [ s.strip() for s in self.readlines()]
-    subjects = [ s.split('"')[1] for s in lines]
-    self.d = {}
-    for s in subjects:
-      self.d[s] = 1
-    file.close(self)
+  global logger
+  global myServer
+  global myConfigParser
+  
+  myServer.stopService()
+  logger.info("Re-reading configuration file")
 
-  def __getitem__(self,key):
-    if self.d.has_key(key):
-      return 1
-    else:
-      return 0
-
-  def __setitem__(self,key,value):
-    self.d[key] = value
-
-  def __delitem__(self,key):
-    del self.d[key]
-
-def auth_callback(arg, handle, identity, context):
-  ldbdGridMap = GridMap()
-  if ldbdGridMap[identity]:
-    if verbose: print "accepted connection from %s" % identity
-    return 1
-  else:
-    if verbose: print "denied connection to %s" % identity
-    return 0
-
-class LDBDRequestHandler(SocketServer.StreamRequestHandler):
-  def handle(self):
-    indata = ''
-    if verbose:
-      print "Got a connection from %s" % (self.client_address,)
-    # determine the parameters of this transaction
-    msg = self.rfile.readline().strip()
-    (action, database, squery, nl) = msg.split("\0")
-    nlines = int(nl)
-    # create a ligo metadata object
+  myConfigParser.read(configFilePath)
+  for k in configuration.keys():
     try:
-      if verbose: print "accessing database %s" % database
-      dbobj = dbs[database]
-    except KeyError:
-      errmsg = "1\nUnknown database name: %s" % database
-      self.wfile.write(errmsg)
-      if verbose: print errmsg
-      return
+      value = myConfigParser.get('ldbdd',k)
+    except ConfigParser.NoOptionError:
+      try:
+        logger.error("Error: missing configuration option : %s" % (k))
+      except:
+        print >> sys.stderr, "Error: missing configuration option : %s" % (k)
+      sys.exit(1)
     try:
-      if verbose: print "creating a ligo metadata object"
-      self.ligomd = ldbd.LIGOMetadata(dbobj,xmlparser,lwtparser)
-    except ldbd.LIGOLwDBError, e:
-        del self.ligomd
-        errmsg = "1\n%s" % e
-        self.wfile.write(errmsg)
-        if verbose: print errmsg
-        return
-    if re.match("insert",action):
-      # read the the xml data from the client
-      if verbose: print "recieved xml data from client"
-      n = 0
-      while ( n < nlines ):
-        indata += self.rfile.readline()
-        n += 1
-      # now parse the xml data and try and insert it into the database
-      if verbose: print "parsing xml data into ligo metadata object"
-      try:
-        self.ligomd.parse(indata)
-      except ldbd.LIGOLwParseError, e:
-        del self.ligomd
-        errmsg = "1\n%s" % e
-        self.wfile.write(errmsg)
-        if verbose: print errmsg
-        return
-      try:
-        if verbose: print "inserting ligo metadata object into %s" % database
-        self.ligomd.insert()
-        retdata = "0\n"
-        self.wfile.write(retdata)
-      except ldbd.LIGOLwDBError, e:
-        del self.ligomd
-        errmsg = "1\n%s" % e
-        self.wfile.write(errmsg)
-        if verbose: print errmsg
-        return
-    elif re.match("query",action):
-      # try and execute a database query and return the result as xml
-      try:
-        if verbose: 
-          print "trying to execute sql query on %s" % database
-          print squery
-        self.ligomd.select(squery)
-        if verbose: print "trying to convert results to xml"
-        xmldata = self.ligomd.xml()
-      except ldbd.LIGOLwDBError, e:
-        del self.ligomd
-        errmsg = "1\n%s" % e
-        self.wfile.write(errmsg)
-        if verbose: print errmsg
-        return
-      retdata = "0\n%s" % xmldata
-      self.wfile.write(retdata)
-    else:
-      # unknown action, so give up
-      errmsg = "1\nunknown method recieved by server: %s" % action 
-      self.wfile.write(errmsg)
-      if verbose: print errmsg
-    if verbose: print "transaction complete"
-    del self.ligomd
-    return
+      configuration[k] = eval(value)
+    except:
+      configuration[k] = value
 
-def usage():
-  msg = """\
-Usage: ldbdd [OPTIONS]
 
-  -p, --port PORT           listen for connections on PORT (default 49999)
-  -g, --gridmap FILE        obtain user credentials from FILE
-  -c, --certificate FILE    obtain service certificate from FILE
-  -k, --key FILE            obtain service private key form FILE
-  -d, --databases db1,db2   comma separated list of databases to use
-  -v, --verbose             don't fork and print lots of debugging information
-  -h, --help                print detailed help message
+def SIGTERMhandler(signum, frame):
+  """
+  Handle SIGTERM signals by asking the server to stop and die.
 
-The --gridmap, --certificate,--key and --databases options must be specified.
-\
-"""
-  print msg
+  @param signum: signal number; see the documentation for the 
+    signal module
 
-def help():
-  msg = """\
-NAME
-       ldbdd - lightweight database dumper server daemon
+  @param frame: current stack frame; see the documentation for
+    the signal module
+        
+  @return: None
+  """
+  global myServer
 
-SYNOPSIS
-       ldbdd  [--port PORT]  --gridmap  FILE  --certificate  FILE
-       --key FILE [--verbose] [--help]
+  myServer.die()
 
-DESCRIPTION
-       ldbdd  is  the server daemon for the lightweight  database 
-       dumper. It listens on a specified port (the  default  port
-       is 49999) for connections from ldbdc client  programs.  It
-       executes any requests from the client programs  to  insert 
-       data into or retrive data from the databases it has access
-       to. ldbdd should be run as the user who owns the  database
-       instance that contains the desired  databases.  Users  may
-       insert LIGO lightweight data into a  database  or  execute
-       SQL SELECT queries to retrieve  data.  Administrators  may
-       execute arbitrary SQL and  edit  the  user  gridmap  file. 
-       ldbdd forks  into  the  background  on  entry  and  serves
-       requests. A SIGHUP causes it to cleanup  and  exit  and  a 
-       SIGUSR1 causes it to reconnect to the database to  rebuild
-       it's database hash tables. SIGUSR2 causes it to reload the
-       gridmap files.
 
-OPTIONS
-       -p, --port PORT
-               listen on PORT (defaults to 49999)
 
-       -g, --gridmap FILE
-               obtain user grid credentials from FILE
-  
-       -c, --certificate FILE
-                obtain service certificate from FILE
-  
-       -k, --key FILE
-                obtain service private key form FILE
-  
-       -d, --databases db1,db2
-                comma separated list of databases to use
+def socketReadyCallback(arg, handle, result):
+  """
+  Called when a socket is ready for reading (when a connection has been made
+  and there is something to read).
 
-       -v, --verbose
-               don't fork and print lots of debugging information
+  This function simply sets a flag to let the server loop know the socket
+  is ready for reading.
 
-       -h, --help
-               print this message
+  @param arg: User supplied argument. Here it is used to carry the socket ready
+    flag.
+  @param handle: a pointer to the SWIG'ized globus_io_handle_t
+  @param result: a pointer to the SWIG'ized globus_result_t
 
-ENVIRONMENT
-        The IBM DB2 driver requires that the DB2INSTANCE variable
-        be set to the name  of the  database  instance  that  the
-        driver is using.
+  @return: None
+  """
+  arg.mySocketReady = 1
 
-DIAGNOSTICS
-        An exit  status  of  0  means  that  the  deamon  started
-        sucessfully and no errors ocourred and 1 that the  daemon
-        was unable to fork and detach from the parent process.
 
-AUTHOR
-       Duncan Brown <duncan@gravity.phys.uwm.edu>
 
-BUGS
-       Some things are slow, some things are wrong and some things
-       just don't work yet. Check out the  justification  on  this
-       help message, though. Done by hand that is.
-\
-"""
-  print msg
-  sys.exit(0)
-
-shortop = "p:g:c:k:d:vh"
+# parse command line options
+shortop = "c:gh"
 longop = [
-  "port=",
-  "gridmap=",
-  "certificate=",
-  "key=",
-  "databases=",
-  "verbose",
+  "config-file=",
+  "daemon",
   "help"
   ]
+
+
+usage = """\
+Usage: ldbdd [OPTIONS]
+
+  -c, --config-file FILE    read configuration from FILE
+  -d, --daemon              run as a deamon
+  -h, --help                print detailed help message
+
+If no configuration file is given, the server will attempt to use
+
+  ${GLUE_LOCATION}/etc/ldbdd.ini
+
+Sending the server process a HUP will cause the confuration and grid-mapfile
+to be re-read and sending the process a TERM will shutdown the server.
+"""
+
+#default for command-line options
+runAsDaemon = False
+configFilePath = None
 
 try:
   opts, args = getopt.getopt(sys.argv[1:], shortop, longop)
 except getopt.GetoptError:
-  usage()
+  print >>sys.stderr, "Error parsing command line"
   sys.exit(1)
-
-# defaults
-port = 49999
-userfile = None
-gridmap = None
-certfile = None
-keyfile = None
-verbose = None
-dblist = None
 
 for o, a in opts:
+  if o in ("-d", "--daemon"):
+    runAsDaemon = True
+  if o in ("-c", "--config-file"):
+    configFilePath = a
   if o in ("-h", "--help"):
-    help()
-  elif o in ("-p", "--port"):
-    port = a
-  elif o in ("-g", "--gridmap"):
-    gridmap = a
-  elif o in ("-c", "--certificate"):
-    certfile = a
-  elif o in ("-k", "--key"):
-    keyfile = a
-  elif o in ("-d", "--databases"):
-    dblist = a.split(',')
-  elif o in ("-v", "--verbose"):
-    verbose = 1
+    print usage
+    sys.exit(0)
 
-if not gridmap or not certfile or not keyfile or not dblist:
-  usage()
+try:
+  GLUE_LOCATION = os.environ["GLUE_LOCATION"]
+except:
+  pass
+
+if not configFilePath:
+  configFilePath = os.path.join(GLUE_LOCATION, "etc/ldbdd.ini")
+
+# default configuration values may go here, but they will be replaced
+# by actual values if and when a ConfigurationManager instance is
+# created elsewhere
+configuration = {
+  'port' : 30015,
+  'gridmap' : '/ldcg/glue/etc/grid-security/ldbdd/grid-mapfile',
+  'certfile' : '/ldcg/glue/etc/grid-security/ldbdd/ldbdcert.pem',
+  'keyfile' : '/ldcg/glue/etc/grid-security/ldbd/ldbdkey.pem',
+  'dbname' : 'ldbd_tst',
+  'dbuser' : 'grid',
+  'dbpasswd' : '',
+  'max_client_byte_string': 2048,
+  'pidfile' : '/ldcg/glue/var/run/ldbdd.pid',
+  'logfile' : '/ldcg/glue/var/log/ldbdd.log',
+  'logmaxbytes' : 1024 * 1024 * 1,
+  'logbackupcount' : 5,
+  'loglevel' : 'INFO'
+  }
+
+# grab configuration
+myConfigParser = ConfigParser.ConfigParser()
+try:
+  myConfigParser.read(configFilePath)
+except:
+  print >> sys.stderr, "Error: unable to read configuration file : %s"
   sys.exit(1)
 
-# set up the environment variables
-os.environ["X509_USER_CERT"] = certfile
-os.environ["X509_USER_KEY"] = keyfile
-os.environ["GRIDMAP"] = gridmap
+for k in configuration.keys():
+  try:
+    value = myConfigParser.get('ldbdd',k)
+  except ConfigParser.NoOptionError:
+    print >> sys.stderr, "Error: missing configuration option : %s" % (k)
+    sys.exit(1)
+  try:
+    configuration[k] = eval(value)
+  except:
+    configuration[k] = value
 
 # initialize the database hash table
-dbs = {}
-for database in dblist:
-  dbs[database] = ldbd.LIGOMetadataDatabase(database)
+dbname = configuration['dbname']
+dbobj = ldbd.LIGOMetadataDatabase(dbname)
 
 # create the xml and ligolw parsers
 xmlparser = pyRXP.Parser()
 lwtparser = ldbd.LIGOLwParser()
 
-if not verbose:
-  # do the first fork
-  try:
-    pid = os.fork()
-    if pid > 0:
-      # exit first parent
-      sys.exit(0)
-  except OSError, e:
-    print >>sys.stderr, "fork #1 failed: %d (%s)" % (e.errno, e.strerror)
-    sys.exit(1)
-  
-  # decouple from parent environment
-  os.chdir("/")
-  os.setsid()
-  os.umask(0)
-  
-  # do the second fork
-  try:
-    pid = os.fork()
-    if pid > 0:
-      # exit from second parent
-      sys.exit(0)
-  except OSError, e:
-    print >>sys.stderr, "fork #2 failed: %d (%s)" % (e.errno, e.strerror)
-    sys.exit(1)
 
-else:
-  print "verbose mode enable, not forking"
 
-# create the server
-authData = io.AuthData()
-authData.set_callback(auth_callback, None)
+class LDBDServerHandlerException(exceptions.Exception):
+  """
+  Class representing exceptions within the LDBDServer class.
+  """
+  def __init__(self, args=None):
+    """
+    Initialize an instance.
 
-servAttr = io.TCPIOAttr()
-servAttr.set_authentication_mode(
-  io.ioc.GLOBUS_IO_SECURE_AUTHENTICATION_MODE_GSSAPI
-  )
-servAttr.set_authorization_mode(
-  io.ioc.GLOBUS_IO_SECURE_AUTHORIZATION_MODE_CALLBACK, authData
-  )
+    @param args: 
 
-serv = io.GSITCPSocketServer(
-  ("", port), 
-  LDBDRequestHandler,
-  io.ioc.GLOBUS_IO_SECURE_CHANNEL_MODE_CLEAR,
-  io.ioc.GLOBUS_IO_SECURE_DELEGATION_MODE_FULL_PROXY,
-  servAttr
-  )
+    @return: Instance of class LDBDServerHandlerException
+    """
+    self.args = args
+        
 
-sys.stdout.write ('Daemon started with pid %d\n' % os.getpid() )
 
-# Open file descriptors and print start message
-stdout = '/dev/null'
-stderr = '/dev/null'
-stdin = '/dev/null'
-si = file(stdin, 'r')
-so = file(stdout, 'a+')
-se = file(stderr, 'a+', 0)
-os.dup2(si.fileno(), sys.stdin.fileno())
-os.dup2(so.fileno(), sys.stdout.fileno())
-os.dup2(se.fileno(), sys.stderr.fileno())
+class LDBDServerHandler(SocketServer.BaseRequestHandler):
+  """
+  An instance of this class is created to service each request of the server.
+  """
+  def handle(self):
+    """
+    This method does all the work of servicing a request to the server. See
+    the documentation for the standard module SocketServer.
 
-serv.serve_forever()
+    The input from the socket is parsed for the method with the remaining
+    strings stripped of null bytes passed to the method in a list.
+
+    There are no parameters. When the instance of the class is created to
+    process the request all necessary information is made attributes of the
+    class instance.
+
+    @return: None
+    """
+    global logger
+
+    logger.debug("handle method of LDBDServerHandler class called")
+
+    # mapping of ldbdd RPC protocol names to methods of this class
+    methodDict = {
+      'PING' : self.ping,
+      'QUERY' : self.query,
+      'INSERT' : self.insert
+    }
+
+    try:
+      # from the socket object create a file object
+      self.sfile = self.request.makefile("rw")
+      f = self.sfile
+
+      # read all of the input up to limited number of bytes
+      max = configuration['max_client_byte_string']
+      input = f.read(size=max,waitForBytes=2)
+
+      # the format should be a method string, followed by a null byte
+      # followed by the arguments to the method encoded as null
+      # terminated strings
+
+      # check if the last byte is a null byte
+      if input[-1] != '\0':
+        raise LDBDServerHandlerException, \
+          "Last byte of input is not null byte"
+    except Exception, e:
+      logger.error("Error reading input on socket: %s" %  e)
+      return
+
+    logger.debug("Input on socket: %s" % input[0:-1])
+
+    try:
+      # parse out the method and arguments 
+      stringList = input.split('\0')
+      methodString = stringList[0]
+      argStringList = stringList[1:-1]
+                        
+    except Exception, e:
+      logger.error("Error parsing method and argument string: %s" % e)
+
+      msg = "ERROR ldbdd Error: " + \
+        "Error parsing method and argument string: %s" % e
+      self.__reply__(1, msg)
+      return
+                
+    try:
+      # look up method in dictionary
+      method = methodDict[methodString]
+    except Exception, e:
+      msg = "Error converting method string %s to method call: %s" % \
+        (methodString, e)
+      logger.error(msg)
+                        
+      self.__reply__(1, msg)
+      return
+
+    try:
+      # call the method requested with the rest of strings as input
+      method(argStringList) 
+    except Exception, e:
+      logger.error("Error while calling method %s: %s" % (methodString, e))
+
+    return
+        
+  def __reply__(self, code, msg):
+    """
+    Format and send a reply back down the socket to the client. The file
+    representing the socket is closed at the end of this method.
+
+    @param code: integer representing the error code with 0 for success
+                
+    @param msg: object to be passed back to the client, either a string
+    or a list of items that can be represented by strings
+                        
+    @return: None
+    """
+    f = self.sfile
+    reply = "%d\0%s\0" % (code, msg)
+    f.write(reply)
+
+    # close the file associated with the socket
+    f.close()
+
+  def ping(self, arg):
+    """
+    Bounce back alive statment. Corresponds to the PING method in the
+    ldbdd RPC protocol.
+
+    @param arg: list (perhaps empty) of strings representing message sent
+      by client to server
+
+    @return: None
+     """
+
+    logger.debug("Method ping called")
+    try:
+      hostname = socket.getfqdn()
+      msg = "ldbdd at %s is alive" % hostname
+    except Exception, e:
+      msg = "ldbdd is alive"
+
+    self.__reply__(0, msg)
+
+
+  def query(self, arg):
+    """
+    Execute an SQL query on the database and return the result as LIGO_LW XML
+
+    @param arg: a text string containing an SQL query to be executed
+
+    @return: None
+    """
+
+    # get the query string and log it
+    querystr = arg[0].lower()
+    logger.debug("Method query called with %s" % querystr)
+
+    # assume failure
+    code = 1
+
+    try:
+      # create a ligo metadata object
+      ligomd = ldbd.LIGOMetadata(dbobj,xmlparser,lwtparser)
+
+      # execute the query
+      rowcount = ligomd.select(querystr)
+
+      # convert the result to xml
+      result = ligomd.xml()
+
+      logger.debug("Method query: %d rows returned" % rowcount)
+      code = 0
+    except Exception, e:
+      result = ("Error querying metadata database: %s" % e)
+      logger.error(result)
+
+    try:
+      del ligomd
+    except Exception, e:
+      logger.error(
+        "Error deleting metadata object in method query: %s" % e)
+
+    self.__reply__(code, result)
+
+
+  def insert(self, arg):
+    """
+    Insert some LIGO_LW xml data in the metadata database
+
+    @param arg: a text string containing an SQL query to be executed
+
+    @return: None
+    """
+
+    logger.debug("Method insert called")
+
+    # assume failure
+    code = 1
+
+    try:
+      # create a ligo metadata object
+      ligomd = ldbd.LIGOMetadata(dbobj,xmlparser,lwtparser)
+
+      # parse the input string into a metadata object
+      ligomd.parse(arg[0])
+
+      # insert the metadata into the database
+      ligomd.insert()
+
+      logger.debug("Method insert: metadata inserted")
+      code = 0
+    except Exception, e:
+      result = ("Error inserting metadata into database: %s" % e)
+      logger.error(result)
+
+    try:
+      del ligomd
+    except Exception, e:
+      logger.error(
+        "Error deleting metadata object in method insert: %s" % e)
+
+    self.__reply__(code, result)
+
+
+
+class LDBDServer(object):
+  """
+  An instance of this class is a multi-threadead server that will listen on a
+  socket/port for connections from a client and will process requests.
+  """
+  def __init__(self):
+    """
+    Perform any checks that are necessary before becoming a daemon and
+    starting a socket service to listen on. If any check fail print
+    to stderr and exit.
+
+    @param:
+
+    @return: instance of class LDBDServer
+    """
+    self.server = None
+
+    # verify that we have access to the certificate, key, grid-mapfile
+    certFilePath = configuration["certfile"]
+    if not os.access(certFilePath, os.R_OK):
+      print >>sys.stderr, "ldbdd: " + \
+      "Cannot access certificate file at %s" % certFilePath
+      sys.exit(1)
+
+    keyFilePath = configuration["keyfile"]
+    if not os.access(keyFilePath, os.R_OK):
+      print >>sys.stderr, \
+        "ldbdd: Cannot access key file at %s" % keyFilePath
+      sys.exit(1)
+
+    gridmapFilePath = configuration["gridmap"]
+    if not os.access(gridmapFilePath, os.R_OK):
+      print >>sys.stderr, \
+        "ldbdd: Cannot access grid-mapfile at %s" % gridmapFilePath
+      sys.exit(1)
+
+    # verify that we can write PID file
+    failure = 0
+    pidFilePath = configuration["pidfile"]
+    exists  = os.access(pidFilePath, os.F_OK)
+    if exists:
+      if not os.access(pidFilePath, os.W_OK):
+        failure = 1
+    else:
+      try:
+        f = open(pidFilePath, "w")
+        f.close()
+      except:
+        failure = 1
+                        
+
+    if failure:
+      print >>sys.stderr, \
+        "ldbdd: Cannot write PID to file %s" % pidFilePath
+      sys.exit(1)
+
+
+  def initialize(self):
+    """
+    Grab information from configuration and record it for this instance. Set
+    up logging.
+
+    @param:
+                
+    @return: None
+
+    """
+    global logger
+
+    try:
+      self.certFilePath = configuration["certfile"]
+      self.keyFilePath  = configuration["keyfile"]
+      self.gridmapFilePath = configuration["gridmap"]
+      self.pidFilePath = configuration["pidfile"]
+      self.port = configuration["port"]
+                        
+      myLogger = logging.getLogger('ldbdd')
+
+      # remove any existing handlers
+      for h in myLogger.handlers:
+        myLogger.removeHandler(h)
+
+
+      logFilePath = configuration["logfile"]
+
+      handler = logging.handlers.RotatingFileHandler(
+        logFilePath, 'a', configuration['logmaxbytes'], 
+        configuration['logbackupcount'])
+      formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+      handler.setFormatter(formatter)
+      myLogger.addHandler(handler)
+      logFileLevel = configuration["loglevel"]
+      myLogger.setLevel(eval("logging." + logFileLevel))
+
+      self.logger = myLogger
+      logger = myLogger
+
+    except Exception, e:
+      print >>sys.__stderr__, "Unable to start logging: %s" % e
+        
+    for k in configuration.keys():
+      logger.info("Configuration parameter: %s = %s" %
+        (k, str(configuration[k])))
+
+
+  def run(self):
+    """
+    Read configuration information in the initialize() method, write out
+    pid, set up our environment, start the GSI TCP service on the socket,
+    then start listening forever.
+
+    @param:
+
+    @return: None
+    """
+    self.initialize()
+    self.writePID()
+    self.setEnvironment()
+    self.startService()
+    self.serveForever()
+
+  def stopService(self):
+    """
+    Set a flag on this instance of LDBDServer so that when the main loop in
+    the serveForever() method sees the flag set the service is stopped.
+
+    @param:
+
+    @return: None
+    """
+    self.logger.info("stopNow flag set; server will stop during next loop")
+    self.stopNow = 1
+        
+  def die(self):
+    """
+    Set a flag on this instance of LDBDServer so that when the main loop in
+    the serveForever() method sees the flag set the service is stopped and
+    then the executable exits.
+
+    @param:
+
+    @return: None
+    """
+    self.logger.info("dieNow flag set; executable will exit during next loop")
+    self.stopService()
+    self.dieNow = 1
+
+  def writePID(self):
+    """
+    Write pid out to a file.
+                
+    @param:
+
+    @return: None
+    """
+
+    # write PID out to file
+    myPIDfd = os.open(self.pidFilePath, os.O_WRONLY | os.O_CREAT, 0644)
+    os.write(myPIDfd, "%d\n" % os.getpid())
+    os.close(myPIDfd)
+
+  def clearPID(self):
+    """
+    Delete pid file.
+                
+    @param:
+
+    @return: None
+    """
+
+    try:
+      os.unlink(self.pidFilePath)
+    except:
+      pass
+
+
+  def setEnvironment(self):
+    """
+    Set environment variables that this instance of ldbdd needs, in particular
+    for GSI services.
+                
+    @param:
+
+    @return: None
+    """
+    os.environ["X509_USER_CERT"] = self.certFilePath
+    os.environ["X509_USER_KEY"] = self.keyFilePath
+    os.environ["GRIDMAP"] = self.gridmapFilePath
+
+
+  def startService(self):
+    """
+    Create instance of io.ThreadingGSITCPSocketServer that this server will
+    use to listen for incoming requests from clients. See the
+    U{pyGlobus<http://www-itg.lbl.gov/gtg/projects/pyGlobus/>} documentation.
+
+    If the ThreadingGSITCPSocketServer cannot be started sleep and then try
+    again, with the time between retries growing exponentially.
+
+    This server requires GSI authentication. 
+
+    @param:
+
+    @return: None
+    """
+    # create a callback to use for authorization
+    gridmap = gsiserverutils.Gridmap(self.gridmapFilePath, self.logger)
+    callback = gsiserverutils.AuthCallback(gridmap, self.logger, callback=None)
+
+    # create authorization data object and set callback
+    authData = io.AuthData()
+    authData.set_callback(callback, self)
+    self.authData = authData
+        
+    # create TCPIO Attribute object and initialize to pass to server        
+    #
+    # we use secure IO authentication using GSSAPI and authorization back
+    # to a callback function, which reads a gridmap file
+    tcpIOAttr = io.TCPIOAttr()
+    tcpIOAttr.set_authentication_mode(
+      io.ioc.GLOBUS_IO_SECURE_AUTHENTICATION_MODE_GSSAPI)
+    tcpIOAttr.set_authorization_mode(
+      io.ioc.GLOBUS_IO_SECURE_AUTHORIZATION_MODE_CALLBACK, authData)
+    tcpIOAttr.set_channel_mode(
+      io.ioc.GLOBUS_IO_SECURE_CHANNEL_MODE_CLEAR)
+    tcpIOAttr.set_delegation_mode(
+      io.ioc.GLOBUS_IO_SECURE_DELEGATION_MODE_FULL_PROXY)
+                
+    self.tcpIOAttr = tcpIOAttr
+
+    # start the server
+    self.running = 0
+    self.nap = 1
+    while not self.running:
+      try:
+        self.logger.info("Starting server on port %d" % self.port)
+        server = io.ThreadingGSITCPSocketServer(
+          addr=("", self.port), 
+          RequestHandlerClass=LDBDServerHandler,
+          #io.ioc.GLOBUS_IO_SECURE_CHANNEL_MODE_CLEAR,
+          channel_mode=io.ioc.GLOBUS_IO_SECURE_CHANNEL_MODE_CLEAR,
+          delegation_mode=io.ioc.GLOBUS_IO_SECURE_DELEGATION_MODE_FULL_PROXY,
+          tcpAttr=self.tcpIOAttr
+          )
+        self.server = server
+        self.logger.info("Server running on port %d" % self.port)
+
+        self.running = 1
+        self.nap = 1
+                                
+        self.stopNow = 0
+        self.dieNow = 0
+                        
+      except Exception, e:
+        self.logger.warning("Error starting server: %s" % e)
+        self.logger.warning("Will retry in %d seconds" % self.nap)
+
+        try:
+          del server
+          del self.server
+        except:
+          pass
+
+        time.sleep(self.nap)
+        self.nap = self.nap * 2
+                                
+                        
+  def serveForever(self):
+    """
+    Our own version of the server_forever() method for the GSITCPServer and
+    SocketServer.BaseServer classes. Normally the call sequence is
+
+    get_request()
+    verify_request()
+    process_request()
+
+    and this is normally done with error handling by the handle_request() 
+    method. In turn server_forever() is usually just
+
+    while 1: handle_request()
+
+    The get_request() for GSITCPServer is normally a blocking listen() on the
+    socket followed by the accept() call.
+
+    In order to not block we instead use a register_listen() call and have the
+    callback set a flag when a socket is ready to be answered and a call to
+    accept() made.
+
+    Since the loop is not blocking on the socket IO, it can be interrupted
+    by signals, such as a SIGHUP.
+
+    @param:
+        
+    @return: None
+    """
+    # set socket ready flag to false and register a listening callback
+    # that is called when the socket is ready
+    self.mySocketReady = 0
+    handle = self.server.socket.register_listen(socketReadyCallback, self)
+
+    while self.running:
+      # is my socket ready? 
+      if self.mySocketReady:
+        # socket is ready so accept the connection, then process it
+        # the process_request() method used here will be that from
+        # the SocketServer.ThreadingMixIn class so inside of that a
+        # new thread is started.
+        try:
+          self.logger.debug("calling accept method for socket instance")
+          (request, client_address) = self.server.socket.accept(
+            self.server.attr)
+          process = 1
+        except io.GSITCPSocketException, ex:
+          self.server.socket.shutdown(2)
+          process = 0
+
+        if process:
+          try:
+            self.logger.debug("processing request on socket now...")
+            self.server.process_request(request, client_address)
+            self.logger.debug("finished processing request")
+          except Exception, e: 
+            self.logger.error("Error during server.process_request(): %s" % e)
+            self.server.handle_error(request, client_address)
+            self.server.close_request(request)
+
+        # free callback handle used for the register_listen
+        self.server.socket.free_callback(handle)
+
+        # prepare for next connection by setting ready flag to false and
+        # registering a new listener
+        self.mySocketReady = 0
+        handle = self.server.socket.register_listen(socketReadyCallback, self)
+        continue
+
+      # have I been told to shutdown?
+      if self.stopNow:
+        # close and delete the server
+        self.logger.info('closing server')
+        self.server.server_close()
+        del self.server
+
+        # have I been told to die?
+        if self.dieNow:
+          self.clearPID()
+          raise SystemExit
+
+        # give 5 seconds for the socket to be freed up
+        time.sleep(5)
+        self.running = 0
+
+        continue
+                        
+
+      # no socket is ready and I have not been told to shutdown
+      # so sleep for a bit so that we don't burn CPU all the time
+      time.sleep(0.1)
+
+
+# set up logging but don't set handler here since that is
+# configurable in the .ini file
+logger = logging.getLogger('ldbdd')
+
+# setup to cach HUP and SIGTERM
+signal.signal(signal.SIGHUP, SIGHUPhandler)
+signal.signal(signal.SIGTERM, SIGTERMhandler)
+
+# initialize server
+myServer = LDBDServer()
+
+# become a daemon
+if runAsDaemon:
+  gsiserverutils.daemon()
+
+running = 1
+
+try:
+  while running:
+    # start server
+    myServer.run()
+
+except SystemExit:
+  logger.info("ldbdd shutting down")
+  sys.exit()
+
+except KeyboardInterrupt:
+  logger.info("ldbdd shutting down")
+  sys.exit()
+
+except Exception, e:
+  msg = "ldbdd is stopping due to unhandled error: %s" % e
+  print >>sys.stderr, msg
+  logger.critical(msg)
+
+del logger
+logger = None
+sys.exit()
