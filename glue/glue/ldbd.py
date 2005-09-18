@@ -306,10 +306,12 @@ class LIGOMetadata:
     self.curs = self.dbcon.cursor()
     self.xmlparser = xmlparser
     self.lwtparser = lwtparser
+    self.lwtparser.unique = None
     self.table = {}
 
   def __del__(self):
-    del self.lwtparser.unique
+    if self.lwtparser.unique:
+      del self.lwtparser.unique
     self.curs.close()
     self.dbcon.close()
 
