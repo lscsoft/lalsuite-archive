@@ -330,6 +330,38 @@ class LIGOMetadata:
     ligolwtup = self.xmlparser(xml)
     self.lwtparser.unique = UniqueIds(self.curs)
     self.table = self.lwtparser.parsetuple(ligolwtup)
+
+  def set_lfn(self,lfn):
+    """
+    Add an LFN table to a parsed LIGO_LW XML document.
+
+    lfn = lfn to be added
+    """
+    # get the process_id from the process table
+    pid_col = self.table['process']['orderedcol'].index('process_id')
+    pid = self.table['process']['stream'][0][pid_col]
+    self.table['lfn'] = {
+      'pos' : 0,
+      'column' : {'process_id' : 'ilwd:char', 'lfn' : 'lstring'},
+      'stream' : (pid, lfn),
+      'query' : ''
+      }
+
+  def set_dn(self,dn):
+    """
+    Add an gridcert table to a parsed LIGO_LW XML document.
+
+    dn = dn to be added
+    """
+    # get the process_id from the process table
+    pid_col = self.table['process']['orderedcol'].index('process_id')
+    pid = self.table['process']['stream'][0][pid_col]
+    self.table['gridcert'] = {
+      'pos' : 0,
+      'column' : {'process_id' : 'ilwd:char', 'dn' : 'lstring'},
+      'stream' : (pid, dn),
+      'query' : ''
+      }
     
   def insert(self):
     """Insert the object into the database"""
