@@ -343,8 +343,9 @@ class LIGOMetadata:
     self.table['lfn'] = {
       'pos' : 0,
       'column' : {'process_id' : 'ilwd:char', 'lfn' : 'lstring'},
-      'stream' : (pid, lfn),
-      'query' : ''
+      'stream' : [(pid, lfn)],
+      'query' : '',
+      'orderedcol' : ['process_id', 'lfn' ]
       }
 
   def set_dn(self,dn):
@@ -359,8 +360,9 @@ class LIGOMetadata:
     self.table['gridcert'] = {
       'pos' : 0,
       'column' : {'process_id' : 'ilwd:char', 'dn' : 'lstring'},
-      'stream' : (pid, dn),
-      'query' : ''
+      'stream' : [(pid, dn)],
+      'query' : '',
+      'orderedcol' : ['process_id', 'dn' ]
       }
     
   def insert(self):
