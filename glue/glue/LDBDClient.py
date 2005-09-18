@@ -1,0 +1,252 @@
+"""
+The LDBDClient module provides an API for connecting to and making requests of
+a LDBDServer.
+
+This module requires U{pyGlobus<http://www-itg.lbl.gov/gtg/projects/pyGlobus/>}.
+
+$Id$
+"""
+
+__version__ = '$Revision$'[11:-2]
+
+import sys
+import os
+import exceptions
+import types
+
+from pyGlobus import io
+from pyGlobus import security
+
+
+def version():
+  return __version__
+
+class LDBDClientException(Exception):
+  """Exceptions returned by server"""
+  def __init__(self,args=None):
+    self.args = args
+
+
+class LDBDClient(object):
+  def __init__(self, host, port, identity):
+    """
+    Open a connection to a LDBD Server and return an instance of
+    class LDBDClient. One of the public methods can then be 
+    called to send a request to the server.
+
+    @param host: the host on which the LDBD Server runs
+    @type host: string
+
+    @param port: port on which the LDBD Server listens
+    @type port: integer
+
+    @param identity: string which the LDBD Server identifies itself
+    @type port: dtring
+
+    @return: Instance of LDBDClient
+    """
+    try:
+      self.__connect__(host,port,identity)
+    except Exception, e:
+      raise 
+
+  def __del__(self):
+    """
+    Disconnect from the LDBD server.
+
+    @return: None
+    """
+    self.__disconnect__()
+
+  def __connect__(self,host,port,identity):
+    """
+    Attempt to open a connection to the LDBD Server
+    using the 'host' and 'port' and expecting the server
+    to identify itself with a corresponding host certificate.
+
+    A IOException is raised if the connection cannot be made,
+    but this is caught by the __init__ method above and 
+    turned into a LDBDClient exception.
+        
+    @param host: the host on which the LDBD Server runs
+    @type host: string
+
+    @param port: port on which the LDBD Server listens
+    @type port: integer
+
+    @param identity: string which the LDBD Server identifies itself
+    @type port: dtring
+
+    @return: None
+    """
+    # remove the globus tcp port range environment variable if set
+    try:
+      port_range = os.environ["GLOBUS_TCP_PORT_RANGE"]
+      os.environ["GLOBUS_TCP_PORT_RANGE"] = ""
+    except:
+      pass
+    
+    self.host = host
+    self.port = port
+    self.identity = identity
+
+    # redirect stdout and stderror for now
+    try:
+      f = open("/dev/null", "w")
+      sys.stdout = f
+      sys.stderr = f
+    except:
+      pass
+
+    try:
+      # create TCPIOAttr instance and set authentication mode to be GSSAPI
+      clientAttr = io.TCPIOAttr()
+      clientAttr.set_authentication_mode(
+        io.ioc.GLOBUS_IO_SECURE_AUTHENTICATION_MODE_GSSAPI)
+
+      # create AuthData instance and set expected identity
+      authData = io.AuthData()
+      authData.set_identity(identity)
+
+      # set authorization, channel, and delegation modes
+      clientAttr.set_authorization_mode(
+        io.ioc.GLOBUS_IO_SECURE_AUTHORIZATION_MODE_IDENTITY, authData)
+      clientAttr.set_channel_mode(
+        io.ioc.GLOBUS_IO_SECURE_CHANNEL_MODE_CLEAR)
+      clientAttr.set_delegation_mode(
+        io.ioc.GLOBUS_IO_SECURE_DELEGATION_MODE_LIMITED_PROXY)
+
+      soc = io.GSITCPSocket()
+      soc.connect(host, port, clientAttr)
+      self.socket = soc
+      self.sfile = soc.makefile("rw")
+
+    finally:
+      sys.stdout = sys.__stdout__
+      sys.stderr = sys.__stderr__
+      f.close()
+
+
+  def __disconnect__(self):
+    """
+    Disconnect from the LDBD Server.
+
+    @return: None
+    """
+    try:
+      self.socket.shutdown(2)
+    except:
+      pass
+
+  def __response__(self):
+    """
+    Read the response sent back by the LDBD Server. Parse out the
+    return code with 0 for success and non-zero for error, and then
+    the list of strings representing the returned result(s).
+
+    @return: tuple containing the integer error code and the list of 
+    strings representing the output from the server
+    """
+    f = self.sfile
+       
+    response = ""
+
+    # Read in 512 byte chunks until there is nothing left to read.
+    # This blocks until the socket is ready for reading and until
+    # 512 bytes are received. If the message is less then 512 bytes
+    # this will block until the server closes the socket. Since
+    # the server always shuts down the socket after sending its
+    # reply this should continue to work for now.
+    while 1: 
+      input = f.read(size = 512, waitForBytes = 512)
+      response += input
+
+      if len(input) < 512: break
+
+    # the response from the server must always end in a null byte
+    try:
+      if response[-1] != '\0':
+        msg = "Bad server reponse format. Contact server administrator."
+        raise LDBDClientException, msg
+    except:
+      msg = "Connection refused. The server may be down or you may not have" + \
+        "authorization to access this server. Contact server administrator."
+      raise LDBDClientException, msg
+
+    # delete the last \0 before splitting into strings
+    response = response[0:-1]
+
+    try:
+      stringList = response.split('\0')
+      code = int(stringList[0])
+      output = stringList[1:]
+    except Exception, e:
+      msg = "Error parsing response from server : %s" % e
+      try:
+        f.close()
+      except:
+        pass
+      raise LDBDClientException, msg
+
+
+    f.close()
+
+    return code, output
+
+  def ping(self):
+    """
+    Ping the LDBD Server and return any message received back as a string.
+
+    @return: message received (may be empty) from LDBD Server as a string
+    """
+
+    msg = "PING\0"
+    self.sfile.write(msg)
+
+    ret, output = self.__response__()
+    reply = str(output[0])
+
+    if ret:
+      msg = "Error pinging server %d:%s" % (ret, reply)
+      raise LDBDClientException, msg
+
+    return reply
+
+  def query(self,sql):
+    """
+    Execute an SQL query on the server and fetch the resulting XML file
+    back.
+
+    @return: message received (may be empty) from LDBD Server as a string
+    """
+
+    msg = "QUERY\0" + sql + "\0"
+    self.sfile.write(msg)
+
+    ret, output = self.__response__()
+    reply = str(output[0])
+
+    if ret:
+      msg = "Error executing query on server %d:%s" % (ret, reply)
+      raise LDBDClientException, msg
+
+    return reply
+
+  def insert(self,xmltext):
+    """
+    Insert the LIGO_LW metadata in the xmltext string into the database.
+
+    @return: message received (may be empty) from LDBD Server as a string
+    """
+
+    msg = "INSERT\0" + xmltext + "\0"
+    self.sfile.write(msg)
+
+    ret, output = self.__response__()
+    reply = str(output[0])
+
+    if ret:
+      msg = "Error executing insert on server %d:%s" % (ret, reply)
+      raise LDBDClientException, msg
+
+    return reply

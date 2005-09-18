@@ -9,152 +9,25 @@
 # This file is part of the lightweight datapase dumper (ldbd)
 #
 
-import os
 import sys
-import string
-import re
+import os
 import getopt
-from pyGlobus import io
-from pyGlobus.util import GlobusException
+import re
+import exceptions
 
-class LDBDServerException(Exception):
-  """Exceptions returned by server"""
-  def __init__(self,args=None):
-    self.args = args
+try:
+  from glue import LDBDClient
+  from glue import gsiserverutils
+except ImportError, e:
+  print >> sys.stderr, """
+Error: unable to import modules from glue.
 
-class LDBDServerConnection(object):
-  def __init__(self, host, port, identity):
-    """
-    Attempt to open a connection to the ldbd server
-    using the 'host' and 'port', and expecting the 
-    server to identify itself with credentials that 
-    match the subject name 'identity'.
+Check that glue is correctly installed and in your PYTHONPATH.
 
-    A IOException is raised if the connection cannot be made.
-    """
-    self.host = host
-    self.port = port
-    self.identity = identity
+%s
+""" % e
+  sys.exit(1)
 
-    try:
-      # create TCPIOAttr instance and set authentication mode to be GSSAPI
-      clientAttr = io.TCPIOAttr()
-      clientAttr.set_authentication_mode(
-        io.ioc.GLOBUS_IO_SECURE_AUTHENTICATION_MODE_GSSAPI)
-
-      # create AuthData instance and set expected identity
-      authData = io.AuthData()
-      authData.set_identity(identity)
-
-      # set authorization, channel, and delegation modes
-      clientAttr.set_authorization_mode(
-        io.ioc.GLOBUS_IO_SECURE_AUTHORIZATION_MODE_IDENTITY, authData)
-      clientAttr.set_channel_mode(
-        io.ioc.GLOBUS_IO_SECURE_CHANNEL_MODE_CLEAR)
-      clientAttr.set_delegation_mode(
-        io.ioc.GLOBUS_IO_SECURE_DELEGATION_MODE_LIMITED_PROXY)
-
-      if not verbose:
-        f = open("/dev/null", "w")
-        sys.stdout = f
-        sys.stderr = f
-  
-      soc = io.GSITCPSocket()
-      soc.connect(host, port, clientAttr)
-      self.socket = soc
-
-      if not verbose:
-        sys.stdout = sys.__stdout__
-        sys.stderr = sys.__stderr__
-        f.close()
-
-    except GlobusException, e:
-      if not verbose:
-        sys.stdout = sys.__stdout__
-        sys.stderr = sys.__stderr__
-        f.close()
-      print "Error establising GSI connection to %s:%d" % (host,port)
-      print e
-      sys.exit(1)
-    
-class LDBDServerAction(object):
-  """
-  Does the work making the connection to the server, sending
-  the request and processing the result
-  """
-  def __init__(self,host,port,identity,action,db,squery,fh):
-    """
-    host = server host
-    port = server port
-    identity = globus identity of server
-    action = specific action to perform (query or insert)
-    db = the database to connect to on the server
-    sql = the sql to execute in a query (or just insert for an insert)
-    fh = file handle of input or output file
-    """
-    self.host = host
-    self.port = port
-    try:
-      self.connection = LDBDServerConnection(host,port,identity)
-    except Exception, e:
-      print "Error connecting to %s:%d with identity %s" % (host,port,identity)
-      print "Check credentials and verify entry in remote grid-mapfile"
-      sys.exit(1)
-    self.action = action
-    self.db = db
-    self.squery = squery
-    self.fh = fh
-
-  def execute(self):
-    try:
-      self.send()
-    except Exception, e:
-      print "Error writing to %s:%d" % (self.host,self.port)
-      print e
-      sys.exit(1)
-    try:
-      self.receive()
-    except LDBDServerException, e:
-      print "Error: database transaction failed"
-      print "Message from server %s:%d" % (self.host,self.port)
-      print e
-      sys.exit(2)
-    except Exception, e:
-      print "Error receiving from %s:%d" % (self.host,self.port)
-      print e
-      sys.exit(1)
-
-  def send(self):
-    msg = "%s\0%s\0%s\0" % (self.action,self.db,self.squery)
-    if re.search("insert",self.action):
-      inputdata = ''
-      nlines = 0
-      lines = fh.readlines()
-      nlines = len(lines)
-      inputdata = ''.join(lines)
-      if verbose: print "read %d lines from file" % nlines
-      msg += "%s\n%s" % (nlines,inputdata)
-    else:
-      msg += "0\n"
-    self.connection.socket.write(msg, len(msg))
-
-  def receive(self):
-    f = self.connection.socket.makefile()
-    r = f.readline().strip()
-    try:
-      retcode = int(r)
-    except ValueError:
-      errmsg = "server closed connection without returning an exit code"
-      raise LDBDServerException, errmsg
-    if retcode:
-      errmsg = f.read()
-      raise LDBDServerException, errmsg
-    else:
-      if re.match("query",self.action):
-        retdata = f.read()
-        while retdata:
-          fh.write(retdata)
-          retdata = f.read()
 
 def usage():
   msg = """\
@@ -166,7 +39,7 @@ Usage: ldbdc.py [OPTIONS]
   -i, --insert LIGOLW     insert LIGO lightweight file LIGOLW
   -q, --query QUERY       execute SQL query QUERY
   -o, --output FILE       write output to FILE
-  -v, --verbose           print lots of debugging information
+  -p, --ping              ping the server
   -h, --help              print this message
 
 The options --server and --database must be specified.
@@ -179,7 +52,7 @@ def help():
   usage()
   sys.exit(0)
 
-shortop = "s:j:d:i:q:o:vh"
+shortop = "s:j:d:i:q:o:vph"
 longop = [
   "server=",
   "identity=",
@@ -187,7 +60,7 @@ longop = [
   "insert=",
   "query=",
   "output=",
-  "verbose",
+  "ping",
   "help"
   ]
 
@@ -199,13 +72,13 @@ except getopt.GetoptError:
 
 # defaults
 server = None
-port = 49999
+port = 30020
 identity = None
 database = None
 infile = None
 outfile = None
 squery = None
-verbose = None
+ping = None
 
 for o, a in opts:
   if o in ("-h", "--help"):
@@ -225,10 +98,10 @@ for o, a in opts:
     database = a
   elif o in ("-o", "--output"):
     outfile = a
-  elif o in ("-v", "--verbose"):
-    verbose = 1
+  elif o in ("-p", "--ping"):
+    ping = 1
 
-if not server or not database or (not infile and not squery):
+if not server or not database or (not infile and not squery and not ping):
   usage()
   sys.exit(1)
 if (squery and infile):
@@ -237,30 +110,44 @@ if (squery and infile):
   sys.exit(1)
 
 if not identity:
-  identity = "/DC=org/DC=doegrids/OU=Services/CN=ldbdserver/%s" % server
+  identity = "/DC=org/DC=doegrids/OU=Services/CN=ldbd/%s" % server
 
-if infile:
-  fh = open(infile,'r')
-  act = "insert"
-  squery = None
-elif squery:
-  if outfile:
-    fh = open(outfile,'w')
-  else:
-    fh = sys.__stdout__
-  act = "query"
+# open connection to LDBD Server
+try:
+  myClient = LDBDClient.LDBDClient(server, port, identity)
 
-doit = LDBDServerAction(server,port,identity,act,database,squery,fh)
-doit.execute()
+except Exception, e:
+  print >>sys.stderr, \
+    "Unable to connect to LDBD Server %s:%d" % (server, port)
+  if gsiserverutils.checkCredentials():
+    print >>sys.stderr, "Got the following error : " + str(e)
+    print >>sys.stderr, "Enter 'LSCsegFind --help' for usage"
+  sys.exit(1)
 
-#try:
-#  doit.execute()
-#except Exception, e:
-#  print "Server at %s:%d using database %s returned an error message:" \
-#  % (server,port,database)
-#  print e
-#  fh.close()
-#  sys.exit(1)
+try:
+  if ping:
+    # ping the server and print the response
+    print myClient.ping()
 
-fh.close()
+  elif infile:
+    # open an input file and send it to the server
+    fh = open(infile,'r')
+    xmltext = fh.read()
+    myClient.insert(xmltext)
+    fh.close()
+
+  elif squery:
+    # execute the query and write out the results
+    if outfile:
+      fh = open(outfile,'w')
+    else:
+      fh = sys.__stdout__
+    fh.write(myClient.query(squery))
+    fh.close()
+
+except Exception, e:
+  print >>sys.stderr, "Error querying LDBD Server: %s" % str(e)
+  print >>sys.stderr, "Enter 'ldbdc --help' for usage"
+  sys.exit(1)
+
 sys.exit(0)
