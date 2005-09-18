@@ -27,6 +27,7 @@ import re
 from pyGlobus import io
 from glue import gsiserverutils
 from glue import ldbd
+import rlsClient
 
 
 def SIGHUPhandler(signum, frame):
@@ -297,7 +298,8 @@ class LDBDServerHandler(SocketServer.BaseRequestHandler):
 
     try:
       # call the method requested with the rest of strings as input
-      method(argStringList) 
+      result = method(argStringList) 
+      self.__reply__( result[0], result[1] )
     except Exception, e:
       logger.error("Error while calling method %s: %s" % (methodString, e))
 
@@ -340,7 +342,7 @@ class LDBDServerHandler(SocketServer.BaseRequestHandler):
     except Exception, e:
       msg = "ldbdd is alive"
 
-    self.__reply__(0, msg)
+    return (0, msg)
 
 
   def query(self, arg):
@@ -381,7 +383,7 @@ class LDBDServerHandler(SocketServer.BaseRequestHandler):
       logger.error(
         "Error deleting metadata object in method query: %s" % e)
 
-    self.__reply__(code, result)
+    return (code,result)
 
 
   def insert(self, arg):
@@ -427,7 +429,7 @@ class LDBDServerHandler(SocketServer.BaseRequestHandler):
       logger.error(
         "Error deleting metadata object in method insert: %s" % e)
 
-    self.__reply__(code, result)
+    return (code,result)
 
 
 
