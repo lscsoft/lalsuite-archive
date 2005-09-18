@@ -55,6 +55,7 @@ else:
       os.path.join('etc','vdsproperties'),
       os.path.join('etc','glue-user-env.sh'),
       os.path.join('etc','glue-user-env.csh'),
-      os.path.join('etc','lscsegfindserver.ini')
+      os.path.join('etc','lscsegfindserver.ini'),
+      os.path.join('etc','ldbdd.ini')
       ] ) ]
     )
