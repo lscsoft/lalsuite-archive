@@ -399,11 +399,18 @@ class LDBDServerHandler(SocketServer.BaseRequestHandler):
     code = 1
 
     try:
+      # capture the remote users DN for insertion into the database
+      cred = self.request.get_delegated_credential()
+      remote_dn = cred.inquire_cred()[1].display()
+
       # create a ligo metadata object
       ligomd = ldbd.LIGOMetadata(dbobj,xmlparser,lwtparser)
 
       # parse the input string into a metadata object
       ligomd.parse(arg[0])
+
+      # add a gridcert table to this request containing the users dn
+      ligomd.set_dn(remote_dn)
 
       # insert the metadata into the database
       result = str(ligomd.insert())
