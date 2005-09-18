@@ -105,7 +105,7 @@ def socketReadyCallback(arg, handle, result):
 
 
 # parse command line options
-shortop = "c:gh"
+shortop = "c:dh"
 longop = [
   "config-file=",
   "daemon",
