@@ -406,12 +406,11 @@ class LIGOMetadata:
     Execute an SQL select statement and stuff the results into a
     dictionary.
 
-    sql = the (case insensitve) SQL statment to execute
+    sql = the (case sensitve) SQL statment to execute
     """
     if len(self.table) != 0:
       raise LIGOLwDBError, 'attempt to fill non-empty table from database'
     ligolw = ''
-    sql = sql.upper()
     self.table = {}
     sqltypes = {
       -2 : 'ilwd:char_u',
@@ -423,7 +422,7 @@ class LIGOMetadata:
       93 : 'lstring', 
       }
     try:
-      tab = re.compile(r'FROM\s+([A-Z0-0_]+)([,\s]+|$)').search(sql).group(1)
+      tab = re.compile(r'[Ff][Rr][Oo][Mm]\s+([A-Za-z0-0_]+)([,\s]+|$)').search(sql).group(1)
     except AttributeError:
       raise LIGOLwDBError, 'could not find table name in query ' + str(sql)
     self.table[tab] = {
@@ -537,8 +536,8 @@ class LIGOMetadata:
       ligolw += '   <Comment>'+self.table[tab]['query']+'</Comment>\n'
       ligolw += '   <Table Name="'+tab+':table">\n'
       for col in self.table[tab]['orderedcol']:
-        ligolw +='      <Column Name="'+tab+':'+col+'" Type="'+self.table[tab]['column'][col]+'"/>\n'
-      ligolw += '      <Stream Name="'+tab+':table" Type="Local" Delimiter=",">\n'
+        ligolw +='      <Column Name="'+tab.lower()+':'+col.lower()+'" Type="'+self.table[tab]['column'][col].lower()+'"/>\n'
+      ligolw += '      <Stream Name="'+tab.lower()+':table" Type="Local" Delimiter=",">\n'
       stridx = 0
       ligolw += '      '
       for tup in self.table[tab]['stream']:

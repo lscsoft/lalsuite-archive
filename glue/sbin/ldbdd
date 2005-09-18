@@ -353,7 +353,7 @@ class LDBDServerHandler(SocketServer.BaseRequestHandler):
     """
 
     # get the query string and log it
-    querystr = arg[0].lower()
+    querystr = arg[0]
     logger.debug("Method query called with %s" % querystr)
 
     # assume failure
