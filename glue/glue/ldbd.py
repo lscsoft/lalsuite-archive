@@ -399,6 +399,7 @@ class LIGOMetadata:
     except mxdb.Error, e:
       raise LIGOLwDBError, e[2]
     desc = self.curs.description
+    rowcount = self.curs.rowcount
     for col,typ,disp,intsz,prec,sca,nul in desc:
       try:
         self.table[tab]['column'][col] = sqltypes[typ]
@@ -410,6 +411,8 @@ class LIGOMetadata:
       self.table[tab]['stream'] = self.curs.fetchall()
     except mxdb.Error, e:
       raise LIGOLwDBError, e[2]
+
+    return rowcount
 
   def xml(self):
     """Convert a table dictionary to LIGO lightweight XML"""
