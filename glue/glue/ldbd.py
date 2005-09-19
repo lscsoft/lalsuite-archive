@@ -331,7 +331,7 @@ class LIGOMetadata:
     self.lwtparser.unique = UniqueIds(self.curs)
     self.table = self.lwtparser.parsetuple(ligolwtup)
 
-  def set_lfn(self,lfn):
+  def add_lfn(self,lfn):
     """
     Add an LFN table to a parsed LIGO_LW XML document.
 
@@ -340,13 +340,16 @@ class LIGOMetadata:
     # get the process_id from the process table
     pid_col = self.table['process']['orderedcol'].index('process_id')
     pid = self.table['process']['stream'][0][pid_col]
-    self.table['lfn'] = {
-      'pos' : 0,
-      'column' : {'process_id' : 'ilwd:char', 'lfn' : 'lstring'},
-      'stream' : [(pid, lfn)],
-      'query' : '',
-      'orderedcol' : ['process_id', 'lfn' ]
-      }
+    try:
+      self.table['lfn']['stream'].append((pid,lfn))
+    except KeyError:
+      self.table['lfn'] = {
+        'pos' : 0,
+        'column' : {'process_id' : 'ilwd:char', 'lfn' : 'lstring'},
+        'stream' : [(pid, lfn)],
+        'query' : '',
+        'orderedcol' : ['process_id', 'lfn' ]
+        }
 
   def set_dn(self,dn):
     """

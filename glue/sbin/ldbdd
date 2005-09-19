@@ -165,6 +165,7 @@ configuration = {
   'keyfile' : '/ldcg/glue/etc/grid-security/ldbd/ldbdkey.pem',
   'dbname' : 'ldbd_tst',
   'dbuser' : 'grid',
+  'rls' : 'rls://kitalpha.ligo.caltech.edu',
   'dbpasswd' : '',
   'max_client_byte_string': 1048576,
   'pidfile' : '/ldcg/glue/var/run/ldbdd.pid',
@@ -245,7 +246,8 @@ class LDBDServerHandler(SocketServer.BaseRequestHandler):
     methodDict = {
       'PING' : self.ping,
       'QUERY' : self.query,
-      'INSERT' : self.insert
+      'INSERT' : self.insert,
+      'INSERTMAP' : self.insertmap
     }
 
     try:
@@ -431,6 +433,83 @@ class LDBDServerHandler(SocketServer.BaseRequestHandler):
 
     return (code,result)
 
+  def insertmap(self, arg):
+    """
+    Insert some LIGO_LW xml data in the metadata database with an LFN to
+    PFN mapping inserted into the RLS database
+
+    @param arg: a text string containing an SQL query to be executed
+
+    @return: None
+    """
+
+    logger.debug("Method insertmap called")
+
+    # assume failure
+    code = 1
+
+    try:
+      # unpickle the PFN/LFN mappings from the client
+      lfnpfn_dict = cPickle.loads(arg[1])
+      if not isinstance(lfnpfn_dict, dict):
+        raise LDBDServerHandlerException, \
+          "LFN/PFN mapping from client is not dictionary"
+
+      # capture the remote users DN for insertion into the database
+      cred = self.request.get_delegated_credential()
+      remote_dn = cred.inquire_cred()[1].display()
+
+      # create a ligo metadata object
+      ligomd = ldbd.LIGOMetadata(dbobj,xmlparser,lwtparser)
+
+      # parse the input string into a metadata object
+      ligomd.parse(arg[0])
+
+      # add a gridcert table to this request containing the users dn
+      ligomd.set_dn(remote_dn)
+
+      # add the lfns to the metadata insert to populate the lfn table
+      for lfn in lfnpfn_dict.keys():
+        ligomd.add_lfn(lfn)
+
+      # insert the metadata into the database
+      result = str(ligomd.insert())
+      logger.info("Method insert: %s rows affected by insert" % result)
+
+      # connect to the RLS server
+      rls = configuration['rls']
+      cert = configuration['certfile']
+      key = configuration['keyfile']
+      r = rlsClient.RlsClient(rls,cert,key)
+
+      # insert the PFN/LFN mappings into the RLS
+      for lfn in lfnpfn_dict.keys():
+        pfns = lfnpfn_dict[lfn]
+        if isinstance( pfns, types.StringType ):
+          r.lrc_create_lfn( lfn, pfns )
+        elif isinstance( pfns, types.ListType ):
+          r.lrc_create_lfn( lfn, pfns[0] )
+          for pfn in pfns[1:len(pfns)]:
+            r.lrc_add( lfn, pfn)
+        else:
+          raise LDBDServerHandlerException, \
+            "PFN must be a single string or a list of PFNs"
+          
+      logger.info("Method insertmap: insert LFN mappings for %s" % 
+        str(lfnpfn_dict.keys()))
+      code = 0
+
+    except Exception, e:
+      result = ("Error inserting LFN/PFN mapping into RLS: %s" % e)
+      logger.error(result)
+      return (code,result)
+
+    try:
+      del r
+    except Exception, e:
+      logger.error( "Error deleting rls instance: %s" % e)
+
+    return (code,result)
 
 
 class LDBDServer(object):
