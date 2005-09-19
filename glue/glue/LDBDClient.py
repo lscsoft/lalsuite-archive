@@ -13,6 +13,9 @@ import sys
 import os
 import exceptions
 import types
+import re
+import cPickle
+import xml.parsers.expat
 
 from pyGlobus import io
 from pyGlobus import security
@@ -20,6 +23,88 @@ from pyGlobus import security
 
 def version():
   return __version__
+
+
+class SimpleLWXMLParser:
+  """
+  A very simple LIGO_LW XML parser class that reads the only keeps
+  tables that do not contain the strings sngl_ or multi_
+
+  The class is not very robust as can have problems if the line
+  breaks do not appear in the standard places in the XML file.
+  """
+  def __init__(self):
+    """
+    Constructs an instance.
+
+    The private variable ignore_pat determines what tables we ignore.
+    """
+    self.__p = xml.parsers.expat.ParserCreate()
+    self.__in_table = 0
+    self.__silent = 0
+    self.__ignore_pat = re.compile(r'.*(sngl_|multi_).*', re.IGNORECASE)
+    self.__p.StartElementHandler = self.start_element
+    self.__p.EndElementHandler = self.end_element
+
+  def __del__(self):
+    """
+    Destroys an instance by shutting down and deleting the parser.
+    """
+    self.__p("",1)
+    del self.__p
+
+  def start_element(self, name, attrs):
+    """
+    Callback for start of an XML element. Checks to see if we are
+    about to start a table that matches the ignore pattern.
+
+    @param name: the name of the tag being opened
+    @type name: string
+
+    @param attrs: a dictionary of the attributes for the tag being opened
+    @type name: dictionary
+    """
+    if name.lower() == "table":
+      for attr in attrs.keys():
+        if attr.lower() == "name":
+          if self.__ignore_pat.search(attrs[attr]):
+            self.__in_table = 1
+        
+  def end_element(self, name):
+    """
+    Callback for the end of an XML element. If the ignore flag is
+    set, reset it so we start outputing the table again.
+
+    @param name: the name of the tag being closed
+    @type name: string
+    """
+    if name.lower() == "table":
+      if self.__in_table:
+        self.__in_table = 0
+
+  def parse_line(self, line):
+    """
+    For each line we are passed, call the XML parser. Returns the
+    line if we are outside one of the ignored tables, otherwise
+    returns the empty string.
+
+    @param line: the line of the LIGO_LW XML file to be parsed
+    @type name: string
+
+    @return: the line of XML passed in or the null string
+    @rtype: string
+    """
+    self.__p.Parse(line)
+    if self.__in_table:
+      self.__silent = 1
+    if not self.__silent:
+      ret = line
+    else:
+      ret = ""
+    if not self.__in_table:
+      self.__silent = 0
+    return ret
+
 
 class LDBDClientException(Exception):
   """Exceptions returned by server"""
@@ -240,6 +325,27 @@ class LDBDClient(object):
     """
 
     msg = "INSERT\0" + xmltext + "\0"
+    self.sfile.write(msg)
+
+    ret, output = self.__response__()
+    reply = str(output[0])
+
+    if ret:
+      msg = "Error executing insert on server %d:%s" % (ret, reply)
+      raise LDBDClientException, msg
+
+    return reply
+
+  def insertmap(self,xmltext,lfnpfn_dict):
+    """
+    Insert the LIGO_LW metadata in the xmltext string into the database.
+
+    @return: message received (may be empty) from LDBD Server as a string
+    """
+
+    pmsg = cPickle.dumps(lfnpfn_dict)
+
+    msg = "INSERTMAP\0" + xmltext + "\0" + pmsg + "\0"
     self.sfile.write(msg)
 
     ret, output = self.__response__()

@@ -14,6 +14,7 @@ import os
 import getopt
 import re
 import exceptions
+import re
 
 try:
   from glue import LDBDClient
@@ -36,6 +37,7 @@ Usage: ldbdc.py [OPTIONS]
   -r, --server HOST:PORT  connect to ldbd on HOST:PORT (default port 30020)
   -j, --identity SUBJECT  the subject of the servers service certififcate
   -i, --insert LIGOLW     insert LIGO lightweight file LIGOLW
+  -f, --pfn PFNLIST       a comma separated list of PFNs to insert
   -q, --query QUERY       execute SQL query QUERY
   -o, --output FILE       write output to FILE
   -p, --ping              ping the server
@@ -50,12 +52,13 @@ def help():
   usage()
   sys.exit(0)
 
-shortop = "r:j:d:i:q:o:vph"
+shortop = "r:j:d:i:f:q:o:vph"
 longop = [
   "server=",
   "identity=",
   "database=",
   "insert=",
+  "pfn=",
   "query=",
   "output=",
   "ping",
@@ -73,6 +76,7 @@ hostPortString = None
 port = 30020
 identity = None
 infile = None
+pfnlist = None
 outfile = None
 squery = None
 ping = None
@@ -93,6 +97,8 @@ for o, a in opts:
     identity = a
   elif o in ("-i", "--insert"):
     infile = a
+  elif o in ("-f", "--pfn"):
+    pfnlist = a
   elif o in ("-q", "--query"):
     squery = a
   elif o in ("-d", "--database"):
@@ -120,8 +126,12 @@ if not infile and not squery and not ping:
   print "\nNo operation specified\n"
   usage()
   sys.exit(1)
-if (squery and infile):
+if squery and infile:
   print "\nOnly one of --query and --insert can be specified\n"
+  usage()
+  sys.exit(1)
+if pfnlist and not infile:
+  print "\nA list of PFNs makes sense only when inserting data\n"
   usage()
   sys.exit(1)
 
@@ -145,12 +155,24 @@ try:
     # ping the server and print the response
     print myClient.ping()
 
-  elif infile:
+  elif infile and not pfnlist:
     # open an input file and send it to the server
     fh = open(infile,'r')
     xmltext = fh.read()
     myClient.insert(xmltext)
     fh.close()
+
+  elif infile and pfnlist:
+    # open the input file but skip any of the "bad" tables
+    xmltext = ""
+    p = LDBDClient.SimpleLWXMLParser()
+    fh = open(infile,'r')
+    for line in fh.xreadlines():
+      xmltext += p.parse_line(line)
+    fh.close()
+    lfnpfn_dict = {}
+    lfnpfn_dict[os.path.basename(infile)] = pfnlist.split(',')
+    myClient.insertmap(xmltext,lfnpfn_dict)
 
   elif squery:
     # execute the query and write out the results
