@@ -626,7 +626,7 @@ class LSCFile(LSCfileAddMetadataAttr):
                         
                         del templist
                         
-                !!!!# CHECK FOR EMPTY FILE LISTS!!!!!!!!!
+                #!!!! CHECK FOR EMPTY FILE LISTS!!!!!!!!!
                 
                 # now all lists should be in decent shape
                 # metadata must be removed first, as it is keyed on LFNs
