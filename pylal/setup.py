@@ -41,8 +41,8 @@ setup(
 		os.path.join("bin", "plotinspinj"),
     os.path.join("bin", "plotinspdiff"),
     os.path.join("bin", "plotinspmissed"),
-    os.path.join("bin", "plotthinca")
-
+    os.path.join("bin", "plotthinca"),
+    os.path.join("bin", "plotwindow")
 	],
 	data_files = [
 		("etc", [

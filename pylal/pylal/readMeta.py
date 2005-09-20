@@ -103,7 +103,8 @@ class coincInspiralTable:
   """
   Table to hold coincident inspiral triggers.  Coincidences are reconstructed 
   by making use of the event_id contained in the sngl_inspiral table.
-  The coinc is a dictionary with entries: H1, H2, L1, event_id, numifos, snrsq.
+  The coinc is a dictionary with entries: G1, H1, H2, L1, event_id, numifos, 
+  snrsq.  
   The snrsq is the sum of the squares of the snrs of the individual triggers.
   """
   def __init__(self, inspTriggers = None):
@@ -111,51 +112,23 @@ class coincInspiralTable:
     @param inspTriggese: a metaDataTable containing inspiral triggers 
                          from which to construct coincidences
     """
-
     if not inspTriggers:
       self.table = []
     else:
-      h1triggers = metaDataTable("", "sngl_inspiral")
-      h1triggers.table = [entry for entry in inspTriggers.table \
-        if (re.match("H1",entry["ifo"]))]
-      h2triggers = metaDataTable("", "sngl_inspiral")
-      h2triggers.table = [entry for entry in inspTriggers.table \
-        if (re.match("H2",entry["ifo"]))]
-      l1triggers = metaDataTable("", "sngl_inspiral")
-      l1triggers.table = [entry for entry in inspTriggers.table \
-        if (re.match("L1",entry["ifo"]))]
-
       # use the supplied method to convert these columns into numarrays
       eventidlist = asarray(uniq(inspTriggers.mkarray("event_id")))
       self.table = []
       for event_id in eventidlist: 
         self.table.append({ "event_id":event_id, "numifos":0, "snrsq":0 })
-  
+
       for coinc in self.table:
-        for h1_trig in h1triggers.table:
-          if coinc["event_id"] == h1_trig["event_id"]:
-            coinc["H1"] = h1_trig
+        for trig in inspTriggers.table:
+          if coinc["event_id"] == trig["event_id"]:
+            coinc[trig["ifo"]] = trig
             coinc["numifos"] += 1
-            coinc["snrsq"] += h1_trig["snr"] * h1_trig["snr"] 
-            break
-  
-      for coinc in self.table:
-        for h2_trig in h2triggers.table:
-          if coinc["event_id"] == h2_trig["event_id"]:
-            coinc["H2"] = h2_trig
-            coinc["numifos"] += 1
-            coinc["snrsq"] += h2_trig["snr"] * h2_trig["snr"] 
-            break
+            coinc["snrsq"] += trig["snr"] + trig["snr"]
     
-      for coinc in self.table:
-        for l1_trig in l1triggers.table:
-          if coinc["event_id"] == l1_trig["event_id"]:
-            coinc["L1"] = l1_trig
-            coinc["numifos"] += 1
-            coinc["snrsq"] += l1_trig["snr"] * l1_trig["snr"] 
-            break
-
-
+    
   def nevents(self):
     """
     Return the number of rows in the resulting table
@@ -173,22 +146,27 @@ class coincInspiralTable:
 
     return asarray( mylist )
 
-  def coinctype(self, ifo1, ifo2, ifo3 = None):
+
+  def coinctype(self, ifolist):
     """
-    Return the coincs which are from ifo1-ifo2(-ifo3 if specified).
-    @param ifo1: first ifo in coincidence
-    @param ifo2: second ifo in coincidence
-    @param ifo3: third (optional) ifo in coincidence
+    Return the coincs which are from ifos.
+    @param ifos: a list of ifos 
     """
  
     selected_coincs = coincInspiralTable()
     for coinc in self.table:
-      if coinc.has_key(ifo1) and coinc.has_key(ifo2):
-        if (ifo3 and coinc.has_key(ifo3)) \
-          or (not ifo3 and (coinc['numifos'] == 2)):
+      keep_trig = True
+      if coinc["numifos"] == len(ifolist):
+        for ifo in ifolist:
+          if not coinc.has_key(ifo):
+            keep_trig = False
+            break
+            
+        if keep_trig == True:
           selected_coincs.table.append(coinc)
         
     return selected_coincs
+
 
   def getsngls(self, ifo):
     """
@@ -202,7 +180,6 @@ class coincInspiralTable:
         ifo_sngl.table.append(coinc[ifo])
         
     return ifo_sngl
-
 
 
   def getslide(self, slide_num):
@@ -226,11 +203,11 @@ class coincInspiralTable:
     
     @param cluster_window: length of time over which to cluster (seconds)
     """
-    
+    ifolist = ['G1','H1','H2','L1']
     # find times when there is a trigger
     cluster_times = []
     for coinc in self.table:
-      for ifo in ['H1','H2','L1']:
+      for ifo in ifolist:
         if coinc.has_key(ifo):
           end_time = coinc[ifo]['end_time']
           break
@@ -243,7 +220,7 @@ class coincInspiralTable:
       # find all triggers at that time
       cluster = coincInspiralTable()
       for coinc in self.table:
-        for ifo in ['H1','H2','L1']:
+        for ifo in ifolist:
           if coinc.has_key(ifo):
             end_time = coinc[ifo]['end_time']
             break

@@ -13,18 +13,32 @@ from pylal import readMeta
 from pylal import viz
 
 ##############################################################################
-usage = """usage: %prog [options] file1 (file2 file3)
+usage = """
+usage: %prog [options] 
 
 Inspiral Plotting Functions
 
+The function reads in triggers from a glob of files and produces several 
+different figures.
+
 The plots are
 
-    1.  SNR v CHISQ
-    2.  Cumulative Histogram of SNR values
-    3.  Histogram of CHISQ values
+1)  SNR v CHISQ, linear scale  (requres that the chisq was calculated)
 
-Example 1: ...
-Example 2: ...
+2)  SNR v CHISQ, log scale on both axes
+
+   The chisq threshold can be added to the above plots if the 
+     --chisq-threshold, --chisq-delta and --chisq-bins are given
+
+3)  Cumulative Histogram of SNR values
+    
+4)  Histogram of SNR values
+
+5)  "Normalized" cumulative histogram of SNR values
+    The normalization is determined by the maximum total number of triggers,
+    calculated from the --maximization-interval and --analyzed-time
+    
+6)  Histogram of CHISQ values    
 """
 
 parser = OptionParser( usage )
@@ -33,6 +47,8 @@ parser.add_option("-v","--version",action="store_true",default=False,\
 parser.add_option("-f","--figure-name",action="store",type="string",\
     default=None,metavar=" FNAME",\
     help="generate png figures with name FNAME-fig.png")
+parser.add_option("-g","--glob",action="store",type="string",\
+    default=None, metavar=" GLOB",help="GLOB of trigger files to read" )
 parser.add_option("-t","--title",action="store",type="string",default=None,\
     metavar=" STRING",help="title string for plots")
 parser.add_option("-s","--show-plot",action="store_true",default=False,\
@@ -71,9 +87,9 @@ if opts.version:
   sys.exit(0)
 
 # check at least one trig file was specified
-if not args:
-  print >>sys.stderr, "at least one trigger file must be specified"
-  print >>sys.stderr, "Enter 'plotinspiral --help' for usage"
+if not opts.glob:
+  print >>sys.stderr, "Must specify a GLOB of files to read"
+  print >>sys.stderr, "Enter 'plotthinca --help' for usage"
   sys.exit(1)
 
 if opts.norm_hist_snr and not opts.analyzed_time:
@@ -81,7 +97,7 @@ if opts.norm_hist_snr and not opts.analyzed_time:
   print >>sys.stderr, "the --analyzed-time must be specified"
   sys.exit(1)
 
-trigFiles = args
+trigFiles = glob.glob(opts.glob)
 
 # an instance of the snglInspiralTable
 inspTriggers=readMeta.metaDataTable(trigFiles, "sngl_inspiral")
@@ -132,7 +148,7 @@ if opts.cum_hist_snr:
 # histogram of snr
 if opts.hist_snr:
   figure(4)
-  viz.histcol(inspTriggers,'snr',opts.nbins,opts.figure_name)
+  viz.histcol(inspTriggers,'snr',opts.nbins,None,opts.figure_name)
 
 ###################################
 # histogram of snr
@@ -146,7 +162,7 @@ if opts.norm_hist_snr:
 # histogram of chisq values
 if opts.hist_chisq:
   figure(5)
-  viz.histcol(inspTriggers,'chisq',opts.nbins,opts.figure_name)
+  viz.histcol(inspTriggers,'chisq',opts.nbins,None,opts.figure_name)
 
 
 if opts.show_plot:

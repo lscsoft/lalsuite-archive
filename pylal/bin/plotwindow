@@ -81,7 +81,7 @@ def revisewindow(bins,foreground,background):
   for i in bin_num:
     if foreground[i] > background[i]:
       # stop if 
-      # 1) fg > 2 and fg > 2 * bg
+      # 1) fg >= 2 and fg > 2 * bg
       if foreground[i] >= 2 and foreground[i] > 2 * background[i]:
         low_window = bins[i]
         break

@@ -132,11 +132,11 @@ def timeindays(col_data ):
 def plot_a_v_b(table, col_name_a, col_name_b, plot_type, plot_sym, \
   output_name = None):
 
-  if table.table[0].has_key('ifo'):
-    ifo = table.table[0]["ifo"]
-  else:
-    ifo = None
-
+  ifo = None
+  if table.nevents:
+    if table.table[0].has_key('ifo'):
+      ifo = table.table[0]["ifo"]
+  
   col_a = readcol(table, col_name_a, ifo )
   col_b = readcol(table, col_name_b, ifo )
 
@@ -481,7 +481,7 @@ def labelval(col_name, units = None, axis = [0,0,0,0], xlab = None, \
 # value in ifo2 
 def plotcoincval(coinctable, col_name, ifo1, ifo2, plot_sym, plot_type):
   
-  ifo_coinc = coinctable.coinctype(ifo1,ifo2)
+  ifo_coinc = coinctable.coinctype([ifo1,ifo2])
 
   ifo1_val = ifo_coinc.mkarray(col_name,ifo1)
   ifo2_val = ifo_coinc.mkarray(col_name,ifo2)
@@ -497,7 +497,7 @@ def plotcoincval(coinctable, col_name, ifo1, ifo2, plot_sym, plot_type):
 def plotcoinchanford(coinctable, col_name, ifo, hanford_method, plot_sym,\
   plot_type):
   
-  ifo_coinc = coinctable.coinctype(ifo,'H1','H2')
+  ifo_coinc = coinctable.coinctype([ifo,'H1','H2'])
 
   ifo_val = ifo_coinc.mkarray(col_name,ifo)
   h1_val = ifo_coinc.mkarray(col_name,'H1')
@@ -522,8 +522,8 @@ def plotcoinchanford(coinctable, col_name, ifo, hanford_method, plot_sym,\
 # two tables, table1 and table2
 def histcol(table1, col_name,nbins = None, width = None, output_name = None):
  
-  if table1.table[1].has_key('ifo'):
-    ifo = table1.table[1]["ifo"]
+  if table1.table[0].has_key('ifo'):
+    ifo = table1.table[0]["ifo"]
   else:
     ifo = None
 
@@ -567,8 +567,8 @@ def histcol(table1, col_name,nbins = None, width = None, output_name = None):
 # two tables, table1 and table2
 def cumhistcol(table1, col_name, normalization=None,output_name = None):
  
-  if table1.table[1].has_key('ifo'):
-    ifo = table1.table[1]["ifo"]
+  if table1.table[0].has_key('ifo'):
+    ifo = table1.table[0]["ifo"]
   else:
     ifo = None
 
@@ -623,7 +623,7 @@ def cumhistsnr(trigs=None, slideTrigs=None,ifos = None, min_val = None, \
   # read in zero lag triggers
   if trigs:
     if ifos:
-      trigs = trigs.coinctype(ifos[0],ifos[1])
+      trigs = trigs.coinctype(ifos)
     snr = asarray([ pow(trigs.table[i]["snrsq"],0.5) for i in \
         range(trigs.nevents()) ] )
 
@@ -641,7 +641,7 @@ def cumhistsnr(trigs=None, slideTrigs=None,ifos = None, min_val = None, \
     slide_snr_list = []
     for this_slide in slideTrigs:
       if ifos:
-        slide_trigs = this_slide['triggers'].coinctype(ifos[0],ifos[1])
+        slide_trigs = this_slide['triggers'].coinctype(ifos)
       else:
         slide_trigs = this_slide['triggers']
 
@@ -885,7 +885,7 @@ def histslides(slide_trigs, zerolag_trigs = None, ifos = None):
   slides = []
   for slide in slide_trigs:
     if ifos:
-      nevents.append( slide["triggers"].coinctype(ifos[0],ifos[1]).nevents() )
+      nevents.append( slide["triggers"].coinctype(ifos).nevents() )
     else:  
       nevents.append(slide["triggers"].nevents())
     slides.append(slide["slide_num"])
@@ -897,7 +897,7 @@ def histslides(slide_trigs, zerolag_trigs = None, ifos = None):
   if zerolag_trigs:
     hold(True)
     if ifos:
-      nfgevents = zerolag_trigs.coinctype(ifos[0],ifos[1]).nevents()
+      nfgevents = zerolag_trigs.coinctype(ifos).nevents()
     else:
       nfgevents = zerolag_trigs.nevents()
     figtext(0.13,0.70,"zero lag = %6.3e" % nfgevents )
@@ -927,7 +927,7 @@ def plotslides(slide_trigs, zerolag_trigs = None, ifos = None):
   slides = []
   for slide in slide_trigs:
     if ifos:
-      nevents.append( slide["triggers"].coinctype(ifos[0],ifos[1]).nevents() )
+      nevents.append( slide["triggers"].coinctype(ifos).nevents() )
     else:  
       nevents.append(slide["triggers"].nevents())
     slides.append(slide["slide_num"])
@@ -942,7 +942,7 @@ def plotslides(slide_trigs, zerolag_trigs = None, ifos = None):
   if zerolag_trigs:
     hold(True)
     if ifos:
-      nfgevents = zerolag_trigs.coinctype(ifos[0],ifos[1]).nevents()
+      nfgevents = zerolag_trigs.coinctype(ifos).nevents()
     else:
       nfgevents = zerolag_trigs.nevents()
     plot([0],[nfgevents],'rx',markersize=12)
