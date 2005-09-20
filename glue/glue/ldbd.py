@@ -24,6 +24,7 @@ import sys
 import string
 import re
 import csv
+import exceptions
 try:
   import mx.ODBC.DB2 as mxdb
   from mx.ODBC.DB2 import SQL
@@ -299,7 +300,10 @@ class LIGOLwParser:
             j, k = divmod(i,ntyp)
             try:
               thiscol = table[tab]['orderedcol'][k]
-              lst[j][k] = self.types[table[tab]['column'][thiscol]](stream[i])
+              if len( stream[i] ) == 0:
+                lst[j][k] = None
+              else:
+                lst[j][k] = self.types[table[tab]['column'][thiscol]](stream[i])
             except KeyError, ValueError:
               raise LIGOLwParseError, 'error translating data in stream'
           table[tab]['stream'] = map(tuple,lst)
