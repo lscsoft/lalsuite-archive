@@ -1,0 +1,10 @@
+echo table sngl_inspiral;
+delete from sngl_inspiral where end_time in (637706554, 637706555, 637706556);
+echo table filter_params;
+delete from filter_params where param in ('param_953671340', 'param_953671341');
+echo table filter;
+delete from filter where param_set in (953671340, 953671341);
+echo table process_params;
+delete from process_params where param in ('Param_953671340', 'Param_953671341' );
+echo table process;
+delete from process where username in ('U_953671340', 'U_953671341' );
