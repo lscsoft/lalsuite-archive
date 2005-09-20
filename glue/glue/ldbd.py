@@ -78,6 +78,28 @@ class LIGOLwDBError(Exception):
   def __init__(self,args=None):
     self.args = args
 
+class Xlator(dict):
+  """
+  All in one multiple string substitution class from the python cookbook
+  """
+  def _make_regex(self):
+    """
+    Build a re object based on keys in the current dictionary
+    """
+    return re.compile("|".join(map(re.escape, self.keys())))
+
+  def __call__(self, match):
+    """
+    Handler invoked for each regex match
+    """
+    return self[match.group(0)]
+
+  def xlat(self, text):
+    """
+    Translate text, returns the modified text
+    """
+    return self._make_regex().sub(self,text)
+
 class LIGOMetadataDatabase:
   """
   Contains a tuple of tables in the order that insertions should
@@ -173,6 +195,7 @@ class LIGOLwParser:
       'ilwd:char' : self.__ilwdchar,
       'ilwd:char_u' : self.__ilwdchar
     }
+    self.xmltostr = Xlator({ r'&amp;' : r'&', r'&gt;' : r'>', r'&lt;' : r'<' })
 
   def __lstring(self,lstr):
     """
@@ -183,6 +206,7 @@ class LIGOLwParser:
     """
     lstr = self.llsrx.sub('',lstr.encode('ascii'))
     lstr = self.rlsrx.sub('',lstr)
+    lstr = self.xmltostr.xlat(lstr)
     lstr = self.dlmrx.sub(',',lstr)
     return lstr
     
@@ -308,6 +332,7 @@ class LIGOMetadata:
     self.lwtparser = lwtparser
     self.lwtparser.unique = None
     self.table = {}
+    self.strtoxml = Xlator({ r'&' : r'&amp;', r'>' : r'&gt;', r'<' : r'&lt;' })
 
   def __del__(self):
     if self.lwtparser.unique:
@@ -536,7 +561,7 @@ class LIGOMetadata:
 """
 
     for tab in self.table.keys():
-      ligolw += '   <Comment>'+self.table[tab]['query']+'</Comment>\n'
+      ligolw += '   <Comment>'+self.strtoxml.xlat(self.table[tab]['query'])+'</Comment>\n'
       ligolw += '   <Table Name="'+tab+':table">\n'
       for col in self.table[tab]['orderedcol']:
         ligolw +='      <Column Name="'+tab.lower()+':'+col.lower()+'" Type="'+self.table[tab]['column'][col].lower()+'"/>\n'
@@ -556,7 +581,7 @@ class LIGOMetadata:
                 ligolw += '\\%.3o' % (ord(ch))
               ligolw += '"'
             elif re.match(r'\Alstring\Z',coltype):
-              ligolw += '"'+str(tupi)+'"'
+              ligolw += '"'+self.xlat_strtoxml.xlat(str(tupi))+'"'
             elif re.match(r'\Areal_4\Z',coltype):
               ligolw += '%13.7e' % tupi
             elif re.match(r'\Areal_8\Z',coltype):
