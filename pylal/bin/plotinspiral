@@ -70,7 +70,7 @@ parser.add_option("-d","--hist-snr",action="store_true",default=False,\
     help="histogram of the snr" )
 parser.add_option("-e","--norm-hist-snr",action="store_true",default=False,\
     help="normalized cumulative histogram of the snr" )
-parser.add_option("-g","--hist-chisq",action="store_true",default=False,\
+parser.add_option("-j","--hist-chisq",action="store_true",default=False,\
     help="histogram of the chisq values" )
 parser.add_option("-n","--nbins",action="store",type="int",default=10,\
     metavar=" NBINS", help="number of bins for the histogram plots" )
