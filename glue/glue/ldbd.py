@@ -581,7 +581,7 @@ class LIGOMetadata:
                 ligolw += '\\%.3o' % (ord(ch))
               ligolw += '"'
             elif re.match(r'\Alstring\Z',coltype):
-              ligolw += '"'+self.xlat_strtoxml.xlat(str(tupi))+'"'
+              ligolw += '"'+self.strtoxml.xlat(str(tupi))+'"'
             elif re.match(r'\Areal_4\Z',coltype):
               ligolw += '%13.7e' % tupi
             elif re.match(r'\Areal_8\Z',coltype):
