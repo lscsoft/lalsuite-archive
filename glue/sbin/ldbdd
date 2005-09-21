@@ -365,7 +365,7 @@ class LDBDServerHandler(SocketServer.BaseRequestHandler):
 
     try:
       # create a ligo metadata object
-      ligomd = ldbd.LIGOMetadata(dbobj,xmlparser,lwtparser)
+      ligomd = ldbd.LIGOMetadata(xmlparser,lwtparser,dbobj)
 
       # execute the query
       rowcount = ligomd.select(querystr)
@@ -408,7 +408,7 @@ class LDBDServerHandler(SocketServer.BaseRequestHandler):
       remote_dn = cred.inquire_cred()[1].display()
 
       # create a ligo metadata object
-      ligomd = ldbd.LIGOMetadata(dbobj,xmlparser,lwtparser)
+      ligomd = ldbd.LIGOMetadata(xmlparser,lwtparser,dbobj)
 
       # parse the input string into a metadata object
       ligomd.parse(arg[0])
@@ -460,7 +460,7 @@ class LDBDServerHandler(SocketServer.BaseRequestHandler):
       remote_dn = cred.inquire_cred()[1].display()
 
       # create a ligo metadata object
-      ligomd = ldbd.LIGOMetadata(dbobj,xmlparser,lwtparser)
+      ligomd = ldbd.LIGOMetadata(xmlparser,lwtparser,dbobj)
 
       # parse the input string into a metadata object
       ligomd.parse(arg[0])

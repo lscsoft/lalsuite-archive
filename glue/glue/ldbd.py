@@ -319,7 +319,7 @@ class LIGOMetadata:
   and SQL query to retrive data from the database and writing it
   to a LIGO lightweight XML file
   """
-  def __init__(self,ldb,xmlparser,lwtparser):
+  def __init__(self,xmlparser,lwtparser,ldb=None):
     """
     Connects to the database and creates a cursor. Initializes the unique
     id table for this LIGO lw document.
@@ -329,9 +329,13 @@ class LIGOMetadata:
     lwtparser = LIGOLwParser object (tuple parser)
     """
     self.ldb = ldb
-    self.dbcon = mxdb.Connect(self.ldb.database)
-    self.dbcon.setconnectoption(SQL.AUTOCOMMIT, SQL.AUTOCOMMIT_OFF)
-    self.curs = self.dbcon.cursor()
+    if self.ldb:
+      self.dbcon = mxdb.Connect(self.ldb.database)
+      self.dbcon.setconnectoption(SQL.AUTOCOMMIT, SQL.AUTOCOMMIT_OFF)
+      self.curs = self.dbcon.cursor()
+    else:
+      self.dbcon = None
+      self.curs = None
     self.xmlparser = xmlparser
     self.lwtparser = lwtparser
     self.lwtparser.unique = None
@@ -341,8 +345,10 @@ class LIGOMetadata:
   def __del__(self):
     if self.lwtparser.unique:
       del self.lwtparser.unique
-    self.curs.close()
-    self.dbcon.close()
+    if self.curs:
+      self.curs.close()
+    if self.dbcon:
+      self.dbcon.close()
 
   def reset(self):
     """Clear any existing table"""
@@ -399,6 +405,8 @@ class LIGOMetadata:
     
   def insert(self):
     """Insert the object into the database"""
+    if not self.curs:
+      raise LIGOLwDBError, "Database connection not initalized"
     if len(self.table) == 0:
       raise LIGOLwDBError, 'attempt to insert empty table'
     for tab in self.table.keys():
@@ -440,6 +448,8 @@ class LIGOMetadata:
 
     sql = the (case sensitve) SQL statment to execute
     """
+    if not self.curs:
+      raise LIGOLwDBError, "Database connection not initalized"
     if len(self.table) != 0:
       raise LIGOLwDBError, 'attempt to fill non-empty table from database'
     ligolw = ''
