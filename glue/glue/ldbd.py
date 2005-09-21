@@ -198,6 +198,10 @@ class LIGOLwParser:
     }
     self.xmltostr = Xlator({ r'&amp;' : r'&', r'&gt;' : r'>', r'&lt;' : r'<' })
 
+  def __del__(self):
+    if self.unique:
+      del self.unique
+
   def __lstring(self,lstr):
     """
     Returns a parsed lstring by stripping out and instances of
@@ -319,7 +323,7 @@ class LIGOMetadata:
   and SQL query to retrive data from the database and writing it
   to a LIGO lightweight XML file
   """
-  def __init__(self,xmlparser,lwtparser,ldb=None):
+  def __init__(self,xmlparser=None,lwtparser=None,ldb=None):
     """
     Connects to the database and creates a cursor. Initializes the unique
     id table for this LIGO lw document.
@@ -338,13 +342,12 @@ class LIGOMetadata:
       self.curs = None
     self.xmlparser = xmlparser
     self.lwtparser = lwtparser
-    self.lwtparser.unique = None
+    if lwtparser:
+      self.lwtparser.unique = None
     self.table = {}
     self.strtoxml = Xlator({ r'&' : r'&amp;', r'>' : r'&gt;', r'<' : r'&lt;' })
 
   def __del__(self):
-    if self.lwtparser.unique:
-      del self.lwtparser.unique
     if self.curs:
       self.curs.close()
     if self.dbcon:
@@ -362,6 +365,10 @@ class LIGOMetadata:
 
     xml = the xml document to be parsed
     """
+    if not self.xmlparser:
+      raise LIGOLwParseError, "pyRXP parser not initialized"
+    if not self.lwtparser:
+      raise LIGOLwParseError, "LIGO_LW tuple parser not initialized"
     ligolwtup = self.xmlparser(xml)
     self.lwtparser.unique = UniqueIds(self.curs)
     self.table = self.lwtparser.parsetuple(ligolwtup)
@@ -575,7 +582,10 @@ class LIGOMetadata:
 """
 
     for tab in self.table.keys():
-      ligolw += '   <Comment>'+self.strtoxml.xlat(self.table[tab]['query'])+'</Comment>\n'
+      try:
+        ligolw += '   <Comment>'+self.strtoxml.xlat(self.table[tab]['query'])+'</Comment>\n'
+      except KeyError:
+        pass
       ligolw += '   <Table Name="'+tab+':table">\n'
       for col in self.table[tab]['orderedcol']:
         ligolw +='      <Column Name="'+tab.lower()+':'+col.lower()+'" Type="'+self.table[tab]['column'][col].lower()+'"/>\n'
@@ -594,6 +604,8 @@ class LIGOMetadata:
               for ch in str(tupi):
                 ligolw += '\\%.3o' % (ord(ch))
               ligolw += '"'
+            elif re.match(r'\Ailwd:char\Z',coltype):
+              ligolw += '"' + str(tupi) + '"'
             elif re.match(r'\Alstring\Z',coltype):
               ligolw += '"'+self.strtoxml.xlat(str(tupi))+'"'
             elif re.match(r'\Areal_4\Z',coltype):
