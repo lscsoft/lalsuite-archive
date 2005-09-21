@@ -19,8 +19,7 @@ CREATE TABLE summ_comment
 -- Group name for frameset which determined this time interval, if any
       frameset_group     VARCHAR(48),
 -- Group and version of segment which determined this time interval, if any
-      segment_group      VARCHAR(64),
-      version            INTEGER,
+       segment_def_id    CHAR(13) FOR BIT DATA,
 -- Start and end times (in GPS seconds and nanoseconds)
       start_time         INTEGER NOT NULL,
       start_time_ns      INTEGER NOT NULL,
@@ -50,8 +49,8 @@ CREATE TABLE summ_comment
 -- corresponding entry in the appropriate table.  If null, then no
 -- foreign-key check is performed.
       CONSTRAINT summcomm_fk_seg
-      FOREIGN KEY (segment_group, version, start_time, end_time)
-          REFERENCES segment(segment_group, version, start_time, end_time),
+      FOREIGN KEY (segment_def_id)
+          REFERENCES segment_definer(segment_def_id),
 
       CONSTRAINT summcomm_fk_fs
       FOREIGN KEY (frameset_group, start_time, end_time)
@@ -67,5 +66,5 @@ CREATE INDEX summcomm_ind_time ON summ_comment(start_time, end_time)
 CREATE INDEX summcomm_ind_fsg ON summ_comment(frameset_group)
 ;
 -- Create an index based on segment_group
-CREATE INDEX summcomm_ind_sgrp ON summ_comment(segment_group, version)
+CREATE INDEX summcomm_ind_sgrp ON summ_comment(segment_def_id)
 ;

@@ -15,7 +15,7 @@ CREATE TABLE segment_definer
       segment_def_id     CHAR(13) FOR BIT DATA NOT NULL,
 
 -- Interferometer(s) for which these segments are meaningful
-      ifos               CHAR(12),
+      ifos               CHAR(12) NOT NULL,
 -- Descriptive name for this group of segments (e.g. 'Science', 'Dust')
       name               VARCHAR(128) NOT NULL,
 -- Version number for segment group (to allow re-evaluation)
@@ -25,14 +25,17 @@ CREATE TABLE segment_definer
 
 -- OPTIONAL ADDITIONAL STATE VECTOR DATA
 -- These should be null if the information does not come from the state vector
-      major              INTEGER
-      minor              INTEGER 
+      major              INTEGER,
+      minor              INTEGER,
       
 -- Insertion time (automatically assigned by the database)
       insertion_time     TIMESTAMP WITH DEFAULT CURRENT TIMESTAMP,
 
       CONSTRAINT segdef_pk
       PRIMARY KEY (ifos, name, version),
+
+      CONSTRAINT segdef_sk
+      UNIQUE (segment_def_id),
 
       CONSTRAINT segdef_fk_pid
       FOREIGN KEY (process_id, creator_db)
@@ -45,11 +48,8 @@ DATA CAPTURE CHANGES
 CREATE INDEX segdef_cind ON segment_definer(name, version) CLUSTER
 ;
 -- Create an index based on program name
-CREATE INDEX segdef_ind_value ON segment_definier(ifos)
+CREATE INDEX segdef_ind_value ON segment_definer(ifos)
 ;
 -- Create an index based on process ID
 CREATE INDEX segdef_ind_pid ON segment_definer(process_id)
-;
--- Create an index based on segment id
-CREATE INDEX segdef_sid ON segment_definer(segment_def_id)
 ;

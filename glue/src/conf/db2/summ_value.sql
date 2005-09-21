@@ -14,9 +14,8 @@ CREATE TABLE summ_value
 -- TIME INTERVAL FROM WHICH THIS VALUE WAS CALCULATED
 -- Group name for frameset which determined this time interval, if any
       frameset_group     VARCHAR(48),
--- Group and version of segment which determined this time interval, if any
-      segment_group      VARCHAR(64),
-      version            INTEGER,
+-- segment type which determined this time interval, if any
+      segment_def_id     CHAR(13) FOR BIT DATA,
 -- Start and end times (in GPS seconds and nanoseconds)
       start_time         INTEGER NOT NULL,
       start_time_ns      INTEGER NOT NULL,
@@ -48,8 +47,8 @@ CREATE TABLE summ_value
 -- corresponding entry in the appropriate table.  If null, then no
 -- foreign-key check is performed.
       CONSTRAINT summval_fk_seg
-      FOREIGN KEY (segment_group, version, start_time, end_time)
-          REFERENCES segment(segment_group, version, start_time, end_time),
+      FOREIGN KEY (segment_def_id)
+          REFERENCES segment_definer(segment_def_id),
 
       CONSTRAINT summval_fk_fs
       FOREIGN KEY (frameset_group, start_time, end_time)
@@ -71,5 +70,5 @@ CREATE INDEX summval_ind_pid ON summ_value(process_id)
 CREATE INDEX summval_ind_fsg ON summ_value(frameset_group)
 ;
 -- Create an index based on segment_group
-CREATE INDEX summval_ind_sgrp ON summ_value(segment_group, version)
+CREATE INDEX summval_ind_sgrp ON summ_value(segment_def_id)
 ;
