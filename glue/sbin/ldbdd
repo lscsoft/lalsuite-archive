@@ -480,66 +480,20 @@ class LDBDServerHandler(SocketServer.BaseRequestHandler):
       rls = configuration['rls']
       cert = configuration['certfile']
       key = configuration['keyfile']
-      rlsfail = 1
-      for x in range(3):
-        try:
-          r = rlsClient.RlsClient(rls,cert,key)
-          rlsfail = 0
-          continue
-        except Exception, e:
-          pass
-      if rlsfail:
-        msg = ("Could not open connection to RLS server: %s" % e )
-        raise LDBDServerHandlerException, e
-          
+      r = rlsClient.RlsClient(rls,cert,key)
+
       # insert the PFN/LFN mappings into the RLS
       for lfn in lfnpfn_dict.keys():
         pfns = lfnpfn_dict[lfn]
-          if isinstance( pfns, types.StringType ):
-            # try and insert a single lfn -> pfn map for this pfn
-            rlsfail = 1
-            for x in range(3):
-              try:
-                r.lrc_create_lfn( lfn, pfns )
-                rlsfail = 0
-                continue
-              except Execption, e:
-                pass
-            if rlsfail:
-              msg = ("Could not create map for %s,%s: %s" % (lfn,pfns,e) )
-              raise LDBDServerHandlerException, e
-                
-          elif isinstance( pfns, types.ListType ):
-            # first insert the first map with a create
-            rlsfail = 1
-            for x in range(3):
-              try:
-                r.lrc_create_lfn( lfn, pfns[0] )
-                rlsfail = 0
-                continue
-              except Exception, e:
-                pass
-            if rlsfail:
-              msg = ("Could not create map for %s,%s: %s" % (lfn,pfns[0],e) )
-              raise LDBDServerHandlerException, e
-            # now create the addition maps with an add
-            for pfn in pfns[1:len(pfns)]:
-              rlsfail = 1
-              for x in range(3):
-                try:
-                  r.lrc_add( lfn, pfn )
-                  rlsfail = 0
-                  continue
-                except Exception, e:
-                  pass
-              if rlsfail:
-                msg = ("Could not create map for %s,%s: %s" % (lfn,pfn,e) )
-                raise LDBDServerHandlerException, e
-                
-            else:
-              # we have been passed garbage
-              raise LDBDServerHandlerException, \
-                "PFN must be a single string or a list of PFNs"
+        if isinstance( pfns, types.StringType ):
+          r.lrc_create_lfn( lfn, pfns )
+        elif isinstance( pfns, types.ListType ):
+          r.lrc_create_lfn( lfn, pfns[0] )
+          for pfn in pfns[1:len(pfns)]:
+            r.lrc_add( lfn, pfn)
+        else:
+          raise LDBDServerHandlerException, \
+            "PFN must be a single string or a list of PFNs"
           
       logger.info("Method insertmap: insert LFN mappings for %s" % 
         str(lfnpfn_dict.keys()))
