@@ -15,7 +15,7 @@ CREATE TABLE process
 -- Time when the program was entered into the cvs repository (GPS seconds)
       cvs_entry_time     INTEGER,
 -- User comment which describes the program
-      comment            VARCHAR(240),
+      comment            VARCHAR(255),
 
 -- INFORMATION ABOUT THIS INVOCATION OF THE PROGRAM
 -- Flag to indicate whether it was run on-line (1) or off-line (0)
@@ -49,26 +49,33 @@ CREATE TABLE process
 -- knows in advance what interferometer's data it is analyzing.
 -- (This is necessary to retrieve frameset metadata, for instance.)
 -- Make this variable long enough to indicate multiple interferometers.
--- (e.g. "H1H2L1V1")
+-- (e.g. "H1H2L1G1V1T1")
       ifos               CHAR(12),
       
 -- Insertion time (automatically assigned by the database)
       insertion_time     TIMESTAMP WITH DEFAULT CURRENT TIMESTAMP,
 
-      CONSTRAINT process_pk
-      PRIMARY KEY (program, start_time, node, unix_procid, jobid, domain),
-
--- Create a "secondary key" (my term; to DB2 it's simply a unique index)
--- that other tables can use for a foreign key.
+-- We constrain only on enforcing unique process_id and creator_db.
+-- If two processes have the same process metadata, it is up to the
+-- user to resolve this. Under condor we cannot enforce uniqueness
+-- of start_time or node (since two processes may start on the same
+-- dual cpu machine at the same time), unix_procid (since the value
+-- returned by getpid() is invalid in the condor standard universe:
+-- a checkpointed job may have multiple pids) and jobid (since the 
+-- condor equaivalent of cluster.process is not guaranteed to be 
+-- unique. If the condor history is deleted, it will reset to zero)
       CONSTRAINT process_sk
-      UNIQUE (process_id, creator_db)
+      PRIMARY KEY (process_id, creator_db)
 )
 -- The following line is needed for this table to be replicated to other sites
 DATA CAPTURE CHANGES
 ;
--- Create an index based on start_time
-CREATE INDEX process_ind_time ON process(start_time)
+-- Create an index based on program name
+CREATE INDEX process_ind_prog ON process(program)
 ;
--- Create an index based on job ID
-CREATE INDEX process_ind_jobid ON process(jobid, domain)
+-- Create an index based on user name
+CREATE INDEX process_ind_time ON process(username)
+;
+-- Create an index based on ifos
+CREATE INDEX process_ind_ifos ON process(ifos)
 ;

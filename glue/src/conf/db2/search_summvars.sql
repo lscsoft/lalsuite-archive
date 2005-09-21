@@ -23,11 +23,6 @@ CREATE TABLE search_summvars
 -- Insertion time (automatically assigned by the database)
       insertion_time     TIMESTAMP WITH DEFAULT CURRENT TIMESTAMP,
 
--- This "primary key" definition has the effect of requiring the
--- summary-variable name to be unique for a given search job.
-      CONSTRAINT s_summvar_pk
-      PRIMARY KEY (process_id, creator_db, name),
-
 -- Require this to correspond to an entry in the search_summary table
       CONSTRAINT s_summvar_fk_pid
       FOREIGN KEY (process_id, creator_db)
