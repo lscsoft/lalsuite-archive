@@ -9,12 +9,8 @@ CREATE TABLE segment
 -- Unique process ID of the process which defined this segment
       process_id         CHAR(13) FOR BIT DATA NOT NULL,
 
--- Unique segment ID for this segment
+-- Unique segment ID
       segment_id         CHAR(13) FOR BIT DATA NOT NULL,
-
--- Segment group (e.g. 'H2-locked') and version to which this segment belongs
-      segment_group      VARCHAR(64) NOT NULL,
-      version            INTEGER NOT NULL,
 
 -- INFORMATION ABOUT THIS SEGMENT
 -- Segment start and end times, in GPS seconds.
