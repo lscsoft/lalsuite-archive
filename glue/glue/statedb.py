@@ -76,8 +76,8 @@ class StateSegmentDatabase:
     self.process_id = None
     self.version = '$Revision$'[11:-2]
     self.cvs_repository = '$Source$' [9,-2]
-    self.cvs_date = time.strptime( '$Date$'[7,-2], '%Y/%m/%d %T' )
-    self.cvs_entry_time = str( gpstime.GpsSecondsFromPyUTC( self.cvs_date ) )
+    self.cvs_date = time.strptime( '$Date$'[7:-2], '%Y/%m/%d %H:%M:%S' )
+    self.cvs_entry_time = str( gpstime.GpsSecondsFromPyUTC( time.mktime(self.cvs_date) ) )
     self.node = socket.gethostname()
     self.username = pwd.getpwuid(os.geteuid())[0]
     self.unix_procid = os.getpid()
@@ -103,8 +103,10 @@ class StateSegmentDatabase:
       sql += "', 1, '" + self.node + "', '" + self.username + "', " 
       sql +=  self.unix_procid + ", " + self.start_time + ", " 
       sql += self.process_id + ")"
-
-    
+      self.cursor.execute(sql)
+    except Exception, e:
+      msg = "Could not initialize process table: %s" % e
+      raise StateSegmentDatabaseException, e
 
     # build a dictionary of the state vector types
     sql = "SELECT version, value, state_vec_id from state_vec"
