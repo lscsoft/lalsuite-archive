@@ -19,8 +19,10 @@ CREATE TABLE lfn
 -- logical file name
       lfn                VARCHAR(255) NOT NULL,
 
--- optional comment string
+-- optional comment string and start and end times of the file
       comment            VARCHAR(240),
+      start_time         INTEGER,
+      end_time           INTEGER,
 
 -- Insertion time (automatically assigned by the database)
       insertion_time     TIMESTAMP WITH DEFAULT CURRENT TIMESTAMP,
