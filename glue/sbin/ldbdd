@@ -202,7 +202,11 @@ dbobj = ldbd.LIGOMetadataDatabase(dbname)
 xmlparser = pyRXP.Parser()
 lwtparser = ldbd.LIGOLwParser()
 
-
+# open a connection to the rls server
+rls_server = configuration['rls']
+cert = configuration['certfile']
+key = configuration['keyfile']
+rls = rlsClient.RlsClient(rls_server,cert,key)
 
 class LDBDServerHandlerException(exceptions.Exception):
   """
@@ -476,24 +480,15 @@ class LDBDServerHandler(SocketServer.BaseRequestHandler):
       result = str(ligomd.insert())
       logger.info("Method insert: %s rows affected by insert" % result)
 
-      # connect to the RLS server
-      rls = configuration['rls']
-      cert = configuration['certfile']
-      key = configuration['keyfile']
-      r = rlsClient.RlsClient(rls,cert,key)
-
       # insert the PFN/LFN mappings into the RLS
       for lfn in lfnpfn_dict.keys():
         pfns = lfnpfn_dict[lfn]
-        if isinstance( pfns, types.StringType ):
-          r.lrc_create_lfn( lfn, pfns )
-        elif isinstance( pfns, types.ListType ):
-          r.lrc_create_lfn( lfn, pfns[0] )
-          for pfn in pfns[1:len(pfns)]:
-            r.lrc_add( lfn, pfn)
-        else:
+        if not isinstance( pfns, types.ListType ):
           raise LDBDServerHandlerException, \
             "PFN must be a single string or a list of PFNs"
+        rls.lrc_create_lfn( lfn, pfns[0] )
+        for pfn in pfns[1:len(pfns)]:
+          rls.lrc_add( lfn, pfn )
           
       logger.info("Method insertmap: insert LFN mappings for %s" % 
         str(lfnpfn_dict.keys()))
@@ -503,11 +498,6 @@ class LDBDServerHandler(SocketServer.BaseRequestHandler):
       result = ("Error inserting LFN/PFN mapping into RLS: %s" % e)
       logger.error(result)
       return (code,result)
-
-    try:
-      del r
-    except Exception, e:
-      logger.error( "Error deleting rls instance: %s" % e)
 
     return (code,result)
 
@@ -905,6 +895,12 @@ except Exception, e:
   msg = "ldbdd is stopping due to unhandled error: %s" % e
   print >>sys.stderr, msg
   logger.critical(msg)
+
+try:
+  del dbobj
+  del rls
+except:
+  pass
 
 del logger
 logger = None
