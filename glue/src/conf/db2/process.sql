@@ -7,7 +7,7 @@ CREATE TABLE process
 
 -- BASIC INFORMATION ABOUT THE PROGRAM
 -- Program name
-      program            CHAR(16) NOT NULL,
+      program            CHAR(32) NOT NULL,
 -- Version of the program
       version            VARCHAR(64),
 -- Where the program is stored in the cvs repository
