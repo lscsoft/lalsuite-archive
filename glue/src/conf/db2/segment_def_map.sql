@@ -22,7 +22,7 @@ CREATE TABLE segment_def_map
 
       CONSTRAINT segdefmap_fk_pid
       FOREIGN KEY (process_id, creator_db)
-          REFERENCES process(process_id, creator_db)
+          REFERENCES process(process_id, creator_db),
 
       CONSTRAINT segdefmap_fk_sid
       FOREIGN KEY (segment_id)

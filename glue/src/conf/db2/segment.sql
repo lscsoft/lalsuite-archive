@@ -27,11 +27,14 @@ CREATE TABLE segment
 -- Insertion time (automatically assigned by the database)
       insertion_time     TIMESTAMP WITH DEFAULT CURRENT TIMESTAMP,
 
--- Note that (segment_group,version,start_time) should be sufficient to
--- uniquely identify a segment, but we include end_time in the primary key
--- to facilitate faster queries.
       CONSTRAINT segment_pk
-      PRIMARY KEY (segment_id, start_time, end_time),
+      PRIMARY KEY (segment_id),
+
+-- Note that (segment_group,version,start_time) should be sufficient to
+-- uniquely identify a segment, but we include end_time in the secondary key
+-- to facilitate faster queries.
+      CONSTRAINT segment_sk
+      UNIQUE (segment_id, start_time, end_time),
 
       CONSTRAINT segment_fk_pid
       FOREIGN KEY (process_id, creator_db)
@@ -39,9 +42,6 @@ CREATE TABLE segment
 )
 -- The following line is needed for this table to be replicated to other sites
 DATA CAPTURE CHANGES
-;
--- Create a clustering index for quicker scanning of a given segment_id
-CREATE INDEX segment_cind ON segment(segment_id) CLUSTER
 ;
 -- Create an index based on time
 CREATE INDEX segment_ind_time ON segment(start_time, end_time)
