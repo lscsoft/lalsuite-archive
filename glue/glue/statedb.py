@@ -1,8 +1,18 @@
+"""
+The statedb module is the interface between the segment publishing script
+and the metadata database.
+
+$Id$
+"""
+import os
+import socket
+import pwd
 import sys
 import re
 import exceptions
-import MySQLdb
-import _mysql_exceptions
+from glue import gpstime
+import mx.ODBC.DB2 as mxdb
+from mx.ODBC.DB2 import SQL
 
 class StateSegmentDatabaseException(exceptions.Exception):
   """
@@ -63,14 +73,38 @@ class StateSegmentDatabase:
     self.state_vec = {}
     self.lfn_id = None
     self.framereg = re.compile(r'^([A-Za-z]+)\-(\w+)\-(\d+)\-(\d+)\.gwf$')
+    self.process_id = None
+    self.version = '$Revision$'[11:-2]
+    self.cvs_repository = '$Source$' [9,-2]
+    self.cvs_date = time.strptime( '$Date$'[7,-2], '%Y/%m/%d %T' )
+    self.cvs_entry_time = str( gpstime.GpsSecondsFromPyUTC( self.cvs_date ) )
+    self.node = socket.gethostname()
+    self.username = pwd.getpwuid(os.geteuid())[0]
+    self.unix_procid = os.getpid()
+    self.start_time = str( gpstime.GpsSecondsFromPyUTC(time.time()) )
 
     # connect to the database
     try:
-      self.db = MySQLdb.connect(user=dbuser,passwd=dbpasswd,db=dbname)
+      self.db = mxdb.Connect(dbname)
       self.cursor = self.db.cursor()
     except Exception, e:
       msg = "Error connecting to database: %s" % e
       raise StateSegmentDatabaseException, e
+
+    # generate a process table for this instance of the publisher
+    try:
+      sql = "VALUES GENERATE_UNIQUE()"
+      self.cursor.execute(sql)
+      self.process_id = self.cursor.fetchone()
+      sql = "INSERT INTO process (program,version,cvs_repository,"
+      sql += "cvs_entry_time,is_online,node,username,unix_procid,start_time,"
+      sql += "process_id) VALUES ('StateSegmentDatabase', '" + self.version + 
+      sql += "', '" + self.cvs_repository + "', '" + self.cvs_entry_time
+      sql += "', 1, '" + self.node + "', '" + self.username + "', " 
+      sql +=  self.unix_procid + ", " + self.start_time + ", " 
+      sql += self.process_id + ")"
+
+    
 
     # build a dictionary of the state vector types
     sql = "SELECT version, value, state_vec_id from state_vec"
@@ -81,7 +115,8 @@ class StateSegmentDatabase:
       msg = "Error fetching state vector values from database: %s" % e
       raise StateSegmentDatabaseException, e
     for r in result:
-      self.state_vec[tuple([r[0],r[1]])] = r[2]
+      if r[0] and r[1]:
+        self.state_vec[tuple([r[0],r[1]])] = r[2]
 
     if self.debug:
       print "DEBUG: current state known state vec types are: "
@@ -90,7 +125,7 @@ class StateSegmentDatabase:
       
   def close(self):
     """
-    Close the connection to MySQL.
+    Close the connection to the database.
     """
     try:
       self.cursor.close()
@@ -121,6 +156,11 @@ class StateSegmentDatabase:
         long(self.framereg.search(lfn).group(4))
     
     try:
+      # get a unique id for this lfn
+      sql = "VALUES GENERATE_UNIQUE()"
+      self.cursor.execute(sql)
+      
+      
       sql = "INSERT INTO lfn (lfn,start_time,end_time) values (%s,%s,%s)"
       self.cursor.execute(sql,(lfn,start,end))
       sql = "SELECT LAST_INSERT_ID()"
