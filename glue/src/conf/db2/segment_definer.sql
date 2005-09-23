@@ -25,8 +25,8 @@ CREATE TABLE segment_definer
 
 -- OPTIONAL ADDITIONAL STATE VECTOR DATA
 -- These should be null if the information does not come from the state vector
-      major              INTEGER,
-      minor              INTEGER,
+      state_vec_major    INTEGER,
+      state_vec_minor    INTEGER,
       
 -- Insertion time (automatically assigned by the database)
       insertion_time     TIMESTAMP WITH DEFAULT CURRENT TIMESTAMP,

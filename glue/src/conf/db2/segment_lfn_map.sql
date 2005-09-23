@@ -12,7 +12,7 @@ CREATE TABLE segment_lfn_map
       segment_id         CHAR(13) FOR BIT DATA NOT NULL,
 
 -- ID of the logiacal file name
-      segment_lfn_id     CHAR(13) FOR BIT DATA NOT NULL,
+      lfn_id             CHAR(13) FOR BIT DATA NOT NULL,
 
 -- Insertion time (automatically assigned by the database)
       insertion_time     TIMESTAMP WITH DEFAULT CURRENT TIMESTAMP,
