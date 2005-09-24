@@ -9,6 +9,7 @@ import socket
 import pwd
 import sys
 import re
+import time
 import exceptions
 from glue import gpstime
 import mx.ODBC.DB2 as mxdb
@@ -52,7 +53,7 @@ class StateSegmentDatabase:
   """
   Class that represents an instance of a state segment database
   """
-  def __init__(self, dbname, dbuser, dbpasswd = ''):
+  def __init__(self, dbname, dbuser = '', dbpasswd = ''):
     """
     Open a connection to the state segment database.
 
@@ -74,18 +75,11 @@ class StateSegmentDatabase:
     self.lfn_id = None
     self.framereg = re.compile(r'^([A-Za-z]+)\-(\w+)\-(\d+)\-(\d+)\.gwf$')
     self.process_id = None
-    self.version = '$Revision$'[11:-2]
-    self.cvs_repository = '$Source$' [9,-2]
-    self.cvs_date = time.strptime( '$Date$'[7:-2], '%Y/%m/%d %H:%M:%S' )
-    self.cvs_entry_time = str( gpstime.GpsSecondsFromPyUTC( time.mktime(self.cvs_date) ) )
-    self.node = socket.gethostname()
-    self.username = pwd.getpwuid(os.geteuid())[0]
-    self.unix_procid = os.getpid()
-    self.start_time = str( gpstime.GpsSecondsFromPyUTC(time.time()) )
 
     # connect to the database
     try:
       self.db = mxdb.Connect(dbname)
+      self.db.setconnectoption(SQL.AUTOCOMMIT, SQL.AUTOCOMMIT_OFF)
       self.cursor = self.db.cursor()
     except Exception, e:
       msg = "Error connecting to database: %s" % e
@@ -93,23 +87,37 @@ class StateSegmentDatabase:
 
     # generate a process table for this instance of the publisher
     try:
+      cvs_date = time.strptime( '$Date$'[7:-2], '%Y/%m/%d %H:%M:%S' )
+
       sql = "VALUES GENERATE_UNIQUE()"
       self.cursor.execute(sql)
-      self.process_id = self.cursor.fetchone()
-      sql = "INSERT INTO process (program,version,cvs_repository,"
-      sql += "cvs_entry_time,is_online,node,username,unix_procid,start_time,"
-      sql += "process_id) VALUES ('StateSegmentDatabase', '" + self.version + 
-      sql += "', '" + self.cvs_repository + "', '" + self.cvs_entry_time
-      sql += "', 1, '" + self.node + "', '" + self.username + "', " 
-      sql +=  self.unix_procid + ", " + self.start_time + ", " 
-      sql += self.process_id + ")"
-      self.cursor.execute(sql)
+      self.process_id = self.cursor.fetchone()[0]
+
+      process_tuple = ( 'StateSegmentDatabase', 
+        '$Revision$'[11:-2], 
+        '$Source$' [9:-2],
+        gpstime.GpsSecondsFromPyUTC( time.mktime(cvs_date) ),
+        1,
+        socket.gethostname(),
+        pwd.getpwuid(os.geteuid())[0],
+        os.getpid(),
+        gpstime.GpsSecondsFromPyUTC(time.time()),
+        self.process_id )
+    
+      sql = ' '.join(["INSERT INTO process (program,version,cvs_repository,",
+      "cvs_entry_time,is_online,node,username,unix_procid,start_time,",
+      "process_id) VALUES (", ','.join(['?' for x in process_tuple]), ")" ])
+
+      self.cursor.execute(sql,process_tuple)
+      self.db.commit()
     except Exception, e:
       msg = "Could not initialize process table: %s" % e
       raise StateSegmentDatabaseException, e
 
     # build a dictionary of the state vector types
-    sql = "SELECT version, value, state_vec_id from state_vec"
+    sql = "SELECT state_vec_major, state_vec_minor, segment_def_id "
+    sql += "FROM segment_definer WHERE state_vec_major IS NOT NULL "
+    sql += "AND state_vec_minor IS NOT NULL"
     try:
       self.cursor.execute(sql)
       result = self.cursor.fetchall()
@@ -117,21 +125,31 @@ class StateSegmentDatabase:
       msg = "Error fetching state vector values from database: %s" % e
       raise StateSegmentDatabaseException, e
     for r in result:
-      if r[0] and r[1]:
-        self.state_vec[tuple([r[0],r[1]])] = r[2]
+      self.state_vec[tuple([r[0],r[1]])] = r[2]
 
     if self.debug:
       print "DEBUG: current state known state vec types are: "
       print self.state_vec
      
       
+  def __del__(self):
+    try:
+      if self.cursor:
+        self.cursor.close()
+      if self.db:
+        self.db.close()
+    except:
+      pass
+
   def close(self):
     """
     Close the connection to the database.
     """
     try:
       self.cursor.close()
+      self.cursor = None
       self.db.close()
+      self.db = None
     except Exception, e:
       msg = "Error disconnecting from database: %s" % e
       raise StateSegmentDatabaseException, msg
@@ -161,21 +179,26 @@ class StateSegmentDatabase:
       # get a unique id for this lfn
       sql = "VALUES GENERATE_UNIQUE()"
       self.cursor.execute(sql)
-      
-      
-      sql = "INSERT INTO lfn (lfn,start_time,end_time) values (%s,%s,%s)"
-      self.cursor.execute(sql,(lfn,start,end))
-      sql = "SELECT LAST_INSERT_ID()"
-      self.cursor.execute(sql)
-    except _mysql_exceptions.IntegrityError, e:
-      sql = "SELECT lfn_id from lfn WHERE lfn = '%s'" % lfn
-      self.cursor.execute(sql)
-    except Exception, e:
-      msg = "Unable to obtain unique id for LFN : %s : %s" % (lfn,e)
-      raise StateSegmentDatabaseException, msg
-      
-    self.lfn_id = self.cursor.fetchall()[0][0]
+      self.lfn_id = self.cursor.fetchone()[0]
+     
+      sql = "INSERT INTO lfn (process_id,lfn_id,lfn,start_time,end_time) "
+      sql += "values (?,?,?,?,?)"
+      self.cursor.execute(sql,(self.process_id,self.lfn_id,lfn,start,end))
+      self.db.commit()
 
+    except mxdb.InterfaceError, e:
+      if e[1] == -803:
+        sql = "SELECT lfn_id from lfn WHERE lfn = '%s'" % lfn
+        self.cursor.execute(sql)
+        self.lfn_id = self.cursor.fetchone()[0]
+      else:
+        msg = "Unable to obtain unique id for LFN : %s : %s" % (lfn,e)
+        raise StateSegmentDatabaseException, msg
+
+    except Exception, e:
+      msg = "Unable to create entry for LFN : %s : %s" % (lfn,e)
+      raise StateSegmentDatabaseException, msg
+    
 
   def publish_state(self, 
       ifo, start_time, start_time_ns, end_time, end_time_ns, ver, val ):
@@ -191,40 +214,66 @@ class StateSegmentDatabase:
     # see if we need a new state val or if we know it already
     if (ver, val) not in self.state_vec:
       try:
-        sql = "INSERT INTO state_vec (version,value) VALUES (%s,%s)"
-        self.cursor.execute(sql,(ver,val))
-        sql = "SELECT LAST_INSERT_ID()"
+        sql = "VALUES GENERATE_UNIQUE()"
         self.cursor.execute(sql)
-        self.state_vec[(ver,val)] = self.cursor.fetchall()[0][0]
+        self.state_vec[(ver,val)] = self.cursor.fetchone()[0]
+
+        sql = "INSERT INTO segment_definer (process_id,segment_def_id,ifos,"
+        sql += "name,version,comment,state_vec_major,state_vec_minor) VALUES "
+        sql += "(?,?,?,?,?,?,?,?)"
+
+        self.cursor.execute(sql,(self.process_id, self.state_vec[(ver,val)], ifo,
+          'STATEVEC%d.%d' % (ver, val), 0, 
+          'Created automatically by StateSegmentDatabase', ver, val))
       except:
+        self.db.rollback()
         msg = "Error inserting new state vector type into database : %s" % e
         raise StateSegmentDatabaseException, e
       if self.debug:
-        print "DEBUG: create a new state vec type (%d,%d) -> %d" % \
-          (ver,val,self.state_vec[(ver,val)])
+        print ("DEBUG: create a new state vec type (%d,%d)" % \
+          (ver,val)), self.state_vec[(ver,val)]
 
     sv_id = self.state_vec[(ver,val)]
 
     # insert the state segment 
-    sql = "INSERT INTO state_segment (ifo,start_time,start_time_ns,"
-    sql += "end_time,end_time_ns,state_vec_id,lfn_id) VALUES "
-    sql += "(%s,%s,%s,%s,%s,%s,%s)"
+    sql = "VALUES GENERATE_UNIQUE()"
+    self.cursor.execute(sql)
+    segment_id = self.cursor.fetchone()[0]
+
+    sql = "INSERT INTO segment (process_id, segment_id,"
+    sql += "start_time,end_time,active) VALUES (?,?,?,?,?)"
 
     try:
-      self.cursor.execute(sql,(ifo,start_time,start_time_ns,
-            end_time,end_time_ns,sv_id,self.lfn_id))
-    except _mysql_exceptions.IntegrityError, e:
-      msg = "error : this state segment already exists in the database"
-      raise StateSegmentDatabaseSegmentExistsException, msg
+      self.cursor.execute(sql,
+        (self.process_id,segment_id,start_time,end_time,1))
     except Exception, e:
+      self.db.rollback()
       msg = "error inserting segment information : %s" % e
       raise StateSegmentDatabaseException, msg
 
+    sql = "INSERT INTO segment_lfn_map (process_id,segment_id,lfn_id) "
+    sql += "VALUES (?,?,?)"
+    try:
+      self.cursor.execute(sql,(self.process_id, segment_id, self.lfn_id))
+    except Exception, e:
+      self.db.rollback()
+      msg = "error inserting segment information : %s" % e
+      raise StateSegmentDatabaseException, msg
+
+    sql = "INSERT INTO segment_def_map (process_id,segment_id,segment_def_id) "
+    sql += "VALUES (?,?,?)"
+    try:
+      self.cursor.execute(sql,(self.process_id, segment_id, sv_id))
+    except Exception, e:
+      self.db.rollback()
+      msg = "error inserting segment information : %s" % e
+      raise StateSegmentDatabaseException, msg
+
+    # all the transactions went through ok, so commit everything
+    self.db.commit()
+
     if self.debug:
-      sql = "SELECT LAST_INSERT_ID()"
-      self.cursor.execute(sql)
-      id = self.cursor.fetchall()[0][0]
-      print "DEBUG: inserted with id", id
+      print "DEBUG: inserted with segment_id", segment_id
 
 
   def set_state_name(self,ver,val,name):
