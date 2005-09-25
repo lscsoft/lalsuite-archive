@@ -62,7 +62,7 @@ def fromsegwizard(file, coltype=long, strict=True):
 		if len(tokens) != 4:
 			break
 		try:
-			seg = segments.segment(map(coltype, tokens[1:2]))
+			seg = segments.segment(map(coltype, tokens[1:3]))
 			duration = coltype(tokens[3])
 		except ValueError:
 			break
