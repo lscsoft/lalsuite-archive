@@ -54,14 +54,15 @@ def fromsegwizard(file, coltype=long, strict=True):
 	then thusly shall be the output of this function.  It is
 	recommended that this function's output be coalesced before use.
 	"""
+	commentpat = re.compile(r"\s*([#;].*)?\Z", re.DOTALL)
+	segmentpat = re.compile(r"\A\s*([\d]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\Z")
 	l = segments.segmentlist()
 	for line in file:
-		tokens = shlex.split(line, comments=True)
-		if len(tokens) == 0:
+		line = commentpat.split(line)[0]
+		if not len(line):
 			continue
-		if len(tokens) != 4:
-			break
 		try:
+			[tokens] = segmentpat.findall(line)
 			num = int(tokens[0])
 			seg = segments.segment(map(coltype, tokens[1:3]))
 			duration = coltype(tokens[3])
