@@ -8,7 +8,6 @@ __date__ = "$Date$"
 __version__ = "$Revision$"
 
 import re
-import shlex
 import segments
 
 
