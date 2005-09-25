@@ -20,7 +20,7 @@ class test_fromsegwizard(unittest.TestCase):
 
 4   0 200 200"""
 		correct = segmentlist([segment(10, 100), segment(110, 120), segment(125, 130), segment(0, 200)])
-		self.assertEqual(correct, segmentsUtils.fromsegwizard(StringIO.StringIO(data), coltype=int, strict=True))
+		self.assertEqual(correct, segmentsUtils.fromsegwizard(StringIO.StringIO(data), strict=True))
 
 
 #

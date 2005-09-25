@@ -11,7 +11,7 @@ import re
 import segments
 
 
-def fromfilenames(filenames, coltype=long):
+def fromfilenames(filenames, coltype=int):
 	"""
 	Return a segmentlist describing the intervals spanned by the files
 	whose names are given in the list filenames.  The segmentlist is
@@ -38,7 +38,7 @@ def fromfilenames(filenames, coltype=long):
 	return l
 
 
-def fromsegwizard(file, coltype=long, strict=True):
+def fromsegwizard(file, coltype=int, strict=True):
 	"""
 	Read a segmentlist from the file object file containing a segwizard
 	compatible segment list.  Parsing stops on the first line that
@@ -73,7 +73,7 @@ def fromsegwizard(file, coltype=long, strict=True):
 	return l
 
 
-def tosegwizard(file, seglist, header=True, coltype=long):
+def tosegwizard(file, seglist, header=True, coltype=int):
 	"""
 	Write the segmentlist seglist to the file object file in a
 	segwizard compatible format.  If header is True, then the output
