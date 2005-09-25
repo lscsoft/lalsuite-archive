@@ -30,13 +30,13 @@ def fromfilenames(filenames, coltype=long):
 	recommended that this function's output be coalesced before use.
 	"""
 	pattern = re.compile(r"-([\d.]+)-([\d.]+)\.[\w_+#]+\Z")
-	list = segments.segmentlist()
+	l = segments.segmentlist()
 	for name in filenames:
 		[(s, d)] = pattern.findall(name)
 		s = coltype(s)
 		d = coltype(d)
-		list.append(segments.segment(s, s + d))
-	return list
+		l.append(segments.segment(s, s + d))
+	return l
 
 
 def fromsegwizard(file, coltype=long, strict=True):
@@ -54,7 +54,7 @@ def fromsegwizard(file, coltype=long, strict=True):
 	then thusly shall be the output of this function.  It is
 	recommended that this function's output be coalesced before use.
 	"""
-	list = segments.segmentlist()
+	l = segments.segmentlist()
 	for line in file:
 		tokens = shlex.split(line, comments=True)
 		if len(tokens) == 0:
@@ -68,18 +68,18 @@ def fromsegwizard(file, coltype=long, strict=True):
 			break
 		if strict and seg.duration() != duration:
 			raise ValueError, "segment \"" + line + "\" has incorrect duration"
-		list.append(seg)
-	return list
+		l.append(seg)
+	return l
 
 
-def tosegwizard(file, list, header=True, coltype=long):
+def tosegwizard(file, seglist, header=True, coltype=long):
 	"""
-	Write the segmentlist list to the file object file in a segwizard
-	compatible format.  If header is True, then the output will begin
-	with a comment line containing column names.  The segment
-	boundaries will be coerced to type coltype before output.
+	Write the segmentlist seglist to the file object file in a
+	segwizard compatible format.  If header is True, then the output
+	will begin with a comment line containing column names.  The
+	segment boundaries will be coerced to type coltype before output.
 	"""
 	if header:
 		print >>file, "# segment\tstart\tstop\tduration"
-	for n, seg in enumerate(list):
+	for n, seg in enumerate(seglist):
 		print >>file, "%d\t%s\t%s\t%s" % (n, coltype(seg[0]), coltype(seg[1]), coltype(seg.duration()))
