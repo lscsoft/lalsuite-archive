@@ -22,14 +22,14 @@ def fromfilenames(filenames, coltype=long):
 	The file names are parsed using a generalization of the format
 	described in Technical Note LIGO-T010150-00-E, which allows the
 	start time and duration appearing in the file name to be
-	non-integers (if coltype is a non-integer type).
+	non-integers.
 
 	NOTE:  the output is a segmentlist as described by the file names;
 	if the file names are not in time order, or describe overlaping
 	segments, then thusly shall be the output of this function.  It is
 	recommended that this function's output be coalesced before use.
 	"""
-	pattern = re.compile(r"-([\d.]+)-([\d.]+)\.[\D]")
+	pattern = re.compile(r"-([\d.]+)-([\d.]+)\.[\w_+#]+\Z")
 	list = segments.segmentlist()
 	for name in filenames:
 		[(s, d)] = pattern.findall(name)
