@@ -136,9 +136,12 @@ def makeplot(injDict,col_name,width,nevents):
 ##############################################################################
 usage = """usage: %prog [options] 
 
-Thinca Triggers Plotting Function
-
-Generate a set of summary plots from a list of thinca files.
+Program for automatically determining coincidence windows.
+To run, you read in the found injections (sngl and sim inspiral) using 
+--glob-found, the missed injections (sim) using --glob-missed.  Additionally,
+you read in the injections found and missed in the background using
+--glob-bg-found and --glob-bg-missed.  The background results are obtained by
+running sire with an injection file on the non-injection triggers.  
 
 """
 
