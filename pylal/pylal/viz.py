@@ -615,33 +615,45 @@ def cumhistcol(table1, col_name, normalization=None,output_name = None):
 ######################################################################
 # function to histogram the difference between values of 'col_name' in
 # two tables, table1 and table2
-def cumhistsnr(trigs=None, slideTrigs=None,ifos = None, min_val = None, \
+def cumhistsnr(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
   max_val = None, nbins = None):
-
+  """
+  function to plot a cumulative histogram of the snr of coincident events
+  in the zero lag and times slides
+  
+  @param trigs: coincInspiralTable
+  @param slide_trigs: dictionary of time slide triggers
+  @param ifolist: list of ifos
+  @param min_val: minimum of snr to be plotted
+  @param max_val: maximum of snr to be plotted
+  @param nbins: number of bins to use in histogram
+  """
+  
   hold(False)
   
   # read in zero lag triggers
   if trigs:
-    if ifos:
-      trigs = trigs.coinctype(ifos)
+    if ifolist:
+      trigs = trigs.coinctype(ifolist)
     snr = asarray([ pow(trigs.table[i]["snrsq"],0.5) for i in \
         range(trigs.nevents()) ] )
-
-    if not min_val:
-      min_val = min(snr)
-    if not max_val:
-      max_val = max(snr)
+    
+    if len(snr):
+      if not min_val:
+        min_val = min(snr)
+      if not max_val:
+        max_val = max(snr)
   
   # read in slide triggers
   
-  if slideTrigs:
+  if slide_trigs:
     slide_min = 0
     slide_max = 0
     
     slide_snr_list = []
-    for this_slide in slideTrigs:
-      if ifos:
-        slide_trigs = this_slide['coinc_trigs'].coinctype(ifos)
+    for this_slide in slide_trigs:
+      if ifolist:
+        slide_trigs = this_slide['coinc_trigs'].coinctype(ifolist)
       else:
         slide_trigs = this_slide['coinc_trigs']
 
@@ -649,9 +661,10 @@ def cumhistsnr(trigs=None, slideTrigs=None,ifos = None, min_val = None, \
         for i in range(slide_trigs.nevents()) ] )
 
       slide_snr_list.append(slide_snr)
-
-      slide_max = max(slide_max, max(slide_snr))
-      slide_min = min(slide_min, min(slide_snr))
+      
+      if len(slide_snr):
+        slide_max = max(slide_max, max(slide_snr))
+        slide_min = min(slide_min, min(slide_snr))
     
     if not min_val:
       min_val = slide_min
@@ -661,7 +674,12 @@ def cumhistsnr(trigs=None, slideTrigs=None,ifos = None, min_val = None, \
   # set up the bin boundaries
   if not nbins:
     nbins = 20
-
+  
+  if not max_val:
+    max_val = 10
+  if not min_val:
+    min_val = 5
+    
   bins = []    
   for i in range(nbins):
     bins.append(min_val + i*(max_val - min_val)/nbins)
@@ -676,7 +694,7 @@ def cumhistsnr(trigs=None, slideTrigs=None,ifos = None, min_val = None, \
     cum_dist_zero.pop()
 
   # hist of the slides:
-  if slideTrigs:  
+  if slide_trigs:  
     slide_dist = []
     cum_dist_slide = []
     slide_mean = []
@@ -697,9 +715,9 @@ def cumhistsnr(trigs=None, slideTrigs=None,ifos = None, min_val = None, \
 
   clf()
   hold(True)
-  if trigs: 
+  if trigs and trigs.nevents(): 
     plot(bins,log10(cum_dist_zero),'rx',markersize=12)
-  if slideTrigs:
+  if slide_trigs and len(slide_snr_list):
     slide_min = []
     for i in range( len(slide_mean) ):
       slide_min.append( max(slide_mean[i] - slide_std[i], 0.0001) )
@@ -711,8 +729,10 @@ def cumhistsnr(trigs=None, slideTrigs=None,ifos = None, min_val = None, \
   xlabel('Combined SNR', size='x-large')
   ylabel('Number of events', size='x-large')
   title_text = 'Cumulative histogram of Number of events vs SNR'
-  if ifos:
-    title_text += ' for ' + ifos[0] + ' and ' + ifos[1]
+  if ifolist:
+    title_text += ' for ' 
+    for ifo in ifolist:
+      title_text += ifo + ' '
  
   title(title_text, size='x-large')
 
@@ -872,32 +892,31 @@ def histdiffdiff(ifo1_trig, ifo2_trig, inj, col_name, sym, units=None,
 ######################################################################
 # function to histogram the difference between values of 'col_name' in
 # two tables, table1 and table2
-def histslides(slide_trigs, zerolag_trigs = None, ifos = None):
+def histslides(slide_trigs, zerolag_trigs = None, ifolist = None):
   """
   function to make a histogram of the number of triggers per time slide
   
   @param slide_trigs: dictionary of time slide triggers
   @param zerolag_trigs: coincInspiralTable
-  @param ifos: list of ifos
+  @param ifolist: list of ifos
   """
 
   nevents = []
   slides = []
   for slide in slide_trigs:
-    if ifos:
-      nevents.append( slide["coinc_trigs"].coinctype(ifos).nevents() )
+    if ifolist:
+      nevents.append( slide["coinc_trigs"].coinctype(ifolist).nevents() )
     else:  
       nevents.append(slide["coinc_trigs"].nevents())
     slides.append(slide["slide_num"])
  
-    
   hist(nevents)
   figtext(0.13,0.8, " mean = %6.3e" % mean(nevents))
   figtext(0.13,0.75,"sigma = %6.3e" % std(nevents))
   if zerolag_trigs:
     hold(True)
-    if ifos:
-      nfgevents = zerolag_trigs.coinctype(ifos).nevents()
+    if ifolist:
+      nfgevents = zerolag_trigs.coinctype(ifolist).nevents()
     else:
       nfgevents = zerolag_trigs.nevents()
     figtext(0.13,0.70,"zero lag = %6.3e" % nfgevents )
@@ -905,8 +924,8 @@ def histslides(slide_trigs, zerolag_trigs = None, ifos = None):
   
   xlabel('Number of triggers',size='x-large')
   title_text = 'Histogram of number coincident '
-  if ifos:
-    for ifo in ifos:
+  if ifolist:
+    for ifo in ifolist:
       title_text += ifo + ' '
   title_text += 'triggers per time slide'
   title(title_text, size='x-large')
@@ -915,19 +934,19 @@ def histslides(slide_trigs, zerolag_trigs = None, ifos = None):
 ######################################################################
 # function to histogram the difference between values of 'col_name' in
 # two tables, table1 and table2
-def plotslides(slide_trigs, zerolag_trigs = None, ifos = None):
+def plotslides(slide_trigs, zerolag_trigs = None, ifolist = None):
   """
   function to make a histogram of the number of triggers per time slide
   
   @param slide_trigs: dictionary of time slide triggers
   @param zerolag_trigs: coincInspiralTable
-  @param ifos: list of ifos
+  @param ifolist: list of ifos
   """
   nevents = []
   slides = []
   for slide in slide_trigs:
-    if ifos:
-      nevents.append( slide["coinc_trigs"].coinctype(ifos).nevents() )
+    if ifolist:
+      nevents.append( slide["coinc_trigs"].coinctype(ifolist).nevents() )
     else:  
       nevents.append(slide["coinc_trigs"].nevents())
     slides.append(slide["slide_num"])
@@ -941,8 +960,8 @@ def plotslides(slide_trigs, zerolag_trigs = None, ifos = None):
  
   if zerolag_trigs:
     hold(True)
-    if ifos:
-      nfgevents = zerolag_trigs.coinctype(ifos).nevents()
+    if ifolist:
+      nfgevents = zerolag_trigs.coinctype(ifolist).nevents()
     else:
       nfgevents = zerolag_trigs.nevents()
     plot([0],[nfgevents],'rx',markersize=12)
@@ -951,14 +970,14 @@ def plotslides(slide_trigs, zerolag_trigs = None, ifos = None):
   xlabel('Number of time slide',size='x-large')
   ylabel('Number of triggers in slide',size='x-large')
   title_text = 'Plot of number coincident '
-  if ifos:
-    for ifo in ifos:
+  if ifolist:
+    for ifo in ifolist:
       title_text += ifo + ' '
   title_text += 'triggers per time slide'
   title(title_text, size='x-large')
 
    
-
+######################################################################
 def tfplot(*args, **kwargs):
   """\
   tfplot(x, y, s=20, c='b', marker='o', cmap=None, norm=None,
@@ -1031,6 +1050,7 @@ def tfplot(*args, **kwargs):
   return collection
 
 
+######################################################################
 def main():
   # define usage and command line options and arguments - parse
   usage = "usage: %prog ..."

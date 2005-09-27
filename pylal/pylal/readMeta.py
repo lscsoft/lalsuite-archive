@@ -140,7 +140,7 @@ class coincInspiralTable:
           if coinc["event_id"] == trig["event_id"]:
             coinc[trig["ifo"]] = trig
             coinc["numifos"] += 1
-            coinc["snrsq"] += trig["snr"] + trig["snr"]
+            coinc["snrsq"] += trig["snr"] * trig["snr"]
     
     
   def nevents(self):
