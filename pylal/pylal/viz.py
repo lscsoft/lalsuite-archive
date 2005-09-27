@@ -487,9 +487,9 @@ def plotcoincval(coinctable, col_name, ifo1, ifo2, plot_sym, plot_type):
   ifo2_val = ifo_coinc.mkarray(col_name,ifo2)
   
   if plot_type == 'linear':
-    plot(ifo1_val, ifo2_val,plot_sym,markersize=12)
+    plot(ifo1_val, ifo2_val,plot_sym,markersize=12,markeredgewidth=1)
   elif plot_type == 'log':
-    loglog(ifo1_val, ifo2_val,plot_sym,markersize=12)
+    loglog(ifo1_val, ifo2_val,plot_sym,markersize=12,markeredgewidth=1)
 
 ###########################################################
 # function to plot the value of 'col_name' in hanford  vs its
@@ -641,9 +641,9 @@ def cumhistsnr(trigs=None, slideTrigs=None,ifos = None, min_val = None, \
     slide_snr_list = []
     for this_slide in slideTrigs:
       if ifos:
-        slide_trigs = this_slide['triggers'].coinctype(ifos)
+        slide_trigs = this_slide['coinc_trigs'].coinctype(ifos)
       else:
-        slide_trigs = this_slide['triggers']
+        slide_trigs = this_slide['coinc_trigs']
 
       slide_snr = asarray([ pow(slide_trigs.table[i]["snrsq"],0.5) \
         for i in range(slide_trigs.nevents()) ] )
@@ -885,9 +885,9 @@ def histslides(slide_trigs, zerolag_trigs = None, ifos = None):
   slides = []
   for slide in slide_trigs:
     if ifos:
-      nevents.append( slide["triggers"].coinctype(ifos).nevents() )
+      nevents.append( slide["coinc_trigs"].coinctype(ifos).nevents() )
     else:  
-      nevents.append(slide["triggers"].nevents())
+      nevents.append(slide["coinc_trigs"].nevents())
     slides.append(slide["slide_num"])
  
     
@@ -927,9 +927,9 @@ def plotslides(slide_trigs, zerolag_trigs = None, ifos = None):
   slides = []
   for slide in slide_trigs:
     if ifos:
-      nevents.append( slide["triggers"].coinctype(ifos).nevents() )
+      nevents.append( slide["coinc_trigs"].coinctype(ifos).nevents() )
     else:  
-      nevents.append(slide["triggers"].nevents())
+      nevents.append(slide["coinc_trigs"].nevents())
     slides.append(slide["slide_num"])
  
   mean_events = mean(nevents)
