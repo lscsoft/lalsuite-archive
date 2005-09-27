@@ -727,7 +727,7 @@ def cumhistsnr(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
       log10(slide_mean + slide_std) - log10(slide_mean)],markersize=12)
 
   xlabel('Combined SNR', size='x-large')
-  ylabel('Number of events', size='x-large')
+  ylabel('Log Number of events', size='x-large')
   title_text = 'Cumulative histogram of Number of events vs SNR'
   if ifolist:
     title_text += ' for ' 
