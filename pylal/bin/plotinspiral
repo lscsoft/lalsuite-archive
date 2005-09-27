@@ -89,7 +89,7 @@ if opts.version:
 # check at least one trig file was specified
 if not opts.glob:
   print >>sys.stderr, "Must specify a GLOB of files to read"
-  print >>sys.stderr, "Enter 'plotthinca --help' for usage"
+  print >>sys.stderr, "Enter 'plotinspiral --help' for usage"
   sys.exit(1)
 
 if opts.norm_hist_snr and not opts.analyzed_time:
