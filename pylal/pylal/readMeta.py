@@ -99,6 +99,20 @@ class metaDataTable:
     """
     self.table.extend(table.table);
 
+  def getslide(self, slide_num):
+    """
+    Return the triggers with a specific slide number.
+    @param slide_num: the slide number to recover (contained in the event_id)
+    """
+
+    slide_trigs = metaDataTable(None,None)
+    for trig in self.table:
+      if ( (trig['event_id'] % 1000000000) / 100000 ) == slide_num:
+        slide_trigs.table.append(trig)
+     
+    return slide_trigs 
+  
+
 class coincInspiralTable:
   """
   Table to hold coincident inspiral triggers.  Coincidences are reconstructed 
