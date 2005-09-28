@@ -37,10 +37,10 @@ def coinctest(table1, table2, col_name,window):
 ######################################################################
 # function to histogram the difference between values of 'col_name' in
 # two tables, table1 and table2
-def histdiff(table1, table2, col_name, hist_width, nbins=None):
+def histcoldiff(table1, table2, col_name, hist_width, nbins=None):
   """
-  function to plot a histogram of the difference of the value of col_name
-  between table1 and table2  
+  function to make histogram (not displayed) of the difference of the value 
+  of col_name between table1 and table2  
   
   @param table1: metaDataTable
   @param table2: metaDataTable
@@ -258,10 +258,10 @@ while revision == True:
   new_window = {}
   win_ratio = {}
   for col_name in coinc_cols:
-    [bins,fg] = histdiff(injDict['fg_sngl'],injDict['fg_sim'],col_name, \
+    [bins,fg] = histcoldiff(injDict['fg_sngl'],injDict['fg_sim'],col_name, \
         window[col_name],20)
     if injDict['bg_sngl'].nevents():
-      [bins,bg] = histdiff(injDict['bg_sngl'],injDict['bg_sim'],col_name, \
+      [bins,bg] = histcoldiff(injDict['bg_sngl'],injDict['bg_sim'],col_name, \
           window[col_name],20)
       bg = bg * float(num_inj['fg']) / float(num_inj['bg'])
     else:
