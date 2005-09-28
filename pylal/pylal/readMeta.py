@@ -225,7 +225,6 @@ class coincInspiralTable:
         if coinc.has_key(ifo):
           end_time = coinc[ifo]['end_time']
           break
-      
       cluster_times.append(cluster_window * (end_time/cluster_window) )
     cluster_times = uniq(cluster_times)
     
@@ -242,10 +241,11 @@ class coincInspiralTable:
           cluster.table.append(coinc)
 
       # find loudest trigger in time and append
-      loudest_snr = 0
+      loudest_snrsq = 0
       for trigger in cluster.table:
-        if trigger["snrsq"] > loudest_snr:
+        if trigger["snrsq"] > loudest_snrsq:
           loudest_trig = trigger
+          loudest_snrsq = trigger['snrsq']
 
       cluster_triggers.table.append(loudest_trig)
       
