@@ -146,29 +146,24 @@ injected waveform.
 
 Work as follows:
 
-1) Choose 2 ifos (A and B).  We will determine windows for A.
+1) Choose 2 ifos (A and B). 
 
-2) Determine all found injections in B prior to coincidence, foundB.
-
-3) Run coincidence between injections in A and injections in B, with wide
+2) Run coincidence between injections in A and injections in B, with wide
    windows.
 
-4) Determine all found injections in A after coincidence, foundAB. (Use the 
-   list of injections foundB as the injection file for sire)
+3) Keep all triggers near injections in A and B (this is just to cut down on
+   the number of triggers processed), eg by running SIRE with window of 100ms.
 
-5) Determine all found injections in B after coincidence, foundBA.
-
-6) Run coincidence between no-injections in A and injections in B, with the
+4) Run coincidence between no-injections in A and injections in B, with the
    same windows as (3). 
 
-7) Determine all background found injections in A after coincidence, bgAB. 
-   (Use the list of injections foundB as the injection file for sire)
+5) Run coincidence between injections in A and no-injections in B, with the
+   same windows as (3).
+   
+6) Keep all coincident triggers from (4) and (5) which are near to injection 
+   times.
 
-8) Determine all bg-found injections in B after coincidence, bgBA.
-
-9) Pass in foundAB, foundBA, bgAB, bgBA to this script.  It will then 
-   determine appropriate coincidence windows based on the recovered values of
-   parameters in the different instruments.
+7) Pass in the output of (3) as --glob-found and (6) as --glob-bg.
 """
 
 parser = OptionParser( usage )
@@ -178,10 +173,10 @@ parser.add_option("-a","--ifo-a",action="store",type="string",\
     default=None, metavar=" IFO", help="first ifo" )
 parser.add_option("-b","--ifo-b",action="store",type="string",\
     default=None, metavar=" IFO", help="second ifo" )
-parser.add_option("-g","--glob-found-inj",action="store",type="string",\
+parser.add_option("-g","--glob-found",action="store",type="string",\
     default=None, metavar=" GLOB",\
     help="GLOB of found injections" )
-parser.add_option("-G","--glob-bg-found-inj",action="store",type="string",\
+parser.add_option("-G","--glob-bg",action="store",type="string",\
     default=None, metavar=" GLOB",
     help="GLOB of background found injections" )
 parser.add_option("-f","--figure-name",action="store",type="string",\
