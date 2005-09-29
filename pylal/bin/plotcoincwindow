@@ -165,8 +165,6 @@ def revisewindow2(bins,foreground,background,uniform_bg,conf):
       # stop if 
       # less than (1 - conf) chance of getting this fg
       prob_bg = probbg(foreground[i],this_bg,(1-conf)) 
-      print i
-      print prob_bg
 
       if prob_bg * prob_last_bg < (1 - conf):
         low_window = bins[i]
@@ -386,9 +384,7 @@ while revision == True:
           window[col_name],opts.nbins)
     else:
       bg = zeros(len(bins))
-    print col_name
     new_window[col_name] = revisewindow2(bins,fg,bg,uniform_bg,opts.conf)
-    print new_window[col_name]
     win_ratio[col_name] = (new_window[col_name][1] - new_window[col_name][0]) \
         / (window[col_name][1] - window[col_name][0]) 
   sys.stdout.flush()
