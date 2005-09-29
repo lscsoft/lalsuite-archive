@@ -334,7 +334,7 @@ for trigs in ['fg','bg']:
   snglDict[trigs] = readMeta.metaDataTable(files[trigs],"sngl_inspiral")
   coincDict[trigs] = readMeta.coincInspiralTable(snglDict[trigs]) 
   coincDict[trigs] = coincDict[trigs].coinctype(opts.ifo_list) 
-  coincDict[trigs] = coincDict[trigs].cluster(10) 
+  coincDict[trigs] = coincDict[trigs].cluster(2) 
 
 # set number of events
 nevents = coincDict['fg'].nevents()
@@ -359,11 +359,14 @@ while revision == True:
   for col_name in opts.coinc_cols:
     uniform_bg *= (window[col_name][1] - window[col_name][0])
 
-  # make plots of the coincidence windows
+  # remove any fg or bg outside our windows
   for col_name in opts.coinc_cols:
     coinctest(coincDict['fg'], opts.ifo_list, col_name,window[col_name])
     if coincDict['bg'].nevents():
       coinctest(coincDict['bg'], opts.ifo_list, col_name, window[col_name])
+  
+  # make plots of foregroun and background
+  for col_name in opts.coinc_cols:    
     fig_num +=1
     figure(fig_num)
     makeplot(coincDict,opts.ifo_list,col_name,window[col_name],\
@@ -411,7 +414,7 @@ while revision == True:
   else:
     window[min_col] = new_window[min_col]
 
-  print min_col
+  # print min_col
 
 print window
 if opts.show_plot:
