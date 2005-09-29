@@ -135,12 +135,13 @@ class coincInspiralTable:
       for event_id in eventidlist: 
         self.table.append({ "event_id":event_id, "numifos":0, "snrsq":0 })
 
-      for coinc in self.table:
-        for trig in inspTriggers.table:
+      for trig in inspTriggers.table:
+        for coinc in self.table:
           if coinc["event_id"] == trig["event_id"]:
             coinc[trig["ifo"]] = trig
             coinc["numifos"] += 1
             coinc["snrsq"] += trig["snr"] * trig["snr"]
+            break
     
     
   def nevents(self):
