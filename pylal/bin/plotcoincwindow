@@ -314,6 +314,11 @@ if not opts.conf:
   print >>sys.stderr, "Must specify a confidence, using --background-confidence"
   sys.exit(1)
 
+if opts.conf >= 1 or opts.conf < 0:
+  print >>sys.stderr, "Must specify a background confidence, between 0 and 1"
+  sys.exit(1)
+
+
 # glob for files
 files = {}
 files['fg'] = glob.glob(opts.glob_found)
