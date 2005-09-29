@@ -184,8 +184,6 @@ def revisewindow2(bins,foreground,background,uniform_bg,conf):
       # stop if 
       # less than (1 - conf) chance of getting this fg
       prob_bg = probbg(foreground[i],this_bg,(1-conf)) 
-      print i
-      print prob_bg
 
       if prob_bg * prob_last_bg < (1 - conf):
         high_window = bins[i] + bin_width
