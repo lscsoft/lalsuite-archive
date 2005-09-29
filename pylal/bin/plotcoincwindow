@@ -109,29 +109,119 @@ def revisewindow(bins,foreground,background):
       if foreground[i] >0 and sum(background) == 0:
         high_window = bins[i] + bin_width
         break
+        
   return [low_window,high_window]
- 
+
+
+######################################################################
+# function to calculate probability that we get this number of events
+# or more given background.
+def probbg(number,bg,thresh):
+  """
+  function to determine probability of obtaining number or more given
+  a background bg.
+
+  @ param number: number of events measured
+  @ param bg: background 
+  """
+
+  prob_bg = 1
+  for n in range(number):
+    fact = 1
+    for int in range(n): fact *= (int+1)
+    prob_bg -= exp( -bg ) * pow( bg, n ) / fact
+
+    if prob_bg < thresh:
+      return prob_bg
+
+  return prob_bg
+
+
 ######################################################################
 # function to histogram the difference between values of 'col_name' in
 # two tables, table1 and table2
-def makeplot(coincDict,ifo_list,col_name,width):
+def revisewindow2(bins,foreground,background,uniform_bg,conf):
+  """
+  function to determine a revised window for the parameter.
+
+  @param bins: the bin boundaries
+  @param foreground: the number of foreground entries in each bin
+  @param background: the number of background entries in each bin
+  """
+  bin_width = bins[1] - bins[0]
+  bin_num = range(len(bins))
+  uniform_bg /= len(bins)
+  low_window = bins[0]
+  high_window = bins[0] + bin_width * len(bins)
+  
+  prob_bg = 1
+  for i in bin_num:
+    # set background to be max of background and uniform_bg
+    this_bg = max(background[i],uniform_bg)
+    prob_last_bg = prob_bg
+    prob_bg = 1
+    
+    if foreground[i] > 0:
+      # stop if 
+      # less than (1 - conf) chance of getting this fg
+      prob_bg = probbg(foreground[i],this_bg,(1-conf)) 
+      print i
+      print prob_bg
+
+      if prob_bg * prob_last_bg < (1 - conf):
+        low_window = bins[i]
+        if prob_last_bg < 1:
+          low_window -= bin_width
+        break
+
+  bin_num.reverse()
+  prob_bg = 1
+  for i in bin_num:
+    # set background to be max of background and uniform_bg
+    this_bg = max(background[i],uniform_bg)
+    prob_last_bg = prob_bg
+    prob_bg = 1
+
+    if foreground[i] > 0:
+      # stop if 
+      # less than (1 - conf) chance of getting this fg
+      prob_bg = probbg(foreground[i],this_bg,(1-conf)) 
+      print i
+      print prob_bg
+
+      if prob_bg * prob_last_bg < (1 - conf):
+        high_window = bins[i] + bin_width
+        if prob_last_bg < 1:
+          high_window += bin_width
+        break
+  
+  return [low_window,high_window]
+
+######################################################################
+# function to histogram the difference between values of 'col_name' in
+# two tables, table1 and table2
+def makeplot(coincDict,ifo_list,col_name,width,uniform_bg=None,nbins=None):
   """
   make the plot we want
 
   @param coincDict: dictionary containing the data
   @param col_name: name of column to use
   @param width:    width of the histogram
+  @param uniform_bg: estimate of the expected background
+  @param nbins: number of bins in histogram
   """
   hold(True) 
   sym=0
+  if not nbins: nbins = 20
   viz.histdiff(coincDict['fg'].getsngls(ifo_list[1]), \
       coincDict['fg'].getsngls(ifo_list[0]), col_name,'hist',sym,2,\
-      20,width)
+      nbins,width)
   sym+=1
   if coincDict['bg'].nevents():
     viz.histdiff(coincDict['bg'].getsngls(ifo_list[1]), \
         coincDict['bg'].getsngls(ifo_list[0]), col_name,'hist',sym,2,\
-        20,width) 
+        nbins,width) 
+  if uniform_bg: plot(width, [uniform_bg/nbins])  
  
 
 ##############################################################################
@@ -169,16 +259,23 @@ Work as follows:
 parser = OptionParser( usage )
 parser.add_option("-v","--version",action="store_true",default=False,\
     help="display version information " )
-parser.add_option("-a","--ifo-a",action="store",type="string",\
-    default=None, metavar=" IFO", help="first ifo" )
-parser.add_option("-b","--ifo-b",action="store",type="string",\
-    default=None, metavar=" IFO", help="second ifo" )
+parser.add_option("-a","--ifo",action="append",type="string",\
+    dest="ifo_list", metavar=" IFO", help="add IFO to list of ifos" )
+parser.add_option("-r","--normalized-trigger-rate",action="append",\
+    type="float",dest="rate_list",metavar=" RATE",\
+    help="RATE of triggers for each ifo per unit parameter space volume")
 parser.add_option("-g","--glob-found",action="store",type="string",\
     default=None, metavar=" GLOB",\
     help="GLOB of found injections" )
 parser.add_option("-G","--glob-bg",action="store",type="string",\
     default=None, metavar=" GLOB",
     help="GLOB of background found injections" )
+parser.add_option("-c","--coincidence-column",action="append", type="string",\
+    dest="coinc_cols",metavar=" COL",
+    help="add COL to list of cols for which to determine coincidence window")
+parser.add_option("-C","--background-confidence",action="store", \
+    type="float",dest="conf",metavar=" CONF",\
+    help="confidence, CONF, that the triggers are not due to background")
 parser.add_option("-f","--figure-name",action="store",type="string",\
     default=None, metavar=" FNAME",\
     help="generate png figures with name FNAME-fig.png" )
@@ -192,24 +289,42 @@ parser.add_option("-S","--max-step",action="store",type="float",default=1./3,\
 (opts,args) = parser.parse_args()
 
 
-if not opts.glob_found_inj:
+if not opts.glob_found:
   print >>sys.stderr, "Must specify a GLOB of found files"
   print >>sys.stderr, "Enter 'plotwindow --help' for usage"
   sys.exit(1)
 
-if not opts.glob_bg_found_inj:
+if not opts.glob_bg:
   print >>sys.stderr, "Must specify a GLOB of bg files"
   print >>sys.stderr, "Enter 'plotwindow --help' for usage"
   sys.exit(1)
 
+if not opts.ifo_list or len(opts.ifo_list) != 2:
+  print >>sys.stderr, "Must specify two ifos using --ifo"
+  sys.exit(1)
+
+  
+if not opts.rate_list or len(opts.rate_list) != 2:
+  print >>sys.stderr, "Must specify trigger rates for ifos using"
+  print >>sys.stderr, "--normalized-trigger-rate"
+  sys.exit(1)
+
+if not opts.coinc_cols:
+  print >>sys.stderr, "Must specify at least one column for coincidence"
+  print >>sys.stderr, "Use --coincidence-column to do so"
+  sys.exit(1)
+
+if not opts.conf:
+  print >>sys.stderr, "Must specify a confidence, using --background-confidence"
+  sys.exit(1)
 
 # glob for files
 files = {}
-files['fg'] = glob.glob(opts.glob_found_inj)
-files['bg'] = glob.glob(opts.glob_bg_found_inj)
+files['fg'] = glob.glob(opts.glob_found)
+files['bg'] = glob.glob(opts.glob_bg)
 
 
-ifo_list = [opts.ifo_a,opts.ifo_b]
+
 # read in the foreground and background triggers
 snglDict = {}
 coincDict = {}
@@ -217,33 +332,41 @@ for trigs in ['fg','bg']:
   snglDict[trigs] = {}
   snglDict[trigs] = readMeta.metaDataTable(files[trigs],"sngl_inspiral")
   coincDict[trigs] = readMeta.coincInspiralTable(snglDict[trigs]) 
-  coincDict[trigs] = coincDict[trigs].coinctype(ifo_list) 
+  coincDict[trigs] = coincDict[trigs].coinctype(opts.ifo_list) 
   coincDict[trigs] = coincDict[trigs].cluster(10) 
- 
+
+# set number of events
+nevents = coincDict['fg'].nevents()
+
 # find the initial coincidence windows (1.2 times the furthest outlier)
 # and remove all background outside this
-coinc_cols = ['mchirp','eta','end_time']
 window = {}
 fig_num = 0
 
-for col_name in coinc_cols:
+for col_name in opts.coinc_cols:
   [val_a, val_b, ifo ] = viz.readcolfrom2tables(
-      coincDict['fg'].getsngls(opts.ifo_a), 
-      coincDict['fg'].getsngls(opts.ifo_b), col_name)
+      coincDict['fg'].getsngls(opts.ifo_list[0]), 
+      coincDict['fg'].getsngls(opts.ifo_list[1]), col_name)
   window[col_name] = [1.2 * min(val_a - val_b), 1.2 * max(val_a - val_b)]
 
 revision_number = 0
 revision = True
 min_col = None
 while revision == True:
+  # calculate the expected background
+  uniform_bg = sum(opts.rate_list) * nevents
+  for col_name in opts.coinc_cols:
+    uniform_bg *= (window[col_name][1] - window[col_name][0])
+
   # make plots of the coincidence windows
-  for col_name in coinc_cols:
-    coinctest(coincDict['fg'], ifo_list, col_name,window[col_name])
+  for col_name in opts.coinc_cols:
+    coinctest(coincDict['fg'], opts.ifo_list, col_name,window[col_name])
     if coincDict['bg'].nevents():
-      coinctest(coincDict['bg'], ifo_list, col_name, window[col_name])
+      coinctest(coincDict['bg'], opts.ifo_list, col_name, window[col_name])
     fig_num +=1
     figure(fig_num)
-    makeplot(coincDict,ifo_list,col_name,window[col_name])
+    makeplot(coincDict,opts.ifo_list,col_name,window[col_name],\
+        uniform_bg,opts.nbins)
     ylim(0,10)
     title(col_name, size='x-large')
     
@@ -255,15 +378,17 @@ while revision == True:
   # work out the revised windows
   new_window = {}
   win_ratio = {}
-  for col_name in coinc_cols:
-    [bins,fg] = histcoincdiff(coincDict['fg'],ifo_list,col_name, \
-        window[col_name],20)
+  for col_name in opts.coinc_cols:
+    [bins,fg] = histcoincdiff(coincDict['fg'],opts.ifo_list,col_name, \
+        window[col_name],opts.nbins)
     if coincDict['bg'].nevents():
-      [bins,bg] = histcoincdiff(coincDict['bg'],ifo_list,col_name, \
-          window[col_name],20)
+      [bins,bg] = histcoincdiff(coincDict['bg'],opts.ifo_list,col_name, \
+          window[col_name],opts.nbins)
     else:
       bg = zeros(len(bins))
-    new_window[col_name] = revisewindow(bins,fg,bg)
+    print col_name
+    new_window[col_name] = revisewindow2(bins,fg,bg,uniform_bg,opts.conf)
+    print new_window[col_name]
     win_ratio[col_name] = (new_window[col_name][1] - new_window[col_name][0]) \
         / (window[col_name][1] - window[col_name][0]) 
   sys.stdout.flush()
