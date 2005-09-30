@@ -53,7 +53,7 @@ class StateSegmentDatabase:
   """
   Class that represents an instance of a state segment database
   """
-  def __init__(self, dbname, dbuser = '', dbpasswd = ''):
+  def __init__(self, dbname, dbuser = '', dbpasswd = '', debug = False):
     """
     Open a connection to the state segment database.
 
@@ -68,7 +68,7 @@ class StateSegmentDatabase:
       to the state segment database (optional)
     @type username: string
     """
-    self.debug = True
+    self.debug = debug
     self.db = None
     self.cursor = None
     self.state_vec = {}
@@ -154,13 +154,17 @@ class StateSegmentDatabase:
       now = gpstime.GpsSecondsFromPyUTC(time.time())
       sql = "UPDATE process SET (end_time) = (?) WHERE process_id = '%s'" % self.process_id
       self.cursor.execute(sql,tuple([now]))
-      self.cursor.commit()
+      self.db.commit()
     except Exception, e:
       msg = "Error inserting end_time into database: %s" % e
       raise StateSegmentDatabaseException, msg
-    finally:
+    try:
       self.cursor.close()
       self.db.close()
+    except Exception, e:
+      msg = "Error closing connection to database: %s" % e
+      raise StateSegmentDatabaseException, msg
+      
 
   def register_lfn(self,lfn,start=None,end=None):
     """
@@ -230,15 +234,16 @@ class StateSegmentDatabase:
         sql += "(?,?,?,?,?,?,?,?)"
 
         self.cursor.execute(sql,(self.process_id, self.state_vec[(ver,val)], ifo,
-          'STATEVEC%d.%d' % (ver, val), 0, 
+          'STATEVEC.%d.%d' % (ver, val), 0, 
           'Created automatically by StateSegmentDatabase', ver, val))
       except:
         self.db.rollback()
         msg = "Error inserting new state vector type into database : %s" % e
         raise StateSegmentDatabaseException, e
       if self.debug:
-        print ("DEBUG: create a new state vec type (%d,%d)" % \
-          (ver,val)), self.state_vec[(ver,val)]
+        print ("DEBUG: created a new state vec type (%d,%d), id = " % \
+          (ver,val)), 
+        print tuple([self.state_vec[(ver,val)]])
 
     sv_id = self.state_vec[(ver,val)]
 
@@ -280,7 +285,8 @@ class StateSegmentDatabase:
     self.db.commit()
 
     if self.debug:
-      print "DEBUG: inserted with segment_id", segment_id
+      print "DEBUG: inserted with segment_id "
+      print tuple([segment_id])
 
 
   def set_state_name(self,ver,val,name):
