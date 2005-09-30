@@ -81,11 +81,12 @@ class LIGOTimeGPS(object):
 		Return an ASCII string representation of a LIGOTimeGPS.
 		"""
 		if (self.seconds >= 0) or (self.nanoseconds == 0):
-			return "%d.%09u" % (self.seconds, self.nanoseconds)
+			s = "%d.%09u" % (self.seconds, self.nanoseconds)
 		elif (self.seconds < -1):
-			return "%d.%09u" % (self.seconds + 1, 1000000000 - self.nanoseconds)
+			s = "%d.%09u" % (self.seconds + 1, 1000000000 - self.nanoseconds)
 		else:
-			return "-0.%09u" % (1000000000 - self.nanoseconds)
+			s = "-0.%09u" % (1000000000 - self.nanoseconds)
+		return s.rstrip("0").rstrip(".")
 
 	# type conversion
 
