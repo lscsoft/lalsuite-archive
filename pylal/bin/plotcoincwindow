@@ -283,7 +283,7 @@ for trigs in ['fg','bg']:
   snglDict[trigs] = readMeta.metaDataTable(files[trigs],"sngl_inspiral")
   coincDict[trigs] = readMeta.coincInspiralTable(snglDict[trigs]) 
   coincDict[trigs] = coincDict[trigs].coinctype(opts.ifo_list) 
-  coincDict[trigs] = coincDict[trigs].cluster(2) 
+  coincDict[trigs] = coincDict[trigs].cluster(10) 
 
 # set number of events
 nevents = coincDict['fg'].nevents()
