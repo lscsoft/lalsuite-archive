@@ -124,7 +124,7 @@ class segment(tuple):
 		return "segment(" + str(self[0]) + ", " + str(self[1]) + ")"
 
 	def __str__(self):
-		return str(self[0]) + "_" + str(self[1])
+		return "[" + str(self[0]) + " ... " + str(self[1]) + "]"
 
 	# accessors
 
