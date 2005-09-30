@@ -23,10 +23,12 @@ for dirpath in sys.argv[1:]:
     print >> sys.stderr, "Warning: %s is not a directory" % sys.argv[1]
     continue
   
+  print "globbing for files in %s" % dirpath
   framefiles = glob.glob(os.path.join(dirpath,'*.gwf'))
 
   for framefile in framefiles:
     print "publishing state information from %s..." % framefile,
+    sys.stdout.flush()
   
     lfn = os.path.basename(framefile)
     gpstime = filepat.search(lfn).groups()
