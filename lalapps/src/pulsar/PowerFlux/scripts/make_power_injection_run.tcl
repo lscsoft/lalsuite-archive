@@ -3,7 +3,7 @@
 source "power_injection_params.tcl"
 
 foreach $PARAMS_FORMAT $PARAMS {
-	set $var [subst -nocommands -nobackslashes $value]
+	set $var [subst -nocommands $value]
 	}
 
 puts stderr "ROOT_DIR=$ROOT_DIR"
@@ -27,6 +27,14 @@ while { 1 }  {
 	set freq [sample [list [expr $first_bin/1800.0] [expr ($first_bin+450)/1800.0]]]
 	set power [expr exp([sample $POWER_LOG10_RANGE] * log(10.0)) * $POWER_MAX]
         set spindown [expr exp([sample $SPINDOWN_LOG10_RANGE] * log(10.0)) * $SPINDOWN_MAX]
+
+	#
+	# And old, but proven method of sampling arbitrary distribution
+	# Note that density_max should better be precise, or very close to precise
+	#
+	set density_x [sample [list 0 $INJECTION_DENSITY_MAX]]
+	set density_cut [eval expr $INJECTION_DENSITY]
+	if { $density_x > $density_cut } continue
 
 	set FILE [open "$CONF_DIR/$i" "w"]
 	puts $FILE [subst -nocommands -nobackslashes $POWERFLUX_CONF_FILE]

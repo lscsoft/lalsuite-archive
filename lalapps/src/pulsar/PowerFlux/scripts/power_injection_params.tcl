@@ -23,6 +23,8 @@ set PARAMS {
 	SPINDOWN_MAX 2e-9
 	POWER_LOG10_RANGE { -1.5 0}
 	POWER_MAX 4e-23
+	INJECTION_DENSITY {cos(\$dec)}
+	INJECTION_DENSITY_MAX 1.0
 	ANALYSIS_PROGRAM "/archive/home/volodya/PowerFlux/powerflux"
 	}
 
