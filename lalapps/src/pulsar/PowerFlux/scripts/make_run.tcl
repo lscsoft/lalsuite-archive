@@ -9,7 +9,7 @@
 source params.tcl
 
 foreach $PARAMS_FORMAT $PARAMS {
-	set $var [subst -nocommands -nobackslashes $value]
+	set $var [subst -nocommands $value]
 	}
 
 puts stderr "ROOT_DIR=$ROOT_DIR"

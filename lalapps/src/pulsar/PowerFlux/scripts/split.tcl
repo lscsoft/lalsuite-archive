@@ -8,7 +8,7 @@
 source params.tcl
 
 foreach $PARAMS_FORMAT $PARAMS {
-        set $var [subst -nocommands -nobackslashes $value]
+        set $var [subst -nocommands $value]
         }
 
 set FIELDS {
@@ -34,12 +34,12 @@ set FIELDS {
 set FIELDS_LAYOUT {exp var pol}
 
 for { set band 0 } { $band < $NBANDS } { incr band } {
-	lappend FIELDS "^max_high_ul_band: $band" "max_high_ul_band.$band" 3
-	lappend FIELDS "^max_circ_ul_band: $band" "max_circ_ul_band.$band" 3
-        lappend FIELDS "^max_band: $band" "max_band.$band" 1
-        lappend FIELDS "^masked_max_band: $band" "masked_max_band.$band" 1
-	lappend FIELDS "^max_ratio: $band" "max_ratio.$band" 1
-	lappend FIELDS "hist_.*_ks_test: $band" "ks_hist.$band" 1	
+	lappend FIELDS "^max_high_ul_band: $band " "max_high_ul_band.$band" 3
+	lappend FIELDS "^max_circ_ul_band: $band " "max_circ_ul_band.$band" 3
+        lappend FIELDS "^max_band: $band " "max_band.$band" 1
+        lappend FIELDS "^masked_max_band: $band " "masked_max_band.$band" 1
+	lappend FIELDS "^max_ratio: $band " "max_ratio.$band" 1
+	lappend FIELDS "hist_.*_ks_test: $band " "ks_hist.$band" 1	
         }
 
 

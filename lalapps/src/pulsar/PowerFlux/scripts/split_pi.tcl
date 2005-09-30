@@ -8,7 +8,7 @@
 source power_injection_params.tcl
 
 foreach $PARAMS_FORMAT $PARAMS {
-        set $var [subst -nocommands -nobackslashes $value]
+        set $var [subst -nocommands $value]
         }
 
 set FIELDS {
