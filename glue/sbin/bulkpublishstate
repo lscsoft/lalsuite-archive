@@ -54,7 +54,7 @@ for dirpath in sys.argv[1:]:
       ifo = str(segmatch[6])
   
       if start_nano >= 500000000:
-      start = start + 1
+        start = start + 1
       if end_nano >= 500000000:
         end = end + 1
   
