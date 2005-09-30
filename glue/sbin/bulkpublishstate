@@ -11,12 +11,12 @@ from glue import statedb
 
 segpat = re.compile(r'^(\d+)\s(\d+)\s(\d+)\s(\d+)\s(\d+)\s(\d+)\s([A-Z][0-9]+)\s(.+)')
 filepat = re.compile(r'^[A-Za-z]+\-\w+\-(\d+)\-(\d+)\..+')
-  
-sdb = statedb.StateSegmentDatabase('ldbd_tst')
 
 if len(sys.argv) < 2:
   print >> sys.stderr, "Usage: bulkpublishstate dir1 dir2 ..."
   sys.exit( 1 )
+
+sdb = statedb.StateSegmentDatabase('ldbd_tst')
 
 for dirpath in sys.argv[1:]:
   if not os.path.isdir( dirpath ):
