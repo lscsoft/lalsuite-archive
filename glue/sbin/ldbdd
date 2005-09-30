@@ -8,26 +8,17 @@ the io module in U{pyGlobus<http://www-itg.lbl.gov/gtg/projects/pyGlobus/>},
 which is build on top of the standard module SocketServer.
 """
 
-import sys
 import os
+import sys
 import signal
-import logging
-import logging.handlers
 import getopt
-import ConfigParser
 import time
 import socket
-import SocketServer
-import types
-import exceptions
-import cPickle
-import copy
-import pyRXP
-import re
+import ConfigParser
+import logging
+import logging.handlers
 from pyGlobus import io
 from glue import gsiserverutils
-from glue import ldbd
-import rlsClient
 
 
 def SIGHUPhandler(signum, frame):
@@ -192,10 +183,6 @@ for k in configuration.keys():
     configuration[k] = eval(value)
   except:
     configuration[k] = value
-
-# set up logging but don't set handler here since that is
-# configurable in the .ini file
-logger = logging.getLogger('ldbdd')
 
 # setup to cach HUP and SIGTERM
 signal.signal(signal.SIGHUP, SIGHUPhandler)
@@ -558,10 +545,15 @@ class LDBDDaemon(object):
       # so sleep for a bit so that we don't burn CPU all the time
       time.sleep(0.1)
 
-from glue import LDBDServer
+from glue.LDBDServer import *
+
+# set up logging but don't set handler here since that is
+# configurable in the .ini file
+logger = logging.getLogger('ldbdd')
 
 # initialize server
-myServer = LDBDDaemon(LDBDServer.LDBDServer)
+initserver(configuration,logger)
+myServer = LDBDDaemon(ServerHandler)
 
 try:
   while running:
@@ -580,6 +572,8 @@ except Exception, e:
   msg = "ldbdd is stopping due to unhandled error: %s" % e
   print >>sys.stderr, msg
   logger.critical(msg)
+
+finalizeserver()
 
 del logger
 logger = None

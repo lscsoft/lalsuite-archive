@@ -9,26 +9,48 @@ $Id$
 
 __version__ = '$Revision$'[11:-2]
 
-# use the global configuration
-global configuration
+import re
+import types
+import pyRXP
+import exceptions
+import SocketServer
+import cPickle
+from glue import ldbd
+import rlsClient
 
-# initialize the database hash table
-dbname = configuration['dbname']
-dbobj = ldbd.LIGOMetadataDatabase(dbname)
+def initserver(configuration,log):
+  # define the global variables used by the server
+  global logger, max_bytes, xmlparser, dbobj, xmlparser, lwtparser, rls
+  
+  # initialize the logger
+  logger = log
+  log.info("Initializing server module %s" % __name__ )
+  
+  # initialize the database hash table
+  dbobj = ldbd.LIGOMetadataDatabase(configuration['dbname'])
+  max_bytes = configuration['max_client_byte_string']
 
-# create the xml and ligolw parsers
-xmlparser = pyRXP.Parser()
-lwtparser = ldbd.LIGOLwParser()
+  # create the xml and ligolw parsers
+  xmlparser = pyRXP.Parser()
+  lwtparser = ldbd.LIGOLwParser()
 
-# open a connection to the rls server
-rls_server = configuration['rls']
-cert = configuration['certfile']
-key = configuration['keyfile']
-rls = rlsClient.RlsClient(rls_server,cert,key)
+  # open a connection to the rls server
+  rls_server = configuration['rls']
+  cert = configuration['certfile']
+  key = configuration['keyfile']
+  rls = rlsClient.RlsClient(rls_server,cert,key)
 
-class LDBDServerException(exceptions.Exception):
+def shutdownserver():
+  global logger, max_bytes, xmlparser, dbobj, xmlparser, lwtparser, rls
+  log.info("Shutting down server module %s" % __name__ )
+  del rls
+  del lwtparser
+  del xmlparser
+  del dbobj
+
+class ServerHandlerException(exceptions.Exception):
   """
-  Class representing exceptions within the LDBDServer class.
+  Class representing exceptions within the ServerHandler class.
   """
   def __init__(self, args=None):
     """
@@ -36,11 +58,11 @@ class LDBDServerException(exceptions.Exception):
 
     @param args: 
 
-    @return: Instance of class LDBDServerException
+    @return: Instance of class ServerHandlerException
     """
     self.args = args
         
-class LDBDServer(SocketServer.BaseRequestHandler):
+class ServerHandler(SocketServer.BaseRequestHandler):
   """
   An instance of this class is created to service each request of the server.
   """
@@ -58,7 +80,7 @@ class LDBDServer(SocketServer.BaseRequestHandler):
 
     @return: None
     """
-    global logger
+    global logger, max_bytes
 
     logger.debug("handle method of LDBDServer class called")
 
@@ -76,8 +98,7 @@ class LDBDServer(SocketServer.BaseRequestHandler):
       f = self.sfile
 
       # read all of the input up to limited number of bytes
-      max = configuration['max_client_byte_string']
-      input = f.read(size=max,waitForBytes=2)
+      input = f.read(size=max_bytes,waitForBytes=2)
 
       # the format should be a method string, followed by a null byte
       # followed by the arguments to the method encoded as null
@@ -85,7 +106,7 @@ class LDBDServer(SocketServer.BaseRequestHandler):
 
       # check if the last byte is a null byte
       if input[-1] != '\0':
-        raise LDBDServerException, \
+        raise ServerHandlerException, \
           "Last byte of input is not null byte"
     except Exception, e:
       logger.error("Error reading input on socket: %s" %  e)
@@ -272,7 +293,7 @@ class LDBDServer(SocketServer.BaseRequestHandler):
       # unpickle the PFN/LFN mappings from the client
       lfnpfn_dict = cPickle.loads(arg[1])
       if not isinstance(lfnpfn_dict, dict):
-        raise LDBDServerException, \
+        raise ServerHandlerException, \
           "LFN/PFN mapping from client is not dictionary"
 
       # capture the remote users DN for insertion into the database
@@ -300,7 +321,7 @@ class LDBDServer(SocketServer.BaseRequestHandler):
       for lfn in lfnpfn_dict.keys():
         pfns = lfnpfn_dict[lfn]
         if not isinstance( pfns, types.ListType ):
-          raise LDBDServerException, \
+          raise ServerHandlerException, \
             "PFN must be a single string or a list of PFNs"
         rls.lrc_create_lfn( lfn, pfns[0] )
         for pfn in pfns[1:len(pfns)]:
