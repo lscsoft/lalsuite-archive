@@ -18,7 +18,7 @@ if len(sys.argv) < 2:
   print >> sys.stderr, "Usage: bulkpublishstate dir1 dir2 ..."
   sys.exit( 1 )
 
-for dirpath in sys.argv[1:]
+for dirpath in sys.argv[1:]:
   if not os.path.isdir( dirpath ):
     print >> sys.stderr, "Warning: %s is not a directory" % sys.argv[1]
     continue
