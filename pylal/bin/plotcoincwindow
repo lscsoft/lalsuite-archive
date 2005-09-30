@@ -63,57 +63,6 @@ def histcoincdiff(coinc_table, ifo_list, col_name, hist_width, nbins=None):
   return [bins,height]
 
 ######################################################################
-# function to histogram the difference between values of 'col_name' in
-# two tables, table1 and table2
-def revisewindow(bins,foreground,background):
-  """
-  function to determine a revised window for the parameter.
-
-  @param bins: the bin boundaries
-  @param foreground: the number of foreground entries in each bin
-  @param background: the number of background entries in each bin
-  """
-  bin_width = bins[1] - bins[0]
-  bin_num = range(len(bins))
-  sum(background)
-  low_window = bins[0]
-  high_window = bins[0] + bin_width * len(bins)
-  for i in bin_num:
-    if foreground[i] > background[i]:
-      # stop if 
-      # 1) fg >= 2 and fg > 2 * bg
-      if foreground[i] >= 2 and foreground[i] > 2 * background[i]:
-        low_window = bins[i]
-        break
-      # 2) fg > bg for two consecutive bins
-      if foreground[i+1] > background[i+1]:
-        low_window = bins[i]
-        break
-      # 3) no background so keep everything
-      if foreground[i] > 0 and sum(background) == 0:
-        low_window = bins[i]
-        break
-  bin_num.reverse()
-  for i in bin_num:
-    if foreground[i] > background[i]:
-      # stop if 
-      # 1) fg > 2 and fg > 2 * bg
-      if foreground[i] > 2 and foreground[i] > 2 * background[i]:
-        high_window = bins[i] + bin_width
-        break
-      # 2) fg > bg for two consecutive bins
-      if foreground[i-1] > background[i-1]:
-        high_window = bins[i] + bin_width
-        break
-      # 3) no background so keep everything
-      if foreground[i] >0 and sum(background) == 0:
-        high_window = bins[i] + bin_width
-        break
-        
-  return [low_window,high_window]
-
-
-######################################################################
 # function to calculate probability that we get this number of events
 # or more given background.
 def probbg(number,bg,thresh):
@@ -140,7 +89,7 @@ def probbg(number,bg,thresh):
 ######################################################################
 # function to histogram the difference between values of 'col_name' in
 # two tables, table1 and table2
-def revisewindow2(bins,foreground,background,uniform_bg,conf):
+def revisewindow(bins,foreground,background,uniform_bg,conf):
   """
   function to determine a revised window for the parameter.
 
@@ -390,7 +339,7 @@ while revision == True:
           window[col_name],opts.nbins)
     else:
       bg = zeros(len(bins))
-    new_window[col_name] = revisewindow2(bins,fg,bg,uniform_bg,opts.conf)
+    new_window[col_name] = revisewindow(bins,fg,bg,uniform_bg,opts.conf)
     win_ratio[col_name] = (new_window[col_name][1] - new_window[col_name][0]) \
         / (window[col_name][1] - window[col_name][0]) 
   sys.stdout.flush()
