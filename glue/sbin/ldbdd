@@ -202,12 +202,6 @@ dbobj = ldbd.LIGOMetadataDatabase(dbname)
 xmlparser = pyRXP.Parser()
 lwtparser = ldbd.LIGOLwParser()
 
-# open a connection to the rls server
-rls_server = configuration['rls']
-cert = configuration['certfile']
-key = configuration['keyfile']
-rls = rlsClient.RlsClient(rls_server,cert,key)
-
 class LDBDServerHandlerException(exceptions.Exception):
   """
   Class representing exceptions within the LDBDServer class.
@@ -869,14 +863,20 @@ logger = logging.getLogger('ldbdd')
 signal.signal(signal.SIGHUP, SIGHUPhandler)
 signal.signal(signal.SIGTERM, SIGTERMhandler)
 
-# initialize server
-myServer = LDBDServer()
-
 # become a daemon
 if runAsDaemon:
   gsiserverutils.daemon()
 
 running = 1
+
+# initialize server
+myServer = LDBDServer()
+
+# open a connection to the rls server
+rls_server = configuration['rls']
+cert = configuration['certfile']
+key = configuration['keyfile']
+rls = rlsClient.RlsClient(rls_server,cert,key)
 
 try:
   while running:
