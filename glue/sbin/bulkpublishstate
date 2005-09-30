@@ -9,59 +9,58 @@ import glob
 from types import *
 from glue import statedb
 
-if len(sys.argv) != 2:
-  print >> sys.stderr, "Usage publishstate.py /path/to/directory"
-  sys.exit( 1 )
-
-dirpath = sys.argv[1]
-if not os.path.isdir( dirpath ):
-  print >> sys.stderr, "%s is not a directory" % sys.argv[1]
-  print >> sys.stderr, "Usage publishstate.py /path/to/directory"
-  sys.exit( 1 )
-
-framefiles = glob.glob(os.path.join(dirpath,'*.gwf'))
-
 segpat = re.compile(r'^(\d+)\s(\d+)\s(\d+)\s(\d+)\s(\d+)\s(\d+)\s([A-Z][0-9]+)\s(.+)')
 filepat = re.compile(r'^[A-Za-z]+\-\w+\-(\d+)\-(\d+)\..+')
-
+  
 sdb = statedb.StateSegmentDatabase('ldbd_tst')
 
-for framefile in framefiles:
-  print "publishing state information from %s..." % framefile,
+if len(sys.argv) < 2:
+  print >> sys.stderr, "Usage: bulkpublishstate dir1 dir2 ..."
+  sys.exit( 1 )
 
-  lfn = os.path.basename(framefile)
-  gpstime = filepat.search(lfn).groups()
-  lfn_start = int(gpstime[0])
-  lfn_end = lfn_start + int(gpstime[1])
-
-  sdb.register_lfn(lfn,lfn_start,lfn_end)
+for dirpath in sys.argv[1:]
+  if not os.path.isdir( dirpath ):
+    print >> sys.stderr, "Warning: %s is not a directory" % sys.argv[1]
+    continue
   
-  sv = popen2.Popen3('/ligotools/bin/FrStateFetcher %s' % framefile)
-  sv.tochild.close()
-  r = sv.wait()
-  if r:
-    print >> sys.stderr, "FrStateFetcher failed: %s" % sv.childerr.readlines()
-    sys.exit( 1 )
-  segdata = sv.fromchild.readlines()
-  del sv
+  framefiles = glob.glob(os.path.join(dirpath,'*.gwf'))
 
-  for segdatum in segdata:
-    segmatch = segpat.search(segdatum).groups()
-    start = int(segmatch[0])
-    start_nano = int(segmatch[1])
-    end = int(segmatch[2])
-    end_nano = int(segmatch[3])
-    sv = int(segmatch[4])
-    ifo = str(segmatch[6])
-
-    if start_nano >= 500000000:
-      start = start + 1
-    if end_nano >= 500000000:
-      end = end + 1
-
-    sdb.publish_state(ifo,start,0,end,0,1,sv)
+  for framefile in framefiles:
+    print "publishing state information from %s..." % framefile,
+  
+    lfn = os.path.basename(framefile)
+    gpstime = filepat.search(lfn).groups()
+    lfn_start = int(gpstime[0])
+    lfn_end = lfn_start + int(gpstime[1])
+  
+    sdb.register_lfn(lfn,lfn_start,lfn_end)
     
-  print "done"
-
+    sv = popen2.Popen3('/ligotools/bin/FrStateFetcher %s' % framefile)
+    sv.tochild.close()
+    r = sv.wait()
+    if r:
+      print >> sys.stderr, "FrStateFetcher failed: %s" % sv.childerr.readlines()
+      sys.exit( 1 )
+    segdata = sv.fromchild.readlines()
+    del sv
+  
+    for segdatum in segdata:
+      segmatch = segpat.search(segdatum).groups()
+      start = int(segmatch[0])
+      start_nano = int(segmatch[1])
+      end = int(segmatch[2])
+      end_nano = int(segmatch[3])
+      sv = int(segmatch[4])
+      ifo = str(segmatch[6])
+  
+      if start_nano >= 500000000:
+      start = start + 1
+      if end_nano >= 500000000:
+        end = end + 1
+  
+      sdb.publish_state(ifo,start,0,end,0,1,sv)
+      
+    print "done"
+  
 sdb.close()
 sys.exit(0)
