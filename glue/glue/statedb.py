@@ -93,7 +93,7 @@ class StateSegmentDatabase:
       self.cursor.execute(sql)
       self.process_id = self.cursor.fetchone()[0]
 
-      process_tuple = ( 'StateSegmentDatabase', 
+      process_tuple = ( os.path.basename(sys.argv[0]), 
         '$Revision$'[11:-2], 
         '$Source$' [9:-2],
         gpstime.GpsSecondsFromPyUTC( time.mktime(cvs_date) ),
@@ -134,10 +134,15 @@ class StateSegmentDatabase:
       
   def __del__(self):
     try:
-      if self.cursor:
-        self.cursor.close()
-      if self.db:
-        self.db.close()
+      self.close()
+    except:
+      pass
+    try:
+      del self.cursor
+    except:
+      pass
+    try:
+      del self.db
     except:
       pass
 
@@ -146,14 +151,16 @@ class StateSegmentDatabase:
     Close the connection to the database.
     """
     try:
-      self.cursor.close()
-      self.cursor = None
-      self.db.close()
-      self.db = None
+      now = gpstime.GpsSecondsFromPyUTC(time.time())
+      sql = "UPDATE process SET (end_time) = (?) WHERE process_id = '%s'" % self.process_id
+      self.cursor.execute(sql,tuple([now]))
+      self.cursor.commit()
     except Exception, e:
-      msg = "Error disconnecting from database: %s" % e
+      msg = "Error inserting end_time into database: %s" % e
       raise StateSegmentDatabaseException, msg
-
+    finally:
+      self.cursor.close()
+      self.db.close()
 
   def register_lfn(self,lfn,start=None,end=None):
     """
