@@ -57,6 +57,9 @@ def SIGHUPhandler(signum, frame):
     except:
       configuration[k] = value
 
+  logger.info("Re-initializing server module")
+  ServerModule.shutdown()
+  ServerModule.initialize(configuration,logger)
 
 def SIGTERMhandler(signum, frame):
   """
@@ -192,7 +195,10 @@ signal.signal(signal.SIGTERM, SIGTERMhandler)
 if runAsDaemon:
   gsiserverutils.daemon()
 
-running = 1
+# set up logging but don't set handler here since that is
+# configurable in the .ini file
+logger = logging.getLogger('ldbdd')
+
 
 class LDBDDaemon(object):
   """
@@ -306,7 +312,6 @@ class LDBDDaemon(object):
 
     @return: None
     """
-    self.initialize()
     self.writePID()
     self.setEnvironment()
     self.startService()
@@ -545,15 +550,14 @@ class LDBDDaemon(object):
       # so sleep for a bit so that we don't burn CPU all the time
       time.sleep(0.1)
 
-from glue.LDBDServer import *
-
-# set up logging but don't set handler here since that is
-# configurable in the .ini file
-logger = logging.getLogger('ldbdd')
+from glue import LDBDServer as ServerModule
 
 # initialize server
-initserver(configuration,logger)
-myServer = LDBDDaemon(ServerHandler)
+myServer = LDBDDaemon(ServerModule.ServerHandler)
+myServer.initialize()
+ServerModule.initialize(configuration,logger)
+
+running = 1
 
 try:
   while running:
@@ -561,19 +565,23 @@ try:
     myServer.run()
 
 except SystemExit:
+  ServerModule.shutdown()
   logger.info("ldbdd shutting down")
   sys.exit()
 
 except KeyboardInterrupt:
+  ServerModule.shutdown()
   logger.info("ldbdd shutting down")
   sys.exit()
 
 except Exception, e:
+  try:
+    ServerModule.shutdown()
+  except:
+    pass
   msg = "ldbdd is stopping due to unhandled error: %s" % e
   print >>sys.stderr, msg
   logger.critical(msg)
-
-finalizeserver()
 
 del logger
 logger = None

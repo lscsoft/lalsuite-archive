@@ -18,13 +18,13 @@ import cPickle
 from glue import ldbd
 import rlsClient
 
-def initserver(configuration,log):
+def initialize(configuration,log):
   # define the global variables used by the server
   global logger, max_bytes, xmlparser, dbobj, xmlparser, lwtparser, rls
   
   # initialize the logger
   logger = log
-  log.info("Initializing server module %s" % __name__ )
+  logger.info("Initializing server module %s" % __name__ )
   
   # initialize the database hash table
   dbobj = ldbd.LIGOMetadataDatabase(configuration['dbname'])
@@ -40,9 +40,9 @@ def initserver(configuration,log):
   key = configuration['keyfile']
   rls = rlsClient.RlsClient(rls_server,cert,key)
 
-def shutdownserver():
+def shutdown():
   global logger, max_bytes, xmlparser, dbobj, xmlparser, lwtparser, rls
-  log.info("Shutting down server module %s" % __name__ )
+  logger.info("Shutting down server module %s" % __name__ )
   del rls
   del lwtparser
   del xmlparser
