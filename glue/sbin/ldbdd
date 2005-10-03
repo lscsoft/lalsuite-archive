@@ -576,8 +576,8 @@ class LDBDDaemon(object):
 
 
 # figure out what server we are using and load it
-ServerModule = __import__( "glue." + configuration['server'], 
-                           globals(), locals() )
+serv = configuration['server']
+ServerModule = __import__( "glue." + serv, globals(), locals(), [serv] )
 
 # initialize daemon inheriting the server properties from the loaded module
 myServer = LDBDDaemon(ServerModule.ServerHandler)
