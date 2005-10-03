@@ -100,8 +100,8 @@ def revisewindow(bins,foreground,background,uniform_bg,conf):
   bin_width = bins[1] - bins[0]
   bin_num = range(len(bins))
   uniform_bg /= len(bins)
-  low_window = bins[0]
-  high_window = bins[0] + bin_width * len(bins)
+  low_window = bins[0] + bin_width * len(bins)
+  high_window = bins[0]
   
   prob_bg = 1
   for i in bin_num:
@@ -140,6 +140,12 @@ def revisewindow(bins,foreground,background,uniform_bg,conf):
           high_window += bin_width
         break
   
+  if low_window > high_window:
+    print >>sys.stderr, "The forground is below background everywhere"
+    print >>sys.stderr, "Check your background glob and the values"
+    print >>sys.stderr, "given for --normalized-trigger-rate"
+    sys.exit(1)
+
   return [low_window,high_window]
 
 ######################################################################
@@ -352,7 +358,12 @@ while revision == True:
     revision = False
   revision_number += 1
 
-  
+  print uniform_bg
+  print window
+  print new_window
+  print min_ratio
+  print min_col
+  print revision_number
   # only reduce the window by 1/3 in any step
   if win_ratio[min_col] < (1 - opts.max_step):
     scale_factor = opts.max_step / ( 1 - win_ratio[min_col] )
