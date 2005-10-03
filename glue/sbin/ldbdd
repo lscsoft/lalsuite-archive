@@ -292,6 +292,7 @@ class LDBDDaemon(object):
     if self.serverName != configuration["server"]:
       msg = "Error: attempt to change service %s into service %s" % \
         ( self.serverName, configuration["server"] )
+      raise LDBDDaemonException, msg
 
     try:
       self.certFilePath = configuration["certfile"]
