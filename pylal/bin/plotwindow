@@ -62,10 +62,35 @@ def histcoldiff(table1, table2, col_name, hist_width, nbins=None):
   bins = out[1]
   return [bins,height]
 
+
+######################################################################
+# function to calculate probability that we get this number of events
+# or more given background.
+def probbg(number,bg,thresh):
+  """
+  function to determine probability of obtaining number or more given
+  a background bg.
+
+  @ param number: number of events measured
+  @ param bg: background 
+  """
+
+  prob_bg = 1
+  for n in range(number):
+    fact = 1
+    for int in range(n): fact *= (int+1)
+    prob_bg -= exp( -bg ) * pow( bg, n ) / fact
+
+    if prob_bg < thresh:
+      return prob_bg
+
+  return prob_bg
+
+
 ######################################################################
 # function to histogram the difference between values of 'col_name' in
 # two tables, table1 and table2
-def revisewindow(bins,foreground,background):
+def revisewindow(bins,foreground,background,uniform_bg,conf):
   """
   function to determine a revised window for the parameter.
 
@@ -75,63 +100,79 @@ def revisewindow(bins,foreground,background):
   """
   bin_width = bins[1] - bins[0]
   bin_num = range(len(bins))
-  sum(background)
-  low_window = bins[0]
-  high_window = bins[0] + bin_width * len(bins)
+  uniform_bg /= len(bins)
+  low_window = bins[0] + bin_width * len(bins)
+  high_window = bins[0]
+  
+  prob_bg = 1
   for i in bin_num:
-    if foreground[i] > background[i]:
+    # set background to be max of background and uniform_bg
+    this_bg = max(background[i],uniform_bg)
+    prob_last_bg = prob_bg
+    prob_bg = 1
+    
+    if foreground[i] > 0:
       # stop if 
-      # 1) fg >= 2 and fg > 2 * bg
-      if foreground[i] >= 2 and foreground[i] > 2 * background[i]:
+      # less than (1 - conf) chance of getting this fg
+      prob_bg = probbg(foreground[i],this_bg,(1-conf)) 
+
+      if prob_bg * prob_last_bg < (1 - conf):
         low_window = bins[i]
+        if prob_last_bg < 1:
+          low_window -= bin_width
         break
-      # 2) fg > bg for two consecutive bins
-      if foreground[i+1] > background[i+1]:
-        low_window = bins[i]
-        break
-      # 3) no background so keep everything
-      if foreground[i] > 0 and sum(background) == 0:
-        low_window = bins[i]
-        break
+
   bin_num.reverse()
+  prob_bg = 1
   for i in bin_num:
-    if foreground[i] > background[i]:
+    # set background to be max of background and uniform_bg
+    this_bg = max(background[i],uniform_bg)
+    prob_last_bg = prob_bg
+    prob_bg = 1
+
+    if foreground[i] > 0:
       # stop if 
-      # 1) fg > 2 and fg > 2 * bg
-      if foreground[i] > 2 and foreground[i] > 2 * background[i]:
+      # less than (1 - conf) chance of getting this fg
+      prob_bg = probbg(foreground[i],this_bg,(1-conf)) 
+
+      if prob_bg * prob_last_bg < (1 - conf):
         high_window = bins[i] + bin_width
+        if prob_last_bg < 1:
+          high_window += bin_width
         break
-      # 2) fg > bg for two consecutive bins
-      if foreground[i-1] > background[i-1]:
-        high_window = bins[i] + bin_width
-        break
-      # 3) no background so keep everything
-      if foreground[i] >0 and sum(background) == 0:
-        high_window = bins[i] + bin_width
-        break
+  
+  if low_window > high_window:
+    print >>sys.stderr, "The forground is below background everywhere"
+    print >>sys.stderr, "Check your background glob and the values"
+    print >>sys.stderr, "given for --normalized-trigger-rate"
+    sys.exit(1)
+
   return [low_window,high_window]
  
 ######################################################################
 # function to histogram the difference between values of 'col_name' in
 # two tables, table1 and table2
-def makeplot(injDict,col_name,width,nevents):
+def makeplot(injDict,col_name,width,nevents,uniform_bg=None,nbins=None):
   """
   make the plot we want
 
   @param injDict:  dictionary containing the data
   @param col_name: name of column to use
   @param width:    width of the histogram
-  @param nevents:  number of events
+  @param nevents:  number of events (in fg/bg)
+  @param uniform_bg: estimate of the expected background
+  @param nbins: number of bins in histogram
   """
   hold(True) 
   sym=0
+  if not nbins: nbins = 20
   viz.histdiff(injDict['fg_sngl'], injDict['fg_sim'], col_name,'hist',sym,2,
-      20,width)
+      nbins,width)
   sym+=1
   if injDict['bg_sim'].nevents():
     viz.histdiff(injDict['bg_sngl'], injDict['bg_sim'], col_name,'hist',sym,2,
-        20,width,nevents['bg']/float(nevents['fg']) ) 
- 
+        nbins,width,nevents['bg']/float(nevents['fg']) ) 
+  if uniform_bg: plot(width, [uniform_bg/nbins]) 
  
 ##############################################################################
 usage = """usage: %prog [options] 
@@ -141,7 +182,9 @@ To run, you read in the found injections (sngl and sim inspiral) using
 --glob-found, the missed injections (sim) using --glob-missed.  Additionally,
 you read in the injections found and missed in the background using
 --glob-bg-found and --glob-bg-missed.  The background results are obtained by
-running sire with an injection file on the non-injection triggers.  
+running sire with an injection file on the non-injection triggers.   Finally,
+give an estimate of the background trigger rate per unit parameter space
+volume using --normalized-trigger-rate.
 
 """
 
@@ -160,6 +203,15 @@ parser.add_option("-m","--glob-missed",action="store",type="string",\
 parser.add_option("-M","--glob-bg-missed",action="store",type="string",\
     default=None, metavar=" GLOB",\
     help="GLOB of background missed injection trigger files" )
+parser.add_option("-r","--normalized-trigger-rate",action="store",\
+    type="float",dest="bg_rate",metavar=" RATE",default = 0,\
+    help="RATE of triggers for ifo per unit parameter space volume")
+parser.add_option("-c","--coincidence-column",action="append", type="string",\
+    dest="coinc_cols",metavar=" COL",
+    help="add COL to list of cols for which to determine coincidence window")
+parser.add_option("-C","--background-confidence",action="store", \
+    type="float",dest="conf",metavar=" CONF",\
+    help="confidence, CONF, that the triggers are not due to background")
 parser.add_option("-f","--figure-name",action="store",type="string",\
     default=None, metavar=" FNAME",\
     help="generate png figures with name FNAME-fig.png" )
@@ -174,27 +226,24 @@ parser.add_option("-S","--max-step",action="store",type="float",default=1./3,\
 
 
 if not opts.glob_found:
-  print >>sys.stderr, "Must specify a GLOB of found files to read"
-  print >>sys.stderr, "Enter 'plotwindow --help' for usage"
+  print >> sys.stderr, "Must specify a GLOB of found files to read"
+  print >> sys.stderr, "Enter 'plotwindow --help' for usage"
   sys.exit(1)
 
 if not opts.glob_missed:
-  print >>sys.stderr, "Must specify a GLOB of missed files to read"
-  print >>sys.stderr, "Enter 'plotwindow --help' for usage"
+  print >> sys.stderr, "Must specify a GLOB of missed files to read"
+  print >> sys.stderr, "Enter 'plotwindow --help' for usage"
   sys.exit(1)
 
 if not opts.glob_bg_found:
-  print >>sys.stderr, "Must specify a GLOB of bg found files to read"
-  print >>sys.stderr, "Enter 'plotwindow --help' for usage"
+  print >> sys.stderr, "Must specify a GLOB of bg found files to read"
+  print >> sys.stderr, "Enter 'plotwindow --help' for usage"
   sys.exit(1)
 
 if not opts.glob_bg_missed:
-  print >>sys.stderr, "Must specify a GLOB of bg missed files to read"
-  print >>sys.stderr, "Enter 'plotwindow --help' for usage"
+  print >> sys.stderr, "Must specify a GLOB of bg missed files to read"
+  print >> sys.stderr, "Enter 'plotwindow --help' for usage"
   sys.exit(1)
-
-
-
 
 # glob for files
 injFFiles = glob.glob(opts.glob_found)
@@ -224,11 +273,10 @@ num_inj['bg'] = injDict["bg_sim"].nevents() + injDict["bg_mis"].nevents()
 
 # find the initial coincidence windows (1.2 times the furthest outlier)
 # and remove all background outside this
-coinc_cols = ['mchirp','eta','end_time']
 window = {}
 fig_num = 0
 
-for col_name in coinc_cols:
+for col_name in opts.coinc_cols:
   [detval, injval, ifo ] = viz.readcolfrom2tables(injDict["fg_sngl"], 
       injDict["fg_sim"], col_name)
   window[col_name] = [1.2 * min(injval - detval), 1.2 * max(injval - detval)]
@@ -237,15 +285,20 @@ revision_number = 0
 revision = True
 min_col = None
 while revision == True:
+  # calculate the expected background
+  uniform_bg = opts.bg_rate * num_inj['fg']
+  for col_name in opts.coinc_cols:
+    uniform_bg *= (window[col_name][1] - window[col_name][0])
+
   # make plots of the coincidence windows
-  for col_name in coinc_cols:
+  for col_name in opts.coinc_cols:
     coinctest(injDict["fg_sngl"], injDict["fg_sim"], col_name,window[col_name])
     if injDict["bg_sngl"].nevents():
       coinctest(injDict["bg_sngl"], injDict["bg_sim"], col_name,
           window[col_name])
     fig_num +=1
     figure(fig_num)
-    makeplot(injDict,col_name,window[col_name],num_inj)
+    makeplot(injDict,col_name,window[col_name],num_inj,uniform_bg,opts.nbins)
     ylim(0,10)
     title(col_name, size='x-large')
     
@@ -257,16 +310,16 @@ while revision == True:
   # work out the revised windows
   new_window = {}
   win_ratio = {}
-  for col_name in coinc_cols:
+  for col_name in opts.coinc_cols:
     [bins,fg] = histcoldiff(injDict['fg_sngl'],injDict['fg_sim'],col_name, \
-        window[col_name],20)
+        window[col_name],opts.nbins)
     if injDict['bg_sngl'].nevents():
       [bins,bg] = histcoldiff(injDict['bg_sngl'],injDict['bg_sim'],col_name, \
-          window[col_name],20)
+          window[col_name],opts.nbins)
       bg = bg * float(num_inj['fg']) / float(num_inj['bg'])
     else:
       bg = zeros(len(bins))
-    new_window[col_name] = revisewindow(bins,fg,bg)
+    new_window[col_name] = revisewindow(bins,fg,bg,uniform_bg,opts.conf)
     win_ratio[col_name] = (new_window[col_name][1] - new_window[col_name][0]) \
         / (window[col_name][1] - window[col_name][0]) 
   sys.stdout.flush()
