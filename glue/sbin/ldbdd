@@ -60,6 +60,7 @@ def SIGHUPhandler(signum, frame):
 
   logger.info("Re-initializing server module")
   ServerModule.shutdown()
+  myServer.initialize()
   ServerModule.initialize(configuration,logger)
 
 def SIGTERMhandler(signum, frame):
@@ -298,7 +299,7 @@ class LDBDDaemon(object):
       self.gridmapFilePath = configuration["gridmap"]
       self.pidFilePath = configuration["pidfile"]
       self.port = configuration["port"]
-                        
+
       myLogger = logging.getLogger('ldbdd')
 
       # remove any existing handlers
