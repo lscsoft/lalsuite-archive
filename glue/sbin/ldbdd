@@ -15,6 +15,7 @@ import getopt
 import time
 import socket
 import ConfigParser
+import exceptions
 import logging
 import logging.handlers
 from pyGlobus import io
@@ -151,18 +152,18 @@ if not configFilePath:
 # by actual values if and when a ConfigurationManager instance is
 # created elsewhere
 configuration = {
-  'server' : 'LDBDServer',
+  'server' : None,
   'port' : 30020,
-  'gridmap' : '/ldcg/glue/etc/grid-security/ldbdd/grid-mapfile',
-  'certfile' : '/ldcg/glue/etc/grid-security/ldbdd/ldbdcert.pem',
-  'keyfile' : '/ldcg/glue/etc/grid-security/ldbd/ldbdkey.pem',
+  'gridmap' : 'grid-mapfile',
+  'certfile' : 'ldbdcert.pem',
+  'keyfile' : 'ldbdkey.pem',
   'dbname' : 'ldbd_tst',
   'dbuser' : 'grid',
   'rls' : 'rls://kitalpha.ligo.caltech.edu',
   'dbpasswd' : '',
   'max_client_byte_string': 1048576,
-  'pidfile' : '/ldcg/glue/var/run/ldbdd.pid',
-  'logfile' : '/ldcg/glue/var/log/ldbdd.log',
+  'pidfile' : 'ldbdd.pid',
+  'logfile' : 'ldbdd.log',
   'logmaxbytes' : 1024 * 1024 * 1,
   'logbackupcount' : 5,
   'loglevel' : 'INFO'
@@ -200,6 +201,21 @@ if runAsDaemon:
 logger = logging.getLogger('ldbdd')
 
 
+class LDBDDaemonException(exceptions.Exception):
+  """
+  Class representing exceptions withing the LDBDDaemon class.
+  """
+  def __init__(self, args=None):
+    """
+    Initialize an instance.
+
+    @param args: 
+
+    @return: Instance of class ServerHandlerException
+    """
+    self.args = args
+
+
 class LDBDDaemon(object):
   """
   An instance of this class is a multi-threadead server that will listen on a
@@ -215,6 +231,7 @@ class LDBDDaemon(object):
 
     @return: instance of class LDBDDaemon
     """
+    self.serverName = None
     self.handler = handler
     self.server = None
 
@@ -267,6 +284,13 @@ class LDBDDaemon(object):
 
     """
     global logger
+
+    if self.serverName is None:
+      msg = "Error: the server name is not configured"
+      raise LDBDDaemonException, msg
+    if self.serverName != configuration["server"]:
+      msg = "Error: attempt to change service %s into service %s" % \
+        ( self.serverName, configuration["server"] )
 
     try:
       self.certFilePath = configuration["certfile"]
@@ -550,10 +574,14 @@ class LDBDDaemon(object):
       # so sleep for a bit so that we don't burn CPU all the time
       time.sleep(0.1)
 
-from glue import LDBDServer as ServerModule
 
-# initialize server
+# figure out what server we are using and load it
+ServerModule = __import__( "glue." + configuration['server'], 
+                           globals(), locals() )
+
+# initialize daemon inheriting the server properties from the loaded module
 myServer = LDBDDaemon(ServerModule.ServerHandler)
+myServer.serverName = configuration['server']
 myServer.initialize()
 ServerModule.initialize(configuration,logger)
 
