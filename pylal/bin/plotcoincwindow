@@ -358,12 +358,6 @@ while revision == True:
     revision = False
   revision_number += 1
 
-  print uniform_bg
-  print window
-  print new_window
-  print min_ratio
-  print min_col
-  print revision_number
   # only reduce the window by 1/3 in any step
   if win_ratio[min_col] < (1 - opts.max_step):
     scale_factor = opts.max_step / ( 1 - win_ratio[min_col] )
