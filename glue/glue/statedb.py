@@ -240,7 +240,7 @@ class StateSegmentDatabase:
           self.state_vec[ifo][(ver,val)], ifo,
           'STATEVEC.%d.%d' % (ver, val), 0, 
           'Created automatically by StateSegmentDatabase', ver, val))
-      except:
+      except Exception, e:
         self.db.rollback()
         msg = "Error inserting new state vector type into database : %s" % e
         raise StateSegmentDatabaseException, e
