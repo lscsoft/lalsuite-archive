@@ -66,6 +66,8 @@ parser.add_option("-t","--title",action="store",type="string",default=None,\
     metavar=" STRING",help="title string for plots")
 parser.add_option("-s","--show-plot",action="store_true",default=False,\
     help="display the figures on the terminal" )
+parser.add_option("-r","--plot-regular",action="store_true",default=False,\
+    help="generates and displays figure _plot.ps on the terminal" )
 
 (opts,args) = parser.parse_args()
 
@@ -123,7 +125,13 @@ ts=sort( t )
 v=simInspTriggers.mkarray( "eff_dist_v" )
 vs=sort( v )
 
+p=simInspTriggers.mkarray( "polarization")
+index=arange( 0, len(p))*L_MAX/numSources
+ps=sort( p )
+
+
 # make a regular plot.
+figure()  
 plot( hs, index, ls, index, gs, index, ts, index, vs, index )
 grid( True )
 axis( [0, X_MAX, 0, Y_MAX] )
@@ -134,6 +142,11 @@ if opts.title:
   title( opts.title )
 if opts.figure_name:
   savefig( opts.figure_name + "_plot.ps" )
+if opts.plot-regular:
+  show()
+
+
+
 
 # make a loglog plot.
 figure()
@@ -166,6 +179,7 @@ if opts.title:
 if opts.figure_name:
   savefig( opts.figure_name + "_hist.ps" )
 
+
 # cumulative sum plot (approximation of first plot)
 figure()
 ng = ng*L_MAX/numSources  	# normalize.
@@ -181,9 +195,35 @@ if opts.title:
   title( opts.title )
 if opts.figure_name:
   savefig( opts.figure_name + "_sum_plot.ps" )
+ 
 
-if opts.show_plot:
+
+# effective Polarization plot.
+figure()
+P_x, x, dx = makeData( 10, 1)
+pg,a,b = hist( ps, x )
+grid( True )
+axis( [0, X_MAX, 0, max( pg[0:X_MAX+1] )] )
+xlabel( 'Polarization' )
+ylabel('N_G' )
+if opts.title:
+  title( opts.title )
+if opts.figure_name:
+  savefig( opts.figure_name + "_hist.ps" )
   show()
+
+# make a Polarization plot.
+figure()
+plot( ps, index )
+grid( True )
+xlabel( 'Polarization angle' )
+ylabel('N_G' )
+if opts.title:
+  title( opts.title )
+if opts.figure_name:
+  savefig( opts.figure_name + "_plot.ps" )
+
+
 
 ################################
 # Segment reading
