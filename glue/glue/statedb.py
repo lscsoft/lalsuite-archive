@@ -72,6 +72,9 @@ class StateSegmentDatabase:
     self.db = None
     self.cursor = None
     self.state_vec = {}
+    self.state_vec['H1'] = {}
+    self.state_vec['H2'] = {}
+    self.state_vec['L1'] = {}
     self.lfn_id = None
     self.framereg = re.compile(r'^([A-Za-z]+)\-(\w+)\-(\d+)\-(\d+)\.gwf$')
     self.process_id = None
@@ -115,7 +118,7 @@ class StateSegmentDatabase:
       raise StateSegmentDatabaseException, e
 
     # build a dictionary of the state vector types
-    sql = "SELECT state_vec_major, state_vec_minor, segment_def_id "
+    sql = "SELECT ifos, state_vec_major, state_vec_minor, segment_def_id "
     sql += "FROM segment_definer WHERE state_vec_major IS NOT NULL "
     sql += "AND state_vec_minor IS NOT NULL"
     try:
@@ -125,7 +128,7 @@ class StateSegmentDatabase:
       msg = "Error fetching state vector values from database: %s" % e
       raise StateSegmentDatabaseException, e
     for r in result:
-      self.state_vec[tuple([r[0],r[1]])] = r[2]
+      self.state_vec[r[0].strip()][tuple([r[1],r[2]])] = r[3]
 
     if self.debug:
       print "DEBUG: current state known state vec types are: "
@@ -227,7 +230,7 @@ class StateSegmentDatabase:
       try:
         sql = "VALUES GENERATE_UNIQUE()"
         self.cursor.execute(sql)
-        self.state_vec[(ver,val)] = self.cursor.fetchone()[0]
+        self.state_vec[ifo][(ver,val)] = self.cursor.fetchone()[0]
 
         sql = "INSERT INTO segment_definer (process_id,segment_def_id,ifos,"
         sql += "name,version,comment,state_vec_major,state_vec_minor) VALUES "
@@ -288,29 +291,3 @@ class StateSegmentDatabase:
       print "DEBUG: inserted with segment_id "
       print tuple([segment_id])
 
-
-  def set_state_name(self,ver,val,name):
-    try:
-      sql = "INSERT INTO state_vec (version,value,state) VALUES (%s,%s,%s)"
-      self.cursor.execute(sql,(ver,val,name))
-    except _mysql_exceptions.IntegrityError, e:
-      sql = "UPDATE state_vec SET state = '%s'" % name
-      sql += "WHERE version = %s AND value = %s" % (ver,val)
-      self.cursor.execute(sql)
-    except Exception, e:
-      msg = "Unable to state state name for state %s,%s : %s" % (ver,val,e)
-      raise StateSegmentDatabaseException, msg
-
-
-  def get_state_name(self,ver,val):
-    """
-    Get the name of a state by version and value
-    """
-    sql = "SELECT state from state_vec WHERE version = %s AND value = %s" % \
-      (ver,val)
-    try:
-      self.cursor.execute(sql)
-      r = str(self.cursor.fetchall()[0][0])
-    except Excpetion, e:
-      msg = "error getting state name : %s" % e
-      raise StateSegmentDatabaseException, msg
