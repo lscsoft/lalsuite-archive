@@ -226,7 +226,7 @@ class StateSegmentDatabase:
       raise StateSegmentDatabaseException, msg
 
     # see if we need a new state val or if we know it already
-    if (ver, val) not in self.state_vec:
+    if (ver, val) not in self.state_vec[ifo]:
       try:
         sql = "VALUES GENERATE_UNIQUE()"
         self.cursor.execute(sql)
