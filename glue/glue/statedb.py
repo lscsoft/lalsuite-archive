@@ -236,7 +236,8 @@ class StateSegmentDatabase:
         sql += "name,version,comment,state_vec_major,state_vec_minor) VALUES "
         sql += "(?,?,?,?,?,?,?,?)"
 
-        self.cursor.execute(sql,(self.process_id, self.state_vec[(ver,val)], ifo,
+        self.cursor.execute(sql,(self.process_id, 
+          self.state_vec[ifo][(ver,val)], ifo,
           'STATEVEC.%d.%d' % (ver, val), 0, 
           'Created automatically by StateSegmentDatabase', ver, val))
       except:
@@ -244,11 +245,11 @@ class StateSegmentDatabase:
         msg = "Error inserting new state vector type into database : %s" % e
         raise StateSegmentDatabaseException, e
       if self.debug:
-        print ("DEBUG: created a new state vec type (%d,%d), id = " % \
-          (ver,val)), 
-        print tuple([self.state_vec[(ver,val)]])
+        print ("DEBUG: created a new state vec type (%s,%d,%d), id = " % \
+          (ifo,ver,val)), 
+        print tuple([self.state_vec[ifo][(ver,val)]])
 
-    sv_id = self.state_vec[(ver,val)]
+    sv_id = self.state_vec[ifo][(ver,val)]
 
     # insert the state segment 
     sql = "VALUES GENERATE_UNIQUE()"
