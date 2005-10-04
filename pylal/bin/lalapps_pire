@@ -1,0 +1,361 @@
+#!/usr/bin/python
+
+import sys
+import getopt
+import os
+import dircache
+import string
+import time
+from pylal import readMeta
+from pylal import support
+
+def usage():
+    msg = """\
+    Usage: lalapps_pire [options]
+
+    -h, --help                     display this message
+    -v, --verbose                  display extra messages
+    -i, --input FILE               read list of input XML files from FILE
+    -o, --output FILE              name of output files. Default is 'output.xml'
+    -s, --summary-file FILE        write trigger analysis summary to FILE
+    -x, --injection-file FILE      read injection parameters from FILE
+    -c, --injection-coincidence T  trigger and injection coincidence window (ms)
+    -m, --missed-injections FILE   write sim_inspiral for missed injections to FILE
+    -d, --ifo-cut IFO              only keep triggers from IFO
+    -a, --cluster-algorithm ALGO   use trigger clustering algorithm ALGO
+                                   [ snr_and_chisq | snrsq_over_chisq | snr ]
+    -t, --cluster-time T           cluster triggers with T ms window
+    -u, --user-tag STRING          set the process_params usertag to STRING
+    -n, --num N                    Processing a maximum of N input files in lalapps_sire
+    """
+    print >> sys.stderr, msg
+    
+
+# specify the command line options 
+short_options ='hvx:c:a:t:i:s:o:m:d:u:n:'   
+long_options  =['help',
+                'verbose',
+                'injection-file=',
+                'injection-coincidence=',
+                'cluster-algorithm=',
+                'cluster-time=','input=',
+                'summary-file=',
+                'output=',
+                'missed-injections=',
+                'ifo-cut=',
+                'user-tag=',
+                'num='] 
+args = sys.argv[1:]    
+
+# try to get the options
+try:
+    opts, pargs = getopt.getopt(args, short_options ,long_options) 
+except getopt.GetoptError:
+    print ">>> Input options or argument not recognised, exiting" 
+    usage()
+    sys.exit()
+                        
+# dummy values
+verbose   = None
+injection = None
+injCoin   = 25
+clusterAlgo = None
+clusterTime = 0
+input    = None
+summary  = 'summary.txt'
+output   = 'output.xml'
+missed   = 'missed.xml'
+detector = None
+userTag  = None
+filesByList= 40
+
+for o, a in opts:                         # searches through options
+   if o in ('-h','--help'):
+       usage()        
+       sys.exit(0)
+   if o in ('-v','--verbose'):
+       verbose=1
+   if o in ("-x", "--injection-file"):
+       injection=a
+   if o in ("-c", "--injection-coincidence"):
+        injCoin = string.atoi(a)
+   if o in ("-a", "--cluster-algorithm"):
+       clusterAlgo=a 
+   if o in ("-t", "--cluster-time"):
+       clusterTime=a
+   if o in ("-i", "--input"):
+       input=a
+   if o in ("-s", "--summary-file"):
+       summary=a
+   if o in ("-o", "--output"):
+       output=a
+   if o in ("-m", "--missed-injections"):
+       missed=a
+   if o in ("-d", "--ifo-cut"):
+       detector=a
+   if o in ("-u", "--user-tag"):
+       userTag=a
+   if o in ("-n", "--num"):
+       filesByList=string.atoi(a)
+       
+# check some inputs first
+if not input:
+    print >> sys.stderr, ">>> No input file specified.\n"
+    usage()
+    sys.exit(1)
+
+detectorString=''
+if detector:
+    detectorString=detector+"-"
+
+# first read in the list of files
+rfile=open(input)
+fileList = []
+for line in rfile:
+    fileList.append(string.strip(line,"\n"))
+    
+# calculate the number of sub lists
+numberFiles=len(fileList)
+nSubList = numberFiles/filesByList
+if (nSubList * filesByList) < numberFiles:
+    nSubList = nSubList +1
+print 'The input is split into ' +str(nSubList) + ' lists each containing a maximum of ' +str(filesByList) + ' files'
+
+# define the tables to fill
+processTable        = readMeta.metaDataTable(None, 'process')
+processParamsTable  = readMeta.metaDataTable(None, 'process_params')
+inspiralTable       = readMeta.metaDataTable(None, 'sngl_inspiral')
+simTable            = readMeta.metaDataTable(None, 'sim_inspiral')
+processTableM       = readMeta.metaDataTable(None, 'process')
+processParamsTableM = readMeta.metaDataTable(None, 'process_params')
+inspiralTableM      = readMeta.metaDataTable(None, 'sngl_inspiral')
+simTableM           = readMeta.metaDataTable(None, 'sim_inspiral')
+
+# initializing other variables
+numberTriggerInput=0
+numberTriggerData=0
+numberTriggerIFO=0
+timeSeconds=0
+timeNanoSeconds=0
+numberInjections=0
+numberInjectionsFound=0
+numberInjectionsInput=0
+numberTriggerWithin=0
+numberCluster=0
+
+
+# loop over all the files
+for i in range(0,nSubList,1):
+    tag = '.pt'+ str(i+1) + '.'
+
+    # get the sub list of files to process now
+    subFileList = []
+    i1 =   i  *filesByList
+    i2 = (i+1)*filesByList
+    subFileList = fileList[i1:i2]
+
+    if verbose:
+        print "files for this sub process: ",subFileList
+
+    # create sub input-list for lalapps_sire
+    nameInput  = tag+detectorString +'SIRE.input'
+    list=open(nameInput,'w')
+    for line in subFileList:
+        list.write(line)
+        list.write('\n')
+    list.close()
+
+    #create sire script
+    outputFound  = tag + detectorString + 'SIRE_FOUND.xml'
+    outputMissed = tag + detectorString + 'SIRE_MISSED.xml'
+    summaryFile  = tag + detectorString + 'SIRE_SUMMARY.txt'
+    jobout   = tag + 'out'
+    joberr   = tag + 'err'
+    command = './lalapps_sire'
+    command = command + ' --input ' + nameInput
+    command = command + ' --output ' + outputFound
+    command = command + ' --all-data '
+    if detector:
+        command = command + ' --ifo-cut ' + detector
+    if clusterAlgo:
+        command = command + ' --cluster-algorithm ' + clusterAlgo
+        command = command + ' --cluster-time ' + str(clusterTime)
+    if injection:
+        command = command + ' --injection-file ' + injection
+        command = command + ' --injection-coincidence ' + str(injCoin)
+        command = command + ' --missed-injections  ' + outputMissed
+    command = command + ' --summary-file ' +  summaryFile  
+    command = command + ' --debug 33 --verbose 1>' + jobout +' 2>' + joberr
+    print '...executing lalapps_sire on list number ' +str(i+1) + '/'+str(nSubList)+', please wait...'    
+    if verbose: 
+        print "command executed now: ",command
+    a=os.system(command)
+    
+    # read the data into the tables and add the tables
+    processTable       = readMeta.metaDataTable([outputFound],'process')
+    processParamsTable = readMeta.metaDataTable([outputFound],'process_params')    
+    try:
+        simData            = readMeta.metaDataTable([outputFound],'sim_inspiral')
+        simTable.append(simData)        
+    except:
+        simData=None
+    
+    # check if there are also missed trigger files
+    if injection:
+         processTableM       = readMeta.metaDataTable([outputMissed],'process')
+         processParamsTableM = readMeta.metaDataTable([outputMissed],'process_params')
+         try:
+             simData            = readMeta.metaDataTable([outputMissed],'sim_inspiral')
+             simTableM.append(simData)
+         except:
+             simData=None
+
+    # read in summary file
+    try:
+        sumFile=open(summaryFile)
+        for line in sumFile:
+
+              if line.count('number of triggers in input file'):
+                  numberTriggerInput+=string.atoi(string.split(line)[6])
+              if line.count('number of triggers in input data'):
+                  numberTriggerData+=string.atoi(string.split(line)[6])
+              if line.count('ifo'):
+                  numberTriggerIFO+=string.atoi(string.split(line)[6])
+              if line.count('amount of time analysed'):
+                  timeSeconds+=string.atoi(string.split(line)[6])
+                  timeNanoSeconds+=string.atoi(string.split(line)[8])
+              if line.count('injections from file'):
+                  numberInjections=string.atoi(string.split(line)[1])
+              if line.count('injections in input data'):
+                  numberInjectionsInput+=string.atoi(string.split(line)[6])
+              if line.count('injections found in input data'):
+                  numberInjectionsFound+=string.atoi(string.split(line)[7])
+              if line.count('triggers found within'):
+                  numberTriggerWithin+=string.atoi(string.split(line)[9])
+              if line.count('event clusters'):
+                  numberCluster+=string.atoi(string.split(line)[8])
+    except:
+        print "no summary file found"
+
+#####################################################
+# post analysis
+#####################################################
+
+# edit the process tables
+for entry in processParamsTable.table:
+    if (entry['param']=='--input'):
+        entry['value']=input
+
+    if (entry['param']=='--summary-file'):
+        entry['value']=summary
+
+    if (entry['param']=='--output'):
+        entry['value']=output
+
+    if (entry['param']=='--missed-injections'):
+        entry['value']=missed
+
+# open output xml file and write the data
+fileObj=support.open_xml(output)
+support.write_process(fileObj, processTable.table)
+support.write_process_params(fileObj, processParamsTable.table)
+if injection:
+    support.write_sim_inspiral(fileObj, simTable.table)
+    
+# change of process_params table for missed file not needed, because...
+# those files DONT have a process_params table.....
+if injection:
+   for entry in processParamsTableM.table:
+        if (entry['param']=='--input'):
+            entry['value']=input
+        if (entry['param']=='--summary-file'):
+            entry['value']=summary
+        if (entry['param']=='--output'):
+            entry['value']=output
+        if (entry['param']=='--missed-injections'):
+            entry['value']=missed
+
+   # write data to missed-injection file
+   fileObjM=support.open_xml(missed)
+   support.write_process(fileObjM, processTableM.table)
+   support.write_process_params(fileObjM, processParamsTableM.table)
+   support.write_sim_inspiral(fileObjM, simTableM.table)
+   support.close_xml(fileObjM)
+   #support.write_sire(1, missed, processTableM.table, processParamsTableM.table,
+   #                   simTableM.table, inspiralTableM.table)
+
+
+# create summary file
+sumFile=open(summary,'w')
+sumFile.write('using all input data\n')
+sumFile.write('read triggers from ' + str(numberFiles) + ' files\n')
+sumFile.write('number of triggers in input files: ' + str(numberTriggerInput) +'\n')
+sumFile.write('number of triggers in input data ' + str(numberTriggerData) +'\n')
+if detector:
+    sumFile.write('number of triggers from ' +detector + ' ifo ' + str(numberTriggerIFO)+'\n')
+sumFile.write('amount of time analysed for triggers ' + str(timeSeconds) + ' sec '+str(timeNanoSeconds) + ' ns\n')
+if injection:
+    sumFile.write('read ' +str(numberInjections) + ' injections from file ' + injection +'\n')
+    sumFile.write('number of injections in input data: ' + str(numberInjectionsInput)+'\n')
+    sumFile.write('number of injections found in input data: ' +str(numberInjectionsFound)+'\n')
+    sumFile.write('number of triggers found within ' +str(injCoin) + ' msec of injection: ' + str(numberTriggerWithin) +'\n')    
+    sumFile.write('efficiency: ' +str(round(float(numberInjectionsFound)/float(numberInjectionsInput),6))+'\n')
+if clusterAlgo:
+    sumFile.write('number of event clusters with ' +str(clusterTime) + ' msec window: ' + str(numberCluster) +'\n')
+sumFile.close()
+
+
+#####################################################
+# processing INSPIRAL reading
+#####################################################
+processTable        = None
+processParamsTable  = None
+inspiralTable       = None
+simTable            = None
+processTableM       = None
+processParamsTableM = None
+inspiralTableM      = None
+simTableM           = None
+
+processTable        = readMeta.metaDataTable(None, 'process')
+processParamsTable  = readMeta.metaDataTable(None, 'process_params')
+simTable            = readMeta.metaDataTable(None, 'sim_inspiral')
+inspiralData = readMeta.metaDataTable(None, 'sngl_inspiral')
+
+# write sngl_inspiral header to file
+support.write_sngl_inspiral_begin(fileObj)
+
+print 'now reading the inspiral data...'
+
+# loop over all the files
+for i in range(0,nSubList,1):
+
+    # create tag
+    tag = '.pt'+ str(i+1) + '.'
+    print '...reading inspiral triggers  ' +str(i+1) + '/'+str(nSubList)+', please wait...'
+    
+    #create sire script
+    outputFound  = tag + detectorString + 'SIRE_FOUND.xml'
+    outputMissed = tag + detectorString + 'SIRE_MISSED.xml'
+    summaryFile  = tag + detectorString + 'SIRE_SUMMARY.txt'
+        
+    # read the data into the tables and add the tables
+    try:
+        inspiralData       = readMeta.metaDataTable([outputFound],'sngl_inspiral')
+        if verbose:
+            print "Triggers read from file ",outputFound," : ", inspiralData.nevents()
+    except:
+        inspiralData=None
+
+    # write table content to file
+    support.write_sngl_inspiral_write(fileObj, inspiralData.table)
+
+
+# closing file
+support.write_sngl_inspiral_end(fileObj)
+support.close_xml(fileObj)
+
+print "All jobs finished."
+
+# end of the script
+sys.exit(0)
