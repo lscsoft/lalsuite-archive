@@ -12,6 +12,10 @@ from glue import statedb
 segpat = re.compile(r'^(\d+)\s(\d+)\s(\d+)\s(\d+)\s(\d+)\s(\d+)\s([A-Z][0-9]+)\s(.+)')
 filepat = re.compile(r'^[A-Za-z]+\-\w+\-(\d+)\-(\d+)\..+')
 
+# change this for the correct sv version number and path to the state fetcher
+version = 1
+frsvpath = '/ligotools/bin/FrStateFetcher'
+
 if len(sys.argv) < 2:
   print >> sys.stderr, "Usage: bulkpublishstate dir1 dir2 ..."
   sys.exit( 1 )
@@ -37,7 +41,7 @@ for dirpath in sys.argv[1:]:
   
     sdb.register_lfn(lfn,lfn_start,lfn_end)
     
-    sv = popen2.Popen3('/ligotools/bin/FrStateFetcher %s' % framefile)
+    sv = popen2.Popen3(frsvpath + " " + framefile)
     sv.tochild.close()
     r = sv.wait()
     if r:
@@ -55,12 +59,7 @@ for dirpath in sys.argv[1:]:
       sv = int(segmatch[4])
       ifo = str(segmatch[6])
   
-      if start_nano >= 500000000:
-        start = start + 1
-      if end_nano >= 500000000:
-        end = end + 1
-  
-      sdb.publish_state(ifo,start,0,end,0,1,sv)
+      sdb.publish_state(ifo,start,start_nano,end,end_nano,version,sv)
       
     print "done"
   

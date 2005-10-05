@@ -15,7 +15,9 @@ CREATE TABLE segment
 -- INFORMATION ABOUT THIS SEGMENT
 -- Segment start and end times, in GPS seconds.
       start_time         INTEGER NOT NULL,
+      start_time_ns      INTEGER,
       end_time           INTEGER NOT NULL,
+      end_time_ns        INTEGER,
 
 -- Activity bit for segment. If zero then this time has been analyzed but
 -- the segment should not be applied. If positive then this segment should
