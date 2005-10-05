@@ -257,7 +257,7 @@ class StateSegmentDatabase:
     segment_id = self.cursor.fetchone()[0]
 
     sql = "INSERT INTO segment (process_id, segment_id,"
-    sql += "start_time,end_time,active) VALUES (?,?,?,?,?)"
+    sql += "start_time,start_time_ns,end_time,end_time_ns,active) VALUES (?,?,?,?,?,?,?)"
 
     try:
       self.cursor.execute(sql,
