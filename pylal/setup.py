@@ -43,7 +43,8 @@ setup(
     os.path.join("bin", "plotinspmissed"),
     os.path.join("bin", "plotthinca"),
     os.path.join("bin", "plotwindow"),
-    os.path.join("bin", "plotcoincwindow")
+    os.path.join("bin", "plotcoincwindow"),
+    os.path.join("bin", "lalapps_pire")
 
 	],
 	data_files = [
