@@ -261,7 +261,7 @@ class StateSegmentDatabase:
 
     try:
       self.cursor.execute(sql,
-        (self.process_id,segment_id,start_time,end_time,1))
+        (self.process_id,segment_id,start_time,start_time_ns,end_time,end_time_ns,1))
     except Exception, e:
       self.db.rollback()
       msg = "error inserting segment information : %s" % e
