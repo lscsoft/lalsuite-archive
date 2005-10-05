@@ -82,7 +82,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
     """
     global logger, max_bytes
 
-    logger.debug("handle method of LDBDServer class called")
+    logger.debug("handle method of %s class called" % __name__)
 
     # mapping of ldbdd RPC protocol names to methods of this class
     methodDict = {
@@ -108,8 +108,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
 
       # check if the last byte is a null byte
       if input[-1] != '\0':
-        raise ServerHandlerException, \
-          "Last byte of input is not null byte"
+        raise ServerHandlerException, "Last byte of input is not null byte"
     except Exception, e:
       logger.error("Error reading input on socket: %s" %  e)
       return
@@ -125,7 +124,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
     except Exception, e:
       logger.error("Error parsing method and argument string: %s" % e)
 
-      msg = "ERROR ldbdd Error: " + \
+      msg = "ERROR LDBDServer Error: " + \
         "Error parsing method and argument string: %s" % e
       self.__reply__(1, msg)
       return
@@ -178,17 +177,17 @@ class ServerHandler(SocketServer.BaseRequestHandler):
       by client to server
 
     @return: None
-     """
+    """
+    global logger
 
     logger.debug("Method ping called")
     try:
       hostname = socket.getfqdn()
-      msg = "ldbdd at %s is alive" % hostname
+      msg = "%s at %s is alive" % (__name__, hostname)
     except Exception, e:
-      msg = "ldbdd is alive"
+      msg = "%s is alive" % __name__
 
     return (0, msg)
-
 
   def query(self, arg):
     """
