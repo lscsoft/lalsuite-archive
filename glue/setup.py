@@ -25,9 +25,8 @@ if version_info >= (2, 3):
       os.path.join('bin','LSCsegFind'),
       os.path.join('bin','LSCfileAdd'),
       os.path.join('bin','ldbdc'),
-      os.path.join('sbin','bulkpublishstate'),
       os.path.join('sbin','ldbdd'),
-      os.path.join('sbin','LSCsegFindServer') ],
+      os.path.join('sbin','bulkpublishstate'), ],
     data_files = [ ('etc',[
       os.path.join('etc','vdsproperties'),
       os.path.join('etc','glue-user-env.sh'),
@@ -51,8 +50,7 @@ else:
       os.path.join('bin','LSCfileAdd'),
       os.path.join('bin','ldbdc'),
       os.path.join('sbin','ldbdd'),
-      os.path.join('sbin','bulkpublishstate'),
-      os.path.join('sbin','LSCsegFindServer') ],
+      os.path.join('sbin','bulkpublishstate'), ],
     data_files = [ ('etc',[
       os.path.join('etc','vdsproperties'),
       os.path.join('etc','glue-user-env.sh'),
