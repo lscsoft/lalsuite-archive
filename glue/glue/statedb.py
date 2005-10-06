@@ -276,8 +276,12 @@ class StateSegmentDatabase:
       self.cursor.execute(sql,(self.process_id, segment_id, sv_id, 1))
     except Exception, e:
       self.db.rollback()
-      msg = "error inserting segment information : %s" % e
-      raise StateSegmentDatabaseException, msg
+      if int(e[0]) == 70001:
+        msg = "this state segment already exists in the database: %s" % e
+        raise StateSegmentDatabaseSegmentExistsException, msg
+      else:
+        msg = "error inserting segment information : %s" % e
+        raise StateSegmentDatabaseException, msg
     
     # insert the map between the segment and the lfn
     sql = "INSERT INTO segment_lfn_map (process_id,segment_id,lfn_id) "
