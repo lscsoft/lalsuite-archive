@@ -251,22 +251,22 @@ class StateSegmentDatabase:
 
     sv_id = self.state_vec[ifo][(ver,val)]
 
-    # insert the state segment 
+    # generate a unique id for the segment we are going to insert
     sql = "VALUES GENERATE_UNIQUE()"
     self.cursor.execute(sql)
     segment_id = self.cursor.fetchone()[0]
 
-    sql = "INSERT INTO segment (process_id, segment_id,"
-    sql += "start_time,start_time_ns,end_time,end_time_ns,active) VALUES (?,?,?,?,?,?,?)"
-
+    # insert the map between the segment and the segment definer
+    sql = "INSERT INTO segment_def_map (process_id,segment_id,segment_def_id,state_vec_map) "
+    sql += "VALUES (?,?,?,?)"
     try:
-      self.cursor.execute(sql,
-        (self.process_id,segment_id,start_time,start_time_ns,end_time,end_time_ns,1))
+      self.cursor.execute(sql,(self.process_id, segment_id, sv_id, 1))
     except Exception, e:
       self.db.rollback()
       msg = "error inserting segment information : %s" % e
       raise StateSegmentDatabaseException, msg
-
+    
+    # insert the map between the segment and the lfn
     sql = "INSERT INTO segment_lfn_map (process_id,segment_id,lfn_id) "
     sql += "VALUES (?,?,?)"
     try:
@@ -276,10 +276,12 @@ class StateSegmentDatabase:
       msg = "error inserting segment information : %s" % e
       raise StateSegmentDatabaseException, msg
 
-    sql = "INSERT INTO segment_def_map (process_id,segment_id,segment_def_id) "
-    sql += "VALUES (?,?,?)"
+    # insert the segment
+    sql = "INSERT INTO segment (process_id, segment_id,"
+    sql += "start_time,start_time_ns,end_time,end_time_ns,active) VALUES (?,?,?,?,?,?,?)"
     try:
-      self.cursor.execute(sql,(self.process_id, segment_id, sv_id))
+      self.cursor.execute(sql,
+        (self.process_id,segment_id,start_time,start_time_ns,end_time,end_time_ns,1))
     except Exception, e:
       self.db.rollback()
       msg = "error inserting segment information : %s" % e
