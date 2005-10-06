@@ -301,7 +301,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
     if protocol < 3:
       # load revision 1.7 of the segments module
       logger.debug("Importing segments verson 1.7 from glue")
-      segments = __import__('glue.segments.segfindserver.segments_1_7',
+      segments = __import__('glue.segfindserver.segments_1_7.segments',
                             globals(), locals(), ['segments'])
     else:
       # load the current revision of the segments module
