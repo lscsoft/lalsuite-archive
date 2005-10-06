@@ -300,11 +300,13 @@ class ServerHandler(SocketServer.BaseRequestHandler):
 
     if protocol < 3:
       # load revision 1.7 of the segments module
+      logger.debug("Importing segments verson 1.7 from glue")
       import glue
       glue.__path__.insert(0, glue.__path__[0] + "/segfindserver/segments_1_7")
       from glue import segments
     else:
       # load the current revision of the segments module
+      logger.debug("Importing current segments from glue")
       import glue
       from glue import segments
 
@@ -395,7 +397,9 @@ class ServerHandler(SocketServer.BaseRequestHandler):
     del result
 
     # unload the segments module
+    logger.debug("Unloading segments module")
     del sys.modules["glue.segments"]
+    logger.debug("Unloading glue module")
     del sys.modules["glue"]
 
     return None
