@@ -135,7 +135,9 @@ class ServerHandler(SocketServer.BaseRequestHandler):
 
     try:
       # call the method requested with the rest of strings as input
-      method(argStringList) 
+      result = method(argStringList) 
+      if result is not None:
+        self.__reply__( result[0], result[1] )
     except Exception, e:
       logger.error("Error while calling method %s: %s" % (methodString, e))
 
@@ -181,7 +183,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
     except Exception, e:
       msg = "%s is alive" % __name__
 
-    self.__reply__(0, msg)
+    return (0, msg)
 
   def distinctAttribute(self, arg):
     """
@@ -232,7 +234,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
         "%s: %s" % (attribute, e)
       logger.error(result)
 
-    self.__reply__(code, result)
+    return (code, result)
 
   def segmentFindWithMetadata_v1(self, arg):
     """
@@ -248,8 +250,24 @@ class ServerHandler(SocketServer.BaseRequestHandler):
     global logger, db
 
     logger.debug("Method segmentFindWithMetadata_v1 called")
-    msg = "version 1 protocol not supported in this server"
-    raise ServerHandlerException, msg
+    time_rx = \
+      re.compile(r"state_segment\.start_time\s*BETWEEN\s*(\d*)\s*AND\s*(\d*)")
+    ifo_rx = re.compile(r"state_segment\.ifo\s*=\s*'([A-Za-z0-9]*)'")
+    state_rx = re.compile(r"state_vec\.state = '([A-Za-z0-9_.,]+)'")
+    try:
+      start_time = time_rx.search(arg[0]).group(1)
+      end_time = time_rx.search(arg[0]).group(2)
+      ifo = ifo_rx.search(arg[0]).group(1)
+      states = ','.join(state_rx.findall(arg[0]))
+      vx_query = ['1',start_time,end_time,ifo,states]
+
+      self.segmentFindWithMetadata_vx(vx_query)
+
+    except Exception, e:
+      msg = "Error parsing version 1 protocol string %s : %s" % (arg[0],e)
+      raise ServerHandlerException, msg
+
+    return None
 
   def segmentFindWithMetadata_vx(self, arg):
     """
@@ -377,3 +395,5 @@ class ServerHandler(SocketServer.BaseRequestHandler):
     # unload the segments module
     del sys.modules["glue.segments"]
     del sys.modules["glue"]
+
+    return None
