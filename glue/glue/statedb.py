@@ -155,9 +155,8 @@ class StateSegmentDatabase:
     """
     try:
       now = gpstime.GpsSecondsFromPyUTC(time.time())
-      sql = "UPDATE process SET (end_time) = (?) WHERE "
-      sql += "process_id = '%s'" % self.process_id
-      self.cursor.execute(sql,tuple([now]))
+      sql = "UPDATE process SET (end_time) = (?) WHERE process_id = (?)" 
+      self.cursor.execute(sql,(now, self.process_id))
       self.db.commit()
     except Exception, e:
       msg = "Error inserting end_time into database: %s" % e
