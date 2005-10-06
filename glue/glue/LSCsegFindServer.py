@@ -307,7 +307,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
         [os.path.join(
           os.environ["GLUE_LOCATION"],
           'lib/python/glue/segfindserver/segments_1_7')
-        )]
+        ])
       segments = imp.load_module('glue.segments',m_fp,m_path,m_desc)
       m_fp.close()
     
