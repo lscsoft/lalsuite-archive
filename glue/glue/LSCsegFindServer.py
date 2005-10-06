@@ -9,8 +9,10 @@ $Id$
 
 __version__ = '$Revision$'[11:-2]
 
+import os
 import sys
 import re
+import imp
 import types
 import copy
 import exceptions
@@ -301,8 +303,14 @@ class ServerHandler(SocketServer.BaseRequestHandler):
     if protocol < 3:
       # load revision 1.7 of the segments module
       logger.debug("Importing segments verson 1.7 from glue")
-      segments = __import__('glue.segfindserver.segments_1_7.segments',
-                            globals(), locals(), ['segments'])
+      m_fp, m_path, m_desc = imp.find_module('segments',
+        [os.path.join(
+          os.environ["GLUE_LOCATION"],
+          'lib/python/glue/segfindserver/segments_1_7')
+        )]
+      segments = imp.load_module('glue.segments',m_fp,m_path,m_desc)
+      m_fp.close()
+    
     else:
       # load the current revision of the segments module
       logger.debug("Importing segments from glue")
@@ -397,5 +405,6 @@ class ServerHandler(SocketServer.BaseRequestHandler):
     # unload the segments module
     logger.debug("Unloading segments module")
     del segments
+    del sys.modules["glue.segments"]
 
     return None
