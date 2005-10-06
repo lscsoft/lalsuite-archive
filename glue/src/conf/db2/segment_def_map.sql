@@ -49,12 +49,17 @@ CREATE INDEX segdefmap_sdid on segment_def_map(segment_def_id)
 ;
 -- Create a trigger to prevent state vec maps from being duplicates
 CREATE TRIGGER segdefmap_svec_t
-      NO CASCADE BEFORE INSERT ON segment_def_map
-      REFERENCING NEW AS n
-      FOR EACH ROW MODE DB2SQL
-      WHEN ( (SELECT COUNT(segment_id)
-            FROM segment_def_map
-            WHERE state_vec_map IS NOT NULL AND
-            segment_def_id = n.segment_def_id) > 0 )
-      SIGNAL SQLSTATE '70001' ('State vector maps must be unique')
+  NO CASCADE BEFORE INSERT ON segment_def_map
+  REFERENCING NEW AS n
+  FOR EACH ROW MODE DB2SQL
+  WHEN ( ( N.state_vec_map IS NOT NULL ) AND
+    ( (SELECT count(segment.segment_id) FROM segment,segment_def_map WHERE
+      segment_def_map.segment_def_id = n.segment_def_id AND
+      segment.segment_id = segment_def_map.segment_id AND
+      segment.start_time IN (SELECT start_time FROM segment WHERE segment_id = n.segment_id) AND
+      segment.start_time_ns IN (SELECT start_time_ns FROM segment WHERE segment_id = n.segment_id) AND
+      segment.end_time IN (SELECT end_time FROM segment WHERE segment_id = n.segment_id) AND
+      segment.end_time_ns IN (SELECT end_time_ns FROM segment WHERE segment_id = n.segment_id)
+    ) > 1 ) )
+  SIGNAL SQLSTATE '70001' ('State vector maps must be unique')
 ;
