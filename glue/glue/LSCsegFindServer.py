@@ -16,6 +16,7 @@ import imp
 import types
 import copy
 import exceptions
+import socket
 import SocketServer
 import cPickle
 import mx.ODBC.DB2

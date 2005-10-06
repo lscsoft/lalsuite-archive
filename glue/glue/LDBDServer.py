@@ -13,6 +13,7 @@ import re
 import types
 import pyRXP
 import exceptions
+import socket
 import SocketServer
 import cPickle
 from glue import ldbd
