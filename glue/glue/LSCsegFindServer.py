@@ -11,6 +11,7 @@ __version__ = '$Revision$'[11:-2]
 
 import re
 import types
+import copy
 import exceptions
 import SocketServer
 import cPickle
