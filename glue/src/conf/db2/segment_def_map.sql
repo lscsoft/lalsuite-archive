@@ -60,6 +60,6 @@ CREATE TRIGGER segdefmap_svec_t
       segment.start_time_ns IN (SELECT start_time_ns FROM segment WHERE segment_id = n.segment_id) AND
       segment.end_time IN (SELECT end_time FROM segment WHERE segment_id = n.segment_id) AND
       segment.end_time_ns IN (SELECT end_time_ns FROM segment WHERE segment_id = n.segment_id)
-    ) > 1 ) )
+    ) > 0 ) )
   SIGNAL SQLSTATE '70001' ('State vector maps must be unique')
 ;

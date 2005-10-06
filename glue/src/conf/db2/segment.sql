@@ -45,8 +45,14 @@ CREATE TABLE segment
 -- The following line is needed for this table to be replicated to other sites
 DATA CAPTURE CHANGES
 ;
--- Create an index based on time
-CREATE INDEX segment_ind_time ON segment(start_time, end_time)
+-- Create an indices based on time
+CREATE INDEX segment_ind_stime ON segment(start_time)
+;
+CREATE INDEX segment_ind_etime ON segment(end_time)
+;
+CREATE INDEX segment_ind_stimen ON segment(start_time_ns)
+;
+CREATE INDEX segment_ind_etimen ON segment(end_time_ns)
 ;
 -- Create an index based on process_id
 CREATE INDEX segment_ind_pid ON segment(process_id)
