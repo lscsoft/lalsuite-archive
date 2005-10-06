@@ -14,6 +14,9 @@ CREATE TABLE segment_def_map
 -- ID of the segment definer
       segment_def_id     CHAR(13) FOR BIT DATA NOT NULL,
 
+-- Flag to indicate if this is a state vector map
+      state_vec_map      INTEGER,
+
 -- Insertion time (automatically assigned by the database)
       insertion_time     TIMESTAMP WITH DEFAULT CURRENT TIMESTAMP,
 
@@ -43,4 +46,18 @@ CREATE INDEX segdefmap_sid on segment_def_map(segment_id);
 ;
 -- Create an index based on segment definintion ID
 CREATE INDEX segdefmap_sdid on segment_def_map(segment_def_id);
+;
+-- Create a trigger to prevent state vec maps from being duplicates
+CREATE TRIGGER segdefmap_svec_trig
+      NO CASCADE BEFORE INSERT ON segment_def_map
+      REFERENCING NEW AS N
+      FOR EACH ROW MODE DB2SQL
+      WHEN ( (SELECT count(segment_id)
+            FROM segment_def_map
+            WHERE state_vec_map IS NOT NULL AND
+            segment_def_id = N.segment_def_id ) > 0 )
+      BEGIN ATOMIC
+            SIGNAL SQLSTATE '75001'
+            ('There cannot be more than 1 map for a state vector segment');
+      END
 ;
