@@ -301,14 +301,12 @@ class ServerHandler(SocketServer.BaseRequestHandler):
     if protocol < 3:
       # load revision 1.7 of the segments module
       logger.debug("Importing segments verson 1.7 from glue")
-      import glue
-      glue.__path__.insert(0, glue.__path__[0] + "/segfindserver/segments_1_7")
-      from glue import segments
+      segments = __import__('glue.segments.segfindserver.segments_1_7',
+                            globals(), locals(), ['segments'])
     else:
       # load the current revision of the segments module
-      logger.debug("Importing current segments from glue")
-      import glue
-      from glue import segments
+      logger.debug("Importing segments from glue")
+      segments = __import__('glue.segments', globals(), locals(), ['segments'])
 
     # parse out query information
     try:
@@ -398,8 +396,6 @@ class ServerHandler(SocketServer.BaseRequestHandler):
 
     # unload the segments module
     logger.debug("Unloading segments module")
-    del sys.modules["glue.segments"]
-    logger.debug("Unloading glue module")
-    del sys.modules["glue"]
+    del segments
 
     return None
