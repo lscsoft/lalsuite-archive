@@ -39,25 +39,22 @@ CREATE TABLE segment_def_map
 DATA CAPTURE CHANGES
 ;
 -- Create an index based on process ID
-CREATE INDEX segdefmap_pid on segment_def_map(process_id);
+CREATE INDEX segdefmap_pid on segment_def_map(process_id)
 ;
 -- Create an index based on segment ID
-CREATE INDEX segdefmap_sid on segment_def_map(segment_id);
+CREATE INDEX segdefmap_sid on segment_def_map(segment_id)
 ;
 -- Create an index based on segment definintion ID
-CREATE INDEX segdefmap_sdid on segment_def_map(segment_def_id);
+CREATE INDEX segdefmap_sdid on segment_def_map(segment_def_id)
 ;
 -- Create a trigger to prevent state vec maps from being duplicates
-CREATE TRIGGER segdefmap_svec_trig
+CREATE TRIGGER segdefmap_svec_t
       NO CASCADE BEFORE INSERT ON segment_def_map
-      REFERENCING NEW AS N
+      REFERENCING NEW AS n
       FOR EACH ROW MODE DB2SQL
-      WHEN ( (SELECT count(segment_id)
+      WHEN ( (SELECT COUNT(segment_id)
             FROM segment_def_map
             WHERE state_vec_map IS NOT NULL AND
-            segment_def_id = N.segment_def_id ) > 0 )
-      BEGIN ATOMIC
-            SIGNAL SQLSTATE '75001'
-            ('There cannot be more than 1 map for a state vector segment');
-      END
+            segment_def_id = n.segment_def_id) > 0 )
+      SIGNAL SQLSTATE '70001' ('State vector maps must be unique')
 ;

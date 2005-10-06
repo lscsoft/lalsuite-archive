@@ -38,10 +38,6 @@ CREATE TABLE segment
       CONSTRAINT segment_sk
       UNIQUE (segment_id, start_time, end_time),
 
-      CONSTRAINT segment_fk_sid
-      FOREIGN KEY (segment_id)
-          REFERENCES segment_def_map(segment_id),
-
       CONSTRAINT segment_fk_pid
       FOREIGN KEY (process_id, creator_db)
           REFERENCES process(process_id, creator_db)

@@ -36,11 +36,11 @@ CREATE TABLE segment_lfn_map
 DATA CAPTURE CHANGES
 ;
 -- Create an index based on process ID
-CREATE INDEX seglfnmap_pid on segment_lfn_map(process_id);
+CREATE INDEX seglfnmap_pid on segment_lfn_map(process_id)
 ;
 -- Create an index based on segment ID
-CREATE INDEX seglfnmap_sid on segment_lfn_map(segment_id);
+CREATE INDEX seglfnmap_sid on segment_lfn_map(segment_id)
 ;
 -- Create an index based on segment lfninintion ID
-CREATE INDEX seglfnmap_lfnid on segment_lfn_map(lfn_id);
+CREATE INDEX seglfnmap_lfnid on segment_lfn_map(lfn_id)
 ;
