@@ -155,7 +155,8 @@ class StateSegmentDatabase:
     """
     try:
       now = gpstime.GpsSecondsFromPyUTC(time.time())
-      sql = "UPDATE process SET (end_time) = (?) WHERE process_id = '%s'" % self.process_id
+      sql = "UPDATE process SET (end_time) = (?) WHERE "
+      sql += "process_id = '%s'" % self.process_id
       self.cursor.execute(sql,tuple([now]))
       self.db.commit()
     except Exception, e:
@@ -256,8 +257,21 @@ class StateSegmentDatabase:
     self.cursor.execute(sql)
     segment_id = self.cursor.fetchone()[0]
 
+    # insert the segment
+    sql = "INSERT INTO segment (process_id, segment_id,"
+    sql += "start_time,start_time_ns,end_time,end_time_ns,active) "
+    sql += "VALUES (?,?,?,?,?,?,?)"
+    try:
+      self.cursor.execute(sql, (self.process_id,segment_id,
+        start_time,start_time_ns,end_time,end_time_ns,1))
+    except Exception, e:
+      self.db.rollback()
+      msg = "error inserting segment information : %s" % e
+      raise StateSegmentDatabaseException, msg
+
     # insert the map between the segment and the segment definer
-    sql = "INSERT INTO segment_def_map (process_id,segment_id,segment_def_id,state_vec_map) "
+    sql = "INSERT INTO segment_def_map "
+    sql += "(process_id,segment_id,segment_def_id,state_vec_map) "
     sql += "VALUES (?,?,?,?)"
     try:
       self.cursor.execute(sql,(self.process_id, segment_id, sv_id, 1))
@@ -271,17 +285,6 @@ class StateSegmentDatabase:
     sql += "VALUES (?,?,?)"
     try:
       self.cursor.execute(sql,(self.process_id, segment_id, self.lfn_id))
-    except Exception, e:
-      self.db.rollback()
-      msg = "error inserting segment information : %s" % e
-      raise StateSegmentDatabaseException, msg
-
-    # insert the segment
-    sql = "INSERT INTO segment (process_id, segment_id,"
-    sql += "start_time,start_time_ns,end_time,end_time_ns,active) VALUES (?,?,?,?,?,?,?)"
-    try:
-      self.cursor.execute(sql,
-        (self.process_id,segment_id,start_time,start_time_ns,end_time,end_time_ns,1))
     except Exception, e:
       self.db.rollback()
       msg = "error inserting segment information : %s" % e
