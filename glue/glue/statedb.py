@@ -241,7 +241,7 @@ class StateSegmentDatabase:
           'STATEVEC.%d.%d' % (ver, val), 0, 
           'Created automatically by StateSegmentDatabase', ver, val))
 
-        self.cursor.commit()
+        self.db.commit()
 
       except mxdb.InterfaceError, e:
         self.db.rollback()
