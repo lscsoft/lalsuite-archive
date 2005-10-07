@@ -285,7 +285,7 @@ class StateSegmentDatabase:
     sql += "start_time,start_time_ns,end_time,end_time_ns,lfn_id)"
     sql += "VALUES (?,?,?,?,?,?,?,?)"
 
-    for attempt in range(4):
+    for attempt in range(6):
       try:
         self.cursor.execute(sql, (self.process_id,segment_id,sv_id,
           start_time,start_time_ns,end_time,end_time_ns,self.lfn_id))
@@ -295,7 +295,7 @@ class StateSegmentDatabase:
       # catch a deadlock and re-try up to three times
       except mx.ODBC.DB2.InternalError, e:
         if e[1] == -911 and int(e[0]) == 40001:
-          if attempt < 3:
+          if attempt < 5:
             time.sleep(random.randrange(0,5,1))
           else:
             msg = "error inserting segment information : %s" % e
