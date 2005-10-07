@@ -96,6 +96,7 @@ class StateSegmentDatabase:
 
       sql = "VALUES GENERATE_UNIQUE()"
       self.cursor.execute(sql)
+      self.db.commit()
       self.process_id = self.cursor.fetchone()[0]
 
       process_tuple = ( os.path.basename(sys.argv[0]), 
@@ -125,6 +126,7 @@ class StateSegmentDatabase:
     sql += "AND state_vec_minor IS NOT NULL"
     try:
       self.cursor.execute(sql)
+      self.db.commit()
       result = self.cursor.fetchall()
     except Exception, e:
       msg = "Error fetching state vector values from database: %s" % e
@@ -206,6 +208,7 @@ class StateSegmentDatabase:
       if e[1] == -803:
         sql = "SELECT lfn_id from lfn WHERE lfn = '%s'" % lfn
         self.cursor.execute(sql)
+        self.db.commit()
         self.lfn_id = self.cursor.fetchone()[0]
       else:
         msg = "Unable to obtain unique id for LFN : %s : %s" % (lfn,e)
@@ -253,6 +256,7 @@ class StateSegmentDatabase:
             sql += "ifos = '" + ifo + "' AND "
             sql += "state_vec_major = %d AND state_vec_minor = %d" % (ver,val)
             self.cursor.execute(sql)
+            self.db.commit()
             self.state_vec[ifo][(ver,val)] = self.cursor.fetchone()[0]
           except Exception, e:
             msg = "Error handling segment_definer race condition: %s" % e
