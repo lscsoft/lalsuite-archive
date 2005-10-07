@@ -43,7 +43,8 @@ echo Executing segment_def_map.sql...
 db2 -tf segment_def_map.sql || exit
 echo Executing segment_lfn_map.sql...
 db2 -tf segment_lfn_map.sql || exit
-
+echo Executing state_segment.sql || exit
+db2 -td# -tf state_segment.sql
 
 echo Executing summ_value.sql...
 db2 -tf summ_value.sql || exit
