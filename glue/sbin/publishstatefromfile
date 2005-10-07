@@ -1,0 +1,65 @@
+#!/usr/bin/python
+
+import os
+import re
+import sys
+import getopt
+import popen2
+import glob
+from types import *
+from glue import statedb
+
+segpat = re.compile(r'^(\d+)\s(\d+)\s(\d+)\s(\d+)\s(\d+)\s(\d+)\s([A-Z][0-9]+)\s(.+)')
+filepat = re.compile(r'^[A-Za-z]+\-\w+\-(\d+)\-(\d+)\..+')
+
+if len(sys.argv) != 2:
+    print >> sys.stderr, "Usage: bulkpublishstate statefile"
+    sys.exit( 1 )
+
+try:
+    statefile = open(sys.argv[1],"r")
+except Exception,e:
+    print >>sys.stderr, "Could not open statefile, %s: %s" % (statefile,e,)
+    sys.exit(2)
+
+sdb = statedb.StateSegmentDatabase('segment')
+i = 0
+lfnexists = {}
+for line in statefile.readlines():
+    i = i + 1
+    contents = line.split(' ')
+    lfn = os.path.basename(contents[7])
+    lfn = lfn.strip()
+    gpstime = filepat.search(lfn).groups()
+    lfn_start = int(gpstime[0])
+    lfn_end = lfn_start + int(gpstime[1])
+  
+    if not lfnexists.has_key(lfn):
+        sdb.register_lfn(lfn,lfn_start,lfn_end)
+        lfnexists[lfn] = 1
+    
+  
+    segmatch = segpat.search(line).groups()
+    start = int(segmatch[0])
+    start_nano = int(segmatch[1])
+    end = int(segmatch[2])
+    end_nano = int(segmatch[3])
+    sv = int(segmatch[4])
+    ifo = str(segmatch[6])
+    try: 
+        sdb.publish_state(ifo,start,start_nano,end,end_nano,1,sv)
+    except Exception,e:
+        print "Caught exception with:"
+        print (ifo,start,start_nano,end,end_nano,1,sv)
+        print "Error was: %s" % (e,)
+        sys.stdout.flush()
+        
+    if i % 100 == 0:
+        print "Finished file %s" % (i,)
+        sys.stdout.flush()
+      
+print "done"
+  
+sdb.close()
+statefile.close()
+sys.exit(0)
