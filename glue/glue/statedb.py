@@ -200,18 +200,14 @@ class StateSegmentDatabase:
       self.cursor.execute(sql,(self.process_id,self.lfn_id,lfn,start,end))
       self.db.commit()
 
-    except mxdb.InterfaceError, e:
+    except Exception, e:
       if e[1] == -803:
         sql = "SELECT lfn_id from lfn WHERE lfn = '%s'" % lfn
         self.cursor.execute(sql)
         self.lfn_id = self.cursor.fetchone()[0]
       else:
-        msg = "Unable to obtain unique id for LFN : %s : %s" % (lfn,e)
+        msg = "Unable to create entry for LFN : %s : %s" % (lfn,e)
         raise StateSegmentDatabaseException, msg
-
-    except Exception, e:
-      msg = "Unable to create entry for LFN : %s : %s" % (lfn,e)
-      raise StateSegmentDatabaseException, msg
     
 
   def publish_state(self, 
@@ -240,12 +236,27 @@ class StateSegmentDatabase:
           self.state_vec[ifo][(ver,val)], ifo,
           'STATEVEC.%d.%d' % (ver, val), 0, 
           'Created automatically by StateSegmentDatabase', ver, val))
+
+        self.cursor.commit()
       except Exception, e:
         self.db.rollback()
-        msg = "Error inserting new state vector type into database : %s" % e
-        raise StateSegmentDatabaseException, e
+        if e[1] == -803:
+          try:
+            # handle the race condition where someone just 
+            # beat us to defining this segment type
+            sql = "SELECT segment_def_id FROM segment_definer WHERE "
+            sql += "ifos = '" + ifo + "' AND "
+            sql += "state_vec_major = %d AND state_vec_minor = %d" % (ver,val)
+            self.cursor.execute(sql)
+            self.state_vec[ifo][(ver,val)] = self.cursor.fetchone()[0]
+          except Exception, e:
+            msg = "Error handling segment_definer race condition: %s" % e
+            raise StateSegmentDatabaseException, e
+        else:
+          msg = "Error inserting new segment_definer: %s" % e
+          raise StateSegmentDatabaseException, e
       if self.debug:
-        print ("DEBUG: created a new state vec type (%s,%d,%d), id = " % \
+        print ("DEBUG: using new state vec type (%s,%d,%d), id = " % \
           (ifo,ver,val)), 
         print tuple([self.state_vec[ifo][(ver,val)]])
 
