@@ -47,9 +47,6 @@ DATA CAPTURE CHANGES
 -- Create a clustering index for quicker scanning of a given segment type
 CREATE INDEX segdef_cind ON segment_definer(name, version) CLUSTER
 ;
--- Create an index based on program name
-CREATE INDEX segdef_ind_value ON segment_definer(ifos)
-;
--- Create an index based on process ID
-CREATE INDEX segdef_ind_pid ON segment_definer(process_id)
+-- Create an index based on the keys that state_segment needs
+CREATE INDEX segdef_ind_value ON segment_definer(ifos,state_vec_major,state_vec_minor)
 ;

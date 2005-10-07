@@ -32,12 +32,6 @@ CREATE TABLE segment
       CONSTRAINT segment_pk
       PRIMARY KEY (segment_id),
 
--- Note that (segment_group,version,start_time) should be sufficient to
--- uniquely identify a segment, but we include end_time in the secondary key
--- to facilitate faster queries.
-      CONSTRAINT segment_sk
-      UNIQUE (segment_id, start_time, end_time),
-
       CONSTRAINT segment_fk_pid
       FOREIGN KEY (process_id, creator_db)
           REFERENCES process(process_id, creator_db)
@@ -45,14 +39,8 @@ CREATE TABLE segment
 -- The following line is needed for this table to be replicated to other sites
 DATA CAPTURE CHANGES
 ;
--- Create an indices based on time
-CREATE INDEX segment_ind_stime ON segment(start_time)
-;
-CREATE INDEX segment_ind_etime ON segment(end_time)
-;
-CREATE INDEX segment_ind_stimen ON segment(start_time_ns)
-;
-CREATE INDEX segment_ind_etimen ON segment(end_time_ns)
+-- Create an index based on time
+CREATE INDEX segment_ind_time ON segment(start_time,start_time_ns,end_time,end_time_ns)
 ;
 -- Create an index based on process_id
 CREATE INDEX segment_ind_pid ON segment(process_id)
