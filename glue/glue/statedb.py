@@ -261,7 +261,7 @@ class StateSegmentDatabase:
           msg = "Error inserting new segment_definer: %s" % e
           raise StateSegmentDatabaseException, e
 
-      except:
+      except Exception, e:
         self.db.rollback()
         msg = "Error inserting new segment_definer: %s" % e
         raise StateSegmentDatabaseException, e
