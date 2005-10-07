@@ -288,8 +288,8 @@ class StateSegmentDatabase:
         self.db.commit()
         break
 
-      except mx.ODBC.DB2.InterfaceError, e:
-        if e[1] == -911:
+      except mx.ODBC.DB2.InternalError, e:
+        if e[1] == -911 and int(e[0]) == 40001:
           if attempt < 3:
             time.sleep(random.randrange(0,5,1))
           else:
