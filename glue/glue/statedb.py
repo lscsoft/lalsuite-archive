@@ -288,18 +288,28 @@ class StateSegmentDatabase:
         self.db.commit()
         break
 
+      # catch a deadlock and re-try up to three times
       except mx.ODBC.DB2.InternalError, e:
         if e[1] == -911 and int(e[0]) == 40001:
           if attempt < 3:
             time.sleep(random.randrange(0,5,1))
           else:
-            raise
-        elif e[1] == -438 and int(e[0]) == 70001:
+            msg = "error inserting segment information : %s" % e
+            raise StateSegmentDatabaseException, msg
+        else:
+          msg = "error inserting segment information : %s" % e
+          raise StateSegmentDatabaseException, msg
+
+      # catch a duplicate entry and thore the exists exception
+      except mx.ODBC.DB2.InterfaceError, e:
+        if e[1] == -438 and int(e[0]) == 70001:
           msg = "state_segment must be unique: %s" % e
           raise StateSegmentDatabaseSegmentExistsException, e
         else:
-          raise
-        
+          msg = "error inserting segment information : %s" % e
+          raise StateSegmentDatabaseException, msg
+
+      # catch all other exceptions
       except Exception, e:
         msg = "error inserting segment information : %s" % e
         raise StateSegmentDatabaseException, msg
