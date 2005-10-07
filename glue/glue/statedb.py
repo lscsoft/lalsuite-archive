@@ -10,10 +10,10 @@ import pwd
 import sys
 import re
 import time
+import random
 import exceptions
 from glue import gpstime
-import mx.ODBC.DB2 as mxdb
-from mx.ODBC.DB2 import SQL
+import mx.ODBC.DB2
 
 class StateSegmentDatabaseException(exceptions.Exception):
   """
@@ -79,10 +79,12 @@ class StateSegmentDatabase:
     self.framereg = re.compile(r'^([A-Za-z]+)\-(\w+)\-(\d+)\-(\d+)\.gwf$')
     self.process_id = None
 
+    # seed the random number generator with the current time
+    random.seed()
+
     # connect to the database
     try:
-      self.db = mxdb.Connect(dbname)
-      self.db.setconnectoption(SQL.AUTOCOMMIT, SQL.AUTOCOMMIT_OFF)
+      self.db = mx.ODBC.DB2.Connect(dbname)
       self.cursor = self.db.cursor()
     except Exception, e:
       msg = "Error connecting to database: %s" % e
@@ -200,7 +202,7 @@ class StateSegmentDatabase:
       self.cursor.execute(sql,(self.process_id,self.lfn_id,lfn,start,end))
       self.db.commit()
 
-    except mxdb.InterfaceError, e:
+    except mx.ODBC.DB2.InterfaceError, e:
       if e[1] == -803:
         sql = "SELECT lfn_id from lfn WHERE lfn = '%s'" % lfn
         self.cursor.execute(sql)
@@ -240,11 +242,9 @@ class StateSegmentDatabase:
           self.state_vec[ifo][(ver,val)], ifo,
           'STATEVEC.%d.%d' % (ver, val), 0, 
           'Created automatically by StateSegmentDatabase', ver, val))
-
         self.db.commit()
 
-      except mxdb.InterfaceError, e:
-        self.db.rollback()
+      except mx.ODBC.DB2.InterfaceError, e:
         if e[1] == -803:
           try:
             # handle the race condition where someone just 
@@ -258,11 +258,9 @@ class StateSegmentDatabase:
             msg = "Error handling segment_definer race condition: %s" % e
             raise StateSegmentDatabaseException, e
         else:
-          msg = "Error inserting new segment_definer: %s" % e
-          raise StateSegmentDatabaseException, e
+          raise
 
       except Exception, e:
-        self.db.rollback()
         msg = "Error inserting new segment_definer: %s" % e
         raise StateSegmentDatabaseException, e
 
@@ -279,46 +277,33 @@ class StateSegmentDatabase:
     segment_id = self.cursor.fetchone()[0]
 
     # insert the segment
-    sql = "INSERT INTO segment (process_id, segment_id,"
-    sql += "start_time,start_time_ns,end_time,end_time_ns,active) "
-    sql += "VALUES (?,?,?,?,?,?,?)"
-    try:
-      self.cursor.execute(sql, (self.process_id,segment_id,
-        start_time,start_time_ns,end_time,end_time_ns,1))
-    except Exception, e:
-      self.db.rollback()
-      msg = "error inserting segment information : %s" % e
-      raise StateSegmentDatabaseException, msg
+    sql = "INSERT INTO state_segment (process_id,segment_id,segment_def_id,"
+    sql += "start_time,start_time_ns,end_time,end_time_ns,lfn_id)"
+    sql += "VALUES (?,?,?,?,?,?,?,?)"
 
-    # insert the map between the segment and the segment definer
-    sql = "INSERT INTO segment_def_map "
-    sql += "(process_id,segment_id,segment_def_id,state_vec_map) "
-    sql += "VALUES (?,?,?,?)"
-    try:
-      self.cursor.execute(sql,(self.process_id, segment_id, sv_id, 1))
-    except Exception, e:
-      self.db.rollback()
-      if int(e[0]) == 70001:
-        msg = "this state segment already exists in the database: %s" % e
-        raise StateSegmentDatabaseSegmentExistsException, msg
-      else:
+    for attempt in range(4):
+      try:
+        self.cursor.execute(sql, (self.process_id,segment_id,sv_id,
+          start_time,start_time_ns,end_time,end_time_ns,self.lfn_id))
+        self.db.commit()
+        break
+
+      except mx.ODBC.DB2.InterfaceError, e:
+        if e[1] == -911:
+          if attempt < 3:
+            time.sleep(random.randrange(0,5,1))
+          else:
+            raise
+        elif e[1] == -438 and int(e[0]) == 70001:
+          msg = "state_segment must be unique: %s" % e
+          raise StateSegmentDatabaseSegmentExistsException, e
+        else:
+          raise
+        
+      except Exception, e:
         msg = "error inserting segment information : %s" % e
         raise StateSegmentDatabaseException, msg
-    
-    # insert the map between the segment and the lfn
-    sql = "INSERT INTO segment_lfn_map (process_id,segment_id,lfn_id) "
-    sql += "VALUES (?,?,?)"
-    try:
-      self.cursor.execute(sql,(self.process_id, segment_id, self.lfn_id))
-    except Exception, e:
-      self.db.rollback()
-      msg = "error inserting segment information : %s" % e
-      raise StateSegmentDatabaseException, msg
-
-    # all the transactions went through ok, so commit everything
-    self.db.commit()
 
     if self.debug:
       print "DEBUG: inserted with segment_id "
       print tuple([segment_id])
-

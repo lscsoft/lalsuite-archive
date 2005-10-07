@@ -26,9 +26,9 @@ create trigger state_segment_i instead of insert on state_segment
 			and s.segment_id = m.segment_id) > 0 ) 
 		then raise_error ( '70001', 'state_segment must be unique' ) 
 		else 0 end );
-		insert into segment (process_id,segment_id,
+		insert into segment (process_id,segment_id,active,
 			start_time,start_time_ns,end_time,end_time_ns)
-		values (n.process_id,n.segment_id,
+		values (n.process_id,n.segment_id,1,
 			n.start_time,n.start_time_ns,n.end_time,n.end_time_ns);
 		insert into segment_def_map (process_id,segment_id,segment_def_id)
 		values (n.process_id,n.segment_id,n.segment_def_id);

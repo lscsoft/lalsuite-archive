@@ -31,7 +31,7 @@ for dirpath in sys.argv[1:]:
   framefiles = glob.glob(os.path.join(dirpath,'*.gwf'))
 
   for framefile in framefiles:
-    print "publishing state information from %s..." % framefile,
+    print "publishing state information from %s " % framefile,
     sys.stdout.flush()
   
     lfn = os.path.basename(framefile)
@@ -59,7 +59,11 @@ for dirpath in sys.argv[1:]:
       sv = int(segmatch[4])
       ifo = str(segmatch[6])
   
-      sdb.publish_state(ifo,start,start_nano,end,end_nano,version,sv)
+      try:
+        sdb.publish_state(ifo,start,start_nano,end,end_nano,version,sv)
+        print ".",
+      except statedb.StateSegmentDatabaseSegmentExistsException:
+        print "x",
       
     print "done"
   
