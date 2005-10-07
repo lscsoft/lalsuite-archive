@@ -2,7 +2,7 @@
 dbname=${1}
 db2 connect to ${1}
 db2 update database configuration for ${1} using logsecond 100
-db2 update database configuration for ${1} using locktimeout 10
+db2 update database configuration for ${1} using locktimeout -1
 db2 update database configuration for ${1} using locklist 400
 
 echo Executing process.sql...
