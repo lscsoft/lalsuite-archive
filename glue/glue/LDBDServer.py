@@ -293,8 +293,8 @@ class ServerHandler(SocketServer.BaseRequestHandler):
     logger.debug("Method insertmap called")
 
     if not rls:
-      logger.error("Server not initialized for RLS connections")
-      msg "This server is not initialized for RLS connections"
+      msg = "server is not initialized for RLS connections"
+      logger.error(msg)
       return (1, msg)
 
     # assume failure
