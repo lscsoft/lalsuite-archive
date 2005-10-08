@@ -17,7 +17,10 @@ import socket
 import SocketServer
 import cPickle
 from glue import ldbd
-import rlsClient
+try:
+  import rlsClient
+except:
+  pass
 
 def initialize(configuration,log):
   # define the global variables used by the server
@@ -39,12 +42,16 @@ def initialize(configuration,log):
   rls_server = configuration['rls']
   cert = configuration['certfile']
   key = configuration['keyfile']
-  rls = rlsClient.RlsClient(rls_server,cert,key)
+  try:
+    rls = rlsClient.RlsClient(rls_server,cert,key)
+  except:
+    rls = None
 
 def shutdown():
   global logger, max_bytes, xmlparser, dbobj, xmlparser, lwtparser, rls
   logger.info("Shutting down server module %s" % __name__ )
-  del rls
+  if rls:
+    del rls
   del lwtparser
   del xmlparser
   del dbobj
@@ -287,6 +294,11 @@ class ServerHandler(SocketServer.BaseRequestHandler):
     """
 
     logger.debug("Method insertmap called")
+
+    if not rls:
+      logger.error("Server not initialized for RLS connections")
+      msg "This server is not initialized for RLS connections"
+      return (1, msg)
 
     # assume failure
     code = 1
