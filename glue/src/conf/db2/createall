@@ -104,9 +104,6 @@ db2 -tf search_summvars.sql || exit
 echo Executing calib_info.sql...
 db2 -tf calib_info.sql || exit
 
-db2 terminate
-exit 0
-
 echo Executing gds_trigger_tr_del.sql...
 db2 -f gds_trigger_tr_del.sql || exit
 echo Executing sngl_dperiodic_tr_del.sql...
