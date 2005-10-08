@@ -154,6 +154,7 @@ class StateSegmentDatabase:
 
     try:
       self.cursor.execute(sql)
+      self.db.commit()
       result = self.cursor.fetchall()
     except Exception, e:
       msg = "Unable to get existing segment_def_id from database: %s" % e
@@ -227,6 +228,7 @@ class StateSegmentDatabase:
     sql = "SELECT lfn_id from lfn WHERE lfn = '%s'" % lfn
     try:
       self.cursor.execute(sql)
+      self.db.commit()
       result = self.cursor.fetchone()
     except Exception, e:
       msg = "Unable to query database for lfn_id (%s): %s" % (lfn,e)
@@ -264,6 +266,7 @@ class StateSegmentDatabase:
           sql = "SELECT lfn_id from lfn WHERE lfn = '%s'" % lfn
           try:
             self.cursor.execute(sql)
+            self.db.commit()
             self.lfn_id = self.cursor.fetchone()[0]
           except Exception, e:
             msg = "Unable to resolve race on lfn_id (%s) caused by %s: %s" \
@@ -327,6 +330,7 @@ class StateSegmentDatabase:
           sql += "state_vec_major = %d AND state_vec_minor = %d" % (ver,val)
           try:
             self.cursor.execute(sql)
+            self.db.commit()
             self.state_vec[ifo][(ver,val)] = self.cursor.fetchone()[0]
           except Exception, e:
             msg = "Unable to resolve race on segment_def_id caused by %s: %s" \
