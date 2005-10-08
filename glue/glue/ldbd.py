@@ -23,7 +23,6 @@ import os
 import sys
 import string
 import re
-import csv
 import exceptions
 try:
   import mx.ODBC.DB2 as mxdb
@@ -69,15 +68,37 @@ else:
       _tss_lock.release()
     return
 
+"""
+create the csv parser and initialize a dialect for LIGO_LW streams
+"""
+import csv
+
+class LIGOLWStream(csv.Dialect):
+  """
+  Create a csv parser dialect for parsing LIGO_LW streams
+  """
+  delimiter = ','
+  doublequote = False
+  escapechar = '\\'
+  lineterminator = '\n'
+  quotechar = '"'
+  quoting = csv.QUOTE_NONE
+  skipinitialspace = True
+
+csv.register_dialect("LIGOLWStream",LIGOLWStream)
+
+
 class LIGOLwParseError(Exception):
   """Error parsing LIGO lightweight XML file"""
   def __init__(self,args=None):
     self.args = args
 
+
 class LIGOLwDBError(Exception):
   """Error interacting with database"""
   def __init__(self,args=None):
     self.args = args
+
 
 class Xlator(dict):
   """
@@ -100,6 +121,7 @@ class Xlator(dict):
     Translate text, returns the modified text
     """
     return self._make_regex().sub(self,text)
+
 
 class LIGOMetadataDatabase:
   """
@@ -129,6 +151,7 @@ class LIGOMetadataDatabase:
         self.uniqueids[tab][col] = 'ilwd:char'
     curs.close()
     conn.close()
+
 
 class UniqueIds:
   """
@@ -160,6 +183,7 @@ class UniqueIds:
       get_thread_storage()['uqids'][istring] = curs.fetchone()[0]
       return get_thread_storage()['uqids'][istring]
 
+
 class LIGOLwParser:
   """
   Provides methods for parsing the data from a LIGO lightweight XML
@@ -185,7 +209,6 @@ class LIGOLwParser:
     self.ricrx = re.compile(r'"*\s*\Z')
     self.octrx = re.compile(r'\A\\[0-9][0-9][0-9]')
     self.dlmrx = re.compile(r'\\,')
-    self.cp = csv.parser(0,',',1)
     self.unique = None
     self.types = {
       'int_2s' : int,
@@ -289,7 +312,7 @@ class LIGOLwParser:
             raise LIGOLwParseError, 'unable to handle stream delimiter: '+delim
 
           # strip newlines from the stream and parse it
-          stream = self.cp.parse(re.sub(r'\n','',tag[2][0]))
+          stream = csv.reader([re.sub(r'\n','',tag[2][0])],LIGOLWStream).next()
 
           # turn the csv stream into a list of lists
           slen = len(stream)
