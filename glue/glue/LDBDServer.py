@@ -17,10 +17,7 @@ import socket
 import SocketServer
 import cPickle
 from glue import ldbd
-try:
-  import rlsClient
-except:
-  pass
+import rlsClient
 
 def initialize(configuration,log):
   # define the global variables used by the server
