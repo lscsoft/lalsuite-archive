@@ -126,6 +126,7 @@ echo table summ_csd;
 revoke all on table summ_csd from public;
 grant select on table summ_csd to public;
 -- ----------------------------------------------------------------------
+-- frameset tables
 -- ----------------------------------------------------------------------
 echo table frameset_loc;
 revoke all on table frameset_loc from public;
@@ -143,13 +144,32 @@ echo table frameset_writer;
 revoke all on table frameset_writer from public;
 grant select on table frameset_writer to public;
 -- ----------------------------------------------------------------------
+-- segment tables
+-- ----------------------------------------------------------------------
+echo table state_segment;
+revoke all on table state_segment from public;
+grant select on table state_segment to public;
+grant select,insert on table state_segment to user grid;
+-- ----------------------------------------------------------------------
+echo table segment_lfn_map;
+revoke all on table segment_lfn_map from public;
+grant select on table segment_lfn_map to public;
+grant select,insert on table segment_lfn_map to user grid;
+-- ----------------------------------------------------------------------
+echo table segment_def_map;
+revoke all on table segment_def_map from public;
+grant select on table segment_def_map to public;
+grant select,insert on table segment_def_map to user grid;
+-- ----------------------------------------------------------------------
 echo table segment;
 revoke all on table segment from public;
 grant select on table segment to public;
+grant select,insert on table segment to user grid;
 -- ----------------------------------------------------------------------
 echo table segment_definer;
 revoke all on table segment_definer from public;
 grant select on table segment_definer to public;
+grant select,insert on table segment_definer to user grid;
 -- ----------------------------------------------------------------------
 -- simulation tables
 -- ----------------------------------------------------------------------
@@ -190,10 +210,12 @@ grant select on table gridcert to public;
 echo table lfn;
 revoke all on table lfn from public;
 grant select on table lfn to public;
+grant select,insert on table lfn to user grid;
 -- ----------------------------------------------------------------------
 -- handle process table last
 -- ----------------------------------------------------------------------
 echo table process;
 revoke all on table process from public;
 grant select on table process to public;
+grant select,insert on table process to user grid;
 -- ----------------------------------------------------------------------
