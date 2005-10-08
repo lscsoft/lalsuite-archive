@@ -415,7 +415,7 @@ class LSCsegFind(LSCsegFindClient):
     return str(response)
 
 
-  def showTypes(self, argDict):
+  def explainTypes(self, argDict):
     """
     Query LSCsegFindServer for the comment values for the 'state_vec.state'
     attribute in the metadata table.
