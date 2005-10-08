@@ -39,7 +39,10 @@ for dirpath in sys.argv[1:]:
     lfn_start = int(gpstime[0])
     lfn_end = lfn_start + int(gpstime[1])
   
-    sdb.register_lfn(lfn,lfn_start,lfn_end)
+    try:
+      sdb.register_lfn(lfn,lfn_start,lfn_end)
+    except statedb.StateSegmentDatabaseLFNExistsException:
+      pass
     
     sv = popen2.Popen3(frsvpath + " " + framefile)
     sv.tochild.close()
