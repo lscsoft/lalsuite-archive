@@ -232,7 +232,7 @@ class StateSegmentDatabase:
       msg = "Unable to query database for lfn_id (%s): %s" % (lfn,e)
       raise StateSegmentDatabaseException, msg
 
-    if len(result):
+    if result:
       # use the lfn_id returned by the database and raise an exception
       self.lfn_id = result[0]
       raise StateSegmentDatabaseLFNExistsException
