@@ -50,6 +50,8 @@ SYNOPSIS
 
         LSCsegFind --server=NAME:PORT --show-types
 
+        LSCsegFind --server=NAME:PORT --explain-types
+
         LSCsegFind --server=NAME:PORT --ping
 
         LSCsegFind --server=NAME:PORT --version
@@ -89,6 +91,9 @@ DESCRIPTION
 
         -y, --show-types
                 List available segment types.
+
+        -x, --explain-types
+                Explain the meanings of available segment types.
 
         -S, --strict-off
                 The default behavior is to truncate segments so that 
@@ -138,7 +143,7 @@ Science_Up
 
 
 # grab command line options
-shortop = "vi:t:s:e:r:wySlo:ph"
+shortop = "vi:t:s:e:r:wxySlo:ph"
 longop = [
   "version",
   "interferometer=",
@@ -148,6 +153,7 @@ longop = [
   "server=",
   "show-interferometers",
   "show-types",
+  "explain-types",
   "loose",
   "lfns",
   "strict-off",
@@ -169,6 +175,7 @@ port = 30015
 clientMethodArgDict = {
   'interferometer': None,
   'type': None,
+  'explain': None,
   'end': None,
   'start': None,
   'lfns': False,
@@ -217,6 +224,8 @@ for o, a in opts:
     clientMethod = 'showInterferometers'
   elif o in ("-y", "--show-types"):
     clientMethod = 'showTypes'
+  elif o in ("-y", "--explain-types"):
+    clientMethod = 'explainTypes'
   elif o in ("-S", "--strict-off"):
     clientMethodArgDict['strict'] = False
   elif o in ("-o", "--output-format"):

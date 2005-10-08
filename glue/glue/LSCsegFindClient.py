@@ -413,7 +413,20 @@ class LSCsegFind(LSCsegFindClient):
     """
     response = LSCsegFindClient.distinctAttrValues(self, "state")
     return str(response)
-                
+
+
+  def showTypes(self, argDict):
+    """
+    Query LSCsegFindServer for the comment values for the 'state_vec.state'
+    attribute in the metadata table.
+
+    @param argDict: Dictionary of arguments passed to all methods.
+
+    @return: None
+    """
+    response = LSCsegFindClient.distinctAttrValues(self, "explainstate")
+    return str(response)
+
 
   def findStateSegments(self, argDict):
     """

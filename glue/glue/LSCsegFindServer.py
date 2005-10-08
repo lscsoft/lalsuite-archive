@@ -216,6 +216,9 @@ class ServerHandler(SocketServer.BaseRequestHandler):
       elif attribute == "state":
         sql += "name FROM segment_definer WHERE state_vec_major IS NOT NULL "
         sql += "AND state_vec_minor IS NOT NULL"
+      elif attribute == "explainstate":
+        sql += "name,comment FROM segment_definer WHERE state_vec_major IS NOT NULL "
+        sql += "AND state_vec_minor IS NOT NULL"
       else:
         msg = "Unknown select distinct method " + str(attribute)
         raise ServerHandlerException, msg
@@ -227,8 +230,8 @@ class ServerHandler(SocketServer.BaseRequestHandler):
 
       result = ""
       for x in res:
-        if type(x[0]) is types.StringType:
-          result += "%s\n" % x[0]
+        result += ' '.join(x).strip() + '\n'
+          
       result = result.rstrip()    
       
       logger.debug("Method distinctAttribute: %d results found" % 
