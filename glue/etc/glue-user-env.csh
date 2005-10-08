@@ -13,6 +13,10 @@ if ( ! $?LD_LIBRARY_PATH ) then
     setenv LD_LIBRARY_PATH ''
 endif
 
+if ( ! $?PYTHONPATH ) then
+    setenv PYTHONPATH ''
+endif
+
 if ( $?GLUE_PATH ) then
     setenv PATH `echo "${PATH}" | sed -e "s%:${GLUE_PATH}[^:]*%%g" -e "s%^${GLUE_PATH}[^:]*:\{0,1\}%%"`
     setenv PYTHONPATH `echo "${PYTHONPATH}" | sed -e "s%:${GLUE_PATH}[^:]*%%g" -e "s%^${GLUE_PATH}[^:]*:\{0,1\}%%"`
