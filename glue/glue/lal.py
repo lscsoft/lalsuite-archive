@@ -214,4 +214,13 @@ class LIGOTimeGPS(object):
 		Example use:
 			LIGOTimeGPS(100.5) / 2
 		"""
-		return LIGOTimeGPS(self.seconds / other, ((self.seconds % other * 1000000000) + self.nanoseconds) / other)
+		return LIGOTimeGPS(0, self.ns() / other)
+
+	def __mod__(self, other):
+		"""
+		Compute the remainder when a LIGOTimeGPS is divided by a number.
+
+		Example use:
+			LIGOTimeGPS(100.5) % 3
+		"""
+		return LIGOTimeGPS(0, self.ns() % (other * 1000000000L))
