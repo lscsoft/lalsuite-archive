@@ -220,7 +220,7 @@ parser.add_option("-g","--glob-found",action="store",type="string",\
     help="GLOB of found injections" )
 parser.add_option("-G","--glob-bg",action="store",type="string",\
     default=None, metavar=" GLOB",
-    help="GLOB of background found injections" )
+    help="GLOB of background found injections, optional" )
 parser.add_option("-c","--coincidence-column",action="append", type="string",\
     dest="coinc_cols",metavar=" COL",
     help="add COL to list of cols for which to determine coincidence window")
@@ -242,13 +242,13 @@ parser.add_option("-S","--max-step",action="store",type="float",default=1./3,\
 
 if not opts.glob_found:
   print >>sys.stderr, "Must specify a GLOB of found files"
-  print >>sys.stderr, "Enter 'plotwindow --help' for usage"
+  print >>sys.stderr, "Enter 'plotcoincwindow --help' for usage"
   sys.exit(1)
 
 if not opts.glob_bg:
-  print >>sys.stderr, "Must specify a GLOB of bg files"
-  print >>sys.stderr, "Enter 'plotwindow --help' for usage"
-  sys.exit(1)
+  print >>sys.stderr, "Recommended to specify a GLOB of bg files. But optional"
+  print >>sys.stderr, "Enter 'plotcoincwindow --help' for usage"
+  #sys.exit(1)
 
 if not opts.ifo_list or len(opts.ifo_list) != 2:
   print >>sys.stderr, "Must specify two ifos using --ifo"
@@ -277,19 +277,27 @@ if opts.conf >= 1 or opts.conf < 0:
 # glob for files
 files = {}
 files['fg'] = glob.glob(opts.glob_found)
-files['bg'] = glob.glob(opts.glob_bg)
-
+if opts.glob_bg:
+  files['bg'] = glob.glob(opts.glob_bg)
 
 
 # read in the foreground and background triggers
 snglDict = {}
 coincDict = {}
-for trigs in ['fg','bg']:
+availTrigs=['fg']
+if opts.glob_bg:
+  availTrigs=['fg','bg']
+  
+for trigs in availTrigs:
   snglDict[trigs] = {}
   snglDict[trigs] = readMeta.metaDataTable(files[trigs],"sngl_inspiral")
   coincDict[trigs] = readMeta.coincInspiralTable(snglDict[trigs]) 
   coincDict[trigs] = coincDict[trigs].coinctype(opts.ifo_list) 
   coincDict[trigs] = coincDict[trigs].cluster(10) 
+
+if not opts.glob_bg:
+  snglDict['bg'] = readMeta.metaDataTable([],"")
+  coincDict['bg'] = readMeta.coincInspiralTable()
 
 # set number of events
 nevents = coincDict['fg'].nevents()
