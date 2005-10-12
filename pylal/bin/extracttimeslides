@@ -1,0 +1,116 @@
+#!/usr/bin/python
+
+import sys
+import os
+import string
+from optparse import *
+import re
+import exceptions
+import glob
+from types import *
+
+from pylab import *
+from pylal import readMeta
+from pylal import support
+from pylal import viz
+
+###############################################################
+usage = """usage: %prog [options]
+
+Extracts the triggers corresponding to the non zero time slides and
+puts them in separate files
+
+Example: extracttimeslides --input-file H1L1.txt --num-slides 2 --slide-step 4 --user-tag test
+
+(The input file contains the list of timeslide inspiral trigger files)
+"""
+
+parser = OptionParser( usage )
+parser.add_option("-v","--version",action="store_true",default=False,\
+    help="display version information " )
+parser.add_option("-n","--num-slides",action="store",type="int", \
+    default=0, metavar=" NUM_SLIDES",help="number of slides" )
+parser.add_option("-t","--slide-step",action="store",type="float", \
+    default=0, metavar=" SLIDE_STEP",help="slide stride in seconds" )
+parser.add_option("-i","--input-file",action="store",type="string", \
+    default=None, metavar=" INPUT_FILE",help="Input file for the triggers" )
+parser.add_option("-s","--summary-file",action="store",type="string", \
+    default='summary.txt', metavar=" SUMMARY_FILE",help="Summary file" )
+parser.add_option("-c","--user-tag",action="store",type="string", \
+    default=None, metavar=" USER_TAG",help="user comment" )
+
+(opts,args) = parser.parse_args()
+
+# if --version flagged
+if opts.version:
+    sys.exit(0)
+
+if not (opts.input_file or opts.num_slides):
+    print >>sys.stderr,"ERROR: one or both of the options\
+    among input file, num slides is missing"
+    print >>sys.stderr,"enter extracttimeslides --help"
+    sys.exit(1)
+
+######################################################################
+
+# reads the trigger files in the input list
+trigFile = open(opts.input_file)
+
+trigFiles = []
+for line in trigFile:
+    trigFiles.append(string.strip(line,"\n"))
+
+summary = []
+for j in range(5000 + opts.num_slides +1):
+    summary.append(0) 
+
+#for each file extracts the triggers corresponding to different
+#timeslides and writes to separate files
+for i in range(len(trigFiles)):
+    flist = []
+    flist.append(trigFiles[i])
+    triggers = readMeta.metaDataTable(flist, "sngl_inspiral")
+    searchsum = readMeta.metaDataTable(flist, "search_summary")
+    process = readMeta.metaDataTable(flist, "process")
+    processparams = readMeta.metaDataTable(flist, "process_params")
+    
+    for j in range(-opts.num_slides, opts.num_slides):
+        if j < 0:
+            slidenum = 5000 - j
+        else:    
+            slidenum = j + 1
+        
+        #extract the triggers corresponding to slidenum
+        extracttrigers = triggers.getslide(slidenum)
+        
+        summary[slidenum] += extracttrigers.nevents()
+        
+        start_time = int((searchsum.mkarray("in_start_time"))[0])
+        end_time = int((searchsum.mkarray("in_end_time"))[0])
+
+        # file index to be used for output
+        output = 'H1L1' + '-' + 'SLIDE' + '_' + opts.user_tag + '_'
+
+        if slidenum > 5000:
+            output += 'M' + '_' + str(slidenum) + '-' + str(start_time) + '-' + str(end_time - start_time) + '.xml'
+        else:
+            output += 'P' + '_' + str(slidenum) + '-' + str(start_time) + '-' + str(end_time - start_time) + '.xml'
+
+        #write to the output
+        fileObj = support.open_xml(output)
+        support.write_process(fileObj, process.table )
+        support.write_process_params(fileObj, processparams.table )
+        support.write_search_summary(fileObj, searchsum.table )
+        support.write_sngl_inspiral_begin(fileObj)
+        support.write_sngl_inspiral_write(fileObj,extracttrigers.table )
+
+        # close file
+        support.write_sngl_inspiral_end(fileObj)
+        support.close_xml(fileObj)
+
+sumFile=open(opts.summary_file,'a')
+for j in range(-opts.num_slides,0):
+    sumFile.write(str(5000-j) + '\t' + str(summary[5000-j]) + '\n' )
+for j in range(1, opts.num_slides+1):
+    sumFile.write(str(j) + '\t' + str(summary[j]) + '\n')
+sumFile.close()
