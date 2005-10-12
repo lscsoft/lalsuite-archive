@@ -785,6 +785,80 @@ write_process_params(PyObject *self, PyObject *args)
 
 
 /******************************************************************** 
+ * Search Summary Writing Function
+ ********************************************************************/
+static PyObject* 
+write_search_summary(PyObject *self, PyObject *args) 
+{  
+  SearchSummaryTable *eventHead=NULL;
+  SearchSummaryTable *event=NULL;
+  int n=0, len;
+  PyObject* fileObj;
+  PyObject* inlist;
+  PyObject* tmpvalue;
+  LIGOLwXMLStream* xmlStream;
+  MetadataTable outputTable;
+  static LALStatus status;
+
+  /* extract arguments */
+  if (! PyArg_ParseTuple(args, "OO",  &fileObj, &inlist))
+    return NULL; 
+  
+  /* check input file */
+  if ( !PyList_Check(inlist) ) 
+    return NULL;
+
+  /* get the file stream */
+  xmlStream=(LIGOLwXMLStream*)PyCObject_AsVoidPtr(fileObj);
+
+  /* fill SearchSummaryTable */
+  len = PyList_Size(inlist);
+  for(n=0;n<len;n++)  {
+    
+    /* allocate new memory for next table */
+    if ( ! eventHead ) {
+      event = eventHead = (SearchSummaryTable *) LALCalloc( 1, sizeof(SearchSummaryTable) );
+    } else {
+      event = event->next = (SearchSummaryTable *) LALCalloc( 1, sizeof(SearchSummaryTable) );
+    }
+
+    /* get a 'row' from the python list */
+    tmpvalue=PyList_GetItem(inlist, n);
+    LALSnprintf( event->comment, LIGOMETA_COMMENT_MAX  * sizeof(CHAR),
+                 "%s", PyString_AsString(PyDict_GetItem(tmpvalue,  PyString_FromString("comment") )) );
+    LALSnprintf( event->ifos, LIGOMETA_IFOS_MAX  * sizeof(CHAR),
+                 "%s", PyString_AsString(PyDict_GetItem(tmpvalue,  PyString_FromString("ifos") )) );
+    event->in_start_time.gpsSeconds    = PyInt_AsLong(PyDict_GetItem(tmpvalue, PyString_FromString("in_start_time") ));
+    event->in_start_time.gpsNanoSeconds= 0;
+    event->in_end_time.gpsSeconds    = PyInt_AsLong(PyDict_GetItem(tmpvalue, PyString_FromString("in_end_time") ));
+    event->in_end_time.gpsNanoSeconds= 0;
+    event->out_start_time.gpsSeconds    = PyInt_AsLong(PyDict_GetItem(tmpvalue, PyString_FromString("out_start_time") ));
+    event->out_start_time.gpsNanoSeconds= 0;
+    event->out_end_time.gpsSeconds    = PyInt_AsLong(PyDict_GetItem(tmpvalue, PyString_FromString("out_end_time") ));
+    event->out_end_time.gpsNanoSeconds= 0;
+    event->nevents= PyInt_AsLong(PyDict_GetItem(tmpvalue, PyString_FromString("nevents") ));
+    event->nnodes= PyInt_AsLong(PyDict_GetItem(tmpvalue, PyString_FromString("nnodes") ));
+  }
+
+  /* write data to XML file */
+  outputTable.searchSummaryTable = eventHead;
+  LALBeginLIGOLwXMLTable( &status, xmlStream, search_summary_table );
+  LALWriteLIGOLwXMLTable( &status, xmlStream, outputTable, search_summary_table );
+  LALEndLIGOLwXMLTable( &status, xmlStream );
+  
+  
+  /* clearing memory */
+  while(eventHead) {
+    event = eventHead;
+    eventHead = eventHead->next;
+    LALFree(event);
+  }
+
+  return PyInt_FromLong(1);
+ }
+
+
+/******************************************************************** 
  * Sim Inspiral Writing Function
  ********************************************************************/
 static PyObject* 
@@ -1078,11 +1152,12 @@ static struct PyMethodDef support_methods[] = {
     {"read_sngl_burst", read_sngl_burst, 1},  
     {"read_sngl_inspiral", read_sngl_inspiral, 1}, 
     {"read_sim_inspiral", read_sim_inspiral, 1}, 
-    {"read_multi_inspiral", read_multi_inspiral, 1}, 
+    {"read_multi_inspiral", read_multi_inspiral, 1},
     {"open_xml", open_xml, 1}, 
     {"close_xml", close_xml, 1}, 
     {"write_process", write_process, 1}, 
-    {"write_process_params", write_process_params, 1}, 
+    {"write_process_params", write_process_params, 1},
+    {"write_search_summary", write_search_summary, 1}, 
     {"write_sim_inspiral", write_sim_inspiral, 1}, 
     {"write_sngl_inspiral_begin", write_sngl_inspiral_begin, 1},
     {"write_sngl_inspiral_write", write_sngl_inspiral_write, 1},
