@@ -100,8 +100,7 @@ for i in range(len(trigFiles)):
             output += 'M' + '_' + str(slidenum) + '-' + str(start_time) + '-' + str(end_time - start_time) + '.xml'
         else:
             output += 'P' + '_' + str(slidenum) + '-' + str(start_time) + '-' + str(end_time - start_time) + '.xml'
-
-        print str(output)
+        
         #write to the output
         fileObj = support.open_xml(output)
         support.write_process(fileObj, process.table )
