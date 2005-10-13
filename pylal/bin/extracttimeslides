@@ -88,14 +88,20 @@ for i in range(len(trigFiles)):
         start_time = int((searchsum.mkarray("in_start_time"))[0])
         end_time = int((searchsum.mkarray("in_end_time"))[0])
 
+
         # file index to be used for output
-        output = 'H1L1' + '-' + 'SLIDE' + '_' + opts.user_tag + '_'
+        output = str(slidenum)
+        try: os.mkdir(output)
+        except: pass
+        
+        output += '/' + 'H1L1' + '-' + 'SLIDE' + '_' + opts.user_tag + '_'
 
         if slidenum > 5000:
             output += 'M' + '_' + str(slidenum) + '-' + str(start_time) + '-' + str(end_time - start_time) + '.xml'
         else:
             output += 'P' + '_' + str(slidenum) + '-' + str(start_time) + '-' + str(end_time - start_time) + '.xml'
 
+        print str(output)
         #write to the output
         fileObj = support.open_xml(output)
         support.write_process(fileObj, process.table )
