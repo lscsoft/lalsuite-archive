@@ -186,7 +186,8 @@ if coincfiles:
     xlow = min( inspTriggers.mkarray('snr') )
   else:
     xlow = opts.min_snr
-
+else:
+  coincTriggers = None
 ########################
 # read in slide triggers
 if slidefiles:
