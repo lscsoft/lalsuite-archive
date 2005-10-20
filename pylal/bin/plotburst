@@ -3,7 +3,9 @@
 import sys
 import os
 import re
+import string
 import exceptions
+import glob
 import time
 from types import *
 from optparse import OptionParser
@@ -13,30 +15,85 @@ from pylab import *
 from pylal import readMeta
 from pylal import viz
 
-
+###############################################################################
 # grab command line options
+usage = """
+usage: %prog [options]
+
+Plot summary information about burst triggers
+
+"""
+parser = OptionParser( usage )
 parser = OptionParser(version="%prog CVS $Id$")
-parser.add_option("-s", "--gps-start-time", metavar="SECONDS", default=None, help="start from GPS time SECONDS")
-parser.add_option("-d", "--duration", metavar="SECONDS", default=None, help="duration")
+parser.add_option("-g","--glob",action="store",type="string",\
+		  default=None, metavar=" GLOB", \
+		  help="GLOB of trigger files to read" )
+parser.add_option("-t", "--gps-start-time", metavar=" SECONDS",\
+		  default=None, help="start from GPS time SECONDS")
+parser.add_option("-d", "--duration", metavar=" SECONDS", \
+		  default=None, help="duration")
+parser.add_option("-f","--fig-name",action="store",type="string", \
+		  default=None, metavar=" FNAME", help="output file name" )
+parser.add_option("-i","--input-file",action="store",type="string", \
+		  default=None, metavar=" INPUT_FILE", \
+		  help="Input file for the triggers" )
+parser.add_option("-n","--norm-value",action="store",type="float", \
+		  default=None, metavar=" NORM_VALUE",help="Normalisation \
+		  constant in seconds" )
+parser.add_option("-a","--plot-summary",action="store_true",default=False,\
+		  help="plot the summary plots" )
+parser.add_option("-r","--cum-rate-snr",action="store_true",default=False,\
+		  help="plot the cumulative rate vs snr" )
+parser.add_option("-c","--cum-rate-conf",action="store_true",default=False,\
+		  help="plot the cumulative rate vs conf" )
+parser.add_option("-s","--show-plot",action="store_true",default=False,\
+		  help="show the plots" )
 options, args = parser.parse_args()
 del parser
 
-if options.gps_start_time:
-	options.gps_start_time = int(options.gps_start_time)
-if options.duration:
-	options.duration = int(options.duration)
+# check the trig file was specified
+if not options.input_file and not options.glob:
+	print >>sys.stderr, "an input file or a GLOB of files \
+	must be specified"
+	print >>sys.stderr, "Enter 'plotburst --help' for usage"
+  	sys.exit(1)
 
-# interpret the remaining command line arguments as trigger file names
-triggers = readMeta.metaDataTable(args, "sngl_burst")
+if options.input_file and options.glob:
+	print >>sys.stderr, "Specify an input file or a GLOB. \
+	Not both"
+	print >>sys.stderr, "Enter 'plotburst --help' for usage"
+  	sys.exit(1)
+
+#############################################################################
+
+# read in the trigger files
+if options.glob:
+	globFiles = glob.glob(options.glob)
+	triggers = readMeta.metaDataTable(globFiles, "sngl_burst")
+
+if options.input_file:
+	trigFile = open(options.input_file)
+	trigFiles = []
+	for line in trigFile:
+		trigFiles.append(string.strip(line,"\n"))
+	triggers = readMeta.metaDataTable(trigFiles, "sngl_burst")
+
 
 # extract some arrays from the trigger table
 start_time = triggers.mkarray("start_time")
 duration = triggers.mkarray("duration")
 confidence = triggers.mkarray("confidence")
+snr = triggers.mkarray("snr")
 central_freq = triggers.mkarray("central_freq")
 bandwidth = triggers.mkarray("bandwidth")
 lo_freq = central_freq - 0.5 * bandwidth
 
+# use the given start and stop times
+if options.gps_start_time:
+	options.gps_start_time = int(options.gps_start_time)
+if options.duration:
+	options.duration = int(options.duration)
+	
 # set the start time for the plot
 if options.gps_start_time == None:
 	options.gps_start_time = int(min(start_time))
@@ -44,36 +101,91 @@ start_time -= options.gps_start_time
 if options.duration == None:
 	options.duration = int(max(start_time))
 
-fig = figure()
-fig.set_figsize_inches(8.5, 11)
+# ##########################################
+# plots                                    #
+# ##########################################
+		    
+# plot the summary figures
+if options.plot_summary:
+	fig = figure(1)
+	fig.set_figsize_inches(8.5, 11)
+				
+	subplot(221)
+	semilogy(start_time, -confidence, "b+")
+	xlabel("Time (s)")
+	ylabel("|Confidence|")
+	title("Start Time " + str(options.gps_start_time))
+	grid(True)
+			
+	subplot(222)
+	semilogy(central_freq, -confidence, 'b+')
+	xlabel("Central Frequency (Hz)")
+	ylabel("|Confidence|")
+	grid(True)
+	# axis([0, 2200, 0, 1000])
+			    
+	subplot(223)
+	viz.tfplot(start_time, duration, lo_freq, bandwidth, log(-confidence))
+	grid(True)
+	# axis([0, options.duration, 0, 1000])
+			    
+	subplot(224)
+	hist(central_freq, 64)
+	xlabel("Central Frequency (Hz)")
+	ylabel("Count")
+	grid(True)
+	# axis([min(central_freq), max(central_freq), 0, 1000])
+	
+	# setp("PaperPosition", [0, 0, 10, 10])
+	if options.fig_name:
+		output_name = options.fig_name + '_summary.png'
+		savefig(output_name)
+				    
+# plot cumulative rate vs snr
+if options.cum_rate_snr:
+	figure(2)
 
-subplot(221)
-semilogy(start_time, -confidence, "b+")
-xlabel("Time (s)")
-ylabel("|Confidence|")
-title("Start Time " + str(options.gps_start_time))
-grid(True)
+	snr.sort()
+	if options.norm_value:
+		bins = [(len(snr) - j) / options.norm_value for j in range(len(snr))]
+	else:
+		bins = [(len(snr) - j) for j in range(len(snr))]
 
-subplot(222)
-semilogy(central_freq, -confidence, 'b+')
-xlabel("Central Frequency (Hz)")
-ylabel("|Confidence|")
-grid(True)
-#axis([0, 2200, 0, 1000])
+	loglog(snr, bins, linewidth=2.0)
+	hold(True)
+	grid(True)
+	xlabel('SNR', size='x-large')
+	if options.norm_value:
+		ylabel('Number per run', size='x-large')
+	else:
+		ylabel('Number', size='x-large')
+				    
+	if options.fig_name:
+		output_name = options.fig_name + '_SNR_DISTRIBUTION.png'
+		savefig(output_name)
+									    
+# plot cumulative rate vs confidence
+if options.cum_rate_conf:
+	figure(3)
+	
+	conf = -confidence
+	conf.sort()		    
+	if options.norm_value:
+		bins = [(len(conf) - j) / options.norm_value for j in range(len(conf))]
+	else:
+		bins = [(len(conf) - j) for j in range(len(conf))]
 
-subplot(223)
-viz.tfplot(start_time, duration, lo_freq, bandwidth, log(-confidence))
-grid(True)
-#axis([0, options.duration, 0, 1000])
+	loglog(conf, bins, linewidth=2.0)
+	grid(True)
+	xlabel('|confidence|', size='x-large')
+	if options.norm_value:
+		ylabel('Number per run', size='x-large')
+	else:
+		ylabel('Number', size='x-large')
 
-subplot(224)
-hist(central_freq, 64)
-xlabel("Central Frequency (Hz)")
-ylabel("Count")
-grid(True)
-#axis([min(central_freq), max(central_freq), 0, 1000])
+	if options.fig_name:
+		output_name = options.fig_name + '_CONF_DISTRIBUTION.png'
+		savefig(output_name)
 
-#setp("PaperPosition", [0, 0, 10, 10])
-#savefig('figure.png')
-#savefig('figure.eps')
-show()
+if options.show_plot:
+	show()
