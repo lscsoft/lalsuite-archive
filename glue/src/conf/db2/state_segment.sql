@@ -16,7 +16,7 @@ CREATE VIEW state_segment (
       end_time_ns,
 
 -- Science segment number
-      segnum
+      segnum,
       
 -- Segment definer ID which explains the meaning of this segment 
       segment_def_id,
