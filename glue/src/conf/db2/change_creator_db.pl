@@ -1,4 +1,4 @@
-#!/ldcg/bin/perl
+#!/usr/bin/env perl
 
 if($#ARGV!=0)
 {
