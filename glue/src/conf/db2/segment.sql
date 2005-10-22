@@ -35,7 +35,7 @@ CREATE TABLE segment
       insertion_time     TIMESTAMP WITH DEFAULT CURRENT TIMESTAMP,
 
       CONSTRAINT segment_pk
-      PRIMARY KEY (segment_id),
+      PRIMARY KEY (segment_id, creator_db),
 
       CONSTRAINT segment_fk_pid
       FOREIGN KEY (process_id, creator_db)
@@ -44,11 +44,13 @@ CREATE TABLE segment
 -- The following line is needed for this table to be replicated to other sites
 DATA CAPTURE CHANGES
 ;
+CREATE INDEX segment_id_ind ON segment(segment_id)
+;
 -- Create an index based on time
 CREATE INDEX segment_ind_time ON segment(start_time,start_time_ns,end_time,end_time_ns)
 ;
 -- Create an index based on segment number
-CREATE INDEX segment_segnum ON segment(segnum)
+CREATE INDEX segment_ind_segnum ON segment(segnum)
 ;
 -- Create an index based on process_id
 CREATE INDEX segment_ind_pid ON segment(process_id)

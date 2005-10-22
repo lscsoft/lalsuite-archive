@@ -18,7 +18,7 @@ CREATE TABLE gridcert
 
 --  Each entry in the process table can by associated with only one DN.
       CONSTRAINT gridcert_pk
-      PRIMARY KEY (process_id,dn)
+      PRIMARY KEY (creator_db,process_id,dn)
 )
 -- The following line is needed for this table to be replicated to other sites
 DATA CAPTURE CHANGES

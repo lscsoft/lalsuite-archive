@@ -18,7 +18,7 @@ CREATE TABLE segment_lfn_map
       insertion_time     TIMESTAMP WITH DEFAULT CURRENT TIMESTAMP,
 
       CONSTRAINT seglfnmap_pk
-      PRIMARY KEY (process_id, segment_id, lfn_id),
+      PRIMARY KEY (creator_db, process_id, segment_id, lfn_id),
 
       CONSTRAINT seglfnmap_fk_pid
       FOREIGN KEY (process_id, creator_db)
