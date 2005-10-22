@@ -76,7 +76,7 @@ for line in statefile.readlines():
   if not lfnexists.has_key(lfn):
     try:
       sdb.register_lfn(lfn,lfn_start,lfn_end)
-    except statedb.StateSegmentDatabaseLFNExistsException
+    except statedb.StateSegmentDatabaseLFNExistsException:
       pass
     lfnexists[lfn] = 1
     
