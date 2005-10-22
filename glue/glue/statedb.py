@@ -74,7 +74,7 @@ class StateSegmentDatabase:
   """
   Class that represents an instance of a state segment database
   """
-  def __init__(self, dbname, dbuser = '', dbpasswd = '', debug = False):
+  def __init__(self, run, dbname, dbuser = '', dbpasswd = '', debug = False):
     """
     Open a connection to the state segment database.
 
@@ -97,6 +97,7 @@ class StateSegmentDatabase:
     self.state_vec['H2'] = {}
     self.state_vec['L1'] = {}
     self.lfn_id = None
+    self.run = run
     self.framereg = re.compile(r'^([A-Za-z]+)\-(\w+)\-(\d+)\-(\d+)\.gwf$')
     self.process_id = None
 
@@ -150,7 +151,7 @@ class StateSegmentDatabase:
     # build a dictionary of the state vector types
     sql = "SELECT ifos, state_vec_major, state_vec_minor, segment_def_id "
     sql += "FROM segment_definer WHERE state_vec_major IS NOT NULL "
-    sql += "AND state_vec_minor IS NOT NULL"
+    sql += "AND state_vec_minor IS NOT NULL AND run = '%s'" % self.run
 
     try:
       self.cursor.execute(sql)
@@ -285,7 +286,8 @@ class StateSegmentDatabase:
 
      
   def publish_state(self, 
-      ifo, start_time, start_time_ns, end_time, end_time_ns, ver, val ):
+      ifo, start_time, start_time_ns, end_time, end_time_ns, ver, val,
+      segnum = None):
     """
     Publish a state segment for a state vector in the database
     """
@@ -308,13 +310,13 @@ class StateSegmentDatabase:
         raise StateSegmentDatabaseException, msg
 
       # insert a segment_definer row for this state vector value
-      sql = "INSERT INTO segment_definer (process_id,segment_def_id,ifos,"
+      sql = "INSERT INTO segment_definer (process_id,segment_def_id,run,ifos,"
       sql += "name,version,comment,state_vec_major,state_vec_minor) VALUES "
-      sql += "(?,?,?,?,?,?,?,?)"
+      sql += "(?,?,?,?,?,?,?,?,?)"
 
       try:
         self.cursor.execute(sql,(self.process_id, self.state_vec[ifo][(ver,val)], 
-          ifo, 'STATEVEC.%d.%d' % (ver, val), 0, 
+          self.run, ifo, 'STATEVEC.%d.%d' % (ver, val), 0, 
           'Created automatically by StateSegmentDatabase', ver, val))
         self.db.commit()
 
@@ -326,7 +328,7 @@ class StateSegmentDatabase:
           # try another select to get the segment_def_id and abort if it fails
           e_prev = e
           sql = "SELECT segment_def_id FROM segment_definer WHERE "
-          sql += "ifos = '" + ifo + "' AND "
+          sql += "run = '" + self.run + "' AND ifos = '" + ifo + "' AND "
           sql += "state_vec_major = %d AND state_vec_minor = %d" % (ver,val)
           try:
             self.cursor.execute(sql)
@@ -365,13 +367,13 @@ class StateSegmentDatabase:
 
     # insert the segment
     sql = "INSERT INTO state_segment (process_id,segment_id,segment_def_id,"
-    sql += "start_time,start_time_ns,end_time,end_time_ns,lfn_id)"
-    sql += "VALUES (?,?,?,?,?,?,?,?)"
+    sql += "start_time,start_time_ns,end_time,end_time_ns,segnum,lfn_id)"
+    sql += "VALUES (?,?,?,?,?,?,?,?,?)"
 
     for attempt in range(3):
       try:
         self.cursor.execute(sql, (self.process_id,segment_id,sv_id,
-          start_time,start_time_ns,end_time,end_time_ns,self.lfn_id))
+          start_time,start_time_ns,end_time,end_time_ns,segnum,self.lfn_id))
         self.db.commit()
         break
 
