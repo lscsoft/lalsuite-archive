@@ -137,7 +137,8 @@ class LIGOMetadataDatabase:
     self.uniqueids = {}
     conn = mxdb.Connect(database)
     curs = conn.cursor()
-    curs.execute("SELECT tabname FROM syscat.tables WHERE definer<>'SYSIBM'")
+    curs.execute("SELECT tabname FROM syscat.tables WHERE definer<>'SYSIBM' "
+      "AND TYPE<>'A'")
     self.tables = curs.fetchall()
     curs.execute("SELECT tabname, colname FROM syscat.columns " +
       "WHERE typename = 'CHARACTER' AND length = 13 AND nulls = 'N'")
