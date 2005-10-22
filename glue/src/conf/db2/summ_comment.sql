@@ -49,8 +49,8 @@ CREATE TABLE summ_comment
 -- corresponding entry in the appropriate table.  If null, then no
 -- foreign-key check is performed.
       CONSTRAINT summcomm_fk_seg
-      FOREIGN KEY (segment_def_id)
-          REFERENCES segment_definer(segment_def_id),
+      FOREIGN KEY (segment_def_id,creator_db)
+          REFERENCES segment_definer(segment_def_id,creator_db),
 
       CONSTRAINT summcomm_fk_fs
       FOREIGN KEY (frameset_group, start_time, end_time)

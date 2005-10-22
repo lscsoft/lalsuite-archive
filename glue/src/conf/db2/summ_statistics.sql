@@ -63,8 +63,8 @@ CREATE TABLE summ_statistics
 -- corresponding entry in the appropriate table.  If null, then no
 -- foreign-key check is performed.
       CONSTRAINT summstat_fk_seg
-      FOREIGN KEY (segment_def_id)
-          REFERENCES segment_definer(segment_def_id),
+      FOREIGN KEY (segment_def_id,creator_db)
+          REFERENCES segment_definer(segment_def_id,creator_db),
 
       CONSTRAINT summstat_fk_fs
       FOREIGN KEY (frameset_group, start_time, end_time)
