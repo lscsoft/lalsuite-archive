@@ -29,11 +29,11 @@ CREATE TABLE segment_def_map
 
       CONSTRAINT segdefmap_fk_sid
       FOREIGN KEY (segment_id)
-          REFERENCES segment(segment_id),
+          REFERENCES segment(segment_id, creator_db),
 
       CONSTRAINT segdefmap_fk_sdid
       FOREIGN KEY (segment_def_id)
-          REFERENCES segment_definer(segment_def_id)
+          REFERENCES segment_definer(segment_def_id, creator_db)
 )
 -- The following line is needed for this table to be replicated to other sites
 DATA CAPTURE CHANGES
