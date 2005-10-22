@@ -70,6 +70,23 @@ class StateSegmentDatabaseLFNExistsException(exceptions.Exception):
 
 
 
+class StateSegmentDatabaseSegnumException(exceptions.Exception):
+  """
+  Exceptions raised by the classes and methods in this module
+  will be instances of this class.
+  """
+  def __init__(self, args=None):
+    """
+    Create an instance of this class exception.
+
+    @param args: 
+
+    @return: Instance of class StateSegmentDatabaseSegnumException
+    """
+    self.args = args
+
+
+
 class StateSegmentDatabase:
   """
   Class that represents an instance of a state segment database
@@ -291,6 +308,11 @@ class StateSegmentDatabase:
     """
     Publish a state segment for a state vector in the database
     """
+
+    # check that we are in science mode if the user has given a segnum
+    if segnum and val != 65535:
+      msg = "segnum can only be specified if val is 65535"
+      raise StateSegmentDatabaseSegnumException, msg
 
     # check that we have an lfn registered
     if not self.lfn_id:
