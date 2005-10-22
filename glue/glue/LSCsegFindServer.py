@@ -230,7 +230,10 @@ class ServerHandler(SocketServer.BaseRequestHandler):
 
       result = ""
       for x in res:
-        result += ' '.join(x).strip() + '\n'
+        if type(x) is types.stringType:
+          result += x.strip() + '\n'
+        else:
+          result += str(x) + '\n'
           
       result = result.rstrip()    
       
