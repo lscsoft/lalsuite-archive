@@ -37,7 +37,7 @@ CREATE TABLE segment_definer
       PRIMARY KEY (run, ifos, name, version),
 
       CONSTRAINT segdef_sk
-      UNIQUE (segment_def_id),
+      UNIQUE (segment_def_id, creator_db),
 
       CONSTRAINT segdef_fk_pid
       FOREIGN KEY (process_id, creator_db)
