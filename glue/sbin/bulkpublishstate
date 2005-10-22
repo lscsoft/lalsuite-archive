@@ -38,7 +38,7 @@ for o, a in opts:
   elif o in ("-v", "--version"):
     version = int(a)
   elif o in ("-f", "--fetcher"):
-    file = a
+    frsvpath = a
   elif o in ("-s", "--use-segnum"):
     usesegnum = True
 
