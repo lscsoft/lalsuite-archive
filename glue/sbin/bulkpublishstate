@@ -9,20 +9,55 @@ import glob
 from types import *
 from glue import statedb
 
-segpat = re.compile(r'^(\d+)\s(\d+)\s(\d+)\s(\d+)\s(\d+)\s(\d+)\s([A-Z][0-9]+)\s(.+)')
 filepat = re.compile(r'^[A-Za-z]+\-\w+\-(\d+)\-(\d+)\..+')
 
-# change this for the correct sv version number and path to the state fetcher
-version = 1
+run = None
+version = None
 frsvpath = '/ligotools/bin/FrStateFetcher'
+usesegnum = False
 
-if len(sys.argv) < 2:
-  print >> sys.stderr, "Usage: bulkpublishstate dir1 dir2 ..."
+shortop = "r:v:f:s"
+longop = [
+  "run=",
+  "version=",
+  "fetcher=",
+  "use-segnum"
+  ]
+
+try:
+  opts, args = getopt.getopt(sys.argv[1:], shortop, longop)
+except getopt.GetoptError:
+  print >> sys.stderr, \
+    "Usage: %s --run [RUN] --version [VER] --use-segnum " \
+      "--fetcher [PROG] PATH1, PATH2, ..." % sys.argv[0]
   sys.exit( 1 )
 
-sdb = statedb.StateSegmentDatabase('segment')
+for o, a in opts:
+  if o in ("-r", "--run"):
+    run = a
+  elif o in ("-v", "--version"):
+    version = int(a)
+  elif o in ("-f", "--fetcher"):
+    file = a
+  elif o in ("-s", "--use-segnum"):
+    usesegnum = True
 
-for dirpath in sys.argv[1:]:
+if not run or not version:
+  print >> sys.stderr, \
+    "Usage: %s --run [RUN] --version [VER] --use-segnum " \
+      "--fetcher [PROG] PATH1, PATH2, ..." % sys.argv[0]
+  sys.exit( 1 )
+
+if segnum:
+  print >> sys.stderr, "--use-segnum not yet supported"
+  sys.exit( 1 )
+else:
+  segpat = re.compile(r'^(\d+)\s(\d+)\s(\d+)\s(\d+)\s(\d+)\s(\d+)\s([A-Z][0-9]+)\s(.+)')
+  segnum = None
+
+sdb = statedb.StateSegmentDatabase(run,'segment')
+
+for dirpath in args:
   if not os.path.isdir( dirpath ):
     print >> sys.stderr, "Warning: %s is not a directory" % sys.argv[1]
     continue
@@ -63,7 +98,7 @@ for dirpath in sys.argv[1:]:
       ifo = str(segmatch[6])
   
       try:
-        sdb.publish_state(ifo,start,start_nano,end,end_nano,version,sv)
+        sdb.publish_state(ifo,start,start_nano,end,end_nano,version,sv,segnum)
         print ".",
       except statedb.StateSegmentDatabaseSegmentExistsException:
         print "x",

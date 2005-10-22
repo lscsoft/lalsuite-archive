@@ -9,54 +9,92 @@ import glob
 from types import *
 from glue import statedb
 
-segpat = re.compile(r'^(\d+)\s(\d+)\s(\d+)\s(\d+)\s(\d+)\s(\d+)\s([A-Z][0-9]+)\s(.+)')
 filepat = re.compile(r'^[A-Za-z]+\-\w+\-(\d+)\-(\d+)\..+')
 
-if len(sys.argv) != 2:
-    print >> sys.stderr, "Usage: bulkpublishstate statefile"
-    sys.exit( 1 )
+run = None
+version = None
+file = None
+usesegnum = False
+
+shortop = "r:v:f:s"
+longop = [
+  "run=",
+  "version=",
+  "file=",
+  "use-segnum"
+  ]
 
 try:
-    statefile = open(sys.argv[1],"r")
-except Exception,e:
-    print >>sys.stderr, "Could not open statefile, %s: %s" % (statefile,e,)
-    sys.exit(2)
+  opts, args = getopt.getopt(sys.argv[1:], shortop, longop)
+except getopt.GetoptError:
+  print >> sys.stderr, \
+    "Usage: %s --run [RUN] --version [VER] --use-segnum --file [SEGMENTS]" \
+      % sys.argv[0]
+  sys.exit( 1 )
 
-sdb = statedb.StateSegmentDatabase('segment')
+for o, a in opts:
+  if o in ("-r", "--run"):
+    run = a
+  elif o in ("-v", "--version"):
+    version = int(a)
+  elif o in ("-f", "--file"):
+    file = a
+  elif o in ("-s", "--use-segnum"):
+    usesegnum = True
+
+if not run or not version or not file:
+  print >> sys.stderr, \
+    "Usage: %s --run [RUN] --version [VER] --use-segnum --file [SEGMENTS]" \
+      % sys.argv[0]
+  sys.exit( 1 )
+
+if segnum:
+  print >> sys.stderr, "--use-segnum not yet supported"
+  sys.exit( 1 )
+else:
+  segpat = re.compile(r'^(\d+)\s(\d+)\s(\d+)\s(\d+)\s(\d+)\s(\d+)\s([A-Z][0-9]+)\s(.+)')
+  segnum = None
+
+try:
+  statefile = open(file,"r")
+except Exception,e:
+  print >>sys.stderr, "Could not open statefile, %s: %s" % (statefile,e)
+  sys.exit(2)
+
+sdb = statedb.StateSegmentDatabase(run,'segment')
 i = 0
 lfnexists = {}
 for line in statefile.readlines():
-    i = i + 1
-    contents = line.split(' ')
-    lfn = os.path.basename(contents[7])
-    lfn = lfn.strip()
-    gpstime = filepat.search(lfn).groups()
-    lfn_start = int(gpstime[0])
-    lfn_end = lfn_start + int(gpstime[1])
+  i = i + 1
+  contents = line.split(' ')
+  lfn = os.path.basename(contents[7])
+  lfn = lfn.strip()
+  gpstime = filepat.search(lfn).groups()
+  lfn_start = int(gpstime[0])
+  lfn_end = lfn_start + int(gpstime[1])
   
-    if not lfnexists.has_key(lfn):
-        sdb.register_lfn(lfn,lfn_start,lfn_end)
-        lfnexists[lfn] = 1
+  if not lfnexists.has_key(lfn):
+    sdb.register_lfn(lfn,lfn_start,lfn_end)
+    lfnexists[lfn] = 1
     
-  
-    segmatch = segpat.search(line).groups()
-    start = int(segmatch[0])
-    start_nano = int(segmatch[1])
-    end = int(segmatch[2])
-    end_nano = int(segmatch[3])
-    sv = int(segmatch[4])
-    ifo = str(segmatch[6])
-    try: 
-        sdb.publish_state(ifo,start,start_nano,end,end_nano,1,sv)
-    except Exception,e:
-        print "Caught exception with:"
-        print (ifo,start,start_nano,end,end_nano,1,sv)
-        print "Error was: %s" % (e,)
-        sys.stdout.flush()
+  segmatch = segpat.search(line).groups()
+  start = int(segmatch[0])
+  start_nano = int(segmatch[1])
+  end = int(segmatch[2])
+  end_nano = int(segmatch[3])
+  sv = int(segmatch[4])
+  ifo = str(segmatch[6])
+  try: 
+    sdb.publish_state(ifo,start,start_nano,end,end_nano,version,sv,segnum)
+  except Exception,e:
+    print "Caught exception with:"
+    print (ifo,start,start_nano,end,end_nano,version,sv)
+    print "Error was: %s" % (e,)
+    sys.stdout.flush()
         
-    if i % 100 == 0:
-        print "Finished file %s" % (i,)
-        sys.stdout.flush()
+  if i % 100 == 0:
+    print "Finished file %s" % (i,)
+    sys.stdout.flush()
       
 print "done"
   
