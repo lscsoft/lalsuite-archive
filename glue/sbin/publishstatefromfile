@@ -89,7 +89,8 @@ for line in statefile.readlines():
   ifo = str(segmatch[6])
   try: 
     sdb.publish_state(ifo,start,start_nano,end,end_nano,version,sv,segnum)
-    
+  except statedb.StateSegmentDatabaseSegmentExistsException:
+    pass
   except Exception,e:
     print "Caught exception with:"
     print (ifo,start,start_nano,end,end_nano,version,sv)
