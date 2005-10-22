@@ -26,6 +26,11 @@ CREATE TABLE segment
 -- intersection).
       active             INTEGER NOT NULL,
 
+-- Science segment identification number. If this is a science segment 
+-- created by the online segment publish script, this should contain the
+-- valued stored in the channel IFO-SV_SEGNUM, otherwise it should be NULL
+      segnum             INTEGER,
+
 -- Insertion time (automatically assigned by the database)
       insertion_time     TIMESTAMP WITH DEFAULT CURRENT TIMESTAMP,
 
@@ -41,6 +46,9 @@ DATA CAPTURE CHANGES
 ;
 -- Create an index based on time
 CREATE INDEX segment_ind_time ON segment(start_time,start_time_ns,end_time,end_time_ns)
+;
+-- Create an index based on segment number
+CREATE INDEX segment_segnum ON segment(segnum)
 ;
 -- Create an index based on process_id
 CREATE INDEX segment_ind_pid ON segment(process_id)
