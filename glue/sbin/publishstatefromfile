@@ -48,7 +48,7 @@ if not run or not version or not file:
       % sys.argv[0]
   sys.exit( 1 )
 
-if segnum:
+if usesegnum:
   print >> sys.stderr, "--use-segnum not yet supported"
   sys.exit( 1 )
 else:
