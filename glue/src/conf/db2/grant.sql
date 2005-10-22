@@ -217,5 +217,5 @@ grant select,insert on table lfn to user grid;
 echo table process;
 revoke all on table process from public;
 grant select on table process to public;
-grant select,insert on table process to user grid;
+grant select,insert,update on table process to user grid;
 -- ----------------------------------------------------------------------
