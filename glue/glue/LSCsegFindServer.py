@@ -212,16 +212,19 @@ class ServerHandler(SocketServer.BaseRequestHandler):
 
       sql = "SELECT DISTINCT "
       if attribute == "interferometers":
-        sql += "ifos FROM segment_definer"
+        sql += "ifos AS x FROM segment_definer "
       elif attribute == "state":
-        sql += "name FROM segment_definer WHERE state_vec_major IS NOT NULL "
-        sql += "AND state_vec_minor IS NOT NULL"
+        sql += "name AS x FROM segment_definer WHERE "
+        sql += "state_vec_major IS NOT NULL "
+        sql += "AND state_vec_minor IS NOT NULL "
       elif attribute == "explainstate":
-        sql += "name,comment FROM segment_definer WHERE state_vec_major IS NOT NULL "
-        sql += "AND state_vec_minor IS NOT NULL"
+        sql += "name,comment AS x,y FROM segment_definer WHERE "
+        sql += "state_vec_major IS NOT NULL "
+        sql += "AND state_vec_minor IS NOT NULL "
       else:
         msg = "Unknown select distinct method " + str(attribute)
         raise ServerHandlerException, msg
+      sql += "ORDER BY x ASC"
 
       c = db.cursor()
       c.execute(sql)
