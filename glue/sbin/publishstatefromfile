@@ -74,7 +74,10 @@ for line in statefile.readlines():
   lfn_end = lfn_start + int(gpstime[1])
   
   if not lfnexists.has_key(lfn):
-    sdb.register_lfn(lfn,lfn_start,lfn_end)
+    try:
+      sdb.register_lfn(lfn,lfn_start,lfn_end)
+    except statedb.StateSegmentDatabaseLFNExistsException
+      pass
     lfnexists[lfn] = 1
     
   segmatch = segpat.search(line).groups()
@@ -86,11 +89,13 @@ for line in statefile.readlines():
   ifo = str(segmatch[6])
   try: 
     sdb.publish_state(ifo,start,start_nano,end,end_nano,version,sv,segnum)
+    
   except Exception,e:
     print "Caught exception with:"
     print (ifo,start,start_nano,end,end_nano,version,sv)
     print "Error was: %s" % (e,)
     sys.stdout.flush()
+    raise
         
   if i % 100 == 0:
     print "Finished file %s" % (i,)
