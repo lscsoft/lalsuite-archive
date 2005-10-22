@@ -234,7 +234,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
       result = ""
       for x in res:
         if len(x) == 1:
-          result += x.strip() + '\n'
+          result += x[0].strip() + '\n'
         else:
           result += str(x) + '\n'
           
