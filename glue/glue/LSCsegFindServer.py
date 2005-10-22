@@ -218,7 +218,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
         sql += "state_vec_major IS NOT NULL "
         sql += "AND state_vec_minor IS NOT NULL "
       elif attribute == "explainstate":
-        sql += "name,comment AS x,y FROM segment_definer WHERE "
+        sql += "name AS x, comment FROM segment_definer WHERE "
         sql += "state_vec_major IS NOT NULL "
         sql += "AND state_vec_minor IS NOT NULL "
       else:
@@ -233,7 +233,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
 
       result = ""
       for x in res:
-        if isinstance(x, types.StringTypes):
+        if len(x) == 1:
           result += x.strip() + '\n'
         else:
           result += str(x) + '\n'
