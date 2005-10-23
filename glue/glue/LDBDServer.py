@@ -113,6 +113,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
 
       # check if the last byte is a null byte
       if input[-1] != '\0':
+        logger.debug("Bad input on socket: %s" % input)
         raise ServerHandlerException, "Last byte of input is not null byte"
     except Exception, e:
       logger.error("Error reading input on socket: %s" %  e)
