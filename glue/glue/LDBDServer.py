@@ -105,7 +105,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
       # read all of the input up to limited number of bytes
       input = f.read(size=max_bytes,waitForBytes=2)
 
-      # attempt 10 more reads
+      # try 10 more times if we don't have a null byte at the end
       readnum = 0
       while input[-1] != '\0' or readnum < 10:
         input += f.read(size=max_bytes,waitForBytes=2)
