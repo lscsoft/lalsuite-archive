@@ -104,11 +104,12 @@ class ServerHandler(SocketServer.BaseRequestHandler):
 
       # read all of the input up to limited number of bytes
       input = f.read(size=max_bytes,waitForBytes=2)
-      logger.debug("read %s chars" % len(input))
-      if input[-1] != '\0':
-        newinput = f.read(size=max_bytes,waitForBytes=2)
-        logger.debug("read %s more chars" % len(newinput))
-        input += newinput
+
+      # attempt 10 more reads
+      readnum = 0
+      while input[-1] != '\0' or readnum < 10:
+        input += f.read(size=max_bytes,waitForBytes=2)
+        readnum = readnum + 1
 
       # the format should be a method string, followed by a null byte
       # followed by the arguments to the method encoded as null
@@ -116,7 +117,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
 
       # check if the last byte is a null byte
       if input[-1] != '\0':
-        logger.debug("Bad input on socket: %s" % input)
+        logger.info("Bad input on socket: %s" % input)
         raise ServerHandlerException, "Last byte of input is not null byte"
     except Exception, e:
       logger.error("Error reading input on socket: %s" %  e)
