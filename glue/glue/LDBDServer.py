@@ -104,8 +104,11 @@ class ServerHandler(SocketServer.BaseRequestHandler):
 
       # read all of the input up to limited number of bytes
       input = f.read(size=max_bytes,waitForBytes=2)
+      logger.debug("read %s chars" % len(input))
       if input[-1] != '\0':
-        input += f.read(size=max_bytes,waitForBytes=2)
+        newinput = f.read(size=max_bytes,waitForBytes=2)
+        logger.debug("read %s more chars" % len(newinput))
+        input += newinput
 
       # the format should be a method string, followed by a null byte
       # followed by the arguments to the method encoded as null
