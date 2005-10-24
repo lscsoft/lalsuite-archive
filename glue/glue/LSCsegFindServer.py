@@ -218,7 +218,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
         sql += "state_vec_major IS NOT NULL "
         sql += "AND state_vec_minor IS NOT NULL "
       elif attribute == "explainstate":
-        sql += "name AS x, comment FROM segment_definer WHERE "
+        sql += "name AS x, comment, run FROM segment_definer WHERE "
         sql += "state_vec_major IS NOT NULL "
         sql += "AND state_vec_minor IS NOT NULL "
       else:
