@@ -266,7 +266,7 @@ if opts.hist_dist:
                  'frac_hist', sym, len(injSets), opts.nbins, 
                  [-opts.dist_axis,opts.dist_axis])
     sym+=1
-  viz.labelhistdiff('eff_dist', 'hist', 'Mpc', tags, opts.title_text, \
+  viz.labelhistdiff('eff_dist', 'frac_hist', 'Mpc', tags, opts.title_text, \
                     opts.fig_name)
 
 
