@@ -109,6 +109,7 @@ def timeindays(col_data ):
   
   @param col_data: array containing times
   """
+  lvtimes = [700000000, 700086400]
   s2times = [729273613, 734367613]
   s3times = [751658413, 757699213]
   s4times = [793130413, 795679213]
@@ -119,6 +120,8 @@ def timeindays(col_data ):
     start = s3times[0]
   elif col_data[0] > s4times[0] and col_data[0] < s4times[1]:
     start = s4times[0]
+  elif col_data[0] > lvtimes[0] and col_data[0] < lvtimes[1]:
+    start = lvtimes[0]
   else:
     print >> sys.stderr, "events not from a known science run"
     sys.exit(1)
@@ -740,7 +743,7 @@ def cumhistsnr(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
 # function to histogram the difference between values of 'col_name' in
 # two tables, table1 and table2
 def histdiff(table1, table2, col_name, plot_type, hist_num, 
-  total_hists=1,  nbins=20, hist_width=None, hist_norm=None):
+  total_hists=1,  nbins=20, hist_width=[0,0], hist_norm=None):
   """
   function to plot a histogram of the difference of the value of col_name
   between table1 and table2  
@@ -756,7 +759,7 @@ def histdiff(table1, table2, col_name, plot_type, hist_num,
   @param hist_norm: normalization of the histogram (total nevents)
   """
 
-  histcolors = ['r','b','g','k']
+  histcolors = ['b','r','g','k']
 
   [tmpvar1, tmpvar2, ifo ] = readcolfrom2tables(table1, table2, col_name)
   tmp_diff = tmpvar2 - tmpvar1
@@ -765,7 +768,7 @@ def histdiff(table1, table2, col_name, plot_type, hist_num,
     tmp_diff /= tmpvar1
 
   figure(100)
-  if hist_width:
+  if hist_width[0] and hist_width[1]:
     bins = []
     
     for i in range(nbins):
@@ -790,8 +793,8 @@ def histdiff(table1, table2, col_name, plot_type, hist_num,
  
   bar(left,height,width,color=histcolors[hist_num])
 
-  #figtext(0.13,0.8 - 0.1* sym," mean = %6.3e" % mean(tmp_diff))
-  #figtext(0.13,0.75 - 0.1 * sym,'sigma = %6.3e' % std(tmp_diff))
+  # figtext(0.13,0.8 - 0.1* hist_num," mean = %6.3e" % mean(tmp_diff))
+  # figtext(0.13,0.75 - 0.1 * hist_num,'sigma = %6.3e' % std(tmp_diff))
   
 ######################################################################
 # function to histogram the difference between values of 'col_name' in
