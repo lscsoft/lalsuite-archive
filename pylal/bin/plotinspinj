@@ -19,51 +19,82 @@ Inspiral Injection Plotting Functions
 
 Generate a set of summary plots from triggers and found injections stored as
 sngl_inspiral and sim_inspiral table in LIGO lightweight format
-respectively.  The plots can be turned on by selecting them.  For plots, the
-AXIS must be specified (this is the Y-axis scale).  If either AXIS = 0 then
-the range is set automatically.  The WIDTH of the histograms must also be
-specified. 
+respectively.  The routine expects that there are equal numbers of triggers
+and injections stored in the files.  
 
-Example 1: ...
-Example 2: ...
+The various plots can be turned on by selecting them.  For plots and
+histograms, the AXIS can be specified.  This gives the Y-axis scale for plots and the width for the histograms.
+
+Available plots:
+
+1) Chirp mass accuracy can be plotted as:
+  a) a function of the injected chirp mass, using --plot-mchirp
+  b) a histogram, using --hist-mchirp
+  c) a function of the injected effective distance, using --chirp-dist
+  d) a function of the detected SNR, using --chirp-snr
+The width of all these plots is set using --chirp-axis
+
+2) Eta accuracy can be plotted as:
+  a) a function of the injected eta, using --plot-eta
+  b) a histogram, using --hist-eta
+The width of all these plots is set using --eta-axis
+
+3) End time accuracy can be plotted as:
+  a) a function of the injected end time, using --plot-time
+  b) a histogram, using --hist-time
+  c) a function of the injected effective distance, using --time-dist
+  d) a function of the detected SNR, using --time-snr
+The width of all these plots is set using --time-axis
+
+4) Effective distance accuracy can be plotted as:
+  a) a function of the injected eta, using --plot-dist
+  b) a histogram, using --hist-dist
+The width of these plots is set using --dist-axis
+  c) injected vs detected distance can be plotted using --dist-dist 
+
 """
 parser = OptionParser( usage )
 parser.add_option("-v","--version",action="store_true",default=False,\
     help="display version information " )
+    
 parser.add_option("-m","--plot-mchirp",action="store_true",default=False,\
     help="plot the chirp mass accuracy" )
 parser.add_option("-M","--hist-mchirp",action="store_true",default=False,\
     help="histogram of the chirp mass accuracy" )
+parser.add_option("-o","--chirp-dist",action="store_true",default=False,\
+    help="plot of chirp mass accuracy vs effective dist" )
+parser.add_option("-q","--chirp-snr",action="store_true",default=False,\
+    help="plot of chirp mass accuracy vs snr" )
+parser.add_option("-C","--chirp-axis",action="store",type="float",\
+    default=0, metavar=" M_SUN",help="width of chirp mass accuracy in plots" )
+
 parser.add_option("-e","--plot-eta",action="store_true",default=False,\
-    help="plot the chirp mass accuracy" )
+    help="plot the eta accuracy" )
 parser.add_option("-E","--hist-eta",action="store_true",default=False,\
-    help="histogram of the eta accuracy" )    
-parser.add_option("-t","--plot-timing",action="store_true",default=False,\
+    help="histogram of the eta accuracy" ) 
+parser.add_option("-F","--eta-axis",action="store",type="float",\
+    default=0, metavar=" UNITS",help="width of eta accuracy in plots" )
+
+parser.add_option("-t","--plot-time",action="store_true",default=False,\
     help="plot of the timing accuracy" )
-parser.add_option("-T","--hist-timing",action="store_true",default=False,\
+parser.add_option("-T","--hist-time",action="store_true",default=False,\
     help="histogram of the timing accuracy" )
+parser.add_option("-p","--time-dist",action="store_true",default=False,\
+    help="plot of timing accuracy vs effective dist" )
+parser.add_option("-r","--time-snr",action="store_true",default=False,\
+    help="plot of timing accuracy vs snr" )
+parser.add_option("-S","--time-axis",action="store",type="float",\
+    default=0, metavar=" SEC",help="width of timing accuracy in plots" )
+
 parser.add_option("-i","--plot-dist",action="store_true",default=False,\
     help="plot of the effective distance accuracy" )
 parser.add_option("-I","--hist-dist",action="store_true",default=False,\
     help="histogram of the effective distance accuracy" )
 parser.add_option("-k","--dist-dist",action="store_true",default=False,\
     help="plot of injected vs recovered distance" )
-parser.add_option("-o","--chirp-dist",action="store_true",default=False,\
-    help="plot of chirp mass accuracy vs effective dist" )
-parser.add_option("-p","--time-dist",action="store_true",default=False,\
-    help="plot of timing accuracy vs effective dist" )
-parser.add_option("-q","--chirp-snr",action="store_true",default=False,\
-    help="plot of chirp mass accuracy vs snr" )
-parser.add_option("-r","--time-snr",action="store_true",default=False,\
-    help="plot of timing accuracy vs snr" )
-parser.add_option("-C","--chirp-axis",action="store",type="float",\
-    default=0, metavar=" M_SUN",help="width of chirp mass accuracy in plots" )
-parser.add_option("-F","--eta-axis",action="store",type="float",\
-    default=0, metavar=" UNITS",help="width of eta accuracy in plots" )
 parser.add_option("-D","--dist-axis",action="store",type="float",\
     default=0,metavar=" FRAC_DIFF",help="width of distance accuracy in plots" )
-parser.add_option("-S","--time-axis",action="store",type="float",\
-    default=0, metavar=" SEC",help="width of timing accuracy in plots" )
+    
 parser.add_option("-1","--tag1",action="store",type="string",\
     default=None, metavar=" TAG",help="identifier for first input file" )
 parser.add_option("-2","--tag2",action="store",type="string",\
@@ -184,7 +215,7 @@ if opts.hist_eta:
 
 ################################
 # plot of timing error vs time
-if opts.plot_timing:
+if opts.plot_time:
   figure(5)
   hold(True) 
   sym=0
@@ -198,7 +229,7 @@ if opts.plot_timing:
 
 ###############################  
 # histogram of timing error
-if opts.hist_timing:
+if opts.hist_time:
   figure(6)
   hold(True) 
   sym=0
