@@ -195,9 +195,11 @@ def plotdiff(table1, table2, col_name, plot_type, plot_sym):
     tmpvar1 = timeindays(tmpvar1)
 
   if plot_type == 'linear':
-    plot(tmpvar1, tmp_diff, plot_sym, markersize=12,markerfacecolor=None)
+    plot(tmpvar1, tmp_diff, plot_sym, markersize=12,markerfacecolor=None,
+      markeredgewidth=1)
   elif plot_type == 'log':
-    semilogx(tmpvar1, tmp_diff, plot_sym, markersize=12,markerfacecolor=None)
+    semilogx(tmpvar1, tmp_diff, plot_sym, markersize=12,markerfacecolor=None,
+      markeredgewidth=1)
     
 #################################################################
 # function to label above plot
@@ -267,9 +269,11 @@ def plotfracdiff(table1, table2, col_name, plot_type, plot_sym):
     tmpvar1 = timeindays(tmpvar1)
 
   if plot_type == 'linear':
-    plot(tmpvar1, frac_diff,plot_sym,markersize=12,markerfacecolor=None)
+    plot(tmpvar1, frac_diff,plot_sym,markersize=12,markerfacecolor=None,
+      markeredgewidth=1)
   elif plot_type == 'log':
-    semilogx(tmpvar1, frac_diff,plot_sym,markersize=12,markerfacecolor=None)
+    semilogx(tmpvar1, frac_diff,plot_sym,markersize=12,markerfacecolor=None, 
+      markeredgewidth=1)
 
 
 #################################################################
@@ -343,9 +347,11 @@ def plotdiffa_vs_b(table1, table2, col_name_a, col_name_b, plot_type,
     col_b = timeindays(col_b)
 
   if plot_type == 'linear':
-    plot(col_b, diff_a,plot_sym,markersize=12,markerfacecolor=None)
+    plot(col_b, diff_a,plot_sym,markersize=12,markerfacecolor=None,
+      markeredgewidth=1)
   elif plot_type == 'log':
-    semilogx(col_b, diff_a,plot_sym,markersize=12,markerfacecolor=None)
+    semilogx(col_b, diff_a,plot_sym,markersize=12,markerfacecolor=None,
+      markeredgewidth=1)
   
   
 #################################################################
