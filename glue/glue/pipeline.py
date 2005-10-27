@@ -71,6 +71,8 @@ class CondorJob:
     self.__err_file = None
     self.__out_file = None
     self.__sub_file_path = None
+    self.__output_files = []
+    self.__input_files = []
 
   def get_executable(self):
     """
@@ -86,6 +88,34 @@ class CondorJob:
     """
     self.__condor_cmds[cmd] = value
 
+  def add_input_file(self, filename):
+    """
+    Add filename as a necessary input file for this DAG node.
+
+    @param filename: input filename to add
+    """
+    self.__input_files.append(filename)
+
+  def add_output_file(self, filename):
+    """
+    Add filename as a output file for this DAG node.
+
+    @param filename: output filename to add
+    """
+    self.__output_files.append(filename)
+
+  def get_input_files(self):
+    """
+    Return list of input files for this DAG node.
+    """
+    return self.__input_files
+
+  def get_output_files(self):
+    """
+    Return list of output files for this DAG node.
+    """
+    return self.__output_files
+
   def add_arg(self, arg):
     """
     Add an argument to the executable. Arguments are appended after any
@@ -94,11 +124,20 @@ class CondorJob:
     """
     self.__arguments.append(arg)
 
+  def add_file_arg(self, file):
+    """
+    Add a file argument to the executable. Arguments are appended after any
+    options and their order is guaranteed. Also adds the file name to the
+    list of required input data for this job.
+    @param file: file to add as argument.
+    """
+    self.__arguments.append(file)
+    self.__input_files.append(file)
+
   def get_args(self):
     """
     Return the list of arguments that are to be passed to the executable.
     """
-
     return self.__arguments
 
   def add_opt(self, opt, value):
@@ -113,11 +152,23 @@ class CondorJob:
     """
     self.__options[opt] = value
 
+  def add_file_opt(self, opt, file):
+    """
+    Add a command line option to the executable. The order that the arguments
+    will be appended to the command line is not guaranteed, but they will
+    always be added before any command line arguments. The name of the option
+    is prefixed with double hyphen and the program is expected to parse it
+    with getopt_long().
+    @param opt: command line option to add.
+    @param value: value to pass to the option (None for no argument).
+    """
+    self.__options[opt] = file
+    self.__input_files.append(file)
+
   def get_opts(self):
     """
     Return the dictionary of opts for the job.
     """
-
     return self.__options
 
   def add_short_opt(self, opt, value):
@@ -138,7 +189,6 @@ class CondorJob:
     """
     Return the dictionary of short options for the job.
     """
-
     return self.__short_options
 
   def add_ini_opts(self, cp, section):
@@ -391,8 +441,7 @@ class CondorDAGNode:
 
     @param filename: input filename to add
     """
-    if filename not in self.__input_files:
-        self.__input_files.append(filename)
+    self.__input_files.append(filename)
 
   def add_output_file(self, filename):
     """
@@ -400,22 +449,19 @@ class CondorDAGNode:
 
     @param filename: output filename to add
     """
-    if filename not in self.__output_files:
-        self.__output_files.append(filename)
+    self.__output_files.append(filename)
 
   def get_input_files(self):
     """
-    Return list of input files for this DAG node.
+    Return list of input files for this DAG node and it's job.
     """
-
-    return self.__input_files
+    return self.__input_files + self.__job.get_input_files()
 
   def get_output_files(self):
     """
-    Return list of output files for this DAG node.
+    Return list of output files for this DAG node and it's job.
     """
-
-    return self.__output_files
+    return self.__output_files + self.__job.get_output_files()
 
   def set_vds_group(self,group):
     """
@@ -449,7 +495,6 @@ class CondorDAGNode:
     the options for this instance of the node and not those
     associated with the underlying job template.
     """
-
     return self.__opts
 
   def add_var_opt(self,opt,value):
@@ -463,6 +508,19 @@ class CondorDAGNode:
     macro = self.__bad_macro_chars.sub( r'', opt )
     self.__opts['macro' + macro] = value
     self.__job.add_var_opt(opt)
+
+  def add_file_opt(self,opt,file):
+    """
+    Add a variable (macro) option for this node. If the option
+    specified does not exist in the CondorJob, it is added so the submit
+    file will be correct when written. The value of the option is also
+    added to the list of input files for the DAX.
+    @param opt: option name.
+    @param value: value of the option for this node in the DAG.
+    """
+    macro = self.__bad_macro_chars.sub( r'', opt )
+    self.__opts['macro' + macro] = file
+    self.__job.add_var_opt(file)
 
   def add_var_arg(self, arg):
     """
@@ -604,42 +662,42 @@ class CondorDAGNode:
     cmd = ""
     
     for k in options:
-        val = options[k]
-        m = pat.match(val)
-        if m:
-            key = m.group(1)
-            value = macros[key]
+      val = options[k]
+      m = pat.match(val)
+      if m:
+        key = m.group(1)
+        value = macros[key]
 
-            cmd += "--%s %s " % (k, value)
-        else:
-            cmd += "--%s %s " % (k, val)
+        cmd += "--%s %s " % (k, value)
+      else:
+        cmd += "--%s %s " % (k, val)
 
     # second parse the short options and replace macros with values
     options = self.job().get_short_opts()
 
     for k in options:
-        val = options[k]
-        m = pat.match(val)
-        if m:
-            key = m.group(1)
-            value = macros[key]
+      val = options[k]
+      m = pat.match(val)
+      if m:
+        key = m.group(1)
+        value = macros[key]
 
-            cmd += "-%s %s " % (k, value)
-        else:
-            cmd += "-%s %s " % (k, val)
+        cmd += "-%s %s " % (k, value)
+      else:
+        cmd += "-%s %s " % (k, val)
 
     # lastly parse the arguments and replace macros with values
     args = self.job().get_args()
     macros = self.get_args()
 
     for a in args:
-        m = pat.match(a)
-        if m:
-            value = ' '.join(macros)
+      m = pat.match(a)
+      if m:
+        value = ' '.join(macros)
 
-            cmd += "%s " % (value)
-        else:
-            cmd += "%s " % (a)
+        cmd += "%s " % (value)
+      else:
+        cmd += "%s " % (a)
 
     return cmd
     
@@ -789,33 +847,33 @@ class CondorDAG:
          inout_file_dict[f] = 1
 
     for f in inout_file_dict:
-         del input_file_dict[f]
-         del output_file_dict[f]
+      del input_file_dict[f]
+      del output_file_dict[f]
 
     # print input, inout, and output to dax
     filelist = input_file_dict.keys()
     filelist.sort()
     for f in filelist:
-           msg = """\
+      msg = """\
     <filename file="%s" link="input"/>\
 """
-           print >>dagfile, msg % f
+      print >>dagfile, msg % f
 
     filelist = inout_file_dict.keys()
     filelist.sort()
     for f in filelist:
-           msg = """\
+      msg = """\
     <filename file="%s" link="inout"/>\
 """
-           print >>dagfile, msg % f
+      print >>dagfile, msg % f
 
     filelist = output_file_dict.keys()
     filelist.sort()
     for f in filelist:
-           msg = """\
+      msg = """\
     <filename file="%s" link="output"/>\
 """
-           print >>dagfile, msg % f
+      print >>dagfile, msg % f
 
     # write the jobs themselves to the DAX, making sure
     # to replace logical file references by the appropriate
@@ -844,11 +902,11 @@ class CondorDAG:
         # loop through all filenames looking for them in the command
         # line so that they can be replaced appropriately by xml tags
         for f in node.get_input_files():
-            xml = '<filename file="%s" />' % f
-            cmd_line = cmd_line.replace(f, xml)
+          xml = '<filename file="%s" />' % f
+          cmd_line = cmd_line.replace(f, xml)
         for f in node.get_output_files():      
-            xml = '<filename file="%s" />' % f
-            cmd_line = cmd_line.replace(f, xml)
+          xml = '<filename file="%s" />' % f
+          cmd_line = cmd_line.replace(f, xml)
 
         template = """\
 <job id="%s" namespace="ligo" name="%s" version="1.0" level="1" dv-name="%s">
@@ -865,12 +923,12 @@ class CondorDAG:
         print >>dagfile, xml
 
         for f in node.get_input_files():
-                print >>dagfile, """\
+          print >>dagfile, """\
      <uses file="%s" link="input" dontRegister="true" dontTransfer="false"/>\
 """ % f
 
         for f in node.get_output_files():
-                print >>dagfile, """\
+          print >>dagfile, """\
      <uses file="%s" link="output" dontRegister="true" dontTransfer="false"/>\
 """ % f
 
@@ -885,15 +943,14 @@ class CondorDAG:
       else:
         child_id = node_name_id_dict[str(node)]
         if node._CondorDAGNode__parents:
-                print >>dagfile, '<child ref="%s">' % child_id
-                for parent in node._CondorDAGNode__parents:
-                    if isinstance(parent, LSCDataFindNode):
-                      pass
-                    else:
-                      parent_id = node_name_id_dict[str(parent)]
-                      print >>dagfile, '     <parent ref="%s"/>' % parent_id
-                print >>dagfile, '</child>'
-
+          print >>dagfile, '<child ref="%s">' % child_id
+          for parent in node._CondorDAGNode__parents:
+            if isinstance(parent, LSCDataFindNode):
+              pass
+            else:
+              parent_id = node_name_id_dict[str(parent)]
+              print >>dagfile, '     <parent ref="%s"/>' % parent_id
+          print >>dagfile, '</child>'
 
     print >>dagfile, "</adag>"
 
