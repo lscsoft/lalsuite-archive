@@ -6,6 +6,9 @@ CREATE TABLE summ_csd
 -- Database which created this entry
       creator_db         INTEGER NOT NULL WITH DEFAULT 1,
 
+-- Unique ID
+      summ_csd_id        CHAR(13) FOR BIT DATA NOT NULL,
+
 -- INFORMATION ABOUT THE PROCESS WHICH PRODUCED THIS CSD
 -- Program name
       program            CHAR(16) NOT NULL,
@@ -45,6 +48,9 @@ CREATE TABLE summ_csd
       
 -- Insertion time (automatically assigned by the database)
       insertion_time     TIMESTAMP WITH DEFAULT CURRENT TIMESTAMP,
+
+      CONSTRAINT summ_csd_pk
+      PRIMARY KEY (summ_csd_id, creator_db),
 
       CONSTRAINT summcsd_fk_pid
       FOREIGN KEY (process_id, creator_db)

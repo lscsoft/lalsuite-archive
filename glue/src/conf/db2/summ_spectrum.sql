@@ -5,6 +5,9 @@ CREATE TABLE summ_spectrum
 
 -- Database which created this entry
       creator_db         INTEGER NOT NULL WITH DEFAULT 1,
+      
+-- Unique ID
+      summ_spectrum_id   CHAR(13) FOR BIT DATA NOT NULL,
 
 -- INFORMATION ABOUT THE PROCESS WHICH PRODUCED THIS SPECTRUM
 -- Program name
@@ -44,6 +47,9 @@ CREATE TABLE summ_spectrum
       
 -- Insertion time (automatically assigned by the database)
       insertion_time     TIMESTAMP WITH DEFAULT CURRENT TIMESTAMP,
+
+      CONSTRAINT summspect_pk
+      PRIMARY KEY (summ_spectrum_id, creator_db),
 
       CONSTRAINT summspect_fk_pid
       FOREIGN KEY (process_id, creator_db)
