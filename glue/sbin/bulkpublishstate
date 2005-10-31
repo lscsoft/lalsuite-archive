@@ -14,13 +14,15 @@ filepat = re.compile(r'^[A-Za-z]+\-\w+\-(\d+)\-(\d+)\..+')
 run = None
 version = None
 frsvpath = '/ligotools/bin/FrStateFetcher'
+dbname = None
 usesegnum = False
 
-shortop = "r:v:f:s"
+shortop = "r:v:f:d:s"
 longop = [
   "run=",
   "version=",
   "fetcher=",
+  "database=",
   "use-segnum"
   ]
 
@@ -29,7 +31,7 @@ try:
 except getopt.GetoptError:
   print >> sys.stderr, \
     "Usage: %s --run [RUN] --version [VER] --use-segnum " \
-      "--fetcher [PROG] PATH1, PATH2, ..." % sys.argv[0]
+      "--fetcher [PROG] --database [DBNAME] PATH1, PATH2, ..." % sys.argv[0]
   sys.exit( 1 )
 
 for o, a in opts:
@@ -39,13 +41,15 @@ for o, a in opts:
     version = int(a)
   elif o in ("-f", "--fetcher"):
     frsvpath = a
+  elif o in ("-d", "--database"):
+    dbname = a
   elif o in ("-s", "--use-segnum"):
     usesegnum = True
 
-if not run or not version:
+if not run or not version or not dbname:
   print >> sys.stderr, \
     "Usage: %s --run [RUN] --version [VER] --use-segnum " \
-      "--fetcher [PROG] PATH1, PATH2, ..." % sys.argv[0]
+      "--fetcher [PROG] --database [DBNAME] PATH1, PATH2, ..." % sys.argv[0]
   sys.exit( 1 )
 
 if usesegnum:
@@ -55,7 +59,7 @@ else:
   segpat = re.compile(r'^(\d+)\s(\d+)\s(\d+)\s(\d+)\s(\d+)\s(\d+)\s([A-Z][0-9]+)\s(.+)')
   segnum = None
 
-sdb = statedb.StateSegmentDatabase(run,'segment')
+sdb = statedb.StateSegmentDatabase(run,dbname)
 
 for dirpath in args:
   if not os.path.isdir( dirpath ):

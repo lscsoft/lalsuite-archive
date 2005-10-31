@@ -14,13 +14,15 @@ filepat = re.compile(r'^[A-Za-z]+\-\w+\-(\d+)\-(\d+)\..+')
 run = None
 version = None
 file = None
+dbname = None
 usesegnum = False
 
-shortop = "r:v:f:s"
+shortop = "r:v:f:d:s"
 longop = [
   "run=",
   "version=",
   "file=",
+  "database=",
   "use-segnum"
   ]
 
@@ -28,7 +30,7 @@ try:
   opts, args = getopt.getopt(sys.argv[1:], shortop, longop)
 except getopt.GetoptError:
   print >> sys.stderr, \
-    "Usage: %s --run [RUN] --version [VER] --use-segnum --file [SEGMENTS]" \
+    "Usage: %s --run [RUN] --version [VER] --use-segnum  --database [DBNAME] --file [SEGMENTS]" \
       % sys.argv[0]
   sys.exit( 1 )
 
@@ -37,14 +39,16 @@ for o, a in opts:
     run = a
   elif o in ("-v", "--version"):
     version = int(a)
+  elif o in ("-d", "--database"):
+    dbname = a
   elif o in ("-f", "--file"):
     file = a
   elif o in ("-s", "--use-segnum"):
     usesegnum = True
 
-if not run or not version or not file:
+if not run or not version or not file or not dbname:
   print >> sys.stderr, \
-    "Usage: %s --run [RUN] --version [VER] --use-segnum --file [SEGMENTS]" \
+    "Usage: %s --run [RUN] --version [VER] --use-segnum --database [DBNAME] --file [SEGMENTS]" \
       % sys.argv[0]
   sys.exit( 1 )
 
@@ -61,7 +65,7 @@ except Exception,e:
   print >>sys.stderr, "Could not open statefile, %s: %s" % (statefile,e)
   sys.exit(2)
 
-sdb = statedb.StateSegmentDatabase(run,'segment')
+sdb = statedb.StateSegmentDatabase(run,dbname)
 i = 0
 lfnexists = {}
 for line in statefile.readlines():
