@@ -99,24 +99,6 @@ revoke all on table segment_definer from public;
 grant select on table segment_definer to public;
 grant select,insert on table segment_definer to user grid;
 -- ----------------------------------------------------------------------
--- simulation tables
--- ----------------------------------------------------------------------
-echo table sim_inst_params;
-revoke all on table sim_inst_params from public;
-grant select on table sim_inst_params to public;
--- ----------------------------------------------------------------------
-echo table sim_inst;
-revoke all on table sim_inst from public;
-grant select on table sim_inst to public;
--- ----------------------------------------------------------------------
-echo table sim_type_params;
-revoke all on table sim_type_params from public;
-grant select on table sim_type_params to public;
--- ----------------------------------------------------------------------
-echo table sim_type;
-revoke all on table sim_type from public;
-grant select on table sim_type to public;
--- ----------------------------------------------------------------------
 -- filter and params
 -- ----------------------------------------------------------------------
 echo table filter;
