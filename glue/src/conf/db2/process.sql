@@ -64,7 +64,7 @@ CREATE TABLE process
 -- a checkpointed job may have multiple pids) and jobid (since the 
 -- condor equaivalent of cluster.process is not guaranteed to be 
 -- unique. If the condor history is deleted, it will reset to zero)
-      CONSTRAINT process_sk
+      CONSTRAINT process_pk
       PRIMARY KEY (process_id, creator_db)
 )
 -- The following line is needed for this table to be replicated to other sites

@@ -34,14 +34,15 @@ CREATE TABLE segment_definer
       insertion_time     TIMESTAMP WITH DEFAULT CURRENT TIMESTAMP,
 
       CONSTRAINT segdef_pk
-      PRIMARY KEY (run, ifos, name, version),
+      PRIMARY KEY (segment_def_id, creator_db),
 
       CONSTRAINT segdef_sk
-      UNIQUE (segment_def_id, creator_db),
+      UNIQUE (run, ifos, name, version),
 
       CONSTRAINT segdef_fk_pid
       FOREIGN KEY (process_id, creator_db)
           REFERENCES process(process_id, creator_db)
+          ON DELETE CASCADE
 )
 -- The following line is needed for this table to be replicated to other sites
 DATA CAPTURE CHANGES

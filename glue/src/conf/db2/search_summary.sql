@@ -59,6 +59,7 @@ CREATE TABLE search_summary
       CONSTRAINT s_summary_fk_pid
       FOREIGN KEY (process_id, creator_db)
           REFERENCES process(process_id, creator_db)
+          ON DELETE CASCADE
 )
 -- The following line is needed for this table to be replicated to other sites
 DATA CAPTURE CHANGES

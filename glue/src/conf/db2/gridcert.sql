@@ -16,20 +16,17 @@ CREATE TABLE gridcert
 -- Insertion time (automatically assigned by the database)
       insertion_time     TIMESTAMP WITH DEFAULT CURRENT TIMESTAMP,
 
--- Each entry in the process table can by associated with only one DN.
       CONSTRAINT gridcert_pk
-      PRIMARY KEY (creator_db,process_id,dn),
+      PRIMARY KEY (creator_db,process_id),
 
 -- This entry must map to an entry in the process table
       CONSTRAINT gridcert_fk_pid
       FOREIGN KEY (process_id, creator_db)
           REFERENCES process(process_id, creator_db)
+          ON DELETE CASCADE
 )
 -- The following line is needed for this table to be replicated to other sites
 DATA CAPTURE CHANGES
-;
--- Create an index based on process_id
-CREATE INDEX gridcert_ind_pid ON gridcert(process_id)
 ;
 -- Create an index based on distinguished name
 CREATE INDEX gridcert_ind_dn ON gridcert(dn)

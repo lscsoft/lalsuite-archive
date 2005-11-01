@@ -27,6 +27,7 @@ CREATE TABLE search_summvars
       CONSTRAINT s_summvar_fk_pid
       FOREIGN KEY (process_id, creator_db)
           REFERENCES search_summary(process_id, creator_db)
+          ON DELETE CASCADE
 )
 -- The following line is needed for this table to be replicated to other sites
 DATA CAPTURE CHANGES

@@ -17,27 +17,30 @@ CREATE TABLE lfn
       lfn_id             CHAR(13) FOR BIT DATA NOT NULL,
 
 -- logical file name
-      lfn                VARCHAR(255) NOT NULL,
+      name               VARCHAR(255) NOT NULL,
 
--- optional comment string and start and end times of the file
-      comment            VARCHAR(240),
+-- optional information, if this file conforms to the frame file syntax
+      ifos               VARCHAR(32)
+      tag                VARCHAR(128),
       start_time         INTEGER,
-      end_time           INTEGER,
+      duration           INTEGER,
+      extention          VARCHAR(6),
+      comment            VARCHAR(240)
 
 -- Insertion time (automatically assigned by the database)
       insertion_time     TIMESTAMP WITH DEFAULT CURRENT TIMESTAMP,
 
--- LFNs in this table must be unique
+-- LFN IDs must be unique
       CONSTRAINT lfn_pk
-      PRIMARY KEY (lfn),
+      PRIMARY KEY (lfn_id,creator_db),
 
--- Secondary key to ensure that the lfn ID is unique
-      CONSTRAINT lfn_sk
-      UNIQUE (lfn_id)
+      CONSTRAINT lfn_fk_pid
+      FOREIGN KEY (process_id, creator_db)
+          REFERENCES process(process_id, creator_db)
+          ON DELETE CASCADE
 )
 -- The following line is needed for this table to be replicated to other sites
 DATA CAPTURE CHANGES
 ;
--- Create an index based on process_id
-CREATE INDEX lfn_ind_pid ON lfn(process_id)
+CREATE INDEX lfn_ind_name ON lfn(name)
 ;
