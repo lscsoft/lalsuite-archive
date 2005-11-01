@@ -101,24 +101,28 @@ DEFINE CHL ('QM2_TO_QM1') +
  CONNAME('198.129.208.245') +
  XMITQ('QM1') +
  DISCINT (0) +
- SSLCIPH(TRIPLE_DES_SHA_US)
+ SSLCIPH(RC4_MD5_US)
 
 DEFINE CHL ('QM2_TO_QM3') +
  CHLTYPE(SDR) TRPTYPE(TCP) +
  CONNAME('131.215.114.9') +
  XMITQ('QM3') +
  DISCINT (0) +
- SSLCIPH(TRIPLE_DES_SHA_US)
+ SSLCIPH(RC4_MD5_US)
 
 DEFINE CHL ('QM1_TO_QM2') +
  CHLTYPE(RCVR) TRPTYPE(TCP) +
- SSLCIPH(TRIPLE_DES_SHA_US)
+ SSLCIPH(RC4_MD5_US) +
+ SSLCAUTH(REQUIRED) +
+ SSLPEER('DC=org, DC=doegrids, OU=Services, CN="ldbd/ldas.ligo-wa.caltech.edu"')
 
 DEFINE CHL ('QM3_TO_QM2') +
  CHLTYPE(RCVR) TRPTYPE(TCP) +
- SSLCIPH(TRIPLE_DES_SHA_US)
+ SSLCIPH(RC4_MD5_US) +
+ SSLCAUTH(REQUIRED) +
+ SSLPEER('DC=org, DC=doegrids, OU=Services, CN="ldbd/ldas.ligo-wa.caltech.edu"')
 
-REFRESH SECURITY TYPE
+REFRESH SECURITY
 
 ********************************************************************/
 * Defining objects for Q replication                               */

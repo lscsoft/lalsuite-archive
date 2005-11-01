@@ -98,21 +98,31 @@ DEFINE QMODEL('IBMQREP.SPILL.MODELQ') DEFSOPT(SHARED) +
 
 DEFINE CHL ('QM1_TO_QM2') +
  CHLTYPE(SDR) TRPTYPE(TCP) +
- CONNAME('131.215.114.34') +
+ CONNAME('130.39.245.245') +
  XMITQ('QM2') +
- DISCINT (0)
+ DISCINT (0) +
+ SSLCIPH(RC4_MD5_US)
 
 DEFINE CHL ('QM1_TO_QM3') +
  CHLTYPE(SDR) TRPTYPE(TCP) +
  CONNAME('131.215.114.9') +
  XMITQ('QM3') +
- DISCINT (0)
+ DISCINT (0) +
+ SSLCIPH(RC4_MD5_US)
 
 DEFINE CHL ('QM2_TO_QM1') +
- CHLTYPE(RCVR) TRPTYPE(TCP)
+ CHLTYPE(RCVR) TRPTYPE(TCP) +
+ SSLCIPH(RC4_MD5_US) +
+ SSLCAUTH(REQUIRED) +
+ SSLPEER('DC=org, DC=doegrids, OU=Services, CN="ldbd/ldas.ligo-la.caltech.edu"')
 
 DEFINE CHL ('QM3_TO_QM1') +
- CHLTYPE(RCVR) TRPTYPE(TCP)
+ CHLTYPE(RCVR) TRPTYPE(TCP) +
+ SSLCIPH(RC4_MD5_US) +
+ SSLCAUTH(REQUIRED) +
+ SSLPEER('DC=org, DC=doegrids, OU=Services, CN="ldbd/ldas-cit.ligo.caltech.edu"')
+
+REFRESH SECURITY
 
 ********************************************************************/
 * Defining objects for Q replication                               */
