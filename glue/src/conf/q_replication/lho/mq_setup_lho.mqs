@@ -114,13 +114,13 @@ DEFINE CHL ('QM2_TO_QM1') +
  CHLTYPE(RCVR) TRPTYPE(TCP) +
  SSLCIPH(RC4_MD5_US) +
  SSLCAUTH(REQUIRED) +
- SSLPEER('DC=org, DC=doegrids, OU=Services, CN="ldbd/ldas.ligo-la.caltech.edu"')
+ SSLPEER('OU=Services, CN="ldbd/ldas.ligo-la.caltech.edu"')
 
 DEFINE CHL ('QM3_TO_QM1') +
  CHLTYPE(RCVR) TRPTYPE(TCP) +
  SSLCIPH(RC4_MD5_US) +
  SSLCAUTH(REQUIRED) +
- SSLPEER('DC=org, DC=doegrids, OU=Services, CN="ldbd/ldas-cit.ligo.caltech.edu"')
+ SSLPEER('OU=Services, CN="ldbd/ldas-cit.ligo.caltech.edu"')
 
 REFRESH SECURITY
 
