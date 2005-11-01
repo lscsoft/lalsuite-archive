@@ -120,7 +120,7 @@ DEFINE CHL ('QM3_TO_QM2') +
  CHLTYPE(RCVR) TRPTYPE(TCP) +
  SSLCIPH(RC4_MD5_US) +
  SSLCAUTH(REQUIRED) +
- SSLPEER('OU=Services, CN="ldbd/ldas.ligo-wa.caltech.edu"')
+ SSLPEER('OU=Services, CN="ldbd/ldas-cit.ligo.caltech.edu"')
 
 REFRESH SECURITY
 
