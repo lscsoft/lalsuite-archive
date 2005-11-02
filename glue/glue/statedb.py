@@ -271,7 +271,7 @@ class StateSegmentDatabase:
       sql = "INSERT INTO lfn (process_id,lfn_id,name,start_time,end_time) "
       sql += "values (?,?,?,?,?)"
       try:
-        self.cursor.execute(sql,(self.process_id,self.lfn_id,lfn,start,end))
+        self.cursor.execute(sql,(self.process_id,self.lfn_id[0],lfn,start,end))
         self.db.commit()
 
       except (mx.ODBC.DB2.InterfaceError, mx.ODBC.DB2.InternalError), e:
