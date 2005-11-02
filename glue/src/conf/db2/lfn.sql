@@ -20,12 +20,9 @@ CREATE TABLE lfn
       name               VARCHAR(255) NOT NULL,
 
 -- optional information, if this file conforms to the frame file syntax
-      ifos               VARCHAR(32),
-      tag                VARCHAR(128),
+      comment            VARCHAR(240),
       start_time         INTEGER,
       end_time           INTEGER,
-      extention          VARCHAR(6),
-      comment            VARCHAR(240),
 
 -- Insertion time (automatically assigned by the database)
       insertion_time     TIMESTAMP WITH DEFAULT CURRENT TIMESTAMP,
