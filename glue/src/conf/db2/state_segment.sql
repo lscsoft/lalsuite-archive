@@ -102,16 +102,18 @@ CREATE TRIGGER state_segment_i instead OF INSERT ON state_segment
 -- Create an entry in the segment_def_map table which maps to the
 -- segment_def_id that the user has provided for this segment
       INSERT INTO segment_def_map
-            (process_id,segment_id,segment_def_id,segment_def_cdb)
+            (segment_def_map_id,
+              process_id,segment_id,segment_def_id,segment_def_cdb)
       VALUES 
-            (n.process_id,n.segment_id,n.segment_def_id,n.segment_def_cdb);
+            (GENERATE_UNIQUE(),
+              n.process_id,n.segment_id,n.segment_def_id,n.segment_def_cdb);
 
 -- Create an entry in the lfm_map table which maps the lfn_id which the
 -- user has provided to this segment
       INSERT INTO segment_lfn_map
-            (process_id,segment_id,lfn_id,lfn_cdb)
+            (seg_lfn_map_id,process_id,segment_id,lfn_id,lfn_cdb)
       VALUES 
-            (n.process_id,n.segment_id,n.lfn_id,n.lfn_cdb);
+            (GENERATE_UNIQUE(),n.process_id,n.segment_id,n.lfn_id,n.lfn_cdb);
 
     END
 @
