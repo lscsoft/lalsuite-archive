@@ -398,7 +398,7 @@ class StateSegmentDatabase:
     sql += "segment_def_id,lfn_id"
 
     sqlexec = "self.cursor.execute(sql, (self.process_id,segment_id,"
-    sqlexec += "start_time,start_time_ns,end_time,end_time_ns,segnum"
+    sqlexec += "start_time,start_time_ns,end_time,end_time_ns,segnum,"
     sqlexec += "sv_id[0],lfn_id[0]"
     
     if not sv_id[1] and not lfn_id[1]:
