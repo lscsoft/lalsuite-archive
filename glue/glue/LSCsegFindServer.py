@@ -358,6 +358,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
       ifoSegList = []
 
       try:
+        # open a database cursor
         c = db.cursor()
 
         for ifo in ifoList:
@@ -383,7 +384,6 @@ class ServerHandler(SocketServer.BaseRequestHandler):
           result = c.fetchall()
           logger.debug("Method : segmentFindWithMetadata_vx %d results found" % 
             len(result))
-          c.close()
 
           ifoSegs = segments.segmentlist()
           try:
@@ -393,6 +393,9 @@ class ServerHandler(SocketServer.BaseRequestHandler):
           except:
             pass
           ifoSegList.append(ifoSegs)
+
+        # close the database cursor
+        c.close()
 
       except Exception, e:
         result = "Error querying metadata for segments " + \
