@@ -244,7 +244,7 @@ class StateSegmentDatabase:
         long(self.framereg.search(lfn).group(4))
     
     # try and get an lfn_id for this file
-    sql = "SELECT lfn_id,creator_db from lfn WHERE lfn = '%s'" % lfn
+    sql = "SELECT lfn_id,creator_db from lfn WHERE name = '%s'" % lfn
     try:
       self.cursor.execute(sql)
       self.db.commit()
@@ -269,8 +269,8 @@ class StateSegmentDatabase:
         raise StateSegmentDatabaseException, msg
 
       # create the entry in the lfn table for this file
-      sql = "INSERT INTO lfn (process_id,lfn_id,lfn,start_time,end_time) "
-      sql += "values (?,?,?,?,?)"
+      sql = "INSERT INTO lfn (process_id,lfn_id,name,start_time,end_time) "
+      sql += "VALUES (?,?,?,?,?)"
       try:
         self.cursor.execute(sql,(self.process_id,self.lfn_id,lfn,start,end))
         self.db.commit()
@@ -282,7 +282,7 @@ class StateSegmentDatabase:
           # someone may have just beaten us to inserting this file name
           # try another select to get the lfn_id and abort if it fails
           e_prev = e
-          sql = "SELECT lfn_id,creator_db from lfn WHERE lfn = '%s'" % lfn
+          sql = "SELECT lfn_id,creator_db from lfn WHERE name = '%s'" % lfn
           try:
             self.cursor.execute(sql)
             self.db.commit()
