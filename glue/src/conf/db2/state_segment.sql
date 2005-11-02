@@ -107,7 +107,7 @@ CREATE TRIGGER state_segment_i instead OF INSERT ON state_segment
       VALUES 
             (GENERATE_UNIQUE(),
               n.process_id,n.segment_id,n.segment_def_id,
-              CASE WHEN n.segment_def_cdb <> NULL
+              CASE WHEN n.segment_def_cdb IS NOT NULL
                 THEN n.segment_def_cdb
                 ELSE 1 -- segment_def_cdb
               END
@@ -119,7 +119,7 @@ CREATE TRIGGER state_segment_i instead OF INSERT ON state_segment
             (seg_lfn_map_id,process_id,segment_id,lfn_id,lfn_cdb)
       VALUES 
             (GENERATE_UNIQUE(),n.process_id,n.segment_id,n.lfn_id,
-              CASE WHEN n.lfn_cdb <> NULL
+              CASE WHEN n.lfn_cdb IS NOT NULL
                 THEN n.lfn_cdb
                 ELSE 1 -- lfn_cdb
               END
