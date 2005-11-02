@@ -53,6 +53,12 @@ foreach $file (@files)
             s/DEFAULT 1/DEFAULT $number/;
             print OUT $_;
         }
+        elsif($line =~ m/_cdb/ && $line =~ m/ELSE/)
+        {
+            $_ = $line;
+            s/ELSE 1/ELSE $number/;
+            print OUT $_;
+        }
 	else
 	{
 	    print OUT $line;
