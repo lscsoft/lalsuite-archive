@@ -249,7 +249,7 @@ INSERT INTO ASN.IBMQREP_TARGETS
 INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
  VALUES
- ('LFN0001', 'ASN.QM2_TO_QM1.DATAQ', 'CREATOR_DB', 'CREATOR_DB', 'N',
+ ('LFN0001', 'ASN.QM2_TO_QM1.DATAQ', 'CREATOR_DB', 'CREATOR_DB', 'Y',
  0)#
 INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
@@ -259,11 +259,11 @@ INSERT INTO ASN.IBMQREP_TRG_COLS
 INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
  VALUES
- ('LFN0001', 'ASN.QM2_TO_QM1.DATAQ', 'LFN_ID', 'LFN_ID', 'N', 2)#
+ ('LFN0001', 'ASN.QM2_TO_QM1.DATAQ', 'LFN_ID', 'LFN_ID', 'Y', 2)#
 INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
  VALUES
- ('LFN0001', 'ASN.QM2_TO_QM1.DATAQ', 'LFN', 'LFN', 'Y', 3)#
+ ('LFN0001', 'ASN.QM2_TO_QM1.DATAQ', 'NAME', 'NAME', 'N', 3)#
 INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
  VALUES
@@ -339,7 +339,7 @@ INSERT INTO ASN.IBMQREP_TRG_COLS
 INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
  VALUES
- ('GRIDCERT0001', 'ASN.QM2_TO_QM1.DATAQ', 'DN', 'DN', 'Y', 2)#
+ ('GRIDCERT0001', 'ASN.QM2_TO_QM1.DATAQ', 'DN', 'DN', 'N', 2)#
 INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
  VALUES
@@ -952,7 +952,7 @@ INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
  VALUES
  ('SEGMENT_DEFINER0001', 'ASN.QM2_TO_QM1.DATAQ', 'CREATOR_DB',
- 'CREATOR_DB', 'N', 0)#
+ 'CREATOR_DB', 'Y', 0)#
 INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
  VALUES
@@ -962,26 +962,26 @@ INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
  VALUES
  ('SEGMENT_DEFINER0001', 'ASN.QM2_TO_QM1.DATAQ', 'SEGMENT_DEF_ID',
- 'SEGMENT_DEF_ID', 'N', 2)#
+ 'SEGMENT_DEF_ID', 'Y', 2)#
 INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
  VALUES
- ('SEGMENT_DEFINER0001', 'ASN.QM2_TO_QM1.DATAQ', 'RUN', 'RUN', 'Y', 3)#
+ ('SEGMENT_DEFINER0001', 'ASN.QM2_TO_QM1.DATAQ', 'RUN', 'RUN', 'N', 3)#
 INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
  VALUES
- ('SEGMENT_DEFINER0001', 'ASN.QM2_TO_QM1.DATAQ', 'IFOS', 'IFOS', 'Y',
+ ('SEGMENT_DEFINER0001', 'ASN.QM2_TO_QM1.DATAQ', 'IFOS', 'IFOS', 'N',
  4)#
 INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
  VALUES
- ('SEGMENT_DEFINER0001', 'ASN.QM2_TO_QM1.DATAQ', 'NAME', 'NAME', 'Y',
+ ('SEGMENT_DEFINER0001', 'ASN.QM2_TO_QM1.DATAQ', 'NAME', 'NAME', 'N',
  5)#
 INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
  VALUES
  ('SEGMENT_DEFINER0001', 'ASN.QM2_TO_QM1.DATAQ', 'VERSION', 'VERSION',
- 'Y', 6)#
+ 'N', 6)#
 INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
  VALUES
@@ -1146,42 +1146,57 @@ INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
  VALUES
  ('SEGMENT_DEF_MAP0001', 'ASN.QM2_TO_QM1.DATAQ', 'CREATOR_DB',
- 'CREATOR_DB', 'N', 0)#
+ 'CREATOR_DB', 'Y', 0)#
 INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
  VALUES
  ('SEGMENT_DEF_MAP0001', 'ASN.QM2_TO_QM1.DATAQ', 'PROCESS_ID',
- 'PROCESS_ID', 'Y', 1)#
+ 'PROCESS_ID', 'N', 1)#
+INSERT INTO ASN.IBMQREP_TRG_COLS
+ (subname, recvq, target_colname, source_colname, is_key, target_colNo)
+ VALUES
+ ('SEGMENT_DEF_MAP0001', 'ASN.QM2_TO_QM1.DATAQ', 'SEG_DEF_MAP_ID',
+ 'SEG_DEF_MAP_ID', 'Y', 2)#
+INSERT INTO ASN.IBMQREP_TRG_COLS
+ (subname, recvq, target_colname, source_colname, is_key, target_colNo)
+ VALUES
+ ('SEGMENT_DEF_MAP0001', 'ASN.QM2_TO_QM1.DATAQ', 'SEGMENT_CDB',
+ 'SEGMENT_CDB', 'N', 3)#
 INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
  VALUES
  ('SEGMENT_DEF_MAP0001', 'ASN.QM2_TO_QM1.DATAQ', 'SEGMENT_ID',
- 'SEGMENT_ID', 'Y', 2)#
+ 'SEGMENT_ID', 'N', 4)#
+INSERT INTO ASN.IBMQREP_TRG_COLS
+ (subname, recvq, target_colname, source_colname, is_key, target_colNo)
+ VALUES
+ ('SEGMENT_DEF_MAP0001', 'ASN.QM2_TO_QM1.DATAQ', 'SEGMENT_DEF_CDB',
+ 'SEGMENT_DEF_CDB', 'N', 5)#
 INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
  VALUES
  ('SEGMENT_DEF_MAP0001', 'ASN.QM2_TO_QM1.DATAQ', 'SEGMENT_DEF_ID',
- 'SEGMENT_DEF_ID', 'Y', 3)#
+ 'SEGMENT_DEF_ID', 'N', 6)#
 INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
  VALUES
  ('SEGMENT_DEF_MAP0001', 'ASN.QM2_TO_QM1.DATAQ', 'STATE_VEC_MAP',
- 'STATE_VEC_MAP', 'N', 4)#
+ 'STATE_VEC_MAP', 'N', 7)#
 INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
  VALUES
  ('SEGMENT_DEF_MAP0001', 'ASN.QM2_TO_QM1.DATAQ', 'INSERTION_TIME',
- 'INSERTION_TIME', 'N', 5)#
+ 'INSERTION_TIME', 'N', 8)#
 INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
  VALUES
  ('SEGMENT_DEF_MAP0001', 'ASN.QM2_TO_QM1.DATAQ', 'ibmqrepVERTIME',
- 'ibmqrepVERTIME', 'N', 6)#
+ 'ibmqrepVERTIME', 'N', 9)#
 INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
  VALUES
  ('SEGMENT_DEF_MAP0001', 'ASN.QM2_TO_QM1.DATAQ', 'ibmqrepVERNODE',
- 'ibmqrepVERNODE', 'N', 7)#
+ 'ibmqrepVERNODE', 'N', 10)#
 CREATE TRIGGER LDBD.ASEGMENT_DEF_MMAP NO CASCADE BEFORE INSERT ON
  LDBD.SEGMENT_DEF_MAP
  REFERENCING NEW AS new FOR EACH ROW MODE DB2SQL 
@@ -1227,32 +1242,47 @@ INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
  VALUES
  ('SEGMENT_LFN_MAP0001', 'ASN.QM2_TO_QM1.DATAQ', 'PROCESS_ID',
- 'PROCESS_ID', 'Y', 1)#
+ 'PROCESS_ID', 'N', 1)#
+INSERT INTO ASN.IBMQREP_TRG_COLS
+ (subname, recvq, target_colname, source_colname, is_key, target_colNo)
+ VALUES
+ ('SEGMENT_LFN_MAP0001', 'ASN.QM2_TO_QM1.DATAQ', 'SEG_LFN_MAP_ID',
+ 'SEG_LFN_MAP_ID', 'Y', 2)#
+INSERT INTO ASN.IBMQREP_TRG_COLS
+ (subname, recvq, target_colname, source_colname, is_key, target_colNo)
+ VALUES
+ ('SEGMENT_LFN_MAP0001', 'ASN.QM2_TO_QM1.DATAQ', 'SEGMENT_CDB',
+ 'SEGMENT_CDB', 'N', 3)#
 INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
  VALUES
  ('SEGMENT_LFN_MAP0001', 'ASN.QM2_TO_QM1.DATAQ', 'SEGMENT_ID',
- 'SEGMENT_ID', 'Y', 2)#
+ 'SEGMENT_ID', 'N', 4)#
+INSERT INTO ASN.IBMQREP_TRG_COLS
+ (subname, recvq, target_colname, source_colname, is_key, target_colNo)
+ VALUES
+ ('SEGMENT_LFN_MAP0001', 'ASN.QM2_TO_QM1.DATAQ', 'LFN_CDB', 'LFN_CDB',
+ 'N', 5)#
 INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
  VALUES
  ('SEGMENT_LFN_MAP0001', 'ASN.QM2_TO_QM1.DATAQ', 'LFN_ID', 'LFN_ID',
- 'Y', 3)#
+ 'N', 6)#
 INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
  VALUES
  ('SEGMENT_LFN_MAP0001', 'ASN.QM2_TO_QM1.DATAQ', 'INSERTION_TIME',
- 'INSERTION_TIME', 'N', 4)#
+ 'INSERTION_TIME', 'N', 7)#
 INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
  VALUES
  ('SEGMENT_LFN_MAP0001', 'ASN.QM2_TO_QM1.DATAQ', 'ibmqrepVERTIME',
- 'ibmqrepVERTIME', 'N', 5)#
+ 'ibmqrepVERTIME', 'N', 8)#
 INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
  VALUES
  ('SEGMENT_LFN_MAP0001', 'ASN.QM2_TO_QM1.DATAQ', 'ibmqrepVERNODE',
- 'ibmqrepVERNODE', 'N', 6)#
+ 'ibmqrepVERNODE', 'N', 9)#
 CREATE TRIGGER LDBD.ASEGMENT_LFN_MMAP NO CASCADE BEFORE INSERT ON
  LDBD.SEGMENT_LFN_MAP
  REFERENCING NEW AS new FOR EACH ROW MODE DB2SQL 
@@ -2264,7 +2294,7 @@ INSERT INTO ASN.IBMQREP_SUBS
 INSERT INTO ASN.IBMQREP_SRC_COLS
  (subname, src_colname, is_key)
  VALUES
- ('LFN0002', 'CREATOR_DB', 0)#
+ ('LFN0002', 'CREATOR_DB', 2)#
 INSERT INTO ASN.IBMQREP_SRC_COLS
  (subname, src_colname, is_key)
  VALUES
@@ -2272,11 +2302,11 @@ INSERT INTO ASN.IBMQREP_SRC_COLS
 INSERT INTO ASN.IBMQREP_SRC_COLS
  (subname, src_colname, is_key)
  VALUES
- ('LFN0002', 'LFN_ID', 0)#
+ ('LFN0002', 'LFN_ID', 1)#
 INSERT INTO ASN.IBMQREP_SRC_COLS
  (subname, src_colname, is_key)
  VALUES
- ('LFN0002', 'LFN', 1)#
+ ('LFN0002', 'NAME', 0)#
 INSERT INTO ASN.IBMQREP_SRC_COLS
  (subname, src_colname, is_key)
  VALUES
@@ -2322,7 +2352,7 @@ INSERT INTO ASN.IBMQREP_SRC_COLS
 INSERT INTO ASN.IBMQREP_SRC_COLS
  (subname, src_colname, is_key)
  VALUES
- ('GRIDCERT0002', 'DN', 3)#
+ ('GRIDCERT0002', 'DN', 0)#
 INSERT INTO ASN.IBMQREP_SRC_COLS
  (subname, src_colname, is_key)
  VALUES
@@ -2691,7 +2721,7 @@ INSERT INTO ASN.IBMQREP_SUBS
 INSERT INTO ASN.IBMQREP_SRC_COLS
  (subname, src_colname, is_key)
  VALUES
- ('SEGMENT_DEFINER0002', 'CREATOR_DB', 0)#
+ ('SEGMENT_DEFINER0002', 'CREATOR_DB', 2)#
 INSERT INTO ASN.IBMQREP_SRC_COLS
  (subname, src_colname, is_key)
  VALUES
@@ -2699,23 +2729,23 @@ INSERT INTO ASN.IBMQREP_SRC_COLS
 INSERT INTO ASN.IBMQREP_SRC_COLS
  (subname, src_colname, is_key)
  VALUES
- ('SEGMENT_DEFINER0002', 'SEGMENT_DEF_ID', 0)#
+ ('SEGMENT_DEFINER0002', 'SEGMENT_DEF_ID', 1)#
 INSERT INTO ASN.IBMQREP_SRC_COLS
  (subname, src_colname, is_key)
  VALUES
- ('SEGMENT_DEFINER0002', 'RUN', 1)#
+ ('SEGMENT_DEFINER0002', 'RUN', 0)#
 INSERT INTO ASN.IBMQREP_SRC_COLS
  (subname, src_colname, is_key)
  VALUES
- ('SEGMENT_DEFINER0002', 'IFOS', 2)#
+ ('SEGMENT_DEFINER0002', 'IFOS', 0)#
 INSERT INTO ASN.IBMQREP_SRC_COLS
  (subname, src_colname, is_key)
  VALUES
- ('SEGMENT_DEFINER0002', 'NAME', 3)#
+ ('SEGMENT_DEFINER0002', 'NAME', 0)#
 INSERT INTO ASN.IBMQREP_SRC_COLS
  (subname, src_colname, is_key)
  VALUES
- ('SEGMENT_DEFINER0002', 'VERSION', 4)#
+ ('SEGMENT_DEFINER0002', 'VERSION', 0)#
 INSERT INTO ASN.IBMQREP_SRC_COLS
  (subname, src_colname, is_key)
  VALUES
@@ -2812,19 +2842,31 @@ INSERT INTO ASN.IBMQREP_SUBS
 INSERT INTO ASN.IBMQREP_SRC_COLS
  (subname, src_colname, is_key)
  VALUES
- ('SEGMENT_DEF_MAP0002', 'CREATOR_DB', 0)#
+ ('SEGMENT_DEF_MAP0002', 'CREATOR_DB', 2)#
 INSERT INTO ASN.IBMQREP_SRC_COLS
  (subname, src_colname, is_key)
  VALUES
- ('SEGMENT_DEF_MAP0002', 'PROCESS_ID', 1)#
+ ('SEGMENT_DEF_MAP0002', 'PROCESS_ID', 0)#
 INSERT INTO ASN.IBMQREP_SRC_COLS
  (subname, src_colname, is_key)
  VALUES
- ('SEGMENT_DEF_MAP0002', 'SEGMENT_ID', 2)#
+ ('SEGMENT_DEF_MAP0002', 'SEG_DEF_MAP_ID', 1)#
 INSERT INTO ASN.IBMQREP_SRC_COLS
  (subname, src_colname, is_key)
  VALUES
- ('SEGMENT_DEF_MAP0002', 'SEGMENT_DEF_ID', 3)#
+ ('SEGMENT_DEF_MAP0002', 'SEGMENT_CDB', 0)#
+INSERT INTO ASN.IBMQREP_SRC_COLS
+ (subname, src_colname, is_key)
+ VALUES
+ ('SEGMENT_DEF_MAP0002', 'SEGMENT_ID', 0)#
+INSERT INTO ASN.IBMQREP_SRC_COLS
+ (subname, src_colname, is_key)
+ VALUES
+ ('SEGMENT_DEF_MAP0002', 'SEGMENT_DEF_CDB', 0)#
+INSERT INTO ASN.IBMQREP_SRC_COLS
+ (subname, src_colname, is_key)
+ VALUES
+ ('SEGMENT_DEF_MAP0002', 'SEGMENT_DEF_ID', 0)#
 INSERT INTO ASN.IBMQREP_SRC_COLS
  (subname, src_colname, is_key)
  VALUES
@@ -2855,19 +2897,31 @@ INSERT INTO ASN.IBMQREP_SUBS
 INSERT INTO ASN.IBMQREP_SRC_COLS
  (subname, src_colname, is_key)
  VALUES
- ('SEGMENT_LFN_MAP0002', 'CREATOR_DB', 1)#
+ ('SEGMENT_LFN_MAP0002', 'CREATOR_DB', 2)#
 INSERT INTO ASN.IBMQREP_SRC_COLS
  (subname, src_colname, is_key)
  VALUES
- ('SEGMENT_LFN_MAP0002', 'PROCESS_ID', 2)#
+ ('SEGMENT_LFN_MAP0002', 'PROCESS_ID', 0)#
 INSERT INTO ASN.IBMQREP_SRC_COLS
  (subname, src_colname, is_key)
  VALUES
- ('SEGMENT_LFN_MAP0002', 'SEGMENT_ID', 3)#
+ ('SEGMENT_LFN_MAP0002', 'SEG_LFN_MAP_ID', 1)#
 INSERT INTO ASN.IBMQREP_SRC_COLS
  (subname, src_colname, is_key)
  VALUES
- ('SEGMENT_LFN_MAP0002', 'LFN_ID', 4)#
+ ('SEGMENT_LFN_MAP0002', 'SEGMENT_CDB', 0)#
+INSERT INTO ASN.IBMQREP_SRC_COLS
+ (subname, src_colname, is_key)
+ VALUES
+ ('SEGMENT_LFN_MAP0002', 'SEGMENT_ID', 0)#
+INSERT INTO ASN.IBMQREP_SRC_COLS
+ (subname, src_colname, is_key)
+ VALUES
+ ('SEGMENT_LFN_MAP0002', 'LFN_CDB', 0)#
+INSERT INTO ASN.IBMQREP_SRC_COLS
+ (subname, src_colname, is_key)
+ VALUES
+ ('SEGMENT_LFN_MAP0002', 'LFN_ID', 0)#
 INSERT INTO ASN.IBMQREP_SRC_COLS
  (subname, src_colname, is_key)
  VALUES
@@ -3613,7 +3667,7 @@ INSERT INTO ASN.IBMQREP_TARGETS
 INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
  VALUES
- ('LFN0003', 'ASN.QM3_TO_QM1.DATAQ', 'CREATOR_DB', 'CREATOR_DB', 'N',
+ ('LFN0003', 'ASN.QM3_TO_QM1.DATAQ', 'CREATOR_DB', 'CREATOR_DB', 'Y',
  0)#
 INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
@@ -3623,11 +3677,11 @@ INSERT INTO ASN.IBMQREP_TRG_COLS
 INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
  VALUES
- ('LFN0003', 'ASN.QM3_TO_QM1.DATAQ', 'LFN_ID', 'LFN_ID', 'N', 2)#
+ ('LFN0003', 'ASN.QM3_TO_QM1.DATAQ', 'LFN_ID', 'LFN_ID', 'Y', 2)#
 INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
  VALUES
- ('LFN0003', 'ASN.QM3_TO_QM1.DATAQ', 'LFN', 'LFN', 'Y', 3)#
+ ('LFN0003', 'ASN.QM3_TO_QM1.DATAQ', 'NAME', 'NAME', 'N', 3)#
 INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
  VALUES
@@ -3678,7 +3732,7 @@ INSERT INTO ASN.IBMQREP_TRG_COLS
 INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
  VALUES
- ('GRIDCERT0003', 'ASN.QM3_TO_QM1.DATAQ', 'DN', 'DN', 'Y', 2)#
+ ('GRIDCERT0003', 'ASN.QM3_TO_QM1.DATAQ', 'DN', 'DN', 'N', 2)#
 INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
  VALUES
@@ -4105,7 +4159,7 @@ INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
  VALUES
  ('SEGMENT_DEFINER0003', 'ASN.QM3_TO_QM1.DATAQ', 'CREATOR_DB',
- 'CREATOR_DB', 'N', 0)#
+ 'CREATOR_DB', 'Y', 0)#
 INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
  VALUES
@@ -4115,26 +4169,26 @@ INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
  VALUES
  ('SEGMENT_DEFINER0003', 'ASN.QM3_TO_QM1.DATAQ', 'SEGMENT_DEF_ID',
- 'SEGMENT_DEF_ID', 'N', 2)#
+ 'SEGMENT_DEF_ID', 'Y', 2)#
 INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
  VALUES
- ('SEGMENT_DEFINER0003', 'ASN.QM3_TO_QM1.DATAQ', 'RUN', 'RUN', 'Y', 3)#
+ ('SEGMENT_DEFINER0003', 'ASN.QM3_TO_QM1.DATAQ', 'RUN', 'RUN', 'N', 3)#
 INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
  VALUES
- ('SEGMENT_DEFINER0003', 'ASN.QM3_TO_QM1.DATAQ', 'IFOS', 'IFOS', 'Y',
+ ('SEGMENT_DEFINER0003', 'ASN.QM3_TO_QM1.DATAQ', 'IFOS', 'IFOS', 'N',
  4)#
 INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
  VALUES
- ('SEGMENT_DEFINER0003', 'ASN.QM3_TO_QM1.DATAQ', 'NAME', 'NAME', 'Y',
+ ('SEGMENT_DEFINER0003', 'ASN.QM3_TO_QM1.DATAQ', 'NAME', 'NAME', 'N',
  5)#
 INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
  VALUES
  ('SEGMENT_DEFINER0003', 'ASN.QM3_TO_QM1.DATAQ', 'VERSION', 'VERSION',
- 'Y', 6)#
+ 'N', 6)#
 INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
  VALUES
@@ -4245,42 +4299,57 @@ INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
  VALUES
  ('SEGMENT_DEF_MAP0003', 'ASN.QM3_TO_QM1.DATAQ', 'CREATOR_DB',
- 'CREATOR_DB', 'N', 0)#
+ 'CREATOR_DB', 'Y', 0)#
 INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
  VALUES
  ('SEGMENT_DEF_MAP0003', 'ASN.QM3_TO_QM1.DATAQ', 'PROCESS_ID',
- 'PROCESS_ID', 'Y', 1)#
+ 'PROCESS_ID', 'N', 1)#
+INSERT INTO ASN.IBMQREP_TRG_COLS
+ (subname, recvq, target_colname, source_colname, is_key, target_colNo)
+ VALUES
+ ('SEGMENT_DEF_MAP0003', 'ASN.QM3_TO_QM1.DATAQ', 'SEG_DEF_MAP_ID',
+ 'SEG_DEF_MAP_ID', 'Y', 2)#
+INSERT INTO ASN.IBMQREP_TRG_COLS
+ (subname, recvq, target_colname, source_colname, is_key, target_colNo)
+ VALUES
+ ('SEGMENT_DEF_MAP0003', 'ASN.QM3_TO_QM1.DATAQ', 'SEGMENT_CDB',
+ 'SEGMENT_CDB', 'N', 3)#
 INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
  VALUES
  ('SEGMENT_DEF_MAP0003', 'ASN.QM3_TO_QM1.DATAQ', 'SEGMENT_ID',
- 'SEGMENT_ID', 'Y', 2)#
+ 'SEGMENT_ID', 'N', 4)#
+INSERT INTO ASN.IBMQREP_TRG_COLS
+ (subname, recvq, target_colname, source_colname, is_key, target_colNo)
+ VALUES
+ ('SEGMENT_DEF_MAP0003', 'ASN.QM3_TO_QM1.DATAQ', 'SEGMENT_DEF_CDB',
+ 'SEGMENT_DEF_CDB', 'N', 5)#
 INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
  VALUES
  ('SEGMENT_DEF_MAP0003', 'ASN.QM3_TO_QM1.DATAQ', 'SEGMENT_DEF_ID',
- 'SEGMENT_DEF_ID', 'Y', 3)#
+ 'SEGMENT_DEF_ID', 'N', 6)#
 INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
  VALUES
  ('SEGMENT_DEF_MAP0003', 'ASN.QM3_TO_QM1.DATAQ', 'STATE_VEC_MAP',
- 'STATE_VEC_MAP', 'N', 4)#
+ 'STATE_VEC_MAP', 'N', 7)#
 INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
  VALUES
  ('SEGMENT_DEF_MAP0003', 'ASN.QM3_TO_QM1.DATAQ', 'INSERTION_TIME',
- 'INSERTION_TIME', 'N', 5)#
+ 'INSERTION_TIME', 'N', 8)#
 INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
  VALUES
  ('SEGMENT_DEF_MAP0003', 'ASN.QM3_TO_QM1.DATAQ', 'ibmqrepVERTIME',
- 'ibmqrepVERTIME', 'N', 6)#
+ 'ibmqrepVERTIME', 'N', 9)#
 INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
  VALUES
  ('SEGMENT_DEF_MAP0003', 'ASN.QM3_TO_QM1.DATAQ', 'ibmqrepVERNODE',
- 'ibmqrepVERNODE', 'N', 7)#
+ 'ibmqrepVERNODE', 'N', 10)#
 INSERT INTO ASN.IBMQREP_TARGETS
  (subname, recvq, source_owner, source_name, target_owner, target_name
 , source_server, source_alias, target_type, state, subtype,
@@ -4299,32 +4368,47 @@ INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
  VALUES
  ('SEGMENT_LFN_MAP0003', 'ASN.QM3_TO_QM1.DATAQ', 'PROCESS_ID',
- 'PROCESS_ID', 'Y', 1)#
+ 'PROCESS_ID', 'N', 1)#
+INSERT INTO ASN.IBMQREP_TRG_COLS
+ (subname, recvq, target_colname, source_colname, is_key, target_colNo)
+ VALUES
+ ('SEGMENT_LFN_MAP0003', 'ASN.QM3_TO_QM1.DATAQ', 'SEG_LFN_MAP_ID',
+ 'SEG_LFN_MAP_ID', 'Y', 2)#
+INSERT INTO ASN.IBMQREP_TRG_COLS
+ (subname, recvq, target_colname, source_colname, is_key, target_colNo)
+ VALUES
+ ('SEGMENT_LFN_MAP0003', 'ASN.QM3_TO_QM1.DATAQ', 'SEGMENT_CDB',
+ 'SEGMENT_CDB', 'N', 3)#
 INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
  VALUES
  ('SEGMENT_LFN_MAP0003', 'ASN.QM3_TO_QM1.DATAQ', 'SEGMENT_ID',
- 'SEGMENT_ID', 'Y', 2)#
+ 'SEGMENT_ID', 'N', 4)#
+INSERT INTO ASN.IBMQREP_TRG_COLS
+ (subname, recvq, target_colname, source_colname, is_key, target_colNo)
+ VALUES
+ ('SEGMENT_LFN_MAP0003', 'ASN.QM3_TO_QM1.DATAQ', 'LFN_CDB', 'LFN_CDB',
+ 'N', 5)#
 INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
  VALUES
  ('SEGMENT_LFN_MAP0003', 'ASN.QM3_TO_QM1.DATAQ', 'LFN_ID', 'LFN_ID',
- 'Y', 3)#
+ 'N', 6)#
 INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
  VALUES
  ('SEGMENT_LFN_MAP0003', 'ASN.QM3_TO_QM1.DATAQ', 'INSERTION_TIME',
- 'INSERTION_TIME', 'N', 4)#
+ 'INSERTION_TIME', 'N', 7)#
 INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
  VALUES
  ('SEGMENT_LFN_MAP0003', 'ASN.QM3_TO_QM1.DATAQ', 'ibmqrepVERTIME',
- 'ibmqrepVERTIME', 'N', 5)#
+ 'ibmqrepVERTIME', 'N', 8)#
 INSERT INTO ASN.IBMQREP_TRG_COLS
  (subname, recvq, target_colname, source_colname, is_key, target_colNo)
  VALUES
  ('SEGMENT_LFN_MAP0003', 'ASN.QM3_TO_QM1.DATAQ', 'ibmqrepVERNODE',
- 'ibmqrepVERNODE', 'N', 6)#
+ 'ibmqrepVERNODE', 'N', 9)#
 INSERT INTO ASN.IBMQREP_TARGETS
  (subname, recvq, source_owner, source_name, target_owner, target_name
 , source_server, source_alias, target_type, state, subtype,
@@ -5152,7 +5236,7 @@ INSERT INTO ASN.IBMQREP_SUBS
 INSERT INTO ASN.IBMQREP_SRC_COLS
  (subname, src_colname, is_key)
  VALUES
- ('LFN0004', 'CREATOR_DB', 0)#
+ ('LFN0004', 'CREATOR_DB', 2)#
 INSERT INTO ASN.IBMQREP_SRC_COLS
  (subname, src_colname, is_key)
  VALUES
@@ -5160,11 +5244,11 @@ INSERT INTO ASN.IBMQREP_SRC_COLS
 INSERT INTO ASN.IBMQREP_SRC_COLS
  (subname, src_colname, is_key)
  VALUES
- ('LFN0004', 'LFN_ID', 0)#
+ ('LFN0004', 'LFN_ID', 1)#
 INSERT INTO ASN.IBMQREP_SRC_COLS
  (subname, src_colname, is_key)
  VALUES
- ('LFN0004', 'LFN', 1)#
+ ('LFN0004', 'NAME', 0)#
 INSERT INTO ASN.IBMQREP_SRC_COLS
  (subname, src_colname, is_key)
  VALUES
@@ -5210,7 +5294,7 @@ INSERT INTO ASN.IBMQREP_SRC_COLS
 INSERT INTO ASN.IBMQREP_SRC_COLS
  (subname, src_colname, is_key)
  VALUES
- ('GRIDCERT0004', 'DN', 3)#
+ ('GRIDCERT0004', 'DN', 0)#
 INSERT INTO ASN.IBMQREP_SRC_COLS
  (subname, src_colname, is_key)
  VALUES
@@ -5579,7 +5663,7 @@ INSERT INTO ASN.IBMQREP_SUBS
 INSERT INTO ASN.IBMQREP_SRC_COLS
  (subname, src_colname, is_key)
  VALUES
- ('SEGMENT_DEFINER0004', 'CREATOR_DB', 0)#
+ ('SEGMENT_DEFINER0004', 'CREATOR_DB', 2)#
 INSERT INTO ASN.IBMQREP_SRC_COLS
  (subname, src_colname, is_key)
  VALUES
@@ -5587,23 +5671,23 @@ INSERT INTO ASN.IBMQREP_SRC_COLS
 INSERT INTO ASN.IBMQREP_SRC_COLS
  (subname, src_colname, is_key)
  VALUES
- ('SEGMENT_DEFINER0004', 'SEGMENT_DEF_ID', 0)#
+ ('SEGMENT_DEFINER0004', 'SEGMENT_DEF_ID', 1)#
 INSERT INTO ASN.IBMQREP_SRC_COLS
  (subname, src_colname, is_key)
  VALUES
- ('SEGMENT_DEFINER0004', 'RUN', 1)#
+ ('SEGMENT_DEFINER0004', 'RUN', 0)#
 INSERT INTO ASN.IBMQREP_SRC_COLS
  (subname, src_colname, is_key)
  VALUES
- ('SEGMENT_DEFINER0004', 'IFOS', 2)#
+ ('SEGMENT_DEFINER0004', 'IFOS', 0)#
 INSERT INTO ASN.IBMQREP_SRC_COLS
  (subname, src_colname, is_key)
  VALUES
- ('SEGMENT_DEFINER0004', 'NAME', 3)#
+ ('SEGMENT_DEFINER0004', 'NAME', 0)#
 INSERT INTO ASN.IBMQREP_SRC_COLS
  (subname, src_colname, is_key)
  VALUES
- ('SEGMENT_DEFINER0004', 'VERSION', 4)#
+ ('SEGMENT_DEFINER0004', 'VERSION', 0)#
 INSERT INTO ASN.IBMQREP_SRC_COLS
  (subname, src_colname, is_key)
  VALUES
@@ -5700,19 +5784,31 @@ INSERT INTO ASN.IBMQREP_SUBS
 INSERT INTO ASN.IBMQREP_SRC_COLS
  (subname, src_colname, is_key)
  VALUES
- ('SEGMENT_DEF_MAP0004', 'CREATOR_DB', 0)#
+ ('SEGMENT_DEF_MAP0004', 'CREATOR_DB', 2)#
 INSERT INTO ASN.IBMQREP_SRC_COLS
  (subname, src_colname, is_key)
  VALUES
- ('SEGMENT_DEF_MAP0004', 'PROCESS_ID', 1)#
+ ('SEGMENT_DEF_MAP0004', 'PROCESS_ID', 0)#
 INSERT INTO ASN.IBMQREP_SRC_COLS
  (subname, src_colname, is_key)
  VALUES
- ('SEGMENT_DEF_MAP0004', 'SEGMENT_ID', 2)#
+ ('SEGMENT_DEF_MAP0004', 'SEG_DEF_MAP_ID', 1)#
 INSERT INTO ASN.IBMQREP_SRC_COLS
  (subname, src_colname, is_key)
  VALUES
- ('SEGMENT_DEF_MAP0004', 'SEGMENT_DEF_ID', 3)#
+ ('SEGMENT_DEF_MAP0004', 'SEGMENT_CDB', 0)#
+INSERT INTO ASN.IBMQREP_SRC_COLS
+ (subname, src_colname, is_key)
+ VALUES
+ ('SEGMENT_DEF_MAP0004', 'SEGMENT_ID', 0)#
+INSERT INTO ASN.IBMQREP_SRC_COLS
+ (subname, src_colname, is_key)
+ VALUES
+ ('SEGMENT_DEF_MAP0004', 'SEGMENT_DEF_CDB', 0)#
+INSERT INTO ASN.IBMQREP_SRC_COLS
+ (subname, src_colname, is_key)
+ VALUES
+ ('SEGMENT_DEF_MAP0004', 'SEGMENT_DEF_ID', 0)#
 INSERT INTO ASN.IBMQREP_SRC_COLS
  (subname, src_colname, is_key)
  VALUES
@@ -5743,19 +5839,31 @@ INSERT INTO ASN.IBMQREP_SUBS
 INSERT INTO ASN.IBMQREP_SRC_COLS
  (subname, src_colname, is_key)
  VALUES
- ('SEGMENT_LFN_MAP0004', 'CREATOR_DB', 1)#
+ ('SEGMENT_LFN_MAP0004', 'CREATOR_DB', 2)#
 INSERT INTO ASN.IBMQREP_SRC_COLS
  (subname, src_colname, is_key)
  VALUES
- ('SEGMENT_LFN_MAP0004', 'PROCESS_ID', 2)#
+ ('SEGMENT_LFN_MAP0004', 'PROCESS_ID', 0)#
 INSERT INTO ASN.IBMQREP_SRC_COLS
  (subname, src_colname, is_key)
  VALUES
- ('SEGMENT_LFN_MAP0004', 'SEGMENT_ID', 3)#
+ ('SEGMENT_LFN_MAP0004', 'SEG_LFN_MAP_ID', 1)#
 INSERT INTO ASN.IBMQREP_SRC_COLS
  (subname, src_colname, is_key)
  VALUES
- ('SEGMENT_LFN_MAP0004', 'LFN_ID', 4)#
+ ('SEGMENT_LFN_MAP0004', 'SEGMENT_CDB', 0)#
+INSERT INTO ASN.IBMQREP_SRC_COLS
+ (subname, src_colname, is_key)
+ VALUES
+ ('SEGMENT_LFN_MAP0004', 'SEGMENT_ID', 0)#
+INSERT INTO ASN.IBMQREP_SRC_COLS
+ (subname, src_colname, is_key)
+ VALUES
+ ('SEGMENT_LFN_MAP0004', 'LFN_CDB', 0)#
+INSERT INTO ASN.IBMQREP_SRC_COLS
+ (subname, src_colname, is_key)
+ VALUES
+ ('SEGMENT_LFN_MAP0004', 'LFN_ID', 0)#
 INSERT INTO ASN.IBMQREP_SRC_COLS
  (subname, src_colname, is_key)
  VALUES
