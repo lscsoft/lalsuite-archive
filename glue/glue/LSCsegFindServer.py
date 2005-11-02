@@ -366,8 +366,8 @@ class ServerHandler(SocketServer.BaseRequestHandler):
           sql += "segment,segment_def_map,segment_definer WHERE "
           sql += "segment.segment_id = segment_def_map.segment_id AND "
           sql += "segment.creator_db = segment_def_map.segment_cdb AND "
-          sql += "segment_def_map.segment_def_id = segment_definer.segment_def_id AND"
-          sql += "segment_def_map.segment_def_cdb = segment_definer.creator_db AND"
+          sql += "segment_def_map.segment_def_id = segment_definer.segment_def_id AND "
+          sql += "segment_def_map.segment_def_cdb = segment_definer.creator_db AND "
           sql += "((segment.start_time BETWEEN %s AND %s) OR " % \
             (start, end)
           sql += "(segment.end_time BETWEEN %s AND %s)) " % \
