@@ -243,7 +243,7 @@ class StateSegmentDatabase:
         long(self.framereg.search(lfn).group(4))
     
     # try and get an lfn_id for this file
-    sql = "SELECT lfn_id,lfn_cdb from lfn WHERE name = '%s'" % lfn
+    sql = "SELECT lfn_id,creator_db from lfn WHERE name = '%s'" % lfn
     try:
       self.cursor.execute(sql)
       self.db.commit()
