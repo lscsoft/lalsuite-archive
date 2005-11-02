@@ -93,6 +93,8 @@ for line in statefile.readlines():
   sv = int(segmatch[4])
   if usesegnum:
     segnum = int(segmatch[6])
+    if segnum != 65535:
+      segnum = None
     ifo = str(segmatch[7])
   else:
     segnum = None
