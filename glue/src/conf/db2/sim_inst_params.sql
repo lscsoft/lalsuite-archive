@@ -5,7 +5,7 @@ CREATE TABLE sim_inst_params
 -- Simulation instance id
       simulation_id               CHAR(13) FOR BIT DATA NOT NULL,
 -- LIGO/LSC site that created this entry
-      creator_db         INTEGER NOT NULL WITH DEFAULT 1, 
+      creator_db         INTEGER NOT NULL WITH DEFAULT 1,
 -- Parameter name
       name               VARCHAR(24) NOT NULL, 
 -- Parameter descrition
