@@ -269,7 +269,7 @@ class StateSegmentDatabase:
 
       # create the entry in the lfn table for this file
       sql = "INSERT INTO lfn (process_id,lfn_id,name,start_time,end_time) "
-      sql += "values (?,?,?,?,?)"
+      sql += "VALUES (?,?,?,?,?)"
       try:
         self.cursor.execute(sql,(self.process_id,self.lfn_id[0],lfn,start,end))
         self.db.commit()
