@@ -20,7 +20,7 @@ CREATE TABLE lfn
       name               VARCHAR(255) NOT NULL,
 
 -- optional information, if this file conforms to the frame file syntax
-      ifos               VARCHAR(32)
+      ifos               VARCHAR(32),
       tag                VARCHAR(128),
       start_time         INTEGER,
       duration           INTEGER,
