@@ -149,6 +149,13 @@ class coincInspiralTable:
     Return the number of rows in the resulting table
     """
     return len(self.table)
+  
+  def append(self, table):
+    """
+    Appends another table to the current table
+    """
+    self.table.extend(table.table);
+
 
   def mkarray(self, colname, ifoname):
     mylist = []
