@@ -166,7 +166,7 @@ class StateSegmentDatabase:
       raise StateSegmentDatabaseException, e
 
     # build a dictionary of the state vector types
-    sql = "SELECT ifos, state_vec_major, state_vec_minor, segment_def_id "
+    sql = "SELECT ifos, state_vec_major, state_vec_minor, segment_def_id, creator_db "
     sql += "FROM segment_definer WHERE state_vec_major IS NOT NULL "
     sql += "AND state_vec_minor IS NOT NULL AND run = '%s'" % self.run
 
@@ -179,7 +179,7 @@ class StateSegmentDatabase:
       raise StateSegmentDatabaseException, e
 
     for r in result:
-      self.state_vec[r[0].strip()][tuple([r[1],r[2]])] = r[3]
+      self.state_vec[r[0].strip()][tuple([r[1],r[2]])] = (r[3],r[4])
 
     if self.debug:
       print "DEBUG: current state known state vec types are: "
@@ -243,7 +243,7 @@ class StateSegmentDatabase:
         long(self.framereg.search(lfn).group(4))
     
     # try and get an lfn_id for this file
-    sql = "SELECT lfn_id from lfn WHERE lfn = '%s'" % lfn
+    sql = "SELECT lfn_id,lfn_cdb from lfn WHERE name = '%s'" % lfn
     try:
       self.cursor.execute(sql)
       self.db.commit()
@@ -254,7 +254,7 @@ class StateSegmentDatabase:
 
     if result:
       # use the lfn_id returned by the database and raise an exception
-      self.lfn_id = result[0]
+      self.lfn_id = (result[0],result[1])
       raise StateSegmentDatabaseLFNExistsException
 
     else:
@@ -262,13 +262,13 @@ class StateSegmentDatabase:
       sql = "VALUES GENERATE_UNIQUE()"
       try:
         self.cursor.execute(sql)
-        self.lfn_id = self.cursor.fetchone()[0]
+        self.lfn_id = (self.cursor.fetchone()[0],None)
       except Exception, e:
         msg = "Unable to generate a new lfn_id (%s): %s" % (lfn,e)
         raise StateSegmentDatabaseException, msg
 
       # create the entry in the lfn table for this file
-      sql = "INSERT INTO lfn (process_id,lfn_id,lfn,start_time,end_time) "
+      sql = "INSERT INTO lfn (process_id,lfn_id,name,start_time,end_time) "
       sql += "values (?,?,?,?,?)"
       try:
         self.cursor.execute(sql,(self.process_id,self.lfn_id,lfn,start,end))
@@ -281,11 +281,12 @@ class StateSegmentDatabase:
           # someone may have just beaten us to inserting this file name
           # try another select to get the lfn_id and abort if it fails
           e_prev = e
-          sql = "SELECT lfn_id from lfn WHERE lfn = '%s'" % lfn
+          sql = "SELECT lfn_id, creator_db from lfn WHERE name = '%s'" % lfn
           try:
             self.cursor.execute(sql)
             self.db.commit()
-            self.lfn_id = self.cursor.fetchone()[0]
+            result = self.cursor.fetchone()
+            self.lfn_id = (result[0],result[1])
           except Exception, e:
             msg = "Unable to resolve race on lfn_id (%s) caused by %s: %s" \
               % (lfn,e_prev,e)
@@ -326,7 +327,7 @@ class StateSegmentDatabase:
       sql = "VALUES GENERATE_UNIQUE()"
       try:
         self.cursor.execute(sql)
-        self.state_vec[ifo][(ver,val)] = self.cursor.fetchone()[0]
+        self.state_vec[ifo][(ver,val)] = (self.cursor.fetchone()[0],None)
       except Exception, e:
         msg = "Could not generate a unique segment_def_id: %s" % e
         raise StateSegmentDatabaseException, msg
@@ -349,13 +350,14 @@ class StateSegmentDatabase:
           # someone may have just beaten us to inserting this segment_definer
           # try another select to get the segment_def_id and abort if it fails
           e_prev = e
-          sql = "SELECT segment_def_id FROM segment_definer WHERE "
+          sql = "SELECT segment_def_id,creator_db FROM segment_definer WHERE "
           sql += "run = '" + self.run + "' AND ifos = '" + ifo + "' AND "
           sql += "state_vec_major = %d AND state_vec_minor = %d" % (ver,val)
           try:
             self.cursor.execute(sql)
             self.db.commit()
-            self.state_vec[ifo][(ver,val)] = self.cursor.fetchone()[0]
+            result = self.cursor.fetchone()
+            self.state_vec[ifo][(ver,val)] = (result[0],result[1])
           except Exception, e:
             msg = "Unable to resolve race on segment_def_id caused by %s: %s" \
               % (e_prev,e)
@@ -375,8 +377,9 @@ class StateSegmentDatabase:
           (ifo,ver,val)), 
         print tuple([self.state_vec[ifo][(ver,val)]])
 
-    # save the state segment_def_id for use below
+    # save the id values for use below
     sv_id = self.state_vec[ifo][(ver,val)]
+    lfn_id = self.lfn_id
 
     # generate a unique id for the segment we are going to insert
     sql = "VALUES GENERATE_UNIQUE()"
@@ -387,15 +390,45 @@ class StateSegmentDatabase:
       msg = "Unable to generate unique segment_id for segment: %s" % e
       raise StateSegmentDatabaseException, e
 
-    # insert the segment
-    sql = "INSERT INTO state_segment (process_id,segment_id,segment_def_id,"
-    sql += "start_time,start_time_ns,end_time,end_time_ns,segnum,lfn_id)"
-    sql += "VALUES (?,?,?,?,?,?,?,?,?)"
+    # the base sql statement. what we append to this is determined by if we
+    # need to populate a specific creator_db field in the segment_def_map
+    # of segment_lfn_map columns
+    sql = "INSERT INTO state_segment (process_id,segment_id,"
+    sql += "start_time,start_time_ns,end_time,end_time_ns,segnum,"
+    sql += "segment_def_id,lfn_id"
 
+    sqlexec = "self.cursor.execute(sql, (self.process_id,segment_id,"
+    sqlexec += "start_time,start_time_ns,end_time,end_time_ns,segnum"
+    sqlexec += "sv_id[0],lfn_id[0]"
+    
+    if not sv_id[1] and not lfn_id[1]:
+      # everything is local to this database, so we do not need to worry
+      # about any creator_db fields, so just let the database assign defaults
+      sql += ") VALUES (?,?,?,?,?,?,?,?,?)"
+      sqlexec += "))"
+    elif sv_id[1] and not lfn_id[1]:
+      # the state definition is already defined, so we must take care to 
+      # set the creator_db to the correct value in the map. the lfn_id has
+      # been defined locally, so we can leave the lfn creator_db to the 
+      # default value asigned by the database
+      sql += ",segment_def_cdb) VALUES (?,?,?,?,?,?,?,?,?,?)"
+      sqlexec += ",sv_id[1]))"
+    elif not sv_id[1] and lfn_id[1]:
+      # the lfn is already defined, so we must take care to set the creator_db
+      # to the correct value in the map. the segment_def_id has been defined
+      # locally, so we can leave the segment_definer creator_db to the default
+      # value asigned by the database
+      sql += ",lfn_cdb) VALUES (?,?,?,?,?,?,?,?,?,?)"
+      sqlexec += ",lfn_id[1]))"
+    elif sv_id[1] and lfn_id[1]:
+      # both the lfn id and the segment_definer id have already be defined,
+      # so we must populate the creator_db parts of the map
+      sql += ",segment_def_cdb,lfn_cdb) VALUES (?,?,?,?,?,?,?,?,?,?,?)"
+      sqlexec += ",sv_id[1],lfn_id[1]))"
+      
     for attempt in range(3):
       try:
-        self.cursor.execute(sql, (self.process_id,segment_id,sv_id,
-          start_time,start_time_ns,end_time,end_time_ns,segnum,self.lfn_id))
+        eval(sqlexec)
         self.db.commit()
         break
 
