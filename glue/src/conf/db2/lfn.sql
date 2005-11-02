@@ -23,7 +23,7 @@ CREATE TABLE lfn
       ifos               VARCHAR(32),
       tag                VARCHAR(128),
       start_time         INTEGER,
-      duration           INTEGER,
+      end_time           INTEGER,
       extention          VARCHAR(6),
       comment            VARCHAR(240),
 
