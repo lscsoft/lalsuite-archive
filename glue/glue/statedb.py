@@ -339,7 +339,8 @@ class StateSegmentDatabase:
       sql += "(?,?,?,?,?,?,?,?,?)"
 
       try:
-        self.cursor.execute(sql,(self.process_id, self.state_vec[ifo][(ver,val)], 
+        self.cursor.execute(sql,(self.process_id, 
+          self.state_vec[ifo][(ver,val)][0], 
           self.run, ifo, 'STATEVEC.%d.%d' % (ver, val), 0, 
           'Created automatically by StateSegmentDatabase', ver, val))
         self.db.commit()
