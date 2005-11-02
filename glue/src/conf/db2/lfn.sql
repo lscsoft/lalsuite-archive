@@ -25,7 +25,7 @@ CREATE TABLE lfn
       start_time         INTEGER,
       duration           INTEGER,
       extention          VARCHAR(6),
-      comment            VARCHAR(240)
+      comment            VARCHAR(240),
 
 -- Insertion time (automatically assigned by the database)
       insertion_time     TIMESTAMP WITH DEFAULT CURRENT TIMESTAMP,
