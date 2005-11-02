@@ -5,7 +5,7 @@ CREATE TABLE waveburst_mime
 -- Process which generated this entry
       process_id         CHAR(13) FOR BIT DATA NOT NULL, 
 -- LIGO/LSC site that created this entry
-      creator_db         INTEGER NOT NULL WITH DEFAULT 1, 
+      creator_db         INTEGER NOT NULL WITH DEFAULT 1,
 -- Unique identifier for this event
       event_id           CHAR(13) FOR BIT DATA NOT NULL, 
 -- Description of BLOB format if different from t_size by f_size array

@@ -4,7 +4,7 @@ CREATE TABLE sngl_block
 
 
 -- Database which created this entry
-       creator_db         INTEGER NOT NULL WITH DEFAULT 1,
+        creator_db         INTEGER NOT NULL WITH DEFAULT 1,
 
 
 -- INFORMATION ABOUT THE PROCESS WHICH GENERATED THIS EVENT
