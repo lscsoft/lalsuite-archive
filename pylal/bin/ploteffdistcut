@@ -185,7 +185,9 @@ if opts.dist_snr:
   xlabel('snr of trigger')
   ylabel('fractional difference in eff. distance')
   legend(leg)
- 
+  if opts.figure_name:  
+    savefig(opts.figure_name + "_eff_dist_cut.png")
+
 #######################################################################
 # histogram of distance accuracy
 if opts.dist_hist:
@@ -199,6 +201,8 @@ if opts.dist_hist:
   bar(inj_bin,inj_num,inj_bin[1]-inj_bin[0],color='r')
   xlabel('fractional difference in eff. distance')
   ylabel('probability distribution')
+  if opts.figure_name:
+    savefig(opts.figure_name + "_eff_dist_hist.png")
 
 #######################################################################
 # calculate triggers surviving cut
