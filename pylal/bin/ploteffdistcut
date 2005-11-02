@@ -167,20 +167,24 @@ if opts.slide_glob:
 # plot of distance accuracy vs snr
 if opts.dist_snr:
   figure(1)
+  leg = []
   # plot the slides
   if opts.slide_glob:
     semilogx(slide_snr, slide_error, 'b+', markersize=12,markeredgewidth=1)
+    leg.append('slide')
   # plot the injections
   semilogx(inj_snr, inj_error, 'rx', markersize=12,markeredgewidth=1)
-
+  leg.append('inj')
+  
+  x = arange(int(min(inj_snr)), int(max(inj_snr)) + 2)
   if opts.kappa or opts.epsilon:
-    x = arange(int(min(inj_snr)), int(max(inj_snr)) + 2)
     semilogx(x, opts.kappa + opts.epsilon/x,'k',linewidth=1)
-    xlim(min(x),max(x))
-    ylim(0,1)
-    xlabel('snr of trigger')
-    ylabel('fractional difference in eff. distance')
-
+    leg.append('cut')
+  xlim(min(x),max(x))
+  ylim(0,1)
+  xlabel('snr of trigger')
+  ylabel('fractional difference in eff. distance')
+  legend(leg)
  
 #######################################################################
 # histogram of distance accuracy
@@ -193,6 +197,7 @@ if opts.dist_hist:
   if opts.slide_glob:
     bar(slide_bin,slide_num,slide_bin[1]-slide_bin[0],color='b')
   bar(inj_bin,inj_num,inj_bin[1]-inj_bin[0],color='r')
+  leg.append('inj')
   xlabel('fractional difference in eff. distance')
   ylabel('probability distribution')
 
