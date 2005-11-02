@@ -47,6 +47,12 @@ foreach $file (@files)
 	{
 	    print OUT "      creator_db         INTEGER NOT NULL WITH DEFAULT $number,\n";
 	}
+        elsif($line =~ m/_cdb/ && $line =~ m/DEFAULT/)
+        {
+            $_ = $line;
+            s/DEFAULT 1/DEFAULT $number/;
+            print OUT $_;
+        }
 	else
 	{
 	    print OUT $line;
