@@ -197,7 +197,6 @@ if opts.dist_hist:
   if opts.slide_glob:
     bar(slide_bin,slide_num,slide_bin[1]-slide_bin[0],color='b')
   bar(inj_bin,inj_num,inj_bin[1]-inj_bin[0],color='r')
-  leg.append('inj')
   xlabel('fractional difference in eff. distance')
   ylabel('probability distribution')
 
