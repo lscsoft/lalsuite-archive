@@ -66,8 +66,15 @@ parser.add_option("-t","--title",action="store",type="string",default=None,\
     metavar=" STRING",help="title string for plots")
 parser.add_option("-s","--show-plot",action="store_true",default=False,\
     help="display the figures on the terminal" )
-parser.add_option("-r","--plot-regular",action="store_true",default=False,\
-    help="generates and displays figure _plot.ps on the terminal" )
+parser.add_option("-r","--show-reg",action="store_true",default=False,\
+    help="display the _plot.ps figure on the terminal" )
+parser.add_option("-l","--show-log",action="store_true",default=False,\
+    help="display the loglog.ps figure on the terminal" )
+parser.add_option("-b","--show-bar",action="store_true",default=False,\
+    help="display the hist.ps figure on the terminal" )
+parser.add_option("-u","--show-sum",action="store_true",default=False,\
+    help="display the sum_plot.ps figure on the terminal" )
+
 
 (opts,args) = parser.parse_args()
 
@@ -125,105 +132,93 @@ ts=sort( t )
 v=simInspTriggers.mkarray( "eff_dist_v" )
 vs=sort( v )
 
-p=simInspTriggers.mkarray( "polarization")
-index=arange( 0, len(p))*L_MAX/numSources
-ps=sort( p )
-
-
 # make a regular plot.
-figure()  
-plot( hs, index, ls, index, gs, index, ts, index, vs, index )
-grid( True )
-axis( [0, X_MAX, 0, Y_MAX] )
-xlabel( 'Effective Distance (Mpc)' )
-ylabel('N_G' )
-legend( ('Hanford', 'Livingston', 'GEO', 'TAMA', 'VIRGO'), loc=0 )
-if opts.title:
-  title( opts.title )
-if opts.figure_name:
-  savefig( opts.figure_name + "_plot.ps" )
-if opts.plot-regular:
-  show()
 
+if opts.show_reg:
 
+	plot( hs, index, ls, index, gs, index, ts, index, vs, index )
+	grid( True )
+	axis( [	0, X_MAX, 0, Y_MAX] )
+	xlabel( 'Effective Distance (Mpc)' )
+	ylabel('N_G' )
+	legend( ('Hanford', 'Livingston', 'GEO', 'TAMA', 'VIRGO'), loc=0 )
+	if opts.title:
+	  title( opts.title )
+	if opts.figure_name:
+	  savefig( opts.figure_name + "_plot.ps" )
+
+	show()
 
 
 # make a loglog plot.
-figure()
-eps=0.00001	# to prevent log(0) craziness.
-log_i=index+eps
 
-loglog( hs, log_i, ls, log_i, gs, log_i, ts, log_i, vs, log_i )
-grid( True )
-axis( [1, X_MAX, 1, Y_MAX] )
-xlabel( 'Effective Distance (Mpc)' )
-ylabel( 'N_G' )
-legend( ('Hanford', 'Livingston', 'GEO', 'TAMA', 'VIRGO'), loc=0 )
-if opts.title:
-  title( opts.title )
-if opts.figure_name:
-  savefig( opts.figure_name + "_loglog.ps" )
+if opts.show_log:
 
+	figure()
+	eps=0.00001	# to prevent log(0) craziness.
+	log_i=index+eps
+	
+	loglog( hs, log_i, ls, log_i, gs, log_i, ts, log_i, vs, log_i )
+	grid( True )
+	axis( [1, X_MAX, 1, Y_MAX] )
+	xlabel( 'Effective Distance (Mpc)' )
+	ylabel( 'N_G' )
+	legend( ('Hanford', 'Livingston', 'GEO', 'TAMA', 'VIRGO'), loc=0 )
+	if opts.title:
+	  title( opts.title )
+	if opts.figure_name:
+	  savefig( opts.figure_name + "_loglog.ps" )
+	
+	show()
 
+	
 # effective distance plot.
-figure()
-P_x, x, dx = makeData( 50, 1 )
 
-ng,a,b = hist( hs, x )
-grid( True )
-axis( [0, X_MAX, 0, max( ng[0:X_MAX+1] )] )
-xlabel( 'Effective Distance (Mpc)' )
-ylabel('N_G' )
-if opts.title:
-  title( opts.title )
-if opts.figure_name:
-  savefig( opts.figure_name + "_hist.ps" )
+if opts.show_bar:
+
+	figure()
+	P_x, x, dx = makeData( 50, 1 )
+	
+	ng,a,b = hist( hs, x )
+	grid( True )
+	axis( [0, X_MAX, 0, max( ng[0:X_MAX+1] )] )
+	xlabel( 'Effective Distance (Mpc)' )
+	ylabel('N_G' )
+	if opts.title:
+	  title( opts.title )
+	if opts.figure_name:
+	  savefig( opts.figure_name + "_hist.ps" )
+
+	show()
 
 
 # cumulative sum plot (approximation of first plot)
-figure()
-ng = ng*L_MAX/numSources  	# normalize.
-for i in range(1,len(x)):
-  ng[i] = ng[i-1] + ng[i]
 
-plot( x[0:X_MAX+1], ng[0:X_MAX+1] )
-grid( True )
-axis( [0, X_MAX, 0, Y_MAX] )
-xlabel( 'Effective Distance (Mpc)' )
-ylabel('N_G' )
-if opts.title:
-  title( opts.title )
-if opts.figure_name:
-  savefig( opts.figure_name + "_sum_plot.ps" )
- 
+if opts.show_sum:
+
+	figure()
+	P_x, x, dx = makeData( 50, 1)
+
+	ng,a,b = hist( hs, x )
+	ng = ng*L_MAX/numSources  	# normalize.
+	for i in range(1,len(x)):
+	  ng[i] = ng[i-1] + ng[i]
+	
+	plot( x[0:X_MAX+1], ng[0:X_MAX+1] )
+	grid( True )
+	axis( [0, X_MAX, 0, Y_MAX] )
+	xlabel( 'Effective Distance (Mpc)' )
+	ylabel('N_G' )
+	if opts.title:
+	  title( opts.title )
+	if opts.figure_name:
+	  savefig( opts.figure_name + "_sum_plot.ps" )
+
+	show()
 
 
-# effective Polarization plot.
-figure()
-P_x, x, dx = makeData( 10, 1)
-pg,a,b = hist( ps, x )
-grid( True )
-axis( [0, X_MAX, 0, max( pg[0:X_MAX+1] )] )
-xlabel( 'Polarization' )
-ylabel('N_G' )
-if opts.title:
-  title( opts.title )
-if opts.figure_name:
-  savefig( opts.figure_name + "_hist.ps" )
+if opts.show_plot:
   show()
-
-# make a Polarization plot.
-figure()
-plot( ps, index )
-grid( True )
-xlabel( 'Polarization angle' )
-ylabel('N_G' )
-if opts.title:
-  title( opts.title )
-if opts.figure_name:
-  savefig( opts.figure_name + "_plot.ps" )
-
-
 
 ################################
 # Segment reading
