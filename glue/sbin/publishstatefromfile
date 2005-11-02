@@ -56,7 +56,6 @@ if usesegnum:
   segpat = re.compile(r'^(\d+)\s(\d+)\s(\d+)\s(\d+)\s(\d+)\s(\d+)\s(\d+)\s([A-Z][0-9]+)\s(.+)')
 else:
   segpat = re.compile(r'^(\d+)\s(\d+)\s(\d+)\s(\d+)\s(\d+)\s(\d+)\s([A-Z][0-9]+)\s(.+)')
-  segnum = None
 
 try:
   statefile = open(file,"r")
@@ -92,9 +91,13 @@ for line in statefile.readlines():
   end = int(segmatch[2])
   end_nano = int(segmatch[3])
   sv = int(segmatch[4])
-  ifo = str(segmatch[6])
   if usesegnum:
-    segnum = int(segmatch[7])
+    segnum = int(segmatch[6])
+    ifo = str(segmatch[7])
+  else:
+    segnum = None
+    ifo = str(segmatch[6])
+    
   try: 
     #sdb.publish_state(ifo,start,start_nano,end,end_nano,version,sv,segnum)
     print ifo,start,start_nano,end,end_nano,version,sv,segnum
