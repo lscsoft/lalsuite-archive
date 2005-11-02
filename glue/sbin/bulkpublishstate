@@ -53,11 +53,9 @@ if not run or not version or not dbname:
   sys.exit( 1 )
 
 if usesegnum:
-  print >> sys.stderr, "--use-segnum not yet supported"
-  sys.exit( 1 )
+  segpat = re.compile(r'^(\d+)\s(\d+)\s(\d+)\s(\d+)\s(\d+)\s(\d+)\s(\d+)\s([A-Z][0-9]+)\s(.+)')
 else:
   segpat = re.compile(r'^(\d+)\s(\d+)\s(\d+)\s(\d+)\s(\d+)\s(\d+)\s([A-Z][0-9]+)\s(.+)')
-  segnum = None
 
 sdb = statedb.StateSegmentDatabase(run,dbname)
 
@@ -99,7 +97,14 @@ for dirpath in args:
       end = int(segmatch[2])
       end_nano = int(segmatch[3])
       sv = int(segmatch[4])
-      ifo = str(segmatch[6])
+      if usesegnum:
+        segnum = int(segmatch[6])
+        if segnum != 65535:
+          segnum = None
+        ifo = str(segmatch[7])
+      else:
+        segnum = None
+        ifo = str(segmatch[6])
   
       try:
         sdb.publish_state(ifo,start,start_nano,end,end_nano,version,sv,segnum)
