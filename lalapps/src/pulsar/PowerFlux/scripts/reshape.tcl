@@ -56,6 +56,17 @@ foreach {first last} $subset {
 return [join [concat $LL] "\t"]
 }
 
+proc list_header { root L subset } {
+set LL {}
+foreach {first last} $subset {
+	if { $last == "end" } { set last [expr [llength $L]-1] }
+	for { set i $first } { $i <= $last } { incr i } {
+		lappend LL "${root}.$i"
+		}
+	}
+return [join $LL "\t"]
+}
+
 # Comment this out to check for completed jobs
 set cputime [list "seconds elapsed: NA"]
 
@@ -102,10 +113,8 @@ set FOUT [open $STATS_DIR/stat${STATS_SUFFIX}.dat "a"]
 puts -nonewline $FOUT "LogFile"
 # Write out header
 foreach $FIELDS_LAYOUT $FIELDS {
-	set value [list_subset [lindex [set $var] end] $fields]
-	for { set i 0 } { $i < [llength $value] } { incr i } {
-		puts -nonewline $FOUT "\t$var"
-		}
+	set header [list_header $var [lindex [set $var] end] $fields]
+	puts -nonewline $FOUT "\t$header"
 	}
 puts $FOUT ""
 
