@@ -21,6 +21,9 @@ Run analysis:
 	split.tcl		- utility to split fields from PowerFlux log
 				  file into separate files (one per field)
 				  for use with analysis runs
+	reshape.tcl		- utility to reshape log files so that 
+				  we have one line per spindown polarization
+				  i.e. this is a single-file version of split
 	split_pi.tcl		- utility to split PowerFlux log files for use
 				  with power injection runs
 	get_lines.tcl		- utility to extract background artifact
