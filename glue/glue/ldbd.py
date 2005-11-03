@@ -82,7 +82,7 @@ class LIGOLWStream(csv.Dialect):
   escapechar = '\\'
   lineterminator = '\n'
   quotechar = '"'
-  quoting = csv.QUOTE_NONE
+  quoting = csv.QUOTE_ALL
   skipinitialspace = True
 
 csv.register_dialect("LIGOLWStream",LIGOLWStream)
@@ -246,6 +246,7 @@ class LIGOLwParser:
     in the unique id dictionary and a binary string containing the
     correct unique id is returned.
     """
+    istr_orig = istr
     istr = self.licrx.sub('',istr.encode('ascii'))
     istr = self.ricrx.sub('',istr)
     if self.octrx.match(istr):
@@ -254,7 +255,10 @@ class LIGOLwParser:
       try:
         istr = self.unique.lookup(istr)
       except AttributeError:
-        raise LIGOLwParseError, 'unique id table has not been initialized'
+        if not self.unique:
+          istr = istr_orig
+        else:
+          raise LIGOLwParseError, 'unique id table has not been initialized'
     return istr
 
   def parsetuple(self,xmltuple):
@@ -393,8 +397,10 @@ class LIGOMetadata:
       raise LIGOLwParseError, "pyRXP parser not initialized"
     if not self.lwtparser:
       raise LIGOLwParseError, "LIGO_LW tuple parser not initialized"
+    xml = "".join([x.strip() for x in xml.split('\n')])
     ligolwtup = self.xmlparser(xml)
-    self.lwtparser.unique = UniqueIds(self.curs)
+    if self.curs:
+      self.lwtparser.unique = UniqueIds(self.curs)
     self.table = self.lwtparser.parsetuple(ligolwtup)
 
   def add_lfn(self,lfn):
