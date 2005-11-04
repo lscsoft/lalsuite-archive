@@ -558,6 +558,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
             row[pid_col] = repl_pid
             row[sdid_col] = repl_sdid
             table['stream'][row_idx] = tuple(row)
+            row_idx += 1
         else:
           # we just need to update the process_id column
           pid_col = table['orderedcol'].index('process_id')
@@ -570,6 +571,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
               table['stream'][row_idx] = tuple(row)
             except KeyError:
               pass
+            row_idx += 1
 
       # insert the metadata into the database
       result = str(ligomd.insert())
