@@ -9,6 +9,7 @@ $Id$
 
 __version__ = '$Revision$'[11:-2]
 
+import sys
 import re
 import types
 import pyRXP
@@ -22,7 +23,7 @@ import rlsClient
 def initialize(configuration,log):
   # define the global variables used by the server
   global logger, max_bytes, xmlparser, lwtparser, dbobj, rls
-  global dmt_proc_dict, dmt_seg_def_dict
+  global dmt_proc_dict, dmt_seg_def_dict, indices
   
   # initialize the logger
   logger = log
@@ -48,6 +49,7 @@ def initialize(configuration,log):
   # initialize dictionaries for the dmt processes and segments definers
   dmt_proc_dict = {}
   dmt_seg_def_dict = {}
+  indices = xrange(sys.maxint)
 
 def shutdown():
   global logger, max_bytes, xmlparser, lwtparser, dbobj, rls
@@ -383,7 +385,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
     """
     global logger
     global xmlparser, lwtparser, dbobj
-    global dmt_proc_dict, dmt_seg_def_dict
+    global dmt_proc_dict, dmt_seg_def_dict, indices
     proc_key = {}
     known_proc = {}
     seg_def_key = {}
@@ -422,9 +424,8 @@ class ServerHandler(SocketServer.BaseRequestHandler):
       pid_col = process_cols.index('process_id')
 
       # determine and remove known entries from the process table
-      row_idx = 0
       rmv_idx = []
-      for row in ligomd.table['process']['stream']:
+      for (row,row_idx) in zip(ligomd.table['process']['stream'],indices):
         uniq_proc = (row[node_col],row[prog_col],row[upid_col],row[start_col])
         logger.debug("Checking for process row with key %s" % str(uniq_proc))
         try:
@@ -457,12 +458,15 @@ class ServerHandler(SocketServer.BaseRequestHandler):
           else:
             # multiple entries for this process, needs human assistance
             raise ServerHandlerException, "multiple entries for dmt process"
-        # next row in the process table
-        row_idx += 1
 
-      # delete the necessary rows. if the table is empty, delete it
-      for row_idx in rmv_idx:
-        ligomd.table['process']['stream'].pop(row_idx)
+      # delete the duplicate processs rows and clear the table if necessary
+      newstream = []
+      for row,row_idx in zip(ligomd.table['process']['stream'],indices):
+        try:
+          rmv_idx(row_idx)
+        except ValueError:
+          newstream.append(row)
+      ligomd.table['process']['stream'] = newstream
       if len(ligomd.table['process']['stream']) == 0:
         del ligomd.table['process']
 
@@ -499,9 +503,8 @@ class ServerHandler(SocketServer.BaseRequestHandler):
       sdid_col = seg_def_cols.index('segment_def_id')
 
       # determine and remove known entries in the segment_definer table
-      row_idx = 0
       rmv_idx = []
-      for row in ligomd.table['segment_definer']['stream']:
+      for row,row_idx in zip(ligomd.table['segment_definer']['stream'],indices):
         uniq_def = (row[run_col],row[ifos_col],row[name_col],row[vers_col])
         logger.debug("Checking for segment_definer row with key %s" 
           % str(uniq_def))
@@ -531,12 +534,15 @@ class ServerHandler(SocketServer.BaseRequestHandler):
             logger.debug("removing segment_definer row for key %s" 
               % str(uniq_def))
             rmv_idx.append(row_idx)
-        # next row in the segment_definer table
-        row_idx += 1
 
       # delete the necessary rows. if the table is empty, delete it
-      for row_idx in rmv_idx:
-        ligomd.table['segment_definer']['stream'].pop(row_idx)
+      newstream = []
+      for row,row_idx in zip(ligomd.table['segment_definer']['stream'],indices):
+        try:
+          rmv_idx(row_idx)
+        except ValueError:
+          newstream.append(row)
+      ligomd.table['segment_definer']['stream'] = newstream
       if len(ligomd.table['segment_definer']['stream']) == 0:
         del ligomd.table['segment_definer']
 
