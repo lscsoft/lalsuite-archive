@@ -432,19 +432,23 @@ class LIGOMetadata:
 
     dn = dn to be added
     """
-    # create a gridcert table
-    self.table['gridcert'] = {
-      'pos' : 0,
-      'column' : {'process_id' : 'ilwd:char', 'dn' : 'lstring'},
-      'stream' : [],
-      'query' : '',
-      'orderedcol' : ['process_id', 'dn' ]
-      }
-    # get the process_id from the rows in the process table
-    pid_col = self.table['process']['orderedcol'].index('process_id')
-    for row in self.table['process']['stream']:
-      pid = row[pid_col]
-      self.table['gridcert']['stream'].append( (pid,dn) )
+    try:
+      # get the process_id from the rows in the process table
+      pid_col = self.table['process']['orderedcol'].index('process_id')
+
+      # create a gridcert table
+      self.table['gridcert'] = {
+        'pos' : 0,
+        'column' : {'process_id' : 'ilwd:char', 'dn' : 'lstring'},
+        'stream' : [],
+        'query' : '',
+        'orderedcol' : ['process_id', 'dn' ]
+        }
+      for row in self.table['process']['stream']:
+        pid = row[pid_col]
+        self.table['gridcert']['stream'].append( (pid,dn) )
+    except KeyError:
+      pass
     
   def insert(self):
     """Insert the object into the database"""
