@@ -32,7 +32,7 @@ Check that glue is correctly installed and in your PYTHONPATH.
 
 def usage():
   msg = """\
-Usage: ldbdc.py [OPTIONS]
+Usage: dmtdq_seg_insert [OPTIONS]
 
   -r, --server HOST:PORT  connect to ldbd on HOST:PORT (default port 30020)
   -f, --file              file to insert (deleted upon success)
