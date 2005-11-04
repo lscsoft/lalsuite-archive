@@ -477,7 +477,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
           msg += " created by %s (process_id %s)" % (dn, known_proc[pid][0])
           raise ServerHandlerException, msg
         else:
-          logger.debug("%s updating process_id %s" % (dn, known_proc[pid][0])
+          logger.debug("%s updating process_id %s" % (dn, known_proc[pid][0]))
 
       # add a gridcert table to this request containing the users dn
       ligomd.set_dn(remote_dn)
