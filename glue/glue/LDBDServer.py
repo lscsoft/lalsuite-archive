@@ -44,6 +44,10 @@ def initialize(configuration,log):
   except:
     rls = None
 
+  # initialize dictionaries for the dmt processes and segments definers
+  dmt_proc_dict = {}
+  dmt_seg_def_dict = {}
+
 def shutdown():
   global logger, max_bytes, xmlparser, dbobj, xmlparser, lwtparser, rls
   logger.info("Shutting down server module %s" % __name__ )
@@ -52,6 +56,8 @@ def shutdown():
   del lwtparser
   del xmlparser
   del dbobj
+  del dmt_proc_dict
+  del dmt_seg_def_dict
 
 class ServerHandlerException(exceptions.Exception):
   """
@@ -94,7 +100,8 @@ class ServerHandler(SocketServer.BaseRequestHandler):
       'PING' : self.ping,
       'QUERY' : self.query,
       'INSERT' : self.insert,
-      'INSERTMAP' : self.insertmap
+      'INSERTMAP' : self.insertmap,
+      'INSERTDMT' : self.insertdmt
     }
 
     try:
@@ -239,7 +246,6 @@ class ServerHandler(SocketServer.BaseRequestHandler):
 
     return (code,result)
 
-
   def insert(self, arg):
     """
     Insert some LIGO_LW xml data in the metadata database
@@ -288,7 +294,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
   def insertmap(self, arg):
     """
     Insert some LIGO_LW xml data in the metadata database with an LFN to
-    PFN mapping inserted into the RLS database
+    PFN mapping inserted into the RLS database.
 
     @param arg: a text string containing an SQL query to be executed
 
@@ -353,3 +359,184 @@ class ServerHandler(SocketServer.BaseRequestHandler):
       return (code,result)
 
     return (code,result)
+
+  def insertdmt(self, arg):
+    """
+    Insert LIGO_LW xml data from the DMT in the metadata database. For
+    DMT inserts, we need to check for existing process_id and
+    segment_definer_id rows and change the contents of the table to be
+    inserted accordingly. We must also update the end_time of any 
+    existing entries in the process table.
+
+    @param arg: a text string containing an SQL query to be executed
+
+    @return: None
+    """
+    proc_key = {}
+    proc_end_time = {}
+    seg_def_key = {}
+
+    logger.debug("Method insert called")
+
+    # assume failure
+    code = 1
+
+    try:
+      # capture the remote users DN for insertion into the database
+      cred = self.request.get_delegated_credential()
+      remote_dn = cred.inquire_cred()[1].display()
+
+      # create a ligo metadata object
+      ligomd = ldbd.LIGOMetadata(xmlparser,lwtparser,dbobj)
+
+      # parse the input string into a metadata object
+      ligomd.parse(arg[0])
+
+      # add a gridcert table to this request containing the users dn
+      ligomd.set_dn(remote_dn)
+
+      # determine the locations of columns we need in the process table
+      process_cols = ligomd.table['process']['orderedcol']
+      node_col = process_cols.index('node')
+      prog_col = process_cols.index('program')
+      upid_col = process_cols.index('unix_procid')
+      start_col = process_cols.index('start_time')
+      end_col = process_cols.index('end_time')
+      pid_col = process_cols.index('process_id')
+
+      # determine and remove known entries from the process table
+      row_idx = 0
+      for row in ligomd.table['process']['stream']:
+        uniq_proc = (row[node_col],row[prog_col],row[upid_col],row[start_col])
+        try:
+          proc_key[row[pid_col]] = dmt_proc_dict[uniq_proc]
+          proc_end_time[dmt_proc_dict[uniq_proc]] = row[end_col]
+          ligomd.table['process']['stream'].pop(row_idx)
+        except KeyError:
+          # we know nothing about this process, so query the database
+          sql = "SELECT process_id FROM process WHERE "
+          sql += "node = '" + row[node_col] + "' AND "
+          sql += "program = '" + row[prog_col] + "' AND "
+          sql += "unix_procid = " + str(row[upid_col]) + " AND "
+          sql += "start_time = " + str(row[start_col])
+          ligomd.curs.execute(sql)
+          db_proc_ids = ligomd.curs.fetchall()
+          if len(db_proc_ids) == 0:
+            # this is a new process with no existing entry
+            dmt_proc_dict[uniq_proc] = row[pid_col]
+          elif len(db_proc_ids) == 1:
+            # the process_id exists in the database so use that insted
+            dmt_proc_dict[uniq_proc] = db_proc_ids[0][0]
+            proc_key[row[pid_col]] = dmt_proc_dict[uniq_proc]
+            proc_end_time[dmt_proc_dict[uniq_proc]] = row[end_col]
+            ligomd.table['process']['stream'].pop(row_idx)
+          else:
+            # multiple entries for this process, needs human assistance
+            raise ServerHandlerException, "multiple entries for dmt process"
+        # next row in the process table
+        row_idx += 1
+
+      # if we have deleted all the rows, remove the whole process table
+      if len(ligomd.table['process']['stream']) == 0:
+        del ligomd.table['process']
+
+      # determine the locations of columns we need in the segment_definer table
+      seg_def_cols = ligomd.table['segment_definer']['orderedcol']
+      run_col = seg_def_cols.index('run')
+      ifos_col = seg_def_cols.index('ifos')
+      name_col = seg_def_cols.index('name')
+      vers_col = seg_def_cols.index('version')
+      sdid_col = seg_def_cols.index('segment_def_id')
+
+      # determine and remove known entries in the segment_definer table
+      row_idx = 0
+      for row in ligomd.table['segment_definer']['stream']:
+        uniq_def = (row[run_col],row[ifos_col],row[name_col],row[vers_col])
+        try:
+          seg_def_key[row[sdid_col]] = dmt_seg_def_dict[uniq_def]
+          ligomd.table['segment_definer']['stream'].pop(row_idx)
+        except KeyError:
+          # we know nothing about this segment_definer, so query the database
+          sql = "SELECT segment_def_id FROM segment_definer WHERE "
+          sql += "run = '" + row[run_col] + "' AND "
+          sql += "ifos = '" + row[ifos_col] + "' AND "
+          sql += "name = '" + row[name_col] + "' AND "
+          sql += "version = " + str(row[vers_col])
+          ligomd.curs.execute(sql)
+          db_sef_def_id = ligomd.curs.fetchone()
+          if not db_sef_def_id:
+            dmt_seg_def_dict[uniq_def] = row[sdid_col]
+          else:
+            dmt_seg_def_dict[uniq_def] = db_seg_def_id[0]
+            seg_def_key[row[sdid_col]] = dmt_seg_def_dict[uniq_def]
+            ligomd.table['segment_definer']['stream'].pop(row_idx)
+      # next row in the segment_definer table
+      row_idx += 1
+
+      # if we have deleted all the rows, remove the whole segment_definer table
+      if len(ligomd.table['segment_definer']['stream']) == 0:
+        del ligomd.table['segment_definer']
+
+      # now update the values in the xml with the values we know about
+      for table in ligomd.table.keys():
+        if table == 'process':
+          # we do nothing to the process table
+          pass
+        elif table == 'segment_def_map':
+          # we need to update the process_id and the segment_def_id columns
+          pid_col = table['orderedcol'].index('process_id')
+          sdid_col = table['orderedcol'].index('segment_def_id')
+          row_idx = 0
+          for row in table['stream']:
+            try:
+              repl_pid = proc_key[row[pid_col]]
+            except KeyError:
+              repl_pid = row[pid_col]
+            try:
+              repl_sdid = seg_def_key[row[sdid_col]]
+            except KeyError:
+              repl_sdid = row[sdid_col]
+            row = list(row)
+            row[pid_col] = repl_pid
+            row[sdid_col] = repl_sdid
+            table['stream'][row_idx] = tuple(row)
+        else:
+          # we just need to update the process_id column
+          pid_col = table['orderedcol'].index('process_id')
+          row_idx = 0
+          for row in table['stream']:
+            try:
+              repl_pid = proc_key[row[pid_col]]
+              row = list(row)
+              row[pid_col] = repl_pid
+              table['stream'][row_idx] = tuple(row)
+            except KeyError:
+              pass
+
+      # insert the metadata into the database
+      result = str(ligomd.insert())
+
+      # update the end time of known processes in the process table
+      for pid in proc_end_time.keys():
+        pid_str = "x'"
+        for ch in pid:
+          pid_str += "%02x" % ord(ch)
+        pid_str += "'"
+        sql = "UPDATE process SET end_time = " + str(proc_end_time[pid])
+        sql += " WHERE process_id = " + pid_str
+        ligomd.curs.execute(sql)
+
+      logger.info("Method insert: %s rows affected by insert" % result)
+      code = 0
+    except Exception, e:
+      result = ("Error inserting metadata into database: %s" % e)
+      logger.error(result)
+
+    try:
+      del ligomd
+    except Exception, e:
+      logger.error(
+        "Error deleting metadata object in method insert: %s" % e)
+
+    return (code,result)
+
