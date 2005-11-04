@@ -483,7 +483,12 @@ class ServerHandler(SocketServer.BaseRequestHandler):
         sql = "SELECT dn FROM gridcert WHERE process_id = " + known_proc[pid][0]
         sql += "AND creator_db = " + str(creator_db)
         ligomd.curs.execute(sql)
-        dn = ligomd.curs.fetchone()[0].strip()
+        dn_db = ligomd.curs.fetchone()
+        if dn_db:
+          msg = "Could not find DN for process %s" % known_proc[pid][0]
+          raise ServerHandlerException, msg
+        else
+          db = db_db[0].strip()
         if remote_dn != dn:
           msg = "%s does not have permission to update row entries" % remote_dn
           msg += " created by %s (process_id %s)" % (dn, known_proc[pid][0])
