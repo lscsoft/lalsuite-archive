@@ -407,7 +407,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
       # determine the local creator_db number
       sql = "SELECT DEFAULT FROM SYSCAT.COLUMNS WHERE "
       sql += "TABNAME = 'PROCESS' AND COLNAME = 'CREATOR_DB'"
-      ligomd.curs.exectute(sql)
+      ligomd.curs.execute(sql)
       creator_db = ligomd.curs.fetchone()[0]
 
       # determine the locations of columns we need in the process table
