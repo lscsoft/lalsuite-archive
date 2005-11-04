@@ -426,7 +426,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
         try:
           proc_key[row[pid_col]] = dmt_proc_dict[uniq_proc]
           known_proc[dmt_proc_dict[uniq_proc]] = row[end_col]
-          logger.debug("removing process row for key %s" % str(uniq_proc))
+          logger.debug("removing known process row for key %s" % str(uniq_proc))
           ligomd.table['process']['stream'].pop(row_idx)
         except KeyError:
           # we know nothing about this process, so query the database
@@ -479,7 +479,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
           msg += " created by %s (process_id %s)" % (dn, known_proc[pid][0])
           raise ServerHandlerException, msg
         else:
-          logger.debug("%s updating process_id %s" % (dn, known_proc[pid][0]))
+          logger.debug('"%s" updating process_id %s' % (dn, known_proc[pid][0]))
 
       # add a gridcert table to this request containing the users dn
       ligomd.set_dn(remote_dn)
@@ -498,7 +498,8 @@ class ServerHandler(SocketServer.BaseRequestHandler):
         uniq_def = (row[run_col],row[ifos_col],row[name_col],row[vers_col])
         try:
           seg_def_key[row[sdid_col]] = dmt_seg_def_dict[uniq_def]
-          logger.debug("removing segment_definer row for key %s" % str(uniq_def))
+          logger.debug("removing known segment_definer row for key %s" 
+            % str(uniq_def))
           ligomd.table['segment_definer']['stream'].pop(row_idx)
         except KeyError:
           # we know nothing about this segment_definer, so query the database
@@ -509,13 +510,14 @@ class ServerHandler(SocketServer.BaseRequestHandler):
           sql += "name = '" + row[name_col] + "' AND "
           sql += "version = " + str(row[vers_col])
           ligomd.curs.execute(sql)
-          db_seg_def_id = ligomd.curs.fetchone()
-          if not db_seg_def_id:
+          db_seg_def_id = ligomd.curs.fetchall()
+          if len(db_seg_def_id) == 0:
+            # this is a new segment_defintion with no existing entry
             dmt_seg_def_dict[uniq_def] = row[sdid_col]
           else:
             logger.debug("segment_definer row for key %s exists in database" 
               % str(uniq_def))
-            dmt_seg_def_dict[uniq_def] = db_seg_def_id[0]
+            dmt_seg_def_dict[uniq_def] = db_seg_def_id[0][0]
             seg_def_key[row[sdid_col]] = dmt_seg_def_dict[uniq_def]
             logger.debug("removing segment_definer row for key %s" % str(uniq_def))
             ligomd.table['segment_definer']['stream'].pop(row_idx)
