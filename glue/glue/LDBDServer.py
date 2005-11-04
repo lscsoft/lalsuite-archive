@@ -443,10 +443,12 @@ class ServerHandler(SocketServer.BaseRequestHandler):
             dmt_proc_dict[uniq_proc] = row[pid_col]
           elif len(db_proc_ids) == 1:
             # the process_id exists in the database so use that insted
+            logger.debug("process row for key %s exists in database" 
+              % str(uniq_proc))
             dmt_proc_dict[uniq_proc] = db_proc_ids[0][0]
             proc_key[row[pid_col]] = dmt_proc_dict[uniq_proc]
             known_proc[dmt_proc_dict[uniq_proc]] = row[end_col]
-            logger.debug("removing process table for key %s" % str(uniq_proc))
+            logger.debug("removing process row for key %s" % str(uniq_proc))
             ligomd.table['process']['stream'].pop(row_idx)
           else:
             # multiple entries for this process, needs human assistance
@@ -511,6 +513,8 @@ class ServerHandler(SocketServer.BaseRequestHandler):
           if not db_seg_def_id:
             dmt_seg_def_dict[uniq_def] = row[sdid_col]
           else:
+            logger.debug("segment_definer row for key %s exists in database" 
+              % str(uniq_def))
             dmt_seg_def_dict[uniq_def] = db_seg_def_id[0]
             seg_def_key[row[sdid_col]] = dmt_seg_def_dict[uniq_def]
             logger.debug("removing segment_definer row for key %s" % str(uniq_def))
