@@ -423,6 +423,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
       row_idx = 0
       for row in ligomd.table['process']['stream']:
         uniq_proc = (row[node_col],row[prog_col],row[upid_col],row[start_col])
+        logger.debug("Checking for process row with key %s" % str(uniq_proc))
         try:
           proc_key[row[pid_col]] = dmt_proc_dict[uniq_proc]
           known_proc[dmt_proc_dict[uniq_proc]] = row[end_col]
@@ -496,6 +497,8 @@ class ServerHandler(SocketServer.BaseRequestHandler):
       row_idx = 0
       for row in ligomd.table['segment_definer']['stream']:
         uniq_def = (row[run_col],row[ifos_col],row[name_col],row[vers_col])
+        logger.debug("Checking for segment_definer row with key %s" 
+          % str(uniq_def))
         try:
           seg_def_key[row[sdid_col]] = dmt_seg_def_dict[uniq_def]
           logger.debug("removing known segment_definer row for key %s" 
