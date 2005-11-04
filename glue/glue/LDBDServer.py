@@ -385,7 +385,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
     global xmlparser, lwtparser, dbobj
     global dmt_proc_dict, dmt_seg_def_dict
     proc_key = {}
-    proc_end_time = {}
+    known_proc = {}
     seg_def_key = {}
 
     logger.debug("Method insert called")
@@ -396,7 +396,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
     try:
       # capture the remote users DN for insertion into the database
       cred = self.request.get_delegated_credential()
-      remote_dn = cred.inquire_cred()[1].display()
+      remote_dn = cred.inquire_cred()[1].display().strip()
 
       # create a ligo metadata object
       ligomd = ldbd.LIGOMetadata(xmlparser,lwtparser,dbobj)
@@ -404,8 +404,11 @@ class ServerHandler(SocketServer.BaseRequestHandler):
       # parse the input string into a metadata object
       ligomd.parse(arg[0])
 
-      # add a gridcert table to this request containing the users dn
-      ligomd.set_dn(remote_dn)
+      # determine the local creator_db number
+      sql = "SELECT DEFAULT FROM SYSCAT.COLUMNS WHERE "
+      sql += "TABNAME = 'PROCESS' AND COLNAME = 'CREATOR_DB'"
+      ligomd.curs.exectute(sql)
+      creator_db = ligomd.curs.fetchone()[0]
 
       # determine the locations of columns we need in the process table
       process_cols = ligomd.table['process']['orderedcol']
@@ -422,11 +425,12 @@ class ServerHandler(SocketServer.BaseRequestHandler):
         uniq_proc = (row[node_col],row[prog_col],row[upid_col],row[start_col])
         try:
           proc_key[row[pid_col]] = dmt_proc_dict[uniq_proc]
-          proc_end_time[dmt_proc_dict[uniq_proc]] = row[end_col]
+          known_proc[dmt_proc_dict[uniq_proc]] = row[end_col]
           ligomd.table['process']['stream'].pop(row_idx)
         except KeyError:
           # we know nothing about this process, so query the database
           sql = "SELECT process_id FROM process WHERE "
+          sql += "creator_db = " + str(creator_db) + " AND "
           sql += "node = '" + row[node_col] + "' AND "
           sql += "program = '" + row[prog_col] + "' AND "
           sql += "unix_procid = " + str(row[upid_col]) + " AND "
@@ -440,7 +444,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
             # the process_id exists in the database so use that insted
             dmt_proc_dict[uniq_proc] = db_proc_ids[0][0]
             proc_key[row[pid_col]] = dmt_proc_dict[uniq_proc]
-            proc_end_time[dmt_proc_dict[uniq_proc]] = row[end_col]
+            known_proc[dmt_proc_dict[uniq_proc]] = row[end_col]
             ligomd.table['process']['stream'].pop(row_idx)
           else:
             # multiple entries for this process, needs human assistance
@@ -451,6 +455,28 @@ class ServerHandler(SocketServer.BaseRequestHandler):
       # if we have deleted all the rows, remove the whole process table
       if len(ligomd.table['process']['stream']) == 0:
         del ligomd.table['process']
+
+      # turn the known process_id binary for this insert into ascii
+      for pid in known_proc.keys():
+        pid_str = "x'"
+        for ch in pid:
+          pid_str += "%02x" % ord(ch)
+        pid_str += "'"
+        known_proc[pid] = (pid_str, known_proc[pid])
+
+      # check that we have permission to update known process_id entries
+      for pid in known_proc.keys():
+        sql = "SELECT dn FROM gridcert WHERE process_id = " + known_proc[pid][0]
+        sql += "AND creator_db = " + str(creator_db)
+        ligomd.curs.execute(sql)
+        dn = ligomd.curs.fetchone()[0].strip()
+        if remote_dn != dn:
+          msg = "%s does not have permission to update row entries" % remote_dn
+          msg += " created by %s (process_id %s)" % (dn, known_proc[pid][0])
+          raise ServerHandlerException, msg
+
+      # add a gridcert table to this request containing the users dn
+      ligomd.set_dn(remote_dn)
 
       # determine the locations of columns we need in the segment_definer table
       seg_def_cols = ligomd.table['segment_definer']['orderedcol']
@@ -470,6 +496,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
         except KeyError:
           # we know nothing about this segment_definer, so query the database
           sql = "SELECT segment_def_id FROM segment_definer WHERE "
+          sql += "creator_db = " + str(creator_db) + " AND "
           sql += "run = '" + row[run_col] + "' AND "
           sql += "ifos = '" + row[ifos_col] + "' AND "
           sql += "name = '" + row[name_col] + "' AND "
@@ -530,13 +557,9 @@ class ServerHandler(SocketServer.BaseRequestHandler):
       result = str(ligomd.insert())
 
       # update the end time of known processes in the process table
-      for pid in proc_end_time.keys():
-        pid_str = "x'"
-        for ch in pid:
-          pid_str += "%02x" % ord(ch)
-        pid_str += "'"
-        sql = "UPDATE process SET end_time = " + str(proc_end_time[pid])
-        sql += " WHERE process_id = " + pid_str
+      for pid in known_proc.keys():
+        sql = "UPDATE process SET end_time = " + str(known_proc[pid][1])
+        sql += " WHERE process_id = " + known_proc[pid][0]
         ligomd.curs.execute(sql)
 
       logger.info("Method insert: %s rows affected by insert" % result)
@@ -547,6 +570,9 @@ class ServerHandler(SocketServer.BaseRequestHandler):
 
     try:
       del ligomd
+      del known_proc
+      del seg_def_key
+      del proc_key
     except Exception, e:
       logger.error(
         "Error deleting metadata object in method insert: %s" % e)
