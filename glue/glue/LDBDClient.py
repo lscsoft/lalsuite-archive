@@ -356,3 +356,22 @@ class LDBDClient(object):
       raise LDBDClientException, msg
 
     return reply
+
+  def insertdmt(self,xmltext):
+    """
+    Insert the LIGO_LW metadata in the xmltext string into the database.
+
+    @return: message received (may be empty) from LDBD Server as a string
+    """
+
+    msg = "INSERTDMT\0" + xmltext + "\0"
+    self.sfile.write(msg)
+
+    ret, output = self.__response__()
+    reply = str(output[0])
+
+    if ret:
+      msg = "Error executing insert on server %d:%s" % (ret, reply)
+      raise LDBDClientException, msg
+
+    return reply
