@@ -365,6 +365,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
           typeList_tmp = copy.deepcopy(typeList)
           sql = "SELECT segment.start_time, segment.end_time FROM "
           sql += "segment,segment_def_map,segment_definer WHERE "
+          sql += "segment.active = 1 AND "
           sql += "segment.segment_id = segment_def_map.segment_id AND "
           sql += "segment.creator_db = segment_def_map.segment_cdb AND "
           sql += "segment_def_map.segment_def_id = segment_definer.segment_def_id AND "
