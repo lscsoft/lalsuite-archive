@@ -487,8 +487,8 @@ class ServerHandler(SocketServer.BaseRequestHandler):
         if dn_db:
           msg = "Could not find DN for process %s" % known_proc[pid][0]
           raise ServerHandlerException, msg
-        else
-          db = db_db[0].strip()
+        else:
+          dn = db_db[0].strip()
         if remote_dn != dn:
           msg = "%s does not have permission to update row entries" % remote_dn
           msg += " created by %s (process_id %s)" % (dn, known_proc[pid][0])
