@@ -139,7 +139,7 @@ if pfnlist and not infile:
   print "\nA list of PFNs makes sense only when inserting data\n"
   usage()
   sys.exit(1)
-if dmtsegs and not insert:
+if dmtsegs and not infile:
   print "\nMust specify an XML file to insert\n"
   usage()
   sys.exit(1)
