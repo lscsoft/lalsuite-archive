@@ -490,11 +490,12 @@ class ServerHandler(SocketServer.BaseRequestHandler):
         del ligomd.table['segment_definer']
 
       # now update the values in the xml with the values we know about
-      for table in ligomd.table.keys():
-        if table == 'process':
+      for tabname in ligomd.table.keys():
+        table = ligomd.table[tabname]
+        if tabname == 'process':
           # we do nothing to the process table
           pass
-        elif table == 'segment_def_map':
+        elif tabname == 'segment_def_map':
           # we need to update the process_id and the segment_def_id columns
           pid_col = table['orderedcol'].index('process_id')
           sdid_col = table['orderedcol'].index('segment_def_id')
