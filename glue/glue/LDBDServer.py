@@ -429,8 +429,8 @@ class ServerHandler(SocketServer.BaseRequestHandler):
         try:
           proc_key[row[pid_col]] = dmt_proc_dict[uniq_proc]
           known_proc[dmt_proc_dict[uniq_proc]] = row[end_col]
-          logger.debug("removing known process row for key %s" % str(uniq_proc))
           ligomd.table['process']['stream'].pop(row_idx)
+          logger.debug("removed known process row for key %s" % str(uniq_proc))
         except KeyError:
           # we know nothing about this process, so query the database
           sql = "SELECT process_id FROM process WHERE "
@@ -451,8 +451,8 @@ class ServerHandler(SocketServer.BaseRequestHandler):
             dmt_proc_dict[uniq_proc] = db_proc_ids[0][0]
             proc_key[row[pid_col]] = dmt_proc_dict[uniq_proc]
             known_proc[dmt_proc_dict[uniq_proc]] = row[end_col]
-            logger.debug("removing process row for key %s" % str(uniq_proc))
             ligomd.table['process']['stream'].pop(row_idx)
+            logger.debug("removed process row for key %s" % str(uniq_proc))
           else:
             # multiple entries for this process, needs human assistance
             raise ServerHandlerException, "multiple entries for dmt process"
@@ -503,9 +503,9 @@ class ServerHandler(SocketServer.BaseRequestHandler):
           % str(uniq_def))
         try:
           seg_def_key[row[sdid_col]] = dmt_seg_def_dict[uniq_def]
-          logger.debug("removing known segment_definer row for key %s" 
-            % str(uniq_def))
           ligomd.table['segment_definer']['stream'].pop(row_idx)
+          logger.debug("removed known segment_definer row for key %s" 
+            % str(uniq_def))
         except KeyError:
           # we know nothing about this segment_definer, so query the database
           sql = "SELECT segment_def_id FROM segment_definer WHERE "
@@ -524,9 +524,9 @@ class ServerHandler(SocketServer.BaseRequestHandler):
               % str(uniq_def))
             dmt_seg_def_dict[uniq_def] = db_seg_def_id[0][0]
             seg_def_key[row[sdid_col]] = dmt_seg_def_dict[uniq_def]
-            logger.debug("removing segment_definer row for key %s" 
-              % str(uniq_def))
             ligomd.table['segment_definer']['stream'].pop(row_idx)
+            logger.debug("removed segment_definer row for key %s" 
+              % str(uniq_def))
         # next row in the segment_definer table
         row_idx += 1
 
