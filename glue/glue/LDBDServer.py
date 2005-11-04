@@ -484,7 +484,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
         sql += "AND creator_db = " + str(creator_db)
         ligomd.curs.execute(sql)
         dn_db = ligomd.curs.fetchone()
-        if dn_db:
+        if not dn_db:
           msg = "Could not find DN for process %s" % known_proc[pid][0]
           raise ServerHandlerException, msg
         else:
