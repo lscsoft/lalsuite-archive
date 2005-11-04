@@ -1,0 +1,207 @@
+#!/usr/bin/python
+#
+# lightweight database dumper client
+#
+# $Id$
+#
+# Copyright (C) 2003 Duncan Brown
+# 
+# This file is part of the lightweight datapase dumper (ldbd)
+#
+
+import sys
+import os
+import getopt
+import re
+import exceptions
+import re
+
+try:
+  from glue import LDBDClient
+  from glue import gsiserverutils
+except ImportError, e:
+  print >> sys.stderr, """
+Error: unable to import modules from glue.
+
+Check that glue is correctly installed and in your PYTHONPATH.
+
+%s
+""" % e
+  sys.exit(1)
+
+
+def usage():
+  msg = """\
+Usage: ldbdc.py [OPTIONS]
+
+  -r, --server HOST:PORT  connect to ldbd on HOST:PORT (default port 30020)
+  -j, --identity SUBJECT  the subject of the servers service certififcate
+  -i, --insert LIGOLW     insert LIGO lightweight file LIGOLW
+  -f, --pfn PFNLIST       a comma separated list of PFNs to insert
+  -q, --query QUERY       execute SQL query QUERY
+  -o, --output FILE       write output to FILE
+  -D, --dmt-segments      insert the XML data as DMT segment data
+  -p, --ping              ping the server
+  -h, --help              print this message
+
+One of the options --query or --insert must be specified.
+\
+"""
+  print msg
+
+def help():
+  usage()
+  sys.exit(0)
+
+shortop = "r:j:d:i:f:q:o:Dvph"
+longop = [
+  "server=",
+  "identity=",
+  "database=",
+  "insert=",
+  "pfn=",
+  "query=",
+  "output=",
+  "dmt-segments",
+  "ping",
+  "help"
+  ]
+
+try:
+  opts, args = getopt.getopt(sys.argv[1:], shortop, longop)
+except getopt.GetoptError:
+  usage()
+  sys.exit(1)
+
+# defaults
+hostPortString = None
+port = 30020
+identity = None
+infile = None
+pfnlist = None
+outfile = None
+squery = None
+dmtsegs = None
+ping = None
+
+# environment variables override defaults but not
+# command line options
+try:
+  hostPortString = os.environ['LDBD_SERVER']
+except:
+  pass
+
+for o, a in opts:
+  if o in ("-h", "--help"):
+    help()
+  elif o in ("-r", "--server"):
+    hostPortString = a
+  elif o in ("-j", "--identity"):
+    identity = a
+  elif o in ("-i", "--insert"):
+    infile = a
+  elif o in ("-f", "--pfn"):
+    pfnlist = a
+  elif o in ("-q", "--query"):
+    squery = a
+  elif o in ("-d", "--database"):
+    database = a
+  elif o in ("-o", "--output"):
+    outfile = a
+  elif o in ("-D", "--dmt-segments"):
+    dmtsegs = 1
+  elif o in ("-p", "--ping"):
+    ping = 1
+
+# determine server and port
+if not hostPortString:
+  print >>sys.stderr, "No ldbd server specified"
+  print >>sys.stderr, "Enter 'ldbdc --help' for usage"
+  sys.exit(1)
+
+if hostPortString.find(':') < 0:
+  # no port specified
+  host = hostPortString
+else:
+  # server and port specified
+  host, portString = hostPortString.split(':')
+  port = int(portString)
+
+if not infile and not squery and not ping:
+  print "\nNo operation specified\n"
+  usage()
+  sys.exit(1)
+if squery and infile:
+  print "\nOnly one of --query and --insert can be specified\n"
+  usage()
+  sys.exit(1)
+if pfnlist and not infile:
+  print "\nA list of PFNs makes sense only when inserting data\n"
+  usage()
+  sys.exit(1)
+if dmtsegs and not infile:
+  print "\nMust specify an XML file to insert\n"
+  usage()
+  sys.exit(1)
+if dmtsegs and pfnlist:
+  print "\nCannot specify a list of PFNs when inserting data segment data\n"
+  usage()
+  sys.exit(1)
+
+if not identity:
+  identity = "/DC=org/DC=doegrids/OU=Services/CN=ldbd/%s" % host
+
+# open connection to LDBD Server
+try:
+  myClient = LDBDClient.LDBDClient(host, port, identity)
+
+except Exception, e:
+  print >>sys.stderr, \
+    "Unable to connect to LDBD Server %s:%d" % (host, port)
+  if gsiserverutils.checkCredentials():
+    print >>sys.stderr, "Got the following error : " + str(e)
+    print >>sys.stderr, "Enter 'LSCsegFind --help' for usage"
+  sys.exit(1)
+
+try:
+  if ping:
+    # ping the server and print the response
+    print myClient.ping()
+
+  elif infile and not pfnlist:
+    # open an input file and send it to the server
+    fh = open(infile,'r')
+    xmltext = fh.read()
+    if dmtsegs:
+      myClient.insertdmt(xmltext)
+    else:
+      myClient.insert(xmltext)
+    fh.close()
+
+  elif infile and pfnlist:
+    # open the input file but skip any of the "bad" tables
+    xmltext = ""
+    p = LDBDClient.SimpleLWXMLParser()
+    fh = open(infile,'r')
+    for line in fh.xreadlines():
+      xmltext += p.parse_line(line)
+    fh.close()
+    lfnpfn_dict = {}
+    lfnpfn_dict[os.path.basename(infile)] = pfnlist.split(',')
+    myClient.insertmap(xmltext,lfnpfn_dict)
+
+  elif squery:
+    # execute the query and write out the results
+    if outfile:
+      fh = open(outfile,'w')
+    else:
+      fh = sys.__stdout__
+    fh.write(myClient.query(squery))
+    fh.close()
+
+except Exception, e:
+  print >>sys.stderr, "Error querying LDBD Server: %s" % str(e)
+  print >>sys.stderr, "Enter 'ldbdc --help' for usage"
+  sys.exit(1)
+
+sys.exit(0)
