@@ -21,7 +21,8 @@ import rlsClient
 
 def initialize(configuration,log):
   # define the global variables used by the server
-  global logger, max_bytes, xmlparser, dbobj, xmlparser, lwtparser, rls
+  global logger, max_bytes, xmlparser, lwtparser, dbobj, rls
+  global dmt_proc_dict, dmt_seg_def_dict
   
   # initialize the logger
   logger = log
@@ -49,7 +50,8 @@ def initialize(configuration,log):
   dmt_seg_def_dict = {}
 
 def shutdown():
-  global logger, max_bytes, xmlparser, dbobj, xmlparser, lwtparser, rls
+  global logger, max_bytes, xmlparser, lwtparser, dbobj, rls
+  global dmt_proc_dict, dmt_seg_def_dict
   logger.info("Shutting down server module %s" % __name__ )
   if rls:
     del rls
@@ -91,7 +93,8 @@ class ServerHandler(SocketServer.BaseRequestHandler):
 
     @return: None
     """
-    global logger, max_bytes
+    global logger
+    global max_bytes
 
     logger.debug("handle method of %s class called" % __name__)
 
@@ -214,6 +217,8 @@ class ServerHandler(SocketServer.BaseRequestHandler):
 
     @return: None
     """
+    global logger
+    global xmlparser, lwtparser, dbobj
 
     # get the query string and log it
     querystr = arg[0]
@@ -254,6 +259,8 @@ class ServerHandler(SocketServer.BaseRequestHandler):
 
     @return: None
     """
+    global logger
+    global xmlparser, lwtparser, dbobj
 
     logger.debug("Method insert called")
 
@@ -300,6 +307,8 @@ class ServerHandler(SocketServer.BaseRequestHandler):
 
     @return: None
     """
+    global logger
+    global xmlparser, lwtparser, dbobj, rls
 
     logger.debug("Method insertmap called")
 
@@ -372,6 +381,9 @@ class ServerHandler(SocketServer.BaseRequestHandler):
 
     @return: None
     """
+    global logger
+    global xmlparser, lwtparser, dbobj
+    global dmt_proc_dict, dmt_seg_def_dict
     proc_key = {}
     proc_end_time = {}
     seg_def_key = {}
