@@ -598,7 +598,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
         sql = "UPDATE process SET end_time = " + str(known_proc[pid][1])
         sql += " WHERE process_id = " + known_proc[pid][0]
         ligomd.curs.execute(sql)
-      ligomd.dbconn.commit()
+      dbobj.dbconn.commit()
 
       logger.info("Method insert: %s rows affected by insert" % result)
       code = 0
