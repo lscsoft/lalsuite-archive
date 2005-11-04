@@ -10,6 +10,9 @@ CREATE TABLE gridcert
 -- Unique process ID of the process which wrote this lfn
       process_id         CHAR(13) FOR BIT DATA NOT NULL,
 
+-- Unique ID for this gridcert row
+      gridcert_id        CHAR(13) FOR BIT DATA NOT NULL,
+
 -- Distinguished name of the user or program
       dn                 VARCHAR(255) NOT NULL,
 
@@ -17,7 +20,7 @@ CREATE TABLE gridcert
       insertion_time     TIMESTAMP WITH DEFAULT CURRENT TIMESTAMP,
 
       CONSTRAINT gridcert_pk
-      PRIMARY KEY (creator_db,process_id),
+      PRIMARY KEY (gridcert_id, creator_db),
 
 -- This entry must map to an entry in the process table
       CONSTRAINT gridcert_fk_pid
