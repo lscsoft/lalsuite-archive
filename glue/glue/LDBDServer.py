@@ -597,6 +597,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
       for pid in known_proc.keys():
         sql = "UPDATE process SET end_time = " + str(known_proc[pid][1])
         sql += " WHERE process_id = " + known_proc[pid][0]
+        sql += " AND end_time < " + str(known_proc[pid][1])
         logger.debug(sql)
         ligomd.curs.execute(sql)
       ligomd.dbcon.commit()
