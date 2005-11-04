@@ -40,6 +40,7 @@ Usage: ldbdc.py [OPTIONS]
   -f, --pfn PFNLIST       a comma separated list of PFNs to insert
   -q, --query QUERY       execute SQL query QUERY
   -o, --output FILE       write output to FILE
+  -D, --dmt-segments      insert the XML data as DMT segment data
   -p, --ping              ping the server
   -h, --help              print this message
 
@@ -52,7 +53,7 @@ def help():
   usage()
   sys.exit(0)
 
-shortop = "r:j:d:i:f:q:o:vph"
+shortop = "r:j:d:i:f:q:o:Dvph"
 longop = [
   "server=",
   "identity=",
@@ -61,6 +62,7 @@ longop = [
   "pfn=",
   "query=",
   "output=",
+  "dmt-segments",
   "ping",
   "help"
   ]
@@ -79,6 +81,7 @@ infile = None
 pfnlist = None
 outfile = None
 squery = None
+dmtsegs = None
 ping = None
 
 # environment variables override defaults but not
@@ -105,6 +108,8 @@ for o, a in opts:
     database = a
   elif o in ("-o", "--output"):
     outfile = a
+  elif o in ("-D", "--dmt-segments"):
+    dmtsegs = 1
   elif o in ("-p", "--ping"):
     ping = 1
 
@@ -134,6 +139,14 @@ if pfnlist and not infile:
   print "\nA list of PFNs makes sense only when inserting data\n"
   usage()
   sys.exit(1)
+if dmtsegs and not insert:
+  print "\nMust specify an XML file to insert\n"
+  usage()
+  sys.exit(1)
+if dmtsegs and pfnlist:
+  print "\nCannot specify a list of PFNs when inserting data segment data\n"
+  usage()
+  sys.exit(1)
 
 if not identity:
   identity = "/DC=org/DC=doegrids/OU=Services/CN=ldbd/%s" % host
@@ -159,7 +172,10 @@ try:
     # open an input file and send it to the server
     fh = open(infile,'r')
     xmltext = fh.read()
-    myClient.insert(xmltext)
+    if dmtsegs:
+      myClient.insertdmt(xmltext)
+    else:
+      myClient.insert(xmltext)
     fh.close()
 
   elif infile and pfnlist:
