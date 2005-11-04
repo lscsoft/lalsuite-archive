@@ -388,7 +388,9 @@ class ServerHandler(SocketServer.BaseRequestHandler):
     known_proc = {}
     seg_def_key = {}
 
-    logger.debug("Method insert called")
+    msg = "Method dmtinsert called. Known processes %s, " % str(dmt_proc_dict)
+    msg += "known segment_definers %s" % str(dmt_seg_def_dict)
+    logger.debug(msg)
 
     # assume failure
     code = 1
@@ -522,10 +524,11 @@ class ServerHandler(SocketServer.BaseRequestHandler):
               % str(uniq_def))
             dmt_seg_def_dict[uniq_def] = db_seg_def_id[0][0]
             seg_def_key[row[sdid_col]] = dmt_seg_def_dict[uniq_def]
-            logger.debug("removing segment_definer row for key %s" % str(uniq_def))
+            logger.debug("removing segment_definer row for key %s" 
+              % str(uniq_def))
             ligomd.table['segment_definer']['stream'].pop(row_idx)
-      # next row in the segment_definer table
-      row_idx += 1
+        # next row in the segment_definer table
+        row_idx += 1
 
       # if we have deleted all the rows, remove the whole segment_definer table
       if len(ligomd.table['segment_definer']['stream']) == 0:
