@@ -502,8 +502,8 @@ class ServerHandler(SocketServer.BaseRequestHandler):
           sql += "name = '" + row[name_col] + "' AND "
           sql += "version = " + str(row[vers_col])
           ligomd.curs.execute(sql)
-          db_sef_def_id = ligomd.curs.fetchone()
-          if not db_sef_def_id:
+          db_seg_def_id = ligomd.curs.fetchone()
+          if not db_seg_def_id:
             dmt_seg_def_dict[uniq_def] = row[sdid_col]
           else:
             dmt_seg_def_dict[uniq_def] = db_seg_def_id[0]
