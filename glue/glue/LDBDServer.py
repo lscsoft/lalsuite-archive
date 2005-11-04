@@ -463,7 +463,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
       newstream = []
       for row,row_idx in zip(ligomd.table['process']['stream'],indices):
         try:
-          rmv_idx(row_idx)
+          rmv_idx.index(row_idx)
         except ValueError:
           newstream.append(row)
       ligomd.table['process']['stream'] = newstream
@@ -539,7 +539,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
       newstream = []
       for row,row_idx in zip(ligomd.table['segment_definer']['stream'],indices):
         try:
-          rmv_idx(row_idx)
+          rmv_idx.index(row_idx)
         except ValueError:
           newstream.append(row)
       ligomd.table['segment_definer']['stream'] = newstream
