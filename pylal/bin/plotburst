@@ -5,7 +5,6 @@ import os
 import re
 import string
 import exceptions
-import glob
 import time
 from types import *
 from optparse import OptionParser
@@ -18,25 +17,19 @@ from pylal import viz
 ###############################################################################
 # grab command line options
 usage = """
-usage: %prog [options]
+usage: %prog [options] files...
 
 Plot summary information about burst triggers
 
 """
 parser = OptionParser( usage )
 parser = OptionParser(version="%prog CVS $Id$")
-parser.add_option("-g","--glob",action="store",type="string",\
-		  default=None, metavar=" GLOB", \
-		  help="GLOB of trigger files to read" )
 parser.add_option("-t", "--gps-start-time", metavar=" SECONDS",\
 		  default=None, help="start from GPS time SECONDS")
 parser.add_option("-d", "--duration", metavar=" SECONDS", \
 		  default=None, help="duration")
 parser.add_option("-f","--fig-name",action="store",type="string", \
 		  default=None, metavar=" FNAME", help="output file name" )
-parser.add_option("-i","--input-file",action="store",type="string", \
-		  default=None, metavar=" INPUT_FILE", \
-		  help="Input file for the triggers" )
 parser.add_option("-n","--norm-value",action="store",type="float", \
 		  default=None, metavar=" NORM_VALUE",help="Normalisation \
 		  constant in seconds" )
@@ -51,32 +44,15 @@ parser.add_option("-s","--show-plot",action="store_true",default=False,\
 options, args = parser.parse_args()
 del parser
 
-# check the trig file was specified
-if not options.input_file and not options.glob:
-	print >>sys.stderr, "an input file or a GLOB of files \
-	must be specified"
-	print >>sys.stderr, "Enter 'plotburst --help' for usage"
-  	sys.exit(1)
-
-if options.input_file and options.glob:
-	print >>sys.stderr, "Specify an input file or a GLOB. \
-	Not both"
-	print >>sys.stderr, "Enter 'plotburst --help' for usage"
+# check that a trig file was specified
+if not len(args):
+	print >>sys.stderr, "no trigger files specified!"
   	sys.exit(1)
 
 #############################################################################
 
 # read in the trigger files
-if options.glob:
-	globFiles = glob.glob(options.glob)
-	triggers = readMeta.metaDataTable(globFiles, "sngl_burst")
-
-if options.input_file:
-	trigFile = open(options.input_file)
-	trigFiles = []
-	for line in trigFile:
-		trigFiles.append(string.strip(line,"\n"))
-	triggers = readMeta.metaDataTable(trigFiles, "sngl_burst")
+triggers = readMeta.metaDataTable(args, "sngl_burst")
 
 
 # extract some arrays from the trigger table
