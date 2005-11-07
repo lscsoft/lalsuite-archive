@@ -125,7 +125,9 @@ if opts.hist_slides or opts.slide_snr:
     print >>sys.stderr, "--hist-slides or --slide-snr are"
     sys.exit(1)
 
-plotsymbols= ['r+','bx','ko','g1']
+plotsymbols = ['r+','bx','ko','g1']
+hanfordsym = ['b+','bx','r1']
+addsym = ['k+','kx','k1']
 
 xlow = 20
 xhigh = 0
@@ -300,22 +302,40 @@ if opts.snr_snr or opts.slide_snr:
         sym = 0
         legend_text = []
         if 'H1' in ifo_list:
-          viz.plotcoincval(coincTriggers, 'snr', 'H1', ifo, plotsymbols[sym],\
+          viz.plotcoincval(coincTriggers, 'snr', 'H1', ifo, hanfordsym[sym],\
               opts.plot_type)
           legend_text.append('H1' + ifo)
+          for add_ifo in ifo_non_h:
+            if add_ifo != ifo:
+              viz.plotcoincval(coincTriggers, 'snr', 'H1', ifo, addsym[sym],\
+                  opts.plot_type, add_ifo)
+              legend_text.append('H1' + ifo + '(also in ' + add_ifo + ')')
+              
         if not opts.slide_snr: sym += 1
         if 'H2' in ifo_list:
-          viz.plotcoincval(coincTriggers, 'snr', 'H2', ifo, plotsymbols[sym],\
+          viz.plotcoincval(coincTriggers, 'snr', 'H2', ifo, hanfordsym[sym],\
               opts.plot_type)
           legend_text.append('H2' + ifo)
+          for add_ifo in ifo_non_h:
+            if add_ifo != ifo:
+              viz.plotcoincval(coincTriggers, 'snr', 'H2', ifo, addsym[sym],\
+                  opts.plot_type, add_ifo)
+              legend_text.append('H2' + ifo + '(also in ' + add_ifo + ')')
+              
         if not opts.slide_snr: sym += 1
         if 'H1' in ifo_list and 'H2' in ifo_list:       
           viz.plotcoinchanford(coincTriggers, 'snr', ifo, 'sum', 
-              plotsymbols[sym], opts.plot_type)
+              hanfordsym[sym], opts.plot_type)
           legend_text.append('H1H2' + ifo)
+          for add_ifo in ifo_non_h:
+            if add_ifo != ifo:
+              viz.plotcoinchanford(coincTriggers, 'snr', ifo, 'sum',\
+                  addsym[sym],opts.plot_type, add_ifo)
+              legend_text.append('H1H2' + ifo + '(also in ' + add_ifo + ')')
+
 
       if not opts.slide_snr:
-        legend(legend_text)
+        legend(legend_text,2)
       xlabel('SNR Hanford', size='x-large')
       ylabel('SNR ' + ifo, size='x-large')
       title('Hanford vs ' + ifo + ' coincident event SNR')

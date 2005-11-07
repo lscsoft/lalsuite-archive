@@ -155,11 +155,13 @@ if opts.time_snr:
   for injSet in injSets:
     semilogy(injSet['injections']['inj_time'],injSet['injections']['inj_dist'],\
              plot1symbol[sym],label=tags[t]+"find",\
-             markerfacecolor=None,markeredgecolor='b',markersize=10)
+             markerfacecolor=None,markeredgecolor='b',markersize=10,\
+             markeredgewidth=1)
     hold(True)
     semilogy(injSet['missedinjs']['mis_time'],injSet['missedinjs']['mis_dist'],\
-              plot2symbol[sym],label=tags[t]+"miss",\
-	      markerfacecolor=None,markeredgecolor='r',markersize=10)
+        plot2symbol[sym],label=tags[t]+"miss",\
+        markerfacecolor=None,markeredgecolor='r',markersize=10,\
+        markeredgewidth=1)
     hold(True) 
     sym+=1
     t+=1
@@ -168,11 +170,8 @@ if opts.time_snr:
   title(opts.title + 'Distance vs Time', size='x-large')
   xlabel('Injected End Time (days after start of run)', size='x-large')
   ylabel('Injected Effective Distance (Mpc)', size='x-large')
-  #axis([min(inj_time), max(inj_time), \
-  #  0.95 * min(inj_dist), 1.05 * max(missed_dist)])
+  #ylim(10, 1000)
   gca().grid(True)
-  gca().xaxis.set_major_formatter(xmajorFormatter)
-  #set(gca().get_xticklabels(), 'rotation', 25)
   if opts.fig_name:
     savefig(opts.fig_name + "_time-snr.png")
   
