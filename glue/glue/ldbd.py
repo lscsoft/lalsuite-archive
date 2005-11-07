@@ -420,10 +420,10 @@ class LIGOMetadata:
     except KeyError:
       self.table['lfn'] = {
         'pos' : 0,
-        'column' : {'process_id' : 'ilwd:char', 'lfn' : 'lstring'},
+        'column' : {'process_id' : 'ilwd:char', 'name' : 'lstring'},
         'stream' : [(pid, lfn)],
         'query' : '',
-        'orderedcol' : ['process_id', 'lfn' ]
+        'orderedcol' : ['process_id', 'name' ]
         }
 
   def set_dn(self,dn):
