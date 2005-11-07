@@ -115,13 +115,12 @@ if options.plot_summary:
 if options.cum_rate_snr:
 	figure(2)
 
-	snr.sort()
 	if options.norm_value:
 		bins = [(len(snr) - j) / options.norm_value for j in range(len(snr))]
 	else:
 		bins = [(len(snr) - j) for j in range(len(snr))]
 
-	loglog(snr, bins, linewidth=2.0)
+	loglog(sort(snr), bins, linewidth=2.0)
 	hold(True)
 	grid(True)
 	xlabel('SNR', size='x-large')
@@ -138,8 +137,7 @@ if options.cum_rate_snr:
 if options.cum_rate_conf:
 	figure(3)
 	
-	conf = -confidence
-	conf.sort()		    
+	conf = sort(-confidence)
 	if options.norm_value:
 		bins = [(len(conf) - j) / options.norm_value for j in range(len(conf))]
 	else:
