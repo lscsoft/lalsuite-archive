@@ -521,7 +521,7 @@ def plotcoinchanford(coinctable, col_name, ifo, hanford_method, plot_sym,\
     if plot_type == 'linear':
       plot(ifo_val, h_val,plot_sym,markersize=12)
     elif plot_type == 'log':
-      loglog(ifo1_val, ifo2_val,plot_sym,markersize=12)
+      loglog(ifo_val, h_val,plot_sym,markersize=12)
 
 
 
