@@ -292,7 +292,7 @@ for trigs in availTrigs:
   snglDict[trigs] = {}
   snglDict[trigs] = readMeta.metaDataTable(files[trigs],"sngl_inspiral")
   coincDict[trigs] = readMeta.coincInspiralTable(snglDict[trigs]) 
-  coincDict[trigs] = coincDict[trigs].coinctype(opts.ifo_list) 
+  coincDict[trigs] = coincDict[trigs].coincinclude(opts.ifo_list) 
   coincDict[trigs] = coincDict[trigs].cluster(10) 
 
 if not opts.glob_bg:

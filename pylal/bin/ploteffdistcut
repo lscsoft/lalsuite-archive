@@ -119,7 +119,7 @@ injTriggers = readMeta.coincInspiralTable()
 for file in injFiles:
   inspTriggers = readMeta.metaDataTable([file],"sngl_inspiral")
   injTrig = readMeta.coincInspiralTable(inspTriggers)
-  injTrig = injTrig.coinctype([opts.ifoa,opts.ifob])
+  injTrig = injTrig.coincinclude([opts.ifoa,opts.ifob])
   if opts.cluster_window:
     injTrig = injTrig.cluster(opts.cluster_window)
   injTriggers.append(injTrig)
@@ -144,7 +144,7 @@ if opts.slide_glob:
     this_slide["coinc_trigs"] = \
         readMeta.coincInspiralTable(this_slide["sngl_trigs"] )
     this_slide["coinc_trigs"] = \
-        this_slide["coinc_trigs"].coinctype([opts.ifoa,opts.ifob])
+        this_slide["coinc_trigs"].coincinclude([opts.ifoa,opts.ifob])
 
     # cluster triggers
     #if opts.cluster_window:
