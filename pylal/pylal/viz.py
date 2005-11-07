@@ -488,25 +488,35 @@ def labelval(col_name, units = None, axis = [0,0,0,0], xlab = None, \
 ###########################################################
 # function to plot the value of 'col_name' in ifo1  vs its
 # value in ifo2 
-def plotcoincval(coinctable, col_name, ifo1, ifo2, plot_sym, plot_type):
+def plotcoincval(coinctable, col_name, ifo1, ifo2, plot_sym, plot_type,\
+  additional_ifo=None):
   
-  ifo_coinc = coinctable.coinctype([ifo1,ifo2])
+  if additional_ifo:
+    ifo_coinc = coinctable.coinctype([ifo1,ifo2,additional_ifo])
+  else:
+    ifo_coinc = coinctable.coinctype([ifo1,ifo2])
 
   ifo1_val = ifo_coinc.mkarray(col_name,ifo1)
   ifo2_val = ifo_coinc.mkarray(col_name,ifo2)
   
   if plot_type == 'linear':
-    plot(ifo1_val, ifo2_val,plot_sym,markersize=12,markeredgewidth=1)
+    plot(ifo1_val, ifo2_val,plot_sym,markersize=12,markeredgewidth=1,\
+        markerfacecolor=None)
   elif plot_type == 'log':
-    loglog(ifo1_val, ifo2_val,plot_sym,markersize=12,markeredgewidth=1)
+    loglog(ifo1_val, ifo2_val,plot_sym,markersize=12,markeredgewidth=1,\
+        markerfacecolor=None)
+
 
 ###########################################################
 # function to plot the value of 'col_name' in hanford  vs its
 # value in ifo.  
-def plotcoinchanford(coinctable, col_name, ifo, hanford_method, plot_sym,\
-  plot_type):
-  
-  ifo_coinc = coinctable.coinctype([ifo,'H1','H2'])
+def plotcoinchanford(coinctable, col_name, ifo, \
+  hanford_method, plot_sym,plot_type, additional_ifo=None):
+
+  if additional_ifo:
+    ifo_coinc = coinctable.coinctype([ifo,additional_ifo,'H1','H2'])
+  else:
+    ifo_coinc = coinctable.coinctype([ifo,'H1','H2'])
 
   ifo_val = ifo_coinc.mkarray(col_name,ifo)
   h1_val = ifo_coinc.mkarray(col_name,'H1')
@@ -517,13 +527,14 @@ def plotcoinchanford(coinctable, col_name, ifo, hanford_method, plot_sym,\
   if hanford_method == 'mean':
     h_val = (h1_val + h2_val)/2
    
-  if len(ifo_val): 
-    if plot_type == 'linear':
-      plot(ifo_val, h_val,plot_sym,markersize=12)
-    elif plot_type == 'log':
-      loglog(ifo_val, h_val,plot_sym,markersize=12)
+  if plot_type == 'linear':
+    plot(h_val, ifo_val, plot_sym,markersize=12,markerfacecolor=None,\
+        markeredgewidth=1)
+  elif plot_type == 'log':
+    loglog(h_val, ifo_val,plot_sym,markersize=12,markerfacecolor=None,\
+        markeredgewidth=1)
 
-
+    
 
 
 ######################################################################
