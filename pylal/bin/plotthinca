@@ -120,13 +120,15 @@ if not opts.glob:
 
 # if doing any slide plots:
 if opts.hist_slides or opts.slide_snr:
-    if not opts.num_slides:
-      print >>sys.stderr, "--num-slides must be specified if"
-      print >>sys.stderr, "--hist-slides or --slide-snr are"
-      sys.exit(1)
+  if not opts.num_slides:
+    print >>sys.stderr, "--num-slides must be specified if"
+    print >>sys.stderr, "--hist-slides or --slide-snr are"
+    sys.exit(1)
 
 plotsymbols= ['r+','bx','ko','g1']
 
+xlow = 20
+xhigh = 0
 f_name = opts.figure_name
 if opts.cluster_window and f_name:
   f_name += '_clust_' + str(opts.cluster_window) + 'sec'
@@ -170,6 +172,10 @@ for ifo1 in ifo_list:
 # glob the list of files to read in
 if opts.glob:  
   allfiles = glob.glob(opts.glob)
+
+  if not allfiles:
+    print >>sys.stderr, "The glob for " + opts.glob + " returned no files"
+    sys.exit(1)
 
   slidefiles = []
   coincfiles = []
