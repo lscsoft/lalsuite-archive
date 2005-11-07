@@ -169,25 +169,41 @@ class coincInspiralTable:
     return asarray( mylist )
 
 
+
+  def coincinclude(self, ifolist):
+    """
+    Return the coincs which have triggers from the ifos in ifolist.
+    @param ifolist: a list of ifos 
+    """
+ 
+    selected_coincs = coincInspiralTable()
+    for coinc in self.table:
+      keep_trig = True
+      for ifo in ifolist:
+        if not coinc.has_key(ifo):
+          keep_trig = False
+          break
+            
+      if keep_trig == True:
+        selected_coincs.table.append(coinc)
+        
+    return selected_coincs
+
+
   def coinctype(self, ifolist):
     """
     Return the coincs which are from ifos.
     @param ifos: a list of ifos 
     """
  
+    self = self.coincinclude(ifolist)
     selected_coincs = coincInspiralTable()
     for coinc in self.table:
-      keep_trig = True
       if coinc["numifos"] == len(ifolist):
-        for ifo in ifolist:
-          if not coinc.has_key(ifo):
-            keep_trig = False
-            break
-            
-        if keep_trig == True:
-          selected_coincs.table.append(coinc)
+        selected_coincs.table.append(coinc)
         
     return selected_coincs
+
 
 
   def getsngls(self, ifo):
