@@ -18,6 +18,7 @@ import copy
 import exceptions
 import socket
 import SocketServer
+from glue import segments
 import cPickle
 import mx.ODBC.DB2
 from mx.ODBC.DB2 import SQL
@@ -311,21 +312,11 @@ class ServerHandler(SocketServer.BaseRequestHandler):
       code = 1
 
     if protocol < 3:
-      # load revision 1.7 of the segments module
-      logger.debug("Importing segments verson 1.7 from glue")
-      m_fp, m_path, m_desc = imp.find_module('segments',
-        [os.path.join(
-          os.environ["GLUE_LOCATION"],
-          'lib/python/glue/segfindserver/segments_1_7')
-        ])
-      segments = imp.load_module('glue.segments',m_fp,m_path,m_desc)
-      m_fp.close()
+      # return an error message
+      result = "Protocol versions less than 3 are not supported by this server"
+      logger.error(result)
+      code = 1
     
-    else:
-      # load the current revision of the segments module
-      logger.debug("Importing segments from glue")
-      segments = __import__('glue.segments', globals(), locals(), ['segments'])
-
     # parse out query information
     try:
       start = arg[1]
@@ -417,10 +408,5 @@ class ServerHandler(SocketServer.BaseRequestHandler):
     self.__reply__(code, result)
 
     del result
-
-    # unload the segments module
-    logger.debug("Unloading segments module")
-    del segments
-    del sys.modules["glue.segments"]
 
     return None
