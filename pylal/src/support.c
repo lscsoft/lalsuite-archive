@@ -7,6 +7,7 @@
 #include <lal/LIGOLwXML.h>
 #include <lal/LIGOLwXMLHeaders.h>
 #include <lal/LIGOLwXMLRead.h>
+#include <lal/LIGOMetadataUtils.h>
 
 #if defined(Py_DEBUG) || defined(DEBUG)
 extern void _Py_CountReferences(FILE *);
@@ -29,8 +30,7 @@ read_process_params(PyObject *self, PyObject *args)
   ProcessParamsTable **addevent=&eventHead;
   ProcessParamsTable *event=NULL;
   PyObject *fromPython;
-  int j, m=0, n=0, nelement=0, len;
-  int startEvent = 0, stopEvent = -1;
+  int j, n=0, nelement=0, len;
   PyObject *outlist;
   PyObject *tmpvalue;
 
@@ -84,8 +84,7 @@ read_process(PyObject *self, PyObject *args)
   ProcessTable **addevent=&eventHead;
   ProcessTable *event=NULL;
   PyObject *fromPython;
-  int j, m=0, n=0, nelement=0, len;
-  int startEvent = 0, stopEvent = -1;
+  int j, n=0, nelement=0, len;
   PyObject *outlist;
   PyObject *tmpvalue;
 
@@ -530,8 +529,7 @@ read_multi_inspiral(PyObject *self, PyObject *args)
   MultiInspiralTable **addevent=&eventHead;
   MultiInspiralTable *event=NULL;
   PyObject *fromPython;
-  int j, m=0, n=0, nelement=0, len;
-  int startEvent = 0, stopEvent = -1;
+  int j, n=0, nelement=0, len;
   PyObject *outlist;
   PyObject *tmpvalue;
 
@@ -982,14 +980,8 @@ write_sim_inspiral(PyObject *self, PyObject *args)
 static PyObject* 
 write_sngl_inspiral_begin(PyObject *self, PyObject *args) 
 {  
-  SnglInspiralTable *eventHead=NULL;
-  SnglInspiralTable *event=NULL;
-  int n=0, len;
   PyObject* fileObj;
-  PyObject* inlist;
-  PyObject* tmpvalue;
   LIGOLwXMLStream* xmlStream;
-  MetadataTable outputTable;
   static LALStatus status;
 
   /* extract arguments */
@@ -1118,14 +1110,8 @@ write_sngl_inspiral_write(PyObject *self, PyObject *args)
 static PyObject* 
 write_sngl_inspiral_end(PyObject *self, PyObject *args) 
 {  
-  SnglInspiralTable *eventHead=NULL;
-  SnglInspiralTable *event=NULL;
-  int n=0, len;
   PyObject* fileObj;
-  PyObject* inlist;
-  PyObject* tmpvalue;
   LIGOLwXMLStream* xmlStream;
-  MetadataTable outputTable;
   static LALStatus status;
 
   /* extract arguments */
@@ -1166,7 +1152,7 @@ static struct PyMethodDef support_methods[] = {
 };
 
 /* module initializer */
-void initsupport()               /* called on first import */
+void initsupport(void)               /* called on first import */
 {                               /* name matters if loaded dynamically */
     /* mod name, table ptr */
     (void) Py_InitModule("pylal.support", support_methods);
