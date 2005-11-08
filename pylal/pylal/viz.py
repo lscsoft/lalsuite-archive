@@ -153,7 +153,7 @@ def plot_a_v_b(table, col_name_a, col_name_b, plot_type, plot_sym, \
   elif plot_type == 'logx':
     semilogx(col_a, col_b, plot_sym, markersize=12,markerfacecolor=None)
   elif plot_type == 'logy':
-    semilogx(col_a, col_b, plot_sym, markersize=12,markerfacecolor=None)
+    semilogy(col_a, col_b, plot_sym, markersize=12,markerfacecolor=None)
   elif plot_type == 'loglog':
     loglog(col_a, col_b, plot_sym, markersize=12,markerfacecolor=None)
     xlim(0.95 * min(col_a), 1.05 * max(col_a))
@@ -496,8 +496,16 @@ def plotcoincval(coinctable, col_name, ifo1, ifo2, plot_sym, plot_type,\
   else:
     ifo_coinc = coinctable.coinctype([ifo1,ifo2])
 
-  ifo1_val = ifo_coinc.mkarray(col_name,ifo1)
-  ifo2_val = ifo_coinc.mkarray(col_name,ifo2)
+  if col_name == 'snr_chi':
+    snr1 = ifo_coinc.mkarray('snr',ifo1)
+    snr2 = ifo_coinc.mkarray('snr',ifo2)
+    chi1 = sqrt(ifo_coinc.mkarray('chisq',ifo1))
+    chi2 = sqrt(ifo_coinc.mkarray('chisq',ifo2))
+    ifo1_val = snr1/chi1
+    ifo2_val = snr2/chi2
+  else:  
+    ifo1_val = ifo_coinc.mkarray(col_name,ifo1)
+    ifo2_val = ifo_coinc.mkarray(col_name,ifo2)
   
   if plot_type == 'linear':
     plot(ifo1_val, ifo2_val,plot_sym,markersize=12,markeredgewidth=1,\
@@ -518,9 +526,20 @@ def plotcoinchanford(coinctable, col_name, ifo, \
   else:
     ifo_coinc = coinctable.coinctype([ifo,'H1','H2'])
 
-  ifo_val = ifo_coinc.mkarray(col_name,ifo)
-  h1_val = ifo_coinc.mkarray(col_name,'H1')
-  h2_val = ifo_coinc.mkarray(col_name,'H2')
+  if col_name == 'snr_chi':
+    snr = ifo_coinc.mkarray('snr',ifo)
+    snr_h1 = ifo_coinc.mkarray('snr','H1')
+    snr_h2 = ifo_coinc.mkarray('snr','H2')
+    chi = sqrt(ifo_coinc.mkarray('chisq',ifo))
+    chi_h1 = sqrt(ifo_coinc.mkarray('chisq','H1'))
+    chi_h2 = sqrt(ifo_coinc.mkarray('chisq','H2'))
+    ifo_val = snr/chi
+    h1_val = snr_h1/chi_h1
+    h2_val = snr_h2/chi_h2
+  else:  
+    ifo_val = ifo_coinc.mkarray(col_name,ifo)
+    h1_val = ifo_coinc.mkarray(col_name,'H1')
+    h2_val = ifo_coinc.mkarray(col_name,'H2')
 
   if hanford_method == 'sum':
     h_val = h1_val + h2_val

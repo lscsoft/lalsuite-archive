@@ -82,6 +82,8 @@ parser.add_option("-a","--snr-time",action="store_true",default=False,\
     help="plot the snr vs time of coinc triggers" )
 parser.add_option("-b","--snr-snr",action="store_true",default=False,\
     help="make snr vs snr plots of coinc triggers" )
+parser.add_option("-c","--snr-chi",action="store_true",default=False,\
+    help="make snr/chi vs snr/chi plots of coinc triggers" )
 parser.add_option("-d","--slide-snr",action="store_true",default=False,\
     help="make snr vs snr plots of time slide triggers" )
 parser.add_option("-e","--dist-dist",action="store_true",default=False,\
@@ -252,6 +254,14 @@ if (opts.slide_snr or opts.slide_dist or opts.plot_slides or opts.hist_slides
   sys.exit(1)
 
 
+
+################################
+# set either snr or snr/chi
+if opts.snr_chi:
+  snr = 'snr_chi'
+else:
+  snr = 'snr'
+
 ################################
 # plot of h1 vs h2 snr
 
@@ -262,19 +272,23 @@ if opts.snr_snr or opts.slide_snr:
     hold(True)
     if opts.slide_snr:
       for slide in slideTriggers:
-        viz.plotcoincval(slide["coinc_trigs"], 'snr', 'H1', 'H2', 'kx',\
+        viz.plotcoincval(slide["coinc_trigs"], snr, 'H1', 'H2', 'k+',\
           opts.plot_type)
-      xlow = min(xlow,slide_low)
-      xhigh = max(xhigh,slide_high)
     if opts.snr_snr:
-      viz.plotcoincval(coincTriggers, 'snr', 'H1', 'H2', 'r+',opts.plot_type)
+      viz.plotcoincval(coincTriggers, snr, 'H1', 'H2', 'r+',opts.plot_type)
 
     xlabel('SNR H1', size='x-large')
     ylabel('SNR H2', size='x-large')
     title('H1 vs H2 coincident event SNR')
     grid(True)
+    if opts.min_snr:
+      xlim(xmin=opts.min_snr)
+      ylim(ymin=opts.min_snr)
+    if opts.max_snr:
+      xlim(xmax=opts.max_snr)
+      ylim(ymax=opts.max_snr)
     if f_name:
-      savefig(f_name + "_H1_vs_H2_snr.png")
+      savefig(f_name + "_H1_vs_H2_" + snr + ".png")
 
 
 ################################
@@ -289,47 +303,47 @@ if opts.snr_snr or opts.slide_snr:
       if opts.slide_snr:
         for slide in slideTriggers:
           if 'H1' in ifo_list:
-            viz.plotcoincval(slide["coinc_trigs"], 'snr', 'H1', ifo, 'kx',\
+            viz.plotcoincval(slide["coinc_trigs"], snr, 'H1', ifo, 'kx',\
                 opts.plot_type)
           if 'H2' in ifo_list:
-            viz.plotcoincval(slide["coinc_trigs"], 'snr', 'H2', ifo, 'kx',\
+            viz.plotcoincval(slide["coinc_trigs"], snr, 'H2', ifo, 'k+',\
                 opts.plot_type)
           if 'H1' in ifo_list and 'H2' in ifo_list:
-            viz.plotcoinchanford(slide["coinc_trigs"], 'snr', ifo, 'sum', \
-                'kx', opts.plot_type)
+            viz.plotcoinchanford(slide["coinc_trigs"], snr, ifo, 'sum', \
+                'k1', opts.plot_type)
       
       if opts.snr_snr:
         sym = 0
         legend_text = []
         if 'H1' in ifo_list:
-          viz.plotcoincval(coincTriggers, 'snr', 'H1', ifo, hanfordsym[sym],\
+          viz.plotcoincval(coincTriggers, snr, 'H1', ifo, hanfordsym[sym],\
               opts.plot_type)
           legend_text.append('H1' + ifo)
           for add_ifo in ifo_non_h:
             if add_ifo != ifo:
-              viz.plotcoincval(coincTriggers, 'snr', 'H1', ifo, addsym[sym],\
+              viz.plotcoincval(coincTriggers, snr, 'H1', ifo, addsym[sym],\
                   opts.plot_type, add_ifo)
               legend_text.append('H1' + ifo + '(also in ' + add_ifo + ')')
               
         if not opts.slide_snr: sym += 1
         if 'H2' in ifo_list:
-          viz.plotcoincval(coincTriggers, 'snr', 'H2', ifo, hanfordsym[sym],\
+          viz.plotcoincval(coincTriggers, snr, 'H2', ifo, hanfordsym[sym],\
               opts.plot_type)
           legend_text.append('H2' + ifo)
           for add_ifo in ifo_non_h:
             if add_ifo != ifo:
-              viz.plotcoincval(coincTriggers, 'snr', 'H2', ifo, addsym[sym],\
+              viz.plotcoincval(coincTriggers, snr, 'H2', ifo, addsym[sym],\
                   opts.plot_type, add_ifo)
               legend_text.append('H2' + ifo + '(also in ' + add_ifo + ')')
               
         if not opts.slide_snr: sym += 1
         if 'H1' in ifo_list and 'H2' in ifo_list:       
-          viz.plotcoinchanford(coincTriggers, 'snr', ifo, 'sum', 
+          viz.plotcoinchanford(coincTriggers, snr, ifo, 'sum', 
               hanfordsym[sym], opts.plot_type)
           legend_text.append('H1H2' + ifo)
           for add_ifo in ifo_non_h:
             if add_ifo != ifo:
-              viz.plotcoinchanford(coincTriggers, 'snr', ifo, 'sum',\
+              viz.plotcoinchanford(coincTriggers, snr, ifo, 'sum',\
                   addsym[sym],opts.plot_type, add_ifo)
               legend_text.append('H1H2' + ifo + '(also in ' + add_ifo + ')')
 
@@ -340,8 +354,14 @@ if opts.snr_snr or opts.slide_snr:
       ylabel('SNR ' + ifo, size='x-large')
       title('Hanford vs ' + ifo + ' coincident event SNR')
       grid(True)
+      if opts.min_snr:
+        xlim(xmin=opts.min_snr)
+        ylim(ymin=opts.min_snr)
+      if opts.max_snr:
+        xlim(xmax=opts.max_snr)
+        ylim(ymax=opts.max_snr)
       if f_name:
-        savefig(f_name + "_H_vs_" + ifo + "_snr.png")
+        savefig(f_name + "_H_vs_" + ifo + "_" + snr + ".png")
 
 
 ################################
@@ -354,20 +374,25 @@ if opts.snr_snr or opts.slide_snr:
     hold(True)
     if opts.slide_snr:
       for slide in slideTriggers:
-        viz.plotcoincval(slide["coinc_trigs"], 'snr', ifo_non_h[0], 
+        viz.plotcoincval(slide["coinc_trigs"], snr, ifo_non_h[0], 
             ifo_non_h[1], 'kx',opts.plot_type)
-      xlow = min(xlow,slide_low)
-      xhigh = max(xhigh,slide_high)
     if opts.snr_snr:
-      viz.plotcoincval(coincTriggers, 'snr', ifo_non_h[0], 
+      viz.plotcoincval(coincTriggers, snr, ifo_non_h[0], 
           ifo_non_h[1], 'r+',opts.plot_type)
 
     xlabel('SNR ' + ifo_non_h[0], size='x-large')
     ylabel('SNR ' + ifo_non_h[1], size='x-large')
     title(ifo_non_h[0] + ' vs ' + ifo_non_h[1] + ' coincident event SNR')
     grid(True)
+    if opts.min_snr:
+      xlim(xmin=opts.min_snr)
+      ylim(ymin=opts.min_snr)
+    if opts.max_snr:
+      xlim(xmax=opts.max_snr)
+      ylim(ymax=opts.max_snr)
     if f_name:
-      savefig(f_name + "_" + ifo_non_h[0] + "_vs_" + ifo_non_h[1] + "_snr.png")
+      savefig(f_name + "_" + ifo_non_h[0] + "_vs_" + ifo_non_h[1] + "_" +\
+          snr + ".png")
 
 
 ################################
@@ -381,8 +406,6 @@ if opts.dist_dist:
       for slide in slideTriggers:
         viz.plotcoincval(slide["coinc_trigs"], 'eff_distance', 'H1', 'H2', \
           'kx', opts.plot_type)
-      xlow = min(xlow,slide_low)
-      xhigh = max(xhigh,slide_high)
       
     if opts.dist_dist:
       viz.plotcoincval(coincTriggers, 'eff_distance', 'H1', 'H2', 'r+', \
@@ -392,6 +415,12 @@ if opts.dist_dist:
     ylabel('eff distance H2 (Mpc)', size='x-large')
     title('H1 vs H2 coincident event effective distance')
     grid(True)
+    if opts.min_snr:
+      xlim(xmin=opts.min_snr)
+      ylim(ymin=opts.min_snr)
+    if opts.max_snr:
+      xlim(xmax=opts.max_snr)
+      ylim(ymax=opts.max_snr)
     if f_name:
       savefig(f_name + "_H1_vs_H2_dist.png")
 
@@ -417,6 +446,10 @@ if opts.snr_time:
     ylabel('snr',size='x-large')
     grid(True)
     sym += 1
+    if opts.min_snr:
+      ylim(ymin=opts.min_snr)
+    if opts.max_snr:
+      ylim(ymax=opts.max_snr)
     
   if f_name:
     savefig(f_name + "_snr_vs_time.png")
