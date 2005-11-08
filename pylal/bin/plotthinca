@@ -277,8 +277,8 @@ if opts.snr_snr or opts.slide_snr:
     if opts.snr_snr:
       viz.plotcoincval(coincTriggers, snr, 'H1', 'H2', 'r+',opts.plot_type)
 
-    xlabel('SNR H1', size='x-large')
-    ylabel('SNR H2', size='x-large')
+    xlabel(snr + ' H1', size='x-large')
+    ylabel(snr + ' H2', size='x-large')
     title('H1 vs H2 coincident event SNR')
     grid(True)
     if opts.min_snr:
@@ -350,8 +350,8 @@ if opts.snr_snr or opts.slide_snr:
 
       if not opts.slide_snr:
         legend(legend_text,2)
-      xlabel('SNR Hanford', size='x-large')
-      ylabel('SNR ' + ifo, size='x-large')
+      xlabel(snr + ' Hanford', size='x-large')
+      ylabel(snr + ' '+ ifo, size='x-large')
       title('Hanford vs ' + ifo + ' coincident event SNR')
       grid(True)
       if opts.min_snr:
@@ -380,8 +380,8 @@ if opts.snr_snr or opts.slide_snr:
       viz.plotcoincval(coincTriggers, snr, ifo_non_h[0], 
           ifo_non_h[1], 'r+',opts.plot_type)
 
-    xlabel('SNR ' + ifo_non_h[0], size='x-large')
-    ylabel('SNR ' + ifo_non_h[1], size='x-large')
+    xlabel(snr + ' ' + ifo_non_h[0], size='x-large')
+    ylabel(snr + ' ' + ifo_non_h[1], size='x-large')
     title(ifo_non_h[0] + ' vs ' + ifo_non_h[1] + ' coincident event SNR')
     grid(True)
     if opts.min_snr:
