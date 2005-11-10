@@ -48,15 +48,22 @@ def readcol(table, col_name, ifo=None ):
   if 'dist' in col_name:
     col_names.append(col_name + 'ance')
 
+  col_data = []
+  
   if table.nevents():
-    for c_name in col_names:
-      if table.table[0].has_key(c_name):
-        col_data = table.mkarray(c_name)
-        if 'time' in c_name:
-          col_data = col_data + 1e-9 * table.mkarray(c_name + '_ns')
-  else:
-    col_data = []
-
+    if col_name == 'snr_chi':
+      # calculate snr/chi for triggers
+      snr_data = table.mkarray('snr')
+      chi_data = sqrt(table.mkarray('chisq'))
+      col_data = snr_data / chi_data
+    
+    else:
+      for c_name in col_names:
+        if table.table[0].has_key(c_name):
+          col_data = table.mkarray(c_name)
+          if 'time' in c_name:
+            col_data = col_data + 1e-9 * table.mkarray(c_name + '_ns')
+    
   return col_data
 
 ##############################################
@@ -133,10 +140,9 @@ def timeindays(col_data ):
 #################################################################
 # function to plot the col1 vs col2 from the table
 def plot_a_v_b(table, col_name_a, col_name_b, plot_type, plot_sym, \
-  output_name = None):
+  output_name = None, ifo = None):
 
-  ifo = None
-  if table.nevents:
+  if not ifo and table.nevents:
     if table.table[0].has_key('ifo'):
       ifo = table.table[0]["ifo"]
   
@@ -604,12 +610,11 @@ def histcol(table1, col_name,nbins = None, width = None, output_name = None):
 ######################################################################
 # function to histogram the difference between values of 'col_name' in
 # two tables, table1 and table2
-def cumhistcol(table1, col_name, normalization=None,output_name = None):
+def cumhistcol(table1, col_name, plot_type = 'logy', normalization=None, \
+    output_name = None, ifo=None, xlimit = None):
  
-  if table1.table[0].has_key('ifo'):
+  if not ifo and table1.table[0].has_key('ifo'):
     ifo = table1.table[0]["ifo"]
-  else:
-    ifo = None
 
   data = readcol(table1, col_name, ifo )
 
@@ -621,8 +626,21 @@ def cumhistcol(table1, col_name, normalization=None,output_name = None):
   if normalization:
     y_data = y_data/float(normalization)
   
-  semilogy(data_sort, y_data,'b-')
-  
+  if plot_type == 'logy':
+    semilogy(data_sort, y_data,'k-',linewidth=1)
+  elif plot_type == 'logx':
+    semilogx(data_sort, y_data,'k-',linewidth=1)
+  elif plot_type == 'loglog':
+    loglog(data_sort, y_data,'k-',linewidth=1)
+  else:
+    plot(data_sort, y_data,'k-',linewidth=1)
+
+
+  if xlimit[0]:
+    xmin(xlimit[0])
+  if xlimit[1]:
+    xmax(xlimit[1])
+
   xlabel(col_name, size='x-large')
   
   if normalization:
@@ -774,6 +792,61 @@ def cumhistsnr(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
       title_text += ifo + ' '
  
   title(title_text, size='x-large')
+
+
+######################################################################
+# function to determine the efficiency as a function of distance
+def efficiencyplot(found, missed, col_name, ifo=None, plot_type = 'linear', \
+    nbins = 20, output_name = None):
+ 
+  if not ifo and found.table[0].has_key('ifo'):
+    ifo = found.table[0]["ifo"]
+
+  foundVal = readcol(found,col_name, ifo)
+  missedVal = readcol(missed,col_name, ifo)
+
+  figure(100)
+
+  if plot_type == 'log':
+    foundVal = log10(foundVal)
+    missedVal = log10(missedVal)
+
+  bins = arange(min(foundVal),max(foundVal), \
+      (max(foundVal) - min(foundVal)) /nbins )
+  
+  [num_found,binsf,stuff] = hist(foundVal, bins)
+  [num_missed,binsm,stuff] = hist(missedVal ,bins)
+
+  num_found = array(num_found,'d')
+  eff = num_found / (num_found + num_missed)
+ 
+  close(100)
+  
+  if plot_type == 'log':
+    bins = 10**bins
+    semilogx(eff, 'kx-',markersize=12, markerfacecolor=None,\
+      markeredgewidth=1, linewidth=1)
+  else:
+    plot(bins, eff, 'kx-',markersize=12, markerfacecolor=None,\
+      markeredgewidth=1, linewidth=1)
+  xlabel(col_name, size='x-large')
+  ylabel('Efficiency', size='x-large')
+  
+  if ifo:
+    title_string = ifo + ' ' + col_name
+  else:
+    title_string = col_name
+  title_string += ' efficiency plot'
+  title(title_string, size='x-large')
+
+  grid(True)
+
+  if output_name:
+    if ifo:
+      output_name += '_' + ifo
+    output_name += '_' + col_name + '_eff.png'
+    savefig(output_name)
+
 
 ######################################################################
 # function to histogram the difference between values of 'col_name' in
