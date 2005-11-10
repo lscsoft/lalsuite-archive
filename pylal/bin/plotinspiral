@@ -38,7 +38,9 @@ The plots are
     The normalization is determined by the maximum total number of triggers,
     calculated from the --maximization-interval and --analyzed-time
     
-6)  Histogram of CHISQ values    
+6)  Histogram of CHISQ values  
+
+7)  Cumulative Histogram of snr/chi values
 """
 
 parser = OptionParser( usage )
@@ -72,6 +74,10 @@ parser.add_option("-e","--norm-hist-snr",action="store_true",default=False,\
     help="normalized cumulative histogram of the snr" )
 parser.add_option("-j","--hist-chisq",action="store_true",default=False,\
     help="histogram of the chisq values" )
+parser.add_option("-k","--cum-hist-snr-chi",action="store_true",default=False,\
+    help="cumulative histogram of snr/chi" )
+parser.add_option("-l","--hist-snr-chi",action="store_true",default=False,\
+    help="histogram of snr/chi" )
 parser.add_option("-n","--nbins",action="store",type="int",default=10,\
     metavar=" NBINS", help="number of bins for the histogram plots" )
 parser.add_option("-m","--maximization-interval",action="store",\
@@ -98,6 +104,9 @@ if opts.norm_hist_snr and not opts.analyzed_time:
   sys.exit(1)
 
 trigFiles = glob.glob(opts.glob)
+if not len(trigFiles):
+  print >>sys.stderr, "The glob for " + opts.glob + " returned no files"
+  sys.exit(1)
 
 # an instance of the snglInspiralTable
 inspTriggers=readMeta.metaDataTable(trigFiles, "sngl_inspiral")
@@ -151,7 +160,7 @@ if opts.hist_snr:
   viz.histcol(inspTriggers,'snr',opts.nbins,None,opts.figure_name)
 
 ###################################
-# histogram of snr
+# normalized histogram of snr
 if opts.norm_hist_snr:
   max_poss_trigs = (1000 / float (opts.maximization_interval)) * \
     opts.analyzed_time
@@ -161,9 +170,20 @@ if opts.norm_hist_snr:
 ###################################
 # histogram of chisq values
 if opts.hist_chisq:
-  figure(5)
+  figure(6)
   viz.histcol(inspTriggers,'chisq',opts.nbins,None,opts.figure_name)
 
+###################################
+# cumulative histogram of snr
+if opts.cum_hist_snr_chi:
+  figure(7)
+  viz.cumhistcol(inspTriggers,'snr_chi',None,opts.figure_name)
+
+###################################
+# histogram of snr
+if opts.hist_snr_chi:
+  figure(4)
+  viz.histcol(inspTriggers,'snr_chi',opts.nbins,None,opts.figure_name)
 
 if opts.show_plot:
   show()
