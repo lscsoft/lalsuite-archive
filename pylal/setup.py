@@ -46,6 +46,7 @@ setup(
     os.path.join("bin", "plotcoincwindow"),
     os.path.join("bin", "ploteffdistcut"),
     os.path.join("bin", "plotefficiency"),
+    os.path.join("bin", "plotsnrchi"),
     os.path.join("bin", "lalapps_pire")
 
 	],
