@@ -25,14 +25,15 @@ from mx.ODBC.DB2 import SQL
 
 def initialize(configuration,log):
   # define the global variables used by the server
-  global logger, max_bytes, db
+  global logger, max_bytes, db, dbname
   
   # initialize the logger
   logger = log
   logger.info("Initializing server module %s" % __name__ )
   
   # initialize the database hash table
-  db = mx.ODBC.DB2.Connect(configuration['dbname'])
+  dbname = configuration['dbname']
+  db = mx.ODBC.DB2.Connect(dbname)
   max_bytes = configuration['max_client_byte_string']
 
 def shutdown():
@@ -201,7 +202,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
 
     @return: None
     """
-    global logger, db
+    global logger, db, dbname
 
     logger.debug("Method distinctAttribute called")
 
@@ -227,7 +228,16 @@ class ServerHandler(SocketServer.BaseRequestHandler):
         raise ServerHandlerException, msg
       sql += "ORDER BY x ASC"
 
-      c = db.cursor()
+      try:
+        c = db.cursor()
+      except mx.ODBC.DB2.InterfaceError, e:
+        if ( (int(e[0]) == 40003 and e[1] = -1224) or
+             (int(e[0]) == 08003 and e[1] = -99999) ):
+          db = mx.ODBC.DB2.Connect(dbname)
+          c = db.cursor()
+        else:
+          raise
+
       c.execute(sql)
       res = c.fetchall()
       c.close()
@@ -350,7 +360,15 @@ class ServerHandler(SocketServer.BaseRequestHandler):
 
       try:
         # open a database cursor
-        c = db.cursor()
+        try:
+          c = db.cursor()
+        except mx.ODBC.DB2.InterfaceError, e:
+          if ( (int(e[0]) == 40003 and e[1] = -1224) or
+               (int(e[0]) == 08003 and e[1] = -99999) ):
+            db = mx.ODBC.DB2.Connect(dbname)
+            c = db.cursor()
+          else:
+            raise
 
         for ifo in ifoList:
           typeList_tmp = copy.deepcopy(typeList)
