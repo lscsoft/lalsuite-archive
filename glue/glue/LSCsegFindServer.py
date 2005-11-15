@@ -272,7 +272,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
 
     @return: None
     """
-    global logger, db
+    global logger, db, dbname
 
     logger.debug("Method segmentFindWithMetadata_v1 called")
     time_rx = \
@@ -305,6 +305,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
 
     @return: None
     """
+    global logger, db, dbname
 
     logger.debug("Method segmentFindWithMetadata_vx called")
     code = 0
