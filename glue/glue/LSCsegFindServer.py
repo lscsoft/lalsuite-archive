@@ -232,7 +232,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
         c = db.cursor()
       except mx.ODBC.DB2.InterfaceError, e:
         if ( (int(e[0]) == 40003 and e[1] == -1224) or
-             (int(e[0]) == 08003 and e[1] == -99999) ):
+             (int(e[0]) == 8003 and e[1] == -99999) ):
           db = mx.ODBC.DB2.Connect(dbname)
           c = db.cursor()
         else:
@@ -363,8 +363,8 @@ class ServerHandler(SocketServer.BaseRequestHandler):
         try:
           c = db.cursor()
         except mx.ODBC.DB2.InterfaceError, e:
-          if ( (int(e[0]) == 40003 and e[1] = -1224) or
-               (int(e[0]) == 08003 and e[1] = -99999) ):
+          if ( (int(e[0]) == 40003 and e[1] == -1224) or
+               (int(e[0]) == 8003 and e[1] == -99999) ):
             db = mx.ODBC.DB2.Connect(dbname)
             c = db.cursor()
           else:
