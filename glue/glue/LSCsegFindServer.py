@@ -361,10 +361,8 @@ class ServerHandler(SocketServer.BaseRequestHandler):
           sql += "segment.creator_db = segment_def_map.segment_cdb AND "
           sql += "segment_def_map.segment_def_id = segment_definer.segment_def_id AND "
           sql += "segment_def_map.segment_def_cdb = segment_definer.creator_db AND "
-          sql += "((segment.start_time BETWEEN %s AND %s) OR " % \
-            (start, end)
-          sql += "(segment.end_time BETWEEN %s AND %s)) " % \
-            (start, end)
+          sql += "segment.start_time <= %s AND " % end
+          sql += "segment.end_time >= %s " % start
           sql += "AND segment_definer.ifos = '%s' AND (segment_definer.name = '%s'" % \
             (ifo, typeList_tmp.pop(0))
           for x in typeList_tmp:
@@ -398,6 +396,14 @@ class ServerHandler(SocketServer.BaseRequestHandler):
       result = ifoSegList.pop(0)
       try:
         for iseg in ifoSegList: result &= iseg
+      except:
+        pass
+
+      # take the intersection of the query result with the requested range
+      query_range = segments.segmentlist()
+      query_range.append(segments.segment(start,end))
+      try:
+        result &= query_range
       except:
         pass
 
