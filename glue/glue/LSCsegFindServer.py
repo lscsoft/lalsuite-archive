@@ -369,6 +369,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
             sql += " OR segment_definer.name = '%s'" % (x)
           sql += ")"
           del typeList_tmp
+          logger.debug(sql)
 
           c.execute(sql)
           result = c.fetchall()
