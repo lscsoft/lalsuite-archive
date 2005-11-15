@@ -14,16 +14,38 @@ from pylal import viz
 
 
 ##############################################################################
-def plotlines(snr_range, B = 15):
-  loglog(snr_range, 15*snr_range**4 / (snr_range**2 + 0   ), 'm-',linewidth=1)
-  loglog(snr_range, 13*snr_range**4 / (snr_range**2 + 2*B  ), 'b-',linewidth=1)
-  loglog(snr_range, 11*snr_range**4 / (snr_range**2 + 4*B ), 'g-',linewidth=1)
-  loglog(snr_range, 9 *snr_range**4 / (snr_range**2 + 6*B ), 'r-',linewidth=1)
-  loglog(snr_range, 7 *snr_range**4 / (snr_range**2 + 8*B ), 'y-',linewidth=1)
-  loglog(snr_range, 5 *snr_range**4 / (snr_range**2 + 10*B ), 'c-',linewidth=1)
-  loglog(snr_range, 3 *snr_range**4 / (snr_range**2 + 12*B ), 'm-',linewidth=1)
-  loglog(snr_range, 2 *snr_range**4 / (snr_range**2 + 13*B ), 'b-',linewidth=1)
-  loglog(snr_range, 1 *snr_range**4 / (snr_range**2 + 14*B ), 'g-',linewidth=1)
+def plotvarlines(snr_range, var):
+  loglog(snr_range, 15*snr_range**4 / (snr_range**2 + 0  ), 'm-',linewidth=1)
+  loglog(snr_range, 13*snr_range**4 / (snr_range**2 + 2*var ), 'b-',linewidth=1)
+  loglog(snr_range, 11*snr_range**4 / (snr_range**2 + 4*var ), 'g-',linewidth=1)
+  loglog(snr_range, 9 *snr_range**4 / (snr_range**2 + 6*var ), 'r-',linewidth=1)
+  loglog(snr_range, 7 *snr_range**4 / (snr_range**2 + 8*var ), 'y-',linewidth=1)
+  loglog(snr_range, 5*snr_range**4 / (snr_range**2 + 10*var ), 'c-',linewidth=1)
+  loglog(snr_range, 3*snr_range**4 / (snr_range**2 + 12*var ), 'm-',linewidth=1)
+  loglog(snr_range, 2*snr_range**4 / (snr_range**2 + 13*var ), 'b-',linewidth=1)
+  loglog(snr_range, 1*snr_range**4 / (snr_range**2 + 14*var ), 'g-',linewidth=1)
+
+##############################################################################
+def plotconstlines(snr_range, const):
+  loglog(snr_range, 15*snr_range**4 / (snr_range**2 + const ), \
+      'm-',linewidth=1)
+  loglog(snr_range, 13*snr_range**4 / (snr_range**2 + const ), \
+      'b-',linewidth=1)
+  loglog(snr_range, 11*snr_range**4 / (snr_range**2 + const ), \
+      'g-',linewidth=1)
+  loglog(snr_range, 9 *snr_range**4 / (snr_range**2 + const ), \
+      'r-',linewidth=1)
+  loglog(snr_range, 7 *snr_range**4 / (snr_range**2 + const ), \
+      'y-',linewidth=1)
+  loglog(snr_range, 5 *snr_range**4 / (snr_range**2 + const ), \
+      'c-',linewidth=1)
+  loglog(snr_range, 3 *snr_range**4 / (snr_range**2 + const ), \
+      'm-',linewidth=1)
+  loglog(snr_range, 2 *snr_range**4 / (snr_range**2 + const ), \
+      'b-',linewidth=1)
+  loglog(snr_range, 1 *snr_range**4 / (snr_range**2 + const ), \
+      'g-',linewidth=1)
+
 
 
 ##############################################################################
@@ -59,6 +81,7 @@ def loghistval(trig_val,inj_val,nbins=20):
       markeredgewidth=1, linewidth=1)
   leg.append('triggers')
   legend(leg) 
+  xlim(10**min_val, 10**max_val)
   
   print 'loudest noise trigger = ' + str(max(trig_val))
   num_above = sum(inj_val > max(trig_val)) 
@@ -70,31 +93,45 @@ def loghistval(trig_val,inj_val,nbins=20):
 usage = """
 prog [options] 
 
-Inspiral Plotting Functions
+Plots snr vs chisq for a glob of triggers that are read in.  The code expects
+a GLOB of input triggers.  It can also accept an INJGLOB containing triggers
+associated with injections.  It makes various different plots
 
-The function reads in triggers from a glob of files and produces several 
-different figures.
+1) A plot of SNR vs chisq for the triggers.  Injections are also plotted if
+specified.  Called with --snr-chisq
 
-The plots are
+2) A plot of SNR vs chisq with contours.  Called with --trig-contour
 
-1)  SNR v CHISQ, linear scale  (requres that the chisq was calculated)
+3) A plot of the contours and curves meant to appoximate these contours.
+Called with --contour-lines.
 
-2)  SNR v CHISQ, log scale on both axes
+4) A plot of the triggers, contours and lines.  Called with
+--trig-contour-lines.
 
-   The chisq threshold can be added to the above plots if the 
-     --chisq-threshold, --chisq-delta and --chisq-bins are given
+5) A plot of triggers and lines.  Called with --trig-lines.
 
-3)  Cumulative Histogram of SNR values
-    
-4)  Histogram of SNR values
+The function used to specify the lines is either:
 
-5)  "Normalized" cumulative histogram of SNR values
-    The normalization is determined by the maximum total number of triggers,
-    calculated from the --maximization-interval and --analyzed-time
-    
-6)  Histogram of CHISQ values  
+a) chisq = A * snr^4 / (snr^2 + CONST)
+   
+   This statistic is chosen by specifying --denominator-constant.  The
+   value of CONST must also be given.
 
-7)  Cumulative Histogram of snr/chi values
+b) chisq = A * snr^4 / (snr^2 + VAR * (15 - A) )
+
+   This statistic is chonse by specifying --denominator-variable.  The value
+   of VAR must also be given.
+
+
+Additionally, various plots of the distribution of background and injection
+triggers can be made.  Three such plots are available:
+
+6) Histograms as a function of snr.  Called with --hist-snr
+
+7) Histogramw as a function of snr/chi.  Called with --hist-snr-chi
+
+8) Histograms as a function of the statistic given above.  Called with
+   --hist-stat.
 """
 
 parser = OptionParser( usage )
@@ -106,7 +143,7 @@ parser.add_option("-f","--figure-name",action="store",type="string",\
 parser.add_option("-g","--glob",action="store",type="string",\
     default=None, metavar=" GLOB",help="GLOB of trigger files to read" )
 parser.add_option("-i","--inj-glob",action="store",type="string",\
-    default=None, metavar=" INJ GLOB",
+    default=None, metavar=" INJGLOB",
     help="GLOB of injection trigger files to read" )
 parser.add_option("-t","--title",action="store",type="string",default=None,\
     metavar=" STRING",help="title string for plots")
@@ -116,6 +153,8 @@ parser.add_option("-a","--snr-chisq",action="store_true",default=False,\
     help="make a plot of snr vs chisq" )
 parser.add_option("-c","--trig-contour",action="store_true",default=False,\
     help="make a contour plot of snr vs chisq" )
+parser.add_option("-C","--contour-lines",action="store_true",default=False,\
+    help="make a contour plot of snr vs chisq, with fit lines" )
 parser.add_option("-b","--trig-contour-lines",action="store_true",\
     default=False,\
     help="make a contour plot of snr vs chisq with fitting lines" )
@@ -123,12 +162,18 @@ parser.add_option("-A","--trig-lines",action="store_true",default=False,\
     help="plot triggers and lines" )
 parser.add_option("-B","--trig-inj-lines",action="store_true",default=False,\
     help="plot triggers, injections and lines" )
-parser.add_option("-d","--hist-snr",action="store_true",default=False,\
+parser.add_option("-E","--hist-snr",action="store_true",default=False,\
     help="histogram of the snr for triggers/injections" )
 parser.add_option("-e","--hist-snr-chi",action="store_true",default=False,\
     help="histogram of snr/chi for triggers/injections" )
 parser.add_option("-k","--hist-stat",action="store_true",default=False,\
     help="histogram of snr,chi statistic for triggers/injections" )
+parser.add_option("-D","--denominator-constant",action="store",type="float",\
+    default=0,metavar=" CONST",\
+    help="value for the denominator of the statistic")
+parser.add_option("-d","--denominator-variable",action="store",type="float",\
+    default=0,metavar=" VAR",\
+    help="value for the variable denominator form of the statistic")
 parser.add_option("-n","--nbins",action="store",type="int",default=20,\
     metavar=" NBINS", help="number of bins for the histogram plots" )
 
@@ -154,7 +199,18 @@ if opts.inj_glob:
   if not len(injFiles):
     print >>sys.stderr, "The glob for " + opts.inj_glob + " returned no files"
     sys.exit(1)
-    
+ 
+if not opts.denominator_constant and not opts.denominator_variable:
+  print >>sys.stderr, "One of --denominator-constant CONST or"
+  print >>sys.stderr, "--denominator-variable VAR must be specified"
+  sys.exit(1)
+
+if (opts.hist_stat or opts.hist_snr or opts.hist_snr_chi) and not \
+    opts.inj_glob:
+  print >>sys.stderr, "Must specify an INJ_GLOB if you want to do one of"
+  print >>sys.stderr, "--hist-snr, --hist-snr-chi --hist-stat"
+  sys.exit(1)
+   
 ###################################
 # input triggers
 inspTriggers=readMeta.metaDataTable(trigFiles,'sngl_inspiral')
@@ -230,7 +286,7 @@ low_chisq = array(low_chisq)
 
 ###################################
 # calculate the contours
-if opts.trig_contour or opts.trig_contour_lines:
+if opts.trig_contour or opts.trig_contour_lines or opts.contour_lines:
   
   cont = reshape(zeros(20*20), (20,20))
   for i in range(20):  
@@ -272,51 +328,121 @@ if opts.trig_contour:
 
 
 ###################################
+# plot of snr vs chisq with contours and lines
+if opts.contour_lines:
+  if opts.denominator_constant:
+    figure(3)
+
+    plotconstlines(snr_range, opts.denominator_constant)
+    contour(snr_range,chisq_range,cont,v)
+
+    xlabel('snr', size='x-large')
+    ylabel('chisq', size='x-large')
+    title(inspTriggers.table[0]['ifo'])
+    xlim(min_snr, max_snr)
+    ylim(min_chisq, max_chisq)
+    if opts.figure_name:
+      savefig(opts.figure_name + '_contour_const_lines.png')
+
+  if opts.denominator_variable:
+    figure(4)
+
+    plotvarlines(snr_range, opts.denominator_variable)
+    contour(snr_range,chisq_range,cont,v)
+
+    xlabel('snr', size='x-large')
+    ylabel('chisq', size='x-large')
+    title(inspTriggers.table[0]['ifo'])
+    xlim(min_snr, max_snr)
+    ylim(min_chisq, max_chisq)
+    if opts.figure_name:
+      savefig(opts.figure_name + '_contour_var_lines.png')
+
+###################################
 # plot of snr vs chisq with lines
 if opts.trig_lines:
-  figure(3)
-  viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','kx')
+  if opts.denominator_constant:
+    figure(5)
 
-  plotlines(snr_range)
+    viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','kx')
+    plotconstlines(snr_range, opts.denominator_constant)
 
-  xlim(min_snr,max_snr)
-  ylim(min_chisq,max_chisq)  
-  if opts.figure_name:
-    savefig(opts.figure_name + '_snr_chisq_lines.png')
- 
+    xlim(min_snr,max_snr)
+    ylim(min_chisq,max_chisq)  
+    if opts.figure_name:
+      savefig(opts.figure_name + '_snr_chisq_const_lines.png')
+
+  if opts.denominator_variable:
+    figure(6)
+
+    viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','kx')
+    plotvarlines(snr_range, opts.denominator_variable)
+
+    xlim(min_snr, max_snr)
+    ylim(min_chisq, max_chisq)
+    if opts.figure_name:
+      savefig(opts.figure_name + '_snr_chisq_var_lines.png')
+
 ###################################
 # plot of snr vs chisq with injections and lines
 if opts.trig_inj_lines:
-  figure(4)
-  viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','kx')
-  viz.plot_a_v_b(injTriggers,'snr','chisq','loglog','r+')
+  if opts.denominator_constant:
+    figure(7)
 
-  plotlines(snr_range)
+    viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','kx')
+    viz.plot_a_v_b(injTriggers,'snr','chisq','loglog','r+')
+    plotconstlines(snr_range, opts.denominator_constant)
 
-  xlim(min_snr,max_snr)
-  ylim(min_chisq,max_chisq)  
-  if opts.figure_name:
-    savefig(opts.figure_name + '_snr_chisq_inj_lines.png')
+    xlim(min_snr,max_snr)
+    ylim(min_chisq,max_chisq)  
+    if opts.figure_name:
+      savefig(opts.figure_name + '_snr_chisq_inj_const_lines.png')
+
+  if opts.denominator_variable:
+    figure(8)
+
+    viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','kx')
+    viz.plot_a_v_b(injTriggers,'snr','chisq','loglog','r+')
+    plotvarlines(snr_range, opts.denominator_variable)
+
+    xlim(min_snr, max_snr)
+    ylim(min_chisq, max_chisq)
+    if opts.figure_name:
+      savefig(opts.figure_name + '_snr_chisq_inj_var_lines.png')
+
 
 ###################################
 # plot of snr vs chisq with contours and lines
 if opts.trig_contour_lines:
-  figure(5)
-  viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','kx')
-  contour(snr_range,chisq_range,cont,v)
+  if opts.denominator_constant:
+    figure(9)
 
-  plotlines(snr_range)
-  
-  xlim(min_snr,max_snr)
-  ylim(min_chisq,max_chisq)  
-  if opts.figure_name:
-    savefig(opts.figure_name + '_snr_chisq_contour_lines.png')
+    viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','kx')
+    contour(snr_range,chisq_range,cont,v)
+    plotconstlines(snr_range, opts.denominator_constant)
+
+    xlim(min_snr,max_snr)
+    ylim(min_chisq,max_chisq)  
+    if opts.figure_name:
+      savefig(opts.figure_name + '_snr_chisq_contour_const_lines.png')
+
+  if opts.denominator_variable:
+    figure(10)
+
+    viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','kx')
+    contour(snr_range,chisq_range,cont,v)
+    plotvarlines(snr_range, opts.denominator_variable)
+
+    xlim(min_snr, max_snr)
+    ylim(min_chisq, max_chisq)
+    if opts.figure_name:
+      savefig(opts.figure_name + '_snr_chisq_contour_var_lines.png')
+
 
 ###################################
 # histogram of snrs
 if opts.hist_snr:
-
-  figure(6)
+  figure(11)
   print 'Statistic is snr'
   loghistval(snr,inj_snr,opts.nbins)
   xlabel('snr', size='x-large')
@@ -327,30 +453,47 @@ if opts.hist_snr:
 ###################################
 # histogram of snr/chi
 if opts.hist_snr_chi:
-  figure(7)
+  figure(12)
 
   print 'Statistic is snr/chi'
   loghistval(snr/sqrt(chisq),inj_snr/sqrt(inj_chisq),opts.nbins)
-  xlabel('snr/chi')
-  ylabel('pdf')
+  xlabel('snr/chi', size='x-large')
+  ylabel('pdf', size='x-large')
   if opts.figure_name:
     savefig(opts.figure_name + '_snr_chi_efficiency.png')
- 
+
+###################################
+# histogram of funky snr chi
 if opts.hist_stat:
-  figure(8)
+  if opts.denominator_variable:
+    figure(13)
 
-  B = 15
-  p = 15
-  stat = (snr**4 + B * chisq) / (chisq * ( snr**2 + p * B)) 
-  inj_stat = (inj_snr**4 + B * inj_chisq) / (inj_chisq * ( inj_snr**2 + p * B))
+    B = opts.denominator_variable
+    p = 15
+    stat = (snr**4 + B * chisq) / (chisq * ( snr**2 + p * B)) 
+    inj_stat = (inj_snr**4 + B*inj_chisq) / (inj_chisq * ( inj_snr**2 + p*B))
 
-  print 'Statistic is funky snr chi'
-  loghistval(stat,inj_stat,opts.nbins)
-  xlabel('my statistic')
-  ylabel('pdf')
-  if opts.figure_name:
-    savefig(opts.figure_name + '_funky_efficiency.png')
-  
+    print 'Statistic is variable denominator snr chi'
+    loghistval(stat,inj_stat,opts.nbins)
+    xlabel('variable den. statistic', size='x-large')
+    ylabel('pdf', size='x-large')
+    if opts.figure_name:
+      savefig(opts.figure_name + '_var_den_efficiency.png')
+ 
+  if opts.denominator_constant:
+    figure(14)
+
+    C = opts.denominator_constant
+    stat = (snr**4) / (chisq * ( snr**2 + C)) 
+    inj_stat = (inj_snr**4) / (inj_chisq * ( inj_snr**2 + C))
+
+    print 'Statistic is constant denominator snr chi'
+    loghistval(stat,inj_stat,opts.nbins)
+    xlabel('constant den. statistic', size='x-large')
+    ylabel('pdf', size='x-large')
+    if opts.figure_name:
+      savefig(opts.figure_name + '_const_den_efficiency.png')
+
 
 if opts.show_plot:
   show()
