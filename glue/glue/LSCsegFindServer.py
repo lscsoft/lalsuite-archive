@@ -230,14 +230,6 @@ class ServerHandler(SocketServer.BaseRequestHandler):
 
       try:
         c = db.cursor()
-      except mx.ODBC.DB2.InterfaceError, e:
-        logger.debug( "InterfaceError: %s" % str(e) )
-        if ( int(e[0]) == 40003 and e[1] == -1224 ):
-          logger.info("Reconnecting to database due to error %s" % str(e))
-          db = mx.ODBC.DB2.Connect(dbname)
-          c = db.cursor()
-        else:
-          raise
       except mx.ODBC.DB2.OperationalError, e:
         logger.debug( "OperationalError: %s" % str(e) )
         if ( int(e[0]) == 8003 and e[1] == -99999 ):
@@ -374,14 +366,6 @@ class ServerHandler(SocketServer.BaseRequestHandler):
       try:
         try:
           c = db.cursor()
-        except mx.ODBC.DB2.InterfaceError, e:
-          logger.debug( "InterfaceError: %s" % str(e) )
-          if ( int(e[0]) == 40003 and e[1] == -1224 ):
-            logger.info("Reconnecting to database due to error %s" % str(e))
-            db = mx.ODBC.DB2.Connect(dbname)
-            c = db.cursor()
-          else:
-            raise
         except mx.ODBC.DB2.OperationalError, e:
           logger.debug( "OperationalError: %s" % str(e) )
           if ( int(e[0]) == 8003 and e[1] == -99999 ):
