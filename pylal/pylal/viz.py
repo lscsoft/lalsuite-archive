@@ -155,13 +155,17 @@ def plot_a_v_b(table, col_name_a, col_name_b, plot_type, plot_sym, \
     col_b = timeindays(col_b)
     
   if plot_type == 'linear':
-    plot(col_a, col_b, plot_sym, markersize=12,markerfacecolor=None)
+    plot(col_a, col_b, plot_sym, markersize=12,markeredgewidth=1,\
+        markerfacecolor=None)
   elif plot_type == 'logx':
-    semilogx(col_a, col_b, plot_sym, markersize=12,markerfacecolor=None)
+    semilogx(col_a, col_b, plot_sym, markersize=12,markeredgewidth=1,\
+        markerfacecolor=None)
   elif plot_type == 'logy':
-    semilogy(col_a, col_b, plot_sym, markersize=12,markerfacecolor=None)
+    semilogy(col_a, col_b, plot_sym, markersize=12,markeredgewidth=1,\
+        markerfacecolor=None)
   elif plot_type == 'loglog':
-    loglog(col_a, col_b, plot_sym, markersize=12,markerfacecolor=None)
+    loglog(col_a, col_b, plot_sym, markersize=12,markeredgewidth=1,\
+        markerfacecolor=None)
     xlim(0.95 * min(col_a), 1.05 * max(col_a))
     ylim(0.95 * min(col_b), 1.05 * max(col_b))
 
@@ -611,7 +615,7 @@ def histcol(table1, col_name,nbins = None, width = None, output_name = None):
 # function to histogram the difference between values of 'col_name' in
 # two tables, table1 and table2
 def cumhistcol(table1, col_name, plot_type = 'logy', normalization=None, \
-    output_name = None, ifo=None, xlimit = None):
+    output_name = None, ifo=None, xlimit = [0,0]):
  
   if not ifo and table1.table[0].has_key('ifo'):
     ifo = table1.table[0]["ifo"]
