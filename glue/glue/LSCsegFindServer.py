@@ -402,7 +402,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
 
       # take the intersection of the query result with the requested range
       query_range = segments.segmentlist()
-      query_range.append(segments.segment(start,end))
+      query_range.append(segments.segment(int(start),int(end)))
       try:
         result &= query_range
       except:
