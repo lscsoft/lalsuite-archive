@@ -57,6 +57,12 @@ def readcol(table, col_name, ifo=None ):
       chi_data = sqrt(table.mkarray('chisq'))
       col_data = snr_data / chi_data
     
+    elif col_name == 'snr_chi_stat':
+      # calculate snr, chi statistic for triggers:
+      snr_data = table.mkarray('snr')
+      chi_data = table.mkarray('chisq')
+      col_data = chisq * (snr**2 + 250) / snr**4
+      
     else:
       for c_name in col_names:
         if table.table[0].has_key(c_name):
