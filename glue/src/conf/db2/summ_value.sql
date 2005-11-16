@@ -10,7 +10,7 @@ CREATE TABLE summ_value
 
 -- INFORMATION ABOUT THE PROCESS WHICH RECORDED THE VALUE
 -- Program name
-      program            CHAR(16) NOT NULL,
+      program            CHAR(64) NOT NULL,
 -- Unique process ID
       process_id         CHAR(13) FOR BIT DATA NOT NULL,
 

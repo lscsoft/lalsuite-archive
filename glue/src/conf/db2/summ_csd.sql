@@ -11,7 +11,7 @@ CREATE TABLE summ_csd
 
 -- INFORMATION ABOUT THE PROCESS WHICH PRODUCED THIS CSD
 -- Program name
-      program            CHAR(16) NOT NULL,
+      program            CHAR(64) NOT NULL,
 -- Unique process ID
       process_id         CHAR(13) FOR BIT DATA NOT NULL,
 

@@ -8,7 +8,7 @@ CREATE TABLE frameset_writer
 
 -- INFORMATION ABOUT THE PROGRAM WHICH IS WRITING FRAMESETS
 -- Program name
-      program            CHAR(16) NOT NULL,
+      program            CHAR(64) NOT NULL,
 -- Unique process ID
       process_id         CHAR(13) FOR BIT DATA NOT NULL,
 

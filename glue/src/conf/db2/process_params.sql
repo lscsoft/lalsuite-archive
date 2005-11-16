@@ -6,7 +6,7 @@ CREATE TABLE process_params
       creator_db         INTEGER NOT NULL WITH DEFAULT 1,
 
 -- Program name
-      program            CHAR(16) NOT NULL,
+      program            CHAR(64) NOT NULL,
 -- Unique process ID (not unix process ID)
       process_id         CHAR(13) FOR BIT DATA NOT NULL,
 

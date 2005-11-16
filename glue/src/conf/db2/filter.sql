@@ -11,7 +11,7 @@ CREATE TABLE filter
 
 -- INFORMATION ABOUT THE PROGRAM WHICH INITIALIZES THIS FILTER
 -- Program name
-      program            CHAR(16) NOT NULL,
+      program            CHAR(64) NOT NULL,
 -- Program start time (GPS seconds)
       start_time         INTEGER NOT NULL,
 -- Process ID
@@ -19,7 +19,7 @@ CREATE TABLE filter
 
 -- INFORMATION ABOUT THIS FILTER
 -- Filter name (e.g. "FFT")
-      filter_name        CHAR(32) NOT NULL,
+      filter_name        CHAR(64) NOT NULL,
 -- Unique identifier for this invocation of the filter
       filter_id          CHAR(13) FOR BIT DATA NOT NULL,
 -- Parameter set identifier.  Permits an association between multiple
