@@ -73,3 +73,6 @@ CREATE INDEX s_summary_ind_tin ON search_summary(in_start_time, in_end_time)
 -- Create an index based on output time
 CREATE INDEX s_summary_ind_tout ON search_summary(out_start_time, out_end_time)
 ;
+-- Create an index based on interferometers
+CREATE INDEX s_summar_ind_ifos ON search_summary(ifos)
+;
