@@ -8,7 +8,7 @@ CREATE TABLE summ_statistics
 
 -- INFORMATION ABOUT THE PROCESS WHICH PRODUCED THESE STATISTICS
 -- Program name
-      program            CHAR(64) NOT NULL,
+      program            VARCHAR(64) NOT NULL,
 -- Unique process ID
       process_id         CHAR(13) FOR BIT DATA NOT NULL,
 

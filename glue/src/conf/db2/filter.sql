@@ -11,7 +11,7 @@ CREATE TABLE filter
 
 -- INFORMATION ABOUT THE PROGRAM WHICH INITIALIZES THIS FILTER
 -- Program name
-      program            CHAR(64) NOT NULL,
+      program            VARCHAR(64) NOT NULL,
 -- Program start time (GPS seconds)
       start_time         INTEGER NOT NULL,
 -- Process ID

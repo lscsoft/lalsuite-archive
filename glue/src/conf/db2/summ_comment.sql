@@ -7,7 +7,7 @@ CREATE TABLE summ_comment
 
 -- INFORMATION ABOUT THE PROCESS WHICH ADDED THE COMMENT (may be null)
 -- Program name
-      program            CHAR(64),
+      program            VARCHAR(64),
 -- Unique process ID
       process_id         CHAR(13) FOR BIT DATA,
 
