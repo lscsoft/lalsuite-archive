@@ -50,5 +50,10 @@ db2 -tf summ_comment.sql || exit
 echo Executing summ_mime.sql...
 db2 -tf summ_mime.sql || exit
 
+echo Executing search_summary.sql...
+db2 -tf search_summary.sql || exit
+echo Executing search_summvars.sql...
+db2 -tf search_summvars.sql || exit
+
 db2 -tf grant_base.sql
 db2 terminate
