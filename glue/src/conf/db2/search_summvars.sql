@@ -12,6 +12,9 @@ CREATE TABLE search_summvars
 -- Process which generated this event
       process_id         CHAR(13) FOR BIT DATA NOT NULL,
 
+-- Unique id for this row
+      search_summvar_id  CHAR(13) FOR BIT DATA NOT NULL,
+
 -- Name/value pairs.  The value can be either a string or a number (expressed
 -- as a double-precision real number, even if the value is an integer).
 -- To do this, two columns are provided; just fill the appropriate one and
@@ -23,6 +26,9 @@ CREATE TABLE search_summvars
 -- Insertion time (automatically assigned by the database)
       insertion_time     TIMESTAMP WITH DEFAULT CURRENT TIMESTAMP,
 
+      CONSTRAINT s_summvar_pk
+      PRIMARY KEY (search_summvar_id, creator_db),
+
 -- Require this to correspond to an entry in the search_summary table
       CONSTRAINT s_summvar_fk_pid
       FOREIGN KEY (process_id, creator_db)
@@ -31,6 +37,9 @@ CREATE TABLE search_summvars
 )
 -- The following line is needed for this table to be replicated to other sites
 DATA CAPTURE CHANGES
+;
+-- Create an index based on the process which created this entry
+CREATE INDEX s_summvar_ind_pid ON search_summvars(process_id, creator_db)
 ;
 -- Create an index based on name
 CREATE INDEX s_summvar_ind_name ON search_summvars(name)
