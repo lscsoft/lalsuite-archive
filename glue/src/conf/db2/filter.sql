@@ -53,3 +53,9 @@ CREATE INDEX filter_ind_pid ON filter(process_id)
 -- Create an index based on program name
 CREATE INDEX filter_ind_prog ON filter(program)
 ;
+-- Create an index based on filter name
+CREATE INDEX filter_ind_name ON filter(filter_name)
+;
+-- Create an index based on filter comment
+CREATE INDEX filter_ind_comm ON filter(comment)
+;
