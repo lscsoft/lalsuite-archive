@@ -511,16 +511,8 @@ def plotcoincval(coinctable, col_name, ifo1, ifo2, plot_sym, plot_type,\
   else:
     ifo_coinc = coinctable.coinctype([ifo1,ifo2])
 
-  if col_name == 'snr_chi':
-    snr1 = ifo_coinc.mkarray('snr',ifo1)
-    snr2 = ifo_coinc.mkarray('snr',ifo2)
-    chi1 = sqrt(ifo_coinc.mkarray('chisq',ifo1))
-    chi2 = sqrt(ifo_coinc.mkarray('chisq',ifo2))
-    ifo1_val = snr1/chi1
-    ifo2_val = snr2/chi2
-  else:  
-    ifo1_val = ifo_coinc.mkarray(col_name,ifo1)
-    ifo2_val = ifo_coinc.mkarray(col_name,ifo2)
+  ifo1_val = readcol(ifo_coinc.getsngls(ifo1),col_name,ifo1)
+  ifo2_val = readcol(ifo_coinc.getsngls(ifo2),col_name,ifo2)
   
   if plot_type == 'linear':
     plot(ifo1_val, ifo2_val,plot_sym,markersize=12,markeredgewidth=1,\
@@ -541,21 +533,10 @@ def plotcoinchanford(coinctable, col_name, ifo, \
   else:
     ifo_coinc = coinctable.coinctype([ifo,'H1','H2'])
 
-  if col_name == 'snr_chi':
-    snr = ifo_coinc.mkarray('snr',ifo)
-    snr_h1 = ifo_coinc.mkarray('snr','H1')
-    snr_h2 = ifo_coinc.mkarray('snr','H2')
-    chi = sqrt(ifo_coinc.mkarray('chisq',ifo))
-    chi_h1 = sqrt(ifo_coinc.mkarray('chisq','H1'))
-    chi_h2 = sqrt(ifo_coinc.mkarray('chisq','H2'))
-    ifo_val = snr/chi
-    h1_val = snr_h1/chi_h1
-    h2_val = snr_h2/chi_h2
-  else:  
-    ifo_val = ifo_coinc.mkarray(col_name,ifo)
-    h1_val = ifo_coinc.mkarray(col_name,'H1')
-    h2_val = ifo_coinc.mkarray(col_name,'H2')
-
+  h1_val = readcol(ifo_coinc.getsngls('H1'),col_name,'H1')
+  h2_val = readcol(ifo_coinc.getsngls('H2'),col_name,'H2')
+  ifo_val = readcol(ifo_coinc.getsngls(ifo),col_name,ifo)
+  
   if hanford_method == 'sum':
     h_val = h1_val + h2_val
   if hanford_method == 'mean':
