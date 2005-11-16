@@ -11,11 +11,11 @@ CREATE TABLE search_summary
 -- Process which generated this event
       process_id         CHAR(13) FOR BIT DATA NOT NULL,
 
--- BASIC INFORMATION ABOUT THE PROGRAM
--- Program name
-      program            VARCHAR(64) NOT NULL,
--- LALApps CVS tag
-      lalapps_cvs_tag    VARCHAR(128) NOT NULL,
+-- BASIC INFORMATION ABOUT THE SHARED OBJECT
+-- Shared object name
+      shared_object      VARCHAR(64) NOT NULL,
+-- LALwrapper CVS tag
+      lalwrapper_cvs_tag VARCHAR(128) NOT NULL,
 -- LAL CVS tag
       lal_cvs_tag        VARCHAR(128) NOT NULL,
 -- User comment
@@ -24,7 +24,7 @@ CREATE TABLE search_summary
 -- Interferometers used
       ifos               VARCHAR(12),
 
--- INFORMATION ABOUT THE DATA RECIVED BY THE PROGRAM
+-- INFORMATION ABOUT THE DATA RECIVED BY THE SHARED OBJECT
 -- The start and stop time of the data passed to the search by the datacond
 -- Input data start and end times, in GPS seconds and nanoseconds.
       in_start_time      INTEGER NOT NULL,
@@ -32,7 +32,7 @@ CREATE TABLE search_summary
       in_end_time        INTEGER NOT NULL,
       in_end_time_ns     INTEGER NOT NULL,
 
--- INFORMATION ABOUT THE DATA FILTERED BY THE PROGRAM
+-- INFORMATION ABOUT THE DATA FILTERED BY THE SHARED OBJECT
 -- The start and stop times of the data that are used to create events
 -- Output data start and end times, in GPS seconds and nanoseconds.
       out_start_time     INTEGER NOT NULL,
@@ -64,8 +64,8 @@ CREATE TABLE search_summary
 -- The following line is needed for this table to be replicated to other sites
 DATA CAPTURE CHANGES
 ;
--- Create a clustering index based on program name
-CREATE INDEX s_summary_cind ON search_summary(program) CLUSTER
+-- Create a clustering index based on shared object name
+CREATE INDEX s_summary_cind ON search_summary(shared_object) CLUSTER
 ;
 -- Create an index based on input time
 CREATE INDEX s_summary_ind_tin ON search_summary(in_start_time, in_end_time)
