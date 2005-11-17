@@ -78,8 +78,7 @@ class metaDataTable:
     provided column name.
     @param colname: string name of the column to be sliced out
     """
-    myarray = asarray([ self.table[i][colname] for i in range(self.nevents())])
-    return myarray
+    return asarray([row[colname] for row in self.table])
 
   def ifocut(self, ifo):
     """
