@@ -216,13 +216,9 @@ class ServerHandler(SocketServer.BaseRequestHandler):
       if attribute == "interferometers":
         sql += "ifos AS x FROM segment_definer "
       elif attribute == "state":
-        sql += "name AS x FROM segment_definer WHERE "
-        sql += "state_vec_major IS NOT NULL "
-        sql += "AND state_vec_minor IS NOT NULL "
+        sql += "name AS x FROM segment_definer "
       elif attribute == "explainstate":
-        sql += "name AS x, comment, run FROM segment_definer WHERE "
-        sql += "state_vec_major IS NOT NULL "
-        sql += "AND state_vec_minor IS NOT NULL "
+        sql += "name AS x, comment, run FROM segment_definer "
       else:
         msg = "Unknown select distinct method " + str(attribute)
         raise ServerHandlerException, msg
