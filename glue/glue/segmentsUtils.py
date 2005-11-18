@@ -31,11 +31,24 @@ def fromfilenames(filenames, coltype=int):
 	pattern = re.compile(r"-([\d.]+)-([\d.]+)\.[\w_+#]+\Z")
 	l = segments.segmentlist()
 	for name in filenames:
-		[(s, d)] = pattern.findall(name)
+		[(s, d)] = pattern.findall(name.strip())
 		s = coltype(s)
 		d = coltype(d)
 		l.append(segments.segment(s, s + d))
 	return l
+
+
+def fromlalcache(cachefile, coltype=int):
+	"""
+	Construct a segmentlist representing the times spanned by the files
+	identified in the LAL cache contained in the file object file.  The
+	segmentlist will be created with segments whose boundaries are of
+	type coltype, which should raise ValueError if it cannot convert
+	its string argument.
+	"""
+	# because file objects support iteration, fromfilenames() can do
+	# this.  (Python rocks!)
+	return fromfilenames(cachefile, coltype)
 
 
 def fromsegwizard(file, coltype=int, strict=True):
