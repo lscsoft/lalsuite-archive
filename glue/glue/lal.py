@@ -140,7 +140,12 @@ class LIGOTimeGPS(object):
 			LIGOTimeGPS(100.5) < "200"
 		"""
 		if not type(other) == LIGOTimeGPS:
-			other = LIGOTimeGPS(other)
+			try:
+				other = LIGOTimeGPS(other)
+			except:
+				# if other can't be converted, then the two
+				# args aren't equal.
+				return 1
 		return cmp((self.seconds, self.nanoseconds), (other.seconds, other.nanoseconds))
 
 	def __nonzero__(self):
