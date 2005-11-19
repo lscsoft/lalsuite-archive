@@ -218,7 +218,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
       elif attribute == "state":
         sql += "name AS x FROM segment_definer "
       elif attribute == "explainstate":
-        sql += "run AS x, ifo, name, version, comment FROM segment_definer "
+        sql += "run AS x, ifos, name, version, comment FROM segment_definer "
       else:
         msg = "Unknown select distinct method " + str(attribute)
         raise ServerHandlerException, msg

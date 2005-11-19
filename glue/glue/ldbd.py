@@ -574,10 +574,11 @@ class LIGOMetadata:
                 ligolw += '\\%.3o' % (ord(ch))
               ligolw += '"'
             elif re.match(r'\Ailwd:char\Z',coltype):
-              ligolw += "\"x'"
-              for ch in str(tupi):
-                ligolw += "%02x" % ord(ch)
-              ligolw += "'\""
+              ligolw += '"'+str(tupi)+'"'
+#              ligolw += "\"x'"
+#              for ch in str(tupi):
+#                ligolw += "%02x" % ord(ch)
+#              ligolw += "'\""
             elif re.match(r'\Alstring\Z',coltype):
               ligolw += '"'+self.strtoxml.xlat(str(tupi))+'"'
             elif re.match(r'\Areal_4\Z',coltype):
