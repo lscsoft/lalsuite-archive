@@ -27,6 +27,7 @@ if version_info >= (2, 3):
       os.path.join('bin','ldbdc'),
       os.path.join('bin','dmtdq_seg_insert'),
       os.path.join('sbin','ldbdd'),
+      os.path.join('sbin','LSCdqInsert'),
       os.path.join('sbin','publishstatefromfile'),
       os.path.join('sbin','bulkpublishstate'), ],
     data_files = [ ('etc',[
@@ -53,6 +54,7 @@ else:
       os.path.join('bin','ldbdc'),
       os.path.join('bin','dmtdq_seg_insert'),
       os.path.join('sbin','ldbdd'),
+      os.path.join('sbin','LSCdqInsert'),
       os.path.join('sbin','publishstatefromfile'),
       os.path.join('sbin','bulkpublishstate'), ],
     data_files = [ ('etc',[
