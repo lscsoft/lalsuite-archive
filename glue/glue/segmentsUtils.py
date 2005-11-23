@@ -129,7 +129,7 @@ def tosegwizard(file, seglist, header=True, coltype=int):
 
 def S2playground(extent):
 	"""
-	Return a segmentlist identifying the playground times within the
+	Return a segmentlist identifying the S2 playground times within the
 	interval defined by the segment extent.
 	"""
 	start = extent[0] - ((extent[0] - 729273613) % 6370)
