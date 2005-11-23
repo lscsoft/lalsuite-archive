@@ -125,3 +125,16 @@ def tosegwizard(file, seglist, header=True, coltype=int):
 		print >>file, "# segment\tstart\tstop\tduration"
 	for n, seg in enumerate(seglist):
 		print >>file, "%d\t%s\t%s\t%s" % (n, coltype(seg[0]), coltype(seg[1]), coltype(seg.duration()))
+
+
+def S2playground(extent):
+	"""
+	Return a segmentlist identifying the playground times within the
+	interval defined by the segment extent.
+	"""
+	start = extent[0] - ((extent[0] - 729273613) % 6370)
+	l = segments.segmentlist()
+	while start < extent[1]:
+		l.append(segments.segment(start, start + 600))
+		start += 6370
+	return l & segments.segmentlist([extent])
