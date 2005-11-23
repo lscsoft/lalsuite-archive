@@ -224,6 +224,8 @@ class test_segmentlist(unittest.TestCase):
 		self.assertEqual(segmentlist([]), segmentlist([]) - segmentlist([segment(-1,1)]))
 		self.assertEqual(segmentlist([segment(-1,1)]) - segmentlist([segment(-1,1)]), segmentlist([]))
 		self.assertEqual(segmentlist([]), segmentlist([segment(-1,1)]) - segmentlist([segment(-1,1)]))
+		# This next test fails, but I don't know that that's not OK yet
+		#self.assertEqual(segmentlist([]), segmentlist([segment(0,0)]) - segmentlist([segment(0,0)]))
 
 		self.assertEqual(segmentlist([segment(0,1)]), segmentlist([segment(0,1)]) - segmentlist([segment(2,3)]))
 		self.assertEqual(segmentlist([segment(0,1)]), segmentlist([segment(0,1)]) - segmentlist([segment(2,3), segment(4,5)]))
