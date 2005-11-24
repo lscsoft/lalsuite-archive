@@ -132,9 +132,4 @@ def S2playground(extent):
 	Return a segmentlist identifying the S2 playground times within the
 	interval defined by the segment extent.
 	"""
-	start = extent[0] - ((extent[0] - 729273613) % 6370)
-	l = segments.segmentlist()
-	while start < extent[1]:
-		l.append(segments.segment(start, start + 600))
-		start += 6370
-	return l & segments.segmentlist([extent])
+	return segments.segmentlist([segments.segment(t, t + 600) for t in range(extent[0] - ((extent[0] - 729273613) % 6370), extent[1], 6370)]) & segments.segmentlist([extent])
