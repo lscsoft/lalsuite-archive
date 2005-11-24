@@ -278,7 +278,7 @@ class CondorJob:
     subfile.write( 'universe = ' + self.__universe + '\n' )
     subfile.write( 'executable = ' + self.__executable + '\n' )
 
-    if self.__options.keys() or self.__short_options.keys() or self.arguments:
+    if self.__options.keys() or self.__short_options.keys() or self.__arguments:
       subfile.write( 'arguments =' )
       for c in self.__options.keys():
         if self.__options[c]:
