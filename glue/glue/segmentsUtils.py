@@ -103,7 +103,7 @@ def fromtama(file, coltype=glue.lal.LIGOTimeGPS):
 	then thusly shall be the output of this function.  It is
 	recommended that this function's output be coalesced before use.
 	"""
-	segmentpat = re.compile(r"\A\S+\s+\S+\s+\S+\s+([\d.]+)\s+([\d.]+)")
+	segmentpat = re.compile(r"\A\s*\S+\s+\S+\s+\S+\s+([\d.]+)\s+([\d.]+)")
 	l = segments.segmentlist()
 	for line in file:
 		try:
