@@ -2051,8 +2051,8 @@ class LSCDataFindJob(CondorDAGJob, AnalysisJob):
 
     self.add_condor_cmd('getenv','True')
 
-    self.set_stderr_file(log_dir + '/datafind-$(macroobservatory)-$(macrotype)-$(macrogpsstarttime)-$(macrogpsendtime)-$(cluster)-$(process).err')
-    self.set_stdout_file(self.__cache_dir + '/$(macroobservatory)-$(macrotype)-$(macrogpsstarttime)-$(macrogpsendtime).cache')
+    self.set_stderr_file(os.path.join(log_dir, 'datafind-$(macroobservatory)-$(macrotype)-$(macrogpsstarttime)-$(macrogpsendtime)-$(cluster)-$(process).err'))
+    self.set_stdout_file(os.path.join(self.__cache_dir, '$(macroobservatory)-$(macrotype)-$(macrogpsstarttime)-$(macrogpsendtime).cache'))
     self.set_sub_file('datafind.sub')
 
   def get_cache_dir(self):
@@ -2104,9 +2104,7 @@ class LSCDataFindNode(CondorDAGNode, AnalysisNode):
     once the ifo, start and end times have been set.
     """
     if self.__start and self.__end and self.__observatory and self.__type:
-      self.__output = self.__job.get_cache_dir() + '/' + self.__observatory + '-'  
-      self.__output += self.__type + '-'
-      self.__output += str(self.__start) + '-' + str(self.__end) + '.cache'
+      self.__output = os.path.join(self.__job.get_cache_dir(), self.__observatory + '-' + self.__type + '-' + str(self.__start) + '-' + str(self.__end) + '.cache')
       self.add_output_file(self.__output)
 
   def set_start(self,time):
