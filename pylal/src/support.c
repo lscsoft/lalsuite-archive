@@ -143,7 +143,7 @@ read_process(PyObject *self, PyObject *args)
 static PyObject *                   
 read_search_summary(PyObject *self, PyObject *args)
 { 
-  int j, m=0, n=0, nelement=0, len;
+  int j, n=0, nelement=0, len;
   SearchSummaryTable *eventHead=NULL;
   SearchSummaryTable **addevent=&eventHead;
   SearchSummaryTable *event=NULL;
@@ -160,13 +160,11 @@ read_search_summary(PyObject *self, PyObject *args)
   len = PyList_Size(fromPython);
   for(n=0;n<len;n++)
   {
-    m = SearchSummaryTableFromLIGOLw ( addevent,
-        PyString_AsString(PyList_GetItem(fromPython, n)));
-
-    while(*addevent)
+    *addevent = XLALSearchSummaryTableFromLIGOLw(PyString_AsString(PyList_GetItem(fromPython, n)));
+    while(*addevent) {
       addevent = &(*addevent)->next;
-
-    nelement += m;
+      nelement++;
+    }
   }
 
   outlist = PyList_New(nelement);
