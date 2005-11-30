@@ -39,15 +39,15 @@ setup(
 		os.path.join("bin", "plotgbb"),
 		os.path.join("bin", "plotinspiral"),
 		os.path.join("bin", "plotinspinj"),
-    os.path.join("bin", "plotinspdiff"),
-    os.path.join("bin", "plotinspmissed"),
-    os.path.join("bin", "plotthinca"),
-    os.path.join("bin", "plotwindow"),
-    os.path.join("bin", "plotcoincwindow"),
-    os.path.join("bin", "ploteffdistcut"),
-    os.path.join("bin", "plotefficiency"),
-    os.path.join("bin", "plotsnrchi"),
-    os.path.join("bin", "lalapps_pire")
+		os.path.join("bin", "plotinspdiff"),
+		os.path.join("bin", "plotinspmissed"),
+		os.path.join("bin", "plotthinca"),
+		os.path.join("bin", "plotwindow"),
+		os.path.join("bin", "plotcoincwindow"),
+		os.path.join("bin", "ploteffdistcut"),
+		os.path.join("bin", "plotefficiency"),
+		os.path.join("bin", "plotsnrchi"),
+		os.path.join("bin", "lalapps_pire")
 
 	],
 	data_files = [
