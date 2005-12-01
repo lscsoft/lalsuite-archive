@@ -44,7 +44,7 @@ class Element(object):
 				raise ElementError, "%s does not have attribute %s" % (self.tagName, key)
 		self.parent = None
 		self.attributes = attrs
-		self.children = []
+		self.childNodes = []
 		self.pcdata = None
 
 	def start_tag(self):
@@ -80,11 +80,27 @@ class Element(object):
 			raise ElementError, "%s cannot have children" % self.tagName
 		if child.tagName not in self.validchildren:
 			raise ElementError, "invalid child %s for %s" % (child.tagName, self.tagName)
-		self.children.append(child)
+		self.childNodes.append(child)
 		child.parent = self
 
+	def removeChild(self, child):
+		"""
+		Remove a child from this element.  The child element is
+		returned, and it's parent element is reset.
+		"""
+		index = self.childNodes.index(child)
+		self.childNodes[index:index+1] = []
+		child.parent = None
+		return child
+
 	def getElementsByTagName(self, tagName):
-		return [c for c in self.children if c.tagName == tagName]
+		return [c for c in self.childNodes if c.tagName == tagName]
+
+	def getAttribute(self, attrname):
+		return self.attributes[attrname]
+
+	def setAttribute(self, attrname, value):
+		self.attributes[attrname] = str(value)
 
 	def appendData(self, content):
 		"""
@@ -101,7 +117,7 @@ class Element(object):
 		"""
 		print >>file, indent + self.start_tag()
 		if not self.empty:
-			for c in self.children:
+			for c in self.childNodes:
 				c.write(file, indent + Indent)
 			if self.pcdata:
 				print >>file, self.pcdata
@@ -149,7 +165,7 @@ class Table(Element):
 		ncomment = 0
 		ncolumn = 0
 		nstream = 0
-		for child in self.children:
+		for child in self.childNodes:
 			if child.tagName == "Comment":
 				if ncomment:
 					raise ElementError, "only one Comment allowed in Table"
@@ -187,7 +203,7 @@ class Array(Element):
 		Element.appendChild(self, child)
 		# check number and order of children
 		nstream = 0
-		for child in self.children:
+		for child in self.childNodes:
 			if child.tagName == "Dim":
 				if nstream:
 					raise ElementError, "Dim(s) must come before Stream in Array"
@@ -284,7 +300,7 @@ class Document(Element):
 		Write the document.
 		"""
 		print >>file, Header
-		for c in self.children:
+		for c in self.childNodes:
 			c.write(file)
 
 

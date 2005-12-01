@@ -22,7 +22,7 @@ class Stream(ligolw.Stream):
 		ligolw.Stream.__init__(self, attrs)
 
 		# initialize the tokenizer.
-		self.token_pattern = re.compile(r"""\s*(?:"([^"]*)")|(?:([^""" + self.attributes["Delimiter"] + r"""\s]+))\s*""" + self.attributes["Delimiter"])
+		self.token_pattern = re.compile(r"""\s*(?:"([^"]*)")|(?:([^""" + self.getAttribute("Delimiter") + r"""\s]+))\s*""" + self.getAttribute("Delimiter"))
 		self.tokens = []
 
 	def appendData(self, content):
@@ -44,8 +44,8 @@ class Stream(ligolw.Stream):
 		while len(self.tokens) >= self.parent.ncolumns:
 			row = self.parent.RowType()
 			for i, column in enumerate(self.parent.getElementsByTagName("Column")):
-				key = column.attributes["Name"].split(":")[-1]
-				value = column.attributes["Type"]
+				key = column.getAttribute("Name").split(":")[-1]
+				value = column.getAttribute("Type")
 				if value in StringTypes:
 					setattr(row, key, self.tokens[i])
 					#type(row).__dict__[key].__set__(row, self.tokens[i])
@@ -67,11 +67,11 @@ class Stream(ligolw.Stream):
 	def _rowstr(self, row, columns):
 		strs = []
 		for column in columns:
-			if column.attributes["Type"] in StringTypes:
-				strs += ["\"" + getattr(row, column.attributes["Name"].split(":")[-1]) + "\""]
+			if column.getAttribute("Type") in StringTypes:
+				strs += ["\"" + getattr(row, column.getAttribute("Name").split(":")[-1]) + "\""]
 			else:
-				strs += [str(getattr(row, column.attributes["Name"].split(":")[-1]))]
-		return self.attributes["Delimiter"].join(strs)
+				strs += [str(getattr(row, column.getAttribute("Name").split(":")[-1]))]
+		return self.getAttribute("Delimiter").join(strs)
 
 	def write(self, file = sys.stdout, indent = ""):
 		columns = self.parent.getElementsByTagName("Column")
@@ -85,7 +85,7 @@ class Stream(ligolw.Stream):
 			file.write(indent + ligolw.Indent + self._rowstr(row, columns))
 			while True:
 				row = rowiter.next()
-				file.write(self.attributes["Delimiter"] + "\n" + indent + ligolw.Indent + self._rowstr(row, columns))
+				file.write(self.getAttribute("Delimiter") + "\n" + indent + ligolw.Indent + self._rowstr(row, columns))
 		except StopIteration:
 			file.write("\n")
 		print >>file, indent + self.end_tag()
@@ -114,14 +114,14 @@ class Table(ligolw.Table):
 		if child.tagName == "Column":
 			self.ncolumns += 1
 			if self.validcolumns != None:
-				key = child.attributes["Name"].split(":")[-1]
+				key = child.getAttribute("Name").split(":")[-1]
 				if key not in self.validcolumns.keys():
-					raise ligolw.ElementError, "invalid Column name %s for Table" % child.attributes["Name"]
-				if self.validcolumns[key] != child.attributes["Type"]:
-					raise ligolw.ElementError, "invalid type %s for Column %s" % (child.attributes["Type"], child.attributes["Name"])
+					raise ligolw.ElementError, "invalid Column name %s for Table" % child.getAttribute("Name")
+				if self.validcolumns[key] != child.getAttribute("Type"):
+					raise ligolw.ElementError, "invalid type %s for Column %s" % (child.getAttribute("Type"), child.getAttribute("Name"))
 		elif child.tagName == "Stream":
-			if child.attributes["Name"] != self.attributes["Name"]:
-				raise ligolw.ElementError, "Stream name %s does not match Table name %s" % (child.attributes["Name"], self.attributes["Name"])
+			if child.getAttribute("Name") != self.getAttribute("Name"):
+				raise ligolw.ElementError, "Stream name %s does not match Table name %s" % (child.getAttribute("Name"), self.getAttribute("Name"))
 		ligolw.Table.appendChild(self, child)
 
 
@@ -138,7 +138,7 @@ class LIGOLWContentHandler(ligolw.LIGOLWContentHandler):
 		# token, so add a final comma to induce the last token to
 		# get parsed.  FIXME: this is a hack, and hacks are the
 		# source of bugs.
-		self.current.appendData(self.current.attributes["Delimiter"])
+		self.current.appendData(self.current.getAttribute("Delimiter"))
 
 	def startTable(self, attrs):
 		return Table(attrs)
