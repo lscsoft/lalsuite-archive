@@ -10,6 +10,23 @@ StringTypes = ["ilwd:char", "ilwd:char_u", "lstring"]
 IntTypes = ["int_2s", "int_4s", "int_8s"]
 FloatTypes = ["real_4", "real_8"]
 Types = StringTypes + IntTypes + FloatTypes
+ToNumArrayType = {
+	"int_2s": "Int16",
+	"int_4s": "Int32",
+	"int_8s": "Int64",
+	"real_4": "Float32",
+	"real_8": "Float64"
+}
+
+
+class Column(ligolw.Column):
+	"""
+	High-level column element that knows how to turn column data from
+	the table into an array.
+	"""
+	def asarray(self):
+		name = self.getAttribute("Name").split(":")[-1]
+		return numarray.asarray([getattr(row, name) for row in self.parent.rows], type = ToNumArrayType[self.getAttribute("Type")])
 
 
 class Stream(ligolw.Stream):
@@ -111,6 +128,9 @@ class Table(ligolw.Table):
 		self.ncolumns = 0
 		self.rows = []
 
+	def columnName(self, name):
+		return ":".join(self.tableName.split(":")[:-1] + [name])
+
 	def appendChild(self, child):
 		if child.tagName == "Column":
 			self.ncolumns += 1
@@ -125,15 +145,15 @@ class Table(ligolw.Table):
 				raise ligolw.ElementError, "Stream name %s does not match Table name %s" % (child.getAttribute("Name"), self.getAttribute("Name"))
 		ligolw.Table.appendChild(self, child)
 
-	def getColumnArray(self, colname):
-		return numarray.asarray([getattr(row, colname) for row in self.rows])
-
 
 class LIGOLWContentHandler(ligolw.LIGOLWContentHandler):
 	"""
-	ContentHandler that redirects Stream and Table elements to those
-	defined in this module.
+	ContentHandler that redirects Column, Stream and Table elements to
+	those defined in this module.
 	"""
+	def startColumn(self, attrs):
+		return Column(attrs)
+
 	def startStream(self, attrs):
 		return Stream(attrs)
 
