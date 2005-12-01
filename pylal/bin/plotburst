@@ -1,11 +1,13 @@
 #!/usr/bin/env python
 
-import sys
 from optparse import OptionParser
+import sys
+from xml import sax
 
 from matplotlib.patches import Patch
 from pylab import *
-from pylal import readMeta
+from pylal.ligolw import ligolw
+from pylal.ligolw import laltables
 from pylal import viz
 
 ###############################################################################
@@ -45,18 +47,27 @@ if not len(args):
 
 #############################################################################
 
-# read in the trigger files
-triggers = readMeta.metaDataTable(args, "sngl_burst")
+# read in the trigger files and find the sngl_burst table
+def LoadDocuments(fnames):
+	doc = ligolw.Document()
+	handler = laltables.LIGOLWContentHandler(doc)
+	for name in fnames:
+		sax.parse(file(name), handler)
+	return doc
 
+[table] = LoadDocuments(args).childNodes[0].getElementsByAttribute("Name", laltables.SnglBurstTable.tableName)
 
 # extract some arrays from the trigger table
-start_time = triggers.mkarray("start_time")
-duration = triggers.mkarray("duration")
-confidence = triggers.mkarray("confidence")
-snr = triggers.mkarray("snr")
-central_freq = triggers.mkarray("central_freq")
-bandwidth = triggers.mkarray("bandwidth")
+start_time = table.getElementsByAttribute("Name", table.columnName("start_time"))[0].asarray()
+duration = table.getElementsByAttribute("Name", table.columnName("duration"))[0].asarray()
+confidence = table.getElementsByAttribute("Name", table.columnName("confidence"))[0].asarray()
+snr = table.getElementsByAttribute("Name", table.columnName("snr"))[0].asarray()
+central_freq = table.getElementsByAttribute("Name", table.columnName("central_freq"))[0].asarray()
+bandwidth = table.getElementsByAttribute("Name", table.columnName("bandwidth"))[0].asarray()
 lo_freq = central_freq - 0.5 * bandwidth
+
+# free some memory
+del table
 
 # use the given start and stop times
 if options.gps_start_time:
