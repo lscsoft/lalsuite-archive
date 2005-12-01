@@ -1,0 +1,164 @@
+#!/usr/bin/python
+
+"""
+Add (merge) LIGO Lw XML files containing LAL tables.
+"""
+
+__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__date__ = "$Date$"
+__version__ = "$Revision$"
+
+
+#
+# Preamble.
+#
+
+from optparse import OptionParser
+import sys
+import urllib
+from xml import sax
+
+from glue import lal
+from glue import segments
+from pylal import lalcache
+from pylal.ligolw import ligolw
+from pylal.ligolw import laltables
+
+
+#
+# Parse command line.
+#
+
+parser = OptionParser(version = "%prog CVS $Id$")
+parser.add_option("-i", "--input-cache", metavar = "CACHEFILE", action = "append", help = "get input files from trigger cache CACHEFILE")
+parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
+parser.add_option("-o", "--output", metavar = "FILENAME", help = "write output to FILENAME (default = stdout")
+options, fnames = parser.parse_args()
+del parser
+
+# input files
+urls = []
+if options.input_cache:
+	for cache in options.input_cache:
+		for line in file(cache):
+			urls.append(lalcache.CacheEntry(line).url)
+
+# output file
+if options.output:
+	output = file(options.output, "w")
+else:
+	output = sys.stdout
+
+
+#
+# Load all input documents.  The top-level LIGO_LW elements are all
+# appended to a single in-RAM document.
+#
+
+def LoadDocuments(urls, fnames):
+	doc = ligolw.Document()
+	handler = laltables.LIGOLWContentHandler(doc)
+	for url in urls:
+		if options.verbose:
+			print >>sys.stderr, "Reading %s" % url
+		sax.parse(urllib.urlopen(url), handler)
+	for name in fnames:
+		if options.verbose:
+			print >>sys.stderr, "Reading %s" % fname
+		sax.parse(file, handler)
+	return doc
+
+doc = LoadDocuments(urls, fnames)
+
+
+#
+# Reassign process IDs to prevent collisions.
+#
+
+class ProcIDs(object):
+	def __init__(self):
+		self.base = "process:process_id:"
+		self.n = 0
+
+	def __iter__(self):
+		return self
+
+	def __str__(self):
+		return self.base + str(self.n)
+
+	def next(self):
+		s = str(self)
+		self.n += 1
+		return s
+
+new_process_ids = ProcIDs()
+
+if options.verbose:
+	print >>sys.stderr, "Remapping process IDs in each document..."
+
+# loop over all top-level LIGO_LW elements (input documents)
+for ligolw in doc.getElementsByTagName("LIGO_LW"):
+	# loop over all process tables, constructing a map of old process
+	# ID --> new process ID
+	idmap = {}
+	for table in [elem for elem in ligolw.getElementsByTagName("Table") if elem.getAttribute("Name") == laltables.ProcessTable.tableName]:
+		for process in table.rows:
+			idmap[process.process_id] = new_process_ids.next()
+
+	if options.verbose:
+		print >>sys.stderr, "ID mapping: %s" % str(idmap)
+
+	# loop over recognized LAL tables, replacing process IDs
+	for table in [elem for elem in ligolw.getElementsByTagName("Table") if elem.getAttribute("Name") in laltables.TableByName.keys()]:
+		for row in table.rows:
+			row.process_id = idmap[row.process_id]
+
+
+#
+# Merge LIGO_LW elements.
+#
+
+def MergeLIGOLW(doc):
+	ligolws = doc.getElementsByTagName("LIGO_LW")
+	for elem in ligolws[1:]:
+		for child in elem.childNodes:
+			ligolws[0].appendChild(child)
+		doc.removeChild(elem)
+	return ligolws[0]
+
+LIGO_LW = MergeLIGOLW(doc)
+
+
+#
+# In LIGO_LW element, merge tables of like type.
+#
+
+def TablesAreCompatible(table1, table2):
+	columns1 = [column.getAttribute("Name") for column in table1.getElementsByTagName("Column")]
+	columns1.sort()
+	columns2 = [column.getAttribute("Name") for column in table2.getElementsByTagName("Column")]
+	columns2.sort()
+	return columns1 == columns2
+
+def MergeTables(table1, table2):
+	table1.rows.extend(table2.rows)
+	table2.removeChild(table2)
+
+
+for tname in laltables.TableByName.keys():
+	tables = [elem for elem in LIGO_LW.getElementsByTagName("Table") if elem.getAttribute("Name") == tname]
+	if options.verbose and len(tables):
+		print >>sys.stderr, "Merging %s tables..." % tname
+	for i in range(1, len(tables)):
+		if TablesAreCompatible(tables[0], tables[i]):
+			MergeTables(tables[0], tables[i])
+	del tables
+
+
+#
+# Write output.
+#
+
+if options.verbose:
+	print >>sys.stderr, "Writing output..."
+doc.write(output)
