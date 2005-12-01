@@ -96,6 +96,16 @@ class Element(object):
 	def getElementsByTagName(self, tagName):
 		return [c for c in self.childNodes if c.tagName == tagName]
 
+	def getElementsByAttribute(self, name, value):
+		l = []
+		for c in self.childNodes:
+			try:
+				if c.getAttribute(name) == value:
+					l.append(c)
+			except KeyError:
+				pass
+		return l
+
 	def getAttribute(self, attrname):
 		return self.attributes[attrname]
 
