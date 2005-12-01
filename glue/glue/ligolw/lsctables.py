@@ -577,6 +577,25 @@ class Filter(object):
 FilterTable.RowType = Filter
 
 
+TableNames = [
+	ProcessTable.tableName,
+	ProcessParamsTable.tableName,
+	SearchSummaryTable.tableName,
+	SearchSummVarsTable.tableName,
+	SnglBurstTable.tableName,
+	SnglRingDownTable.tableName,
+	MultiInspiralTable.tableName,
+	SimInspiralTable.tableName,
+	SimBurstTable.tableName,
+	SimRingDownTable.tableName,
+	SummValueTable.tableName,
+	SimInstParamsTable.tableName,
+	StochasticTable.tableName,
+	StochSummTable.tableName,
+	ExtTriggersTable.tableName,
+	FilterTable.tableName
+]
+
 class LIGOLWContentHandler(metaio.LIGOLWContentHandler):
 	"""
 	ContentHandler that redirects Table elements with known structure
