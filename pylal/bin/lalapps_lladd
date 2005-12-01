@@ -142,7 +142,7 @@ def TablesAreCompatible(table1, table2):
 
 def MergeTables(table1, table2):
 	table1.rows.extend(table2.rows)
-	table2.removeChild(table2)
+	table2.parent.removeChild(table2)
 
 
 for tname in laltables.TableByName.keys():
