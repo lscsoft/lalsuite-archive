@@ -58,12 +58,12 @@ def LoadDocuments(fnames):
 [table] = LoadDocuments(args).childNodes[0].getElementsByAttribute("Name", laltables.SnglBurstTable.tableName)
 
 # extract some arrays from the trigger table
-start_time = table.getElementsByAttribute("Name", table.columnName("start_time"))[0].asarray()
-duration = table.getElementsByAttribute("Name", table.columnName("duration"))[0].asarray()
-confidence = table.getElementsByAttribute("Name", table.columnName("confidence"))[0].asarray()
-snr = table.getElementsByAttribute("Name", table.columnName("snr"))[0].asarray()
-central_freq = table.getElementsByAttribute("Name", table.columnName("central_freq"))[0].asarray()
-bandwidth = table.getElementsByAttribute("Name", table.columnName("bandwidth"))[0].asarray()
+start_time = table.getColumnsByName("start_time")[0].asarray()
+duration = table.getColumnsByName("duration")[0].asarray()
+confidence = table.getColumnsByName("confidence")[0].asarray()
+snr = table.getColumnsByName("snr")[0].asarray()
+central_freq = table.getColumnsByName("central_freq")[0].asarray()
+bandwidth = table.getColumnsByName("bandwidth")[0].asarray()
 lo_freq = central_freq - 0.5 * bandwidth
 
 # free some memory

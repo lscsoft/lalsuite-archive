@@ -131,6 +131,9 @@ class Table(ligolw.Table):
 	def columnName(self, name):
 		return ":".join(self.tableName.split(":")[:-1] + [name])
 
+	def getColumnsByName(self, name):
+		return self.getElementsByAttribute("Name", self.columnName(name))
+
 	def appendChild(self, child):
 		if child.tagName == "Column":
 			self.ncolumns += 1
