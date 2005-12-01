@@ -577,24 +577,25 @@ class Filter(object):
 FilterTable.RowType = Filter
 
 
-TableNames = [
-	ProcessTable.tableName,
-	ProcessParamsTable.tableName,
-	SearchSummaryTable.tableName,
-	SearchSummVarsTable.tableName,
-	SnglBurstTable.tableName,
-	SnglRingDownTable.tableName,
-	MultiInspiralTable.tableName,
-	SimInspiralTable.tableName,
-	SimBurstTable.tableName,
-	SimRingDownTable.tableName,
-	SummValueTable.tableName,
-	SimInstParamsTable.tableName,
-	StochasticTable.tableName,
-	StochSummTable.tableName,
-	ExtTriggersTable.tableName,
-	FilterTable.tableName
-]
+TableByName = {
+	ProcessTable.tableName: ProcessTable,
+	ProcessParamsTable.tableName: ProcessParamsTable,
+	SearchSummaryTable.tableName: SearchSummaryTable,
+	SearchSummVarsTable.tableName: SearchSummVarsTable,
+	SnglBurstTable.tableName: SnglBurstTable,
+	SnglRingDownTable.tableName: SnglRingDownTable,
+	MultiInspiralTable.tableName: MultiInspiralTable,
+	SimInspiralTable.tableName: SimInspiralTable,
+	SimBurstTable.tableName: SimBurstTable,
+	SimRingDownTable.tableName: SimRingDownTable,
+	SummValueTable.tableName: SummValueTable,
+	SimInstParamsTable.tableName: SimInstParamsTable,
+	StochasticTable.tableName: StochasticTable,
+	StochSummTable.tableName: StochSummTable,
+	ExtTriggersTable.tableName: ExtTriggersTable,
+	FilterTable.tableName: FilterTable
+}
+
 
 class LIGOLWContentHandler(metaio.LIGOLWContentHandler):
 	"""
@@ -603,37 +604,7 @@ class LIGOLWContentHandler(metaio.LIGOLWContentHandler):
 	metaio as a fall-back for unrecognized tables.
 	"""
 	def startTable(self, attrs):
-		if attrs["Name"] == ProcessTable.tableName:
-			return ProcessTable(attrs)
-		elif attrs["Name"] == ProcessParamsTable.tableName:
-			return ProcessParamsTable(attrs)
-		elif attrs["Name"] == SearchSummaryTable.tableName:
-			return SearchSummaryTable(attrs)
-		elif attrs["Name"] == SearchSummVarsTable.tableName:
-			return SearchSummVarsTable(attrs)
-		elif attrs["Name"] == SnglBurstTable.tableName:
-			return SnglBurstTable(attrs)
-		elif attrs["Name"] == SnglRingDownTable.tableName:
-			return SnglRingDownTable(attrs)
-		elif attrs["Name"] == MultiInspiralTable.tableName:
-			return MultiInspiralTable(attrs)
-		elif attrs["Name"] == SimInspiralTable.tableName:
-			return SimInspiralTable(attrs)
-		elif attrs["Name"] == SimBurstTable.tableName:
-			return SimBurstTable(attrs)
-		elif attrs["Name"] == SimRingDownTable.tableName:
-			return SimRingDownTable(attrs)
-		elif attrs["Name"] == SummValueTable.tableName:
-			return SummValueTable(attrs)
-		elif attrs["Name"] == SimInstParamsTable.tableName:
-			return SimInstParamsTable(attrs)
-		elif attrs["Name"] == StochasticTable.tableName:
-			return StochasticTable(attrs)
-		elif attrs["Name"] == StochSummTable.tableName:
-			return StochSummTable(attrs)
-		elif attrs["Name"] == ExtTriggersTable.tableName:
-			return ExtTriggersTable(attrs)
-		elif attrs["Name"] == FilterTable.tableName:
-			return FilterTable(attrs)
-		else:
+		try:
+			return TableByName[attrs["Name"]](attrs)
+		except KeyError:
 			return metaio.Table(attrs)
