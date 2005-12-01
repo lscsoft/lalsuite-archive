@@ -147,7 +147,9 @@ class SnglBurstTable(metaio.Table):
 		"amplitude": "real_4",
 		"snr": "real_4",
 		"confidence": "real_4",
-		"clusterT": "real_4"
+		"clusterT": "real_4",
+		"peak_dof": "real_4",
+		"event_id": "int_8s"
 	}
 
 	def get_start(self):
