@@ -64,8 +64,8 @@ def LoadDocuments(urls, fnames):
 		sax.parse(urllib.urlopen(url), handler)
 	for name in fnames:
 		if options.verbose:
-			print >>sys.stderr, "Reading %s" % fname
-		sax.parse(file, handler)
+			print >>sys.stderr, "Reading %s" % name
+		sax.parse(file(name), handler)
 	return doc
 
 doc = LoadDocuments(urls, fnames)
