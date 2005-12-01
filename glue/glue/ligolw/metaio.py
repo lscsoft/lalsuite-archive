@@ -1,3 +1,4 @@
+import numarray
 import re
 import sys
 from xml import sax
@@ -123,6 +124,9 @@ class Table(ligolw.Table):
 			if child.getAttribute("Name") != self.getAttribute("Name"):
 				raise ligolw.ElementError, "Stream name %s does not match Table name %s" % (child.getAttribute("Name"), self.getAttribute("Name"))
 		ligolw.Table.appendChild(self, child)
+
+	def getColumnArray(self, colname):
+		return numarray.asarray([getattr(row, colname) for row in self.rows])
 
 
 class LIGOLWContentHandler(ligolw.LIGOLWContentHandler):
