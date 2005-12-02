@@ -55,6 +55,9 @@ else:
 # appended to a single in-RAM document.
 #
 
+if len(urls) + len(fnames) < 1:
+	raise Exception, "no input files!"
+
 def LoadDocuments(urls, fnames):
 	doc = ligolw.Document()
 	handler = laltables.LIGOLWContentHandler(doc)
