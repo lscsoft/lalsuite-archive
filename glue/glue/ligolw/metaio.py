@@ -59,32 +59,15 @@ class Stream(ligolw.Stream):
 			self.pcdata = self.pcdata[match.end():]
 
 		# construct row objects from tokens
-		while len(self.tokens) >= self.parent.ncolumns:
+		while len(self.tokens) >= len(self.parent.columninfo):
 			row = self.parent.RowType()
-			for i, column in enumerate(self.parent.getElementsByTagName("Column")):
-				key = column.getAttribute("Name").split(":")[-1]
-				value = column.getAttribute("Type")
-				if value in StringTypes:
-					try:
-						setattr(row, key, self.tokens[i])
-					except AttributeError, e:
-						pass
-				elif value in IntTypes:
-					try:
-						setattr(row, key, int(self.tokens[i]))
-					except ValueError, e:
-						raise ligolw.ElementError, "Stream parsing error near tokens %s: %s" % (str(self.tokens), str(e))
-					except AttributeError, e:
-						pass
-				elif value in FloatTypes:
-					try:
-						setattr(row, key, float(self.tokens[i]))
-					except ValueError, e:
-						raise ligolw.ElementError, "Stream parsing error near tokens %s: %s" % (str(self.tokens), str(e))
-					except AttributeError, e:
-						pass
-				else:
-					raise ligolw.ElementError, "unrecognized Type attribute %s for Column element" % value
+			for i, (colname, pytype) in enumerate(self.parent.columninfo):
+				try:
+					setattr(row, colname, pytype(self.tokens[i]))
+				except ValueError, e:
+					raise ligolw.ElementError, "Stream parsing error near tokens %s: %s" % (str(self.tokens), str(e))
+				except AttributeError, e:
+					pass
 			self.tokens = self.tokens[i+1:]
 			self.parent.rows.append(row)
 
@@ -131,7 +114,7 @@ class Table(ligolw.Table):
 
 	def __init__(self, *attrs):
 		ligolw.Table.__init__(self, *attrs)
-		self.ncolumns = 0
+		self.columninfo = []
 		self.rows = []
 
 	def columnName(self, name):
@@ -142,13 +125,21 @@ class Table(ligolw.Table):
 
 	def appendChild(self, child):
 		if child.tagName == "Column":
-			self.ncolumns += 1
+			colname = child.getAttribute("Name").split(":")[-1]
+			llwtype = child.getAttribute("Type")
 			if self.validcolumns != None:
-				key = child.getAttribute("Name").split(":")[-1]
-				if key not in self.validcolumns.keys():
+				if colname not in self.validcolumns.keys():
 					raise ligolw.ElementError, "invalid Column name %s for Table" % child.getAttribute("Name")
-				if self.validcolumns[key] != child.getAttribute("Type"):
-					raise ligolw.ElementError, "invalid type %s for Column %s" % (child.getAttribute("Type"), child.getAttribute("Name"))
+				if self.validcolumns[colname] != llwtype:
+					raise ligolw.ElementError, "invalid type %s for Column %s" % (llwtype, child.getAttribute("Name"))
+			if llwtype in StringTypes:
+				self.columninfo.append((colname, str))
+			elif llwtype in IntTypes:
+				self.columninfo.append((colname, int))
+			elif llwtype in FloatTypes:
+				self.columninfo.append((colname, float))
+			else:
+				raise ligolw.ElementError, "unrecognized Type attribute %s for Column element" % llwtype
 		elif child.tagName == "Stream":
 			if child.getAttribute("Name") != self.getAttribute("Name"):
 				raise ligolw.ElementError, "Stream name %s does not match Table name %s" % (child.getAttribute("Name"), self.getAttribute("Name"))
