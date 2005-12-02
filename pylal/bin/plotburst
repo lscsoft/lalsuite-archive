@@ -4,6 +4,7 @@ from optparse import OptionParser
 import sys
 from xml import sax
 
+from glue import lal
 from matplotlib.patches import Patch
 from pylab import *
 from pylal.ligolw import ligolw
@@ -50,7 +51,9 @@ if not len(args):
 # override row type for SnglBurstTable with one having only the attributes we
 # want (saves memory and increases speed a little teensy bit)
 class Row(object):
-	__slots__ = ["start_time", "duration", "confidence", "snr", "central_freq", "bandwidth"]
+	__slots__ = ["start_time", "start_time_ns", "duration", "confidence", "snr", "central_freq", "bandwidth"]
+	def get_start(self):
+		return lal.LIGOTimeGPS(self.start_time, self.start_time_ns)
 
 laltables.SnglBurstTable.RowType = Row
 
@@ -65,7 +68,7 @@ def LoadDocuments(fnames):
 [table] = LoadDocuments(args).childNodes[0].getElementsByAttribute("Name", laltables.SnglBurstTable.tableName)
 
 # extract some arrays from the trigger table
-start_time = table.getColumnsByName("start_time")[0].asarray()
+start_time = asarray([float(row.get_start()) for row in table.rows])
 duration = table.getColumnsByName("duration")[0].asarray()
 confidence = table.getColumnsByName("confidence")[0].asarray()
 snr = table.getColumnsByName("snr")[0].asarray()
