@@ -65,19 +65,26 @@ class Stream(ligolw.Stream):
 				key = column.getAttribute("Name").split(":")[-1]
 				value = column.getAttribute("Type")
 				if value in StringTypes:
-					setattr(row, key, self.tokens[i])
+					try:
+						setattr(row, key, self.tokens[i])
+					except AttributeError, e:
+						pass
 				elif value in IntTypes:
 					try:
 						setattr(row, key, int(self.tokens[i]))
 					except ValueError, e:
 						raise ligolw.ElementError, "Stream parsing error near tokens %s: %s" % (str(self.tokens), str(e))
+					except AttributeError, e:
+						pass
 				elif value in FloatTypes:
 					try:
 						setattr(row, key, float(self.tokens[i]))
 					except ValueError, e:
 						raise ligolw.ElementError, "Stream parsing error near tokens %s: %s" % (str(self.tokens), str(e))
+					except AttributeError, e:
+						pass
 				else:
-					pass
+					raise ligolw.ElementError, "unrecognized Type attribute %s for Column element" % value
 			self.tokens = self.tokens[i+1:]
 			self.parent.rows.append(row)
 
