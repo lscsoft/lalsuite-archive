@@ -47,6 +47,13 @@ if not len(args):
 
 #############################################################################
 
+# override row type for SnglBurstTable with one having only the attributes we
+# want (saves memory and increases speed a little teensy bit)
+class Row(object):
+	__slots__ = ["start_time", "duration", "confidence", "snr", "central_freq", "bandwidth"]
+
+laltables.SnglBurstTable.RowType = Row
+
 # read in the trigger files and find the sngl_burst table
 def LoadDocuments(fnames):
 	doc = ligolw.Document()
