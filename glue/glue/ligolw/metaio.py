@@ -66,7 +66,6 @@ class Stream(ligolw.Stream):
 				value = column.getAttribute("Type")
 				if value in StringTypes:
 					setattr(row, key, self.tokens[i])
-					#type(row).__dict__[key].__set__(row, self.tokens[i])
 				elif value in IntTypes:
 					try:
 						setattr(row, key, int(self.tokens[i]))
