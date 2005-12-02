@@ -158,7 +158,7 @@ class SnglBurstTable(metaio.Table):
 	def set_start(self, gps):
 		self.start_time, self.start_time_ns = gps.seconds, gps.nanoseconds
 
-	def peak(self):
+	def get_peak(self):
 		return lal.LIGOTimeGPS(self.peak_time, self.peak_time_ns)
 
 	def set_peak(self, gps):
