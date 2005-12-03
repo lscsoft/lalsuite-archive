@@ -276,18 +276,32 @@ read_sngl_burst(PyObject *self, PyObject *args)
 
     while(eventHead)
     {
+      long long tmpid = 0;
+
       event = eventHead;
+
+      if (  event->event_id )
+	tmpid =  event->event_id->id;  
+
       PyList_Append(outlist, Py_BuildValue(
-          "{s:s, s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:d}",
+          "{s:s, s:s, s:s, s:i, s:i, s:i, s:i, s:d,\ 
+          s:d, s:d, s:d, s:d, s:d, s:d, s:d, s:L}",
           "ifo", event->ifo,
-          "start_time", event->start_time.gpsSeconds + event->start_time.gpsNanoSeconds * (double) 1e-9,
-          "peak_time", event->peak_time.gpsSeconds + event->peak_time.gpsNanoSeconds * (double) 1e-9,
+	  "search", event->search,
+	  "channel",event->channel,
+          "start_time", event->start_time.gpsSeconds,
+	  "start_time_ns", event->start_time.gpsNanoSeconds,
+          "peak_time", event->peak_time.gpsSeconds,
+	  "peak_time_ns", event->peak_time.gpsNanoSeconds,
           "duration", event->duration,
           "central_freq", event->central_freq,
           "bandwidth", event->bandwidth,
           "amplitude", event->amplitude,
           "snr", event->snr,
-          "confidence", event->confidence));
+          "confidence", event->confidence,
+          "clusterT", event->clusterT,
+          "peak_dof", event->peak_dof,
+	  "event_id", tmpid));
       eventHead = eventHead->next;
       LALFree(event);
     }
@@ -1123,6 +1137,133 @@ write_sngl_inspiral_end(PyObject *self, PyObject *args)
   return PyInt_FromLong(1);
 }
 
+/******************************************************************** 
+ * Sngl Burst Writing Function (BEGIN)
+ ********************************************************************/
+static PyObject* 
+write_sngl_burst_begin(PyObject *self, PyObject *args) 
+{  
+  PyObject* fileObj;
+  LIGOLwXMLStream* xmlStream;
+  static LALStatus status;
+
+  /* extract arguments */
+  if (! PyArg_ParseTuple(args, "O",  &fileObj))
+    return NULL; 
+  
+  /* open the table */
+  xmlStream=(LIGOLwXMLStream*)PyCObject_AsVoidPtr(fileObj);
+  LALBeginLIGOLwXMLTable( &status, xmlStream, sngl_burst_table );
+  
+  return PyInt_FromLong(1);
+}
+
+/******************************************************************** 
+ * Sngl Inspiral Writing Function(WRITE)
+ ********************************************************************/
+static PyObject* 
+write_sngl_burst_write(PyObject *self, PyObject *args) 
+{  
+  SnglBurstTable *eventHead=NULL;
+  SnglBurstTable *event=NULL;
+  int n=0, len;
+  PyObject* fileObj;
+  PyObject* inlist;
+  PyObject* tmpvalue;
+  LIGOLwXMLStream* xmlStream;
+  MetadataTable outputTable;
+  static LALStatus status;
+
+  /* extract arguments */
+  if (! PyArg_ParseTuple(args, "OO",  &fileObj, &inlist))
+    return NULL; 
+  
+  /* check input file */
+  if ( !PyList_Check(inlist) ) 
+    return NULL;
+
+  /* get the file stream */
+  xmlStream=(LIGOLwXMLStream*)PyCObject_AsVoidPtr(fileObj);
+
+  /* fill SnglBurstTable */
+  len = PyList_Size(inlist);
+
+  for(n=0;n<len;n++)  {
+    
+    /* allocate new memory for next table */
+    if ( ! eventHead ) {
+      event = eventHead = (SnglBurstTable *) LALCalloc( 1, sizeof(SnglBurstTable) );
+    } else {
+      event = event->next = (SnglBurstTable *) LALCalloc( 1, sizeof(SnglBurstTable) );
+    }
+
+    /* get a 'row' from the python list */
+    tmpvalue=PyList_GetItem(inlist, n);
+
+    /* fill the values into the event structure */  
+    LALSnprintf( event->ifo, LIGOMETA_IFO_MAX  * sizeof(CHAR),
+                 "%s", PyString_AsString(PyDict_GetItem(tmpvalue,  PyString_FromString("ifo") )) );
+    LALSnprintf( event->search, LIGOMETA_SEARCH_MAX  * sizeof(CHAR),
+      "%s", PyString_AsString(PyDict_GetItem(tmpvalue,  PyString_FromString("search") )) );
+    LALSnprintf( event->channel, LIGOMETA_CHANNEL_MAX  * sizeof(CHAR),
+      "%s", PyString_AsString(PyDict_GetItem(tmpvalue,  PyString_FromString("channel") )) );
+    event->start_time.gpsSeconds    = PyInt_AsLong(PyDict_GetItem(tmpvalue, PyString_FromString("start_time") ));
+    event->start_time.gpsNanoSeconds = PyInt_AsLong(PyDict_GetItem(tmpvalue, PyString_FromString("start_time_ns") ));
+    event->peak_time.gpsSeconds    = PyInt_AsLong(PyDict_GetItem(tmpvalue, PyString_FromString("peak_time") ));
+    event->peak_time.gpsNanoSeconds = PyInt_AsLong(PyDict_GetItem(tmpvalue, PyString_FromString("peak_time_ns") ));
+    event->duration = PyFloat_AsDouble(PyDict_GetItem(tmpvalue, PyString_FromString("duration") ));
+    event->central_freq = PyFloat_AsDouble(PyDict_GetItem(tmpvalue, PyString_FromString("central_freq") ));
+    event->bandwidth = PyFloat_AsDouble(PyDict_GetItem(tmpvalue, PyString_FromString("bandwidth") ));
+    event->amplitude = PyFloat_AsDouble(PyDict_GetItem(tmpvalue, PyString_FromString("amplitude") ));
+    event->snr    = PyFloat_AsDouble(PyDict_GetItem(tmpvalue, PyString_FromString("snr")));
+    event->confidence   = PyFloat_AsDouble(PyDict_GetItem(tmpvalue, PyString_FromString("confidence")));
+    event->clusterT   = PyFloat_AsDouble(PyDict_GetItem(tmpvalue, PyString_FromString("clusterT")));
+    event->peak_dof  = PyFloat_AsDouble(PyDict_GetItem(tmpvalue, PyString_FromString("peak_dof")));
+    event->event_id = (EventIDColumn *) LALCalloc( 1, sizeof(EventIDColumn) );
+    event->event_id->id = PyLong_AsLongLong(PyDict_GetItem(tmpvalue, PyString_FromString("event_id")));
+    event->event_id->snglBurstTable = event;
+  }
+
+  /* write data to XML file */
+  outputTable.snglBurstTable = eventHead;
+  LALWriteLIGOLwXMLTable( &status, xmlStream, outputTable, sngl_burst_table );
+  
+  /* deleting entries in the SnglBurstTable */
+  while(eventHead) {
+    SnglBurstTable *tmp;
+    EventIDColumn  *eventId;
+    
+    tmp = eventHead->next;
+    eventId = eventHead->event_id;
+    LALFree(eventId);
+    LALFree(eventHead);
+    eventHead = tmp;
+  }
+  LALCheckMemoryLeaks();
+ 
+  return PyInt_FromLong(1);
+}
+
+/******************************************************************** 
+ * Sngl Inspiral Writing Function (END)
+ ********************************************************************/
+static PyObject* 
+write_sngl_burst_end(PyObject *self, PyObject *args) 
+{  
+  PyObject* fileObj;
+  LIGOLwXMLStream* xmlStream;
+  static LALStatus status;
+
+  /* extract arguments */
+  if (! PyArg_ParseTuple(args, "O",  &fileObj))
+    return NULL; 
+  
+  /* close the table */
+  xmlStream=(LIGOLwXMLStream*)PyCObject_AsVoidPtr(fileObj);
+  LALEndLIGOLwXMLTable( &status, xmlStream);
+  
+  return PyInt_FromLong(1);
+}
 
 /******************************************************************** 
  * supporting snippets
@@ -1146,6 +1287,9 @@ static struct PyMethodDef support_methods[] = {
     {"write_sngl_inspiral_begin", write_sngl_inspiral_begin, 1},
     {"write_sngl_inspiral_write", write_sngl_inspiral_write, 1},
     {"write_sngl_inspiral_end", write_sngl_inspiral_end, 1},
+    {"write_sngl_burst_begin", write_sngl_burst_begin, 1},
+    {"write_sngl_burst_write", write_sngl_burst_write, 1},
+    {"write_sngl_burst_end", write_sngl_burst_end, 1},
     {NULL, NULL} 
 };
 
