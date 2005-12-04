@@ -48,6 +48,7 @@ setup(
 		os.path.join("bin", "plotefficiency"),
 		os.path.join("bin", "plotsnrchi"),
 		os.path.join("bin", "lalapps_lladd"),
+		os.path.join("bin", "lalapps_path2cache"),
 		os.path.join("bin", "lalapps_pire")
 	],
 	data_files = [
