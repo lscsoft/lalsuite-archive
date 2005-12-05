@@ -23,6 +23,7 @@ from glue import segments
 from pylal import lalcache
 from pylal.ligolw import ligolw
 from pylal.ligolw import laltables
+from pylal.ligolw import tableutils
 
 
 #
@@ -136,25 +137,13 @@ LIGO_LW = MergeLIGOLW(doc)
 # In LIGO_LW element, merge tables of like type.
 #
 
-def TablesAreCompatible(table1, table2):
-	columns1 = [column.getAttribute("Name") for column in table1.getElementsByTagName("Column")]
-	columns1.sort()
-	columns2 = [column.getAttribute("Name") for column in table2.getElementsByTagName("Column")]
-	columns2.sort()
-	return columns1 == columns2
-
-def MergeTables(table1, table2):
-	table1.rows.extend(table2.rows)
-	table2.parent.removeChild(table2)
-
-
 for tname in laltables.TableByName.keys():
 	tables = [elem for elem in LIGO_LW.getElementsByTagName("Table") if elem.getAttribute("Name") == tname]
 	if options.verbose and len(tables):
 		print >>sys.stderr, "Merging %s tables..." % tname
 	for i in range(1, len(tables)):
-		if TablesAreCompatible(tables[0], tables[i]):
-			MergeTables(tables[0], tables[i])
+		if docutils.TablesAreCompatible(tables[0], tables[i]):
+			docutils.MergeTables(tables[0], tables[i])
 	del tables
 
 
