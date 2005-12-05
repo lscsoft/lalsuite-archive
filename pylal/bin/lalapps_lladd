@@ -23,7 +23,7 @@ from glue import segments
 from pylal import lalcache
 from pylal.ligolw import ligolw
 from pylal.ligolw import laltables
-from pylal.ligolw import tableutils
+from pylal.ligolw import docutils
 
 
 #
