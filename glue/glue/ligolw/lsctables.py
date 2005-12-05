@@ -9,7 +9,6 @@ Table definitions in use by LAL.
 
 from xml import sax
 
-import ligolw
 import metaio
 from glue import lal
 from glue import segments
@@ -27,7 +26,7 @@ def New(Type):
 	attrs = sax.xmlreader.AttributesImpl({u"Name": Type.tableName})
 	table = Type(attrs)
 	for name, type in table.validcolumns.items():
-		table.appendChild(ligolw.Column(sax.xmlreader.AttributesImpl({u"Name": ":".join(Type.tableName.split(":")[:-1]) + ":" + name, u"Type": type})))
+		table.appendChild(metaio.Column(sax.xmlreader.AttributesImpl({u"Name": ":".join(Type.tableName.split(":")[:-1]) + ":" + name, u"Type": type})))
 	table.appendChild(metaio.Stream(attrs))
 	return table
 
