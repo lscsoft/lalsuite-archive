@@ -1,6 +1,6 @@
 # $Id$
 # 
-# setup for glue
+# setup script for glue
 
 import os
 from distutils.core import setup
