@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 """
-Add (merge) LIGO Lw XML files containing LAL tables.
+Add (merge) LIGO Lw XML files containing LSC tables.
 """
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -21,9 +21,9 @@ from xml import sax
 from glue import lal
 from glue import segments
 from pylal import lalcache
-from pylal.ligolw import ligolw
-from pylal.ligolw import laltables
-from pylal.ligolw import docutils
+from glue.ligolw import ligolw
+from glue.ligolw import lsctables
+from glue.ligolw import docutils
 
 
 #
@@ -61,7 +61,7 @@ if len(urls) + len(fnames) < 1:
 
 def LoadDocuments(urls, fnames):
 	doc = ligolw.Document()
-	handler = laltables.LIGOLWContentHandler(doc)
+	handler = lsctables.LIGOLWContentHandler(doc)
 	for url in urls:
 		if options.verbose:
 			print >>sys.stderr, "Reading %s" % url
@@ -105,15 +105,15 @@ for ligolw in doc.getElementsByTagName("LIGO_LW"):
 	# loop over all process tables, constructing a map of old process
 	# ID --> new process ID
 	idmap = {}
-	for table in [elem for elem in ligolw.getElementsByTagName("Table") if elem.getAttribute("Name") == laltables.ProcessTable.tableName]:
+	for table in [elem for elem in ligolw.getElementsByTagName("Table") if elem.getAttribute("Name") == lsctables.ProcessTable.tableName]:
 		for process in table.rows:
 			idmap[process.process_id] = new_process_ids.next()
 
 	if options.verbose:
 		print >>sys.stderr, "ID mapping: %s" % str(idmap)
 
-	# loop over recognized LAL tables, replacing process IDs
-	for table in [elem for elem in ligolw.getElementsByTagName("Table") if elem.getAttribute("Name") in laltables.TableByName.keys()]:
+	# loop over recognized LSC tables, replacing process IDs
+	for table in [elem for elem in ligolw.getElementsByTagName("Table") if elem.getAttribute("Name") in lsctables.TableByName.keys()]:
 		for row in table.rows:
 			row.process_id = idmap[row.process_id]
 
@@ -137,7 +137,7 @@ LIGO_LW = MergeLIGOLW(doc)
 # In LIGO_LW element, merge tables of like type.
 #
 
-for tname in laltables.TableByName.keys():
+for tname in lsctables.TableByName.keys():
 	tables = [elem for elem in LIGO_LW.getElementsByTagName("Table") if elem.getAttribute("Name") == tname]
 	if options.verbose and len(tables):
 		print >>sys.stderr, "Merging %s tables..." % tname
