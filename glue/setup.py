@@ -46,7 +46,7 @@ else:
     description = "Grid LSC User Engine",
     url = "http://www.lsc-group.phys.uwm.edu/daswg/",
     license = 'See file LICENSE',
-    packages = [ 'glue' ],
+    packages = [ 'glue', 'glue.ligolw' ],
     scripts = [ os.path.join('bin','LSCdataFind'),
       os.path.join('bin','LSCdataFind'),
       os.path.join('bin','LSCsegFind'),
