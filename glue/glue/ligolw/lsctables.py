@@ -19,9 +19,9 @@ def New(Type):
 	Convenience functions for constructing pre-defined LAL tables.
 
 	Example:
-		import laltables
+		import lsctables
 
-		table = laltables.New(laltables.ProcessTable)
+		table = lsctables.New(laltables.ProcessTable)
 	"""
 	attrs = sax.xmlreader.AttributesImpl({u"Name": Type.tableName})
 	table = Type(attrs)
