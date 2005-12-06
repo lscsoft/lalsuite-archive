@@ -16,12 +16,12 @@ from glue import segments
 
 def New(Type):
 	"""
-	Convenience functions for constructing pre-defined LAL tables.
+	Convenience function for constructing pre-defined LSC tables.
 
 	Example:
 		import lsctables
 
-		table = lsctables.New(laltables.ProcessTable)
+		table = lsctables.New(lsctables.ProcessTable)
 	"""
 	attrs = sax.xmlreader.AttributesImpl({u"Name": Type.tableName})
 	table = Type(attrs)
