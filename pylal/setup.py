@@ -25,7 +25,7 @@ setup(
 	description = "LSC Graphics Toolkit",
 	url = "http://www.lsc-group.phys.uwm.edu/daswg/",
 	license = "See file LICENSE",
-	packages = ["pylal", "pylal.ligolw"],
+	packages = ["pylal"],
 	ext_modules = [
 		Extension("pylal.support", ["src/support.c"],
 			include_dirs = lalincdirs,
