@@ -6,4 +6,4 @@ __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __date__ = "$Date$"
 __version__ = "$Revision$"
 
-__all__ = ["ligolw", "metaio", "laltables", "docutils"]
+__all__ = ["ligolw", "metaio", "lsctables", "docutils"]
