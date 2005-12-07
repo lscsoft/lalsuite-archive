@@ -162,6 +162,9 @@ parser.add_option("-A","--trig-lines",action="store_true",default=False,\
     help="plot triggers and lines" )
 parser.add_option("-B","--trig-inj-lines",action="store_true",default=False,\
     help="plot triggers, injections and lines" )
+parser.add_option("-K","--trig-inj-contour",action="store_true",default=False,\
+    help="plot triggers, injections and contours" )
+    
 parser.add_option("-E","--hist-snr",action="store_true",default=False,\
     help="histogram of the snr for triggers/injections" )
 parser.add_option("-e","--hist-snr-chi",action="store_true",default=False,\
@@ -232,9 +235,9 @@ max_snr = max(snr)
 min_snr = min(snr)
 
 log_min = log10(min_snr)
-log_max = log10(max_snr)
+log_max = 1.1*log10(max_snr)
 
-snr_range = arange( log_min, log_max, (log_max - log_min)/20)
+snr_range = arange( log_min, log_max , (log_max - log_min)/20)
 snr_range = 10**snr_range
 
 ###################################
@@ -245,7 +248,7 @@ max_chisq = max(chisq)
 min_chisq = min(chisq)
 
 log_min = log10(min_chisq)
-log_max = log10(max_chisq)
+log_max = 1.1*log10(max_chisq)
 
 chisq_range = arange( log_min, log_max, (log_max - log_min)/20)
 chisq_range = 10**chisq_range
@@ -286,7 +289,8 @@ low_chisq = array(low_chisq)
 
 ###################################
 # calculate the contours
-if opts.trig_contour or opts.trig_contour_lines or opts.contour_lines:
+if opts.trig_contour or opts.trig_contour_lines or opts.contour_lines \
+  or opts.trig_inj_lines:
   
   cont = reshape(zeros(20*20), (20,20))
   for i in range(20):  
@@ -296,12 +300,14 @@ if opts.trig_contour or opts.trig_contour_lines or opts.contour_lines:
   v = arange(0,log10(nevents),log10(nevents)/20)
   v = 10**v
   v = concatenate( (v,zeros(1)) )
+  print v
 
-
+fig_num = 0
 ###################################
 # plot of snr vs chisq
 if opts.snr_chisq:
-  figure(1)
+  fig_num +=1
+  figure(fig_num)
   
   if opts.inj_glob: 
     viz.plot_a_v_b(injTriggers,'snr','chisq','loglog','r+')
@@ -317,7 +323,8 @@ if opts.snr_chisq:
 ###################################
 # plot of snr vs chisq with contours
 if opts.trig_contour:
-  figure(2)
+  fig_num +=1
+  figure(fig_num)
   viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','kx',opts.figure_name)
   contour(snr_range,chisq_range,cont,v)
 
@@ -331,7 +338,8 @@ if opts.trig_contour:
 # plot of snr vs chisq with contours and lines
 if opts.contour_lines:
   if opts.denominator_constant:
-    figure(3)
+    fig_num +=1
+    figure(fig_num)
 
     plotconstlines(snr_range, opts.denominator_constant)
     contour(snr_range,chisq_range,cont,v)
@@ -345,7 +353,8 @@ if opts.contour_lines:
       savefig(opts.figure_name + '_contour_const_lines.png')
 
   if opts.denominator_variable:
-    figure(4)
+    fig_num +=1
+    figure(fig_num)
 
     plotvarlines(snr_range, opts.denominator_variable)
     contour(snr_range,chisq_range,cont,v)
@@ -362,7 +371,8 @@ if opts.contour_lines:
 # plot of snr vs chisq with lines
 if opts.trig_lines:
   if opts.denominator_constant:
-    figure(5)
+    fig_num +=1
+    figure(fig_num)
 
     viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','kx')
     plotconstlines(snr_range, opts.denominator_constant)
@@ -373,7 +383,8 @@ if opts.trig_lines:
       savefig(opts.figure_name + '_snr_chisq_const_lines.png')
 
   if opts.denominator_variable:
-    figure(6)
+    fig_num +=1
+    figure(fig_num)
 
     viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','kx')
     plotvarlines(snr_range, opts.denominator_variable)
@@ -387,7 +398,8 @@ if opts.trig_lines:
 # plot of snr vs chisq with injections and lines
 if opts.trig_inj_lines:
   if opts.denominator_constant:
-    figure(7)
+    fig_num +=1
+    figure(fig_num)
 
     viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','kx')
     viz.plot_a_v_b(injTriggers,'snr','chisq','loglog','r+')
@@ -399,7 +411,8 @@ if opts.trig_inj_lines:
       savefig(opts.figure_name + '_snr_chisq_inj_const_lines.png')
 
   if opts.denominator_variable:
-    figure(8)
+    fig_num +=1
+    figure(fig_num)
 
     viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','kx')
     viz.plot_a_v_b(injTriggers,'snr','chisq','loglog','r+')
@@ -410,12 +423,27 @@ if opts.trig_inj_lines:
     if opts.figure_name:
       savefig(opts.figure_name + '_snr_chisq_inj_var_lines.png')
 
+###################################
+# plot of snr vs chisq with injections and contours
+if opts.trig_inj_contour:
+  fig_num +=1
+  figure(fig_num)
+
+  viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','kx')
+  viz.plot_a_v_b(injTriggers,'snr','chisq','loglog','r+')
+  contour(snr_range,chisq_range,cont,v)
+ 
+  xlim(min_snr,max_snr)
+  ylim(min_chisq,max_chisq)  
+  if opts.figure_name:
+    savefig(opts.figure_name + '_snr_chisq_inj_contour.png')
 
 ###################################
 # plot of snr vs chisq with contours and lines
 if opts.trig_contour_lines:
   if opts.denominator_constant:
-    figure(9)
+    fig_num +=1
+    figure(fig_num)
 
     viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','kx')
     contour(snr_range,chisq_range,cont,v)
@@ -427,7 +455,8 @@ if opts.trig_contour_lines:
       savefig(opts.figure_name + '_snr_chisq_contour_const_lines.png')
 
   if opts.denominator_variable:
-    figure(10)
+    fig_num +=1
+    figure(fig_num)
 
     viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','kx')
     contour(snr_range,chisq_range,cont,v)
@@ -442,7 +471,8 @@ if opts.trig_contour_lines:
 ###################################
 # histogram of snrs
 if opts.hist_snr:
-  figure(11)
+  fig_num +=1
+  figure(fig_num)
   print 'Statistic is snr'
   loghistval(snr,inj_snr,opts.nbins)
   xlabel('snr', size='x-large')
@@ -453,7 +483,8 @@ if opts.hist_snr:
 ###################################
 # histogram of snr/chi
 if opts.hist_snr_chi:
-  figure(12)
+  fig_num +=1
+  figure(fig_num)
 
   print 'Statistic is snr/chi'
   loghistval(snr/sqrt(chisq),inj_snr/sqrt(inj_chisq),opts.nbins)
@@ -466,7 +497,8 @@ if opts.hist_snr_chi:
 # histogram of funky snr chi
 if opts.hist_stat:
   if opts.denominator_variable:
-    figure(13)
+    fig_num +=1
+    figure(fig_num)
 
     B = opts.denominator_variable
     p = 15
@@ -475,13 +507,15 @@ if opts.hist_stat:
 
     print 'Statistic is variable denominator snr chi'
     loghistval(stat,inj_stat,opts.nbins)
+    title(inspTriggers.table[0]['ifo'], size='x-large')
     xlabel('variable den. statistic', size='x-large')
     ylabel('pdf', size='x-large')
     if opts.figure_name:
       savefig(opts.figure_name + '_var_den_efficiency.png')
  
   if opts.denominator_constant:
-    figure(14)
+    fig_num +=1
+    figure(fig_num)
 
     C = opts.denominator_constant
     stat = (snr**4) / (chisq * ( snr**2 + C)) 
@@ -489,7 +523,8 @@ if opts.hist_stat:
 
     print 'Statistic is constant denominator snr chi'
     loghistval(stat,inj_stat,opts.nbins)
-    xlabel('constant den. statistic', size='x-large')
+    title(inspTriggers.table[0]['ifo'] + ' statistic', size='x-large')
+    xlabel(r'$\rho^4 / (\chi^2 [\rho^2 +250])$', size='x-large')
     ylabel('pdf', size='x-large')
     if opts.figure_name:
       savefig(opts.figure_name + '_const_den_efficiency.png')
