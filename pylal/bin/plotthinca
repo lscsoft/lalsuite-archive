@@ -195,10 +195,14 @@ if opts.glob:
     else:
       coincfiles.append(file)
 
+########################
+# read in coinc triggers
+
 if coincfiles:
   inspTriggers = readMeta.metaDataTable(coincfiles,"sngl_inspiral")
   coincTriggers = readMeta.coincInspiralTable(inspTriggers)
 
+  # cluster them
   if opts.cluster_window:
     coincTriggers = coincTriggers.cluster(opts.cluster_window)
 
@@ -213,6 +217,7 @@ if coincfiles:
     xlow = opts.min_snr
 else:
   coincTriggers = None
+  
 ########################
 # read in slide triggers
 if slidefiles:
@@ -247,6 +252,8 @@ if slidefiles:
 
 fig_num = 1
 
+#################################
+# check we have required triggers
 if (opts.snr_time or opts.snr_snr or opts.add_zero_lag) and not coincTriggers:
   print >>sys.stderr, \
      "there must be non time slide files in the glob"
@@ -260,8 +267,8 @@ if (opts.slide_snr or opts.slide_dist or opts.plot_slides or opts.hist_slides
 
 
 
-################################
-# set either snr or snr/chi
+#####################################
+# set either snr, snr/chi or new stat
 if opts.snr_chi:
   snr = 'snr_chi'
 elif opts.snr_chi_stat:
