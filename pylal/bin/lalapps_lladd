@@ -44,12 +44,6 @@ if options.input_cache:
 		for line in file(cache):
 			urls.append(lalcache.CacheEntry(line).url)
 
-# output file
-if options.output:
-	output = file(options.output, "w")
-else:
-	output = sys.stdout
-
 
 #
 # Load all input documents.  The top-level LIGO_LW elements are all
@@ -153,4 +147,7 @@ for tname in lsctables.TableByName.keys():
 
 if options.verbose:
 	print >>sys.stderr, "Writing output..."
-doc.write(output)
+if options.output:
+	doc.write(file(options.output, "w"))
+else:
+	doc.write(sys.stdout)
