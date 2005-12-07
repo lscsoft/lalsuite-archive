@@ -25,17 +25,22 @@ def simpleplot(*args):
   grid(True)
 
 
-#################################################
+#######################################################################
 # function to read in a column from a given table 
 def readcol(table, col_name, ifo=None ):
   """
   function to read in a column from a given table.  If the column is ifo
   dependent (eg, end_time or eff_dist) then the ifo is used to select the
   appropriate value.
-  
+
+  this function can also read in two values not stored in the sngl_inspiral
+  table:
+    snr_chi: read in value of snr/chi
+    snr_chi_stat: read in value of snr^4 / ( chisq ( snr^2 + 250 ))
+
   @param table: metaDataTable
   @param col_name: name of column to read in 
-  @param ifo: name of ifo (used to extract the appropriate end_time/eff_dist
+  @param ifo: name of ifo (used to extract the appropriate end_time/eff_dist)
   """
   
   if table is not None: assert(isinstance(table, metaDataTable))
@@ -71,7 +76,7 @@ def readcol(table, col_name, ifo=None ):
     
   return col_data
 
-##############################################
+#######################################################################
 # function to read in a column from two tables 
 def readcolfrom2tables(table1, table2, col_name ):
   """
@@ -113,12 +118,17 @@ def readcolfrom2tables(table1, table2, col_name ):
   return cols
 
 
-##############################################
+#######################################################################
 # function to read in a column from two tables 
 def timeindays(col_data ):
   """
   function to re-express the time in days after the start of the run
-  
+  known runs:
+    ligo_virgo: [700000000, 700086400]
+    S2:         [729273613, 734367613]
+    S3:         [751658413, 757699213]
+    S4:         [793130413, 795679213]
+
   @param col_data: array containing times
   """
   lvtimes = [700000000, 700086400]
@@ -142,11 +152,22 @@ def timeindays(col_data ):
 
   return col_data
 
-#################################################################
+#######################################################################
 # function to plot the col1 vs col2 from the table
-def plot_a_v_b(table, col_name_a, col_name_b, plot_type, plot_sym, \
-  output_name = None, ifo = None):
+def plot_a_v_b(table, col_name_a, col_name_b, plot_type = 'linear', 
+  plot_sym = 'kx', plot_label = None, output_name = None, ifo = None):
+  """
+  function to plot the values of col_name_a vs col_name_b from the table
 
+  @param table: metaDataTable
+  @param col_name_a: name of first column (x-axis)
+  @param col_name_b: name of second column (y-axis)
+  @param plot_type: One of 'linear' (default) ,'logx','logy','loglog'
+  @param plot_sym : Symbol for plot, default 'kx'
+  @param plot_name: Name for the plot in the legend
+  @param output_name: If given, save the plot, with output_name as prefix
+  @param ifo: Name of ifo
+  """
   if not ifo and table.nevents:
     if table.table[0].has_key('ifo'):
       ifo = table.table[0]["ifo"]
@@ -161,16 +182,16 @@ def plot_a_v_b(table, col_name_a, col_name_b, plot_type, plot_sym, \
     
   if plot_type == 'linear':
     plot(col_a, col_b, plot_sym, markersize=12,markeredgewidth=1,\
-        markerfacecolor=None)
+        markerfacecolor=None, label = plot_label)
   elif plot_type == 'logx':
     semilogx(col_a, col_b, plot_sym, markersize=12,markeredgewidth=1,\
-        markerfacecolor=None)
+        markerfacecolor=None, label = plot_label)
   elif plot_type == 'logy':
     semilogy(col_a, col_b, plot_sym, markersize=12,markeredgewidth=1,\
-        markerfacecolor=None)
+        markerfacecolor=None, label = plot_label)
   elif plot_type == 'loglog':
     loglog(col_a, col_b, plot_sym, markersize=12,markeredgewidth=1,\
-        markerfacecolor=None)
+        markerfacecolor=None, label = plot_label)
     xlim(0.95 * min(col_a), 1.05 * max(col_a))
     ylim(0.95 * min(col_b), 1.05 * max(col_b))
 
@@ -181,6 +202,9 @@ def plot_a_v_b(table, col_name_a, col_name_b, plot_type, plot_sym, \
 
   grid(True)
 
+  if plot_label:
+    legend()
+    
   if output_name:
     if ifo:
       output_name += '_' + ifo
@@ -190,7 +214,8 @@ def plot_a_v_b(table, col_name_a, col_name_b, plot_type, plot_sym, \
 #################################################################
 # function to plot the difference between values of 'col_name' in
 # two tables, table1 and table2
-def plotdiff(table1, table2, col_name, plot_type, plot_sym):
+def plotdiff(table1, table2, col_name, plot_type = 'linear', plot_sym = 'kx',\
+    plot_name = ''):
   """
   function to plot the difference between the value of col_name stored in 2
   tables (of equal length).  
@@ -198,8 +223,9 @@ def plotdiff(table1, table2, col_name, plot_type, plot_sym):
   @param table1: metaDataTable
   @param table2: metaDataTable
   @param col_name: name of column to plot
-  @param plot_type: either 'linear' or 'log' plot on x-axis
-  @param plot_sym: the symbol to use when plotting
+  @param plot_type: either 'linear' (default)or 'log' plot on x-axis
+  @param plot_sym:  the symbol to use when plotting, default = 'kx'
+  @param plot_name: name of the plot (for the legend)
   """
 
   [tmpvar1, tmpvar2, ifo ] = readcolfrom2tables(table1, table2, col_name)
@@ -211,10 +237,10 @@ def plotdiff(table1, table2, col_name, plot_type, plot_sym):
 
   if plot_type == 'linear':
     plot(tmpvar1, tmp_diff, plot_sym, markersize=12,markerfacecolor=None,
-      markeredgewidth=1)
+      markeredgewidth=1, label = plot_name)
   elif plot_type == 'log':
     semilogx(tmpvar1, tmp_diff, plot_sym, markersize=12,markerfacecolor=None,
-      markeredgewidth=1)
+      markeredgewidth=1, label = plot_name)
     
 #################################################################
 # function to label above plot
@@ -227,8 +253,9 @@ def labeldiff(col_name, units = None, axis = [0,0,0,0], leg = None,
   @param units: the units of the column
   @param axis: axis limits [xmin,xmax,ymin,ymax].  If both min and max of x or
                y is zero then that axis is not set.
-  @param leg: legend to add to plot
-  @param title_text: text to add at start of title
+  @param leg: add legend to plot
+  @param title_text: text to add at start of title, if given then title is
+                     title_text + col_name + Accuracy
   @param output_name: used in naming output file
   """
   
@@ -246,15 +273,15 @@ def labeldiff(col_name, units = None, axis = [0,0,0,0], leg = None,
     ylim(axis[2], axis[3])
 
   if leg:
-    legend(leg)
+    legend()
  
   grid(True)
 
   if title_text:
     title(title_text + ' ' + col_name + '  Accuracy', size='x-large',
       weight='bold')
-  else:
-    title(col_name + ' Accuracy', size='x-large',weight='bold')
+  # else:
+  #   title(col_name + ' Accuracy', size='x-large',weight='bold')
   
   if output_name:
     output_name += '_' + col_name + '_accuracy.png'
@@ -264,7 +291,8 @@ def labeldiff(col_name, units = None, axis = [0,0,0,0], leg = None,
 ############################################################################
 # function to plot the fractional difference between values of 'col_name' in
 # two tables, table1 and table2
-def plotfracdiff(table1, table2, col_name, plot_type, plot_sym):
+def plotfracdiff(table1, table2, col_name, plot_type = 'linear', 
+    plot_sym = 'kx', plot_name = ''):
   """
   function to plot the fractional difference between the value of 
   col_name stored in 2 tables (of equal length).  
@@ -272,8 +300,9 @@ def plotfracdiff(table1, table2, col_name, plot_type, plot_sym):
   @param table1: metaDataTable
   @param table2: metaDataTable
   @param col_name: name of column to plot
-  @param plot_type: either 'linear' or 'log' plot on x-axis
-  @param plot_sym: the symbol to use when plotting
+  @param plot_type: either 'linear' (default) or 'log' plot on x-axis
+  @param plot_sym: the symbol to use when plotting, default = 'kx'
+  @param plot_name: name of the plot (for the legend)  
   """
 
   [tmpvar1, tmpvar2, ifo ] = readcolfrom2tables(table1, table2, col_name)
@@ -284,11 +313,11 @@ def plotfracdiff(table1, table2, col_name, plot_type, plot_sym):
     tmpvar1 = timeindays(tmpvar1)
 
   if plot_type == 'linear':
-    plot(tmpvar1, frac_diff,plot_sym,markersize=12,markerfacecolor=None,
-      markeredgewidth=1)
+    plot(tmpvar1, frac_diff,plot_sym,markersize=12,markerfacecolor=None,\
+        markeredgewidth=1, label = plot_name)
   elif plot_type == 'log':
-    semilogx(tmpvar1, frac_diff,plot_sym,markersize=12,markerfacecolor=None, 
-      markeredgewidth=1)
+    semilogx(tmpvar1, frac_diff,plot_sym,markersize=12,markerfacecolor=None,\
+        markeredgewidth=1, label = plot_name)
 
 
 #################################################################
@@ -302,7 +331,7 @@ def labelfracdiff(col_name, units = None, axis = [0,0,0,0], leg = None,
   @param units: the units of the column
   @param axis: axis limits [xmin,xmax,ymin,ymax].  If both min and max of x or
                y is zero then that axis is not set.
-  @param leg: legend to add to plot
+  @param leg: add legend to plot
   @param title_text: text to add at start of title
   @param output_name: used in naming output file
   """
@@ -321,7 +350,7 @@ def labelfracdiff(col_name, units = None, axis = [0,0,0,0], leg = None,
     ylim(axis[2], axis[3])
 
   if leg:
-    legend(leg)
+    legend()
  
   grid(True)
 
@@ -339,8 +368,8 @@ def labelfracdiff(col_name, units = None, axis = [0,0,0,0], leg = None,
 ############################################################################
 # function to plot the fractional difference between values of 'col_name_a' in
 # two tables, table1 and table2 against the values of 'col_name_b' in table1
-def plotdiffa_vs_b(table1, table2, col_name_a, col_name_b, plot_type, 
-  plot_sym):
+def plotdiffa_vs_b(table1, table2, col_name_a, col_name_b, \
+    plot_type = 'linear', plot_sym = 'kx'):
   """
   function to plot the difference if col_name_a in two tables against the
   value of col_name_b in table1.  
@@ -787,41 +816,75 @@ def cumhistsnr(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
 ######################################################################
 # function to determine the efficiency as a function of distance
 def efficiencyplot(found, missed, col_name, ifo=None, plot_type = 'linear', \
-    nbins = 20, output_name = None):
- 
+    nbins = 40, output_name = None, plotsym = 'k-', plot_name = '', \
+    errors = False):
+  """
+  function to plot the difference if col_name_a in two tables against the
+  value of col_name_b in table1.  
+  
+  @param found:  metaDataTable containing found injections
+  @param missed: metaDataTable containing missed injections
+  @param col_name: name of column used to plot efficiency
+  @param ifo: name of ifo (default = None), 
+              used in extracting information (e.g. which eff_dist)
+  @param plot_type: either 'linear' or 'log' plot on x-axis
+  @param plot_sym:  the symbol to use when plotting, default = 'k-'
+  @param plot_name: name of the plot (for the legend)
+  @param errorbars: plot errorbars on the efficiencies (using binomial errors)
+                    default = False
+  """
+  
   if not ifo and found.table[0].has_key('ifo'):
     ifo = found.table[0]["ifo"]
 
   foundVal = readcol(found,col_name, ifo)
   missedVal = readcol(missed,col_name, ifo)
 
-  figure(100)
 
   if plot_type == 'log':
     foundVal = log10(foundVal)
     missedVal = log10(missedVal)
 
-  bins = arange(min(foundVal),max(foundVal), \
+  bins = arange(min(foundVal),max(foundVal) + 0.2, \
       (max(foundVal) - min(foundVal)) /nbins )
-  
+ 
+  fig_num = gcf().number
+  figure(100)
   [num_found,binsf,stuff] = hist(foundVal, bins)
   [num_missed,binsm,stuff] = hist(missedVal ,bins)
-
+  clf()
+  
+  figure(fig_num)
   num_found = array(num_found,'d')
   eff = num_found / (num_found + num_missed)
- 
-  close(100)
-  
+  error = sqrt( num_found * num_missed / (num_found + num_missed)**3 )
+  error = array(error)
+
   if plot_type == 'log':
     bins = 10**bins
-    semilogx(eff, 'kx-',markersize=12, markerfacecolor=None,\
-      markeredgewidth=1, linewidth=1)
+    if plot_name:
+      semilogx(bins, eff, plotsym,markersize=12, markerfacecolor=None,\
+          markeredgewidth=1, linewidth=1, label = plot_name)
+    else:
+      semilogx(bins, eff, plotsym,markersize=12, markerfacecolor=None,\
+          markeredgewidth=1, linewidth=1)
+    if errors:
+      errorbar(bins, eff, error,markersize=12, markerfacecolor=None,\
+          markeredgewidth=1, linewidth = 1, label = plot_name, \
+          fmt = plotsym)
+            
   else:
-    plot(bins, eff, 'kx-',markersize=12, markerfacecolor=None,\
-      markeredgewidth=1, linewidth=1)
+    if errors:
+      errorbar(bins, eff, error, fmt = plotsym, markersize=12,\
+          markerfacecolor=None,\
+          markeredgewidth=1, linewidth=1, label = plot_name)
+    else:
+      plot(bins, eff, plotsym,markersize=12, markerfacecolor=None,\
+          markeredgewidth=1, linewidth=1, label = plot_name)
+
   xlabel(col_name, size='x-large')
   ylabel('Efficiency', size='x-large')
-  
+  ylim(0,1.1)
   if ifo:
     title_string = ifo + ' ' + col_name
   else:
@@ -866,6 +929,7 @@ def histdiff(table1, table2, col_name, plot_type, hist_num,
   if (plot_type == 'frac_hist'):
     tmp_diff /= tmpvar1
 
+  fig_num = gcf().number
   figure(100)
   if hist_width[0] and hist_width[1]:
     bins = []
@@ -876,7 +940,8 @@ def histdiff(table1, table2, col_name, plot_type, hist_num,
     out = hist(tmp_diff,bins)
   else:
     out = hist(tmp_diff,nbins)
-  close(100)
+  clf()
+  figure(fig_num)
   
   width = out[1][1] - out[1][0]
   
