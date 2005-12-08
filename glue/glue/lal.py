@@ -7,6 +7,20 @@ __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __date__ = "$Date$"
 __version__ = "$Revision$"
 
+
+#
+# Preamble
+#
+
+import re
+
+from glue import segments
+
+
+#
+# High precision time object
+#
+
 class LIGOTimeGPS(object):
 	"""
 	An object for storing times with nanosecond resolution.  LAL defines an
@@ -229,3 +243,41 @@ class LIGOTimeGPS(object):
 			LIGOTimeGPS(100.5) % 3
 		"""
 		return LIGOTimeGPS(0, self.ns() % (other * 1000000000L))
+
+
+#
+# LAL cache file manipulation
+#
+
+class CacheEntry(object):
+	# How to parse a line in a LAL cache file.  Five white-space
+	# delimited columns.
+	_regex = re.compile(r"\A\s*(?P<observatory>\S+)\s+(?P<description>\S+)\s+(?P<start>\S+)\s+(?P<duration>\S+)\s+(?P<url>\S+)\s*\Z")
+
+	# Create a CacheEntry object, parsing an optional string argument.
+	def __init__(self, *args):
+		if len(args) == 0:
+			self.observatory = None
+			self.description = None
+			self.segment = segments.segment(None, None)
+			self.url = None
+		elif len(args) == 1:
+			match = self._regex.search(args[0])
+			if not match:
+				raise ValueError, "could not convert \"%s\" to CacheEntry" % string
+			self.observatory = match.group("observatory")
+			self.description = match.group("description")
+			self.segment = segments.segment(LIGOTimeGPS(match.group("start")), LIGOTimeGPS(match.group("start")) + LIGOTimeGPS(match.group("duration")))
+			self.url = match.group("url")
+		else:
+			raise TypeError, "CacheEntry.__init__() expects at most two arguments, got %d" % (len(args) + 1)
+
+	def __str__(self):
+		return "%s %s %s %s %s" % (self.observatory, self.description, self.segment[0], self.segment.duration(), self.url)
+
+	def __cmp__(self, other):
+		# sort by observatory, then description, then segment, then
+		# URL.
+		if type(other)  != CacheEntry:
+			raise TypeError, "can only compare CacheEntry to CacheEntry"
+		return cmp((self.observatory, self.description, self.segment, self.url), (other.observatory, other.description, other.segment, other.url))
