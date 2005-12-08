@@ -20,7 +20,6 @@ from xml import sax
 
 from glue import lal
 from glue import segments
-from pylal import lalcache
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import docutils
@@ -41,8 +40,7 @@ del parser
 urls = []
 if options.input_cache:
 	for cache in options.input_cache:
-		for line in file(cache):
-			urls.append(lalcache.CacheEntry(line).url)
+		urls += map(lal.CacheEntry, file(cache))
 
 
 #
