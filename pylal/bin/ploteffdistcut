@@ -82,6 +82,10 @@ parser.add_option("-N","--num-slides",action="store",type="int",default=0,\
 parser.add_option("-t","--plot-type",action="store",type="string",\
     default="linear",metavar=" PLOT_TYPE", \
     help="make either linear or log or plots" )
+parser.add_option("-F","--font-size",action="store",type="int",\
+    default="12",metavar=" FONT_SIZE", \
+    help="font size for axis labels" )
+    
 parser.add_option("-k","--kappa",action="store",type="float",default=0,\
     metavar=" KAPPA",help="value of kappa in dist cut" )
 parser.add_option("-e","--epsilon",action="store",type="float",default=0,\
@@ -182,8 +186,10 @@ if opts.dist_snr:
     leg.append('cut')
   xlim(min(x),max(x))
   ylim(0,1)
-  xlabel('snr of trigger')
-  ylabel('fractional difference in eff. distance')
+  xticks(fontsize=opts.font_size)
+  yticks(fontsize=opts.font_size)
+  xlabel('snr of trigger',fontsize=opts.font_size)
+  ylabel('fractional difference in eff. distance',fontsize=opts.font_size)
   legend(leg)
   if opts.figure_name:  
     savefig(opts.figure_name + "_eff_dist_cut.png")
@@ -193,14 +199,20 @@ if opts.dist_snr:
 if opts.dist_hist:
   figure(2)
   if opts.slide_glob:
-    [slide_num,slide_bin,junk] = hist(slide_error,bins=20,normed=True)
-  [inj_num,inj_bin,junk] = hist(inj_error,bins=20,normed=True)
+    [slide_num,slide_bin,junk] = hist(slide_error,bins=20)
+    slide_num = slide_num/float(sum(slide_num))
+  [inj_num,inj_bin,junk] = hist(inj_error,bins=20)
+  inj_num = inj_num/float(sum(inj_num))
   clf()
   if opts.slide_glob:
     bar(slide_bin,slide_num,slide_bin[1]-slide_bin[0],color='b')
   bar(inj_bin,inj_num,inj_bin[1]-inj_bin[0],color='r')
-  xlabel('fractional difference in eff. distance')
-  ylabel('probability distribution')
+  if not opts.epsilon and opts.kappa:
+    axvline(opts.kappa,linewidth=2,color='k')
+  xticks(fontsize=opts.font_size)
+  yticks(fontsize=opts.font_size)
+  xlabel('fractional difference in eff. distance',fontsize=opts.font_size)
+  ylabel('normalized #',fontsize=opts.font_size)
   if opts.figure_name:
     savefig(opts.figure_name + "_eff_dist_hist.png")
 
