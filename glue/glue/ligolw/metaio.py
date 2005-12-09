@@ -124,7 +124,7 @@ class Table(ligolw.Table):
 		return ":".join(self.tableName.split(":")[:-1] + [name])
 
 	def getColumnsByName(self, name):
-		return self.getElementsByAttribute("Name", self.columnName(name))
+		return self.getChildrenByAttributes({"Name": self.columnName(name)})
 
 	def appendChild(self, child):
 		if child.tagName == "Column":

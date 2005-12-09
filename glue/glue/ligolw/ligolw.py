@@ -94,13 +94,18 @@ class Element(object):
 		return child
 
 	def getElementsByTagName(self, tagName):
-		return [c for c in self.childNodes if c.tagName == tagName]
+		l = []
+		for c in self.childNodes:
+			l += c.getElementsByTagName(tagName)
+			if c.tagName == tagName:
+				l.append(c)
+		return l
 
-	def getElementsByAttribute(self, name, value):
+	def getChildrenByAttributes(self, attrs):
 		l = []
 		for c in self.childNodes:
 			try:
-				if c.getAttribute(name) == value:
+				if reduce(lambda t, (k, v): t and (c.getAttribute(k) == v), attrs.iteritems(), True):
 					l.append(c)
 			except KeyError:
 				pass
