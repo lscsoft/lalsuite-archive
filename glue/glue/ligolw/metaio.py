@@ -1,4 +1,7 @@
-import numarray
+try:
+	import numarray
+except:
+	pass
 import re
 import sys
 from xml import sax
