@@ -72,7 +72,9 @@ Usage: %s [OPTIONS]
   -e, --explain EXPLN      a string explaining WHAT this DQ flag means
   -c, --comment COMM       a string explaining WHY this DQ flag was inserted
 
-  -a, --active             insert as active segments
+  -g, --gps-start-time T1  start of interval checked for this flag
+  -G, --gps-end-time T2    end of interval checked for this flag
+
   -S, --segment-file FILE  a file containing the gps start and stop times
 
   -p, --ping               ping the server
@@ -81,11 +83,13 @@ Usage: %s [OPTIONS]
 If no server is specified, then the segment data is written to stdout and can
 be viewed using guild.
 
-The segment file to be inserted should be in the format
+The segment file to be inserted should contain active segments in the format
 
 gps_start gps_end
 
-where each segment is on a new line.
+where each segment is on a new line. Inactive segments will be created for the
+inverse of these times starting from the specified start time T1 and ending at
+the specified end time T2.
 
 The argument to the --ifos option should be a list of the interferometers to
 which this data quality flag applies. If multiple inferferometers are listed,
@@ -121,7 +125,7 @@ information, the version of the data quality flag must be incremented.
   print msg
 
 
-shortop = "s:j:r:i:n:v:e:c:as:Aph"
+shortop = "s:j:r:i:n:v:e:c:g:G:s:Aph"
 longop = [
   "server=",
   "identity=",
@@ -131,8 +135,9 @@ longop = [
   "version=",
   "explain=",
   "comment=",
-  "active",
   "segment-file=",
+  "gps-start-time=",
+  "gps-end-time=",
   "append",
   "ping",
   "help"
@@ -153,8 +158,9 @@ name = None
 version = None
 expln = None
 comment = None
-active = 0
 segfile = None
+starttime = None
+endtime = None
 append = 0
 ping = None
 
@@ -185,10 +191,12 @@ for o, a in opts:
     expln = a
   elif o in ("-c", "--comment"):
     comment = a
-  elif o in ("-a", "--active"):
-    active = 1
   elif o in ("-S", "--segment-file"):
     segfile = a
+  elif o in ("-g", "--gps-start-time"):
+    starttime = int(a)
+  elif o in ("-G", "--gps-end-time"):
+    endtime = int(a)
   elif o in ("-A", "--append"):
     append = 1
   elif o in ("-p", "--ping"):
@@ -223,13 +231,19 @@ if not comment:
   errmsg += "Error: --comment must be specified\n"
 if not segfile:
   errmsg += "Error: --segment-file must be specified\n"
+if not starttime:
+  errmsg += "Error: --gps-start-time must be specified\n"
+if not endtime:
+  errmsg += "Error: --gps-end-time must be specified\n"
 
 if len(errmsg) and not ping:
   print >> sys.stderr, errmsg
   print >> sys.stderr, "Run\n    %s --help\nfor more information." % sys.argv[0]
   sys.exit(1)
 
-new_segments = segments.segmentlist()
+interval = segments.segmentlist(segments.segment(starttime,endtime))
+active_segments = segments.segmentlist()
+inactive_segments = segments.segmentlist()
 
 if not ping:
   xmlparser = pyRXP.Parser()
@@ -361,24 +375,36 @@ if not ping:
   segment_def_map_stream = []
   segment_stream = []
 
-  seg_id = 0
   fh = open(segfile, 'r')
   for line in fh.readlines():
-    segment = line.strip().split(" ")
-    new_segments.append(segments.segment(int(segment[0]),int(segment[1])))
-    segment_def_map_stream.append(
-      tuple( [ "process:process_id:0",
-        "segment_definer:segment_def_id:0",
-        "segment:segment_id:" + str(seg_id)
-      ] ) )
-    segment_stream.append(
-      tuple( [ "process:process_id:0",
-        "segment:segment_id:" + str(seg_id),
-        int(segment[0]),
-        int(segment[1]),
-        active
-      ] ) )
-    seg_id += 1
+    seg_line = line.strip().split(" ")
+    this_seg = segments.segment(int(segment[0]),int(segment[1]))
+    if this_seg is not in interval:
+      msg = "Error: segments in %s must lie between %d and %d\n" % (
+        segfile, starttime, endtime)
+      msg += "Bad segment is " + str(this_seg)
+      print >> sys.stderr, msg
+      sys.exit(1)
+    active_segments.append(this_seg)
+
+  inactive_segments = interval - active_segments
+    
+  seg_id = 0
+  for seg_list in [active_segments, inactive_segments]:
+    for this_seg in seg_list:
+      segment_def_map_stream.append(
+        tuple( [ "process:process_id:0",
+          "segment_definer:segment_def_id:0",
+          "segment:segment_id:" + str(seg_id)
+        ] ) )
+      segment_stream.append(
+        tuple( [ "process:process_id:0",
+          "segment:segment_id:" + str(seg_id),
+          int(segment[0]),
+          int(segment[1]),
+          1
+        ] ) )
+      seg_id += 1
   
   segment_def_map_dict = { 
     'pos' : 0,
@@ -476,10 +502,10 @@ try:
       last_end_time = end_md.table['segment']['stream'][0][0]
       existing_segs = segments.segmentlist()
       existing_segs.append(segments.segment(0, int(last_end_time)))
-      existing_segs &= new_segments
+      existing_segs &= interval
       if len(existing_segs) != 0:
         msg = "overlap with existing segment times for this version\n"
-        msg += "Overlapping segments are %s" % str(existing_segs)
+        msg += "Overlapping times are %s" % str(existing_segs)
         raise LSCdqInsertException, msg
       del myClient
       myClient = None
