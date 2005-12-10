@@ -21,7 +21,6 @@ import SocketServer
 from glue import segments
 import cPickle
 import mx.ODBC.DB2
-from mx.ODBC.DB2 import SQL
 
 def initialize(configuration,log):
   # define the global variables used by the server
