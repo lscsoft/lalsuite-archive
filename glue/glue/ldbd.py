@@ -23,6 +23,7 @@ import os
 import sys
 import string
 import re
+import csv
 import exceptions
 try:
   import mx.ODBC.DB2 as mxdb
@@ -71,7 +72,6 @@ else:
 """
 create the csv parser and initialize a dialect for LIGO_LW streams
 """
-import csv
 
 class LIGOLWStream(csv.Dialect):
   """
