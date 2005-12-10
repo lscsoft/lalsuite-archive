@@ -72,7 +72,7 @@ class Stream(ligolw.Stream):
 				except AttributeError, e:
 					pass
 			self.tokens = self.tokens[i+1:]
-			self.parent.rows.append(row)
+			self.parent.appendRow(row)
 
 	def _rowstr(self, row, columns):
 		strs = []
@@ -147,6 +147,9 @@ class Table(ligolw.Table):
 			if child.getAttribute("Name") != self.getAttribute("Name"):
 				raise ligolw.ElementError, "Stream name %s does not match Table name %s" % (child.getAttribute("Name"), self.getAttribute("Name"))
 		ligolw.Table.appendChild(self, child)
+
+	def appendRow(self, row):
+		self.rows.append(row)
 
 
 class LIGOLWContentHandler(ligolw.LIGOLWContentHandler):
