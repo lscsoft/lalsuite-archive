@@ -1,6 +1,5 @@
 GLUE: Grid LSC User Environment
 
-
 Glue is a collection of utilities for running data analysis pipelines for
 online and offline analysis as well as accessing various grid utilities.
 It also provides the infrastructure for the segment database.
