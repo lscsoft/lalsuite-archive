@@ -38,10 +38,10 @@ class LIGOTimeGPS(object):
 	# basic class methods
 
 	def __atoparts(self, s):
-	"""
-	Internal routine for ASCII string conversion.  Users should
-	call LIGOTimeGPS() to perform this function.
-	"""
+		"""
+		Internal routine for ASCII string conversion.  Users should
+		call LIGOTimeGPS() to perform this function.
+		"""
 		parts = (s.strip() + ".0").split(".")[:2]
 		parts[1] = parts[1][:9]
 		parts[1] += "000000000"[:9-len(parts[1])]
@@ -55,20 +55,20 @@ class LIGOTimeGPS(object):
 		return parts
 
 	def __init__(self, seconds, nanoseconds = 0):
-	"""
-	Create a LIGOTimeGPS instance.  The first parameter is the
-	count of seconds, and the second (optional) parameter is the
-	count of nanoseconds.  If the nanoseconds parameter is not
-	supplied, it is assumed to be 0.  Either parameter can be
-	a numeric type or an ASCII string.
+		"""
+		Create a LIGOTimeGPS instance.  The first parameter is the
+		count of seconds, and the second (optional) parameter is the
+		count of nanoseconds.  If the nanoseconds parameter is not
+		supplied, it is assumed to be 0.  Either parameter can be
+		a numeric type or an ASCII string.
 
-	Example use (all are equivalent):
-		LIGOTimeGPS(100.5)
-		LIGOTimeGPS("100.5")
-		LIGOTimeGPS(100, 500000000)
-		LIGOTimeGPS(0, 100500000000L)
-		LIGOTimeGPS(100.2, 300000000)
-	"""
+		Example use (all are equivalent):
+			LIGOTimeGPS(100.5)
+			LIGOTimeGPS("100.5")
+			LIGOTimeGPS(100, 500000000)
+			LIGOTimeGPS(0, 100500000000L)
+			LIGOTimeGPS(100.2, 300000000)
+		"""
 		if type(nanoseconds) == str:
 			nanoseconds = float(nanoseconds)
 		elif not type(nanoseconds) in [float, int, long]:
@@ -91,9 +91,9 @@ class LIGOTimeGPS(object):
 		return "LIGOTimeGPS(%d, %u)" % (self.seconds, self.nanoseconds)
 	
 	def __str__(self):
-	"""
-	Return an ASCII string representation of a LIGOTimeGPS.
-	"""
+		"""
+		Return an ASCII string representation of a LIGOTimeGPS.
+		"""
 		if (self.seconds >= 0) or (self.nanoseconds == 0):
 			s = "%d.%09u" % (self.seconds, self.nanoseconds)
 		elif (self.seconds < -1):
@@ -105,54 +105,54 @@ class LIGOTimeGPS(object):
 	# type conversion
 
 	def __float__(self):
-	"""
-	Convert a LIGOTimeGPS to seconds as a float.
+		"""
+		Convert a LIGOTimeGPS to seconds as a float.
 
-	Example use:
-		float(LIGOTimeGPS(100.5))
-	"""
+		Example use:
+			float(LIGOTimeGPS(100.5))
+		"""
 		return self.seconds + self.nanoseconds * 1e-9
 
 	def __int__(self):
-	"""
-	Return the integer part (seconds) of a LIGOTimeGPS as an int.
+		"""
+		Return the integer part (seconds) of a LIGOTimeGPS as an int.
 
-	Example use:
-		int(LIGOTimeGPS(100.5))
-	"""
+		Example use:
+			int(LIGOTimeGPS(100.5))
+		"""
 		return self.seconds
 
 	def __long__(self):
-	"""
-	Return the integer part (seconds) of a LIGOTimeGPS as a long.
+		"""
+		Return the integer part (seconds) of a LIGOTimeGPS as a long.
 
-	Example use:
-		long(LIGOTimeGPS(100.5))
-	"""
+		Example use:
+			long(LIGOTimeGPS(100.5))
+		"""
 		return long(self.seconds)
 
 	def ns(self):
-	"""
-	Convert a LIGOTimeGPS to a count of nanoseconds as a long.
+		"""
+		Convert a LIGOTimeGPS to a count of nanoseconds as a long.
 
-	Example use:
-		LIGOTimeGPS(100.5).ns()
-	"""
+		Example use:
+			LIGOTimeGPS(100.5).ns()
+		"""
 		return self.seconds * 1000000000L + self.nanoseconds
 
 	# comparison
 
 	def __cmp__(self, other):
-	"""
-	Compare a value to a LIGOTimeGPS.  If the value being compared
-	to the LIGOTimeGPS is not also a LIGOTimeGPS, then an attempt
-	is made to convert it to a LIGOTimeGPS.
+		"""
+		Compare a value to a LIGOTimeGPS.  If the value being compared
+		to the LIGOTimeGPS is not also a LIGOTimeGPS, then an attempt
+		is made to convert it to a LIGOTimeGPS.
 
-	Example use (all are equivalent):
-		LIGOTimeGPS(100.5) < LIGOTimeGPS(200)
-		LIGOTimeGPS(100.5) < 200
-		LIGOTimeGPS(100.5) < "200"
-	"""
+		Example use (all are equivalent):
+			LIGOTimeGPS(100.5) < LIGOTimeGPS(200)
+			LIGOTimeGPS(100.5) < 200
+			LIGOTimeGPS(100.5) < "200"
+		"""
 		if not type(other) == LIGOTimeGPS:
 			try:
 				other = LIGOTimeGPS(other)
@@ -163,27 +163,27 @@ class LIGOTimeGPS(object):
 		return cmp((self.seconds, self.nanoseconds), (other.seconds, other.nanoseconds))
 
 	def __nonzero__(self):
-	"""
-	Return True if the LIGOTimeGPS is nonzero.
+		"""
+		Return True if the LIGOTimeGPS is nonzero.
 
-	Example use:
-		bool(LIGOTimeGPS(100.5))
-	"""
+		Example use:
+			bool(LIGOTimeGPS(100.5))
+		"""
 		return self.seconds or self.nanoseconds
 
 	# arithmetic
 
 	def __add__(self, other):
-	"""
-	Add a value to a LIGOTimeGPS.  If the value being added to the
-	LIGOTimeGPS is not also a LIGOTimeGPS, then an attempt is made
-	to convert it to a LIGOTimeGPS.
+		"""
+		Add a value to a LIGOTimeGPS.  If the value being added to the
+		LIGOTimeGPS is not also a LIGOTimeGPS, then an attempt is made
+		to convert it to a LIGOTimeGPS.
 
-	Example use (all are equivalent):
-		LIGOTimeGPS(100.5) + LIGOTimeGPS(3)
-		LIGOTimeGPS(100.5) + 3
-		LIGOTimeGPS(100.5) + "3"
-	"""
+		Example use (all are equivalent):
+			LIGOTimeGPS(100.5) + LIGOTimeGPS(3)
+			LIGOTimeGPS(100.5) + 3
+			LIGOTimeGPS(100.5) + "3"
+		"""
 		if not type(other) == LIGOTimeGPS:
 			other = LIGOTimeGPS(other)
 		return LIGOTimeGPS(self.seconds + other.seconds, self.nanoseconds + other.nanoseconds)
@@ -192,56 +192,56 @@ class LIGOTimeGPS(object):
 	__radd__ = __add__
 
 	def __sub__(self, other):
-	"""
-	Subtract a value from a LIGOTimeGPS.  If the value being
-	subtracted from the LIGOTimeGPS is not also a LIGOTimeGPS, then
-	an attempt is made to convert it to a LIGOTimeGPS.
+		"""
+		Subtract a value from a LIGOTimeGPS.  If the value being
+		subtracted from the LIGOTimeGPS is not also a LIGOTimeGPS, then
+		an attempt is made to convert it to a LIGOTimeGPS.
 
-	Example use (all are equivalent):
-		LIGOTimeGPS(100.5) - LIGOTimeGPS(3)
-		LIGOTimeGPS(100.5) - 3
-		LIGOTimeGPS(100.5) - "3"
-	"""
+		Example use (all are equivalent):
+			LIGOTimeGPS(100.5) - LIGOTimeGPS(3)
+			LIGOTimeGPS(100.5) - 3
+			LIGOTimeGPS(100.5) - "3"
+		"""
 		if not type(other) == LIGOTimeGPS:
 			other = LIGOTimeGPS(other)
 		return LIGOTimeGPS(self.seconds - other.seconds, self.nanoseconds - other.nanoseconds)
 
 	def __rsub__(self, other):
-	"""
-	Subtract a LIGOTimeGPS from a value.
-	"""
+		"""
+		Subtract a LIGOTimeGPS from a value.
+		"""
 		if not type(other) == LIGOTimeGPS:
 			other = LIGOTimeGPS(other)
 		return LIGOTimeGPS(other.seconds - self.seconds, other.nanoseconds - self.nanoseconds)
 
 	def __mul__(self, other):
-	"""
-	Multiply a LIGOTimeGPS by a number.
+		"""
+		Multiply a LIGOTimeGPS by a number.
 
-	Example use:
-		LIGOTimeGPS(100.5) * 2
-	"""
+		Example use:
+			LIGOTimeGPS(100.5) * 2
+		"""
 		return LIGOTimeGPS(self.seconds * other, self.nanoseconds * other)
 
 	# multiplication is commutative
 	__rmul__ = __mul__
 
 	def __div__(self, other):
-	"""
-	Divide a LIGOTimeGPS by a number.
+		"""
+		Divide a LIGOTimeGPS by a number.
 
-	Example use:
-		LIGOTimeGPS(100.5) / 2
-	"""
+		Example use:
+			LIGOTimeGPS(100.5) / 2
+		"""
 		return LIGOTimeGPS(0, self.ns() / other)
 
 	def __mod__(self, other):
-	"""
-	Compute the remainder when a LIGOTimeGPS is divided by a number.
+		"""
+		Compute the remainder when a LIGOTimeGPS is divided by a number.
 
-	Example use:
-		LIGOTimeGPS(100.5) % 3
-	"""
+		Example use:
+			LIGOTimeGPS(100.5) % 3
+		"""
 		return LIGOTimeGPS(0, self.ns() % (other * 1000000000L))
 
 
