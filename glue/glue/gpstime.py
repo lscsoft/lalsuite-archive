@@ -1,7 +1,6 @@
 """
 A Python implementation of GPS related time conversions.
 
---------------------------------------------------------------------------------
 Copyright 2002 by Bud P. Bruegger, Sistema, Italy
 mailto:bud@sistema.it
 http://www.sistema.it
@@ -24,9 +23,7 @@ You should have received a copy of the GNU Lesser General Public License along
 with this program; if not, write to the Free Software Foundation, Inc., 59
 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-
 GPS Time Utility functions
---------------------------
 
 This file contains a Python implementation of GPS related time conversions.
 

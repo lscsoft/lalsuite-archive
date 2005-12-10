@@ -1,8 +1,6 @@
 """
 lightweight database dumper
-
 Copyright (C) 2003 Duncan Brown
- 
 This file is part of the lightweight datapase dumper (ldbd)
 
 The ldbd module provides classes for manipulating LIGO metadata database
@@ -199,8 +197,8 @@ class LIGOLwParser:
     Before calling parsteuple() the user must tell the class
     which unique id dictionary to use for the file by:
     
-      p = LIGOLwParser()
-      p.unique = UniqueIds(mycursor)
+    p = LIGOLwParser()
+    p.unique = UniqueIds(mycursor)
     """
     self.tabrx = re.compile(r'(\A[a-z0-9_]+:|\A)([a-z0-9_]+):table\Z')
     self.colrx = re.compile(r'(\A[a-z0-9_]+:|\A)([a-z0-9_]+:|\A)([a-z0-9_]+)\Z')

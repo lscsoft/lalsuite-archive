@@ -62,7 +62,7 @@ class SimpleLWXMLParser:
     @type name: string
 
     @param attrs: a dictionary of the attributes for the tag being opened
-    @type name: dictionary
+    @type attrs: dictionary
     """
     if name.lower() == "table":
       for attr in attrs.keys():
@@ -89,7 +89,7 @@ class SimpleLWXMLParser:
     returns the empty string.
 
     @param line: the line of the LIGO_LW XML file to be parsed
-    @type name: string
+    @type line: string
 
     @return: the line of XML passed in or the null string
     @rtype: string
@@ -126,7 +126,7 @@ class LDBDClient(object):
     @type port: integer
 
     @param identity: string which the LDBD Server identifies itself
-    @type port: dtring
+    @type identity: string
 
     @return: Instance of LDBDClient
     """
@@ -160,7 +160,7 @@ class LDBDClient(object):
     @type port: integer
 
     @param identity: string which the LDBD Server identifies itself
-    @type port: dtring
+    @type identity: string
 
     @return: None
     """

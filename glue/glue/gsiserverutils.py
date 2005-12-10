@@ -103,8 +103,6 @@ class AuthCallback(object):
     within this function experience shows that the connection will be
     allowed to authenticate!
 
-    @param logger:  an instance of a logger to which the identity can be
-      logged, or None
     @param handle: handle to the io.AuthData instance, not used here
     @param identity: the identity of the party trying to authenticate
     @type identity: string
