@@ -244,6 +244,17 @@ class LIGOTimeGPS(object):
 		"""
 		return LIGOTimeGPS(0, self.ns() % (other * 1000000000L))
 
+	# unary arithmetic
+
+	def __pos__(self):
+		return self
+
+	def __neg__(self):
+		return LIGOTimeGPS(0, -self.ns())
+
+	def __abs__(self):
+		return LIGOTimeGPS(0, abs(self.ns()))
+
 
 #
 # LAL cache file manipulation
