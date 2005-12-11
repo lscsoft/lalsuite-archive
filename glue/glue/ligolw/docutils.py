@@ -2,6 +2,8 @@
 High-level Table element manipulation utilities.
 """
 
+import lsctables
+
 
 def TablesAreCompatible(table1, table2):
 	"""
@@ -25,3 +27,17 @@ def MergeTables(table1, table2):
 	table1.rows.extend(table2.rows)
 	if table2.parentNode:
 		table2.parentNode.removeChild(table2)
+
+
+def MergeCompatibleTables(elem):
+	"""
+	Below the given element, find all Tables whose structure is
+	described in lsctables, and merge compatible ones of like type.
+	That is, merge all SnglBurstTables that have the same columns into
+	a single table, etc..
+	"""
+	for tname in lsctables.TableByName.keys():
+		tables = [t for t in elem.getElementsByTagName("Table") if t.getAttribute("Name") == tname]
+		for i in range(1, len(tables)):
+			if TablesAreCompatible(tables[0], tables[i]):
+				MergeTables(tables[0], tables[i])
