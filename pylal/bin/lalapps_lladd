@@ -129,14 +129,7 @@ LIGO_LW = MergeLIGOLW(doc)
 # In LIGO_LW element, merge tables of like type.
 #
 
-for tname in lsctables.TableByName.keys():
-	tables = [elem for elem in LIGO_LW.getElementsByTagName("Table") if elem.getAttribute("Name") == tname]
-	if options.verbose and len(tables):
-		print >>sys.stderr, "Merging %s tables..." % tname
-	for i in range(1, len(tables)):
-		if docutils.TablesAreCompatible(tables[0], tables[i]):
-			docutils.MergeTables(tables[0], tables[i])
-	del tables
+lsctables.MergeCompatibleTables(LIGO_LW)
 
 
 #
