@@ -23,5 +23,5 @@ def MergeTables(table1, table2):
 	compatible.
 	"""
 	table1.rows.extend(table2.rows)
-	if table2.parent:
-		table2.parent.removeChild(table2)
+	if table2.parentNode:
+		table2.parentNode.removeChild(table2)

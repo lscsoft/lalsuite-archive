@@ -42,7 +42,7 @@ class Element(object):
 		for key in attrs.keys():
 			if key not in self.validattributes:
 				raise ElementError, "%s does not have attribute %s" % (self.tagName, key)
-		self.parent = None
+		self.parentNode = None
 		self.attributes = attrs
 		self.childNodes = []
 		self.pcdata = None
@@ -73,24 +73,23 @@ class Element(object):
 
 	def appendChild(self, child):
 		"""
-		Add a child to this element.  The child's parent attribute
-		is updated, too.
+		Add a child to this element.  The child's parentNode
+		attribute is updated, too.
 		"""
 		if self.empty:
 			raise ElementError, "%s cannot have children" % self.tagName
 		if child.tagName not in self.validchildren:
 			raise ElementError, "invalid child %s for %s" % (child.tagName, self.tagName)
 		self.childNodes.append(child)
-		child.parent = self
+		child.parentNode = self
 
 	def removeChild(self, child):
 		"""
 		Remove a child from this element.  The child element is
-		returned, and it's parent element is reset.
+		returned, and it's parentNode element is reset.
 		"""
-		index = self.childNodes.index(child)
-		self.childNodes[index:index+1] = []
-		child.parent = None
+		del self.childNodes[self.childNodes.index(child)]
+		child.parentNode = None
 		return child
 
 	def getElementsByTagName(self, tagName):
@@ -144,7 +143,7 @@ class LIGO_LW(Element):
 	LIGO_LW element.
 	"""
 	tagName = "LIGO_LW"
-	validchildren = ["LIGO_LW", "Comment", "Param", "Table", "Array", "Stream", "IGWDFrame", "AdcData", "AdcInterval", "Time", "Detector"]
+	validchildren = [u"LIGO_LW", u"Comment", u"Param", u"Table", u"Array", u"Stream", u"IGWDFrame", u"AdcData", u"AdcInterval", u"Time", u"Detector"]
 
 
 class Comment(Element):
@@ -162,7 +161,7 @@ class Param(Element):
 	Param element.
 	"""
 	tagName = "Param"
-	validchildren = ["Comment"]
+	validchildren = [u"Comment"]
 	validattributes = [u"Name", u"Type", u"Start", u"Scale", u"Unit", u"DataUnit"]
 
 
@@ -171,7 +170,7 @@ class Table(Element):
 	Table element.
 	"""
 	tagName = "Table"
-	validchildren = ["Comment", "Column", "Stream"]
+	validchildren = [u"Comment", u"Column", u"Stream"]
 	validattributes = [u"Name", u"Type"]
 
 	def appendChild(self, child):
@@ -211,7 +210,7 @@ class Array(Element):
 	Array element.
 	"""
 	tagName = "Array"
-	validchildren = ["Dim", "Stream"]
+	validchildren = [u"Dim", u"Stream"]
 	validattributes = [u"Name", u"Type", u"Unit"]
 
 	def appendChild(self, child):
@@ -258,7 +257,7 @@ class IGWDFrame(Element):
 	IGWDFrame element.
 	"""
 	tagName = "IGWDFrame"
-	validchildren = ["Comment", "Param", "Time", "Detector", "AdcData", "LIGO_LW", "Stream", "Array", "IGWDFrame"]
+	validchildren = [u"Comment", u"Param", u"Time", u"Detector", u"AdcData", u"LIGO_LW", u"Stream", u"Array", u"IGWDFrame"]
 	validattributes = [u"Name"]
 
 
@@ -267,7 +266,7 @@ class Detector(Element):
 	Detector element.
 	"""
 	tagName = "Detector"
-	validchildren = ["Comment", "Param", "LIGO_LW"]
+	validchildren = [u"Comment", u"Param", u"LIGO_LW"]
 	validattributes = [u"Name"]
 
 
@@ -276,7 +275,7 @@ class AdcData(Element):
 	AdcData element.
 	"""
 	tagName = "AdcData"
-	validchildren = ["AdcData", "Comment", "Param", "Time", "LIGO_LW", "Array"]
+	validchildren = [u"AdcData", u"Comment", u"Param", u"Time", u"LIGO_LW", u"Array"]
 	validattributes = [u"Name"]
 
 
@@ -285,7 +284,7 @@ class AdcInterval(Element):
 	AdcInterval element.
 	"""
 	tagName = "AdcInterval"
-	validchildren = ["AdcData", "Comment", "Time"]
+	validchildren = [u"AdcData", u"Comment", u"Time"]
 	validattributes = [u"Name", u"StartTime", u"DeltaT"]
 
 
@@ -308,7 +307,7 @@ class Document(Element):
 	"""
 	Description of a LIGO LW file.
 	"""
-	validchildren = ["LIGO_LW"]
+	validchildren = [u"LIGO_LW"]
 
 	def write(self, file = sys.stdout):
 		"""

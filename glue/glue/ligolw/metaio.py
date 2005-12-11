@@ -29,7 +29,7 @@ class Column(ligolw.Column):
 	"""
 	def asarray(self):
 		name = self.getAttribute("Name").split(":")[-1]
-		return numarray.asarray([getattr(row, name) for row in self.parent.rows], type = ToNumArrayType[self.getAttribute("Type")])
+		return numarray.asarray([getattr(row, name) for row in self.parentNode.rows], type = ToNumArrayType[self.getAttribute("Type")])
 
 
 class Stream(ligolw.Stream):
@@ -51,7 +51,7 @@ class Stream(ligolw.Stream):
 		ligolw.Stream.appendData(self, content)
 
 		# make sure we are inside a Table
-		if self.parent.tagName != "Table":
+		if self.parentNode.tagName != "Table":
 			return
 
 		# move tokens from buffer to token list
@@ -62,9 +62,9 @@ class Stream(ligolw.Stream):
 			self.pcdata = self.pcdata[match.end():]
 
 		# construct row objects from tokens
-		while len(self.tokens) >= len(self.parent.columninfo):
-			row = self.parent.RowType()
-			for i, (colname, pytype) in enumerate(self.parent.columninfo):
+		while len(self.tokens) >= len(self.parentNode.columninfo):
+			row = self.parentNode.RowType()
+			for i, (colname, pytype) in enumerate(self.parentNode.columninfo):
 				try:
 					setattr(row, colname, pytype(self.tokens[i]))
 				except ValueError, e:
@@ -72,7 +72,7 @@ class Stream(ligolw.Stream):
 				except AttributeError, e:
 					pass
 			self.tokens = self.tokens[i+1:]
-			self.parent.appendRow(row)
+			self.parentNode.appendRow(row)
 
 	def _rowstr(self, row, columns):
 		strs = []
@@ -84,12 +84,12 @@ class Stream(ligolw.Stream):
 		return self.getAttribute("Delimiter").join(strs)
 
 	def write(self, file = sys.stdout, indent = ""):
-		columns = self.parent.getElementsByTagName("Column")
+		columns = self.parentNode.getElementsByTagName("Column")
 
 		# loop over parent's rows.  This is complicated because we
 		# need to not put a comma at the end of the last row.
 		print >>file, indent + self.start_tag()
-		rowiter = iter(self.parent.rows)
+		rowiter = iter(self.parentNode.rows)
 		try:
 			row = rowiter.next()
 			file.write(indent + ligolw.Indent + self._rowstr(row, columns))
