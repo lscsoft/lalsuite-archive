@@ -2215,7 +2215,7 @@ class LSCDataFindNode(CondorDAGNode, AnalysisNode):
           msg = "datafind server did not return LFN list : " + str(result)
           raise SegmentError, msg
         if len(result) == 0:
-          msg = "No LFNs returned for segment %d %d" % ( str(self.get_start()),
+          msg = "No LFNs returned for segment %s %s" % ( str(self.get_start()),
             str(self.get_end()) )
           raise SegmentError, msg
         self.__lfn_list = result
