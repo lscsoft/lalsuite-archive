@@ -89,7 +89,7 @@ def gettriggers(cachefile, segment):
 
 	# unlink tables to allow garbage collection
 	for table in tables:
-		table.parent.removeChild(table)
+		table.parentNode.removeChild(table)
 	del doc
 
 	# merge trigger tables
