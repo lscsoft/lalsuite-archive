@@ -479,7 +479,7 @@ class LIGOLWContentHandler(sax.handler.ContentHandler):
 			child = self.endTime()
 		else:
 			raise ElementError, "unknown element tag %s" % name
-		self.current = self.current.parent
+		self.current = self.current.parentNode
 
 	def characters(self, content):
 		"""
