@@ -121,7 +121,7 @@ class TFPlotDescription(object):
 
 def maketfplot(desc, table):
 	fig = pylab.figure(1)
-	fig.set_figsize_inches(8,8)
+	fig.set_figsize_inches(16,8)
 	axes = pylab.gca()
 
 	bandwidth = table.getColumnsByName("bandwidth")[0].asarray()
@@ -163,7 +163,7 @@ class RatePlotDescription(object):
 def makerateplot(desc, table):
 	bins_per_second = 10.0 / desc.halfwidth
 	fig = pylab.figure(1)
-	fig.set_figsize_inches(8,8)
+	fig.set_figsize_inches(16,8)
 	axes = pylab.gca()
 
 	def bin(x):
