@@ -18,7 +18,7 @@ from eventdisplay import *
 now = runtconvert(TconvertCommand("now"))
 
 default_start = "now"
-default_duration = str(-8 * 3600)
+default_duration = str(-1 * 3600)
 
 
 #
@@ -40,10 +40,10 @@ start = form.getfirst("start", default_start).lower()
 duration = lal.LIGOTimeGPS(form.getfirst("dur", default_duration))
 if start == "now":
 	query.segment = segments.segment(now, now + duration)
-	refreshtag = """<meta http-equiv="refresh" content="600"></meta>"""
+	refresh = """<meta http-equiv="refresh" content="%d"></meta>""" % (abs(duration) / 3600 * 60 + 60)
 else:
 	query.segment = segments.segment(lal.LIGOTimeGPS(start), lal.LIGOTimeGPS(start) + duration)
-	refreshtag = ""
+	refresh = ""
 
 query.ratewidth = float(form.getfirst("ratewidth", "60"))
 query.band = segments.segment(float(form.getfirst("lofreq", "0")), float(form.getfirst("hifreq", "2500")))
@@ -65,7 +65,7 @@ def errormsg(msg):
 
 def plotmarkup(filename):
 	src = "image.cgi?filename=" + filename
-	return """<a href="%s"><img src="%s" width="500"></a>""" % (src, src)
+	return """<a href="%s"><img src="%s" width="800"></a>""" % (src, src)
 
 
 #
@@ -96,7 +96,7 @@ print "Content-Type: text/html\n"
 
 print """<html>"""
 
-print refreshtag
+print refresh
 
 print "<h1>Excess Power Event Interface</h1>"
 print formmarkup(query)
