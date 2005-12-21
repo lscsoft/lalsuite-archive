@@ -14,7 +14,7 @@ import webplot
 # Rate plot description
 #
 
-class RatePlot(webplot.PlotDescription):
+class Plot(webplot.PlotDescription):
 	def trig_segment(self):
 		return self.segment.protract(5.0 * self.ratewidth)
 
@@ -57,7 +57,6 @@ def makeplot(desc, table):
 	pylab.ylabel("Trigger Rate (Hz)")
 
 	pylab.savefig(desc.filename)
-	pylab.clf()
 
 
 #
@@ -69,7 +68,7 @@ class Row(object):
 	def get_peak(self):
 		return lal.LIGOTimeGPS(self.peak_time, self.peak_time_ns)
 
-description = RatePlot().parse_form()
+description = Plot().parse_form()
 
 makeplot(description, webplot.gettriggers(description, Row))
 

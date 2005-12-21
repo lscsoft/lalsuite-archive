@@ -15,7 +15,7 @@ import webplot
 # TF plot description
 #
 
-class TFPlot(webplot.PlotDescription):
+class Plot(webplot.PlotDescription):
 	def trig_segment(self):
 		return self.segment.protract(2)
 
@@ -46,7 +46,6 @@ def makeplot(desc, table):
 	pylab.ylabel("Frequency (Hz)")
 
 	pylab.savefig(desc.filename)
-	pylab.clf()
 
 
 #
@@ -58,7 +57,7 @@ class Row(object):
 	def get_start(self):
 		return lal.LIGOTimeGPS(self.start_time, self.start_time_ns)
 
-description = TFPlot().parse_form()
+description = Plot().parse_form()
 
 makeplot(description, webplot.gettriggers(description, Row))
 
