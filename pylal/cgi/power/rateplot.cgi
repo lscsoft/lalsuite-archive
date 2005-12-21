@@ -53,7 +53,7 @@ def makeplot(desc, table):
 	for greyseg in ~desc.seglist & segments.segmentlist([desc.segment]):
 		pylab.axvspan(greyseg[0], greyseg[1], facecolor = "k", alpha = 0.2)
 
-	pylab.title(desc.instrument + " Excess Power Trigger Rate\n(%g s Average)" % (halfwidth * 2.0))
+	pylab.title(desc.instrument + " Excess Power Trigger Rate vs. Time\n(%g s Average)" % (halfwidth * 2.0))
 	pylab.xlabel("GPS Time (s)")
 	pylab.ylabel("Trigger Rate (Hz)")
 
