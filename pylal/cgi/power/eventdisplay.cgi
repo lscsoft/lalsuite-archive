@@ -36,7 +36,7 @@ start = form.getfirst("start", default_start).lower()
 duration = lal.LIGOTimeGPS(form.getfirst("dur", default_duration))
 if start == "now":
 	query.segment = segments.segment(now, now + duration)
-	refresh = """<meta http-equiv="refresh" content="%d"></meta>""" % (abs(duration) / 3600 * 60 + 60)
+	refresh = """<meta http-equiv="refresh" content="%d"></meta>""" % (abs(duration) / 3600 * 90 + 90)
 else:
 	query.segment = segments.segment(lal.LIGOTimeGPS(start), lal.LIGOTimeGPS(start) + duration)
 	refresh = ""
