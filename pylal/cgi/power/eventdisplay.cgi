@@ -2,8 +2,6 @@
 
 import cgi
 import cgitb ; cgitb.enable()
-import shutil
-import sys
 
 from glue import lal
 from glue import segments
@@ -84,7 +82,7 @@ def formmarkup(query):
 
 
 #
-# Testing...
+# Excess Power Event Interface
 #
 
 print "Content-Type: text/html\n"
