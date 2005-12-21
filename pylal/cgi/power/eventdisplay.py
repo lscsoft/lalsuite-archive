@@ -24,7 +24,7 @@ from pylal import viz
 class TconvertCommand(object):
 	def __init__(self, tspec = None):
 		self._exec = "/home/kipp/local/bin/lalapps_tconvert"
-		self.tspec = str(tspec)
+		self.tspec = tspec
 
 	def __str__(self):
 		s = self._exec
