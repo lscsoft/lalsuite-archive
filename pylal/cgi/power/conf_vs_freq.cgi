@@ -32,6 +32,7 @@ def makeplot(desc, table):
 
 	pylab.semilogy(central_freq, confidence, "b+")
 
+	pylab.set(axes, xlim = list(desc.band))
 	pylab.grid(True)
 
 	pylab.title(desc.instrument + " Excess Power Confidence vs. Central Frequency")
