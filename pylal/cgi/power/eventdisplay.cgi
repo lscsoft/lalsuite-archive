@@ -103,5 +103,6 @@ else:
 	# Make plots
 	print plotmarkup("rateplot.cgi", query)
 	print plotmarkup("tfplot.cgi", query)
+	print plotmarkup("rate_vs_conf.cgi", query)
 
 print """</html>"""
