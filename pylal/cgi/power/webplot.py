@@ -60,7 +60,7 @@ class PlotDescription(object):
 
 	def load_seglist(self):
 		# get a segmentlist from the cache file
-		self.seglist = segmentsUtils.fromlalcache(file(self.cache), coltype=lal.LIGOTimeGPS).coalesce() & segments.segmentlist([self.segment])
+		self.seglist = segmentsUtils.fromlalcache(file(self.cache), coltype=lal.LIGOTimeGPS).coalesce()
 
 	def trig_segment(self):
 		# interval in which triggers must be read in order to
@@ -98,7 +98,7 @@ def gettriggers(plotdesc):
 	# load documents containing relevant triggers
 	doc = ligolw.Document()
 	handler = lsctables.LIGOLWContentHandler(doc)
-	for url in CacheURLs(plotdesc.cachefile, plotdesc.segment):
+	for url in CacheURLs(plotdesc.cache, plotdesc.segment):
 		sax.parse(urllib.urlopen(url), handler)
 
 	# if no files contain relevant triggers, return an empty table

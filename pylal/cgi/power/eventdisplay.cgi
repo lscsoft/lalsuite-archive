@@ -7,7 +7,6 @@ import sys
 
 from glue import lal
 from glue import segments
-from glue import segmentsUtils
 
 from eventdisplay import *
 
@@ -30,7 +29,6 @@ class Query(object):
 	ratewidth = None
 	band = None
 	instrument = None
-	cache = None
 
 form = cgi.FieldStorage()
 
@@ -48,7 +46,6 @@ else:
 query.ratewidth = float(form.getfirst("ratewidth", "60"))
 query.band = segments.segment(float(form.getfirst("lofreq", "0")), float(form.getfirst("hifreq", "2500")))
 query.instrument = form.getfirst("inst", "H1")
-query.cache = "/home/kipp/cgi-bin/" + query.instrument + "/filelist.cache"
 
 
 #
@@ -63,8 +60,8 @@ def errormsg(msg):
 # Plot markup
 #
 
-def plotmarkup(filename):
-	src = "image.cgi?filename=" + filename
+def plotmarkup(name, query):
+	src = "%s?inst=%s&start=%s&dur=%s&ratewidth=%s&lofreq=%s&hifreq=%s" % (name, query.instrument, query.segment[0], query.segment.duration(), query.ratewidth, query.band[0], query.band[1])
 	return """<a href="%s"><img src="%s" width="800"></a>""" % (src, src)
 
 
@@ -90,8 +87,6 @@ def formmarkup(query):
 # Testing...
 #
 
-seglist = segmentsUtils.fromlalcache(file(query.cache), coltype=lal.LIGOTimeGPS).coalesce()
-
 print "Content-Type: text/html\n"
 
 print """<html>"""
@@ -108,15 +103,7 @@ else:
 	print "<h2>%s s Starting At %s</h2>" % (duration, start.title())
 
 	# Make plots
-	tfplotdesc = TFPlotDescription(query.instrument, query.segment, query.band, seglist)
-	rateplotdesc = RatePlotDescription(query.instrument, query.ratewidth, query.segment, seglist)
-
-	table = gettriggers(query.cache, tfplotdesc.trig_segment() | rateplotdesc.trig_segment())
-
-	maketfplot(tfplotdesc, table)
-	makerateplot(rateplotdesc, table)
-
-	print plotmarkup(rateplotdesc.filename)
-	print plotmarkup(tfplotdesc.filename)
+	print plotmarkup("rateplot.cgi", query)
+	print plotmarkup("tfplot.cgi", query)
 
 print """</html>"""

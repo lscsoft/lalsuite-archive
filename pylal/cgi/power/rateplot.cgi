@@ -4,6 +4,8 @@ import math
 from matplotlib.patches import Patch
 import pylab
 
+from glue import segments
+
 import webplot
 
 
@@ -20,7 +22,7 @@ class RatePlot(webplot.PlotDescription):
 # How to make a rate plot
 #
 
-def makerateplot(desc, table):
+def makeplot(desc, table):
 	halfwidth = desc.ratewidth / 2.0
 	bins_per_second = 10.0 / halfwidth
 	fig = pylab.figure(1)
@@ -46,7 +48,7 @@ def makerateplot(desc, table):
 
 	pylab.set(axes, xlim = list(desc.segment))
 
-	for greyseg in ~desc.seglist:
+	for greyseg in ~desc.seglist & segments.segmentlist([desc.segment]):
 		pylab.axvspan(greyseg[0], greyseg[1], facecolor = "k", alpha = 0.2)
 
 	pylab.title(desc.instrument + " Excess Power Trigger Rate\n(%g s Average)" % (halfwidth * 2.0))
@@ -63,6 +65,6 @@ def makerateplot(desc, table):
 
 description = RatePlot().parse_form()
 
-makerateplot(description, webplot.gettriggers(description))
+makeplot(description, webplot.gettriggers(description))
 
 webplot.SendOutput(description)
