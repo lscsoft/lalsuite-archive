@@ -6,13 +6,13 @@ import cgitb ; cgitb.enable()
 from glue import lal
 from glue import segments
 
-from eventdisplay import *
+import eventdisplay
 
 #
 # Init
 #
 
-now = runtconvert(TconvertCommand("now"))
+now = eventdisplay.runtconvert(eventdisplay.TconvertCommand("now"))
 
 default_start = "now"
 default_duration = str(-1 * 3600)

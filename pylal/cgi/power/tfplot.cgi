@@ -4,7 +4,9 @@ import math
 from matplotlib.patches import Patch
 import pylab
 
+from glue import lal
 from glue import segments
+from pylal import viz
 
 import webplot
 
@@ -51,8 +53,13 @@ def makeplot(desc, table):
 # Make a plot and send to client
 #
 
+class Row(object):
+	__slots__ = ["start_time", "start_time_ns", "duration", "confidence", "central_freq", "bandwidth"]
+	def get_start(self):
+		return lal.LIGOTimeGPS(self.start_time, self.start_time_ns)
+
 description = TFPlot().parse_form()
 
-makeplot(description, webplot.gettriggers(description))
+makeplot(description, webplot.gettriggers(description, Row))
 
 webplot.SendOutput(description)

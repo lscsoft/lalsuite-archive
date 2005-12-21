@@ -4,6 +4,7 @@ import math
 from matplotlib.patches import Patch
 import pylab
 
+from glue import lal
 from glue import segments
 
 import webplot
@@ -63,8 +64,13 @@ def makeplot(desc, table):
 # Make a plot and send to client
 #
 
+class Row(object):
+	__slots__ = ["peak_time", "peak_time_ns"]
+	def get_peak(self):
+		return lal.LIGOTimeGPS(self.peak_time, self.peak_time_ns)
+
 description = RatePlot().parse_form()
 
-makeplot(description, webplot.gettriggers(description))
+makeplot(description, webplot.gettriggers(description, Row))
 
 webplot.SendOutput(description)

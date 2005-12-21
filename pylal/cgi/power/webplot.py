@@ -12,8 +12,9 @@ from glue import segments
 from glue import segmentsUtils
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
+from glue.ligolw import docutils
 
-from eventdisplay import *
+import eventdisplay
 
 
 #
@@ -23,7 +24,7 @@ from eventdisplay import *
 class PlotDescription(object):
 	def __init__(self):
 		# set defaults
-		now = runtconvert(TconvertCommand("now"))
+		now = eventdisplay.runtconvert(eventdisplay.TconvertCommand("now"))
 		self.segment = segments.segment(now, now + (-1 * 3600))
 		self.ratewidth = 60.0
 		self.band = segments.segment(0.0, 2500.0)
@@ -72,15 +73,6 @@ class PlotDescription(object):
 # How to get a table of triggers within a segment
 #
 
-class Row(object):
-	__slots__ = ["start_time", "start_time_ns", "duration", "confidence", "central_freq", "bandwidth", "peak_time", "peak_time_ns"]
-	def get_start(self):
-		return lal.LIGOTimeGPS(self.start_time, self.start_time_ns)
-	def get_peak(self):
-		return lal.LIGOTimeGPS(self.peak_time, self.peak_time_ns)
-
-lsctables.SnglBurstTable.RowType = Row
-
 def CacheURLs(cachename, seg):
 	"""
 	Return a list of CacheEntrys for files containing triggers of
@@ -94,8 +86,10 @@ def CacheURLs(cachename, seg):
 			urls.append(c.url)
 	return urls
 
-def gettriggers(plotdesc):
+def gettriggers(plotdesc, rowclass = None):
 	# load documents containing relevant triggers
+	if rowclass:
+		lsctables.SnglBurstTable.RowType = rowclass
 	doc = ligolw.Document()
 	handler = lsctables.LIGOLWContentHandler(doc)
 	for url in CacheURLs(plotdesc.cache, plotdesc.segment):
