@@ -48,6 +48,7 @@ def makeplot(desc, table):
 	pylab.plot(xvals + float(desc.trig_segment()[0]), pylab.convolve(peaktimes, window, mode=1))
 
 	pylab.set(axes, xlim = list(desc.segment))
+	pylab.grid(True)
 
 	for greyseg in ~desc.seglist & segments.segmentlist([desc.segment]):
 		pylab.axvspan(greyseg[0], greyseg[1], facecolor = "k", alpha = 0.2)
