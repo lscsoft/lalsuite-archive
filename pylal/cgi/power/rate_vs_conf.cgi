@@ -36,7 +36,7 @@ def makeplot(desc, table):
 
 	pylab.grid(True)
 
-	pylab.title(desc.instrument + " Excess Power Cummulative Rate vs. Confidence\n(GPS Times %s ... %s)" % (desc.segment[0], desc.segment[1]))
+	pylab.title(desc.instrument + " Excess Power Cummulative Trigger Rate vs. Confidence\n(GPS Times %s ... %s)" % (desc.segment[0], desc.segment[1]))
 	pylab.xlabel("|Confidence|")
 	pylab.ylabel("Rate (Hz)")
 

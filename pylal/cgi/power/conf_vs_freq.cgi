@@ -35,7 +35,7 @@ def makeplot(desc, table):
 	pylab.set(axes, xlim = list(desc.band))
 	pylab.grid(True)
 
-	pylab.title(desc.instrument + " Excess Power Confidence vs. Central Frequency")
+	pylab.title(desc.instrument + " Excess Power Trigger Confidence vs. Central Frequency\n(GPS Times %s ... %s)" % (desc.segment[0], desc.segment[1]))
 	pylab.xlabel("Central Frequency (Hz)")
 	pylab.ylabel("|Confidence|")
 
