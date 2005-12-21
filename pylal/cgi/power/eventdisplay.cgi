@@ -100,11 +100,12 @@ if query.segment.duration() > 24 * 3600:
 else:
 	print "<h2>%s s Starting At %s</h2>" % (duration, start.title())
 
-	# Make plots
+	# Include plots
 	print plotmarkup("rateplot.cgi", query)
 	print plotmarkup("conf_vs_time.cgi", query)
 	print plotmarkup("tfplot.cgi", query)
 	print plotmarkup("conf_vs_freq.cgi", query)
+	print plotmarkup("rate_vs_freq.cgi", query)
 	print plotmarkup("rate_vs_conf.cgi", query)
 
 print """</html>"""
