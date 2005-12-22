@@ -107,5 +107,6 @@ else:
 	print plotmarkup("conf_vs_freq.cgi", query)
 	print plotmarkup("rate_vs_freq.cgi", query)
 	print plotmarkup("rate_vs_conf.cgi", query)
+	print plotmarkup("rate_vs_snr.cgi", query)
 
 print """</html>"""
