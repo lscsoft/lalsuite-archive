@@ -1,6 +1,5 @@
 #!/usr/bin/python
 
-import math
 from matplotlib.patches import Patch
 import pylab
 
