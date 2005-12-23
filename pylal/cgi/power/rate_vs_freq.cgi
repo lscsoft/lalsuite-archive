@@ -29,6 +29,7 @@ def makeplot(desc, table):
 
 	central_freq = table.getColumnsByName("central_freq")[0].asarray()
 
+	# FIXME: breaks if 0 triggers in list
 	pylab.hist(central_freq, 64)
 
 	pylab.set(axes, xlim = list(desc.band))
