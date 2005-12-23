@@ -380,7 +380,7 @@ class SimBurstTable(metaio.Table):
 		"freq": "real_4",
 		"tau": "real_4",
 		"zm_number": "int_4s",
-		"simulation_id": "ilwd_char"
+		"simulation_id": "ilwd:char"
 	}
 
 class SimBurst(object):
@@ -418,7 +418,7 @@ class SimRingDownTable(metaio.Table):
 		"hrss": "real_4",
 		"hrss_h": "real_4",
 		"hrss_l": "real_4",
-		"simulation_id": "ilwd_char"
+		"simulation_id": "ilwd:char"
 	}
 
 class SimRingDown(object):
