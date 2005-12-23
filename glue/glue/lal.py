@@ -275,7 +275,7 @@ class CacheEntry(object):
 		elif len(args) == 1:
 			match = self._regex.search(args[0])
 			if not match:
-				raise ValueError, "could not convert \"%s\" to CacheEntry" % string
+				raise ValueError, "could not convert \"%s\" to CacheEntry" % args[0]
 			self.observatory = match.group("observatory")
 			self.description = match.group("description")
 			self.segment = segments.segment(LIGOTimeGPS(match.group("start")), LIGOTimeGPS(match.group("start")) + LIGOTimeGPS(match.group("duration")))
