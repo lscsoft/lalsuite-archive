@@ -40,7 +40,7 @@ del parser
 urls = []
 if options.input_cache:
 	for cache in options.input_cache:
-		urls += map(lal.CacheEntry, file(cache))
+		urls += [c.url for c in map(lal.CacheEntry, file(cache))]
 
 
 #
@@ -89,47 +89,47 @@ class ProcIDs(object):
 
 new_process_ids = ProcIDs()
 
-if options.verbose:
-	print >>sys.stderr, "Remapping process IDs in each document..."
-
-# loop over all top-level LIGO_LW elements (input documents)
-for ligolw in doc.getElementsByTagName("LIGO_LW"):
+def BuildProcessMapping(elem):
 	# loop over all process tables, constructing a map of old process
 	# ID --> new process ID
-	idmap = {}
-	for table in [elem for elem in ligolw.getElementsByTagName("Table") if elem.getAttribute("Name") == lsctables.ProcessTable.tableName]:
+	mapping = {}
+	for table in [t for t in elem.getElementsByTagName("Table") if t.getAttribute("Name") == lsctables.ProcessTable.tableName]:
 		for process in table.rows:
-			idmap[process.process_id] = new_process_ids.next()
+			mapping[process.process_id] = new_process_ids.next()
+	return mapping
 
+# loop over all top-level LIGO_LW elements (input documents)
+if options.verbose:
+	print >>sys.stderr, "Remapping process IDs in each document..."
+for ligolw in doc.getElementsByTagName("LIGO_LW"):
+	# build process ID mapping
+	idmap = BuildProcessMapping(ligolw)
 	if options.verbose:
 		print >>sys.stderr, "ID mapping: %s" % str(idmap)
 
 	# loop over recognized LSC tables, replacing process IDs
-	for table in [elem for elem in ligolw.getElementsByTagName("Table") if elem.getAttribute("Name") in lsctables.TableByName.keys()]:
-		for row in table.rows:
-			row.process_id = idmap[row.process_id]
+	docutils.RemapProcessIDs(ligolw, idmap)
 
 
 #
 # Merge LIGO_LW elements.
 #
 
-def MergeLIGOLW(doc):
-	ligolws = doc.getElementsByTagName("LIGO_LW")
-	for elem in ligolws[1:]:
-		for child in elem.childNodes:
-			ligolws[0].appendChild(child)
-		doc.removeChild(elem)
-	return ligolws[0]
-
-LIGO_LW = MergeLIGOLW(doc)
+LIGO_LW = reduce(docutils.MergeElements, doc.getElementsByTagName("LIGO_LW"))
 
 
 #
 # In LIGO_LW element, merge tables of like type.
 #
 
-lsctables.MergeCompatibleTables(LIGO_LW)
+docutils.MergeCompatibleTables(LIGO_LW)
+
+
+#
+# Search for processes with the same parameters, and merge.
+#
+
+#for table in [t for t in LIGO_LW.getElementsByTagName("Table") if t.getAttribute("Name") == lsctables.ProcessTable.tableName]:
 
 
 #
