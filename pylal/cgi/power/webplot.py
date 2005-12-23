@@ -111,7 +111,7 @@ def gettriggers(plotdesc, rowclass = None):
 
 	# merge trigger tables
 	while len(tables) > 1:
-		docutils.MergeTables(tables[0], tables[1])
+		docutils.MergeElements(tables[0], tables[1])
 		del tables[1]
 
 	# FIXME: need to cluster!
@@ -123,6 +123,6 @@ def gettriggers(plotdesc, rowclass = None):
 # How to send image to client
 #
 
-def SendOutput(plotdesc):
+def SendPNG(plotdesc):
 	print >>sys.stdout, "Content-Type: image/png\n"
 	shutil.copyfileobj(file(plotdesc.filename), sys.stdout)
