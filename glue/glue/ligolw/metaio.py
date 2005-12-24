@@ -151,6 +151,15 @@ class Table(ligolw.Table):
 	def appendRow(self, row):
 		self.rows.append(row)
 
+	def filterRows(self, func):
+		i = 0
+		while i < len(self.rows):
+			if not func(self.rows[i]):
+				del self.rows[i]
+			else:
+				i += 1
+		return self
+
 
 class LIGOLWContentHandler(ligolw.LIGOLWContentHandler):
 	"""
