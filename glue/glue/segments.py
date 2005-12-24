@@ -200,7 +200,9 @@ class segment(tuple):
 
 	def __contains__(self, other):
 		"""
-		Return True if other is wholly contained in self.
+		Return True if other is wholly contained in self.  other
+		can be another segment or an object of the same type as the
+		bounds of self.
 		"""
 		if type(other) == segment:
 			return (self[0] <= other[0]) and (self[1] >= other[1])
@@ -270,17 +272,17 @@ class segmentlist(list):
 
 	def __contains__(self, item):
 		"""
-		Returns True if the given segment is wholly contained within
-		one of the segments in self.  Does not require the segmentlist
-		to be coalesced.
+		Returns True if the given object is wholly contained within
+		one of the segments in self.  Does not require the
+		segmentlist to be coalesced.
 
 		Note the difference between this operator, and the standard
-		Python "in" operator for sequence-like objects:  in the case of
-		standard sequence-like objects the in operator checks for an
-		exact match between the given item and one of the contents of
-		the list; for segmentlists, the in operator checks if the given
-		item is contained within any of the segments in the
-		segmentlist.
+		Python "in" operator for sequence-like objects:  in the
+		case of standard sequence-like objects the in operator
+		checks for an exact match between the given item and one of
+		the contents of the list; for segmentlists, the in operator
+		checks if the given item is contained within any of the
+		segments in the segmentlist.
 		"""
 		for seg in self:
 			if item in seg:
