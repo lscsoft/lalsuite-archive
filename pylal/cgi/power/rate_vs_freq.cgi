@@ -27,17 +27,14 @@ def makeplot(desc, table):
 	fig.set_figsize_inches(16,8)
 	axes = pylab.gca()
 
-	central_freq = table.getColumnsByName("central_freq")[0].asarray()
-
-	# FIXME: breaks if 0 triggers in list
-	pylab.hist(central_freq, 64)
+	pylab.plot(*webplot.smooth(table.getColumnsByName("central_freq")[0].asarray(), desc.band, desc.freqwidth))
 
 	pylab.set(axes, xlim = list(desc.band))
 	pylab.grid(True)
 
-	pylab.title(desc.instrument + " Excess Power Trigger Rate vs. Central Frequency\n(GPS Times %s ... %s, %d Triggers)" % (desc.segment[0], desc.segment[1], len(central_freq)))
+	pylab.title(desc.instrument + " Excess Power Trigger Rate vs. Central Frequency\n(GPS Times %s ... %s, %d Triggers, %g Hz Average)" % (desc.segment[0], desc.segment[1], len(table.rows), desc.freqwidth))
 	pylab.xlabel("Central Frequency (Hz)")
-	pylab.ylabel("Count")
+	pylab.ylabel("Rate (Triggers per Hz)")
 
 	pylab.savefig(desc.filename)
 

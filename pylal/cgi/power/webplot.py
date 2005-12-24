@@ -30,6 +30,7 @@ class PlotDescription(object):
 		now = eventdisplay.runtconvert(eventdisplay.TconvertCommand("now"))
 		self.segment = segments.segment(now, now + (-1 * 3600))
 		self.ratewidth = 60.0
+		self.freqwidth = 16.0
 		self.band = segments.segment(0.0, 2500.0)
 		self.set_instrument("H1")
 		self.seglist = segments.segmentlist([self.segment])
@@ -56,6 +57,7 @@ class PlotDescription(object):
 
 		self.segment = segments.segment(start, start + duration)
 		self.ratewidth = float(form.getfirst("ratewidth", str(self.ratewidth)))
+		self.freqwidth = float(form.getfirst("freqwidth", str(self.freqwidth)))
 		self.band = segments.segment(float(form.getfirst("lofreq", str(self.band[0]))), float(form.getfirst("hifreq", str(self.band[1]))))
 		self.set_instrument(form.getfirst("inst", self.instrument))
 		self.load_seglist()

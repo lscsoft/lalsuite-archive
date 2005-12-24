@@ -25,6 +25,7 @@ default_duration = str(-1 * 3600)
 class Query(object):
 	segment = None
 	ratewidth = None
+	freqwidth = None
 	band = None
 	instrument = None
 
@@ -42,6 +43,7 @@ else:
 	refresh = ""
 
 query.ratewidth = float(form.getfirst("ratewidth", "60"))
+query.freqwidth = float(form.getfirst("freqwidth", "16"))
 query.band = segments.segment(float(form.getfirst("lofreq", "0")), float(form.getfirst("hifreq", "2500")))
 query.instrument = form.getfirst("inst", "H1")
 
@@ -59,7 +61,7 @@ def errormsg(msg):
 #
 
 def plotmarkup(name, query):
-	src = "%s?inst=%s&start=%s&dur=%s&ratewidth=%s&lofreq=%s&hifreq=%s" % (name, query.instrument, query.segment[0], query.segment.duration(), query.ratewidth, query.band[0], query.band[1])
+	src = "%s?inst=%s&start=%s&dur=%s&ratewidth=%s&freqwidth=%s&lofreq=%s&hifreq=%s" % (name, query.instrument, query.segment[0], query.segment.duration(), query.ratewidth, query.freqwidth, query.band[0], query.band[1])
 	return """<a href="%s"><img src="%s" width="800"></a>""" % (src, src)
 
 
@@ -76,7 +78,11 @@ def formmarkup(query):
 
 	s = """<form action="eventdisplay.cgi" method="get">\n"""
 	s += """<label for="inst">Instrument: </label>""" + instrumentlist(query.instrument) + "<br>\n"
-	s += """<label for="start">GPS Time Range: start=</label><input type="text" name="start" value=\"""" + form.getfirst("start", start) + """\"> s, duration=<input type="text" name="dur" value=\"""" + form.getfirst("dur", "") + """\"> s<br>\n<label for="ratewidth">Trigger Rate Window Width: </label><input type="text" name="ratewidth" value=\"""" + str(query.ratewidth) + """\"> s<br>\n<label for="lofreq">Frequency Band: </label><input type="text" name="lofreq" value=\"""" + str(query.band[0]) + """\"> Hz to <input type="text" name="hifreq" value=\"""" + str(query.band[1]) + """\"> Hz<br>\n<center><input type="submit" value="Submit"></center>
+	s += """<label for="start">GPS Time Range: start=</label><input type="text" name="start" value=\"""" + form.getfirst("start", start) + """\"> s, duration=<input type="text" name="dur" value=\"""" + form.getfirst("dur", "") + """\"> s<br>\n"""
+	s += """<label for="ratewidth">Triggers per Second Window: </label><input type="text" name="ratewidth" value=\"""" + str(query.ratewidth) + """\"> s<br>\n"""
+	s += """<label for="freqwidth">Triggers per Hz Window: </label><input type="text" name="freqwidth" value=\"""" + str(query.freqwidth) + """\"> Hz<br>\n"""
+	s += """<label for="lofreq">Frequency Band: </label><input type="text" name="lofreq" value=\"""" + str(query.band[0]) + """\"> Hz to <input type="text" name="hifreq" value=\"""" + str(query.band[1]) + """\"> Hz<br>\n"""
+	s += """<center><input type="submit" value="Submit"></center>
 </form>"""
 	return s
 
