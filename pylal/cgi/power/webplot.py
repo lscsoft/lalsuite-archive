@@ -121,6 +121,9 @@ def gettriggers(plotdesc, rowclass = None):
 
 	# FIXME: need to cluster!
 
+	# remove triggers that lie outside the requested segment
+	tables[0].filterRows(lambda row: row.get_peak() in plotdesc.segment)
+
 	return tables[0]
 
 
