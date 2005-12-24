@@ -24,28 +24,11 @@ class Plot(webplot.PlotDescription):
 #
 
 def makeplot(desc, table):
-	halfwidth = desc.ratewidth / 2.0
-	bins_per_second = 10.0 / halfwidth
 	fig = pylab.figure(1)
 	fig.set_figsize_inches(16,8)
 	axes = pylab.gca()
 
-	def bin(x):
-		return int(float(x - desc.trig_segment()[0]) * bins_per_second)
-
-	window = pylab.exp(-pylab.arrayrange(-10.0 * halfwidth, +10.0 * halfwidth, 1.0/bins_per_second)**2.0 / (2.0 * halfwidth**2.0)) / math.sqrt(2.0 * math.pi) / halfwidth
-
-	xvals = pylab.arrayrange(0.0, float(desc.trig_segment().duration()) + 1.0/bins_per_second, 1.0/bins_per_second)
-
-	peaktimes = pylab.zeros(len(xvals), "Float32")
-	#for t in pylab.arrayrange(float(desc.trig_segment()[0]), float(desc.trig_segment()[1]), 0.5):
-	#	if desc.trig_segment()[0] <= t <= desc.trig_segment()[1]:
-	#		peaktimes[bin(t)] += 1.0
-	for t in [float(row.get_peak()) for row in table.rows]:
-		if desc.trig_segment()[0] <= t <= desc.trig_segment()[1]:
-			peaktimes[bin(t)] += 1.0
-
-	pylab.plot(xvals + float(desc.trig_segment()[0]), pylab.convolve(peaktimes, window, mode=1))
+	pylab.plot(*webplot.smooth([float(row.get_peak()) for row in table.rows], desc.trig_segment(), desc.ratewidth))
 
 	pylab.set(axes, xlim = list(desc.segment))
 	pylab.grid(True)
@@ -53,7 +36,7 @@ def makeplot(desc, table):
 	for greyseg in ~desc.seglist & segments.segmentlist([desc.segment]):
 		pylab.axvspan(greyseg[0], greyseg[1], facecolor = "k", alpha = 0.2)
 
-	pylab.title(desc.instrument + " Excess Power Trigger Rate vs. Time\n(%g s Average)" % (halfwidth * 2.0))
+	pylab.title(desc.instrument + " Excess Power Trigger Rate vs. Time\n(%g s Average)" % (desc.ratewidth))
 	pylab.xlabel("GPS Time (s)")
 	pylab.ylabel("Trigger Rate (Hz)")
 

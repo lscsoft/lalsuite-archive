@@ -1,6 +1,9 @@
 import cgi
 import cgitb ; cgitb.enable()
+import math
+from matplotlib.patches import Patch
 import os
+import pylab
 import shutil
 import sys
 import tempfile
@@ -117,6 +120,33 @@ def gettriggers(plotdesc, rowclass = None):
 	# FIXME: need to cluster!
 
 	return tables[0]
+
+
+#
+# Convolve impulse events with a Gaussian window to produce a smooth
+# function.
+#
+
+def smooth(impulses, segment, width):
+	halfwidth = width / 2.0
+	bins_per_unit = 10.0 / halfwidth
+
+	def bin(x):
+		return int(float(x - segment[0]) * bins_per_unit)
+
+	window = pylab.exp(-pylab.arrayrange(-10.0 * halfwidth, +10.0 * halfwidth, 1.0/bins_per_unit)**2.0 / (2.0 * halfwidth**2.0)) / math.sqrt(2.0 * math.pi) / halfwidth
+
+	xvals = pylab.arrayrange(0.0, float(segment.duration()) + 1.0/bins_per_unit, 1.0/bins_per_unit)
+
+	yvals = pylab.zeros(len(xvals), "Float32")
+	#for x in pylab.arrayrange(float(segment[0]), float(segment[1]), 0.5):
+	#	if segment[0] <= x <= segment[1]:
+	#		yvals[bin(x)] += 1.0
+	for x in impulses:
+		if segment[0] <= x <= segment[1]:
+			yvals[bin(x)] += 1.0
+
+	return (xvals + float(segment[0]), pylab.convolve(yvals, window, mode=1))
 
 
 #
