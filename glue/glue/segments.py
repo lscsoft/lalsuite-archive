@@ -202,7 +202,10 @@ class segment(tuple):
 		"""
 		Return True if other is wholly contained in self.
 		"""
-		return (self[0] <= other[0]) and (self[1] >= other[1])
+		if type(other) == segment:
+			return (self[0] <= other[0]) and (self[1] >= other[1])
+		else:
+			return self[0] <= other <= self[1]
 
 	def continuous(self, other):
 		"""
