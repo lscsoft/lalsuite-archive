@@ -40,7 +40,7 @@ def makeplot(desc, table):
 
 	for greyseg in ~desc.seglist & segments.segmentlist([desc.segment]):
 		pylab.axvspan(greyseg[0], greyseg[1], facecolor = "k", alpha = 0.2)
-	pylab.title(desc.instrument + " Excess Power Time-Frequency Plane")
+	pylab.title(desc.instrument + " Excess Power Time-Frequency Plane\n(%d Triggers)" % (len(table.rows)))
 	pylab.xlabel("GPS Time (s)")
 	pylab.ylabel("Frequency (Hz)")
 

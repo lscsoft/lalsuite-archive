@@ -37,7 +37,7 @@ def makeplot(desc, table):
 	pylab.set(axes, xlim = list(desc.segment))
 	pylab.grid(True)
 
-	pylab.title(desc.instrument + " Excess Power Trigger Confidence vs. Time")
+	pylab.title(desc.instrument + " Excess Power Trigger Confidence vs. Time\n(%d Triggers)" % (len(table.rows)))
 	pylab.xlabel("GPS Time (s)")
 	pylab.ylabel("|Confidence|")
 

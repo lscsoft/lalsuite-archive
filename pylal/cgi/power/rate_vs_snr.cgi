@@ -35,7 +35,7 @@ def makeplot(desc, table):
 
 	pylab.grid(True)
 
-	pylab.title(desc.instrument + " Excess Power Cummulative Trigger Rate vs. SNR\n(GPS Times %s ... %s, %d Triggers)" % (desc.segment[0], desc.segment[1], len(snr)))
+	pylab.title(desc.instrument + " Excess Power Cummulative Trigger Rate vs. SNR\n(GPS Times %s ... %s, %d Triggers)" % (desc.segment[0], desc.segment[1], len(table.rows)))
 	pylab.xlabel("SNR")
 	pylab.ylabel("Rate (Hz)")
 
