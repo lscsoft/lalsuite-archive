@@ -3,6 +3,7 @@
 from matplotlib.patches import Patch
 import pylab
 
+from glue import lal
 from glue import segments
 
 import webplot
