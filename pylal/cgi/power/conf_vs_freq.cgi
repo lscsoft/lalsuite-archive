@@ -45,7 +45,7 @@ def makeplot(desc, table):
 #
 
 class Row(object):
-	__slots__ = ["central_freq", "confidence"]
+	__slots__ = ["peak_time", "peak_time_ns", "central_freq", "confidence"]
 	def get_peak(self):
 		return lal.LIGOTimeGPS(self.peak_time, self.peak_time_ns)
 
