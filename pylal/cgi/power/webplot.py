@@ -17,6 +17,8 @@ from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import docutils
 
+from pylal import SnglBurstUtils
+
 import eventdisplay
 
 
@@ -83,13 +85,7 @@ def CacheURLs(cachename, seg):
 	Return a list of CacheEntrys for files containing triggers of
 	interest.
 	"""
-	#urls = [c.url for c in map(lal.CacheEntry, file(cachename)) if c.segment.intersects(seg)]
-	urls = []
-	for line in file(cachename):
-		c = lal.CacheEntry(line)
-		if c.segment.intersects(seg):
-			urls.append(c.url)
-	return urls
+	return [c.url for c in map(lal.CacheEntry, file(cachename)) if c.segment.intersects(seg)]
 
 def gettriggers(plotdesc, rowclass = None):
 	# load documents containing relevant triggers
@@ -119,7 +115,9 @@ def gettriggers(plotdesc, rowclass = None):
 		docutils.MergeElements(tables[0], tables[1])
 		del tables[1]
 
-	# FIXME: need to cluster!
+	# cluster
+	# FIXME: only works if each trigger has full info.
+	#SnglBurstUtils.ClusterSnglBurstTable(tables[0].rows, SnglBurstUtils.CompareSnglBurstByPeakTimeAndFreq, SnglBurstUtils.SnglBurstCluster, SnglBurstUtils.CompareSnglBurstByPeakTime)
 
 	# remove triggers that lie outside the requested segment
 	tables[0].filterRows(lambda row: row.get_peak() in plotdesc.segment)
