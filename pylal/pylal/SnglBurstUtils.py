@@ -5,26 +5,22 @@ def CompareSnglBurstByPeakTime(a, b):
 
 
 def CompareSnglBurstByPeakTimeAndFreq(a, b):
-	result = cmp(a.get_peak(), b.get_peak())
-	if not result:
-		result = cmp(a.get_band(), b.get_band())
-	return result
+	return cmp((a.get_peak(), a.get_band()), (b.get_peak(), b.get_band()))
 
 
 def SnglBurstCluster(a, b):
+	def smallest_enclosing_interval(seg1, seg2):
+		return segments.segment(min(seg1[0], seg2[0]), max(seg1[1], seg2[1]))
+
 	# The cluster's frequency band is the smallest band containing the
 	# bands of the two original events
 
-	band1 = a.get_band()
-	band2 = b.get_band()
-	a.set_band(segments.segment(min(band1[0], band2[0]), max(band1[1], band2[1])))
+	a.set_band(smallest_enclosing_interval(a.get_band(), b.get_band()))
 
 	# The cluster's time interval is the smallest interval containing
 	# the intervals of the two original events
 
-	period1 = a.get_period()
-	period2 = b.get_period()
-	a.set_period(segments.segment(min(period1[0], period2[0]), max(period1[1], period2[1])))
+	a.set_period(smallest_enclosing_interval(a.get_period(), b.get_period()))
 
 	# The amplitude, SNR, confidence, and peak time of the cluster are
 	# those of the most confident of the two events (more negative
