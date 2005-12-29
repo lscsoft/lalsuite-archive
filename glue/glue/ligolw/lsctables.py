@@ -171,8 +171,9 @@ class SnglBurst(object):
 		return segments.segment(start, start + self.duration)
 
 	def set_period(self, period):
+		# FIXME: should duration be forced to type float?
 		self.start_time, self.start_time_ns = period[0].seconds, period[0].nanoseconds
-		self.duration = period.duration()
+		self.duration = float(period.duration())
 
 	def get_band(self):
 		return segments.segment(self.central_freq - self.bandwidth/2.0, self.central_freq + self.bandwidth/2.0)
