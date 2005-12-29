@@ -114,8 +114,7 @@ def gettriggers(plotdesc):
 		del tables[1]
 
 	# cluster
-	# FIXME: only works if each trigger has full info.
-	#SnglBurstUtils.ClusterSnglBurstTable(tables[0].rows, SnglBurstUtils.CompareSnglBurstByPeakTimeAndFreq, SnglBurstUtils.SnglBurstCluster, SnglBurstUtils.CompareSnglBurstByPeakTime)
+	SnglBurstUtils.ClusterSnglBurstTable(tables[0].rows, SnglBurstUtils.CompareSnglBurstByPeakTimeAndFreq, SnglBurstUtils.SnglBurstCluster, SnglBurstUtils.CompareSnglBurstByPeakTime)
 
 	# remove triggers that lie outside the requested segment
 	tables[0].filterRows(lambda row: row.get_peak() in plotdesc.segment)
