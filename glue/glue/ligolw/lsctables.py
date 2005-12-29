@@ -151,6 +151,9 @@ class SnglBurstTable(metaio.Table):
 		"event_id": "int_8s"
 	}
 
+class SnglBurst(object):
+	__slots__ = SnglBurstTable.validcolumns.keys()
+
 	def get_start(self):
 		return lal.LIGOTimeGPS(self.start_time, self.start_time_ns)
 
@@ -162,9 +165,6 @@ class SnglBurstTable(metaio.Table):
 
 	def set_peak(self, gps):
 		self.peak_time, self.peak_time_ns = gps.seconds, gps.nanoseconds
-
-class SnglBurst(object):
-	__slots__ = SnglBurstTable.validcolumns.keys()
 
 SnglBurstTable.RowType = SnglBurst
 
