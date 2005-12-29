@@ -94,6 +94,12 @@ class SearchSummaryTable(metaio.Table):
 		"nnodes": "int_4s"
 	}
 
+	def get_inlist(self):
+		return segments.segmentlist([row.get_in() for row in self.rows])
+
+	def get_outlist(self):
+		return segments.segmentlist([row.get_out() for row in self.rows])
+
 class SearchSummary(object):
 	__slots__ = SearchSummaryTable.validcolumns.keys()
 
