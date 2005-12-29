@@ -166,6 +166,21 @@ class SnglBurst(object):
 	def set_peak(self, gps):
 		self.peak_time, self.peak_time_ns = gps.seconds, gps.nanoseconds
 
+	def get_period(self):
+		start = lal.LIGOTimeGPS(self.start_time, self.start_time_ns)
+		return segments.segment(start, start + self.duration)
+
+	def set_period(self, period):
+		self.start_time, self.start_time_ns = period[0].seconds, period[0].nanoseconds
+		self.duration = period.duration()
+
+	def get_band(self):
+		return segments.segment(self.central_freq - self.bandwidth/2.0, self.central_freq + self.bandwidth/2.0)
+
+	def set_band(self, band):
+		self.central_freq = (band[0] + band[1])/2.0
+		self.bandwidth = band.duration()
+
 SnglBurstTable.RowType = SnglBurst
 
 
