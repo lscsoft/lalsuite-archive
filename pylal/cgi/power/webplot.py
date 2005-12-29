@@ -87,10 +87,8 @@ def CacheURLs(cachename, seg):
 	"""
 	return [c.url for c in map(lal.CacheEntry, file(cachename)) if c.segment.intersects(seg)]
 
-def gettriggers(plotdesc, rowclass = None):
+def gettriggers(plotdesc):
 	# load documents containing relevant triggers
-	if rowclass:
-		lsctables.SnglBurstTable.RowType = rowclass
 	doc = ligolw.Document()
 	handler = lsctables.LIGOLWContentHandler(doc)
 	for url in CacheURLs(plotdesc.cache, plotdesc.segment):

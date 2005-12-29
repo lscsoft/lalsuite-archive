@@ -46,13 +46,8 @@ def makeplot(desc, table):
 # Make a plot and send to client
 #
 
-class Row(object):
-	__slots__ = ["peak_time", "peak_time_ns", "confidence"]
-	def get_peak(self):
-		return lal.LIGOTimeGPS(self.peak_time, self.peak_time_ns)
-
 description = Plot().parse_form()
 
-makeplot(description, webplot.gettriggers(description, Row))
+makeplot(description, webplot.gettriggers(description))
 
 webplot.SendPNG(description)
