@@ -47,6 +47,24 @@ class Element(object):
 		self.childNodes = []
 		self.pcdata = None
 
+	def __cmp__(self, other):
+		"""
+		Two elements compare as equal if they generate equivalent
+		markup.
+		"""
+		result = cmp(self.tagName, other.tagName)
+		if not result:
+			result = cmp(self.attributes, other.attributes)
+		if not result:
+			result = cmp(self.pcdata, other.pcdata)
+		if not result:
+			a = self.childNodes[:]
+			a.sort()
+			b = self.childNodes[:]
+			b.sort()
+			result = cmp(a, b)
+		return result
+
 	def start_tag(self):
 		"""
 		Generate the string for the element's start tag.
@@ -452,31 +470,31 @@ class LIGOLWContentHandler(sax.handler.ContentHandler):
 
 	def endElement(self, name):
 		if name == AdcData.tagName:
-			child = self.endAdcData()
+			self.endAdcData()
 		elif name == AdcInterval.tagName:
-			child = self.endAdcInterval()
+			self.endAdcInterval()
 		elif name == Array.tagName:
-			child = self.endArray()
+			self.endArray()
 		elif name == Column.tagName:
-			child = self.endColumn()
+			self.endColumn()
 		elif name == Comment.tagName:
-			child = self.endComment()
+			self.endComment()
 		elif name == Detector.tagName:
-			child = self.endDetector()
+			self.endDetector()
 		elif name == Dim.tagName:
-			child = self.endDim()
+			self.endDim()
 		elif name == IGWDFrame.tagName:
-			child = self.endIGWDFrame()
+			self.endIGWDFrame()
 		elif name == LIGO_LW.tagName:
-			child = self.endLIGO_LW()
+			self.endLIGO_LW()
 		elif name == Param.tagName:
-			child = self.endParam()
+			self.endParam()
 		elif name == Stream.tagName:
-			child = self.endStream()
+			self.endStream()
 		elif name == Table.tagName:
-			child = self.endTable()
+			self.endTable()
 		elif name == Time.tagName:
-			child = self.endTime()
+			self.endTime()
 		else:
 			raise ElementError, "unknown element tag %s" % name
 		self.current = self.current.parentNode
