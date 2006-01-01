@@ -11,7 +11,7 @@ import ligolw
 
 StringTypes = ["ilwd:char", "ilwd:char_u", "lstring", "string"]
 IntTypes = ["int_2s", "int_4s", "int_8s", "int"]
-FloatTypes = ["real_4", "real_8", "float"]
+FloatTypes = ["real_4", "real_8", "float", "double"]
 Types = StringTypes + IntTypes + FloatTypes
 ToNumArrayType = {
 	"int_2s": "Int16",
@@ -20,7 +20,8 @@ ToNumArrayType = {
 	"int": "Int32",
 	"real_4": "Float32",
 	"real_8": "Float64",
-	"float": "Float64"
+	"float": "Float64",
+	"double": "Float64"
 }
 
 
