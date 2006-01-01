@@ -9,16 +9,18 @@ from xml import sax
 import ligolw
 
 
-StringTypes = ["ilwd:char", "ilwd:char_u", "lstring"]
-IntTypes = ["int_2s", "int_4s", "int_8s"]
-FloatTypes = ["real_4", "real_8"]
+StringTypes = ["ilwd:char", "ilwd:char_u", "lstring", "string"]
+IntTypes = ["int_2s", "int_4s", "int_8s", "int"]
+FloatTypes = ["real_4", "real_8", "float"]
 Types = StringTypes + IntTypes + FloatTypes
 ToNumArrayType = {
 	"int_2s": "Int16",
 	"int_4s": "Int32",
 	"int_8s": "Int64",
+	"int": "Int32",
 	"real_4": "Float32",
-	"real_8": "Float64"
+	"real_8": "Float64",
+	"float": "Float64"
 }
 
 
