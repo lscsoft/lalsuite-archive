@@ -15,8 +15,8 @@ set FIELDS {
 	"^useful band start"	band 0		{3 3}		1
 	"^seconds elapsed"	cputime 0  	{2 2}		1
 	"^fine_grid npoints"	npoints 0 	{3 3}		1
-	"^max_high_ul:"	max_high_ul 3  		{1 end}		X
-	"^max_circ_ul:"	max_circ_ul 3  		{1 end}		X
+	"^max_high_ul:"	max_high_ul 3  		{1 4}		4
+	"^max_circ_ul:"	max_circ_ul 3  		{1 4}		4
 	"\\(TMedian\\):"	TMedian 0 	{4 4}		1
 	"median:"	median 0 		{2 2}		1
 	"qlines:"	qlines 0 		{2 2}		1
@@ -26,19 +26,19 @@ set FIELDS {
 	"^Minimum bin shift"	min_shift 3	{3 3}		1
 	"^hist_residuals:"	hist_residuals 0	{1 4}	4
         "^max_dx:"       max_dx 1	{1 7}			7
-        "^largest:"  largest 1	{1 end}				X
-        "^masked:"   masked 1	{1 end}				X
+        "^largest:"  largest 1	{1 9}				9
+        "^masked:"   masked 1	{1 2}				2
 	"^spindown  :" spindown 3	{2 2}			1
 	}
 
 set FIELDS_LAYOUT {exp var pol fields EC}
 
 for { set band 0 } { $band < $NBANDS } { incr band } {
-	lappend FIELDS "^max_high_ul_band: $band " "max_high_ul_band.$band" 3	{1 end}		X
-	lappend FIELDS "^max_circ_ul_band: $band " "max_circ_ul_band.$band" 3	{1 end}		X
-        lappend FIELDS "^max_band: $band " "max_band.$band" 1	{1 end}				X
-        lappend FIELDS "^masked_max_band: $band " "masked_max_band.$band" 1	{1 end}		X
-	lappend FIELDS "^max_ratio: $band " "max_ratio.$band" 1	{1 end}				X
+	lappend FIELDS "^max_high_ul_band: $band " "max_high_ul_band.$band" 3	{1 3}		3
+	lappend FIELDS "^max_circ_ul_band: $band " "max_circ_ul_band.$band" 3	{1 3}		3
+        lappend FIELDS "^max_band: $band " "max_band.$band" 1	{1 9}				9
+        lappend FIELDS "^masked_max_band: $band " "masked_max_band.$band" 1	{1 9}		9
+	lappend FIELDS "^max_ratio: $band " "max_ratio.$band" 1	{1 3}				3
 	lappend FIELDS "hist_.*_ks_test: $band " "ks_hist.$band" 1		{1 4}		4
         }
 
