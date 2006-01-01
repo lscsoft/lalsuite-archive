@@ -1,5 +1,5 @@
 """
-High-level Table element manipulation utilities.
+High-level document manipulation utilities.
 """
 
 from ligolw import ElementError
@@ -66,27 +66,3 @@ def RemapProcessIDs(elem, mapping):
 				row.process_id = mapping[row.process_id]
 			except KeyError:
 				pass
-
-
-def GetProcessParams(table, id):
-	"""
-	Turn the rows matching the process ID process_id in the process
-	params table "table" into a dictionary of parameter/value pairs.
-	"""
-	if table.getAttribute("Name") != lsctables.ProcessParamsTable.tableName:
-		raise ValueError, "GetProcessParams(table, id): table is not a process params table"
-	params = {}
-	for row in table.rows:
-		if row.process_id != id:
-			pass
-		elif params.has_key(row.param):
-			raise ElementError, "duplicate process parameter %s for process ID %s" % (row.param, id)
-		elif row.type in metaio.StringTypes:
-			params[row.param] = str(row.value)
-		elif row.type in metaio.IntTypes:
-			params[row.param] = int(row.value)
-		elif row.type in metaio.FloatTypes:
-			params[row.param] = float(row.value)
-		else:
-			raise ElementError, "unrecognized Type attribute %s" % row.type
-	return params
