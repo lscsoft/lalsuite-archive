@@ -6,6 +6,10 @@ from ligolw import ElementError
 import lsctables
 
 
+#
+# General utilities.
+#
+
 def MergeElements(elem1, elem2):
 	"""
 	Move the children of elem2 to elem1, and unlink elem2 from its
@@ -26,6 +30,21 @@ def MergeElements(elem1, elem2):
 		elem2.parentNode.removeChild(elem2)
 	return elem1
 
+
+def FindElements(elem, filter):
+	"""
+	Return a list of elements below elem for which filter(element)
+	returns True.
+	"""
+	l = reduce(lambda l, e: l + findElements(e, filter), elem.childNodes, [])
+	if filter(elem):
+		l += [elem]
+	return l
+
+
+#
+# Table manipulation utilities.
+#
 
 def TablesAreCompatible(table1, table2):
 	"""
