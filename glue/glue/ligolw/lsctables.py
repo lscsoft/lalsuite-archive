@@ -1,5 +1,5 @@
 """
-Table definitions in use by LAL.
+LSC Table definitions.
 """
 
 #
@@ -12,6 +12,7 @@ from xml import sax
 import metaio
 from glue import lal
 from glue import segments
+from ligolw import ElementError
 
 
 def New(Type):
@@ -66,6 +67,27 @@ class ProcessParamsTable(metaio.Table):
 		"type": "lstring",
 		"value": "lstring"
 	}
+
+	def get_params(self, id):
+		"""
+		Turn the rows matching the process ID id into a dictionary
+		of parameter/value pairs.
+		"""
+		params = {}
+		for row in self.rows:
+			if row.process_id != id:
+				pass
+			elif params.has_key(row.param):
+				raise ElementError, "duplicate process parameter %s for process ID %s" % (row.param, id)
+			elif row.type in metaio.StringTypes:
+				params[row.param] = str(row.value)
+			elif row.type in metaio.IntTypes:
+				params[row.param] = int(row.value)
+			elif row.type in metaio.FloatTypes:
+				params[row.param] = float(row.value)
+			else:
+				raise ElementError, "unrecognized Type attribute %s" % row.type
+		return params
 
 class ProcessParams(object):
 	__slots__ = ProcessParamsTable.validcolumns.keys()
