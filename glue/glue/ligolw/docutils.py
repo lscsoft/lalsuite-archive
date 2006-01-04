@@ -67,3 +67,34 @@ def RemapProcessIDs(elem, mapping):
 				row.process_id = mapping[row.process_id]
 			except KeyError:
 				pass
+
+
+#
+# Utilities for partial document loading.
+#
+
+class PartialLIGOLWContentHandler(lsctables.LIGOLWContentHandler):
+	"""
+	LIGO LW content handler object with the ability to strip unwanted
+	portions of the document from the input stream.  Useful, for
+	example, when one wishes to read only a single table from the XML.
+	"""
+	def __init__(self, document, filter):
+		"""
+		Only those elements for which filter(name, attrs) evaluates
+		to True, and the children of those elements, will be
+		loaded.
+		"""
+		lsctables.LIGOLWContentHandler.__init__(self, document)
+		self.filter = filter
+		self.filtered_depth = 0
+
+	def startElement(self, name, attrs):
+		if self.filtered_depth > 0 or self.filter(name, attrs):
+			lsctables.LIGOLWContentHandler.startElement(self, name, attrs)
+			self.filtered_depth += 1
+
+	def endElement(self, name):
+		if self.filtered_depth > 0:
+			self.filtered_depth -= 1
+			lsctables.LIGOLWContentHandler.endElement(self, name)
