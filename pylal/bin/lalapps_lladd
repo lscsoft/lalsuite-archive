@@ -89,33 +89,40 @@ class ProcIDs(object):
 
 new_process_ids = ProcIDs()
 
+def IsProcessTable(elem):
+	if elem.tagName != ligolw.Table.tagName:
+		return False
+	return elem.getAttribute("Name") == lsctables.ProcessTable.tableName
+
 def BuildProcessMapping(elem):
 	# loop over all process tables, constructing a map of old process
 	# ID --> new process ID
 	mapping = {}
-	for table in [t for t in elem.getElementsByTagName("Table") if t.getAttribute("Name") == lsctables.ProcessTable.tableName]:
+	for table in elem.getElements(IsProcessTable):
 		for process in table.rows:
+			if mapping.has_key(process.process_id):
+				raise Exception, "duplicate process ID %s found" % process.process_id
 			mapping[process.process_id] = new_process_ids.next()
 	return mapping
 
 # loop over all top-level LIGO_LW elements (input documents)
 if options.verbose:
 	print >>sys.stderr, "Remapping process IDs in each document..."
-for ligolw in doc.getElementsByTagName("LIGO_LW"):
+for elem in doc.getElementsByTagName(ligolw.LIGO_LW.tagName):
 	# build process ID mapping
-	idmap = BuildProcessMapping(ligolw)
+	idmap = BuildProcessMapping(elem)
 	if options.verbose:
 		print >>sys.stderr, "ID mapping: %s" % str(idmap)
 
 	# loop over recognized LSC tables, replacing process IDs
-	docutils.RemapProcessIDs(ligolw, idmap)
+	docutils.RemapProcessIDs(elem, idmap)
 
 
 #
 # Merge LIGO_LW elements.
 #
 
-LIGO_LW = reduce(docutils.MergeElements, doc.getElementsByTagName("LIGO_LW"))
+LIGO_LW = reduce(docutils.MergeElements, doc.getElementsByTagName(ligolw.LIGO_LW.tagName))
 
 
 #
@@ -129,7 +136,7 @@ docutils.MergeCompatibleTables(LIGO_LW)
 # Search for processes with the same parameters, and merge.
 #
 
-#for table in [t for t in LIGO_LW.getElementsByTagName("Table") if t.getAttribute("Name") == lsctables.ProcessTable.tableName]:
+#for table in [t for t in LIGO_LW.getElementsByTagName(ligolw.Table.tagName) if t.getAttribute("Name") == lsctables.ProcessTable.tableName]:
 
 
 #
