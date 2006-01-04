@@ -98,8 +98,6 @@ class Element(object):
 		"""
 		if self.empty:
 			raise ElementError, "%s cannot have children" % self.tagName
-		if child.tagName not in self.validchildren:
-			raise ElementError, "invalid child %s for %s" % (child.tagName, self.tagName)
 		self.childNodes.append(child)
 		child.parentNode = self
 
@@ -157,6 +155,8 @@ class Element(object):
 		print >>file, indent + self.start_tag()
 		if not self.empty:
 			for c in self.childNodes:
+				if c.tagName not in self.validchildren:
+					raise ElementError, "invalid child %s for %s" % (c.tagName, self.tagName)
 				c.write(file, indent + Indent)
 			if self.pcdata:
 				print >>file, self.pcdata
@@ -335,6 +335,7 @@ class Document(Element):
 	"""
 	Description of a LIGO LW file.
 	"""
+	tagName = "Document"
 	validchildren = [u"LIGO_LW"]
 
 	def write(self, file = sys.stdout):
@@ -343,6 +344,8 @@ class Document(Element):
 		"""
 		print >>file, Header
 		for c in self.childNodes:
+			if c.tagName not in self.validchildren:
+				raise ElementError, "invalid child %s for %s" % (c.tagName, self.tagName)
 			c.write(file)
 
 
