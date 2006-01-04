@@ -47,22 +47,24 @@ class Element(object):
 		self.childNodes = []
 		self.pcdata = None
 
-	def __cmp__(self, other):
+	def compare(self, other):
+		# can't override __cmp__() because that screws up the
+		# removeChild() method.
 		"""
 		Two elements compare as equal if they generate equivalent
 		markup.
 		"""
 		result = cmp(self.tagName, other.tagName)
 		if not result:
-			result = cmp(self.attributes, other.attributes)
-		if not result:
-			result = cmp(self.pcdata, other.pcdata)
-		if not result:
-			a = self.childNodes[:]
-			a.sort()
-			b = self.childNodes[:]
-			b.sort()
-			result = cmp(a, b)
+			result = cmp(dict(self.attributes), dict(other.attributes))
+			if not result:
+				result = cmp(self.pcdata, other.pcdata)
+				if not result:
+					a = self.childNodes[:]
+					a.sort()
+					b = self.childNodes[:]
+					b.sort()
+					result = cmp(a, b)
 		return result
 
 	def start_tag(self):
@@ -110,7 +112,18 @@ class Element(object):
 		child.parentNode = None
 		return child
 
+	def getElements(self, filter):
+		"""
+		Return a list of elements below elem for which filter(element)
+		returns True.
+		"""
+		l = reduce(lambda l, e: l + e.getElements(filter), self.childNodes, [])
+		if filter(self):
+			l += [self]
+		return l
+
 	def getElementsByTagName(self, tagName):
+		#return self.getElements(lambda e: e.tagName == tagName)
 		l = []
 		for c in self.childNodes:
 			l += c.getElementsByTagName(tagName)
@@ -171,7 +184,10 @@ class Comment(Element):
 	tagName = "Comment"
 
 	def write(self, file = sys.stdout, indent = ""):
-		print >>file, indent + self.start_tag() + self.pcdata + self.end_tag()
+		if self.pcdata:
+			print >>file, indent + self.start_tag() + self.pcdata + self.end_tag()
+		else:
+			print >>file, indent + self.start_tag() + self.end_tag()
 
 
 class Param(Element):

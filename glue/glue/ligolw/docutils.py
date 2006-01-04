@@ -2,7 +2,7 @@
 High-level document manipulation utilities.
 """
 
-from ligolw import ElementError
+import ligolw
 import lsctables
 
 
@@ -15,48 +15,30 @@ def MergeElements(elem1, elem2):
 	Move the children of elem2 to elem1, and unlink elem2 from its
 	parent.  The return value is elem1.  If the two elements are
 	tables, then the contents of the second table into the first table,
-	and unlink the second table from the document tree.  This does
-	*not* check that this operation is OK, i.e. if the two tables are
-	compatible.
+	and unlink the second table from the document tree.
 	"""
-	# FIXME: what about attributes?
 	if elem1.tagName != elem2.tagName:
-		raise ElementError, "MergeElements(elem1, elem2): elements must have same names"
-	if elem1.tagName == "LIGO_LW":
+		raise ligolw.ElementError, "MergeElements(): elements must have same names"
+	if elem1.tagName == ligolw.LIGO_LW.tagName:
+		# copy children;  LIGO_LW elements have no attributes
 		map(elem1.appendChild, elem2.childNodes)
-	elif elem1.tagName == "Table":
+	elif elem1.tagName == ligolw.Table.tagName:
+		# FIXME: this doesn't work if one table has no stream element,
+		# which should probably still be OK.
+		if elem1.compare(elem2):
+			raise ligolw.ElementError, "MergeElements(): Table elements must compare as equivalent."
+		# copy rows
 		elem1.rows.extend(elem2.rows)
+	else:
+		raise ligolw.ElementError, "MergeElements(): can't merge %s elements." % elem1.tagName
 	if elem2.parentNode:
 		elem2.parentNode.removeChild(elem2)
 	return elem1
 
 
-def FindElements(elem, filter):
-	"""
-	Return a list of elements below elem for which filter(element)
-	returns True.
-	"""
-	l = reduce(lambda l, e: l + findElements(e, filter), elem.childNodes, [])
-	if filter(elem):
-		l += [elem]
-	return l
-
-
 #
 # Table manipulation utilities.
 #
-
-def TablesAreCompatible(table1, table2):
-	"""
-	Return True if the two tables have compatible columns.  This
-	implies that a row object from one can be placed in the other.
-	"""
-	names1 = [column.getAttribute("Name") for column in table1.getElementsByTagName("Column")]
-	names1.sort()
-	names2 = [column.getAttribute("Name") for column in table2.getElementsByTagName("Column")]
-	names2.sort()
-	return names1 == names2
-
 
 def MergeCompatibleTables(elem):
 	"""
@@ -66,9 +48,9 @@ def MergeCompatibleTables(elem):
 	a single table, etc..
 	"""
 	for tname in lsctables.TableByName.keys():
-		tables = [t for t in elem.getElementsByTagName("Table") if t.getAttribute("Name") == tname]
+		tables = [t for t in elem.getElementsByTagName(ligolw.Table.tagName) if t.getAttribute("Name") == tname]
 		for i in range(1, len(tables)):
-			if TablesAreCompatible(tables[0], tables[i]):
+			if not tables[0].compare(tables[i]):
 				MergeElements(tables[0], tables[i])
 
 
@@ -79,7 +61,7 @@ def RemapProcessIDs(elem, mapping):
 	to mapping.  Rows with process IDs not named in the mapping are
 	ignored.
 	"""
-	for table in [t for t in elem.getElementsByTagName("Table") if t.getAttribute("Name") in lsctables.TableByName.keys()]:
+	for table in [t for t in elem.getElementsByTagName(ligolw.Table.tagName) if t.getAttribute("Name") in lsctables.TableByName.keys()]:
 		for row in table.rows:
 			try:
 				row.process_id = mapping[row.process_id]
