@@ -54,7 +54,7 @@ class Stream(ligolw.Stream):
 		ligolw.Stream.appendData(self, content)
 
 		# make sure we are inside a Table
-		if self.parentNode.tagName != "Table":
+		if self.parentNode.tagName != ligolw.Table.tagName:
 			return
 
 		# move tokens from buffer to token list
@@ -87,7 +87,7 @@ class Stream(ligolw.Stream):
 		return self.getAttribute("Delimiter").join(strs)
 
 	def write(self, file = sys.stdout, indent = ""):
-		columns = self.parentNode.getElementsByTagName("Column")
+		columns = self.parentNode.getElementsByTagName(ligolw.Column.tagName)
 
 		# loop over parent's rows.  This is complicated because we
 		# need to not put a comma at the end of the last row.
@@ -130,7 +130,7 @@ class Table(ligolw.Table):
 		return self.getChildrenByAttributes({"Name": self.columnName(name)})
 
 	def appendChild(self, child):
-		if child.tagName == "Column":
+		if child.tagName == ligolw.Column.tagName:
 			colname = child.getAttribute("Name").split(":")[-1]
 			llwtype = child.getAttribute("Type")
 			if self.validcolumns != None:
@@ -146,7 +146,7 @@ class Table(ligolw.Table):
 				self.columninfo.append((colname, float))
 			else:
 				raise ligolw.ElementError, "unrecognized Type attribute %s for Column element" % llwtype
-		elif child.tagName == "Stream":
+		elif child.tagName == ligolw.Stream.tagName:
 			if child.getAttribute("Name") != self.getAttribute("Name"):
 				raise ligolw.ElementError, "Stream name %s does not match Table name %s" % (child.getAttribute("Name"), self.getAttribute("Name"))
 		ligolw.Table.appendChild(self, child)
