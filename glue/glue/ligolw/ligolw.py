@@ -123,13 +123,7 @@ class Element(object):
 		return l
 
 	def getElementsByTagName(self, tagName):
-		#return self.getElements(lambda e: e.tagName == tagName)
-		l = []
-		for c in self.childNodes:
-			l += c.getElementsByTagName(tagName)
-			if c.tagName == tagName:
-				l.append(c)
-		return l
+		return self.getElements(lambda e: e.tagName == tagName)
 
 	def getChildrenByAttributes(self, attrs):
 		l = []
