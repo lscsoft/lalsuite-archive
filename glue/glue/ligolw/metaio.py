@@ -31,8 +31,11 @@ class Column(ligolw.Column):
 	the table into an array.
 	"""
 	def asarray(self):
-		name = self.getAttribute("Name").split(":")[-1]
-		return numarray.asarray([getattr(row, name) for row in self.parentNode.rows], type = ToNumArrayType[self.getAttribute("Type")])
+		attr = self.getAttribute("Name").split(":")[-1]
+		if self.getAttribute("Type") in StringTypes:
+			return [getattr(row, attr) for row in self.parentNode.rows]
+		else:
+			return numarray.asarray([getattr(row, attr) for row in self.parentNode.rows], type = ToNumArrayType[self.getAttribute("Type")])
 
 
 class Stream(ligolw.Stream):
@@ -152,9 +155,15 @@ class Table(ligolw.Table):
 		ligolw.Table.appendChild(self, child)
 
 	def appendRow(self, row):
+		"""
+		Append row to the list of rows for this table.
+		"""
 		self.rows.append(row)
 
 	def filterRows(self, func):
+		"""
+		Delete all rows for which func(row) evaluates to False.
+		"""
 		i = 0
 		while i < len(self.rows):
 			if not func(self.rows[i]):
