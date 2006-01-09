@@ -66,39 +66,39 @@ def all_identical(table, column):
 	return vals[0]
 
 
-cwd = os.getcwd()
+cwd = os.getcwd().strip()
 
 
 for pattern in patterns:
 	for name in glob.glob(pattern):
 		# Load and merge search summary tables
 		doc = ligolw.Document()
-		handler = docutils.PartialLIGOLWContentHandler(doc, SearchSummaryFilter)
-		sax.parse(file(name), handler)
+		sax.parse(file(name), docutils.PartialLIGOLWContentHandler(doc, SearchSummaryFilter))
 		docutils.MergeCompatibleTables(doc)
 		if len(doc.childNodes) != 1:
 			raise Exception, "Missing or incompatible search summary tables in document %s" % name
+		searchsumm = doc.childNodes[0]
 
 		# initialize cache entry info
 		cache = lal.CacheEntry()
 
 		# extract segment
-		cache.segment = doc.childNodes[0].get_outlist().extent()
+		cache.segment = searchsumm.get_outlist().extent()
 
 		# extract observatory
 		try:
-			cache.observatory = all_identical(doc.childNodes[0], "ifos")
+			cache.observatory = all_identical(searchsumm, "ifos")
 		except:
-			raise Exception, "Not all search summary entries list the same ifo(s) in %s" % name
+			raise Exception, "Not all search summary entries in %s list the same ifo(s)" % name
 
 		# extract description
 		try:
-			cache.description = all_identical(doc.childNodes[0], "comment")
+			cache.description = all_identical(searchsumm, "comment")
 		except:
-			raise Exception, "Not all search summary entries list the same comment in %s" % name
+			raise Exception, "Not all search summary entries in %s list the same comment" % name
 
 		# set URL
-		cache.url = "file://localhost" + cwd.strip() + "/" + name.strip()
+		cache.url = "file://localhost" + cwd + "/" + name.strip()
 
 		# write cache entry
 		print >>output, str(cache)
