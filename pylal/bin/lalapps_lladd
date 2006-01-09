@@ -90,13 +90,11 @@ class ProcIDs(object):
 new_process_ids = ProcIDs()
 
 def IsProcessTable(elem):
-	if elem.tagName != ligolw.Table.tagName:
-		return False
-	return elem.getAttribute("Name") == lsctables.ProcessTable.tableName
+	return lsctables.Is(lsctables.ProcessTable, elem)
 
 def BuildProcessMapping(elem):
-	# loop over all process tables, constructing a map of old process
-	# ID --> new process ID
+	# loop over all process tables below elem, constructing a map of
+	# old process ID --> new process ID
 	mapping = {}
 	for table in elem.getElements(IsProcessTable):
 		for process in table.rows:
@@ -136,7 +134,9 @@ docutils.MergeCompatibleTables(LIGO_LW)
 # Search for processes with the same parameters, and merge.
 #
 
-#for table in [t for t in LIGO_LW.getElementsByTagName(ligolw.Table.tagName) if t.getAttribute("Name") == lsctables.ProcessTable.tableName]:
+#for table in LIGO_LW.getElements(IsProcessTable):
+#	for id in table.getColumnByName("process_id").asarray():
+#		print >>sys.stderr, docutils.Process(LIGO_LW, id).get_params()
 
 
 #
