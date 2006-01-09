@@ -109,7 +109,7 @@ class Stream(ligolw.Stream):
 
 class TableRow(object):
 	"""
-	Place-holder, default row type.
+	Helpful parent class for row objects.
 	"""
 	pass
 
