@@ -133,6 +133,25 @@ class ProcessParamsTable(metaio.Table):
 			raise ligolw.ElementError, "unrecognized Type attribute %s" % row.type
 		metaio.Table.appendRow(self, row)
 
+	def get_program(self, key):
+		"""
+		Return the name of the program associated with process ID
+		key.
+		"""
+		for row in self:
+			if row.process_id == key:
+				return row.program
+		raise KeyError, "process ID %s not found" % key
+
+	def set_program(self, key, value):
+		"""
+		Set the program for all entries with process ID key to
+		value.
+		"""
+		for row in self:
+			if row.process_id == key:
+				row.program = value
+
 	def __getitem__(self, key):
 		"""
 		Turn the rows matching the process ID key into a dictionary
