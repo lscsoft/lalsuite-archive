@@ -62,9 +62,49 @@ class ProcessTable(metaio.Table):
 	}
 
 	def appendRow(self, row):
-		if row.process_id in [r.process_id for r in self.rows]:
+		if row.process_id in [r.process_id for r in self]:
 			raise ligolw.ElementError, "duplicate process ID %s" % row.process_id
 		metaio.Table.appendRow(self, row)
+
+	def __getitem__(self, key):
+		"""
+		Return the row having process ID equal to key.
+		"""
+		for row in self:
+			if row.process_id == key:
+				return row
+		raise KeyError, "process ID %s not found" % id
+
+	def __setitem__(self, key, value):
+		"""
+		If a row has proces ID equal to key, replace it with value,
+		otherwise append value as a new row.
+		"""
+		for i in range(len(self)):
+			if self.rows[i].process_id == key:
+				self.rows[i] = value
+				return
+		self.appendRow(value)
+
+	def __delitem__(self, key):
+		"""
+		Delete the row with process ID equal to key.
+		"""
+		for i in range(len(self)):
+			if self.rows[i].process_id == key:
+				del self.rows[i]
+				return
+		raise KeyError, "process ID %s not found" % id
+
+	def __contains__(self, key):
+		"""
+		Return True if a row has process ID equal to key, otherwise
+		return False.
+		"""
+		for row in self:
+			if row.process_id == key:
+				return True
+		return False
 
 class Process(object):
 	__slots__ = ProcessTable.validcolumns.keys()
@@ -88,7 +128,7 @@ class ProcessParamsTable(metaio.Table):
 		of parameter/value pairs.
 		"""
 		params = {}
-		for row in self.rows:
+		for row in self:
 			if row.process_id != id:
 				pass
 			elif params.has_key(row.param):
@@ -131,10 +171,10 @@ class SearchSummaryTable(metaio.Table):
 	}
 
 	def get_inlist(self):
-		return segments.segmentlist([row.get_in() for row in self.rows])
+		return segments.segmentlist([row.get_in() for row in self])
 
 	def get_outlist(self):
-		return segments.segmentlist([row.get_out() for row in self.rows])
+		return segments.segmentlist([row.get_out() for row in self])
 
 class SearchSummary(object):
 	__slots__ = SearchSummaryTable.validcolumns.keys()
