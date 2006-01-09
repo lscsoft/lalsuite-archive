@@ -110,7 +110,7 @@ class ProcessTable(metaio.Table):
 	def keys(self):
 		return [row.process_id for row in self]
 
-class Process(object):
+class Process(metaio.TableRow):
 	__slots__ = ProcessTable.validcolumns.keys()
 
 ProcessTable.RowType = Process
@@ -165,7 +165,7 @@ class ProcessParamsTable(metaio.Table):
 				return True
 		return False
 
-class ProcessParams(object):
+class ProcessParams(metaio.TableRow):
 	__slots__ = ProcessParamsTable.validcolumns.keys()
 
 ProcessParamsTable.RowType = ProcessParams
@@ -198,7 +198,7 @@ class SearchSummaryTable(metaio.Table):
 	def get_outlist(self):
 		return segments.segmentlist([row.get_out() for row in self])
 
-class SearchSummary(object):
+class SearchSummary(metaio.TableRow):
 	__slots__ = SearchSummaryTable.validcolumns.keys()
 
 	def get_in(self):
@@ -227,7 +227,7 @@ class SearchSummVarsTable(metaio.Table):
 		"value": "real_8"
 	}
 
-class SearchSummVars(object):
+class SearchSummVars(metaio.TableRow):
 	__slots__ = SearchSummVarsTable.validcolumns.keys()
 
 SearchSummVarsTable.RowType = SearchSummVars
@@ -255,7 +255,7 @@ class SnglBurstTable(metaio.Table):
 		"event_id": "int_8s"
 	}
 
-class SnglBurst(object):
+class SnglBurst(metaio.TableRow):
 	__slots__ = SnglBurstTable.validcolumns.keys()
 
 	def get_start(self):
@@ -336,7 +336,7 @@ class SnglInspiralTable(metaio.Table):
 		"event_id": "int_8s"
 	}
 
-class SnglInspiral(object):
+class SnglInspiral(metaio.TableRow):
 	__slots__ = SnglInspiralTable.validcolumns.keys()
 
 SnglInspiralTable.RowType = SnglInspiral
@@ -362,7 +362,7 @@ class SnglRingDownTable(metaio.Table):
 		"event_id": "int_8s"
 	}
 
-class SnglRingDown(object):
+class SnglRingDown(metaio.TableRow):
 	__slots__ = SnglRingDownTable.validcolumns.keys()
 
 SnglRingDownTable.RowType = SnglRingDown
@@ -408,7 +408,7 @@ class MultiInspiralTable(metaio.Table):
 		"polarization": "real_4"
 	}
 
-class MultiInspiral(object):
+class MultiInspiral(metaio.TableRow):
 	__slots__ = MultiInspiralTable.validcolumns.keys()
 
 MultiInspiralTable.RowType = MultiInspiral
@@ -470,7 +470,7 @@ class SimInspiralTable(metaio.Table):
 		"simulation_id": "real_4"
 	}
 
-class SimInspiral(object):
+class SimInspiral(metaio.TableRow):
 	__slots__ = SimInspiralTable.validcolumns.keys()
 
 SimInspiralTable.RowType = SimInspiral
@@ -503,7 +503,7 @@ class SimBurstTable(metaio.Table):
 		"simulation_id": "ilwd:char"
 	}
 
-class SimBurst(object):
+class SimBurst(metaio.TableRow):
 	__slots__ = SimBurstTable.validcolumns.keys()
 
 SimBurstTable.RowType = SimBurst
@@ -541,7 +541,7 @@ class SimRingDownTable(metaio.Table):
 		"simulation_id": "ilwd:char"
 	}
 
-class SimRingDown(object):
+class SimRingDown(metaio.TableRow):
 	__slots__ = SimRingDownTable.validcolumns.keys()
 
 SimRingDownTable.RowType = SimRingDown
@@ -562,7 +562,7 @@ class SummValueTable(metaio.Table):
 		"comment": "lstring"
 	}
 
-class SummValue(object):
+class SummValue(metaio.TableRow):
 	__slots__ = SummValueTable.validcolumns.keys()
 
 SummValueTable.RowType = SummValue
@@ -577,7 +577,7 @@ class SimInstParamsTable(metaio.Table):
 		"value": "real_8"
 	}
 
-class SimInstParams(object):
+class SimInstParams(metaio.TableRow):
 	__slots__ = SimInstParamsTable.validcolumns.keys()
 
 SimInstParamsTable.RowType = SimInstParams
@@ -601,7 +601,7 @@ class StochasticTable(metaio.Table):
 		"cc_sigma": "real_8"
 	}
 
-class Stochastic(object):
+class Stochastic(metaio.TableRow):
 	__slots__ = StochasticTable.validcolumns.keys()
 
 StochasticTable.RowType = Stochastic
@@ -625,7 +625,7 @@ class StochSummTable(metaio.Table):
 		"error": "real_8"
 	}
 
-class StochSumm(object):
+class StochSumm(metaio.TableRow):
 	__slots__ = StochSummTable.validcolumns.keys()
 
 StochSummTable.RowType = StochSumm
@@ -676,7 +676,7 @@ class ExtTriggersTable(metaio.Table):
 		"event_status": "int_4s"
 	}
 
-class ExtTriggers(object):
+class ExtTriggers(metaio.TableRow):
 	__slots__ = ExtTriggersTable.validcolumns.keys()
 
 ExtTriggersTable.RowType = ExtTriggers
@@ -692,7 +692,7 @@ class FilterTable(metaio.Table):
 		"comment": "lstring"
 	}
 
-class Filter(object):
+class Filter(metaio.TableRow):
 	__slots__ = FilterTable.validcolumns.keys()
 
 FilterTable.RowType = Filter
