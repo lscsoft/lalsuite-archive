@@ -97,7 +97,7 @@ def BuildProcessMapping(elem):
 	# old process ID --> new process ID
 	mapping = {}
 	for table in elem.getElements(IsProcessTable):
-		for process in table.rows:
+		for process in table:
 			if mapping.has_key(process.process_id):
 				raise Exception, "duplicate process ID %s found" % process.process_id
 			mapping[process.process_id] = new_process_ids.next()
@@ -135,7 +135,7 @@ docutils.MergeCompatibleTables(LIGO_LW)
 #
 
 #for table in LIGO_LW.getElements(IsProcessTable):
-#	for id in table.getColumnByName("process_id").asarray():
+#	for id in [row.process_id for row in table]:
 #		print >>sys.stderr, docutils.Process(LIGO_LW, id).get_params()
 
 
