@@ -129,8 +129,12 @@ class Table(ligolw.Table):
 	def columnName(self, name):
 		return ":".join(self.tableName.split(":")[:-1] + [name])
 
-	def getColumnsByName(self, name):
-		return self.getChildrenByAttributes({"Name": self.columnName(name)})
+	def getColumnByName(self, name):
+		cols = self.getChildrenByAttributes({"Name": self.columnName(name)})
+		try:
+			return cols[0]
+		except IndexError:
+			raise KeyError, "no Column with name %s" % name
 
 	def appendChild(self, child):
 		if child.tagName == ligolw.Column.tagName:
@@ -141,6 +145,8 @@ class Table(ligolw.Table):
 					raise ligolw.ElementError, "invalid Column name %s for Table" % child.getAttribute("Name")
 				if self.validcolumns[colname] != llwtype:
 					raise ligolw.ElementError, "invalid type %s for Column %s" % (llwtype, child.getAttribute("Name"))
+			if colname in [c[0] for c in self.columninfo]:
+				raise ligolw.ElementError, "duplicate Column %s" % child.getAttribute("Name")
 			if llwtype in StringTypes:
 				self.columninfo.append((colname, str))
 			elif llwtype in IntTypes:
