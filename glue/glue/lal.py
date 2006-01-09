@@ -268,10 +268,7 @@ class CacheEntry(object):
 	# Create a CacheEntry object, parsing an optional string argument.
 	def __init__(self, *args):
 		if len(args) == 0:
-			self.observatory = None
-			self.description = None
-			self.segment = segments.segment(None, None)
-			self.url = None
+			pass
 		elif len(args) == 1:
 			match = self._regex.search(args[0])
 			if not match:
