@@ -61,7 +61,12 @@ def RemapProcessIDs(elem, mapping):
 	to mapping.  Rows with process IDs not named in the mapping are
 	ignored.
 	"""
-	for table in [t for t in elem.getElementsByTagName(ligolw.Table.tagName) if t.getAttribute("Name") in lsctables.TableByName.keys()]:
+	def IsLSCTable(elem):
+		if elem.tagName != ligolw.Table.tagName:
+			return False
+		return elem.getAttribute("Name") in lsctables.TableByName.keys()
+
+	for table in elem.getElements(IsLSCTable):
 		for row in table.rows:
 			try:
 				row.process_id = mapping[row.process_id]
