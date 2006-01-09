@@ -61,6 +61,11 @@ class ProcessTable(metaio.Table):
 		"process_id": "ilwd:char"
 	}
 
+	def appendRow(self, row):
+		if row.process_id in [r.process_id for r in self.rows]:
+			raise ligolw.ElementError, "duplicate process ID %s" % row.process_id
+		metaio.Table.appendRow(self, row)
+
 class Process(object):
 	__slots__ = ProcessTable.validcolumns.keys()
 
