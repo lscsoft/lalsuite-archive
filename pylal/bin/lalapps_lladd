@@ -97,10 +97,8 @@ def BuildProcessMapping(elem):
 	# old process ID --> new process ID
 	mapping = {}
 	for table in elem.getElements(IsProcessTable):
-		for process in table:
-			if mapping.has_key(process.process_id):
-				raise Exception, "duplicate process ID %s found" % process.process_id
-			mapping[process.process_id] = new_process_ids.next()
+		for key in table.keys():
+			mapping[key] = new_process_ids.next()
 	return mapping
 
 # loop over all top-level LIGO_LW elements (input documents)
@@ -120,23 +118,25 @@ for elem in doc.getElementsByTagName(ligolw.LIGO_LW.tagName):
 # Merge LIGO_LW elements.
 #
 
-LIGO_LW = reduce(docutils.MergeElements, doc.getElementsByTagName(ligolw.LIGO_LW.tagName))
+reduce(docutils.MergeElements, doc.getElementsByTagName(ligolw.LIGO_LW.tagName))
 
 
 #
-# In LIGO_LW element, merge tables of like type.
+# Merge tables of like type.
 #
 
-docutils.MergeCompatibleTables(LIGO_LW)
+docutils.MergeCompatibleTables(doc)
 
 
 #
 # Search for processes with the same parameters, and merge.
 #
 
-#for table in LIGO_LW.getElements(IsProcessTable):
-#	for id in [row.process_id for row in table]:
-#		print >>sys.stderr, docutils.Process(LIGO_LW, id).get_params()
+#plist = docutils.ProcessList(doc)
+#
+#for process in plist.list:
+#	print >>sys.stderr, process.proc.process_id
+#	print >>sys.stderr, "	", process.params
 
 
 #
