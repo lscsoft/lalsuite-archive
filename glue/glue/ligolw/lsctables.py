@@ -12,7 +12,7 @@ from xml import sax
 import metaio
 from glue import lal
 from glue import segments
-from ligolw import ElementError
+import ligolw
 
 
 def New(Type):
@@ -30,6 +30,15 @@ def New(Type):
 		table.appendChild(metaio.Column(sax.xmlreader.AttributesImpl({u"Name": ":".join(Type.tableName.split(":")[:-1]) + ":" + name, u"Type": type})))
 	table.appendChild(metaio.Stream(attrs))
 	return table
+
+
+def Is(Type, elem):
+	"""
+	Convenience function to check that elem is a Table of type Type.
+	"""
+	if elem.tagName != ligolw.Table.tagName:
+		return False
+	return elem.getAttribute("Name") == Type.tableName
 
 
 class ProcessTable(metaio.Table):
@@ -78,7 +87,7 @@ class ProcessParamsTable(metaio.Table):
 			if row.process_id != id:
 				pass
 			elif params.has_key(row.param):
-				raise ElementError, "duplicate process parameter %s for process ID %s" % (row.param, id)
+				raise ligolw.ElementError, "duplicate process parameter %s for process ID %s" % (row.param, id)
 			elif row.type in metaio.StringTypes:
 				params[row.param] = str(row.value)
 			elif row.type in metaio.IntTypes:
@@ -86,7 +95,7 @@ class ProcessParamsTable(metaio.Table):
 			elif row.type in metaio.FloatTypes:
 				params[row.param] = float(row.value)
 			else:
-				raise ElementError, "unrecognized Type attribute %s" % row.type
+				raise ligolw.ElementError, "unrecognized Type attribute %s" % row.type
 		return params
 
 class ProcessParams(object):
