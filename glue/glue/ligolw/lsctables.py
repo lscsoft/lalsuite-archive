@@ -73,12 +73,13 @@ class ProcessTable(metaio.Table):
 		for row in self:
 			if row.process_id == key:
 				return row
-		raise KeyError, "process ID %s not found" % id
+		raise KeyError, "process ID %s not found" % key
 
 	def __setitem__(self, key, value):
 		"""
 		If a row has proces ID equal to key, replace it with value,
-		otherwise append value as a new row.
+		otherwise append value as a new row.  Note:
+		value.process_id need not equal key.
 		"""
 		for i in range(len(self)):
 			if self.rows[i].process_id == key:
@@ -94,7 +95,7 @@ class ProcessTable(metaio.Table):
 			if self.rows[i].process_id == key:
 				del self.rows[i]
 				return
-		raise KeyError, "process ID %s not found" % id
+		raise KeyError, "process ID %s not found" % key
 
 	def __contains__(self, key):
 		"""
@@ -105,6 +106,9 @@ class ProcessTable(metaio.Table):
 			if row.process_id == key:
 				return True
 		return False
+
+	def keys(self):
+		return [row.process_id for row in self]
 
 class Process(object):
 	__slots__ = ProcessTable.validcolumns.keys()
@@ -122,17 +126,24 @@ class ProcessParamsTable(metaio.Table):
 		"value": "lstring"
 	}
 
-	def get_params(self, id):
+	def appendRow(self, row):
+		if row.param in [r.param for r in self]:
+			raise ligolw.ElementError, "duplicate parameter %s for process ID %s" % (row.param, row.process_id)
+		if row.type not in metaio.Types:
+			raise ligolw.ElementError, "unrecognized Type attribute %s" % row.type
+		metaio.Table.appendRow(self, row)
+
+	def __getitem__(self, key):
 		"""
-		Turn the rows matching the process ID id into a dictionary
+		Turn the rows matching the process ID key into a dictionary
 		of parameter/value pairs.
 		"""
 		params = {}
 		for row in self:
-			if row.process_id != id:
+			if row.process_id != key:
 				pass
 			elif params.has_key(row.param):
-				raise ligolw.ElementError, "duplicate process parameter %s for process ID %s" % (row.param, id)
+				raise ligolw.ElementError, "duplicate parameter %s for process ID %s" % (row.param, row.process_id)
 			elif row.type in metaio.StringTypes:
 				params[row.param] = str(row.value)
 			elif row.type in metaio.IntTypes:
@@ -141,7 +152,18 @@ class ProcessParamsTable(metaio.Table):
 				params[row.param] = float(row.value)
 			else:
 				raise ligolw.ElementError, "unrecognized Type attribute %s" % row.type
+		if not len(params):
+			raise KeyError, "process ID %s not found" % key
 		return params
+
+	def __delitem__(self, key):
+		self.filterRows(lambda row: row.process_id != key)
+
+	def __contains__(self, key):
+		for row in self:
+			if row.process_id == key:
+				return True
+		return False
 
 class ProcessParams(object):
 	__slots__ = ProcessParamsTable.validcolumns.keys()
