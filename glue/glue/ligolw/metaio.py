@@ -33,9 +33,9 @@ class Column(ligolw.Column):
 	def asarray(self):
 		attr = self.getAttribute("Name").split(":")[-1]
 		if self.getAttribute("Type") in StringTypes:
-			return [getattr(row, attr) for row in self.parentNode.rows]
+			return [getattr(row, attr) for row in self.parentNode]
 		else:
-			return numarray.asarray([getattr(row, attr) for row in self.parentNode.rows], type = ToNumArrayType[self.getAttribute("Type")])
+			return numarray.asarray([getattr(row, attr) for row in self.parentNode], type = ToNumArrayType[self.getAttribute("Type")])
 
 
 class Stream(ligolw.Stream):
@@ -95,7 +95,7 @@ class Stream(ligolw.Stream):
 		# loop over parent's rows.  This is complicated because we
 		# need to not put a comma at the end of the last row.
 		print >>file, indent + self.start_tag()
-		rowiter = iter(self.parentNode.rows)
+		rowiter = iter(self.parentNode)
 		try:
 			row = rowiter.next()
 			file.write(indent + ligolw.Indent + self._rowstr(row, columns))
@@ -125,6 +125,12 @@ class Table(ligolw.Table):
 		ligolw.Table.__init__(self, *attrs)
 		self.columninfo = []
 		self.rows = []
+
+	def __len__(self):
+		return len(self.rows)
+
+	def __iter__(self):
+		return iter(self.rows)
 
 	def columnName(self, name):
 		return ":".join(self.tableName.split(":")[:-1] + [name])
