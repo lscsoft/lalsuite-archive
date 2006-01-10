@@ -59,7 +59,7 @@ else:
 #
 
 def all_identical(table, column):
-	vals = [getattr(row, column) for row in table.rows]
+	vals = table.getColumnByName(column).asarray()
 	for i in range(1, len(vals)):
 		if vals[i] != vals[0]:
 			raise Exception, "not all identical"
