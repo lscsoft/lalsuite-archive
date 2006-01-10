@@ -89,7 +89,7 @@ class ProcessTable(metaio.Table):
 
 	def __delitem__(self, key):
 		"""
-		Delete the row with process ID equal to key.
+		Delete all rows having process ID key.
 		"""
 		for i in range(len(self)):
 			if self.rows[i].process_id == key:
@@ -112,6 +112,17 @@ class ProcessTable(metaio.Table):
 
 class Process(metaio.TableRow):
 	__slots__ = ProcessTable.validcolumns.keys()
+
+	def __cmp__(self, other):
+		# FIXME: this is a hack, but I need something so I can move
+		# forward.
+		for key in ProcessTable.validcolumns.keys():
+			if key == "process_id":
+				continue
+			result = cmp(getattr(self, key), getattr(other, key))
+			if result:
+				return result
+		return 0
 
 ProcessTable.RowType = Process
 
@@ -154,31 +165,39 @@ class ProcessParamsTable(metaio.Table):
 
 	def __getitem__(self, key):
 		"""
-		Turn the rows matching the process ID key into a dictionary
-		of parameter/value pairs.
+		Return a list of rows matching the process ID key.
 		"""
-		params = {}
+		params = []
 		for row in self:
-			if row.process_id != key:
-				pass
-			elif params.has_key(row.param):
-				raise ligolw.ElementError, "duplicate parameter %s for process ID %s" % (row.param, row.process_id)
-			elif row.type in metaio.StringTypes:
-				params[row.param] = str(row.value)
-			elif row.type in metaio.IntTypes:
-				params[row.param] = int(row.value)
-			elif row.type in metaio.FloatTypes:
-				params[row.param] = float(row.value)
-			else:
-				raise ligolw.ElementError, "unrecognized Type attribute %s" % row.type
+			if row.process_id == key:
+				params.append(row)
 		if not len(params):
 			raise KeyError, "process ID %s not found" % key
+		# sort by process ID, then parameter name (all rows should
+		# be unique by this measure).
+		params.sort(lambda a, b: cmp((a.process_id, a.param), (b.process_id, b.param)))
 		return params
 
+	def __setitem__(self, key, params):
+		"""
+		Replace the rows having process ID key with the
+		ProcessParams in the list params, appending the list to the
+		table if there are no rows with that ID.
+		"""
+		del self[key]
+		map(self.appendRow, params)
+
 	def __delitem__(self, key):
+		"""
+		Delete all rows having process ID key.
+		"""
 		self.filterRows(lambda row: row.process_id != key)
 
 	def __contains__(self, key):
+		"""
+		Return True if a row has process ID equal to key, otherwise
+		return False.
+		"""
 		for row in self:
 			if row.process_id == key:
 				return True
@@ -186,6 +205,17 @@ class ProcessParamsTable(metaio.Table):
 
 class ProcessParams(metaio.TableRow):
 	__slots__ = ProcessParamsTable.validcolumns.keys()
+
+	def __cmp__(self, other):
+		# FIXME: this is a hack, but I need something so I can move
+		# forward.
+		for key in ProcessParamsTable.validcolumns.keys():
+			if key == "process_id":
+				continue
+			result = cmp(getattr(self, key), getattr(other, key))
+			if result:
+				return result
+		return 0
 
 ProcessParamsTable.RowType = ProcessParams
 
@@ -211,6 +241,46 @@ class SearchSummaryTable(metaio.Table):
 		"nnodes": "int_4s"
 	}
 
+	def __getitem__(self, key):
+		"""
+		Return a list of rows matching the process ID key.
+		"""
+		summaries = []
+		for row in self:
+			if row.process_id == key:
+				summaries.append(row)
+		if not len(summaries):
+			raise KeyError, "process ID %s not found" % key
+		# sort by process ID, then output segment (all rows should
+		# be unique by this measure).
+		summaries.sort(lambda a, b: cmp((a.process_id, a.get_out()), (b.process_id, b.get_out())))
+		return summaries
+
+	def __setitem__(self, key, params):
+		"""
+		Replace the rows having process ID key with the
+		ProcessParams in the list params, appending the list to the
+		table if there are no rows with that ID.
+		"""
+		del self[key]
+		map(self.appendRow, params)
+
+	def __delitem__(self, key):
+		"""
+		Delete all rows having process ID key.
+		"""
+		self.filterRows(lambda row: row.process_id != key)
+
+	def __contains__(self, key):
+		"""
+		Return True if a row has process ID equal to key, otherwise
+		return False.
+		"""
+		for row in self:
+			if row.process_id == key:
+				return True
+		return False
+
 	def get_inlist(self):
 		return segments.segmentlist([row.get_in() for row in self])
 
@@ -220,17 +290,40 @@ class SearchSummaryTable(metaio.Table):
 class SearchSummary(metaio.TableRow):
 	__slots__ = SearchSummaryTable.validcolumns.keys()
 
+	def __cmp__(self, other):
+		# FIXME: this is a hack, but I need something so I can move
+		# forward.
+		for key in SearchSummaryTable.validcolumns.keys():
+			if key == "process_id":
+				continue
+			result = cmp(getattr(self, key), getattr(other, key))
+			if result:
+				return result
+		return 0
+
 	def get_in(self):
+		"""
+		Return the input segment.
+		"""
 		return segments.segment(lal.LIGOTimeGPS(self.in_start_time, self.in_start_time_ns), lal.LIGOTimeGPS(self.in_end_time, self.in_end_time_ns))
 
 	def set_in(self, seg):
+		"""
+		Set the input segment.
+		"""
 		self.in_start_time, self.in_start_time_ns = seg[0].seconds, seg[0].nanoseconds
 		self.in_end_time, self.in_end_time_ns = seg[1].seconds, seg[1].nanoseconds
 
 	def get_out(self):
+		"""
+		Get the output segment.
+		"""
 		return segments.segment(lal.LIGOTimeGPS(self.out_start_time, self.out_start_time_ns), lal.LIGOTimeGPS(self.out_end_time, self.out_end_time_ns))
 
 	def set_out(self, seg):
+		"""
+		Set the output segment.
+		"""
 		self.out_start_time, self.out_start_time_ns = seg[0].seconds, seg[0].nanoseconds
 		self.out_end_time, self.out_end_time_ns = seg[1].seconds, seg[1].nanoseconds
 
