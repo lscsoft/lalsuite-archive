@@ -75,6 +75,66 @@ def RemapProcessIDs(elem, mapping):
 
 
 #
+# Process manipulation utilities.
+#
+
+class Process(object):
+	def __init__(self, proc, params, summary):
+		self.proc = proc
+		self.params = params
+		self.summary = summary
+
+	def __cmp__(self, other):
+		return (self.proc != other.proc) or (self.params != other.params) or (self.summary != other.summary)
+
+
+class ProcessList(object):
+	def __init__(self, doc):
+		def gettable(doc, Type):
+			tables = doc.getElements(lambda e: lsctables.Is(Type, e))
+			if len(tables) != 1:
+				raise Exception, "ProcessList(doc): doc must contain exactly 1 %s Table." % Type.tableName
+			return tables[0]
+
+		self.doc = doc
+		self.processtable = gettable(doc, lsctables.ProcessTable)
+		self.processparamstable = gettable(doc, lsctables.ProcessParamsTable)
+		self.searchsummarytable = gettable(doc, lsctables.SearchSummaryTable)
+		return self
+
+	def __len__(self):
+		return len(self.processtable)
+
+	def __getitem__(self, key):
+		proc = self.processtable[key]
+		try:
+			params = self.processparamstable[key]
+		except KeyError:
+			params = []
+		try:
+			summary = self.searchsummarytable[key]
+		except KeyError:
+			summary = []
+		return Process(proc, params, summary)
+
+	def __setitem__(self, key, value):
+		self.processtable[key] = value.proc
+		self.processparamstable[key] = value.params
+		self.searchsummarytable[key] = value.summary
+
+	def __delitem__(self, key):
+		del self.processtable[key]
+		del self.processparamstable[key]
+		del self.searchsummarytable[key]
+
+	def __contains__(self, key):
+		return key in self.processtable
+
+	def keys(self):
+		return self.processtable.keys()
+
+
+#
 # Utilities for partial document loading.
 #
 
