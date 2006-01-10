@@ -28,14 +28,14 @@ def makeplot(desc, table):
 	fig.set_figsize_inches(16,8)
 	axes = pylab.gca()
 
-	snr = pylab.sort(table.getColumnsByName("snr")[0].asarray())
+	snr = pylab.sort(table.getColumnByName("snr").asarray())
 	yvals = pylab.arrayrange(len(snr), 0.0, -1.0) / duration
 
 	pylab.loglog(snr, yvals)
 
 	pylab.grid(True)
 
-	pylab.title(desc.instrument + " Excess Power Cummulative Trigger Rate vs. SNR\n(GPS Times %s ... %s, %d Triggers)" % (desc.segment[0], desc.segment[1], len(table.rows)))
+	pylab.title(desc.instrument + " Excess Power Cummulative Trigger Rate vs. SNR\n(GPS Times %s ... %s, %d Triggers)" % (desc.segment[0], desc.segment[1], len(table)))
 	pylab.xlabel("SNR")
 	pylab.ylabel("Rate (Hz)")
 

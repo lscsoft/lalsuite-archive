@@ -28,13 +28,13 @@ def makeplot(desc, table):
 	fig.set_figsize_inches(16,8)
 	axes = pylab.gca()
 
-	xvals, yvals = webplot.smooth(table.getColumnsByName("central_freq")[0].asarray(), desc.band, desc.freqwidth)
+	xvals, yvals = webplot.smooth(table.getColumnByName("central_freq").asarray(), desc.band, desc.freqwidth)
 	pylab.plot(xvals, yvals / duration)
 
 	pylab.set(axes, xlim = list(desc.band))
 	pylab.grid(True)
 
-	pylab.title(desc.instrument + " Excess Power Trigger Rate vs. Central Frequency\n(GPS Times %s ... %s, %d Triggers, %g Hz Average)" % (desc.segment[0], desc.segment[1], len(table.rows), desc.freqwidth))
+	pylab.title(desc.instrument + " Excess Power Trigger Rate vs. Central Frequency\n(GPS Times %s ... %s, %d Triggers, %g Hz Average)" % (desc.segment[0], desc.segment[1], len(table), desc.freqwidth))
 	pylab.xlabel("Central Frequency (Hz)")
 	pylab.ylabel("Rate Density (Triggers/s per Hz)")
 

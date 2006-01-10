@@ -29,18 +29,18 @@ def makeplot(desc, table):
 	fig.set_figsize_inches(16,8)
 	axes = pylab.gca()
 
-	bandwidth = table.getColumnsByName("bandwidth")[0].asarray()
-	lo_freq = table.getColumnsByName("central_freq")[0].asarray() - 0.5 * bandwidth
-	start_time = pylab.asarray([float(row.get_start()) for row in table.rows])
+	bandwidth = table.getColumnByName("bandwidth").asarray()
+	lo_freq = table.getColumnByName("central_freq").asarray() - 0.5 * bandwidth
+	start_time = pylab.asarray([float(row.get_start()) for row in table])
 
-	if len(table.rows):
-		viz.tfplot(start_time, table.getColumnsByName("duration")[0].asarray(), lo_freq, bandwidth, pylab.log(-table.getColumnsByName("confidence")[0].asarray()), alpha=0.3)
+	if len(table):
+		viz.tfplot(start_time, table.getColumnByName("duration").asarray(), lo_freq, bandwidth, pylab.log(-table.getColumnByName("confidence").asarray()), alpha=0.3)
 
 	pylab.set(axes, xlim = list(desc.segment), ylim = list(desc.band))
 
 	for greyseg in ~desc.seglist & segments.segmentlist([desc.segment]):
 		pylab.axvspan(greyseg[0], greyseg[1], facecolor = "k", alpha = 0.2)
-	pylab.title(desc.instrument + " Excess Power Time-Frequency Plane\n(%d Triggers)" % (len(table.rows)))
+	pylab.title(desc.instrument + " Excess Power Time-Frequency Plane\n(%d Triggers)" % (len(table)))
 	pylab.xlabel("GPS Time (s)")
 	pylab.ylabel("Frequency (Hz)")
 

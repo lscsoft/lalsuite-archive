@@ -28,14 +28,14 @@ def makeplot(desc, table):
 	fig.set_figsize_inches(16,8)
 	axes = pylab.gca()
 
-	confidence = pylab.sort(-table.getColumnsByName("confidence")[0].asarray())
+	confidence = pylab.sort(-table.getColumnByName("confidence").asarray())
 	yvals = pylab.arrayrange(len(confidence), 0.0, -1.0) / duration
 
 	pylab.loglog(confidence, yvals)
 
 	pylab.grid(True)
 
-	pylab.title(desc.instrument + " Excess Power Cummulative Trigger Rate vs. Confidence\n(GPS Times %s ... %s, %d Triggers)" % (desc.segment[0], desc.segment[1], len(table.rows)))
+	pylab.title(desc.instrument + " Excess Power Cummulative Trigger Rate vs. Confidence\n(GPS Times %s ... %s, %d Triggers)" % (desc.segment[0], desc.segment[1], len(table)))
 	pylab.xlabel("|Confidence|")
 	pylab.ylabel("Rate (Hz)")
 

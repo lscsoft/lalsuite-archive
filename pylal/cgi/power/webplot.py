@@ -88,38 +88,32 @@ def CacheURLs(cachename, seg):
 	return [c.url for c in map(lal.CacheEntry, file(cachename)) if c.segment.intersects(seg)]
 
 def gettriggers(plotdesc):
-	# load documents containing relevant triggers
+	# load SnglBurst tables containing relevant triggers
 	doc = ligolw.Document()
-	handler = lsctables.LIGOLWContentHandler(doc)
+	handler = docutils.PartialLIGOLWContentHandler(doc, lambda name, attrs: (name == ligolw.Table.tagName) and (attrs["Name"] == lsctables.SnglBurstTable.tableName))
 	for url in CacheURLs(plotdesc.cache, plotdesc.segment):
-		sax.parse(urllib.urlopen(url), handler)
+		try:
+			sax.parse(urllib.urlopen(url), handler)
+		except ligolw.ElementError, e:
+			raise Exception, "error parsing file %s: %s" % (url, str(e))
 
 	# if no files contain relevant triggers, return an empty table
 	if not len(doc.childNodes):
 		return lsctables.New(lsctables.SnglBurstTable)
 
-	# extract trigger tables
-	tables = []
-	for e in doc.childNodes:
-		tables += e.getChildrenByAttributes({"Name": lsctables.SnglBurstTable.tableName})
-
-	# unlink tables to allow garbage collection
-	for table in tables:
-		table.parentNode.removeChild(table)
-	del doc
-
 	# merge trigger tables
-	while len(tables) > 1:
-		docutils.MergeElements(tables[0], tables[1])
-		del tables[1]
+	docutils.MergeCompatibleTables(doc)
+	if len(doc.childNodes) != 1:
+		raise Exception, "files contain incompatible SnglBurst tables"
+	table = doc.childNodes[0]
 
 	# cluster
-	SnglBurstUtils.ClusterSnglBurstTable(tables[0].rows, SnglBurstUtils.CompareSnglBurstByPeakTimeAndFreq, SnglBurstUtils.SnglBurstCluster, SnglBurstUtils.CompareSnglBurstByPeakTime)
+	SnglBurstUtils.ClusterSnglBurstTable(table.rows, SnglBurstUtils.CompareSnglBurstByPeakTimeAndFreq, SnglBurstUtils.SnglBurstCluster, SnglBurstUtils.CompareSnglBurstByPeakTime)
 
 	# remove triggers that lie outside the requested segment
-	tables[0].filterRows(lambda row: row.get_peak() in plotdesc.segment)
+	table.filterRows(lambda row: row.get_peak() in plotdesc.segment)
 
-	return tables[0]
+	return table
 
 
 #

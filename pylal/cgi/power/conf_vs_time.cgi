@@ -26,8 +26,8 @@ def makeplot(desc, table):
 	fig.set_figsize_inches(16,8)
 	axes = pylab.gca()
 
-	confidence = -table.getColumnsByName("confidence")[0].asarray()
-	peak_time = pylab.asarray([float(row.get_peak()) for row in table.rows])
+	confidence = -table.getColumnByName("confidence").asarray()
+	peak_time = pylab.asarray([float(row.get_peak()) for row in table])
 
 	pylab.semilogy(peak_time, confidence, "b+")
 
@@ -37,7 +37,7 @@ def makeplot(desc, table):
 	pylab.set(axes, xlim = list(desc.segment))
 	pylab.grid(True)
 
-	pylab.title(desc.instrument + " Excess Power Trigger Confidence vs. Time\n(%d Triggers)" % (len(table.rows)))
+	pylab.title(desc.instrument + " Excess Power Trigger Confidence vs. Time\n(%d Triggers)" % (len(table)))
 	pylab.xlabel("GPS Time (s)")
 	pylab.ylabel("|Confidence|")
 

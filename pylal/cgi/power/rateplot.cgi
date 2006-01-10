@@ -28,7 +28,7 @@ def makeplot(desc, table):
 	fig.set_figsize_inches(16,8)
 	axes = pylab.gca()
 
-	pylab.plot(*webplot.smooth([float(row.get_peak()) for row in table.rows], desc.trig_segment(), desc.ratewidth))
+	pylab.plot(*webplot.smooth([float(row.get_peak()) for row in table], desc.trig_segment(), desc.ratewidth))
 
 	pylab.set(axes, xlim = list(desc.segment))
 	pylab.grid(True)
@@ -36,7 +36,7 @@ def makeplot(desc, table):
 	for greyseg in ~desc.seglist & segments.segmentlist([desc.segment]):
 		pylab.axvspan(greyseg[0], greyseg[1], facecolor = "k", alpha = 0.2)
 
-	pylab.title(desc.instrument + " Excess Power Trigger Rate vs. Time\n(%d Triggers, %g s Average)" % (len(table.rows), desc.ratewidth))
+	pylab.title(desc.instrument + " Excess Power Trigger Rate vs. Time\n(%d Triggers, %g s Average)" % (len(table), desc.ratewidth))
 	pylab.xlabel("GPS Time (s)")
 	pylab.ylabel("Trigger Rate (Hz)")
 
