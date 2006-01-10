@@ -67,7 +67,7 @@ def RemapProcessIDs(elem, mapping):
 		return elem.getAttribute("Name") in lsctables.TableByName.keys()
 
 	for table in elem.getElements(IsLSCTable):
-		for row in table.rows:
+		for row in table:
 			try:
 				row.process_id = mapping[row.process_id]
 			except KeyError:
