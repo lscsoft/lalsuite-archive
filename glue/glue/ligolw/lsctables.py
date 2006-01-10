@@ -138,7 +138,7 @@ class ProcessParamsTable(metaio.Table):
 	}
 
 	def appendRow(self, row):
-		if row.param in [r.param for r in self]:
+		if (row.process_id, row.param) in [(r.process_id, r.param) for r in self]:
 			raise ligolw.ElementError, "duplicate parameter %s for process ID %s" % (row.param, row.process_id)
 		if row.type not in metaio.Types:
 			raise ligolw.ElementError, "unrecognized Type attribute %s" % row.type
