@@ -51,4 +51,4 @@ description = Plot().parse_form()
 
 makeplot(description, webplot.gettriggers(description))
 
-webplot.SendPNG(description)
+webplot.SendImage(description)

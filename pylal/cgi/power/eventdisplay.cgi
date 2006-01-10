@@ -60,9 +60,21 @@ def errormsg(msg):
 # Plot markup
 #
 
-def plotmarkup(name, query):
-	src = "%s?inst=%s&start=%s&dur=%s&ratewidth=%s&freqwidth=%s&lofreq=%s&hifreq=%s" % (name, query.instrument, query.segment[0], query.segment.duration(), query.ratewidth, query.freqwidth, query.band[0], query.band[1])
+def _imgsrc(name, query):
+	return "%s?inst=%s&start=%s&dur=%s&ratewidth=%s&freqwidth=%s&lofreq=%s&hifreq=%s" % (name, query.instrument, query.segment[0], query.segment.duration(), query.ratewidth, query.freqwidth, query.band[0], query.band[1])
+
+def plot_pngthumbnail(name, query):
+	src = _imgsrc(name, query) + "&format=png"
 	return """<a href="%s"><img src="%s" width="800"></a>""" % (src, src)
+
+def plot_epslink(name, query):
+	src = _imgsrc(name, query) + "&format=eps"
+	return """<a href="%s">EPS</a>""" % src
+
+def plot_table_row(name, query):
+	markup = "\t<td>" + plot_pngthumbnail(name, query) + "</td>"
+	markup += "\t<td>" + plot_epslink(name, query) + "</td>"
+	return markup
 
 
 #
@@ -104,15 +116,18 @@ if query.segment.duration() > 24 * 3600:
 	# Time interval too long error
 	print errormsg("Requested segment is too long (24 hour max)")
 else:
+	# Table of plots
+	print "<center>"
 	print "<h2>%s s Starting At %s</h2>" % (duration, start.title())
-
-	# Include plots
-	print plotmarkup("rateplot.cgi", query)
-	print plotmarkup("conf_vs_time.cgi", query)
-	print plotmarkup("tfplot.cgi", query)
-	print plotmarkup("rate_vs_freq.cgi", query)
-	print plotmarkup("conf_vs_freq.cgi", query)
-	print plotmarkup("rate_vs_conf.cgi", query)
-	print plotmarkup("rate_vs_snr.cgi", query)
+	print "<table>"
+	print "<tr>" + plot_table_row("rateplot.cgi", query) + "</tr>"
+	print "<tr>" + plot_table_row("conf_vs_time.cgi", query) + "</tr>"
+	print "<tr>" + plot_table_row("tfplot.cgi", query) + "</tr>"
+	print "<tr>" + plot_table_row("rate_vs_freq.cgi", query) + "</tr>"
+	print "<tr>" + plot_table_row("conf_vs_freq.cgi", query) + "</tr>"
+	print "<tr>" + plot_table_row("rate_vs_conf.cgi", query) + "</tr>"
+	print "<tr>" + plot_table_row("rate_vs_snr.cgi", query) + "</tr>"
+	print "</table>"
+	print "</center>"
 
 print """</html>"""

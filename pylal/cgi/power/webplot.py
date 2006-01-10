@@ -36,14 +36,34 @@ class PlotDescription(object):
 		self.band = segments.segment(0.0, 2500.0)
 		self.set_instrument("H1")
 		self.seglist = segments.segmentlist([self.segment])
-		handle, self.filename = tempfile.mkstemp(".png", "tfplot_")
-		os.close(handle)
+		self.filename = None
+		self.format = None	# force update
+		self.set_format("png")
 
 		return self
 
 	def __del__(self):
-		# remove temporary file
-		os.remove(self.filename)
+		self.remove_tmpfile()
+
+	def remove_tmpfile(self):
+		if self.filename:
+			os.remove(self.filename)
+
+	def set_format(self, format):
+		if format not in ["eps", "png"]:
+			raise Exception, "unrecognized format %s" % format
+		if self.format == format:
+			return
+		self.format = format
+		if format == "eps":
+			self.set_extension("eps")
+		elif format == "png":
+			self.set_extension("png")
+
+	def set_extension(self, extension):
+		self.remove_tmpfile()
+		handle, self.filename = tempfile.mkstemp("." + extension.strip(), "webplot_")
+		os.close(handle)
 
 	def set_instrument(self, instrument):
 		# update cache name along with instrument
@@ -63,6 +83,7 @@ class PlotDescription(object):
 		self.band = segments.segment(float(form.getfirst("lofreq", str(self.band[0]))), float(form.getfirst("hifreq", str(self.band[1]))))
 		self.set_instrument(form.getfirst("inst", self.instrument))
 		self.load_seglist()
+		self.set_format(form.getfirst("format", self.format))
 
 		return self
 
@@ -80,29 +101,35 @@ class PlotDescription(object):
 # How to get a table of triggers within a segment
 #
 
+def SnglBurstOnlyHandler(doc):
+	"""
+	Construct a document handler that reads only SnglBurst tables.
+	"""
+	return docutils.PartialLIGOLWContentHandler(doc, lambda name, attrs: (name == ligolw.Table.tagName) and (attrs["Name"] == lsctables.SnglBurstTable.tableName))
+
 def CacheURLs(cachename, seg):
 	"""
-	Return a list of URLs for files containing triggers of interest.
+	Return a list of URLs for files intersecting seg.
 	"""
 	return [c.url for c in map(lal.CacheEntry, file(cachename)) if c.segment.intersects(seg)]
 
 def gettriggers(plotdesc):
 	# load SnglBurst tables containing relevant triggers
 	doc = ligolw.Document()
-	handler = docutils.PartialLIGOLWContentHandler(doc, lambda name, attrs: (name == ligolw.Table.tagName) and (attrs["Name"] == lsctables.SnglBurstTable.tableName))
+	handler = SnglBurstOnlyHandler(doc)
 	for url in CacheURLs(plotdesc.cache, plotdesc.segment):
 		try:
 			sax.parse(urllib.urlopen(url), handler)
 		except ligolw.ElementError, e:
 			raise Exception, "error parsing file %s: %s" % (url, str(e))
 
-	# if no files contain relevant triggers, return an empty table
-	if not len(doc.childNodes):
-		return lsctables.New(lsctables.SnglBurstTable)
-
 	# merge trigger tables
 	docutils.MergeCompatibleTables(doc)
-	if len(doc.childNodes) != 1:
+	if len(doc.childNodes) == 0:
+		# no trigger tables found, return an empty table
+		return lsctables.New(lsctables.SnglBurstTable)
+	elif len(doc.childNodes) > 1:
+		# couldn't merge trigger tables
 		raise Exception, "files contain incompatible SnglBurst tables"
 	table = doc.childNodes[0]
 
@@ -149,6 +176,9 @@ def smooth(impulses, segment, width):
 # How to send image to client
 #
 
-def SendPNG(plotdesc):
-	print >>sys.stdout, "Content-Type: image/png\n"
+def SendImage(plotdesc):
+	if plotdesc.format == "png":
+		print >>sys.stdout, "Content-Type: image/png\n"
+	elif plotdesc.format == "eps":
+		print >>sys.stdout, "Content-Type: application/postscript\n"
 	shutil.copyfileobj(file(plotdesc.filename), sys.stdout)
