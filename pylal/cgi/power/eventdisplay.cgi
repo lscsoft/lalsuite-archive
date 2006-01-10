@@ -72,8 +72,10 @@ def plot_epslink(name, query):
 	return """<a href="%s">EPS</a>""" % src
 
 def plot_table_row(name, query):
-	markup = "\t<td>" + plot_pngthumbnail(name, query) + "</td>"
-	markup += "\t<td>" + plot_epslink(name, query) + "</td>"
+	markup = "<tr>\n"
+	markup += "\t<td>" + plot_pngthumbnail(name, query) + "</td>\n"
+	markup += "\t<td>" + plot_epslink(name, query) + "</td>\n"
+	markup += "</tr>"
 	return markup
 
 
@@ -120,13 +122,13 @@ else:
 	print "<center>"
 	print "<h2>%s s Starting At %s</h2>" % (duration, start.title())
 	print "<table>"
-	print "<tr>" + plot_table_row("rateplot.cgi", query) + "</tr>"
-	print "<tr>" + plot_table_row("conf_vs_time.cgi", query) + "</tr>"
-	print "<tr>" + plot_table_row("tfplot.cgi", query) + "</tr>"
-	print "<tr>" + plot_table_row("rate_vs_freq.cgi", query) + "</tr>"
-	print "<tr>" + plot_table_row("conf_vs_freq.cgi", query) + "</tr>"
-	print "<tr>" + plot_table_row("rate_vs_conf.cgi", query) + "</tr>"
-	print "<tr>" + plot_table_row("rate_vs_snr.cgi", query) + "</tr>"
+	print plot_table_row("rateplot.cgi", query)
+	print plot_table_row("conf_vs_time.cgi", query)
+	print plot_table_row("tfplot.cgi", query)
+	print plot_table_row("rate_vs_freq.cgi", query)
+	print plot_table_row("conf_vs_freq.cgi", query)
+	print plot_table_row("rate_vs_conf.cgi", query)
+	print plot_table_row("rate_vs_snr.cgi", query)
 	print "</table>"
 	print "</center>"
 
