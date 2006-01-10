@@ -31,8 +31,9 @@ from glue.ligolw import docutils
 
 parser = OptionParser(version = "%prog CVS $Id$")
 parser.add_option("-i", "--input-cache", metavar = "CACHEFILE", action = "append", help = "get input files from trigger cache CACHEFILE")
-parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
+parser.add_option("--merge-processes", action = "store_true", help = "merge identical processes")
 parser.add_option("-o", "--output", metavar = "FILENAME", help = "write output to FILENAME (default = stdout")
+parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
 options, fnames = parser.parse_args()
 del parser
 
@@ -129,14 +130,22 @@ docutils.MergeCompatibleTables(doc)
 
 
 #
-# Search for processes with the same parameters, and merge.
+# Search for matching processes, and merge.
 #
 
-#plist = docutils.ProcessList(doc)
-#
-#for process in plist.list:
-#	print >>sys.stderr, process.proc.process_id
-#	print >>sys.stderr, "	", process.params
+if options.merge_processes:
+	plist = docutils.ProcessList(doc)
+	ids = plist.keys()
+
+	idmap = {}
+	for i in range(len(ids)):
+		for j in range(i + 1, len(ids)):
+			if (plist[ids[j]] == plist[ids[i]]) and (ids[j] not in idmap.keys()):
+				idmap[ids[j]] = ids[i]
+
+	for id in idmap.keys():
+		del plist[id]
+	docutils.RemapProcessIDs(doc, idmap)
 
 
 #
