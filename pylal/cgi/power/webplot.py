@@ -82,8 +82,7 @@ class PlotDescription(object):
 
 def CacheURLs(cachename, seg):
 	"""
-	Return a list of CacheEntrys for files containing triggers of
-	interest.
+	Return a list of URLs for files containing triggers of interest.
 	"""
 	return [c.url for c in map(lal.CacheEntry, file(cachename)) if c.segment.intersects(seg)]
 
@@ -133,12 +132,15 @@ def smooth(impulses, segment, width):
 		return int(float(x - segment[0]) * bins_per_unit)
 
 	yvals = pylab.zeros(len(xvals), "Float32")
-	#for x in pylab.arrayrange(float(segment[0]), float(segment[1]), 0.5):
-	#	if x in segment:
-	#		yvals[bin(x)] += 1.0
-	for x in impulses:
-		if x in segment:
-			yvals[bin(x)] += 1.0
+	if True:
+		for x in impulses:
+			if x in segment:
+				yvals[bin(x)] += 1.0
+	else:
+		# inject pulses at regular intervals to test normalization
+		for x in pylab.arrayrange(float(segment[0]), float(segment[1]), 0.5):
+			if x in segment:
+				yvals[bin(x)] += 1.0
 
 	return (xvals + float(segment[0]), pylab.convolve(yvals, window, mode=1))
 
