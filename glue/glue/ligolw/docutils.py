@@ -80,12 +80,23 @@ def RemapProcessIDs(elem, mapping):
 
 class Process(object):
 	def __init__(self, proc, params, summary):
-		self.proc = proc
-		self.params = params
-		self.summary = summary
+		self.process = proc
+		self.processparams = params
+		self.searchsummary = summary
 
 	def __cmp__(self, other):
-		return (self.proc != other.proc) or (self.params != other.params) or (self.summary != other.summary)
+		def listcmp(a, b):
+			for i in range(min(len(a), len(b))):
+				result = a[i].cmp(b[i])
+				if result:
+					return result
+			return len(a) - len(b)
+		result = self.process.cmp(other.process)
+		if not result:
+			result = listcmp(self.processparams, other.processparams)
+			if not result:
+				result = listcmp(self.searchsummary, other.searchsummary)
+		return result
 
 
 class ProcessList(object):
@@ -118,9 +129,9 @@ class ProcessList(object):
 		return Process(proc, params, summary)
 
 	def __setitem__(self, key, value):
-		self.processtable[key] = value.proc
-		self.processparamstable[key] = value.params
-		self.searchsummarytable[key] = value.summary
+		self.processtable[key] = value.process
+		self.processparamstable[key] = value.processparams
+		self.searchsummarytable[key] = value.searchsummary
 
 	def __delitem__(self, key):
 		del self.processtable[key]

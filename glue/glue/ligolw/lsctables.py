@@ -61,10 +61,13 @@ class ProcessTable(metaio.Table):
 		"process_id": "ilwd:char"
 	}
 
-	def appendRow(self, row):
-		if row.process_id in [r.process_id for r in self]:
-			raise ligolw.ElementError, "duplicate process ID %s" % row.process_id
+	def _appendRow(self, row):
 		metaio.Table.appendRow(self, row)
+
+	def appendRow(self, row):
+		if row.process_id in self.keys():
+			raise ligolw.ElementError, "duplicate process ID %s" % row.process_id
+		self._appendRow(row)
 
 	def __getitem__(self, key):
 		"""
@@ -85,7 +88,7 @@ class ProcessTable(metaio.Table):
 			if self.rows[i].process_id == key:
 				self.rows[i] = value
 				return
-		self.appendRow(value)
+		self._appendRow(value)
 
 	def __delitem__(self, key):
 		"""
@@ -113,7 +116,7 @@ class ProcessTable(metaio.Table):
 class Process(metaio.TableRow):
 	__slots__ = ProcessTable.validcolumns.keys()
 
-	def __cmp__(self, other):
+	def cmp(self, other):
 		# FIXME: this is a hack, but I need something so I can move
 		# forward.
 		for key in ProcessTable.validcolumns.keys():
@@ -137,12 +140,15 @@ class ProcessParamsTable(metaio.Table):
 		"value": "lstring"
 	}
 
+	def _appendRow(self, row):
+		metaio.Table.appendRow(self, row)
+
 	def appendRow(self, row):
 		if (row.process_id, row.param) in [(r.process_id, r.param) for r in self]:
 			raise ligolw.ElementError, "duplicate parameter %s for process ID %s" % (row.param, row.process_id)
 		if row.type not in metaio.Types:
 			raise ligolw.ElementError, "unrecognized Type attribute %s" % row.type
-		metaio.Table.appendRow(self, row)
+		self._appendRow(row)
 
 	def get_program(self, key):
 		"""
@@ -206,7 +212,7 @@ class ProcessParamsTable(metaio.Table):
 class ProcessParams(metaio.TableRow):
 	__slots__ = ProcessParamsTable.validcolumns.keys()
 
-	def __cmp__(self, other):
+	def cmp(self, other):
 		# FIXME: this is a hack, but I need something so I can move
 		# forward.
 		for key in ProcessParamsTable.validcolumns.keys():
@@ -290,7 +296,7 @@ class SearchSummaryTable(metaio.Table):
 class SearchSummary(metaio.TableRow):
 	__slots__ = SearchSummaryTable.validcolumns.keys()
 
-	def __cmp__(self, other):
+	def cmp(self, other):
 		# FIXME: this is a hack, but I need something so I can move
 		# forward.
 		for key in SearchSummaryTable.validcolumns.keys():
