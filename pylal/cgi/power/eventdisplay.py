@@ -4,6 +4,15 @@ import os
 import popen2
 
 from glue import lal
+from glue import LSCsegFindClient
+from glue import segments
+
+#
+# Some info
+#
+
+s5start = lal.LIGOTimeGPS(815155213)
+
 
 #
 # How to run tconvert
@@ -32,3 +41,27 @@ def runtconvert(command):
 	if not os.WIFEXITED(status) or os.WEXITSTATUS(status):
 		raise Exception, "failure running \"" + str(command) + "\""
 	return result
+
+
+#
+# Segment querying
+#
+
+class SegFindConfig(object):
+	def __init__(self, host, port, instrument):
+		self.host = host
+		self.port = port
+		self.instrument = instrument
+
+SegFindConfigH1 = SegFindConfig("ldas.ligo-wa.caltech.edu", None, "H1")
+SegFindConfigH2 = SegFindConfig("ldas.ligo-wa.caltech.edu", None, "H2")
+SegFindConfigL1 = SegFindConfig("ldas.ligo-la.caltech.edu", None, "L1")
+
+def getsegments(config, types, bounds):
+	if config.port:
+		client = LSCsegFindClient.LSCsegFind(config.host, config.port)
+	else:
+		client = LSCsegFindClient.LSCsegFind(config.host)
+	list = client.findStateSegments({"interferometer" : config.instrument, "type" : types, "start" : str(int(bounds[0])), "end" : str(int(bounds[1])), "lfns" : False, "strict" : True})
+	return segments.segmentlist([segments.segment(*map(lal.LIGOTimeGPS, seg)) for seg in list])
+

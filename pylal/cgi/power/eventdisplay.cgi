@@ -97,8 +97,8 @@ def formmarkup(query):
 	s += """	<td>""" + instrumentlist(query.instrument) + """</td>\n"""
 	s += """</tr>\n"""
 	s += """<tr>\n"""
-	s += """	<td><label for="start">GPS Time Range:</label></td>\n"""
-	s += """	<td>start=<input type="text" name="start" value=\"""" + form.getfirst("start", start) + """\"> s, duration=<input type="text" name="dur" value=\"""" + form.getfirst("dur", "") + """\"> s</td>\n"""
+	s += """	<td>GPS Time Range:</td>\n"""
+	s += """	<td><label for="start">start=</label><input type="text" name="start" value=\"""" + form.getfirst("start", start) + """\"> s, <label for="dur">duration=</label><input type="text" name="dur" value=\"""" + form.getfirst("dur", "") + """\"> s</td>\n"""
 	s += """</tr>\n"""
 	s += """<tr>\n"""
 	s += """	<td><label for="ratewidth">Triggers per Second Window:</label></td>\n"""
@@ -129,6 +129,7 @@ print """<html>"""
 print refresh
 
 print "<center><h1>Excess Power Event Interface</h1></center>"
+print "<center>(Patience Required)</center>"
 print """<p>You can <a href="http://www.lsc-group.phys.uwm.edu/cgi-bin/cvs/viewcvs.cgi/pylal/cgi/power/?cvsroot=lscsoft">browse the source code for these web pages</a>.</p>"""
 print "<p>"
 print formmarkup(query)
@@ -138,6 +139,10 @@ if query.segment.duration() > 24 * 3600:
 	# Time interval too long error
 	print errormsg("Requested segment is too long (24 hour max)")
 else:
+	# FIXME: doesn't work because user apache doesn't have LSC grid
+	# credentials.
+	#print str(eventdisplay.getsegments(eventdisplay.SegFindConfigH2, "Science", segments.segment(eventdisplay.s5start, now)))
+
 	# Table of plots
 	print """<hr width="90%">"""
 	print "<center>"
