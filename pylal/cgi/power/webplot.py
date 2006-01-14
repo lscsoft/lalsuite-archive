@@ -109,7 +109,8 @@ def SnglBurstOnlyHandler(doc):
 
 def CacheURLs(cachename, seg):
 	"""
-	Return a list of URLs for files intersecting seg.
+	Open a trigger cache, and return a list of URLs for files
+	intersecting seg.
 	"""
 	return [c.url for c in map(lal.CacheEntry, file(cachename)) if c.segment.intersects(seg)]
 
@@ -136,8 +137,8 @@ def gettriggers(plotdesc):
 	# cluster
 	SnglBurstUtils.ClusterSnglBurstTable(table.rows, SnglBurstUtils.CompareSnglBurstByPeakTimeAndFreq, SnglBurstUtils.SnglBurstCluster, SnglBurstUtils.CompareSnglBurstByPeakTime)
 
-	# remove triggers that lie outside the requested segment
-	table.filterRows(lambda row: row.get_peak() in plotdesc.segment)
+	# remove triggers that lie outside the required segment
+	table.filterRows(lambda row: row.get_peak() in plotdesc.trig_segment())
 
 	return table
 
