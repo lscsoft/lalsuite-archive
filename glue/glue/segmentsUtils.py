@@ -9,7 +9,7 @@ __version__ = "$Revision$"
 
 import re
 import segments
-import glue.lal
+import lal
 
 
 def fromfilenames(filenames, coltype=int):
@@ -39,7 +39,7 @@ def fromfilenames(filenames, coltype=int):
 	return l
 
 
-def fromlalcache(cachefile, coltype=int):
+def fromlalcache(cachefile, coltype = int):
 	"""
 	Construct a segmentlist representing the times spanned by the files
 	identified in the LAL cache contained in the file object file.  The
@@ -47,9 +47,7 @@ def fromlalcache(cachefile, coltype=int):
 	type coltype, which should raise ValueError if it cannot convert
 	its string argument.
 	"""
-	# because file objects support iteration, fromfilenames() can do
-	# this.  (Python rocks!)
-	return fromfilenames(cachefile, coltype)
+	return segments.segmentlist([c.segment for c in map(lambda l: lal.CacheEntry(l, coltype = coltype), cachefile)])
 
 
 def fromsegwizard(file, coltype=int, strict=True):
@@ -87,7 +85,7 @@ def fromsegwizard(file, coltype=int, strict=True):
 	return l
 
 
-def fromtama(file, coltype=glue.lal.LIGOTimeGPS):
+def fromtama(file, coltype=lal.LIGOTimeGPS):
 	"""
 	Read a segmentlist from the file object file containing TAMA
 	locked-segments data.  Parsing stops on the first line that cannot
