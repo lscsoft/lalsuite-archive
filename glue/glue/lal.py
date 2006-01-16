@@ -261,31 +261,39 @@ class LIGOTimeGPS(object):
 #
 
 class CacheEntry(object):
+	"""
+	An object representing one line in a LAL cache file.
+	"""
 	# How to parse a line in a LAL cache file.  Five white-space
 	# delimited columns.
 	_regex = re.compile(r"\A\s*(?P<observatory>\S+)\s+(?P<description>\S+)\s+(?P<start>\S+)\s+(?P<duration>\S+)\s+(?P<url>\S+)\s*\Z")
 
-	# Create a CacheEntry object, parsing an optional string argument.
-	def __init__(self, *args):
-		if len(args) == 0:
-			pass
-		elif len(args) == 1:
-			match = self._regex.search(args[0])
+	def __init__(self, line = None, coltype = LIGOTimeGPS):
+		"""
+		Create a CacheEntry object, parsing an optional string
+		argument (one line from a LAL cache file).
+		"""
+		if line != None:
+			match = self._regex.search(line)
 			if not match:
 				raise ValueError, "could not convert \"%s\" to CacheEntry" % args[0]
 			self.observatory = match.group("observatory")
 			self.description = match.group("description")
-			self.segment = segments.segment(LIGOTimeGPS(match.group("start")), LIGOTimeGPS(match.group("start")) + LIGOTimeGPS(match.group("duration")))
+			self.segment = segments.segment(coltype(match.group("start")), coltype(match.group("start")) + coltype(match.group("duration")))
 			self.url = match.group("url")
-		else:
-			raise TypeError, "CacheEntry.__init__() expects at most two arguments, got %d" % (len(args) + 1)
+		return self
 
 	def __str__(self):
+		"""
+		String representation is the line in the cache file.
+		"""
 		return "%s %s %s %s %s" % (self.observatory, self.description, self.segment[0], self.segment.duration(), self.url)
 
 	def __cmp__(self, other):
-		# sort by observatory, then description, then segment, then
-		# URL.
+		"""
+		Sort by observatory, then description, then segment, then
+		URL.
+		"""
 		if type(other)  != CacheEntry:
 			raise TypeError, "can only compare CacheEntry to CacheEntry"
 		return cmp((self.observatory, self.description, self.segment, self.url), (other.observatory, other.description, other.segment, other.url))
