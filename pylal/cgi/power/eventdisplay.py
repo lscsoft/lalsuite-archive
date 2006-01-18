@@ -26,7 +26,7 @@ class TconvertCommand(object):
 	def __str__(self):
 		s = self._exec
 		if self.tspec:
-			s += " " + self.tspec
+			s += " \"" + self.tspec + "\""
 		return s
 
 def runtconvert(command):
@@ -36,7 +36,7 @@ def runtconvert(command):
 	for line in child.childerr:
 		pass
 	for line in child.fromchild:
-		result = lal.LIGOTimeGPS(line)
+		result = line
 	status = child.wait()
 	if not os.WIFEXITED(status) or os.WEXITSTATUS(status):
 		raise Exception, "failure running \"" + str(command) + "\""

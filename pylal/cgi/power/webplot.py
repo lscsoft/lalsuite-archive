@@ -29,7 +29,7 @@ import eventdisplay
 class PlotDescription(object):
 	def __init__(self):
 		# set defaults
-		now = eventdisplay.runtconvert(eventdisplay.TconvertCommand("now"))
+		now = lal.LIGOTimeGPS(eventdisplay.runtconvert(eventdisplay.TconvertCommand("now")))
 		self.segment = segments.segment(now, now + (-1 * 3600))
 		self.ratewidth = 60.0
 		self.freqwidth = 16.0
