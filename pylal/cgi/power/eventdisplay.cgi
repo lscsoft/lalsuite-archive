@@ -153,17 +153,17 @@ def live_time_markup():
 	s += live_time_row_markup("H1", H1seglist)
 	s += live_time_row_markup("H2", H2seglist)
 	s += live_time_row_markup("L1", L1seglist)
-	s += live_time_row_markup("G1 & H1", G1seglist & H1seglist)
-	s += live_time_row_markup("G1 & H2", G1seglist & H2seglist)
-	s += live_time_row_markup("G1 & L1", G1seglist & L1seglist)
-	s += live_time_row_markup("H1 & H2", H1seglist & H2seglist)
-	s += live_time_row_markup("H1 & L1", H1seglist & L1seglist)
-	s += live_time_row_markup("H2 & L1", H2seglist & L1seglist)
-	s += live_time_row_markup("G1 & H1 & H2", G1seglist & H1seglist & H2seglist)
-	s += live_time_row_markup("G1 & H1 & L1", G1seglist & H1seglist & L1seglist)
-	s += live_time_row_markup("G1 & H2 & L1", G1seglist & H2seglist & L1seglist)
-	s += live_time_row_markup("H1 & H2 & L1", H1seglist & H2seglist & L1seglist)
-	s += live_time_row_markup("G1 & H1 & H2 & L1", G1seglist & H1seglist & H2seglist & L1seglist)
+	s += live_time_row_markup("G1 &cap; H1", G1seglist & H1seglist)
+	s += live_time_row_markup("G1 &cap; H2", G1seglist & H2seglist)
+	s += live_time_row_markup("G1 &cap; L1", G1seglist & L1seglist)
+	s += live_time_row_markup("H1 &cap; H2", H1seglist & H2seglist)
+	s += live_time_row_markup("H1 &cap; L1", H1seglist & L1seglist)
+	s += live_time_row_markup("H2 &cap; L1", H2seglist & L1seglist)
+	s += live_time_row_markup("G1 &cap; H1 &cap; H2", G1seglist & H1seglist & H2seglist)
+	s += live_time_row_markup("G1 &cap; H1 &cap; L1", G1seglist & H1seglist & L1seglist)
+	s += live_time_row_markup("G1 &cap; H2 &cap; L1", G1seglist & H2seglist & L1seglist)
+	s += live_time_row_markup("H1 &cap; H2 &cap; L1", H1seglist & H2seglist & L1seglist)
+	s += live_time_row_markup("G1 &cap; H1 &cap; H2 &cap; L1", G1seglist & H1seglist & H2seglist & L1seglist)
 	s += """</tbody>\n"""
 	s += """</table>"""
 	return s
@@ -178,7 +178,7 @@ def s5_live_time_summary(seglist):
 	s5end = now + (s5length - livetime) / rate
 	s = """<table>\n"""
 	s += """<tr>\n"""
-	s += """	<td>H1 & H2 & L1 hours required for S5</td>\n"""
+	s += """	<td>H1 &cap; H2 &cap; L1 hours required for S5</td>\n"""
 	s += """	<td>%.2f h</td>\n""" % (s5length / 60.0 / 60.0,)
 	s += """</tr>\n"""
 	s += """<tr>\n"""
@@ -213,9 +213,17 @@ print "</p>"
 print """<hr width="90%">"""
 print "<center>"
 print "<h2>S5 Live Times To Date</h2>"
+print "</center>"
+print "<p>"
+print "<center>"
 print live_time_markup()
+print "</center>"
+print "</p>"
+print "<p>"
+print "<center>"
 print s5_live_time_summary(H1seglist & H2seglist & L1seglist)
 print "</center>"
+print "</p>"
 print """<hr width="90%">"""
 
 if query.segment.duration() > 24 * 3600:
@@ -229,7 +237,9 @@ else:
 	# Table of plots
 	print "<center>"
 	print "<h2>%s s Starting At %s</h2>" % (duration, start.title())
+	print "</center>"
 	print "<p>"
+	print "<center>"
 	print "<table>"
 	print plot_table_row("rateplot.cgi", query)
 	print plot_table_row("conf_vs_time.cgi", query)
@@ -239,7 +249,7 @@ else:
 	print plot_table_row("rate_vs_conf.cgi", query)
 	print plot_table_row("rate_vs_snr.cgi", query)
 	print "</table>"
-	print "</p>"
 	print "</center>"
+	print "</p>"
 
 print """</html>"""
