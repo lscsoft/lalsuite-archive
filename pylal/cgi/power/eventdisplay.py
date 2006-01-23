@@ -6,6 +6,7 @@ import popen2
 from glue import lal
 from glue import LSCsegFindClient
 from glue import segments
+from glue import segmentsUtils
 
 #
 # Some info
@@ -42,6 +43,17 @@ def runtconvert(command):
 		raise Exception, "failure running \"" + str(command) + "\""
 	return result
 
+
+#
+# Trigger file segment lists
+#
+
+class TrigSegs(object):
+	def __init__(self):
+		self.G1 = segmentsUtils.fromlalcache(file("G1/filelist.cache"), coltype = lal.LIGOTimeGPS).coalesce()
+		self.H1 = segmentsUtils.fromlalcache(file("H1/filelist.cache"), coltype = lal.LIGOTimeGPS).coalesce()
+		self.H2 = segmentsUtils.fromlalcache(file("H2/filelist.cache"), coltype = lal.LIGOTimeGPS).coalesce()
+		self.L1 = segmentsUtils.fromlalcache(file("L1/filelist.cache"), coltype = lal.LIGOTimeGPS).coalesce()
 
 #
 # Segment querying

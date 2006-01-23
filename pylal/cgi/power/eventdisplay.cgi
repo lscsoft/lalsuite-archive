@@ -5,7 +5,6 @@ import cgitb ; cgitb.enable()
 
 from glue import lal
 from glue import segments
-from glue import segmentsUtils
 
 import eventdisplay
 
@@ -18,10 +17,7 @@ now = lal.LIGOTimeGPS(eventdisplay.runtconvert(eventdisplay.TconvertCommand("now
 default_start = "now"
 default_duration = str(-1 * 3600)
 
-G1seglist = segmentsUtils.fromlalcache(file("G1/filelist.cache"), coltype = lal.LIGOTimeGPS).coalesce()
-H1seglist = segmentsUtils.fromlalcache(file("H1/filelist.cache"), coltype = lal.LIGOTimeGPS).coalesce()
-H2seglist = segmentsUtils.fromlalcache(file("H2/filelist.cache"), coltype = lal.LIGOTimeGPS).coalesce()
-L1seglist = segmentsUtils.fromlalcache(file("L1/filelist.cache"), coltype = lal.LIGOTimeGPS).coalesce()
+trigsegs = eventdisplay.TrigSegs()
 
 
 #
@@ -167,21 +163,21 @@ def live_time_markup():
 	s += """	<th>Shortest</th>\n"""
 	s += """</tr></thead>\n"""
 	s += """<tbody>\n"""
-	s += live_time_row_markup("G1", G1seglist)
-	s += live_time_row_markup("H1", H1seglist)
-	s += live_time_row_markup("H2", H2seglist)
-	s += live_time_row_markup("L1", L1seglist)
-	s += live_time_row_markup("G1 &cap; H1", G1seglist & H1seglist)
-	s += live_time_row_markup("G1 &cap; H2", G1seglist & H2seglist)
-	s += live_time_row_markup("G1 &cap; L1", G1seglist & L1seglist)
-	s += live_time_row_markup("H1 &cap; H2", H1seglist & H2seglist)
-	s += live_time_row_markup("H1 &cap; L1", H1seglist & L1seglist)
-	s += live_time_row_markup("H2 &cap; L1", H2seglist & L1seglist)
-	s += live_time_row_markup("G1 &cap; H1 &cap; H2", G1seglist & H1seglist & H2seglist)
-	s += live_time_row_markup("G1 &cap; H1 &cap; L1", G1seglist & H1seglist & L1seglist)
-	s += live_time_row_markup("G1 &cap; H2 &cap; L1", G1seglist & H2seglist & L1seglist)
-	s += live_time_row_markup("H1 &cap; H2 &cap; L1", H1seglist & H2seglist & L1seglist)
-	s += live_time_row_markup("G1 &cap; H1 &cap; H2 &cap; L1", G1seglist & H1seglist & H2seglist & L1seglist)
+	s += live_time_row_markup("G1", trigsegs.G1)
+	s += live_time_row_markup("H1", trigsegs.H1)
+	s += live_time_row_markup("H2", trigsegs.H2)
+	s += live_time_row_markup("L1", trigsegs.L1)
+	s += live_time_row_markup("G1 &cap; H1", trigsegs.G1 & trigsegs.H1)
+	s += live_time_row_markup("G1 &cap; H2", trigsegs.G1 & trigsegs.H2)
+	s += live_time_row_markup("G1 &cap; L1", trigsegs.G1 & trigsegs.L1)
+	s += live_time_row_markup("H1 &cap; H2", trigsegs.H1 & trigsegs.H2)
+	s += live_time_row_markup("H1 &cap; L1", trigsegs.H1 & trigsegs.L1)
+	s += live_time_row_markup("H2 &cap; L1", trigsegs.H2 & trigsegs.L1)
+	s += live_time_row_markup("G1 &cap; H1 &cap; H2", trigsegs.G1 & trigsegs.H1 & trigsegs.H2)
+	s += live_time_row_markup("G1 &cap; H1 &cap; L1", trigsegs.G1 & trigsegs.H1 & trigsegs.L1)
+	s += live_time_row_markup("G1 &cap; H2 &cap; L1", trigsegs.G1 & trigsegs.H2 & trigsegs.L1)
+	s += live_time_row_markup("H1 &cap; H2 &cap; L1", trigsegs.H1 & trigsegs.H2 & trigsegs.L1)
+	s += live_time_row_markup("G1 &cap; H1 &cap; H2 &cap; L1", trigsegs.G1 & trigsegs.H1 & trigsegs.H2 & trigsegs.L1)
 	s += """</tbody>\n"""
 	s += """</table>"""
 	return s
@@ -204,7 +200,7 @@ def s5_live_time_summary(seglist):
 	s += """	<td>%.1f%%</td>\n""" % (100.0 * livetime / s5length,)
 	s += """</tr>\n"""
 	s += """<tr>\n"""
-	s += """	<td>Estimated S5 termination</td>\n"""
+	s += """	<td>Estimated S5 termination (<a href="enddateplot.cgi">history</a>)</td>\n"""
 	s += """	<td>%s (GPS %d s)</td>\n""" % (eventdisplay.runtconvert(eventdisplay.TconvertCommand(str(int(s5end)))), int(s5end))
 	s += """</tr>\n"""
 	s += """</table>\n"""
@@ -239,7 +235,7 @@ print "</center>"
 print "</p>"
 print "<p>"
 print "<center>"
-print s5_live_time_summary(H1seglist & H2seglist & L1seglist)
+print s5_live_time_summary(trigsegs.H1 & trigsegs.H2 & trigsegs.L1)
 print "</center>"
 print "</p>"
 print """<hr width="90%">"""
