@@ -50,7 +50,7 @@ def makeplot():
 	fig.set_figsize_inches(16,8)
 	axes = pylab.gca()
 
-	xvals = plyab.arange(seglist[0][0], now, 4*14800.0)
+	xvals = plyab.arange(seglist[0][0], now, 12 * 3600.0)
 
 	pylab.plot(map(float, xvals), map(float, map(end_date, xvals)))
 
