@@ -29,16 +29,16 @@ s5length = 1.0 * 365.25 * 24.0 * 60.0 * 60.0	# 1 year
 
 trigsegs = eventdisplay.TrigSegs()
 seglist = trigsegs.H1 & trigsegs.H2 & trigsegs.L1
+del trigsegs
 
 
 def end_date(t):
 	l = seglist - segments.segmentlist([segments.segment(t, segments.infinity())])
 	livetime = float(l.duration())
 	if livetime > 0.0:
-		rate = livetime / float(l.extent().duration())
+		return now + (s5length/livetime - 1) * float(l[-1][1] - l[0][0])
 	else:
-		rate = 0.0
-	return now + (s5length - livetime) / rate
+		return now
 
 
 #
@@ -49,8 +49,9 @@ def makeplot():
 	fig = pylab.figure(1)
 	fig.set_figsize_inches(16,8)
 	axes = pylab.gca()
+	increment = 12 * 3600.0
 
-	xvals = plyab.arange(seglist[0][0], now, 12 * 3600.0)
+	xvals = pylab.arange(float(seglist[0][0]) + increment, float(now), 12 * 3600.0)
 
 	pylab.plot(map(float, xvals), map(float, map(end_date, xvals)))
 
