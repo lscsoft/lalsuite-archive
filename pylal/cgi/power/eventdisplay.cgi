@@ -134,10 +134,24 @@ def live_time_row_markup(inst, seglist):
 		rate = livetime / float(seglist.extent().duration())
 	else:
 		rate = 0.0
+	if len(seglist):
+		averageseg = livetime / len(seglist)
+		durations = [float(seg.duration()) for seg in seglist]
+		longestseg = max(durations)
+		shortestseg = min(durations)
+		del durations
+	else:
+		averageseg = 0.0
+		longestseg = 0.0
+		shortestseg = 0.0
 	s = """<tr>\n"""
 	s += """	<td align="left">%s</td>\n""" % inst
 	s += """	<td align="right">%.2f h</td>\n""" % (livetime / 60.0 / 60.0,)
 	s += """	<td align="center">%.3f</td>\n""" % (rate,)
+	s += """	<td align="center">%d</td>\n""" % (len(seglist),)
+	s += """	<td align="right">%.2f h</td>\n""" % (averageseg / 60.0 / 60.0,)
+	s += """	<td align="right">%.2f h</td>\n""" % (longestseg / 60.0 / 60.0,)
+	s += """	<td align="right">%.2f s</td>\n""" % (shortestseg,)
 	s += """</tr>\n"""
 	return s
 
@@ -147,6 +161,10 @@ def live_time_markup():
 	s += """	<th>Instruments</th>\n"""
 	s += """	<th>Live Time</th>\n"""
 	s += """	<th>Rate</th>\n"""
+	s += """	<th>Number of<br>Segments</th>\n"""
+	s += """	<th>Average<br>Length</th>\n"""
+	s += """	<th>Longest</th>\n"""
+	s += """	<th>Shortest</th>\n"""
 	s += """</tr></thead>\n"""
 	s += """<tbody>\n"""
 	s += live_time_row_markup("G1", G1seglist)
@@ -212,7 +230,7 @@ print "</p>"
 
 print """<hr width="90%">"""
 print "<center>"
-print "<h2>S5 Live Times To Date</h2>"
+print "<h2>S5 Excess Power Live Times To Date</h2>"
 print "</center>"
 print "<p>"
 print "<center>"
