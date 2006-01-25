@@ -143,7 +143,7 @@ print refresh
 
 print "<center><h1>Excess Power Event Interface of Patience</h1></center>"
 print "<center>(Patience Required)</center>"
-print """<p>You can <a href="http://www.lsc-group.phys.uwm.edu/cgi-bin/cvs/viewcvs.cgi/pylal/cgi/power/?cvsroot=lscsoft">browse the source code for these web pages</a>.</p>"""
+print """<p>You can <a href="http://www.lsc-group.phys.uwm.edu/cgi-bin/cvs/viewcvs.cgi/pylal/cgi/power/?cvsroot=lscsoft">browse the source code for these web pages</a> and see takes so long.</p>"""
 print "<p>"
 print formmarkup(query)
 print "</p>"
