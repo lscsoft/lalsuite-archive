@@ -50,7 +50,7 @@ class PlotDescription(object):
 			os.remove(self.filename)
 
 	def set_format(self, format):
-		if format not in ["eps", "png"]:
+		if format not in ["eps", "png", "xml"]:
 			raise Exception, "unrecognized format %s" % format
 		if self.format == format:
 			return
@@ -59,6 +59,8 @@ class PlotDescription(object):
 			self.set_extension("eps")
 		elif format == "png":
 			self.set_extension("png")
+		elif format == "xml":
+			self.set_extension("xml")
 
 	def set_extension(self, extension):
 		self.remove_tmpfile()
@@ -68,7 +70,7 @@ class PlotDescription(object):
 	def set_instrument(self, instrument):
 		# update cache name along with instrument
 		self.instrument = str(instrument)
-		self.cache = "/home/kipp/cgi-bin/" + self.instrument + "/filelist.cache"
+		self.cache = eventdisplay.cache[self.instrument]
 
 	def parse_form(self):
 		# parse CGI form
@@ -182,4 +184,6 @@ def SendImage(plotdesc):
 		print >>sys.stdout, "Content-Type: image/png\n"
 	elif plotdesc.format == "eps":
 		print >>sys.stdout, "Content-Type: application/postscript\n"
+	elif plotdesc.format == "xml":
+		print >>sys.stdout, "Content-Type: text/xml\n"
 	shutil.copyfileobj(file(plotdesc.filename), sys.stdout)

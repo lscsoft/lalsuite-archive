@@ -84,6 +84,15 @@ def plot_table_row(name, query):
 
 
 #
+# Trigger download markup
+#
+
+def triggerlink(name, query):
+	src = _imgsrc(name, query) + "&format=xml"
+	return """<a href="%s">Download These Triggers</a>""" % src
+
+
+#
 # Form markup
 #
 
@@ -158,6 +167,9 @@ else:
 	print "<center>"
 	print "<h2>%s s Starting At %s</h2>" % (duration, start.title())
 	print "</center>"
+	print "<p><center>"
+	print triggerlink("triggers.cgi", query)
+	print "</center></p>"
 	print "<p>"
 	print "<center>"
 	print "<table>"

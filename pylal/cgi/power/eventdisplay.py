@@ -13,6 +13,12 @@ from glue import segmentsUtils
 #
 
 s5start = lal.LIGOTimeGPS(815155213)
+cache = {
+	"G1": "/home/kipp/cgi-bin/G1/filelist.cache",
+	"H1": "/home/kipp/cgi-bin/H1/filelist.cache",
+	"H2": "/home/kipp/cgi-bin/H2/filelist.cache",
+	"L1": "/home/kipp/cgi-bin/L1/filelist.cache"
+}
 
 
 #
@@ -45,15 +51,46 @@ def runtconvert(command):
 
 
 #
+# How to run lalapps_lladd
+#
+
+class LLAddCommand(object):
+	def __init__(self, urls, output = None):
+		self._exec = "/home/kipp/local/bin/lalapps_lladd"
+		self.urls = urls
+		self.output = output
+
+	def __str__(self):
+		s = self._exec
+		for url in self.urls:
+			s += " \"" + url + "\""
+		if self.output:
+			s += " --output=\"" + self.output + "\""
+		return s
+
+def runlladd(command):
+	if type(command) != LLAddCommand:
+		raise ValueError, "invalid argument to runlladd(command): command must type LLAddCommand"
+	child = popen2.Popen3(str(command), True)
+	for line in child.childerr:
+		pass
+	result = reduce(str.__add__, child.fromchild, "")
+	status = child.wait()
+	if not os.WIFEXITED(status) or os.WEXITSTATUS(status):
+		raise Exception, "failure running \"" + str(command) + "\""
+	return result
+
+
+#
 # Trigger file segment lists
 #
 
 class TrigSegs(object):
 	def __init__(self):
-		self.G1 = segmentsUtils.fromlalcache(file("G1/filelist.cache"), coltype = lal.LIGOTimeGPS).coalesce()
-		self.H1 = segmentsUtils.fromlalcache(file("H1/filelist.cache"), coltype = lal.LIGOTimeGPS).coalesce()
-		self.H2 = segmentsUtils.fromlalcache(file("H2/filelist.cache"), coltype = lal.LIGOTimeGPS).coalesce()
-		self.L1 = segmentsUtils.fromlalcache(file("L1/filelist.cache"), coltype = lal.LIGOTimeGPS).coalesce()
+		self.G1 = segmentsUtils.fromlalcache(file(cache["G1"]), coltype = lal.LIGOTimeGPS).coalesce()
+		self.H1 = segmentsUtils.fromlalcache(file(cache["H1"]), coltype = lal.LIGOTimeGPS).coalesce()
+		self.H2 = segmentsUtils.fromlalcache(file(cache["H2"]), coltype = lal.LIGOTimeGPS).coalesce()
+		self.L1 = segmentsUtils.fromlalcache(file(cache["L1"]), coltype = lal.LIGOTimeGPS).coalesce()
 
 #
 # Segment querying
