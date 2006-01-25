@@ -34,11 +34,10 @@ parser.add_option("-i", "--input-cache", metavar = "CACHEFILE", action = "append
 parser.add_option("--merge-processes", action = "store_true", help = "merge identical processes")
 parser.add_option("-o", "--output", metavar = "FILENAME", help = "write output to FILENAME (default = stdout")
 parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
-options, fnames = parser.parse_args()
+options, urls = parser.parse_args()
 del parser
 
-# input files
-urls = []
+# add urls from cache files
 if options.input_cache:
 	for cache in options.input_cache:
 		urls += [c.url for c in map(lal.CacheEntry, file(cache))]
@@ -49,23 +48,19 @@ if options.input_cache:
 # appended to a single in-RAM document.
 #
 
-if len(urls) + len(fnames) < 1:
+if len(urls) < 1:
 	raise Exception, "no input files!"
 
-def LoadDocuments(urls, fnames):
+def LoadDocuments(urls):
 	doc = ligolw.Document()
 	handler = lsctables.LIGOLWContentHandler(doc)
 	for url in urls:
 		if options.verbose:
 			print >>sys.stderr, "Reading %s" % url
 		sax.parse(urllib.urlopen(url), handler)
-	for name in fnames:
-		if options.verbose:
-			print >>sys.stderr, "Reading %s" % name
-		sax.parse(file(name), handler)
 	return doc
 
-doc = LoadDocuments(urls, fnames)
+doc = LoadDocuments(urls)
 
 
 #
