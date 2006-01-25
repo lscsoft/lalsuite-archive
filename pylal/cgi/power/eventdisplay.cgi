@@ -63,6 +63,10 @@ def errormsg(msg):
 def _imgsrc(name, query):
 	return "%s?inst=%s&start=%s&dur=%s&ratewidth=%s&freqwidth=%s&lofreq=%s&hifreq=%s" % (name, query.instrument, query.segment[0], query.segment.duration(), query.ratewidth, query.freqwidth, query.band[0], query.band[1])
 
+def plot_pnglink(name, query):
+	src = _imgsrc(name, query) + "&format=png"
+	return """<a href="%s">PNG</a>""" % src
+
 def plot_pngthumbnail(name, query):
 	src = _imgsrc(name, query) + "&format=png"
 	return """<a href="%s"><object data="%s" type="image/png" width="800" standby="Generating image.  Please wait.">Failure loading image.</object></a>""" % (src, src)
@@ -73,8 +77,8 @@ def plot_epslink(name, query):
 
 def plot_table_row(name, query):
 	s = "<tr>\n"
-	s += "\t<td>" + plot_pngthumbnail(name, query) + "</td>\n"
-	s += "\t<td>" + plot_epslink(name, query) + "</td>\n"
+	s += """\t<td align="center">""" + plot_pngthumbnail(name, query) + "</td>\n"
+	s += """\t<td align="center">""" + plot_pnglink(name, query) + "<br>" + plot_epslink(name, query) + "</td>\n"
 	s += "</tr>"
 	return s
 
