@@ -17,8 +17,6 @@ now = lal.LIGOTimeGPS(eventdisplay.runtconvert(eventdisplay.TconvertCommand("now
 default_start = "now"
 default_duration = str(-1 * 3600)
 
-trigsegs = eventdisplay.TrigSegs()
-
 
 #
 # Parse display request
@@ -67,7 +65,7 @@ def _imgsrc(name, query):
 
 def plot_pngthumbnail(name, query):
 	src = _imgsrc(name, query) + "&format=png"
-	return """<a href="%s"><img src="%s" width="800"></a>""" % (src, src)
+	return """<a href="%s"><object data="%s" type="image/png" width="800" standby="Generating image.  Please wait.">Failure loading image.</object></a>""" % (src, src)
 
 def plot_epslink(name, query):
 	src = _imgsrc(name, query) + "&format=eps"
@@ -121,93 +119,6 @@ def formmarkup(query):
 
 
 #
-# Live time info
-#
-
-def live_time_row_markup(inst, seglist):
-	livetime = float(seglist.duration())
-	if livetime > 0.0:
-		rate = livetime / float(seglist.extent().duration())
-	else:
-		rate = 0.0
-	if len(seglist):
-		averageseg = livetime / len(seglist)
-		durations = [float(seg.duration()) for seg in seglist]
-		longestseg = max(durations)
-		shortestseg = min(durations)
-		del durations
-	else:
-		averageseg = 0.0
-		longestseg = 0.0
-		shortestseg = 0.0
-	s = """<tr>\n"""
-	s += """	<td align="left">%s</td>\n""" % inst
-	s += """	<td align="right">%.2f h</td>\n""" % (livetime / 60.0 / 60.0,)
-	s += """	<td align="center">%.3f</td>\n""" % (rate,)
-	s += """	<td align="center">%d</td>\n""" % (len(seglist),)
-	s += """	<td align="right">%.2f h</td>\n""" % (averageseg / 60.0 / 60.0,)
-	s += """	<td align="right">%.2f h</td>\n""" % (longestseg / 60.0 / 60.0,)
-	s += """	<td align="right">%.2f s</td>\n""" % (shortestseg,)
-	s += """</tr>\n"""
-	return s
-
-def live_time_markup():
-	s = """<table frame="box" rules="all">\n"""
-	s += """<thead><tr>\n"""
-	s += """	<th>Instruments</th>\n"""
-	s += """	<th>Live Time</th>\n"""
-	s += """	<th>Rate</th>\n"""
-	s += """	<th>Number of<br>Segments</th>\n"""
-	s += """	<th>Average<br>Length</th>\n"""
-	s += """	<th>Longest</th>\n"""
-	s += """	<th>Shortest</th>\n"""
-	s += """</tr></thead>\n"""
-	s += """<tbody>\n"""
-	s += live_time_row_markup("G1", trigsegs.G1)
-	s += live_time_row_markup("H1", trigsegs.H1)
-	s += live_time_row_markup("H2", trigsegs.H2)
-	s += live_time_row_markup("L1", trigsegs.L1)
-	s += live_time_row_markup("G1 &cap; H1", trigsegs.G1 & trigsegs.H1)
-	s += live_time_row_markup("G1 &cap; H2", trigsegs.G1 & trigsegs.H2)
-	s += live_time_row_markup("G1 &cap; L1", trigsegs.G1 & trigsegs.L1)
-	s += live_time_row_markup("H1 &cap; H2", trigsegs.H1 & trigsegs.H2)
-	s += live_time_row_markup("H1 &cap; L1", trigsegs.H1 & trigsegs.L1)
-	s += live_time_row_markup("H2 &cap; L1", trigsegs.H2 & trigsegs.L1)
-	s += live_time_row_markup("G1 &cap; H1 &cap; H2", trigsegs.G1 & trigsegs.H1 & trigsegs.H2)
-	s += live_time_row_markup("G1 &cap; H1 &cap; L1", trigsegs.G1 & trigsegs.H1 & trigsegs.L1)
-	s += live_time_row_markup("G1 &cap; H2 &cap; L1", trigsegs.G1 & trigsegs.H2 & trigsegs.L1)
-	s += live_time_row_markup("H1 &cap; H2 &cap; L1", trigsegs.H1 & trigsegs.H2 & trigsegs.L1)
-	s += live_time_row_markup("G1 &cap; H1 &cap; H2 &cap; L1", trigsegs.G1 & trigsegs.H1 & trigsegs.H2 & trigsegs.L1)
-	s += """</tbody>\n"""
-	s += """</table>"""
-	return s
-
-def s5_live_time_summary(seglist):
-	s5length = 1.0 * 365.25 * 24.0 * 60.0 * 60.0	# 1 year
-	livetime = float(seglist.duration())
-	if livetime > 0.0:
-		rate = livetime / float(seglist.extent().duration())
-	else:
-		rate = 0.0
-	s5end = now + (s5length - livetime) / rate
-	s = """<table>\n"""
-	s += """<tr>\n"""
-	s += """	<td>H1 &cap; H2 &cap; L1 hours required for S5</td>\n"""
-	s += """	<td>%.2f h</td>\n""" % (s5length / 60.0 / 60.0,)
-	s += """</tr>\n"""
-	s += """<tr>\n"""
-	s += """	<td>Fraction of S5 completed</td>\n"""
-	s += """	<td>%.1f%%</td>\n""" % (100.0 * livetime / s5length,)
-	s += """</tr>\n"""
-	s += """<tr>\n"""
-	s += """	<td>Estimated S5 termination (<a href="enddateplot.cgi">history</a>)</td>\n"""
-	s += """	<td>%s (GPS %d s)</td>\n""" % (eventdisplay.runtconvert(eventdisplay.TconvertCommand(str(int(s5end)))), int(s5end))
-	s += """</tr>\n"""
-	s += """</table>\n"""
-	return s
-
-
-#
 # Excess Power Event Interface
 #
 
@@ -217,7 +128,7 @@ print """<html>"""
 
 print refresh
 
-print "<center><h1>Excess Power Event Interface</h1></center>"
+print "<center><h1>Excess Power Event Interface of Patience</h1></center>"
 print "<center>(Patience Required)</center>"
 print """<p>You can <a href="http://www.lsc-group.phys.uwm.edu/cgi-bin/cvs/viewcvs.cgi/pylal/cgi/power/?cvsroot=lscsoft">browse the source code for these web pages</a>.</p>"""
 print "<p>"
@@ -228,16 +139,7 @@ print """<hr width="90%">"""
 print "<center>"
 print "<h2>S5 Excess Power Live Times To Date</h2>"
 print "</center>"
-print "<p>"
-print "<center>"
-print live_time_markup()
-print "</center>"
-print "</p>"
-print "<p>"
-print "<center>"
-print s5_live_time_summary(trigsegs.H1 & trigsegs.H2 & trigsegs.L1)
-print "</center>"
-print "</p>"
+print """<object data="livetime.cgi" type="text/html" width="100%" standby="Computing live time chart.  Please wait.">Failure loading live time chart.</object>"""
 print """<hr width="90%">"""
 
 if query.segment.duration() > 24 * 3600:
