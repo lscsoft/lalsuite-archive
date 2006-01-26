@@ -391,7 +391,11 @@ if not ping:
   # read in the active segments from the file specified on the cmd line
   fh = open(segfile, 'r')
   for line in fh.readlines():
+    print "parsing line containing " + line
     seg_line = line.strip().split(" ")
+    print "result of strip.split is " + str(seg_line)
+    print "seg_line[0] = " + seg_line[0]
+    print "seg_line[1] = " + seg_line[1]
     this_seg = segments.segment(int(seg_line[0]),int(seg_line[1]))
     if this_seg not in interval_s:
       # reject any segment that does not lie entirely in the interval
@@ -402,7 +406,12 @@ if not ping:
       print >> sys.stderr, msg
       sys.exit(1)
     # otherwise append the segment to the list of active segments
+    print "This segment = " + str(this_seg)
     active_segments.append(this_seg)
+    print "All segments = " + str(active_segments)
+  # coalesce the active segments to deal with overlaps
+  active_segments.coalesce()
+  print active_segments
 
   # subtract the active segments from the total interval to get
   # the list of inactive segments to be inserted into the database
