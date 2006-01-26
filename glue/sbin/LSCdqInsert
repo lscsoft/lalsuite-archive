@@ -231,7 +231,7 @@ if not name:
   errmsg += "Error: --name must be specified\n"
 if not version:
   errmsg += "Error: --version must be specified\n"
-if not expln:
+if not expln and not append:
   errmsg += "Error: --explain must be specified\n"
 if not comment:
   errmsg += "Error: --comment must be specified\n"
@@ -493,8 +493,14 @@ try:
       myClient = None
       
       # parse the result returned from the database query
-      seg_def_md = ldbd.LIGOMetadata(xmlparser,lwtparser)
-      seg_def_md.parse(defxml)
+      try:
+        seg_def_md = ldbd.LIGOMetadata(xmlparser,lwtparser)
+        seg_def_md.parse(defxml)
+      except IndexError:
+        msg = "trying to append to non exsting segment.\n"
+        msg += "Cannot find segment definition in database for type\n"
+        msg += run + " " + ifos + " " + name + " " + str(version)
+        raise LSCdqInsertException, msg
       cdb_col = \
        seg_def_md.table['segment_definer']['orderedcol'].index('creator_db')
       sdf_col = \
