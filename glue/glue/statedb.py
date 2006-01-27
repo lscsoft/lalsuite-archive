@@ -98,6 +98,10 @@ class StateSegmentDatabase:
     table of state segment types is initialized. If debugging is enabled, the
     lookup table is printed to the screen.
 
+    @param run: the name of the run to which all the segments to be published
+    belong (e.g. S5, S4, S4, etc.)
+    @type: string
+
     @param dbname: the name of the database containing the segments
     @type dbname: string
   
