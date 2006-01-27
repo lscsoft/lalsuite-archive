@@ -448,8 +448,8 @@ class SnglInspiralTable(metaio.Table):
 		"f_final": "real_4",
 		"snr": "real_4",
 		"chisq": "real_4",
-		"chisq_dof": "real_4",
-		"sigmasq": "real_4",
+		"chisq_dof": "int_4s",
+		"sigmasq": "real_8",
 		"rsqveto_duration": "real_4",
 		"event_id": "int_8s"
 	}
