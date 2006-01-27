@@ -70,7 +70,6 @@ class PlotDescription(object):
 	def set_instrument(self, instrument):
 		# update cache name along with instrument
 		self.instrument = str(instrument)
-		self.cache = eventdisplay.cache[self.instrument]
 
 	def parse_form(self):
 		# parse CGI form
@@ -84,14 +83,9 @@ class PlotDescription(object):
 		self.freqwidth = float(form.getfirst("freqwidth", str(self.freqwidth)))
 		self.band = segments.segment(float(form.getfirst("lofreq", str(self.band[0]))), float(form.getfirst("hifreq", str(self.band[1]))))
 		self.set_instrument(form.getfirst("inst", self.instrument))
-		self.load_seglist()
 		self.set_format(form.getfirst("format", self.format))
 
 		return self
-
-	def load_seglist(self):
-		# get a segmentlist from the cache file
-		self.seglist = segmentsUtils.fromlalcache(file(self.cache), coltype=lal.LIGOTimeGPS).coalesce()
 
 	def trig_segment(self):
 		# interval in which triggers must be read in order to
@@ -103,11 +97,13 @@ class PlotDescription(object):
 # How to get a table of triggers within a segment
 #
 
-def SnglBurstOnlyHandler(doc):
+def SnglBurstAndSearchSummOnlyHandler(doc):
 	"""
-	Construct a document handler that reads only SnglBurst tables.
+	Construct a document handler that reads only sngl_burst and search
+	summary tables.
 	"""
-	return docutils.PartialLIGOLWContentHandler(doc, lambda name, attrs: (name == ligolw.Table.tagName) and (attrs["Name"] == lsctables.SnglBurstTable.tableName))
+	return docutils.PartialLIGOLWContentHandler(doc, lambda name, attrs: (name == ligolw.Table.tagName) and (attrs["Name"] in [lsctables.SnglBurstTable.tableName, lsctables.SearchSummaryTable.tableName]))
+
 
 def CacheURLs(cachename, seg):
 	"""
@@ -119,30 +115,40 @@ def CacheURLs(cachename, seg):
 def gettriggers(plotdesc):
 	# load SnglBurst tables containing relevant triggers
 	doc = ligolw.Document()
-	handler = SnglBurstOnlyHandler(doc)
-	for url in CacheURLs(plotdesc.cache, plotdesc.segment):
+	handler = SnglBurstAndSearchSummOnlyHandler(doc)
+	for url in CacheURLs(eventdisplay.cache[plotdesc.instrument], plotdesc.segment):
 		try:
 			sax.parse(urllib.urlopen(url), handler)
 		except ligolw.ElementError, e:
 			raise Exception, "error parsing file %s: %s" % (url, str(e))
-
-	# merge trigger tables
 	docutils.MergeCompatibleTables(doc)
-	if len(doc.childNodes) == 0:
+
+	# get segment list from search summary table
+	tables = doc.getElements(lambda e: lsctables.Is(lsctables.SearchSummaryTable, e))
+	if len(tables) == 0:
+		# no search summary tables found, set an empty segment list
+		plotdesc.seglist = segments.segmentlist([])
+	elif len(tables) == 1:
+		plotdesc.seglist = tables[0].get_inlist().coalesce()
+	else:
+		raise Exception, "files contain incompatible search summary tables"
+
+	# get triggers from single_burst table
+	tables = doc.getElements(lambda e: lsctables.Is(lsctables.SnglBurstTable, e))
+	if len(tables) == 0:
 		# no trigger tables found, return an empty table
 		return lsctables.New(lsctables.SnglBurstTable)
-	elif len(doc.childNodes) > 1:
+	elif len(tables) > 1:
 		# couldn't merge trigger tables
 		raise Exception, "files contain incompatible SnglBurst tables"
-	table = doc.childNodes[0]
 
 	# cluster
-	SnglBurstUtils.ClusterSnglBurstTable(table.rows, SnglBurstUtils.CompareSnglBurstByPeakTimeAndFreq, SnglBurstUtils.SnglBurstCluster, SnglBurstUtils.CompareSnglBurstByPeakTime)
+	SnglBurstUtils.ClusterSnglBurstTable(tables[0].rows, SnglBurstUtils.CompareSnglBurstByPeakTimeAndFreq, SnglBurstUtils.SnglBurstCluster, SnglBurstUtils.CompareSnglBurstByPeakTime)
 
 	# remove triggers that lie outside the required segment
-	table.filterRows(lambda row: row.get_peak() in plotdesc.trig_segment())
+	tables[0].filterRows(lambda row: row.get_peak() in plotdesc.trig_segment())
 
-	return table
+	return tables[0]
 
 
 #

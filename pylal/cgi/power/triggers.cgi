@@ -31,7 +31,7 @@ class Description(webplot.PlotDescription):
 
 description = Description().parse_form()
 
-command = eventdisplay.LLAddCommand(webplot.CacheURLs(description.cache, description.segment), output = description.filename)
+command = eventdisplay.LLAddCommand(webplot.CacheURLs(eventdisplay.cache[description.instrument], description.segment), output = description.filename)
 
 eventdisplay.runlladd(command)
 
