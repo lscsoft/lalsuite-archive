@@ -595,11 +595,22 @@ class ServerHandler(SocketServer.BaseRequestHandler):
 
       # update the end time of known processes in the process table
       for pid in known_proc.keys():
-        sql = "UPDATE process SET end_time = " + str(known_proc[pid][1])
+        # first check to see if we are backfilling missing segments
+        sql = "SELECT end_time FROM process "
         sql += " WHERE process_id = " + known_proc[pid][0]
-        sql += " AND end_time < " + str(known_proc[pid][1])
         logger.debug(sql)
         ligomd.curs.execute(sql)
+        last_end_time = ligomd.curs.fetchone()
+        if int(known_proc[pid][1]) <= int(last_end_time[0]):
+          logger.info("Backfilling missing segments for process_id " +
+            known_proc[pid][0] + " not updating end_time")
+        else:
+          # if we are not backfilling, update the end_time of the process
+          sql = "UPDATE process SET end_time = " + str(known_proc[pid][1])
+          sql += " WHERE process_id = " + known_proc[pid][0]
+          sql += " AND end_time < " + str(known_proc[pid][1])
+          logger.debug(sql)
+          ligomd.curs.execute(sql)
       ligomd.dbcon.commit()
 
       logger.info("Method insert: %s rows affected by insert" % result)
