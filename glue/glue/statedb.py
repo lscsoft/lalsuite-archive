@@ -37,8 +37,7 @@ class StateSegmentDatabaseException(exceptions.Exception):
 
 class StateSegmentDatabaseSegmentExistsException(exceptions.Exception):
   """
-  Exceptions raised by the classes and methods in this module
-  will be instances of this class.
+  Raised when trying to insert a segment that already exists in the database.
   """
   def __init__(self, args=None):
     """
@@ -55,8 +54,8 @@ class StateSegmentDatabaseSegmentExistsException(exceptions.Exception):
 
 class StateSegmentDatabaseLFNExistsException(exceptions.Exception):
   """
-  Exceptions raised by the classes and methods in this module
-  will be instances of this class.
+  Raised when trying to create an entry for an LFN which already exists in
+  the database.
   """
   def __init__(self, args=None):
     """
@@ -72,8 +71,7 @@ class StateSegmentDatabaseLFNExistsException(exceptions.Exception):
 
 class StateSegmentDatabaseSegnumException(exceptions.Exception):
   """
-  Exceptions raised by the classes and methods in this module
-  will be instances of this class.
+  Raised when trying to create a segment with an invalid segment number.
   """
   def __init__(self, args=None):
     """
@@ -98,13 +96,13 @@ class StateSegmentDatabase:
     @param dbname: the name of the database containing the segments
     @type dbname: string
   
-    @param username: the username which has permission to write to 
-      the state segment database
-    @type username: string
+    @param dbuser: the username which has permission to write to 
+      the state segment database (optional)
+    @type dbuser: string
 
-    @param passwd: the password of the user who has permission to write
+    @param dbpasswd: the password of the user who has permission to write
       to the state segment database (optional)
-    @type username: string
+    @type dbpasswd: string
     """
     self.debug = debug
     self.db = None
