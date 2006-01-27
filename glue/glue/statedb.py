@@ -27,7 +27,7 @@ class StateSegmentDatabaseException(exceptions.Exception):
     Create an instance of this class, ie. a StateSegmentDatabaseException
     exception.
 
-    @param args: 
+    @param args:
 
     @return: Instance of class StateSegmentDatabaseException
     """
@@ -87,11 +87,16 @@ class StateSegmentDatabaseSegnumException(exceptions.Exception):
 
 class StateSegmentDatabase:
   """
-  Class that represents an instance of a state segment database
+  Class that represents an instance of a state segment database for insertion
+  of state segments derived from LIGO or GEO frame data. When intantiated, the 
+  class with use the __init__ method to open a database connection.
   """
   def __init__(self, run, dbname, dbuser = '', dbpasswd = '', debug = False):
     """
-    Open a connection to the state segment database.
+    Open a connection to the state segment database. An entry in the process
+    table is created for the process creating the class, and a local lookup 
+    table of state segment types is initialized. If debugging is enabled, the
+    lookup table is printed to the screen.
 
     @param dbname: the name of the database containing the segments
     @type dbname: string
@@ -103,6 +108,11 @@ class StateSegmentDatabase:
     @param dbpasswd: the password of the user who has permission to write
       to the state segment database (optional)
     @type dbpasswd: string
+
+    @param debug: enable printing of debugging information (optional). If set
+    to True, extra debugging information will be printed. Default value is
+    False.
+    @type debug: boolean
     """
     self.debug = debug
     self.db = None
@@ -186,6 +196,12 @@ class StateSegmentDatabase:
       
 
   def __del__(self):
+    """
+    On deletion, the class will try and close the database connection,
+    delete any database cursor in use, and delete the database object.
+    If any of these procedures fail, no error will be generated so that
+    the class can always be sucessfully deleted.
+    """
     try:
       self.close()
     except:
@@ -202,7 +218,9 @@ class StateSegmentDatabase:
 
   def close(self):
     """
-    Close the connection to the database.
+    Cleanly close the connection to the database. Tries to update the end_time
+    for the classes entry the process table to the current GPS time. If this
+    suceeds, the cursor is deleted and database connection closed.
     """
     try:
       now = gpstime.GpsSecondsFromPyUTC(time.time())
@@ -223,10 +241,17 @@ class StateSegmentDatabase:
 
   def register_lfn(self,lfn,start=None,end=None):
     """
-    Start publishing state information for a new logical file name
+    Register an LFN in the database so the class can start publishing segments
+    associated with this LFN.
 
     @param lfn: logical file name of object containing state data
     @type lfn: string
+
+    @param start: An optional GPS start time of the data covered by the LFN
+    @type start: int
+
+    @param end: An optional GPS end time of the data covered by the LFN
+    @type end: int
     """
     self.lfn_id = None
 
@@ -306,7 +331,48 @@ class StateSegmentDatabase:
       ifo, start_time, start_time_ns, end_time, end_time_ns, ver, val,
       segnum = None):
     """
-    Publish a state segment for a state vector in the database
+    Once an LFN has been registered, this method can be used to publish a
+    state segment for a state vector in the database. Start and end times of
+    the segment are expresses in the usual format of seconds and nanoseconds, 
+    so the start time of a segment is given by start_time + start_time_ns /
+    1e9.
+
+    A state segment is defined by the version and value of the segment. The
+    definition of a particluar version and value is stored in the
+    segment_definer table. If no existing definition exists for a particular
+    pair, then the default definition STATEVEC.ver.val is created and used,
+    otherwise the segment is associated with the existing definition.
+
+    @param ifo: The name of the interferometer which generated this segment
+    (e.g. H1, H2, L1 or G1)
+    @type ifo: string
+
+    @param start_time: The integer second GPS start time of the segment 
+    @type start_time: integer
+
+    @param start_time_ns: The additional nanoseconds of the GPS start 
+    time of the segment
+    @type start_time_ns: integer
+
+    @param end_time: The integer second GPS end time of the segment 
+    @type end_time: integer
+
+    @param end_time_ns: The additional nanoseconds of the GPS end 
+    time of the segment
+    @type end_time_ns: integer
+
+    @param ver: The numeric version of the state segment being inserted.
+    Versions are typically only incremented if the definition of the state
+    vector changes
+    @type ver: integer
+
+    @param val: The numeric value of the state vector for the segment 
+    @type val: integer
+
+    @param segnum: An optional integer value of the science segment number. If
+    this is None, or omitted, then NULL is inserted into the database for the 
+    value of the science segment number.
+    @type segnum: integer
     """
 
     # check that we are in science mode if the user has given a segnum
