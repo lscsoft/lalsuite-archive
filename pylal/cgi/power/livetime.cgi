@@ -37,6 +37,11 @@ def live_time_row_markup(inst, seglist):
 	return s
 
 def live_time_markup(trigsegs):
+	G1H1 = trigsegs.G1 & trigsegs.H1
+	G1H2 = trigsegs.G1 & trigsegs.H2
+	G1L1 = trigsegs.G1 & trigsegs.L1
+	H1H2 = trigsegs.H1 & trigsegs.H2
+	H2L1 = trigsegs.H2 & trigsegs.L1
 	s = """<table frame="box" rules="all">\n"""
 	s += """<thead><tr>\n"""
 	s += """	<th>Instruments</th>\n"""
@@ -52,17 +57,17 @@ def live_time_markup(trigsegs):
 	s += live_time_row_markup("H1", trigsegs.H1)
 	s += live_time_row_markup("H2", trigsegs.H2)
 	s += live_time_row_markup("L1", trigsegs.L1)
-	s += live_time_row_markup("G1 &cap; H1", trigsegs.G1 & trigsegs.H1)
-	s += live_time_row_markup("G1 &cap; H2", trigsegs.G1 & trigsegs.H2)
-	s += live_time_row_markup("G1 &cap; L1", trigsegs.G1 & trigsegs.L1)
-	s += live_time_row_markup("H1 &cap; H2", trigsegs.H1 & trigsegs.H2)
+	s += live_time_row_markup("G1 &cap; H1", G1H1)
+	s += live_time_row_markup("G1 &cap; H2", G1H2)
+	s += live_time_row_markup("G1 &cap; L1", G1L1)
+	s += live_time_row_markup("H1 &cap; H2", H1H2)
 	s += live_time_row_markup("H1 &cap; L1", trigsegs.H1 & trigsegs.L1)
-	s += live_time_row_markup("H2 &cap; L1", trigsegs.H2 & trigsegs.L1)
-	s += live_time_row_markup("G1 &cap; H1 &cap; H2", trigsegs.G1 & trigsegs.H1 & trigsegs.H2)
-	s += live_time_row_markup("G1 &cap; H1 &cap; L1", trigsegs.G1 & trigsegs.H1 & trigsegs.L1)
-	s += live_time_row_markup("G1 &cap; H2 &cap; L1", trigsegs.G1 & trigsegs.H2 & trigsegs.L1)
-	s += live_time_row_markup("H1 &cap; H2 &cap; L1", trigsegs.H1 & trigsegs.H2 & trigsegs.L1)
-	s += live_time_row_markup("G1 &cap; H1 &cap; H2 &cap; L1", trigsegs.G1 & trigsegs.H1 & trigsegs.H2 & trigsegs.L1)
+	s += live_time_row_markup("H2 &cap; L1", H2L1)
+	s += live_time_row_markup("G1 &cap; H1 &cap; H2", G1H1 & trigsegs.H2)
+	s += live_time_row_markup("G1 &cap; H1 &cap; L1", G1H1 & trigsegs.L1)
+	s += live_time_row_markup("G1 &cap; H2 &cap; L1", G1H2 & trigsegs.L1)
+	s += live_time_row_markup("H1 &cap; H2 &cap; L1", H1H2 & trigsegs.L1)
+	s += live_time_row_markup("G1 &cap; H1 &cap; H2 &cap; L1", G1H1 & H2L1)
 	s += """</tbody>\n"""
 	s += """</table>"""
 	return s
