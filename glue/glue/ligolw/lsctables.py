@@ -822,6 +822,7 @@ TableByName = {
 	SearchSummaryTable.tableName: SearchSummaryTable,
 	SearchSummVarsTable.tableName: SearchSummVarsTable,
 	SnglBurstTable.tableName: SnglBurstTable,
+	SnglInspiralTable.tableName: SnglInspiralTable,
 	SnglRingDownTable.tableName: SnglRingDownTable,
 	MultiInspiralTable.tableName: MultiInspiralTable,
 	SimInspiralTable.tableName: SimInspiralTable,
