@@ -146,7 +146,7 @@ def formmarkup(query):
 def formnotes():
 	s = "Notes:\n"
 	s += "<ul>\n"
-	s += "	<li>The triggers were clustered by the job that created them, but no clustering has been done at the boundaries between analysis jobs.&nbsp; If the (Re)Cluster option is selected above, then the triggers are clustered before generating the plots.&nbsp; This removes duplicates at boundaries between analysis jobs, but is very slow because each plot clusters the triggers itsef.<\li>\n"
+	s += "	<li>The triggers were clustered by the job that created them, but no clustering has been done at the boundaries between analysis jobs.&nbsp; If the (Re)Cluster option is selected above, then the triggers are clustered before generating the plots.&nbsp; This removes duplicates at boundaries between analysis jobs, but is very slow because each plot clusters the triggers itself.</li>\n"
 	s += "	<li>The frequency band selected only affects the limits on the axes of the plots, it does not limit the plots to those triggers alone.&nbsp; For example, the trigger rate plot shows the rate for all triggers, not only the ones lieing in the requested frequency band.</li>\n"
 	s += "</ul>"
 	return s
