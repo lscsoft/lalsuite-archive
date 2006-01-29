@@ -141,8 +141,9 @@ if options.no_duplicate_process:
 	#for id in duplicates:
 	#	del plist[id]
 
-	for table in doc.getElements(lambda: e, (e.tagName == ligolw.Table.tagName) and (e.getAttribute("Name") in lsctables.TablesByName.keys()) and ("process_id" in e.validcolumns.keys())):
-		table.filterRows(lambda r: r.process_id not in duplicates)
+	if len(duplicates):
+		for table in doc.getElements(lambda e: (e.tagName == ligolw.Table.tagName) and (e.getAttribute("Name") in lsctables.TablesByName.keys()) and ("process_id" in e.validcolumns.keys())):
+			table.filterRows(lambda r: r.process_id not in duplicates)
 			
 
 
