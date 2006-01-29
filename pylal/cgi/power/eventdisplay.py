@@ -14,10 +14,10 @@ from glue import segmentsUtils
 
 s5start = lal.LIGOTimeGPS(815155213)
 cache = {
-	"G1": "/home/kipp/cgi-bin/G1/filelist.cache",
-	"H1": "/home/kipp/cgi-bin/H1/filelist.cache",
-	"H2": "/home/kipp/cgi-bin/H2/filelist.cache",
-	"L1": "/home/kipp/cgi-bin/L1/filelist.cache"
+	"G1": os.getcwd() + "/G1/filelist.cache",
+	"H1": os.getcwd() + "/H1/filelist.cache",
+	"H2": os.getcwd() + "/H2/filelist.cache",
+	"L1": os.getcwd() + "/L1/filelist.cache"
 }
 
 
