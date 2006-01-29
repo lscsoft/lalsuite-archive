@@ -418,7 +418,7 @@ class SnglInspiralTable(metaio.Table):
 		"end_time_ns": "int_4s",
 		"end_time_gmst": "real_8",
 		"impulse_time": "int_4s",
-		"inpulse_time_ns": "int_4s",
+		"impulse_time_ns": "int_4s",
 		"template_duration": "real_8",
 		"event_duration": "real_8",
 		"amplitude": "real_4",
