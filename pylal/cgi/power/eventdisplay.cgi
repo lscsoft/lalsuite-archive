@@ -199,6 +199,7 @@ else:
 	print "<table>"
 	print plot_table_row("rateplot.cgi", query)
 	print plot_table_row("conf_vs_time.cgi", query)
+	print plot_table_row("glitchmetric.cgi", query)
 	print plot_table_row("tfplot.cgi", query)
 	print plot_table_row("rate_vs_freq.cgi", query)
 	print plot_table_row("conf_vs_freq.cgi", query)

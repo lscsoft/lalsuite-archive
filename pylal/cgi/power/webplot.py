@@ -159,7 +159,7 @@ def gettriggers(plotdesc):
 # function.
 #
 
-def smooth(impulses, segment, width):
+def smooth(impulses, segment, width, weights = None):
 	halfwidth = width / 2.0
 	bins_per_unit = 10.0 / halfwidth
 
@@ -172,9 +172,14 @@ def smooth(impulses, segment, width):
 
 	yvals = pylab.zeros(len(xvals), "Float32")
 	if True:
-		for x in impulses:
-			if x in segment:
-				yvals[bin(x)] += 1.0
+		if weights == None:
+			for x in impulses:
+				if x in segment:
+					yvals[bin(x)] += 1.0
+		else:
+			for n, x in enumerate(impulses):
+				if x in segment:
+					yvals[bin(x)] += weights[n]
 	else:
 		# inject pulses at regular intervals to test normalization
 		for x in pylab.arrayrange(float(segment[0]), float(segment[1]), 0.5):
