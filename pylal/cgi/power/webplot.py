@@ -165,7 +165,7 @@ def smooth(impulses, segment, width, weights = None):
 
 	window = pylab.exp(-pylab.arrayrange(-10.0 * halfwidth, +10.0 * halfwidth, 1.0/bins_per_unit)**2.0 / (2.0 * halfwidth**2.0)) / math.sqrt(2.0 * math.pi) / halfwidth
 
-	xvals = pylab.arrayrange(0.0, float(segment.duration()) + 1.0/bins_per_unit, 1.0/bins_per_unit)
+	xvals = pylab.arrayrange(0.0, float(segment.duration()), 1.0/bins_per_unit)
 
 	def bin(x):
 		return int(float(x - segment[0]) * bins_per_unit)
@@ -174,17 +174,16 @@ def smooth(impulses, segment, width, weights = None):
 	if True:
 		if weights == None:
 			for x in impulses:
-				if x in segment:
+				if segment[0] <= x < segment[1]:
 					yvals[bin(x)] += 1.0
 		else:
 			for n, x in enumerate(impulses):
-				if x in segment:
+				if segment[0] <= x < segment[1]:
 					yvals[bin(x)] += weights[n]
 	else:
 		# inject pulses at regular intervals to test normalization
 		for x in pylab.arrayrange(float(segment[0]), float(segment[1]), 0.5):
-			if x in segment:
-				yvals[bin(x)] += 1.0
+			yvals[bin(x)] += 1.0
 
 	return (xvals + float(segment[0]), pylab.convolve(yvals, window, mode=1))
 
