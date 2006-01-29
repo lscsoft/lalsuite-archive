@@ -39,6 +39,7 @@ class PlotDescription(object):
 		self.filename = None
 		self.format = None	# force update
 		self.set_format("png")
+		self.cluster = 0
 
 		return self
 
@@ -84,6 +85,7 @@ class PlotDescription(object):
 		self.band = segments.segment(float(form.getfirst("lofreq", str(self.band[0]))), float(form.getfirst("hifreq", str(self.band[1]))))
 		self.set_instrument(form.getfirst("inst", self.instrument))
 		self.set_format(form.getfirst("format", self.format))
+		self.cluster = int(form.getfirst("cluster", "0"))
 
 		return self
 
@@ -143,7 +145,8 @@ def gettriggers(plotdesc):
 		raise Exception, "files contain incompatible SnglBurst tables"
 
 	# cluster
-	SnglBurstUtils.ClusterSnglBurstTable(tables[0].rows, SnglBurstUtils.CompareSnglBurstByPeakTimeAndFreq, SnglBurstUtils.SnglBurstCluster, SnglBurstUtils.CompareSnglBurstByPeakTime)
+	if plotdesc.cluster:
+		SnglBurstUtils.ClusterSnglBurstTable(tables[0].rows, SnglBurstUtils.CompareSnglBurstByPeakTimeAndFreq, SnglBurstUtils.SnglBurstCluster, SnglBurstUtils.CompareSnglBurstByPeakTime)
 
 	# remove triggers that lie outside the required segment
 	tables[0].filterRows(lambda row: row.get_peak() in plotdesc.trig_segment())

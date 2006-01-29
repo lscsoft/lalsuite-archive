@@ -28,6 +28,7 @@ class Query(object):
 	freqwidth = None
 	band = None
 	instrument = None
+	cluster = None
 
 form = cgi.FieldStorage()
 
@@ -46,6 +47,7 @@ query.ratewidth = float(form.getfirst("ratewidth", "60"))
 query.freqwidth = float(form.getfirst("freqwidth", "16"))
 query.band = segments.segment(float(form.getfirst("lofreq", "0")), float(form.getfirst("hifreq", "2500")))
 query.instrument = form.getfirst("inst", "H1")
+query.cluster = int(form.getfirst("cluster", "0"))
 
 
 #
@@ -61,7 +63,10 @@ def errormsg(msg):
 #
 
 def _imgsrc(name, query):
-	return "%s?inst=%s&start=%s&dur=%s&ratewidth=%s&freqwidth=%s&lofreq=%s&hifreq=%s" % (name, query.instrument, query.segment[0], query.segment.duration(), query.ratewidth, query.freqwidth, query.band[0], query.band[1])
+	s = "%s?inst=%s&start=%s&dur=%s&ratewidth=%s&freqwidth=%s&lofreq=%s&hifreq=%s" % (name, query.instrument, query.segment[0], query.segment.duration(), query.ratewidth, query.freqwidth, query.band[0], query.band[1])
+	if query.cluster:
+		s += "&cluster=1"
+	return s
 
 def plot_pnglink(name, query):
 	src = _imgsrc(name, query) + "&format=png"
@@ -125,9 +130,25 @@ def formmarkup(query):
 	s += """	<td><label for="lofreq">Frequency Band:</label></td>\n"""
 	s += """	<td><input type="text" name="lofreq" value=\"""" + str(query.band[0]) + """\"> Hz to <input type="text" name="hifreq" value=\"""" + str(query.band[1]) + """\"> Hz</td>\n"""
 	s += """</tr>\n"""
+	s += """<tr>\n"""
+	s += """	<td><label for="cluster">(Re)Cluster Triggers:</label></td>\n"""
+	if query.cluster:
+		s += """	<td><input type="checkbox" name="cluster" value="1" checked></td>\n"""
+	else:
+		s += """	<td><input type="checkbox" name="cluster" value="1"></td>\n"""
+	s += """</tr>\n"""
 	s += """</table>\n"""
 	s += """<center><input type="submit" value="Submit"></center>
 </form>"""
+	return s
+
+
+def formnotes():
+	s = "Notes:\n"
+	s += "<ul>\n"
+	s += "	<li>The triggers were clustered by the job that created them, but no clustering has been done at the boundaries between analysis jobs.&nbsp; If the (Re)Cluster option is selected above, then the triggers are clustered before generating the plots.&nbsp; This removes duplicates at boundaries between analysis jobs, but is very slow because each plot clusters the triggers itsef.<\li>\n"
+	s += "	<li>The frequency band selected only affects the limits on the axes of the plots, it does not limit the plots to those triggers alone.&nbsp; For example, the trigger rate plot shows the rate for all triggers, not only the ones lieing in the requested frequency band.</li>\n"
+	s += "</ul>"
 	return s
 
 
@@ -146,6 +167,9 @@ print "<center>(Patience Required)</center>"
 print """<p>You can <a href="http://www.lsc-group.phys.uwm.edu/cgi-bin/cvs/viewcvs.cgi/pylal/cgi/power/?cvsroot=lscsoft">browse the source code for these web pages</a> and see what takes so long.</p>"""
 print "<p>"
 print formmarkup(query)
+print "</p>"
+print "<p>"
+print formnotes()
 print "</p>"
 
 print """<hr width="90%">"""
