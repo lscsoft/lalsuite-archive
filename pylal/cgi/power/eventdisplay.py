@@ -56,7 +56,7 @@ def runtconvert(command):
 
 class LLAddCommand(object):
 	def __init__(self, urls, output = None):
-		self._exec = "/home/kipp/local/bin/lalapps_lladd"
+		self._exec = "/home/kipp/local/bin/ligolw_add"
 		self.urls = urls
 		self.output = output
 
