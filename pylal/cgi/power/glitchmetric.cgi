@@ -30,20 +30,17 @@ class Plot(webplot.PlotDescription):
 #
 
 def glitchsegments(xvals, yvals, threshold):
-	# make sure we've got enough data
-	if len(yvals) < 3:
-		return segments.segmentlist([])
-
 	# find starts and ends of segments above threshold
 	if yvals[0] >= threshold:
 		starts = [lal.LIGOTimeGPS(xvals[0])]
 	else:
 		starts = []
 	ends = []
-	for i in range(1, len(yvals) - 1):
+	for i in range(0, len(yvals) - 1):
 		if (yvals[i] < threshold) and (yvals[i + 1] >= threshold):
 			starts.append(lal.LIGOTimeGPS(xvals[i]))
-		elif (yvals[i] < threshold) and (yvals[i - 1] >= threshold):
+	for i in range(1, len(yvals)):
+		if (yvals[i] < threshold) and (yvals[i - 1] >= threshold):
 			ends.append(lal.LIGOTimeGPS(xvals[i]))
 	if yvals[-1] >= threshold:
 		ends.append(lal.LIGOTimeGPS(xvals[-1]))
@@ -69,7 +66,7 @@ def makeplot(desc, table):
 	del xvals2
 
 	# resample long time scale average to that of short time scale
-	yvals2 = nd_image.zoom(yvals2, desc.widthratio)
+	yvals2 = nd_image.zoom(yvals2, float(len(yvals)) / float(len(yvals2)))
 
 	# compute ratio, setting 0/0 equal to 0
 	yvals = pylab.where(yvals2 > 0.0, yvals, 0.0) / pylab.where(yvals2 > 0.0, yvals2, 1.0)
@@ -88,7 +85,7 @@ def makeplot(desc, table):
 
 	for seg in ~desc.seglist & segments.segmentlist([desc.segment]):
 		pylab.axvspan(seg[0], seg[1], facecolor = "k", alpha = 0.2)
-	for seg in glitchsegs:
+	for seg in glitchsegs & segments.segmentlist([desc.segment]):
 		pylab.axvspan(seg[0], seg[1], facecolor = "r", alpha = 0.2)
 
 	pylab.title(desc.instrument + " Excess Power %g s Confidence Rate to %g s Confidence Rate Ratio vs. Time\n(%d Triggers)" % (desc.ratewidth, desc.widthratio * desc.ratewidth, len(table)))
