@@ -33,7 +33,7 @@ CREATE TABLE sngl_inspiral
 
 -- PROPERTIES OF THE EVENT
 -- Absolute strain amplitude of fitted template at 100 Hz
-      amplitude          REAL NOT NULL,
+      amplitude          REAL,
 -- Effective distance, assuming optimally oriented binary (in megaparsecs)
       eff_distance       REAL,
 -- Coalescence phase angle (radians)
@@ -59,6 +59,18 @@ CREATE TABLE sngl_inspiral
 -- BCV detection template family waveform parameters
       psi0               REAL,
       psi3               REAL,
+      alpha              REAL,
+
+-- SBCV detection template family waveform parameters
+      alpha1             REAL,
+      alpha2             REAL,
+      alpha3             REAL,
+      alpha4             REAL,
+      alpha5             REAL,
+      alpha6             REAL,
+      beta               REAL,
+
+-- end frequency of the template in Hz
       f_final            REAL,
       
 -- Amplitude signal-to-noise ratio
@@ -68,15 +80,9 @@ CREATE TABLE sngl_inspiral
       chisq_dof          INTEGER,
 -- Variance of filter output (nominally normalized snr) near time of event
       sigmasq            DOUBLE,
--- Measured value of BCV shape parameter
-      alpha              REAL,
-      alpha1             REAL,
-      alpha2             REAL,
-      alpha3             REAL,
-      alpha4             REAL,
-      alpha5             REAL,
-      alpha6             REAL,
-      beta		 REAL,
+
+-- Rsq time above threshold statistc
+      rsqveto_duration   REAL,
 
 -- Unique identifier for this event
       event_id           CHAR(13) FOR BIT DATA NOT NULL,
