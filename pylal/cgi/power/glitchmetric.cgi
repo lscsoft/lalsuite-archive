@@ -30,32 +30,26 @@ class Plot(webplot.PlotDescription):
 #
 
 def glitchsegments(xvals, yvals, threshold):
+	# make sure we've got enough data
+	if len(yvals) < 3:
+		return segments.segmentlist([])
+
 	# find starts and ends of segments above threshold
 	if yvals[0] >= threshold:
-		starts = [xvals[0]]
+		starts = [lal.LIGOTimeGPS(xvals[0])]
 	else:
 		starts = []
 	ends = []
 	for i in range(1, len(yvals) - 1):
 		if (yvals[i] < threshold) and (yvals[i + 1] >= threshold):
-			starts.append(xvals[i])
+			starts.append(lal.LIGOTimeGPS(xvals[i]))
 		elif (yvals[i] < threshold) and (yvals[i - 1] >= threshold):
-			ends.append(xvals[i])
+			ends.append(lal.LIGOTimeGPS(xvals[i]))
 	if yvals[-1] >= threshold:
-		ends.append(xvals[-1])
-
-	# found any?
-	if (len(starts) < 1) or (len(ends) < 1):
-		return segments.segmentlist([])
-
-	# make sure we start with a start and end with an end
-	if ends[0] < starts[0]:
-		ends = ends[1:]
-	if starts[-1] > ends[-1]:
-		starts = starts[:-1]
+		ends.append(lal.LIGOTimeGPS(xvals[-1]))
 
 	# turn start/end pairs into segments
-	return segments.segmentlist(map(segments.segment, starts, ends))
+	return segments.segmentlist(map(segments.segment, starts, ends)).coalesce()
 
 
 def makeplot(desc, table):
@@ -63,23 +57,31 @@ def makeplot(desc, table):
 	fig.set_figsize_inches(16,8)
 	axes = pylab.gca()
 
+	# extract peak times and confidences
 	peaktime = [float(row.get_peak()) for row in table]
 	confidence = -table.getColumnByName("confidence").asarray()
 
+	# construct short time scale average confidence rate
 	xvals, yvals = webplot.smooth(peaktime, desc.trig_segment(), desc.ratewidth, weights = confidence)
-	#pylab.plot(xvals, yvals)
 
+	# construct long time scale average confidence rate
 	xvals2, yvals2 = webplot.smooth(peaktime, desc.trig_segment(), desc.widthratio * desc.ratewidth, weights = confidence)
-	#pylab.plot(xvals2, yvals2, xvals2, desc.glitchthreshold * yvals2)
+	del xvals2
 
+	# resample long time scale average to that of short time scale
 	yvals2 = nd_image.zoom(yvals2, desc.widthratio)
-	yvals = pylab.where(yvals2 > 0.0, yvals, 0.0) / pylab.where(yvals2 > 0.0, yvals2, 1.0)
-	pylab.semilogy(xvals, yvals)
 
+	# compute ratio, setting 0/0 equal to 0
+	yvals = pylab.where(yvals2 > 0.0, yvals, 0.0) / pylab.where(yvals2 > 0.0, yvals2, 1.0)
+
+	# determine segments where ratio is above threshold
 	glitchsegs = glitchsegments(xvals, yvals, desc.glitchthreshold)
 
-	pylab.axhline(desc.glitchthreshold, color = "r")
+	# plot ratio vs time
+	pylab.semilogy(xvals, yvals)
 
+	# tinker with graph
+	pylab.axhline(desc.glitchthreshold, color = "r")
 	pylab.set(axes, xlim = list(desc.segment))
 	pylab.set(axes, ylim = [.1, 10])
 	pylab.grid(True)
