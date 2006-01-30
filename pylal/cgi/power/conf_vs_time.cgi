@@ -31,8 +31,8 @@ def makeplot(desc, table):
 
 	pylab.semilogy(peak_time, confidence, "b+")
 
-	for greyseg in ~desc.seglist & segments.segmentlist([desc.segment]):
-		pylab.axvspan(greyseg[0], greyseg[1], facecolor = "k", alpha = 0.2)
+	for seg in ~desc.seglist & segments.segmentlist([desc.segment]):
+		pylab.axvspan(seg[0], seg[1], facecolor = "k", alpha = 0.2)
 
 	pylab.set(axes, xlim = list(desc.segment))
 	pylab.grid(True)

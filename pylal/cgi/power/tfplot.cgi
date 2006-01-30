@@ -38,8 +38,8 @@ def makeplot(desc, table):
 
 	pylab.set(axes, xlim = list(desc.segment), ylim = list(desc.band))
 
-	for greyseg in ~desc.seglist & segments.segmentlist([desc.segment]):
-		pylab.axvspan(greyseg[0], greyseg[1], facecolor = "k", alpha = 0.2)
+	for seg in ~desc.seglist & segments.segmentlist([desc.segment]):
+		pylab.axvspan(seg[0], seg[1], facecolor = "k", alpha = 0.2)
 	pylab.title(desc.instrument + " Excess Power Time-Frequency Plane\n(%d Triggers)" % (len(table)))
 	pylab.xlabel("GPS Time (s)")
 	pylab.ylabel("Frequency (Hz)")
