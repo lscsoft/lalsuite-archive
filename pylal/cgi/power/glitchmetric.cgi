@@ -19,7 +19,7 @@ class Plot(webplot.PlotDescription):
 	def __init__(self):
 		webplot.PlotDescription.__init__(self)
 		self.widthratio = 3.0
-		self.glitchthreshold = 1.0 * math.sqrt(self.widthratio)
+		self.glitchthreshold = math.sqrt(self.widthratio)
 
 	def trig_segment(self):
 		return self.segment.protract(5.0 * self.widthratio * self.ratewidth)
@@ -75,12 +75,12 @@ def makeplot(desc, table):
 	glitchsegs = glitchsegments(xvals, yvals, desc.glitchthreshold)
 
 	# plot ratio vs time
-	pylab.semilogy(xvals, yvals)
+	pylab.plot(xvals, yvals)
 
 	# tinker with graph
 	pylab.axhline(desc.glitchthreshold, color = "r")
 	pylab.set(axes, xlim = list(desc.segment))
-	pylab.set(axes, ylim = [.1, 10])
+	pylab.set(axes, ylim = [0, desc.widthratio])
 	pylab.grid(True)
 
 	for seg in ~desc.seglist & segments.segmentlist([desc.segment]):
