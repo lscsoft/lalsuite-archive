@@ -118,10 +118,8 @@ class ServerHandler(SocketServer.BaseRequestHandler):
       input = f.read(size=max_bytes,waitForBytes=2)
 
       # try 10 more times if we don't have a null byte at the end
-      readnum = 0
-      while input[-1] != '\0' and readnum < 10:
+      while input[-1] != '\0':
         input += f.read(size=max_bytes,waitForBytes=2)
-        readnum = readnum + 1
 
       # the format should be a method string, followed by a null byte
       # followed by the arguments to the method encoded as null
