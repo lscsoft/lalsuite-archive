@@ -1,11 +1,7 @@
 """
-LSC Table definitions.
+LSC Table definitions.  These have been painstakingly copied from
+support/include/LIGOLwXMLHeaders.h.  Yes, I'm sure there are typos.
 """
-
-#
-# These have been painstakingly copied from
-# support/include/LIGOLwXMLHeaders.h.  Yes, I'm sure there are typos.
-#
 
 from xml import sax
 
@@ -13,6 +9,15 @@ import metaio
 from glue import lal
 from glue import segments
 import ligolw
+
+
+#
+# =============================================================================
+#
+#                            Convenience Functions
+#
+# =============================================================================
+#
 
 
 def New(Type):
@@ -40,6 +45,14 @@ def Is(Type, elem):
 		return False
 	return elem.getAttribute("Name") == Type.tableName
 
+
+#
+# =============================================================================
+#
+#                          processgroup:process:table
+#
+# =============================================================================
+#
 
 class ProcessTable(metaio.Table):
 	tableName = "processgroup:process:table"
@@ -129,6 +142,14 @@ class Process(metaio.TableRow):
 
 ProcessTable.RowType = Process
 
+
+#
+# =============================================================================
+#
+#                   process_paramsgroup:process_params:table
+#
+# =============================================================================
+#
 
 class ProcessParamsTable(metaio.Table):
 	tableName = "process_paramsgroup:process_params:table"
@@ -225,6 +246,14 @@ class ProcessParams(metaio.TableRow):
 
 ProcessParamsTable.RowType = ProcessParams
 
+
+#
+# =============================================================================
+#
+#                   search_summarygroup:search_summary:table
+#
+# =============================================================================
+#
 
 class SearchSummaryTable(metaio.Table):
 	tableName = "search_summarygroup:search_summary:table"
@@ -336,6 +365,14 @@ class SearchSummary(metaio.TableRow):
 SearchSummaryTable.RowType = SearchSummary
 
 
+#
+# =============================================================================
+#
+#                  search_summvarsgroup:search_summvars:table
+#
+# =============================================================================
+#
+
 class SearchSummVarsTable(metaio.Table):
 	tableName = "search_summvarsgroup:search_summvars:table"
 	validcolumns = {
@@ -350,6 +387,14 @@ class SearchSummVars(metaio.TableRow):
 
 SearchSummVarsTable.RowType = SearchSummVars
 
+
+#
+# =============================================================================
+#
+#                       sngl_burstgroup:sngl_burst:table
+#
+# =============================================================================
+#
 
 class SnglBurstTable(metaio.Table):
 	tableName = "sngl_burstgroup:sngl_burst:table"
@@ -407,6 +452,14 @@ class SnglBurst(metaio.TableRow):
 SnglBurstTable.RowType = SnglBurst
 
 
+#
+# =============================================================================
+#
+#                    sngl_inspiralgroup:sngl_inspiral:table
+#
+# =============================================================================
+#
+
 class SnglInspiralTable(metaio.Table):
 	tableName = "sngl_inspiralgroup:sngl_inspiral:table"
 	validcolumns = {
@@ -460,6 +513,14 @@ class SnglInspiral(metaio.TableRow):
 SnglInspiralTable.RowType = SnglInspiral
 
 
+#
+# =============================================================================
+#
+#                    sngl_inspiralgroup:sngl_ringdown:table
+#
+# =============================================================================
+#
+
 class SnglRingDownTable(metaio.Table):
 	tableName = "sngl_inspiralgroup:sngl_ringdown:table"
 	validcolumns = {
@@ -485,6 +546,14 @@ class SnglRingDown(metaio.TableRow):
 
 SnglRingDownTable.RowType = SnglRingDown
 
+
+#
+# =============================================================================
+#
+#                   multi_inspiralgroup:multi_inspiral:table
+#
+# =============================================================================
+#
 
 class MultiInspiralTable(metaio.Table):
 	tableName = "multi_inspiralgroup:multi_inspiral:table"
@@ -531,6 +600,14 @@ class MultiInspiral(metaio.TableRow):
 
 MultiInspiralTable.RowType = MultiInspiral
 
+
+#
+# =============================================================================
+#
+#                     sim_inspiralgroup:sim_inspiral:table
+#
+# =============================================================================
+#
 
 class SimInspiralTable(metaio.Table):
 	tableName = "sim_inspiralgroup:sim_inspiral:table"
@@ -594,6 +671,14 @@ class SimInspiral(metaio.TableRow):
 SimInspiralTable.RowType = SimInspiral
 
 
+#
+# =============================================================================
+#
+#                        sim_burstgroup:sim_burst:table
+#
+# =============================================================================
+#
+
 class SimBurstTable(metaio.Table):
 	tableName = "sim_burstgroup:sim_burst:table"
 	validcolumns = {
@@ -626,6 +711,14 @@ class SimBurst(metaio.TableRow):
 
 SimBurstTable.RowType = SimBurst
 
+
+#
+# =============================================================================
+#
+#                     sim_inspiralgroup:sim_ringdown:table
+#
+# =============================================================================
+#
 
 class SimRingDownTable(metaio.Table):
 	tableName = "sim_inspiralgroup:sim_ringdown:table"
@@ -665,6 +758,14 @@ class SimRingDown(metaio.TableRow):
 SimRingDownTable.RowType = SimRingDown
 
 
+#
+# =============================================================================
+#
+#                       summ_valuegroup:summ_value:table
+#
+# =============================================================================
+#
+
 class SummValueTable(metaio.Table):
 	tableName = "summ_valuegroup:summ_value:table"
 	validcolumns = {
@@ -686,6 +787,14 @@ class SummValue(metaio.TableRow):
 SummValueTable.RowType = SummValue
 
 
+#
+# =============================================================================
+#
+#                  sim_inst_paramsgroup:sim_inst_params:table
+#
+# =============================================================================
+#
+
 class SimInstParamsTable(metaio.Table):
 	tableName = "sim_inst_paramsgroup:sim_inst_params:table"
 	validcolumns = {
@@ -700,6 +809,14 @@ class SimInstParams(metaio.TableRow):
 
 SimInstParamsTable.RowType = SimInstParams
 
+
+#
+# =============================================================================
+#
+#                       stochasticgroup:stochastic:table
+#
+# =============================================================================
+#
 
 class StochasticTable(metaio.Table):
 	tableName = "stochasticgroup:stochastic:table"
@@ -725,6 +842,14 @@ class Stochastic(metaio.TableRow):
 StochasticTable.RowType = Stochastic
 
 
+#
+# =============================================================================
+#
+#                        stochsummgroup:stochsumm:table
+#
+# =============================================================================
+#
+
 class StochSummTable(metaio.Table):
 	tableName = "stochsummgroup:stochsumm:table"
 	validcolumns = {
@@ -748,6 +873,14 @@ class StochSumm(metaio.TableRow):
 
 StochSummTable.RowType = StochSumm
 
+
+#
+# =============================================================================
+#
+#                            external_trigger:table
+#
+# =============================================================================
+#
 
 class ExtTriggersTable(metaio.Table):
 	tableName = "external_trigger:table"
@@ -800,6 +933,14 @@ class ExtTriggers(metaio.TableRow):
 ExtTriggersTable.RowType = ExtTriggers
 
 
+#
+# =============================================================================
+#
+#                           filtergroup:filter:table
+#
+# =============================================================================
+#
+
 class FilterTable(metaio.Table):
 	tableName = "filtergroup:filter:table"
 	validcolumns = {
@@ -815,6 +956,16 @@ class Filter(metaio.TableRow):
 
 FilterTable.RowType = Filter
 
+
+#
+# =============================================================================
+#
+#                               Content Handler
+#
+# =============================================================================
+#
+
+# Table name ---> table type mapping.
 
 TableByName = {
 	ProcessTable.tableName: ProcessTable,
