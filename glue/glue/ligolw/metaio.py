@@ -9,7 +9,7 @@ from xml import sax
 import ligolw
 
 
-StringTypes = ["ilwd:char", "ilwd:char_u", "lstring", "string"]
+StringTypes = ["char_s", "ilwd:char", "ilwd:char_u", "lstring", "string"]
 IntTypes = ["int_2s", "int_2u", "int_4s", "int_4u", "int_8s", "int_8u", "int"]
 FloatTypes = ["real_4", "real_8", "float", "double"]
 Types = StringTypes + IntTypes + FloatTypes
