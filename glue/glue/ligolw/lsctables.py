@@ -960,6 +960,93 @@ FilterTable.RowType = Filter
 #
 # =============================================================================
 #
+#                                segment:table
+#
+# =============================================================================
+#
+
+class SegmentTable(metaio.Table):
+	tableName = "segment:table"
+	validcolumns = {
+		"creator_db": "int_4s",
+		"process_id": "ilwd:char",
+		"segment_id": "ilwd:char",
+		"start_time": "int_4s",
+		"start_time_ns": "int_4s",
+		"end_time": "int_4s",
+		"end_time_ns": "int_4s",
+		"active": "int_4s",
+		"segnum": "int_4s",
+		"insertion_time": "int_4s"
+	}
+
+class Segment(metaio.TableRow):
+	__slots__ = SegmentTable.validcolumns.keys()
+
+SegmentTable.RowType = Segment
+
+
+#
+# =============================================================================
+#
+#                            segment_def_map:table
+#
+# =============================================================================
+#
+
+class SegmentDefMapTable(metaio.Table):
+	tableName = "segment_def_map:table"
+	validcolumns = {
+		"creator_db": "int_4s",
+		"process_id": "ilwd_char",
+		"seg_def_map_id": "ilwd_char",
+		"segment_cdb": "int_4s",
+		"segment_id": "ilwd:char",
+		"segment_def_cdb": "int_4s",
+		"segment_def_id": "ilwd:char",
+		"state_vec_map": "int_4s",
+		"insertion_time": "int_4s"
+	}
+
+class SegmentDefMap(metaio.TableRow):
+	__slots__ = SegmentDefMapTable.validcolumns.keys()
+
+SegmentDefMapTable.RowType = SegmentDefMap
+
+
+#
+# =============================================================================
+#
+#                            segment_definer:table
+#
+# =============================================================================
+#
+
+class SegmentDefTable(metaio.Table):
+	tableName = "segment_definer:table"
+	validcolumns = {
+		"creator_db": "int_4s",
+		"process_id": "ilwd_char",
+		"segment_def_id": "ilwd:char",
+		"run": "char_s",
+		"ifos": "char_s",
+		"name": "lstring",
+		"version": "int_4s",
+		"comment": "lstring",
+		"state_vec_major": "int_4s",
+		"state_vec_minor": "int_4s",
+		"insertion_time": "int_4s"
+	}
+
+class SegmentDef(metaio.TableRow):
+	__slots__ = SegmentDefTable.validcolumns.keys()
+
+SegmentDefTable.RowType = SegmentDef
+
+
+#
+# =============================================================================
+#
 #                               Content Handler
 #
 # =============================================================================
