@@ -998,8 +998,8 @@ class SegmentDefMapTable(metaio.Table):
 	tableName = "segment_def_map:table"
 	validcolumns = {
 		"creator_db": "int_4s",
-		"process_id": "ilwd_char",
-		"seg_def_map_id": "ilwd_char",
+		"process_id": "ilwd:char",
+		"seg_def_map_id": "ilwd:char",
 		"segment_cdb": "int_4s",
 		"segment_id": "ilwd:char",
 		"segment_def_cdb": "int_4s",
@@ -1026,7 +1026,7 @@ class SegmentDefTable(metaio.Table):
 	tableName = "segment_definer:table"
 	validcolumns = {
 		"creator_db": "int_4s",
-		"process_id": "ilwd_char",
+		"process_id": "ilwd:char",
 		"segment_def_id": "ilwd:char",
 		"run": "char_s",
 		"ifos": "char_s",
