@@ -515,13 +515,13 @@ SnglInspiralTable.RowType = SnglInspiral
 #
 # =============================================================================
 #
-#                    sngl_inspiralgroup:sngl_ringdown:table
+#                    sngl_ringdowngroup:sngl_ringdown:table
 #
 # =============================================================================
 #
 
 class SnglRingDownTable(metaio.Table):
-	tableName = "sngl_inspiralgroup:sngl_ringdown:table"
+	tableName = "sngl_ringdowngroup:sngl_ringdown:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
 		"ifo": "lstring",
@@ -714,13 +714,13 @@ SimBurstTable.RowType = SimBurst
 #
 # =============================================================================
 #
-#                     sim_inspiralgroup:sim_ringdown:table
+#                     sim_ringdowngroup:sim_ringdown:table
 #
 # =============================================================================
 #
 
 class SimRingDownTable(metaio.Table):
-	tableName = "sim_inspiralgroup:sim_ringdown:table"
+	tableName = "sim_ringdowngroup:sim_ringdown:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
 		"waveform": "lstring",
@@ -959,13 +959,13 @@ FilterTable.RowType = Filter
 #
 # =============================================================================
 #
-#                                segment:table
+#                          segmentgroup:segment:table
 #
 # =============================================================================
 #
 
 class SegmentTable(metaio.Table):
-	tableName = "segment:table"
+	tableName = "segmentgroup:segment:table"
 	validcolumns = {
 		"creator_db": "int_4s",
 		"process_id": "ilwd:char",
@@ -975,8 +975,7 @@ class SegmentTable(metaio.Table):
 		"end_time": "int_4s",
 		"end_time_ns": "int_4s",
 		"active": "int_4s",
-		"segnum": "int_4s",
-		"insertion_time": "int_4s"
+		"segnum": "int_4s"
 	}
 
 class Segment(metaio.TableRow):
@@ -988,13 +987,13 @@ SegmentTable.RowType = Segment
 #
 # =============================================================================
 #
-#                            segment_def_map:table
+#                  segment_def_mapgroup:segment_def_map:table
 #
 # =============================================================================
 #
 
 class SegmentDefMapTable(metaio.Table):
-	tableName = "segment_def_map:table"
+	tableName = "segment_def_mapgroup:segment_def_map:table"
 	validcolumns = {
 		"creator_db": "int_4s",
 		"process_id": "ilwd:char",
@@ -1003,8 +1002,7 @@ class SegmentDefMapTable(metaio.Table):
 		"segment_id": "ilwd:char",
 		"segment_def_cdb": "int_4s",
 		"segment_def_id": "ilwd:char",
-		"state_vec_map": "int_4s",
-		"insertion_time": "int_4s"
+		"state_vec_map": "int_4s"
 	}
 
 class SegmentDefMap(metaio.TableRow):
@@ -1016,25 +1014,24 @@ SegmentDefMapTable.RowType = SegmentDefMap
 #
 # =============================================================================
 #
-#                            segment_definer:table
+#                  segment_definergroup:segment_definer:table
 #
 # =============================================================================
 #
 
 class SegmentDefTable(metaio.Table):
-	tableName = "segment_definer:table"
+	tableName = "segment_definergroup:segment_definer:table"
 	validcolumns = {
 		"creator_db": "int_4s",
 		"process_id": "ilwd:char",
 		"segment_def_id": "ilwd:char",
-		"run": "char_s",
-		"ifos": "char_s",
+		"run": "lstring",
+		"ifos": "lstring",
 		"name": "lstring",
 		"version": "int_4s",
 		"comment": "lstring",
 		"state_vec_major": "int_4s",
-		"state_vec_minor": "int_4s",
-		"insertion_time": "int_4s"
+		"state_vec_minor": "int_4s"
 	}
 
 class SegmentDef(metaio.TableRow):
