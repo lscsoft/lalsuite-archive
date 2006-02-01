@@ -95,7 +95,8 @@ CREATE TABLE sngl_inspiral
 
       CONSTRAINT s_inspiral_fk_pid
       FOREIGN KEY (process_id, creator_db)
-          REFERENCES process(process_id, creator_db),
+          REFERENCES process(process_id, creator_db)
+          ON DELETE CASCADE,
 
 -- Note that filter_id is allowed to be null, in which case no check is made.
       CONSTRAINT s_inspiral_fk_filt
