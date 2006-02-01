@@ -169,6 +169,18 @@ class Table(ligolw.Table):
 				raise ligolw.ElementError, "Stream name %s does not match Table name %s" % (child.getAttribute("Name"), self.getAttribute("Name"))
 		ligolw.Table.appendChild(self, child)
 
+	def removeChild(self, child):
+		"""
+		Remove a child from this element.  The child element is
+		returned, and it's parentNode element is reset.
+		"""
+		ligolw.Table.removeChild(self, child)
+		if child.tagName == ligolw.Column.tagName:
+			colname = child.getAttribute("Name").split(":")[-1]
+			for n in [n for n, item in enumerate(self.columninfo) if item[0] == colname]:
+				del self.columinfo[n]
+		return child
+
 	def appendRow(self, row):
 		"""
 		Append row to the list of rows for this table.
