@@ -75,12 +75,14 @@ CREATE TABLE multi_inspiral
 
       CONSTRAINT m_inspiral_fk_pid
       FOREIGN KEY (process_id, creator_db)
-          REFERENCES process(process_id, creator_db),
+          REFERENCES process(process_id, creator_db)
+          ON DELETE CASCADE,
 
 -- Note that filter_id is allowed to be null, in which case no check is made.
       CONSTRAINT m_inspiral_fk_filt
       FOREIGN KEY (filter_id, creator_db)
           REFERENCES filter(filter_id, creator_db)
+          ON DELETE CASCADE
 )
 -- The following line is needed for this table to be replicated to other sites
 DATA CAPTURE CHANGES

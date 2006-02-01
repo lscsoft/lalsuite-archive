@@ -102,6 +102,7 @@ CREATE TABLE sngl_inspiral
       CONSTRAINT s_inspiral_fk_filt
       FOREIGN KEY (filter_id, creator_db)
           REFERENCES filter(filter_id, creator_db)
+          ON DELETE CASCADE
 )
 -- The following line is needed for this table to be replicated to other sites
 DATA CAPTURE CHANGES
