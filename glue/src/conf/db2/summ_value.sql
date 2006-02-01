@@ -47,7 +47,8 @@ CREATE TABLE summ_value
 
       CONSTRAINT summval_fk_pid
       FOREIGN KEY (process_id, creator_db)
-          REFERENCES process(process_id, creator_db),
+          REFERENCES process(process_id, creator_db)
+          ON DELETE CASCADE,
 
 -- If segment_group or frameset_group is non-null, make sure there is a
 -- corresponding entry in the appropriate table.  If null, then no
