@@ -22,6 +22,7 @@ CREATE TABLE summ_mime
 -- Group name for frameset which determined this time interval, if any
       frameset_group     VARCHAR(48),
 -- Group and version of segment which determined this time interval, if any
+      segment_def_cdb    INTEGER NOT NULL WITH DEFAULT 1,
       segment_def_id     CHAR(13) FOR BIT DATA,
 -- Start and end times (in GPS seconds and nanoseconds)
       start_time         INTEGER NOT NULL,
@@ -57,18 +58,8 @@ CREATE TABLE summ_mime
 -- Note that process_id is allowed to be null, in which case no check is made.
       CONSTRAINT summmime_fk_pid
       FOREIGN KEY (process_id, creator_db)
-          REFERENCES process(process_id, creator_db),
-
--- If segment_group or frameset_group is non-null, make sure there is a
--- corresponding entry in the appropriate table.  If null, then no
--- foreign-key check is performed.
-      CONSTRAINT summmime_fk_seg
-      FOREIGN KEY (segment_def_id,creator_db)
-          REFERENCES segment_definer(segment_def_id,creator_db),
-
-      CONSTRAINT summmime_fk_fs
-      FOREIGN KEY (frameset_group, start_time, end_time)
-          REFERENCES frameset(frameset_group, start_time, end_time)
+          REFERENCES process(process_id, creator_db)
+          ON DELETE CASCADE
 )
 -- The following line is needed for this table to be replicated to other sites
 DATA CAPTURE CHANGES
