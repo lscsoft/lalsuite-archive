@@ -29,11 +29,10 @@ def New(Type):
 
 		table = lsctables.New(lsctables.ProcessTable)
 	"""
-	attrs = sax.xmlreader.AttributesImpl({u"Name": Type.tableName})
-	table = Type(attrs)
-	for name, type in table.validcolumns.items():
-		table.appendChild(metaio.Column(sax.xmlreader.AttributesImpl({u"Name": ":".join(Type.tableName.split(":")[:-1]) + ":" + name, u"Type": type})))
-	table.appendChild(metaio.Stream(attrs))
+	table = Type(sax.xmlreader.AttributesImpl({u"Name": Type.tableName}))
+	for key, value in table.validcolumns.items():
+		table.appendChild(metaio.Column(sax.xmlreader.AttributesImpl({u"Name": ":".join(Type.tableName.split(":")[:-1]) + ":" + key, u"Type": value})))
+	table.appendChild(metaio.Stream(sax.xmlreader.AttributesImpl({u"Name": Type.tableName})))
 	return table
 
 
