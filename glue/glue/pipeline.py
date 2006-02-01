@@ -2222,3 +2222,137 @@ class LSCDataFindNode(CondorDAGNode, AnalysisNode):
       return self.__lfn_list
     else:        
       return self.__output
+
+
+class LigolwAddJob(CondorDAGJob, AnalysisJob):
+  """
+  A ligolw_add job can be used to concatenate several ligo lw files
+  """
+  def __init__(self,cp,log_dir,dax=False):
+    """
+    cp = ConfigParser object from which options are read.
+    """
+    self.__executable = cp.get('condor','ligolw_add')
+    self.__universe = 'vanilla'
+    pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+    pipeline.AnalysisJob.__init__(self,cp,dax)
+
+    self.add_condor_cmd('getenv','True')
+
+    self.set_stdout_file(os.path.join( log_dir, 'ligolw_add-$(macrochannelname)-$(macrogpsstarttime)-$(macrogpsendtime)-$(cluster)-$(process).out') )
+    self.set_stderr_file(os.path.join( log_dir, 'ligolw_add-$(macrochannelname)-$(macrogpsstarttime)-$(macrogpsendtime)-$(cluster)-$(process).err') )
+    self.set_sub_file('ligolw_add.sub')
+
+
+class LigolwAddNode(CondorDAGNode, AnalysisNode):
+  """
+  Runs an instance of ligolw_add in a Condor DAG.
+  """
+  def __init__(self,job):
+    """
+    @param job: A CondorDAGJob that can run an instance of ligolw_add
+    """
+    CondorDAGNode.__init__(self,job)
+    AnalysisNode.__init__(self)
+
+
+class LDBDCJob(CondorDAGJob, AnalysisJob):
+  """
+  A ldbdc job can be used to insert data or fetch data from the database.
+  """
+  def __init__(self,cp,log_dir,dax=False):
+    """
+    cp = ConfigParser object from which options are read.
+    """
+    self.__executable = cp.get('condor','ldbdc')
+    self.__universe = 'scheduler'
+    pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+    pipeline.AnalysisJob.__init__(self,cp,dax)
+
+    self.add_condor_cmd('getenv','True')
+
+    self.set_stdout_file(os.path.join( log_dir, 'ldbdc-$(macrochannelname)-$(macrogpsstarttime)-$(macrogpsendtime)-$(cluster)-$(process).out') )
+    self.set_stderr_file(os.path.join( log_dir, 'ldbdc-$(macrochannelname)-$(macrogpsstarttime)-$(macrogpsendtime)-$(cluster)-$(process).err') )
+    self.set_sub_file('ldbdc.sub')
+
+
+class LDBDCNode(CondorDAGNode, AnalysisNode):
+  """
+  Runs an instance of ldbdc in a Condor DAG.
+  """
+  def __init__(self,job):
+    """
+    @param job: A CondorDAGJob that can run an instance of ligolw_add
+    """
+    CondorDAGNode.__init__(self,job)
+    AnalysisNode.__init__(self)
+    self.__server = None
+    self.__identity = None
+    self.__insert = None
+    self.__pfn = None
+    self.__query = None
+
+  def set_server(self, server):
+    """
+    Set the server name.
+    """
+    self.add_var_opt('server',server)
+    self.__server = server
+
+  def get_server(self, server):
+    """
+    Get the server name.
+    """
+    return self.__server
+
+  def set_identity(self, identity):
+    """
+    Set the identity name.
+    """
+    self.add_var_opt('identity',identity)
+    self.__identity = identity
+
+  def get_identity(self, identity):
+    """
+    Get the identity name.
+    """
+    return self.__identity
+
+  def set_insert(self, insert):
+    """
+    Set the insert name.
+    """
+    self.add_var_opt('insert',insert)
+    self.__insert = insert
+
+  def get_insert(self, insert):
+    """
+    Get the insert name.
+    """
+    return self.__insert
+
+  def set_pfn(self, pfn):
+    """
+    Set the pfn name.
+    """
+    self.add_var_opt('pfn',pfn)
+    self.__pfn = pfn
+
+  def get_pfn(self, pfn):
+    """
+    Get the pfn name.
+    """
+    return self.__pfn
+
+  def set_query(self, query):
+    """
+    Set the query name.
+    """
+    self.add_var_opt('query',query)
+    self.__query = query
+
+  def get_query(self, query):
+    """
+    Get the query name.
+    """
+    return self.__query
