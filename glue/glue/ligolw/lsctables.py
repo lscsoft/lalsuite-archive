@@ -1071,7 +1071,10 @@ TableByName = {
 	StochasticTable.tableName: StochasticTable,
 	StochSummTable.tableName: StochSummTable,
 	ExtTriggersTable.tableName: ExtTriggersTable,
-	FilterTable.tableName: FilterTable
+	FilterTable.tableName: FilterTable,
+	SegmentTable.tableName: SegmentTable,
+	SegmentDefMapTable.tableName: SegmentDefMapTable,
+	SegmentDefTable.tableName: SegmentDefTable
 }
 
 
