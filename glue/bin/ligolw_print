@@ -1,0 +1,106 @@
+#!/usr/bin/python
+
+"""
+Print things from LIGO Lw XML files.  Inspired by lwtprint from LIGOTools.
+"""
+
+__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__date__ = "$Date$"
+__version__ = "$Revision$"
+
+
+#
+# Preamble.
+#
+
+from optparse import OptionParser
+import sys
+import urllib
+from xml import sax
+
+from glue import lal
+from glue import segments
+from glue.ligolw import ligolw
+from glue.ligolw import lsctables
+from glue.ligolw import docutils
+
+
+#
+# Parse command line.
+#
+
+parser = OptionParser(version = "%prog CVS $Id$")
+parser.add_option("-i", "--input-cache", metavar = "CACHEFILE", action = "append", help = "get input files from trigger cache CACHEFILE")
+parser.add_option("-c", "--column", metavar = "COLUMN", action = "append", help = "print column named COLUMN")
+parser.add_option("-d", "--delimiter", metavar = "DELIMITER", action = "store", help = "delimit output with DELIMITER")
+parser.add_option("-r", "--rows", metavar = "ROWSPEC", action = "append", help = "print rows in the range(s) ROWSPEC")
+parser.add_option("-t", "--table", metavar = "TABLE", action = "append", help = "read from table TABLE")
+parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
+options, urls = parser.parse_args()
+del parser
+
+# add urls from cache files
+if options.input_cache:
+	for cache in options.input_cache:
+		urls += [c.url for c in map(lal.CacheEntry, file(cache))]
+
+if len(urls) < 1:
+	raise Exception, "no input files!"
+
+if not options.delimiter:
+	options.delimiter = ","
+
+
+#
+# How to construct the content handler.
+#
+
+def ContentHandler(doc):
+	if options.table:
+		return docutils.PartialLIGOLWContentHandler(doc, lambda name, attrs: (name == ligolw.Table.tagName) and (attrs["Name"] in options.table))
+	else:
+		return lsctables.LIGOLWContentHandler(doc)
+
+
+#
+# How to read a document
+#
+
+def load_document(url):
+	doc = ligolw.Document()
+	if options.verbose:
+		print >>sys.stderr, "Reading %s" % url
+	sax.parse(urllib.urlopen(url), ContentHandler(doc))
+	return doc
+
+
+#
+# How to find the tables to dump
+#
+
+def get_tables(doc):
+	if options.table:
+		return doc.getElements(lambda e: (e.tagName == ligolw.Table.tagName) and (e.getAttribute("Name") in options.table))
+	else:
+		return doc.getElements(lambda e: (e.tagName == ligolw.Table.tagName))
+
+
+#
+# How to print a row
+#
+
+def print_row(table, row):
+	if options.column:
+		return options.delimiter.join(map(lambda key: str(getattr(row, key)), options.column))
+	else:
+		return options.delimiter.join(map(lambda key: str(getattr(row, key[0])), table.columninfo))
+
+
+#
+# Loop over all input documents.
+#
+
+for url in urls:
+	for table in get_tables(load_document(url)):
+		for row in table:
+			print print_row(table, row)
