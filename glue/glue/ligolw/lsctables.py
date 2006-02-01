@@ -975,7 +975,8 @@ class SegmentTable(metaio.Table):
 		"end_time": "int_4s",
 		"end_time_ns": "int_4s",
 		"active": "int_4s",
-		"segnum": "int_4s"
+		"segnum": "int_4s",
+		"insertion_time": "int_4s"
 	}
 
 class Segment(metaio.TableRow):
@@ -1002,7 +1003,8 @@ class SegmentDefMapTable(metaio.Table):
 		"segment_id": "ilwd:char",
 		"segment_def_cdb": "int_4s",
 		"segment_def_id": "ilwd:char",
-		"state_vec_map": "int_4s"
+		"state_vec_map": "int_4s",
+		"insertion_time": "int_4s"
 	}
 
 class SegmentDefMap(metaio.TableRow):
@@ -1031,7 +1033,8 @@ class SegmentDefTable(metaio.Table):
 		"version": "int_4s",
 		"comment": "lstring",
 		"state_vec_major": "int_4s",
-		"state_vec_minor": "int_4s"
+		"state_vec_minor": "int_4s",
+		"insertion_time": "int_4s"
 	}
 
 class SegmentDef(metaio.TableRow):
