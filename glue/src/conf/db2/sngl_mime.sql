@@ -50,6 +50,7 @@ CREATE TABLE sngl_mime
       CONSTRAINT s_mime_fk_pid
       FOREIGN KEY (process_id, creator_db)
           REFERENCES process(process_id, creator_db)
+          ON DELETE CASCADE
 
 -- We cannot set up a foreign key based on event_id since the parent
 -- table varies.  Instead, we set up a trigger to do the equivalent check.
