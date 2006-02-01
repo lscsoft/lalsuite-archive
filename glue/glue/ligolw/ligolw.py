@@ -106,7 +106,7 @@ class Element(object):
 		Remove a child from this element.  The child element is
 		returned, and it's parentNode element is reset.
 		"""
-		del self.childNodes[self.childNodes.index(child)]
+		self.childNodes.remove(child)
 		child.parentNode = None
 		return child
 
