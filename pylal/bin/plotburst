@@ -7,8 +7,10 @@ from xml import sax
 from glue import lal
 from matplotlib.patches import Patch
 from pylab import *
-from pylal.ligolw import ligolw
-from pylal.ligolw import laltables
+from glue.ligolw import ligolw
+from glue.ligolw import metaio
+from glue.ligolw import lsctables
+from glue.ligolw import docutils
 from pylal import viz
 
 ###############################################################################
@@ -50,30 +52,34 @@ if not len(args):
 
 # override row type for SnglBurstTable with one having only the attributes we
 # want (saves memory and increases speed a little teensy bit)
-class Row(object):
+class Row(metaio.TableRow):
 	__slots__ = ["start_time", "start_time_ns", "duration", "confidence", "snr", "central_freq", "bandwidth"]
 	def get_start(self):
 		return lal.LIGOTimeGPS(self.start_time, self.start_time_ns)
 
-laltables.SnglBurstTable.RowType = Row
+lsctables.SnglBurstTable.RowType = Row
 
 # read in the trigger files and find the sngl_burst table
-def LoadDocuments(fnames):
+def SnglBurstOnlyHandler(doc):
+	return docutils.PartialLIGOLWContentHandler(doc, lambda name, attrs: (name == ligolw.Table.tagName) and (attrs["Name"] == lsctables.SnglBurstTable.tableName))
+
+def LoadSnglBurst(fnames):
 	doc = ligolw.Document()
-	handler = laltables.LIGOLWContentHandler(doc)
+	handler = SnglBurstOnlyHandler(doc)
 	for name in fnames:
 		sax.parse(file(name), handler)
-	return doc
+	docutils.MergeCompatibleTables(doc)
+	return doc.childNodes[0]
 
-[table] = LoadDocuments(args).childNodes[0].getElementsByAttribute("Name", laltables.SnglBurstTable.tableName)
+table = LoadSnglBurst(args)
 
 # extract some arrays from the trigger table
 start_time = asarray([float(row.get_start()) for row in table.rows])
-duration = table.getColumnsByName("duration")[0].asarray()
-confidence = table.getColumnsByName("confidence")[0].asarray()
-snr = table.getColumnsByName("snr")[0].asarray()
-central_freq = table.getColumnsByName("central_freq")[0].asarray()
-bandwidth = table.getColumnsByName("bandwidth")[0].asarray()
+duration = table.getColumnByName("duration").asarray()
+confidence = table.getColumnByName("confidence").asarray()
+snr = table.getColumnByName("snr").asarray()
+central_freq = table.getColumnByName("central_freq").asarray()
+bandwidth = table.getColumnByName("bandwidth").asarray()
 lo_freq = central_freq - 0.5 * bandwidth
 
 # free some memory
