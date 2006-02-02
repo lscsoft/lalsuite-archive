@@ -2228,7 +2228,7 @@ class LigolwAddJob(CondorDAGJob, AnalysisJob):
   """
   A ligolw_add job can be used to concatenate several ligo lw files
   """
-  def __init__(self,cp,log_dir,dax=False):
+  def __init__(self,log_dir,cp,dax=False):
     """
     cp = ConfigParser object from which options are read.
     """
@@ -2260,7 +2260,7 @@ class LDBDCJob(CondorDAGJob, AnalysisJob):
   """
   A ldbdc job can be used to insert data or fetch data from the database.
   """
-  def __init__(self,cp,log_dir,dax=False):
+  def __init__(self,log_dir,cp,dax=False):
     """
     cp = ConfigParser object from which options are read.
     """
