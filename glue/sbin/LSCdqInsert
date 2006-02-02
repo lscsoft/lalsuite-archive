@@ -265,7 +265,7 @@ if not ping:
     "program" : "lstring",
     "version" : "lstring",
     "cvs_repository" : "lstring",
-    "cvs_entry_time" : "lstring",
+    "cvs_entry_time" : "int_4s",
     "is_online" : "int_4s",
     "node" : "lstring",
     "username" : "lstring",
