@@ -992,12 +992,23 @@ class SegmentTable(metaio.Table):
 	}
 
 	def segmentlist(self, key, active = 1):
-		seglist = segments.segmentlist([row.segment() for row in self if (row.process_id == key) and (row.active * active > 0)])
+		"""
+		Return the segment list having process_id equal to key, and
+		with the activity flag having the same sign as active.  The
+		list represents exactly the rows in the table, in order;
+		in other words it has not been coalesced.
+		"""
+		if not active:
+			raise ValueError, "segmentlist(): activity flag must != 0."
+		return segments.segmentlist([row.segment() for row in self if (row.process_id == key) and (row.active * active > 0)])
 
 class Segment(metaio.TableRow):
 	__slots__ = SegmentTable.validcolumns.keys()
 
 	def segment(self):
+		"""
+		Return the segment described by this row.
+		"""
 		return segments.segment(lal.LIGOTimeGPS(self.start_time, self.start_time_ns), lal.LIGOTimeGPS(self.end_time, self.end_time_ns))
 
 SegmentTable.RowType = Segment
