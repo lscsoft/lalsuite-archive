@@ -18,6 +18,7 @@ import sys
 import urllib
 from xml import sax
 
+from glue import segments
 from glue.ligolw import ligolw
 from glue.ligolw import metaio
 from glue.ligolw import lsctables
@@ -54,6 +55,27 @@ if not options.delimiter:
 if options.table:
 	options.table = map(metaio.StripTableName, options.table)
 
+# turn row requests into a segment list
+if options.rows:
+	rowlist = segments.segmentlist([])
+	for parts in map(lambda x: str.split(x, ":"), options.rows):
+		if len(parts) == 1:
+			rowlist.append(segments.segment(int(parts[0]), int(parts[0])))
+		elif len(parts) != 2:
+			raise ValueError, "invalid rowspec \"" + ":".join(parts) + "\""
+		else:
+			try:
+				parts[0] = int(parts[0])
+			except ValueError:
+				parts[0] = -segments.infinity()
+			try:
+				parts[1] = int(parts[1])
+			except ValueError:
+				parts[1] = segments.infinity()
+			if parts[1] > parts[0]:
+				parts[1] -= 1
+			rowlist.append(segments.segment(parts[0], parts[1]))
+
 
 #
 # How to construct the content handler.
@@ -71,9 +93,9 @@ def ContentHandler(doc):
 #
 
 def load_document(url):
-	doc = ligolw.Document()
 	if options.verbose:
 		print >>sys.stderr, "Reading %s" % url
+	doc = ligolw.Document()
 	sax.parse(urllib.urlopen(url), ContentHandler(doc))
 	return doc
 
@@ -87,6 +109,14 @@ def get_tables(doc):
 		return doc.getElements(lambda e: (e.tagName == ligolw.Table.tagName) and (metaio.StripTableName(e.getAttribute("Name")) in options.table))
 	else:
 		return doc.getElements(lambda e: (e.tagName == ligolw.Table.tagName))
+
+
+#
+# How to choose rows
+#
+
+def is_requested_row(n):
+	return (not options.rows) or (n in rowlist)
 
 
 #
@@ -106,5 +136,6 @@ def row_string(table, row):
 
 for url in urls:
 	for table in get_tables(load_document(url)):
-		for row in table:
-			print row_string(table, row)
+		for n, row in enumerate(table):
+			if is_requested_row(n):
+				print row_string(table, row)
