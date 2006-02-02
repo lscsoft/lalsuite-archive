@@ -14,6 +14,7 @@ from glue import lal
 from glue import segments
 from glue import segmentsUtils
 from glue.ligolw import ligolw
+from glue.ligolw import metaio
 from glue.ligolw import lsctables
 from glue.ligolw import docutils
 
