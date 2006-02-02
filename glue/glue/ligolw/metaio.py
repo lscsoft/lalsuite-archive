@@ -159,7 +159,7 @@ class Stream(ligolw.Stream):
 		if match != None:
 			self.pcdata = self.pcdata[match.end():]
 
-		# construct row objects from tokens
+		# construct row objects from tokens, and append to parent
 		while len(self.tokens) >= len(self.parentNode.columninfo):
 			row = self.parentNode.RowType()
 			for i, (colname, pytype) in enumerate(self.parentNode.columninfo):
@@ -176,9 +176,9 @@ class Stream(ligolw.Stream):
 		strs = []
 		for column in columns:
 			if column.getAttribute("Type") in StringTypes:
-				strs += ["\"" + getattr(row, StripColumnName(column.getAttribute("Name"))) + "\""]
+				strs.append("\"" + getattr(row, StripColumnName(column.getAttribute("Name"))) + "\"")
 			else:
-				strs += [str(getattr(row, StripColumnName(column.getAttribute("Name"))))]
+				strs.append(str(getattr(row, StripColumnName(column.getAttribute("Name")))))
 		return self.getAttribute("Delimiter").join(strs)
 
 	def write(self, file = sys.stdout, indent = ""):
@@ -189,11 +189,9 @@ class Stream(ligolw.Stream):
 		print >>file, indent + self.start_tag()
 		rowiter = iter(self.parentNode)
 		try:
-			row = rowiter.next()
-			file.write(indent + ligolw.Indent + self._rowstr(row, columns))
+			file.write(indent + ligolw.Indent + self._rowstr(rowiter.next(), columns))
 			while True:
-				row = rowiter.next()
-				file.write(self.getAttribute("Delimiter") + "\n" + indent + ligolw.Indent + self._rowstr(row, columns))
+				file.write(self.getAttribute("Delimiter") + "\n" + indent + ligolw.Indent + self._rowstr(rowiter.next(), columns))
 		except StopIteration:
 			file.write("\n")
 		print >>file, indent + self.end_tag()
@@ -225,11 +223,10 @@ class Table(ligolw.Table):
 		return iter(self.rows)
 
 	def getColumnByName(self, name):
-		cols = self.getElements(lambda e: (e.tagName == ligolw.Column.tagName) and (CompareColumnNames(e.getAttribute("Name"), name) == 0))
 		try:
-			return cols[0]
+			return self.getElements(lambda e: (e.tagName == ligolw.Column.tagName) and (CompareColumnNames(e.getAttribute("Name"), name) == 0))[0]
 		except IndexError:
-			raise KeyError, "no Column with name %s" % name
+			raise KeyError, "no Column matching name %s" % name
 
 	def appendChild(self, child):
 		if child.tagName == ligolw.Column.tagName:
@@ -262,8 +259,7 @@ class Table(ligolw.Table):
 		"""
 		ligolw.Table.removeChild(self, child)
 		if child.tagName == ligolw.Column.tagName:
-			colname = StripColumnName(child.getAttribute("Name"))
-			for n in [n for n, item in enumerate(self.columninfo) if item[0] == colname]:
+			for n in [n for n, item in enumerate(self.columninfo) if item[0] == StripColumnName(child.getAttribute("Name"))]:
 				del self.columinfo[n]
 		return child
 
