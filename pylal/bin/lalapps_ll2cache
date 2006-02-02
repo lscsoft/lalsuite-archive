@@ -35,9 +35,7 @@ def SearchSummaryFilter(name, attrs):
 	"""
 	Return True if name, attrs describes a search summary table.
 	"""
-	if name != ligolw.Table.tagName:
-		return False
-	return attrs["Name"] == lsctables.SearchSummaryTable.tableName
+	return lsctables.IsTableProperties(lsctables.SearchSummaryTable, name, attrs)
 
 
 #

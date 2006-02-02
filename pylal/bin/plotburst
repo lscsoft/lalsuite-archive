@@ -61,7 +61,7 @@ lsctables.SnglBurstTable.RowType = Row
 
 # read in the trigger files and find the sngl_burst table
 def SnglBurstOnlyHandler(doc):
-	return docutils.PartialLIGOLWContentHandler(doc, lambda name, attrs: (name == ligolw.Table.tagName) and (attrs["Name"] == lsctables.SnglBurstTable.tableName))
+	return docutils.PartialLIGOLWContentHandler(doc, lambda name, attrs: lsctables.IsTableProperties(lsctables.SnglBurstTable, name, attrs))
 
 def LoadSnglBurst(fnames):
 	doc = ligolw.Document()
