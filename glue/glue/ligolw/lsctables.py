@@ -21,9 +21,13 @@ import metaio
 #
 
 
-def New(Type):
+def New(Type, columns = None):
 	"""
-	Convenience function for constructing pre-defined LSC tables.
+	Convenience function for constructing pre-defined LSC tables.  The
+	optional columns argument is a list of the names of the columns the
+	table should be constructed with.  If columns = None, then the
+	table is constructed with all valid columns included (pass columns
+	= [] to create a table with no columsn).
 
 	Example:
 		import lsctables
@@ -32,7 +36,8 @@ def New(Type):
 	"""
 	table = Type(sax.xmlreader.AttributesImpl({u"Name": Type.tableName}))
 	for key, value in table.validcolumns.items():
-		table.appendChild(metaio.Column(sax.xmlreader.AttributesImpl({u"Name": ":".join(Type.tableName.split(":")[:-1]) + ":" + key, u"Type": value})))
+		if (columns == None) or (key in columns):
+			table.appendChild(metaio.Column(sax.xmlreader.AttributesImpl({u"Name": ":".join(Type.tableName.split(":")[:-1]) + ":" + key, u"Type": value})))
 	table.appendChild(metaio.Stream(sax.xmlreader.AttributesImpl({u"Name": Type.tableName})))
 	return table
 
