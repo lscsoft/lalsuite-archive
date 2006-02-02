@@ -19,6 +19,7 @@ import urllib
 from xml import sax
 
 from glue.ligolw import ligolw
+from glue.ligolw import metaio
 from glue.ligolw import lsctables
 from glue.ligolw import docutils
 
@@ -45,8 +46,13 @@ if options.input_cache:
 if len(urls) < 1:
 	raise Exception, "no input files!"
 
+# set the default delimiter
 if not options.delimiter:
 	options.delimiter = ","
+
+# strip table names
+if options.table:
+	options.table = map(metaio.StripTableName, options.table)
 
 
 #
@@ -55,7 +61,7 @@ if not options.delimiter:
 
 def ContentHandler(doc):
 	if options.table:
-		return docutils.PartialLIGOLWContentHandler(doc, lambda name, attrs: (name == ligolw.Table.tagName) and (attrs["Name"] in options.table))
+		return docutils.PartialLIGOLWContentHandler(doc, lambda name, attrs: (name == ligolw.Table.tagName) and (metaio.StripTableName(attrs["Name"]) in options.table))
 	else:
 		return lsctables.LIGOLWContentHandler(doc)
 
@@ -78,7 +84,7 @@ def load_document(url):
 
 def get_tables(doc):
 	if options.table:
-		return doc.getElements(lambda e: (e.tagName == ligolw.Table.tagName) and (e.getAttribute("Name") in options.table))
+		return doc.getElements(lambda e: (e.tagName == ligolw.Table.tagName) and (metaio.StripTableName(e.getAttribute("Name")) in options.table))
 	else:
 		return doc.getElements(lambda e: (e.tagName == ligolw.Table.tagName))
 

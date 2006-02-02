@@ -21,6 +21,7 @@ from xml import sax
 from glue import lal
 from glue import segments
 from glue.ligolw import ligolw
+from glue.ligolw import metaio
 from glue.ligolw import lsctables
 from glue.ligolw import docutils
 
@@ -86,7 +87,7 @@ class ProcIDs(object):
 new_process_ids = ProcIDs()
 
 def IsProcessTable(elem):
-	return lsctables.Is(lsctables.ProcessTable, elem)
+	return lsctables.IsTableElement(lsctables.ProcessTable, elem)
 
 def BuildProcessMapping(elem):
 	# loop over all process tables below elem, constructing a map of
@@ -142,7 +143,7 @@ if options.no_duplicate_process:
 	#	del plist[id]
 
 	if len(duplicates):
-		for table in doc.getElements(lambda e: (e.tagName == ligolw.Table.tagName) and (e.getAttribute("Name") in lsctables.TablesByName.keys()) and ("process_id" in e.validcolumns.keys())):
+		for table in doc.getElements(lambda e: (e.tagName == ligolw.Table.tagName) and (metaio.StripTableName(e.getAttribute("Name")) in lsctables.TablesByName.keys()) and ("process_id" in e.validcolumns.keys())):
 			table.filterRows(lambda r: r.process_id not in duplicates)
 
 

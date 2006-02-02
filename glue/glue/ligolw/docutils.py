@@ -3,6 +3,7 @@ High-level document manipulation utilities.
 """
 
 import ligolw
+import metaio
 import lsctables
 
 
@@ -48,7 +49,7 @@ def MergeCompatibleTables(elem):
 	a single table, etc..
 	"""
 	for tname in lsctables.TableByName.keys():
-		tables = [t for t in elem.getElementsByTagName(ligolw.Table.tagName) if t.getAttribute("Name") == tname]
+		tables = [t for t in elem.getElementsByTagName(ligolw.Table.tagName) if metaio.StripTableName(t.getAttribute("Name")) == tname]
 		for i in range(1, len(tables)):
 			if not tables[0].compare(tables[i]):
 				MergeElements(tables[0], tables[i])
@@ -64,7 +65,7 @@ def RemapProcessIDs(elem, mapping):
 	def IsLSCTable(elem):
 		if elem.tagName != ligolw.Table.tagName:
 			return False
-		return elem.getAttribute("Name") in lsctables.TableByName.keys()
+		return metaio.StripTableName(elem.getAttribute("Name")) in lsctables.TableByName.keys()
 
 	for table in elem.getElements(IsLSCTable):
 		for row in table:
@@ -102,7 +103,7 @@ class Process(object):
 class ProcessList(object):
 	def __init__(self, doc):
 		def gettable(doc, Type):
-			tables = doc.getElements(lambda e: lsctables.Is(Type, e))
+			tables = doc.getElements(lambda e: lsctables.IsTableElement(Type, e))
 			if len(tables) != 1:
 				raise Exception, "ProcessList(doc): doc must contain exactly 1 %s Table." % Type.tableName
 			return tables[0]
@@ -111,7 +112,6 @@ class ProcessList(object):
 		self.processtable = gettable(doc, lsctables.ProcessTable)
 		self.processparamstable = gettable(doc, lsctables.ProcessParamsTable)
 		self.searchsummarytable = gettable(doc, lsctables.SearchSummaryTable)
-		return self
 
 	def __len__(self):
 		return len(self.processtable)

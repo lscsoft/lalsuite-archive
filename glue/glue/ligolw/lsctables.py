@@ -3,12 +3,13 @@ LSC Table definitions.  These have been painstakingly copied from
 support/include/LIGOLwXMLHeaders.h.  Yes, I'm sure there are typos.
 """
 
+import re
 from xml import sax
 
-import metaio
 from glue import lal
 from glue import segments
 import ligolw
+import metaio
 
 
 #
@@ -36,25 +37,36 @@ def New(Type):
 	return table
 
 
-def Is(Type, elem):
+def IsTableElement(Type, elem):
 	"""
-	Convenience function to check that elem is a Table of type Type.
+	Convenience function to check that an element is a Table of type
+	Type.
 	"""
 	if elem.tagName != ligolw.Table.tagName:
 		return False
-	return elem.getAttribute("Name") == Type.tableName
+	return metaio.CompareTableNames(elem.getAttribute("Name"), Type.tableName) == 0
+
+
+def IsTableProperties(Type, tagname, attrs):
+	"""
+	Convenience function to check that the given tag name and
+	attributes match those of a Table of type Type.
+	"""
+	if tagname != ligolw.Table.tagName:
+		return False
+	return metaio.CompareTableNames(attrs["Name"], Type.tableName) == 0
 
 
 #
 # =============================================================================
 #
-#                          processgroup:process:table
+#                                process:table
 #
 # =============================================================================
 #
 
 class ProcessTable(metaio.Table):
-	tableName = "processgroup:process:table"
+	tableName = "process:table"
 	validcolumns = {
 		"program": "lstring",
 		"version": "lstring",
@@ -145,13 +157,13 @@ ProcessTable.RowType = Process
 #
 # =============================================================================
 #
-#                   process_paramsgroup:process_params:table
+#                             process_params:table
 #
 # =============================================================================
 #
 
 class ProcessParamsTable(metaio.Table):
-	tableName = "process_paramsgroup:process_params:table"
+	tableName = "process_params:table"
 	validcolumns = {
 		"program": "lstring",
 		"process_id": "ilwd:char",
@@ -249,13 +261,13 @@ ProcessParamsTable.RowType = ProcessParams
 #
 # =============================================================================
 #
-#                   search_summarygroup:search_summary:table
+#                             search_summary:table
 #
 # =============================================================================
 #
 
 class SearchSummaryTable(metaio.Table):
-	tableName = "search_summarygroup:search_summary:table"
+	tableName = "search_summary:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
 		"shared_object": "lstring",
@@ -367,13 +379,13 @@ SearchSummaryTable.RowType = SearchSummary
 #
 # =============================================================================
 #
-#                  search_summvarsgroup:search_summvars:table
+#                            search_summvars:table
 #
 # =============================================================================
 #
 
 class SearchSummVarsTable(metaio.Table):
-	tableName = "search_summvarsgroup:search_summvars:table"
+	tableName = "search_summvars:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
 		"name": "lstring",
@@ -390,13 +402,13 @@ SearchSummVarsTable.RowType = SearchSummVars
 #
 # =============================================================================
 #
-#                       sngl_burstgroup:sngl_burst:table
+#                               sngl_burst:table
 #
 # =============================================================================
 #
 
 class SnglBurstTable(metaio.Table):
-	tableName = "sngl_burstgroup:sngl_burst:table"
+	tableName = "sngl_burst:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
 		"ifo": "lstring",
@@ -454,13 +466,13 @@ SnglBurstTable.RowType = SnglBurst
 #
 # =============================================================================
 #
-#                    sngl_inspiralgroup:sngl_inspiral:table
+#                             sngl_inspiral:table
 #
 # =============================================================================
 #
 
 class SnglInspiralTable(metaio.Table):
-	tableName = "sngl_inspiralgroup:sngl_inspiral:table"
+	tableName = "sngl_inspiral:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
 		"ifo": "lstring",
@@ -515,13 +527,13 @@ SnglInspiralTable.RowType = SnglInspiral
 #
 # =============================================================================
 #
-#                    sngl_ringdowngroup:sngl_ringdown:table
+#                             sngl_ringdown:table
 #
 # =============================================================================
 #
 
 class SnglRingDownTable(metaio.Table):
-	tableName = "sngl_ringdowngroup:sngl_ringdown:table"
+	tableName = "sngl_ringdown:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
 		"ifo": "lstring",
@@ -549,13 +561,13 @@ SnglRingDownTable.RowType = SnglRingDown
 #
 # =============================================================================
 #
-#                   multi_inspiralgroup:multi_inspiral:table
+#                             multi_inspiral:table
 #
 # =============================================================================
 #
 
 class MultiInspiralTable(metaio.Table):
-	tableName = "multi_inspiralgroup:multi_inspiral:table"
+	tableName = "multi_inspiral:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
 		"ifos": "lstring",
@@ -603,13 +615,13 @@ MultiInspiralTable.RowType = MultiInspiral
 #
 # =============================================================================
 #
-#                     sim_inspiralgroup:sim_inspiral:table
+#                              sim_inspiral:table
 #
 # =============================================================================
 #
 
 class SimInspiralTable(metaio.Table):
-	tableName = "sim_inspiralgroup:sim_inspiral:table"
+	tableName = "sim_inspiral:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
 		"waveform": "lstring",
@@ -673,13 +685,13 @@ SimInspiralTable.RowType = SimInspiral
 #
 # =============================================================================
 #
-#                        sim_burstgroup:sim_burst:table
+#                               sim_burst:table
 #
 # =============================================================================
 #
 
 class SimBurstTable(metaio.Table):
-	tableName = "sim_burstgroup:sim_burst:table"
+	tableName = "sim_burst:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
 		"waveform": "lstring",
@@ -714,13 +726,13 @@ SimBurstTable.RowType = SimBurst
 #
 # =============================================================================
 #
-#                     sim_ringdowngroup:sim_ringdown:table
+#                              sim_ringdown:table
 #
 # =============================================================================
 #
 
 class SimRingDownTable(metaio.Table):
-	tableName = "sim_ringdowngroup:sim_ringdown:table"
+	tableName = "sim_ringdown:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
 		"waveform": "lstring",
@@ -760,13 +772,13 @@ SimRingDownTable.RowType = SimRingDown
 #
 # =============================================================================
 #
-#                       summ_valuegroup:summ_value:table
+#                               summ_value:table
 #
 # =============================================================================
 #
 
 class SummValueTable(metaio.Table):
-	tableName = "summ_valuegroup:summ_value:table"
+	tableName = "summ_value:table"
 	validcolumns = {
 		"program": "lstring",
 		"process_id": "ilwd:char",
@@ -789,13 +801,13 @@ SummValueTable.RowType = SummValue
 #
 # =============================================================================
 #
-#                  sim_inst_paramsgroup:sim_inst_params:table
+#                            sim_inst_params:table
 #
 # =============================================================================
 #
 
 class SimInstParamsTable(metaio.Table):
-	tableName = "sim_inst_paramsgroup:sim_inst_params:table"
+	tableName = "sim_inst_params:table"
 	validcolumns = {
 		"simulation_id": "ilwd:char",
 		"name": "lstring",
@@ -812,13 +824,13 @@ SimInstParamsTable.RowType = SimInstParams
 #
 # =============================================================================
 #
-#                       stochasticgroup:stochastic:table
+#                               stochastic:table
 #
 # =============================================================================
 #
 
 class StochasticTable(metaio.Table):
-	tableName = "stochasticgroup:stochastic:table"
+	tableName = "stochastic:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
 		"ifo_one": "lstring",
@@ -844,13 +856,13 @@ StochasticTable.RowType = Stochastic
 #
 # =============================================================================
 #
-#                        stochsummgroup:stochsumm:table
+#                               stochsumm:table
 #
 # =============================================================================
 #
 
 class StochSummTable(metaio.Table):
-	tableName = "stochsummgroup:stochsumm:table"
+	tableName = "stochsumm:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
 		"ifo_one": "lstring",
@@ -935,13 +947,13 @@ ExtTriggersTable.RowType = ExtTriggers
 #
 # =============================================================================
 #
-#                           filtergroup:filter:table
+#                                 filter:table
 #
 # =============================================================================
 #
 
 class FilterTable(metaio.Table):
-	tableName = "filtergroup:filter:table"
+	tableName = "filter:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
 		"program": "lstring",
@@ -959,13 +971,13 @@ FilterTable.RowType = Filter
 #
 # =============================================================================
 #
-#                          segmentgroup:segment:table
+#                                segment:table
 #
 # =============================================================================
 #
 
 class SegmentTable(metaio.Table):
-	tableName = "segmentgroup:segment:table"
+	tableName = "segment:table"
 	validcolumns = {
 		"creator_db": "int_4s",
 		"process_id": "ilwd:char",
@@ -979,8 +991,14 @@ class SegmentTable(metaio.Table):
 		"insertion_time": "int_4s"
 	}
 
+	def segmentlist(self, key, active = 1):
+		seglist = segments.segmentlist([row.segment() for row in self if (row.process_id == key) and (row.active * active > 0)])
+
 class Segment(metaio.TableRow):
 	__slots__ = SegmentTable.validcolumns.keys()
+
+	def segment(self):
+		return segments.segment(lal.LIGOTimeGPS(self.start_time, self.start_time_ns), lal.LIGOTimeGPS(self.end_time, self.end_time_ns))
 
 SegmentTable.RowType = Segment
 
@@ -988,13 +1006,13 @@ SegmentTable.RowType = Segment
 #
 # =============================================================================
 #
-#                  segment_def_mapgroup:segment_def_map:table
+#                            segment_def_map:table
 #
 # =============================================================================
 #
 
 class SegmentDefMapTable(metaio.Table):
-	tableName = "segment_def_mapgroup:segment_def_map:table"
+	tableName = "segment_def_map:table"
 	validcolumns = {
 		"creator_db": "int_4s",
 		"process_id": "ilwd:char",
@@ -1016,13 +1034,13 @@ SegmentDefMapTable.RowType = SegmentDefMap
 #
 # =============================================================================
 #
-#                  segment_definergroup:segment_definer:table
+#                            segment_definer:table
 #
 # =============================================================================
 #
 
 class SegmentDefTable(metaio.Table):
-	tableName = "segment_definergroup:segment_definer:table"
+	tableName = "segment_definer:table"
 	validcolumns = {
 		"creator_db": "int_4s",
 		"process_id": "ilwd:char",
@@ -1085,6 +1103,6 @@ class LIGOLWContentHandler(metaio.LIGOLWContentHandler):
 	"""
 	def startTable(self, attrs):
 		try:
-			return TableByName[attrs["Name"]](attrs)
+			return TableByName[metaio.StripTableName(attrs["Name"])](attrs)
 		except KeyError:
 			return metaio.Table(attrs)

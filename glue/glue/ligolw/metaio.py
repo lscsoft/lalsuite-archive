@@ -9,10 +9,20 @@ from xml import sax
 import ligolw
 
 
+#
+# =============================================================================
+#
+#                               Type Information
+#
+# =============================================================================
+#
+
 StringTypes = ["char_s", "ilwd:char", "ilwd:char_u", "lstring", "string"]
 IntTypes = ["int_2s", "int_2u", "int_4s", "int_4u", "int_8s", "int_8u", "int"]
 FloatTypes = ["real_4", "real_8", "float", "double"]
+
 Types = StringTypes + IntTypes + FloatTypes
+
 ToNumArrayType = {
 	"int_2s": "Int16",
 	"int_2u": "UInt16",
@@ -28,13 +38,94 @@ ToNumArrayType = {
 }
 
 
+#
+# =============================================================================
+#
+#                           Column Name Manipulation
+#
+# =============================================================================
+#
+
+# Regular expression to extract the significant part of a column name
+# according to the LIGO LW naming conventions.
+
+# FIXME: the pattern should be
+#
+# r"(?:\A[a-z0-9_]+:|\A)(?P<FullName>(?:[a-z0-9_]+:|\A)(?P<Name>[a-z0-9_]+))\Z"
+#
+# but people are putting upper case letters in names!!!!!  Someone is going
+# to get the beats.
+
+ColumnPattern = re.compile(r"(?:\A\w+:|\A)(?P<FullName>(?:\w+:|\A)(?P<Name>\w+))\Z")
+
+
+def StripColumnName(name):
+	"""
+	Return the significant portion of a column name according to LIGO
+	LW naming conventions.
+	"""
+	try:
+		return ColumnPattern.search(name).group("Name")
+	except AttributeError:
+		return name
+
+
+def CompareColumnNames(name1, name2):
+	"""
+	Convenience function to compare two column names according to LIGO
+	LW naming conventions.
+	"""
+	return cmp(StripColumnName(name1), StripColumnName(name2))
+
+
+#
+# =============================================================================
+#
+# Table Name Manipulation
+#
+# =============================================================================
+#
+
+# Regular expression used to extract the signifcant portion of a table or
+# stream name, according to LIGO LW naming conventions.
+
+TablePattern = re.compile(r"(?:\A[a-z0-9_]+:|\A)(?P<Name>[a-z0-9_]+:table)\Z")
+
+
+def StripTableName(name):
+	"""
+	Return the significant portion of a table name according to LIGO LW
+	naming conventions.
+	"""
+	try:
+		return TablePattern.search(name).group("Name")
+	except AttributeError:
+		return name
+
+
+def CompareTableNames(name1, name2):
+	"""
+	Convenience function to compare two table names according to LIGO
+	LW naming conventions.
+	"""
+	return cmp(StripTableName(name1), StripTableName(name2))
+
+
+#
+# =============================================================================
+#
+#                               Element Classes
+#
+# =============================================================================
+#
+
 class Column(ligolw.Column):
 	"""
 	High-level column element that knows how to turn column data from
 	the table into an array.
 	"""
 	def asarray(self):
-		attr = self.getAttribute("Name").split(":")[-1]
+		attr = StripColumnName(self.getAttribute("Name"))
 		if self.getAttribute("Type") in StringTypes:
 			return [getattr(row, attr) for row in self.parentNode]
 		else:
@@ -50,9 +141,7 @@ class Stream(ligolw.Stream):
 	"""
 	def __init__(self, attrs):
 		ligolw.Stream.__init__(self, attrs)
-
-		# initialize the tokenizer.
-		self.token_pattern = re.compile(r"""\s*(?:"([^"]*)")|(?:([^""" + self.getAttribute("Delimiter") + r"""\s]+))\s*""" + self.getAttribute("Delimiter"))
+		self.tokenizer = re.compile(r"""\s*(?:"([^"]*)")|(?:([^""" + self.getAttribute("Delimiter") + r"""\s]+))\s*""" + self.getAttribute("Delimiter"))
 		self.tokens = []
 
 	def appendData(self, content):
@@ -65,7 +154,7 @@ class Stream(ligolw.Stream):
 
 		# move tokens from buffer to token list
 		match = None
-		for match in self.token_pattern.finditer(self.pcdata):
+		for match in self.tokenizer.finditer(self.pcdata):
 			self.tokens.append(match.group(match.lastindex))
 		if match != None:
 			self.pcdata = self.pcdata[match.end():]
@@ -87,9 +176,9 @@ class Stream(ligolw.Stream):
 		strs = []
 		for column in columns:
 			if column.getAttribute("Type") in StringTypes:
-				strs += ["\"" + getattr(row, column.getAttribute("Name").split(":")[-1]) + "\""]
+				strs += ["\"" + getattr(row, StripColumnName(column.getAttribute("Name"))) + "\""]
 			else:
-				strs += [str(getattr(row, column.getAttribute("Name").split(":")[-1]))]
+				strs += [str(getattr(row, StripColumnName(column.getAttribute("Name"))))]
 		return self.getAttribute("Delimiter").join(strs)
 
 	def write(self, file = sys.stdout, indent = ""):
@@ -135,11 +224,8 @@ class Table(ligolw.Table):
 	def __iter__(self):
 		return iter(self.rows)
 
-	def columnName(self, name):
-		return ":".join(self.tableName.split(":")[:-1] + [name])
-
 	def getColumnByName(self, name):
-		cols = self.getChildrenByAttributes({"Name": self.columnName(name)})
+		cols = self.getElements(lambda e: (e.tagName == ligolw.Column.tagName) and (CompareColumnNames(e.getAttribute("Name"), name) == 0))
 		try:
 			return cols[0]
 		except IndexError:
@@ -147,7 +233,7 @@ class Table(ligolw.Table):
 
 	def appendChild(self, child):
 		if child.tagName == ligolw.Column.tagName:
-			colname = child.getAttribute("Name").split(":")[-1]
+			colname = StripColumnName(child.getAttribute("Name"))
 			llwtype = child.getAttribute("Type")
 			if self.validcolumns != None:
 				if colname not in self.validcolumns.keys():
@@ -176,7 +262,7 @@ class Table(ligolw.Table):
 		"""
 		ligolw.Table.removeChild(self, child)
 		if child.tagName == ligolw.Column.tagName:
-			colname = child.getAttribute("Name").split(":")[-1]
+			colname = StripColumnName(child.getAttribute("Name"))
 			for n in [n for n, item in enumerate(self.columninfo) if item[0] == colname]:
 				del self.columinfo[n]
 		return child
@@ -199,6 +285,14 @@ class Table(ligolw.Table):
 				i += 1
 		return self
 
+
+#
+# =============================================================================
+#
+#                               Content Handler
+#
+# =============================================================================
+#
 
 class LIGOLWContentHandler(ligolw.LIGOLWContentHandler):
 	"""
