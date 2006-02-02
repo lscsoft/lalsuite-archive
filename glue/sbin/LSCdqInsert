@@ -269,7 +269,7 @@ if not ping:
     "is_online" : "int_4s",
     "node" : "lstring",
     "username" : "lstring",
-    "unix_procid" : "lstring",
+    "unix_procid" : "int_4s",
     "start_time": "int_4s",
     "end_time": "int_4s",
     "ifos" : "lstring",
@@ -399,6 +399,7 @@ if not ping:
       msg = "Error: segments in %s must lie between %d and %d\n" % (
         segfile, starttime, endtime)
       msg += "Bad segment is " + str(this_seg)
+      print >> sys.stderr, msg
       sys.exit(1)
     # otherwise append the segment to the list of active segments
     active_segments.append(this_seg)
