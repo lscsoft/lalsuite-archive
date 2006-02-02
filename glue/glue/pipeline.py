@@ -2242,8 +2242,8 @@ class LigolwAddJob(CondorDAGJob, AnalysisJob):
 
     self.add_condor_cmd('getenv','True')
 
-    self.set_stdout_file(os.path.join( log_dir, 'ligolw_add-$(macrochannelname)-$(macrogpsstarttime)-$(macrogpsendtime)-$(cluster)-$(process).out') )
-    self.set_stderr_file(os.path.join( log_dir, 'ligolw_add-$(macrochannelname)-$(macrogpsstarttime)-$(macrogpsendtime)-$(cluster)-$(process).err') )
+    self.set_stdout_file(os.path.join( log_dir, 'ligolw_add-$(cluster)-$(process).out') )
+    self.set_stderr_file(os.path.join( log_dir, 'ligolw_add-$(cluster)-$(process).err') )
     self.set_sub_file('ligolw_add.sub')
 
 
@@ -2274,8 +2274,8 @@ class LDBDCJob(CondorDAGJob, AnalysisJob):
 
     self.add_condor_cmd('getenv','True')
 
-    self.set_stdout_file(os.path.join( log_dir, 'ldbdc-$(macrochannelname)-$(macrogpsstarttime)-$(macrogpsendtime)-$(cluster)-$(process).out') )
-    self.set_stderr_file(os.path.join( log_dir, 'ldbdc-$(macrochannelname)-$(macrogpsstarttime)-$(macrogpsendtime)-$(cluster)-$(process).err') )
+    self.set_stdout_file(os.path.join( log_dir, 'ldbdc-$(cluster)-$(process).out') )
+    self.set_stderr_file(os.path.join( log_dir, 'ldbdc-$(cluster)-$(process).err') )
     self.set_sub_file('ldbdc.sub')
 
 
