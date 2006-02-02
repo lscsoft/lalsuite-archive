@@ -104,7 +104,7 @@ def SnglBurstAndSearchSummOnlyHandler(doc):
 	Construct a document handler that reads only sngl_burst and search
 	summary tables.
 	"""
-	return docutils.PartialLIGOLWContentHandler(doc, lambda name, attrs: (name == ligolw.Table.tagName) and (attrs["Name"] in [lsctables.SnglBurstTable.tableName, lsctables.SearchSummaryTable.tableName]))
+	return docutils.PartialLIGOLWContentHandler(doc, lambda name, attrs: (name == ligolw.Table.tagName) and (metaio.StripTableName(attrs["Name"]) in [lsctables.SnglBurstTable.tableName, lsctables.SearchSummaryTable.tableName]))
 
 
 def CacheURLs(cachename, seg):
@@ -126,7 +126,7 @@ def gettriggers(plotdesc):
 	docutils.MergeCompatibleTables(doc)
 
 	# get segment list from search summary table
-	tables = doc.getElements(lambda e: lsctables.Is(lsctables.SearchSummaryTable, e))
+	tables = doc.getElements(lambda e: lsctables.IsTableElement(lsctables.SearchSummaryTable, e))
 	if len(tables) == 0:
 		# no search summary tables found, set an empty segment list
 		plotdesc.seglist = segments.segmentlist([])
@@ -136,7 +136,7 @@ def gettriggers(plotdesc):
 		raise Exception, "files contain incompatible search summary tables"
 
 	# get triggers from single_burst table
-	tables = doc.getElements(lambda e: lsctables.Is(lsctables.SnglBurstTable, e))
+	tables = doc.getElements(lambda e: lsctables.IsTableElement(lsctables.SnglBurstTable, e))
 	if len(tables) == 0:
 		# no trigger tables found, return an empty table
 		return lsctables.New(lsctables.SnglBurstTable)
