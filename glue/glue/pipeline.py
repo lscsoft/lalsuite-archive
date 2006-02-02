@@ -736,15 +736,18 @@ class CondorDAG:
     """
     self.__integer_node_names = 1
 
-  def set_dag_file(self, path):
+  def set_dag_file(self, path, no_append=0):
     """
     Set the name of the file into which the DAG is written.
     @param path: path to DAG file.
     """
-    if self.__dax:
-      self.__dag_file_path = path + '.dax'
+    if no_append:
+      self.__dag_file_path = path
     else:
-      self.__dag_file_path = path + '.dag'
+      if self.__dax:
+        self.__dag_file_path = path + '.dax'
+      else:
+        self.__dag_file_path = path + '.dag'
 
   def get_dag_file(self):
     """
