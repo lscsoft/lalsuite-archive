@@ -2237,8 +2237,8 @@ class LigolwAddJob(CondorDAGJob, AnalysisJob):
     """
     self.__executable = cp.get('condor','ligolw_add')
     self.__universe = 'vanilla'
-    pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
-    pipeline.AnalysisJob.__init__(self,cp,dax)
+    CondorDAGJob.__init__(self,self.__universe,self.__executable)
+    AnalysisJob.__init__(self,cp,dax)
 
     self.add_condor_cmd('getenv','True')
 
@@ -2269,8 +2269,8 @@ class LDBDCJob(CondorDAGJob, AnalysisJob):
     """
     self.__executable = cp.get('condor','ldbdc')
     self.__universe = 'scheduler'
-    pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
-    pipeline.AnalysisJob.__init__(self,cp,dax)
+    CondorDAGJob.__init__(self,self.__universe,self.__executable)
+    AnalysisJob.__init__(self,cp,dax)
 
     self.add_condor_cmd('getenv','True')
 
