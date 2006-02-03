@@ -58,7 +58,10 @@ def LoadDocuments(urls):
 	for url in urls:
 		if options.verbose:
 			print >>sys.stderr, "Reading %s" % url
-		sax.parse(urllib.urlopen(url), handler)
+		parser = sax.make_parser()
+		parser.setContentHandler(handler)
+		parser.setFeature(sax.handler.feature_validation, False)
+		parser.parse(urllib.urlopen(url))
 	return doc
 
 doc = LoadDocuments(urls)
@@ -79,7 +82,7 @@ def BuildProcessMapping(elem):
 	mapping = {}
 	for table in elem.getElements(IsProcessTable):
 		for key in table.keys():
-			mapping[key] = new_process_ids.next()
+			mapping[key] = str(new_process_ids.next())
 	return mapping
 
 # loop over all top-level LIGO_LW elements (input documents)
