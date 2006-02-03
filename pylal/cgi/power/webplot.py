@@ -121,7 +121,7 @@ def gettriggers(plotdesc):
 	handler = SnglBurstAndSearchSummOnlyHandler(doc)
 	for url in CacheURLs(eventdisplay.cache[plotdesc.instrument], plotdesc.segment):
 		try:
-			sax.parse(urllib.urlopen(url), handler)
+			ligolw.make_parser(handler).parse(urllib.urlopen(url))
 		except ligolw.ElementError, e:
 			raise Exception, "error parsing file %s: %s" % (url, str(e))
 	docutils.MergeCompatibleTables(doc)
