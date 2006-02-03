@@ -281,7 +281,6 @@ class CacheEntry(object):
 			self.description = match.group("description")
 			self.segment = segments.segment(coltype(match.group("start")), coltype(match.group("start")) + coltype(match.group("duration")))
 			self.url = match.group("url")
-		return self
 
 	def __str__(self):
 		"""
