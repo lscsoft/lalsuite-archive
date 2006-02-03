@@ -11,9 +11,27 @@ import sys
 from xml import sax
 
 
-Indent = "\t"
+#
+# =============================================================================
+#
+#                         Document Header, and Indent
+#
+# =============================================================================
+#
+
 Header = """<?xml version='1.0' encoding='utf-8' ?>
 <!DOCTYPE LIGO_LW SYSTEM "http://ldas-sw.ligo.caltech.edu/doc/ligolwAPI/html/ligolw_dtd.txt">"""
+
+Indent = "\t"
+
+
+#
+# =============================================================================
+#
+#                                Element Class
+#
+# =============================================================================
+#
 
 
 class ElementError(Exception):
@@ -162,6 +180,14 @@ class Element(object):
 				print >>file, self.pcdata
 			print >>file, indent + self.end_tag()
 
+
+#
+# =============================================================================
+#
+#                        LIGO Light Weight XML Elements
+#
+# =============================================================================
+#
 
 class LIGO_LW(Element):
 	"""
@@ -349,6 +375,14 @@ class Document(Element):
 			c.write(file)
 
 
+#
+# =============================================================================
+#
+#                             SAX Content Handler
+#
+# =============================================================================
+#
+
 class LIGOLWContentHandler(sax.handler.ContentHandler):
 	"""
 	ContentHandler class for parsing LIGO Light Weight documents with a
@@ -519,3 +553,25 @@ class LIGOLWContentHandler(sax.handler.ContentHandler):
 		"""
 		if self.current.tagName in ["Comment", "Stream"]:
 			self.current.appendData(content)
+
+
+#
+# =============================================================================
+#
+#                            Convenience Functions
+#
+# =============================================================================
+#
+
+def make_parser(handler, validate = False):
+	"""
+	Convenience function to construct a document parser with or without
+	validation.  Note:  when validation is enabled, the LIGO LW DTD
+	identified in the document header must be accessible --- document
+	parsing will fail if an internet connection to the LDAS document
+	server is not available.
+	"""
+	parser = sax.make_parser("xml.sax.drivers2.drv_xmlproc")
+	parser.setContentHandler(handler)
+	parser.setFeature(sax.handler.feature_validation, validate)
+	return parser
