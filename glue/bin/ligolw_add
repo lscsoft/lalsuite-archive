@@ -68,23 +68,7 @@ doc = LoadDocuments(urls)
 # Reassign process IDs to prevent collisions.
 #
 
-class ProcIDs(object):
-	def __init__(self):
-		self.base = "process:process_id:"
-		self.n = 0
-
-	def __iter__(self):
-		return self
-
-	def __str__(self):
-		return self.base + str(self.n)
-
-	def next(self):
-		s = str(self)
-		self.n += 1
-		return s
-
-new_process_ids = ProcIDs()
+new_process_ids = lsctables.ProcessIDs()
 
 def IsProcessTable(elem):
 	return lsctables.IsTableElement(lsctables.ProcessTable, elem)
