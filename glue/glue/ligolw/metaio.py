@@ -114,6 +114,30 @@ def CompareTableNames(name1, name2):
 #
 # =============================================================================
 #
+#                             Unique ID Generator
+#
+# =============================================================================
+#
+
+class ILWD(object):
+	def __init__(self, base, n = 0):
+		self.base = base
+		self.n = n
+
+	def __str__(self):
+		return "%s:%d" % (self.base, self.n)
+
+	def __iter__(self):
+		return self
+
+	def next(self):
+		self.n += 1
+		return self
+
+
+#
+# =============================================================================
+#
 #                               Element Classes
 #
 # =============================================================================
