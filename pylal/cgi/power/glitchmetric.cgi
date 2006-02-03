@@ -74,6 +74,9 @@ def makeplot(desc, table):
 	# determine segments where ratio is above threshold
 	glitchsegs = glitchsegments(xvals, yvals, desc.glitchthreshold)
 
+	# subtract segments near boundaries of data
+	glitchsegs -= segments.segmentlist.protract(~desc.seglist, desc.widthratio * desc.ratewidth)
+
 	# plot ratio vs time
 	pylab.plot(xvals, yvals)
 
