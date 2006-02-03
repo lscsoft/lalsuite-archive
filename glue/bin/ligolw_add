@@ -58,7 +58,7 @@ def LoadDocuments(urls):
 	for url in urls:
 		if options.verbose:
 			print >>sys.stderr, "Reading %s" % url
-		parser = sax.make_parser()
+		parser = sax.make_parser("xml.sax.drivers2.drv_xmlproc")
 		parser.setContentHandler(handler)
 		parser.setFeature(sax.handler.feature_validation, False)
 		parser.parse(urllib.urlopen(url))
