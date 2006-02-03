@@ -158,6 +158,10 @@ class Process(metaio.TableRow):
 
 ProcessTable.RowType = Process
 
+class ProcessIDs(metaio.ILWD):
+	def __init__(self, n = 0):
+		metaio.ILWD.__init__(self, "process:process_id", n)
+
 
 #
 # =============================================================================
@@ -467,6 +471,10 @@ class SnglBurst(metaio.TableRow):
 
 SnglBurstTable.RowType = SnglBurst
 
+class SnglBurstIDs(metaio.ILWD):
+	def __init__(self, n = 0):
+		metaio.ILWD.__init__(self, "sngl_burst:event_id", n)
+
 
 #
 # =============================================================================
@@ -528,6 +536,10 @@ class SnglInspiral(metaio.TableRow):
 
 SnglInspiralTable.RowType = SnglInspiral
 
+class SnglInspiralIDs(metaio.ILWD):
+	def __init__(self, n = 0):
+		metaio.ILWD.__init__(self, "sngl_inspiral:event_id", n)
+
 
 #
 # =============================================================================
@@ -561,6 +573,10 @@ class SnglRingDown(metaio.TableRow):
 	__slots__ = SnglRingDownTable.validcolumns.keys()
 
 SnglRingDownTable.RowType = SnglRingDown
+
+class SnglRingDownIDs(metaio.ILWD):
+	def __init__(self, n = 0):
+		metaio.ILWD.__init__(self, "sngl_ringdown:event_id", n)
 
 
 #
@@ -686,6 +702,10 @@ class SimInspiral(metaio.TableRow):
 
 SimInspiralTable.RowType = SimInspiral
 
+class SimInspiralIDs(metaio.ILWD):
+	def __init__(self, n = 0):
+		metaio.ILWD.__init__(self, "sim_inspiral:simulation_id", n)
+
 
 #
 # =============================================================================
@@ -726,6 +746,10 @@ class SimBurst(metaio.TableRow):
 	__slots__ = SimBurstTable.validcolumns.keys()
 
 SimBurstTable.RowType = SimBurst
+
+class SimBurstIDs(metaio.ILWD):
+	def __init__(self, n = 0):
+		metaio.ILWD.__init__(self, "sim_burst:simulation_id", n)
 
 
 #
@@ -772,6 +796,10 @@ class SimRingDown(metaio.TableRow):
 	__slots__ = SimRingDownTable.validcolumns.keys()
 
 SimRingDownTable.RowType = SimRingDown
+
+class SimRingDownIDs(metaio.ILWD):
+	def __init__(self, n = 0):
+		metaio.ILWD.__init__(self, "sim_ringdown:simulation_id", n)
 
 
 #
@@ -824,6 +852,10 @@ class SimInstParams(metaio.TableRow):
 	__slots__ = SimInstParamsTable.validcolumns.keys()
 
 SimInstParamsTable.RowType = SimInstParams
+
+class SimInstParamsIDs(metaio.ILWD):
+	def __init__(self, n = 0):
+		metaio.ILWD.__init__(self, "sim_inst_params:simulation_id", n)
 
 
 #
@@ -1018,6 +1050,10 @@ class Segment(metaio.TableRow):
 
 SegmentTable.RowType = Segment
 
+class SegmentIDs(metaio.ILWD):
+	def __init__(self, n = 0):
+		metaio.ILWD.__init__(self, "segment:segment_id", n)
+
 
 #
 # =============================================================================
@@ -1045,6 +1081,10 @@ class SegmentDefMap(metaio.TableRow):
 	__slots__ = SegmentDefMapTable.validcolumns.keys()
 
 SegmentDefMapTable.RowType = SegmentDefMap
+
+class SegmentDefMapIDs(metaio.ILWD):
+	def __init__(self, n = 0):
+		metaio.ILWD.__init__(self, "segment_def_map:segment_def_id", n)
 
 
 #
