@@ -96,7 +96,7 @@ def load_document(url):
 	if options.verbose:
 		print >>sys.stderr, "Reading %s" % url
 	doc = ligolw.Document()
-	sax.parse(urllib.urlopen(url), ContentHandler(doc))
+	ligolw.make_parser(ContentHandler(doc)).parse(urllib.urlopen(url))
 	return doc
 
 
