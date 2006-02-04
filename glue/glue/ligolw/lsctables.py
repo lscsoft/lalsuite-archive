@@ -162,6 +162,97 @@ class ProcessIDs(metaio.ILWD):
 	def __init__(self, n = 0):
 		metaio.ILWD.__init__(self, "process:process_id", n)
 
+#
+# =============================================================================
+#
+#                                lfn:table
+#
+# =============================================================================
+#
+
+class LfnTable(metaio.Table):
+	tableName = "lfn:table"
+	validcolumns = {
+		"process_id": "ilwd:char",
+		"lfn_id": "ilwd:char",
+		"name": "lstring",
+		"comment": "lstring",
+		"start_time": "int_4s",
+		"end_time": "int_4s",
+	}
+
+	def _appendRow(self, row):
+		metaio.Table.appendRow(self, row)
+
+	def appendRow(self, row):
+		if row.lfn_id in self.keys():
+			raise ligolw.ElementError, "duplicate lfn ID %s" % row.lfn_id
+		self._appendRow(row)
+
+	def __getitem__(self, key):
+		"""
+		Return the row having lfn ID equal to key.
+		"""
+		for row in self:
+			if row.lfn_id == key:
+				return row
+		raise KeyError, "lfn ID %s not found" % key
+
+	def __setitem__(self, key, value):
+		"""
+		If a row has lfn ID equal to key, replace it with value,
+		otherwise append value as a new row.  Note:
+		value.lfn_id need not equal key.
+		"""
+		for i in range(len(self)):
+			if self.rows[i].lfn_id == key:
+				self.rows[i] = value
+				return
+		self._appendRow(value)
+
+	def __delitem__(self, key):
+		"""
+		Delete all rows having lfn ID key.
+		"""
+		for i in range(len(self)):
+			if self.rows[i].lfn_id == key:
+				del self.rows[i]
+				return
+		raise KeyError, "lfn ID %s not found" % key
+
+	def __contains__(self, key):
+		"""
+		Return True if a row has lfn ID equal to key, otherwise
+		return False.
+		"""
+		for row in self:
+			if row.lfn_id == key:
+				return True
+		return False
+
+	def keys(self):
+		return [row.lfn_id for row in self]
+
+class Lfn(metaio.TableRow):
+	__slots__ = LfnTable.validcolumns.keys()
+
+	def cmp(self, other):
+		# FIXME: this is a hack, but I need something so I can move
+		# forward.
+		for key in LfnTable.validcolumns.keys():
+			if key == "lfn_id":
+				continue
+			result = cmp(getattr(self, key), getattr(other, key))
+			if result:
+				return result
+		return 0
+
+LfnTable.RowType = Lfn
+
+class LfnIDs(metaio.ILWD):
+	def __init__(self, n = 0):
+		metaio.ILWD.__init__(self, "lfn:lfn_id", n)
+
 
 #
 # =============================================================================
@@ -1129,6 +1220,7 @@ SegmentDefTable.RowType = SegmentDef
 
 TableByName = {
 	ProcessTable.tableName: ProcessTable,
+	LfnTable.tableName: LfnTable,
 	ProcessParamsTable.tableName: ProcessParamsTable,
 	SearchSummaryTable.tableName: SearchSummaryTable,
 	SearchSummVarsTable.tableName: SearchSummVarsTable,
