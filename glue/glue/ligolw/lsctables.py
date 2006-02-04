@@ -3,6 +3,10 @@ LSC Table definitions.  These have been painstakingly copied from
 support/include/LIGOLwXMLHeaders.h.  Yes, I'm sure there are typos.
 """
 
+__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__date__ = "$Date$"
+__version__ = "$Revision$"
+
 import re
 from xml import sax
 

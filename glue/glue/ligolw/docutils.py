@@ -2,6 +2,10 @@
 High-level document manipulation utilities.
 """
 
+__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__date__ = "$Date$"
+__version__ = "$Revision$"
+
 import ligolw
 import metaio
 import lsctables
