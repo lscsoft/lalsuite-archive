@@ -142,6 +142,18 @@ class ProcessTable(metaio.Table):
 	def keys(self):
 		return [row.process_id for row in self]
 
+	def get_idmap(self):
+		"""
+		Return the process_id --> row object mapping for this table.
+		"""
+		map = {}
+		for row in self:
+			key = row.process_id
+			if key in map.keys():
+				raise ligolw.ElementError, "duplicate process ID %s" % str(key)
+			map[key] = row
+		return map
+
 class Process(metaio.TableRow):
 	__slots__ = ProcessTable.validcolumns.keys()
 
@@ -232,6 +244,18 @@ class LfnTable(metaio.Table):
 
 	def keys(self):
 		return [row.lfn_id for row in self]
+
+	def get_idmap(self):
+		"""
+		Return the lfn_id --> row object mapping for this table.
+		"""
+		map = {}
+		for row in self:
+			key = row.lfn_id
+			if key in map.keys():
+				raise ligolw.ElementError, "duplicate lfn ID %s" % str(key)
+			map[key] = row
+		return map
 
 class Lfn(metaio.TableRow):
 	__slots__ = LfnTable.validcolumns.keys()
@@ -529,6 +553,19 @@ class SnglBurstTable(metaio.Table):
 		"event_id": "int_8s"
 	}
 
+	def get_idmap(self):
+		"""
+		Return the (process_id, event_id) --> row object mapping for
+		this table.
+		"""
+		map = {}
+		for row in self:
+			key = (row.process_id, row.event_id)
+			if key in map.keys():
+				raise ligolw.ElementError, "duplicate event ID %s" % str(key)
+			map[key] = row
+		return map
+
 class SnglBurst(metaio.TableRow):
 	__slots__ = SnglBurstTable.validcolumns.keys()
 
@@ -622,6 +659,19 @@ class SnglInspiralTable(metaio.Table):
 		"event_id": "int_8s"
 	}
 
+	def get_idmap(self):
+		"""
+		Return the (process_id, event_id) --> row object mapping for
+		this table.
+		"""
+		map = {}
+		for row in self:
+			key = (row.process_id, row.event_id)
+			if key in map.keys():
+				raise ligolw.ElementError, "duplicate event ID %s" % str(key)
+			map[key] = row
+		return map
+
 class SnglInspiral(metaio.TableRow):
 	__slots__ = SnglInspiralTable.validcolumns.keys()
 
@@ -659,6 +709,19 @@ class SnglRingDownTable(metaio.Table):
 		"sigma_sq": "real_8",
 		"event_id": "int_8s"
 	}
+
+	def get_idmap(self):
+		"""
+		Return the (process_id, event_id) --> row object mapping for
+		this table.
+		"""
+		map = {}
+		for row in self:
+			key = (row.process_id, row.event_id)
+			if key in map.keys():
+				raise ligolw.ElementError, "duplicate event ID %s" % str(key)
+			map[key] = row
+		return map
 
 class SnglRingDown(metaio.TableRow):
 	__slots__ = SnglRingDownTable.validcolumns.keys()
@@ -788,6 +851,19 @@ class SimInspiralTable(metaio.Table):
 		"simulation_id": "real_4"
 	}
 
+	def get_idmap(self):
+		"""
+		Return the (process_id, simulation_id) --> row object mapping
+		for this table.
+		"""
+		map = {}
+		for row in self:
+			key = (row.process_id, row.simulation_id)
+			if key in map.keys():
+				raise ligolw.ElementError, "duplicate event ID %s" % str(key)
+			map[key] = row
+		return map
+
 class SimInspiral(metaio.TableRow):
 	__slots__ = SimInspiralTable.validcolumns.keys()
 
@@ -832,6 +908,19 @@ class SimBurstTable(metaio.Table):
 		"zm_number": "int_4s",
 		"simulation_id": "ilwd:char"
 	}
+
+	def get_idmap(self):
+		"""
+		Return the (process_id, simulation_id) --> row object mapping
+		for this table.
+		"""
+		map = {}
+		for row in self:
+			key = (row.process_id, row.simulation_id)
+			if key in map.keys():
+				raise ligolw.ElementError, "duplicate event ID %s" % str(key)
+			map[key] = row
+		return map
 
 class SimBurst(metaio.TableRow):
 	__slots__ = SimBurstTable.validcolumns.keys()
@@ -882,6 +971,19 @@ class SimRingDownTable(metaio.Table):
 		"hrss_l": "real_4",
 		"simulation_id": "ilwd:char"
 	}
+
+	def get_idmap(self):
+		"""
+		Return the (process_id, simulation_id) --> row object mapping
+		for this table.
+		"""
+		map = {}
+		for row in self:
+			key = (row.process_id, row.simulation_id)
+			if key in map.keys():
+				raise ligolw.ElementError, "duplicate event ID %s" % str(key)
+			map[key] = row
+		return map
 
 class SimRingDown(metaio.TableRow):
 	__slots__ = SimRingDownTable.validcolumns.keys()
@@ -1130,6 +1232,19 @@ class SegmentTable(metaio.Table):
 			raise ValueError, "segmentlist(): activity flag must != 0."
 		return segments.segmentlist([row.segment() for row in self if (row.process_id == key) and (row.active * active > 0)])
 
+	def get_idmap(self):
+		"""
+		Return the (process_id, segment_id) --> row object mapping
+		for this table.
+		"""
+		map = {}
+		for row in self:
+			key = (row.process_id, row.segment_id)
+			if key in map.keys():
+				raise ligolw.ElementError, "duplicate event ID %s" % str(key)
+			map[key] = row
+		return map
+
 class Segment(metaio.TableRow):
 	__slots__ = SegmentTable.validcolumns.keys()
 
@@ -1175,6 +1290,19 @@ class SegmentDefMapTable(metaio.Table):
 		"insertion_time": "int_4s"
 	}
 
+	def get_idmap(self):
+		"""
+		Return the (process_id, seg_def_map_id) --> row object mapping
+		for this table.
+		"""
+		map = {}
+		for row in self:
+			key = (row.process_id, row.seg_def_map_id)
+			if key in map.keys():
+				raise ligolw.ElementError, "duplicate event ID %s" % str(key)
+			map[key] = row
+		return map
+
 class SegmentDefMap(metaio.TableRow):
 	__slots__ = SegmentDefMapTable.validcolumns.keys()
 
@@ -1208,6 +1336,19 @@ class SegmentDefTable(metaio.Table):
 		"state_vec_minor": "int_4s",
 		"insertion_time": "int_4s"
 	}
+
+	def get_idmap(self):
+		"""
+		Return the (process_id, segment_def_id) --> row object mapping
+		for this table.
+		"""
+		map = {}
+		for row in self:
+			key = (row.process_id, row.segment_def_id)
+			if key in map.keys():
+				raise ligolw.ElementError, "duplicate event ID %s" % str(key)
+			map[key] = row
+		return map
 
 class SegmentDef(metaio.TableRow):
 	__slots__ = SegmentDefTable.validcolumns.keys()
