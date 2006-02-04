@@ -27,7 +27,7 @@ def New(Type, columns = None):
 	optional columns argument is a list of the names of the columns the
 	table should be constructed with.  If columns = None, then the
 	table is constructed with all valid columns included (pass columns
-	= [] to create a table with no columsn).
+	= [] to create a table with no columns).
 
 	Example:
 		import lsctables
@@ -1133,11 +1133,18 @@ class SegmentTable(metaio.Table):
 class Segment(metaio.TableRow):
 	__slots__ = SegmentTable.validcolumns.keys()
 
-	def segment(self):
+	def get_segment(self):
 		"""
 		Return the segment described by this row.
 		"""
 		return segments.segment(lal.LIGOTimeGPS(self.start_time, self.start_time_ns), lal.LIGOTimeGPS(self.end_time, self.end_time_ns))
+
+	def set_segment(self, segment):
+		"""
+		Set the segment described by this row.
+		"""
+		self.start_time, self.start_time_ns = segment[0].seconds, segment[0].nanoseconds
+		self.end_time, self.end_time_ns = segment[1].seconds, segment[1].nanoseconds
 
 SegmentTable.RowType = Segment
 
