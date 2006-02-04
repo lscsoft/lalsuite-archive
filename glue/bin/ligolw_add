@@ -15,6 +15,7 @@ __version__ = "$Revision$"
 
 from optparse import OptionParser
 import sys
+import os
 import urllib
 from xml import sax
 
@@ -33,6 +34,10 @@ from glue.ligolw import docutils
 parser = OptionParser(version = "%prog CVS $Id$")
 parser.add_option("-i", "--input-cache", metavar = "CACHEFILE", action = "append", help = "get input files from trigger cache CACHEFILE")
 parser.add_option("--no-duplicate-process", action = "store_true", help = "delete duplicate processes")
+parser.add_option("--add-lfn-table", action = "store_true", help = "add an lfn entry for each process")
+parser.add_option("--lfn-start-time", metavar = "START", help = "set lft start_time to START (optional)")
+parser.add_option("--lfn-end-time", metavar = "END", help = "set lfn end_time to END (optional)")
+parser.add_option("--lfn-comment", metavar = "STRING", help = "set lfn comment to STRING (optional)")
 parser.add_option("-o", "--output", metavar = "FILENAME", help = "write output to FILENAME (default = stdout")
 parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
 options, urls = parser.parse_args()
@@ -130,6 +135,41 @@ if options.no_duplicate_process:
 		for table in doc.getElements(lambda e: (e.tagName == ligolw.Table.tagName) and (metaio.StripTableName(e.getAttribute("Name")) in lsctables.TablesByName.keys()) and ("process_id" in e.validcolumns.keys())):
 			table.filterRows(lambda r: r.process_id not in duplicates)
 
+#
+# add an lfn table for each process
+#
+
+if options.add_lfn_table:
+	if not options.output:
+		raise Exception, "Cannot add LFN table when no output filename is given"
+
+	lfntablecols = ['process_id','lfn_id','name']
+	if options.lfn_start_time:
+		lfntablecols.append('start_time')
+	if options.lfn_end_time:
+		lfntablecols.append('end_time')
+	if options.lfn_comment:
+		lfntablecols.append('comment')
+	lfntable = lsctables.New(lsctables.LfnTable,lfntablecols)
+
+	lfn_name = os.path.basename(options.output)
+	lfn_id = lsctables.LfnIDs()
+	pids = docutils.ProcessList(doc).keys()
+
+	for p in pids:
+		l = lsctables.Lfn()
+		l.process_id = p
+		l.lfn_id = str(lfn_id.next())
+		l.name = lfn_name
+		if options.lfn_start_time:
+			l.start_time = int(options.lfn_start_time)
+		if options.lfn_end_time:
+			l.end_time = int(options.lfn_end_time)
+		if options.lfn_comment:
+			l.comment = int(options.lfn_comment)
+		lfntable.appendRow(l)
+
+	doc.getElementsByTagName(ligolw.LIGO_LW.tagName)[0].appendChild(lfntable)
 
 #
 # Write output.
