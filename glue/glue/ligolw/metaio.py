@@ -213,6 +213,8 @@ class Stream(ligolw.Stream):
 			self.parentNode.appendRow(row)
 
 	def _rowstr(self, row, columns):
+		# FIXME: after calling getattr(), should probably check that
+		# the result has the expected type.
 		strs = []
 		for column in columns:
 			if column.getAttribute("Type") in StringTypes:
