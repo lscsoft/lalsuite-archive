@@ -166,7 +166,7 @@ if options.add_lfn_table:
 		if options.lfn_end_time:
 			l.end_time = int(options.lfn_end_time)
 		if options.lfn_comment:
-			l.comment = int(options.lfn_comment)
+			l.comment = options.lfn_comment
 		lfntable.appendRow(l)
 
 	doc.getElementsByTagName(ligolw.LIGO_LW.tagName)[0].appendChild(lfntable)
