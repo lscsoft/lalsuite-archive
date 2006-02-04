@@ -571,7 +571,12 @@ def make_parser(handler, validate = False):
 	parsing will fail if an internet connection to the LDAS document
 	server is not available.
 	"""
-	parser = sax.make_parser("xml.sax.drivers2.drv_xmlproc")
-	parser.setContentHandler(handler)
-	parser.setFeature(sax.handler.feature_validation, validate)
+        try:
+	  parser = sax.make_parser("xml.sax.drivers2.drv_xmlproc")
+	  parser.setContentHandler(handler)
+	  parser.setFeature(sax.handler.feature_validation, validate)
+        except TypeError:
+	  parser = sax.make_parser()
+	  parser.setContentHandler(handler)
+
 	return parser
