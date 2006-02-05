@@ -85,6 +85,9 @@ class LSCTable(metaio.Table):
 		"""
 		Append a row to the table, checking for a duplicate key.
 		"""
+		# This is not simply a call to __setitem__() because we need to
+		# check for duplicate keys.  Don't want to silently drop rows
+		# from tables.
 		if row._get_key() in self:
 			raise ligolw.ElementError, "duplicate key %s" % str(row._get_key())
 		self._appendRow(row)
@@ -108,6 +111,10 @@ class LSCTable(metaio.Table):
 			if self.rows[i]._has_key(key):
 				self.rows[i] = value
 				return
+		# FIXME: should we call _set_key() on value to force it to have
+		# the key that was searched for?  If not, what about calling
+		# appendRow() instead to make sure value's key isn't a
+		# duplicate.  The former will be faster.
 		self._appendRow(value)
 
 	def __delitem__(self, key):
@@ -140,6 +147,7 @@ class LSCTable(metaio.Table):
 		map = {}
 		for row in self:
 			key = row._get_key()
+			# FIXME: is this worth it?
 			if key in map:
 				raise ligolw.ElementError, "duplicate key %s" % str(key)
 			map[key] = row
