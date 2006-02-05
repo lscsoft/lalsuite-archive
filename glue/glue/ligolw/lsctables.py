@@ -24,7 +24,6 @@ import metaio
 # =============================================================================
 #
 
-
 def New(Type, columns = None):
 	"""
 	Convenience function for constructing pre-defined LSC tables.  The
@@ -69,12 +68,118 @@ def IsTableProperties(Type, tagname, attrs):
 #
 # =============================================================================
 #
+#                 Table and Row Class With a Mapping Protocol
+#
+# =============================================================================
+#
+
+class LSCTable(metaio.Table):
+	def _appendRow(self, row):
+		"""
+		Append a row to the table without checking if the row
+		duplicates an existing key.  (faster)
+		"""
+		metaio.Table.appendRow(self, row)
+
+	def appendRow(self, row):
+		"""
+		Append a row to the table, checking for a duplicate key.
+		"""
+		if row._get_key() in self:
+			raise ligolw.ElementError, "duplicate key %s" % str(row._get_key())
+		self._appendRow(row)
+
+	def __getitem__(self, key):
+		"""
+		Return the row matching key.
+		"""
+		for row in self:
+			if row._has_key(key):
+				return row
+		raise KeyError, "key %s not found" % str(key)
+
+	def __setitem__(self, key, value):
+		"""
+		If a row has key equal to key, replace it with value,
+		otherwise append value as a new row.  Note:
+		value.process_id need not equal key.
+		"""
+		for i in range(len(self)):
+			if self.rows[i]._has_key(key):
+				self.rows[i] = value
+				return
+		self._appendRow(value)
+
+	def __delitem__(self, key):
+		"""
+		Delete all rows having process ID key.
+		"""
+		for i in range(len(self)):
+			if self.rows[i]._has_get(key):
+				del self.rows[i]
+				return
+		raise KeyError, "key %s not found" % str(key)
+
+	def __contains__(self, key):
+		"""
+		Return True if a row has key equal to key, otherwise return
+		False.
+		"""
+		for row in self:
+			if row._has_key(key):
+				return True
+		return False
+
+	def keys(self):
+		return [row._get_key() for row in self]
+
+	def get_idmap(self):
+		"""
+		Return the key --> row object mapping for this table.
+		"""
+		map = {}
+		for row in self:
+			key = row._get_key()
+			if key in map:
+				raise ligolw.ElementError, "duplicate key %s" % str(key)
+			map[key] = row
+		return map
+
+
+# We don't subclass metaio.TableRow because that defeats the __slots__
+# feature.
+class LSCTableRow(object):
+	__slots__ = []
+
+	# Prefix with underscores to avoid collision with column names
+	def _get_key(self):
+		"""
+		Get the unique ID for this row.
+		"""
+		return None
+
+	def _set_key(self, key):
+		"""
+		Set the unique ID for this row.
+		"""
+		pass
+
+	def _has_key(self, key):
+		"""
+		Check if this row's unique ID is equal to key.
+		"""
+		return False
+
+
+#
+# =============================================================================
+#
 #                                process:table
 #
 # =============================================================================
 #
 
-class ProcessTable(metaio.Table):
+class ProcessTable(LSCTable):
 	tableName = "process:table"
 	validcolumns = {
 		"program": "lstring",
@@ -94,72 +199,17 @@ class ProcessTable(metaio.Table):
 		"process_id": "ilwd:char"
 	}
 
-	def _appendRow(self, row):
-		metaio.Table.appendRow(self, row)
-
-	def appendRow(self, row):
-		if row.process_id in self.keys():
-			raise ligolw.ElementError, "duplicate process ID %s" % row.process_id
-		self._appendRow(row)
-
-	def __getitem__(self, key):
-		"""
-		Return the row having process ID equal to key.
-		"""
-		for row in self:
-			if row.process_id == key:
-				return row
-		raise KeyError, "process ID %s not found" % key
-
-	def __setitem__(self, key, value):
-		"""
-		If a row has proces ID equal to key, replace it with value,
-		otherwise append value as a new row.  Note:
-		value.process_id need not equal key.
-		"""
-		for i in range(len(self)):
-			if self.rows[i].process_id == key:
-				self.rows[i] = value
-				return
-		self._appendRow(value)
-
-	def __delitem__(self, key):
-		"""
-		Delete all rows having process ID key.
-		"""
-		for i in range(len(self)):
-			if self.rows[i].process_id == key:
-				del self.rows[i]
-				return
-		raise KeyError, "process ID %s not found" % key
-
-	def __contains__(self, key):
-		"""
-		Return True if a row has process ID equal to key, otherwise
-		return False.
-		"""
-		for row in self:
-			if row.process_id == key:
-				return True
-		return False
-
-	def keys(self):
-		return [row.process_id for row in self]
-
-	def get_idmap(self):
-		"""
-		Return the process_id --> row object mapping for this table.
-		"""
-		map = {}
-		for row in self:
-			key = row.process_id
-			if key in map.keys():
-				raise ligolw.ElementError, "duplicate process ID %s" % str(key)
-			map[key] = row
-		return map
-
-class Process(metaio.TableRow):
+class Process(LSCTableRow):
 	__slots__ = ProcessTable.validcolumns.keys()
+
+	def _get_key(self):
+		return self.process_id
+
+	def _set_key(self, key):
+		self.process_id = key
+
+	def _has_key(self, key):
+		return key == self.process_id
 
 	def cmp(self, other):
 		# FIXME: this is a hack, but I need something so I can move
@@ -186,7 +236,7 @@ class ProcessIDs(metaio.ILWD):
 # =============================================================================
 #
 
-class LfnTable(metaio.Table):
+class LfnTable(LSCTable):
 	tableName = "lfn:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -197,72 +247,17 @@ class LfnTable(metaio.Table):
 		"end_time": "int_4s",
 	}
 
-	def _appendRow(self, row):
-		metaio.Table.appendRow(self, row)
-
-	def appendRow(self, row):
-		if row.lfn_id in self.keys():
-			raise ligolw.ElementError, "duplicate lfn ID %s" % row.lfn_id
-		self._appendRow(row)
-
-	def __getitem__(self, key):
-		"""
-		Return the row having lfn ID equal to key.
-		"""
-		for row in self:
-			if row.lfn_id == key:
-				return row
-		raise KeyError, "lfn ID %s not found" % key
-
-	def __setitem__(self, key, value):
-		"""
-		If a row has lfn ID equal to key, replace it with value,
-		otherwise append value as a new row.  Note:
-		value.lfn_id need not equal key.
-		"""
-		for i in range(len(self)):
-			if self.rows[i].lfn_id == key:
-				self.rows[i] = value
-				return
-		self._appendRow(value)
-
-	def __delitem__(self, key):
-		"""
-		Delete all rows having lfn ID key.
-		"""
-		for i in range(len(self)):
-			if self.rows[i].lfn_id == key:
-				del self.rows[i]
-				return
-		raise KeyError, "lfn ID %s not found" % key
-
-	def __contains__(self, key):
-		"""
-		Return True if a row has lfn ID equal to key, otherwise
-		return False.
-		"""
-		for row in self:
-			if row.lfn_id == key:
-				return True
-		return False
-
-	def keys(self):
-		return [row.lfn_id for row in self]
-
-	def get_idmap(self):
-		"""
-		Return the lfn_id --> row object mapping for this table.
-		"""
-		map = {}
-		for row in self:
-			key = row.lfn_id
-			if key in map.keys():
-				raise ligolw.ElementError, "duplicate lfn ID %s" % str(key)
-			map[key] = row
-		return map
-
-class Lfn(metaio.TableRow):
+class Lfn(LSCTableRow):
 	__slots__ = LfnTable.validcolumns.keys()
+
+	def _get_key(self):
+		return self.lfn_id
+
+	def _set_key(self, key):
+		self.lfn_id = key
+
+	def _has_key(self, key):
+		return key == self.lfn_id
 
 	def cmp(self, other):
 		# FIXME: this is a hack, but I need something so I can move
@@ -290,6 +285,7 @@ class LfnIDs(metaio.ILWD):
 # =============================================================================
 #
 
+# FIXME: how to subclass LSCTable?
 class ProcessParamsTable(metaio.Table):
 	tableName = "process_params:table"
 	validcolumns = {
@@ -369,7 +365,7 @@ class ProcessParamsTable(metaio.Table):
 				return True
 		return False
 
-class ProcessParams(metaio.TableRow):
+class ProcessParams(LSCTableRow):
 	__slots__ = ProcessParamsTable.validcolumns.keys()
 
 	def cmp(self, other):
@@ -394,6 +390,7 @@ ProcessParamsTable.RowType = ProcessParams
 # =============================================================================
 #
 
+# FIXME: how to subclass LSCTable?
 class SearchSummaryTable(metaio.Table):
 	tableName = "search_summary:table"
 	validcolumns = {
@@ -461,7 +458,7 @@ class SearchSummaryTable(metaio.Table):
 	def get_outlist(self):
 		return segments.segmentlist([row.get_out() for row in self])
 
-class SearchSummary(metaio.TableRow):
+class SearchSummary(LSCTableRow):
 	__slots__ = SearchSummaryTable.validcolumns.keys()
 
 	def cmp(self, other):
@@ -512,6 +509,7 @@ SearchSummaryTable.RowType = SearchSummary
 # =============================================================================
 #
 
+# FIXME: how to subclass LSCTable?
 class SearchSummVarsTable(metaio.Table):
 	tableName = "search_summvars:table"
 	validcolumns = {
@@ -521,7 +519,7 @@ class SearchSummVarsTable(metaio.Table):
 		"value": "real_8"
 	}
 
-class SearchSummVars(metaio.TableRow):
+class SearchSummVars(LSCTableRow):
 	__slots__ = SearchSummVarsTable.validcolumns.keys()
 
 SearchSummVarsTable.RowType = SearchSummVars
@@ -535,7 +533,7 @@ SearchSummVarsTable.RowType = SearchSummVars
 # =============================================================================
 #
 
-class SnglBurstTable(metaio.Table):
+class SnglBurstTable(LSCTable):
 	tableName = "sngl_burst:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -557,21 +555,21 @@ class SnglBurstTable(metaio.Table):
 		"event_id": "int_8s"
 	}
 
-	def get_idmap(self):
-		"""
-		Return the (process_id, event_id) --> row object mapping for
-		this table.
-		"""
-		map = {}
-		for row in self:
-			key = (row.process_id, row.event_id)
-			if key in map.keys():
-				raise ligolw.ElementError, "duplicate event ID %s" % str(key)
-			map[key] = row
-		return map
+	# Don't bother checking for duplicate keys when appending rows to
+	# this table (too slow)
+	appendRow = LSCTable._appendRow
 
-class SnglBurst(metaio.TableRow):
+class SnglBurst(LSCTableRow):
 	__slots__ = SnglBurstTable.validcolumns.keys()
+
+	def _get_key(self):
+		return (self.process_id, self.event_id)
+
+	def _set_key(self, key):
+		(self.process_id, self.event_id) = key
+
+	def _has_key(self, key):
+		return (self.process_id, self.event_id) == key
 
 	def get_start(self):
 		return lal.LIGOTimeGPS(self.start_time, self.start_time_ns)
@@ -616,7 +614,7 @@ class SnglBurstIDs(metaio.ILWD):
 # =============================================================================
 #
 
-class SnglInspiralTable(metaio.Table):
+class SnglInspiralTable(LSCTable):
 	tableName = "sngl_inspiral:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -663,21 +661,21 @@ class SnglInspiralTable(metaio.Table):
 		"event_id": "int_8s"
 	}
 
-	def get_idmap(self):
-		"""
-		Return the (process_id, event_id) --> row object mapping for
-		this table.
-		"""
-		map = {}
-		for row in self:
-			key = (row.process_id, row.event_id)
-			if key in map.keys():
-				raise ligolw.ElementError, "duplicate event ID %s" % str(key)
-			map[key] = row
-		return map
+	# Don't bother checking for duplicate keys when appending rows to
+	# this table (too slow)
+	appendRow = LSCTable._appendRow
 
-class SnglInspiral(metaio.TableRow):
+class SnglInspiral(LSCTableRow):
 	__slots__ = SnglInspiralTable.validcolumns.keys()
+
+	def _get_key(self):
+		return (self.process_id, self.event_id)
+
+	def _set_key(self, key):
+		(self.process_id, self.event_id) = key
+
+	def _has_key(self, key):
+		return (self.process_id, self.event_id) == key
 
 SnglInspiralTable.RowType = SnglInspiral
 
@@ -694,7 +692,7 @@ class SnglInspiralIDs(metaio.ILWD):
 # =============================================================================
 #
 
-class SnglRingDownTable(metaio.Table):
+class SnglRingDownTable(LSCTable):
 	tableName = "sngl_ringdown:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -714,21 +712,21 @@ class SnglRingDownTable(metaio.Table):
 		"event_id": "int_8s"
 	}
 
-	def get_idmap(self):
-		"""
-		Return the (process_id, event_id) --> row object mapping for
-		this table.
-		"""
-		map = {}
-		for row in self:
-			key = (row.process_id, row.event_id)
-			if key in map.keys():
-				raise ligolw.ElementError, "duplicate event ID %s" % str(key)
-			map[key] = row
-		return map
+	# Don't bother checking for duplicate keys when appending rows to
+	# this table (too slow)
+	appendRow = LSCTable._appendRow
 
-class SnglRingDown(metaio.TableRow):
+class SnglRingDown(LSCTableRow):
 	__slots__ = SnglRingDownTable.validcolumns.keys()
+
+	def _get_key(self):
+		return (self.process_id, self.event_id)
+
+	def _set_key(self, key):
+		(self.process_id, self.event_id) = key
+
+	def _has_key(self, key):
+		return (self.process_id, self.event_id) == key
 
 SnglRingDownTable.RowType = SnglRingDown
 
@@ -745,6 +743,7 @@ class SnglRingDownIDs(metaio.ILWD):
 # =============================================================================
 #
 
+# FIXME: how to subclass LSCTable?
 class MultiInspiralTable(metaio.Table):
 	tableName = "multi_inspiral:table"
 	validcolumns = {
@@ -785,7 +784,7 @@ class MultiInspiralTable(metaio.Table):
 		"polarization": "real_4"
 	}
 
-class MultiInspiral(metaio.TableRow):
+class MultiInspiral(LSCTableRow):
 	__slots__ = MultiInspiralTable.validcolumns.keys()
 
 MultiInspiralTable.RowType = MultiInspiral
@@ -799,7 +798,7 @@ MultiInspiralTable.RowType = MultiInspiral
 # =============================================================================
 #
 
-class SimInspiralTable(metaio.Table):
+class SimInspiralTable(LSCTable):
 	tableName = "sim_inspiral:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -855,21 +854,21 @@ class SimInspiralTable(metaio.Table):
 		"simulation_id": "real_4"
 	}
 
-	def get_idmap(self):
-		"""
-		Return the (process_id, simulation_id) --> row object mapping
-		for this table.
-		"""
-		map = {}
-		for row in self:
-			key = (row.process_id, row.simulation_id)
-			if key in map.keys():
-				raise ligolw.ElementError, "duplicate event ID %s" % str(key)
-			map[key] = row
-		return map
+	# FIXME: LAL creates broken tables with duplicate simulation_id, so we
+	# have to disable key checking.
+	appendRow = LSCTable._appendRow
 
-class SimInspiral(metaio.TableRow):
+class SimInspiral(LSCTableRow):
 	__slots__ = SimInspiralTable.validcolumns.keys()
+
+	def _get_key(self):
+		return (self.process_id, self.simulation_id)
+
+	def _set_key(self, key):
+		(self.process_id, self.simulation_id) = key
+
+	def _has_key(self, key):
+		return (self.process_id, self.simulation_id) == key
 
 SimInspiralTable.RowType = SimInspiral
 
@@ -886,7 +885,7 @@ class SimInspiralIDs(metaio.ILWD):
 # =============================================================================
 #
 
-class SimBurstTable(metaio.Table):
+class SimBurstTable(LSCTable):
 	tableName = "sim_burst:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -913,21 +912,21 @@ class SimBurstTable(metaio.Table):
 		"simulation_id": "ilwd:char"
 	}
 
-	def get_idmap(self):
-		"""
-		Return the (process_id, simulation_id) --> row object mapping
-		for this table.
-		"""
-		map = {}
-		for row in self:
-			key = (row.process_id, row.simulation_id)
-			if key in map.keys():
-				raise ligolw.ElementError, "duplicate event ID %s" % str(key)
-			map[key] = row
-		return map
+	# FIXME: LAL creates broken tables with duplicate simulation_id, so we
+	# have to disable key checking.
+	appendRow = LSCTable._appendRow
 
-class SimBurst(metaio.TableRow):
+class SimBurst(LSCTableRow):
 	__slots__ = SimBurstTable.validcolumns.keys()
+
+	def _get_key(self):
+		return (self.process_id, self.simulation_id)
+
+	def _set_key(self, key):
+		(self.process_id, self.simulation_id) = key
+
+	def _has_key(self, key):
+		return (self.process_id, self.simulation_id) == key
 
 SimBurstTable.RowType = SimBurst
 
@@ -944,7 +943,7 @@ class SimBurstIDs(metaio.ILWD):
 # =============================================================================
 #
 
-class SimRingDownTable(metaio.Table):
+class SimRingDownTable(LSCTable):
 	tableName = "sim_ringdown:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -976,21 +975,21 @@ class SimRingDownTable(metaio.Table):
 		"simulation_id": "ilwd:char"
 	}
 
-	def get_idmap(self):
-		"""
-		Return the (process_id, simulation_id) --> row object mapping
-		for this table.
-		"""
-		map = {}
-		for row in self:
-			key = (row.process_id, row.simulation_id)
-			if key in map.keys():
-				raise ligolw.ElementError, "duplicate event ID %s" % str(key)
-			map[key] = row
-		return map
+	# FIXME: LAL creates broken tables with duplicate simulation_id, so we
+	# have to disable key checking.
+	appendRow = LSCTable._appendRow
 
-class SimRingDown(metaio.TableRow):
+class SimRingDown(LSCTableRow):
 	__slots__ = SimRingDownTable.validcolumns.keys()
+
+	def _get_key(self):
+		return (self.process_id, self.simulation_id)
+
+	def _set_key(self, key):
+		(self.process_id, self.simulation_id) = key
+
+	def _has_key(self, key):
+		return (self.process_id, self.simulation_id) == key
 
 SimRingDownTable.RowType = SimRingDown
 
@@ -1007,6 +1006,7 @@ class SimRingDownIDs(metaio.ILWD):
 # =============================================================================
 #
 
+# FIXME: how to subclass LSCTable?
 class SummValueTable(metaio.Table):
 	tableName = "summ_value:table"
 	validcolumns = {
@@ -1022,7 +1022,7 @@ class SummValueTable(metaio.Table):
 		"comment": "lstring"
 	}
 
-class SummValue(metaio.TableRow):
+class SummValue(LSCTableRow):
 	__slots__ = SummValueTable.validcolumns.keys()
 
 SummValueTable.RowType = SummValue
@@ -1036,6 +1036,7 @@ SummValueTable.RowType = SummValue
 # =============================================================================
 #
 
+# FIXME: how to subclass LSCTable?
 class SimInstParamsTable(metaio.Table):
 	tableName = "sim_inst_params:table"
 	validcolumns = {
@@ -1045,7 +1046,7 @@ class SimInstParamsTable(metaio.Table):
 		"value": "real_8"
 	}
 
-class SimInstParams(metaio.TableRow):
+class SimInstParams(LSCTableRow):
 	__slots__ = SimInstParamsTable.validcolumns.keys()
 
 SimInstParamsTable.RowType = SimInstParams
@@ -1063,6 +1064,7 @@ class SimInstParamsIDs(metaio.ILWD):
 # =============================================================================
 #
 
+# FIXME: how to subclass LSCTable?
 class StochasticTable(metaio.Table):
 	tableName = "stochastic:table"
 	validcolumns = {
@@ -1081,7 +1083,7 @@ class StochasticTable(metaio.Table):
 		"cc_sigma": "real_8"
 	}
 
-class Stochastic(metaio.TableRow):
+class Stochastic(LSCTableRow):
 	__slots__ = StochasticTable.validcolumns.keys()
 
 StochasticTable.RowType = Stochastic
@@ -1095,6 +1097,7 @@ StochasticTable.RowType = Stochastic
 # =============================================================================
 #
 
+# FIXME: how to subclass LSCTable?
 class StochSummTable(metaio.Table):
 	tableName = "stochsumm:table"
 	validcolumns = {
@@ -1113,7 +1116,7 @@ class StochSummTable(metaio.Table):
 		"error": "real_8"
 	}
 
-class StochSumm(metaio.TableRow):
+class StochSumm(LSCTableRow):
 	__slots__ = StochSummTable.validcolumns.keys()
 
 StochSummTable.RowType = StochSumm
@@ -1127,6 +1130,7 @@ StochSummTable.RowType = StochSumm
 # =============================================================================
 #
 
+# FIXME: how to subclass LSCTable?
 class ExtTriggersTable(metaio.Table):
 	tableName = "external_trigger:table"
 	validcolumns = {
@@ -1172,7 +1176,7 @@ class ExtTriggersTable(metaio.Table):
 		"event_status": "int_4s"
 	}
 
-class ExtTriggers(metaio.TableRow):
+class ExtTriggers(LSCTableRow):
 	__slots__ = ExtTriggersTable.validcolumns.keys()
 
 ExtTriggersTable.RowType = ExtTriggers
@@ -1186,6 +1190,7 @@ ExtTriggersTable.RowType = ExtTriggers
 # =============================================================================
 #
 
+# FIXME: how to subclass LSCTable?
 class FilterTable(metaio.Table):
 	tableName = "filter:table"
 	validcolumns = {
@@ -1196,7 +1201,7 @@ class FilterTable(metaio.Table):
 		"comment": "lstring"
 	}
 
-class Filter(metaio.TableRow):
+class Filter(LSCTableRow):
 	__slots__ = FilterTable.validcolumns.keys()
 
 FilterTable.RowType = Filter
@@ -1210,7 +1215,7 @@ FilterTable.RowType = Filter
 # =============================================================================
 #
 
-class SegmentTable(metaio.Table):
+class SegmentTable(LSCTable):
 	tableName = "segment:table"
 	validcolumns = {
 		"creator_db": "int_4s",
@@ -1234,23 +1239,19 @@ class SegmentTable(metaio.Table):
 		"""
 		if not active:
 			raise ValueError, "segmentlist(): activity flag must != 0."
-		return segments.segmentlist([row.segment() for row in self if (row.process_id == key) and (row.active * active > 0)])
+		return segments.segmentlist([row.get_segment() for row in self if (row.process_id == key) and (row.active * active > 0)])
 
-	def get_idmap(self):
-		"""
-		Return the (process_id, segment_id) --> row object mapping
-		for this table.
-		"""
-		map = {}
-		for row in self:
-			key = (row.process_id, row.segment_id)
-			if key in map.keys():
-				raise ligolw.ElementError, "duplicate event ID %s" % str(key)
-			map[key] = row
-		return map
-
-class Segment(metaio.TableRow):
+class Segment(LSCTableRow):
 	__slots__ = SegmentTable.validcolumns.keys()
+
+	def _get_key(self):
+		return (self.process_id, self.segment_id)
+
+	def _set_key(self, key):
+		(self.process_id, self.segment_id) = key
+
+	def _has_key(self, key):
+		return (self.process_id, self.segment_id) == key
 
 	def get_segment(self):
 		"""
@@ -1280,7 +1281,7 @@ class SegmentIDs(metaio.ILWD):
 # =============================================================================
 #
 
-class SegmentDefMapTable(metaio.Table):
+class SegmentDefMapTable(LSCTable):
 	tableName = "segment_def_map:table"
 	validcolumns = {
 		"creator_db": "int_4s",
@@ -1294,21 +1295,17 @@ class SegmentDefMapTable(metaio.Table):
 		"insertion_time": "int_4s"
 	}
 
-	def get_idmap(self):
-		"""
-		Return the (process_id, seg_def_map_id) --> row object mapping
-		for this table.
-		"""
-		map = {}
-		for row in self:
-			key = (row.process_id, row.seg_def_map_id)
-			if key in map.keys():
-				raise ligolw.ElementError, "duplicate event ID %s" % str(key)
-			map[key] = row
-		return map
-
-class SegmentDefMap(metaio.TableRow):
+class SegmentDefMap(LSCTableRow):
 	__slots__ = SegmentDefMapTable.validcolumns.keys()
+
+	def _get_key(self):
+		return (self.process_id, self.seg_def_map_id)
+
+	def _set_key(self, key):
+		(self.process_id, self.seg_def_map_id) = key
+
+	def _has_key(self, key):
+		return (self.process_id, self.seg_def_map_id) == key
 
 SegmentDefMapTable.RowType = SegmentDefMap
 
@@ -1325,7 +1322,7 @@ class SegmentDefMapIDs(metaio.ILWD):
 # =============================================================================
 #
 
-class SegmentDefTable(metaio.Table):
+class SegmentDefTable(LSCTable):
 	tableName = "segment_definer:table"
 	validcolumns = {
 		"creator_db": "int_4s",
@@ -1341,21 +1338,17 @@ class SegmentDefTable(metaio.Table):
 		"insertion_time": "int_4s"
 	}
 
-	def get_idmap(self):
-		"""
-		Return the (process_id, segment_def_id) --> row object mapping
-		for this table.
-		"""
-		map = {}
-		for row in self:
-			key = (row.process_id, row.segment_def_id)
-			if key in map.keys():
-				raise ligolw.ElementError, "duplicate event ID %s" % str(key)
-			map[key] = row
-		return map
-
-class SegmentDef(metaio.TableRow):
+class SegmentDef(LSCTableRow):
 	__slots__ = SegmentDefTable.validcolumns.keys()
+
+	def _get_key(self):
+		return (self.process_id, self.segment_def_id)
+
+	def _set_key(self, key):
+		(self.process_id, self.segment_def_id) = key
+
+	def _has_key(self, key):
+		return (self.process_id, self.segment_def_id) == key
 
 SegmentDefTable.RowType = SegmentDef
 
