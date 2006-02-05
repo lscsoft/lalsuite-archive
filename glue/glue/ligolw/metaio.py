@@ -1,4 +1,3 @@
-
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __date__ = "$Date$"
 __version__ = "$Revision$"
@@ -167,17 +166,20 @@ class ILWD(object):
 class Column(ligolw.Column):
 	"""
 	High-level column element that knows how to turn column data from
-	the table into an array.
+	the table into a list or numarray array.
 	"""
-	def asarray(self):
+	def list(self):
 		attr = StripColumnName(self.getAttribute("Name"))
+		return [getattr(row, attr) for row in self.parentNode.rows]
+
+	def asarray(self):
 		if self.getAttribute("Type") in StringTypes:
-			return [getattr(row, attr) for row in self.parentNode]
+			return self.list()
 		else:
-			return numarray.asarray([getattr(row, attr) for row in self.parentNode], type = ToNumArrayType[self.getAttribute("Type")])
+			return numarray.asarray(self.list(), type = ToNumArrayType[self.getAttribute("Type")])
 
 
-class Stream(ligolw.Stream):
+class TableStream(ligolw.Stream):
 	"""
 	High-level Stream element for use inside Tables.  This element
 	knows how to parse the delimited character stream into rows in the
@@ -192,10 +194,6 @@ class Stream(ligolw.Stream):
 	def appendData(self, content):
 		# append new data to buffer
 		ligolw.Stream.appendData(self, content)
-
-		# make sure we are inside a Table
-		if self.parentNode.tagName != ligolw.Table.tagName:
-			return
 
 		# move tokens from buffer to token list
 		match = None
@@ -346,14 +344,19 @@ class LIGOLWContentHandler(ligolw.LIGOLWContentHandler):
 		return Column(attrs)
 
 	def startStream(self, attrs):
-		return Stream(attrs)
+		if self.current.tagName == ligolw.Table.tagName:
+			return TableStream(attrs)
+		return ligolw.LIGOLWContentHandler.startStream(self, attrs)
 
 	def endStream(self):
 		# stream tokenizer uses comma to identify end of each
 		# token, so add a final comma to induce the last token to
 		# get parsed.  FIXME: this is a hack, and hacks are the
 		# source of bugs.
-		self.current.appendData(self.current.getAttribute("Delimiter"))
+		if self.current.parentNode.tagName == ligolw.Table.tagName:
+			self.current.appendData(self.current.getAttribute("Delimiter"))
+		else:
+			ligolw.LIGOLWContentHandler.endStream(self)
 
 	def startTable(self, attrs):
 		return Table(attrs)

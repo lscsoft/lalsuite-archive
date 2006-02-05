@@ -41,7 +41,7 @@ def New(Type, columns = None):
 	for key, value in table.validcolumns.items():
 		if (columns == None) or (key in columns):
 			table.appendChild(metaio.Column(sax.xmlreader.AttributesImpl({u"Name": ":".join(Type.tableName.split(":")[:-1]) + ":" + key, u"Type": value})))
-	table.appendChild(metaio.Stream(sax.xmlreader.AttributesImpl({u"Name": Type.tableName})))
+	table.appendChild(metaio.TableStream(sax.xmlreader.AttributesImpl({u"Name": Type.tableName})))
 	return table
 
 
