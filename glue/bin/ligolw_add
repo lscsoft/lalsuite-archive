@@ -128,12 +128,10 @@ if options.no_duplicate_process:
 			if (plist[ids[j]] == plist[ids[i]]) and (ids[j] not in duplicates):
 				duplicates.append(ids[j])
 
-	#for id in duplicates:
-	#	del plist[id]
-
 	if len(duplicates):
 		for table in doc.getElements(lambda e: (e.tagName == ligolw.Table.tagName) and (metaio.StripTableName(e.getAttribute("Name")) in lsctables.TablesByName.keys()) and ("process_id" in e.validcolumns.keys())):
 			table.filterRows(lambda r: r.process_id not in duplicates)
+
 
 #
 # add an lfn table for each process
