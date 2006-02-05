@@ -178,6 +178,16 @@ class Column(ligolw.Column):
 		else:
 			return numarray.asarray(self.list(), type = ToNumArrayType[self.getAttribute("Type")])
 
+	# This function is for the metaio library:  metaio cares what order
+	# the attributes of XML tags come in.  This function will be
+	# removed when the people responsible for the metaio library fix
+	# it.
+	def start_tag(self):
+		"""
+		See the source code for an explanation.
+		"""
+		return "<%s Name=\"%s\" Type=\"%s\"/>" % (self.tagName, self.getAttribute("Name"), self.getAttribute("Type"))
+
 
 class TableStream(ligolw.Stream):
 	"""
@@ -240,6 +250,16 @@ class TableStream(ligolw.Stream):
 		except StopIteration:
 			file.write("\n")
 		print >>file, indent + self.end_tag()
+
+	# This function is for the metaio library:  metaio cares what order
+	# the attributes of XML tags come in.  This function will be
+	# removed when the people responsible for the metaio library fix
+	# it.
+	def start_tag(self):
+		"""
+		See the source code for an explanation.
+		"""
+		return "<%s Name=\"%s\" Type=\"%s\" Delimiter=\"%s\">" % (self.tagName, self.getAttribute("Name"), self.getAttribute("Type"), self.getAttribute("Delimiter"))
 
 
 class TableRow(object):
