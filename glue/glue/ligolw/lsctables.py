@@ -74,24 +74,6 @@ def IsTableProperties(Type, tagname, attrs):
 #
 
 class LSCTable(metaio.Table):
-	def _appendRow(self, row):
-		"""
-		Append a row to the table without checking if the row
-		duplicates an existing key.  (faster)
-		"""
-		metaio.Table.appendRow(self, row)
-
-	def appendRow(self, row):
-		"""
-		Append a row to the table, checking for a duplicate key.
-		"""
-		# This is not simply a call to __setitem__() because we need to
-		# check for duplicate keys.  Don't want to silently drop rows
-		# from tables.
-		if row._get_key() in self:
-			raise ligolw.ElementError, "duplicate key %s" % str(row._get_key())
-		self._appendRow(row)
-
 	def __getitem__(self, key):
 		"""
 		Return the row matching key.
@@ -104,18 +86,17 @@ class LSCTable(metaio.Table):
 	def __setitem__(self, key, value):
 		"""
 		If a row has key equal to key, replace it with value,
-		otherwise append value as a new row.  Note:
-		value.process_id need not equal key.
+		otherwise append value as a new row.  Note: the row key
+		carried by value need not equal key, but this behaviour may
+		change in the future.
 		"""
 		for i in range(len(self)):
 			if self.rows[i]._has_key(key):
 				self.rows[i] = value
 				return
 		# FIXME: should we call _set_key() on value to force it to have
-		# the key that was searched for?  If not, what about calling
-		# appendRow() instead to make sure value's key isn't a
-		# duplicate.  The former will be faster.
-		self._appendRow(value)
+		# the key that was searched for?
+		self.appendRow(value)
 
 	def __delitem__(self, key):
 		"""
@@ -147,7 +128,6 @@ class LSCTable(metaio.Table):
 		map = {}
 		for row in self:
 			key = row._get_key()
-			# FIXME: is this worth it?
 			if key in map:
 				raise ligolw.ElementError, "duplicate key %s" % str(key)
 			map[key] = row
@@ -164,6 +144,7 @@ class LSCTableRow(object):
 		"""
 		Get the unique ID for this row.
 		"""
+		raise ligolw.ElementError, "duplicate key %s" % str(key)
 		return None
 
 	def _set_key(self, key):
@@ -304,15 +285,10 @@ class ProcessParamsTable(metaio.Table):
 		"value": "lstring"
 	}
 
-	def _appendRow(self, row):
-		metaio.Table.appendRow(self, row)
-
 	def appendRow(self, row):
-		if (row.process_id, row.param) in [(r.process_id, r.param) for r in self]:
-			raise ligolw.ElementError, "duplicate parameter %s for process ID %s" % (row.param, row.process_id)
 		if row.type not in metaio.Types:
 			raise ligolw.ElementError, "unrecognized Type attribute %s" % row.type
-		self._appendRow(row)
+		metaio.Table.appendRow(self, row)
 
 	def get_program(self, key):
 		"""
@@ -563,10 +539,6 @@ class SnglBurstTable(LSCTable):
 		"event_id": "int_8s"
 	}
 
-	# Don't bother checking for duplicate keys when appending rows to
-	# this table (too slow)
-	appendRow = LSCTable._appendRow
-
 class SnglBurst(LSCTableRow):
 	__slots__ = SnglBurstTable.validcolumns.keys()
 
@@ -669,10 +641,6 @@ class SnglInspiralTable(LSCTable):
 		"event_id": "int_8s"
 	}
 
-	# Don't bother checking for duplicate keys when appending rows to
-	# this table (too slow)
-	appendRow = LSCTable._appendRow
-
 class SnglInspiral(LSCTableRow):
 	__slots__ = SnglInspiralTable.validcolumns.keys()
 
@@ -719,10 +687,6 @@ class SnglRingDownTable(LSCTable):
 		"sigma_sq": "real_8",
 		"event_id": "int_8s"
 	}
-
-	# Don't bother checking for duplicate keys when appending rows to
-	# this table (too slow)
-	appendRow = LSCTable._appendRow
 
 class SnglRingDown(LSCTableRow):
 	__slots__ = SnglRingDownTable.validcolumns.keys()
@@ -862,10 +826,6 @@ class SimInspiralTable(LSCTable):
 		"simulation_id": "real_4"
 	}
 
-	# FIXME: LAL creates broken tables with duplicate simulation_id, so we
-	# have to disable key checking.
-	appendRow = LSCTable._appendRow
-
 class SimInspiral(LSCTableRow):
 	__slots__ = SimInspiralTable.validcolumns.keys()
 
@@ -919,10 +879,6 @@ class SimBurstTable(LSCTable):
 		"zm_number": "int_4s",
 		"simulation_id": "ilwd:char"
 	}
-
-	# FIXME: LAL creates broken tables with duplicate simulation_id, so we
-	# have to disable key checking.
-	appendRow = LSCTable._appendRow
 
 class SimBurst(LSCTableRow):
 	__slots__ = SimBurstTable.validcolumns.keys()
@@ -982,10 +938,6 @@ class SimRingDownTable(LSCTable):
 		"hrss_l": "real_4",
 		"simulation_id": "ilwd:char"
 	}
-
-	# FIXME: LAL creates broken tables with duplicate simulation_id, so we
-	# have to disable key checking.
-	appendRow = LSCTable._appendRow
 
 class SimRingDown(LSCTableRow):
 	__slots__ = SimRingDownTable.validcolumns.keys()
