@@ -32,6 +32,7 @@ def makeplot(desc, table):
 	pylab.plot(xvals, yvals / duration)
 
 	pylab.set(axes, xlim = list(desc.band))
+	pylab.xticks(pylab.arange(desc.band[0], desc.band[1], 100))
 	pylab.grid(True)
 
 	pylab.title(desc.instrument + " Excess Power Trigger Rate vs. Central Frequency\n(GPS Times %s ... %s, %d Triggers, %g Hz Average)" % (desc.segment[0], desc.segment[1], len(table), desc.freqwidth))

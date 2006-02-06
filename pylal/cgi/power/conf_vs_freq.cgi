@@ -31,6 +31,7 @@ def makeplot(desc, table):
 	pylab.semilogy(central_freq, confidence, "b+")
 
 	pylab.set(axes, xlim = list(desc.band))
+	pylab.xticks(pylab.arange(desc.band[0], desc.band[1], 100))
 	pylab.grid(True)
 
 	pylab.title(desc.instrument + " Excess Power Trigger Confidence vs. Central Frequency\n(GPS Times %s ... %s, %d Triggers)" % (desc.segment[0], desc.segment[1], len(table)))
