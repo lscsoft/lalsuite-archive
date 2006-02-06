@@ -74,7 +74,7 @@ def plot_pnglink(name, query):
 
 def plot_pngthumbnail(name, query):
 	src = _imgsrc(name, query) + "&format=png"
-	return """<a href="%s"><object data="%s" type="image/png" width="800" standby="Generating image.  Please wait.">Failure loading image.</object></a>""" % (src, src)
+	return """<a href="%s"><object data="%s" type="image/png" width="800" standby="Generating image.  Please wait.">Failure loading image (timeout?).</object></a>""" % (src, src)
 
 def plot_epslink(name, query):
 	src = _imgsrc(name, query) + "&format=eps"
@@ -177,7 +177,7 @@ print """<hr width="90%">"""
 print "<center>"
 print "<h2>S5 Excess Power Live Times To Date</h2>"
 print "</center>"
-print """<object data="livetime.cgi" type="text/html" width="100%" standby="Computing live time chart.  Please wait.">Failure loading live time chart.</object>"""
+print """<object data="livetime.cgi" type="text/html" width="100%" standby="Computing live time chart.  Please wait.">Failure loading live time chart (timeout?).</object>"""
 print """<hr width="90%">"""
 
 if query.segment.duration() > 24 * 3600:
