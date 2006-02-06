@@ -1316,6 +1316,99 @@ SegmentDefTable.RowType = SegmentDef
 #
 # =============================================================================
 #
+#                                 slide:table
+#
+# =============================================================================
+#
+
+class TimeSlideTable(metaio.Table):
+	tableName = "time_slide:table"
+	validcolumns = {
+		"process_id": "ilwd:char",
+		"time_slide_id": "ilwd:char",
+		"ifo": "lstring",
+		"offset": "int_8s",
+		"offset_ns": "int_8s"
+	}
+
+class TimeSlide(LSCTableRow):
+	__slots__ = TimeSlideTable.validcolumns.keys()
+
+	def _get_key(self):
+		return self.slide_id
+
+	def _set_key(self, key):
+		self.slide_id = key
+
+	def _has_key(self, key):
+		return self.slide_id == key
+
+TimeSlideTable.RowType = TimeSlide
+
+class TimeSlideIDs(metaio.ILWD):
+	def __init__(self, n = 0):
+		metaio.ILWD.__init__(self, "time_slide:time_slide_id", n)
+
+
+#
+# =============================================================================
+#
+#                                 coinc:table
+#
+# =============================================================================
+#
+
+class CoincTable(LSCTable):
+	tableName = "coinc:table"
+	validcolumns = {
+		"process_id": "ilwd:char",
+		"coinc_id": "ilwd:char",
+		"time_slide_id": "ilwd:char"
+	}
+
+class Coinc(LSCTableRow):
+	__slots__ = CoincTable.validcolumns.keys()
+
+	def _get_key(self):
+		return self.coinc_id
+
+	def _set_key(self, key):
+		self.coinc_id = key
+
+	def _has_key(self, key):
+		return self.coinc_id == key
+
+CoincTable.RowType = Coinc
+
+class CoincIDs(metaio.ILWD):
+	def __init__(self, n = 0):
+		metaio.ILWD.__init__(self, "coinc:coinc_id", n)
+
+
+#
+# =============================================================================
+#
+#                            coinc_event_map:table
+#
+# =============================================================================
+#
+
+class CoincMapTable(LSCTable):
+	tableName = "coinc_event_map:table"
+	validcolumns = {
+		"coinc_id": "ilwd:char",
+		"event_id": "ilwd:char"
+	}
+
+class CoincMap(LSCTableRow):
+	__slots__ = CoincMapTable.validcolumns.keys()
+
+CoincMapTable.RowType = CoincMap
+
+
+#
+# =============================================================================
+#
 #                               Content Handler
 #
 # =============================================================================
