@@ -83,7 +83,7 @@ def BuildProcessMapping(elem):
 	# old process ID --> new process ID
 	mapping = {}
 	for table in elem.getElements(IsProcessTable):
-		for key in table.keys():
+		for key in table.dict.keys():
 			mapping[key] = str(new_process_ids.next())
 	return mapping
 

@@ -121,26 +121,26 @@ class ProcessList(object):
 		return len(self.processtable)
 
 	def __getitem__(self, key):
-		proc = self.processtable[key]
+		proc = self.processtable.dict[key]
 		try:
-			params = self.processparamstable[key]
+			params = self.processparamstable.dict[key]
 		except KeyError:
 			params = []
 		try:
-			summary = self.searchsummarytable[key]
+			summary = self.searchsummarytable.dict[key]
 		except KeyError:
 			summary = []
 		return Process(proc, params, summary)
 
 	def __setitem__(self, key, value):
-		self.processtable[key] = value.process
-		self.processparamstable[key] = value.processparams
-		self.searchsummarytable[key] = value.searchsummary
+		self.processtable.dict[key] = value.process
+		self.processparamstable.dict[key] = value.processparams
+		self.searchsummarytable.dict[key] = value.searchsummary
 
 	def __delitem__(self, key):
-		del self.processtable[key]
-		del self.processparamstable[key]
-		del self.searchsummarytable[key]
+		del self.processtable.dict[key]
+		del self.processparamstable.dict[key]
+		del self.searchsummarytable.dict[key]
 
 	def __contains__(self, key):
 		return key in self.processtable

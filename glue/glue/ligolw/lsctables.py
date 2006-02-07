@@ -73,12 +73,22 @@ def IsTableProperties(Type, tagname, attrs):
 # =============================================================================
 #
 
-class LSCTable(metaio.Table):
+class LSCTableDict(object):
+	"""
+	Class for implementing the Python mapping protocol on a list of table
+	rows.
+	"""
+	def __init__(self, rows):
+		"""
+		Initialize the mapping for the list of rows rows.
+		"""
+		self.rows = rows
+
 	def __getitem__(self, key):
 		"""
 		Return the row matching key.
 		"""
-		for row in self:
+		for row in self.rows:
 			if row._has_key(key):
 				return row
 		raise KeyError, repr(key)
@@ -90,7 +100,7 @@ class LSCTable(metaio.Table):
 		carried by value need not equal key, but this behaviour may
 		change in the future.
 		"""
-		for i in range(len(self)):
+		for i in range(len(self.rows)):
 			if self.rows[i]._has_key(key):
 				self.rows[i] = value
 				return
@@ -100,9 +110,9 @@ class LSCTable(metaio.Table):
 
 	def __delitem__(self, key):
 		"""
-		Delete all rows having process ID key.
+		Delete all rows having the given key.
 		"""
-		for i in range(len(self)):
+		for i in range(len(self.rows)):
 			if self.rows[i]._has_get(key):
 				del self.rows[i]
 				return
@@ -113,25 +123,32 @@ class LSCTable(metaio.Table):
 		Return True if a row has key equal to key, otherwise return
 		False.
 		"""
-		for row in self:
+		for row in self.rows:
 			if row._has_key(key):
 				return True
 		return False
 
 	def keys(self):
-		return [row._get_key() for row in self]
+		return [row._get_key() for row in self.rows]
 
 	def get_idmap(self):
 		"""
 		Return the key --> row object mapping for this table.
 		"""
 		map = {}
-		for row in self:
+		for row in self.rows:
 			key = row._get_key()
 			if key in map:
 				raise ligolw.ElementError, "duplicate key %s" % repr(key)
 			map[key] = row
 		return map
+
+
+
+class LSCTable(metaio.Table):
+	def __init__(self, attrs):
+		metaio.Table.__init__(self, attrs)
+		self.dict = LSCTableDict(self.rows)
 
 
 # We don't subclass metaio.TableRow because that defeats the __slots__
