@@ -807,6 +807,7 @@ class SimInspiralTable(LSCTable):
 		"alpha3": "real_4",
 		"alpha4": "real_4",
 		"alpha5": "real_4",
+		"alpha6": "real_4",
 		"beta": "real_4",
 		"spin1x": "real_4",
 		"spin1y": "real_4",
@@ -823,7 +824,7 @@ class SimInspiralTable(LSCTable):
 		"eff_dist_g": "real_4",
 		"eff_dist_t": "real_4",
 		"eff_dist_v": "real_4",
-		"simulation_id": "real_4"
+		"simulation_id": "ilwd:char"
 	}
 
 class SimInspiral(LSCTableRow):
