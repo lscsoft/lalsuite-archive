@@ -337,7 +337,7 @@ class Table(ligolw.Table):
 		try:
 			return self.getElements(lambda e: (e.tagName == ligolw.Column.tagName) and (CompareColumnNames(e.getAttribute("Name"), name) == 0))[0]
 		except IndexError:
-			raise KeyError, "no Column matching name %s" % name
+			raise KeyError, "no Column matching name \"%s\"" % name
 
 	def appendChild(self, child):
 		if child.tagName == ligolw.Column.tagName:
@@ -345,11 +345,11 @@ class Table(ligolw.Table):
 			llwtype = child.getAttribute("Type")
 			if self.validcolumns != None:
 				if colname not in self.validcolumns.keys():
-					raise ligolw.ElementError, "invalid Column name %s for Table" % child.getAttribute("Name")
+					raise ligolw.ElementError, "invalid Column name \"%s\" for Table" % child.getAttribute("Name")
 				if self.validcolumns[colname] != llwtype:
-					raise ligolw.ElementError, "invalid type %s for Column %s" % (llwtype, child.getAttribute("Name"))
+					raise ligolw.ElementError, "invalid type \"%s\" for Column \"%s\"" % (llwtype, child.getAttribute("Name"))
 			if colname in [c[0] for c in self.columninfo]:
-				raise ligolw.ElementError, "duplicate Column %s" % child.getAttribute("Name")
+				raise ligolw.ElementError, "duplicate Column \"%s\"" % child.getAttribute("Name")
 			if llwtype in StringTypes:
 				self.columninfo.append((colname, str))
 			elif llwtype in IntTypes:
@@ -357,10 +357,10 @@ class Table(ligolw.Table):
 			elif llwtype in FloatTypes:
 				self.columninfo.append((colname, float))
 			else:
-				raise ligolw.ElementError, "unrecognized Type attribute %s for Column element" % llwtype
+				raise ligolw.ElementError, "unrecognized Type attribute \"%s\" for Column element" % llwtype
 		elif child.tagName == ligolw.Stream.tagName:
 			if child.getAttribute("Name") != self.getAttribute("Name"):
-				raise ligolw.ElementError, "Stream name %s does not match Table name %s" % (child.getAttribute("Name"), self.getAttribute("Name"))
+				raise ligolw.ElementError, "Stream name \"%s\" does not match Table name \"%s\"" % (child.getAttribute("Name"), self.getAttribute("Name"))
 		ligolw.Table.appendChild(self, child)
 
 	def removeChild(self, child):

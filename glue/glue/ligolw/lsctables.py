@@ -81,7 +81,7 @@ class LSCTable(metaio.Table):
 		for row in self:
 			if row._has_key(key):
 				return row
-		raise KeyError, "key %s not found" % str(key)
+		raise KeyError, repr(key)
 
 	def __setitem__(self, key, value):
 		"""
@@ -106,7 +106,7 @@ class LSCTable(metaio.Table):
 			if self.rows[i]._has_get(key):
 				del self.rows[i]
 				return
-		raise KeyError, "key %s not found" % str(key)
+		raise KeyError, repr(key)
 
 	def __contains__(self, key):
 		"""
@@ -129,7 +129,7 @@ class LSCTable(metaio.Table):
 		for row in self:
 			key = row._get_key()
 			if key in map:
-				raise ligolw.ElementError, "duplicate key %s" % str(key)
+				raise ligolw.ElementError, "duplicate key %s" % repr(key)
 			map[key] = row
 		return map
 
@@ -286,7 +286,7 @@ class ProcessParamsTable(metaio.Table):
 
 	def appendRow(self, row):
 		if row.type not in metaio.Types:
-			raise ligolw.ElementError, "unrecognized Type attribute %s" % row.type
+			raise ligolw.ElementError, "ProcessParamsTable.appendRow():  unrecognized type \"%s\"" % row.type
 		metaio.Table.appendRow(self, row)
 
 	def get_program(self, key):
@@ -297,7 +297,7 @@ class ProcessParamsTable(metaio.Table):
 		for row in self:
 			if row.process_id == key:
 				return row.program
-		raise KeyError, "process ID %s not found" % key
+		raise KeyError, repr(key)
 
 	def set_program(self, key, value):
 		"""
@@ -317,7 +317,7 @@ class ProcessParamsTable(metaio.Table):
 			if row.process_id == key:
 				params.append(row)
 		if not len(params):
-			raise KeyError, "process ID %s not found" % key
+			raise KeyError, repr(key)
 		# sort by process ID, then parameter name (all rows should
 		# be unique by this measure).
 		params.sort(lambda a, b: cmp((a.process_id, a.param), (b.process_id, b.param)))
@@ -404,7 +404,7 @@ class SearchSummaryTable(metaio.Table):
 			if row.process_id == key:
 				summaries.append(row)
 		if not len(summaries):
-			raise KeyError, "process ID %s not found" % key
+			raise KeyError, repr(key)
 		# sort by process ID, then output segment (all rows should
 		# be unique by this measure).
 		summaries.sort(lambda a, b: cmp((a.process_id, a.get_out()), (b.process_id, b.get_out())))
@@ -1198,7 +1198,7 @@ class SegmentTable(LSCTable):
 		in other words it has not been coalesced.
 		"""
 		if not active:
-			raise ValueError, "segmentlist(): activity flag must != 0."
+			raise ValueError, "SegmentTable.segmentlist(): activity flag must != 0."
 		return segments.segmentlist([row.get_segment() for row in self if (row.process_id == key) and (row.active * active > 0)])
 
 class Segment(LSCTableRow):
