@@ -47,11 +47,12 @@ def column_value(table, column):
 	Scan a column in a table element, checking that all rows have the
 	same value, and return that value.
 	"""
-	vals = table.getColumnByName(column).asarray()
-	for i in range(1, len(vals)):
-		if vals[i] != vals[0]:
+	vals = table.getColumnByName(column)
+	value = vals[0]
+	for v in vals:
+		if v != value:
 			raise ValueError, "%s: not all rows have the same value for \"%s\"" % (table.tableName, column)
-	return vals[0]
+	return value
 
 
 #
