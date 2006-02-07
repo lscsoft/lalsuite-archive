@@ -575,7 +575,7 @@ def make_parser(handler, validate = False):
 	server is not available.
 	"""
 	try:
-		parser = sax.make_parser("xml.sax.drivers2.drv_pyexpat")
+		parser = sax.make_parser("xml.sax.drivers2.drv_xmlproc")
 	except TypeError:
 		parser = sax.make_parser()
 	parser.setContentHandler(handler)
