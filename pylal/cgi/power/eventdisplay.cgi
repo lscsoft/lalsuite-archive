@@ -159,10 +159,14 @@ def formnotes():
 
 print "Content-Type: text/html\n"
 
+print """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">"""
 print """<html>"""
 
+print """<head>"""
 print refresh
+print """</head>"""
 
+print """<body>"""
 print "<center><h1>Excess Power Event Interface of Patience</h1></center>"
 print "<center>(Patience Required)</center>"
 print """<p>You can <a href="http://www.lsc-group.phys.uwm.edu/cgi-bin/cvs/viewcvs.cgi/pylal/cgi/power/?cvsroot=lscsoft">browse the source code for these web pages</a> and see what takes so long.</p>"""
@@ -210,4 +214,5 @@ else:
 	print "</center>"
 	print "</p>"
 
+print """</body>"""
 print """</html>"""
