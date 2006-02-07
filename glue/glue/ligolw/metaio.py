@@ -214,7 +214,15 @@ class Column(ligolw.Column):
 		"""
 		if self.getAttribute("Type") in StringTypes:
 			raise TypeError, "Column does not have numeric type"
-		return numarray.asarray(self, type = ToNumArrayType[self.getAttribute("Type")])
+		# hack to work around bug in numarray:  numarray tests that
+		# an object can be turned into an array, that is it is
+		# "list like", by trying to retrieve element 0.  This fails
+		# if the list like object has 0 length, causing numarray to
+		# barf.  If the object is, in fact, a real Python list then
+		# numarray is made happy.
+		if not len(self):
+			return numarray.array([], type = ToNumArrayType[self.getAttribute("Type")], shape = (len(self),))
+		return numarray.array(self, type = ToNumArrayType[self.getAttribute("Type")], shape = (len(self),))
 
 	# FIXME: This function is for the metaio library:  metaio cares
 	# what order the attributes of XML tags come in.  This function
