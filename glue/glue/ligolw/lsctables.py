@@ -1327,8 +1327,8 @@ class TimeSlideTable(metaio.Table):
 		"process_id": "ilwd:char",
 		"time_slide_id": "ilwd:char",
 		"ifo": "lstring",
-		"offset": "int_8s",
-		"offset_ns": "int_8s"
+		"offset": "int_4s",
+		"offset_ns": "int_4s"
 	}
 
 class TimeSlide(LSCTableRow):
