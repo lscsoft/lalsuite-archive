@@ -144,20 +144,19 @@ class LSCTableRow(object):
 		"""
 		Get the unique ID for this row.
 		"""
-		raise ligolw.ElementError, "duplicate key %s" % str(key)
-		return None
+		raise KeyError, "row object does not define a key column"
 
 	def _set_key(self, key):
 		"""
 		Set the unique ID for this row.
 		"""
-		pass
+		raise KeyError, "row object does not define a key column"
 
 	def _has_key(self, key):
 		"""
 		Check if this row's unique ID is equal to key.
 		"""
-		return False
+		raise KeyError, "row object does not define a key column"
 
 
 #
@@ -543,13 +542,13 @@ class SnglBurst(LSCTableRow):
 	__slots__ = SnglBurstTable.validcolumns.keys()
 
 	def _get_key(self):
-		return (self.process_id, self.event_id)
+		return self.event_id
 
 	def _set_key(self, key):
-		(self.process_id, self.event_id) = key
+		self.event_id = key
 
 	def _has_key(self, key):
-		return (self.process_id, self.event_id) == key
+		return self.event_id == key
 
 	def get_start(self):
 		return lal.LIGOTimeGPS(self.start_time, self.start_time_ns)
@@ -645,13 +644,13 @@ class SnglInspiral(LSCTableRow):
 	__slots__ = SnglInspiralTable.validcolumns.keys()
 
 	def _get_key(self):
-		return (self.process_id, self.event_id)
+		return self.event_id
 
 	def _set_key(self, key):
-		(self.process_id, self.event_id) = key
+		self.event_id = key
 
 	def _has_key(self, key):
-		return (self.process_id, self.event_id) == key
+		return self.event_id == key
 
 SnglInspiralTable.RowType = SnglInspiral
 
@@ -692,13 +691,13 @@ class SnglRingDown(LSCTableRow):
 	__slots__ = SnglRingDownTable.validcolumns.keys()
 
 	def _get_key(self):
-		return (self.process_id, self.event_id)
+		return self.event_id
 
 	def _set_key(self, key):
-		(self.process_id, self.event_id) = key
+		self.event_id = key
 
 	def _has_key(self, key):
-		return (self.process_id, self.event_id) == key
+		return self.event_id == key
 
 SnglRingDownTable.RowType = SnglRingDown
 
@@ -831,13 +830,13 @@ class SimInspiral(LSCTableRow):
 	__slots__ = SimInspiralTable.validcolumns.keys()
 
 	def _get_key(self):
-		return (self.process_id, self.simulation_id)
+		return self.simulation_id
 
 	def _set_key(self, key):
-		(self.process_id, self.simulation_id) = key
+		self.simulation_id = key
 
 	def _has_key(self, key):
-		return (self.process_id, self.simulation_id) == key
+		return self.simulation_id == key
 
 SimInspiralTable.RowType = SimInspiral
 
@@ -885,13 +884,13 @@ class SimBurst(LSCTableRow):
 	__slots__ = SimBurstTable.validcolumns.keys()
 
 	def _get_key(self):
-		return (self.process_id, self.simulation_id)
+		return self.simulation_id
 
 	def _set_key(self, key):
-		(self.process_id, self.simulation_id) = key
+		self.simulation_id = key
 
 	def _has_key(self, key):
-		return (self.process_id, self.simulation_id) == key
+		return self.simulation_id == key
 
 SimBurstTable.RowType = SimBurst
 
@@ -944,13 +943,13 @@ class SimRingDown(LSCTableRow):
 	__slots__ = SimRingDownTable.validcolumns.keys()
 
 	def _get_key(self):
-		return (self.process_id, self.simulation_id)
+		return self.simulation_id
 
 	def _set_key(self, key):
-		(self.process_id, self.simulation_id) = key
+		self.simulation_id = key
 
 	def _has_key(self, key):
-		return (self.process_id, self.simulation_id) == key
+		return self.simulation_id == key
 
 SimRingDownTable.RowType = SimRingDown
 
@@ -1206,13 +1205,13 @@ class Segment(LSCTableRow):
 	__slots__ = SegmentTable.validcolumns.keys()
 
 	def _get_key(self):
-		return (self.process_id, self.segment_id)
+		return self.segment_id
 
 	def _set_key(self, key):
-		(self.process_id, self.segment_id) = key
+		self.segment_id = key
 
 	def _has_key(self, key):
-		return (self.process_id, self.segment_id) == key
+		return self.segment_id == key
 
 	def get_segment(self):
 		"""
@@ -1260,13 +1259,13 @@ class SegmentDefMap(LSCTableRow):
 	__slots__ = SegmentDefMapTable.validcolumns.keys()
 
 	def _get_key(self):
-		return (self.process_id, self.seg_def_map_id)
+		return self.seg_def_map_id
 
 	def _set_key(self, key):
-		(self.process_id, self.seg_def_map_id) = key
+		self.seg_def_map_id = key
 
 	def _has_key(self, key):
-		return (self.process_id, self.seg_def_map_id) == key
+		return self.seg_def_map_id == key
 
 SegmentDefMapTable.RowType = SegmentDefMap
 
@@ -1303,13 +1302,13 @@ class SegmentDef(LSCTableRow):
 	__slots__ = SegmentDefTable.validcolumns.keys()
 
 	def _get_key(self):
-		return (self.process_id, self.segment_def_id)
+		return self.segment_def_id
 
 	def _set_key(self, key):
-		(self.process_id, self.segment_def_id) = key
+		self.segment_def_id = key
 
 	def _has_key(self, key):
-		return (self.process_id, self.segment_def_id) == key
+		return self.segment_def_id == key
 
 SegmentDefTable.RowType = SegmentDef
 
