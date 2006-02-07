@@ -163,25 +163,63 @@ class ILWD(object):
 # =============================================================================
 #
 
+class _ColumnIter(object):
+	"""
+	An iterator class for looping through the values in a column.
+	"""
+	def __init__(self, column):
+		self.rowiter = iter(column.parentNode.rows)
+		self.attr = column.asattribute
+
+	def next(self):
+		return getattr(self.rowiter.next(), self.attr)
+
 class Column(ligolw.Column):
 	"""
-	High-level column element that knows how to turn column data from
-	the table into a list or numarray array.
+	High-level column element that provides list-like access to the
+	values in a column.
 	"""
-	def list(self):
-		attr = StripColumnName(self.getAttribute("Name"))
-		return [getattr(row, attr) for row in self.parentNode.rows]
+	def __init__(self, attrs):
+		ligolw.Column.__init__(self, attrs)
+		self.asattribute = StripColumnName(self.getAttribute("Name"))
+
+	def __len__(self):
+		"""
+		Return the number of values in this column.
+		"""
+		return len(self.parentNode.rows)
+
+	def __getitem__(self, i):
+		"""
+		Retrieve the value in this column in row i.
+		"""
+		return getattr(self.parentNode.rows[i], self.asattribute)
+
+	def __setitem__(self, i, value):
+		"""
+		Set the value in this column in row i.
+		"""
+		setattr(self.parentNode.rows[i], self.asattribute, value)
+
+	def __iter__(self):
+		"""
+		Return an iterator object for iterating over values in this
+		column.
+		"""
+		return _ColumnIter(self)
 
 	def asarray(self):
+		"""
+		Convert this column to a numarray array.
+		"""
 		if self.getAttribute("Type") in StringTypes:
-			return self.list()
-		else:
-			return numarray.asarray(self.list(), type = ToNumArrayType[self.getAttribute("Type")])
+			raise TypeError, "Column does not have numeric type"
+		return numarray.asarray(self, type = ToNumArrayType[self.getAttribute("Type")])
 
-	# This function is for the metaio library:  metaio cares what order
-	# the attributes of XML tags come in.  This function will be
-	# removed when the people responsible for the metaio library fix
-	# it.
+	# FIXME: This function is for the metaio library:  metaio cares
+	# what order the attributes of XML tags come in.  This function
+	# will be removed when the people responsible for the metaio
+	# library fix it.
 	def start_tag(self):
 		"""
 		See the source code for an explanation.
@@ -251,10 +289,10 @@ class TableStream(ligolw.Stream):
 			file.write("\n")
 		print >>file, indent + self.end_tag()
 
-	# This function is for the metaio library:  metaio cares what order
-	# the attributes of XML tags come in.  This function will be
-	# removed when the people responsible for the metaio library fix
-	# it.
+	# FIXME: This function is for the metaio library:  metaio cares
+	# what order the attributes of XML tags come in.  This function
+	# will be removed when the people responsible for the metaio
+	# library fix it.
 	def start_tag(self):
 		"""
 		See the source code for an explanation.
