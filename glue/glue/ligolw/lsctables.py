@@ -1437,7 +1437,10 @@ TableByName = {
 	FilterTable.tableName: FilterTable,
 	SegmentTable.tableName: SegmentTable,
 	SegmentDefMapTable.tableName: SegmentDefMapTable,
-	SegmentDefTable.tableName: SegmentDefTable
+	SegmentDefTable.tableName: SegmentDefTable,
+	TimeSlideTable.tableName: TimeSlideTable,
+	CoincTable.tableName: CoincTable,
+	CoincMapTable.tableName: CoincMapTable
 }
 
 
