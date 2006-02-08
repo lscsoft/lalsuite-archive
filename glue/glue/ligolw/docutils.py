@@ -146,7 +146,7 @@ class ProcessList(object):
 		return key in self.processtable
 
 	def keys(self):
-		return self.processtable.keys()
+		return self.processtable.dict.keys()
 
 
 #
