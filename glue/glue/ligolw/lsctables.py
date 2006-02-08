@@ -38,6 +38,10 @@ def New(Type, columns = None):
 		table = lsctables.New(lsctables.ProcessTable)
 	"""
 	table = Type(sax.xmlreader.AttributesImpl({u"Name": Type.tableName}))
+	if columns != None:
+		for key in columns:
+			if key not in table.validcolumns.keys():
+				raise ligolw.ElementError, "New(): invalid column \"%s\" for table \"%s\"." % (key, table.tableName)
 	for key, value in table.validcolumns.items():
 		if (columns == None) or (key in columns):
 			table.appendChild(metaio.Column(sax.xmlreader.AttributesImpl({u"Name": ":".join(Type.tableName.split(":")[:-1]) + ":" + key, u"Type": value})))
