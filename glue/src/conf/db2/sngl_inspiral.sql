@@ -111,7 +111,7 @@ DATA CAPTURE CHANGES
 CREATE INDEX s_inspiral_cind ON sngl_inspiral(search) CLUSTER
 ;
 -- Create an index based on search algorithm plus time and snr
-CREATE INDEX s_inspiral_ind_sea ON sngl_inspiral(search, end_time, snr)
+CREATE INDEX s_inspiral_ind_sea ON sngl_inspiral(search, ifo, end_time, snr)
 ;
 -- Create an index based on time and snr
 CREATE INDEX s_inspiral_ind_tim ON sngl_inspiral(end_time, snr)
