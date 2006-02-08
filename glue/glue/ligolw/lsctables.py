@@ -106,7 +106,7 @@ class LSCTableDict(object):
 				return
 		# FIXME: should we call _set_key() on value to force it to have
 		# the key that was searched for?
-		self.appendRow(value)
+		self.append(value)
 
 	def __delitem__(self, key):
 		"""
@@ -301,10 +301,10 @@ class ProcessParamsTable(metaio.Table):
 		"value": "lstring"
 	}
 
-	def appendRow(self, row):
+	def append(self, row):
 		if row.type not in metaio.Types:
-			raise ligolw.ElementError, "ProcessParamsTable.appendRow():  unrecognized type \"%s\"" % row.type
-		metaio.Table.appendRow(self, row)
+			raise ligolw.ElementError, "ProcessParamsTable.append():  unrecognized type \"%s\"" % row.type
+		metaio.Table.append(self, row)
 
 	def get_program(self, key):
 		"""
@@ -347,7 +347,7 @@ class ProcessParamsTable(metaio.Table):
 		table if there are no rows with that ID.
 		"""
 		del self[key]
-		map(self.appendRow, params)
+		map(self.append, params)
 
 	def __delitem__(self, key):
 		"""
@@ -434,7 +434,7 @@ class SearchSummaryTable(metaio.Table):
 		table if there are no rows with that ID.
 		"""
 		del self[key]
-		map(self.appendRow, params)
+		map(self.append, params)
 
 	def __delitem__(self, key):
 		"""

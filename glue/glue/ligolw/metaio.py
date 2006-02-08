@@ -210,7 +210,7 @@ class Column(ligolw.Column):
 
 	def asarray(self):
 		"""
-		Convert this column to a numarray array.
+		Construct a numarray array from this column.
 		"""
 		if self.getAttribute("Type") in StringTypes:
 			raise TypeError, "Column does not have numeric type"
@@ -269,7 +269,7 @@ class TableStream(ligolw.Stream):
 				except AttributeError, e:
 					pass
 			self.tokens = self.tokens[i+1:]
-			self.parentNode.appendRow(row)
+			self.parentNode.append(row)
 
 	def _rowstr(self, row, columns):
 		# FIXME: after calling getattr(), should probably check that
@@ -323,21 +323,94 @@ class Table(ligolw.Table):
 	RowType = TableRow
 
 	def __init__(self, *attrs):
+		"""
+		Initialize
+		"""
 		ligolw.Table.__init__(self, *attrs)
 		self.columninfo = []
 		self.rows = []
 
+
+	#
+	# Sequence methods
+	#
+
 	def __len__(self):
+		"""
+		Return the number of rows in this table.
+		"""
 		return len(self.rows)
 
+	def __getitem__(self, key):
+		"""
+		Retrieve row(s).
+		"""
+		return self.rows[key]
+
+	def __setitem__(self, key, value):
+		"""
+		Set row(s).
+		"""
+		self.rows[key] = value
+
+	def __delitem__(self, key):
+		"""
+		Remove row(s).
+		"""
+		del self.rows[key]
+
 	def __iter__(self):
+		"""
+		Return an iterator object for iterating over rows in this
+		table.
+		"""
 		return iter(self.rows)
+
+	def append(self, row):
+		"""
+		Append row to the list of rows for this table.
+		"""
+		self.rows.append(row)
+
+	# compatibility with older code.
+	appendRow = append
+
+	def extend(self, rows):
+		"""
+		Add a list of rows to the end of the table.
+		"""
+		self.rows.extend(rows)
+
+	def pop(self, key):
+		return self.rows.pop(key)
+
+	def filterRows(self, func):
+		"""
+		Delete all rows for which func(row) evaluates to False.
+		"""
+		i = 0
+		while i < len(self.rows):
+			if not func(self.rows[i]):
+				del self.rows[i]
+			else:
+				i += 1
+		return self
+
+
+	#
+	# Column access
+	#
 
 	def getColumnByName(self, name):
 		try:
 			return self.getElements(lambda e: (e.tagName == ligolw.Column.tagName) and (CompareColumnNames(e.getAttribute("Name"), name) == 0))[0]
 		except IndexError:
 			raise KeyError, "no Column matching name \"%s\"" % name
+
+
+	#
+	# Element methods
+	#
 
 	def appendChild(self, child):
 		if child.tagName == ligolw.Column.tagName:
@@ -373,24 +446,6 @@ class Table(ligolw.Table):
 			for n in [n for n, item in enumerate(self.columninfo) if item[0] == StripColumnName(child.getAttribute("Name"))]:
 				del self.columinfo[n]
 		return child
-
-	def appendRow(self, row):
-		"""
-		Append row to the list of rows for this table.
-		"""
-		self.rows.append(row)
-
-	def filterRows(self, func):
-		"""
-		Delete all rows for which func(row) evaluates to False.
-		"""
-		i = 0
-		while i < len(self.rows):
-			if not func(self.rows[i]):
-				del self.rows[i]
-			else:
-				i += 1
-		return self
 
 
 #
