@@ -73,6 +73,21 @@ def IsTableProperties(Type, tagname, attrs):
 # =============================================================================
 #
 
+class LSCTableItemIter(object):
+	def __init__(self, dict):
+		self.iter = iter(dict.rows)
+
+	def next(self):
+		row = self.iter.next()
+		return (row._get_key(), row)
+
+class LSCTableKeyIter(object):
+	def __init__(self, dict):
+		self.iter = iter(dict.rows)
+
+	def next(self):
+		return self.iter.next()._get_key()
+
 class LSCTableDict(object):
 	"""
 	Class for implementing the Python mapping protocol on a list of table
@@ -80,13 +95,19 @@ class LSCTableDict(object):
 	"""
 	def __init__(self, rows):
 		"""
-		Initialize the mapping for the list of rows rows.
+		Initialize the mapping on the list of rows.
 		"""
 		self.rows = rows
 
+	def __len__(self):
+		"""
+		Return the number of rows.
+		"""
+		return len(self.rows)
+
 	def __getitem__(self, key):
 		"""
-		Return the row matching key.
+		Retrieve a row by key.
 		"""
 		for row in self.rows:
 			if row._has_key(key):
@@ -95,10 +116,8 @@ class LSCTableDict(object):
 
 	def __setitem__(self, key, value):
 		"""
-		If a row has key equal to key, replace it with value,
-		otherwise append value as a new row.  Note: the row key
-		carried by value need not equal key, but this behaviour may
-		change in the future.
+		Set a row by key.  Note: the row key carried by value need
+		not equal key, but this might not be allowed in the future.
 		"""
 		for i in range(len(self.rows)):
 			if self.rows[i]._has_key(key):
@@ -110,13 +129,21 @@ class LSCTableDict(object):
 
 	def __delitem__(self, key):
 		"""
-		Delete all rows having the given key.
+		Delete a row by key.
 		"""
 		for i in range(len(self.rows)):
 			if self.rows[i]._has_get(key):
 				del self.rows[i]
 				return
 		raise KeyError, repr(key)
+
+	def __iter__(self):
+		"""
+		Return an iterator over the keys.
+		"""
+		return LSCTableKeyIter(self)
+
+	iterkeys = __iter__
 
 	def __contains__(self, key):
 		"""
@@ -128,21 +155,25 @@ class LSCTableDict(object):
 				return True
 		return False
 
+	has_key = __contains__
+
 	def keys(self):
+		"""
+		Return a list of the keys.
+		"""
 		return [row._get_key() for row in self.rows]
 
-	def get_idmap(self):
+	def iteritems(self):
 		"""
-		Return the key --> row object mapping for this table.
+		Return an iterator over (key, value) pairs.
 		"""
-		map = {}
-		for row in self.rows:
-			key = row._get_key()
-			if key in map:
-				raise ligolw.ElementError, "duplicate key %s" % repr(key)
-			map[key] = row
-		return map
+		return LSCTableItemIter(self)
 
+	def itervalues(self):
+		"""
+		Return an iterator over rows.
+		"""
+		return iter(self.rows)
 
 
 class LSCTable(metaio.Table):
