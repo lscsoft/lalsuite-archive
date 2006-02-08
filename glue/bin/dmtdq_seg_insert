@@ -113,7 +113,7 @@ except Exception, e:
     "Unable to connect to LDBD Server %s:%d" % (host, port)
   if gsiserverutils.checkCredentials():
     print >>sys.stderr, "Got the following error : " + str(e)
-    print >>sys.stderr, "Enter 'LSCsegFind --help' for usage"
+    print >>sys.stderr, "Enter 'dmtsq_seq_insert --help' for usage"
   sys.exit(1)
 
 try:
