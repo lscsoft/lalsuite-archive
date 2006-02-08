@@ -502,6 +502,7 @@ class LIGOMetadata:
     sqltypes = {
       -2 : 'ilwd:char_u',
       1 : 'lstring',
+      3 : 'real_8',
       4  : 'int_4s',
       5 : 'int_2s',
       7 : 'real_4',
