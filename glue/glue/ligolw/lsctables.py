@@ -1,6 +1,5 @@
 """
-LSC Table definitions.  These have been painstakingly copied from
-support/include/LIGOLwXMLHeaders.h.  Yes, I'm sure there are typos.
+LSC Table definitions.
 """
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -69,6 +68,27 @@ def IsTableProperties(Type, tagname, attrs):
 	return metaio.CompareTableNames(attrs["Name"], Type.tableName) == 0
 
 
+def getTablesByName(elem, name):
+	"""
+	Return a list of tables with name name under elem.
+	"""
+	return elem.getElements(lambda e: (e.tagName == ligolw.Table.tagName) and (metaio.CompareTableNames(e.getAttribute("Name"), name) == 0))
+
+
+def getTablesByType(elem, Type):
+	"""
+	Return a list of tables of type Type under elem.
+	"""
+	return getTablesByName(elem, Type.tableName)
+
+
+def getLSCTables(elem):
+	"""
+	Return a list of all LSC tables under elem.
+	"""
+	return elem.getElements(lambda e: (e.tagName == ligolw.Table.tagName) and (metaio.StripTableName(e.getAttribute("Name")) in TableByName.keys()))
+
+
 #
 # =============================================================================
 #
@@ -116,27 +136,27 @@ def ILWDID(ilwdchar):
 		raise ValueError, "unrecognized ID \"%s\"" % repr(ilwdchar)
 
 
-def FindTablesFromILWD(elem, ilwdchar):
+def getTablesFromILWD(elem, ilwdchar):
 	"""
 	Return a list of all tables below elem which can contain rows
 	having IDs matching ilwdchar.
 	"""
-	return elem.findElements(lambda e: (e.tagName == ligolw.Table.tagName) and (metaio.CompareTableNames(e.getAttribute("Name"), IDTableName(ilwdchar)) == 0))
+	return elem.getElements(lambda e: (e.tagName == ligolw.Table.tagName) and (metaio.CompareTableNames(e.getAttribute("Name"), IDTableName(ilwdchar)) == 0))
 
 
-def FindILWD(elem, ilwdchar):
+def FindILWD(tables, ilwdchar):
 	"""
-	Search all rows in all tables below elem for one with the given ID,
+	Search all rows in the list of tables for one with the given ID,
 	and return a reference to the row object.  If the ID is not unique,
-	the first row found is returned.  ValueError is raised if no rows
-	are found or the ID cannot be parsed.
+	the first row found is returned.  KeyError is raised if no rows are
+	found or the ID cannot be parsed.
 	"""
-	column_name = IDColumnName(ilwdchar)
-	for table in FindTablesFromID(elem, ilwdchar):
-		for row in table.rows:
-			if getattr(row, column_name) == ilwdchar:
-				return row
-	raise ValueError, "%s not found" % repr(ilwdchar)
+	for table in tables:
+		try:
+			return table.dict[ilwdchar]
+		except KeyError:
+			pass
+	raise KeyError, repr(ilwdchar)
 
 
 class ILWD(object):
@@ -187,7 +207,7 @@ class ILWD(object):
 # =============================================================================
 #
 
-class LSCTableItemIter(object):
+class LSCTableUniqueItemIter(object):
 	def __init__(self, dict):
 		self.iter = iter(dict.rows)
 
@@ -195,23 +215,25 @@ class LSCTableItemIter(object):
 		row = self.iter.next()
 		return (row._get_key(), row)
 
-class LSCTableKeyIter(object):
+
+class LSCTableUniqueKeyIter(object):
 	def __init__(self, dict):
 		self.iter = iter(dict.rows)
 
 	def next(self):
 		return self.iter.next()._get_key()
 
-class LSCTableDict(object):
+
+class LSCTableUniqueDict(object):
 	"""
 	Class for implementing the Python mapping protocol on a list of table
-	rows.
+	rows when each row has a unique key.
 	"""
-	def __init__(self, rows):
+	def __init__(self, table):
 		"""
 		Initialize the mapping on the list of rows.
 		"""
-		self.rows = rows
+		self.rows = table.rows
 
 	def __len__(self):
 		"""
@@ -255,7 +277,7 @@ class LSCTableDict(object):
 		"""
 		Return an iterator over the keys.
 		"""
-		return LSCTableKeyIter(self)
+		return LSCTableUniqueKeyIter(self)
 
 	iterkeys = __iter__
 
@@ -281,7 +303,7 @@ class LSCTableDict(object):
 		"""
 		Return an iterator over (key, value) pairs.
 		"""
-		return LSCTableItemIter(self)
+		return LSCTableUniqueItemIter(self)
 
 	def itervalues(self):
 		"""
@@ -290,10 +312,113 @@ class LSCTableDict(object):
 		return iter(self.rows)
 
 
-class LSCTable(metaio.Table):
+class LSCTableMultiItemIter(object):
+	def __init__(self, dict):
+		self.dict = dict
+		self.iter = iter(dict.keys())
+
+	def next(self):
+		key = self.iter.next()
+		return (key, self.dict[key])
+
+
+class LSCTableMultiDict(LSCTableUniqueDict):
+	"""
+	Class for implementing the Python mapping protocol on a list of table
+	rows when multiple rows share the same key.
+	"""
+	def __init__(self, table):
+		"""
+		Initialize the mapping on the list of rows.
+		"""
+		self.table = table
+		self.rows = table.rows
+
+	def __getitem__(self, key):
+		"""
+		Retrieve rows by key.
+		"""
+		l = [row for row in self.rows if row._has_key(key)]
+		if not len(l):
+			raise KeyError, repr(key)
+		return l
+
+	def __setitem__(self, key, values):
+		"""
+		Replace the rows having key with the rows in the list values,
+		appending to the table if there are no rows with that ID.
+		"""
+		# FIXME: should we call _set_key() on value to force it to have
+		# the key that was searched for?
+		del self[key]
+		map(self.table.append, params)
+
+	def __delitem__(self, key):
+		"""
+		Delete rows by key.
+		"""
+		self.table.filterRows(lambda row: not row._has_key(key))
+
+	def __iter__(self):
+		"""
+		Return an iterator over the keys.
+		"""
+		return iter(self.keys())
+
+	iterkeys = __iter__
+
+	def keys(self):
+		"""
+		Return a list of the keys.
+		"""
+		keys = []
+		for row in self.rows:
+			key = row._get_key()
+			if key not in keys:
+				keys.append(key)
+		return keys
+
+	def iteritems(self):
+		"""
+		Return an iterator over (key, value) pairs.
+		"""
+		return LSCTableMultiItemIter(self)
+
+
+class LSCTableUnique(metaio.Table):
 	def __init__(self, attrs):
 		metaio.Table.__init__(self, attrs)
-		self.dict = LSCTableDict(self.rows)
+		self.dict = LSCTableUniqueDict(self)
+
+	def makeReference(self, elem):
+		"""
+		Convert ilwd:char strings into object references.
+		"""
+		pass
+
+	def deReference(self):
+		"""
+		Convert object references into ilwd:char strings.
+		"""
+		pass
+
+
+class LSCTableMulti(metaio.Table):
+	def __init__(self, attrs):
+		metaio.Table.__init__(self, attrs)
+		self.dict = LSCTableMultiDict(self)
+
+	def makeReference(self, elem):
+		"""
+		Convert ilwd:char strings into object references.
+		"""
+		pass
+
+	def deReference(self):
+		"""
+		Convert object references into ilwd:char strings.
+		"""
+		pass
 
 
 # We don't subclass metaio.TableRow because that defeats the __slots__
@@ -329,7 +454,7 @@ class LSCTableRow(object):
 # =============================================================================
 #
 
-class ProcessTable(LSCTable):
+class ProcessTable(LSCTableUnique):
 	tableName = "process:table"
 	validcolumns = {
 		"program": "lstring",
@@ -386,7 +511,7 @@ class ProcessIDs(ILWD):
 # =============================================================================
 #
 
-class LfnTable(LSCTable):
+class LfnTable(LSCTableUnique):
 	tableName = "lfn:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -396,6 +521,19 @@ class LfnTable(LSCTable):
 		"start_time": "int_4s",
 		"end_time": "int_4s",
 	}
+
+	def makeReference(self, elem):
+		"""
+		Convert ilwd:char strings into object references.
+		"""
+		tables = getTablesFromID
+		pass
+
+	def deReference(self):
+		"""
+		Convert object references into ilwd:char strings.
+		"""
+		pass
 
 class Lfn(LSCTableRow):
 	__slots__ = LfnTable.validcolumns.keys()
@@ -435,8 +573,7 @@ class LfnIDs(ILWD):
 # =============================================================================
 #
 
-# FIXME: how to subclass LSCTable?
-class ProcessParamsTable(metaio.Table):
+class ProcessParamsTable(LSCTableMulti):
 	tableName = "process_params:table"
 	validcolumns = {
 		"program": "lstring",
@@ -449,7 +586,7 @@ class ProcessParamsTable(metaio.Table):
 	def append(self, row):
 		if row.type not in metaio.Types:
 			raise ligolw.ElementError, "ProcessParamsTable.append():  unrecognized type \"%s\"" % row.type
-		metaio.Table.append(self, row)
+		LSCTableMulti.append(self, row)
 
 	def get_program(self, key):
 		"""
@@ -472,46 +609,25 @@ class ProcessParamsTable(metaio.Table):
 
 	def __getitem__(self, key):
 		"""
-		Return a list of rows matching the process ID key.
+		Return a sorted list of rows matching the process ID key.
 		"""
-		params = []
-		for row in self:
-			if row.process_id == key:
-				params.append(row)
-		if not len(params):
-			raise KeyError, repr(key)
+		params = LSCTableMulti.__getitem__(self, key)
 		# sort by process ID, then parameter name (all rows should
 		# be unique by this measure).
 		params.sort(lambda a, b: cmp((a.process_id, a.param), (b.process_id, b.param)))
 		return params
 
-	def __setitem__(self, key, params):
-		"""
-		Replace the rows having process ID key with the
-		ProcessParams in the list params, appending the list to the
-		table if there are no rows with that ID.
-		"""
-		del self[key]
-		map(self.append, params)
-
-	def __delitem__(self, key):
-		"""
-		Delete all rows having process ID key.
-		"""
-		self.filterRows(lambda row: row.process_id != key)
-
-	def __contains__(self, key):
-		"""
-		Return True if a row has process ID equal to key, otherwise
-		return False.
-		"""
-		for row in self:
-			if row.process_id == key:
-				return True
-		return False
-
 class ProcessParams(LSCTableRow):
 	__slots__ = ProcessParamsTable.validcolumns.keys()
+
+	def _get_key(self):
+		return self.process_id
+
+	def _set_key(self, key):
+		self.process_id = key
+
+	def _has_key(self, key):
+		return self.process_id == key
 
 	def cmp(self, other):
 		# FIXME: this is a hack, but I need something so I can move
@@ -535,8 +651,7 @@ ProcessParamsTable.RowType = ProcessParams
 # =============================================================================
 #
 
-# FIXME: how to subclass LSCTable?
-class SearchSummaryTable(metaio.Table):
+class SearchSummaryTable(LSCTableMulti):
 	tableName = "search_summary:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -559,43 +674,13 @@ class SearchSummaryTable(metaio.Table):
 
 	def __getitem__(self, key):
 		"""
-		Return a list of rows matching the process ID key.
+		Return a sorted list of rows matching the process ID key.
 		"""
-		summaries = []
-		for row in self:
-			if row.process_id == key:
-				summaries.append(row)
-		if not len(summaries):
-			raise KeyError, repr(key)
+		summaries = LSCTableMulti.__getitem__(self, key)
 		# sort by process ID, then output segment (all rows should
 		# be unique by this measure).
 		summaries.sort(lambda a, b: cmp((a.process_id, a.get_out()), (b.process_id, b.get_out())))
 		return summaries
-
-	def __setitem__(self, key, params):
-		"""
-		Replace the rows having process ID key with the
-		ProcessParams in the list params, appending the list to the
-		table if there are no rows with that ID.
-		"""
-		del self[key]
-		map(self.append, params)
-
-	def __delitem__(self, key):
-		"""
-		Delete all rows having process ID key.
-		"""
-		self.filterRows(lambda row: row.process_id != key)
-
-	def __contains__(self, key):
-		"""
-		Return True if a row has process ID equal to key, otherwise
-		return False.
-		"""
-		for row in self:
-			if row.process_id == key:
-				return True
-		return False
 
 	def get_inlist(self):
 		return segments.segmentlist([row.get_in() for row in self])
@@ -605,6 +690,15 @@ class SearchSummaryTable(metaio.Table):
 
 class SearchSummary(LSCTableRow):
 	__slots__ = SearchSummaryTable.validcolumns.keys()
+
+	def _get_key(self):
+		return self.process_id
+
+	def _set_key(self, key):
+		self.process_id = key
+
+	def _has_key(self, key):
+		return self.process_id == key
 
 	def cmp(self, other):
 		# FIXME: this is a hack, but I need something so I can move
@@ -654,8 +748,7 @@ SearchSummaryTable.RowType = SearchSummary
 # =============================================================================
 #
 
-# FIXME: how to subclass LSCTable?
-class SearchSummVarsTable(metaio.Table):
+class SearchSummVarsTable(LSCTableMulti):
 	tableName = "search_summvars:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -666,6 +759,15 @@ class SearchSummVarsTable(metaio.Table):
 
 class SearchSummVars(LSCTableRow):
 	__slots__ = SearchSummVarsTable.validcolumns.keys()
+
+	def _get_key(self):
+		return self.process_id
+
+	def _set_key(self, key):
+		self.process_id = key
+
+	def _has_key(self, key):
+		return self.process_id == key
 
 SearchSummVarsTable.RowType = SearchSummVars
 
@@ -678,7 +780,7 @@ SearchSummVarsTable.RowType = SearchSummVars
 # =============================================================================
 #
 
-class SnglBurstTable(LSCTable):
+class SnglBurstTable(LSCTableUnique):
 	tableName = "sngl_burst:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -755,7 +857,7 @@ class SnglBurstIDs(ILWD):
 # =============================================================================
 #
 
-class SnglInspiralTable(LSCTable):
+class SnglInspiralTable(LSCTableUnique):
 	tableName = "sngl_inspiral:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -829,7 +931,7 @@ class SnglInspiralIDs(ILWD):
 # =============================================================================
 #
 
-class SnglRingDownTable(LSCTable):
+class SnglRingDownTable(LSCTableUnique):
 	tableName = "sngl_ringdown:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -876,8 +978,7 @@ class SnglRingDownIDs(ILWD):
 # =============================================================================
 #
 
-# FIXME: how to subclass LSCTable?
-class MultiInspiralTable(metaio.Table):
+class MultiInspiralTable(LSCTableMulti):
 	tableName = "multi_inspiral:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -920,6 +1021,15 @@ class MultiInspiralTable(metaio.Table):
 class MultiInspiral(LSCTableRow):
 	__slots__ = MultiInspiralTable.validcolumns.keys()
 
+	def _get_key(self):
+		return self.process_id
+
+	def _set_key(self, key):
+		self.process_id = key
+
+	def _has_key(self, key):
+		return self.process_id == key
+
 MultiInspiralTable.RowType = MultiInspiral
 
 
@@ -931,7 +1041,7 @@ MultiInspiralTable.RowType = MultiInspiral
 # =============================================================================
 #
 
-class SimInspiralTable(LSCTable):
+class SimInspiralTable(LSCTableUnique):
 	tableName = "sim_inspiral:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -1015,7 +1125,7 @@ class SimInspiralIDs(ILWD):
 # =============================================================================
 #
 
-class SimBurstTable(LSCTable):
+class SimBurstTable(LSCTableUnique):
 	tableName = "sim_burst:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -1069,7 +1179,7 @@ class SimBurstIDs(ILWD):
 # =============================================================================
 #
 
-class SimRingDownTable(LSCTable):
+class SimRingDownTable(LSCTableUnique):
 	tableName = "sim_ringdown:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -1128,8 +1238,7 @@ class SimRingDownIDs(ILWD):
 # =============================================================================
 #
 
-# FIXME: how to subclass LSCTable?
-class SummValueTable(metaio.Table):
+class SummValueTable(LSCTableMulti):
 	tableName = "summ_value:table"
 	validcolumns = {
 		"program": "lstring",
@@ -1147,6 +1256,15 @@ class SummValueTable(metaio.Table):
 class SummValue(LSCTableRow):
 	__slots__ = SummValueTable.validcolumns.keys()
 
+	def _get_key(self):
+		return self.process_id
+
+	def _set_key(self, key):
+		self.process_id = key
+
+	def _has_key(self, key):
+		return self.process_id == key
+
 SummValueTable.RowType = SummValue
 
 
@@ -1158,8 +1276,7 @@ SummValueTable.RowType = SummValue
 # =============================================================================
 #
 
-# FIXME: how to subclass LSCTable?
-class SimInstParamsTable(metaio.Table):
+class SimInstParamsTable(LSCTableMulti):
 	tableName = "sim_inst_params:table"
 	validcolumns = {
 		"simulation_id": "ilwd:char",
@@ -1170,6 +1287,15 @@ class SimInstParamsTable(metaio.Table):
 
 class SimInstParams(LSCTableRow):
 	__slots__ = SimInstParamsTable.validcolumns.keys()
+
+	def _get_key(self):
+		return self.simulation_id
+
+	def _set_key(self, key):
+		self.simulation_id = key
+
+	def _has_key(self, key):
+		return self.simulation_id == key
 
 SimInstParamsTable.RowType = SimInstParams
 
@@ -1186,8 +1312,7 @@ class SimInstParamsIDs(ILWD):
 # =============================================================================
 #
 
-# FIXME: how to subclass LSCTable?
-class StochasticTable(metaio.Table):
+class StochasticTable(LSCTableMulti):
 	tableName = "stochastic:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -1208,6 +1333,15 @@ class StochasticTable(metaio.Table):
 class Stochastic(LSCTableRow):
 	__slots__ = StochasticTable.validcolumns.keys()
 
+	def _get_key(self):
+		return self.process_id
+
+	def _set_key(self, key):
+		self.process_id = key
+
+	def _has_key(self, key):
+		return self.process_id == key
+
 StochasticTable.RowType = Stochastic
 
 
@@ -1219,8 +1353,7 @@ StochasticTable.RowType = Stochastic
 # =============================================================================
 #
 
-# FIXME: how to subclass LSCTable?
-class StochSummTable(metaio.Table):
+class StochSummTable(LSCTableMulti):
 	tableName = "stochsumm:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -1241,6 +1374,15 @@ class StochSummTable(metaio.Table):
 class StochSumm(LSCTableRow):
 	__slots__ = StochSummTable.validcolumns.keys()
 
+	def _get_key(self):
+		return self.process_id
+
+	def _set_key(self, key):
+		self.process_id = key
+
+	def _has_key(self, key):
+		return self.process_id == key
+
 StochSummTable.RowType = StochSumm
 
 
@@ -1252,8 +1394,14 @@ StochSummTable.RowType = StochSumm
 # =============================================================================
 #
 
-# FIXME: how to subclass LSCTable?
-class ExtTriggersTable(metaio.Table):
+# FIXME: this table looks broken to me.  There is no unique ID column, thus
+# it is not possible to refer to entries in this table from other tables.
+# There is a "notice_id" column, but that is for recording the native
+# identifier as used by the source of the trigger.  It cannot be relied
+# upon to be unique within this table (two different sources might *happen*
+# to use the same identifier format, like "event001").
+
+class ExtTriggersTable(LSCTableMulti):
 	tableName = "external_trigger:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -1301,6 +1449,15 @@ class ExtTriggersTable(metaio.Table):
 class ExtTriggers(LSCTableRow):
 	__slots__ = ExtTriggersTable.validcolumns.keys()
 
+	def _get_key(self):
+		return self.process_id
+
+	def _set_key(self, key):
+		self.process_id = key
+
+	def _has_key(self, key):
+		return self.process_id == key
+
 ExtTriggersTable.RowType = ExtTriggers
 
 
@@ -1312,8 +1469,7 @@ ExtTriggersTable.RowType = ExtTriggers
 # =============================================================================
 #
 
-# FIXME: how to subclass LSCTable?
-class FilterTable(metaio.Table):
+class FilterTable(LSCTableMulti):
 	tableName = "filter:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -1322,6 +1478,15 @@ class FilterTable(metaio.Table):
 		"filter_name": "lstring",
 		"comment": "lstring"
 	}
+
+	def _get_key(self):
+		return self.process_id
+
+	def _set_key(self, key):
+		self.process_id = key
+
+	def _has_key(self, key):
+		return self.process_id == key
 
 class Filter(LSCTableRow):
 	__slots__ = FilterTable.validcolumns.keys()
@@ -1337,7 +1502,7 @@ FilterTable.RowType = Filter
 # =============================================================================
 #
 
-class SegmentTable(LSCTable):
+class SegmentTable(LSCTableUnique):
 	tableName = "segment:table"
 	validcolumns = {
 		"creator_db": "int_4s",
@@ -1403,7 +1568,7 @@ class SegmentIDs(ILWD):
 # =============================================================================
 #
 
-class SegmentDefMapTable(LSCTable):
+class SegmentDefMapTable(LSCTableUnique):
 	tableName = "segment_def_map:table"
 	validcolumns = {
 		"creator_db": "int_4s",
@@ -1444,7 +1609,7 @@ class SegmentDefMapIDs(ILWD):
 # =============================================================================
 #
 
-class SegmentDefTable(LSCTable):
+class SegmentDefTable(LSCTableUnique):
 	tableName = "segment_definer:table"
 	validcolumns = {
 		"creator_db": "int_4s",
@@ -1483,7 +1648,7 @@ SegmentDefTable.RowType = SegmentDef
 # =============================================================================
 #
 
-class TimeSlideTable(metaio.Table):
+class TimeSlideTable(LSCTableMulti):
 	tableName = "time_slide:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -1520,7 +1685,7 @@ class TimeSlideIDs(ILWD):
 # =============================================================================
 #
 
-class CoincTable(LSCTable):
+class CoincTable(LSCTableUnique):
 	tableName = "coinc:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -1555,7 +1720,7 @@ class CoincIDs(ILWD):
 # =============================================================================
 #
 
-class CoincMapTable(LSCTable):
+class CoincMapTable(LSCTableUnique):
 	tableName = "coinc_event_map:table"
 	validcolumns = {
 		"coinc_id": "ilwd:char",

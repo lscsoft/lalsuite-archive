@@ -75,14 +75,11 @@ doc = LoadDocuments(urls)
 
 new_process_ids = lsctables.ProcessIDs()
 
-def IsProcessTable(elem):
-	return lsctables.IsTableElement(lsctables.ProcessTable, elem)
-
 def BuildProcessMapping(elem):
 	# loop over all process tables below elem, constructing a map of
 	# old process ID --> new process ID
 	mapping = {}
-	for table in elem.getElements(IsProcessTable):
+	for table in lsctables.getTablesByType(elem, lsctables.ProcessTable):
 		for key in table.dict.keys():
 			mapping[key] = new_process_ids.next()
 	return mapping

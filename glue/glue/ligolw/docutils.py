@@ -53,7 +53,7 @@ def MergeCompatibleTables(elem):
 	a single table, etc..
 	"""
 	for tname in lsctables.TableByName.keys():
-		tables = [t for t in elem.getElementsByTagName(ligolw.Table.tagName) if metaio.StripTableName(t.getAttribute("Name")) == tname]
+		tables = lsctables.getTablesByName(elem, tname)
 		for i in range(1, len(tables)):
 			if not tables[0].compare(tables[i]):
 				MergeElements(tables[0], tables[i])
@@ -66,12 +66,7 @@ def RemapProcessIDs(elem, mapping):
 	to mapping.  Rows with process IDs not named in the mapping are
 	ignored.
 	"""
-	def IsLSCTable(elem):
-		if elem.tagName != ligolw.Table.tagName:
-			return False
-		return metaio.StripTableName(elem.getAttribute("Name")) in lsctables.TableByName.keys()
-
-	for table in elem.getElements(IsLSCTable):
+	for table in lsctables.getLSCTables(elem):
 		for row in table:
 			try:
 				row.process_id = mapping[row.process_id]
@@ -107,7 +102,7 @@ class Process(object):
 class ProcessList(object):
 	def __init__(self, doc):
 		def gettable(doc, Type):
-			tables = doc.getElements(lambda e: lsctables.IsTableElement(Type, e))
+			tables = lsctables.getTablesByType(doc, Type)
 			if len(tables) != 1:
 				raise Exception, "ProcessList(doc): doc must contain exactly 1 %s Table." % Type.tableName
 			return tables[0]
