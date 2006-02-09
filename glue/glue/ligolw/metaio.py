@@ -93,7 +93,7 @@ def CompareColumnNames(name1, name2):
 # Regular expression used to extract the signifcant portion of a table or
 # stream name, according to LIGO LW naming conventions.
 
-TablePattern = re.compile(r"(?:\A[a-z0-9_]+:|\A)(?P<Name>[a-z0-9_]+:table)\Z")
+TablePattern = re.compile(r"(?:\A[a-z0-9_]+:|\A)(?P<Name>[a-z0-9_]+):table\Z")
 
 
 def StripTableName(name):
@@ -113,46 +113,6 @@ def CompareTableNames(name1, name2):
 	LW naming conventions.
 	"""
 	return cmp(StripTableName(name1), StripTableName(name2))
-
-
-#
-# =============================================================================
-#
-#                             Unique ID Generator
-#
-# =============================================================================
-#
-
-class ILWD(object):
-	def __init__(self, base, n = 0):
-		"""
-		Initialize an ILWD object.  base is the common prefix of
-		the ilwd:char representation of the IDs, eg.,
-		"process:process_id".  The optional n parameter sets the
-		starting value for the numeric suffix on the in the
-		ilwd:char representation of ID.
-		"""
-		self.base = base
-		self.n = n
-
-	def __str__(self):
-		"""
-		Return an ilwd:char string representation of this ID.
-		"""
-		return "%s:%d" % (self.base, self.n)
-
-	def __cmp__(self, other):
-		"""
-		Compare IDs first by the base string, then by n.
-		"""
-		return cmp((self.base, self.n), (other.base, other.n))
-
-	def __iter__(self):
-		return self
-
-	def next(self):
-		self.n += 1
-		return self
 
 
 #
@@ -207,6 +167,26 @@ class Column(ligolw.Column):
 		column.
 		"""
 		return _ColumnIter(self)
+
+	def count(self, value):
+		"""
+		Return the number of rows with this column equal to value.
+		"""
+		n = 0
+		for r in self.parentNode.rows:
+			if getattr(r, self.asattribute) == value:
+				n += 1
+		return n
+
+	def index(self, val):
+		"""
+		Return the smallest index of the row(s) with this column equal
+		to value.
+		"""
+		for i in range(len(self.parentNode.rows)):
+			if getattr(self.parentNode.rows[i], self.asattribute) == value:
+				return i
+		raise ValueError, "%s not found" % repr(val)
 
 	def asarray(self):
 		"""

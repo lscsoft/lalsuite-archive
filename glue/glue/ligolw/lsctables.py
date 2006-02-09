@@ -72,6 +72,116 @@ def IsTableProperties(Type, tagname, attrs):
 #
 # =============================================================================
 #
+#                              ILWD Manipulation
+#
+# =============================================================================
+#
+
+# Regular expression to extract the parts of a row ID according to the LIGO
+# LW naming conventions.
+
+ILWDPattern = re.compile(r"(?P<Table>\w+):(?P<Column>\w+):(?P<ID>\d+)")
+
+
+def ILWDTableName(ilwdchar):
+	"""
+	Return the table name part of the row ID ilwdchar.  ValueError is
+	raised if the ID cannot be parsed.
+	"""
+	try:
+		return ILWDPattern.search(ilwdchar).group("Table")
+	except AttributeError:
+		raise ValueError, "unrecognized ID \"%s\"" % repr(ilwdchar)
+
+
+def ILWDColumnName(ilwdchar):
+	"""
+	Return the column name part of the row ID ilwdchar.  ValueError is
+	raised if the ID cannot be parsed.
+	"""
+	try:
+		return ILWDPattern.search(ilwdchar).group("Column")
+	except AttributeError:
+		raise ValueError, "unrecognized ID \"%s\"" % repr(ilwdchar)
+
+
+def ILWDID(ilwdchar):
+	"""
+	Return the ID part of the row ID ilwdchar.  ValueError is raised if
+	the ID cannot be parsed.
+	"""
+	try:
+		return ILWDPattern.search(ilwdchar).group("ID")
+	except AttributeError:
+		raise ValueError, "unrecognized ID \"%s\"" % repr(ilwdchar)
+
+
+def FindTablesFromILWD(elem, ilwdchar):
+	"""
+	Return a list of all tables below elem which can contain rows
+	having IDs matching ilwdchar.
+	"""
+	return elem.findElements(lambda e: (e.tagName == ligolw.Table.tagName) and (metaio.CompareTableNames(e.getAttribute("Name"), IDTableName(ilwdchar)) == 0))
+
+
+def FindILWD(elem, ilwdchar):
+	"""
+	Search all rows in all tables below elem for one with the given ID,
+	and return a reference to the row object.  If the ID is not unique,
+	the first row found is returned.  ValueError is raised if no rows
+	are found or the ID cannot be parsed.
+	"""
+	column_name = IDColumnName(ilwdchar)
+	for table in FindTablesFromID(elem, ilwdchar):
+		for row in table.rows:
+			if getattr(row, column_name) == ilwdchar:
+				return row
+	raise ValueError, "%s not found" % repr(ilwdchar)
+
+
+class ILWD(object):
+	"""
+	Unique ILWD generator.
+	"""
+	def __init__(self, table_name, column_name, n = 0):
+		"""
+		Initialize an ILWD object.  table_name and column_name are
+		the names of the table and column within the table for
+		which these will be used as IDs, eg., "process" and
+		"process_id".  The optional n parameter sets the starting
+		value for the numeric suffix in the ilwd:char
+		representation of ID.
+		"""
+		self.table_name = metaio.StripTableName(table_name)
+		self.column_name = metaio.StripColumnName(column_name)
+		self.n = n
+
+	def __str__(self):
+		"""
+		Return an ilwd:char string representation of this ID.
+		"""
+		return "%s:%s:%d" % (self.table_name, self.column_name, self.n)
+
+	def __cmp__(self, other):
+		"""
+		Compare IDs first by the base string, then by n.
+		"""
+		return cmp((self.table_name, self.column_name, self.n), (other.table_name, other.column_name, other.n))
+
+	def __getitem__(self, n):
+		return "%s:%s:%d" % (self.table_name, self.column_name, n)
+
+	def __iter__(self):
+		return self
+
+	def next(self):
+		self.n += 1
+		return str(self)
+
+
+#
+# =============================================================================
+#
 #                 Table and Row Class With a Mapping Protocol
 #
 # =============================================================================
@@ -264,9 +374,9 @@ class Process(LSCTableRow):
 
 ProcessTable.RowType = Process
 
-class ProcessIDs(metaio.ILWD):
+class ProcessIDs(ILWD):
 	def __init__(self, n = 0):
-		metaio.ILWD.__init__(self, "process:process_id", n)
+		ILWD.__init__(self, "process", "process_id", n)
 
 #
 # =============================================================================
@@ -312,9 +422,9 @@ class Lfn(LSCTableRow):
 
 LfnTable.RowType = Lfn
 
-class LfnIDs(metaio.ILWD):
+class LfnIDs(ILWD):
 	def __init__(self, n = 0):
-		metaio.ILWD.__init__(self, "lfn:lfn_id", n)
+		ILWD.__init__(self, "lfn", "lfn_id", n)
 
 
 #
@@ -632,9 +742,9 @@ class SnglBurst(LSCTableRow):
 
 SnglBurstTable.RowType = SnglBurst
 
-class SnglBurstIDs(metaio.ILWD):
+class SnglBurstIDs(ILWD):
 	def __init__(self, n = 0):
-		metaio.ILWD.__init__(self, "sngl_burst:event_id", n)
+		ILWD.__init__(self, "sngl_burst", "event_id", n)
 
 
 #
@@ -706,9 +816,9 @@ class SnglInspiral(LSCTableRow):
 
 SnglInspiralTable.RowType = SnglInspiral
 
-class SnglInspiralIDs(metaio.ILWD):
+class SnglInspiralIDs(ILWD):
 	def __init__(self, n = 0):
-		metaio.ILWD.__init__(self, "sngl_inspiral:event_id", n)
+		ILWD.__init__(self, "sngl_inspiral", "event_id", n)
 
 
 #
@@ -753,9 +863,9 @@ class SnglRingDown(LSCTableRow):
 
 SnglRingDownTable.RowType = SnglRingDown
 
-class SnglRingDownIDs(metaio.ILWD):
+class SnglRingDownIDs(ILWD):
 	def __init__(self, n = 0):
-		metaio.ILWD.__init__(self, "sngl_ringdown:event_id", n)
+		ILWD.__init__(self, "sngl_ringdown", "event_id", n)
 
 
 #
@@ -892,9 +1002,9 @@ class SimInspiral(LSCTableRow):
 
 SimInspiralTable.RowType = SimInspiral
 
-class SimInspiralIDs(metaio.ILWD):
+class SimInspiralIDs(ILWD):
 	def __init__(self, n = 0):
-		metaio.ILWD.__init__(self, "sim_inspiral:simulation_id", n)
+		ILWD.__init__(self, "sim_inspiral", "simulation_id", n)
 
 
 #
@@ -946,9 +1056,9 @@ class SimBurst(LSCTableRow):
 
 SimBurstTable.RowType = SimBurst
 
-class SimBurstIDs(metaio.ILWD):
+class SimBurstIDs(ILWD):
 	def __init__(self, n = 0):
-		metaio.ILWD.__init__(self, "sim_burst:simulation_id", n)
+		ILWD.__init__(self, "sim_burst", "simulation_id", n)
 
 
 #
@@ -1005,9 +1115,9 @@ class SimRingDown(LSCTableRow):
 
 SimRingDownTable.RowType = SimRingDown
 
-class SimRingDownIDs(metaio.ILWD):
+class SimRingDownIDs(ILWD):
 	def __init__(self, n = 0):
-		metaio.ILWD.__init__(self, "sim_ringdown:simulation_id", n)
+		ILWD.__init__(self, "sim_ringdown", "simulation_id", n)
 
 
 #
@@ -1063,9 +1173,9 @@ class SimInstParams(LSCTableRow):
 
 SimInstParamsTable.RowType = SimInstParams
 
-class SimInstParamsIDs(metaio.ILWD):
+class SimInstParamsIDs(ILWD):
 	def __init__(self, n = 0):
-		metaio.ILWD.__init__(self, "sim_inst_params:simulation_id", n)
+		ILWD.__init__(self, "sim_inst_params", "simulation_id", n)
 
 
 #
@@ -1280,9 +1390,9 @@ class Segment(LSCTableRow):
 
 SegmentTable.RowType = Segment
 
-class SegmentIDs(metaio.ILWD):
+class SegmentIDs(ILWD):
 	def __init__(self, n = 0):
-		metaio.ILWD.__init__(self, "segment:segment_id", n)
+		ILWD.__init__(self, "segment", "segment_id", n)
 
 
 #
@@ -1321,9 +1431,9 @@ class SegmentDefMap(LSCTableRow):
 
 SegmentDefMapTable.RowType = SegmentDefMap
 
-class SegmentDefMapIDs(metaio.ILWD):
+class SegmentDefMapIDs(ILWD):
 	def __init__(self, n = 0):
-		metaio.ILWD.__init__(self, "segment_def_map:segment_def_id", n)
+		ILWD.__init__(self, "segment_def_map", "segment_def_id", n)
 
 
 #
@@ -1397,9 +1507,9 @@ class TimeSlide(LSCTableRow):
 
 TimeSlideTable.RowType = TimeSlide
 
-class TimeSlideIDs(metaio.ILWD):
+class TimeSlideIDs(ILWD):
 	def __init__(self, n = 0):
-		metaio.ILWD.__init__(self, "time_slide:time_slide_id", n)
+		ILWD.__init__(self, "time_slide", "time_slide_id", n)
 
 
 #
@@ -1432,9 +1542,9 @@ class Coinc(LSCTableRow):
 
 CoincTable.RowType = Coinc
 
-class CoincIDs(metaio.ILWD):
+class CoincIDs(ILWD):
 	def __init__(self, n = 0):
-		metaio.ILWD.__init__(self, "coinc:coinc_id", n)
+		ILWD.__init__(self, "coinc", "coinc_id", n)
 
 
 #
@@ -1469,30 +1579,30 @@ CoincMapTable.RowType = CoincMap
 # Table name ---> table type mapping.
 
 TableByName = {
-	ProcessTable.tableName: ProcessTable,
-	LfnTable.tableName: LfnTable,
-	ProcessParamsTable.tableName: ProcessParamsTable,
-	SearchSummaryTable.tableName: SearchSummaryTable,
-	SearchSummVarsTable.tableName: SearchSummVarsTable,
-	SnglBurstTable.tableName: SnglBurstTable,
-	SnglInspiralTable.tableName: SnglInspiralTable,
-	SnglRingDownTable.tableName: SnglRingDownTable,
-	MultiInspiralTable.tableName: MultiInspiralTable,
-	SimInspiralTable.tableName: SimInspiralTable,
-	SimBurstTable.tableName: SimBurstTable,
-	SimRingDownTable.tableName: SimRingDownTable,
-	SummValueTable.tableName: SummValueTable,
-	SimInstParamsTable.tableName: SimInstParamsTable,
-	StochasticTable.tableName: StochasticTable,
-	StochSummTable.tableName: StochSummTable,
-	ExtTriggersTable.tableName: ExtTriggersTable,
-	FilterTable.tableName: FilterTable,
-	SegmentTable.tableName: SegmentTable,
-	SegmentDefMapTable.tableName: SegmentDefMapTable,
-	SegmentDefTable.tableName: SegmentDefTable,
-	TimeSlideTable.tableName: TimeSlideTable,
-	CoincTable.tableName: CoincTable,
-	CoincMapTable.tableName: CoincMapTable
+	metaio.StripTableName(ProcessTable.tableName): ProcessTable,
+	metaio.StripTableName(LfnTable.tableName): LfnTable,
+	metaio.StripTableName(ProcessParamsTable.tableName): ProcessParamsTable,
+	metaio.StripTableName(SearchSummaryTable.tableName): SearchSummaryTable,
+	metaio.StripTableName(SearchSummVarsTable.tableName): SearchSummVarsTable,
+	metaio.StripTableName(SnglBurstTable.tableName): SnglBurstTable,
+	metaio.StripTableName(SnglInspiralTable.tableName): SnglInspiralTable,
+	metaio.StripTableName(SnglRingDownTable.tableName): SnglRingDownTable,
+	metaio.StripTableName(MultiInspiralTable.tableName): MultiInspiralTable,
+	metaio.StripTableName(SimInspiralTable.tableName): SimInspiralTable,
+	metaio.StripTableName(SimBurstTable.tableName): SimBurstTable,
+	metaio.StripTableName(SimRingDownTable.tableName): SimRingDownTable,
+	metaio.StripTableName(SummValueTable.tableName): SummValueTable,
+	metaio.StripTableName(SimInstParamsTable.tableName): SimInstParamsTable,
+	metaio.StripTableName(StochasticTable.tableName): StochasticTable,
+	metaio.StripTableName(StochSummTable.tableName): StochSummTable,
+	metaio.StripTableName(ExtTriggersTable.tableName): ExtTriggersTable,
+	metaio.StripTableName(FilterTable.tableName): FilterTable,
+	metaio.StripTableName(SegmentTable.tableName): SegmentTable,
+	metaio.StripTableName(SegmentDefMapTable.tableName): SegmentDefMapTable,
+	metaio.StripTableName(SegmentDefTable.tableName): SegmentDefTable,
+	metaio.StripTableName(TimeSlideTable.tableName): TimeSlideTable,
+	metaio.StripTableName(CoincTable.tableName): CoincTable,
+	metaio.StripTableName(CoincMapTable.tableName): CoincMapTable
 }
 
 
