@@ -2,7 +2,7 @@
 
 import sys
 import os
-import getopt
+from optparse import *
 import re
 import exceptions
 import glob
@@ -12,46 +12,76 @@ from pylab import *
 from pylal import readMeta
 
 
-# grab command line options
-shortop = "b:vf:g:hst:"
-longop = [
-  "bins=",
-  "version",
-  "figure=",
-  "glob=",
-  "help",
-  "show",
-  "title="]
+##############################################################################
+# help message
+usage = """\
+plotdistance [options]
 
-try:
-  opts, args = getopt.getopt(sys.argv[1:], shortop, longop)
-except getopt.GetoptError:
-  print >>sys.stderr, "Error parsing command line"
-  print >>sys.stderr, "Enter 'plotburst --help' for usage"
-  sys.exit(1)
 
-# defaul values
-myGlob = None
-myFigure = None
-myTitle = "SNR v CHISQ"
-showflag = 0
-nbins = 10
+description:
+  Plot the distance versus time based on the output files from an
+  inspiral dag.  The code uses the effective distance stored in the
+  search summary files.   It can also plot a histogram of the horizon
+  distance, i.e. the number of blocks in which a given distance is
+  seen.  The output is a pair of png files if the -f option is
+  supplied and will display to screen if the option -s is supplied.
 
-for o, a in opts:
-  if o in ("-h", "--help"):
-    sys.exit(0)
-  elif o in ("-v", "--version"):
-    sys.exit(0)
-  elif o in ("-b", "--bins"):
-    nbins = int(a)
-  elif o in ("-g", "--glob"):
-    myGlob = a
-  elif o in ("-f", "--figure"):
-    myFigure = a
-  elif o in ("-s", "--show"):
-    showflag = 1
-  elif o in ("-t", "--title"):
-    myTitle = a
+
+example:
+
+  Generate png files which show the horizon distance for L1, H1 and H2
+  versus time.  Also generate histograms of these distances between 0
+  and 20 Mpc.  The output will be two files "s4-bns-horizon.png" and
+  "s4-bns-horizon_hist.png"
+  
+  plotdistance --l1 --h1 --glob "-INSPIRAL-*" --h2 \\
+      -f s4-bns --hist --max-dist 20.0
+    
+
+bugs:
+  (1)  Could be adapted to work with summary information from 
+  lalapps_tmplbank, but has not been yet. (2) Too many hardcoded
+  numbers which should be made options with default values. 
+"""
+
+##############################################################################
+parser = OptionParser( usage )
+parser.add_option("-v","--version",action="store_true",default=False,\
+    help="display version information " )
+parser.add_option("-A","--g1-triggers",action="store_true",default=False,\
+    help="show the horizon distance for H1" )
+parser.add_option("-B","--h1-triggers",action="store_true",default=False,\
+    help="show the horizon distance for H1" )
+parser.add_option("-C","--h2-triggers",action="store_true",default=False,\
+    help="show the horizon distance for H2" )
+parser.add_option("-D","--l1-triggers",action="store_true",default=False,\
+    help="show the horizon distance for L1" )
+parser.add_option("-f","--figure-name",action="store",type="string",\
+    default=None,metavar=" FNAME",\
+    help="generate ps figures with name FNAME_PlotType.ps")
+parser.add_option("-g","--glob",action="store",type="string",\
+    default=None, metavar=" GLOB",help="GLOB of trigger files to read" )
+parser.add_option("-t","--title",action="store",type="string",default=None,\
+    metavar=" STRING",help="title string for plots")
+parser.add_option("-s","--show-plot",action="store_true",default=False,\
+    help="display the figures on the terminal" )
+parser.add_option("-m","--max-dist",action="store",\
+    type="float",metavar=" MAXD",default = 1000,\
+    help="Maximum distance to include in histogram")
+parser.add_option("-o","--hist",action="store_true",default=False,\
+    help="make a histogram")
+parser.add_option("-a","--gps-start-time",action="store",\
+    type="float",metavar=" GPS",default=793154961,\
+    help="GPS start time of plot in seconds")
+parser.add_option("-d","--duration",action="store",\
+    type="float",metavar=" DAYS",default=0,\
+    help="Duration to cover in DAYS from GPS")
+
+(opts,args) = parser.parse_args()
+
+# if --version flagged
+if opts.version:
+  sys.exit(0)
 
 def readdistances(filelist):
   # an instance of the snglInspiralTable
@@ -61,31 +91,87 @@ def readdistances(filelist):
   distances=readMeta.metaDataTable("", "summ_value")
   distances.table = [e for e in summvalue.table if (re.match("inspiral_effective_distance",e["name"]))]
 
-  # 793065613  751593613
+  # 793065613  751593613  793154961
   time = distances.mkarray("start_time")
-  time = (time -  751593613) / (3600 * 24)
+  time = (time -  opts.gps_start_time) / (3600 * 24)
   effdistance = distances.mkarray("value")
 
   return time, effdistance
 
 # glob the list of files to read in
-myfiles = glob.glob("H1-INSPIRAL-7*");
-h1time, h1effdistance = readdistances(myfiles)
+if opts.g1_triggers:
+  myfiles = glob.glob("G1" + opts.glob);
+  g1time, g1effdistance = readdistances(myfiles)
+  plot(g1time, g1effdistance, "mo")
+  hold(True)
 
-myfiles = glob.glob("L1-INSPIRAL-7*");
-l1time, l1effdistance = readdistances(myfiles)
+if opts.h1_triggers:
+  myfiles = glob.glob("H1" + opts.glob);
+  h1time, h1effdistance = readdistances(myfiles)
+  plot(h1time, h1effdistance, "ro")
+  hold(True)
 
-l = plot(h1time, h1effdistance, "bo", l1time, l1effdistance, "ro")
+if opts.h2_triggers:
+  myfiles = glob.glob("H2" + opts.glob);
+  h2time, h2effdistance = readdistances(myfiles)
+  plot(h2time, h2effdistance, "bo")
+  hold(True)
+
+if opts.l1_triggers:
+  myfiles = glob.glob("L1" + opts.glob);
+  l1time, l1effdistance = readdistances(myfiles)
+  plot(l1time, l1effdistance, "go")
+
+hold(False)
 xlabel(r'Time (Days)', size='x-large')
 ylabel(r'Max Distance (Mpc)', size='x-large')
-title(r' ' + myTitle)
+if opts.title:
+  title(r' ' + opts.title)
 grid(True)
 locs, labels = xticks()
 set(labels, fontsize=16)
 locs, labels = yticks()
 set(labels, fontsize=16)
-legend(('H1','L1'))
-axis([0, 70, 0, 25])
-if myFigure:
-  savefig(myFigure + "-range.png")
-show()
+legend(('H1','H2','L1'))
+tmpv=axis()
+tmpv[3]=opts.max_dist
+axis(tmpv)
+if opts.figure_name:
+  savefig(opts.figure_name + "-horizon.png")
+
+
+# plotting a histogram of the distances
+if opts.hist:
+  bins = []
+  nbins = 40
+  for i in range(nbins):
+    bins.append(i * opts.max_dist/nbins)
+  figure()
+  if sometrue(h1effdistance):
+    figure(999)
+    out=hist(h1effdistance,bins)
+    close(999)
+    plot(out[1],out[0],'ro-')
+    hold(True)
+  if sometrue(h2effdistance):
+    figure(999)
+    out=hist(h2effdistance,bins)
+    close(999)
+    plot(out[1],out[0],'bo-')
+    hold(True)
+  if sometrue(l1effdistance):
+    figure(999)
+    out=hist(l1effdistance,bins)
+    close(999)
+    plot(out[1],out[0],'go-')
+  xlabel(r'Max Distance (Mpc)', size='x-large')
+  ylabel(r'Number of blocks', size='x-large')
+  tmpv = axis()
+  tmpv[0]=0
+  tmpv[1]=opts.max_dist
+  axis(tmpv)
+  if opts.figure_name:
+    savefig(opts.figure_name + "-horizon_hist.png")
+  
+if opts.show_plot:
+  show()
