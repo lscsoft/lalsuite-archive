@@ -56,7 +56,7 @@ def makeplot(desc, table):
 
 	# extract peak times and confidences
 	peaktime = [float(row.get_peak()) for row in table]
-	confidence = -table.getColumnByName("confidence").asarray()
+	confidence = pylab.log(-table.getColumnByName("confidence").asarray())
 
 	# construct short time scale average confidence rate
 	xvals, yvals = webplot.smooth(peaktime, desc.trig_segment(), desc.ratewidth, weights = confidence)
