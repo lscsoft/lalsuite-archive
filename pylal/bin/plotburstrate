@@ -1,0 +1,156 @@
+#!/usr/bin/python
+
+__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__date__ = "$Date$"
+__version__ = "$Id$"
+
+from optparse import OptionParser
+import pylab
+import sys
+import urllib
+from xml import sax
+
+from glue import lal
+from glue import segments
+from glue.ligolw import ligolw
+from glue.ligolw import metaio
+from glue.ligolw import lsctables
+from glue.ligolw import docutils
+from pylal import rate
+
+#
+# =============================================================================
+#
+#                                 Command line
+#
+# =============================================================================
+#
+
+usage = """
+usage: %prog [options] cache_files...
+
+Generate long time-scale trigger rate plot, getting trigger file names from LAL
+cache files.
+
+"""
+parser = OptionParser(usage)
+parser = OptionParser(version="%prog CVS $Id$")
+parser.add_option("-s", "--gps-start-time", metavar="SECONDS", default=None, help="start time of plot in GPS seconds")
+parser.add_option("-e", "--gps-end-time", metavar="SECONDS", default=None, help="end time of plot in GPS seconds")
+parser.add_option("-w", "--window", metavar="SECONDS", default=3600.0, help="width of averaging window in seconds")
+parser.add_option("-o","--output", metavar="FILE", help="output file name (default = stdout)")
+options, cache = parser.parse_args()
+del parser
+
+# check for output
+if not options.output:
+	print >>sys.stderr, "error: no output file specified!"
+	sys.exit(1)
+
+# convert rate
+options.window = float(options.window)
+
+# parse trigger cache files
+if not len(cache):
+	print >>sys.stderr, "error: no trigger cache files specified!"
+	sys.exit(1)
+cache = reduce(list.__add__, [map(lal.CacheEntry, file(name)) for name in cache], [])
+
+# set segment
+try:
+	options.segment = segments.segment(lal.LIGOTimeGPS(options.gps_start_time), lal.LIGOTimeGPS(options.gps_end_time))
+except Exception, e:
+	print >>sys.stderr, "error: cannot parse GPS start and end times into a segment: %s" % str(e)
+	sys.exit(1)
+
+# filter cache entries and sort
+cache = filter(lambda c: options.segment.intersects(c.segment), cache)
+cache.sort()
+
+
+#
+# =============================================================================
+#
+#   Custom SnglBurstTable append() method to put triggers directly into bins
+#
+# =============================================================================
+#
+
+rate = rate.Rate(options.segment, options.window)
+num_triggers = 0
+
+def append(table, trigger):
+	global num_triggers, rate
+	num_triggers += 1
+	if options.segment[0] <= trigger.get_peak() < options.segment[1]:
+		rate[trigger.get_peak()] = 1.0
+	if not (num_triggers % 200):
+		print >>sys.stderr, "triggers: %d\r" % num_triggers,
+
+lsctables.SnglBurstTable.append = append
+
+
+#
+# =============================================================================
+#
+#                                    Input
+#
+# =============================================================================
+#
+
+def SnglBurstAndSearchSummOnlyHandler(doc):
+	"""
+	Construct a document handler that reads only sngl_burst and search
+	summary tables.
+	"""
+	return docutils.PartialLIGOLWContentHandler(doc, lambda name, attrs: (name == ligolw.Table.tagName) and (metaio.StripTableName(attrs["Name"]) in map(metaio.StripTableName, [lsctables.SnglBurstTable.tableName, lsctables.SearchSummaryTable.tableName])))
+
+
+def ReadFiles(cache):
+	doc = ligolw.Document()
+	handler = SnglBurstAndSearchSummOnlyHandler(doc)
+	for n, c in enumerate(cache):
+		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(cache), c.url)
+		ligolw.make_parser(handler).parse(urllib.urlopen(c.url))
+		print >>sys.stderr, "\n",
+	return docutils.MergeCompatibleTables(doc)
+
+
+searchsumm_tables = lsctables.getTablesByType(ReadFiles(cache), lsctables.SearchSummaryTable)
+
+if len(searchsumm_tables) == 0:
+	seglist = segments.segmentlist([])
+elif len(searchsumm_tables) == 1:
+	seglist = searchsumm_tables[0].get_inlist().coalesce()
+else:
+	print >>sys.stderr, "error: files contain incompatible search summary tables"
+	sys.exit(1)
+
+
+#
+# =============================================================================
+#
+#                                    Figure
+#
+# =============================================================================
+#
+
+rate.convolve()
+
+fig = pylab.figure(1)
+fig.set_figsize_inches(32,8)
+axes = pylab.gca()
+
+pylab.plot(rate.xvals, rate.yvals)
+
+pylab.setp(axes, xlim = list(options.segment))
+pylab.grid(True)
+
+for seg in ~seglist & segments.segmentlist([options.segment]):
+	pylab.axvspan(seg[0], seg[1], facecolor = "k", alpha = 0.2)
+
+pylab.title("Excess Power Trigger Rate vs. Time\n(%d Triggers, %g s Average)" % (num_triggers, options.window))
+pylab.xlabel("GPS Time (s)")
+pylab.ylabel("Trigger Rate (Hz)")
+
+pylab.savefig(options.output)
