@@ -239,17 +239,20 @@ class TableStream(ligolw.Stream):
 			self.pcdata = self.pcdata[match.end():]
 
 		# construct row objects from tokens, and append to parent
-		while len(self.tokens) >= len(self.parentNode.columninfo):
+		i = 0
+		while len(self.tokens) - i >= len(self.parentNode.columninfo):
 			row = self.parentNode.RowType()
-			for i, (colname, pytype) in enumerate(self.parentNode.columninfo):
+			for (colname, pytype) in self.parentNode.columninfo:
 				try:
 					setattr(row, colname, pytype(self.tokens[i]))
 				except ValueError, e:
 					raise ligolw.ElementError, "Stream parsing error near tokens %s: %s" % (str(self.tokens), str(e))
 				except AttributeError, e:
 					pass
-			self.tokens = self.tokens[i+1:]
+				i += 1
 			self.parentNode.append(row)
+		if i:
+			self.tokens = self.tokens[i:]
 
 	def _rowstr(self, row, columns):
 		# FIXME: after calling getattr(), should probably check that
