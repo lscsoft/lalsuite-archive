@@ -38,19 +38,19 @@ parser = OptionParser(version="%prog CVS $Id$")
 parser.add_option("-s", "--gps-start-time", metavar="SECONDS", default=None, help="start time of plot in GPS seconds")
 parser.add_option("-e", "--gps-end-time", metavar="SECONDS", default=None, help="end time of plot in GPS seconds")
 parser.add_option("-w", "--window", metavar="SECONDS", default=3600.0, help="width of averaging window in seconds")
-parser.add_option("-o","--output", metavar="FILE", help="output file name (default = stdout)")
+parser.add_option("-o","--output-base", metavar="BASE", help="output file name base (no extension)")
 options, cache = parser.parse_args()
 del parser
 
 # check for output
-if not options.output:
-	print >>sys.stderr, "error: no output file specified!"
+if not options.output_base:
+	print >>sys.stderr, "error: no output file base specified!"
 	sys.exit(1)
 
-# convert rate
+# parse window
 options.window = float(options.window)
 
-# parse trigger cache files
+# parse trigger cache files and sort
 if not len(cache):
 	print >>sys.stderr, "error: no trigger cache files specified!"
 	sys.exit(1)
@@ -58,13 +58,16 @@ cache = reduce(list.__add__, [map(lal.CacheEntry, file(name)) for name in cache]
 
 # set segment
 try:
-	options.segment = segments.segment(lal.LIGOTimeGPS(options.gps_start_time), lal.LIGOTimeGPS(options.gps_end_time))
+	options.gps_start_time = lal.LIGOTimeGPS(options.gps_start_time)
+	options.gps_end_time = lal.LIGOTimeGPS(options.gps_end_time)
 except Exception, e:
-	print >>sys.stderr, "error: cannot parse GPS start and end times into a segment: %s" % str(e)
+	print >>sys.stderr, "error: %s" % str(e)
 	sys.exit(1)
+options.segment = segments.segment(options.gps_start_time, options.gps_end_time)
+options.read_segment = options.segment.protract(5.0 * options.window)
 
 # filter cache entries and sort
-cache = filter(lambda c: options.segment.intersects(c.segment), cache)
+cache = filter(lambda c: options.read_segment.intersects(c.segment), cache)
 cache.sort()
 
 
@@ -76,15 +79,15 @@ cache.sort()
 # =============================================================================
 #
 
-rate = rate.Rate(options.segment, options.window)
+rate = rate.Rate(options.read_segment, options.window)
 num_triggers = 0
 
 def append(table, trigger):
 	global num_triggers, rate
 	num_triggers += 1
-	if options.segment[0] <= trigger.get_peak() < options.segment[1]:
+	if options.read_segment[0] <= trigger.get_peak() < options.read_segment[1]:
 		rate[trigger.get_peak()] = 1.0
-	if not (num_triggers % 200):
+	if not (num_triggers % 500):
 		print >>sys.stderr, "triggers: %d\r" % num_triggers,
 
 lsctables.SnglBurstTable.append = append
@@ -153,4 +156,5 @@ pylab.title("Excess Power Trigger Rate vs. Time\n(%d Triggers, %g s Average)" % 
 pylab.xlabel("GPS Time (s)")
 pylab.ylabel("Trigger Rate (Hz)")
 
-pylab.savefig(options.output)
+pylab.savefig(options.output_base + ".eps")
+pylab.savefig(options.output_base + ".png")
