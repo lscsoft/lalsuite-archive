@@ -1,5 +1,6 @@
 import math
 import numarray
+from numarray import convolve
 
 #
 # =============================================================================
@@ -55,7 +56,7 @@ class Rate(object):
 		Generate a window, and convolve it with the binned weights
 		to generate rate data.
 		"""
-		self.yvals = numarray.convolve(self.yvals, GaussianWindow(self.halfwidth), mode=1)
+		self.yvals = convolve.convolve(self.yvals, GaussianWindow(self.halfwidth), mode=convolve.SAME)
 		return self
 
 
