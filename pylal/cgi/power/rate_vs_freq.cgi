@@ -5,6 +5,7 @@ import pylab
 
 from glue import lal
 from glue import segments
+from pylal import rate
 
 import webplot
 
@@ -28,7 +29,7 @@ def makeplot(desc, table):
 	fig.set_figsize_inches(16,8)
 	axes = pylab.gca()
 
-	xvals, yvals = webplot.smooth(table.getColumnByName("central_freq").asarray(), desc.band, desc.freqwidth)
+	xvals, yvals = rate.smooth(table.getColumnByName("central_freq").asarray(), desc.band, desc.freqwidth)
 	pylab.plot(xvals, yvals / duration)
 
 	pylab.set(axes, xlim = list(desc.band))

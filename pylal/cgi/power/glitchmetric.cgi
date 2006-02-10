@@ -7,6 +7,7 @@ import pylab
 
 from glue import lal
 from glue import segments
+from pylal import rate
 
 import webplot
 
@@ -59,10 +60,10 @@ def makeplot(desc, table):
 	confidence = pylab.log(-table.getColumnByName("confidence").asarray())
 
 	# construct short time scale average confidence rate
-	xvals, yvals = webplot.smooth(peaktime, desc.trig_segment(), desc.ratewidth, weights = confidence)
+	xvals, yvals = rate.smooth(peaktime, desc.trig_segment(), desc.ratewidth, weights = confidence)
 
 	# construct long time scale average confidence rate
-	xvals2, yvals2 = webplot.smooth(peaktime, desc.trig_segment(), desc.widthratio * desc.ratewidth, weights = confidence)
+	xvals2, yvals2 = rate.smooth(peaktime, desc.trig_segment(), desc.widthratio * desc.ratewidth, weights = confidence)
 	del xvals2
 
 	# resample long time scale average to that of short time scale

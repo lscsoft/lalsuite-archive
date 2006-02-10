@@ -6,6 +6,7 @@ import pylab
 
 from glue import lal
 from glue import segments
+from pylal import rate
 
 import webplot
 
@@ -28,7 +29,7 @@ def makeplot(desc, table):
 	fig.set_figsize_inches(16,8)
 	axes = pylab.gca()
 
-	pylab.plot(*webplot.smooth([float(row.get_peak()) for row in table], desc.trig_segment(), desc.ratewidth))
+	pylab.plot(*rate.smooth([float(row.get_peak()) for row in table], desc.trig_segment(), desc.ratewidth))
 
 	pylab.set(axes, xlim = list(desc.segment))
 	pylab.grid(True)
