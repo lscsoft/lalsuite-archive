@@ -57,6 +57,7 @@ def MergeCompatibleTables(elem):
 		for i in range(1, len(tables)):
 			if not tables[0].compare(tables[i]):
 				MergeElements(tables[0], tables[i])
+	return elem
 
 
 def RemapProcessIDs(elem, mapping):
