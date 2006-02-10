@@ -352,9 +352,6 @@ class Table(ligolw.Table):
 		"""
 		self.rows.append(row)
 
-	# compatibility with older code.
-	appendRow = append
-
 	def extend(self, rows):
 		"""
 		Add a list of rows to the end of the table.
