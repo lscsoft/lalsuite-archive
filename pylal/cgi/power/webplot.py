@@ -22,9 +22,12 @@ from pylal import SnglBurstUtils
 
 import eventdisplay
 
-
 #
-# CGI display request
+# =============================================================================
+#
+#                             CGI display request
+#
+# =============================================================================
 #
 
 class PlotDescription(object):
@@ -97,7 +100,11 @@ class PlotDescription(object):
 
 
 #
-# How to get a table of triggers within a segment
+# =============================================================================
+#
+#               How to get a table of triggers within a segment
+#
+# =============================================================================
 #
 
 def SnglBurstAndSearchSummOnlyHandler(doc):
@@ -105,7 +112,7 @@ def SnglBurstAndSearchSummOnlyHandler(doc):
 	Construct a document handler that reads only sngl_burst and search
 	summary tables.
 	"""
-	return docutils.PartialLIGOLWContentHandler(doc, lambda name, attrs: (name == ligolw.Table.tagName) and (metaio.StripTableName(attrs["Name"]) in [lsctables.SnglBurstTable.tableName, lsctables.SearchSummaryTable.tableName]))
+	return docutils.PartialLIGOLWContentHandler(doc, lambda name, attrs: (name == ligolw.Table.tagName) and (metaio.StripTableName(attrs["Name"]) in map(metaio.StripTableName, [lsctables.SnglBurstTable.tableName, lsctables.SearchSummaryTable.tableName])))
 
 
 def CacheURLs(cachename, seg):
@@ -127,7 +134,7 @@ def gettriggers(plotdesc):
 	docutils.MergeCompatibleTables(doc)
 
 	# get segment list from search summary table
-	tables = doc.getElements(lambda e: lsctables.IsTableElement(lsctables.SearchSummaryTable, e))
+	tables = lsctables.getTablesByType(doc, lsctables.SearchSummaryTable)
 	if len(tables) == 0:
 		# no search summary tables found, set an empty segment list
 		plotdesc.seglist = segments.segmentlist([])
@@ -137,7 +144,7 @@ def gettriggers(plotdesc):
 		raise Exception, "files contain incompatible search summary tables"
 
 	# get triggers from single_burst table
-	tables = doc.getElements(lambda e: lsctables.IsTableElement(lsctables.SnglBurstTable, e))
+	tables = lsctables.getTablesByType(doc, lsctables.SnglBurstTable)
 	if len(tables) == 0:
 		# no trigger tables found, return an empty table
 		return lsctables.New(lsctables.SnglBurstTable)
@@ -156,41 +163,88 @@ def gettriggers(plotdesc):
 
 
 #
-# Convolve impulse events with a Gaussian window to produce a smooth
-# function.
+# =============================================================================
+#
+#     Convolve impulse events with a Gaussian window to compute the rate.
+#
+# =============================================================================
 #
 
-def smooth(impulses, segment, width, weights = None):
-	halfwidth = width / 2.0
+def Window(halfwidth):
+	"""
+	Generate a normalized Gaussian window (integral = 1).
+	"""
 	bins_per_unit = 10.0 / halfwidth
+	return pylab.exp(-pylab.arrayrange(-10.0 * halfwidth, +10.0 * halfwidth, 1.0/bins_per_unit)**2.0 / (2.0 * halfwidth**2.0)) / math.sqrt(2.0 * math.pi) / halfwidth
 
-	window = pylab.exp(-pylab.arrayrange(-10.0 * halfwidth, +10.0 * halfwidth, 1.0/bins_per_unit)**2.0 / (2.0 * halfwidth**2.0)) / math.sqrt(2.0 * math.pi) / halfwidth
 
-	xvals = pylab.arrayrange(0.0, float(segment.duration()), 1.0/bins_per_unit)
+class Rate(object):
+	"""
+	An object for binning and smoothing data to compute a moving average
+	rate.
+	"""
+	def __init__(self, segment, halfwidth):
+		"""
+		Initialize the bins for the given segment and width.
+		"""
+		self.halfwidth = halfwidth
+		self.bins_per_unit = 10.0 / halfwidth
+		self.start = segment[0]
+		self.xvals = pylab.arrayrange(0.0, float(segment.duration()), 1.0/self.bins_per_unit) + float(segment[0])
+		self.yvals = pylab.zeros(len(self.xvals), "Float32")
 
-	def bin(x):
-		return int(float(x - segment[0]) * bins_per_unit)
+	def bin(self, x):
+		"""
+		Return the index for the bin corresponding to x.
+		"""
+		return int(float(x - self.start) * self.bins_per_unit)
 
-	yvals = pylab.zeros(len(xvals), "Float32")
+	def __getitem__(self, x):
+		"""
+		Retrieve the weight in bin corresponding to x.
+		"""
+		return self.yvals[self.bin(x)]
+
+	def __setitem__(self, x, weight):
+		"""
+		Add weight to the bin corresponding to x.
+		"""
+		self.yvals[self.bin(x)] += weight
+
+	def convolve(self):
+		"""
+		Generate a window, and convolve it with the binned weights
+		to generate rate data.
+		"""
+		self.yvals = pylab.convolve(self.yvals, Window(self.halfwidth), mode=1)
+		return self
+
+
+def smooth(impulses, segment, width, weights = None):
+	rate = Rate(segment, width / 2.0)
 	if True:
 		if weights == None:
 			for x in impulses:
 				if segment[0] <= x < segment[1]:
-					yvals[bin(x)] += 1.0
+					rate[x] = 1.0
 		else:
 			for n, x in enumerate(impulses):
 				if segment[0] <= x < segment[1]:
-					yvals[bin(x)] += weights[n]
+					rate[x] = weights[n]
 	else:
 		# inject pulses at regular intervals to test normalization
 		for x in pylab.arrayrange(float(segment[0]), float(segment[1]), 0.5):
-			yvals[bin(x)] += 1.0
-
-	return (xvals + float(segment[0]), pylab.convolve(yvals, window, mode=1))
+			rate[x] = 1.0
+	rate.convolve()
+	return rate.xvals, rate.yvals
 
 
 #
-# How to send image to client
+# =============================================================================
+#
+#                                    Output
+#
+# =============================================================================
 #
 
 def SendImage(plotdesc):
