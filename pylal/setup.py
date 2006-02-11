@@ -8,13 +8,15 @@ from distutils.core import setup, Extension
 def stripfirsttwo(string):
 	return string[2:]
 
-lallibs = map(stripfirsttwo, os.popen("pkg-config lal lalmetaio lalsupport --libs-only-l").read().split())
+lallibs = map(stripfirsttwo, os.popen("pkg-config lal lalframe lalmetaio lalsupport --libs-only-l").read().split())
 
 lallibdirs = map(stripfirsttwo, os.popen("pkg-config lal --libs-only-L").read().split())
 lallibdirs = lallibdirs + map(stripfirsttwo, os.popen("pkg-config libmetaio --libs-only-L").read().split())
+lallibdirs = lallibdirs + map(stripfirsttwo, os.popen("pkg-config libframe --libs-only-L").read().split())
 
 lalincdirs = map(stripfirsttwo, os.popen("pkg-config lal --cflags-only-I").read().split())
 lalincdirs = lalincdirs + map(stripfirsttwo, os.popen("pkg-config libmetaio --cflags-only-I").read().split())
+lalincdirs = lalincdirs + map(stripfirsttwo, os.popen("pkg-config libframe --cflags-only-I").read().split())
 
 
 setup(
@@ -28,6 +30,11 @@ setup(
 	packages = ["pylal"],
 	ext_modules = [
 		Extension("pylal.support", ["src/support.c"],
+			include_dirs = lalincdirs,
+			libraries = lallibs,
+			library_dirs = lallibdirs,
+			runtime_library_dirs = lallibdirs),
+		Extension("pylal.frgetvect", ["src/frgetvect.c"],
 			include_dirs = lalincdirs,
 			libraries = lallibs,
 			library_dirs = lallibdirs,
