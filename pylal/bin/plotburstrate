@@ -118,7 +118,8 @@ def ReadFiles(cache):
 		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(cache), c.url)
 		ligolw.make_parser(handler).parse(urllib.urlopen(c.url))
 		print >>sys.stderr, "\n",
-	return docutils.MergeCompatibleTables(doc)
+		docutils.MergeCompatibleTables(doc)
+	return doc
 
 
 searchsumm_tables = lsctables.getTablesByType(ReadFiles(cache), lsctables.SearchSummaryTable)
