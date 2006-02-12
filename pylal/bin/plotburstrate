@@ -7,6 +7,7 @@ __version__ = "$Id$"
 from optparse import OptionParser
 import pylab
 import sys
+import time
 import urllib
 from xml import sax
 
@@ -17,6 +18,7 @@ from glue.ligolw import metaio
 from glue.ligolw import lsctables
 from glue.ligolw import docutils
 from pylal import rate
+from pylal.support import XLALGPSToUTC, XLALUTCToGPS
 
 #
 # =============================================================================
@@ -50,7 +52,7 @@ if not options.output_base:
 # parse window
 options.window = float(options.window)
 
-# parse trigger cache files and sort
+# parse trigger cache files
 if not len(cache):
 	print >>sys.stderr, "error: no trigger cache files specified!"
 	sys.exit(1)
@@ -133,6 +135,62 @@ else:
 #
 # =============================================================================
 #
+#                        How to generate X axis labels
+#
+# =============================================================================
+#
+
+def utc_midnight(gps):
+	"""
+	Round down a GPS seconds to UTC midnight.
+	"""
+	# convert to UTC (as list so we can edit it)
+	tm = list(XLALGPSToUTC(gps))
+
+	# round down to midnight
+	tm[3] = 0	# hours
+	tm[4] = 0	# minutes
+	tm[5] = 0	# seconds
+
+	# convert back to GPS
+	return XLALUTCToGPS(tuple(tm))
+
+
+def next_midnight(midnight):
+	"""
+	Given a UTC midnight in GPS seconds, return the GPS seconds of the next
+	midnight.
+	"""
+	# add 86401 and round down to midnight (accounts for possible leap
+	# second).
+	return utc_midnight(midnight + 86401)
+
+
+def make_xticks(segment):
+	# find the first UTC midnight on the X axis
+	gps = utc_midnight(int(segment[0]))
+	if gps < int(segment[0]):
+		gps = next_midnight(gps)
+
+	# find the last UTC midnight on the X axis
+	last_gps = utc_midnight(int(segment[1]))
+
+	# generate tick locations and labels
+	locs, labels = [], []
+	while gps <= last_gps:
+		tm = time.struct_time(XLALGPSToUTC(gps))
+		locs.append(gps)
+		if tm.tm_wday == 1:	# tuesday
+			labels.append(time.strftime("%H h, %a %b %d, %Y", tm))
+		else:
+			labels.append("")
+		gps = next_midnight(gps)
+	return locs, labels
+
+
+#
+# =============================================================================
+#
 #                                    Figure
 #
 # =============================================================================
@@ -140,8 +198,9 @@ else:
 
 rate.convolve()
 
+# figure is 3" wide per week
 fig = pylab.figure(1)
-fig.set_figsize_inches(32,8)
+fig.set_figsize_inches(float(options.segment.duration())/86400/7 * 3,8)
 axes = pylab.gca()
 
 pylab.plot(rate.xvals, rate.yvals)
@@ -153,7 +212,11 @@ for seg in ~seglist & segments.segmentlist([options.segment]):
 	pylab.axvspan(seg[0], seg[1], facecolor = "k", alpha = 0.2)
 
 pylab.title("Excess Power Trigger Rate vs. Time\n(%d Triggers, %g s Average)" % (num_triggers, options.window))
-pylab.xlabel("GPS Time (s)")
+
+ticks = make_xticks(options.segment)
+pylab.xticks(ticks[0], ticks[1], horizontalalignment="right", fontsize=10, rotation=15)
+pylab.xlabel("UTC")
+pylab.yticks(fontsize=10)
 pylab.ylabel("Trigger Rate (Hz)")
 
 pylab.savefig(options.output_base + ".eps")
