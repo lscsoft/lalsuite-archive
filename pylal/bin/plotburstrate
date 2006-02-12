@@ -197,13 +197,12 @@ def make_xticks(segment):
 # =============================================================================
 #
 
-rate.convolve()
-
 # figure is 3" wide per week
 fig = pylab.figure(1)
 fig.set_figsize_inches(float(options.segment.duration())/86400/7 * 3,8)
 axes = pylab.gca()
 
+rate.convolve()
 pylab.plot(rate.xvals, rate.yvals)
 
 pylab.setp(axes, xlim = list(options.segment))
@@ -222,3 +221,4 @@ pylab.ylabel("Trigger Rate (Hz)")
 
 pylab.savefig(options.output_base + ".eps")
 pylab.savefig(options.output_base + ".png")
+pylab.savefig(options.output_base + ".svg")
