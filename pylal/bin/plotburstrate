@@ -205,7 +205,7 @@ axes = pylab.gca()
 rate.convolve()
 pylab.plot(rate.xvals, rate.yvals)
 
-pylab.set(axes, xlim = list(options.segment))
+pylab.setp(axes, xlim = list(options.segment))
 pylab.grid(True)
 
 for seg in ~seglist & segments.segmentlist([options.segment]):
