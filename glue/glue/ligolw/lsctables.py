@@ -830,23 +830,55 @@ SearchSummVarsTable.RowType = SearchSummVars
 class SnglBurstTable(LSCTableUnique):
 	tableName = "sngl_burst:table"
 	validcolumns = {
+		"creator_db": "int_4s",
 		"process_id": "ilwd:char",
+		"filter_id": "ilwd:char",
 		"ifo": "lstring",
 		"search": "lstring",
 		"channel": "lstring",
 		"start_time": "int_4s",
 		"start_time_ns": "int_4s",
-		"peak_time": "int_4s",
-		"peak_time_ns": "int_4s",
+		"stop_time": "int_4s",
+		"stop_time_ns": "int_4s"
 		"duration": "real_4",
+		"flow": "real_4",
+		"fhigh": "real_4",
 		"central_freq": "real_4",
 		"bandwidth": "real_4",
 		"amplitude": "real_4",
 		"snr": "real_4",
 		"confidence": "real_4",
-		"clusterT": "real_4",
-		"peak_dof": "real_4",
-		"event_id": "int_8s"
+		"tfvolume": "real_4",
+		"hrss": "real_4",
+		"time_lag": "real_4",
+		"peak_time": "int_4s",
+		"peak_time_ns": "int_4s",
+		"peak_frequency": "real_4",
+		"peak_strain": "real_4",
+		"peak_time_error": "real_4",
+		"peak_frequency_error": "real_4",
+		"peak_strain_error": "real_4",
+		"ms_start_time": "int_4s",
+		"ms_start_time_ns": "int_4s",
+		"ms_stop_time": "int_4s",
+		"ms_stop_time_ns": "int_4s",
+		"ms_duration": "real_4",
+		"ms_flow": "real_4",
+		"ms_fhigh": "real_4",
+		"ms_bandwidth": "real_4",
+		"ms_hrss": "real_4",
+		"ms_snr": "real_4",
+		"ms_confidence": "real_4",
+		"param_one_name": "lstring",
+		"param_one_value": "real_8",
+		"param_two_name": "lstring",
+		"param_two_value": "real_8",
+		"param_three_name": "lstring",
+		"param_three_value": "real_8",
+		#"event_id": "ilwd:char",
+		"event_id": "int_8s",	# FIXME: LAL writes this column as int_8s.  When LAL is fixed, change back to ilwd:char.
+		"clusterT": "real_4",	# FIXME: string search generates this column.  Remove when string search is fixed (this is a process parameter, not a trigger property).
+		"peak_dof": "real_4"	# FIXME: excess power search generates this column.  Remove when excess power search is fixed (columns already exist for this).
 	}
 
 	def makeReference(self, elem):
