@@ -15,8 +15,6 @@ __version__ = "$Revision$"
 
 from optparse import OptionParser
 import sys
-import os
-from xml import sax
 
 from glue.ligolw import ligolw
 from glue.ligolw import metaio

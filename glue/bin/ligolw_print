@@ -16,7 +16,6 @@ __version__ = "$Revision$"
 from optparse import OptionParser
 import sys
 import urllib
-from xml import sax
 
 from glue import segments
 from glue.ligolw import ligolw

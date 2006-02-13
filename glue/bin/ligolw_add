@@ -17,7 +17,6 @@ from optparse import OptionParser
 import sys
 import os
 import urllib
-from xml import sax
 
 from glue import lal
 from glue import segments
