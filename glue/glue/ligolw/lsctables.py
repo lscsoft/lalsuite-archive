@@ -2115,6 +2115,22 @@ TableByName = {
 	metaio.StripTableName(CoincMapTable.tableName): CoincMapTable
 }
 
+ILWDGeneratorByTableName = {
+	metaio.StripTableName(ProcessTable.tableName): ProcessIDs,
+	metaio.StripTableName(LfnTable.tableName): LfnIDs,
+	metaio.StripTableName(SnglBurstTable.tableName): SnglBurstIDs,
+	metaio.StripTableName(SnglInspiralTable.tableName): SnglInspiralIDs,
+	metaio.StripTableName(SimRingDownTable.tableName): SnglRingDownIDs,
+	metaio.StripTableName(SimInspiralTable.tableName): SimInspiralIDs,
+	metaio.StripTableName(SimBurstTable.tableName): SimBurstIDs,
+	metaio.StripTableName(SimRingDownTable.tableName): SimRingDownIDs,
+	metaio.StripTableName(SimInstParamsTable.tableName): SimInstParamsIDs,
+	metaio.StripTableName(SegmentTable.tableName): SegmentIDs,
+	metaio.StripTableName(SegmentDefMapTable.tableName): SegmentDefMapIDs,
+	metaio.StripTableName(TimeSlideTable.tableName): TimeSlideIDs,
+	metaio.StripTableName(CoincTable.tableName): CoincIDs
+}
+
 
 class LIGOLWContentHandler(metaio.LIGOLWContentHandler):
 	"""
