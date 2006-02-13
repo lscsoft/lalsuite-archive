@@ -2087,7 +2087,6 @@ CoincMapTable.RowType = CoincMap
 #
 
 # Table name ---> table type mapping.
-
 TableByName = {
 	metaio.StripTableName(ProcessTable.tableName): ProcessTable,
 	metaio.StripTableName(LfnTable.tableName): LfnTable,
@@ -2115,6 +2114,8 @@ TableByName = {
 	metaio.StripTableName(CoincMapTable.tableName): CoincMapTable
 }
 
+
+# Table name ---> ILWD generator mapping.
 ILWDGeneratorByTableName = {
 	metaio.StripTableName(ProcessTable.tableName): ProcessIDs,
 	metaio.StripTableName(LfnTable.tableName): LfnIDs,
