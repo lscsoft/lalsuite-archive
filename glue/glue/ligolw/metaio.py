@@ -411,13 +411,16 @@ class Table(ligolw.Table):
 	# Element methods
 	#
 
-	def appendChild(self, child):
-		if child.tagName == ligolw.Column.tagName:
+	def _updateColumninfo(self):
+		self.columninfo = []
+		for child in self.childNodes:
+			if child.tagName != ligolw.Column.tagName:
+				continue
 			colname = StripColumnName(child.getAttribute("Name"))
 			llwtype = child.getAttribute("Type")
 			if self.validcolumns != None:
 				if colname not in self.validcolumns.keys():
-					raise ligolw.ElementError, "invalid Column name \"%s\" for Table" % child.getAttribute("Name")
+					raise ligolw.ElementError, "invalid Column name \"%s\" for Table \"%s\"" % (child.getAttribute("Name"), self.getAttribute("Name"))
 				if self.validcolumns[colname] != llwtype:
 					raise ligolw.ElementError, "invalid type \"%s\" for Column \"%s\"" % (llwtype, child.getAttribute("Name"))
 			if colname in [c[0] for c in self.columninfo]:
@@ -429,11 +432,16 @@ class Table(ligolw.Table):
 			elif llwtype in FloatTypes:
 				self.columninfo.append((colname, float))
 			else:
-				raise ligolw.ElementError, "unrecognized Type attribute \"%s\" for Column element" % llwtype
+				raise ligolw.ElementError, "unrecognized Type attribute \"%s\" for Column \"%s\"" % (llwtype, child.getAttribute("Name"))
+
+	def _verifyChildren(self, i):
+		ligolw.Table._verifyChildren(self, i)
+		child = self.childNodes[i]
+		if child.tagName == ligolw.Column.tagName:
+			self._updateColumninfo()
 		elif child.tagName == ligolw.Stream.tagName:
 			if child.getAttribute("Name") != self.getAttribute("Name"):
 				raise ligolw.ElementError, "Stream name \"%s\" does not match Table name \"%s\"" % (child.getAttribute("Name"), self.getAttribute("Name"))
-		ligolw.Table.appendChild(self, child)
 
 	def removeChild(self, child):
 		"""
@@ -442,8 +450,7 @@ class Table(ligolw.Table):
 		"""
 		ligolw.Table.removeChild(self, child)
 		if child.tagName == ligolw.Column.tagName:
-			for n in [n for n, item in enumerate(self.columninfo) if item[0] == StripColumnName(child.getAttribute("Name"))]:
-				del self.columninfo[n]
+			self._updateColumninfo()
 		return child
 
 

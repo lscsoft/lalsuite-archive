@@ -121,6 +121,22 @@ class Element(object):
 			raise ElementError, "%s cannot have children" % self.tagName
 		self.childNodes.append(child)
 		child.parentNode = self
+		self._verifyChildren(len(self.childNodes) - 1)
+		return child
+
+	def insertBefore(self, newchild, refchild):
+		"""
+		Insert a new child node before an existing child. It must
+		be the case that refchild is a child of this node; if not,
+		ValueError is raised. newchild is returned.
+		"""
+		if self.empty:
+			raise ElementError, "%s cannot have children" % self.tagName
+		i = self.childNodes.index(refchild)
+		self.childNodes.insert(i, newchild)
+		newchild.parentNode = self
+		self._verifyChildren(i)
+		return newchild
 
 	def removeChild(self, child):
 		"""
@@ -130,6 +146,19 @@ class Element(object):
 		self.childNodes.remove(child)
 		child.parentNode = None
 		return child
+
+	def replaceChild(self, newchild, oldchild):
+		"""
+		Replace an existing node with a new node. It must be the
+		case that oldchild is a child of this node; if not,
+		ValueError is raised. newchild is returned.
+		"""
+		i = self.childNodes.index(refchild)
+		self.childNodes[i].parentNode = None
+		self.childNodes[i] = newchild
+		newchild.parentNode = self
+		self._verifyChildren(i)
+		return newchild
 
 	def getElements(self, filter):
 		"""
@@ -168,6 +197,15 @@ class Element(object):
 			self.pcdata += content
 		else:
 			self.pcdata = content
+
+	def _verifyChildren(self, i):
+		"""
+		Method used internally by some elements to verify that
+		their children are from the allowed set and in the correct
+		order following modifications to their child list.  i is
+		the index of the child that has just changed.
+		"""
+		pass
 
 	def write(self, file = sys.stdout, indent = ""):
 		"""
@@ -230,9 +268,7 @@ class Table(Element):
 	validchildren = [u"Comment", u"Column", u"Stream"]
 	validattributes = [u"Name", u"Type"]
 
-	def appendChild(self, child):
-		Element.appendChild(self, child)
-		# check number and order of children
+	def _verifyChildren(self, i):
 		ncomment = 0
 		ncolumn = 0
 		nstream = 0
@@ -270,9 +306,7 @@ class Array(Element):
 	validchildren = [u"Dim", u"Stream"]
 	validattributes = [u"Name", u"Type", u"Unit"]
 
-	def appendChild(self, child):
-		Element.appendChild(self, child)
-		# check number and order of children
+	def _verifyChildren(self, child, i):
 		nstream = 0
 		for child in self.childNodes:
 			if child.tagName == "Dim":
