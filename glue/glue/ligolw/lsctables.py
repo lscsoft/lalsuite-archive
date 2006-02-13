@@ -873,10 +873,7 @@ class SnglBurstTable(LSCTableUnique):
 		"param_two_value": "real_8",
 		"param_three_name": "lstring",
 		"param_three_value": "real_8",
-		#"event_id": "ilwd:char",
-		"event_id": "int_8s",	# FIXME: LAL writes this column as int_8s.  When LAL is fixed, change back to ilwd:char.
-		"clusterT": "real_4",	# FIXME: string search generates this column.  Remove when string search is fixed (this is a process parameter, not a trigger property).
-		"peak_dof": "real_4"	# FIXME: excess power search generates this column.  Remove when excess power search is fixed (columns already exist for this).
+		"event_id": "ilwd:char"
 	}
 
 	def makeReference(self, elem):
