@@ -239,34 +239,38 @@ class TableStream(ligolw.Stream):
 	def __init__(self, attrs):
 		ligolw.Stream.__init__(self, attrs)
 		self.tokenizer = re.compile(r"""\s*(?:"([^"]*)")|(?:([^""" + self.getAttribute("Delimiter") + r"""\s]+))\s*""" + self.getAttribute("Delimiter"))
-		self.tokens = []
+		self.__attrindex = 0
+		self.__row = None
 
 	def appendData(self, content):
 		# append new data to buffer
 		ligolw.Stream.appendData(self, content)
 
-		# move tokens from buffer to token list
+		# make a row object if needed (can't do this in __init__()
+		# because parentNode hasn't been set yet).
+		if self.__row == None:
+			self.__row = self.parentNode.RowType()
+
+		# tokenize buffer, and construct row objects
+		numattrs = len(self.parentNode.columninfo)
 		match = None
 		for match in self.tokenizer.finditer(self.pcdata):
-			self.tokens.append(match.group(match.lastindex))
+			colname, pytype = self.parentNode.columninfo[self.__attrindex]
+			try:
+				setattr(self.__row, colname, pytype(match.group(match.lastindex)))
+			except ValueError, e:
+				raise ligolw.ElementError, "Stream parsing error near token %s: %s" % (str(match.group(match.lastindex)), str(e))
+			except AttributeError, e:
+				# by allowing this, code can be written that
+				# saves memory by setting RowType to an object
+				# with slots for only the desired columns.
+				pass
+			self.__attrindex = (self.__attrindex + 1) % numattrs
+			if self.__attrindex == 0:
+				self.parentNode.append(self.__row)
+				self.__row = self.parentNode.RowType()
 		if match != None:
 			self.pcdata = self.pcdata[match.end():]
-
-		# construct row objects from tokens, and append to parent
-		i = 0
-		while len(self.tokens) - i >= len(self.parentNode.columninfo):
-			row = self.parentNode.RowType()
-			for (colname, pytype) in self.parentNode.columninfo:
-				try:
-					setattr(row, colname, pytype(self.tokens[i]))
-				except ValueError, e:
-					raise ligolw.ElementError, "Stream parsing error near tokens %s: %s" % (str(self.tokens), str(e))
-				except AttributeError, e:
-					pass
-				i += 1
-			self.parentNode.append(row)
-		if i:
-			self.tokens = self.tokens[i:]
 
 	def _rowstr(self, row, columns):
 		# FIXME: after calling getattr(), should probably check that
