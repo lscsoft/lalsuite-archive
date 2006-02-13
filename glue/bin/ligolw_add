@@ -33,7 +33,6 @@ from glue.ligolw import docutils
 
 parser = OptionParser(version = "%prog CVS $Id$")
 parser.add_option("-i", "--input-cache", metavar = "CACHEFILE", action = "append", help = "get input files from trigger cache CACHEFILE")
-parser.add_option("--no-duplicate-process", action = "store_true", help = "delete duplicate processes")
 parser.add_option("--add-lfn-table", action = "store_true", help = "add an lfn entry for each process")
 parser.add_option("--lfn-start-time", metavar = "START", help = "set lft start_time to START (optional)")
 parser.add_option("--lfn-end-time", metavar = "END", help = "set lfn end_time to END (optional)")
@@ -109,25 +108,6 @@ reduce(docutils.MergeElements, doc.getElementsByTagName(ligolw.LIGO_LW.tagName))
 #
 
 docutils.MergeCompatibleTables(doc)
-
-
-#
-# Search for duplicate processes, and delete.
-#
-
-if options.no_duplicate_process:
-	plist = docutils.ProcessList(doc)
-	ids = plist.keys()
-
-	duplicates = []
-	for i in range(len(ids)):
-		for j in range(i + 1, len(ids)):
-			if (plist[ids[j]] == plist[ids[i]]) and (ids[j] not in duplicates):
-				duplicates.append(ids[j])
-
-	if len(duplicates):
-		for table in doc.getElements(lambda e: (e.tagName == ligolw.Table.tagName) and (metaio.StripTableName(e.getAttribute("Name")) in lsctables.TablesByName.keys()) and ("process_id" in e.validcolumns.keys())):
-			table.filterRows(lambda r: r.process_id not in duplicates)
 
 
 #
