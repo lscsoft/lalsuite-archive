@@ -72,18 +72,11 @@ def IsTableProperties(Type, tagname, attrs):
 	return metaio.CompareTableNames(attrs["Name"], Type.tableName) == 0
 
 
-def getTablesByName(elem, name):
-	"""
-	Return a list of tables with name name under elem.
-	"""
-	return elem.getElements(lambda e: (e.tagName == ligolw.Table.tagName) and (metaio.CompareTableNames(e.getAttribute("Name"), name) == 0))
-
-
 def getTablesByType(elem, Type):
 	"""
 	Return a list of tables of type Type under elem.
 	"""
-	return getTablesByName(elem, Type.tableName)
+	return metaio.getTablesByName(elem, Type.tableName)
 
 
 def getLSCTables(elem):
@@ -530,7 +523,7 @@ class LfnTable(LSCTableUnique):
 		"""
 		Convert ilwd:char strings into object references.
 		"""
-		tables = getTablesByName(elem, lsctables.ProcessTable.tableName)
+		tables = metaio.getTablesByName(elem, lsctables.ProcessTable.tableName)
 		for row in self.rows:
 			row.process_id = FindILWD(tables, row.process_id)
 
@@ -627,7 +620,7 @@ class ProcessParamsTable(LSCTableMulti):
 		"""
 		Convert ilwd:char strings into object references.
 		"""
-		tables = getTablesByName(elem, lsctables.ProcessTable.tableName)
+		tables = metaio.getTablesByName(elem, lsctables.ProcessTable.tableName)
 		for row in self.rows:
 			row.process_id = FindILWD(tables, row.process_id)
 
@@ -707,7 +700,7 @@ class SearchSummaryTable(LSCTableMulti):
 		"""
 		Convert ilwd:char strings into object references.
 		"""
-		tables = getTablesByName(elem, lsctables.ProcessTable.tableName)
+		tables = metaio.getTablesByName(elem, lsctables.ProcessTable.tableName)
 		for row in self.rows:
 			row.process_id = FindILWD(tables, row.process_id)
 
@@ -797,7 +790,7 @@ class SearchSummVarsTable(LSCTableMulti):
 		"""
 		Convert ilwd:char strings into object references.
 		"""
-		tables = getTablesByName(elem, lsctables.ProcessTable.tableName)
+		tables = metaio.getTablesByName(elem, lsctables.ProcessTable.tableName)
 		for row in self.rows:
 			row.process_id = FindILWD(tables, row.process_id)
 
@@ -889,7 +882,7 @@ class SnglBurstTable(LSCTableUnique):
 		"""
 		Convert ilwd:char strings into object references.
 		"""
-		tables = getTablesByName(elem, lsctables.ProcessTable.tableName)
+		tables = metaio.getTablesByName(elem, lsctables.ProcessTable.tableName)
 		for row in self.rows:
 			row.process_id = FindILWD(tables, row.process_id)
 
@@ -1006,7 +999,7 @@ class SnglInspiralTable(LSCTableUnique):
 		"""
 		Convert ilwd:char strings into object references.
 		"""
-		tables = getTablesByName(elem, lsctables.ProcessTable.tableName)
+		tables = metaio.getTablesByName(elem, lsctables.ProcessTable.tableName)
 		for row in self.rows:
 			row.process_id = FindILWD(tables, row.process_id)
 
@@ -1068,7 +1061,7 @@ class SnglRingDownTable(LSCTableUnique):
 		"""
 		Convert ilwd:char strings into object references.
 		"""
-		tables = getTablesByName(elem, lsctables.ProcessTable.tableName)
+		tables = metaio.getTablesByName(elem, lsctables.ProcessTable.tableName)
 		for row in self.rows:
 			row.process_id = FindILWD(tables, row.process_id)
 
@@ -1150,7 +1143,7 @@ class MultiInspiralTable(LSCTableMulti):
 		"""
 		Convert ilwd:char strings into object references.
 		"""
-		tables = getTablesByName(elem, lsctables.ProcessTable.tableName)
+		tables = metaio.getTablesByName(elem, lsctables.ProcessTable.tableName)
 		for row in self.rows:
 			row.process_id = FindILWD(tables, row.process_id)
 
@@ -1245,7 +1238,7 @@ class SimInspiralTable(LSCTableUnique):
 		"""
 		Convert ilwd:char strings into object references.
 		"""
-		tables = getTablesByName(elem, lsctables.ProcessTable.tableName)
+		tables = metaio.getTablesByName(elem, lsctables.ProcessTable.tableName)
 		for row in self.rows:
 			row.process_id = FindILWD(tables, row.process_id)
 
@@ -1314,7 +1307,7 @@ class SimBurstTable(LSCTableUnique):
 		"""
 		Convert ilwd:char strings into object references.
 		"""
-		tables = getTablesByName(elem, lsctables.ProcessTable.tableName)
+		tables = metaio.getTablesByName(elem, lsctables.ProcessTable.tableName)
 		for row in self.rows:
 			row.process_id = FindILWD(tables, row.process_id)
 
@@ -1388,7 +1381,7 @@ class SimRingDownTable(LSCTableUnique):
 		"""
 		Convert ilwd:char strings into object references.
 		"""
-		tables = getTablesByName(elem, lsctables.ProcessTable.tableName)
+		tables = metaio.getTablesByName(elem, lsctables.ProcessTable.tableName)
 		for row in self.rows:
 			row.process_id = FindILWD(tables, row.process_id)
 
@@ -1445,7 +1438,7 @@ class SummValueTable(LSCTableMulti):
 		"""
 		Convert ilwd:char strings into object references.
 		"""
-		tables = getTablesByName(elem, lsctables.ProcessTable.tableName)
+		tables = metaio.getTablesByName(elem, lsctables.ProcessTable.tableName)
 		for row in self.rows:
 			row.process_id = FindILWD(tables, row.process_id)
 
@@ -1537,7 +1530,7 @@ class StochasticTable(LSCTableMulti):
 		"""
 		Convert ilwd:char strings into object references.
 		"""
-		tables = getTablesByName(elem, lsctables.ProcessTable.tableName)
+		tables = metaio.getTablesByName(elem, lsctables.ProcessTable.tableName)
 		for row in self.rows:
 			row.process_id = FindILWD(tables, row.process_id)
 
@@ -1593,7 +1586,7 @@ class StochSummTable(LSCTableMulti):
 		"""
 		Convert ilwd:char strings into object references.
 		"""
-		tables = getTablesByName(elem, lsctables.ProcessTable.tableName)
+		tables = metaio.getTablesByName(elem, lsctables.ProcessTable.tableName)
 		for row in self.rows:
 			row.process_id = FindILWD(tables, row.process_id)
 
@@ -1716,7 +1709,7 @@ class FilterTable(LSCTableMulti):
 		"""
 		Convert ilwd:char strings into object references.
 		"""
-		tables = getTablesByName(elem, lsctables.ProcessTable.tableName)
+		tables = metaio.getTablesByName(elem, lsctables.ProcessTable.tableName)
 		for row in self.rows:
 			row.process_id = FindILWD(tables, row.process_id)
 
@@ -1769,7 +1762,7 @@ class SegmentTable(LSCTableUnique):
 		"""
 		Convert ilwd:char strings into object references.
 		"""
-		tables = getTablesByName(elem, lsctables.ProcessTable.tableName)
+		tables = metaio.getTablesByName(elem, lsctables.ProcessTable.tableName)
 		for row in self.rows:
 			row.process_id = FindILWD(tables, row.process_id)
 
@@ -1849,9 +1842,9 @@ class SegmentDefMapTable(LSCTableUnique):
 		"""
 		Convert ilwd:char strings into object references.
 		"""
-		proctabs = getTablesByName(elem, lsctables.ProcessTable.tableName)
-		segtabs = getTablesByName(elem, lsctables.SegmentTable.tableName)
-		deftabs = getTablesByName(elem, lsctables.SegmentDefTable.tableName)
+		proctabs = metaio.getTablesByName(elem, lsctables.ProcessTable.tableName)
+		segtabs = metaio.getTablesByName(elem, lsctables.SegmentTable.tableName)
+		deftabs = metaio.getTablesByName(elem, lsctables.SegmentDefTable.tableName)
 		for row in self.rows:
 			row.process_id = FindILWD(proctabs, row.process_id)
 			row.segment_id = FindILWD(segtabs, row.segment_id)
@@ -1913,7 +1906,7 @@ class SegmentDefTable(LSCTableUnique):
 		"""
 		Convert ilwd:char strings into object references.
 		"""
-		tables = getTablesByName(elem, lsctables.ProcessTable.tableName)
+		tables = metaio.getTablesByName(elem, lsctables.ProcessTable.tableName)
 		for row in self.rows:
 			row.process_id = FindILWD(tables, row.process_id)
 
@@ -1961,7 +1954,7 @@ class TimeSlideTable(LSCTableMulti):
 		"""
 		Convert ilwd:char strings into object references.
 		"""
-		tables = getTablesByName(elem, lsctables.ProcessTable.tableName)
+		tables = metaio.getTablesByName(elem, lsctables.ProcessTable.tableName)
 		for row in self.rows:
 			row.process_id = FindILWD(tables, row.process_id)
 
@@ -2011,8 +2004,8 @@ class CoincTable(LSCTableUnique):
 		"""
 		Convert ilwd:char strings into object references.
 		"""
-		proctab = getTablesByName(elem, lsctables.ProcessTable.tableName)
-		slidetab = getTablesByName(elem, lsctables.TimeSlideTable.tableName)
+		proctab = metaio.getTablesByName(elem, lsctables.ProcessTable.tableName)
+		slidetab = metaio.getTablesByName(elem, lsctables.TimeSlideTable.tableName)
 		for row in self.rows:
 			row.process_id = FindILWD(proctab, row.process_id)
 			row.time_slide_id = FindILWD(slidetab, row.time_slide_id)
@@ -2065,8 +2058,8 @@ class CoincMapTable(LSCTableUnique):
 		"""
 		# FIXME: don't hard-code which tables we can do coincidence
 		# between
-		coinctab = getTablesByName(elem, lsctables.CoincTable.tableName)
-		eventtab = getTablesByName(elem, lsctables.SnglBurstTable.tableName) + getTablesByName(elem, lsctables.SnglInspiralTable.tableName)
+		coinctab = metaio.getTablesByName(elem, lsctables.CoincTable.tableName)
+		eventtab = metaio.getTablesByName(elem, lsctables.SnglBurstTable.tableName) + metaio.getTablesByName(elem, lsctables.SnglInspiralTable.tableName)
 		for row in self.rows:
 			row.coinc_id = FindILWD(coinctab, row.coinc_id)
 			row.time_slide_id = FindILWD(slidetab, row.time_slide_id)

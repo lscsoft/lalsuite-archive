@@ -60,7 +60,7 @@ ToNumArrayType = {
 # but people are putting upper case letters in names!!!!!  Someone is going
 # to get the beats.
 
-ColumnPattern = re.compile(r"(?:\A\w+:|\A)(?P<FullName>(?:\w+:|\A)(?P<Name>\w+))\Z")
+ColumnPattern = re.compile(r"(?:\A\w+:|\A)(?P<FullName>(?:(?P<Table>\w+):|\A)(?P<Name>\w+))\Z")
 
 
 def StripColumnName(name):
@@ -80,6 +80,13 @@ def CompareColumnNames(name1, name2):
 	LW naming conventions.
 	"""
 	return cmp(StripColumnName(name1), StripColumnName(name2))
+
+
+def getColumnsByName(self, name):
+	"""
+	Return a list of columns with name name under elem.
+	"""
+	return self.getElements(lambda e: (e.tagName == ligolw.Column.tagName) and (CompareColumnNames(e.getAttribute("Name"), name) == 0))
 
 
 #
@@ -113,6 +120,13 @@ def CompareTableNames(name1, name2):
 	LW naming conventions.
 	"""
 	return cmp(StripTableName(name1), StripTableName(name2))
+
+
+def getTablesByName(elem, name):
+	"""
+	Return a list of tables with name name under elem.
+	"""
+	return elem.getElements(lambda e: (e.tagName == ligolw.Table.tagName) and (CompareTableNames(e.getAttribute("Name"), name) == 0))
 
 
 #
@@ -383,7 +397,7 @@ class Table(ligolw.Table):
 
 	def getColumnByName(self, name):
 		try:
-			return self.getElements(lambda e: (e.tagName == ligolw.Column.tagName) and (CompareColumnNames(e.getAttribute("Name"), name) == 0))[0]
+			return getColumnsByName(self, name)[0]
 		except IndexError:
 			raise KeyError, "no Column matching name \"%s\"" % name
 
@@ -424,7 +438,7 @@ class Table(ligolw.Table):
 		ligolw.Table.removeChild(self, child)
 		if child.tagName == ligolw.Column.tagName:
 			for n in [n for n, item in enumerate(self.columninfo) if item[0] == StripColumnName(child.getAttribute("Name"))]:
-				del self.columinfo[n]
+				del self.columninfo[n]
 		return child
 
 
