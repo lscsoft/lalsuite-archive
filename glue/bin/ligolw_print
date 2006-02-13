@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 """
-Print things from LIGO Lw XML files.  Inspired by lwtprint from LIGOTools.
+Print things from LIGO LW XML files.  Inspired by lwtprint from LIGOTools.
 """
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"

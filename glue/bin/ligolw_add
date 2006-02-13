@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 """
-Add (merge) LIGO Lw XML files containing LSC tables.
+Add (merge) LIGO LW XML files containing LSC tables.
 """
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
