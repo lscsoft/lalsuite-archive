@@ -843,7 +843,7 @@ class SnglBurstTable(LSCTableUnique):
 		"start_time": "int_4s",
 		"start_time_ns": "int_4s",
 		"stop_time": "int_4s",
-		"stop_time_ns": "int_4s"
+		"stop_time_ns": "int_4s",
 		"duration": "real_4",
 		"flow": "real_4",
 		"fhigh": "real_4",
