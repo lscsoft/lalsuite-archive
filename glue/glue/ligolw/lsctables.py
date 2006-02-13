@@ -192,8 +192,9 @@ class ILWD(object):
 		return self
 
 	def next(self):
+		s = str(self)
 		self.n += 1
-		return str(self)
+		return s
 
 
 #
