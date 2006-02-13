@@ -245,6 +245,7 @@ class TableStream(ligolw.Stream):
 	def appendData(self, content):
 		# append new data to buffer
 		ligolw.Stream.appendData(self, content)
+		del content
 
 		# make a row object if needed (can't do this in __init__()
 		# because parentNode hasn't been set yet).
