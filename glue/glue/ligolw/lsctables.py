@@ -1,5 +1,9 @@
 """
-LSC Table definitions.
+LSC Table definitions.  These must be kept synchronized with the official
+definitions in the LDAS CVS repository at
+http://www.ldas-sw.ligo.caltech.edu/cgi-bin/cvsweb.cgi/ldas/dbms/db2/sql.
+Maintainership of the table definitions is left as an excercise to
+interested users.
 """
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
