@@ -53,7 +53,7 @@ def MergeCompatibleTables(elem):
 	a single table, etc..
 	"""
 	for tname in lsctables.TableByName.keys():
-		tables = lsctables.getTablesByName(elem, tname)
+		tables = metaio.getTablesByName(elem, tname)
 		for i in range(1, len(tables)):
 			if not tables[0].compare(tables[i]):
 				MergeElements(tables[0], tables[i])
