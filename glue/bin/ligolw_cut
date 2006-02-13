@@ -1,0 +1,76 @@
+#!/usr/bin/python
+
+"""
+Cut pieces out of LIGO LW XML files containing LSC tables.
+"""
+
+__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__date__ = "$Date$"
+__version__ = "$Revision$"
+
+
+#
+# Preamble.
+#
+
+from optparse import OptionParser
+import sys
+import os
+from xml import sax
+
+from glue.ligolw import ligolw
+from glue.ligolw import metaio
+
+
+#
+# Parse command line.
+#
+
+parser = OptionParser(version = "%prog CVS $Id$")
+parser.add_option("-o", "--output", metavar = "OUTPUT", help = "write output to file OUTPUT")
+parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
+parser.add_option("--delete-column", metavar = "COLUMN", action = "append", help = "delete columns named COLUMN")
+options, args = parser.parse_args()
+del parser
+
+# strip column names
+# FIXME: remove duplicates
+map(metaio.StripColumnName, options.delete_column)
+
+
+#
+# Read input from stdin.  Use metaio's content handler in order to accept
+# documents that might contain invalid columns (one use of this tool is
+# correcting documents by deleting non-conforming parts).
+#
+
+def LoadDocuments():
+	doc = ligolw.Document()
+	handler = metaio.LIGOLWContentHandler(doc)
+	ligolw.make_parser(handler).parse(sys.stdin)
+	return doc
+
+doc = LoadDocuments()
+
+
+#
+# Remove unwanted columns
+#
+
+def RemoveColumns(doc, columns):
+	for table in doc.getElementsByTagName(ligolw.Table.tagName):
+		for name in columns:
+			for column in metaio.getColumnsByName(table, name):
+				table.removeChild(column)
+
+RemoveColumns(doc, options.delete_column)
+
+
+#
+# Write output.
+#
+
+if options.output:
+	doc.write(file(options.output, "w"))
+else:
+	doc.write(sys.stdout)
