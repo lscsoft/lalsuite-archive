@@ -31,7 +31,7 @@ from pylal.support import XLALGPSToUTC, XLALUTCToGPS
 usage = """
 usage: %prog [options] cache_files...
 
-Generate long time-scale trigger rate plot, getting trigger file names from LAL
+Generate long time scale trigger rate plot, getting trigger file names from LAL
 cache files.
 
 """
@@ -143,12 +143,12 @@ else:
 
 def utc_midnight(gps):
 	"""
-	Round down a GPS seconds to UTC midnight.
+	Truncate a GPS seconds to UTC midnight.
 	"""
 	# convert to UTC (as list so we can edit it)
 	tm = list(XLALGPSToUTC(gps))
 
-	# round down to midnight
+	# truncate to midnight
 	tm[3] = 0	# hours
 	tm[4] = 0	# minutes
 	tm[5] = 0	# seconds
@@ -162,7 +162,7 @@ def next_midnight(midnight):
 	Given a UTC midnight in GPS seconds, return the GPS seconds of the next
 	midnight.
 	"""
-	# add 86401 and round down to midnight (accounts for possible leap
+	# add 86401 and truncate to midnight (accounts for possible leap
 	# second).
 	return utc_midnight(midnight + 86401)
 
@@ -197,9 +197,19 @@ def make_xticks(segment):
 # =============================================================================
 #
 
-# figure is 3" wide per week
-fig = pylab.figure(1)
-fig.set_figsize_inches(float(options.segment.duration())/86400/7 * 3,8)
+# build a figure whose axes are 3" wide per week, and whose height is the width
+# of a US letter page (minus some typical printer margins)
+def newfig(segment):
+	weeks = float(segment.duration())/86400.0/7.0	# FIXME: leep seconds?
+	border = [0.5, 0.75, 0.125, 0.625]	# inches
+	width = weeks * 3.0 + border[0] + border[2]	# inches
+	height = 8.0	# inches
+	fig = pylab.figure()
+	fig.set_figsize_inches(width, height)
+	pylab.setp(pylab.gca(), position = [border[0] / width, border[1] / height, (width - border[0] - border[2]) / width, (height - border[1] - border[3]) / height])
+	return fig
+
+fig = newfig(options.segment)
 axes = pylab.gca()
 
 rate.convolve()
@@ -214,7 +224,7 @@ for seg in ~seglist & segments.segmentlist([options.segment]):
 pylab.title("Excess Power Trigger Rate vs. Time\n(%d Triggers, %g s Average)" % (num_triggers, options.window))
 
 ticks = make_xticks(options.segment)
-pylab.xticks(ticks[0], ticks[1], horizontalalignment="right", fontsize=10, rotation=15)
+pylab.xticks(ticks[0], ticks[1], horizontalalignment="right", fontsize=10, rotation=10)
 pylab.xlabel("UTC")
 pylab.yticks(fontsize=10)
 pylab.ylabel("Trigger Rate (Hz)")
