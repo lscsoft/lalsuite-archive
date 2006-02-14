@@ -71,7 +71,7 @@ def RemapProcessIDs(elem, mapping):
 		for row in table:
 			try:
 				row.process_id = mapping[row.process_id]
-			except KeyError:
+			except KeyError, AttributeError:
 				pass
 
 
