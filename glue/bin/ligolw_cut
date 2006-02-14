@@ -25,15 +25,32 @@ from glue.ligolw import metaio
 #
 
 parser = OptionParser(version = "%prog CVS $Id$")
-parser.add_option("-o", "--output", metavar = "OUTPUT", help = "write output to file OUTPUT")
+parser.add_option("-o", "--output", metavar = "filename", help = "write output to the given file")
 parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
-parser.add_option("--delete-column", metavar = "COLUMN", action = "append", help = "delete columns named COLUMN")
+parser.add_option("--delete-column", metavar = "name", action = "append", default = [], help = "delete matching columns")
+parser.add_option("--delete-element", metavar = "tag[,attr=value[,...]]", action = "append", default = [], help = "delete matching elements")
+parser.add_option("--delete-table", metavar = "name", action = "append", default = [], help = "delete matching tables")
 options, args = parser.parse_args()
 del parser
 
 # strip column names
 # FIXME: remove duplicates
-map(metaio.StripColumnName, options.delete_column)
+options.delete_column = map(metaio.StripColumnName, options.delete_column)
+
+# parse element specs
+# FIXME: remove duplicates
+def parse_delete_element(arg):
+	arg = arg.split(",")
+	attrs = {}
+	for i in range(1, len(arg)):
+		[name, value] = arg[i].split("=")
+		attrs[name] = value
+	return [arg[0], attrs]
+options.delete_element = map(parse_delete_element, options.delete_element)
+
+# strip table names
+# FIXME: remove duplicates
+options.delete_table = map(metaio.StripTableName, options.delete_table)
 
 
 #
@@ -44,11 +61,22 @@ map(metaio.StripColumnName, options.delete_column)
 
 def LoadDocuments():
 	doc = ligolw.Document()
-	handler = metaio.LIGOLWContentHandler(doc)
-	ligolw.make_parser(handler).parse(sys.stdin)
+	ligolw.make_parser(metaio.LIGOLWContentHandler(doc)).parse(sys.stdin)
 	return doc
 
 doc = LoadDocuments()
+
+
+#
+# Remove unwanted tables
+#
+
+def RemoveTables(doc, tables):
+	for name in tables:
+		for table in metaio.getTablesByName(doc, name):
+			table.parentNode.removeChild(table)
+
+RemoveTables(doc, options.delete_table)
 
 
 #
@@ -61,7 +89,43 @@ def RemoveColumns(doc, columns):
 			for column in metaio.getColumnsByName(table, name):
 				table.removeChild(column)
 
-RemoveColumns(doc, options.delete_column)
+if options.delete_column:
+	RemoveColumns(doc, options.delete_column)
+
+
+#
+# Remove unwanted elements
+#
+
+def CompareDeleteElement(elem, elemspec):
+	"""
+	Return 1 for !=, 0 for ==.
+	"""
+	if elem.tagName != elemspec[0]:
+		return 1
+	for name, value in elemspec[1].iteritems():
+		try:
+			if elem.getAttribute(name) != value:
+				return 1
+		except AttributeError:
+			return 1
+	return 0
+
+def IsDeleteElement(elem):
+	"""
+	Return True if elem matches an elem spec for deleting.
+	"""
+	for spec in options.delete_element:
+		if CompareDeleteElement(elem, spec) == 0:
+			return True
+	return False
+
+def RemoveElements(doc):
+	for elem in doc.getElements(IsDeleteElement):
+		elem.parentNode.removeChild(elem)
+
+if options.delete_element:
+	RemoveElements(doc)
 
 
 #
