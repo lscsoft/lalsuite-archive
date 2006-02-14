@@ -11,7 +11,6 @@ import string
 from optparse import *
 from operator import itemgetter
 from types import *
-
 from pylab import *
 from pylal import readMeta
 from pylal import viz
@@ -37,8 +36,8 @@ def read_source_file( source_file ):
 
   return sortedlist
 
-  
-#######################################################################
+##########################################################################################################################################
+
 # Chop a simInspiralTable into segments that we care about.
 def getSegments ( sim_table, t_start, t_end, t_seg, t_between_seg ):
 # getSegments returns a new simInspiralTable consisting only of sources
@@ -141,7 +140,8 @@ simInspTriggers=readMeta.metaDataTable( trigFiles, "sim_inspiral" )
 
 # The following line determines the number of sources with highest luminousity
 numSources = len( [e for e in simInspTriggers.table if\
-    ( re.match(max_galaxy,e["source"]) )] )
+      ( re.match(max_galaxy,e["source"]) )] )
+
 
 h=simInspTriggers.mkarray( "eff_dist_h" )
 index=arange( 0, len(h) )*max_luminosity/numSources
