@@ -2,54 +2,43 @@
 
 import sys
 import os
-from optparse import *
-#import getopt
 import re
 import exceptions
 import glob
 import fileinput
 import linecache
 import string
+from optparse import *
+from operator import itemgetter
 from types import *
 
 from pylab import *
 from pylal import readMeta
 from pylal import viz
 
-#############################################################################################################################################################
-f = open('/home/rahul/src/lscsoft/lalapps/src/inspiral/inspsrcs.dat', "r")
-lines = f.readlines()
+#######################################################################
+# Function to read in the source file and return a sorted list of its
+# components according to the luminosity
+#######################################################################
+def read_source_file( source_file ):
+  f = open( source_file , "r")
+  lines = f.readlines()
+  f.close()
 
+  sourcelist = []
+  luminosity = []
 
-l =[]
+  for line in lines:
+    b  = string.split(line)
+    c  = { 'name': b[0], 'luminosity': float(b[4]) }
+    sourcelist.append(c)
 
-i = 1
-while i < len(lines):
-	a  = linecache.getline('/home/rahul/src/lscsoft/lalapps/src/inspiral/inspsrcs.dat', i)
-	b  = string.split(a)
-	l.append(b)
-	i = i + 1
+  sortedlist = sorted(sourcelist, key=itemgetter('luminosity'))
 
-	
-k = []
-j = 1
-while j < len(lines)-1:
-	s = float(l[j][4])
-	k.append(l[j][4])
-	j = j + 1
+  return sortedlist
 
-
-d={}
-j = 1
-while j < len(lines)-1:
-
-	d[float(l[j][4])]=l[j][0]
-	j = j + 1
-
-print d[float(max(k))]
- 
-
-#############################################################################################################################################################
+  
+#######################################################################
 # Chop a simInspiralTable into segments that we care about.
 def getSegments ( sim_table, t_start, t_end, t_seg, t_between_seg ):
 # getSegments returns a new simInspiralTable consisting only of sources
@@ -98,6 +87,8 @@ parser.add_option("-v","--version",action="store_true",default=False,\
 parser.add_option("-f","--figure-name",action="store",type="string",\
     default=None,metavar=" FNAME",\
     help="generate ps figures with name FNAME_PlotType.ps")
+parser.add_option("-S","--source-file",action="store",type="string",\
+    default=None,metavar=" STRING",help="full path to source file")
 parser.add_option("-t","--title",action="store",type="string",default=None,\
     metavar=" STRING",help="title string for plots")
 parser.add_option("-s","--show-plot",action="store_true",default=False,\
@@ -111,8 +102,6 @@ parser.add_option("-b","--show-bar",action="store_true",default=False,\
 parser.add_option("-u","--show-sum",action="store_true",default=False,\
     help="display the sum_plot.ps figure on the terminal" )
 
-
-
 (opts,args) = parser.parse_args()
 
 # if --version flagged
@@ -125,38 +114,37 @@ if not args:
   print >>sys.stderr, "Enter 'plotgbb --help' for usage"
   sys.exit(1)
 
+# check that the source file was supplied
+if not opts.source_file:
+  print >>sys.stderr, "the source list file must be supplied"
+  print >>sys.stderr, "Enter 'plotgbb --help' for usage"
+  sys.exit(1)
+
 trigFiles = args
+
+# sourcelist sorted from smallest to largest in the luminosity
+sourcelist = read_source_file( opts.source_file )
 
 ##############################################################################
 # Constants:
 X_MAX = 40	# x-axis max for plots.
 Y_MAX = 300	# y-axis max for plots.
-L_MAX = float(max(k))	# Luminosity constant.
+max_luminosity = sourcelist[len(sourcelist)-2]['luminosity']
+max_galaxy = sourcelist[len(sourcelist)-2]['name']
 START_TIME = 799000000
 STOP_TIME = 810000000
 SEG_LEN = 2.5*8.64*10**4
 GAP_LEN = 0.33*8.64*10**4
 
-print L_MAX
-
-
 # an instance of the simInspiralTable
 simInspTriggers=readMeta.metaDataTable( trigFiles, "sim_inspiral" )
 
-# TEST!!!
-
-simInspTriggers = getSegments( simInspTriggers, START_TIME, \
-     STOP_TIME, SEG_LEN, GAP_LEN )
-
-#print >> sys.stderr, simInspTriggers
-
 # The following line determines the number of sources with highest luminousity
-numSources = len( [e for e in simInspTriggers.table if ( re.match(" d[float(max(k))]",e["source"]) )] )
-
-print >> sys.stderr, numSources
+numSources = len( [e for e in simInspTriggers.table if\
+    ( re.match(max_galaxy,e["source"]) )] )
 
 h=simInspTriggers.mkarray( "eff_dist_h" )
-index=arange( 0, len(h) )*L_MAX/numSources
+index=arange( 0, len(h) )*max_luminosity/numSources
 hs=sort(h)
 
 l=simInspTriggers.mkarray( "eff_dist_l" )
@@ -239,7 +227,7 @@ if opts.show_sum:
 	P_x, x, dx = makeData( 50, 1)
 
 	ng,a,b = hist( hs, x )
-	ng = ng*L_MAX/numSources  	# normalize.
+	ng = ng*max_luminosity/numSources  	# normalize.
 	for i in range(1,len(x)):
 	  ng[i] = ng[i-1] + ng[i]
 	
