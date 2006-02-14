@@ -48,6 +48,7 @@ class Element(object):
 	"""
 	Base class for all element types.
 	"""
+	# XML tag names are case sensitive:  compare with ==, !=, etc.
 	tagName = None
 	empty = False
 	validattributes = []
