@@ -2,15 +2,11 @@
 
 from optparse import OptionParser
 import sys
-from xml import sax
 
 from glue import lal
 from matplotlib.patches import Patch
 from pylab import *
-from glue.ligolw import ligolw
-from glue.ligolw import metaio
-from glue.ligolw import lsctables
-from glue.ligolw import docutils
+from pylal import readMeta
 from pylal import viz
 
 ###############################################################################
@@ -50,40 +46,17 @@ if not len(args):
 
 #############################################################################
 
-# override row type for SnglBurstTable with one having only the attributes we
-# want (saves memory and increases speed a little teensy bit)
-class Row(metaio.TableRow):
-	__slots__ = ["start_time", "start_time_ns", "duration", "confidence", "snr", "central_freq", "bandwidth"]
-	def get_start(self):
-		return lal.LIGOTimeGPS(self.start_time, self.start_time_ns)
-
-lsctables.SnglBurstTable.RowType = Row
-
 # read in the trigger files and find the sngl_burst table
-def SnglBurstOnlyHandler(doc):
-	return docutils.PartialLIGOLWContentHandler(doc, lambda name, attrs: lsctables.IsTableProperties(lsctables.SnglBurstTable, name, attrs))
-
-def LoadSnglBurst(fnames):
-	doc = ligolw.Document()
-	handler = SnglBurstOnlyHandler(doc)
-	for name in fnames:
-		sax.parse(file(name), handler)
-	docutils.MergeCompatibleTables(doc)
-	return doc.childNodes[0]
-
-table = LoadSnglBurst(args)
+triggers = readMeta.metaDataTable(args, "sngl_burst")
 
 # extract some arrays from the trigger table
-start_time = asarray([float(row.get_start()) for row in table.rows])
-duration = table.getColumnByName("duration").asarray()
-confidence = table.getColumnByName("confidence").asarray()
-snr = table.getColumnByName("snr").asarray()
-central_freq = table.getColumnByName("central_freq").asarray()
-bandwidth = table.getColumnByName("bandwidth").asarray()
+start_time = triggers.mkarray("start_time")
+duration = triggers.mkarray("duration")
+confidence = triggers.mkarray("confidence")
+snr = triggers.mkarray("snr")
+central_freq = triggers.mkarray("central_freq")
+bandwidth = triggers.mkarray("bandwidth")
 lo_freq = central_freq - 0.5 * bandwidth
-
-# free some memory
-del table
 
 # use the given start and stop times
 if options.gps_start_time:
