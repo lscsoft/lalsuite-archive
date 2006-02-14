@@ -1,0 +1,31 @@
+#!/usr/bin/python
+
+#
+# Add event_id columns to all sngl_burst tables, and assign an ID to each
+# trigger.  Reads input from stdin, writes output to stdout.
+#
+
+import sys
+from xml import sax
+
+from glue.ligolw import ligolw
+from glue.ligolw import metaio
+from glue.ligolw import lsctables
+
+
+def LoadDocuments():
+	doc = ligolw.Document()
+	ligolw.make_parser(lsctables.LIGOLWContentHandler(doc)).parse(sys.stdin)
+	return doc
+
+
+def AddEventIDs(doc):
+	new_event_ids = lsctables.SnglBurstIDs()
+	for table in lsctables.getTablesByType(doc, lsctables.SnglBurstTable):
+		table.insertBefore(metaio.Column(sax.xmlreader.AttributesImpl({u"Name": metaio.StripTableName(table.tableName) + ":event_id", u"Type": lsctables.SnglBurstTable.validcolumns["event_id"]})), table.childNodes[-1])
+		for row in table.rows:
+			row.event_id = new_event_ids.next()
+	return doc
+
+
+AddEventIDs(LoadDocuments()).write(sys.stdout)
