@@ -2,10 +2,6 @@ __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __date__ = "$Date$"
 __version__ = "$Revision$"
 
-try:
-	import numarray
-except:
-	pass
 import re
 import sys
 from xml import sax
@@ -214,6 +210,7 @@ class Column(ligolw.Column):
 		# if the list like object has 0 length, causing numarray to
 		# barf.  If the object is, in fact, a real Python list then
 		# numarray is made happy.
+		import numarray
 		if not len(self):
 			return numarray.array([], type = ToNumArrayType[self.getAttribute("Type")], shape = (len(self),))
 		return numarray.array(self, type = ToNumArrayType[self.getAttribute("Type")], shape = (len(self),))
