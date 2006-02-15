@@ -134,12 +134,9 @@ for ifo in ['H1', 'H2', 'L1']:
       print "coalescing %d segments for ifo %s, state %s and writing to file" \
         % (len(result), ifo, segtype)
     ret_segs = segments.segmentlist()
-    try:
-      for r in result:
-        ret_segs.append(segments.segment(r[0],r[1],r[2]))
-      ret_segs.coalesce()
-    except:
-      pass
+    for r in result:
+      ret_segs.append(segments.segment(r[0],r[1],r[2]))
+    ret_segs.coalesce()
     print ret_segs
 
     # write the segments to the output file
@@ -185,12 +182,9 @@ for ifo in ['H1', 'H2', 'L1']:
     if verbose: 
       print "coalescing %d segments for %s,%s,%d and writing to file" \
         % (len(result), ifo, dq[0], dq[1])
-    try:
-      for r in result:
-        ret_segs.append(segments.segment(r[0],r[1],r[2]))
-      ret_segs.coalesce()
-    except:
-      pass
+    for r in result:
+      ret_segs.append(segments.segment(r[0],r[1],r[2]))
+    ret_segs.coalesce()
   
     for s in ret_segs:
       print >> seg_fh, "%s %d %d %d %d" % (dq[0], dq[1], s[0], s[1], s[2])
@@ -200,7 +194,7 @@ for ifo in ['H1', 'H2', 'L1']:
 #####################################################################
 # update the symbolic links
 if verbose: print "creating symbolic links"
-for k in segfile.keys():
+for k in seg_file.keys():
   symlink(segfile[k] + '.' + time_str, segfile[k])
 
 #####################################################################
