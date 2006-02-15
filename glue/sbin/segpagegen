@@ -17,20 +17,23 @@ from glue import segments
 
 #####################################################################
 # parse command line options
-shortop = "c:dh"
+shortop = "c:vh"
 longop = [
   "config-file=",
+  "verbose",
   "help"
   ]
 
 usage = "Usage: " + sys.argv[0] + """ [OPTIONS]
 
   -c, --config-file FILE    read configuration from FILE
+  -v, --verbose             print debugging information to stdout
   -h, --help                print help message
 
 """ 
 
 configFilePath = None
+verbose = 0
 
 try:
   opts, args = getopt.getopt(sys.argv[1:], shortop, longop)
@@ -41,6 +44,8 @@ except getopt.GetoptError:
 for o, a in opts:
   if o in ("-c", "--config-file"):
     configFilePath = a
+  if o in ("-v", "--verbose"):
+    verbose = 1
   if o in ("-h", "--help"):
     print usage
     sys.exit(0)
@@ -76,7 +81,7 @@ for k in configuration.keys():
 
 #####################################################################
 # connect to the database
-print "connecting to database " + configuration['dbname']
+if verbose: print "connecting to database " + configuration['dbname']
 db = mx.ODBC.DB2.Connect(configuration['dbname'])
 curs = db.cursor()
 
@@ -112,12 +117,12 @@ for ifo in ['H1', 'H2', 'L1']:
     seg_fh = open(seg_file[segtype] + '.' + time_str, 'w')
 
     # construct the sql to perform the query
-    print "querying database for ifo %s, state %s" % (ifo, segtype)
+    if verbose: print "querying database for ifo %s, state %s" % (ifo, segtype)
     if segtype is 'Science':
       sql = "SELECT segment.start_time, segment.end_time, segment.segnum FROM "
     else:
       sql = "SELECT segment.start_time, segment.end_time, 0 FROM "
-    sql += sqlj + "AND segment_definer.run = '%s'" % configuration['run']
+    sql += sqlj + "AND segment_definer.run = '%s' " % configuration['run']
     sql += "AND segment_definer.ifos = '%s' " % ifo
     sql += "AND segment_definer.name = '%s' " % segtype
     sql += "ORDER BY segment.start_time ASC FOR READ ONLY"
@@ -126,8 +131,9 @@ for ifo in ['H1', 'H2', 'L1']:
     result = curs.fetchall()
 
     # coalesce the result and write to file
-    print "coalescing %d segments for ifo %s, state %s and writing to file" \
-      % (len(result), ifo, segtype)
+    if verbose: 
+      print "coalescing %d segments for ifo %s, state %s and writing to file" \
+        % (len(result), ifo, segtype)
     ret_segs = segments.segmentlist()
     try:
       for r in result:
@@ -148,36 +154,37 @@ for ifo in ['H1', 'H2', 'L1']:
   seg_fh = open(seg_file['DataQual'] + time_str, 'w')
 
   # get the a list of non-statevec data quality quality segments
-  print "fetching list of data quality segments"
+  if verbose: print "fetching list of data quality segments"
   sql = "SELECT name, version FROM segment_definer WHERE "
   sql += "run = '%s' AND ifos = '%s' FOR READ ONLY" \
     % (configuration['run'], ifo)
   print sql
   curs.execute(sql)
   dq_types = curs.fetchall()
-  print "got %d data quality segments" % len(dq_types)
+  if verbose: print "got %d data quality segments" % len(dq_types)
 
   # get each data quality flag, coalesce the list and write to a file
   print >> seg_fh, "# %s" % configuration['dbname']
   print >> seg_fh, "# %s" % time_str
   print >> seg_fh, "# name version start_time end_time active"
   for dq in dq_types:
-    print "querying database for ifo %s flag %s,%d" % (ifo, dq[0], dq[1])
+    if verbose:
+      print "querying database for %s,%s,%d" % (ifo, dq[0], dq[1])
     sql =  "SELECT segment.start_time, segment.end_time, segment.active FROM "
     sql += sqlj
-    sql += "segment_definer.run = '%s' AND " % configuration['run']
+    sql += "AND segment_definer.run = '%s' AND " % configuration['run']
     sql += "segment_definer.ifos = '%s' AND " % ifo
     sql += "segment_definer.name = '%s' AND  " % dq[0]
     sql += "segment_definer.version = %d AND " % dq[1]
     sql += "segment.active = 1 "
     sql += "ORDER BY segment.start_time asc FOR READ ONLY"
-    print sql
     curs.execute(sql)
     result = curs.fetchall()
     ret_segs = segments.segmentlist()
 
-    print "coalescing %d segments for ifo %s, flag %s,%d and writing to file" \
-      % (len(result), ifo, dq[0], dq[1])
+    if verbose: 
+      print "coalescing %d segments for %s,%s,%d and writing to file" \
+        % (len(result), ifo, dq[0], dq[1])
     try:
       for r in result:
         ret_segs.append(segments.segment(r[0],r[1],r[2]))
@@ -192,13 +199,13 @@ for ifo in ['H1', 'H2', 'L1']:
 
 #####################################################################
 # update the symbolic links
-print "creating symbolic links"
+if verbose: print "creating symbolic links"
 for k in segfile.keys():
   symlink(segfile[k] + '.' + time_str, segfile[k])
 
 #####################################################################
 # close the connection to the database and exit
-print "closing connection to the database and exiting"
+if verbose: print "closing connection to the database and exiting"
 curs.close()
 db.close()
 sys.exit(0)
