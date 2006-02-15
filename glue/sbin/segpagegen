@@ -147,7 +147,7 @@ for ifo in ['H1', 'H2', 'L1']:
     seg_fh.close()
 
   # get all the data quality segments into a single file
-  seg_fh = open(seg_file['DataQual'] + time_str, 'w')
+  seg_fh = open(seg_file['DataQual'] + '.' + time_str, 'w')
 
   # get the a list of non-statevec data quality quality segments
   if verbose: print "fetching list of data quality segments"
