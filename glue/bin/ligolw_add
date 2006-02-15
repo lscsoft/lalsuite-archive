@@ -73,7 +73,7 @@ doc = LoadDocuments(urls)
 #
 
 if not options.non_lsc_tables_ok and docutils.HasNonLSCTables(doc):
-	print >>sys.stderr, "Cannot merge documents:  non-LSC tables found.  Use --non-lsc-tables-ok to force"
+	print >>sys.stderr, "error:  non-LSC tables found.  Use --non-lsc-tables-ok to force"
 	sys.exit(1)
 
 def reassign_ids(doc):
