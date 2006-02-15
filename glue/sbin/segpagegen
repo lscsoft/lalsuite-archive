@@ -121,6 +121,7 @@ for ifo in ['H1', 'H2', 'L1']:
     sql += "AND segment_definer.ifos = '%s' " % ifo
     sql += "AND segment_definer.name = '%s' " % segtype
     sql += "ORDER BY segment.start_time ASC FOR READ ONLY"
+    print sql
     curs.execute(sql)
     result = curs.fetchall()
 
@@ -151,6 +152,7 @@ for ifo in ['H1', 'H2', 'L1']:
   sql = "SELECT name, version FROM segment_definer WHERE "
   sql += "run = '%s' AND ifos = '%s' FOR READ ONLY" \
     % (configuration['run'], ifo)
+  print sql
   curs.execute(sql)
   dq_types = curs.fetchall()
   print "got %d data quality segments" % len(dq_types)
@@ -169,6 +171,7 @@ for ifo in ['H1', 'H2', 'L1']:
     sql += "segment_definer.version = %d AND " % dq[1]
     sql += "segment.active = 1 "
     sql += "ORDER BY segment.start_time asc FOR READ ONLY"
+    print sql
     curs.execute(sql)
     result = curs.fetchall()
     ret_segs = segments.segmentlist()
