@@ -97,6 +97,7 @@ for ifo in ['H1', 'H2', 'L1']:
   seg_file['Injection'] = os.path.join( seg_path, ifo, 'injection_segments.txt')
   seg_file['DataQual'] = os.path.join( seg_path, ifo, 'dq_segments.txt')
 
+  # get the segments which derive from the interferometer state vector
   for segtype in ['Science', 'Injection']:
     # open the output files
     seg_fh = open(seg_file[segtype] + time_now, 'w')
@@ -105,7 +106,7 @@ for ifo in ['H1', 'H2', 'L1']:
     sql = base + "AND segment_definer.run = '%s'" % configuration['run']
     sql += "AND segment_definer.ifos = '%s' " % ifo
     sql += "AND segment_definer.name = '%s' " % segtype
-    sql += "FOR READ ONLY"
+    sql += "ORDER BY segment.start_time ASC FOR READ ONLY"
     curs.execute(sql)
 
     # fetch the result and store as segments
@@ -119,10 +120,32 @@ for ifo in ['H1', 'H2', 'L1']:
       pass
 
     # write the segments to the output file
+    print >> seg_fh, "# start_time end_time"
     for s in ret_segs:
       print >> seg_fh, "%s %s" % (s[0], s[1])
-
     seg_fh.close()
+
+  # get all the data quality segments into a single file
+  seg_fh = open(seg_file['DataQual'] + time_now, 'w')
+
+  sql =  "SELECT segment_definer.name, segment_definer.version, "
+  sql += "segment.start_time, segment.end_time, segment.active FROM "
+  sql += "segment_definer, segment_demap, segment WHERE "
+  sql += "segment.segment_id = segment_def_map.segment_id AND "
+  sql += "segment.creator_db = segment_def_map.segment_cdb AND "
+  sql += "segment_def_map.segment_def_id = segment_definer.segment_def_id AND "
+  sql += "segment_def_map.segment_def_cdb = segment_definer.creator_db AND "
+  sql += "segment_definer.state_vec_major is NULL AND "
+  sql += "segment_definer.run = '%s' AND " % configuration['run']
+  sql += "segment_definer.ifos = '%s' " % ifo
+  sql += "ORDER BY segment_definer.name, segment.start_time asc FOR READ ONLY"
+
+  curs.execute(sql)
+  result = curs.fetchall()
+  print >> seg_fh, "# name version start_time end_time active"
+  for r in result:
+    print >> seg_fh, "%s %d %d %d %d" % r
+  seg_fh.close()
 
 curs.close()
 db.close()
