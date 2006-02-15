@@ -130,7 +130,7 @@ for ifo in ['H1', 'H2', 'L1']:
 
   sql =  "SELECT segment_definer.name, segment_definer.version, "
   sql += "segment.start_time, segment.end_time, segment.active FROM "
-  sql += "segment_definer, segment_demap, segment WHERE "
+  sql += "segment_definer, segment_def_map, segment WHERE "
   sql += "segment.segment_id = segment_def_map.segment_id AND "
   sql += "segment.creator_db = segment_def_map.segment_cdb AND "
   sql += "segment_def_map.segment_def_id = segment_definer.segment_def_id AND "
