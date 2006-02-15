@@ -90,19 +90,16 @@ base += "segment.creator_db = segment_def_map.segment_cdb AND "
 base += "segment_def_map.segment_def_id = segment_definer.segment_def_id AND "
 base += "segment_def_map.segment_def_cdb = segment_definer.creator_db AND "
 
-seg_fh = {}
+seg_file = {}
 
 for ifo in ['H1', 'H2', 'L1']:
-  seg_file['Science'] = os.path.join(
-    seg_path, ifo, 'science_segments.' + time_now + '.txt')
-  seg_file['Injection'] = os.path.join(
-    seg_path, ifo, 'injection_segments.' + time_now + '.txt')
-  dqseg_file = os.path.join(
-    seg_path, ifo, 'dq_segments.' + time_now + '.txt')
+  seg_file['Science'] = os.path.join( seg_path, ifo, 'science_segments.txt')
+  seg_file['Injection'] = os.path.join( seg_path, ifo, 'injection_segments.txt')
+  seg_file['DataQual'] = os.path.join( seg_path, ifo, 'dq_segments.txt')
 
   for segtype in ['Science', 'Injection']:
     # open the output files
-    seg_fh = open(seg_file[segtype], 'w')
+    seg_fh = open(seg_file[segtype] + time_now, 'w')
 
     # construct the sql to perform the query
     sql = base + "AND segment_definer.run = '%s'" % configuration['run']
