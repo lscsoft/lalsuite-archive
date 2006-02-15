@@ -1,6 +1,9 @@
 #!/usr/bin/python
 
+import time
+
 from glue import lal
+from pylal.support import XLALGPSToUTC, XLALUTCToGPS
 
 import eventdisplay
 
@@ -91,7 +94,7 @@ def s5_live_time_summary(now, seglist):
 	s += """</tr>\n"""
 	s += """<tr>\n"""
 	s += """	<td>Estimated S5 termination (<a href="enddateplot.cgi">history</a>)</td>\n"""
-	s += """	<td>%s (GPS %d s)</td>\n""" % (eventdisplay.runtconvert(eventdisplay.TconvertCommand(str(int(s5end)))), int(s5end))
+	s += """	<td>%s UTC (GPS %d s)</td>\n""" % (time.asctime(XLALGPSToUTC(int(s5end))), int(s5end))
 	s += """</tr>\n"""
 	s += """</table>"""
 	return s
@@ -110,6 +113,6 @@ print "<p><center>"
 print live_time_markup(trigsegs)
 print "</center></p>"
 print "<p><center>"
-print s5_live_time_summary(lal.LIGOTimeGPS(eventdisplay.runtconvert(eventdisplay.TconvertCommand("now"))), trigsegs.H1 & trigsegs.H2 & trigsegs.L1)
+print s5_live_time_summary(lal.LIGOTimeGPS(XLALUTCToGPS(time.gmtime())), trigsegs.H1 & trigsegs.H2 & trigsegs.L1)
 print "</center></p>"
 print "</html>"

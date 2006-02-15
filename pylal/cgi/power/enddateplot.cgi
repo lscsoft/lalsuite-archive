@@ -7,10 +7,12 @@ import pylab
 import shutil
 import sys
 import tempfile
+import time
 
 
 from glue import lal
 from glue import segments
+from pylal.support import XLALUTCToGPS
 
 import eventdisplay
 
@@ -23,7 +25,7 @@ handle, filename = tempfile.mkstemp("." + "png", "webplot_")
 os.close(handle)
 
 
-now = lal.LIGOTimeGPS(eventdisplay.runtconvert(eventdisplay.TconvertCommand("now")))
+now = lal.LIGOTimeGPS(XLALUTCToGPS(time.gmtime()))
 s5length = 1.0 * 365.25 * 24.0 * 60.0 * 60.0	# 1 year
 
 

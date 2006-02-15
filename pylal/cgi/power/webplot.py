@@ -7,6 +7,7 @@ import pylab
 import shutil
 import sys
 import tempfile
+import time
 import urllib
 from xml import sax
 
@@ -19,6 +20,7 @@ from glue.ligolw import lsctables
 from glue.ligolw import docutils
 
 from pylal import SnglBurstUtils
+from pylal.support import XLALUTCToGPS
 
 import eventdisplay
 
@@ -33,7 +35,7 @@ import eventdisplay
 class PlotDescription(object):
 	def __init__(self):
 		# set defaults
-		now = lal.LIGOTimeGPS(eventdisplay.runtconvert(eventdisplay.TconvertCommand("now")))
+		now = lal.LIGOTimeGPS(XLALUTCToGPS(time.gmtime()))
 		self.segment = segments.segment(now, now + (-1 * 3600))
 		self.ratewidth = 60.0
 		self.freqwidth = 16.0

@@ -22,35 +22,6 @@ cache = {
 
 
 #
-# How to run tconvert
-#
-
-class TconvertCommand(object):
-	def __init__(self, tspec = None):
-		self._exec = "/home/kipp/local/bin/lalapps_tconvert"
-		self.tspec = tspec
-
-	def __str__(self):
-		s = self._exec
-		if self.tspec:
-			s += " \"" + self.tspec + "\""
-		return s
-
-def runtconvert(command):
-	if type(command) != TconvertCommand:
-		raise ValueError, "invalid argument to runtconvert(command): command must type TconvertCommand"
-	child = popen2.Popen3(str(command), True)
-	for line in child.childerr:
-		pass
-	for line in child.fromchild:
-		result = line
-	status = child.wait()
-	if not os.WIFEXITED(status) or os.WEXITSTATUS(status):
-		raise Exception, "failure running \"" + str(command) + "\""
-	return result
-
-
-#
 # How to run lalapps_lladd
 #
 
@@ -91,6 +62,7 @@ class TrigSegs(object):
 		self.H1 = segmentsUtils.fromlalcache(file(cache["H1"]), coltype = lal.LIGOTimeGPS).coalesce()
 		self.H2 = segmentsUtils.fromlalcache(file(cache["H2"]), coltype = lal.LIGOTimeGPS).coalesce()
 		self.L1 = segmentsUtils.fromlalcache(file(cache["L1"]), coltype = lal.LIGOTimeGPS).coalesce()
+
 
 #
 # Segment querying

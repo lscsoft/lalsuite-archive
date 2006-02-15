@@ -2,17 +2,17 @@
 
 import cgi
 import cgitb ; cgitb.enable()
+import time
 
 from glue import lal
 from glue import segments
-
-import eventdisplay
+from pylal.support import XLALUTCToGPS
 
 #
 # Init
 #
 
-now = lal.LIGOTimeGPS(eventdisplay.runtconvert(eventdisplay.TconvertCommand("now")))
+now = lal.LIGOTimeGPS(XLALUTCToGPS(time.gmtime()))
 
 default_start = "now"
 default_duration = str(-1 * 3600)
@@ -214,10 +214,6 @@ if query.segment.duration() > 24 * 3600:
 	# Time interval too long error
 	print errormsg("Requested segment is too long (24 hour max)")
 else:
-	# FIXME: doesn't work because user apache doesn't have LSC grid
-	# credentials.
-	#print str(eventdisplay.getsegments(eventdisplay.SegFindConfigH2, "Science", segments.segment(eventdisplay.s5start, now)))
-
 	# Table of plots
 	print "<center>"
 	print "<h2>%s s Starting At %s</h2>" % (duration, start.title())
@@ -225,7 +221,7 @@ else:
 	print "<p>"
 	print formmarkup(query)
 	print "</p>"
-	if False:
+	if True:
 		print "<p><center>"
 		print triggerlink("triggers.cgi", query)
 		print "</center></p>"
