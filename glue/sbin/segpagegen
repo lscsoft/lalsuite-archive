@@ -88,7 +88,7 @@ seg_file = {}
 # we query the database up to 0000 PST which is 0800 GMT
 midnight = list(time.gmtime())
 midnight[3:] = [8,0,0,0,0]
-time_str = ''.join(map(str,midnight)
+time_str = ''.join(map(str,midnight))
 
 #####################################################################
 # sql used to join the segment_definer table to the segment table
