@@ -135,7 +135,7 @@ for ifo in ['H1', 'H2', 'L1']:
         % (len(result), ifo, segtype)
     ret_segs = segments.segmentlist()
     for r in result:
-      ret_segs.append(segments.segment(r[0],r[1],r[2]))
+      ret_segs.append(segments.segment(r[0],r[1]))
     ret_segs.coalesce()
     print ret_segs
 
@@ -144,7 +144,7 @@ for ifo in ['H1', 'H2', 'L1']:
     print >> seg_fh, "# %s" % time_str
     print >> seg_fh, "# start_time end_time"
     for s in ret_segs:
-      print >> seg_fh, "%d %d %d %d" % (s[2], s[0], s[1], s[1] - s[0])
+      print >> seg_fh, "%d %d %d" % (s[0], s[1], s[1] - s[0])
     seg_fh.close()
 
   # get all the data quality segments into a single file
@@ -183,11 +183,11 @@ for ifo in ['H1', 'H2', 'L1']:
       print "coalescing %d segments for %s,%s,%d and writing to file" \
         % (len(result), ifo, dq[0], dq[1])
     for r in result:
-      ret_segs.append(segments.segment(r[0],r[1],r[2]))
+      ret_segs.append(segments.segment(r[0],r[1]))
     ret_segs.coalesce()
   
     for s in ret_segs:
-      print >> seg_fh, "%s %d %d %d %d" % (dq[0], dq[1], s[0], s[1], s[2])
+      print >> seg_fh, "%s %d %d %d %d" % (dq[0], dq[1], s[0], s[1])
 
   seg_fh.close()
 
