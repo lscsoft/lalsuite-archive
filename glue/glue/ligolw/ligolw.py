@@ -84,7 +84,7 @@ class Element(object):
 				if not result:
 					a = self.childNodes[:]
 					a.sort()
-					b = self.childNodes[:]
+					b = other.childNodes[:]
 					b.sort()
 					result = cmp(a, b)
 		return result
