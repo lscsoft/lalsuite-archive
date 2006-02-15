@@ -174,7 +174,7 @@ for ifo in ['H1', 'H2', 'L1']:
     ret_segs = segments.segmentlist()
 
     print "coalescing %d segments for ifo %s, flag %s,%d and writing to file" \
-      % (len(result) ifo, dq[0], dq[1])
+      % (len(result), ifo, dq[0], dq[1])
     try:
       for r in result:
         ret_segs.append(segments.segment(r[0],r[1],r[2]))
