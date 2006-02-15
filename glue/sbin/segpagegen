@@ -92,11 +92,11 @@ time_str = ''.join(map(str,midnight)
 
 #####################################################################
 # sql used to join the segment_definer table to the segment table
-jsql = "segment,segment_def_map,segment_definer WHERE "
-jsql += "segment.segment_id = segment_def_map.segment_id AND "
-jsql += "segment.creator_db = segment_def_map.segment_cdb AND "
-jsql += "segment_def_map.segment_def_id = segment_definer.segment_def_id AND "
-jsql += "segment_def_map.segment_def_cdb = segment_definer.creator_db "
+sqlj = "segment,segment_def_map,segment_definer WHERE "
+sqlj += "segment.segment_id = segment_def_map.segment_id AND "
+sqlj += "segment.creator_db = segment_def_map.segment_cdb AND "
+sqlj += "segment_def_map.segment_def_id = segment_definer.segment_def_id AND "
+sqlj += "segment_def_map.segment_def_cdb = segment_definer.creator_db "
 
 #####################################################################
 # loop over interferometers to get the various segments
@@ -117,7 +117,7 @@ for ifo in ['H1', 'H2', 'L1']:
       sql = "SELECT segment.start_time, segment.end_time, segment.segnum FROM "
     else:
       sql = "SELECT segment.start_time, segment.end_time, 0 FROM "
-    sql += jsql + "AND segment_definer.run = '%s'" % configuration['run']
+    sql += sqlj + "AND segment_definer.run = '%s'" % configuration['run']
     sql += "AND segment_definer.ifos = '%s' " % ifo
     sql += "AND segment_definer.name = '%s' " % segtype
     sql += "ORDER BY segment.start_time ASC FOR READ ONLY"
@@ -162,7 +162,7 @@ for ifo in ['H1', 'H2', 'L1']:
   for dq in dq_types:
     print "querying database for ifo %s flag %s,%d" % (ifo, dq[0], dq[1])
     sql =  "SELECT segment.start_time, segment.end_time, segment.active FROM "
-    sql += jsql
+    sql += sqlj
     sql += "segment_definer.run = '%s' AND " % configuration['run']
     sql += "segment_definer.ifos = '%s' AND " % ifo
     sql += "segment_definer.name = '%s' AND  " % dq[0]
