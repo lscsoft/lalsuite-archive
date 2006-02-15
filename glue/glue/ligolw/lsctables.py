@@ -1134,7 +1134,8 @@ class MultiInspiralTable(LSCTableMulti):
 		"ligo_angle": "real_4",
 		"ligo_angle_sig": "real_4",
 		"inclination": "real_4",
-		"polarization": "real_4"
+		"polarization": "real_4",
+		"event_id": "ilwd:char"
 	}
 
 	def makeReference(self, elem):
@@ -1985,16 +1986,16 @@ class TimeSlideIDs(ILWD):
 #
 # =============================================================================
 #
-#                                 coinc:table
+#                              coinc_event:table
 #
 # =============================================================================
 #
 
 class CoincTable(LSCTableUnique):
-	tableName = "coinc:table"
+	tableName = "coinc_event:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
-		"coinc_id": "ilwd:char",
+		"coinc_event_id": "ilwd:char",
 		"time_slide_id": "ilwd:char"
 	}
 
@@ -2020,19 +2021,19 @@ class Coinc(LSCTableRow):
 	__slots__ = CoincTable.validcolumns.keys()
 
 	def _get_key(self):
-		return self.coinc_id
+		return self.coinc_event_id
 
 	def _set_key(self, key):
-		self.coinc_id = key
+		self.coinc_event_id = key
 
 	def _has_key(self, key):
-		return self.coinc_id == key
+		return self.coinc_event_id == key
 
 CoincTable.RowType = Coinc
 
 class CoincIDs(ILWD):
 	def __init__(self, n = 0):
-		ILWD.__init__(self, "coinc", "coinc_id", n)
+		ILWD.__init__(self, "coinc_event", "coinc_event_id", n)
 
 
 #
@@ -2043,10 +2044,24 @@ class CoincIDs(ILWD):
 # =============================================================================
 #
 
+
+# Tables that can provide "events" for the coinc_event_map table
+# Wow:  it's annoying this has to be done by hand.
+CoincEventMapSourceNames = [
+	metaio.StripTableName(SnglBurstTable.tableName),
+	metaio.StripTableName(SnglInspiralTable.tableName),
+	metaio.StripTableName(SnglRingDownTable.tableName),
+	metaio.StripTableName(MultiInspiralTable.tableName),
+	metaio.StripTableName(SimInspiralTable.tableName),
+	metaio.StripTableName(SimBurstTable.tableName),
+	metaio.StripTableName(SimRingDownTable.tableName),
+	metaio.StripTableName(CoincTable.tableName)
+]
+
 class CoincMapTable(LSCTableUnique):
 	tableName = "coinc_event_map:table"
 	validcolumns = {
-		"coinc_id": "ilwd:char",
+		"coinc_event_id": "ilwd:char",
 		"event_id": "ilwd:char"
 	}
 
@@ -2054,20 +2069,20 @@ class CoincMapTable(LSCTableUnique):
 		"""
 		Convert ilwd:char strings into object references.
 		"""
-		# FIXME: don't hard-code which tables we can do coincidence
-		# between
 		coinctab = metaio.getTablesByName(elem, CoincTable.tableName)
-		eventtab = metaio.getTablesByName(elem, SnglBurstTable.tableName) + metaio.getTablesByName(elem, SnglInspiralTable.tableName)
+		eventtab = []
+		for tablename in CoincEventMapSourceNames:
+			eventtab.extend(metaio.getTablesByName(elem, tablename))
 		for row in self.rows:
-			row.coinc_id = FindILWD(coinctab, row.coinc_id)
-			row.time_slide_id = FindILWD(slidetab, row.time_slide_id)
+			row.coinc_event_id = FindILWD(coinctab, row.coinc_event_id)
+			row.event_id = FindILWD(eventtab, row.event_id)
 
 	def deReference(self):
 		"""
 		Resolve object references back to ilwd:char strings.
 		"""
 		for row in self.rows:
-			row.process_id = row.process_id._get_key()
+			row.coinc_event_id = row.coinc_event_id._get_key()
 			row.event_id = row.event_id._get_key()
 
 class CoincMap(LSCTableRow):
