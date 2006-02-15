@@ -59,6 +59,31 @@ def errormsg(msg):
 
 
 #
+# Full-run trigger rate plots
+#
+
+def fullrunrates():
+	s = """<table width="100%" height="60%">"""
+	s += "<tr>"
+	s += """	<th>H1</th>"""
+	s += """	<td width="90%"><object data="http://www.lsc-group.phys.uwm.edu/~kipp/S5/static/H1.png" type="image/png" width="100%" height="100%"></td>"""
+	s += """	<td align="center"><a href="http://www.lsc-group.phys.uwm.edu/~kipp/S5/static/H1.png">PNG</a><br><a href="http://www.lsc-group.phys.uwm.edu/~kipp/S5/static/H1.svg">SVG</a><br><a href="http://www.lsc-group.phys.uwm.edu/~kipp/S5/static/H1.eps">EPS</a></td>"""
+	s += "</tr>"
+	s += "<tr>"
+	s += """	<th>H2</th>"""
+	s += """	<td width="90%"><object data="http://www.lsc-group.phys.uwm.edu/~kipp/S5/static/H2.png" type="image/png" width="100%" height="100%"></td>"""
+	s += """	<td align="center"><a href="http://www.lsc-group.phys.uwm.edu/~kipp/S5/static/H2.png">PNG</a><br><a href="http://www.lsc-group.phys.uwm.edu/~kipp/S5/static/H2.svg">SVG</a><br><a href="http://www.lsc-group.phys.uwm.edu/~kipp/S5/static/H2.eps">EPS</a></td>"""
+	s += "</tr>"
+	s += "<tr>"
+	s += """	<th>L1</th>"""
+	s += """	<td width="90%"><object data="http://www.lsc-group.phys.uwm.edu/~kipp/S5/static/L1.png" type="image/png" width="100%" height="100%"></td>"""
+	s += """	<td align="center"><a href="http://www.lsc-group.phys.uwm.edu/~kipp/S5/static/L1.png">PNG</a><br><a href="http://www.lsc-group.phys.uwm.edu/~kipp/S5/static/L1.svg">SVG</a><br><a href="http://www.lsc-group.phys.uwm.edu/~kipp/S5/static/L1.eps">EPS</a></td>"""
+	s += "<tr>"
+	s += "</table>"
+	return s
+
+
+#
 # Plot markup
 #
 
@@ -170,12 +195,6 @@ print """<body>"""
 print "<center><h1>Excess Power Event Interface of Patience</h1></center>"
 print "<center>(Patience Required)</center>"
 print """<p>You can <a href="http://www.lsc-group.phys.uwm.edu/cgi-bin/cvs/viewcvs.cgi/pylal/cgi/power/?cvsroot=lscsoft">browse the source code for these web pages</a> and see what takes so long.</p>"""
-print "<p>"
-print formmarkup(query)
-print "</p>"
-print "<p>"
-print formnotes()
-print "</p>"
 
 print """<hr width="90%">"""
 print "<center>"
@@ -187,23 +206,7 @@ print "<center>"
 print "<h2>Excess Power Trigger Rates for S5</h2>"
 print "</center>"
 print "<p><center>"
-print "<table>"
-print "<tr>"
-print """	<th>H1</th>"""
-print """	<td width="90%" height="20%"><a href="http://www.lsc-group.phys.uwm.edu/~kipp/S5/static/H1.png"><object data="http://www.lsc-group.phys.uwm.edu/~kipp/S5/static/H1.png" type="image/png" width="100%" height="100%"></a></td>"""
-print """	<td align="center"><a href="http://www.lsc-group.phys.uwm.edu/~kipp/S5/static/H1.png">PNG</a><br><a href="http://www.lsc-group.phys.uwm.edu/~kipp/S5/static/H1.svg">SVG</a><br><a href="http://www.lsc-group.phys.uwm.edu/~kipp/S5/static/H1.eps">EPS</a></td>"""
-print "</tr>"
-print "<tr>"
-print """	<th>H2</th>"""
-print """	<td width="90%" height="20%"><a href="http://www.lsc-group.phys.uwm.edu/~kipp/S5/static/H2.png"><object data="http://www.lsc-group.phys.uwm.edu/~kipp/S5/static/H2.png" type="image/png" width="100%" height="100%"></a></td>"""
-print """	<td align="center"><a href="http://www.lsc-group.phys.uwm.edu/~kipp/S5/static/H2.png">PNG</a><br><a href="http://www.lsc-group.phys.uwm.edu/~kipp/S5/static/H2.svg">SVG</a><br><a href="http://www.lsc-group.phys.uwm.edu/~kipp/S5/static/H2.eps">EPS</a></td>"""
-print "</tr>"
-print "<tr>"
-print """	<th>L1</th>"""
-print """	<td width="90%" height="20%"><a href="http://www.lsc-group.phys.uwm.edu/~kipp/S5/static/L1.png"><object data="http://www.lsc-group.phys.uwm.edu/~kipp/S5/static/L1.png" type="image/png" width="100%" height="100%"></a></td>"""
-print """	<td align="center"><a href="http://www.lsc-group.phys.uwm.edu/~kipp/S5/static/L1.png">PNG</a><br><a href="http://www.lsc-group.phys.uwm.edu/~kipp/S5/static/L1.svg">SVG</a><br><a href="http://www.lsc-group.phys.uwm.edu/~kipp/S5/static/L1.eps">EPS</a></td>"""
-print "<tr>"
-print "</table>"
+print fullrunrates()
 print "</center></p>"
 print """<hr width="90%">"""
 
@@ -219,6 +222,9 @@ else:
 	print "<center>"
 	print "<h2>%s s Starting At %s</h2>" % (duration, start.title())
 	print "</center>"
+	print "<p>"
+	print formmarkup(query)
+	print "</p>"
 	if False:
 		print "<p><center>"
 		print triggerlink("triggers.cgi", query)
@@ -239,8 +245,11 @@ else:
 		print "</p>"
 	else:
 		print "<p><center>"
-		print "This code undergoing maintenance.  Please check back later."
-		print "</p>"
+		print "<b>This code undergoing maintenance.  Please check back later.</b>"
+		print "</center></p>"
+	print "<p>"
+	print formnotes()
+	print "</p>"
 
 print """</body>"""
 print """</html>"""
