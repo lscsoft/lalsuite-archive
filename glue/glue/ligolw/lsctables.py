@@ -1329,6 +1329,24 @@ class SimBurst(LSCTableRow):
 	def _has_key(self, key):
 		return self.simulation_id == key
 
+	def get_geocent_peak(self):
+		return lal.LIGOTimeGPS(self.geocent_peak_time, self.geocent_peak_time_ns)
+
+	def set_geocent_peak(self, gps):
+		self.geocent_peak_time, self.geocent_peak_time_ns = gps.seconds, gps.nanoseconds
+
+	def get_h_peak(self):
+		return lal.LIGOTimeGPS(self.h_peak_time, self.h_peak_time_ns)
+
+	def set_h_peak(self, gps):
+		self.h_peak_time, self.h_peak_time_ns = gps.seconds, gps.nanoseconds
+
+	def get_l_peak(self):
+		return lal.LIGOTimeGPS(self.l_peak_time, self.l_peak_time_ns)
+
+	def set_l_peak(self, gps):
+		self.l_peak_time, self.l_peak_time_ns = gps.seconds, gps.nanoseconds
+
 SimBurstTable.RowType = SimBurst
 
 class SimBurstIDs(ILWD):
