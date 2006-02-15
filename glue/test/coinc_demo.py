@@ -58,13 +58,13 @@ def new_slide(process_id, h1off, h2off, l1off):
 def new_coinc(process_id, time_slide_id):
 	row = lsctables.Coinc()
 	row.process_id = process_id
-	row.coinc_id = str(coincids.next())
+	row.coinc_event_id = str(coincids.next())
 	row.time_slide_id = time_slide_id
 	return row
 
-def new_coinc_map(coinc_id, event_id):
+def new_coinc_map(coinc_event_id, event_id):
 	row = lsctables.CoincMap()
-	row.coinc_id = coinc_id
+	row.coinc_event_id = coinc_event_id
 	row.event_id = event_id
 	return row
 
@@ -108,10 +108,10 @@ coinc.append(new_coinc(coinc_proc.process_id, slide[0].time_slide_id))
 
 coincmap = lsctables.New(lsctables.CoincMapTable)
 llw.appendChild(coincmap)
-coincmap.append(new_coinc_map(coinc[0].coinc_id, burst[0].event_id))
-coincmap.append(new_coinc_map(coinc[0].coinc_id, burst[1].event_id))
-coincmap.append(new_coinc_map(coinc[0].coinc_id, insp[0].event_id))
-coincmap.append(new_coinc_map(coinc[1].coinc_id, burst[2].event_id))
-coincmap.append(new_coinc_map(coinc[1].coinc_id, insp[1].event_id))
+coincmap.append(new_coinc_map(coinc[0].coinc_event_id, burst[0].event_id))
+coincmap.append(new_coinc_map(coinc[0].coinc_event_id, burst[1].event_id))
+coincmap.append(new_coinc_map(coinc[0].coinc_event_id, insp[0].event_id))
+coincmap.append(new_coinc_map(coinc[1].coinc_event_id, burst[2].event_id))
+coincmap.append(new_coinc_map(coinc[1].coinc_event_id, insp[1].event_id))
 
 doc.write()
