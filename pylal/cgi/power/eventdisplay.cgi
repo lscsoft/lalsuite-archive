@@ -183,6 +183,29 @@ print "<h2>S5 Excess Power Live Times To Date</h2>"
 print "</center>"
 print """<object data="livetime.cgi" type="text/html" width="100%" standby="Computing live time chart.  Please wait.">Failure loading live time chart (timeout?).</object>"""
 print """<hr width="90%">"""
+print "<center>"
+print "<h2>Excess Power Trigger Rates for S5</h2>"
+print "</center>"
+print "<p><center>"
+print "<table>"
+print "<tr>"
+print """	<th>H1</th>"""
+print """	<td width="90%" height="20%"><a href="http://www.lsc-group.phys.uwm.edu/~kipp/S5/static/H1.png"><object data="http://www.lsc-group.phys.uwm.edu/~kipp/S5/static/H1.png" type="image/png" width="100%" height="100%"></a></td>"""
+print """	<td align="center"><a href="http://www.lsc-group.phys.uwm.edu/~kipp/S5/static/H1.png">PNG</a><br><a href="http://www.lsc-group.phys.uwm.edu/~kipp/S5/static/H1.svg">SVG</a><br><a href="http://www.lsc-group.phys.uwm.edu/~kipp/S5/static/H1.eps">EPS</a></td>"""
+print "</tr>"
+print "<tr>"
+print """	<th>H2</th>"""
+print """	<td width="90%" height="20%"><a href="http://www.lsc-group.phys.uwm.edu/~kipp/S5/static/H2.png"><object data="http://www.lsc-group.phys.uwm.edu/~kipp/S5/static/H2.png" type="image/png" width="100%" height="100%"></a></td>"""
+print """	<td align="center"><a href="http://www.lsc-group.phys.uwm.edu/~kipp/S5/static/H2.png">PNG</a><br><a href="http://www.lsc-group.phys.uwm.edu/~kipp/S5/static/H2.svg">SVG</a><br><a href="http://www.lsc-group.phys.uwm.edu/~kipp/S5/static/H2.eps">EPS</a></td>"""
+print "</tr>"
+print "<tr>"
+print """	<th>L1</th>"""
+print """	<td width="90%" height="20%"><a href="http://www.lsc-group.phys.uwm.edu/~kipp/S5/static/L1.png"><object data="http://www.lsc-group.phys.uwm.edu/~kipp/S5/static/L1.png" type="image/png" width="100%" height="100%"></a></td>"""
+print """	<td align="center"><a href="http://www.lsc-group.phys.uwm.edu/~kipp/S5/static/L1.png">PNG</a><br><a href="http://www.lsc-group.phys.uwm.edu/~kipp/S5/static/L1.svg">SVG</a><br><a href="http://www.lsc-group.phys.uwm.edu/~kipp/S5/static/L1.eps">EPS</a></td>"""
+print "<tr>"
+print "</table>"
+print "</center></p>"
+print """<hr width="90%">"""
 
 if query.segment.duration() > 24 * 3600:
 	# Time interval too long error
@@ -196,23 +219,28 @@ else:
 	print "<center>"
 	print "<h2>%s s Starting At %s</h2>" % (duration, start.title())
 	print "</center>"
-	print "<p><center>"
-	print triggerlink("triggers.cgi", query)
-	print "</center></p>"
-	print "<p>"
-	print "<center>"
-	print "<table>"
-	print plot_table_row("rateplot.cgi", query)
-	print plot_table_row("conf_vs_time.cgi", query)
-	print plot_table_row("glitchmetric.cgi", query)
-	print plot_table_row("tfplot.cgi", query)
-	print plot_table_row("rate_vs_freq.cgi", query)
-	print plot_table_row("conf_vs_freq.cgi", query)
-	print plot_table_row("rate_vs_conf.cgi", query)
-	print plot_table_row("rate_vs_snr.cgi", query)
-	print "</table>"
-	print "</center>"
-	print "</p>"
+	if False:
+		print "<p><center>"
+		print triggerlink("triggers.cgi", query)
+		print "</center></p>"
+		print "<p>"
+		print "<center>"
+		print "<table>"
+		print plot_table_row("rateplot.cgi", query)
+		print plot_table_row("conf_vs_time.cgi", query)
+		print plot_table_row("glitchmetric.cgi", query)
+		print plot_table_row("tfplot.cgi", query)
+		print plot_table_row("rate_vs_freq.cgi", query)
+		print plot_table_row("conf_vs_freq.cgi", query)
+		print plot_table_row("rate_vs_conf.cgi", query)
+		print plot_table_row("rate_vs_snr.cgi", query)
+		print "</table>"
+		print "</center>"
+		print "</p>"
+	else:
+		print "<p><center>"
+		print "This code undergoing maintenance.  Please check back later."
+		print "</p>"
 
 print """</body>"""
 print """</html>"""

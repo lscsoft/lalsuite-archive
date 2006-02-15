@@ -61,13 +61,14 @@ def makeplot(desc, table):
 
 	# construct short time scale average confidence rate
 	xvals, yvals = rate.smooth(peaktime, desc.trig_segment(), desc.ratewidth, weights = confidence)
+	#yvals = pylab.exp(yvals)
 
-	# construct long time scale average confidence rate
+	# construct long time scale average confidence rate, and resample to
+	# match sample rate of short time scale.
 	xvals2, yvals2 = rate.smooth(peaktime, desc.trig_segment(), desc.widthratio * desc.ratewidth, weights = confidence)
 	del xvals2
-
-	# resample long time scale average to that of short time scale
 	yvals2 = nd_image.zoom(yvals2, float(len(yvals)) / float(len(yvals2)))
+	#yvals2 = pylab.exp(yvals2)
 
 	# compute ratio, setting 0/0 equal to 0
 	yvals = pylab.where(yvals2 > 0.0, yvals, 0.0) / pylab.where(yvals2 > 0.0, yvals2, 1.0)
