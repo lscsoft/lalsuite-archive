@@ -104,7 +104,8 @@ for ifo in ['H1', 'H2', 'L1']:
     # construct the sql to perform the query
     sql = base + "AND segment_definer.run = '%s'" % configuration['run']
     sql += "AND segment_definer.ifos = '%s' " % ifo
-    sql += "AND segment_definer.name = '%s'" % segtype
+    sql += "AND segment_definer.name = '%s' " % segtype
+    sql += "FOR READ ONLY"
     curs.execute(sql)
 
     # fetch the result and store as segments
@@ -118,7 +119,7 @@ for ifo in ['H1', 'H2', 'L1']:
       pass
 
     # write the segments to the output file
-    for s in ret_seg:
+    for s in ret_segs:
       print >> seg_fh, "%s %s" % (s[0], s[1])
 
     seg_fh.close()
