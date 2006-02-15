@@ -51,7 +51,7 @@ if not configFilePath:
   sys.exit(1)
 
 configuration = {
-  'output-path', : '/export/ldcg_server/htdocs/grid/segments',
+  'output-path' : '/export/ldcg_server/htdocs/grid/segments',
   'run' : 'S5',
   'dbname' : 'seg_cit'
   }
