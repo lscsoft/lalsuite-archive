@@ -1,0 +1,131 @@
+#!/usr/bin/python
+"""
+segpagegen creates three web pages that can be parsed by segwizard to obtain
+information from the segment database.
+
+$Id$
+"""
+
+import os
+import sys
+import getopt
+import time
+import types
+import ConfigParser
+import mx.ODBC.DB2
+from glue import segments
+
+# parse command line options
+shortop = "c:dh"
+longop = [
+  "config-file=",
+  "help"
+  ]
+
+
+usage = "Usage: " + sys.argv[0] + """ [OPTIONS]
+
+  -c, --config-file FILE    read configuration from FILE
+  -h, --help                print help message
+
+""" 
+
+configFilePath = None
+
+try:
+  opts, args = getopt.getopt(sys.argv[1:], shortop, longop)
+except getopt.GetoptError:
+  print >>sys.stderr, "Error parsing command line"
+  sys.exit(1)
+
+for o, a in opts:
+  if o in ("-c", "--config-file"):
+    configFilePath = a
+  if o in ("-h", "--help"):
+    print usage
+    sys.exit(0)
+
+if not configFilePath:
+  print >> sys.stderr, \
+    "Configuration file must be specified with --config-file"
+  sys.exit(1)
+
+configuration = {
+  'output-path', : '/export/ldcg_server/htdocs/grid/segments',
+  'run' : 'S5',
+  'dbname' : 'seg_cit'
+  }
+
+myConfigParser = ConfigParser.ConfigParser()
+try:
+  myConfigParser.read(configFilePath)
+except:
+  print >> sys.stderr, "Error: unable to read configuration file : %s"
+  sys.exit(1)
+
+for k in configuration.keys():
+  try:
+    value = myConfigParser.get('segpagegen',k)
+  except ConfigParser.NoOptionError:
+    print >> sys.stderr, "Error: missing configuration option : %s" % (k)
+    sys.exit(1)
+  try:
+    configuration[k] = eval(value)
+  except:
+    configuration[k] = value
+
+# connect to the database
+db = mx.ODBC.DB2.Connect(configuration['dbname'])
+curs = db.cursor()
+
+# create the base name of the output files
+seg_path = os.path.join(configuration['output-path'], configuration['run'])
+time_now = ''.join(map(str,time.localtime()))
+
+# base sql used to get science and injection segments
+base = "SELECT segment.start_time, segment.end_time FROM "
+base += "segment,segment_def_map,segment_definer WHERE "
+base += "segment.segment_id = segment_def_map.segment_id AND "
+base += "segment.creator_db = segment_def_map.segment_cdb AND "
+base += "segment_def_map.segment_def_id = segment_definer.segment_def_id AND "
+base += "segment_def_map.segment_def_cdb = segment_definer.creator_db AND "
+
+seg_fh = {}
+
+for ifo in ['H1', 'H2', 'L1']:
+  seg_file['Science'] = os.path.join(
+    seg_path, ifo, 'science_segments.' + time_now + '.txt')
+  seg_file['Injection'] = os.path.join(
+    seg_path, ifo, 'injection_segments.' + time_now + '.txt')
+  dqseg_file = os.path.join(
+    seg_path, ifo, 'dq_segments.' + time_now + '.txt')
+
+  for segtype in ['Science', 'Injection']:
+    # open the output files
+    seg_fh = open(seg_file[segtype], 'w')
+
+    # construct the sql to perform the query
+    sql = base + "AND segment_definer.run = '%s'" % configuration['run']
+    sql += "AND segment_definer.ifos = '%s' " % ifo
+    sql += "AND segment_definer.name = '%s'" % segtype
+    curs.execute(sql)
+
+    # fetch the result and store as segments
+    result = curs.fetchall()
+    ret_segs = segments.segmentlist()
+    try:
+      for r in result:
+        ret_segs.append(segments.segment(r[0],r[1]))
+      ret_segs.coalesce()
+    except:
+      pass
+
+    # write the segments to the output file
+    for s in ret_seg:
+      print >> seg_fh, "%s %s" % (s[0], s[1])
+
+    seg_fh.close()
+
+curs.close()
+db.close()
+sys.exit(0)

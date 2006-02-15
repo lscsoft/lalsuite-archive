@@ -30,6 +30,7 @@ if version_info >= (2, 3):
       os.path.join('bin','ligolw_cut'),
       os.path.join('bin','ligolw_print'),
       os.path.join('sbin','ldbdd'),
+      os.path.join('sbin','segpagegen'),
       os.path.join('sbin','LSCdqInsert'),
       os.path.join('sbin','publishstatefromfile'),
       os.path.join('sbin','bulkpublishstate'), ],
@@ -38,6 +39,7 @@ if version_info >= (2, 3):
       os.path.join('etc','glue-user-env.sh'),
       os.path.join('etc','glue-user-env.csh'),
       os.path.join('etc','lscsegfindserver.ini'),
+      os.path.join('etc','segpagegen.ini'),
       os.path.join('etc','ldbdserver.ini')
       ] ) ]
     )
@@ -58,6 +60,7 @@ else:
       os.path.join('bin','dmtdq_seg_insert'),
       os.path.join('bin','ligolw_add'),
       os.path.join('sbin','ldbdd'),
+      os.path.join('sbin','segpagegen'),
       os.path.join('sbin','LSCdqInsert'),
       os.path.join('sbin','publishstatefromfile'),
       os.path.join('sbin','bulkpublishstate'), ],
@@ -66,6 +69,7 @@ else:
       os.path.join('etc','glue-user-env.sh'),
       os.path.join('etc','glue-user-env.csh'),
       os.path.join('etc','lscsegfindserver.ini'),
+      os.path.join('etc','segpagegen.ini'),
       os.path.join('etc','ldbdserver.ini')
       ] ) ]
     )
