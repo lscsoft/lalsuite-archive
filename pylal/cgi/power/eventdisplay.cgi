@@ -63,7 +63,7 @@ def errormsg(msg):
 #
 
 def fullrunrates():
-	s = """<table width="100%" height="60%">"""
+	s = """<table width="100%" height="80%">"""
 	s += "<tr>"
 	s += """	<th>H1</th>"""
 	s += """	<td width="90%"><object data="http://www.lsc-group.phys.uwm.edu/~kipp/S5/static/H1.png" type="image/png" width="100%" height="100%"></td>"""
@@ -78,7 +78,7 @@ def fullrunrates():
 	s += """	<th>L1</th>"""
 	s += """	<td width="90%"><object data="http://www.lsc-group.phys.uwm.edu/~kipp/S5/static/L1.png" type="image/png" width="100%" height="100%"></td>"""
 	s += """	<td align="center"><a href="http://www.lsc-group.phys.uwm.edu/~kipp/S5/static/L1.png">PNG</a><br><a href="http://www.lsc-group.phys.uwm.edu/~kipp/S5/static/L1.svg">SVG</a><br><a href="http://www.lsc-group.phys.uwm.edu/~kipp/S5/static/L1.eps">EPS</a></td>"""
-	s += "<tr>"
+	s += "</tr>"
 	s += "</table>"
 	return s
 
