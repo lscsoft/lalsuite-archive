@@ -81,7 +81,11 @@ def makeReference(elem):
 	constructing references to other tables under elem.
 	"""
 	for table in lsctables.getLSCTables(elem):
-		table.makeReference(elem)
+		try:
+			table.makeReference(elem)
+		except AttributeError:
+			# table is missing a cross-reference column.
+			pass
 
 
 def deReference(elem):
@@ -89,7 +93,11 @@ def deReference(elem):
 	Run the deReference() method on all LSC tables below elem.
 	"""
 	for table in lsctables.getLSCTables(elem):
-		table.deReference()
+		try:
+			table.deReference()
+		except AttributeError:
+			# table is missing a cross-reference column.
+			pass
 
 
 def NewIDs(elem, ilwditers):
