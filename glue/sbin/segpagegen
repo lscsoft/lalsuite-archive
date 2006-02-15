@@ -126,7 +126,7 @@ for ifo in ['H1', 'H2', 'L1']:
 
     # coalesce the result and write to file
     print "coalescing %d segments for ifo %s, state %s and writing to file" \
-      % (len(result) ifo, segtype)
+      % (len(result), ifo, segtype)
     ret_segs = segments.segmentlist()
     try:
       for r in result:
