@@ -40,13 +40,19 @@ parser = OptionParser(version="%prog CVS $Id$")
 parser.add_option("-s", "--gps-start-time", metavar="SECONDS", default=None, help="start time of plot in GPS seconds")
 parser.add_option("-e", "--gps-end-time", metavar="SECONDS", default=None, help="end time of plot in GPS seconds")
 parser.add_option("-w", "--window", metavar="SECONDS", default=3600.0, help="width of averaging window in seconds")
-parser.add_option("-o","--output-base", metavar="BASE", help="output file name base (no extension)")
+parser.add_option("-i", "--instrument", metavar="INSTRUMENT", help="instrument name")
+parser.add_option("-o", "--output-base", metavar="BASE", help="output file name base (no extension)")
 options, cache = parser.parse_args()
 del parser
 
 # check for output
 if not options.output_base:
 	print >>sys.stderr, "error: no output file base specified!"
+	sys.exit(1)
+
+# check for instrument
+if not options.instrument:
+	print >>sys.stderr, "error: no instrument specified!"
 	sys.exit(1)
 
 # parse window
@@ -221,7 +227,7 @@ pylab.grid(True)
 for seg in ~seglist & segments.segmentlist([options.segment]):
 	pylab.axvspan(seg[0], seg[1], facecolor = "k", alpha = 0.2)
 
-pylab.title("Excess Power Trigger Rate vs. Time\n(%d Triggers, %g s Average)" % (num_triggers, options.window))
+pylab.title("%s Excess Power Trigger Rate vs. Time\n(%d Triggers, %g s Average)" % (options.instrument, num_triggers, options.window))
 
 ticks = make_xticks(options.segment)
 pylab.xticks(ticks[0], ticks[1], horizontalalignment="right", fontsize=10, rotation=10)
