@@ -15,13 +15,13 @@ import ConfigParser
 import mx.ODBC.DB2
 from glue import segments
 
+#####################################################################
 # parse command line options
 shortop = "c:dh"
 longop = [
   "config-file=",
   "help"
   ]
-
 
 usage = "Usage: " + sys.argv[0] + """ [OPTIONS]
 
@@ -51,7 +51,7 @@ if not configFilePath:
   sys.exit(1)
 
 configuration = {
-  'output-path' : '/export/ldcg_server/htdocs/grid/segments',
+  'output-path' : '/export/ldcg_server/htdocs/segments',
   'run' : 'S5',
   'dbname' : 'seg_cit'
   }
@@ -74,25 +74,34 @@ for k in configuration.keys():
   except:
     configuration[k] = value
 
+#####################################################################
 # connect to the database
+print "connecting to database " + configuration['dbname']
 db = mx.ODBC.DB2.Connect(configuration['dbname'])
 curs = db.cursor()
 
+#####################################################################
 # create the base name of the output files
 seg_path = os.path.join(configuration['output-path'], configuration['run'])
-time_now = ''.join(map(str,time.localtime()))
-
-# base sql used to get science and injection segments
-base = "SELECT segment.start_time, segment.end_time FROM "
-base += "segment,segment_def_map,segment_definer WHERE "
-base += "segment.segment_id = segment_def_map.segment_id AND "
-base += "segment.creator_db = segment_def_map.segment_cdb AND "
-base += "segment_def_map.segment_def_id = segment_definer.segment_def_id AND "
-base += "segment_def_map.segment_def_cdb = segment_definer.creator_db "
-
 seg_file = {}
 
+# we query the database up to 0000 PST which is 0800 GMT
+midnight = list(time.gmtime())
+midnight[3:] = [8,0,0,0,0]
+time_str = ''.join(map(str,midnight)
+
+#####################################################################
+# sql used to join the segment_definer table to the segment table
+jsql = "segment,segment_def_map,segment_definer WHERE "
+jsql += "segment.segment_id = segment_def_map.segment_id AND "
+jsql += "segment.creator_db = segment_def_map.segment_cdb AND "
+jsql += "segment_def_map.segment_def_id = segment_definer.segment_def_id AND "
+jsql += "segment_def_map.segment_def_cdb = segment_definer.creator_db "
+
+#####################################################################
+# loop over interferometers to get the various segments
 for ifo in ['H1', 'H2', 'L1']:
+  # create the names of the segment files
   seg_file['Science'] = os.path.join( seg_path, ifo, 'science_segments.txt')
   seg_file['Injection'] = os.path.join( seg_path, ifo, 'injection_segments.txt')
   seg_file['DataQual'] = os.path.join( seg_path, ifo, 'dq_segments.txt')
@@ -100,53 +109,93 @@ for ifo in ['H1', 'H2', 'L1']:
   # get the segments which derive from the interferometer state vector
   for segtype in ['Science', 'Injection']:
     # open the output files
-    seg_fh = open(seg_file[segtype] + time_now, 'w')
+    seg_fh = open(seg_file[segtype] + '.' + time_str, 'w')
 
     # construct the sql to perform the query
-    sql = base + "AND segment_definer.run = '%s'" % configuration['run']
+    print "querying database for ifo %s, state %s" % (ifo, segtype)
+    if segtype is 'Science':
+      sql = "SELECT segment.start_time, segment.end_time, segment.segnum FROM "
+    else:
+      sql = "SELECT segment.start_time, segment.end_time, 0 FROM "
+    sql += jsql + "AND segment_definer.run = '%s'" % configuration['run']
     sql += "AND segment_definer.ifos = '%s' " % ifo
     sql += "AND segment_definer.name = '%s' " % segtype
     sql += "ORDER BY segment.start_time ASC FOR READ ONLY"
     curs.execute(sql)
-
-    # fetch the result and store as segments
     result = curs.fetchall()
+
+    # coalesce the result and write to file
+    print "coalescing %d segments for ifo %s, state %s and writing to file" \
+      % (len(result) ifo, segtype)
     ret_segs = segments.segmentlist()
     try:
       for r in result:
-        ret_segs.append(segments.segment(r[0],r[1]))
+        ret_segs.append(segments.segment(r[0],r[1],r[2]))
       ret_segs.coalesce()
     except:
       pass
 
     # write the segments to the output file
+    print >> seg_fh, "# %s" % configuration['dbname']
+    print >> seg_fh, "# %s" % time_str
     print >> seg_fh, "# start_time end_time"
     for s in ret_segs:
-      print >> seg_fh, "%s %s" % (s[0], s[1])
+      print >> seg_fh, "%d %d %d %d" % (s[2], s[0], s[1], s[1] - s[0])
     seg_fh.close()
 
   # get all the data quality segments into a single file
-  seg_fh = open(seg_file['DataQual'] + time_now, 'w')
+  seg_fh = open(seg_file['DataQual'] + time_str, 'w')
 
-  sql =  "SELECT segment_definer.name, segment_definer.version, "
-  sql += "segment.start_time, segment.end_time, segment.active FROM "
-  sql += "segment_definer, segment_def_map, segment WHERE "
-  sql += "segment.segment_id = segment_def_map.segment_id AND "
-  sql += "segment.creator_db = segment_def_map.segment_cdb AND "
-  sql += "segment_def_map.segment_def_id = segment_definer.segment_def_id AND "
-  sql += "segment_def_map.segment_def_cdb = segment_definer.creator_db AND "
-  sql += "segment_definer.state_vec_major is NULL AND "
-  sql += "segment_definer.run = '%s' AND " % configuration['run']
-  sql += "segment_definer.ifos = '%s' " % ifo
-  sql += "ORDER BY segment_definer.name, segment.start_time asc FOR READ ONLY"
-
+  # get the a list of non-statevec data quality quality segments
+  print "fetching list of data quality segments"
+  sql = "SELECT name, version FROM segment_definer WHERE "
+  sql += "run = '%s' AND ifos = '%s' FOR READ ONLY" \
+    % (configuration['run'], ifo)
   curs.execute(sql)
-  result = curs.fetchall()
+  dq_types = curs.fetchall()
+  print "got %d data quality segments" % len(dq_types)
+
+  # get each data quality flag, coalesce the list and write to a file
+  print >> seg_fh, "# %s" % configuration['dbname']
+  print >> seg_fh, "# %s" % time_str
   print >> seg_fh, "# name version start_time end_time active"
-  for r in result:
-    print >> seg_fh, "%s %d %d %d %d" % r
+  for dq in dq_types:
+    print "querying database for ifo %s flag %s,%d" % (ifo, dq[0], dq[1])
+    sql =  "SELECT segment.start_time, segment.end_time, segment.active FROM "
+    sql += jsql
+    sql += "segment_definer.run = '%s' AND " % configuration['run']
+    sql += "segment_definer.ifos = '%s' AND " % ifo
+    sql += "segment_definer.name = '%s' AND  " % dq[0]
+    sql += "segment_definer.version = %d AND " % dq[1]
+    sql += "segment.active = 1 "
+    sql += "ORDER BY segment.start_time asc FOR READ ONLY"
+    curs.execute(sql)
+    result = curs.fetchall()
+    ret_segs = segments.segmentlist()
+
+    print "coalescing %d segments for ifo %s, flag %s,%d and writing to file" \
+      % (len(result) ifo, dq[0], dq[1])
+    try:
+      for r in result:
+        ret_segs.append(segments.segment(r[0],r[1],r[2]))
+      ret_segs.coalesce()
+    except:
+      pass
+  
+    for s in ret_segs:
+      print >> seg_fh, "%s %d %d %d %d" % (dq[0], dq[1], s[0], s[1], s[2])
+
   seg_fh.close()
 
+#####################################################################
+# update the symbolic links
+print "creating symbolic links"
+for k in segfile.keys():
+  symlink(segfile[k] + '.' + time_str, segfile[k])
+
+#####################################################################
+# close the connection to the database and exit
+print "closing connection to the database and exiting"
 curs.close()
 db.close()
 sys.exit(0)
