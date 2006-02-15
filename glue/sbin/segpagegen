@@ -88,7 +88,7 @@ base += "segment,segment_def_map,segment_definer WHERE "
 base += "segment.segment_id = segment_def_map.segment_id AND "
 base += "segment.creator_db = segment_def_map.segment_cdb AND "
 base += "segment_def_map.segment_def_id = segment_definer.segment_def_id AND "
-base += "segment_def_map.segment_def_cdb = segment_definer.creator_db AND "
+base += "segment_def_map.segment_def_cdb = segment_definer.creator_db "
 
 seg_file = {}
 
