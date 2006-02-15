@@ -103,14 +103,20 @@ def NewIDs(elem, ilwditers):
 	for tablename, ilwditer in ilwditers.iteritems():
 		for table in metaio.getTablesByName(elem, tablename):
 			keymap = {}
-			for oldkey in table.dict.keys():
-				keymap[oldkey] = ilwditer.next()
+			try:
+				for oldkey in table.dict.keys():
+					keymap[oldkey] = ilwditer.next()
+			except AttributeError:
+				# table is missing its ID column
+				continue
 			if not len(keymap):
 				continue
 			for row in table.rows:
 				try:
 					row._set_key(keymap[row._get_key()])
-				except KeyError, AttributeError:
+				except KeyError:
+					# row has a key not listed in the
+					# table's dictionary.
 					pass
 
 
