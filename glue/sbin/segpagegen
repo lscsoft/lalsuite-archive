@@ -194,7 +194,7 @@ for ifo in ['H1', 'H2', 'L1']:
 # update the symbolic links
 if verbose: print "creating symbolic links"
 for k in seg_file.keys():
-  symlink(segfile[k] + '.' + time_str, segfile[k])
+  os.symlink(segfile[k] + '.' + time_str, segfile[k])
 
 #####################################################################
 # close the connection to the database and exit
