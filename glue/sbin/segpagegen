@@ -126,7 +126,6 @@ for ifo in ['H1', 'H2', 'L1']:
     sql += "AND segment_definer.ifos = '%s' " % ifo
     sql += "AND segment_definer.name = '%s' " % segtype
     sql += "ORDER BY segment.start_time ASC FOR READ ONLY"
-    print sql
     curs.execute(sql)
     result = curs.fetchall()
 
@@ -141,6 +140,7 @@ for ifo in ['H1', 'H2', 'L1']:
       ret_segs.coalesce()
     except:
       pass
+    print ret_segs
 
     # write the segments to the output file
     print >> seg_fh, "# %s" % configuration['dbname']
@@ -156,9 +156,9 @@ for ifo in ['H1', 'H2', 'L1']:
   # get the a list of non-statevec data quality quality segments
   if verbose: print "fetching list of data quality segments"
   sql = "SELECT name, version FROM segment_definer WHERE "
-  sql += "run = '%s' AND ifos = '%s' FOR READ ONLY" \
+  sql += "run = '%s' AND ifos = '%s' AND state_vec_major is NULL " \
     % (configuration['run'], ifo)
-  print sql
+  sql += "FOR READ ONLY"
   curs.execute(sql)
   dq_types = curs.fetchall()
   if verbose: print "got %d data quality segments" % len(dq_types)
