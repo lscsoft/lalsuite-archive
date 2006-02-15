@@ -45,6 +45,17 @@ def MergeElements(elem1, elem2):
 # Table manipulation utilities.
 #
 
+def HasNonLSCTables(elem):
+	"""
+	Return True if the document tree below elem contains non-LSC
+	tables, otherwise return False.
+	"""
+	for table in elem.getElementsByTagName(ligolw.Table.tagName):
+		if metaio.StripTableName(table.getAttribute("Name")) not in lsctables.TableByName.keys():
+			return True
+	return False
+
+
 def MergeCompatibleTables(elem):
 	"""
 	Below the given element, find all Tables whose structure is
@@ -60,89 +71,47 @@ def MergeCompatibleTables(elem):
 	return elem
 
 
-def RemapProcessIDs(elem, mapping):
+#
+# Table row cross-reference utilities.
+#
+
+def makeReference(elem):
 	"""
-	Recurse over all Table elements whose structure is described in the
-	module lsctables, and remap the process IDs of all rows according
-	to mapping.  Rows with process IDs not named in the mapping are
-	ignored.
+	Run the makeReference() method on all LSC tables below elem,
+	constructing references to other tables under elem.
 	"""
 	for table in lsctables.getLSCTables(elem):
-		for row in table:
-			try:
-				row.process_id = mapping[row.process_id]
-			except KeyError, AttributeError:
-				pass
+		table.makeReference(elem)
 
 
-#
-# Process manipulation utilities.
-#
-
-class Process(object):
-	def __init__(self, proc, params, summary):
-		self.process = proc
-		self.processparams = params
-		self.searchsummary = summary
-
-	def __cmp__(self, other):
-		def listcmp(a, b):
-			for i in range(min(len(a), len(b))):
-				result = a[i].cmp(b[i])
-				if result:
-					return result
-			return len(a) - len(b)
-		result = self.process.cmp(other.process)
-		if not result:
-			result = listcmp(self.processparams, other.processparams)
-			if not result:
-				result = listcmp(self.searchsummary, other.searchsummary)
-		return result
+def deReference(elem):
+	"""
+	Run the deReference() method on all LSC tables below elem.
+	"""
+	for table in lsctables.getLSCTables(elem):
+		table.deReference()
 
 
-class ProcessList(object):
-	def __init__(self, doc):
-		def gettable(doc, Type):
-			tables = lsctables.getTablesByType(doc, Type)
-			if len(tables) != 1:
-				raise Exception, "ProcessList(doc): doc must contain exactly 1 %s Table." % Type.tableName
-			return tables[0]
-
-		self.doc = doc
-		self.processtable = gettable(doc, lsctables.ProcessTable)
-		self.processparamstable = gettable(doc, lsctables.ProcessParamsTable)
-		self.searchsummarytable = gettable(doc, lsctables.SearchSummaryTable)
-
-	def __len__(self):
-		return len(self.processtable)
-
-	def __getitem__(self, key):
-		proc = self.processtable.dict[key]
-		try:
-			params = self.processparamstable.dict[key]
-		except KeyError:
-			params = []
-		try:
-			summary = self.searchsummarytable.dict[key]
-		except KeyError:
-			summary = []
-		return Process(proc, params, summary)
-
-	def __setitem__(self, key, value):
-		self.processtable.dict[key] = value.process
-		self.processparamstable.dict[key] = value.processparams
-		self.searchsummarytable.dict[key] = value.searchsummary
-
-	def __delitem__(self, key):
-		del self.processtable.dict[key]
-		del self.processparamstable.dict[key]
-		del self.searchsummarytable.dict[key]
-
-	def __contains__(self, key):
-		return key in self.processtable
-
-	def keys(self):
-		return self.processtable.dict.keys()
+def NewIDs(elem, ilwditers):
+	"""
+	Using the dictionary of table name and ILWD iterator object pairs,
+	recurse over all tables below elem whose names are in the
+	dictionary, and use the corresponding ILWD iterator object to
+	construct a mapping of old row keys to new row keys.  Finally,
+	apply the mapping to all rows.
+	"""
+	for tablename, ilwditer in ilwditers.iteritems():
+		for table in metaio.getTablesByName(elem, tablename):
+			keymap = {}
+			for oldkey in table.dict.keys():
+				keymap[oldkey] = ilwditer.next()
+			if not len(keymap):
+				continue
+			for row in table.rows:
+				try:
+					row._set_key(keymap[row._get_key()])
+				except KeyError, AttributeError:
+					pass
 
 
 #

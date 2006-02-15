@@ -36,6 +36,7 @@ parser.add_option("--add-lfn-table", action = "store_true", help = "add an lfn e
 parser.add_option("--lfn-start-time", metavar = "START", help = "set lft start_time to START (optional)")
 parser.add_option("--lfn-end-time", metavar = "END", help = "set lfn end_time to END (optional)")
 parser.add_option("--lfn-comment", metavar = "STRING", help = "set lfn comment to STRING (optional)")
+parser.add_option("--non-lsc-tables-ok", action = "store_true", help = "OK to merge documents containing non-LSC tables")
 parser.add_option("-o", "--output", metavar = "FILENAME", help = "write output to FILENAME (default = stdout")
 parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
 options, urls = parser.parse_args()
@@ -68,31 +69,23 @@ doc = LoadDocuments(urls)
 
 
 #
-# Reassign process IDs to prevent collisions.
+# Reassign row IDs to prevent collisions.
 #
 
-new_process_ids = lsctables.ProcessIDs()
+if not options.non_lsc_tables_ok and docutils.HasNonLSCTables(doc):
+	print >>sys.stderr, "Cannot merge documents:  non-LSC tables found.  Use --non-lsc-tables-ok to force"
+	sys.exit(1)
 
-def BuildProcessMapping(elem):
-	# loop over all process tables below elem, constructing a map of
-	# old process ID --> new process ID
-	mapping = {}
-	for table in lsctables.getTablesByType(elem, lsctables.ProcessTable):
-		for key in table.dict.keys():
-			mapping[key] = new_process_ids.next()
-	return mapping
+def reassign_ids(doc):
+	ilwditers = {}
+	for tablename, ilwdclass in lsctables.ILWDGeneratorByTableName.iteritems():
+		ilwditers[tablename] = ilwdclass()
+	for elem in doc.getElementsByTagName(ligolw.LIGO_LW.tagName):
+		docutils.makeReference(elem)
+		docutils.NewIDs(elem, ilwditers)
+		docutils.deReference(elem)
 
-# loop over all top-level LIGO_LW elements (input documents)
-if options.verbose:
-	print >>sys.stderr, "Remapping process IDs in each document..."
-for elem in doc.getElementsByTagName(ligolw.LIGO_LW.tagName):
-	# build process ID mapping
-	idmap = BuildProcessMapping(elem)
-	if options.verbose:
-		print >>sys.stderr, "ID mapping: %s" % str(idmap)
-
-	# loop over recognized LSC tables, replacing process IDs
-	docutils.RemapProcessIDs(elem, idmap)
+reassign_ids(doc)
 
 
 #
