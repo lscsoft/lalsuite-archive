@@ -13,6 +13,7 @@ import time
 import types
 import ConfigParser
 import mx.ODBC.DB2
+from glue import gpstime
 
 #####################################################################
 # Define a couple of classes that we need for the segments based
@@ -155,6 +156,7 @@ seg_file = {}
 # we query the database up to 0000 PST which is 0800 GMT
 midnight = list(time.gmtime())
 midnight[3:] = [8,0,0,0,0]
+midnight_gps = gpstime.GpsSecondsFromPyUTC(time.mktime(midnight))
 time_str = ''.join(map(str,midnight))
 
 #####################################################################
@@ -184,7 +186,8 @@ for ifo in ['H1', 'H2', 'L1']:
       sql = "SELECT segment.start_time, segment.end_time, segment.segnum FROM "
     else:
       sql = "SELECT segment.start_time, segment.end_time, 0 FROM "
-    sql += sqlj + "AND segment_definer.run = '%s' " % configuration['run']
+    sql += sqlj + "AND segment.end_time < %d" % midnight_gps
+    sql += "AND segment_definer.run = '%s' " % configuration['run']
     sql += "AND segment_definer.ifos = '%s' " % ifo
     sql += "AND segment_definer.name = '%s' " % segtype
     sql += "ORDER BY segment.start_time ASC FOR READ ONLY"
@@ -202,7 +205,7 @@ for ifo in ['H1', 'H2', 'L1']:
 
     # write the segments to the output file
     print >> seg_fh, "# %s" % configuration['dbname']
-    print >> seg_fh, "# %s" % time_str
+    print >> seg_fh, "# %g" % midnight_gps
     print >> seg_fh, "# number gps_start_time gps_end_time duration"
     for s in ret_segs:
       print >> seg_fh, str(s)
@@ -223,13 +226,13 @@ for ifo in ['H1', 'H2', 'L1']:
 
   # get each data quality flag, coalesce the list and write to a file
   print >> seg_fh, "# %s" % configuration['dbname']
-  print >> seg_fh, "# %s" % time_str
+  print >> seg_fh, "# %d" % midnight_gps
   print >> seg_fh, "# name version gps_start_time gps_end_time active"
   for dq in dq_types:
     if verbose:
       print "querying database for %s,%s,%d" % (ifo, dq[0], dq[1])
     sql =  "SELECT segment.start_time, segment.end_time, segment.active FROM "
-    sql += sqlj
+    sql += sqlj + "AND segment.end_time < %d" % midnight_gps
     sql += "AND segment_definer.run = '%s' AND " % configuration['run']
     sql += "segment_definer.ifos = '%s' AND " % ifo
     sql += "segment_definer.name = '%s' AND  " % dq[0]
