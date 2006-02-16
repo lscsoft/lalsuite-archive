@@ -909,6 +909,12 @@ class SnglBurst(LSCTableRow):
 	def set_start(self, gps):
 		self.start_time, self.start_time_ns = gps.seconds, gps.nanoseconds
 
+	def get_stop(self):
+		return lal.LIGOTimeGPS(self.stop_time, self.stop_time_ns)
+
+	def set_stop(self, gps):
+		self.stop_time, self.stop_time_ns = gps.seconds, gps.nanoseconds
+
 	def get_peak(self):
 		return lal.LIGOTimeGPS(self.peak_time, self.peak_time_ns)
 
