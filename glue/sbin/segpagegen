@@ -197,7 +197,7 @@ for ifo in ['H1', 'H2', 'L1']:
         % (len(result), ifo, segtype)
     ret_segs = sciseglist()
     for r in result:
-      ret_segs.append(sciseg(r[0],r[1],r[3]))
+      ret_segs.append(sciseg(r[0],r[1],r[2]))
     ret_segs.coalesce()
 
     # write the segments to the output file
@@ -244,7 +244,7 @@ for ifo in ['H1', 'H2', 'L1']:
       print "coalescing %d segments for %s,%s,%d and writing to file" \
         % (len(result), ifo, dq[0], dq[1])
     for r in result:
-      ret_segs.append(sciseg(r[0],r[1],r[3]))
+      ret_segs.append(sciseg(r[0],r[1],r[2]))
     ret_segs.coalesce()
   
     for s in ret_segs:
