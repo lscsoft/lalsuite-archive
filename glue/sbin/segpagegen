@@ -155,9 +155,10 @@ seg_file = {}
 
 # we query the database up to 0000 PST which is 0800 GMT
 midnight = list(time.gmtime())
-midnight[3:] = [8,0,0,0,0]
-midnight_gps = gpstime.GpsSecondsFromPyUTC(time.mktime(midnight))
-time_str = ''.join(map(str,midnight))
+midnight[3:] = [8,0,0,0,0,0]
+midnight = time.mktime(tuple(midnight)) - time.timezone
+midnight_gps = gpstime.GpsSecondsFromPyUTC(midnight)
+time_str = str(midnight_gps)
 
 #####################################################################
 # SQL used to join the segment_definer table to the segment table.
