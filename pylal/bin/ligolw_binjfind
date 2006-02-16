@@ -1,13 +1,17 @@
 #!/usr/bin/python
 
 from optparse import OptionParser
+import os
+import socket
 import sys
+import time
 
 from glue.ligolw import ligolw
 from glue.ligolw import metaio
 from glue.ligolw import lsctables
 from glue.ligolw import docutils
 from pylal import SnglBurstUtils
+from pylal.support import XLALUTCToGPS
 
 
 #
@@ -49,7 +53,8 @@ def PickBestConfidence(sim, burst1, burst2):
 #
 
 parser = OptionParser(version = "%prog CVS $Id$")
-parser.add_option("-c", "--compare", metavar = "[time|timeandfreq]", help = "set comparison test")
+parser.add_option("--comment", metavar = "text", default = "", help = "set comment string in process table")
+parser.add_option("-c", "--compare", metavar = "[bytime|bytimeandfreq]", help = "set comparison test")
 parser.add_option("-i", "--input", metavar = "filename", help = "read from filename (default = stdin)")
 parser.add_option("-o", "--output", metavar = "filename", help = "write to filename (default = stdout)")
 parser.add_option("-s", "--select", metavar = "[bestpeaktime|bestconfidence]", help = "set selection method when more than one trigger matches")
@@ -144,13 +149,13 @@ process = lsctables.Process()
 process.program = "ligolw_binjfind"
 process.version = "$Revision$"
 process.cvs_repository = "lscsoft"
-process.cvs_entry_time = 0
-process.comment = ""
+process.cvs_entry_time = "$Date$"
+process.comment = options.comment
 process.is_online = 0
-process.node = ""
-process.username = ""
-process.unix_procid = 0
-process.start_time = 0
+process.node = socket.gethostbyaddr(socket.gethostname())[0]
+process.username = os.environ["LOGNAME"]
+process.unix_procid = os.getpid()
+process.start_time = XLALUTCToGPS(time.gmtime())
 process.end_time = 0
 process.jobid = 0
 process.domain = ""
@@ -225,6 +230,8 @@ for simtable in simbursttables:
 #
 # =============================================================================
 #
+
+process.end_time = XLALUTCToGPS(time.gmtime())
 
 if options.output:
 	doc.write(file(options.output, "w"))
