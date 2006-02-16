@@ -82,7 +82,7 @@ def ymdhmsFromPyUTC(pyUTC):
     ymdhmsXXX = time.gmtime(pyUTC)
     return ymdhmsXXX[:-3]
 
-def wtFromUTCpy(pyUTC, leapSecs=13):
+def wtFromUTCpy(pyUTC, leapSecs=14):
     """convenience function:
          allows to use python UTC times and
          returns only week and tow"""
@@ -90,7 +90,7 @@ def wtFromUTCpy(pyUTC, leapSecs=13):
     wSowDSoD = apply(gpsFromUTC, ymdhms + (leapSecs,))
     return wSowDSoD[0:2]
 
-def gpsFromUTC(year, month, day, hour, min, sec, leapSecs=13):
+def gpsFromUTC(year, month, day, hour, min, sec, leapSecs=14):
     """converts UTC to: gpsWeek, secsOfWeek, gpsDay, secsOfDay
 
     a good reference is:  http://www.oc.nps.navy.mil/~jclynch/timsys.html
@@ -131,7 +131,7 @@ def gpsFromUTC(year, month, day, hour, min, sec, leapSecs=13):
     return (gpsWeek, gpsSOW, gpsDay, gpsSOD)
 
 
-def UTCFromGps(gpsWeek, SOW, leapSecs=13):
+def UTCFromGps(gpsWeek, SOW, leapSecs=14):
     """converts gps week and seconds to UTC
 
     see comments of inverse function!
@@ -148,7 +148,7 @@ def UTCFromGps(gpsWeek, SOW, leapSecs=13):
     #use gmtime since localtime does not allow to switch off daylighsavings correction!!!
     return (year, month, day, hh, mm, ss + secFract)
 
-def GpsSecondsFromPyUTC( pyUTC, leapSecs=13 ):
+def GpsSecondsFromPyUTC( pyUTC, leapSecs=14 ):
     """converts the python epoch to gps seconds
 
     pyEpoch = the python epoch from time.time()
@@ -179,7 +179,7 @@ def testTimeStuff():
     (w, sow, d, sod) = gpsFromUTC(1999, 8, 21, 23, 59, 47)
     print "**** week: %s, sow: %s, day: %s, sod: %s" % (w, sow, d, sod)
     print "     and hopefully back:"
-    print "**** %s, %s, %s, %s, %s, %s\n" % UTCFromGps(w, sow, leapSecs=13)
+    print "**** %s, %s, %s, %s, %s, %s\n" % UTCFromGps(w, sow, leapSecs=14)
 
     print "Today is GPS week 1186, day 3, seems to run ok (2002, 10, 2, 12, 6, 13.56)"
     (w, sow, d, sod) = gpsFromUTC(2002, 10, 2, 12, 6, 13.56)
