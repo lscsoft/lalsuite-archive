@@ -147,7 +147,7 @@ except IndexError:
 
 process = lsctables.Process()
 process.program = "ligolw_binjfind"
-process.version = "$Revision$"
+process.version = "$Revision$"[11:-2]
 process.cvs_repository = "lscsoft"
 process.cvs_entry_time = XLALUTCToGPS(time.strptime("$Date$"[7:-2], "%Y/%m/%d %H:%M:%S"))
 process.comment = options.comment
