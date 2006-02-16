@@ -1,5 +1,13 @@
 #!/usr/bin/python
 
+#
+# =============================================================================
+#
+#                                   Preamble
+#
+# =============================================================================
+#
+
 from optparse import OptionParser
 import os
 import socket
@@ -12,6 +20,10 @@ from glue.ligolw import lsctables
 from glue.ligolw import docutils
 from pylal import SnglBurstUtils
 from pylal.support import XLALUTCToGPS
+
+__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__version__ = "$Revision$"[11:-2]
+__date__ = "$Date$"[7:-2]
 
 
 #
@@ -104,21 +116,22 @@ else:
 # =============================================================================
 #
 
-try:
-	proctable = metaio.getTablesByName(doc, lsctables.ProcessTable.tableName)[0]
-except IndexError:
-	print >>sys.stderr, "error: no %s table found" % lsctables.ProcessTable.tableName
+proctable = metaio.getTablesByName(doc, lsctables.ProcessTable.tableName)
+if len(proctable) != 1:
+	print >>sys.stderr, "error: input must contain exactly 1 process table"
 	sys.exit(1)
+proctable = proctable[0]
 
-try:
-	procparamtable = metaio.getTablesByName(doc, lsctables.ProcessParamsTable.tableName)[0]
-except IndexError:
-	print >>sys.stderr, "error: no %s table found" % lsctables.ProcessParamsTable.tableName
+procparamtable = metaio.getTablesByName(doc, lsctables.ProcessParamsTable.tableName)
+if len(procparamtable) != 1:
+	print >>sys.stderr, "error: input must contain exactly 1 process params table"
 	sys.exit(1)
+procparamtable = procparamtable[0]
 
 snglbursttables = metaio.getTablesByName(doc, lsctables.SnglBurstTable.tableName)
 simbursttables = metaio.getTablesByName(doc, lsctables.SimBurstTable.tableName)
 
+# FIXME: what if we find a coinctable, but it has a time_slide column?
 try:
 	coinctable = metaio.getTablesByName(doc, lsctables.CoincTable.tableName)[0]
 except IndexError:
@@ -143,9 +156,9 @@ except IndexError:
 
 process = lsctables.Process()
 process.program = "ligolw_binjfind"
-process.version = "$Revision$"[11:-2]
+process.version = __version__
 process.cvs_repository = "lscsoft"
-process.cvs_entry_time = XLALUTCToGPS(time.strptime("$Date$"[7:-2], "%Y/%m/%d %H:%M:%S"))
+process.cvs_entry_time = XLALUTCToGPS(time.strptime(__date__, "%Y/%m/%d %H:%M:%S"))
 process.comment = options.comment
 process.is_online = 0
 process.node = socket.gethostbyaddr(socket.gethostname())[0]
