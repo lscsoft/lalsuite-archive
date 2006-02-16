@@ -169,8 +169,14 @@ def add_param(name, type, value):
 	param.value = str(value)
 	procparamtable.append(param)
 
-add_param("compare", "lstring", options.compare)
-add_param("select", "lstring", options.select)
+if options.comment:
+	add_param("--comment", "lstring", options.comment)
+add_param("--compare", "lstring", options.compare)
+if options.input:
+	add_param("--input", "lstring", options.input)
+if options.output:
+	add_param("--output", "lstring", options.output)
+add_param("--select", "lstring", options.select)
 
 
 #
