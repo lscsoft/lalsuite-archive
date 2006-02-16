@@ -75,6 +75,19 @@ def MergeCompatibleTables(elem):
 # Table row cross-reference utilities.
 #
 
+def NewILWDs(table, column_name):
+	"""
+	From the LSC table, return a compatible ILWD iterator object,
+	initialized to the next unique ID following those found in the
+	table.
+	"""
+	try:
+		n = max(map(lambda id: int(lsctables.ILWDID(id)), table.dict.keys()))
+	except ValueError:
+		n = -1
+	return lsctables.ILWD(metaio.StripTableName(table.getAttribute("Name")), column_name, n + 1)
+
+
 def makeReference(elem):
 	"""
 	Run the makeReference() method on all LSC tables below elem,
