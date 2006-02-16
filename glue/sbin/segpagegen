@@ -153,9 +153,9 @@ curs = db.cursor()
 seg_path = os.path.join(configuration['output-path'], configuration['run'])
 seg_file = {}
 
-# we query the database up to 0000 PST which is 0800 GMT
+# we query the database up 1600 GMT
 midnight = list(time.gmtime())
-midnight[3:] = [8,0,0,0,0,0]
+midnight[3:] = [16,0,0,0,0,0]
 midnight = time.mktime(tuple(midnight)) - time.timezone
 midnight_gps = gpstime.GpsSecondsFromPyUTC(midnight)
 time_str = str(midnight_gps)
