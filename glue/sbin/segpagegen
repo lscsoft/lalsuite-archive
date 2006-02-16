@@ -206,7 +206,7 @@ for ifo in ['H1', 'H2', 'L1']:
 
     # write the segments to the output file
     print >> seg_fh, "# %s" % configuration['dbname']
-    print >> seg_fh, "# %g" % midnight_gps
+    print >> seg_fh, "# %d" % midnight_gps
     print >> seg_fh, "# number gps_start_time gps_end_time duration"
     for s in ret_segs:
       print >> seg_fh, str(s)
@@ -238,7 +238,6 @@ for ifo in ['H1', 'H2', 'L1']:
     sql += "segment_definer.ifos = '%s' AND " % ifo
     sql += "segment_definer.name = '%s' AND  " % dq[0]
     sql += "segment_definer.version = %d AND " % dq[1]
-    sql += "segment.active = 1 "
     sql += "ORDER BY segment.start_time asc FOR READ ONLY"
     curs.execute(sql)
     result = curs.fetchall()
