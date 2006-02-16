@@ -13,10 +13,72 @@ import time
 import types
 import ConfigParser
 import mx.ODBC.DB2
-from glue import segments
 
 #####################################################################
-# parse command line options
+# Define a couple of classes that we need for the segments based
+# on the glue segments module. We can't use glue.segments directly
+# as we need the extra field for the segment number.
+class sciseg(tuple):
+  """
+  A science segment is a tuple that contains (start, end, segnum).
+  """
+  def __new__(cls, *args):
+    if len(args) == 1:
+      args = args[0]
+    if len(args) != 3:
+      raise TypeError, "__new__() takes 4 arguments or 2 arguments " \
+        + "when the second is a 3-element container type"
+    if args[0] <= args[1]:
+      return tuple.__new__(cls, args)
+    else:
+      return tuple.__new__(cls, args[1], args[0], args[2])
+
+  def __str__(self):
+    """
+    Return the segment in segwizard format.
+    """
+    return str(self[2]) + ' ' + str(self[0]) + ' ' + str(self[1]) + ' ' + \
+      str(self[1] - self[0])
+
+  def __or__(self,other):
+    """
+    Return the segment that is the union of the given segments, or
+    None if the result cannot be represented as a single segment.
+    """
+    if not self.continuous(other):
+      return None
+    return segment(min(self[0], other[0]), max(self[1], other[1]), self[2])
+
+  def continuous(self, other):
+    """
+    Return True if self and other are not disjoint and share the same
+    science segment number.
+    """
+    return (self[1] >= other[0]) and (self[0] <= other[1]) \
+      and (self[2] == other[2])
+
+class sciseglist(list):
+  """
+  The sciseglist defines a list of scisegs, and is an extension of the
+  built in list class. This class provides an extra method to coalesce
+  pre-sorted lists.
+  """
+  def coalesce(self):
+    """
+    This will only work if the list has already been sorted by time,
+    but we assume that DB2 has taken care of this when returning the
+    results of the query.
+    """
+    try:
+      for i in range(len(self) - 1):
+        while self[i].continuous(self[i+1]):
+          self[i:i+2] = [ self[i] | self[i+1] ]
+    except IndexError:
+      pass
+    return self
+
+#####################################################################
+# Parse command line options.
 shortop = "c:vh"
 longop = [
   "config-file=",
@@ -80,13 +142,13 @@ for k in configuration.keys():
     configuration[k] = value
 
 #####################################################################
-# connect to the database
+# Connect to the database.
 if verbose: print "connecting to database " + configuration['dbname']
 db = mx.ODBC.DB2.Connect(configuration['dbname'])
 curs = db.cursor()
 
 #####################################################################
-# create the base name of the output files
+# Create the base name of the output files.
 seg_path = os.path.join(configuration['output-path'], configuration['run'])
 seg_file = {}
 
@@ -96,7 +158,7 @@ midnight[3:] = [8,0,0,0,0]
 time_str = ''.join(map(str,midnight))
 
 #####################################################################
-# sql used to join the segment_definer table to the segment table
+# SQL used to join the segment_definer table to the segment table.
 sqlj = "segment,segment_def_map,segment_definer WHERE "
 sqlj += "segment.segment_id = segment_def_map.segment_id AND "
 sqlj += "segment.creator_db = segment_def_map.segment_cdb AND "
@@ -104,7 +166,7 @@ sqlj += "segment_def_map.segment_def_id = segment_definer.segment_def_id AND "
 sqlj += "segment_def_map.segment_def_cdb = segment_definer.creator_db "
 
 #####################################################################
-# loop over interferometers to get the various segments
+# Loop over interferometers to get the various segments.
 for ifo in ['H1', 'H2', 'L1']:
   # create the names of the segment files
   seg_file['Science'] = os.path.join( seg_path, ifo, 'science_segments.txt')
@@ -133,17 +195,17 @@ for ifo in ['H1', 'H2', 'L1']:
     if verbose: 
       print "coalescing %d segments for ifo %s, state %s and writing to file" \
         % (len(result), ifo, segtype)
-    ret_segs = segments.segmentlist()
+    ret_segs = sciseglist()
     for r in result:
-      ret_segs.append(segments.segment(r[0],r[1]))
+      ret_segs.append(sciseg(r[0],r[1],r[3]))
     ret_segs.coalesce()
 
     # write the segments to the output file
     print >> seg_fh, "# %s" % configuration['dbname']
     print >> seg_fh, "# %s" % time_str
-    print >> seg_fh, "# start_time end_time"
+    print >> seg_fh, "# number gps_start_time gps_end_time duration"
     for s in ret_segs:
-      print >> seg_fh, "%d %d %d" % (s[0], s[1], s[1] - s[0])
+      print >> seg_fh, str(s)
     seg_fh.close()
 
   # get all the data quality segments into a single file
@@ -162,7 +224,7 @@ for ifo in ['H1', 'H2', 'L1']:
   # get each data quality flag, coalesce the list and write to a file
   print >> seg_fh, "# %s" % configuration['dbname']
   print >> seg_fh, "# %s" % time_str
-  print >> seg_fh, "# name version start_time end_time active"
+  print >> seg_fh, "# name version gps_start_time gps_end_time active"
   for dq in dq_types:
     if verbose:
       print "querying database for %s,%s,%d" % (ifo, dq[0], dq[1])
@@ -176,17 +238,17 @@ for ifo in ['H1', 'H2', 'L1']:
     sql += "ORDER BY segment.start_time asc FOR READ ONLY"
     curs.execute(sql)
     result = curs.fetchall()
-    ret_segs = segments.segmentlist()
+    ret_segs = sciseglist()
 
     if verbose: 
       print "coalescing %d segments for %s,%s,%d and writing to file" \
         % (len(result), ifo, dq[0], dq[1])
     for r in result:
-      ret_segs.append(segments.segment(r[0],r[1]))
+      ret_segs.append(sciseg(r[0],r[1],r[3]))
     ret_segs.coalesce()
   
     for s in ret_segs:
-      print >> seg_fh, "%s %d %d %d" % (dq[0], dq[1], s[0], s[1])
+      print >> seg_fh, "%s %d %d %d" % (dq[0], dq[1], s[0], s[1], s[3])
 
   seg_fh.close()
 
@@ -196,7 +258,7 @@ for ifo in ['H1', 'H2', 'L1']:
     os.symlink(seg_file[k] + '.' + time_str, seg_file[k])
 
 #####################################################################
-# close the connection to the database and exit
+# Close the connection to the database and exit.
 if verbose: print "closing connection to the database and exiting"
 curs.close()
 db.close()
