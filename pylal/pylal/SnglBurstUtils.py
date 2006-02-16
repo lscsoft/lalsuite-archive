@@ -1,5 +1,13 @@
 from glue import segments
 
+#
+# =============================================================================
+#
+#                                  Clustering
+#
+# =============================================================================
+#
+
 def CompareSnglBurstByPeakTime(a, b):
 	return cmp(a.get_peak(), b.get_peak())
 
@@ -58,3 +66,28 @@ def ClusterSnglBurstTable(triggers, testfunc, clusterfunc, bailoutfunc = None):
 
 		if not did_cluster:
 			return
+
+
+#
+# =============================================================================
+#
+#                              Injection Related
+#
+# =============================================================================
+#
+
+def CompareSimBurstAndSnglBurstByTime(sim, burst):
+	if sim.coordinates == "ZENITH":
+		tsim = sim.get_geocent_peak()
+	elif burst.ifo == "H1":
+		tsim = sim.get_h_peak()
+	elif burst.ifo == "H2":
+		tsim = sim.get_h_peak()
+	elif burst.ifo == "L1":
+		tsim = sim.get_l_peak()
+	else:
+		raise Exception, "unrecognized sngl_burst IFO \"%s\"" % burst.ifo
+	return tsim in burst.get_period()
+
+def CompareSimBurstAndSnglBurstByTimeandFreq(sim, burst):
+	return CompareSimBurstAndSnglBurstByTime(sim, burst) and (sim.freq in burst.get_band())
