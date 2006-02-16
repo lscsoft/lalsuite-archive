@@ -187,7 +187,7 @@ for ifo in ['H1', 'H2', 'L1']:
       sql = "SELECT segment.start_time, segment.end_time, segment.segnum FROM "
     else:
       sql = "SELECT segment.start_time, segment.end_time, 0 FROM "
-    sql += sqlj + "AND segment.end_time < %d" % midnight_gps
+    sql += sqlj + "AND segment.end_time < %d " % midnight_gps
     sql += "AND segment_definer.run = '%s' " % configuration['run']
     sql += "AND segment_definer.ifos = '%s' " % ifo
     sql += "AND segment_definer.name = '%s' " % segtype
@@ -233,7 +233,7 @@ for ifo in ['H1', 'H2', 'L1']:
     if verbose:
       print "querying database for %s,%s,%d" % (ifo, dq[0], dq[1])
     sql =  "SELECT segment.start_time, segment.end_time, segment.active FROM "
-    sql += sqlj + "AND segment.end_time < %d" % midnight_gps
+    sql += sqlj + "AND segment.end_time < %d " % midnight_gps
     sql += "AND segment_definer.run = '%s' AND " % configuration['run']
     sql += "segment_definer.ifos = '%s' AND " % ifo
     sql += "segment_definer.name = '%s' AND  " % dq[0]
