@@ -59,6 +59,7 @@ setup(
 		os.path.join("bin", "lalapps_ll2cache"),
 		os.path.join("bin", "lalapps_path2cache"),
 		os.path.join("bin", "lalapps_pire"),
+		os.path.join("bin", "ligolw_binjfind"),
 		os.path.join("bin", "plotdistance")
 	],
 	data_files = [

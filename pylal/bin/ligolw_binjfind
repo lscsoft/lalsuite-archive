@@ -1,0 +1,232 @@
+#!/usr/bin/python
+
+from optparse import OptionParser
+import sys
+
+from glue.ligolw import ligolw
+from glue.ligolw import metaio
+from glue.ligolw import lsctables
+from glue.ligolw import docutils
+from pylal import SnglBurstUtils
+
+
+#
+# =============================================================================
+#
+#                          Trigger Selection Methods
+#
+# =============================================================================
+#
+
+def PickBestPeakTime(sim, burst1, burst2):
+	if sim.coordinates == "ZENITH":
+		tsim = sim.get_geocent_peak()
+	elif burst1.ifo == "H1":
+		tsim = sim.get_h_peak()
+	elif burst1.ifo == "H2":
+		tsim = sim.get_h_peak()
+	elif burst1.ifo == "L1":
+		tsim = sim.get_l_peak()
+	else:
+		raise Exception, "unrecognized sngl_burst IFO \"%s\"" % burst1.ifo
+	if abs(tsim - burst1.get_peak()) < abs(tsim - burst2.get_peak()):
+		return burst1
+	return burst2
+
+
+def PickBestConfidence(sim, burst1, burst2):
+	if burst1.confidence < burst2.confidence:
+		return burst1
+	return burst2
+
+
+#
+# =============================================================================
+#
+#                                 Command Line
+#
+# =============================================================================
+#
+
+parser = OptionParser(version = "%prog CVS $Id$")
+parser.add_option("-c", "--compare", metavar = "[time|timeandfreq]", help = "set comparison test")
+parser.add_option("-i", "--input", metavar = "filename", help = "read from filename (default = stdin)")
+parser.add_option("-o", "--output", metavar = "filename", help = "write to filename (default = stdout)")
+parser.add_option("-s", "--select", metavar = "[bestpeaktime|bestconfidence]", help = "set selection method when more than one trigger matches")
+parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
+options, args = parser.parse_args()
+del parser, args
+
+# set comparison function
+if not options.compare:
+	comparefunc = SnglBurstUtils.CompareSimBurstAndSnglBurstByTimeandFreq
+elif options.compare == "time":
+	comparefunc = SnglBurstUtils.CompareSimBurstAndSnglBurstByTime
+elif options.compare == "timeandfreq":
+	comparefunc = SnglBurstUtils.CompareSimBurstAndSnglBurstByTimeandFreq
+else:
+	print >>sys.stderr, "error: unrecognized compare test \"%s\"" % options.compare
+	sys.exit(1)
+
+# set selection method
+if not options.select:
+	selectfunc = PickBestConfidence
+elif options.select == "bestpeaktime":
+	selectfunc = PickBestPeakTime
+elif options.select == "bestconfidence":
+	selectfunc = PickBestConfidence
+else:
+	print >>sys.stderr, "error: unrecognized selection method \"%s\"" % options.select
+	sys.exit(1)
+
+
+#
+# =============================================================================
+#
+#                                    Input
+#
+# =============================================================================
+#
+
+doc = ligolw.Document()
+if options.input:
+	ligolw.make_parser(lsctables.LIGOLWContentHandler(doc)).parse(file(options.input))
+else:
+	ligolw.make_parser(lsctables.LIGOLWContentHandler(doc)).parse(sys.stdin)
+
+
+#
+# =============================================================================
+#
+#                                 Preparation
+#
+# =============================================================================
+#
+
+try:
+	proctable = metaio.getTablesByName(doc, lsctables.ProcessTable.tableName)[0]
+except IndexError:
+	print >>sys.stderr, "error: no %s table found" % lsctables.ProcessTable.tableName
+	sys.exit(1)
+
+try:
+	procparamtable = metaio.getTablesByName(doc, lsctables.ProcessParamsTable.tableName)[0]
+except IndexError:
+	print >>sys.stderr, "error: no %s table found" % lsctables.ProcessParamsTable.tableName
+	sys.exit(1)
+
+snglbursttables = metaio.getTablesByName(doc, lsctables.SnglBurstTable.tableName)
+simbursttables = metaio.getTablesByName(doc, lsctables.SimBurstTable.tableName)
+
+try:
+	coinctable = metaio.getTablesByName(doc, lsctables.CoincTable.tableName)[0]
+except IndexError:
+	coinctable = lsctables.New(lsctables.CoincTable, columns = ["process_id", "coinc_event_id"])
+	doc.childNodes[0].appendChild(coinctable)
+coincids = docutils.NewILWDs(coinctable, "coinc_event_id")
+
+try:
+	coincmaptable = metaio.getTablesByName(doc, lsctables.CoincMapTable.tableName)[0]
+except IndexError:
+	coincmaptable = lsctables.New(lsctables.CoincMapTable, columns = ["coinc_event_id", "event_id"])
+	doc.childNodes[0].appendChild(coincmaptable)
+
+
+#
+# =============================================================================
+#
+#                           Add Process Information
+#
+# =============================================================================
+#
+
+process = lsctables.Process()
+process.program = "ligolw_binjfind"
+process.version = "$Revision$"
+process.cvs_repository = "lscsoft"
+process.cvs_entry_time = 0
+process.comment = ""
+process.is_online = 0
+process.node = ""
+process.username = ""
+process.unix_procid = 0
+process.start_time = 0
+process.end_time = 0
+process.jobid = 0
+process.domain = ""
+process.ifos = ""
+process.process_id = docutils.NewILWDs(proctable, "process_id").next()
+
+proctable.append(process)
+
+def add_param(name, type, value):
+	param = lsctables.ProcessParams()
+	param.program = process.program
+	param.process_id = process.process_id
+	param.param = str(name)
+	param.type = str(type)
+	param.value = str(value)
+	procparamtable.append(param)
+
+if options.compare:
+	add_param("compare", "lstring", options.compare)
+if options.select:
+	add_param("select", "lstring", options.select)
+
+
+#
+# =============================================================================
+#
+#                  Build Injection <--> Trigger Coincidences
+#
+# =============================================================================
+#
+
+def add_found_injection(sim, burst):
+	coinc = lsctables.Coinc()
+	coinc.process_id = process.process_id
+	coinc.coinc_event_id = coincids.next()
+	coinctable.append(coinc)
+
+	coincmap = lsctables.CoincMap()
+	coincmap.coinc_event_id = coinc.coinc_event_id
+	coincmap.event_id = sim.simulation_id
+	coincmaptable.append(coincmap)
+
+	coincmap = lsctables.CoincMap()
+	coincmap.coinc_event_id = coinc.coinc_event_id
+	coincmap.event_id = burst.event_id
+	coincmaptable.append(coincmap)
+
+
+def find_best_match(sim, snglbursttables):
+	bestmatch = None
+	for bursttable in snglbursttables:
+		for burst in bursttable.rows:
+			if comparefunc(sim, burst):
+				if not bestmatch:
+					bestmatch = burst
+				else:
+					bestmatch = selectfunc(sim, bestmatch, burst)
+	return bestmatch
+
+
+for simtable in simbursttables:
+	for sim in simtable.rows:
+		bestmatch = find_best_match(sim, snglbursttables)
+		if bestmatch:
+			add_found_injection(sim, bestmatch)
+
+
+#
+# =============================================================================
+#
+#                                    Output
+#
+# =============================================================================
+#
+
+if options.output:
+	doc.write(file(options.output, "w"))
+else:
+	doc.write(sys.stdout)
