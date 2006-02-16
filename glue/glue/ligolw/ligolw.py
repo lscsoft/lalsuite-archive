@@ -69,26 +69,6 @@ class Element(object):
 		self.childNodes = []
 		self.pcdata = None
 
-	def compare(self, other):
-		# can't override __cmp__() because that screws up the
-		# removeChild() method.
-		"""
-		Two elements compare as equal if they generate equivalent
-		markup.
-		"""
-		result = cmp(self.tagName, other.tagName)
-		if not result:
-			result = cmp(dict(self.attributes), dict(other.attributes))
-			if not result:
-				result = cmp(self.pcdata, other.pcdata)
-				if not result:
-					a = self.childNodes[:]
-					a.sort()
-					b = other.childNodes[:]
-					b.sort()
-					result = cmp(a, b)
-		return result
-
 	def start_tag(self):
 		"""
 		Generate the string for the element's start tag.

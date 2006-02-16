@@ -18,9 +18,13 @@ import lsctables
 def MergeElements(elem1, elem2):
 	"""
 	Move the children of elem2 to elem1, and unlink elem2 from its
-	parent.  The return value is elem1.  If the two elements are
-	tables, then the contents of the second table into the first table,
-	and unlink the second table from the document tree.
+	parent.  The return value is elem1.
+	
+	If the two elements are tables, then more the rows of the second
+	table into the first table, and unlink the second table from the
+	document tree.  The table, column, and stream names of the first
+	table are retained, as well as the (optional) comment child
+	element.
 	"""
 	if elem1.tagName != elem2.tagName:
 		raise ligolw.ElementError, "MergeElements(): elements must have same names"
@@ -28,10 +32,6 @@ def MergeElements(elem1, elem2):
 		# copy children;  LIGO_LW elements have no attributes
 		map(elem1.appendChild, elem2.childNodes)
 	elif elem1.tagName == ligolw.Table.tagName:
-		# FIXME: this doesn't work if one table has no stream element,
-		# which should probably still be OK.
-		if elem1.compare(elem2):
-			raise ligolw.ElementError, "MergeElements(): Table elements must compare as equivalent."
 		# copy rows
 		elem1.rows.extend(elem2.rows)
 	else:
@@ -56,6 +56,22 @@ def HasNonLSCTables(elem):
 	return False
 
 
+def TablesCanBeMerged(a, b):
+	"""
+	Return True if the two tables a and b can be merged.  This means
+	they have equivalent names, and equivalent columns according to
+	LIGO LW name conventions.
+	"""
+	if metaio.CompareTableNames(a.getAttribute("Name"), b.getAttribute("Name")) != 0:
+		return False
+	acols = [(metaio.StripColumnName(col.getAttribute("Name")), col.getAttribute("Type")) for col in a.getElementsByTagName(ligolw.Column.tagName)]
+	bcols = [(metaio.StripColumnName(col.getAttribute("Name")), col.getAttribute("Type")) for col in b.getElementsByTagName(ligolw.Column.tagName)]
+	for acol in acols:
+		if acol not in bcols:
+			return False
+	return True
+
+
 def MergeCompatibleTables(elem):
 	"""
 	Below the given element, find all Tables whose structure is
@@ -66,7 +82,7 @@ def MergeCompatibleTables(elem):
 	for tname in lsctables.TableByName.keys():
 		tables = metaio.getTablesByName(elem, tname)
 		for i in range(1, len(tables)):
-			if not tables[0].compare(tables[i]):
+			if TablesCanBeMerged(tables[0], tables[i]):
 				MergeElements(tables[0], tables[i])
 	return elem
 
