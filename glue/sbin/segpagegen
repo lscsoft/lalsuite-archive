@@ -47,7 +47,7 @@ class sciseg(tuple):
     """
     if not self.continuous(other):
       return None
-    return segment(min(self[0], other[0]), max(self[1], other[1]), self[2])
+    return sciseg(min(self[0], other[0]), max(self[1], other[1]), self[2])
 
   def continuous(self, other):
     """
