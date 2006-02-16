@@ -1,0 +1,264 @@
+#!/usr/bin/python
+
+#
+# =============================================================================
+#
+#                                   Preamble
+#
+# =============================================================================
+#
+
+from optparse import OptionParser
+import os
+import socket
+import sys
+import time
+
+from glue.ligolw import ligolw
+from glue.ligolw import metaio
+from glue.ligolw import lsctables
+from glue.ligolw import docutils
+from pylal import SnglBurstUtils
+from pylal.support import XLALUTCToGPS
+
+__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__version__ = "$Revision$"[11:-2]
+__date__ = "$Date$"[7:-2]
+
+
+#
+# =============================================================================
+#
+#                                 Command Line
+#
+# =============================================================================
+#
+
+parser = OptionParser(version = "%prog CVS $Id$")
+parser.add_option("--comment", metavar = "text", default = "", help = "set comment string in process table")
+parser.add_option("-i", "--input", metavar = "filename", help = "read from filename (default = stdin)")
+parser.add_option("-o", "--output", metavar = "filename", help = "write to filename (default = stdout)")
+parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
+parser.add_option("--min-confidence", metavar = "value", help = "discard triggers below the given confidence")
+parser.add_option("--max-confidence", metavar = "value", help = "discard triggers above the given confidence")
+parser.add_option("--min-duration", metavar = "seconds", help = "discard triggers shorter than the given duration")
+parser.add_option("--max-duration", metavar = "seconds", help = "discard triggers longer than the given duration")
+parser.add_option("--min-central-freq", metavar = "Hz", help = "discard triggers with central frequency lower than that given")
+parser.add_option("--max-central-freq", metavar = "Hz", help = "discard triggers with central frequency higher than that given")
+parser.add_option("--min-bandwidth", metavar = "Hz", help = "discard triggers narrower than the given bandwidth")
+parser.add_option("--max-bandwidth", metavar = "Hz", help = "discard triggers wider than the given bandwidth")
+parser.add_option("--min-amplitude", metavar = "value", help = "discard triggers below the given amplitude")
+parser.add_option("--max-amplitude", metavar = "value", help = "discard triggers above the given amplitude")
+parser.add_option("--min-snr", metavar = "value", help = "discard triggers below the given SNR")
+parser.add_option("--max-snr", metavar = "value", help = "discard triggers above the given SNR")
+parser.add_option("--min-start-time", metavar = "seconds", help = "discard triggers starting before the given GPS time")
+parser.add_option("--max-stop-time", metavar = "seconds", help = "discard triggers ending after the given GPS time")
+parser.add_option("--cut-instrument", metavar = "name", action = "append", default = [], help = "discard triggers from given instrument")
+options, args = parser.parse_args()
+del parser, args
+
+if options.min_confidence:
+	options.min_confidence = float(options.min_confidence)
+if options.max_confidence:
+	options.max_confidence = float(options.max_confidence)
+if options.min_duration:
+	options.min_duration = float(options.min_duration)
+if options.max_duration:
+	options.max_duration = float(options.max_duration)
+if options.min_central_freq:
+	options.min_central_freq = float(options.min_central_freq)
+if options.max_central_freq:
+	options.max_central_freq = float(options.max_central_freq)
+if options.min_bandwidth:
+	options.min_bandwidth = float(options.min_bandwidth)
+if options.max_bandwidth:
+	options.max_bandwidth = float(options.max_bandwidth)
+if options.min_amplitude:
+	options.min_amplitude = float(options.min_amplitude)
+if options.max_amplitude:
+	options.max_amplitude = float(options.max_amplitude)
+if options.min_snr:
+	options.min_snr = float(options.min_snr)
+if options.max_snr:
+	options.max_snr = float(options.max_snr)
+if options.min_start_time:
+	options.min_start_time = lal.LIGOTimeGPS(options.min_start_time)
+if options.max_stop_time:
+	options.max_stop_time = lal.LIGOTimeGPS(options.max_stop_time)
+
+
+#
+# =============================================================================
+#
+#                                    Input
+#
+# =============================================================================
+#
+
+doc = ligolw.Document()
+if options.input:
+	ligolw.make_parser(lsctables.LIGOLWContentHandler(doc)).parse(file(options.input))
+else:
+	ligolw.make_parser(lsctables.LIGOLWContentHandler(doc)).parse(sys.stdin)
+
+
+#
+# =============================================================================
+#
+#                                 Preparation
+#
+# =============================================================================
+#
+
+proctable = metaio.getTablesByName(doc, lsctables.ProcessTable.tableName)
+if len(proctable) != 1:
+	print >>sys.stderr, "error: input must contain exactly 1 process table"
+	sys.exit(1)
+proctable = proctable[0]
+
+procparamtable = metaio.getTablesByName(doc, lsctables.ProcessParamsTable.tableName)
+if len(procparamtable) != 1:
+	print >>sys.stderr, "error: input must contain exactly 1 process params table"
+	sys.exit(1)
+procparamtable = procparamtable[0]
+
+snglbursttables = metaio.getTablesByName(doc, lsctables.SnglBurstTable.tableName)
+
+
+#
+# =============================================================================
+#
+#                           Add Process Information
+#
+# =============================================================================
+#
+
+process = lsctables.Process()
+process.program = "ligolw_bucut"
+process.version = __version__
+process.cvs_repository = "lscsoft"
+process.cvs_entry_time = XLALUTCToGPS(time.strptime(__date__, "%Y/%m/%d %H:%M:%S"))
+process.comment = options.comment
+process.is_online = 0
+process.node = socket.gethostbyaddr(socket.gethostname())[0]
+process.username = os.environ["LOGNAME"]
+process.unix_procid = os.getpid()
+process.start_time = XLALUTCToGPS(time.gmtime())
+process.end_time = 0
+process.jobid = 0
+process.domain = ""
+process.ifos = ""
+process.process_id = docutils.NewILWDs(proctable, "process_id").next()
+
+proctable.append(process)
+
+def add_param(name, type, value):
+	param = lsctables.ProcessParams()
+	param.program = process.program
+	param.process_id = process.process_id
+	param.param = str(name)
+	param.type = str(type)
+	param.value = str(value)
+	procparamtable.append(param)
+
+if options.input:
+	add_param("--input", "lstring", options.input)
+if options.output:
+	add_param("--output", "lstring", options.output)
+if options.min_confidence:
+	add_param("--min-confidence", "real_4", options.min_confidence)
+if options.max_confidence:
+	add_param("--max-confidence", "real_4", options.max_confidence)
+if options.min_duration:
+	add_param("--min-duration", "real_4", options.min_duration)
+if options.max_duration:
+	add_param("--max-duration", "real_4", options.max_duration)
+if options.min_central_freq:
+	add_param("--min-central-freq", "real_4", options.min_central_freq)
+if options.max_central_freq:
+	add_param("--max-central-freq", "real_4", options.max_central_freq)
+if options.min_bandwidth:
+	add_param("--min-bandwidth", "real_4", options.min_bandwidth)
+if options.max_bandwidth:
+	add_param("--max-bandwidth", "real_4", options.max_bandwidth)
+if options.min_amplitude:
+	add_param("--min-amplitude", "real_4", options.min_amplitude)
+if options.max_amplitude:
+	add_param("--max-amplitude", "real_4", options.max_amplitude)
+if options.min_snr:
+	add_param("--min-snr", "real_4", options.min_snr)
+if options.max_snr:
+	add_param("--max-snr", "real_4", options.max_snr)
+if options.min_start_time:
+	add_param("--min-start-time", "lstring", options.min_start_time)
+if options.max_stop_time:
+	add_param("--max-stop-time", "lstring", options.max_stop_time)
+for instrument in options.cut_instrument:
+	add_param("--cut-instrument", "lstring", instrument)
+
+
+#
+# =============================================================================
+#
+#                                   Do Cuts
+#
+# =============================================================================
+#
+
+def keep_this_trigger(burst, options):
+	if options.min_confidence and burst.confidence < options.min_confidence:
+		return False
+	if options.max_confidence and burst.confidence > options.max_confidence:
+		return False
+	if options.min_duration and burst.duration < options.min_duration:
+		return False
+	if options.max_duration and burst.duration > options.max_duration:
+		return False
+	if options.min_central_freq and burst.central_freq < options.min_central_freq:
+		return False
+	if options.max_central_freq and burst.central_freq > options.max_central_freq:
+		return False
+	if options.min_bandwidth and burst.bandwidth < options.min_bandwidth:
+		return False
+	if options.max_bandwidth and burst.bandwidth > options.max_bandwidth:
+		return False
+	if options.min_amplitude and burst.amplitude < options.min_amplitude:
+		return False
+	if options.max_amplitude and burst.amplitude > options.max_amplitude:
+		return False
+	if options.min_snr and burst.snr < options.min_snr:
+		return False
+	if options.max_snr and burst.snr > options.max_snr:
+		return False
+	if options.min_start_time and burst.get_start() < options.min_start_time:
+		return False
+	if options.max_stop_time and burst.get_stop() > options.max_stop_time:
+		return False
+	if burst.ifo in options.cut_instrument:
+		return False
+	return True
+
+
+for table in snglbursttables:
+	i = 0
+	while i < len(table.rows):
+		if keep_this_trigger(table.rows[i], options):
+			i += 1
+			continue
+		del table.rows[i]
+
+
+#
+# =============================================================================
+#
+#                                    Output
+#
+# =============================================================================
+#
+
+process.end_time = XLALUTCToGPS(time.gmtime())
+
+if options.output:
+	doc.write(file(options.output, "w"))
+else:
+	doc.write(sys.stdout)
