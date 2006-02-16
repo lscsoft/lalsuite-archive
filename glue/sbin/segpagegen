@@ -172,14 +172,14 @@ sqlj += "segment_def_map.segment_def_cdb = segment_definer.creator_db "
 # Loop over interferometers to get the various segments.
 for ifo in ['H1', 'H2', 'L1']:
   # create the names of the segment files
-  seg_file['Science'] = os.path.join( seg_path, ifo, 'science_segments.txt')
-  seg_file['Injection'] = os.path.join( seg_path, ifo, 'injection_segments.txt')
-  seg_file['DataQual'] = os.path.join( seg_path, ifo, 'dq_segments.txt')
+  seg_file['Science'] = os.path.join( seg_path, ifo, 'science_segments')
+  seg_file['Injection'] = os.path.join( seg_path, ifo, 'injection_segments')
+  seg_file['DataQual'] = os.path.join( seg_path, ifo, 'dq_segments')
 
   # get the segments which derive from the interferometer state vector
   for segtype in ['Science', 'Injection']:
     # open the output files
-    seg_fh = open(seg_file[segtype] + '.' + time_str, 'w')
+    seg_fh = open(seg_file[segtype] + '.' + time_str + '.txt', 'w')
 
     # construct the sql to perform the query
     if verbose: print "querying database for ifo %s, state %s" % (ifo, segtype)
@@ -213,7 +213,7 @@ for ifo in ['H1', 'H2', 'L1']:
     seg_fh.close()
 
   # get all the data quality segments into a single file
-  seg_fh = open(seg_file['DataQual'] + '.' + time_str, 'w')
+  seg_fh = open(seg_file['DataQual'] + '.' + time_str + '.txt', 'w')
 
   # get the a list of non-statevec data quality quality segments
   if verbose: print "fetching list of data quality segments"
@@ -258,7 +258,7 @@ for ifo in ['H1', 'H2', 'L1']:
   # update the symbolic links
   if verbose: print "creating symbolic links"
   for k in seg_file.keys():
-    os.symlink(seg_file[k] + '.' + time_str, seg_file[k])
+    os.symlink(seg_file[k] + '.' + time_str + '.txt', seg_file[k] + '.txt')
 
 #####################################################################
 # Close the connection to the database and exit.
