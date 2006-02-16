@@ -248,7 +248,7 @@ for ifo in ['H1', 'H2', 'L1']:
     ret_segs.coalesce()
   
     for s in ret_segs:
-      print >> seg_fh, "%s %d %d %d" % (dq[0], dq[1], s[0], s[1], s[3])
+      print >> seg_fh, "%s %d %d %d" % (dq[0], dq[1], s[0], s[1], s[2])
 
   seg_fh.close()
 
