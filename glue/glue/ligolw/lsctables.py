@@ -1026,6 +1026,12 @@ class SnglInspiral(LSCTableRow):
 	def _has_key(self, key):
 		return self.event_id == key
 
+	def get_end(self):
+		return lal.LIGOTimeGPS(self.end_time, self.end_time_ns)
+
+	def set_end(self, gps):
+		self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
+
 SnglInspiralTable.RowType = SnglInspiral
 
 class SnglInspiralIDs(ILWD):
@@ -1958,7 +1964,7 @@ SegmentDefTable.RowType = SegmentDef
 #
 # =============================================================================
 #
-#                                 slide:table
+#                               time_slide:table
 #
 # =============================================================================
 #
@@ -2162,6 +2168,12 @@ class LIGOLWMon(LSCTableRow):
 
 	def _has_key(self, key):
 		return self.event_id == key
+
+	def get_time(self):
+		return lal.LIGOTimeGPS(self.time, self.time_ns)
+
+	def set_time(self, gps):
+		self.time, self.time_ns = gps.seconds, gps.nanoseconds
 
 LIGOLWMonTable.RowType = LIGOLWMon
 
