@@ -105,10 +105,14 @@ def plot_epslink(name, query):
 	src = _imgsrc(name, query) + "&format=eps"
 	return """<a href="%s">EPS</a>""" % src
 
+def plot_svglink(name, query):
+	src = _imgsrc(name, query) + "&format=svg"
+	return """<a href="%s">SVG</a>""" % src
+
 def plot_table_row(name, query):
 	s = "<tr>\n"
 	s += """\t<td align="center">""" + plot_pngthumbnail(name, query) + "</td>\n"
-	s += """\t<td align="center">""" + plot_pnglink(name, query) + "<br>" + plot_epslink(name, query) + "</td>\n"
+	s += """\t<td align="center">""" + plot_pnglink(name, query) + "<br>" + plot_svglink(name, query) + "<br>" + plot_epslink(name, query) + "</td>\n"
 	s += "</tr>"
 	return s
 

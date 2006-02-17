@@ -57,7 +57,7 @@ class PlotDescription(object):
 			os.remove(self.filename)
 
 	def set_format(self, format):
-		if format not in ["eps", "png", "xml"]:
+		if format not in ["eps", "png", "svg", "xml"]:
 			raise Exception, "unrecognized format %s" % format
 		if self.format == format:
 			return
@@ -66,6 +66,8 @@ class PlotDescription(object):
 			self.set_extension("eps")
 		elif format == "png":
 			self.set_extension("png")
+		elif format == "svg":
+			self.set_extension("svg")
 		elif format == "xml":
 			self.set_extension("xml")
 
@@ -177,6 +179,8 @@ def SendImage(plotdesc):
 		print >>sys.stdout, "Content-Type: image/png\n"
 	elif plotdesc.format == "eps":
 		print >>sys.stdout, "Content-Type: application/postscript\n"
+	elif plotdesc.format == "svg":
+		print >>sys.stdout, "Content-Type: image/svg+xml\n"
 	elif plotdesc.format == "xml":
 		print >>sys.stdout, "Content-Type: text/xml\n"
 	shutil.copyfileobj(file(plotdesc.filename), sys.stdout)
