@@ -1,0 +1,208 @@
+#!/usr/bin/python
+
+#
+# =============================================================================
+#
+#                                   Preamble
+#
+# =============================================================================
+#
+
+from optparse import OptionParser
+import os
+import socket
+import sys
+import time
+
+from glue import segments
+from glue.ligolw import ligolw
+from glue.ligolw import metaio
+from glue.ligolw import lsctables
+from pylal.support import XLALUTCToGPS
+
+__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__version__ = "$Revision$"[11:-2]
+__date__ = "$Date$"[7:-2]
+
+
+#
+# =============================================================================
+#
+#                                 Command Line
+#
+# =============================================================================
+#
+
+parser = OptionParser(version = "%prog CVS $Id$")
+parser.add_option("-c", "--comment", metavar = "text", default = "", help = "set process comment")
+parser.add_option("-i", "--input", metavar = "filename", help = "read from filename (default = stdin)")
+parser.add_option("-o", "--output", metavar = "filename", help = "write to filename (default = stdout)")
+options, args = parser.parse_args()
+del parser, args
+
+
+#
+# =============================================================================
+#
+#                                    Input
+#
+# =============================================================================
+#
+
+indoc = ligolw.Document()
+if options.input:
+	ligolw.make_parser(lsctables.LIGOLWContentHandler(indoc)).parse(file(options.input))
+else:
+	ligolw.make_parser(lsctables.LIGOLWContentHandler(indoc)).parse(sys.stdin)
+
+snglbursttables = metaio.getTablesByName(indoc, lsctables.SnglBurstTable.tableName)
+insearchsummtables = metaio.getTablesByName(indoc, lsctables.SearchSummaryTable.tableName)
+
+
+#
+# =============================================================================
+#
+#                              Output Preparation
+#
+# =============================================================================
+#
+
+doc = ligolw.Document()
+doc.appendChild(ligolw.LIGO_LW())
+proctable = lsctables.New(lsctables.ProcessTable)
+doc.childNodes[0].appendChild(proctable)
+procparamtable = lsctables.New(lsctables.ProcessParamsTable)
+doc.childNodes[0].appendChild(procparamtable)
+searchsummtable = lsctables.New(lsctables.SearchSummaryTable)
+doc.childNodes[0].appendChild(searchsummtable)
+segtable = lsctables.New(lsctables.SegmentTable, columns = ["process_id", "segment_id", "start_time", "start_time_ns", "end_time", "end_time_ns", "active"])
+doc.childNodes[0].appendChild(segtable)
+ligolwmontable = lsctables.New(lsctables.LIGOLWMonTable, columns = ["process_id", "time", "time_ns", "amplitude", "confidence", "frequency", "event_id"])
+doc.childNodes[0].appendChild(ligolwmontable)
+
+
+#
+# =============================================================================
+#
+#                           Add Process Information
+#
+# =============================================================================
+#
+
+process = lsctables.Process()
+process.program = "ligolw_burst2mon"
+process.version = __version__
+process.cvs_repository = "lscsoft"
+process.cvs_entry_time = XLALUTCToGPS(time.strptime(__date__, "%Y/%m/%d %H:%M:%S"))
+process.comment = options.comment
+process.is_online = 0
+process.node = socket.gethostbyaddr(socket.gethostname())[0]
+process.username = os.environ["LOGNAME"]
+process.unix_procid = os.getpid()
+process.start_time = XLALUTCToGPS(time.gmtime())
+process.end_time = 0
+process.jobid = 0
+process.domain = ""
+process.ifos = ""
+process.process_id = lsctables.ProcessIDs().next()
+
+proctable.append(process)
+
+def add_param(name, type, value):
+	param = lsctables.ProcessParams()
+	param.program = process.program
+	param.process_id = process.process_id
+	param.param = str(name)
+	param.type = str(type)
+	param.value = str(value)
+	procparamtable.append(param)
+
+if options.comment:
+	add_param("--comment", "lstring", options.comment)
+if options.input != None:
+	add_param("--input", "lstring", options.input)
+if options.output != None:
+	add_param("--output", "lstring", options.output)
+
+
+#
+# =============================================================================
+#
+#                             Build Segment Table
+#
+# =============================================================================
+#
+
+seglist = segments.segmentlist([])
+for table in insearchsummtables:
+	seglist |= table.get_outlist().coalesce()
+
+segmentids = lsctables.SegmentIDs()
+for seg in seglist:
+	row = lsctables.Segment()
+	row.process_id = process.process_id
+	row.segment_id = segmentids.next()
+	row.active = 1
+	row.set_segment(seg)
+	segtable.append(row)
+
+
+#
+# =============================================================================
+#
+#                       Convert sngl_burst To ligolw_mon
+#
+# =============================================================================
+#
+
+ligolwmonids = lsctables.LIGOLWMonIDs()
+for table in snglbursttables:
+	for burst in table.rows:
+		ligolwmon = lsctables.LIGOLWMon()
+		ligolwmon.process_id = process.process_id
+		ligolwmon.event_id = ligolwmonids.next()
+		ligolwmon.set_time(burst.get_peak())
+		ligolwmon.amplitude = burst.amplitude
+		ligolwmon.confidence = burst.confidence
+		ligolwmon.frequency = burst.central_freq
+		ligolwmontable.append(ligolwmon)
+
+
+#
+# =============================================================================
+#
+#                        Add Search Summary Information
+#
+# =============================================================================
+#
+
+searchsumm = lsctables.SearchSummary()
+searchsumm.process_id = process.process_id
+searchsumm.shared_object = "standalone"
+searchsumm.lalwrapper_cvs_tag = ""
+searchsumm.lal_cvs_tag = ""
+searchsumm.comment = process.comment
+searchsumm.ifos = process.ifos
+searchsumm.set_in(seglist.extent())
+searchsumm.set_out(seglist.extent())
+searchsumm.nevents = ligolwmonids.n
+searchsumm.nnodes = 1
+
+searchsummtable.append(searchsumm)
+
+
+
+#
+# =============================================================================
+#
+#                                    Output
+#
+# =============================================================================
+#
+
+process.end_time = XLALUTCToGPS(time.gmtime())
+
+if options.output:
+	doc.write(file(options.output, "w"))
+else:
+	doc.write(sys.stdout)

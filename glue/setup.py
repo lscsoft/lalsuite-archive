@@ -28,6 +28,7 @@ if version_info >= (2, 3):
       os.path.join('bin','dmtdq_seg_insert'),
       os.path.join('bin','ligolw_add'),
       os.path.join('bin','ligolw_cut'),
+      os.path.join('bin','ligolw_burst2mon'),
       os.path.join('bin','ligolw_inspiral2mon'),
       os.path.join('bin','ligolw_print'),
       os.path.join('sbin','ldbdd'),
