@@ -2117,6 +2117,62 @@ CoincMapTable.RowType = CoincMap
 #
 # =============================================================================
 #
+#                               ligolw_mon:table
+#
+# =============================================================================
+#
+
+class LIGOLWMonTable(LSCTableUnique):
+	tableName = "ligolw_mon:table"
+	validcolumns = {
+		"creator_db": "int_4s",
+		"process_id": "ilwd:char",
+		"time": "int_4s",
+		"time_ns": "int_4s",
+		"amplitude": "real_8",
+		"confidence": "real_8",
+		"frequency": "real_8",
+		"event_id": "ilwd:char",
+		"insertion_time": "int_4s"
+	}
+
+	def makeReference(self, elem):
+		"""
+		Convert ilwd:char strings into object references.
+		"""
+		tables = metaio.getTablesByName(elem, ProcessTable.tableName)
+		for row in self.rows:
+			row.process_id = FindILWD(tables, row.process_id)
+
+	def deReference(self):
+		"""
+		Resolve object references back to ilwd:char strings.
+		"""
+		for row in self.rows:
+			row.process_id = row.process_id._get_key()
+
+class LIGOLWMon(LSCTableRow):
+	__slots__ = LIGOLWMonTable.validcolumns.keys()
+
+	def _get_key(self):
+		return self.event_id
+
+	def _set_key(self, key):
+		self.event_id = key
+
+	def _has_key(self, key):
+		return self.event_id == key
+
+LIGOLWMonTable.RowType = LIGOLWMon
+
+class LIGOLWMonIDs(ILWD):
+	def __init__(self, n = 0):
+		ILWD.__init__(self, "ligolw_mon", "event_id", n)
+
+
+#
+# =============================================================================
+#
 #                               Content Handler
 #
 # =============================================================================
@@ -2147,7 +2203,8 @@ TableByName = {
 	metaio.StripTableName(SegmentDefTable.tableName): SegmentDefTable,
 	metaio.StripTableName(TimeSlideTable.tableName): TimeSlideTable,
 	metaio.StripTableName(CoincTable.tableName): CoincTable,
-	metaio.StripTableName(CoincMapTable.tableName): CoincMapTable
+	metaio.StripTableName(CoincMapTable.tableName): CoincMapTable,
+	metaio.StripTableName(LIGOLWMonTable.tableName): LIGOLWMonTable
 }
 
 
@@ -2165,7 +2222,8 @@ ILWDGeneratorByTableName = {
 	metaio.StripTableName(SegmentTable.tableName): SegmentIDs,
 	metaio.StripTableName(SegmentDefMapTable.tableName): SegmentDefMapIDs,
 	metaio.StripTableName(TimeSlideTable.tableName): TimeSlideIDs,
-	metaio.StripTableName(CoincTable.tableName): CoincIDs
+	metaio.StripTableName(CoincTable.tableName): CoincIDs,
+	metaio.StripTableName(LIGOLWMonTable.tableName): LIGOLWMonIDs
 }
 
 
