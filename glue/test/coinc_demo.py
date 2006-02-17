@@ -47,11 +47,8 @@ def new_slide(process_id, h1off, h2off, l1off):
 	h1.process_id = h2.process_id = l1.process_id = process_id
 
 	h1.offset = h1off
-	h1.offset_ns = 0
 	h2.offset = h2off
-	h2.offset_ns = 0
 	l1.offset = l1off
-	l1.offset_ns = 0
 
 	return h1, h2, l1
 
@@ -98,8 +95,8 @@ insp.append(new_insp(insp_proc.process_id))
 
 slide = lsctables.New(lsctables.TimeSlideTable)
 llw.appendChild(slide)
-map(slide.append, new_slide(slide_proc.process_id, 0, 0, 0))
-map(slide.append, new_slide(slide_proc.process_id, 0, 0, 50))
+map(slide.append, new_slide(slide_proc.process_id, 0.0, 0.0, 0.0))
+map(slide.append, new_slide(slide_proc.process_id, 0.0, 0.0, 50.0))
 
 coinc = lsctables.New(lsctables.CoincTable)
 llw.appendChild(coinc)

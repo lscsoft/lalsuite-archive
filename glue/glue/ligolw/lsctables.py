@@ -1969,8 +1969,7 @@ class TimeSlideTable(LSCTableMulti):
 		"process_id": "ilwd:char",
 		"time_slide_id": "ilwd:char",
 		"ifo": "lstring",
-		"offset": "int_4s",
-		"offset_ns": "int_4s"
+		"offset": "real_8"
 	}
 
 	def makeReference(self, elem):
