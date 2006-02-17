@@ -151,6 +151,8 @@ def add_param(name, type, value):
 	param.value = str(value)
 	procparamtable.append(param)
 
+if options.comment:
+	add_param("--comment", "lstring", options.comment)
 if options.input:
 	add_param("--input", "lstring", options.input)
 if options.output:
