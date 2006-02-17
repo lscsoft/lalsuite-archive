@@ -106,6 +106,12 @@ if len(procparamtable) != 1:
 	sys.exit(1)
 procparamtable = procparamtable[0]
 
+searchsummtable = metaio.getTablesByName(doc, lsctables.SearchSummaryTable.tableName)
+if len(searchsummtable) != 1:
+	print >>sys.stderr, "error: input must contain exactly 1 search summary table"
+	sys.exit(1)
+searchsummtable = searchsummtable[0]
+
 snglbursttables = metaio.getTablesByName(doc, lsctables.SnglBurstTable.tableName)
 
 
@@ -240,46 +246,95 @@ if options.max_tfvolume:
 #
 
 def keep_this_trigger(burst, options):
-	if options.min_confidence and burst.confidence < options.min_confidence:
+	if (options.min_amplitude != None) and (burst.amplitude < options.min_amplitude):
 		return False
-	if options.max_confidence and burst.confidence > options.max_confidence:
+	if (options.max_amplitude != None) and (burst.amplitude > options.max_amplitude):
 		return False
-	if options.min_duration and burst.duration < options.min_duration:
+	if (options.min_bandwidth != None) and (burst.bandwidth < options.min_bandwidth):
 		return False
-	if options.max_duration and burst.duration > options.max_duration:
+	if (options.max_bandwidth != None) and (burst.bandwidth > options.max_bandwidth):
 		return False
-	if options.min_central_freq and burst.central_freq < options.min_central_freq:
+	if (options.min_central_freq != None) and (burst.central_freq < options.min_central_freq):
 		return False
-	if options.max_central_freq and burst.central_freq > options.max_central_freq:
+	if (options.max_central_freq != None) and (burst.central_freq > options.max_central_freq):
 		return False
-	if options.min_bandwidth and burst.bandwidth < options.min_bandwidth:
+	if (options.min_confidence != None) and (burst.confidence < options.min_confidence):
 		return False
-	if options.max_bandwidth and burst.bandwidth > options.max_bandwidth:
+	if (options.max_confidence != None) and (burst.confidence > options.max_confidence):
 		return False
-	if options.min_amplitude and burst.amplitude < options.min_amplitude:
+	if (options.min_duration != None) and (burst.duration < options.min_duration):
 		return False
-	if options.max_amplitude and burst.amplitude > options.max_amplitude:
+	if (options.max_duration != None) and (burst.duration > options.max_duration):
 		return False
-	if options.min_snr and burst.snr < options.min_snr:
+	if (options.min_fhigh != None) and (burst.fhigh < options.min_fhigh):
 		return False
-	if options.max_snr and burst.snr > options.max_snr:
+	if (options.max_fhigh != None) and (burst.fhigh > options.max_fhigh):
 		return False
-	if options.min_start_time and burst.get_start() < options.min_start_time:
+	if (options.min_flow != None) and (burst.flow < options.min_flow):
 		return False
-	if options.max_stop_time and burst.get_stop() > options.max_stop_time:
+	if (options.max_flow != None) and (burst.flow > options.max_flow):
+		return False
+	if (options.min_hrss != None) and (burst.hrss < options.min_hrss):
+		return False
+	if (options.max_hrss != None) and (burst.hrss > options.max_hrss):
 		return False
 	if burst.ifo in options.cut_instrument:
+		return False
+	if (options.min_peak_time != None) and (burst.get_peak() < options.min_peak_time):
+		return False
+	if (options.max_peak_time != None) and (burst.get_peak() > options.max_peak_time):
+		return False
+	if (options.min_snr != None) and (burst.snr < options.min_snr):
+		return False
+	if (options.max_snr != None) and (burst.snr > options.max_snr):
+		return False
+	if (options.min_start_time != None) and (burst.get_start() < options.min_start_time):
+		return False
+	if (options.max_start_time != None) and (burst.get_start() > options.max_start_time):
+		return False
+	if (options.min_stop_time != None) and (burst.get_stop() < options.min_stop_time):
+		return False
+	if (options.max_stop_time != None) and (burst.get_stop() > options.max_stop_time):
+		return False
+	if (options.min_tfvolume != None) and (burst.tfvolume < options.min_tfvolume):
+		return False
+	if (options.max_tfvolume != None) and (burst.tfvolume > options.max_tfvolume):
 		return False
 	return True
 
 
+nevents = 0
 for table in snglbursttables:
 	i = 0
 	while i < len(table.rows):
 		if keep_this_trigger(table.rows[i], options):
 			i += 1
+			nevents += 1
 			continue
 		del table.rows[i]
+
+
+#
+# =============================================================================
+#
+#                        Add Search Summary Information
+#
+# =============================================================================
+#
+
+searchsumm = lsctables.SearchSummary()
+searchsumm.process_id = process.process_id
+searchsumm.shared_object = "standalone"
+searchsumm.lalwrapper_cvs_tag = ""
+searchsumm.lal_cvs_tag = ""
+searchsumm.comment = process.comment
+searchsumm.ifos = process.ifos
+searchsumm.set_in(searchsummtable.get_inlist().extent())
+searchsumm.set_out(searchsummtable.get_outlist().extent())
+searchsumm.nevents = nevents
+searchsumm.nnodes = 1
+
+searchsummtable.append(searchsumm)
 
 
 #
