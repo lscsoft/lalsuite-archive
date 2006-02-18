@@ -61,6 +61,7 @@ setup(
 		os.path.join("bin", "lalapps_pire"),
 		os.path.join("bin", "ligolw_binjfind"),
 		os.path.join("bin", "ligolw_bucut"),
+		os.path.join("bin", "ligolw_tisi"),
 		os.path.join("bin", "plotdistance")
 	],
 	data_files = [

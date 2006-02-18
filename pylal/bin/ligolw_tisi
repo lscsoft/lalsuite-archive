@@ -1,0 +1,205 @@
+#!/usr/bin/python
+
+#
+# =============================================================================
+#
+#                                   Preamble
+#
+# =============================================================================
+#
+
+import numarray
+from optparse import OptionParser
+import os
+import socket
+import sys
+import time
+
+from glue.ligolw import ligolw
+from glue.ligolw import metaio
+from glue.ligolw import lsctables
+from pylal import SnglBurstUtils
+from pylal.support import XLALUTCToGPS
+
+__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__version__ = "$Revision$"[11:-2]
+__date__ = "$Date$"[7:-2]
+
+
+#
+# =============================================================================
+#
+#                                 Command Line
+#
+# =============================================================================
+#
+
+parser = OptionParser(version = "%prog CVS $Id$")
+parser.add_option("--comment", metavar = "text", default = "", help = "set comment string in process table")
+parser.add_option("-o", "--output", metavar = "filename", help = "write to filename (default = stdout)")
+parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
+parser.add_option("-i", "--instrument", metavar = "name=first:last:step[,first:last:step[,...]]", action = "append", default = [], help = "construct time slides containing the named instrument, shifted by numbers seconds as described by the given range(s)")
+options, args = parser.parse_args()
+del parser, args
+
+
+#
+# =============================================================================
+#
+#                                 Preparation
+#
+# =============================================================================
+#
+
+doc = ligolw.Document()
+doc.appendChild(ligolw.LIGO_LW())
+proctable = lsctables.New(lsctables.ProcessTable)
+doc.childNodes[0].appendChild(proctable)
+procparamtable = lsctables.New(lsctables.ProcessParamsTable)
+doc.childNodes[0].appendChild(procparamtable)
+timeslidetable = lsctables.New(lsctables.TimeSlideTable)
+doc.childNodes[0].appendChild(timeslidetable)
+
+
+#
+# =============================================================================
+#
+#                           Add Process Information
+#
+# =============================================================================
+#
+
+process = lsctables.Process()
+process.program = "ligolw_tisi"
+process.version = __version__
+process.cvs_repository = "lscsoft"
+process.cvs_entry_time = XLALUTCToGPS(time.strptime(__date__, "%Y/%m/%d %H:%M:%S"))
+process.comment = options.comment
+process.is_online = 0
+process.node = socket.gethostbyaddr(socket.gethostname())[0]
+process.username = os.environ["LOGNAME"]
+process.unix_procid = os.getpid()
+process.start_time = XLALUTCToGPS(time.gmtime())
+process.end_time = 0
+process.jobid = 0
+process.domain = ""
+process.ifos = ""
+process.process_id = lsctables.ProcessIDs().next()
+
+proctable.append(process)
+
+def add_param(name, type, value):
+	param = lsctables.ProcessParams()
+	param.program = process.program
+	param.process_id = process.process_id
+	param.param = str(name)
+	param.type = str(type)
+	param.value = str(value)
+	procparamtable.append(param)
+
+if options.output != None:
+	add_param("--output", "lstring", options.output)
+for instrument in options.instrument:
+	add_param("--instrument", "lstring", instrument)
+
+
+#
+# =============================================================================
+#
+#                      Parse Instrument Time Slide Ranges
+#
+# =============================================================================
+#
+
+def parse_slides(options):
+	slides = {}
+	for instrument in options.instrument:
+		try:
+			[inst, rangespecs] = instrument.split("=")
+		except ValueError:
+			print >>sys.stderr, "error: cannot parse time slide \"%s\"" % instrument
+			sys.exit(1)
+		if slides.has_key(inst):
+			print >>sys.stderr, "error: duplicate instruments"
+			sys.exit(1)
+		slides[inst] = []
+		for rangespec in rangespecs.split(","):
+			try:
+				[first, last, step] = rangespec.split(":")
+				first, last, step = float(first), float(last), float(step)
+			except ValueError:
+				print >>sys.stderr, "error: invalid range spec \"%s\"" % rangespec
+				sys.exit(1)
+			if step == 0.0:
+				if first != last:
+					print >>sys.stderr, "error: invalid range spec \"%s\"" % rangespec
+					sys.exit(1)
+				slides[inst].append(first)
+			else:
+				slides[inst].extend(numarray.arange(first, last + step, step).tolist())
+	return slides
+
+
+#
+# =============================================================================
+#
+#                              Build Time Slides
+#
+# =============================================================================
+#
+
+class SlidesIter(object):
+	def __init__(self, slides):
+		self.instrument = []
+		self.slides = []
+		self.index = []
+		for key, value in slides.iteritems():
+			self.instrument.append(key)
+			self.slides.append(value)
+			self.index.append(0)
+		self.ids = lsctables.TimeSlideIDs()
+		self.stop = False
+
+	def __iter__(self):
+		return self
+
+	def next(self):
+		if self.stop:
+			raise StopIteration
+		rows = []
+		id = self.ids.next()
+		for i in range(len(self.instrument)):
+			row = lsctables.TimeSlide()
+			row.process_id = process.process_id
+			row.time_slide_id = id
+			row.instrument = self.instrument[i]
+			row.offset = self.slides[i][self.index[i]]
+			rows.append(row)
+		for i in range(len(self.instrument)):
+			self.index[i] += 1
+			if self.index[i] < len(self.slides[i]):
+				break
+			self.index[i] = 0
+		else:
+			self.stop = True
+		return rows
+
+for slide in SlidesIter(parse_slides(options)):
+	for row in slide:
+		timeslidetable.append(row)
+
+
+#
+# =============================================================================
+#
+#                                    Output
+#
+# =============================================================================
+#
+
+process.end_time = XLALUTCToGPS(time.gmtime())
+
+if options.output:
+	doc.write(file(options.output, "w"))
+else:
+	doc.write(sys.stdout)
