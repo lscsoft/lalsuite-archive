@@ -120,7 +120,7 @@ def parse_slides(options):
 			print >>sys.stderr, "error: cannot parse time slide \"%s\"" % instrument
 			sys.exit(1)
 		if slides.has_key(inst):
-			print >>sys.stderr, "error: duplicate instruments"
+			print >>sys.stderr, "error: duplicate instrument in time slide \"%s\"" % instrument
 			sys.exit(1)
 		slides[inst] = []
 		for rangespec in rangespecs.split(","):
@@ -128,15 +128,20 @@ def parse_slides(options):
 				[first, last, step] = rangespec.split(":")
 				first, last, step = float(first), float(last), float(step)
 			except ValueError:
-				print >>sys.stderr, "error: invalid range spec \"%s\"" % rangespec
+				print >>sys.stderr, "error: malformed range spec \"%s\"" % rangespec
 				sys.exit(1)
 			if step == 0.0:
 				if first != last:
-					print >>sys.stderr, "error: invalid range spec \"%s\"" % rangespec
+					print >>sys.stderr, "error: divide by zero in range spec \"%s\"" % rangespec
 					sys.exit(1)
 				slides[inst].append(first)
+			elif (last - first) / step < 0.0:
+				print >>sys.stderr, "error: step has wrong sign in range spec \"%s\"" % rangespec
+				sys.exit(1)
 			else:
 				slides[inst].extend(numarray.arange(first, last + step, step).tolist())
+				if slides[inst][-1] > last:
+					del slides[inst][-1]
 	return slides
 
 
