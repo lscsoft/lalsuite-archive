@@ -1974,7 +1974,7 @@ class TimeSlideTable(LSCTableMulti):
 	validcolumns = {
 		"process_id": "ilwd:char",
 		"time_slide_id": "ilwd:char",
-		"ifo": "lstring",
+		"instrument": "lstring",
 		"offset": "real_8"
 	}
 

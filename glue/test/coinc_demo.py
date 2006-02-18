@@ -39,9 +39,9 @@ def new_slide(process_id, h1off, h2off, l1off):
 	h2 = lsctables.TimeSlide()
 	l1 = lsctables.TimeSlide()
 
-	h1.ifo = "H1"
-	h2.ifo = "H2"
-	l1.ifo = "L1"
+	h1.instrument = "H1"
+	h2.instrument = "H2"
+	l1.instrument = "L1"
 
 	h1.time_slide_id = h2.time_slide_id = l1.time_slide_id = str(slideids.next())
 	h1.process_id = h2.process_id = l1.process_id = process_id
