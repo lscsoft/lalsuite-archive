@@ -8,7 +8,6 @@
 # =============================================================================
 #
 
-import numarray
 from optparse import OptionParser
 import os
 import socket
@@ -139,9 +138,14 @@ def parse_slides(options):
 				print >>sys.stderr, "error: step has wrong sign in range spec \"%s\"" % rangespec
 				sys.exit(1)
 			else:
-				slides[inst].extend(numarray.arange(first, last + step, step).tolist())
-				if slides[inst][-1] > last:
-					del slides[inst][-1]
+				i = 0
+				while True:
+					slides[inst].append(first + i * step)
+					if slides[inst][-1] >= last:
+						if slides[inst][-1] > last:
+							del slides[inst][-1]
+						break
+					i += 1
 	return slides
 
 
