@@ -11,6 +11,8 @@ from types import *
 from pylab import *
 from pylal import readMeta
 from pylal import viz
+from glue import segments
+from glue import segmentsUtils
 
 ##############################################################################
 usage = """
@@ -110,6 +112,9 @@ parser.add_option("-N","--num-slides",action="store",type="int",default=0,\
 parser.add_option("-t","--plot-type",action="store",type="string",\
     default="linear",metavar=" PLOT_TYPE", \
     help="make either linear or log or plots" )
+parser.add_option("-V","--veto-file",action="store",type="string",\
+    default=None,metavar=" FNAME",\
+    help="read in segments from FNAME (assumed segwizard format)")
 (opts,args) = parser.parse_args()
 
 # if --version flagged
@@ -200,6 +205,21 @@ if opts.glob:
 
 if coincfiles:
   inspTriggers = readMeta.metaDataTable(coincfiles,"sngl_inspiral")
+
+  if opts.veto_file:
+    file = open( opts.veto_file , "r")
+    seglist = segmentsUtils.fromsegwizard(file)
+    file.close()
+    vetoed = readMeta.metaDataTable( None, "sngl_inspiral")
+    keep = readMeta.metaDataTable( None, "sngl_inspiral")
+    for event in inspTriggers.table:
+      end_time = event["end_time"]
+      if seglist.__contains__(end_time):
+        vetoed.table.append(event)
+      else:
+        keep.table.append(event)
+    inspTriggers = keep
+
   coincTriggers = readMeta.coincInspiralTable(inspTriggers)
 
   # cluster them
@@ -222,6 +242,20 @@ else:
 # read in slide triggers
 if slidefiles:
   inspSlide = readMeta.metaDataTable(slidefiles,"sngl_inspiral")
+  
+  if opts.veto_file:
+    file = open( opts.veto_file , "r")
+    seglist = segmentsUtils.fromsegwizard(file)
+    file.close()
+    vetoed = readMeta.metaDataTable( None, "sngl_inspiral")
+    keep = readMeta.metaDataTable( None, "sngl_inspiral")
+    for event in inspTriggers.table:
+      end_time = event["end_time"]
+      if seglist.__contains__(end_time):
+        vetoed.table.append(event)
+      else:
+        keep.table.append(event)
+    inspTriggers = keep
 
   slide_num = range(1 , opts.num_slides + 1)
   slide_num.extend(range(-opts.num_slides, 0))
