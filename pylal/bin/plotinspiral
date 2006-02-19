@@ -7,10 +7,13 @@ import re
 import exceptions
 import glob
 from types import *
+from operator import itemgetter
 
 from pylab import *
 from pylal import readMeta
 from pylal import viz
+from glue import segments
+from glue import segmentsUtils
 
 ##############################################################################
 usage = """
@@ -85,6 +88,14 @@ parser.add_option("-m","--maximization-interval",action="store",\
     metavar=" MAX_INT", help="maximization interval used (in ms)" )
 parser.add_option("-T","--analyzed-time",action="store",type="int",\
     metavar=" SECONDS", help="amount of time analyzed" )
+parser.add_option("-V","--veto-file",action="store",type="string",\
+    default=None,metavar=" FNAME",\
+    help="read in segments from FNAME (assumed segwizard format)")
+parser.add_option("-A","--funky-threshold",action="store",type="float",\
+    metavar=" FUNKY_THRESH",\
+    help="specify the funky stat threshold (so we can add to plot)" )
+parser.add_option("-F","--funky-offset",action="store",type="float",\
+    metavar=" FUNKY_OFFSET", help="specify the offset in funky stat " )
 
 (opts,args) = parser.parse_args()
 
@@ -112,6 +123,23 @@ if not len(trigFiles):
 inspTriggers=readMeta.metaDataTable(trigFiles, "sngl_inspiral")
 plotsymbols= ['r+','bx','ko']
 
+# apply veto if there is one
+if opts.veto_file:
+  file = open( opts.veto_file , "r")
+  seglist = segmentsUtils.fromsegwizard(file)
+  file.close()
+  
+  vetoed = readMeta.metaDataTable( None, "sngl_inspiral")
+  keep = readMeta.metaDataTable( None, "sngl_inspiral")
+  for event in inspTriggers.table:
+    end_time = event["end_time"]
+    if seglist.__contains__(end_time):
+      vetoed.table.append(event)
+    else:
+      keep.table.append(event)
+        
+  inspTriggers = keep
+
 max_snr = max(inspTriggers.mkarray('snr'))
 min_snr = min(inspTriggers.mkarray('snr'))
 snr_range = arange( min_snr, max_snr, (max_snr - min_snr)/100  )
@@ -124,6 +152,16 @@ if opts.chisq_threshold:
   
   chisq_thresh = opts.chisq_threshold * ( opts.chisq_bins + \
     opts.chisq_delta * snr_range * snr_range )
+
+if opts.funky_threshold:
+  if not ( opts.funky_offset):
+    print >>sys.stderr, "when --funky-threshold is specified, must also give"
+    print >>sys.stderr, "the --funky-offset"
+    sys.exit(1)
+  
+  s3_snr_chi_stat = opts.funky_threshold * ( snr_range * snr_range * \
+      snr_range *snr_range ) / ( opts.funky_offset + (snr_range * \
+      snr_range) ) 
   
 ###################################
 # plot of snr vs chisq
@@ -132,8 +170,11 @@ if opts.snr_chisq:
   if opts.chisq_threshold:
     plot(snr_range, chisq_thresh)
     hold(True)
+  if opts.funky_threshold:
+    plot(snr_range, s3_snr_chi_stat, 'r-')
+    hold(True)
     
-  viz.plot_a_v_b(inspTriggers,'snr','chisq','linear','kx',opts.figure_name)
+  viz.plot_a_v_b(inspTriggers,'snr','chisq','linear','kx',output_name = opts.figure_name)
   xlim(min_snr, max_snr)
 
 ###################################
@@ -143,8 +184,11 @@ if opts.log_snr_chisq:
   if opts.chisq_threshold:
     loglog(snr_range, chisq_thresh)
     hold(True)
+  if opts.funky_threshold:
+    loglog(snr_range, s3_snr_chi_stat, 'r-')
+    hold(True)
     
-  viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','kx',opts.figure_name)
+  viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','kx',output_name = opts.figure_name)
   xlim(min_snr, max_snr)
 
 ###################################
