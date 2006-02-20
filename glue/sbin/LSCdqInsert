@@ -171,7 +171,7 @@ version = None
 expln = None
 comment = None
 segfile = None
-interval = None
+seg_interval = None
 starttime = None
 endtime = None
 append = 0
@@ -207,7 +207,7 @@ for o, a in opts:
   elif o in ("-S", "--segment-file"):
     segfile = a
   elif o in ("-I", "--interval"):
-    interval = a
+    seg_interval = a
   elif o in ("-g", "--gps-start-time"):
     starttime = int(a)
   elif o in ("-G", "--gps-end-time"):
@@ -246,9 +246,9 @@ if not expln and not append:
   errmsg += "Error: --explain must be specified\n"
 if not comment:
   errmsg += "Error: --comment must be specified\n"
-if not segfile and not interval:
+if not segfile and not seg_interval:
   errmsg += "Error: either --interval or --segment-file must be specified\n"
-if segfile and interval:
+if segfile and seg_interval:
   errmsg += "Error: only one of --interval or --segment-file may be specified\n"
 if not starttime:
   errmsg += "Error: --gps-start-time must be specified\n"
@@ -401,15 +401,15 @@ if not ping:
 
   segment_stream = []
 
-  if interval:
+  if seg_interval:
     # parse the segment from the command line
-    seg_line = interval.strip().split(",")
+    seg_line = seg_interval.strip().split(",")
     this_seg = segments.segment(int(seg_line[0]),int(seg_line[1]))
     if this_seg not in interval_s:
       # reject any segment that does not lie entirely in the interval
       # specified on the command line
       msg = "Error: interval %s must lie between %d and %d\n" % (
-        interval, starttime, endtime)
+        seg_interval, starttime, endtime)
       msg += "Bad segment is " + str(this_seg)
       print >> sys.stderr, msg
       sys.exit(1)
