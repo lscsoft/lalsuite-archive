@@ -78,6 +78,7 @@ Usage: %s [OPTIONS]
   -g, --gps-start-time T1  start of interval checked for this flag
   -G, --gps-end-time T2    end of interval checked for this flag
 
+  -I, --interval START,END insert only the GPS interval [START,END)
   -S, --segment-file FILE  a file containing the gps start and stop times
 
   -p, --ping               ping the server
@@ -85,14 +86,6 @@ Usage: %s [OPTIONS]
 
 If no server is specified, then the segment data is written to stdout and can
 be viewed using guild.
-
-The segment file to be inserted should contain active segments in the format
-
-gps_start gps_end
-
-where each segment is on a new line. Inactive segments will be created for the
-inverse of these times starting from the specified start time T1 and ending at
-the specified end time T2.
 
 The argument to the --ifos option should be a list of the interferometers to
 which this data quality flag applies. If multiple inferferometers are listed,
@@ -123,12 +116,26 @@ If extra segments are being added to an exisiting data quality flag, then the
 after end time of the last existing segment in the database, otherwise an
 error is generated. If the users wishes to change existing segment
 information, the version of the data quality flag must be incremented.
+
+A single interval may be inserted with the --interval command, for example
+
+  --interval 700000000,700000100
+
+or a list of segments may be given with the --segment-file command.
+
+The segment file to be inserted should contain active segments in the format
+
+gps_start gps_end
+
+where each segment is on a new line. Inactive segments will be created for the
+inverse of these times starting from the specified start time T1 and ending at
+the specified end time T2.
 \
 """ % sys.argv[0]
   print msg
 
 # define the command line arguments
-shortop = "s:j:r:i:n:v:e:c:g:G:s:Aph"
+shortop = "s:j:r:i:n:v:e:c:g:G:I:s:Aph"
 longop = [
   "server=",
   "identity=",
@@ -139,6 +146,7 @@ longop = [
   "explain=",
   "comment=",
   "segment-file=",
+  "interval=",
   "gps-start-time=",
   "gps-end-time=",
   "append",
@@ -163,6 +171,7 @@ version = None
 expln = None
 comment = None
 segfile = None
+interval = None
 starttime = None
 endtime = None
 append = 0
@@ -197,6 +206,8 @@ for o, a in opts:
     comment = a
   elif o in ("-S", "--segment-file"):
     segfile = a
+  elif o in ("-I", "--interval"):
+    interval = a
   elif o in ("-g", "--gps-start-time"):
     starttime = int(a)
   elif o in ("-G", "--gps-end-time"):
@@ -235,8 +246,10 @@ if not expln and not append:
   errmsg += "Error: --explain must be specified\n"
 if not comment:
   errmsg += "Error: --comment must be specified\n"
-if not segfile:
-  errmsg += "Error: --segment-file must be specified\n"
+if not segfile and not interval:
+  errmsg += "Error: either --interval or --segment-file must be specified\n"
+if segfile and interval:
+  errmsg += "Error: only one of --interval or --segment-file may be specified\n"
 if not starttime:
   errmsg += "Error: --gps-start-time must be specified\n"
 if not endtime:
@@ -388,23 +401,38 @@ if not ping:
 
   segment_stream = []
 
-  # read in the active segments from the file specified on the cmd line
-  fh = open(segfile, 'r')
-  for line in fh.readlines():
-    seg_line = line.strip().split(" ")
+  if interval:
+    # parse the segment from the command line
+    seg_line = line.strip().split(",")
     this_seg = segments.segment(int(seg_line[0]),int(seg_line[1]))
     if this_seg not in interval_s:
       # reject any segment that does not lie entirely in the interval
       # specified on the command line
-      msg = "Error: segments in %s must lie between %d and %d\n" % (
-        segfile, starttime, endtime)
+      msg = "Error: interval %s must lie between %d and %d\n" % (
+        interval, starttime, endtime)
       msg += "Bad segment is " + str(this_seg)
       print >> sys.stderr, msg
       sys.exit(1)
     # otherwise append the segment to the list of active segments
     active_segments.append(this_seg)
-  # coalesce the active segments to deal with overlaps
-  active_segments.coalesce()
+  else:
+    # read in the active segments from the file specified on the cmd line
+    fh = open(segfile, 'r')
+    for line in fh.readlines():
+      seg_line = line.strip().split(" ")
+      this_seg = segments.segment(int(seg_line[0]),int(seg_line[1]))
+      if this_seg not in interval_s:
+        # reject any segment that does not lie entirely in the interval
+        # specified on the command line
+        msg = "Error: segments in %s must lie between %d and %d\n" % (
+          segfile, starttime, endtime)
+        msg += "Bad segment is " + str(this_seg)
+        print >> sys.stderr, msg
+        sys.exit(1)
+      # otherwise append the segment to the list of active segments
+      active_segments.append(this_seg)
+    # coalesce the active segments to deal with overlaps
+    active_segments.coalesce()
 
   # subtract the active segments from the total interval to get
   # the list of inactive segments to be inserted into the database
