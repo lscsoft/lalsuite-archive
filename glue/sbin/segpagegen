@@ -258,7 +258,12 @@ for ifo in ['H1', 'H2', 'L1']:
   # update the symbolic links
   if verbose: print "creating symbolic links"
   for k in seg_file.keys():
-    os.symlink(seg_file[k] + '.' + time_str + '.txt', seg_file[k] + '.txt')
+    symlink_name = seg_file[k] + '.txt'
+    try:
+      os.unlink(symlink_name)
+    except:
+      pass
+    os.symlink(seg_file[k] + '.' + time_str + '.txt', symlink_name)
 
 #####################################################################
 # Close the connection to the database and exit.
