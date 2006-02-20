@@ -1,0 +1,68 @@
+#!/usr/bin/env python
+
+# Author: Patrick Brady and Darren Woods, UWM
+
+import re, sys, os, string, glob
+from pylab import *
+from pylal import readMeta
+from optparse import *
+
+# define usage and command line options and arguments - parse
+usage = """\
+plotnumtemplates [options]
+
+
+description:
+  Plot the distance versus time based on the output files from an
+  inspiral dag.  The code uses the effective distance stored in the
+  search summary files.   It can also plot a histogram of the horizon
+  distance, i.e. the number of blocks in which a given distance is
+  seen.  The output is a pair of png files if the -f option is
+  supplied and will display to screen if the option -s is supplied.
+
+
+example:
+
+  Generate png files which show the horizon distance for L1, H1 and H2
+  versus time.  Also generate histograms of these distances between 0
+  and 20 Mpc.  The output will be two files "s4-bns-horizon.png" and
+  "s4-bns-horizon_hist.png"
+  
+  plotdistance --l1 --h1 --glob "-INSPIRAL-*" --h2 \\
+      -f s4-bns --hist --max-dist 20.0
+    
+
+bugs:
+  (1)  Could be adapted to work with summary information from 
+  lalapps_tmplbank, but has not been yet. (2) Too many hardcoded
+  numbers which should be made options with default values. 
+"""
+parser = OptionParser( usage )
+parser.add_option("-f","--figure-name",action="store",type="string",\
+    default=None,metavar=" FNAME",\
+    help="generate ps figures with name FNAME_PlotType.ps")
+parser.add_option("-s","--show-plot",action="store_true",default=False,\
+    help="display the figures on the terminal" )
+
+( options , args ) = parser.parse_args()
+
+# identify the template bank files and count the templates
+tmplt_bank_files = glob.glob("H1-TMPLTBANK-*.xml")
+tmpltbank = readMeta.metaDataTable( tmplt_bank_files , 'search_summary') 
+numtemplates = tmpltbank.mkarray("nevents")
+ttemplates = tmpltbank.mkarray("out_start_time")
+
+# identify the trig bank files and count the templates
+trig_bank_files = glob.glob("H1-TRIGBANK_*.xml")
+trigbank = readMeta.metaDataTable( trig_bank_files , 'search_summary') 
+numtrigtemplates = trigbank.mkarray("nevents")
+ttrigtemplates = trigbank.mkarray("out_start_time")
+
+block=arange( len( numtemplates ) )
+plot(ttemplates,cumsum(numtemplates),'ro',ttrigtemplates,cumsum(numtrigtemplates),'go')
+
+if options.figure_name:
+  savefig(options.figure_name + "-numtemplates.png")
+
+if options.show_plot:
+  show()
