@@ -403,7 +403,7 @@ if not ping:
 
   if interval:
     # parse the segment from the command line
-    seg_line = line.strip().split(",")
+    seg_line = interval.strip().split(",")
     this_seg = segments.segment(int(seg_line[0]),int(seg_line[1]))
     if this_seg not in interval_s:
       # reject any segment that does not lie entirely in the interval
