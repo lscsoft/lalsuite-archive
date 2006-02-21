@@ -2259,6 +2259,38 @@ class LigolwAddNode(CondorDAGNode, AnalysisNode):
     AnalysisNode.__init__(self)
 
 
+class LigolwCutJob(CondorDAGJob, AnalysisJob):
+  """
+  A ligolw_cut job can be used to remove parts of a ligo lw file
+  """
+  def __init__(self,log_dir,cp,dax=False):
+    """
+    cp = ConfigParser object from which options are read.
+    """
+    self.__executable = cp.get('condor','ligolw_cut')
+    self.__universe = 'vanilla'
+    CondorDAGJob.__init__(self,self.__universe,self.__executable)
+    AnalysisJob.__init__(self,cp,dax)
+
+    self.add_condor_cmd('getenv','True')
+
+    self.set_stdout_file(os.path.join( log_dir, 'ligolw_cut-$(cluster)-$(process).out') )
+    self.set_stderr_file(os.path.join( log_dir, 'ligolw_cut-$(cluster)-$(process).err') )
+    self.set_sub_file('ligolw_cut.sub')
+
+
+class LigolwCutNode(CondorDAGNode, AnalysisNode):
+  """
+  Runs an instance of ligolw_cut in a Condor DAG.
+  """
+  def __init__(self,job):
+    """
+    @param job: A CondorDAGJob that can run an instance of ligolw_cut
+    """
+    CondorDAGNode.__init__(self,job)
+    AnalysisNode.__init__(self)
+
+
 class LDBDCJob(CondorDAGJob, AnalysisJob):
   """
   A ldbdc job can be used to insert data or fetch data from the database.
