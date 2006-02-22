@@ -1,0 +1,201 @@
+#!/usr/bin/python
+
+#
+# =============================================================================
+#
+#                                   Preamble
+#
+# =============================================================================
+#
+
+from optparse import OptionParser
+import os
+import socket
+import sys
+import time
+
+from glue.ligolw import ligolw
+from glue.ligolw import metaio
+from glue.ligolw import lsctables
+from glue.ligolw import docutils
+from pylal import SnglBurstUtils
+from pylal.support import XLALUTCToGPS
+
+__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__version__ = "$Revision$"[11:-2]
+__date__ = "$Date$"[7:-2]
+
+
+#
+# =============================================================================
+#
+#                                 Command Line
+#
+# =============================================================================
+#
+
+parser = OptionParser(version = "%prog CVS $Id$")
+parser.add_option("--comment", metavar = "text", default = "", help = "set comment string in process table")
+parser.add_option("-i", "--input", metavar = "filename", help = "read from filename (default = stdin)")
+parser.add_option("-o", "--output", metavar = "filename", help = "write to filename (default = stdout)")
+parser.add_option("-m", "--cluster", metavar = "[bypeaktimeandfreq|bytimeandfreq]", help = "set clustering method (required)")
+parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
+options, args = parser.parse_args()
+del parser, args
+
+if options.cluster == None:
+	print >>sys.stderr, "error: missing required command line argument --cluster"
+	sys.exit(1)
+if options.cluster == "bypeaktimeandfreq":
+	testfunc = SnglBurstUtils.CompareSnglBurstByPeakTimeAndFreq
+	clusterfunc = SnglBurstUtils.SnglBurstCluster
+	bailoutfunc = SnglBurstUtils.CompareSnglBurstByPeakTime
+elif options.cluster == "bytimeandfreq":
+	testfunc = SnglBurstUtils.CompareSnglBurst
+	clusterfunc = SnglBurstUtils.SnglBurstCluster
+	bailoutfunc = None
+else:
+	print >>sys.stderr, "error: unrecognized cluster method %s" % options.cluster
+	sys.exit(1)
+
+
+#
+# =============================================================================
+#
+#                                    Input
+#
+# =============================================================================
+#
+
+doc = ligolw.Document()
+if options.input:
+	ligolw.make_parser(lsctables.LIGOLWContentHandler(doc)).parse(file(options.input))
+else:
+	ligolw.make_parser(lsctables.LIGOLWContentHandler(doc)).parse(sys.stdin)
+
+
+#
+# =============================================================================
+#
+#                                 Preparation
+#
+# =============================================================================
+#
+
+proctable = metaio.getTablesByName(doc, lsctables.ProcessTable.tableName)
+if len(proctable) != 1:
+	print >>sys.stderr, "error: input must contain exactly 1 process table"
+	sys.exit(1)
+proctable = proctable[0]
+
+procparamtable = metaio.getTablesByName(doc, lsctables.ProcessParamsTable.tableName)
+if len(procparamtable) != 1:
+	print >>sys.stderr, "error: input must contain exactly 1 process params table"
+	sys.exit(1)
+procparamtable = procparamtable[0]
+
+searchsummtable = metaio.getTablesByName(doc, lsctables.SearchSummaryTable.tableName)
+if len(searchsummtable) != 1:
+	print >>sys.stderr, "error: input must contain exactly 1 search summary table"
+	sys.exit(1)
+searchsummtable = searchsummtable[0]
+
+snglbursttables = metaio.getTablesByName(doc, lsctables.SnglBurstTable.tableName)
+
+
+#
+# =============================================================================
+#
+#                           Add Process Information
+#
+# =============================================================================
+#
+
+process = lsctables.Process()
+process.program = "ligolw_bucluster"
+process.version = __version__
+process.cvs_repository = "lscsoft"
+process.cvs_entry_time = XLALUTCToGPS(time.strptime(__date__, "%Y/%m/%d %H:%M:%S"))
+process.comment = options.comment
+process.is_online = 0
+process.node = socket.gethostbyaddr(socket.gethostname())[0]
+process.username = os.environ["LOGNAME"]
+process.unix_procid = os.getpid()
+process.start_time = XLALUTCToGPS(time.gmtime())
+process.end_time = 0
+process.jobid = 0
+process.domain = ""
+process.ifos = ""
+process.process_id = docutils.NewILWDs(proctable, "process_id").next()
+
+proctable.append(process)
+
+def add_param(name, type, value):
+	param = lsctables.ProcessParams()
+	param.program = process.program
+	param.process_id = process.process_id
+	param.param = str(name)
+	param.type = str(type)
+	param.value = str(value)
+	procparamtable.append(param)
+
+if options.input != None:
+	add_param("--input", "lstring", options.input)
+if options.output != None:
+	add_param("--output", "lstring", options.output)
+add_param("--cluster", "lstring", options.cluster)
+
+
+#
+# =============================================================================
+#
+#                                Do Clustering
+#
+# =============================================================================
+#
+
+for table in snglbursttables:
+	SnglBurstUtils.ClusterSnglBurstTable(table.rows, testfunc, clusterfunc, bailoutfunc)
+
+nevents = 0
+for table in snglbursttables:
+	nevents += len(table.rows)
+
+
+#
+# =============================================================================
+#
+#                        Add Search Summary Information
+#
+# =============================================================================
+#
+
+searchsumm = lsctables.SearchSummary()
+searchsumm.process_id = process.process_id
+searchsumm.shared_object = "standalone"
+searchsumm.lalwrapper_cvs_tag = ""
+searchsumm.lal_cvs_tag = ""
+searchsumm.comment = process.comment
+searchsumm.ifos = process.ifos
+searchsumm.set_in(searchsummtable.get_inlist().extent())
+searchsumm.set_out(searchsummtable.get_outlist().extent())
+searchsumm.nevents = nevents
+searchsumm.nnodes = 1
+
+searchsummtable.append(searchsumm)
+
+
+#
+# =============================================================================
+#
+#                                    Output
+#
+# =============================================================================
+#
+
+process.end_time = XLALUTCToGPS(time.gmtime())
+
+if options.output:
+	doc.write(file(options.output, "w"))
+else:
+	doc.write(sys.stdout)
