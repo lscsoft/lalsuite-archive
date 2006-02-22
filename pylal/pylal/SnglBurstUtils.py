@@ -8,27 +8,53 @@ from glue import segments
 # =============================================================================
 #
 
+def cmp_segs(a, b):
+	"""
+	Returns 1 if a covers an interval above b's interval, -1 if a
+	covers an interval below b's, and 0 if the two intervals overlap.
+	"""
+	if a[0] > b[1]:
+		return 1
+	if a[1] < b[0]:
+		return -1
+	return 0
+
+
+def smallest_enclosing_seg(a, b):
+	"""
+	Return the smallest segment that contains both a and b.
+	"""
+	return segments.segment(min(a[0], b[0]), max(a[1], b[1]))
+
+
 def CompareSnglBurstByPeakTime(a, b):
 	return cmp(a.get_peak(), b.get_peak())
 
 
 def CompareSnglBurstByPeakTimeAndFreq(a, b):
-	return cmp((a.get_peak(), a.get_band()), (b.get_peak(), b.get_band()))
+	result = cmp(a.get_peak(), b.get_peak())
+	if not result:
+		result = cmp_segs(a.get_band(), b.get_band())
+	return result
+
+
+def CompareSnglBurst(a, b):
+	result = cmp_segs(a.get_period(), b.get_period())
+	if not result:
+		result = cmp_segs(a.get_band(), b.get_band())
+	return result
 
 
 def SnglBurstCluster(a, b):
-	def smallest_enclosing_interval(seg1, seg2):
-		return segments.segment(min(seg1[0], seg2[0]), max(seg1[1], seg2[1]))
-
 	# The cluster's frequency band is the smallest band containing the
 	# bands of the two original events
 
-	a.set_band(smallest_enclosing_interval(a.get_band(), b.get_band()))
+	a.set_band(smallest_enclosing_seg(a.get_band(), b.get_band()))
 
 	# The cluster's time interval is the smallest interval containing
 	# the intervals of the two original events
 
-	a.set_period(smallest_enclosing_interval(a.get_period(), b.get_period()))
+	a.set_period(smallest_enclosing_seg(a.get_period(), b.get_period()))
 
 	# The amplitude, SNR, confidence, and peak time of the cluster are
 	# those of the most confident of the two events (more negative
@@ -39,7 +65,7 @@ def SnglBurstCluster(a, b):
 		a.snr = b.snr
 		a.confidence = b.confidence
 		a.set_peak(b.get_peak())
-		a.peak_dof = b.peak_dof
+		a.tfvolume = b.tfvolume
 
 
 def ClusterSnglBurstTable(triggers, testfunc, clusterfunc, bailoutfunc = None):
