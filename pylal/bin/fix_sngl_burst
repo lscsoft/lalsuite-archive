@@ -9,5 +9,5 @@
 #
 
 sed -e "s?sngl_burstgroup:sngl_burst:peak_dof?sngl_burstgroup:sngl_burst:tfvolume?" |
-ligolw_cut --delete-column "sngl_burst:clusterT" --delete-column "sngl_burst:event_id" |
+ligolw_cut --delete-element Comment --delete-column "sngl_burst:clusterT" --delete-column "sngl_burst:event_id" |
 ./fix_sngl_burst_add_event_id
