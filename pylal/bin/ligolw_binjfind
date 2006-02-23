@@ -149,11 +149,16 @@ procparamtable = procparamtable[0]
 snglbursttables = metaio.getTablesByName(doc, lsctables.SnglBurstTable.tableName)
 simbursttables = metaio.getTablesByName(doc, lsctables.SimBurstTable.tableName)
 
-# FIXME: what if we find a coinctable, but it has a time_slide column?
+tisitable = metaio.getTablesByName(doc, lsctables.TimeSlideTable.tableName)
+if len(tisitable) != 1:
+	print >>sys.stderr, "error: input must contain exactly 1 time slide table"
+	sys.exit(1)
+tisitable = tisitable[0]
+
 try:
 	coinctable = metaio.getTablesByName(doc, lsctables.CoincTable.tableName)[0]
 except IndexError:
-	coinctable = lsctables.New(lsctables.CoincTable, columns = ["process_id", "coinc_event_id"])
+	coinctable = lsctables.New(lsctables.CoincTable)
 	doc.childNodes[0].appendChild(coinctable)
 coincids = docutils.NewILWDs(coinctable, "coinc_event_id")
 
@@ -211,15 +216,42 @@ add_param("--select", "lstring", options.select)
 #
 # =============================================================================
 #
+#                         Find The Zero-Lag Time Slide
+#
+# =============================================================================
+#
+
+def find_zero_lag_tisi(table):
+	for id, tisi in table.dict.iteritems():
+		for row in tisi:
+			if row.offset != 0.0:
+				break
+		else:
+			return id, [row.instrument for row in tisi]
+
+try:
+	tisi_id, tisi_instruments = find_zero_lag_tisi(tisitable)
+except Exception, e:
+	print >>sys.stderr, "error:  input does not contain a zero-lag time slide %s" % str(e)
+	sys.exit(1)
+
+#
+# =============================================================================
+#
 #                  Build Injection <--> Trigger Coincidences
 #
 # =============================================================================
 #
 
 def add_found_injection(sim, burst):
+	if burst.ifo not in tisi_instruments:
+		print >>sys.stderr, "error: zero-lag time slide does not list instrument %s" % burst.ifo
+		sys.exit(1)
+
 	coinc = lsctables.Coinc()
 	coinc.process_id = process.process_id
 	coinc.coinc_event_id = coincids.next()
+	coinc.time_slide_id = tisi_id
 	coinctable.append(coinc)
 
 	coincmap = lsctables.CoincMap()
