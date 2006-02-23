@@ -209,6 +209,9 @@ class LSCTableUniqueItemIter(object):
 	def __init__(self, dict):
 		self.iter = iter(dict.rows)
 
+	def __iter__(self):
+		return self
+
 	def next(self):
 		row = self.iter.next()
 		return (row._get_key(), row)
@@ -217,6 +220,9 @@ class LSCTableUniqueItemIter(object):
 class LSCTableUniqueKeyIter(object):
 	def __init__(self, dict):
 		self.iter = iter(dict.rows)
+
+	def __iter__(self):
+		return self
 
 	def next(self):
 		return self.iter.next()._get_key()
@@ -314,6 +320,9 @@ class LSCTableMultiItemIter(object):
 	def __init__(self, dict):
 		self.dict = dict
 		self.iter = iter(dict.keys())
+
+	def __iter__(self):
+		return self
 
 	def next(self):
 		key = self.iter.next()
@@ -2000,13 +2009,13 @@ class TimeSlide(LSCTableRow):
 	__slots__ = TimeSlideTable.validcolumns.keys()
 
 	def _get_key(self):
-		return self.slide_id
+		return self.time_slide_id
 
 	def _set_key(self, key):
-		self.slide_id = key
+		self.time_slide_id = key
 
 	def _has_key(self, key):
-		return self.slide_id == key
+		return self.time_slide_id == key
 
 TimeSlideTable.RowType = TimeSlide
 
