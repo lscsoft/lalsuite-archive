@@ -26,6 +26,6 @@
 # stdin, writes output to stdout.
 #
 
-sed -e "s?sngl_burstgroup:sngl_burst:peak_dof?sngl_burstgroup:sngl_burst:tfvolume?" |
+sed -e "s?sngl_burst:peak_dof?sngl_burst:tfvolume?" |
 ligolw_cut --delete-element Comment --delete-column "sngl_burst:clusterT" --delete-column "sngl_burst:event_id" |
-./fix_sngl_burst_add_event_id
+${1:-./fix_sngl_burst_add_event_id}
