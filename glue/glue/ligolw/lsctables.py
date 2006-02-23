@@ -1034,9 +1034,12 @@ class SnglInspiral(LSCTableRow):
 
 SnglInspiralTable.RowType = SnglInspiral
 
-class SnglInspiralIDs(ILWD):
-	def __init__(self, n = 0):
-		ILWD.__init__(self, "sngl_inspiral", "event_id", n)
+# FIXME: class definition removed until LAL inspiral code generates ilwd:char
+# event_ids.  Re-enable when LAL is fixed.
+#
+#class SnglInspiralIDs(ILWD):
+#	def __init__(self, n = 0):
+#		ILWD.__init__(self, "sngl_inspiral", "event_id", n)
 
 
 #
@@ -2076,9 +2079,13 @@ class CoincIDs(ILWD):
 
 # Tables that can provide "events" for the coinc_event_map table
 # Wow:  it's annoying this has to be done by hand.
+#
+# FIXME: sngl_inspiral table cannot participate in the coinc_event table
+# infrastructure until the LAL code generates event_ids of type ilwd:char.
+# Re-list SnglInspiralTable in here when LAL is fixed.
 CoincEventMapSourceNames = [
 	metaio.StripTableName(SnglBurstTable.tableName),
-	metaio.StripTableName(SnglInspiralTable.tableName),
+#	metaio.StripTableName(SnglInspiralTable.tableName),
 	metaio.StripTableName(SnglRingDownTable.tableName),
 	metaio.StripTableName(MultiInspiralTable.tableName),
 	metaio.StripTableName(SimInspiralTable.tableName),
@@ -2221,11 +2228,15 @@ TableByName = {
 
 
 # Table name ---> ILWD generator mapping.
+#
+# FIXME: sngl_inspiral table cannot participate in generic ilwd infrastructure
+# until LAL code generates event_id columns with the correct type.  Re-enable
+# when LAL is fixed.
 ILWDGeneratorByTableName = {
 	metaio.StripTableName(ProcessTable.tableName): ProcessIDs,
 	metaio.StripTableName(LfnTable.tableName): LfnIDs,
 	metaio.StripTableName(SnglBurstTable.tableName): SnglBurstIDs,
-	metaio.StripTableName(SnglInspiralTable.tableName): SnglInspiralIDs,
+#	metaio.StripTableName(SnglInspiralTable.tableName): SnglInspiralIDs,
 	metaio.StripTableName(SimRingDownTable.tableName): SnglRingDownIDs,
 	metaio.StripTableName(SimInspiralTable.tableName): SimInspiralIDs,
 	metaio.StripTableName(SimBurstTable.tableName): SimBurstIDs,
