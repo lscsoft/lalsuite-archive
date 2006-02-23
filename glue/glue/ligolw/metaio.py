@@ -259,9 +259,11 @@ class TableStream(ligolw.Stream):
 			except ValueError, e:
 				raise ligolw.ElementError, "Stream parsing error near token %s: %s" % (str(match.group(match.lastindex)), str(e))
 			except AttributeError, e:
-				# by allowing this, code can be written that
-				# saves memory by setting RowType to an object
-				# with slots for only the desired columns.
+				# row object does not have an attribute
+				# matching this column.  by allowing this,
+				# code can be written that saves memory by
+				# setting RowType to an object with slots
+				# for only the desired columns.
 				pass
 			self.__attrindex = (self.__attrindex + 1) % numattrs
 			if self.__attrindex == 0:
@@ -293,7 +295,8 @@ class TableStream(ligolw.Stream):
 			while True:
 				file.write(self.getAttribute("Delimiter") + "\n" + indent + ligolw.Indent + self._rowstr(rowiter.next(), columns))
 		except StopIteration:
-			file.write("\n")
+			if len(self.parentNode) > 0:
+				file.write("\n")
 		print >>file, indent + self.end_tag()
 
 	# FIXME: This function is for the metaio library:  metaio cares
