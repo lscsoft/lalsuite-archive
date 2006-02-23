@@ -23,6 +23,7 @@
 # trigger.  Reads input from stdin, writes output to stdout.
 #
 
+import sys
 from xml import sax
 
 from glue.ligolw import ligolw
