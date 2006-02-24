@@ -23,12 +23,19 @@
 # trigger.  Reads input from stdin, writes output to stdout.
 #
 
+from optparse import OptionParser
 import sys
 from xml import sax
 
 from glue.ligolw import ligolw
 from glue.ligolw import metaio
 from glue.ligolw import lsctables
+
+
+def GetOpts():
+	parser = OptionParser()
+	parser.add_option("--output")
+	return parser.parse_args()[0]
 
 
 def LoadDocuments():
@@ -46,4 +53,8 @@ def AddEventIDs(doc):
 	return doc
 
 
-AddEventIDs(LoadDocuments()).write()
+output = GetOpts().output
+if output:
+	AddEventIDs(LoadDocuments()).write(file(output, "w"))
+else:
+	AddEventIDs(LoadDocuments()).write(sys.stdout)
