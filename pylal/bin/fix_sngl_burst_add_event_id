@@ -47,7 +47,10 @@ def LoadDocuments():
 def AddEventIDs(doc):
 	new_event_ids = lsctables.SnglBurstIDs()
 	for table in lsctables.getTablesByType(doc, lsctables.SnglBurstTable):
-		table.insertBefore(metaio.Column(sax.xmlreader.AttributesImpl({u"Name": metaio.StripTableName(table.tableName) + ":event_id", u"Type": lsctables.SnglBurstTable.validcolumns["event_id"]})), table.childNodes[-1])
+		try:
+			table.appendColumn("event_id")
+		except ValueError:
+			continue
 		for row in table.rows:
 			row.event_id = new_event_ids.next()
 	return doc
