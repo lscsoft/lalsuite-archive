@@ -407,6 +407,22 @@ class Table(ligolw.Table):
 			raise KeyError, "no Column matching name \"%s\"" % name
 
 
+	def appendColumn(self, name):
+		"""
+		Append a column named "name" to the table.  Returns the new
+		child.
+		"""
+		if getColumnsByName(self, name):
+			raise ValueError, "duplicate Column \"%s\"" % name
+		column = Column(sax.xmlreader.AttributesImpl({u"Name": "%s:%s" % (StripTableName(self.tableName), name), u"Type": self.validcolumns[name]}))
+		streams = self.getElementsByTagName(ligolw.Stream.tagName)
+		if streams:
+			self.insertBefore(column, streams[0])
+		else:
+			self.appendChild(column)
+		return column
+
+
 	#
 	# Element methods
 	#
