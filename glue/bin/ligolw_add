@@ -37,7 +37,7 @@ parser.add_option("--lfn-start-time", metavar = "START", help = "set lft start_t
 parser.add_option("--lfn-end-time", metavar = "END", help = "set lfn end_time to END (optional)")
 parser.add_option("--lfn-comment", metavar = "STRING", help = "set lfn comment to STRING (optional)")
 parser.add_option("--non-lsc-tables-ok", action = "store_true", help = "OK to merge documents containing non-LSC tables")
-parser.add_option("-o", "--output", metavar = "FILENAME", help = "write output to FILENAME (default = stdout")
+parser.add_option("-o", "--output", metavar = "FILENAME", help = "write output to FILENAME (default = stdout)")
 parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
 options, urls = parser.parse_args()
 del parser
