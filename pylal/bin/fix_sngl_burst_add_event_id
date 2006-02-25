@@ -25,7 +25,6 @@
 
 from optparse import OptionParser
 import sys
-from xml import sax
 
 from glue.ligolw import ligolw
 from glue.ligolw import metaio
