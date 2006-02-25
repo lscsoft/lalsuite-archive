@@ -163,7 +163,7 @@ for table in snglbursttables:
 		ligolwmon.event_id = ligolwmonids.next()
 		ligolwmon.set_time(burst.get_peak())
 		ligolwmon.amplitude = burst.amplitude
-		ligolwmon.confidence = burst.confidence
+		ligolwmon.confidence = -burst.confidence
 		ligolwmon.frequency = burst.central_freq
 		ligolwmontable.append(ligolwmon)
 
