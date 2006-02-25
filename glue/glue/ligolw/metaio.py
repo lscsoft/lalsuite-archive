@@ -4,7 +4,7 @@ __version__ = "$Revision$"
 
 import re
 import sys
-from xml import sax
+from xml.sax.xmlreader import AttributesImpl
 
 import ligolw
 
@@ -414,7 +414,7 @@ class Table(ligolw.Table):
 		"""
 		if getColumnsByName(self, name):
 			raise ValueError, "duplicate Column \"%s\"" % name
-		column = Column(sax.xmlreader.AttributesImpl({u"Name": "%s:%s" % (StripTableName(self.tableName), name), u"Type": self.validcolumns[name]}))
+		column = Column(AttributesImpl({u"Name": "%s:%s" % (StripTableName(self.tableName), name), u"Type": self.validcolumns[name]}))
 		streams = self.getElementsByTagName(ligolw.Stream.tagName)
 		if streams:
 			self.insertBefore(column, streams[0])
