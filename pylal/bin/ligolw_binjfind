@@ -47,36 +47,6 @@ __date__ = "$Date$"[7:-2]
 #
 # =============================================================================
 #
-#                          Trigger Selection Methods
-#
-# =============================================================================
-#
-
-def PickBestPeakTime(sim, burst1, burst2):
-	if sim.coordinates == "ZENITH":
-		tsim = sim.get_geocent_peak()
-	elif burst1.ifo == "H1":
-		tsim = sim.get_h_peak()
-	elif burst1.ifo == "H2":
-		tsim = sim.get_h_peak()
-	elif burst1.ifo == "L1":
-		tsim = sim.get_l_peak()
-	else:
-		raise Exception, "unrecognized sngl_burst IFO \"%s\"" % burst1.ifo
-	if abs(tsim - burst1.get_peak()) < abs(tsim - burst2.get_peak()):
-		return burst1
-	return burst2
-
-
-def PickBestConfidence(sim, burst1, burst2):
-	if burst1.confidence < burst2.confidence:
-		return burst1
-	return burst2
-
-
-#
-# =============================================================================
-#
 #                                 Command Line
 #
 # =============================================================================
@@ -87,7 +57,6 @@ parser.add_option("--comment", metavar = "text", default = "", help = "set comme
 parser.add_option("-c", "--compare", metavar = "[bytime|bytimeandfreq]", default = "bytimeandfreq", help = "set comparison test")
 parser.add_option("-i", "--input", metavar = "filename", help = "read from filename (default = stdin)")
 parser.add_option("-o", "--output", metavar = "filename", help = "write to filename (default = stdout)")
-parser.add_option("-s", "--select", metavar = "[bestpeaktime|bestconfidence]", default = "bestconfidence", help = "set selection method when more than one trigger matches")
 parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
 options, args = parser.parse_args()
 del parser, args
@@ -99,15 +68,6 @@ elif options.compare == "bytimeandfreq":
 	comparefunc = SnglBurstUtils.CompareSimBurstAndSnglBurstByTimeandFreq
 else:
 	print >>sys.stderr, "error: unrecognized compare test \"%s\"" % options.compare
-	sys.exit(1)
-
-# set selection method
-if options.select == "bestpeaktime":
-	selectfunc = PickBestPeakTime
-elif options.select == "bestconfidence":
-	selectfunc = PickBestConfidence
-else:
-	print >>sys.stderr, "error: unrecognized selection method \"%s\"" % options.select
 	sys.exit(1)
 
 
@@ -210,7 +170,6 @@ if options.input != None:
 	add_param("--input", "lstring", options.input)
 if options.output != None:
 	add_param("--output", "lstring", options.output)
-add_param("--select", "lstring", options.select)
 
 
 #
@@ -235,6 +194,7 @@ except Exception, e:
 	print >>sys.stderr, "error:  input does not contain a zero-lag time slide %s" % str(e)
 	sys.exit(1)
 
+
 #
 # =============================================================================
 #
@@ -243,16 +203,19 @@ except Exception, e:
 # =============================================================================
 #
 
-def add_found_injection(sim, burst):
-	if burst.ifo not in tisi_instruments:
-		print >>sys.stderr, "error: zero-lag time slide does not list instrument %s" % burst.ifo
-		sys.exit(1)
-
+def new_coinc():
 	coinc = lsctables.Coinc()
 	coinc.process_id = process.process_id
 	coinc.coinc_event_id = coincids.next()
 	coinc.time_slide_id = tisi_id
 	coinctable.append(coinc)
+	return coinc
+
+
+def add_found_injection(coinc, sim, burst):
+	if burst.ifo not in tisi_instruments:
+		print >>sys.stderr, "error: zero-lag time slide does not list instrument %s" % burst.ifo
+		sys.exit(1)
 
 	coincmap = lsctables.CoincMap()
 	coincmap.coinc_event_id = coinc.coinc_event_id
@@ -265,23 +228,22 @@ def add_found_injection(sim, burst):
 	coincmaptable.append(coincmap)
 
 
-def find_best_match(sim, snglbursttables):
-	bestmatch = None
+def find_matches(sim, snglbursttables):
+	matches = []
 	for bursttable in snglbursttables:
 		for burst in bursttable.rows:
 			if comparefunc(sim, burst):
-				if not bestmatch:
-					bestmatch = burst
-				else:
-					bestmatch = selectfunc(sim, bestmatch, burst)
-	return bestmatch
+				matches.append(burst)
+	return matches
 
 
 for simtable in simbursttables:
 	for sim in simtable.rows:
-		bestmatch = find_best_match(sim, snglbursttables)
-		if bestmatch:
-			add_found_injection(sim, bestmatch)
+		matches = find_matches(sim, snglbursttables)
+		if matches:
+			coinc = new_coinc()
+			for match in matches:
+				add_found_injection(coinc, sim, match)
 
 
 #
