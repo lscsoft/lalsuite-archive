@@ -26,6 +26,7 @@
 # =============================================================================
 #
 
+import bisect
 from optparse import OptionParser
 import os
 import socket
@@ -106,7 +107,12 @@ if len(procparamtable) != 1:
 	sys.exit(1)
 procparamtable = procparamtable[0]
 
-snglbursttables = metaio.getTablesByName(doc, lsctables.SnglBurstTable.tableName)
+snglbursttable = metaio.getTablesByName(doc, lsctables.SnglBurstTable.tableName)
+if len(snglbursttable) != 1:
+	print >>sys.stderr, "error: input must contain exactly 1 sngl_burst table"
+	sys.exit(1)
+snglbursttable = snglbursttable[0]
+
 simbursttables = metaio.getTablesByName(doc, lsctables.SimBurstTable.tableName)
 
 tisitable = metaio.getTablesByName(doc, lsctables.TimeSlideTable.tableName)
@@ -198,6 +204,19 @@ except Exception, e:
 #
 # =============================================================================
 #
+#                         Sort Triggers By Start Time
+#
+# =============================================================================
+#
+
+snglbursttable.rows.sort(lambda a, b: cmp(a.get_start(), b.get_start()))
+
+starttimes = snglbursttable.getColumnByName("start_time")
+
+
+#
+# =============================================================================
+#
 #                  Build Injection <--> Trigger Coincidences
 #
 # =============================================================================
@@ -214,7 +233,7 @@ def new_coinc():
 
 def add_found_injection(coinc, sim, burst):
 	if burst.ifo not in tisi_instruments:
-		print >>sys.stderr, "error: zero-lag time slide does not list instrument %s" % burst.ifo
+		print >>sys.stderr, "error: zero-lag time slide does not list instrument %s needed by event %s" % (burst.ifo, burst.event_id)
 		sys.exit(1)
 
 	coincmap = lsctables.CoincMap()
@@ -228,22 +247,38 @@ def add_found_injection(coinc, sim, burst):
 	coincmaptable.append(coincmap)
 
 
-def find_matches(sim, snglbursttables):
+def find_matches(sim, bursttable):
+	"""
+	Scan the burst table for matching triggers within +/- 10 seconds of
+	the injection's geocentric peak time.
+	"""
 	matches = []
-	for bursttable in snglbursttables:
-		for burst in bursttable.rows:
-			if comparefunc(sim, burst):
-				matches.append(burst)
+	i = bisect.bisect_left(starttimes, sim.geocent_peak_time - 10)
+	while (i < len(bursttable.rows)) and (starttimes[i] < sim.geocent_peak_time + 10):
+		if comparefunc(sim, bursttable.rows[i]):
+			matches.append(bursttable.rows[i])
+		i += 1
 	return matches
 
 
 for simtable in simbursttables:
 	for sim in simtable.rows:
-		matches = find_matches(sim, snglbursttables)
+		matches = find_matches(sim, snglbursttable)
 		if matches:
 			coinc = new_coinc()
 			for match in matches:
 				add_found_injection(coinc, sim, match)
+
+
+#
+# =============================================================================
+#
+#                             Sort Triggers By ID
+#
+# =============================================================================
+#
+
+snglbursttable.rows.sort(lambda a, b: cmp(lsctables.ILWDID(a.event_id), lsctables.ILWDID(b.event_id)))
 
 
 #
