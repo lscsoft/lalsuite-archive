@@ -98,7 +98,7 @@ def NewILWDs(table, column_name):
 	table.
 	"""
 	try:
-		n = max(map(lambda id: int(lsctables.ILWDID(id)), table.dict.keys()))
+		n = max(map(lsctables.ILWDID, table.dict.keys()))
 	except ValueError:
 		n = -1
 	return lsctables.ILWD(metaio.StripTableName(table.getAttribute("Name")), column_name, n + 1)

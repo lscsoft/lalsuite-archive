@@ -128,7 +128,7 @@ def ILWDID(ilwdchar):
 	the ID cannot be parsed.
 	"""
 	try:
-		return ILWDPattern.search(ilwdchar).group("ID")
+		return int(ILWDPattern.search(ilwdchar).group("ID"))
 	except AttributeError:
 		raise ValueError, "unrecognized ID \"%s\"" % repr(ilwdchar)
 
