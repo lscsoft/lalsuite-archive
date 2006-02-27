@@ -98,6 +98,11 @@ class metaDataTable:
     """
     self.table.extend(table.table);
 
+class snglInspiralTable(metaDataTable):
+  """
+  SnglInspiral specific table class.  
+  """
+
   def getslide(self, slide_num):
     """
     Return the triggers with a specific slide number.
@@ -110,17 +115,44 @@ class metaDataTable:
         slide_trigs.table.append(trig)
      
     return slide_trigs 
-  
+ 
+  def addcol(self, column):
+    """
+    Add column to the table.  The accepted columns at this time are 'snrsq',
+    'snr_over_chi' and 's3_snr_chi_stat'
+    @param column: name of column to add
+    """
 
+    if column == 'snrsq':
+      for trig in self.table:
+        trig['snrsq'] = trig['snr'] * trig['snr']
+ 
+    elif column == 'snr_over_chi':
+      for trig in self.table:
+        trig['snrsq_over_chi'] = trig['snr'] / sqrt(trig['chisq'])
+ 
+    elif column == 's3_snr_chi_stat':
+      for trig in self.table:
+        trig['s3_snr_chi_stat']= trig['snr']**4 \
+            / (250 + trig['snr']**2) / (trig['chisq'] )
+
+    elif column == 's4_snr_chi_stat':
+      for trig in self.table:
+        trig['s4_snr_chi_stat']= trig['snr']**2 \
+            / (1 + trig['snr']**2/250)**(0.5) \
+            / (trig['chisq']/(2*trig['chisq_dof'] - 2) )**(0.5) 
+        
+ 
 class coincInspiralTable:
   """
   Table to hold coincident inspiral triggers.  Coincidences are reconstructed 
   by making use of the event_id contained in the sngl_inspiral table.
   The coinc is a dictionary with entries: G1, H1, H2, L1, event_id, numifos, 
-  snrsq.  
-  The snrsq is the sum of the squares of the snrs of the individual triggers.
+  stat.  
+  The stat is set by default to the snrsq: the sum of the squares of the snrs 
+  of the individual triggers.
   """
-  def __init__(self, inspTriggers = None):
+  def __init__(self, inspTriggers = None, stat = None):
     """
     @param inspTriggese: a metaDataTable containing inspiral triggers 
                          from which to construct coincidences
@@ -132,14 +164,15 @@ class coincInspiralTable:
       eventidlist = asarray(uniq(inspTriggers.mkarray("event_id")))
       self.table = []
       for event_id in eventidlist: 
-        self.table.append({ "event_id":event_id, "numifos":0, "snrsq":0 })
+        self.table.append({ "event_id":event_id, "numifos":0, "stat":0 })
 
       for trig in inspTriggers.table:
         for coinc in self.table:
           if coinc["event_id"] == trig["event_id"]:
             coinc[trig["ifo"]] = trig
             coinc["numifos"] += 1
-            coinc["snrsq"] += trig["snr"] * trig["snr"]
+            if stat:
+              coinc["stat"] += trig[stat]
             break
     
     
@@ -155,7 +188,6 @@ class coincInspiralTable:
     """
     self.table.extend(table.table);
 
-
   def mkarray(self, colname, ifoname):
     mylist = []
     for i in range(len(self.table)):
@@ -166,7 +198,6 @@ class coincInspiralTable:
       mylist.append( tmpvalue )
 
     return asarray( mylist )
-
 
 
   def coincinclude(self, ifolist):
@@ -204,7 +235,6 @@ class coincInspiralTable:
     return selected_coincs
 
 
-
   def getsngls(self, ifo):
     """
     Return the sngls for a specific ifo.
@@ -232,10 +262,40 @@ class coincInspiralTable:
      
     return slide_coincs 
 
-  
+  def setstat(self, stat):
+    """
+    Return an array of statistic values.
+    """
+    ifolist = ['G1','H1','H2','L1']
+    for coinc in self.table:
+      for ifo in ifolist:
+        if coinc.has_key(ifo):
+          coinc['stat'] += coinc[ifo][stat]
+     
+
+  def getstat(self):
+    """
+    Return an array of statistic values.
+    """
+    stat = []
+    for coinc in self.table:
+      stat.append(coinc['stat'])
+     
+    return asarray(stat) 
+
+
+  def sort(self):
+    """
+    Sort the list based on stat value
+    """
+    stat_list = [ (coinc['stat'], coinc) for coinc in self.table ]
+    stat_list.sort()
+    stat_list.reverse()
+    self.table = [coinc for (stat,coinc) in stat_list]
+    
   def cluster(self, cluster_window):
     """
-    Return the clustered triggers, returning the one with the largest snrsq in 
+    Return the clustered triggers, returning the one with the largest stat in 
     each fixed cluster_window
     
     @param cluster_window: length of time over which to cluster (seconds)
@@ -264,11 +324,11 @@ class coincInspiralTable:
           cluster.table.append(coinc)
 
       # find loudest trigger in time and append
-      loudest_snrsq = 0
+      loudest_stat = 0
       for trigger in cluster.table:
-        if trigger["snrsq"] > loudest_snrsq:
+        if trigger["stat"] > loudest_stat:
           loudest_trig = trigger
-          loudest_snrsq = trigger['snrsq']
+          loudest_stat = trigger['stat']
 
       cluster_triggers.table.append(loudest_trig)
       
