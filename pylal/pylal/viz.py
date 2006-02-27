@@ -36,7 +36,7 @@ def readcol(table, col_name, ifo=None ):
   this function can also read in two values not stored in the sngl_inspiral
   table:
     snr_chi: read in value of snr/chi
-    snr_chi_stat: read in value of snr^4 / ( chisq ( snr^2 + 250 ))
+    s3_snr_chi_stat: read in value of snr^4 / ( chisq ( snr^2 + 250 ))
 
   @param table: metaDataTable
   @param col_name: name of column to read in 
@@ -62,7 +62,7 @@ def readcol(table, col_name, ifo=None ):
       chi_data = sqrt(table.mkarray('chisq'))
       col_data = snr_data / chi_data
     
-    elif col_name == 'snr_chi_stat':
+    elif col_name == 's3_snr_chi_stat':
       # calculate snr, chi statistic for triggers:
       snr_data = table.mkarray('snr')
       chisq_data = table.mkarray('chisq')
@@ -817,7 +817,7 @@ def cumhistsnr(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
 # function to determine the efficiency as a function of distance
 def efficiencyplot(found, missed, col_name, ifo=None, plot_type = 'linear', \
     nbins = 40, output_name = None, plotsym = 'k-', plot_name = '', \
-    errors = False):
+    title_string = '', errors = False):
   """
   function to plot the difference if col_name_a in two tables against the
   value of col_name_b in table1.  
@@ -830,6 +830,7 @@ def efficiencyplot(found, missed, col_name, ifo=None, plot_type = 'linear', \
   @param plot_type: either 'linear' or 'log' plot on x-axis
   @param plot_sym:  the symbol to use when plotting, default = 'k-'
   @param plot_name: name of the plot (for the legend)
+  @param title_string: extra info for title
   @param errorbars: plot errorbars on the efficiencies (using binomial errors)
                     default = False
   """
@@ -845,14 +846,14 @@ def efficiencyplot(found, missed, col_name, ifo=None, plot_type = 'linear', \
     foundVal = log10(foundVal)
     missedVal = log10(missedVal)
 
-  bins = arange(min(foundVal),max(foundVal) + 0.2, \
-      (max(foundVal) - min(foundVal)) /nbins )
+  step = (max(foundVal) - min(foundVal)) /nbins
+  bins = arange(min(foundVal),max(foundVal), step )
  
   fig_num = gcf().number
   figure(100)
   [num_found,binsf,stuff] = hist(foundVal, bins)
   [num_missed,binsm,stuff] = hist(missedVal ,bins)
-  clf()
+  close(100)
   
   figure(fig_num)
   num_found = array(num_found,'d')
@@ -886,9 +887,9 @@ def efficiencyplot(found, missed, col_name, ifo=None, plot_type = 'linear', \
   ylabel('Efficiency', size='x-large')
   ylim(0,1.1)
   if ifo:
-    title_string = ifo + ' ' + col_name
-  else:
-    title_string = col_name
+    title_string += ' ' + ifo  
+  
+  title_string += ' ' + col_name
   title_string += ' efficiency plot'
   title(title_string, size='x-large')
 
