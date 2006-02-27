@@ -133,7 +133,7 @@ def triggerlink(name, query):
 def formmarkup(query):
 	def instrumentlist(default):
 		s = """<select name="inst"><option>""" + default + """</option>"""
-		for inst in [inst for inst in ["G1", "G1injections", "H1", "H1injections", "H2", "H2injections", "L1", "L1injections"] if inst != default]:
+		for inst in [inst for inst in ["G1", "G1 Injections", "H1", "H1 Injections", "H2", "H2 Injections", "L1", "L1 Injections"] if inst != default]:
 			s += "<option>" + inst + "</option>"
 		return s + "</select>"
 
@@ -236,6 +236,8 @@ else:
 		print plot_table_row("conf_vs_time.cgi", query)
 		print plot_table_row("glitchmetric.cgi", query)
 		print plot_table_row("tfplot.cgi", query)
+		if "Injections" in query.instrument:
+			print plot_table_row("injections.cgi", query)
 		print plot_table_row("rate_vs_freq.cgi", query)
 		print plot_table_row("conf_vs_freq.cgi", query)
 		print plot_table_row("rate_vs_conf.cgi", query)

@@ -47,6 +47,6 @@ def makeplot(desc, table):
 
 description = Plot().parse_form()
 
-makeplot(description, webplot.gettriggers(description))
+makeplot(description, webplot.gettriggers(description)[0])
 
 webplot.SendImage(description)

@@ -111,13 +111,12 @@ class PlotDescription(object):
 # =============================================================================
 #
 
-def SnglBurstAndSearchSummOnlyHandler(doc):
+def ElementFilter(name, attrs):
 	"""
-	Construct a document handler that reads only sngl_burst and search
-	summary tables.
+	Filter for reading only sngl_burst, sim_burst and search_summary
+	tables.
 	"""
-	return docutils.PartialLIGOLWContentHandler(doc, lambda name, attrs: (name == ligolw.Table.tagName) and (metaio.StripTableName(attrs["Name"]) in map(metaio.StripTableName, [lsctables.SnglBurstTable.tableName, lsctables.SearchSummaryTable.tableName])))
-
+	return lsctables.IsTableProperties(lsctables.SnglBurstTable, name, attrs) or lsctables.IsTableProperties(lsctables.SimBurstTable, name, attrs) or lsctables.IsTableProperties(lsctables.SearchSummaryTable, name, attrs)
 
 def CacheURLs(cachename, seg):
 	"""
@@ -126,10 +125,21 @@ def CacheURLs(cachename, seg):
 	"""
 	return [c.url for c in map(lal.CacheEntry, file(cachename)) if c.segment.intersects(seg)]
 
+def GetTable(doc, Type):
+	"""
+	Find and return the table of the given type.
+	"""
+	tables = lsctables.getTablesByType(doc, Type)
+	if len(tables) == 0:
+		return lsctables.New(Type)
+	if len(tables) == 1:
+		return tables[0]
+	raise Exception, "files contain incompatible %s tables" % Type.tableName
+
 def gettriggers(plotdesc):
-	# load SnglBurst tables containing relevant triggers
+	# load documents
 	doc = ligolw.Document()
-	handler = SnglBurstAndSearchSummOnlyHandler(doc)
+	handler = docutils.PartialLIGOLWContentHandler(doc, ElementFilter)
 	for url in CacheURLs(eventdisplay.cache[plotdesc.instrument], plotdesc.segment):
 		try:
 			ligolw.make_parser(handler).parse(urllib.urlopen(url))
@@ -137,33 +147,20 @@ def gettriggers(plotdesc):
 			raise Exception, "error parsing file %s: %s" % (url, str(e))
 	docutils.MergeCompatibleTables(doc)
 
-	# get segment list from search summary table
-	tables = lsctables.getTablesByType(doc, lsctables.SearchSummaryTable)
-	if len(tables) == 0:
-		# no search summary tables found, set an empty segment list
-		plotdesc.seglist = segments.segmentlist([])
-	elif len(tables) == 1:
-		plotdesc.seglist = tables[0].get_inlist().coalesce()
-	else:
-		raise Exception, "files contain incompatible search summary tables"
-
-	# get triggers from single_burst table
-	tables = lsctables.getTablesByType(doc, lsctables.SnglBurstTable)
-	if len(tables) == 0:
-		# no trigger tables found, return an empty table
-		return lsctables.New(lsctables.SnglBurstTable)
-	elif len(tables) > 1:
-		# couldn't merge trigger tables
-		raise Exception, "files contain incompatible SnglBurst tables"
+	# extract tables
+	plotdesc.seglist = GetTable(doc, lsctables.SearchSummaryTable).get_inlist().coalesce()
+	bursttable = GetTable(doc, lsctables.SnglBurstTable)
+	simtable = GetTable(doc, lsctables.SimBurstTable)
 
 	# cluster
 	if plotdesc.cluster:
-		SnglBurstUtils.ClusterSnglBurstTable(tables[0].rows, SnglBurstUtils.CompareSnglBurstByPeakTimeAndFreq, SnglBurstUtils.SnglBurstCluster, SnglBurstUtils.CompareSnglBurstByPeakTime)
+		SnglBurstUtils.ClusterSnglBurstTable(bursttable.rows, SnglBurstUtils.CompareSnglBurstByPeakTimeAndFreq, SnglBurstUtils.SnglBurstCluster, SnglBurstUtils.CompareSnglBurstByPeakTime)
 
-	# remove triggers that lie outside the required segment
-	tables[0].filterRows(lambda row: row.get_peak() in plotdesc.trig_segment())
+	# remove triggers and injections that lie outside the required segment
+	bursttable.filterRows(lambda row: row.get_peak() in plotdesc.trig_segment())
+	simtable.filterRows(lambda row: row.get_geocent_peak() in plotdesc.trig_segment())
 
-	return tables[0]
+	return bursttable, simtable
 
 
 #
