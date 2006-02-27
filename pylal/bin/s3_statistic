@@ -1,0 +1,737 @@
+#!/usr/bin/python
+
+import sys
+import os
+from optparse import *
+import re
+import exceptions
+import glob
+from types import *
+
+from pylab import *
+from pylal import readMeta
+from pylal import viz
+##############################################################################
+def plotstat(coincInspiral, symbols, description = None, plot_type = 'linear'):
+  """
+  function to plot the s3 statistic for an input coincInspiral list
+  @param coincInspiral: list of coincInspirals
+  @param symbols: list of the 3 symbols to use when making the plots
+  @param description: text describing plots to be added to legend
+  """
+  
+  # h1-h2
+  h1h2_coinc = coincInspiral.coinctype(['H1','H2'])
+  h1_val = h1h2_coinc.getsngls('H1').mkarray('s3_snr_chi_stat')
+  h2_val = h1h2_coinc.getsngls('H2').mkarray('s3_snr_chi_stat')
+ 
+  if description:
+    my_label = description + ': H1-H2'
+  else:
+    my_label = 'H1-H2'
+  if len(h1_val):
+    if plot_type == 'log':
+      loglog(h1_val, h2_val, symbols[0], markersize=12, markeredgewidth=1,\
+        markerfacecolor=None, label=my_label)
+    else:
+      plot(h1_val, h2_val, symbols[0], markersize=12, markeredgewidth=1,\
+        markerfacecolor=None, label=my_label)
+     
+
+  # h1-l1
+  h1l1_coinc = coincInspiral.coinctype(['H1','L1'])
+  h1_val = h1l1_coinc.getsngls('H1').mkarray('s3_snr_chi_stat')
+  l1_val = h1l1_coinc.getsngls('L1').mkarray('s3_snr_chi_stat')
+  
+  if description:
+    my_label = description + ': H1-L1'
+  else:
+    my_label = 'H1-L1'
+  if len(h1_val):
+    if plot_type == 'log':
+      loglog(h1_val, l1_val, symbols[1], markersize=12, markeredgewidth=1,\
+          markerfacecolor=None, label=my_label)
+    else:
+      plot(h1_val, l1_val, symbols[1], markersize=12, markeredgewidth=1,\
+          markerfacecolor=None, label=my_label)
+
+  # h1-h2-l1
+  h1h2l1_coinc = coincInspiral.coinctype(['H1','H2','L1'])
+  h1_val = h1h2l1_coinc.getsngls('H1').mkarray('s3_snr_chi_stat')
+  h2_val = h1h2l1_coinc.getsngls('H2').mkarray('s3_snr_chi_stat')
+  l1_val = h1h2l1_coinc.getsngls('L1').mkarray('s3_snr_chi_stat')
+  h2_l1_val = h2_val + l1_val
+
+  if description:
+    my_label = description + ': H1-H2-L1'
+  else:
+    my_label = 'H1-H2-L1'
+  if len(h1_val):
+    if plot_type == 'log':
+      loglog(h1_val, h2_l1_val, symbols[2], markersize=12, \
+          markeredgewidth=1, label=my_label)
+    else:
+      plot(h1_val, h2_l1_val, symbols[2], markersize=12, \
+          markeredgewidth=1, label=my_label)
+
+  xlabel('H1 statistic', size='x-large')
+  ylabel('H2/L1 statistic', size='x-large')
+
+
+
+##############################################################################
+usage = """
+usage: %prog [options] 
+
+Script to get S3 result
+
+The code expects at least one of:
+
+a)  A zero-lag list of files
+b)  A time-slide list of files
+c)  An injection list of files
+
+The code keeps all H1-H2, H1-L1 and H1-H2-L1 coincidences, discarding H2-L1.
+It then clusters the triggers over the specified interval.  For slides, the
+triggers are clustered per slide and then reassembled to one list.
+
+It generates the following plots
+
+1)  A plot of the statistic for H1 vs other, where other is H2, L1 or H2-L1
+   - for slides only
+   - for zero-lag only
+   - for injections only
+   - for slide + injections
+   - for slides + zero-lag
+   - for zero-lag + injections
+
+2)  A distribution of the events as a function of the statistic
+   - for slides only
+   - for slides + zero-lag
+
+3)  An efficiency plot, as a function of the combined statistic.
+
+4)  An efficiency plot, for all found injections louder than the loudest 
+    event.  This can be plotted against any column in the sim_inspiral table
+    by specifying --eff-vs-col for the desired columns.  
+"""
+
+parser = OptionParser( usage )
+parser.add_option("-v","--version",action="store_true",default=False,\
+    help="display version information " )
+    
+parser.add_option("-z","--zero-glob",action="store",type="string",\
+    default=None, \
+    metavar=" ZERO_GLOB",help="GLOB of zero-lag thinca files to read" )
+    
+parser.add_option("-s","--slide-glob",action="store",type="string",\
+    default=None, \
+    metavar=" SLIDE_GLOB",help="GLOB of thinca slide files to read" )
+    
+parser.add_option("-i","--inj-glob",action="store",type="string",\
+    default=None, metavar=" INJ_GLOB", \
+    help="GLOB of injection thinca files to read" )
+
+parser.add_option("-x","--missed-glob",action="store",type="string",\
+    default=None, metavar=" MISSED_GLOB", \
+    help="GLOB of missed injection files to read" )
+
+parser.add_option("-W","--cluster-window",action="store",type="int",default=0,\
+    metavar=" SEC", help="length of time over which to cluster triggers" )
+    
+parser.add_option("-F","--figure-name",action="store",type="string",\
+    default=None, metavar=" FNAME",\
+    help="generate png figures with name FNAME-fig.png" )
+
+parser.add_option("-L","--loudest-events",action="store",type="int", \
+    default=0,metavar="NUM", help="print details of NUM loudest events" )
+
+parser.add_option("-l","--loudest-file",action="store",type="string", \
+    default=0,metavar="FILE", help="print details of loudest events to FILE" )
+
+parser.add_option("-S","--show-plot",action="store_true",default=False,\
+    help="display the figures on the terminal" )
+
+parser.add_option("-a","--slide-stat",action="store_true",default=False,\
+    help="plot the H1 stat vs other for time slides" )
+    
+parser.add_option("-b","--slide-zero-stat",action="store_true",default=False,\
+    help="plot the H1 stat vs other for time slides + zero lag" )
+   
+parser.add_option("-c","--zero-stat",action="store_true",default=False,\
+    help="plot the H1 stat vs other for zero lag" )
+
+parser.add_option("-d","--inj-stat",action="store_true",default=False,\
+    help="plot the H1 stat vs other for injections" )
+
+parser.add_option("-e","--slide-inj-stat",action="store_true",default=False,\
+    help="plot the H1 stat vs other for time slides + injections" )
+
+parser.add_option("-f","--zero-inj-stat",action="store_true",default=False,\
+    help="plot the H1 stat vs other for zero lag + injections" )
+
+parser.add_option("-I","--inj-plot-type",action="store",default="linear",\
+    help="plot on either a log or linear scale" )
+
+parser.add_option("-m","--plot-min",action="store",default=None,\
+    type="float",help="minimum value to put on plot" )
+
+parser.add_option("-M","--plot-max",action="store",default=None,\
+    type="float",help="maximum value to put on plot" )
+    
+parser.add_option("-g","--slide-dist",action="store_true",default=False,\
+    help="plot the distribution of slide triggers" )
+    
+parser.add_option("-j","--slide-zero-dist",action="store_true",default=False,\
+    help="plot the distribution of slide triggers + zero lag" )
+  
+parser.add_option("-k","--efficiency",action="store_true",default=False,\
+    help="plot efficiency as a function of the statistic")
+  
+parser.add_option("-K","--eff-vs-col",action="append",
+    type="string",dest="eff_cols",metavar=" COL",
+    help="add COL to list of cols for which to plot efficiency")
+ 
+parser.add_option("-P","--eff-plot-type",action="store",default="linear",\
+    type="string", metavar=" PLOT_TYPE",\
+    help="make either log or linear efficiency plots")
+
+parser.add_option("-N","--mass-window-boundary",action="append",\
+    type="float",dest="mass_windows",metavar="BDRY",\
+    help="mass value, used to split the injections")
+    
+parser.add_option("-Z","--num-slides",action="store",type="int",default=0,\
+    metavar=" NUM_SLIDES",help="number of time slides performed" )
+  
+parser.add_option("-n","--num-bins",action="store",type="int",default=10,\
+    metavar=" NUM_BINS", \
+    help="number of bins for plotting statistic (default 10)" )
+
+(opts,args) = parser.parse_args()
+
+#######################################################################
+# if --version flagged
+if opts.version:
+  sys.exit(0)
+  
+# if doing any zero lag plots:  
+if (opts.slide_zero_stat or opts.zero_inj_stat or opts.slide_zero_dist) \
+    and not opts.zero_glob:
+  print >>sys.stderr, "Must specify a ZERO_GLOB of files to read"
+  print >>sys.stderr, "Enter 's3_statistic --help' for usage"
+  sys.exit(1)
+
+# if doing any slide plots:
+if (opts.slide_stat or opts.slide_zero_stat or opts.slide_inj_stat \
+    or opts.slide_dist or opts.slide_zero_dist) and not opts.slide_glob:
+  print >>sys.stderr, "Must specify a SLIDE_GLOB of files to read"
+  print >>sys.stderr, "Enter 's3_statistic --help' for usage"
+  sys.exit(1)
+
+# if doing any slide plots:
+if opts.slide_glob and not opts.num_slides:
+  print >>sys.stderr, "--num-slides must be specified if"
+  print >>sys.stderr, "--slide-glob is"
+  sys.exit(1)
+
+# if doing any injection plots:
+if (opts.slide_inj_stat or opts.zero_inj_stat or opts.efficiency) \
+    and not opts.inj_glob:
+  print >>sys.stderr, "Must specify an INJ_GLOB of files to read"
+  print >>sys.stderr, "Enter 's3_statistic --help' for usage"
+  sys.exit(1)
+
+# if doing any missed injection plots:
+if (opts.efficiency or opts.eff_cols) and not opts.missed_glob:
+  print >>sys.stderr, "Must specify a MISSED_GLOB of files to read"
+  print >>sys.stderr, "Enter 's3_statistic --help' for usage"
+  sys.exit(1)
+
+###################################
+# glob the list of files to read in
+if opts.zero_glob:  
+  zeroFiles = glob.glob(opts.zero_glob)
+
+  if not zeroFiles:
+    print >>sys.stderr, "The glob for " + opts.zero_glob + " returned no files"
+    sys.exit(1)
+
+  inspTriggers = readMeta.snglInspiralTable(zeroFiles,"sngl_inspiral")
+  inspTriggers.addcol("s3_snr_chi_stat")
+  
+  coincTriggers = readMeta.coincInspiralTable(inspTriggers, "s3_snr_chi_stat")
+  # coincs MUST have H1 trigger:
+  coincTriggers = coincTriggers.coincinclude(["H1"])
+  # cluster them
+  if opts.cluster_window:
+    coincTriggers = coincTriggers.cluster(opts.cluster_window)
+
+  # extract the statistic from the coincTriggers
+  coincTriggers.sort()
+  coincStat = coincTriggers.getstat()
+
+############################################
+# glob the list of slide triggers to read in
+if opts.slide_glob:
+  slideFiles = glob.glob(opts.slide_glob)
+  slideMax = 0
+
+  slideStat = []
+  slideTriggers = readMeta.coincInspiralTable()
+
+  if not slideFiles:
+    print >>sys.stderr, "The glob for " + opts.slide_glob + " returned no files"
+    sys.exit(1)
+
+  inspSlide = readMeta.snglInspiralTable(slideFiles,"sngl_inspiral")
+  inspSlide.addcol("s3_snr_chi_stat")
+  
+  slide_num = range(1 , opts.num_slides + 1)
+  slide_num.extend(range(-opts.num_slides, 0))
+
+  for slide in slide_num:
+    this_slide = {}
+    this_slide["slide_num"] = slide
+    if slide > 0:
+      this_slide["sngl_trigs"] = inspSlide.getslide(slide)
+    else:
+      this_slide["sngl_trigs"] = inspSlide.getslide(5000 - slide)
+
+    # make coincs
+    this_slide["coinc_trigs"] = \
+        readMeta.coincInspiralTable(this_slide["sngl_trigs"], 
+        "s3_snr_chi_stat" )
+   
+    # coincs MUST include an H1 trigger
+    this_slide["coinc_trigs"] = \
+         this_slide["coinc_trigs"].coincinclude(["H1"])
+
+    # cluster triggers
+    if opts.cluster_window:
+      this_slide["coinc_trigs"] = \
+        this_slide["coinc_trigs"].cluster(opts.cluster_window)  
+    
+    # extract the statistic from the this_slide
+    slideTriggers.sort()
+    thisSlideStat = this_slide["coinc_trigs"].getstat()
+    slideStat.append( thisSlideStat )
+    slideMax = max(slideMax,max(thisSlideStat))
+    # add slide to list
+    slideTriggers.append(this_slide["coinc_trigs"])
+
+#######################################
+# glob the list of inj files to read in
+if opts.inj_glob:  
+  injFiles = glob.glob(opts.inj_glob)
+
+  if not injFiles:
+    print >>sys.stderr, "The glob for " + opts.inj_glob + " returned no files"
+    sys.exit(1)
+
+  injTriggers = readMeta.coincInspiralTable()
+  for file in injFiles:
+    thisInjSngl = readMeta.snglInspiralTable([file],"sngl_inspiral")
+    thisInjSngl.addcol("s3_snr_chi_stat")
+    thisInj = readMeta.coincInspiralTable(thisInjSngl, "s3_snr_chi_stat")
+
+    if opts.eff_cols:
+      thisSim = readMeta.snglInspiralTable([file],"sim_inspiral")
+      if thisInj.nevents() != thisSim.nevents():
+        print >>sys.stderr, "Different number of coincs and injections in " + \
+          file
+        sys.exit(1)
+      else:
+        for coinc in thisInj.table:
+          coinc['sim'] = thisSim.table.pop()
+   
+    thisInj = thisInj.coincinclude(["H1"])
+    injTriggers.append(thisInj)
+
+  # extract the statistic from the slideTriggers
+  injTriggers.sort()
+  injStat = injTriggers.getstat()
+
+##########################################
+# glob the list of missed files to read in
+if opts.missed_glob:  
+  missedFiles = glob.glob(opts.missed_glob)
+
+  if not missedFiles:
+    print >>sys.stderr, "The glob for " + opts.missed_glob + " was empty"
+    sys.exit(1)
+
+  missedInj = readMeta.snglInspiralTable(missedFiles,"sim_inspiral")
+
+
+#######################################
+# print details of loudest events
+loudestEvent = coincStat[0]
+
+if opts.loudest_events:
+  if opts.loudest_events > coincTriggers.nevents():
+     opts.loudest_events = coincTriggers.nevents()
+     
+  if opts.loudest_file:
+    loud_file = open( opts.loudest_file , "w")
+     
+    loud_file.write( "Loudest Events\n")
+    loud_file.write( "Time\t Stat\t  H1 snr\t H1 norm snr\t H2 snr\t" +\
+        "H2 norm snr\t" + "L1 snr\t L1 norm snr\n")
+  else:
+    print "Loudest Events"
+    print "Time\t Stat\t  H1 snr\t H1 norm snr\t H2 snr\t H2 norm snr\t" + \
+      "L1 snr\t L1 norm snr"
+  
+
+  
+  for j in range(opts.loudest_events):
+    snr = {}
+    norm_snr = {}
+    for ifo in ['H1','H2','L1']:
+      if (coincTriggers.table[j].has_key(ifo)):
+        snr[ifo] = coincTriggers.table[j][ifo]['snr']
+        norm_snr[ifo] = \
+            (coincTriggers.table[j][ifo]['s3_snr_chi_stat']*30*250)**(0.25) 
+        time = coincTriggers.table[j][ifo]['end_time']
+      else:
+        snr[ifo] = 0
+        norm_snr[ifo] = 0
+    if opts.loudest_file:
+      loud_file.write(str(time) + \
+          '\t%5.3f\t%5.3f\t%5.3f\t%5.3f\t%5.3f\t%5.3f\t%5.3f\n' % \
+          (coincTriggers.table[j]["stat"], snr['H1'], norm_snr['H1'], \
+          snr['H2'], norm_snr['H2'], snr['L1'], norm_snr['L1'] ) )
+    else:
+      print str(time) + \
+          '\t%5.3f\t%5.3f\t%5.3f\t%5.3f\t%5.3f\t%5.3f\t%5.3f' % \
+          (coincTriggers.table[j]["stat"], snr['H1'], norm_snr['H1'], \
+          snr['H2'], norm_snr['H2'], snr['L1'], norm_snr['L1'] )
+  
+  if opts.loudest_file:
+    loud_file.close()
+
+ 
+
+#########################################
+# Make plots of the statistic
+fig_num = 0
+
+#################
+# for slides only
+if opts.slide_stat:
+  fig_num += 1
+  figure(fig_num)
+  hold(True)
+  
+  plotstat(slideTriggers, ['kx','b+','ro'])
+  legend()
+  grid()
+
+  if opts.plot_min:
+    ylim(ymin=opts.plot_min)
+    xlim(xmin=opts.plot_min)
+  if opts.plot_max:
+    ylim(ymax=opts.plot_max)
+    xlim(xmax=opts.plot_max)
+
+  title('Slide Statistic')
+  if opts.figure_name:
+      savefig(opts.figure_name + "_slide_stat.png")
+
+
+###################
+# for slides + zero 
+if opts.slide_zero_stat:
+  fig_num += 1
+  figure(fig_num)
+  hold(True)
+  
+  plotstat(slideTriggers, ['kx','k+','ko'],'slide')
+  plotstat(coincTriggers, ['rx','r+','ro'],'zero-lag')
+  legend()
+  grid()
+
+  if opts.plot_min:
+    ylim(ymin=opts.plot_min)
+    xlim(xmin=opts.plot_min)
+  if opts.plot_max:
+    ylim(ymax=opts.plot_max)
+    xlim(xmax=opts.plot_max)
+
+  title('Slide + Zero Lag Statistic')
+  if opts.figure_name:
+      savefig(opts.figure_name + "_slide_zero_lag_stat.png")
+
+
+#########################
+# for slides + injections 
+if opts.slide_inj_stat:
+  fig_num += 1
+  figure(fig_num)
+  hold(True)
+  
+  plotstat(slideTriggers, ['kx','k+','ko'],'slide',opts.inj_plot_type)
+  plotstat(injTriggers, ['rx','r+','ro'],'inj',opts.inj_plot_type)
+  legend()
+  grid()
+
+  if opts.plot_min:
+    ylim(ymin=opts.plot_min)
+    xlim(xmin=opts.plot_min)
+  if opts.plot_max:
+    ylim(ymax=opts.plot_max)
+    xlim(xmax=opts.plot_max)
+
+  title('Slide + Injection Statistic')
+  if opts.figure_name:
+      savefig(opts.figure_name + "_slide_injection_stat.png")
+
+#####################
+# for injections only
+if opts.inj_stat:
+  fig_num += 1
+  figure(fig_num)
+  hold(True)
+  
+  plotstat(injTriggers, ['kx','b+','ro'],None,opts.inj_plot_type)
+  legend()
+  grid()
+
+  if opts.plot_min:
+    ylim(ymin=opts.plot_min)
+    xlim(xmin=opts.plot_min)
+  if opts.plot_max:
+    ylim(ymax=opts.plot_max)
+    xlim(xmax=opts.plot_max)
+
+  title('Injection Statistic')
+  if opts.figure_name:
+      savefig(opts.figure_name + "_injection_stat.png")
+
+###################
+# for zero lag only
+if opts.zero_stat:
+  fig_num += 1
+  figure(fig_num)
+  hold(True)
+  
+  plotstat(coincTriggers, ['kx','b+','ro'])
+  legend()
+  grid()
+  
+  if opts.plot_min:
+    ylim(ymin=opts.plot_min)
+    xlim(xmin=opts.plot_min)
+  if opts.plot_max:
+    ylim(ymax=opts.plot_max)
+    xlim(xmax=opts.plot_max)
+
+  title('Zero Lag Statistic')
+  if opts.figure_name:
+      savefig(opts.figure_name + "_zero_lag_stat.png")
+
+##############################
+# for zero lag plus injections 
+if opts.zero_inj_stat:
+  fig_num += 1
+  figure(fig_num)
+  hold(True)
+  
+  plotstat(coincTriggers, ['kx','k+','ko'],'zero lag',opts.inj_plot_type)
+  plotstat(injTriggers, ['rx','r+','ro'],'injections',opts.inj_plot_type)
+  legend()
+  grid()
+
+  if opts.plot_min:
+    ylim(ymin=opts.plot_min)
+    xlim(xmin=opts.plot_min)
+  if opts.plot_max:
+    ylim(ymax=opts.plot_max)
+    xlim(xmax=opts.plot_max)
+
+  title('Zero Lag + Injection Statistic')
+  if opts.figure_name:
+      savefig(opts.figure_name + "_zero_inj_stat.png")
+
+
+#############################################
+# Determine the cumulative slide distribution
+if opts.slide_dist or opts.slide_zero_dist:
+  slideDist = []
+  cumDistSlides = []
+
+  figure(100)
+  bins = arange(0.0, slideMax, slideMax/opts.num_bins )
+
+  for thisSlide in slideStat:
+    [thisDist,bin,info] = hist(thisSlide,bins)
+    
+    cumSlide = [sum(thisDist)]
+    cumSlide.extend(sum(thisDist) - cumsum(thisDist))
+    cumSlide.pop()
+    cumDistSlides.append(cumSlide)
+    
+  cumDistSlides = reshape(array(cumDistSlides), \
+      (len(slideStat),opts.num_bins))
+
+  slideMean = mean(cumDistSlides)
+  slideStd = std(cumDistSlides)
+  
+  
+  # make sure we don't plot log of zero
+  slideMin = []
+  for i in range( len(slideMean) ):
+      slideMin.append( max(slideMean[i] - slideStd[i], 0.0001) )
+      slideMean[i] = max(slideMean[i], 0.0001)
+
+
+  # get the zero lag information
+  if opts.slide_zero_dist:
+    [zeroDist,bin,info] = hist(coincStat,bins)
+
+    cumZero = [sum(zeroDist)]
+    cumZero.extend(sum(zeroDist) - cumsum(zeroDist))
+    cumZero.pop()
+
+    for i in range( len(cumZero) ):
+      cumZero[i] = max(cumZero[i], 0.0001)
+    print cumZero
+  close(100)
+
+
+################################################
+# make the plot of slide cumulative distribution
+if opts.slide_dist:
+  fig_num += 1
+  figure(fig_num)
+  hold(True)
+  errorbar(bins,log10(slideMean), [log10(slideMean) - log10(slideMin), 
+      log10(slideMean + slideStd) - log10(slideMean)], markersize=12)
+
+  xlabel('Combined Statistic', size='x-large')
+  ylabel('Log Number of events', size='x-large')
+  title_text = 'Cumulative histogram of Number of events vs statistic'
+  ylim(ymin=log10((1./(2*opts.num_slides))))
+
+  if opts.figure_name:
+      savefig(opts.figure_name + "_slide_distribution.png")
+
+
+############################################################
+# make the plot of slide and zerolag cumulative distribution
+if opts.slide_zero_dist:
+  fig_num += 1
+  figure(fig_num)
+
+  plot(bins,log10(cumZero),'rx',markersize=12)
+  errorbar(bins,log10(slideMean), [log10(slideMean) - log10(slideMin), 
+      log10(slideMean + slideStd) - log10(slideMean)], markersize=12)
+
+  xlabel('Combined Statistic', size='x-large')
+  ylabel('Log Number of events', size='x-large')
+  title_text = 'Cumulative histogram of Number of events vs statistic'
+  ylim(ymin=log10((1./(2*opts.num_slides))))
+
+  if opts.figure_name:
+      savefig(opts.figure_name + "_slide_zero_distribution.png")
+
+
+##########################
+# make the efficiency plot 
+if opts.efficiency:
+  fig_num += 1
+  figure(fig_num)
+
+  if opts.plot_min:
+    min_val = opts.plot_min
+  else:
+    min_val = injStat[len(injStat)-1]
+
+  if opts.plot_max:
+    max_val = opts.plot_max
+  else:
+    max_val = injStat[0]
+
+  values = arange(min_val, max_val, (max_val - min_val)/1000)
+  
+  num_above = zeros(len(values))
+  for i in range(len(values)):
+    num_above[i] = sum( injStat > values[i] )
+  
+  eff = num_above / float(injTriggers.nevents() + missedInj.nevents() )
+  
+  plot(values, eff, 'k-', linewidth = 1)
+  xlabel('Combined Statistic', size='x-large')
+  ylabel('Injection Efficiency', size='x-large')
+  ylim(0,1)
+  if opts.figure_name:
+      savefig(opts.figure_name + "_efficiency_stat.png")
+
+######################################
+# make the mass windows
+windows = []
+if opts.mass_windows and len(opts.mass_windows) > 1:
+  for i in range(len(opts.mass_windows) - 1):
+    windows.append([opts.mass_windows[i], opts.mass_windows[i+1]])
+
+######################################
+# make the efficiency vs distance plot 
+if opts.eff_cols:
+  # all injections with stat < loudest event go in missed.
+  foundInj = readMeta.metaDataTable(None,"sim_inspiral")
+  for injCoinc in injTriggers.table:
+    if injCoinc['stat'] < loudestEvent:
+      missedInj.table.append(injCoinc['sim'])
+    else:
+      foundInj.table.append(injCoinc['sim'])
+  
+  if windows:
+    for win1 in windows:
+      for win2 in windows:
+        if win2 >= win1:
+          foundWin = readMeta.metaDataTable(None,"sim_inspiral")
+          missedWin = readMeta.metaDataTable(None,"sim_inspiral")
+
+          
+          for found in foundInj.table:
+            m_low = min(found["mass1"], found["mass2"])
+            m_high = max(found["mass1"], found["mass2"])
+            if m_low > win1[0] and m_low < win1[1] and \
+               m_high > win1[0] and m_high < win2[1]:
+              foundWin.table.append(found)
+
+          for missed in missedInj.table:
+            m_low = min(missed["mass1"], missed["mass2"])
+            m_high = max(missed["mass1"], missed["mass2"])
+            if m_low > win1[0] and m_low < win1[1] and \
+               m_high > win1[0] and m_high < win2[1]:
+              missedWin.table.append(missed)
+
+          for col in opts.eff_cols:
+            fig_num += 1
+            figure(fig_num)
+            title_text = 'Mass range ' + str(win1) + ' ' + str(win2)
+            viz.efficiencyplot(foundWin, missedWin, col, ifo=None, 
+                plot_type = opts.eff_plot_type, nbins = 20, plotsym = 'k-', 
+                errors = True,title_string=title_text)
+            if opts.figure_name:
+              savefig(opts.figure_name + '_'+ col + '_'\
+                  + str(win1[0]) + '_' + str(win1[1]) + '_and_' \
+                  + str(win2[0]) + '_'+ str(win2[1]) \
+                  +  "_efficiency.png")
+    
+
+  else:
+    for col in opts.eff_cols:
+      fig_num += 1
+      figure(fig_num)
+      viz.efficiencyplot(foundInj, missedInj, col, ifo=None, 
+          plot_type = opts.eff_plot_type, nbins = 20, plotsym = 'k-', 
+          errors = True)
+      if opts.figure_name:
+        savefig(opts.figure_name + '_' + col + "_efficiency.png")
+    
+################
+# show the plots
+if opts.show_plot:
+  show()
