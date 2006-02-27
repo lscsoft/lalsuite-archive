@@ -41,6 +41,7 @@ setup(
 			runtime_library_dirs = lallibdirs)
 	],
 	scripts = [
+		os.path.join("bin", "plotbinj"),
 		os.path.join("bin", "plotburst"),
 		os.path.join("bin", "plotburstrate"),
 		os.path.join("bin", "plotchannel"),

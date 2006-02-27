@@ -1,0 +1,167 @@
+#!/usr/bin/python
+#
+# $Id$
+#
+# Copyright (C) 2006  Kipp C. Cannon
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 2 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+#
+# =============================================================================
+#
+#                                   Preamble
+#
+# =============================================================================
+#
+
+from optparse import OptionParser
+import pylab
+import sys
+
+from glue import lal
+from glue import segments
+from glue.ligolw import ligolw
+from glue.ligolw import metaio
+from glue.ligolw import lsctables
+from glue.ligolw import docutils
+
+__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__version__ = "$Revision$"[11:-2]
+__date__ = "$Date$"[7:-2]
+
+
+#
+# =============================================================================
+#
+#                                 Command Line
+#
+# =============================================================================
+#
+
+parser = OptionParser(version="%prog CVS $Id$")
+parser.add_option("--gps-start-time", metavar = "seconds", help = "set left edge of plot")
+parser.add_option("--gps-end-time", metavar = "seconds", help = "set right edge of plot")
+parser.add_option("-o", "--output", metavar = "filename", help = "set output file name (required)")
+options, fnames = parser.parse_args()
+del parser
+
+if not len(fnames):
+	print >>sys.stderr, "error: no input files specified"
+  	sys.exit(1)
+
+if not options.output:
+	print >>sys.stderr, "error: no output file specified"
+	sys.exit(1)
+
+if options.gps_start_time:
+	options.gps_start_time = lal.LIGOTimeGPS(options.gps_start_time)
+else:
+	options.gps_start_time = -segments.infinity()
+if options.gps_end_time:
+	options.gps_end_time = lal.LIGOTimeGPS(options.gps_end_time)
+else:
+	options.gps_end_time = segments.infinity()
+options.seg = segments.segmentlist([segments.segment(options.gps_start_time, options.gps_end_time)])
+
+
+#
+# =============================================================================
+#
+#                                    Input
+#
+# =============================================================================
+#
+
+def ElementFilter(name, attrs):
+	"""
+	Filter for extracting only sim_burst and search_summary tables.
+	"""
+	return lsctables.IsTableProperties(lsctables.SimBurstTable, name, attrs) or lsctables.IsTableProperties(lsctables.SearchSummaryTable, name, attrs)
+
+
+def LoadDocuments(fnames):
+	doc = ligolw.Document()
+	handler = docutils.PartialLIGOLWContentHandler(doc, ElementFilter)
+	for name in fnames:
+		try:
+			ligolw.make_parser(handler).parse(file(name))
+		except Exception, e:
+			print >>sys.stderr, "error: parsing file %s: %s" % (name, str(e))
+			sys.exit(1)
+		docutils.MergeCompatibleTables(doc)
+	return doc
+
+
+def GetTable(doc, Type):
+	"""
+	Find and return the table of the given type.
+	"""
+	tables = lsctables.getTablesByType(doc, Type)
+	if len(tables) == 0:
+		return lsctables.New(Type)
+	if len(tables) == 1:
+		return tables[0]
+	print >>sys.stderr, "error: files contain incompatible %s tables" % Type.tableName
+	sys.exit(1)
+
+
+doc = LoadDocuments(fnames)
+simtable = GetTable(doc, lsctables.SimBurstTable)
+summarytable = GetTable(doc, lsctables.SearchSummaryTable)
+
+
+
+#
+# =============================================================================
+#
+#                                     Plot
+#
+# =============================================================================
+#
+
+fig = pylab.figure(1)
+fig.set_figsize_inches(16, 8)
+axes = pylab.gca()
+
+time = pylab.asarray([float(row.get_geocent_peak()) for row in simtable.rows])
+freq = simtable.getColumnByName("freq").asarray()
+
+pylab.plot(time, freq, "b+")
+
+seglist = summarytable.get_inlist().coalesce()
+if not len(seglist):
+	seglist = segments.segmentlist([segments.segment(min(time) - 5.0, max(time) + 5.0)])
+options.seg &= segments.segmentlist([seglist.extent()])
+
+for seg in ~seglist & options.seg:
+	pylab.axvspan(seg[0], seg[1], facecolor = "k", alpha = 0.2)
+
+pylab.setp(axes, xlim = list(options.seg[0]))
+pylab.grid(True)
+
+pylab.title("Injection Locations\n(%d Injections)" % len(simtable))
+pylab.xlabel("GPS Time(s)")
+pylab.ylabel("Frequency (Hz)")
+
+
+#
+# =============================================================================
+#
+#                                    Output
+#
+# =============================================================================
+#
+
+pylab.savefig(options.output)
