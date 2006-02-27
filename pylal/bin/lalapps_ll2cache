@@ -36,7 +36,6 @@ import glob
 from optparse import OptionParser
 import os
 import sys
-from xml import sax
 
 from glue import lal
 from glue import segments
@@ -49,11 +48,12 @@ from glue.ligolw import lsctables
 # Filter function for partial LIGO LW document loading.
 #
 
-def SearchSummaryFilter(name, attrs):
+def ElementFilter(name, attrs):
 	"""
-	Return True if name, attrs describes a search summary table.
+	Return True if name, attrs describes a search summary table or a
+	process table.
 	"""
-	return lsctables.IsTableProperties(lsctables.SearchSummaryTable, name, attrs)
+	return lsctables.IsTableProperties(lsctables.SearchSummaryTable, name, attrs) or lsctables.IsTableProperties(lsctables.ProcessTable, name, attrs)
 
 
 #
@@ -65,7 +65,17 @@ def column_value(table, column):
 	Scan a column in a table element, checking that all rows have the
 	same value, and return that value.
 	"""
-	vals = table.getColumnByName(column)
+
+	if options.program:
+		cache.segment = segments.segmentlist([row.get_out() for row in searchsumm if row.process_id.program == options.program]).extent()
+	else:
+		cache.segment = searchsumm.get_outlist().extent()
+
+	if options.program:
+		vals = [getattr(row, column) for row in table.rows if row.process_id.program == options.program]
+	else:
+		vals = table.getColumnByName(column)
+
 	value = vals[0]
 	for v in vals:
 		if v != value:
@@ -81,7 +91,8 @@ parser = OptionParser(version = "%prog CVS $Id$")
 parser.add_option("--description", metavar = "DESCRIPTION", help = "set all descriptions to DESCRIPTION")
 parser.add_option("--observatory", metavar = "OBSERVATORY", help = "set all observatories to OBSERVATORY")
 parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
-parser.add_option("-o", "--output", metavar = "FILENAME", help = "write output to FILENAME (default = stdout")
+parser.add_option("-o", "--output", metavar = "filename", help = "set output file (default = stdout")
+parser.add_option("-p", "--program" metavar = "name", help = "obtain start and durations from search summary entries corresponding to the given program (default = whatever is there)")
 options, patterns = parser.parse_args()
 del parser
 
@@ -99,17 +110,21 @@ for pattern in patterns:
 	for name in glob.glob(pattern):
 		# Load and merge search summary tables
 		doc = ligolw.Document()
-		sax.parse(file(name), docutils.PartialLIGOLWContentHandler(doc, SearchSummaryFilter))
+		ligolw.make_parser(docutils.PartialLIGOLWContentHandler(doc, SearchSummaryFilter)).parse(file(name))
 		docutils.MergeCompatibleTables(doc)
 		if len(doc.childNodes) != 1:
 			raise Exception, "Missing or incompatible search summary tables in document %s" % name
+		docutils.makeReference(doc)
 		searchsumm = doc.childNodes[0]
 
 		# initialize cache entry info
 		cache = lal.CacheEntry()
 
 		# extract segment
-		cache.segment = searchsumm.get_outlist().extent()
+		if options.program:
+			cache.segment = segments.segmentlist([row.get_out() for row in searchsumm if row.process_id.program == options.program]).extent()
+		else:
+			cache.segment = searchsumm.get_outlist().extent()
 
 		# extract observatory
 		if options.observatory:
