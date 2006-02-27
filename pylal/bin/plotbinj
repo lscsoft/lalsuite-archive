@@ -26,9 +26,11 @@
 # =============================================================================
 #
 
+import bisect
 from optparse import OptionParser
 import pylab
 import sys
+import urllib
 
 from glue import lal
 from glue import segments
@@ -53,16 +55,27 @@ __date__ = "$Date$"[7:-2]
 parser = OptionParser(version="%prog CVS $Id$")
 parser.add_option("--gps-start-time", metavar = "seconds", help = "set left edge of plot")
 parser.add_option("--gps-end-time", metavar = "seconds", help = "set right edge of plot")
+parser.add_option("-t", "--plot-type", metavar = "freq_vs_time|ampl_vs_freq", default = "freq_vs_time", help = "choose plot type")
+parser.add_option("-i", "--input", metavar = "filename", default = [], action = "append", help = "read input from this file")
+parser.add_option("-c", "--cache", metavar = "filename", default = [], action = "append", help = "read input file the files in this cache")
 parser.add_option("-o", "--output", metavar = "filename", help = "set output file name (required)")
-options, fnames = parser.parse_args()
+parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
+options = parser.parse_args()[0]
 del parser
 
-if not len(fnames):
+for name in options.cache:
+	options.input.extend([entry.url for entry in map(lal.CacheEntry, file(name))])
+
+if not options.input:
 	print >>sys.stderr, "error: no input files specified"
-  	sys.exit(1)
+	sys.exit(1)
 
 if not options.output:
 	print >>sys.stderr, "error: no output file specified"
+	sys.exit(1)
+
+if options.plot_type not in ["freq_vs_time", "ampl_vs_freq"]:
+	print >>sys.stderr, "error: unrecognized plot type %s" % options.plot_type
 	sys.exit(1)
 
 if options.gps_start_time:
@@ -85,22 +98,16 @@ options.seg = segments.segmentlist([segments.segment(options.gps_start_time, opt
 #
 
 def ElementFilter(name, attrs):
-	"""
-	Filter for extracting only sim_burst and search_summary tables.
-	"""
-	return lsctables.IsTableProperties(lsctables.SimBurstTable, name, attrs) or lsctables.IsTableProperties(lsctables.SearchSummaryTable, name, attrs)
+	return lsctables.IsTableProperties(lsctables.SimBurstTable, name, attrs) or lsctables.IsTableProperties(lsctables.SearchSummaryTable, name, attrs) or lsctables.IsTableProperties(lsctables.SnglBurstTable, name, attrs) or lsctables.IsTableProperties(lsctables.CoincTable, name, attrs) or lsctables.IsTableProperties(lsctables.CoincMapTable, name, attrs)
 
-
-def LoadDocuments(fnames):
+def LoadDocument(url):
 	doc = ligolw.Document()
 	handler = docutils.PartialLIGOLWContentHandler(doc, ElementFilter)
-	for name in fnames:
-		try:
-			ligolw.make_parser(handler).parse(file(name))
-		except Exception, e:
-			print >>sys.stderr, "error: parsing file %s: %s" % (name, str(e))
-			sys.exit(1)
-		docutils.MergeCompatibleTables(doc)
+	try:
+		ligolw.make_parser(handler).parse(urllib.urlopen(url))
+	except Exception, e:
+		print >>sys.stderr, "error: parsing contents of %s: %s" % (url, str(e))
+		sys.exit(1)
 	return doc
 
 
@@ -110,6 +117,7 @@ def GetTable(doc, Type):
 	"""
 	tables = lsctables.getTablesByType(doc, Type)
 	if len(tables) == 0:
+		print >>sys.stderr, "warning: no %s tables found" % Type.tableName
 		return lsctables.New(Type)
 	if len(tables) == 1:
 		return tables[0]
@@ -117,10 +125,170 @@ def GetTable(doc, Type):
 	sys.exit(1)
 
 
-doc = LoadDocuments(fnames)
-simtable = GetTable(doc, lsctables.SimBurstTable)
-summarytable = GetTable(doc, lsctables.SearchSummaryTable)
+#
+# =============================================================================
+#
+#                            Document Comprehension
+#
+# =============================================================================
+#
 
+class DocContents(object):
+	def __init__(self, xmldoc):
+		#
+		# Extract tables
+		#
+
+		self.simtable = GetTable(xmldoc, lsctables.SimBurstTable)
+		self.bursttable = GetTable(xmldoc, lsctables.SnglBurstTable)
+		self.summarytable = GetTable(xmldoc, lsctables.SearchSummaryTable)
+		self.coinctable = GetTable(xmldoc, lsctables.CoincTable)
+		self.coincmaptable = GetTable(xmldoc, lsctables.CoincMapTable)
+
+		#
+		# Sort table rows
+		#
+
+		# sim_burst by simulation_id
+		self.simtable.rows.sort(lambda a, b: cmp(lsctables.ILWDID(a.simulation_id), lsctables.ILWDID(b.simulation_id)))
+
+		# sngl_burst by event_id
+		self.bursttable.rows.sort(lambda a, b: cmp(lsctables.ILWDID(a.event_id), lsctables.ILWDID(b.event_id)))
+
+		# coinc by coinc_event_id
+		self.coinctable.rows.sort(lambda a, b: cmp(lsctables.ILWDID(a.coinc_event_id), lsctables.ILWDID(b.coinc_event_id)))
+
+		# coinc_event_map by coinc_event_id
+		self.coincmaptable.rows.sort(lambda a, b: cmp(lsctables.ILWDID(a.coinc_event_id), lsctables.ILWDID(b.coinc_event_id)))
+
+		#
+		# Construct ID look-up tables
+		#
+
+		self.simtableids = map(lsctables.ILWDID, self.simtable.getColumnByName("simulation_id"))
+		self.bursttableids = map(lsctables.ILWDID, self.bursttable.getColumnByName("event_id"))
+		self.coinctableids = map(lsctables.ILWDID, self.coinctable.getColumnByName("coinc_event_id"))
+		self.coincmaptableids = map(lsctables.ILWDID, self.coincmaptable.getColumnByName("coinc_event_id"))
+
+
+	def get_sim_by_id(self, id):
+		return self.simtable.rows[bisect.bisect_left(self.simtableids, lsctables.ILWDID(id))]
+
+	def get_burst_by_id(self, id):
+		return self.bursttable.rows[bisect.bisect_left(self.bursttableids, lsctables.ILWDID(id))]
+
+	def get_coincevents_by_id(self, id):
+		result = []
+		i = bisect.bisect_left(self.coincmaptableids, lsctables.ILWDID(id))
+		while (i < len(self.coincmaptable.rows)) and (self.coincmaptable.rows[i].coinc_event_id == id):
+			result.append(self.coincmaptable.rows[i])
+			i += 1
+		return result
+
+	def get_sim_by_coincid(self, id):
+		return [self.get_sim_by_id(row.event_id) for row in self.get_coincevents_by_id(id) if "sim_burst" in row.event_id]
+
+	def get_burst_by_coincid(self, id):
+		return [self.get_burst_by_id(row.event_id) for row in self.get_coincevents_by_id(id) if "sngl_burst" in row.event_id]
+
+
+#
+# =============================================================================
+#
+#                           Found Injection Iterator
+#
+# =============================================================================
+#
+
+class FoundIter(object):
+	def __init__(self,  doc):
+		self.doc = doc
+		self.iditer = iter(doc.coinctable.getColumnByName("coinc_event_id"))
+
+	def __iter__(self):
+		return self
+
+	def next(self):
+		return self.doc.get_sim_by_coincid(self.iditer.next())[0]
+
+
+#
+# =============================================================================
+#
+#                              Frequency vs. Time
+#
+# =============================================================================
+#
+
+class FreqVsTime(object):
+	def __init__(self):
+		self.num_injections = 0
+		self.min_t = segments.infinity()
+		self.max_t = -segments.infinity()
+		self.seglist = segments.segmentlist()
+		self.fig = pylab.figure(1)
+		self.fig.set_figsize_inches(16, 8)
+		self.axes = pylab.gca()
+
+		pylab.setp(axes, xlim = list(options.seg[0]))
+		pylab.grid(True)
+
+		pylab.xlabel("GPS Time (s)")
+		pylab.ylabel("Frequency (Hz)")
+
+	def addto(self, doc):
+		for row in doc.simtable.rows:
+			t = float(row.get_geocent_peak())
+			if t < self.min_t:
+				self.min_t = t
+			if t > self.max_t:
+				self.max_t = t
+			pylab.plot([t], [row.freq], "b+")
+		for row in FoundIter(doc.coinctable):
+			pylab.plot([float(row.get_geocent_peak())], [row.freq], "rx")
+
+		self.seglist |= doc.summarytable.get_inlist().coalesce()
+
+	def finish(self):
+		if not len(seglist):
+			seglist = segments.segmentlist([segments.segment(self.min_t - 5.0, self.max_t + 5.0)])
+		options.seg &= segments.segmentlist([seglist.extent()])
+
+		for seg in ~seglist & options.seg:
+			pylab.axvspan(seg[0], seg[1], facecolor = "k", alpha = 0.2)
+		pylab.title("Injection Locations\n(%d Injections)" % self.num_injections)
+
+
+#
+# =============================================================================
+#
+#                           Amplitude vs. Frequency
+#
+# =============================================================================
+#
+
+class AmplVsFreq(object):
+	def __init__(self):
+		self.num_injections = 0
+		self.fig = pylab.figure(1)
+		self.fig.set_figsize_inches(16, 8)
+		self.axes = pylab.gca()
+
+		pylab.setp(self.axes, xlim = [60, 2200])
+		pylab.grid(True)
+
+		pylab.xlabel("Frequency (Hz)")
+		pylab.ylabel("h_rss")
+
+	def addto(self, doc):
+		self.num_injections += len(doc.simtable)
+		for row in doc.simtable.rows:
+			pylab.loglog([row.freq], [row.hrss], "b+")
+		for row in FoundIter(doc):
+			pylab.loglog([row.freq], [row.hrss], "rx")
+
+	def finish(self):
+		pylab.title("Injection Amplitude vs. Frequency\n(%d Injections)" % self.num_injections)
 
 
 #
@@ -131,29 +299,17 @@ summarytable = GetTable(doc, lsctables.SearchSummaryTable)
 # =============================================================================
 #
 
-fig = pylab.figure(1)
-fig.set_figsize_inches(16, 8)
-axes = pylab.gca()
+if options.plot_type == "freq_vs_time":
+	plot = FreqVsTime()
+elif options.plot_type == "ampl_vs_freq":
+	plot = AmplVsFreq()
 
-time = pylab.asarray([float(row.get_geocent_peak()) for row in simtable.rows])
-freq = simtable.getColumnByName("freq").asarray()
+for url in options.input:
+	if options.verbose:
+		print >>sys.stderr, url
+	plot.addto(DocContents(LoadDocument(url)))
 
-pylab.plot(time, freq, "b+")
-
-seglist = summarytable.get_inlist().coalesce()
-if not len(seglist):
-	seglist = segments.segmentlist([segments.segment(min(time) - 5.0, max(time) + 5.0)])
-options.seg &= segments.segmentlist([seglist.extent()])
-
-for seg in ~seglist & options.seg:
-	pylab.axvspan(seg[0], seg[1], facecolor = "k", alpha = 0.2)
-
-pylab.setp(axes, xlim = list(options.seg[0]))
-pylab.grid(True)
-
-pylab.title("Injection Locations\n(%d Injections)" % len(simtable))
-pylab.xlabel("GPS Time(s)")
-pylab.ylabel("Frequency (Hz)")
+plot.finish()
 
 
 #
