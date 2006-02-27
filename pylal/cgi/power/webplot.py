@@ -145,7 +145,7 @@ def gettriggers(plotdesc):
 			ligolw.make_parser(handler).parse(urllib.urlopen(url))
 		except ligolw.ElementError, e:
 			raise Exception, "error parsing file %s: %s" % (url, str(e))
-	docutils.MergeCompatibleTables(doc)
+		docutils.MergeCompatibleTables(doc)
 
 	# extract tables
 	plotdesc.seglist = GetTable(doc, lsctables.SearchSummaryTable).get_inlist().coalesce()
