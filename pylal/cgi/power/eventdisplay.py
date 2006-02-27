@@ -14,10 +14,14 @@ from glue import segmentsUtils
 
 s5start = lal.LIGOTimeGPS(815155213)
 cache = {
-	"G1": os.getcwd() + "/G1/filelist.cache",
-	"H1": os.getcwd() + "/H1/filelist.cache",
-	"H2": os.getcwd() + "/H2/filelist.cache",
-	"L1": os.getcwd() + "/L1/filelist.cache"
+	"G1": os.getcwd() + "/G1/triggers.cache",
+	"G1injections": os.getcwd() + "/G1/injections.cache",
+	"H1": os.getcwd() + "/H1/triggers.cache",
+	"H1injections": os.getcwd() + "/H1/injections.cache",
+	"H2": os.getcwd() + "/H2/triggers.cache",
+	"H2injections": os.getcwd() + "/H2/injections.cache",
+	"L1": os.getcwd() + "/L1/triggers.cache",
+	"L1injections": os.getcwd() + "/L1/injections.cache"
 }
 
 

@@ -133,7 +133,7 @@ def triggerlink(name, query):
 def formmarkup(query):
 	def instrumentlist(default):
 		s = """<select name="inst"><option>""" + default + """</option>"""
-		for inst in [inst for inst in ["G1", "H1", "H2", "L1"] if inst != default]:
+		for inst in [inst for inst in ["G1", "G1injections", "H1", "H1injections", "H2", "H2injections", "L1", "L1injections"] if inst != default]:
 			s += "<option>" + inst + "</option>"
 		return s + "</select>"
 
