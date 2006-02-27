@@ -101,6 +101,8 @@ parser.add_option("-b","--show-bar",action="store_true",default=False,\
     help="display the hist.ps figure on the terminal" )
 parser.add_option("-u","--show-sum",action="store_true",default=False,\
     help="display the sum_plot.ps figure on the terminal" )
+parser.add_option("-c","--show-curvefit",action="store_true",default=False,\
+    help="display the sum_curvefit.ps figure on the terminal" )	
 
 (opts,args) = parser.parse_args()
 
@@ -125,12 +127,24 @@ trigFiles = args
 # sourcelist sorted from smallest to largest in the luminosity
 sourcelist = read_source_file( opts.source_file )
 
+
 ##############################################################################
 # Constants:
-X_MAX = 40	# x-axis max for plots.
+X_MAX = 50	# x-axis max for plots.
 Y_MAX = 300	# y-axis max for plots.
 max_luminosity = sourcelist[len(sourcelist)-2]['luminosity']
 max_galaxy = sourcelist[len(sourcelist)-2]['name']
+
+##############################################################################
+# total luminosity
+
+for  i in range (len(sourcelist)-2):
+	sourcelist[i]['luminosity'] = sourcelist[i-1]['luminosity'] + sourcelist[i]['luminosity']
+		
+print sourcelist[i]['luminosity']
+
+print max_luminosity
+print max_galaxy 
 
 # an instance of the simInspiralTable
 simInspTriggers=readMeta.metaDataTable( trigFiles, "sim_inspiral" )
@@ -146,6 +160,8 @@ if opts.segment_file:
 numSources = len( [e for e in simInspTriggers.table if\
       ( re.match(max_galaxy,e["source"]) )] )
 
+
+print numSources
 
 h=simInspTriggers.mkarray( "eff_dist_h" )
 index=arange( 0, len(h) )*max_luminosity/numSources
@@ -166,8 +182,8 @@ vs=sort( v )
 # make a regular plot.
 
 if opts.show_reg:
-
-	plot( hs, index, ls, index, gs, index, ts, index, vs, index )
+	
+	plot( hs, index ,ls, index, gs, index, ts, index, vs, index )
 	grid( True )
 	axis( [	0, X_MAX, 0, Y_MAX] )
 	xlabel( 'Effective Distance (Mpc)' )
@@ -178,6 +194,37 @@ if opts.show_reg:
 	if opts.figure_name:
 	  savefig( opts.figure_name + "_plot.ps" )
 
+	
+
+if opts.show_curvefit:
+	
+	
+	print " This is a Fitted Curve that has been done using Regression method of first 30 galaxies and fitting a Cubical polynomial"	
+		
+	N_Gr = 0.00611877*(hs)*(hs)*(hs)-0.0164998*(hs)*(hs)+2.52*(hs)
+	plot(hs,N_Gr)
+	grid( True )
+	axis( [0, X_MAX, 0, Y_MAX] )
+	xlabel( 'Effective Distance (Mpc)' )
+	ylabel( 'N_G')
+	legend('Fitted Curve')
+	if opts.title:	
+          title( opts.title )
+	if opts.figure_name:
+	  savefig(opts.figure_name + "_curvefit.ps" )	
+
+	
+
+	#j = 0#
+	#while j <=40:#
+		#for i in range(0, len(hs)):#
+			#dist = hs[i]#
+			#if dist >=j:#
+				#break#
+		#print float(hs[i]), index[i]#	
+		#j = j + 1#
+	
+		
 
 # make a loglog plot.
 
@@ -229,6 +276,7 @@ if opts.show_sum:
 	for i in range(1,len(x)):
 	  ng[i] = ng[i-1] + ng[i]
 	
+	
 	plot( x[0:X_MAX+1], ng[0:X_MAX+1] )
 	grid( True )
 	axis( [0, X_MAX, 0, Y_MAX] )
@@ -238,6 +286,9 @@ if opts.show_sum:
 	  title( opts.title )
 	if opts.figure_name:
 	  savefig( opts.figure_name + "_sum_plot.ps" )
+
+	
+
 
 if opts.show_plot:
   show()
