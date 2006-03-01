@@ -1,0 +1,173 @@
+#!/usr/bin/python
+
+import sys
+import glob
+from optparse import *
+from pylab import *
+from pylal import viz
+from glue.ligolw import ligolw
+from glue.ligolw import metaio
+from glue.ligolw import lsctables
+from glue.ligolw import docutils
+
+#######################################################################
+def isSummValue(name, attrs):
+  return lsctables.IsTableProperties(lsctables.SummValueTable, name, attrs)
+
+def readFiles(fList):
+  """
+  read in the SimInspiralTables from a list of files
+  @param fList:       list of input files
+  """
+  output = {}
+  if not fList:
+    return output
+  for thisFile in fList:
+    doc = ligolw.Document()
+    # read in SummValueTable
+    ligolw.make_parser(docutils.PartialLIGOLWContentHandler(doc, \
+        isSummValue)).parse(file(thisFile))
+    rows = doc.childNodes[0].rows
+    for row in rows:
+      if row.name == 'inspiral_effective_distance':
+        if not output.has_key(row.ifo):
+          output[row.ifo] = lsctables.New(lsctables.SummValueTable)
+        output[row.ifo].append(row)
+  return output
+#################################################################
+
+#################################################################
+# help message
+usage = """\
+Usage: plotinspiralrange [options]
+
+  SUMMARY:  Program for plotting the range of the instruments over a given run.
+            You can make two plots
+
+         1) A plot of the range for each ifo vs time (in days after run start)
+         
+         2) A histogram of the number of blocks for which a given range 
+            was achieved.
+  
+
+"""
+
+#######################################################################
+parser = OptionParser( usage )
+
+parser.add_option("-I","--inspiral-glob",action="store",type="string",\
+    default=None,metavar="INSP",\
+    help="glob for files containing the string INSP")
+    
+parser.add_option("-s","--show-plot",action="store_true",default=False,\
+    help="display the figures on the terminal" )
+
+parser.add_option("-m","--range-min",action="store",type="float",\
+    metavar="MIN", help="minimum value on range plots", default=0 )
+
+parser.add_option("-M","--range-max",action="store",type="float",\
+    metavar="MAX", help="maximum value on range plots", default=0 )
+
+parser.add_option("-a","--range-vs-time",action="store_true",\
+    default=False,help="make a plot of range vs time" )
+
+parser.add_option("-b","--range-hist",action="store_true",\
+    default=False,help="make a histogram of the range" )
+
+parser.add_option("-t","--plot-type",action="store",type="string",\
+    default="linear",metavar=" PLOT_TYPE", \
+    help="make either linear or log or plots" )
+
+parser.add_option("-n","--nbins",action="store",type="int",\
+    metavar="NBINS", help="number of bins for range hist (default 100)",
+    default=100)
+
+parser.add_option("-f","--figure-name",action="store",type="string",\
+    default=None, metavar=" FNAME",\
+    help="generate png figures with name FNAME-fig.png" )
+
+(opts,args) = parser.parse_args()
+
+#######################################################################
+# identify the inspiral files
+if opts.inspiral_glob:
+  inspiralFiles = glob.glob(opts.inspiral_glob)
+  if not inspiralFiles:
+    print >>sys.stderr, "The glob for " + opts.tmplt_glob + \
+        " returned no files"
+    sys.exit(1)
+else:
+  inspiralFiles = None
+
+#######################################################################
+# Read in the summ values from the inspirals
+inspiralSumm = readFiles(inspiralFiles)
+
+print 'done Reading'
+colors = {'G1':'k','H1':'r','H2':'b','L1':'g'}
+
+#######################################################################
+# Make plot of range vs time
+if opts.range_vs_time:
+  figure(1)
+  for ifo in inspiralSumm.keys():
+    range = inspiralSumm[ifo].getColumnByName('value').asarray()
+    startTime = viz.timeindays(inspiralSumm[ifo].getColumnByName('start_time').asarray())
+    style = colors[ifo] + 'x'
+    if opts.plot_type == 'linear':
+      plot(startTime, range, style, label=ifo,\
+          markersize=12, markeredgewidth=1)
+    elif opts.plot_type == 'log':
+      semilogy(startTime, range, style, label=ifo,\
+          markersize=12, markeredgewidth=1)
+  
+  xlabel('Days after start of run', size='x-large')
+  ylabel('Inspiral Horizon distance (Mpc)', size='x-large')
+  if opts.figure_name:
+    savefig(opts.figure_name + "range_plot.png")
+
+#######################################################################
+# Make histogram of range values
+if opts.range_hist:
+  figure(2)
+  if not opts.range_min or not opts.range_max:
+    print >>sys.stderr, \
+        "Must specify --range-min and --range-max for range hist"
+    sys.exit(1)
+
+  if opts.plot_type == 'log':
+    opts.range_min = log10(opts.range_min)
+    opts.range_max = log10(opts.range_max)
+
+  bins = arange(opts.range_min,opts.range_max, \
+      (opts.range_max - opts.range_min)/ opts.nbins)
+
+  if opts.plot_type == 'log':
+    bins = 10**bins
+    opts.range_min = 10**(opts.range_min)
+    opts.range_max = 10**(opts.range_max)
+
+  num = {}
+  for ifo in inspiralSumm.keys():
+    range = inspiralSumm[ifo].getColumnByName('value').asarray()
+    style = colors[ifo]
+    [num[ifo],bins,blah] = hist(range,bins)
+
+  print bins
+  print num['H1']
+  clf()
+  for ifo in inspiralSumm.keys():
+    if opts.plot_type == 'log':
+      semilogx(bins,num[ifo], colors[ifo], linewidth=2, label=ifo)
+    elif opts.plot_type == 'linear':
+      plot(bins,num[ifo], colors[ifo], linewidth=2, label=ifo)
+
+  legend()
+  xlim(opts.range_min, opts.range_max)
+  xlabel('Inspiral Horizon distance (Mpc)', size='x-large')
+  ylabel('Number of blocks', size='x-large')
+  if opts.figure_name:
+    savefig(opts.figure_name + "range_hist.png")
+
+if opts.show_plot:
+  show()  
