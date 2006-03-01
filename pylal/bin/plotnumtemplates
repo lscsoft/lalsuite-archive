@@ -1,68 +1,132 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 
-# Author: Patrick Brady and Darren Woods, UWM
-
-import re, sys, os, string, glob
-from pylab import *
-from pylal import readMeta
+import sys
+import glob
 from optparse import *
+from pylab import *
+from pylal import viz
+from glue.ligolw import ligolw
+from glue.ligolw import metaio
+from glue.ligolw import lsctables
+from glue.ligolw import docutils
 
-# define usage and command line options and arguments - parse
+##############################################################################
+
+##############################################################################
+# function to read in a list of files
+def isSearchSumm(name, attrs):
+  return lsctables.IsTableProperties(lsctables.SearchSummaryTable, name, attrs)
+
+def isProcess(name, attrs):
+  return lsctables.IsTableProperties(lsctables.ProcessTable, name, attrs)
+
+def readFiles(fList):
+  """
+  read in the SimInspiralTables from a list of files
+  @param fList:       list of input files
+  """
+  output = {}
+  if not fList:
+    return output
+  for thisFile in fList:
+    doc = ligolw.Document()
+    # read in ifo from process, as not stored in SearchSumm
+    ligolw.make_parser(docutils.PartialLIGOLWContentHandler(doc, \
+        isProcess)).parse(file(thisFile))
+    ifo = doc.childNodes[0].getColumnByName('ifos')[0]
+    # read in SearchSummary
+    doc = ligolw.Document()
+    ligolw.make_parser(docutils.PartialLIGOLWContentHandler(doc, \
+        isSearchSumm)).parse(file(thisFile))
+    searchSummTable = doc.childNodes[0]
+    if output.has_key(ifo):
+      output[ifo].extend(searchSummTable)
+    else:
+      output[ifo] = searchSummTable
+  return output
+
+
+#################################################################
+# help message
 usage = """\
-plotnumtemplates [options]
+Usage: plotnumtemplates [options]
 
+  SUMMARY: Makes a plot of the number of templates against time.  The code
+           will read in either TMPLTBANK files or TRIGBANK files or both, 
+           for as many ifo's as you like.  It will then plot the number of 
+           templates vs time for each ifo and each type of bank (TMPLT and 
+           TRIG).
 
-description:
-  Plot the distance versus time based on the output files from an
-  inspiral dag.  The code uses the effective distance stored in the
-  search summary files.   It can also plot a histogram of the horizon
-  distance, i.e. the number of blocks in which a given distance is
-  seen.  The output is a pair of png files if the -f option is
-  supplied and will display to screen if the option -s is supplied.
-
-
-example:
-
-  Generate png files which show the horizon distance for L1, H1 and H2
-  versus time.  Also generate histograms of these distances between 0
-  and 20 Mpc.  The output will be two files "s4-bns-horizon.png" and
-  "s4-bns-horizon_hist.png"
-  
-  plotdistance --l1 --h1 --glob "-INSPIRAL-*" --h2 \\
-      -f s4-bns --hist --max-dist 20.0
-    
-
-bugs:
-  (1)  Could be adapted to work with summary information from 
-  lalapps_tmplbank, but has not been yet. (2) Too many hardcoded
-  numbers which should be made options with default values. 
 """
+
+##############################################################################
 parser = OptionParser( usage )
-parser.add_option("-f","--figure-name",action="store",type="string",\
-    default=None,metavar=" FNAME",\
-    help="generate ps figures with name FNAME_PlotType.ps")
+    
+parser.add_option("-t","--tmplt-glob",action="store",type="string",\
+    default=None,metavar="TMPLT",\
+    help="glob for files containing the string TMPLT")
+    
+parser.add_option("-T","--trig-glob",action="store",type="string",\
+    default=None,metavar="TRIG",\
+    help="glob for files containing the string TRIG")
+    
 parser.add_option("-s","--show-plot",action="store_true",default=False,\
     help="display the figures on the terminal" )
 
-( options , args ) = parser.parse_args()
+parser.add_option("-f","--figure-name",action="store",type="string",\
+    default=None, metavar=" FNAME",\
+    help="generate png figures with name FNAME.png" )
 
-# identify the template bank files and count the templates
-tmplt_bank_files = glob.glob("H1-TMPLTBANK-*.xml")
-tmpltbank = readMeta.metaDataTable( tmplt_bank_files , 'search_summary') 
-numtemplates = tmpltbank.mkarray("nevents")
-ttemplates = tmpltbank.mkarray("out_start_time")
+(opts,args) = parser.parse_args()
 
-# identify the trig bank files and count the templates
-trig_bank_files = glob.glob("H1-TRIGBANK_*.xml")
-trigbank = readMeta.metaDataTable( trig_bank_files , 'search_summary') 
-numtrigtemplates = trigbank.mkarray("nevents")
-ttrigtemplates = trigbank.mkarray("out_start_time")
 
-block=arange( len( numtemplates ) )
-plot(ttemplates,cumsum(numtemplates),'ro',ttrigtemplates,cumsum(numtrigtemplates),'go')
 
-if options.figure_name:
-  savefig(options.figure_name + "-numtemplates.png")
+# identify the template bank files
+if opts.tmplt_glob:
+  tmpltbankFiles = glob.glob(opts.tmplt_glob)
+  if not tmpltbankFiles:
+    print >>sys.stderr, "The glob for " + opts.tmplt_glob + \
+        " returned no files"
+    sys.exit(1)
+else:
+  tmpltbankFiles = None
 
-if options.show_plot:
-  show()
+# identify the trigbank files
+if opts.trig_glob:
+  trigbankFiles = glob.glob(opts.trig_glob)
+  if not trigbankFiles:
+    print >>sys.stderr, "The glob for " + opts.trig_glob + \
+        " returned no files"
+    sys.exit(1)
+else:
+  trigbankFiles = None
+  
+#######################################################################
+# Read in the search summaries from the template banks
+tmpltSumm = readFiles(tmpltbankFiles)
+trigSumm  = readFiles(trigbankFiles)
+
+colors = {'G1':'k','H1':'r','H2':'b','L1':'g'}
+
+for ifo in tmpltSumm.keys():
+  numTemplates = tmpltSumm[ifo].getColumnByName('nevents').asarray()
+  startTime = viz.timeindays(tmpltSumm[ifo].getColumnByName('out_start_time').asarray())
+  style = colors[ifo] + 'x'
+  plot(startTime, numTemplates, style, label=ifo+' tmplt',\
+      markersize=12, markeredgewidth=1)
+
+for ifo in trigSumm.keys():
+  numTrigs = trigSumm[ifo].getColumnByName('nevents').asarray()
+  startTime = viz.timeindays(trigSumm[ifo].getColumnByName('out_start_time').asarray())
+  style = colors[ifo] + 'o'
+  plot(startTime, numTrigs, style, label=ifo+' trig',\
+      markersize=12, markeredgewidth=1)
+      
+xlabel('Days after start of run', size='x-large')
+ylabel('Number of templates', size='x-large')
+legend()
+if opts.figure_name:
+  savefig(opts.figure_name + ".png")
+
+if opts.show_plot:
+  show()  
