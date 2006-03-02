@@ -241,7 +241,7 @@ else:
 ########################
 # read in slide triggers
 if slidefiles:
-  inspSlide = readMeta.metaDataTable(slidefiles,"sngl_inspiral")
+  inspSlide = readMeta.snglInspiralTable(slidefiles,"sngl_inspiral")
   
   if opts.veto_file:
     file = open( opts.veto_file , "r")
