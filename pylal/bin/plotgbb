@@ -130,20 +130,15 @@ sourcelist = read_source_file( opts.source_file )
 
 ##############################################################################
 # Constants:
-X_MAX = 50	# x-axis max for plots.
-Y_MAX = 300	# y-axis max for plots.
+X_MAX = 100	# x-axis max for plots.
+Y_MAX = 3000	# y-axis max for plots.
 max_luminosity = sourcelist[len(sourcelist)-2]['luminosity']
 max_galaxy = sourcelist[len(sourcelist)-2]['name']
 
-##############################################################################
-# total luminosity
 
-for  i in range (len(sourcelist)-2):
-	sourcelist[i]['luminosity'] = sourcelist[i-1]['luminosity'] + sourcelist[i]['luminosity']
-		
-print sourcelist[i]['luminosity']
-
+print "This is the Maximum Luminosity"
 print max_luminosity
+print "This is the Galaxy having Maximum Luminosity"
 print max_galaxy 
 
 # an instance of the simInspiralTable
@@ -156,11 +151,13 @@ if opts.segment_file:
   file.close()
   simInspTriggers = getSegments( simInspTriggers, l , "l_end_time" )
 
+  
+
 # The following line determines the number of sources with highest luminousity
 numSources = len( [e for e in simInspTriggers.table if\
       ( re.match(max_galaxy,e["source"]) )] )
 
-
+print "The number of Sources in Above Galaxy"
 print numSources
 
 h=simInspTriggers.mkarray( "eff_dist_h" )
@@ -292,4 +289,41 @@ if opts.show_sum:
 
 if opts.show_plot:
   show()
+
+##########################################################################################################################################################################################################################################################
+#############################################################################################################################EFFICIENCY PLOT
+
+# an instance of the simInspiralTable
+found = readMeta.metaDataTable(["H1H2-THINCA_H1H2_FOUND_123.xml"], "sim_inspiral" )
+missed = readMeta.metaDataTable(["H1H2-THINCA_H1H2_MISSED_123.xml"],"sim_inspiral")
+
+hf = found.mkarray("eff_dist_h")
+hm = missed.mkarray("eff_dist_h")
+h_found = sort(hf)
+h_missed= sort(hm)
+nbins = 50
+
+
+
+stepf = (max(hf) - min(hf))/nbins
+binsf = arange(min(hf), max(hf), stepf)
+h_found, binsf, stuff = hist(hf, binsf)
+h_missed,binsf, stuff = hist(hm,binsf)
+clf()
+
+plot(binsf, h_found)
+grid( True )
+xlabel('Effective Distance (Mpc)')
+ylabel('Found')
+
+show()
+
+plot(binsf, h_missed)
+grid( True )
+xlabel('Effective Distance (Mpc)')
+ylabel('Missed')
+
+show() 
+
+############################################################################################################################
 
