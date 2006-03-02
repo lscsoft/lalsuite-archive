@@ -344,10 +344,10 @@ nbins = 50
 stepf = (max(ha) - min(ha))/nbins
 binsf = arange(min(ha), max(ha), stepf)
 h_found, binsf, stuff = hist(hf, binsf)
-h_all,binsf,stuff = hist(hf + hm,binsf)
+h_all,binsf,stuff = hist(ha,binsf)
 clf()
 
-plot(binsf, h_found/h_all)
+plot(binsf,(h_found)*1.0/( h_all))
 grid( True )
 xlabel('Effective Distance (Mpc)')
 ylabel('Efficiency')
