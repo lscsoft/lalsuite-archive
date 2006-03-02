@@ -102,7 +102,14 @@ parser.add_option("-b","--show-bar",action="store_true",default=False,\
 parser.add_option("-u","--show-sum",action="store_true",default=False,\
     help="display the sum_plot.ps figure on the terminal" )
 parser.add_option("-c","--show-curvefit",action="store_true",default=False,\
-    help="display the sum_curvefit.ps figure on the terminal" )	
+    help="display the sum_curvefit.ps figure on the terminal" )
+parser.add_option("-g","--glob-found",action="store",type="string",\
+    default=None, metavar=" FOUND_GLOB", \
+    help="GLOB of found trigger/injection files to read" )
+parser.add_option("-m","--glob-missed",action="store",type="string",\
+    default=None, metavar=" MISS_GLOB", \
+    help="GLOB of files containing missed injections to read" )
+	
 
 (opts,args) = parser.parse_args()
 
@@ -121,6 +128,34 @@ if not opts.source_file:
   print >>sys.stderr, "the source list file must be supplied"
   print >>sys.stderr, "Enter 'plotgbb --help' for usage"
   sys.exit(1)
+
+
+# check at least one trig file was specified
+if not opts.glob_found:
+  print >>sys.stderr, "Must specify a GLOB of found injection files to read"
+  print >>sys.stderr, "Enter 'plotefficiency --help' for usage"
+  sys.exit(1)
+
+if not opts.glob_missed:
+  print >>sys.stderr, "Must specify a GLOB of missed injection files to read"
+  print >>sys.stderr, "Enter 'plotefficiency --help' for usage"
+  sys.exit(1)
+
+foundFiles = glob.glob(opts.glob_found)
+if not foundFiles:
+  print >>sys.stderr, "The glob for " + opts.glob_found + " returned no files"
+  sys.exit(1)
+
+missedFiles = glob.glob(opts.glob_missed)
+if not foundFiles:
+  print >>sys.stderr, "The glob for " + opts.glob_missed + " returned no files"
+  sys.exit(1)
+
+foundTrig = readMeta.metaDataTable(foundFiles, "sngl_inspiral")
+foundInj  = readMeta.metaDataTable(foundFiles, "sim_inspiral")
+missedInj = readMeta.metaDataTable(missedFiles, "sim_inspiral")
+
+
 
 trigFiles = args
 
@@ -291,11 +326,11 @@ if opts.show_plot:
   show()
 
 ##########################################################################################################################################################################################################################################################
-#############################################################################################################################EFFICIENCY PLOT
+#EFFICIENCY PLOT
 
 # an instance of the simInspiralTable
-found = readMeta.metaDataTable(["H1H2-THINCA_H1H2_FOUND_123.xml"], "sim_inspiral" )
-missed = readMeta.metaDataTable(["H1H2-THINCA_H1H2_MISSED_123.xml"],"sim_inspiral")
+found = readMeta.metaDataTable(trigFiles, "sim_inspiral" )
+missed = readMeta.metaDataTable(trigFiles,"sim_inspiral")
 
 hf = found.mkarray("eff_dist_h")
 hm = missed.mkarray("eff_dist_h")
