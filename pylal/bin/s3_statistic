@@ -596,7 +596,6 @@ if opts.slide_dist or opts.slide_zero_dist:
 
     for i in range( len(cumZero) ):
       cumZero[i] = max(cumZero[i], 0.0001)
-    print cumZero
   close(100)
 
 
