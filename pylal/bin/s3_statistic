@@ -184,7 +184,11 @@ parser.add_option("-g","--slide-dist",action="store_true",default=False,\
     
 parser.add_option("-j","--slide-zero-dist",action="store_true",default=False,\
     help="plot the distribution of slide triggers + zero lag" )
-  
+
+parser.add_option("-D","--distribution",action="store",type="string",
+    default="cumulative",
+    help="plot either 'cumulative' or 'non-cumulative' distributions" )
+
 parser.add_option("-k","--efficiency",action="store_true",default=False,\
     help="plot efficiency as a function of the statistic")
   
@@ -559,7 +563,7 @@ if opts.zero_inj_stat:
 # Determine the cumulative slide distribution
 if opts.slide_dist or opts.slide_zero_dist:
   slideDist = []
-  cumDistSlides = []
+  distSlides = []
 
   figure(100)
   bins = arange(0.0, slideMax, slideMax/opts.num_bins )
@@ -567,36 +571,43 @@ if opts.slide_dist or opts.slide_zero_dist:
   for thisSlide in slideStat:
     [thisDist,bin,info] = hist(thisSlide,bins)
     
-    cumSlide = [sum(thisDist)]
-    cumSlide.extend(sum(thisDist) - cumsum(thisDist))
-    cumSlide.pop()
-    cumDistSlides.append(cumSlide)
+    if opts.distribution == 'cumulative':
+      cumSlide = [sum(thisDist)]
+      cumSlide.extend(sum(thisDist) - cumsum(thisDist))
+      cumSlide.pop()
+      thisDist = cumSlide
+      
+    distSlides.append(thisDist)
     
-  cumDistSlides = reshape(array(cumDistSlides), \
+  distSlides = reshape(array(distSlides), \
       (len(slideStat),opts.num_bins))
 
-  slideMean = mean(cumDistSlides)
-  slideStd = std(cumDistSlides)
+  slideMean = mean(distSlides)
+  slideStd = std(distSlides)
   
   
   # make sure we don't plot log of zero
   slideMin = []
   for i in range( len(slideMean) ):
-      slideMin.append( max(slideMean[i] - slideStd[i], 0.0001) )
-      slideMean[i] = max(slideMean[i], 0.0001)
+    slideMin.append( max(slideMean[i] - slideStd[i], 0.0001) )
+    slideMean[i] = max(slideMean[i], 0.0001)
 
 
   # get the zero lag information
   if opts.slide_zero_dist:
     [zeroDist,bin,info] = hist(coincStat,bins)
+    zeroDist = array(zeroDist,'f')
 
-    cumZero = [sum(zeroDist)]
-    cumZero.extend(sum(zeroDist) - cumsum(zeroDist))
-    cumZero.pop()
+    if opts.distribution == 'cumulative':
+      cumZero = [sum(zeroDist)]
+      cumZero.extend(sum(zeroDist) - cumsum(zeroDist))
+      cumZero.pop()
+      zeroDist = cumZero
 
-    for i in range( len(cumZero) ):
-      cumZero[i] = max(cumZero[i], 0.0001)
-  close(100)
+    for i in range( len(zeroDist) ):
+      zeroDist[i] = max(zeroDist[i], 0.0001)
+  
+  clf()
 
 
 ################################################
@@ -610,11 +621,20 @@ if opts.slide_dist:
 
   xlabel('Combined Statistic', size='x-large')
   ylabel('Log Number of events', size='x-large')
-  title_text = 'Cumulative histogram of Number of events vs statistic'
+  if opts.distribution == 'cumulative':
+    title_text = 'Cumulative histogram of Number of events vs statistic'
+  else:
+    title_text = 'Histogram of Number of events vs statistic'
+
+  title(title_text, size='x-large')
+  
   ylim(ymin=log10((1./(2*opts.num_slides))))
 
   if opts.figure_name:
+    if opts.distribution == 'cumulative':
       savefig(opts.figure_name + "_slide_distribution.png")
+    else:
+      savefig(opts.figure_name + "_nc_slide_distribution.png")
 
 
 ############################################################
@@ -623,17 +643,25 @@ if opts.slide_zero_dist:
   fig_num += 1
   figure(fig_num)
 
-  plot(bins,log10(cumZero),'rx',markersize=12)
+  plot(bins,log10(zeroDist),'rx',markersize=12)
   errorbar(bins,log10(slideMean), [log10(slideMean) - log10(slideMin), 
       log10(slideMean + slideStd) - log10(slideMean)], markersize=12)
 
   xlabel('Combined Statistic', size='x-large')
   ylabel('Log Number of events', size='x-large')
-  title_text = 'Cumulative histogram of Number of events vs statistic'
+  if opts.distribution == 'cumulative':
+    title_text = 'Cumulative histogram of Number of events vs statistic'
+  else: 
+    title_text = 'Histogram of Number of events vs statistic'
+
+  title(title_text, size='x-large')
   ylim(ymin=log10((1./(2*opts.num_slides))))
 
   if opts.figure_name:
+    if opts.distribution == 'cumulative':
       savefig(opts.figure_name + "_slide_zero_distribution.png")
+    else:
+      savefig(opts.figure_name + "_nc_slide_zero_distribution.png")
 
 
 ##########################
