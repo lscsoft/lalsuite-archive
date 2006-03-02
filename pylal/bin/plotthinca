@@ -185,9 +185,12 @@ for ifo1 in ifo_list:
 ###################################
 # glob the list of files to read in
 if opts.glob:  
-  allfiles = glob.glob(opts.glob)
+  allfiles = []
+  gl_pats = opts.glob.split(" ")
+  for gl in gl_pats:
+    allfiles += glob.glob(gl)
 
-  if not allfiles:
+  if len(allfiles) < 1:
     print >>sys.stderr, "The glob for " + opts.glob + " returned no files"
     sys.exit(1)
 
