@@ -123,7 +123,7 @@ if opts.range_vs_time:
   xlabel('Days after start of run', size='x-large')
   ylabel('Inspiral Horizon distance (Mpc)', size='x-large')
   if opts.figure_name:
-    savefig(opts.figure_name + "range_plot.png")
+    savefig(opts.figure_name + "_range_plot.png")
 
 #######################################################################
 # Make histogram of range values
@@ -164,7 +164,7 @@ if opts.range_hist:
   xlabel('Inspiral Horizon distance (Mpc)', size='x-large')
   ylabel('Number of blocks', size='x-large')
   if opts.figure_name:
-    savefig(opts.figure_name + "range_hist.png")
+    savefig(opts.figure_name + "_range_hist.png")
 
 if opts.show_plot:
   show()  
