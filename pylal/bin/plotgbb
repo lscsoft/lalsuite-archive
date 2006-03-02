@@ -132,12 +132,12 @@ if not opts.source_file:
 # check at least one trig file was specified
 if not opts.glob_found:
   print >>sys.stderr, "Must specify a GLOB of found injection files to read"
-  print >>sys.stderr, "Enter 'plotefficiency --help' for usage"
+  print >>sys.stderr, "Enter 'plotgbb --help' for usage"
   sys.exit(1)
 
 if not opts.glob_missed:
   print >>sys.stderr, "Must specify a GLOB of missed injection files to read"
-  print >>sys.stderr, "Enter 'plotefficiency --help' for usage"
+  print >>sys.stderr, "Enter 'plotgbb --help' for usage"
   sys.exit(1)
 
 foundFiles = glob.glob(opts.glob_found)
@@ -329,37 +329,37 @@ if opts.show_plot:
 
 
 # an instance of the simInspiralTable
-found = readMeta.metaDataTable(trigFiles, "sim_inspiral" )
-missed = readMeta.metaDataTable(trigFiles,"sim_inspiral")
+found = readMeta.metaDataTable(foundFiles, "sim_inspiral" )
+missed = readMeta.metaDataTable(missedFiles,"sim_inspiral")
 
 hf = found.mkarray("eff_dist_h")
 hm = missed.mkarray("eff_dist_h")
 ha = concatenate((hf ,hm))
-h_found = sort(hf)
-h_missed= sort(hm)
+h_all= sort(ha)
+h_found=sort(hf)
 nbins = 50
 
 
 
-stepf = (max(hf) - min(hf))/nbins
-binsf = arange(min(hf), max(hf), stepf)
+stepf = (max(ha) - min(ha))/nbins
+binsf = arange(min(ha), max(ha), stepf)
 h_found, binsf, stuff = hist(hf, binsf)
-h_missed,binsf, stuff = hist(hm,binsf)
+h_all,binsf,stuff = hist(hf + hm,binsf)
 clf()
 
-plot(binsf, h_found)
+plot(binsf, h_found/h_all)
 grid( True )
 xlabel('Effective Distance (Mpc)')
-ylabel('Found')
+ylabel('Efficiency')
 
 show()
 
-plot(binsf, h_missed)
-grid( True )
-xlabel('Effective Distance (Mpc)')
-ylabel('Missed')
+#plot(binsf, h_missed)#
+#grid( True )#
+#xlabel('Effective Distance (Mpc)')#
+#ylabel('Missed')#
 
-show() 
+#show()# 
 
 ###########################################################
 
