@@ -315,7 +315,8 @@ if opts.slide_glob:
     slideTriggers.sort()
     thisSlideStat = this_slide["coinc_trigs"].getstat()
     slideStat.append( thisSlideStat )
-    slideMax = max(slideMax,max(thisSlideStat))
+    if len(thisSlideStat):
+      slideMax = max(slideMax,max(thisSlideStat))
     # add slide to list
     slideTriggers.append(this_slide["coinc_trigs"])
 
