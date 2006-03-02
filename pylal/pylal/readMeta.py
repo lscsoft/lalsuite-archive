@@ -12,6 +12,7 @@ __version__ = '$Revision$'[11:-2]
 
 import sys, getopt
 import re
+from glue import segments
 from pylal import support
 from pylab import *
 
@@ -141,6 +142,25 @@ class snglInspiralTable(metaDataTable):
         trig['s4_snr_chi_stat']= trig['snr']**2 \
             / (1 + trig['snr']**2/250)**(0.5) \
             / (trig['chisq']/(2*trig['chisq_dof'] - 2) )**(0.5) 
+
+  def veto(self, seglist):
+    """
+    Veto inspiral events which lie inside the provided segment list
+    
+    @param seglist: a segment list of veto times
+    """
+
+    vetoed = snglInspiralTable( None, "sngl_inspiral")
+    keep = snglInspiralTable( None, "sngl_inspiral")
+    for event in self.table:
+      end_time = event["end_time"]
+      if seglist.__contains__(end_time):
+        vetoed.table.append(event)
+      else:
+        keep.table.append(event)
+
+    return keep
+    
         
  
 class coincInspiralTable:
@@ -174,7 +194,15 @@ class coincInspiralTable:
             if stat:
               coinc["stat"] += trig[stat]
             break
-    
+
+      # make sure that there is at least one ifo in each coinc
+      pruned_coincs = coincInspiralTable()
+      for coinc in self.table:
+        if coinc["numifos"] > 1:
+          pruned_coincs.table.append(coinc)
+        
+      self.table = pruned_coincs.table
+
     
   def nevents(self):
     """
@@ -198,7 +226,6 @@ class coincInspiralTable:
       mylist.append( tmpvalue )
 
     return asarray( mylist )
-
 
   def coincinclude(self, ifolist):
     """
