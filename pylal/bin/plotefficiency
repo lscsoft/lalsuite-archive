@@ -80,9 +80,9 @@ foundTrig = readMeta.metaDataTable(foundFiles, "sngl_inspiral")
 foundInj  = readMeta.metaDataTable(foundFiles, "sim_inspiral")
 missedInj = readMeta.metaDataTable(missedFiles, "sim_inspiral")
 
-#if foundTrig.nevents() != foundInj.nevents():#
-#    print >>sys.stderr,"number of triggers and found injections must be equal"#
-    #sys.exit(1)#
+if foundTrig.nevents() != foundInj.nevents():
+    print >>sys.stderr,"number of triggers and found injections must be equal"
+    sys.exit(1)
 
 ifo = foundTrig.table[0]['ifo']
 
