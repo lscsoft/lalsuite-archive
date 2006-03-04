@@ -103,6 +103,8 @@ parser.add_option("-u","--show-sum",action="store_true",default=False,\
     help="display the sum_plot.ps figure on the terminal" )
 parser.add_option("-c","--show-curvefit",action="store_true",default=False,\
     help="display the sum_curvefit.ps figure on the terminal" )
+parser.add_option("-e","--show-efficiency",action="store_true",default=False,\
+    help="display the efficiency.ps figure on the terminal" )
 parser.add_option("-g","--glob-found",action="store",type="string",\
     default=None, metavar=" FOUND_GLOB", \
     help="GLOB of found trigger/injection files to read" )
@@ -318,48 +320,56 @@ if opts.show_sum:
 	if opts.figure_name:
 	  savefig( opts.figure_name + "_sum_plot.ps" )
 
-if opts.show_plot:
-  show()
 
 
 
 ###########################################################
 #EFFICIENCY PLOT
 
+if opts.show_efficiency:
 
 
-# an instance of the simInspiralTable
-found = readMeta.metaDataTable(foundFiles, "sim_inspiral" )
-missed = readMeta.metaDataTable(missedFiles,"sim_inspiral")
+	# an instance of the simInspiralTable
+	found = readMeta.metaDataTable(foundFiles, "sim_inspiral" )
+	missed = readMeta.metaDataTable(missedFiles,"sim_inspiral")
 
-hf = found.mkarray("eff_dist_h")
-hm = missed.mkarray("eff_dist_h")
-ha = concatenate((hf ,hm))
-h_all= sort(ha)
-h_found=sort(hf)
-nbins = 50
+	hf = found.mkarray("eff_dist_h")
+	hm = missed.mkarray("eff_dist_h")
+	ha = concatenate((hf ,hm))
+	h_all= sort(ha)
+	h_found=sort(hf)
+	nbins = 5.0
+	
 
 
+	stepf = (log10(max(hf)) - log10(min(hf)))/nbins
+	binsf = arange((min(hf)),(max(hf)), stepf)
+	h_found,binsf, stuff = hist(hf, binsf)
+	h_all,binsf,stuff = hist(h_all,binsf)
+	clf()
 
-stepf = (max(ha) - min(ha))/nbins
-binsf = arange(min(ha), max(ha), stepf)
-h_found, binsf, stuff = hist(hf, binsf)
-h_all,binsf,stuff = hist(ha,binsf)
-clf()
+	plot (binsf,(h_found)*1.0/( h_all))
+	grid( True )
+	axis( [0,5, 0,1.1]) 
+	xlabel('Effective Distance (Mpc)')
+	ylabel('Efficiency')
+	
+	if opts.title:
+	  title( opts.title )
+	if opts.figure_name:
+	  savefig( opts.figure_name + "_efficiency.ps" )
 
-plot(binsf,(h_found)*1.0/( h_all))
-grid( True )
-xlabel('Effective Distance (Mpc)')
-ylabel('Efficiency')
+if opts.show_plot:
+  show()
 
-show()
 
-#plot(binsf, h_missed)#
-#grid( True )#
-#xlabel('Effective Distance (Mpc)')#
-#ylabel('Missed')#
-
-#show()# 
-
+	
+	#plot(binsf, h_missed)#
+	#grid( True )#
+	#xlabel('Effective Distance (Mpc)')#
+	#ylabel('Missed')#
+	
+	#show()# 
+		
 ###########################################################
 
