@@ -13,7 +13,7 @@ from pylal import readMeta
 from pylal import viz
 
 ##############################################################################
-def disterr(coinc_table, ifo_list):
+def disterr(coinc_table, ifo_list, use_avg):
 
   ifoa_dist = coinc_table.mkarray('eff_distance',ifo_list[0])
   ifob_dist = coinc_table.mkarray('eff_distance',ifo_list[1])
@@ -22,9 +22,16 @@ def disterr(coinc_table, ifo_list):
 
   ifoa_sigma = coinc_table.mkarray('sigmasq',ifo_list[0])
   ifob_sigma = coinc_table.mkarray('sigmasq',ifo_list[1])
+
+  if use_avg:
+    denoma = (ifoa_dist + ifob_dist) / 2.0
+    denomb = (ifoa_dist + ifob_dist) / 2.0
+  else:
+    denoma = ifob_dist
+    denomb = ifoa_dist
  
-  ifoa_error = abs(ifoa_dist - ifob_dist) / ifob_dist 
-  ifob_error = abs(ifob_dist - ifoa_dist) / ifoa_dist
+  ifoa_error = abs(ifoa_dist - ifob_dist) / denoma
+  ifob_error = abs(ifob_dist - ifoa_dist) / denomb
 
   dist_error = ifoa_error
   small_snr = ifoa_snr
@@ -73,6 +80,8 @@ parser.add_option("-B","--ifob",action="store",default=None,\
     metavar=" IFOB",help="second ifo for which we have triggers" )
 parser.add_option("-a","--dist-cut",action="store_true",default=False,\
     help="perform distance cut on inj and slide trigs" )
+parser.add_option("-u","--use-avg-distance",action="store_true",default=False,\
+    help="use average of the two distances to normalize the error" )
 parser.add_option("-b","--dist-snr",action="store_true",default=False,\
     help="plot of distance accuracy vs snr" )
 parser.add_option("-c","--dist-hist",action="store_true",default=False,\
@@ -121,7 +130,7 @@ if opts.slide_glob and not opts.num_slides:
 injFiles = glob.glob(opts.inj_glob)
 injTriggers = readMeta.coincInspiralTable()
 for file in injFiles:
-  inspTriggers = readMeta.metaDataTable([file],"sngl_inspiral")
+  inspTriggers = readMeta.snglInspiralTable([file],"sngl_inspiral")
   injTrig = readMeta.coincInspiralTable(inspTriggers)
   injTrig = injTrig.coincinclude([opts.ifoa,opts.ifob])
   if opts.cluster_window:
@@ -130,7 +139,7 @@ for file in injFiles:
 
 if opts.slide_glob:
   slideFiles = glob.glob(opts.slide_glob)
-  inspSlide = readMeta.metaDataTable(slideFiles,"sngl_inspiral")
+  inspSlide = readMeta.snglInspiralTable(slideFiles,"sngl_inspiral")
 
   slide_num = range(1 , opts.num_slides + 1)
   slide_num.extend(range(-opts.num_slides, 0))
@@ -161,10 +170,12 @@ if opts.slide_glob:
 #######################################################################
 # extract the information from the tables
 
-[inj_snr,inj_error] = disterr(injTriggers,[opts.ifoa,opts.ifob])
+[inj_snr,inj_error] = disterr(injTriggers,[opts.ifoa,opts.ifob], \
+    opts.use_avg_distance)
 
 if opts.slide_glob:
-  [slide_snr,slide_error] = disterr(slideTriggers,[opts.ifoa,opts.ifob])
+  [slide_snr,slide_error] = disterr(slideTriggers,[opts.ifoa,opts.ifob], \
+      opts.use_avg_distance)
 
 
 #######################################################################
