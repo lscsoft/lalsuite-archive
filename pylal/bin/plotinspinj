@@ -9,6 +9,7 @@ import glob
 from types import *
 
 from pylab import *
+from glue import segmentsUtils
 from pylal import readMeta
 from pylal import viz
 
@@ -72,6 +73,8 @@ parser.add_option("-e","--plot-eta",action="store_true",default=False,\
     help="plot the eta accuracy" )
 parser.add_option("-E","--hist-eta",action="store_true",default=False,\
     help="histogram of the eta accuracy" ) 
+parser.add_option("-a","--eta-snr",action="store_true",default=False,\
+    help="plot of eta accuracy vs snr" )
 parser.add_option("-F","--eta-axis",action="store",type="float",\
     default=0, metavar=" UNITS",help="width of eta accuracy in plots" )
 
@@ -111,7 +114,9 @@ parser.add_option("-f","--fig-name",action="store",type="string",\
 parser.add_option("-x","--title-text",action="store",type="string",\
     default=None, metavar=" TEXT",\
     help="add TEXT at start of plot titles" ) 
-    
+parser.add_option("-V","--veto-file",action="store",type="string",\
+    default=None,metavar=" FNAME",\
+    help="read in segments from FNAME (assumed segwizard format)")
 
 (opts,args) = parser.parse_args()
 
@@ -134,7 +139,13 @@ if opts.tag1:
     tags.append(opts.tag2)
     if opts.tag3:
       tags.append(opts.tag3)
-      
+  
+# get veto segment list
+if opts.veto_file:
+  file = open( opts.veto_file , "r")
+  seglist = segmentsUtils.fromsegwizard(file)
+  file.close()
+
 # read in tables into dictionaries of paired sets
 injSets = []
 
@@ -151,6 +162,11 @@ for i in range(len(injFiles)):
     print >>sys.stderr,"number of triggers and found injections must be equal"
     sys.exit(1)
   #
+  # veto if supplied
+  if opts.veto_file:
+    injDict["sngl_inspiral"] = injDict["sngl_inspiral"].veto(seglist,"end_time")
+    injDict["sim_inspiral"] = injDict["sim_inspiral"].veto(seglist,"geocent_end_time")
+
   injSets.append(injDict)
 
 # set lists of plot symbols
@@ -223,7 +239,7 @@ if opts.plot_time:
     viz.plotdiff(set['sim_inspiral'], set['sngl_inspiral'],\
                  'end_time', 'linear', plotsymbols[sym] )
     sym+=1
-  viz.labeldiff('end_time', 'seconds', [0,0,-opts.time_axis,opts.time_axis],\
+  viz.labeldiff('end_time', 'days', [0,0,-opts.time_axis,opts.time_axis],\
     tags,opts.title_text, opts.fig_name) 
 
 
@@ -268,7 +284,6 @@ if opts.hist_dist:
     sym+=1
   viz.labelhistdiff('eff_dist', 'frac_hist', 'Mpc', tags, opts.title_text, \
                     opts.fig_name)
-
 
 #######################################
 # plot of injected vs detected distamce    
@@ -320,7 +335,7 @@ if opts.chirp_snr:
   sym=0
   for set in injSets:
     viz.plotdiffa_vs_b(set['sngl_inspiral'], set['sim_inspiral'], \
-                 'mchirp', 'snr', 'linear', plotsymbols[sym])
+                 'mchirp', 'snr', 'log', plotsymbols[sym])
     sym+=1
   viz.labeldiffa_vs_b('mchirp', 'snr','M_sun',None, \
     [0,0,-opts.chirp_axis,opts.chirp_axis], tags, opts.title_text,\
@@ -335,12 +350,26 @@ if opts.time_snr:
   sym=0
   for set in injSets:
     viz.plotdiffa_vs_b(set['sngl_inspiral'], set['sim_inspiral'], \
-                 'end_time', 'snr', 'linear', plotsymbols[sym])
+                 'end_time', 'snr', 'log', plotsymbols[sym])
     sym+=1
   viz.labeldiffa_vs_b('end_time', 'snr','seconds',None, \
     [0,0,-opts.time_axis,opts.time_axis], tags, opts.title_text,\
     opts.fig_name)
 
- 
+################################
+# plot of eta error vs snr
+if opts.eta_snr:
+  figure(14)
+  hold(True)
+  sym=0
+  for set in injSets:
+    viz.plotdiffa_vs_b(set['sngl_inspiral'], set['sim_inspiral'], \
+                 'eta', 'snr', 'log', plotsymbols[sym])
+    sym+=1
+  viz.labeldiffa_vs_b('eta', 'snr','seconds',None, \
+    [0,0,-opts.eta_axis,opts.eta_axis], tags, opts.title_text,\
+    opts.fig_name)
+
+
 if opts.show_plot:
   show()
