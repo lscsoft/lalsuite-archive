@@ -41,7 +41,7 @@ set FILE [open $SFT "r"]
 fconfigure $FILE -encoding binary -translation binary
 set header [read $FILE 32]
 binary scan $header diidii  key gps nsec timebase bin_start0 nbins0
-puts stderr "$SFT header: gps=$gps timebase=$timebase bin_start=$bin_start nbins=$nbins"
+#puts stderr "$SFT header: gps=$gps timebase=$timebase bin_start=$bin_start nbins=$nbins"
 if { $bin_start0 > $bin_start } {
 	puts stderr "Could not find range: $bin_start0 vs $bin_start"
 	exit -1
@@ -63,7 +63,7 @@ close $FILE
 binary scan $header diidii  key gps nsec timebase bin_start nbins
 binary scan $body f*  bins
 
-puts stderr "makefakedata header: gps=$gps timebase=$timebase bin_start=$bin_start nbins=$nbins"
+#puts stderr "makefakedata header: gps=$gps timebase=$timebase bin_start=$bin_start nbins=$nbins"
 
 # Output input bins for testing
 #puts [join $bins "\n"]
@@ -136,5 +136,5 @@ foreach filename [glob $noiseGlob] {
 		--outSFTv1=1 \
 		--ephemYear=$ephemYear
 	apply_hann_noise "${sft_name}.00000" $sft_name	$noise_data
-	break
 	}
+exit 0

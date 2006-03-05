@@ -31,11 +31,13 @@ while { 1 }  {
 	set freq [sample [list [expr $first_bin/1800.0] [expr ($first_bin+450)/1800.0]]]
 	set power [expr exp([sample $POWER_LOG10_RANGE] * log(10.0)) * $POWER_MAX]
         set spindown [expr exp([sample $SPINDOWN_LOG10_RANGE] * log(10.0)) * $SPINDOWN_MAX]
-	set strain [expr sqrt(power)]
-	set aPlus $aPlus
-	set aCross $aCross
+	set strain [expr sqrt($power)]
+	set aPlus $strain
+	set aCross $strain
+	set f0 $freq
+	set band_start [expr $first_bin/1800.0]
 
-	set INJ_SFT_DIR "${OUTPUT_DIR}/sfts/$i"
+	set INJ_SFT_DIR "${ROOT_DIR}/sfts/$i"
 	file mkdir ${INJ_SFT_DIR}
 	#
 	# And old, but proven method of sampling arbitrary distribution
@@ -51,7 +53,7 @@ while { 1 }  {
 		}
 	puts $PARAMS_FILE [join $L "\t"]
 
-	exec generate_injection_batch.tcl ra $ra dec $dec psi $psi phi $phi f0 $freq spindown $spindown aPlus $aPlus aCross $aCross band_start [expr $first_bin/1800.0] noiseGlob "${SFT_INPUT}*" outputDir ${INJ_SFT_DIR}
+	exec ./generate_injection_batch.tcl ra $ra dec $dec psi $psi phi $phi f0 $f0 spindown $spindown aPlus $aPlus aCross $aCross band_start $band_start noiseGlob "${SFT_INPUT}*" outputDir ${INJ_SFT_DIR}
 
 	set FILE [open "$CONF_DIR/$i" "w"]
 	puts $FILE [subst -nocommands -nobackslashes $POWERFLUX_CONF_FILE]
@@ -92,5 +94,5 @@ for { set k 0 } { $k < $i } { incr k } {
 	}
 close $FILE
 
-exec cp power_injection_params.tcl $ROOT_DIR
+exec cp sft_injection_params.tcl $ROOT_DIR
 puts stderr "Prepared input for $i jobs"
