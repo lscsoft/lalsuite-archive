@@ -34,8 +34,8 @@ example:
   and 20 Mpc.  The output will be two files "s4-bns-horizon.png" and
   "s4-bns-horizon_hist.png"
   
-  plotdistance --l1 --h1 --glob "-INSPIRAL-*" --h2 \\
-      -f s4-bns --hist --max-dist 20.0
+  plotdistance --l1-triggers --h1-triggers --h2-triggers --glob "-INSPIRAL-*" \\
+      -f s4-bns --hist --max-dist 20.0 -s
     
 
 bugs:
@@ -65,6 +65,9 @@ parser.add_option("-t","--title",action="store",type="string",default=None,\
     metavar=" STRING",help="title string for plots")
 parser.add_option("-s","--show-plot",action="store_true",default=False,\
     help="display the figures on the terminal" )
+parser.add_option("-l","--min-dist",action="store",\
+    type="float",metavar=" MIND",default = 0,\
+    help="Minimum distance to include in histogram")
 parser.add_option("-m","--max-dist",action="store",\
     type="float",metavar=" MAXD",default = 1000,\
     help="Maximum distance to include in histogram")
@@ -93,7 +96,7 @@ def readdistances(filelist):
 
   # 793065613  751593613  793154961
   time = distances.mkarray("start_time")
-  time = (time -  opts.gps_start_time) / (3600 * 24)
+  time = (time -  min(time)) / (3600 * 24)
   effdistance = distances.mkarray("value")
 
   return time, effdistance
@@ -124,7 +127,7 @@ if opts.l1_triggers:
 
 hold(False)
 xlabel(r'Time (Days)', size='x-large')
-ylabel(r'Max Distance (Mpc)', size='x-large')
+ylabel(r'Horizon Distance (Mpc)', size='x-large')
 if opts.title:
   title(r' ' + opts.title)
 grid(True)
@@ -134,6 +137,7 @@ locs, labels = yticks()
 set(labels, fontsize=16)
 legend(('H1','H2','L1'))
 tmpv=axis()
+tmpv[2]=opts.min_dist
 tmpv[3]=opts.max_dist
 axis(tmpv)
 if opts.figure_name:
@@ -164,10 +168,10 @@ if opts.hist:
     out=hist(l1effdistance,bins)
     close(999)
     plot(out[1],out[0],'go-')
-  xlabel(r'Max Distance (Mpc)', size='x-large')
+  xlabel(r'Horizon Distance (Mpc)', size='x-large')
   ylabel(r'Number of blocks', size='x-large')
   tmpv = axis()
-  tmpv[0]=0
+  tmpv[0]=opts.min_dist
   tmpv[1]=opts.max_dist
   axis(tmpv)
   if opts.figure_name:
