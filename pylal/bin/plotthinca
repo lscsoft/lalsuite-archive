@@ -221,7 +221,7 @@ if coincfiles:
     file = open( opts.veto_file , "r")
     seglist = segmentsUtils.fromsegwizard(file)
     file.close()
-    inspTriggers = inspTriggers.veto(seglist)
+    inspTriggers = inspTriggers.veto(seglist,"end_time")
 
 
   coincTriggers = readMeta.coincInspiralTable(inspTriggers)
@@ -257,7 +257,7 @@ if slidefiles:
     file = open( opts.veto_file , "r")
     seglist = segmentsUtils.fromsegwizard(file)
     file.close()
-    inspSlide = inspSlide.veto(seglist)
+    inspSlide = inspSlide.veto(seglist,"end_time")
 
   slide_num = range(1 , opts.num_slides + 1)
   slide_num.extend(range(-opts.num_slides, 0))
