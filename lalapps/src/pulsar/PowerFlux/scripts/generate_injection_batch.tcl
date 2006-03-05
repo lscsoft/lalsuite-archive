@@ -108,7 +108,7 @@ close $FILE
 
 foreach filename [glob $noiseGlob] {
 	set bin_start [expr round(floor($band_start-$band_extra)*1800)]
-	set nbins [expr round(floor($band_start+$band+2*$band_extra)*1800)-$bin_start]
+	set nbins [expr round(ceil($band_start+$band+2*$band_extra)*1800)-$bin_start]
 	set sft_name ${outputDir}/inj.[file tail ${filename}]
 
 	foreach {var value} [get_geo_range $filename $bin_start $nbins] {
