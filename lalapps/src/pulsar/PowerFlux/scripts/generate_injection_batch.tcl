@@ -15,8 +15,8 @@ foreach {var value} {
 	ephemYear	"05-09"
 	noiseGlob	"/home/volodya/LIGO/SFT-DATA/S4/S4.H1.ht.geo/sft.*"
 	outputDir	"./"
-	DEC 0.0
-	RA 0.0
+	dec 0.0
+	ra 0.0
 	psi 0.0
 	phi 0.0
 	f0 149.125
@@ -125,8 +125,8 @@ foreach filename [glob $noiseGlob] {
 		--ephemDir=$ephemDir \
 		--refTime=$spindown_gps_start \
 		--Tsft=1800 \
-		--longitude=$DEC \
-		--latitude=$RA \
+		--longitude=$dec \
+		--latitude=$ra \
 		--psi=$psi \
 		--phi0=$phi \
 		--f1dot=$spindown \
