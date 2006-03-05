@@ -40,5 +40,6 @@ Run analysis:
 				  produce summary plots using R
 	params.R		- Example parameter file for above script
 	
+	generate_injection_batch.tcl	- generate a set of SFTs for a single true software injection
 				  
 				
