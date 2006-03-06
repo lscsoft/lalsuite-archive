@@ -1060,7 +1060,7 @@ def histdiffdiff(ifo1_trig, ifo2_trig, inj, col_name, sym, units=None,
 ######################################################################
 # function to histogram the difference between values of 'col_name' in
 # two tables, table1 and table2
-def histslides(slide_trigs, zerolag_trigs = None, ifolist = None):
+def histslides(slide_trigs, zerolag_trigs = None, ifolist = None, scalebkg = None):
   """
   function to make a histogram of the number of triggers per time slide
   
@@ -1076,8 +1076,13 @@ def histslides(slide_trigs, zerolag_trigs = None, ifolist = None):
       nevents.append( slide["coinc_trigs"].coinctype(ifolist).nevents() )
     else:  
       nevents.append(slide["coinc_trigs"].nevents())
+      
     slides.append(slide["slide_num"])
  
+  if scalebkg:
+    for i in range(len(nevents)):
+      nevents[i] = nevents[i] * (600.0/6370.0)
+
   hist(nevents)
   figtext(0.13,0.8, " mean = %6.3e" % mean(nevents))
   figtext(0.13,0.75,"sigma = %6.3e" % std(nevents))
@@ -1102,7 +1107,7 @@ def histslides(slide_trigs, zerolag_trigs = None, ifolist = None):
 ######################################################################
 # function to histogram the difference between values of 'col_name' in
 # two tables, table1 and table2
-def plotslides(slide_trigs, zerolag_trigs = None, ifolist = None):
+def plotslides(slide_trigs, zerolag_trigs = None, ifolist = None, scalebkg = None):
   """
   function to make a histogram of the number of triggers per time slide
   
@@ -1118,6 +1123,10 @@ def plotslides(slide_trigs, zerolag_trigs = None, ifolist = None):
     else:  
       nevents.append(slide["coinc_trigs"].nevents())
     slides.append(slide["slide_num"])
+
+  if scalebkg:
+    for i in range(len(nevents)):
+      nevents[i] = nevents[i] * (600.0/6370.0)
  
   mean_events = mean(nevents)
   std_events = std(nevents)
