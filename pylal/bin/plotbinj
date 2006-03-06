@@ -230,13 +230,14 @@ class FreqVsTime(object):
 		self.fig.set_figsize_inches(16, 8)
 		self.axes = pylab.gca()
 
-		pylab.setp(axes, xlim = list(options.seg[0]))
+		pylab.setp(self.axes, xlim = list(options.seg[0]))
 		pylab.grid(True)
 
 		pylab.xlabel("GPS Time (s)")
 		pylab.ylabel("Frequency (Hz)")
 
 	def addto(self, doc):
+		self.num_injections += len(doc.simtable)
 		for row in doc.simtable.rows:
 			t = float(row.get_geocent_peak())
 			if t < self.min_t:
