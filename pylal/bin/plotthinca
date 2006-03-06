@@ -533,14 +533,14 @@ if opts.hist_slides or opts.plot_slides:
   if opts.hist_slides:
     figure(fig_num)
     fig_num += 1
-    viz.histslides(slideTriggers,coincTrigs,scalebkg=zero_lag_playground)
+    viz.histslides(slideTriggers,coincTrigs,scalebkg=opts.zero_lag_playground)
     if f_name:
       savefig(f_name + "_hist_slide_trigs.png")
       
   if opts.plot_slides:
     figure(fig_num)
     fig_num += 1
-    viz.plotslides(slideTriggers,coincTrigs,scalebkg=zero_lag_playground)
+    viz.plotslides(slideTriggers,coincTrigs,scalebkg=opts.zero_lag_playground)
     if f_name:
       savefig(f_name + "_plot_slide_trigs.png")
      
