@@ -99,6 +99,25 @@ class metaDataTable:
     """
     self.table.extend(table.table);
 
+  def veto(self, seglist, timekey):
+    """
+    Veto events which lie inside the provided segment list
+    
+    @param seglist: a segment list of veto times
+    """
+
+    vetoed = snglInspiralTable( None, self.tabletype)
+    keep = snglInspiralTable( None, self.tabletype)
+    for event in self.table:
+      time = event[timekey]
+      if seglist.__contains__(time):
+        vetoed.table.append(event)
+      else:
+        keep.table.append(event)
+
+    return keep
+
+
 class snglInspiralTable(metaDataTable):
   """
   SnglInspiral specific table class.  
@@ -143,23 +162,6 @@ class snglInspiralTable(metaDataTable):
             / (1 + trig['snr']**2/250)**(0.5) \
             / (trig['chisq']/(2*trig['chisq_dof'] - 2) )**(0.5) 
 
-  def veto(self, seglist):
-    """
-    Veto inspiral events which lie inside the provided segment list
-    
-    @param seglist: a segment list of veto times
-    """
-
-    vetoed = snglInspiralTable( None, "sngl_inspiral")
-    keep = snglInspiralTable( None, "sngl_inspiral")
-    for event in self.table:
-      end_time = event["end_time"]
-      if seglist.__contains__(end_time):
-        vetoed.table.append(event)
-      else:
-        keep.table.append(event)
-
-    return keep
     
         
  
@@ -357,7 +359,7 @@ class coincInspiralTable:
           loudest_trig = trigger
           loudest_stat = trigger['stat']
 
-      cluster_triggers.table.append(loudest_trig)
+      cluster_triggers.table.append(loudest_stat)
       
     return cluster_triggers 
 
