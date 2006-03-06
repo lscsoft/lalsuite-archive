@@ -231,7 +231,10 @@ if opts.inj_glob:
 nevents = inspTriggers.nevents()
 snr = inspTriggers.mkarray('snr')
 
-max_snr = max(snr)
+if opts.inj_glob:
+  max_snr = max(inj_snr)
+else:
+  max_snr = max(snr)
 min_snr = min(snr)
 
 log_min = log10(min_snr)
