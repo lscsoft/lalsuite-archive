@@ -200,6 +200,18 @@ h=simInspTriggers.mkarray( "eff_dist_h" )
 index=arange( 0, len(h) )*max_luminosity/numSources
 hs=sort(h)
 
+print "len hs"
+print len(hs)
+
+print "max(hs)"
+print max(hs)
+
+print "min(hs)"
+print min(hs)
+
+print "difference in max(hs) n min(hs)"
+print (max(hs)-min(hs))
+
 l=simInspTriggers.mkarray( "eff_dist_l" )
 ls=sort( l )
 
@@ -288,15 +300,15 @@ if opts.show_bar:
 	
 	ng,a,b = hist( hs, x )
 	grid( True )
-	axis( [0, X_MAX, 0, max( ng[0:X_MAX+1] )] )
+	axis( [0, X_MAX, 0, max( ng[0:X_MAX+1])] )
 	xlabel( 'Effective Distance (Mpc)' )
 	ylabel('N_G' )
 	if opts.title:
 	  title( opts.title )
 	if opts.figure_name:
 	  savefig( opts.figure_name + "_hist.ps" )
-
-
+	
+	
 # cumulative sum plot (approximation of first plot)
 
 if opts.show_sum:
@@ -338,19 +350,21 @@ if opts.show_efficiency:
 	ha = concatenate((hf ,hm))
 	h_all= sort(ha)
 	h_found=sort(hf)
-	nbins = 5.0
-	
 
+	nbins = 50
 
-	stepf = (log10(max(hf)) - log10(min(hf)))/nbins
-	binsf = arange((min(hf)),(max(hf)), stepf)
+	stepf = ((max(hf)) - (min(hf)))/nbins
+	binsf = arange(min(hf),max(hf), stepf)
 	h_found,binsf, stuff = hist(hf, binsf)
 	h_all,binsf,stuff = hist(h_all,binsf)
 	clf()
+	
 
+
+	
 	plot (binsf,(h_found)*1.0/( h_all))
 	grid( True )
-	axis( [0,5, 0,1.1]) 
+	axis( [0,10, 0,1.1]) 
 	xlabel('Effective Distance (Mpc)')
 	ylabel('Efficiency')
 	
@@ -358,6 +372,35 @@ if opts.show_efficiency:
 	  title( opts.title )
 	if opts.figure_name:
 	  savefig( opts.figure_name + "_efficiency.ps" )
+
+	
+	figure()
+	P_x, x, dx = makeData( nbins, 1 )
+	
+	ng,a,b = hist( hs, (binsf) )
+
+	ng = ng*max_luminosity*1.0/numSources # Normalization #
+
+	grid( True )
+	axis( [0, 10, 0, 200] )
+	xlabel( 'Effective Distance (Mpc)' )
+	ylabel('N_G' )
+	if opts.title:
+	  title( opts.title )
+	if opts.figure_name:
+	  savefig( opts.figure_name + "_hist.ps" )
+		
+	eff = (h_found)*1.0/(h_all)
+	
+	i = 0
+	N_G=0
+	while i < len(ng)-1:
+		N_G = N_G + eff[i]*ng[i]
+		i = i + 1
+	print "The total Number of Galaxies"	
+	print N_G
+
+	
 
 if opts.show_plot:
   show()
