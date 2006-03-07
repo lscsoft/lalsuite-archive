@@ -96,6 +96,8 @@ parser.add_option("-A","--funky-threshold",action="store",type="float",\
     help="specify the funky stat threshold (so we can add to plot)" )
 parser.add_option("-F","--funky-offset",action="store",type="float",\
     metavar=" FUNKY_OFFSET", help="specify the offset in funky stat " )
+parser.add_option("-p","--template-bank",action="store",type="string",\
+    default=None, metavar=" FILE",help="name of a template bank file")
 
 (opts,args) = parser.parse_args()
 
@@ -122,6 +124,10 @@ if not len(trigFiles):
 # an instance of the snglInspiralTable
 inspTriggers=readMeta.metaDataTable(trigFiles, "sngl_inspiral")
 plotsymbols= ['r+','bx','ko']
+
+# read in the template bank if supplied
+if opts.template_bank:
+  tmpltbank=readMeta.metaDataTable([ opts.template_bank ], "sngl_inspiral")
 
 # apply veto if there is one
 if opts.veto_file:
@@ -229,6 +235,14 @@ if opts.cum_hist_snr_chi:
 if opts.hist_snr_chi:
   figure(4)
   viz.histcol(inspTriggers,'snr_chi',opts.nbins,None,opts.figure_name)
+
+###################################
+# plot the template bank and overlay the triggers
+if opts.template_bank:
+  figure(8)
+  viz.plot_a_v_b(tmpltbank,'mass1','mass2','linear',plot_sym = 'rx')
+  viz.plot_a_v_b(inspTriggers,'mass1','mass2','linear',plot_sym = 'ro',\
+      output_name = opts.figure_name)
 
 if opts.show_plot:
   show()
