@@ -389,7 +389,6 @@ if opts.show_efficiency:
 	print "The total Number of Galaxies"	
 	print N_G
 
-	
 
 if opts.show_plot:
   show()
