@@ -352,7 +352,7 @@ if opts.show_efficiency:
 	
 	plot (binsf,(h_found)*1.0/( h_all))
 	grid( True )
-	axis( [0,10, 0,1.1]) 
+	axis( [0,15, 0,1.1]) 
 	xlabel('Effective Distance (Mpc)')
 	ylabel('Efficiency')
 	
@@ -362,15 +362,16 @@ if opts.show_efficiency:
 	  savefig( opts.figure_name + "_efficiency.ps" )
 
 	
-	figure()
-	P_x, x, dx = makeData( nbins, 1 )
 	
+	
+	figure()
+	P_x, x, dx = makeData( nbins,1)
 	ng,a,b = hist( hs, (binsf) )
-
-	ng = ng*max_luminosity*1.0/numSources # Normalization #
-
+	ng = ng*max_luminosity/numSources
+	clf()
+	plot(binsf,ng)
 	grid( True )
-	axis( [0, 4, 0, 50] )
+	axis( [0,15, 0, 1] )
 	xlabel( 'Effective Distance (Mpc)' )
 	ylabel('ng' )
 	if opts.title:
