@@ -53,6 +53,7 @@ setup(
 		os.path.join("bin", "plotinspmissed"),
 		os.path.join("bin", "plotnumtemplates"),
 		os.path.join("bin", "plotinspiralrange"),
+		os.path.join("bin", "plotcoincseglength"),
 		os.path.join("bin", "plotthinca"),
 		os.path.join("bin", "plotwindow"),
 		os.path.join("bin", "plotcoincwindow"),
