@@ -1,8 +1,9 @@
 """
 This module provides class definitions corresponding to the elements that
 can be found in a LIGO Light Weight XML file.  It also provides a class
-representing an entire LIGO Light Weight XML document, and a ContentHandler
-class for use with SAX2 parsers.
+representing an entire LIGO Light Weight XML document, a ContentHandler
+class for use with SAX2 parsers, and a convenience function for
+constructing a parser.
 """
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -46,7 +47,23 @@ class ElementError(Exception):
 
 class Element(object):
 	"""
-	Base class for all element types.
+	Base class for all element types.  This class is inspired by the
+	class of the same name in the Python standard library's xml.dom
+	package.  One important distinction is that the standard DOM
+	element is used to represent the structure of a document at a much
+	finer level of detail than here.  For example, in the case of the
+	standard DOM element, each XML attribute is its own element being a
+	child node of its tag, while here they are simply stored in a class
+	attribute of the tag element itself.  This simplification is
+	possible due to our knowledge of the DTD for the documents we will
+	be parsing.  The standard xml.dom package is designed to represent
+	any arbitrary XML document exactly, while we can only deal with
+	LIGO Light Weight XML documents.
+
+	Despite the differences, the documentation for the xml.dom package,
+	particularly that of the Element class and it's parent, the Node
+	class, is useful as supplementary material in understanding how to
+	use this class.
 	"""
 	# XML tag names are case sensitive:  compare with ==, !=, etc.
 	tagName = None
@@ -412,7 +429,8 @@ class LIGOLWContentHandler(sax.handler.ContentHandler):
 
 		doc = ligolw.Document()
 		handler = ligolw.LIGOLWContentHandler(doc)
-		sax.parse(file("H2-POWER_S5-816526720-34.xml"), handler)
+		parser = ligolw.make_parser(handler)
+		parser.parse(file("H2-POWER_S5-816526720-34.xml"))
 		doc.write()
 	"""
 	def __init__(self, document):

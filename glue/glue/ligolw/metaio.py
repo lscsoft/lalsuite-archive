@@ -1,3 +1,23 @@
+"""
+While the ligolw module provides classes and parser support for reading and
+writing LIGO Light Weight XML documents, this module supplements that code
+with classes and parsers that add intelligence to the in-RAM document
+representation.
+
+In particular, the document tree associated with a Table element is
+enhanced.  During parsing, the Stream element in this module converts the
+character data contained within it into a list of objects.  The list
+contains one object for each row of the table, and the objects' attributes
+are the names of the table's columns.  When the document is written out
+again, the Stream element serializes the row objects back into character
+data.
+
+The list of row objects is stored as an attribute of the Table element,
+which itself exports a list-like interface to the rows.  The Column
+elements also provide list-like access to the values in the corresponding
+columns of the table.
+"""
+
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __date__ = "$Date$"
 __version__ = "$Revision$"
@@ -78,11 +98,11 @@ def CompareColumnNames(name1, name2):
 	return cmp(StripColumnName(name1), StripColumnName(name2))
 
 
-def getColumnsByName(self, name):
+def getColumnsByName(elem, name):
 	"""
 	Return a list of columns with name name under elem.
 	"""
-	return self.getElements(lambda e: (e.tagName == ligolw.Column.tagName) and (CompareColumnNames(e.getAttribute("Name"), name) == 0))
+	return elem.getElements(lambda e: (e.tagName == ligolw.Column.tagName) and (CompareColumnNames(e.getAttribute("Name"), name) == 0))
 
 
 #
