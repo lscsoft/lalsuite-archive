@@ -23,17 +23,17 @@ set k 0
 set PARAMS_FILE [open "$ROOT_DIR/params.txt" "w"]
 set PARAMS_LIST {i ra dec psi phi f0 spindown aPlus aCross band_start}
 puts $PARAMS_FILE [join $PARAMS_LIST "\t"]
+set DAG_FILE [open "$ROOT_DIR/dag" "w"]
 while { 1 }  {
 	set dec [sample $DEC_RANGE]
 	set ra [sample $RA_RANGE]
 	set psi [sample $PSI_RANGE]
 	set phi [sample $PHI_RANGE]
 	set freq [sample [list [expr $first_bin/1800.0] [expr ($first_bin+450)/1800.0]]]
-	set power [expr exp([sample $POWER_LOG10_RANGE] * log(10.0)) * $POWER_MAX]
+	set strain [expr exp([sample $POWER_LOG10_RANGE] * log(10.0)) * $POWER_MAX]
         set spindown [expr exp([sample $SPINDOWN_LOG10_RANGE] * log(10.0)) * $SPINDOWN_MAX]
-	set strain [expr sqrt($power)]
 	set aPlus $strain
-	set aCross $strain
+	set aCross 0
 	set f0 $freq
 	set band_start [expr $first_bin/1800.0]
 
@@ -52,8 +52,17 @@ while { 1 }  {
 		lappend L [set $var]
 		}
 	puts $PARAMS_FILE [join $L "\t"]
+	flush $PARAMS_FILE
 
-	exec ./generate_injection_batch.tcl ra $ra dec $dec psi $psi phi $phi f0 $f0 spindown $spindown aPlus $aPlus aCross $aCross band_start $band_start noiseGlob "${SFT_INPUT}*" outputDir ${INJ_SFT_DIR}
+        puts $DAG_FILE "JOB I$i $ROOT_DIR/icondor"
+        puts -nonewline $DAG_FILE "VARS I$i PID=\"$i\" INJ_SFT_DIR=\"$INJ_SFT_DIR\"" 
+	foreach var $PARAMS_LIST {
+		puts -nonewline $DAG_FILE " $var=\"[set $var]\""
+		}
+	puts $DAG_FILE ""
+        puts $DAG_FILE "JOB A$i $ROOT_DIR/condor"
+        puts $DAG_FILE "VARS A$i PID=\"$i\""
+        puts $DAG_FILE "PARENT I$i CHILD A$i"
 
 	set FILE [open "$CONF_DIR/$i" "w"]
 	puts $FILE [subst -nocommands -nobackslashes $POWERFLUX_CONF_FILE]
@@ -70,6 +79,22 @@ while { 1 }  {
 		}
 	}
 close $PARAMS_FILE
+close $DAG_FILE
+
+set CONDOR_INJECTION_FILE {
+universe=vanilla
+executable=$INJECTION_SCRIPT
+input=/dev/null
+output=$ERR_DIR/iout.\$(PID)
+error=$ERR_DIR/ierr.\$(PID)
+arguments= ra \$(ra) dec \$(dec) psi \$(psi) phi \$(phi) f0 \$(f0) spindown \$(spindown) aPlus \$(aPlus) aCross \$(aCross) band_start \$(band_start) noiseGlob ${SFT_INPUT}* outputDir \$(INJ_SFT_DIR)
+log=$LOG_FILE
+queue
+}
+
+set FILE [open "$ROOT_DIR/icondor" "w"]
+puts $FILE [subst -nocommands $CONDOR_INJECTION_FILE]
+close $FILE
 
 set CONDOR_FILE {
 universe=standard
@@ -82,16 +107,8 @@ log=$LOG_FILE
 queue
 }
 
-	
 set FILE [open "$ROOT_DIR/condor" "w"]
 puts $FILE [subst -nocommands $CONDOR_FILE]
-close $FILE
-
-set FILE [open "$ROOT_DIR/dag" "w"]
-for { set k 0 } { $k < $i } { incr k } {
-	puts $FILE "JOB A$k $ROOT_DIR/condor"
-	puts $FILE "VARS A$k PID=\"$k\""
-	}
 close $FILE
 
 exec cp sft_injection_params.tcl $ROOT_DIR

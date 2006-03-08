@@ -11,7 +11,7 @@ foreach {var value} {
 	band_extra	0.25
 	detector	"H1"
 	noise		"2e-24"
-	ephemDir 	"/home/volodya/LIGO/LAL/lal/packages/pulsar/test/"
+	ephemDir 	"/archive/home/volodya/detresponse/"
 	ephemYear	"05-09"
 	noiseGlob	"/home/volodya/LIGO/SFT-DATA/S4/S4.H1.ht.geo/sft.*"
 	outputDir	"./"
@@ -23,6 +23,8 @@ foreach {var value} {
 	aPlus 3e-24
 	aCross 3e-24
 	spindown 0
+	makefakedata	"/archive/home/volodya/PowerFlux/lalapps_Makefakedata.static"
+	pid	0
 	} {
 	global $var
 	set $var $value
@@ -41,7 +43,7 @@ set FILE [open $SFT "r"]
 fconfigure $FILE -encoding binary -translation binary
 set header [read $FILE 32]
 binary scan $header diidii  key gps nsec timebase bin_start0 nbins0
-#puts stderr "$SFT header: gps=$gps timebase=$timebase bin_start=$bin_start nbins=$nbins"
+#puts stderr "$SFT header: gps=$gps timebase=$timebase bin_start=$bin_start0 nbins=$nbins0"
 if { $bin_start0 > $bin_start } {
 	puts stderr "Could not find range: $bin_start0 vs $bin_start"
 	exit -1
@@ -50,10 +52,10 @@ seek $FILE [expr ($bin_start-$bin_start0)*8] current
 set data_raw [read $FILE [expr $nbins*8]]
 binary scan $data_raw f* data
 close $FILE
-return [list gps $gps timebase $timebase data $data]
+return [list gps $gps timebase $timebase data $data nbins $nbins0]
 }
 
-proc apply_hann_noise { INPUT OUTPUT noise_data} {
+proc apply_hann_noise { INPUT OUTPUT noise_data noise_nbins} {
 set FILE [open	$INPUT "r"]
 fconfigure $FILE -encoding binary -translation binary
 set header [read $FILE 32]
@@ -74,7 +76,7 @@ binary scan $body f*  bins
 # 
 
 #
-# We clobber first and last bins - or well..
+# We clobber first and last bins - o3 well..
 #
 set bins_out {0 0}
 
@@ -82,10 +84,12 @@ set x0	0
 set y0 	0
 set x1	[lindex $bins 0]
 set y1	[lindex $bins 1]
-foreach {x y} [lrange $bins 2 end] {xn yn} [lrange $noise_data 1 end-1] {
-	lappend bins_out [expr -$x0/4.0+$x1/2.0-$x/4.0 + $xn]
+set noise_scale [expr (1.0*$nbins)/$noise_nbins]
+#set noise_scale 0
+foreach {x y} [lrange $bins 4 end] {xn yn} [lrange $noise_data 2 end-2] {
+	lappend bins_out [expr -$x0/2.0+$x1-$x/2.0 + $xn*$noise_scale]
 	#puts "$x $y"
-	lappend bins_out [expr -$y0/4.0+$y1/2.0-$y/4.0 + $yn]
+	lappend bins_out [expr -$y0/2.0+$y1-$y/2.0 + $yn*$noise_scale]
 	set x0 $x1
 	set x1 $x
 	set y0 $y1
@@ -115,12 +119,13 @@ foreach filename [glob $noiseGlob] {
 		set "noise_$var" $value
 		}
 
-	exec ./lalapps_Makefakedata.static \
+	set tmpSFT	"/tmp/test${pid}.sft"
+	exec $makefakedata \
 		--fmin=[expr $bin_start/1800.0] \
 		--Band=[expr $nbins/1800.0] \
 		--duration=1800 \
 		--startTime=$noise_gps \
-		--outSFTbname=$sft_name \
+		--outSFTbname=$tmpSFT \
 		--detector=$detector \
 		--ephemDir=$ephemDir \
 		--refTime=$spindown_gps_start \
@@ -135,6 +140,8 @@ foreach filename [glob $noiseGlob] {
 		--aCross=$aCross \
 		--outSFTv1=1 \
 		--ephemYear=$ephemYear
-	apply_hann_noise "${sft_name}.00000" $sft_name	$noise_data
+	apply_hann_noise "$tmpSFT.00000" $sft_name $noise_data $noise_nbins
+	file delete "$tmpSFT.00000"
+	#break
 	}
 exit 0
