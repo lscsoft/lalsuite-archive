@@ -611,6 +611,6 @@ def make_parser(handler):
 	"""
 	parser = sax.make_parser()
 	parser.setContentHandler(handler)
-	parser.setDTDHandler(None)
-	parser.setFeature(sax.handler.feature_validation, 0)
+	parser.setFeature(sax.handler.feature_validation, False)
+	parser.setFeature(sax.handler.feature_external_ges, False)
 	return parser
