@@ -128,13 +128,16 @@ def timeindays(col_data ):
     S2:         [729273613, 734367613]
     S3:         [751658413, 757699213]
     S4:         [793130413, 795679213]
-
+    S5:         [815119213, 883209614]
+  The end of S5 is temporarily set to Jan 1, 2008, 00:00:00 PST, until the
+  actual end of the run is known.
   @param col_data: array containing times
   """
   lvtimes = [700000000, 700086400]
   s2times = [729273613, 734367613]
   s3times = [751658413, 757699213]
   s4times = [793130413, 795679213]
+  s5times = [815119213, 883209614]
   
   if col_data[0] > s2times[0] and col_data[0] < s2times[1]:
     start = s2times[0]
@@ -142,6 +145,8 @@ def timeindays(col_data ):
     start = s3times[0]
   elif col_data[0] > s4times[0] and col_data[0] < s4times[1]:
     start = s4times[0]
+  elif col_data[0] > s5times[0] and col_data[0] < s5times[1]:
+      start = s5times[0]
   elif col_data[0] > lvtimes[0] and col_data[0] < lvtimes[1]:
     start = lvtimes[0]
   else:
