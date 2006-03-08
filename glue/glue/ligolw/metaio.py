@@ -19,8 +19,8 @@ columns of the table.
 """
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
-__date__ = "$Date$"
-__version__ = "$Revision$"
+__date__ = "$Date$"[11:-2]
+__version__ = "$Revision$"[7:-2]
 
 import re
 import sys
