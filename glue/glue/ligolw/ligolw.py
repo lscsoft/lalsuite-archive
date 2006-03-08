@@ -7,8 +7,8 @@ constructing a parser.
 """
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
-__date__ = "$Date$"
-__version__ = "$Revision$"
+__date__ = "$Date$"[11:-2]
+__version__ = "$Revision$"[7:-2]
 
 
 import re
@@ -232,7 +232,7 @@ class LIGO_LW(Element):
 	"""
 	LIGO_LW element.
 	"""
-	tagName = "LIGO_LW"
+	tagName = u"LIGO_LW"
 	validchildren = [u"LIGO_LW", u"Comment", u"Param", u"Table", u"Array", u"Stream", u"IGWDFrame", u"AdcData", u"AdcInterval", u"Time", u"Detector"]
 
 
@@ -240,7 +240,7 @@ class Comment(Element):
 	"""
 	Comment element.
 	"""
-	tagName = "Comment"
+	tagName = u"Comment"
 
 	def write(self, file = sys.stdout, indent = ""):
 		if self.pcdata:
@@ -253,7 +253,7 @@ class Param(Element):
 	"""
 	Param element.
 	"""
-	tagName = "Param"
+	tagName = u"Param"
 	validchildren = [u"Comment"]
 	validattributes = [u"Name", u"Type", u"Start", u"Scale", u"Unit", u"DataUnit"]
 
@@ -262,7 +262,7 @@ class Table(Element):
 	"""
 	Table element.
 	"""
-	tagName = "Table"
+	tagName = u"Table"
 	validchildren = [u"Comment", u"Column", u"Stream"]
 	validattributes = [u"Name", u"Type"]
 
@@ -271,13 +271,13 @@ class Table(Element):
 		ncolumn = 0
 		nstream = 0
 		for child in self.childNodes:
-			if child.tagName == "Comment":
+			if child.tagName == Comment.tagName:
 				if ncomment:
 					raise ElementError, "only one Comment allowed in Table"
 				if ncolumn or nstream:
 					raise ElementError, "Comment must come before Column(s) and Stream in Table"
 				ncomment += 1
-			elif child.tagName == "Column":
+			elif child.tagName == Column.tagName:
 				if nstream:
 					raise ElementError, "Column(s) must come before Stream in Table"
 				ncolumn += 1
@@ -291,7 +291,7 @@ class Column(Element):
 	"""
 	Column element.
 	"""
-	tagName = "Column"
+	tagName = u"Column"
 	empty = True
 	validattributes = [u"Name", u"Type", u"Unit"]
 
@@ -300,14 +300,14 @@ class Array(Element):
 	"""
 	Array element.
 	"""
-	tagName = "Array"
+	tagName = u"Array"
 	validchildren = [u"Dim", u"Stream"]
 	validattributes = [u"Name", u"Type", u"Unit"]
 
 	def _verifyChildren(self, child, i):
 		nstream = 0
 		for child in self.childNodes:
-			if child.tagName == "Dim":
+			if child.tagName == Dim.tagName:
 				if nstream:
 					raise ElementError, "Dim(s) must come before Stream in Array"
 			else:
@@ -320,7 +320,7 @@ class Dim(Element):
 	"""
 	Dim element.
 	"""
-	tagName = "Dim"
+	tagName = u"Dim"
 	validattributes = [u"Name", u"Unit", u"Start", u"Scale"]
 
 
@@ -328,15 +328,15 @@ class Stream(Element):
 	"""
 	Stream element.
 	"""
-	tagName = "Stream"
+	tagName = u"Stream"
 	validattributes = [u"Name", u"Type", u"Delimiter", u"Encoding", u"Content"]
 
 	def __init__(self, attrs = sax.xmlreader.AttributesImpl({})):
 		if not attrs.has_key("Type"):
-			attrs._attrs["Type"] = "Local"
+			attrs._attrs["Type"] = u"Local"
 		if not attrs.has_key("Delimiter"):
-			attrs._attrs["Delimiter"] = ","
-		if attrs["Type"] not in ["Remote", "Local"]:
+			attrs._attrs["Delimiter"] = u","
+		if attrs["Type"] not in [u"Remote", u"Local"]:
 			raise ElementError, "invalid value %s for Stream attribute Type" % attrs["Type"]
 		Element.__init__(self, attrs)
 
@@ -345,7 +345,7 @@ class IGWDFrame(Element):
 	"""
 	IGWDFrame element.
 	"""
-	tagName = "IGWDFrame"
+	tagName = u"IGWDFrame"
 	validchildren = [u"Comment", u"Param", u"Time", u"Detector", u"AdcData", u"LIGO_LW", u"Stream", u"Array", u"IGWDFrame"]
 	validattributes = [u"Name"]
 
@@ -354,7 +354,7 @@ class Detector(Element):
 	"""
 	Detector element.
 	"""
-	tagName = "Detector"
+	tagName = u"Detector"
 	validchildren = [u"Comment", u"Param", u"LIGO_LW"]
 	validattributes = [u"Name"]
 
@@ -363,7 +363,7 @@ class AdcData(Element):
 	"""
 	AdcData element.
 	"""
-	tagName = "AdcData"
+	tagName = u"AdcData"
 	validchildren = [u"AdcData", u"Comment", u"Param", u"Time", u"LIGO_LW", u"Array"]
 	validattributes = [u"Name"]
 
@@ -372,7 +372,7 @@ class AdcInterval(Element):
 	"""
 	AdcInterval element.
 	"""
-	tagName = "AdcInterval"
+	tagName = u"AdcInterval"
 	validchildren = [u"AdcData", u"Comment", u"Time"]
 	validattributes = [u"Name", u"StartTime", u"DeltaT"]
 
@@ -381,13 +381,13 @@ class Time(Element):
 	"""
 	Time element.
 	"""
-	tagName = "Time"
+	tagName = u"Time"
 	validattributes = [u"Name", u"Type"]
 
 	def __init__(self, attrs = sax.xmlreader.AttributesImpl({})):
 		if not attrs.has_key("Type"):
-			attrs._attrs["Type"] = "ISO-8601"
-		if attrs["Type"] not in ["GPS", "Unix", "ISO-8601"]:
+			attrs._attrs["Type"] = u"ISO-8601"
+		if attrs["Type"] not in [u"GPS", u"Unix", u"ISO-8601"]:
 			raise ElementError, "invalid value %s for Time attribute Type" % attrs["Type"]
 		Element.__init__(self, attrs)
 
@@ -396,7 +396,7 @@ class Document(Element):
 	"""
 	Description of a LIGO LW file.
 	"""
-	tagName = "Document"
+	tagName = u"Document"
 	validchildren = [u"LIGO_LW"]
 
 	def write(self, file = sys.stdout):
@@ -587,7 +587,7 @@ class LIGOLWContentHandler(sax.handler.ContentHandler):
 		Discard character data for all elements but Comments and
 		Streams.
 		"""
-		if self.current.tagName in ["Comment", "Stream"]:
+		if self.current.tagName in [Comment.tagName, Stream.tagName]:
 			self.current.appendData(content)
 
 
@@ -599,18 +599,18 @@ class LIGOLWContentHandler(sax.handler.ContentHandler):
 # =============================================================================
 #
 
-def make_parser(handler, validate = False):
+def make_parser(handler):
 	"""
-	Convenience function to construct a document parser with or without
-	validation.  Note:  when validation is enabled, the LIGO LW DTD
-	identified in the document header must be accessible --- document
-	parsing will fail if an internet connection to the LDAS document
-	server is not available.
+	Convenience function to construct a document parser with validation
+	disabled.  Document validation is a nice feature, but enabling
+	validation can require the LIGO LW DTD to be downloaded from the
+	LDAS document server if the DTD is not included inline in the XML.
+	This requires a working connection to the internet, which would
+	preclude the use of this library on slave nodes in LSC computer
+	clusters.
 	"""
-	try:
-		parser = sax.make_parser("xml.sax.drivers2.drv_xmlproc")
-	except TypeError:
-		parser = sax.make_parser()
+	parser = sax.make_parser()
 	parser.setContentHandler(handler)
-	parser.setFeature(sax.handler.feature_validation, validate)
+	parser.setDTDHandler(None)
+	parser.setFeature(sax.handler.feature_validation, 0)
 	return parser
