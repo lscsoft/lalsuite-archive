@@ -255,13 +255,14 @@ class TableStream(ligolw.Stream):
 	"""
 	def __init__(self, attrs):
 		ligolw.Stream.__init__(self, attrs)
-		self.tokenizer = re.compile(r"""\s*(?:"([^"]*)")|(?:([^""" + self.getAttribute("Delimiter") + r"""\s]+))\s*""" + self.getAttribute("Delimiter"))
+		self.tokenizer = re.compile(r"""(?:"([^"]*)")|(?:([^%s"]+))\s*%s""" % (self.getAttribute("Delimiter"), self.getAttribute("Delimiter")))
 		self.__attrindex = 0
 		self.__row = None
+		self.pcdata = ""
 
 	def appendData(self, content):
 		# append new data to buffer
-		ligolw.Stream.appendData(self, content)
+		self.pcdata += content
 		del content
 
 		# make a row object if needed (can't do this in __init__()
@@ -285,8 +286,9 @@ class TableStream(ligolw.Stream):
 				# setting RowType to an object with slots
 				# for only the desired columns.
 				pass
-			self.__attrindex = (self.__attrindex + 1) % numattrs
-			if self.__attrindex == 0:
+			self.__attrindex += 1
+			if self.__attrindex >= numattrs:
+				self.__attrindex = 0
 				self.parentNode.append(self.__row)
 				self.__row = self.parentNode.RowType()
 		if match != None:
