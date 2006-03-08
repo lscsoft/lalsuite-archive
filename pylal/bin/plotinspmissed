@@ -14,11 +14,13 @@ usage = """Usage: %prog [options] [trigs1 missed1 trigs2 missed2]
 
 Generate found and missed trig plots
 
-Example: plotinspmissed --time-snr --show found.xml missed.xml
+Example: plotinspmissed --time-dist --show-plot found.xml missed.xml
 """
 parser = OptionParser( usage )
-parser.add_option("-a","--time-snr",action="store_true",default=False,\
-    help="plot snr v trig end time" )
+parser.add_option("-a","--time-dist",action="store_true",default=False,\
+    help="plot dist v trig end time" )
+parser.add_option("-b","--mchirp-dist",action="store_true",default=False,\
+    help="plot dist v mchirp" )
 parser.add_option("-x","--tag1",action="store",type="string",\
     default=None, metavar=" TAG",help="identifier for first input file" )
 parser.add_option("-y","--tag2",action="store",type="string",\
@@ -40,7 +42,7 @@ parser.add_option("-l","--legend",action="store_true",default=False,\
 # check at least one trig file was specified
 if not args:
   print >>sys.stderr, "a trig-file must be specified"
-  print >>sys.stderr, "Enter 'plotinspinj --help' for usage"
+  print >>sys.stderr, "Enter 'plotinspmissed --help' for usage"
   sys.exit(1)
 
 tags = ["","",""]
@@ -61,12 +63,12 @@ misFiles = []
 if len(args)<2:
   print >>sys.stderr, "a missed-file must be specified"
   print >>sys.stderr, "when making plots of missed injections"
-  print >>sys.stderr, "Enter 'plotinspinj --help' for usage"
+  print >>sys.stderr, "Enter 'plotinspmissed --help' for usage"
   sys.exit(1)
 elif len(args)%2:
   print >>sys.stderr, "mismatched pair"
   print >>sys.stderr, "when making plots of missed injections"
-  print >>sys.stderr, "Enter 'plotinspinj --help' for usage"
+  print >>sys.stderr, "Enter 'plotinspmissed --help' for usage"
 else:
   for i in range(len(args)):
     if i%2:
@@ -147,8 +149,8 @@ plot2symbol=['rx','ro','r+']
 gpsDigits = "9"
 xmajorFormatter = FormatStrFormatter("%"+gpsDigits+"d")  
 
-# plot time V snr
-if opts.time_snr:  
+# plot time V dist
+if opts.time_dist:  
   figure()
   sym=0
   t=0
@@ -173,7 +175,37 @@ if opts.time_snr:
   #ylim(10, 1000)
   gca().grid(True)
   if opts.fig_name:
-    savefig(opts.fig_name + "_time-snr.png")
+    savefig(opts.fig_name + "_time-dist.png")
+
+
+# plot mchirp V dist
+if opts.mchirp_dist:  
+  figure()
+  sym=0
+  t=0
+  for injSet in injSets:
+    semilogy(injSet['injections']['inj_chirp'],injSet['injections']['inj_dist'],\
+             plot1symbol[sym],label=tags[t]+"find",\
+             markerfacecolor=None,markeredgecolor='b',markersize=10,\
+             markeredgewidth=1)
+    hold(True)
+    semilogy(injSet['missedinjs']['mis_chirp'],injSet['missedinjs']['mis_dist'],\
+        plot2symbol[sym],label=tags[t]+"miss",\
+        markerfacecolor=None,markeredgecolor='r',markersize=10,\
+        markeredgewidth=1)
+    hold(True) 
+    sym+=1
+    t+=1
+  if opts.legend:
+    legend()
+  title(opts.title + 'Distance vs Chirp Mass', size='x-large')
+  xlabel('Injected Chirp Mass (Msun)', size='x-large')
+  ylabel('Injected Effective Distance (Mpc)', size='x-large')
+  #ylim(10, 1000)
+  gca().grid(True)
+  if opts.fig_name:
+    savefig(opts.fig_name + "_time-mchirp.png")
+
   
 if opts.show_plot:
   show()
