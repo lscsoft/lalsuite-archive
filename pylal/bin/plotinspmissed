@@ -204,7 +204,7 @@ if opts.mchirp_dist:
   #ylim(10, 1000)
   gca().grid(True)
   if opts.fig_name:
-    savefig(opts.fig_name + "_time-mchirp.png")
+    savefig(opts.fig_name + "_dist-mchirp.png")
 
   
 if opts.show_plot:
