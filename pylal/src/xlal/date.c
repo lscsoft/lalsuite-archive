@@ -381,15 +381,18 @@ static PyObject *pylal_XLALLeapSecondsUTC(PyObject *self, PyObject *args)
 
 static PyObject *pylal_XLALGPSToUTC(PyObject *self, PyObject *args)
 {
+	pylal_LIGOTimeGPS *gps;
 	struct tm utc;
-	int gpssec;
 
-	/* int */
-	if(!PyArg_ParseTuple(args, "i:XLALGPSToUTC", &gpssec))
+	/* LIGOTimeGPS */
+	if(!PyArg_ParseTuple(args, "O:XLALGPSToUTC", &gps))
 		return NULL;
+	if(gps->gps.gpsNanoSeconds) {
+		PyErr_SetString(PyExc_TypeError, "cannot convert non-integer seconds");
+		return NULL;
+	}
 
-	XLALGPSToUTC(&utc, gpssec);
-
+	XLALGPSToUTC(&utc, gps->gps.gpsSeconds);
 	struct_tm_c_to_python(&utc);
 
 	/* time.struct_time */
@@ -399,6 +402,7 @@ static PyObject *pylal_XLALGPSToUTC(PyObject *self, PyObject *args)
 
 static PyObject *pylal_XLALUTCToGPS(PyObject *self, PyObject *args)
 {
+	LIGOTimeGPS gps;
 	struct tm utc;
 
 	/* time.struct_time */
@@ -406,9 +410,10 @@ static PyObject *pylal_XLALUTCToGPS(PyObject *self, PyObject *args)
 		return NULL;
 
 	struct_tm_python_to_c(&utc);
+	XLALGPSSet(&gps, XLALUTCToGPS(&utc), 0);
 
-	/* int */
-	return PyInt_FromLong(XLALUTCToGPS(&utc));
+	/* LIGOTimeGPS */
+	return pylal_LIGOTimeGPS_New(gps);
 }
 
 
