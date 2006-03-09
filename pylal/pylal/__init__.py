@@ -7,3 +7,4 @@ __date__ = '$Date$'[7:-2]
 __version__ = '$Revision$'[11:-2]
 # $Source$
 
+__all__ = ["date"]
