@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <lal/Date.h>
+#include <lal/TimeDelay.h>
 
 
 /*
@@ -263,11 +264,13 @@ static PyObject *pylal_XLALGPSSetREAL8(PyObject *self, PyObject *args)
 	pylal_LIGOTimeGPS *s;
 	double t;
 
+	/* LIGOTimeGPS, float */
 	if(!PyArg_ParseTuple(args, "Od:XLALGPSSetREAL8", &s, &t))
 		return NULL;
 
 	XLALGPSSetREAL8(&s->gps, t);
 
+	/* LIGOTimeGPS */
 	return (PyObject *) s;
 }
 
@@ -276,9 +279,11 @@ static PyObject *pylal_XLALGPSToINT8NS(PyObject *self, PyObject *args)
 {
 	pylal_LIGOTimeGPS *s;
 
+	/* LIGOTimeGPS */
 	if(!PyArg_ParseTuple(args, "O:XLALGPSToINT8NS", &s))
 		return NULL;
 
+	/* long */
 	return PyLong_FromLongLong(XLALGPSToINT8NS(&s->gps));
 }
 
@@ -288,12 +293,14 @@ static PyObject *pylal_XLALINT8NSToGPS(PyObject *self, PyObject *args)
 	long long ns;
 	pylal_LIGOTimeGPS *new;
 
+	/* long */
 	if(!PyArg_ParseTuple(args, "L:XLALINT8NSToGPS", &ns))
 		return NULL;
 
 	new = (pylal_LIGOTimeGPS *) _PyObject_New(&pylal_LIGOTimeGPS_Type);
 	XLALINT8NSToGPS(&new->gps, ns);
 
+	/* LIGOTimeGPS */
 	return (PyObject *) new;
 }
 
@@ -306,47 +313,237 @@ static PyObject *pylal_XLALINT8NSToGPS(PyObject *self, PyObject *args)
  * ============================================================================
  */
 
-static PyObject *pylal_XLALGPSToUTC(PyObject *self, PyObject *args)
+/*
+ * Convert a struct tm of the kind Python uses to/from a struct tm of the
+ * kind the C library uses.
+ *
+ * Python:
+ *	1900 = year 1900
+ *	January = month 1
+ *	Monday = week day 0
+ *	January 1st = year day 1
+ *
+ * C:
+ *	1900 = year 0
+ *	January = month 0
+ *	Monday = week day 1
+ *	January 1st = year day 0
+ */
+
+static void struct_tm_python_to_c(struct tm *tm)
 {
-	struct tm tm;
+	tm->tm_year -= 1900;
+	tm->tm_mon -= 1;
+	tm->tm_wday = (tm->tm_wday + 8) % 7;
+	tm->tm_yday -= 1;
+}
+
+
+static void struct_tm_c_to_python(struct tm *tm)
+{
+	tm->tm_year += 1900;
+	tm->tm_mon += 1;
+	tm->tm_wday = (tm->tm_wday + 6) % 7;
+	tm->tm_yday += 1;
+}
+
+
+/*
+ * Leap seconds.
+ */
+
+static PyObject *pylal_XLALLeapSeconds(PyObject *self, PyObject *args)
+{
 	int gpssec;
 
-	/* arguments:  GPS integer seconds */
+	/* int */
+	if(!PyArg_ParseTuple(args, "i:XLALLeapSeconds", &gpssec))
+		return NULL;
 
+	/* int */
+	return PyInt_FromLong(XLALLeapSeconds(gpssec));
+}
+
+
+static PyObject *pylal_XLALLeapSecondsUTC(PyObject *self, PyObject *args)
+{
+	struct tm utc;
+
+	/* time.struct_time */
+	if(!PyArg_ParseTuple(args, "(iiiiiiiii):XLALLeapSecondsUTC", &utc.tm_year, &utc.tm_mon, &utc.tm_mday, &utc.tm_hour, &utc.tm_min, &utc.tm_sec, &utc.tm_wday, &utc.tm_yday, &utc.tm_isdst))
+		return NULL;
+
+	struct_tm_python_to_c(&utc);
+
+	/* int */
+	return PyInt_FromLong(XLALLeapSecondsUTC(&utc));
+}
+
+
+/*
+ * GPS to/from UTC
+ */
+
+static PyObject *pylal_XLALGPSToUTC(PyObject *self, PyObject *args)
+{
+	struct tm utc;
+	int gpssec;
+
+	/* int */
 	if(!PyArg_ParseTuple(args, "i:XLALGPSToUTC", &gpssec))
 		return NULL;
 
-	XLALGPSToUTC(&tm, gpssec);
+	XLALGPSToUTC(&utc, gpssec);
 
-	/* return a tuple compatible with Python's time.struct_time type:
-	 *    - 1900 = year 1900
-	 *    - January = month 1
-	 *    - Monday = week day 0
-	 *    - January 1st = year day 1
-	 */
+	struct_tm_c_to_python(&utc);
 
-	return Py_BuildValue("(iiiiiiiii)", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec, (tm.tm_wday + 6) % 7, tm.tm_yday + 1, tm.tm_isdst);
+	/* time.struct_time */
+	return Py_BuildValue("(iiiiiiiii)", utc.tm_year, utc.tm_mon, utc.tm_mday, utc.tm_hour, utc.tm_min, utc.tm_sec, utc.tm_wday, utc.tm_yday, utc.tm_isdst);
 }
 
 
 static PyObject *pylal_XLALUTCToGPS(PyObject *self, PyObject *args)
 {
-	struct tm tm;
+	struct tm utc;
 
-	/* arguments:  9 element tuple compatible with Python's
-	 * time.struct_time type. */
-
-	if(!PyArg_ParseTuple(args, "(iiiiiiiii):XLALUTCToGPS", &tm.tm_year, &tm.tm_mon, &tm.tm_mday, &tm.tm_hour, &tm.tm_min, &tm.tm_sec, &tm.tm_wday, &tm.tm_yday, &tm.tm_isdst))
+	/* time.struct_time */
+	if(!PyArg_ParseTuple(args, "(iiiiiiiii):XLALUTCToGPS", &utc.tm_year, &utc.tm_mon, &utc.tm_mday, &utc.tm_hour, &utc.tm_min, &utc.tm_sec, &utc.tm_wday, &utc.tm_yday, &utc.tm_isdst))
 		return NULL;
 
-	/* convert from Python's conventions to C library's */
+	struct_tm_python_to_c(&utc);
 
-	tm.tm_year -= 1900;
-	tm.tm_mon -= 1;
-	tm.tm_wday = (tm.tm_wday + 8) % 7;
-	tm.tm_yday -= 1;
+	/* int */
+	return PyInt_FromLong(XLALUTCToGPS(&utc));
+}
 
-	return PyInt_FromLong(XLALUTCToGPS(&tm));
+
+/*
+ * Julian day
+ */
+
+static PyObject *pylal_XLALJulianDay(PyObject *self, PyObject *args)
+{
+	struct tm utc;
+
+	/* time.struct_time */
+	if(!PyArg_ParseTuple(args, "(iiiiiiiii):XLALJulianDay", &utc.tm_year, &utc.tm_mon, &utc.tm_mday, &utc.tm_hour, &utc.tm_min, &utc.tm_sec, &utc.tm_wday, &utc.tm_yday, &utc.tm_isdst))
+		return NULL;
+
+	struct_tm_python_to_c(&utc);
+
+	/* float */
+	return PyFloat_FromDouble(XLALJulianDay(&utc));
+}
+
+
+static PyObject *pylal_XLALModifiedJulianDay(PyObject *self, PyObject *args)
+{
+	struct tm utc;
+
+	/* time.struct_time */
+	if(!PyArg_ParseTuple(args, "(iiiiiiiii):XLALModifiedJulianDay", &utc.tm_year, &utc.tm_mon, &utc.tm_mday, &utc.tm_hour, &utc.tm_min, &utc.tm_sec, &utc.tm_wday, &utc.tm_yday, &utc.tm_isdst))
+		return NULL;
+
+	struct_tm_python_to_c(&utc);
+
+	/* int */
+	return PyInt_FromLong(XLALModifiedJulianDay(&utc));
+}
+
+
+/*
+ * Sidereal time
+ */
+
+static PyObject *pylal_XLALGreenwichSiderealTime(PyObject *self, PyObject *args)
+{
+	pylal_LIGOTimeGPS *gps;
+	double ee;
+
+	/* LIGOTimeGPS, float */
+	if(!PyArg_ParseTuple(args, "Od:XLALGreenwichSiderealTime", &gps, &ee))
+		return NULL;
+
+	/* float */
+	return PyFloat_FromDouble(XLALGreenwichSiderealTime(&gps->gps, ee));
+}
+
+static PyObject *pylal_XLALGreenwichMeanSiderealTime(PyObject *self, PyObject *args)
+{
+	pylal_LIGOTimeGPS *gps;
+
+	/* LIGOTimeGPS */
+	if(!PyArg_ParseTuple(args, "O:XLALGreenwichMeanSiderealTime", &gps))
+		return NULL;
+
+	/* float */
+	return PyFloat_FromDouble(XLALGreenwichMeanSiderealTime(&gps->gps));
+}
+
+
+/*
+ * String parsing
+ */
+
+static PyObject *pylal_XLALStrToGPS(PyObject *self, PyObject *args)
+{
+	LIGOTimeGPS gps;
+	char *str, *end;
+
+	/* string */
+	if(!PyArg_ParseTuple(args, "s:XLALStrToGPS", &str))
+		return NULL;
+
+	XLALStrToGPS(&gps, str, &end);
+
+	/* LIGOTimeGPS */
+	return pylal_LIGOTimeGPS_New(gps);
+}
+
+
+/*
+ * Propagation delay
+ */
+
+static PyObject *pylal_XLALArrivalTimeDiff(PyObject *self, PyObject *args)
+{
+	PyObject *pos1_list, *pos2_list;
+	double pos1[3], pos2[3];
+	double ra, dec;
+	pylal_LIGOTimeGPS *gps;
+	int i;
+
+	/* 3-element list, 3-element list, float, float, LIGOTimeGPS */
+	if(!PyArg_ParseTuple(args, "OOddO:XLALArrivalTimeDiff", &pos1_list, &pos2_list, &ra, &dec, &gps))
+		return NULL;
+
+	for(i = 0; i < 3; i++) {
+		pos1[i] = PyFloat_AsDouble(PyList_GetItem(pos1_list, i));
+		pos2[i] = PyFloat_AsDouble(PyList_GetItem(pos2_list, i));
+	}
+
+	/* float */
+	return PyFloat_FromDouble(XLALArrivalTimeDiff(pos1, pos2, ra, dec, &gps->gps));
+}
+
+
+static PyObject *pylal_XLALTimeDelayFromEarthCenter(PyObject *self, PyObject *args)
+{
+	PyObject *pos_list;
+	double pos[3];
+	double ra, dec;
+	pylal_LIGOTimeGPS *gps;
+	int i;
+
+	/* 3-element list, float, float, LIGOTimeGPS */
+	if(!PyArg_ParseTuple(args, "OddO:XLALTimeDelayFromEarthCenter", &pos_list, &ra, &dec, &gps))
+		return NULL;
+
+	for(i = 0; i < 3; i++)
+		pos[i] = PyFloat_AsDouble(PyList_GetItem(pos_list, i));
+
+	/* float */
+	return PyFloat_FromDouble(XLALTimeDelayFromEarthCenter(pos, ra, dec, &gps->gps));
 }
 
 
@@ -359,10 +556,19 @@ static PyObject *pylal_XLALUTCToGPS(PyObject *self, PyObject *args)
  */
 
 static struct PyMethodDef methods[] = {
+	{"XLALArrivalTimeDiff", pylal_XLALArrivalTimeDiff, 1},
 	{"XLALGPSSetREAL8", pylal_XLALGPSSetREAL8, 1},
 	{"XLALGPSToINT8NS", pylal_XLALGPSToINT8NS, 1},
-	{"XLALINT8NSToGPS", pylal_XLALINT8NSToGPS, 1},
 	{"XLALGPSToUTC", pylal_XLALGPSToUTC, 1},
+	{"XLALGreenwichMeanSiderealTime", pylal_XLALGreenwichMeanSiderealTime, 1},
+	{"XLALGreenwichSiderealTime", pylal_XLALGreenwichSiderealTime, 1},
+	{"XLALINT8NSToGPS", pylal_XLALINT8NSToGPS, 1},
+	{"XLALJulianDay", pylal_XLALJulianDay, 1},
+	{"XLALLeapSeconds", pylal_XLALLeapSeconds, 1},
+	{"XLALLeapSecondsUTC", pylal_XLALLeapSecondsUTC, 1},
+	{"XLALModifiedJulianDay", pylal_XLALModifiedJulianDay, 1},
+	{"XLALStrToGPS", pylal_XLALStrToGPS, 1},
+	{"XLALTimeDelayFromEarthCenter", pylal_XLALTimeDelayFromEarthCenter, 1},
 	{"XLALUTCToGPS", pylal_XLALUTCToGPS, 1},
 	{NULL,}
 };
