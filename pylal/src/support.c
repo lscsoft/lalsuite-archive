@@ -4,8 +4,6 @@
 
 #include <Python.h>
 #include <string.h>
-#include <time.h>
-#include <lal/Date.h>
 #include <lal/LIGOLwXML.h>
 #include <lal/LIGOLwXMLHeaders.h>
 #include <lal/LIGOLwXMLRead.h>
@@ -1268,48 +1266,6 @@ write_sngl_burst_end(PyObject *self, PyObject *args)
 }
 
 /******************************************************************** 
- * UTC <--> GPS Conversion according to LAL
- ********************************************************************/
-static PyObject *pylal_XLALGPSToUTC(PyObject *self, PyObject *args) 
-{  
-  struct tm tm;
-  int gpssec;
-
-  /* extract arguments:  GPS integer seconds */
-  if(!PyArg_ParseTuple(args, "i:XLALGPSToUTC", &gpssec))
-    return NULL; 
-
-  XLALGPSToUTC(&tm, gpssec);
-
-  /* return a tuple compatible with Python's struct_time type:
-   * 	- 1900 = year 1900
-   * 	- January = month 1
-   * 	- Monday = week day 0
-   * 	- January 1st = year day 1
-   * See the time module for more information.
-   */
-  return Py_BuildValue("(iiiiiiiii)", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec, (tm.tm_wday + 6) % 7, tm.tm_yday + 1, tm.tm_isdst);
-}
-
-static PyObject *pylal_XLALUTCToGPS(PyObject *self, PyObject *args) 
-{  
-  struct tm tm;
-
-  /* extract arguments:  9 parts of a tuple -> struct tm */
-  if(!PyArg_ParseTuple(args, "(iiiiiiiii):XLALUTCToGPS", &tm.tm_year, &tm.tm_mon, &tm.tm_mday, &tm.tm_hour, &tm.tm_min, &tm.tm_sec, &tm.tm_wday, &tm.tm_yday, &tm.tm_isdst))
-    return NULL; 
-
-  /* convert from Python's conventions to C library's:  see GPSToUTC() for
-   * details. */
-  tm.tm_year -= 1900;
-  tm.tm_mon -= 1;
-  tm.tm_wday = (tm.tm_wday + 8) % 7;
-  tm.tm_yday -= 1;
-
-  return Py_BuildValue("i", XLALUTCToGPS(&tm));
-}
-
-/******************************************************************** 
  * supporting snippets
  ********************************************************************/
 /* registration table  */
@@ -1334,8 +1290,6 @@ static struct PyMethodDef support_methods[] = {
     {"write_sngl_burst_begin", write_sngl_burst_begin, 1},
     {"write_sngl_burst_write", write_sngl_burst_write, 1},
     {"write_sngl_burst_end", write_sngl_burst_end, 1},
-    {"XLALGPSToUTC", pylal_XLALGPSToUTC, 1},
-    {"XLALUTCToGPS", pylal_XLALUTCToGPS, 1},
     {NULL, NULL} 
 };
 

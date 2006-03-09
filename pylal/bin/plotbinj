@@ -27,6 +27,7 @@
 #
 
 import bisect
+import math
 from optparse import OptionParser
 import pylab
 import sys
@@ -268,14 +269,43 @@ class FreqVsTime(object):
 # =============================================================================
 #
 
+class MadeVsFound(object):
+	def __init__(self, xmin, xmax, nx, ymin, ymax, ny):
+		self.xmin = xmin
+		self.logxratio = math.log((xmax / xmin) ** (1.0 / (nx - 1.0)))
+		self.xcoords = self.xmin * pylab.exp(pylab.array(range(nx)) * self.logxratio)
+
+		self.ymin = ymin
+		self.logyratio = math.log((ymax / ymin) ** (1.0 / (ny - 1.0)))
+		self.ycoords = self.ymin * pylab.exp(pylab.array(range(ny)) * self.logyratio)
+
+		self.made = pylab.zeros((ny, nx), pylab.Float64)
+		self.found = pylab.zeros((ny, nx), pylab.Float64)
+
+	def incmade(self, x, y):
+		i = int(math.log(y / self.ymin) / self.logyratio)
+		j = int(math.log(x / self.xmin) / self.logxratio)
+		self.made[i, j] += 1.0
+
+	def incfound(self, x, y):
+		i = int(math.log(y / self.ymin) / self.logyratio)
+		j = int(math.log(x / self.xmin) / self.logxratio)
+		self.found[i, j] += 1.0
+
+	def normalize(self):
+		self.made = pylab.where(self.made > 0, self.made, 1)
+
+
 class AmplVsFreq(object):
 	def __init__(self):
 		self.num_injections = 0
 		self.fig = pylab.figure(1)
 		self.fig.set_figsize_inches(16, 8)
 		self.axes = pylab.gca()
+		self.madevsfound = MadeVsFound(70.0, 2118.0, 21, 1e-22, 1e-19, 21)
 
-		pylab.setp(self.axes, xlim = [60, 2200])
+		self.axes.loglog()
+		#pylab.setp(self.axes, xlim = [70, 2118])
 		pylab.grid(True)
 
 		pylab.xlabel("Frequency (Hz)")
@@ -284,11 +314,14 @@ class AmplVsFreq(object):
 	def addto(self, doc):
 		self.num_injections += len(doc.simtable)
 		for row in doc.simtable.rows:
-			pylab.loglog([row.freq], [row.hrss], "b+")
+			self.madevsfound.incmade(row.freq, row.hrss)
 		for row in FoundIter(doc):
-			pylab.loglog([row.freq], [row.hrss], "rx")
+			self.madevsfound.incfound(row.freq, row.hrss)
 
 	def finish(self):
+		self.madevsfound.normalize()
+		cset = pylab.contour(self.madevsfound.xcoords, self.madevsfound.ycoords, self.madevsfound.found / self.madevsfound.made, [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
+		pylab.clabel(cset[1], inline = True, fmt = "%.1f", colors = "k", fontsize = 7)
 		pylab.title("Injection Amplitude vs. Frequency\n(%d Injections)" % self.num_injections)
 
 

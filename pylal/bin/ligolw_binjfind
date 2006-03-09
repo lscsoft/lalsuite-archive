@@ -38,7 +38,7 @@ from glue.ligolw import metaio
 from glue.ligolw import lsctables
 from glue.ligolw import docutils
 from pylal import SnglBurstUtils
-from pylal.support import XLALUTCToGPS
+from pylal.xlal.date import XLALUTCToGPS
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]

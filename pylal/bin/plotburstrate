@@ -36,7 +36,7 @@ from glue.ligolw import metaio
 from glue.ligolw import lsctables
 from glue.ligolw import docutils
 from pylal import rate
-from pylal.support import XLALGPSToUTC, XLALUTCToGPS
+from pylal.xlal.date import XLALGPSToUTC, XLALUTCToGPS
 
 #
 # =============================================================================
