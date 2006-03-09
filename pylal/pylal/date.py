@@ -41,12 +41,19 @@ class LIGOTimeGPS(_LIGOTimeGPS):
 		elif type(seconds) == LIGOTimeGPS:
 			self.seconds, self.nanoseconds = seconds.seconds, seconds.nanoseconds
 		elif type(seconds) == float:
-			XLALGPSSetREAL8(self, seconds)
+			t = XLALREAL8ToGPS(seconds)
+			self.seconds, self.nanoseconds = t.seconds, t.nanoseconds
 		elif type(seconds) == str:
 			t = XLALStrToGPS(seconds)
 			self.seconds, self.nanoseconds = t.seconds, t.nanoseconds
 		else:
 			raise TypeError, seconds
+
+	def __repr__(self):
+		return "LIGOTimeGPS(%d,%d)" % (self.seconds, self.nanoseconds)
+
+	def __str__(self):
+		return "%d.%09d" % (self.seconds, abs(self.nanoseconds))
 
 	def __mul__(self, other):
 		return LIGOTimeGPS(0, XLALGPSToINT8NS(self) * other)
@@ -54,6 +61,7 @@ class LIGOTimeGPS(_LIGOTimeGPS):
 	__rmul__ = __mul__
 
 	def __div__(self, other):
+		print "here"
 		return LIGOTimeGPS(0, XLALGPSToINT8NS(self) / other)
 
 	def __mod__(self, other):
