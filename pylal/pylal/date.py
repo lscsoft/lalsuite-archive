@@ -30,8 +30,23 @@ __version__ = "$Revision$"[11:-2]
 #
 
 class LIGOTimeGPS(_LIGOTimeGPS):
-	def __init__(self, seconds, nanoseconds = 0):
-		_LIGOTimeGPS.__init__(self, seconds, nanoseconds)
+	def __init__(self, seconds, nanoseconds = None):
+		if type(seconds) in [int, long]:
+			if nanoseconds:
+				_LIGOTimeGPS.__init__(self, seconds, nanoseconds)
+			else:
+				_LIGOTimeGPS.__init__(self, seconds, 0)
+		elif nanoseconds != None:
+			raise TypeError, "cannot set nanoseconds in combination with non-integer seconds"
+		elif type(seconds) == LIGOTimeGPS:
+			self.seconds, self.nanoseconds = seconds.seconds, seconds.nanoseconds
+		elif type(seconds) == float:
+			XLALGPSSetREAL8(self, seconds)
+		elif type(seconds) == str:
+			t = XLALStrToGPS(seconds)
+			self.seconds, self.nanoseconds = t.seconds, t.nanoseconds
+		else:
+			raise TypeError, seconds
 
 	def __mul__(self, other):
 		return LIGOTimeGPS(0, XLALGPSToINT8NS(self) * other)
@@ -55,3 +70,6 @@ class LIGOTimeGPS(_LIGOTimeGPS):
 
 def XLALGreenwichMeanSiderealTime(gps):
 	return XLALGreenwichSiderealTime(gps, 0.0)
+
+def XLALTimeDelayFromEarthCenter(pos, ra, dec, gps):
+	return XLALArrivalTimeDiff(pos, [0.0, 0.0, 0.0], ra, dec, gps)

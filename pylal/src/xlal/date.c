@@ -284,6 +284,22 @@ static PyObject *pylal_XLALINT8NSToGPS(PyObject *self, PyObject *args)
 }
 
 
+static PyObject *pylal_XLALStrToGPS(PyObject *self, PyObject *args)
+{
+	LIGOTimeGPS gps;
+	char *str, *end;
+
+	/* string */
+	if(!PyArg_ParseTuple(args, "s:XLALStrToGPS", &str))
+		return NULL;
+
+	XLALStrToGPS(&gps, str, &end);
+
+	/* LIGOTimeGPS */
+	return pylal_LIGOTimeGPS_New(gps);
+}
+
+
 /*
  * ============================================================================
  *
@@ -449,26 +465,6 @@ static PyObject *pylal_XLALGreenwichSiderealTime(PyObject *self, PyObject *args)
 
 
 /*
- * String parsing
- */
-
-static PyObject *pylal_XLALStrToGPS(PyObject *self, PyObject *args)
-{
-	LIGOTimeGPS gps;
-	char *str, *end;
-
-	/* string */
-	if(!PyArg_ParseTuple(args, "s:XLALStrToGPS", &str))
-		return NULL;
-
-	XLALStrToGPS(&gps, str, &end);
-
-	/* LIGOTimeGPS */
-	return pylal_LIGOTimeGPS_New(gps);
-}
-
-
-/*
  * ============================================================================
  *
  *                             Propogation Delay
@@ -498,26 +494,6 @@ static PyObject *pylal_XLALArrivalTimeDiff(PyObject *self, PyObject *args)
 }
 
 
-static PyObject *pylal_XLALTimeDelayFromEarthCenter(PyObject *self, PyObject *args)
-{
-	PyObject *pos_list;
-	double pos[3];
-	double ra, dec;
-	pylal_LIGOTimeGPS *gps;
-	int i;
-
-	/* 3-element list, float, float, LIGOTimeGPS */
-	if(!PyArg_ParseTuple(args, "OddO:XLALTimeDelayFromEarthCenter", &pos_list, &ra, &dec, &gps))
-		return NULL;
-
-	for(i = 0; i < 3; i++)
-		pos[i] = PyFloat_AsDouble(PyList_GetItem(pos_list, i));
-
-	/* float */
-	return PyFloat_FromDouble(XLALTimeDelayFromEarthCenter(pos, ra, dec, &gps->gps));
-}
-
-
 /*
  * ============================================================================
  *
@@ -538,7 +514,6 @@ static struct PyMethodDef methods[] = {
 	{"XLALLeapSecondsUTC", pylal_XLALLeapSecondsUTC, 1},
 	{"XLALModifiedJulianDay", pylal_XLALModifiedJulianDay, 1},
 	{"XLALStrToGPS", pylal_XLALStrToGPS, 1},
-	{"XLALTimeDelayFromEarthCenter", pylal_XLALTimeDelayFromEarthCenter, 1},
 	{"XLALUTCToGPS", pylal_XLALUTCToGPS, 1},
 	{NULL,}
 };
