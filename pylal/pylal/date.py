@@ -73,6 +73,9 @@ class LIGOTimeGPS(_LIGOTimeGPS):
 	def __str__(self):
 		return "%d.%09d" % (self.seconds, abs(self.nanoseconds))
 
+	def __reduce__(self):
+		return (LIGOTimeGPS, (self.seconds, self.nanoseconds))
+
 	def __mul__(self, other):
 		return LIGOTimeGPS(0, XLALGPSToINT8NS(self) * other)
 
