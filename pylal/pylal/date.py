@@ -51,6 +51,8 @@ class LIGOTimeGPS(_LIGOTimeGPS):
 	def __init__(self, seconds, nanoseconds = None):
 		if type(seconds) in [int, long]:
 			if nanoseconds:
+				if type(nanoseconds) not in [int, long]:
+					raise TypeError, repr(nanoseconds)
 				_LIGOTimeGPS.__init__(self, seconds, nanoseconds)
 			else:
 				_LIGOTimeGPS.__init__(self, seconds, 0)
@@ -65,7 +67,7 @@ class LIGOTimeGPS(_LIGOTimeGPS):
 			t = XLALStrToGPS(seconds)
 			self.seconds, self.nanoseconds = t.seconds, t.nanoseconds
 		else:
-			raise TypeError, seconds
+			raise TypeError, repr(seconds)
 
 	def __repr__(self):
 		return "LIGOTimeGPS(%d,%d)" % (self.seconds, self.nanoseconds)
