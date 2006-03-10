@@ -51,7 +51,7 @@ setup(
 		os.path.join("bin", "plotburstrate"),
 		os.path.join("bin", "plotchannel"),
 		os.path.join("bin", "plotsiminspiral"),
-		os.path.join("bin", "plotgbb"),
+		os.path.join("bin", "plotnumgalaxies"),
 		os.path.join("bin", "plotinspiral"),
 		os.path.join("bin", "plotinspinj"),
 		os.path.join("bin", "plotinspdiff"),
