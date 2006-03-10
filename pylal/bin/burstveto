@@ -116,7 +116,7 @@ for i in range(len(trigFiles)):
     for q in range(len(fsplits)):
         if str(fsplits[q]).split('-')[0] == 'H1' or str(fsplits[q]).split('-')[0] == 'L1':
             osplits = str(fsplits[q]).split('-')
-            output += '/' + osplits[0] + '-' + osplits[1] + '_' + 'VETOED' + '-' + osplits[2] + '-' + osplits[3]
+            output += '/' + osplits[0] + '-' + osplits[1] + '_' + opts.user_tag + '-' + osplits[2] + '-' + osplits[3]
     
     #print fsplits
     #print output
