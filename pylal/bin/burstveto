@@ -62,6 +62,7 @@ if not (opts.input_file or opts.num_slides):
 
 ######################################################################
 
+#print opts.output_dir
 #output dir
 if opts.output_dir:
     try: os.mkdir(opts.output_dir)
@@ -109,11 +110,16 @@ for i in range(len(trigFiles)):
         entry['nevents'] = count
 
     output = opts.output_dir
-    if opts.user_tag:
-        output += '/' + str(ifo) + '-' + 'VETOED' + '_' + opts.user_tag + '-' + str(start_time) + '-' + str(end_time - start_time) + '.xml'
-    else:
-        output += '/' + str(ifo) + '-' + 'VETOED' + '-' + str(start_time) + '-' + str(end_time - start_time) + '.xml'
-        
+    fsplits = []
+    osplits = []
+    fsplits = str(trigFiles[i]).split('/')
+    for q in range(len(fsplits)):
+        if str(fsplits[q]).split('-')[0] == 'H1' or str(fsplits[q]).split('-')[0] == 'L1':
+            osplits = str(fsplits[q]).split('-')
+            output += '/' + osplits[0] + '-' + osplits[1] + '_' + 'VETOED' + '-' + osplits[2] + '-' + osplits[3]
+    
+    #print fsplits
+    #print output
     #write to the output
     fileObj = support.open_xml(output)
     support.write_process(fileObj, process.table )
