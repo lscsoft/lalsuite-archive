@@ -56,7 +56,8 @@ __date__ = "$Date$"[7:-2]
 parser = OptionParser(version="%prog CVS $Id$")
 parser.add_option("--gps-start-time", metavar = "seconds", help = "set left edge of plot")
 parser.add_option("--gps-end-time", metavar = "seconds", help = "set right edge of plot")
-parser.add_option("-t", "--plot-type", metavar = "freq_vs_time|ampl_vs_freq", default = "freq_vs_time", help = "choose plot type")
+parser.add_option("-t", "--plot-type", metavar = "[freq_vs_time|ampl_vs_freq]", default = "freq_vs_time", help = "choose plot type")
+parser.add_option("--representation", metavar = "[contour|scatter]", help = "choose plot type")
 parser.add_option("-i", "--input", metavar = "filename", default = [], action = "append", help = "read input from this file")
 parser.add_option("-c", "--cache", metavar = "filename", default = [], action = "append", help = "read input file the files in this cache")
 parser.add_option("--made-only", action = "store_true", default = False, help = "plot only injections that were made")
@@ -94,6 +95,12 @@ options.seg = segments.segmentlist([segments.segment(options.gps_start_time, opt
 if options.made_only and options.found_only:
 	print >>sys.stderr, "error: can't plot found only and made only"
 	sys.exit(1)
+
+if not options.representation:
+	if options.plot_type == "freq_vs_time":
+		options.representation = "scatter"
+	else:
+		options.representation = "contour"
 
 
 #
@@ -222,6 +229,41 @@ class FoundIter(object):
 #
 # =============================================================================
 #
+#                             Contour Plot Support
+#
+# =============================================================================
+#
+
+class MadeVsFound(object):
+	def __init__(self, xmin, xmax, nx, ymin, ymax, ny):
+		self.xmin = xmin
+		self.logxratio = math.log((xmax / xmin) ** (1.0 / (nx - 1.0)))
+		self.xcoords = self.xmin * pylab.exp(pylab.array(range(nx)) * self.logxratio)
+
+		self.ymin = ymin
+		self.logyratio = math.log((ymax / ymin) ** (1.0 / (ny - 1.0)))
+		self.ycoords = self.ymin * pylab.exp(pylab.array(range(ny)) * self.logyratio)
+
+		self.made = pylab.zeros((ny, nx), pylab.Float64)
+		self.found = pylab.zeros((ny, nx), pylab.Float64)
+
+	def incmade(self, x, y):
+		i = int(math.log(y / self.ymin) / self.logyratio + 0.5)
+		j = int(math.log(x / self.xmin) / self.logxratio + 0.5)
+		self.made[i, j] += 1.0
+
+	def incfound(self, x, y):
+		i = int(math.log(y / self.ymin) / self.logyratio + 0.5)
+		j = int(math.log(x / self.xmin) / self.logxratio + 0.5)
+		self.found[i, j] += 1.0
+
+	def normalize(self):
+		self.made = pylab.where(self.made > 0, self.made, 1)
+
+
+#
+# =============================================================================
+#
 #                              Frequency vs. Time
 #
 # =============================================================================
@@ -241,7 +283,7 @@ class FreqVsTime(object):
 		try:
 			pylab.setp(self.axes, xlim = list(options.seg[0]))
 		except AttributeError:
-			# incase the user didn't seleect a segment
+			# incase the user didn't select a segment
 			pass
 		pylab.grid(True)
 
@@ -259,7 +301,7 @@ class FreqVsTime(object):
 					self.max_t = t
 				pylab.plot([t], [row.freq], "b+")
 		if not options.made_only:
-			for row in FoundIter(doc.coinctable):
+			for row in FoundIter(doc):
 				pylab.plot([float(row.get_geocent_peak())], [row.freq], "rx")
 		self.seglist |= doc.summarytable.get_inlist().coalesce()
 
@@ -281,43 +323,17 @@ class FreqVsTime(object):
 # =============================================================================
 #
 
-class MadeVsFound(object):
-	def __init__(self, xmin, xmax, nx, ymin, ymax, ny):
-		self.xmin = xmin
-		self.logxratio = math.log((xmax / xmin) ** (1.0 / (nx - 1.0)))
-		self.xcoords = self.xmin * pylab.exp(pylab.array(range(nx)) * self.logxratio)
-
-		self.ymin = ymin
-		self.logyratio = math.log((ymax / ymin) ** (1.0 / (ny - 1.0)))
-		self.ycoords = self.ymin * pylab.exp(pylab.array(range(ny)) * self.logyratio)
-
-		self.made = pylab.zeros((ny, nx), pylab.Float64)
-		self.found = pylab.zeros((ny, nx), pylab.Float64)
-
-	def incmade(self, x, y):
-		i = int(math.log(y / self.ymin) / self.logyratio)
-		j = int(math.log(x / self.xmin) / self.logxratio)
-		self.made[i, j] += 1.0
-
-	def incfound(self, x, y):
-		i = int(math.log(y / self.ymin) / self.logyratio)
-		j = int(math.log(x / self.xmin) / self.logxratio)
-		self.found[i, j] += 1.0
-
-	def normalize(self):
-		self.made = pylab.where(self.made > 0, self.made, 1)
-
-
 class AmplVsFreq(object):
 	def __init__(self):
 		self.num_injections = 0
 		self.fig = pylab.figure(1)
 		self.fig.set_figsize_inches(16, 8)
 		self.axes = pylab.gca()
-		self.madevsfound = MadeVsFound(70.0, 2118.0, 21, 1e-22, 1e-19, 21)
+		self.madevsfound = MadeVsFound(70.0, 2118.0, 32, 1e-22, 1e-19, 32)
 
 		self.axes.loglog()
-		#pylab.setp(self.axes, xlim = [70, 2118])
+		#pylab.setp(self.axes, xlim = [70.0, 2118.0])
+		#pylab.setp(self.axes, ylim = [1e-22, 1e-19])
 		pylab.grid(True)
 
 		pylab.xlabel("Frequency (Hz)")
@@ -325,21 +341,30 @@ class AmplVsFreq(object):
 
 	def addto(self, doc):
 		self.num_injections += len(doc.simtable)
-		if not options.found_only:
-			for row in doc.simtable.rows:
-				self.madevsfound.incmade(row.freq, row.hrss)
-		if not options.made_only:
-			for row in FoundIter(doc):
-				self.madevsfound.incfound(row.freq, row.hrss)
+		if options.representation == "contour":
+			if not options.found_only:
+				for row in doc.simtable.rows:
+					self.madevsfound.incmade(row.freq, row.hrss)
+			if not options.made_only:
+				for row in FoundIter(doc):
+					self.madevsfound.incfound(row.freq, row.hrss)
+		elif options.representation == "scatter":
+			if not options.found_only:
+				for row in doc.simtable.rows:
+					pylab.plot([row.freq], [row.hrss], "b+")
+			if not options.made_only:
+				for row in FoundIter(doc):
+					pylab.plot([row.freq], [row.hrss], "rx")
 
 	def finish(self):
-		self.madevsfound.normalize()
-		if options.found_only:
-			cset = pylab.contour(self.madevsfound.xcoords, self.madevsfound.ycoords, self.madevsfound.found)
-		if options.made_only:
-			cset = pylab.contour(self.madevsfound.xcoords, self.madevsfound.ycoords, self.madevsfound.made)
-		else:
-			cset = pylab.contour(self.madevsfound.xcoords, self.madevsfound.ycoords, self.madevsfound.found / self.madevsfound.made, [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9])
+		if options.representation == "contour":
+			self.madevsfound.normalize()
+			if options.found_only:
+				cset = pylab.contour(self.madevsfound.xcoords, self.madevsfound.ycoords, self.madevsfound.found)
+			if options.made_only:
+				cset = pylab.contour(self.madevsfound.xcoords, self.madevsfound.ycoords, self.madevsfound.made)
+			else:
+				cset = pylab.contour(self.madevsfound.xcoords, self.madevsfound.ycoords, self.madevsfound.found / self.madevsfound.made, [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9])
 		pylab.title("Injection Amplitude vs. Frequency\n(%d Injections)" % self.num_injections)
 
 
@@ -352,6 +377,9 @@ class AmplVsFreq(object):
 #
 
 if options.plot_type == "freq_vs_time":
+	if options.representation == "contour":
+		print >>sys.stderr, "contour plots of freq vs. time not supported"
+		sys.exit(1)
 	plot = FreqVsTime()
 elif options.plot_type == "ampl_vs_freq":
 	plot = AmplVsFreq()
