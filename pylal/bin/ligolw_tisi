@@ -36,7 +36,7 @@ from glue.ligolw import ligolw
 from glue.ligolw import metaio
 from glue.ligolw import lsctables
 from pylal import SnglBurstUtils
-from pylal.xlal.date import XLALUTCToGPS
+from pylal.date import XLALUTCToGPS
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
@@ -90,13 +90,13 @@ process = lsctables.Process()
 process.program = "ligolw_tisi"
 process.version = __version__
 process.cvs_repository = "lscsoft"
-process.cvs_entry_time = XLALUTCToGPS(time.strptime(__date__, "%Y/%m/%d %H:%M:%S"))
+process.cvs_entry_time = XLALUTCToGPS(time.strptime(__date__, "%Y/%m/%d %H:%M:%S")).seconds
 process.comment = options.comment
 process.is_online = 0
 process.node = socket.gethostbyaddr(socket.gethostname())[0]
 process.username = os.environ["LOGNAME"]
 process.unix_procid = os.getpid()
-process.start_time = XLALUTCToGPS(time.gmtime())
+process.start_time = XLALUTCToGPS(time.gmtime()).seconds
 process.end_time = 0
 process.jobid = 0
 process.domain = ""
@@ -224,7 +224,7 @@ for slide in SlidesIter(parse_slides(options)):
 # =============================================================================
 #
 
-process.end_time = XLALUTCToGPS(time.gmtime())
+process.end_time = XLALUTCToGPS(time.gmtime()).seconds
 
 if options.output:
 	doc.write(file(options.output, "w"))
