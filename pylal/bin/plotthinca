@@ -371,7 +371,7 @@ if opts.snr_snr or opts.slide_snr:
             viz.plotcoincval(slide["coinc_trigs"], snr, 'H2', ifo, 'k+',\
                 opts.plot_type)
           if 'H1' in ifo_list and 'H2' in ifo_list:
-            viz.plotcoinchanford(slide["coinc_trigs"], snr, ifo, 'sum', \
+            viz.plotcoinchanford(slide["coinc_trigs"], snr, ifo, 'sqrtsqr', \
                 'k1', opts.plot_type)
       
       if opts.snr_snr:
