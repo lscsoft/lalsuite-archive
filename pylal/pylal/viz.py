@@ -575,6 +575,10 @@ def plotcoinchanford(coinctable, col_name, ifo, \
     h_val = h1_val + h2_val
   if hanford_method == 'mean':
     h_val = (h1_val + h2_val)/2
+  if hanford_method == 'sqrtsqr':
+    h_val = []
+    for idx in range(len(h1_val)):
+      h_val.append(sqrt(h1_val[idx] * h1_val[idx] + h2_val[idx] * h2_val[idx])
    
   if plot_type == 'linear':
     plot(h_val, ifo_val, plot_sym,markersize=12,markerfacecolor=None,\
