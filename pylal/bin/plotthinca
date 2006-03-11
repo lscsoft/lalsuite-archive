@@ -400,12 +400,12 @@ if opts.snr_snr or opts.slide_snr:
               
         if not opts.slide_snr: sym += 1
         if 'H1' in ifo_list and 'H2' in ifo_list:       
-          viz.plotcoinchanford(coincTriggers, snr, ifo, 'sum', 
+          viz.plotcoinchanford(coincTriggers, snr, ifo, 'sqrtsqr', 
               hanfordsym[sym], opts.plot_type)
           legend_text.append('H1H2' + ifo)
           for add_ifo in ifo_non_h:
             if add_ifo != ifo:
-              viz.plotcoinchanford(coincTriggers, snr, ifo, 'sum',\
+              viz.plotcoinchanford(coincTriggers, snr, ifo, 'sqrtsqr',\
                   addsym[sym],opts.plot_type, add_ifo)
               legend_text.append('H1H2' + ifo + '(also in ' + add_ifo + ')')
 
