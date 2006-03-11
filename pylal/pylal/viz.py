@@ -578,7 +578,7 @@ def plotcoinchanford(coinctable, col_name, ifo, \
   if hanford_method == 'sqrtsqr':
     h_val = []
     for idx in range(len(h1_val)):
-      h_val.append(sqrt(h1_val[idx] * h1_val[idx] + h2_val[idx] * h2_val[idx])
+      h_val.append(sqrt(h1_val[idx] * h1_val[idx] + h2_val[idx] * h2_val[idx]))
    
   if plot_type == 'linear':
     plot(h_val, ifo_val, plot_sym,markersize=12,markerfacecolor=None,\
