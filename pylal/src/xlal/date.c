@@ -96,7 +96,7 @@ static PyObject *pylal_LIGOTimeGPS___add__(PyObject *self, PyObject *other)
 }
 
 
-static int pylal_LIGOTimeGPS_compare(PyObject *self, PyObject *other)
+static int pylal_LIGOTimeGPS___cmp__(PyObject *self, PyObject *other)
 {
 	LIGOTimeGPS *gps1 = &((pylal_LIGOTimeGPS *) self)->gps;
 	LIGOTimeGPS *gps2 = &((pylal_LIGOTimeGPS *) other)->gps;
@@ -203,7 +203,7 @@ static PyTypeObject pylal_LIGOTimeGPS_Type = {
 	PyObject_HEAD_INIT(NULL)
 	.tp_as_number = &pylal_LIGOTimeGPS_as_number,
 	.tp_basicsize = sizeof(pylal_LIGOTimeGPS),
-	.tp_compare = pylal_LIGOTimeGPS_compare,
+	.tp_compare = pylal_LIGOTimeGPS___cmp__,
 	.tp_doc = "A GPS time with nanosecond precision",
 	.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
 	.tp_init = pylal_LIGOTimeGPS___init__,
@@ -223,6 +223,12 @@ static PyObject *pylal_LIGOTimeGPS_New(LIGOTimeGPS gps)
 	XLALGPSSet(&new->gps, gps.gpsSeconds, gps.gpsNanoSeconds);
 
 	return (PyObject *) new;
+}
+
+
+static int pylal_LIGOTimeGPS_Check(PyObject *obj)
+{
+	return PyObject_TypeCheck(obj, &pylal_LIGOTimeGPS_Type);
 }
 
 
@@ -256,7 +262,7 @@ static PyObject *pylal_XLALGPSToINT8NS(PyObject *self, PyObject *args)
 	pylal_LIGOTimeGPS *s;
 
 	/* LIGOTimeGPS */
-	if(!PyArg_ParseTuple(args, "O:XLALGPSToINT8NS", &s))
+	if(!PyArg_ParseTuple(args, "O!:XLALGPSToINT8NS", &pylal_LIGOTimeGPS_Type, &s))
 		return NULL;
 
 	/* long */
@@ -382,7 +388,7 @@ static PyObject *pylal_XLALGPSToUTC(PyObject *self, PyObject *args)
 	struct tm utc;
 
 	/* LIGOTimeGPS */
-	if(!PyArg_ParseTuple(args, "O:XLALGPSToUTC", &gps))
+	if(!PyArg_ParseTuple(args, "O!:XLALGPSToUTC", &pylal_LIGOTimeGPS_Type, &gps))
 		return NULL;
 	if(gps->gps.gpsNanoSeconds) {
 		PyErr_SetString(PyExc_TypeError, "cannot convert non-integer seconds");
@@ -458,7 +464,7 @@ static PyObject *pylal_XLALGreenwichSiderealTime(PyObject *self, PyObject *args)
 	double equation_of_equinoxes;
 
 	/* LIGOTimeGPS, float */
-	if(!PyArg_ParseTuple(args, "Od:XLALGreenwichSiderealTime", &gps, &equation_of_equinoxes))
+	if(!PyArg_ParseTuple(args, "O!d:XLALGreenwichSiderealTime", &pylal_LIGOTimeGPS_Type, &gps, &equation_of_equinoxes))
 		return NULL;
 
 	/* float */
@@ -483,12 +489,24 @@ static PyObject *pylal_XLALArrivalTimeDiff(PyObject *self, PyObject *args)
 	int i;
 
 	/* 3-element list, 3-element list, float, float, LIGOTimeGPS */
-	if(!PyArg_ParseTuple(args, "OOddO:XLALArrivalTimeDiff", &pos1_list, &pos2_list, &ra, &dec, &gps))
+	if(!PyArg_ParseTuple(args, "O!O!ddO!:XLALArrivalTimeDiff", &PyList_Type, &pos1_list, &PyList_Type, &pos2_list, &ra, &dec, &pylal_LIGOTimeGPS_Type, &gps))
 		return NULL;
+	if(PyList_Size(pos1_list) != 3) {
+		PyErr_Format(PyExc_TypeError, "XLALArrivalTimeDiff() argument 1 must have length 3, not %d", PyList_Size(pos1_list));
+		return NULL;
+	}
+	if(PyList_Size(pos2_list) != 3) {
+		PyErr_Format(PyExc_TypeError, "XLALArrivalTimeDiff() argument 2 must have length 3, not %d", PyList_Size(pos1_list));
+		return NULL;
+	}
 
 	for(i = 0; i < 3; i++) {
 		pos1[i] = PyFloat_AsDouble(PyList_GetItem(pos1_list, i));
+		if(PyErr_Occurred())
+			return NULL;
 		pos2[i] = PyFloat_AsDouble(PyList_GetItem(pos2_list, i));
+		if(PyErr_Occurred())
+			return NULL;
 	}
 
 	/* float */

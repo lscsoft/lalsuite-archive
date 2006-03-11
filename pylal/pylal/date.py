@@ -57,7 +57,7 @@ class LIGOTimeGPS(_LIGOTimeGPS):
 			else:
 				_LIGOTimeGPS.__init__(self, seconds, 0)
 		elif nanoseconds != None:
-			raise TypeError, "cannot set nanoseconds in combination with non-integer seconds"
+			raise TypeError, "LIGOTimeGPS(x): function takes exactly 1 argument with non-integer x (2 given)"
 		elif type(seconds) == LIGOTimeGPS:
 			self.seconds, self.nanoseconds = seconds.seconds, seconds.nanoseconds
 		elif type(seconds) == float:
@@ -84,7 +84,6 @@ class LIGOTimeGPS(_LIGOTimeGPS):
 	__rmul__ = __mul__
 
 	def __div__(self, other):
-		print "here"
 		return LIGOTimeGPS(0, XLALGPSToINT8NS(self) / other)
 
 	def __mod__(self, other):
