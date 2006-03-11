@@ -212,6 +212,7 @@ class LIGOLwParser:
     self.types = {
       'int_2s' : int,
       'int_4s' : int,
+      'int_8s' : long,
       'real_4' : float,
       'real_8' : float,
       'lstring' : self.__lstring,
