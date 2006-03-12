@@ -2005,6 +2005,19 @@ class TimeSlideTable(LSCTableMulti):
 		for row in self.rows:
 			row.process_id = row.process_id._get_key()
 
+	def get_offset_dict(self, id):
+		"""
+		Return a dictionary of offsets indexed by instrument for
+		the given time slide ID.
+		"""
+		d = {}
+		for row in self.dict[id]:
+			if d.has_key(row.instrument):
+				raise KeyError, "%s: duplicate instrument %s" % (repr(id), row.instrument)
+			d[row.instrument] = row.offset
+		return d
+
+
 class TimeSlide(LSCTableRow):
 	__slots__ = TimeSlideTable.validcolumns.keys()
 
