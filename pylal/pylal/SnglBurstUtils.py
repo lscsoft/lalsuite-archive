@@ -55,10 +55,18 @@ def smallest_enclosing_seg(a, b):
 
 
 def CompareSnglBurstByPeakTime(a, b):
+	"""
+	Orders a and b by peak time.
+	"""
 	return cmp(a.get_peak(), b.get_peak())
 
 
 def CompareSnglBurstByPeakTimeAndFreq(a, b):
+	"""
+	Orders a and b by peak time, then by frequency band.  Returns 0 if
+	a and b have the same peak time, and their frequency bands
+	intersect.
+	"""
 	result = cmp(a.get_peak(), b.get_peak())
 	if not result:
 		result = cmp_segs(a.get_band(), b.get_band())
@@ -66,6 +74,10 @@ def CompareSnglBurstByPeakTimeAndFreq(a, b):
 
 
 def CompareSnglBurst(a, b):
+	"""
+	Orders a and b by time interval, then by frequency band.  Returns 0
+	if a and b's time-frequency tiles intersect.
+	"""
 	result = cmp_segs(a.get_period(), b.get_period())
 	if not result:
 		result = cmp_segs(a.get_band(), b.get_band())
@@ -73,6 +85,12 @@ def CompareSnglBurst(a, b):
 
 
 def SnglBurstCluster(a, b):
+	"""
+	Replace a with a cluster constructed from a and b.  The cluster's
+	time-frequency tile is the smallest tile that contains the original
+	two tiles, and the cluster's other properties are taken from which
+	ever is the statistically more confident of the two triggers.
+	"""
 	# The cluster's frequency band is the smallest band containing the
 	# bands of the two original events
 
@@ -96,6 +114,15 @@ def SnglBurstCluster(a, b):
 
 
 def ClusterSnglBurstTable(triggers, testfunc, clusterfunc, bailoutfunc = None):
+	"""
+	Cluster the triggers in the list.  testfunc should accept a pair of
+	triggers, and return 0 if they should be clustered.  clusterfunc
+	should accept a pair of triggers, and replace the contents of the
+	first with a cluster constructed from the two.  If bailoutfunc is
+	provided, the triggers will be sorted using testfunc as a
+	comparison operator, and then only pairs of triggers for which
+	bailoutfunc returns 0 will be considered for clustering.
+	"""
 	while True:
 		did_cluster = False
 
@@ -130,6 +157,10 @@ def ClusterSnglBurstTable(triggers, testfunc, clusterfunc, bailoutfunc = None):
 #
 
 def CompareSimBurstAndSnglBurstByTime(sim, burst):
+	"""
+	Return True if the peak time of the injection sim lies within the
+	time interval of burst.
+	"""
 	if sim.coordinates == "ZENITH":
 		tsim = sim.get_geocent_peak()
 	elif burst.ifo == "H1":
@@ -143,4 +174,8 @@ def CompareSimBurstAndSnglBurstByTime(sim, burst):
 	return tsim in burst.get_period()
 
 def CompareSimBurstAndSnglBurstByTimeandFreq(sim, burst):
+	"""
+	Return True if the peak time and centre frequency of sim lie within
+	the time-frequency tile of burst.
+	"""
 	return CompareSimBurstAndSnglBurstByTime(sim, burst) and (sim.freq in burst.get_band())
