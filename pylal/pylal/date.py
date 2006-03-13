@@ -31,8 +31,7 @@ importing xlal.date directly.
 # =============================================================================
 #
 
-from xlal.date import *
-from xlal.date import LIGOTimeGPS as _LIGOTimeGPS
+import xlal.date
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __date__ = "$Date$"[7:-2]
@@ -47,19 +46,17 @@ __version__ = "$Revision$"[11:-2]
 # =============================================================================
 #
 
-class LIGOTimeGPS(_LIGOTimeGPS):
+class LIGOTimeGPS(xlal.date.LIGOTimeGPS):
 	def __init__(self, seconds, nanoseconds = None):
 		if type(seconds) in [int, long]:
 			if nanoseconds:
 				if type(nanoseconds) not in [int, long]:
 					raise TypeError, repr(nanoseconds)
-				_LIGOTimeGPS.__init__(self, seconds, nanoseconds)
+				xlal.date.LIGOTimeGPS.__init__(self, seconds, nanoseconds)
 			else:
-				_LIGOTimeGPS.__init__(self, seconds, 0)
+				xlal.date.LIGOTimeGPS.__init__(self, seconds, 0)
 		elif nanoseconds != None:
 			raise TypeError, "LIGOTimeGPS(x): function takes exactly 1 argument with non-integer x (2 given)"
-		elif type(seconds) == LIGOTimeGPS:
-			self.seconds, self.nanoseconds = seconds.seconds, seconds.nanoseconds
 		elif type(seconds) == float:
 			t = XLALREAL8ToGPS(seconds)
 			self.seconds, self.nanoseconds = t.seconds, t.nanoseconds
@@ -67,7 +64,10 @@ class LIGOTimeGPS(_LIGOTimeGPS):
 			t = XLALStrToGPS(seconds)
 			self.seconds, self.nanoseconds = t.seconds, t.nanoseconds
 		else:
-			raise TypeError, repr(seconds)
+			try:
+				self.seconds, self.nanoseconds = seconds.seconds, seconds.nanoseconds
+			except:
+				raise TypeError, repr(seconds)
 
 	def __repr__(self):
 		return "LIGOTimeGPS(%d,%d)" % (self.seconds, self.nanoseconds)
@@ -93,10 +93,38 @@ class LIGOTimeGPS(_LIGOTimeGPS):
 #
 # =============================================================================
 #
-#                               Time Conversion
+#                              Function Wrappers
 #
 # =============================================================================
 #
+
+def XLALREAL8ToGPS(*args):
+	return LIGOTimeGPS(xlal.date.XLALREAL8ToGPS(*args))
+
+XLALGPSToINT8NS = xlal.date.XLALGPSToINT8NS
+
+def XLALINT8NSToGPS(*args):
+	return LIGOTimeGPS(xlal.date.XLALINT8NSToGPS(*args))
+
+def XLALStrToGPS(*args):
+	return LIGOTimeGPS(xlal.date.XLALStrToGPS(*args))
+
+XLALLeapSeconds = xlal.date.XLALLeapSeconds
+
+XLALLeapSecondsUTC = xlal.date.XLALLeapSecondsUTC
+
+XLALGPSToUTC = xlal.date.XLALGPSToUTC
+
+def XLALUTCToGPS(*args):
+	return LIGOTimeGPS(xlal.date.XLALUTCToGPS(*args))
+
+XLALJulianDay = xlal.date.XLALJulianDay
+
+XLALModifiedJulianDay = xlal.date.XLALModifiedJulianDay
+
+XLALGreenwichSiderealTime = xlal.date.XLALGreenwichSiderealTime
+
+XLALArrivalTimeDiff = xlal.date.XLALArrivalTimeDiff
 
 def XLALGreenwichMeanSiderealTime(gps):
 	return XLALGreenwichSiderealTime(gps, 0.0)
