@@ -69,25 +69,48 @@ class LIGOTimeGPS(xlal.date.LIGOTimeGPS):
 			except:
 				raise TypeError, repr(seconds)
 
-	def __repr__(self):
-		return "LIGOTimeGPS(%d,%d)" % (self.seconds, self.nanoseconds)
+	def __abs__(self):
+		return LIGOTimeGPS(xlal.date.LIGOTimeGPS.__abs__(self))
 
-	def __str__(self):
-		return "%d.%09d" % (self.seconds, abs(self.nanoseconds))
+	def __add__(self, other):
+		return LIGOTimeGPS(xlal.date.LIGOTimeGPS.__add__(self, other))
 
-	def __reduce__(self):
-		return (LIGOTimeGPS, (self.seconds, self.nanoseconds))
-
-	def __mul__(self, other):
-		return LIGOTimeGPS(0, XLALGPSToINT8NS(self) * other)
-
-	__rmul__ = __mul__
+	def __coerce__(self, other):
+		if type(other) != LIGOTimeGPS:
+			try:
+				return (self, LIGOTimeGPS(other))
+			except:
+				pass
+		return None
 
 	def __div__(self, other):
 		return LIGOTimeGPS(0, XLALGPSToINT8NS(self) / other)
 
 	def __mod__(self, other):
 		return LIGOTimeGPS(0, XLALGPSToINT8NS(self) % (other * 1000000000L))
+
+	def __mul__(self, other):
+		return LIGOTimeGPS(0, XLALGPSToINT8NS(self) * other)
+
+	def __neg__(self):
+		return LIGOTimeGPS(xlal.date.LIGOTimeGPS.__neg__(self))
+
+	def __pos__(self):
+		return LIGOTImeGPS(self)
+
+	def __reduce__(self):
+		return (LIGOTimeGPS, (self.seconds, self.nanoseconds))
+
+	def __repr__(self):
+		return "LIGOTimeGPS(%d,%d)" % (self.seconds, self.nanoseconds)
+
+	__rmul__ = __mul__
+
+	def __str__(self):
+		return "%d.%09d" % (self.seconds, abs(self.nanoseconds))
+
+	def __sub__(self, other):
+		return LIGOTimeGPS(xlal.date.LIGOTimeGPS.__sub__(self, other))
 
 
 #
