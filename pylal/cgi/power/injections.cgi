@@ -2,7 +2,6 @@
 
 import pylab
 
-from glue import lal
 from glue import segments
 from pylal import viz
 

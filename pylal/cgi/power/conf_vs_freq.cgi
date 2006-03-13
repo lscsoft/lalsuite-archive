@@ -3,8 +3,6 @@
 from matplotlib.patches import Patch
 import pylab
 
-from glue import lal
-
 import webplot
 
 

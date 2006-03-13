@@ -4,7 +4,6 @@ import math
 from matplotlib.patches import Patch
 import pylab
 
-from glue import lal
 from glue import segments
 from pylal import rate
 

@@ -3,16 +3,16 @@
 import os
 import popen2
 
-from glue import lal
 from glue import LSCsegFindClient
 from glue import segments
 from glue import segmentsUtils
+from pylal.date import LIGOTimeGPS
 
 #
 # Some info
 #
 
-s5start = lal.LIGOTimeGPS(815155213)
+s5start = LIGOTimeGPS(815155213)
 cache = {
 	"G1": os.getcwd() + "/G1/triggers.cache",
 	"G1 Injections": os.getcwd() + "/G1/injections.cache",
@@ -62,10 +62,10 @@ def runlladd(command):
 
 class TrigSegs(object):
 	def __init__(self):
-		self.G1 = segmentsUtils.fromlalcache(file(cache["G1"]), coltype = lal.LIGOTimeGPS).coalesce()
-		self.H1 = segmentsUtils.fromlalcache(file(cache["H1"]), coltype = lal.LIGOTimeGPS).coalesce()
-		self.H2 = segmentsUtils.fromlalcache(file(cache["H2"]), coltype = lal.LIGOTimeGPS).coalesce()
-		self.L1 = segmentsUtils.fromlalcache(file(cache["L1"]), coltype = lal.LIGOTimeGPS).coalesce()
+		self.G1 = segmentsUtils.fromlalcache(file(cache["G1"]), coltype = LIGOTimeGPS).coalesce()
+		self.H1 = segmentsUtils.fromlalcache(file(cache["H1"]), coltype = LIGOTimeGPS).coalesce()
+		self.H2 = segmentsUtils.fromlalcache(file(cache["H2"]), coltype = LIGOTimeGPS).coalesce()
+		self.L1 = segmentsUtils.fromlalcache(file(cache["L1"]), coltype = LIGOTimeGPS).coalesce()
 
 
 #
@@ -88,5 +88,5 @@ def getsegments(config, types, bounds):
 	else:
 		client = LSCsegFindClient.LSCsegFind(config.host)
 	list = client.findStateSegments({"interferometer" : config.instrument, "type" : types, "start" : str(int(bounds[0])), "end" : str(int(bounds[1])), "lfns" : False, "strict" : True})
-	return segments.segmentlist([segments.segment(*map(lal.LIGOTimeGPS, seg)) for seg in list])
+	return segments.segmentlist([segments.segment(*map(LIGOTimeGPS, seg)) for seg in list])
 

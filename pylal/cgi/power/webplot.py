@@ -20,7 +20,7 @@ from glue.ligolw import lsctables
 from glue.ligolw import docutils
 
 from pylal import SnglBurstUtils
-from pylal.support import XLALUTCToGPS
+from pylal.date import XLALUTCToGPS, LIGOTimeGPS
 
 import eventdisplay
 
@@ -35,7 +35,7 @@ import eventdisplay
 class PlotDescription(object):
 	def __init__(self):
 		# set defaults
-		now = lal.LIGOTimeGPS(XLALUTCToGPS(time.gmtime()))
+		now = XLALUTCToGPS(time.gmtime())
 		self.segment = segments.segment(now, now + (-1 * 3600))
 		self.ratewidth = 60.0
 		self.freqwidth = 16.0
@@ -84,8 +84,8 @@ class PlotDescription(object):
 		# parse CGI form
 		form = cgi.FieldStorage()
 
-		start = lal.LIGOTimeGPS(form.getfirst("start", str(self.segment[0])))
-		duration = lal.LIGOTimeGPS(form.getfirst("dur", str(self.segment.duration())))
+		start = LIGOTimeGPS(form.getfirst("start", str(self.segment[0])))
+		duration = LIGOTimeGPS(form.getfirst("dur", str(self.segment.duration())))
 
 		self.segment = segments.segment(start, start + duration)
 		self.ratewidth = float(form.getfirst("ratewidth", str(self.ratewidth)))

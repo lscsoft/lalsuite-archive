@@ -3,8 +3,6 @@
 import cgi
 import cgitb ; cgitb.enable()
 
-from glue import lal
-
 import eventdisplay
 import webplot
 

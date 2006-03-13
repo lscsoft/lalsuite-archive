@@ -4,15 +4,14 @@ import cgi
 import cgitb ; cgitb.enable()
 import time
 
-from glue import lal
 from glue import segments
-from pylal.support import XLALUTCToGPS
+from pylal.date import XLALUTCToGPS, LIGOTimeGPS
 
 #
 # Init
 #
 
-now = lal.LIGOTimeGPS(XLALUTCToGPS(time.gmtime()))
+now = XLALUTCToGPS(time.gmtime())
 
 default_start = "now"
 default_duration = str(-1 * 3600)
@@ -35,12 +34,12 @@ form = cgi.FieldStorage()
 query = Query()
 
 start = form.getfirst("start", default_start).lower()
-duration = lal.LIGOTimeGPS(form.getfirst("dur", default_duration))
+duration = LIGOTimeGPS(form.getfirst("dur", default_duration))
 if start == "now":
 	query.segment = segments.segment(now, now + duration)
 	refresh = """<meta http-equiv="refresh" content="%d"></meta>""" % (abs(duration) / 3600 * 180 + 180)
 else:
-	query.segment = segments.segment(lal.LIGOTimeGPS(start), lal.LIGOTimeGPS(start) + duration)
+	query.segment = segments.segment(LIGOTimeGPS(start), LIGOTimeGPS(start) + duration)
 	refresh = ""
 
 query.ratewidth = float(form.getfirst("ratewidth", "60"))

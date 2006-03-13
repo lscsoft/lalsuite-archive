@@ -5,9 +5,9 @@ from matplotlib.patches import Patch
 from numarray import nd_image
 import pylab
 
-from glue import lal
 from glue import segments
 from pylal import rate
+from pylal.date import LIGOTimeGPS
 
 import webplot
 
@@ -33,18 +33,18 @@ class Plot(webplot.PlotDescription):
 def glitchsegments(xvals, yvals, threshold):
 	# find starts and ends of segments above threshold
 	if yvals[0] >= threshold:
-		starts = [lal.LIGOTimeGPS(xvals[0])]
+		starts = [LIGOTimeGPS(xvals[0])]
 	else:
 		starts = []
 	ends = []
 	for i in range(0, len(yvals) - 1):
 		if (yvals[i] < threshold) and (yvals[i + 1] >= threshold):
-			starts.append(lal.LIGOTimeGPS(xvals[i]))
+			starts.append(LIGOTimeGPS(xvals[i]))
 	for i in range(1, len(yvals)):
 		if (yvals[i] < threshold) and (yvals[i - 1] >= threshold):
-			ends.append(lal.LIGOTimeGPS(xvals[i]))
+			ends.append(LIGOTimeGPS(xvals[i]))
 	if yvals[-1] >= threshold:
-		ends.append(lal.LIGOTimeGPS(xvals[-1]))
+		ends.append(LIGOTimeGPS(xvals[-1]))
 
 	# turn start/end pairs into segments
 	return segments.segmentlist(map(segments.segment, starts, ends)).coalesce()
