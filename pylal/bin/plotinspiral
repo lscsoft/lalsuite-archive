@@ -7,7 +7,6 @@ import re
 import exceptions
 import glob
 from types import *
-from operator import itemgetter
 
 from pylab import *
 from pylal import readMeta
