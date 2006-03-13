@@ -73,12 +73,13 @@ def CompareSnglBurstByPeakTimeAndFreq(a, b):
 	return result
 
 
-def CompareSnglBurst(a, b):
+def CompareSnglBurst(a, b, a_offset = 0.0, b_offset = 0.0):
 	"""
 	Orders a and b by time interval, then by frequency band.  Returns 0
-	if a and b's time-frequency tiles intersect.
+	if a and b's time-frequency tiles intersect.  Offsets can be
+	optionally applied to the times of triggers a and b.
 	"""
-	result = cmp_segs(a.get_period(), b.get_period())
+	result = cmp_segs((a.get_start() + a_offset, a.get_end() + a_offset), (b.get_start() + b_offset, b.get_end() + b_offset)
 	if not result:
 		result = cmp_segs(a.get_band(), b.get_band())
 	return result
@@ -179,3 +180,27 @@ def CompareSimBurstAndSnglBurstByTimeandFreq(sim, burst):
 	the time-frequency tile of burst.
 	"""
 	return CompareSimBurstAndSnglBurstByTime(sim, burst) and (sim.freq in burst.get_band())
+
+
+#
+# =============================================================================
+#
+#                                    Other
+#
+# =============================================================================
+#
+
+def choices(vals, n):
+	"""
+	Return a list of all choices of n elements from the list vals.
+	"""
+	if n == 1:
+		return [[v] for v in vals]
+	if n == len(vals):
+		return [vals]
+	l = []
+	for i in range(len(vals) - n + 1):
+		for c in choices(vals[i+1:], n - 1):
+			c[0:0] = [vals[i]]
+			l.append(c)
+	return l
