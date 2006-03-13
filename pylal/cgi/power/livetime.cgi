@@ -81,7 +81,8 @@ def s5_live_time_summary(now, seglist):
 		rate = livetime / float(seglist.extent().duration())
 	else:
 		rate = 0.0
-	s5end = now + LIGOTimeGPS((s5length - livetime) / rate)
+	s5end = now + (s5length - livetime) / rate
+	s5end.nanoseconds = 0	# convert to UTC requires integer seconds
 	s = """<table>\n"""
 	s += """<tr>\n"""
 	s += """	<td>H1 &cap; H2 &cap; L1 hours required for S5</td>\n"""
@@ -93,7 +94,7 @@ def s5_live_time_summary(now, seglist):
 	s += """</tr>\n"""
 	s += """<tr>\n"""
 	s += """	<td>Estimated S5 termination (<a href="enddateplot.cgi">history</a>)</td>\n"""
-	s += """	<td>%s UTC (GPS %d s)</td>\n""" % (time.asctime(XLALGPSToUTC(s5end)), int(s5end))
+	s += """	<td>%s UTC (GPS %d s)</td>\n""" % (time.asctime(XLALGPSToUTC(s5end)), s5end)
 	s += """</tr>\n"""
 	s += """</table>"""
 	return s
