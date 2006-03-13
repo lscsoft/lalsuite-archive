@@ -81,7 +81,7 @@ class LIGOTimeGPS(xlal.date.LIGOTimeGPS):
 				return (self, LIGOTimeGPS(other))
 			except:
 				pass
-		return None
+		return (self, other)
 
 	def __div__(self, other):
 		return LIGOTimeGPS(0, XLALGPSToINT8NS(self) / other)
