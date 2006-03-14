@@ -34,6 +34,9 @@
 #include <lal/TimeDelay.h>
 
 
+# define MODULE_NAME "pylal.xlal.date"
+
+
 /*
  * ============================================================================
  *
@@ -276,18 +279,9 @@ static PyObject *pylal_LIGOTimeGPS___pos__(PyObject *self)
 static PyObject *pylal_LIGOTimeGPS___reduce__(PyObject *self, PyObject *args)
 {
 	const LIGOTimeGPS *gps = &((pylal_LIGOTimeGPS *) self)->gps;
-	PyObject *type = (PyObject *) &pylal_LIGOTimeGPS_Type;
-	PyObject *params = PyTuple_New(2);
-	PyObject *result = PyTuple_New(2);
 
-	PyTuple_SetItem(params, 0, PyInt_FromLong(gps->gpsSeconds));
-	PyTuple_SetItem(params, 1, PyInt_FromLong(gps->gpsNanoSeconds));
-
-	Py_INCREF(type);
-	PyTuple_SetItem(result, 0, type);
-	PyTuple_SetItem(result, 1, params);
-
-	return result;
+	Py_INCREF(&pylal_LIGOTimeGPS_Type);
+	return Py_BuildValue("(O,(i,i))", &pylal_LIGOTimeGPS_Type, gps->gpsSeconds, gps->gpsNanoSeconds);
 }
 
 
@@ -406,7 +400,8 @@ static PyTypeObject pylal_LIGOTimeGPS_Type = {
 	.tp_init = pylal_LIGOTimeGPS___init__,
 	.tp_members = pylal_LIGOTimeGPS_members,
 	.tp_methods = pylal_LIGOTimeGPS_methods,
-	.tp_name = "LIGOTimeGPS",
+	.tp_name = MODULE_NAME ".LIGOTimeGPS",
+	.tp_new = PyType_GenericNew,
 	.tp_repr = pylal_LIGOTimeGPS___repr__,
 	.tp_richcompare = pylal_LIGOTimeGPS_richcompare,
 	.tp_str = pylal_LIGOTimeGPS___str__,
@@ -727,12 +722,11 @@ static struct PyMethodDef methods[] = {
 
 void initdate(void)
 {
-	PyObject *m = Py_InitModule3("pylal.xlal.date", methods, "Wrapper for LAL's date package.");
+	PyObject *module = Py_InitModule3(MODULE_NAME, methods, "Wrapper for LAL's date package.");
 
 	/* LIGOTimeGPS */
-	pylal_LIGOTimeGPS_Type.tp_new = PyType_GenericNew;
 	if(PyType_Ready(&pylal_LIGOTimeGPS_Type) < 0)
 		return;
 	Py_INCREF(&pylal_LIGOTimeGPS_Type);
-	PyModule_AddObject(m, "LIGOTimeGPS", (PyObject *) &pylal_LIGOTimeGPS_Type);
+	PyModule_AddObject(module, "LIGOTimeGPS", (PyObject *) &pylal_LIGOTimeGPS_Type);
 }
