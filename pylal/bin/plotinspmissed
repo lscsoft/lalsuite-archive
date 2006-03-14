@@ -21,8 +21,9 @@ parser.add_option("-a","--time-dist",action="store_true",default=False,\
     help="plot dist v trig end time" )
 parser.add_option("-b","--mchirp-dist",action="store_true",default=False,\
     help="plot dist v mchirp" )
-parser.add_option("-x","--tag1",action="store",type="string",\
-    default=None, metavar=" TAG",help="identifier for first input file" )
+parser.add_option("-x","--tag",action="append",type="string",\
+    dest="tags", metavar=" TAG",
+    help="identifier for input file (append to list)" )
 parser.add_option("-y","--tag2",action="store",type="string",\
     default=None, metavar=" TAG",help="identifier for second input file" )
 parser.add_option("-z","--tag3",action="store",type="string",\
@@ -36,6 +37,11 @@ parser.add_option("-t","--title",action="store",type="string",\
     default="", metavar=" TITLE", help="add more info to standard title" )
 parser.add_option("-l","--legend",action="store_true",default=False,\
     help="include legend on plot" )  
+parser.add_option("-i","--ifo",action="store",type="string",default=None,\
+    help="specify the ifo (otherwise will be read from the found file")
+parser.add_option("-M","--min-distance",action="store",type="int",\
+    default=None, metavar=" MIN_DIST",\
+    help="provide time and dist of all missed injections closer than MIN_DIST")
 
 (opts,args) = parser.parse_args()
 
@@ -44,14 +50,6 @@ if not args:
   print >>sys.stderr, "a trig-file must be specified"
   print >>sys.stderr, "Enter 'plotinspmissed --help' for usage"
   sys.exit(1)
-
-tags = ["","",""]
-if opts.tag1:
-  tags[0]=(opts.tag1 + ": " )
-  if opts.tag2:
-    tags[1]=(opts.tag2 + ": " )
-    if opts.tag3:
-      tags[3]=(opts.tag3 + ": " )
 
 if opts.title != "":
   opts.title += ": "
@@ -74,7 +72,16 @@ else:
     if i%2:
       misFiles.append(args[i])
     else:
-      injFiles.append(args[i])       
+      injFiles.append(args[i])
+
+if not opts.tags:
+  opts.tags = []
+  for i in range(len(args)/2):
+    opts.tags.append('')
+elif (len(opts.tags) != len(args)/2):
+  print >>sys.stderr, "If you specify tags, then make sure you have the same" \
+                      "number of tags as found files"
+  print >>sys.stderr, "Enter 'plotinspmissed --help' for usage"
 
 ##############################################################################
 # read in tables into dictionaries of paired sets
@@ -87,10 +94,14 @@ for i in range(len(injFiles)):
   # 
   flist = []
   flist.append(injFiles[i])
-  injDict["sngl_inspiral"] = readMeta.metaDataTable(flist, "sngl_inspiral")
   injDict["sim_inspiral"]  = readMeta.metaDataTable(flist, "sim_inspiral")
-  #
-  injDict["ifo"] = injDict["sngl_inspiral"].table[1]["ifo"]
+
+  if opts.ifo:
+    injDict["ifo"] = opts.ifo
+  else:
+    sngl = readMeta.metaDataTable(flist, "sngl_inspiral")
+    injDict["ifo"] = sngl.table[0]["ifo"]
+    
   injDict["inj_time"] = viz.timeindays( viz.readcol(injDict["sim_inspiral"], \
     "end_time", injDict["ifo"] ) )
   injDict["inj_dist"] = viz.readcol(injDict["sim_inspiral"], "eff_dist", \
@@ -98,21 +109,6 @@ for i in range(len(injFiles)):
   injDict["inj_chirp"]  = viz.readcol(injDict["sim_inspiral"], "mchirp" )
   
     
-  #if injDict["ifo"] == 'H1'  or  injDict["ifo"] == 'H2':
-  #  injDict["inj_time"] =  injDict["sim_inspiral"].mkarray("h_end_time") + \
-  #    1e-9 * injDict["sim_inspiral"].mkarray("h_end_time_ns")
-  #  injDict["inj_dist"] =  injDict["sim_inspiral"].mkarray("eff_dist_h")
-  #elif injDict["ifo"] == ('L1'):
-  #  injDict["inj_time"] =  injDict["sim_inspiral"].mkarray("l_end_time") + \
-  #    1e-9 * injDict["sim_inspiral"].mkarray("l_end_time_ns")
-  #  injDict["inj_dist"] =  injDict["sim_inspiral"].mkarray("eff_dist_l")
-  #injDict["inj_chirp"]  = injDict["sim_inspiral"].mkarray("mchirp")
-  
-  # test sire clustering
-  if injDict['sngl_inspiral'].nevents() != injDict['sim_inspiral'].nevents():
-    print >>sys.stderr,"number of triggers and found injections must be equal"
-    sys.exit(1)
-
   #
   if misFiles:
     flist = []
@@ -126,16 +122,16 @@ for i in range(len(injFiles)):
     injDict["ifo"] )
   misDict["mis_chirp"]  = viz.readcol(misDict["sim_inspiral"], "mchirp" )
 
-  
-  #if injDict["ifo"] == 'H1'  or  injDict["ifo"] == 'H2':
-  #  misDict["mis_time"] =  misDict["sim_inspiral"].mkarray("h_end_time") + \
-  #    1e-9 * misDict["sim_inspiral"].mkarray("h_end_time_ns")
-  #  misDict["mis_dist"] =  misDict["sim_inspiral"].mkarray("eff_dist_h")
-  #elif injDict["ifo"] == ('L1'):
-  #  misDict["mis_time"] =  misDict["sim_inspiral"].mkarray("l_end_time") + \
-  #    1e-9 * misDict["sim_inspiral"].mkarray("l_end_time_ns")
-  #  misDict["mis_dist"] =  misDict["sim_inspiral"].mkarray("eff_dist_l")
+  if opts.min_distance:
+    print flist[0]
+    for i in range(len(misDict["mis_time"])):
+      if misDict["mis_dist"][i] < opts.min_distance:
+        print "Missed Distance in " + injDict["ifo"] + " was " + \
+            str(misDict["mis_dist"][i]),
+        print "GPS time " + \
+            str(misDict["sim_inspiral"].table[i]["geocent_end_time"])
 
+  
   # append combination of tables to list as a dictionary
   injSet["injections"] = injDict
   injSet["missedinjs"] = misDict
@@ -143,8 +139,8 @@ for i in range(len(injFiles)):
 
 ##############################################################################
 # set lists of plot symbols
-plot1symbol=['bx','bo','b+']
-plot2symbol=['rx','ro','r+']
+plot1symbol=['bx','bo','b+','b^']
+plot2symbol=['rx','ro','r+','r^']
 
 gpsDigits = "9"
 xmajorFormatter = FormatStrFormatter("%"+gpsDigits+"d")  
@@ -152,27 +148,33 @@ xmajorFormatter = FormatStrFormatter("%"+gpsDigits+"d")
 # plot time V dist
 if opts.time_dist:  
   figure()
-  sym=0
   t=0
+
+  # plot found
   for injSet in injSets:
     semilogy(injSet['injections']['inj_time'],injSet['injections']['inj_dist'],\
-             plot1symbol[sym],label=tags[t]+"find",\
+             plot1symbol[t],label=opts.tags[t]+" find",\
              markerfacecolor=None,markeredgecolor='b',markersize=10,\
              markeredgewidth=1)
+    t+=1
     hold(True)
+
+  # and missed
+  t=0  
+  for injSet in injSets:
     semilogy(injSet['missedinjs']['mis_time'],injSet['missedinjs']['mis_dist'],\
-        plot2symbol[sym],label=tags[t]+"miss",\
+        plot2symbol[t],label=opts.tags[t]+" miss",\
         markerfacecolor=None,markeredgecolor='r',markersize=10,\
         markeredgewidth=1)
-    hold(True) 
-    sym+=1
     t+=1
+    hold(True) 
+    
   if opts.legend:
     legend()
+    
   title(opts.title + 'Distance vs Time', size='x-large')
   xlabel('Injected End Time (days after start of run)', size='x-large')
   ylabel('Injected Effective Distance (Mpc)', size='x-large')
-  #ylim(10, 1000)
   gca().grid(True)
   if opts.fig_name:
     savefig(opts.fig_name + "_time-dist.png")
@@ -185,12 +187,12 @@ if opts.mchirp_dist:
   t=0
   for injSet in injSets:
     semilogy(injSet['injections']['inj_chirp'],injSet['injections']['inj_dist'],\
-             plot1symbol[sym],label=tags[t]+"find",\
+             plot1symbol[sym],label=opts.tags[t]+" find",\
              markerfacecolor=None,markeredgecolor='b',markersize=10,\
              markeredgewidth=1)
     hold(True)
     semilogy(injSet['missedinjs']['mis_chirp'],injSet['missedinjs']['mis_dist'],\
-        plot2symbol[sym],label=tags[t]+"miss",\
+        plot2symbol[sym],label=opts.tags[t]+" miss",\
         markerfacecolor=None,markeredgecolor='r',markersize=10,\
         markeredgewidth=1)
     hold(True) 
