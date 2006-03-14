@@ -143,27 +143,21 @@ class snglInspiralTable(metaDataTable):
     @param column: name of column to add
     """
 
-    if column == 'snrsq':
+    if column == 'snr_over_chi':
       for trig in self.table:
-        trig['snrsq'] = trig['snr'] * trig['snr']
- 
-    elif column == 'snr_over_chi':
-      for trig in self.table:
-        trig['snrsq_over_chi'] = trig['snr'] / sqrt(trig['chisq'])
+        trig[column] = trig['snr'] / sqrt(trig['chisq'])
  
     elif column == 's3_snr_chi_stat':
       for trig in self.table:
-        trig['s3_snr_chi_stat']= trig['snr']**4 \
+        trig[column]= trig['snr']**4 \
             / (250 + trig['snr']**2) / (trig['chisq'] )
 
-    elif column == 's4_snr_chi_stat':
+    elif column == 'effective_snr':
       for trig in self.table:
-        trig['s4_snr_chi_stat']= trig['snr']**2 \
-            / (1 + trig['snr']**2/250)**(0.5) \
-            / (trig['chisq']/(2*trig['chisq_dof'] - 2) )**(0.5) 
+        trig[column]= trig['snr']\
+            / (1 + trig['snr']**2/250)**(0.25) \
+            / (trig['chisq']/(2*trig['chisq_dof'] - 2) )**(0.25) 
 
-    
-        
  
 class coincInspiralTable:
   """
@@ -179,31 +173,30 @@ class coincInspiralTable:
     @param inspTriggese: a metaDataTable containing inspiral triggers 
                          from which to construct coincidences
     """
+    self.table = []
     if not inspTriggers:
-      self.table = []
-    else:
-      # use the supplied method to convert these columns into numarrays
-      eventidlist = asarray(uniq(inspTriggers.mkarray("event_id")))
-      self.table = []
-      for event_id in eventidlist: 
-        self.table.append({ "event_id":event_id, "numifos":0, "stat":0 })
+      return
+    # use the supplied method to convert these columns into numarrays
+    eventidlist = asarray(uniq(inspTriggers.mkarray("event_id")))
+    for event_id in eventidlist: 
+      self.table.append({ "event_id":event_id, "numifos":0, "stat":0 })
 
-      for trig in inspTriggers.table:
-        for coinc in self.table:
-          if coinc["event_id"] == trig["event_id"]:
-            coinc[trig["ifo"]] = trig
-            coinc["numifos"] += 1
-            if stat:
-              coinc["stat"] += trig[stat]
-            break
-
-      # make sure that there is at least one ifo in each coinc
-      pruned_coincs = coincInspiralTable()
+    for trig in inspTriggers.table:
       for coinc in self.table:
-        if coinc["numifos"] > 1:
-          pruned_coincs.table.append(coinc)
-        
-      self.table = pruned_coincs.table
+        if coinc["event_id"] == trig["event_id"]:
+          coinc[trig["ifo"]] = trig
+          coinc["numifos"] += 1
+
+    # make sure that there are at least twos ifo in each coinc
+    pruned_coincs = coincInspiralTable()
+    for coinc in self.table:
+      if coinc["numifos"] > 1:
+        pruned_coincs.table.append(coinc)
+
+    if stat:
+      pruned_coincs.setstat(stat)
+      
+    self.table = pruned_coincs.table
 
     
   def nevents(self):
@@ -291,6 +284,7 @@ class coincInspiralTable:
      
     return slide_coincs 
 
+
   def setstat(self, stat):
     """
     Return an array of statistic values.
@@ -299,8 +293,12 @@ class coincInspiralTable:
     for coinc in self.table:
       for ifo in ifolist:
         if coinc.has_key(ifo):
-          coinc['stat'] += coinc[ifo][stat]
-     
+          if stat=='snr' or stat=='effective_snr':
+            coinc['stat'] += coinc[ifo][stat]**2
+          else:
+            coinc['stat'] += coinc[ifo][stat]
+      if stat=='snr' or stat=='effective_snr':
+         coinc['stat'] = sqrt(coinc['stat'])
 
   def getstat(self):
     """
