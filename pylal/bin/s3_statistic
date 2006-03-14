@@ -11,6 +11,15 @@ from types import *
 from pylab import *
 from pylal import readMeta
 from pylal import viz
+
+##############################################################################
+# helper functions
+def square_axis():
+  tmpv = axis()
+  xmax = max([tmpv[1], tmpv[3]])
+  xmin = min([tmpv[0], tmpv[2]])
+  axis([xmin, xmax, xmin, xmax])
+
 ##############################################################################
 def plotstat(coincInspiral, symbols, description = None, plot_type = 'linear'):
   """
@@ -22,8 +31,8 @@ def plotstat(coincInspiral, symbols, description = None, plot_type = 'linear'):
   
   # h1-h2
   h1h2_coinc = coincInspiral.coinctype(['H1','H2'])
-  h1_val = h1h2_coinc.getsngls('H1').mkarray('s3_snr_chi_stat')
-  h2_val = h1h2_coinc.getsngls('H2').mkarray('s3_snr_chi_stat')
+  h1_val = h1h2_coinc.getsngls('H1').mkarray(opts.statistic)
+  h2_val = h1h2_coinc.getsngls('H2').mkarray(opts.statistic)
  
   if description:
     my_label = description + ': H1-H2'
@@ -40,8 +49,8 @@ def plotstat(coincInspiral, symbols, description = None, plot_type = 'linear'):
 
   # h1-l1
   h1l1_coinc = coincInspiral.coinctype(['H1','L1'])
-  h1_val = h1l1_coinc.getsngls('H1').mkarray('s3_snr_chi_stat')
-  l1_val = h1l1_coinc.getsngls('L1').mkarray('s3_snr_chi_stat')
+  h1_val = h1l1_coinc.getsngls('H1').mkarray(opts.statistic)
+  l1_val = h1l1_coinc.getsngls('L1').mkarray(opts.statistic)
   
   if description:
     my_label = description + ': H1-L1'
@@ -57,9 +66,9 @@ def plotstat(coincInspiral, symbols, description = None, plot_type = 'linear'):
 
   # h1-h2-l1
   h1h2l1_coinc = coincInspiral.coinctype(['H1','H2','L1'])
-  h1_val = h1h2l1_coinc.getsngls('H1').mkarray('s3_snr_chi_stat')
-  h2_val = h1h2l1_coinc.getsngls('H2').mkarray('s3_snr_chi_stat')
-  l1_val = h1h2l1_coinc.getsngls('L1').mkarray('s3_snr_chi_stat')
+  h1_val = h1h2l1_coinc.getsngls('H1').mkarray(opts.statistic)
+  h2_val = h1h2l1_coinc.getsngls('H2').mkarray(opts.statistic)
+  l1_val = h1h2l1_coinc.getsngls('L1').mkarray(opts.statistic)
   h2_l1_val = h2_val + l1_val
 
   if description:
@@ -74,8 +83,8 @@ def plotstat(coincInspiral, symbols, description = None, plot_type = 'linear'):
       plot(h1_val, h2_l1_val, symbols[2], markersize=12, \
           markeredgewidth=1, label=my_label)
 
-  xlabel('H1 statistic', size='x-large')
-  ylabel('H2/L1 statistic', size='x-large')
+  xlabel('H1 ' + opts.statistic, size='x-large')
+  ylabel('H2/L1 ' + opts.statistic, size='x-large')
 
 
 
@@ -191,7 +200,12 @@ parser.add_option("-D","--distribution",action="store",type="string",
 
 parser.add_option("-k","--efficiency",action="store_true",default=False,\
     help="plot efficiency as a function of the statistic")
-  
+
+parser.add_option("-T","--statistic",action="store",default='s3_snr_chi_stat',\
+    type="string",\
+    help="choice of statistic used in making plots, valid arguments are: "
+         "snr, snr_over_chi, s3_snr_chi_stat (DEFAULT), effective_snr")
+
 parser.add_option("-K","--eff-vs-col",action="append",
     type="string",dest="eff_cols",metavar=" COL",
     help="add COL to list of cols for which to plot efficiency")
@@ -261,9 +275,10 @@ if opts.zero_glob:
     sys.exit(1)
 
   inspTriggers = readMeta.snglInspiralTable(zeroFiles,"sngl_inspiral")
-  inspTriggers.addcol("s3_snr_chi_stat")
+  inspTriggers.addcol(opts.statistic)
+  inspTriggers.addcol('effective_snr')
   
-  coincTriggers = readMeta.coincInspiralTable(inspTriggers, "s3_snr_chi_stat")
+  coincTriggers = readMeta.coincInspiralTable(inspTriggers, opts.statistic)
   # coincs MUST have H1 trigger:
   coincTriggers = coincTriggers.coincinclude(["H1"])
   # cluster them
@@ -288,7 +303,7 @@ if opts.slide_glob:
     sys.exit(1)
 
   inspSlide = readMeta.snglInspiralTable(slideFiles,"sngl_inspiral")
-  inspSlide.addcol("s3_snr_chi_stat")
+  inspSlide.addcol(opts.statistic)
   
   slide_num = range(1 , opts.num_slides + 1)
   slide_num.extend(range(-opts.num_slides, 0))
@@ -304,7 +319,7 @@ if opts.slide_glob:
     # make coincs
     this_slide["coinc_trigs"] = \
         readMeta.coincInspiralTable(this_slide["sngl_trigs"], 
-        "s3_snr_chi_stat" )
+        opts.statistic )
    
     # coincs MUST include an H1 trigger
     this_slide["coinc_trigs"] = \
@@ -336,8 +351,8 @@ if opts.inj_glob:
   injTriggers = readMeta.coincInspiralTable()
   for file in injFiles:
     thisInjSngl = readMeta.snglInspiralTable([file],"sngl_inspiral")
-    thisInjSngl.addcol("s3_snr_chi_stat")
-    thisInj = readMeta.coincInspiralTable(thisInjSngl, "s3_snr_chi_stat")
+    thisInjSngl.addcol(opts.statistic)
+    thisInj = readMeta.coincInspiralTable(thisInjSngl, opts.statistic)
 
     if opts.eff_cols:
       thisSim = readMeta.snglInspiralTable([file],"sim_inspiral")
@@ -395,8 +410,7 @@ if opts.loudest_events:
     for ifo in ['H1','H2','L1']:
       if (coincTriggers.table[j].has_key(ifo)):
         snr[ifo] = coincTriggers.table[j][ifo]['snr']
-        norm_snr[ifo] = \
-            (coincTriggers.table[j][ifo]['s3_snr_chi_stat']*30*250)**(0.25) 
+        norm_snr[ifo] = coincTriggers.table[j][ifo]['effective_snr'] 
         time = coincTriggers.table[j][ifo]['end_time']
       else:
         snr[ifo] = 0
@@ -438,10 +452,12 @@ if opts.slide_stat:
   if opts.plot_max:
     ylim(ymax=opts.plot_max)
     xlim(xmax=opts.plot_max)
+  else:
+    square_axis()
 
   title('Slide Statistic')
   if opts.figure_name:
-      savefig(opts.figure_name + "_slide_stat.png")
+      savefig(opts.figure_name + "_slide_" + opts.statistic + ".png")
 
 
 ###################
@@ -465,7 +481,7 @@ if opts.slide_zero_stat:
 
   title('Slide + Zero Lag Statistic')
   if opts.figure_name:
-      savefig(opts.figure_name + "_slide_zero_lag_stat.png")
+      savefig(opts.figure_name + "_slide_zero_lag_" + opts.statistic + ".png")
 
 
 #########################
@@ -486,10 +502,12 @@ if opts.slide_inj_stat:
   if opts.plot_max:
     ylim(ymax=opts.plot_max)
     xlim(xmax=opts.plot_max)
+  else:
+    square_axis()
 
   title('Slide + Injection Statistic')
   if opts.figure_name:
-      savefig(opts.figure_name + "_slide_injection_stat.png")
+      savefig(opts.figure_name + "_slide_injection_" + opts.statistic + ".png")
 
 #####################
 # for injections only
@@ -508,10 +526,12 @@ if opts.inj_stat:
   if opts.plot_max:
     ylim(ymax=opts.plot_max)
     xlim(xmax=opts.plot_max)
+  else:
+    square_axis()
 
   title('Injection Statistic')
   if opts.figure_name:
-      savefig(opts.figure_name + "_injection_stat.png")
+      savefig(opts.figure_name + "_injection_" + opts.statistic + ".png")
 
 ###################
 # for zero lag only
@@ -530,10 +550,12 @@ if opts.zero_stat:
   if opts.plot_max:
     ylim(ymax=opts.plot_max)
     xlim(xmax=opts.plot_max)
+  else:
+    square_axis()
 
   title('Zero Lag Statistic')
   if opts.figure_name:
-      savefig(opts.figure_name + "_zero_lag_stat.png")
+      savefig(opts.figure_name + "_zero_lag_" + opts.statistic + ".png")
 
 ##############################
 # for zero lag plus injections 
@@ -553,10 +575,12 @@ if opts.zero_inj_stat:
   if opts.plot_max:
     ylim(ymax=opts.plot_max)
     xlim(xmax=opts.plot_max)
+  else:
+    square_axis()
 
   title('Zero Lag + Injection Statistic')
   if opts.figure_name:
-      savefig(opts.figure_name + "_zero_inj_stat.png")
+      savefig(opts.figure_name + "_zero_inj_" + opts.statistic + ".png")
 
 
 #############################################
