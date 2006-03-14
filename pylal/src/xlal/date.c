@@ -137,7 +137,10 @@ static PyObject *pylal_LIGOTimeGPS___abs__(PyObject *self)
 {
 	LIGOTimeGPS gps;
 
-	XLALINT8NSToGPS(&gps, llabs(XLALGPSToINT8NS(&((pylal_LIGOTimeGPS *) self)->gps)));
+	if(!pyobject_to_ligotimegps(self, &gps))
+		return NULL;
+
+	XLALINT8NSToGPS(&gps, llabs(XLALGPSToINT8NS(&gps)));
 
 	return pylal_LIGOTimeGPS_New(gps);
 }
@@ -145,37 +148,45 @@ static PyObject *pylal_LIGOTimeGPS___abs__(PyObject *self)
 
 static PyObject *pylal_LIGOTimeGPS___add__(PyObject *self, PyObject *other)
 {
-	LIGOTimeGPS gps;
+	LIGOTimeGPS self_gps;
+	LIGOTimeGPS other_gps;
 
-	if(!pyobject_to_ligotimegps(other, &gps))
+	if(!pyobject_to_ligotimegps(self, &self_gps))
+		return NULL;
+	if(!pyobject_to_ligotimegps(other, &other_gps))
 		return NULL;
 
-	XLALINT8NSToGPS(&gps, XLALGPSToINT8NS(&((pylal_LIGOTimeGPS *) self)->gps) + XLALGPSToINT8NS(&gps));
+	XLALINT8NSToGPS(&self_gps, XLALGPSToINT8NS(&self_gps) + XLALGPSToINT8NS(&other_gps));
 
-	return pylal_LIGOTimeGPS_New(gps);
+	return pylal_LIGOTimeGPS_New(self_gps);
 }
 
 
 static PyObject *pylal_LIGOTimeGPS___div__(PyObject *self, PyObject *other)
 {
-	LIGOTimeGPS gps = ((pylal_LIGOTimeGPS *) self)->gps;
-	/* FIXME:  what about LIGOTimeGPS argument */
+	LIGOTimeGPS self_gps;
+	/* FIXME:  what about type(other) == LIGOTimeGPS */
 	double other_double = PyFloat_AsDouble(other);
 
 	if(PyErr_Occurred())
 		return NULL;
+	if(!pyobject_to_ligotimegps(self, &self_gps))
+		return NULL;
 
-	XLALGPSDivide(&gps, other_double);
+	XLALGPSDivide(&self_gps, other_double);
 
-	return pylal_LIGOTimeGPS_New(gps);
+	return pylal_LIGOTimeGPS_New(self_gps);
 }
 
 
 static PyObject *pylal_LIGOTimeGPS___float__(PyObject *self)
 {
-	const LIGOTimeGPS *gps = &((pylal_LIGOTimeGPS *) self)->gps;
+	LIGOTimeGPS gps;
 
-	return PyFloat_FromDouble(XLALGPSGetREAL8(gps));
+	if(!pyobject_to_ligotimegps(self, &gps))
+		return NULL;
+
+	return PyFloat_FromDouble(XLALGPSGetREAL8(&gps));
 }
 
 
@@ -208,27 +219,35 @@ static int pylal_LIGOTimeGPS___init__(PyObject *self, PyObject *args, PyObject *
 
 static PyObject *pylal_LIGOTimeGPS___int__(PyObject *self)
 {
-	const LIGOTimeGPS *gps = &((pylal_LIGOTimeGPS *) self)->gps;
+	LIGOTimeGPS gps;
 
-	return PyInt_FromLong(gps->gpsSeconds);
+	if(!pyobject_to_ligotimegps(self, &gps))
+		return NULL;
+
+	return PyInt_FromLong(gps.gpsSeconds);
 }
 
 
 static PyObject *pylal_LIGOTimeGPS___long__(PyObject *self)
 {
-	const LIGOTimeGPS *gps = &((pylal_LIGOTimeGPS *) self)->gps;
+	LIGOTimeGPS gps;
 
-	return PyLong_FromLong(gps->gpsSeconds);
+	if(!pyobject_to_ligotimegps(self, &gps))
+		return NULL;
+
+	return PyLong_FromLong(gps.gpsSeconds);
 }
 
 
 static PyObject *pylal_LIGOTimeGPS___mod__(PyObject *self, PyObject *other)
 {
-	LIGOTimeGPS gps = ((pylal_LIGOTimeGPS *) self)->gps;
-	/* FIXME:  what about LIGOTimeGPS argument */
+	LIGOTimeGPS gps;
+	/* FIXME:  what about type(other) == LIGOTimeGPS */
 	const double other_double = PyFloat_AsDouble(other);
 
 	if(PyErr_Occurred())
+		return NULL;
+	if(!pyobject_to_ligotimegps(self, &gps))
 		return NULL;
 
 	/* FIXME: loss of precision */
@@ -240,10 +259,12 @@ static PyObject *pylal_LIGOTimeGPS___mod__(PyObject *self, PyObject *other)
 
 static PyObject *pylal_LIGOTimeGPS___mul__(PyObject *self, PyObject *other)
 {
-	LIGOTimeGPS gps = ((pylal_LIGOTimeGPS *) self)->gps;
+	LIGOTimeGPS gps;
 	const double other_double = PyFloat_AsDouble(other);
 
 	if(PyErr_Occurred())
+		return NULL;
+	if(!pyobject_to_ligotimegps(self, &gps))
 		return NULL;
 
 	XLALGPSMultiply(&gps, other_double);
@@ -256,7 +277,10 @@ static PyObject *pylal_LIGOTimeGPS___neg__(PyObject *self)
 {
 	LIGOTimeGPS gps;
 
-	XLALINT8NSToGPS(&gps, -XLALGPSToINT8NS(&((pylal_LIGOTimeGPS *) self)->gps));
+	if(!pyobject_to_ligotimegps(self, &gps))
+		return NULL;
+
+	XLALINT8NSToGPS(&gps, -XLALGPSToINT8NS(&gps));
 
 	return pylal_LIGOTimeGPS_New(gps);
 }
@@ -264,45 +288,62 @@ static PyObject *pylal_LIGOTimeGPS___neg__(PyObject *self)
 
 static int pylal_LIGOTimeGPS___nonzero__(PyObject *self)
 {
-	const LIGOTimeGPS *gps = &((pylal_LIGOTimeGPS *) self)->gps;
+	LIGOTimeGPS gps;
 
-	return gps->gpsSeconds || gps->gpsNanoSeconds;
+	if(!pyobject_to_ligotimegps(self, &gps))
+		return -1;
+
+	return gps.gpsSeconds || gps.gpsNanoSeconds;
 }
 
 
 static PyObject *pylal_LIGOTimeGPS___pos__(PyObject *self)
 {
-	return pylal_LIGOTimeGPS_New(((pylal_LIGOTimeGPS *) self)->gps);
+	LIGOTimeGPS gps;
+
+	if(!pyobject_to_ligotimegps(self, &gps))
+		return NULL;
+
+	return pylal_LIGOTimeGPS_New(gps);
 }
 
 
 static PyObject *pylal_LIGOTimeGPS___reduce__(PyObject *self, PyObject *args)
 {
-	const LIGOTimeGPS *gps = &((pylal_LIGOTimeGPS *) self)->gps;
+	LIGOTimeGPS gps;
+
+	if(!pyobject_to_ligotimegps(self, &gps))
+		return NULL;
 
 	Py_INCREF(&pylal_LIGOTimeGPS_Type);
-	return Py_BuildValue("(O,(i,i))", &pylal_LIGOTimeGPS_Type, gps->gpsSeconds, gps->gpsNanoSeconds);
+	return Py_BuildValue("(O,(i,i))", &pylal_LIGOTimeGPS_Type, gps.gpsSeconds, gps.gpsNanoSeconds);
 }
 
 
 static PyObject *pylal_LIGOTimeGPS___repr__(PyObject *self)
 {
-	const LIGOTimeGPS *gps = &((pylal_LIGOTimeGPS *) self)->gps;
+	LIGOTimeGPS gps;
 
-	return PyString_FromFormat("LIGOTimeGPS(%d,%d)", gps->gpsSeconds, gps->gpsNanoSeconds);
+	if(!pyobject_to_ligotimegps(self, &gps))
+		return NULL;
+
+	return PyString_FromFormat("LIGOTimeGPS(%d,%d)", gps.gpsSeconds, gps.gpsNanoSeconds);
 }
 
 
 static PyObject *pylal_LIGOTimeGPS_richcompare(PyObject *self, PyObject *other, int op_id)
 {
-	LIGOTimeGPS gps;
+	LIGOTimeGPS self_gps;
+	LIGOTimeGPS other_gps;
 	int d;
 	PyObject *result;
 
-	if(!pyobject_to_ligotimegps(other, &gps))
+	if(!pyobject_to_ligotimegps(self, &self_gps))
+		return NULL;
+	if(!pyobject_to_ligotimegps(other, &other_gps))
 		return NULL;
 
-	d = XLALGPSCmp(&((pylal_LIGOTimeGPS *) self)->gps, &gps);
+	d = XLALGPSCmp(&self_gps, &other_gps);
 	switch(op_id) {
 	case Py_LT:
 		result = (d < 0) ? Py_True : Py_False;
@@ -340,15 +381,18 @@ static PyObject *pylal_LIGOTimeGPS_richcompare(PyObject *self, PyObject *other, 
 
 static PyObject *pylal_LIGOTimeGPS___str__(PyObject *self)
 {
-	const LIGOTimeGPS *gps = &((pylal_LIGOTimeGPS *) self)->gps;
+	LIGOTimeGPS gps;
 	char str[22];
 	int i;
 
-	if(gps->gpsNanoSeconds) {
-		snprintf(str, 21, "%d.%09u", gps->gpsSeconds, abs(gps->gpsNanoSeconds));
+	if(!pyobject_to_ligotimegps(self, &gps))
+		return NULL;
+
+	if(gps.gpsNanoSeconds) {
+		snprintf(str, 21, "%d.%09u", gps.gpsSeconds, abs(gps.gpsNanoSeconds));
 		for(i = strlen(str); str[--i] == '0'; str[i] = '\0');
 	} else
-		snprintf(str, 21, "%d", gps->gpsSeconds);
+		snprintf(str, 21, "%d", gps.gpsSeconds);
 
 	return PyString_FromString(str);
 }
@@ -356,14 +400,17 @@ static PyObject *pylal_LIGOTimeGPS___str__(PyObject *self)
 
 static PyObject *pylal_LIGOTimeGPS___sub__(PyObject *self, PyObject *other)
 {
-	LIGOTimeGPS gps;
+	LIGOTimeGPS self_gps;
+	LIGOTimeGPS other_gps;
 
-	if(!pyobject_to_ligotimegps(other, &gps))
+	if(!pyobject_to_ligotimegps(self, &self_gps))
+		return NULL;
+	if(!pyobject_to_ligotimegps(other, &other_gps))
 		return NULL;
 
-	XLALINT8NSToGPS(&gps, XLALGPSToINT8NS(&((pylal_LIGOTimeGPS *) self)->gps) - XLALGPSToINT8NS(&gps));
+	XLALINT8NSToGPS(&self_gps, XLALGPSToINT8NS(&self_gps) - XLALGPSToINT8NS(&other_gps));
 
-	return pylal_LIGOTimeGPS_New(gps);
+	return pylal_LIGOTimeGPS_New(self_gps);
 }
 
 
