@@ -75,13 +75,13 @@ class LIGOTimeGPS(xlal.date.LIGOTimeGPS):
 	def __add__(self, other):
 		return LIGOTimeGPS(xlal.date.LIGOTimeGPS.__add__(self, other))
 
-	def __coerce__(self, other):
-		if type(other) != LIGOTimeGPS:
-			try:
-				return (self, LIGOTimeGPS(other))
-			except:
-				pass
-		return (self, other)
+	#def __coerce__(self, other):
+	#	if type(other) != LIGOTimeGPS:
+	#		try:
+	#			return (self, LIGOTimeGPS(other))
+	#		except:
+	#			pass
+	#	return (self, other)
 
 	def __div__(self, other):
 		return LIGOTimeGPS(0, XLALGPSToINT8NS(self) / other)
@@ -107,7 +107,7 @@ class LIGOTimeGPS(xlal.date.LIGOTimeGPS):
 	__rmul__ = __mul__
 
 	def __str__(self):
-		return "%d.%09d" % (self.seconds, abs(self.nanoseconds))
+		return ("%d.%09d" % (self.seconds, abs(self.nanoseconds))).rstrip("0").rstrip(".")
 
 	def __sub__(self, other):
 		return LIGOTimeGPS(xlal.date.LIGOTimeGPS.__sub__(self, other))
