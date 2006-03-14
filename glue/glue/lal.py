@@ -73,14 +73,19 @@ class LIGOTimeGPS(object):
 			nanoseconds = float(nanoseconds)
 		elif not type(nanoseconds) in [float, int, long]:
 			raise TypeError, "Cannot convert \"%s\" to LIGOTimeGPS" % repr(seconds)
-		if type(seconds) == LIGOTimeGPS:
-			nanoseconds += seconds.nanoseconds
-			seconds = seconds.seconds
-		elif type(seconds) == str:
-			[seconds, self.nanoseconds] = self.__atoparts(seconds)
-			nanoseconds += self.nanoseconds
-		elif not type(seconds) in [float, int, long]:
-			raise TypeError, "Cannot convert \"%s\" to LIGOTimeGPS" % repr(seconds)
+		if type(seconds) not in [float, int, long]:
+			if type(seconds) == str:
+				[seconds, self.nanoseconds] = self.__atoparts(seconds)
+				nanoseconds += self.nanoseconds
+			else:
+				try:
+					# handle LIGOTimeGPS(x) where x is an
+					# object with seconds and nanoseconds
+					# fields.
+					nanoseconds += seconds.nanoseconds
+					seconds = seconds.seconds
+				except:
+					raise TypeError, "Cannot convert \"%s\" to LIGOTimeGPS" % repr(seconds)
 		frac_seconds = round(seconds % 1 * 1000000000)
 		if seconds < 0 and frac_seconds:
 			seconds -= 1
