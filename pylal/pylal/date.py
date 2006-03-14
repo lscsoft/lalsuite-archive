@@ -67,7 +67,7 @@ class LIGOTimeGPS(xlal.date.LIGOTimeGPS):
 			try:
 				self.seconds, self.nanoseconds = seconds.seconds, seconds.nanoseconds
 			except:
-				raise TypeError, repr(seconds)
+				raise ValueError, repr(seconds)
 
 	def __abs__(self):
 		return LIGOTimeGPS(xlal.date.LIGOTimeGPS.__abs__(self))
