@@ -2,7 +2,7 @@
 
 import time
 
-from pylal.date import XLALGPSToUTC, XLALUTCToGPS, LIGOTimeGPS
+from pylal.date import XLALGPSToUTC, XLALUTCToGPS
 
 import eventdisplay
 

@@ -11,7 +11,7 @@ import time
 import urllib
 from xml import sax
 
-from glue import lal
+from glue.lal import CacheEntry
 from glue import segments
 from glue import segmentsUtils
 from glue.ligolw import ligolw
@@ -123,7 +123,7 @@ def CacheURLs(cachename, seg):
 	Open a trigger cache, and return a list of URLs for files
 	intersecting seg.
 	"""
-	return [c.url for c in map(lal.CacheEntry, file(cachename)) if c.segment.intersects(seg)]
+	return [c.url for c in map(CacheEntry, file(cachename)) if c.segment.intersects(seg)]
 
 def GetTable(doc, Type):
 	"""
