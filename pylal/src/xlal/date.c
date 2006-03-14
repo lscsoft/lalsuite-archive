@@ -340,8 +340,11 @@ static PyObject *pylal_LIGOTimeGPS_richcompare(PyObject *self, PyObject *other, 
 
 	if(!pyobject_to_ligotimegps(self, &self_gps))
 		return NULL;
-	if(!pyobject_to_ligotimegps(other, &other_gps))
-		return NULL;
+	if(!pyobject_to_ligotimegps(other, &other_gps)) {
+		PyErr_Clear();
+		Py_INCREF(Py_NotImplemented);
+		return Py_NotImplemented;
+	}
 
 	d = XLALGPSCmp(&self_gps, &other_gps);
 	switch(op_id) {
