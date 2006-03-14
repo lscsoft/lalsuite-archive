@@ -698,10 +698,9 @@ def cumhistcol(table1, col_name, plot_type = 'logy', normalization=None, \
 
 
 ######################################################################
-# function to histogram the difference between values of 'col_name' in
-# two tables, table1 and table2
-def cumhistsnr(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
-  max_val = None, nbins = None):
+# function to make a cumulative histogram of the coinc inspiral statistic
+def cumhiststat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
+  max_val = None, nbins = None, stat=None):
   """
   function to plot a cumulative histogram of the snr of coincident events
   in the zero lag and times slides
@@ -712,6 +711,7 @@ def cumhistsnr(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
   @param min_val: minimum of snr to be plotted
   @param max_val: maximum of snr to be plotted
   @param nbins: number of bins to use in histogram
+  @param stat: the statistic being used
   """
   
   hold(False)
@@ -720,9 +720,7 @@ def cumhistsnr(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
   if trigs:
     if ifolist:
       trigs = trigs.coinctype(ifolist)
-    snr = asarray([ pow(trigs.table[i]["snrsq"],0.5) for i in \
-        range(trigs.nevents()) ] )
-    
+    snr = trigs.getstat()  
     if len(snr):
       if not min_val:
         min_val = min(snr)
@@ -730,7 +728,6 @@ def cumhistsnr(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
         max_val = max(snr)
   
   # read in slide triggers
-  
   if slide_trigs:
     slide_min = 0
     slide_max = 0
@@ -738,13 +735,11 @@ def cumhistsnr(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
     slide_snr_list = []
     for this_slide in slide_trigs:
       if ifolist:
-        slide_trigs = this_slide['coinc_trigs'].coinctype(ifolist)
+        slide = this_slide['coinc_trigs'].coinctype(ifolist)
       else:
-        slide_trigs = this_slide['coinc_trigs']
+        slide = this_slide['coinc_trigs']
 
-      slide_snr = asarray([ pow(slide_trigs.table[i]["snrsq"],0.5) \
-        for i in range(slide_trigs.nevents()) ] )
-
+      slide_snr = slide.getstat()
       slide_snr_list.append(slide_snr)
       
       if len(slide_snr):
@@ -765,10 +760,8 @@ def cumhistsnr(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
   if not min_val:
     min_val = 5
     
-  bins = []    
-  for i in range(nbins):
-    bins.append(min_val + i*(max_val - min_val)/nbins)
-  
+  step = (max_val - min_val)/nbins
+  bins = arange(min_val, max_val, step)
 
   # hist of the zero lag:
   if trigs:
@@ -800,8 +793,11 @@ def cumhistsnr(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
 
   clf()
   hold(True)
+  # plot zero lag
   if trigs and trigs.nevents(): 
     plot(bins,log10(cum_dist_zero),'rx',markersize=12)
+  
+  # plot time slides
   if slide_trigs and len(slide_snr_list):
     slide_min = []
     for i in range( len(slide_mean) ):
@@ -811,9 +807,15 @@ def cumhistsnr(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
       [log10(slide_mean) - log10(slide_min), 
       log10(slide_mean + slide_std) - log10(slide_mean)],markersize=12)
 
-  xlabel('Combined SNR', size='x-large')
+  xlab = 'Combined '
+  if stat:
+    xlab += stat
+  else:
+    xlab += 'Statistic'
+    
+  xlabel(xlab, size='x-large')
   ylabel('Log Number of events', size='x-large')
-  title_text = 'Cumulative histogram of Number of events vs SNR'
+  title_text = 'Cumulative histogram of Number of events vs Statistic'
   if ifolist:
     title_text += ' for ' 
     for ifo in ifolist:
