@@ -162,8 +162,7 @@ static PyObject *pylal_LIGOTimeGPS___div__(PyObject *self, PyObject *other)
 	if(PyErr_Occurred())
 		return NULL;
 
-	/* FIXME: loss of precision */
-	XLALINT8NSToGPS(&gps, XLALGPSToINT8NS(&gps) / other_double);
+	XLALGPSDivide(&gps, other_double);
 
 	return pylal_LIGOTimeGPS_New(gps);
 }
@@ -244,8 +243,7 @@ static PyObject *pylal_LIGOTimeGPS___mul__(PyObject *self, PyObject *other)
 	if(PyErr_Occurred())
 		return NULL;
 
-	/* FIXME: loss of precision */
-	XLALINT8NSToGPS(&gps, XLALGPSToINT8NS(&gps) * other_double);
+	XLALGPSMultiply(&gps, other_double);
 
 	return pylal_LIGOTimeGPS_New(gps);
 }
@@ -354,7 +352,7 @@ static PyObject *pylal_LIGOTimeGPS___str__(PyObject *self)
 
 	if(gps->gpsNanoSeconds) {
 		snprintf(str, 21, "%d.%09u", gps->gpsSeconds, abs(gps->gpsNanoSeconds));
-		for(i = strlen(str) - 1; str[--i] == '0'; str[i] = '\0');
+		for(i = strlen(str); str[--i] == '0'; str[i] = '\0');
 	} else
 		snprintf(str, 21, "%d", gps->gpsSeconds);
 
