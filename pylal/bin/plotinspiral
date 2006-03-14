@@ -25,6 +25,8 @@ different figures.
 
 The plots are
 
+1)  SNR v time.
+
 1)  SNR v CHISQ, linear scale  (requres that the chisq was calculated)
 
 2)  SNR v CHISQ, log scale on both axes
@@ -57,6 +59,11 @@ parser.add_option("-t","--title",action="store",type="string",default=None,\
     metavar=" STRING",help="title string for plots")
 parser.add_option("-s","--show-plot",action="store_true",default=False,\
     help="display the figures on the terminal" )
+parser.add_option("-z","--snr-time",action="store_true",default=False,\
+    help="make a plot of snr vs time" )
+parser.add_option("-y","--add-vertical-line",action="store",default=None,\
+    metavar=" GPS_TIME",type="int",\
+    help="add a vertical line at GPS_TIME to the snr vs time plot" )
 parser.add_option("-a","--snr-chisq",action="store_true",default=False,\
     help="make a plot of snr vs chisq" )
 parser.add_option("-b","--log-snr-chisq",action="store_true",default=False,\
@@ -167,11 +174,25 @@ if opts.funky_threshold:
   s3_snr_chi_stat = opts.funky_threshold * ( snr_range * snr_range * \
       snr_range *snr_range ) / ( opts.funky_offset + (snr_range * \
       snr_range) ) 
-  
+
+fig_num = 0
+###################################
+# plot of snr vs time
+if opts.snr_time:
+  fig_num += 1
+  figure(fig_num)
+  if opts.add_vertical_line:
+    axvline(opts.add_vertical_line,linewidth=1, color='r')
+    viz.plot_a_v_b(inspTriggers,'end_time','snr','seconds','kx',output_name = opts.figure_name)
+  else:
+    viz.plot_a_v_b(inspTriggers,'end_time','snr','linear','kx',output_name = opts.figure_name)
+  ylim(min_snr, max_snr)
+
 ###################################
 # plot of snr vs chisq
 if opts.snr_chisq:
-  figure(1)
+  fig_num += 1
+  figure(fig_num)
   if opts.chisq_threshold:
     plot(snr_range, chisq_thresh)
     hold(True)
@@ -185,7 +206,8 @@ if opts.snr_chisq:
 ###################################
 # plot of snr vs chisq
 if opts.log_snr_chisq:
-  figure(2)
+  fig_num += 1
+  figure(fig_num)
   if opts.chisq_threshold:
     loglog(snr_range, chisq_thresh)
     hold(True)
@@ -199,13 +221,15 @@ if opts.log_snr_chisq:
 ###################################
 # cumulative histogram of snr
 if opts.cum_hist_snr:
-  figure(3)
+  fig_num += 1
+  figure(fig_num)
   viz.cumhistcol(inspTriggers,'snr',output_name = opts.figure_name)
 
 ###################################
 # histogram of snr
 if opts.hist_snr:
-  figure(4)
+  fig_num += 1
+  figure(fig_num)
   viz.histcol(inspTriggers,'snr',opts.nbins,None,opts.figure_name)
 
 ###################################
@@ -213,32 +237,37 @@ if opts.hist_snr:
 if opts.norm_hist_snr:
   max_poss_trigs = (1000 / float (opts.maximization_interval)) * \
     opts.analyzed_time
-  figure(5)
+  fig_num += 1
+  figure(fig_num)
   viz.cumhistcol(inspTriggers,'snr',normalization = max_poss_trigs,\
       output_name = opts.figure_name)
   
 ###################################
 # histogram of chisq values
 if opts.hist_chisq:
-  figure(6)
+  fig_num += 1
+  figure(fig_num)
   viz.histcol(inspTriggers,'chisq',opts.nbins,None,opts.figure_name)
 
 ###################################
 # cumulative histogram of snr
 if opts.cum_hist_snr_chi:
-  figure(7)
+  fig_num += 1
+  figure(fig_num)
   viz.cumhistcol(inspTriggers,'snr_chi',output_name = opts.figure_name)
 
 ###################################
 # histogram of snr
 if opts.hist_snr_chi:
-  figure(4)
+  fig_num += 1
+  figure(fig_num)
   viz.histcol(inspTriggers,'snr_chi',opts.nbins,None,opts.figure_name)
 
 ###################################
 # plot the template bank and overlay the triggers
 if opts.template_bank:
-  figure(8)
+  fig_num += 1
+  figure(fig_num)
   viz.plot_a_v_b(tmpltbank,'mass1','mass2','linear',plot_sym = 'rx')
   viz.plot_a_v_b(inspTriggers,'mass1','mass2','linear',plot_sym = 'ro',\
       output_name = opts.figure_name)

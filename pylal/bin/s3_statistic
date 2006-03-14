@@ -744,19 +744,18 @@ if opts.eff_cols:
           foundWin = readMeta.metaDataTable(None,"sim_inspiral")
           missedWin = readMeta.metaDataTable(None,"sim_inspiral")
 
-          
           for found in foundInj.table:
             m_low = min(found["mass1"], found["mass2"])
             m_high = max(found["mass1"], found["mass2"])
             if m_low > win1[0] and m_low < win1[1] and \
-               m_high > win1[0] and m_high < win2[1]:
+               m_high > win2[0] and m_high < win2[1]:
               foundWin.table.append(found)
 
           for missed in missedInj.table:
             m_low = min(missed["mass1"], missed["mass2"])
             m_high = max(missed["mass1"], missed["mass2"])
             if m_low > win1[0] and m_low < win1[1] and \
-               m_high > win1[0] and m_high < win2[1]:
+               m_high > win2[0] and m_high < win2[1]:
               missedWin.table.append(missed)
 
           for col in opts.eff_cols:
