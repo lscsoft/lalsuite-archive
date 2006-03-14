@@ -298,13 +298,18 @@ static PyObject *pylal_XLALINT8NSToGPS(PyObject *self, PyObject *args)
 static PyObject *pylal_XLALStrToGPS(PyObject *self, PyObject *args)
 {
 	LIGOTimeGPS gps;
+	int result;
 	char *str, *end;
 
 	/* string */
 	if(!PyArg_ParseTuple(args, "s:XLALStrToGPS", &str))
 		return NULL;
 
-	XLALStrToGPS(&gps, str, &end);
+	result = XLALStrToGPS(&gps, str, &end);
+	if((result < 0) || (end == str)) {
+		PyErr_SetString(PyExc_ValueError, str);
+		return NULL;
+	}
 
 	/* LIGOTimeGPS */
 	return pylal_LIGOTimeGPS_New(gps);
