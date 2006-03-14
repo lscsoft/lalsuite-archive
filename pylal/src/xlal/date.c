@@ -170,7 +170,7 @@ static PyObject *pylal_LIGOTimeGPS__richcompare__(PyObject *self, PyObject *othe
 	if(pylal_LIGOTimeGPS_Check(other)) {
 		/* compare two LIGOTimeGPS objects */
 		const int d = XLALGPSCmp(&((pylal_LIGOTimeGPS *) self)->gps, &((pylal_LIGOTimeGPS *) other)->gps);
-		switch (op_id) {
+		switch(op_id) {
 		case Py_LT:
 			result = (d < 0) ? Py_True : Py_False;
 			break;
@@ -196,24 +196,31 @@ static PyObject *pylal_LIGOTimeGPS__richcompare__(PyObject *self, PyObject *othe
 			break;
 
 		default:
+			PyErr_BadInternalCall();
 			return NULL;
 		}
 		Py_INCREF(result);
 		return result;
 	} else if(PyInt_Check(other)) {
-		/* convert int to LIGOTimeGPS and try again */
+		/* convert int and derivatives to LIGOTimeGPS and try again
+		 * */
 		other_gps = pylal_LIGOTimeGPS_New(*XLALGPSSet(&gps, PyInt_AsLong(other), 0));
 	} else if(PyLong_Check(other)) {
-		/* convert long to LIGOTimeGPS and try again */
+		/* convert long and derivatives to LIGOTimeGPS and try
+		 * again */
 		other_gps = pylal_LIGOTimeGPS_New(*XLALGPSSet(&gps, PyLong_AsLongLong(other), 0));
 	} else if(PyFloat_Check(other)) {
-		/* convert float to LIGOTimeGPS and try again */
+		/* convert float and derivatives to LIGOTimeGPS and try
+		 * again */
 		other_gps = pylal_LIGOTimeGPS_New(*XLALGPSSetREAL8(&gps, PyFloat_AsDouble(other)));
 	} else if(PyComplex_Check(other)) {
-		/* convert real part to LIGOTimeGPS and try again */
-		if(PyComplex_ImagAsDouble(other) != 0.0)
-			return NULL;
-		other_gps = pylal_LIGOTimeGPS_New(*XLALGPSSetREAL8(&gps, PyComplex_RealAsDouble(other)));
+		/* convert complex and derivatives' real part to
+		 * LIGOTimeGPS and try again */
+		if(PyComplex_ImagAsDouble(other) != 0.0) {
+			PyErr_SetObject(PyExc_ValueError, other);
+			other_gps = NULL;
+		} else
+			other_gps = pylal_LIGOTimeGPS_New(*XLALGPSSetREAL8(&gps, PyComplex_RealAsDouble(other)));
 	} else {
 		/* convert "seconds" and "nanoseconds" attributes to
 		 * LIGOTimeGPS and try again */
@@ -223,23 +230,20 @@ static PyObject *pylal_LIGOTimeGPS__richcompare__(PyObject *self, PyObject *othe
 		PyObject *n = PyNumber_Int(n_attr);
 		Py_XDECREF(s_attr);
 		Py_XDECREF(n_attr);
-
-		if(s && n)
-			other_gps = pylal_LIGOTimeGPS_New(*XLALGPSSet(&gps, PyInt_AsLong(s), PyInt_AsLong(n)));
-		else {
+		if(!s || !n) {
 			PyErr_SetObject(PyExc_TypeError, other);
 			other_gps = NULL;
-		}
-
+		} else
+			other_gps = pylal_LIGOTimeGPS_New(*XLALGPSSet(&gps, PyInt_AsLong(s), PyInt_AsLong(n)));
 		Py_XDECREF(s);
 		Py_XDECREF(n);
 	}
 
-	if(other_gps) {
-		result = PyObject_RichCompare(self, other_gps, op_id);
-		Py_DECREF(other_gps);
-	} else
-		result = NULL;
+	if(!other_gps)
+		return NULL;
+
+	result = PyObject_RichCompare(self, other_gps, op_id);
+	Py_DECREF(other_gps);
 
 	return result;
 }
