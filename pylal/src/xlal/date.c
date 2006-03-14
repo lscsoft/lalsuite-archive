@@ -96,16 +96,6 @@ static PyObject *pylal_LIGOTimeGPS___add__(PyObject *self, PyObject *other)
 }
 
 
-static int pylal_LIGOTimeGPS___cmp__(PyObject *self, PyObject *other)
-{
-	LIGOTimeGPS *gps1 = &((pylal_LIGOTimeGPS *) self)->gps;
-	LIGOTimeGPS *gps2 = &((pylal_LIGOTimeGPS *) other)->gps;
-	long long diff = XLALGPSToINT8NS(gps1) - XLALGPSToINT8NS(gps2);
-
-	return (diff > 0) ? 1 : (diff < 0) ? -1 : 0;
-}
-
-
 static PyObject *pylal_LIGOTimeGPS___float__(PyObject *self)
 {
 	LIGOTimeGPS *gps = &((pylal_LIGOTimeGPS *) self)->gps;
@@ -170,6 +160,24 @@ static PyObject *pylal_LIGOTimeGPS___pos__(PyObject *self)
 }
 
 
+static PyObject *pylal_LIGOTimeGPS__richcompare__(PyObject *self, PyObject *other, int op_id)
+{
+	const LIGOTimeGPS *gps = &((pylal_LIGOTimeGPS *) self)->gps;
+	PyObject *s = PyInt_FromLong(gps->gpsSeconds);
+	PyObject *ns = PyInt_FromLong(gps->gpsNanoSeconds);
+	PyObject *result;
+
+	result = PyObject_RichCompare(s, other, op_id);
+	if(result == Py_False)
+		result = PyObject_RichCompare(ns, other, op_id);
+
+	Py_DECREF(s);
+	Py_DECREF(ns);
+
+	return result;
+}
+
+
 static PyObject *pylal_LIGOTimeGPS___sub__(PyObject *self, PyObject *other)
 {
 	LIGOTimeGPS result;
@@ -203,12 +211,12 @@ static PyTypeObject pylal_LIGOTimeGPS_Type = {
 	PyObject_HEAD_INIT(NULL)
 	.tp_as_number = &pylal_LIGOTimeGPS_as_number,
 	.tp_basicsize = sizeof(pylal_LIGOTimeGPS),
-	.tp_compare = pylal_LIGOTimeGPS___cmp__,
 	.tp_doc = "A GPS time with nanosecond precision",
 	.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
 	.tp_init = pylal_LIGOTimeGPS___init__,
 	.tp_members = pylal_LIGOTimeGPS_members,
 	.tp_name = "LIGOTimeGPS",
+	.tp_richcompare = pylal_LIGOTimeGPS__richcompare__,
 };
 
 
