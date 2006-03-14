@@ -34,7 +34,7 @@
 #include <lal/TimeDelay.h>
 
 
-# define MODULE_NAME "pylal.xlal.date"
+#define MODULE_NAME "pylal.xlal.date"
 
 
 /*
