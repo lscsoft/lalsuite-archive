@@ -260,14 +260,22 @@ static PyObject *pylal_LIGOTimeGPS___mod__(PyObject *self, PyObject *other)
 static PyObject *pylal_LIGOTimeGPS___mul__(PyObject *self, PyObject *other)
 {
 	LIGOTimeGPS gps;
-	const double other_double = PyFloat_AsDouble(other);
+	double factor;
 
+	if(pylal_LIGOTimeGPS_Check(self) && !pylal_LIGOTimeGPS_Check(other)) {
+		gps = ((pylal_LIGOTimeGPS *) self)->gps;
+		factor = PyFloat_AsDouble(other);
+	} else if(!pylal_LIGOTimeGPS_Check(self) && pylal_LIGOTimeGPS_Check(other)) {
+		gps = ((pylal_LIGOTimeGPS *) other)->gps;
+		factor = PyFloat_AsDouble(self);
+	} else {
+		Py_INCREF(Py_NotImplemented);
+		return Py_NotImplemented;
+	}
 	if(PyErr_Occurred())
 		return NULL;
-	if(!pyobject_to_ligotimegps(self, &gps))
-		return NULL;
 
-	XLALGPSMultiply(&gps, other_double);
+	XLALGPSMultiply(&gps, factor);
 
 	return pylal_LIGOTimeGPS_New(gps);
 }
