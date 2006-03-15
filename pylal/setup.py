@@ -5,18 +5,16 @@
 import os
 from distutils.core import setup, Extension
 
-def stripfirsttwo(string):
-	return string[2:]
+class PkgConfig(object):
+	def __init__(self, names):
+		def stripfirsttwo(string):
+			return string[2:]
+		self.libs = map(stripfirsttwo, os.popen("pkg-config --libs-only-l %s" % names).read().split())
+		self.libdirs = map(stripfirsttwo, os.popen("pkg-config --libs-only-L %s" % names).read().split())
+		self.incdirs = map(stripfirsttwo, os.popen("pkg-config --cflags-only-I %s" % names).read().split())
 
-lallibs = map(stripfirsttwo, os.popen("pkg-config lal lalframe lalmetaio lalsupport --libs-only-l").read().split())
-
-lallibdirs = map(stripfirsttwo, os.popen("pkg-config lal --libs-only-L").read().split())
-lallibdirs = lallibdirs + map(stripfirsttwo, os.popen("pkg-config libmetaio --libs-only-L").read().split())
-lallibdirs = lallibdirs + map(stripfirsttwo, os.popen("pkg-config libframe --libs-only-L").read().split())
-
-lalincdirs = map(stripfirsttwo, os.popen("pkg-config lal --cflags-only-I").read().split())
-lalincdirs = lalincdirs + map(stripfirsttwo, os.popen("pkg-config libmetaio --cflags-only-I").read().split())
-lalincdirs = lalincdirs + map(stripfirsttwo, os.popen("pkg-config libframe --cflags-only-I").read().split())
+full_lal_pkg_config = PkgConfig("lal lalframe lalmetaio lalsupport")
+lal_pkg_config = PkgConfig("lal")
 
 
 setup(
@@ -30,20 +28,20 @@ setup(
 	packages = ["pylal", "pylal.xlal"],
 	ext_modules = [
 		Extension("pylal.support", ["src/support.c"],
-			include_dirs = lalincdirs,
-			libraries = lallibs,
-			library_dirs = lallibdirs,
-			runtime_library_dirs = lallibdirs),
+			include_dirs = full_lal_pkg_config.incdirs,
+			libraries = full_lal_pkg_config.libs,
+			library_dirs = full_lal_pkg_config.libdirs,
+			runtime_library_dirs = full_lal_pkg_config.libdirs),
 		Extension("pylal.frgetvect", ["src/frgetvect.c"],
-			include_dirs = lalincdirs,
-			libraries = lallibs,
-			library_dirs = lallibdirs,
-			runtime_library_dirs = lallibdirs),
+			include_dirs = full_lal_pkg_config.incdirs,
+			libraries = full_lal_pkg_config.libs,
+			library_dirs = full_lal_pkg_config.libdirs,
+			runtime_library_dirs = full_lal_pkg_config.libdirs),
 		Extension("pylal.xlal.date", ["src/xlal/date.c"],
-			include_dirs = lalincdirs,
-			libraries = lallibs,
-			library_dirs = lallibdirs,
-			runtime_library_dirs = lallibdirs)
+			include_dirs = lal_pkg_config.incdirs,
+			libraries = lal_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs)
 	],
 	scripts = [
 		os.path.join("bin", "plotbinj"),
