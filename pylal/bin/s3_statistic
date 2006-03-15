@@ -362,7 +362,7 @@ if opts.inj_glob:
         sys.exit(1)
       else:
         for coinc in thisInj.table:
-          coinc['sim'] = thisSim.table.pop()
+          coinc['sim'] = thisSim.table.pop(0)
    
     thisInj = thisInj.coincinclude(["H1"])
     injTriggers.append(thisInj)
@@ -385,7 +385,8 @@ if opts.missed_glob:
 
 #######################################
 # print details of loudest events
-loudestEvent = coincStat[0]
+if opts.zero_glob:
+  loudestEvent = coincStat[0]
 
 if opts.loudest_events:
   if opts.loudest_events > coincTriggers.nevents():
