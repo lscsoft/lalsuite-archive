@@ -167,7 +167,7 @@ def plot_a_v_b(table, col_name_a, col_name_b, plot_type = 'linear',
   @param table: metaDataTable
   @param col_name_a: name of first column (x-axis)
   @param col_name_b: name of second column (y-axis)
-  @param plot_type: One of 'linear' (default) ,'logx','logy','loglog'
+  @param plot_type: One of 'linear' (default) ,'logx','logy','loglog','seconds'
   @param plot_sym : Symbol for plot, default 'kx'
   @param plot_name: Name for the plot in the legend
   @param output_name: If given, save the plot, with output_name as prefix
@@ -180,12 +180,13 @@ def plot_a_v_b(table, col_name_a, col_name_b, plot_type = 'linear',
   col_a = readcol(table, col_name_a, ifo )
   col_b = readcol(table, col_name_b, ifo )
 
-  if 'time' in col_name_a:
-    col_a = timeindays(col_a)
-  if 'time' in col_name_b:
-    col_b = timeindays(col_b)
+  if plot_type != 'seconds':
+    if 'time' in col_name_a:
+      col_a = timeindays(col_a)
+    if 'time' in col_name_b:
+      col_b = timeindays(col_b)
     
-  if plot_type == 'linear':
+  if (plot_type == 'linear') or (plot_type == 'seconds'):
     plot(col_a, col_b, plot_sym, markersize=12,markeredgewidth=1,\
         markerfacecolor=None, label = plot_label)
   elif plot_type == 'logx':
