@@ -118,10 +118,10 @@ elif (len(opts.tags) != len(args)/2):
 
 #######################################################################
 # identify the inspiral files if we want the horizon
-if opts.inspiral_glob:
-  inspiralFiles = glob.glob(opts.inspiral_glob)
+if opts.add_horizon:
+  inspiralFiles = glob.glob(opts.add_horizon)
   if not inspiralFiles:
-    print >>sys.stderr, "The glob for " + opts.tmplt_glob + \
+    print >>sys.stderr, "The glob for " + opts.inspiral_horizon + \
         " returned no files"
     sys.exit(1)
 else:
