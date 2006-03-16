@@ -185,10 +185,12 @@ for i in range(len(injFiles)):
 # read in the range if desired
 if inspiralFiles:
   inspiralSumm = readFiles(inspiralFiles)
+  if not opts.ifo:
+    print >> sys.stderr, "Must specify --ifo for --show-horizon"
+    sys.exit(1)
   
-  ifo = injDict["ifo"]
-  horizon = inspiralSumm[ifo].getColumnByName('value').asarray()
-  startTime = viz.timeindays(inspiralSumm[ifo].getColumnByName('start_time').asarray())
+  horizon = inspiralSumm[opts.ifo].getColumnByName('value').asarray()
+  startTime = viz.timeindays(inspiralSumm[opts.ifo].getColumnByName('start_time').asarray())
 
 ##############################################################################
 # set lists of plot symbols
