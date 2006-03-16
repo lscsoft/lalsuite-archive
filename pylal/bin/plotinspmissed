@@ -226,7 +226,7 @@ if opts.time_dist:
     semilogy(startTime, horizon, 'g-', label='Horizon (Mpc)',
       linewidth=1)
     
-  if opts.legend
+  if opts.legend:
     legend()
 
   title(opts.title + 'Distance vs Time', size='x-large')
