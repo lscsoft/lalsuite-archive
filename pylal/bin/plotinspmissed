@@ -139,8 +139,8 @@ for i in range(len(injFiles)):
 
 ##############################################################################
 # set lists of plot symbols
-plot1symbol=['bx','bo','b+','b^']
-plot2symbol=['rx','ro','r+','r^']
+plot1symbol=['bx','bo','b+','b^','b>','b<']
+plot2symbol=['rx','ro','r+','r^','r>','r<']
 
 gpsDigits = "9"
 xmajorFormatter = FormatStrFormatter("%"+gpsDigits+"d")  
