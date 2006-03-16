@@ -233,6 +233,11 @@ if opts.time_dist:
   if inspiralFiles:
     semilogy(startTime, horizon, 'g.', label='Horizon (Mpc)',
       linewidth=1)
+
+  if opts.y_min:
+    ylim(ymin=opts.y_min)
+  if opts.y_max:
+    ylim(ymax=opts.y_max)
     
   if opts.legend:
     legend()
