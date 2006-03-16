@@ -75,10 +75,10 @@ parser.add_option("-M","--min-distance",action="store",type="int",\
 parser.add_option("-r","--add-horizon",action="store",type="string",\
     default=None,metavar="INSP",\
     help="show the inspiral horizon obtained from files matching the glob INSP")
-parser.add_option("-p","--y-min",action="store",type="float"\
+parser.add_option("-p","--y-min",action="store",type="float",\
     default=None,metavar="YMIN",\
     help="set the y min range to YMIN")
-parser.add_option("-q","--y-max",action="store",type="float"\
+parser.add_option("-q","--y-max",action="store",type="float",\
     default=None,metavar="YMAX",\
     help="set the y max range to YMAX")
 
