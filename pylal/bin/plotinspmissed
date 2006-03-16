@@ -7,6 +7,36 @@ from pylab    import *
 from pylal    import readMeta
 from pylal    import viz
 from matplotlib.ticker import FormatStrFormatter
+from glue.ligolw import ligolw
+from glue.ligolw import metaio
+from glue.ligolw import lsctables
+from glue.ligolw import docutils
+
+#######################################################################
+def isSummValue(name, attrs):
+  return lsctables.IsTableProperties(lsctables.SummValueTable, name, attrs)
+
+def readFiles(fList):
+  """
+  read in the SimInspiralTables from a list of files
+  @param fList:       list of input files
+  """
+  output = {}
+  if not fList:
+    return output
+  for thisFile in fList:
+    doc = ligolw.Document()
+    # read in SummValueTable
+    ligolw.make_parser(docutils.PartialLIGOLWContentHandler(doc, \
+        isSummValue)).parse(file(thisFile))
+    rows = doc.childNodes[0].rows
+    for row in rows:
+      if row.name == 'inspiral_effective_distance':
+        if not output.has_key(row.ifo):
+          output[row.ifo] = lsctables.New(lsctables.SummValueTable)
+        output[row.ifo].append(row)
+  return output
+#################################################################
 
 ##############################################################################
 # parse options and arguments
@@ -42,6 +72,9 @@ parser.add_option("-i","--ifo",action="store",type="string",default=None,\
 parser.add_option("-M","--min-distance",action="store",type="int",\
     default=None, metavar=" MIN_DIST",\
     help="provide time and dist of all missed injections closer than MIN_DIST")
+parser.add_option("-r","--add-horizon",action="store",type="string",\
+    default=None,metavar="INSP",\
+    help="show the inspiral horizon obtained from files matching the glob INSP")
 
 (opts,args) = parser.parse_args()
 
@@ -82,6 +115,17 @@ elif (len(opts.tags) != len(args)/2):
   print >>sys.stderr, "If you specify tags, then make sure you have the same" \
                       "number of tags as found files"
   print >>sys.stderr, "Enter 'plotinspmissed --help' for usage"
+
+#######################################################################
+# identify the inspiral files if we want the horizon
+if opts.inspiral_glob:
+  inspiralFiles = glob.glob(opts.inspiral_glob)
+  if not inspiralFiles:
+    print >>sys.stderr, "The glob for " + opts.tmplt_glob + \
+        " returned no files"
+    sys.exit(1)
+else:
+  inspiralFiles = None
 
 ##############################################################################
 # read in tables into dictionaries of paired sets
@@ -138,6 +182,15 @@ for i in range(len(injFiles)):
   injSets.append(injSet)
 
 ##############################################################################
+# read in the range if desired
+if inspiralFiles:
+  inspiralSumm = readFiles(inspiralFiles)
+  
+  ifo = injDict["ifo"]
+  horizon = inspiralSumm[ifo].getColumnByName('value').asarray()
+  startTime = viz.timeindays(inspiralSumm[ifo].getColumnByName('start_time').asarray())
+
+##############################################################################
 # set lists of plot symbols
 plot1symbol=['bx','bo','b+','b^','b>','b<']
 plot2symbol=['rx','ro','r+','r^','r>','r<']
@@ -169,9 +222,13 @@ if opts.time_dist:
     t+=1
     hold(True) 
     
-  if opts.legend:
-    legend()
+  if inspiralFiles:
+    semilogy(startTime, horizon, 'g-', label='Horizon (Mpc)',
+      linewidth=1)
     
+  if opts.legend
+    legend()
+
   title(opts.title + 'Distance vs Time', size='x-large')
   xlabel('Injected End Time (days after start of run)', size='x-large')
   ylabel('Injected Effective Distance (Mpc)', size='x-large')
