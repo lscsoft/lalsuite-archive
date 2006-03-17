@@ -39,14 +39,18 @@ data<-read.table(pipe(p("head --lines=1001 ", fn)), header=TRUE, na.strings=NASt
 cat("Found header with", dim(data)[2], "columns\n")
 
 Types<-lapply(data, class)
+#Types<-lapply(Types, function(x) {
+#	if(x=="factor")return("character")
+#	return(x)
+#	})
 FieldsUnused<-setdiff(names(Types), FieldsUsed)
-#Types[FieldsUnused]<-NULL
+Types[FieldsUnused]<-NULL
 
-data<-read.table(fn, sep=" ", header=TRUE, na.strings=NAStrings, colClasses=Types)
+data<-read.table(fn, sep=" ", header=TRUE, na.strings=NAStrings, colClasses=Types, as.is=TRUE)
 cat("Loaded table with", dim(data)[2], "columns and", dim(data)[1], "rows\n")
 #data<-read.table(pipe(paste("cut -f 1,2,3,4 -d \\  < ", fn, sep="")), sep="\t", header=TRUE, na.strings=NAStrings)
 cat("Reducing to only columns we want\n")
-data<-data[,FieldsUsed]
+data<-data[, FieldsUsed]
 gc()
 gc(reset=TRUE)
 
@@ -67,7 +71,7 @@ data<-data[P,]
 rm(P)
 gc()
 gc(reset=TRUE)
-mem.limits(vsize=1024^3)
+#mem.limits(vsize=1024^3)
 
 highRes<-data[,'hist_residuals.3']
 highResMax<-highRes>ResLarge
@@ -219,7 +223,7 @@ for(skyband in 0:(NBands-1)) {
 	
 	if(sum(!is.na(pulsarUL))<1) {
 		cat("no data for skyband", skyband, "\n");
-		continue
+		next
 		}
 	
 	#
