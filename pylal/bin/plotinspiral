@@ -104,6 +104,10 @@ parser.add_option("-F","--funky-offset",action="store",type="float",\
     metavar=" FUNKY_OFFSET", help="specify the offset in funky stat " )
 parser.add_option("-p","--template-bank",action="store",type="string",\
     default=None, metavar=" FILE",help="name of a template bank file")
+parser.add_option("-x","--x-min",action="store",type="float",\
+    default=None, metavar="XMIN",help="set plot xmin to XMIN")
+parser.add_option("-X","--x-max",action="store",type="float",\
+    default=None, metavar="XMAX",help="set plot xmax to XMAX")
 
 (opts,args) = parser.parse_args()
 
@@ -189,6 +193,10 @@ if opts.snr_time:
   else:
     viz.plot_a_v_b(inspTriggers,'end_time','snr','linear','kx',output_name = opts.figure_name)
   ylim(min_snr, max_snr)
+  if x_min:
+    xlim(xmin=x_min)
+  if x_max:
+    xlim(xmax=x_max)
 
 ###################################
 # plot of snr vs chisq
