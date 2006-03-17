@@ -329,11 +329,9 @@ class AmplVsFreq(object):
 		self.fig = pylab.figure(1)
 		self.fig.set_figsize_inches(16, 8)
 		self.axes = pylab.gca()
-		self.madevsfound = MadeVsFound(70.0, 2118.0, 32, 1e-22, 1e-19, 32)
+		self.madevsfound = MadeVsFound(70.0, 2118.0, 64, 1e-22, 1e-19, 64)
 
 		self.axes.loglog()
-		#pylab.setp(self.axes, xlim = [70.0, 2118.0])
-		#pylab.setp(self.axes, ylim = [1e-22, 1e-19])
 		pylab.grid(True)
 
 		pylab.xlabel("Frequency (Hz)")
@@ -384,9 +382,9 @@ if options.plot_type == "freq_vs_time":
 elif options.plot_type == "ampl_vs_freq":
 	plot = AmplVsFreq()
 
-for url in options.input:
+for n, url in enumerate(options.input):
 	if options.verbose:
-		print >>sys.stderr, url
+		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(options.input), url)
 	plot.addto(DocContents(LoadDocument(url)))
 
 plot.finish()
