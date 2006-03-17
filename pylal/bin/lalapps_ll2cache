@@ -98,7 +98,7 @@ options, patterns = parser.parse_args()
 del parser
 
 if options.output:
-	output = file(options.output)
+	output = file(options.output, "w")
 else:
 	output = sys.stdout
 
