@@ -193,10 +193,10 @@ if opts.snr_time:
   else:
     viz.plot_a_v_b(inspTriggers,'end_time','snr','linear','kx',output_name = opts.figure_name)
   ylim(min_snr, max_snr)
-  if x_min:
-    xlim(xmin=x_min)
-  if x_max:
-    xlim(xmax=x_max)
+  if opts.x_min:
+    xlim(xmin=opts.x_min)
+  if opts.x_max:
+    xlim(xmax=opts.x_max)
 
 ###################################
 # plot of snr vs chisq
