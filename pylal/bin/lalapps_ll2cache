@@ -109,6 +109,8 @@ else:
 
 for pattern in patterns:
 	for name in glob.glob(pattern):
+		if options.verbose:
+			print >>sys.stderr, "%s ..." % name
 		# Load and merge search summary tables
 		doc = ligolw.Document()
 		ligolw.make_parser(docutils.PartialLIGOLWContentHandler(doc, ElementFilter)).parse(file(name))
