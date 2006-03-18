@@ -29,7 +29,11 @@
 import bisect
 import math
 from optparse import OptionParser
-import pylab
+import matplotlib
+matplotlib.use("Agg")
+from matplotlib import figure
+from matplotlib.backends.backend_agg import FigureCanvasAgg
+import numarray
 import sys
 import urllib
 
@@ -238,14 +242,14 @@ class MadeVsFound(object):
 	def __init__(self, xmin, xmax, nx, ymin, ymax, ny):
 		self.xmin = xmin
 		self.logxratio = math.log((xmax / xmin) ** (1.0 / (nx - 1.0)))
-		self.xcoords = self.xmin * pylab.exp(pylab.array(range(nx)) * self.logxratio)
+		self.xcoords = self.xmin * numarray.exp(numarray.array(range(nx)) * self.logxratio)
 
 		self.ymin = ymin
 		self.logyratio = math.log((ymax / ymin) ** (1.0 / (ny - 1.0)))
-		self.ycoords = self.ymin * pylab.exp(pylab.array(range(ny)) * self.logyratio)
+		self.ycoords = self.ymin * numarray.exp(numarray.array(range(ny)) * self.logyratio)
 
-		self.made = pylab.zeros((ny, nx), pylab.Float64)
-		self.found = pylab.zeros((ny, nx), pylab.Float64)
+		self.made = numarray.zeros((ny, nx), numarray.Float64)
+		self.found = numarray.zeros((ny, nx), numarray.Float64)
 
 	def incmade(self, x, y):
 		i = int(math.log(y / self.ymin) / self.logyratio + 0.5)
@@ -258,7 +262,7 @@ class MadeVsFound(object):
 		self.found[i, j] += 1.0
 
 	def normalize(self):
-		self.made = pylab.where(self.made > 0, self.made, 1)
+		self.made = numarray.where(self.made > 0, self.made, 1)
 
 
 #
@@ -275,20 +279,21 @@ class FreqVsTime(object):
 		self.min_t = segments.infinity()
 		self.max_t = -segments.infinity()
 		self.seglist = segments.segmentlist()
-		self.fig = pylab.figure(1)
+		self.fig = figure.Figure()
+		self.canvas = FigureCanvasAgg(self.fig)
 		self.fig.set_figsize_inches(16, 8)
-		self.axes = pylab.gca()
+		self.axes = self.fig.gca()
 		self.axes.semilogy()
 
 		try:
-			pylab.setp(self.axes, xlim = list(options.seg[0]))
+			self.axes.set_xlim(list(options.seg[0]))
 		except AttributeError:
 			# incase the user didn't select a segment
 			pass
-		pylab.grid(True)
+		self.axes.grid(True)
 
-		pylab.xlabel("GPS Time (s)")
-		pylab.ylabel("Frequency (Hz)")
+		self.axes.set_xlabel("GPS Time (s)")
+		self.axes.set_ylabel("Frequency (Hz)")
 
 	def addto(self, doc):
 		self.num_injections += len(doc.simtable)
@@ -299,10 +304,10 @@ class FreqVsTime(object):
 					self.min_t = t
 				if t > self.max_t:
 					self.max_t = t
-				pylab.plot([t], [row.freq], "b+")
+				self.axes.plot([t], [row.freq], "b+")
 		if not options.made_only:
 			for row in FoundIter(doc):
-				pylab.plot([float(row.get_geocent_peak())], [row.freq], "rx")
+				self.axes.plot([float(row.get_geocent_peak())], [row.freq], "rx")
 		self.seglist |= doc.summarytable.get_inlist().coalesce()
 
 	def finish(self):
@@ -311,8 +316,8 @@ class FreqVsTime(object):
 		options.seg &= segments.segmentlist([self.seglist.extent()])
 
 		for seg in ~self.seglist & options.seg:
-			pylab.axvspan(seg[0], seg[1], facecolor = "k", alpha = 0.2)
-		pylab.title("Injection Locations\n(%d Injections)" % self.num_injections)
+			self.axes.axvspan(seg[0], seg[1], facecolor = "k", alpha = 0.2)
+		self.axes.set_title("Injection Locations\n(%d Injections)" % self.num_injections)
 
 
 #
@@ -326,16 +331,17 @@ class FreqVsTime(object):
 class AmplVsFreq(object):
 	def __init__(self):
 		self.num_injections = 0
-		self.fig = pylab.figure(1)
+		self.fig = figure.Figure()
+		self.canvas = FigureCanvasAgg(self.fig)
 		self.fig.set_figsize_inches(16, 8)
-		self.axes = pylab.gca()
+		self.axes = self.fig.gca()
 		self.madevsfound = MadeVsFound(70.0, 2118.0, 64, 1e-22, 1e-19, 64)
 
 		self.axes.loglog()
-		pylab.grid(True)
+		self.axes.grid(True)
 
-		pylab.xlabel("Frequency (Hz)")
-		pylab.ylabel("h_rss")
+		self.axes.set_xlabel("Frequency (Hz)")
+		self.axes.set_ylabel("h_rss")
 
 	def addto(self, doc):
 		self.num_injections += len(doc.simtable)
@@ -349,21 +355,21 @@ class AmplVsFreq(object):
 		elif options.representation == "scatter":
 			if not options.found_only:
 				for row in doc.simtable.rows:
-					pylab.plot([row.freq], [row.hrss], "b+")
+					self.axes.plot([row.freq], [row.hrss], "b+")
 			if not options.made_only:
 				for row in FoundIter(doc):
-					pylab.plot([row.freq], [row.hrss], "rx")
+					self.axes.plot([row.freq], [row.hrss], "rx")
 
 	def finish(self):
 		if options.representation == "contour":
 			self.madevsfound.normalize()
 			if options.found_only:
-				cset = pylab.contour(self.madevsfound.xcoords, self.madevsfound.ycoords, self.madevsfound.found)
+				cset = self.axes.contour(self.madevsfound.xcoords, self.madevsfound.ycoords, self.madevsfound.found)
 			if options.made_only:
-				cset = pylab.contour(self.madevsfound.xcoords, self.madevsfound.ycoords, self.madevsfound.made)
+				cset = self.axes.contour(self.madevsfound.xcoords, self.madevsfound.ycoords, self.madevsfound.made)
 			else:
-				cset = pylab.contour(self.madevsfound.xcoords, self.madevsfound.ycoords, self.madevsfound.found / self.madevsfound.made, [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9])
-		pylab.title("Injection Amplitude vs. Frequency\n(%d Injections)" % self.num_injections)
+				cset = self.axes.contour(self.madevsfound.xcoords, self.madevsfound.ycoords, self.madevsfound.found / self.madevsfound.made, [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9])
+		self.axes.set_title("Injection Amplitude vs. Frequency\n(%d Injections)" % self.num_injections)
 
 
 #
@@ -398,4 +404,4 @@ plot.finish()
 # =============================================================================
 #
 
-pylab.savefig(options.output)
+plot.fig.savefig(options.output)
