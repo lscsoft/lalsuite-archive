@@ -160,7 +160,8 @@ def timeindays(col_data ):
 #######################################################################
 # function to plot the col1 vs col2 from the table
 def plot_a_v_b(table, col_name_a, col_name_b, plot_type = 'linear', 
-  plot_sym = 'kx', plot_label = None, output_name = None, ifo = None):
+  plot_sym = 'kx', plot_label = None, output_name = None, ifo = None,
+  x_min = None, x_max = None):
   """
   function to plot the values of col_name_a vs col_name_b from the table
 
@@ -172,6 +173,8 @@ def plot_a_v_b(table, col_name_a, col_name_b, plot_type = 'linear',
   @param plot_name: Name for the plot in the legend
   @param output_name: If given, save the plot, with output_name as prefix
   @param ifo: Name of ifo
+  @param x_min: Minimum value of x axis
+  @param x_max: Maximum value of x axis
   """
   if not ifo and table.nevents:
     if table.table[0].has_key('ifo'):
@@ -210,6 +213,11 @@ def plot_a_v_b(table, col_name_a, col_name_b, plot_type = 'linear',
 
   if plot_label:
     legend()
+
+  if x_min:
+    xlim(xmin=x_min)
+  if x_max:
+    xlim(xmax=x_max)
     
   if output_name:
     if ifo:

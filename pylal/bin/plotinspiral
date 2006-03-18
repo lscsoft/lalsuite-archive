@@ -189,14 +189,10 @@ if opts.snr_time:
     axvline(0,linewidth=1, color='r')
     for idx in range(len(inspTriggers.table)):
       inspTriggers.table[idx]['end_time'] = inspTriggers.table[idx]['end_time'] - opts.add_vertical_line
-    viz.plot_a_v_b(inspTriggers,'end_time','snr','seconds','kx',output_name = opts.figure_name)
+    viz.plot_a_v_b(inspTriggers,'end_time','snr','seconds','kx',output_name = opts.figure_name,x_min=opts.x_min,x_max=opts.x_max)
   else:
     viz.plot_a_v_b(inspTriggers,'end_time','snr','linear','kx',output_name = opts.figure_name)
   ylim(min_snr, max_snr)
-  if opts.x_min:
-    xlim(xmin=opts.x_min)
-  if opts.x_max:
-    xlim(xmax=opts.x_max)
 
 ###################################
 # plot of snr vs chisq
