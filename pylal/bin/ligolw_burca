@@ -1,0 +1,335 @@
+#!/usr/bin/python
+#
+# $Id$
+#
+# Copyright (C) 2006  Kipp C. Cannon
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 2 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+#
+# =============================================================================
+#
+#                                   Preamble
+#
+# =============================================================================
+#
+
+import bisect
+from optparse import OptionParser
+import os
+import socket
+import sys
+import time
+
+from glue.ligolw import ligolw
+from glue.ligolw import metaio
+from glue.ligolw import lsctables
+from glue.ligolw import docutils
+from pylal import SnglBurstUtils
+from pylal.date import XLALUTCToGPS, LIGOTimeGPS
+
+__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__version__ = "$Revision$"[11:-2]
+__date__ = "$Date$"[7:-2]
+
+
+#
+# =============================================================================
+#
+#                                 Command Line
+#
+# =============================================================================
+#
+
+parser = OptionParser(version = "%prog CVS $Id$")
+parser.add_option("--comment", metavar = "text", default = "", help = "set comment string in process table")
+parser.add_option("-i", "--input", metavar = "filename", help = "read from filename (default = stdin)")
+parser.add_option("-o", "--output", metavar = "filename", help = "write to filename (default = stdout)")
+parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
+options, args = parser.parse_args()
+del parser, args
+
+
+#
+# =============================================================================
+#
+#                                    Input
+#
+# =============================================================================
+#
+
+doc = ligolw.Document()
+if options.input:
+	ligolw.make_parser(lsctables.LIGOLWContentHandler(doc)).parse(file(options.input))
+else:
+	ligolw.make_parser(lsctables.LIGOLWContentHandler(doc)).parse(sys.stdin)
+
+
+#
+# =============================================================================
+#
+#                                 Preparation
+#
+# =============================================================================
+#
+
+proctable = metaio.getTablesByName(doc, lsctables.ProcessTable.tableName)
+if len(proctable) != 1:
+	print >>sys.stderr, "error: input must contain exactly 1 process table"
+	sys.exit(1)
+proctable = proctable[0]
+
+procparamtable = metaio.getTablesByName(doc, lsctables.ProcessParamsTable.tableName)
+if len(procparamtable) != 1:
+	print >>sys.stderr, "error: input must contain exactly 1 process params table"
+	sys.exit(1)
+procparamtable = procparamtable[0]
+
+snglbursttable = metaio.getTablesByName(doc, lsctables.SnglBurstTable.tableName)
+if len(snglbursttable) != 1:
+	print >>sys.stderr, "error: input must contain exactly 1 sngl_burst table"
+	sys.exit(1)
+snglbursttable = snglbursttable[0]
+
+tisitable = metaio.getTablesByName(doc, lsctables.TimeSlideTable.tableName)
+if len(tisitable) != 1:
+	print >>sys.stderr, "error: input must contain exactly 1 time slide table"
+	sys.exit(1)
+tisitable = tisitable[0]
+
+try:
+	coinctable = metaio.getTablesByName(doc, lsctables.CoincTable.tableName)[0]
+except IndexError:
+	coinctable = lsctables.New(lsctables.CoincTable)
+	doc.childNodes[0].appendChild(coinctable)
+coincids = docutils.NewILWDs(coinctable, "coinc_event_id")
+
+try:
+	coincmaptable = metaio.getTablesByName(doc, lsctables.CoincMapTable.tableName)[0]
+except IndexError:
+	coincmaptable = lsctables.New(lsctables.CoincMapTable, columns = ["coinc_event_id", "event_id"])
+	doc.childNodes[0].appendChild(coincmaptable)
+
+
+#
+# =============================================================================
+#
+#                           Add Process Information
+#
+# =============================================================================
+#
+
+process = lsctables.Process()
+process.program = "ligolw_burca"
+process.version = __version__
+process.cvs_repository = "lscsoft"
+process.cvs_entry_time = XLALUTCToGPS(time.strptime(__date__, "%Y/%m/%d %H:%M:%S")).seconds
+process.comment = options.comment
+process.is_online = 0
+process.node = socket.gethostbyaddr(socket.gethostname())[0]
+process.username = os.environ["LOGNAME"]
+process.unix_procid = os.getpid()
+process.start_time = XLALUTCToGPS(time.gmtime()).seconds
+process.end_time = 0
+process.jobid = 0
+process.domain = ""
+process.ifos = ""
+process.process_id = docutils.NewILWDs(proctable, "process_id").next()
+
+proctable.append(process)
+
+def add_param(name, type, value):
+	param = lsctables.ProcessParams()
+	param.program = process.program
+	param.process_id = process.process_id
+	param.param = str(name)
+	param.type = str(type)
+	param.value = str(value)
+	procparamtable.append(param)
+
+if options.input != None:
+	add_param("--input", "lstring", options.input)
+if options.output != None:
+	add_param("--output", "lstring", options.output)
+
+
+#
+# =============================================================================
+#
+#                           Extract Instrument List
+#
+# =============================================================================
+#
+
+def get_instruments(table):
+	"""
+	Extract a list of instruments froma time slide table
+	"""
+	ids = table.dict.keys()
+	if len(ids) < 1:
+		print >>sys.stderr, "error:  time side table contains no entries"
+		sys.exit(1)
+	instruments = table.get_offset_dict(ids[0]).keys()
+	instruments.sort()
+	return instruments
+
+def confirm_tisi_instruments(table, insts):
+	for (id, rows) in table.dict.iteritems():
+		i = [row.instrument for row in rows]
+		i.sort()
+		if i != insts:
+			raise ValueError, "time slide %s has mismatched instrument list: expected %s, got %s" % (id, str(insts), str(i))
+
+instruments = get_instruments(tisitable)
+try:
+	confirm_tisi_instruments(tisitable, instruments)
+except ValueError, e:
+	print >>sys.stderr, "error: %s" % str(e)
+	sys.exit(1)
+
+
+#
+# =============================================================================
+#
+#              Copy Trigger References Into Per-Instrument Lists
+#
+# =============================================================================
+#
+
+class TriggerList(object):
+	def __init__(self, instrument):
+		self.instrument = instrument
+		self.triggers = []
+
+	def append(self, trigger):
+		self.triggers.append(trigger)
+
+	def mkindex(self):
+		self.triggers.sort(lambda a, b: cmp(a.get_start(), b.get_start()))
+		self.start_times = [row.get_start() for row in self.triggers]
+
+	def left(self, t):
+		return bisect.bisect_left(self.start_times, t)
+
+	def right(self, t):
+		return bisect.bisect_right(self.start_times, t)
+
+	def near(self, t, dt):
+		"""
+		Return a list of the triggers with start times within dt of
+		t.
+		"""
+		l = []
+		i = self.left(t - dt)
+		while (i < len(self.triggers)) and (self.triggers[i].get_start() <= t + dt):
+			l.append(self.triggers[i])
+			i += 1
+		return l
+
+
+def construct_trigger_lists(table, instruments):
+	lists = {}
+	for instrument in instruments:
+		lists[instrument] = TriggerList(instrument)
+	for row in table:
+		lists[row.ifo].append(row)
+	for instrument in instruments:
+		lists[instrument].mkindex()
+	return lists.values()
+
+triggerlists = construct_trigger_lists(snglbursttable, instruments)
+
+
+#
+# =============================================================================
+#
+#                          Build Trigger Coincidences
+#
+# =============================================================================
+#
+
+def append_coinc(tisi_id, trigs):
+	coinc = lsctables.Coinc()
+	coinc.process_id = process.process_id
+	coinc.coinc_event_id = coincids.next()
+	coinc.time_slide_id = tisi_id
+	coinctable.append(coinc)
+	for trig in trigs:
+		coincmap = lsctables.CoincMap()
+		coincmap.coinc_event_id = coinc.coinc_event_id
+		coincmap.event_id = trig.event_id
+		coincmaptable.append(coincmap)
+
+
+def are_coincident(trigs, offsets):
+	"""
+	Return True if the triggers are all mutually coincident.
+	"""
+	for [a, b] in SnglBurstUtils.choices(trigs, 2):
+		if SnglBurstUtils.CompareSnglBurst(a, b, offsets[a.ifo], offsets[b.ifo]):
+			return False
+	return True
+
+
+def find_n_tuples(trigger_lists, offsets, tisi_id):
+	for n, trig in enumerate(trigger_lists[0].triggers):
+		if not (n % 100):
+			if options.verbose:
+				print >>sys.stderr, "\t%.1f%%\r" % (100.0 * (n + 1) / len(trigger_lists[0].triggers)),
+		t = trig.get_start() + offsets[trig.ifo]
+		trigs = [[trig]] + map(lambda l: l.near(t - offsets[l.instrument], 2), trigger_lists[1:])
+		length = map(len, trigs)
+		index = [0] * len(trigs)
+		try:
+			length.index(0)
+			break
+		except ValueError:
+			pass
+		while True:
+			l = [trigs[i][index[i]] for i in range(len(index))]
+			if are_coincident(l, offsets):
+				append_coinc(tisi_id, l)
+			for i in range(len(index)):
+				index[i] += 1
+				if index[i] < length[i]:
+					break
+				index[i] = 0
+			if index[i] == 0:
+				break
+	if options.verbose:
+		print >>sys.stderr, "\t100.0%"
+
+
+for tisi_id in tisitable.dict:
+	offsets = tisitable.get_offset_dict(tisi_id)
+	if options.verbose:
+		print >>sys.stderr, "time slide: %s" % str(offsets)
+	find_n_tuples([l for l in triggerlists if l.instrument in offsets.keys()], offsets, tisi_id)
+
+
+#
+# =============================================================================
+#
+#                                    Output
+#
+# =============================================================================
+#
+
+process.end_time = XLALUTCToGPS(time.gmtime()).seconds
+
+if options.output:
+	doc.write(file(options.output, "w"))
+else:
+	doc.write(sys.stdout)
