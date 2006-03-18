@@ -79,7 +79,11 @@ def CompareSnglBurst(a, b, a_offset = 0.0, b_offset = 0.0):
 	if a and b's time-frequency tiles intersect.  Offsets can be
 	optionally applied to the times of triggers a and b.
 	"""
-	result = cmp_segs((a.get_start() + a_offset, a.get_end() + a_offset), (b.get_start() + b_offset, b.get_end() + b_offset))
+	a_period = a.get_period()
+	a_period = (a_period[0] + a_offset, a_period[1] + a_offset)
+	b_period = b.get_period()
+	b_period = (b_period[0] + b_offset, b_period[1] + b_offset)
+	result = cmp_segs(a_period, b_period)
 	if not result:
 		result = cmp_segs(a.get_band(), b.get_band())
 	return result
