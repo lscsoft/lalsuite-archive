@@ -57,9 +57,30 @@ parser = OptionParser(version = "%prog CVS $Id$")
 parser.add_option("--comment", metavar = "text", default = "", help = "set comment string in process table")
 parser.add_option("-i", "--input", metavar = "filename", help = "read from filename (default = stdin)")
 parser.add_option("-o", "--output", metavar = "filename", help = "write to filename (default = stdout)")
+parser.add_option("-w", "--window", metavar = "inst1,inst2=seconds", action = "append", default = [], help = "set the coincidence window for an instrument pair")
 parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
-options, args = parser.parse_args()
-del parser, args
+options = parser.parse_args()[0]
+del parser
+
+
+def parse_windows(windows):
+	parsed_windows = {}
+	for [pair, delay] in map(lambda w: str.split(w, "="), windows):
+		pair = pair.split(",")
+		pair.sort()
+		pair = tuple(pair)
+		if len(pair) != 2:
+			raise ValueError, "incorrect number of instruments"
+		if pair in parsed_windows.keys():
+			raise ValueError, "duplicate instrument pair"
+		parsed_windows[tuple(pair)] = LIGOTimeGPS(delay)
+	return parsed_windows
+
+try:
+	options.window = parse_windows(options.window)
+except ValueError, e:
+	print >>sys.stdrer, "error parsing --window: %s" % str(e)
+	sys.exit(1)
 
 
 #
@@ -163,41 +184,8 @@ if options.input != None:
 	add_param("--input", "lstring", options.input)
 if options.output != None:
 	add_param("--output", "lstring", options.output)
-
-
-#
-# =============================================================================
-#
-#                           Extract Instrument List
-#
-# =============================================================================
-#
-
-def get_instruments(table):
-	"""
-	Extract a list of instruments froma time slide table
-	"""
-	ids = table.dict.keys()
-	if len(ids) < 1:
-		print >>sys.stderr, "error:  time side table contains no entries"
-		sys.exit(1)
-	instruments = table.get_offset_dict(ids[0]).keys()
-	instruments.sort()
-	return instruments
-
-def confirm_tisi_instruments(table, insts):
-	for (id, rows) in table.dict.iteritems():
-		i = [row.instrument for row in rows]
-		i.sort()
-		if i != insts:
-			raise ValueError, "time slide %s has mismatched instrument list: expected %s, got %s" % (id, str(insts), str(i))
-
-instruments = get_instruments(tisitable)
-try:
-	confirm_tisi_instruments(tisitable, instruments)
-except ValueError, e:
-	print >>sys.stderr, "error: %s" % str(e)
-	sys.exit(1)
+for key, value in options.window.iteritems():
+	add_param("--window", "lstring", "%s,%s=%s" % (key[0], key[1], str(value)))
 
 
 #
@@ -239,17 +227,48 @@ class TriggerList(object):
 		return l
 
 
-def construct_trigger_lists(table, instruments):
+def construct_trigger_lists(table):
 	lists = {}
-	for instrument in instruments:
-		lists[instrument] = TriggerList(instrument)
 	for row in table:
+		if row.ifo not in lists:
+			lists[row.ifo] = TriggerList(row.ifo)
 		lists[row.ifo].append(row)
-	for instrument in instruments:
-		lists[instrument].mkindex()
+	map(TriggerList.mkindex, lists.values())
 	return lists.values()
 
-triggerlists = construct_trigger_lists(snglbursttable, instruments)
+triggerlists = construct_trigger_lists(snglbursttable)
+
+
+#
+# =============================================================================
+#
+#                         Iterate Over Multiple Lists
+#
+# =============================================================================
+#
+
+class MultiIter(object):
+	def __init__(self, lists):
+		self.lists = lists
+		self.index = [0] * len(lists)
+		self.length = map(len, lists)
+		self.stop = 0 in self.length
+
+	def __iter__(self):
+		return self
+
+	def next(self):
+		if self.stop:
+			raise StopIteration
+		l = map(lambda l, i: l[i], self.lists, self.index)
+		for i in range(len(self.index)):
+			self.index[i] += 1
+			if self.index[i] < self.length[i]:
+				break
+			self.index[i] = 0
+		if self.index[i] == 0:
+			self.stop = True
+		return l
 
 
 #
@@ -273,50 +292,45 @@ def append_coinc(tisi_id, trigs):
 		coincmaptable.append(coincmap)
 
 
-def are_coincident(trigs, offsets):
+def are_coincident(trigs, offsets, windows):
 	"""
 	Return True if the triggers are all mutually coincident.
 	"""
 	for [a, b] in SnglBurstUtils.choices(trigs, 2):
-		if SnglBurstUtils.CompareSnglBurst(a, b, offsets[a.ifo], offsets[b.ifo]):
+		try:
+			if a.ifo <= b.ifo:
+				window = windows[(a.ifo, b.ifo)]
+			else:
+				window = windows[(b.ifo, a.ifo)]
+		except KeyError:
+			raise KeyError, "no coincidence window provided for instrument pair %s,%s" % (a.ifo, b.ifo)
+		if SnglBurstUtils.CompareSnglBurst(a, b, offsets[a.ifo], offsets[b.ifo], window):
 			return False
 	return True
 
 
-def find_n_tuples(trigger_lists, offsets, tisi_id):
+def find_n_tuples(trigger_lists, offsets, windows, tisi_id):
 	for n, trig in enumerate(trigger_lists[0].triggers):
 		if not (n % 100):
 			if options.verbose:
 				print >>sys.stderr, "\t%.1f%%\r" % (100.0 * (n + 1) / len(trigger_lists[0].triggers)),
-		t = trig.get_start() + offsets[trig.ifo]
-		trigs = [[trig]] + map(lambda l: l.near(t - offsets[l.instrument], 2), trigger_lists[1:])
-		length = map(len, trigs)
-		index = [0] * len(trigs)
-		try:
-			length.index(0)
-			break
-		except ValueError:
-			pass
-		while True:
-			l = [trigs[i][index[i]] for i in range(len(index))]
-			if are_coincident(l, offsets):
+		for l in MultiIter([[trig]] + map(lambda l: l.near(trig.get_start() + offsets[trig.ifo] - offsets[l.instrument], 2), trigger_lists[1:])):
+			if are_coincident(l, offsets, windows):
 				append_coinc(tisi_id, l)
-			for i in range(len(index)):
-				index[i] += 1
-				if index[i] < length[i]:
-					break
-				index[i] = 0
-			if index[i] == 0:
-				break
 	if options.verbose:
 		print >>sys.stderr, "\t100.0%"
 
 
-for tisi_id in tisitable.dict:
+tisiids = tisitable.dict.keys()
+for n, tisi_id in enumerate(tisiids):
 	offsets = tisitable.get_offset_dict(tisi_id)
 	if options.verbose:
-		print >>sys.stderr, "time slide: %s" % str(offsets)
-	find_n_tuples([l for l in triggerlists if l.instrument in offsets.keys()], offsets, tisi_id)
+		print >>sys.stderr, "time slide %d/%d: %s" % (n + 1, len(tisiids), str(offsets))
+	try:
+		find_n_tuples([l for l in triggerlists if l.instrument in offsets], offsets, options.window, tisi_id)
+	except Exception, e:
+		print >>sys.stderr, "error: %s" % str(e)
+		sys.exit(1)
 
 
 #
