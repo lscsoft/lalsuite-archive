@@ -357,8 +357,8 @@ if opts.plot_ng:
   xlim(0,opts.x_max)
   if opts.y_max:
     ylim(0,opts.y_max)
-  xlabel( 'Effective Distance (Mpc)' )
-  ylabel('N_G' )
+  xlabel( 'Effective Distance (Mpc)', size='x-large' )
+  ylabel('N_G', size='x-large' )
   legend( loc=0 )
   if opts.title:
     title( opts.title )
@@ -381,8 +381,8 @@ if opts.add_curvefit:
   xlim(0,opts.x_max)
   if opts.y_max:
     ylim(0,opts.y_max)
-  xlabel( 'Effective Distance (Mpc)' )
-  ylabel( 'N_G')
+  xlabel( 'Effective Distance (Mpc)', size='x-large' )
+  ylabel( 'N_G', size='x-large')
   legend( loc=0 )
   if opts.title:  
           title( opts.title )
@@ -405,8 +405,8 @@ if opts.log_ng:
   xlim(0.1,opts.x_max)
   if opts.y_max:
     ylim(0.1,opts.y_max)
-  xlabel( 'Effective Distance (Mpc)' )
-  ylabel( 'N_G' )
+  xlabel( 'Effective Distance (Mpc)', size='x-large' )
+  ylabel( 'N_G', size='x-large' )
   legend( loc=2 )
   if opts.title:
     title( opts.title )
@@ -432,8 +432,8 @@ if opts.hist_ng:
   
   grid( True )
   bar( x, ng, step )
-  xlabel( 'Effective Distance ' + opts.site + ' (Mpc)' )
-  ylabel('N_G' )
+  xlabel( 'Effective Distance ' + opts.site + ' (Mpc)', size='x-large' )
+  ylabel('N_G', size='x-large' )
   if opts.title:
     title( opts.title )
   if opts.figure_name:
@@ -461,8 +461,8 @@ if opts.cumulative_ng:
   
   bar( x, ng, step )
   grid( True )
-  xlabel( 'Effective Distance ' + opts.site + ' (Mpc)' )
-  ylabel('Cumulative N_G' )
+  xlabel( 'Effective Distance ' + opts.site + ' (Mpc)' , size='x-large')
+  ylabel('Cumulative N_G', size='x-large' )
   if opts.title:
     title( opts.title )
   if opts.figure_name:
@@ -557,8 +557,8 @@ if opts.plot_efficiency:
   plot (binsf,eff)
   grid( True )
   ylim(0,1.1) 
-  xlabel('Effective Distance ' + opts.site + ' (Mpc)')
-  ylabel('Efficiency')
+  xlabel('Effective Distance ' + opts.site + ' (Mpc)', size='x-large')
+  ylabel('Efficiency', size='x-large')
   
   if opts.title:
     title( opts.title )
@@ -570,8 +570,8 @@ if opts.plot_efficiency:
   figure()
   bar(binsf,ng,stepf)
   grid( True )
-  xlabel( 'Effective Distance ' + opts.site + ' (Mpc)' )
-  ylabel('ng' )
+  xlabel( 'Effective Distance ' + opts.site + ' (Mpc)', size='x-large' )
+  ylabel('ng', size='x-large' )
   if opts.title:
     title( opts.title )
   if opts.figure_name:
@@ -585,8 +585,8 @@ if opts.plot_efficiency:
   plot(binsf,ng_cum)
   grid( True )
   
-  xlabel( 'Effective Distance ' + opts.site + ' (Mpc)' )
-  ylabel('Cumulative Number of Galaxies' )
+  xlabel( 'Effective Distance ' + opts.site + ' (Mpc)', size='x-large' )
+  ylabel('Cumulative Number of Galaxies' , size='x-large')
   if opts.title:
     title( opts.title )
   if opts.figure_name:
