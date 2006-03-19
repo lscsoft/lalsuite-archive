@@ -73,14 +73,14 @@ def CompareSnglBurstByPeakTimeAndFreq(a, b):
 	return result
 
 
-def CompareSnglBurst(a, b, a_offset = 0.0, b_offset = 0.0):
+def CompareSnglBurst(a, b, a_offset = 0.0, b_offset = 0.0, twindow = 0.0):
 	"""
 	Orders a and b by time interval, then by frequency band.  Returns 0
 	if a and b's time-frequency tiles intersect.  Offsets can be
 	optionally applied to the times of triggers a and b.
 	"""
 	a_period = a.get_period()
-	a_period = (a_period[0] + a_offset, a_period[1] + a_offset)
+	a_period = (a_period[0] + a_offset - twindow, a_period[1] + a_offset + twindow)
 	b_period = b.get_period()
 	b_period = (b_period[0] + b_offset, b_period[1] + b_offset)
 	result = cmp_segs(a_period, b_period)
