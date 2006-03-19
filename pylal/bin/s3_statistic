@@ -69,7 +69,8 @@ def plotstat(coincInspiral, symbols, description = None, plot_type = 'linear'):
   h1_val = h1h2l1_coinc.getsngls('H1').mkarray(opts.statistic)
   h2_val = h1h2l1_coinc.getsngls('H2').mkarray(opts.statistic)
   l1_val = h1h2l1_coinc.getsngls('L1').mkarray(opts.statistic)
-  h2_l1_val = h2_val + l1_val
+  if opts.statistic == 'effective_snr':
+    h2_l1_val = sqrt(h2_val**2 + l1_val**2)
 
   if description:
     my_label = description + ': H1-H2-L1'
@@ -569,7 +570,7 @@ if opts.zero_inj_stat:
   
   plotstat(coincTriggers, ['kx','k+','ko'],'zero lag',opts.inj_plot_type)
   plotstat(injTriggers, ['rx','r+','ro'],'injections',opts.inj_plot_type)
-  legend()
+  legend(loc=2)
   grid()
 
   if opts.plot_min:
@@ -644,7 +645,8 @@ if opts.slide_dist:
   figure(fig_num)
   hold(True)
   errorbar(bins,log10(slideMean), [log10(slideMean) - log10(slideMin), 
-      log10(slideMean + slideStd) - log10(slideMean)], markersize=12)
+      log10(slideMean + slideStd) - log10(slideMean)], markersize=12,
+      linewidth=1)
 
   xlabel('Combined Statistic', size='x-large')
   ylabel('Log Number of events', size='x-large')
@@ -675,9 +677,10 @@ if opts.slide_zero_dist:
   fig_num += 1
   figure(fig_num)
 
-  plot(bins,log10(zeroDist),'rx',markersize=12)
+  plot(bins,log10(zeroDist),'rx',markersize=12,linewidth=1)
   errorbar(bins,log10(slideMean), [log10(slideMean) - log10(slideMin), 
-      log10(slideMean + slideStd) - log10(slideMean)], markersize=12)
+      log10(slideMean + slideStd) - log10(slideMean)], markersize=12,
+      linewidth=1)
 
   xlabel('Combined Statistic', size='x-large')
   ylabel('Log Number of events', size='x-large')
