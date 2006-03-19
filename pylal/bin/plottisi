@@ -1,0 +1,173 @@
+#!/usr/bin/python
+#
+# $Id$
+#
+# Copyright (C) 2006  Kipp C. Cannon
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 2 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+#
+# =============================================================================
+#
+#                                   Preamble
+#
+# =============================================================================
+#
+
+from optparse import OptionParser
+import matplotlib
+matplotlib.use("Agg")
+from matplotlib import figure
+from matplotlib.backends.backend_agg import FigureCanvasAgg
+import numarray
+import sys
+import urllib
+
+from glue.ligolw import ligolw
+from glue.ligolw import metaio
+from glue.ligolw import lsctables
+from glue.ligolw import docutils
+
+__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__version__ = "$Revision$"[11:-2]
+__date__ = "$Date$"[7:-2]
+
+
+#
+# =============================================================================
+#
+#                                 Command Line
+#
+# =============================================================================
+#
+
+parser = OptionParser(version="%prog CVS $Id$")
+parser.add_option("-i", "--input", metavar = "filename", help = "read input from this file")
+parser.add_option("-o", "--output", metavar = "filename", help = "set output file name (required)")
+parser.add_option("-x", "--x", metavar = "instrument", help = "plot this instrument's offsets along the x axis")
+parser.add_option("-y", "--y", metavar = "instrument", help = "plot this instrument's offsets along the y axis")
+parser.add_option("-n", "--n", metavar = "number", help = "plot only time slides involving this many instruments")
+parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
+options = parser.parse_args()[0]
+del parser
+
+if not options.input:
+	print >>sys.stderr, "error: no input files specified"
+	sys.exit(1)
+
+if not options.output:
+	print >>sys.stderr, "error: no output file specified"
+	sys.exit(1)
+
+if not options.x or not options.y:
+	print >>sys.stderr, "error: must set instruments for x and y axes"
+	sys.exit(1)
+
+if not options.n:
+	options.n = 2
+else:
+	try:
+		options.n = int(options.n)
+	except:
+		print >>sys.stderr, "error: invalid --n"
+		sys.exit(1)
+
+
+#
+# =============================================================================
+#
+#                                    Input
+#
+# =============================================================================
+#
+
+def ElementFilter(name, attrs):
+	return lsctables.IsTableProperties(lsctables.TimeSlideTable, name, attrs)
+
+def LoadDocument(url):
+	doc = ligolw.Document()
+	handler = docutils.PartialLIGOLWContentHandler(doc, ElementFilter)
+	try:
+		ligolw.make_parser(handler).parse(urllib.urlopen(url))
+	except Exception, e:
+		print >>sys.stderr, "error: parsing contents of %s: %s" % (url, str(e))
+		sys.exit(1)
+	return doc
+
+def GetTable(doc, Type):
+	"""
+	Find and return the table of the given type.
+	"""
+	tables = lsctables.getTablesByType(doc, Type)
+	if len(tables) == 0:
+		print >>sys.stderr, "warning: no %s tables found" % metaio.StripTableName(Type.tableName)
+		return lsctables.New(Type)
+	if len(tables) == 1:
+		return tables[0]
+	print >>sys.stderr, "error: files contain incompatible %s tables" % metaio.StripTableName(Type.tableName)
+	sys.exit(1)
+
+
+#
+# =============================================================================
+#
+#                                     Plot
+#
+# =============================================================================
+#
+
+class Plot(object):
+	def __init__(self, doc, x, y, n):
+		slides = 0
+		self.fig = figure.Figure()
+		self.canvas = FigureCanvasAgg(self.fig)
+		self.fig.set_figsize_inches(16, 8)
+		self.axes = self.fig.gca()
+
+		self.axes.grid(True)
+
+		self.axes.set_xlabel("%s Offset (s)" % x)
+		self.axes.set_ylabel("%s Offset (s)" % y)
+
+		tisitable = GetTable(doc, lsctables.TimeSlideTable)
+		for id in tisitable.dict:
+			offsets = tisitable.get_offset_dict(id)
+			if len(offsets) == n:
+				self.axes.plot((offsets[x],), (offsets[y],), "k+")
+				slides += 1
+
+		self.axes.set_title("%d %d-Instrument Time Slides" % (slides, n))
+
+
+#
+# =============================================================================
+#
+#                                     Plot
+#
+# =============================================================================
+#
+
+plot = Plot(LoadDocument(options.input), options.x, options.y, options.n)
+
+
+#
+# =============================================================================
+#
+#                                    Output
+#
+# =============================================================================
+#
+
+plot.fig.savefig(options.output)
