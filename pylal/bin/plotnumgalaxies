@@ -376,7 +376,7 @@ if opts.add_curvefit:
     
   x = arange(0,opts.x_max,opts.x_max/100)
   N_Gr = 0.00611877*(x)*(x)*(x)-0.0164998*(x)*(x)+2.52*(x)
-  plot(x,N_Gr,label='Fitted Curve')
+  plot(x,N_Gr,label='Fitted Curve',linewidth=1)
   grid( True )
   xlim(0,opts.x_max)
   if opts.y_max:
@@ -554,7 +554,7 @@ if opts.plot_efficiency:
   ###########################################################
   # plot efficiency
   eff = (h_found)*1.0/(h_all)
-  plot (binsf,eff)
+  plot (binsf,eff,linewidth=1)
   grid( True )
   ylim(0,1.1) 
   xlabel('Effective Distance ' + opts.site + ' (Mpc)', size='x-large')
@@ -582,7 +582,7 @@ if opts.plot_efficiency:
   # plot cumulative N_G
   ng_cum = cumsum( ng * eff )
   figure()
-  plot(binsf,ng_cum)
+  plot(binsf,ng_cum,linewidth=1)
   grid( True )
   
   xlabel( 'Effective Distance ' + opts.site + ' (Mpc)', size='x-large' )

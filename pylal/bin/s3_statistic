@@ -646,7 +646,7 @@ if opts.slide_dist:
   hold(True)
   errorbar(bins,log10(slideMean), [log10(slideMean) - log10(slideMin), 
       log10(slideMean + slideStd) - log10(slideMean)], markersize=12,
-      linewidth=1)
+      markeredgewidth=1, linewidth=1)
 
   xlabel('Combined Statistic', size='x-large')
   ylabel('Log Number of events', size='x-large')
@@ -677,10 +677,10 @@ if opts.slide_zero_dist:
   fig_num += 1
   figure(fig_num)
 
-  plot(bins,log10(zeroDist),'rx',markersize=12,linewidth=1)
+  plot(bins,log10(zeroDist),'rx',markeredgewidth=1, markersize=12,linewidth=1)
   errorbar(bins,log10(slideMean), [log10(slideMean) - log10(slideMin), 
       log10(slideMean + slideStd) - log10(slideMean)], markersize=12,
-      linewidth=1)
+      markeredgewidth=1, linewidth=1)
 
   xlabel('Combined Statistic', size='x-large')
   ylabel('Log Number of events', size='x-large')
