@@ -184,7 +184,10 @@ if options.input != None:
 	add_param("--input", "lstring", options.input)
 if options.output != None:
 	add_param("--output", "lstring", options.output)
+maxwindow = LIGOTimeGPS(0)
 for key, value in options.window.iteritems():
+	if value > maxwindow:
+		maxwindow = value
 	add_param("--window", "lstring", "%s,%s=%s" % (key[0], key[1], str(value)))
 
 
@@ -229,14 +232,17 @@ class TriggerList(object):
 
 def construct_trigger_lists(table):
 	lists = {}
+	maxduration = LIGOTimeGPS(0)
 	for row in table:
 		if row.ifo not in lists:
 			lists[row.ifo] = TriggerList(row.ifo)
+		if row.duration > maxduration:
+			maxduration = row.duration
 		lists[row.ifo].append(row)
 	map(TriggerList.mkindex, lists.values())
-	return lists.values()
+	return lists.values(), maxduration
 
-triggerlists = construct_trigger_lists(snglbursttable)
+triggerlists, maxduration = construct_trigger_lists(snglbursttable)
 
 
 #
@@ -311,10 +317,10 @@ def are_coincident(trigs, offsets, windows):
 
 def find_n_tuples(trigger_lists, offsets, windows, tisi_id):
 	for n, trig in enumerate(trigger_lists[0].triggers):
-		if not (n % 100):
+		if not (n % 300):
 			if options.verbose:
 				print >>sys.stderr, "\t%.1f%%\r" % (100.0 * (n + 1) / len(trigger_lists[0].triggers)),
-		for l in MultiIter([[trig]] + map(lambda l: l.near(trig.get_start() + offsets[trig.ifo] - offsets[l.instrument], 2), trigger_lists[1:])):
+		for l in MultiIter([[trig]] + map(lambda l: l.near(trig.get_start() + offsets[trig.ifo] - offsets[l.instrument], (maxwindow + maxduration) * 1.1), trigger_lists[1:])):
 			if are_coincident(l, offsets, windows):
 				append_coinc(tisi_id, l)
 	if options.verbose:
