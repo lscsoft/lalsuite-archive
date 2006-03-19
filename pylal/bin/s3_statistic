@@ -307,7 +307,7 @@ if opts.slide_glob:
   
   slide_num = range(1 , opts.num_slides + 1)
   slide_num.extend(range(-opts.num_slides, 0))
-
+  
   for slide in slide_num:
     this_slide = {}
     this_slide["slide_num"] = slide
@@ -336,6 +336,7 @@ if opts.slide_glob:
     slideStat.append( thisSlideStat )
     if len(thisSlideStat):
       slideMax = max(slideMax,max(thisSlideStat))
+
     # add slide to list
     slideTriggers.append(this_slide["coinc_trigs"])
 
@@ -369,6 +370,7 @@ if opts.inj_glob:
 
   # extract the statistic from the slideTriggers
   injTriggers.sort()
+
   injStat = injTriggers.getstat()
 
 ##########################################
@@ -655,6 +657,11 @@ if opts.slide_dist:
   
   ylim(ymin=log10((1./(2*opts.num_slides))))
 
+  if opts.plot_min:
+    xlim(xmin=opts.plot_min)
+  if opts.plot_max:
+    xlim(xmax=opts.plot_max)
+
   if opts.figure_name:
     if opts.distribution == 'cumulative':
       savefig(opts.figure_name + "_slide_distribution.png")
@@ -681,6 +688,11 @@ if opts.slide_zero_dist:
 
   title(title_text, size='x-large')
   ylim(ymin=log10((1./(2*opts.num_slides))))
+
+  if opts.plot_min:
+    xlim(xmin=opts.plot_min)
+  if opts.plot_max:
+    xlim(xmax=opts.plot_max)
 
   if opts.figure_name:
     if opts.distribution == 'cumulative':
