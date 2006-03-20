@@ -56,9 +56,9 @@ __date__ = "$Date$"[7:-2]
 parser = OptionParser(version="%prog CVS $Id$")
 parser.add_option("-i", "--input", metavar = "filename", help = "read input from this file")
 parser.add_option("-o", "--output", metavar = "filename", help = "set output file name (required)")
-parser.add_option("-x", "--x", metavar = "instrument", help = "plot this instrument's offsets along the x axis")
-parser.add_option("-y", "--y", metavar = "instrument", help = "plot this instrument's offsets along the y axis")
-parser.add_option("-n", "--n", metavar = "number", help = "plot only time slides involving this many instruments")
+parser.add_option("-x", "--x-instrument", metavar = "instrument", help = "plot this instrument's offsets along the x axis")
+parser.add_option("-y", "--y-instrument", metavar = "instrument", help = "plot this instrument's offsets along the y axis")
+parser.add_option("-n", "--n-instruments", metavar = "number", help = "plot only time slides involving this many instruments")
 parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
 options = parser.parse_args()[0]
 del parser
@@ -71,15 +71,15 @@ if not options.output:
 	print >>sys.stderr, "error: no output file specified"
 	sys.exit(1)
 
-if not options.x or not options.y:
+if not options.x_instrument or not options.y_instrument:
 	print >>sys.stderr, "error: must set instruments for x and y axes"
 	sys.exit(1)
 
-if not options.n:
-	options.n = 2
+if not options.n_instruments:
+	options.n_instruments = 2
 else:
 	try:
-		options.n = int(options.n)
+		options.n_instruments = int(options.n_instruments)
 	except:
 		print >>sys.stderr, "error: invalid --n"
 		sys.exit(1)
@@ -131,8 +131,6 @@ def GetTable(doc, Type):
 class Plot(object):
 	def __init__(self, doc, x_instrument, y_instrument, n):
 		slides = 0
-		min_offset = +1e9
-		max_offset = -1e9
 		self.fig = figure.Figure()
 		self.canvas = FigureCanvasAgg(self.fig)
 		self.axes = self.fig.gca()
@@ -143,6 +141,7 @@ class Plot(object):
 		self.axes.set_ylabel("%s Offset (s)" % y_instrument)
 
 		tisitable = GetTable(doc, lsctables.TimeSlideTable)
+		max_offset = min_offset = tisitable[0].offset
 		for id in tisitable.dict:
 			offsets = tisitable.get_offset_dict(id)
 			if len(offsets) == n:
@@ -167,7 +166,7 @@ class Plot(object):
 # =============================================================================
 #
 
-plot = Plot(LoadDocument(options.input), options.x, options.y, options.n)
+plot = Plot(LoadDocument(options.input), options.x_instrument, options.y_instrument, options.n_instruments)
 
 
 #
@@ -178,4 +177,4 @@ plot = Plot(LoadDocument(options.input), options.x, options.y, options.n)
 # =============================================================================
 #
 
-plot.fig.savefig(options.output)
+plot.fig.savefig(options.output, dpi=300)
