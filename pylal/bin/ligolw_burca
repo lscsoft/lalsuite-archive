@@ -73,7 +73,7 @@ def parse_windows(windows):
 			raise ValueError, "incorrect number of instruments"
 		if pair in parsed_windows.keys():
 			raise ValueError, "duplicate instrument pair"
-		parsed_windows[tuple(pair)] = LIGOTimeGPS(delay)
+		parsed_windows[pair] = LIGOTimeGPS(delay)
 	return parsed_windows
 
 try:
@@ -129,6 +129,8 @@ if len(tisitable) != 1:
 	print >>sys.stderr, "error: input must contain exactly 1 time slide table"
 	sys.exit(1)
 tisitable = tisitable[0]
+for row in tisitable:
+	row.offset = LIGOTimeGPS(row.offset)
 
 try:
 	coinctable = metaio.getTablesByName(doc, lsctables.CoincTable.tableName)[0]
@@ -207,12 +209,13 @@ class TriggerList(object):
 
 	def append(self, trigger):
 		if trigger.duration > self.maxduration:
-			self.maxduration = trigger.duration
+			self.maxduration = LIGOTimeGPS(trigger.duration)
 		self.triggers.append(trigger)
 
 	def mkindex(self):
 		self.triggers.sort(lambda a, b: cmp(a.get_stop(), b.get_stop()))
-		self.stop_times = [row.get_stop() for row in self.triggers]
+		self.start_times = [LIGOTimeGPS(row.get_start()) for row in self.triggers]
+		self.stop_times = [LIGOTimeGPS(row.get_stop()) for row in self.triggers]
 
 	def intersects(self, t, dt):
 		"""
@@ -220,12 +223,9 @@ class TriggerList(object):
 		intersect t +/- dt.
 		"""
 		l = []
-		i = bisect.bisect_left(self.stop_times, t - dt)
-
-		while (i < len(self.triggers)) and (self.triggers[i].get_stop() - self.maxduration <= t + dt):
-			if self.triggers[i].get_start() <= t + dt:
+		for i in xrange(bisect.bisect_left(self.stop_times, t - dt), bisect.bisect_right(self.stop_times, t + dt + self.maxduration)):
+			if self.start_times[i] <= t + dt:
 				l.append(self.triggers[i])
-			i += 1
 		return l
 
 
@@ -264,12 +264,12 @@ class MultiIter(object):
 		if self.stop:
 			raise StopIteration
 		l = map(lambda l, i: l[i], self.lists, self.index)
-		for i in range(len(self.index)):
+		for i in xrange(len(self.index)):
 			self.index[i] += 1
 			if self.index[i] < self.length[i]:
 				break
 			self.index[i] = 0
-		if self.index[i] == 0:
+		else:
 			self.stop = True
 		return l
 
@@ -310,13 +310,11 @@ def are_coincident(trigs, offsets, windows):
 
 
 def find_n_tuples(trigger_lists, offsets, windows, tisi_id):
-	for n, trig in enumerate(trigger_lists[0].triggers):
-		if not (n % 300):
+	for n, (trig, start) in enumerate(zip(trigger_lists[0].triggers, trigger_lists[0].start_times)):
+		if not (n % 1024):
 			if options.verbose:
 				print >>sys.stderr, "\t%.1f%%\r" % (100.0 * (n + 1) / len(trigger_lists[0].triggers)),
-		t = (trig.get_stop() + trig.get_start()) / 2 + offsets[trig.ifo]
-		dt = maxwindow + trig.duration / 2
-		for l in MultiIter([[trig]] + map(lambda l: l.intersects(t - offsets[l.instrument], dt), trigger_lists[1:])):
+		for l in MultiIter([[trig]] + map(lambda l: l.intersects(start + trig.duration / 2 + offsets[trig.ifo] - offsets[l.instrument], maxwindow + trig.duration / 2), trigger_lists[1:])):
 			if are_coincident(l, offsets, windows):
 				append_coinc(tisi_id, l)
 	if options.verbose:
