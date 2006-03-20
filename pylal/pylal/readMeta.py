@@ -168,7 +168,7 @@ class coincInspiralTable:
   The stat is set by default to the snrsq: the sum of the squares of the snrs 
   of the individual triggers.
   """
-  def __init__(self, inspTriggers = None, stat = None):
+  def __init__(self, inspTriggers = None, stat = 'snr'):
     """
     @param inspTriggese: a metaDataTable containing inspiral triggers 
                          from which to construct coincidences
