@@ -25,6 +25,22 @@
 #
 
 from glue import segments
+from pylal.date import LIGOTimeGPS
+
+
+#
+# =============================================================================
+#
+#                             Segment Manipulation
+#
+# =============================================================================
+#
+
+def segment_increment(s, delta):
+	"""
+	Add delta to the upper and lower bounds of s.
+	"""
+	return segments.segment(s[0] + delta, s[1] + delta)
 
 
 #
@@ -38,7 +54,8 @@ from glue import segments
 def cmp_segs(a, b):
 	"""
 	Returns 1 if a covers an interval above b's interval, -1 if a
-	covers an interval below b's, and 0 if the two intervals overlap.
+	covers an interval below b's, and 0 if the two intervals overlap
+	(including if their edges touch).
 	"""
 	if a[0] > b[1]:
 		return 1
@@ -73,17 +90,16 @@ def CompareSnglBurstByPeakTimeAndFreq(a, b):
 	return result
 
 
-def CompareSnglBurst(a, b, a_offset = 0.0, b_offset = 0.0, twindow = 0.0):
+def CompareSnglBurst(a, b, a_offset = LIGOTimeGPS(0), b_offset = LIGOTimeGPS(0), twindow = LIGOTimeGPS(0)):
 	"""
 	Orders a and b by time interval, then by frequency band.  Returns 0
 	if a and b's time-frequency tiles intersect.  Offsets can be
-	optionally applied to the times of triggers a and b.
+	optionally applied to the times of triggers a and b, and also a
+	time window in which to consider the tiles to be equal (if their
+	times do not overlap by more than this, they will continue to
+	compare as equal).
 	"""
-	a_period = a.get_period()
-	a_period = (a_period[0] + a_offset - twindow, a_period[1] + a_offset + twindow)
-	b_period = b.get_period()
-	b_period = (b_period[0] + b_offset, b_period[1] + b_offset)
-	result = cmp_segs(a_period, b_period)
+	result = cmp_segs(segment_increment(a.get_period(), a_offset).protract(twindow), segment_increment(b.get_period(), b_offset))
 	if not result:
 		result = cmp_segs(a.get_band(), b.get_band())
 	return result
