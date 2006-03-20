@@ -357,7 +357,7 @@ class coincInspiralTable:
           loudest_trig = trigger
           loudest_stat = trigger['stat']
 
-      cluster_triggers.table.append(loudest_stat)
+      cluster_triggers.table.append(loudest_trig)
       
     return cluster_triggers 
 
