@@ -203,46 +203,43 @@ class TriggerList(object):
 	def __init__(self, instrument):
 		self.instrument = instrument
 		self.triggers = []
+		self.maxduration = LIGOTimeGPS(0)
 
 	def append(self, trigger):
+		if trigger.duration > self.maxduration:
+			self.maxduration = trigger.duration
 		self.triggers.append(trigger)
 
 	def mkindex(self):
-		self.triggers.sort(lambda a, b: cmp(a.get_start(), b.get_start()))
-		self.start_times = [row.get_start() for row in self.triggers]
+		self.triggers.sort(lambda a, b: cmp(a.get_stop(), b.get_stop()))
+		self.stop_times = [row.get_stop() for row in self.triggers]
 
-	def left(self, t):
-		return bisect.bisect_left(self.start_times, t)
-
-	def right(self, t):
-		return bisect.bisect_right(self.start_times, t)
-
-	def near(self, t, dt):
+	def intersects(self, t, dt):
 		"""
-		Return a list of the triggers with start times within dt of
-		t.
+		Return a list of the triggers whose time intervals
+		intersect t +/- dt.
 		"""
 		l = []
-		i = self.left(t - dt)
-		while (i < len(self.triggers)) and (self.triggers[i].get_start() <= t + dt):
-			l.append(self.triggers[i])
+		i = bisect.bisect_left(self.stop_times, t - dt)
+
+		while (i < len(self.triggers)) and (self.triggers[i].get_stop() - self.maxduration <= t + dt):
+			if self.triggers[i].get_start() <= t + dt:
+				l.append(self.triggers[i])
 			i += 1
 		return l
 
 
 def construct_trigger_lists(table):
 	lists = {}
-	maxduration = LIGOTimeGPS(0)
 	for row in table:
 		if row.ifo not in lists:
 			lists[row.ifo] = TriggerList(row.ifo)
-		if row.duration > maxduration:
-			maxduration = row.duration
 		lists[row.ifo].append(row)
 	map(TriggerList.mkindex, lists.values())
-	return lists.values(), maxduration
+	return lists.values()
 
-triggerlists, maxduration = construct_trigger_lists(snglbursttable)
+triggerlists = construct_trigger_lists(snglbursttable)
+triggerlists.sort(lambda a, b: cmp(a.instrument, b.instrument))
 
 
 #
@@ -300,18 +297,15 @@ def append_coinc(tisi_id, trigs):
 
 def are_coincident(trigs, offsets, windows):
 	"""
-	Return True if the triggers are all mutually coincident.
+	Return True if the triggers are all mutually coincident.  Requires
+	trigs to be sorted by IFO.
 	"""
-	for [a, b] in SnglBurstUtils.choices(trigs, 2):
-		try:
-			if a.ifo <= b.ifo:
-				window = windows[(a.ifo, b.ifo)]
-			else:
-				window = windows[(b.ifo, a.ifo)]
-		except KeyError:
-			raise KeyError, "no coincidence window provided for instrument pair %s,%s" % (a.ifo, b.ifo)
-		if SnglBurstUtils.CompareSnglBurst(a, b, offsets[a.ifo], offsets[b.ifo], window):
-			return False
+	try:
+		for [a, b] in SnglBurstUtils.choices(trigs, 2):
+			if SnglBurstUtils.CompareSnglBurst(a, b, offsets[a.ifo], offsets[b.ifo], windows[(a.ifo, b.ifo)]):
+				return False
+	except KeyError, e:
+		raise KeyError, "no coincidence window provided for instrument pair %s" % str(e)
 	return True
 
 
@@ -320,7 +314,9 @@ def find_n_tuples(trigger_lists, offsets, windows, tisi_id):
 		if not (n % 300):
 			if options.verbose:
 				print >>sys.stderr, "\t%.1f%%\r" % (100.0 * (n + 1) / len(trigger_lists[0].triggers)),
-		for l in MultiIter([[trig]] + map(lambda l: l.near(trig.get_start() + offsets[trig.ifo] - offsets[l.instrument], (maxwindow + maxduration) * 1.1), trigger_lists[1:])):
+		t = (trig.get_stop() + trig.get_start()) / 2 + offsets[trig.ifo]
+		dt = maxwindow + trig.duration / 2
+		for l in MultiIter([[trig]] + map(lambda l: l.intersects(t - offsets[l.instrument], dt), trigger_lists[1:])):
 			if are_coincident(l, offsets, windows):
 				append_coinc(tisi_id, l)
 	if options.verbose:
