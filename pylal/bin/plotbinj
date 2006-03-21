@@ -196,12 +196,7 @@ class DocContents(object):
 		return self.bursttable.rows[bisect.bisect_left(self.bursttableids, lsctables.ILWDID(id))]
 
 	def get_coincevents_by_id(self, id):
-		result = []
-		i = bisect.bisect_left(self.coincmaptableids, lsctables.ILWDID(id))
-		while (i < len(self.coincmaptable.rows)) and (self.coincmaptable.rows[i].coinc_event_id == id):
-			result.append(self.coincmaptable.rows[i])
-			i += 1
-		return result
+		return self.coincmaptable.rows[bisect.bisect_left(self.coincmaptableids, lsctables.ILWDID(id)) : bisect.bisect_right(self.coincmaptaableids, lsctables.ILWDID(id))]
 
 	def get_sim_by_coincid(self, id):
 		return [self.get_sim_by_id(row.event_id) for row in self.get_coincevents_by_id(id) if "sim_burst" in row.event_id]
