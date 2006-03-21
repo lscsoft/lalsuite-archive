@@ -236,10 +236,12 @@ class FoundIter(object):
 class MadeVsFound(object):
 	def __init__(self, xmin, xmax, nx, ymin, ymax, ny):
 		self.xmin = xmin
+		self.xmax = xmax
 		self.logxratio = math.log((xmax / xmin) ** (1.0 / (nx - 1.0)))
 		self.xcoords = self.xmin * numarray.exp(numarray.array(range(nx)) * self.logxratio)
 
 		self.ymin = ymin
+		self.ymax = ymax
 		self.logyratio = math.log((ymax / ymin) ** (1.0 / (ny - 1.0)))
 		self.ycoords = self.ymin * numarray.exp(numarray.array(range(ny)) * self.logyratio)
 
@@ -247,14 +249,16 @@ class MadeVsFound(object):
 		self.found = numarray.zeros((ny, nx), numarray.Float64)
 
 	def incmade(self, x, y):
-		i = int(math.log(y / self.ymin) / self.logyratio + 0.5)
-		j = int(math.log(x / self.xmin) / self.logxratio + 0.5)
-		self.made[i, j] += 1.0
+		if (self.xmin <= x <= self.xmax) and (self.ymin <= y <= self.ymax):
+			i = int(math.log(y / self.ymin) / self.logyratio + 0.5)
+			j = int(math.log(x / self.xmin) / self.logxratio + 0.5)
+			self.made[i, j] += 1.0
 
 	def incfound(self, x, y):
-		i = int(math.log(y / self.ymin) / self.logyratio + 0.5)
-		j = int(math.log(x / self.xmin) / self.logxratio + 0.5)
-		self.found[i, j] += 1.0
+		if (self.xmin <= x <= self.xmax) and (self.ymin <= y <= self.ymax):
+			i = int(math.log(y / self.ymin) / self.logyratio + 0.5)
+			j = int(math.log(x / self.xmin) / self.logxratio + 0.5)
+			self.found[i, j] += 1.0
 
 	def normalize(self):
 		self.made = numarray.where(self.made > 0, self.made, 1)
