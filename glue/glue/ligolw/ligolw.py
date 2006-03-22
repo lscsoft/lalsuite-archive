@@ -424,7 +424,6 @@ class LIGOLWContentHandler(sax.handler.ContentHandler):
 	SAX2-compliant parser.
 
 	Example:
-		from xml import sax
 		import ligolw
 
 		doc = ligolw.Document()
