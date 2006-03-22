@@ -113,6 +113,7 @@ def segmentCut ( sim_table, seglist, col_name ):
   return tmpTable
 
 
+
 #######################################################################
 # Chop a simInspiralTable based on component masses.
 #######################################################################
@@ -208,7 +209,7 @@ parser.add_option("-b","--hist-ng",action="store_true",default=False,\
 parser.add_option("-u","--cumulative-ng",action="store_true",default=False,\
     help="make a plot of cumulative Ng vs effective distance" )
     
-parser.add_option("-x","--x-max",action="store",type="float",default = 100,\
+parser.add_option("-x","--x-max",action="store",type="float",default = 100.0,\
     help="maximum value plotted on x axis")
     
 parser.add_option("-y","--y-max",action="store",type="float",default = None,\
@@ -219,7 +220,10 @@ parser.add_option("-e","--plot-efficiency",action="store_true",default=False,\
 
 parser.add_option("-M","--plot-chirpmass",action="store_true",default=False,\
     help="make a histogram of ng vs chirp mass" )
-    
+
+parser.add_option("-C","--plot-contour",action="store_true",default=False,\
+    help="make a Contour plot of chirp mass and eff. dist")
+   
 parser.add_option("-g","--glob-found",action="store",type="string",\
     default=None, metavar=" FOUND_GLOB", \
     help="GLOB of found trigger/injection files to read" )
@@ -438,7 +442,7 @@ if opts.hist_ng:
     title( opts.title )
   if opts.figure_name:
     savefig( opts.figure_name + '_' + opts.site + "_hist.png" )
-  
+  print max(effDistArray[opts.site]) 
 
 #######################################################################
 # make a cumulative histogram
@@ -481,11 +485,57 @@ if opts.plot_chirpmass:
  ng,a,b = hist(mchirp,x)
  ng = ng*max_luminosity / numSources
  
- print mchirp
+ 
+ xlabel( 'Chirp Mass' )
+ ylabel('ng' )
+ if opts.title:
+   title( opts.title )
+ if opts.figure_name:
+   savefig( "chirp_mass.png" )
+
+####################################################################
+# Plot a Contour Plot of Mass and Distance.
+####################################################################
+if opts.plot_contour:
+ h_dist = simInspTriggers.getColumnByName("eff_dist_h").asarray()
+ mchirp = simInspTriggers.getColumnByName("mchirp").asarray()
+ 
+ step_m = (max(mchirp)-min(mchirp))/opts.nbins
+ step_d = (max(h_dist)-min(h_dist))/opts.nbins
+
+ medges = arange(min(mchirp),max(mchirp),step_m)
+ dedges = arange(min(h_dist),max(h_dist),step_d)
+ 
+ i = 0
+ ng_m_d = zeros((opts.nbins,opts.nbins))
+ 
+ while i < len(mchirp):
+
+   k = int((mchirp[i]-medges[0])*1.0/step_m)
+   if (k > opts.nbins-1):
+	k = k-1
+   l = int((h_dist[i]-dedges[0])*1.0/step_d)
+   if (l > opts.nbins-1):
+	l = l-1
+
+   ng_m_d[k][l] = ng_m_d[k][l] + 1  
+   i = i + 1
+ 
+ xlabel('mchirp')
+ ylabel('effdist Hanford') 
+
+ print ng_m_d
+ 
+
+ print "max_h-dist"
+  
+ print max(h_dist)
+ contourf(medges,dedges,ng_m_d) 
 
 ###########################################################
 # make an efficiency plot
-###########################################################
+
+#########################################################
 
 if opts.plot_efficiency:
   
