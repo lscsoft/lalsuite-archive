@@ -1,0 +1,301 @@
+#!/usr/bin/python
+#
+# $Id$
+#
+# Copyright (C) 2006  Kipp C. Cannon
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 2 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+#
+# =============================================================================
+#
+#                                   Preamble
+#
+# =============================================================================
+#
+
+import bisect
+import math
+from optparse import OptionParser
+import matplotlib
+matplotlib.use("Agg")
+from matplotlib import figure
+from matplotlib.backends.backend_agg import FigureCanvasAgg
+import numarray
+import sys
+import urllib
+
+from glue import lal
+from glue import segments
+from glue.ligolw import ligolw
+from glue.ligolw import metaio
+from glue.ligolw import lsctables
+from glue.ligolw import docutils
+
+__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__version__ = "$Revision$"[11:-2]
+__date__ = "$Date$"[7:-2]
+
+
+#
+# =============================================================================
+#
+#                                 Command Line
+#
+# =============================================================================
+#
+
+parser = OptionParser(version="%prog CVS $Id$")
+parser.add_option("-i", "--input", metavar = "filename", default = [], action = "append", help = "read input from this file")
+parser.add_option("-c", "--cache", metavar = "filename", default = [], action = "append", help = "read input file the files in this cache")
+parser.add_option("-o", "--output", metavar = "filename", help = "set output file name (required)")
+parser.add_option("-x", "--x-instrument", metavar = "instrument", help = "set instrument for x axis")
+parser.add_option("-y", "--y-instrument", metavar = "instrument", help = "set instrument for y axis")
+parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
+options = parser.parse_args()[0]
+del parser
+
+for name in options.cache:
+	options.input.extend([entry.url for entry in map(lal.CacheEntry, file(name))])
+
+if not options.input:
+	print >>sys.stderr, "error: no input files specified"
+	sys.exit(1)
+
+if not options.output:
+	print >>sys.stderr, "error: no output file specified"
+	sys.exit(1)
+
+
+#
+# =============================================================================
+#
+#                                    Input
+#
+# =============================================================================
+#
+
+def ElementFilter(name, attrs):
+	return lsctables.IsTableProperties(lsctables.SnglBurstTable, name, attrs) or lsctables.IsTableProperties(lsctables.CoincTable, name, attrs) or lsctables.IsTableProperties(lsctables.CoincMapTable, name, attrs) or lsctables.IsTableProperties(lsctables.TimeSlideTable, name, attrs)
+
+def LoadDocument(url):
+	doc = ligolw.Document()
+	handler = docutils.PartialLIGOLWContentHandler(doc, ElementFilter)
+	try:
+		ligolw.make_parser(handler).parse(urllib.urlopen(url))
+	except Exception, e:
+		print >>sys.stderr, "error: parsing contents of %s: %s" % (url, str(e))
+		sys.exit(1)
+	return doc
+
+def GetTable(doc, Type):
+	"""
+	Find and return the table of the given type.
+	"""
+	tables = lsctables.getTablesByType(doc, Type)
+	if len(tables) == 0:
+		print >>sys.stderr, "warning: no %s tables found" % metaio.StripTableName(Type.tableName)
+		return lsctables.New(Type)
+	if len(tables) == 1:
+		return tables[0]
+	print >>sys.stderr, "error: files contain incompatible %s tables" % metaio.StripTableName(Type.tableName)
+	sys.exit(1)
+
+
+#
+# =============================================================================
+#
+#                            Document Comprehension
+#
+# =============================================================================
+#
+
+class DocContents(object):
+	def __init__(self, xmldoc):
+		#
+		# Extract tables
+		#
+
+		self.bursttable = GetTable(xmldoc, lsctables.SnglBurstTable)
+		self.coinctable = GetTable(xmldoc, lsctables.CoincTable)
+		self.coincmaptable = GetTable(xmldoc, lsctables.CoincMapTable)
+		self.tisitable = GetTable(xmldoc, lsctables.TimeSlideTable)
+
+		#
+		# Construct ID look-up tables
+		#
+
+		# sngl_burst by event_id
+		self.bursttable.rows.sort(lambda a, b: cmp(lsctables.ILWDID(a.event_id), lsctables.ILWDID(b.event_id)))
+		self.bursttableids = map(lsctables.ILWDID, self.bursttable.getColumnByName("event_id"))
+
+		# coinc by coinc_event_id
+		self.coinctable.rows.sort(lambda a, b: cmp(lsctables.ILWDID(a.coinc_event_id), lsctables.ILWDID(b.coinc_event_id)))
+		self.coinctableids = map(lsctables.ILWDID, self.coinctable.getColumnByName("coinc_event_id"))
+
+		# coinc_event_map by coinc_event_id
+		self.coincmaptable.rows.sort(lambda a, b: cmp(lsctables.ILWDID(a.coinc_event_id), lsctables.ILWDID(b.coinc_event_id)))
+		self.coincmaptableids = map(lsctables.ILWDID, self.coincmaptable.getColumnByName("coinc_event_id"))
+
+		# time_slide by time_slide_id
+		self.tisitable.rows.sort(lambda a, b: cmp(lsctables.ILWDID(a.time_slide_id), lsctables.ILWDID(b.time_slide_id)))
+		self.tisitableids = map(lsctables.ILWDID, self.tisitable.getColumnByName("time_slide_id"))
+
+	def get_burst_by_id(self, id):
+		return self.bursttable.rows[bisect.bisect_left(self.bursttableids, lsctables.ILWDID(id))]
+
+	def get_coincevents_by_id(self, id):
+		return self.coincmaptable.rows[bisect.bisect_left(self.coincmaptableids, lsctables.ILWDID(id)) : bisect.bisect_right(self.coincmaptaableids, lsctables.ILWDID(id))]
+
+	def get_burst_by_coincid(self, id):
+		return [self.get_burst_by_id(row.event_id) for row in self.get_coincevents_by_id(id) if "sngl_burst" in row.event_id]
+
+	def get_tisi_by_id(self, id):
+		return self.tisitable.rows[bisect.bisect_left(self.tisitableids, lsctables.ILWDID(id)) : bisect.bisect_right(self.tisitableids, lsctables.ILWDID(id))]
+
+
+#
+# =============================================================================
+#
+#                             Coincidence Iterator
+#
+# =============================================================================
+#
+
+class CoincBurstIter(object):
+	def __init__(self,  doc):
+		self.doc = doc
+		self.iditer = iter(doc.coinctable.getColumnByName("coinc_event_id"))
+
+	def __iter__(self):
+		return self
+
+	def next(self):
+		return self.doc.get_burst_by_coincid(self.iditer.next())
+
+
+class CoincTisiIter(object):
+	def __init__(self, doc):
+		self.doc = doc
+		self.iditer = iter(doc.coinctable.getColumnByName("time_slide_id"))
+
+	def __iter__(self):
+		return self
+
+	def next(self):
+		return self.doc.get_tisi_by_id(self.iditer.next())
+
+
+#
+# =============================================================================
+#
+#                             Contour Plot Support
+#
+# =============================================================================
+#
+
+class RatioBins(object):
+	def __init__(self, xmin, xmax, nx, ymin, ymax, ny):
+		self.xmin = xmin
+		self.xmax = xmax
+		self.dx = (xmax - xmin) / (nx - 1)
+		self.xcoords = numarray.arange(xmin, xmax + self.dx, self.dx)
+
+		self.ymin = ymin
+		self.ymax = ymax
+		self.dy = (ymax - ymin) / (ny - 1)
+		self.ycoords = numarray.arange(ymin, ymax + self.dy, self.dy)
+
+		self.numerator = numarray.zeros((ny, nx), numarray.Float64)
+		self.denominator = numarray.zeros((ny, nx), numarray.Float64)
+
+	def incnumerator(self, x, y):
+		if (self.xmin <= x <= self.xmax) and (self.ymin <= y <= self.ymax):
+			i = int((y - self.ymin) / self.dy + 0.5)
+			j = int((x - self.xmin) / self.dx + 0.5)
+			self.numerator[i, j] += 1.0
+
+	def incdenominator(self, x, y):
+		if (self.xmin <= x <= self.xmax) and (self.ymin <= y <= self.ymax):
+			i = int((y - self.ymin) / self.dy + 0.5)
+			j = int((x - self.xmin) / self.dx + 0.5)
+			self.denominator[i, j] += 1.0
+
+	def normalize(self):
+		self.denominator = numarray.where(self.denominator > 0, self.denominator, 1)
+
+
+#
+# =============================================================================
+#
+#                        Instrument 1 vs. Instrument 2
+#
+# =============================================================================
+#
+
+class Inst1VsInst2(object):
+	def __init__(self):
+		self.fig = figure.Figure()
+		self.canvas = FigureCanvasAgg(self.fig)
+		self.axes = self.fig.gca()
+		self.bins = RatioBins(-100.0, 100.0, 11, -100.0, 100.0, 11)
+
+		self.axes.grid(True)
+
+		self.axes.set_xlabel("%s Offset (s)" % options.x_instrument)
+		self.axes.set_ylabel("%s Offset (s)" % options.y_instrument)
+
+	def addto(self, doc):
+		for offsets in CoincTisiIter(doc):
+			x, y = None, None
+			for row in offsets:
+				if row.instrument == options.x_instrument:
+					x = row.offset
+				elif row.instrument == options.y_instrument:
+					y = row.offset
+			self.bins.incnumerator(x, y)
+
+	def finish(self):
+		cset = self.axes.contour(self.bins.xcoords, self.bins.ycoords, self.bins.numerator)
+		self.axes.set_title("Coincident Trigger Rate vs. Offset")
+
+
+#
+# =============================================================================
+#
+#                                     Plot
+#
+# =============================================================================
+#
+
+plot = Inst1VsInst2()
+
+for n, url in enumerate(options.input):
+	if options.verbose:
+		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(options.input), url)
+	plot.addto(DocContents(LoadDocument(url)))
+
+plot.finish()
+
+
+#
+# =============================================================================
+#
+#                                    Output
+#
+# =============================================================================
+#
+
+plot.fig.savefig(options.output)

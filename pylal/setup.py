@@ -45,6 +45,7 @@ setup(
 	],
 	scripts = [
 		os.path.join("bin", "plotbinj"),
+		os.path.join("bin", "plotburca"),
 		os.path.join("bin", "plotburst"),
 		os.path.join("bin", "plotburstrate"),
 		os.path.join("bin", "plotchannel"),
