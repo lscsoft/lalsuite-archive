@@ -47,6 +47,8 @@ class test_LIGOTimeGPS(unittest.TestCase):
 	def test__div__(self):
 		self.assertEqual(LIGOTimeGPS(10), LIGOTimeGPS(20) / 2)
 		self.assertEqual(LIGOTimeGPS(10), LIGOTimeGPS(5) / 0.5)
+		self.assertEqual(LIGOTimeGPS(333333333,333333333), LIGOTimeGPS(1000000000) / 3)
+		self.assertEqual(LIGOTimeGPS(666666666,666666667), LIGOTimeGPS(2000000000) / 3)
 
 	def test__mod__(self):
 		self.assertEqual(LIGOTimeGPS(3), LIGOTimeGPS(13) % 5.0)
