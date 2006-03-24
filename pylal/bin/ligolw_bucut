@@ -27,18 +27,13 @@
 #
 
 from optparse import OptionParser
-import os
-import socket
 import sys
-import time
 
 from glue import lal
 from glue.ligolw import ligolw
-from glue.ligolw import metaio
 from glue.ligolw import lsctables
-from glue.ligolw import docutils
+from pylal import llwapp
 from pylal import SnglBurstUtils
-from pylal.date import XLALUTCToGPS
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
@@ -58,7 +53,6 @@ parser.add_option("--comment", metavar = "text", default = "", help = "set comme
 parser.add_option("-i", "--input", metavar = "filename", help = "read from filename (default = stdin)")
 parser.add_option("-o", "--output", metavar = "filename", help = "write to filename (default = stdout)")
 parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
-
 parser.add_option("--min-amplitude", metavar = "value", help = "discard triggers below the given amplitude")
 parser.add_option("--max-amplitude", metavar = "value", help = "discard triggers above the given amplitude")
 parser.add_option("--min-bandwidth", metavar = "Hz", help = "discard triggers narrower than the given bandwidth")
@@ -86,8 +80,8 @@ parser.add_option("--min-snr", metavar = "value", help = "discard triggers below
 parser.add_option("--max-snr", metavar = "value", help = "discard triggers above the given SNR")
 parser.add_option("--min-tfvolume", metavar = "value", help = "discard triggers with time-frequency volume below the given volume")
 parser.add_option("--max-tfvolume", metavar = "value", help = "discard triggers with time-frequency volume above the given volume")
-options, args = parser.parse_args()
-del parser, args
+options = parser.parse_args()[0]
+del parser
 
 
 #
@@ -113,25 +107,12 @@ else:
 # =============================================================================
 #
 
-proctable = metaio.getTablesByName(doc, lsctables.ProcessTable.tableName)
-if len(proctable) != 1:
-	print >>sys.stderr, "error: input must contain exactly 1 process table"
+try:
+	snglbursttable = llwapp.get_table(doc, lsctables.SnglBurstTable.tableName)
+	searchsummtable = llwapp.get_table(doc, lsctables.SearchSummaryTable.tableName)
+except Exception, e:
+	print >>sys.stderr, "error: %s" % str(e)
 	sys.exit(1)
-proctable = proctable[0]
-
-procparamtable = metaio.getTablesByName(doc, lsctables.ProcessParamsTable.tableName)
-if len(procparamtable) != 1:
-	print >>sys.stderr, "error: input must contain exactly 1 process params table"
-	sys.exit(1)
-procparamtable = procparamtable[0]
-
-searchsummtable = metaio.getTablesByName(doc, lsctables.SearchSummaryTable.tableName)
-if len(searchsummtable) != 1:
-	print >>sys.stderr, "error: input must contain exactly 1 search summary table"
-	sys.exit(1)
-searchsummtable = searchsummtable[0]
-
-snglbursttables = metaio.getTablesByName(doc, lsctables.SnglBurstTable.tableName)
 
 
 #
@@ -142,118 +123,94 @@ snglbursttables = metaio.getTablesByName(doc, lsctables.SnglBurstTable.tableName
 # =============================================================================
 #
 
-process = lsctables.Process()
-process.program = "ligolw_bucut"
-process.version = __version__
-process.cvs_repository = "lscsoft"
-process.cvs_entry_time = XLALUTCToGPS(time.strptime(__date__, "%Y/%m/%d %H:%M:%S")).seconds
-process.comment = options.comment
-process.is_online = 0
-process.node = socket.gethostbyaddr(socket.gethostname())[0]
-process.username = os.environ["LOGNAME"]
-process.unix_procid = os.getpid()
-process.start_time = XLALUTCToGPS(time.gmtime()).seconds
-process.end_time = 0
-process.jobid = 0
-process.domain = ""
-process.ifos = ""
-process.process_id = docutils.NewILWDs(proctable, "process_id").next()
+process = llwapp.append_process(doc, program = "ligolw_bucut", version = __version__, cvs_repository = "lscsoft", cvs_entry_time = __date__, comment = options.comment)
 
-proctable.append(process)
-
-def add_param(name, type, value):
-	param = lsctables.ProcessParams()
-	param.program = process.program
-	param.process_id = process.process_id
-	param.param = str(name)
-	param.type = str(type)
-	param.value = str(value)
-	procparamtable.append(param)
-
+params = []
 if options.input != None:
-	add_param("--input", "lstring", options.input)
+	params += [("--input", "lstring", options.input)]
 if options.output != None:
-	add_param("--output", "lstring", options.output)
+	params += [("--output", "lstring", options.output)]
 if options.min_amplitude != None:
 	options.min_amplitude = float(options.min_amplitude)
-	add_param("--min-amplitude", "real_4", options.min_amplitude)
+	params += [("--min-amplitude", "real_4", options.min_amplitude)]
 if options.max_amplitude != None:
 	options.max_amplitude = float(options.max_amplitude)
-	add_param("--max-amplitude", "real_4", options.max_amplitude)
+	params += [("--max-amplitude", "real_4", options.max_amplitude)]
 if options.min_bandwidth != None:
 	options.min_bandwidth = float(options.min_bandwidth)
-	add_param("--min-bandwidth", "real_4", options.min_bandwidth)
+	params += [("--min-bandwidth", "real_4", options.min_bandwidth)]
 if options.max_bandwidth != None:
 	options.max_bandwidth = float(options.max_bandwidth)
-	add_param("--max-bandwidth", "real_4", options.max_bandwidth)
+	params += [("--max-bandwidth", "real_4", options.max_bandwidth)]
 if options.min_central_freq != None:
 	options.min_central_freq = float(options.min_central_freq)
-	add_param("--min-central-freq", "real_4", options.min_central_freq)
+	params += [("--min-central-freq", "real_4", options.min_central_freq)]
 if options.max_central_freq != None:
 	options.max_central_freq = float(options.max_central_freq)
-	add_param("--max-central-freq", "real_4", options.max_central_freq)
+	params += [("--max-central-freq", "real_4", options.max_central_freq)]
 if options.min_confidence != None:
 	options.min_confidence = float(options.min_confidence)
-	add_param("--min-confidence", "real_4", options.min_confidence)
+	params += [("--min-confidence", "real_4", options.min_confidence)]
 if options.max_confidence != None:
 	options.max_confidence = float(options.max_confidence)
-	add_param("--max-confidence", "real_4", options.max_confidence)
+	params += [("--max-confidence", "real_4", options.max_confidence)]
 if options.min_duration != None:
 	options.min_duration = float(options.min_duration)
-	add_param("--min-duration", "real_4", options.min_duration)
+	params += [("--min-duration", "real_4", options.min_duration)]
 if options.max_duration != None:
 	options.max_duration = float(options.max_duration)
-	add_param("--max-duration", "real_4", options.max_duration)
+	params += [("--max-duration", "real_4", options.max_duration)]
 if options.min_fhigh != None:
 	options.min_fhigh = float(options.min_fhigh)
-	add_param("--min-fhigh", "real_4", options.min_fhigh)
+	params += [("--min-fhigh", "real_4", options.min_fhigh)]
 if options.max_fhigh != None:
 	options.max_fhigh = float(options.max_fhigh)
-	add_param("--max-fhigh", "real_4", options.max_fhigh)
+	params += [("--max-fhigh", "real_4", options.max_fhigh)]
 if options.min_flow != None:
 	options.min_flow = float(options.min_flow)
-	add_param("--min-flow", "real_4", options.min_flow)
+	params += [("--min-flow", "real_4", options.min_flow)]
 if options.max_flow != None:
 	options.max_flow = float(options.max_flow)
-	add_param("--max-flow", "real_4", options.max_flow)
+	params += [("--max-flow", "real_4", options.max_flow)]
 if options.min_hrss != None:
 	options.min_hrss = float(options.min_hrss)
-	add_param("--min-hrss", "real_4", options.min_hrss)
+	params += [("--min-hrss", "real_4", options.min_hrss)]
 if options.max_hrss != None:
 	options.max_hrss = float(options.max_hrss)
-	add_param("--max-hrss", "real_4", options.max_hrss)
+	params += [("--max-hrss", "real_4", options.max_hrss)]
 for instrument in options.cut_instrument:
-	add_param("--cut-instrument", "lstring", instrument)
+	params += [("--cut-instrument", "lstring", instrument)]
 if options.min_peak_time != None:
 	options.min_peak_time = lal.LIGOTimeGPS(options.min_peak_time)
-	add_param("--min-peak-time", "lstring", options.min_peak_time)
+	params += [("--min-peak-time", "lstring", options.min_peak_time)]
 if options.max_peak_time != None:
 	options.max_peak_time = lal.LIGOTimeGPS(options.max_peak_time)
-	add_param("--max-peak-time", "lstring", options.max_peak_time)
+	params += [("--max-peak-time", "lstring", options.max_peak_time)]
 if options.min_snr != None:
 	options.min_snr = float(options.min_snr)
-	add_param("--min-snr", "real_4", options.min_snr)
+	params += [("--min-snr", "real_4", options.min_snr)]
 if options.max_snr != None:
 	options.max_snr = float(options.max_snr)
-	add_param("--max-snr", "real_4", options.max_snr)
+	params += [("--max-snr", "real_4", options.max_snr)]
 if options.min_start_time != None:
 	options.min_start_time = lal.LIGOTimeGPS(options.min_start_time)
-	add_param("--min-start-time", "lstring", options.min_start_time)
+	params += [("--min-start-time", "lstring", options.min_start_time)]
 if options.max_start_time != None:
 	options.max_start_time = lal.LIGOTimeGPS(options.max_start_time)
-	add_param("--max-start-time", "lstring", options.max_start_time)
+	params += [("--max-start-time", "lstring", options.max_start_time)]
 if options.min_stop_time != None:
 	options.min_stop_time = lal.LIGOTimeGPS(options.min_stop_time)
-	add_param("--min-stop-time", "lstring", options.min_stop_time)
+	params += [("--min-stop-time", "lstring", options.min_stop_time)]
 if options.max_stop_time != None:
 	options.max_stop_time = lal.LIGOTimeGPS(options.max_stop_time)
-	add_param("--max-stop-time", "lstring", options.max_stop_time)
+	params += [("--max-stop-time", "lstring", options.max_stop_time)]
 if options.min_tfvolume != None:
 	options.min_tfvolume = float(options.min_tfvolume)
-	add_param("--min-tfvolume", "real_4", options.min_tfvolume)
+	params += [("--min-tfvolume", "real_4", options.min_tfvolume)]
 if options.max_tfvolume != None:
 	options.max_tfvolume = float(options.max_tfvolume)
-	add_param("--max-tfvolume", "real_4", options.max_tfvolume)
+	params += [("--max-tfvolume", "real_4", options.max_tfvolume)]
+llwapp.append_process_params(doc, process, params)
 
 
 #
@@ -322,15 +279,12 @@ def keep_this_trigger(burst, options):
 	return True
 
 
-nevents = 0
-for table in snglbursttables:
-	i = 0
-	while i < len(table.rows):
-		if keep_this_trigger(table.rows[i], options):
-			i += 1
-			nevents += 1
-			continue
-		del table.rows[i]
+i = 0
+while i < len(snglbursttable):
+	if keep_this_trigger(snglbursttable[i], options):
+		i += 1
+		continue
+	del snglbursttable[i]
 
 
 #
@@ -341,19 +295,7 @@ for table in snglbursttables:
 # =============================================================================
 #
 
-searchsumm = lsctables.SearchSummary()
-searchsumm.process_id = process.process_id
-searchsumm.shared_object = "standalone"
-searchsumm.lalwrapper_cvs_tag = ""
-searchsumm.lal_cvs_tag = ""
-searchsumm.comment = process.comment
-searchsumm.ifos = process.ifos
-searchsumm.set_in(searchsummtable.get_inlist().extent())
-searchsumm.set_out(searchsummtable.get_outlist().extent())
-searchsumm.nevents = nevents
-searchsumm.nnodes = 1
-
-searchsummtable.append(searchsumm)
+llwapp.append_search_summary(doc, process, inset = searchsummtable.get_inlist().extent(), outseg = searchsummtable.get_outlist().extent(), nevents = len(snglbursttable))
 
 
 #
@@ -364,7 +306,7 @@ searchsummtable.append(searchsumm)
 # =============================================================================
 #
 
-process.end_time = XLALUTCToGPS(time.gmtime()).seconds
+llwapp.set_process_end_time(process)
 
 if options.output:
 	doc.write(file(options.output, "w"))

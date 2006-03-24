@@ -27,17 +27,12 @@
 #
 
 from optparse import OptionParser
-import os
-import socket
 import sys
-import time
 
 from glue.ligolw import ligolw
-from glue.ligolw import metaio
 from glue.ligolw import lsctables
-from glue.ligolw import docutils
+from pylal import llwapp
 from pylal import SnglBurstUtils
-from pylal.date import XLALUTCToGPS
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
@@ -100,25 +95,12 @@ else:
 # =============================================================================
 #
 
-proctable = metaio.getTablesByName(doc, lsctables.ProcessTable.tableName)
-if len(proctable) != 1:
-	print >>sys.stderr, "error: input must contain exactly 1 process table"
+try:
+	searchsummtable = llwapp.get_table(doc, lsctables.SearchSummaryTable.tableName)
+	snglbursttable = llwapp.get_table(doc, lsctables.SnglBurstTable.tableName)
+except Exception, e:
+	print >>sys.stderr, "error: %s" % str(e)
 	sys.exit(1)
-proctable = proctable[0]
-
-procparamtable = metaio.getTablesByName(doc, lsctables.ProcessParamsTable.tableName)
-if len(procparamtable) != 1:
-	print >>sys.stderr, "error: input must contain exactly 1 process params table"
-	sys.exit(1)
-procparamtable = procparamtable[0]
-
-searchsummtable = metaio.getTablesByName(doc, lsctables.SearchSummaryTable.tableName)
-if len(searchsummtable) != 1:
-	print >>sys.stderr, "error: input must contain exactly 1 search summary table"
-	sys.exit(1)
-searchsummtable = searchsummtable[0]
-
-snglbursttables = metaio.getTablesByName(doc, lsctables.SnglBurstTable.tableName)
 
 
 #
@@ -129,39 +111,14 @@ snglbursttables = metaio.getTablesByName(doc, lsctables.SnglBurstTable.tableName
 # =============================================================================
 #
 
-process = lsctables.Process()
-process.program = "ligolw_bucluster"
-process.version = __version__
-process.cvs_repository = "lscsoft"
-process.cvs_entry_time = XLALUTCToGPS(time.strptime(__date__, "%Y/%m/%d %H:%M:%S")).seconds
-process.comment = options.comment
-process.is_online = 0
-process.node = socket.gethostbyaddr(socket.gethostname())[0]
-process.username = os.environ["LOGNAME"]
-process.unix_procid = os.getpid()
-process.start_time = XLALUTCToGPS(time.gmtime()).seconds
-process.end_time = 0
-process.jobid = 0
-process.domain = ""
-process.ifos = ""
-process.process_id = docutils.NewILWDs(proctable, "process_id").next()
+process = llwapp.append_process_info(doc, program = "ligolw_bucluster", version = __version__, cvs_repository = "lscsoft", cvs_entry_time = __date__, comment = options.comment)
 
-proctable.append(process)
-
-def add_param(name, type, value):
-	param = lsctables.ProcessParams()
-	param.program = process.program
-	param.process_id = process.process_id
-	param.param = str(name)
-	param.type = str(type)
-	param.value = str(value)
-	procparamtable.append(param)
-
+params = [("--cluster", "lstring", options.cluster)]
 if options.input != None:
-	add_param("--input", "lstring", options.input)
+	params += [("--input", "lstring", options.input)]
 if options.output != None:
-	add_param("--output", "lstring", options.output)
-add_param("--cluster", "lstring", options.cluster)
+	params += [("--output", "lstring", options.output)]
+llwapp.append_process_params(doc, process, params)
 
 
 #
@@ -172,12 +129,7 @@ add_param("--cluster", "lstring", options.cluster)
 # =============================================================================
 #
 
-for table in snglbursttables:
-	SnglBurstUtils.ClusterSnglBurstTable(table.rows, testfunc, clusterfunc, bailoutfunc)
-
-nevents = 0
-for table in snglbursttables:
-	nevents += len(table.rows)
+SnglBurstUtils.ClusterSnglBurstTable(snglbursttable.rows, testfunc, clusterfunc, bailoutfunc)
 
 
 #
@@ -188,19 +140,7 @@ for table in snglbursttables:
 # =============================================================================
 #
 
-searchsumm = lsctables.SearchSummary()
-searchsumm.process_id = process.process_id
-searchsumm.shared_object = "standalone"
-searchsumm.lalwrapper_cvs_tag = ""
-searchsumm.lal_cvs_tag = ""
-searchsumm.comment = process.comment
-searchsumm.ifos = process.ifos
-searchsumm.set_in(searchsummtable.get_inlist().extent())
-searchsumm.set_out(searchsummtable.get_outlist().extent())
-searchsumm.nevents = nevents
-searchsumm.nnodes = 1
-
-searchsummtable.append(searchsumm)
+llwapp.append_search_summary(doc, process, inseg = searchsummtable.get_inlist().extent(), outseg = searchsummtable.get_outlist().extent(), nevents = len(snglbursttable.rows))
 
 
 #
@@ -211,7 +151,7 @@ searchsummtable.append(searchsumm)
 # =============================================================================
 #
 
-process.end_time = XLALUTCToGPS(time.gmtime()).seconds
+set_process_end_time(process)
 
 if options.output:
 	doc.write(file(options.output, "w"))
