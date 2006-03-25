@@ -497,40 +497,44 @@ if opts.plot_chirpmass:
 # Plot a Contour Plot of Mass and Distance.
 ####################################################################
 if opts.plot_contour:
- h_dist = simInspTriggers.getColumnByName("eff_dist_h").asarray()
+
+ effDistArray[site] = simInspTriggers.getColumnByName(effDist).asarray()
  mchirp = simInspTriggers.getColumnByName("mchirp").asarray()
  
- step_m = (max(mchirp)-min(mchirp))/opts.nbins
- step_d = (max(h_dist)-min(h_dist))/opts.nbins
-
- medges = arange(min(mchirp),max(mchirp),step_m)
- dedges = arange(min(h_dist),max(h_dist),step_d)
  
- i = 0
- ng_m_d = zeros((opts.nbins,opts.nbins))
+ def ng_m_d(M,D):
+	 step_m = (max(M)-min(M))/opts.nbins
+ 	 step_d = (max(D)-min(D))/opts.nbins
+
+         medges = arange(min(M),max(M),step_m)
+	 dedges = arange(min(D),max(D),step_d)
+
+	 i = 0
+	 ng_m_d = zeros((opts.nbins,opts.nbins))
  
- while i < len(mchirp):
+	 while i < len(M):
 
-   k = int((mchirp[i]-medges[0])*1.0/step_m)
-   if (k > opts.nbins-1):
-	k = k-1
-   l = int((h_dist[i]-dedges[0])*1.0/step_d)
-   if (l > opts.nbins-1):
-	l = l-1
-
-   ng_m_d[k][l] = ng_m_d[k][l] + 1  
-   i = i + 1
- 
- xlabel('mchirp')
- ylabel('effdist Hanford') 
-
- print ng_m_d
+   		k = int((M[i]-medges[0])*1.0/step_m)
+  		if (k > opts.nbins-1):
+			k = k-1
+		l = int((D[i]-dedges[0])*1.0/step_d)
+		if (l > opts.nbins-1):
+			l = l-1
+	
+		ng_m_d[l][k] = ng_m_d[l][k] + 1  
+		i = i + 1
  
 
- print "max_h-dist"
-  
- print max(h_dist)
- contourf(medges,dedges,ng_m_d) 
+ 	 xlabel('mchirp')
+ 	 ylabel('Effective Distance ' + opts.site + ' (Mpc)')
+	 contourf(medges,dedges,ng_m_d)
+
+ 
+	 return ng_m_d
+ 
+ 
+ ng_m_d(mchirp,effDistArray[site]) 
+
 
 ###########################################################
 # make an efficiency plot
@@ -615,6 +619,13 @@ if opts.plot_efficiency:
   if opts.figure_name:
     savefig( opts.figure_name + '_' +opts.site + "_efficiency.png" )
 
+  ######################################################################################
+  # make a efficiency contour
+  ######################################################################################
+
+  
+
+
   ###########################################################
   # plot n_g
   figure()
@@ -645,6 +656,6 @@ if opts.plot_efficiency:
   print "The total Number of Galaxies"  
   print max(ng_cum)
 
+
 if opts.show_plot:
   show()
-
