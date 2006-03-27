@@ -257,6 +257,9 @@ parser.add_option("-M","--plot-chirpmass",action="store_true",default=False,\
 parser.add_option("-C","--plot-contour",action="store_true",default=False,\
     help="make a Contour plot of chirp mass and eff. dist")
    
+parser.add_option("-E","--plot-effcontour",action="store_true",default=False,\
+    help="make a Contour plot of efficiency vs chirp mass and eff. dist")
+   
 parser.add_option("-g","--glob-found",action="store",type="string",\
     default=None, metavar=" FOUND_GLOB", \
     help="GLOB of found trigger/injection files to read" )
@@ -304,7 +307,7 @@ if not opts.source_file:
   sys.exit(1)
 
 # if doing efficiency plot
-if opts.plot_efficiency:
+if opts.plot_efficiency and opts.plot_effcontour:
   # check at least one found file was specified
   if not opts.glob_found:
     print >>sys.stderr, "Must specify a GLOB of found injection files to read"
@@ -316,6 +319,7 @@ if opts.plot_efficiency:
     print >>sys.stderr, "Must specify a GLOB of missed injection files to read"
     print >>sys.stderr, "Enter 'plotgbb --help' for usage"
     sys.exit(1)
+
 
 
 #######################################################################
@@ -620,24 +624,6 @@ if opts.plot_efficiency:
   if opts.figure_name:
     savefig( opts.figure_name + '_' +opts.site + "_efficiency.png" )
 
-  ######################################################################################
-  # make a efficiency contour
-  ######################################################################################
-  effDistArray[site] = simInspTriggers.getColumnByName(effDist).asarray()
-  mchirp = simInspTriggers.getColumnByName("mchirp").asarray()
-  zf = zeros((len(mchirp)-len(hf)))
-  h_f = concatenate((hf,zf))
-  za = zeros((len(mchirp)-len(ha)))
-  h_a = concatenate((ha,za)) 
-  Eff = h_f*1.0/(h_a+0.000001)
-  
-
-  e = square(mchirp,Eff)
-  n = square(mchirp,effDistArray[site]) 
-  N = sum(sum(e*n*max_luminosity*1.0/numSources))
-  
-  print N
-  clf()
   
 
   ###########################################################
@@ -669,6 +655,63 @@ if opts.plot_efficiency:
 
   print "The total Number of Galaxies"  
   print max(ng_cum)
+
+
+  ##############################################################
+  # Plot Efficiency Chirp mass contour.
+  ##############################################################
+if opts.plot_effcontour: 
+  foundFiles = glob.glob(opts.glob_found)
+  found = readFiles(foundFiles)
+ 
+  missedFiles = glob.glob(opts.glob_missed) 
+  missed = readFiles(missedFiles)
+
+  effDistArray[site] = simInspTriggers.getColumnByName(effDist).asarray()
+  mchirp = simInspTriggers.getColumnByName("mchirp").asarray()
+
+ 
+  hf = found.getColumnByName(effDist).asarray()
+  hm = missed.getColumnByName(effDist).asarray()
+  ha = concatenate((hf ,hm))
+
+  
+  mchirp_f = found.getColumnByName("mchirp").asarray()
+  mchirp_m = missed.getColumnByName("mchirp").asarray()
+
+  print "max mchirp_f"
+  print max(mchirp_f)
+
+  
+  f = square(mchirp_f,hf)
+  m =  square(mchirp_m,hm)
+ 
+  e = f/(f + m + 0.00001)
+ 
+  step_d = (max(hf)-min(hf))*1.0/opts.nbins
+  step_m = (max(mchirp_f) - min(mchirp_f))*1.0/opts.nbins
+  f_edges = arange(min(hf),max(hf),step_d)
+  m_edges = arange(min(mchirp_f),max(mchirp_f),step_m)
+  
+  
+  xlabel("Mchirp")
+  ylabel("Distance")
+
+
+  ng = square(mchirp,effDistArray[site])
+
+  n = sum(sum(ng))*max_luminosity/numSources
+  
+  print n
+  
+  N = sum(sum(ng*e*max_luminosity/numSources))
+ 
+  print N
+
+  contourf(m_edges,f_edges,e)
+
+  xlabel("Mchirp")
+  ylabel("Distance")
 
 
 if opts.show_plot:
