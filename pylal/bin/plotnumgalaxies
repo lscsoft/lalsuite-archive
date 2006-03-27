@@ -113,6 +113,39 @@ def segmentCut ( sim_table, seglist, col_name ):
   return tmpTable
 
 
+#######################################################################
+# Make a Square Array
+#######################################################################
+
+def square(M,D):
+	 step_m = (max(M)-min(M))/opts.nbins
+ 	 step_d = (max(D)-min(D))/opts.nbins
+
+         medges = arange(min(M),max(M),step_m)
+	 dedges = arange(min(D),max(D),step_d)
+
+	 i = 0
+	 ng_m_d = zeros((opts.nbins,opts.nbins))
+ 
+	 while i < len(M):	
+		k = int((M[i]-medges[0])*1.0/step_m)
+  		if (k > opts.nbins-1):
+			k = k-1
+		l = int((D[i]-dedges[0])*1.0/step_d)
+		if (l > opts.nbins-1):
+			l = l-1
+
+		ng_m_d[l][k] = ng_m_d[l][k] + 1  
+		i = i+1
+ 
+
+ 	 xlabel('mchirp')
+ 	 ylabel('Effective Distance ' + opts.site + ' (Mpc)')
+	 contourf(medges,dedges,ng_m_d)
+	  
+ 
+	 return ng_m_d
+
 
 #######################################################################
 # Chop a simInspiralTable based on component masses.
@@ -501,40 +534,8 @@ if opts.plot_contour:
  effDistArray[site] = simInspTriggers.getColumnByName(effDist).asarray()
  mchirp = simInspTriggers.getColumnByName("mchirp").asarray()
  
- 
- def ng_m_d(M,D):
-	 step_m = (max(M)-min(M))/opts.nbins
- 	 step_d = (max(D)-min(D))/opts.nbins
-
-         medges = arange(min(M),max(M),step_m)
-	 dedges = arange(min(D),max(D),step_d)
-
-	 i = 0
-	 ng_m_d = zeros((opts.nbins,opts.nbins))
- 
-	 while i < len(M):
-
-   		k = int((M[i]-medges[0])*1.0/step_m)
-  		if (k > opts.nbins-1):
-			k = k-1
-		l = int((D[i]-dedges[0])*1.0/step_d)
-		if (l > opts.nbins-1):
-			l = l-1
-	
-		ng_m_d[l][k] = ng_m_d[l][k] + 1  
-		i = i + 1
- 
-
- 	 xlabel('mchirp')
- 	 ylabel('Effective Distance ' + opts.site + ' (Mpc)')
-	 contourf(medges,dedges,ng_m_d)
-
- 
-	 return ng_m_d
- 
- 
- ng_m_d(mchirp,effDistArray[site]) 
-
+ square(mchirp,effDistArray[site]) 
+ print  square(mchirp,effDistArray[site]) 
 
 ###########################################################
 # make an efficiency plot
@@ -622,9 +623,22 @@ if opts.plot_efficiency:
   ######################################################################################
   # make a efficiency contour
   ######################################################################################
-
+  effDistArray[site] = simInspTriggers.getColumnByName(effDist).asarray()
+  mchirp = simInspTriggers.getColumnByName("mchirp").asarray()
+  zf = zeros((len(mchirp)-len(hf)))
+  h_f = concatenate((hf,zf))
+  za = zeros((len(mchirp)-len(ha)))
+  h_a = concatenate((ha,za)) 
+  Eff = h_f*1.0/(h_a+0.000001)
   
 
+  e = square(mchirp,Eff)
+  n = square(mchirp,effDistArray[site]) 
+  N = sum(sum(e*n*max_luminosity*1.0/numSources))
+  
+  print N
+  clf()
+  
 
   ###########################################################
   # plot n_g
