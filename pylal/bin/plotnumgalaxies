@@ -679,10 +679,6 @@ if opts.plot_effcontour:
   mchirp_f = found.getColumnByName("mchirp").asarray()
   mchirp_m = missed.getColumnByName("mchirp").asarray()
 
-  print "max mchirp_f"
-  print max(mchirp_f)
-
-  
   f = square(mchirp_f,hf)
   m =  square(mchirp_m,hm)
  
@@ -694,16 +690,8 @@ if opts.plot_effcontour:
   m_edges = arange(min(mchirp_f),max(mchirp_f),step_m)
   
   
-  xlabel("Mchirp")
-  ylabel("Distance")
-
-
   ng = square(mchirp,effDistArray[site])
 
-  n = sum(sum(ng))*max_luminosity/numSources
-  
-  print n
-  
   N = sum(sum(ng*e*max_luminosity/numSources))
  
   print N
