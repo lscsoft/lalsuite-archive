@@ -114,24 +114,29 @@ def segmentCut ( sim_table, seglist, col_name ):
 
 
 #######################################################################
-# Make a Square Array
+#1. Define a Step size
+#2. Define an Edge
+#3. Define a Square Array
 #######################################################################
+def step_size(A):
+	 step_size(A) = (max(A)-min(A))*1.0/opts.nbins
+         return step_size
+
+
+def edges(A):
+
+	 edges(A) = arange(min(A),max(A),step_size(A))
+	 return edges
 
 def square(M,D):
-	 step_m = (max(M)-min(M))/opts.nbins
- 	 step_d = (max(D)-min(D))/opts.nbins
-
-         medges = arange(min(M),max(M),step_m)
-	 dedges = arange(min(D),max(D),step_d)
-
 	 i = 0
 	 ng_m_d = zeros((opts.nbins,opts.nbins))
  
 	 while i < len(M):	
-		k = int((M[i]-medges[0])*1.0/step_m)
+		k = int((M[i]-edges(M)[0])*1.0/step_size(M))
   		if (k > opts.nbins-1):
 			k = k-1
-		l = int((D[i]-dedges[0])*1.0/step_d)
+		l = int((D[i]-edges(D)[0])*1.0/step_size(D))
 		if (l > opts.nbins-1):
 			l = l-1
 
@@ -139,11 +144,8 @@ def square(M,D):
 		i = i+1
  
 
- 	 xlabel('mchirp')
- 	 ylabel('Effective Distance ' + opts.site + ' (Mpc)')
-	 contourf(medges,dedges,ng_m_d)
-	  
- 
+
+ 	 
 	 return ng_m_d
 
 
@@ -538,8 +540,11 @@ if opts.plot_contour:
  effDistArray[site] = simInspTriggers.getColumnByName(effDist).asarray()
  mchirp = simInspTriggers.getColumnByName("mchirp").asarray()
  
- square(mchirp,effDistArray[site]) 
- print  square(mchirp,effDistArray[site]) 
+ p = [1,2,2,2,4,2,6,7,8,5,4,6,9,0,4,3]
+ q = [1,2,6,7,4,3,2,3,4,2,4,5,3,4,4]
+
+ 
+ print square(p,q)
 
 ###########################################################
 # make an efficiency plot
@@ -679,27 +684,13 @@ if opts.plot_effcontour:
   mchirp_f = found.getColumnByName("mchirp").asarray()
   mchirp_m = missed.getColumnByName("mchirp").asarray()
 
-  f = square(mchirp_f,hf)
-  m =  square(mchirp_m,hm)
- 
-  e = f/(f + m + 0.00001)
- 
-  step_d = (max(hf)-min(hf))*1.0/opts.nbins
-  step_m = (max(mchirp_f) - min(mchirp_f))*1.0/opts.nbins
-  f_edges = arange(min(hf),max(hf),step_d)
-  m_edges = arange(min(mchirp_f),max(mchirp_f),step_m)
-  
-  
-  ng = square(mchirp,effDistArray[site])
+   
 
-  N = sum(sum(ng*e*max_luminosity/numSources))
+
  
-  print N
 
-  contourf(m_edges,f_edges,e)
 
-  xlabel("Mchirp")
-  ylabel("Distance")
+                                                                                                                                                                                                                                                                                                                                   
 
 
 if opts.show_plot:
