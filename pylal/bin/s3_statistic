@@ -11,6 +11,7 @@ from types import *
 from pylab import *
 from pylal import readMeta
 from pylal import viz
+from numarray.random_array import *
 
 ##############################################################################
 # helper functions
@@ -194,6 +195,14 @@ parser.add_option("-g","--slide-dist",action="store_true",default=False,\
     
 parser.add_option("-j","--slide-zero-dist",action="store_true",default=False,\
     help="plot the distribution of slide triggers + zero lag" )
+
+parser.add_option("-p","--slide-poisson-dist",action="store_true",
+    default=False, 
+    help="plot the distribution with Poisson distributed error bars" )
+
+parser.add_option("-q","--hist-slide-value",action="append",
+    type="float",dest="stat_values",metavar=" VAL",
+    help="make histogram of slide events at VAL (add to list)")
 
 parser.add_option("-D","--distribution",action="store",type="string",
     default="cumulative",
@@ -594,7 +603,17 @@ if opts.slide_dist or opts.slide_zero_dist:
   distSlides = []
 
   figure(100)
-  bins = arange(0.0, slideMax, slideMax/opts.num_bins )
+  if opts.plot_min:
+    binMin = opts.plot_min
+  else:
+    binMin = 0.0
+
+  if opts.plot_max:
+    binMax = opts.plot_max
+  else:
+    binMax = slideMax
+    
+  bins = arange(binMin, binMax, (binMax - binMin)/opts.num_bins )
 
   for thisSlide in slideStat:
     [thisDist,bin,info] = hist(thisSlide,bins)
@@ -620,6 +639,10 @@ if opts.slide_dist or opts.slide_zero_dist:
     slideMin.append( max(slideMean[i] - slideStd[i], 0.0001) )
     slideMean[i] = max(slideMean[i], 0.0001)
 
+  if opts.slide_poisson_dist:
+    poissonMin = []
+    for i in range( len(slideMean) ):
+      poissonMin.append( max(slideMean[i] - sqrt(slideMean[i]), 0.0001 ))
 
   # get the zero lag information
   if opts.slide_zero_dist:
@@ -648,7 +671,13 @@ if opts.slide_dist:
       log10(slideMean + slideStd) - log10(slideMean)], markersize=12,
       markeredgewidth=1, linewidth=1)
 
-  xlabel('Combined Statistic', size='x-large')
+  if opts.slide_poisson_dist:
+    errorbar(bins,log10(slideMean), [log10(slideMean) - log10(poissonMin), 
+        log10(slideMean + sqrt(slideMean)) - log10(slideMean)], 
+        markersize=12, markeredgewidth=1, linewidth=1, color='k')
+
+     
+  xlabel('Combined' + opts.statistic, size='x-large')
   ylabel('Log Number of events', size='x-large')
   if opts.distribution == 'cumulative':
     title_text = 'Cumulative histogram of Number of events vs statistic'
@@ -682,6 +711,11 @@ if opts.slide_zero_dist:
       log10(slideMean + slideStd) - log10(slideMean)], markersize=12,
       markeredgewidth=1, linewidth=1)
 
+  if opts.slide_poisson_dist:
+    errorbar(bins,log10(slideMean), [log10(slideMean) - log10(poissonMin), 
+        log10(slideMean + sqrt(slideMean)) - log10(slideMean)], 
+        markersize=12, markeredgewidth=1, linewidth=1, color='k')
+
   xlabel('Combined Statistic', size='x-large')
   ylabel('Log Number of events', size='x-large')
   if opts.distribution == 'cumulative':
@@ -703,6 +737,32 @@ if opts.slide_zero_dist:
     else:
       savefig(opts.figure_name + "_nc_slide_zero_distribution.png")
 
+####################################################################
+# make the plot of number of events per slide at a given stat value:
+if opts.stat_values:
+  for value in opts.stat_values:
+    fig_num += 1
+    figure(fig_num)
+    hold(True)
+   
+    bin =  int ( (value - bins[0]) / (bins[1] - bins[0]) )
+    number = distSlides[:,bin]
+    numBins = min(max(number) + 1, opts.num_bins)
+    numSl,binSl,junk = hist(number, numBins)
+
+    if opts.slide_poisson_dist:
+      poissonNum = poisson(mean(number), 2* opts.num_slides)
+      numPoisson,binS,junk = hist(poissonNum,binSl)
+      clf()
+      step = binSl[1] - binSl[0]
+      bar(binSl, numPoisson, (2.0 * step) / 3.0, color='r')
+      bar(binSl + step / 3.0 , numSl, (2.0 * step) / 3.0, color='b')
+          
+    xlabel('Number of events in slide at ' + opts.statistic + ' ' \
+        + str(value), size='x-large')
+    ylabel('Number of occurrences', size='x-large')
+    if opts.figure_name:
+      savefig(opts.figure_name + "_slide_dist_at_" + value + ".png")
 
 ##########################
 # make the efficiency plot 
