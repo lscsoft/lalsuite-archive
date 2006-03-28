@@ -119,14 +119,14 @@ def segmentCut ( sim_table, seglist, col_name ):
 #3. Define a Square Array
 #######################################################################
 def step_size(A):
-	 step_size(A) = (max(A)-min(A))*1.0/opts.nbins
-         return step_size
+	 step = (max(A)-min(A))*1.0/opts.nbins
+         return step
 
 
 def edges(A):
 
-	 edges(A) = arange(min(A),max(A),step_size(A))
-	 return edges
+	 tmp_edges(A) = arange(min(A),max(A),step_size(A))
+	 return tmp_edges
 
 def square(M,D):
 	 i = 0
