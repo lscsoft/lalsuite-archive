@@ -36,7 +36,7 @@ from glue.ligolw import metaio
 from glue.ligolw import lsctables
 from glue.ligolw import docutils
 from pylal import rate
-from pylal.date import LIGOTimeGPS, XLALGPSToUTC, XLALUTCToGPS
+from pylal.date import LIGOTimeGPS, XLALGPSToUTC, UTCMidnights
 
 #
 # =============================================================================
@@ -165,51 +165,16 @@ else:
 # =============================================================================
 #
 
-def utc_midnight(gps):
-	"""
-	Truncate a GPS seconds to UTC midnight.
-	"""
-	# convert to UTC (as list so we can edit it)
-	tm = list(XLALGPSToUTC(LIGOTimeGPS(gps)))
-
-	# truncate to midnight
-	tm[3] = 0	# hours
-	tm[4] = 0	# minutes
-	tm[5] = 0	# seconds
-
-	# convert back to GPS seconds
-	return XLALUTCToGPS(tuple(tm)).seconds
-
-
-def next_midnight(midnight):
-	"""
-	Given a UTC midnight in GPS seconds, return the GPS seconds of the next
-	midnight.
-	"""
-	# add 86401 and truncate to midnight (accounts for possible leap
-	# second).
-	return utc_midnight(midnight + 86401)
-
-
 def make_xticks(segment):
-	# find the first UTC midnight on the X axis
-	gps = utc_midnight(int(segment[0]))
-	if gps < int(segment[0]):
-		gps = next_midnight(gps)
-
-	# find the last UTC midnight on the X axis
-	last_gps = utc_midnight(int(segment[1]))
-
 	# generate tick locations and labels
 	locs, labels = [], []
-	while gps <= last_gps:
-		tm = time.struct_time(XLALGPSToUTC(LIGOTimeGPS(gps)))
+	for gps in UTCMidnights(segment[0], segment[1]):
+		tm = time.struct_time(XLALGPSToUTC(gps))
 		locs.append(gps)
 		if tm.tm_wday == 1:	# tuesday
 			labels.append(time.strftime("%H h, %a %b %d, %Y", tm))
 		else:
 			labels.append("")
-		gps = next_midnight(gps)
 	return locs, labels
 
 
