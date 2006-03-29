@@ -40,9 +40,8 @@ import urllib
 from glue import lal
 from glue import segments
 from glue.ligolw import ligolw
-from glue.ligolw import metaio
 from glue.ligolw import lsctables
-from glue.ligolw import docutils
+from pylal import llwapp
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
@@ -87,31 +86,13 @@ if not options.output:
 # =============================================================================
 #
 
-def ElementFilter(name, attrs):
-	return lsctables.IsTableProperties(lsctables.SnglBurstTable, name, attrs) or lsctables.IsTableProperties(lsctables.CoincTable, name, attrs) or lsctables.IsTableProperties(lsctables.CoincMapTable, name, attrs) or lsctables.IsTableProperties(lsctables.TimeSlideTable, name, attrs)
-
 def LoadDocument(url):
 	doc = ligolw.Document()
-	handler = docutils.PartialLIGOLWContentHandler(doc, ElementFilter)
 	try:
-		ligolw.make_parser(handler).parse(urllib.urlopen(url))
+		ligolw.make_parser(lsctables.LIGOLWContentHandler(doc)).parse(urllib.urlopen(url))
 	except Exception, e:
-		print >>sys.stderr, "error: parsing contents of %s: %s" % (url, str(e))
-		sys.exit(1)
+		raise Exception, "parsing contents of %s: %s" % (url, str(e))
 	return doc
-
-def GetTable(doc, Type):
-	"""
-	Find and return the table of the given type.
-	"""
-	tables = lsctables.getTablesByType(doc, Type)
-	if len(tables) == 0:
-		print >>sys.stderr, "warning: no %s tables found" % metaio.StripTableName(Type.tableName)
-		return lsctables.New(Type)
-	if len(tables) == 1:
-		return tables[0]
-	print >>sys.stderr, "error: files contain incompatible %s tables" % metaio.StripTableName(Type.tableName)
-	sys.exit(1)
 
 
 #
@@ -128,10 +109,10 @@ class DocContents(object):
 		# Extract tables
 		#
 
-		self.bursttable = GetTable(xmldoc, lsctables.SnglBurstTable)
-		self.coinctable = GetTable(xmldoc, lsctables.CoincTable)
-		self.coincmaptable = GetTable(xmldoc, lsctables.CoincMapTable)
-		self.tisitable = GetTable(xmldoc, lsctables.TimeSlideTable)
+		self.bursttable = llwapp.get_table(xmldoc, lsctables.SnglBurstTable.tableName)
+		self.coinctable = llwapp.get_table(xmldoc, lsctables.CoincTable.tableName)
+		self.coincmaptable = llwapp.get_table(xmldoc, lsctables.CoincMapTable.tableName)
+		self.tisitable = llwapp.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
 
 		#
 		# Construct ID look-up tables
@@ -285,7 +266,11 @@ plot = Inst1VsInst2()
 for n, url in enumerate(options.input):
 	if options.verbose:
 		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(options.input), url)
-	plot.addto(DocContents(LoadDocument(url)))
+	try:
+		plot.addto(DocContents(LoadDocument(url)))
+	except Exception, e:
+		print >>sys.stderr, "error: %s" % str(e)
+		sys.exit(1)
 
 plot.finish()
 
