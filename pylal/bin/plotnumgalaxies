@@ -663,19 +663,48 @@ if opts.plot_efficiency:
   # Plot Efficiency Chirp mass contour.
   ##############################################################
 if opts.plot_effcontour: 
+
+ # read in the found injections
   foundFiles = glob.glob(opts.glob_found)
+  if not foundFiles:
+    print >>sys.stderr, "The glob for " + opts.glob_found + \
+        " returned no files"
+    sys.exit(1)
+
   found = readFiles(foundFiles)
-  
-  missedFiles = glob.glob(opts.glob_missed) 
+
+    
+  # read in the missed injections
+  missedFiles = glob.glob(opts.glob_missed)
+  if not foundFiles:
+    print >>sys.stderr, "The glob for " + opts.glob_missed + \
+        " returned no files"
+    sys.exit(1)
+
   missed = readFiles(missedFiles)
 
-  effDistArray[site] = simInspTriggers.getColumnByName(effDist).asarray()
-  mchirp = simInspTriggers.getColumnByName("mchirp").asarray()
+  if opts.verbose:
+    print "Read in " + str(found.__len__()) + " found injections"
+    print "Read in " + str(missed.__len__()) + " missed injections"
 
- 
+
+  #########################################################
+  # perform the mass cut, if requested:
+  if opts.m_low or opts.m_high:
+    found = massCut(found, opts.m_low, opts.m_high)
+    missed = massCut(missed , opts.m_low, opts.m_high)
+    
+    if opts.verbose:
+      print "After mass cut, " + str(found.__len__()) + " found injections"
+      print "After mass cut, " + str(missed.__len__()) + " missed injections"
+
+
+  # extract the effective distances
+  effDist = "eff_dist_" + opts.site[0].lower()  
   hf = found.getColumnByName(effDist).asarray()
   hm = missed.getColumnByName(effDist).asarray()
   ha = concatenate((hf ,hm))
+  
 
   
   mchirp_f = found.getColumnByName("mchirp").asarray()
