@@ -51,3 +51,52 @@ def XLALGreenwichMeanSiderealTime(gps):
 
 def XLALTimeDelayFromEarthCenter(pos, ra, dec, gps):
 	return XLALArrivalTimeDiff(pos, [0.0, 0.0, 0.0], ra, dec, gps)
+
+
+#
+# =============================================================================
+#
+#                                Plotting Tools
+#
+# =============================================================================
+#
+
+def utc_midnight(gps):
+	"""
+	Truncate a LIGOTimeGPS to UTC midnight.
+	"""
+	# convert to UTC (as list so we can edit it)
+	tm = list(XLALGPSToUTC(gps))
+
+	# truncate to midnight
+	tm[3] = 0       # hours
+	tm[4] = 0       # minutes
+	tm[5] = 0       # seconds
+
+	# convert back to LIGOTimeGPS
+	return XLALUTCToGPS(tuple(tm))
+
+
+class UTCMidnights(object):
+	"""
+	Iterator for generating LIGOTimeGPS objects for UTC midnights.
+	"""
+	def __init__(self, start, end):
+		"""
+		LIGOTimeGPS objects will be returned for each UTC midnight
+		in the range [start, end).
+		"""
+		self.midnight = utc_midnight(start)
+		if self.midnight < start:
+			self.midnight = utc_midnight(self.midnight + 86402)
+		self.end = end
+
+	def __iter__(self):
+		return self
+
+	def next(self):
+		if self.midnight >= self.end:
+			raise StopIteration
+		result = self.midnight
+		self.midnight = utc_midnight(self.midnight + 86402)
+		return result
