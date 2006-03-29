@@ -332,6 +332,7 @@ if not injFiles:
 
 simInspTriggers = readFiles(injFiles)
 
+
 #######################################################################
 # sourcelist sorted from smallest to largest in the luminosity
 #######################################################################
@@ -691,10 +692,13 @@ if opts.plot_effcontour:
   effDist = "eff_dist_" + opts.site[0].lower()  
   hf = found.getColumnByName(effDist).asarray()
   hm = missed.getColumnByName(effDist).asarray()
+  hsim = simInspTriggers.getColumnByName(effDist).asarray()
+
   # Extract the chirp mass
   mchirp_f = found.getColumnByName("mchirp").asarray()
   mchirp_m = missed.getColumnByName("mchirp").asarray()
- 
+  mchirp_sim =simInspTriggers.getColumnByName(effDist).asarray()
+
   #construct edges
 
   dedges = edges(hf)
@@ -712,7 +716,11 @@ if opts.plot_effcontour:
   
   contourf(medges,dedges,e)
 
-  
+  sim_square = square(mchirp_sim,medges,mstep,hf,dedges,dstep)
+
+  figure()
+
+  contourf(medges,dedges,sim_square)
                                                                                                                                                                                                                                                                                                                                  
 
 
