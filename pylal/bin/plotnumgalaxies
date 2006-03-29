@@ -125,7 +125,7 @@ def step_size(A):
 
 def edges(A):
 
-	 tmp_edges(A) = arange(min(A),max(A),step_size(A))
+	 tmp_edges = arange(min(A),max(A),step_size(A))
 	 return tmp_edges
 
 def square(M,D):
@@ -539,12 +539,9 @@ if opts.plot_contour:
 
  effDistArray[site] = simInspTriggers.getColumnByName(effDist).asarray()
  mchirp = simInspTriggers.getColumnByName("mchirp").asarray()
- 
- p = [1,2,2,2,4,2,6,7,8,5,4,6,9,0,4,3]
- q = [1,2,6,7,4,3,2,3,4,2,4,5,3,4,4]
 
  
- print square(p,q)
+ print square(mchirp,effDistArray[site])
 
 ###########################################################
 # make an efficiency plot
@@ -668,7 +665,7 @@ if opts.plot_efficiency:
 if opts.plot_effcontour: 
   foundFiles = glob.glob(opts.glob_found)
   found = readFiles(foundFiles)
- 
+  
   missedFiles = glob.glob(opts.glob_missed) 
   missed = readFiles(missedFiles)
 
@@ -685,8 +682,8 @@ if opts.plot_effcontour:
   mchirp_m = missed.getColumnByName("mchirp").asarray()
 
    
-
-
+  
+  
  
 
 
