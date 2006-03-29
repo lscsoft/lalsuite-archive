@@ -128,15 +128,15 @@ def edges(A):
 	 tmp_edges = arange(min(A),max(A),step_size(A))
 	 return tmp_edges
 
-def square(M,D):
+def square(M,medges,mstep,D,degdes,dstep):
 	 i = 0
 	 ng_m_d = zeros((opts.nbins,opts.nbins))
  
 	 while i < len(M):	
-		k = int((M[i]-edges(M)[0])*1.0/step_size(M))
+		k = int((M[i]-medges[0])*1.0/mstep)
   		if (k > opts.nbins-1):
 			k = k-1
-		l = int((D[i]-edges(D)[0])*1.0/step_size(D))
+		l = int((D[i]-dedges[0])*1.0/dstep)
 		if (l > opts.nbins-1):
 			l = l-1
 
@@ -688,30 +688,30 @@ if opts.plot_effcontour:
     print "Read in " + str(missed.__len__()) + " missed injections"
 
 
-  #########################################################
-  # perform the mass cut, if requested:
-  if opts.m_low or opts.m_high:
-    found = massCut(found, opts.m_low, opts.m_high)
-    missed = massCut(missed , opts.m_low, opts.m_high)
-    
-    if opts.verbose:
-      print "After mass cut, " + str(found.__len__()) + " found injections"
-      print "After mass cut, " + str(missed.__len__()) + " missed injections"
 
 
   # extract the effective distances
   effDist = "eff_dist_" + opts.site[0].lower()  
   hf = found.getColumnByName(effDist).asarray()
   hm = missed.getColumnByName(effDist).asarray()
-  ha = concatenate((hf ,hm))
-  
-
-  
+  # Extract the chirp mass
   mchirp_f = found.getColumnByName("mchirp").asarray()
   mchirp_m = missed.getColumnByName("mchirp").asarray()
+ 
+  #construct edges
+
+  dedges = edges(hf)
+  dstep = step_size(hf)
+
+  medges = edges(mchirp_f)
+  mstep =step_size(mchirp_f)
+  
+ # count found and missed on square array
+ 
+  f = square(mchirp_f,medges,mstep,hf,degdes,dstep)
+  m = square(mchirp_m,medges,mstep,hm,dedges,dstep)
 
    
-  
   
  
 
