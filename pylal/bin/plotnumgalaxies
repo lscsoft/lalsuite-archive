@@ -142,11 +142,20 @@ def square(M,medges,mstep,D,degdes,dstep):
 
 		ng_m_d[l][k] = ng_m_d[l][k] + 1  
 		i = i+1
- 
-
-
  	 
 	 return ng_m_d
+
+def arrayCut(x,xedges):
+  xmax = max(xedges)
+  xmin = min(xedges)
+
+  tmp = []
+
+  for e in x:
+    if ( e >= xmin ) and ( e <= xmax ):
+      tmp.append(e)
+
+  return tmp
 
 
 #######################################################################
