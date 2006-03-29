@@ -146,19 +146,6 @@ def square(M,medges,mstep,D,degdes,dstep):
 	 return ng_m_d
 
 
-def arrayCut(x,xedges):
-  xmax = max(xedges)
-  xmin = min(xedges)
-
-  tmp = []
-
-  for e in x:
-    if ( e >= xmin ) and ( e <= xmax ):
-      tmp.append(e)
-
-  return tmp
-
-
 #######################################################################
 # Chop a simInspiralTable based on component masses.
 #######################################################################
