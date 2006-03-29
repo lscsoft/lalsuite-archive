@@ -697,7 +697,7 @@ if opts.plot_effcontour:
   # Extract the chirp mass
   mchirp_f = found.getColumnByName("mchirp").asarray()
   mchirp_m = missed.getColumnByName("mchirp").asarray()
-  mchirp_sim =simInspTriggers.getColumnByName(effDist).asarray()
+  mchirp_sim =simInspTriggers.getColumnByName("mchirp").asarray()
 
   #construct edges
 
@@ -716,7 +716,7 @@ if opts.plot_effcontour:
   
   contourf(medges,dedges,e)
 
-  sim_square = square(mchirp_sim,medges,mstep,hf,dedges,dstep)
+  sim_square = square(mchirp_sim,medges,mstep,hsim,dedges,dstep)
 
   figure()
 
