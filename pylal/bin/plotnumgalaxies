@@ -134,16 +134,17 @@ def square(M,medges,mstep,D,degdes,dstep):
  
 	 while i < len(M):	
 		k = int((M[i]-medges[0])*1.0/mstep)
-  		if (k > opts.nbins-1):
-			k = k-1
+  		
 		l = int((D[i]-dedges[0])*1.0/dstep)
-		if (l > opts.nbins-1):
-			l = l-1
-
-		ng_m_d[l][k] = ng_m_d[l][k] + 1  
+		
+                if (k>=0 and k<opts.nbins)\
+		   and (l>=0 and l<opts.nbins):
+	
+			ng_m_d[l][k] = ng_m_d[l][k] + 1  
 		i = i+1
  	 
 	 return ng_m_d
+
 
 def arrayCut(x,xedges):
   xmax = max(xedges)
