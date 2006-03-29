@@ -167,15 +167,15 @@ else:
 
 def make_xticks(segment):
 	# generate tick locations and labels
-	locs, labels = [], []
-	for gps in UTCMidnights(segment[0], segment[1]):
-		tm = time.struct_time(XLALGPSToUTC(gps))
+	locs = list(UTCMidnights(*segment))
+	labels = []
+	for gps in map(lambda t: time.struct_time(XLALGPSToUTC(t)), locs)
 		locs.append(gps)
 		if tm.tm_wday == 1:	# tuesday
 			labels.append(time.strftime("%H h, %a %b %d, %Y", tm))
 		else:
 			labels.append("")
-	return locs, labels
+	return map(float, locs), labels
 
 
 #
