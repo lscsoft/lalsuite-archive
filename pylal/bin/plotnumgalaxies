@@ -453,7 +453,7 @@ if opts.log_ng:
     title( opts.title )
   if opts.figure_name:
     savefig( opts.figure_name + "_loglog.png" )
-
+			
 
 #######################################################################
 # make a histogram
@@ -472,7 +472,7 @@ if opts.hist_ng:
   clf()
   
   grid( True )
-  bar( x, ng, step )
+  bar( x, ng	, step )
   xlabel( 'Effective Distance ' + opts.site + ' (Mpc)', size='x-large' )
   ylabel('N_G', size='x-large' )
   if opts.title:
@@ -534,12 +534,25 @@ if opts.plot_chirpmass:
 # Plot a Contour Plot of Mass and Distance.
 ####################################################################
 if opts.plot_contour:
-
+ effDist = "eff_dist_" + opts.site[0].lower()  
  effDistArray[site] = simInspTriggers.getColumnByName(effDist).asarray()
  mchirp = simInspTriggers.getColumnByName("mchirp").asarray()
 
+ # Defining step and edges for this file.
+ mstep = (max(mchirp)-min(mchirp))/opts.nbins
+ dstep = (max(effDistArray[site])-min(effDistArray[site]))/opts.nbins
+ medges = arange(min(mchirp),max(mchirp),mstep)
+ dedges = arange(min(effDistArray[site]),max(effDistArray[site]),dstep) 
  
- print square(mchirp,effDistArray[site])
+ n = square(mchirp,medges,mstep,effDistArray[site],dedges,dstep)
+ 
+ contourf(medges,dedges,n)
+ colorbar()
+ title('n_g contour')
+
+ N_G = sum(sum(n*max_luminosity/numSources))
+ print "The number of Galaxies without taking efficiency"
+ print N_G
 
 ###########################################################
 # make an efficiency plot
@@ -715,13 +728,31 @@ if opts.plot_effcontour:
   e = f/(f + m + 0.000001)
   
   contourf(medges,dedges,e)
+  xlabel('Chirp Mass')
+  ylabel('Effective Distance ' + opts.site + ' (Mpc)')
+  colorbar()
+  title('Efficiency Contour') 
 
   sim_square = square(mchirp_sim,medges,mstep,hsim,dedges,dstep)
 
   figure()
 
   contourf(medges,dedges,sim_square)
-                                                                                                                                                                                                                                                                                                                                 
+  xlabel('Chirp Mass')
+  ylabel('Effective Distance ' + opts.site + ' (Mpc)')
+  colorbar()
+  title('n_g Contour')
+
+ # To Count the Number of Galaxies.
+ 
+  N_G = sum(sum(sim_square*e*max_luminosity/numSources))
+
+  print "The total number of Galaxies"
+  print N_G                               
+ 
+  if opts.verbose:
+	print "The above contour is an indication of efficiency of detector, " + \
+              "with chirp mass and distance as parameters"                                                                                                                                                                                                                                                               
 
 
 if opts.show_plot:
