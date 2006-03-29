@@ -128,7 +128,7 @@ def edges(A):
 	 tmp_edges = arange(min(A),max(A),step_size(A))
 	 return tmp_edges
 
-def square(M,medges,mstep,D,degdes,dstep):
+def square(M,medges,mstep,D,dedges,dstep):
 	 i = 0
 	 ng_m_d = zeros((opts.nbins,opts.nbins))
  
@@ -705,15 +705,15 @@ if opts.plot_effcontour:
   
  # count found and missed on square array
  
-  f = square(mchirp_f,medges,mstep,hf,degdes,dstep)
+  f = square(mchirp_f,medges,mstep,hf,dedges,dstep)
   m = square(mchirp_m,medges,mstep,hm,dedges,dstep)
 
-   
+  e = f/(f + m + 0.000001)
   
- 
+  contourf(medges,dedges,e)
 
-
-                                                                                                                                                                                                                                                                                                                                   
+  
+                                                                                                                                                                                                                                                                                                                                 
 
 
 if opts.show_plot:
