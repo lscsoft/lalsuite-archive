@@ -77,6 +77,9 @@ parser.add_option("-f","--figure-name",action="store",type="string",\
     default=None, metavar=" FNAME",\
     help="generate png figures with name FNAME.png" )
 
+parser.add_option("-p","--print-numbers",action="store_true",default=False,\
+    help="prints each number on the screen" )
+
 (opts,args) = parser.parse_args()
 
 
@@ -114,6 +117,8 @@ for ifo in tmpltSumm.keys():
   style = colors[ifo] + 'x'
   plot(startTime, numTemplates, style, label=ifo+' tmplt',\
       markersize=12, markeredgewidth=1)
+  if opts.print_numbers:
+    print "Number of templates for :" +ifo+ str(startTime) +" " + str(numTemplates)
 
 for ifo in trigSumm.keys():
   numTrigs = trigSumm[ifo].getColumnByName('nevents').asarray()
@@ -121,10 +126,13 @@ for ifo in trigSumm.keys():
   style = colors[ifo] + 'o'
   plot(startTime, numTrigs, style, label=ifo+' trig',\
       markersize=12, markeredgewidth=1)
+  if opts.print_numbers:
+    print "Number templates for :" +ifo+ str(startTime) +" " + str(numTrigs)
       
 xlabel('Days after start of run', size='x-large')
 ylabel('Number of templates', size='x-large')
 legend()
+grid("on")
 if opts.figure_name:
   savefig(opts.figure_name + ".png")
 
