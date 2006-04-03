@@ -75,7 +75,6 @@ def makeplot():
 
 	pylab.plot(map(float, xvals), map(float, yvals))
 
-	axes.semilogy()
 	pylab.set(axes, xlim = [seglist[0][0], now])
 	pylab.set(axes, ylim = [851644814, 946339214])
 	pylab.grid(True)
