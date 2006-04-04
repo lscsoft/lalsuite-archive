@@ -255,6 +255,10 @@ parser.add_option("-M","--plot-chirpmass",action="store_true",default=False,\
 
 parser.add_option("-C","--plot-contour",action="store_true",default=False,\
     help="make a Contour plot of chirp mass and eff. dist")
+
+
+parser.add_option("-D","--plot-distance",action="store_true",default=False,\
+    help="make a Contour plot of Hanford-site distance and Livingston-site distance")
    
 parser.add_option("-E","--plot-effcontour",action="store_true",default=False,\
     help="make a Contour plot of efficiency vs chirp mass and eff. dist")
@@ -282,6 +286,7 @@ parser.add_option("-H","--m-high",action="store",type="float",default=None,\
 parser.add_option("-n","--nbins",action="store",type="int",default=20,\
     metavar=" NBINS", 
     help="number of bins for the histogram plots (default = 20)" )
+
   
 (opts,args) = parser.parse_args()
 
@@ -534,9 +539,13 @@ if opts.plot_chirpmass:
 # Plot a Contour Plot of Mass and Distance.
 ####################################################################
 if opts.plot_contour:
+
  effDist = "eff_dist_" + opts.site[0].lower()  
  effDistArray[site] = simInspTriggers.getColumnByName(effDist).asarray()
  mchirp = simInspTriggers.getColumnByName("mchirp").asarray()
+
+ # Define Value Array
+ v = arange(0,1,0.25)
 
  # Defining step and edges for this file.
  mstep = (max(mchirp)-min(mchirp))/opts.nbins
@@ -547,8 +556,8 @@ if opts.plot_contour:
  n = square(mchirp,medges,mstep,effDistArray[site],dedges,dstep)
  
  contourf(medges,dedges,n)
- colorbar()
  title('n_g contour')
+ colorbar()
 
  N_G = sum(sum(n*max_luminosity/numSources))
  print "The number of Galaxies without taking efficiency"
@@ -712,6 +721,9 @@ if opts.plot_effcontour:
   mchirp_m = missed.getColumnByName("mchirp").asarray()
   mchirp_sim =simInspTriggers.getColumnByName("mchirp").asarray()
 
+  # construct an Value array
+  v = arange(0,1,0.5)
+
   #construct edges
 
   dedges = edges(hf)
@@ -725,8 +737,25 @@ if opts.plot_effcontour:
   f = square(mchirp_f,medges,mstep,hf,dedges,dstep)
   m = square(mchirp_m,medges,mstep,hm,dedges,dstep)
 
-  e = f/(f + m + 0.000001)
+  e = f*1.0/(f + m + 0.000001)
   
+  contourf(medges,dedges,f)
+  xlabel('Chirp Mass')
+  ylabel('Effective Distance' + opts.site + '(Mpc)')
+  colorbar()
+  title('n_g for Found files')
+
+  figure()
+  
+  contourf(medges,dedges,f + m)
+  xlabel('Chirp Mass')
+  ylabel('Effective Distance' + opts.site + '(Mpc)')
+  colorbar()
+  title('n_g for Found + Missed files')
+
+
+  figure()   
+   
   contourf(medges,dedges,e)
   xlabel('Chirp Mass')
   ylabel('Effective Distance ' + opts.site + ' (Mpc)')
@@ -752,7 +781,35 @@ if opts.plot_effcontour:
  
   if opts.verbose:
 	print "The above contour is an indication of efficiency of detector, " + \
-              "with chirp mass and distance as parameters"                                                                                                                                                                                                                                                               
+              "with chirp mass and distance as parameters"  
+                                                                                                                                                                                                                                                             
+####################################################################
+# Plot a Contour Plot of Hanford Distance and Livingston Distance.
+####################################################################
+if opts.plot_distance:
+
+ effDist = "eff_dist_" + opts.site[0].lower()  
+ H = simInspTriggers.getColumnByName("eff_dist_h").asarray()
+ L = simInspTriggers.getColumnByName("eff_dist_l").asarray()
+
+ 
+
+ # Defining step and edges for this file.
+ dstep_h = (max(H)-min(H))/opts.nbins
+ dedges_h = arange(min(H),max(H),dstep_h) 
+ dstep_l = (max(L)-min(L))/opts.nbins
+ dedges_l= arange(min(L),max(L),dstep_l) 
+
+
+ 
+ n = square(H,dedges_h,dstep_h,L,dedges_l,dstep_l)
+ 
+ contourf(dedges_h,dedges_l,n)
+ title('n_g contour')
+ colorbar()
+
+ xlabel("Hanford Distance")
+ ylabel("Livingston Distance")
 
 
 if opts.show_plot:
