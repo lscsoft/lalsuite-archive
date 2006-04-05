@@ -743,7 +743,9 @@ if opts.plot_effcontour:
   xlabel('Chirp Mass')
   ylabel('Effective Distance' + opts.site + '(Mpc)')
   colorbar()
-  title('n_g for Found files')
+  title('Number of found injections')
+  if opts.figure_name:
+    savefig( "found-" + opts.figure_name + ".png" )
 
   figure()
   
@@ -751,7 +753,7 @@ if opts.plot_effcontour:
   xlabel('Chirp Mass')
   ylabel('Effective Distance' + opts.site + '(Mpc)')
   colorbar()
-  title('n_g for Found + Missed files')
+  title('Number of injections made')
 
 
   figure()   
