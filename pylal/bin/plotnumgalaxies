@@ -246,6 +246,13 @@ parser.add_option("-x","--x-max",action="store",type="float",default = 100.0,\
     
 parser.add_option("-y","--y-max",action="store",type="float",default = None,\
     help="maximum value plotted on y axis")
+
+parser.add_option("-Y","--Y-contour",action="store",type="string",default ="eff_dist_h",\
+    help="Assigns the parameter to y axis to plot contour, (default eff_dist_h)")
+
+parser.add_option("-X","--X-contour",action="store",type="string",default ="mchirp",\
+    help="Assigns the parameter to x axis to plot contour, (default mchirp)")
+
     
 parser.add_option("-e","--plot-efficiency",action="store_true",default=False,\
     help="make a plot of efficiency vs effective distance" )
@@ -254,7 +261,7 @@ parser.add_option("-M","--plot-chirpmass",action="store_true",default=False,\
     help="make a histogram of ng vs chirp mass" )
 
 parser.add_option("-C","--plot-contour",action="store_true",default=False,\
-    help="make a Contour plot of chirp mass and eff. dist")
+    help="make a Contour plot of parameters X and Y")
 
 
 parser.add_option("-D","--plot-distance",action="store_true",default=False,\
@@ -536,32 +543,31 @@ if opts.plot_chirpmass:
    savefig( "chirp_mass.png" )
 
 ####################################################################
-# Plot a Contour Plot of Mass and Distance.
+# Plot a Contour Plot of Two parameters X and Y
 ####################################################################
 if opts.plot_contour:
 
  effDist = "eff_dist_" + opts.site[0].lower()  
- effDistArray[site] = simInspTriggers.getColumnByName(effDist).asarray()
- mchirp = simInspTriggers.getColumnByName("mchirp").asarray()
-
- # Define Value Array
- v = arange(0,1,0.25)
+ y = simInspTriggers.getColumnByName(opts.Y_contour).asarray()
+ x = simInspTriggers.getColumnByName(opts.X_contour).asarray()
+ 
+ 
 
  # Defining step and edges for this file.
- mstep = (max(mchirp)-min(mchirp))/opts.nbins
- dstep = (max(effDistArray[site])-min(effDistArray[site]))/opts.nbins
- medges = arange(min(mchirp),max(mchirp),mstep)
- dedges = arange(min(effDistArray[site]),max(effDistArray[site]),dstep) 
+ xstep = (max(x)-min(x))/opts.nbins
+ ystep = (max(y)-min(y))/opts.nbins
+ xedges = arange(min(x),max(x),xstep)
+ yedges = arange(min(y),max(y),ystep) 
  
- n = square(mchirp,medges,mstep,effDistArray[site],dedges,dstep)
+ n = square(x,xedges,xstep,y,yedges,ystep)
  
- contourf(medges,dedges,n)
+ contourf(xedges,yedges,n)
  title('n_g contour')
  colorbar()
+ xlabel(opts.X_contour)
+ ylabel(opts.Y_contour)
 
- N_G = sum(sum(n*max_luminosity/numSources))
- print "The number of Galaxies without taking efficiency"
- print N_G
+ 
 
 ###########################################################
 # make an efficiency plot
@@ -712,36 +718,35 @@ if opts.plot_effcontour:
 
   # extract the effective distances
   effDist = "eff_dist_" + opts.site[0].lower()  
-  hf = found.getColumnByName(effDist).asarray()
-  hm = missed.getColumnByName(effDist).asarray()
-  hsim = simInspTriggers.getColumnByName(effDist).asarray()
+  yf = found.getColumnByName(opts.Y_contour).asarray()
+  ym = missed.getColumnByName(opts.Y_contour).asarray()
+  ysim = simInspTriggers.getColumnByName(opts.Y_contour).asarray()
 
   # Extract the chirp mass
-  mchirp_f = found.getColumnByName("mchirp").asarray()
-  mchirp_m = missed.getColumnByName("mchirp").asarray()
-  mchirp_sim =simInspTriggers.getColumnByName("mchirp").asarray()
+  xf = found.getColumnByName(opts.X_contour).asarray()
+  xm = missed.getColumnByName(opts.X_contour).asarray()
+  xsim =simInspTriggers.getColumnByName(opts.X_contour).asarray()
 
-  # construct an Value array
-  v = arange(0,1,0.5)
+
 
   #construct edges
 
-  dedges = edges(hf)
-  dstep = step_size(hf)
+  yedges = edges(yf)
+  ystep = step_size(yf)
 
-  medges = edges(mchirp_f)
-  mstep =step_size(mchirp_f)
+  xedges = edges(xf)
+  xstep = step_size(xf)
   
  # count found and missed on square array
  
-  f = square(mchirp_f,medges,mstep,hf,dedges,dstep)
-  m = square(mchirp_m,medges,mstep,hm,dedges,dstep)
+  f = square(xf,xedges,xstep,yf,yedges,ystep)
+  m = square(xm,xedges,xstep,ym,yedges,ystep)
 
   e = f*1.0/(f + m + 0.000001)
   
-  contourf(medges,dedges,f)
-  xlabel('Chirp Mass')
-  ylabel('Effective Distance' + opts.site + '(Mpc)')
+  contourf(xedges,yedges,f)
+  xlabel(opts.X_contour)
+  ylabel( opts.Y_contour)
   colorbar()
   title('Number of found injections')
   if opts.figure_name:
@@ -749,30 +754,40 @@ if opts.plot_effcontour:
 
   figure()
   
-  contourf(medges,dedges,f + m)
-  xlabel('Chirp Mass')
-  ylabel('Effective Distance' + opts.site + '(Mpc)')
+  contourf(xedges,yedges,f + m)
+  xlabel(opts.X_contour)
+  ylabel( opts.Y_contour)
   colorbar()
   title('Number of injections made')
+  if opts.figure_name:
+    savefig( "total-injections" + opts.figure_name + ".png" )
+
 
 
   figure()   
    
-  contourf(medges,dedges,e)
-  xlabel('Chirp Mass')
-  ylabel('Effective Distance ' + opts.site + ' (Mpc)')
+  contourf(xedges,yedges,e)
+  xlabel(opts.X_contour)
+  ylabel(opts.Y_contour + ' (Mpc)')
   colorbar()
   title('Efficiency Contour') 
+  if opts.figure_name:
+    savefig( "Efficiency" + opts.figure_name + ".png" )
 
-  sim_square = square(mchirp_sim,medges,mstep,hsim,dedges,dstep)
+
+  sim_square = square(xsim,xedges,xstep,ysim,yedges,ystep)
 
   figure()
 
-  contourf(medges,dedges,sim_square)
-  xlabel('Chirp Mass')
-  ylabel('Effective Distance ' + opts.site + ' (Mpc)')
+  contourf(xedges,yedges,sim_square)
+  xlabel(opts.X_contour)
+  ylabel( opts.Y_contour)
   colorbar()
   title('n_g Contour')
+  if opts.figure_name:
+    savefig( "n_g" + opts.figure_name + ".png" )
+
+
 
  # To Count the Number of Galaxies.
  
@@ -806,12 +821,12 @@ if opts.plot_distance:
  
  n = square(H,dedges_h,dstep_h,L,dedges_l,dstep_l)
  
- contourf(dedges_h,dedges_l,n)
+ contourf(dedges_l,dedges_h,n)
  title('n_g contour')
  colorbar()
 
- xlabel("Hanford Distance")
- ylabel("Livingston Distance")
+ xlabel("eff_dist_l")
+ ylabel("eff_dist_h")
 
 
 if opts.show_plot:
