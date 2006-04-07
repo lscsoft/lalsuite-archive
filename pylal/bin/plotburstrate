@@ -23,7 +23,11 @@ __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
 
 from optparse import OptionParser
-import pylab
+import matplotlib
+matplotlib.use("Agg")
+from matplotlib import figure
+from matplotlib.backends.backend_agg import FigureCanvasAgg
+import numarray
 import sys
 import time
 import urllib
@@ -84,8 +88,8 @@ cache = reduce(list.__add__, [map(lal.CacheEntry, file(name)) for name in cache]
 
 # set segment
 try:
-	options.gps_start_time = lal.LIGOTimeGPS(options.gps_start_time)
-	options.gps_end_time = lal.LIGOTimeGPS(options.gps_end_time)
+	options.gps_start_time = LIGOTimeGPS(options.gps_start_time)
+	options.gps_end_time = LIGOTimeGPS(options.gps_end_time)
 except Exception, e:
 	print >>sys.stderr, "error: %s" % str(e)
 	sys.exit(1)
@@ -169,8 +173,7 @@ def make_xticks(segment):
 	# generate tick locations and labels
 	locs = list(UTCMidnights(*segment))
 	labels = []
-	for gps in map(lambda t: time.struct_time(XLALGPSToUTC(t)), locs):
-		locs.append(gps)
+	for tm in map(lambda t: time.struct_time(XLALGPSToUTC(t)), locs):
 		if tm.tm_wday == 1:	# tuesday
 			labels.append(time.strftime("%H h, %a %b %d, %Y", tm))
 		else:
@@ -193,31 +196,33 @@ def newfig(segment):
 	border = [0.5, 0.75, 0.125, 0.625]	# inches
 	width = weeks * 3.0 + border[0] + border[2]	# inches
 	height = 8.0	# inches
-	fig = pylab.figure()
+	fig = figure.Figure()
+	canvas = FigureCanvasAgg(fig)
 	fig.set_figsize_inches(width, height)
-	pylab.setp(pylab.gca(), position = [border[0] / width, border[1] / height, (width - border[0] - border[2]) / width, (height - border[1] - border[3]) / height])
+	fig.gca().set_position([border[0] / width, border[1] / height, (width - border[0] - border[2]) / width, (height - border[1] - border[3]) / height])
 	return fig
 
 fig = newfig(options.segment)
-axes = pylab.gca()
+axes = fig.gca()
 
 rate.convolve()
-pylab.plot(rate.xvals, rate.yvals)
+axes.plot(rate.xvals, rate.yvals)
 
-pylab.setp(axes, xlim = list(options.segment))
-pylab.grid(True)
+axes.set_xlim(list(options.segment))
+axes.grid(True)
 
 for seg in ~seglist & segments.segmentlist([options.segment]):
-	pylab.axvspan(seg[0], seg[1], facecolor = "k", alpha = 0.2)
+	axes.axvspan(seg[0], seg[1], facecolor = "k", alpha = 0.2)
 
-pylab.title("%s Excess Power Trigger Rate vs. Time\n(%d Triggers, %g s Average)" % (options.instrument, num_triggers, options.window))
+axes.set_title("%s Excess Power Trigger Rate vs. Time\n(%d Triggers, %g s Average)" % (options.instrument, num_triggers, options.window))
 
 ticks = make_xticks(options.segment)
-pylab.xticks(ticks[0], ticks[1], horizontalalignment="right", fontsize=10, rotation=10)
-pylab.xlabel("UTC")
-pylab.yticks(fontsize=10)
-pylab.ylabel("Trigger Rate (Hz)")
+axes.set_xticks(ticks[0])
+axes.set_xticklabels(ticks[1], horizontalalignment="right", fontsize=10, rotation=10)
+axes.set_xlabel("UTC")
+#axes.yticks(fontsize=10)
+axes.set_ylabel("Trigger Rate (Hz)")
 
-pylab.savefig(options.output_base + ".eps")
-pylab.savefig(options.output_base + ".png")
-pylab.savefig(options.output_base + ".svg")
+fig.savefig(options.output_base + ".eps")
+fig.savefig(options.output_base + ".png")
+fig.savefig(options.output_base + ".svg")
