@@ -196,7 +196,7 @@ class DocContents(object):
 		return self.bursttable.rows[bisect.bisect_left(self.bursttableids, lsctables.ILWDID(id))]
 
 	def get_coincevents_by_id(self, id):
-		return self.coincmaptable.rows[bisect.bisect_left(self.coincmaptableids, lsctables.ILWDID(id)) : bisect.bisect_right(self.coincmaptaableids, lsctables.ILWDID(id))]
+		return self.coincmaptable.rows[bisect.bisect_left(self.coincmaptableids, lsctables.ILWDID(id)) : bisect.bisect_right(self.coincmaptableids, lsctables.ILWDID(id))]
 
 	def get_sim_by_coincid(self, id):
 		return [self.get_sim_by_id(row.event_id) for row in self.get_coincevents_by_id(id) if "sim_burst" in row.event_id]
@@ -334,7 +334,7 @@ class AmplVsFreq(object):
 		self.canvas = FigureCanvasAgg(self.fig)
 		self.fig.set_figsize_inches(16, 8)
 		self.axes = self.fig.gca()
-		self.madevsfound = MadeVsFound(70.0, 2118.0, 64, 1e-22, 1e-19, 64)
+		self.madevsfound = MadeVsFound(70.0, 2118.0, 64, 10**-22.2, 10**-18.0, 64)
 
 		self.axes.loglog()
 		self.axes.grid(True)
