@@ -716,13 +716,13 @@ if opts.plot_effcontour:
 
 
 
-  # extract the effective distances
-  effDist = "eff_dist_" + opts.site[0].lower()  
+  # extract the effective Y_contour
+
   yf = found.getColumnByName(opts.Y_contour).asarray()
   ym = missed.getColumnByName(opts.Y_contour).asarray()
   ysim = simInspTriggers.getColumnByName(opts.Y_contour).asarray()
 
-  # Extract the chirp mass
+  # Extract the X_contour
   xf = found.getColumnByName(opts.X_contour).asarray()
   xm = missed.getColumnByName(opts.X_contour).asarray()
   xsim =simInspTriggers.getColumnByName(opts.X_contour).asarray()
