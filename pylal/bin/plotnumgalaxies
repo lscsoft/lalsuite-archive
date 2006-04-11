@@ -775,11 +775,13 @@ if opts.plot_effcontour:
     savefig( "Efficiency" + opts.figure_name + ".png" )
 
 
+  
   sim_square = square(xsim,xedges,xstep,ysim,yedges,ystep)
 
+  n_g = sim_square*max_luminosity/numSources
   figure()
 
-  contourf(xedges,yedges,sim_square)
+  contourf(xedges,yedges,n_g)
   xlabel(opts.X_contour)
   ylabel( opts.Y_contour)
   colorbar()
