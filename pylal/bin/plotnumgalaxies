@@ -85,11 +85,13 @@ def read_source_file( source_file ):
 
   sourcelist = []
   luminosity = []
-
-  for line in lines:
-    b  = string.split(line)
+  
+  i = 4
+  while i < len(lines): 
+    b  = string.split(lines[i])
     c  = { 'name': b[0], 'luminosity': float(b[4]) }
     sourcelist.append(c)
+    i = i + 1
 
   sort_on = "luminosity"
   decorated = [(dict_[sort_on], dict_) for dict_ in sourcelist]
@@ -130,17 +132,16 @@ def edges(A):
 
 def square(M,medges,mstep,D,dedges,dstep):
 	 i = 0
-	 ng_m_d = zeros((opts.nbins,opts.nbins))
+	 ng_m_d = zeros((len(medges),len(medges)))
  
 	 while i < len(M):	
 		k = int((M[i]-medges[0])*1.0/mstep)
   		
 		l = int((D[i]-dedges[0])*1.0/dstep)
-		
-                if (k>=0 and k<opts.nbins)\
-		   and (l>=0 and l<opts.nbins):
-	
-			ng_m_d[l][k] = ng_m_d[l][k] + 1  
+	 
+		if (k>=0 and k < len(medges)) \
+		   and (l>=0 and l< len(dedges)):	
+	                ng_m_d[l][k] = ng_m_d[l][k] + 1  
 		i = i+1
  	 
 	 return ng_m_d
@@ -736,7 +737,8 @@ if opts.plot_effcontour:
 
   xedges = edges(xf)
   xstep = step_size(xf)
-  
+
+   
  # count found and missed on square array
  
   f = square(xf,xedges,xstep,yf,yedges,ystep)
@@ -760,7 +762,7 @@ if opts.plot_effcontour:
   colorbar()
   title('Number of injections made')
   if opts.figure_name:
-    savefig( "total-injections" + opts.figure_name + ".png" )
+    savefig( "total-" + opts.figure_name + ".png" )
 
 
 
@@ -772,7 +774,7 @@ if opts.plot_effcontour:
   colorbar()
   title('Efficiency Contour') 
   if opts.figure_name:
-    savefig( "Efficiency" + opts.figure_name + ".png" )
+    savefig( "eff-" + opts.figure_name + ".png" )
 
 
   
@@ -787,7 +789,7 @@ if opts.plot_effcontour:
   colorbar()
   title('n_g Contour')
   if opts.figure_name:
-    savefig( "n_g" + opts.figure_name + ".png" )
+    savefig( "n_g-" + opts.figure_name + ".png" )
 
 
 
