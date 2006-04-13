@@ -1,21 +1,15 @@
 import cgi
 import cgitb ; cgitb.enable()
-import math
-from matplotlib.patches import Patch
 import os
-import pylab
 import shutil
 import sys
 import tempfile
 import time
 import urllib
-from xml import sax
 
 from glue.lal import CacheEntry
 from glue import segments
-from glue import segmentsUtils
 from glue.ligolw import ligolw
-from glue.ligolw import metaio
 from glue.ligolw import lsctables
 from glue.ligolw import docutils
 
