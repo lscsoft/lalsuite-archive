@@ -11,6 +11,12 @@ from glue import statedb
 
 filepat = re.compile(r'^[A-Za-z]+\-\w+\-(\d+)\-(\d+)\..+')
 
+## Define statevector-specific bits
+ligo_science_bits = 0xFFFF
+ligo_injection_bits = 0x0400
+geo_science_bits = 0x0
+
+
 run = None
 version = None
 file = None
@@ -92,13 +98,25 @@ for line in statefile.readlines():
   end_nano = int(segmatch[3])
   sv = int(segmatch[4])
   if usesegnum:
-    segnum = int(segmatch[6])
-    if segnum != 65535:
-      segnum = None
-    ifo = str(segmatch[7])
+    segnum = None
+    cmp = bool(segnum == ligo_science_bits \
+              or segnum == (ligo_science_bits & ~ligo_injection_bits) \
+              or segnum == geo_science_bits)
+    if cmp:
+      ifo = str(segmatch[7])
+      if segmatch[6] == -1:
+        #  segnum undefined
+        segnum = None
+      else:
+        segnum = int(segmatch[6])
+      
   else:
     segnum = None
     ifo = str(segmatch[6])
+  if ifo == "G1":
+    # Apply hack to get around FrameL difficulties
+    start_nano = int(15000)
+    end_nano = int(15000)
     
   try: 
     sdb.publish_state(ifo,start,start_nano,end,end_nano,version,sv,segnum)
