@@ -1,17 +1,16 @@
 #!/usr/bin/python
 
+#
+# =============================================================================
+#
+#                                   Preamble
+#
+# =============================================================================
+#
+
 """
 Cut pieces out of LIGO LW XML files containing LSC tables.
 """
-
-__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
-__date__ = "$Date$"[7:-2]
-__version__ = "$Revision$"[11:-2]
-
-
-#
-# Preamble.
-#
 
 from optparse import OptionParser
 import sys
@@ -19,53 +18,81 @@ import sys
 from glue.ligolw import ligolw
 from glue.ligolw import metaio
 
-
-#
-# Parse command line.
-#
-
-parser = OptionParser(version = "%prog CVS $Id$")
-parser.add_option("-o", "--output", metavar = "filename", help = "write output to the given file")
-parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
-parser.add_option("--delete-column", metavar = "name", action = "append", default = [], help = "delete matching columns")
-parser.add_option("--delete-element", metavar = "tag[,attr=value[,...]]", action = "append", default = [], help = "delete matching elements")
-parser.add_option("--delete-table", metavar = "name", action = "append", default = [], help = "delete matching tables")
-options, args = parser.parse_args()
-del parser
-
-# strip column names
-# FIXME: remove duplicates
-options.delete_column = map(metaio.StripColumnName, options.delete_column)
-
-# parse element specs
-# FIXME: remove duplicates
-def parse_delete_element(arg):
-	arg = arg.split(",")
-	attrs = {}
-	for i in range(1, len(arg)):
-		[name, value] = arg[i].split("=")
-		attrs[name] = value
-	return [arg[0], attrs]
-options.delete_element = map(parse_delete_element, options.delete_element)
-
-# strip table names
-# FIXME: remove duplicates
-options.delete_table = map(metaio.StripTableName, options.delete_table)
+__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__date__ = "$Date$"[7:-2]
+__version__ = "$Revision$"[11:-2]
 
 
 #
-# Read input from stdin.  Use metaio's content handler in order to accept
-# documents that might contain invalid columns (one use of this tool is
-# correcting documents by deleting non-conforming parts).
+# =============================================================================
+#
+#                                 Command Line
+#
+# =============================================================================
 #
 
-def LoadDocuments():
+def parse_command_line():
+	parser = OptionParser(version = "%prog CVS $Id$")
+	parser.add_option("-i", "--input", metavar = "filename", help = "read input from the given file [stdin]")
+	parser.add_option("-o", "--output", metavar = "filename", help = "write output to the given file [stdout]")
+	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
+	parser.add_option("--delete-column", metavar = "name", action = "append", default = [], help = "delete matching columns")
+	parser.add_option("--delete-element", metavar = "tag[,attr=value[,...]]", action = "append", default = [], help = "delete matching elements")
+	parser.add_option("--delete-table", metavar = "name", action = "append", default = [], help = "delete matching tables")
+	options = parser.parse_args()[0]
+
+	# strip column names
+	# FIXME: remove duplicates
+	options.delete_column = map(metaio.StripColumnName, options.delete_column)
+
+	# parse element specs
+	# FIXME: remove duplicates
+	def parse_delete_element(arg):
+		arg = arg.split(",")
+		attrs = {}
+		for i in range(1, len(arg)):
+			[name, value] = arg[i].split("=")
+			attrs[name] = value
+		return arg[0], attrs
+	options.delete_element = map(parse_delete_element, options.delete_element)
+
+	# strip table names
+	# FIXME: remove duplicates
+	options.delete_table = map(metaio.StripTableName, options.delete_table)
+
+	return options
+
+
+#
+# =============================================================================
+#
+#                                    Input
+#
+# =============================================================================
+#
+
+#
+# Use metaio's content handler in order to accept documents that might
+# contain invalid columns (one use of this tool is correcting documents by
+# deleting non-conforming parts).
+#
+
+def LoadDocuments(input):
 	doc = ligolw.Document()
-	ligolw.make_parser(metaio.LIGOLWContentHandler(doc)).parse(sys.stdin)
+	if input:
+		ligolw.make_parser(metaio.LIGOLWContentHandler(doc)).parse(file(input))
+	else:
+		ligolw.make_parser(metaio.LIGOLWContentHandler(doc)).parse(sys.stdin)
 	return doc
 
-doc = LoadDocuments()
 
+#
+# =============================================================================
+#
+#                                     Cut
+#
+# =============================================================================
+#
 
 #
 # Remove unwanted tables
@@ -75,8 +102,6 @@ def RemoveTables(doc, tables):
 	for name in tables:
 		for table in metaio.getTablesByName(doc, name):
 			table.parentNode.removeChild(table)
-
-RemoveTables(doc, options.delete_table)
 
 
 #
@@ -88,9 +113,6 @@ def RemoveColumns(doc, columns):
 		for name in columns:
 			for column in metaio.getColumnsByName(table, name):
 				table.removeChild(column)
-
-if options.delete_column:
-	RemoveColumns(doc, options.delete_column)
 
 
 #
@@ -111,28 +133,62 @@ def CompareDeleteElement(elem, elemspec):
 			return 1
 	return 0
 
-def IsDeleteElement(elem):
+def IsDeleteElement(elem, specs):
 	"""
 	Return True if elem matches an elem spec for deleting.
 	"""
-	for spec in options.delete_element:
+	for spec in specs:
 		if CompareDeleteElement(elem, spec) == 0:
 			return True
 	return False
 
-def RemoveElements(doc):
-	for elem in doc.getElements(IsDeleteElement):
+def RemoveElements(doc, specs):
+	for elem in doc.getElements(lambda e: IsDeleteElement(e, specs)):
 		elem.parentNode.removeChild(elem)
 
-if options.delete_element:
-	RemoveElements(doc)
+
+#
+# =============================================================================
+#
+#                                    Output
+#
+# =============================================================================
+#
+
+def write_output(output):
+	if output:
+		doc.write(file(output, "w"))
+	else:
+		doc.write(sys.stdout)
 
 
 #
-# Write output.
+# =============================================================================
+#
+#                                     Main
+#
+# =============================================================================
 #
 
-if options.output:
-	doc.write(file(options.output, "w"))
-else:
-	doc.write(sys.stdout)
+if __name__ == "__main__":
+	# command line
+	try:
+		options = parse_command_line()
+	except Exception, e:
+		print >>sys.stderr, "error: parsing command line: %s" % str(e)
+		sys.exit(1)
+
+	# input
+	doc = LoadDocuments(options.input)
+
+	# cut
+	RemoveTables(doc, options.delete_table)
+
+	if options.delete_column:
+		RemoveColumns(doc, options.delete_column)
+
+	if options.delete_element:
+		RemoveElements(doc, options.delete_element)
+
+	# output
+	write_output(options.output)
