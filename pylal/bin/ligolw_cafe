@@ -1,0 +1,248 @@
+#!/usr/bin/python
+
+#
+# =============================================================================
+#
+#                                   Preamble
+#
+# =============================================================================
+#
+
+"""
+LIGO Light-Weight XML Coincidence Analysis Front End.
+"""
+
+import copy
+from math import log10
+from optparse import OptionParser
+import sys
+import urllib
+
+from glue import lal
+from glue import segments
+from glue.ligolw import ligolw
+from glue.ligolw import lsctables
+from pylal import date
+from pylal import llwapp
+
+__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__date__ = "$Date$"[7:-2]
+__version__ = "$Revision$"[11:-2]
+
+
+#
+# =============================================================================
+#
+#                                 Command Line
+#
+# =============================================================================
+#
+
+def parse_command_line():
+	parser = OptionParser(version = "%prog CVS $Id$")
+	parser.add_option("-t", "--time-slides", metavar = "filename", help = "read the time slide table from the given file")
+	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
+	parser.add_option("-o", "--output", metavar = "base", default = "coinc_cache_", help = "set base for output caches")
+	options, cacheurls = parser.parse_args()
+
+	if not options.time_slides:
+		print >>sys.stderr, "error: must specify time slide input file"
+		sys.exit(1)
+
+	return options, cacheurls
+
+options, cacheurls = parse_command_line()
+
+
+#
+# =============================================================================
+#
+#                                    Input
+#
+# =============================================================================
+#
+
+def LoadCache(url):
+	if options.verbose:
+		print >>sys.stderr, "loading %s" % url
+	cache = map(lambda l: lal.CacheEntry(l, coltype = date.LIGOTimeGPS), urllib.urlopen(url))
+	obs = cache[0].observatory
+	for c in cache:
+		if c.observatory != obs:
+			raise ValueError, "mismatched observatories in %s" % url
+	return {obs: cache}
+
+def CacheToSegList(cache):
+	return {cache[0].observatory: segments.segmentlist([c.segment for c in cache]).coalesce()}
+
+def LoadTisi(url):
+	if options.verbose:
+		print >>sys.stderr, "loading %s" % url
+	doc = ligolw.Document()
+	ligolw.make_parser(lsctables.LIGOLWContentHandler(doc)).parse(urllib.urlopen(url))
+	return doc
+
+try:
+	caches = {}
+	map(lambda u: caches.update(LoadCache(u)), cacheurls)
+	seglists = {}
+	map(lambda c: seglists.update(CacheToSegList(c)), caches.itervalues())
+	tisidoc = LoadTisi(options.time_slides)
+	tisitable = llwapp.get_table(tisidoc, lsctables.TimeSlideTable.tableName)
+except Exception, e:
+	print >>sys.stderr, "error: %s" % str(e)
+	sys.exit(1)
+
+
+#
+# =============================================================================
+#
+#                                 Preparation
+#
+# =============================================================================
+#
+
+#
+# Extract the minimum and maximum offset for each instrument
+#
+
+def ExtremeOffsets(table):
+	min = {}
+	max = {}
+	for row in table:
+		if not min.has_key(row.instrument):
+			min[row.instrument] = row.offset
+		elif min[row.instrument] > row.offset:
+			min[row.instrument] = row.offset
+		if not max.has_key(row.instrument):
+			max[row.instrument] = row.offset
+		elif max[row.instrument] < row.offset:
+			max[row.instrument] = row.offset
+	return min, max
+
+def CheckInstruments(offsetinstruments, cacheinstruments):
+	for i in cacheinstruments:
+		if i not in offsetinstruments:
+			raise ValueError, "time slide table missing instrument %s" % i
+
+minoffsets, maxoffsets = ExtremeOffsets(tisitable)
+if options.verbose:
+	print >>sys.stderr, "minimum offsets: %s" % str(minoffsets)
+	print >>sys.stderr, "maximum offsets: %s" % str(maxoffsets)
+
+try:
+	CheckInstruments(minoffsets.keys(), caches.keys())
+except Exception, e:
+	print >>sys.stderr, "error: %s" % str(e)
+	sys.exit(1)
+
+
+#
+# Dilate each segment list according to the extreme offsets for each
+# instrument.
+#
+
+def DilateSegList(l, min, max):
+	return segments.segmentlist([segments.segment(s[0] + min, s[1] + max) for s in l]).coalesce()
+
+def DilateSegLists(seglists, mins, maxs):
+	for obs, segs in seglists.iteritems():
+		seglists[obs] = DilateSegList(segs, mins[obs], maxs[obs])
+
+if options.verbose:
+	print >>sys.stderr, "dilating segment lists..."
+DilateSegLists(seglists, minoffsets, maxoffsets)
+
+
+#
+# Dilate each file's segment according to the extreme offsets for the
+# corresponding instrument.
+#
+
+def DilateFile(cacheentry, min, max):
+	cacheentry.segment = segments.segment(cacheentry.segment[0] + min, cacheentry.segment[1] + max)
+
+def DilateFiles(caches, mins, maxs):
+	caches = copy.deepcopy(caches)
+	for obs, cache in caches.iteritems():
+		min = mins[obs]
+		max = maxs[obs]
+		for c in cache:
+			DilateFile(c, min, max)
+	return caches
+
+if options.verbose:
+	print >>sys.stderr, "dilating file boundaries..."
+dilatedcaches = DilateFiles(caches, minoffsets, maxoffsets)
+
+
+#
+# =============================================================================
+#
+#                                     Plan
+#
+# =============================================================================
+#
+
+#
+# Compute the n-tuple intersection of the dilated lists.  Times not spanned
+# by this list are those times for which no time slide can possibly produce
+# coincident triggers, and thus this segment list provides the first
+# estimate of the boundaries for subsequent coincidence jobs.
+#
+
+def CoincSegs(seglists):
+	segs = ~segments.segmentlist()
+	for l in seglists.itervalues():
+		segs &= l
+	return segs
+
+if options.verbose:
+	print >>sys.stderr, "computing segment list (pass 1)..."
+coincsegs = CoincSegs(seglists)
+
+
+#
+# Merge coincident segments that intersect common trigger files.  If a
+# single file can contribute triggers to more than one of the coincidence
+# segments then those segments have to be analyzed together otherwise that
+# file's triggers run the risk of being double-counted by appearing in more
+# than one job.  The segment list produced by this operation defines the
+# boundaries of coincidence jobs.
+#
+
+def MergeSegsByFile(segs, caches):
+	for cache in caches.itervalues():
+		for c in cache:
+			spanned = segments.segmentlist([c.segment]) & segs
+			if len(spanned) > 1:
+				segs |= segments.segmentlist([spanned.extent()])
+	return segs
+
+if options.verbose:
+	print >>sys.stderr, "computing segment list (pass 2)..."
+MergeSegsByFile(coincsegs, dilatedcaches)
+
+
+#
+# =============================================================================
+#
+#                                    Output
+#
+# =============================================================================
+#
+
+def WriteCaches(base, coincsegs, dilatedcaches, caches):
+	if len(coincsegs):
+		digits = int(log10(len(coincsegs)) + 1)
+	for n, seg in enumerate(coincsegs):
+		filename = ("%s%0" + str(digits) + "d.cache") % (options.output, n)
+		if options.verbose:
+			print >>sys.stderr, "writing %s" % filename
+		f = file(filename, "w")
+		for obs, dilatedcache in dilatedcaches.iteritems():
+			for i in range(len(dilatedcache)):
+				if dilatedcache[i].segment.intersects(seg):
+					print >>f, str(caches[obs][i])
+
+WriteCaches(options.output, coincsegs, dilatedcaches, caches)
