@@ -1,7 +1,5 @@
 #!/usr/bin/python
 
-import math
-from matplotlib.patches import Patch
 import os
 import pylab
 import shutil
@@ -17,7 +15,7 @@ import eventdisplay
 
 
 #
-# Rate plot description
+# Description
 #
 
 handle, filename = tempfile.mkstemp("." + "png", "webplot_")

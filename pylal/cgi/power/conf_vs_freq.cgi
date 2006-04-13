@@ -1,6 +1,5 @@
 #!/usr/bin/python
 
-from matplotlib.patches import Patch
 import pylab
 
 import webplot

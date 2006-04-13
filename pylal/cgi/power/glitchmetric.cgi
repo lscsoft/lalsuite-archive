@@ -1,7 +1,6 @@
 #!/usr/bin/python
 
 import math
-from matplotlib.patches import Patch
 from numarray import nd_image
 import pylab
 

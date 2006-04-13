@@ -3,7 +3,6 @@
 import pylab
 
 from glue import segments
-from pylal import viz
 
 import webplot
 
