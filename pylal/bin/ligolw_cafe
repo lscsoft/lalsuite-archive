@@ -42,7 +42,7 @@ def parse_command_line():
 	parser = OptionParser(version = "%prog CVS $Id$")
 	parser.add_option("-t", "--time-slides", metavar = "filename", help = "read the time slide table from the given file")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
-	parser.add_option("-o", "--output", metavar = "base", default = "coinc_cache_", help = "set base for output caches")
+	parser.add_option("-b", "--base", metavar = "base", default = "cafe_", help = "set base for output caches")
 	options, cacheurls = parser.parse_args()
 
 	if not options.time_slides:
@@ -236,7 +236,7 @@ def WriteCaches(base, coincsegs, dilatedcaches, caches):
 	if len(coincsegs):
 		digits = int(log10(len(coincsegs)) + 1)
 	for n, seg in enumerate(coincsegs):
-		filename = ("%s%0" + str(digits) + "d.cache") % (options.output, n)
+		filename = ("%s%0" + str(digits) + "d.cache") % (base, n)
 		if options.verbose:
 			print >>sys.stderr, "writing %s" % filename
 		f = file(filename, "w")
@@ -245,4 +245,4 @@ def WriteCaches(base, coincsegs, dilatedcaches, caches):
 				if dilatedcache[i].segment.intersects(seg):
 					print >>f, str(caches[obs][i])
 
-WriteCaches(options.output, coincsegs, dilatedcaches, caches)
+WriteCaches(options.base, coincsegs, dilatedcaches, caches)
