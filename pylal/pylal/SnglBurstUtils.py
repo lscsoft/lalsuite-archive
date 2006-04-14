@@ -214,6 +214,8 @@ def choices(vals, n):
 	"""
 	Return a list of all choices of n elements from the list vals.
 	"""
+	if n < 1:
+		raise ValueError, n
 	if n == 1:
 		return [[v] for v in vals]
 	if n == len(vals):
