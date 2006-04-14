@@ -93,7 +93,7 @@ if options.output != None:
 	params += [("--output", "lstring", options.output)]
 for instrument in options.instrument:
 	params += [("--instrument", "lstring", instrument)]
-llwapp.append_process_params(docs, process, params)
+llwapp.append_process_params(doc, process, params)
 
 
 #
