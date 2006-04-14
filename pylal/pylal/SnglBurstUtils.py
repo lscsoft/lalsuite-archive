@@ -201,28 +201,3 @@ def CompareSimBurstAndSnglBurstByTimeandFreq(sim, burst):
 	"""
 	return CompareSimBurstAndSnglBurstByTime(sim, burst) and (sim.freq in burst.get_band())
 
-
-#
-# =============================================================================
-#
-#                                    Other
-#
-# =============================================================================
-#
-
-def choices(vals, n):
-	"""
-	Return a list of all choices of n elements from the list vals.
-	"""
-	if n < 1:
-		raise ValueError, n
-	if n == 1:
-		return [[v] for v in vals]
-	if n == len(vals):
-		return [vals]
-	l = []
-	for i in range(len(vals) - n + 1):
-		for c in choices(vals[i+1:], n - 1):
-			c[0:0] = [vals[i]]
-			l.append(c)
-	return l
