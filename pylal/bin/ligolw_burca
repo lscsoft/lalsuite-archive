@@ -88,6 +88,8 @@ except ValueError, e:
 # =============================================================================
 #
 
+if options.verbose:
+	print >>sys.stderr, "loading document..."
 doc = ligolw.Document()
 if options.input:
 	ligolw.make_parser(lsctables.LIGOLWContentHandler(doc)).parse(file(options.input))
@@ -213,6 +215,8 @@ class State(object):
 # =============================================================================
 #
 
+if options.verbose:
+	print >>sys.stderr, "preparing metadata..."
 try:
 	state = State(doc, lsctables.SnglBurstTable.tableName)
 except Exception, e:
