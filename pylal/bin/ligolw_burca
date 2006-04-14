@@ -266,7 +266,7 @@ class MultiIter(object):
 		self.stop = 0 in self.length
 
 	def __len__(self):
-		return reduce(int.__mul__, self.length, 1)
+		return reduce(int.__mul__, self.length)
 
 	def __iter__(self):
 		return self
