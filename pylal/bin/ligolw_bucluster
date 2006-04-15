@@ -151,7 +151,7 @@ llwapp.append_search_summary(doc, process, inseg = searchsummtable.get_inlist().
 # =============================================================================
 #
 
-set_process_end_time(process)
+llwapp.set_process_end_time(process)
 
 if options.output:
 	doc.write(file(options.output, "w"))
