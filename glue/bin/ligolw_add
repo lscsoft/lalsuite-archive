@@ -84,10 +84,11 @@ def load_documents(urls, verbose = False):
 	return doc
 
 
-def urlremove(url):
+def url2path(url):
 	(scheme, location, path, params, query, frag) = urlparse(url)
 	if scheme.lower() in ("", "file") and location.lower() in ("", "localhost"):
-		os.remove(path)
+		return path
+	raise ValueError, url
 
 
 #
@@ -218,12 +219,12 @@ if __name__ == "__main__":
 
 	# Remove input
 	if options.remove_input:
-		for url in urls:
-			if url == options.output:
+		for path in map(url2path, urls):
+			if path == options.output:
 				continue
 			if options.verbose:
-				print >>sys.stderr, "removing %s ..." % url
+				print >>sys.stderr, "removing %s ..." % path
 			try:
-				urlremove(url)
+				os.remove(path)
 			except:
 				pass
