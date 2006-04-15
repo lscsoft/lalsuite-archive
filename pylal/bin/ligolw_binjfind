@@ -94,7 +94,7 @@ else:
 try:
 	snglbursttable = llwapp.get_table(doc, lsctables.SnglBurstTable.tableName)
 	simbursttable = llwapp.get_table(doc, lsctables.SimBurstTable.tableName)
-	tisitable = llwapp.get_timeslide_table(doc, lsctables.TimeSlideTable.tableName)
+	tisitable = llwapp.get_table(doc, lsctables.TimeSlideTable.tableName)
 except Exception, e:
 	print >>sys.stderr, "error: %s" % str(e)
 	sys.exit(1)
