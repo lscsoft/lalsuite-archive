@@ -108,7 +108,7 @@ coincids = docutils.NewILWDs(coinctable, "coinc_event_id")
 
 try:
 	coincmaptable = llwapp.get_table(doc, lsctables.CoincMapTable.tableName)
-except IndexError:
+except ValueError:
 	coincmaptable = lsctables.New(lsctables.CoincMapTable, columns = ["coinc_event_id", "event_id"])
 	doc.childNodes[0].appendChild(coincmaptable)
 
