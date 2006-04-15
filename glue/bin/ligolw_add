@@ -219,6 +219,8 @@ if __name__ == "__main__":
 	# Remove input
 	if options.remove_input:
 		for url in urls:
+			if url == options.output:
+				continue
 			if options.verbose:
 				print >>sys.stderr, "removing %s ..." % url
 			try:
