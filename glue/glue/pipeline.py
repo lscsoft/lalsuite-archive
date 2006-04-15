@@ -2277,7 +2277,7 @@ class LigolwAddJob(CondorDAGJob, AnalysisJob):
     self.__universe = 'vanilla'
     CondorDAGJob.__init__(self,self.__universe,self.__executable)
     AnalysisJob.__init__(self,cp,dax)
-    self.add_ini_opts(config_parser, "ligolw_add")
+    self.add_ini_opts(cp, "ligolw_add")
 
     self.add_condor_cmd('getenv','True')
 
