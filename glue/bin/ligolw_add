@@ -220,7 +220,7 @@ if __name__ == "__main__":
 	# Remove input
 	if options.remove_input:
 		for path in map(url2path, urls):
-			if path == options.output:
+			if options.output and os.path.samefile(path, options.output):
 				continue
 			if options.verbose:
 				print >>sys.stderr, "removing %s ..." % path
