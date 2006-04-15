@@ -16,6 +16,7 @@ from optparse import OptionParser
 import sys
 import os
 import urllib
+from urlparse import urlparse
 
 from glue.lal import CacheEntry
 from glue.ligolw import ligolw
@@ -49,6 +50,7 @@ def parse_command_line():
 	parser.add_option("--non-lsc-tables-ok", action = "store_true", help = "OK to merge documents containing non-LSC tables")
 	parser.add_option("-o", "--output", metavar = "FILENAME", help = "write output to FILENAME (default = stdout)")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
+	parser.add_option("-r", "--remove-input", action = "store_true", help = "remove input files after loading")
 	options, urls = parser.parse_args()
 
 	if options.lfn_start_time:
@@ -80,6 +82,12 @@ def load_documents(urls, verbose = False):
 			print >>sys.stderr, "loading %d/%d: %s" % (n + 1, len(urls), url)
 		ligolw.make_parser(handler).parse(urllib.urlopen(url))
 	return doc
+
+
+def urlremove(url):
+	(scheme, location, path, params, query, frag) = urlparse(url)
+	if scheme.lower() in ("", "file") and location.lower() in ("", "localhost"):
+		os.remove(path)
 
 
 #
@@ -207,3 +215,13 @@ if __name__ == "__main__":
 		doc.write(file(options.output, "w"))
 	else:
 		doc.write(sys.stdout)
+
+	# Remove input
+	if options.remove_input:
+		for url in urls:
+			if options.verbose:
+				print >>sys.stderr, "removing %s ..." % url
+			try:
+				urlremove(url)
+			except:
+				pass
