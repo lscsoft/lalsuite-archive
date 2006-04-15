@@ -281,7 +281,7 @@ class CacheEntry(object):
 		if line != None:
 			match = self._regex.search(line)
 			if not match:
-				raise ValueError, "could not convert \"%s\" to CacheEntry" % args[0]
+				raise ValueError, "could not convert \"%s\" to CacheEntry" % line
 			self.observatory = match.group("observatory")
 			self.description = match.group("description")
 			self.segment = segments.segment(coltype(match.group("start")), coltype(match.group("start")) + coltype(match.group("duration")))
