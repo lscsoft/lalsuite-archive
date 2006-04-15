@@ -111,7 +111,7 @@ except Exception, e:
 # =============================================================================
 #
 
-process = llwapp.append_process_info(doc, program = "ligolw_bucluster", version = __version__, cvs_repository = "lscsoft", cvs_entry_time = __date__, comment = options.comment)
+process = llwapp.append_process(doc, program = "ligolw_bucluster", version = __version__, cvs_repository = "lscsoft", cvs_entry_time = __date__, comment = options.comment)
 
 params = [("--cluster", "lstring", options.cluster)]
 if options.input != None:
