@@ -199,6 +199,7 @@ class State(object):
 		coinc.process_id = self.process.process_id
 		coinc.coinc_event_id = self.coincids.next()
 		coinc.time_slide_id = tisi_id
+		coinc.nevents = len(trigs)
 		self.coinctable.append(coinc)
 		for trig in trigs:
 			coincmap = lsctables.CoincMap()

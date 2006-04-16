@@ -2056,7 +2056,8 @@ class CoincTable(LSCTableUnique):
 	validcolumns = {
 		"process_id": "ilwd:char",
 		"coinc_event_id": "ilwd:char",
-		"time_slide_id": "ilwd:char"
+		"time_slide_id": "ilwd:char",
+		"nevents", "int_4u"
 	}
 
 	def makeReference(self, elem):

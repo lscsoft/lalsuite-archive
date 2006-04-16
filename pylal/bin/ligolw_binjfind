@@ -180,6 +180,7 @@ def new_coinc():
 	coinc.process_id = process.process_id
 	coinc.coinc_event_id = coincids.next()
 	coinc.time_slide_id = tisi_id
+	coinc.nevents = 0
 	coinctable.append(coinc)
 	return coinc
 
@@ -188,6 +189,8 @@ def add_found_injection(coinc, sim, burst):
 	if burst.ifo not in tisi_instruments:
 		print >>sys.stderr, "error: zero-lag time slide does not list instrument %s needed by event %s" % (burst.ifo, burst.event_id)
 		sys.exit(1)
+
+	coinc.nevents += 1
 
 	coincmap = lsctables.CoincMap()
 	coincmap.coinc_event_id = coinc.coinc_event_id
