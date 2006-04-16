@@ -283,8 +283,8 @@ i = 0
 while i < len(snglbursttable):
 	if keep_this_trigger(snglbursttable[i], options):
 		i += 1
-		continue
-	del snglbursttable[i]
+	else:
+		del snglbursttable[i]
 
 
 #
