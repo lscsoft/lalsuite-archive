@@ -86,6 +86,12 @@ if not options.output:
 # =============================================================================
 #
 
+class SnglBurst(object):
+	__slots__ = ["event_id"]
+
+lsctables.SnglBurstTable.RowType = SnglBurst
+
+
 def LoadDocument(url):
 	doc = ligolw.Document()
 	try:
@@ -227,7 +233,9 @@ class RatioBins(object):
 #
 
 class Inst1VsInst2(object):
-	def __init__(self):
+	def __init__(self, x_instrument, y_instrument):
+		self.x_instrument = x_instrument
+		self.y_instrument = y_instrument
 		self.fig = figure.Figure()
 		self.canvas = FigureCanvasAgg(self.fig)
 		self.axes = self.fig.gca()
@@ -242,9 +250,9 @@ class Inst1VsInst2(object):
 		for offsets in CoincTisiIter(doc):
 			x, y = None, None
 			for row in offsets:
-				if row.instrument == options.x_instrument:
+				if row.instrument == self.x_instrument:
 					x = row.offset
-				elif row.instrument == options.y_instrument:
+				elif row.instrument == self.y_instrument:
 					y = row.offset
 			self.bins.incnumerator(x, y)
 
@@ -261,7 +269,7 @@ class Inst1VsInst2(object):
 # =============================================================================
 #
 
-plot = Inst1VsInst2()
+plot = Inst1VsInst2(options.x_instrument, options.y_instrument)
 
 for n, url in enumerate(options.input):
 	if options.verbose:
