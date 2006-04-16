@@ -89,7 +89,15 @@ if not options.output:
 class SnglBurst(object):
 	__slots__ = ["event_id"]
 
+class Coinc(object):
+	__slots__ = ["coinc_event_id", "time_slide_id"]
+
+class TimeSlide(object):
+	__slots__ = ["time_slide_id", "instrument", "offset"]
+
 lsctables.SnglBurstTable.RowType = SnglBurst
+lsctables.CoincTable.RowType = Coinc
+lsctables.TimeSlideTable.RowType = TimeSlide
 
 
 def LoadDocument(url):
