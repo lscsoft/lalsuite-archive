@@ -470,7 +470,7 @@ class Table(ligolw.Table):
 			elif llwtype in FloatTypes:
 				self.columninfo.append((colname, float))
 			else:
-				raise ligolw.ElementError, "unrecognized Type attribute \"%s\" for Column \"%s\"" % (llwtype, child.getAttribute("Name"))
+				raise ligolw.ElementError, "unrecognized Type attribute \"%s\" for Column \"%s\" in Table \"%s\"" % (llwtype, child.getAttribute("Name"), self.getAttribute("Name"))
 
 	def _verifyChildren(self, i):
 		ligolw.Table._verifyChildren(self, i)
