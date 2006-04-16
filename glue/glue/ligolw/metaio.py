@@ -294,28 +294,28 @@ class TableStream(ligolw.Stream):
 		if match != None:
 			self.pcdata = self.pcdata[match.end():]
 
-	def _rowstr(self, row, columns):
+	def _rowstr(self, row, columninfo):
 		# FIXME: after calling getattr(), should probably check that
 		# the result has the expected type.
 		strs = []
-		for column in columns:
-			if column.getAttribute("Type") in StringTypes:
-				strs.append("\"" + getattr(row, StripColumnName(column.getAttribute("Name"))) + "\"")
+		for isstring, name in columninfo:
+			if isstring:
+				strs.append("\"" + getattr(row, name) + "\"")
 			else:
-				strs.append(str(getattr(row, StripColumnName(column.getAttribute("Name")))))
+				strs.append(str(getattr(row, name)))
 		return self.getAttribute("Delimiter").join(strs)
 
 	def write(self, file = sys.stdout, indent = ""):
-		columns = self.parentNode.getElementsByTagName(ligolw.Column.tagName)
+		columninfo = [(c.getAttribute("Type") in StringTypes, StripColumnName(c.getAttribute("Name"))) for c in self.parentNode.getElementsByTagName(ligolw.Column.tagName)]
 
 		# loop over parent's rows.  This is complicated because we
 		# need to not put a comma at the end of the last row.
 		print >>file, indent + self.start_tag()
 		rowiter = iter(self.parentNode)
 		try:
-			file.write(indent + ligolw.Indent + self._rowstr(rowiter.next(), columns))
+			file.write(indent + ligolw.Indent + self._rowstr(rowiter.next(), columninfo))
 			while True:
-				file.write(self.getAttribute("Delimiter") + "\n" + indent + ligolw.Indent + self._rowstr(rowiter.next(), columns))
+				file.write(self.getAttribute("Delimiter") + "\n" + indent + ligolw.Indent + self._rowstr(rowiter.next(), columninfo))
 		except StopIteration:
 			if len(self.parentNode) > 0:
 				file.write("\n")
