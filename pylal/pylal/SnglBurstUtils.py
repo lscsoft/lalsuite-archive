@@ -131,7 +131,8 @@ def SnglBurstCluster(a, b):
 		a.snr = b.snr
 		a.confidence = b.confidence
 		a.set_peak(b.get_peak())
-		a.tfvolume = b.tfvolume
+		if hasattr(a, "tfvolume"):
+			a.tfvolume = b.tfvolume
 
 
 def ClusterSnglBurstTable(triggers, testfunc, clusterfunc, bailoutfunc = None):
