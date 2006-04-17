@@ -160,7 +160,8 @@ def chunk_document(doc):
 		if chunk.seglist.duration() > options.duration:
 			yield chunk.doc, chunk.seglist
 			chunk = Chunk()
-	yield chunk.doc, chunk.seglist
+	if check.seglist.duration():
+		yield chunk.doc, chunk.seglist
 
 
 for filename in filenames:
