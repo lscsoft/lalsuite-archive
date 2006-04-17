@@ -211,7 +211,10 @@ if __name__ == "__main__":
 
 	# Output
 	if options.verbose:
-		print >>sys.stderr, "writing output..."
+		if options.output:
+			print >>sys.stderr, "writing %s..." % options.output
+		else:
+			print >>sys.stderr, "writing stdout..."
 	if options.output:
 		doc.write(file(options.output, "w"))
 	else:
