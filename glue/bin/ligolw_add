@@ -61,6 +61,9 @@ def parse_command_line():
 	for cache in options.input_cache:
 		urls += [c.url for c in map(CacheEntry, file(cache))]
 
+	if len(urls) < 1:
+		raise Exception, "no input files!"
+
 	return options, urls
 
 
@@ -72,15 +75,8 @@ def parse_command_line():
 # =============================================================================
 #
 
-def load_documents(urls, verbose = False):
-	if len(urls) < 1:
-		raise Exception, "no input files!"
-	doc = ligolw.Document()
-	handler = lsctables.LIGOLWContentHandler(doc)
-	for n, url in enumerate(urls):
-		if verbose:
-			print >>sys.stderr, "loading %d/%d: %s" % (n + 1, len(urls), url)
-		ligolw.make_parser(handler).parse(urllib.urlopen(url))
+def append_document(doc, file):
+	ligolw.make_parser(lsctables.LIGOLWContentHandler(doc)).parse(file)
 	return doc
 
 
@@ -122,14 +118,6 @@ def element_merge(doc):
 	docutils.MergeCompatibleTables(doc)
 
 	return doc
-
-
-def ligolw_merge(doc):
-	"""
-	Convenience wrapper of the reassign_ids() and element_merge()
-	functions.
-	"""
-	return element_merge(reassign_ids(doc))
 
 
 #
@@ -177,11 +165,19 @@ def make_lfn_table(doc, pathname, start_time = None, end_time = None, comment = 
 
 if __name__ == "__main__":
 	# Command line
-	options, urls = parse_command_line()
+	try:
+		options, urls = parse_command_line()
+	except Exception, e:
+		print >>sys.stderr, "error: %s" % str(e)
+		sys.exit(1)
 
 	# Input
 	try:
-		doc = load_documents(urls, options.verbose)
+		doc = ligolw.Document()
+		for n, url in enumerate(urls):
+			if options.verbose:
+				print >>sys.stderr, "loading %d/%d: %s" % (n + 1, len(urls), url)
+			append_document(doc, urllib.urlopen(url))
 	except Exception, e:
 		print >>sys.stderr, "error: %s" % str(e)
 		sys.exit(1)
