@@ -75,6 +75,7 @@ setup(
 		os.path.join("bin", "ligolw_bucut"),
 		os.path.join("bin", "ligolw_burca"),
 		os.path.join("bin", "ligolw_cafe"),
+		os.path.join("bin", "ligolw_sschunk"),
 		os.path.join("bin", "ligolw_tisi")
 	],
 	data_files = [

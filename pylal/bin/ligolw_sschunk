@@ -1,0 +1,163 @@
+#!/usr/bin/python
+#
+# $Id$
+#
+# Copyright (C) 2006  Kipp C. Cannon
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 2 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+#
+# =============================================================================
+#
+#                                   Preamble
+#
+# =============================================================================
+#
+
+"""
+LIGO Light Weight XML search summary table chunker.
+"""
+
+import copy
+from optparse import OptionParser
+import sys
+
+from glue import segments
+from glue.ligolw import ligolw
+from glue.ligolw import lsctables
+from glue.ligolw import docutils
+from pylal import llwapp
+
+__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__version__ = "$Revision$"[11:-2]
+__date__ = "$Date$"[7:-2]
+
+
+#
+# =============================================================================
+#
+#                                 Command Line
+#
+# =============================================================================
+#
+
+def parse_command_line():
+	parser = OptionParser(version = "%prog CVS $Id$")
+	parser.add_option("-b", "--base", metavar = "base", default = "sschunk", help = "set base for output files (default = \"sschunk\")")
+	parser.add_option("-d", "--duration", metavar = "seconds", default = 3600, help = "set target duration (default = 3600 s)")
+	parser.add_option("-r", "--remove-input", action = "store_true", help = "remove input files when done")
+	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
+	options, filenames = parser.parse_args()
+
+	options.duration = int(options.duration)
+
+	return options, filenames
+
+options, filenames = parse_command_line()
+
+
+#
+# =============================================================================
+#
+#                                    Input
+#
+# =============================================================================
+#
+
+def load_document(filename):
+	if options.verbose:
+		print >>sys.stderr, "loading %s..." % filename
+	doc = ligolw.Document()
+	ligolw.make_parser(lsctables.LIGOLWContentHandler(doc)).parse(file(filename))
+	return doc
+
+
+#
+# =============================================================================
+#
+#                                 Preparation
+#
+# =============================================================================
+#
+
+def build_id_seglist_pairs(doc):
+	"""
+	Construct a list of process_id, segment list pairs sorted by
+	segment list start time.
+	"""
+	if options.verbose:
+		print >>sys.stderr, "extracting and indexing search summary table..."
+	searchsummtable = llwapp.get_table(doc, lsctables.SearchSummaryTable.tableName)
+	pairs = [(process_id, segments.segmentlist(map(lsctables.SearchSummary.get_out, rows)).coalesce()) for (process_id, rows) in searchsummtable.dict.iteritems()]
+	pairs.sort(lambda a, b: cmp(a[1].extent()[0], b[1].extent()[0]))
+	return pairs
+
+
+#
+# =============================================================================
+#
+#                                   Chunking
+#
+# =============================================================================
+#
+
+class Chunk(object):
+	def __init__(self):
+		self.doc = ligolw.Document()
+		self.doc.appendChild(ligolw.LIGO_LW())
+		self.seglist = segments.segmentlist()
+
+	def addtable(self, template):
+		try:
+			table = llwapp.get_table(self.doc, template.tableName)
+		except:
+			table = self.doc.childNodes[0].appendChild(docutils.CopyTable(template))
+		return table
+
+	def write(self, file):
+		self.doc.write(file)
+
+
+def chunk_document(doc):
+	chunk = Chunk()
+	for process_id, seglist in build_id_seglist_pairs(doc):
+		if options.verbose:
+			print >>sys.stderr, "extracting %s (duration = %f)..." % (process_id, float(seglist.duration()))
+		chunk.seglist |= seglist
+		for source in doc.getElementsByTagName(ligolw.Table.tagName):
+			try:
+				source.getColumnByName("process_id")
+			except:
+				raise ValueError, "table %s has no process_id column" % source.tableName
+			dest = chunk.addtable(source)
+			i = 0
+			while i < len(source):
+				if source.rows[i].process_id == process_id:
+					dest.append(source.rows.pop(i))
+				else:
+					i += 1
+		if chunk.seglist.duration() > options.duration:
+			yield chunk.doc, chunk.seglist
+			chunk = Chunk()
+	yield chunk.doc, chunk.seglist
+
+
+for filename in filenames:
+	for doc, seglist in chunk_document(load_document(filename)):
+		segment = seglist.extent()
+		chunkname = "%s-%d-%d.xml" % (options.base, int(segment[0]), int(segment.duration()))
+		if options.verbose:
+			print >>sys.stderr, "writing extracted processes to %s (duration = %f)..." % (chunkname, seglist.duration())
+		doc.write(file(chunkname, "w"))
