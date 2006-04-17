@@ -85,13 +85,14 @@ def read_source_file( source_file ):
 
   sourcelist = []
   luminosity = []
-  
+
   i = 4
   while i < len(lines): 
     b  = string.split(lines[i])
     c  = { 'name': b[0], 'luminosity': float(b[4]) }
     sourcelist.append(c)
-    i = i + 1
+    i = i + 1    
+
 
   sort_on = "luminosity"
   decorated = [(dict_[sort_on], dict_) for dict_ in sourcelist]
@@ -113,6 +114,7 @@ def segmentCut ( sim_table, seglist, col_name ):
       tmpTable.append(entry)
 
   return tmpTable
+
 
 
 #######################################################################
@@ -787,9 +789,18 @@ if opts.plot_effcontour:
   xlabel(opts.X_contour)
   ylabel( opts.Y_contour)
   colorbar()
+  if((opts.X_contour == "eff_dist_h") and \
+     (opts.Y_contour == "eff_dist_l")):
+
+	h=(1.70,6.85,6.80,7.74,5.84,7.47,5.88)
+	l=(1.56,6.56,7.80,6.69,6.28,6.39,6.23)
+	scatter(h,l)
+		
+
   title('n_g Contour')
   if opts.figure_name:
     savefig( "n_g-" + opts.figure_name + ".png" )
+
 
 
 
