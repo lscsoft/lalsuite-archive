@@ -6,6 +6,8 @@ __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __date__ = "$Date$"[7:-2]
 __version__ = "$Revision$"[11:-2]
 
+import copy
+
 import ligolw
 import metaio
 import lsctables
@@ -85,6 +87,27 @@ def MergeCompatibleTables(elem):
 			if TablesCanBeMerged(tables[0], tables[i]):
 				MergeElements(tables[0], tables[i])
 	return elem
+
+
+def CopyTable(table):
+	"""
+	Construct and return a duplicate of a table document tree.  Rows
+	are not copied.  Note that a fair amount of metadata is shared
+	between the original and new tables.  In particular, a copy of the
+	Table object itself is created, copies of the child nodes are
+	created, and a new row list is created.  All other object
+	references are shared between the two instances, such as the
+	RowType attribute on the Table object.
+	"""
+	if table.tagName != ligolw.Table.tagName:
+		raise ValueError, table
+	new = copy.copy(table)
+	new.childNodes = map(copy.copy, table.childNodes)
+	for child in new.childNodes:
+		child.parentNode = new
+	if hasattr(new, "rows"):
+		new.rows = []
+	return new
 
 
 #
