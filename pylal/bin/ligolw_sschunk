@@ -151,12 +151,9 @@ def chunk_document(doc):
 			except:
 				raise ValueError, "table %s has no process_id column" % source.tableName
 			dest = chunk.addtable(source)
-			i = 0
-			while i < len(source):
-				if source.rows[i].process_id == process_id:
-					dest.append(source.rows.pop(i))
-				else:
-					i += 1
+			for row in source:
+				if row.process_id == process_id:
+					dest.append(row)
 		if chunk.seglist.duration() > options.duration:
 			yield chunk.doc, chunk.seglist
 			chunk = Chunk()
