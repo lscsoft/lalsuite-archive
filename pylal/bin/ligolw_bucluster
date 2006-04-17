@@ -80,6 +80,12 @@ else:
 # =============================================================================
 #
 
+if options.verbose:
+	if options.input:
+		print >>sys.stderr, "reading %s..." % options.input
+	else:
+		print >>sys.stderr, "reading stdin..."
+
 doc = ligolw.Document()
 if options.input:
 	ligolw.make_parser(lsctables.LIGOLWContentHandler(doc)).parse(file(options.input))
@@ -94,6 +100,9 @@ else:
 #
 # =============================================================================
 #
+
+if options.verbose:
+	print >>sys.stderr, "extracting tables..."
 
 try:
 	searchsummtable = llwapp.get_table(doc, lsctables.SearchSummaryTable.tableName)
@@ -129,6 +138,9 @@ llwapp.append_process_params(doc, process, params)
 # =============================================================================
 #
 
+if options.verbose:
+	print >>sys.stderr, "clustering..."
+
 SnglBurstUtils.ClusterSnglBurstTable(snglbursttable.rows, testfunc, clusterfunc, bailoutfunc)
 
 
@@ -152,6 +164,12 @@ llwapp.append_search_summary(doc, process, inseg = searchsummtable.get_inlist().
 #
 
 llwapp.set_process_end_time(process)
+
+if options.verbose:
+	if options.output:
+		print >>sys.stderr, "writing %s..." % options.output
+	else:
+		print >>sys.stderr, "writing stdout..."
 
 if options.output:
 	doc.write(file(options.output, "w"))
