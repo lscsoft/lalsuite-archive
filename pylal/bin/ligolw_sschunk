@@ -32,6 +32,7 @@ LIGO Light Weight XML search summary table chunker.
 
 import copy
 from optparse import OptionParser
+import os
 import sys
 
 from glue import segments
@@ -161,3 +162,7 @@ for filename in filenames:
 		if options.verbose:
 			print >>sys.stderr, "writing extracted processes to %s (duration = %f)..." % (chunkname, seglist.duration())
 		doc.write(file(chunkname, "w"))
+	if options.remove_input:
+		if options.verbose:
+			print >>sys.stderr, "removing %s..." % filename
+		os.remove(filename)
