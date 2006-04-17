@@ -63,6 +63,8 @@ def parse_command_line():
 	options, filenames = parser.parse_args()
 
 	options.duration = int(options.duration)
+	if not len(filenames):
+		filenames = [None]
 
 	return options, filenames
 
@@ -79,9 +81,15 @@ options, filenames = parse_command_line()
 
 def load_document(filename):
 	if options.verbose:
-		print >>sys.stderr, "loading %s..." % filename
+		if filename:
+			print >>sys.stderr, "reading %s..." % filename
+		else:
+			print >>sys.stderr, "reading stdin..."
 	doc = ligolw.Document()
-	ligolw.make_parser(lsctables.LIGOLWContentHandler(doc)).parse(file(filename))
+	if filename:
+		ligolw.make_parser(lsctables.LIGOLWContentHandler(doc)).parse(file(filename))
+	else:
+		ligolw.make_parser(lsctables.LIGOLWContentHandler(doc)).parse(sys.stdin)
 	return doc
 
 
@@ -162,7 +170,7 @@ for filename in filenames:
 		if options.verbose:
 			print >>sys.stderr, "writing extracted processes to %s (duration = %f)..." % (chunkname, seglist.duration())
 		doc.write(file(chunkname, "w"))
-	if options.remove_input:
+	if filename and options.remove_input:
 		if options.verbose:
 			print >>sys.stderr, "removing %s..." % filename
 		os.remove(filename)
