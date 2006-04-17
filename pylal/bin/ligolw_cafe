@@ -40,12 +40,15 @@ __version__ = "$Revision$"[11:-2]
 
 def parse_command_line():
 	parser = OptionParser(version = "%prog CVS $Id$")
+	parser.add_option("-s", "--single-instrument", action = "store_true", help = "select single instrument mode")
 	parser.add_option("-t", "--time-slides", metavar = "filename", help = "read the time slide table from the given file")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
 	parser.add_option("-b", "--base", metavar = "base", default = "cafe_", help = "set base for output caches")
 	options, cacheurls = parser.parse_args()
 
-	if not options.time_slides:
+	if options.single_instrument:
+		pass
+	elif not options.time_slides:
 		print >>sys.stderr, "error: must specify time slide input file"
 		sys.exit(1)
 
@@ -82,13 +85,24 @@ def LoadTisi(url):
 	ligolw.make_parser(lsctables.LIGOLWContentHandler(doc)).parse(urllib.urlopen(url))
 	return doc
 
+def NullTisi(instruments):
+	tisitable = lsctables.New(lsctables.TimeSlideTable, ["instrument", "offset"])
+	for instrument in instruments:
+		tisitable.append(lsctables.TimeSlide())
+		tisitable[-1].instrument = instrument
+		tisitable[-1].offset = 0.0
+	return tisitable
+
+
 try:
 	caches = {}
 	map(lambda u: caches.update(LoadCache(u)), cacheurls)
 	seglists = {}
 	map(lambda c: seglists.update(CacheToSegList(c)), caches.itervalues())
-	tisidoc = LoadTisi(options.time_slides)
-	tisitable = llwapp.get_table(tisidoc, lsctables.TimeSlideTable.tableName)
+	if options.time_slides:
+		tisitable = llwapp.get_table(LoadTisi(options.time_slides), lsctables.TimeSlideTable.tableName)
+	else:
+		tisitable = NullTisi(caches.keys())
 except Exception, e:
 	print >>sys.stderr, "error: %s" % str(e)
 	sys.exit(1)
