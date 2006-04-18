@@ -32,6 +32,7 @@ data in LIGO Light-Weight format.
 import os
 import socket
 import time
+import urllib
 
 from glue.ligolw import metaio
 from glue.ligolw import lsctables
@@ -41,6 +42,42 @@ from pylal.date import XLALUTCToGPS
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
+
+
+#
+# =============================================================================
+#
+#                                    Input
+#
+# =============================================================================
+#
+
+def load_filename(filename, verbose = False):
+	if verbose:
+		if filename:
+			print >>sys.stderr, "reading %s..." % filename
+		else:
+			print >>sys.stderr, "reading stdin..."
+	doc = ligolw.Document()
+	if filename:
+		ligolw.make_parser(lsctables.LIGOLWContentHandler(doc)).parse(file(filename))
+	else:
+		ligolw.make_parser(lsctables.LIGOLWContentHandler(doc)).parse(sys.stdin)
+	return doc
+
+
+def load_url(url, verbose = False):
+	if verbose:
+		if url:
+			print >>sys.stderr, "reading %s..." % url
+		else:
+			print >>sys.stderr, "reading stdin..."
+	doc = ligolw.Document()
+	if url:
+		ligolw.make_parser(lsctables.LIGOLWContentHandler(doc)).parse(urllib.urlopen(url))
+	else:
+		ligolw.make_parser(lsctables.LIGOLWContentHandler(doc)).parse(sys.stdin)
+	return doc
 
 
 #
