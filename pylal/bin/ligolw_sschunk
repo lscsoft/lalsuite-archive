@@ -196,8 +196,7 @@ def write_sschunks(doc, **kwargs):
 		chunk.write(file(chunkname, "w"))
 		if kwargs["write_cache"]:
 			cache += "%s\n" % str(cache_entry(kwargs["cache_instrument"], kwargs["cache_comment"], segment, chunkname))
-	if kwargs["write_cache"]:
-		return cache
+	return cache
 
 
 #
