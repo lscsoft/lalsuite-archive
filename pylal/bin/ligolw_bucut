@@ -53,6 +53,8 @@ parser.add_option("--comment", metavar = "text", default = "", help = "set comme
 parser.add_option("-i", "--input", metavar = "filename", help = "read from filename (default = stdin)")
 parser.add_option("-o", "--output", metavar = "filename", help = "write to filename (default = stdout)")
 parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
+parser.add_option("--coinc-discard", action = "store_true", help = "discard triggers participating in a coincident event")
+parser.add_option("--coinc-only", action = "store_true", help = "discard triggers that are not participating in a coincident event")
 parser.add_option("--min-amplitude", metavar = "value", help = "discard triggers below the given amplitude")
 parser.add_option("--max-amplitude", metavar = "value", help = "discard triggers above the given amplitude")
 parser.add_option("--min-bandwidth", metavar = "Hz", help = "discard triggers narrower than the given bandwidth")
@@ -110,6 +112,11 @@ else:
 try:
 	snglbursttable = llwapp.get_table(doc, lsctables.SnglBurstTable.tableName)
 	searchsummtable = llwapp.get_table(doc, lsctables.SearchSummaryTable.tableName)
+	try:
+		coincevents = list(llwapp.get_table(doc, lsctables.CoincMapTable.tableName).getColumnByName("event_id"))
+	except:
+		coincevents = []
+	coincevents.sort()
 except Exception, e:
 	print >>sys.stderr, "error: %s" % str(e)
 	sys.exit(1)
@@ -130,6 +137,10 @@ if options.input != None:
 	params += [("--input", "lstring", options.input)]
 if options.output != None:
 	params += [("--output", "lstring", options.output)]
+if options.coinc_discard:
+	params += [("--coinc-discard", "lstring", "")]
+if options.coinc_only:
+	params += [("--coinc-only", "lstring", "")]
 if options.min_amplitude != None:
 	options.min_amplitude = float(options.min_amplitude)
 	params += [("--min-amplitude", "real_4", options.min_amplitude)]
@@ -221,7 +232,23 @@ llwapp.append_process_params(doc, process, params)
 # =============================================================================
 #
 
+def contains(array, val):
+	"""
+	Uses a bisection search to determine if val is in array.  Returns
+	True or False.
+	"""
+	return len(array) > 0 and array[bisect.bisect_left(array, val)] == val
+
+
 def keep_this_trigger(burst, options):
+	"""
+	Returns True if the burst trigger survives the cuts described by
+	the attributes of the options object.
+	"""
+	if options.coinc_discard and contains(coincevents, burst.event_id):
+		return False
+	if options.coinc_only and not contains(coincevents, burst.event_id):
+		return False
 	if (options.min_amplitude != None) and (burst.amplitude < options.min_amplitude):
 		return False
 	if (options.max_amplitude != None) and (burst.amplitude > options.max_amplitude):
