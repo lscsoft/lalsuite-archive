@@ -47,28 +47,34 @@ __date__ = "$Date$"[7:-2]
 # =============================================================================
 #
 
-parser = OptionParser(version = "%prog CVS $Id$")
-parser.add_option("--comment", metavar = "text", default = "", help = "set comment string in process table")
-parser.add_option("-i", "--input", metavar = "filename", help = "read from filename (default = stdin)")
-parser.add_option("-o", "--output", metavar = "filename", help = "write to filename (default = stdout)")
-parser.add_option("-m", "--cluster", metavar = "[bypeaktimeandfreq|bytimeandfreq]", help = "set clustering method (required)")
-parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
-options, args = parser.parse_args()
-del parser, args
+def parse_command_line():
+	parser = OptionParser(version = "%prog CVS $Id$")
+	parser.add_option("--comment", metavar = "text", default = "", help = "set comment string in process table")
+	parser.add_option("-i", "--input", metavar = "filename", help = "read from filename (default = stdin)")
+	parser.add_option("-o", "--output", metavar = "filename", help = "write to filename (default = stdout)")
+	parser.add_option("-m", "--cluster", metavar = "[bypeaktimeandfreq|bytimeandfreq]", help = "set clustering method (required)")
+	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
+	options = parser.parse_args()[0]
 
-if options.cluster == None:
-	print >>sys.stderr, "error: missing required command line argument --cluster"
-	sys.exit(1)
-if options.cluster == "bypeaktimeandfreq":
-	testfunc = SnglBurstUtils.CompareSnglBurstByPeakTimeAndFreq
-	clusterfunc = SnglBurstUtils.SnglBurstCluster
-	bailoutfunc = SnglBurstUtils.CompareSnglBurstByPeakTime
-elif options.cluster == "bytimeandfreq":
-	testfunc = SnglBurstUtils.CompareSnglBurst
-	clusterfunc = SnglBurstUtils.SnglBurstCluster
-	bailoutfunc = None
-else:
-	print >>sys.stderr, "error: unrecognized cluster method %s" % options.cluster
+	if options.cluster == None:
+		raise Exception, "missing required command line argument --cluster"
+	if options.cluster == "bypeaktimeandfreq":
+		options.testfunc = SnglBurstUtils.CompareSnglBurstByPeakTimeAndFreq
+		options.clusterfunc = SnglBurstUtils.SnglBurstCluster
+		options.bailoutfunc = SnglBurstUtils.CompareSnglBurstByPeakTime
+	elif options.cluster == "bytimeandfreq":
+		options.testfunc = SnglBurstUtils.CompareSnglBurst
+		options.clusterfunc = SnglBurstUtils.SnglBurstCluster
+		options.bailoutfunc = None
+	else:
+		raise Exception, "unrecognized cluster method %s" % options.cluster
+
+	return options
+
+try:
+	options = parse_command_line()
+except Exception, e:
+	print >>sys.stderr, "error: %s" % str(e)
 	sys.exit(1)
 
 
@@ -80,17 +86,21 @@ else:
 # =============================================================================
 #
 
+def load_document(filename):
+	doc = ligolw.Document()
+	if filename:
+		ligolw.make_parser(lsctables.LIGOLWContentHandler(doc)).parse(file(filename))
+	else:
+		ligolw.make_parser(lsctables.LIGOLWContentHandler(doc)).parse(sys.stdin)
+	return doc
+
+
 if options.verbose:
 	if options.input:
 		print >>sys.stderr, "reading %s..." % options.input
 	else:
 		print >>sys.stderr, "reading stdin..."
-
-doc = ligolw.Document()
-if options.input:
-	ligolw.make_parser(lsctables.LIGOLWContentHandler(doc)).parse(file(options.input))
-else:
-	ligolw.make_parser(lsctables.LIGOLWContentHandler(doc)).parse(sys.stdin)
+doc = load_document(options.input)
 
 
 #
@@ -141,7 +151,7 @@ llwapp.append_process_params(doc, process, params)
 if options.verbose:
 	print >>sys.stderr, "clustering..."
 
-SnglBurstUtils.ClusterSnglBurstTable(snglbursttable.rows, testfunc, clusterfunc, bailoutfunc)
+SnglBurstUtils.ClusterSnglBurstTable(snglbursttable.rows, options.testfunc, options.clusterfunc, options.bailoutfunc)
 
 
 #
