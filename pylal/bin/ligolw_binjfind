@@ -76,11 +76,7 @@ else:
 # =============================================================================
 #
 
-doc = ligolw.Document()
-if options.input:
-	ligolw.make_parser(lsctables.LIGOLWContentHandler(doc)).parse(file(options.input))
-else:
-	ligolw.make_parser(lsctables.LIGOLWContentHandler(doc)).parse(sys.stdin)
+doc = llwapp.load_filename(options.input, options.verbose)
 
 
 #

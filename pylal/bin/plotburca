@@ -35,7 +35,6 @@ from matplotlib import figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 import numarray
 import sys
-import urllib
 
 from glue import lal
 from glue import segments
@@ -98,15 +97,6 @@ class TimeSlide(object):
 lsctables.SnglBurstTable.RowType = SnglBurst
 lsctables.CoincTable.RowType = Coinc
 lsctables.TimeSlideTable.RowType = TimeSlide
-
-
-def LoadDocument(url):
-	doc = ligolw.Document()
-	try:
-		ligolw.make_parser(lsctables.LIGOLWContentHandler(doc)).parse(urllib.urlopen(url))
-	except Exception, e:
-		raise Exception, "parsing contents of %s: %s" % (url, str(e))
-	return doc
 
 
 #
@@ -283,7 +273,7 @@ for n, url in enumerate(options.input):
 	if options.verbose:
 		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(options.input), url)
 	try:
-		plot.addto(DocContents(LoadDocument(url)))
+		plot.addto(DocContents(llwapp.load_url(url)))
 	except Exception, e:
 		print >>sys.stderr, "error: %s" % str(e)
 		sys.exit(1)

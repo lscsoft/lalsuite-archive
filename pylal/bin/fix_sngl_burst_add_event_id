@@ -29,18 +29,13 @@ import sys
 from glue.ligolw import ligolw
 from glue.ligolw import metaio
 from glue.ligolw import lsctables
+from pylal.llwapp import load_filename
 
 
 def GetOpts():
 	parser = OptionParser()
 	parser.add_option("--output")
 	return parser.parse_args()[0]
-
-
-def LoadDocuments():
-	doc = ligolw.Document()
-	ligolw.make_parser(lsctables.LIGOLWContentHandler(doc)).parse(sys.stdin)
-	return doc
 
 
 def AddEventIDs(doc):
@@ -57,6 +52,6 @@ def AddEventIDs(doc):
 
 output = GetOpts().output
 if output:
-	AddEventIDs(LoadDocuments()).write(file(output, "w"))
+	AddEventIDs(load_filename(None)).write(file(output, "w"))
 else:
-	AddEventIDs(LoadDocuments()).write(sys.stdout)
+	AddEventIDs(load_filename(None)).write(sys.stdout)
