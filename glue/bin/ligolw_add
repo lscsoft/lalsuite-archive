@@ -162,13 +162,12 @@ def make_lfn_table(doc, pathname, start_time = None, end_time = None, comment = 
 # =============================================================================
 #
 
-def ligolw_add(urls, **kwargs):
+def ligolw_add(doc, urls, **kwargs):
 	"""
-	A functional implementation of the LIGO LW add algorithm.  urls is
-	a list of URLs to load.
+	An implementation of the LIGO LW add algorithm.  urls is a list of
+	URLs to load.
 	"""
 	# Input
-	doc = ligolw.Document()
 	for n, url in enumerate(urls):
 		if kwargs["verbose"]:
 			print >>sys.stderr, "loading %d/%d: %s" % (n + 1, len(urls), url)
@@ -186,12 +185,6 @@ def ligolw_add(urls, **kwargs):
 	if kwargs["verbose"]:
 		print >>sys.stderr, "merging elements ..."
 	element_merge(doc)
-
-	# LFN table
-	if kwargs["add_lfn_table"]:
-		if not kwargs["output"]:
-			raise Exception, "cannot add LFN table when no output filename is given"
-		doc.getElementsByTagName(ligolw.LIGO_LW.tagName)[0].appendChild(make_lfn_table(doc, kwargs["output"], kwargs["lfn_start_time"], kwargs["lfn_end_time"], kwargs["comment"]))
 
 	return doc
 
@@ -216,28 +209,33 @@ def remove_input(urls, output, verbose = False):
 # =============================================================================
 #
 
-if __name__ == "__main__":
-	try:
-		# Command line
-		options, urls = parse_command_line()
+try:
+	# Command line
+	options, urls = parse_command_line()
 
-		# Input
-		doc = ligolw_add(urls, **options.__dict__)
+	# Input
+	doc = ligolw_add(ligolw.Document(), urls, **options.__dict__)
 
-		# Output
-		if options.verbose:
-			if options.output:
-				print >>sys.stderr, "writing %s..." % options.output
-			else:
-				print >>sys.stderr, "writing stdout..."
+	# LFN table
+	if options.add_lfn_table:
+		if not options.output:
+			raise Exception, "cannot add LFN table when no output filename is given"
+		doc.getElementsByTagName(ligolw.LIGO_LW.tagName)[0].appendChild(make_lfn_table(doc, options.output, options.lfn_start_time, options.lfn_end_time, options.comment))
+
+	# Output
+	if options.verbose:
 		if options.output:
-			doc.write(file(options.output, "w"))
+			print >>sys.stderr, "writing %s..." % options.output
 		else:
-			doc.write(sys.stdout)
+			print >>sys.stderr, "writing stdout..."
+	if options.output:
+		doc.write(file(options.output, "w"))
+	else:
+		doc.write(sys.stdout)
 
-		# Remove input
-		if options.remove_input:
-			remove_input(urls, options.output, options.verbose)
-	except Exception, e:
-		print >>sys.stderr, "error: %s" % str(e)
-		sys.exit(1)
+	# Remove input
+	if options.remove_input:
+		remove_input(urls, options.output, options.verbose)
+except Exception, e:
+	print >>sys.stderr, "error: %s" % str(e)
+	sys.exit(1)
