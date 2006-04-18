@@ -35,6 +35,7 @@ from optparse import OptionParser
 import os
 import sys
 
+from glue import lal
 from glue import segments
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
@@ -57,14 +58,19 @@ __date__ = "$Date$"[7:-2]
 def parse_command_line():
 	parser = OptionParser(version = "%prog CVS $Id$")
 	parser.add_option("-b", "--base", metavar = "base", default = "sschunk", help = "set base for output files (default = \"sschunk\")")
+	parser.add_option("--cache-comment", metavar = "comment", help = "set comment for cache output")
+	parser.add_option("--cache-instrument", metavar = "instrument", help = "set instrument for cache output")
 	parser.add_option("-d", "--duration", metavar = "seconds", default = 3600, help = "set target duration (default = 3600 s)")
 	parser.add_option("-r", "--remove-input", action = "store_true", help = "remove input files when done")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
+	parser.add_option("-w", "--write-cache", metavar = "path", help = "write a LAL cache of the output files to path")
 	options, filenames = parser.parse_args()
 
 	options.duration = int(options.duration)
 	if not len(filenames):
 		filenames = [None]
+	if options.write_cache and not (options.cache_comment and options.cache_instrument):
+		raise Exception, "must set both --cache-comment and --cache-instrument when writing a cache file"
 
 	return options, filenames
 
@@ -161,6 +167,16 @@ def chunk_document(doc):
 		yield chunk.doc, chunk.seglist
 
 
+def cache_entry(filename, segment):
+	c = lal.CacheEntry()
+	c.observatory = options.cache_instrument
+	c.description = options.cache_comment
+	c.segment = segment
+	c.url = "file://localhost%s" % os.path.abspath(filename)
+	return c
+
+
+cache = ""
 for filename in filenames:
 	for doc, seglist in chunk_document(load_document(filename)):
 		segment = seglist.extent()
@@ -168,7 +184,13 @@ for filename in filenames:
 		if options.verbose:
 			print >>sys.stderr, "writing extracted processes to %s (duration = %f)..." % (chunkname, seglist.duration())
 		doc.write(file(chunkname, "w"))
+		if options.write_cache:
+			cache += "%s\n" % str(cache_entry(chunkname, segment))
 	if filename and options.remove_input:
 		if options.verbose:
 			print >>sys.stderr, "removing %s..." % filename
 		os.remove(filename)
+if options.write_cache:
+	if options.verbose:
+		print >>sys.stderr, "writing %s..." % options.write_cache
+	file(options.write_cache, "w").write(cache)
