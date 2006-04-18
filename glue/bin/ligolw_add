@@ -162,38 +162,36 @@ def make_lfn_table(doc, pathname, start_time = None, end_time = None, comment = 
 # =============================================================================
 #
 
-def ligolw_add(urls, options):
+def ligolw_add(urls, **kwargs):
 	"""
 	A functional implementation of the LIGO LW add algorithm.  urls is
-	a list of URLs to load, and options is an object with the
-	attributes "verbose", "non_lsc_tables_ok", "add_lfn_table",
-	"lfn_start_time", "lfn_end_time", "comment".
+	a list of URLs to load.
 	"""
 	# Input
 	doc = ligolw.Document()
 	for n, url in enumerate(urls):
-		if options.verbose:
+		if kwargs["verbose"]:
 			print >>sys.stderr, "loading %d/%d: %s" % (n + 1, len(urls), url)
 		append_document(doc, urllib.urlopen(url))
 
 	# ID reassignment
-	if not options.non_lsc_tables_ok and docutils.HasNonLSCTables(doc):
+	if not kwargs["non_lsc_tables_ok"] and docutils.HasNonLSCTables(doc):
 		print >>sys.stderr, "error:  non-LSC tables found.  Use --non-lsc-tables-ok to force"
 		sys.exit(1)
-	if options.verbose:
+	if kwargs["verbose"]:
 		print >>sys.stderr, "reasigning row IDs ..."
 	reassign_ids(doc)
 
 	# Document merge
-	if options.verbose:
+	if kwargs["verbose"]:
 		print >>sys.stderr, "merging elements ..."
 	element_merge(doc)
 
 	# LFN table
-	if options.add_lfn_table:
-		if not options.output:
+	if kwargs["add_lfn_table"]:
+		if not kwargs["output"]:
 			raise Exception, "cannot add LFN table when no output filename is given"
-		doc.getElementsByTagName(ligolw.LIGO_LW.tagName)[0].appendChild(make_lfn_table(doc, options.output, options.lfn_start_time, options.lfn_end_time, options.comment))
+		doc.getElementsByTagName(ligolw.LIGO_LW.tagName)[0].appendChild(make_lfn_table(doc, kwargs["output"], kwargs["lfn_start_time"], kwargs["lfn_end_time"], kwargs["comment"]))
 
 	return doc
 
@@ -224,7 +222,7 @@ if __name__ == "__main__":
 		options, urls = parse_command_line()
 
 		# Input
-		doc = ligolw_add(urls, options)
+		doc = ligolw_add(urls, **options.__dict__)
 
 		# Output
 		if options.verbose:
