@@ -141,14 +141,11 @@ class Chunk(object):
 			table = self.doc.childNodes[0].appendChild(docutils.CopyTable(template))
 		return table
 
-	def write(self, file):
-		self.doc.write(file)
 
-
-def chunk_document(doc):
+def chunk_document(doc, verbose = False):
 	chunk = Chunk()
 	for process_id, seglist in build_id_seglist_pairs(doc):
-		if options.verbose:
+		if verbose:
 			print >>sys.stderr, "extracting %s (duration = %f)..." % (process_id, float(seglist.duration()))
 		chunk.seglist |= seglist
 		for source in doc.getElementsByTagName(ligolw.Table.tagName):
@@ -167,7 +164,7 @@ def chunk_document(doc):
 		yield chunk.doc, chunk.seglist
 
 
-def cache_entry(filename, segment):
+def cache_entry(instrument, comment, segment, filename):
 	c = lal.CacheEntry()
 	c.observatory = options.cache_instrument
 	c.description = options.cache_comment
@@ -176,16 +173,44 @@ def cache_entry(filename, segment):
 	return c
 
 
+#
+# =============================================================================
+#
+#                                 Library API
+#
+# =============================================================================
+#
+
+def write_sschunks(doc, **kwargs):
+	"""
+	Write the XML tree in doc to a sequence of files of approximately
+	some given duration, according to the process descriptions in the
+	search summary table.
+	"""
+	cache = ""
+	for chunk, seglist in chunk_document(doc, verbose = kwargs["verbose"]):
+		segment = seglist.extent()
+		chunkname = "%s-%d-%d.xml" % (kwargs["base"], int(segment[0]), int(segment.duration()))
+		if kwargs["verbose"]:
+			print >>sys.stderr, "writing extracted processes to %s (duration = %f)..." % (chunkname, seglist.duration())
+		chunk.write(file(chunkname, "w"))
+		if kwargs["write_cache"]:
+			cache += "%s\n" % str(cache_entry(kwargs["cache_instrument"], kwargs["cache_comment"], segment, chunkname))
+	if kwargs["write_cache"]:
+		return cache
+
+
+#
+# =============================================================================
+#
+#                                     Main
+#
+# =============================================================================
+#
+
 cache = ""
 for filename in filenames:
-	for doc, seglist in chunk_document(load_document(filename)):
-		segment = seglist.extent()
-		chunkname = "%s-%d-%d.xml" % (options.base, int(segment[0]), int(segment.duration()))
-		if options.verbose:
-			print >>sys.stderr, "writing extracted processes to %s (duration = %f)..." % (chunkname, seglist.duration())
-		doc.write(file(chunkname, "w"))
-		if options.write_cache:
-			cache += "%s\n" % str(cache_entry(chunkname, segment))
+	cache += write_sschunks(load_document(filename), **options.__dict__)
 	if filename and options.remove_input:
 		if options.verbose:
 			print >>sys.stderr, "removing %s..." % filename
@@ -194,3 +219,4 @@ if options.write_cache:
 	if options.verbose:
 		print >>sys.stderr, "writing %s..." % options.write_cache
 	file(options.write_cache, "w").write(cache)
+
