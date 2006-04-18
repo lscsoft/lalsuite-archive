@@ -26,6 +26,7 @@
 # =============================================================================
 #
 
+import bisect
 from optparse import OptionParser
 import sys
 
@@ -237,7 +238,10 @@ def contains(array, val):
 	Uses a bisection search to determine if val is in array.  Returns
 	True or False.
 	"""
-	return len(array) > 0 and array[bisect.bisect_left(array, val)] == val
+	try:
+		return array[bisect.bisect_left(array, val)] == val
+	except IndexError:
+		return False
 
 
 def keep_this_trigger(burst, options):
@@ -322,7 +326,7 @@ while i < len(snglbursttable):
 # =============================================================================
 #
 
-llwapp.append_search_summary(doc, process, inset = searchsummtable.get_inlist().extent(), outseg = searchsummtable.get_outlist().extent(), nevents = len(snglbursttable))
+llwapp.append_search_summary(doc, process, inseg = searchsummtable.get_inlist().extent(), outseg = searchsummtable.get_outlist().extent(), nevents = len(snglbursttable))
 
 
 #
