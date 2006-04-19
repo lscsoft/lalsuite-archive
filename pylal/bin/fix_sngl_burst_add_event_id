@@ -29,7 +29,7 @@ import sys
 from glue.ligolw import ligolw
 from glue.ligolw import metaio
 from glue.ligolw import lsctables
-from pylal.llwapp import load_filename
+from pylal.llwapp import load_filename, write_filename
 
 
 def GetOpts():
@@ -49,9 +49,4 @@ def AddEventIDs(doc):
 			row.event_id = new_event_ids.next()
 	return doc
 
-
-output = GetOpts().output
-if output:
-	AddEventIDs(load_filename(None)).write(file(output, "w"))
-else:
-	AddEventIDs(load_filename(None)).write(sys.stdout)
+write_filename(AddEventIDs(load_filename(None)), GetOpts().output)

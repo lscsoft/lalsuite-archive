@@ -207,7 +207,4 @@ for slide in SlidesIter(slides, slides.keys()):
 
 llwapp.set_process_end_time(process)
 
-if options.output:
-	doc.write(file(options.output, "w"))
-else:
-	doc.write(sys.stdout)
+llwapp.write_filename(doc, options.output, options.verbose)
