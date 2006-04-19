@@ -39,6 +39,7 @@ from glue.ligolw import ligolw
 from glue.ligolw import metaio
 from glue.ligolw import lsctables
 from glue.ligolw import docutils
+from pylal import llwapp
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
@@ -54,17 +55,16 @@ __date__ = "$Date$"[7:-2]
 #
 
 parser = OptionParser(version="%prog CVS $Id$")
-parser.add_option("-i", "--input", metavar = "filename", help = "read input from this file")
 parser.add_option("-o", "--output", metavar = "filename", help = "set output file name (required)")
 parser.add_option("-x", "--x-instrument", metavar = "instrument", help = "plot this instrument's offsets along the x axis")
 parser.add_option("-y", "--y-instrument", metavar = "instrument", help = "plot this instrument's offsets along the y axis")
 parser.add_option("-n", "--n-instruments", metavar = "number", help = "plot only time slides involving this many instruments")
 parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
-options = parser.parse_args()[0]
+options, filenames = parser.parse_args()
 del parser
 
-if not options.input:
-	print >>sys.stderr, "error: no input files specified"
+if len(filenames) != 1:
+	print >>sys.stderr, "error: must specify exactly one input file"
 	sys.exit(1)
 
 if not options.output:
@@ -106,19 +106,6 @@ def LoadDocument(url):
 		sys.exit(1)
 	return doc
 
-def GetTable(doc, Type):
-	"""
-	Find and return the table of the given type.
-	"""
-	tables = lsctables.getTablesByType(doc, Type)
-	if len(tables) == 0:
-		print >>sys.stderr, "warning: no %s tables found" % metaio.StripTableName(Type.tableName)
-		return lsctables.New(Type)
-	if len(tables) == 1:
-		return tables[0]
-	print >>sys.stderr, "error: files contain incompatible %s tables" % metaio.StripTableName(Type.tableName)
-	sys.exit(1)
-
 
 #
 # =============================================================================
@@ -140,7 +127,7 @@ class Plot(object):
 		self.axes.set_xlabel("%s Offset (s)" % x_instrument)
 		self.axes.set_ylabel("%s Offset (s)" % y_instrument)
 
-		tisitable = GetTable(doc, lsctables.TimeSlideTable)
+		tisitable = llwapp.get_table(doc, lsctables.TimeSlideTable.tableName)
 		max_offset = min_offset = tisitable[0].offset
 		for id in tisitable.dict:
 			offsets = tisitable.get_offset_dict(id)
@@ -166,7 +153,7 @@ class Plot(object):
 # =============================================================================
 #
 
-plot = Plot(LoadDocument(options.input), options.x_instrument, options.y_instrument, options.n_instruments)
+plot = Plot(LoadDocument(filenames[0]), options.x_instrument, options.y_instrument, options.n_instruments)
 
 
 #
