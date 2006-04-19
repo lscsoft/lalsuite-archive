@@ -44,11 +44,8 @@ def parse_command_line():
 	parser.add_option("-b", "--base", metavar = "base", default = "cafe_", help = "set base for output caches")
 	options, cachenames = parser.parse_args()
 
-	if options.single_instrument:
-		pass
-	elif not options.time_slides:
-		print >>sys.stderr, "error: must specify time slide input file"
-		sys.exit(1)
+	if not options.time_slides:
+		print >>sys.stderr, "warning: no time slide input file set, assuming 0 offsets"
 
 	return options, cachenames
 
@@ -239,9 +236,9 @@ MergeSegsByFile(coincsegs, dilatedcaches)
 
 def WriteCaches(base, coincsegs, dilatedcaches, caches):
 	if len(coincsegs):
-		digits = int(log10(len(coincsegs)) + 1)
+		pattern = "%%s%%0%dd.cache" % int(log10(len(coincsegs)) + 1)
 	for n, seg in enumerate(coincsegs):
-		filename = ("%s%0" + str(digits) + "d.cache") % (base, n)
+		filename = pattern % (base, n)
 		if options.verbose:
 			print >>sys.stderr, "writing %s" % filename
 		f = file(filename, "w")
@@ -250,4 +247,13 @@ def WriteCaches(base, coincsegs, dilatedcaches, caches):
 				if dilatedcache[i].segment.intersects(seg):
 					print >>f, str(caches[obs][i])
 
-WriteCaches(options.base, coincsegs, dilatedcaches, caches)
+
+def WriteSingleInstrumentCaches(coincsegs, dilatedcaches, caches):
+	for instrument in caches.keys():
+		WriteCaches("%s_" % instrument, coincsegs, {instrument: dilatedcaches[instrument]}, {instrument: caches[instrument]})
+
+
+if options.single_instrument:
+	WriteSingleInstrumentCaches(coincsegs, dilatedcaches, caches)
+else:
+	WriteCaches(options.base, coincsegs, dilatedcaches, caches)
