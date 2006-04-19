@@ -47,7 +47,7 @@ __date__ = "$Date$"[7:-2]
 #
 # =============================================================================
 #
-#                                    Input
+#                                 Input/Output
 #
 # =============================================================================
 #
@@ -78,6 +78,18 @@ def load_url(url, verbose = False):
 	else:
 		ligolw.make_parser(lsctables.LIGOLWContentHandler(doc)).parse(sys.stdin)
 	return doc
+
+
+def write_filename(doc, filename, verbose = False):
+	if verbose:
+		if filename:
+			print >>sys.stderr, "writing %s..." % filename
+		else:
+			print >>sys.stderr, "writing stdout..."
+	if filename:
+		doc.write(file(filename, "w"))
+	else:
+		doc.write(sys.stdout)
 
 
 #
