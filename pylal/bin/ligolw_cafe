@@ -16,11 +16,9 @@ import copy
 from math import log10
 from optparse import OptionParser
 import sys
-import urllib
 
-from glue import lal
+from glue.lal import CacheEntry
 from glue import segments
-from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from pylal import date
 from pylal import llwapp
@@ -44,7 +42,7 @@ def parse_command_line():
 	parser.add_option("-t", "--time-slides", metavar = "filename", help = "read the time slide table from the given file")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
 	parser.add_option("-b", "--base", metavar = "base", default = "cafe_", help = "set base for output caches")
-	options, cacheurls = parser.parse_args()
+	options, cachenames = parser.parse_args()
 
 	if options.single_instrument:
 		pass
@@ -52,9 +50,9 @@ def parse_command_line():
 		print >>sys.stderr, "error: must specify time slide input file"
 		sys.exit(1)
 
-	return options, cacheurls
+	return options, cachenames
 
-options, cacheurls = parse_command_line()
+options, cachenames = parse_command_line()
 
 
 #
@@ -65,25 +63,18 @@ options, cacheurls = parse_command_line()
 # =============================================================================
 #
 
-def LoadCache(url):
+def LoadCache(filename):
 	if options.verbose:
-		print >>sys.stderr, "loading %s" % url
-	cache = map(lambda l: lal.CacheEntry(l, coltype = date.LIGOTimeGPS), urllib.urlopen(url))
+		print >>sys.stderr, "loading %s" % filename
+	cache = map(lambda l: CacheEntry(l, coltype = date.LIGOTimeGPS), file(filename))
 	obs = cache[0].observatory
 	for c in cache:
 		if c.observatory != obs:
-			raise ValueError, "mismatched observatories in %s" % url
+			raise ValueError, "mismatched observatories in %s" % filename
 	return {obs: cache}
 
 def CacheToSegList(cache):
 	return {cache[0].observatory: segments.segmentlist([c.segment for c in cache]).coalesce()}
-
-def LoadTisi(url):
-	if options.verbose:
-		print >>sys.stderr, "loading %s" % url
-	doc = ligolw.Document()
-	ligolw.make_parser(lsctables.LIGOLWContentHandler(doc)).parse(urllib.urlopen(url))
-	return doc
 
 def NullTisi(instruments):
 	tisitable = lsctables.New(lsctables.TimeSlideTable, ["instrument", "offset"])
@@ -96,11 +87,11 @@ def NullTisi(instruments):
 
 try:
 	caches = {}
-	map(lambda u: caches.update(LoadCache(u)), cacheurls)
+	map(lambda filename: caches.update(LoadCache(filename)), cachenames)
 	seglists = {}
 	map(lambda c: seglists.update(CacheToSegList(c)), caches.itervalues())
 	if options.time_slides:
-		tisitable = llwapp.get_table(LoadTisi(options.time_slides), lsctables.TimeSlideTable.tableName)
+		tisitable = llwapp.get_table(llwapp.load_filename(options.time_slides, options.verbose), lsctables.TimeSlideTable.tableName)
 	else:
 		tisitable = NullTisi(caches.keys())
 except Exception, e:

@@ -30,12 +30,11 @@
 LIGO Light Weight XML search summary table chunker.
 """
 
-import copy
 from optparse import OptionParser
 import os
 import sys
 
-from glue import lal
+from glue.lal import CacheEntry
 from glue import segments
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
@@ -143,7 +142,7 @@ def chunk_document(doc, verbose = False):
 
 
 def cache_entry(instrument, comment, segment, filename):
-	c = lal.CacheEntry()
+	c = CacheEntry()
 	c.observatory = options.cache_instrument
 	c.description = options.cache_comment
 	c.segment = segment

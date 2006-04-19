@@ -27,16 +27,11 @@
 #
 
 from optparse import OptionParser
-import os
-import socket
 import sys
-import time
 
 from glue.ligolw import ligolw
-from glue.ligolw import metaio
 from glue.ligolw import lsctables
 from pylal import llwapp
-from pylal.date import XLALUTCToGPS
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]

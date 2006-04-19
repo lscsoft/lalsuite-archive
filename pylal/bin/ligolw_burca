@@ -30,7 +30,6 @@ import bisect
 from optparse import OptionParser
 import sys
 
-from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import docutils
 from pylal import llwapp

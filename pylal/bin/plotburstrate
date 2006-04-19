@@ -27,13 +27,11 @@ import matplotlib
 matplotlib.use("Agg")
 from matplotlib import figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg
-import numarray
 import sys
 import time
 import urllib
-from xml import sax
 
-from glue import lal
+from glue.lal import CacheEntry
 from glue import segments
 from glue.ligolw import ligolw
 from glue.ligolw import metaio
@@ -84,7 +82,7 @@ options.window = float(options.window)
 if not len(cache):
 	print >>sys.stderr, "error: no trigger cache files specified!"
 	sys.exit(1)
-cache = reduce(list.__add__, [map(lal.CacheEntry, file(name)) for name in cache], [])
+cache = reduce(list.__add__, [map(CacheEntry, file(name)) for name in cache], [])
 
 # set segment
 try:

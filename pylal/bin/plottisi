@@ -31,12 +31,10 @@ import matplotlib
 matplotlib.use("Agg")
 from matplotlib import figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg
-import numarray
 import sys
 import urllib
 
 from glue.ligolw import ligolw
-from glue.ligolw import metaio
 from glue.ligolw import lsctables
 from glue.ligolw import docutils
 from pylal import llwapp

@@ -27,7 +27,6 @@
 #
 
 import bisect
-import math
 from optparse import OptionParser
 import matplotlib
 matplotlib.use("Agg")
@@ -36,9 +35,7 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg
 import numarray
 import sys
 
-from glue import lal
-from glue import segments
-from glue.ligolw import ligolw
+from glue.lal import CacheEntry
 from glue.ligolw import lsctables
 from pylal import llwapp
 
@@ -66,7 +63,7 @@ options = parser.parse_args()[0]
 del parser
 
 for name in options.cache:
-	options.input.extend([entry.url for entry in map(lal.CacheEntry, file(name))])
+	options.input.extend([entry.url for entry in map(CacheEntry, file(name))])
 
 if not options.input:
 	print >>sys.stderr, "error: no input files specified"
