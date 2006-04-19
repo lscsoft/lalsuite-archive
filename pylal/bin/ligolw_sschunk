@@ -168,9 +168,7 @@ def write_sschunks(doc, **kwargs):
 	for chunk, seglist in chunk_document(doc, verbose = kwargs["verbose"]):
 		segment = seglist.extent()
 		chunkname = "%s-%d-%d.xml" % (kwargs["base"], int(segment[0]), int(segment.duration()))
-		if kwargs["verbose"]:
-			print >>sys.stderr, "writing extracted processes to %s (duration = %f)..." % (chunkname, seglist.duration())
-		chunk.write(file(chunkname, "w"))
+		llwapp.write_filename(chunk, chunkname, verbose = kwargs["verbose"])
 		if kwargs["write_cache"]:
 			cache += "%s\n" % str(cache_entry(kwargs["cache_instrument"], kwargs["cache_comment"], segment, chunkname))
 	return cache
