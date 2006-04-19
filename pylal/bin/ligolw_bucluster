@@ -71,37 +71,6 @@ def parse_command_line():
 
 	return options
 
-try:
-	options = parse_command_line()
-except Exception, e:
-	print >>sys.stderr, "error: %s" % str(e)
-	sys.exit(1)
-
-
-#
-# =============================================================================
-#
-#                                    Input
-#
-# =============================================================================
-#
-
-def load_document(filename):
-	doc = ligolw.Document()
-	if filename:
-		ligolw.make_parser(lsctables.LIGOLWContentHandler(doc)).parse(file(filename))
-	else:
-		ligolw.make_parser(lsctables.LIGOLWContentHandler(doc)).parse(sys.stdin)
-	return doc
-
-
-if options.verbose:
-	if options.input:
-		print >>sys.stderr, "reading %s..." % options.input
-	else:
-		print >>sys.stderr, "reading stdin..."
-doc = load_document(options.input)
-
 
 #
 # =============================================================================
@@ -111,15 +80,10 @@ doc = load_document(options.input)
 # =============================================================================
 #
 
-if options.verbose:
-	print >>sys.stderr, "extracting tables..."
-
-try:
+def get_tables(doc):
 	searchsummtable = llwapp.get_table(doc, lsctables.SearchSummaryTable.tableName)
 	snglbursttable = llwapp.get_table(doc, lsctables.SnglBurstTable.tableName)
-except Exception, e:
-	print >>sys.stderr, "error: %s" % str(e)
-	sys.exit(1)
+	return searchsummtable.get_inlist().extent(), searchsummtable.get_outlist().extent(), snglbursttable
 
 
 #
@@ -130,58 +94,59 @@ except Exception, e:
 # =============================================================================
 #
 
-process = llwapp.append_process(doc, program = "ligolw_bucluster", version = __version__, cvs_repository = "lscsoft", cvs_entry_time = __date__, comment = options.comment)
+def append_process(doc, **kwargs):
+	process = llwapp.append_process(doc, program = "ligolw_bucluster", version = __version__, cvs_repository = "lscsoft", cvs_entry_time = __date__, comment = kwargs["comment"])
 
-params = [("--cluster", "lstring", options.cluster)]
-if options.input != None:
-	params += [("--input", "lstring", options.input)]
-if options.output != None:
-	params += [("--output", "lstring", options.output)]
-llwapp.append_process_params(doc, process, params)
+	params = [("--cluster", "lstring", kwargs["cluster"])]
+	if kwargs["input"] != None:
+		params += [("--input", "lstring", kwargs["input"])]
+	if kwargs["output"] != None:
+		params += [("--output", "lstring", kwargs["output"])]
+	llwapp.append_process_params(doc, process, params)
 
-
-#
-# =============================================================================
-#
-#                                Do Clustering
-#
-# =============================================================================
-#
-
-if options.verbose:
-	print >>sys.stderr, "clustering..."
-
-SnglBurstUtils.ClusterSnglBurstTable(snglbursttable.rows, options.testfunc, options.clusterfunc, options.bailoutfunc)
+	return process
 
 
 #
 # =============================================================================
 #
-#                        Add Search Summary Information
+#                                 Library API
 #
 # =============================================================================
 #
 
-llwapp.append_search_summary(doc, process, inseg = searchsummtable.get_inlist().extent(), outseg = searchsummtable.get_outlist().extent(), nevents = len(snglbursttable.rows))
+def ligolw_bucluster(doc, **kwargs):
+	# Extract segments and tables
+	inseg, outseg, snglbursttable = get_tables(doc)
+
+	# Add process information
+	process = append_process(doc, kwargs)
+
+	# Cluster
+	if kwargs["verbose"]:
+		print >>sys.stderr, "clustering..."
+	SnglBurstUtils.ClusterSnglBurstTable(snglbursttable.rows, kwargs["testfunc"], kwargs["clusterfunc"], kwargs["bailoutfunc"])
+
+	# Add search summary information
+	llwapp.append_search_summary(doc, process, inseg = inseg, outseg = outseg, nevents = len(snglbursttable))
+	llwapp.set_process_end_time(process)
+
+	return doc
 
 
 #
 # =============================================================================
 #
-#                                    Output
+#                                     Main
 #
 # =============================================================================
 #
 
-llwapp.set_process_end_time(process)
-
-if options.verbose:
-	if options.output:
-		print >>sys.stderr, "writing %s..." % options.output
-	else:
-		print >>sys.stderr, "writing stdout..."
-
-if options.output:
-	doc.write(file(options.output, "w"))
-else:
-	doc.write(sys.stdout)
+try:
+	options = parse_command_line()
+	doc = llwapp.load_filename(options.input, options.verbose)
+	doc = ligolw_bucluster(doc, **options.__dict__)
+	llwapp.write_filename(doc, options.output, options.verbose)
+except Exception, e:
+	print >>sys.stderr, "error: %s" % str(e)
+	sys.exit(1)
