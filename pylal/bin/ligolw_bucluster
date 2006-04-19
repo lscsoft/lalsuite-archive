@@ -120,7 +120,7 @@ def ligolw_bucluster(doc, **kwargs):
 	inseg, outseg, snglbursttable = get_tables(doc)
 
 	# Add process information
-	process = append_process(doc, kwargs)
+	process = append_process(doc, **kwargs)
 
 	# Cluster
 	if kwargs["verbose"]:
