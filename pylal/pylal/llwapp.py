@@ -31,9 +31,11 @@ data in LIGO Light-Weight format.
 
 import os
 import socket
+import sys
 import time
 import urllib
 
+from glue.ligolw import ligolw
 from glue.ligolw import metaio
 from glue.ligolw import lsctables
 from glue.ligolw import docutils
