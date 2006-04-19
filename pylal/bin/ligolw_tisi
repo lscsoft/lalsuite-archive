@@ -46,58 +46,14 @@ __date__ = "$Date$"[7:-2]
 # =============================================================================
 #
 
-parser = OptionParser(version = "%prog CVS $Id$")
-parser.add_option("--comment", metavar = "text", default = "", help = "set comment string in process table")
-parser.add_option("-o", "--output", metavar = "filename", help = "write to filename (default = stdout)")
-parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
-parser.add_option("-i", "--instrument", metavar = "name=first:last:step[,first:last:step[,...]]", action = "append", default = [], help = "construct time slides containing the named instrument, shifted by numbers seconds as described by the given range(s)")
-options, args = parser.parse_args()
-del parser, args
+def parse_command_line():
+	parser = OptionParser(version = "%prog CVS $Id$")
+	parser.add_option("--comment", metavar = "text", default = "", help = "set comment string in process table")
+	parser.add_option("-o", "--output", metavar = "filename", help = "write to filename (default = stdout)")
+	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
+	parser.add_option("-i", "--instrument", metavar = "name=first:last:step[,first:last:step[,...]]", action = "append", default = [], help = "construct time slides containing the named instrument, shifted by numbers seconds as described by the given range(s)")
+	return parser.parse_args()[0]
 
-
-#
-# =============================================================================
-#
-#                                 Preparation
-#
-# =============================================================================
-#
-
-doc = ligolw.Document()
-doc.appendChild(ligolw.LIGO_LW())
-proctable = lsctables.New(lsctables.ProcessTable)
-doc.childNodes[0].appendChild(proctable)
-procparamtable = lsctables.New(lsctables.ProcessParamsTable)
-doc.childNodes[0].appendChild(procparamtable)
-timeslidetable = lsctables.New(lsctables.TimeSlideTable)
-doc.childNodes[0].appendChild(timeslidetable)
-
-
-#
-# =============================================================================
-#
-#                           Add Process Information
-#
-# =============================================================================
-#
-
-process = llwapp.append_process(doc, program = "ligolw_tisi", version = __version__, cvs_repository = "lscsoft", cvs_entry_time = __date__, comment = options.comment)
-
-params = []
-if options.output != None:
-	params += [("--output", "lstring", options.output)]
-for instrument in options.instrument:
-	params += [("--instrument", "lstring", instrument)]
-llwapp.append_process_params(doc, process, params)
-
-
-#
-# =============================================================================
-#
-#                      Parse Instrument Time Slide Ranges
-#
-# =============================================================================
-#
 
 def parse_slides(options):
 	slides = {}
@@ -138,7 +94,46 @@ def parse_slides(options):
 	return slides
 
 
-slides = parse_slides(options)
+#
+# =============================================================================
+#
+#                                 Preparation
+#
+# =============================================================================
+#
+
+def new_doc():
+	doc = ligolw.Document()
+	doc.appendChild(ligolw.LIGO_LW())
+	proctable = lsctables.New(lsctables.ProcessTable)
+	doc.childNodes[0].appendChild(proctable)
+	procparamtable = lsctables.New(lsctables.ProcessParamsTable)
+	doc.childNodes[0].appendChild(procparamtable)
+	timeslidetable = lsctables.New(lsctables.TimeSlideTable)
+	doc.childNodes[0].appendChild(timeslidetable)
+
+	return doc
+
+
+#
+# =============================================================================
+#
+#                           Add Process Information
+#
+# =============================================================================
+#
+
+def append_process(doc, options):
+	process = llwapp.append_process(doc, program = "ligolw_tisi", version = __version__, cvs_repository = "lscsoft", cvs_entry_time = __date__, comment = options.comment)
+
+	params = []
+	if options.output != None:
+		params += [("--output", "lstring", options.output)]
+	for instrument in options.instrument:
+		params += [("--instrument", "lstring", instrument)]
+	llwapp.append_process_params(doc, process, params)
+
+	return process
 
 
 #
@@ -150,7 +145,8 @@ slides = parse_slides(options)
 #
 
 class SlidesIter(object):
-	def __init__(self, slides, instruments):
+	def __init__(self, slides, instruments, process_id):
+		self.process_id = process_id
 		self.instrument = []
 		self.slides = []
 		self.index = []
@@ -172,7 +168,7 @@ class SlidesIter(object):
 		id = self.ids.next()
 		for i in range(len(self.instrument)):
 			row = lsctables.TimeSlide()
-			row.process_id = process.process_id
+			row.process_id = self.process_id
 			row.time_slide_id = id
 			row.instrument = self.instrument[i]
 			row.offset = self.slides[i][self.index[i]]
@@ -187,19 +183,39 @@ class SlidesIter(object):
 		return rows
 
 
-for slide in SlidesIter(slides, slides.keys()):
-	for row in slide:
-		timeslidetable.append(row)
+#
+# =============================================================================
+#
+#                                 Library API
+#
+# =============================================================================
+#
+
+def ligolw_tisi(doc, options):
+	timeslidetable = llwapp.get_table(doc, lsctables.TimeSlideTable.tableName)
+	process = append_process(doc, options)
+
+	slides = parse_slides(options)
+	for slide in SlidesIter(slides, slides.keys(), process.process_id):
+		for row in slide:
+			timeslidetable.append(row)
+
+	llwapp.set_process_end_time(process)
+
+	return doc
 
 
 #
 # =============================================================================
 #
-#                                    Output
+#                                     Main
 #
 # =============================================================================
 #
 
-llwapp.set_process_end_time(process)
-
-llwapp.write_filename(doc, options.output, options.verbose)
+options = parse_command_line()
+try:
+	llwapp.write_filename(ligolw_tisi(new_doc(), options), options.output, options.verbose)
+except Exception, e:
+	print >>sys.stderr, "error: %s" % str(e)
+	sys.exit(1)
