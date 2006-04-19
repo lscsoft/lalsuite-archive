@@ -47,53 +47,40 @@ __date__ = "$Date$"[7:-2]
 # =============================================================================
 #
 
-parser = OptionParser(version = "%prog CVS $Id$")
-parser.add_option("--comment", metavar = "text", default = "", help = "set comment string in process table")
-parser.add_option("-i", "--input", metavar = "filename", help = "read from filename (default = stdin)")
-parser.add_option("-o", "--output", metavar = "filename", help = "write to filename (default = stdout)")
-parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
-parser.add_option("--coinc-discard", action = "store_true", help = "discard triggers participating in a coincident event")
-parser.add_option("--coinc-only", action = "store_true", help = "discard triggers that are not participating in a coincident event")
-parser.add_option("--min-amplitude", metavar = "value", help = "discard triggers below the given amplitude")
-parser.add_option("--max-amplitude", metavar = "value", help = "discard triggers above the given amplitude")
-parser.add_option("--min-bandwidth", metavar = "Hz", help = "discard triggers narrower than the given bandwidth")
-parser.add_option("--max-bandwidth", metavar = "Hz", help = "discard triggers wider than the given bandwidth")
-parser.add_option("--min-central-freq", metavar = "Hz", help = "discard triggers with central frequency lower than that given")
-parser.add_option("--max-central-freq", metavar = "Hz", help = "discard triggers with central frequency higher than that given")
-parser.add_option("--min-confidence", metavar = "value", help = "discard triggers below the given confidence")
-parser.add_option("--max-confidence", metavar = "value", help = "discard triggers above the given confidence")
-parser.add_option("--min-duration", metavar = "seconds", help = "discard triggers shorter than the given duration")
-parser.add_option("--max-duration", metavar = "seconds", help = "discard triggers longer than the given duration")
-parser.add_option("--min-fhigh", metavar = "Hz", help = "discard triggers with highest frequency below the given frequency")
-parser.add_option("--max-fhigh", metavar = "Hz", help = "discard triggers with highest frequency above the given frequency")
-parser.add_option("--min-flow", metavar = "Hz", help = "discard triggers with lowest frequency below the given frequency")
-parser.add_option("--max-flow", metavar = "Hz", help = "discard triggers with loest frequency above the given frequency")
-parser.add_option("--min-hrss", metavar = "value", help = "discard triggers with h_rss below the given value")
-parser.add_option("--max-hrss", metavar = "value", help = "discard triggers with h_rss above the given value")
-parser.add_option("--cut-instrument", metavar = "name", action = "append", default = [], help = "discard triggers from given instrument")
-parser.add_option("--min-peak-time", metavar = "seconds", help = "discard triggers with peak time before the given GPS time")
-parser.add_option("--max-peak-time", metavar = "seconds", help = "discard triggers with peak time after the given GPS time")
-parser.add_option("--min-start-time", metavar = "seconds", help = "discard triggers starting before the given GPS time")
-parser.add_option("--max-start-time", metavar = "seconds", help = "discard triggers starting after the given GPS time")
-parser.add_option("--min-stop-time", metavar = "seconds", help = "discard triggers ending before the given GPS time")
-parser.add_option("--max-stop-time", metavar = "seconds", help = "discard triggers ending after the given GPS time")
-parser.add_option("--min-snr", metavar = "value", help = "discard triggers below the given SNR")
-parser.add_option("--max-snr", metavar = "value", help = "discard triggers above the given SNR")
-parser.add_option("--min-tfvolume", metavar = "value", help = "discard triggers with time-frequency volume below the given volume")
-parser.add_option("--max-tfvolume", metavar = "value", help = "discard triggers with time-frequency volume above the given volume")
-options = parser.parse_args()[0]
-del parser
-
-
-#
-# =============================================================================
-#
-#                                    Input
-#
-# =============================================================================
-#
-
-doc = llwapp.load_filename(options.input, options.verbose)
+def parse_command_line():
+	parser = OptionParser(version = "%prog CVS $Id$")
+	parser.add_option("--coinc-discard", action = "store_true", help = "discard triggers participating in a coincident event")
+	parser.add_option("--coinc-only", action = "store_true", help = "discard triggers that are not participating in a coincident event")
+	parser.add_option("--comment", metavar = "text", default = "", help = "set comment string in process table")
+	parser.add_option("--min-amplitude", metavar = "value", help = "discard triggers below the given amplitude")
+	parser.add_option("--max-amplitude", metavar = "value", help = "discard triggers above the given amplitude")
+	parser.add_option("--min-bandwidth", metavar = "Hz", help = "discard triggers narrower than the given bandwidth")
+	parser.add_option("--max-bandwidth", metavar = "Hz", help = "discard triggers wider than the given bandwidth")
+	parser.add_option("--min-central-freq", metavar = "Hz", help = "discard triggers with central frequency lower than that given")
+	parser.add_option("--max-central-freq", metavar = "Hz", help = "discard triggers with central frequency higher than that given")
+	parser.add_option("--min-confidence", metavar = "value", help = "discard triggers below the given confidence")
+	parser.add_option("--max-confidence", metavar = "value", help = "discard triggers above the given confidence")
+	parser.add_option("--min-duration", metavar = "seconds", help = "discard triggers shorter than the given duration")
+	parser.add_option("--max-duration", metavar = "seconds", help = "discard triggers longer than the given duration")
+	parser.add_option("--min-fhigh", metavar = "Hz", help = "discard triggers with highest frequency below the given frequency")
+	parser.add_option("--max-fhigh", metavar = "Hz", help = "discard triggers with highest frequency above the given frequency")
+	parser.add_option("--min-flow", metavar = "Hz", help = "discard triggers with lowest frequency below the given frequency")
+	parser.add_option("--max-flow", metavar = "Hz", help = "discard triggers with loest frequency above the given frequency")
+	parser.add_option("--min-hrss", metavar = "value", help = "discard triggers with h_rss below the given value")
+	parser.add_option("--max-hrss", metavar = "value", help = "discard triggers with h_rss above the given value")
+	parser.add_option("--cut-instrument", metavar = "name", action = "append", default = [], help = "discard triggers from given instrument")
+	parser.add_option("--min-peak-time", metavar = "seconds", help = "discard triggers with peak time before the given GPS time")
+	parser.add_option("--max-peak-time", metavar = "seconds", help = "discard triggers with peak time after the given GPS time")
+	parser.add_option("--min-start-time", metavar = "seconds", help = "discard triggers starting before the given GPS time")
+	parser.add_option("--max-start-time", metavar = "seconds", help = "discard triggers starting after the given GPS time")
+	parser.add_option("--min-stop-time", metavar = "seconds", help = "discard triggers ending before the given GPS time")
+	parser.add_option("--max-stop-time", metavar = "seconds", help = "discard triggers ending after the given GPS time")
+	parser.add_option("--min-snr", metavar = "value", help = "discard triggers below the given SNR")
+	parser.add_option("--max-snr", metavar = "value", help = "discard triggers above the given SNR")
+	parser.add_option("--min-tfvolume", metavar = "value", help = "discard triggers with time-frequency volume below the given volume")
+	parser.add_option("--max-tfvolume", metavar = "value", help = "discard triggers with time-frequency volume above the given volume")
+	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
+	return parser.parse_args()
 
 
 #
@@ -104,7 +91,7 @@ doc = llwapp.load_filename(options.input, options.verbose)
 # =============================================================================
 #
 
-try:
+def get_tables(doc):
 	snglbursttable = llwapp.get_table(doc, lsctables.SnglBurstTable.tableName)
 	searchsummtable = llwapp.get_table(doc, lsctables.SearchSummaryTable.tableName)
 	try:
@@ -112,9 +99,7 @@ try:
 	except:
 		coincevents = []
 	coincevents.sort()
-except Exception, e:
-	print >>sys.stderr, "error: %s" % str(e)
-	sys.exit(1)
+	return searchsummtable.get_inlist().extent(), searchsummtable.get_outlist().extent(), snglbursttable, coincevents
 
 
 #
@@ -125,104 +110,103 @@ except Exception, e:
 # =============================================================================
 #
 
-process = llwapp.append_process(doc, program = "ligolw_bucut", version = __version__, cvs_repository = "lscsoft", cvs_entry_time = __date__, comment = options.comment)
+def append_process(doc, options):
+	process = llwapp.append_process(doc, program = "ligolw_bucut", version = __version__, cvs_repository = "lscsoft", cvs_entry_time = __date__, comment = options.comment)
 
-params = []
-if options.input != None:
-	params += [("--input", "lstring", options.input)]
-if options.output != None:
-	params += [("--output", "lstring", options.output)]
-if options.coinc_discard:
-	params += [("--coinc-discard", "lstring", "")]
-if options.coinc_only:
-	params += [("--coinc-only", "lstring", "")]
-if options.min_amplitude != None:
-	options.min_amplitude = float(options.min_amplitude)
-	params += [("--min-amplitude", "real_4", options.min_amplitude)]
-if options.max_amplitude != None:
-	options.max_amplitude = float(options.max_amplitude)
-	params += [("--max-amplitude", "real_4", options.max_amplitude)]
-if options.min_bandwidth != None:
-	options.min_bandwidth = float(options.min_bandwidth)
-	params += [("--min-bandwidth", "real_4", options.min_bandwidth)]
-if options.max_bandwidth != None:
-	options.max_bandwidth = float(options.max_bandwidth)
-	params += [("--max-bandwidth", "real_4", options.max_bandwidth)]
-if options.min_central_freq != None:
-	options.min_central_freq = float(options.min_central_freq)
-	params += [("--min-central-freq", "real_4", options.min_central_freq)]
-if options.max_central_freq != None:
-	options.max_central_freq = float(options.max_central_freq)
-	params += [("--max-central-freq", "real_4", options.max_central_freq)]
-if options.min_confidence != None:
-	options.min_confidence = float(options.min_confidence)
-	params += [("--min-confidence", "real_4", options.min_confidence)]
-if options.max_confidence != None:
-	options.max_confidence = float(options.max_confidence)
-	params += [("--max-confidence", "real_4", options.max_confidence)]
-if options.min_duration != None:
-	options.min_duration = float(options.min_duration)
-	params += [("--min-duration", "real_4", options.min_duration)]
-if options.max_duration != None:
-	options.max_duration = float(options.max_duration)
-	params += [("--max-duration", "real_4", options.max_duration)]
-if options.min_fhigh != None:
-	options.min_fhigh = float(options.min_fhigh)
-	params += [("--min-fhigh", "real_4", options.min_fhigh)]
-if options.max_fhigh != None:
-	options.max_fhigh = float(options.max_fhigh)
-	params += [("--max-fhigh", "real_4", options.max_fhigh)]
-if options.min_flow != None:
-	options.min_flow = float(options.min_flow)
-	params += [("--min-flow", "real_4", options.min_flow)]
-if options.max_flow != None:
-	options.max_flow = float(options.max_flow)
-	params += [("--max-flow", "real_4", options.max_flow)]
-if options.min_hrss != None:
-	options.min_hrss = float(options.min_hrss)
-	params += [("--min-hrss", "real_4", options.min_hrss)]
-if options.max_hrss != None:
-	options.max_hrss = float(options.max_hrss)
-	params += [("--max-hrss", "real_4", options.max_hrss)]
-for instrument in options.cut_instrument:
-	params += [("--cut-instrument", "lstring", instrument)]
-if options.min_peak_time != None:
-	options.min_peak_time = lal.LIGOTimeGPS(options.min_peak_time)
-	params += [("--min-peak-time", "lstring", options.min_peak_time)]
-if options.max_peak_time != None:
-	options.max_peak_time = lal.LIGOTimeGPS(options.max_peak_time)
-	params += [("--max-peak-time", "lstring", options.max_peak_time)]
-if options.min_snr != None:
-	options.min_snr = float(options.min_snr)
-	params += [("--min-snr", "real_4", options.min_snr)]
-if options.max_snr != None:
-	options.max_snr = float(options.max_snr)
-	params += [("--max-snr", "real_4", options.max_snr)]
-if options.min_start_time != None:
-	options.min_start_time = lal.LIGOTimeGPS(options.min_start_time)
-	params += [("--min-start-time", "lstring", options.min_start_time)]
-if options.max_start_time != None:
-	options.max_start_time = lal.LIGOTimeGPS(options.max_start_time)
-	params += [("--max-start-time", "lstring", options.max_start_time)]
-if options.min_stop_time != None:
-	options.min_stop_time = lal.LIGOTimeGPS(options.min_stop_time)
-	params += [("--min-stop-time", "lstring", options.min_stop_time)]
-if options.max_stop_time != None:
-	options.max_stop_time = lal.LIGOTimeGPS(options.max_stop_time)
-	params += [("--max-stop-time", "lstring", options.max_stop_time)]
-if options.min_tfvolume != None:
-	options.min_tfvolume = float(options.min_tfvolume)
-	params += [("--min-tfvolume", "real_4", options.min_tfvolume)]
-if options.max_tfvolume != None:
-	options.max_tfvolume = float(options.max_tfvolume)
-	params += [("--max-tfvolume", "real_4", options.max_tfvolume)]
-llwapp.append_process_params(doc, process, params)
+	params = []
+	if options.coinc_discard:
+		params += [("--coinc-discard", "lstring", "")]
+	if options.coinc_only:
+		params += [("--coinc-only", "lstring", "")]
+	if options.min_amplitude != None:
+		options.min_amplitude = float(options.min_amplitude)
+		params += [("--min-amplitude", "real_4", options.min_amplitude)]
+	if options.max_amplitude != None:
+		options.max_amplitude = float(options.max_amplitude)
+		params += [("--max-amplitude", "real_4", options.max_amplitude)]
+	if options.min_bandwidth != None:
+		options.min_bandwidth = float(options.min_bandwidth)
+		params += [("--min-bandwidth", "real_4", options.min_bandwidth)]
+	if options.max_bandwidth != None:
+		options.max_bandwidth = float(options.max_bandwidth)
+		params += [("--max-bandwidth", "real_4", options.max_bandwidth)]
+	if options.min_central_freq != None:
+		options.min_central_freq = float(options.min_central_freq)
+		params += [("--min-central-freq", "real_4", options.min_central_freq)]
+	if options.max_central_freq != None:
+		options.max_central_freq = float(options.max_central_freq)
+		params += [("--max-central-freq", "real_4", options.max_central_freq)]
+	if options.min_confidence != None:
+		options.min_confidence = float(options.min_confidence)
+		params += [("--min-confidence", "real_4", options.min_confidence)]
+	if options.max_confidence != None:
+		options.max_confidence = float(options.max_confidence)
+		params += [("--max-confidence", "real_4", options.max_confidence)]
+	if options.min_duration != None:
+		options.min_duration = float(options.min_duration)
+		params += [("--min-duration", "real_4", options.min_duration)]
+	if options.max_duration != None:
+		options.max_duration = float(options.max_duration)
+		params += [("--max-duration", "real_4", options.max_duration)]
+	if options.min_fhigh != None:
+		options.min_fhigh = float(options.min_fhigh)
+		params += [("--min-fhigh", "real_4", options.min_fhigh)]
+	if options.max_fhigh != None:
+		options.max_fhigh = float(options.max_fhigh)
+		params += [("--max-fhigh", "real_4", options.max_fhigh)]
+	if options.min_flow != None:
+		options.min_flow = float(options.min_flow)
+		params += [("--min-flow", "real_4", options.min_flow)]
+	if options.max_flow != None:
+		options.max_flow = float(options.max_flow)
+		params += [("--max-flow", "real_4", options.max_flow)]
+	if options.min_hrss != None:
+		options.min_hrss = float(options.min_hrss)
+		params += [("--min-hrss", "real_4", options.min_hrss)]
+	if options.max_hrss != None:
+		options.max_hrss = float(options.max_hrss)
+		params += [("--max-hrss", "real_4", options.max_hrss)]
+	for instrument in options.cut_instrument:
+		params += [("--cut-instrument", "lstring", instrument)]
+	if options.min_peak_time != None:
+		options.min_peak_time = lal.LIGOTimeGPS(options.min_peak_time)
+		params += [("--min-peak-time", "lstring", options.min_peak_time)]
+	if options.max_peak_time != None:
+		options.max_peak_time = lal.LIGOTimeGPS(options.max_peak_time)
+		params += [("--max-peak-time", "lstring", options.max_peak_time)]
+	if options.min_snr != None:
+		options.min_snr = float(options.min_snr)
+		params += [("--min-snr", "real_4", options.min_snr)]
+	if options.max_snr != None:
+		options.max_snr = float(options.max_snr)
+		params += [("--max-snr", "real_4", options.max_snr)]
+	if options.min_start_time != None:
+		options.min_start_time = lal.LIGOTimeGPS(options.min_start_time)
+		params += [("--min-start-time", "lstring", options.min_start_time)]
+	if options.max_start_time != None:
+		options.max_start_time = lal.LIGOTimeGPS(options.max_start_time)
+		params += [("--max-start-time", "lstring", options.max_start_time)]
+	if options.min_stop_time != None:
+		options.min_stop_time = lal.LIGOTimeGPS(options.min_stop_time)
+		params += [("--min-stop-time", "lstring", options.min_stop_time)]
+	if options.max_stop_time != None:
+		options.max_stop_time = lal.LIGOTimeGPS(options.max_stop_time)
+		params += [("--max-stop-time", "lstring", options.max_stop_time)]
+	if options.min_tfvolume != None:
+		options.min_tfvolume = float(options.min_tfvolume)
+		params += [("--min-tfvolume", "real_4", options.min_tfvolume)]
+	if options.max_tfvolume != None:
+		options.max_tfvolume = float(options.max_tfvolume)
+		params += [("--max-tfvolume", "real_4", options.max_tfvolume)]
+	llwapp.append_process_params(doc, process, params)
+
+	return process, options
 
 
 #
 # =============================================================================
 #
-#                                   Do Cuts
+#                                     Cuts
 #
 # =============================================================================
 #
@@ -304,33 +288,50 @@ def keep_this_trigger(burst, options):
 	return True
 
 
-i = 0
-while i < len(snglbursttable):
-	if keep_this_trigger(snglbursttable[i], options):
-		i += 1
-	else:
-		del snglbursttable[i]
+#
+# =============================================================================
+#
+#                                 Library API
+#
+# =============================================================================
+#
+
+def ligolw_bucut(doc, options):
+	# Extract segments and tables
+	inseg, outseg, snglbursttable, coincevents = get_tables(doc)
+
+	# Add process information
+	process, options = append_process(doc, options)
+
+	# Doc cuts
+	i = 0
+	while i < len(snglbursttable):
+		if keep_this_trigger(snglbursttable[i], options):
+			i += 1
+		else:
+			del snglbursttable[i]
+
+	# Add Search Summary Information
+	llwapp.append_search_summary(doc, process, inseg = inseg, outseg = outseg, nevents = len(snglbursttable))
+	llwapp.set_process_end_time(process)
+
+	return doc
 
 
 #
 # =============================================================================
 #
-#                        Add Search Summary Information
+#                                     Main
 #
 # =============================================================================
 #
 
-llwapp.append_search_summary(doc, process, inseg = searchsummtable.get_inlist().extent(), outseg = searchsummtable.get_outlist().extent(), nevents = len(snglbursttable))
-
-
-#
-# =============================================================================
-#
-#                                    Output
-#
-# =============================================================================
-#
-
-llwapp.set_process_end_time(process)
-
-llwapp.write_filename(doc, options.output, options.verbose)
+try:
+	options, filenames = parse_command_line()
+	for filename in filenames:
+		doc = llwapp.load_filename(filename, options.verbose)
+		doc = ligolw_bucut(doc, options)
+		llwapp.write_filename(doc, filename, options.verbose)
+except Exception, e:
+	print >>sys.stderr, "error: %s" % str(e)
+	sys.exit(1)
