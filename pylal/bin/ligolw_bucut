@@ -326,8 +326,8 @@ def ligolw_bucut(doc, options):
 # =============================================================================
 #
 
+options, filenames = parse_command_line()
 try:
-	options, filenames = parse_command_line()
 	for filename in filenames:
 		doc = llwapp.load_filename(filename, options.verbose)
 		doc = ligolw_bucut(doc, options)
