@@ -50,16 +50,6 @@ __date__ = "$Date$"[7:-2]
 # =============================================================================
 #
 
-parser = OptionParser(version = "%prog CVS $Id$")
-parser.add_option("--comment", metavar = "text", default = "", help = "set comment string in process table")
-parser.add_option("-i", "--input", metavar = "filename", help = "read from filename (default = stdin)")
-parser.add_option("-o", "--output", metavar = "filename", help = "write to filename (default = stdout)")
-parser.add_option("-w", "--window", metavar = "inst1,inst2=seconds", action = "append", default = [], help = "set the coincidence window for an instrument pair")
-parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
-options = parser.parse_args()[0]
-del parser
-
-
 def parse_windows(windows):
 	parsed_windows = {}
 	for [pair, delay] in map(lambda w: str.split(w, "="), windows):
@@ -73,10 +63,27 @@ def parse_windows(windows):
 		parsed_windows[pair] = LIGOTimeGPS(delay)
 	return parsed_windows
 
+
+def parse_command_line():
+	parser = OptionParser(version = "%prog CVS $Id$")
+	parser.add_option("--comment", metavar = "text", default = "", help = "set comment string in process table")
+	parser.add_option("-i", "--input", metavar = "filename", help = "read from filename (default = stdin)")
+	parser.add_option("-o", "--output", metavar = "filename", help = "write to filename (default = stdout)")
+	parser.add_option("-w", "--window", metavar = "inst1,inst2=seconds", action = "append", default = [], help = "set the coincidence window for an instrument pair")
+	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
+	options = parser.parse_args()[0]
+
+	try:
+		options.window = parse_windows(options.window)
+	except ValueError, e:
+		raise ValueError, "error parsing --window: %s" % str(e)
+
+	return options
+
 try:
-	options.window = parse_windows(options.window)
-except ValueError, e:
-	print >>sys.stdrer, "error parsing --window: %s" % str(e)
+	options = parse_command_line()
+except Exception, e:
+	print >>sys.stderr, "error: %s" % str(e)
 	sys.exit(1)
 
 
