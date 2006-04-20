@@ -52,25 +52,30 @@ __date__ = "$Date$"[7:-2]
 # =============================================================================
 #
 
-parser = OptionParser(version="%prog CVS $Id$")
-parser.add_option("-i", "--input", metavar = "filename", default = [], action = "append", help = "read input from this file")
-parser.add_option("-c", "--cache", metavar = "filename", default = [], action = "append", help = "read input file the files in this cache")
-parser.add_option("-o", "--output", metavar = "filename", help = "set output file name (required)")
-parser.add_option("-x", "--x-instrument", metavar = "instrument", help = "set instrument for x axis")
-parser.add_option("-y", "--y-instrument", metavar = "instrument", help = "set instrument for y axis")
-parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
-options = parser.parse_args()[0]
-del parser
+def parse_command_line():
+	parser = OptionParser(version="%prog CVS $Id$")
+	parser.add_option("-c", "--input-cache", metavar = "filename", default = [], action = "append", help = "read input from the files in this cache")
+	parser.add_option("-o", "--output", metavar = "filename", help = "set output file name (required)")
+	parser.add_option("-x", "--x-instrument", metavar = "instrument", help = "set instrument for x axis")
+	parser.add_option("-y", "--y-instrument", metavar = "instrument", help = "set instrument for y axis")
+	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
+	options, urls = parser.parse_args()
 
-for name in options.cache:
-	options.input.extend([entry.url for entry in map(CacheEntry, file(name))])
+	for cache in options.input_cache:
+		urls.extend([entry.url for entry in map(CacheEntry, file(cache))])
 
-if not options.input:
-	print >>sys.stderr, "error: no input files specified"
-	sys.exit(1)
+	if not len(urls):
+		raise ValueError, "no input files specified"
 
-if not options.output:
-	print >>sys.stderr, "error: no output file specified"
+	if not options.output:
+		raise ValueError, "no output file specified"
+
+	return options, urls
+
+try:
+	options, urls = parse_command_line()
+except Exception, e:
+	print >>sys.stderr, "error: %s" % str(e)
 	sys.exit(1)
 
 
@@ -266,9 +271,9 @@ class Inst1VsInst2(object):
 
 plot = Inst1VsInst2(options.x_instrument, options.y_instrument)
 
-for n, url in enumerate(options.input):
+for n, url in enumerate(urls):
 	if options.verbose:
-		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(options.input), url)
+		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(urls), url)
 	try:
 		plot.addto(DocContents(llwapp.load_url(url)))
 	except Exception, e:
