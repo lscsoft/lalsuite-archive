@@ -309,7 +309,7 @@ class TableStream(ligolw.Stream):
 		columninfo = [(c.getAttribute("Type") in StringTypes, StripColumnName(c.getAttribute("Name"))) for c in self.parentNode.getElementsByTagName(ligolw.Column.tagName)]
 
 		# loop over parent's rows.  This is complicated because we
-		# need to not put a comma at the end of the last row.
+		# need to not put a delimiter at the end of the last row.
 		print >>file, indent + self.start_tag()
 		rowiter = iter(self.parentNode)
 		try:
@@ -514,10 +514,9 @@ class LIGOLWContentHandler(ligolw.LIGOLWContentHandler):
 		return ligolw.LIGOLWContentHandler.startStream(self, attrs)
 
 	def endStream(self):
-		# stream tokenizer uses comma to identify end of each
-		# token, so add a final comma to induce the last token to
-		# get parsed.  FIXME: this is a hack, and hacks are the
-		# source of bugs.
+		# stream tokenizer uses delimiter to identify end of each
+		# token, so add a final delimiter to induce the last token
+		# to get parsed.
 		if self.current.parentNode.tagName == ligolw.Table.tagName:
 			self.current.appendData(self.current.getAttribute("Delimiter"))
 		else:
