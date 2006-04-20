@@ -4,6 +4,7 @@ import matplotlib
 matplotlib.use("Agg")
 from matplotlib import figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg
+import numarray
 import os
 import shutil
 import sys
@@ -23,10 +24,8 @@ import eventdisplay
 handle, filename = tempfile.mkstemp("." + "png", "webplot_")
 os.close(handle)
 
-
 now = XLALUTCToGPS(time.gmtime())
 s5length = 365.25 * 24.0 * 60.0 * 60.0	# 1 year
-
 
 trigsegs = eventdisplay.TrigSegs()
 seglist = trigsegs.H1 & trigsegs.H2 & trigsegs.L1
@@ -77,7 +76,7 @@ def makeplot():
 	axes.plot(map(float, xvals), map(float, yvals))
 
 	axes.set_xlim([seglist[0][0], now])
-	axes.setylim([851644814, 946339214])
+	axes.set_ylim([851644814, 946339214])
 	axes.grid(True)
 
 	ticks = make_xticks(seglist[0][0], now)

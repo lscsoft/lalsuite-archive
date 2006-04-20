@@ -37,7 +37,7 @@ def makeplot(desc, table):
 	start_time = numarray.asarray([float(row.get_start()) for row in table])
 
 	if len(table):
-		viz.tfplot(start_time, table.getColumnByName("duration").asarray(), lo_freq, bandwidth, pylab.log(-table.getColumnByName("confidence").asarray()), alpha=0.3)
+		viz.tfplot(start_time, table.getColumnByName("duration").asarray(), lo_freq, bandwidth, numarray.log(-table.getColumnByName("confidence").asarray()), alpha=0.3)
 
 	axes.set_xlim(list(desc.segment), ylim = list(desc.band))
 
