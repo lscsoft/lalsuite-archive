@@ -1,6 +1,10 @@
 #!/usr/bin/python
 
-import pylab
+import matplotlib
+matplotlib.use("Agg")
+from matplotlib import figure
+from matplotlib.backends.backend_agg import FigureCanvasAgg
+import numarray
 
 import webplot
 
@@ -18,24 +22,25 @@ class Plot(webplot.PlotDescription):
 #
 
 def makeplot(desc, table):
-	fig = pylab.figure(1)
+	fig = figure.Figure()
+	canvas = FigureCanvasAgg(fig)
 	fig.set_figsize_inches(16,8)
-	axes = pylab.gca()
+	axes = fig.gca()
 
 	confidence = -table.getColumnByName("confidence").asarray()
 	central_freq = table.getColumnByName("central_freq").asarray()
 
-	pylab.semilogy(central_freq, confidence, "b+")
+	axes.semilogy(central_freq, confidence, "b+")
 
-	pylab.set(axes, xlim = list(desc.band))
-	pylab.xticks(pylab.arange(desc.band[0], desc.band[1], 100))
-	pylab.grid(True)
+	axes.set_xlim(list(desc.band))
+	axes.set_xticks(numarray.arange(desc.band[0], desc.band[1], 100))
+	axes.grid(True)
 
-	pylab.title(desc.instrument + " Excess Power Trigger Confidence vs. Central Frequency\n(GPS Times %s ... %s, %d Triggers)" % (desc.segment[0], desc.segment[1], len(table)))
-	pylab.xlabel("Central Frequency (Hz)")
-	pylab.ylabel("|Confidence|")
+	axes.set_title(desc.instrument + " Excess Power Trigger Confidence vs. Central Frequency\n(GPS Times %s ... %s, %d Triggers)" % (desc.segment[0], desc.segment[1], len(table)))
+	axes.set_xlabel("Central Frequency (Hz)")
+	axes.set_ylabel("|Confidence|")
 
-	pylab.savefig(desc.filename)
+	fig.savefig(desc.filename)
 
 
 #

@@ -1,8 +1,12 @@
 #!/usr/bin/python
 
 import math
+import matplotlib
+matplotlib.use("Agg")
+from matplotlib import figure
+from matplotlib.backends.backend_agg import FigureCanvasAgg
+import numarray
 from numarray import nd_image
-import pylab
 
 from glue import segments
 from pylal import rate
@@ -50,13 +54,14 @@ def glitchsegments(xvals, yvals, threshold):
 
 
 def makeplot(desc, table):
-	fig = pylab.figure(1)
+	fig = figure.Figure()
+	canvas = FigureCanvasAgg(fig)
 	fig.set_figsize_inches(16,8)
-	axes = pylab.gca()
+	axes = fig.gca()
 
 	# extract peak times and confidences
 	peaktime = [float(row.get_peak()) for row in table]
-	confidence = pylab.log(-table.getColumnByName("confidence").asarray())
+	confidence = numarray.log(-table.getColumnByName("confidence").asarray())
 
 	# construct short time scale average confidence rate
 	xvals, yvals = rate.smooth(peaktime, desc.trig_segment(), desc.ratewidth, weights = confidence)
@@ -70,7 +75,7 @@ def makeplot(desc, table):
 	#yvals2 = pylab.exp(yvals2)
 
 	# compute ratio, setting 0/0 equal to 0
-	yvals = pylab.where(yvals2 > 0.0, yvals, 0.0) / pylab.where(yvals2 > 0.0, yvals2, 1.0)
+	yvals = numarray.where(yvals2 > 0.0, yvals, 0.0) / numarray.where(yvals2 > 0.0, yvals2, 1.0)
 
 	# determine segments where ratio is above threshold
 	glitchsegs = glitchsegments(xvals, yvals, desc.glitchthreshold)
@@ -79,24 +84,24 @@ def makeplot(desc, table):
 	glitchsegs -= segments.segmentlist.protract(~desc.seglist, desc.widthratio * desc.ratewidth)
 
 	# plot ratio vs time
-	pylab.plot(xvals, yvals)
+	axes.plot(xvals, yvals)
 
 	# tinker with graph
-	pylab.axhline(desc.glitchthreshold, color = "r")
-	pylab.set(axes, xlim = list(desc.segment))
-	pylab.set(axes, ylim = [0, desc.widthratio])
-	pylab.grid(True)
+	axes.axhline(desc.glitchthreshold, color = "r")
+	axes.set_xlim(list(desc.segment))
+	axes.set_ylim([0, desc.widthratio])
+	axes.grid(True)
 
 	for seg in ~desc.seglist & segments.segmentlist([desc.segment]):
-		pylab.axvspan(seg[0], seg[1], facecolor = "k", alpha = 0.2)
+		axes.axvspan(seg[0], seg[1], facecolor = "k", alpha = 0.2)
 	for seg in glitchsegs & segments.segmentlist([desc.segment]):
-		pylab.axvspan(seg[0], seg[1], facecolor = "r", alpha = 0.2)
+		axes.axvspan(seg[0], seg[1], facecolor = "r", alpha = 0.2)
 
-	pylab.title(desc.instrument + " Excess Power %g s Confidence Rate to %g s Confidence Rate Ratio vs. Time\n(%d Triggers)" % (desc.ratewidth, desc.widthratio * desc.ratewidth, len(table)))
-	pylab.xlabel("GPS Time (s)")
-	pylab.ylabel("Confidence Rate Ratio")
+	axes.set_title(desc.instrument + " Excess Power %g s Confidence Rate to %g s Confidence Rate Ratio vs. Time\n(%d Triggers)" % (desc.ratewidth, desc.widthratio * desc.ratewidth, len(table)))
+	axes.set_xlabel("GPS Time (s)")
+	axes.set_ylabel("Confidence Rate Ratio")
 
-	pylab.savefig(desc.filename)
+	fig.savefig(desc.filename)
 
 
 #

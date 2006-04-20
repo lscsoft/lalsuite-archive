@@ -1,6 +1,9 @@
 #!/usr/bin/python
 
-import pylab
+import matplotlib
+matplotlib.use("Agg")
+from matplotlib import figure
+from matplotlib.backends.backend_agg import FigureCanvasAgg
 
 from glue import segments
 from pylal import rate
@@ -22,23 +25,24 @@ class Plot(webplot.PlotDescription):
 #
 
 def makeplot(desc, table):
-	fig = pylab.figure(1)
+	fig = figure.Figure()
+	canvas = FigureCanvasAgg(fig)
 	fig.set_figsize_inches(16,8)
-	axes = pylab.gca()
+	axes = fig.gca()
 
-	pylab.plot(*rate.smooth([float(row.get_peak()) for row in table], desc.trig_segment(), desc.ratewidth))
+	axes.plot(*rate.smooth([float(row.get_peak()) for row in table], desc.trig_segment(), desc.ratewidth))
 
-	pylab.set(axes, xlim = list(desc.segment))
-	pylab.grid(True)
+	axes.set_xlim(list(desc.segment))
+	axes.grid(True)
 
 	for seg in ~desc.seglist & segments.segmentlist([desc.segment]):
-		pylab.axvspan(seg[0], seg[1], facecolor = "k", alpha = 0.2)
+		axes.axvspan(seg[0], seg[1], facecolor = "k", alpha = 0.2)
 
-	pylab.title(desc.instrument + " Excess Power Trigger Rate vs. Time\n(%d Triggers, %g s Average)" % (len(table), desc.ratewidth))
-	pylab.xlabel("GPS Time (s)")
-	pylab.ylabel("Trigger Rate (Hz)")
+	axes.set_title(desc.instrument + " Excess Power Trigger Rate vs. Time\n(%d Triggers, %g s Average)" % (len(table), desc.ratewidth))
+	axes.set_xlabel("GPS Time (s)")
+	axes.set_ylabel("Trigger Rate (Hz)")
 
-	pylab.savefig(desc.filename)
+	fig.savefig(desc.filename)
 
 
 #

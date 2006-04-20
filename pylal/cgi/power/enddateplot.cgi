@@ -1,12 +1,14 @@
 #!/usr/bin/python
 
+import matplotlib
+matplotlib.use("Agg")
+from matplotlib import figure
+from matplotlib.backends.backend_agg import FigureCanvasAgg
 import os
-import pylab
 import shutil
 import sys
 import tempfile
 import time
-
 
 from glue import segments
 from pylal.date import LIGOTimeGPS, XLALUTCToGPS, XLALGPSToUTC, UTCMidnights
@@ -63,30 +65,33 @@ def make_yticks(a, b):
 
 
 def makeplot():
-	fig = pylab.figure(1)
+	fig = figure.Figure()
+	canvas = FigureCanvasAgg(fig)
 	fig.set_figsize_inches(16,8)
-	axes = pylab.gca()
+	axes = fig.gca()
 	increment = 12 * 3600.0
 
-	xvals = pylab.arange(float(seglist[0][0]) + increment, float(now), increment)
+	xvals = numarray.arange(float(seglist[0][0]) + increment, float(now), increment)
 	yvals = map(end_date, xvals)
 
-	pylab.plot(map(float, xvals), map(float, yvals))
+	axes.plot(map(float, xvals), map(float, yvals))
 
-	pylab.set(axes, xlim = [seglist[0][0], now])
-	pylab.set(axes, ylim = [851644814, 946339214])
-	pylab.grid(True)
+	axes.set_xlim([seglist[0][0], now])
+	axes.setylim([851644814, 946339214])
+	axes.grid(True)
 
 	ticks = make_xticks(seglist[0][0], now)
-	pylab.xticks(ticks[0], ticks[1], horizontalalignment="right", fontsize=9, rotation=10)
+	axes.set_xticks(ticks[0])
+	axes.set_xticklabels(ticks[1], horizontalalignment="right", fontsize=9, rotation=10)
 	ticks = make_yticks(LIGOTimeGPS(851644814), LIGOTimeGPS(946339214))
-	pylab.yticks(ticks[0], ticks[1], horizontalalignment="right", fontsize=9, rotation=10)
+	axes.set_yticks(ticks[0])
+	axes.set_yticklabels(ticks[1], horizontalalignment="right", fontsize=9, rotation=10)
 
-	pylab.title("Projected S5 End Time vs. Time")
-	pylab.xlabel("Time (UTC)")
-	pylab.ylabel("Projected S5 End Time (UTC)")
+	axes.set_title("Projected S5 End Time vs. Time")
+	axes.set_xlabel("Time (UTC)")
+	axes.set_ylabel("Projected S5 End Time (UTC)")
 
-	pylab.savefig(filename)
+	fig.savefig(filename)
 
 
 #
