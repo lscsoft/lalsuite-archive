@@ -67,7 +67,6 @@ class Element(object):
 	"""
 	# XML tag names are case sensitive:  compare with ==, !=, etc.
 	tagName = None
-	empty = False
 	validattributes = []
 	validchildren = []
 
@@ -86,37 +85,27 @@ class Element(object):
 		self.childNodes = []
 		self.pcdata = None
 
-	def start_tag(self):
+	def start_tag(self, indent):
 		"""
 		Generate the string for the element's start tag.
 		"""
-		s = "<" + self.tagName
+		s = indent + "<" + self.tagName
 		for keyvalue in self.attributes.items():
 			s += " %s=\"%s\"" % keyvalue
-		if self.empty:
-			s += "/>"
-		else:
-			s += ">"
+		s += ">"
 		return s
 
-	def end_tag(self):
+	def end_tag(self, indent):
 		"""
-		Generate the string for the element's end tag.  This
-		function returns None for empty elements (single-tag
-		elements).
+		Generate the string for the element's end tag.
 		"""
-		if self.empty:
-			return None
-		else:
-			return "</" + self.tagName + ">"
+		return indent + "</" + self.tagName + ">"
 
 	def appendChild(self, child):
 		"""
 		Add a child to this element.  The child's parentNode
 		attribute is updated, too.
 		"""
-		if self.empty:
-			raise ElementError, "%s cannot have children" % self.tagName
 		self.childNodes.append(child)
 		child.parentNode = self
 		self._verifyChildren(len(self.childNodes) - 1)
@@ -128,8 +117,6 @@ class Element(object):
 		be the case that refchild is a child of this node; if not,
 		ValueError is raised. newchild is returned.
 		"""
-		if self.empty:
-			raise ElementError, "%s cannot have children" % self.tagName
 		i = self.childNodes.index(refchild)
 		self.childNodes.insert(i, newchild)
 		newchild.parentNode = self
@@ -209,15 +196,14 @@ class Element(object):
 		"""
 		Recursively write an element and it's children to a file.
 		"""
-		print >>file, indent + self.start_tag()
-		if not self.empty:
-			for c in self.childNodes:
-				if c.tagName not in self.validchildren:
-					raise ElementError, "invalid child %s for %s" % (c.tagName, self.tagName)
-				c.write(file, indent + Indent)
-			if self.pcdata:
-				print >>file, self.pcdata
-			print >>file, indent + self.end_tag()
+		print >>file, self.start_tag(indent)
+		for c in self.childNodes:
+			if c.tagName not in self.validchildren:
+				raise ElementError, "invalid child %s for %s" % (c.tagName, self.tagName)
+			c.write(file, indent + Indent)
+		if self.pcdata:
+			print >>file, self.pcdata
+		print >>file, self.end_tag(indent)
 
 
 #
@@ -244,9 +230,9 @@ class Comment(Element):
 
 	def write(self, file = sys.stdout, indent = ""):
 		if self.pcdata:
-			print >>file, indent + self.start_tag() + self.pcdata + self.end_tag()
+			print >>file, self.start_tag(indent) + self.pcdata + self.end_tag("")
 		else:
-			print >>file, indent + self.start_tag() + self.end_tag()
+			print >>file, self.start_tag(indent) + self.end_tag("")
 
 
 class Param(Element):
@@ -292,8 +278,29 @@ class Column(Element):
 	Column element.
 	"""
 	tagName = u"Column"
-	empty = True
 	validattributes = [u"Name", u"Type", u"Unit"]
+
+	def start_tag(self, indent):
+		"""
+		Generate the string for the element's start tag.
+		"""
+		s = indent + "<" + self.tagName
+		for keyvalue in self.attributes.items():
+			s += " %s=\"%s\"" % keyvalue
+		s += "/>"
+		return s
+
+	def end_tag(self, indent):
+		"""
+		Generate the string for the element's end tag.
+		"""
+		return ""
+
+	def write(self, file = sys.stdout, indent = ""):
+		"""
+		Recursively write an element and it's children to a file.
+		"""
+		print >>file, self.start_tag(indent)
 
 
 class Array(Element):

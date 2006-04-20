@@ -239,11 +239,11 @@ class Column(ligolw.Column):
 	# what order the attributes of XML tags come in.  This function
 	# will be removed when the people responsible for the metaio
 	# library fix it.
-	def start_tag(self):
+	def start_tag(self, indent):
 		"""
 		See the source code for an explanation.
 		"""
-		return "<%s Name=\"%s\" Type=\"%s\"/>" % (self.tagName, self.getAttribute("Name"), self.getAttribute("Type"))
+		return indent + "<%s Name=\"%s\" Type=\"%s\"/>" % (self.tagName, self.getAttribute("Name"), self.getAttribute("Type"))
 
 
 class TableStream(ligolw.Stream):
@@ -310,7 +310,7 @@ class TableStream(ligolw.Stream):
 
 		# loop over parent's rows.  This is complicated because we
 		# need to not put a delimiter at the end of the last row.
-		print >>file, indent + self.start_tag()
+		print >>file, self.start_tag(indent)
 		rowiter = iter(self.parentNode)
 		try:
 			file.write(indent + ligolw.Indent + self._rowstr(rowiter.next(), columninfo))
@@ -319,17 +319,17 @@ class TableStream(ligolw.Stream):
 		except StopIteration:
 			if len(self.parentNode) > 0:
 				file.write("\n")
-		print >>file, indent + self.end_tag()
+		print >>file, self.end_tag(indent)
 
 	# FIXME: This function is for the metaio library:  metaio cares
 	# what order the attributes of XML tags come in.  This function
 	# will be removed when the people responsible for the metaio
 	# library fix it.
-	def start_tag(self):
+	def start_tag(self, indent):
 		"""
 		See the source code for an explanation.
 		"""
-		return "<%s Name=\"%s\" Type=\"%s\" Delimiter=\"%s\">" % (self.tagName, self.getAttribute("Name"), self.getAttribute("Type"), self.getAttribute("Delimiter"))
+		return indent + "<%s Name=\"%s\" Type=\"%s\" Delimiter=\"%s\">" % (self.tagName, self.getAttribute("Name"), self.getAttribute("Type"), self.getAttribute("Delimiter"))
 
 
 class TableRow(object):
