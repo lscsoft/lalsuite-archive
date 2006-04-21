@@ -29,6 +29,7 @@ A collection of utilities to assist in writing applications that manipulate
 data in LIGO Light-Weight format.
 """
 
+import bisect
 import os
 import socket
 import sys
@@ -207,3 +208,23 @@ def append_search_summary(doc, process, shared_object = "standalone", lalwrapper
 	summary.nevents = nevents
 	summary.nnodes = nnodes
 	return summary
+
+
+#
+# =============================================================================
+#
+#                                    Other
+#
+# =============================================================================
+#
+
+def bisect_contains(array, val):
+	"""
+	Uses a bisection search to determine if val is in array.  Returns
+	True or False.
+	"""
+	try:
+		return array[bisect.bisect_left(array, val)] == val
+	except IndexError:
+		return False
+

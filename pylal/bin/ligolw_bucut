@@ -26,7 +26,6 @@
 # =============================================================================
 #
 
-import bisect
 from optparse import OptionParser
 import sys
 
@@ -211,25 +210,14 @@ def append_process(doc, options):
 # =============================================================================
 #
 
-def contains(array, val):
-	"""
-	Uses a bisection search to determine if val is in array.  Returns
-	True or False.
-	"""
-	try:
-		return array[bisect.bisect_left(array, val)] == val
-	except IndexError:
-		return False
-
-
 def keep_this_trigger(burst, coincevents, options):
 	"""
 	Returns True if the burst trigger survives the cuts described by
 	the attributes of the options object.
 	"""
-	if options.coinc_discard and contains(coincevents, burst.event_id):
+	if options.coinc_discard and llwapp.bisect_contains(coincevents, burst.event_id):
 		return False
-	if options.coinc_only and not contains(coincevents, burst.event_id):
+	if options.coinc_only and not llwapp.bisect_contains(coincevents, burst.event_id):
 		return False
 	if (options.min_amplitude != None) and (burst.amplitude < options.min_amplitude):
 		return False
