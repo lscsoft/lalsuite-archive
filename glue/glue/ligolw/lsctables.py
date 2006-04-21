@@ -722,10 +722,34 @@ class SearchSummaryTable(LSCTableMulti):
 			row.process_id = row.process_id._get_key()
 
 	def get_inlist(self):
+		"""
+		Return a segmentlist object describing the times spanned by
+		the input segments of all rows in the table.
+		"""
 		return segments.segmentlist([row.get_in() for row in self])
 
 	def get_outlist(self):
+		"""
+		Return a segmentlist object describing the times spanned by
+		the output segments of all rows in the table.
+		"""
 		return segments.segmentlist([row.get_out() for row in self])
+
+	def get_inprocs(self, seglist):
+		"""
+		Return a list of the process IDs for the processes whose
+		input segments intersect some part of the segmentlist
+		seglist.
+		"""
+		return [row.process_id for row in self if segments.segmentlist([row.get_in()]) & seglist]
+
+	def get_outprocs(self, seglist):
+		"""
+		Return a list of the process IDs for the processes whose
+		output segments intersect some part of the segmentlist
+		seglist.
+		"""
+		return [row.process_id for row in self if segments.segmentlist([row.get_out()]) & seglist]
 
 class SearchSummary(LSCTableRow):
 	__slots__ = SearchSummaryTable.validcolumns.keys()
