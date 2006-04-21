@@ -222,7 +222,7 @@ def contains(array, val):
 		return False
 
 
-def keep_this_trigger(burst, options):
+def keep_this_trigger(burst, coincevents, options):
 	"""
 	Returns True if the burst trigger survives the cuts described by
 	the attributes of the options object.
@@ -306,7 +306,7 @@ def ligolw_bucut(doc, options):
 	# Doc cuts
 	i = 0
 	while i < len(snglbursttable):
-		if keep_this_trigger(snglbursttable[i], options):
+		if keep_this_trigger(snglbursttable[i], coincevents, options):
 			i += 1
 		else:
 			del snglbursttable[i]
