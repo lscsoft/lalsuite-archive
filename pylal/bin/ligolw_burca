@@ -45,30 +45,94 @@ __date__ = "$Date$"[7:-2]
 #
 # =============================================================================
 #
+#                               Iteration Tools
+#
+# =============================================================================
+#
+
+class MultiIter(object):
+	"""
+	An iterator class for iterating over the elements of multiple lists
+	simultaneously.  An instance of the class is initialized with a
+	list of lists.  A call to next() returns a list of elements, one
+	from each of the lists.  Subsequent calls to next() iterate over
+	all combinations of elements from the lists.
+	"""
+	def __init__(self, lists):
+		self.lists = tuple(lists)
+		self.index = [0] * len(lists)
+		self.length = tuple(map(len, lists))
+		self.stop = 0 in self.length
+
+	def __len__(self):
+		return reduce(int.__mul__, self.length)
+
+	def __iter__(self):
+		return self
+
+	def next(self):
+		if self.stop:
+			raise StopIteration
+		l = map(lambda l, i: l[i], self.lists, self.index)
+		for i in xrange(len(self.index)):
+			self.index[i] += 1
+			if self.index[i] < self.length[i]:
+				break
+			self.index[i] = 0
+		else:
+			self.stop = True
+		return l
+
+
+def choices(vals, n):
+	"""
+	Return a list of all choices of n elements from the list vals.
+	Order is preserved.
+	"""
+	if n < 1:
+		raise ValueError, n
+	if n == 1:
+		return [[v] for v in vals]
+	if n == len(vals):
+		return [vals]
+	l = []
+	for i in range(len(vals) - n + 1):
+		for c in choices(vals[i+1:], n - 1):
+			c[0:0] = [vals[i]]
+			l.append(c)
+	return l
+
+
+#
+# =============================================================================
+#
 #                                 Command Line
 #
 # =============================================================================
 #
 
-def parse_windows(windows):
-	parsed_windows = {}
-	for [pair, delay] in map(lambda w: str.split(w, "="), windows):
+def parse_windows(windowstrings):
+	"""
+	Turn a list of strings of the form "inst1,inst2=delta" into a
+	dictionary with (inst1, inst2) 2-tuples as keys and the deltas as
+	the values.  The instruments in the 2-tuples are sorted.
+	"""
+	windows = {}
+	for [pair, delay] in map(lambda w: str.split(w, "="), windowstrings):
 		pair = pair.split(",")
 		pair.sort()
 		pair = tuple(pair)
 		if len(pair) != 2:
 			raise ValueError, "incorrect number of instruments"
-		if pair in parsed_windows.keys():
+		if pair in windows.keys():
 			raise ValueError, "duplicate instrument pair"
-		parsed_windows[pair] = LIGOTimeGPS(delay)
-	return parsed_windows
+		windows[pair] = LIGOTimeGPS(delay)
+	return windows
 
 
 def parse_command_line():
 	parser = OptionParser(version = "%prog CVS $Id$")
 	parser.add_option("--comment", metavar = "text", default = "", help = "set comment string in process table")
-	parser.add_option("-i", "--input", metavar = "filename", help = "read from filename (default = stdin)")
-	parser.add_option("-o", "--output", metavar = "filename", help = "write to filename (default = stdout)")
 	parser.add_option("-w", "--window", metavar = "inst1,inst2=seconds", action = "append", default = [], help = "set the coincidence window for an instrument pair")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
 	options, filenames = parser.parse_args()
@@ -80,18 +144,8 @@ def parse_command_line():
 		options.window = parse_windows(options.window)
 	except ValueError, e:
 		raise ValueError, "error parsing --window: %s" % str(e)
-	options.maxwindow = LIGOTimeGPS(0)
-	for dt in options.window.itervalues():
-		if dt > options.maxwindow:
-			options.maxwindow = dt
 
 	return options, filenames
-
-try:
-	options, filenames = parse_command_line()
-except ValueError, e:
-	print >>sys.stderr, "error: %s" % str(e)
-	sys.exit(1)
 
 
 #
@@ -102,11 +156,11 @@ except ValueError, e:
 # =============================================================================
 #
 
-def append_process(doc, options):
-	process = llwapp.append_process(doc, program = "ligolw_burca", version = __version__, cvs_repository = "lscsoft", cvs_entry_time = __date__, comment = options.comment)
+def append_process(doc, **kwargs):
+	process = llwapp.append_process(doc, program = "ligolw_burca", version = __version__, cvs_repository = "lscsoft", cvs_entry_time = __date__, comment = kwargs["comment"])
 
 	params = []
-	for key, value in options.window.iteritems():
+	for key, value in kwargs["window"].iteritems():
 		params += [("--window", "lstring", "%s,%s=%s" % (key[0], key[1], str(value)))]
 	llwapp.append_process_params(doc, process, params)
 
@@ -116,7 +170,7 @@ def append_process(doc, options):
 #
 # =============================================================================
 #
-#                                Process Filter
+#                     Process Filter (Level 0 Coincidence)
 #
 # =============================================================================
 #
@@ -128,7 +182,7 @@ def segment_increment(seg, delta):
 	return segments.segment(seg[0] + delta, seg[1] + delta)
 
 
-def ss_coinc_segs(searchsummtable, offsetdict):
+def coinc_segs(searchsummtable, offsetdict):
 	"""
 	From the instrument/offset pairs in offsetdict, construct the
 	corresponding coincident segment list from the output segments in
@@ -144,10 +198,25 @@ def ss_coinc_segs(searchsummtable, offsetdict):
 	return reduce(segments.segmentlist.__and__, seglists.itervalues())
 
 
+def coinc_procids(doccontents):
+	"""
+	Take a DocContents object and return a list of the process IDs that
+	will participate in any coincidence identified by the time slide
+	table.
+	"""
+	ids = []
+	for offsetdict in map(doccontents.get_offsetdict, doccontents.get_tisi_ids()):
+		seglist = coinc_segs(doccontents.searchsummtable, offsetdict)
+		for row in doccontents.searchsummtable:
+			if (segments.segmentlist([segment_increment(row.get_out(), offsetdict[row.ifos])]) & seglist) and not llwapp.bisect_contains(ids, row.process_id):
+				bisect.insort_left(ids, row.process_id)
+	return ids
+
+
 #
 # =============================================================================
 #
-#                            Trigger List Interface
+#                 Trigger List Interface (Level 1 Coincidence)
 #
 # =============================================================================
 #
@@ -177,10 +246,15 @@ class TriggerList(object):
 		return [self.triggers[i] for i in xrange(bisect.bisect_left(self.stop_times, t - dt), bisect.bisect_right(self.stop_times, t + dt + self.maxduration)) if self.start_times[i] <= t + dt]
 
 
-def construct_trigger_lists(table, procids):
+def construct_trigger_lists(trigtable, coinc_procids):
+	"""
+	From a trigger table and a list of process IDs, return a dictionary
+	of instrument name / TriggerList object pairs.  Only triggers from
+	from the given processes are included in the lists.
+	"""
 	lists = {}
-	for row in table:
-		if not llwapp.bisect_contains(procids, row.process_id):
+	for row in trigtable:
+		if not llwapp.bisect_contains(coinc_procids, row.process_id):
 			continue
 		instrument = row.ifo
 		if instrument not in lists:
@@ -188,6 +262,59 @@ def construct_trigger_lists(table, procids):
 		lists[instrument].append(row)
 	map(TriggerList.mkindex, lists.values())
 	return lists
+
+
+class Level1Iterator(object):
+	"""
+	Performs a coarse coincidence cut, generating a sequence of
+	MultiIter objects for iterating over sets of surviving n-tuples.
+	"""
+	def __init__(self, triggerlists, offsetdict, maxwindow):
+		triggerlists.sort(lambda a, b: cmp(a.instrument, b.instrument))
+		self.len = len(triggerlists[0].triggers)
+		self.trigiter = iter(triggerlists[0].triggers)
+		self.startiter = iter(triggerlists[0].start_times)
+		self.triggerlists = triggerlists[1:]
+		self.offsetdict = offsetdict
+		self.maxwindow = maxwindow
+
+	def __len__(self):
+		return self.len
+
+	def __iter__(self):
+		return self
+
+	def next(self):
+		trig = self.trigiter.next()
+		start = self.startiter.next()
+		return MultiIter([[trig]] + map(lambda l: l.intersects(start + trig.duration / 2 + self.offsetdict[trig.ifo] - self.offsetdict[l.instrument], self.maxwindow + trig.duration / 2), self.triggerlists))
+
+
+#
+# =============================================================================
+#
+#                         Level 2 (Final) Coincidence
+#
+# =============================================================================
+#
+
+Level2Test = SnglBurstUtils.CompareSnglBurst
+
+def coincident(trigs, offsetdict, windows):
+	"""
+	Return True if the triggers are all mutually coincident in the
+	context of the offsets in offsetdict.  Requires trigs to be sorted
+	by instrument.
+	"""
+	try:
+		for [a, b] in choices(trigs, 2):
+			a_inst = a.ifo
+			b_inst = b.ifo
+			if Level2Test(a, b, offsetdict[a_inst], offsetdict[b_inst], windows[(a_inst, b_inst)]):
+				return False
+	except KeyError, e:
+		raise KeyError, "no coincidence window provided for instrument pair %s" % str(e)
+	return True
 
 
 #
@@ -198,7 +325,7 @@ def construct_trigger_lists(table, procids):
 # =============================================================================
 #
 
-class Document(object):
+class DocContents(object):
 	"""
 	A wrapper interface to the XML document.
 	"""
@@ -207,12 +334,12 @@ class Document(object):
 		Initialize the document interface.  If coinc and coincmap
 		tables are not found in doc, they are appended to it.
 		"""
-		self.process = process
+		self.process_id = process.process_id
 		self.tisitable = llwapp.get_table(doc, lsctables.TimeSlideTable.tableName)
-		self.searchsummtable = llwapp.get_table(doc, lsctables.SearchSummaryTable.tableName)
-		self.triggerlists = construct_trigger_lists(llwapp.get_table(doc, lsctables.SnglBurstTable.tableName), self.get_coinc_procids())
 		for row in self.tisitable:
 			row.offset = LIGOTimeGPS(row.offset)
+		self.searchsummtable = llwapp.get_table(doc, lsctables.SearchSummaryTable.tableName)
+		self.triggerlists = construct_trigger_lists(llwapp.get_table(doc, lsctables.SnglBurstTable.tableName), coinc_procids(self))
 
 		try:
 			self.coinctable = llwapp.get_table(doc, lsctables.CoincTable.tableName)
@@ -247,19 +374,6 @@ class Document(object):
 		"""
 		return map(self.triggerlists.__getitem__, instruments)
 
-	def get_coinc_procids(self):
-		"""
-		Return a list of the process IDs in this document
-		participating in the coincidence analysis.
-		"""
-		ids = []
-		for offsetdict in map(self.get_offsetdict, self.get_tisi_ids()):
-			seglist = ss_coinc_segs(self.searchsummtable, offsetdict)
-			for row in self.searchsummtable:
-				if (segments.segmentlist([segment_increment(row.get_out(), offsetdict[row.ifos])]) & seglist) and not llwapp.bisect_contains(ids, row.process_id):
-					bisect.insort_left(ids, row.process_id)
-		return ids
-
 	def append_coinc(self, tisi_id, trigs):
 		"""
 		Takes a time slide ID and a list of triggers, and adds the
@@ -267,7 +381,7 @@ class Document(object):
 		tables
 		"""
 		coinc = lsctables.Coinc()
-		coinc.process_id = self.process.process_id
+		coinc.process_id = self.process_id
 		coinc.coinc_event_id = self.coincids.next()
 		coinc.time_slide_id = tisi_id
 		coinc.nevents = len(trigs)
@@ -282,198 +396,87 @@ class Document(object):
 #
 # =============================================================================
 #
-#                                    Input
-#
-# =============================================================================
-#
-
-doc = llwapp.load_filename(options.input, options.verbose)
-
-
-#
-# =============================================================================
-#
-#                                 Preparation
-#
-# =============================================================================
-#
-
-if options.verbose:
-	print >>sys.stderr, "preparing metadata..."
-try:
-	process = append_process(doc, options)
-	document = Document(doc, process)
-except Exception, e:
-	print >>sys.stderr, "error: %s" % str(e)
-	sys.exit(1)
-
-
-#
-# =============================================================================
-#
-#                               Iteration Tools
-#
-# =============================================================================
-#
-
-class MultiIter(object):
-	"""
-	An iterator class for iterating over the elements of multiple lists
-	simultaneously.  An instance of the class is initialized with a
-	list of lists.  A call to next() returns a list of elements, one
-	from each of the lists.  Subsequent calls next() iterate over all
-	combinations of elements from the lists.
-	"""
-	def __init__(self, lists):
-		self.lists = tuple(lists)
-		self.index = [0] * len(lists)
-		self.length = tuple(map(len, lists))
-		self.stop = 0 in self.length
-
-	def __len__(self):
-		return reduce(int.__mul__, self.length)
-
-	def __iter__(self):
-		return self
-
-	def next(self):
-		if self.stop:
-			raise StopIteration
-		l = map(lambda l, i: l[i], self.lists, self.index)
-		for i in xrange(len(self.index)):
-			self.index[i] += 1
-			if self.index[i] < self.length[i]:
-				break
-			self.index[i] = 0
-		else:
-			self.stop = True
-		return l
-
-
-def choices(vals, n):
-	"""
-	Return a list of all choices of n elements from the list vals.
-	"""
-	if n < 1:
-		raise ValueError, n
-	if n == 1:
-		return [[v] for v in vals]
-	if n == len(vals):
-		return [vals]
-	l = []
-	for i in range(len(vals) - n + 1):
-		for c in choices(vals[i+1:], n - 1):
-			c[0:0] = [vals[i]]
-			l.append(c)
-	return l
-
-
-#
-# =============================================================================
-#
-#                             Level 1 Coincidence
-#
-# =============================================================================
-#
-
-class Level1Iterator(object):
-	"""
-	Performs a coarse coincidence cut, generating a sequence of
-	MultiIter objects for iterating over sets of surviving n-tuples.
-	"""
-	def __init__(self, triggerlists, offsetdict, maxwindow):
-		triggerlists.sort(lambda a, b: cmp(a.instrument, b.instrument))
-		self.len = len(triggerlists[0].triggers)
-		self.trigiter = iter(triggerlists[0].triggers)
-		self.startiter = iter(triggerlists[0].start_times)
-		self.triggerlists = triggerlists[1:]
-		self.offsetdict = offsetdict
-		self.maxwindow = maxwindow
-
-	def __len__(self):
-		return self.len
-
-	def __iter__(self):
-		return self
-
-	def next(self):
-		trig = self.trigiter.next()
-		start = self.startiter.next()
-		return MultiIter([[trig]] + map(lambda l: l.intersects(start + trig.duration / 2 + self.offsetdict[trig.ifo] - self.offsetdict[l.instrument], self.maxwindow + trig.duration / 2), self.triggerlists))
-
-
-#
-# =============================================================================
-#
-#                             Level 2 Coincidence
-#
-# =============================================================================
-#
-
-Level2Test = SnglBurstUtils.CompareSnglBurst
-
-def coincident(trigs, offsetdict, windows):
-	"""
-	Return True if the triggers are all mutually coincident in the
-	context of the offsets in offsetdict.  Requires trigs to be sorted
-	by instrument.
-	"""
-	try:
-		for [a, b] in choices(trigs, 2):
-			a_inst = a.ifo
-			b_inst = b.ifo
-			if Level2Test(a, b, offsetdict[a_inst], offsetdict[b_inst], windows[(a_inst, b_inst)]):
-				return False
-	except KeyError, e:
-		raise KeyError, "no coincidence window provided for instrument pair %s" % str(e)
-	return True
-
-
-#
-# =============================================================================
-#
 #                          Build Trigger Coincidences
 #
 # =============================================================================
 #
 
-def find_coincident_ntuples(document, offsetdict, windows, tisi_id):
-	level1iterator = Level1Iterator(document.get_triglists(offsetdict.keys()), offsetdict, options.maxwindow)
+def maxwindow(offsetdict, windows):
+	"""
+	Return the largest of the windows that will be used for the
+	instruments listed in offsetdict's keys.
+	"""
+	instruments = offsetdict.keys()
+	instruments.sort()
+	return max(map(lambda pair: windows[tuple(pair)], choices(instruments, 2)))
+
+
+def find_coincident_ntuples(document, windows, offsetdict, tisi_id, verbose = False):
+	"""
+	Given a DocContents object, a dictionary of instrument offsets, a
+	dictionary of windows and a time slide ID (corresponding to the
+	dictionary of offsets), identify and append all coincidences.
+	"""
+	level1iterator = Level1Iterator(document.get_triglists(offsetdict.keys()), offsetdict, maxwindow(offsetdict, windows))
 	for n, ntuples in enumerate(level1iterator):
 		if not (n % 1024):
-			if options.verbose:
+			if verbose:
 				print >>sys.stderr, "\t%.1f%%\r" % (100.0 * (n + 1) / len(level1iterator)),
 		for ntuple in ntuples:
 			if coincident(ntuple, offsetdict, windows):
 				document.append_coinc(tisi_id, ntuple)
-	if options.verbose:
+	if verbose:
 		print >>sys.stderr, "\t100.0%"
 
 
-def find_coincidences(document, windows):
+def find_coincidences(document, windows, verbose = False):
+	"""
+	Given a DocContents object and a dictionary of windows, identify
+	and append all coincidences.
+	"""
 	tisiids = document.get_tisi_ids()
 	for n, tisi_id in enumerate(tisiids):
 		offsetdict = document.get_offsetdict(tisi_id)
-		if options.verbose:
+		if verbose:
 			print >>sys.stderr, "time slide %d/%d: %s" % (n + 1, len(tisiids), str(offsetdict))
-		find_coincident_ntuples(document, offsetdict, windows, tisi_id)
+		find_coincident_ntuples(document, windows, offsetdict, tisi_id, verbose)
 
+
+#
+# =============================================================================
+#
+#                                 Library API
+#
+# =============================================================================
+#
+
+def ligolw_burca(doc, **kwargs):
+	if kwargs["verbose"]:
+		print >>sys.stderr, "preparing metadata..."
+	process = append_process(doc, **kwargs)
+	find_coincidences(DocContents(doc, process), kwargs["window"], kwargs["verbose"])
+	llwapp.set_process_end_time(process)
+	return doc
+
+
+#
+# =============================================================================
+#
+#                                     Main
+#
+# =============================================================================
+#
 
 try:
-	find_coincidences(document, options.window)
+	options, filenames = parse_command_line()
+except ValueError, e:
+	print >>sys.stderr, "error: %s" % str(e)
+	sys.exit(1)
+try:
+	for filename in filenames:
+		doc = llwapp.load_filename(filename, options.verbose)
+		ligolw_burca(doc, **options.__dict__)
+		llwapp.write_filename(doc, filename, options.verbose)
 except Exception, e:
 	print >>sys.stderr, "error: %s" % str(e)
 	sys.exit(1)
-
-
-#
-# =============================================================================
-#
-#                                    Output
-#
-# =============================================================================
-#
-
-llwapp.set_process_end_time(process)
-
-llwapp.write_filename(doc, options.output, options.verbose)
