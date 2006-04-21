@@ -92,7 +92,8 @@ def element_merge(doc):
 def ligolw_add(doc, urls, **kwargs):
 	"""
 	An implementation of the LIGO LW add algorithm.  urls is a list of
-	URLs to load.
+	URLs to load, doc is the XML document tree to which they should be
+	added.
 	"""
 	# Input
 	for n, url in enumerate(urls):
@@ -102,8 +103,7 @@ def ligolw_add(doc, urls, **kwargs):
 
 	# ID reassignment
 	if not kwargs["non_lsc_tables_ok"] and docutils.HasNonLSCTables(doc):
-		print >>sys.stderr, "error:  non-LSC tables found.  Use --non-lsc-tables-ok to force"
-		sys.exit(1)
+		raise ValueError, "non-LSC tables found.  Use --non-lsc-tables-ok to force"
 	if kwargs["verbose"]:
 		print >>sys.stderr, "reasigning row IDs ..."
 	reassign_ids(doc)
