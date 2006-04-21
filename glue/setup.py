@@ -18,7 +18,7 @@ if version_info >= (2, 3):
     description = "Grid LSC User Engine",
     url = "http://www.lsc-group.phys.uwm.edu/daswg/",
     license = 'See file LICENSE',
-    packages = [ 'glue', 'glue.ligolw' ],
+    packages = [ 'glue', 'glue.ligolw', 'glue.ligolw.utils' ],
     py_modules = [ 'glue.segfindserver.segments_1_7.segments' ],
     scripts = [ os.path.join('bin','LSCdataFind'),
       os.path.join('bin','LSCdataFind'),

@@ -15,13 +15,11 @@ Add (merge) LIGO LW XML files containing LSC tables.
 from optparse import OptionParser
 import sys
 import os
-import urllib
-from urlparse import urlparse
 
 from glue.lal import CacheEntry
+from glue.ligolw.utils import ligolw_add
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
-from glue.ligolw import docutils
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __date__ = "$Date$"[7:-2]
@@ -69,59 +67,6 @@ def parse_command_line():
 #
 # =============================================================================
 #
-#                                    Input
-#
-# =============================================================================
-#
-
-def append_document(doc, file):
-	ligolw.make_parser(lsctables.LIGOLWContentHandler(doc)).parse(file)
-	return doc
-
-
-def url2path(url):
-	(scheme, location, path, params, query, frag) = urlparse(url)
-	if scheme.lower() in ("", "file") and location.lower() in ("", "localhost"):
-		return path
-	raise ValueError, url
-
-
-#
-# =============================================================================
-#
-#                                Document Merge
-#
-# =============================================================================
-#
-
-def reassign_ids(doc):
-	"""
-	Reassign IDs to all rows in all LSC tables in doc so that there are
-	no collisions when the LIGO_LW elements are merged.
-	"""
-	ilwditers = {}
-	for tablename, ilwdclass in lsctables.ILWDGeneratorByTableName.iteritems():
-		ilwditers[tablename] = ilwdclass()
-	for elem in doc.getElementsByTagName(ligolw.LIGO_LW.tagName):
-		docutils.makeReference(elem)
-		docutils.NewIDs(elem, ilwditers)
-		docutils.deReference(elem)
-	return doc
-
-
-def element_merge(doc):
-	# LIGO_LW elements
-	reduce(docutils.MergeElements, doc.getElementsByTagName(ligolw.LIGO_LW.tagName))
-
-	# Table elements
-	docutils.MergeCompatibleTables(doc)
-
-	return doc
-
-
-#
-# =============================================================================
-#
 #                                  LFN Table
 #
 # =============================================================================
@@ -157,53 +102,6 @@ def make_lfn_table(doc, pathname, start_time = None, end_time = None, comment = 
 #
 # =============================================================================
 #
-#                                 Library API
-#
-# =============================================================================
-#
-
-def ligolw_add(doc, urls, **kwargs):
-	"""
-	An implementation of the LIGO LW add algorithm.  urls is a list of
-	URLs to load.
-	"""
-	# Input
-	for n, url in enumerate(urls):
-		if kwargs["verbose"]:
-			print >>sys.stderr, "loading %d/%d: %s" % (n + 1, len(urls), url)
-		append_document(doc, urllib.urlopen(url))
-
-	# ID reassignment
-	if not kwargs["non_lsc_tables_ok"] and docutils.HasNonLSCTables(doc):
-		print >>sys.stderr, "error:  non-LSC tables found.  Use --non-lsc-tables-ok to force"
-		sys.exit(1)
-	if kwargs["verbose"]:
-		print >>sys.stderr, "reasigning row IDs ..."
-	reassign_ids(doc)
-
-	# Document merge
-	if kwargs["verbose"]:
-		print >>sys.stderr, "merging elements ..."
-	element_merge(doc)
-
-	return doc
-
-
-def remove_input(urls, output, verbose = False):
-	for path in map(url2path, urls):
-		if output and os.path.samefile(path, output):
-			continue
-		if verbose:
-			print >>sys.stderr, "removing %s ..." % path
-		try:
-			os.remove(path)
-		except:
-			pass
-
-
-#
-# =============================================================================
-#
 #                                     Main
 #
 # =============================================================================
@@ -214,7 +112,7 @@ try:
 	options, urls = parse_command_line()
 
 	# Input
-	doc = ligolw_add(ligolw.Document(), urls, **options.__dict__)
+	doc = ligolw_add.ligolw_add(ligolw.Document(), urls, **options.__dict__)
 
 	# LFN table
 	if options.add_lfn_table:
@@ -235,7 +133,7 @@ try:
 
 	# Remove input
 	if options.remove_input:
-		remove_input(urls, options.output, options.verbose)
+		ligolw_add.remove_input(urls, options.output, options.verbose)
 except Exception, e:
 	print >>sys.stderr, "error: %s" % str(e)
 	sys.exit(1)
