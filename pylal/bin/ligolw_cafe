@@ -35,11 +35,11 @@ from math import log10
 from optparse import OptionParser
 import sys
 
-from glue.lal import CacheEntry
 from glue import segments
+from glue.lal import CacheEntry
 from glue.ligolw import lsctables
-from pylal import date
 from pylal import llwapp
+from pylal.date import LIGOTimeGPS
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __date__ = "$Date$"[7:-2]
@@ -78,20 +78,22 @@ options, cachenames = parse_command_line()
 # =============================================================================
 #
 
-def LoadCache(filename):
+def load_cache(filename):
 	if options.verbose:
 		print >>sys.stderr, "loading %s" % filename
-	cache = map(lambda l: CacheEntry(l, coltype = date.LIGOTimeGPS), file(filename))
+	cache = map(lambda l: CacheEntry(l, coltype = LIGOTimeGPS), file(filename))
 	obs = cache[0].observatory
 	for c in cache:
 		if c.observatory != obs:
 			raise ValueError, "mismatched observatories in %s" % filename
 	return {obs: cache}
 
-def CacheToSegList(cache):
+
+def cache_to_seglist(cache):
 	return {cache[0].observatory: segments.segmentlist([c.segment for c in cache]).coalesce()}
 
-def NullTisi(instruments):
+
+def null_tisi(instruments):
 	tisitable = lsctables.New(lsctables.TimeSlideTable, ["instrument", "offset"])
 	for instrument in instruments:
 		tisitable.append(lsctables.TimeSlide())
@@ -102,13 +104,13 @@ def NullTisi(instruments):
 
 try:
 	caches = {}
-	map(lambda filename: caches.update(LoadCache(filename)), cachenames)
+	map(lambda filename: caches.update(load_cache(filename)), cachenames)
 	seglists = {}
-	map(lambda c: seglists.update(CacheToSegList(c)), caches.itervalues())
+	map(lambda c: seglists.update(cache_to_seglist(c)), caches.itervalues())
 	if options.time_slides:
 		tisitable = llwapp.get_table(llwapp.load_filename(options.time_slides, options.verbose), lsctables.TimeSlideTable.tableName)
 	else:
-		tisitable = NullTisi(caches.keys())
+		tisitable = null_tisi(caches.keys())
 except Exception, e:
 	print >>sys.stderr, "error: %s" % str(e)
 	sys.exit(1)
@@ -126,7 +128,7 @@ except Exception, e:
 # Extract the minimum and maximum offset for each instrument
 #
 
-def ExtremeOffsets(table):
+def extreme_offsets(table):
 	min = {}
 	max = {}
 	for row in table:
@@ -140,18 +142,18 @@ def ExtremeOffsets(table):
 			max[row.instrument] = row.offset
 	return min, max
 
-def CheckInstruments(offsetinstruments, cacheinstruments):
+def check_instruments(offsetinstruments, cacheinstruments):
 	for i in cacheinstruments:
 		if i not in offsetinstruments:
 			raise ValueError, "time slide table missing instrument %s" % i
 
-minoffsets, maxoffsets = ExtremeOffsets(tisitable)
+minoffsets, maxoffsets = extreme_offsets(tisitable)
 if options.verbose:
 	print >>sys.stderr, "minimum offsets: %s" % str(minoffsets)
 	print >>sys.stderr, "maximum offsets: %s" % str(maxoffsets)
 
 try:
-	CheckInstruments(minoffsets.keys(), caches.keys())
+	check_instruments(minoffsets.keys(), caches.keys())
 except Exception, e:
 	print >>sys.stderr, "error: %s" % str(e)
 	sys.exit(1)
@@ -162,16 +164,16 @@ except Exception, e:
 # instrument.
 #
 
-def DilateSegList(l, min, max):
+def dilate_seglist(l, min, max):
 	return segments.segmentlist([segments.segment(s[0] + min, s[1] + max) for s in l]).coalesce()
 
-def DilateSegLists(seglists, mins, maxs):
+def dilate_seglists(seglists, mins, maxs):
 	for obs, segs in seglists.iteritems():
-		seglists[obs] = DilateSegList(segs, mins[obs], maxs[obs])
+		seglists[obs] = dilate_seglist(segs, mins[obs], maxs[obs])
 
 if options.verbose:
 	print >>sys.stderr, "dilating segment lists..."
-DilateSegLists(seglists, minoffsets, maxoffsets)
+dilate_seglists(seglists, minoffsets, maxoffsets)
 
 
 #
@@ -179,21 +181,21 @@ DilateSegLists(seglists, minoffsets, maxoffsets)
 # corresponding instrument.
 #
 
-def DilateFile(cacheentry, min, max):
+def dilate_cacheentry(cacheentry, min, max):
 	cacheentry.segment = segments.segment(cacheentry.segment[0] + min, cacheentry.segment[1] + max)
 
-def DilateFiles(caches, mins, maxs):
+def dilate_caches(caches, mins, maxs):
 	caches = copy.deepcopy(caches)
 	for obs, cache in caches.iteritems():
 		min = mins[obs]
 		max = maxs[obs]
 		for c in cache:
-			DilateFile(c, min, max)
+			dilate_cacheentry(c, min, max)
 	return caches
 
 if options.verbose:
 	print >>sys.stderr, "dilating file boundaries..."
-dilatedcaches = DilateFiles(caches, minoffsets, maxoffsets)
+dilatedcaches = dilate_caches(caches, minoffsets, maxoffsets)
 
 
 #
@@ -211,7 +213,7 @@ dilatedcaches = DilateFiles(caches, minoffsets, maxoffsets)
 # estimate of the boundaries for subsequent coincidence jobs.
 #
 
-def CoincSegs(seglists):
+def coinc_segs(seglists):
 	segs = ~segments.segmentlist()
 	for l in seglists.itervalues():
 		segs &= l
@@ -219,7 +221,7 @@ def CoincSegs(seglists):
 
 if options.verbose:
 	print >>sys.stderr, "computing segment list (pass 1)..."
-coincsegs = CoincSegs(seglists)
+coincsegs = coinc_segs(seglists)
 
 
 #
@@ -231,7 +233,7 @@ coincsegs = CoincSegs(seglists)
 # boundaries of coincidence jobs.
 #
 
-def MergeSegsByFile(segs, caches):
+def merge_segs_by_file(segs, caches):
 	for cache in caches.itervalues():
 		for c in cache:
 			spanned = segments.segmentlist([c.segment]) & segs
@@ -241,7 +243,7 @@ def MergeSegsByFile(segs, caches):
 
 if options.verbose:
 	print >>sys.stderr, "computing segment list (pass 2)..."
-MergeSegsByFile(coincsegs, dilatedcaches)
+merge_segs_by_file(coincsegs, dilatedcaches)
 
 
 #
@@ -252,7 +254,7 @@ MergeSegsByFile(coincsegs, dilatedcaches)
 # =============================================================================
 #
 
-def WriteCaches(base, coincsegs, dilatedcaches, caches):
+def write_caches(base, coincsegs, dilatedcaches, caches):
 	if len(coincsegs):
 		pattern = "%%s%%0%dd.cache" % int(log10(len(coincsegs)) + 1)
 	for n, seg in enumerate(coincsegs):
@@ -266,12 +268,12 @@ def WriteCaches(base, coincsegs, dilatedcaches, caches):
 					print >>f, str(caches[obs][i])
 
 
-def WriteSingleInstrumentCaches(coincsegs, dilatedcaches, caches):
+def write_single_instrument_caches(coincsegs, dilatedcaches, caches):
 	for instrument in caches.keys():
-		WriteCaches("%s_" % instrument, coincsegs, {instrument: dilatedcaches[instrument]}, {instrument: caches[instrument]})
+		write_caches("%s_" % instrument, coincsegs, {instrument: dilatedcaches[instrument]}, {instrument: caches[instrument]})
 
 
 if options.single_instrument:
-	WriteSingleInstrumentCaches(coincsegs, dilatedcaches, caches)
+	write_single_instrument_caches(coincsegs, dilatedcaches, caches)
 else:
-	WriteCaches(options.base, coincsegs, dilatedcaches, caches)
+	write_caches(options.base, coincsegs, dilatedcaches, caches)
