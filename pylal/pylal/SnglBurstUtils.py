@@ -31,21 +31,6 @@ from pylal.date import LIGOTimeGPS
 #
 # =============================================================================
 #
-#                             Segment Manipulation
-#
-# =============================================================================
-#
-
-def segment_increment(s, delta):
-	"""
-	Add delta to the upper and lower bounds of s.
-	"""
-	return segments.segment(s[0] + delta, s[1] + delta)
-
-
-#
-# =============================================================================
-#
 #                                  Clustering
 #
 # =============================================================================
@@ -90,16 +75,15 @@ def CompareSnglBurstByPeakTimeAndFreq(a, b):
 	return result
 
 
-def CompareSnglBurst(a, b, a_offset = LIGOTimeGPS(0), b_offset = LIGOTimeGPS(0), twindow = LIGOTimeGPS(0)):
+def CompareSnglBurst(a, b, twindow = LIGOTimeGPS(0)):
 	"""
 	Orders a and b by time interval, then by frequency band.  Returns 0
-	if a and b's time-frequency tiles intersect.  Offsets can be
-	optionally applied to the times of triggers a and b, and also a
-	time window in which to consider the tiles to be equal (if their
-	times do not overlap by more than this, they will continue to
-	compare as equal).
+	if a and b's time-frequency tiles intersect.  A time window can be
+	optionally applied, and the time-frequency tiles will continue to
+	compare as equal if they do not overlap by as much as the window
+	amount.
 	"""
-	result = cmp_segs(segment_increment(a.get_period(), a_offset).protract(twindow), segment_increment(b.get_period(), b_offset))
+	result = cmp_segs(a.get_period().protract(twindow), b.get_period())
 	if not result:
 		result = cmp_segs(a.get_band(), b.get_band())
 	return result
