@@ -1,16 +1,32 @@
+#
+# =============================================================================
+#
+#                                   Preamble
+#
+# =============================================================================
+#
+
 """
 This module provides additional utilities for use with segments.segmentlist
 objects.
 """
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
-__date__ = "$Date$"
-__version__ = "$Revision$"
+__date__ = "$Date$"[7:-2]
+__version__ = "$Revision$"[11:-2]
 
 import re
 import segments
 import lal
 
+
+#
+# =============================================================================
+#
+#                                     I/O
+#
+# =============================================================================
+#
 
 def fromfilenames(filenames, coltype=int):
 	"""
@@ -124,6 +140,14 @@ def tosegwizard(file, seglist, header=True, coltype=int):
 	for n, seg in enumerate(seglist):
 		print >>file, "%d\t%s\t%s\t%s" % (n, coltype(seg[0]), coltype(seg[1]), coltype(seg.duration()))
 
+
+#
+# =============================================================================
+#
+#                    Pre-defined Segments and Segment Lists
+#
+# =============================================================================
+#
 
 def S2playground(extent):
 	"""
