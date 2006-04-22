@@ -61,7 +61,6 @@ def parse_command_line():
 	parser = OptionParser(version="%prog CVS $Id$")
 	parser.add_option("-c", "--input-cache", metavar = "filename", default = [], action = "append", help = "read input file the files in this cache")
 	parser.add_option("--made-only", action = "store_true", default = False, help = "plot only injections that were made")
-	parser.add_option("--found-only", action = "store_true", default = False, help = "plot only injections that were found")
 	parser.add_option("-b", "--base", metavar = "base", default = "plotbinj_", help = "set the prefix for output filenames (default = plotbinj_)")
 	parser.add_option("-f", "--format", metavar = "format", default = "png", help = "set the output image format (default = png)")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
@@ -71,10 +70,6 @@ def parse_command_line():
 		urls.extend([entry.url for entry in map(CacheEntry, file(cachename))])
 	if not len(urls):
 		urls = [None]
-
-	if options.made_only and options.found_only:
-		raise ValueError, "can't plot found only and made only"
-		sys.exit(1)
 
 	return options, urls
 
@@ -254,11 +249,10 @@ class FreqVsTime(object):
 
 	def add_contents(self, doc):
 		self.num_injections += len(doc.simtable)
-		if not options.found_only:
-			for row in doc.simtable.rows:
-				self.axes.plot((float(row.get_geocent_peak()),), (row.freq,), "b+")
+		for row in doc.simtable.rows:
+			self.axes.plot((float(row.get_geocent_peak()),), (row.freq,), "b+")
 		if not options.made_only:
-			for row in FoundInjectionIterator(doc):
+			for row in MissedInjectionIterator(doc):
 				self.axes.plot((float(row.get_geocent_peak()),), (row.freq,), "rx")
 		self.seglist |= doc.summarytable.get_outlist().coalesce()
 
@@ -296,25 +290,21 @@ class AmplVsFreq(object):
 	def add_contents(self, doc):
 		self.num_injections += len(doc.simtable)
 		if self.representation == "contour":
-			if not options.found_only:
-				for row in doc.simtable.rows:
-					self.madevsfound.incmade(row.freq, row.hrss)
+			for row in doc.simtable.rows:
+				self.madevsfound.incmade(row.freq, row.hrss)
 			if not options.made_only:
 				for row in FoundInjectionIterator(doc):
 					self.madevsfound.incfound(row.freq, row.hrss)
 		elif self.representation == "scatter":
-			if not options.found_only:
-				for row in doc.simtable.rows:
-					self.axes.plot((row.freq,), (row.hrss,), "b+")
+			for row in doc.simtable.rows:
+				self.axes.plot((row.freq,), (row.hrss,), "b+")
 			if not options.made_only:
-				for row in FoundInjectionIterator(doc):
+				for row in MissedInjectionIterator(doc):
 					self.axes.plot((row.freq,), (row.hrss,), "rx")
 
 	def finish(self):
 		if self.representation == "contour":
 			self.madevsfound.normalize()
-			if options.found_only:
-				cset = self.axes.contour(self.madevsfound.xcoords, self.madevsfound.ycoords, self.madevsfound.found)
 			if options.made_only:
 				cset = self.axes.contour(self.madevsfound.xcoords, self.madevsfound.ycoords, self.madevsfound.made)
 			else:
