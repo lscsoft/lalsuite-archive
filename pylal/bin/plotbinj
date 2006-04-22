@@ -37,12 +37,12 @@ import numarray
 import sys
 import urllib
 
-from glue import lal
+from glue.lal import CacheEntry
 from glue import segments
 from glue.ligolw import ligolw
-from glue.ligolw import metaio
 from glue.ligolw import lsctables
 from glue.ligolw import docutils
+from pylal import llwapp
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
@@ -57,54 +57,32 @@ __date__ = "$Date$"[7:-2]
 # =============================================================================
 #
 
-parser = OptionParser(version="%prog CVS $Id$")
-parser.add_option("--gps-start-time", metavar = "seconds", help = "set left edge of plot")
-parser.add_option("--gps-end-time", metavar = "seconds", help = "set right edge of plot")
-parser.add_option("-t", "--plot-type", metavar = "[freq_vs_time|ampl_vs_freq]", default = "freq_vs_time", help = "choose plot type")
-parser.add_option("--representation", metavar = "[contour|scatter]", help = "choose plot type")
-parser.add_option("-i", "--input", metavar = "filename", default = [], action = "append", help = "read input from this file")
-parser.add_option("-c", "--cache", metavar = "filename", default = [], action = "append", help = "read input file the files in this cache")
-parser.add_option("--made-only", action = "store_true", default = False, help = "plot only injections that were made")
-parser.add_option("--found-only", action = "store_true", default = False, help = "plot only injections that were found")
-parser.add_option("-o", "--output", metavar = "filename", help = "set output file name (required)")
-parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
-options = parser.parse_args()[0]
-del parser
+def parse_command_line():
+	parser = OptionParser(version="%prog CVS $Id$")
+	parser.add_option("-c", "--input-cache", metavar = "filename", default = [], action = "append", help = "read input file the files in this cache")
+	parser.add_option("--made-only", action = "store_true", default = False, help = "plot only injections that were made")
+	parser.add_option("--found-only", action = "store_true", default = False, help = "plot only injections that were found")
+	parser.add_option("-b", "--base", metavar = "base", default = "plotbinj_", help = "set the prefix for output filenames (default = plotbinj_)")
+	parser.add_option("-f", "--format", metavar = "format", default = "png", help = "set the output image format (default = png)")
+	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
+	options, urls = parser.parse_args()
 
-for name in options.cache:
-	options.input.extend([entry.url for entry in map(lal.CacheEntry, file(name))])
+	for cachename in options.input_cache:
+		urls.extend([entry.url for entry in map(CacheEntry, file(cachename))])
+	if not len(urls):
+		urls = [None]
 
-if not options.input:
-	print >>sys.stderr, "error: no input files specified"
+	if options.made_only and options.found_only:
+		raise ValueError, "can't plot found only and made only"
+		sys.exit(1)
+
+	return options, urls
+
+try:
+	options, urls = parse_command_line()
+except ValueError, e:
+	print >>sys.stderr, "error: %s" % str(e)
 	sys.exit(1)
-
-if not options.output:
-	print >>sys.stderr, "error: no output file specified"
-	sys.exit(1)
-
-if options.plot_type not in ["freq_vs_time", "ampl_vs_freq"]:
-	print >>sys.stderr, "error: unrecognized plot type %s" % options.plot_type
-	sys.exit(1)
-
-if options.gps_start_time:
-	options.gps_start_time = lal.LIGOTimeGPS(options.gps_start_time)
-else:
-	options.gps_start_time = -segments.infinity()
-if options.gps_end_time:
-	options.gps_end_time = lal.LIGOTimeGPS(options.gps_end_time)
-else:
-	options.gps_end_time = segments.infinity()
-options.seg = segments.segmentlist([segments.segment(options.gps_start_time, options.gps_end_time)])
-
-if options.made_only and options.found_only:
-	print >>sys.stderr, "error: can't plot found only and made only"
-	sys.exit(1)
-
-if not options.representation:
-	if options.plot_type == "freq_vs_time":
-		options.representation = "scatter"
-	else:
-		options.representation = "contour"
 
 
 #
@@ -118,29 +96,18 @@ if not options.representation:
 def ElementFilter(name, attrs):
 	return lsctables.IsTableProperties(lsctables.SimBurstTable, name, attrs) or lsctables.IsTableProperties(lsctables.SearchSummaryTable, name, attrs) or lsctables.IsTableProperties(lsctables.SnglBurstTable, name, attrs) or lsctables.IsTableProperties(lsctables.CoincTable, name, attrs) or lsctables.IsTableProperties(lsctables.CoincMapTable, name, attrs)
 
-def LoadDocument(url):
+def load_url(url, verbose = False):
+	if verbose:
+		if url:
+			print >>sys.stderr, "reading %s..." % url
+		else:
+			print >>sys.stderr, "reading stdin..."
 	doc = ligolw.Document()
-	handler = docutils.PartialLIGOLWContentHandler(doc, ElementFilter)
-	try:
-		ligolw.make_parser(handler).parse(urllib.urlopen(url))
-	except Exception, e:
-		print >>sys.stderr, "error: parsing contents of %s: %s" % (url, str(e))
-		sys.exit(1)
+	if url:
+		ligolw.make_parser(docutils.PartialLIGOLWContentHandler(doc, ElementFilter)).parse(urllib.urlopen(url))
+	else:
+		ligolw.make_parser(docutils.PartialLIGOLWContentHandler(doc, ElementFilter)).parse(sys.stdin)
 	return doc
-
-
-def GetTable(doc, Type):
-	"""
-	Find and return the table of the given type.
-	"""
-	tables = lsctables.getTablesByType(doc, Type)
-	if len(tables) == 0:
-		print >>sys.stderr, "warning: no %s tables found" % metaio.StripTableName(Type.tableName)
-		return lsctables.New(Type)
-	if len(tables) == 1:
-		return tables[0]
-	print >>sys.stderr, "error: files contain incompatible %s tables" % metaio.StripTableName(Type.tableName)
-	sys.exit(1)
 
 
 #
@@ -152,16 +119,18 @@ def GetTable(doc, Type):
 #
 
 class DocContents(object):
-	def __init__(self, xmldoc):
+	def __init__(self, doc, verbose = False):
+		if verbose:
+			print >>sys.stderr, "indexing..."
+
 		#
 		# Extract tables
 		#
 
-		self.simtable = GetTable(xmldoc, lsctables.SimBurstTable)
-		self.bursttable = GetTable(xmldoc, lsctables.SnglBurstTable)
-		self.summarytable = GetTable(xmldoc, lsctables.SearchSummaryTable)
-		self.coinctable = GetTable(xmldoc, lsctables.CoincTable)
-		self.coincmaptable = GetTable(xmldoc, lsctables.CoincMapTable)
+		self.simtable = llwapp.get_table(doc, lsctables.SimBurstTable.tableName)
+		self.summarytable = llwapp.get_table(doc, lsctables.SearchSummaryTable.tableName)
+		self.coinctable = llwapp.get_table(doc, lsctables.CoincTable.tableName)
+		self.coincmaptable = llwapp.get_table(doc, lsctables.CoincMapTable.tableName)
 
 		#
 		# Sort table rows
@@ -170,59 +139,54 @@ class DocContents(object):
 		# sim_burst by simulation_id
 		self.simtable.rows.sort(lambda a, b: cmp(lsctables.ILWDID(a.simulation_id), lsctables.ILWDID(b.simulation_id)))
 
-		# sngl_burst by event_id
-		self.bursttable.rows.sort(lambda a, b: cmp(lsctables.ILWDID(a.event_id), lsctables.ILWDID(b.event_id)))
-
-		# coinc by coinc_event_id
-		self.coinctable.rows.sort(lambda a, b: cmp(lsctables.ILWDID(a.coinc_event_id), lsctables.ILWDID(b.coinc_event_id)))
-
-		# coinc_event_map by coinc_event_id
-		self.coincmaptable.rows.sort(lambda a, b: cmp(lsctables.ILWDID(a.coinc_event_id), lsctables.ILWDID(b.coinc_event_id)))
+		# coinc_event_map by event_id
+		self.coincmaptable.rows.sort(lambda a, b: cmp(lsctables.ILWDID(a.event_id), lsctables.ILWDID(b.event_id)))
 
 		#
 		# Construct ID look-up tables
 		#
 
 		self.simtableids = map(lsctables.ILWDID, self.simtable.getColumnByName("simulation_id"))
-		self.bursttableids = map(lsctables.ILWDID, self.bursttable.getColumnByName("event_id"))
 		self.coinctableids = map(lsctables.ILWDID, self.coinctable.getColumnByName("coinc_event_id"))
-		self.coincmaptableids = map(lsctables.ILWDID, self.coincmaptable.getColumnByName("coinc_event_id"))
+		self.coincmaptableids = map(lsctables.ILWDID, self.coincmaptable.getColumnByName("event_id"))
+
+		#
+		# Found and missed injection IDs
+		#
+
+		self.foundsimids = []
+		self.missedsimids = []
+		for id in self.simtableids:
+			if llwapp.bisect_contains(self.coincmaptableids, id):
+				self.foundsimids.append(id)
+			else:
+				self.missedsimids.append(id)
+		self.foundsimids.sort()
+		self.missedsimids.sort()
 
 
 	def get_sim_by_id(self, id):
-		return self.simtable.rows[bisect.bisect_left(self.simtableids, lsctables.ILWDID(id))]
-
-	def get_burst_by_id(self, id):
-		return self.bursttable.rows[bisect.bisect_left(self.bursttableids, lsctables.ILWDID(id))]
-
-	def get_coincevents_by_id(self, id):
-		return self.coincmaptable.rows[bisect.bisect_left(self.coincmaptableids, lsctables.ILWDID(id)) : bisect.bisect_right(self.coincmaptableids, lsctables.ILWDID(id))]
-
-	def get_sim_by_coincid(self, id):
-		return [self.get_sim_by_id(row.event_id) for row in self.get_coincevents_by_id(id) if "sim_burst" in row.event_id]
-
-	def get_burst_by_coincid(self, id):
-		return [self.get_burst_by_id(row.event_id) for row in self.get_coincevents_by_id(id) if "sngl_burst" in row.event_id]
+		return self.simtable.rows[bisect.bisect_left(self.simtableids, id)]
 
 
 #
 # =============================================================================
 #
-#                           Found Injection Iterator
+#                             Injection Iterators
 #
 # =============================================================================
 #
 
-class FoundIter(object):
-	def __init__(self,  doc):
-		self.doc = doc
-		self.iditer = iter(doc.coinctable.getColumnByName("coinc_event_id"))
+def FoundInjectionIterator(doccontents):
+	last = None
+	for id in doccontents.foundsimids:
+		if id != last:
+			yield doccontents.get_sim_by_id(id)
+		last = id
 
-	def __iter__(self):
-		return self
-
-	def next(self):
-		return self.doc.get_sim_by_coincid(self.iditer.next())[0]
+def MissedInjectionIterator(doccontents):
+	for id in doccontents.missedsimids:
+		yield doccontents.get_sim_by_id(id)
 
 
 #
@@ -274,9 +238,8 @@ class MadeVsFound(object):
 
 class FreqVsTime(object):
 	def __init__(self):
+		self.name = "frequency vs. time"
 		self.num_injections = 0
-		self.min_t = segments.infinity()
-		self.max_t = -segments.infinity()
 		self.seglist = segments.segmentlist()
 		self.fig = figure.Figure()
 		self.canvas = FigureCanvasAgg(self.fig)
@@ -284,37 +247,23 @@ class FreqVsTime(object):
 		self.axes = self.fig.gca()
 		self.axes.semilogy()
 
-		try:
-			self.axes.set_xlim(list(options.seg[0]))
-		except AttributeError:
-			# incase the user didn't select a segment
-			pass
 		self.axes.grid(True)
 
 		self.axes.set_xlabel("GPS Time (s)")
 		self.axes.set_ylabel("Frequency (Hz)")
 
-	def addto(self, doc):
+	def add_contents(self, doc):
 		self.num_injections += len(doc.simtable)
 		if not options.found_only:
 			for row in doc.simtable.rows:
-				t = float(row.get_geocent_peak())
-				if t < self.min_t:
-					self.min_t = t
-				if t > self.max_t:
-					self.max_t = t
-				self.axes.plot([t], [row.freq], "b+")
+				self.axes.plot((float(row.get_geocent_peak()),), (row.freq,), "b+")
 		if not options.made_only:
-			for row in FoundIter(doc):
-				self.axes.plot([float(row.get_geocent_peak())], [row.freq], "rx")
-		self.seglist |= doc.summarytable.get_inlist().coalesce()
+			for row in FoundInjectionIterator(doc):
+				self.axes.plot((float(row.get_geocent_peak()),), (row.freq,), "rx")
+		self.seglist |= doc.summarytable.get_outlist().coalesce()
 
 	def finish(self):
-		if not len(self.seglist):
-			self.seglist = segments.segmentlist([segments.segment(self.min_t - 5.0, self.max_t + 5.0)])
-		options.seg &= segments.segmentlist([self.seglist.extent()])
-
-		for seg in ~self.seglist & options.seg:
+		for seg in ~self.seglist & segments.segmentlist([segments.segment(self.axes.get_xlim())]):
 			self.axes.axvspan(seg[0], seg[1], facecolor = "k", alpha = 0.2)
 		self.axes.set_title("Injection Locations\n(%d Injections)" % self.num_injections)
 
@@ -328,7 +277,9 @@ class FreqVsTime(object):
 #
 
 class AmplVsFreq(object):
-	def __init__(self):
+	def __init__(self, representation):
+		self.name = "amplitude vs. frequency (%s)" % representation
+		self.representation = representation
 		self.num_injections = 0
 		self.fig = figure.Figure()
 		self.canvas = FigureCanvasAgg(self.fig)
@@ -342,25 +293,25 @@ class AmplVsFreq(object):
 		self.axes.set_xlabel("Frequency (Hz)")
 		self.axes.set_ylabel("h_rss")
 
-	def addto(self, doc):
+	def add_contents(self, doc):
 		self.num_injections += len(doc.simtable)
-		if options.representation == "contour":
+		if self.representation == "contour":
 			if not options.found_only:
 				for row in doc.simtable.rows:
 					self.madevsfound.incmade(row.freq, row.hrss)
 			if not options.made_only:
-				for row in FoundIter(doc):
+				for row in FoundInjectionIterator(doc):
 					self.madevsfound.incfound(row.freq, row.hrss)
-		elif options.representation == "scatter":
+		elif self.representation == "scatter":
 			if not options.found_only:
 				for row in doc.simtable.rows:
-					self.axes.plot([row.freq], [row.hrss], "b+")
+					self.axes.plot((row.freq,), (row.hrss,), "b+")
 			if not options.made_only:
-				for row in FoundIter(doc):
-					self.axes.plot([row.freq], [row.hrss], "rx")
+				for row in FoundInjectionIterator(doc):
+					self.axes.plot((row.freq,), (row.hrss,), "rx")
 
 	def finish(self):
-		if options.representation == "contour":
+		if self.representation == "contour":
 			self.madevsfound.normalize()
 			if options.found_only:
 				cset = self.axes.contour(self.madevsfound.xcoords, self.madevsfound.ycoords, self.madevsfound.found)
@@ -379,20 +330,25 @@ class AmplVsFreq(object):
 # =============================================================================
 #
 
-if options.plot_type == "freq_vs_time":
-	if options.representation == "contour":
-		print >>sys.stderr, "contour plots of freq vs. time not supported"
-		sys.exit(1)
-	plot = FreqVsTime()
-elif options.plot_type == "ampl_vs_freq":
-	plot = AmplVsFreq()
+plots = (FreqVsTime(), AmplVsFreq("scatter"), AmplVsFreq("contour"))
 
-for n, url in enumerate(options.input):
+for n, url in enumerate(urls):
 	if options.verbose:
-		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(options.input), url)
-	plot.addto(DocContents(LoadDocument(url)))
+		print >>sys.stderr, "%d/%d:" % (n + 1, len(urls)),
+	try:
+		doc = DocContents(load_url(url, options.verbose), options.verbose)
+		for plot in plots:
+			if options.verbose:
+				print >>sys.stderr, "adding to %s..." % plot.name
+			plot.add_contents(doc)
+	except Exception, e:
+		print >>sys.stderr, "error: %s" % str(e)
+		sys.exit(1)
 
-plot.finish()
+if options.verbose:
+	print >>sys.stderr, "finishing..."
+for plot in plots:
+	plot.finish()
 
 
 #
@@ -403,4 +359,8 @@ plot.finish()
 # =============================================================================
 #
 
-plot.fig.savefig(options.output)
+for n, plot in enumerate(plots):
+	filename = "%s%d.%s" % (options.base, n, options.format)
+	if options.verbose:
+		print >>sys.stderr, "writing %s..." % filename
+	plot.fig.savefig(filename)
