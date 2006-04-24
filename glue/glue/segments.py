@@ -11,10 +11,10 @@ infinity object used to define semi-infinite and infinite segments.
 """
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
-__date__ = "$Date$"
-__version__ = "$Revision$"
+__date__ = "$Date$"[7:-2]
+__version__ = "$Revision$"[11:-2]
 
-import bisect
+from bisect import bisect_right
 
 
 #
@@ -23,8 +23,8 @@ import bisect
 
 class infinity:
 	"""
-	The infinity object possess the algebraic properties necessary for use
-	as a bound on semi-infinite and infinite segments.
+	The infinity object possess the algebraic properties necessary for
+	use as a bound on semi-infinite and infinite segments.
 
 	Example usage:
 		x = infinity()
@@ -84,16 +84,16 @@ class infinity:
 
 class segment(tuple):
 	"""
-	The segment class defines objects that represent a range of values.  A
-	segment has a start and an end, and is taken to represent the range of
-	values from the start to the end inclusively.  Some limited arithmetic
-	operations are possible with segments, but because the set of (single)
-	segments is not closed under the sensible definitions of the standard
-	arithmetic operations, the behaviour of the arithmetic operators on
-	segments may not be as you would expect.  For general arithmetic on
-	segments, use segmentlist objects.  The methods for this class exist
-	mostly for purpose of simplifying the implementation of the segmentlist
-	class.
+	The segment class defines objects that represent a range of values.
+	A segment has a start and an end, and is taken to represent the
+	range of values from the start to the end inclusively.  Some
+	limited arithmetic operations are possible with segments, but
+	because the set of (single) segments is not closed under the
+	sensible definitions of the standard arithmetic operations, the
+	behaviour of the arithmetic operators on segments may not be as you
+	would expect.  For general arithmetic on segments, use segmentlist
+	objects.  The methods for this class exist mostly for purpose of
+	simplifying the implementation of the segmentlist class.
 
 	Example use:
 		segment(0, 10) & segment(5, 15)
@@ -130,7 +130,8 @@ class segment(tuple):
 
 	def duration(self):
 		"""
-		Returns the length of the interval represented by the segment.
+		Returns the length of the interval represented by the
+		segment.
 		"""
 		return self[1] - self[0]
 
@@ -165,8 +166,9 @@ class segment(tuple):
 
 	def __or__(self, other):
 		"""
-		Return the segment that is the union of the given segments, or
-		None if the result cannot be represented as a single segment.
+		Return the segment that is the union of the given segments,
+		or None if the result cannot be represented as a single
+		segment.
 		"""
 		if not self.continuous(other):
 			return None
@@ -178,8 +180,8 @@ class segment(tuple):
 	def __sub__(self, other):
 		"""
 		Return the segment that is that part of self which is not
-		contained in other, or None if the result cannot be represented
-		as a single segment.
+		contained in other, or None if the result cannot be
+		represented as a single segment.
 		"""
 		if not self.intersects(other):
 			return self
@@ -193,8 +195,8 @@ class segment(tuple):
 
 	def intersects(self, other):
 		"""
-		Return True if the intersection of self and other is not a null
-		segment.
+		Return True if the intersection of self and other is not a
+		null segment.
 		"""
 		return (self[1] > other[0]) and (self[0] < other[1])
 
@@ -215,7 +217,7 @@ class segment(tuple):
 		"""
 		return (self[1] >= other[0]) and (self[0] <= other[1])
 
-	# protraction and contraction
+	# protraction and contraction and shifting
 
 	def protract(self, x):
 		"""
@@ -231,6 +233,13 @@ class segment(tuple):
 		"""
 		return segment(self[0] + x, self[1] - x)
 
+	def shift(self, x):
+		"""
+		Return a new segment by adding x to the upper and lower
+		bounds of this segment.
+		"""
+		return segment(self[0] + x, self[1] + x)
+
 
 #
 # A segment list class derived from the builtin list class.
@@ -238,26 +247,28 @@ class segment(tuple):
 
 class segmentlist(list):
 	"""
-	The segmentlist class defines a list of segments, and is an extension
-	of the built-in list class.  This class provides addtional methods that
-	assist in the manipulation of lists of segments.  In particular,
-	arithmetic operations such as union and intersection are provided.
-	Unlike the segment class, the segmentlist class is closed under all
-	supported arithmetic operations.
+	The segmentlist class defines a list of segments, and is an
+	extension of the built-in list class.  This class provides
+	addtional methods that assist in the manipulation of lists of
+	segments.  In particular, arithmetic operations such as union and
+	intersection are provided.  Unlike the segment class, the
+	segmentlist class is closed under all supported arithmetic
+	operations.
 
 	All standard Python sequence-like operations are supported, like
-	slicing, iteration and so on, but the arithmetic and other methods in
-	this class generally expect the segmentlist to be in what is refered to
-	as a "coalesced" state --- consisting solely of disjoint segments
-	listed in ascending order.  Using the standard Python sequence-like
-	operations, a segmentlist can be easily constructed that is not in this
-	state;  for example by simply appending a segment to the end of the
-	list that overlaps some other segment already in the list.  The class
-	provides a coalesce() method that can be called to put it in the
-	coalesced state.  Following application of the coalesce method, all
-	arithmetic operations will function reliably.  All arithmetic methods
-	themselves return coalesced results, so there is never a need to call
-	the coalesce method when manipulating segmentlists exclusively via the
+	slicing, iteration and so on, but the arithmetic and other methods
+	in this class generally expect the segmentlist to be in what is
+	refered to as a "coalesced" state --- consisting solely of disjoint
+	segments listed in ascending order.  Using the standard Python
+	sequence-like operations, a segmentlist can be easily constructed
+	that is not in this state;  for example by simply appending a
+	segment to the end of the list that overlaps some other segment
+	already in the list.  The class provides a coalesce() method that
+	can be called to put it in the coalesced state.  Following
+	application of the coalesce method, all arithmetic operations will
+	function reliably.  All arithmetic methods themselves return
+	coalesced results, so there is never a need to call the coalesce
+	method when manipulating segmentlists exclusively via the
 	arithmetic operators.
 
 	Example use:
@@ -293,8 +304,8 @@ class segmentlist(list):
 
 	def duration(self):
 		"""
-		Return the sum of the durations of all segments in self.  Does
-		not require the segmentlist to be coalesced.
+		Return the sum of the durations of all segments in self.
+		Does not require the segmentlist to be coalesced.
 		"""
 		d = 0
 		for seg in self:
@@ -319,10 +330,10 @@ class segmentlist(list):
 
 	def find(self, item):
 		"""
-		Return the smallest i such that i is the index of an element
-		that wholly contains the given segment.  Raises ValueError if
-		no such element exists.  Does not require the segmentlist to be
-		coalesced.
+		Return the smallest i such that i is the index of an
+		element that wholly contains the given segment.  Raises
+		ValueError if no such element exists.  Does not require the
+		segmentlist to be coalesced.
 		"""
 		for i, seg in enumerate(self):
 			if item in seg:
@@ -341,8 +352,8 @@ class segmentlist(list):
 
 	def __and__(self, other):
 		"""
-		Return the intersection of the segmentlist and another.  This
-		operation is O(n).
+		Return the intersection of the segmentlist and another.
+		This operation is O(n).
 		"""
 		x = segmentlist(self[:])
 		x &= other
@@ -350,12 +361,12 @@ class segmentlist(list):
 
 	def __ior__(self, other):
 		"""
-		Replace the segmentlist with the union of itself and another.
-		If the two lists have numbers of elements m and n respectively,
-		then this algorithm is O(n log m), which means it is optimized
-		for the case when the latter list contains a small number of
-		segments.  If you have two large lists of n elements each, then
-		it is faster to do
+		Replace the segmentlist with the union of itself and
+		another.  If the two lists have numbers of elements m and n
+		respectively, then this algorithm is O(n log m), which
+		means it is optimized for the case when the latter list
+		contains a small number of segments.  If you have two large
+		lists of n elements each, then it is faster to do
 
 			list1.extend(list2)
 			list1.coalesce()
@@ -365,7 +376,7 @@ class segmentlist(list):
 		"""
 		low = 0
 		for seg in other:
-			low = bisect.bisect_right(self, seg, low)
+			low = bisect_right(self, seg, low)
 			self.insert(low, seg)
 			if low:
 				if self[low-1].continuous(self[low]):
@@ -381,10 +392,10 @@ class segmentlist(list):
 
 	def __or__(self, other):
 		"""
-		Return the union of the segment list and another.  The comment
-		in the segmentlist.__ior__() method about performance
-		optimization when computing the union of large lists of similar
-		size applies here as well.
+		Return the union of the segment list and another.  The
+		comment in the segmentlist.__ior__() method about
+		performance optimization when computing the union of large
+		lists of similar size applies here as well.
 		"""
 		if len(self) >= len(other):
 			x = segmentlist(self[:])
@@ -408,8 +419,8 @@ class segmentlist(list):
 
 	def __isub__(self, other):
 		"""
-		Replace the segmentlist with the difference between itself and
-		another.  This operation is O(n).
+		Replace the segmentlist with the difference between itself
+		and another.  This operation is O(n).
 		"""
 		try:
 			other_it = iter(other)
@@ -443,8 +454,8 @@ class segmentlist(list):
 
 	def __invert__(self):
 		"""
-		Return the segmentlist that is the inversion of the given list.
-		This operation is O(n).
+		Return the segmentlist that is the inversion of the given
+		list.  This operation is O(n).
 		"""
 		return segmentlist([segment(-infinity(), infinity())]) - self
 
@@ -452,9 +463,10 @@ class segmentlist(list):
 
 	def split(self, value):
 		"""
-		Break all segments that stradle the given value at that value.
-		Does not require the segmentlist to be coalesced, and the
-		result is not coalesced by definition.  This operation is O(n).
+		Break all segments that stradle the given value at that
+		value.  Does not require the segmentlist to be coalesced,
+		and the result is not coalesced by definition.  This
+		operation is O(n).
 		"""
 		for i, seg in enumerate(self):
 			if (seg[0] < value) and (seg[1] > value):
@@ -463,8 +475,8 @@ class segmentlist(list):
 	def coalesce(self):
 		"""
 		Sort the elements of a list into ascending order, and merge
-		continuous segments into single segments.  This operation is
-		O(n log n), and is dominated by the sort.
+		continuous segments into single segments.  This operation
+		is O(n log n), and is dominated by the sort.
 		"""
 		self.sort()
 		try:
@@ -477,14 +489,22 @@ class segmentlist(list):
 
 	def protract(self, x):
 		"""
-		For each segment in the list, move both the start and the end a
-		distance x away from the other.  Coalesce the result.
+		For each segment in the list, move both the start and the
+		end a distance x away from the other.  Coalesce the result.
 		"""
 		return segmentlist([seg.protract(x) for seg in self]).coalesce()
 
 	def contract(self, x):
 		"""
-		For each segment in the list, move both the start and the end a
-		distance x towards the other.  Coalesce the result.
+		For each segment in the list, move both the start and the
+		end a distance x towards the other.  Coalesce the result.
 		"""
 		return segmentlist([seg.contract(x) for seg in self]).coalesce()
+
+	def shift(self, x):
+		"""
+		Shift the segmentlist by adding x to the upper and lower
+		bounds of all segments.  The algorithm is O(n) and does not
+		require the list to be coalesced.
+		"""
+		return segmentlist([seg.shift(x) for seg in self])
