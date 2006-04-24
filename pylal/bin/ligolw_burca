@@ -220,7 +220,7 @@ class SegListDict(dict):
 		"""
 		Remove the offsets from all segmentlists.
 		"""
-		for instrument, offset in self.offsetdict.iteritems():
+		for instrument, offset in self.offsets.iteritems():
 			if offset:
 				self[instrument] = self[instrument].shift(-offset)
 				self.offsets[instrument] = LIGOTimeGPS(0)
