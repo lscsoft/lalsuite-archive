@@ -175,29 +175,71 @@ def append_process(doc, **kwargs):
 # =============================================================================
 #
 
-def segment_increment(seg, delta):
+class SegListDict(dict):
 	"""
-	Add delta to the upper and lower bounds of seg.
+	A dictionary of segmentlist objects constructed from a search
+	summary table, with the ability to apply offsets to the segment
+	lists.
 	"""
-	return segments.segment(seg[0] + delta, seg[1] + delta)
+	def __new__(cls, searchsummtable):
+		"""
+		Construct a new SegListDict object from the contents of a
+		search summary table.  The result is dictionary-like object
+		whose keys are the instrument names appearing in the search
+		summary table, and whose values are segmentlist
+		representations of the times spanned by the rows.
+		"""
+		seglists = dict.__new__(cls, None)
+		for row in searchsummtable:
+			if row.ifos in seglists:
+				seglists[row.ifos].append(row.get_out())
+			else:
+				seglists[row.ifos] = segments.segmentlist([row.get_out()])
+		for seglist in seglists.itervalues():
+			seglist.coalesce()
+		return seglists
 
+	def __init__(self, *args):
+		self.offsets = {}
+		for instrument in self.iterkeys():
+			self.offsets[instrument] = LIGOTimeGPS(0)
 
-def coinc_segs(searchsummtable, offsetdict, maxwindow):
-	"""
-	From the instrument/offset pairs in offsetdict, construct the
-	corresponding coincident segment list from the output segments in
-	the search summary table.
-	"""
-	seglists = {}
-	for row in searchsummtable:
-		seglist = segments.segmentlist([segment_increment(row.get_out(), offsetdict[row.ifos])])
-		if row.ifos in seglists:
-			seglists[row.ifos] |= seglist
-		else:
-			seglists[row.ifos] = seglist
-	for ifo, seglist in seglists.iteritems():
-		seglists[ifo] = seglist.protract(maxwindow / 2)
-	return reduce(segments.segmentlist.__and__, seglists.itervalues())
+	def set_offsets(self, offsetdict):
+		"""
+		Shift the segment lists according to the instrument/offset
+		pairs in offsetdict.
+		"""
+		for instrument, offset in offsetdict.iteritems():
+			delta = offset - self.offsets[instrument]
+			if delta != 0:
+				self[instrument] = self[instrument].shift(delta)
+				self.offsets[instrument] += delta
+		return self
+
+	def remove_offsets(self):
+		"""
+		Remove the offsets from all segmentlists.
+		"""
+		for instrument, offset in self.offsetdict.iteritems():
+			if offset:
+				self[instrument] = self[instrument].shift(-offset)
+				self.offsets[instrument] = LIGOTimeGPS(0)
+		return self
+
+	def protract(self, x):
+		"""
+		Protract the segmentlists.
+		"""
+		for key in self.iterkeys():
+			self[key].protract(x)
+		return self
+
+	def intersect(self, instruments):
+		"""
+		Return the intersection of the segmentlists for the
+		instruments in instruments.
+		"""
+		return reduce(segments.segmentlist.__and__, map(self.__getitem__, instruments))
 
 
 def coinc_procids(doccontents):
@@ -206,12 +248,16 @@ def coinc_procids(doccontents):
 	will participate in any coincidence identified by the time slide
 	table.
 	"""
-	maxwindow = max(doccontents.windows.itervalues())
+	try:
+		maxwindow = max(doccontents.windows.itervalues())
+	except:
+		maxwindow = LIGOTimeGPS(0)
+	seglists = SegListDict(doccontents.searchsummtable).protract(maxwindow / 2)
 	ids = []
 	for offsetdict in map(doccontents.get_offsetdict, doccontents.get_tisi_ids()):
-		seglist = coinc_segs(doccontents.searchsummtable, offsetdict, maxwindow)
+		seglist = seglists.set_offsets(offsetdict).intersect(offsetdict.keys())
 		for row in doccontents.searchsummtable:
-			if (segments.segmentlist([segment_increment(row.get_out(), offsetdict[row.ifos])]) & seglist) and not llwapp.bisect_contains(ids, row.process_id):
+			if (segments.segmentlist([row.get_out().protract(maxwindow / 2).shift(offsetdict[row.ifos])]) & seglist) and not llwapp.bisect_contains(ids, row.process_id):
 				bisect.insort_left(ids, row.process_id)
 	return ids
 
@@ -479,7 +525,7 @@ def find_coincidences(document, verbose = False):
 
 def ligolw_burca(doc, **kwargs):
 	if kwargs["verbose"]:
-		print >>sys.stderr, "preparing metadata..."
+		print >>sys.stderr, "indexing..."
 	process = append_process(doc, **kwargs)
 	find_coincidences(DocContents(doc, process, kwargs["window"]), kwargs["verbose"])
 	llwapp.set_process_end_time(process)
