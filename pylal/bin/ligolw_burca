@@ -231,7 +231,7 @@ class SegListDict(dict):
 		Protract the segmentlists.
 		"""
 		for key in self.iterkeys():
-			self[key].protract(x)
+			self[key] = self[key].protract(x)
 		return self
 
 	def intersect(self, instruments):
