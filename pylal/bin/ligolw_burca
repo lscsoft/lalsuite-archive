@@ -257,7 +257,7 @@ def coinc_procids(doccontents):
 	for offsetdict in map(doccontents.get_offsetdict, doccontents.get_tisi_ids()):
 		seglist = seglists.set_offsets(offsetdict).intersect(offsetdict.keys())
 		for row in doccontents.searchsummtable:
-			if seglist.intersects(segments.segmentlist([row.get_out().protract(halfmaxwindow).shift(offsetdict[row.ifos])])) and not llwapp.bisect_contains(ids, row.process_id):
+			if seglist.intersects_segment(row.get_out().protract(halfmaxwindow).shift(offsetdict[row.ifos])) and not llwapp.bisect_contains(ids, row.process_id):
 				bisect.insort_left(ids, row.process_id)
 	return ids
 
