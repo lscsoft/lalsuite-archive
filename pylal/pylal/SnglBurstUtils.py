@@ -69,10 +69,7 @@ def CompareSnglBurstByPeakTimeAndFreq(a, b):
 	a and b have the same peak time, and their frequency bands
 	intersect.
 	"""
-	result = cmp(a.get_peak(), b.get_peak())
-	if not result:
-		result = cmp_segs(a.get_band(), b.get_band())
-	return result
+	return cmp(a.get_peak(), b.get_peak()) or cmp_segs(a.get_band(), b.get_band())
 
 
 def CompareSnglBurst(a, b, twindow = LIGOTimeGPS(0)):
@@ -83,10 +80,7 @@ def CompareSnglBurst(a, b, twindow = LIGOTimeGPS(0)):
 	compare as equal if they do not overlap by as much as the window
 	amount.
 	"""
-	result = cmp_segs(a.get_period().protract(twindow), b.get_period())
-	if not result:
-		result = cmp_segs(a.get_band(), b.get_band())
-	return result
+	return cmp_segs(a.get_period().protract(twindow), b.get_period()) or cmp_segs(a.get_band(), b.get_band())
 
 
 def SnglBurstCluster(a, b):
