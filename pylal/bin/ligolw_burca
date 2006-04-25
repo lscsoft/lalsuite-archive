@@ -249,15 +249,15 @@ def coinc_procids(doccontents):
 	table.
 	"""
 	try:
-		maxwindow = max(doccontents.windows.itervalues())
+		halfmaxwindow = max(doccontents.windows.itervalues()) / 2
 	except:
-		maxwindow = LIGOTimeGPS(0)
-	seglists = SegListDict(doccontents.searchsummtable).protract(maxwindow / 2)
+		halfmaxwindow = LIGOTimeGPS(0)
+	seglists = SegListDict(doccontents.searchsummtable).protract(halfmaxwindow)
 	ids = []
 	for offsetdict in map(doccontents.get_offsetdict, doccontents.get_tisi_ids()):
 		seglist = seglists.set_offsets(offsetdict).intersect(offsetdict.keys())
 		for row in doccontents.searchsummtable:
-			if (segments.segmentlist([row.get_out().protract(maxwindow / 2).shift(offsetdict[row.ifos])]) & seglist) and not llwapp.bisect_contains(ids, row.process_id):
+			if seglist.intersects(segments.segmentlist([row.get_out().protract(halfmaxwindow).shift(offsetdict[row.ifos])])) and not llwapp.bisect_contains(ids, row.process_id):
 				bisect.insort_left(ids, row.process_id)
 	return ids
 
