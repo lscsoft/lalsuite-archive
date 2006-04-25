@@ -472,6 +472,29 @@ class segmentlist(list):
 			if (seg[0] < value) and (seg[1] > value):
 				self[i:i+1] = [segment(seg[0], value), segment(value, seg[1])]
 
+	def intersects(self, other):
+		"""
+		Returns True if the intersection of self and other is not
+		the null set, otherwise returns False.  The algorithm is
+		O(n), but faster than explicit calculation of the
+		intersection, i.e. by testing len(self & other).
+		"""
+		try:
+			self_it = iter(self)
+			self_seg = self_it.next()
+			other_it = iter(other)
+			other_seg = other_it.next()
+			while True:
+				while self_seg[1] <= other_seg[0]:
+					self_seg = self_it.next()
+				while other_seg[1] <= self_seg[0]:
+					other_seg = other_it.next()
+				if self_seg[1] > other_seg[0]:
+					return True
+		except StopIteration:
+			pass
+		return False
+
 	def coalesce(self):
 		"""
 		Sort the elements of a list into ascending order, and merge
