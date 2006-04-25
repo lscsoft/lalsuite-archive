@@ -57,15 +57,11 @@ class infinity:
 		return self
 	
 	def __sub__(self, other):
-		if type(self) != type(other):
-			return self
-		if self.__sign != other.__sign:
+		if (type(self) != type(other)) or (self.__sign != other.__sign):
 			return self
 		return None
 	def __rsub__(self, other):
-		if type(self) != type(other):
-			return -self
-		if self.__sign != other.__sign:
+		if (type(self) != type(other)) or (self.__sign != other.__sign):
 			return -self
 		return None
 
