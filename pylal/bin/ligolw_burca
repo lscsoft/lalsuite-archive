@@ -279,6 +279,9 @@ class TriggerList(object):
 		self.triggers = []
 		self.offset = LIGOTimeGPS(0)
 
+	def __len__(self):
+		return len(self.triggers)
+
 	def append(self, trigger):
 		self.triggers.append(trigger)
 
@@ -340,10 +343,12 @@ class Level1Iterator(object):
 	"""
 	def __init__(self, document, instruments):
 		instruments.sort()
-		triggerlists = document.get_triglists(instruments)
-		self.len = len(triggerlists[0].triggers)
-		self.trigiter = iter(triggerlists[0].triggers)
-		self.triggerlists = triggerlists[1:]
+		self.triggerlists = document.get_triglists(instruments)
+		lengths = map(len, self.triggerlists)
+		self.len = min(lengths)
+		self.shortest = lengths.index(self.len)
+		self.trigiter = iter(self.triggerlists[self.shortest].triggers)
+		del self.triggerlists[self.shortest]
 		self.maxwindow = max(map(lambda pair: document.windows[tuple(pair)], choices(instruments, 2)))
 
 	def __len__(self):
@@ -355,7 +360,9 @@ class Level1Iterator(object):
 	def next(self):
 		trig = self.trigiter.next()
 		start = LIGOTimeGPS(trig.get_start())
-		return MultiIter([[trig]] + map(lambda l: l.intersects(start + trig.duration / 2, self.maxwindow + trig.duration / 2), self.triggerlists))
+		intersectingtrigs = map(lambda l: l.intersects(start + trig.duration / 2, self.maxwindow + trig.duration / 2), self.triggerlists)
+		intersectingtrigs[self.shortest:self.shortest] = [[trig]]
+		return MultiIter(intersectingtrigs)
 
 
 #
