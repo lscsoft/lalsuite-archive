@@ -79,7 +79,8 @@ def parse_command_line():
 	parser.add_option("--min-tfvolume", metavar = "value", help = "discard triggers with time-frequency volume below the given volume")
 	parser.add_option("--max-tfvolume", metavar = "value", help = "discard triggers with time-frequency volume above the given volume")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
-	return parser.parse_args()
+	options, filenames = parser.parse_args()
+	return options, (filenames or [None])
 
 
 #
