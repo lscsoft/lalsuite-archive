@@ -25,11 +25,19 @@ __version__ = "$Revision$"[11:-2]
 #
 
 def append_document(doc, file):
+	"""
+	Parse the contents of the file object file, appending to the
+	document tree doc.
+	"""
 	ligolw.make_parser(lsctables.LIGOLWContentHandler(doc)).parse(file)
 	return doc
 
 
 def url2path(url):
+	"""
+	If url identifies a file on the local host, return the path to the
+	file otherwise raise ValueError.
+	"""
 	(scheme, location, path, params, query, frag) = urlparse(url)
 	if scheme.lower() in ("", "file") and location.lower() in ("", "localhost"):
 		return path
@@ -37,6 +45,10 @@ def url2path(url):
 
 
 def remove_input(urls, output, verbose = False):
+	"""
+	Attempt to delete all files identified by the URLs in urls except
+	any that are the same as the file whose name is output.
+	"""
 	for path in map(url2path, urls):
 		if output and os.path.samefile(path, output):
 			continue
@@ -72,6 +84,11 @@ def reassign_ids(doc):
 
 
 def element_merge(doc):
+	"""
+	Combine the child elements of all top-level LIGO_LW elements under
+	a single LIGO_LW element, then combine equivalent tables into
+	single tables.
+	"""
 	# LIGO_LW elements
 	reduce(docutils.MergeElements, doc.getElementsByTagName(ligolw.LIGO_LW.tagName))
 
