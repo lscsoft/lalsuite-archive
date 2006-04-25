@@ -14,7 +14,7 @@ __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __date__ = "$Date$"[7:-2]
 __version__ = "$Revision$"[11:-2]
 
-from bisect import bisect_right
+from bisect import bisect_left, bisect_right
 
 
 #
@@ -472,12 +472,22 @@ class segmentlist(list):
 			if (seg[0] < value) and (seg[1] > value):
 				self[i:i+1] = [segment(seg[0], value), segment(value, seg[1])]
 
+	def intersects_segment(self, other):
+		"""
+		Returns True if the intersection of self and the segment
+		other is not the null set, otherwise returns False.  The
+		algorithm is O(log n).  Requires the list to be coalesced.
+		"""
+		i = bisect_left(self, other)
+		return ((i != 0) and (other[0] < self[i-1][1])) or ((i != len(self)) and (other[1] > self[i][0]))
+
 	def intersects(self, other):
 		"""
-		Returns True if the intersection of self and other is not
-		the null set, otherwise returns False.  The algorithm is
-		O(n), but faster than explicit calculation of the
-		intersection, i.e. by testing len(self & other).
+		Returns True if the intersection of self and the
+		segmentlist other is not the null set, otherwise returns
+		False.  The algorithm is O(n), but faster than explicit
+		calculation of the intersection, i.e. by testing len(self &
+		other).  Requires the list to be coalesced.
 		"""
 		try:
 			self_it = iter(self)
@@ -492,8 +502,7 @@ class segmentlist(list):
 				if self_seg[1] > other_seg[0]:
 					return True
 		except StopIteration:
-			pass
-		return False
+			return False
 
 	def coalesce(self):
 		"""
