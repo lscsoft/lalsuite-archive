@@ -68,10 +68,8 @@ def parse_command_line():
 
 	for cachename in options.input_cache:
 		urls.extend([entry.url for entry in map(CacheEntry, file(cachename))])
-	if not len(urls):
-		urls = [None]
 
-	return options, urls
+	return options, (urls or [None])
 
 try:
 	options, urls = parse_command_line()

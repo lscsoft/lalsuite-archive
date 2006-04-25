@@ -137,15 +137,12 @@ def parse_command_line():
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
 	options, filenames = parser.parse_args()
 
-	if not len(filenames):
-		filenames = [None]
-
 	try:
 		options.window = parse_windows(options.window)
 	except ValueError, e:
 		raise ValueError, "error parsing --window: %s" % str(e)
 
-	return options, filenames
+	return options, (filenames or [None])
 
 
 #

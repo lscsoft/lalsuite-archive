@@ -66,12 +66,10 @@ def parse_command_line():
 	options, filenames = parser.parse_args()
 
 	options.duration = int(options.duration)
-	if not len(filenames):
-		filenames = [None]
 	if options.write_cache and not (options.cache_comment and options.cache_instrument):
 		raise Exception, "must set both --cache-comment and --cache-instrument when writing a cache file"
 
-	return options, filenames
+	return options, (filenames or [None])
 
 options, filenames = parse_command_line()
 
