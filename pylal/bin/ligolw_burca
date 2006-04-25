@@ -133,6 +133,7 @@ def parse_windows(windowstrings):
 def parse_command_line():
 	parser = OptionParser(version = "%prog CVS $Id$")
 	parser.add_option("--comment", metavar = "text", default = "", help = "set comment string in process table")
+	parser.add_option("-f", "--force", action = "store_true", help = "process even if file has already been processed")
 	parser.add_option("-w", "--window", metavar = "inst1,inst2=seconds", action = "append", default = [], help = "set the coincidence window for an instrument pair")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
 	options, filenames = parser.parse_args()
@@ -528,9 +529,9 @@ def find_coincidences(document, verbose = False):
 #
 
 def ligolw_burca(doc, **kwargs):
+	process = append_process(doc, **kwargs)
 	if kwargs["verbose"]:
 		print >>sys.stderr, "indexing..."
-	process = append_process(doc, **kwargs)
 	find_coincidences(DocContents(doc, process, kwargs["window"]), kwargs["verbose"])
 	llwapp.set_process_end_time(process)
 	return doc
@@ -552,6 +553,16 @@ except ValueError, e:
 try:
 	for filename in filenames:
 		doc = llwapp.load_filename(filename, options.verbose)
+		if llwapp.doc_includes_process(doc, "ligolw_burca"):
+			if options.verbose:
+				print >>sys.stderr, "warning: %s already processed," % (filename or "stdin"),
+			if options.force:
+				if options.verbose:
+					print >>sys.stderr, "continuing"
+			else:
+				if options.verbose:
+					print >>sys.stderr, "skipping"
+				continue
 		ligolw_burca(doc, **options.__dict__)
 		llwapp.write_filename(doc, filename, options.verbose)
 except Exception, e:
