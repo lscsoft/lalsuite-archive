@@ -57,10 +57,7 @@ __date__ = "$Date$"[7:-2]
 
 def load_filename(filename, verbose = False):
 	if verbose:
-		if filename:
-			print >>sys.stderr, "reading %s..." % filename
-		else:
-			print >>sys.stderr, "reading stdin..."
+		print >>sys.stderr, "reading %s..." % (filename or "stdin")
 	doc = ligolw.Document()
 	if filename:
 		ligolw.make_parser(lsctables.LIGOLWContentHandler(doc)).parse(file(filename))
@@ -71,10 +68,7 @@ def load_filename(filename, verbose = False):
 
 def load_url(url, verbose = False):
 	if verbose:
-		if url:
-			print >>sys.stderr, "reading %s..." % url
-		else:
-			print >>sys.stderr, "reading stdin..."
+		print >>sys.stderr, "reading %s..." % (url or "stdin")
 	doc = ligolw.Document()
 	if url:
 		ligolw.make_parser(lsctables.LIGOLWContentHandler(doc)).parse(urllib.urlopen(url))
@@ -85,10 +79,7 @@ def load_url(url, verbose = False):
 
 def write_filename(doc, filename, verbose = False):
 	if verbose:
-		if filename:
-			print >>sys.stderr, "writing %s..." % filename
-		else:
-			print >>sys.stderr, "writing stdout..."
+		print >>sys.stderr, "writing %s..." % (filename or "stdout")
 	if filename:
 		doc.write(file(filename, "w"))
 	else:
@@ -176,6 +167,14 @@ def append_process_params(doc, process, params):
 	return process
 
 
+def doc_includes_process(doc, program):
+	"""
+	Return True if the process table in doc includes entries for a
+	program named program.
+	"""
+	return program in get_table(doc, lsctables.ProcessTable.tableName).getColumnByName("program")
+
+
 #
 # =============================================================================
 #
@@ -195,14 +194,8 @@ def append_search_summary(doc, process, shared_object = "standalone", lalwrapper
 	summary.shared_object = shared_object
 	summary.lalwrapper_cvs_tag = lalwrapper_cvs_tag
 	summary.lal_cvs_tag = lal_cvs_tag
-	if comment != None:
-		summary.comment = comment
-	else:
-		summary.comment = process.comment
-	if ifos != None:
-		summary.ifos = ifos
-	else:
-		summary.ifos = process.ifos
+	summary.comment = comment or process.comment
+	summary.ifos = ifos or process.ifos
 	summary.set_in(inseg)
 	summary.set_out(outseg)
 	summary.nevents = nevents
