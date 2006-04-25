@@ -268,6 +268,22 @@ class test_segmentlist(unittest.TestCase):
 	def testcontract(self):
 		self.assertEqual(segmentlist([segment(0, 20)]), segmentlist([segment(3, 7), segment(13, 17)]).contract(-3))
 
+	def testintersects(self):
+		for i in range(10000):
+			a = randomlist(random.randint(1, 50))
+			b = randomlist(random.randint(1, 50))
+			c = a - b
+			d = a & b
+			try:
+				if len(c):
+					self.assertEqual(False, c.intersects(b))
+				if len(d):
+					self.assertEqual(True, d.intersects(a))
+					self.assertEqual(True, d.intersects(b))
+					self.assertEqual(True, a.intersects(b))
+			except AssertionError, e:
+				raise AssertionError, str(e) + "\na = " + str(a) + "\nb = " + str(b)
+
 
 #
 # Construct and run the test suite.
