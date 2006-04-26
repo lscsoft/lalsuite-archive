@@ -508,7 +508,7 @@ class segmentlist(list):
 		"""
 		self.sort()
 		try:
-			for i in range(len(self) - 1):
+			for i in xrange(len(self) - 1):
 				while self[i].continuous(self[i+1]):
 					self[i:i+2] = [ self[i] | self[i+1] ]
 		except IndexError:
