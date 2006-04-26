@@ -1844,17 +1844,6 @@ class SegmentTable(LSCTableUnique):
 		for row in self.rows:
 			row.process_id = row.process_id._get_key()
 
-	def segmentlist(self, key, active = 1):
-		"""
-		Return the segment list having process_id equal to key, and
-		with the activity flag having the same sign as active.  The
-		list represents exactly the rows in the table, in order;
-		in other words it has not been coalesced.
-		"""
-		if not active:
-			raise ValueError, "SegmentTable.segmentlist(): activity flag must != 0."
-		return segments.segmentlist([row.get_segment() for row in self if (row.process_id == key) and (row.active * active > 0)])
-
 class Segment(LSCTableRow):
 	__slots__ = SegmentTable.validcolumns.keys()
 
@@ -1867,18 +1856,42 @@ class Segment(LSCTableRow):
 	def _has_key(self, key):
 		return self.segment_id == key
 
-	def get_segment(self):
+	def get(self):
 		"""
 		Return the segment described by this row.
 		"""
 		return segments.segment(lal.LIGOTimeGPS(self.start_time, self.start_time_ns), lal.LIGOTimeGPS(self.end_time, self.end_time_ns))
 
-	def set_segment(self, segment):
+	def set(self, segment):
 		"""
 		Set the segment described by this row.
 		"""
 		self.start_time, self.start_time_ns = segment[0].seconds, segment[0].nanoseconds
 		self.end_time, self.end_time_ns = segment[1].seconds, segment[1].nanoseconds
+
+	def get_active(self):
+		"""
+		Return True if the segment is active, False if the segment
+		is inactive and None if neither is the case.
+		"""
+		if self.active > 0:
+			return True
+		if self.active < 0:
+			return False
+		return None
+
+	def set_active(self, active):
+		"""
+		Sets the segment to active if active is True, to inactive
+		if active if False, and undefined if active is None.
+		"""
+		if active == None:
+			self.active = 0
+		elif active:
+			self.active = 1
+		else:
+			self.active = -1
+		return self
 
 SegmentTable.RowType = Segment
 
