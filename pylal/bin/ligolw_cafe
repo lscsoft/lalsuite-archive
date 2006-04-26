@@ -108,7 +108,10 @@ try:
 	seglists = {}
 	map(lambda c: seglists.update(cache_to_seglist(c)), caches.itervalues())
 	if options.time_slides:
-		tisitable = llwapp.get_table(llwapp.load_filename(options.time_slides, options.verbose), lsctables.TimeSlideTable.tableName)
+		doc = llwapp.load_filename(options.time_slides, options.verbose)
+		tisitable = llwapp.get_table(doc, lsctables.TimeSlideTable.tableName)
+		doc.unlink()
+		del doc
 	else:
 		tisitable = null_tisi(caches.keys())
 except Exception, e:

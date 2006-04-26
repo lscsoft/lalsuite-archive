@@ -334,6 +334,7 @@ try:
 		doc = llwapp.load_filename(filename, options.verbose)
 		doc = ligolw_bucut(doc, options)
 		llwapp.write_filename(doc, filename, options.verbose)
+		doc.unlink()
 except Exception, e:
 	print >>sys.stderr, "error: %s" % str(e)
 	sys.exit(1)

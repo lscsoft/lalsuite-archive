@@ -565,6 +565,7 @@ try:
 				continue
 		ligolw_burca(doc, **options.__dict__)
 		llwapp.write_filename(doc, filename, options.verbose)
+		doc.unlink()
 except Exception, e:
 	print >>sys.stderr, "error: %s" % str(e)
 	sys.exit(1)

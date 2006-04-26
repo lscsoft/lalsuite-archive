@@ -182,7 +182,9 @@ def write_sschunks(doc, **kwargs):
 
 cache = ""
 for filename in filenames:
-	cache += write_sschunks(llwapp.load_filename(filename, options.verbose), **options.__dict__)
+	doc = llwapp.load_filename(filename, options.verbose)
+	cache += write_sschunks(doc, **options.__dict__)
+	doc.unlink()
 	if filename and options.remove_input:
 		if options.verbose:
 			print >>sys.stderr, "removing %s..." % filename
