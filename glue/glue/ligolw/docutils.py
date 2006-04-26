@@ -52,7 +52,6 @@ def MergeElements(elem1, elem2):
 		raise ligolw.ElementError, "MergeElements(): can't merge %s elements." % elem1.tagName
 	if elem2.parentNode:
 		elem2.parentNode.removeChild(elem2)
-		elem2.unlink()
 	return elem1
 
 
