@@ -1,0 +1,177 @@
+#!/usr/bin/python
+#
+# $Id$
+#
+# Copyright (C) 2006  Kipp C. Cannon
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 2 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+#
+# =============================================================================
+#
+#                                   Preamble
+#
+# =============================================================================
+#
+
+from optparse import OptionParser
+import sys
+
+from glue import segments
+from glue import segmentsUtils
+from glue.ligolw import ligolw
+from glue.ligolw import lsctables
+from pylal import llwapp
+from pylal.date import LIGOTimeGPS
+
+__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__version__ = "$Revision$"[11:-2]
+__date__ = "$Date$"[7:-2]
+
+
+#
+# =============================================================================
+#
+#                                 Command Line
+#
+# =============================================================================
+#
+
+def parse_command_line():
+	parser = OptionParser(version = "%prog CVS $Id$")
+	parser.add_option("--comment", metavar = "text", default = "", help = "set comment string in process table")
+	parser.add_option("-o", "--output", metavar = "filename", help = "write to filename (default = stdout)")
+	parser.add_option("--segwizard", metavar = "filename", help = "read segment list from segwizard file")
+	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
+	options, filenames = parser.parse_args()
+
+	return options, (filenames or [None])
+
+options, filenames = parse_command_line()
+
+
+#
+# =============================================================================
+#
+#                                 Preparation
+#
+# =============================================================================
+#
+
+def new_doc():
+	doc = ligolw.Document()
+	doc.appendChild(ligolw.LIGO_LW())
+	proctable = lsctables.New(lsctables.ProcessTable)
+	doc.childNodes[0].appendChild(proctable)
+	procparamtable = lsctables.New(lsctables.ProcessParamsTable)
+	doc.childNodes[0].appendChild(procparamtable)
+	segmentstable = lsctables.New(lsctables.SegmentTable, ["process_id", "segment_id", "start_time", "start_time_ns", "end_time", "end_time_ns", "active"])
+	doc.childNodes[0].appendChild(segmentstable)
+
+	return doc
+
+
+#
+# =============================================================================
+#
+#                           Add Process Information
+#
+# =============================================================================
+#
+
+def append_process(doc, options):
+	process = llwapp.append_process(doc, program = "ligolw_segments", version = __version__, cvs_repository = "lscsoft", cvs_entry_time = __date__, comment = options.comment)
+
+	params = []
+	if options.output != None:
+		params += [("--output", "lstring", options.output)]
+	if options.segwizard != None:
+		params += [("--segwizard", "lstring", options.segwizard)]
+	llwapp.append_process_params(doc, process, params)
+
+	return process
+
+
+#
+# =============================================================================
+#
+#                                 Segment List
+#
+# =============================================================================
+#
+
+class SegDBSegmentList(object):
+	def __init__(self, active = None, inactive = None):
+		self.active = active or segments.segmentlist()
+		self.inactive = inactive or segments.segmentlist()
+		if self.active.intersects(self.inactive):
+			raise ValueError, "active and inactive intersect"
+
+	def to_xml(self, segmentstable, process):
+		rows = []
+		for seg in self.active:
+			row = lsctables.Segment()
+			row.process_id = process.process_id
+			row.set(seg)
+			row.active = 1
+			rows.append[row]
+		for seg in self.inactive:
+			row = lsctables.Segment()
+			row.process_id = process.process_id
+			row.set(seg)
+			row.active = -1
+			rows.append[row]
+		rows.sort(lambda a, b: cmp(a.get(), b.get()))
+		ids = lsctables.SegmentIDs()
+		for row in rows:
+			row.segment_id = ids.next()
+		map(segmentstable.append, rows)
+
+
+#
+# =============================================================================
+#
+#                                 Library API
+#
+# =============================================================================
+#
+
+def ligolw_segments(doc, options):
+	segmenttable = llwapp.get_table(doc, lsctables.SegmentTable.tableName)
+	process = append_process(doc, options)
+
+	if options.segwizard:
+		segdblist = SegDBSegmentList(active = segmentsUtils.fromsegwizard(file(options.segwizard), coltype = LIGOTimeGPS))
+		segdblist.to_xml(segmenttable, process)
+
+	llwapp.set_process_end_time(process)
+
+	return doc
+
+
+#
+# =============================================================================
+#
+#                                     Main
+#
+# =============================================================================
+#
+
+try:
+	options, filenames = parse_command_line()
+	llwapp.write_filename(ligolw_segments(new_doc(), options), options.output, options.verbose)
+except Exception, e:
+	print >>sys.stderr, "error: %s" % str(e)
+	sys.exit(1)
