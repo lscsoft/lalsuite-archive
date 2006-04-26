@@ -103,8 +103,7 @@ def get_tables(doc):
 	coincevents.sort()
 
 	try:
-		vetosegs = segments.segmentlist([row.get() for row in llwapp.get_table(doc, lsctables.SegmentTable.tableName) if row.get_active()])
-		vetosegs.coalesce()
+		vetosegs = segments.segmentlist([row.get() for row in llwapp.get_table(doc, lsctables.SegmentTable.tableName) if row.get_active()]).coalesce()
 	except:
 		vetosegs = segments.segmentlist()
 
@@ -305,7 +304,9 @@ def ligolw_bucut(doc, options):
 	# Add process information
 	process, options = append_process(doc, options)
 
-	# Doc cuts
+	# Do cuts
+	if options.verbose:
+		print >>sys.stderr, "filtering triggers..."
 	i = 0
 	while i < len(snglbursttable):
 		if keep_this_trigger(snglbursttable[i], vetosegs, coincevents, options):
