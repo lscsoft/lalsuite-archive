@@ -1,3 +1,11 @@
+#
+# =============================================================================
+#
+#                                   Preamble
+#
+# =============================================================================
+#
+
 """
 High-level document manipulation utilities.
 """
@@ -14,7 +22,11 @@ import lsctables
 
 
 #
-# General utilities.
+# =============================================================================
+#
+#                                   General
+#
+# =============================================================================
 #
 
 def MergeElements(elem1, elem2):
@@ -44,7 +56,11 @@ def MergeElements(elem1, elem2):
 
 
 #
-# Table manipulation utilities.
+# =============================================================================
+#
+#                                    Tables
+#
+# =============================================================================
 #
 
 def HasNonLSCTables(elem):
@@ -111,7 +127,7 @@ def CopyTable(table):
 
 
 #
-# Table row cross-reference utilities.
+# Row cross-reference utilities.
 #
 
 def NewILWDs(table, column_name):
@@ -181,7 +197,11 @@ def NewIDs(elem, ilwditers):
 
 
 #
-# Utilities for partial document loading.
+# =============================================================================
+#
+#                                     I/O
+#
+# =============================================================================
 #
 
 class PartialLIGOLWContentHandler(lsctables.LIGOLWContentHandler):
