@@ -143,7 +143,7 @@ for seg in seglist:
 	row.process_id = process.process_id
 	row.segment_id = segmentids.next()
 	row.active = 1
-	row.set_segment(seg)
+	row.set(seg)
 	segtable.append(row)
 
 
