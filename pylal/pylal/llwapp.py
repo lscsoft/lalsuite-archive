@@ -188,7 +188,6 @@ def append_search_summary(doc, process, shared_object = "standalone", lalwrapper
 	Append search summary information associated with the given process
 	to the search summary table in doc.
 	"""
-	searchsummtable = get_table(doc, lsctables.SearchSummaryTable.tableName)
 	summary = lsctables.SearchSummary()
 	summary.process_id = process.process_id
 	summary.shared_object = shared_object
@@ -200,6 +199,7 @@ def append_search_summary(doc, process, shared_object = "standalone", lalwrapper
 	summary.set_out(outseg)
 	summary.nevents = nevents
 	summary.nnodes = nnodes
+	get_table(doc, lsctables.SearchSummaryTable.tableName).append(summary)
 	return summary
 
 
