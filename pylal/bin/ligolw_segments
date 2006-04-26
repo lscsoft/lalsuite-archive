@@ -126,13 +126,13 @@ class SegDBSegmentList(object):
 			row.process_id = process.process_id
 			row.set(seg)
 			row.active = 1
-			rows.append[row]
+			rows.append(row)
 		for seg in self.inactive:
 			row = lsctables.Segment()
 			row.process_id = process.process_id
 			row.set(seg)
 			row.active = -1
-			rows.append[row]
+			rows.append(row)
 		rows.sort(lambda a, b: cmp(a.get(), b.get()))
 		ids = lsctables.SegmentIDs()
 		for row in rows:
@@ -154,6 +154,7 @@ def ligolw_segments(doc, options):
 
 	if options.segwizard:
 		segdblist = SegDBSegmentList(active = segmentsUtils.fromsegwizard(file(options.segwizard), coltype = LIGOTimeGPS))
+		segdblist.active.coalesce()
 		segdblist.to_xml(segmenttable, process)
 
 	llwapp.set_process_end_time(process)
