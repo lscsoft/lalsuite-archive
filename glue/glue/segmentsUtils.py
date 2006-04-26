@@ -82,21 +82,36 @@ def fromsegwizard(file, coltype=int, strict=True):
 	recommended that this function's output be coalesced before use.
 	"""
 	commentpat = re.compile(r"\s*([#;].*)?\Z", re.DOTALL)
-	segmentpat = re.compile(r"\A\s*([\d]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\Z")
+	twocolsegpat = re.compile(r"\A\s*([\d.]+)\s+([\d.]+)\s*\Z")
+	fourcolsegpat = re.compile(r"\A\s*([\d]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\Z")
+	format = None
 	l = segments.segmentlist()
 	for line in file:
 		line = commentpat.split(line)[0]
 		if not len(line):
 			continue
+
 		try:
-			[tokens] = segmentpat.findall(line)
+			[tokens] = fourcolsegpat.findall(line)
 			num = int(tokens[0])
 			seg = segments.segment(map(coltype, tokens[1:3]))
 			duration = coltype(tokens[3])
+			lineformat = 4
 		except ValueError:
-			break
-		if strict and seg.duration() != duration:
-			raise ValueError, "segment \"" + line + "\" has incorrect duration"
+			try:
+				[tokens] = twocolsegpat.findall(line)
+				seg = segments.segment(map(coltype, tokens[0:2]))
+				duration = seg.duration()
+				lineformat = 2
+			except ValueError:
+				break
+		if strict:
+			if seg.duration() != duration:
+				raise ValueError, "segment \"" + line + "\" has incorrect duration"
+			if not format:
+				format = lineformat
+			elif format != lineformat:
+				raise ValueError, "segment \"" + line + "\" format mismatch"
 		l.append(seg)
 	return l
 
