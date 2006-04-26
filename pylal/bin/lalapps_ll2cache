@@ -134,7 +134,9 @@ for pattern in patterns:
 			cache.observatory = options.observatory
 		else:
 			try:
-				cache.observatory = column_value(searchsumm, "ifos")
+				cache.observatory = column_value(searchsumm, "ifos").strip()
+				if not cache.observatory:
+					raise ValueError, "observatory column is empty"
 			except ValueError, e:
 				raise ValueError, "%s: %s" % (name, str(e))
 
@@ -143,8 +145,10 @@ for pattern in patterns:
 			cache.description = options.description
 		else:
 			try:
-				cache.description = column_value(searchsumm, "comment")
-			except ValueError:
+				cache.description = column_value(searchsumm, "comment").strip()
+				if not cache.description:
+					raise ValueError, "description column is empty"
+			except ValueError, e:
 				raise ValueError, "%s: %s" % (name, str(e))
 
 		# set URL
