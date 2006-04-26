@@ -126,11 +126,23 @@ class Element(object):
 	def removeChild(self, child):
 		"""
 		Remove a child from this element.  The child element is
-		returned, and it's parentNode element is reset.
+		returned, and it's parentNode element is reset.  If the
+		child will not be used any more, you should call its
+		unlink() method to promote garbage collection.
 		"""
 		self.childNodes.remove(child)
 		child.parentNode = None
 		return child
+
+	def unlink(self):
+		"""
+		Break internal references within the document tree rooted
+		on this element to promote garbage collected.
+		"""
+		self.parentNode = None
+		for child in self.childNodes:
+			child.unlink()
+		self.childNodes = []
 
 	def replaceChild(self, newchild, oldchild):
 		"""
