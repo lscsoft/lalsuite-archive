@@ -30,6 +30,7 @@ from optparse import OptionParser
 import sys
 
 from glue import lal
+from glue import segments
 from glue.ligolw import lsctables
 from pylal import llwapp
 
@@ -78,6 +79,7 @@ def parse_command_line():
 	parser.add_option("--max-snr", metavar = "value", help = "discard triggers above the given SNR")
 	parser.add_option("--min-tfvolume", metavar = "value", help = "discard triggers with time-frequency volume below the given volume")
 	parser.add_option("--max-tfvolume", metavar = "value", help = "discard triggers with time-frequency volume above the given volume")
+	parser.add_option("--veto-segments", action = "store_true", help = "veto events using the segment table contained in the input file")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
 	options, filenames = parser.parse_args()
 	return options, (filenames or [None])
@@ -99,7 +101,14 @@ def get_tables(doc):
 	except:
 		coincevents = []
 	coincevents.sort()
-	return searchsummtable.get_inlist().extent(), searchsummtable.get_outlist().extent(), snglbursttable, coincevents
+
+	try:
+		vetosegs = segments.segmentlist([row.get() for row in llwapp.get_table(doc, lsctables.SegmentTable.tableName) if row.get_active()])
+		vetosegs.coalesce()
+	except:
+		vetosegs = segments.segmentlist()
+
+	return searchsummtable.get_inlist().extent(), searchsummtable.get_outlist().extent(), snglbursttable, vetosegs, coincevents
 
 
 #
@@ -198,6 +207,8 @@ def append_process(doc, options):
 	if options.max_tfvolume != None:
 		options.max_tfvolume = float(options.max_tfvolume)
 		params += [("--max-tfvolume", "real_4", options.max_tfvolume)]
+	if options.veto_segments:
+		params += [("--veto-segments", "lstring", "")]
 	llwapp.append_process_params(doc, process, params)
 
 	return process, options
@@ -211,7 +222,7 @@ def append_process(doc, options):
 # =============================================================================
 #
 
-def keep_this_trigger(burst, coincevents, options):
+def keep_this_trigger(burst, vetosegs, coincevents, options):
 	"""
 	Returns True if the burst trigger survives the cuts described by
 	the attributes of the options object.
@@ -274,6 +285,8 @@ def keep_this_trigger(burst, coincevents, options):
 		return False
 	if (options.max_tfvolume != None) and (burst.tfvolume > options.max_tfvolume):
 		return False
+	if options.veto_segments and vetosegs.intersects_segment(burst.get_period()):
+		return False
 	return True
 
 
@@ -287,7 +300,7 @@ def keep_this_trigger(burst, coincevents, options):
 
 def ligolw_bucut(doc, options):
 	# Extract segments and tables
-	inseg, outseg, snglbursttable, coincevents = get_tables(doc)
+	inseg, outseg, snglbursttable, vetosegs, coincevents = get_tables(doc)
 
 	# Add process information
 	process, options = append_process(doc, options)
@@ -295,7 +308,7 @@ def ligolw_bucut(doc, options):
 	# Doc cuts
 	i = 0
 	while i < len(snglbursttable):
-		if keep_this_trigger(snglbursttable[i], coincevents, options):
+		if keep_this_trigger(snglbursttable[i], vetosegs, coincevents, options):
 			i += 1
 		else:
 			del snglbursttable[i]
