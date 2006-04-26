@@ -153,6 +153,8 @@ def ligolw_segments(doc, options):
 	process = append_process(doc, options)
 
 	if options.segwizard:
+		if options.verbose:
+			print >>sys.stderr, "reading %s..." % options.segwizard
 		segdblist = SegDBSegmentList(active = segmentsUtils.fromsegwizard(file(options.segwizard), coltype = LIGOTimeGPS))
 		segdblist.active.coalesce()
 		segdblist.to_xml(segmenttable, process)
