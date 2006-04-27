@@ -3,7 +3,7 @@
 # setup script for glue
 
 import os
-from distutils.core import setup
+from distutils.core import setup, Extension
 from sys import version_info
 
 # Add py_modules to the argument list for setup() if this is at least Python
@@ -20,6 +20,9 @@ if version_info >= (2, 3):
     license = 'See file LICENSE',
     packages = [ 'glue', 'glue.ligolw', 'glue.ligolw.utils' ],
     py_modules = [ 'glue.segfindserver.segments_1_7.segments' ],
+    ext_modules = [
+      Extension("glue.ligolw.tokenizer", ["glue/ligolw/tokenizer.c"])
+    ],
     scripts = [ os.path.join('bin','LSCdataFind'),
       os.path.join('bin','LSCdataFind'),
       os.path.join('bin','LSCsegFind'),
