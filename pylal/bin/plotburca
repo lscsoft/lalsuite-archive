@@ -27,6 +27,7 @@
 #
 
 import bisect
+import gc
 from optparse import OptionParser
 import matplotlib
 matplotlib.use("Agg")
@@ -351,12 +352,15 @@ try:
 		if options.verbose:
 			print >>sys.stderr, "%d/%d: %s\nloading..." % (n + 1, len(urls), url)
 		doc = llwapp.load_url(url)
+		if options.verbose:
+			print >>sys.stderr, "indexing..."
 		contents = DocContents(doc)
 		for n, plot in enumerate(plots):
 			if options.verbose:
 				print >>sys.stderr, "adding to plot %d..." % n
 			plot.addto(contents)
 		doc.unlink()
+		gc.collect()
 except Exception, e:
 	print >>sys.stderr, "error: %s" % str(e)
 	sys.exit(1)
