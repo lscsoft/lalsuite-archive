@@ -54,8 +54,9 @@ __date__ = "$Date$"[7:-2]
 
 def parse_command_line():
 	parser = OptionParser(version="%prog CVS $Id$")
+	parser.add_option("-b", "--base", metavar = "base", default = "plotburca_", help = "set the prefix for output filenames (default = plotburca_)")
 	parser.add_option("-c", "--input-cache", metavar = "filename", default = [], action = "append", help = "read input from the files in this cache")
-	parser.add_option("-o", "--output", metavar = "filename", help = "set output file name (required)")
+	parser.add_option("-f", "--format", metavar = "format", default = "png", help = "set the output image format (default = png)")
 	parser.add_option("-x", "--x-instrument", metavar = "instrument", help = "set instrument for x axis")
 	parser.add_option("-y", "--y-instrument", metavar = "instrument", help = "set instrument for y axis")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
@@ -66,9 +67,6 @@ def parse_command_line():
 
 	if not len(urls):
 		raise ValueError, "no input files specified"
-
-	if not options.output:
-		raise ValueError, "no output file specified"
 
 	return options, urls
 
@@ -88,13 +86,19 @@ except Exception, e:
 #
 
 class SnglBurst(object):
-	__slots__ = ["event_id"]
+	__slots__ = ["ifo", "confidence", "event_id"]
 
 class Coinc(object):
 	__slots__ = ["coinc_event_id", "time_slide_id"]
 
 class TimeSlide(object):
 	__slots__ = ["time_slide_id", "instrument", "offset"]
+
+	def _get_key(self):
+		return self.time_slide_id
+
+	def _has_key(self, key):
+		return self.time_slide_id == key
 
 lsctables.SnglBurstTable.RowType = SnglBurst
 lsctables.CoincTable.RowType = Coinc
@@ -121,6 +125,17 @@ class DocContents(object):
 		self.tisitable = llwapp.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
 
 		#
+		# Find foreground time slide
+		#
+
+		self.foreground_tisi_id = None
+		for self.foreground_tisi_id in self.tisitable.dict.keys():
+			for offset in self.tisitable.get_offset_dict(self.foreground_tisi_id).values():
+				if offset != 0.0:
+					continue
+			break
+
+		#
 		# Construct ID look-up tables
 		#
 
@@ -144,7 +159,7 @@ class DocContents(object):
 		return self.bursttable.rows[bisect.bisect_left(self.bursttableids, lsctables.ILWDID(id))]
 
 	def get_coincevents_by_id(self, id):
-		return self.coincmaptable.rows[bisect.bisect_left(self.coincmaptableids, lsctables.ILWDID(id)) : bisect.bisect_right(self.coincmaptaableids, lsctables.ILWDID(id))]
+		return self.coincmaptable.rows[bisect.bisect_left(self.coincmaptableids, lsctables.ILWDID(id)) : bisect.bisect_right(self.coincmaptableids, lsctables.ILWDID(id))]
 
 	def get_burst_by_coincid(self, id):
 		return [self.get_burst_by_id(row.event_id) for row in self.get_coincevents_by_id(id) if "sngl_burst" in row.event_id]
@@ -156,21 +171,22 @@ class DocContents(object):
 #
 # =============================================================================
 #
-#                             Coincidence Iterator
+#                            Coincidence Iterators
 #
 # =============================================================================
 #
 
-class CoincBurstIter(object):
+class CoincEventIter(object):
 	def __init__(self,  doc):
 		self.doc = doc
-		self.iditer = iter(doc.coinctable.getColumnByName("coinc_event_id"))
+		self.coinciter = iter(doc.coinctable)
 
 	def __iter__(self):
 		return self
 
 	def next(self):
-		return self.doc.get_burst_by_coincid(self.iditer.next())
+		coinc = self.coinciter.next()
+		return coinc.time_slide_id == self.doc.foreground_tisi_id, self.doc.get_burst_by_coincid(coinc.coinc_event_id)
 
 
 class CoincTisiIter(object):
@@ -227,12 +243,12 @@ class RatioBins(object):
 #
 # =============================================================================
 #
-#                        Instrument 1 vs. Instrument 2
+#                                Rate Contours
 #
 # =============================================================================
 #
 
-class Inst1VsInst2(object):
+class RateContours(object):
 	def __init__(self, x_instrument, y_instrument):
 		self.x_instrument = x_instrument
 		self.y_instrument = y_instrument
@@ -264,23 +280,83 @@ class Inst1VsInst2(object):
 #
 # =============================================================================
 #
+#                             Confidence Contours
+#
+# =============================================================================
+#
+
+class ConfidenceScatter(object):
+	def __init__(self, x_instrument, y_instrument):
+		self.x_instrument = x_instrument
+		self.y_instrument = y_instrument
+		self.n_foreground = 0
+		self.n_background = 0
+		self.foreground_x = []
+		self.foreground_y = []
+		self.background_x = []
+		self.background_y = []
+		self.fig = figure.Figure()
+		self.canvas = FigureCanvasAgg(self.fig)
+		self.axes = self.fig.gca()
+
+		self.axes.loglog()
+		self.axes.grid(True)
+
+		self.axes.set_xlabel("%s Confidence" % x_instrument)
+		self.axes.set_ylabel("%s COnfidence" % y_instrument)
+
+	def addto(self, doc):
+		for foreground, trigs in CoincEventIter(doc):
+			if foreground:
+				self.n_foreground += 1
+				for trig in trigs:
+					if trig.ifo == self.x_instrument:
+						self.foreground_x.append(-trig.confidence)
+					elif trig.ifo == self.y_instrument:
+						self.foreground_y.append(-trig.confidence)
+			else:
+				self.n_background += 1
+				for trig in trigs:
+					if trig.ifo == self.x_instrument:
+						self.background_x.append(-trig.confidence)
+					elif trig.ifo == self.y_instrument:
+						self.background_y.append(-trig.confidence)
+
+	def finish(self):
+		self.axes.set_title("Coincident Trigger Confidence")
+		self.axes.plot(self.background_x, self.background_y, "k+")
+		self.axes.plot(self.foreground_x, self.foreground_y, "rx")
+
+
+#
+# =============================================================================
+#
 #                                     Plot
 #
 # =============================================================================
 #
 
-plot = Inst1VsInst2(options.x_instrument, options.y_instrument)
+plots = (RateContours(options.x_instrument, options.y_instrument), ConfidenceScatter("H2", "H1"), ConfidenceScatter("H2", "L1"), ConfidenceScatter("L1", "H1"))
 
-for n, url in enumerate(urls):
-	if options.verbose:
-		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(urls), url)
-	try:
-		plot.addto(DocContents(llwapp.load_url(url)))
-	except Exception, e:
-		print >>sys.stderr, "error: %s" % str(e)
-		sys.exit(1)
+try:
+	for n, url in enumerate(urls):
+		if options.verbose:
+			print >>sys.stderr, "%d/%d: %s\nloading..." % (n + 1, len(urls), url)
+		doc = llwapp.load_url(url)
+		contents = DocContents(doc)
+		for n, plot in enumerate(plots):
+			if options.verbose:
+				print >>sys.stderr, "adding to plot %d..." % n
+			plot.addto(contents)
+		doc.unlink()
+except Exception, e:
+	print >>sys.stderr, "error: %s" % str(e)
+	sys.exit(1)
 
-plot.finish()
+if options.verbose:
+	print >>sys.stderr, "finishing..."
+for plot in plots:
+	plot.finish()
 
 
 #
@@ -291,4 +367,8 @@ plot.finish()
 # =============================================================================
 #
 
-plot.fig.savefig(options.output)
+for n, plot in enumerate(plots):
+	filename = "%s%d.%s" % (options.base, n, options.format)
+	if options.verbose:
+		print >>sys.stderr, "writing %s..." % filename
+	plot.fig.savefig(filename)
