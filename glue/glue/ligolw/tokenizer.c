@@ -77,7 +77,6 @@ static struct PyMemberDef ligolw_Tokenizer_members[] = {
  * Utilities
  */
 
-
 static void add_to_data(ligolw_Tokenizer *tokenizer, PyObject *string)
 {
 	int n = PyString_GET_SIZE(string);
@@ -182,7 +181,7 @@ static PyObject *ligolw_Tokenizer_next(PyObject *self)
 	char *start, *end;
 
 	/*
-	 * a token is:
+	 * The following code matches the pattern:
 	 *
 	 * any amount of white-space + " + non-quote characters + " + any
 	 * amount of white-space + delimiter
@@ -191,6 +190,17 @@ static PyObject *ligolw_Tokenizer_next(PyObject *self)
 	 *
 	 * any amount of white-space + non-quote, non-white-space,
 	 * non-delimiter characters + any amount of white-space + delimiter
+	 *
+	 * The middle bit is returned as the token.
+	 */
+
+	/*
+	 * start == a white-space to non-white-space transition outside of
+	 * a quote, or a non-quoted to quoted transition.
+	 *
+	 * end == a non-white-space to white-space transition outside of a
+	 * quote, or a delimiter outside of a quote, or a quoted to
+	 * non-quoted transition.
 	 */
 
 	if(pos >= tokenizer->length)
@@ -215,13 +225,14 @@ static PyObject *ligolw_Tokenizer_next(PyObject *self)
 				goto stop_iteration;
 		end = pos;
 	}
-	while(isspace(*pos))
+	while(*pos != tokenizer->delimiter) {
+		if(!isspace(*pos))
+			goto parse_error;
 		if(++pos >= tokenizer->length)
 			goto stop_iteration;
-	if(*pos != tokenizer->delimiter)
-		goto parse_error;
-	tokenizer->pos = ++pos;
+	}
 
+	tokenizer->pos = ++pos;
 	return PyString_FromStringAndSize(start, end - start);
 
 stop_iteration:
