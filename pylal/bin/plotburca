@@ -57,8 +57,6 @@ def parse_command_line():
 	parser.add_option("-b", "--base", metavar = "base", default = "plotburca_", help = "set the prefix for output filenames (default = plotburca_)")
 	parser.add_option("-c", "--input-cache", metavar = "filename", default = [], action = "append", help = "read input from the files in this cache")
 	parser.add_option("-f", "--format", metavar = "format", default = "png", help = "set the output image format (default = png)")
-	parser.add_option("-x", "--x-instrument", metavar = "instrument", help = "set instrument for x axis")
-	parser.add_option("-y", "--y-instrument", metavar = "instrument", help = "set instrument for y axis")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
 	options, urls = parser.parse_args()
 
@@ -261,8 +259,8 @@ class RateContours(object):
 
 		self.axes.grid(True)
 
-		self.axes.set_xlabel("%s Offset (s)" % options.x_instrument)
-		self.axes.set_ylabel("%s Offset (s)" % options.y_instrument)
+		self.axes.set_xlabel("%s Offset (s)" % x_instrument)
+		self.axes.set_ylabel("%s Offset (s)" % y_instrument)
 
 	def addto(self, doc):
 		if not self.tisi_offsets_x:
@@ -344,24 +342,20 @@ class ConfidenceScatter(object):
 # =============================================================================
 #
 
-plots = (RateContours(options.x_instrument, options.y_instrument), ConfidenceScatter("H2", "H1"), ConfidenceScatter("H2", "L1"), ConfidenceScatter("L1", "H1"))
+plots = (RateContours("H2", "H1"), ConfidenceScatter("H2", "H1"), ConfidenceScatter("H2", "L1"), ConfidenceScatter("L1", "H1"))
 
-try:
-	for n, url in enumerate(urls):
+for n, url in enumerate(urls):
+	if options.verbose:
+		print >>sys.stderr, "%d/%d: %s\nloading..." % (n + 1, len(urls), url)
+	doc = llwapp.load_url(url)
+	if options.verbose:
+		print >>sys.stderr, "indexing..."
+	contents = DocContents(doc)
+	for n, plot in enumerate(plots):
 		if options.verbose:
-			print >>sys.stderr, "%d/%d: %s\nloading..." % (n + 1, len(urls), url)
-		doc = llwapp.load_url(url)
-		if options.verbose:
-			print >>sys.stderr, "indexing..."
-		contents = DocContents(doc)
-		for n, plot in enumerate(plots):
-			if options.verbose:
-				print >>sys.stderr, "adding to plot %d..." % n
-			plot.addto(contents)
-		doc.unlink()
-except Exception, e:
-	print >>sys.stderr, "error: %s" % str(e)
-	sys.exit(1)
+			print >>sys.stderr, "adding to plot %d..." % n
+		plot.addto(contents)
+	doc.unlink()
 
 if options.verbose:
 	print >>sys.stderr, "finishing..."
