@@ -97,17 +97,17 @@ def get_tables(doc):
 	snglbursttable = llwapp.get_table(doc, lsctables.SnglBurstTable.tableName)
 	searchsummtable = llwapp.get_table(doc, lsctables.SearchSummaryTable.tableName)
 	try:
-		coincevents = list(llwapp.get_table(doc, lsctables.CoincMapTable.tableName).getColumnByName("event_id"))
+		coinceventids = map(lsctables.ILWDID, llwapp.get_table(doc, lsctables.CoincMapTable.tableName).getColumnByName("event_id"))
 	except:
-		coincevents = []
-	coincevents.sort()
+		coinceventids = []
+	coinceventids.sort()
 
 	try:
 		vetosegs = segments.segmentlist([row.get() for row in llwapp.get_table(doc, lsctables.SegmentTable.tableName) if row.get_active()]).coalesce()
 	except:
 		vetosegs = segments.segmentlist()
 
-	return searchsummtable.get_inlist().extent(), searchsummtable.get_outlist().extent(), snglbursttable, vetosegs, coincevents
+	return searchsummtable.get_inlist().extent(), searchsummtable.get_outlist().extent(), snglbursttable, vetosegs, coinceventids
 
 
 #
@@ -221,14 +221,14 @@ def append_process(doc, options):
 # =============================================================================
 #
 
-def keep_this_trigger(burst, vetosegs, coincevents, options):
+def keep_this_trigger(burst, vetosegs, coinceventids, options):
 	"""
 	Returns True if the burst trigger survives the cuts described by
 	the attributes of the options object.
 	"""
-	if options.coinc_discard and llwapp.bisect_contains(coincevents, burst.event_id):
+	if options.coinc_discard and llwapp.bisect_contains(coinceventids, lsctables.ILWDID(burst.event_id)):
 		return False
-	if options.coinc_only and not llwapp.bisect_contains(coincevents, burst.event_id):
+	if options.coinc_only and not llwapp.bisect_contains(coinceventids, lsctables.ILWDID(burst.event_id)):
 		return False
 	if (options.min_amplitude != None) and (burst.amplitude < options.min_amplitude):
 		return False
@@ -299,7 +299,7 @@ def keep_this_trigger(burst, vetosegs, coincevents, options):
 
 def ligolw_bucut(doc, options):
 	# Extract segments and tables
-	inseg, outseg, snglbursttable, vetosegs, coincevents = get_tables(doc)
+	inseg, outseg, snglbursttable, vetosegs, coinceventids = get_tables(doc)
 
 	# Add process information
 	process, options = append_process(doc, options)
@@ -309,7 +309,7 @@ def ligolw_bucut(doc, options):
 		print >>sys.stderr, "filtering triggers..."
 	i = 0
 	while i < len(snglbursttable):
-		if keep_this_trigger(snglbursttable[i], vetosegs, coincevents, options):
+		if keep_this_trigger(snglbursttable[i], vetosegs, coinceventids, options):
 			i += 1
 		else:
 			del snglbursttable[i]
