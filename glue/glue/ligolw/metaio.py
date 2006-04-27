@@ -245,7 +245,7 @@ class TableStream(ligolw.Stream):
 	"""
 	def __init__(self, attrs):
 		ligolw.Stream.__init__(self, attrs)
-		self.tokenizer = re.compile(r"""(?:"([^"]*)")\s*%s|(?:([^%s"]+))\s*%s""" % (self.getAttribute("Delimiter"), self.getAttribute("Delimiter"), self.getAttribute("Delimiter")))
+		self.tokenizer = re.compile(r"""(?:"([^"]*)")\s*%s|(?:([^%s"]+))\s*%s""" % ((self.getAttribute("Delimiter"), ) * 3))
 		self.__attrindex = 0
 		self.__row = None
 		self.pcdata = ""
