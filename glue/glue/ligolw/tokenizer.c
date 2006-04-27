@@ -148,10 +148,19 @@ static void ligolw_Tokenizer___del__(PyObject *self)
 static int ligolw_Tokenizer___init__(PyObject *self, PyObject *args, PyObject *kwds)
 {
 	ligolw_Tokenizer *tokenizer = (ligolw_Tokenizer *) self;
+	char *delimiter;
+	int delimiter_length;
 
-	tokenizer->delimiter = ',';
+	if(!PyArg_ParseTuple(args, "s#", &delimiter, &delimiter_length))
+		return -1;
+	if(delimiter_length != 1) {
+		PyErr_SetString(PyExc_TypeError, "argument must have length 1");
+		return -1;
+	}
+
+	tokenizer->delimiter = *delimiter;
 	tokenizer->allocation = 0;
-	tokenizer->data = malloc(0);
+	tokenizer->data = NULL;
 	tokenizer->length = tokenizer->data;
 	tokenizer->pos = tokenizer->data;
 
