@@ -51,6 +51,8 @@ parser.add_option("-a","--time-dist",action="store_true",default=False,\
     help="plot dist v trig end time" )
 parser.add_option("-b","--mchirp-dist",action="store_true",default=False,\
     help="plot dist v mchirp" )
+parser.add_option("-c","--mtotal-dist",action="store_true",default=False,\
+    help="plot dist v mtotal" )
 parser.add_option("-x","--tag",action="append",type="string",\
     dest="tags", metavar=" TAG",
     help="identifier for input file (append to list)" )
@@ -157,6 +159,9 @@ for i in range(len(injFiles)):
   injDict["inj_dist"] = viz.readcol(injDict["sim_inspiral"], "eff_dist", \
     injDict["ifo"] )
   injDict["inj_chirp"]  = viz.readcol(injDict["sim_inspiral"], "mchirp" )
+  injDict["inj_m1"] = viz.readcol(injDict["sim_inspiral"], "mass1" )
+  injDict["inj_m2"] = viz.readcol(injDict["sim_inspiral"], "mass2" )
+  injDict["inj_mtotal"] = injDict["inj_m1"] + injDict["inj_m2"]
   
     
   #
@@ -171,6 +176,10 @@ for i in range(len(injFiles)):
   misDict["mis_dist"] = viz.readcol(misDict["sim_inspiral"], "eff_dist", \
     injDict["ifo"] )
   misDict["mis_chirp"]  = viz.readcol(misDict["sim_inspiral"], "mchirp" )
+  misDict["mis_m1"] = viz.readcol(misDict["sim_inspiral"], "mass1" )
+  misDict["mis_m2"] = viz.readcol(misDict["sim_inspiral"], "mass2" )
+  misDict["mis_mtotal"] = misDict["mis_m1"] + misDict["mis_m2"]
+
 
   if opts.min_distance:
     print flist[0]
@@ -277,6 +286,39 @@ if opts.mchirp_dist:
   gca().grid(True)
   if opts.fig_name:
     savefig(opts.fig_name + "_dist-mchirp.png")
+
+
+# plot mchirp V dist
+if opts.mtotal_dist:
+  figure()
+  sym=0
+  t=0
+  for injSet in injSets:
+    semilogy(injSet['injections']['inj_mtotal'],injSet['injections']['inj_dist'],\
+             plot1symbol[sym],label=opts.tags[t]+" find",\
+             markerfacecolor=None,markeredgecolor='b',markersize=10,\
+             markeredgewidth=1)
+    hold(True)
+    semilogy(injSet['missedinjs']['mis_mtotal'],injSet['missedinjs']['mis_dist'],\
+             plot2symbol[sym],label=opts.tags[t]+" miss",\
+             markerfacecolor=None,markeredgecolor='r',markersize=10,\
+             markeredgewidth=1)
+    hold(True)
+    sym+=1
+    t+=1
+  if opts.legend:
+    legend()
+  title(opts.title + 'Distance vs Total Mass', size='x-large')
+  xlabel('Injected Total Mass (Msun)', size='x-large')
+  ylabel('Injected Effective Distance (Mpc)', size='x-large')
+  #ylim(10, 1000)
+  gca().grid(True)
+  if opts.fig_name:
+    savefig(opts.fig_name + "_dist-mtotal.png")
+
+  
+            
+
 
   
 if opts.show_plot:
