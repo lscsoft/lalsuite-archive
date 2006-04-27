@@ -49,10 +49,14 @@ Example: plotinspmissed --time-dist --show-plot found.xml missed.xml
 parser = OptionParser( usage )
 parser.add_option("-a","--time-dist",action="store_true",default=False,\
     help="plot dist v trig end time" )
-parser.add_option("-b","--mchirp-dist",action="store_true",default=False,\
-    help="plot dist v mchirp" )
-parser.add_option("-c","--mtotal-dist",action="store_true",default=False,\
-    help="plot dist v mtotal" )
+parser.add_option("-b","--mchirp-dist-log",action="store_true",default=False,\
+    help="plot dist v mchirp (log dist axis)" )
+parser.add_option("-c","--mtotal-dist-log",action="store_true",default=False,\
+    help="plot dist v mtotal (log dist axis)" )
+parser.add_option("-d","--mchirp-dist-linear",action="store_true",default=False,\
+    help="plot dist v mchirp (linear dist axis)" )
+parser.add_option("-e","--mtotal-dist-linear",action="store_true",default=False,\
+    help="plot dist v mtotal (linear dist axis)" )
 parser.add_option("-x","--tag",action="append",type="string",\
     dest="tags", metavar=" TAG",
     help="identifier for input file (append to list)" )
@@ -260,7 +264,7 @@ if opts.time_dist:
 
 
 # plot mchirp V dist
-if opts.mchirp_dist:  
+if opts.mchirp_dist_log:  
   figure()
   sym=0
   t=0
@@ -288,8 +292,8 @@ if opts.mchirp_dist:
     savefig(opts.fig_name + "_dist-mchirp.png")
 
 
-# plot mchirp V dist
-if opts.mtotal_dist:
+# plot mtotal V dist
+if opts.mtotal_dist_log:
   figure()
   sym=0
   t=0
