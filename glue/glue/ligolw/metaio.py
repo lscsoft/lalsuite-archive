@@ -280,6 +280,17 @@ class TableStream(ligolw.Stream):
 				self.__row = self.parentNode.RowType()
 				self.__colindex = 0
 
+	def unlink(self):
+		"""
+		Break internal references within the document tree rooted
+		on this element to promote garbage collected.
+		"""
+		self.__colinfo = None
+		self.__numcols = None
+		self.__row = None
+		self.__colindex = 0
+		ligolw.Stream.unlink(self)
+
 	def _rowstr(self, row, columninfo):
 		# FIXME: after calling getattr(), should probably check that
 		# the result has the expected type.
