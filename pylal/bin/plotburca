@@ -72,10 +72,12 @@ def parse_command_line():
 # =============================================================================
 #
 
-def sort_files(filenames):
+def sort_files(filenames, verbose = False):
 	"""
 	Sort the files from largest to smallest.
 	"""
+	if verbose:
+		print >>sys.stderr, "sorting files from largest to smallest..."
 	l = [(os.stat(name)[stat.ST_SIZE], name) for name in filenames]
 	l.sort()
 	l.reverse()
