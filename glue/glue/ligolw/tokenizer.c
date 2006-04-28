@@ -86,7 +86,8 @@ static void add_to_data(ligolw_Tokenizer *tokenizer, PyObject *string)
 			int pos = tokenizer->pos - tokenizer->data;
 			int length = tokenizer->length - tokenizer->data;
 			tokenizer->allocation += n;
-			tokenizer->data = realloc(tokenizer->data, tokenizer->allocation);
+			tokenizer->data = realloc(tokenizer->data, tokenizer->allocation + 1);
+			tokenizer->data[tokenizer->allocation] = '\0';
 			tokenizer->pos = &tokenizer->data[pos];
 			tokenizer->length = &tokenizer->data[length];
 		}
@@ -104,6 +105,7 @@ static void shift(ligolw_Tokenizer *tokenizer, char *start)
 		tokenizer->length -= n;
 		tokenizer->pos -= n;
 		memmove(tokenizer->data, start, tokenizer->length - tokenizer->data);
+		*tokenizer->length = '\0';
 	}
 }
 
