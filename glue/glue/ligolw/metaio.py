@@ -246,8 +246,10 @@ class TableStream(ligolw.Stream):
 	def __init__(self, attrs):
 		ligolw.Stream.__init__(self, attrs)
 		self.tokenizer = re.compile(r"""(?:"([^"]*)")\s*%s|(?:([^%s"]+))\s*%s""" % ((self.getAttribute("Delimiter"), ) * 3))
-		self.__attrindex = 0
+		self.__colinfo = None
+		self.__numcols = None
 		self.__row = None
+		self.__colindex = 0
 		self.pcdata = ""
 
 	def appendData(self, content):
@@ -255,16 +257,17 @@ class TableStream(ligolw.Stream):
 		self.pcdata += content
 		del content
 
-		# make a row object if needed (can't do this in __init__()
-		# because parentNode hasn't been set yet).
+		# some initialization that can only be done once parentNode
+		# has been set.
 		if self.__row == None:
+			self.__colinfo = self.parentNode.columninfo
+			self.__numcols = len(self.parentNode.columninfo)
 			self.__row = self.parentNode.RowType()
 
 		# tokenize buffer, and construct row objects
-		numattrs = len(self.parentNode.columninfo)
 		match = None
 		for match in self.tokenizer.finditer(self.pcdata):
-			colname, pytype = self.parentNode.columninfo[self.__attrindex]
+			colname, pytype = self.__colinfo[self.__colindex]
 			try:
 				setattr(self.__row, colname, pytype(match.group(match.lastindex)))
 			except ValueError, e:
@@ -276,11 +279,11 @@ class TableStream(ligolw.Stream):
 				# setting RowType to an object with slots
 				# for only the desired columns.
 				pass
-			self.__attrindex += 1
-			if self.__attrindex >= numattrs:
-				self.__attrindex = 0
+			self.__colindex += 1
+			if self.__colindex >= self.__numcols:
 				self.parentNode.append(self.__row)
 				self.__row = self.parentNode.RowType()
+				self.__colindex = 0
 		if match != None:
 			self.pcdata = self.pcdata[match.end():]
 
