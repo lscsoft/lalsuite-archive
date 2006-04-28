@@ -13,6 +13,7 @@ from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import docutils
 
+from pylal import llwapp
 from pylal import SnglBurstUtils
 from pylal.date import XLALUTCToGPS, LIGOTimeGPS
 
@@ -119,17 +120,6 @@ def CacheURLs(cachename, seg):
 	"""
 	return [c.url for c in map(CacheEntry, file(cachename)) if c.segment.intersects(seg)]
 
-def GetTable(doc, Type):
-	"""
-	Find and return the table of the given type.
-	"""
-	tables = lsctables.getTablesByType(doc, Type)
-	if len(tables) == 0:
-		return lsctables.New(Type)
-	if len(tables) == 1:
-		return tables[0]
-	raise Exception, "files contain incompatible %s tables" % Type.tableName
-
 def gettriggers(plotdesc):
 	# load documents
 	doc = ligolw.Document()
@@ -140,11 +130,18 @@ def gettriggers(plotdesc):
 		except ligolw.ElementError, e:
 			raise Exception, "error parsing file %s: %s" % (url, str(e))
 		docutils.MergeCompatibleTables(doc)
-
-	# extract tables
-	plotdesc.seglist = GetTable(doc, lsctables.SearchSummaryTable).get_inlist().coalesce()
-	bursttable = GetTable(doc, lsctables.SnglBurstTable)
-	simtable = GetTable(doc, lsctables.SimBurstTable)
+	try:
+		plotdesc.seglist = llwapp.get_table(doc, lsctables.SearchSummaryTable.tableName).get_outlist().coalesce()
+	except:
+		plotdesc.seglist = segments.segmentlist()
+	try:
+		bursttable = llwapp.get_table(doc, lsctables.SnglBurstTable.tableName)
+	except:
+		bursttable = lsctables.New(lsctables.SnglBurstTable)
+	try:
+		simtable = llwapp.get_table(doc, lsctables.SimBurstTable.tableName)
+	except:
+		simtable = lsctables.New(lsctables.SnglBurstTable)
 
 	# cluster
 	if plotdesc.cluster:
