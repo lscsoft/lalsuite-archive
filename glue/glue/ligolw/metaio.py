@@ -27,6 +27,7 @@ import sys
 from xml.sax.xmlreader import AttributesImpl
 
 import ligolw
+import tokenizer
 
 
 #
@@ -245,18 +246,13 @@ class TableStream(ligolw.Stream):
 	"""
 	def __init__(self, attrs):
 		ligolw.Stream.__init__(self, attrs)
-		self.tokenizer = re.compile(r"""(?:"([^"]*)")\s*%s|(?:([^%s"]+))\s*%s""" % ((self.getAttribute("Delimiter"), ) * 3))
+		self.tokenizer = tokenizer.Tokenizer(self.getAttribute("Delimiter"))
 		self.__colinfo = None
 		self.__numcols = None
 		self.__row = None
 		self.__colindex = 0
-		self.pcdata = ""
 
 	def appendData(self, content):
-		# append new data to buffer
-		self.pcdata += content
-		del content
-
 		# some initialization that can only be done once parentNode
 		# has been set.
 		if self.__row == None:
@@ -265,13 +261,12 @@ class TableStream(ligolw.Stream):
 			self.__row = self.parentNode.RowType()
 
 		# tokenize buffer, and construct row objects
-		match = None
-		for match in self.tokenizer.finditer(self.pcdata):
+		for token in self.tokenizer.add(content):
 			colname, pytype = self.__colinfo[self.__colindex]
 			try:
-				setattr(self.__row, colname, pytype(match.group(match.lastindex)))
+				setattr(self.__row, colname, pytype(token))
 			except ValueError, e:
-				raise ligolw.ElementError, "Stream parsing error near token %s: %s" % (str(match.group(match.lastindex)), str(e))
+				raise ligolw.ElementError, "Stream parsing error near %s: %s" % (self.tokenizer.data, str(e))
 			except AttributeError, e:
 				# row object does not have an attribute
 				# matching this column.  by allowing this,
@@ -284,8 +279,6 @@ class TableStream(ligolw.Stream):
 				self.parentNode.append(self.__row)
 				self.__row = self.parentNode.RowType()
 				self.__colindex = 0
-		if match != None:
-			self.pcdata = self.pcdata[match.end():]
 
 	def _rowstr(self, row, columninfo):
 		# FIXME: after calling getattr(), should probably check that
