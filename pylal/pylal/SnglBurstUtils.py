@@ -162,16 +162,9 @@ def CompareSimBurstAndSnglBurstByTime(sim, burst):
 	time interval of burst.
 	"""
 	if sim.coordinates == "ZENITH":
-		tsim = sim.get_geocent_peak()
-	elif burst.ifo == "H1":
-		tsim = sim.get_h_peak()
-	elif burst.ifo == "H2":
-		tsim = sim.get_h_peak()
-	elif burst.ifo == "L1":
-		tsim = sim.get_l_peak()
+		return sim.get_geocent_peak() in burst.get_period()
 	else:
-		raise Exception, "unrecognized sngl_burst IFO \"%s\"" % burst.ifo
-	return tsim in burst.get_period()
+		return sim.get_peak(burst.ifo) in burst.get_period()
 
 def CompareSimBurstAndSnglBurstByTimeandFreq(sim, burst):
 	"""
