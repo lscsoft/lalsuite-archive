@@ -126,7 +126,7 @@ def row_string(table, row):
 	if options.column:
 		return options.delimiter.join(map(lambda key: str(getattr(row, key)), options.column))
 	else:
-		return options.delimiter.join(map(lambda key: str(getattr(row, key[0])), table.columninfo))
+		return options.delimiter.join(map(lambda colname: str(getattr(row, colname)), table.columnnames))
 
 
 #
