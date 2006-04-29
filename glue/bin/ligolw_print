@@ -134,7 +134,9 @@ def row_string(table, row):
 #
 
 for url in urls:
-	for table in get_tables(load_document(url)):
+	doc = load_document(url)
+	for table in get_tables(doc):
 		for n, row in enumerate(table):
 			if is_requested_row(n):
 				print row_string(table, row)
+	doc.unlink()
