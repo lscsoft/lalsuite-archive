@@ -106,10 +106,12 @@ def snglburst_append(self, row):
 	self.rows[lsctables.ILWDID(row.event_id)] = row
 	del row.event_id
 
+def coinc_init(self, attrs):
+	lsctables.LSCTableUnique.__init__(self, attrs)
+	self.rows = {}
+
 def coinc_append(self, row):
-	row.coinc_event_id = lsctables.ILWDID(row.coinc_event_id)
-	row.time_slide_id = lsctables.ILWDID(row.time_slide_id)
-	lsctables.LSCTableUnique.append(self, row)
+	self.rows[lsctables.ILWDID(row.coinc_event_id)] = lsctables.ILWDID(row.time_slide_id)
 
 def coinc_map_append(self, row):
 	row.coinc_event_id = lsctables.ILWDID(row.coinc_event_id)
@@ -131,6 +133,7 @@ lsctables.SnglBurstTable.RowType = SnglBurst
 lsctables.SnglBurstTable.__init__ = snglburst_init
 lsctables.SnglBurstTable.append = snglburst_append
 lsctables.CoincTable.RowType = Coinc
+lsctables.CoincTable.__init__ = coinc_init
 lsctables.CoincTable.append = coinc_append
 lsctables.CoincMapTable.append = coinc_map_append
 lsctables.TimeSlideTable.RowType = TimeSlide
@@ -176,11 +179,8 @@ class DocContents(object):
 		self.coincmaptable.rows.sort(lambda a, b: cmp(a.coinc_event_id, b.coinc_event_id))
 		self.coincmaptableids = list(self.coincmaptable.getColumnByName("coinc_event_id"))
 
-	def get_burst_by_id(self, id):
-		return self.bursttable.rows[id]
-
 	def get_burst_by_coincid(self, id):
-		return [self.get_burst_by_id(row.event_id) for row in self.coincmaptable.rows[bisect.bisect_left(self.coincmaptableids, id) : bisect.bisect_right(self.coincmaptableids, id)]]
+		return [self.bursttable.rows[row.event_id] for row in self.coincmaptable.rows[bisect.bisect_left(self.coincmaptableids, id) : bisect.bisect_right(self.coincmaptableids, id)]]
 
 	def get_tisi_by_id(self, id):
 		return self.tisitable.rows[id]
@@ -197,20 +197,20 @@ class DocContents(object):
 class CoincEventIter(object):
 	def __init__(self,  doc):
 		self.doc = doc
-		self.coinciter = iter(doc.coinctable)
+		self.iditer = doc.coinctable.rows.iterkeys()
 
 	def __iter__(self):
 		return self
 
 	def next(self):
-		coinc = self.coinciter.next()
-		return coinc.time_slide_id == self.doc.foreground_tisi_id, self.doc.get_burst_by_coincid(coinc.coinc_event_id)
+		id = self.iditer.next()
+		return self.doc.coinctable.rows[id] == self.doc.foreground_tisi_id, self.doc.get_burst_by_coincid(id)
 
 
 class CoincTisiIter(object):
 	def __init__(self, doc):
 		self.doc = doc
-		self.iditer = iter(doc.coinctable.getColumnByName("time_slide_id"))
+		self.iditer = doc.coinctable.rows.itervalues()
 
 	def __iter__(self):
 		return self
