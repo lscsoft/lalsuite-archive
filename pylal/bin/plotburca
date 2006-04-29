@@ -98,24 +98,43 @@ class TimeSlide(object):
 	def _has_key(self, key):
 		return self.time_slide_id == key
 
-def snglburst_append(table, row):
-	row.event_id = lsctables.ILWDID(row.event_id)
-	lsctables.LSCTableUnique.append(table, row)
+def snglburst_init(self, attrs):
+	lsctables.LSCTableUnique.__init__(self, attrs)
+	self.rows = {}
 
-def coinc_append(table, row):
+def snglburst_append(self, row):
+	self.rows[lsctables.ILWDID(row.event_id)] = row
+	del row.event_id
+
+def coinc_append(self, row):
 	row.coinc_event_id = lsctables.ILWDID(row.coinc_event_id)
 	row.time_slide_id = lsctables.ILWDID(row.time_slide_id)
-	lsctables.LSCTableUnique.append(table, row)
+	lsctables.LSCTableUnique.append(self, row)
 
-def timeslide_append(table, row):
-	row.time_slide_id = lsctables.ILWDID(row.time_slide_id)
-	lsctables.LSCTableMulti.append(table, row)
+def coinc_map_append(self, row):
+	row.coinc_event_id = lsctables.ILWDID(row.coinc_event_id)
+	row.event_id = lsctables.ILWDID(row.event_id)
+	lsctables.LSCTableUnique.append(self, row)
+
+def timeslide_init(self, attrs):
+	lsctables.LSCTableMulti.__init__(self, attrs)
+	self.rows = {}
+
+def timeslide_append(self, row):
+	id = lsctables.ILWDID(row.time_slide_id)
+	if id in self.rows:
+		self.rows[id][row.instrument] = row.offset
+	else:
+		self.rows[id] = {row.instrument: row.offset}
 
 lsctables.SnglBurstTable.RowType = SnglBurst
+lsctables.SnglBurstTable.__init__ = snglburst_init
 lsctables.SnglBurstTable.append = snglburst_append
 lsctables.CoincTable.RowType = Coinc
 lsctables.CoincTable.append = coinc_append
+lsctables.CoincMapTable.append = coinc_map_append
 lsctables.TimeSlideTable.RowType = TimeSlide
+lsctables.TimeSlideTable.__init__ = timeslide_init
 lsctables.TimeSlideTable.append = timeslide_append
 
 
@@ -143,8 +162,8 @@ class DocContents(object):
 		#
 
 		self.foreground_tisi_id = None
-		for self.foreground_tisi_id in self.tisitable.dict.keys():
-			for offset in self.tisitable.get_offset_dict(self.foreground_tisi_id).values():
+		for self.foreground_tisi_id, offsetdict in self.tisitable.rows.iteritems():
+			for offset in offsetdict.itervalues():
 				if offset != 0.0:
 					continue
 			break
@@ -153,33 +172,18 @@ class DocContents(object):
 		# Construct ID look-up tables
 		#
 
-		# sngl_burst by event_id
-		self.bursttable.rows.sort(lambda a, b: cmp(a.event_id, b.event_id))
-		self.bursttableids = list(self.bursttable.getColumnByName("event_id"))
-
-		# coinc by coinc_event_id
-		self.coinctable.rows.sort(lambda a, b: cmp(a.coinc_event_id, b.coinc_event_id))
-		self.coinctableids = list(self.coinctable.getColumnByName("coinc_event_id"))
-
 		# coinc_event_map by coinc_event_id
 		self.coincmaptable.rows.sort(lambda a, b: cmp(a.coinc_event_id, b.coinc_event_id))
 		self.coincmaptableids = list(self.coincmaptable.getColumnByName("coinc_event_id"))
 
-		# time_slide by time_slide_id
-		self.tisitable.rows.sort(lambda a, b: cmp(a.time_slide_id, b.time_slide_id))
-		self.tisitableids = list(self.tisitable.getColumnByName("time_slide_id"))
-
 	def get_burst_by_id(self, id):
-		return self.bursttable.rows[bisect.bisect_left(self.bursttableids, id)]
-
-	def get_coincevents_by_id(self, id):
-		return self.coincmaptable.rows[bisect.bisect_left(self.coincmaptableids, id) : bisect.bisect_right(self.coincmaptableids, id)]
+		return self.bursttable.rows[id]
 
 	def get_burst_by_coincid(self, id):
-		return [self.get_burst_by_id(row.event_id) for row in self.get_coincevents_by_id(id) if "sngl_burst" in row.event_id]
+		return [self.get_burst_by_id(row.event_id) for row in self.coincmaptable.rows[bisect.bisect_left(self.coincmaptableids, id) : bisect.bisect_right(self.coincmaptableids, id)]]
 
 	def get_tisi_by_id(self, id):
-		return self.tisitable.rows[bisect.bisect_left(self.tisitableids, id) : bisect.bisect_right(self.tisitableids, id)]
+		return self.tisitable.rows[id]
 
 
 #
@@ -281,18 +285,11 @@ class RateContours(object):
 
 	def addto(self, doc):
 		if not self.tisi_offsets_x:
-			for id in doc.tisitable.dict.keys():
-				offsets = doc.tisitable.get_offset_dict(id)
-				self.tisi_offsets_x.append(offsets[self.x_instrument])
-				self.tisi_offsets_y.append(offsets[self.y_instrument])
-		for offsets in CoincTisiIter(doc):
-			x, y = None, None
-			for row in offsets:
-				if row.instrument == self.x_instrument:
-					x = row.offset
-				elif row.instrument == self.y_instrument:
-					y = row.offset
-			self.bins.incnumerator(x, y)
+			for offsetdict in doc.tisitable.rows.itervalues():
+				self.tisi_offsets_x.append(offsetdict[self.x_instrument])
+				self.tisi_offsets_y.append(offsetdict[self.y_instrument])
+		for offsetdict in CoincTisiIter(doc):
+			self.bins.incnumerator(offsetdict[self.x_instrument], offsetdict[self.y_instrument])
 
 	def finish(self):
 		self.axes.contour(self.bins.xcoords, self.bins.ycoords, self.bins.numerator)
