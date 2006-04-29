@@ -55,6 +55,9 @@ static PyTypeObject ligolw_Tokenizer_Type;
 
 typedef struct {
 	PyObject_HEAD
+	PyTypeObject **pytypes;
+	PyTypeObject **pytypes_length;
+	PyTypeObject **pytype;
 	char delimiter;
 	int allocation;
 	char *data;
@@ -110,6 +113,18 @@ static void shift(ligolw_Tokenizer *tokenizer, char *start)
 }
 
 
+static void unref_pytypes(ligolw_Tokenizer *tokenizer)
+{
+	for(tokenizer->pytype = tokenizer->pytypes; tokenizer->pytype < tokenizer->pytypes_length; tokenizer->pytype++)
+		Py_DECREF(*tokenizer->pytype);
+
+	free(tokenizer->pytypes);
+	tokenizer->pytypes = NULL;
+	tokenizer->pytypes_length = NULL;
+	tokenizer->pytype = NULL;
+}
+
+
 /*
  * Methods
  */
@@ -136,6 +151,7 @@ static void ligolw_Tokenizer___del__(PyObject *self)
 {
 	ligolw_Tokenizer *tokenizer = (ligolw_Tokenizer *) self;
 
+	unref_pytypes(tokenizer);
 	free(tokenizer->data);
 	tokenizer->data = NULL;
 	tokenizer->allocation = 0;
@@ -160,6 +176,11 @@ static int ligolw_Tokenizer___init__(PyObject *self, PyObject *args, PyObject *k
 	}
 
 	tokenizer->delimiter = *delimiter;
+	tokenizer->pytypes = malloc(1 * sizeof(*tokenizer->pytypes));
+	tokenizer->pytypes_length = &tokenizer->pytypes[1];
+	tokenizer->pytypes[0] = &PyString_Type;
+	Py_INCREF(&PyString_Type);
+	tokenizer->pytype = tokenizer->pytypes;
 	tokenizer->allocation = 0;
 	tokenizer->data = NULL;
 	tokenizer->length = tokenizer->data;
@@ -179,6 +200,7 @@ static PyObject *ligolw_Tokenizer___iter__(PyObject *self)
 static PyObject *ligolw_Tokenizer_next(PyObject *self)
 {
 	ligolw_Tokenizer *tokenizer = (ligolw_Tokenizer *) self;
+	PyObject *token;
 	char *pos = tokenizer->pos;
 	char *start, *end;
 
@@ -235,7 +257,20 @@ static PyObject *ligolw_Tokenizer_next(PyObject *self)
 	}
 
 	tokenizer->pos = ++pos;
-	return PyString_FromStringAndSize(start, end - start);
+	*end = '\0';
+	if(*tokenizer->pytype == &PyString_Type) {
+		token = PyString_FromStringAndSize(start, end - start);
+	} else if(*tokenizer->pytype == &PyInt_Type) {
+		token = PyInt_FromString(start, NULL, 0);
+	} else if(*tokenizer->pytype == &PyFloat_Type) {
+		token = PyFloat_FromDouble(strtod(start, NULL));
+	} else {
+		PyErr_BadArgument();
+		token = NULL;
+	}
+	if(++tokenizer->pytype >= tokenizer->pytypes_length)
+		tokenizer->pytype = tokenizer->pytypes;
+	return token;
 
 stop_iteration:
 	shift(tokenizer, tokenizer->pos);
@@ -252,12 +287,49 @@ parse_error:
 }
 
 
+static PyObject *ligolw_Tokenizer_set_types(PyObject *self, PyObject *pytypes)
+{
+	ligolw_Tokenizer *tokenizer = (ligolw_Tokenizer *) self;
+	int length, i;
+
+	if(!PyList_Check(pytypes))
+		goto type_error;
+	length = PyList_GET_SIZE(pytypes);
+	for(i = 0; i < length; i++) {
+		PyTypeObject *pytype = (PyTypeObject *) PyList_GET_ITEM(pytypes, i);
+		if(!PyType_Check(pytype))
+			goto type_error;
+		if((pytype != &PyString_Type) && (pytype != &PyInt_Type) && (pytype != &PyFloat_Type))
+			goto type_error;
+	}
+
+	unref_pytypes(tokenizer);
+
+	tokenizer->pytypes = malloc(length * sizeof(*tokenizer->pytypes));
+	tokenizer->pytypes_length = &tokenizer->pytypes[length];
+	tokenizer->pytype = tokenizer->pytypes;
+
+	for(i = 0; i < length; i++) {
+		tokenizer->pytypes[i] = (PyTypeObject *) PyList_GET_ITEM(pytypes, i);
+		Py_INCREF(tokenizer->pytypes[i]);
+	}
+
+	Py_INCREF(Py_None);
+	return Py_None;
+
+type_error:
+	PyErr_SetString(PyExc_TypeError, "Tokenzer.set_types(): argument must be a list of types str, int, or float");
+	return NULL;
+}
+
+
 /*
  * Type information
  */
 
 static struct PyMethodDef ligolw_Tokenizer_methods[] = {
 	{"add", ligolw_Tokenizer_add, METH_O, "Append a string to the tokenizer's contents"},
+	{"set_types", ligolw_Tokenizer_set_types, METH_O, "Set the list of Python types to be used cyclically for token parsing"},
 	{NULL,}
 };
 

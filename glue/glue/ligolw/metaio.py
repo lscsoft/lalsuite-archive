@@ -247,7 +247,7 @@ class TableStream(ligolw.Stream):
 	def __init__(self, attrs):
 		ligolw.Stream.__init__(self, attrs)
 		self.tokenizer = tokenizer.Tokenizer(self.getAttribute("Delimiter"))
-		self.__colinfo = None
+		self.__colnames = None
 		self.__numcols = None
 		self.__row = None
 		self.__colindex = 0
@@ -256,17 +256,15 @@ class TableStream(ligolw.Stream):
 		# some initialization that can only be done once parentNode
 		# has been set.
 		if self.__row == None:
-			self.__colinfo = self.parentNode.columninfo
-			self.__numcols = len(self.parentNode.columninfo)
+			self.__colnames = tuple(self.parentNode.columnnames)
+			self.tokenizer.set_types(self.parentNode.columntypes)
+			self.__numcols = len(self.__colnames)
 			self.__row = self.parentNode.RowType()
 
 		# tokenize buffer, and construct row objects
 		for token in self.tokenizer.add(content):
-			colname, pytype = self.__colinfo[self.__colindex]
 			try:
-				setattr(self.__row, colname, pytype(token))
-			except ValueError, e:
-				raise ligolw.ElementError, "Stream parsing error near %s: %s" % (self.tokenizer.data, str(e))
+				setattr(self.__row, self.__colnames[self.__colindex], token)
 			except AttributeError, e:
 				# row object does not have an attribute
 				# matching this column.  by allowing this,
@@ -285,7 +283,7 @@ class TableStream(ligolw.Stream):
 		Break internal references within the document tree rooted
 		on this element to promote garbage collected.
 		"""
-		self.__colinfo = None
+		self.__colnames = None
 		self.__numcols = None
 		self.__row = None
 		self.__colindex = 0
@@ -338,7 +336,8 @@ class Table(ligolw.Table):
 		Initialize
 		"""
 		ligolw.Table.__init__(self, *attrs)
-		self.columninfo = []
+		self.columnnames = []
+		self.columntypes = []
 		self.rows = []
 
 
@@ -437,7 +436,8 @@ class Table(ligolw.Table):
 	#
 
 	def _updateColumninfo(self):
-		self.columninfo = []
+		self.columnnames = []
+		self.columntypes = []
 		for child in self.childNodes:
 			if child.tagName != ligolw.Column.tagName:
 				continue
@@ -448,14 +448,15 @@ class Table(ligolw.Table):
 					raise ligolw.ElementError, "invalid Column name \"%s\" for Table \"%s\"" % (child.getAttribute("Name"), self.getAttribute("Name"))
 				if self.validcolumns[colname] != llwtype:
 					raise ligolw.ElementError, "invalid type \"%s\" for Column \"%s\"" % (llwtype, child.getAttribute("Name"))
-			if colname in [c[0] for c in self.columninfo]:
+			if colname in self.columnnames:
 				raise ligolw.ElementError, "duplicate Column \"%s\"" % child.getAttribute("Name")
+			self.columnnames.append(colname)
 			if llwtype in StringTypes:
-				self.columninfo.append((colname, str))
+				self.columntypes.append(str)
 			elif llwtype in IntTypes:
-				self.columninfo.append((colname, int))
+				self.columntypes.append(int)
 			elif llwtype in FloatTypes:
-				self.columninfo.append((colname, float))
+				self.columntypes.append(float)
 			else:
 				raise ligolw.ElementError, "unrecognized Type attribute \"%s\" for Column \"%s\" in Table \"%s\"" % (llwtype, child.getAttribute("Name"), self.getAttribute("Name"))
 
