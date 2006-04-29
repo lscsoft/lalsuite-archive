@@ -182,9 +182,6 @@ class DocContents(object):
 	def get_burst_by_coincid(self, id):
 		return [self.bursttable.rows[row.event_id] for row in self.coincmaptable.rows[bisect.bisect_left(self.coincmaptableids, id) : bisect.bisect_right(self.coincmaptableids, id)]]
 
-	def get_tisi_by_id(self, id):
-		return self.tisitable.rows[id]
-
 
 #
 # =============================================================================
@@ -209,14 +206,14 @@ class CoincEventIter(object):
 
 class CoincTisiIter(object):
 	def __init__(self, doc):
-		self.doc = doc
+		self.rows = doc.tisitable.rows
 		self.iditer = doc.coinctable.rows.itervalues()
 
 	def __iter__(self):
 		return self
 
 	def next(self):
-		return self.doc.get_tisi_by_id(self.iditer.next())
+		return self.rows[self.iditer.next()]
 
 
 #
