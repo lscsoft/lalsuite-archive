@@ -200,15 +200,13 @@ def add_found_injection(coinc, sim, burst):
 
 def find_matches(sim, bursttable):
 	"""
-	Scan the burst table for matching triggers within +/- 10 seconds of
+	Scan the burst table for matching triggers within +/- 2 seconds of
 	the injection's geocentric peak time.
 	"""
 	matches = []
-	i = bisect.bisect_left(starttimes, sim.geocent_peak_time - 10)
-	while (i < len(bursttable.rows)) and (starttimes[i] < sim.geocent_peak_time + 10):
-		if comparefunc(sim, bursttable.rows[i]):
-			matches.append(bursttable.rows[i])
-		i += 1
+	for row in bursttable.rows[bisect.bisect_left(starttimes, sim.geocent_peak_time - 2):bisect.bisect_right(starttimes, sim.geocent_peak_time + 2)]:
+		if comparefunc(sim, row):
+			matches.append(row)
 	return matches
 
 
