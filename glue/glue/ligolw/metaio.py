@@ -478,6 +478,14 @@ class Table(ligolw.Table):
 			self._updateColumninfo()
 		return child
 
+	def unlink(self):
+		"""
+		Break internal references within the document tree rooted
+		on this element to promote garbage collected.
+		"""
+		ligolw.Table.unlink(self)
+		self.rows = []
+
 
 #
 # =============================================================================
