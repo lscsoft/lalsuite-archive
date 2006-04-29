@@ -392,3 +392,5 @@ for n, plot in enumerate(plots):
 	if options.verbose:
 		print >>sys.stderr, "writing %s..." % filename
 	plot.fig.savefig(filename)
+if options.verbose:
+	print >>sys.stderr, "done."
