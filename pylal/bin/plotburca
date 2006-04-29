@@ -84,19 +84,7 @@ def sort_files(filenames, verbose = False):
 	return [pair[1] for pair in l]
 
 class SnglBurst(object):
-	__slots__ = ["ifo", "confidence", "event_id"]
-
-class Coinc(object):
-	__slots__ = ["coinc_event_id", "time_slide_id"]
-
-class TimeSlide(object):
-	__slots__ = ["time_slide_id", "instrument", "offset"]
-
-	def _get_key(self):
-		return self.time_slide_id
-
-	def _has_key(self, key):
-		return self.time_slide_id == key
+	__slots__ = ["ifo", "central_freq", "confidence", "peak_time", "peak_time_ns", "event_id"]
 
 def snglburst_init(self, attrs):
 	lsctables.LSCTableUnique.__init__(self, attrs)
@@ -132,11 +120,9 @@ def timeslide_append(self, row):
 lsctables.SnglBurstTable.RowType = SnglBurst
 lsctables.SnglBurstTable.__init__ = snglburst_init
 lsctables.SnglBurstTable.append = snglburst_append
-lsctables.CoincTable.RowType = Coinc
 lsctables.CoincTable.__init__ = coinc_init
 lsctables.CoincTable.append = coinc_append
 lsctables.CoincMapTable.append = coinc_map_append
-lsctables.TimeSlideTable.RowType = TimeSlide
 lsctables.TimeSlideTable.__init__ = timeslide_init
 lsctables.TimeSlideTable.append = timeslide_append
 
