@@ -619,11 +619,12 @@ if opts.plot_efficiency:
   hf = found.getColumnByName(effDist).asarray()
   hm = missed.getColumnByName(effDist).asarray()
   ha = concatenate((hf ,hm))
-  
+ 
   # hist the found and missed, bins determined by found inj
   maxhf = max(hf) * 1.01
   stepf = (maxhf - min(hf))/opts.nbins
   binsf = arange(min(hf),maxhf + 2 * stepf, stepf)
+  d = arange(min(hf),max(hf),1)
   h_found,binsf, stuff = hist(hf, binsf)
   h_all,binsf,stuff = hist(ha,binsf)
 
@@ -631,11 +632,14 @@ if opts.plot_efficiency:
   h_astro=simInspTriggers.getColumnByName(effDist).asarray()
 
   ng,a,b = hist( h_astro, (binsf) )
+  ng_0,a,b=hist(h_astro,d)
   ng = ng*max_luminosity/numSources
-
+  ng_0 = ng_0*max_luminosity/numSources
   # delete the last entries to clean up plots:
   ng = ng[0:opts.nbins + 1]
   binsf = binsf[0:opts.nbins + 1]
+  ng_0 =ng_0[0:opts.nbins + 1]
+  d =d[0:opts.nbins + 1]
   h_found = h_found[0:opts.nbins + 1]
   h_all = h_all[0:opts.nbins + 1]
 
@@ -673,6 +677,7 @@ if opts.plot_efficiency:
   ###########################################################
   # plot cumulative N_G
   ng_cum = cumsum( ng * eff )
+  ng_0cum= cumsum(ng_0)
   figure()
   plot(binsf,ng_cum,linewidth=1)
   grid( True )
@@ -686,6 +691,8 @@ if opts.plot_efficiency:
 
   print "The total Number of Galaxies"  
   print max(ng_cum)
+  print "The total Number without taking efficiency"
+  print max(ng_0cum)
 
 
   ##############################################################
@@ -730,8 +737,9 @@ if opts.plot_effcontour:
   xm = missed.getColumnByName(opts.X_contour).asarray()
   xsim =simInspTriggers.getColumnByName(opts.X_contour).asarray()
 
-
-
+  # Construct value edges
+  V = arange(0.001,1.001,0.05)
+  
   #construct edges
 
   yedges = edges(yf)
@@ -751,7 +759,6 @@ if opts.plot_effcontour:
   contourf(xedges,yedges,f)
   xlabel(opts.X_contour)
   ylabel( opts.Y_contour)
-  colorbar()
   title('Number of found injections')
   if opts.figure_name:
     savefig( "found-" + opts.figure_name + ".png" )
