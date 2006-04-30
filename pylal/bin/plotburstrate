@@ -107,7 +107,7 @@ cache.sort()
 # =============================================================================
 #
 
-rate = rate.Rate(options.read_segment, options.window)
+rate = rate.Rate1D(options.read_segment, options.window)
 num_triggers = 0
 
 def append(table, trigger):

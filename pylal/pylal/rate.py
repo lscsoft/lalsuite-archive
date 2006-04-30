@@ -65,7 +65,7 @@ def tophat_window(halfwidth):
 	return numarray.ones(2.0 * halfwidth / bins_per_unit) / (2.0 * halfwidth)
 
 
-class Rate(object):
+class Rate1D(object):
 	"""
 	An object for binning and smoothing impulsive data.
 	"""
@@ -136,7 +136,7 @@ def smooth(impulses, segment, width, weights = None):
 		# plot
 		plot(x, y)
 	"""
-	rate = Rate(segment, width / 2.0)
+	rate = Rate1D(segment, width / 2.0)
 	if weights != None:
 		for n, x in enumerate(impulses):
 			if segment[0] <= x < segment[1]:
