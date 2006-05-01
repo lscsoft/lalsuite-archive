@@ -92,7 +92,7 @@ class Rate1D(object):
 		"""
 		Return the index for the bin corresponding to x.
 		"""
-		return int((x - self.start) * self.bins_per_unit)
+		return int(float(x - self.start) * self.bins_per_unit)
 
 	def __getitem__(self, x):
 		"""
