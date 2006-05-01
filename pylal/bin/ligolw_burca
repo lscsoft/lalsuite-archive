@@ -174,91 +174,20 @@ def append_process(doc, **kwargs):
 # =============================================================================
 #
 
-class SegListDict(dict):
-	"""
-	A dictionary of segmentlist objects constructed from a search
-	summary table, with the ability to apply offsets to the segment
-	lists.
-	"""
-	def __new__(cls, searchsummtable, proc_ids):
-		"""
-		Construct a new SegListDict object from the contents of a
-		search summary table.  The result is dictionary-like object
-		whose keys are the instrument names appearing in the search
-		summary table, and whose values are segmentlist
-		representations of the times spanned by the rows.
-		"""
-		seglists = dict.__new__(cls, None)
-		for row in searchsummtable:
-			if not llwapp.bisect_contains(proc_ids, row.process_id):
-				continue
-			if row.ifos in seglists:
-				seglists[row.ifos].append(row.get_out())
-			else:
-				seglists[row.ifos] = segments.segmentlist([row.get_out()])
-		for seglist in seglists.itervalues():
-			seglist.coalesce()
-		return seglists
-
-	def __init__(self, *args):
-		self.offsets = {}
-		for instrument in self.iterkeys():
-			self.offsets[instrument] = LIGOTimeGPS(0)
-
-	def set_offsets(self, offsetdict):
-		"""
-		Shift the segment lists according to the instrument/offset
-		pairs in offsetdict.
-		"""
-		for instrument, offset in offsetdict.iteritems():
-			delta = offset - self.offsets[instrument]
-			if delta != 0:
-				self[instrument] = self[instrument].shift(delta)
-				self.offsets[instrument] += delta
-		return self
-
-	def remove_offsets(self):
-		"""
-		Remove the offsets from all segmentlists.
-		"""
-		for instrument, offset in self.offsets.iteritems():
-			if offset:
-				self[instrument] = self[instrument].shift(-offset)
-				self.offsets[instrument] = LIGOTimeGPS(0)
-		return self
-
-	def protract(self, x):
-		"""
-		Protract the segmentlists.
-		"""
-		for key in self.iterkeys():
-			self[key] = self[key].protract(x)
-		return self
-
-	def intersect(self, instruments):
-		"""
-		Return the intersection of the segmentlists for the
-		instruments in instruments.
-		"""
-		return reduce(segments.segmentlist.__and__, map(self.__getitem__, instruments))
-
-
 def find_coinc_proc_ids(doccontents, xmldoc, program):
 	"""
 	Take a DocContents object and set its coinc_proc_ids attribute to
 	the list of process IDs that will participate in coincidences
 	identified by the time slide table.
 	"""
-
-	ids = [row.process_id for row in llwapp.get_table(xmldoc, lsctables.ProcessTable.tableName) if row.program == program]
-	ids.sort()
+	ids = llwapp.get_process_ids_by_program(llwapp.get_table(xmldoc, lsctables.ProcessTable.tableName), program)
 
 	try:
 		halfmaxwindow = max(doccontents.windows.itervalues()) / 2
 	except:
 		halfmaxwindow = LIGOTimeGPS(0)
 
-	seglists = SegListDict(doccontents.searchsummtable, ids).protract(halfmaxwindow)
+	seglists = llwapp.SearchSummarySegListDict(doccontents.searchsummtable, ids).protract(halfmaxwindow)
 
 	doccontents.coinc_proc_ids = []
 	for offsetdict in map(doccontents.get_offsetdict, doccontents.get_tisi_ids()):

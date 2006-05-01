@@ -36,6 +36,7 @@ import sys
 import time
 import urllib
 
+from glue import segments
 from glue.ligolw import ligolw
 from glue.ligolw import metaio
 from glue.ligolw import lsctables
@@ -105,6 +106,77 @@ def get_table(doc, name):
 	return tables[0]
 
 
+class SearchSummarySegListDict(dict):
+	"""
+	A dictionary of segmentlist objects constructed from a search
+	summary table, with the ability to apply offsets to the segment
+	lists.
+	"""
+	def __new__(cls, searchsummtable, proc_ids):
+		"""
+		Construct a new SearchSummarySegListDict object from the
+		contents of a search summary table.  The result is
+		dictionary-like object whose keys are the instrument names
+		appearing in the search summary table, and whose values are
+		segmentlist representations of the times spanned by the
+		rows.  Only those rows whose process_ids appear in the
+		sorted proc_ids list are included.
+		"""
+		seglists = dict.__new__(cls, None)
+		for row in searchsummtable:
+			if not bisect_contains(proc_ids, row.process_id):
+				continue
+			if row.ifos in seglists:
+				seglists[row.ifos].append(row.get_out())
+			else:
+				seglists[row.ifos] = segments.segmentlist([row.get_out()])
+		for seglist in seglists.itervalues():
+			seglist.coalesce()
+		return seglists
+
+	def __init__(self, *args):
+		self.offsets = {}
+		for instrument in self.iterkeys():
+			self.offsets[instrument] = 0.0
+
+	def set_offsets(self, offsetdict):
+		"""
+		Shift the segment lists according to the instrument/offset
+		pairs in offsetdict.
+		"""
+		for instrument, offset in offsetdict.iteritems():
+			delta = offset - self.offsets[instrument]
+			if delta != 0.0:
+				self[instrument] = self[instrument].shift(delta)
+				self.offsets[instrument] += delta
+		return self
+
+	def remove_offsets(self):
+		"""
+		Remove the offsets from all segmentlists.
+		"""
+		for instrument, offset in self.offsets.iteritems():
+			if offset:
+				self[instrument] = self[instrument].shift(-offset)
+				self.offsets[instrument] = 0.0
+		return self
+
+	def protract(self, x):
+		"""
+		Protract the segmentlists.
+		"""
+		for key in self.iterkeys():
+			self[key] = self[key].protract(x)
+		return self
+
+	def intersect(self, instruments):
+		"""
+		Return the intersection of the segmentlists for the
+		instruments in instruments.
+		"""
+		return reduce(segments.segmentlist.__and__, map(self.__getitem__, instruments))
+
+
 #
 # =============================================================================
 #
@@ -147,6 +219,16 @@ def set_process_end_time(process):
 	"""
 	process.end_time = XLALUTCToGPS(time.gmtime()).seconds
 	return process
+
+
+def get_process_ids_by_program(processtable, program):
+	"""
+	From a process table, return a sorted list of the process IDs for
+	the given program.
+	"""
+	ids = [row.process_id for row in processtable if row.program == program]
+	ids.sort()
+	return ids
 
 
 def append_process_params(doc, process, params):
