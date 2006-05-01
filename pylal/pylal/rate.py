@@ -44,7 +44,7 @@ __date__ = "$Date$"[7:-2]
 #
 # =============================================================================
 #
-#      Convolve impulse events with a Gaussian window to compute the rate
+#                                   Windows
 #
 # =============================================================================
 #
@@ -64,6 +64,14 @@ def tophat_window(halfwidth):
 	bins_per_unit = 10.0 / halfwidth
 	return numarray.ones(2.0 * halfwidth / bins_per_unit) / (2.0 * halfwidth)
 
+
+#
+# =============================================================================
+#
+#                                     1-D
+#
+# =============================================================================
+#
 
 class Rate1D(object):
 	"""
@@ -106,12 +114,20 @@ class Rate1D(object):
 
 	def convolve(self):
 		"""
-		Convolve the binned weights with the window to smooth the data
-		set.
+		Convolve the binned weights with the window to smooth the
+		data set.
 		"""
 		self.yvals = convolve.convolve(self.yvals, self.window(self.halfwidth), mode=convolve.SAME)
 		return self
 
+
+#
+# =============================================================================
+#
+#                                  Utilities
+#
+# =============================================================================
+#
 
 def smooth(impulses, segment, width, weights = None):
 	"""
