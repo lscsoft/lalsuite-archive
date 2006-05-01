@@ -400,7 +400,10 @@ static PyObject *pylal_LIGOTimeGPS___str__(PyObject *self)
 		return NULL;
 
 	if(gps.gpsNanoSeconds) {
-		snprintf(str, 21, "%d.%09u", gps.gpsSeconds, abs(gps.gpsNanoSeconds));
+		if((gps.gpsSeconds == 0) && (gps.gpsNanoSeconds < 0))
+			snprintf(str, 21, "-0.%09u", abs(gps.gpsNanoSeconds));
+		else
+			snprintf(str, 21, "%d.%09u", gps.gpsSeconds, abs(gps.gpsNanoSeconds));
 		for(i = strlen(str); str[--i] == '0'; str[i] = '\0');
 	} else
 		snprintf(str, 21, "%d", gps.gpsSeconds);
