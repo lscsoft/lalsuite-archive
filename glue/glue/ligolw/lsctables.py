@@ -937,19 +937,13 @@ class SnglBurst(LSCTableRow):
 		return self.event_id == key
 
 	def get_start(self):
-		try:
-			return lal.LIGOTimeGPS(self.start_time, self.start_time_ns)
-		except AttributeError:
-			return lal.LIGOTimeGPS(self.stop_time, self.stop_time_ns) - self.duration
+		return lal.LIGOTimeGPS(self.start_time, self.start_time_ns)
 
 	def set_start(self, gps):
 		self.start_time, self.start_time_ns = gps.seconds, gps.nanoseconds
 
 	def get_stop(self):
-		try:
-			return lal.LIGOTimeGPS(self.stop_time, self.stop_time_ns)
-		except AttributeError:
-			return lal.LIGOTimeGPS(self.start_time, self.start_time_ns) + self.duration
+		return lal.LIGOTimeGPS(self.stop_time, self.stop_time_ns)
 
 	def set_stop(self, gps):
 		self.stop_time, self.stop_time_ns = gps.seconds, gps.nanoseconds
