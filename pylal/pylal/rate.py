@@ -77,12 +77,12 @@ class Rate1D(object):
 	"""
 	An object for binning and smoothing impulsive data.
 	"""
-	def __init__(self, segment, halfwidth, windowfunc = gaussian_window):
+	def __init__(self, segment, width, windowfunc = gaussian_window):
 		"""
 		Initialize the bins for the given segment and width.
 		"""
-		self.halfwidth = halfwidth
-		self.bins_per_unit = 10.0 / halfwidth
+		self.halfwidth = width / 2.0
+		self.bins_per_unit = 10.0 / self.halfwidth
 		self.start = segment[0]
 		self.xvals = numarray.arrayrange(0.0, float(segment.duration()), 1.0/self.bins_per_unit) + float(segment[0])
 		self.yvals = numarray.zeros(len(self.xvals), "Float32")
@@ -152,7 +152,7 @@ def smooth(impulses, segment, width, weights = None):
 		# plot
 		plot(x, y)
 	"""
-	rate = Rate1D(segment, width / 2.0)
+	rate = Rate1D(segment, width)
 	if weights != None:
 		for n, x in enumerate(impulses):
 			if segment[0] <= x < segment[1]:
