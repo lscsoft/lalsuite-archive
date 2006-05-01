@@ -294,9 +294,9 @@ class TriggerList(object):
 		self.triggers.append(trigger)
 
 	def mkindex(self):
-		self.triggers.sort(lambda a, b: cmp(a.get_stop(), b.get_stop()))
+		self.triggers.sort(lambda a, b: cmp(a.get_start() + a.duration, b.get_start() + b.duration))
 		self.start_times = [LIGOTimeGPS(row.get_start()) for row in self.triggers]
-		self.stop_times = [LIGOTimeGPS(row.get_stop()) for row in self.triggers]
+		self.stop_times = [LIGOTimeGPS(row.get_start()) + row.duration for row in self.triggers]
 		self.maxduration = max(map(lambda stop, start: stop - start, self.stop_times, self.start_times))
 
 	def set_offset(self, offset):
