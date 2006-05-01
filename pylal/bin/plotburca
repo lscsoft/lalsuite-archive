@@ -295,10 +295,10 @@ class RateContours(object):
 			self.seglistdict.set_offsets({self.x_instrument: row[self.x_instrument], self.y_instrument: row[self.y_instrument]})
 			self.bins.incdenominator(row[self.x_instrument], row[self.y_instrument], float(self.seglistdict.intersect(instruments).duration()))
 		self.bins.normalize()
-		self.axes.contour(self.bins.xcoords, self.bins.ycoords, self.bins.numerator / self.bins.denominator)
+		self.axes.contour(self.bins.xcoords, self.bins.ycoords, numarray.log(self.bins.numerator / self.bins.denominator))
 		for row in self.tisirows:
 			self.axes.plot((row[self.x_instrument],), (row[self.y_instrument],), "k+")
-		self.axes.set_title("Coincident Trigger Rate vs. Offset")
+		self.axes.set_title("Coincident Trigger Rate vs. Offset\n(Logarithmic Contours)")
 
 
 #
