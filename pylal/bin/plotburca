@@ -28,6 +28,7 @@
 
 import bisect
 from optparse import OptionParser
+import math
 import matplotlib
 matplotlib.use("Agg")
 from matplotlib import figure
@@ -37,9 +38,12 @@ import os
 import stat
 import sys
 
+from glue import segments
 from glue.lal import CacheEntry
 from glue.ligolw import lsctables
 from pylal import llwapp
+from pylal import rate
+from pylal.date import LIGOTimeGPS
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
@@ -58,6 +62,7 @@ def parse_command_line():
 	parser = OptionParser(version="%prog CVS $Id$")
 	parser.add_option("-b", "--base", metavar = "base", default = "plotburca_", help = "set the prefix for output filenames (default = plotburca_)")
 	parser.add_option("-f", "--format", metavar = "format", default = "png", help = "set the output image format (default = png)")
+	parser.add_option("-l", "--live-time-program", metavar = "program", default = "power", help = "set the name, as it appears in the process table, of the program whose search summary entries define the search live time (default = power)")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
 	options, filenames = parser.parse_args()
 
@@ -85,6 +90,9 @@ def sort_files(filenames, verbose = False):
 
 class SnglBurst(object):
 	__slots__ = ["ifo", "central_freq", "confidence", "peak_time", "peak_time_ns", "event_id"]
+
+	def get_peak(self):
+		return LIGOTimeGPS(self.peak_time, self.peak_time_ns)
 
 def snglburst_init(self, attrs):
 	lsctables.LSCTableUnique.__init__(self, attrs)
@@ -136,7 +144,7 @@ lsctables.TimeSlideTable.append = timeslide_append
 #
 
 class DocContents(object):
-	def __init__(self, xmldoc):
+	def __init__(self, xmldoc, live_time_program):
 		#
 		# Extract tables
 		#
@@ -145,6 +153,12 @@ class DocContents(object):
 		self.coinctable = llwapp.get_table(xmldoc, lsctables.CoincTable.tableName)
 		self.coincmaptable = llwapp.get_table(xmldoc, lsctables.CoincMapTable.tableName)
 		self.tisitable = llwapp.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
+
+		#
+		# Extract segmentlist dictionary
+		#
+
+		self.seglistdict = llwapp.SearchSummarySegListDict(llwapp.get_table(xmldoc, lsctables.SearchSummaryTable.tableName), llwapp.get_process_ids_by_program(llwapp.get_table(xmldoc, lsctables.ProcessTable.tableName), live_time_program))
 
 		#
 		# Find foreground time slide
@@ -177,29 +191,27 @@ class DocContents(object):
 # =============================================================================
 #
 
-class CoincEventIter(object):
-	def __init__(self,  doc):
-		self.doc = doc
-		self.iditer = doc.coinctable.rows.iterkeys()
+def CoincEventIter(doc):
+	"""
+	Generates a sequence of tuples, one for each coincidence in the
+	data set.  The first element of each tuple is True or False
+	indicating if the coincidence is a foreground event, the second
+	element is the time slide dictionary at which the coincidence was
+	found, and the third is a list of the sngl_burst events in the
+	coincidence.
+	"""
+	for id in doc.coinctable.rows.iterkeys():
+		yield doc.coinctable.rows[id] == doc.foreground_tisi_id, doc.tisitable.rows[doc.coinctable.rows[id]], doc.get_burst_by_coincid(id)
 
-	def __iter__(self):
-		return self
 
-	def next(self):
-		id = self.iditer.next()
-		return self.doc.coinctable.rows[id] == self.doc.foreground_tisi_id, self.doc.get_burst_by_coincid(id)
-
-
-class CoincTisiIter(object):
-	def __init__(self, doc):
-		self.rows = doc.tisitable.rows
-		self.iditer = doc.coinctable.rows.itervalues()
-
-	def __iter__(self):
-		return self
-
-	def next(self):
-		return self.rows[self.iditer.next()]
+def CoincTisiIter(doc):
+	"""
+	Generates a sequence of time-slide dictionaries, one for each
+	coincidence in the data set, indicating the time slide at which the
+	corresponding coincidence was found.
+	"""
+	for id in doc.coinctable.rows.itervalues():
+		yield doc.tisitable.rows[id]
 
 
 #
@@ -225,17 +237,17 @@ class RatioBins(object):
 		self.numerator = numarray.zeros((ny, nx), numarray.Float64)
 		self.denominator = numarray.zeros((ny, nx), numarray.Float64)
 
-	def incnumerator(self, x, y):
+	def incnumerator(self, x, y, weight = 1.0):
 		if (self.xmin <= x <= self.xmax) and (self.ymin <= y <= self.ymax):
 			i = int((y - self.ymin) / self.dy + 0.5)
 			j = int((x - self.xmin) / self.dx + 0.5)
-			self.numerator[i, j] += 1.0
+			self.numerator[i, j] += weight
 
-	def incdenominator(self, x, y):
+	def incdenominator(self, x, y, weight = 1.0):
 		if (self.xmin <= x <= self.xmax) and (self.ymin <= y <= self.ymax):
 			i = int((y - self.ymin) / self.dy + 0.5)
 			j = int((x - self.xmin) / self.dx + 0.5)
-			self.denominator[i, j] += 1.0
+			self.denominator[i, j] += weight
 
 	def normalize(self):
 		self.denominator = numarray.where(self.denominator > 0, self.denominator, 1)
@@ -253,8 +265,8 @@ class RateContours(object):
 	def __init__(self, x_instrument, y_instrument):
 		self.x_instrument = x_instrument
 		self.y_instrument = y_instrument
-		self.tisi_offsets_x = []
-		self.tisi_offsets_y = []
+		self.tisirows = None
+		self.seglistdict = None
 		self.fig = figure.Figure()
 		self.canvas = FigureCanvasAgg(self.fig)
 		self.fig.set_figsize_inches(16,16)
@@ -267,23 +279,32 @@ class RateContours(object):
 		self.axes.set_ylabel("%s Offset (s)" % y_instrument)
 
 	def addto(self, doc):
-		if not self.tisi_offsets_x:
-			for offsetdict in doc.tisitable.rows.itervalues():
-				self.tisi_offsets_x.append(offsetdict[self.x_instrument])
-				self.tisi_offsets_y.append(offsetdict[self.y_instrument])
+		if self.tisirows == None:
+			self.tisirows = doc.tisitable.rows.values()
+		if self.seglistdict == None:
+			self.seglistdict = doc.seglistdict
+		else:
+			for instrument, seglist in doc.seglistdict.iteritems():
+				self.seglistdict[instrument] |= seglist
 		for offsetdict in CoincTisiIter(doc):
 			self.bins.incnumerator(offsetdict[self.x_instrument], offsetdict[self.y_instrument])
 
 	def finish(self):
-		self.axes.contour(self.bins.xcoords, self.bins.ycoords, self.bins.numerator)
-		self.axes.plot(self.tisi_offsets_x, self.tisi_offsets_y, "k+")
+		instruments = self.seglistdict.keys()
+		for row in self.tisirows:
+			self.seglistdict.set_offsets({self.x_instrument: row[self.x_instrument], self.y_instrument: row[self.y_instrument]})
+			self.bins.incdenominator(row[self.x_instrument], row[self.y_instrument], float(self.seglistdict.intersect(instruments).duration()))
+		self.bins.normalize()
+		self.axes.contour(self.bins.xcoords, self.bins.ycoords, self.bins.numerator / self.bins.denominator)
+		for row in self.tisirows:
+			self.axes.plot((row[self.x_instrument],), (row[self.y_instrument],), "k+")
 		self.axes.set_title("Coincident Trigger Rate vs. Offset")
 
 
 #
 # =============================================================================
 #
-#                             Confidence Contours
+#                              Confidence Scatter
 #
 # =============================================================================
 #
@@ -307,10 +328,10 @@ class ConfidenceScatter(object):
 		self.axes.grid(True)
 
 		self.axes.set_xlabel("%s Confidence" % x_instrument)
-		self.axes.set_ylabel("%s COnfidence" % y_instrument)
+		self.axes.set_ylabel("%s Confidence" % y_instrument)
 
 	def addto(self, doc):
-		for foreground, trigs in CoincEventIter(doc):
+		for foreground, tisi, trigs in CoincEventIter(doc):
 			if foreground:
 				self.n_foreground += 1
 				for trig in trigs:
@@ -335,12 +356,70 @@ class ConfidenceScatter(object):
 #
 # =============================================================================
 #
+#                              Delta-t Histogram
+#
+# =============================================================================
+#
+
+class DeltaTHistogram(object):
+	def __init__(self, instrument, interval, width):
+		self.instrument = instrument
+		self.foreground = rate.Rate1D(interval, width)
+		self.background = rate.Rate1D(interval, width)
+		self.fig = figure.Figure()
+		self.canvas = FigureCanvasAgg(self.fig)
+		self.fig.set_figsize_inches(16,8)
+		self.axes = self.fig.gca()
+
+		self.axes.grid(True)
+
+		self.axes.set_xlabel("Offset (s)")
+		self.axes.set_ylabel("Triggers per Unit Offset")
+
+	def addto(self, doc):
+		for foreground, tisi, trigs in CoincEventIter(doc):
+			n = len(trigs)
+			mean = 0
+			t = None
+			for trig in trigs:
+				peak = trig.get_peak() + tisi[trig.ifo]
+				mean += peak / n
+				if trig.ifo == self.instrument:
+					t = peak
+			if t != None:
+				if foreground:
+					self.foreground[t - mean] = 1.0
+				else:
+					self.background[t - mean] = 1.0
+
+	def finish(self):
+		self.axes.set_title("%s Peak Time Offset From Coincidence Mean" % self.instrument)
+		self.background.convolve()
+		self.foreground.convolve()
+		self.axes.plot(self.background.xvals, self.background.yvals, "k")
+		self.axes.plot(self.foreground.xvals, self.foreground.yvals, "r")
+
+
+#
+# =============================================================================
+#
 #                                     Plot
 #
 # =============================================================================
 #
 
-plots = (RateContours("H2", "H1"), ConfidenceScatter("H2", "H1"), ConfidenceScatter("H2", "L1"), ConfidenceScatter("L1", "H1"))
+deltat_seg = segments.segment(-0.3, +0.3)
+deltat_width = 0.03125
+
+plots = [
+	RateContours("H2", "H1"),
+	ConfidenceScatter("H2", "H1"),
+	ConfidenceScatter("H2", "L1"),
+	ConfidenceScatter("L1", "H1"),
+	DeltaTHistogram("H1", deltat_seg, deltat_width),
+	DeltaTHistogram("H2", deltat_seg, deltat_width),
+	DeltaTHistogram("L1", deltat_seg, deltat_width)
+]
 
 options, filenames = parse_command_line()
 for n, filename in enumerate(sort_files(filenames, options.verbose)):
@@ -349,17 +428,12 @@ for n, filename in enumerate(sort_files(filenames, options.verbose)):
 	doc = llwapp.load_filename(filename, options.verbose)
 	if options.verbose:
 		print >>sys.stderr, "indexing..."
-	contents = DocContents(doc)
+	contents = DocContents(doc, options.live_time_program)
 	for n, plot in enumerate(plots):
 		if options.verbose:
 			print >>sys.stderr, "adding to plot %d..." % n
 		plot.addto(contents)
 	doc.unlink()
-
-if options.verbose:
-	print >>sys.stderr, "finishing..."
-for plot in plots:
-	plot.finish()
 
 
 #
@@ -370,10 +444,19 @@ for plot in plots:
 # =============================================================================
 #
 
-for n, plot in enumerate(plots):
-	filename = "%s%d.%s" % (options.base, n, options.format)
+# delete the plots as we go to save memory
+n = 0
+format = "%%s%%0%dd.%%s" % (int(math.log10(len(plots))) + 1)
+while len(plots):
+	plot = plots[0]
+	filename = format % (options.base, n, options.format)
+	if options.verbose:
+		print >>sys.stderr, "finishing plot %d..." % n
+	plot.finish()
 	if options.verbose:
 		print >>sys.stderr, "writing %s..." % filename
 	plot.fig.savefig(filename)
+	del plots[0]
+	n += 1
 if options.verbose:
 	print >>sys.stderr, "done."
