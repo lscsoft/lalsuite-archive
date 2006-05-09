@@ -19,30 +19,29 @@ from glue.ligolw import lsctables
 from glue.ligolw import docutils
 from pylal import viz
 
-
 ##############################################################################
 # redefine the SimInspiral columns of interest
 ##############################################################################
 class SimInspiralCut(lsctables.LSCTableRow):
   __slots__ = {
     "waveform": "lstring",
-		"geocent_end_time": "int_4s",
-		"geocent_end_time_ns": "int_4s",
-		"h_end_time": "int_4s",
-		"h_end_time_ns": "int_4s",
-		"l_end_time": "int_4s",
-		"l_end_time_ns": "int_4s",
-		"source": "lstring",
-		"mass1": "real_4",
-		"mass2": "real_4",
-		"mchirp": "real_4",
-		"eta": "real_4",
-		"distance": "real_4",
-		"eff_dist_h": "real_4",
-		"eff_dist_l": "real_4",
-		"eff_dist_g": "real_4",
+    "geocent_end_time": "int_4s",
+    "geocent_end_time_ns": "int_4s",
+    "h_end_time": "int_4s",
+    "h_end_time_ns": "int_4s",
+    "l_end_time": "int_4s",
+    "l_end_time_ns": "int_4s",
+    "source": "lstring",
+    "mass1": "real_4",
+    "mass2": "real_4",
+    "mchirp": "real_4",
+    "eta": "real_4",
+    "distance": "real_4",
+    "eff_dist_h": "real_4",
+    "eff_dist_l": "real_4",
+    "eff_dist_g": "real_4",
     "eff_dist_t": "real_4",
-		"eff_dist_v": "real_4" }
+    "eff_dist_v": "real_4" }
 
 lsctables.SimInspiralTable.RowType = SimInspiralCut
 
@@ -52,14 +51,17 @@ lsctables.SimInspiralTable.RowType = SimInspiralCut
 def isSimInsp(name, attrs):
   return lsctables.IsTableProperties(lsctables.SimInspiralTable, name, attrs)
 
-def readFiles(fList):
+def readFiles(injGlob):
   """
   read in the SimInspiralTables from a list of files
   @param fList:       list of input files
   """
-  output = None
+  fList = glob.glob(injGlob)
   if not fList:
-    return output
+    print >>sys.stderr, "The glob for " + injGlob + " returned no files"
+    sys.exit(1)
+
+  output = None
   for thisFile in fList:
     doc = ligolw.Document()
     # read in SimInspiral
@@ -74,10 +76,10 @@ def readFiles(fList):
       output = simInspiralTable
   return output
 
-#######################################################################
+##############################################################################
 # Function to read in the source file and return a sorted list of its
 # components according to the luminosity
-#######################################################################
+##############################################################################
 def read_source_file( source_file ):
   f = open( source_file , "r")
   lines = f.readlines()
@@ -86,13 +88,11 @@ def read_source_file( source_file ):
   sourcelist = []
   luminosity = []
 
-  i = 4
-  while i < len(lines): 
-    b  = string.split(lines[i])
-    c  = { 'name': b[0], 'luminosity': float(b[4]) }
-    sourcelist.append(c)
-    i = i + 1    
-
+  for line in lines:
+    if line[0] != '#':
+      b  = string.split(line)
+      c  = { 'name': b[0], 'luminosity': float(b[4]) }
+      sourcelist.append(c)
 
   sort_on = "luminosity"
   decorated = [(dict_[sort_on], dict_) for dict_ in sourcelist]
@@ -101,9 +101,9 @@ def read_source_file( source_file ):
 
   return sortedlist
 
-#######################################################################
+##############################################################################
 # Chop a simInspiralTable into segments that we care about.
-#######################################################################
+##############################################################################
 def segmentCut ( sim_table, seglist, col_name ):
 
   tmpTable = lsctables.New(lsctables.SimInspiralTable)
@@ -115,43 +115,25 @@ def segmentCut ( sim_table, seglist, col_name ):
 
   return tmpTable
 
-
-
-#######################################################################
-#1. Define a Step size
-#2. Define an Edge
-#3. Define a Square Array
-#######################################################################
-def step_size(A):
-	 step = (max(A)-min(A))*1.0/opts.nbins
-         return step
-
-
-def edges(A):
-
-	 tmp_edges = arange(min(A),max(A),step_size(A))
-	 return tmp_edges
-
+##############################################################################
+# Define a Square Array
+##############################################################################
 def square(M,medges,mstep,D,dedges,dstep):
-	 i = 0
-	 ng_m_d = zeros((len(medges),len(medges)))
+  i = 0
+  ng_m_d = zeros((len(medges),len(dedges)),'d')
  
-	 while i < len(M):	
-		k = int((M[i]-medges[0])*1.0/mstep)
-  		
-		l = int((D[i]-dedges[0])*1.0/dstep)
-	 
-		if (k>=0 and k < len(medges)) \
-		   and (l>=0 and l< len(dedges)):	
-	                ng_m_d[l][k] = ng_m_d[l][k] + 1  
-		i = i+1
- 	 
-	 return ng_m_d
+  while i < len(M):  
+    k = int((M[i]-medges[0])/mstep)
+    l = int((D[i]-dedges[0])/dstep)
+    
+    if (k>=0 and k<opts.nbins) and (l>=0 and l<opts.nbins):
+      ng_m_d[l][k] = ng_m_d[l][k] + 1  
+    i = i+1
+  return ng_m_d
 
-
-#######################################################################
+##############################################################################
 # Chop a simInspiralTable based on component masses.
-#######################################################################
+##############################################################################
 def massCut (sim_table, m_low, m_high):
 
   tmpTable = lsctables.New(lsctables.SimInspiralTable)
@@ -164,51 +146,102 @@ def massCut (sim_table, m_low, m_high):
       tmpTable.append(entry)
 
   return tmpTable
+  
+##############################################################################
+# Read in a column (and if necessary calculate chirp dist)
+##############################################################################
+def readColumn(table,column):
 
+  if 'chirp_dist' in column:
+    return chirpDistance(table, column)
+
+  return table.getColumnByName(column).asarray()
+
+##############################################################################
+# Calculate the chirp distance for inspirals.
+##############################################################################
+def chirpDistance (sim_table, column, ref_mass = 1.4):
+
+  effDist = 'eff_dist_' + column[-1]
+  dist = sim_table.getColumnByName(effDist).asarray()
+  mchirp = sim_table.getColumnByName('mchirp').asarray()
+
+  chirpDist = dist * (  (2.**(-1./5)) * ref_mass / mchirp)**(5./6)
+
+  return chirpDist
 
 ##############################################################################
 # help message
 usage = """\
-Usage: plotgbb [options]
+plotnumgalaxies [options]
 
-  SUMMARY:  
+  Generate a set of plots of galaxy distributions.  There are two classes of
+  plots which can be made.  The first require only the astrophysical
+  distribution of galaxies and the second require efficiency measurements from
+  a search.
   
-  Generate a set of summary plots from triggers stored as simInspiral 
-  tables in LIGO lightweight format.  The code requires an the following
-  input:
-    
-  --injection-glob:  A glob of xml files of sim inspirals
-  --source-file:     A list of source galaxies used to generate the injections
-    
-  It can cut the input injections to keep only those in times analyzed, if 
+  For the astrophysical plots, you must specify:
+  
+  --source-file:     A list of source galaxies (such as inspsrcs.dat)
+  --injection-glob:  A glob of xml files of sim inspirals, generated with the
+                     source file given above.
+  
+  The injections can be cut to keep only those in the relevant times, if a 
   --segment-file is specified.
   
-    1. A plot of the number of galaxies vs effective distance.
-    2. A log-log plot of number of galaxies vs effective distance.
-    3. A histogram of the number of galaxies vs effective distance 
-         (basically a binned version of 1).
-    4. A plot of the cumulative number of galaxies vs effective distance.
-    5. Determine efficiency vs effective distance, and number of galaxies to
-       which a search is sensitive.  These require that --glob-found and 
-       --glob-missed are specified.  Optionally, a low and high mass threshold 
-       can be specified. In this case, only injections with component masses 
-       between these values are retained.  The following results are given:
-      a. A plot of efficiency vs effective distance 
-      b. A histogram of number of galaxies vs effective distance, using the
-         same binning as 5a.
-      c. A cumulative plot of the number of galaxies the search was sensitive 
-         to.  This is a cumulative sum of the values plotted in 5a and 5b.
-      d. The number of galaxies the search was sensitive to.
+  The number of galaxies can be plotted against the specified
+  --x-value, where this can be any column in the siminspiral table, or the 
+  chirp_dist_X (where X is one of g,h,l,t,v).  The plots are:
+  
+  1.  A plot of the number of galaxies.
+  
+  2.  A histogram of the number of galaxies (basically a binned version of 1).
+  
+  3.  A plot of the cumulative number of galaxies.
+  
+  3b. The above plot with a fitted curve of the cumulative number of
+  
+  4.  A log-log plot of number of galaxies.
+  
+  5.  A 2-d contour plot of the number of galaxies can be made, for this
+      --y-value must also be given.
+  
+  In order to plot efficiencies from a search, you must specify:
+  
+  --glob-found:  A glob of xml files containing found injections and  
+  --glob-missed: A glob of xml files containing missed injections
+  
+  In this case, the plots are
+
+  6.  An efficiency plot vs x-value
+
+  7.  The Monte Carlo errors on the efficiency.
+  
+  8.  The cumulative number of galaxies (taking into account the search
+      efficiency).
+
+  9.  Contour plots of the number of injections performed and found.
+  
+  10. A 2-d efficiency plot vs x-value and y-value.
+
+  11. The Monte Carlo errors on the 2-d efficiency plot.
+
+  12. A calculation of the total number of galaxies available to the
+      search, using the 2-d integral.
 """
 
 ##############################################################################
 parser = OptionParser( usage )
+
+# basics
 parser.add_option("-v","--version",action="store_true",default=False,\
     help="display version information " )
 
 parser.add_option("-V","--verbose",action="store_true",default=False,\
     help="print additional information when running" )
 
+
+# input files
 parser.add_option("-S","--source-file",action="store",type="string",\
     default=None,metavar=" SOURCES",help="full path to source file")
 
@@ -219,6 +252,26 @@ parser.add_option("-I","--injection-glob",action="store",type="string",\
 parser.add_option("-G","--segment-file",action="store",type="string",\
     default=None,metavar=" SEG_LIST",help="full path to segment file")
 
+parser.add_option("-g","--glob-found",action="store",type="string",\
+    default=None, metavar=" FOUND_GLOB", \
+    help="GLOB of found trigger/injection files to read" )
+    
+parser.add_option("-m","--glob-missed",action="store",type="string",\
+    default=None, metavar=" MISS_GLOB", \
+    help="GLOB of files containing missed injections to read" )
+
+
+# mass cut
+parser.add_option("-L","--m-low",action="store",type="float",default=None,\
+    metavar=" M_LOW", 
+    help="low mass threshold in mass cut" )
+
+parser.add_option("-H","--m-high",action="store",type="float",default=None,\
+    metavar=" M_HIGH", 
+    help="high mass threshold in mass cut" )
+
+
+# plotting details
 parser.add_option("-f","--figure-name",action="store",type="string",\
     default=None,metavar=" FNAME",\
     help="generate ps figures with name FNAME_PlotType.ps")
@@ -228,382 +281,174 @@ parser.add_option("-t","--title",action="store",type="string",default=None,\
     
 parser.add_option("-s","--show-plot",action="store_true",default=False,\
     help="display the figures on the terminal" )
-    
-parser.add_option("-r","--plot-ng",action="store_true",default=False,\
-    help="make a plot of ng vs effective distance" )
+        
+parser.add_option("-X","--x-value",action="store",type="string",\
+    default ="eff_dist_h",\
+    help="Assigns x axis parameter for plot contour, (default eff_dist_h)")
 
-parser.add_option("-c","--add-curvefit",action="store_true",default=False,\
-    help="add a curve to fit the ng distribution" )
-
-parser.add_option("-l","--log-ng",action="store_true",default=False,\
-    help="make a log-log plot of ng vs effective distance" )
-    
-parser.add_option("-b","--hist-ng",action="store_true",default=False,\
-    help="make a histogram of ng vs effective distance" )
-    
-parser.add_option("-u","--cumulative-ng",action="store_true",default=False,\
-    help="make a plot of cumulative Ng vs effective distance" )
-    
 parser.add_option("-x","--x-max",action="store",type="float",default = 100.0,\
-    help="maximum value plotted on x axis")
-    
-parser.add_option("-y","--y-max",action="store",type="float",default = None,\
-    help="maximum value plotted on y axis")
+    help="maximum value plotted on x axis (default 100)")
 
-parser.add_option("-Y","--Y-contour",action="store",type="string",default ="eff_dist_h",\
-    help="Assigns the parameter to y axis to plot contour, (default eff_dist_h)")
+parser.add_option("-q","--x-min",action="store",type="float",default = 1e-4,\
+    help="minimum value plotted on x axis (default 0.0001)")
 
-parser.add_option("-X","--X-contour",action="store",type="string",default ="mchirp",\
+parser.add_option("-Y","--y-value",action="store",type="string",\
+    default ="mchirp",\
     help="Assigns the parameter to x axis to plot contour, (default mchirp)")
 
-    
-parser.add_option("-e","--plot-efficiency",action="store_true",default=False,\
-    help="make a plot of efficiency vs effective distance" )
+parser.add_option("-y","--y-max",action="store",type="float",default = 2.62,\
+    help="maximum value plotted on y axis (default 2.62")
 
-parser.add_option("-M","--plot-chirpmass",action="store_true",default=False,\
-    help="make a histogram of ng vs chirp mass" )
+parser.add_option("-p","--y-min",action="store",type="float",default = 0.87,\
+    help="minimum value plotted on y axis (default 0.87)")
 
-parser.add_option("-C","--plot-contour",action="store_true",default=False,\
-    help="make a Contour plot of parameters X and Y")
-
-
-parser.add_option("-D","--plot-distance",action="store_true",default=False,\
-    help="make a Contour plot of Hanford-site distance and Livingston-site distance")
-   
-parser.add_option("-E","--plot-effcontour",action="store_true",default=False,\
-    help="make a Contour plot of efficiency vs chirp mass and eff. dist")
-   
-parser.add_option("-g","--glob-found",action="store",type="string",\
-    default=None, metavar=" FOUND_GLOB", \
-    help="GLOB of found trigger/injection files to read" )
-    
-parser.add_option("-m","--glob-missed",action="store",type="string",\
-    default=None, metavar=" MISS_GLOB", \
-    help="GLOB of files containing missed injections to read" )
-
-parser.add_option("-i","--site",action="store",type="string",\
-    default="Hanford",metavar=" SITE",
-    help="use effective distance for this site (default Hanford)")
-
-parser.add_option("-L","--m-low",action="store",type="float",default=None,\
-    metavar=" M_LOW", 
-    help="low mass threshold in mass cut" )
-
-parser.add_option("-H","--m-high",action="store",type="float",default=None,\
-    metavar=" M_HIGH", 
-    help="high mass threshold in mass cut" )
+parser.add_option("-Q","--axes-square",action="store_true",default=False,\
+    help="make the axis ranges for x and y equal")
 
 parser.add_option("-n","--nbins",action="store",type="int",default=20,\
     metavar=" NBINS", 
     help="number of bins for the histogram plots (default = 20)" )
 
-  
+# plots to be made
+parser.add_option("-N","--plot-ng",action="store_true",default=False,\
+    help="plot the astrophysical ng vs x-value")
+
+parser.add_option("-b","--hist-ng",action="store_true",default=False,\
+    help="make a histogram of ng vs x-value" )
+
+parser.add_option("-u","--cumulative-ng",action="store_true",default=False,\
+    help="make a plot of cumulative Ng vs x-value" )
+    
+parser.add_option("-l","--cum-log-ng",action="store_true",default=False,\
+    help="make a log-log plot of ng vs x-value" )
+
+parser.add_option("-c","--add-curvefit",action="store_true",default=False,\
+    help="add a curve to fit the ng distribution" )
+
+parser.add_option("-e","--plot-efficiency",action="store_true",default=False,\
+    help="make a plot of efficiency vs x-value" )
+
+parser.add_option("-M","--mc-errors",action="store_true",default=False,\
+    help="plot the mc errors in efficiency" )
+
+parser.add_option("-U","--cum-search-ng",action="store_true",default=False,\
+    help="make a plot of cumulative Ng for search vs x-value" )
+
+parser.add_option("-E","--plot-effcontour",action="store_true",default=False,\
+    help="make an efficiency contour plot of parameters x and y")
+
+parser.add_option("-F","--plot-injections",action="store_true",default=False,\
+    help="make contour plots of found and total injections")
+
+parser.add_option("-O","--plot-2d-ng",action="store_true",default=False,\
+    help="plot the astrophysical ng vs x-value")
+
+parser.add_option("-W","--cum-search-2d-ng",action="store_true",default=False,\
+    help="calculate the cumulateive number of galaxies for this search" )
+
 (opts,args) = parser.parse_args()
 
-#######################################################################
+##############################################################################
 # Check options
-#######################################################################
+##############################################################################
 
 # if --version flagged
 if opts.version:
   sys.exit(0)
 
-# check at least one trig file was specified
-if not opts.injection_glob:
-  print >>sys.stderr, "Must specify a GLOB of injection files to read"
-  print >>sys.stderr, "Enter 'plotgbb --help' for usage"
-  sys.exit(1)
+astro_plot = False
+eff_plot = False
 
-# check that the source file was supplied
-if not opts.source_file:
-  print >>sys.stderr, "the source list file must be supplied"
-  print >>sys.stderr, "Enter 'plotgbb --help' for usage"
-  sys.exit(1)
+# if making plots of astrophysical distribution:
+if (opts.plot_ng or opts.cum_log_ng or opts.hist_ng or opts.cumulative_ng or \
+    opts.cum_search_ng or opts.plot_2d_ng or opts.cum_search_2d_ng):
+  astro_plot = True
+  # check at least one trig file was specified
+  if not opts.injection_glob:
+    print >>sys.stderr, "Must specify a GLOB of injection files to read"
+    print >>sys.stderr, "Enter 'plotnumgalaxies --help' for usage"
+    sys.exit(1)
 
-# if doing efficiency plot
-if opts.plot_efficiency and opts.plot_effcontour:
+  # check that the source file was supplied
+  if not opts.source_file:
+    print >>sys.stderr, "the source list file must be supplied"
+    print >>sys.stderr, "Enter 'plotnumgalaxies --help' for usage"
+    sys.exit(1)
+
+
+# if making plots of efficiencies:
+if (opts.plot_efficiency or opts.cum_search_ng or opts.plot_effcontour or \
+    opts.plot_injections or opts.cum_search_2d_ng):
+  eff_plot = True
   # check at least one found file was specified
   if not opts.glob_found:
     print >>sys.stderr, "Must specify a GLOB of found injection files to read"
-    print >>sys.stderr, "Enter 'plotgbb --help' for usage"
+    print >>sys.stderr, "Enter 'plotnumgalaxies --help' for usage"
     sys.exit(1)
 
   # check that at least one missed file was specified
   if not opts.glob_missed:
     print >>sys.stderr, "Must specify a GLOB of missed injection files to read"
-    print >>sys.stderr, "Enter 'plotgbb --help' for usage"
+    print >>sys.stderr, "Enter 'plotnumgalaxies --help' for usage"
     sys.exit(1)
 
 
+##############################################################################
+# read in the astrophysical injections + distributions
+##############################################################################
+if astro_plot:
+  simInspTriggers = readFiles(opts.injection_glob)
 
-#######################################################################
-# read in the injections
-#######################################################################
-injFiles = glob.glob(opts.injection_glob)
-if not injFiles:
-    print >>sys.stderr, "The glob for " + opts.injection_glob + \
-        " returned no files"
-    sys.exit(1)
-
-simInspTriggers = readFiles(injFiles)
-
-
-#######################################################################
-# sourcelist sorted from smallest to largest in the luminosity
-#######################################################################
-sourcelist = read_source_file( opts.source_file )
-max_luminosity = sourcelist[len(sourcelist)-2]['luminosity']
-max_galaxy = sourcelist[len(sourcelist)-2]['name']
-
-if opts.verbose:
-  print "This is the Maximum Luminosity"
-  print max_luminosity
-  print "This is the Galaxy having Maximum Luminosity"
-  print max_galaxy 
-
-
-#######################################################################
-# select binaries with end times inside analyzed segments
-#######################################################################
-if opts.segment_file:
+  # sourcelist sorted from smallest to largest in the luminosity
+  sourcelist = read_source_file( opts.source_file )
+  max_luminosity = sourcelist[-1]['luminosity']
+  max_galaxy = sourcelist[-1]['name']
 
   if opts.verbose:
-    numSources = simInspTriggers.getColumnByName('source').count(max_galaxy)
-    print "The number of Sources in Above Galaxy before segment selection"
-    print numSources
-  seg_file = open( opts.segment_file , "r")
-  segList = segmentsUtils.fromsegwizard(seg_file)
-  seg_file.close()
-  simInspTriggers = segmentCut(simInspTriggers, segList , "geocent_end_time")
+    print 'The maximum luminosity = %.2f' % max_luminosity
+    print 'The Galaxy having Maximum Luminosity is ' + max_galaxy 
+
+  # select binaries with end times inside analyzed segments
+  if opts.segment_file:
+
+    if opts.verbose:
+      numSources = simInspTriggers.getColumnByName('source').count(max_galaxy)
+      print 'Number of Sources in ' + max_galaxy + \
+            ' before segment selection = %.2f' % numSources
+    seg_file = open( opts.segment_file , "r")
+    segList = segmentsUtils.fromsegwizard(seg_file)
+    seg_file.close()
+    simInspTriggers = segmentCut(simInspTriggers, segList , "geocent_end_time")
 
   
-#######################################################################
-# Determine the number of sources with highest luminousity
-#######################################################################
-numSources = simInspTriggers.getColumnByName('source').count(max_galaxy)
+  # Determine the number of sources with highest luminousity
+  numSources = simInspTriggers.getColumnByName('source').count(max_galaxy)
+  mwSources = simInspTriggers.getColumnByName('source').count('MW')
 
-if opts.verbose:
-  print "The number of Sources in Above Galaxy"
-  print numSources
+  if opts.verbose:
+    print 'The number of Sources in ' + max_galaxy + ' = %d' % numSources
+    print 'The number of Sources in the Milky Way = %d' % mwSources
+    print 'The inferred Milky Way luminosity is = %.2f' % \
+         (mwSources * max_luminosity / numSources)
 
-
-#######################################################################
-# Get sorted arrays of the effective distances
-#######################################################################
-effDistArray = {}
-sites = ['Hanford','Livingston','Geo','Tama','Virgo']
-color = {'Hanford':'r','Livingston':'g','Geo':'k','Virgo':'b','Tama':'m'}
-index = []
-for site in sites:
-  effDist = "eff_dist_" + site[0].lower() 
-  effDistArray[site] = simInspTriggers.getColumnByName(effDist).asarray()
-  effDistArray[site] = sort(effDistArray[site])
-  if not len(index):
-    index=arange( 0, len(effDistArray[site]) ) * max_luminosity/numSources
-
-
-#######################################################################
-# make a regular plot of n_g vs eff_distance
-#######################################################################
-if opts.plot_ng:
-
-  for site in sites:
-    plot( effDistArray[site], index, color[site], linewidth=1, label=site ) 
-  grid( True )
-  xlim(0,opts.x_max)
-  if opts.y_max:
-    ylim(0,opts.y_max)
-  xlabel( 'Effective Distance (Mpc)', size='x-large' )
-  ylabel('N_G', size='x-large' )
-  legend( loc=0 )
-  if opts.title:
-    title( opts.title )
-  if opts.figure_name:
-    savefig( opts.figure_name + "_plot.png" )
-
+  # Read the relevant columns
+  xAstro = readColumn(simInspTriggers,opts.x_value)
+  yAstro = readColumn(simInspTriggers,opts.y_value)
   
-#######################################################################
-# add a curve to fit the data
-#######################################################################
-if opts.add_curvefit:
-  
-  print "This is a Fitted Curve that has been done using Regression method" + \
-        "of first 30 galaxies and fitting a Cubical polynomial"  
-    
-  x = arange(0,opts.x_max,opts.x_max/100)
-  N_Gr = 0.00611877*(x)*(x)*(x)-0.0164998*(x)*(x)+2.52*(x)
-  plot(x,N_Gr,label='Fitted Curve',linewidth=1)
-  grid( True )
-  xlim(0,opts.x_max)
-  if opts.y_max:
-    ylim(0,opts.y_max)
-  xlabel( 'Effective Distance (Mpc)', size='x-large' )
-  ylabel( 'N_G', size='x-large')
-  legend( loc=0 )
-  if opts.title:  
-          title( opts.title )
-  if opts.figure_name:
-    savefig(opts.figure_name + "_curvefit.png" ) 
-
-  
-#######################################################################
-# make a loglog plot of n_g vs eff_distance
-#######################################################################
-if opts.log_ng:
-
-  figure()
-  eps=0.00001 # to prevent log(0) craziness.
-  log_i=index+eps
-
-  for site in sites:
-    loglog( effDistArray[site], index, color[site], linewidth=1, label=site ) 
-  grid( True )
-  xlim(0.1,opts.x_max)
-  if opts.y_max:
-    ylim(0.1,opts.y_max)
-  xlabel( 'Effective Distance (Mpc)', size='x-large' )
-  ylabel( 'N_G', size='x-large' )
-  legend( loc=2 )
-  if opts.title:
-    title( opts.title )
-  if opts.figure_name:
-    savefig( opts.figure_name + "_loglog.png" )
-			
-
-#######################################################################
-# make a histogram
-#######################################################################
-if opts.hist_ng:
-
-  figure()
-  step = opts.x_max/opts.nbins
-  x = arange(0,opts.x_max + step, step)
-  ng,a,b = hist( effDistArray[opts.site], x )
-  ng = ng * max_luminosity / numSources
-
-  # delete the last entries to clean up plots:
-  ng = ng[0:opts.nbins]
-  x = x[0:opts.nbins]
-  clf()
-  
-  grid( True )
-  bar( x, ng	, step )
-  xlabel( 'Effective Distance ' + opts.site + ' (Mpc)', size='x-large' )
-  ylabel('N_G', size='x-large' )
-  if opts.title:
-    title( opts.title )
-  if opts.figure_name:
-    savefig( opts.figure_name + '_' + opts.site + "_hist.png" )
-  print max(effDistArray[opts.site]) 
-
-#######################################################################
-# make a cumulative histogram
-#######################################################################
-if opts.cumulative_ng:
-
-  figure()
-  step = opts.x_max/opts.nbins
-  x = arange(0,opts.x_max + step, step)
-  ng,a,b = hist( effDistArray[opts.site], x )
-  ng = ng * max_luminosity / numSources
-
-  # delete the last entries to clean up plots:
-  x = x[0:opts.nbins]
-  ng = ng[0:opts.nbins]
-  clf()
- 
-  # cumulative ng:
-  ng = cumsum(ng)
-  
-  bar( x, ng, step )
-  grid( True )
-  xlabel( 'Effective Distance ' + opts.site + ' (Mpc)' , size='x-large')
-  ylabel('Cumulative N_G', size='x-large' )
-  if opts.title:
-    title( opts.title )
-  if opts.figure_name:
-    savefig( opts.figure_name + '_' + opts.site + "_cum_hist.png" )
-
-####################################################################
-# make a histogram of chirp mass
-####################################################################
-
-if opts.plot_chirpmass:
- 
- mchirp={}
- mchirp=simInspTriggers.getColumnByName("mchirp").asarray()
- figure()
- x = arange(0,3,0.01)
- ng,a,b = hist(mchirp,x)
- ng = ng*max_luminosity / numSources
- 
- 
- xlabel( 'Chirp Mass' )
- ylabel('ng' )
- if opts.title:
-   title( opts.title )
- if opts.figure_name:
-   savefig( "chirp_mass.png" )
-
-####################################################################
-# Plot a Contour Plot of Two parameters X and Y
-####################################################################
-if opts.plot_contour:
-
- effDist = "eff_dist_" + opts.site[0].lower()  
- y = simInspTriggers.getColumnByName(opts.Y_contour).asarray()
- x = simInspTriggers.getColumnByName(opts.X_contour).asarray()
- 
- 
-
- # Defining step and edges for this file.
- xstep = (max(x)-min(x))/opts.nbins
- ystep = (max(y)-min(y))/opts.nbins
- xedges = arange(min(x),max(x),xstep)
- yedges = arange(min(y),max(y),ystep) 
- 
- n = square(x,xedges,xstep,y,yedges,ystep)
- 
- contourf(xedges,yedges,n)
- title('n_g contour')
- colorbar()
- xlabel(opts.X_contour)
- ylabel(opts.Y_contour)
-
- 
-
-###########################################################
-# make an efficiency plot
-
-#########################################################
-
-if opts.plot_efficiency:
-  
+##############################################################################
+# read in the found/missed injections
+##############################################################################
+if eff_plot:
   # read in the found injections
-  foundFiles = glob.glob(opts.glob_found)
-  if not foundFiles:
-    print >>sys.stderr, "The glob for " + opts.glob_found + \
-        " returned no files"
-    sys.exit(1)
-
-  found = readFiles(foundFiles)
-
-    
+  found = readFiles(opts.glob_found)
+   
   # read in the missed injections
-  missedFiles = glob.glob(opts.glob_missed)
-  if not foundFiles:
-    print >>sys.stderr, "The glob for " + opts.glob_missed + \
-        " returned no files"
-    sys.exit(1)
-
-  missed = readFiles(missedFiles)
+  missed = readFiles(opts.glob_missed)
 
   if opts.verbose:
     print "Read in " + str(found.__len__()) + " found injections"
     print "Read in " + str(missed.__len__()) + " missed injections"
 
-
-  #########################################################
   # perform the mass cut, if requested:
   if opts.m_low or opts.m_high:
     found = massCut(found, opts.m_low, opts.m_high)
@@ -613,243 +458,320 @@ if opts.plot_efficiency:
       print "After mass cut, " + str(found.__len__()) + " found injections"
       print "After mass cut, " + str(missed.__len__()) + " missed injections"
 
+  # extract the x-values
+  xFound = readColumn(found,opts.x_value)
+  xMissed = readColumn(missed,opts.x_value)
+  # extract the x-values
+  yFound = readColumn(found,opts.y_value)
+  yMissed = readColumn(missed,opts.y_value)
 
-  # extract the effective distances
-  effDist = "eff_dist_" + opts.site[0].lower()  
-  hf = found.getColumnByName(effDist).asarray()
-  hm = missed.getColumnByName(effDist).asarray()
-  ha = concatenate((hf ,hm))
- 
-  # hist the found and missed, bins determined by found inj
-  maxhf = max(hf) * 1.01
-  stepf = (maxhf - min(hf))/opts.nbins
-  binsf = arange(min(hf),maxhf + 2 * stepf, stepf)
-  d = arange(min(hf),max(hf),1)
-  h_found,binsf, stuff = hist(hf, binsf)
-  h_all,binsf,stuff = hist(ha,binsf)
-
-  # calculate the number of galaxies in each bin
-  h_astro=simInspTriggers.getColumnByName(effDist).asarray()
-
-  ng,a,b = hist( h_astro, (binsf) )
-  ng_0,a,b=hist(h_astro,d)
-  ng = ng*max_luminosity/numSources
-  ng_0 = ng_0*max_luminosity/numSources
-  # delete the last entries to clean up plots:
-  ng = ng[0:opts.nbins + 1]
-  binsf = binsf[0:opts.nbins + 1]
-  ng_0 =ng_0[0:opts.nbins + 1]
-  d =d[0:opts.nbins + 1]
-  h_found = h_found[0:opts.nbins + 1]
-  h_all = h_all[0:opts.nbins + 1]
-
-  clf()
+  opts.x_max = 1.01 * max(xFound) 
+  opts.x_min = 0.99 * min(xFound) 
   
-  ###########################################################
-  # plot efficiency
-  eff = (h_found)*1.0/(h_all)
-  plot (binsf,eff,linewidth=1)
-  grid( True )
-  ylim(0,1.1) 
-  xlabel('Effective Distance ' + opts.site + ' (Mpc)', size='x-large')
-  ylabel('Efficiency', size='x-large')
-  
-  if opts.title:
-    title( opts.title )
-  if opts.figure_name:
-    savefig( opts.figure_name + '_' +opts.site + "_efficiency.png" )
-
-  
-
-  ###########################################################
-  # plot n_g
-  figure()
-  bar(binsf,ng,stepf)
-  grid( True )
-  xlabel( 'Effective Distance ' + opts.site + ' (Mpc)', size='x-large' )
-  ylabel('ng', size='x-large' )
-  if opts.title:
-    title( opts.title )
-  if opts.figure_name:
-    savefig( opts.figure_name + '_' +opts.site + "_ng_hist.png" )
-
-
-  ###########################################################
-  # plot cumulative N_G
-  ng_cum = cumsum( ng * eff )
-  ng_0cum= cumsum(ng_0)
-  figure()
-  plot(binsf,ng_cum,linewidth=1)
-  grid( True )
-  
-  xlabel( 'Effective Distance ' + opts.site + ' (Mpc)', size='x-large' )
-  ylabel('Cumulative Number of Galaxies' , size='x-large')
-  if opts.title:
-    title( opts.title )
-  if opts.figure_name:
-    savefig( opts.figure_name + '_' +opts.site + "_ng_cum_hist.png" )
-
-  print "The total Number of Galaxies"  
-  print max(ng_cum)
-  print "The total Number without taking efficiency"
-  print max(ng_0cum)
-
-
-  ##############################################################
-  # Plot Efficiency Chirp mass contour.
-  ##############################################################
-if opts.plot_effcontour: 
-
- # read in the found injections
-  foundFiles = glob.glob(opts.glob_found)
-  if not foundFiles:
-    print >>sys.stderr, "The glob for " + opts.glob_found + \
-        " returned no files"
-    sys.exit(1)
-
-  found = readFiles(foundFiles)
+  opts.y_max = 1.01 * max(yFound)
+  opts.y_min = 0.99 * min(yFound)
 
     
-  # read in the missed injections
-  missedFiles = glob.glob(opts.glob_missed)
-  if not foundFiles:
-    print >>sys.stderr, "The glob for " + opts.glob_missed + \
-        " returned no files"
-    sys.exit(1)
+  if opts.verbose:
+    print "Overwriting max value for " + opts.x_value + \
+        " with found injection max, %.2f" % opts.x_max 
 
-  missed = readFiles(missedFiles)
+    print "Overwriting min value for " + opts.x_value + \
+        " with found injection min, %.2f" % opts.x_min
+
+    print "Overwriting max value for " + opts.y_value + \
+        " with found injection max, %.2f" % opts.y_max
+
+    print "Overwriting min value for " + opts.y_value + \
+        " with found injection min, %.2f" % opts.y_min
+
+
+##############################################################################
+# generate the bins and the square array:
+##############################################################################
+if opts.axes_square:
+  if opts.x_min > opts.y_min:
+    opts.x_min = opts.y_min
+  else:
+    opts.y_min = opts.x_min
+  
+  if opts.x_max < opts.y_max:
+    opts.x_max = opts.y_max
+  else:
+    opts.y_max = opts.x_max
+
+xStep = (opts.x_max - opts.x_min)/opts.nbins
+yStep = (opts.y_max - opts.y_min)/opts.nbins
+
+# for 1-d plots, extend and then delete last entry
+x1Edges = arange(opts.x_min,opts.x_max + 2*xStep,xStep)
+xEdges = arange(opts.x_min,opts.x_max + xStep,xStep)
+yEdges = arange(opts.y_min,opts.y_max + yStep,yStep)
+
+
+##############################################################################
+# calculate ng and efficiencies
+##############################################################################
+if astro_plot:
+  # calculate the number of galaxies in each bin
+  xng,a,b = hist(xAstro, x1Edges)
+  xng = xng * max_luminosity/numSources
+  # delete the last entries to clean up plots:
+  xng = xng[0:-1]
+  xng_cum = cumsum( xng )
+  clf()
+  
+  ng = square(xAstro,xEdges,xStep,yAstro,yEdges,yStep)
+  ng *= max_luminosity/numSources
+  
+if eff_plot:
+  histFound,bins, stuff = hist(xFound, x1Edges)
+  histMissed,bins,stuff = hist(xMissed,x1Edges)
+  # delete the last entries to clean up plots:
+  histFound = histFound[0:-1]
+  histMissed = histMissed[0:-1]
+  xEff = 1.*(histFound)/(histFound + histMissed + 1e-5)
+  clf()
+  
+  found = square(xFound,xEdges,xStep,yFound,yEdges,yStep)
+  missed = square(xMissed,xEdges,xStep,yMissed,yEdges,yStep)
+  eff = found/(found + missed + 1e-5) 
+
+x1Edges = x1Edges[0:-1]
+
+##############################################################################
+# make a plot of n_g vs x-value
+##############################################################################
+if opts.plot_ng:
+  figure()
+  plot( x1Edges, xng, linewidth = 1)
+  grid( True )
+  xlim(opts.x_min,opts.x_max)
+  xlabel( opts.x_value, size='x-large' )
+  ylabel('n_g', size='x-large' )
+  title( 'Number of galaxies vs ' + opts.x_value, size='x-large')
+  if opts.figure_name:
+    savefig( opts.figure_name + '_' + opts.x_value + '_ng_plot.png' )
+
+##############################################################################
+# make a histogram of n_g vs eff_distance
+##############################################################################
+if opts.hist_ng:
+  figure()
+  bar(x1Edges,xng,xStep)
+  grid( True )
+  xlabel( opts.x_value, size='x-large' )
+  ylabel('n_g', size='x-large' )
+  title( 'Number of galaxies vs ' + opts.x_value, size='x-large')
+  if opts.figure_name:
+    savefig( opts.figure_name + '_' + opts.x_value + '_ng_hist.png' )
+
+##############################################################################
+# plot cumulative N_G
+##############################################################################
+if opts.cumulative_ng:
+  figure()
+  plot(x1Edges,xng_cum,linewidth=1,label='source file')
+  grid( True )
+  xlabel( opts.x_value, size='x-large' )
+  ylabel('N_G' , size='x-large')
+  title( 'Cumulative Number of Galaxies vs ' + opts.x_value, size='x-large')
+  if opts.figure_name:
+    savefig( opts.figure_name + '_' + opts.x_value + '_ng_cum.png' )
 
   if opts.verbose:
-    print "Read in " + str(found.__len__()) + " found injections"
-    print "Read in " + str(missed.__len__()) + " missed injections"
+    print 
+    print 'The total number of galaxies = %.2f' % max(xng_cum)
 
+  ############################################################################
+  # add a curve to fit the data
+  if opts.add_curvefit:
+    if opts.verbose:
+      print 
+      print "The Fitted Curve was generated using Regression method" 
+      print "using the first 30 galaxies and fitting a Cubic polynomial"  
+    
+    x = arange(0,opts.x_max,opts.x_max/100)
+    N_Gr = 0.00611877*(x)*(x)*(x)-0.0164998*(x)*(x)+2.52*(x)
+    plot(x,N_Gr,label='Fitted Curve',linewidth=1)
+    grid( True )
+    xlim(0,opts.x_max)
+    xlabel( 'Effective Distance (Mpc)', size='x-large' )
+    ylabel( 'N_G', size='x-large')
+    legend( loc=0 )
+    if opts.figure_name:
+      savefig(opts.figure_name + "_curvefit.png" ) 
 
-
-
-  # extract the effective Y_contour
-
-  yf = found.getColumnByName(opts.Y_contour).asarray()
-  ym = missed.getColumnByName(opts.Y_contour).asarray()
-  ysim = simInspTriggers.getColumnByName(opts.Y_contour).asarray()
-
-  # Extract the X_contour
-  xf = found.getColumnByName(opts.X_contour).asarray()
-  xm = missed.getColumnByName(opts.X_contour).asarray()
-  xsim =simInspTriggers.getColumnByName(opts.X_contour).asarray()
-
-  # Construct value edges
-  V = arange(0.001,1.001,0.05)
-  
-  #construct edges
-
-  yedges = edges(yf)
-  ystep = step_size(yf)
-
-  xedges = edges(xf)
-  xstep = step_size(xf)
-
-   
- # count found and missed on square array
- 
-  f = square(xf,xedges,xstep,yf,yedges,ystep)
-  m = square(xm,xedges,xstep,ym,yedges,ystep)
-
-  e = f*1.0/(f + m + 0.000001)
-  
-  contourf(xedges,yedges,f)
-  xlabel(opts.X_contour)
-  ylabel( opts.Y_contour)
-  title('Number of found injections')
-  if opts.figure_name:
-    savefig( "found-" + opts.figure_name + ".png" )
-
+##############################################################################
+# make a loglog plot of cumulative n_g vs x-value
+##############################################################################
+if opts.cum_log_ng:
   figure()
-  
-  contourf(xedges,yedges,f + m)
-  xlabel(opts.X_contour)
-  ylabel( opts.Y_contour)
-  colorbar()
-  title('Number of injections made')
-  if opts.figure_name:
-    savefig( "total-" + opts.figure_name + ".png" )
+  loglog( x1Edges, xng_cum, linewidth = 1)
+  grid( True )
+  xlim(opts.x_min,opts.x_max)
+  xlabel( opts.x_value, size='x-large' )
+  ylabel( 'N_G', size='x-large' )
+  title( 'Cumulative Number of galaxies vs ' + opts.x_value, size='x-large')
+  if opts.figure_name: 
+    savefig( opts.figure_name + "_log_ng_cum.png" )
 
-
-
-  figure()   
-   
-  contourf(xedges,yedges,e)
-  xlabel(opts.X_contour)
-  ylabel(opts.Y_contour + ' (Mpc)')
-  colorbar()
-  title('Efficiency Contour') 
-  if opts.figure_name:
-    savefig( "eff-" + opts.figure_name + ".png" )
-
-
-  
-  sim_square = square(xsim,xedges,xstep,ysim,yedges,ystep)
-
-  n_g = sim_square*max_luminosity/numSources
+##############################################################################
+# make an efficiency plot
+##############################################################################
+if opts.plot_efficiency:
   figure()
-
-  contourf(xedges,yedges,n_g)
-  xlabel(opts.X_contour)
-  ylabel( opts.Y_contour)
-  colorbar()
-  if((opts.X_contour == "eff_dist_h") and \
-     (opts.Y_contour == "eff_dist_l")):
-
-	h=(1.70,6.85,6.80,7.74,5.84,7.47,5.88)
-	l=(1.56,6.56,7.80,6.69,6.28,6.39,6.23)
-	scatter(h,l)
-		
-
-  title('n_g Contour')
+  plot(x1Edges,xEff,linewidth=1)
+  grid(True)
+  ylim(0, 1.1) 
+  xlabel( opts.x_value, size='x-large')
+  ylabel('Efficiency', size='x-large')
+  title('Efficiency vs ' + opts.x_value, size='x-large')
   if opts.figure_name:
-    savefig( "n_g-" + opts.figure_name + ".png" )
+    savefig( opts.figure_name + '_' + opts.x_value + '_efficiency.png' )
 
+  ############################################################################
+  # MC errors:
+  if opts.mc_errors:
+    figure()
+    xError = xEff * (1. - xEff) / (histFound + histMissed + 1e-5)
+    plot(x1Edges,xEff)
+    errorbar(x1Edges,xEff,sqrt(xError),markersize=12, markerfacecolor=None,\
+          markeredgewidth=1, linewidth = 1)
+    grid(True)
+    ylim(0, 1.1)      
+    xlabel(opts.x_value, size='x-large')
+    ylabel('error in n_g', size='x-large')
+    title('Monte Carlo errors in efficiency', size='x-large')
+    if opts.figure_name:
+      savefig( opts.figure_name + '_' + opts.x_value + '_mc_errors.png' )
 
+##############################################################################
+# plot cumulative N_G for search
+##############################################################################
+if opts.cum_search_ng:
+  xng = xng * xEff
+  xng_cum = cumsum( xng )
+  figure()
+  plot(x1Edges,xng_cum,linewidth=1)
+  grid( True )
+  xlabel( opts.x_value, size='x-large' )
+  ylabel('N_G' , size='x-large')
+  title( 'Cumulative Number of Galaxies vs ' + opts.x_value, size='x-large')
+  if opts.figure_name:
+    savefig( opts.figure_name + '_' + opts.x_value + '_ng_search_cum.png' )
 
-
- # To Count the Number of Galaxies.
- 
-  N_G = sum(sum(sim_square*e*max_luminosity/numSources))
-
-  print "The total number of Galaxies"
-  print N_G                               
- 
   if opts.verbose:
-	print "The above contour is an indication of efficiency of detector, " + \
-              "with chirp mass and distance as parameters"  
-                                                                                                                                                                                                                                                             
-####################################################################
-# Plot a Contour Plot of Hanford Distance and Livingston Distance.
-####################################################################
-if opts.plot_distance:
-
- effDist = "eff_dist_" + opts.site[0].lower()  
- H = simInspTriggers.getColumnByName("eff_dist_h").asarray()
- L = simInspTriggers.getColumnByName("eff_dist_l").asarray()
-
- 
-
- # Defining step and edges for this file.
- dstep_h = (max(H)-min(H))/opts.nbins
- dedges_h = arange(min(H),max(H),dstep_h) 
- dstep_l = (max(L)-min(L))/opts.nbins
- dedges_l= arange(min(L),max(L),dstep_l) 
+    print 
+    print '1-d calculation using ' + opts.x_value + ' yields'
+    print 'The total Number of Galaxies = %.2f' % max(xng_cum)
+    if opts.mc_errors:
+      print "Monte Carlo error due to finite number of injections = %.2f" \
+          % sqrt(sum(xError*xng))
 
 
- 
- n = square(H,dedges_h,dstep_h,L,dedges_l,dstep_l)
- 
- contourf(dedges_l,dedges_h,n)
- title('n_g contour')
- colorbar()
 
- xlabel("eff_dist_l")
- ylabel("eff_dist_h")
+##############################################################################
+# Plot two dimensional efficiency contour
+##############################################################################
+if opts.plot_effcontour: 
+  figure()
+  V = arange(0,41./40,1./40)
+  contourf(xEdges,yEdges,eff + 0.5 * V[1],V)
+  hold(True)
+  V = arange(0.1,1,0.1)
+  contour(xEdges,yEdges,eff,V,colors='k',linewidths=1)
+  
+  xlabel(opts.x_value, size='x-large')
+  ylabel(opts.y_value, size='x-large')
+  colorbar()
+  title('Efficiency Contour', size='x-large') 
+  if opts.figure_name:
+    savefig( opts.figure_name + '_' + opts.x_value + '_' + \
+             opts.y_value + '_efficiency.png' )
 
+  ############################################################################
+  # MC errors:
+  if opts.mc_errors:
+    error = eff * (1. - eff) / (found + missed + 1e-5)
+    figure()
+    V = arange(0,sqrt(error).max(),sqrt(error).max()/40)
+    contourf(xEdges,yEdges,sqrt(error),V)
+    V = arange(0,sqrt(error).max(),sqrt(error).max()/10)
+    contour(xEdges,yEdges,sqrt(error),V,colors='k',linewidths=1)
+    xlabel(opts.x_value, size='x-large')
+    ylabel(opts.y_value, size='x-large')
+    colorbar()
+    title('Monte Carlo errors in efficiency', size='x-large')
+    if opts.figure_name:
+      savefig( opts.figure_name + '_' + opts.x_value + '_' + \
+               opts.y_value + '_mc_errors.png' )
 
+##############################################################################
+# contour plot of found injections
+##############################################################################
+if opts.plot_injections:
+  figure()
+  V = arange(0,found.max(),found.max()/40)
+  contourf(xEdges,yEdges,found + 0.5*V[1],V)
+  V = arange(0,found.max(),found.max()/10)
+  contour(xEdges,yEdges,found,V,colors='k',linewidths=1)
+  xlabel(opts.x_value, size='x-large' )
+  ylabel(opts.y_value, size='x-large' )
+  colorbar()
+  title('Number of found injections', size='x-large' )
+  if opts.figure_name:
+    savefig( opts.figure_name + '_' + opts.x_value + '_' + \
+             opts.y_value + '_found_inj.png' )
+
+##############################################################################
+# contour plot of all injections
+##############################################################################
+if opts.plot_injections:
+  figure() 
+  V = arange(0,(found + missed).max(),(found + missed).max()/40)
+  contourf(xEdges,yEdges,found + 0.5*V[1],V)
+  hold(True)
+  V = arange(0,(found + missed).max(),(found + missed).max()/10)
+  contour(xEdges,yEdges,found,V,colors='k',linewidths=1)
+  xlabel(opts.x_value, size='x-large')
+  ylabel( opts.y_value, size='x-large')
+  colorbar()
+  title('Number of injections made', size='x-large')
+  if opts.figure_name:
+    savefig( opts.figure_name + '_' + opts.x_value + '_' + \
+             opts.y_value + '_total_inj.png' )
+
+##############################################################################
+# contour plot of n_g
+##############################################################################
+if opts.plot_2d_ng:
+  figure()
+  V = arange(0,ng.max(),ng.max()/40)
+  contourf(xEdges,yEdges,ng + 0.5 * V[1],V)
+  V = arange(0,ng.max(),ng.max()/10)
+  contour(xEdges,yEdges,ng,V,colors='k',linewidths=1)
+  xlabel(opts.x_value, size='x-large')
+  ylabel( opts.y_value, size='x-large')
+  colorbar()
+  title('n_g Contour', size='x-large')
+  if opts.figure_name:
+    savefig( opts.figure_name + '_' + opts.x_value + '_' + \
+             opts.y_value + '_n_g.png' )
+
+##############################################################################
+# Count the Number of Galaxies.
+##############################################################################
+if opts.cum_search_2d_ng:
+  N_G = sum(sum(ng*eff))
+  print
+  print '2-d calculation using ' + opts.x_value + ' and ' + \
+         opts.y_value + ' yields'
+  print "The total number of Galaxies = %.2f" % N_G                      
+  if opts.mc_errors:
+    print "Monte Carlo error due to finite number of injections = %.2f" \
+        % sqrt(sum(sum(ng*error)))
+
+##############################################################################
 if opts.show_plot:
   show()
