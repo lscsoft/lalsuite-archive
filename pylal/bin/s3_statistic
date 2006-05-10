@@ -72,6 +72,8 @@ def plotstat(coincInspiral, symbols, description = None, plot_type = 'linear'):
   l1_val = h1h2l1_coinc.getsngls('L1').mkarray(opts.statistic)
   if opts.statistic == 'effective_snr':
     h2_l1_val = sqrt(h2_val**2 + l1_val**2)
+  else:
+    h2_l1_val = h2_val + l1_val
 
   if description:
     my_label = description + ': H1-H2-L1'
@@ -200,16 +202,27 @@ parser.add_option("-p","--slide-poisson-dist",action="store_true",
     default=False, 
     help="plot the distribution with Poisson distributed error bars" )
 
-parser.add_option("-q","--hist-slide-value",action="append",
-    type="float",dest="stat_values",metavar=" VAL",
-    help="make histogram of slide events at VAL (add to list)")
-
 parser.add_option("-D","--distribution",action="store",type="string",
     default="cumulative",
     help="plot either 'cumulative' or 'non-cumulative' distributions" )
 
+parser.add_option("-q","--hist-slide-value",action="append",
+    type="float",dest="stat_values",metavar=" VAL",
+    help="make histogram of slide events at VAL (add to list)")
+
+parser.add_option("-r","--plot-cum-loudest",action="store_true",
+    default=False,
+    help="plot the cumulative distribution of slide loudest events")
+
+parser.add_option("-t","--plot-pdf-loudest",action="store_true",
+    default=False,
+    help="plot the non-cumulative distribution of slide loudest events")
+
 parser.add_option("-k","--efficiency",action="store_true",default=False,\
     help="plot efficiency as a function of the statistic")
+
+parser.add_option("-w","--pdf-efficiency",action="store_true",default=False,\
+    help="plot efficiency derivative as a function of the statistic")
 
 parser.add_option("-T","--statistic",action="store",default='s3_snr_chi_stat',\
     type="string",\
@@ -238,6 +251,12 @@ parser.add_option("-n","--num-bins",action="store",type="int",default=10,\
 (opts,args) = parser.parse_args()
 
 #######################################################################
+#
+# Check the validity of the arguments
+#
+#######################################################################
+
+
 # if --version flagged
 if opts.version:
   sys.exit(0)
@@ -274,6 +293,14 @@ if (opts.efficiency or opts.eff_cols) and not opts.missed_glob:
   print >>sys.stderr, "Must specify a MISSED_GLOB of files to read"
   print >>sys.stderr, "Enter 's3_statistic --help' for usage"
   sys.exit(1)
+
+#######################################################################
+#
+# Read in the triggers: zero, slide, inj, missed
+#
+#######################################################################
+
+
 
 ###################################
 # glob the list of files to read in
@@ -317,7 +344,7 @@ if opts.slide_glob:
   
   slide_num = range(1 , opts.num_slides + 1)
   slide_num.extend(range(-opts.num_slides, 0))
-  
+  slideLoudest = []
   for slide in slide_num:
     this_slide = {}
     this_slide["slide_num"] = slide
@@ -345,10 +372,16 @@ if opts.slide_glob:
     thisSlideStat = this_slide["coinc_trigs"].getstat()
     slideStat.append( thisSlideStat )
     if len(thisSlideStat):
-      slideMax = max(slideMax,max(thisSlideStat))
+      slideLoudest.append(max(thisSlideStat))
+    else:
+      slideLoudest.append(0)
+
 
     # add slide to list
     slideTriggers.append(this_slide["coinc_trigs"])
+
+  slideLoudest = asarray(slideLoudest)
+  slideMax = max(slideLoudest)
 
 #######################################
 # glob the list of inj files to read in
@@ -395,8 +428,12 @@ if opts.missed_glob:
   missedInj = readMeta.snglInspiralTable(missedFiles,"sim_inspiral")
 
 
-#######################################
-# print details of loudest events
+#######################################################################
+#
+# Print details of loudest events
+#
+#######################################################################
+
 if opts.zero_glob:
   loudestEvent = coincStat[0]
 
@@ -444,8 +481,12 @@ if opts.loudest_events:
 
  
 
-#########################################
-# Make plots of the statistic
+#######################################################################
+#
+# Make plots of H1 vs other statistic value
+#
+#######################################################################
+
 fig_num = 0
 
 #################
@@ -595,6 +636,12 @@ if opts.zero_inj_stat:
   if opts.figure_name:
       savefig(opts.figure_name + "_zero_inj_" + opts.statistic + ".png")
 
+
+#######################################################################
+#
+# Make plots of the distribution of statistic values
+#
+#######################################################################
 
 #############################################
 # Determine the cumulative slide distribution
@@ -764,6 +811,62 @@ if opts.stat_values:
     if opts.figure_name:
       savefig(opts.figure_name + "_slide_dist_at_" + value + ".png")
 
+
+####################################
+# make plots of slide loudest events
+
+if opts.plot_cum_loudest:
+  fig_num += 1
+  figure(fig_num)
+  slideLoudest.sort()
+  numberBelow = arange(0,1,0.01) 
+  plot(slideLoudest,numberBelow,linewidth=2,label="slide dist")
+  if opts.zero_glob:
+    axvline(loudestEvent,linewidth=2,color='r',label="zero lag")
+  xlabel(opts.statistic, size='x-large')
+  ylabel('Probability loudest event < value', size='x-large')
+  legend()
+  if opts.figure_name:
+      savefig(opts.figure_name + "_cumulative_loudest_" + value + ".png")
+
+if opts.plot_pdf_loudest:
+  fig_num += 1
+  figure(fig_num)
+  hold(True)
+
+  # plot a smoothed probability distribution
+  num,bbins,crap = hist(slideLoudest,100,normed = 1)
+  clf()
+  num = asarray(1.0*num)
+  # gaussian average over 5 points
+  width = 5.0
+  gauss = exp(- arange(- 1.0* (opts.num_slides - 1) /width, 
+      1.0 * opts.num_slides / width,
+      1.0/width )**2 / 2) / sqrt(2.0 * pi) /width
+  smooth_num = convolve(num,gauss,mode=1)
+  plot(bbins, smooth_num, 'k',linewidth=2,label="smoothed pdf")
+
+  # and a histogram
+  hist(slideLoudest,20, normed = 1)
+
+  # and the zero lag line
+  if opts.zero_glob:
+    axvline(loudestEvent,linewidth=2,color='r',label="zero lag")
+
+  xlabel(opts.statistic, size='x-large')
+  ylabel('pdf of loudest event', size='x-large')
+  legend()
+  grid()
+  if opts.figure_name:
+      savefig(opts.figure_name + "_loudest_pdf_" + value + ".png")
+
+
+#######################################################################
+#
+# Make efficiency plots
+#
+#######################################################################
+
 ##########################
 # make the efficiency plot 
 if opts.efficiency:
@@ -788,12 +891,69 @@ if opts.efficiency:
   
   eff = num_above / float(injTriggers.nevents() + missedInj.nevents() )
   
-  plot(values, eff, 'k-', linewidth = 1)
+  plot(values, eff, 'k-', linewidth = 2,label="efficiency")
+  # and the zero lag line
+  if opts.zero_glob:
+    axvline(loudestEvent,linewidth=2,color='r',label="zero lag")
+
+
   xlabel('Combined Statistic', size='x-large')
   ylabel('Injection Efficiency', size='x-large')
   ylim(0,1)
+  legend()
+
+##########################
+# make the pdf of efficiency plot 
+if opts.pdf_efficiency:
+  fig_num += 1
+  figure(fig_num)
+
+  if opts.plot_min:
+    min_val = opts.plot_min
+  else:
+    min_val = injStat[len(injStat)-1]
+
+  if opts.plot_max:
+    max_val = opts.plot_max
+  else:
+    max_val = injStat[0]
+
+  # histogram of efficiency deriv (coarse)
+  step = (max_val - min_val)/opts.num_bins
+  bins_coarse = arange(min_val, max_val + step, step)
+  num_coarse,bins_coarse,crap = hist(injStat,bins_coarse)
+  clf()
+  num_coarse = 1.0 * num_coarse[:-1]
+  bins_coarse = bins_coarse[:-1]
+
+  # fine histogram which we gaussian average over 5 points
+  step = (max_val - min_val)/(10*opts.num_bins)
+  bbins = arange(min_val, max_val + step, step)
+  num,bbins,crap = hist(injStat,bbins)
+  clf()
+  num = 1.0 * num[:-1]
+  bbins = bbins[:-1]
+  width = 10.0
+  gauss = exp(- arange(- 10.0* opts.num_bins / (2.0 * width), 
+      10.0 * opts.num_bins / (2.0  * width),
+      1.0/width )**2 / 2) / sqrt(2.0 * pi) /width
+  
+  smooth_num = 10 * convolve(num,gauss,mode=1)
+  plot(bbins, smooth_num, 'k',linewidth=2,label="smoothed pdf")
+
+  # histogram of efficiency deriv
+  bar(bins_coarse,num_coarse)
+
+  # and the zero lag line
+  if opts.zero_glob:
+    axvline(loudestEvent,linewidth=2,color='r',label="zero lag")
+    
+  xlabel(opts.statistic, size='x-large')
+  ylabel('derivative of efficiency', size='x-large')
+  grid()
   if opts.figure_name:
-      savefig(opts.figure_name + "_efficiency_stat.png")
+      savefig(opts.figure_name + "_efficiency_deriv_" + value + ".png")
+
 
 ######################################
 # make the mass windows
