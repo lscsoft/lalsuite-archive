@@ -342,6 +342,12 @@ class Dim(Element):
 	tagName = u"Dim"
 	validattributes = [u"Name", u"Unit", u"Start", u"Scale"]
 
+	def write(self, file = sys.stdout, indent = ""):
+		if self.pcdata:
+			print >>file, self.start_tag(indent) + self.pcdata + self.end_tag("")
+		else:
+			print >>file, self.start_tag(indent) + self.end_tag("")
+
 
 class Stream(Element):
 	"""
@@ -605,7 +611,7 @@ class LIGOLWContentHandler(sax.handler.ContentHandler):
 		Discard character data for all elements but Comments and
 		Streams.
 		"""
-		if self.current.tagName in [Comment.tagName, Stream.tagName]:
+		if self.current.tagName in [Comment.tagName, Dim.tagName, Stream.tagName]:
 			self.current.appendData(content)
 
 
