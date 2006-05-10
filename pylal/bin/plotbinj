@@ -313,12 +313,49 @@ class AmplVsFreq(object):
 #
 # =============================================================================
 #
+#                           Trigger Count Histogram
+#
+# =============================================================================
+#
+
+class TriggerCountHistogram(object):
+	def __init__(self):
+		self.name = "trigger count histogram"
+		self.found = 0
+		self.bins = []
+		self.fig = figure.Figure()
+		self.canvas = FigureCanvasAgg(self.fig)
+		self.fig.set_figsize_inches(16, 8)
+		self.axes = self.fig.gca()
+		self.axes.semilogy()
+		self.axes.grid(True)
+
+		self.axes.set_xlabel("Number of Triggers Coincident with Injection")
+		self.axes.set_ylabel("Count")
+
+	def add_count(self, n):
+		while n + 1 >= len(self.bins):
+			self.bins.append(0)
+		self.bins[n] += 1
+
+	def add_contents(self, doc):
+		self.found += len(doc.coinctable)
+		map(self.add_count, doc.coinctable.getColumnByName("nevents"))
+
+	def finish(self):
+		self.axes.plot(range(len(self.bins)), self.bins, "ko-")
+		self.axes.set_title("Triggers per Found Injection\n(%d Found Injections)" % self.found)
+
+
+#
+# =============================================================================
+#
 #                                     Plot
 #
 # =============================================================================
 #
 
-plots = (FreqVsTime(), AmplVsFreq("scatter"), AmplVsFreq("contour"))
+plots = (FreqVsTime(), AmplVsFreq("scatter"), AmplVsFreq("contour"), TriggerCountHistogram())
 
 for n, url in enumerate(urls):
 	if options.verbose:
