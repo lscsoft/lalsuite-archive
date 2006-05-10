@@ -611,7 +611,7 @@ class LIGOLWContentHandler(sax.handler.ContentHandler):
 		Discard character data for all elements but Comments and
 		Streams.
 		"""
-		if self.current.tagName in [Comment.tagName, Dim.tagName, Stream.tagName]:
+		if self.current.tagName in [Comment.tagName, Dim.tagName, Param.tagName, Stream.tagName, Time.tagName]:
 			self.current.appendData(content)
 
 
