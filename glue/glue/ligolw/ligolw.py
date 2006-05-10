@@ -323,7 +323,7 @@ class Array(Element):
 	validchildren = [u"Dim", u"Stream"]
 	validattributes = [u"Name", u"Type", u"Unit"]
 
-	def _verifyChildren(self, child, i):
+	def _verifyChildren(self, i):
 		nstream = 0
 		for child in self.childNodes:
 			if child.tagName == Dim.tagName:
