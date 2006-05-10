@@ -516,7 +516,7 @@ class LIGOLWContentHandler(sax.handler.ContentHandler):
 	def startParam(self, attrs):
 		return Param(attrs)
 
-	def endParams(self):
+	def endParam(self):
 		pass
 
 	def startStream(self, attrs):
