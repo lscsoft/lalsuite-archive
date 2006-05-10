@@ -28,35 +28,7 @@ from xml.sax.xmlreader import AttributesImpl
 
 import ligolw
 import tokenizer
-
-
-#
-# =============================================================================
-#
-#                               Type Information
-#
-# =============================================================================
-#
-
-StringTypes = ["char_s", "ilwd:char", "ilwd:char_u", "lstring", "string"]
-IntTypes = ["int_2s", "int_2u", "int_4s", "int_4u", "int_8s", "int_8u", "int"]
-FloatTypes = ["real_4", "real_8", "float", "double"]
-
-Types = StringTypes + IntTypes + FloatTypes
-
-ToNumArrayType = {
-	"int_2s": "Int16",
-	"int_2u": "UInt16",
-	"int_4s": "Int32",
-	"int_4u": "UInt32",
-	"int_8s": "Int64",
-	"int_8u": "UInt64",
-	"int": "Int32",
-	"real_4": "Float32",
-	"real_8": "Float64",
-	"float": "Float64",
-	"double": "Float64"
-}
+import types
 
 
 #
@@ -223,7 +195,7 @@ class Column(ligolw.Column):
 		"""
 		Construct a numarray array from this column.
 		"""
-		if self.getAttribute("Type") in StringTypes:
+		if self.getAttribute("Type") in types.StringTypes:
 			raise TypeError, "Column does not have numeric type"
 		# hack to work around bug in numarray:  numarray tests that
 		# an object can be turned into an array, that is it is
@@ -233,8 +205,8 @@ class Column(ligolw.Column):
 		# numarray is made happy.
 		import numarray
 		if not len(self):
-			return numarray.array([], type = ToNumArrayType[self.getAttribute("Type")], shape = (len(self),))
-		return numarray.array(self, type = ToNumArrayType[self.getAttribute("Type")], shape = (len(self),))
+			return numarray.array([], type = types.ToNumArrayType[self.getAttribute("Type")], shape = (len(self),))
+		return numarray.array(self, type = types.ToNumArrayType[self.getAttribute("Type")], shape = (len(self),))
 
 
 class TableStream(ligolw.Stream):
@@ -301,7 +273,7 @@ class TableStream(ligolw.Stream):
 		return self.getAttribute("Delimiter").join(strs)
 
 	def write(self, file = sys.stdout, indent = ""):
-		columninfo = [(c.getAttribute("Type") in StringTypes, StripColumnName(c.getAttribute("Name"))) for c in self.parentNode.getElementsByTagName(ligolw.Column.tagName)]
+		columninfo = [(c.getAttribute("Type") in types.StringTypes, StripColumnName(c.getAttribute("Name"))) for c in self.parentNode.getElementsByTagName(ligolw.Column.tagName)]
 
 		# loop over parent's rows.  This is complicated because we
 		# need to not put a delimiter at the end of the last row.
@@ -460,11 +432,11 @@ class Table(ligolw.Table):
 			if colname in self.columnnames:
 				raise ligolw.ElementError, "duplicate Column \"%s\"" % child.getAttribute("Name")
 			self.columnnames.append(colname)
-			if llwtype in StringTypes:
+			if llwtype in types.StringTypes:
 				self.columntypes.append(str)
-			elif llwtype in IntTypes:
+			elif llwtype in types.IntTypes:
 				self.columntypes.append(int)
-			elif llwtype in FloatTypes:
+			elif llwtype in types.FloatTypes:
 				self.columntypes.append(float)
 			else:
 				raise ligolw.ElementError, "unrecognized Type attribute \"%s\" for Column \"%s\" in Table \"%s\"" % (llwtype, child.getAttribute("Name"), self.getAttribute("Name"))
