@@ -253,7 +253,7 @@ class TableStream(ligolw.Stream):
 	def unlink(self):
 		"""
 		Break internal references within the document tree rooted
-		on this element to promote garbage collected.
+		on this element to promote garbage collection.
 		"""
 		self.__colnames = None
 		self.__numcols = None
@@ -463,7 +463,7 @@ class Table(ligolw.Table):
 	def unlink(self):
 		"""
 		Break internal references within the document tree rooted
-		on this element to promote garbage collected.
+		on this element to promote garbage collection.
 		"""
 		ligolw.Table.unlink(self)
 		self.rows = []
