@@ -26,7 +26,6 @@
 # =============================================================================
 #
 
-import bisect
 from optparse import OptionParser
 import math
 import matplotlib
@@ -34,12 +33,9 @@ matplotlib.use("Agg")
 from matplotlib import figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 import numarray
-import os
-import stat
 import sys
 
 from glue import segments
-from glue.lal import CacheEntry
 from glue.ligolw import lsctables
 from pylal import llwapp
 from pylal import rate
@@ -76,17 +72,6 @@ def parse_command_line():
 #
 # =============================================================================
 #
-
-def sort_files(filenames, verbose = False):
-	"""
-	Sort the files from largest to smallest.
-	"""
-	if verbose:
-		print >>sys.stderr, "sorting files from largest to smallest..."
-	l = [(os.stat(name)[stat.ST_SIZE], name) for name in filenames]
-	l.sort()
-	l.reverse()
-	return [pair[1] for pair in l]
 
 class SnglBurst(object):
 	__slots__ = ["ifo", "central_freq", "confidence", "peak_time", "peak_time_ns", "event_id"]
@@ -425,7 +410,7 @@ plots = [
 ]
 
 options, filenames = parse_command_line()
-for n, filename in enumerate(sort_files(filenames, options.verbose)):
+for n, filename in enumerate(llwapp.sort_files(filenames, options.verbose)):
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
 	doc = llwapp.load_filename(filename, options.verbose)

@@ -32,6 +32,7 @@ data in LIGO Light-Weight format.
 import bisect
 import os
 import socket
+import stat
 import sys
 import time
 import urllib
@@ -55,6 +56,18 @@ __date__ = "$Date$"[7:-2]
 #
 # =============================================================================
 #
+
+def sort_files(filenames, verbose = False):
+	"""
+	Sort the files from largest to smallest.
+	"""
+	if verbose:
+		print >>sys.stderr, "sorting files from largest to smallest..."
+	l = [(os.stat(name)[stat.ST_SIZE], name) for name in filenames]
+	l.sort()
+	l.reverse()
+	return [pair[1] for pair in l]
+
 
 def load_filename(filename, verbose = False):
 	if verbose:
