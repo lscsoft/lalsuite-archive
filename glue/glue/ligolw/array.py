@@ -167,15 +167,17 @@ class ArrayStream(ligolw.Stream):
 		# This is complicated because we need to not put a
 		# delimiter after the last element.
 		print >>file, self.start_tag(indent)
-		it = iter(_IndexIter(self.parentNode.array.shape))
+		delim = self.getAttribute("Delimiter")
+		format = types.ToFormat[self.parentNode.getAttribute("Type")]
 		a = self.parentNode.array
+		it = iter(_IndexIter(a.shape))
 		try:
 			indeces = it.next()
 			file.write(indent + ligolw.Indent)
 			while True:
-				file.write("%s" % a[indeces])
+				file.write(format % a[indeces])
 				indeces = it.next()
-				file.write(self.getAttribute("Delimiter"))
+				file.write(delim)
 				if not indeces[0]:
 					file.write("\n" + indent + ligolw.Indent)
 		except StopIteration:
