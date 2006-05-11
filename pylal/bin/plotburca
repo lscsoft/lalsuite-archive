@@ -109,10 +109,16 @@ def coinc_init(self, attrs):
 def coinc_append(self, row):
 	self.rows[lsctables.ILWDID(row.coinc_event_id)] = lsctables.ILWDID(row.time_slide_id)
 
+def coinc_map_init(self, attrs):
+	lsctables.LSCTableUnique.__init__(self, attrs)
+	self.rows = {}
+
 def coinc_map_append(self, row):
-	row.coinc_event_id = lsctables.ILWDID(row.coinc_event_id)
-	row.event_id = lsctables.ILWDID(row.event_id)
-	lsctables.LSCTableUnique.append(self, row)
+	id = lsctables.ILWDID(row.coinc_event_id)
+	if id in self.rows:
+		self.rows[id].append(lsctables.ILWDID(row.event_id))
+	else:
+		self.rows[id] = [lsctables.ILWDID(row.event_id)]
 
 def timeslide_init(self, attrs):
 	lsctables.LSCTableMulti.__init__(self, attrs)
@@ -130,6 +136,7 @@ lsctables.SnglBurstTable.__init__ = snglburst_init
 lsctables.SnglBurstTable.append = snglburst_append
 lsctables.CoincTable.__init__ = coinc_init
 lsctables.CoincTable.append = coinc_append
+lsctables.CoincMapTable.__init__ = coinc_map_init
 lsctables.CoincMapTable.append = coinc_map_append
 lsctables.TimeSlideTable.__init__ = timeslide_init
 lsctables.TimeSlideTable.append = timeslide_append
@@ -149,7 +156,6 @@ class DocContents(object):
 		# Extract tables
 		#
 
-		self.bursttable = llwapp.get_table(xmldoc, lsctables.SnglBurstTable.tableName)
 		self.coinctable = llwapp.get_table(xmldoc, lsctables.CoincTable.tableName)
 		self.coincmaptable = llwapp.get_table(xmldoc, lsctables.CoincMapTable.tableName)
 		self.tisitable = llwapp.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
@@ -172,15 +178,12 @@ class DocContents(object):
 			break
 
 		#
-		# Construct ID look-up tables
+		# Build coinc_event_map --> sngl_burst references
 		#
 
-		# coinc_event_map by coinc_event_id
-		self.coincmaptable.rows.sort(lambda a, b: cmp(a.coinc_event_id, b.coinc_event_id))
-		self.coincmaptableids = list(self.coincmaptable.getColumnByName("coinc_event_id"))
-
-	def get_burst_by_coincid(self, id):
-		return [self.bursttable.rows[row.event_id] for row in self.coincmaptable.rows[bisect.bisect_left(self.coincmaptableids, id) : bisect.bisect_right(self.coincmaptableids, id)]]
+		burstrows = llwapp.get_table(xmldoc, lsctables.SnglBurstTable.tableName).rows
+		for key, value in self.coincmaptable.rows.iteritems():
+			self.coincmaptable.rows[key] = map(burstrows.__getitem__, value)
 
 
 #
@@ -200,8 +203,8 @@ def CoincEventIter(doc):
 	found, and the third is a list of the sngl_burst events in the
 	coincidence.
 	"""
-	for id in doc.coinctable.rows.iterkeys():
-		yield doc.coinctable.rows[id] == doc.foreground_tisi_id, doc.tisitable.rows[doc.coinctable.rows[id]], doc.get_burst_by_coincid(id)
+	for coinc_id, tisi_id in doc.coinctable.rows.iteritems():
+		yield tisi_id == doc.foreground_tisi_id, doc.tisitable.rows[tisi_id], doc.coincmaptable.rows[coinc_id]
 
 
 def CoincTisiIter(doc):
@@ -210,8 +213,8 @@ def CoincTisiIter(doc):
 	coincidence in the data set, indicating the time slide at which the
 	corresponding coincidence was found.
 	"""
-	for id in doc.coinctable.rows.itervalues():
-		yield doc.tisitable.rows[id]
+	for tisi_id in doc.coinctable.rows.itervalues():
+		yield doc.tisitable.rows[tisi_id]
 
 
 #
