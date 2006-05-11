@@ -434,7 +434,7 @@ if opts.missed_glob:
 #
 #######################################################################
 
-if opts.zero_glob:
+if opts.zero_glob and len(coincStat):
   loudestEvent = coincStat[0]
 
 if opts.loudest_events:
