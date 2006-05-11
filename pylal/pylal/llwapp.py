@@ -190,6 +190,17 @@ class SearchSummarySegListDict(dict):
 		return reduce(segments.segmentlist.__and__, map(self.__getitem__, instruments))
 
 
+def get_seglistdict(xmldoc, live_time_program):
+	"""
+	Convenience wrapper for the common case usage of the
+	SearchSummarySegListDict:  searches the process table for
+	occurances of a program named live_time_program, then scans the
+	search summary table for matching process IDs and constructs a
+	SearchSummarySegListDict object from those rows.
+	"""
+	return SearchSummarySegListDict(get_table(xmldoc, lsctables.SearchSummaryTable.tableName), get_process_ids_by_program(get_table(xmldoc, lsctables.ProcessTable.tableName), live_time_program))
+
+
 #
 # =============================================================================
 #
