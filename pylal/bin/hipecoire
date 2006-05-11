@@ -1,0 +1,332 @@
+#!/usr/bin/python
+
+import sys
+import os
+import copy
+from os import *
+from optparse import *
+from pylal.llwapp import *
+import re
+import exceptions
+import glob
+
+#######################################################################
+# determine all trigger types
+def trig_types(ifos):
+  types = []
+  for i in range(2,len(ifos)+1):
+    types.extend(choices(ifos, i))
+  
+  return types
+
+#######################################################################
+usage = """
+usage: %prog [options] 
+
+Script for doing coiring and vetoing and some siring too.
+
+You must specify the ifos which have been analyzed, using --ifo.  
+If you specify --num-slides, the code will assume that time slides have 
+also been done.  You can specify which kind of data to keep for both the
+zero lag and time slides (play/all).  Running --test will print out the
+function calls but not exectute them.
+
+There are a couple of coire specific options, specifically:
+  --cluster-time
+  --cluster-algorithm
+  --veto-file (to perform vetoes)
+  --second-coinc (for correct file names)
+
+And a few plotting specific options:
+  --plots (to make the plots)
+  --figure-name
+  --num-bins
+  --s3-stat (the statistic to use)  
+"""
+
+parser = OptionParser( usage )
+
+# path
+parser.add_option("-a","--trig-path",action="store",type="string",\
+    default='', metavar=" DIR",help="directory containing the triggers" )
+  
+# general options
+parser.add_option("-f","--ifo", action="append", type="string",\
+    dest="ifos",help="data from this ifo has been analyzed")
+
+parser.add_option("-c","--num-slides",action="store",type="string",\
+    default=None, metavar=" NSLIDES",\
+    help="the number of time slides performed (default = None)" )
+
+parser.add_option("-d","--slide-data", action="store", type="string",
+    default="all_data",metavar=" SLIDE_DATA", 
+    help="type of data to be used for timeslides (default = all_data)")
+    
+parser.add_option("-e","--zero-data", action="store", type="string",
+    default="playground_only",metavar=" ZERO_DATA", \
+    help="type of data to be used for zero-lag (default = playground_only)")
+
+parser.add_option("-t","--test",action="store_true",default=False,\
+    help="test code, don't run executables")
+
+# coire options
+parser.add_option("-g","--cluster-time",action="store",type="int",\
+    default=None,metavar=" CLUSTER_TIME", \
+    help="cluster window used, seconds (default = None)")
+    
+parser.add_option("-i","--cluster-algorithm",action="store",type="string",\
+    default="snrsq",metavar=" CLUSTER_ALG", \
+    help="cluster algorithm used, seconds (default = snrsq)")
+
+parser.add_option("-j","--second-coinc",action="store_true",default=False,\
+    help="specify that the input comes from second coinc (default = false)")
+
+parser.add_option("-k","--veto-file",action="append",type="string",\
+    dest="vetoes",metavar=" VETOES",\
+    help="specify a veto file to be used, appropriate ifo taken from file name")
+ 
+# plotting options
+parser.add_option("-o","--plots",action="store_true",default=False,\
+    help="make summary plots (default = false)")
+
+parser.add_option("-p","--num-bins",action="store",type="string",\
+    default="20", metavar=" NBINS",\
+    help="the number of bins used in plotting (default = 20)" )
+
+parser.add_option("-q","--figure-name",action="store",type="string",\
+    default=None, metavar=" FNAME",\
+    help="figure name used for saving the plots (default = None)" )
+
+parser.add_option("-r","--s3-stat",action="store",type="string",\
+    default='snr', metavar=" PLOT_STAT",\
+    help="statistic used in making plots (default = effective_snr)" )
+
+# executables
+parser.add_option("-b","--coire",action="store",type="string",\
+    default="lalapps_coire", metavar=" COIRE",
+    help="coire executable (default = lalapps_coire" )
+
+parser.add_option("-l","--sire",action="store",type="string",\
+    default="lalapps_sire", metavar=" SIRE",\
+    help="sire executable (default = lalapps_sire)" )
+
+parser.add_option("-n","--s3-statistic",action="store",type="string",\
+    default="s3_statistic", metavar=" SIRE",\
+    help="plotting executable (default = s3_statistic)" )
+
+parser.add_option("-m","--plotthinca",action="store",type="string",\
+    default="plotthinca", metavar=" SIRE",\
+    help="plotting executable (default = plotthinca)" )
+
+
+  
+    
+    
+    
+    
+    
+
+
+
+
+(opts,args) = parser.parse_args()
+
+#######################################################################
+# check options and initialize
+#######################################################################
+
+if not opts.ifos:
+  print >> sys.stderr, "Must specify at least two ifos using --ifo"
+  sys.exit(1)
+
+opts.ifos.sort()
+  
+data = {} 
+data["zero"] = {}
+data["zero"]["data"] = opts.zero_data
+data["zero"]["fname"] = "THINCA"
+data["zero"]["num_slides"] = None
+
+if opts.num_slides:
+  data["slide"] = {}
+  data["slide"]["data"] = opts.slide_data
+  data["slide"]["fname"] = "THINCA_SLIDE"
+  data["slide"]["num_slides"] = opts.num_slides
+
+types = trig_types(opts.ifos)
+
+coire_out = []
+
+#######################################################################
+# loop over slide/zero-lag, running sires/coires as necessary
+#######################################################################
+for type,info in data.items():
+ 
+  #####################################################################
+  # do vetoes if necessary
+  if opts.vetoes:
+    for ifo_list in types:
+      ifos = "".join(ifo_list)
+    
+      # set input file name
+      input = opts.trig_path + '/' + ifos + "-" + info["fname"] 
+      if opts.second_coinc:
+        input += "_" + ifos
+      input += "-*.xml"
+
+      # perform vetoes for each ifo
+      for ifo in ifo_list:
+        output = ifo + "-SIRE_in_" + ifos + "_VETO"
+        if "SLIDE" in info["fname"]:
+          output += "_SLIDE"
+          
+        command = opts.sire + \
+          " --glob '" + input + "'" + \
+          " --output " + output + ".xml" + \
+          " --summary " + output + ".txt" + \
+          " --ifo-cut " + ifo + \
+          " --data-type " + info["data"]
+        for file in opts.vetoes:
+          if ifo in file:
+            command += " --veto-file " + file
+        print command
+        if not opts.test:
+          os.system(command)
+          print 'Done'
+        print
+      
+      # perform sire to put all triggers back in one file
+      input = "*-SIRE_in_" + ifos + "_VETO"
+      output = ifos + "-SIRE_VETO"
+      if "SLIDE" in info["fname"]:
+          input += "_SLIDE"
+          output += "_SLIDE"
+      input += ".xml"
+    
+      command = opts.sire + \
+        " --glob '" + input + "'" + \
+        " --output " + output + ".xml" + \
+        " --summary " + output + ".txt" + \
+        " --data-type " + info["data"]
+      print command
+      if not opts.test:
+        os.system(command)
+        print 'Done'
+      print
+       
+  #####################################################################
+  # do coires
+  for ifo_list in types:
+    ifos = "".join(ifo_list)
+
+    # set input file names
+    if opts.vetoes:
+      input = ifos + "-SIRE_VETO"
+      if "SLIDE" in info["fname"]:
+        input += "_SLIDE"
+      input += ".xml"
+    else:
+      input = opts.trig_path + '/' + ifos + "-" + info["fname"] 
+      if opts.second_coinc:
+        input += "_" + ifos
+      input += "-*.xml"
+
+    # work out ifo combinations which could produce triggers
+    trig_choices = trig_types(ifo_list)
+    
+    for trig_ifos in trig_choices:
+      trigs = "".join(trig_ifos)
+      
+      # set output file names
+      output = trigs + "-" + info["fname"]
+      if trigs != ifos:
+        output += "_in_" + ifos
+      if opts.cluster_time:
+        output += "_CLUST_" + str(opts.cluster_time) + "s"
+      else:
+        output += "_UNCLUST" 
+      coire_out.append(output + '.xml')
+
+      
+      command = opts.coire + \
+          " --glob '" + input + "'" +\
+          " --output " + output +".xml" +\
+          " --summary " + output + ".txt" +\
+          " --data-type " + info["data"] +\
+          " --coinc-cut " + trigs
+      if info["num_slides"]:
+        command += " --num-slides " + info["num_slides"]
+      if opts.cluster_time:
+        command += " --cluster-algorithm " + opts.cluster_algorithm +\
+            " --cluster-time " + str(1000 * opts.cluster_time)
+      print command
+      if not opts.test:
+        os.system(command)
+        print 'Done'
+      print 
+
+#######################################################################
+# make the summary plots
+#######################################################################
+if opts.plots:
+  for ifo_list in types:
+    trigs = ''.join(ifo_list)
+    
+    glob_files = []
+    start = trigs + '-THINCA'
+    for output in coire_out:
+      if start == output[0:len(start)]:
+        glob_files.append(output)
+    try: 
+      chdir(trigs)
+    except:
+      mkdir(trigs)
+      chdir(trigs)
+    chdir('..')
+ 
+    #################################################################
+    # run plotthinca
+    command = opts.plotthinca + \
+        " --glob '" + ' '.join(glob_files) + "'"\
+        " --snr-snr"
+    for ifo in ifo_list:
+      command += ' --' + ifo.lower() + '-triggers' 
+    if opts.figure_name:
+      fname = trigs + "/" + opts.figure_name
+      if len(opts.vetoes):
+        fname += "_veto" 
+      fname += "_" + trigs
+      command += " --figure-name " + fname
+    if opts.num_slides:
+      command +=  " --slide-snr" + \
+                  " --plot-slides" + \
+                  " --num-slides " + opts.num_slides + \
+                  " --add-zero-lag"
+    print command
+    if not opts.test:
+      os.system(command)
+      print "Done"
+    print 
+
+    #################################################################
+    # run s3_statistic
+    command = opts.s3_statistic + \
+        " --zero-glob " + start + "*.xml" + \
+        " --num-bins " + opts.num_bins + \
+        " --statistic " + opts.s3_stat
+    if opts.num_slides:
+        command += " --slide-glob " + start + "_SLIDE*.xml" + \
+        " --slide-zero-stat " + \
+        " --slide-zero-dist " + \
+        " --num-slides " + opts.num_slides
+    else:
+        command += " --zero-stat"  
+    if opts.figure_name:
+      command += " --figure-name " + fname
+
+    if opts.second_coinc:
+      print command
+      if not opts.test:
+        os.system(command)
+        print "Done"
+      print 
