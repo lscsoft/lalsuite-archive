@@ -29,6 +29,20 @@ FloatTypes = ["real_4", "real_8", "float", "double"]
 
 Types = StringTypes + IntTypes + FloatTypes
 
+ToFormat = {
+	"int_2s": "%d",
+	"int_2u": "%u",
+	"int_4s": "%d",
+	"int_4u": "%u",
+	"int_8s": "%d",
+	"int_8u": "%u",
+	"int": "%d",
+	"real_4": "%.7g",
+	"real_8": "%.16g",
+	"float": "%.7g",
+	"double": "%.16g"
+}
+
 ToNumArrayType = {
 	"int_2s": "Int16",
 	"int_2u": "UInt16",
