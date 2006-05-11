@@ -70,6 +70,35 @@ def getArraysByName(elem, name):
 #
 # =============================================================================
 #
+#                                  Utilities
+#
+# =============================================================================
+#
+
+def from_array(name, array, dim_names = None):
+	"""
+	Construct a LIGO Light Weight XML Array document subtree from a
+	numarray array object.
+	"""
+	doc = Array({"Name": name, "Type": types.FromNumArrayType[str(array.type())]})
+	s = list(array.shape)
+	s.reverse()
+	for n, dim in enumerate(s):
+		attrs = {}
+		if dim_names != None:
+			attrs["Name"] = dim_names[n]
+		child = ligolw.Dim(attrs)
+		child.pcdata = str(dim)
+		doc.appendChild(child)
+	child = ArrayStream({"Type": "Local", "Delimiter": " "})
+	doc.appendChild(child)
+	doc.array = array
+	return doc
+
+
+#
+# =============================================================================
+#
 #                               Element Classes
 #
 # =============================================================================
@@ -109,20 +138,20 @@ class ArrayStream(ligolw.Stream):
 		ligolw.Stream.__init__(self, attrs)
 		self.tokenizer = tokenizer.Tokenizer(self.getAttribute("Delimiter"))
 		self.__index = None
-		self.__array = None
 
 	def appendData(self, content):
 		# some initialization that can only be done once parentNode
 		# has been set.
 		if self.__index == None:
 			self.tokenizer.set_types([self.parentNode.pytype])
-			self.__array = self.parentNode.array = numarray.zeros(self.parentNode.get_shape(), self.parentNode.arraytype)
+			self.parentNode.array = numarray.zeros(self.parentNode.get_shape(), self.parentNode.arraytype)
 			self.__index = _IndexIter(self.parentNode.array.shape)
 
 		# tokenize buffer, and assign to array
+		a = self.parentNode.array
 		try:
 			for token in self.tokenizer.add(content):
-				self.__array[self.__index.next()] = token
+				a[self.__index.next()] = token
 		except StopIteration:
 			raise ligolw.ElementError, "too many values in Array"
 
@@ -132,7 +161,6 @@ class ArrayStream(ligolw.Stream):
 		on this element to promote garbage collection.
 		"""
 		self.__index = None
-		self.__array = None
 		ligolw.Stream.unlink(self)
 
 	def write(self, file = sys.stdout, indent = ""):
@@ -140,11 +168,12 @@ class ArrayStream(ligolw.Stream):
 		# delimiter after the last element.
 		print >>file, self.start_tag(indent)
 		it = iter(_IndexIter(self.parentNode.array.shape))
+		a = self.parentNode.array
 		try:
 			indeces = it.next()
 			file.write(indent + ligolw.Indent)
 			while True:
-				file.write("%s" % self.__array[indeces])
+				file.write("%s" % a[indeces])
 				indeces = it.next()
 				file.write(self.getAttribute("Delimiter"))
 				if not indeces[0]:
