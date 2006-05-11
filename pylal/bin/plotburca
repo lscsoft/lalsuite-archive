@@ -434,14 +434,13 @@ for n, filename in enumerate(llwapp.sort_files(filenames, options.verbose)):
 n = 0
 format = "%%s%%0%dd.%%s" % (int(math.log10(len(plots))) + 1)
 while len(plots):
-	plot = plots[0]
 	filename = format % (options.base, n, options.format)
 	if options.verbose:
 		print >>sys.stderr, "finishing plot %d..." % n
-	plot.finish()
+	plots[0].finish()
 	if options.verbose:
 		print >>sys.stderr, "writing %s..." % filename
-	plot.fig.savefig(filename)
+	plots[0].fig.savefig(filename)
 	del plots[0]
 	n += 1
 if options.verbose:
