@@ -256,13 +256,11 @@ class RateContours(object):
 		self.tisirows = None
 		self.seglistdict = None
 		self.fig = figure.Figure()
-		self.canvas = FigureCanvasAgg(self.fig)
+		FigureCanvasAgg(self.fig)
 		self.fig.set_figsize_inches(16,16)
 		self.axes = self.fig.gca()
 		self.bins = RatioBins(-100.0, 100.0, 11, -100.0, 100.0, 11)
-
 		self.axes.grid(True)
-
 		self.axes.set_xlabel("%s Offset (s)" % x_instrument)
 		self.axes.set_ylabel("%s Offset (s)" % y_instrument)
 
@@ -308,13 +306,11 @@ class ConfidenceScatter(object):
 		self.background_x = []
 		self.background_y = []
 		self.fig = figure.Figure()
-		self.canvas = FigureCanvasAgg(self.fig)
+		FigureCanvasAgg(self.fig)
 		self.fig.set_figsize_inches(16,16)
 		self.axes = self.fig.gca()
-
 		self.axes.loglog()
 		self.axes.grid(True)
-
 		self.axes.set_xlabel("%s Confidence" % x_instrument)
 		self.axes.set_ylabel("%s Confidence" % y_instrument)
 
@@ -336,7 +332,7 @@ class ConfidenceScatter(object):
 						self.background_y.append(-trig.confidence)
 
 	def finish(self):
-		self.axes.set_title("Coincident Trigger Confidence")
+		self.axes.set_title("Coincident Trigger Confidence\n(%d Foreground, %d Background Triggers)" % (self.n_foreground, self.n_background))
 		self.axes.plot(self.background_x, self.background_y, "k+")
 		self.axes.plot(self.foreground_x, self.foreground_y, "rx")
 
@@ -352,15 +348,15 @@ class ConfidenceScatter(object):
 class DeltaTHistogram(object):
 	def __init__(self, instrument, interval, width):
 		self.instrument = instrument
+		self.n_foreground = 0
+		self.n_background = 0
 		self.foreground = rate.Rate1D(interval, width)
 		self.background = rate.Rate1D(interval, width)
 		self.fig = figure.Figure()
-		self.canvas = FigureCanvasAgg(self.fig)
+		FigureCanvasAgg(self.fig)
 		self.fig.set_figsize_inches(16,8)
 		self.axes = self.fig.gca()
-
 		self.axes.grid(True)
-
 		self.axes.set_xlabel("Offset (s)")
 		self.axes.set_ylabel("Triggers per Unit Offset")
 
@@ -376,12 +372,14 @@ class DeltaTHistogram(object):
 					t = peak
 			if t != None:
 				if foreground:
+					self.n_foreground += 1
 					self.foreground[t - mean] = 1.0
 				else:
+					self.n_background += 1
 					self.background[t - mean] = 1.0
 
 	def finish(self):
-		self.axes.set_title("%s Peak Time Offset From Coincidence Mean" % self.instrument)
+		self.axes.set_title("%s Peak Time Offset From Coincidence Mean\n(%d Foreground, %d Background Triggers)" % (self.instrument, self.n_foreground, self.n_background))
 		self.background.convolve()
 		self.foreground.convolve()
 		self.axes.plot(self.background.xvals, self.background.yvals, "k")
