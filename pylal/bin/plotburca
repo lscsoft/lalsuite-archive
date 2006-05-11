@@ -149,7 +149,7 @@ class DocContents(object):
 		# Extract segmentlist dictionary
 		#
 
-		self.seglistdict = llwapp.SearchSummarySegListDict(llwapp.get_table(xmldoc, lsctables.SearchSummaryTable.tableName), llwapp.get_process_ids_by_program(llwapp.get_table(xmldoc, lsctables.ProcessTable.tableName), live_time_program))
+		self.seglistdict = llwapp.get_seglistdict(xmldoc, live_time_program)
 
 		#
 		# Find foreground time slide
