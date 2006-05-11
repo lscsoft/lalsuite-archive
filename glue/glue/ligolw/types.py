@@ -42,3 +42,15 @@ ToNumArrayType = {
 	"float": "Float64",
 	"double": "Float64"
 }
+
+FromNumArrayType = {
+	"Int16": "int_2s",
+	"UInt16": "int_2u",
+	"Int32": "int_4s",
+	"UInt32": "int_4u",
+	"Int64": "int_8s",
+	"UInt64": "int_8u",
+	"Float32": "real_4",
+	"Float64": "real_8"
+}
+
