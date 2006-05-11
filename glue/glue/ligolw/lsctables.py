@@ -17,6 +17,7 @@ from glue import lal
 from glue import segments
 import ligolw
 import metaio
+import types
 
 
 #
@@ -593,7 +594,7 @@ class ProcessParamsTable(LSCTableMulti):
 	}
 
 	def append(self, row):
-		if row.type not in metaio.Types:
+		if row.type not in types.Types:
 			raise ligolw.ElementError, "ProcessParamsTable.append():  unrecognized type \"%s\"" % row.type
 		LSCTableMulti.append(self, row)
 
