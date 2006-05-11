@@ -35,14 +35,12 @@ from matplotlib import figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 import numarray
 import sys
-import urllib
 
-from glue.lal import CacheEntry
 from glue import segments
-from glue.ligolw import ligolw
 from glue.ligolw import lsctables
-from glue.ligolw import docutils
 from pylal import llwapp
+from pylal import rate
+from pylal.date import LIGOTimeGPS
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
@@ -59,20 +57,16 @@ __date__ = "$Date$"[7:-2]
 
 def parse_command_line():
 	parser = OptionParser(version="%prog CVS $Id$")
-	parser.add_option("-c", "--input-cache", metavar = "filename", default = [], action = "append", help = "read input file the files in this cache")
 	parser.add_option("--made-only", action = "store_true", default = False, help = "plot only injections that were made")
 	parser.add_option("-b", "--base", metavar = "base", default = "plotbinj_", help = "set the prefix for output filenames (default = plotbinj_)")
 	parser.add_option("-f", "--format", metavar = "format", default = "png", help = "set the output image format (default = png)")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
-	options, urls = parser.parse_args()
+	options, filenames = parser.parse_args()
 
-	for cachename in options.input_cache:
-		urls.extend([entry.url for entry in map(CacheEntry, file(cachename))])
-
-	return options, (urls or [None])
+	return options, (filenames or [None])
 
 try:
-	options, urls = parse_command_line()
+	options, filenames = parse_command_line()
 except ValueError, e:
 	print >>sys.stderr, "error: %s" % str(e)
 	sys.exit(1)
@@ -86,21 +80,49 @@ except ValueError, e:
 # =============================================================================
 #
 
-def ElementFilter(name, attrs):
-	return lsctables.IsTableProperties(lsctables.SimBurstTable, name, attrs) or lsctables.IsTableProperties(lsctables.SearchSummaryTable, name, attrs) or lsctables.IsTableProperties(lsctables.SnglBurstTable, name, attrs) or lsctables.IsTableProperties(lsctables.CoincTable, name, attrs) or lsctables.IsTableProperties(lsctables.CoincMapTable, name, attrs)
+class SnglBurst(object):
+	__slots__ = ["ifo", "confidence", "peak_time", "peak_time_ns", "event_id"]
 
-def load_url(url, verbose = False):
-	if verbose:
-		if url:
-			print >>sys.stderr, "reading %s..." % url
-		else:
-			print >>sys.stderr, "reading stdin..."
-	doc = ligolw.Document()
-	if url:
-		ligolw.make_parser(docutils.PartialLIGOLWContentHandler(doc, ElementFilter)).parse(urllib.urlopen(url))
+	def get_peak(self):
+		return LIGOTimeGPS(self.peak_time, self.peak_time_ns)
+
+def snglburst_init(self, attrs):
+	lsctables.LSCTableUnique.__init__(self, attrs)
+	self.rows = {}
+
+def snglburst_append(self, row):
+	self.rows[lsctables.ILWDID(row.event_id)] = row
+	del row.event_id
+
+def simburst_init(self, attrs):
+	lsctables.LSCTableUnique.__init__(self, attrs)
+	self.rows = {}
+
+def simburst_append(self, row):
+	self.rows[lsctables.ILWDID(row.simulation_id)] = row
+	del row.simulation_id
+
+def coinc_map_init(self, attrs):
+	lsctables.LSCTableUnique.__init__(self, attrs)
+	self.rows = {}
+
+def coinc_map_append(self, row):
+	id = lsctables.ILWDID(row.coinc_event_id)
+	if id not in self.rows:
+		self.rows[id] = ([], [])
+	if "sim_burst" in row.event_id:
+		self.rows[id][0].append(lsctables.ILWDID(row.event_id))
 	else:
-		ligolw.make_parser(docutils.PartialLIGOLWContentHandler(doc, ElementFilter)).parse(sys.stdin)
-	return doc
+		# sngl_burst
+		self.rows[id][1].append(lsctables.ILWDID(row.event_id))
+
+lsctables.SnglBurstTable.RowType = SnglBurst
+lsctables.SnglBurstTable.__init__ = snglburst_init
+lsctables.SnglBurstTable.append = snglburst_append
+lsctables.SimBurstTable.__init__ = simburst_init
+lsctables.SimBurstTable.append = simburst_append
+lsctables.CoincMapTable.__init__ = coinc_map_init
+lsctables.CoincMapTable.append = coinc_map_append
 
 
 #
@@ -112,74 +134,40 @@ def load_url(url, verbose = False):
 #
 
 class DocContents(object):
-	def __init__(self, doc, verbose = False):
-		if verbose:
-			print >>sys.stderr, "indexing..."
-
+	def __init__(self, xmldoc, live_time_program):
 		#
 		# Extract tables
 		#
 
-		self.simtable = llwapp.get_table(doc, lsctables.SimBurstTable.tableName)
-		self.summarytable = llwapp.get_table(doc, lsctables.SearchSummaryTable.tableName)
-		self.coinctable = llwapp.get_table(doc, lsctables.CoincTable.tableName)
-		self.coincmaptable = llwapp.get_table(doc, lsctables.CoincMapTable.tableName)
+		self.bursttable = llwapp.get_table(xmldoc, lsctables.SnglBurstTable.tableName)
+		self.simtable = llwapp.get_table(xmldoc, lsctables.SimBurstTable.tableName)
+		self.coinctable = llwapp.get_table(xmldoc, lsctables.CoincTable.tableName)
+		self.coincmaptable = llwapp.get_table(xmldoc, lsctables.CoincMapTable.tableName)
 
 		#
-		# Sort table rows
+		# Extract segmentlist
 		#
 
-		# sim_burst by simulation_id
-		self.simtable.rows.sort(lambda a, b: cmp(lsctables.ILWDID(a.simulation_id), lsctables.ILWDID(b.simulation_id)))
-
-		# coinc_event_map by event_id
-		self.coincmaptable.rows.sort(lambda a, b: cmp(lsctables.ILWDID(a.event_id), lsctables.ILWDID(b.event_id)))
-
-		#
-		# Construct ID look-up tables
-		#
-
-		self.simtableids = map(lsctables.ILWDID, self.simtable.getColumnByName("simulation_id"))
-		self.coinctableids = map(lsctables.ILWDID, self.coinctable.getColumnByName("coinc_event_id"))
-		self.coincmaptableids = map(lsctables.ILWDID, self.coincmaptable.getColumnByName("event_id"))
+		seglistdict = llwapp.get_seglistdict(xmldoc, live_time_program)
+		self.seglist = seglistdict.intersect(seglistdict.keys())
 
 		#
 		# Found and missed injection IDs
 		#
 
-		self.foundsimids = []
-		self.missedsimids = []
-		for id in self.simtableids:
-			if llwapp.bisect_contains(self.coincmaptableids, id):
-				self.foundsimids.append(id)
-			else:
-				self.missedsimids.append(id)
-		self.foundsimids.sort()
-		self.missedsimids.sort()
+		foundsimids = [row[0][0] for row in self.coincmaptable.rows.itervalues()]
+		foundsimids.sort()
+		self.missedsims = [id for id in self.simtable.rows.iterkeys() if not llwapp.bisect_contains(foundsimids, id)]
+		self.missedsims.sort()
+		self.missedsims = map(self.simtable.rows.__getitem__, self.missedsims)
 
+		#
+		# Build coinc_event_map --> sngl_burst and sim_burst
+		# references
+		#
 
-	def get_sim_by_id(self, id):
-		return self.simtable.rows[bisect.bisect_left(self.simtableids, id)]
-
-
-#
-# =============================================================================
-#
-#                             Injection Iterators
-#
-# =============================================================================
-#
-
-def FoundInjectionIterator(doccontents):
-	last = None
-	for id in doccontents.foundsimids:
-		if id != last:
-			yield doccontents.get_sim_by_id(id)
-		last = id
-
-def MissedInjectionIterator(doccontents):
-	for id in doccontents.missedsimids:
-		yield doccontents.get_sim_by_id(id)
+		for key, value in self.coincmaptable.rows.iteritems():
+			self.coincmaptable.rows[key] = (map(self.simtable.rows.__getitem__, value[0]), map(self.bursttable.rows.__getitem__, value[1]))
 
 
 #
@@ -233,28 +221,34 @@ class FreqVsTime(object):
 	def __init__(self):
 		self.name = "frequency vs. time"
 		self.num_injections = 0
+		self.injected_x = []
+		self.injected_y = []
+		self.missed_x = []
+		self.missed_y = []
 		self.seglist = segments.segmentlist()
 		self.fig = figure.Figure()
-		self.canvas = FigureCanvasAgg(self.fig)
+		FigureCanvasAgg(self.fig)
 		self.fig.set_figsize_inches(16, 8)
 		self.axes = self.fig.gca()
 		self.axes.semilogy()
-
 		self.axes.grid(True)
-
 		self.axes.set_xlabel("GPS Time (s)")
 		self.axes.set_ylabel("Frequency (Hz)")
 
 	def add_contents(self, doc):
 		self.num_injections += len(doc.simtable)
-		for row in doc.simtable.rows:
-			self.axes.plot((float(row.get_geocent_peak()),), (row.freq,), "b+")
-		if not options.made_only:
-			for row in MissedInjectionIterator(doc):
-				self.axes.plot((float(row.get_geocent_peak()),), (row.freq,), "rx")
-		self.seglist |= doc.summarytable.get_outlist().coalesce()
+		for sim in doc.simtable.rows.itervalues():
+			self.injected_x.append(float(sim.get_geocent_peak()))
+			self.injected_y.append(sim.freq)
+		for sim in doc.missedsims:
+			self.missed_x.append(float(sim.get_geocent_peak()))
+			self.missed_y.append(sim.freq)
+		self.seglist |= doc.seglist
 
 	def finish(self):
+		self.axes.plot(self.injected_x, self.injected_y, "b+")
+		if not options.made_only:
+			self.axes.plot(self.missed_x, self.missed_y, "rx")
 		for seg in ~self.seglist & segments.segmentlist([segments.segment(self.axes.get_xlim())]):
 			self.axes.axvspan(seg[0], seg[1], facecolor = "k", alpha = 0.2)
 		self.axes.set_title("Injection Locations\n(%d Injections)" % self.num_injections)
@@ -268,45 +262,68 @@ class FreqVsTime(object):
 # =============================================================================
 #
 
-class AmplVsFreq(object):
-	def __init__(self, representation):
-		self.name = "amplitude vs. frequency (%s)" % representation
-		self.representation = representation
+class AmplVsFreqScatter(object):
+	def __init__(self):
+		self.name = "amplitude vs. frequency (scatter)"
 		self.num_injections = 0
+		self.injected_x = []
+		self.injected_y = []
+		self.missed_x = []
+		self.missed_y = []
 		self.fig = figure.Figure()
-		self.canvas = FigureCanvasAgg(self.fig)
+		FigureCanvasAgg(self.fig)
 		self.fig.set_figsize_inches(16, 8)
 		self.axes = self.fig.gca()
 		self.madevsfound = MadeVsFound(70.0, 2118.0, 64, 10**-22.2, 10**-18.0, 64)
-
 		self.axes.loglog()
 		self.axes.grid(True)
-
 		self.axes.set_xlabel("Frequency (Hz)")
 		self.axes.set_ylabel("h_rss")
 
 	def add_contents(self, doc):
 		self.num_injections += len(doc.simtable)
-		if self.representation == "contour":
-			for row in doc.simtable.rows:
-				self.madevsfound.incmade(row.freq, row.hrss)
-			if not options.made_only:
-				for row in FoundInjectionIterator(doc):
-					self.madevsfound.incfound(row.freq, row.hrss)
-		elif self.representation == "scatter":
-			for row in doc.simtable.rows:
-				self.axes.plot((row.freq,), (row.hrss,), "b+")
-			if not options.made_only:
-				for row in MissedInjectionIterator(doc):
-					self.axes.plot((row.freq,), (row.hrss,), "rx")
+		for sim in doc.simtable.rows.itervalues():
+			self.injected_x.append(sim.freq)
+			self.injected_y.append(sim.hrss)
+		for sim in doc.missedsims:
+			self.missed_x.append(sim.freq)
+			self.missed_y.append(sim.hrss)
 
 	def finish(self):
-		if self.representation == "contour":
-			self.madevsfound.normalize()
-			if options.made_only:
-				cset = self.axes.contour(self.madevsfound.xcoords, self.madevsfound.ycoords, self.madevsfound.made)
-			else:
-				cset = self.axes.contour(self.madevsfound.xcoords, self.madevsfound.ycoords, self.madevsfound.found / self.madevsfound.made, [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9])
+		self.axes.plot(self.injected_x, self.injected_y, "b+")
+		if not options.made_only:
+			self.axes.plot(self.missed_x, self.missed_y, "rx")
+		self.axes.set_title("Injection Amplitude vs. Frequency\n(%d Injections)" % self.num_injections)
+
+
+class AmplVsFreqContour(object):
+	def __init__(self):
+		self.name = "amplitude vs. frequency (contour)"
+		self.num_injections = 0
+		self.fig = figure.Figure()
+		FigureCanvasAgg(self.fig)
+		self.fig.set_figsize_inches(16, 8)
+		self.axes = self.fig.gca()
+		self.madevsfound = MadeVsFound(70.0, 2118.0, 64, 10**-22.2, 10**-18.0, 64)
+		self.axes.loglog()
+		self.axes.grid(True)
+		self.axes.set_xlabel("Frequency (Hz)")
+		self.axes.set_ylabel("h_rss")
+
+	def add_contents(self, doc):
+		self.num_injections += len(doc.simtable)
+		for sim in doc.simtable.rows.itervalues():
+			self.madevsfound.incmade(sim.freq, sim.hrss)
+		if not options.made_only:
+			for sims, bursts in doc.coincmaptable.rows.itervalues():
+				self.madevsfound.incfound(sims[0].freq, sims[0].hrss)
+
+	def finish(self):
+		self.madevsfound.normalize()
+		if options.made_only:
+			cset = self.axes.contour(self.madevsfound.xcoords, self.madevsfound.ycoords, self.madevsfound.made)
+		else:
+			cset = self.axes.contour(self.madevsfound.xcoords, self.madevsfound.ycoords, self.madevsfound.found / self.madevsfound.made, [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9])
 		self.axes.set_title("Injection Amplitude vs. Frequency\n(%d Injections)" % self.num_injections)
 
 
@@ -324,12 +341,11 @@ class TriggerCountHistogram(object):
 		self.found = 0
 		self.bins = []
 		self.fig = figure.Figure()
-		self.canvas = FigureCanvasAgg(self.fig)
+		FigureCanvasAgg(self.fig)
 		self.fig.set_figsize_inches(16, 8)
 		self.axes = self.fig.gca()
 		self.axes.semilogy()
 		self.axes.grid(True)
-
 		self.axes.set_xlabel("Number of Triggers Coincident with Injection")
 		self.axes.set_ylabel("Count")
 
@@ -350,30 +366,112 @@ class TriggerCountHistogram(object):
 #
 # =============================================================================
 #
+#                       Recovered vs. Injected Amplitude
+#
+# =============================================================================
+#
+
+class RecoveredVsInjectedAmplitude(object):
+	def __init__(self):
+		self.name = "recovered vs. injected amplitude"
+		self.found = 0
+		self.recovered = []
+		self.injected = []
+		self.fig = figure.Figure()
+		FigureCanvasAgg(self.fig)
+		self.fig.set_figsize_inches(8, 8)
+		self.axes = self.fig.gca()
+		self.axes.loglog()
+		self.axes.grid(True)
+		self.axes.set_xlabel("Injected h_rss")
+		self.axes.set_ylabel("Recovered Confidence")
+
+	def add_contents(self, doc):
+		self.found += len(doc.coinctable)
+		for sims, bursts in doc.coincmaptable.rows.itervalues():
+			confidence = max([math.fabs(burst.confidence) for burst in bursts])
+			self.injected.append(sims[0].hrss)
+			self.recovered.append(confidence)
+
+	def finish(self):
+		self.axes.plot(self.injected, self.recovered, "k+")
+		self.axes.set_title("Recovered Amplitude vs. Injected Amplitude\n(%d Found Injections)" % self.found)
+
+
+#
+# =============================================================================
+#
+#                            Recovered Time Offset
+#
+# =============================================================================
+#
+
+class RecoveredTimeOffset(object):
+	def __init__(self, interval, width):
+		self.name = "recovered time offset"
+		self.found = 0
+		self.offsets = rate.Rate1D(interval, width)
+		self.best = rate.Rate1D(interval, width)
+		self.fig = figure.Figure()
+		FigureCanvasAgg(self.fig)
+		self.fig.set_figsize_inches(16, 8)
+		self.axes = self.fig.gca()
+		self.axes.grid(True)
+		self.axes.set_xlabel("Offset (s)")
+		self.axes.set_ylabel("Triggers per Unit Offset")
+
+	def add_contents(self, doc):
+		self.found += len(doc.coinctable)
+		for sims, bursts in doc.coincmaptable.rows.itervalues():
+			conf = 0.0
+			for burst in bursts:
+				dt = burst.get_peak() - sims[0].get_peak(burst.ifo)
+				self.offsets[dt] = 1.0
+				if math.fabs(burst.confidence) > conf:
+					best_dt = dt
+			self.best[dt] = 1.0
+
+	def finish(self):
+		self.axes.set_title("Trigger Peak Time - Injection Peak Time\n(%d Found Injections)" % self.found)
+		self.offsets.convolve()
+		self.best.convolve()
+		self.axes.plot(self.offsets.xvals, self.offsets.yvals, "k")
+		self.axes.plot(self.best.xvals, self.best.yvals, "r")
+
+
+#
+# =============================================================================
+#
 #                                     Plot
 #
 # =============================================================================
 #
 
-plots = (FreqVsTime(), AmplVsFreq("scatter"), AmplVsFreq("contour"), TriggerCountHistogram())
+plots = [
+	FreqVsTime(),
+	AmplVsFreqScatter(),
+	AmplVsFreqContour(),
+	TriggerCountHistogram(),
+	RecoveredVsInjectedAmplitude(),
+	RecoveredTimeOffset(segments.segment(-0.25, +0.25), 0.005)
+]
 
-for n, url in enumerate(urls):
-	if options.verbose:
-		print >>sys.stderr, "%d/%d:" % (n + 1, len(urls)),
-	try:
-		doc = DocContents(load_url(url, options.verbose), options.verbose)
+try:
+	for n, filename in enumerate(llwapp.sort_files(filenames, options.verbose)):
+		if options.verbose:
+			print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
+		doc = llwapp.load_filename(filename, options.verbose)
+		if options.verbose:
+			print >>sys.stderr, "indexing..."
+		contents = DocContents(doc, "power")
 		for plot in plots:
 			if options.verbose:
 				print >>sys.stderr, "adding to %s..." % plot.name
-			plot.add_contents(doc)
-	except Exception, e:
-		print >>sys.stderr, "error: %s" % str(e)
-		sys.exit(1)
-
-if options.verbose:
-	print >>sys.stderr, "finishing..."
-for plot in plots:
-	plot.finish()
+			plot.add_contents(contents)
+		doc.unlink()
+except Exception, e:
+	print >>sys.stderr, "error: %s" % str(e)
+	sys.exit(1)
 
 
 #
@@ -384,8 +482,16 @@ for plot in plots:
 # =============================================================================
 #
 
-for n, plot in enumerate(plots):
-	filename = "%s%d.%s" % (options.base, n, options.format)
+# delete the plots as we go to save memory
+n = 0
+format = "%%s%%0%dd.%%s" % (int(math.log10(len(plots))) + 1)
+while len(plots):
+	filename = format % (options.base, n, options.format)
+	if options.verbose:
+		print >>sys.stderr, "finishing plot %d..." % n
+	plots[0].finish()
 	if options.verbose:
 		print >>sys.stderr, "writing %s..." % filename
-	plot.fig.savefig(filename)
+	plots[0].fig.savefig(filename)
+	del plots[0]
+	n += 1
