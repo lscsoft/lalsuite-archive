@@ -25,11 +25,13 @@
 #
 
 """
-This module provides code to convolve impulsive events with a window
-function to produce a smooth data set.  The convolution is
-integral-preserving, and so is particularly-well suited for use in
-eliminating binning artifacts from histograms, and other rate-like data
-sets.
+This module provides facilities for handling impulsive events.  A number
+multi-dimensional binning functions are provided, as well as code to
+convolve binned data with integral-preserving window functions to produce
+smoothed representations of data sets.  This is particularly well suited
+for use in computing moving-average rate data from collections of impulsive
+events, elliminating binning artifacts from histograms, and improving the
+appearance of contour plots.
 """
 
 import math
@@ -51,15 +53,23 @@ __date__ = "$Date$"[7:-2]
 
 def gaussian_window(halfwidth):
 	"""
-	Generate a normalized (integral = 1) Gaussian window.
+	Generate a normalized (integral = 1) Gaussian window in 1
+	dimension.
 	"""
-	bins_per_unit = 10.0 / halfwidth
-	return numarray.exp(-numarray.arrayrange(-10.0 * halfwidth, +10.0 * halfwidth, 1.0/bins_per_unit)**2.0 / (2.0 * halfwidth**2.0)) / math.sqrt(2.0 * math.pi) / halfwidth
+	return numarray.exp(-numarray.arrayrange(-10.0 * halfwidth, +10.0 * halfwidth, halfwidth / 10.0, "Float64")**2.0 / (2.0 * halfwidth**2.0)) / math.sqrt(2.0 * math.pi) / halfwidth
+
+
+def gaussian_window2d(halfwidth_x, halfwidth_y):
+	"""
+	Generate a normalized (integral = 1) Gaussian window in 2
+	dimensions.
+	"""
+	return numarray.outerproduct(gaussian_window(halfwidth_x), gaussian_window(halfwidth_y))
 
 
 def tophat_window(halfwidth):
 	"""
-	Generate a normalized (integral = 1) top-hat window.
+	Generate a normalized (integral = 1) top-hat window in 1 dimension.
 	"""
 	bins_per_unit = 10.0 / halfwidth
 	return numarray.ones(2.0 * halfwidth / bins_per_unit) / (2.0 * halfwidth)
@@ -74,6 +84,9 @@ def tophat_window(halfwidth):
 #
 
 class _Bins(object):
+	"""
+	Parent class for 1-D bins.  For internal use only.
+	"""
 	def __init__(self, min, max, n):
 		if type(n) != int:
 			raise TypeError, n
@@ -92,6 +105,9 @@ class _Bins(object):
 
 
 class _LinBins(_Bins):
+	"""
+	Linearly-spaced 1-D bins.  For internal use only.
+	"""
 	def _set_delta(self, min, max, n):
 		self.delta = float(max - min) / (n - 1)
 
@@ -105,6 +121,9 @@ class _LinBins(_Bins):
 
 
 class _LogBins(_Bins):
+	"""
+	Logarithmically-spaced 1-D bins.  For internal use only.
+	"""
 	def _set_delta(self, min, max, n):
 		self.delta = math.log(float(max / min) ** (1.0 / (n - 1)))
 
@@ -118,6 +137,31 @@ class _LogBins(_Bins):
 
 
 class Bins(object):
+	"""
+	Multi-dimensional co-ordinate binning.  An instance of this object
+	is used to convert a tuple of co-ordinates into a tuple of array
+	indeces, thereby allowing the contents of an array object to be
+	accessed with real-valued coordinates.  When creating a Bins
+	object, the arguments describe the range along each co-ordinate
+	direction, and the number of bins.  The arguments come in groups of
+	three, one for each direction.  An optional keyword argument is
+	used to set the spacing of the bins to linear or logarithmic in
+	each of the directions independantly.
+
+	Example:
+	
+	>>> b = Bins(1, 25, 3, 1, 25, 3, spacing = ["lin", "log"])
+	>>> b[1, 1]
+	(0, 0)
+	>>> b[1.5, 1]
+	(0, 0)
+	>>> b[10, 1]
+	(1, 0)
+	>>> b[1, 5]
+	(0, 1)
+	>>> b.centres()
+	(array([  1.,  13.,  25.]), array([  1.,   5.,  25.]))
+	"""
 	def __init__(self, *args, **kwargs):
 		if len(args) % 3:
 			raise TypeError, "arguments must be min,max,n[,min,max,n]..."
@@ -144,6 +188,10 @@ class Bins(object):
 		return tuple([self.__bins[i][coords[i]] for i in xrange(len(self.__bins))])
 
 	def centres(self):
+		"""
+		Return a tuple of arrays containing the bin centres for
+		each dimension.
+		"""
 		return tuple([self.__bins[i].centres() for i in xrange(len(self.__bins))])
 
 
@@ -156,6 +204,22 @@ class Bins(object):
 #
 
 class BinnedArray(object):
+	"""
+	A convenience wrapper, using the Bins class to provide access to
+	the elements of an array object.  Technical reasons preclude
+	providing a subclass of the array object, so the array data is made
+	available as the "array" attribute of this class.
+
+	Example:
+
+	>>> x = BinnedArray(Bins(0, 10, 5))
+	>>> x.array
+	array([ 0.,  0.,  0.,  0.,  0.])
+	>>> x[0,] += 1
+	>>> x[0.5,] += 1
+	>>> x.array
+	array([ 2.,  0.,  0.,  0.,  0.])
+	"""
 	# Argh.  Ideally, we would subclass numarray.NumArray and construct
 	# a variant that accepts arbitrary co-ordinates in the
 	# __getitem__() and __setitem__() methods.  Unforunately, numarray
@@ -176,25 +240,60 @@ class BinnedArray(object):
 		self.array[self.bins[coords]] = val
 
 	def centres(self):
+		"""
+		Return a tuple of arrays containing the bin centres for
+		each dimension.
+		"""
 		return self.bins.centres()
 
 
 class BinnedRatios(object):
+	"""
+	Like BinnedArray, but provides a numerator array and a denominator
+	array.  The incnumerator() method increments a bin in the numerator
+	by the given weight, and the incdenominator() method increments a
+	bin in the denominator by the given weight.  There are no methods
+	provided for setting or decrementing either, but the arrays can be
+	accessed directly.
+	"""
 	def __init__(self, bins):
 		self.bins = bins
 		self.numerator = numarray.zeros(bins.shape, "Float64")
 		self.denominator = numarray.zeros(bins.shape, "Float64")
 
 	def incnumerator(self, coords, weight = 1.0):
+		"""
+		Add weight to the numerator bin at coords.
+		"""
 		self.numerator[self.bins[coords]] += weight
 
 	def incdenominator(self, coords, weight = 1.0):
+		"""
+		Add weight to the denominator bin at coords.
+		"""
 		self.denominator[self.bins[coords]] += weight
 
+	def ratios(self):
+		"""
+		Compute and return the array of ratios.
+		"""
+		return self.numerator / self.denominator
+
 	def regularize(self):
+		"""
+		Find bins in the denominator that are 0, and set them to 1.
+		Presumably the corresponding bin in the numerator is also
+		0, so this has the effect of causing zeros to be returned
+		in the ratios array for those bins that have had no weight
+		added to them.
+		"""
 		self.denominator = numarray.where(self.denominator > 0, self.denominator, 1.0)
 
 	def centres(self):
+		"""
+		Return a tuple of arrays containing the bin centres for
+		each dimension.
+		"""
 		return self.bins.centres()
 
 
@@ -215,22 +314,20 @@ class Rate1D(object):
 		Initialize the bins for the given segment and width.
 		"""
 		self.halfwidth = width / 2.0
-		self.xvals = numarray.arrayrange(0.0, float(segment.duration()) + self.halfwidth / 10.0, self.halfwidth / 10.0) + float(segment[0])
-		self.__yvals = BinnedArray(Bins(segment[0], segment[1], len(self.xvals)))
-		self.yvals = self.__yvals.array
+		self.bins = BinnedArray(Bins(segment[0], segment[1], int(segment.duration() / (self.halfwidth / 10.0) + 1)))
 		self.set_window(windowfunc)
 
 	def __getitem__(self, x):
 		"""
 		Retrieve the weight in bin corresponding to x.
 		"""
-		return self.__yvals[x,]
+		return self.bins[x,]
 
 	def __setitem__(self, x, weight):
 		"""
 		Add weight to the bin corresponding to x.
 		"""
-		self.__yvals[x,] += weight
+		self.bins[x,] += weight
 
 	def set_window(self, windowfunc):
 		"""
@@ -243,8 +340,14 @@ class Rate1D(object):
 		Convolve the binned weights with the window to smooth the
 		data set.
 		"""
-		self.yvals = convolve.convolve(self.yvals, self.window(self.halfwidth), mode=convolve.SAME)
+		self.bins.array = convolve.convolve(self.bins.array, self.window(self.halfwidth), mode=convolve.SAME)
 		return self
+
+	def xvals(self):
+		return self.bins.centres()
+
+	def yvals(self):
+		return self.bins.array
 
 
 #
@@ -288,5 +391,5 @@ def smooth(impulses, segment, width, weights = None):
 			if segment[0] <= x < segment[1]:
 				rate[x] = 1.0
 	rate.convolve()
-	return rate.xvals, rate.yvals
+	return rate.xvals(), rate.yvals()
 
