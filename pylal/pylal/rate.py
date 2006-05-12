@@ -300,34 +300,28 @@ class BinnedRatios(object):
 #
 # =============================================================================
 #
-#                                     1-D
+#                                    Rates
 #
 # =============================================================================
 #
 
-class Rate1D(object):
+class Rate1D(BinnedArray):
 	"""
-	An object for binning and smoothing impulsive data.
+	An object for binning and smoothing impulsive data in 1 dimension.
 	"""
 	def __init__(self, segment, width, windowfunc = gaussian_window):
 		"""
 		Initialize the bins for the given segment and width.
 		"""
+		BinnedArray.__init__(self, Bins(segment[0], segment[1], int(segment.duration() / (width / 20.0) + 1)))
 		self.halfwidth = width / 2.0
-		self.bins = BinnedArray(Bins(segment[0], segment[1], int(segment.duration() / (self.halfwidth / 10.0) + 1)))
 		self.set_window(windowfunc)
-
-	def __getitem__(self, x):
-		"""
-		Retrieve the weight in bin corresponding to x.
-		"""
-		return self.bins[x,]
 
 	def __setitem__(self, x, weight):
 		"""
 		Add weight to the bin corresponding to x.
 		"""
-		self.bins[x,] += weight
+		self.array[self.bins[x,]] += weight
 
 	def set_window(self, windowfunc):
 		"""
@@ -340,14 +334,14 @@ class Rate1D(object):
 		Convolve the binned weights with the window to smooth the
 		data set.
 		"""
-		self.bins.array = convolve.convolve(self.bins.array, self.window(self.halfwidth), mode=convolve.SAME)
+		self.array = convolve.convolve(self.array, self.window(self.halfwidth), mode=convolve.SAME)
 		return self
 
 	def xvals(self):
-		return self.bins.centres()
+		return self.centres()
 
 	def yvals(self):
-		return self.bins.array
+		return self.array
 
 
 #
@@ -383,13 +377,15 @@ def smooth(impulses, segment, width, weights = None):
 	"""
 	rate = Rate1D(segment, width)
 	if weights != None:
-		for n, x in enumerate(impulses):
+		weight = iter(weights)
+		for x in impulses:
 			if segment[0] <= x < segment[1]:
-				rate[x] = weights[n]
+				rate[x] = weight.next()
 	else:
 		for x in impulses:
 			if segment[0] <= x < segment[1]:
 				rate[x] = 1.0
 	rate.convolve()
 	return rate.xvals(), rate.yvals()
+
 
