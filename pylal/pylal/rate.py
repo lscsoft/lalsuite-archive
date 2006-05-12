@@ -19,7 +19,7 @@
 #
 # =============================================================================
 #
-# Preamble
+#                                   Preamble
 #
 # =============================================================================
 #
@@ -68,6 +68,139 @@ def tophat_window(halfwidth):
 #
 # =============================================================================
 #
+#                                     Bins
+#
+# =============================================================================
+#
+
+class _Bins(object):
+	def __init__(self, min, max, n):
+		if type(n) != int:
+			raise TypeError, n
+		if max <= min:
+			raise ValueError, (min, max)
+		self.min = min
+		self.max = max
+		self.n = n
+		self._set_delta(min, max, n)
+
+	def _set_delta(self, min, max, n):
+		raise NotImplementedError
+
+	def __getitem__(self, x):
+		raise NotImplementedError
+
+
+class _LinBins(_Bins):
+	def _set_delta(self, min, max, n):
+		self.delta = float(max - min) / (n - 1)
+
+	def __getitem__(self, x):
+		if self.min <= x <= self.max:
+			return int((x - self.min) / self.delta + 0.5)
+		raise IndexError, x
+
+	def centres(self):
+		return self.min + self.delta * numarray.arange(0, self.n, 1, "Float64")
+
+
+class _LogBins(_Bins):
+	def _set_delta(self, min, max, n):
+		self.delta = math.log(float(max / min) ** (1.0 / (n - 1)))
+
+	def __getitem__(self, x):
+		if self.min <= x <= self.max:
+			return int(math.log(x / self.min) / self.delta + 0.5)
+		raise IndexError, x
+
+	def centres(self):
+		return self.min * numarray.exp(self.delta * numarray.arange(0, self.n, 1, "Float64"))
+
+
+class Bins(object):
+	def __init__(self, *args, **kwargs):
+		if len(args) % 3:
+			raise TypeError, "arguments must be min,max,n[,min,max,n]..."
+		spacing = kwargs.get("spacing", ["lin"] * (len(args) / 3))
+		if len(spacing) != len(args) / 3:
+			raise ValueError, spacing
+		self.__bins = []
+		try:
+			it = iter(args)
+			spacing = iter(spacing)
+			while True:
+				s = spacing.next()
+				if s == "lin":
+					self.__bins.append(_LinBins(it.next(), it.next(), it.next()))
+				elif s == "log":
+					self.__bins.append(_LogBins(it.next(), it.next(), it.next()))
+				else:
+					raise ValueError, s
+		except StopIteration:
+			pass
+		self.shape = tuple([b.n for b in self.__bins])
+
+	def __getitem__(self, coords):
+		return tuple([self.__bins[i][coords[i]] for i in xrange(len(self.__bins))])
+
+	def centres(self):
+		return tuple([self.__bins[i].centres() for i in xrange(len(self.__bins))])
+
+
+#
+# =============================================================================
+#
+#                                 Binned Array
+#
+# =============================================================================
+#
+
+class BinnedArray(object):
+	# Argh.  Ideally, we would subclass numarray.NumArray and construct
+	# a variant that accepts arbitrary co-ordinates in the
+	# __getitem__() and __setitem__() methods.  Unforunately, numarray
+	# is somewhat poorly designed, and so subclasses that do not export
+	# *exactly* the same interface as that exported by
+	# numarray.NumArray break the library.  If you can't construct a
+	# subclass that modifies the interface in any way whatsoever, that
+	# is if all subclasses must behave in exactly the same way as the
+	# parent class, then what would ever be the point?
+	def __init__(self, bins):
+		self.bins = bins
+		self.array = numarray.zeros(bins.shape, "Float64")
+
+	def __getitem__(self, coords):
+		return self.array[self.bins[coords]]
+
+	def __setitem__(self, coords, val):
+		self.array[self.bins[coords]] = val
+
+	def centres(self):
+		return self.bins.centres()
+
+
+class BinnedRatios(object):
+	def __init__(self, bins):
+		self.bins = bins
+		self.numerator = numarray.zeros(bins.shape, "Float64")
+		self.denominator = numarray.zeros(bins.shape, "Float64")
+
+	def incnumerator(self, coords, weight = 1.0):
+		self.numerator[self.bins[coords]] += weight
+
+	def incdenominator(self, coords, weight = 1.0):
+		self.denominator[self.bins[coords]] += weight
+
+	def normalize(self):
+		self.denominator = numarray.where(self.denominator > 0, self.denominator, 1.0)
+
+	def centres(self):
+		return self.bins.centres()
+
+
+#
+# =============================================================================
+#
 #                                     1-D
 #
 # =============================================================================
@@ -82,29 +215,22 @@ class Rate1D(object):
 		Initialize the bins for the given segment and width.
 		"""
 		self.halfwidth = width / 2.0
-		self.bins_per_unit = 10.0 / self.halfwidth
-		self.start = segment[0]
-		self.xvals = numarray.arrayrange(0.0, float(segment.duration()), 1.0/self.bins_per_unit) + float(segment[0])
-		self.yvals = numarray.zeros(len(self.xvals), "Float32")
+		self.xvals = numarray.arrayrange(0.0, float(segment.duration()) + self.halfwidth / 10.0, self.halfwidth / 10.0) + float(segment[0])
+		self.__yvals = BinnedArray(Bins(segment[0], segment[1], len(self.xvals)))
+		self.yvals = self.__yvals.array
 		self.set_window(windowfunc)
-
-	def bin(self, x):
-		"""
-		Return the index for the bin corresponding to x.
-		"""
-		return int(float(x - self.start) * self.bins_per_unit)
 
 	def __getitem__(self, x):
 		"""
 		Retrieve the weight in bin corresponding to x.
 		"""
-		return self.yvals[self.bin(x)]
+		return self.__yvals[x,]
 
 	def __setitem__(self, x, weight):
 		"""
 		Add weight to the bin corresponding to x.
 		"""
-		self.yvals[self.bin(x)] += weight
+		self.__yvals[x,] += weight
 
 	def set_window(self, windowfunc):
 		"""
