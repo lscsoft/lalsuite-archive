@@ -338,7 +338,7 @@ class Rate1D(BinnedArray):
 		return self
 
 	def xvals(self):
-		return self.centres()
+		return self.centres()[0]
 
 	def yvals(self):
 		return self.array
