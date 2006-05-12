@@ -110,7 +110,7 @@ def coire(data_type,input,ifos,trigs=None):
 # set up a plotthinca
 def plotthinca(trigs = None):
   """
-  set up s3_statistic plots
+  set up plotthinca plots
   @param trigs: trigger type (if None, keep all)
   """
   if trigs:
@@ -174,11 +174,11 @@ def s3_statistic(trigs = None):
   if "slide" in analyze:
     command += " --slide-glob '" + trigs + "-THINCA_SLIDE" + extra + "*.xml'" +\
                " --slide-dist" + \
+               " --slide-stat" + \
                " --num-slides " + opts.num_slides
     if "zero" in analyze:
-      command += " --slide-zero-stat " + \
-                 " --slide-zero-dist "
-                 
+      command += " --slide-zero-stat " 
+
   if "inj" in analyze:
     command += " --inj-glob '" + trigs + "-THINCA" + extra + "*FOUND.xml'" + \
             " --missed-glob '" + trigs + "-THINCA" + extra + "*MISSED.xml'" + \
