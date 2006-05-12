@@ -32,8 +32,16 @@ def makeplot(desc, table):
 	fig.set_figsize_inches(16,8)
 	axes = fig.gca()
 
-	xvals, yvals = rate.smooth(table.getColumnByName("central_freq").asarray(), desc.band, desc.freqwidth)
-	axes.plot(xvals, yvals / duration, "k")
+	bins = rate.Rate1D(desc.band, desc.freqwidth)
+	for f in table.getColumnByName("central_freq"):
+		try:
+			bins[f] = 1
+		except IndexError:
+			# trigger lies outside bounds of plot
+			pass
+	bins.convolve()
+
+	axes.plot(bins.xvals(), bins.yvals() / duration, "k")
 
 	axes.set_xlim(list(desc.band))
 	axes.set_xticks(numarray.arange(desc.band[0], desc.band[1], 100))

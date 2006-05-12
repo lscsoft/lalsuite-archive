@@ -26,7 +26,9 @@ class Plot(webplot.PlotDescription):
 		self.glitchthreshold = math.sqrt(self.widthratio)
 
 	def trig_segment(self):
-		return self.segment.protract(5.0 * self.widthratio * self.ratewidth)
+		s = self.segment.protract(5.0 * self.widthratio * self.ratewidth)
+		# hack to work around problems in numarray
+		return segments.segment(float(s[0]), float(s[1]))
 
 
 #
@@ -63,28 +65,34 @@ def makeplot(desc, table):
 	peaktime = [float(row.get_peak()) for row in table]
 	confidence = numarray.log(-table.getColumnByName("confidence").asarray())
 
-	# construct short time scale average confidence rate
-	xvals, yvals = rate.smooth(peaktime, desc.trig_segment(), desc.ratewidth, weights = confidence)
-	#yvals = pylab.exp(yvals)
+	# construct short time scale average confidence rate, and a long
+	# time scale average confidence rate.
+	bins = rate.Rate1D(desc.trig_segment(), desc.ratewidth)
+	bins2 = rate.Rate1D(desc.trig_segment(), desc.widthratio * desc.ratewidth)
+	for i in xrange(len(peaktime)):
+		try:
+			bins[peaktime[i]] = confidence[i]
+			bins2[peaktime[i]] = confidence[i]
+		except IndexError:
+			# trigger lies outside bounds of plot
+			pass
+	bins.convolve()
+	bins2.convolve()
 
-	# construct long time scale average confidence rate, and resample to
-	# match sample rate of short time scale.
-	xvals2, yvals2 = rate.smooth(peaktime, desc.trig_segment(), desc.widthratio * desc.ratewidth, weights = confidence)
-	del xvals2
-	yvals2 = nd_image.zoom(yvals2, float(len(yvals)) / float(len(yvals2)))
-	#yvals2 = pylab.exp(yvals2)
+	# resample to match sample rate of short time scale.
+	bins2.array = nd_image.zoom(bins2.array, float(len(bins.yvals())) / float(len(bins2.yvals())))
 
 	# compute ratio, setting 0/0 equal to 0
-	yvals = numarray.where(yvals2 > 0.0, yvals, 0.0) / numarray.where(yvals2 > 0.0, yvals2, 1.0)
+	yvals = numarray.where(bins2.yvals() > 0.0, bins.yvals(), 0.0) / numarray.where(bins2.yvals() > 0.0, bins2.yvals(), 1.0)
 
 	# determine segments where ratio is above threshold
-	glitchsegs = glitchsegments(xvals, yvals, desc.glitchthreshold)
+	glitchsegs = glitchsegments(bins.xvals(), yvals, desc.glitchthreshold)
 
 	# subtract segments near boundaries of data
 	glitchsegs -= segments.segmentlist.protract(~desc.seglist, desc.widthratio * desc.ratewidth)
 
 	# plot ratio vs time
-	axes.plot(xvals, yvals, "k")
+	axes.plot(bins.xvals(), yvals, "k")
 
 	# tinker with graph
 	axes.axhline(desc.glitchthreshold, color = "r")

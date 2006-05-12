@@ -30,7 +30,7 @@ def makeplot(desc, table):
 	fig.set_figsize_inches(16,8)
 	axes = fig.gca()
 
-	bins = rate.Rate1D(desc.trig_segment(), desc.ratewidth)
+	bins = rate.Rate1D(segments.segment(float(desc.trig_segment()[0]), float(desc.trig_segment()[1])), desc.ratewidth)
 	for row in table:
 		try:
 			bins[float(row.get_peak())] = 1
