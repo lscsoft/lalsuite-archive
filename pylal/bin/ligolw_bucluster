@@ -59,11 +59,11 @@ def parse_command_line():
 		raise Exception, "missing required command line argument --cluster"
 	if options.cluster == "bypeaktimeandfreq":
 		options.testfunc = SnglBurstUtils.CompareSnglBurstByPeakTimeAndFreq
-		options.clusterfunc = SnglBurstUtils.SnglBurstCluster
+		options.clusterfunc = ligolw_bucluster.SnglBurstCluster
 		options.bailoutfunc = SnglBurstUtils.CompareSnglBurstByPeakTime
 	elif options.cluster == "bytimeandfreq":
 		options.testfunc = SnglBurstUtils.CompareSnglBurst
-		options.clusterfunc = SnglBurstUtils.SnglBurstCluster
+		options.clusterfunc = ligolw_bucluster.SnglBurstCluster
 		options.bailoutfunc = None
 	else:
 		raise Exception, "unrecognized cluster method %s" % options.cluster

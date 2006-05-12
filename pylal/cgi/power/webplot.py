@@ -15,6 +15,7 @@ from glue.ligolw import docutils
 
 from pylal import llwapp
 from pylal import SnglBurstUtils
+from pylal import ligolw_bucluster
 from pylal.date import XLALUTCToGPS, LIGOTimeGPS
 
 import eventdisplay
@@ -145,7 +146,7 @@ def gettriggers(plotdesc):
 
 	# cluster
 	if plotdesc.cluster:
-		SnglBurstUtils.ClusterSnglBurstTable(bursttable.rows, SnglBurstUtils.CompareSnglBurstByPeakTimeAndFreq, SnglBurstUtils.SnglBurstCluster, SnglBurstUtils.CompareSnglBurstByPeakTime)
+		ligolw_bucluster.ClusterSnglBurstTable(bursttable.rows, SnglBurstUtils.CompareSnglBurstByPeakTimeAndFreq, ligolw_bucluster.SnglBurstCluster, SnglBurstUtils.CompareSnglBurstByPeakTime)
 
 	# remove triggers and injections that lie outside the required segment
 	bursttable.filterRows(lambda row: row.get_peak() in plotdesc.trig_segment())
