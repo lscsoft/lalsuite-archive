@@ -1,159 +1,378 @@
-#!/usr/bin/env python
+#!/usr/bin/python
+#
+# $Id$
+#
+# Copyright (C) 2006  Kipp C. Cannon
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 2 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+#
+# =============================================================================
+#
+#                                   Preamble
+#
+# =============================================================================
+#
+
+import math
 from optparse import OptionParser
+import matplotlib
+matplotlib.use("Agg")
+from matplotlib import figure
+from matplotlib.backends.backend_agg import FigureCanvasAgg
+import numarray
 import sys
 
-from glue import lal
-from matplotlib.patches import Patch
-from pylab import *
-from pylal import readMeta
+from glue import segments
+from glue.ligolw import lsctables
+from pylal import llwapp
+from pylal import rate
 from pylal import viz
 
-###############################################################################
-# grab command line options
-usage = """
-usage: %prog [options] files...
+__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__version__ = "$Revision$"[11:-2]
+__date__ = "$Date$"[7:-2]
 
-Plot summary information about burst triggers
 
-"""
-parser = OptionParser( usage )
-parser = OptionParser(version="%prog CVS $Id$")
-parser.add_option("-t", "--gps-start-time", metavar=" SECONDS",\
-		  default=None, help="start from GPS time SECONDS")
-parser.add_option("-d", "--duration", metavar=" SECONDS", \
-		  default=None, help="duration")
-parser.add_option("-f","--fig-name",action="store",type="string", \
-		  default=None, metavar=" FNAME", help="output file name" )
-parser.add_option("-n","--norm-value",action="store",type="float", \
-		  default=None, metavar=" NORM_VALUE",help="Normalisation \
-		  constant in seconds" )
-parser.add_option("-a","--plot-summary",action="store_true",default=False,\
-		  help="plot the summary plots" )
-parser.add_option("-r","--cum-rate-snr",action="store_true",default=False,\
-		  help="plot the cumulative rate vs snr" )
-parser.add_option("-c","--cum-rate-conf",action="store_true",default=False,\
-		  help="plot the cumulative rate vs conf" )
-parser.add_option("-s","--show-plot",action="store_true",default=False,\
-		  help="show the plots" )
-options, args = parser.parse_args()
-del parser
+#
+# =============================================================================
+#
+#                                 Command Line
+#
+# =============================================================================
+#
 
-# check that a trig file was specified
-if not len(args):
-	print >>sys.stderr, "no trigger files specified!"
-  	sys.exit(1)
+def parse_command_line():
+	parser = OptionParser(version="%prog CVS $Id$")
+	parser.add_option("-b", "--base", metavar = "base", default = "plotburst_", help = "set the prefix for output filenames (default = plotburst_)")
+	parser.add_option("-f", "--format", metavar = "format", default = "png", help = "set the output image format (default = png)")
+	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
+	options, filenames = parser.parse_args()
 
-#############################################################################
+	return options, (filenames or [None])
 
-# read in the trigger files and find the sngl_burst table
-triggers = readMeta.metaDataTable(args, "sngl_burst")
+try:
+	options, filenames = parse_command_line()
+except ValueError, e:
+	print >>sys.stderr, "error: %s" % str(e)
+	sys.exit(1)
 
-# extract some arrays from the trigger table
-start_time = triggers.mkarray("start_time")
-duration = triggers.mkarray("duration")
-confidence = triggers.mkarray("confidence")
-snr = triggers.mkarray("snr")
-central_freq = triggers.mkarray("central_freq")
-bandwidth = triggers.mkarray("bandwidth")
-lo_freq = central_freq - 0.5 * bandwidth
 
-# use the given start and stop times
-if options.gps_start_time:
-	options.gps_start_time = int(options.gps_start_time)
-if options.duration:
-	options.duration = int(options.duration)
-	
-# set the start time for the plot
-if options.gps_start_time == None:
-	options.gps_start_time = int(min(start_time))
-start_time -= options.gps_start_time
-if options.duration == None:
-	options.duration = int(max(start_time))
+#
+# =============================================================================
+#
+#                                    Input
+#
+# =============================================================================
+#
 
-# ##########################################
-# plots                                    #
-# ##########################################
-		    
-# plot the summary figures
-if options.plot_summary:
-	fig = figure(1)
-	fig.set_figsize_inches(8.5, 11)
-				
-	subplot(221)
-	semilogy(start_time, -confidence, "b+")
-	xlabel("Time (s)")
-	ylabel("|Confidence|")
-	title("Start Time " + str(options.gps_start_time))
-	grid(True)
-			
-	subplot(222)
-	semilogy(central_freq, -confidence, 'b+')
-	xlabel("Central Frequency (Hz)")
-	ylabel("|Confidence|")
-	grid(True)
-	# axis([0, 2200, 0, 1000])
-			    
-	subplot(223)
-	viz.tfplot(start_time, duration, lo_freq, bandwidth, log(-confidence))
-	grid(True)
-	# axis([0, options.duration, 0, 1000])
-			    
-	subplot(224)
-	hist(central_freq, 64)
-	xlabel("Central Frequency (Hz)")
-	ylabel("Count")
-	grid(True)
-	# axis([min(central_freq), max(central_freq), 0, 1000])
-	
-	# setp("PaperPosition", [0, 0, 10, 10])
-	if options.fig_name:
-		output_name = options.fig_name + '_summary.png'
-		savefig(output_name)
-				    
-# plot cumulative rate vs snr
-if options.cum_rate_snr:
-	figure(2)
+class SnglBurst(object):
+	__slots__ = ["ifo", "start_time", "start_time_ns", "duration", "central_freq", "bandwidth", "snr", "confidence", "peak_time", "peak_time_ns"]
 
-	if options.norm_value:
-		bins = [(len(snr) - j) / options.norm_value for j in range(len(snr))]
-	else:
-		bins = [(len(snr) - j) for j in range(len(snr))]
+lsctables.SnglBurstTable.RowType = SnglBurst
 
-	loglog(sort(snr), bins, linewidth=2.0)
-	hold(True)
-	grid(True)
-	xlabel('SNR', size='x-large')
-	if options.norm_value:
-		ylabel('Number per run', size='x-large')
-	else:
-		ylabel('Number', size='x-large')
-				    
-	if options.fig_name:
-		output_name = options.fig_name + '_SNR_DISTRIBUTION.png'
-		savefig(output_name)
-									    
-# plot cumulative rate vs confidence
-if options.cum_rate_conf:
-	figure(3)
-	
-	conf = sort(-confidence)
-	if options.norm_value:
-		bins = [(len(conf) - j) / options.norm_value for j in range(len(conf))]
-	else:
-		bins = [(len(conf) - j) for j in range(len(conf))]
 
-	loglog(conf, bins, linewidth=2.0)
-	grid(True)
-	xlabel('|confidence|', size='x-large')
-	if options.norm_value:
-		ylabel('Number per run', size='x-large')
-	else:
-		ylabel('Number', size='x-large')
+#
+# =============================================================================
+#
+#                            Document Comprehension
+#
+# =============================================================================
+#
 
-	if options.fig_name:
-		output_name = options.fig_name + '_CONF_DISTRIBUTION.png'
-		savefig(output_name)
+class DocContents(object):
+	"""
+	A wrapper interface to the XML document.
+	"""
+	def __init__(self, xmldoc, live_time_program):
+		#
+		# Extract columns
+		#
 
-if options.show_plot:
-	show()
+		bursttable = llwapp.get_table(xmldoc, lsctables.SnglBurstTable.tableName)
+		self.nevents = len(bursttable)
+
+		self.start_time = bursttable.getColumnByName("start_time").asarray() + bursttable.getColumnByName("start_time_ns").asarray() * 1e-9
+		self.duration = bursttable.getColumnByName("duration").asarray()
+		self.peak_time = bursttable.getColumnByName("peak_time").asarray() + bursttable.getColumnByName("peak_time_ns").asarray() * 1e-9
+		self.central_freq = bursttable.getColumnByName("central_freq").asarray()
+		self.bandwidth = bursttable.getColumnByName("bandwidth").asarray()
+		self.lo_freq = self.central_freq - self.bandwidth / 2.0
+		self.snr = bursttable.getColumnByName("snr").asarray()
+		self.confidence = numarray.fabs(bursttable.getColumnByName("confidence").asarray())
+
+		#
+		# Extract segmentlist
+		#
+
+		seglistdict = llwapp.get_seglistdict(xmldoc, live_time_program)
+		self.seglist = seglistdict.intersect(seglistdict.keys())
+
+
+#
+# =============================================================================
+#
+#                             Confidence vs. Time
+#
+# =============================================================================
+#
+
+class ConfidenceVsTime(object):
+	def __init__(self):
+		self.nevents = 0
+		self.x = []
+		self.y = []
+		self.seglist = segments.segmentlist()
+		self.fig = figure.Figure()
+		FigureCanvasAgg(self.fig)
+		self.fig.set_figsize_inches(16, 8)
+		self.axes = self.fig.gca()
+		self.axes.semilogy()
+		self.axes.grid(True)
+		self.axes.set_xlabel("GPS Time (s)")
+		self.axes.set_ylabel("Confidence")
+
+	def add_contents(self, doc):
+		self.nevents += doc.nevents
+		self.x.extend(list(doc.peak_time))
+		self.y.extend(list(doc.confidence))
+		self.seglist |= doc.seglist
+
+	def finish(self):
+		self.axes.set_title("Trigger Confidence vs. Time\n(%d Triggers)" % self.nevents)
+		self.axes.plot(self.x, self.y, "k+")
+		for seg in ~self.seglist & segments.segmentlist([segments.segment(self.axes.get_xlim())]):
+			self.axes.axvspan(seg[0], seg[1], facecolor = "k", alpha = 0.2)
+
+
+#
+# =============================================================================
+#
+#                       Confidence vs. Central Frequency
+#
+# =============================================================================
+#
+
+class ConfidenceVsFrequencyScatter(object):
+	def __init__(self):
+		self.nevents = 0
+		self.x = []
+		self.y = []
+		self.fig = figure.Figure()
+		FigureCanvasAgg(self.fig)
+		self.fig.set_figsize_inches(16, 8)
+		self.axes = self.fig.gca()
+		self.axes.semilogy()
+		self.axes.grid(True)
+		self.axes.set_xlabel("Central Frequency (Hz)")
+		self.axes.set_ylabel("Confidence")
+
+	def add_contents(self, doc):
+		self.nevents += doc.nevents
+		self.x.extend(list(doc.central_freq))
+		self.y.extend(list(doc.confidence))
+
+	def finish(self):
+		self.axes.set_title("Trigger Confidence vs. Central Frequency\n(%d Triggers)" % self.nevents)
+		self.axes.plot(self.x, self.y, "k+")
+
+
+#
+# =============================================================================
+#
+#                          Rate vs. Central Frequency
+#
+# =============================================================================
+#
+
+class RateVsCentralFreq(object):
+	def __init__(self, interval, width):
+		self.nevents = 0
+		self.rate = rate.Rate1D(interval, width)
+		self.fig = figure.Figure()
+		FigureCanvasAgg(self.fig)
+		self.fig.set_figsize_inches(16, 8)
+		self.axes = self.fig.gca()
+		self.axes.grid(True)
+		self.axes.set_xlabel("Central Frequency (Hz)")
+		self.axes.set_ylabel("Trigger Rate Spectral Density (triggers / s / Hz)")
+
+	def add_contents(self, doc):
+		self.nevents += doc.nevents
+		for f in doc.central_freq:
+			self.rate[f] = 1.0
+
+	def finish(self):
+		self.axes.set_title("Trigger Rate vs. Central Frequency\n(%d Triggers)" % self.nevents)
+		self.rate.convolve()
+		self.axes.plot(self.rate.xvals, self.rate.yvals, "k")
+
+
+#
+# =============================================================================
+#
+#                                 Rate vs. SNR
+#
+# =============================================================================
+#
+
+class RateVsSNR(object):
+	def __init__(self):
+		self.nevents = 0
+		self.x = []
+		self.seglist = segments.segmentlist()
+		self.fig = figure.Figure()
+		FigureCanvasAgg(self.fig)
+		self.fig.set_figsize_inches(16, 8)
+		self.axes = self.fig.gca()
+		self.axes.loglog()
+		self.axes.grid(True)
+		self.axes.set_xlabel("SNR")
+		self.axes.set_ylabel("Trigger Rate (Hz)")
+
+	def add_contents(self, doc):
+		self.nevents += doc.nevents
+		self.x.extend(list(doc.snr))
+		self.seglist |= doc.seglist
+
+	def finish(self):
+		self.axes.set_title("Cummulative Trigger Rate vs. SNR\n(%d Triggers)" % self.nevents)
+		self.x.sort()
+		self.y = numarray.arange(len(self.x), 0.0, -1.0) / float(self.seglist.duration())
+		self.axes.plot(self.x, self.y, "ko-")
+
+
+#
+# =============================================================================
+#
+#                             Rate vs. Confidence
+#
+# =============================================================================
+#
+
+class RateVsConfidence(object):
+	def __init__(self):
+		self.nevents = 0
+		self.x = []
+		self.seglist = segments.segmentlist()
+		self.fig = figure.Figure()
+		FigureCanvasAgg(self.fig)
+		self.fig.set_figsize_inches(16, 8)
+		self.axes = self.fig.gca()
+		self.axes.loglog()
+		self.axes.grid(True)
+		self.axes.set_xlabel("Confidence")
+		self.axes.set_ylabel("Trigger Rate (Hz)")
+
+	def add_contents(self, doc):
+		self.nevents += doc.nevents
+		self.x.extend(list(doc.confidence))
+		self.seglist |= doc.seglist
+
+	def finish(self):
+		self.axes.set_title("Cummulative Trigger Rate vs. Confidence\n(%d Triggers)" % self.nevents)
+		self.x.sort()
+		self.y = numarray.arange(len(self.x), 0.0, -1.0) / float(self.seglist.duration())
+		self.axes.plot(self.x, self.y, "ko-")
+
+
+#
+# =============================================================================
+#
+#                             Time-Frequency Plane
+#
+# =============================================================================
+#
+
+class TimeFrequencyPlane(object):
+	def __init__(self):
+		self.nevents = 0
+		self.x = []
+		self.seglist = segments.segmentlist()
+		self.fig = figure.Figure()
+		FigureCanvasAgg(self.fig)
+		self.fig.set_figsize_inches(16, 8)
+		self.axes = self.fig.gca()
+		self.axes.grid(True)
+		self.axes.set_xlabel("GPS Time (s)")
+		self.axes.set_ylabel("Frequency (Hz)")
+
+	def add_contents(self, doc):
+		self.nevents += doc.nevents
+		viz.tfplot(doc.start_time, doc.duration, doc.lo_freq, doc.bandwidth, numarray.log(doc.confidence), axes = self.axes)
+		self.seglist |= doc.seglist
+
+	def finish(self):
+		self.axes.set_title("Time-Frequency Plane\n(%d Triggers)" % self.nevents)
+		for seg in ~self.seglist & segments.segmentlist([segments.segment(self.axes.get_xlim())]):
+			self.axes.axvspan(seg[0], seg[1], facecolor = "k", alpha = 0.2)
+
+
+#
+# =============================================================================
+#
+#                                     Plot
+#
+# =============================================================================
+#
+
+plots = [
+	ConfidenceVsTime(),
+	ConfidenceVsFrequencyScatter(),
+	RateVsCentralFreq(segments.segment(0, 2500), 5),
+	RateVsSNR(),
+	RateVsConfidence(),
+	TimeFrequencyPlane()
+]
+
+try:
+	for n, filename in enumerate(llwapp.sort_files(filenames, options.verbose)):
+		if options.verbose:
+			print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
+		doc = llwapp.load_filename(filename, options.verbose)
+		if options.verbose:
+			print >>sys.stderr, "indexing..."
+		contents = DocContents(doc, "power")
+		for n, plot in enumerate(plots):
+			if options.verbose:
+				print >>sys.stderr, "adding to plot %d..." % n
+			plot.add_contents(contents)
+		doc.unlink()
+except Exception, e:
+	print >>sys.stderr, "error: %s" % str(e)
+	sys.exit(1)
+
+
+#
+# =============================================================================
+#
+#                                    Output
+#
+# =============================================================================
+#
+
+# delete the plots as we go to save memory
+n = 0
+format = "%%s%%0%dd.%%s" % (int(math.log10(len(plots))) + 1)
+while len(plots):
+	filename = format % (options.base, n, options.format)
+	if options.verbose:
+		print >>sys.stderr, "finishing plot %d..." % n
+	plots[0].finish()
+	if options.verbose:
+		print >>sys.stderr, "writing %s..." % filename
+	plots[0].fig.savefig(filename)
+	del plots[0]
+	n += 1
