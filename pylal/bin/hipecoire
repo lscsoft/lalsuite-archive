@@ -36,9 +36,9 @@ def sire(data_type,input,ifos,ifo=None):
   """
 
   if ifo:
-    output = ifo + "-SIRE_in_" + ifos + "_VETO"
+    output = "sires/" + ifo + "-SIRE_in_" + ifos + "_VETO"
   else:
-    output = ifos + "-SIRE_VETO"
+    output = "sires/" + ifos + "-SIRE_VETO"
 
   if data_type == "slide":
     output += "_SLIDE"
@@ -71,7 +71,7 @@ def coire(data_type,input,ifos,trigs=None):
   """
 
   if trigs:
-    output = trigs + "-THINCA"
+    output = trigs + "/" + trigs + "-THINCA"
     if data_type == "slide": output += "_SLIDE"
     output += "_in_" + ifos
   else:
@@ -107,62 +107,27 @@ def coire(data_type,input,ifos,trigs=None):
   return command,output
 
 #######################################################################
-# set up a s3_statistic
-def s3_statistic(trigs):
-  """
-  set up s3_statistic plots
-  @param trigs:      trigger type (if None, keep all)
-  """
-  
-  fname = trigs + "/" + opts.figure_name
-  command = opts.s3_statistic + \
-        " --num-bins " + opts.num_bins + \
-        " --statistic " + opts.s3_stat + \
-        " --figure-name " + fname
- 
-  if "zero" in analyze:
-    command += " --zero-glob '" + trigs + "-THINCA_in*.xml'" + \
-               " --zero-stat"  
-
-  if "slide" in analyze:
-    command += " --slide-glob '" + trigs + "-THINCA_SLIDE_in*.xml'" + \
-               " --slide-dist" + \
-               " --num-slides " + opts.num_slides
-    if "zero" in analyze:
-      command += " --slide-zero-stat " + \
-                 " --slide-zero-dist "
-                 
-  if "inj" in analyze:
-    command += " --inj-glob '" + trigs + "-THINCA*FOUND.xml'" + \
-               " --missed-glob '" + trigs + "-THINCA*MISSED.xml'" + \
-               " --inj-stat" + \
-               " --efficiency"
-    for ifo in ifo_list:
-      eff_dist = "eff_dist_" + ifo[0].lower()
-      command += " --eff-vs-col " + eff_dist
-
-  return command
-
-#######################################################################
 # set up a plotthinca
-def plotthinca(trigs):
+def plotthinca(trigs = None):
   """
   set up s3_statistic plots
-  @param trigs:      trigger type (if None, keep all)
+  @param trigs: trigger type (if None, keep all)
   """
-  glob_files = []
-  start = trigs + '-THINCA'
-  for output in coire_out:
-    if start == output[0:len(start)]:
-      glob_files.append(output)
-
-  fname = trigs + "/" + opts.figure_name
+  if trigs:
+    glob_files = trigs + "/" + trigs + "-THINCA*.xml"
+    fname = trigs + "/" + opts.figure_name
+  else:
+    glob_files = "*-THINCA*.xml"
+    fname = opts.figure_name
+    
   if len(opts.vetoes):
     fname += "_veto" 
-  fname += "_" + trigs
+  if trigs:
+    fname += "_" + trigs
 
+  print fname
   command = opts.plotthinca + \
-            " --glob '" + ' '.join(glob_files) + "'" + \
+            " --glob '" + glob_files + "'" + \
             " --figure-name " + fname
 
   for ifo in ifo_list:
@@ -178,14 +143,53 @@ def plotthinca(trigs):
     if "zero" in analyze:
       command += " --add-zero-lag"
 
-  if opts.figure_name:
+  return command
+
+#######################################################################
+# set up a s3_statistic
+def s3_statistic(trigs = None):
+  """
+  set up s3_statistic plots
+  @param trigs:      trigger type (if None, keep all)
+  """
+  if trigs:
     fname = trigs + "/" + opts.figure_name
-    if len(opts.vetoes):
-      fname += "_veto" 
-    fname += "_" + trigs
-    command += " --figure-name " + fname
+    trigs = trigs + "/" + trigs
+    extra = "_in"
+  else:
+    trigs = "*"
+    fname = opts.figure_name
+    if opts.cluster_time: extra = "_CLUST"
+    else: extra = "_UNCLUST"
+
+  command = opts.s3_statistic + \
+        " --num-bins " + opts.num_bins + \
+        " --statistic " + opts.s3_stat + \
+        " --figure-name " + fname
+
+  if "zero" in analyze:
+    command += " --zero-glob '" + trigs + "-THINCA" + extra + "*.xml'" + \
+               " --zero-stat"  
+
+  if "slide" in analyze:
+    command += " --slide-glob '" + trigs + "-THINCA_SLIDE" + extra + "*.xml'" +\
+               " --slide-dist" + \
+               " --num-slides " + opts.num_slides
+    if "zero" in analyze:
+      command += " --slide-zero-stat " + \
+                 " --slide-zero-dist "
+                 
+  if "inj" in analyze:
+    command += " --inj-glob '" + trigs + "-THINCA" + extra + "*FOUND.xml'" + \
+            " --missed-glob '" + trigs + "-THINCA" + extra + "*MISSED.xml'" + \
+               " --inj-stat" + \
+               " --efficiency"
+    for ifo in ifo_list:
+      eff_dist = "eff_dist_" + ifo[0].lower()
+      command += " --eff-vs-col " + eff_dist
 
   return command
+
 
 #######################################################################
 usage = """
@@ -334,7 +338,6 @@ data["inj"]   = opts.injection_data
 data["zero"]  = opts.zero_data
 data["slide"] = opts.slide_data
 
-
 analyze = []
 if opts.zero_data:
   analyze.append("zero")
@@ -350,6 +353,12 @@ if opts.injection_file:
   analyze.append("inj")
 
 ifo_combinations = trig_types(opts.ifos)
+for ifo_list in ifo_combinations:
+  trigs = ''.join(ifo_list)
+  try: 
+    chdir(trigs)
+    chdir('..')
+  except: mkdir(trigs)
 
 coire_out = []
 commands = []
@@ -377,7 +386,7 @@ for data_type in analyze:
         if not opts.plots_only: commands.append(command)
         
       # perform sire to put all triggers back in one file
-      input = "*-SIRE_in_" + ifos + "_VETO"
+      input = "sires/*-SIRE_in_" + ifos + "_VETO"
       if data_type == "slide": input += "_SLIDE"
       input += ".xml"
     
@@ -391,7 +400,7 @@ for data_type in analyze:
 
     # set input file names
     if opts.vetoes:
-      input = ifos + "-SIRE_VETO"
+      input = "sires/" + ifos + "-SIRE_VETO"
       if data_type == "slide": input += "_SLIDE"
       input += ".xml"
     else:
@@ -422,29 +431,31 @@ for data_type in analyze:
 # make the summary plots 
 #######################################################################
 if opts.figure_name:
+  ifo_combinations.append([])
   for ifo_list in ifo_combinations:
     trigs = ''.join(ifo_list)
-    
-    try: 
-      chdir(trigs)
-    except:
-      mkdir(trigs)
-      chdir(trigs)
-    chdir('..')
- 
+
     #################################################################
     # run plotthinca
     if "zero" in analyze or "slide" in analyze: 
       command = plotthinca(trigs)
       commands.append(command)
       
-
     #################################################################
     # run s3_statistic
     if opts.second_coinc:
       command = s3_statistic(trigs)
       commands.append(command)
 
+
+# clean up the sires
+if opts.vetoes or opts.rsq_threshold:
+  try: 
+    chdir("sires")
+    chdir('..')
+  except: mkdir("sires")
+
+# run the commands
 for command in commands:
   print command
   if not opts.test:
