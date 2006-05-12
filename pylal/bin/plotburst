@@ -223,6 +223,39 @@ class RateVsCentralFreq(object):
 #
 # =============================================================================
 #
+#                          Trigger Duration Histogram
+#
+# =============================================================================
+#
+
+class Durations(object):
+	def __init__(self):
+		self.nevents = 0
+		self.bins = {}
+		self.fig = figure.Figure()
+		FigureCanvasAgg(self.fig)
+		self.fig.set_figsize_inches(16, 8)
+		self.axes = self.fig.gca()
+		self.axes.grid(True)
+		self.axes.set_xlabel("Duration (s)")
+		self.axes.set_ylabel("Trigger Count")
+
+	def add_contents(self, doc):
+		self.nevents += doc.nevents
+		for dt in doc.duration:
+			if dt in self.bins:
+				self.bins[dt] += 1
+			else:
+				self.bins[dt] = 1
+
+	def finish(self):
+		self.axes.set_title("Trigger Durations\n(%d Triggers)" % self.nevents)
+		self.axes.plot(self.bins.keys(), self.bins.values(), "ko-")
+
+
+#
+# =============================================================================
+#
 #                                 Rate vs. SNR
 #
 # =============================================================================
@@ -332,6 +365,7 @@ plots = [
 	ConfidenceVsTime(),
 	ConfidenceVsFrequencyScatter(),
 	RateVsCentralFreq(segments.segment(0, 2500), 5),
+	Durations(),
 	RateVsSNR(),
 	RateVsConfidence(),
 	TimeFrequencyPlane()
