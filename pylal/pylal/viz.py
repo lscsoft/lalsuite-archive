@@ -1202,6 +1202,7 @@ def tfplot(*args, **kwargs):
   alpha = kwargs.get('alpha', 1.0)
   vmin = kwargs.get('vmin', None)
   vmax = kwargs.get('vmax', None)  
+  a = kwargs.get('axes', gca())
 
   if len(args)==5:
       X, dX, Y, dY, C = args
@@ -1231,8 +1232,6 @@ def tfplot(*args, **kwargs):
   collection.set_cmap(cmap)
   collection.set_norm(norm)
   if norm is not None: collection.set_clim(vmin, vmax)
-  a = gca()
-  a.grid(False)
   minx = amin(X)
   maxx = amax(X)
   miny = amin(Y)
@@ -1242,8 +1241,6 @@ def tfplot(*args, **kwargs):
   a.autoscale_view()
   # add the collection last
   a.add_collection(collection)
-  xlabel(r'Time (secs)')
-  ylabel(r'Frequency (Hz)')
   return collection
 
 
