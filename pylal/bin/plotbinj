@@ -172,45 +172,6 @@ class DocContents(object):
 #
 # =============================================================================
 #
-#                             Contour Plot Support
-#
-# =============================================================================
-#
-
-class MadeVsFound(object):
-	def __init__(self, xmin, xmax, nx, ymin, ymax, ny):
-		self.xmin = xmin
-		self.xmax = xmax
-		self.logxratio = math.log((xmax / xmin) ** (1.0 / (nx - 1.0)))
-		self.xcoords = self.xmin * numarray.exp(numarray.array(range(nx)) * self.logxratio)
-
-		self.ymin = ymin
-		self.ymax = ymax
-		self.logyratio = math.log((ymax / ymin) ** (1.0 / (ny - 1.0)))
-		self.ycoords = self.ymin * numarray.exp(numarray.array(range(ny)) * self.logyratio)
-
-		self.made = numarray.zeros((ny, nx), numarray.Float64)
-		self.found = numarray.zeros((ny, nx), numarray.Float64)
-
-	def incmade(self, x, y):
-		if (self.xmin <= x <= self.xmax) and (self.ymin <= y <= self.ymax):
-			i = int(math.log(y / self.ymin) / self.logyratio + 0.5)
-			j = int(math.log(x / self.xmin) / self.logxratio + 0.5)
-			self.made[i, j] += 1.0
-
-	def incfound(self, x, y):
-		if (self.xmin <= x <= self.xmax) and (self.ymin <= y <= self.ymax):
-			i = int(math.log(y / self.ymin) / self.logyratio + 0.5)
-			j = int(math.log(x / self.xmin) / self.logxratio + 0.5)
-			self.found[i, j] += 1.0
-
-	def normalize(self):
-		self.made = numarray.where(self.made > 0, self.made, 1)
-
-
-#
-# =============================================================================
-#
 #                              Frequency vs. Time
 #
 # =============================================================================
@@ -218,7 +179,6 @@ class MadeVsFound(object):
 
 class FreqVsTime(object):
 	def __init__(self):
-		self.name = "frequency vs. time"
 		self.num_injections = 0
 		self.injected_x = []
 		self.injected_y = []
@@ -263,7 +223,6 @@ class FreqVsTime(object):
 
 class AmplVsFreqScatter(object):
 	def __init__(self):
-		self.name = "amplitude vs. frequency (scatter)"
 		self.num_injections = 0
 		self.injected_x = []
 		self.injected_y = []
@@ -273,7 +232,6 @@ class AmplVsFreqScatter(object):
 		FigureCanvasAgg(self.fig)
 		self.fig.set_figsize_inches(16, 8)
 		self.axes = self.fig.gca()
-		self.madevsfound = MadeVsFound(70.0, 2118.0, 64, 10**-22.2, 10**-18.0, 64)
 		self.axes.loglog()
 		self.axes.grid(True)
 		self.axes.set_xlabel("Frequency (Hz)")
@@ -297,13 +255,12 @@ class AmplVsFreqScatter(object):
 
 class AmplVsFreqContour(object):
 	def __init__(self):
-		self.name = "amplitude vs. frequency (contour)"
 		self.num_injections = 0
 		self.fig = figure.Figure()
 		FigureCanvasAgg(self.fig)
 		self.fig.set_figsize_inches(16, 8)
 		self.axes = self.fig.gca()
-		self.madevsfound = MadeVsFound(70.0, 2118.0, 64, 10**-22.2, 10**-18.0, 64)
+		self.madevsfound = rate.BinnedRatios(rate.Bins(70.0, 2118.0, 64, 10**-22.2, 10**-18.0, 64, spacing = ["log", "log"]))
 		self.axes.loglog()
 		self.axes.grid(True)
 		self.axes.set_xlabel("Frequency (Hz)")
@@ -312,17 +269,17 @@ class AmplVsFreqContour(object):
 	def add_contents(self, doc):
 		self.num_injections += len(doc.simtable)
 		for sim in doc.simtable.rows.itervalues():
-			self.madevsfound.incmade(sim.freq, sim.hrss)
-		if not options.made_only:
-			for sims, bursts in doc.coincmaptable.rows.itervalues():
-				self.madevsfound.incfound(sims[0].freq, sims[0].hrss)
+			self.madevsfound.incdenominator((sim.freq, sim.hrss))
+		for sims, bursts in doc.coincmaptable.rows.itervalues():
+			self.madevsfound.incnumerator((sims[0].freq, sims[0].hrss))
 
 	def finish(self):
 		self.madevsfound.normalize()
+		xcoords, ycoords = self.madevsfound.centres()
 		if options.made_only:
-			cset = self.axes.contour(self.madevsfound.xcoords, self.madevsfound.ycoords, self.madevsfound.made)
+			cset = self.axes.contour(xcoords, ycoords, numarray.transpose(self.madevsfound.denominator))
 		else:
-			cset = self.axes.contour(self.madevsfound.xcoords, self.madevsfound.ycoords, self.madevsfound.found / self.madevsfound.made, [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9])
+			cset = self.axes.contour(xcoords, ycoords, numarray.transpose(self.madevsfound.numerator / self.madevsfound.denominator), [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9])
 		self.axes.set_title("Injection Amplitude vs. Frequency\n(%d Injections)" % self.num_injections)
 
 
@@ -336,7 +293,6 @@ class AmplVsFreqContour(object):
 
 class TriggerCountHistogram(object):
 	def __init__(self):
-		self.name = "trigger count histogram"
 		self.found = 0
 		self.bins = []
 		self.fig = figure.Figure()
@@ -372,7 +328,6 @@ class TriggerCountHistogram(object):
 
 class RecoveredVsInjectedAmplitude(object):
 	def __init__(self):
-		self.name = "recovered vs. injected amplitude"
 		self.found = 0
 		self.recovered = []
 		self.injected = []
@@ -407,7 +362,6 @@ class RecoveredVsInjectedAmplitude(object):
 
 class RecoveredTimeOffset(object):
 	def __init__(self, interval, width):
-		self.name = "recovered time offset"
 		self.found = 0
 		self.offsets = rate.Rate1D(interval, width)
 		self.best = rate.Rate1D(interval, width)
@@ -463,9 +417,9 @@ try:
 		if options.verbose:
 			print >>sys.stderr, "indexing..."
 		contents = DocContents(doc, "power")
-		for plot in plots:
+		for n, plot in enumerate(plots):
 			if options.verbose:
-				print >>sys.stderr, "adding to %s..." % plot.name
+				print >>sys.stderr, "adding to %d..." % n
 			plot.add_contents(contents)
 		doc.unlink()
 except Exception, e:

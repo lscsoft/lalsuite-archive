@@ -205,45 +205,6 @@ def CoincTisiIter(doc):
 #
 # =============================================================================
 #
-#                             Contour Plot Support
-#
-# =============================================================================
-#
-
-class RatioBins(object):
-	def __init__(self, xmin, xmax, nx, ymin, ymax, ny):
-		self.xmin = xmin
-		self.xmax = xmax
-		self.dx = (xmax - xmin) / (nx - 1)
-		self.xcoords = numarray.arange(xmin, xmax + self.dx, self.dx)
-
-		self.ymin = ymin
-		self.ymax = ymax
-		self.dy = (ymax - ymin) / (ny - 1)
-		self.ycoords = numarray.arange(ymin, ymax + self.dy, self.dy)
-
-		self.numerator = numarray.zeros((ny, nx), numarray.Float64)
-		self.denominator = numarray.zeros((ny, nx), numarray.Float64)
-
-	def incnumerator(self, x, y, weight = 1.0):
-		if (self.xmin <= x <= self.xmax) and (self.ymin <= y <= self.ymax):
-			i = int((y - self.ymin) / self.dy + 0.5)
-			j = int((x - self.xmin) / self.dx + 0.5)
-			self.numerator[i, j] += weight
-
-	def incdenominator(self, x, y, weight = 1.0):
-		if (self.xmin <= x <= self.xmax) and (self.ymin <= y <= self.ymax):
-			i = int((y - self.ymin) / self.dy + 0.5)
-			j = int((x - self.xmin) / self.dx + 0.5)
-			self.denominator[i, j] += weight
-
-	def normalize(self):
-		self.denominator = numarray.where(self.denominator > 0, self.denominator, 1)
-
-
-#
-# =============================================================================
-#
 #                                Rate Contours
 #
 # =============================================================================
@@ -259,7 +220,7 @@ class RateContours(object):
 		FigureCanvasAgg(self.fig)
 		self.fig.set_figsize_inches(16,16)
 		self.axes = self.fig.gca()
-		self.bins = RatioBins(-100.0, 100.0, 11, -100.0, 100.0, 11)
+		self.bins = rate.BinnedRatios(rate.Bins(-100.0, 100.0, 11, -100.0, 100.0, 11))
 		self.axes.grid(True)
 		self.axes.set_xlabel("%s Offset (s)" % x_instrument)
 		self.axes.set_ylabel("%s Offset (s)" % y_instrument)
@@ -273,15 +234,16 @@ class RateContours(object):
 			for instrument, seglist in doc.seglistdict.iteritems():
 				self.seglistdict[instrument] |= seglist
 		for offsetdict in CoincTisiIter(doc):
-			self.bins.incnumerator(offsetdict[self.x_instrument], offsetdict[self.y_instrument])
+			self.bins.incnumerator((offsetdict[self.x_instrument], offsetdict[self.y_instrument]))
 
 	def finish(self):
 		instruments = self.seglistdict.keys()
 		for row in self.tisirows:
 			self.seglistdict.set_offsets({self.x_instrument: row[self.x_instrument], self.y_instrument: row[self.y_instrument]})
-			self.bins.incdenominator(row[self.x_instrument], row[self.y_instrument], float(self.seglistdict.intersect(instruments).duration()))
+			self.bins.incdenominator((row[self.x_instrument], row[self.y_instrument]), float(self.seglistdict.intersect(instruments).duration()))
 		self.bins.normalize()
-		self.axes.contour(self.bins.xcoords, self.bins.ycoords, numarray.log(self.bins.numerator / self.bins.denominator))
+		xcoords, ycoords = self.bins.centres()
+		self.axes.contour(xcoords, ycoords, numarray.transpose(numarray.log(self.bins.numerator / self.bins.denominator)))
 		for row in self.tisirows:
 			self.axes.plot((row[self.x_instrument],), (row[self.y_instrument],), "k+")
 		self.axes.set_title("Coincident Trigger Rate vs. Offset\n(Logarithmic Contours)")
