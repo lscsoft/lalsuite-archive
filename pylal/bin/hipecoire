@@ -35,6 +35,7 @@ There are a couple of coire specific options, specifically:
   --cluster-time
   --cluster-algorithm
   --veto-file (to perform vetoes)
+  --rsq-threshold / --rsq-max-snr (to do r-squared veto)
   --second-coinc (for correct file names)
 
 And a few plotting specific options:
@@ -69,7 +70,19 @@ parser.add_option("-e","--zero-data", action="store", type="string",
 parser.add_option("-t","--test",action="store_true",default=False,\
     help="test code, don't run executables")
 
-# coire options
+parser.add_option("-w","--injection-data", action="store", type="string",
+    default="all_data",metavar=" INJ_DATA", 
+    help="type of data to be used for injections (default = all_data)")
+
+parser.add_option("-v","--injection-file", action="store", type="string",
+    default=None,metavar=" INJ_FILE", \
+    help="name of injection file")
+
+parser.add_option("-x","--injection-window", action="store", type="string",
+    default=None,metavar=" INJ_WIN", \
+    help="trig/inj coincidence window (ms)")
+
+# coire/sire options
 parser.add_option("-g","--cluster-time",action="store",type="int",\
     default=None,metavar=" CLUSTER_TIME", \
     help="cluster window used, seconds (default = None)")
@@ -84,11 +97,14 @@ parser.add_option("-j","--second-coinc",action="store_true",default=False,\
 parser.add_option("-k","--veto-file",action="append",type="string",\
     dest="vetoes",metavar=" VETOES",\
     help="specify a veto file to be used, appropriate ifo taken from file name")
- 
-# plotting options
-parser.add_option("-o","--plots",action="store_true",default=False,\
-    help="make summary plots (default = false)")
 
+parser.add_option("-s","--rsq-threshold",action="store",default=None,\
+    metavar=" RSQ_THRESH",help="r-squared threshold to apply in sire")
+    
+parser.add_option("-u","--rsq-max-snr",action="store",default=None,\
+    metavar=" RSQ_MAX",help="max snr for which to apply the r-squared veto")
+    
+# plotting options
 parser.add_option("-p","--num-bins",action="store",type="string",\
     default="20", metavar=" NBINS",\
     help="the number of bins used in plotting (default = 20)" )
@@ -118,17 +134,6 @@ parser.add_option("-m","--plotthinca",action="store",type="string",\
     default="plotthinca", metavar=" SIRE",\
     help="plotting executable (default = plotthinca)" )
 
-
-  
-    
-    
-    
-    
-    
-
-
-
-
 (opts,args) = parser.parse_args()
 
 #######################################################################
@@ -139,13 +144,33 @@ if not opts.ifos:
   print >> sys.stderr, "Must specify at least two ifos using --ifo"
   sys.exit(1)
 
+if opts.rsq_threshold and not opts.rsq_max_snr:
+  print >> sys.stderr, "Must specify --rsq-max-snr if --rsq-threshold is given"
+  sys.exit(1)
+
+if opts.num_slides and opts.injection_file:
+  print >> sys.stderr, "Cannot do slides and injections together"
+  print >> sys.stderr, "Specify at most one of --num-slides, --injection-file"
+  sys.exit(1)
+  
 opts.ifos.sort()
   
-data = {} 
-data["zero"] = {}
-data["zero"]["data"] = opts.zero_data
-data["zero"]["fname"] = "THINCA"
-data["zero"]["num_slides"] = None
+data = {}
+if opts.injection_file:
+  if not opts.injection_window:
+    print >> sys.stderr, \
+        "Must specify --injection-window if --injection-coincidence is given"
+    sys.exit(1)
+
+  data["inj"] = {}
+  data["inj"]["data"] = opts.injection_data
+  data["inj"]["fname"] = "THINCA"
+  data["inj"]["num_slides"] = None
+else:
+  data["zero"] = {}
+  data["zero"]["data"] = opts.zero_data
+  data["zero"]["fname"] = "THINCA"
+  data["zero"]["num_slides"] = None
 
 if opts.num_slides:
   data["slide"] = {}
@@ -160,7 +185,7 @@ coire_out = []
 #######################################################################
 # loop over slide/zero-lag, running sires/coires as necessary
 #######################################################################
-for type,info in data.items():
+for key,info in data.items():
  
   #####################################################################
   # do vetoes if necessary
@@ -189,6 +214,9 @@ for type,info in data.items():
         for file in opts.vetoes:
           if ifo in file:
             command += " --veto-file " + file
+        if opts.rsq_threshold:
+          command += " --rsq-threshold " + opts.rsq_threshold + \
+                     " --rsq-max-snr" + opts.rsq_max_snr
         print command
         if not opts.test:
           os.system(command)
@@ -231,44 +259,87 @@ for type,info in data.items():
         input += "_" + ifos
       input += "-*.xml"
 
-    # work out ifo combinations which could produce triggers
-    trig_choices = trig_types(ifo_list)
-    
-    for trig_ifos in trig_choices:
-      trigs = "".join(trig_ifos)
-      
-      # set output file names
-      output = trigs + "-" + info["fname"]
-      if trigs != ifos:
-        output += "_in_" + ifos
-      if opts.cluster_time:
-        output += "_CLUST_" + str(opts.cluster_time) + "s"
-      else:
-        output += "_UNCLUST" 
+    ###################################
+    # do a single coire on all triggers
+    output = ifos + "-" + info["fname"]
+    if opts.cluster_time:
+      output += "_CLUST_" + str(opts.cluster_time) + "s"
+    else:
+      output += "_UNCLUST" 
+
+    if key == "inj":
+      missed = output + "_MISSED.xml"
+      output += "_FOUND"
+
+    command = opts.coire + \
+        " --glob '" + input + "'" +\
+        " --output " + output +".xml" +\
+        " --summary " + output + ".txt" +\
+        " --data-type " + info["data"]
+    if info["num_slides"]:
+      command += " --num-slides " + info["num_slides"]
+    if key == "inj":
+      command += " --injection-file " + opts.injection_file + \
+                 " --injection-window " + opts.injection_window + \
+                 " --missed-injections " + missed
+    if opts.cluster_time:
+      command += " --cluster-algorithm " + opts.cluster_algorithm +\
+                 " --cluster-time " + str(1000 * opts.cluster_time)
+    print command
+    if not opts.test:
+      os.system(command)
+      print 'Done'
+    print 
+
+    if len(ifo_list) == 2:
       coire_out.append(output + '.xml')
-
+    else:
+      ######################################
+      # do separate coires on each trig type
+      input = output + ".xml"
       
-      command = opts.coire + \
-          " --glob '" + input + "'" +\
-          " --output " + output +".xml" +\
-          " --summary " + output + ".txt" +\
-          " --data-type " + info["data"] +\
-          " --coinc-cut " + trigs
-      if info["num_slides"]:
-        command += " --num-slides " + info["num_slides"]
-      if opts.cluster_time:
-        command += " --cluster-algorithm " + opts.cluster_algorithm +\
-            " --cluster-time " + str(1000 * opts.cluster_time)
-      print command
-      if not opts.test:
-        os.system(command)
-        print 'Done'
-      print 
+      trig_choices = trig_types(ifo_list)
+      for trig_ifos in trig_choices:
+        trigs = "".join(trig_ifos)
+     
+        # set output file names
+        output = trigs + "-" + info["fname"] + "_in_" + ifos
+        if opts.cluster_time:
+          output += "_CLUST_" + str(opts.cluster_time) + "s"
+        else:
+          output += "_UNCLUST" 
+        coire_out.append(output + '.xml')
+
+        if key == "inj":
+          missed = output + "_MISSED.xml"
+          output += "_FOUND"
+
+        command = opts.coire + \
+            " --glob '" + input + "'" +\
+            " --output " + output +".xml" +\
+            " --summary " + output + ".txt" +\
+            " --data-type " + info["data"] +\
+            " --coinc-cut " + trigs
+        if info["num_slides"]:
+          command += " --num-slides " + info["num_slides"]
+        if opts.cluster_time:
+          command += " --cluster-algorithm " + opts.cluster_algorithm +\
+              " --cluster-time " + str(1000 * opts.cluster_time)
+        if key == "inj":
+          command += " --injection-file " + opts.injection_file + \
+                     " --injection-window " + opts.injection_window + \
+                     " --missed-injections " + missed
+
+        print command
+        if not opts.test:
+          os.system(command)
+          print 'Done'
+        print 
 
 #######################################################################
-# make the summary plots
+# make the summary plots -- non-injection
 #######################################################################
-if opts.plots:
+if opts.figure_name and not opts.injection_file:
   for ifo_list in types:
     trigs = ''.join(ifo_list)
     
@@ -311,13 +382,14 @@ if opts.plots:
     #################################################################
     # run s3_statistic
     command = opts.s3_statistic + \
-        " --zero-glob " + start + "*.xml" + \
+        " --zero-glob '" + start + "*.xml'" + \
         " --num-bins " + opts.num_bins + \
         " --statistic " + opts.s3_stat
     if opts.num_slides:
-        command += " --slide-glob " + start + "_SLIDE*.xml" + \
+        command += " --slide-glob '" + start + "_SLIDE*.xml'" + \
         " --slide-zero-stat " + \
         " --slide-zero-dist " + \
+        " --slide-dist" + \
         " --num-slides " + opts.num_slides
     else:
         command += " --zero-stat"  
@@ -330,3 +402,42 @@ if opts.plots:
         os.system(command)
         print "Done"
       print 
+
+#######################################################################
+# make the summary plots -- injections
+#######################################################################
+if opts.figure_name and opts.injection_file:
+  for ifo_list in types:
+    trigs = ''.join(ifo_list)
+
+    start = trigs + '-THINCA'
+    try: 
+      chdir(trigs)
+    except:
+      mkdir(trigs)
+      chdir(trigs)
+    chdir('..')
+
+    #################################################################
+    # run s3_statistic
+    command = opts.s3_statistic + \
+        " --inj-glob '" + start + "*FOUND.xml'" + \
+        " --missed-glob '" + start + "*MISSED.xml'" + \
+        " --num-bins " + opts.num_bins + \
+        " --statistic " + opts.s3_stat + \
+        " --inj-stat" + \
+        " --efficiency"
+    for ifo in ifo_list:
+      eff_dist = "eff_dist_" + ifo[0].lower()
+      command += " --eff-vs-col " + eff_dist
+    if opts.figure_name:
+      fname = trigs + "/" + opts.figure_name
+      command += " --figure-name " + fname
+
+    if opts.second_coinc:
+      print command
+      if not opts.test:
+        os.system(command)
+        print "Done"
+      print 
+
