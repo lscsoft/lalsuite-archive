@@ -279,7 +279,7 @@ class AmplVsFreqContour(object):
 		if options.made_only:
 			cset = self.axes.contour(xcoords, ycoords, numarray.transpose(self.madevsfound.denominator))
 		else:
-			cset = self.axes.contour(xcoords, ycoords, numarray.transpose(self.madevsfound.numerator / self.madevsfound.denominator), [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9])
+			cset = self.axes.contour(xcoords, ycoords, numarray.transpose(self.madevsfound.ratios()), [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9])
 		self.axes.set_title("Injection Amplitude vs. Frequency\n(%d Injections)" % self.num_injections)
 
 
@@ -388,8 +388,8 @@ class RecoveredTimeOffset(object):
 		self.axes.set_title("Trigger Peak Time - Injection Peak Time\n(%d Found Injections)" % self.found)
 		self.offsets.convolve()
 		self.best.convolve()
-		self.axes.plot(self.offsets.xvals, self.offsets.yvals, "k")
-		self.axes.plot(self.best.xvals, self.best.yvals, "r")
+		self.axes.plot(self.offsets.xvals(), self.offsets.yvals(), "k")
+		self.axes.plot(self.best.xvals(), self.best.yvals(), "r")
 
 
 #

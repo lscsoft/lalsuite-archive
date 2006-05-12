@@ -217,7 +217,7 @@ class RateVsCentralFreq(object):
 	def finish(self):
 		self.axes.set_title("Trigger Rate vs. Central Frequency\n(%d Triggers)" % self.nevents)
 		self.rate.convolve()
-		self.axes.plot(self.rate.xvals, self.rate.yvals, "k")
+		self.axes.plot(self.rate.xvals(), self.rate.yvals(), "k")
 
 
 #

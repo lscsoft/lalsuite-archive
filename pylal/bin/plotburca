@@ -243,7 +243,7 @@ class RateContours(object):
 			self.bins.incdenominator((row[self.x_instrument], row[self.y_instrument]), float(self.seglistdict.intersect(instruments).duration()))
 		self.bins.regularize()
 		xcoords, ycoords = self.bins.centres()
-		self.axes.contour(xcoords, ycoords, numarray.transpose(numarray.log(self.bins.numerator / self.bins.denominator)))
+		self.axes.contour(xcoords, ycoords, numarray.transpose(numarray.log(self.bins.ratios())))
 		for row in self.tisirows:
 			self.axes.plot((row[self.x_instrument],), (row[self.y_instrument],), "k+")
 		self.axes.set_title("Coincident Trigger Rate vs. Offset\n(Logarithmic Contours)")
@@ -344,8 +344,8 @@ class DeltaTHistogram(object):
 		self.axes.set_title("%s Peak Time Offset From Coincidence Mean\n(%d Foreground, %d Background Triggers)" % (self.instrument, self.n_foreground, self.n_background))
 		self.background.convolve()
 		self.foreground.convolve()
-		self.axes.plot(self.background.xvals, self.background.yvals, "k")
-		self.axes.plot(self.foreground.xvals, self.foreground.yvals, "r")
+		self.axes.plot(self.background.xvals(), self.background.yvals(), "k")
+		self.axes.plot(self.foreground.xvals(), self.foreground.yvals(), "r")
 
 
 #

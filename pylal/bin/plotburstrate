@@ -204,7 +204,7 @@ fig = newfig(options.segment)
 axes = fig.gca()
 
 rate.convolve()
-axes.plot(rate.xvals, rate.yvals)
+axes.plot(rate.xvals(), rate.yvals())
 
 axes.set_xlim(list(options.segment))
 axes.grid(True)
