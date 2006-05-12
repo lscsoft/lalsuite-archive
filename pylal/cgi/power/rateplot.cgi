@@ -30,8 +30,16 @@ def makeplot(desc, table):
 	fig.set_figsize_inches(16,8)
 	axes = fig.gca()
 
-	xvals, yvals = rate.smooth([float(row.get_peak()) for row in table], desc.trig_segment(), desc.ratewidth)
-	axes.plot(xvals, yvals, "k")
+	bins = rate.Rate1D(desc.trig_segment(), desc.ratewidth)
+	for row in table:
+		try:
+			bins[float(row.get_peak())] = 1
+		except IndexError:
+			# trigger lies outside the bounds of the plot
+			pass
+	bins.convolve()
+
+	axes.plot(bins.xvals(), bins.yvals(), "k")
 
 	axes.set_xlim(list(desc.segment))
 	axes.grid(True)
