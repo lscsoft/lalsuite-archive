@@ -313,7 +313,7 @@ if opts.zero_glob:
 
   inspTriggers = readMeta.snglInspiralTable(zeroFiles,"sngl_inspiral")
   inspTriggers.addcol(opts.statistic)
-  inspTriggers.addcol('effective_snr')
+  if opts.loudest_events: inspTriggers.addcol('effective_snr')
   
   coincTriggers = readMeta.coincInspiralTable(inspTriggers, opts.statistic)
   # coincs MUST have H1 trigger:
@@ -497,7 +497,7 @@ if opts.slide_stat:
   hold(True)
   
   plotstat(slideTriggers, ['kx','b+','ro'])
-  legend()
+  if slideTriggers.nevents(): legend()
   grid()
 
   if opts.plot_min:
@@ -523,7 +523,7 @@ if opts.slide_zero_stat:
   
   plotstat(slideTriggers, ['kx','k+','ko'],'slide')
   plotstat(coincTriggers, ['rx','r+','ro'],'zero-lag')
-  legend()
+  if slideTriggers.nevents() or coincTriggers.nevents(): legend()
   grid()
 
   if opts.plot_min:
@@ -532,6 +532,8 @@ if opts.slide_zero_stat:
   if opts.plot_max:
     ylim(ymax=opts.plot_max)
     xlim(xmax=opts.plot_max)
+  else:
+    square_axis()
 
   title('Slide + Zero Lag Statistic')
   if opts.figure_name:
@@ -547,7 +549,7 @@ if opts.slide_inj_stat:
   
   plotstat(slideTriggers, ['kx','k+','ko'],'slide',opts.inj_plot_type)
   plotstat(injTriggers, ['rx','r+','ro'],'inj',opts.inj_plot_type)
-  legend()
+  if slideTriggers.nevents() or injTriggers.nevents(): legend()
   grid()
 
   if opts.plot_min:
@@ -571,7 +573,7 @@ if opts.inj_stat:
   hold(True)
   
   plotstat(injTriggers, ['kx','b+','ro'],None,opts.inj_plot_type)
-  legend()
+  if injTriggers.nevents(): legend()
   grid()
 
   if opts.plot_min:
@@ -595,7 +597,7 @@ if opts.zero_stat:
   hold(True)
   
   plotstat(coincTriggers, ['kx','b+','ro'])
-  legend()
+  if coincTriggers.nevents(): legend()
   grid()
   
   if opts.plot_min:
@@ -620,7 +622,7 @@ if opts.zero_inj_stat:
   
   plotstat(coincTriggers, ['kx','k+','ko'],'zero lag',opts.inj_plot_type)
   plotstat(injTriggers, ['rx','r+','ro'],'injections',opts.inj_plot_type)
-  legend(loc=2)
+  if coincTriggers.nevents() or injTriggers.nevents(): legend(loc=2)
   grid()
 
   if opts.plot_min:
@@ -657,8 +659,10 @@ if opts.slide_dist or opts.slide_zero_dist:
 
   if opts.plot_max:
     binMax = opts.plot_max
-  else:
+  elif slideMax:
     binMax = slideMax
+  else:
+    binMax = 1.0
     
   bins = arange(binMin, binMax, (binMax - binMin)/opts.num_bins )
 
@@ -724,7 +728,7 @@ if opts.slide_dist:
         markersize=12, markeredgewidth=1, linewidth=1, color='k')
 
      
-  xlabel('Combined' + opts.statistic, size='x-large')
+  xlabel('Combined ' + opts.statistic, size='x-large')
   ylabel('Log Number of events', size='x-large')
   if opts.distribution == 'cumulative':
     title_text = 'Cumulative histogram of Number of events vs statistic'
@@ -763,7 +767,7 @@ if opts.slide_zero_dist:
         log10(slideMean + sqrt(slideMean)) - log10(slideMean)], 
         markersize=12, markeredgewidth=1, linewidth=1, color='k')
 
-  xlabel('Combined Statistic', size='x-large')
+  xlabel('Combined ' + opts.statistic, size='x-large')
   ylabel('Log Number of events', size='x-large')
   if opts.distribution == 'cumulative':
     title_text = 'Cumulative histogram of Number of events vs statistic'
