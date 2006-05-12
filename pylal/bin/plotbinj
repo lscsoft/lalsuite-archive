@@ -26,7 +26,6 @@
 # =============================================================================
 #
 
-import bisect
 import math
 from optparse import OptionParser
 import matplotlib
@@ -379,7 +378,7 @@ class RecoveredVsInjectedAmplitude(object):
 		self.injected = []
 		self.fig = figure.Figure()
 		FigureCanvasAgg(self.fig)
-		self.fig.set_figsize_inches(8, 8)
+		self.fig.set_figsize_inches(16, 16)
 		self.axes = self.fig.gca()
 		self.axes.loglog()
 		self.axes.grid(True)
