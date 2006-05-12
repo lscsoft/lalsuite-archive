@@ -34,7 +34,7 @@ def makeplot(desc, table):
 	confidence = numarray.sort(-table.getColumnByName("confidence").asarray())
 	yvals = numarray.arrayrange(len(confidence), 0.0, -1.0) / duration
 
-	axes.loglog(confidence, yvals)
+	axes.loglog(confidence, yvals, "ko-")
 	axes.grid(True)
 
 	axes.set_title(desc.instrument + " Excess Power Cummulative Trigger Rate vs. Confidence\n(GPS Times %s ... %s, %d Triggers)" % (desc.segment[0], desc.segment[1], len(table)))

@@ -32,7 +32,7 @@ def makeplot(desc, table):
 	confidence = -table.getColumnByName("confidence").asarray()
 	peak_time = numarray.asarray([float(row.get_peak()) for row in table])
 
-	axes.semilogy(peak_time, confidence, "b+")
+	axes.semilogy(peak_time, confidence, "k+")
 
 	for seg in ~desc.seglist & segments.segmentlist([desc.segment]):
 		axes.axvspan(seg[0], seg[1], facecolor = "k", alpha = 0.2)

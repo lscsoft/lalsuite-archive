@@ -84,7 +84,7 @@ def makeplot(desc, table):
 	glitchsegs -= segments.segmentlist.protract(~desc.seglist, desc.widthratio * desc.ratewidth)
 
 	# plot ratio vs time
-	axes.plot(xvals, yvals)
+	axes.plot(xvals, yvals, "k")
 
 	# tinker with graph
 	axes.axhline(desc.glitchthreshold, color = "r")

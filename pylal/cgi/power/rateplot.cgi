@@ -30,7 +30,8 @@ def makeplot(desc, table):
 	fig.set_figsize_inches(16,8)
 	axes = fig.gca()
 
-	axes.plot(*rate.smooth([float(row.get_peak()) for row in table], desc.trig_segment(), desc.ratewidth))
+	xvals, yvals = rate.smooth([float(row.get_peak()) for row in table], desc.trig_segment(), desc.ratewidth)
+	axes.plot(xvals, yvals, "k")
 
 	axes.set_xlim(list(desc.segment))
 	axes.grid(True)

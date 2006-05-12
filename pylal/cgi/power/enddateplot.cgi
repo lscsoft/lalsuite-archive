@@ -73,7 +73,7 @@ def makeplot():
 	xvals = numarray.arange(float(seglist[0][0]) + increment, float(now), increment)
 	yvals = map(end_date, xvals)
 
-	axes.plot(map(float, xvals), map(float, yvals))
+	axes.plot(map(float, xvals), map(float, yvals), "k")
 
 	axes.set_xlim([seglist[0][0], now])
 	axes.set_ylim([851644814, 946339214])

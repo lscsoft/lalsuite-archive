@@ -34,7 +34,7 @@ def makeplot(desc, table):
 	snr = numarray.sort(table.getColumnByName("snr").asarray())
 	yvals = numarray.arrayrange(len(snr), 0.0, -1.0) / duration
 
-	axes.loglog(snr, yvals)
+	axes.loglog(snr, yvals, "ko-")
 	axes.grid(True)
 
 	axes.set_title(desc.instrument + " Excess Power Cummulative Trigger Rate vs. SNR\n(GPS Times %s ... %s, %d Triggers)" % (desc.segment[0], desc.segment[1], len(table)))

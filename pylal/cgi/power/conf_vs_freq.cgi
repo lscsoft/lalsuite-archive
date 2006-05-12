@@ -30,7 +30,7 @@ def makeplot(desc, table):
 	confidence = -table.getColumnByName("confidence").asarray()
 	central_freq = table.getColumnByName("central_freq").asarray()
 
-	axes.semilogy(central_freq, confidence, "b+")
+	axes.semilogy(central_freq, confidence, "k+")
 
 	axes.set_xlim(list(desc.band))
 	axes.set_xticks(numarray.arange(desc.band[0], desc.band[1], 100))

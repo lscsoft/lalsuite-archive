@@ -38,7 +38,7 @@ def makeplot(desc, table):
 
 	freq = table.getColumnByName("freq").asarray()
 
-	axes.plot(time, freq, "b+")
+	axes.plot(time, freq, "k+")
 
 	for seg in ~desc.seglist & segments.segmentlist([desc.segment]):
 		axes.axvspan(seg[0], seg[1], facecolor = "k", alpha = 0.2)
