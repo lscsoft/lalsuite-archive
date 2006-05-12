@@ -205,7 +205,7 @@ class FreqVsTime(object):
 		self.seglist |= doc.seglist
 
 	def finish(self):
-		self.axes.plot(self.injected_x, self.injected_y, "b+")
+		self.axes.plot(self.injected_x, self.injected_y, "k+")
 		if not options.made_only:
 			self.axes.plot(self.missed_x, self.missed_y, "rx")
 		for seg in ~self.seglist & segments.segmentlist([segments.segment(self.axes.get_xlim())]):
@@ -247,7 +247,7 @@ class AmplVsFreqScatter(object):
 			self.missed_y.append(sim.hrss)
 
 	def finish(self):
-		self.axes.plot(self.injected_x, self.injected_y, "b+")
+		self.axes.plot(self.injected_x, self.injected_y, "k+")
 		if not options.made_only:
 			self.axes.plot(self.missed_x, self.missed_y, "rx")
 		self.axes.set_title("Injection Amplitude vs. Frequency\n(%d Injections)" % self.num_injections)
@@ -274,7 +274,7 @@ class AmplVsFreqContour(object):
 			self.madevsfound.incnumerator((sims[0].freq, sims[0].hrss))
 
 	def finish(self):
-		self.madevsfound.normalize()
+		self.madevsfound.regularize()
 		xcoords, ycoords = self.madevsfound.centres()
 		if options.made_only:
 			cset = self.axes.contour(xcoords, ycoords, numarray.transpose(self.madevsfound.denominator))

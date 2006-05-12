@@ -191,7 +191,7 @@ class BinnedRatios(object):
 	def incdenominator(self, coords, weight = 1.0):
 		self.denominator[self.bins[coords]] += weight
 
-	def normalize(self):
+	def regularize(self):
 		self.denominator = numarray.where(self.denominator > 0, self.denominator, 1.0)
 
 	def centres(self):
