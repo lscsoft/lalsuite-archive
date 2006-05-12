@@ -177,7 +177,8 @@ def s3_statistic(trigs = None):
                " --slide-stat" + \
                " --num-slides " + opts.num_slides
     if "zero" in analyze:
-      command += " --slide-zero-stat " 
+      command += " --slide-zero-dist " + \
+                 " --slide-zero-stat " 
 
   if "inj" in analyze:
     command += " --inj-glob '" + trigs + "-THINCA" + extra + "*FOUND.xml'" + \
@@ -262,11 +263,11 @@ parser.add_option("-x","--injection-window", action="store", type="string",
 # coire/sire options
 parser.add_option("-g","--cluster-time",action="store",type="int",\
     default=None,metavar=" CLUSTER_TIME", \
-    help="cluster window used, seconds (default = None)")
+    help="cluster window used in coire, seconds (default = None)")
     
 parser.add_option("-i","--cluster-algorithm",action="store",type="string",\
-    default="snrsq",metavar=" CLUSTER_ALG", \
-    help="cluster algorithm used, seconds (default = snrsq)")
+    default="effective_snrsq",metavar=" CLUSTER_ALG", \
+    help="cluster algorithm used in coire(default = effective_snrsq)")
 
 parser.add_option("-j","--second-coinc",action="store_true",default=False,\
     help="specify that the input comes from second coinc (default = false)")
