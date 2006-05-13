@@ -346,6 +346,10 @@ parser.add_option("-O","--plot-2d-ng",action="store_true",default=False,\
 parser.add_option("-W","--cum-search-2d-ng",action="store_true",default=False,\
     help="calculate the cumulateive number of galaxies for this search" )
 
+parser.add_option("-R","--delta-error",action="store_true",default=False,\
+    help="incorporates the change in distance due to error in distance" )
+
+
 (opts,args) = parser.parse_args()
 
 ##############################################################################
@@ -417,6 +421,7 @@ if astro_plot:
             ' before segment selection = %.2f' % numSources
     seg_file = open( opts.segment_file , "r")
     segList = segmentsUtils.fromsegwizard(seg_file)
+
     seg_file.close()
     simInspTriggers = segmentCut(simInspTriggers, segList , "geocent_end_time")
 
@@ -434,7 +439,13 @@ if astro_plot:
   # Read the relevant columns
   xAstro = readColumn(simInspTriggers,opts.x_value)
   yAstro = readColumn(simInspTriggers,opts.y_value)
-  
+ 
+ 
+  if opts.delta_error:
+    xAstro = xAstro*1.1
+		
+	    	  		
+    
 ##############################################################################
 # read in the found/missed injections
 ##############################################################################
