@@ -171,6 +171,8 @@ class Bins(object):
 # =============================================================================
 #
 
+
+
 class BinnedArray(object):
 	"""
 	A convenience wrapper, using the Bins class to provide access to
@@ -206,6 +208,15 @@ class BinnedArray(object):
 		each dimension.
 		"""
 		return self.bins.centres()
+
+	def logregularize(self, epsilon = 2**-1074):
+		"""
+		Find bins <= 0, and set them to epsilon, This has the
+		effect of allowing the logarithm of the array to be
+		evaluated without error.
+		"""
+		numarray.where(self.array > 0, self.array, epsilon, out = self.array)
+		return self
 
 
 class BinnedRatios(object):
@@ -249,17 +260,18 @@ class BinnedRatios(object):
 		have had no weight added to them.
 		"""
 		numarray.where(self.denominator > 0, self.denominator, 1.0, out = self.denominator)
+		return self
 
 	def logregularize(self, epsilon = 2**-1074):
 		"""
 		Find bins in the denominator that are 0, and set them to 1,
 		while setting the corresponding bin in the numerator to
 		float epsilon.  This has the effect of allowing the
-		logarithm of the ratio array to be evaluated without error,
-		return log(epsilon) to be returned.
+		logarithm of the ratio array to be evaluated without error.
 		"""
 		numarray.where(self.denominator > 0, self.numerator, epsilon, out = self.numerator)
 		numarray.where(self.denominator > 0, self.denominator, 1.0, out = self.denominator)
+		return self
 
 	def centres(self):
 		"""
@@ -300,6 +312,7 @@ def tophat_window(bins):
 	Generate a normalized (integral = 1) top-hat window in 1 dimension.
 	bins sets the width of the window in bin counts.
 	"""
+	bins = int(bins / 2) * 2 + 1
 	return numarray.ones(bins, "Float64") / bins
 
 
@@ -336,6 +349,7 @@ def filter(binned, window):
 		convolve.convolve2d(binned.array, window, output = binned.array, mode = "constant")
 	else:
 		raise ValueError, "can only filter 1 and 2 dimensional arrays"
+	return binned
 
 
 def filter_ratios(binned, window):
@@ -346,7 +360,7 @@ def filter_ratios(binned, window):
 	dims = len(binned.numerator.shape)
 	if dims != len(window.shape):
 		raise ValueError, "binned array and window dimensions mismatch"
-	if 1 in map(int.__cmp__, window.shape, binned.array.shape):
+	if 1 in map(int.__cmp__, window.shape, binned.numerator.shape):
 		raise ValueError, "window data excedes size of array data"
 	if dims == 1:
 		binned.numerator = convolve.convolve2d(binned.numerator, window, mode = "constant")
@@ -356,6 +370,7 @@ def filter_ratios(binned, window):
 		binned.denominator = convolve.convolve2d(binned.denominator, window, mode = "constant")
 	else:
 		raise ValueError, "can only filter 1 and 2 dimensional arrays"
+	return binned
 
 
 #
