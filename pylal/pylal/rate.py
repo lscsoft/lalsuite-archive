@@ -234,7 +234,7 @@ class BinnedRatios(object):
 		"""
 		self.denominator[self.bins[coords]] += weight
 
-	def ratios(self):
+	def ratio(self):
 		"""
 		Compute and return the array of ratios.
 		"""
@@ -244,11 +244,22 @@ class BinnedRatios(object):
 		"""
 		Find bins in the denominator that are 0, and set them to 1.
 		Presumably the corresponding bin in the numerator is also
-		0, so this has the effect of causing zeros to be returned
-		in the ratios array for those bins that have had no weight
-		added to them.
+		0, so this has the effect of allowing the ratio array to be
+		evaluated without error, returning zeros in those bins that
+		have had no weight added to them.
 		"""
-		self.denominator = numarray.where(self.denominator > 0, self.denominator, 1.0)
+		numarray.where(self.denominator > 0, self.denominator, 1.0, out = self.denominator)
+
+	def logregularize(self, epsilon = 2**-1074):
+		"""
+		Find bins in the denominator that are 0, and set them to 1,
+		while setting the corresponding bin in the numerator to
+		float epsilon.  This has the effect of allowing the
+		logarithm of the ratio array to be evaluated without error,
+		return log(epsilon) to be returned.
+		"""
+		numarray.where(self.denominator > 0, self.numerator, epsilon, out = self.numerator)
+		numarray.where(self.denominator > 0, self.denominator, 1.0, out = self.denominator)
 
 	def centres(self):
 		"""
@@ -271,14 +282,15 @@ def gaussian_window(bins):
 	Generate a normalized (integral = 1) Gaussian window in 1
 	dimension.  bins sets the width of the window in bin count.
 	"""
-	bins /= 2.0
-	return numarray.exp(-numarray.arrayrange(-10.0 * bins, +10.0 * bins, 1, "Float64")**2.0 / (2.0 * bins**2.0)) / math.sqrt(2.0 * math.pi) / bins
+	bins /= 2.0	# half-width
+	return numarray.exp(-numarray.arrayrange(-6 * int(bins), 6 * int(bins) + 1, 1, "Float64")**2.0 / (2.0 * bins**2.0)) / math.sqrt(2.0 * math.pi) / bins
 
 
 def gaussian_window2d(bins_x, bins_y):
 	"""
-	Generate a normalized (integral = 1) Gaussian window in 2 dimensions.
-	bins_x and bins_y set the widths of the window in bin counts.
+	Generate a normalized (integral = 1) Gaussian window in 2
+	dimensions.  bins_x and bins_y set the widths of the window in bin
+	counts.
 	"""
 	return numarray.outerproduct(gaussian_window(bins_x), gaussian_window(bins_y))
 
@@ -289,6 +301,15 @@ def tophat_window(bins):
 	bins sets the width of the window in bin counts.
 	"""
 	return numarray.ones(bins, "Float64") / bins
+
+
+def tophat_window2d(bins_x, bins_y):
+	"""
+	Generate a normalized (integral = 1) top-hat window in 2
+	dimensions.  bins_x and bins_y set the widths of the window in bin
+	counts.
+	"""
+	return numarray.outerproduct(tophat_window(bins_x), tophat_window(bins_y))
 
 
 #
@@ -307,6 +328,8 @@ def filter(binned, window):
 	dims = len(binned.array.shape)
 	if dims != len(window.shape):
 		raise ValueError, "binned array and window dimensions mismatch"
+	if 1 in map(int.__cmp__, window.shape, binned.array.shape):
+		raise ValueError, "window data excedes size of array data"
 	if dims == 1:
 		binned.array = convolve.convolve(binned.array, window, mode = convolve.SAME)
 	elif dims == 2:
