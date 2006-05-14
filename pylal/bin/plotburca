@@ -312,8 +312,8 @@ class DeltaTHistogram(object):
 		self.instrument = instrument
 		self.n_foreground = 0
 		self.n_background = 0
-		self.foreground = rate.Rate1D(interval, width)
-		self.background = rate.Rate1D(interval, width)
+		self.foreground = rate.Rate(interval, width)
+		self.background = rate.Rate(interval, width)
 		self.fig = figure.Figure()
 		FigureCanvasAgg(self.fig)
 		self.fig.set_figsize_inches(16,8)
@@ -342,8 +342,8 @@ class DeltaTHistogram(object):
 
 	def finish(self):
 		self.axes.set_title("%s Peak Time Offset From Coincidence Mean\n(%d Foreground, %d Background Triggers)" % (self.instrument, self.n_foreground, self.n_background))
-		self.background.convolve()
-		self.foreground.convolve()
+		self.background.filter()
+		self.foreground.filter()
 		self.axes.plot(self.background.xvals(), self.background.yvals(), "k")
 		self.axes.plot(self.foreground.xvals(), self.foreground.yvals(), "r")
 

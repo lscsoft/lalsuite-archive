@@ -107,7 +107,7 @@ cache.sort()
 # =============================================================================
 #
 
-rate = rate.Rate1D(options.read_segment, options.window)
+rate = rate.Rate(options.read_segment, options.window)
 num_triggers = 0
 
 def append(table, trigger):
@@ -203,7 +203,7 @@ def newfig(segment):
 fig = newfig(options.segment)
 axes = fig.gca()
 
-rate.convolve()
+rate.filter()
 axes.plot(rate.xvals(), rate.yvals())
 
 axes.set_xlim(list(options.segment))

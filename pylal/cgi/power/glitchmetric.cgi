@@ -67,8 +67,8 @@ def makeplot(desc, table):
 
 	# construct short time scale average confidence rate, and a long
 	# time scale average confidence rate.
-	bins = rate.Rate1D(desc.trig_segment(), desc.ratewidth)
-	bins2 = rate.Rate1D(desc.trig_segment(), desc.widthratio * desc.ratewidth)
+	bins = rate.Rate(desc.trig_segment(), desc.ratewidth)
+	bins2 = rate.Rate(desc.trig_segment(), desc.widthratio * desc.ratewidth)
 	for i in xrange(len(peaktime)):
 		try:
 			bins[peaktime[i]] = confidence[i]
@@ -76,8 +76,8 @@ def makeplot(desc, table):
 		except IndexError:
 			# trigger lies outside bounds of plot
 			pass
-	bins.convolve()
-	bins2.convolve()
+	bins.filter()
+	bins2.filter()
 
 	# resample to match sample rate of short time scale.
 	bins2.array = nd_image.zoom(bins2.array, float(len(bins.yvals())) / float(len(bins2.yvals())))

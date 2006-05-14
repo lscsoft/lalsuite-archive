@@ -260,7 +260,7 @@ class AmplVsFreqContour(object):
 		FigureCanvasAgg(self.fig)
 		self.fig.set_figsize_inches(16, 8)
 		self.axes = self.fig.gca()
-		self.madevsfound = rate.BinnedRatios(rate.Bins(70.0, 2118.0, 64, 10**-22.2, 10**-18.0, 64, spacing = ["log", "log"]))
+		self.madevsfound = rate.BinnedRatios(rate.Bins(70.0, 2118.0, 512, 10**-22.2, 10**-18.0, 512, spacing = ["log", "log"]))
 		self.axes.loglog()
 		self.axes.grid(True)
 		self.axes.set_xlabel("Frequency (Hz)")
@@ -274,6 +274,7 @@ class AmplVsFreqContour(object):
 			self.madevsfound.incnumerator((sims[0].freq, sims[0].hrss))
 
 	def finish(self):
+		rate.filter_ratios(self.madevsfound, rate.gaussian_window2d(8, 8))
 		self.madevsfound.regularize()
 		xcoords, ycoords = self.madevsfound.centres()
 		if options.made_only:
@@ -363,8 +364,8 @@ class RecoveredVsInjectedAmplitude(object):
 class RecoveredTimeOffset(object):
 	def __init__(self, interval, width):
 		self.found = 0
-		self.offsets = rate.Rate1D(interval, width)
-		self.best = rate.Rate1D(interval, width)
+		self.offsets = rate.Rate(interval, width)
+		self.best = rate.Rate(interval, width)
 		self.fig = figure.Figure()
 		FigureCanvasAgg(self.fig)
 		self.fig.set_figsize_inches(16, 8)
@@ -386,8 +387,8 @@ class RecoveredTimeOffset(object):
 
 	def finish(self):
 		self.axes.set_title("Trigger Peak Time - Injection Peak Time\n(%d Found Injections)" % self.found)
-		self.offsets.convolve()
-		self.best.convolve()
+		self.offsets.filter()
+		self.best.filter()
 		self.axes.plot(self.offsets.xvals(), self.offsets.yvals(), "k")
 		self.axes.plot(self.best.xvals(), self.best.yvals(), "r")
 

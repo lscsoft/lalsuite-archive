@@ -200,7 +200,7 @@ class ConfidenceVsFrequencyScatter(object):
 class RateVsCentralFreq(object):
 	def __init__(self, interval, width):
 		self.nevents = 0
-		self.rate = rate.Rate1D(interval, width)
+		self.rate = rate.Rate(interval, width)
 		self.fig = figure.Figure()
 		FigureCanvasAgg(self.fig)
 		self.fig.set_figsize_inches(16, 8)
@@ -216,7 +216,7 @@ class RateVsCentralFreq(object):
 
 	def finish(self):
 		self.axes.set_title("Trigger Rate vs. Central Frequency\n(%d Triggers)" % self.nevents)
-		self.rate.convolve()
+		self.rate.filter()
 		self.axes.plot(self.rate.xvals(), self.rate.yvals(), "k")
 
 
@@ -251,6 +251,57 @@ class Durations(object):
 	def finish(self):
 		self.axes.set_title("Trigger Durations\n(%d Triggers)" % self.nevents)
 		self.axes.plot(self.bins.keys(), self.bins.values(), "ko-")
+
+
+#
+# =============================================================================
+#
+#                       Time Between Triggers Histogram
+#
+# =============================================================================
+#
+
+class Delays(object):
+	def __init__(self, interval, width):
+		self.nevents = 0
+		self.data = {}
+		self.bins_g = rate.Rate(interval, width)
+		self.bins_t = rate.Rate(interval, width)
+		self.bins_t.set_window(rate.tophat_window)
+		self.fig = figure.Figure()
+		FigureCanvasAgg(self.fig)
+		self.fig.set_figsize_inches(16, 8)
+		self.axes = self.fig.gca()
+		self.axes.semilogy()
+		self.axes.grid(True)
+		self.axes.set_xlabel("Delay (s)")
+		self.axes.set_ylabel("Count / Delay")
+
+	def add_contents(self, doc):
+		self.nevents += doc.nevents
+		peaks = numarray.array(doc.peak_time)
+		peaks.sort()
+		for i in xrange(1, len(peaks)):
+			dt = peaks[i] - peaks[i - 1]
+			if dt in self.data:
+				self.data[dt] += 1
+			else:
+				self.data[dt] = 1
+			self.bins_g[dt] = 1.0
+			self.bins_t[dt] = 1.0
+
+	def finish(self):
+		self.axes.set_title("Time Between Triggers\n(%d Triggers)" % self.nevents)
+
+		data = zip(self.data.keys(), self.data.values())
+		data.sort()
+		self.axes.plot([d[0] for d in data], [d[1] for d in data], "ko-")
+
+		self.bins_g.filter()
+		self.bins_t.filter()
+		self.axes.plot(self.bins_g.xvals(), self.bins_g.yvals(), "k--")
+		self.axes.plot(self.bins_t.xvals(), self.bins_t.yvals(), "k")
+		self.axes.set_ylim([1e0, 1e7])
 
 
 #
@@ -366,6 +417,7 @@ plots = [
 	ConfidenceVsFrequencyScatter(),
 	RateVsCentralFreq(segments.segment(0, 2500), 5),
 	Durations(),
+	Delays(segments.segment(0, 12), 0.125),
 	RateVsSNR(),
 	RateVsConfidence(),
 	TimeFrequencyPlane()

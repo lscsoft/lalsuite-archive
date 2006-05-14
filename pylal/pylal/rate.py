@@ -46,38 +46,6 @@ __date__ = "$Date$"[7:-2]
 #
 # =============================================================================
 #
-#                                   Windows
-#
-# =============================================================================
-#
-
-def gaussian_window(halfwidth):
-	"""
-	Generate a normalized (integral = 1) Gaussian window in 1
-	dimension.
-	"""
-	return numarray.exp(-numarray.arrayrange(-10.0 * halfwidth, +10.0 * halfwidth, halfwidth / 10.0, "Float64")**2.0 / (2.0 * halfwidth**2.0)) / math.sqrt(2.0 * math.pi) / halfwidth
-
-
-def gaussian_window2d(halfwidth_x, halfwidth_y):
-	"""
-	Generate a normalized (integral = 1) Gaussian window in 2
-	dimensions.
-	"""
-	return numarray.outerproduct(gaussian_window(halfwidth_x), gaussian_window(halfwidth_y))
-
-
-def tophat_window(halfwidth):
-	"""
-	Generate a normalized (integral = 1) top-hat window in 1 dimension.
-	"""
-	bins_per_unit = 10.0 / halfwidth
-	return numarray.ones(2.0 * halfwidth / bins_per_unit) / (2.0 * halfwidth)
-
-
-#
-# =============================================================================
-#
 #                                     Bins
 #
 # =============================================================================
@@ -219,16 +187,9 @@ class BinnedArray(object):
 	>>> x[0.5,] += 1
 	>>> x.array
 	array([ 2.,  0.,  0.,  0.,  0.])
+
+	Note that even for 1 dimensional array the index but be a tuple.
 	"""
-	# Argh.  Ideally, we would subclass numarray.NumArray and construct
-	# a variant that accepts arbitrary co-ordinates in the
-	# __getitem__() and __setitem__() methods.  Unforunately, numarray
-	# is somewhat poorly designed, and so subclasses that do not export
-	# *exactly* the same interface as that exported by
-	# numarray.NumArray break the library.  If you can't construct a
-	# subclass that modifies the interface in any way whatsoever, that
-	# is if all subclasses must behave in exactly the same way as the
-	# parent class, then what would ever be the point?
 	def __init__(self, bins):
 		self.bins = bins
 		self.array = numarray.zeros(bins.shape, "Float64")
@@ -300,21 +261,99 @@ class BinnedRatios(object):
 #
 # =============================================================================
 #
+#                                   Windows
+#
+# =============================================================================
+#
+
+def gaussian_window(bins):
+	"""
+	Generate a normalized (integral = 1) Gaussian window in 1
+	dimension.  bins sets the width of the window in bin count.
+	"""
+	bins /= 2.0
+	return numarray.exp(-numarray.arrayrange(-10.0 * bins, +10.0 * bins, 1, "Float64")**2.0 / (2.0 * bins**2.0)) / math.sqrt(2.0 * math.pi) / bins
+
+
+def gaussian_window2d(bins_x, bins_y):
+	"""
+	Generate a normalized (integral = 1) Gaussian window in 2 dimensions.
+	bins_x and bins_y set the widths of the window in bin counts.
+	"""
+	return numarray.outerproduct(gaussian_window(bins_x), gaussian_window(bins_y))
+
+
+def tophat_window(bins):
+	"""
+	Generate a normalized (integral = 1) top-hat window in 1 dimension.
+	bins sets the width of the window in bin counts.
+	"""
+	return numarray.ones(bins, "Float64") / bins
+
+
+#
+# =============================================================================
+#
+#                                  Filtering
+#
+# =============================================================================
+#
+
+def filter(binned, window):
+	"""
+	Filter the binned data using the window function.  The
+	transformation is done in place.
+	"""
+	dims = len(binned.array.shape)
+	if dims != len(window.shape):
+		raise ValueError, "binned array and window dimensions mismatch"
+	if dims == 1:
+		binned.array = convolve.convolve(binned.array, window, mode = convolve.SAME)
+	elif dims == 2:
+		convolve.convolve2d(binned.array, window, output = binned.array, mode = "constant")
+	else:
+		raise ValueError, "can only filter 1 and 2 dimensional arrays"
+
+
+def filter_ratios(binned, window):
+	"""
+	Filter the binned ratio data using the window function.  The
+	transformation is done in place.
+	"""
+	dims = len(binned.numerator.shape)
+	if dims != len(window.shape):
+		raise ValueError, "binned array and window dimensions mismatch"
+	if dims == 1:
+		binned.numerator = convolve.convolve2d(binned.numerator, window, mode = "constant")
+		binned.denominator = convolve.convolve2d(binned.denominator, window, mode = "constant")
+	elif dims == 2:
+		binned.numerator = convolve.convolve2d(binned.numerator, window, mode = "constant")
+		binned.denominator = convolve.convolve2d(binned.denominator, window, mode = "constant")
+	else:
+		raise ValueError, "can only filter 1 and 2 dimensional arrays"
+
+
+#
+# =============================================================================
+#
 #                                    Rates
 #
 # =============================================================================
 #
 
-class Rate1D(BinnedArray):
+class Rate(BinnedArray):
 	"""
-	An object for binning and smoothing impulsive data in 1 dimension.
+	An object for binning and smoothing impulsive data in 1 dimension,
+	normalized so as to measure events (or event weight) per filter
+	width.
 	"""
-	def __init__(self, segment, width, windowfunc = gaussian_window):
+	bins_per_filterwidth = 20
+	def __init__(self, segment, filterwidth, windowfunc = gaussian_window):
 		"""
-		Initialize the bins for the given segment and width.
+		Initialize the bins for the given segment and filter width.
 		"""
-		BinnedArray.__init__(self, Bins(segment[0], segment[1], int(segment.duration() / (width / 20.0) + 1)))
-		self.halfwidth = width / 2.0
+		self.filterwidth = filterwidth
+		BinnedArray.__init__(self, Bins(segment[0], segment[1], int(segment.duration() / filterwidth * self.bins_per_filterwidth + 1) ) )
 		self.set_window(windowfunc)
 
 	def __setitem__(self, x, weight):
@@ -327,14 +366,14 @@ class Rate1D(BinnedArray):
 		"""
 		Set the window function.
 		"""
-		self.window = windowfunc
+		self.window = windowfunc(self.bins_per_filterwidth) / self.filterwidth * self.bins_per_filterwidth
 
-	def convolve(self):
+	def filter(self):
 		"""
 		Convolve the binned weights with the window to smooth the
 		data set.
 		"""
-		self.array = convolve.convolve(self.array, self.window(self.halfwidth), mode=convolve.SAME)
+		filter(self, self.window)
 		return self
 
 	def xvals(self):
