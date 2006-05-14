@@ -346,6 +346,8 @@ def filter_ratios(binned, window):
 	dims = len(binned.numerator.shape)
 	if dims != len(window.shape):
 		raise ValueError, "binned array and window dimensions mismatch"
+	if 1 in map(int.__cmp__, window.shape, binned.array.shape):
+		raise ValueError, "window data excedes size of array data"
 	if dims == 1:
 		binned.numerator = convolve.convolve2d(binned.numerator, window, mode = "constant")
 		binned.denominator = convolve.convolve2d(binned.denominator, window, mode = "constant")
