@@ -294,6 +294,8 @@ def gaussian_window(bins):
 	Generate a normalized (integral = 1) Gaussian window in 1
 	dimension.  bins sets the width of the window in bin count.
 	"""
+	if bins <= 0:
+		raise ValueError, bins
 	bins /= 2.0	# half-width
 	return numarray.exp(-numarray.arrayrange(-6 * int(bins), 6 * int(bins) + 1, 1, "Float64")**2.0 / (2.0 * bins**2.0)) / math.sqrt(2.0 * math.pi) / bins
 
@@ -312,6 +314,8 @@ def tophat_window(bins):
 	Generate a normalized (integral = 1) top-hat window in 1 dimension.
 	bins sets the width of the window in bin counts.
 	"""
+	if bins <= 0:
+		raise ValueError, bins
 	bins = int(bins / 2) * 2 + 1
 	return numarray.ones(bins, "Float64") / bins
 
