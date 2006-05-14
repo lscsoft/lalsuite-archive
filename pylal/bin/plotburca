@@ -220,7 +220,7 @@ class RateContours(object):
 		FigureCanvasAgg(self.fig)
 		self.fig.set_figsize_inches(16,16)
 		self.axes = self.fig.gca()
-		self.bins = rate.BinnedRatios(rate.Bins(-100.0, 100.0, 11, -100.0, 100.0, 11))
+		self.bins = rate.BinnedRatios(rate.Bins(-100.0, 100.0, 88, -100.0, 100.0, 88))
 		self.axes.grid(True)
 		self.axes.set_xlabel("%s Offset (s)" % x_instrument)
 		self.axes.set_ylabel("%s Offset (s)" % y_instrument)
@@ -241,6 +241,7 @@ class RateContours(object):
 		for row in self.tisirows:
 			self.seglistdict.set_offsets({self.x_instrument: row[self.x_instrument], self.y_instrument: row[self.y_instrument]})
 			self.bins.incdenominator((row[self.x_instrument], row[self.y_instrument]), float(self.seglistdict.intersect(instruments).duration()))
+		rate.filter_ratios(self.bins, rate.gaussian_window2d(8, 8))
 		self.bins.regularize()
 		xcoords, ycoords = self.bins.centres()
 		self.axes.contour(xcoords, ycoords, numarray.transpose(numarray.log(self.bins.ratios())))
