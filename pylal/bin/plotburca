@@ -296,8 +296,17 @@ class ConfidenceScatter(object):
 
 	def finish(self):
 		self.axes.set_title("Coincident Trigger Confidence\n(%d Foreground, %d Background Triggers)" % (self.n_foreground, self.n_background))
+
 		self.axes.plot(self.background_x, self.background_y, "k+")
 		self.axes.plot(self.foreground_x, self.foreground_y, "rx")
+
+		bins = rate.BinnedArray(rate.Bins(min(self.background_x), max(self.background_x), 1024, min(self.background_y), max(self.background_y), 1024, spacing = ["log", "log"]))
+		map(lambda x, y: bins.__setitem__((x, y), 1), self.background_x, self.background_y)
+		rate.filter(bins, rate.gaussian_window2d(8, 8))
+		bins.logregularize()
+		xcoords, ycoords = bins.centres()
+		max_density = math.log(bins.array.max())
+		self.axes.contour(xcoords, ycoords, numarray.transpose(numarray.log(bins.array)), [max_density - n for n in xrange(0, 10, 1)])
 
 
 #
