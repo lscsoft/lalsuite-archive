@@ -111,9 +111,10 @@ def coinc_map_append(self, row):
 		self.rows[id] = ([], [])
 	if "sim_burst" in row.event_id:
 		self.rows[id][0].append(lsctables.ILWDID(row.event_id))
-	else:
-		# sngl_burst
+	elif "sngl_burst" in row.event_id:
 		self.rows[id][1].append(lsctables.ILWDID(row.event_id))
+	else:
+		raise ValueError, "unrecognized coincident event ID: %s" % str(row.event_id)
 
 lsctables.SnglBurstTable.RowType = SnglBurst
 lsctables.SnglBurstTable.__init__ = snglburst_init
