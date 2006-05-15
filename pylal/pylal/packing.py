@@ -43,7 +43,7 @@ __date__ = "$Date$"[7:-2]
 
 class Bin(object):
 	"""
-	Generic Bin object for use in packing algorithm implementations.
+	Bin object for use in packing algorithm implementations.
 	"""
 	def __init__(self):
 		self.size = 0
@@ -67,8 +67,7 @@ class Bin(object):
 
 class Bins(list):
 	"""
-	Generic list of Bins for use as a parent class for all packing
-	algorithm implementations.
+	List of Bins for use in packing algorithm implementations.
 	"""
 	def __new__(cls, n):
 		l = list.__new__(cls, None)
@@ -78,6 +77,25 @@ class Bins(list):
 
 	def __init__(cls, n):
 		pass
+
+
+#
+# =============================================================================
+#
+#                              Packing Algorithms
+#
+# =============================================================================
+#
+
+class PakingAlgorithm(object):
+	"""
+	Generic parent class for packing algorithms.
+	"""
+	def __init__(self, bins):
+		"""
+		Set the list of bins on which we shall operate
+		"""
+		self.bins = bins
 
 	def pack(self, object, size):
 		"""
@@ -92,20 +110,12 @@ class Bins(list):
 		raise NotImplemented
 
 
-#
-# =============================================================================
-#
-#                              Packing Algorithms
-#
-# =============================================================================
-#
-
-class BiggestIntoEmptiest(Bins):
+class BiggestIntoEmptiest(PakingAlgorithm):
 	"""
 	Packs the biggest object into the emptiest bin.
 	"""
 	def pack(self, object, size):
-		min(self).add_object(object, size)
+		min(self.bins).add_object(object, size)
 
 	def packlist(self, size_object_pairs):
 		l.sort()
