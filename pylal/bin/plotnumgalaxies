@@ -94,7 +94,6 @@ def read_source_file( source_file ):
       c  = { 'name': b[0], 'luminosity': float(b[4]) , 'delta_d': float(b[6])}
       sourcelist.append(c)
       
-  print len(c)
  
   sort_on = "luminosity"
   decorated = [(dict_[sort_on], dict_) for dict_ in sourcelist]
@@ -442,19 +441,19 @@ if astro_plot:
   # Read the relevant columns
   xAstro = readColumn(simInspTriggers,opts.x_value)
   yAstro = readColumn(simInspTriggers,opts.y_value)
- 
- 
-  if opts.delta_error:
-        i=0
-        for i in range(len(sourcelist)):
-    	 	n_gal = simInspTriggers.getColumnByName('source').count(sourcelist[i]['name'])
-        	i = i + 1	
-		print n_gal  
-    	
+  gal_name = simInspTriggers.getColumnByName('source')
 
-		
-	    	  		
-    
+if opts.delta_error:
+  i=0	  
+  j=0
+  for i in range(len(sourcelist)):
+  	for j in range(len(gal_name)):
+		if (gal_name[j]==sourcelist[i]['name']):
+			xAstro[j]=xAstro[j]*(1 + sourcelist[i]['delta_d'])
+			j=j + 1
+
+	i = i + 1		
+  print xAstro[3]	
 ##############################################################################
 # read in the found/missed injections
 ##############################################################################
