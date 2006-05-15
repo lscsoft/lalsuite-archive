@@ -326,7 +326,22 @@ def tophat_window2d(bins_x, bins_y):
 	dimensions.  bins_x and bins_y set the widths of the window in bin
 	counts.
 	"""
-	return numarray.outerproduct(tophat_window(bins_x), tophat_window(bins_y))
+	if bins_x <= 0:
+		raise ValueError, bins_x
+	if bins_y <= 0:
+		raise ValueError, bins_y
+
+	# fill rectangle with ones
+	window = numarray.ones((int(bins_x / 2) * 2 + 1, int(bins_y / 2) * 2 + 1), "Float64")
+
+	# zero the bins outside the window
+	for x in xrange(int(bins_x / 2) * 2 + 1):
+		for y in xrange(int(bins_y / 2) * 2 + 1):
+			if ((x - window.shape[0] / 2) / float(bins_x) * 2.0)**2 + ((y - window.shape[1] / 2) / float(bins_y) * 2.0)**2 > 1.0:
+				window[x, y] = 0.0
+
+	# normalize
+	return window / numarray.sum(numarray.sum(window))
 
 
 #
