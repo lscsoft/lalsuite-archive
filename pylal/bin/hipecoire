@@ -55,7 +55,7 @@ def sire(data_type,input,ifos,ifo=None):
         command += " --veto-file " + file
     if opts.rsq_threshold:
       command += " --rsq-threshold " + opts.rsq_threshold + \
-                 " --rsq-max-snr" + opts.rsq_max_snr
+                 " --rsq-max-snr " + opts.rsq_max_snr
 
   return command
 
@@ -125,7 +125,6 @@ def plotthinca(trigs = None):
   if trigs:
     fname += "_" + trigs
 
-  print fname
   command = opts.plotthinca + \
             " --glob '" + glob_files + "'" + \
             " --figure-name " + fname
@@ -165,7 +164,8 @@ def s3_statistic(trigs = None):
   command = opts.s3_statistic + \
         " --num-bins " + opts.num_bins + \
         " --statistic " + opts.s3_stat + \
-        " --figure-name " + fname
+        " --figure-name " + fname + \
+        " --allow-h2-l1" 
 
   if "zero" in analyze:
     command += " --zero-glob '" + trigs + "-THINCA" + extra + "*.xml'" + \
