@@ -7,6 +7,7 @@ import numarray
 from glue.ligolw import ligolw
 from glue.ligolw import array
 
+print "Loading ligo_lw_test_01.xml..."
 doc = ligolw.Document()
 ligolw.make_parser(array.LIGOLWContentHandler(doc)).parse(file("ligo_lw_test_01.xml"))
 
