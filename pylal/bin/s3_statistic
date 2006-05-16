@@ -65,6 +65,24 @@ def plotstat(coincInspiral, symbols, description = None, plot_type = 'linear'):
       plot(h1_val, l1_val, symbols[1], markersize=12, markeredgewidth=1,\
           markerfacecolor=None, label=my_label)
 
+  # h2-l1
+  h2l1_coinc = coincInspiral.coinctype(['H2','L1'])
+  h2_val = h2l1_coinc.getsngls('H2').mkarray(opts.statistic)
+  l1_val = h2l1_coinc.getsngls('L1').mkarray(opts.statistic)
+  
+  if description:
+    my_label = description + ': H2-L1'
+  else:
+    my_label = 'H2-L1'
+  if len(h2_val):
+    if plot_type == 'log':
+      loglog(h2_val, l1_val, symbols[2], markersize=12, markeredgewidth=1,\
+          markerfacecolor=None, label=my_label)
+    else:
+      plot(h2_val, l1_val, symbols[2], markersize=12, markeredgewidth=1,\
+          markerfacecolor=None, label=my_label)
+
+
   # h1-h2-l1
   h1h2l1_coinc = coincInspiral.coinctype(['H1','H2','L1'])
   h1_val = h1h2l1_coinc.getsngls('H1').mkarray(opts.statistic)
@@ -81,13 +99,13 @@ def plotstat(coincInspiral, symbols, description = None, plot_type = 'linear'):
     my_label = 'H1-H2-L1'
   if len(h1_val):
     if plot_type == 'log':
-      loglog(h1_val, h2_l1_val, symbols[2], markersize=12, \
+      loglog(h1_val, h2_l1_val, symbols[3], markersize=12, \
           markeredgewidth=1, label=my_label)
     else:
-      plot(h1_val, h2_l1_val, symbols[2], markersize=12, \
+      plot(h1_val, h2_l1_val, symbols[3], markersize=12, \
           markeredgewidth=1, label=my_label)
 
-  xlabel('H1 ' + opts.statistic, size='x-large')
+  xlabel('H1/H2 ' + opts.statistic, size='x-large')
   ylabel('H2/L1 ' + opts.statistic, size='x-large')
 
 
@@ -148,6 +166,9 @@ parser.add_option("-i","--inj-glob",action="store",type="string",\
 parser.add_option("-x","--missed-glob",action="store",type="string",\
     default=None, metavar=" MISSED_GLOB", \
     help="GLOB of missed injection files to read" )
+
+parser.add_option("-A","--allow-h2-l1",action="store_true",default=False,\
+    help="keep H2-L1 triggers not seen in H1")
 
 parser.add_option("-W","--cluster-window",action="store",type="int",default=0,\
     metavar=" SEC", help="length of time over which to cluster triggers" )
@@ -316,8 +337,11 @@ if opts.zero_glob:
   if opts.loudest_events: inspTriggers.addcol('effective_snr')
   
   coincTriggers = readMeta.coincInspiralTable(inspTriggers, opts.statistic)
-  # coincs MUST have H1 trigger:
-  coincTriggers = coincTriggers.coincinclude(["H1"])
+  
+  if not opts.allow_h2_l1:
+    # coincs MUST have H1 trigger:
+    coincTriggers = coincTriggers.coincinclude(["H1"])
+  
   # cluster them
   if opts.cluster_window:
     coincTriggers = coincTriggers.cluster(opts.cluster_window)
@@ -358,9 +382,10 @@ if opts.slide_glob:
         readMeta.coincInspiralTable(this_slide["sngl_trigs"], 
         opts.statistic )
    
-    # coincs MUST include an H1 trigger
-    this_slide["coinc_trigs"] = \
-         this_slide["coinc_trigs"].coincinclude(["H1"])
+    if not opts.allow_h2_l1:
+      # coincs MUST include an H1 trigger
+      this_slide["coinc_trigs"] = \
+          this_slide["coinc_trigs"].coincinclude(["H1"])
 
     # cluster triggers
     if opts.cluster_window:
@@ -408,7 +433,9 @@ if opts.inj_glob:
         for coinc in thisInj.table:
           coinc['sim'] = thisSim.table.pop(0)
    
-    thisInj = thisInj.coincinclude(["H1"])
+    if not opts.allow_h2_l1:
+      # coincs MUST include an H1 trigger
+      thisInj = thisInj.coincinclude(["H1"])
     injTriggers.append(thisInj)
 
   # extract the statistic from the slideTriggers
@@ -436,6 +463,8 @@ if opts.missed_glob:
 
 if opts.zero_glob and len(coincStat):
   loudestEvent = coincStat[0]
+else:
+  loudestEvent = 0
 
 if opts.loudest_events:
   if opts.loudest_events > coincTriggers.nevents():
@@ -496,7 +525,7 @@ if opts.slide_stat:
   figure(fig_num)
   hold(True)
   
-  plotstat(slideTriggers, ['kx','b+','ro'])
+  plotstat(slideTriggers, ['kx','b+','g1','ro'])
   if slideTriggers.nevents(): legend()
   grid()
 
@@ -521,8 +550,8 @@ if opts.slide_zero_stat:
   figure(fig_num)
   hold(True)
   
-  plotstat(slideTriggers, ['kx','k+','ko'],'slide')
-  plotstat(coincTriggers, ['rx','r+','ro'],'zero-lag')
+  plotstat(slideTriggers, ['kx','k+','k1','ko'],'slide')
+  plotstat(coincTriggers, ['rx','r+','r1','ro'],'zero-lag')
   if slideTriggers.nevents() or coincTriggers.nevents(): legend()
   grid()
 
@@ -547,8 +576,8 @@ if opts.slide_inj_stat:
   figure(fig_num)
   hold(True)
   
-  plotstat(slideTriggers, ['kx','k+','ko'],'slide',opts.inj_plot_type)
-  plotstat(injTriggers, ['rx','r+','ro'],'inj',opts.inj_plot_type)
+  plotstat(slideTriggers, ['kx','k+','k1','ko'],'slide',opts.inj_plot_type)
+  plotstat(injTriggers, ['rx','r+','r1','ro'],'inj',opts.inj_plot_type)
   if slideTriggers.nevents() or injTriggers.nevents(): legend()
   grid()
 
@@ -572,7 +601,7 @@ if opts.inj_stat:
   figure(fig_num)
   hold(True)
   
-  plotstat(injTriggers, ['kx','b+','ro'],None,opts.inj_plot_type)
+  plotstat(injTriggers, ['kx','b+','g1','ro'],None,opts.inj_plot_type)
   if injTriggers.nevents(): legend()
   grid()
 
@@ -596,7 +625,7 @@ if opts.zero_stat:
   figure(fig_num)
   hold(True)
   
-  plotstat(coincTriggers, ['kx','b+','ro'])
+  plotstat(coincTriggers, ['kx','b+','g1','ro'])
   if coincTriggers.nevents(): legend()
   grid()
   
@@ -620,8 +649,8 @@ if opts.zero_inj_stat:
   figure(fig_num)
   hold(True)
   
-  plotstat(coincTriggers, ['kx','k+','ko'],'zero lag',opts.inj_plot_type)
-  plotstat(injTriggers, ['rx','r+','ro'],'injections',opts.inj_plot_type)
+  plotstat(coincTriggers, ['kx','k+','k1','ko'],'zero lag',opts.inj_plot_type)
+  plotstat(injTriggers, ['rx','r+','r1','ro'],'injections',opts.inj_plot_type)
   if coincTriggers.nevents() or injTriggers.nevents(): legend(loc=2)
   grid()
 
@@ -971,6 +1000,15 @@ if opts.mass_windows and len(opts.mass_windows) > 1:
 if opts.eff_cols:
   # all injections with stat < loudest event go in missed.
   foundInj = readMeta.metaDataTable(None,"sim_inspiral")
+  # if no zero lag, then find efficiency at loudest slide:
+  if loudestEvent:
+    title_text = 'Above zero lag loudest, '
+  elif loudestEvent == 0 and opts.num_slides:
+    loudestEvent = max(slideLoudest)
+    title_text = 'Above slide loudest, '
+  else:
+    title_text = ''
+
   for injCoinc in injTriggers.table:
     if injCoinc['stat'] < loudestEvent:
       missedInj.table.append(injCoinc['sim'])
@@ -1001,7 +1039,7 @@ if opts.eff_cols:
           for col in opts.eff_cols:
             fig_num += 1
             figure(fig_num)
-            title_text = 'Mass range ' + str(win1) + ' ' + str(win2)
+            title_text += 'Mass range ' + str(win1) + ' ' + str(win2)
             viz.efficiencyplot(foundWin, missedWin, col, ifo=None, 
                 plot_type = opts.eff_plot_type, nbins = 20, plotsym = 'k-', 
                 errors = True,title_string=title_text)
@@ -1018,7 +1056,7 @@ if opts.eff_cols:
       figure(fig_num)
       viz.efficiencyplot(foundInj, missedInj, col, ifo=None, 
           plot_type = opts.eff_plot_type, nbins = 20, plotsym = 'k-', 
-          errors = True)
+          errors = True, title_string = title_text)
       if opts.figure_name:
         savefig(opts.figure_name + '_' + col + "_efficiency.png")
     
