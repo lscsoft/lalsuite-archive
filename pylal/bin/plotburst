@@ -187,6 +187,7 @@ class ConfidenceVsFrequencyScatter(object):
 	def finish(self):
 		self.axes.set_title("Trigger Confidence vs. Central Frequency\n(%d Triggers)" % self.nevents)
 		self.axes.plot(self.x, self.y, "k+")
+		self.axes.set_xlim([min(self.x), max(self.x)])
 
 
 #
@@ -217,7 +218,9 @@ class RateVsCentralFreq(object):
 	def finish(self):
 		self.axes.set_title("Trigger Rate vs. Central Frequency\n(%d Triggers)" % self.nevents)
 		self.rate.filter()
-		self.axes.plot(self.rate.xvals(), self.rate.yvals(), "k")
+		xvals = self.rate.xvals()
+		self.axes.plot(xvals, self.rate.yvals(), "k")
+		self.axes.set_xlim([min(xvals), max(xvals)])
 
 
 #
@@ -299,8 +302,8 @@ class Delays(object):
 
 		self.bins_g.filter()
 		self.bins_t.filter()
-		self.axes.plot(self.bins_g.xvals(), self.bins_g.yvals(), "k--")
-		self.axes.plot(self.bins_t.xvals(), self.bins_t.yvals(), "k")
+		self.axes.plot(self.bins_g.xvals(), self.bins_g.yvals(), "k")
+		#self.axes.plot(self.bins_t.xvals(), self.bins_t.yvals(), "k")
 		self.axes.set_ylim([1e0, 1e7])
 
 
@@ -415,7 +418,7 @@ class TimeFrequencyPlane(object):
 plots = [
 	ConfidenceVsTime(),
 	ConfidenceVsFrequencyScatter(),
-	RateVsCentralFreq(segments.segment(0, 2500), 5),
+	RateVsCentralFreq(segments.segment(70, 2118), 5),
 	Durations(),
 	Delays(segments.segment(0, 12), 0.125),
 	RateVsSNR(),

@@ -211,6 +211,7 @@ class FreqVsTime(object):
 			self.axes.plot(self.missed_x, self.missed_y, "rx")
 		for seg in ~self.seglist & segments.segmentlist([segments.segment(self.axes.get_xlim())]):
 			self.axes.axvspan(seg[0], seg[1], facecolor = "k", alpha = 0.2)
+		self.axes.set_ylim([min(self.injected_y), max(self.injected_y)])
 		self.axes.set_title("Injection Locations\n(%d Injections)" % self.num_injections)
 
 
@@ -251,17 +252,20 @@ class AmplVsFreqScatter(object):
 		self.axes.plot(self.injected_x, self.injected_y, "k+")
 		if not options.made_only:
 			self.axes.plot(self.missed_x, self.missed_y, "rx")
+		self.axes.set_xlim([min(self.injected_x), max(self.injected_x)])
+		self.axes.set_ylim([min(self.injected_y), max(self.injected_y)])
 		self.axes.set_title("Injection Amplitude vs. Frequency\n(%d Injections)" % self.num_injections)
 
 
 class AmplVsFreqContour(object):
-	def __init__(self):
+	def __init__(self, error):
+		self.error = error
 		self.num_injections = 0
 		self.fig = figure.Figure()
 		FigureCanvasAgg(self.fig)
 		self.fig.set_figsize_inches(16, 8)
 		self.axes = self.fig.gca()
-		self.madevsfound = rate.BinnedRatios(rate.Bins(70.0, 2118.0, 512, 10**-22.2, 10**-18.0, 512, spacing = ["log", "log"]))
+		self.efficiency = rate.BinnedRatios(rate.Bins(70.0, 2118.0, 1024, 10**-22.2, 10**-18.0, 512, spacing = ["log", "log"]))
 		self.axes.loglog()
 		self.axes.grid(True)
 		self.axes.set_xlabel("Frequency (Hz)")
@@ -270,19 +274,22 @@ class AmplVsFreqContour(object):
 	def add_contents(self, doc):
 		self.num_injections += len(doc.simtable)
 		for sim in doc.simtable.rows.itervalues():
-			self.madevsfound.incdenominator((sim.freq, sim.hrss))
+			self.efficiency.incdenominator((sim.freq, sim.hrss))
 		for sims, bursts in doc.coincmaptable.rows.itervalues():
-			self.madevsfound.incnumerator((sims[0].freq, sims[0].hrss))
+			self.efficiency.incnumerator((sims[0].freq, sims[0].hrss))
 
 	def finish(self):
-		rate.filter_ratios(self.madevsfound, rate.gaussian_window2d(8, 8))
-		self.madevsfound.regularize()
-		xcoords, ycoords = self.madevsfound.centres()
+		bins_per_inj = self.efficiency.numerator.shape[0] * self.efficiency.numerator.shape[1] / float(self.num_injections)
+		window_size = (bins_per_inj / self.error**2)**0.5
+		print "window size = %g" % window_size
+		rate.filter_ratios(self.efficiency, rate.gaussian_window2d(window_size, window_size))
+		self.efficiency.regularize()
+		xcoords, ycoords = self.efficiency.centres()
 		if options.made_only:
-			cset = self.axes.contour(xcoords, ycoords, numarray.transpose(self.madevsfound.denominator))
+			cset = self.axes.contour(xcoords, ycoords, numarray.transpose(self.efficiency.denominator))
 		else:
-			cset = self.axes.contour(xcoords, ycoords, numarray.transpose(self.madevsfound.ratio()), [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9])
-		self.axes.set_title("Injection Amplitude vs. Frequency\n(%d Injections)" % self.num_injections)
+			cset = self.axes.contour(xcoords, ycoords, numarray.transpose(self.efficiency.ratio()), [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9])
+		self.axes.set_title("Injection Detection Efficiency\n(%d Injections, Contours at 10%% Intervals, %g%% Uncertainty)" % (self.num_injections, 100 * self.error))
 
 
 #
@@ -405,7 +412,7 @@ class RecoveredTimeOffset(object):
 plots = [
 	FreqVsTime(),
 	AmplVsFreqScatter(),
-	AmplVsFreqContour(),
+	AmplVsFreqContour(0.1),
 	TriggerCountHistogram(),
 	RecoveredVsInjectedAmplitude(),
 	RecoveredTimeOffset(segments.segment(-0.25, +0.25), 0.005)
