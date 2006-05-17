@@ -127,38 +127,28 @@ def get_table(doc, name):
 	return tables[0]
 
 
-class SearchSummarySegListDict(dict):
+class SegListDict(dict):
 	"""
-	A dictionary of segmentlist objects constructed from a search
-	summary table, with the ability to apply offsets to the segment
-	lists.
+	A dictionary of instrument/segmentlist pairs, with the ability to
+	apply offsets to the segment lists.
 	"""
-	def __new__(cls, searchsummtable, proc_ids):
-		"""
-		Construct a new SearchSummarySegListDict object from the
-		contents of a search summary table.  The result is
-		dictionary-like object whose keys are the instrument names
-		appearing in the search summary table, and whose values are
-		segmentlist representations of the times spanned by the
-		rows.  Only those rows whose process_ids appear in the
-		sorted proc_ids list are included.
-		"""
-		seglists = dict.__new__(cls, None)
-		for row in searchsummtable:
-			if not bisect_contains(proc_ids, row.process_id):
-				continue
-			if row.ifos in seglists:
-				seglists[row.ifos].append(row.get_out())
-			else:
-				seglists[row.ifos] = segments.segmentlist([row.get_out()])
-		for seglist in seglists.itervalues():
-			seglist.coalesce()
-		return seglists
+	def __new__(cls, arg = None):
+		self = dict.__new__(cls, None)
+		if arg:
+			self.update(arg)
+		return self
 
-	def __init__(self, *args):
+	def __init__(self, arg = None):
+		for seglist in self.itervalues():
+			seglist.coalesce()
 		self.offsets = {}
 		for instrument in self.iterkeys():
 			self.offsets[instrument] = 0.0
+
+	def __setitem__(self, key, value):
+		dict.__setitem__(self, key, value)
+		if key not in self.offsets:
+			self.offsets[key] = 0.0
 
 	def set_offsets(self, offsetdict):
 		"""
@@ -200,13 +190,21 @@ class SearchSummarySegListDict(dict):
 
 def get_seglistdict(xmldoc, live_time_program):
 	"""
-	Convenience wrapper for the common case usage of the
-	SearchSummarySegListDict:  searches the process table for
-	occurances of a program named live_time_program, then scans the
-	search summary table for matching process IDs and constructs a
-	SearchSummarySegListDict object from those rows.
+	Convenience wrapper for the common case usage of the SegListDict
+	class: searches the process table in xmldoc for occurances of a
+	program named live_time_program, then scans the search summary
+	table for matching process IDs and constructs a SegListDict object
+	from those rows.
 	"""
-	return SearchSummarySegListDict(get_table(xmldoc, lsctables.SearchSummaryTable.tableName), get_process_ids_by_program(get_table(xmldoc, lsctables.ProcessTable.tableName), live_time_program))
+	procids = get_process_ids_by_program(get_table(xmldoc, lsctables.ProcessTable.tableName), live_time_program)
+	seglistdict = SegListDict()
+	for row in get_table(xmldoc, lsctables.SearchSummaryTable.tableName):
+		if bisect_contains(procids, row.process_id):
+			if row.ifos in seglistdict:
+				seglistdict[row.ifos].append(row.get_out())
+			else:
+				seglistdict[row.ifos] = segments.segmentlist([row.get_out()])
+	return seglistdict
 
 
 #
