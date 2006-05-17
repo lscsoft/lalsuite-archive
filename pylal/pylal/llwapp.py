@@ -320,20 +320,43 @@ def append_search_summary(doc, process, shared_object = "standalone", lalwrapper
 #
 # =============================================================================
 #
-#                                    Other
+#                               Iteration Tools
 #
 # =============================================================================
 #
 
-def bisect_contains(array, val):
+class MultiIter(object):
 	"""
-	Uses a bisection search to determine if val is in array.  Returns
-	True or False.
+	An iterator class for iterating over the elements of multiple lists
+	simultaneously.  An instance of the class is initialized with a
+	list of lists.  A call to next() returns a list of elements, one
+	from each of the lists.  Subsequent calls to next() iterate over
+	all combinations of elements from the lists.
 	"""
-	try:
-		return array[bisect.bisect_left(array, val)] == val
-	except IndexError:
-		return False
+	def __init__(self, lists):
+		self.lists = tuple(lists)
+		self.index = [0] * len(lists)
+		self.length = tuple(map(len, lists))
+		self.stop = 0 in self.length
+
+	def __len__(self):
+		return reduce(int.__mul__, self.length)
+
+	def __iter__(self):
+		return self
+
+	def next(self):
+		if self.stop:
+			raise StopIteration
+		l = map(lambda l, i: l[i], self.lists, self.index)
+		for i in xrange(len(self.index)):
+			self.index[i] += 1
+			if self.index[i] < self.length[i]:
+				break
+			self.index[i] = 0
+		else:
+			self.stop = True
+		return l
 
 
 def choices(vals, n):
@@ -353,3 +376,22 @@ def choices(vals, n):
 			c.insert(0, vals[i])
 			l.append(c)
 	return l
+
+
+#
+# =============================================================================
+#
+#                                    Other
+#
+# =============================================================================
+#
+
+def bisect_contains(array, val):
+	"""
+	Uses a bisection search to determine if val is in array.  Returns
+	True or False.
+	"""
+	try:
+		return array[bisect.bisect_left(array, val)] == val
+	except IndexError:
+		return False
