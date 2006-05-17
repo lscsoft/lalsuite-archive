@@ -85,13 +85,13 @@ def parse_slides(slides):
 	parse_slidespec() and returns a dictionary of instrument, offsets
 	pairs
 	"""
-	slides = {}
+	d = {}
 	for slidespec in slides:
 		instrument, offsets = parse_slidespec(slidespec)
-		if slides.has_key(instrument):
+		if d.has_key(instrument):
 			raise ValueError, "duplicate instrument in time slides \"%s\"" % instrument
-		slides[instrument] = offsets
-	return slides
+		d[instrument] = offsets
+	return d
 
 
 #
