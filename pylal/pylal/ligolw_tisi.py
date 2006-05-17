@@ -105,12 +105,7 @@ def parse_slides(slides):
 def append_process(doc, **kwargs):
 	process = llwapp.append_process(doc, program = "ligolw_tisi", version = __version__, cvs_repository = "lscsoft", cvs_entry_time = __date__, comment = kwargs["comment"])
 
-	params = []
-	if kwargs["output"] != None:
-		params += [("--output", "lstring", kwargs["output"])]
-	for instrument in kwargs["instrument"]:
-		params += [("--instrument", "lstring", instrument)]
-	llwapp.append_process_params(doc, process, params)
+	llwapp.append_process_params(doc, process, [("--instrument", "lstring", instrument) for instrument in kwargs["instrument"]])
 
 	return process
 

@@ -53,7 +53,9 @@ def parse_command_line():
 	parser.add_option("-o", "--output", metavar = "filename", help = "write to filename (default = stdout)")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
 	parser.add_option("-i", "--instrument", metavar = "name=first:last:step[,first:last:step[,...]]", action = "append", default = [], help = "construct time slides containing the named instrument, shifted by numbers seconds as described by the given range(s)")
-	return parser.parse_args()[0]
+	options, filenames = parser.parse_args()
+
+	return options, (filenames or [None])
 
 
 #
@@ -85,9 +87,11 @@ def new_doc():
 # =============================================================================
 #
 
-options = parse_command_line()
+options, filenames = parse_command_line()
 try:
-	llwapp.write_filename(ligolw_tisi(new_doc(), **options.__dict__), options.output, options.verbose)
+	doc = ligolw_tisi(new_doc(), **options.__dict__)
+	for filename in filenames:
+		llwapp.write_filename(doc, filename, options.verbose)
 except Exception, e:
 	print >>sys.stderr, "error: %s" % str(e)
 	sys.exit(1)
