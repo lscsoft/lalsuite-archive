@@ -125,7 +125,7 @@ def find_coinc_proc_ids(doccontents, xmldoc, program):
 	except:
 		halfmaxwindow = LIGOTimeGPS(0)
 
-	seglists = llwapp.SearchSummarySegListDict(doccontents.searchsummtable, ids).protract(halfmaxwindow)
+	seglists = llwapp.get_seglistdict(xmldoc, program).protract(halfmaxwindow)
 
 	doccontents.coinc_proc_ids = []
 	for offsetdict in map(doccontents.get_offsetdict, doccontents.get_tisi_ids()):
