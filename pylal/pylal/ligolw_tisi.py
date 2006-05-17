@@ -89,7 +89,7 @@ def parse_slides(slides):
 	for slidespec in slides:
 		instrument, offsets = parse_slidespec(slidespec)
 		if d.has_key(instrument):
-			raise ValueError, "duplicate instrument in time slides \"%s\"" % instrument
+			raise ValueError, "duplicate instrument \"%s\" in time slides" % instrument
 		d[instrument] = offsets
 	return d
 
@@ -124,41 +124,25 @@ def append_process(doc, **kwargs):
 #
 
 class SlidesIter(object):
-	def __init__(self, slides, instruments, process_id):
+	def __init__(self, slides, process_id):
+		self.instruments = slides.keys()
+		self.slides = llwapp.MultiIter(slides.values())
 		self.process_id = process_id
-		self.instrument = []
-		self.slides = []
-		self.index = []
-		for key, value in slides.iteritems():
-			if key in instruments:
-				self.instrument.append(key)
-				self.slides.append(value)
-				self.index.append(0)
 		self.ids = lsctables.TimeSlideIDs()
-		self.stop = False
 
 	def __iter__(self):
 		return self
 
 	def next(self):
-		if self.stop:
-			raise StopIteration
 		rows = []
 		id = self.ids.next()
-		for i in range(len(self.instrument)):
+		for n, offset in enumerate(self.slides.next()):
 			row = lsctables.TimeSlide()
 			row.process_id = self.process_id
 			row.time_slide_id = id
-			row.instrument = self.instrument[i]
-			row.offset = self.slides[i][self.index[i]]
+			row.instrument = self.instruments[n]
+			row.offset = offset
 			rows.append(row)
-		for i in range(len(self.instrument)):
-			self.index[i] += 1
-			if self.index[i] < len(self.slides[i]):
-				break
-			self.index[i] = 0
-		else:
-			self.stop = True
 		return rows
 
 
@@ -173,12 +157,7 @@ class SlidesIter(object):
 def ligolw_tisi(doc, **kwargs):
 	timeslidetable = llwapp.get_table(doc, lsctables.TimeSlideTable.tableName)
 	process = append_process(doc, **kwargs)
-
-	slides = parse_slides(kwargs["instrument"])
-	for slide in SlidesIter(slides, slides.keys(), process.process_id):
-		for row in slide:
-			timeslidetable.append(row)
-
+	for rows in SlidesIter(parse_slides(kwargs["instrument"]), process.process_id):
+		map(timeslidetable.append, rows)
 	llwapp.set_process_end_time(process)
-
 	return doc
