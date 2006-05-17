@@ -32,6 +32,7 @@ import sys
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from pylal import llwapp
+from pylal.ligolw_tisi import ligolw_tisi
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
@@ -53,45 +54,6 @@ def parse_command_line():
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
 	parser.add_option("-i", "--instrument", metavar = "name=first:last:step[,first:last:step[,...]]", action = "append", default = [], help = "construct time slides containing the named instrument, shifted by numbers seconds as described by the given range(s)")
 	return parser.parse_args()[0]
-
-
-def parse_slides(options):
-	slides = {}
-	for instrument in options.instrument:
-		try:
-			[inst, rangespecs] = instrument.split("=")
-		except ValueError:
-			print >>sys.stderr, "error: cannot parse time slide \"%s\"" % instrument
-			sys.exit(1)
-		if slides.has_key(inst):
-			print >>sys.stderr, "error: duplicate instrument in time slide \"%s\"" % instrument
-			sys.exit(1)
-		slides[inst] = []
-		for rangespec in rangespecs.split(","):
-			try:
-				[first, last, step] = rangespec.split(":")
-				first, last, step = float(first), float(last), float(step)
-			except ValueError:
-				print >>sys.stderr, "error: malformed range spec \"%s\"" % rangespec
-				sys.exit(1)
-			if step == 0.0:
-				if first != last:
-					print >>sys.stderr, "error: divide by zero in range spec \"%s\"" % rangespec
-					sys.exit(1)
-				slides[inst].append(first)
-			elif (last - first) / step < 0.0:
-				print >>sys.stderr, "error: step has wrong sign in range spec \"%s\"" % rangespec
-				sys.exit(1)
-			else:
-				i = 0
-				while True:
-					slides[inst].append(first + i * step)
-					if slides[inst][-1] >= last:
-						if slides[inst][-1] > last:
-							del slides[inst][-1]
-						break
-					i += 1
-	return slides
 
 
 #
@@ -118,96 +80,6 @@ def new_doc():
 #
 # =============================================================================
 #
-#                           Add Process Information
-#
-# =============================================================================
-#
-
-def append_process(doc, options):
-	process = llwapp.append_process(doc, program = "ligolw_tisi", version = __version__, cvs_repository = "lscsoft", cvs_entry_time = __date__, comment = options.comment)
-
-	params = []
-	if options.output != None:
-		params += [("--output", "lstring", options.output)]
-	for instrument in options.instrument:
-		params += [("--instrument", "lstring", instrument)]
-	llwapp.append_process_params(doc, process, params)
-
-	return process
-
-
-#
-# =============================================================================
-#
-#                              Build Time Slides
-#
-# =============================================================================
-#
-
-class SlidesIter(object):
-	def __init__(self, slides, instruments, process_id):
-		self.process_id = process_id
-		self.instrument = []
-		self.slides = []
-		self.index = []
-		for key, value in slides.iteritems():
-			if key in instruments:
-				self.instrument.append(key)
-				self.slides.append(value)
-				self.index.append(0)
-		self.ids = lsctables.TimeSlideIDs()
-		self.stop = False
-
-	def __iter__(self):
-		return self
-
-	def next(self):
-		if self.stop:
-			raise StopIteration
-		rows = []
-		id = self.ids.next()
-		for i in range(len(self.instrument)):
-			row = lsctables.TimeSlide()
-			row.process_id = self.process_id
-			row.time_slide_id = id
-			row.instrument = self.instrument[i]
-			row.offset = self.slides[i][self.index[i]]
-			rows.append(row)
-		for i in range(len(self.instrument)):
-			self.index[i] += 1
-			if self.index[i] < len(self.slides[i]):
-				break
-			self.index[i] = 0
-		else:
-			self.stop = True
-		return rows
-
-
-#
-# =============================================================================
-#
-#                                 Library API
-#
-# =============================================================================
-#
-
-def ligolw_tisi(doc, options):
-	timeslidetable = llwapp.get_table(doc, lsctables.TimeSlideTable.tableName)
-	process = append_process(doc, options)
-
-	slides = parse_slides(options)
-	for slide in SlidesIter(slides, slides.keys(), process.process_id):
-		for row in slide:
-			timeslidetable.append(row)
-
-	llwapp.set_process_end_time(process)
-
-	return doc
-
-
-#
-# =============================================================================
-#
 #                                     Main
 #
 # =============================================================================
@@ -215,7 +87,7 @@ def ligolw_tisi(doc, options):
 
 options = parse_command_line()
 try:
-	llwapp.write_filename(ligolw_tisi(new_doc(), options), options.output, options.verbose)
+	llwapp.write_filename(ligolw_tisi(new_doc(), **options.__dict__), options.output, options.verbose)
 except Exception, e:
 	print >>sys.stderr, "error: %s" % str(e)
 	sys.exit(1)
