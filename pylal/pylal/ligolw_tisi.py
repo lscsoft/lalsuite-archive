@@ -119,26 +119,18 @@ def append_process(doc, **kwargs):
 #
 
 class SlidesIter(object):
-	def __init__(self, slides, process_id):
+	def __init__(self, slides):
 		self.instruments = slides.keys()
 		self.slides = llwapp.MultiIter(slides.values())
-		self.process_id = process_id
-		self.ids = lsctables.TimeSlideIDs()
 
 	def __iter__(self):
 		return self
 
 	def next(self):
-		rows = []
-		id = self.ids.next()
+		offsetdict = {}
 		for n, offset in enumerate(self.slides.next()):
-			row = lsctables.TimeSlide()
-			row.process_id = self.process_id
-			row.time_slide_id = id
-			row.instrument = self.instruments[n]
-			row.offset = offset
-			rows.append(row)
-		return rows
+			offsetdict[self.instruments[n]] = offset
+		return offsetdict
 
 
 #
@@ -152,7 +144,15 @@ class SlidesIter(object):
 def ligolw_tisi(doc, **kwargs):
 	timeslidetable = llwapp.get_table(doc, lsctables.TimeSlideTable.tableName)
 	process = append_process(doc, **kwargs)
-	for rows in SlidesIter(parse_slides(kwargs["instrument"]), process.process_id):
-		map(timeslidetable.append, rows)
+	ids = lsctables.TimeSlideIDs()
+	for offsetdict in SlidesIter(parse_slides(kwargs["instrument"])):
+		id = ids.next()
+		for instrument, offset in offsetdict.iteritems():
+			row = lsctables.TimeSlide()
+			row.process_id = process.process_id
+			row.time_slide_id = id
+			row.instrument = instrument
+			row.offset = offset
+			timeslidetable.append(row)
 	llwapp.set_process_end_time(process)
 	return doc
