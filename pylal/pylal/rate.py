@@ -297,7 +297,7 @@ def gaussian_window(bins):
 	if bins <= 0:
 		raise ValueError, bins
 	bins /= 2.0	# half-width
-	return numarray.exp(-numarray.arrayrange(-6 * int(bins), 6 * int(bins) + 1, 1, "Float64")**2.0 / (2.0 * bins**2.0)) / math.sqrt(2.0 * math.pi) / bins
+	return numarray.exp(-numarray.arrayrange(-10 * int(bins), 10 * int(bins) + 1, 1, "Float64")**2.0 / (2.0 * bins**2.0)) / math.sqrt(2.0 * math.pi) / bins
 
 
 def gaussian_window2d(bins_x, bins_y):
