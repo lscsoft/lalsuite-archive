@@ -373,7 +373,7 @@ def get_coincident_segmentlistdict(seglistdict, offsetdictlist):
 	for offsetdict in offsetdictlist:
 		seglistdict.offsets.update(offsetdict)
 		intersection = seglistdict.extract_common(offsetdict.keys())
-		intersection.offsets.clear()
+		intersection.offsets.update(origoffsets)
 		coincseglists |= intersection
 	seglistdict.offsets.update(origoffsets)
 	return coincseglists
