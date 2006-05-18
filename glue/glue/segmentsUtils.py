@@ -73,8 +73,11 @@ def fromsegwizard(file, coltype=int, strict=True):
 	cannot be parsed (which is consumed).  The segmentlist will be
 	created with segments whose boundaries are of type coltype, which
 	should raise ValueError if it cannot convert its string argument.
-	If strict is True, then each segment's duration is checked against
-	the input file.
+	Both two-column and four-column segwizard files are recognized, but
+	the entire file must be in the same format, which is decided by the
+	first parsed line.  If strict is True and the file is in
+	four-column format, then each segment's duration is checked against
+	that column in the input file.
 
 	NOTE:  the output is a segmentlist as described by the file;  if
 	the segments in the input file are not coalesced or out of order,
@@ -96,21 +99,21 @@ def fromsegwizard(file, coltype=int, strict=True):
 			num = int(tokens[0])
 			seg = segments.segment(map(coltype, tokens[1:3]))
 			duration = coltype(tokens[3])
-			lineformat = 4
+			this_line_format = 4
 		except ValueError:
 			try:
 				[tokens] = twocolsegpat.findall(line)
 				seg = segments.segment(map(coltype, tokens[0:2]))
 				duration = seg.duration()
-				lineformat = 2
+				this_line_format = 2
 			except ValueError:
 				break
 		if strict:
 			if seg.duration() != duration:
 				raise ValueError, "segment \"" + line + "\" has incorrect duration"
 			if not format:
-				format = lineformat
-			elif format != lineformat:
+				format = this_line_format
+			elif format != this_line_format:
 				raise ValueError, "segment \"" + line + "\" format mismatch"
 		l.append(seg)
 	return l
