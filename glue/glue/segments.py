@@ -556,14 +556,18 @@ class segmentlist(list):
 		For each segment in the list, move both the start and the
 		end a distance x away from the other.  Coalesce the result.
 		"""
-		return segmentlist([seg.protract(x) for seg in self]).coalesce()
+		for i in xrange(len(self)):
+			self[i] = self[i].protract(x)
+		return self.coalesce()
 
 	def contract(self, x):
 		"""
 		For each segment in the list, move both the start and the
 		end a distance x towards the other.  Coalesce the result.
 		"""
-		return segmentlist([seg.contract(x) for seg in self]).coalesce()
+		for i in xrange(len(self)):
+			self[i] = self[i].contract(x)
+		return self.coalesce()
 
 	def shift(self, x):
 		"""
@@ -571,4 +575,6 @@ class segmentlist(list):
 		bounds of all segments.  The algorithm is O(n) and does not
 		require the list to be coalesced.
 		"""
-		return segmentlist([seg.shift(x) for seg in self])
+		for i in xrange(len(self)):
+			self[i] = self[i].shift(x)
+		return self
