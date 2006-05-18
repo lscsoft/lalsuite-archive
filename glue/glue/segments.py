@@ -1,3 +1,13 @@
+# $Id$
+
+#
+# =============================================================================
+#
+#                                   Preamble
+#
+# =============================================================================
+#
+
 #
 # NOTE:  the logic in this code is unintuitively complicated.  Small,
 # apparently irrelevant, changes to conditionals can have subtly unexpected
@@ -10,15 +20,19 @@ This module defines the segment and segmentlist objects, as well as the
 infinity object used to define semi-infinite and infinite segments.
 """
 
+from bisect import bisect_left, bisect_right
+
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __date__ = "$Date$"[7:-2]
 __version__ = "$Revision$"[11:-2]
 
-from bisect import bisect_left, bisect_right
-
 
 #
-# Infinity for use with segments
+# =============================================================================
+#
+#                                   infinity
+#
+# =============================================================================
 #
 
 class infinity:
@@ -26,11 +40,15 @@ class infinity:
 	The infinity object possess the algebraic properties necessary for
 	use as a bound on semi-infinite and infinite segments.
 
-	Example usage:
-		x = infinity()
-		x > 0
-		x + 10
-		segment(-10, 10) - segment(-x, 0)
+	Example:
+
+	>>> x = infinity()
+	>>> x > 0
+	True
+	>>> x + 10
+	infinity
+	>>> segment(-10, 10) - segment(-x, 0)
+	segment(0, 10)
 	"""
 
 	def __init__(self):
@@ -75,7 +93,11 @@ class infinity:
 
 
 #
-# The segment class
+# =============================================================================
+#
+#                                   segment
+#
+# =============================================================================
 #
 
 class segment(tuple):
@@ -91,13 +113,20 @@ class segment(tuple):
 	objects.  The methods for this class exist mostly for purpose of
 	simplifying the implementation of the segmentlist class.
 
-	Example use:
-		segment(0, 10) & segment(5, 15)
-		segment(0, 10) | segment(5, 15)
-		segment(0, 10) - segment(5, 15)
-		segment(0, 10) < segment(5, 15)
-		segment(1, 2) in segment(0, 10)
-		bool(segment(0, 0))
+	Example:
+
+	>>> segment(0, 10) & segment(5, 15)
+	segment(5, 10)
+	>>> segment(0, 10) | segment(5, 15)
+	segment(0, 15)
+	>>> segment(0, 10) - segment(5, 15)
+	segment(0, 5)
+	>>> segment(0, 10) < segment(5, 15)
+	True
+	>>> segment(1, 2) in segment(0, 10)
+	True
+	>>> bool(segment(0, 0))
+	False
 
 	Notes:
 	It is also possible to cast 2-element tuples, lists, and other
@@ -238,7 +267,11 @@ class segment(tuple):
 
 
 #
-# A segment list class derived from the builtin list class.
+# =============================================================================
+#
+#                                 segmentlist
+#
+# =============================================================================
 #
 
 class segmentlist(list):
@@ -267,12 +300,15 @@ class segmentlist(list):
 	method when manipulating segmentlists exclusively via the
 	arithmetic operators.
 
-	Example use:
-		x = segmentlist([segment(-10, 10)])
-		x |= segmentlist([segment(20, 30)])
-		x -= segmentlist([segment(-5, 5)])
-		print x
-		print ~x
+	Example:
+
+	>>> x = segmentlist([segment(-10, 10)])
+	>>> x |= segmentlist([segment(20, 30)])
+	>>> x -= segmentlist([segment(-5, 5)])
+	>>> print x
+	[segment(-10, -5), segment(5, 10), segment(20, 30)]
+	>>> print ~x
+	[segment(-infinity, -10), segment(-5, 5), segment(10, 20), segment(30, infinity)]
 	"""
 
 	# container method over-rides.
