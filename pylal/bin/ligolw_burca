@@ -120,21 +120,27 @@ def find_coinc_proc_ids(doccontents, xmldoc, program):
 	"""
 	ids = llwapp.get_process_ids_by_program(llwapp.get_table(xmldoc, lsctables.ProcessTable.tableName), program)
 
+	# find the largest coincidence window
 	try:
 		halfmaxwindow = max(doccontents.windows.itervalues()) / 2
 	except:
 		halfmaxwindow = LIGOTimeGPS(0)
 
-	seglists = llwapp.get_seglistdict(xmldoc, program).protract(halfmaxwindow)
+	# extract a segmentlistdict;  protract by half the largest
+	# coincidence window so as to not miss edge effects
+	seglistdict = llwapp.segmentlistdict_fromsearchsummarytable(xmldoc, program).protract(halfmaxwindow)
 
+	# determine the coincident segments for each instrument
+	coincseglists = llwapp.get_coincident_segmentlistdict(seglistdict, map(doccontents.get_offsetdict, doccontents.get_tisi_ids()))
+
+	# find the IDs of the processes which contributed to the coincident
+	# segments
 	doccontents.coinc_proc_ids = []
-	for offsetdict in map(doccontents.get_offsetdict, doccontents.get_tisi_ids()):
-		seglist = seglists.set_offsets(offsetdict).intersect(offsetdict.keys())
-		for row in doccontents.searchsummtable:
-			if (not llwapp.bisect_contains(ids, row.process_id)) or llwapp.bisect_contains(doccontents.coinc_proc_ids, row.process_id):
-				continue
-			if seglist.intersects_segment(row.get_out().protract(halfmaxwindow).shift(offsetdict[row.ifos])):
-				bisect.insort_left(doccontents.coinc_proc_ids, row.process_id)
+	for row in doccontents.searchsummtable:
+		if (not llwapp.bisect_contains(ids, row.process_id)) or llwapp.bisect_contains(doccontents.coinc_proc_ids, row.process_id):
+			continue
+		if coincseglists[row.ifos].intersects_segment(row.get_out()):
+			bisect.insort_left(doccontents.coinc_proc_ids, row.process_id)
 
 
 #
