@@ -127,84 +127,23 @@ def get_table(doc, name):
 	return tables[0]
 
 
-class SegListDict(dict):
+def segmentlistdict_fromsearchsummary(xmldoc, live_time_program):
 	"""
-	A dictionary of instrument/segmentlist pairs, with the ability to
-	apply offsets to the segment lists.
-	"""
-	def __new__(cls, arg = None):
-		self = dict.__new__(cls, None)
-		if arg:
-			self.update(arg)
-		return self
-
-	def __init__(self, arg = None):
-		for seglist in self.itervalues():
-			seglist.coalesce()
-		self.offsets = {}
-		for instrument in self.iterkeys():
-			self.offsets[instrument] = 0.0
-
-	def __setitem__(self, key, value):
-		dict.__setitem__(self, key, value)
-		if key not in self.offsets:
-			self.offsets[key] = 0.0
-
-	def set_offsets(self, offsetdict):
-		"""
-		Shift the segment lists according to the instrument/offset
-		pairs in offsetdict.
-		"""
-		for instrument, offset in offsetdict.iteritems():
-			delta = offset - self.offsets[instrument]
-			if delta != 0.0:
-				self[instrument] = self[instrument].shift(delta)
-				self.offsets[instrument] += delta
-		return self
-
-	def remove_offsets(self):
-		"""
-		Remove the offsets from all segmentlists.
-		"""
-		for instrument, offset in self.offsets.iteritems():
-			if offset:
-				self[instrument] = self[instrument].shift(-offset)
-				self.offsets[instrument] = 0.0
-		return self
-
-	def protract(self, x):
-		"""
-		Protract the segmentlists.
-		"""
-		for key in self.iterkeys():
-			self[key] = self[key].protract(x)
-		return self
-
-	def intersect(self, instruments):
-		"""
-		Return the intersection of the segmentlists for the
-		instruments in instruments.
-		"""
-		return reduce(segments.segmentlist.__and__, map(self.__getitem__, instruments))
-
-
-def get_seglistdict(xmldoc, live_time_program):
-	"""
-	Convenience wrapper for the common case usage of the SegListDict
+	Convenience wrapper for a common case usage of the segmentlistdict
 	class: searches the process table in xmldoc for occurances of a
 	program named live_time_program, then scans the search summary
-	table for matching process IDs and constructs a SegListDict object
-	from those rows.
+	table for matching process IDs and constructs a segmentlistdict
+	object from those rows.
 	"""
 	procids = get_process_ids_by_program(get_table(xmldoc, lsctables.ProcessTable.tableName), live_time_program)
-	seglistdict = SegListDict()
+	seglistdict = segments.segmentlistdict()
 	for row in get_table(xmldoc, lsctables.SearchSummaryTable.tableName):
 		if bisect_contains(procids, row.process_id):
 			if row.ifos in seglistdict:
 				seglistdict[row.ifos].append(row.get_out())
 			else:
 				seglistdict[row.ifos] = segments.segmentlist([row.get_out()])
-	return seglistdict
+	return seglistdict.coalesce()
 
 
 #
@@ -393,3 +332,48 @@ def bisect_contains(array, val):
 		return array[bisect.bisect_left(array, val)] == val
 	except IndexError:
 		return False
+
+
+def get_coincident_segmentlistdict(seglistdict, offsetdictlist):
+	"""
+	This function answers the question "Given a set of segment lists,
+	and a set of time slides to apply to those segment lists, what
+	segments do I need to keep in the original lists so that I have all
+	the segments that will participate in a coincidence analysis done
+	over all those time slides.
+
+	This function constructs and returns a segmentlistdict object that,
+	for each key in seglistdict, contains the segments from the
+	corresponding list in seglistdict which are coincident under at
+	least one of the time slides described by offsetdictlist.
+
+	The elements of offsetlistdict are free to contain only subsets of
+	the keys in seglistdict.  In those cases, the coincidence is
+	computed only between the lists corresponding to the given keys.
+
+	For example, let us say that "input" is a segmentlistdict object
+	containing segment lists for three instruments, "H1", "H2" and
+	"L1".  And let us say that "slides" is a list of dictionaries, and
+	is equal to [{"H1":0, "H2":0, "L1":0}, {"H1":0, "H2":10}].  Then if
+
+	output = get_coincident_segmentlistdict(input, slides)
+
+	output will contain, for each instrument, the segments (or parts
+	thereof) from the original lists that are required in order to
+	perform a triple-coincident analysis at zero lag betwen the three
+	instruments, *and* a double-coincident analysis between H1 and H2
+	with H2 offset by 10 seconds.
+
+	During the computations, the input segmentlistdict object will have
+	offsets applied to it in place, but they will be restored to their
+	original value upon exit.
+	"""
+	origoffsets = seglistdict.offsets
+	coincseglists = segments.segmentlistdict()
+	for offsetdict in offsetdictlist:
+		seglistdict.offsets.update(offsetdict)
+		intersection = seglistdict.extract_common(offsetdict.keys())
+		intersection.offsets.clear()
+		coincseglists |= intersection
+	seglistdict.offsets.update(origoffsets)
+	return coincseglists
