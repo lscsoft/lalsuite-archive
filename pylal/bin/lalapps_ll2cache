@@ -18,6 +18,14 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+#
+# =============================================================================
+#
+#                                   Preamble
+#
+# =============================================================================
+#
+
 """
 Build a LAL cache from a list of LIGO LW XML files containing search
 summary tables.
@@ -26,11 +34,6 @@ summary tables.
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
-
-
-#
-# Preamble.
-#
 
 import glob
 from optparse import OptionParser
@@ -41,15 +44,45 @@ from glue import lal
 from glue import segments
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
-from glue.ligolw import metaio
 from glue.ligolw import docutils
+from pylal import llwapp
+
+#
+# =============================================================================
+#
+#                                 Command Line
+#
+# =============================================================================
+#
+
+def parse_command_line():
+	parser = OptionParser(version = "%prog CVS $Id$")
+	parser.add_option("--description", metavar = "DESCRIPTION", help = "set all descriptions to DESCRIPTION")
+	parser.add_option("--observatory", metavar = "OBSERVATORY", help = "set all observatories to OBSERVATORY")
+	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
+	parser.add_option("-o", "--output", metavar = "filename", help = "set output file (default = stdout")
+	parser.add_option("-p", "--program", metavar = "name", help = "obtain start and durations from search summary entries corresponding to the given program (default = whatever is there)")
+	options, patterns = parser.parse_args()
+
+	if options.output:
+		options.output = file(options.output, "w")
+	else:
+		options.output = sys.stdout
+
+	return options, patterns
+
+options, patterns = parse_command_line()
 
 
 #
-# Filter function for partial LIGO LW document loading.
+# =============================================================================
+#
+#                                    Input
+#
+# =============================================================================
 #
 
-def ElementFilter(name, attrs):
+def filter(name, attrs):
 	"""
 	Return True if name, attrs describes a search summary table or a
 	process table.
@@ -57,8 +90,24 @@ def ElementFilter(name, attrs):
 	return lsctables.IsTableProperties(lsctables.SearchSummaryTable, name, attrs) or lsctables.IsTableProperties(lsctables.ProcessTable, name, attrs)
 
 
+def load_filename(filename):
+	"""
+	Load, merge, and extract search summary tables.
+	"""
+	if options.verbose:
+		print >>sys.stderr, "%s ..." % name
+	doc = ligolw.Document()
+	ligolw.make_parser(docutils.PartialLIGOLWContentHandler(doc, filter)).parse(file(name))
+	docutils.makeReference(doc)
+	return llwapp.get_table(doc, lsctables.SearchSummaryTable.tableName)
+
+
 #
-# Extract the value from a column in a table.
+# =============================================================================
+#
+#                                     Main
+#
+# =============================================================================
 #
 
 def column_value(table, column):
@@ -66,17 +115,10 @@ def column_value(table, column):
 	Scan a column in a table element, checking that all rows have the
 	same value, and return that value.
 	"""
-
-	if options.program:
-		cache.segment = segments.segmentlist([row.get_out() for row in searchsumm if row.process_id.program == options.program]).extent()
-	else:
-		cache.segment = searchsumm.get_outlist().extent()
-
 	if options.program:
 		vals = [getattr(row, column) for row in table.rows if row.process_id.program == options.program]
 	else:
 		vals = table.getColumnByName(column)
-
 	value = vals[0]
 	for v in vals:
 		if v != value:
@@ -84,41 +126,9 @@ def column_value(table, column):
 	return value
 
 
-#
-# Parse command line.
-#
-
-parser = OptionParser(version = "%prog CVS $Id$")
-parser.add_option("--description", metavar = "DESCRIPTION", help = "set all descriptions to DESCRIPTION")
-parser.add_option("--observatory", metavar = "OBSERVATORY", help = "set all observatories to OBSERVATORY")
-parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
-parser.add_option("-o", "--output", metavar = "filename", help = "set output file (default = stdout")
-parser.add_option("-p", "--program", metavar = "name", help = "obtain start and durations from search summary entries corresponding to the given program (default = whatever is there)")
-options, patterns = parser.parse_args()
-del parser
-
-if options.output:
-	output = file(options.output, "w")
-else:
-	output = sys.stdout
-
-
-#
-# Process files one-by-one.
-#
-
 for pattern in patterns:
 	for name in glob.glob(pattern):
-		if options.verbose:
-			print >>sys.stderr, "%s ..." % name
-		# Load and merge search summary tables
-		doc = ligolw.Document()
-		ligolw.make_parser(docutils.PartialLIGOLWContentHandler(doc, ElementFilter)).parse(file(name))
-		docutils.makeReference(doc)
-		searchsumm = metaio.getTablesByName(doc, lsctables.SearchSummaryTable.tableName)
-		if len(searchsumm) != 1:
-			raise Exception, "%s must contain exactly one search summary table" % name
-		searchsumm = searchsumm[0]
+		searchsumm = load_filename(name)
 
 		# initialize cache entry info
 		cache = lal.CacheEntry()
@@ -155,4 +165,4 @@ for pattern in patterns:
 		cache.url = "file://localhost" + os.path.abspath(name)
 
 		# write cache entry
-		print >>output, str(cache)
+		print >>options.output, str(cache)
