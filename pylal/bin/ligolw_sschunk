@@ -27,7 +27,10 @@
 #
 
 """
-LIGO Light Weight XML search summary table chunker.
+LIGO Light Weight XML search summary table chunker.  Split LIGO
+Light-Weight XML files into smaller files, each spanning an amount of time
+not less than a given amount, by extracting data from the input files by
+process.
 """
 
 from optparse import OptionParser
