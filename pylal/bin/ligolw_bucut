@@ -103,21 +103,13 @@ def parse_command_line():
 
 def build_seglists(xmldoc, program):
 	searchsummtable = llwapp.get_table(xmldoc, lsctables.SearchSummaryTable.tableName)
-	process_ids = [row.process_id for row in llwapp.get_table(xmldoc, lsctables.ProcessTable.tableName) if row.program == program]
-	process_ids.sort()
+	process_ids = llwapp.get_process_ids_by_program(get_table(xmldoc, lsctables.ProcessTable.tableName), program)
 	insegs = segments.segmentlist()
-	outsegs = {}
 	for row in searchsummtable:
-		if not llwapp.bisect_contains(process_ids, row.process_id):
-			continue
-		insegs.append(row.get_in())
-		if row.ifos not in outsegs:
-			outsegs[row.ifos] = segments.segmentlist([row.get_out()])
-		else:
-			outsegs[row.ifos].append(row.get_out())
-	for seglist in outsegs.itervalues():
-		seglist.coalesce()
-	return outsegs, insegs.coalesce().extent(), reduce(segments.segmentlist.__or__, outsegs.itervalues(), segments.segmentlist()).extent()
+		if llwapp.bisect_contains(process_ids, row.process_id):
+			insegs.append(row.get_in())
+	outsegs = llwapp.segmentlistdict_fromsearchsummary(xmldoc, program)
+	return outsegs, insegs.extent(), reduce(segments.segmentlist.__or__, outsegs.itervalues()).extent()
 
 
 class DocContents(object):
