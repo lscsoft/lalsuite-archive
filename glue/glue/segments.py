@@ -21,6 +21,7 @@ infinity object used to define semi-infinite and infinite segments.
 """
 
 from bisect import bisect_left, bisect_right
+from copy import copy
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __date__ = "$Date$"[7:-2]
@@ -578,3 +579,275 @@ class segmentlist(list):
 		for i in xrange(len(self)):
 			self[i] = self[i].shift(x)
 		return self
+
+
+#
+# =============================================================================
+#
+#                               segmentlistdict
+#
+# =============================================================================
+#
+
+class segmentlistdict(dict):
+	"""
+	A dictionary associating a set of segmentlist objects with a set of
+	labels, with the ability to apply numeric offsets to the segment
+	lists.
+
+	At the surface, this class implements a normal dictionary
+	interface.  The offsets that are currently applied to the
+	segmentlists are stored in the "offsets" attribute, which itself is
+	a dictionary associating a number with each label.  Assigning to
+	the entries in the offsets dictionary has the effect of shifting
+	the corresponding segmentlist by the given amount.  The clear()
+	method of the offsets attribute resets the offsets to 0.
+
+	Example:
+
+	>>> x = segmentlistdict()
+	>>> x["H1"] = segmentlist([segment(0, 10)])
+	>>> print x
+	{'H1': [segment(0, 10)]}
+	>>> x.offsets["H1"] = 6
+	>>> print x
+	{'H1': [segment(6.0, 16.0)]}
+	>>> x.offsets.clear()
+	>>> print x
+	{'H1': [segment(0.0, 10.0)]}
+	>>> x["H2"] = segmentlist([segment(5, 15)])
+	>>> x.intersection(["H1", "H2"])
+	[segment(5, 10.0)]
+	>>> x.offsets["H1"] = 6
+	>>> x.intersection(["H1", "H2"])
+	[segment(11.0, 15)]
+	>>> c = x.extract_common(["H1", "H2"])
+	>>> c.offsets.clear()
+	>>> c
+	{'H2': [segment(11.0, 15)], 'H1': [segment(5.0, 9.0)]}
+	"""
+	class __offsets(dict):
+		"""
+		For internal use only.
+		"""
+		def __new__(cls, parent):
+			return dict.__new__(cls)
+
+		def __init__(self, parent):
+			self.__parent = parent
+			for key in self.__parent:
+				dict.__setitem__(self, key, 0.0)
+
+		def __setitem__(self, key, value):
+			"""
+			Set an offset.  If the new offset is identical to
+			the current offset, this is a no-op, otherwise the
+			corresponding segmentlist object is shifted.
+			"""
+			if key not in self:
+				raise KeyError, key
+			delta = value - self[key]
+			if delta != 0.0:
+				self.__parent[key].shift(delta)
+				dict.__setitem__(self, key, self[key] + delta)
+
+		def update(self, d):
+			"""
+			From a dictionary of offsets, apply each offset to
+			the corresponding segmentlist.
+			"""
+			for key, value in d.iteritems():
+				self[key] = value
+
+		def clear(self):
+			"""
+			Remove the offsets from all segmentlists.
+			"""
+			for key in self:
+				self[key] = 0.0
+
+		# stubs to prevent bugs
+		def __delitem__(*args):
+			raise NotImplemented
+		def fromkeys(*args):
+			raise NotImplemented
+		def pop(*args):
+			raise NotImplemented
+		def popitem(*arg):
+			raise NotImplemented
+
+	def __init__(self, *args):
+		dict.__init__(self, *args)
+		self.offsets = segmentlistdict.__offsets(self)
+		if args and isinstance(args[0], segmentlistdict):
+			dict.update(self.offsets, args[0].offsets)
+
+	def __setitem__(self, key, value):
+		"""
+		Set the segmentlist associated with a key.  If key is not
+		already in the dictionary, the corresponding offset is
+		initialized to 0.0, otherwise it is left unchanged.
+		"""
+		dict.__setitem__(self, key, value)
+		if key not in self.offsets:
+			dict.__setitem__(self.offsets, key, 0.0)
+
+	def __delitem__(self, key):
+		dict.__delitem__(self, key)
+		dict.__delitem__(self.offsets, key)
+
+	# suplementary accessors
+
+	def map(self, func):
+		"""
+		Return a dictionary of the results of func applied to each
+		of the segmentlist objects in self.
+		"""
+		d = {}
+		for key, value in self.iteritems():
+			d[key] = func(value)
+		return d
+
+	def duration(self):
+		"""
+		Return a dictionary of the results of running duration() on
+		each of the segmentlists.
+		"""
+		return self.map(segmentlist.duration)
+
+	def extent(self):
+		"""
+		Return a dictionary of the results of running extent() on
+		each of the segmentlists.
+		"""
+		return self.map(segmentlist.extent)
+
+	def find(self, seg):
+		"""
+		Return a dictionary of the results of running find() on
+		each of the segmentlists.
+		"""
+		return self.map(lambda l: segmentlist.find(l, seg))
+
+	# list-by-list arithmetic
+
+	def __iand__(self, other):
+		for key, value in other.iteritems():
+			if key in self:
+				self[key] &= value
+		return self
+
+	def __and__(self, other):
+		new = segmentlistdict(self)
+		new &= other
+		return new
+
+	def __ior__(self, other):
+		for key, value in other.iteritems():
+			if key in self:
+				self[key] |= value
+			else:
+				self[key] = copy.copy(value)
+		return self
+
+	def __or__(self, other):
+		new = segmentlistdict(self)
+		new |= other
+		return new
+
+	__iadd__ = __ior__
+	__add__ = __or__
+
+	def __isub__(self, other):
+		for key, value in other.iteritems():
+			if key in self:
+				self[key] -= value
+		return self
+
+	def __sub__(self, other):
+		new = segmentlistdict(self)
+		new -= other
+		return new
+
+	def __invert__(self):
+		new = seglistdict(self)
+		for key, value in new.iteritems():
+			dict.__setitem__(new, key, ~value)
+		return new
+
+	# other list-by-list operations
+
+	def intersects_segment(self, seg):
+		"""
+		Returns True if all segmentlists in self intersect the
+		segment, otherwise returns False.
+		"""
+		for value in self.iteritems():
+			if not value.intersects(seg):
+				return False
+		return True
+
+	def intersects(self, other):
+		"""
+		Returns True if each segmentlist in other intersects the
+		corresponding segmentlist in self;  returns False
+		otherwise.
+		"""
+		for key, value in other.iteritems():
+			if not self[key].intersects(value):
+				return False
+		return True
+
+	def coalesce(self):
+		"""
+		Coalesce all segmentlists in self.
+		"""
+		for value in self.iteritems():
+			value.coalesce()
+		return self
+
+	def contract(self, x):
+		"""
+		Contract the segmentlists.
+		"""
+		for key in self.iterkeys():
+			self[key].contract(x)
+		return self
+
+	def protract(self, x):
+		"""
+		Protract the segmentlists.
+		"""
+		for key in self.iterkeys():
+			self[key].protract(x)
+		return self
+
+	def extract_common(self, keys):
+		"""
+		Return a new segmentlistdict containing only those
+		segmentlists associated with the keys in keys, with each
+		set to the intersection of the original lists.  The offsets
+		are preserved.
+		"""
+		new = segmentlistdict()
+		intersection = self.intersection(keys)
+		for key in keys:
+			dict.__setitem__(new, key, copy(intersection))
+			dict.__setitem__(new.offsets, key, self.offsets[key])
+		return new
+
+	# multi-list operations
+
+	def intersection(self, keys):
+		"""
+		Return the intersection of the segmentlists associated with
+		the keys in keys.
+		"""
+		if not self or not keys:
+			return segmentlist()
+		it = iter(keys)
+		seglist = self[it.next()]
+		for value in map(self.__getitem__, it):
+			seglist &= value
+		return seglist
+
