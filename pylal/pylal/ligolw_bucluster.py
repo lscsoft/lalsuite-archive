@@ -28,7 +28,6 @@ import sys
 
 from glue.ligolw import lsctables
 from pylal import llwapp
-from pylal import SnglBurstUtils
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
