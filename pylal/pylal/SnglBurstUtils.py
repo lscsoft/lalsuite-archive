@@ -24,7 +24,6 @@
 # =============================================================================
 #
 
-from glue import segments
 from pylal.date import LIGOTimeGPS
 
 
