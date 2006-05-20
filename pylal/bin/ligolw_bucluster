@@ -49,11 +49,9 @@ __date__ = "$Date$"[7:-2]
 def parse_command_line():
 	parser = OptionParser(version = "%prog CVS $Id$")
 	parser.add_option("--comment", metavar = "text", default = "", help = "set comment string in process table")
-	parser.add_option("-i", "--input", metavar = "filename", help = "read from filename (default = stdin)")
-	parser.add_option("-o", "--output", metavar = "filename", help = "write to filename (default = stdout)")
 	parser.add_option("-m", "--cluster", metavar = "[bypeaktimeandfreq|bytimeandfreq]", help = "set clustering method (required)")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
-	options = parser.parse_args()[0]
+	options, filenames = parser.parse_args()
 
 	if options.cluster == None:
 		raise Exception, "missing required command line argument --cluster"
@@ -68,7 +66,7 @@ def parse_command_line():
 	else:
 		raise Exception, "unrecognized cluster method %s" % options.cluster
 
-	return options
+	return options, (filenames or [None])
 
 
 #
@@ -80,10 +78,15 @@ def parse_command_line():
 #
 
 try:
-	options = parse_command_line()
-	doc = llwapp.load_filename(options.input, options.verbose)
-	doc = ligolw_bucluster.ligolw_bucluster(doc, **options.__dict__)
-	llwapp.write_filename(doc, options.output, options.verbose)
+	options, filenames = parse_command_line()
+except ValueError, e:
+	print >>sys.stderr, "error: %s" % str(e)
+
+try:
+	for filename in filenames:
+		doc = llwapp.load_filename(filename, options.verbose)
+		doc = ligolw_bucluster.ligolw_bucluster(doc, **options.__dict__)
+		llwapp.write_filename(doc, filename, options.verbose)
 except Exception, e:
 	print >>sys.stderr, "error: %s" % str(e)
 	sys.exit(1)

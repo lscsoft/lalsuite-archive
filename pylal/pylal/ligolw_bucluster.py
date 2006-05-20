@@ -26,6 +26,7 @@
 
 import sys
 
+from glue import segments
 from glue.ligolw import lsctables
 from pylal import llwapp
 
@@ -59,12 +60,7 @@ def get_tables(doc):
 def append_process(doc, **kwargs):
 	process = llwapp.append_process(doc, program = "ligolw_bucluster", version = __version__, cvs_repository = "lscsoft", cvs_entry_time = __date__, comment = kwargs["comment"])
 
-	params = [("--cluster", "lstring", kwargs["cluster"])]
-	if kwargs["input"] != None:
-		params += [("--input", "lstring", kwargs["input"])]
-	if kwargs["output"] != None:
-		params += [("--output", "lstring", kwargs["output"])]
-	llwapp.append_process_params(doc, process, params)
+	llwapp.append_process_params(doc, process, [("--cluster", "lstring", kwargs["cluster"])])
 
 	return process
 
