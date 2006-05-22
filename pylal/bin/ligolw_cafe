@@ -30,7 +30,6 @@
 LIGO Light-Weight XML Coincidence Analysis Front End.
 """
 
-import copy
 from math import log10
 from optparse import OptionParser
 import sys
@@ -39,6 +38,7 @@ from glue import segments
 from glue.lal import CacheEntry
 from glue.ligolw import lsctables
 from pylal import llwapp
+from pylal import packing
 from pylal.date import LIGOTimeGPS
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -82,38 +82,48 @@ def load_cache(filename):
 	if options.verbose:
 		print >>sys.stderr, "loading %s" % filename
 	cache = map(lambda l: CacheEntry(l, coltype = LIGOTimeGPS), file(filename))
-	obs = cache[0].observatory
-	for c in cache:
-		if c.observatory != obs:
+	instrument = cache[0].observatory
+	for c in cache[1:]:
+		if c.observatory != instrument:
 			raise ValueError, "mismatched observatories in %s" % filename
-	return {obs: cache}
+	return cache
 
 
-def cache_to_seglist(cache):
-	return {cache[0].observatory: segments.segmentlist([c.segment for c in cache]).coalesce()}
+def cache_to_seglistdict(cache):
+	s = segments.segmentlistdict()
+	for c in cache:
+		if c.observatory in s:
+			s[c.observatory].append(c.segment)
+		else:
+			s[c.observatory] = segments.segmentlist([c.segment])
+	s.coalesce()
+	return s
 
 
-def null_tisi(instruments):
-	tisitable = lsctables.New(lsctables.TimeSlideTable, ["instrument", "offset"])
+def get_time_slides(filename):
+	doc = llwapp.load_filename(filename, options.verbose)
+	tisitable = llwapp.get_table(doc, lsctables.TimeSlideTable.tableName)
+	for row in tisitable:
+		row.offset = LIGOTimeGPS(row.offset)
+	doc.unlink()
+	return map(tisitable.get_offset_dict, tisitable.dict.keys())
+
+
+def null_time_slides(instruments):
+	timeslide = {}
 	for instrument in instruments:
-		tisitable.append(lsctables.TimeSlide())
-		tisitable[-1].instrument = instrument
-		tisitable[-1].offset = 0.0
-	return tisitable
+		timeslide[instrument] = LIGOTimeGPS(0)
+	return [timeslide]
 
 
 try:
-	caches = {}
-	map(lambda filename: caches.update(load_cache(filename)), cachenames)
-	seglists = {}
-	map(lambda c: seglists.update(cache_to_seglist(c)), caches.itervalues())
+	cache = []
+	map(lambda filename: cache.extend(load_cache(filename)), cachenames)
+	seglists = cache_to_seglistdict(cache)
 	if options.time_slides:
-		doc = llwapp.load_filename(options.time_slides, options.verbose)
-		tisitable = llwapp.get_table(doc, lsctables.TimeSlideTable.tableName)
-		doc.unlink()
-		del doc
+		timeslides = get_time_slides(filename)
 	else:
-		tisitable = null_tisi(caches.keys())
+		timeslides = null_time_slides(seglists.keys())
 except Exception, e:
 	print >>sys.stderr, "error: %s" % str(e)
 	sys.exit(1)
@@ -122,131 +132,105 @@ except Exception, e:
 #
 # =============================================================================
 #
-#                                 Preparation
+#                             Output Cache Packing
 #
 # =============================================================================
 #
 
-#
-# Extract the minimum and maximum offset for each instrument
-#
-
-def extreme_offsets(table):
-	min = {}
-	max = {}
-	for row in table:
-		if not min.has_key(row.instrument):
-			min[row.instrument] = row.offset
-		elif min[row.instrument] > row.offset:
-			min[row.instrument] = row.offset
-		if not max.has_key(row.instrument):
-			max[row.instrument] = row.offset
-		elif max[row.instrument] < row.offset:
-			max[row.instrument] = row.offset
-	return min, max
-
-def check_instruments(offsetinstruments, cacheinstruments):
-	for i in cacheinstruments:
-		if i not in offsetinstruments:
-			raise ValueError, "time slide table missing instrument %s" % i
-
-minoffsets, maxoffsets = extreme_offsets(tisitable)
-if options.verbose:
-	print >>sys.stderr, "minimum offsets: %s" % str(minoffsets)
-	print >>sys.stderr, "maximum offsets: %s" % str(maxoffsets)
-
-try:
-	check_instruments(minoffsets.keys(), caches.keys())
-except Exception, e:
-	print >>sys.stderr, "error: %s" % str(e)
-	sys.exit(1)
+def cacheentry_to_seglistdict(cacheentry):
+	return segments.segmentlistdict({cacheentry.observatory: segments.segmentlist([cacheentry.segment])})
 
 
-#
-# Dilate each segment list according to the extreme offsets for each
-# instrument.
-#
-
-def dilate_seglist(l, min, max):
-	return segments.segmentlist([segments.segment(s[0] + min, s[1] + max) for s in l]).coalesce()
-
-def dilate_seglists(seglists, mins, maxs):
-	for obs, segs in seglists.iteritems():
-		seglists[obs] = dilate_seglist(segs, mins[obs], maxs[obs])
-
-if options.verbose:
-	print >>sys.stderr, "dilating segment lists..."
-dilate_seglists(seglists, minoffsets, maxoffsets)
+class OutputCache(packing.Bin):
+	"""
+	A representation of an output cache file.  The objects attribute
+	contains the list of cache entries, and the size attribute holds a
+	segmentlistdict summarizing the times spanned by the files in the
+	cache.
+	"""
+	def __init__(self):
+		packing.Bin.__init__(self)
+		self.size = segments.segmentlistdict()
 
 
-#
-# Dilate each file's segment according to the extreme offsets for the
-# corresponding instrument.
-#
+class CafePacker(packing.PackingAlgorithm):
+	def set_time_slides(self, offsetdictlist):
+		self.timeslides = offsetdictlist
 
-def dilate_cacheentry(cacheentry, min, max):
-	cacheentry.segment = segments.segment(cacheentry.segment[0] + min, cacheentry.segment[1] + max)
+	def pack(self, size, object):
+		# find all bins in which this object belongs
+		matching_bins = []
+		for n, bin in enumerate(self.bins):
+			for offsetdict in self.timeslides:
+				size.offsets.update(offsetdict)
+				bin.size.offsets.update(offsetdict)
+				if size.is_coincident(bin.size):
+					matching_bins.append((n, bin))
+					break
 
-def dilate_caches(caches, mins, maxs):
-	caches = copy.deepcopy(caches)
-	for obs, cache in caches.iteritems():
-		min = mins[obs]
-		max = maxs[obs]
-		for c in cache:
-			dilate_cacheentry(c, min, max)
-	return caches
+		# reset all offsets
+		size.offsets.clear()
+		for bin in self.bins:
+			bin.size.offsets.clear()
 
-if options.verbose:
-	print >>sys.stderr, "dilating file boundaries..."
-dilatedcaches = dilate_caches(caches, minoffsets, maxoffsets)
+		# add object by either adding a new bin or putting it into
+		# the first bin that was found
+		if not matching_bins:
+			self.bins.append(OutputCache())
+			self.bins[-1].add_object(object, size)
+			return
+		matching_bins[0][1].add_object(object, size)
+
+		# if object belongs in more than one bin, merge bins.
+		# reverse the list of matching bins so that we delete the
+		# highest-numbered bin first (otherwise the bins would
+		# shift as we go and we would delete the wrong ones).
+		matching_bins.reverse()
+		for n, bin in matching_bins[:-1]:
+			matching_bins[-1][1].objects.extend(bin.objects)
+			matching_bins[-1][1].size += bin.size
+			del self.bins[n]
 
 
 #
 # =============================================================================
 #
-#                                     Plan
+#                               Pack Input Files
 #
 # =============================================================================
 #
 
 #
-# Compute the n-tuple intersection of the dilated lists.  Times not spanned
-# by this list are those times for which no time slide can possibly produce
-# coincident triggers, and thus this segment list provides the first
-# estimate of the boundaries for subsequent coincidence jobs.
+# For each instrument compute the times for which it will contribute
+# triggers to a coincidence analysis.  Times not spanned by these lists are
+# those times for which no time slide can possibly produce coincident
+# triggers, and thus these lists provide the first estimate of the
+# boundaries for subsequent coincidence jobs.
 #
-
-def coinc_segs(seglists):
-	segs = ~segments.segmentlist()
-	for l in seglists.itervalues():
-		segs &= l
-	return segs
 
 if options.verbose:
-	print >>sys.stderr, "computing segment list (pass 1)..."
-coincsegs = coinc_segs(seglists)
+	print >>sys.stderr, "computing segment list..."
+seglists = llwapp.get_coincident_segmentlistdict(seglists, timeslides)
 
 
 #
-# Merge coincident segments that intersect common trigger files.  If a
-# single file can contribute triggers to more than one of the coincidence
-# segments then those segments have to be analyzed together otherwise that
-# file's triggers run the risk of being double-counted by appearing in more
-# than one job.  The segment list produced by this operation defines the
-# boundaries of coincidence jobs.
+# Find cache entries that intersect the surviving segments and pack into
+# output caches.
 #
 
-def merge_segs_by_file(segs, caches):
-	for cache in caches.itervalues():
-		for c in cache:
-			spanned = segments.segmentlist([c.segment]) & segs
-			if len(spanned) > 1:
-				segs |= segments.segmentlist([spanned.extent()])
-	return segs
+outputcaches = packing.Bins(0, bintype = OutputCache)
+packer = CafePacker(outputcaches)
+packer.set_time_slides(timeslides)
 
 if options.verbose:
-	print >>sys.stderr, "computing segment list (pass 2)..."
-merge_segs_by_file(coincsegs, dilatedcaches)
+	print >>sys.stderr, "packing files..."
+for n, cacheentry in enumerate(cache):
+	if options.verbose and not n % (len(cache)/1000):
+		print >>sys.stderr, "	%.1f%% \r" % (100.0 * n / len(cache)),
+	cachesegdict = cacheentry_to_seglistdict(cacheentry)
+	if seglists.intersects_segment(cacheentry.segment):
+		packer.pack(cachesegdict, cacheentry)
+print >>sys.stderr, "	100.0%%"
 
 
 #
@@ -257,26 +241,28 @@ merge_segs_by_file(coincsegs, dilatedcaches)
 # =============================================================================
 #
 
-def write_caches(base, coincsegs, dilatedcaches, caches):
-	if len(coincsegs):
-		pattern = "%%s%%0%dd.cache" % int(log10(len(coincsegs)) + 1)
-	for n, seg in enumerate(coincsegs):
+def write_caches(base, bins, instruments):
+	filenames = []
+	if len(bins):
+		pattern = "%%s%%0%dd.cache" % int(log10(len(bins)) + 1)
+	for n, bin in enumerate(bins):
 		filename = pattern % (base, n)
+		filenames.append(filename)
 		if options.verbose:
 			print >>sys.stderr, "writing %s" % filename
 		f = file(filename, "w")
-		for obs, dilatedcache in dilatedcaches.iteritems():
-			for i in range(len(dilatedcache)):
-				if dilatedcache[i].segment.intersects(seg):
-					print >>f, str(caches[obs][i])
+		for cacheentry in bin.objects:
+			if cacheentry.observatory in instruments:
+				print >>f, str(cacheentry)
+	return filenames
 
 
-def write_single_instrument_caches(coincsegs, dilatedcaches, caches):
-	for instrument in caches.keys():
-		write_caches("%s_" % instrument, coincsegs, {instrument: dilatedcaches[instrument]}, {instrument: caches[instrument]})
+def write_single_instrument_caches(base, bins, instruments):
+	for instrument in instruments:
+		write_caches("%s%s_" % (base, instrument), bins, [instrument])
 
 
 if options.single_instrument:
-	write_single_instrument_caches(coincsegs, dilatedcaches, caches)
+	write_single_instrument_caches(options.base, outputcaches, seglists.keys())
 else:
-	write_caches(options.base, coincsegs, dilatedcaches, caches)
+	write_caches(options.base, outputcaches, seglists.keys())
