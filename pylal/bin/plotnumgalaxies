@@ -128,7 +128,7 @@ def square(M,medges,mstep,D,dedges,dstep):
     k = int((M[i]-medges[0])/mstep)
     l = int((D[i]-dedges[0])/dstep)
     
-    if (k>=0 and k<opts.nbins) and (l>=0 and l<opts.nbins):
+    if (k>=0 and k<len(medges)) and (l>=0 and l<len(dedges)):
       ng_m_d[l][k] = ng_m_d[l][k] + 1  
     i = i+1
   return ng_m_d
@@ -304,6 +304,9 @@ parser.add_option("-y","--y-max",action="store",type="float",default = 2.62,\
 parser.add_option("-p","--y-min",action="store",type="float",default = 0.87,\
     help="minimum value plotted on y axis (default 0.87)")
 
+parser.add_option("-o","--axes-from-found",action="store_true",default=False,\
+    help= \
+    "overwrite the default or specified axes with the max/min from found inj")
 parser.add_option("-Q","--axes-square",action="store_true",default=False,\
     help="make the axis ranges for x and y equal")
 
@@ -484,25 +487,26 @@ if eff_plot:
   yFound = readColumn(found,opts.y_value)
   yMissed = readColumn(missed,opts.y_value)
 
-  opts.x_max = 1.01 * max(xFound) 
-  opts.x_min = 0.99 * min(xFound) 
+  if opts.axes_from_found:
+    opts.x_max = 1.01 * max(xFound) 
+    opts.x_min = 0.99 * min(xFound) 
   
-  opts.y_max = 1.01 * max(yFound)
-  opts.y_min = 0.99 * min(yFound)
+    opts.y_max = 1.01 * max(yFound)
+    opts.y_min = 0.99 * min(yFound)
 
-    
-  if opts.verbose:
-    print "Overwriting max value for " + opts.x_value + \
-        " with found injection max, %.2f" % opts.x_max 
+    if opts.verbose:
 
-    print "Overwriting min value for " + opts.x_value + \
-        " with found injection min, %.2f" % opts.x_min
+      print "Overwriting max value for " + opts.x_value + \
+            " with found injection max, %.2f" % opts.x_max 
 
-    print "Overwriting max value for " + opts.y_value + \
-        " with found injection max, %.2f" % opts.y_max
+      print "Overwriting min value for " + opts.x_value + \
+            " with found injection min, %.2f" % opts.x_min
 
-    print "Overwriting min value for " + opts.y_value + \
-        " with found injection min, %.2f" % opts.y_min
+      print "Overwriting max value for " + opts.y_value + \
+            " with found injection max, %.2f" % opts.y_max
+
+      print "Overwriting min value for " + opts.y_value + \
+            " with found injection min, %.2f" % opts.y_min
 
 
 ##############################################################################
@@ -523,7 +527,7 @@ xStep = (opts.x_max - opts.x_min)/opts.nbins
 yStep = (opts.y_max - opts.y_min)/opts.nbins
 
 # for 1-d plots, extend and then delete last entry
-x1Edges = arange(opts.x_min,opts.x_max + 2*xStep,xStep)
+x1Edges = arange(opts.x_min,opts.x_max + 1.9*xStep,xStep)
 xEdges = arange(opts.x_min,opts.x_max + 0.9 *xStep,xStep)
 yEdges = arange(opts.y_min,opts.y_max + 0.9 *yStep,yStep)
 
@@ -573,7 +577,7 @@ if opts.plot_ng:
     savefig( opts.figure_name + '_' + opts.x_value + '_ng_plot.png' )
 
 ##############################################################################
-# make a histogram of n_g vs eff_distance
+# make a histogram of n_g vs x-value
 ##############################################################################
 if opts.hist_ng:
   figure()
@@ -660,7 +664,7 @@ if opts.plot_efficiency:
     grid(True)
     ylim(0, 1.1)      
     xlabel(opts.x_value, size='x-large')
-    ylabel('error in n_g', size='x-large')
+    ylabel('Efficiency', size='x-large')
     title('Monte Carlo errors in efficiency', size='x-large')
     if opts.figure_name:
       savefig( opts.figure_name + '_' + opts.x_value + '_mc_errors.png' )
