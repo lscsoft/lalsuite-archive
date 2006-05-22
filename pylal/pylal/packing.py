@@ -66,10 +66,10 @@ class Bins(list):
 	"""
 	List of Bins for use in packing algorithm implementations.
 	"""
-	def __new__(cls, n):
+	def __new__(cls, n, bintype = Bin):
 		l = list.__new__(cls, None)
 		for i in xrange(n):
-			l.append(Bin())
+			l.append(bintype())
 		return l
 
 	def __init__(cls, n):
