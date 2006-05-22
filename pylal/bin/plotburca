@@ -149,7 +149,7 @@ class DocContents(object):
 		# Extract segmentlist dictionary
 		#
 
-		self.seglistdict = llwapp.get_seglistdict(xmldoc, live_time_program)
+		self.seglistdict = llwapp.segmentlistdict_fromsearchsummary(xmldoc, live_time_program)
 
 		#
 		# Find foreground time slide
@@ -237,10 +237,9 @@ class RateContours(object):
 			self.bins.incnumerator((offsetdict[self.x_instrument], offsetdict[self.y_instrument]))
 
 	def finish(self):
-		instruments = self.seglistdict.keys()
 		for row in self.tisirows:
-			self.seglistdict.set_offsets({self.x_instrument: row[self.x_instrument], self.y_instrument: row[self.y_instrument]})
-			self.bins.incdenominator((row[self.x_instrument], row[self.y_instrument]), float(self.seglistdict.intersect(instruments).duration()))
+			self.seglistdict.offsets.update(row)
+			self.bins.incdenominator((row[self.x_instrument], row[self.y_instrument]), float(self.seglistdict.intersection(self.seglistdict.keys()).duration()))
 		rate.filter_ratios(self.bins, rate.gaussian_window2d(8, 8))
 		self.bins.logregularize()
 		xcoords, ycoords = self.bins.centres()
