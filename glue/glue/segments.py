@@ -800,7 +800,7 @@ class segmentlistdict(dict):
 		segment, otherwise returns False.
 		"""
 		for value in self.itervalues():
-			if value.intersects(seg):
+			if value.intersects_segment(seg):
 				return True
 		return False
 
