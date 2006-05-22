@@ -747,7 +747,7 @@ class segmentlistdict(dict):
 			if key in self:
 				self[key] |= value
 			else:
-				self[key] = copy.copy(value)
+				self[key] = copy(value)
 		return self
 
 	def __or__(self, other):
