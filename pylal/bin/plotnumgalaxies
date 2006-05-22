@@ -527,9 +527,9 @@ xStep = (opts.x_max - opts.x_min)/opts.nbins
 yStep = (opts.y_max - opts.y_min)/opts.nbins
 
 # for 1-d plots, extend and then delete last entry
-x1Edges = arange(opts.x_min,opts.x_max + 1.9*xStep,xStep)
-xEdges = arange(opts.x_min,opts.x_max + 0.9 *xStep,xStep)
-yEdges = arange(opts.y_min,opts.y_max + 0.9 *yStep,yStep)
+x1Edges = arange(opts.x_min,opts.x_max + 0.9*xStep,xStep)
+xEdges = arange(opts.x_min,opts.x_max,xStep)
+yEdges = arange(opts.y_min,opts.y_max,yStep)
 
 
 ##############################################################################
