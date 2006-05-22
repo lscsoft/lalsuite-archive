@@ -148,8 +148,8 @@ class DocContents(object):
 		# Extract segmentlist
 		#
 
-		seglistdict = llwapp.get_seglistdict(xmldoc, live_time_program)
-		self.seglist = seglistdict.intersect(seglistdict.keys())
+		seglistdict = llwapp.segmentlistdict_fromsearchsummary(xmldoc, live_time_program)
+		self.seglist = seglistdict.intersection(seglistdict.keys())
 
 		#
 		# Found and missed injection IDs
