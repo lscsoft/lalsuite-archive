@@ -53,9 +53,6 @@ class Bin(object):
 		self.size += size
 		self.objects.append(object)
 
-	def get_objects(self):
-		return self.objects
-
 	def __cmp__(self, other):
 		return cmp(self.size, other.size)
 
@@ -87,7 +84,7 @@ class Bins(list):
 # =============================================================================
 #
 
-class PakingAlgorithm(object):
+class PackingAlgorithm(object):
 	"""
 	Generic parent class for packing algorithms.
 	"""
@@ -97,7 +94,7 @@ class PakingAlgorithm(object):
 		"""
 		self.bins = bins
 
-	def pack(self, object, size):
+	def pack(self, size, object):
 		"""
 		Pack an object of given size into the bins.
 		"""
@@ -110,14 +107,14 @@ class PakingAlgorithm(object):
 		raise NotImplemented
 
 
-class BiggestIntoEmptiest(PakingAlgorithm):
+class BiggestIntoEmptiest(PackingAlgorithm):
 	"""
 	Packs the biggest object into the emptiest bin.
 	"""
-	def pack(self, object, size):
+	def pack(self, size, object):
 		min(self.bins).add_object(object, size)
 
 	def packlist(self, size_object_pairs):
 		l.sort()
 		l.reverse()
-		map(lambda (s, o): self.pack(o, s), l)
+		map(lambda (s, o): self.pack(s, o), l)
