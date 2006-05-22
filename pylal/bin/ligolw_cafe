@@ -227,10 +227,10 @@ if options.verbose:
 for n, cacheentry in enumerate(cache):
 	if options.verbose and not n % (len(cache)/1000):
 		print >>sys.stderr, "	%.1f%% \r" % (100.0 * n / len(cache)),
-	cachesegdict = cacheentry_to_seglistdict(cacheentry)
 	if seglists.intersects_segment(cacheentry.segment):
-		packer.pack(cachesegdict, cacheentry)
-print >>sys.stderr, "	100.0%%"
+		packer.pack(cacheentry_to_seglistdict(cacheentry), cacheentry)
+if options.verbose:
+	print >>sys.stderr, "	100.0%%"
 
 
 #
