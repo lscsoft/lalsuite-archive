@@ -72,7 +72,7 @@ class Bins(list):
 			l.append(bintype())
 		return l
 
-	def __init__(cls, n):
+	def __init__(cls, *args, **kwargs):
 		pass
 
 
