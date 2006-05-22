@@ -802,7 +802,7 @@ class segmentlistdict(dict):
 		"""
 		Coalesce all segmentlists in self.
 		"""
-		for value in self.iteritems():
+		for value in self.itervalues():
 			value.coalesce()
 		return self
 
