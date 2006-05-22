@@ -799,7 +799,7 @@ class segmentlistdict(dict):
 		Returns True if any segmentlist in self intersects the
 		segment, otherwise returns False.
 		"""
-		for value in self.iteritems():
+		for value in self.itervalues():
 			if value.intersects(seg):
 				return True
 		return False
@@ -854,6 +854,17 @@ class segmentlistdict(dict):
 		return new
 
 	# multi-list operations
+
+	def is_coincident(self, other):
+		"""
+		Return True if any segment in any list in self intersects
+		any segment in any list in other.
+		"""
+		for l1 in self.itervalues():
+			for l2 in other.itervalues():
+				if l1.intersects(l2):
+					return True
+		return False
 
 	def intersection(self, keys):
 		"""
