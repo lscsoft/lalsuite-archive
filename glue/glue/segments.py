@@ -654,10 +654,20 @@ class segmentlistdict(dict):
 		def update(self, d):
 			"""
 			From a dictionary of offsets, apply each offset to
-			the corresponding segmentlist.
+			the corresponding segmentlist.  NOTE:  it is
+			acceptable for the offset dictionary to contain
+			entries for which there is no matching segmentlist;
+			no error will be raised, but the offset will not be
+			recorded.  This simplifies the case of updating
+			several segmentlistdict objects from a common
+			offset dictionary, when one or more of the
+			segmentlistdict contains only a subset of the keys.
 			"""
 			for key, value in d.iteritems():
-				self[key] = value
+				try:
+					self[key] = value
+				except KeyError:
+					pass
 
 		def clear(self):
 			"""
@@ -722,6 +732,13 @@ class segmentlistdict(dict):
 		"""
 		return self.map(segmentlist.extent)
 
+	def extent_all(self):
+		"""
+		Return the result of running extent on the union of all
+		lists in the dictionary.
+		"""
+		return self.union(self.keys()).extent()
+
 	def find(self, seg):
 		"""
 		Return a dictionary of the results of running find() on
@@ -779,13 +796,13 @@ class segmentlistdict(dict):
 
 	def intersects_segment(self, seg):
 		"""
-		Returns True if all segmentlists in self intersect the
+		Returns True if any segmentlist in self intersects the
 		segment, otherwise returns False.
 		"""
 		for value in self.iteritems():
-			if not value.intersects(seg):
-				return False
-		return True
+			if value.intersects(seg):
+				return True
+		return False
 
 	def intersects(self, other):
 		"""
