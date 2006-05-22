@@ -91,7 +91,7 @@ def read_source_file( source_file ):
   for line in lines:
     if line[0] != '#':
       b  = string.split(line)
-      c  = { 'name': b[0], 'luminosity': float(b[4]) , 'delta_d': float(b[6])}
+      c  = { 'name': b[0], 'luminosity': float(b[4]) }
       sourcelist.append(c)
       
  
@@ -524,8 +524,8 @@ yStep = (opts.y_max - opts.y_min)/opts.nbins
 
 # for 1-d plots, extend and then delete last entry
 x1Edges = arange(opts.x_min,opts.x_max + 2*xStep,xStep)
-xEdges = arange(opts.x_min,opts.x_max + xStep,xStep)
-yEdges = arange(opts.y_min,opts.y_max + yStep,yStep)
+xEdges = arange(opts.x_min,opts.x_max + 0.9 *xStep,xStep)
+yEdges = arange(opts.y_min,opts.y_max + 0.9 *yStep,yStep)
 
 
 ##############################################################################
