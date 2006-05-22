@@ -851,3 +851,16 @@ class segmentlistdict(dict):
 			seglist &= value
 		return seglist
 
+	def union(self, keys):
+		"""
+		Return the union of the segmentlists associated with the
+		keys in keys.
+		"""
+		if not self or not keys:
+			return segmentlist()
+		it = iter(keys)
+		seglist = self[it.next()]
+		for value in map(self.__getitem__, it):
+			seglist |= value
+		return seglist
+
