@@ -1,0 +1,46 @@
+#!/usr/bin/python
+
+"""
+This utility checks that the output of LSCdataFind is continguous and spans
+a given segment.
+"""
+
+__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__date__ = "$Date$"[7:-2]
+__version__ = "$Revision$"[11:-2]
+
+from optparse import OptionParser
+import sys
+
+from glue.lal import LIGOTimeGPS
+from glue import segments
+from glue import segmentsUtils
+
+
+def parse_command_line():
+	parser = OptionParser(version = "%prog CVS $Id$")
+	parser.add_option("--gps-start-time", metavar = "seconds", help = "set desired start time")
+	parser.add_option("--gps-end-time", metavar = "seconds", help = "set desired end time")
+	options, filenames = parser.parse_args()
+
+	if not (options.gps_start_time and options.gps_end_time):
+		raise ValueError, "must set --gps-start-time and --gps-end-time"
+	options.seg = segments.segment(LIGOTimeGPS(options.gps_start_time), LIGOTimeGPS(options.gps_end_time))
+
+	return options, (filenames or [None])
+
+try:
+	options, filenames = parse_command_line()
+except ValueError, e:
+	print >>sys.stderr, "error: %s" % str(e)
+
+
+for filename in filenames:
+	if filename:
+		seglist = segmentsUtils.fromlalcache(file(filename), coltype = LIGOTimeGPS).coalesce()
+	else:
+		seglist = segmentsUtils.fromlalcache(sys.stdin, coltype = LIGOTimeGPS).coalesce()
+	if options.seg not in seglist:
+		print >>sys.stderr, "cache does not span segment:  missing %s" % str(segments.segmentlist([options.seg]) - seglist)
+		sys.exit(1)
+sys.exit(0)
