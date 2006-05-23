@@ -63,7 +63,7 @@ def parse_command_line():
 	options, cachenames = parser.parse_args()
 
 	if not options.time_slides:
-		print >>sys.stderr, "warning: no time slide input file set, assuming 0 offsets"
+		print >>sys.stderr, "warning: no time slide input file provided, assuming 0 offsets"
 
 	return options, cachenames
 
@@ -226,11 +226,12 @@ if options.verbose:
 	print >>sys.stderr, "packing files..."
 for n, cacheentry in enumerate(cache):
 	if options.verbose and not n % (len(cache)/1000):
-		print >>sys.stderr, "	%.1f%% \r" % (100.0 * n / len(cache)),
-	if seglists.intersects_segment(cacheentry.segment):
-		packer.pack(cacheentry_to_seglistdict(cacheentry), cacheentry)
+		print >>sys.stderr, "	%.1f%%	(%d files, %d caches)\r" % (100.0 * n / len(cache), n, len(outputcaches)),
+	cache_seglistdict = cacheentry_to_seglistdict(cacheentry)
+	if seglists.intersects(cache_seglistdict):
+		packer.pack(cache_seglistdict, cacheentry)
 if options.verbose:
-	print >>sys.stderr, "	100.0%%"
+	print >>sys.stderr, "	100.0%%	(%d files, %d caches)" % (n, len(outputcaches))
 
 
 #
