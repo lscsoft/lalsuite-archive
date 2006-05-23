@@ -23,7 +23,7 @@ if version_info >= (2, 3):
     ext_modules = [
       Extension("glue.ligolw.tokenizer", ["glue/ligolw/tokenizer.c"])
     ],
-    scripts = [ os.path.join('bin','LSCdataFind'),
+    scripts = [
       os.path.join('bin','LSCdataFind'),
       os.path.join('bin','LSCsegFind'),
       os.path.join('bin','LSCfileAdd'),
