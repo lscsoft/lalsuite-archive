@@ -153,7 +153,7 @@ class OutputCache(packing.Bin):
 		self.size = segments.segmentlistdict()
 
 
-class CafePacker(packing.PackingAlgorithm):
+class CafePacker(packing.Packer):
 	def set_time_slides(self, offsetdictlist):
 		self.timeslides = offsetdictlist
 
@@ -218,7 +218,7 @@ seglists = llwapp.get_coincident_segmentlistdict(seglists, timeslides)
 # output caches.
 #
 
-outputcaches = packing.Bins(0, bintype = OutputCache)
+outputcaches = []
 packer = CafePacker(outputcaches)
 packer.set_time_slides(timeslides)
 

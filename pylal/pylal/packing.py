@@ -36,7 +36,7 @@ __date__ = "$Date$"[7:-2]
 #
 # =============================================================================
 #
-#                                 Bin Packing
+#                                     Bins
 #
 # =============================================================================
 #
@@ -62,18 +62,17 @@ class Bin(object):
 	__str__ = __repr__
 
 
-class Bins(list):
+def bin_list(n, bintype = Bin):
 	"""
-	List of Bins for use in packing algorithm implementations.
+	Convenience function for constructing a list of bins.
 	"""
-	def __new__(cls, n, bintype = Bin):
-		l = list.__new__(cls, None)
-		for i in xrange(n):
-			l.append(bintype())
-		return l
-
-	def __init__(cls, *args, **kwargs):
-		pass
+	# [bintype()] * n doesn't work because it produces a list of
+	# references to the same object, rather than a list of references
+	# to distinct objects.
+	l = []
+	for i in xrange(n):
+		l.append(bintype())
+	return l
 
 
 #
@@ -84,7 +83,7 @@ class Bins(list):
 # =============================================================================
 #
 
-class PackingAlgorithm(object):
+class Packer(object):
 	"""
 	Generic parent class for packing algorithms.
 	"""
@@ -107,7 +106,7 @@ class PackingAlgorithm(object):
 		raise NotImplementedError
 
 
-class BiggestIntoEmptiest(PackingAlgorithm):
+class BiggestIntoEmptiest(Packer):
 	"""
 	Packs the biggest object into the emptiest bin.
 	"""
@@ -115,6 +114,7 @@ class BiggestIntoEmptiest(PackingAlgorithm):
 		min(self.bins).add_object(object, size)
 
 	def packlist(self, size_object_pairs):
-		l.sort()
-		l.reverse()
-		map(lambda (s, o): self.pack(s, o), l)
+		size_object_pairs.sort()
+		size_object_pairs.reverse()
+		for size, object in size_object_pairs:
+			self.pack(size, object)
