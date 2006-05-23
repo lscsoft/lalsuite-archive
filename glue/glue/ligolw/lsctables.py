@@ -37,9 +37,9 @@ def New(Type, columns = None):
 	= [] to create a table with no columns).
 
 	Example:
-		import lsctables
 
-		table = lsctables.New(lsctables.ProcessTable)
+	>>> import lsctables
+	>>> table = lsctables.New(lsctables.ProcessTable)
 	"""
 	table = Type(sax.xmlreader.AttributesImpl({u"Name": Type.tableName}))
 	if columns != None:

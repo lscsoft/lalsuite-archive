@@ -449,13 +449,13 @@ class LIGOLWContentHandler(sax.handler.ContentHandler):
 	SAX2-compliant parser.
 
 	Example:
-		import ligolw
 
-		doc = ligolw.Document()
-		handler = ligolw.LIGOLWContentHandler(doc)
-		parser = ligolw.make_parser(handler)
-		parser.parse(file("H2-POWER_S5-816526720-34.xml"))
-		doc.write()
+	>>> import ligolw
+	>>> doc = ligolw.Document()
+	>>> handler = ligolw.LIGOLWContentHandler(doc)
+	>>> parser = ligolw.make_parser(handler)
+	>>> parser.parse(file("H2-POWER_S5-816526720-34.xml"))
+	>>> doc.write()
 	"""
 	def __init__(self, document):
 		"""
