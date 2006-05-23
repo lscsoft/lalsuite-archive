@@ -21,7 +21,11 @@ def parse_command_line():
 	parser = OptionParser(version = "%prog CVS $Id$")
 	parser.add_option("--gps-start-time", metavar = "seconds", help = "set desired start time")
 	parser.add_option("--gps-end-time", metavar = "seconds", help = "set desired end time")
+	parser.add_option("--dagman-return", metavar = "value", default = 0, help = "set $RETURN value from dagman")
 	options, filenames = parser.parse_args()
+
+	if options.dagman_return:
+		options.dagman_return = int(options.dagman_return)
 
 	if not (options.gps_start_time and options.gps_end_time):
 		raise ValueError, "must set --gps-start-time and --gps-end-time"
@@ -29,10 +33,17 @@ def parse_command_line():
 
 	return options, (filenames or [None])
 
+
 try:
 	options, filenames = parse_command_line()
 except ValueError, e:
 	print >>sys.stderr, "error: %s" % str(e)
+	sys.exit(1)
+
+
+if options.dagman_return:
+	print >>sys.stderr, "error: dag job execution failed"
+	sys.exit(options.dagman_return)
 
 
 for filename in filenames:
@@ -41,6 +52,6 @@ for filename in filenames:
 	else:
 		seglist = segmentsUtils.fromlalcache(sys.stdin, coltype = LIGOTimeGPS).coalesce()
 	if options.seg not in seglist:
-		print >>sys.stderr, "cache does not span segment:  missing %s" % str(segments.segmentlist([options.seg]) - seglist)
+		print >>sys.stderr, "%s does not span %s:  missing %s" % (filename, str(options.seg), str(segments.segmentlist([options.seg]) - seglist))
 		sys.exit(1)
 sys.exit(0)
