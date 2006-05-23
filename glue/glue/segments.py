@@ -678,13 +678,13 @@ class segmentlistdict(dict):
 
 		# stubs to prevent bugs
 		def __delitem__(*args):
-			raise NotImplemented
+			raise NotImplementedError
 		def fromkeys(*args):
-			raise NotImplemented
+			raise NotImplementedError
 		def pop(*args):
-			raise NotImplemented
+			raise NotImplementedError
 		def popitem(*arg):
-			raise NotImplemented
+			raise NotImplementedError
 
 	def __init__(self, *args):
 		dict.__init__(self, *args)

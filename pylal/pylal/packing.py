@@ -98,13 +98,13 @@ class PackingAlgorithm(object):
 		"""
 		Pack an object of given size into the bins.
 		"""
-		raise NotImplemented
+		raise NotImplementedError
 
 	def packlist(self, size_object_pairs):
 		"""
 		Pack the list of (size, object) tuples into the bins.
 		"""
-		raise NotImplemented
+		raise NotImplementedError
 
 
 class BiggestIntoEmptiest(PackingAlgorithm):
