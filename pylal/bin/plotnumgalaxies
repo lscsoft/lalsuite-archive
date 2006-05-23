@@ -91,7 +91,10 @@ def read_source_file( source_file ):
   for line in lines:
     if line[0] != '#':
       b  = string.split(line)
-      c  = { 'name': b[0], 'luminosity': float(b[4]) }
+      if opts.delta_error:
+      	c  = { 'name': b[0], 'luminosity': float(b[4]) , 'delta_d': float(b[6])}
+      else:
+	c = {'name': b[0], 'luminosity': float(b[4])} 	
       sourcelist.append(c)
       
  
@@ -313,6 +316,10 @@ parser.add_option("-Q","--axes-square",action="store_true",default=False,\
 parser.add_option("-n","--nbins",action="store",type="int",default=20,\
     metavar=" NBINS", 
     help="number of bins for the histogram plots (default = 20)" )
+
+#parser.add_option("-B","--delta-luminosity",action="store",type="int",default=20,\
+ #   help="Take into account the error in luminosity" )
+
 
 # plots to be made
 parser.add_option("-N","--plot-ng",action="store_true",default=False,\
