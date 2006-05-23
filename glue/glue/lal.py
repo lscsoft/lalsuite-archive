@@ -62,12 +62,18 @@ class LIGOTimeGPS(object):
 		supplied, it is assumed to be 0.  Either parameter can be
 		a numeric type or an ASCII string.
 
-		Example use (all are equivalent):
-			LIGOTimeGPS(100.5)
-			LIGOTimeGPS("100.5")
-			LIGOTimeGPS(100, 500000000)
-			LIGOTimeGPS(0, 100500000000L)
-			LIGOTimeGPS(100.2, 300000000)
+		Example:
+
+		>>> LIGOTimeGPS(100.5)
+		LIGOTimeGPS(100, 500000000)
+		>>> LIGOTimeGPS("100.5")
+		LIGOTimeGPS(100, 500000000)
+		>>> LIGOTimeGPS(100, 500000000)
+		LIGOTimeGPS(100, 500000000)
+		>>> LIGOTimeGPS(0, 100500000000L)
+		LIGOTimeGPS(100, 500000000)
+		>>> LIGOTimeGPS(100.2, 300000000)
+		LIGOTimeGPS(100, 500000000)
 		"""
 		if type(nanoseconds) == str:
 			nanoseconds = float(nanoseconds)
@@ -113,8 +119,10 @@ class LIGOTimeGPS(object):
 		"""
 		Convert a LIGOTimeGPS to seconds as a float.
 
-		Example use:
-			float(LIGOTimeGPS(100.5))
+		Example:
+
+		>>> float(LIGOTimeGPS(100.5))
+		100.5
 		"""
 		return self.seconds + self.nanoseconds * 1e-9
 
@@ -122,8 +130,10 @@ class LIGOTimeGPS(object):
 		"""
 		Return the integer part (seconds) of a LIGOTimeGPS as an int.
 
-		Example use:
-			int(LIGOTimeGPS(100.5))
+		Example:
+
+		>>> int(LIGOTimeGPS(100.5))
+		100
 		"""
 		return self.seconds
 
@@ -131,8 +141,10 @@ class LIGOTimeGPS(object):
 		"""
 		Return the integer part (seconds) of a LIGOTimeGPS as a long.
 
-		Example use:
-			long(LIGOTimeGPS(100.5))
+		Example:
+
+		>>> long(LIGOTimeGPS(100.5))
+		100L
 		"""
 		return long(self.seconds)
 
@@ -140,8 +152,10 @@ class LIGOTimeGPS(object):
 		"""
 		Convert a LIGOTimeGPS to a count of nanoseconds as a long.
 
-		Example use:
-			LIGOTimeGPS(100.5).ns()
+		Example:
+
+		>>> LIGOTimeGPS(100.5).ns()
+		100500000000L
 		"""
 		return self.seconds * 1000000000L + self.nanoseconds
 
@@ -153,10 +167,14 @@ class LIGOTimeGPS(object):
 		to the LIGOTimeGPS is not also a LIGOTimeGPS, then an attempt
 		is made to convert it to a LIGOTimeGPS.
 
-		Example use (all are equivalent):
-			LIGOTimeGPS(100.5) < LIGOTimeGPS(200)
-			LIGOTimeGPS(100.5) < 200
-			LIGOTimeGPS(100.5) < "200"
+		Example:
+
+		>>> LIGOTimeGPS(100.5) < LIGOTimeGPS(200)
+		True
+		>>> LIGOTimeGPS(100.5) < 200
+		True
+		>>> LIGOTimeGPS(100.5) < "200"
+		True
 		"""
 		if not type(other) == LIGOTimeGPS:
 			try:
@@ -171,8 +189,10 @@ class LIGOTimeGPS(object):
 		"""
 		Return True if the LIGOTimeGPS is nonzero.
 
-		Example use:
-			bool(LIGOTimeGPS(100.5))
+		Example:
+
+		>>> bool(LIGOTimeGPS(100.5))
+		True
 		"""
 		return self.seconds or self.nanoseconds
 
@@ -184,10 +204,14 @@ class LIGOTimeGPS(object):
 		LIGOTimeGPS is not also a LIGOTimeGPS, then an attempt is made
 		to convert it to a LIGOTimeGPS.
 
-		Example use (all are equivalent):
-			LIGOTimeGPS(100.5) + LIGOTimeGPS(3)
-			LIGOTimeGPS(100.5) + 3
-			LIGOTimeGPS(100.5) + "3"
+		Example:
+
+		>>> LIGOTimeGPS(100.5) + LIGOTimeGPS(3)
+		LIGOTimeGPS(103, 500000000)
+		>>> LIGOTimeGPS(100.5) + 3
+		LIGOTimeGPS(103, 500000000)
+		>>> LIGOTimeGPS(100.5) + "3"
+		LIGOTimeGPS(103, 500000000)
 		"""
 		if not type(other) == LIGOTimeGPS:
 			other = LIGOTimeGPS(other)
@@ -202,10 +226,14 @@ class LIGOTimeGPS(object):
 		subtracted from the LIGOTimeGPS is not also a LIGOTimeGPS, then
 		an attempt is made to convert it to a LIGOTimeGPS.
 
-		Example use (all are equivalent):
-			LIGOTimeGPS(100.5) - LIGOTimeGPS(3)
-			LIGOTimeGPS(100.5) - 3
-			LIGOTimeGPS(100.5) - "3"
+		Example:
+
+		>>> LIGOTimeGPS(100.5) - LIGOTimeGPS(3)
+		LIGOTimeGPS(97, 500000000)
+		>>> LIGOTimeGPS(100.5) - 3
+		LIGOTimeGPS(97, 500000000)
+		>>> LIGOTimeGPS(100.5) - "3"
+		LIGOTimeGPS(97, 500000000)
 		"""
 		if not type(other) == LIGOTimeGPS:
 			other = LIGOTimeGPS(other)
@@ -223,8 +251,9 @@ class LIGOTimeGPS(object):
 		"""
 		Multiply a LIGOTimeGPS by a number.
 
-		Example use:
-			LIGOTimeGPS(100.5) * 2
+		Example:
+		>>> LIGOTimeGPS(100.5) * 2
+		LIGOTimeGPS(201, 0)
 		"""
 		return LIGOTimeGPS(self.seconds * other, self.nanoseconds * other)
 
@@ -235,8 +264,10 @@ class LIGOTimeGPS(object):
 		"""
 		Divide a LIGOTimeGPS by a number.
 
-		Example use:
-			LIGOTimeGPS(100.5) / 2
+		Example:
+
+		>>> LIGOTimeGPS(100.5) / 2
+		LIGOTimeGPS(50, 250000000)
 		"""
 		return LIGOTimeGPS(0, self.ns() / other)
 
@@ -244,8 +275,10 @@ class LIGOTimeGPS(object):
 		"""
 		Compute the remainder when a LIGOTimeGPS is divided by a number.
 
-		Example use:
-			LIGOTimeGPS(100.5) % 3
+		Example:
+
+		>>> LIGOTimeGPS(100.5) % 3
+		LIGOTimeGPS(1, 500000000)
 		"""
 		return LIGOTimeGPS(0, self.ns() % (other * 1000000000L))
 
