@@ -125,6 +125,21 @@ lsctables.CoincMapTable.__init__ = coinc_map_init
 lsctables.CoincMapTable.append = coinc_map_append
 
 
+class DummyTable(object):
+	"""
+	A place-holder class to simulate a table when the input document is
+	incomplete.
+	"""
+	def __init__(self):
+		self.rows = {}
+
+	def __len__(self):
+		return 0
+
+	def getColumnByName(self, name):
+		return []
+
+
 #
 # =============================================================================
 #
@@ -139,17 +154,30 @@ class DocContents(object):
 		# Extract tables
 		#
 
-		self.bursttable = llwapp.get_table(xmldoc, lsctables.SnglBurstTable.tableName)
 		self.simtable = llwapp.get_table(xmldoc, lsctables.SimBurstTable.tableName)
-		self.coinctable = llwapp.get_table(xmldoc, lsctables.CoincTable.tableName)
-		self.coincmaptable = llwapp.get_table(xmldoc, lsctables.CoincMapTable.tableName)
+		try:
+			self.bursttable = llwapp.get_table(xmldoc, lsctables.SnglBurstTable.tableName)
+			self.coinctable = llwapp.get_table(xmldoc, lsctables.CoincTable.tableName)
+			self.coincmaptable = llwapp.get_table(xmldoc, lsctables.CoincMapTable.tableName)
+		except:
+			# file contains missing or incomplete coinc
+			# information, rig for injection-only plots.
+			print >>sys.stderr, "warning: no coincidence information"
+			self.bursttable = DummyTable()
+			self.coinctable = DummyTable()
+			self.coincmaptable = DummyTable()
 
 		#
 		# Extract segmentlist
 		#
 
-		seglistdict = llwapp.segmentlistdict_fromsearchsummary(xmldoc, live_time_program)
-		self.seglist = seglistdict.intersection(seglistdict.keys())
+		try:
+			seglistdict = llwapp.segmentlistdict_fromsearchsummary(xmldoc, live_time_program)
+			self.seglist = seglistdict.intersection(seglistdict.keys())
+		except:
+			# no search summary table.
+			print >>sys.stderr, "warning: no search summary information"
+			self.seglist = []
 
 		#
 		# Found and missed injection IDs
@@ -412,28 +440,24 @@ class RecoveredTimeOffset(object):
 plots = [
 	FreqVsTime(),
 	AmplVsFreqScatter(),
-	AmplVsFreqContour(0.1),
+#	AmplVsFreqContour(0.1),
 	TriggerCountHistogram(),
 	RecoveredVsInjectedAmplitude(),
 	RecoveredTimeOffset(segments.segment(-0.25, +0.25), 0.005)
 ]
 
-try:
-	for n, filename in enumerate(llwapp.sort_files_by_size(filenames, options.verbose)):
+for n, filename in enumerate(llwapp.sort_files_by_size(filenames, options.verbose)):
+	if options.verbose:
+		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
+	doc = llwapp.load_filename(filename, options.verbose)
+	if options.verbose:
+		print >>sys.stderr, "indexing..."
+	contents = DocContents(doc, "power")
+	for n, plot in enumerate(plots):
 		if options.verbose:
-			print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
-		doc = llwapp.load_filename(filename, options.verbose)
-		if options.verbose:
-			print >>sys.stderr, "indexing..."
-		contents = DocContents(doc, "power")
-		for n, plot in enumerate(plots):
-			if options.verbose:
-				print >>sys.stderr, "adding to %d..." % n
-			plot.add_contents(contents)
-		doc.unlink()
-except Exception, e:
-	print >>sys.stderr, "error: %s" % str(e)
-	sys.exit(1)
+			print >>sys.stderr, "adding to %d..." % n
+		plot.add_contents(contents)
+	doc.unlink()
 
 
 #
