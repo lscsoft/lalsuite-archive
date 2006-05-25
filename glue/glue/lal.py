@@ -306,19 +306,51 @@ class CacheEntry(object):
 	# delimited columns.
 	_regex = re.compile(r"\A\s*(?P<observatory>\S+)\s+(?P<description>\S+)\s+(?P<start>\S+)\s+(?P<duration>\S+)\s+(?P<url>\S+)\s*\Z")
 
-	def __init__(self, line = None, coltype = LIGOTimeGPS):
+	def __init__(self, *args, **kwargs):
 		"""
-		Create a CacheEntry object, parsing an optional string
-		argument (one line from a LAL cache file).
+		Create a CacheEntry object.  The arguments can take two
+		forms:  a single string argument, which is interpreted and
+		parsed as a line from a LAL cache file, or four arguments
+		used to explicitly initialize the observatory, description,
+		segment and URL in that order.  When parsing a single line
+		of text from a LAL cache, an optional key-word argument
+		"coltype" can be provided to set the type the start and
+		durations are parsed as.  The default is
+		glue.lal.LIGOTimeGPS.
+
+		Example:
+
+		>>> c = CacheEntry("H1", "S5", segments.segment(815901601, 815902177.5), "file://localhost/home/kipp/tmp/1/H1-815901601-576.xml")
+		>>> print c.segment
+		[815901601 ... 815902177.5]
+		>>> c = CacheEntry("H1 S5 815901601 576.5 file://localhost/home/kipp/tmp/1/H1-815901601-576.xml")
+		>>> print c.segment
+		[815901601 ... 815902177.5]
+		>>> c = CacheEntry("H1 S5 815901601 576.5 file://localhost/home/kipp/tmp/1/H1-815901601-576.xml", coltype = int)
+		ValueError: invalid literal for int(): 576.5
 		"""
-		if line != None:
-			match = self._regex.search(line)
+		# check key-word arguments
+		if len(args) == 1 and type(args[0]) == str:
+			# parse line of text as an entry in a cache file
+			if kwargs.keys() and kwargs.keys() != ["coltype"]:
+				raise TypeError, "unrecognized keyword arguments: %s" % [a for a in kwargs.keys() if a != "coltype"]
+			coltype = kwargs.get("coltype", LIGOTimeGPS)
+			match = self._regex.search(args[0])
 			if not match:
-				raise ValueError, "could not convert \"%s\" to CacheEntry" % line
+				raise ValueError, "could not convert \"%s\" to CacheEntry" % args[0]
 			self.observatory = match.group("observatory")
 			self.description = match.group("description")
 			self.segment = segments.segment(coltype(match.group("start")), coltype(match.group("start")) + coltype(match.group("duration")))
 			self.url = match.group("url")
+		elif len(args) == 4 and map(type, args) == [str, str, segments.segment, str]:
+			# parse arguments as observatory, description,
+			# segment, url
+			if kwargs:
+				raise TypeError, "invalid arguments: %s" % kwargs
+			self.observatory, self.description, self.segment, self.url = args
+		else:
+			raise TypeError, "invalid arguments: %s" % args
+
 
 	def __str__(self):
 		"""
