@@ -17,6 +17,7 @@ from optparse import OptionParser
 import sys
 import urllib
 
+from glue.lal import CacheEntry
 from glue import segments
 from glue.ligolw import ligolw
 from glue.ligolw import metaio
@@ -41,7 +42,7 @@ del parser
 # add urls from cache files
 if options.input_cache:
 	for cache in options.input_cache:
-		urls += [c.url for c in map(lal.CacheEntry, file(cache))]
+		urls += [c.url for c in map(CacheEntry, file(cache))]
 
 if len(urls) < 1:
 	raise Exception, "no input files!"
