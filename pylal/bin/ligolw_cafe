@@ -121,7 +121,7 @@ try:
 	map(lambda filename: cache.extend(load_cache(filename)), cachenames)
 	seglists = cache_to_seglistdict(cache)
 	if options.time_slides:
-		timeslides = get_time_slides(filename)
+		timeslides = get_time_slides(options.timeslides)
 	else:
 		timeslides = null_time_slides(seglists.keys())
 except Exception, e:
@@ -139,18 +139,6 @@ except Exception, e:
 
 def cacheentry_to_seglistdict(cacheentry):
 	return segments.segmentlistdict({cacheentry.observatory: segments.segmentlist([cacheentry.segment])})
-
-
-class OutputCache(packing.Bin):
-	"""
-	A representation of an output cache file.  The objects attribute
-	contains the list of cache entries, and the size attribute holds a
-	segmentlistdict summarizing the times spanned by the files in the
-	cache.
-	"""
-	def __init__(self):
-		packing.Bin.__init__(self)
-		self.size = segments.segmentlistdict()
 
 
 class CafePacker(packing.Packer):
@@ -176,10 +164,10 @@ class CafePacker(packing.Packer):
 		# add object by either adding a new bin or putting it into
 		# the first bin that was found
 		if not matching_bins:
-			self.bins.append(OutputCache())
-			self.bins[-1].add_object(object, size)
+			self.bins.append(packing.LALCache())
+			self.bins[-1].add(object, size)
 			return
-		matching_bins[0][1].add_object(object, size)
+		matching_bins[0][1].add(object, size)
 
 		# if object belongs in more than one bin, merge bins.
 		# reverse the list of matching bins so that we delete the

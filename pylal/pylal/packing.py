@@ -32,6 +32,11 @@ __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
 
+import os
+
+from glue.lal import CacheEntry
+from glue import segments
+
 
 #
 # =============================================================================
@@ -49,7 +54,7 @@ class Bin(object):
 		self.size = 0
 		self.objects = []
 
-	def add_object(self, object, size):
+	def add(self, object, size):
 		self.size += size
 		self.objects.append(object)
 
@@ -57,10 +62,36 @@ class Bin(object):
 		return cmp(self.size, other.size)
 
 	def __repr__(self):
-		return "(%d, %s)" % (self.size, self.objects)
+		return "(%s, %s)" % (str(self.size), str(self.objects))
 
 	__str__ = __repr__
 
+
+class LALCache(Bin):
+	"""
+	Bin object representing a LAL file cache.  The objects attribute
+	contains a list of glue.lal.CacheEntry objects, and the size
+	attribute holds a glue.segments.segmentlistdict object summarizing
+	the times spanned by the files in the cache.
+	"""
+	def __init__(self):
+		packing.Bin.__init__(self)
+		self.size = segments.segmentlistdict()
+
+	def add_new(self, observatory, description, segment, filename)
+		self.add(CacheEntry(observatory, description, segment, "file://localhost" + os.path.abspath(filename)), segments.segmentlistdict({observatory: segments.segmentlist([segment])}))
+
+	def __str__(self):
+		return "\n".join(map(str, self.objects))
+
+
+#
+# =============================================================================
+#
+#                              Packing Algorithms
+#
+# =============================================================================
+#
 
 def bin_list(n, bintype = Bin):
 	"""
@@ -74,14 +105,6 @@ def bin_list(n, bintype = Bin):
 		l.append(bintype())
 	return l
 
-
-#
-# =============================================================================
-#
-#                              Packing Algorithms
-#
-# =============================================================================
-#
 
 class Packer(object):
 	"""
@@ -111,7 +134,7 @@ class BiggestIntoEmptiest(Packer):
 	Packs the biggest object into the emptiest bin.
 	"""
 	def pack(self, size, object):
-		min(self.bins).add_object(object, size)
+		min(self.bins).add(object, size)
 
 	def packlist(self, size_object_pairs):
 		size_object_pairs.sort()
