@@ -40,7 +40,7 @@ from optparse import OptionParser
 import os
 import sys
 
-from glue import lal
+from glue.lal import CacheEntry
 from glue import segments
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
@@ -127,42 +127,39 @@ def column_value(table, column):
 
 
 for pattern in patterns:
-	for name in glob.glob(pattern):
-		searchsumm = load_filename(name)
-
-		# initialize cache entry info
-		cache = lal.CacheEntry()
-
-		# extract segment
-		if options.program:
-			cache.segment = segments.segmentlist([row.get_out() for row in searchsumm if row.process_id.program == options.program]).extent()
-		else:
-			cache.segment = searchsumm.get_outlist().extent()
+	for filename in glob.glob(pattern):
+		searchsumm = load_filename(filename)
 
 		# extract observatory
 		if options.observatory:
-			cache.observatory = options.observatory
+			observatory = options.observatory
 		else:
 			try:
-				cache.observatory = column_value(searchsumm, "ifos").strip()
-				if not cache.observatory:
+				observatory = column_value(searchsumm, "ifos").strip()
+				if not observatory:
 					raise ValueError, "observatory column is empty"
 			except ValueError, e:
-				raise ValueError, "%s: %s" % (name, str(e))
+				raise ValueError, "%s: %s" % (filename, str(e))
 
 		# extract description
 		if options.description:
-			cache.description = options.description
+			description = options.description
 		else:
 			try:
-				cache.description = column_value(searchsumm, "comment").strip()
-				if not cache.description:
+				description = column_value(searchsumm, "comment").strip()
+				if not description:
 					raise ValueError, "description column is empty"
 			except ValueError, e:
-				raise ValueError, "%s: %s" % (name, str(e))
+				raise ValueError, "%s: %s" % (filename, str(e))
+
+		# extract segment
+		if options.program:
+			segment = segments.segmentlist([row.get_out() for row in searchsumm if row.process_id.program == options.program]).extent()
+		else:
+			segment = searchsumm.get_outlist().extent()
 
 		# set URL
-		cache.url = "file://localhost" + os.path.abspath(name)
+		url = "file://localhost" + os.path.abspath(filename)
 
 		# write cache entry
-		print >>options.output, str(cache)
+		print >>options.output, str(CacheEntry(observatory, description, segment, url))

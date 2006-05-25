@@ -142,15 +142,6 @@ def chunk_document(doc, verbose = False):
 		yield chunk.doc, chunk.seglist
 
 
-def cache_entry(instrument, comment, segment, filename):
-	c = CacheEntry()
-	c.observatory = options.cache_instrument
-	c.description = options.cache_comment
-	c.segment = segment
-	c.url = "file://localhost%s" % os.path.abspath(filename)
-	return c
-
-
 #
 # =============================================================================
 #
@@ -171,7 +162,7 @@ def write_sschunks(doc, **kwargs):
 		chunkname = "%s-%d-%d.xml" % (kwargs["base"], int(segment[0]), int(segment.duration()))
 		llwapp.write_filename(chunk, chunkname, verbose = kwargs["verbose"])
 		if kwargs["write_cache"]:
-			cache += "%s\n" % str(cache_entry(kwargs["cache_instrument"], kwargs["cache_comment"], segment, chunkname))
+			cache += "%s\n" % str(CacheEntry(kwargs["cache_instrument"], kwargs["cache_comment"], segment, "file://localhost%s" % os.path.abspath(chunkname))
 	return cache
 
 
