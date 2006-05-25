@@ -75,10 +75,10 @@ class LALCache(Bin):
 	the times spanned by the files in the cache.
 	"""
 	def __init__(self):
-		packing.Bin.__init__(self)
+		Bin.__init__(self)
 		self.size = segments.segmentlistdict()
 
-	def add_new(self, observatory, description, segment, filename)
+	def add_new(self, observatory, description, segment, filename):
 		self.add(CacheEntry(observatory, description, segment, "file://localhost" + os.path.abspath(filename)), segments.segmentlistdict({observatory: segments.segmentlist([segment])}))
 
 	def __str__(self):
