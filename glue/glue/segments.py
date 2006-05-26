@@ -641,7 +641,7 @@ class segmentlistdict(dict):
 		def __setitem__(self, key, value):
 			"""
 			Set an offset.  If the new offset is identical to
-			the current offset, this is a no-op, otherwise the
+			the current offset this is a no-op, otherwise the
 			corresponding segmentlist object is shifted.
 			"""
 			if key not in self:
@@ -657,8 +657,8 @@ class segmentlistdict(dict):
 			the corresponding segmentlist.  NOTE:  it is
 			acceptable for the offset dictionary to contain
 			entries for which there is no matching segmentlist;
-			no error will be raised, but the offset will not be
-			recorded.  This simplifies the case of updating
+			no error will be raised, but the offset will be
+			ignored.  This simplifies the case of updating
 			several segmentlistdict objects from a common
 			offset dictionary, when one or more of the
 			segmentlistdict contains only a subset of the keys.
@@ -683,7 +683,7 @@ class segmentlistdict(dict):
 			raise NotImplementedError
 		def pop(*args):
 			raise NotImplementedError
-		def popitem(*arg):
+		def popitem(*args):
 			raise NotImplementedError
 
 	def __init__(self, *args):
@@ -694,9 +694,9 @@ class segmentlistdict(dict):
 
 	def copy(self):
 		"""
-		Return a copy of dictionary.  The return value is a new
-		object with references to the original keys, and shallow
-		copies of the items.
+		Return a copy of the segmentlistdict object.  The return
+		value is a new object with references to the original keys,
+		and shallow copies of the segment lists.
 		"""
 		new = self.__class__()
 		for key, value in self.iteritems():
@@ -822,6 +822,9 @@ class segmentlistdict(dict):
 		corresponding segmentlist in self;  returns False
 		otherwise.
 		"""
+		# FIXME: should this be the other way around?  Returns True
+		# if each segmentlist in self intersects the corresponding
+		# segmentlist in other?
 		for key, value in other.iteritems():
 			if not self[key].intersects(value):
 				return False
@@ -839,16 +842,16 @@ class segmentlistdict(dict):
 		"""
 		Run contract(x) on all segmentlists.
 		"""
-		for key in self.iterkeys():
-			self[key].contract(x)
+		for value in self.itervalues():
+			value.contract(x)
 		return self
 
 	def protract(self, x):
 		"""
 		Run protract(x) on all segmentlists.
 		"""
-		for key in self.iterkeys():
-			self[key].protract(x)
+		for value in self.itervalues():
+			value.protract(x)
 		return self
 
 	def extract_common(self, keys):
@@ -883,11 +886,10 @@ class segmentlistdict(dict):
 		Return the intersection of the segmentlists associated with
 		the keys in keys.
 		"""
-		if not self or not keys:
+		if not keys:
 			return segmentlist()
-		it = iter(keys)
-		seglist = self[it.next()]
-		for value in map(self.__getitem__, it):
+		seglist = ~segmentlist()
+		for value in map(self.__getitem__, keys):
 			seglist &= value
 		return seglist
 
@@ -896,11 +898,8 @@ class segmentlistdict(dict):
 		Return the union of the segmentlists associated with the
 		keys in keys.
 		"""
-		if not self or not keys:
-			return segmentlist()
-		it = iter(keys)
-		seglist = self[it.next()]
-		for value in map(self.__getitem__, it):
+		seglist = segmentlist()
+		for value in map(self.__getitem__, keys):
 			seglist |= value
 		return seglist
 
