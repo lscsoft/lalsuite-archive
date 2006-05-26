@@ -368,7 +368,8 @@ def get_coincident_segmentlistdict(seglistdict, offsetdictlist):
 	offsets applied to it in place, but they will be restored to their
 	original value upon exit.
 	"""
-	origoffsets = seglistdict.offsets
+	origoffsets = {}
+	origoffsets.update(seglistdict.offsets)
 	coincseglists = segments.segmentlistdict()
 	for offsetdict in offsetdictlist:
 		seglistdict.offsets.update(offsetdict)
