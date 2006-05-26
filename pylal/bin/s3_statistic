@@ -848,19 +848,31 @@ if opts.stat_values:
 ####################################
 # make plots of slide loudest events
 
+if opts.plot_cum_loudest or opts.plot_pdf_loudest:
+  minSnr = 0.95 * min(slideLoudest)
+  maxSnr = 1.05 * max(slideLoudest)
+  snrArray = arange(minSnr, maxSnr, (maxSnr - minSnr) / (2 * opts.num_slides) )
+  x = arange(2 * opts.num_slides)
+  
 if opts.plot_cum_loudest:
   fig_num += 1
   figure(fig_num)
-  slideLoudest.sort()
-  numberBelow = arange(0,1,0.01) 
-  plot(slideLoudest,numberBelow,linewidth=2,label="slide dist")
+  numBelow = []
+  for snrValue in snrArray:
+    numBelow.append(sum(slideLoudest < snrValue))
+  numBelow = asarray(numBelow,'f') / (2 * opts.num_slides)
+  plot(snrArray,numBelow,linewidth=2,label="slide dist")
   if opts.zero_glob:
     axvline(loudestEvent,linewidth=2,color='r',label="zero lag")
+    P_b = sum(slideLoudest < loudestEvent) * 1./ (2 * opts.num_slides)
+    print 'pdf P_b at loudest event is ' + str(P_b)
+
+  grid()
   xlabel(opts.statistic, size='x-large')
   ylabel('Probability loudest event < value', size='x-large')
   legend()
   if opts.figure_name:
-      savefig(opts.figure_name + "_cumulative_loudest_" + value + ".png")
+      savefig(opts.figure_name + "_cumulative_loudest.png")
 
 if opts.plot_pdf_loudest:
   fig_num += 1
@@ -868,30 +880,30 @@ if opts.plot_pdf_loudest:
   hold(True)
 
   # plot a smoothed probability distribution
-  num,bbins,crap = hist(slideLoudest,100,normed = 1)
+  num,snrArray,crap = hist(slideLoudest,snrArray,normed = 1)
   clf()
-  num = asarray(1.0*num)
+  num = asarray(num,'f')
   # gaussian average over 5 points
   width = 5.0
   gauss = exp(- arange(- 1.0* (opts.num_slides - 1) /width, 
       1.0 * opts.num_slides / width,
       1.0/width )**2 / 2) / sqrt(2.0 * pi) /width
-  smooth_num = convolve(num,gauss,mode=1)
-  plot(bbins, smooth_num, 'k',linewidth=2,label="smoothed pdf")
-
-  # and a histogram
-  hist(slideLoudest,20, normed = 1)
+  smooth_pb = convolve(num,gauss,mode=1)
+  plot(snrArray, smooth_pb, 'k',linewidth=2,label="smoothed pdf")
 
   # and the zero lag line
   if opts.zero_glob:
     axvline(loudestEvent,linewidth=2,color='r',label="zero lag")
+    p_b = 0.5 * (smooth_pb[max(x[snrArray < loudestEvent])] + \
+                 smooth_pb[min(x[snrArray > loudestEvent])] )
+    print 'pdf p_b at loudest event is ' + str(p_b)
 
   xlabel(opts.statistic, size='x-large')
   ylabel('pdf of loudest event', size='x-large')
   legend()
   grid()
   if opts.figure_name:
-      savefig(opts.figure_name + "_loudest_pdf_" + value + ".png")
+      savefig(opts.figure_name + "_loudest_pdf.png")
 
 
 #######################################################################
