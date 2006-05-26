@@ -701,6 +701,7 @@ class segmentlistdict(dict):
 		new = self.__class__()
 		for key, value in self.iteritems():
 			new[key] = copy(value)
+		dict.update(new.offsets, self.offsets)
 		return new
 
 	def __setitem__(self, key, value):
