@@ -372,6 +372,9 @@ class Table(ligolw.Table):
 	def pop(self, key):
 		return self.rows.pop(key)
 
+	def sort(self, *args):
+		self.rows.sort(*args)
+
 	def filterRows(self, func):
 		"""
 		Delete all rows for which func(row) evaluates to False.
