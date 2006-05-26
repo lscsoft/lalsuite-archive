@@ -26,6 +26,11 @@
 # =============================================================================
 #
 
+"""
+LIGO Light-Weight XML segment table manipulation.  At the moment, all this
+can do is convert the output of segwizard to an XML file.
+"""
+
 from optparse import OptionParser
 import sys
 
