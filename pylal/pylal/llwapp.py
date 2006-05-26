@@ -62,7 +62,7 @@ def measure_file_sizes(filenames):
 	From a list of file names, return a list of (size, name) tuples
 	sorted in descending order by size.
 	"""
-	l = [(os.stat(name)[stat.ST_SIZE], name) for name in filenames]
+	l = [(os.stat(name)[stat.ST_SIZE], name) for name in filenames if name]
 	l.sort()
 	l.reverse()
 	return l
