@@ -692,6 +692,17 @@ class segmentlistdict(dict):
 		if args and isinstance(args[0], segmentlistdict):
 			dict.update(self.offsets, args[0].offsets)
 
+	def copy(self):
+		"""
+		Return a copy of dictionary.  The return value is a new
+		object with references to the original keys, and shallow
+		copies of the items.
+		"""
+		new = self.__class__()
+		for key, value in self.iteritems():
+			new[key] = copy(value)
+		return new
+
 	def __setitem__(self, key, value):
 		"""
 		Set the segmentlist associated with a key.  If key is not
@@ -755,7 +766,7 @@ class segmentlistdict(dict):
 		return self
 
 	def __and__(self, other):
-		new = segmentlistdict(self)
+		new = self.copy()
 		new &= other
 		return new
 
@@ -768,7 +779,7 @@ class segmentlistdict(dict):
 		return self
 
 	def __or__(self, other):
-		new = segmentlistdict(self)
+		new = self.copy()
 		new |= other
 		return new
 
@@ -782,12 +793,12 @@ class segmentlistdict(dict):
 		return self
 
 	def __sub__(self, other):
-		new = segmentlistdict(self)
+		new = self.copy()
 		new -= other
 		return new
 
 	def __invert__(self):
-		new = seglistdict(self)
+		new = self.copy()
 		for key, value in new.iteritems():
 			dict.__setitem__(new, key, ~value)
 		return new
@@ -817,7 +828,7 @@ class segmentlistdict(dict):
 
 	def coalesce(self):
 		"""
-		Coalesce all segmentlists in self.
+		Run coalesce() on all segmentlists.
 		"""
 		for value in self.itervalues():
 			value.coalesce()
@@ -825,7 +836,7 @@ class segmentlistdict(dict):
 
 	def contract(self, x):
 		"""
-		Contract the segmentlists.
+		Run contract(x) on all segmentlists.
 		"""
 		for key in self.iterkeys():
 			self[key].contract(x)
@@ -833,7 +844,7 @@ class segmentlistdict(dict):
 
 	def protract(self, x):
 		"""
-		Protract the segmentlists.
+		Run protract(x) on all segmentlists.
 		"""
 		for key in self.iterkeys():
 			self[key].protract(x)
