@@ -40,6 +40,7 @@ import urllib
 from glue import segments
 from glue.ligolw import ligolw
 from glue.ligolw import metaio
+from glue.ligolw import array
 from glue.ligolw import lsctables
 from glue.ligolw import docutils
 from pylal.date import XLALUTCToGPS
@@ -144,6 +145,25 @@ def segmentlistdict_fromsearchsummary(xmldoc, live_time_program):
 			else:
 				seglistdict[row.ifos] = segments.segmentlist([row.get_out()])
 	return seglistdict.coalesce()
+
+
+#
+# =============================================================================
+#
+#                                    Arrays
+#
+# =============================================================================
+#
+
+def get_array(doc, name):
+	"""
+	Scan doc for an array named name.  Raises ValueError if not exactly
+	1 such table is found.
+	"""
+	arrays = array.getArraysByName(doc, name)
+	if len(arrays) != 1:
+		raise ValueError, "document must contain exactly one %s array" % array.StripArrayName(name)
+	return arrays[0]
 
 
 #
