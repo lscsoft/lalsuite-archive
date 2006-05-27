@@ -446,7 +446,7 @@ plots = [
 	RecoveredTimeOffset(segments.segment(-0.25, +0.25), 0.005)
 ]
 
-for n, filename in enumerate(llwapp.sort_files_by_size(filenames, options.verbose)):
+for n, filename in enumerate(llwapp.sort_files_by_size(filenames, options.verbose, reverse = True)):
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
 	doc = llwapp.load_filename(filename, options.verbose)

@@ -58,24 +58,29 @@ __date__ = "$Date$"[7:-2]
 # =============================================================================
 #
 
-def measure_file_sizes(filenames):
+def measure_file_sizes(filenames, reverse = False):
 	"""
 	From a list of file names, return a list of (size, name) tuples
-	sorted in descending order by size.
+	sorted in ascending order by size.
 	"""
 	l = [(os.stat(name)[stat.ST_SIZE], name) for name in filenames if name]
 	l.sort()
-	l.reverse()
+	if reverse:
+		l.reverse()
 	return l
 
 
-def sort_files_by_size(filenames, verbose = False):
+def sort_files_by_size(filenames, verbose = False, reverse = False):
 	"""
-	Sort the file names from largest file to smallest file.
+	Sort the file names from smallest file to largest file (or largest
+	to smallest if reverse is set to True).
 	"""
 	if verbose:
-		print >>sys.stderr, "sorting files from largest to smallest..."
-	return [pair[1] for pair in measure_file_sizes(filenames)]
+		if reverse:
+			print >>sys.stderr, "sorting files from largest to smallest..."
+		else:
+			print >>sys.stderr, "sorting files from smallest to largest..."
+	return [pair[1] for pair in measure_file_sizes(filenames, reverse = reverse)]
 
 
 def load_filename(filename, verbose = False):
