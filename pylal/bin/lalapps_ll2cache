@@ -95,9 +95,9 @@ def load_filename(filename):
 	Load, merge, and extract search summary tables.
 	"""
 	if options.verbose:
-		print >>sys.stderr, "%s ..." % name
+		print >>sys.stderr, "%s ..." % filename
 	doc = ligolw.Document()
-	ligolw.make_parser(docutils.PartialLIGOLWContentHandler(doc, filter)).parse(file(name))
+	ligolw.make_parser(docutils.PartialLIGOLWContentHandler(doc, filter)).parse(file(filename))
 	docutils.makeReference(doc)
 	return llwapp.get_table(doc, lsctables.SearchSummaryTable.tableName)
 
