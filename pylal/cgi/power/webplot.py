@@ -12,6 +12,7 @@ from glue import segments
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import docutils
+from glue.ligolw.utils import ligolw_add
 
 from pylal import llwapp
 from pylal import SnglBurstUtils
@@ -107,12 +108,19 @@ class PlotDescription(object):
 # =============================================================================
 #
 
-def ElementFilter(name, attrs):
-	"""
-	Filter for reading only sngl_burst, sim_burst and search_summary
-	tables.
-	"""
+def element_filter(name, attrs):
 	return lsctables.IsTableProperties(lsctables.SnglBurstTable, name, attrs) or lsctables.IsTableProperties(lsctables.SimBurstTable, name, attrs) or lsctables.IsTableProperties(lsctables.SearchSummaryTable, name, attrs)
+
+class ContentHandler(docutils.PartialLIGOLWContentHandler):
+	"""
+	ContentHandler for reading only sngl_burst, sim_burst and
+	search_summary tables.
+	"""
+	def __init__(self, doc):
+		docutils.PartialLIGOLWContentHandler.__init__(self, doc, element_filter)
+
+ligolw_add.ContentHandler = ContentHandler
+
 
 def CacheURLs(cachename, seg):
 	"""
@@ -122,15 +130,7 @@ def CacheURLs(cachename, seg):
 	return [c.url for c in map(CacheEntry, file(cachename)) if c.segment.intersects(seg)]
 
 def gettriggers(plotdesc):
-	# load documents
-	doc = ligolw.Document()
-	handler = docutils.PartialLIGOLWContentHandler(doc, ElementFilter)
-	for url in CacheURLs(eventdisplay.cache[plotdesc.instrument], plotdesc.segment):
-		try:
-			ligolw.make_parser(handler).parse(urllib.urlopen(url))
-		except ligolw.ElementError, e:
-			raise Exception, "error parsing file %s: %s" % (url, str(e))
-		docutils.MergeCompatibleTables(doc)
+	doc = ligolw_add.ligolw_add(ligolw.Document(), CacheURLs(eventdisplay.cache[plotdesc.instrument], plotdesc.segment))
 	try:
 		plotdesc.seglist = llwapp.get_table(doc, lsctables.SearchSummaryTable.tableName).get_outlist().coalesce()
 	except:
