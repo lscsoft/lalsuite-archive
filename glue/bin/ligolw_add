@@ -57,15 +57,16 @@ def parse_command_line():
 	Parse the command line, return an options object and a list of URLs.
 	"""
 	parser = OptionParser(version = "%prog CVS $Id$")
-	parser.add_option("-i", "--input-cache", metavar = "CACHEFILE", action = "append", default = [], help = "get input files from trigger cache CACHEFILE")
+	parser.add_option("-i", "--input-cache", metavar = "filename", action = "append", default = [], help = "get input files from the LAL cache named filename")
 	parser.add_option("--add-lfn-table", action = "store_true", help = "add an lfn entry for each process")
-	parser.add_option("--lfn-start-time", metavar = "START", help = "set lft start_time to START (optional)")
-	parser.add_option("--lfn-end-time", metavar = "END", help = "set lfn end_time to END (optional)")
-	parser.add_option("--lfn-comment", metavar = "STRING", help = "set lfn comment to STRING (optional)")
+	parser.add_option("--lfn-start-time", metavar = "GPS seconds", help = "set lfn start_time (optional)")
+	parser.add_option("--lfn-end-time", metavar = "GPS seconds", help = "set lfn end_time (optional)")
+	parser.add_option("--lfn-comment", metavar = "string", help = "set lfn comment (optional)")
 	parser.add_option("--non-lsc-tables-ok", action = "store_true", help = "OK to merge documents containing non-LSC tables")
-	parser.add_option("-o", "--output", metavar = "FILENAME", help = "write output to FILENAME (default = stdout)")
+	parser.add_option("-o", "--output", metavar = "filename", help = "write output to filename (default = stdout)")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
-	parser.add_option("-r", "--remove-input", action = "store_true", help = "remove input files after loading")
+	parser.add_option("--remove-input", action = "store_true", help = "remove input files after writing output (an attempt is made to not delete the output file in the event that it overwrote one of the input files)")
+	parser.add_option("--remove-input-except", metavar = "filename", action = "append", default = [], help = "when deleting input files, do not delete this file")
 	options, urls = parser.parse_args()
 
 	if options.lfn_start_time:
@@ -151,7 +152,7 @@ try:
 
 	# Remove input
 	if options.remove_input:
-		ligolw_add.remove_input(urls, options.output, options.verbose)
+		ligolw_add.remove_input(urls, [options.output] + options.remove_input_except, options.verbose)
 except Exception, e:
 	print >>sys.stderr, "error: %s" % str(e)
 	sys.exit(1)

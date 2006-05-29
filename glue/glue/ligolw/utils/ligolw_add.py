@@ -70,13 +70,13 @@ def url2path(url):
 	raise ValueError, url
 
 
-def remove_input(urls, output, verbose = False):
+def remove_input(urls, preserves, verbose = False):
 	"""
 	Attempt to delete all files identified by the URLs in urls except
-	any that are the same as the file whose name is output.
+	any that are the same as the files in the preserves list.
 	"""
 	for path in map(url2path, urls):
-		if output and os.path.samefile(path, output):
+		if True in map(os.path.samefile, [path] * len(preserves), preserves):
 			continue
 		if verbose:
 			print >>sys.stderr, "removing %s ..." % path
