@@ -111,17 +111,74 @@ def reassign_ids(doc):
 	return doc
 
 
-def element_merge(doc):
+def merge_elements(elem1, elem2):
+	"""
+	Move the children of elem2 to elem1, and unlink elem2 from its
+	parent.  The return value is elem1.
+	
+	If the two elements are tables, then more the rows of the second
+	table into the first table, and unlink the second table from the
+	document tree.  The table, column, and stream names of the first
+	table are retained, as well as the (optional) comment child
+	element.
+	"""
+	if elem1.tagName != elem2.tagName:
+		raise ligolw.ElementError, "merge_elements(): elements must have same names"
+	if elem1.tagName == ligolw.LIGO_LW.tagName:
+		# copy children;  LIGO_LW elements have no attributes
+		map(elem1.appendChild, elem2.childNodes)
+	elif elem1.tagName == ligolw.Table.tagName:
+		# copy rows
+		elem1.rows.extend(elem2.rows)
+	else:
+		raise ligolw.ElementError, "merge_elements(): can't merge %s elements." % elem1.tagName
+	if elem2.parentNode:
+		elem2.parentNode.removeChild(elem2)
+	return elem1
+
+
+def tables_can_be_merged(a, b):
+	"""
+	Return True if the two tables a and b can be merged.  This means
+	they have equivalent names, and equivalent columns according to
+	LIGO LW name conventions.
+	"""
+	if metaio.CompareTableNames(a.getAttribute("Name"), b.getAttribute("Name")) != 0:
+		return False
+	acols = [(metaio.StripColumnName(col.getAttribute("Name")), col.getAttribute("Type")) for col in a.getElementsByTagName(ligolw.Column.tagName)]
+	bcols = [(metaio.StripColumnName(col.getAttribute("Name")), col.getAttribute("Type")) for col in b.getElementsByTagName(ligolw.Column.tagName)]
+	for acol in acols:
+		if acol not in bcols:
+			return False
+	return True
+
+
+def merge_compatible_tables(elem):
+	"""
+	Below the given element, find all Tables whose structure is
+	described in lsctables, and merge compatible ones of like type.
+	That is, merge all SnglBurstTables that have the same columns into
+	a single table, etc..
+	"""
+	for tname in lsctables.TableByName.keys():
+		tables = metaio.getTablesByName(elem, tname)
+		for i in range(1, len(tables)):
+			if tables_can_be_merged(tables[0], tables[i]):
+				merge_elements(tables[0], tables[i])
+	return elem
+
+
+def merge_all_elements(doc):
 	"""
 	Combine the child elements of all top-level LIGO_LW elements under
 	a single LIGO_LW element, then combine equivalent tables into
 	single tables.
 	"""
 	# LIGO_LW elements
-	reduce(docutils.MergeElements, doc.getElementsByTagName(ligolw.LIGO_LW.tagName))
+	reduce(merge_elements, doc.getElementsByTagName(ligolw.LIGO_LW.tagName))
 
 	# Table elements
-	docutils.MergeCompatibleTables(doc)
+	merge_compatible_tables(doc)
 
 	return doc
 
@@ -156,6 +213,6 @@ def ligolw_add(doc, urls, **kwargs):
 	# Document merge
 	if kwargs["verbose"]:
 		print >>sys.stderr, "merging elements ..."
-	element_merge(doc)
+	merge_all_elements(doc)
 
 	return doc
