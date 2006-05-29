@@ -163,7 +163,7 @@ def segmentlistdict_fromsearchsummary(xmldoc, live_time_program):
 def get_array(doc, name):
 	"""
 	Scan doc for an array named name.  Raises ValueError if not exactly
-	1 such table is found.
+	1 such array is found.
 	"""
 	arrays = array.getArraysByName(doc, name)
 	if len(arrays) != 1:
