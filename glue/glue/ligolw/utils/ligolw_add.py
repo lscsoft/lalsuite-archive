@@ -36,7 +36,6 @@ from urlparse import urlparse
 from glue.ligolw import ligolw
 from glue.ligolw import metaio
 from glue.ligolw import lsctables
-from glue.ligolw import docutils
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __date__ = "$Date$"[7:-2]
@@ -106,9 +105,9 @@ def reassign_ids(doc):
 	for tablename, ilwdclass in lsctables.ILWDGeneratorByTableName.iteritems():
 		ilwditers[tablename] = ilwdclass()
 	for elem in doc.getElementsByTagName(ligolw.LIGO_LW.tagName):
-		docutils.makeReference(elem)
-		docutils.NewIDs(elem, ilwditers)
-		docutils.deReference(elem)
+		lsctables.makeReference(elem)
+		lsctables.NewIDs(elem, ilwditers)
+		lsctables.deReference(elem)
 	return doc
 
 
@@ -205,7 +204,7 @@ def ligolw_add(doc, urls, **kwargs):
 		append_document(doc, urllib.urlopen(url))
 
 	# ID reassignment
-	if not kwargs["non_lsc_tables_ok"] and docutils.HasNonLSCTables(doc):
+	if not kwargs["non_lsc_tables_ok"] and lsctables.HasNonLSCTables(doc):
 		raise ValueError, "non-LSC tables found.  Use --non-lsc-tables-ok to force"
 	if kwargs["verbose"]:
 		print >>sys.stderr, "reasigning row IDs ..."
