@@ -40,8 +40,8 @@ import sys
 from glue.lal import CacheEntry
 from glue import segments
 from glue.ligolw import ligolw
+from glue.ligolw import metaio
 from glue.ligolw import lsctables
-from glue.ligolw import docutils
 from pylal import llwapp
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -116,7 +116,7 @@ class Chunk(object):
 		try:
 			table = llwapp.get_table(self.doc, template.tableName)
 		except:
-			table = self.doc.childNodes[0].appendChild(docutils.CopyTable(template))
+			table = self.doc.childNodes[0].appendChild(metaio.new_from_template(template))
 		return table
 
 
