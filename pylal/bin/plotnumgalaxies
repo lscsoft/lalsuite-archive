@@ -640,14 +640,16 @@ if eff_plot:
 
   if len(errorVal):
     for key in errorVal.keys():
-      if key == 'Waveform' or key[0].lower() == opts.x_value[-1]:
+      if ('dist' in opts.x_value) and \
+          (key == 'Waveform' or key[0].lower() == opts.x_value[-1]):
         xf = distError(xFound,errorVal[key],0)
         xm = distError(xMissed,errorVal[key],0)
       else:
         xf = xFound
         xm = xMissed
         
-      if key == 'Waveform' or key[0].lower() == opts.y_value[-1]:
+      if ('dist' in opts.y_value) and \
+          (key == 'Waveform' or key[0].lower() == opts.y_value[-1]):
         yf = distError(yFound,errorVal[key],0)
         ym = distError(yMissed,errorVal[key],0)
       else:
