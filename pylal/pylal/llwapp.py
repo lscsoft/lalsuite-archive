@@ -40,6 +40,7 @@ import urllib
 from glue import segments
 from glue.ligolw import ligolw
 from glue.ligolw import metaio
+from glue.ligolw import param
 from glue.ligolw import array
 from glue.ligolw import lsctables
 from glue.ligolw import docutils
