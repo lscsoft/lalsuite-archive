@@ -480,27 +480,45 @@ class Table(ligolw.Table):
 # =============================================================================
 #
 
+#
+# Override portions of the ligolw.LIGOLWContentHandler class
+#
+
+__parent_startStream = ligolw.LIGOLWContentHandler.startStream
+__parent_endStream = ligolw.LIGOLWContentHandler.endStream
+
+def startColumn(self, attrs):
+	return Column(attrs)
+
+def startStream(self, attrs):
+	if self.current.tagName == ligolw.Table.tagName:
+		return TableStream(attrs)
+	return __parent_startStream(self, attrs)
+
+def endStream(self):
+	# stream tokenizer uses delimiter to identify end of each token, so
+	# add a final delimiter to induce the last token to get parsed.
+	if self.current.parentNode.tagName == ligolw.Table.tagName:
+		self.current.appendData(self.current.getAttribute("Delimiter"))
+	else:
+		__parent_endStream(self)
+
+def startTable(self, attrs):
+	return Table(attrs)
+
+ligolw.LIGOLWContentHandler.startColumn = startColumn
+ligolw.LIGOLWContentHandler.startStream = startStream
+ligolw.LIGOLWContentHandler.endStream = endStream
+ligolw.LIGOLWContentHandler.startTable = startTable
+
+
+#
+# This class defined for backwards compatibility;  remove when nobody uses
+# it.
+#
+
+import warnings
 class LIGOLWContentHandler(ligolw.LIGOLWContentHandler):
-	"""
-	ContentHandler that redirects Column, Stream and Table elements to
-	those defined in this module.
-	"""
-	def startColumn(self, attrs):
-		return Column(attrs)
-
-	def startStream(self, attrs):
-		if self.current.tagName == ligolw.Table.tagName:
-			return TableStream(attrs)
-		return ligolw.LIGOLWContentHandler.startStream(self, attrs)
-
-	def endStream(self):
-		# stream tokenizer uses delimiter to identify end of each
-		# token, so add a final delimiter to induce the last token
-		# to get parsed.
-		if self.current.parentNode.tagName == ligolw.Table.tagName:
-			self.current.appendData(self.current.getAttribute("Delimiter"))
-		else:
-			ligolw.LIGOLWContentHandler.endStream(self)
-
-	def startTable(self, attrs):
-		return Table(attrs)
+	def __init__(*args):
+		warnings.warn("metaio.LIGOLWContentHandler() class is deprecated:  use ligolw.metaio.LIGOLWContentHandler() instead", DeprecationWarning)
+		ligolw.LIGOLWContentHandler.__init__(*args)

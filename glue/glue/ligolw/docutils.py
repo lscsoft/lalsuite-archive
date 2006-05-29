@@ -204,7 +204,7 @@ def NewIDs(elem, ilwditers):
 # =============================================================================
 #
 
-class PartialLIGOLWContentHandler(lsctables.LIGOLWContentHandler):
+class PartialLIGOLWContentHandler(ligolw.LIGOLWContentHandler):
 	"""
 	LIGO LW content handler object with the ability to strip unwanted
 	portions of the document from the input stream.  Useful, for
@@ -216,16 +216,16 @@ class PartialLIGOLWContentHandler(lsctables.LIGOLWContentHandler):
 		to True, and the children of those elements, will be
 		loaded.
 		"""
-		lsctables.LIGOLWContentHandler.__init__(self, document)
+		ligolw.LIGOLWContentHandler.__init__(self, document)
 		self.filter = filter
 		self.filtered_depth = 0
 
 	def startElement(self, name, attrs):
 		if self.filtered_depth > 0 or self.filter(name, attrs):
-			lsctables.LIGOLWContentHandler.startElement(self, name, attrs)
+			ligolw.LIGOLWContentHandler.startElement(self, name, attrs)
 			self.filtered_depth += 1
 
 	def endElement(self, name):
 		if self.filtered_depth > 0:
 			self.filtered_depth -= 1
-			lsctables.LIGOLWContentHandler.endElement(self, name)
+			ligolw.LIGOLWContentHandler.endElement(self, name)

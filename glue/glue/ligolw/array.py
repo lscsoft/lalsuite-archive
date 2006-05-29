@@ -237,24 +237,29 @@ class Array(ligolw.Array):
 # =============================================================================
 #
 
-class LIGOLWContentHandler(ligolw.LIGOLWContentHandler):
-	"""
-	ContentHandler that redirects Array, and Stream elements to those
-	defined in this module.
-	"""
-	def startStream(self, attrs):
-		if self.current.tagName == ligolw.Array.tagName:
-			return ArrayStream(attrs)
-		return ligolw.LIGOLWContentHandler.startStream(self, attrs)
+#
+# Override portions of ligolw.LIGOLWContentHandler class
+#
 
-	def endStream(self):
-		# stream tokenizer uses delimiter to identify end of each
-		# token, so add a final delimiter to induce the last token
-		# to get parsed.
-		if self.current.parentNode.tagName == ligolw.Array.tagName:
-			self.current.appendData(self.current.getAttribute("Delimiter"))
-		else:
-			ligolw.LIGOLWContentHandler.endStream(self)
+__parent_startStream = ligolw.LIGOLWContentHandler.startStream
+__parent_endStream = ligolw.LIGOLWContentHandler.endStream
 
-	def startArray(self, attrs):
-		return Array(attrs)
+def startStream(self, attrs):
+	if self.current.tagName == ligolw.Array.tagName:
+		return ArrayStream(attrs)
+	return __parent_startStream(self, attrs)
+
+def endStream(self):
+	# stream tokenizer uses delimiter to identify end of each token, so
+	# add a final delimiter to induce the last token to get parsed.
+	if self.current.parentNode.tagName == ligolw.Array.tagName:
+		self.current.appendData(self.current.getAttribute("Delimiter"))
+	else:
+		__parent_endStream(self)
+
+def startArray(self, attrs):
+	return Array(attrs)
+
+ligolw.LIGOLWContentHandler.startStream = startStream
+ligolw.LIGOLWContentHandler.endStream = endStream
+ligolw.LIGOLWContentHandler.startArray = startArray

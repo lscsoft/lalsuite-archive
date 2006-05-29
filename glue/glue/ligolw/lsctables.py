@@ -2315,14 +2315,16 @@ ILWDGeneratorByTableName = {
 }
 
 
-class LIGOLWContentHandler(metaio.LIGOLWContentHandler):
-	"""
-	ContentHandler that redirects Table elements with known structure
-	to the definitions in this module, using the Table element in
-	metaio as a fall-back for unrecognized tables.
-	"""
-	def startTable(self, attrs):
-		try:
-			return TableByName[metaio.StripTableName(attrs["Name"])](attrs)
-		except KeyError:
-			return metaio.Table(attrs)
+#
+# Override portions of the ligolw.LIGOLWContentHandler class
+#
+
+__parent_startTable = ligolw.LIGOLWContentHandler.startTable
+
+def startTable(self, attrs):
+	try:
+		return TableByName[metaio.StripTableName(attrs["Name"])](attrs)
+	except KeyError:
+		return __parent_startTable(self, attrs)
+
+ligolw.LIGOLWContentHandler.startTable = startTable
