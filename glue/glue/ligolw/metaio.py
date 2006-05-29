@@ -48,6 +48,7 @@ __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __date__ = "$Date$"[7:-2]
 __version__ = "$Revision$"[11:-2]
 
+import copy
 import re
 import sys
 from xml.sax.xmlreader import AttributesImpl
@@ -142,6 +143,33 @@ def getTablesByName(elem, name):
 	Return a list of tables with name name under elem.
 	"""
 	return elem.getElements(lambda e: (e.tagName == ligolw.Table.tagName) and (CompareTableNames(e.getAttribute("Name"), name) == 0))
+
+
+#
+# =============================================================================
+#
+#                                  Utilities
+#
+# =============================================================================
+#
+
+def new_from_template(template):
+	"""
+	Construct a new Table document subtree whose structure is the same
+	as the template table, that is it has the same columns etc..  The
+	rows are not copied.  Note that a fair amount of metadata is shared
+	between the original and new tables.  In particular, a copy of the
+	Table object itself is created, copies of the child nodes are
+	created, and a new row list is created.  All other object
+	references are shared between the two instances, such as the
+	RowType attribute on the Table object.
+	"""
+	new = copy.copy(template)
+	new.childNodes = map(copy.copy, template.childNodes)
+	for child in new.childNodes:
+		child.parentNode = new
+	new.rows = []
+	return new
 
 
 #
@@ -346,7 +374,6 @@ class Table(ligolw.Table):
 		self.columnnames = []
 		self.columntypes = []
 		self.rows = []
-
 
 	#
 	# Sequence methods
