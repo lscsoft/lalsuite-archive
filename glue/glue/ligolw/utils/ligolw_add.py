@@ -50,12 +50,14 @@ __version__ = "$Revision$"[11:-2]
 # =============================================================================
 #
 
+ContentHandler = ligolw.LIGOLWContentHandler
+
 def append_document(doc, file):
 	"""
 	Parse the contents of the file object file, appending to the
 	document tree doc.
 	"""
-	ligolw.make_parser(ligolw.LIGOLWContentHandler(doc)).parse(file)
+	ligolw.make_parser(ContentHandler(doc)).parse(file)
 	return doc
 
 
