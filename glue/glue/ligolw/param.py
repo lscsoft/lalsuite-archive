@@ -32,6 +32,9 @@ __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __date__ = "$Date$"[7:-2]
 __version__ = "$Revision$"[11:-2]
 
+import re
+import sys
+
 import ligolw
 import tokenizer
 import types
@@ -105,6 +108,20 @@ def new_param(name, type, value, comment = None):
 # =============================================================================
 #
 
+# FIXME: params of type string should be quoted in order to correctly
+# delimit their extent.  If that were done, then the pcdata in a Param
+# element could be parsed using the Stream tokenizer (i.e., as though it
+# were a single-token stream), which would guarantee that Stream data and
+# Param data is parsed using the exact same rules.  Unfortunately, common
+# practice is to not quote Param string values, so we parse things
+# differently here.  In particular, we strip whitespace from the start and
+# stop of all Param pcdata.  If this causes your string Param values to be
+# corrupted (because you need leading and trailing white space preserved),
+# then you need to make everyone switch to quoting their string Param
+# values and once that is done then this code will be changed.  Perhaps a
+# warning should be emitted for non-quoted strings to encourage a
+# transition?
+
 class Param(ligolw.Param):
 	"""
 	High-level Param element.  The parsed value is stored in the pcdata
@@ -116,34 +133,28 @@ class Param(ligolw.Param):
 		"""
 		ligolw.Param.__init__(self, *attrs)
 		self.tokenizer = tokenizer.Tokenizer(" ")
-		t = self.getAttribute("Type")
+		try:
+			t = self.getAttribute("Type")
+		except KeyError:
+			# default
+			t = "lstring"
 		if t in types.IntTypes:
-			self.tokenizer.set_types([int])
+			self.pytype = int
 		elif t in types.FloatTypes:
-			self.tokenizer.set_types([float])
+			self.pytype = float
 		elif t in types.StringTypes:
-			self.tokenizer.set_types([str])
+			self.pytype = str
 		else:
 			raise TypeError, t
-		self.pcdata = None
-
-	def appendData(self, content):
-		for token in self.tokenizer.add(content):
-			if self.pcdata != None:
-				raise ligolw.ElementError, "extra data %s in Param" % content
-			self.pcdata = token
 
 	def write(self, file = sys.stdout, indent = ""):
 		print >>file, self.start_tag(indent)
 		for c in self.childNodes:
 			if c.tagName not in self.validchildren:
 				raise ElementError, "invalid child %s for %s" % (c.tagName, self.tagName)
-			c.write(file, indent + Indent)
+			c.write(file, indent + ligolw.Indent)
 		if self.pcdata:
-			if self.getAttribute("Type") in StringTypes:
-				print >>file, indent + Indent + "\"" + self.pcdata + "\""
-			else:
-				print >>file, indent + Indent + str(self.pcdata)
+			print >>file, indent + ligolw.Indent + str(self.pcdata)
 		print >>file, self.end_tag(indent)
 
 
@@ -163,9 +174,7 @@ def startParam(self, attrs):
 	return Param(attrs)
 
 def endParam(self):
-	# param tokenizer uses delimiter to identify end of token, so add a
-	# final delimiter to induce the last token to get parsed.
-	self.current.appendData(" ")
+	self.current.pcdata = self.current.pytype(self.current.pcdata.strip())
 
 ligolw.LIGOLWContentHandler.startParam = startParam
 ligolw.LIGOLWContentHandler.endParam = endParam
