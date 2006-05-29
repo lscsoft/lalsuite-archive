@@ -9,7 +9,7 @@ from glue.ligolw import array
 
 print "Loading ligo_lw_test_01.xml..."
 doc = ligolw.Document()
-ligolw.make_parser(array.LIGOLWContentHandler(doc)).parse(file("ligo_lw_test_01.xml"))
+ligolw.make_parser(ligolw.LIGOLWContentHandler(doc)).parse(file("ligo_lw_test_01.xml"))
 
 for n, a in enumerate(doc.getElementsByTagName(ligolw.Array.tagName)):
 	print "Found %s array \"%s\"..." % ("x".join(map(str, a.array.shape)), a.getAttribute("Name")),

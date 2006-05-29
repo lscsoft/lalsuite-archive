@@ -88,9 +88,9 @@ def load_filename(filename, verbose = False):
 		print >>sys.stderr, "reading %s..." % (filename or "stdin")
 	doc = ligolw.Document()
 	if filename:
-		ligolw.make_parser(lsctables.LIGOLWContentHandler(doc)).parse(file(filename))
+		ligolw.make_parser(ligolw.LIGOLWContentHandler(doc)).parse(file(filename))
 	else:
-		ligolw.make_parser(lsctables.LIGOLWContentHandler(doc)).parse(sys.stdin)
+		ligolw.make_parser(ligolw.LIGOLWContentHandler(doc)).parse(sys.stdin)
 	return doc
 
 
@@ -99,9 +99,9 @@ def load_url(url, verbose = False):
 		print >>sys.stderr, "reading %s..." % (url or "stdin")
 	doc = ligolw.Document()
 	if url:
-		ligolw.make_parser(lsctables.LIGOLWContentHandler(doc)).parse(urllib.urlopen(url))
+		ligolw.make_parser(ligolw.LIGOLWContentHandler(doc)).parse(urllib.urlopen(url))
 	else:
-		ligolw.make_parser(lsctables.LIGOLWContentHandler(doc)).parse(sys.stdin)
+		ligolw.make_parser(ligolw.LIGOLWContentHandler(doc)).parse(sys.stdin)
 	return doc
 
 

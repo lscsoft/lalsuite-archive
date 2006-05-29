@@ -29,7 +29,7 @@ def append_document(doc, file):
 	Parse the contents of the file object file, appending to the
 	document tree doc.
 	"""
-	ligolw.make_parser(lsctables.LIGOLWContentHandler(doc)).parse(file)
+	ligolw.make_parser(ligolw.LIGOLWContentHandler(doc)).parse(file)
 	return doc
 
 

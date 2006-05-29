@@ -51,9 +51,9 @@ del parser, args
 
 indoc = ligolw.Document()
 if options.input:
-	ligolw.make_parser(lsctables.LIGOLWContentHandler(indoc)).parse(file(options.input))
+	ligolw.make_parser(ligolw.LIGOLWContentHandler(indoc)).parse(file(options.input))
 else:
-	ligolw.make_parser(lsctables.LIGOLWContentHandler(indoc)).parse(sys.stdin)
+	ligolw.make_parser(ligolw.LIGOLWContentHandler(indoc)).parse(sys.stdin)
 
 snglinsptables = metaio.getTablesByName(indoc, lsctables.SnglInspiralTable.tableName)
 insearchsummtables = metaio.getTablesByName(indoc, lsctables.SearchSummaryTable.tableName)

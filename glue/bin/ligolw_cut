@@ -80,9 +80,9 @@ def parse_command_line():
 def LoadDocuments(input):
 	doc = ligolw.Document()
 	if input:
-		ligolw.make_parser(metaio.LIGOLWContentHandler(doc)).parse(file(input))
+		ligolw.make_parser(ligolw.LIGOLWContentHandler(doc)).parse(file(input))
 	else:
-		ligolw.make_parser(metaio.LIGOLWContentHandler(doc)).parse(sys.stdin)
+		ligolw.make_parser(ligolw.LIGOLWContentHandler(doc)).parse(sys.stdin)
 	return doc
 
 
