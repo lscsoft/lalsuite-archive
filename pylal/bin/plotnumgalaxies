@@ -767,8 +767,8 @@ if opts.plot_efficiency:
     ylim(0, 1.1)      
     xlabel(opts.x_value, size='x-large')
     ylabel('n_g', size='x-large')
-    text += 'Monte Carlo'
-    title(text + ' errors in efficiency', size='x-large')
+    text += 'Monte Carlo '
+    title(text + 'errors in efficiency', size='x-large')
     fname += 'mc'
     if opts.figure_name:
       savefig( opts.figure_name + '_' + opts.x_value + fname + 'errors.png' )
@@ -793,8 +793,8 @@ if opts.plot_efficiency:
       ylim(0, 1.1)      
       xlabel(opts.x_value, size='x-large')
       ylabel('n_g', size='x-large')
-      text += key
-      title(text + ' systematics in efficiency', size='x-large')
+      text += key + ' '
+      title(text + 'systematics in efficiency', size='x-large')
       if opts.figure_name:
         savefig( opts.figure_name + '_' + opts.x_value + fname + '_errors.png')
 
