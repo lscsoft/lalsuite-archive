@@ -57,27 +57,6 @@ def HasNonLSCTables(elem):
 	return False
 
 
-def CopyTable(table):
-	"""
-	Construct and return a duplicate of a table document tree.  Rows
-	are not copied.  Note that a fair amount of metadata is shared
-	between the original and new tables.  In particular, a copy of the
-	Table object itself is created, copies of the child nodes are
-	created, and a new row list is created.  All other object
-	references are shared between the two instances, such as the
-	RowType attribute on the Table object.
-	"""
-	if table.tagName != ligolw.Table.tagName:
-		raise ValueError, table
-	new = copy.copy(table)
-	new.childNodes = map(copy.copy, table.childNodes)
-	for child in new.childNodes:
-		child.parentNode = new
-	if hasattr(new, "rows"):
-		new.rows = []
-	return new
-
-
 #
 # Row cross-reference utilities.
 #
