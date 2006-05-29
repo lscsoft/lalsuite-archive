@@ -175,6 +175,25 @@ def get_array(doc, name):
 #
 # =============================================================================
 #
+#                                    Params
+#
+# =============================================================================
+#
+
+def get_param(doc, name):
+	"""
+	Scan doc for a param named name.  Raises ValueError if not exactly
+	1 such param is found.
+	"""
+	params = param.getParamsByName(doc, name)
+	if len(params) != 1:
+		raise ValueError, "document must contain exactly one %s param" % param.StripParamName(name)
+	return params[0]
+
+
+#
+# =============================================================================
+#
 #                               Process Metadata
 #
 # =============================================================================
