@@ -769,9 +769,10 @@ if opts.plot_efficiency:
     ylabel('n_g', size='x-large')
     text += 'Monte Carlo '
     title(text + 'errors in efficiency', size='x-large')
-    fname += 'mc'
+    fname += 'mc_'
     if opts.figure_name:
-      savefig( opts.figure_name + '_' + opts.x_value + fname + 'errors.png' )
+      savefig( opts.figure_name + '_' + opts.x_value + '_' + fname + \
+          'errors.png' )
       
   ############################################################################
   # Systematic errors:
@@ -796,7 +797,8 @@ if opts.plot_efficiency:
       text += key + ' '
       title(text + 'systematics in efficiency', size='x-large')
       if opts.figure_name:
-        savefig( opts.figure_name + '_' + opts.x_value + fname + '_errors.png')
+        savefig( opts.figure_name + '_' + opts.x_value + '_' + fname + \
+            'errors.png')
 
 ##############################################################################
 # plot cumulative N_G for search
