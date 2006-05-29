@@ -92,7 +92,7 @@ def new_param(name, type, value, comment = None):
 	"""
 	Construct a LIGO Light Weight XML Param document subtree.
 	"""
-	elem = Param({"Name": name, "Type": type})
+	elem = Param({"Name": "%s:param" % name, "Type": type})
 	elem.pcdata = value
 	if comment != None:
 		elem.appendChild(ligolw.Comment())
