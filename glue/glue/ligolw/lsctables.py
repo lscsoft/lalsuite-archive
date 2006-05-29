@@ -2108,6 +2108,48 @@ class TimeSlideIDs(ILWD):
 #
 # =============================================================================
 #
+#                             coinc_definer:table
+#
+# =============================================================================
+#
+
+class CoincDefTable(LSCTableMulti):
+	tableName = "coinc_definer:table"
+	validcolumns = {
+		"coinc_def_id": "ilwd:char",
+		"table_name": "lstring"
+	}
+
+class CoincDef(LSCTableRow):
+	__slots__ = CoincDefTable.validcolumns.keys()
+
+	def _get_key(self):
+		return self.coinc_def_id
+
+	def _set_key(self, key):
+		self.coinc_def_id = key
+
+	def _has_key(self, key):
+		return self.coinc_def_id == key
+
+	def get_contributors(self, id):
+		"""
+		Return a list of contributing table names for the given ID.
+		"""
+		l = [row.table_name for row in self.dict[id]]
+		l.sort()
+		return l
+
+CoincDefTable.RowType = CoincDef
+
+class CoincDefIDs(ILWD):
+	def __init__(self, n = 0):
+		ILWD.__init__(self, "coinc_definer", "coinc_def_id", n)
+
+
+#
+# =============================================================================
+#
 #                              coinc_event:table
 #
 # =============================================================================
@@ -2119,6 +2161,7 @@ class CoincTable(LSCTableUnique):
 		"process_id": "ilwd:char",
 		"coinc_event_id": "ilwd:char",
 		"time_slide_id": "ilwd:char",
+		"coinc_def_id": "ilwd:char",
 		"nevents": "int_4u"
 	}
 
@@ -2128,9 +2171,11 @@ class CoincTable(LSCTableUnique):
 		"""
 		proctab = metaio.getTablesByName(elem, ProcessTable.tableName)
 		slidetab = metaio.getTablesByName(elem, TimeSlideTable.tableName)
+		deftab = metaio.getTablesByName(elem, CoincDefTable.tableName)
 		for row in self.rows:
 			row.process_id = FindILWD(proctab, row.process_id)
 			row.time_slide_id = FindILWD(slidetab, row.time_slide_id)
+			row.coinc_def_id = FindILWD(deftab, row.coinc_def_id)
 
 	def deReference(self):
 		"""
@@ -2139,6 +2184,7 @@ class CoincTable(LSCTableUnique):
 		for row in self.rows:
 			row.process_id = row.process_id._get_key()
 			row.time_slide_id = row.time_slide_id[0]._get_key()
+			row.coinc_def_id = row.coinc_def_id[0]._get_key()
 
 class Coinc(LSCTableRow):
 	__slots__ = CoincTable.validcolumns.keys()
@@ -2312,6 +2358,7 @@ TableByName = {
 	metaio.StripTableName(SegmentDefMapTable.tableName): SegmentDefMapTable,
 	metaio.StripTableName(SegmentDefTable.tableName): SegmentDefTable,
 	metaio.StripTableName(TimeSlideTable.tableName): TimeSlideTable,
+	metaio.StripTableName(CoincDefTable.tableName): CoincDefTable,
 	metaio.StripTableName(CoincTable.tableName): CoincTable,
 	metaio.StripTableName(CoincMapTable.tableName): CoincMapTable,
 	metaio.StripTableName(LIGOLWMonTable.tableName): LIGOLWMonTable
@@ -2336,6 +2383,7 @@ ILWDGeneratorByTableName = {
 	metaio.StripTableName(SegmentTable.tableName): SegmentIDs,
 	metaio.StripTableName(SegmentDefMapTable.tableName): SegmentDefMapIDs,
 	metaio.StripTableName(TimeSlideTable.tableName): TimeSlideIDs,
+	metaio.StripTableName(CoincDefTable.tableName): CoincDefIDs,
 	metaio.StripTableName(CoincTable.tableName): CoincIDs,
 	metaio.StripTableName(LIGOLWMonTable.tableName): LIGOLWMonIDs
 }
