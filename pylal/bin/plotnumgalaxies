@@ -11,6 +11,7 @@ import string
 from optparse import *
 from types import *
 from pylab import *
+from random import *
 from glue import segments
 from glue import segmentsUtils
 from glue.ligolw import ligolw
@@ -96,8 +97,7 @@ def read_source_file( source_file ):
       else:
 	c = {'name': b[0], 'luminosity': float(b[4])} 	
       sourcelist.append(c)
-      
- 
+
   sort_on = "luminosity"
   decorated = [(dict_[sort_on], dict_) for dict_ in sourcelist]
   decorated.sort()
@@ -105,12 +105,16 @@ def read_source_file( source_file ):
 
   return sortedlist
 
-    
 ##############################################################################
 # Chop a simInspiralTable into segments that we care about.
 ##############################################################################
 def segmentCut ( sim_table, seglist, col_name ):
-
+  """
+  function to remove injections outside of times contained in seglist
+  @param sim_table: a list of sim inspirals
+  @param seglist:   a list of segments 
+  @param col_name:  the column containing the time parameter
+  """
   tmpTable = lsctables.New(lsctables.SimInspiralTable)
 
   for entry in sim_table.rows:
@@ -140,7 +144,12 @@ def square(M,medges,mstep,D,dedges,dstep):
 # Chop a simInspiralTable based on component masses.
 ##############################################################################
 def massCut (sim_table, m_low, m_high):
-
+  """
+  function to remove injections whose masses do not lie within [m_low,m_high]
+  @param sim_table: a list of sim inspirals
+  @param m_low:     the low mass threshold
+  @param m_high:    the high mass threshold
+  """
   tmpTable = lsctables.New(lsctables.SimInspiralTable)
 
   for entry in sim_table.rows:
@@ -155,7 +164,14 @@ def massCut (sim_table, m_low, m_high):
 ##############################################################################
 # Read in a column (and if necessary calculate chirp dist)
 ##############################################################################
-def readColumn(table,column):
+def readColumn(table, column):
+  """
+  function to read a given column from an xml table.
+  If the column is chirp_dist_X, a function is called to calculate the chirp
+  distance from mchirp and effective distance for ifo X.
+  @param table:       a list of sim inspirals
+  @param column:      name of the column to extract
+  """
 
   if 'chirp_dist' in column:
     return chirpDistance(table, column)
@@ -174,6 +190,31 @@ def chirpDistance (sim_table, column, ref_mass = 1.4):
   chirpDist = dist * (  (2.**(-1./5)) * ref_mass / mchirp)**(5./6)
 
   return chirpDist
+
+##############################################################################
+# Add systematic errors to distances
+##############################################################################
+def distError(distance, systematic=None, random = None):
+  """
+  function to apply errors to the distance.
+  Systematic error applied by D -> D ( 1 + systematic )
+  Random error applied by D -> D * lognormal(0,random)
+  @param distance:    an array of distances
+  @param systematic:  the systematic error in the distance
+  @param random:      the random error in the distance
+  """
+  if not systematic and not random:
+    return None
+  
+  if systematic:
+    #rescale distances systematically
+    distance = distance * ( 1 + systematic)
+  if random:
+    # rescale distances randomly
+    for i in range(len(distance)):
+      distance[i] = distance[i] * lognormvariate(0,random)
+
+  return distance
 
 ##############################################################################
 # help message
@@ -239,9 +280,6 @@ plotnumgalaxies [options]
 parser = OptionParser( usage )
 
 # basics
-parser.add_option("-v","--version",action="store_true",default=False,\
-    help="display version information " )
-
 parser.add_option("-V","--verbose",action="store_true",default=False,\
     help="print additional information when running" )
 
@@ -265,7 +303,6 @@ parser.add_option("-m","--glob-missed",action="store",type="string",\
     default=None, metavar=" MISS_GLOB", \
     help="GLOB of files containing missed injections to read" )
 
-
 # mass cut
 parser.add_option("-L","--m-low",action="store",type="float",default=None,\
     metavar=" M_LOW", 
@@ -275,6 +312,24 @@ parser.add_option("-H","--m-high",action="store",type="float",default=None,\
     metavar=" M_HIGH", 
     help="high mass threshold in mass cut" )
 
+# efficiency errors
+parser.add_option("-C","--h-calibration",action="store",type="float",
+    default=None,metavar=" H_CAL",
+    help="systematic error in h calibration, rescale distances D->(1+/-CAL)*D")
+    
+parser.add_option("-D","--l-calibration",action="store",type="float",
+    default=None,metavar=" L_CAL",
+    help="systematic error in y calibration, rescale distances D->(1+/-CAL)*D")
+    
+parser.add_option("-w","--waveform-systematic",action="store",type="float",
+    default=None, metavar=" WAV",
+    help="systematic errors in waveform, rescale distances by D->(1+WAV)*D")
+
+parser.add_option("-R","--delta-error",action="store_true",default=False,\
+    help="incorporates the change in distance due to error in distance" )
+
+parser.add_option("-M","--mc-errors",action="store_true",default=False,\
+    help="monte carlo errors, calculated from injections performed" )
 
 # plotting details
 parser.add_option("-f","--figure-name",action="store",type="string",\
@@ -310,16 +365,13 @@ parser.add_option("-p","--y-min",action="store",type="float",default = 0.87,\
 parser.add_option("-o","--axes-from-found",action="store_true",default=False,\
     help= \
     "overwrite the default or specified axes with the max/min from found inj")
+
 parser.add_option("-Q","--axes-square",action="store_true",default=False,\
     help="make the axis ranges for x and y equal")
 
 parser.add_option("-n","--nbins",action="store",type="int",default=20,\
     metavar=" NBINS", 
     help="number of bins for the histogram plots (default = 20)" )
-
-#parser.add_option("-B","--delta-luminosity",action="store",type="int",default=20,\
- #   help="Take into account the error in luminosity" )
-
 
 # plots to be made
 parser.add_option("-N","--plot-ng",action="store_true",default=False,\
@@ -340,9 +392,6 @@ parser.add_option("-c","--add-curvefit",action="store_true",default=False,\
 parser.add_option("-e","--plot-efficiency",action="store_true",default=False,\
     help="make a plot of efficiency vs x-value" )
 
-parser.add_option("-M","--mc-errors",action="store_true",default=False,\
-    help="plot the mc errors in efficiency" )
-
 parser.add_option("-U","--cum-search-ng",action="store_true",default=False,\
     help="make a plot of cumulative Ng for search vs x-value" )
 
@@ -358,19 +407,11 @@ parser.add_option("-O","--plot-2d-ng",action="store_true",default=False,\
 parser.add_option("-W","--cum-search-2d-ng",action="store_true",default=False,\
     help="calculate the cumulateive number of galaxies for this search" )
 
-parser.add_option("-R","--delta-error",action="store_true",default=False,\
-    help="incorporates the change in distance due to error in distance" )
-
-
 (opts,args) = parser.parse_args()
 
 ##############################################################################
 # Check options
 ##############################################################################
-
-# if --version flagged
-if opts.version:
-  sys.exit(0)
 
 astro_plot = False
 eff_plot = False
@@ -433,7 +474,6 @@ if astro_plot:
             ' before segment selection = %.2f' % numSources
     seg_file = open( opts.segment_file , "r")
     segList = segmentsUtils.fromsegwizard(seg_file)
-
     seg_file.close()
     simInspTriggers = segmentCut(simInspTriggers, segList , "geocent_end_time")
 
@@ -451,27 +491,21 @@ if astro_plot:
   # Read the relevant columns
   xAstro = readColumn(simInspTriggers,opts.x_value)
   yAstro = readColumn(simInspTriggers,opts.y_value)
-  gal_name = simInspTriggers.getColumnByName('source')
 
-if opts.delta_error:
-  i=0	  
-  j=0
-  for i in range(len(sourcelist)):
-  	for j in range(len(gal_name)):
-		if (gal_name[j]==sourcelist[i]['name']):
-			xAstro[j]=xAstro[j]*(1 + sourcelist[i]['delta_d'])
-			j=j + 1
+  if opts.delta_error:
+    gal_name = simInspTriggers.getColumnByName('source')
+    for i in range(len(sourcelist)):
+      for j in range(len(gal_name)):
+        if (gal_name[j]==sourcelist[i]['name']):
+          xAstro[j]=xAstro[j]*(1 + sourcelist[i]['delta_d'])
+    print xAstro[3] 
 
-	i = i + 1		
-  print xAstro[3]	
 ##############################################################################
 # read in the found/missed injections
 ##############################################################################
 if eff_plot:
-  # read in the found injections
+  # read in the found/missed injections
   found = readFiles(opts.glob_found)
-   
-  # read in the missed injections
   missed = readFiles(opts.glob_missed)
 
   if opts.verbose:
@@ -494,6 +528,8 @@ if eff_plot:
   yFound = readColumn(found,opts.y_value)
   yMissed = readColumn(missed,opts.y_value)
 
+
+  # reset the axes based on found injections
   if opts.axes_from_found:
     opts.x_max = 1.01 * max(xFound) 
     opts.x_min = 0.99 * min(xFound) 
@@ -514,7 +550,6 @@ if eff_plot:
 
       print "Overwriting min value for " + opts.y_value + \
             " with found injection min, %.2f" % opts.y_min
-
 
 ##############################################################################
 # generate the bins and the square array:
@@ -538,9 +573,8 @@ x1Edges = arange(opts.x_min,opts.x_max + 0.9*xStep,xStep)
 xEdges = arange(opts.x_min,opts.x_max,xStep)
 yEdges = arange(opts.y_min,opts.y_max,yStep)
 
-
 ##############################################################################
-# calculate ng and efficiencies
+# calculate ng 
 ##############################################################################
 if astro_plot:
   # calculate the number of galaxies in each bin
@@ -553,19 +587,76 @@ if astro_plot:
   
   ng = square(xAstro,xEdges,xStep,yAstro,yEdges,yStep)
   ng *= max_luminosity/numSources
-  
+
+##############################################################################
+# calculate efficiencies 
+##############################################################################
+
 if eff_plot:
+  # calculations for 1-d plots
   histFound,bins, stuff = hist(xFound, x1Edges)
   histMissed,bins,stuff = hist(xMissed,x1Edges)
   # delete the last entries to clean up plots:
   histFound = histFound[0:-1]
   histMissed = histMissed[0:-1]
   xEff = 1.*(histFound)/(histFound + histMissed + 1e-5)
+
+  # calculate the MC errors
+  xError = {}
+  xError['Monte Carlo'] = \
+      sqrt(xEff * (1. - xEff) / (histFound + histMissed + 1e-5) )
+
+  # calculate the systematics
+  xFoundError = {}
+  xMissedError = {}
+  errorVal = {}
+  if opts.h_calibration:
+    errorVal['Hanford Calibration'] = opts.h_calibration
+  if opts.l_calibration:
+    errorVal['Livingston Calibration'] = opts.l_calibration
+  if opts.waveform_systematic:
+    errorVal['Waveform'] = opts.waveform_systematic
+
+  if 'dist' in opts.x_value:
+    if len(errorVal):
+      for key in errorVal.keys():
+        if key == 'Waveform' or key[0].lower() == opts.x_value[-1]:
+          xf = distError(xFound,errorVal[key],0)
+          xm = distError(xMissed,errorVal[key],0)
+          histFound,bins, stuff = hist(xf, x1Edges)
+          histMissed,bins,stuff = hist(xm,x1Edges)
+          # delete the last entries to clean up plots:
+          histFound = histFound[0:-1]
+          histMissed = histMissed[0:-1]
+          xError[key] = 1.*(histFound)/(histFound + histMissed + 1e-5) - xEff
   clf()
   
+  # calculations for 2D plots: 
   found = square(xFound,xEdges,xStep,yFound,yEdges,yStep)
   missed = square(xMissed,xEdges,xStep,yMissed,yEdges,yStep)
-  eff = found/(found + missed + 1e-5) 
+  eff2d = found/(found + missed + 1e-5) 
+  error2d = {}
+  error2d['Monte Carlo'] = sqrt(eff2d * (1. - eff2d) / (found + missed + 1e-5))
+
+  if len(errorVal):
+    for key in errorVal.keys():
+      if key == 'Waveform' or key[0].lower() == opts.x_value[-1]:
+        xf = distError(xFound,errorVal[key],0)
+        xm = distError(xMissed,errorVal[key],0)
+      else:
+        xf = xFound
+        xm = xMissed
+        
+      if key == 'Waveform' or key[0].lower() == opts.y_value[-1]:
+        yf = distError(yFound,errorVal[key],0)
+        ym = distError(yMissed,errorVal[key],0)
+      else:
+        yf = yFound
+        ym = yMissed
+
+      f = square(xf,xEdges,xStep,yf,yEdges,yStep)
+      m = square(xm,xEdges,xStep,ym,yEdges,yStep)
+      error2d[key] = f/(f + m + 1e-5) - eff2d
 
 x1Edges = x1Edges[0:-1]
 
@@ -578,8 +669,8 @@ if opts.plot_ng:
   grid( True )
   xlim(opts.x_min,opts.x_max)
   xlabel( opts.x_value, size='x-large' )
-  ylabel('n_g', size='x-large' )
-  title( 'Number of galaxies vs ' + opts.x_value, size='x-large')
+  ylabel('n_10', size='x-large' )
+  title( 'Luminosity vs ' + opts.x_value, size='x-large')
   if opts.figure_name:
     savefig( opts.figure_name + '_' + opts.x_value + '_ng_plot.png' )
 
@@ -591,8 +682,8 @@ if opts.hist_ng:
   bar(x1Edges,xng,xStep)
   grid( True )
   xlabel( opts.x_value, size='x-large' )
-  ylabel('n_g', size='x-large' )
-  title( 'Number of galaxies vs ' + opts.x_value, size='x-large')
+  ylabel('n_10', size='x-large' )
+  title( 'Luminosity vs ' + opts.x_value, size='x-large')
   if opts.figure_name:
     savefig( opts.figure_name + '_' + opts.x_value + '_ng_hist.png' )
 
@@ -604,14 +695,14 @@ if opts.cumulative_ng:
   plot(x1Edges,xng_cum,linewidth=1,label='source file')
   grid( True )
   xlabel( opts.x_value, size='x-large' )
-  ylabel('N_G' , size='x-large')
-  title( 'Cumulative Number of Galaxies vs ' + opts.x_value, size='x-large')
+  ylabel('N_10' , size='x-large')
+  title( 'Cumulative Luminosity vs ' + opts.x_value, size='x-large')
   if opts.figure_name:
     savefig( opts.figure_name + '_' + opts.x_value + '_ng_cum.png' )
 
   if opts.verbose:
     print 
-    print 'The total number of galaxies = %.2f' % max(xng_cum)
+    print 'The total luminosity = %.2f L_10' % max(xng_cum)
 
   ############################################################################
   # add a curve to fit the data
@@ -641,8 +732,8 @@ if opts.cum_log_ng:
   grid( True )
   xlim(opts.x_min,opts.x_max)
   xlabel( opts.x_value, size='x-large' )
-  ylabel( 'N_G', size='x-large' )
-  title( 'Cumulative Number of galaxies vs ' + opts.x_value, size='x-large')
+  ylabel( 'N_10', size='x-large' )
+  title( 'Cumulative Luminosity vs ' + opts.x_value, size='x-large')
   if opts.figure_name: 
     savefig( opts.figure_name + "_log_ng_cum.png" )
 
@@ -651,7 +742,7 @@ if opts.cum_log_ng:
 ##############################################################################
 if opts.plot_efficiency:
   figure()
-  plot(x1Edges,xEff,linewidth=1)
+  plot(x1Edges,xEff,'b',linewidth=1)
   grid(True)
   ylim(0, 1.1) 
   xlabel( opts.x_value, size='x-large')
@@ -660,46 +751,78 @@ if opts.plot_efficiency:
   if opts.figure_name:
     savefig( opts.figure_name + '_' + opts.x_value + '_efficiency.png' )
 
+  text = ''
+  fname = '_'
   ############################################################################
   # MC errors:
   if opts.mc_errors:
-    figure()
-    xError = xEff * (1. - xEff) / (histFound + histMissed + 1e-5)
-    plot(x1Edges,xEff)
-    errorbar(x1Edges,xEff,sqrt(xError),markersize=12, markerfacecolor=None,\
-          markeredgewidth=1, linewidth = 1)
+    fit,errors = errorbar(x1Edges,xEff,xError['Monte Carlo'],fmt=None,\
+        ecolor='r',linewidth=1)
+    for line in errors:
+      matplotlib.lines.Line2D.set_linewidth(line,1)
+      matplotlib.lines.Line2D.set_markeredgewidth(line,1)
     grid(True)
     ylim(0, 1.1)      
     xlabel(opts.x_value, size='x-large')
-    ylabel('Efficiency', size='x-large')
-    title('Monte Carlo errors in efficiency', size='x-large')
+    ylabel('n_g', size='x-large')
+    text += 'Monte Carlo'
+    title(text + ' errors in efficiency', size='x-large')
+    fname += 'mc'
     if opts.figure_name:
-      savefig( opts.figure_name + '_' + opts.x_value + '_mc_errors.png' )
+      savefig( opts.figure_name + '_' + opts.x_value + fname + 'errors.png' )
+      
+  ############################################################################
+  # Systematic errors:
+  for key in errorVal.keys():
+    if key == 'Waveform' or key[0].lower() == opts.x_value[-1]:
+      if key == 'Waveform':
+        fit,errors = errorbar(x1Edges,xEff,\
+            xerr=([x1Edges*opts.waveform_systematic,zeros(len(x1Edges))]),\
+            fmt=None,ecolor='g',linewidth=1)
+        fname += "wav_"
+      else:
+        fit,errors = errorbar(x1Edges,xEff,xerr=(x1Edges*errorVal[key]),\
+            fmt=None,ecolor='k',linewidth=1)
+        fname += "cal_"
+      for line in errors:
+        matplotlib.lines.Line2D.set_linewidth(line,1)
+        matplotlib.lines.Line2D.set_markeredgewidth(line,1)
+      grid(True)
+      ylim(0, 1.1)      
+      xlabel(opts.x_value, size='x-large')
+      ylabel('n_g', size='x-large')
+      text += key
+      title(text + ' systematics in efficiency', size='x-large')
+      if opts.figure_name:
+        savefig( opts.figure_name + '_' + opts.x_value + fname + '_errors.png')
 
 ##############################################################################
 # plot cumulative N_G for search
 ##############################################################################
 if opts.cum_search_ng:
-  xng = xng * xEff
-  xng_cum = cumsum( xng )
+  xng_cum = cumsum( xng * xEff)
   figure()
   plot(x1Edges,xng_cum,linewidth=1)
   grid( True )
   xlabel( opts.x_value, size='x-large' )
-  ylabel('N_G' , size='x-large')
-  title( 'Cumulative Number of Galaxies vs ' + opts.x_value, size='x-large')
+  ylabel('N_10' , size='x-large')
+  title( 'Cumulative Luminosity vs ' + opts.x_value, size='x-large')
   if opts.figure_name:
     savefig( opts.figure_name + '_' + opts.x_value + '_ng_search_cum.png' )
 
   if opts.verbose:
     print 
     print '1-d calculation using ' + opts.x_value + ' yields'
-    print 'The total Number of Galaxies = %.2f' % max(xng_cum)
-    if opts.mc_errors:
-      print "Monte Carlo error due to finite number of injections = %.2f" \
-          % sqrt(sum(xError*xng))
-
-
+    print 'The total Luminosity = %.2f L_10' % max(xng_cum)
+    if len(xError):
+      for key in xError.keys():
+        if key == 'Monte Carlo':
+          err = sqrt(sum(xError['Monte Carlo']**2 *xng))
+          print 'Monte Carlo error in luminosity = %.2f L_10' % err
+        else:
+          err = sum(xError[key]*xng)
+          print key + ' error of %.1f' % float(100 * errorVal[key]) + \
+              '% gives error in luminosity = ' + '%.2f L_10' % err
 
 ##############################################################################
 # Plot two dimensional efficiency contour
@@ -707,10 +830,10 @@ if opts.cum_search_ng:
 if opts.plot_effcontour: 
   figure()
   V = arange(0,41./40,1./40)
-  contourf(xEdges,yEdges,eff + 0.5 * V[1],V)
+  contourf(xEdges,yEdges,eff2d + 0.5 * V[1],V)
   hold(True)
   V = arange(0.1,1,0.1)
-  contour(xEdges,yEdges,eff,V,colors='k',linewidths=1)
+  contour(xEdges,yEdges,eff2d,V,colors='k',linewidths=1)
   
   xlabel(opts.x_value, size='x-large')
   ylabel(opts.y_value, size='x-large')
@@ -723,12 +846,11 @@ if opts.plot_effcontour:
   ############################################################################
   # MC errors:
   if opts.mc_errors:
-    error = eff * (1. - eff) / (found + missed + 1e-5)
     figure()
-    V = arange(0,sqrt(error).max(),sqrt(error).max()/40)
-    contourf(xEdges,yEdges,sqrt(error),V)
-    V = arange(0,sqrt(error).max(),sqrt(error).max()/10)
-    contour(xEdges,yEdges,sqrt(error),V,colors='k',linewidths=1)
+    V = arange(0,error2d['Monte Carlo'].max(),error2d['Monte Carlo'].max()/40)
+    contourf(xEdges,yEdges,error2d['Monte Carlo'],V)
+    V = arange(0,error2d['Monte Carlo'].max(),error2d['Monte Carlo'].max()/10)
+    contour(xEdges,yEdges,error2d['Monte Carlo'],V,colors='k',linewidths=1)
     xlabel(opts.x_value, size='x-large')
     ylabel(opts.y_value, size='x-large')
     colorbar()
@@ -793,14 +915,21 @@ if opts.plot_2d_ng:
 # Count the Number of Galaxies.
 ##############################################################################
 if opts.cum_search_2d_ng:
-  N_G = sum(sum(ng*eff))
+  N_G = sum(sum(ng*eff2d))
   print
   print '2-d calculation using ' + opts.x_value + ' and ' + \
          opts.y_value + ' yields'
-  print "The total number of Galaxies = %.2f" % N_G                      
-  if opts.mc_errors:
-    print "Monte Carlo error due to finite number of injections = %.2f" \
-        % sqrt(sum(sum(ng*error)))
+  print "The total luminosity = %.2f L_10" % N_G                      
+  if len(error2d):
+    for key in error2d.keys():
+      if key == 'Monte Carlo':
+        err = sqrt(sum(sum(error2d['Monte Carlo']**2 *ng)))
+        print 'Monte Carlo error in luminosity = %.2f L_10' % err
+
+      else:
+        err = sum(sum(error2d[key]*ng))
+        print key + ' error of %.1f' % float(100 * errorVal[key]) + \
+            '% gives error in luminosity = ' + '%.2f L_10' % err
 
 ##############################################################################
 if opts.show_plot:
