@@ -121,9 +121,9 @@ try:
 	map(lambda filename: cache.extend(load_cache(filename)), cachenames)
 	seglists = cache_to_seglistdict(cache)
 	if options.time_slides:
-		timeslides = get_time_slides(options.timeslides)
+		options.time_slides = get_time_slides(options.time_slides)
 	else:
-		timeslides = null_time_slides(seglists.keys())
+		options.time_slides = null_time_slides(seglists.keys())
 except Exception, e:
 	print >>sys.stderr, "error: %s" % str(e)
 	sys.exit(1)
@@ -198,7 +198,7 @@ class CafePacker(packing.Packer):
 
 if options.verbose:
 	print >>sys.stderr, "computing segment list..."
-seglists = llwapp.get_coincident_segmentlistdict(seglists, timeslides)
+seglists = llwapp.get_coincident_segmentlistdict(seglists, options.time_slides)
 
 
 #
@@ -208,7 +208,7 @@ seglists = llwapp.get_coincident_segmentlistdict(seglists, timeslides)
 
 outputcaches = []
 packer = CafePacker(outputcaches)
-packer.set_time_slides(timeslides)
+packer.set_time_slides(options.time_slides)
 
 if options.verbose:
 	print >>sys.stderr, "packing files..."
