@@ -58,6 +58,8 @@ __date__ = "$Date$"[7:-2]
 # =============================================================================
 #
 
+ContentHandler = ligolw.LIGOLWContentHandler
+
 def measure_file_sizes(filenames, reverse = False):
 	"""
 	From a list of file names, return a list of (size, name) tuples
@@ -88,9 +90,9 @@ def load_filename(filename, verbose = False):
 		print >>sys.stderr, "reading %s..." % (filename or "stdin")
 	doc = ligolw.Document()
 	if filename:
-		ligolw.make_parser(ligolw.LIGOLWContentHandler(doc)).parse(file(filename))
+		ligolw.make_parser(ContentHandler(doc)).parse(file(filename))
 	else:
-		ligolw.make_parser(ligolw.LIGOLWContentHandler(doc)).parse(sys.stdin)
+		ligolw.make_parser(ContentHandler(doc)).parse(sys.stdin)
 	return doc
 
 
@@ -99,9 +101,9 @@ def load_url(url, verbose = False):
 		print >>sys.stderr, "reading %s..." % (url or "stdin")
 	doc = ligolw.Document()
 	if url:
-		ligolw.make_parser(ligolw.LIGOLWContentHandler(doc)).parse(urllib.urlopen(url))
+		ligolw.make_parser(ContentHandler(doc)).parse(urllib.urlopen(url))
 	else:
-		ligolw.make_parser(ligolw.LIGOLWContentHandler(doc)).parse(sys.stdin)
+		ligolw.make_parser(ContentHandler(doc)).parse(sys.stdin)
 	return doc
 
 
