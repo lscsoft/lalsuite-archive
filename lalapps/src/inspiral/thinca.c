@@ -23,8 +23,6 @@
 #include <lal/LIGOLwXML.h>
 #include <lal/LIGOLwXMLRead.h>
 #include <lal/LIGOMetadataUtils.h>
-#include <lal/Segments.h>
-#include <lal/SegmentsIO.h>
 #include <lalapps.h>
 #include <processtable.h>
 
@@ -64,13 +62,10 @@ int haveTrig[LAL_NUM_IFO];
 int checkTimes = 0;
 int multiIfoCoinc = 0;
 int distCut = 0;
-int iotaCut = 0;
-int doPsi0Psi3Cut = 0;
 int doAlphaFCut = 0;
-int doBCV2H1H2Veto = 0;
-int doBCVC = 0;
-int h1h2Consistency = 0;
-int doVeto = 0;
+int doBCVCVeto = 0;
+
+
 /*
  * 
  * USAGE
@@ -110,13 +105,6 @@ static void print_usage(char *program)
       "  [--l1-triggers]               input triggers from L1\n"\
       "  [--t1-triggers]               input triggers from T1\n"\
       "  [--v1-triggers]               input triggers from V1\n"\
-      "\n"\
-      "  [--g1-veto-file]               veto file for G1\n"\
-      "  [--h1-veto-file]               veto file for H1\n"\
-      "  [--h2-veto-file]               veto file for H2\n"\
-      "  [--l1-veto-file]               veto file for L1\n"\
-      "  [--t1-veto-file]               veto file for T1\n"\
-      "  [--v1-veto-file]               veto file for V1\n"\
       "\n"\
       "   --parameter-test     test    set parameters with which to test coincidence:\n"\
       "                                (m1_and_m2|mchirp_and_eta|psi0_and_psi3)\n"\
@@ -169,29 +157,18 @@ static void print_usage(char *program)
       "  [--h2-epsilon]        h2_epsilon specify H1 epsilon for eff dist test\n"\
       "\n"\
       "  [--dmchirp-high]      dmchirp    different chirp mass window for high masses\n"\
-      "  [--high-mass]         mass       total mass for trigger above which\n"\
-      "                                   the high mass mchirp is used\n"\
+      "  [--high-mass]         mass       total mass for trigger above which the high mass mchirp is used\n"\
       "\n"\
-      "  [--do-alphaf-cut]                perform cut based on alphaF\n"\
+      "  [--do-alphaF-cut]                perform cut based on alphaF\n"\
       "                                   with bounds given below\n"\
       "                                   (both bounds must be specified)\n"\
-      "  [--alphaf-hi]         alphaFhi   reject BCV triggers with alphaF greater\n"\
-      "                                   than alphaFhi (if --do-alphaF-cut used)\n"\
-      "  [--alphaf-lo]         alphaFlo   reject BCV triggers with alphaF smaller\n"\
-      "                                   than alphaFlo (< alphaFhi)\n"\
-      "                                   (if --do-alphaF-cut used)\n"\
-      "  [--bcvc]                         perform cut based on alphaF\n"\
-      "                                   with individual bounds given below.\n"\
-      "  [--h1-alphaf-hi]      alphaFhi   reject BCV triggers outside the specified \n"\
-      "  [--h1-alphaf-lo]      alphaFlo   alphaF area for H1 (if \n"\
-      "  [--h2-alphaf-hi]      alphaFhi   reject BCV triggers outside the specified \n"\
-      "  [--h2-alphaf-lo]      alphaFlo   alphaF area for H2\n"\
-      "  [--l1-alphaf-hi]      alphaFhi   reject BCV triggers outside the specified \n"\
-      "  [--l1-alphaf-lo]      alphaFlo   alphaF area for L1\n"\
-      "  [--snr-cut]           snr        reject triggers below this snr \n"\
-      "  [--do-bcvspin-h1h2-veto]         reject coincidences with H1 snr < H2 snr \n"\
-      "   --data-type          data_type  specify the data type, must be one of\n"\
-      "                                   (playground_only|exclude_play|all_data)\n"\
+      "  [--alphaF-hi]         alphaFhi   reject BCV triggers with alphaF\n"\
+      "                                   greater than alphaFhi\n"\
+      "  [--alphaF-lo]         alphaFlo   reject BCV triggers with alphaF\n"\
+      "                                   smaller than alphaFlo (< alphaFhi)\n"\
+      "\n"\
+      "   --data-type        data_type specify the data type, must be one of\n"\
+      "                                (playground_only|exclude_play|all_data)\n"\
       "\n"\
       "[LIGOLW XML input files] list of the input trigger files.\n"\
       "\n", program);
@@ -228,9 +205,6 @@ int main( int argc, char *argv[] )
 
   CHAR  fileName[FILENAME_MAX];
   CHAR  fileSlide[FILENAME_MAX];
-  CHAR *vetoFileName[LAL_NUM_IFO] = {NULL, NULL, NULL, NULL, NULL, NULL};
-
-  LALSegList vetoSegs[LAL_NUM_IFO];
 
   UINT4  numIFO = 0;
   UINT4  numTrigIFO = 0;
@@ -261,8 +235,7 @@ int main( int argc, char *argv[] )
   SearchSummaryTable   *searchSummList = NULL;
   SearchSummaryTable   *thisSearchSumm = NULL;
 
-  SummValueTable   *summValueList = NULL;
-  SummValueTable   *thisSummValue = NULL;
+  SummValueTable       *thisSummValue = NULL;
 
   MetadataTable         proctable;
   MetadataTable         processParamsTable;
@@ -278,11 +251,10 @@ int main( int argc, char *argv[] )
   INT4                  loopVar;
   INT4                  maximizationInterval = 0;
 
-  SnglInspiralBCVCalphafCut  alphafParams;
-
   REAL4                 alphaFhi = -2.e4;
   REAL4                 alphaFlo = 9.e4;
-  REAL4                 snrCut = 0; /* by default we do not remove any triggers in the SNR Cut*/     
+  REAL4                 thresholdT = 1e6;
+  REAL4                 snrCut = 0.;
 
   const CHAR                   ifoList[LAL_NUM_IFO][LIGOMETA_IFO_MAX] = 
                                    {"G1", "H1", "H2", "L1", "T1", "V1"};
@@ -305,13 +277,8 @@ int main( int argc, char *argv[] )
     {"check-times",         no_argument,   &checkTimes,               1 },
     {"multi-ifo-coinc",     no_argument,   &multiIfoCoinc,            1 },
     {"h1-h2-distance-cut",  no_argument,   &distCut,                  1 },
-    {"h1-h2-consistency",   no_argument,   &h1h2Consistency,          1 },
-    {"do-bcvspin-h1h2-veto",no_argument,   &doBCV2H1H2Veto,           1 },
-    {"iota-cut",            no_argument,   &iotaCut,                  1 },
-    {"do-alphaf-cut",       no_argument,   &doAlphaFCut,              1 },
-    {"psi0-psi3-cut",       no_argument,   &doPsi0Psi3Cut,            1 },
-    {"bcvc",                no_argument,   &doBCVC,                   1 },
-    {"do-veto",             no_argument,   &doVeto,                   1 },
+    {"do-alphaF-cut",       no_argument,   &doAlphaFCut,              1 },
+    {"do-bcvc-veto",       no_argument,    &doBCVCVeto,               1 },
     {"g1-slide",            required_argument, 0,                    'b'},
     {"h1-slide",            required_argument, 0,                    'c'},
     {"h2-slide",            required_argument, 0,                    'd'},
@@ -363,6 +330,10 @@ int main( int argc, char *argv[] )
     {"gps-start-time",      required_argument, 0,                    's'},
     {"gps-end-time",        required_argument, 0,                    't'},
     {"maximization-interval",required_argument, 0,                   '@'},    
+    {"alphaF-hi",           required_argument, 0,                    'j'},
+    {"alphaF-lo",           required_argument, 0,                    'l'},
+    {"alphaf-snr",          required_argument, 0,                    'v'},
+    {"snr-threshold",       required_argument, 0,                    '*'},
     {"data-type",           required_argument, 0,                    'k'},
     {"comment",             required_argument, 0,                    'x'},
     {"user-tag",            required_argument, 0,                    'Z'},
@@ -373,33 +344,10 @@ int main( int argc, char *argv[] )
     {"version",             no_argument,       0,                    'V'},
     {"dmchirp-high",        required_argument, 0,                    '^'},
     {"high-mass",           required_argument, 0,                    '&'},
-    {"h1-alphaf-lo",        required_argument, 0,                    'l'},
-    {"h1-alphaf-hi",        required_argument, 0,                    'j'},
-    {"h2-alphaf-lo",        required_argument, 0,                    'u'},
-    {"h2-alphaf-hi",        required_argument, 0,                    'S'},
-    {"l1-alphaf-lo",        required_argument, 0,                    'U'},
-    {"l1-alphaf-hi",        required_argument, 0,                    'X'},
-    {"alphaf-lo",           required_argument, 0,                    '#'},
-    {"alphaf-hi",           required_argument, 0,                    '%'},
-    {"snr-cut",             required_argument, 0,                    '*'},
-    {"h1-veto-file",        required_argument, 0,                    '('},
-    {"h2-veto-file",        required_argument, 0,                    ')'},
-    {"g1-veto-file",        required_argument, 0,                    '{'},
-    {"l1-veto-file",        required_argument, 0,                    '}'},
-    {"t1-veto-file",        required_argument, 0,                    '['},
-    {"v1-veto-file",        required_argument, 0,                    ']'},
     {0, 0, 0, 0}
   };
   int c;
-  /* INFO: Remaining characters: * ( ) _ { } [ ]  (or even more...)*/
 
-  alphafParams.h1_lo=-1e10;
-  alphafParams.h1_hi=+1e10;
-  alphafParams.h2_lo=-1e10;
-  alphafParams.h2_hi=+1e10;
-  alphafParams.l1_lo=-1e10;
-  alphafParams.l1_hi=+1e10;
-  alphafParams.psi0cut = 0; 
 
   /*
    * 
@@ -451,7 +399,7 @@ int main( int argc, char *argv[] )
     c = getopt_long_only( argc, argv, 
         "A:B:C:D:E:F:G:H:I:J:K:L:M:N:O:P:Q:R:S:T:U:VW:Y:Z:"
         "a:b:c:d:e:f:g:hi:j:k:l:m:n:o:p:q:r:s:t:u:v:w:x:y:z:"
-        "2:3:4:5:6:7:8:9:!:-:+:=:@:^:&:*:(:):{:}:[:]:~", 
+        "2:3:4:5:6:7:8:9:!:-:+:=:@:^:&:*", 
         long_options, &option_index );
 
     /* detect the end of the options */
@@ -808,55 +756,28 @@ int main( int argc, char *argv[] )
         }
         break;
       
-
-     case 'l':
-        /* lower H1 alphaF cutoff */
-        alphafParams.h1_lo = atof(optarg);
+      case 'v' :
+        thresholdT = atof(optarg);
+        ADD_PROCESS_PARAM( "float", "%s", optarg );
+        break;
+      
+      case '*' :
+        snrCut = atof(optarg);
         ADD_PROCESS_PARAM( "float", "%s", optarg );
         break;
 
       case 'j':
-        /* upper H1 alphaF cutoff */
-        alphafParams.h1_hi = atof(optarg);
-        ADD_PROCESS_PARAM( "float", "%s", optarg );
-        break;
-
-      case 'u':
-        /* lower H2 alphaF cutoff */
-        alphafParams.h2_lo = atof(optarg);
-        ADD_PROCESS_PARAM( "float", "%s", optarg );
-        break;
-
-      case 'S':
-        /* upper H2 alphaF cutoff */
-        alphafParams.h2_hi = atof(optarg);
-        ADD_PROCESS_PARAM( "float", "%s", optarg );
-        break;
-
-      case 'U':
-        /* lower L1 alphaF cutoff */
-        alphafParams.l1_lo = atof(optarg);
-        ADD_PROCESS_PARAM( "float", "%s", optarg );
-        break;
-
-      case 'X':
-        /* upper L1 alphaF cutoff */
-        alphafParams.l1_hi = atof(optarg);
-        ADD_PROCESS_PARAM( "float", "%s", optarg );
-        break;
-
-
-     case '#':
-        /* lower general alphaF cutoff */
-        alphaFlo = atof(optarg);
-        ADD_PROCESS_PARAM( "float", "%s", optarg );
-        break;
-
-      case '%':
-        /* upper general alphaF cutoff */
+        /* upper alphaF cutoff */
         alphaFhi = atof(optarg);
         ADD_PROCESS_PARAM( "float", "%s", optarg );
         break;
+
+      case 'l':
+        /* lower alphaF cutoff */
+        alphaFlo = atof(optarg);
+        ADD_PROCESS_PARAM( "float", "%s", optarg );
+        break;
+      
 
       case 'k':
         /* type of data to analyze */
@@ -1053,60 +974,6 @@ int main( int argc, char *argv[] )
         accuracyParams.ifoAccuracy[LAL_IFO_H2].epsilon = atof(optarg);
         ADD_PROCESS_PARAM( "float", "%s", optarg );
         break;
-      
-      case '*':
-        /* snr cut */
-        snrCut = atof(optarg);
-        ADD_PROCESS_PARAM( "float", "%s", optarg );
-        break;
-      
-      case '(':
-        /* veto filename */
-        optarg_len = strlen( optarg ) + 1;
-	vetoFileName[LAL_IFO_H1] = (CHAR *) calloc( optarg_len, sizeof(CHAR));
- 	memcpy( vetoFileName[LAL_IFO_H1], optarg, optarg_len );
-        ADD_PROCESS_PARAM( "string", "%s", optarg );
-        break;
-
-      case ')':
-        /* veto filename */
-        optarg_len = strlen( optarg ) + 1;
-	vetoFileName[LAL_IFO_H2] = (CHAR *) calloc( optarg_len, sizeof(CHAR));
- 	memcpy( vetoFileName[LAL_IFO_H2], optarg, optarg_len );
-        ADD_PROCESS_PARAM( "string", "%s", optarg );
-	break;
- 
-      case '}':
-        /* veto filename */
-        optarg_len = strlen( optarg ) + 1;
-	vetoFileName[LAL_IFO_L1] = (CHAR *) calloc( optarg_len, sizeof(CHAR));
- 	memcpy( vetoFileName[LAL_IFO_L1], optarg, optarg_len );
-        ADD_PROCESS_PARAM( "string", "%s", optarg );
-	break;        
-        
-      case '{':
-        /* veto filename */
-        optarg_len = strlen( optarg ) + 1;
-	vetoFileName[LAL_IFO_G1] = (CHAR *) calloc( optarg_len, sizeof(CHAR));
- 	memcpy( vetoFileName[LAL_IFO_G1], optarg, optarg_len );
-        ADD_PROCESS_PARAM( "string", "%s", optarg );
-	break;        
-        
-      case '[':
-        /* veto filename */
-        optarg_len = strlen( optarg ) + 1;
-	vetoFileName[LAL_IFO_T1] = (CHAR *) calloc( optarg_len, sizeof(CHAR));
- 	memcpy( vetoFileName[LAL_IFO_T1], optarg, optarg_len );
-        ADD_PROCESS_PARAM( "string", "%s", optarg );
-	break;        
-        
-      case ']':
-        /* veto filename */
-        optarg_len = strlen( optarg ) + 1;
-	vetoFileName[LAL_IFO_V1] = (CHAR *) calloc( optarg_len, sizeof(CHAR));
- 	memcpy( vetoFileName[LAL_IFO_V1], optarg, optarg_len );
-        ADD_PROCESS_PARAM( "string", "%s", optarg );
-	break;        
         
       default:
         fprintf( stderr, "Error: Unknown error while parsing options\n" );
@@ -1313,58 +1180,6 @@ int main( int argc, char *argv[] )
     LALSnprintf( this_proc_param->value, LIGOMETA_TYPE_MAX, " " );
   }
 
-  /* store the multi-ifo-coinc in the process_params table */
-  if ( distCut )
-  {
-    this_proc_param = this_proc_param->next = (ProcessParamsTable *)
-      calloc( 1, sizeof(ProcessParamsTable) );
-    LALSnprintf( this_proc_param->program, LIGOMETA_PROGRAM_MAX, 
-        "%s", PROGRAM_NAME );
-    LALSnprintf( this_proc_param->param, LIGOMETA_PARAM_MAX, 
-        "--h1-h2-distance-cut" );
-    LALSnprintf( this_proc_param->type, LIGOMETA_TYPE_MAX, "string" );
-    LALSnprintf( this_proc_param->value, LIGOMETA_TYPE_MAX, " " );
-  }
-
-  /* store the h1h2 consistency option */ 
-  if ( h1h2Consistency )
-  {
-    this_proc_param = this_proc_param->next = (ProcessParamsTable *)
-      calloc( 1, sizeof(ProcessParamsTable) );
-    LALSnprintf( this_proc_param->program, LIGOMETA_PROGRAM_MAX, 
-        "%s", PROGRAM_NAME );
-    LALSnprintf( this_proc_param->param, LIGOMETA_PARAM_MAX, 
-        "--h1-h2-consistency" );
-    LALSnprintf( this_proc_param->type, LIGOMETA_TYPE_MAX, "string" );
-    LALSnprintf( this_proc_param->value, LIGOMETA_TYPE_MAX, " " );
-  }
-  
-  /* store the veto option */ 
-  if ( doVeto )
-  {
-    this_proc_param = this_proc_param->next = (ProcessParamsTable *)
-      calloc( 1, sizeof(ProcessParamsTable) );
-    LALSnprintf( this_proc_param->program, LIGOMETA_PROGRAM_MAX, 
-        "%s", PROGRAM_NAME );
-    LALSnprintf( this_proc_param->param, LIGOMETA_PARAM_MAX, 
-        "--do-veto" );
-    LALSnprintf( this_proc_param->type, LIGOMETA_TYPE_MAX, "string" );
-    LALSnprintf( this_proc_param->value, LIGOMETA_TYPE_MAX, " " );    
-  }
-
-  /* store the H1H2 snr cut for BCVSpin */
-  if (doBCV2H1H2Veto)
-  {
-    this_proc_param = this_proc_param->next = (ProcessParamsTable *)
-      calloc( 1, sizeof(ProcessParamsTable) );
-    LALSnprintf( this_proc_param->program, LIGOMETA_PROGRAM_MAX, 
-        "%s", PROGRAM_NAME );
-    LALSnprintf( this_proc_param->param, LIGOMETA_PARAM_MAX, 
-        "--do-bcvspin-h1h2-veto");
-    LALSnprintf( this_proc_param->type, LIGOMETA_TYPE_MAX, "string" );
-    LALSnprintf( this_proc_param->value, LIGOMETA_TYPE_MAX, " " );    
-  }
- 
   /* delete the first, empty process_params entry */
   this_proc_param = processParamsTable.processParamsTable;
   processParamsTable.processParamsTable = 
@@ -1388,19 +1203,13 @@ int main( int argc, char *argv[] )
 
       numFileTriggers = XLALReadInspiralTriggerFile( &inspiralFileList,
           &thisFileTrigger, &searchSummList, &inputFiles, argv[i] );
-
       if (numFileTriggers < 0)
       {
         fprintf(stderr, "Error reading triggers from file %s",
             argv[i]);
         exit( 1 );
       }
-  
-      /* read the summ value table as well. We do not need to do any sanity check. 
-	 It has been done in the previous call */
-      XLALReadSummValueFile(&summValueList, argv[i]);
-	
-       
+      
       /* maximize over a given interval */
       if ( maximizationInterval )
       {
@@ -1443,46 +1252,6 @@ int main( int argc, char *argv[] )
   if ( vrbflg ) fprintf( stdout, "Read in a total of %d triggers.\n",
       numTriggers );
 
-  /* We apply the SNR cut if requested */
-  if ( snrCut > 0.0 )
-  {    
-    if ( vrbflg )
-	fprintf(stdout, "Removing triggers with SNR lower than %f : ", snrCut);   
-    LAL_CALL( LALSNRCutSingleInspiral( &status, &(inspiralEventList), 
-          snrCut),  &status );
-    numTriggers = XLALCountSnglInspiral(inspiralEventList);
-    if ( vrbflg ) fprintf( stdout, "Have %d remaining triggers.\n",
-          numTriggers );
-  }
-  
-  /*	we initialise the veto segment list needed either by the h1h2 
-	consistency check or the veto option itself. */
-  if (h1h2Consistency || doVeto)
-  {
-    for ( i = 0; i< LAL_NUM_IFO; i++)
-    {
-      if ( vetoFileName[i] )
-      {
-    	XLALSegListInit( &(vetoSegs[i]) );
-	LAL_CALL( LALSegListRead( &status, &(vetoSegs[i]), vetoFileName[i], NULL),
-           &status);
-        XLALSegListCoalesce( &(vetoSegs[i]) );
-	/* if the veto option is set, we remove single inspiral triggers 
-	   inside the list provided. */
-        if (doVeto)
-	{
-	  if ( vrbflg ) fprintf( stdout, "Applying veto segment (%s) list on ifo  %s \n ",
-		vetoFileName[i], ifoName[i-1] );
-          inspiralEventList = XLALVetoSingleInspiral( inspiralEventList, &(vetoSegs[i]));
-          /* count the triggers  */
-          numTriggers = XLALCountSnglInspiral( inspiralEventList );
-          if ( vrbflg ) fprintf( stdout, " --> %d remaining triggers after veto segment list applied.\n",
-            numTriggers );
-	}
-      }
-    }
-  }
-
   /*
    * for the case of BCV unconstrained-max, discard the triggers that
    * have alphaF greater than alphaFhi or lower than alphaFlo,
@@ -1490,49 +1259,54 @@ int main( int argc, char *argv[] )
    * If at least alphaFhi is not specified, do not discard any triggers.
    */
 
-  /* In principle that part can be replaced by the next one and we can 
-     get rid of BCVC option I presumme. (thomas, May 2006) */ 
-  if ( doAlphaFCut & !doBCVC)
+  if ( doAlphaFCut )
   {
     if ( alphaFhi <= alphaFlo )
     {
       fprintf( stderr, "Error: alphaFhi must be greater than alphaFlo.\n");
       exit( 1 );
     }
+
     if ( vrbflg ) fprintf( stdout,
-       "Discarding triggers with alphaF > %f OR alphaF < %f : ", 
+       "Discarding triggers with alphaF > %f OR alphaF < %f \n", 
        alphaFhi, alphaFlo );
-      LAL_CALL( LALalphaFCutSingleInspiral( &status, &(inspiralEventList),
-        alphaFhi, alphaFlo), &status );
+
+    LAL_CALL( LALalphaFCutSingleInspiral( &status, &(inspiralEventList),
+      alphaFhi, alphaFlo), &status );
   }
-  
-  if (doBCVC & doAlphaFCut)
-    {
-    if ( vrbflg ) fprintf( stdout,
-       "Discarding triggers in H1 with alphaF > %f OR alphaF < %f (BCVC case) \n", 
-        alphafParams.h1_lo, alphafParams.h1_hi );
-    if ( vrbflg ) fprintf( stdout,
-       "Discarding triggers in H2 with alphaF > %f OR alphaF < %f (BCVC case) \n", 
-        alphafParams.h2_lo, alphafParams.h2_hi );
-    if ( vrbflg ) fprintf( stdout,
-       "Discarding triggers in L1 with alphaF > %f OR alphaF < %f (BCVC case) \n", 
-        alphafParams.l1_lo, alphafParams.l1_hi );
 
-     LAL_CALL( LALBCVCVetoSingleInspiral( &status, &(inspiralEventList),
-        alphafParams ), &status );
+  /*
+   * for the case of BCVC, discard the triggers that
+   * have alphaF/SNR greater than thresholdT and alphaF greater than 
+   * alphaFhi or lower than alphaFlo,
+   * as those are specified in the command line.
+   */
+  if ( doBCVCVeto )
+  {
 
-     numTriggers = XLALCountSnglInspiral( inspiralEventList );
-     if ( vrbflg ) fprintf( stdout, "%d remaining triggers after alphaF cut.\n",
-         numTriggers );
-    }
-  
+    if ( vrbflg ) fprintf( stdout,
+       "Discarding triggers with snr < %f \n",    
+	snrCut);
+    LAL_CALL( LALSNRCutSingleInspiral( &status, &(inspiralEventList), 
+	snrCut), &status);
+    
+    if ( vrbflg ) fprintf( stdout,
+       "Discarding triggers with alphaF > %f OR alphaF < %f \n and triggers with |alphaF/snr| >%f\n" , 
+       alphaFhi, alphaFlo , thresholdT);
+    LAL_CALL( LALBCVCVetoSingleInspiral( &status, &(inspiralEventList),
+      alphaFhi, alphaFlo, thresholdT), &status );
+  }
+ 
+
+
+
   /* check that we have read in data for all the requested times
      in all the requested instruments */
   if ( checkTimes )
   {
     if ( vrbflg ) fprintf( stdout, 
         "Checking that we have data for all times from all IFOs\n");
-    for ( ifoNumber = 0; ifoNumber < (int)numIFO; ++ifoNumber )
+    for ( ifoNumber = 0; ifoNumber < numIFO; ++ifoNumber )
     {
       LAL_CALL( LALCheckOutTimeFromSearchSummary ( &status, searchSummList, 
             ifoName[ifoNumber], &startCoinc, &endCoinc ), &status);
@@ -1654,69 +1428,24 @@ int main( int argc, char *argv[] )
   {
     LAL_CALL( LALCreateTwoIFOCoincList( &status, &coincInspiralList,
         inspiralEventList, &accuracyParams ), &status );
-      
-    if( coincInspiralList )
-    {
-      for (numCoinc = 0, thisCoinc = coincInspiralList;
-            thisCoinc; ++numCoinc, thisCoinc = thisCoinc->next )
-      {
-      }
-      if ( vrbflg ) fprintf( stdout, "%d coincident triggers found before coincidence cuts..\n", numCoinc);
-    }
 
-    /* BNS and MAchos cases */
-    if( distCut & !doBCVC ) 
-      {
-            if ( vrbflg ) fprintf( stdout, 
-              "Discarding triggers h1-h2-distance-cut using kappa=%f and epsilon = %f\n", 
-                accuracyParams.ifoAccuracy[LAL_IFO_H1].kappa,
-                accuracyParams.ifoAccuracy[LAL_IFO_H1].epsilon);
-            XLALInspiralDistanceCut( &coincInspiralList, &accuracyParams);
-      } 
-
-    /* BBH/BCV case */
-    if (doBCVC)
+    if( distCut  )
     {
-      if( iotaCut  ) /*S4*/
+      if (!doBCVCVeto)
       {
-        {
-          if ( vrbflg ) fprintf( stdout, 
-              "Discarding triggers where iota using iota cut\n"); 
-            XLALInspiralIotaCutBCVC( &coincInspiralList );
-          if ( vrbflg ) fprintf( stdout, "%d remaining coincident triggers.\n", 
-		XLALCountCoincInspiral(coincInspiralList));
-        }
+        XLALInspiralDistanceCut( &coincInspiralList, &accuracyParams );
       }
-      if( distCut  ) /*S3*/
-          {
-             if ( vrbflg ) fprintf( stdout, 
-              "Discarding triggers h1-h2-distance-cut using kappa=%f and epsilon = %f\n", 
-                accuracyParams.ifoAccuracy[LAL_IFO_H1].kappa,
-                accuracyParams.ifoAccuracy[LAL_IFO_H1].epsilon);
-            XLALInspiralDistanceCutBCVC( &coincInspiralList, &accuracyParams);
-            if ( vrbflg ) fprintf( stdout, "%d remaining coincident triggers.\n", 
-		XLALCountCoincInspiral(coincInspiralList));
-        }
-      
-      if ( doPsi0Psi3Cut ) /* S4*/
+      else
       {
-            if ( vrbflg ) fprintf( stdout, 
-              "Discarding triggers using coincidences in dpsi0/dpsi3 plane \n");
-            XLALInspiralPsi0Psi3CutBCVC( &coincInspiralList );
-            if ( vrbflg ) fprintf( stdout, "%d remaining coincident triggers .\n", 
-		XLALCountCoincInspiral(coincInspiralList));
+  	    if ( vrbflg ) fprintf( stdout, 
+	      "Discarding triggers h1-h2-distance-cut using kappa=%f and epsilon = %f\n", 
+	        accuracyParams.ifoAccuracy[LAL_IFO_H1].kappa,
+	        accuracyParams.ifoAccuracy[LAL_IFO_H1].epsilon);
+        XLALInspiralDistanceCutBCVC( &coincInspiralList, &accuracyParams );
       }
     }
 
-    /* BCVSpin case */
-    if (doBCV2H1H2Veto)
-    {
-        if (vrbflg) fprintf (stdout, 
-          "Discarding triggers with H2 snr > H1 snr \n" );
-        XLALInspiralSNRCutBCV2( &coincInspiralList);
-    }
   
-
     if ( multiIfoCoinc )
     {
       for( N = 3; N <= numIFO; N++)
@@ -1728,30 +1457,6 @@ int main( int argc, char *argv[] )
       LAL_CALL( LALRemoveRepeatedCoincs( &status, &coincInspiralList ), 
           &status );
     }
-    /* count number of coincidences */
-    if ( vrbflg ) fprintf( stdout, "%d coincident triggers found (with repeated) .\n", 
-		XLALCountCoincInspiral(coincInspiralList));
-
-    /* remove events in H1L1 and H2L1 (triple coincidence analysis)  */
-    if(h1h2Consistency && (vetoFileName[LAL_IFO_H1] && vetoFileName[LAL_IFO_H2]))
-    {
-      LAL_CALL( LALInspiralDistanceCutCleaning(&status,  &coincInspiralList, 
-	&accuracyParams, &summValueList, &vetoSegs[LAL_IFO_H1], &vetoSegs[LAL_IFO_H2]), &status);
-      if ( vrbflg ) fprintf( stdout, "%d remaining coincident triggers after h1-h2-consistency.\n", 
-	XLALCountCoincInspiral(coincInspiralList));
-    }
-    else 
-    {
-    if (h1h2Consistency)
-    {
-     if (vrbflg) fprintf(stdout, "Using h1-h2-consistency without veto segment list can be dangerous...\n");
-      LAL_CALL( LALInspiralDistanceCutCleaning(&status,  &coincInspiralList, 
-	&accuracyParams, &summValueList, NULL, NULL), &status);
-      if ( vrbflg ) fprintf( stdout, "%d remaining coincident triggers after h1-h2-consistency.\n", 
-	XLALCountCoincInspiral(coincInspiralList));
-    }
-    }
-    
 
     /* count the coincs */
     if( coincInspiralList )
@@ -1826,50 +1531,22 @@ int main( int argc, char *argv[] )
       {
         LAL_CALL( LALCreateTwoIFOCoincList(&status, &coincInspiralList,
           inspiralEventList, &accuracyParams ), &status);
-          
-        /* BNS and Machos case */
-        if( distCut & !doBCVC  ) /*S3*/
-          {
-             if ( vrbflg ) fprintf( stdout, 
-              "Discarding triggers h1-h2-distance-cut using kappa=%f and epsilon = %f\n", 
-                accuracyParams.ifoAccuracy[LAL_IFO_H1].kappa,
-                accuracyParams.ifoAccuracy[LAL_IFO_H1].epsilon);
-            XLALInspiralDistanceCut( &coincInspiralList, &accuracyParams);
-        }
-    
-        /* BCV case */  
-        if (doBCVC)
+
+        if( distCut  )
         {
-        if( distCut  ) /*S3*/
+          if (!doBCVCVeto)
           {
-             if ( vrbflg ) fprintf( stdout, 
-              "Discarding triggers h1-h2-distance-cut using kappa=%f and epsilon = %f\n", 
-                accuracyParams.ifoAccuracy[LAL_IFO_H1].kappa,
-                accuracyParams.ifoAccuracy[LAL_IFO_H1].epsilon);
-            XLALInspiralDistanceCutBCVC( &coincInspiralList, &accuracyParams);
-        }
-          if( iotaCut  ) /*S4*/
-          {           
-              if ( vrbflg ) fprintf( stdout, 
-                "Discarding triggers where iota is above 1-1./sqrt(snr)\n"); 
-              XLALInspiralIotaCutBCVC( &coincInspiralList );
-            
+            XLALInspiralDistanceCut( &coincInspiralList, &accuracyParams );
           }
-          if ( doPsi0Psi3Cut ) /* S4*/
-          { 
-            if ( vrbflg ) fprintf( stdout, 
-              "Discarding triggers psi0/psi3 outisde an ellipse dpsi0-dpsi3 (see CoincInspiralUtils.c)\n");
-            XLALInspiralPsi0Psi3CutBCVC( &coincInspiralList );
+          else
+          {
+  	    if ( vrbflg ) fprintf( stdout, 
+	      "Discarding triggers h1-h2-distance-cut using kappa=%f and epsilon = %f\n", 
+	        accuracyParams.ifoAccuracy[LAL_IFO_H1].kappa,
+	        accuracyParams.ifoAccuracy[LAL_IFO_H1].epsilon);
+            XLALInspiralDistanceCutBCVC( &coincInspiralList, &accuracyParams );
           }
-        }
-  
-        /* BCVSpin case */
-        if (doBCV2H1H2Veto)
-        {
-          if (vrbflg) fprintf (stdout, 
-            "Discarding triggers with H2 snr > H1 snr \n" );
-          XLALInspiralSNRCutBCV2( &coincInspiralList);
-        }
+	}
 
         if ( multiIfoCoinc )
         {
@@ -1882,28 +1559,6 @@ int main( int argc, char *argv[] )
           LAL_CALL( LALRemoveRepeatedCoincs( &status, &coincInspiralList ), 
               &status );
         }
-       
-        /* remove events in H1L1 and H2L1 (triple coincidence analysis)  */
-	if(h1h2Consistency && (vetoFileName[LAL_IFO_H1] && vetoFileName[LAL_IFO_H2]))
-        {
-          LAL_CALL( LALInspiralDistanceCutCleaning(&status,  &coincInspiralList, 
-	    &accuracyParams, &summValueList, &vetoSegs[LAL_IFO_H1], &vetoSegs[LAL_IFO_H2]), &status);
-          if ( vrbflg ) fprintf( stdout, "%d remaining coincident triggers after h1-h2-consisteny .\n", 
-	    XLALCountCoincInspiral(coincInspiralList));
-	}
-        else 
-	{
-	  if (h1h2Consistency)
-	  {
-	    if(vrbflg)
-	      fprintf(stdout, "Using h1-h2-consistency without veto segment list can be dangerous...\n");
-	    LAL_CALL( LALInspiralDistanceCutCleaning(&status,  &coincInspiralList, 
-	      &accuracyParams, &summValueList, NULL, NULL), &status);
-            if ( vrbflg ) 
-	      fprintf( stdout, "%d remaining coincident triggers after h1-h2-consistency.\n", 
-		XLALCountCoincInspiral(coincInspiralList));
-	  }
-	}
 
         /* count the coincs, scroll to end of list */
         if( coincInspiralList )
@@ -2106,24 +1761,8 @@ cleanexit:
     LALFree( thisSearchSumm );
   }
 
-  while ( summValueList )
-  {
-    thisSummValue = summValueList;
-    summValueList = summValueList->next;
-    LALFree( thisSummValue );
-  } 
 
-  /* free the veto segment list. */
-  for (ifoNumber=0; ifoNumber<LAL_NUM_IFO; ifoNumber++)
-  {
-   if ( vetoFileName[ifoNumber] )
-    {
-      XLALSegListClear( &vetoSegs[ifoNumber] );
-      free( vetoFileName[ifoNumber] );
-   }
-  }
-  
-/* free the snglInspirals */
+  /* free the snglInspirals */
   while ( inspiralEventList )
   {
     thisInspiralTrigger = inspiralEventList;
@@ -2144,7 +1783,6 @@ cleanexit:
     coincInspiralList = coincInspiralList->next;
     XLALFreeCoincInspiral( &thisCoinc );
   }
-
 
 
   if ( userTag ) free( userTag );
