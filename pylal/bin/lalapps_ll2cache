@@ -83,7 +83,7 @@ options, patterns = parse_command_line()
 
 def element_filter(name, attrs):
 	"""
-	Return True if name, attrs describes a search summary table or a
+	Return True if name & attrs describe a search summary table or a
 	process table.
 	"""
 	return lsctables.IsTableProperties(lsctables.SearchSummaryTable, name, attrs) or lsctables.IsTableProperties(lsctables.ProcessTable, name, attrs)
@@ -93,15 +93,6 @@ class ContentHandler(docutils.PartialLIGOLWContentHandler):
 		docutils.PartialLIGOLWContentHandler.__init__(self, doc, element_filter)
 
 llwapp.ContentHandler = ContentHandler
-
-
-def load_filename(filename):
-	"""
-	Load, merge, and extract search summary tables.
-	"""
-	doc = llwapp.load_filename(filename, options.verbose)
-	lsctables.makeReference(doc)
-	return llwapp.get_table(doc, lsctables.SearchSummaryTable.tableName)
 
 
 #
@@ -130,7 +121,10 @@ def column_value(table, column):
 
 for pattern in patterns:
 	for filename in glob.glob(pattern):
-		searchsumm = load_filename(filename)
+		# load document and extract search summary table
+		doc = llwapp.load_filename(filename, options.verbose)
+		lsctables.makeReference(doc)
+		searchsumm = llwapp.get_table(doc, lsctables.SearchSummaryTable.tableName)
 
 		# extract observatory
 		if options.observatory:
@@ -165,3 +159,6 @@ for pattern in patterns:
 
 		# write cache entry
 		print >>options.output, str(CacheEntry(observatory, description, segment, url))
+
+		# allow garbage collection
+		doc.unlink()
