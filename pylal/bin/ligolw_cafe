@@ -213,7 +213,7 @@ packer.set_time_slides(options.time_slides)
 if options.verbose:
 	print >>sys.stderr, "packing files..."
 for n, cacheentry in enumerate(cache):
-	if options.verbose and not n % max(100, (len(cache)/1000)):
+	if options.verbose and not n % max(5, (len(cache)/1000)):
 		print >>sys.stderr, "	%.1f%%	(%d files, %d caches)\r" % (100.0 * n / len(cache), n, len(outputcaches)),
 	cache_seglistdict = cacheentry_to_seglistdict(cacheentry)
 	if seglists.intersects(cache_seglistdict):
