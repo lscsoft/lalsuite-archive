@@ -135,7 +135,7 @@ def get_table(doc, name):
 	return tables[0]
 
 
-def segmentlistdict_fromsearchsummary(xmldoc, live_time_program):
+def segmentlistdict_fromsearchsummary(xmldoc, live_time_program = None):
 	"""
 	Convenience wrapper for a common case usage of the segmentlistdict
 	class: searches the process table in xmldoc for occurances of a
@@ -146,7 +146,7 @@ def segmentlistdict_fromsearchsummary(xmldoc, live_time_program):
 	procids = get_process_ids_by_program(get_table(xmldoc, lsctables.ProcessTable.tableName), live_time_program)
 	seglistdict = segments.segmentlistdict()
 	for row in get_table(xmldoc, lsctables.SearchSummaryTable.tableName):
-		if bisect_contains(procids, row.process_id):
+		if (live_time_program == None) or bisect_contains(procids, row.process_id):
 			if row.ifos in seglistdict:
 				seglistdict[row.ifos].append(row.get_out())
 			else:
