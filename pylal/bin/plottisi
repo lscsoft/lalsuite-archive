@@ -34,7 +34,6 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg
 import sys
 import urllib
 
-from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import docutils
 from pylal import llwapp
@@ -91,18 +90,14 @@ else:
 # =============================================================================
 #
 
-def ElementFilter(name, attrs):
+def element_filter(name, attrs):
 	return lsctables.IsTableProperties(lsctables.TimeSlideTable, name, attrs)
 
-def LoadDocument(url):
-	doc = ligolw.Document()
-	handler = docutils.PartialLIGOLWContentHandler(doc, ElementFilter)
-	try:
-		ligolw.make_parser(handler).parse(urllib.urlopen(url))
-	except Exception, e:
-		print >>sys.stderr, "error: parsing contents of %s: %s" % (url, str(e))
-		sys.exit(1)
-	return doc
+class ContentHandler(docutils.PartialLIGOLWContentHandler):
+	def __init__(self, doc):
+		docutils.PartialLIGOLWContentHandler.__init__(self, doc, element_filter)
+
+llwapp.ContentHandler = ContentHandler
 
 
 #
@@ -151,7 +146,7 @@ class Plot(object):
 # =============================================================================
 #
 
-plot = Plot(LoadDocument(filenames[0]), options.x_instrument, options.y_instrument, options.n_instruments)
+plot = Plot(llwapp.load_filename(filenames[0], options.verbose), options.x_instrument, options.y_instrument, options.n_instruments)
 
 
 #

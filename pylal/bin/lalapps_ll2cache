@@ -42,7 +42,6 @@ import sys
 
 from glue.lal import CacheEntry
 from glue import segments
-from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import docutils
 from pylal import llwapp
@@ -82,22 +81,25 @@ options, patterns = parse_command_line()
 # =============================================================================
 #
 
-def filter(name, attrs):
+def element_filter(name, attrs):
 	"""
 	Return True if name, attrs describes a search summary table or a
 	process table.
 	"""
 	return lsctables.IsTableProperties(lsctables.SearchSummaryTable, name, attrs) or lsctables.IsTableProperties(lsctables.ProcessTable, name, attrs)
 
+class ContentHandler(docutils.PartialLIGOLWContentHandler):
+	def __init__(self, doc):
+		docutils.PartialLIGOLWContentHandler.__init__(self, doc, element_filter)
+
+llwapp.ContentHandler = ContentHandler
+
 
 def load_filename(filename):
 	"""
 	Load, merge, and extract search summary tables.
 	"""
-	if options.verbose:
-		print >>sys.stderr, "%s ..." % filename
-	doc = ligolw.Document()
-	ligolw.make_parser(docutils.PartialLIGOLWContentHandler(doc, filter)).parse(file(filename))
+	doc = llwapp.load_filename(filename, options.verbose)
 	lsctables.makeReference(doc)
 	return llwapp.get_table(doc, lsctables.SearchSummaryTable.tableName)
 
