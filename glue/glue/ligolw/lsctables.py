@@ -2236,9 +2236,9 @@ class CoincTable(LSCTableUnique):
 	tableName = "coinc_event:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
+		"coinc_def_id": "ilwd:char",
 		"coinc_event_id": "ilwd:char",
 		"time_slide_id": "ilwd:char",
-		"coinc_def_id": "ilwd:char",
 		"nevents": "int_4u"
 	}
 
