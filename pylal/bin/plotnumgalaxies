@@ -136,8 +136,13 @@ def square(M,medges,mstep,D,dedges,dstep):
     l = int((D[i]-dedges[0])/dstep)
     
     if (k>=0 and k<len(medges)) and (l>=0 and l<len(dedges)):
-      ng_m_d[l][k] = ng_m_d[l][k] + 1  
+      if(opts.delta_luminosity):
+	  ng_m_d[l][k] = ng_m_d[l][k] + lum[i]
+      else:
+	  ng_m_d[l][k] = ng_m_d[l][k] + 1	
+  
     i = i+1
+
   return ng_m_d
 
 ##############################################################################
@@ -373,6 +378,10 @@ parser.add_option("-n","--nbins",action="store",type="int",default=20,\
     metavar=" NBINS", 
     help="number of bins for the histogram plots (default = 20)" )
 
+parser.add_option("-B","--delta-luminosity",action="store_true",default=False,\
+    help="Take into account the error in luminosity" )
+
+
 # plots to be made
 parser.add_option("-N","--plot-ng",action="store_true",default=False,\
     help="plot the astrophysical ng vs x-value")
@@ -492,13 +501,28 @@ if astro_plot:
   xAstro = readColumn(simInspTriggers,opts.x_value)
   yAstro = readColumn(simInspTriggers,opts.y_value)
 
-  if opts.delta_error:
-    gal_name = simInspTriggers.getColumnByName('source')
-    for i in range(len(sourcelist)):
-      for j in range(len(gal_name)):
-        if (gal_name[j]==sourcelist[i]['name']):
-          xAstro[j]=xAstro[j]*(1 + sourcelist[i]['delta_d'])
-    print xAstro[3] 
+
+if((opts.delta_error) or (opts.delta_luminosity)):
+  gal_name = simInspTriggers.getColumnByName('source')
+
+  i=0	  
+  j=0
+  lum =[]
+  for i in range(len(sourcelist)):
+    for j in range(len(gal_name)):
+      if (gal_name[j]==sourcelist[i]['name']):
+        xAstro[j]=xAstro[j]*(1 + sourcelist[i]['delta_d'])
+        c = (1+2*sourcelist[i]['delta_d'])
+        lum.append(c)  
+                     
+	if ((opts.y_value) !='mchirp'):
+	yAstro[j]=yAstro[j]*(1 + sourcelist[i]['delta_d'])
+
+
+	
+     
+        
+  
 
 ##############################################################################
 # read in the found/missed injections
