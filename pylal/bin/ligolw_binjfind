@@ -31,7 +31,6 @@ from optparse import OptionParser
 import sys
 
 from glue.ligolw import lsctables
-from glue.ligolw import docutils
 from pylal import llwapp
 from pylal import SnglBurstUtils
 
@@ -111,7 +110,7 @@ class DocContents(object):
 		except ValueError:
 			self.coinctable = lsctables.New(lsctables.CoincTable)
 			xmldoc.childNodes[0].appendChild(self.coinctable)
-		self.coincids = docutils.NewILWDs(self.coinctable, "coinc_event_id")
+		self.coincids = lsctables.NewILWDs(self.coinctable, "coinc_event_id")
 
 		try:
 			self.coincmaptable = llwapp.get_table(xmldoc, lsctables.CoincMapTable.tableName)

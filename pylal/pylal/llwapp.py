@@ -43,7 +43,6 @@ from glue.ligolw import metaio
 from glue.ligolw import param
 from glue.ligolw import array
 from glue.ligolw import lsctables
-from glue.ligolw import docutils
 from pylal.date import XLALUTCToGPS
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -222,7 +221,7 @@ def append_process(doc, program = "", version = "", cvs_repository = "", cvs_ent
 	process.jobid = jobid
 	process.domain = domain
 	process.ifos = ifos
-	process.process_id = docutils.NewILWDs(proctable, "process_id").next()
+	process.process_id = lsctables.NewILWDs(proctable, "process_id").next()
 	proctable.append(process)
 	return process
 
