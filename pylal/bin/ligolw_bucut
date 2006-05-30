@@ -106,22 +106,17 @@ def build_seglists(xmldoc, program):
 	process_ids = llwapp.get_process_ids_by_program(get_table(xmldoc, lsctables.ProcessTable.tableName), program)
 	insegs = segments.segmentlist()
 	for row in searchsummtable:
-		if llwapp.bisect_contains(process_ids, row.process_id):
+		if (program == None) or llwapp.bisect_contains(process_ids, row.process_id):
 			insegs.append(row.get_in())
 	outsegs = llwapp.segmentlistdict_fromsearchsummary(xmldoc, program)
-	return outsegs, insegs.extent(), reduce(segments.segmentlist.__or__, outsegs.itervalues()).extent()
+	return outsegs, insegs.extent(), outsegs.extent_all()
 
 
 class DocContents(object):
 	def __init__(self, xmldoc, program = None):
 		self.snglbursttable = llwapp.get_table(xmldoc, lsctables.SnglBurstTable.tableName)
 
-		if program:
-			self.outsegs, self.inseg, self.outseg = build_seglists(xmldoc, program)
-		else:
-			searchsummtable = llwapp.get_table(xmldoc, lsctables.SearchSummaryTable.tableName)
-			self.inseg = searchsummtable.get_inlist().extent()
-			self.outseg = searchsummtable.get_outlist().extent()
+		self.outsegs, self.inseg, self.outseg = build_seglists(xmldoc, program)
 
 		try:
 			self.simbursttable = llwapp.get_table(xmldoc, lsctables.SimBurstTable.tableName)
