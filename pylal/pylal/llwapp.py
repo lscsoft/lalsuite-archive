@@ -143,7 +143,7 @@ def segmentlistdict_fromsearchsummary(xmldoc, live_time_program = None):
 	table for matching process IDs and constructs a segmentlistdict
 	object from those rows.
 	"""
-	procids = get_process_ids_by_program(get_table(xmldoc, lsctables.ProcessTable.tableName), live_time_program)
+	procids = get_process_ids_by_program(xmldoc, live_time_program)
 	seglistdict = segments.segmentlistdict()
 	for row in get_table(xmldoc, lsctables.SearchSummaryTable.tableName):
 		if (live_time_program == None) or bisect_contains(procids, row.process_id):
@@ -236,12 +236,12 @@ def set_process_end_time(process):
 	return process
 
 
-def get_process_ids_by_program(processtable, program):
+def get_process_ids_by_program(xmldoc, program):
 	"""
-	From a process table, return a sorted list of the process IDs for
-	the given program.
+	Extract the process table, and return a sorted list of the process
+	IDs for the given program.
 	"""
-	ids = [row.process_id for row in processtable if row.program == program]
+	ids = [row.process_id for row in get_table(xmldoc, lsctables.ProcessTable.tableName) if row.program == program]
 	ids.sort()
 	return ids
 

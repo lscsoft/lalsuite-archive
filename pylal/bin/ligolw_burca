@@ -117,7 +117,7 @@ def find_coinc_proc_ids(doccontents, xmldoc, program):
 	the list of process IDs that will participate in coincidences
 	identified by the time slide table.
 	"""
-	ids = llwapp.get_process_ids_by_program(llwapp.get_table(xmldoc, lsctables.ProcessTable.tableName), program)
+	ids = llwapp.get_process_ids_by_program(xmldoc, program)
 
 	# find the largest coincidence window
 	try:
