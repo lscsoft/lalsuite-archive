@@ -40,7 +40,6 @@ from glue import segments
 from glue.ligolw import ligolw
 from glue.ligolw import metaio
 from glue.ligolw import lsctables
-from glue.ligolw import docutils
 
 
 #
@@ -101,7 +100,7 @@ if options.rows:
 
 def ContentHandler(doc):
 	if options.table:
-		return docutils.PartialLIGOLWContentHandler(doc, lambda name, attrs: (name == ligolw.Table.tagName) and (metaio.StripTableName(attrs["Name"]) in options.table))
+		return ligolw.PartialLIGOLWContentHandler(doc, lambda name, attrs: (name == ligolw.Table.tagName) and (metaio.StripTableName(attrs["Name"]) in options.table))
 	else:
 		return ligolw.LIGOLWContentHandler(doc)
 
