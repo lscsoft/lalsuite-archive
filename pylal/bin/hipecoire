@@ -82,7 +82,7 @@ def coire(data_type,input,ifos,trigs=None):
     output += "_CLUST_" + str(opts.cluster_time) + "s"
   else:
     output += "_UNCLUST" 
-
+  
   if data_type == "inj":
     missed = output + "_MISSED.xml"
     output += "_FOUND"
@@ -97,12 +97,14 @@ def coire(data_type,input,ifos,trigs=None):
   if data_type == "inj":
     command += " --injection-file " + opts.injection_file + \
                " --injection-window " + opts.injection_window + \
-               " --missed-injections " + missed
+               " --missed-injections " + missed    
   if trigs:
     command += " --coinc-cut " + trigs
   if opts.cluster_time:
-    command += " --coinc-stat " + opts.cluster_algorithm +\
+    command += " --coinc-stat " + opts.coinc_stat +\
                " --cluster-time " + str(1000 * opts.cluster_time)
+    if opts.stat_thresh:
+     command += " --stat-threshold " + opts.stat_thresh
 
   return command,output
 
@@ -265,9 +267,13 @@ parser.add_option("-g","--cluster-time",action="store",type="int",\
     default=None,metavar=" CLUSTER_TIME", \
     help="cluster window used in coire, seconds (default = None)")
     
-parser.add_option("-i","--cluster-algorithm",action="store",type="string",\
-    default="effective_snrsq",metavar=" CLUSTER_ALG", \
-    help="cluster algorithm used in coire(default = effective_snrsq)")
+parser.add_option("-i","--coinc-stat",action="store",type="string",\
+    default="effective_snrsq",metavar=" COINC_STAT", \
+    help="cluster algorithm used in coire (default = effective_snrsq)")
+    
+parser.add_option("-I","--stat-thresh",action="store",type="float",\
+    default=None,metavar=" STAT_THRESH", \
+    help="statistic threshold used in coire (default = None)")
 
 parser.add_option("-j","--second-coinc",action="store_true",default=False,\
     help="specify that the input comes from second coinc (default = false)")
@@ -292,7 +298,7 @@ parser.add_option("-q","--figure-name",action="store",type="string",\
     help="figure name used for saving the plots (default = None)" )
 
 parser.add_option("-r","--s3-stat",action="store",type="string",\
-    default='snr', metavar=" PLOT_STAT",\
+    default='effective_snr', metavar=" PLOT_STAT",\
     help="statistic used in making plots (default = effective_snr)" )
 
 # executables
