@@ -17,6 +17,7 @@ from glue import segmentsUtils
 from glue.ligolw import ligolw
 from glue.ligolw import metaio
 from glue.ligolw import lsctables
+from glue.ligolw import docutils
 from pylal import viz
 
 ##############################################################################
@@ -67,7 +68,7 @@ def readFiles(injGlob):
     # read in SimInspiral
     f = file(thisFile)
     doc = ligolw.Document()
-    ligolw.make_parser(ligolw.PartialLIGOLWContentHandler(doc, \
+    ligolw.make_parser(docutils.PartialLIGOLWContentHandler(doc, \
         isSimInsp)).parse(file(thisFile))
     simInspiralTable = doc.childNodes[0]
     if output:
@@ -126,24 +127,7 @@ def segmentCut ( sim_table, seglist, col_name ):
 ##############################################################################
 # Define a Square Array
 ##############################################################################
-def square(M,medges,mstep,D,dedges,dstep,luminosity_weight=None):
-  
-  if not luminosity_weight:
-    return None
-
-  if luminosity_weight: 
-    # Rescale the counting
-      gal_name = simInspTriggers.getColumnByName('source')
-      lum_revised =[]
-      for i in range(len(sourcelist)):
-        for j in range(len(gal_name)):
-          if (gal_name[j]==sourcelist[i]['name']):
-             l = (1 + sourcelist[i]['delta'])**2
-             lum_revised.append(c)
-
-      ng_m_d[l][k] = ng_m_d[l][k] + lum_revised[i]
-
-
+def square(M,medges,mstep,D,dedges,dstep):
   i = 0
   ng_m_d = zeros((len(medges),len(dedges)),'d')
  
@@ -152,27 +136,14 @@ def square(M,medges,mstep,D,dedges,dstep,luminosity_weight=None):
     l = int((D[i]-dedges[0])/dstep)
     
     if (k>=0 and k<len(medges)) and (l>=0 and l<len(dedges)):
-  	  ng_m_d[l][k] = ng_m_d[l][k] + 1	
-          i = i+1
+      if(opts.delta_luminosity):
+	  ng_m_d[l][k] = ng_m_d[l][k] + lum[i]
+      else:
+	  ng_m_d[l][k] = ng_m_d[l][k] + 1	
+  
+    i = i+1
 
   return ng_m_d
-
-##############################################################################
-# Define Correction accounted for change in Distance and Luminosity
-##############################################################################
-
-def correction(parameter):
-  gal_name = simInspTriggers.getColumnByName('source')
-  val_revised =[]
-  for i in range(len(sourcelist)):
-    for j in range(len(gal_name)):
-      if (gal_name[j]==sourcelist[i]['name']):
-	  p =parameter[j]*(1 + sourcelist[i]['delta_d'])
-          val_revised.append(p)
-            
-  return val_revised
-
-
 
 ##############################################################################
 # Chop a simInspiralTable based on component masses.
@@ -407,7 +378,7 @@ parser.add_option("-n","--nbins",action="store",type="int",default=20,\
     metavar=" NBINS", 
     help="number of bins for the histogram plots (default = 20)" )
 
-parser.add_option("-B","--luminosity_weight",action="store_true",default=False,\
+parser.add_option("-B","--delta-luminosity",action="store_true",default=False,\
     help="Take into account the error in luminosity" )
 
 
@@ -530,20 +501,28 @@ if astro_plot:
   xAstro = readColumn(simInspTriggers,opts.x_value)
   yAstro = readColumn(simInspTriggers,opts.y_value)
 
+
+if((opts.delta_error) or (opts.delta_luminosity)):
+  gal_name = simInspTriggers.getColumnByName('source')
+
+  i=0	  
+  j=0
+  lum =[]
+  for i in range(len(sourcelist)):
+    for j in range(len(gal_name)):
+      if (gal_name[j]==sourcelist[i]['name']):
+        xAstro[j]=xAstro[j]*(1 + sourcelist[i]['delta_d'])
+        c = (1+2*sourcelist[i]['delta_d'])
+        lum.append(c)  
+                     
+	if ((opts.y_value) !='mchirp'):
+	yAstro[j]=yAstro[j]*(1 + sourcelist[i]['delta_d'])
+
+
+	
+     
+        
   
-if (opts.delta_error):
-  if (opts.x_value !='mchirp'):
-    x_vector = readColumn(simInspTriggers,opts.x_value)
-    xAstro = correction(x_vector)
-  else:
-    xAstro = readColumn(simInspTriggers,opts.x_value)
-  
-if (opts.delta_error):
-  if (opts.y_value !='mchirp'):
-    y_vector = readColumn(simInspTriggers,opts.y_value)
-    yAstro = correction(y_vector)
-  else:
-    yAstro = readColumn(simInspTriggers,opts.y_value)  
 
 ##############################################################################
 # read in the found/missed injections
@@ -630,8 +609,6 @@ if astro_plot:
   xng_cum = cumsum( xng )
   clf()
   
- 
-
   ng = square(xAstro,xEdges,xStep,yAstro,yEdges,yStep)
   ng *= max_luminosity/numSources
 
@@ -852,7 +829,6 @@ if opts.plot_efficiency:
 ##############################################################################
 if opts.cum_search_ng:
   xng_cum = cumsum( xng * xEff)
-   
   figure()
   plot(x1Edges,xng_cum,linewidth=1)
   grid( True )
