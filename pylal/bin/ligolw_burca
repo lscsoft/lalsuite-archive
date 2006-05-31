@@ -127,7 +127,7 @@ def find_coinc_proc_ids(doccontents, xmldoc, program):
 
 	# extract a segmentlistdict;  protract by half the largest
 	# coincidence window so as to not miss edge effects
-	seglistdict = llwapp.segmentlistdict_fromsearchsummarytable(xmldoc, program).protract(halfmaxwindow)
+	seglistdict = llwapp.segmentlistdict_fromsearchsummary(xmldoc, program).protract(halfmaxwindow)
 
 	# determine the coincident segments for each instrument
 	coincseglists = llwapp.get_coincident_segmentlistdict(seglistdict, map(doccontents.get_offsetdict, doccontents.get_tisi_ids()))
