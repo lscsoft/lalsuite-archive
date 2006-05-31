@@ -34,13 +34,19 @@ events, elliminating binning artifacts from histograms, and improving the
 appearance of contour plots.
 """
 
-import math
-import numarray
-from numarray import convolve
-
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
+
+import math
+import numarray
+from numarray import convolve
+from xml.sax.xmlreader import AttributesImpl
+
+from glue.ligolw import ligolw
+from glue.ligolw import metaio
+from glue.ligolw import array
+from glue.ligolw import param
 
 
 #
@@ -190,7 +196,7 @@ class BinnedArray(object):
 	>>> x.array
 	array([ 2.,  0.,  0.,  0.,  0.])
 
-	Note that even for 1 dimensional array the index but be a tuple.
+	Note that even for 1 dimensional arrays the index must be a tuple.
 	"""
 	def __init__(self, bins):
 		self.bins = bins
@@ -352,22 +358,31 @@ def tophat_window2d(bins_x, bins_y):
 # =============================================================================
 #
 
+def filter_array(a, window):
+	"""
+	Filter an array using the window function.  The transformation is
+	done in place.
+	"""
+	dims = len(a.shape)
+	if dims != len(window.shape):
+		raise ValueError, "array and window dimensions mismatch"
+	if 1 in map(int.__cmp__, window.shape, a.shape):
+		raise ValueError, "window data excedes size of array data"
+	if dims == 1:
+		numarray.putmask(a, 1, convolve.convolve(a, window, mode = convolve.SAME))
+	elif dims == 2:
+		convolve.convolve2d(a, window, output = a, mode = "constant")
+	else:
+		raise ValueError, "can only filter 1 and 2 dimensional arrays"
+	return a
+
+
 def filter(binned, window):
 	"""
 	Filter the binned data using the window function.  The
 	transformation is done in place.
 	"""
-	dims = len(binned.array.shape)
-	if dims != len(window.shape):
-		raise ValueError, "binned array and window dimensions mismatch"
-	if 1 in map(int.__cmp__, window.shape, binned.array.shape):
-		raise ValueError, "window data excedes size of array data"
-	if dims == 1:
-		binned.array = convolve.convolve(binned.array, window, mode = convolve.SAME)
-	elif dims == 2:
-		convolve.convolve2d(binned.array, window, output = binned.array, mode = "constant")
-	else:
-		raise ValueError, "can only filter 1 and 2 dimensional arrays"
+	filter_array(binned.array, window)
 	return binned
 
 
@@ -376,19 +391,8 @@ def filter_ratios(binned, window):
 	Filter the binned ratio data using the window function.  The
 	transformation is done in place.
 	"""
-	dims = len(binned.numerator.shape)
-	if dims != len(window.shape):
-		raise ValueError, "binned array and window dimensions mismatch"
-	if 1 in map(int.__cmp__, window.shape, binned.numerator.shape):
-		raise ValueError, "window data excedes size of array data"
-	if dims == 1:
-		binned.numerator = convolve.convolve2d(binned.numerator, window, mode = "constant")
-		binned.denominator = convolve.convolve2d(binned.denominator, window, mode = "constant")
-	elif dims == 2:
-		binned.numerator = convolve.convolve2d(binned.numerator, window, mode = "constant")
-		binned.denominator = convolve.convolve2d(binned.denominator, window, mode = "constant")
-	else:
-		raise ValueError, "can only filter 1 and 2 dimensional arrays"
+	filter_array(binned.numerator, window)
+	filter_array(binned.denominator, window)
 	return binned
 
 
@@ -440,3 +444,66 @@ class Rate(BinnedArray):
 
 	def yvals(self):
 		return self.array
+
+
+#
+# =============================================================================
+#
+#                      XML Serialization/Deserialization
+#
+# =============================================================================
+#
+
+def bins_to_xml(bins):
+	"""
+	Convert a Bins object to LIGO Light Weight XML.  The return value
+	is the top-level node of a document sub-tree containing the
+	serialization of the Bins object.
+	"""
+	table = metaio.Table(AttributesImpl({"Name": "pylal_rate:bins:table"}))
+	table.appendChild(metaio.Column(AttributesImpl({"Name": "pylal_rate:bins:type", "Type": "lstring"})))
+	table.appendChild(metaio.Column(AttributesImpl({"Name": "pylal_rate:bins:min", "Type": "double"})))
+	table.appendChild(metaio.Column(AttributesImpl({"Name": "pylal_rate:bins:max", "Type": "double"})))
+	table.appendChild(metaio.Column(AttributesImpl({"Name": "pylal_rate:bins:n", "Type": "int_4u"})))
+	table.appendChild(metaio.TableStream(AttributesImpl({"Name": "pylal_rate:bins:table"})))
+	for bin in bins._Bins__bins:
+		row = metaio.TableRow()
+		if type(bin) == _LinBins:
+			row.type = "linear"
+			row.min = bin.min
+			row.max = bin.max
+			row.n = bin.n
+		elif type(bin) == _LogBins:
+			row.type = "logarithmic"
+			row.min = bin.min
+			row.max = bin.max
+			row.n = bin.n
+		else:
+			raise TypeError, bin
+		table.append(row)
+	return table
+
+
+def binned_array_to_xml(binnedarray):
+	"""
+	Convert a BinnedArray object to LIGO Light Weight XML.  The return
+	value is the top-level node of a document sub-tree containing the
+	serialization of the BinnedArray object.
+	"""
+	llw = ligolw.LIGO_LW()
+	llw.appendChild(bins_to_xml(binnedarray.bins))
+	llw.appendChild(array.from_array("pylal_rate:binnedarray:array", binnedarray.array, map(str, range(len(binnedarray.array.shape)))))
+	return llw
+
+
+def rate_to_xml(rate):
+	"""
+	Convert a Rate object to LIGO Light Weight XML.  The return value
+	is the top-level node of a document sub-tree containing the
+	serialization of the Rate object.
+	"""
+	llw = binned_array_to_xml(rate)
+	llw.appendChild(param.new_param("pylal_rate:rate:bins_per_filterwidth", "int_4u", rate.bins_per_filterwidth))
+	llw.appendChild(param.new_param("pylal_rate:rate:filterwidth", "double", rate.filterwidth))
+	llw.appendChild(array.from_array("pylal_rate:rate:window:array", rate.window, map(str, range(len(rate.window.shape)))))
+	return llw
