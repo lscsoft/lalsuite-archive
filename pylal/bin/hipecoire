@@ -101,7 +101,7 @@ def coire(data_type,input,ifos,trigs=None):
   if trigs:
     command += " --coinc-cut " + trigs
   if opts.cluster_time:
-    command += " --cluster-algorithm " + opts.cluster_algorithm +\
+    command += " --coinc-stat " + opts.cluster_algorithm +\
                " --cluster-time " + str(1000 * opts.cluster_time)
 
   return command,output
@@ -206,7 +206,7 @@ function calls but not exectute them.
 
 There are a couple of coire specific options, specifically:
   --cluster-time
-  --cluster-algorithm
+  --coinc-stat
   --veto-file (to perform vetoes)
   --rsq-threshold / --rsq-max-snr (to do r-squared veto)
   --second-coinc (for correct file names)
