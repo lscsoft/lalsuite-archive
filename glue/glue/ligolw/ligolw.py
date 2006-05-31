@@ -641,6 +641,33 @@ class LIGOLWContentHandler(sax.handler.ContentHandler):
 			self.current.appendData(content)
 
 
+class PartialLIGOLWContentHandler(LIGOLWContentHandler):
+	"""
+	LIGO LW content handler object with the ability to strip unwanted
+	portions of the document from the input stream.  Useful, for
+	example, when one wishes to read only a single table from the XML.
+	"""
+	def __init__(self, document, element_filter):
+		"""
+		Only those elements for which element_filter(name, attrs)
+		evaluates to True, and the children of those elements, will
+		be loaded.
+		"""
+		LIGOLWContentHandler.__init__(self, document)
+		self.element_filter = element_filter
+		self.filtered_depth = 0
+
+	def startElement(self, name, attrs):
+		if self.filtered_depth > 0 or self.element_filter(name, attrs):
+			LIGOLWContentHandler.startElement(self, name, attrs)
+			self.filtered_depth += 1
+
+	def endElement(self, name):
+		if self.filtered_depth > 0:
+			self.filtered_depth -= 1
+			LIGOLWContentHandler.endElement(self, name)
+
+
 #
 # =============================================================================
 #

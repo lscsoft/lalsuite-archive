@@ -43,28 +43,8 @@ import ligolw
 # =============================================================================
 #
 
-class PartialLIGOLWContentHandler(ligolw.LIGOLWContentHandler):
-	"""
-	LIGO LW content handler object with the ability to strip unwanted
-	portions of the document from the input stream.  Useful, for
-	example, when one wishes to read only a single table from the XML.
-	"""
+import warnings
+class PartialLIGOLWContentHandler(ligolw.PartialLIGOLWContentHandler):
 	def __init__(self, document, filter):
-		"""
-		Only those elements for which filter(name, attrs) evaluates
-		to True, and the children of those elements, will be
-		loaded.
-		"""
-		ligolw.LIGOLWContentHandler.__init__(self, document)
-		self.filter = filter
-		self.filtered_depth = 0
-
-	def startElement(self, name, attrs):
-		if self.filtered_depth > 0 or self.filter(name, attrs):
-			ligolw.LIGOLWContentHandler.startElement(self, name, attrs)
-			self.filtered_depth += 1
-
-	def endElement(self, name):
-		if self.filtered_depth > 0:
-			self.filtered_depth -= 1
-			ligolw.LIGOLWContentHandler.endElement(self, name)
+		warnings.warn("docutils.PartialLIGOLWContentHandler() class is deprecated:  use ligolw.PartialLIGOLWContentHandler() instead", DeprecationWarning)
+		ligolw.PartialLIGOLWContentHandler.__init__(self, document, filter)
