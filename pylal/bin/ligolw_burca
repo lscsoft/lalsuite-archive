@@ -301,7 +301,8 @@ class DocContents(object):
 		try:
 			self.coinctable = llwapp.get_table(doc, lsctables.CoincTable.tableName)
 		except ValueError:
-			self.coinctable = lsctables.New(lsctables.CoincTable)
+			# FIXME: add support for coinc_definer
+			self.coinctable = lsctables.New(lsctables.CoincTable, columns = ["process_id", "coinc_event_id", "time_slide_id", "nevents"])
 			doc.childNodes[0].appendChild(self.coinctable)
 		self.coincids = lsctables.NewILWDs(self.coinctable, "coinc_event_id")
 
