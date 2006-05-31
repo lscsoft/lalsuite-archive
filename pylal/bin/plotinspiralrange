@@ -8,7 +8,6 @@ from pylal import viz
 from glue.ligolw import ligolw
 from glue.ligolw import metaio
 from glue.ligolw import lsctables
-from glue.ligolw import docutils
 
 #######################################################################
 def isSummValue(name, attrs):
@@ -25,7 +24,7 @@ def readFiles(fList):
   for thisFile in fList:
     doc = ligolw.Document()
     # read in SummValueTable
-    ligolw.make_parser(docutils.PartialLIGOLWContentHandler(doc, \
+    ligolw.make_parser(ligolw.PartialLIGOLWContentHandler(doc, \
         isSummValue)).parse(file(thisFile))
     rows = doc.childNodes[0].rows
     for row in rows:

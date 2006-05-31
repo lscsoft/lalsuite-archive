@@ -8,7 +8,6 @@ from pylal import viz
 from glue.ligolw import ligolw
 from glue.ligolw import metaio
 from glue.ligolw import lsctables
-from glue.ligolw import docutils
 
 ##############################################################################
 
@@ -31,12 +30,12 @@ def readFiles(fList):
   for thisFile in fList:
     doc = ligolw.Document()
     # read in ifo from process, as not stored in SearchSumm
-    ligolw.make_parser(docutils.PartialLIGOLWContentHandler(doc, \
+    ligolw.make_parser(ligolw.PartialLIGOLWContentHandler(doc, \
         isProcess)).parse(file(thisFile))
     ifo = doc.childNodes[0].getColumnByName('ifos')[0]
     # read in SearchSummary
     doc = ligolw.Document()
-    ligolw.make_parser(docutils.PartialLIGOLWContentHandler(doc, \
+    ligolw.make_parser(ligolw.PartialLIGOLWContentHandler(doc, \
         isSearchSumm)).parse(file(thisFile))
     searchSummTable = doc.childNodes[0]
     if output.has_key(ifo):
