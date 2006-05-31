@@ -440,7 +440,7 @@ class RecoveredTimeOffset(object):
 plots = [
 	FreqVsTime(),
 	AmplVsFreqScatter(),
-#	AmplVsFreqContour(0.1),
+	AmplVsFreqContour(0.1),
 	TriggerCountHistogram(),
 	RecoveredVsInjectedAmplitude(),
 	RecoveredTimeOffset(segments.segment(-0.25, +0.25), 0.005)
