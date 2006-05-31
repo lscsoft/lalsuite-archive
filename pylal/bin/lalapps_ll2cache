@@ -43,7 +43,6 @@ import sys
 from glue.lal import CacheEntry
 from glue import segments
 from glue.ligolw import lsctables
-from glue.ligolw import docutils
 from pylal import llwapp
 
 #
@@ -88,9 +87,9 @@ def element_filter(name, attrs):
 	"""
 	return lsctables.IsTableProperties(lsctables.SearchSummaryTable, name, attrs) or lsctables.IsTableProperties(lsctables.ProcessTable, name, attrs)
 
-class ContentHandler(docutils.PartialLIGOLWContentHandler):
+class ContentHandler(ligolw.PartialLIGOLWContentHandler):
 	def __init__(self, doc):
-		docutils.PartialLIGOLWContentHandler.__init__(self, doc, element_filter)
+		ligolw.PartialLIGOLWContentHandler.__init__(self, doc, element_filter)
 
 llwapp.ContentHandler = ContentHandler
 

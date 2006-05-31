@@ -35,7 +35,6 @@ import sys
 import urllib
 
 from glue.ligolw import lsctables
-from glue.ligolw import docutils
 from pylal import llwapp
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -93,9 +92,9 @@ else:
 def element_filter(name, attrs):
 	return lsctables.IsTableProperties(lsctables.TimeSlideTable, name, attrs)
 
-class ContentHandler(docutils.PartialLIGOLWContentHandler):
+class ContentHandler(ligolw.PartialLIGOLWContentHandler):
 	def __init__(self, doc):
-		docutils.PartialLIGOLWContentHandler.__init__(self, doc, element_filter)
+		ligolw.PartialLIGOLWContentHandler.__init__(self, doc, element_filter)
 
 llwapp.ContentHandler = ContentHandler
 

@@ -11,7 +11,6 @@ from glue.lal import CacheEntry
 from glue import segments
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
-from glue.ligolw import docutils
 from glue.ligolw.utils import ligolw_add
 
 from pylal import llwapp
@@ -111,13 +110,13 @@ class PlotDescription(object):
 def element_filter(name, attrs):
 	return lsctables.IsTableProperties(lsctables.SnglBurstTable, name, attrs) or lsctables.IsTableProperties(lsctables.SimBurstTable, name, attrs) or lsctables.IsTableProperties(lsctables.SearchSummaryTable, name, attrs)
 
-class ContentHandler(docutils.PartialLIGOLWContentHandler):
+class ContentHandler(ligolw.PartialLIGOLWContentHandler):
 	"""
 	ContentHandler for reading only sngl_burst, sim_burst and
 	search_summary tables.
 	"""
 	def __init__(self, doc):
-		docutils.PartialLIGOLWContentHandler.__init__(self, doc, element_filter)
+		ligolw.PartialLIGOLWContentHandler.__init__(self, doc, element_filter)
 
 ligolw_add.ContentHandler = ContentHandler
 
