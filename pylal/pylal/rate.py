@@ -419,6 +419,12 @@ class Rate(BinnedArray):
 		"""
 		self.array[self.bins[x,]] += weight
 
+	def add_range(self, seg, weight):
+		"""
+		Add weight to the range of bins spanned by the segment seg.
+		"""
+		self.array[self.bins[seg[0],]:self.bins[seg[1],]+1] += weight
+
 	def set_window(self, windowfunc):
 		"""
 		Set the window function.
