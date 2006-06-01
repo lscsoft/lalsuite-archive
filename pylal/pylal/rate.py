@@ -41,12 +41,6 @@ __date__ = "$Date$"[7:-2]
 import math
 import numarray
 from numarray import convolve
-from xml.sax.xmlreader import AttributesImpl
-
-from glue.ligolw import ligolw
-from glue.ligolw import metaio
-from glue.ligolw import array
-from glue.ligolw import param
 
 
 #
@@ -444,66 +438,3 @@ class Rate(BinnedArray):
 
 	def yvals(self):
 		return self.array
-
-
-#
-# =============================================================================
-#
-#                      XML Serialization/Deserialization
-#
-# =============================================================================
-#
-
-def bins_to_xml(bins):
-	"""
-	Convert a Bins object to LIGO Light Weight XML.  The return value
-	is the top-level node of a document sub-tree containing the
-	serialization of the Bins object.
-	"""
-	table = metaio.Table(AttributesImpl({"Name": "pylal_rate:bins:table"}))
-	table.appendChild(metaio.Column(AttributesImpl({"Name": "pylal_rate:bins:type", "Type": "lstring"})))
-	table.appendChild(metaio.Column(AttributesImpl({"Name": "pylal_rate:bins:min", "Type": "double"})))
-	table.appendChild(metaio.Column(AttributesImpl({"Name": "pylal_rate:bins:max", "Type": "double"})))
-	table.appendChild(metaio.Column(AttributesImpl({"Name": "pylal_rate:bins:n", "Type": "int_4u"})))
-	table.appendChild(metaio.TableStream(AttributesImpl({"Name": "pylal_rate:bins:table"})))
-	for bin in bins._Bins__bins:
-		row = metaio.TableRow()
-		if type(bin) == _LinBins:
-			row.type = "linear"
-			row.min = bin.min
-			row.max = bin.max
-			row.n = bin.n
-		elif type(bin) == _LogBins:
-			row.type = "logarithmic"
-			row.min = bin.min
-			row.max = bin.max
-			row.n = bin.n
-		else:
-			raise TypeError, bin
-		table.append(row)
-	return table
-
-
-def binned_array_to_xml(binnedarray):
-	"""
-	Convert a BinnedArray object to LIGO Light Weight XML.  The return
-	value is the top-level node of a document sub-tree containing the
-	serialization of the BinnedArray object.
-	"""
-	llw = ligolw.LIGO_LW()
-	llw.appendChild(bins_to_xml(binnedarray.bins))
-	llw.appendChild(array.from_array("pylal_rate:binnedarray:array", binnedarray.array, map(str, range(len(binnedarray.array.shape)))))
-	return llw
-
-
-def rate_to_xml(rate):
-	"""
-	Convert a Rate object to LIGO Light Weight XML.  The return value
-	is the top-level node of a document sub-tree containing the
-	serialization of the Rate object.
-	"""
-	llw = binned_array_to_xml(rate)
-	llw.appendChild(param.new_param("pylal_rate:rate:bins_per_filterwidth", "int_4u", rate.bins_per_filterwidth))
-	llw.appendChild(param.new_param("pylal_rate:rate:filterwidth", "double", rate.filterwidth))
-	llw.appendChild(array.from_array("pylal_rate:rate:window:array", rate.window, map(str, range(len(rate.window.shape)))))
-	return llw
