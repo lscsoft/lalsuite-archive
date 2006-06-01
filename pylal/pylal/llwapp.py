@@ -31,6 +31,7 @@ data in LIGO Light-Weight format.
 
 import bisect
 import os
+import pickle
 import socket
 import stat
 import sys
@@ -190,6 +191,28 @@ def get_param(doc, name):
 	if len(params) != 1:
 		raise ValueError, "document must contain exactly one %s param" % param.StripParamName(name)
 	return params[0]
+
+
+def pickle_to_param(obj, name):
+	"""
+	Return the top-level element of a document sub-tree containing the
+	pickled serialization of a Python object.
+	"""
+	# WARNING:  this is an abuse of most of the things involved;  but,
+	# hey, it's a one-liner so it's hard to resist.  Do NOT use this in
+	# files you care about.  If there proves to be a real desire for
+	# this kind of thing, then we need to think of a proper way to do
+	# it.  For example, there is at least one library that can
+	# serialize a Python object into proper XML.
+	return param.new_param("pickle:%s" % name, "lstring", urllib.quote(pickle.dumps(obj)))
+
+
+def pickle_from_param(elem, name):
+	"""
+	Retrieve a pickled Python object from the document tree rooted at
+	elem.
+	"""
+	return pickle.loads(urllib.unquote(get_param(elem, "pickle:%s:param" % name).pcdata))
 
 
 #
