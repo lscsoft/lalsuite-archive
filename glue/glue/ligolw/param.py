@@ -36,7 +36,6 @@ import re
 import sys
 
 import ligolw
-import tokenizer
 import types
 
 
@@ -132,7 +131,6 @@ class Param(ligolw.Param):
 		Initialize a new Param element.
 		"""
 		ligolw.Param.__init__(self, *attrs)
-		self.tokenizer = tokenizer.Tokenizer(" ")
 		try:
 			t = self.getAttribute("Type")
 		except KeyError:
