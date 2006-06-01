@@ -42,6 +42,8 @@ import math
 import numarray
 from numarray import convolve
 
+from glue import segments
+
 
 #
 # =============================================================================
@@ -80,6 +82,12 @@ class _LinBins(_Bins):
 		self.delta = float(max - min) / (n - 1)
 
 	def __getitem__(self, x):
+		if isinstance(x, segments.segment):
+			return slice(self[x[0]], self[x[1]] + 1)
+		if isinstance(x, slice):
+			if x.step != None:
+				raise NotImplementedError, "slices with steps not yet supported"
+			return slice(self[x.start], self[x.stop])
 		if self.min <= x <= self.max:
 			return int((x - self.min) / self.delta + 0.5)
 		raise IndexError, x
@@ -96,6 +104,12 @@ class _LogBins(_Bins):
 		self.delta = math.log(float(max / min) ** (1.0 / (n - 1)))
 
 	def __getitem__(self, x):
+		if isinstance(x, segments.segment):
+			return slice(self[x[0]], self[x[1]] + 1)
+		if isinstance(x, slice):
+			if x.step != None:
+				raise NotImplementedError, "slices with steps not yet supported"
+			return slice(self[x.start], self[x.stop])
 		if self.min <= x <= self.max:
 			return int(math.log(x / self.min) / self.delta + 0.5)
 		raise IndexError, x
@@ -415,14 +429,9 @@ class Rate(BinnedArray):
 
 	def __setitem__(self, x, weight):
 		"""
-		Add weight to the bin corresponding to x.  If x is a
-		segment instance, then the range of bins spanned by the
-		segment have the weight added to them.
+		Add weight to the bin corresponding to x.
 		"""
-		if isinstance(x, segments.segment):
-			self.array[self.bins[x[0],] : self.bins[x[1],] + 1] += weight
-		else:
-			self.array[self.bins[x,]] += weight
+		self.array[self.bins[x,]] += weight
 
 	def set_window(self, windowfunc):
 		"""
