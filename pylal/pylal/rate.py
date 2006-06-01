@@ -415,15 +415,14 @@ class Rate(BinnedArray):
 
 	def __setitem__(self, x, weight):
 		"""
-		Add weight to the bin corresponding to x.
+		Add weight to the bin corresponding to x.  If x is a
+		segment instance, then the range of bins spanned by the
+		segment have the weight added to them.
 		"""
-		self.array[self.bins[x,]] += weight
-
-	def add_range(self, seg, weight):
-		"""
-		Add weight to the range of bins spanned by the segment seg.
-		"""
-		self.array[self.bins[seg[0],]:self.bins[seg[1],]+1] += weight
+		if isinstance(x, segments.segment):
+			self.array[self.bins[x[0],] : self.bins[x[1],] + 1] += weight
+		else:
+			self.array[self.bins[x,]] += weight
 
 	def set_window(self, windowfunc):
 		"""
