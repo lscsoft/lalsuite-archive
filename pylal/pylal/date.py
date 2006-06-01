@@ -77,26 +77,13 @@ def utc_midnight(gps):
 	return XLALUTCToGPS(tuple(tm))
 
 
-class UTCMidnights(object):
+def UTCMidnights(start, end):
 	"""
 	Iterator for generating LIGOTimeGPS objects for UTC midnights.
 	"""
-	def __init__(self, start, end):
-		"""
-		LIGOTimeGPS objects will be returned for each UTC midnight
-		in the range [start, end).
-		"""
-		self.midnight = utc_midnight(start)
-		if self.midnight < start:
-			self.midnight = utc_midnight(self.midnight + 86402)
-		self.end = end
-
-	def __iter__(self):
-		return self
-
-	def next(self):
-		if self.midnight >= self.end:
-			raise StopIteration
-		result = self.midnight
-		self.midnight = utc_midnight(self.midnight + 86402)
-		return result
+	midnight = utc_midnight(start)
+	if midnight < start:
+		midnight = utc_midnight(midnight + 86402)
+	while midnight < end:
+		yield midnight
+		midnight = utc_midnight(midnight + 86402)
