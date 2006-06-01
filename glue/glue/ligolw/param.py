@@ -154,6 +154,8 @@ class Param(ligolw.Param):
 				raise ElementError, "invalid child %s for %s" % (c.tagName, self.tagName)
 			c.write(file, indent + ligolw.Indent)
 		if self.pcdata:
+			# FIXME:  does this satisfactorily preserve precision
+			# in floating point values?
 			print >>file, indent + ligolw.Indent + str(self.pcdata)
 		print >>file, self.end_tag(indent)
 
