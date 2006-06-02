@@ -504,7 +504,11 @@ if (astro_plot or eff_plot):
   # Read the relevant columns
   xAstro = readColumn(simInspTriggers,opts.x_value)
   yAstro = readColumn(simInspTriggers,opts.y_value)
-
+   
+  print "xAstro before"
+  print xAstro
+  print "yAstro before"
+  print yAstro
   
   if(opts.delta_error):
     gal_name = simInspTriggers.getColumnByName('source')
@@ -514,11 +518,16 @@ if (astro_plot or eff_plot):
         if (gal_name[j]==sourcelist[i]['name']):
           c = (1+2*sourcelist[i]['delta_d'])
           lum.append(c)
-          if (('dist' in opts.x_value) or ('dist' in opts.y_value)):
+          if ('eff_dist' in opts.x_value):  
             xAstro[j]=xAstro[j]*(1 + sourcelist[i]['delta_d'])
-	    yAstro[j]=yAstro[j]*(1 + sourcelist[i]['delta_d']) 
-   
-   
+	  if ('eff_dist' in opts.y_value):  
+	    yAstro[j]=yAstro[j]*(1 + sourcelist[i]['delta_d'])
+             
+
+    print "xAstro after correction"
+    print  xAstro
+    print "yAstro after correction"
+    print  yAstro
     
 ##############################################################################
 # read in the found/missed injections
