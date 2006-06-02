@@ -17,7 +17,6 @@ from glue import segmentsUtils
 from glue.ligolw import ligolw
 from glue.ligolw import metaio
 from glue.ligolw import lsctables
-from glue.ligolw import docutils
 from pylal import viz
 
 ##############################################################################
@@ -68,7 +67,7 @@ def readFiles(injGlob):
     # read in SimInspiral
     f = file(thisFile)
     doc = ligolw.Document()
-    ligolw.make_parser(docutils.PartialLIGOLWContentHandler(doc, \
+    ligolw.make_parser(ligolw.PartialLIGOLWContentHandler(doc, \
         isSimInsp)).parse(file(thisFile))
     simInspiralTable = doc.childNodes[0]
     if output:
@@ -127,7 +126,8 @@ def segmentCut ( sim_table, seglist, col_name ):
 ##############################################################################
 # Define a Square Array
 ##############################################################################
-def square(M,medges,mstep,D,dedges,dstep):
+def square(M,medges,mstep,D,dedges,dstep,lum_weight=None):
+  
   i = 0
   ng_m_d = zeros((len(medges),len(dedges)),'d')
  
@@ -135,15 +135,19 @@ def square(M,medges,mstep,D,dedges,dstep):
     k = int((M[i]-medges[0])/mstep)
     l = int((D[i]-dedges[0])/dstep)
     
+    if not lum_weight:
+      lum_array = 1
+    else:
+      lum_array = lum_weight[i]
+
     if (k>=0 and k<len(medges)) and (l>=0 and l<len(dedges)):
-      if(opts.delta_luminosity):
-	  ng_m_d[l][k] = ng_m_d[l][k] + lum[i]
-      else:
-	  ng_m_d[l][k] = ng_m_d[l][k] + 1	
+      ng_m_d[l][k] = ng_m_d[l][k] + lum_array
   
     i = i+1
 
   return ng_m_d
+  
+ 
 
 ##############################################################################
 # Chop a simInspiralTable based on component masses.
@@ -462,7 +466,7 @@ if (opts.plot_efficiency or opts.cum_search_ng or opts.plot_effcontour or \
 ##############################################################################
 # read in the astrophysical injections + distributions
 ##############################################################################
-if astro_plot:
+if (astro_plot or eff_plot):
   simInspTriggers = readFiles(opts.injection_glob)
 
   # sourcelist sorted from smallest to largest in the luminosity
@@ -501,29 +505,21 @@ if astro_plot:
   xAstro = readColumn(simInspTriggers,opts.x_value)
   yAstro = readColumn(simInspTriggers,opts.y_value)
 
-
-if((opts.delta_error) or (opts.delta_luminosity)):
-  gal_name = simInspTriggers.getColumnByName('source')
-
-  i=0	  
-  j=0
-  lum =[]
-  for i in range(len(sourcelist)):
-    for j in range(len(gal_name)):
-      if (gal_name[j]==sourcelist[i]['name']):
-        xAstro[j]=xAstro[j]*(1 + sourcelist[i]['delta_d'])
-        c = (1+2*sourcelist[i]['delta_d'])
-        lum.append(c)  
-                     
-	if ((opts.y_value) !='mchirp'):
-	yAstro[j]=yAstro[j]*(1 + sourcelist[i]['delta_d'])
-
-
-	
-     
-        
   
-
+  if(opts.delta_error):
+    gal_name = simInspTriggers.getColumnByName('source')
+    lum = []
+    for i in range(len(sourcelist)):
+      for j in range(len(gal_name)):
+        if (gal_name[j]==sourcelist[i]['name']):
+          c = (1+2*sourcelist[i]['delta_d'])
+          lum.append(c)
+          if (('dist' in opts.x_value) or ('dist' in opts.y_value)):
+            xAstro[j]=xAstro[j]*(1 + sourcelist[i]['delta_d'])
+	    yAstro[j]=yAstro[j]*(1 + sourcelist[i]['delta_d']) 
+   
+   
+    
 ##############################################################################
 # read in the found/missed injections
 ##############################################################################
@@ -608,9 +604,14 @@ if astro_plot:
   xng = xng[0:-1]
   xng_cum = cumsum( xng )
   clf()
-  
-  ng = square(xAstro,xEdges,xStep,yAstro,yEdges,yStep)
+ 
+  if opts.delta_error:
+    ng = square(xAstro,xEdges,xStep,yAstro,yEdges,yStep,lum)
+  else:
+    ng = square(xAstro,xEdges,xStep,yAstro,yEdges,yStep)
+
   ng *= max_luminosity/numSources
+
 
 ##############################################################################
 # calculate efficiencies 
@@ -656,11 +657,19 @@ if eff_plot:
   clf()
   
   # calculations for 2D plots: 
-  found = square(xFound,xEdges,xStep,yFound,yEdges,yStep)
-  missed = square(xMissed,xEdges,xStep,yMissed,yEdges,yStep)
+  if (opts.delta_error):
+    found = square(xFound,xEdges,xStep,yFound,yEdges,yStep,lum)
+    missed = square(xMissed,xEdges,xStep,yMissed,yEdges,yStep,lum)
+
+  else:
+    found = square(xFound,xEdges,xStep,yFound,yEdges,yStep)
+    missed = square(xMissed,xEdges,xStep,yMissed,yEdges,yStep)
+  
   eff2d = found/(found + missed + 1e-5) 
   error2d = {}
   error2d['Monte Carlo'] = sqrt(eff2d * (1. - eff2d) / (found + missed + 1e-5))
+
+ 
 
   if len(errorVal):
     for key in errorVal.keys():
