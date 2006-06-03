@@ -232,6 +232,12 @@ class BinnedArray(object):
 		numarray.where(self.array > 0, self.array, epsilon, out = self.array)
 		return self
 
+	def used(self):
+		"""
+		Return the number of bins that are non-zero.
+		"""
+		return len(numarray.nonzero(self.array)[0])
+
 
 class BinnedRatios(object):
 	"""
@@ -293,6 +299,12 @@ class BinnedRatios(object):
 		each dimension.
 		"""
 		return self.bins.centres()
+
+	def used(self):
+		"""
+		Return the number of bins with non-zero denominator.
+		"""
+		return len(numarray.nonzero(self.denominator)[0])
 
 
 #
@@ -379,7 +391,7 @@ def filter_array(a, window):
 	if dims == 1:
 		numarray.putmask(a, 1, convolve.convolve(a, window, mode = convolve.SAME))
 	elif dims == 2:
-		convolve.convolve2d(a, window, output = a, mode = "constant")
+		numarray.putmask(a, 1, convolve.convolve2d(a, window, mode = "constant"))
 	else:
 		raise ValueError, "can only filter 1 and 2 dimensional arrays"
 	return a
