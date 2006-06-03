@@ -18,7 +18,22 @@ typedef struct S_POLARIZATION {
 	float *patch_CutOff;
 	
 	char *name;
-	/* these arrays have stored_fine_bins*useful_bins entries */
+
+	} POLARIZATION;
+
+typedef struct {
+	char *name;
+
+	float orientation;
+	float plus_proj;
+	float cross_proj;
+
+	float plus_factor;
+	float cross_factor;
+
+	int conjugate;
+
+	/* intermediate results: these arrays have stored_fine_bins*useful_bins entries */
 	SUM_TYPE *fine_grid_sum;
 	SUM_TYPE *fine_grid_sq_sum;
 	SUM_TYPE *fine_grid_weight;
@@ -68,7 +83,8 @@ typedef struct S_POLARIZATION {
 		SUM_TYPE *dx_ra;
 		SUM_TYPE *max_mask_ratio;
 		} spectral_plot;
-	} POLARIZATION;
+
+	} POLARIZATION_RESULTS;
 
 extern int no_am_response;
 
@@ -91,7 +107,8 @@ return (a*a);
 }
 
 
-void init_polarizations(void);
+void init_polarizations0(void);
+void init_polarizations1(POLARIZATION *polarizations, SKY_GRID_TYPE *AM_coeffs_plus, SKY_GRID_TYPE *AM_coeffs_cross, long AM_coeffs_size);
 void allocate_polarization_arrays(void);
 void clear_polarization_arrays(void);
 void clear_accumulation_arrays(void);

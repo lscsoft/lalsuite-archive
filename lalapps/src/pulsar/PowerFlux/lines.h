@@ -28,9 +28,8 @@ typedef struct {
 
 LINES_REPORT *make_lines_report(int x0, int x1, int nlines);
 void free_lines_report(LINES_REPORT *lr);
-void detect_lines_d(double *z, LINES_REPORT *lr);
-void detect_lines_f(float *z, LINES_REPORT *lr);
-void detect_background_lines(double *mean);
-void print_lines_report(FILE *f,LINES_REPORT *lr,char *tag);
+void detect_lines_d(double *z, LINES_REPORT *lr, char *tag);
+void detect_lines_f(float *z, LINES_REPORT *lr, char *tag);
+void print_lines_report(FILE *f,LINES_REPORT *lr, char *tag);
 
 #endif

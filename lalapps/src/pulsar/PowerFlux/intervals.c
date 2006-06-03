@@ -16,6 +16,12 @@ is->i=do_alloc(is->size, sizeof(*is->i));
 return is;
 }
 
+void free_interval_set(INTERVAL_SET *is)
+{
+free(is->i);
+free(is);
+}
+
 void add_interval(INTERVAL_SET *is, INT64 start, INT64 stop)
 {
 INTERVAL *p;
@@ -37,6 +43,7 @@ FILE *fin;
 char s[2000];
 INT64 start, stop;
 
+fprintf(stderr, "Loading segments from file \"%s\"\n", filename);
 fin=fopen(filename, "r");
 if(fin==NULL)return;
 

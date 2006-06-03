@@ -24,13 +24,14 @@ extern POLARIZATION *polarizations;
 FILE *LOG=NULL, *FILE_LOG=NULL;
 time_t start_time, end_time, stage_time;
 
+#if 0
 float *power=NULL; /* nsegments, nbins */
-extern INT64 *gps;
+#endif
 extern INT64 spindown_start;
-int nsegments, nbins,side_cut;
-int useful_bins;
 
-float *det_velocity=NULL;
+int nsegments;
+int useful_bins, nbins,side_cut;
+
 double average_det_velocity[3];
 float det_vel_ra, det_vel_dec;
 double orbital_axis[3];
@@ -41,12 +42,14 @@ double large_S=-1;
 
 int first_bin;
 
+#if 0
 
 float *TMedians=NULL,*FMedians=NULL, *expTMedians=NULL, *hours=NULL,*frequencies=NULL,*ks_test=NULL,*median=NULL,
       *max_residuals, *min_residuals;
 float TMedian,expTMedian;
 float *tm=NULL;
 double *mean=NULL,*weighted_mean=NULL,*weight=NULL,*sigma=NULL,*freq_d=NULL,*hours_d=NULL;
+#endif
 
 int subinstance;
 char *subinstance_name;
@@ -67,8 +70,10 @@ SKY_GRID *fine_grid=NULL;
 SKY_SUPERGRID *super_grid=NULL;
 SKY_GRID *patch_grid=NULL;
 
+#if 0
 SKY_GRID_TYPE *AM_coeffs_plus=NULL,*AM_coeffs_cross=NULL;
 int AM_coeffs_size=0;
+#endif
 
 char *output_dir;
 
@@ -99,7 +104,8 @@ if(!(count & 1))return (tmp[count>>1]+tmp[(count>>1)-1])/2.0;
 return tmp[count>>1];
 }
 
-void compute_noise_curves(void)
+#if 0
+void compute_noise_curves1(void)
 {
 float *tmp;
 float *p,*t;
@@ -185,35 +191,8 @@ fprintf(LOG,"Median noise level (TMedian): %g\n",TMedian);
 fflush(LOG);
 }
 
-/* Note: this messes with tm variable,
-  tm[i]=exp(log(10)*TMedians[i])/Modulation[i] */
-float FindCutOff(float *tm)
-{
-int i;
-double sum,sum_squared,mean,sigma;
-double best_cutoff,smallest_sigma;
-int best_i;
-sort_floats(tm, nsegments);
-sum=0;
-sum_squared=0;
-best_i=0;
-smallest_sigma=10*tm[0];
-best_cutoff=tm[0];
-for(i=0;i<nsegments;i++){
-	sum+=tm[i];
-	sum_squared+=tm[i]*tm[i];
-	mean=sum/(i+1);
-	sigma=10*sqrt((sum_squared))/(i+1);
-	
-	if(sigma<smallest_sigma){
-		smallest_sigma=sigma;
-		best_i=i;
-		best_cutoff=tm[i];
-		}
-	}
-//fprintf(stderr,"Cutoff: i=%d sigma=%g cutoff=%g (%g,%g,..)\n",best_i, smallest_sigma, best_cutoff,tm[0],tm[1]);
-return best_cutoff;
-}
+#endif
+
 
 static double exponential_distribution(double x, double lambda)
 {
@@ -252,6 +231,7 @@ fclose(LOG);
 fclose(FILE_LOG);
 }
 
+#if 0
 void inject_fake_signal(void)
 {
 int i, bin, min_bin=-1, max_bin=-1;
@@ -341,6 +321,7 @@ fprintf(LOG,"max_bin: %d\n",max_bin);
 
 gsl_rng_free(rng);
 }
+#endif
 
 int main(int argc, char *argv[])
 {
@@ -359,20 +340,21 @@ if(cmdline_parser(argc, argv, &args_info))exit(-1);
 if(args_info.config_given)
 	if(cmdline_parser_configfile(args_info.config_arg, &args_info, 0))exit(-1);
 
-if(!args_info.input_given){
-	fprintf(stderr,"** You must specify patch to input files (--input)\n");
+if(!args_info.input_given && !args_info.dataset_given){
+	fprintf(stderr,"** You must specify path to input files (--input) or dataset description file (--dataset)\n");
 	exit(-1);
 	}
 if(!args_info.ephemeris_path_given &&
 	!(args_info.earth_ephemeris_given && args_info.sun_ephemeris_given)){
-	fprintf(stderr,"** You must specify patch to ephemeris files (--detreponse-path or --XXX-ephemeris)\n");
+	fprintf(stderr,"** You must specify path to ephemeris files (--detreponse-path or --XXX-ephemeris)\n");
 	exit(-1);
 	}
 if(!args_info.first_bin_given){
 	fprintf(stderr,"** You must specify first bin to analyze (--first-bin)\n");
 	exit(-1);
 	}
-if(!args_info.detector_given){
+
+if(!args_info.dataset_given && !args_info.detector_given){
 	fprintf(stderr,"** You must specify detector (--detector)\n");
 	exit(-1);
 	}
@@ -593,7 +575,8 @@ fprintf(LOG,"fine_factor: %d\n", args_info.fine_factor_arg);
 fprintf(LOG,"fine_type : %s\n",fine_grid->name);
 fprintf(LOG,"fine_grid npoints  : %d\n", fine_grid->npoints);
 fprintf(LOG,"fine_grid : %dx%d\n", fine_grid->max_n_ra, fine_grid->max_n_dec);
-fprintf(LOG,"input_data: %s\n",args_info.input_arg);
+if(args_info.input_given)fprintf(LOG,"input_data: %s\n",args_info.input_arg);
+if(args_info.dataset_given)fprintf(LOG,"dataset: %s\n",args_info.dataset_arg);
 fprintf(LOG,"first spindown: %g\n", args_info.spindown_start_arg);
 fprintf(LOG,"spindown step : %g\n", args_info.spindown_step_arg);
 fprintf(LOG,"spindown count: %d\n", args_info.spindown_count_arg);
@@ -601,21 +584,36 @@ fprintf(LOG,"orientation: %g\n", args_info.orientation_arg);
 fprintf(LOG,"make cutoff: %s\n",do_CutOff ? "yes" : "no" );
 fflush(LOG);
 
+init_polarizations0();
 
 /* INPUT stage */
 
-read_directory(args_info.input_arg,1,4000, first_bin, nbins,
-	&nsegments, &power, &gps);
+if(args_info.dataset_given) {
+	fprintf(stderr, "Loading data from dataset %s\n", args_info.dataset_arg);
+	load_dataset_from_file(args_info.dataset_arg);
+	nsegments=total_segments();
+	} else
+if(args_info.input_given){
+	fprintf(stderr, "Reading directory %s\n", args_info.input_arg);
+	fprintf(stderr, "Not implemented  yet\n");
+	#if 0
+	read_directory(args_info.input_arg,1,4000, first_bin, nbins, &nsegments, &power, &gps);
+	#endif
+	}
+
 if(nsegments==0){
 	fprintf(stderr,"ERROR: no input data found !\n");
 	return -1;
 	}
-fprintf(LOG,"nsegments : %d\n",nsegments);
-fprintf(LOG,"first gps : %lld\n",gps[0]);
-fprintf(LOG,"last gps  : %lld\n",gps[nsegments-1]);
+post_init_datasets();
+
+fprintf(LOG,"nsegments : %d\n", nsegments);
+
+fprintf(LOG,"first gps : %lld\n", min_gps());
+fprintf(LOG,"last gps  : %lld\n", max_gps());
 
 if(!args_info.spindown_start_time_given){
-	spindown_start=gps[0];
+	spindown_start=min_gps();
 	} else {
 	spindown_start=args_info.spindown_start_time_arg;
 	}
@@ -623,32 +621,10 @@ fprintf(LOG, "spindown start time: %lld\n", spindown_start);
 
 fflush(LOG);
 
-/* DIAG2 stage */
 
+/* DIAG2 stage */
 fprintf(stderr,"Computing detector speed\n");
-det_velocity=do_alloc(3*nsegments, sizeof(*det_velocity));
-average_det_velocity[0]=0.0;
-average_det_velocity[1]=0.0;
-average_det_velocity[2]=0.0;
-for(i=0;i<nsegments;i++){
-	/* middle of the 30min interval */
-	get_detector_vel(gps[i]+900,&(det_velocity[3*i]));
-	
-	#if 0
-	dec=atan2f(det_velocity[3*i+2], 
-		sqrt(det_velocity[3*i+0]*det_velocity[3*i+0]+det_velocity[3*i+1]*det_velocity[3*i+1]));
-	ra=atan2f(det_velocity[3*i+1], det_velocity[3*i+0]);
-	if(ra<0)ra+=2.0*M_PI;
-	fprintf(stderr, "%d\n", find_sin_theta_closest(fine_grid, ra, dec));
-	#endif
-	
-	average_det_velocity[0]+=det_velocity[3*i];
-	average_det_velocity[1]+=det_velocity[3*i+1];
-	average_det_velocity[2]+=det_velocity[3*i+2];
-	}
-average_det_velocity[0]/=nsegments;
-average_det_velocity[1]/=nsegments;
-average_det_velocity[2]/=nsegments;
+datasets_average_detector_speed(average_det_velocity);
 fprintf(LOG,"average detector velocity: %g %g %g\n", 
 	average_det_velocity[0],
 	average_det_velocity[1],
@@ -700,7 +676,7 @@ if(args_info.band_axis_norm_given) {
 
 fprintf(LOG, "actual band axis norm: %g\n", band_axis_norm);
 
-large_S=6.0/(1800.0*(gps[nsegments-1]-gps[0]+1800.0));
+large_S=6.0/(1800.0*(max_gps()-min_gps()+1800.0));
 
 fprintf(LOG, "auto large S: %g\n", large_S);
 
@@ -798,6 +774,7 @@ plot_grid_f(p, fine_grid, fine_grid->longitude,1);
 RGBPic_dump_png("fine_longitude.png", p);
 dump_floats("fine_longitude.dat", fine_grid->longitude, fine_grid->npoints, 1);
 
+#if 0
 /* do we need to inject fake signal ? */
 if(args_info.fake_linear_given ||
    args_info.fake_circular_given){
@@ -819,7 +796,9 @@ if(args_info.fake_linear_given ||
    	} else {
    	fprintf(LOG,"fake signal injection: none\n");
 	}
-	
+#endif	
+
+#if 0
 /* compute time from the start of the run */
 hours=do_alloc(nsegments, sizeof(*hours));
 hours_d=do_alloc(nsegments, sizeof(*hours_d));
@@ -884,6 +863,7 @@ draw_grid(p, plot, 0, 0);
 draw_points_f(p, plot, COLOR(255,0,0), frequencies, ks_test, nbins, 1, 1);
 RGBPic_dump_png("ks_test.png", p);
 dump_floats("ks_test.dat", ks_test, nbins, 1);
+#endif
 
 /* COMP3 stage */
 
@@ -894,6 +874,7 @@ if(args_info.no_decomposition_arg){
 	exit(0);
 	}
 
+#if 0
 /* allocate TMedians, FMedians */
 TMedians=do_alloc(nsegments, sizeof(*TMedians));
 expTMedians=do_alloc(nsegments, sizeof(*expTMedians));
@@ -903,7 +884,7 @@ max_residuals=do_alloc(nsegments, sizeof(*max_residuals));
 min_residuals=do_alloc(nsegments, sizeof(*max_residuals));
 
 /* decompose noise into FMedians, TMedians and residuals */
-compute_noise_curves();
+//compute_noise_curves();
 
 if(args_info.subtract_background_arg){
 	fprintf(LOG, "subtract background: yes\n");
@@ -913,9 +894,10 @@ if(args_info.subtract_background_arg){
 			}
 		}
 	}
-
+#endif
 /* DIAG4 stage */
 
+#if 0
 for(i=0;i<nsegments;i++){
 	expTMedians[i]=exp(-M_LN10*2.0*(TMedians[i]-TMedian));
 	}
@@ -1017,6 +999,7 @@ RGBPic_dump_png("new_sigma.png", p);
 
 fprintf(stderr,"Checking background lines\n");
 detect_background_lines(weighted_mean);
+#endif
 
 if(args_info.no_demodulation_arg){
 	fprintf(stderr,"Exiting as requested (--no-demodulation=1\n");
@@ -1027,6 +1010,7 @@ if(args_info.no_demodulation_arg){
 
 /* PREP5 stage */
 
+#if 0
 get_whole_sky_AM_response(gps, nsegments, args_info.orientation_arg, &AM_coeffs_plus, &AM_coeffs_cross, &AM_coeffs_size);
 
 init_polarizations();
@@ -1038,6 +1022,8 @@ for(i=0;i<ntotal_polarizations;i++){
 		fine_grid, 
 		polarizations[i].AM_coeffs, polarizations[i].name);	
 	}
+#endif
+
 
 #if 0 /* verify patch grid */
 {
@@ -1084,6 +1070,7 @@ RGBPic_dump_png("patch_cross_gps0.png", p);
 
 /* PREP6 stage */
 
+#if 0
 fprintf(stderr,"Computing cutoff values\n");
 /* compute CutOff values for each patch */
 
@@ -1104,6 +1091,8 @@ for(m=0;m<ntotal_polarizations;m++){
 	snprintf(s,20000,"patch_CutOff_%s.png",polarizations[m].name);
 	RGBPic_dump_png(s, p);
 	}
+
+#endif
 	
 #if 0
 /* free patch modulations data - it can be quite large, esp for S3 */
@@ -1112,6 +1101,8 @@ patch_plus=NULL;
 free(patch_cross);
 patch_cross=NULL;
 #endif
+
+output_datasets_info();
 
 init_fine_grid_stage();
 

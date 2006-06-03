@@ -60,6 +60,12 @@ typedef struct {
 	int max_npatch;    /* maximum number of fine points in a patch */
 	} SKY_SUPERGRID;
 
+SKY_GRID_TYPE spherical_distance(SKY_GRID_TYPE ra0, SKY_GRID_TYPE dec0,
+			  SKY_GRID_TYPE ra1, SKY_GRID_TYPE dec1);
+			  
+SKY_GRID_TYPE fast_spherical_distance(SKY_GRID_TYPE ra0, SKY_GRID_TYPE dec0,
+			  SKY_GRID_TYPE ra1, SKY_GRID_TYPE dec1);
+
 SKY_GRID *make_arcsin_grid(long num_ra, long num_dec);
 SKY_GRID *make_rect_grid(long num_ra, long num_dec);
 SKY_GRID *make_sin_theta_grid(SKY_GRID_TYPE resolution);

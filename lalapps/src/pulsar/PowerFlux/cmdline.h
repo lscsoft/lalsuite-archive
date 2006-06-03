@@ -38,6 +38,7 @@ struct gengetopt_args_info
   double skymap_resolution_ratio_arg;	/* adjust default coarseness of the grid by this factor (default='1.0').  */
   double small_weight_ratio_arg;	/* ratio that determines which weight is too small to include in max statistics (default='0.2').  */
   char * input_arg;	/* path to input files (power or SFT).  */
+  char * dataset_arg;	/* dataset file.  */
   char * input_munch_arg;	/* how to derive SFT name from --input (highly arcane) (default='%s%ld').  */
   char * input_format_arg;	/* format of input files (GEO, SFT, Power) (default='GEO').  */
   char * segments_file_arg;	/* file with list of segments to process - this allows subsetting of full SFT set.  */
@@ -81,6 +82,8 @@ struct gengetopt_args_info
   double fake_spindown_arg;	/* spindown of fake signal to inject (default='0.0').  */
   double fake_strain_arg;	/* amplitude of fake signal to inject (default='1e-23').  */
   double fake_freq_arg;	/* frequency of fake signal to inject.  */
+  double snr_precision_arg;	/* Assumed level of error in detection strength - used for listing candidates (default='0.2').  */
+  int max_candidates_arg;	/* Do not output more than this number of candidates (default='50').  */
 
   int help_given ;	/* Whether help was given.  */
   int version_given ;	/* Whether version was given.  */
@@ -98,6 +101,7 @@ struct gengetopt_args_info
   int skymap_resolution_ratio_given ;	/* Whether skymap-resolution-ratio was given.  */
   int small_weight_ratio_given ;	/* Whether small-weight-ratio was given.  */
   int input_given ;	/* Whether input was given.  */
+  int dataset_given ;	/* Whether dataset was given.  */
   int input_munch_given ;	/* Whether input-munch was given.  */
   int input_format_given ;	/* Whether input-format was given.  */
   int segments_file_given ;	/* Whether segments-file was given.  */
@@ -143,6 +147,8 @@ struct gengetopt_args_info
   int fake_spindown_given ;	/* Whether fake-spindown was given.  */
   int fake_strain_given ;	/* Whether fake-strain was given.  */
   int fake_freq_given ;	/* Whether fake-freq was given.  */
+  int snr_precision_given ;	/* Whether snr-precision was given.  */
+  int max_candidates_given ;	/* Whether max-candidates was given.  */
 
 } ;
 

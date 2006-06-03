@@ -14,7 +14,7 @@ typedef short COUNT_TYPE;
 
 
 
-#define TRACE(a)	{fprintf(stderr,"TRACE(" __FUNCTION__ "):" a); \
+#define TRACE(a)	{fprintf(stderr,"TRACE(__FUNCTION__):" a); \
 			fprintf(stderr,"\n");}
 
 void *do_alloc(long a, long b);
@@ -31,5 +31,9 @@ static float inline sqr_f(float a)
 {
 return (a*a);
 }
+
+#define CHECKPOINT   {\
+	fprintf(stderr, "CHECKPOINT function %s line %d file %s\n", __FUNCTION__, __LINE__, __FILE__); \
+	}
 
 #endif

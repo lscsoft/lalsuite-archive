@@ -10,8 +10,10 @@
 extern long nbins, first_bin;
 extern FILE *LOG;
 
+#if 0
 unsigned char *lines;
 int lines_list[5]={-1,-1,-1,-1,-1};
+#endif
 
 extern struct gengetopt_args_info args_info;
 
@@ -84,7 +86,7 @@ free(tmp);
 }
 #endif
 
-void detect_lines_d(double *z, LINES_REPORT *lr)
+void detect_lines_d(double *z, LINES_REPORT *lr, char *tag)
 {
 double *tmp;
 double median, qlines, qmost, unit_strength;
@@ -93,13 +95,15 @@ int i, j, k, nb, vh_count=0;
 nb=lr->x1-lr->x0+1;
 
 if(nb<=lr->nlines){
-	fprintf(stderr,"ERROR: No data to analyze.. x0=%d x1=%d nlines=%d\n",
+	fprintf(stderr,"%s ERROR: No data to analyze.. x0=%d x1=%d nlines=%d\n",
+		tag,
 		lr->x0, lr->x1, lr->nlines);
 	return;
 	}
 
 if(nb<=lr->nlittle){
-	fprintf(stderr,"ERROR: No data to analyze.. x0=%d x1=%d nlittle=%d\n",
+	fprintf(stderr,"%s ERROR: No data to analyze.. x0=%d x1=%d nlittle=%d\n",
+		tag,
 		lr->x0, lr->x1, lr->nlittle);
 	return;
 	}
@@ -144,8 +148,8 @@ for(i=lr->x0+1;i<=lr->x1-1;i++){
 	 	/* Note: strength is in units of unit_strength, 
 		   which is something like 2-3 sigma, 
 		   depending on what was passed in */
-	 	fprintf(stderr, "line detected: bin=%d z=%g strength=%f flag=0x%08x\n", i, z[i], (z[i]-median)/unit_strength,lr->lines[i]);
-	 	fprintf(LOG, "line detected: bin=%d z=%g strength=%f flag=0x%08x\n", i, z[i], (z[i]-median)/unit_strength, lr->lines[i]);
+	 	fprintf(stderr, "%s line detected: bin=%d z=%g strength=%f flag=0x%08x\n", tag, i, z[i], (z[i]-median)/unit_strength,lr->lines[i]);
+	 	fprintf(LOG, "%s line detected: bin=%d z=%g strength=%f flag=0x%08x\n", tag, i, z[i], (z[i]-median)/unit_strength, lr->lines[i]);
 		}		
 	 
 	/* be very conservative mark only points which are LINE_VERY_HIGH
@@ -153,8 +157,8 @@ for(i=lr->x0+1;i<=lr->x1-1;i++){
 	    of strictly bin-centered line */
 	 if(((lr->lines[i] & (LINE_CANDIDATE | LINE_VERY_HIGH | LINE_CLUSTERED))==(LINE_CANDIDATE | LINE_VERY_HIGH))){
 		lr->lines[i]|=LINE_YES;
-	 	fprintf(stderr, "line marked: bin=%d z=%g strength=%f flag=0x%08x\n", i, z[i], (z[i]-median)/unit_strength,lr->lines[i]);
-	 	fprintf(LOG, "line marked: bin=%d z=%g strength=%f flag=0x%08x\n", i, z[i], (z[i]-median)/unit_strength, lr->lines[i]);
+	 	fprintf(stderr, "%s line marked: bin=%d z=%g strength=%f flag=0x%08x\n", tag, i, z[i], (z[i]-median)/unit_strength,lr->lines[i]);
+	 	fprintf(LOG, "%s line marked: bin=%d z=%g strength=%f flag=0x%08x\n", tag, i, z[i], (z[i]-median)/unit_strength, lr->lines[i]);
 	
 		for(j=0;j<lr->nlines;j++){
 			/* this can happen if we are adding new lines */
@@ -167,7 +171,7 @@ for(i=lr->x0+1;i<=lr->x1-1;i++){
 			}
 		}
 	  if(lr->lines[i] & LINE_CANDIDATE){
-	  	fprintf(stderr,"i=%d %g %g %g\n", i,
+	  	fprintf(stderr,"%s i=%d %g %g %g\n", tag, i,
 			z[i-1]-median, 
 			z[i]-median, 
 			z[i+1]-median);
@@ -176,13 +180,14 @@ for(i=lr->x0+1;i<=lr->x1-1;i++){
 lr->median=median;
 lr->qmost=qmost;
 lr->qlines=qlines;
-fprintf(stderr,"median=%g qmost=%g qlines=%g\n",
+fprintf(stderr,"%s median=%g qmost=%g qlines=%g\n",
+		tag,
 		 median, qmost, qlines);
-fprintf(stderr,"bins marked \"very high\": %d\n", vh_count);
+fprintf(stderr,"%s bins marked \"very high\": %d\n", tag, vh_count);
 free(tmp);
 }
 
-void detect_lines_f(float *z, LINES_REPORT *lr)
+void detect_lines_f(float *z, LINES_REPORT *lr, char *tag)
 {
 float *tmp;
 float median, qlines, qmost, unit_strength;
@@ -192,13 +197,15 @@ int vh_count=0;
 nb=lr->x1-lr->x0+1;
 
 if(nb<=lr->nlines){
-	fprintf(stderr,"ERROR: No data to analyze.. x0=%d x1=%d nlines=%d\n",
+	fprintf(stderr,"%s ERROR: No data to analyze.. x0=%d x1=%d nlines=%d\n",
+		tag,
 		lr->x0, lr->x1, lr->nlines);
 	return;
 	}
 
 if(nb<=lr->nlittle){
-	fprintf(stderr,"ERROR: No data to analyze.. x0=%d x1=%d nlittle=%d\n",
+	fprintf(stderr,"%s ERROR: No data to analyze.. x0=%d x1=%d nlittle=%d\n",
+		tag,
 		lr->x0, lr->x1, lr->nlittle);
 	return;
 	}
@@ -244,8 +251,8 @@ for(i=lr->x0+1;i<=lr->x1-1;i++){
 	 	/* Note: strength is in units of unit_strength, 
 		   which is something like 2-3 sigma, 
 		   depending on what was passed in */
-	 	fprintf(stderr, "line detected: bin=%d z=%g strength=%f flag=0x%08x\n", i, z[i], (z[i]-median)/unit_strength,lr->lines[i]);
-	 	fprintf(LOG, "line detected: bin=%d z=%g strength=%f flag=0x%08x\n", i, z[i], (z[i]-median)/unit_strength, lr->lines[i]);
+	 	fprintf(stderr, "%s line detected: bin=%d z=%g strength=%f flag=0x%08x\n", tag, i, z[i], (z[i]-median)/unit_strength,lr->lines[i]);
+	 	fprintf(LOG, "%s line detected: bin=%d z=%g strength=%f flag=0x%08x\n", tag, i, z[i], (z[i]-median)/unit_strength, lr->lines[i]);
 		}		
 
 	/* be very conservative: mark only points which are LINE_VERY_HIGH
@@ -253,8 +260,8 @@ for(i=lr->x0+1;i<=lr->x1-1;i++){
 	    of strictly bin-centered line */
 	 if(((lr->lines[i] & (LINE_CANDIDATE | LINE_VERY_HIGH | LINE_CLUSTERED))==(LINE_CANDIDATE | LINE_VERY_HIGH))){
 		lr->lines[i]|=LINE_YES;
-	 	fprintf(stderr, "line marked: bin=%d z=%g strength=%f flag=0x%08x\n", i, z[i], (z[i]-median)/unit_strength,lr->lines[i]);
-	 	fprintf(LOG, "line marked: bin=%d z=%g strength=%f flag=0x%08x\n", i, z[i], (z[i]-median)/unit_strength, lr->lines[i]);
+	 	fprintf(stderr, "%s line marked: bin=%d z=%g strength=%f flag=0x%08x\n", tag, i, z[i], (z[i]-median)/unit_strength,lr->lines[i]);
+	 	fprintf(LOG, "%s line marked: bin=%d z=%g strength=%f flag=0x%08x\n", tag, i, z[i], (z[i]-median)/unit_strength, lr->lines[i]);
 	
 		for(j=0;j<lr->nlines;j++){
 			/* this can happen if we are adding new lines */
@@ -271,8 +278,8 @@ for(i=lr->x0+1;i<=lr->x1-1;i++){
 lr->median=median;
 lr->qmost=qmost;
 lr->qlines=qlines;
-fprintf(stderr,"median=%g qmost=%g qlines=%g\n", median, qmost, qlines);
-fprintf(stderr,"bins marked \"very high\": %d\n", vh_count);
+fprintf(stderr,"%s median=%g qmost=%g qlines=%g\n", tag, median, qmost, qlines);
+fprintf(stderr,"%s bins marked \"very high\": %d\n", tag, vh_count);
 
 free(tmp);
 }
@@ -292,6 +299,7 @@ for(i=0;i<lr->nlines;i++)
 		fprintf(f,"%s line freq: %g Hz\n",tag,(first_bin+lr->lines_list[i])/1800.0);
 }
 
+#if 0
 void detect_background_lines(double *mean)
 {
 LINES_REPORT lr;
@@ -330,3 +338,4 @@ if(!args_info.filter_lines_arg){
 	}
 fflush(LOG);
 }
+#endif

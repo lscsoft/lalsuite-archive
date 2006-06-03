@@ -54,6 +54,7 @@ cmdline_parser_print_help (void)
   printf("      --skymap-resolution-ratio=DOUBLE  adjust default coarseness of the grid \n                                          by this factor  (default=`1.0')\n");
   printf("      --small-weight-ratio=DOUBLE       ratio that determines which weight is \n                                          too small to include in max \n                                          statistics  (default=`0.2')\n");
   printf("  -i, --input=STRING                    path to input files (power or SFT)\n");
+  printf("  -s, --dataset=STRING                  dataset file\n");
   printf("      --input-munch=STRING              how to derive SFT name from --input \n                                          (highly arcane)  (default=`%s%ld')\n");
   printf("      --input-format=STRING             format of input files (GEO, SFT, \n                                          Power)  (default=`GEO')\n");
   printf("      --segments-file=STRING            file with list of segments to process \n                                          - this allows subsetting of full SFT \n                                          set\n");
@@ -101,6 +102,8 @@ cmdline_parser_print_help (void)
   printf("      --fake-spindown=DOUBLE            spindown of fake signal to inject  \n                                          (default=`0.0')\n");
   printf("      --fake-strain=DOUBLE              amplitude of fake signal to inject  \n                                          (default=`1e-23')\n");
   printf("      --fake-freq=DOUBLE                frequency of fake signal to inject\n");
+  printf("      --snr-precision=DOUBLE            Assumed level of error in detection \n                                          strength - used for listing \n                                          candidates  (default=`0.2')\n");
+  printf("      --max-candidates=INT              Do not output more than this number of \n                                          candidates  (default=`50')\n");
 }
 
 
@@ -142,6 +145,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->skymap_resolution_ratio_given = 0 ;
   args_info->small_weight_ratio_given = 0 ;
   args_info->input_given = 0 ;
+  args_info->dataset_given = 0 ;
   args_info->input_munch_given = 0 ;
   args_info->input_format_given = 0 ;
   args_info->segments_file_given = 0 ;
@@ -187,6 +191,8 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->fake_spindown_given = 0 ;
   args_info->fake_strain_given = 0 ;
   args_info->fake_freq_given = 0 ;
+  args_info->snr_precision_given = 0 ;
+  args_info->max_candidates_given = 0 ;
 #define clear_args() { \
   args_info->config_arg = NULL; \
   args_info->label_arg = NULL; \
@@ -199,6 +205,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->skymap_resolution_ratio_arg = 1.0 ;\
   args_info->small_weight_ratio_arg = 0.2 ;\
   args_info->input_arg = NULL; \
+  args_info->dataset_arg = NULL; \
   args_info->input_munch_arg = gengetopt_strdup("%s%ld") ;\
   args_info->input_format_arg = gengetopt_strdup("GEO") ;\
   args_info->segments_file_arg = NULL; \
@@ -234,6 +241,8 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->fake_orientation_arg = 0.0 ;\
   args_info->fake_spindown_arg = 0.0 ;\
   args_info->fake_strain_arg = 1e-23 ;\
+  args_info->snr_precision_arg = 0.2 ;\
+  args_info->max_candidates_arg = 50 ;\
 }
 
   clear_args();
@@ -265,6 +274,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
         { "skymap-resolution-ratio",	1, NULL, 0 },
         { "small-weight-ratio",	1, NULL, 0 },
         { "input",	1, NULL, 'i' },
+        { "dataset",	1, NULL, 's' },
         { "input-munch",	1, NULL, 0 },
         { "input-format",	1, NULL, 0 },
         { "segments-file",	1, NULL, 0 },
@@ -310,11 +320,13 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
         { "fake-spindown",	1, NULL, 0 },
         { "fake-strain",	1, NULL, 0 },
         { "fake-freq",	1, NULL, 0 },
+        { "snr-precision",	1, NULL, 0 },
+        { "max-candidates",	1, NULL, 0 },
         { NULL,	0, NULL, 0 }
       };
 
       stop_char = 0;
-      c = getopt_long (argc, argv, "hVc:i:o:f:n:d:", long_options, &option_index);
+      c = getopt_long (argc, argv, "hVc:i:s:o:f:n:d:", long_options, &option_index);
 
       if (c == -1) break;	/* Exit from `while (1)' loop.  */
 
@@ -350,6 +362,17 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
             }
           args_info->input_given = 1;
           args_info->input_arg = gengetopt_strdup (optarg);
+          break;
+
+        case 's':	/* dataset file.  */
+          if (args_info->dataset_given)
+            {
+              fprintf (stderr, "%s: `--dataset' (`-s') option given more than once\n", CMDLINE_PARSER_PACKAGE);
+              clear_args ();
+              exit (EXIT_FAILURE);
+            }
+          args_info->dataset_given = 1;
+          args_info->dataset_arg = gengetopt_strdup (optarg);
           break;
 
         case 'o':	/* output directory.  */
@@ -1160,6 +1183,34 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
             break;
           }
           
+          /* Assumed level of error in detection strength - used for listing candidates.  */
+          else if (strcmp (long_options[option_index].name, "snr-precision") == 0)
+          {
+            if (args_info->snr_precision_given)
+              {
+                fprintf (stderr, "%s: `--snr-precision' option given more than once\n", CMDLINE_PARSER_PACKAGE);
+                clear_args ();
+                exit (EXIT_FAILURE);
+              }
+            args_info->snr_precision_given = 1;
+            args_info->snr_precision_arg = strtod (optarg, NULL);
+            break;
+          }
+          
+          /* Do not output more than this number of candidates.  */
+          else if (strcmp (long_options[option_index].name, "max-candidates") == 0)
+          {
+            if (args_info->max_candidates_given)
+              {
+                fprintf (stderr, "%s: `--max-candidates' option given more than once\n", CMDLINE_PARSER_PACKAGE);
+                clear_args ();
+                exit (EXIT_FAILURE);
+              }
+            args_info->max_candidates_given = 1;
+            args_info->max_candidates_arg = strtol (optarg,&stop_char,0);
+            break;
+          }
+          
 
         case '?':	/* Invalid option.  */
           /* `getopt_long' already printed an error message.  */
@@ -1518,6 +1569,24 @@ cmdline_parser_configfile (char * const filename, struct gengetopt_args_info *ar
                   if (fnum == 2)
                     {
                       args_info->input_arg = gengetopt_strdup (farg);
+                    }
+                  else
+                    {
+                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
+                               filename, line_num);
+                      exit (EXIT_FAILURE);
+                    }
+                }
+              continue;
+            }
+          if (!strcmp(fopt, "dataset"))
+            {
+              if (override || !args_info->dataset_given)
+                {
+                  args_info->dataset_given = 1;
+                  if (fnum == 2)
+                    {
+                      args_info->dataset_arg = gengetopt_strdup (farg);
                     }
                   else
                     {
@@ -2322,6 +2391,42 @@ cmdline_parser_configfile (char * const filename, struct gengetopt_args_info *ar
                   if (fnum == 2)
                     {
                       args_info->fake_freq_arg = strtod (farg, NULL);
+                    }
+                  else
+                    {
+                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
+                               filename, line_num);
+                      exit (EXIT_FAILURE);
+                    }
+                }
+              continue;
+            }
+          if (!strcmp(fopt, "snr-precision"))
+            {
+              if (override || !args_info->snr_precision_given)
+                {
+                  args_info->snr_precision_given = 1;
+                  if (fnum == 2)
+                    {
+                      args_info->snr_precision_arg = strtod (farg, NULL);
+                    }
+                  else
+                    {
+                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
+                               filename, line_num);
+                      exit (EXIT_FAILURE);
+                    }
+                }
+              continue;
+            }
+          if (!strcmp(fopt, "max-candidates"))
+            {
+              if (override || !args_info->max_candidates_given)
+                {
+                  args_info->max_candidates_given = 1;
+                  if (fnum == 2)
+                    {
+                      args_info->max_candidates_arg = strtol (farg,&stop_char,0);
                     }
                   else
                     {

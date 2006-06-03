@@ -15,26 +15,27 @@
 #include "grid.h"
 #include "polarization.h"
 #include "statistics.h"
+#include "dataset.h"
+#include "candidates.h"
 
-extern POLARIZATION *polarizations;
+extern POLARIZATION_RESULTS *polarization_results;
 extern int nlinear_polarizations, ntotal_polarizations;
 
-extern float *power;
-extern float *TMedians,*expTMedians;
-extern float TMedian;
+extern DATASET *datasets;
+extern int d_free;
 
 extern struct gengetopt_args_info args_info;
 
-extern int nsegments, nbins, first_bin, side_cut, useful_bins;
+extern int nbins, first_bin, side_cut, useful_bins;
 
-INT64 *gps=NULL;
 INT64 spindown_start;
 
+#if 0
 extern int lines_list[];
+#endif
 
 extern SKY_GRID *fine_grid, *patch_grid;
 extern SKY_SUPERGRID *super_grid;
-extern float *det_velocity;
 
 extern int do_CutOff;
 extern int fake_injection;
@@ -43,8 +44,6 @@ extern FILE *LOG;
 
 extern double spindown;
 extern double resolution;
-
-extern float *frequencies;
 
 extern int subinstance;
 extern char *subinstance_name;
@@ -69,16 +68,16 @@ float upper_limit_comp;
 float lower_limit_comp;
 
 /* Include file with Feldman-Cousins upper limits directly
-   so as to benifit from function inlining */
+   so as to benefit from function inlining */
    
 #include "fc.c"
 
 
 /* single bin version */
 
-void (*process_patch)(POLARIZATION *pol, int pi, int k, float CutOff);
+void (*process_patch)(DATASET *d, int pol_index, int pi, int k, float CutOff);
 
-static void process_patch1(POLARIZATION *pol, int pi, int k, float CutOff)
+static void process_patch1(DATASET *d, int pol_index, int pi, int k, float CutOff)
 {
 int i,kk,b,b0,b1,n,offset;
 int bin_shift;
@@ -88,6 +87,9 @@ SUM_TYPE *sum,*sq_sum;
 float *p;
 float doppler;
 float f_plus, f_cross, beta1, beta2;
+POLARIZATION_RESULTS *pr=&(polarization_results[pol_index]);
+POLARIZATION *pl=&(d->polarizations[pol_index]);
+
 
 CutOff=2*CutOff; /* weighted sum can benefit from more SFTs */
 
@@ -98,21 +100,21 @@ for(i=0,kk=super_grid->first_map[pi];kk>=0;kk=super_grid->list_map[kk],i++)
 		if(fine_grid->band[kk]<0)continue;
 		
 		/* Get amplitude response */
-		f_plus=F_plus(k, fine_grid, kk, pol->AM_coeffs);
-		f_cross=F_plus(k, fine_grid, kk, pol->conjugate->AM_coeffs);
+		f_plus=F_plus(k, fine_grid, kk, pl->AM_coeffs);
+		f_cross=F_plus(k, fine_grid, kk, pl->conjugate->AM_coeffs);
 
 
-		mod=1.0/(pol->plus_factor*f_plus*f_plus+pol->cross_factor*f_cross*f_cross); 
+		mod=1.0/(pl->plus_factor*f_plus*f_plus+pl->cross_factor*f_cross*f_cross); 
 
 		if(do_CutOff && (mod>CutOff))continue;
 
 		/* this assumes that both relfreq and spindown are small enough that the bin number
 		   down not change much within the band - usually true */
-		doppler=fine_grid->e[0][kk]*det_velocity[3*k+0]+
-			fine_grid->e[1][kk]*det_velocity[3*k+1]+
-			fine_grid->e[2][kk]*det_velocity[3*k+2];
+		doppler=fine_grid->e[0][kk]*d->detector_velocity[3*k+0]+
+			fine_grid->e[1][kk]*d->detector_velocity[3*k+1]+
+			fine_grid->e[2][kk]*d->detector_velocity[3*k+2];
 
-		bin_shift=-rint((first_bin+nbins*0.5)*doppler+1800.0*spindown*(gps[k]-spindown_start));
+		bin_shift=-rint((first_bin+nbins*0.5)*doppler+1800.0*spindown*(d->gps[k]-spindown_start));
 
 		if(bin_shift>max_shift)max_shift=bin_shift;
 		if(bin_shift<min_shift)min_shift=bin_shift;
@@ -126,33 +128,33 @@ for(i=0,kk=super_grid->first_map[pi];kk>=0;kk=super_grid->list_map[kk],i++)
 		
 		if(args_info.compute_betas_arg){
 		        beta1=f_cross*f_plus*mod;	
-			beta2=(-pol->cross_factor*f_plus*f_plus+pol->plus_factor*f_cross*f_cross)*mod;
+			beta2=(-pl->cross_factor*f_plus*f_plus+pl->plus_factor*f_cross*f_cross)*mod;
 			}
 
 		/* prime array pointers */
 		#ifdef WEIGHTED_SUM
-		w2=expTMedians[k]/mod;
+		w2=d->expTMedians[k]*d->weight/mod;
 		w=w2/mod;
-		pol->skymap.total_weight[kk]+=w;
-	        
+		pr->skymap.total_weight[kk]+=w;
+	
 		if(args_info.compute_betas_arg){
-			pol->skymap.beta1[kk]+=w*beta1;
-			pol->skymap.beta2[kk]+=w*beta2;
+			pr->skymap.beta1[kk]+=w*beta1;
+			pr->skymap.beta2[kk]+=w*beta2;
 			}
 		#else
-		pol->skymap.total_count[kk]++;
+		pr->skymap.total_count[kk]++;
 
 		if(args_info.compute_betas_arg){
-			pol->skymap.beta1[kk]+=beta1;
-			pol->skymap.beta2[kk]+=beta2;
+			pr->skymap.beta1[kk]+=beta1;
+			pr->skymap.beta2[kk]+=beta2;
 			}
 		#endif
 		
-		sum=&(pol->fine_grid_sum[b0-side_cut+bin_shift+useful_bins*i]);
+		sum=&(pr->fine_grid_sum[b0-side_cut+bin_shift+useful_bins*i]);
 		#ifdef COMPUTE_SIGMA
-		sq_sum=&(pol->fine_grid_sq_sum[b0-side_cut+bin_shift+useful_bins*i]);
+		sq_sum=&(pr->fine_grid_sq_sum[b0-side_cut+bin_shift+useful_bins*i]);
 		#endif
-		p=&(power[k*nbins+b0]);
+		p=&(d->power[k*nbins+b0]);
 		
 		/* cycle over bins */
 		for(b=b0;b<b1;b++){			    
@@ -172,19 +174,19 @@ for(i=0,kk=super_grid->first_map[pi];kk>=0;kk=super_grid->list_map[kk],i++)
 			sum++;
 			}
 		/* subtract lines */
-		for(n=0;(lines_list[n]>=0)&&(n<5);n++){
-			b=lines_list[n];
+		for(n=0;(d->lines_report->lines_list[n]>=0)&&(n<d->lines_report->nlines);n++){
+			b=d->lines_report->lines_list[n];
 			if(b<b0)continue;
 			if(b>=b1)continue;
 			offset=b-side_cut+bin_shift+useful_bins*i;
 			/* prime array pointers */
-			sum=&(pol->fine_grid_sum[offset]);
-			p=&(power[k*nbins+b]);
+			sum=&(pr->fine_grid_sum[offset]);
+			p=&(d->power[k*nbins+b]);
 
 			#ifdef WEIGHTED_SUM
-			pol->fine_grid_weight[offset]+=w;
+			pr->fine_grid_weight[offset]+=w;
 			#else
-			pol->fine_grid_count[offset]++;
+			pr->fine_grid_count[offset]++;
 			#endif
 			
 			#ifdef WEIGHTED_SUM
@@ -194,7 +196,7 @@ for(i=0,kk=super_grid->first_map[pi];kk>=0;kk=super_grid->list_map[kk],i++)
 			a=(*p)*mod;
 			(*sum)-=a;
 			#ifdef COMPUTE_SIGMA
-			pol->fine_grid_sq_sum[offset]-=a*a;
+			pr->fine_grid_sq_sum[offset]-=a*a;
 			#endif			
 			#endif
 			}
@@ -204,7 +206,7 @@ for(i=0,kk=super_grid->first_map[pi];kk>=0;kk=super_grid->list_map[kk],i++)
 
 /* three bin version */
 
-static void process_patch3(POLARIZATION *pol, int pi, int k, float CutOff)
+static void process_patch3(DATASET *d, int pol_index, int pi, int k, float CutOff)
 {
 int i,kk,b,b0,b1,n,offset;
 int bin_shift;
@@ -214,6 +216,8 @@ SUM_TYPE *sum,*sq_sum;
 float *p;
 float doppler;
 float f_plus, f_cross, beta1, beta2;
+POLARIZATION_RESULTS *pr=&(polarization_results[pol_index]);
+POLARIZATION *pl=&(d->polarizations[pol_index]);
 
 CutOff=2*CutOff/3.0; /* weighted sum can benefit from more SFTs */
 
@@ -223,22 +227,22 @@ for(i=0,kk=super_grid->first_map[pi];kk>=0;kk=super_grid->list_map[kk],i++)
 		if(fine_grid->band[kk]<0)continue;
 
 		/* Get amplitude response */
-		f_plus=F_plus(k, fine_grid, kk, pol->AM_coeffs);
-		f_cross=F_plus(k, fine_grid, kk, pol->conjugate->AM_coeffs);
+		f_plus=F_plus(k, fine_grid, kk, pl->AM_coeffs);
+		f_cross=F_plus(k, fine_grid, kk, pl->conjugate->AM_coeffs);
 
 
-		mod=1.0/(pol->plus_factor*f_plus*f_plus+pol->cross_factor*f_cross*f_cross); 
+		mod=1.0/(pl->plus_factor*f_plus*f_plus+pl->cross_factor*f_cross*f_cross); 
 
 		if(do_CutOff && (mod>CutOff))continue;
 
 		
 		/* this assumes that both relfreq and spindown are small enough that the bin number
 		   down not change much within the band - usually true */
-		doppler=fine_grid->e[0][kk]*det_velocity[3*k+0]+
-			fine_grid->e[1][kk]*det_velocity[3*k+1]+
-			fine_grid->e[2][kk]*det_velocity[3*k+2];
+		doppler=fine_grid->e[0][kk]*d->detector_velocity[3*k+0]+
+			fine_grid->e[1][kk]*d->detector_velocity[3*k+1]+
+			fine_grid->e[2][kk]*d->detector_velocity[3*k+2];
 
-		bin_shift=-rint((first_bin+nbins*0.5)*doppler+1800.0*spindown*(gps[k]-spindown_start));
+		bin_shift=-rint((first_bin+nbins*0.5)*doppler+1800.0*spindown*(d->gps[k]-spindown_start));
 
 		if(bin_shift>max_shift)max_shift=bin_shift;
 		if(bin_shift<min_shift)min_shift=bin_shift;
@@ -252,33 +256,33 @@ for(i=0,kk=super_grid->first_map[pi];kk>=0;kk=super_grid->list_map[kk],i++)
 		
 		if(args_info.compute_betas_arg){
 		        beta1=f_cross*f_plus*mod;	
-			beta2=(-pol->cross_factor*f_plus*f_plus+pol->plus_factor*f_cross*f_cross)*mod;
+			beta2=(-pl->cross_factor*f_plus*f_plus+pl->plus_factor*f_cross*f_cross)*mod;
 			}
 
 		/* prime array pointers */
 		#ifdef WEIGHTED_SUM
-		w2=expTMedians[k]/mod;
+		w2=d->expTMedians[k]*d->weight/mod;
 		w=w2/(3.0*mod);
-		pol->skymap.total_weight[kk]+=w;
+		pr->skymap.total_weight[kk]+=w;
 
 		if(args_info.compute_betas_arg){
-			pol->skymap.beta1[kk]+=w*beta1;
-			pol->skymap.beta2[kk]+=w*beta2;
+			pr->skymap.beta1[kk]+=w*beta1;
+			pr->skymap.beta2[kk]+=w*beta2;
 			}
 		#else
-		pol->skymap.total_count[kk]++;
+		pr->skymap.total_count[kk]++;
 
 		if(args_info.compute_betas_arg){
-			pol->skymap.beta1[kk]+=beta1;
-			pol->skymap.beta2[kk]+=beta2;
+			pr->skymap.beta1[kk]+=beta1;
+			pr->skymap.beta2[kk]+=beta2;
 			}
 		#endif
 		
-		sum=&(pol->fine_grid_sum[b0-side_cut+bin_shift+useful_bins*i]);
+		sum=&(pr->fine_grid_sum[b0-side_cut+bin_shift+useful_bins*i]);
 		#ifdef COMPUTE_SIGMA
-		sq_sum=&(pol->fine_grid_sq_sum[b0-side_cut+bin_shift+useful_bins*i]);
+		sq_sum=&(pr->fine_grid_sq_sum[b0-side_cut+bin_shift+useful_bins*i]);
 		#endif
-		p=&(power[k*nbins+b0]);
+		p=&(d->power[k*nbins+b0]);
 		
 		/* cycle over bins */
 		for(b=b0;b<b1;b++){			    
@@ -298,19 +302,19 @@ for(i=0,kk=super_grid->first_map[pi];kk>=0;kk=super_grid->list_map[kk],i++)
 			sum++;
 			}
 		/* subtract lines */
-		for(n=0;(lines_list[n]>=0)&&(n<5);n++){
-			b=lines_list[n];
+		for(n=0;(d->lines_report->lines_list[n]>=0)&&(n<d->lines_report->nlines);n++){
+			b=d->lines_report->lines_list[n];
 			if(b<b0)continue;
 			if(b>=b1)continue;
 			offset=b-side_cut+bin_shift+useful_bins*i;
 			/* prime array pointers */
-			sum=&(pol->fine_grid_sum[offset]);
-			p=&(power[k*nbins+b]);
+			sum=&(pr->fine_grid_sum[offset]);
+			p=&(d->power[k*nbins+b]);
 
 			#ifdef WEIGHTED_SUM
-			pol->fine_grid_weight[offset]+=w;
+			pr->fine_grid_weight[offset]+=w;
 			#else
-			pol->fine_grid_count[offset]++;
+			pr->fine_grid_count[offset]++;
 			#endif
 			
 			#ifdef WEIGHTED_SUM
@@ -320,7 +324,7 @@ for(i=0,kk=super_grid->first_map[pi];kk>=0;kk=super_grid->list_map[kk],i++)
 			a=(p[-1]+p[0]+p[1])*mod;
 			(*sum)-=a;
 			#ifdef COMPUTE_SIGMA
-			pol->fine_grid_sq_sum[offset]-=a*a;
+			pr->fine_grid_sq_sum[offset]-=a*a;
 			#endif			
 			#endif
 			}
@@ -344,7 +348,7 @@ free_RGBPic(p);
 
 int float_cmp(float *a, float *b);
 
-void make_limits(POLARIZATION *pol, int pi)
+void make_limits(POLARIZATION_RESULTS *pol, int pi)
 {
 SUM_TYPE M,Q80,Q20,S,dx;
 SUM_TYPE a,b,c;
@@ -408,7 +412,9 @@ for(i=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[o
 			PLOT *plot;
 			float *freq_f;
 
-			freq_f=&(frequencies[side_cut]);
+			freq_f=do_alloc(useful_bins, sizeof(*freq_f));			
+			for(i=0;i<useful_bins;i++)freq_f[i]=(first_bin+side_cut+i)/1800.0;
+
 		
 			if(fine_grid->max_n_dec<800)
 				p=make_RGBPic(fine_grid->max_n_ra*(800/fine_grid->max_n_dec)+140, fine_grid->max_n_dec*(800/fine_grid->max_n_dec));
@@ -425,6 +431,7 @@ for(i=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[o
 
 			free_plot(plot);
 			free_RGBPic(p);
+			free(freq_f);
 			}
 			
 		snprintf(s, 20000, "points/%s%s_%d.dat", subinstance_name, pol->name, offset);
@@ -467,7 +474,7 @@ for(i=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[o
 			
 		/* circ_ul describes limit on circularly polarized signals */
 		/* this formula should only use linear polarizations */
-		if(args_info.compute_betas_arg && (pol->cross_factor==0)){
+		if(args_info.compute_betas_arg && (pol->cross_factor==0)) {
 			a*=1.0/(1.0+pol->skymap.beta2[offset]);
 			if(a<circ_ul[i*useful_bins+k]){
 				circ_ul[i*useful_bins+k]=a;
@@ -481,14 +488,12 @@ for(i=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[o
 			pol->skymap.max_lower_limit[offset]=a;
 			}
 			
-		if(lines_list[0]<0)a=0.0;
-			else {
-			#ifdef WEIGHTED_SUM
-			a=pol->fine_grid_weight[i*useful_bins+k]/pol->skymap.total_weight[offset];
-			#else
-			a=pol->fine_grid_count[i*useful_bins+k]/pol->skymap.total_count[offset];
-			#endif
-			}
+		#ifdef WEIGHTED_SUM
+		a=pol->fine_grid_weight[i*useful_bins+k]/pol->skymap.total_weight[offset];
+		#else
+		a=pol->fine_grid_count[i*useful_bins+k]/pol->skymap.total_count[offset];
+		#endif
+
 		if(a>pol->spectral_plot.max_mask_ratio[k+band*useful_bins]){
 			pol->spectral_plot.max_mask_ratio[k+band*useful_bins]=a;
 			}
@@ -520,7 +525,7 @@ for(i=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[o
 	}
 }
 
-void output_limits(POLARIZATION *pol)
+void output_limits(POLARIZATION_RESULTS *pol)
 {
 char s[20000];
 RGBPic *p;
@@ -533,7 +538,8 @@ float *freq_f;
 float max_ratio;
 HISTOGRAM *hist;
 
-freq_f=&(frequencies[side_cut]);
+freq_f=do_alloc(useful_bins, sizeof(*freq_f));
+for(i=0;i<useful_bins;i++)freq_f[i]=(first_bin+side_cut+i)/1800.0;
 
 max_band=do_alloc(args_info.nskybands_arg, sizeof(*max_band));
 masked_max_band=do_alloc(args_info.nskybands_arg, sizeof(*max_band));
@@ -781,17 +787,16 @@ for(i=0;i<args_info.nskybands_arg;i++){
 	snprintf(s,19999,"%s%s_max_dx_band_%d.dat", subinstance_name, pol->name, i);
 	dump_floats(s, &(pol->spectral_plot.max_dx[i*useful_bins]), useful_bins, 1);
 	
-	if(lines_list[0]>=0){
-		snprintf(s,19999,"%s%s_max_mask_ratio_band_%d.png", subinstance_name, pol->name, i);
-		if(clear_name_png(s)){
-			adjust_plot_limits_f(plot, freq_f, &(pol->spectral_plot.max_mask_ratio[i*useful_bins]), useful_bins, 1, 1, 1);
-			draw_grid(p, plot, 0, 0);
-			draw_points_f(p, plot, COLOR(255,0,0), freq_f, &(pol->spectral_plot.max_mask_ratio[i*useful_bins]), useful_bins, 1, 1);
-			RGBPic_dump_png(s, p);
-			}
-		snprintf(s,19999,"%s%s_max_mask_ratio_band_%d.dat", subinstance_name, pol->name, i);
-		dump_floats(s, &(pol->spectral_plot.max_mask_ratio[i*useful_bins]), useful_bins, 1);
+	snprintf(s,19999,"%s%s_max_mask_ratio_band_%d.png", subinstance_name, pol->name, i);
+	if(clear_name_png(s)){
+		adjust_plot_limits_f(plot, freq_f, &(pol->spectral_plot.max_mask_ratio[i*useful_bins]), useful_bins, 1, 1, 1);
+		draw_grid(p, plot, 0, 0);
+		draw_points_f(p, plot, COLOR(255,0,0), freq_f, &(pol->spectral_plot.max_mask_ratio[i*useful_bins]), useful_bins, 1, 1);
+		RGBPic_dump_png(s, p);
 		}
+	snprintf(s,19999,"%s%s_max_mask_ratio_band_%d.dat", subinstance_name, pol->name, i);
+	dump_floats(s, &(pol->spectral_plot.max_mask_ratio[i*useful_bins]), useful_bins, 1);
+
 	max_ratio=pol->spectral_plot.max_mask_ratio[i*useful_bins];
 	for(k=1;k<useful_bins;k++)
 		if(max_ratio<pol->spectral_plot.max_mask_ratio[i*useful_bins+k]){
@@ -861,6 +866,7 @@ free(max_band);
 free(masked_max_band);
 free(max_band_arg);
 free(masked_max_band_arg);
+free(freq_f);
 }
 
 void output_unified_limits(void)
@@ -876,7 +882,8 @@ SUM_TYPE max_high_ul, max_circ_ul;
 int max_high_ul_i, max_circ_ul_i;
 HISTOGRAM *hist;
 
-freq_f=&(frequencies[side_cut]);
+freq_f=do_alloc(useful_bins, sizeof(*freq_f));
+for(i=0;i<useful_bins;i++)freq_f[i]=(first_bin+side_cut+i)/1800.0;
 
 skymap_high_ul=do_alloc(fine_grid->npoints, sizeof(*skymap_high_ul));
 skymap_high_ul_freq=do_alloc(fine_grid->npoints, sizeof(*skymap_high_ul_freq));
@@ -901,12 +908,12 @@ for(i=0;i<fine_grid->npoints;i++){
 		}
 	skymap_circ_ul[i]=sqrt(skymap_circ_ul[i])*upper_limit_comp;
 	
-	skymap_high_ul[i]=polarizations[0].skymap.max_upper_limit[i];
-	skymap_high_ul_freq[i]=polarizations[0].skymap.freq_map[i];
+	skymap_high_ul[i]=polarization_results[0].skymap.max_upper_limit[i];
+	skymap_high_ul_freq[i]=polarization_results[0].skymap.freq_map[i];
 	for(k=1;k<ntotal_polarizations;k++){	
-		if(skymap_high_ul[i]<polarizations[k].skymap.max_upper_limit[i]){
-			skymap_high_ul[i]=polarizations[k].skymap.max_upper_limit[i];
-			skymap_high_ul_freq[i]=polarizations[k].skymap.freq_map[i];
+		if(skymap_high_ul[i]<polarization_results[k].skymap.max_upper_limit[i]){
+			skymap_high_ul[i]=polarization_results[k].skymap.max_upper_limit[i];
+			skymap_high_ul_freq[i]=polarization_results[k].skymap.freq_map[i];
 			}
 		}
 	if(max_high_ul_i<0){
@@ -969,9 +976,9 @@ print_histogram(LOG, hist, "hist_high_ul");
 for(i=0;i<useful_bins*args_info.nskybands_arg;i++){
 	spectral_plot_circ_ul[i]=sqrt(spectral_plot_circ_ul[i])*upper_limit_comp;
 	
-	spectral_plot_high_ul[i]=polarizations[0].spectral_plot.max_upper_limit[i];
+	spectral_plot_high_ul[i]=polarization_results[0].spectral_plot.max_upper_limit[i];
 	for(k=1;k<ntotal_polarizations;k++){	
-		if(spectral_plot_high_ul[i]<polarizations[k].spectral_plot.max_upper_limit[i])spectral_plot_high_ul[i]=polarizations[k].spectral_plot.max_upper_limit[i];
+		if(spectral_plot_high_ul[i]<polarization_results[k].spectral_plot.max_upper_limit[i])spectral_plot_high_ul[i]=polarization_results[k].spectral_plot.max_upper_limit[i];
 		}
 	}
 
@@ -1026,6 +1033,7 @@ free_histogram(hist);
 free_plot(plot);
 free_RGBPic(p);
 free(skymap_high_ul);
+free(freq_f);
 }
 
 void compute_mean(int pi)
@@ -1037,41 +1045,41 @@ for(k=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[o
 	if(fine_grid->band[offset]<0)continue;
 	
 	for(m=0;m<ntotal_polarizations;m++){
-		polarizations[m].skymap.max_sub_weight[offset]=0.0;
+		polarization_results[m].skymap.max_sub_weight[offset]=0.0;
 
 		#ifdef WEIGHTED_SUM		
-		c=(polarizations[m].skymap.total_weight[offset]);
+		c=(polarization_results[m].skymap.total_weight[offset]);
 		#else
-		c=(polarizations[m].skymap.total_count[offset]);
+		c=(polarization_results[m].skymap.total_count[offset]);
 		#endif
 
 		if(c>0){	
 			if(args_info.compute_betas_arg){
-			    polarizations[m].skymap.beta1[offset]/=c;
-			    polarizations[m].skymap.beta2[offset]/=c;
+			    polarization_results[m].skymap.beta1[offset]/=c;
+			    polarization_results[m].skymap.beta2[offset]/=c;
 			    }
 
 		    for(i=0;i<useful_bins;i++){
 
 			#ifdef WEIGHTED_SUM		
-			if(polarizations[m].fine_grid_weight[i+k*useful_bins]>polarizations[m].skymap.max_sub_weight[offset]){
-				polarizations[m].skymap.max_sub_weight[offset]=polarizations[m].fine_grid_weight[i+k*useful_bins];
+			if(polarization_results[m].fine_grid_weight[i+k*useful_bins]>polarization_results[m].skymap.max_sub_weight[offset]){
+				polarization_results[m].skymap.max_sub_weight[offset]=polarization_results[m].fine_grid_weight[i+k*useful_bins];
 				}
 	
-			c=(polarizations[m].skymap.total_weight[offset]-polarizations[m].fine_grid_weight[i+k*useful_bins]);
+			c=(polarization_results[m].skymap.total_weight[offset]-polarization_results[m].fine_grid_weight[i+k*useful_bins]);
 			#else
-			c=(polarizations[m].skymap.total_count[offset]-polarizations[m].fine_grid_count[i+k*useful_bins]);
+			c=(polarization_results[m].skymap.total_count[offset]-polarization_results[m].fine_grid_count[i+k*useful_bins]);
 			#endif
 			if(c>0){
-				a=polarizations[m].fine_grid_sum[i+k*useful_bins];
+				a=polarization_results[m].fine_grid_sum[i+k*useful_bins];
 				#ifdef COMPUTE_SIGMA
-				b=polarizations[m].fine_grid_sq_sum[i+k*useful_bins];
+				b=polarization_results[m].fine_grid_sq_sum[i+k*useful_bins];
 				#endif
 		
-				polarizations[m].fine_grid_sum[i+k*useful_bins]=a/c;
+				polarization_results[m].fine_grid_sum[i+k*useful_bins]=a/c;
 
 				#ifdef COMPUTE_SIGMA
-				polarizations[m].fine_grid_sq_sum[i+k*useful_bins]=sqrt((b*polarizations[m].fine_grid_count[i+k*useful_bins]-a)/c);
+				polarization_results[m].fine_grid_sq_sum[i+k*useful_bins]=sqrt((b*polarization_results[m].fine_grid_count[i+k*useful_bins]-a)/c);
 				#endif
 				}
 			}
@@ -1088,31 +1096,31 @@ for(k=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[o
 	if(fine_grid->band[offset]<0)continue;
 
 	for(m=0;m<ntotal_polarizations;m++){
-		polarizations[m].skymap.max_sub_weight[offset]=0.0;
+		polarization_results[m].skymap.max_sub_weight[offset]=0.0;
 		
 		#ifdef WEIGHTED_SUM		
-		c=(polarizations[m].skymap.total_weight[offset]);
+		c=(polarization_results[m].skymap.total_weight[offset]);
 		#else
-		c=(polarizations[m].skymap.total_count[offset]);
+		c=(polarization_results[m].skymap.total_count[offset]);
 		#endif
 
 
 		if(c>0){
 			if(args_info.compute_betas_arg){
-				polarizations[m].skymap.beta1[offset]/=c;
-				polarizations[m].skymap.beta2[offset]/=c;
+				polarization_results[m].skymap.beta1[offset]/=c;
+				polarization_results[m].skymap.beta2[offset]/=c;
 				}
 
 			for(i=0;i<useful_bins;i++){
-				a=polarizations[m].fine_grid_sum[i+k*useful_bins];
+				a=polarization_results[m].fine_grid_sum[i+k*useful_bins];
 				#ifdef COMPUTE_SIGMA
-				b=polarizations[m].fine_grid_sq_sum[i+k*useful_bins];
+				b=polarization_results[m].fine_grid_sq_sum[i+k*useful_bins];
 				#endif
 		
-				polarizations[m].fine_grid_sum[i+k*useful_bins]=a/c;
+				polarization_results[m].fine_grid_sum[i+k*useful_bins]=a/c;
 
 				#ifdef COMPUTE_SIGMA
-				polarizations[m].fine_grid_sq_sum[i+k*useful_bins]=sqrt((b*polarizations[m].fine_grid_count[i+k*useful_bins]-a)/c);
+				polarization_results[m].fine_grid_sq_sum[i+k*useful_bins]=sqrt((b*polarization_results[m].fine_grid_count[i+k*useful_bins]-a)/c);
 				#endif
 				}
 			}
@@ -1126,12 +1134,12 @@ init_fc_ul();
 init_fc_ll();
 verify_limits();
 
-normalizing_weight=exp(-M_LN10*TMedian);
+normalizing_weight=datasets_normalizing_weight();
 
 stored_fine_bins=super_grid->max_npatch;
 
 allocate_polarization_arrays();
-	
+
 circ_ul=do_alloc(stored_fine_bins*useful_bins, sizeof(*circ_ul));
 circ_ul_freq=do_alloc(stored_fine_bins*useful_bins, sizeof(*circ_ul_freq));
 skymap_circ_ul=do_alloc(fine_grid->npoints, sizeof(*skymap_circ_ul));
@@ -1200,7 +1208,7 @@ lower_limit_comp*=sqrt(2.0);
 
 void fine_grid_stage(void)
 {
-int pi,i,k,m;
+int pi,i,j, k,m;
 double a,b;
 
 clear_polarization_arrays();
@@ -1222,20 +1230,24 @@ for(pi=0;pi<patch_grid->npoints;pi++){
 	
 	clear_accumulation_arrays();	
 
-	/* process single patch */
-	for(k=0;k<nsegments;k++){
-		a=expTMedians[k];
-		
-		for(m=0;m<ntotal_polarizations;m++){
-			b=polarizations[m].patch_CutOff[pi];
-			/* process polarization */
-			if(!do_CutOff || (b*a*AM_response(k, patch_grid, pi, polarizations[m].AM_coeffs)<4))
-				process_patch(&(polarizations[m]), pi,k,b*sqrt(a));
+	/* loop over datasets */
+	for(j=0;j<d_free;j++) {
+
+		/* process single patch */
+		for(k=0;k<datasets[j].free;k++){
+			a=datasets[j].expTMedians[k];
+			
+			for(m=0;m<ntotal_polarizations;m++) {
+				b=datasets[j].polarizations[m].patch_CutOff[pi];
+				/* process polarization */
+				if(!do_CutOff || (b*a*AM_response(k, patch_grid, pi, datasets[j].polarizations[m].AM_coeffs)<4))
+					process_patch(&(datasets[j]), m, pi, k, b*sqrt(a));
+				}
 			}
-		}
 		
+		}
 	/* compute means */
-	if(lines_list[0]<0)compute_mean_no_lines(pi);
+	if(0)compute_mean_no_lines(pi);
 		else compute_mean(pi);
 		
 	for(i=0;i<stored_fine_bins*useful_bins;i++){
@@ -1245,11 +1257,15 @@ for(pi=0;pi<patch_grid->npoints;pi++){
 		}
 	/* compute upper limits */
 	for(i=0;i<ntotal_polarizations;i++){
-		make_limits(&(polarizations[i]), pi);
+		make_limits(&(polarization_results[i]), pi);
 		}
 	make_unified_limits(pi);
 
 	if(! (pi % 100))fprintf(stderr,"%d ",pi);
+	/* for debugging only: */
+	#if 0
+	if(pi>300)break;
+	#endif
 	}
 fprintf(stderr,"%d ",pi);
 
@@ -1261,9 +1277,10 @@ fprintf(stderr,"\nMaximum bin shift is %d\n", max_shift);
 fprintf(stderr,"Minimum bin shift is %d\n", min_shift);
 
 for(i=0;i<ntotal_polarizations;i++){
-	output_limits(&(polarizations[i]));
+	output_limits(&(polarization_results[i]));
 	}
 	
 output_unified_limits();
+identify_candidates();
 }
 

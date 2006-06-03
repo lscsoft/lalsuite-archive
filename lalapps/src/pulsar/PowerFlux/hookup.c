@@ -32,8 +32,10 @@ extern char *sun_ephemeris;
 extern struct gengetopt_args_info args_info;
 extern char *output_dir;
 
+#if 0
 INTERVAL_SET *segment_list=NULL;
 INTERVAL_SET *veto_segment_list=NULL;
+#endif
 
 regex_t write_dat, write_png;
 
@@ -50,6 +52,8 @@ if(regcomp(&write_png, args_info.write_png_arg, REG_EXTENDED | REG_NOSUB)){
 	fprintf(stderr,"Cannot compile \"--write-dat=%s\"\n", args_info.write_dat_arg);
 	exit(-1);
 	}
+
+#if 0
 if(args_info.segments_file_given){
 	segment_list=new_interval_set();
 	add_intervals_from_file(segment_list, args_info.segments_file_arg);
@@ -60,8 +64,10 @@ if(args_info.veto_segments_file_given){
 	add_intervals_from_file(veto_segment_list, args_info.veto_segments_file_arg);
 	fprintf(LOG, "Read %ld veto intervals from file: %s\n", veto_segment_list->free, args_info.veto_segments_file_arg);
 	}
+#endif
 }
 
+#if 0
 int get_power_range(char *filename, long startbin, long count, float *data, INT64 *gps)
 {
 FILE *fin;
@@ -230,6 +236,7 @@ if(*nsegments<(last-first+1)){
 	}
 }
 
+#endif
 
 int clear_name_dat(char *name)
 {
@@ -334,22 +341,29 @@ fprintf(FILE_LOG, "doubles: %s\n", name);
 }
 
 
-void init_ephemeris(void)
+void get_detector(char *det) 
 {
-LALStatus status={level:0, statusPtr:NULL};
-
-memset(&ephemeris, 0, sizeof(ephemeris));
-
-if(!strcasecmp("LHO", args_info.detector_arg)){
+if(!strcasecmp("LHO", det)){
 	detector=lalCachedDetectors[LALDetectorIndexLHODIFF];
 	} else 
-if(!strcasecmp("LLO", args_info.detector_arg)){
+if(!strcasecmp("LLO", det)){
 	detector=lalCachedDetectors[LALDetectorIndexLLODIFF];
 	} else {
 	fprintf(stderr,"Unrecognized detector site: \"%s\"\n", args_info.detector_arg);
 	exit(-1);
 	}
+}
+
+void init_ephemeris(void)
+{
+LALStatus status={level:0, statusPtr:NULL};
+
+#if 0
+get_detector(args_info.detector_arg);
 fprintf(LOG,"detector  : %s (%s)\n", args_info.detector_arg, detector.frDetector.name);
+#endif
+
+memset(&ephemeris, 0, sizeof(ephemeris));
 ephemeris.ephiles.earthEphemeris=earth_ephemeris;
 ephemeris.ephiles.sunEphemeris=sun_ephemeris;
 LALInitBarycenter(&status, &ephemeris);
@@ -451,8 +465,9 @@ gsl_matrix *X=NULL, *cov=NULL;
 gsl_vector *y_plus=NULL, *y_cross=NULL, *c=NULL;
 double chisq;
 
-fprintf(stderr,"Computing whole sky AM response\n");
-fprintf(LOG, "AM coeffs size: %f MB\n", 2*count*GRID_FIT_COUNT*sizeof(*coeffs_plus)/(1024.0*1024.0));
+fprintf(stderr,"Computing whole sky AM response for %ld SFTs\n", count);
+fprintf(stderr, "AM coeffs size: %f KB\n", 2*count*GRID_FIT_COUNT*sizeof(**coeffs_plus)/1024.0);
+fprintf(LOG, "AM coeffs size: %f KB\n", 2*count*GRID_FIT_COUNT*sizeof(**coeffs_plus)/1024.0);
 *size=count*GRID_FIT_COUNT;
 *coeffs_plus=do_alloc(*size, sizeof(**coeffs_plus));
 *coeffs_cross=do_alloc(*size, sizeof(**coeffs_cross));
