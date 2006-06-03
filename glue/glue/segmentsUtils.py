@@ -211,17 +211,18 @@ def segment_range(start, stop, period):
 #
 # =============================================================================
 #
-# Extra Manipulation Routines
+#                         Extra Manipulation Routines
 #
 # =============================================================================
 #
 
-def fold(seglist1, seglist2):
+def Fold(seglist1, seglist2):
 	"""
-	Returns a list of the results of taking the intersection of
-	seglist1 with each segment in seglist2.  In each result, the
+	An iterator that generates the results of taking the intersection
+	of seglist1 with each segment in seglist2.  In each result, the
 	segment start and stop values are adjusted to be with respect to
 	the start of the corresponding segment in seglist2.  See also the
 	range() function.
 	"""
-	return [(seglist1 & segments.segmentlist([seg])).shift(-seg[0]) for seg in seglist2]
+	for seg in seglist2:
+		yield (seglist1 & segments.segmentlist([seg])).shift(-seg[0])
