@@ -18,6 +18,7 @@ option "skymap-resolution-ratio" - "adjust default coarseness of the grid by thi
 option "small-weight-ratio" - "ratio that determines which weight is too small to include in max statistics" double default="0.2" no
 
 option "input"		i "path to input files (power or SFT)" string no
+option "dataset"	s "dataset file" string no
 option "input-munch"    - "how to derive SFT name from --input (highly arcane)" string default="%s%ld" no
 option "input-format"   - "format of input files (GEO, SFT, Power)" string default="GEO" no 
 option "segments-file"   - "file with list of segments to process - this allows subsetting of full SFT set" string no
@@ -77,3 +78,5 @@ option "fake-spindown"	- "spindown of fake signal to inject" double default="0.0
 option "fake-strain"	- "amplitude of fake signal to inject" double default="1e-23" no
 option "fake-freq"	- "frequency of fake signal to inject" double no
 
+option "snr-precision"	- "Assumed level of error in detection strength - used for listing candidates" double default="0.2" no
+option "max-candidates"	- "Do not output more than this number of candidates" int default="50" no
