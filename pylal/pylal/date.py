@@ -31,11 +31,14 @@ importing xlal.date directly.
 # =============================================================================
 #
 
-from xlal.date import *
-
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __date__ = "$Date$"[7:-2]
 __version__ = "$Revision$"[11:-2]
+
+import math
+
+from glue import segmentsUtils
+from xlal.date import *
 
 
 #
@@ -48,6 +51,9 @@ __version__ = "$Revision$"[11:-2]
 
 def XLALGreenwichMeanSiderealTime(gps):
 	return XLALGreenwichSiderealTime(gps, 0.0)
+
+def XLALGreenwichSiderealTimeToGPS(gmst, equation_of_equinoxes):
+	return XLALGreenwichMeanSiderealTimeToGPS(gmst) - equation_of_equinoxes
 
 def XLALTimeDelayFromEarthCenter(pos, ra, dec, gps):
 	return XLALArrivalTimeDiff(pos, [0.0, 0.0, 0.0], ra, dec, gps)
@@ -87,3 +93,52 @@ def UTCMidnights(start, end):
 	while midnight < end:
 		yield midnight
 		midnight = utc_midnight(midnight + 86402)
+
+
+def gmst_0h(gps):
+	"""
+	Truncate a LIGOTimeGPS to Greenwich mean sidereal 0 rad.
+	"""
+	gmst = XLALGreenwichMeanSiderealTime(gps)
+	residual = gmst % (2.0 * math.pi)
+	if residual:
+		gmst -= residual
+	return XLALGreenwichMeanSiderealTimeToGPS(gmst)
+
+
+def GMST_0hs(start, end):
+	"""
+	Iterator for generating LIGOTimeGPS objects for Greenwich Mean
+	Sidereal 0h.
+	"""
+	gmst = XLALGreenwichMeanSiderealTime(start)
+	residual = gmst % (2.0 * math.pi)
+	if residual:
+		gmst -= residual
+	if gmst < start:
+		gmst += 2.0 * math.pi
+	end = XLALGreenwichMeanSiderealTime(end)
+	while gmst < end:
+		yield XLALGreenwichMeanSiderealTimeToGPS(gmst)
+		gmst += 2.0 * math.pi
+
+
+#
+# =============================================================================
+#
+# Segment Lists
+#
+# =============================================================================
+#
+
+def gmst_days(gps_start, gps_stop):
+	"""
+	Generates a segmentlist whose segments are the Greenwich Mean
+	Sidereal days spanning the given range of GPS times.  Input and
+	output times are all GPS seconds.
+	"""
+	gmst_0hs = GMST_0hs(gmst_0h(gps_start), gps_stop + 86402)
+	l = segments.segmentlist([segments.segment(gmst_0hs.next(), gmst_0hs.next()])
+	while l[-1][1] < gps_stop:
+		l.append(segments.segment(l[-1][1], gmst_0hs.next()))
+	return l
