@@ -714,6 +714,22 @@ static PyObject *pylal_XLALGreenwichSiderealTime(PyObject *self, PyObject *args)
 }
 
 
+static PyObject *pylal_XLALGreenwichMeanSiderealTimeToGPS(PyObject *self, PyObject *args)
+{
+	LIGOTimeGPS gps;
+	double gmst;
+
+	/* float */
+	if(!PyArg_ParseTuple(args, "d:XLALGreenwichMeanSiderealTimeToGPS", &gmst))
+		return NULL;
+
+	XLALGreenwichMeanSiderealTimeToGPS(gmst, &gps);
+
+	/* LIGOTimeGPS */
+	return pylal_LIGOTimeGPS_New(gps);
+}
+
+
 /*
  * ============================================================================
  *
@@ -769,6 +785,7 @@ static struct PyMethodDef methods[] = {
 	{"XLALGPSToINT8NS", pylal_XLALGPSToINT8NS, METH_VARARGS, NULL},
 	{"XLALGPSToUTC", pylal_XLALGPSToUTC, METH_VARARGS, NULL},
 	{"XLALGreenwichSiderealTime", pylal_XLALGreenwichSiderealTime, METH_VARARGS, NULL},
+	{"XLALGreenwichMeanSiderealTimeToGPS", pylal_XLALGreenwichMeanSiderealTimeToGPS, METH_VARARGS, NULL},
 	{"XLALINT8NSToGPS", pylal_XLALINT8NSToGPS, METH_VARARGS, NULL},
 	{"XLALJulianDay", pylal_XLALJulianDay, METH_VARARGS, NULL},
 	{"XLALLeapSeconds", pylal_XLALLeapSeconds, METH_VARARGS, NULL},
