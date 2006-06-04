@@ -37,7 +37,7 @@ __version__ = "$Revision$"[11:-2]
 
 import math
 
-from glue import segmentsUtils
+from glue import segments
 from xlal.date import *
 
 
@@ -111,16 +111,12 @@ def GMST_0hs(start, end):
 	Iterator for generating LIGOTimeGPS objects for Greenwich Mean
 	Sidereal 0h.
 	"""
-	gmst = XLALGreenwichMeanSiderealTime(start)
-	residual = gmst % (2.0 * math.pi)
-	if residual:
-		gmst -= residual
-	if gmst < start:
-		gmst += 2.0 * math.pi
-	end = XLALGreenwichMeanSiderealTime(end)
-	while gmst < end:
-		yield XLALGreenwichMeanSiderealTimeToGPS(gmst)
-		gmst += 2.0 * math.pi
+	midnight = gmst_0h(start)
+	if midnight < start:
+		midnight = gmst_0h(midnight + 86402)
+	while midnight < end:
+		yield midnight
+		midnight = gmst_0h(midnight + 86402)
 
 
 #
