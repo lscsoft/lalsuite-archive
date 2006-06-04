@@ -138,7 +138,7 @@ def gmst_days(gps_start, gps_stop):
 	output times are all GPS seconds.
 	"""
 	gmst_0hs = GMST_0hs(gmst_0h(gps_start), gps_stop + 86402)
-	l = segments.segmentlist([segments.segment(gmst_0hs.next(), gmst_0hs.next()])
+	l = segments.segmentlist([segments.segment(gmst_0hs.next(), gmst_0hs.next())])
 	while l[-1][1] < gps_stop:
 		l.append(segments.segment(l[-1][1], gmst_0hs.next()))
 	return l
