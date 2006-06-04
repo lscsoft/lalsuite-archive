@@ -317,7 +317,8 @@ class AmplVsFreqContour(object):
 		map(efficiency.incdenominator, zip(self.injected_x, self.injected_y))
 		map(efficiency.incnumerator, zip(self.found_x, self.found_y))
 
-		bins_per_inj = efficiency.used() / float(self.num_injections)
+		#bins_per_inj = efficiency.used() / float(self.num_injections)
+		bins_per_inj = efficiency.numerator.shape[0] * efficiency.numerator.shape[1] / float(self.num_injections)
 		window_size = (bins_per_inj / self.error**2)**0.5
 		rate.filter_ratios(efficiency, rate.gaussian_window2d(window_size, window_size))
 		efficiency.regularize()
