@@ -24,6 +24,11 @@
 # =============================================================================
 #
 
+import matplotlib
+matplotlib.use("Agg")
+from matplotlib import figure
+from matplotlib.backends.backend_agg import FigureCanvasAgg
+
 from pylal.date import LIGOTimeGPS
 
 
@@ -100,3 +105,28 @@ def CompareSimBurstAndSnglBurstByTimeandFreq(sim, burst):
 	"""
 	return CompareSimBurstAndSnglBurstByTime(sim, burst) and (sim.freq in burst.get_band())
 
+
+#
+# =============================================================================
+#
+#                                    Plots
+#
+# =============================================================================
+#
+
+class BurstPlot(object):
+	def __init__(self, x_label, y_label):
+		self.nevents = 0
+		self.fig = figure.Figure()
+		FigureCanvasAgg(self.fig)
+		self.fig.set_figsize_inches(16, 8)
+		self.axes = self.fig.gca()
+		self.axes.grid(True)
+		self.axes.set_xlabel(x_label)
+		self.axes.set_ylabel(y_label)
+
+	def add_contents(self, doc):
+		raise NotImplementedError
+
+	def finish(self):
+		pass
