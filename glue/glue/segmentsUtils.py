@@ -203,7 +203,7 @@ def segment_range(start, stop, period):
 	operations.
 	"""
 	new = segments.segmentlist()
-	for n in xrange((stop - start) / period):
+	for n in xrange(int((stop - start) / period)):
 		new.append(segments.segment(start + n * period, start + (n + 1) * period))
 	return new
 
