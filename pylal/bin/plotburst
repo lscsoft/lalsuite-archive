@@ -424,7 +424,7 @@ def new_plots(ifo, plots):
 		RateVsSNR(ifo),
 		RateVsConfidence(ifo),
 		ConfidenceVsTime(ifo),
-		ConfidenceVsFrequencyScatter(ifo)
+		ConfidenceVsFrequencyScatter(ifo),
 		TimeFrequencyPlane(ifo)
 	]
 	return [l[i] for i in plots]
