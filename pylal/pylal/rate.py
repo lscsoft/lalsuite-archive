@@ -436,7 +436,7 @@ class Rate(BinnedArray):
 		Initialize the bins for the given segment and filter width.
 		"""
 		self.filterwidth = filterwidth
-		BinnedArray.__init__(self, Bins(segment[0], segment[1], int(segment.duration() / filterwidth * self.bins_per_filterwidth + 1) ) )
+		BinnedArray.__init__(self, Bins(segment[0], segment[1], int(segment.duration() / filterwidth * self.bins_per_filterwidth + 1)))
 		self.set_window(windowfunc)
 
 	def __setitem__(self, x, weight):
@@ -464,3 +464,38 @@ class Rate(BinnedArray):
 
 	def yvals(self):
 		return self.array
+
+
+class RatiosRate(BinnedRatios):
+	"""
+	An object for binning and smoothing impulsive rate information in 1
+	dimension, normalized so as to measure rate per filter width.
+	"""
+	bins_per_filterwidth = 20
+	def __init__(self, segment, filterwidth, windowfunc = gaussian_window):
+		"""
+		Initialize the bins for the given segment and filter width.
+		"""
+		self.filterwidth = filterwidth
+		BinnedRatios.__init__(self, Bins(segment[0], segment[1], int(segment.duration() / filterwidth * self.bins_per_filterwidth + 1)))
+		self.set_window(windowfunc)
+
+	def set_window(self, windowfunc):
+		"""
+		Set the window function.
+		"""
+		self.window = windowfunc(self.bins_per_filterwidth) / self.filterwidth * self.bins_per_filterwidth
+
+	def filter(self):
+		"""
+		Convolve the binned weights with the window to smooth the
+		data set.
+		"""
+		filter_ratios(self, self.window)
+		return self
+
+	def xvals(self):
+		return self.centres()[0]
+
+	def yvals(self):
+		return self.ratio()
