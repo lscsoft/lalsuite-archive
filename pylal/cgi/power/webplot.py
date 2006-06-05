@@ -129,7 +129,7 @@ def CacheURLs(cachename, seg):
 	return [c.url for c in map(CacheEntry, file(cachename)) if c.segment.intersects(seg)]
 
 def gettriggers(plotdesc):
-	doc = ligolw_add.ligolw_add(ligolw.Document(), CacheURLs(eventdisplay.cache[plotdesc.instrument], plotdesc.segment))
+	doc = ligolw_add.ligolw_add(ligolw.Document(), CacheURLs(eventdisplay.cache[plotdesc.instrument], plotdesc.segment), verbose = False, non_lsc_tables_ok = False)
 	try:
 		plotdesc.seglist = llwapp.get_table(doc, lsctables.SearchSummaryTable.tableName).get_outlist().coalesce()
 	except:
