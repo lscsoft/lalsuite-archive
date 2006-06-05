@@ -133,7 +133,7 @@ class DocContents(object):
 			self.snr[ifo] = []
 			self.confidence[ifo] = []
 		for event in llwapp.get_table(xmldoc, lsctables.SnglBurstTable.tableName):
-			self.nevents[ifo] += 1
+			self.nevents[event.ifo] += 1
 			self.start_time[event.ifo].append(event.get_start())
 			self.duration[event.ifo].append(event.duration)
 			self.peak_time[event.ifo].append(event.get_peak())
@@ -141,7 +141,8 @@ class DocContents(object):
 			self.bandwidth[event.ifo].append(event.bandwidth)
 			self.lo_freq[event.ifo].append(event.central_freq - event.bandwidth / 2.0)
 			self.snr[event.ifo].append(event.snr)
-			self.confidence[event.ifo].append(event.confidence)
+			# FIXME: sign
+			self.confidence[event.ifo].append(-event.confidence)
 
 
 #
@@ -163,12 +164,9 @@ class ConfidenceVsTime(SnglBurstUtils.BurstPlot):
 
 	def add_contents(self, doc):
 		self.nevents += doc.nevents[self.ifo]
-		self.x.extend(doc.peak_time[self.ifo])
+		self.x.extend(map(float, doc.peak_time[self.ifo]))
 		self.y.extend(doc.confidence[self.ifo])
-		try:
-			self.seglist |= doc.seglists[self.ifo]
-		except KeyError:
-			pass
+		self.seglist |= doc.seglists[self.ifo]
 
 	def finish(self):
 		self.axes.set_title("Trigger Confidence vs. Time\n(%d Triggers)" % self.nevents)
@@ -269,19 +267,22 @@ class Durations(SnglBurstUtils.BurstPlot):
 #
 
 class Delays(SnglBurstUtils.BurstPlot):
-	def __init__(self, ifo, width):
+	def __init__(self, ifo, width, max):
 		SnglBurstUtils.BurstPlot.__init__(self, "Delay (s)", "Count / Delay")
 		self.ifo = ifo
 		self.data = {}
 		self.width = width
+		self.max = max
 		self.axes.semilogy()
 
 	def add_contents(self, doc):
 		self.nevents += doc.nevents[self.ifo]
-		peaks = list(doc.peak_time[self.ifo])
+		peaks = doc.peak_time[self.ifo]
 		peaks.sort()
 		for i in xrange(1, len(peaks)):
 			dt = float(peaks[i] - peaks[i - 1])
+			if dt > max:
+				continue
 			if dt in self.data:
 				self.data[dt] += 1
 			else:
@@ -289,7 +290,7 @@ class Delays(SnglBurstUtils.BurstPlot):
 
 	def finish(self):
 		self.axes.set_title("Time Between Triggers\n(%d Triggers)" % self.nevents)
-		data = zip(self.data.keys(), self.data.values())
+		data = zip(self.data.iterkeys(), self.data.itervalues())
 		data.sort()
 		self.axes.plot([d[0] for d in data], [d[1] for d in data], "ko-")
 
@@ -300,8 +301,8 @@ class Delays(SnglBurstUtils.BurstPlot):
 		bins.filter()
 		self.axes.plot(bins.xvals(), bins.yvals(), "k")
 
-		self.axes.set_xlim([0, max_delay + 2])
-		self.axes.set_ylim([1e0, 1e7])
+		self.axes.set_xlim([0, self.max])
+		self.axes.set_ylim([1, 10.0**(int(math.log10(max(bins.yvals()))) + 1)])
 
 
 #
@@ -323,10 +324,7 @@ class RateVsSNR(SnglBurstUtils.BurstPlot):
 	def add_contents(self, doc):
 		self.nevents += doc.nevents[self.ifo]
 		self.x.extend(doc.snr[self.ifo])
-		try:
-			self.seglist |= doc.seglists[self.ifo]
-		except KeyError:
-			pass
+		self.seglist |= doc.seglists[self.ifo]
 
 	def finish(self):
 		self.axes.set_title("Cummulative Trigger Rate vs. SNR\n(%d Triggers)" % self.nevents)
@@ -354,15 +352,12 @@ class RateVsConfidence(SnglBurstUtils.BurstPlot):
 	def add_contents(self, doc):
 		self.nevents += doc.nevents[self.ifo]
 		self.x.extend(doc.confidence[self.ifo])
-		try:
-			self.seglist |= doc.seglists[self.ifo]
-		except KeyError:
-			pass
+		self.seglist |= doc.seglists[self.ifo]
 
 	def finish(self):
 		self.axes.set_title("Cummulative Trigger Rate vs. Confidence\n(%d Triggers)" % self.nevents)
 		self.x.sort()
-		self.y = numarray.arange(len(self.x), 0.0, -1.0) / float(self.seglist.duration())
+		self.y = numarray.arange(len(self.x), 0.0, -1.0, "Float64") / float(self.seglist.duration())
 		self.axes.plot(self.x, self.y, "ko-")
 
 
@@ -384,10 +379,7 @@ class TimeFrequencyPlane(SnglBurstUtils.BurstPlot):
 	def add_contents(self, doc):
 		self.nevents += doc.nevents[self.ifo]
 		viz.tfplot(doc.start_time[self.ifo], doc.duration[self.ifo], doc.lo_freq[self.ifo], doc.bandwidth[self.ifo], numarray.log(numarray.array(doc.confidence[self.ifo])), axes = self.axes)
-		try:
-			self.seglist |= doc.seglists[self.ifo]
-		except KeyError:
-			pass
+		self.seglist |= doc.seglists[self.ifo]
 
 	def finish(self):
 		self.axes.set_title("Time-Frequency Plane\n(%d Triggers)" % self.nevents)
@@ -407,7 +399,7 @@ def new_plots(ifo, scalable_only = False):
 	plots = [
 		RateVsCentralFreq(ifo, segments.segment(70, 2118), 5),
 		Durations(ifo),
-		Delays(ifo, 0.125),
+		Delays(ifo, 0.125, 20),
 		RateVsSNR(ifo),
 		RateVsConfidence(ifo),
 	]
