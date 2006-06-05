@@ -86,7 +86,43 @@ class SnglBurst(object):
 	def get_peak(self):
 		return date.LIGOTimeGPS(self.peak_time, self.peak_time_ns)
 
+def snglburst_init(self, attrs):
+	lsctables.LSCTableUnique.__init__(self, attrs)
+	self.nevents = {}
+	self.start_time = {}
+	self.duration = {}
+	self.peak_time = {}
+	self.central_freq = {}
+	self.bandwidth = {}
+	self.lo_freq = {}
+	self.snr = {}
+	self.confidence = {}
+
+def snglburst_append(self, row):
+	if row.ifo not in self.nevents:
+		self.nevents[row.ifo] = 0
+		self.start_time[row.ifo] = []
+		self.duration[row.ifo] = []
+		self.peak_time[row.ifo] = []
+		self.central_freq[row.ifo] = []
+		self.bandwidth[row.ifo] = []
+		self.lo_freq[row.ifo] = []
+		self.snr[row.ifo] = []
+		self.confidence[row.ifo] = []
+	self.nevents[row.ifo] += 1
+	self.start_time[row.ifo].append(row.get_start())
+	self.duration[row.ifo].append(row.duration)
+	self.peak_time[row.ifo].append(row.get_peak())
+	self.central_freq[row.ifo].append(row.central_freq)
+	self.bandwidth[row.ifo].append(row.bandwidth)
+	self.lo_freq[row.ifo].append(row.central_freq - row.bandwidth / 2.0)
+	self.snr[row.ifo].append(row.snr)
+	# FIXME: sign
+	self.confidence[row.ifo].append(-row.confidence)
+
 lsctables.SnglBurstTable.RowType = SnglBurst
+lsctables.SnglBurstTable.__init__ = snglburst_init
+lsctables.SnglBurstTable.append = snglburst_append
 
 
 #
@@ -113,36 +149,16 @@ class DocContents(object):
 		# Extract columns
 		#
 
-		self.nevents = {}
-		self.start_time = {}
-		self.duration = {}
-		self.peak_time = {}
-		self.central_freq = {}
-		self.bandwidth = {}
-		self.lo_freq = {}
-		self.snr = {}
-		self.confidence = {}
-		for ifo in self.ifos:
-			self.nevents[ifo] = 0
-			self.start_time[ifo] = []
-			self.duration[ifo] = []
-			self.peak_time[ifo] = []
-			self.central_freq[ifo] = []
-			self.bandwidth[ifo] = []
-			self.lo_freq[ifo] = []
-			self.snr[ifo] = []
-			self.confidence[ifo] = []
-		for event in llwapp.get_table(xmldoc, lsctables.SnglBurstTable.tableName):
-			self.nevents[event.ifo] += 1
-			self.start_time[event.ifo].append(event.get_start())
-			self.duration[event.ifo].append(event.duration)
-			self.peak_time[event.ifo].append(event.get_peak())
-			self.central_freq[event.ifo].append(event.central_freq)
-			self.bandwidth[event.ifo].append(event.bandwidth)
-			self.lo_freq[event.ifo].append(event.central_freq - event.bandwidth / 2.0)
-			self.snr[event.ifo].append(event.snr)
-			# FIXME: sign
-			self.confidence[event.ifo].append(-event.confidence)
+		bursttable = llwapp.get_table(xmldoc, lsctables.SnglBurstTable.tableName)
+		self.nevents = bursttable.nevents
+		self.start_time = bursttable.start_time
+		self.duration = bursttable.duration
+		self.peak_time = bursttable.peak_time
+		self.central_freq = bursttable.central_freq
+		self.bandwidth = bursttable.bandwidth
+		self.lo_freq = bursttable.lo_freq
+		self.snr = bursttable.snr
+		self.confidence = bursttable.confidence
 
 
 #
@@ -416,8 +432,6 @@ for n, filename in enumerate(llwapp.sort_files_by_size(filenames, options.verbos
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
 	doc = llwapp.load_filename(filename, options.verbose)
-	if options.verbose:
-		print >>sys.stderr, "indexing..."
 	contents = DocContents(doc, "power")
 	for ifo in contents.ifos:
 		if ifo not in plots:
