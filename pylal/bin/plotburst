@@ -56,9 +56,12 @@ def parse_command_line():
 	parser = OptionParser(version="%prog CVS $Id$")
 	parser.add_option("-b", "--base", metavar = "base", default = "plotburst_", help = "set the prefix for output filenames (default = plotburst_)")
 	parser.add_option("-f", "--format", metavar = "format", default = "png", help = "set the output image format (default = png)")
-	parser.add_option("--scalable-only", action = "store_true", help = "only generate plots that scale well with the number of triggers")
+	parser.add_option("--plot", metavar = "number", action = "append", default = None, help = "only generate the given plot number")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
 	options, filenames = parser.parse_args()
+
+	if options.plots:
+		options.plots = map(int, options.plots)
 
 	return options, (filenames or [None])
 
@@ -411,21 +414,20 @@ class TimeFrequencyPlane(SnglBurstUtils.BurstPlot):
 # =============================================================================
 #
 
-def new_plots(ifo, scalable_only = False):
-	plots = [
+def new_plots(ifo, plots):
+	if plots == None:
+		plots = [0, 1, 2, 3, 4, 5, 6]
+	l = [
 		RateVsCentralFreq(ifo, segments.segment(70, 2118), 5),
 		Durations(ifo),
 		Delays(ifo, 0.125, 20),
 		RateVsSNR(ifo),
 		RateVsConfidence(ifo),
+		ConfidenceVsTime(ifo),
+		ConfidenceVsFrequencyScatter(ifo)
+		TimeFrequencyPlane(ifo)
 	]
-	if not scalable_only:
-		plots += [
-			ConfidenceVsTime(ifo),
-			ConfidenceVsFrequencyScatter(ifo)
-			#TimeFrequencyPlane(ifo)
-		]
-	return plots
+	return [l[i] for i in plots]
 
 plots = {}
 for n, filename in enumerate(llwapp.sort_files_by_size(filenames, options.verbose, reverse = True)):
@@ -435,7 +437,7 @@ for n, filename in enumerate(llwapp.sort_files_by_size(filenames, options.verbos
 	contents = DocContents(doc, "power")
 	for ifo in contents.ifos:
 		if ifo not in plots:
-			plots[ifo] = new_plots(ifo, options.scalable_only)
+			plots[ifo] = new_plots(ifo, options.plots)
 		for n, plot in enumerate(plots[ifo]):
 			if options.verbose:
 				print >>sys.stderr, "adding to %s plot %d..." % (ifo, n)
