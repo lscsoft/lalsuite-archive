@@ -60,8 +60,8 @@ def parse_command_line():
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
 	options, filenames = parser.parse_args()
 
-	if options.plots:
-		options.plots = map(int, options.plots)
+	if options.plot:
+		options.plot = map(int, options.plot)
 
 	return options, (filenames or [None])
 
@@ -416,7 +416,7 @@ class TimeFrequencyPlane(SnglBurstUtils.BurstPlot):
 
 def new_plots(ifo, plots):
 	if plots == None:
-		plots = [0, 1, 2, 3, 4, 5, 6]
+		plots = [0, 1, 2, 3, 4, 5, 6, 7]
 	l = [
 		RateVsCentralFreq(ifo, segments.segment(70, 2118), 5),
 		Durations(ifo),
@@ -437,7 +437,7 @@ for n, filename in enumerate(llwapp.sort_files_by_size(filenames, options.verbos
 	contents = DocContents(doc, "power")
 	for ifo in contents.ifos:
 		if ifo not in plots:
-			plots[ifo] = new_plots(ifo, options.plots)
+			plots[ifo] = new_plots(ifo, options.plot)
 		for n, plot in enumerate(plots[ifo]):
 			if options.verbose:
 				print >>sys.stderr, "adding to %s plot %d..." % (ifo, n)
