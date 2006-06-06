@@ -62,6 +62,8 @@ def parse_command_line():
 
 	if options.plot:
 		options.plot = map(int, options.plot)
+	else:
+		options.plot = [0, 1, 2, 3, 4, 5, 6, 7]
 
 	return options, (filenames or [None])
 
@@ -82,12 +84,6 @@ except ValueError, e:
 
 class SnglBurst(object):
 	__slots__ = ["ifo", "start_time", "start_time_ns", "duration", "central_freq", "bandwidth", "snr", "confidence", "peak_time", "peak_time_ns"]
-
-	def get_start(self):
-		return date.LIGOTimeGPS(self.start_time, self.start_time_ns)
-
-	def get_peak(self):
-		return date.LIGOTimeGPS(self.peak_time, self.peak_time_ns)
 
 def snglburst_init(self, attrs):
 	lsctables.LSCTableUnique.__init__(self, attrs)
@@ -113,9 +109,9 @@ def snglburst_append(self, row):
 		self.snr[row.ifo] = []
 		self.confidence[row.ifo] = []
 	self.nevents[row.ifo] += 1
-	self.start_time[row.ifo].append(row.get_start())
+	self.start_time[row.ifo].append(date.LIGOTimeGPS(row.start_time, row.start_time_ns))
 	self.duration[row.ifo].append(row.duration)
-	self.peak_time[row.ifo].append(row.get_peak())
+	self.peak_time[row.ifo].append(date.LIGOTimeGPS(row.peak_time, row.peak_time_ns))
 	self.central_freq[row.ifo].append(row.central_freq)
 	self.bandwidth[row.ifo].append(row.bandwidth)
 	self.lo_freq[row.ifo].append(row.central_freq - row.bandwidth / 2.0)
@@ -415,8 +411,6 @@ class TimeFrequencyPlane(SnglBurstUtils.BurstPlot):
 #
 
 def new_plots(ifo, plots):
-	if plots == None:
-		plots = [0, 1, 2, 3, 4, 5, 6, 7]
 	l = [
 		RateVsCentralFreq(ifo, segments.segment(70, 2118), 5),
 		Durations(ifo),
@@ -438,9 +432,9 @@ for n, filename in enumerate(llwapp.sort_files_by_size(filenames, options.verbos
 	for ifo in contents.ifos:
 		if ifo not in plots:
 			plots[ifo] = new_plots(ifo, options.plot)
-		for n, plot in enumerate(plots[ifo]):
+		for plotnum, plot in zip(options.plot, plots[ifo]):
 			if options.verbose:
-				print >>sys.stderr, "adding to %s plot %d..." % (ifo, n)
+				print >>sys.stderr, "adding to %s plot %d..." % (ifo, plotnum)
 			plot.add_contents(contents)
 	doc.unlink()
 
@@ -458,9 +452,9 @@ for ifo in plots:
 	n = 0
 	format = "%%s%s_%%0%dd.%%s" % (ifo, int(math.log10(len(plots[ifo]))) + 1)
 	while len(plots[ifo]):
-		filename = format % (options.base, n, options.format)
+		filename = format % (options.base, options.plot[n], options.format)
 		if options.verbose:
-			print >>sys.stderr, "finishing plot %d..." % n
+			print >>sys.stderr, "finishing plot %d..." % options.plot[n]
 		plots[ifo][0].finish()
 		if options.verbose:
 			print >>sys.stderr, "writing %s..." % filename
