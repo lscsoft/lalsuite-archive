@@ -147,7 +147,33 @@ def square(M,medges,mstep,D,dedges,dstep,lum_weight=None):
 
   return ng_m_d
   
+##############################################################################
+# Define a Hist Function
+##############################################################################
+def histng(M,medges,mstep,lum_weight=None):
+  
+
+  i = 0
+  ng_m = zeros(len(medges),'d')
  
+  while i < len(M):  
+      l = int(M[i]/mstep)
+ 
+      if not lum_weight:
+        lum_array = 1
+
+      else: 
+        lum_array = lum_weight[i]
+
+      if (l>=0 and l<len(medges)):
+        ng_m[l] = ng_m[l] + lum_array
+  
+      i = i+1
+ 
+  return ng_m
+
+  
+   
 
 ##############################################################################
 # Chop a simInspiralTable based on component masses.
@@ -599,12 +625,29 @@ yEdges = arange(opts.y_min,opts.y_max,yStep)
 ##############################################################################
 if astro_plot:
   # calculate the number of galaxies in each bin
-  xng,a,b = hist(xAstro, x1Edges)
-  xng = xng * max_luminosity/numSources
+  #xng,a,b = hist(xAstro, x1Edges)
+  #xng = xng * max_luminosity/numSources
   # delete the last entries to clean up plots:
-  xng = xng[0:-1]
-  xng_cum = cumsum( xng )
-  clf()
+  #xng = xng[0:-1]
+  #xng_cum = cumsum( xng )
+
+ 
+  
+  
+  if opts.delta_error:
+    x_ng = histng(xAstro,x1Edges,xStep,lum)
+  else:
+    x_ng = histng(xAstro,x1Edges,xStep)
+
+  
+  x_ng=x_ng[0:-1]
+  x_ng = x_ng*max_luminosity/numSources
+  xng_cum = cumsum(x_ng)
+   
+
+  #figure()
+  #bar(len(x1Edges)-1,x_ng, width=0.9, bottom=0,color='b', yerr=None, xerr=None, ecolor='k', capsize=3)
+  
  
   if opts.delta_error:
     ng = square(xAstro,xEdges,xStep,yAstro,yEdges,yStep,lum)
@@ -701,7 +744,7 @@ x1Edges = x1Edges[0:-1]
 ##############################################################################
 if opts.plot_ng:
   figure()
-  plot( x1Edges, xng, linewidth = 1)
+  plot( x1Edges, x_ng, linewidth = 1)
   grid( True )
   xlim(opts.x_min,opts.x_max)
   xlabel( opts.x_value, size='x-large' )
@@ -715,7 +758,7 @@ if opts.plot_ng:
 ##############################################################################
 if opts.hist_ng:
   figure()
-  bar(x1Edges,xng,xStep)
+  bar(x1Edges,x_ng,xStep)
   grid( True )
   xlabel( opts.x_value, size='x-large' )
   ylabel('n_10', size='x-large' )
@@ -838,7 +881,7 @@ if opts.plot_efficiency:
 # plot cumulative N_G for search
 ##############################################################################
 if opts.cum_search_ng:
-  xng_cum = cumsum( xng * xEff)
+  xng_cum = cumsum( x_ng * xEff)
   figure()
   plot(x1Edges,xng_cum,linewidth=1)
   grid( True )
@@ -855,10 +898,10 @@ if opts.cum_search_ng:
     if len(xError):
       for key in xError.keys():
         if key == 'Monte Carlo':
-          err = sqrt(sum(xError['Monte Carlo']**2 *xng))
+          err = sqrt(sum(xError['Monte Carlo']**2 *x_ng))
           print 'Monte Carlo error in luminosity = %.2f L_10' % err
         else:
-          err = sum(xError[key]*xng)
+          err = sum(xError[key]*x_ng)
           print key + ' error of %.1f' % float(100 * errorVal[key]) + \
               '% gives error in luminosity = ' + '%.2f L_10' % err
 
