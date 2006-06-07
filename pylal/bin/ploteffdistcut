@@ -224,6 +224,8 @@ if opts.dist_hist:
   yticks(fontsize=opts.font_size)
   xlabel('fractional difference in eff. distance',fontsize=opts.font_size)
   ylabel('normalized #',fontsize=opts.font_size)
+  xlim(0,1)
+  ylim(ymin=0)
   if opts.figure_name:
     savefig(opts.figure_name + "_eff_dist_hist.png")
 

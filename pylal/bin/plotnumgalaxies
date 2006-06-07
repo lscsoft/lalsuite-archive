@@ -540,9 +540,9 @@ if (astro_plot or eff_plot):
         if (gal_name[j]==sourcelist[i]['name']):
           c = (1+sourcelist[i]['delta_d'])**2
           lum.append(c)
-          if ('eff_dist' in opts.x_value):  
+          if ('dist' in opts.x_value):  
             xAstro[j]=xAstro[j]*(1 + sourcelist[i]['delta_d'])
-	  if ('eff_dist' in opts.y_value):  
+	  if ('dist' in opts.y_value):  
 	    yAstro[j]=yAstro[j]*(1 + sourcelist[i]['delta_d'])
              
 

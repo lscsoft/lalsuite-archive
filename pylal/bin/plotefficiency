@@ -96,7 +96,7 @@ if opts.vs_eff_dist:
 if opts.vs_distance:
   figure(2)
   viz.efficiencyplot(foundInj, missedInj, 'distance', ifo, plot_type = 'log', \
-      nbins = 20, output_name = opts.figure_name )
+      nbins = 20, output_name = opts.figure_name , linewidth=2 )
 
 if opts.vs_snr:
   figure(3)

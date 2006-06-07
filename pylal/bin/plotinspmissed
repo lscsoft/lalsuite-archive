@@ -7,6 +7,8 @@ from pylab    import *
 from pylal    import readMeta
 from pylal    import viz
 from matplotlib.ticker import FormatStrFormatter
+from glue import segments
+from glue import segmentsUtils
 from glue.ligolw import ligolw
 from glue.ligolw import metaio
 from glue.ligolw import lsctables
@@ -72,6 +74,9 @@ parser.add_option("-t","--title",action="store",type="string",\
     default="", metavar=" TITLE", help="add more info to standard title" )
 parser.add_option("-l","--legend",action="store_true",default=False,\
     help="include legend on plot" )  
+parser.add_option("-V","--veto-file",action="store",type="string",\
+    default=None,metavar=" FNAME",\
+    help="read in segments from FNAME (assumed segwizard format)")
 parser.add_option("-i","--ifo",action="store",type="string",default=None,\
     help="specify the ifo (otherwise will be read from the found file")
 parser.add_option("-M","--min-distance",action="store",type="int",\
@@ -173,7 +178,14 @@ for i in range(len(injFiles)):
     flist.append(misFiles[i])
     misDict["sim_inspiral"]  = readMeta.metaDataTable(flist, "sim_inspiral")
   #
-  
+  # apply veto if there is one
+  if opts.veto_file:
+    file = open( opts.veto_file , "r")
+    seglist = segmentsUtils.fromsegwizard(file)
+    file.close()
+    misDict["sim_inspiral"] = \
+        misDict["sim_inspiral"].veto(seglist,"geocent_end_time")
+
   misDict["mis_time"] = viz.timeindays( viz.readcol(misDict["sim_inspiral"], \
     "end_time", injDict["ifo"] ) )
   misDict["mis_dist"] = viz.readcol(misDict["sim_inspiral"], "eff_dist", \
@@ -185,6 +197,9 @@ for i in range(len(injFiles)):
 
 
   if opts.min_distance:
+    misDict["l_dist"] = viz.readcol(misDict["sim_inspiral"], "eff_dist", "L1" )
+    misDict["h_dist"] = viz.readcol(misDict["sim_inspiral"], "eff_dist", "H1" )
+    misDict["mchirp"] = viz.readcol(misDict["sim_inspiral"], "mchirp", "H1" )
     print flist[0]
     for i in range(len(misDict["mis_time"])):
       if misDict["mis_dist"][i] < opts.min_distance:
@@ -192,6 +207,10 @@ for i in range(len(injFiles)):
             str(misDict["mis_dist"][i]),
         print "GPS time " + \
             str(misDict["sim_inspiral"].table[i]["geocent_end_time"])
+        print "L/H Distance ratio was " + \
+            str(misDict["l_dist"][i]/misDict["h_dist"][i])
+        print "Chirp mass was " + \
+            str(misDict["mchirp"][i])
 
   
   # append combination of tables to list as a dictionary

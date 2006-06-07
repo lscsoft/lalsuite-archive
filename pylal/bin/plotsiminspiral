@@ -2,100 +2,97 @@
 
 import sys
 import os
-import getopt
+from optparse import *
 import re
 import exceptions
 import glob
 from types import *
 
 from pylab import *
+from glue import segmentsUtils
 from pylal import readMeta
 from pylal import viz
 
 ##############################################################################
-# help message
+usage = """usage: %prog [options] file1 (file2 file3)
 
+Inspiral Injection Plotting Functions
 
-def usage():
-  msg = """\
-Usage: plotsimInspiral [options]
+Generate a set of summary plots from triggers and found injections stored as
+sngl_inspiral and sim_inspiral table in LIGO lightweight format
+respectively.  The routine expects that there are equal numbers of triggers
+and injections stored in the files.  
 
-  SUMMARY:  
-  
-  Generate a set of summary plots from triggers stored as sngl_simInspiral 
-  tables in LIGO lightweight format.  The plots are
+The various plots can be turned on by selecting them.  For plots and
+histograms, the AXIS can be specified.  This gives the Y-axis scale for plots and the width for the histograms.
 
-    1.  SNR v CHISQ
-    2.  Cumulative Histogram of SNR values
-    3.  Histogram of CHISQ values
+Available plots:
 
-  OPTIONS:
-  
-    -h, --help              display this message
-  
-    -g, --glob STRING       filename glob, e.g. \"H1-INSPIRAL-*.xml\"
-    -f, --figure STRING     generate png figures with name STRING-fig.png
-    -t, --title TITLE       title string for plots
-    -s, --show              display the figures on the terminal.
+1) Chirp mass accuracy can be plotted as:
+  a) a function of the injected chirp mass, using --plot-mchirp
+  b) a histogram, using --hist-mchirp
+  c) a function of the injected effective distance, using --chirp-dist
+  d) a function of the detected SNR, using --chirp-snr
+The width of all these plots is set using --chirp-axis
+
+2) Eta accuracy can be plotted as:
+  a) a function of the injected eta, using --plot-eta
+  b) a histogram, using --hist-eta
+The width of all these plots is set using --eta-axis
+
+3) End time accuracy can be plotted as:
+  a) a function of the injected end time, using --plot-time
+  b) a histogram, using --hist-time
+  c) a function of the injected effective distance, using --time-dist
+  d) a function of the detected SNR, using --time-snr
+The width of all these plots is set using --time-axis
+
+4) Effective distance accuracy can be plotted as:
+  a) a function of the injected eta, using --plot-dist
+  b) a histogram, using --hist-dist
+The width of these plots is set using --dist-axis
+  c) injected vs detected distance can be plotted using --dist-dist 
 
 """
-  print >> sys.stderr, msg
+parser = OptionParser( usage )
+parser.add_option("-v","--version",action="store_true",default=False,\
+    help="display version information " )
+parser.add_option("-1","--tag1",action="store",type="string",\
+    default=None, metavar=" TAG",help="identifier for first input file" )
+parser.add_option("-2","--tag2",action="store",type="string",\
+    default=None, metavar=" TAG",help="identifier for second input file" )
+parser.add_option("-s","--show-plot",action="store_true",default=False,\
+    help="display the figures on the terminal" )
+parser.add_option("-f","--fig-name",action="store",type="string",\
+    default=None, metavar=" FNAME",\
+    help="generate png figures with name FNAME-fig.png" ) 
+parser.add_option("-F","--glob-found",action="store",type="string",\
+    default=None, metavar=" GLOB",\
+    help="glob for files containing found sim_inspiral" ) 
+parser.add_option("-M","--glob-missed",action="store",type="string",\
+    default=None, metavar=" GLOB",\
+    help="glob for files containing missed sim_inspiral" ) 
+parser.add_option("-x","--title-text",action="store",type="string",\
+    default=None, metavar=" TEXT",\
+    help="add TEXT at start of plot titles" ) 
 
+(opts,args) = parser.parse_args()
 
-# grab command line options
-shortop = "b:f:g:hst:"
-longop = [
-  "bins=",
-  "figure=",
-  "glob=",
-  "help",
-  "show",
-  "title="]
-
-try:
-  opts, args = getopt.getopt(sys.argv[1:], shortop, longop)
-except getopt.GetoptError:
-  print >> sys.stderr, "Error parsing command line"
-  print >> sys.stderr, "Enter 'plotgbb --help' for usage"
-  sys.exit(1)
-
-# defaul values
-myGlob = None
-myFigure = None
-myTitle = "SNR v CHISQ"
-showflag = 0
-nbins = 10
-
-for o, a in opts:
-  if o in ("-h", "--help"):
-    usage()
-    sys.exit(0)
-  elif o in ("-v", "--version"):
-    sys.exit(0)
-  elif o in ("-b", "--bins"):
-    nbins = int(a)
-  elif o in ("-g", "--glob"):
-    myGlob = a
-  elif o in ("-f", "--figure"):
-    myFigure = a
-  elif o in ("-s", "--show"):
-    showflag = 1
-  elif o in ("-t", "--title"):
-    myTitle = a
-
-if not myGlob:
-  print >> sys.stderr, "Bad combination or missing options"
-  print >> sys.stderr, "Enter 'plotgbb --help' for usage"
-  sys.exit(1)
+# if --version flagged
+if opts.version:
+  sys.exit(0)
 
 # glob the list of files to read in
-myfiles = glob.glob(myGlob);
+missedfiles = glob.glob(opts.glob_missed);
+foundfiles = glob.glob(opts.glob_found);
 
 # an instance of the simInspiralTable
-simInspTriggers=readMeta.metaDataTable(myfiles, "sim_inspiral")
+foundbinaries=readMeta.metaDataTable(foundfiles, "sim_inspiral")
+missedbinaries=readMeta.metaDataTable(missedfiles, "sim_inspiral")
 
-viz.simpleplot(simInspTriggers,"eff_dist_l","eff_dist_h")
-axis([0, 160, 0, 160])
+viz.plot_a_v_b(foundbinaries,"eff_dist_l","eff_dist_h",plot_sym = 'rx')
+viz.plot_a_v_b(missedbinaries,"eff_dist_l","eff_dist_h",plot_sym = 'b+')
+axis([0, 40, 0, 40])
 grid(True)
 show()
 
