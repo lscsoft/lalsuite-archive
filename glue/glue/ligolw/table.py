@@ -573,5 +573,5 @@ ligolw.LIGOLWContentHandler.startTable = startTable
 import warnings
 class LIGOLWContentHandler(ligolw.LIGOLWContentHandler):
 	def __init__(*args):
-		warnings.warn("metaio.LIGOLWContentHandler() class is deprecated:  use ligolw.metaio.LIGOLWContentHandler() instead", DeprecationWarning)
+		warnings.warn("table.LIGOLWContentHandler() class is deprecated:  use ligolw.table.LIGOLWContentHandler() instead", DeprecationWarning)
 		ligolw.LIGOLWContentHandler.__init__(*args)

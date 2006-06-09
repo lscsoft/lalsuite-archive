@@ -35,7 +35,7 @@ import time
 from glue import segments
 from glue import gpstime
 from glue.ligolw import ligolw
-from glue.ligolw import metaio
+from glue.ligolw import table
 from glue.ligolw import lsctables
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -73,8 +73,8 @@ if options.input:
 else:
 	ligolw.make_parser(ligolw.LIGOLWContentHandler(indoc)).parse(sys.stdin)
 
-snglinsptables = metaio.getTablesByName(indoc, lsctables.SnglInspiralTable.tableName)
-insearchsummtables = metaio.getTablesByName(indoc, lsctables.SearchSummaryTable.tableName)
+snglinsptables = table.getTablesByName(indoc, lsctables.SnglInspiralTable.tableName)
+insearchsummtables = table.getTablesByName(indoc, lsctables.SearchSummaryTable.tableName)
 
 
 #
@@ -152,8 +152,8 @@ if options.output != None:
 #
 
 seglist = segments.segmentlist([])
-for table in insearchsummtables:
-	seglist |= table.get_outlist().coalesce()
+for table_elem in insearchsummtables:
+	seglist |= table_elem.get_outlist().coalesce()
 
 segmentids = lsctables.SegmentIDs()
 for seg in seglist:
@@ -174,8 +174,8 @@ for seg in seglist:
 #
 
 ligolwmonids = lsctables.LIGOLWMonIDs()
-for table in snglinsptables:
-	for inspiral in table.rows:
+for table_elem in snglinsptables:
+	for inspiral in table_elem.rows:
 		ligolwmon = lsctables.LIGOLWMon()
 		ligolwmon.process_id = process.process_id
 		ligolwmon.event_id = ligolwmonids.next()

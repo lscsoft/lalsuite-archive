@@ -38,7 +38,7 @@ import urllib
 from glue.lal import CacheEntry
 from glue import segments
 from glue.ligolw import ligolw
-from glue.ligolw import metaio
+from glue.ligolw import table
 from glue.ligolw import lsctables
 
 
@@ -70,7 +70,7 @@ if not options.delimiter:
 
 # strip table names
 if options.table:
-	options.table = map(metaio.StripTableName, options.table)
+	options.table = map(table.StripTableName, options.table)
 
 # turn row requests into a segment list
 if options.rows:
@@ -100,7 +100,7 @@ if options.rows:
 
 def ContentHandler(doc):
 	if options.table:
-		return ligolw.PartialLIGOLWContentHandler(doc, lambda name, attrs: (name == ligolw.Table.tagName) and (metaio.StripTableName(attrs["Name"]) in options.table))
+		return ligolw.PartialLIGOLWContentHandler(doc, lambda name, attrs: (name == ligolw.Table.tagName) and (table.StripTableName(attrs["Name"]) in options.table))
 	else:
 		return ligolw.LIGOLWContentHandler(doc)
 
@@ -123,7 +123,7 @@ def load_document(url):
 
 def get_tables(doc):
 	if options.table:
-		return doc.getElements(lambda e: (e.tagName == ligolw.Table.tagName) and (metaio.StripTableName(e.getAttribute("Name")) in options.table))
+		return doc.getElements(lambda e: (e.tagName == ligolw.Table.tagName) and (table.StripTableName(e.getAttribute("Name")) in options.table))
 	else:
 		return doc.getElements(lambda e: (e.tagName == ligolw.Table.tagName))
 
@@ -140,11 +140,11 @@ def is_requested_row(n):
 # How to print a row
 #
 
-def row_string(table, row):
+def row_string(table_elem, row):
 	if options.column:
 		return options.delimiter.join(map(lambda key: str(getattr(row, key)), options.column))
 	else:
-		return options.delimiter.join(map(lambda colname: str(getattr(row, colname)), table.columnnames))
+		return options.delimiter.join(map(lambda colname: str(getattr(row, colname)), table_elem.columnnames))
 
 
 #
@@ -153,8 +153,8 @@ def row_string(table, row):
 
 for url in urls:
 	doc = load_document(url)
-	for table in get_tables(doc):
-		for n, row in enumerate(table):
+	for table_elem in get_tables(doc):
+		for n, row in enumerate(table_elem):
 			if is_requested_row(n):
-				print row_string(table, row)
+				print row_string(table_elem, row)
 	doc.unlink()

@@ -34,7 +34,7 @@ import urllib
 from urlparse import urlparse
 
 from glue.ligolw import ligolw
-from glue.ligolw import metaio
+from glue.ligolw import table
 from glue.ligolw import lsctables
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -143,10 +143,10 @@ def tables_can_be_merged(a, b):
 	they have equivalent names, and equivalent columns according to
 	LIGO LW name conventions.
 	"""
-	if metaio.CompareTableNames(a.getAttribute("Name"), b.getAttribute("Name")) != 0:
+	if table.CompareTableNames(a.getAttribute("Name"), b.getAttribute("Name")) != 0:
 		return False
-	acols = [(metaio.StripColumnName(col.getAttribute("Name")), col.getAttribute("Type")) for col in a.getElementsByTagName(ligolw.Column.tagName)]
-	bcols = [(metaio.StripColumnName(col.getAttribute("Name")), col.getAttribute("Type")) for col in b.getElementsByTagName(ligolw.Column.tagName)]
+	acols = [(table.StripColumnName(col.getAttribute("Name")), col.getAttribute("Type")) for col in a.getElementsByTagName(ligolw.Column.tagName)]
+	bcols = [(table.StripColumnName(col.getAttribute("Name")), col.getAttribute("Type")) for col in b.getElementsByTagName(ligolw.Column.tagName)]
 	for acol in acols:
 		if acol not in bcols:
 			return False
@@ -161,7 +161,7 @@ def merge_compatible_tables(elem):
 	a single table, etc..
 	"""
 	for tname in lsctables.TableByName.keys():
-		tables = metaio.getTablesByName(elem, tname)
+		tables = table.getTablesByName(elem, tname)
 		for i in range(1, len(tables)):
 			if tables_can_be_merged(tables[0], tables[i]):
 				merge_elements(tables[0], tables[i])

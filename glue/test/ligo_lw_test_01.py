@@ -5,7 +5,7 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg
 import numarray
 
 from glue.ligolw import ligolw
-from glue.ligolw import metaio
+from glue.ligolw import table
 from glue.ligolw import array
 from glue.ligolw import param
 

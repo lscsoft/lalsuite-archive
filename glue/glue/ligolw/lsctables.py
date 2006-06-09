@@ -42,7 +42,7 @@ from xml import sax
 from glue import lal
 from glue import segments
 import ligolw
-import metaio
+import table
 import types
 
 
@@ -65,18 +65,18 @@ def New(Type, columns = None):
 	Example:
 
 	>>> import lsctables
-	>>> table = lsctables.New(lsctables.ProcessTable)
+	>>> new = lsctables.New(lsctables.ProcessTable)
 	"""
-	table = Type(sax.xmlreader.AttributesImpl({u"Name": Type.tableName}))
+	new = Type(sax.xmlreader.AttributesImpl({u"Name": Type.tableName}))
 	if columns != None:
 		for key in columns:
-			if key not in table.validcolumns.keys():
-				raise ligolw.ElementError, "New(): invalid column \"%s\" for table \"%s\"." % (key, table.tableName)
-	for key, value in table.validcolumns.items():
+			if key not in new.validcolumns.keys():
+				raise ligolw.ElementError, "New(): invalid column \"%s\" for table \"%s\"." % (key, new.tableName)
+	for key, value in new.validcolumns.items():
 		if (columns == None) or (key in columns):
-			table.appendChild(metaio.Column(sax.xmlreader.AttributesImpl({u"Name": ":".join(Type.tableName.split(":")[:-1]) + ":" + key, u"Type": value})))
-	table.appendChild(metaio.TableStream(sax.xmlreader.AttributesImpl({u"Name": Type.tableName})))
-	return table
+			new.appendChild(table.Column(sax.xmlreader.AttributesImpl({u"Name": ":".join(Type.tableName.split(":")[:-1]) + ":" + key, u"Type": value})))
+	new.appendChild(table.TableStream(sax.xmlreader.AttributesImpl({u"Name": Type.tableName})))
+	return new
 
 
 def IsTableElement(Type, elem):
@@ -86,7 +86,7 @@ def IsTableElement(Type, elem):
 	"""
 	if elem.tagName != ligolw.Table.tagName:
 		return False
-	return metaio.CompareTableNames(elem.getAttribute("Name"), Type.tableName) == 0
+	return table.CompareTableNames(elem.getAttribute("Name"), Type.tableName) == 0
 
 
 def IsTableProperties(Type, tagname, attrs):
@@ -96,21 +96,21 @@ def IsTableProperties(Type, tagname, attrs):
 	"""
 	if tagname != ligolw.Table.tagName:
 		return False
-	return metaio.CompareTableNames(attrs["Name"], Type.tableName) == 0
+	return table.CompareTableNames(attrs["Name"], Type.tableName) == 0
 
 
 def getTablesByType(elem, Type):
 	"""
 	Return a list of tables of type Type under elem.
 	"""
-	return metaio.getTablesByName(elem, Type.tableName)
+	return table.getTablesByName(elem, Type.tableName)
 
 
 def getLSCTables(elem):
 	"""
 	Return a list of all LSC tables under elem.
 	"""
-	return elem.getElements(lambda e: (e.tagName == ligolw.Table.tagName) and (metaio.StripTableName(e.getAttribute("Name")) in TableByName.keys()))
+	return elem.getElements(lambda e: (e.tagName == ligolw.Table.tagName) and (table.StripTableName(e.getAttribute("Name")) in TableByName.keys()))
 
 
 def HasNonLSCTables(elem):
@@ -118,8 +118,8 @@ def HasNonLSCTables(elem):
 	Return True if the document tree below elem contains non-LSC
 	tables, otherwise return False.
 	"""
-	for table in elem.getElementsByTagName(ligolw.Table.tagName):
-		if metaio.StripTableName(table.getAttribute("Name")) not in TableByName:
+	for t in elem.getElementsByTagName(ligolw.Table.tagName):
+		if table.StripTableName(t.getAttribute("Name")) not in TableByName:
 			return True
 	return False
 
@@ -176,7 +176,7 @@ def getTablesFromILWD(elem, ilwdchar):
 	Return a list of all tables below elem which can contain rows
 	having IDs matching ilwdchar.
 	"""
-	return elem.getElements(lambda e: (e.tagName == ligolw.Table.tagName) and (metaio.CompareTableNames(e.getAttribute("Name"), IDTableName(ilwdchar)) == 0))
+	return elem.getElements(lambda e: (e.tagName == ligolw.Table.tagName) and (table.CompareTableNames(e.getAttribute("Name"), IDTableName(ilwdchar)) == 0))
 
 
 def FindILWD(tables, ilwdchar):
@@ -186,9 +186,9 @@ def FindILWD(tables, ilwdchar):
 	the first row found is returned.  KeyError is raised if no rows are
 	found or the ID cannot be parsed.
 	"""
-	for table in tables:
+	for t in tables:
 		try:
-			return table.dict[ilwdchar]
+			return t.dict[ilwdchar]
 		except KeyError:
 			pass
 	raise KeyError, repr(ilwdchar)
@@ -207,8 +207,8 @@ class ILWD(object):
 		value for the numeric suffix in the ilwd:char
 		representation of ID.
 		"""
-		self.table_name = metaio.StripTableName(table_name)
-		self.column_name = metaio.StripColumnName(column_name)
+		self.table_name = table.StripTableName(table_name)
+		self.column_name = table.StripColumnName(column_name)
 		self.n = n
 
 	def __str__(self):
@@ -235,17 +235,17 @@ class ILWD(object):
 		return s
 
 
-def NewILWDs(table, column_name):
+def NewILWDs(table_elem, column_name):
 	"""
 	From the LSC table, return a compatible ILWD iterator object,
 	initialized to the next unique ID following those found in the
 	table.
 	"""
 	try:
-		n = max(map(ILWDID, table.dict.keys()))
+		n = max(map(ILWDID, table_elem.dict.keys()))
 	except ValueError:
 		n = -1
-	return ILWD(metaio.StripTableName(table.getAttribute("Name")), column_name, n + 1)
+	return ILWD(table.StripTableName(table_elem.getAttribute("Name")), column_name, n + 1)
 
 
 def makeReference(elem):
@@ -253,11 +253,11 @@ def makeReference(elem):
 	Run the makeReference() method on all LSC tables below elem,
 	constructing references to other tables under elem.
 	"""
-	for table in getLSCTables(elem):
+	for table_elem in getLSCTables(elem):
 		try:
-			table.makeReference(elem)
+			table_elem.makeReference(elem)
 		except AttributeError:
-			# table is missing a cross-reference column.
+			# table_elem is missing a cross-reference column.
 			pass
 
 
@@ -265,11 +265,11 @@ def deReference(elem):
 	"""
 	Run the deReference() method on all LSC tables below elem.
 	"""
-	for table in getLSCTables(elem):
+	for table_elem in getLSCTables(elem):
 		try:
-			table.deReference()
+			table_elem.deReference()
 		except AttributeError:
-			# table is missing a cross-reference column.
+			# table_elem is missing a cross-reference column.
 			pass
 
 
@@ -282,17 +282,17 @@ def NewIDs(elem, ilwditers):
 	apply the mapping to all rows.
 	"""
 	for tablename, ilwditer in ilwditers.iteritems():
-		for table in metaio.getTablesByName(elem, tablename):
+		for table_elem in table.getTablesByName(elem, tablename):
 			keymap = {}
 			try:
-				for oldkey in table.dict.keys():
+				for oldkey in table_elem.dict.keys():
 					keymap[oldkey] = ilwditer.next()
 			except AttributeError:
-				# table is missing its ID column
+				# table_elem is missing its ID column
 				continue
 			if not len(keymap):
 				continue
-			for row in table.rows:
+			for row in table_elem.rows:
 				try:
 					row._set_key(keymap[row._get_key()])
 				except KeyError:
@@ -337,11 +337,11 @@ class LSCTableUniqueDict(object):
 	Class for implementing the Python mapping protocol on a list of table
 	rows when each row has a unique key.
 	"""
-	def __init__(self, table):
+	def __init__(self, table_elem):
 		"""
 		Initialize the mapping on the list of rows.
 		"""
-		self.rows = table.rows
+		self.rows = table_elem.rows
 
 	def __len__(self):
 		"""
@@ -438,12 +438,12 @@ class LSCTableMultiDict(LSCTableUniqueDict):
 	Class for implementing the Python mapping protocol on a list of table
 	rows when multiple rows share the same key.
 	"""
-	def __init__(self, table):
+	def __init__(self, table_elem):
 		"""
 		Initialize the mapping on the list of rows.
 		"""
-		self.table = table
-		self.rows = table.rows
+		self.table = table_elem
+		self.rows = table_elem.rows
 
 	def __getitem__(self, key):
 		"""
@@ -496,9 +496,9 @@ class LSCTableMultiDict(LSCTableUniqueDict):
 		return LSCTableMultiItemIter(self)
 
 
-class LSCTableUnique(metaio.Table):
+class LSCTableUnique(table.Table):
 	def __init__(self, attrs):
-		metaio.Table.__init__(self, attrs)
+		table.Table.__init__(self, attrs)
 		self.dict = LSCTableUniqueDict(self)
 
 	def makeReference(self, elem):
@@ -514,9 +514,9 @@ class LSCTableUnique(metaio.Table):
 		pass
 
 
-class LSCTableMulti(metaio.Table):
+class LSCTableMulti(table.Table):
 	def __init__(self, attrs):
-		metaio.Table.__init__(self, attrs)
+		table.Table.__init__(self, attrs)
 		self.dict = LSCTableMultiDict(self)
 
 	def makeReference(self, elem):
@@ -532,7 +532,7 @@ class LSCTableMulti(metaio.Table):
 		pass
 
 
-# We don't subclass metaio.TableRow because that defeats the __slots__
+# We don't subclass table.TableRow because that defeats the __slots__
 # feature.
 class LSCTableRow(object):
 	__slots__ = []
@@ -637,7 +637,7 @@ class LfnTable(LSCTableUnique):
 		"""
 		Convert ilwd:char strings into object references.
 		"""
-		tables = metaio.getTablesByName(elem, ProcessTable.tableName)
+		tables = table.getTablesByName(elem, ProcessTable.tableName)
 		for row in self.rows:
 			row.process_id = FindILWD(tables, row.process_id)
 
@@ -734,7 +734,7 @@ class ProcessParamsTable(LSCTableMulti):
 		"""
 		Convert ilwd:char strings into object references.
 		"""
-		tables = metaio.getTablesByName(elem, ProcessTable.tableName)
+		tables = table.getTablesByName(elem, ProcessTable.tableName)
 		for row in self.rows:
 			row.process_id = FindILWD(tables, row.process_id)
 
@@ -814,7 +814,7 @@ class SearchSummaryTable(LSCTableMulti):
 		"""
 		Convert ilwd:char strings into object references.
 		"""
-		tables = metaio.getTablesByName(elem, ProcessTable.tableName)
+		tables = table.getTablesByName(elem, ProcessTable.tableName)
 		for row in self.rows:
 			row.process_id = FindILWD(tables, row.process_id)
 
@@ -928,7 +928,7 @@ class SearchSummVarsTable(LSCTableMulti):
 		"""
 		Convert ilwd:char strings into object references.
 		"""
-		tables = metaio.getTablesByName(elem, ProcessTable.tableName)
+		tables = table.getTablesByName(elem, ProcessTable.tableName)
 		for row in self.rows:
 			row.process_id = FindILWD(tables, row.process_id)
 
@@ -1017,7 +1017,7 @@ class SnglBurstTable(LSCTableUnique):
 		"""
 		Convert ilwd:char strings into object references.
 		"""
-		tables = metaio.getTablesByName(elem, ProcessTable.tableName)
+		tables = table.getTablesByName(elem, ProcessTable.tableName)
 		for row in self.rows:
 			row.process_id = FindILWD(tables, row.process_id)
 
@@ -1140,7 +1140,7 @@ class SnglInspiralTable(LSCTableUnique):
 		"""
 		Convert ilwd:char strings into object references.
 		"""
-		tables = metaio.getTablesByName(elem, ProcessTable.tableName)
+		tables = table.getTablesByName(elem, ProcessTable.tableName)
 		for row in self.rows:
 			row.process_id = FindILWD(tables, row.process_id)
 
@@ -1211,7 +1211,7 @@ class SnglRingDownTable(LSCTableUnique):
 		"""
 		Convert ilwd:char strings into object references.
 		"""
-		tables = metaio.getTablesByName(elem, ProcessTable.tableName)
+		tables = table.getTablesByName(elem, ProcessTable.tableName)
 		for row in self.rows:
 			row.process_id = FindILWD(tables, row.process_id)
 
@@ -1294,7 +1294,7 @@ class MultiInspiralTable(LSCTableMulti):
 		"""
 		Convert ilwd:char strings into object references.
 		"""
-		tables = metaio.getTablesByName(elem, ProcessTable.tableName)
+		tables = table.getTablesByName(elem, ProcessTable.tableName)
 		for row in self.rows:
 			row.process_id = FindILWD(tables, row.process_id)
 
@@ -1389,7 +1389,7 @@ class SimInspiralTable(LSCTableUnique):
 		"""
 		Convert ilwd:char strings into object references.
 		"""
-		tables = metaio.getTablesByName(elem, ProcessTable.tableName)
+		tables = table.getTablesByName(elem, ProcessTable.tableName)
 		for row in self.rows:
 			row.process_id = FindILWD(tables, row.process_id)
 
@@ -1458,7 +1458,7 @@ class SimBurstTable(LSCTableUnique):
 		"""
 		Convert ilwd:char strings into object references.
 		"""
-		tables = metaio.getTablesByName(elem, ProcessTable.tableName)
+		tables = table.getTablesByName(elem, ProcessTable.tableName)
 		for row in self.rows:
 			row.process_id = FindILWD(tables, row.process_id)
 
@@ -1554,7 +1554,7 @@ class SimRingDownTable(LSCTableUnique):
 		"""
 		Convert ilwd:char strings into object references.
 		"""
-		tables = metaio.getTablesByName(elem, ProcessTable.tableName)
+		tables = table.getTablesByName(elem, ProcessTable.tableName)
 		for row in self.rows:
 			row.process_id = FindILWD(tables, row.process_id)
 
@@ -1611,7 +1611,7 @@ class SummValueTable(LSCTableMulti):
 		"""
 		Convert ilwd:char strings into object references.
 		"""
-		tables = metaio.getTablesByName(elem, ProcessTable.tableName)
+		tables = table.getTablesByName(elem, ProcessTable.tableName)
 		for row in self.rows:
 			row.process_id = FindILWD(tables, row.process_id)
 
@@ -1703,7 +1703,7 @@ class StochasticTable(LSCTableMulti):
 		"""
 		Convert ilwd:char strings into object references.
 		"""
-		tables = metaio.getTablesByName(elem, ProcessTable.tableName)
+		tables = table.getTablesByName(elem, ProcessTable.tableName)
 		for row in self.rows:
 			row.process_id = FindILWD(tables, row.process_id)
 
@@ -1759,7 +1759,7 @@ class StochSummTable(LSCTableMulti):
 		"""
 		Convert ilwd:char strings into object references.
 		"""
-		tables = metaio.getTablesByName(elem, ProcessTable.tableName)
+		tables = table.getTablesByName(elem, ProcessTable.tableName)
 		for row in self.rows:
 			row.process_id = FindILWD(tables, row.process_id)
 
@@ -1882,7 +1882,7 @@ class FilterTable(LSCTableMulti):
 		"""
 		Convert ilwd:char strings into object references.
 		"""
-		tables = metaio.getTablesByName(elem, ProcessTable.tableName)
+		tables = table.getTablesByName(elem, ProcessTable.tableName)
 		for row in self.rows:
 			row.process_id = FindILWD(tables, row.process_id)
 
@@ -1935,7 +1935,7 @@ class SegmentTable(LSCTableUnique):
 		"""
 		Convert ilwd:char strings into object references.
 		"""
-		tables = metaio.getTablesByName(elem, ProcessTable.tableName)
+		tables = table.getTablesByName(elem, ProcessTable.tableName)
 		for row in self.rows:
 			row.process_id = FindILWD(tables, row.process_id)
 
@@ -2028,9 +2028,9 @@ class SegmentDefMapTable(LSCTableUnique):
 		"""
 		Convert ilwd:char strings into object references.
 		"""
-		proctabs = metaio.getTablesByName(elem, ProcessTable.tableName)
-		segtabs = metaio.getTablesByName(elem, SegmentTable.tableName)
-		deftabs = metaio.getTablesByName(elem, SegmentDefTable.tableName)
+		proctabs = table.getTablesByName(elem, ProcessTable.tableName)
+		segtabs = table.getTablesByName(elem, SegmentTable.tableName)
+		deftabs = table.getTablesByName(elem, SegmentDefTable.tableName)
 		for row in self.rows:
 			row.process_id = FindILWD(proctabs, row.process_id)
 			row.segment_id = FindILWD(segtabs, row.segment_id)
@@ -2092,7 +2092,7 @@ class SegmentDefTable(LSCTableUnique):
 		"""
 		Convert ilwd:char strings into object references.
 		"""
-		tables = metaio.getTablesByName(elem, ProcessTable.tableName)
+		tables = table.getTablesByName(elem, ProcessTable.tableName)
 		for row in self.rows:
 			row.process_id = FindILWD(tables, row.process_id)
 
@@ -2139,7 +2139,7 @@ class TimeSlideTable(LSCTableMulti):
 		"""
 		Convert ilwd:char strings into object references.
 		"""
-		tables = metaio.getTablesByName(elem, ProcessTable.tableName)
+		tables = table.getTablesByName(elem, ProcessTable.tableName)
 		for row in self.rows:
 			row.process_id = FindILWD(tables, row.process_id)
 
@@ -2246,9 +2246,9 @@ class CoincTable(LSCTableUnique):
 		"""
 		Convert ilwd:char strings into object references.
 		"""
-		proctab = metaio.getTablesByName(elem, ProcessTable.tableName)
-		slidetab = metaio.getTablesByName(elem, TimeSlideTable.tableName)
-		deftab = metaio.getTablesByName(elem, CoincDefTable.tableName)
+		proctab = table.getTablesByName(elem, ProcessTable.tableName)
+		slidetab = table.getTablesByName(elem, TimeSlideTable.tableName)
+		deftab = table.getTablesByName(elem, CoincDefTable.tableName)
 		for row in self.rows:
 			row.process_id = FindILWD(proctab, row.process_id)
 			row.time_slide_id = FindILWD(slidetab, row.time_slide_id)
@@ -2298,14 +2298,14 @@ class CoincIDs(ILWD):
 # infrastructure until the LAL code generates event_ids of type ilwd:char.
 # Re-list SnglInspiralTable in here when LAL is fixed.
 CoincEventMapSourceNames = [
-	metaio.StripTableName(SnglBurstTable.tableName),
-#	metaio.StripTableName(SnglInspiralTable.tableName),
-	metaio.StripTableName(SnglRingDownTable.tableName),
-	metaio.StripTableName(MultiInspiralTable.tableName),
-	metaio.StripTableName(SimInspiralTable.tableName),
-	metaio.StripTableName(SimBurstTable.tableName),
-	metaio.StripTableName(SimRingDownTable.tableName),
-	metaio.StripTableName(CoincTable.tableName)
+	table.StripTableName(SnglBurstTable.tableName),
+#	table.StripTableName(SnglInspiralTable.tableName),
+	table.StripTableName(SnglRingDownTable.tableName),
+	table.StripTableName(MultiInspiralTable.tableName),
+	table.StripTableName(SimInspiralTable.tableName),
+	table.StripTableName(SimBurstTable.tableName),
+	table.StripTableName(SimRingDownTable.tableName),
+	table.StripTableName(CoincTable.tableName)
 ]
 
 class CoincMapTable(LSCTableUnique):
@@ -2319,10 +2319,10 @@ class CoincMapTable(LSCTableUnique):
 		"""
 		Convert ilwd:char strings into object references.
 		"""
-		coinctab = metaio.getTablesByName(elem, CoincTable.tableName)
+		coinctab = table.getTablesByName(elem, CoincTable.tableName)
 		eventtab = []
 		for tablename in CoincEventMapSourceNames:
-			eventtab.extend(metaio.getTablesByName(elem, tablename))
+			eventtab.extend(table.getTablesByName(elem, tablename))
 		for row in self.rows:
 			row.coinc_event_id = FindILWD(coinctab, row.coinc_event_id)
 			row.event_id = FindILWD(eventtab, row.event_id)
@@ -2367,7 +2367,7 @@ class LIGOLWMonTable(LSCTableUnique):
 		"""
 		Convert ilwd:char strings into object references.
 		"""
-		tables = metaio.getTablesByName(elem, ProcessTable.tableName)
+		tables = table.getTablesByName(elem, ProcessTable.tableName)
 		for row in self.rows:
 			row.process_id = FindILWD(tables, row.process_id)
 
@@ -2413,32 +2413,32 @@ class LIGOLWMonIDs(ILWD):
 
 # Table name ---> table type mapping.
 TableByName = {
-	metaio.StripTableName(ProcessTable.tableName): ProcessTable,
-	metaio.StripTableName(LfnTable.tableName): LfnTable,
-	metaio.StripTableName(ProcessParamsTable.tableName): ProcessParamsTable,
-	metaio.StripTableName(SearchSummaryTable.tableName): SearchSummaryTable,
-	metaio.StripTableName(SearchSummVarsTable.tableName): SearchSummVarsTable,
-	metaio.StripTableName(SnglBurstTable.tableName): SnglBurstTable,
-	metaio.StripTableName(SnglInspiralTable.tableName): SnglInspiralTable,
-	metaio.StripTableName(SnglRingDownTable.tableName): SnglRingDownTable,
-	metaio.StripTableName(MultiInspiralTable.tableName): MultiInspiralTable,
-	metaio.StripTableName(SimInspiralTable.tableName): SimInspiralTable,
-	metaio.StripTableName(SimBurstTable.tableName): SimBurstTable,
-	metaio.StripTableName(SimRingDownTable.tableName): SimRingDownTable,
-	metaio.StripTableName(SummValueTable.tableName): SummValueTable,
-	metaio.StripTableName(SimInstParamsTable.tableName): SimInstParamsTable,
-	metaio.StripTableName(StochasticTable.tableName): StochasticTable,
-	metaio.StripTableName(StochSummTable.tableName): StochSummTable,
-	metaio.StripTableName(ExtTriggersTable.tableName): ExtTriggersTable,
-	metaio.StripTableName(FilterTable.tableName): FilterTable,
-	metaio.StripTableName(SegmentTable.tableName): SegmentTable,
-	metaio.StripTableName(SegmentDefMapTable.tableName): SegmentDefMapTable,
-	metaio.StripTableName(SegmentDefTable.tableName): SegmentDefTable,
-	metaio.StripTableName(TimeSlideTable.tableName): TimeSlideTable,
-	metaio.StripTableName(CoincDefTable.tableName): CoincDefTable,
-	metaio.StripTableName(CoincTable.tableName): CoincTable,
-	metaio.StripTableName(CoincMapTable.tableName): CoincMapTable,
-	metaio.StripTableName(LIGOLWMonTable.tableName): LIGOLWMonTable
+	table.StripTableName(ProcessTable.tableName): ProcessTable,
+	table.StripTableName(LfnTable.tableName): LfnTable,
+	table.StripTableName(ProcessParamsTable.tableName): ProcessParamsTable,
+	table.StripTableName(SearchSummaryTable.tableName): SearchSummaryTable,
+	table.StripTableName(SearchSummVarsTable.tableName): SearchSummVarsTable,
+	table.StripTableName(SnglBurstTable.tableName): SnglBurstTable,
+	table.StripTableName(SnglInspiralTable.tableName): SnglInspiralTable,
+	table.StripTableName(SnglRingDownTable.tableName): SnglRingDownTable,
+	table.StripTableName(MultiInspiralTable.tableName): MultiInspiralTable,
+	table.StripTableName(SimInspiralTable.tableName): SimInspiralTable,
+	table.StripTableName(SimBurstTable.tableName): SimBurstTable,
+	table.StripTableName(SimRingDownTable.tableName): SimRingDownTable,
+	table.StripTableName(SummValueTable.tableName): SummValueTable,
+	table.StripTableName(SimInstParamsTable.tableName): SimInstParamsTable,
+	table.StripTableName(StochasticTable.tableName): StochasticTable,
+	table.StripTableName(StochSummTable.tableName): StochSummTable,
+	table.StripTableName(ExtTriggersTable.tableName): ExtTriggersTable,
+	table.StripTableName(FilterTable.tableName): FilterTable,
+	table.StripTableName(SegmentTable.tableName): SegmentTable,
+	table.StripTableName(SegmentDefMapTable.tableName): SegmentDefMapTable,
+	table.StripTableName(SegmentDefTable.tableName): SegmentDefTable,
+	table.StripTableName(TimeSlideTable.tableName): TimeSlideTable,
+	table.StripTableName(CoincDefTable.tableName): CoincDefTable,
+	table.StripTableName(CoincTable.tableName): CoincTable,
+	table.StripTableName(CoincMapTable.tableName): CoincMapTable,
+	table.StripTableName(LIGOLWMonTable.tableName): LIGOLWMonTable
 }
 
 
@@ -2448,21 +2448,21 @@ TableByName = {
 # until LAL code generates event_id columns with the correct type.  Re-enable
 # when LAL is fixed.
 ILWDGeneratorByTableName = {
-	metaio.StripTableName(ProcessTable.tableName): ProcessIDs,
-	metaio.StripTableName(LfnTable.tableName): LfnIDs,
-	metaio.StripTableName(SnglBurstTable.tableName): SnglBurstIDs,
-#	metaio.StripTableName(SnglInspiralTable.tableName): SnglInspiralIDs,
-	metaio.StripTableName(SimRingDownTable.tableName): SnglRingDownIDs,
-	metaio.StripTableName(SimInspiralTable.tableName): SimInspiralIDs,
-	metaio.StripTableName(SimBurstTable.tableName): SimBurstIDs,
-	metaio.StripTableName(SimRingDownTable.tableName): SimRingDownIDs,
-	metaio.StripTableName(SimInstParamsTable.tableName): SimInstParamsIDs,
-	metaio.StripTableName(SegmentTable.tableName): SegmentIDs,
-	metaio.StripTableName(SegmentDefMapTable.tableName): SegmentDefMapIDs,
-	metaio.StripTableName(TimeSlideTable.tableName): TimeSlideIDs,
-	metaio.StripTableName(CoincDefTable.tableName): CoincDefIDs,
-	metaio.StripTableName(CoincTable.tableName): CoincIDs,
-	metaio.StripTableName(LIGOLWMonTable.tableName): LIGOLWMonIDs
+	table.StripTableName(ProcessTable.tableName): ProcessIDs,
+	table.StripTableName(LfnTable.tableName): LfnIDs,
+	table.StripTableName(SnglBurstTable.tableName): SnglBurstIDs,
+#	table.StripTableName(SnglInspiralTable.tableName): SnglInspiralIDs,
+	table.StripTableName(SimRingDownTable.tableName): SnglRingDownIDs,
+	table.StripTableName(SimInspiralTable.tableName): SimInspiralIDs,
+	table.StripTableName(SimBurstTable.tableName): SimBurstIDs,
+	table.StripTableName(SimRingDownTable.tableName): SimRingDownIDs,
+	table.StripTableName(SimInstParamsTable.tableName): SimInstParamsIDs,
+	table.StripTableName(SegmentTable.tableName): SegmentIDs,
+	table.StripTableName(SegmentDefMapTable.tableName): SegmentDefMapIDs,
+	table.StripTableName(TimeSlideTable.tableName): TimeSlideIDs,
+	table.StripTableName(CoincDefTable.tableName): CoincDefIDs,
+	table.StripTableName(CoincTable.tableName): CoincIDs,
+	table.StripTableName(LIGOLWMonTable.tableName): LIGOLWMonIDs
 }
 
 
@@ -2474,7 +2474,7 @@ __parent_startTable = ligolw.LIGOLWContentHandler.startTable
 
 def startTable(self, attrs):
 	try:
-		return TableByName[metaio.StripTableName(attrs["Name"])](attrs)
+		return TableByName[table.StripTableName(attrs["Name"])](attrs)
 	except KeyError:
 		return __parent_startTable(self, attrs)
 
