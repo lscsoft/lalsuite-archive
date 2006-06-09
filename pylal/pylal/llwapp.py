@@ -40,7 +40,7 @@ import urllib
 
 from glue import segments
 from glue.ligolw import ligolw
-from glue.ligolw import metaio
+from glue.ligolw import table
 from glue.ligolw import param
 from glue.ligolw import array
 from glue.ligolw import lsctables
@@ -130,9 +130,9 @@ def get_table(doc, name):
 	Scan doc for a table named name.  Raises ValueError if not exactly
 	1 such table is found.
 	"""
-	tables = metaio.getTablesByName(doc, name)
+	tables = table.getTablesByName(doc, name)
 	if len(tables) != 1:
-		raise ValueError, "document must contain exactly one %s table" % metaio.StripTableName(name)
+		raise ValueError, "document must contain exactly one %s table" % table.StripTableName(name)
 	return tables[0]
 
 

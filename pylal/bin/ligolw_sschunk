@@ -40,7 +40,7 @@ import sys
 from glue.lal import CacheEntry
 from glue import segments
 from glue.ligolw import ligolw
-from glue.ligolw import metaio
+from glue.ligolw import table
 from glue.ligolw import lsctables
 from pylal import llwapp
 
@@ -114,10 +114,10 @@ class Chunk(object):
 
 	def addtable(self, template):
 		try:
-			table = llwapp.get_table(self.doc, template.tableName)
+			table_elem = llwapp.get_table(self.doc, template.tableName)
 		except:
-			table = self.doc.childNodes[0].appendChild(metaio.new_from_template(template))
-		return table
+			table_elem = self.doc.childNodes[0].appendChild(table.new_from_template(template))
+		return table_elem
 
 
 def chunk_document(doc, verbose = False):

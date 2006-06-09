@@ -6,7 +6,7 @@ from optparse import *
 from pylab import *
 from pylal import viz
 from glue.ligolw import ligolw
-from glue.ligolw import metaio
+from glue.ligolw import table
 from glue.ligolw import lsctables
 
 #######################################################################

@@ -15,7 +15,7 @@ from random import *
 from glue import segments
 from glue import segmentsUtils
 from glue.ligolw import ligolw
-from glue.ligolw import metaio
+from glue.ligolw import table
 from glue.ligolw import lsctables
 from pylal import viz
 
@@ -199,19 +199,19 @@ def massCut (sim_table, m_low, m_high):
 ##############################################################################
 # Read in a column (and if necessary calculate chirp dist)
 ##############################################################################
-def readColumn(table, column):
+def readColumn(table_elem, column):
   """
   function to read a given column from an xml table.
   If the column is chirp_dist_X, a function is called to calculate the chirp
   distance from mchirp and effective distance for ifo X.
-  @param table:       a list of sim inspirals
+  @param table_elem:       a list of sim inspirals
   @param column:      name of the column to extract
   """
 
   if 'chirp_dist' in column:
-    return chirpDistance(table, column)
+    return chirpDistance(table_elem, column)
 
-  return table.getColumnByName(column).asarray()
+  return table_elem.getColumnByName(column).asarray()
 
 ##############################################################################
 # Calculate the chirp distance for inspirals.

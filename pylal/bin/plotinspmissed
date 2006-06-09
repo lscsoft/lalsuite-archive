@@ -10,7 +10,7 @@ from matplotlib.ticker import FormatStrFormatter
 from glue import segments
 from glue import segmentsUtils
 from glue.ligolw import ligolw
-from glue.ligolw import metaio
+from glue.ligolw import table
 from glue.ligolw import lsctables
 
 #######################################################################

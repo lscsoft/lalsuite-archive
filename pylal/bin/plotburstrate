@@ -34,7 +34,7 @@ import urllib
 from glue.lal import CacheEntry
 from glue import segments
 from glue.ligolw import ligolw
-from glue.ligolw import metaio
+from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw.utils import ligolw_add
 from pylal import rate
@@ -110,7 +110,7 @@ cache.sort()
 rate = rate.Rate(options.read_segment, options.window)
 num_triggers = 0
 
-def snglburst_append(table, trigger):
+def snglburst_append(table_elem, trigger):
 	global num_triggers, rate
 	num_triggers += 1
 	if options.read_segment[0] <= trigger.get_peak() < options.read_segment[1]:
@@ -130,7 +130,7 @@ lsctables.SnglBurstTable.append = snglburst_append
 #
 
 def element_filter(name, attrs):
-	return (name == ligolw.Table.tagName) and (metaio.StripTableName(attrs["Name"]) in map(metaio.StripTableName, [lsctables.SnglBurstTable.tableName, lsctables.SearchSummaryTable.tableName]))
+	return (name == ligolw.Table.tagName) and (table.StripTableName(attrs["Name"]) in map(table.StripTableName, [lsctables.SnglBurstTable.tableName, lsctables.SearchSummaryTable.tableName]))
 
 class ContentHandler(ligolw.PartialLIGOLWContentHandler):
 	"""
