@@ -156,7 +156,7 @@ def histng(M,medges,mstep,lum_weight=None):
   i = 0
   ng_m = zeros(len(medges),'d')
  
-  while i < len(M):  
+  while i <= len(M):  
       l = int((M[i]-medges[0])/mstep)
  
       if not lum_weight:
@@ -534,20 +534,22 @@ if (astro_plot or eff_plot):
   
   if(opts.delta_error):
     gal_name = simInspTriggers.getColumnByName('source')
+    print gal_name.count('MW')
+
     lum = []
     for i in range(len(sourcelist)):
+      print simInspTriggers.getColumnByName('source').count(NAME)
       for j in range(len(gal_name)):
         if (gal_name[j]==sourcelist[i]['name']):
-          c = (1+sourcelist[i]['delta_d'])**2     
+          c[j] = (1+sourcelist[i]['delta_d'])**2          
+        if (gal_name[j]=='MW'):
+          c[j] = 1
           lum.append(c)
           if ('dist' in opts.x_value):  
             xAstro[j]=xAstro[j]*(1 + sourcelist[i]['delta_d'])
 	  if ('dist' in opts.y_value):  
 	    yAstro[j]=yAstro[j]*(1 + sourcelist[i]['delta_d'])
              
-
-    print len(xAstro)
-    
 ##############################################################################
 # read in the found/missed injections
 ##############################################################################
