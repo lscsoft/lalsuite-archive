@@ -157,7 +157,7 @@ def histng(M,medges,mstep,lum_weight=None):
   ng_m = zeros(len(medges),'d')
  
   while i < len(M):  
-      l = int(M[i]/mstep)
+      l = int((M[i]-medges[0])/mstep)
  
       if not lum_weight:
         lum_array = 1
@@ -172,7 +172,7 @@ def histng(M,medges,mstep,lum_weight=None):
  
   return ng_m
 
-  
+    
    
 
 ##############################################################################
@@ -538,7 +538,7 @@ if (astro_plot or eff_plot):
     for i in range(len(sourcelist)):
       for j in range(len(gal_name)):
         if (gal_name[j]==sourcelist[i]['name']):
-          c = (1+sourcelist[i]['delta_d'])**2
+          c = (1+sourcelist[i]['delta_d'])**2     
           lum.append(c)
           if ('dist' in opts.x_value):  
             xAstro[j]=xAstro[j]*(1 + sourcelist[i]['delta_d'])
@@ -546,6 +546,7 @@ if (astro_plot or eff_plot):
 	    yAstro[j]=yAstro[j]*(1 + sourcelist[i]['delta_d'])
              
 
+    print len(xAstro)
     
 ##############################################################################
 # read in the found/missed injections
@@ -624,14 +625,6 @@ yEdges = arange(opts.y_min,opts.y_max,yStep)
 # calculate ng 
 ##############################################################################
 if astro_plot:
-  # calculate the number of galaxies in each bin
-  #xng,a,b = hist(xAstro, x1Edges)
-  #xng = xng * max_luminosity/numSources
-  # delete the last entries to clean up plots:
-  #xng = xng[0:-1]
-  #xng_cum = cumsum( xng )
-
- 
   
   
   if opts.delta_error:
@@ -643,10 +636,6 @@ if astro_plot:
   x_ng=x_ng[0:-1]
   x_ng = x_ng*max_luminosity/numSources
   xng_cum = cumsum(x_ng)
-   
-
-  #figure()
-  #bar(len(x1Edges)-1,x_ng, width=0.9, bottom=0,color='b', yerr=None, xerr=None, ecolor='k', capsize=3)
   
  
   if opts.delta_error:
@@ -701,13 +690,9 @@ if eff_plot:
   clf()
   
   # calculations for 2D plots: 
-  if (opts.delta_error):
-    found = square(xFound,xEdges,xStep,yFound,yEdges,yStep,lum)
-    missed = square(xMissed,xEdges,xStep,yMissed,yEdges,yStep,lum)
 
-  else:
-    found = square(xFound,xEdges,xStep,yFound,yEdges,yStep)
-    missed = square(xMissed,xEdges,xStep,yMissed,yEdges,yStep)
+  found = square(xFound,xEdges,xStep,yFound,yEdges,yStep)
+  missed = square(xMissed,xEdges,xStep,yMissed,yEdges,yStep)
   
   eff2d = found/(found + missed + 1e-5) 
   error2d = {}
