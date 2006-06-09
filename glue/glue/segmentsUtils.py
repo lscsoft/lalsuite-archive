@@ -193,7 +193,7 @@ def S2playground(extent):
 	return segments.segmentlist([segments.segment(t, t + 600) for t in range(extent[0] - ((extent[0] - 729273613) % 6370), extent[1], 6370)]) & segments.segmentlist([extent])
 
 
-def segment_range(start, stop, period):
+def segmentlist_range(start, stop, period):
 	"""
 	Analogous to Python's range() builtin, returns a segmentlist of
 	continuous adjacent segments each of length "period" with the first
@@ -219,10 +219,10 @@ def segment_range(start, stop, period):
 def Fold(seglist1, seglist2):
 	"""
 	An iterator that generates the results of taking the intersection
-	of seglist1 with each segment in seglist2.  In each result, the
-	segment start and stop values are adjusted to be with respect to
-	the start of the corresponding segment in seglist2.  See also the
-	range() function.
+	of seglist1 with each segment in seglist2 in turn.  In each result,
+	the segment start and stop values are adjusted to be with respect
+	to the start of the corresponding segment in seglist2.  See also
+	the segmentlist_range() function.
 	"""
 	for seg in seglist2:
 		yield (seglist1 & segments.segmentlist([seg])).shift(-seg[0])
