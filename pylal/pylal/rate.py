@@ -430,14 +430,14 @@ class Rate(BinnedArray):
 	normalized so as to measure events (or event weight) per filter
 	width.
 	"""
-	bins_per_filterwidth = 20
 	def __init__(self, segment, filterwidth, windowfunc = gaussian_window):
 		"""
 		Initialize the bins for the given segment and filter width.
 		"""
+		self.bins_per_filterwidth = 20
 		self.filterwidth = filterwidth
+		self.windowfunc = windowfunc
 		BinnedArray.__init__(self, Bins(segment[0], segment[1], int(segment.duration() / filterwidth * self.bins_per_filterwidth + 1)))
-		self.set_window(windowfunc)
 
 	def __setitem__(self, x, weight):
 		"""
@@ -445,18 +445,18 @@ class Rate(BinnedArray):
 		"""
 		self.array[self.bins[x,]] += weight
 
-	def set_window(self, windowfunc):
+	def window(self):
 		"""
-		Set the window function.
+		Generate the window function.
 		"""
-		self.window = windowfunc(self.bins_per_filterwidth) / self.filterwidth * self.bins_per_filterwidth
+		return self.windowfunc(self.bins_per_filterwidth) / self.filterwidth * self.bins_per_filterwidth
 
 	def filter(self):
 		"""
 		Convolve the binned weights with the window to smooth the
 		data set.
 		"""
-		filter(self, self.window)
+		filter(self, self.window())
 		return self
 
 	def xvals(self):
@@ -471,27 +471,27 @@ class RatiosRate(BinnedRatios):
 	An object for binning and smoothing impulsive rate information in 1
 	dimension, normalized so as to measure rate per filter width.
 	"""
-	bins_per_filterwidth = 20
 	def __init__(self, segment, filterwidth, windowfunc = gaussian_window):
 		"""
 		Initialize the bins for the given segment and filter width.
 		"""
+		self.bins_per_filterwidth = 20
 		self.filterwidth = filterwidth
+		self.windowfunc = windowfunc
 		BinnedRatios.__init__(self, Bins(segment[0], segment[1], int(segment.duration() / filterwidth * self.bins_per_filterwidth + 1)))
-		self.set_window(windowfunc)
 
-	def set_window(self, windowfunc):
+	def window(self):
 		"""
-		Set the window function.
+		Generate the window function.
 		"""
-		self.window = windowfunc(self.bins_per_filterwidth) / self.filterwidth * self.bins_per_filterwidth
+		return self.windowfunc(self.bins_per_filterwidth) / self.filterwidth * self.bins_per_filterwidth
 
 	def filter(self):
 		"""
 		Convolve the binned weights with the window to smooth the
 		data set.
 		"""
-		filter_ratios(self, self.window)
+		filter_ratios(self, self.window())
 		return self
 
 	def xvals(self):
