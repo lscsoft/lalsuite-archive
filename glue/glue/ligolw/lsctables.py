@@ -1463,14 +1463,14 @@ class SimInspiralTable(LSCTableUnique):
 
 	def get_column(self,column):
 		if 'chirp_dist' in column:
-			site = column(-1)
+			site = column[-1]
 			return self.get_chirp_dist(site)
 		else:
 			return self.getColumnByName(column).asarray()
 
-	def get_chirp_dist(self,ref_mass = 1.40):
+	def get_chirp_dist(self,site,ref_mass = 1.40):
 		mchirp = self.get_column('mchirp')
-		eff_dist = self.get_column('eff_dist' + site)
+		eff_dist = self.get_column('eff_dist_' + site)
 		return eff_dist * (2.**(-1./5) * ref_mass / mchirp)**(5./6)
 
 	def get_end(self,site = None):
