@@ -1151,6 +1151,63 @@ class SnglInspiralTable(LSCTableUnique):
 		for row in self.rows:
 			row.process_id = row.process_id._get_key()
 
+	def get_column(self,column):
+		if column == 'effective_snr':
+			return self.get_effective_snr()
+		if column == 'snr_over_chi':
+			return self.get_snr_over_chi()
+		elif column == 'chirp_distance':
+		  return self.get_chirp_dist()
+		else:
+			return self.getColumnByName(column).asarray()
+
+	def get_effective_snr(self):    
+		snr = self.get_column('snr')
+		chisq = self.get_column('chisq')
+		chisq_dof = self.get_column('chisq_dof')
+		return snr/ (1 + snr**2/250)**(0.25) / (chisq/(2*chisq_dof - 2) )**(0.25)
+    
+	def get_chirp_distance(self,ref_mass = 1.40):
+		mchirp = self.get_column('mchirp')
+		eff_dist = self.get_column('eff_distance')
+		return eff_dist * (2.**(-1./5) * ref_mass / mchirp)**(5./6)
+
+	def get_snr_over_chi(self):
+		return self.get_column('snr')/self.get_column('chisq')**(1./2)
+		
+	def ifocut(self,ifo):
+		ifoTrigs = metaio.new_from_template(self)
+		for row in self.rows:
+			if row.ifo == ifo:
+				ifoTrigs.append(row)
+		return ifoTrigs
+
+	def veto(self,seglist):
+		vetoed = metaio.new_from_template(self)
+		keep = metaio.new_from_template(self)
+		for row in self.rows:
+			time = row.get_end()
+			if time in seglist:
+				vetoed.append(event)
+			else:
+				keep.append(event)
+
+		return keep
+	
+	def getslide(self,slide_num):
+		"""
+		Return the triggers with a specific slide number.
+		@param slide_num: the slide number to recover (contained in the event_id)
+		"""
+		slideTrigs = metaio.new_from_template(self)
+		for row in self.rows:
+			if ( (row.event_id % 1000000000) / 100000 ) == slide_num:
+				slideTrigs.append(row)
+     
+		return slideTrigs
+	
+		
+
 class SnglInspiral(LSCTableRow):
 	__slots__ = SnglInspiralTable.validcolumns.keys()
 
@@ -1168,6 +1225,10 @@ class SnglInspiral(LSCTableRow):
 
 	def set_end(self, gps):
 		self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
+
+	def get_effective_snr(self):
+		return self.snr/ (1 + self.snr**2/250)**(0.25)/(self.chisq/(2*self.chisq_dof - 2) )**(0.25) 
+
 
 SnglInspiralTable.RowType = SnglInspiral
 
@@ -1399,6 +1460,36 @@ class SimInspiralTable(LSCTableUnique):
 		"""
 		for row in self.rows:
 			row.process_id = row.process_id._get_key()
+
+	def get_column(self,column):
+		if 'chirp_dist' in column:
+			site = column(-1)
+			return self.get_chirp_dist(site)
+		else:
+			return self.getColumnByName(column).asarray()
+
+	def get_chirp_dist(self,ref_mass = 1.40):
+		mchirp = self.get_column('mchirp')
+		eff_dist = self.get_column('eff_dist' + site)
+		return eff_dist * (2.**(-1./5) * ref_mass / mchirp)**(5./6)
+
+	def get_end(self,site = None):
+		if not site:
+			return lal.LIGOTimeGPS(self.geocent_end_time, self.geocent_end_time_ns)
+		else:
+			return lal.LIGOTimeGPS(getattr(self,site + 'end_time'), getattr(self,site + 'end_time_ns'))
+
+	def veto(self,seglist,site):
+		vetoed = metaio.new_from_template(self)
+		keep = metaio.new_from_template(self)
+		for row in self.rows:
+			time = row.get_end(site)
+			if time in seglist:
+				vetoed.append(event)
+			else:
+				keep.append(event)
+
+		return keep
 
 class SimInspiral(LSCTableRow):
 	__slots__ = SimInspiralTable.validcolumns.keys()
