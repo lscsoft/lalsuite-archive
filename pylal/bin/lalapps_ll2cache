@@ -42,6 +42,7 @@ import sys
 
 from glue.lal import CacheEntry
 from glue import segments
+from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from pylal import llwapp
 
