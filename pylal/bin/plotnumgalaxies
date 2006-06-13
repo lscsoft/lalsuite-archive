@@ -544,12 +544,14 @@ if (astro_plot or eff_plot):
     for i in range(len(sourcelist)):
        for j in range(len(gal_name)):
          if(gal_name[j]==sourcelist[i]['name']):
-           lum[j] = (1+sourcelist[i]['delta_d'])**2          
+            lum[j] = (1+sourcelist[i]['delta_d'])**2          
          if (gal_name[j]=='MW'):
-           lum[j] = 1.0
-           if ('dist' in opts.x_value):  
+            lum[j] = 1.0
+
+
+         if ('dist' in opts.x_value):  
              xAstro[j]=xAstro[j]*(1 + sourcelist[i]['delta_d'])
-	   if ('dist' in opts.y_value):  
+	 if ('dist' in opts.y_value):  
 	     yAstro[j]=yAstro[j]*(1 + sourcelist[i]['delta_d'])
           
     
