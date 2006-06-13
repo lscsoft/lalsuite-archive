@@ -65,7 +65,7 @@ def parse_command_line():
 	if not options.time_slides:
 		print >>sys.stderr, "warning: no time slide input file provided, assuming 0 offsets"
 
-	return options, cachenames
+	return options, (cachenames or [None])
 
 options, cachenames = parse_command_line()
 
@@ -80,13 +80,11 @@ options, cachenames = parse_command_line()
 
 def load_cache(filename):
 	if options.verbose:
-		print >>sys.stderr, "loading %s" % filename
-	cache = map(lambda l: CacheEntry(l, coltype = LIGOTimeGPS), file(filename))
-	instrument = cache[0].observatory
-	for c in cache[1:]:
-		if c.observatory != instrument:
-			raise ValueError, "mismatched observatories in %s" % filename
-	return cache
+		print >>sys.stderr, "reading %s ..." % (filename or "stdin")
+	if filename:
+		return map(lambda l: CacheEntry(l, coltype = LIGOTimeGPS), file(filename))
+	else:
+		return map(lambda l: CacheEntry(l, coltype = LIGOTimeGPS), sys.stdin)
 
 
 def cache_to_seglistdict(cache):
