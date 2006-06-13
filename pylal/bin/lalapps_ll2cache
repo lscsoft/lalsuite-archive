@@ -59,7 +59,7 @@ def parse_command_line():
 	parser.add_option("--description", metavar = "DESCRIPTION", help = "set all descriptions to DESCRIPTION")
 	parser.add_option("--observatory", metavar = "OBSERVATORY", help = "set all observatories to OBSERVATORY")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
-	parser.add_option("-o", "--output", metavar = "filename", help = "set output file (default = stdout")
+	parser.add_option("-o", "--output", metavar = "filename", help = "set output file (default = stdout)")
 	parser.add_option("-p", "--program", metavar = "name", help = "obtain start and durations from search summary entries corresponding to the given program (default = whatever is there)")
 	options, patterns = parser.parse_args()
 
