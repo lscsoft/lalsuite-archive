@@ -258,6 +258,7 @@ class LIGO_LW(Element):
 	"""
 	tagName = u"LIGO_LW"
 	validchildren = [u"LIGO_LW", u"Comment", u"Param", u"Table", u"Array", u"Stream", u"IGWDFrame", u"AdcData", u"AdcInterval", u"Time", u"Detector"]
+	validattributes = [u"Name", u"Type"]
 
 
 class Comment(Element):
