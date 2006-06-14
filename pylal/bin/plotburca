@@ -351,8 +351,6 @@ class DeltaTHistogram(object):
 
 	def finish(self):
 		self.axes.set_title("%s Peak Time Offset From Coincidence Mean\n(%d Foreground, %d Background Triggers)" % (self.instrument, self.n_foreground, self.n_background))
-		self.background.filter()
-		self.foreground.filter()
 		self.axes.plot(self.background.xvals(), self.background.yvals(), "k")
 		self.axes.plot(self.foreground.xvals(), self.foreground.yvals(), "r")
 

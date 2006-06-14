@@ -37,7 +37,6 @@ def makeplot(desc, table):
 		except IndexError:
 			# trigger lies outside the bounds of the plot
 			pass
-	bins.filter()
 
 	axes.plot(bins.xvals(), bins.yvals(), "k")
 

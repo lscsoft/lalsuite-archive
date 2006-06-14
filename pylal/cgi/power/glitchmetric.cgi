@@ -76,14 +76,14 @@ def makeplot(desc, table):
 		except IndexError:
 			# trigger lies outside bounds of plot
 			pass
-	bins.filter()
-	bins2.filter()
+	yvals = bins.array = bins.yvals()
+	yvals2 = bins2.array = bins2.yvals()
 
 	# resample to match sample rate of short time scale.
-	bins2.array = nd_image.zoom(bins2.array, float(len(bins.yvals())) / float(len(bins2.yvals())))
+	bins2.array = nd_image.zoom(bins2.array, float(len(yvals)) / float(len(yvals2)))
 
 	# compute ratio, setting 0/0 equal to 0
-	yvals = numarray.where(bins2.yvals() > 0.0, bins.yvals(), 0.0) / numarray.where(bins2.yvals() > 0.0, bins2.yvals(), 1.0)
+	yvals = numarray.where(yvals2 > 0.0, yvals, 0.0) / numarray.where(yvals2 > 0.0, yvals2, 1.0)
 
 	# determine segments where ratio is above threshold
 	glitchsegs = glitchsegments(bins.xvals(), yvals, desc.glitchthreshold)

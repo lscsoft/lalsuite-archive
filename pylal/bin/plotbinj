@@ -433,8 +433,6 @@ class RecoveredTimeOffset(object):
 
 	def finish(self):
 		self.axes.set_title("Trigger Peak Time - Injection Peak Time\n(%d Found Injections)" % self.found)
-		self.offsets.filter()
-		self.best.filter()
 		self.axes.plot(self.offsets.xvals(), self.offsets.yvals(), "k")
 		self.axes.plot(self.best.xvals(), self.best.yvals(), "r")
 
