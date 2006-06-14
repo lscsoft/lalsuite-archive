@@ -79,7 +79,7 @@ class _LinBins(_Bins):
 	Linearly-spaced 1-D bins.  For internal use only.
 	"""
 	def _set_delta(self, min, max, n):
-		self.delta = float(max - min) / (n - 1)
+		self.delta = float(max - min) / n
 
 	def __getitem__(self, x):
 		if isinstance(x, segments.segment):
@@ -89,11 +89,11 @@ class _LinBins(_Bins):
 				raise NotImplementedError, "slices with steps not yet supported"
 			return slice(self[x.start], self[x.stop])
 		if self.min <= x <= self.max:
-			return int((x - self.min) / self.delta + 0.5)
+			return int((x - self.min) / self.delta)
 		raise IndexError, x
 
 	def centres(self):
-		return self.min + self.delta * numarray.arange(0, self.n, 1, "Float64")
+		return self.min + self.delta * numarray.arange(0.5, self.n + 0.5, 1, "Float64")
 
 
 class _LogBins(_Bins):
@@ -101,7 +101,7 @@ class _LogBins(_Bins):
 	Logarithmically-spaced 1-D bins.  For internal use only.
 	"""
 	def _set_delta(self, min, max, n):
-		self.delta = math.log(float(max / min) ** (1.0 / (n - 1)))
+		self.delta = math.log(float(max / min) ** (1.0 / n))
 
 	def __getitem__(self, x):
 		if isinstance(x, segments.segment):
@@ -111,11 +111,11 @@ class _LogBins(_Bins):
 				raise NotImplementedError, "slices with steps not yet supported"
 			return slice(self[x.start], self[x.stop])
 		if self.min <= x <= self.max:
-			return int(math.log(x / self.min) / self.delta + 0.5)
+			return int(math.log(x / self.min) / self.delta)
 		raise IndexError, x
 
 	def centres(self):
-		return self.min * numarray.exp(self.delta * numarray.arange(0, self.n, 1, "Float64"))
+		return self.min * numarray.exp(self.delta * numarray.arange(0.5, self.n + 0.5, 1, "Float64"))
 
 
 class Bins(object):
@@ -142,7 +142,7 @@ class Bins(object):
 	>>> b[1, 5]
 	(0, 1)
 	>>> b.centres()
-	(array([  1.,  13.,  25.]), array([  1.,   5.,  25.]))
+	(array([  5.,  13.,  21.]), array([  1.70997595,   5.,  14.62008869]))
 	"""
 	def __init__(self, *args, **kwargs):
 		if len(args) % 3:
@@ -451,19 +451,15 @@ class Rate(BinnedArray):
 		"""
 		return self.windowfunc(self.bins_per_filterwidth) / self.filterwidth * self.bins_per_filterwidth
 
-	def filter(self):
-		"""
-		Convolve the binned weights with the window to smooth the
-		data set.
-		"""
-		filter(self, self.window())
-		return self
-
 	def xvals(self):
 		return self.centres()[0]
 
 	def yvals(self):
-		return self.array
+		"""
+		Convolve the binned weights with the window to generate the
+		rate data.
+		"""
+		return filter_array(self.array, self.window())
 
 
 class RatiosRate(BinnedRatios):
@@ -486,16 +482,18 @@ class RatiosRate(BinnedRatios):
 		"""
 		return self.windowfunc(self.bins_per_filterwidth) / self.filterwidth * self.bins_per_filterwidth
 
-	def filter(self):
+	def ratio(self):
 		"""
-		Convolve the binned weights with the window to smooth the
-		data set.
+		Compute and return the array of ratios.
 		"""
-		filter_ratios(self, self.window())
-		return self
+		return self.numerator / self.denominator
 
 	def xvals(self):
 		return self.centres()[0]
 
 	def yvals(self):
-		return self.ratio()
+		"""
+		Convolve the ratio data with the window function to
+		generate the ratio rate data.
+		"""
+		return filter_array(self.ratio(), self.window())
