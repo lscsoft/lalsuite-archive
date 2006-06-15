@@ -421,10 +421,10 @@ class Rate(BinnedArray):
 		"""
 		Initialize the bins for the given segment and filter width.
 		"""
-		self.bins_per_filterwidth = 20
+		self.binsize = filterwidth / 20
 		self.filterwidth = filterwidth
 		self.windowfunc = windowfunc
-		BinnedArray.__init__(self, Bins(segment[0], segment[1], int(segment.duration() / filterwidth * self.bins_per_filterwidth + 1)))
+		BinnedArray.__init__(self, Bins(segment[0], segment[1], int(segment.duration() / self.binsize + 1)))
 
 	def __setitem__(self, x, weight):
 		"""
@@ -432,11 +432,19 @@ class Rate(BinnedArray):
 		"""
 		self.array[self.bins[x,]] += weight
 
+	def set_filterwidth(self, filterwidth):
+		"""
+		Adjust the window function's width.
+		"""
+		if filterwidth / self.binsize < 3:
+			raise ValueError, "filter too narrow (less than 3 bins)"
+		self.filterwidth = filterwidth
+
 	def window(self):
 		"""
 		Generate the window function.
 		"""
-		return self.windowfunc(self.bins_per_filterwidth) / self.filterwidth * self.bins_per_filterwidth
+		return self.windowfunc(self.filterwidth / self.binsize) / self.binsize
 
 	def xvals(self):
 		return self.centres()[0]
@@ -458,16 +466,24 @@ class RatiosRate(BinnedRatios):
 		"""
 		Initialize the bins for the given segment and filter width.
 		"""
-		self.bins_per_filterwidth = 20
+		self.binsize = filterwidth / 20
 		self.filterwidth = filterwidth
 		self.windowfunc = windowfunc
-		BinnedRatios.__init__(self, Bins(segment[0], segment[1], int(segment.duration() / filterwidth * self.bins_per_filterwidth + 1)))
+		BinnedRatios.__init__(self, Bins(segment[0], segment[1], int(segment.duration() / self.binsize + 1)))
+
+	def set_filterwidth(self, filterwidth):
+		"""
+		Adjust the window function's width.
+		"""
+		if filterwidth / self.binsize < 3:
+			raise ValueError, "filter too narrow (less than 3 bins)"
+		self.filterwidth = filterwidth
 
 	def window(self):
 		"""
 		Generate the window function.
 		"""
-		return self.windowfunc(self.bins_per_filterwidth) / self.filterwidth * self.bins_per_filterwidth
+		return self.windowfunc(self.filterwidth / self.binsize) / self.binsize
 
 	def ratio(self):
 		"""
