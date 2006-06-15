@@ -91,7 +91,10 @@ class _LinBins(_Bins):
 			if x.step != None:
 				raise NotImplementedError, "slices with steps not yet supported"
 			return slice(self[x.start], self[x.stop])
-		if self.min <= x <= self.max:
+		if x == self.max:
+			# special "measure zero" corner case
+			return self.n - 1
+		if self.min <= x < self.max:
 			return int((x - self.min) / self.delta)
 		raise IndexError, x
 
@@ -104,7 +107,7 @@ class _LogBins(_Bins):
 	Logarithmically-spaced 1-D bins.  For internal use only.
 	"""
 	def _set_delta(self, min, max, n):
-		self.delta = math.log(float(max / min) ** (1.0 / n))
+		self.delta = math.log((float(max) / float(min)) ** (1.0 / n))
 
 	def __getitem__(self, x):
 		if isinstance(x, segments.segment):
@@ -113,7 +116,10 @@ class _LogBins(_Bins):
 			if x.step != None:
 				raise NotImplementedError, "slices with steps not yet supported"
 			return slice(self[x.start], self[x.stop])
-		if self.min <= x <= self.max:
+		if x == self.max:
+			# special "measure zero" corner case
+			return self.n - 1
+		if self.min <= x < self.max:
 			return int(math.log(x / self.min) / self.delta)
 		raise IndexError, x
 
