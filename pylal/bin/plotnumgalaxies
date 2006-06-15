@@ -23,7 +23,8 @@ from pylal import CoincInspiralUtils
 ##############################################################################
 # redefine the SimInspiral columns of interest
 ##############################################################################
-lsctables.SimInspiral.__slots__ = [
+class SimInspiralCut(lsctables.LSCTableRow):
+  __slots__ = [
     "waveform",
     "geocent_end_time",
     "geocent_end_time_ns",
@@ -42,11 +43,23 @@ lsctables.SimInspiral.__slots__ = [
     "eff_dist_g",
     "eff_dist_t",
     "eff_dist_v"]
+  
+  # FIXME: It would be nice to inherit from lsctables.SimInspiral.  For now
+  # that is not possible (while cutting columns), so we repeat the methods.
+  def get_end(self,site = None):
+    if not site:
+      return lal.LIGOTimeGPS(self.geocent_end_time, self.geocent_end_time_ns)
+    else:
+      return lal.LIGOTimeGPS(getattr(self,site + 'end_time'), \
+          getattr(self,site + 'end_time_ns'))
+
+lsctables.SimInspiralTable.RowType = SimInspiralCut
 
 ##############################################################################
 # redefine the SnglInspiral columns of interest
 ##############################################################################
-lsctables.SnglInspiralTable.__slots__ = [
+class SnglInspiralCut(lsctables.SnglInspiral):
+  __slots__ = [
     "ifo",
     "end_time",
     "end_time_ns",
@@ -59,7 +72,15 @@ lsctables.SnglInspiralTable.__slots__ = [
     "chisq",
     "sigmasq",
     "event_id"]
-    
+
+  # FIXME: It would be nice to inherit from lsctables.SimInspiral.  For now
+  # that is not possible (while cutting columns), so we repeat the methods.
+  def get_effective_snr(self):
+    return self.snr/ (1 + self.snr**2/250)**(0.25)/ \
+        (self.chisq/(2*self.chisq_dof - 2) )**(0.25) 
+
+lsctables.SnglInspiralTable.RowType = SnglInspiralCut
+
 ##############################################################################
 # Define a Square Array
 ##############################################################################
@@ -162,7 +183,7 @@ def readFiles(fileGlob,statistic='effective_snr'):
     # extract the sim inspiral table
     try: 
       simInspiralTable = \
-			    llwapp.get_table(doc, lsctables.SimInspiralTable.tableName)
+          llwapp.get_table(doc, lsctables.SimInspiralTable.tableName)
       if sims: sims.extend(simInspiralTable)
       else: sims = simInspiralTable
     except: simInspiralTable = None
@@ -648,6 +669,24 @@ class injData:
     if self.fig_name:
       savefig( self.fig_name + '_' + col1 + '_' + col2 + '_efficiency.png' )
 
+  def plot_mc_contour(self, figNum, col1, edges1, col2, edges2, threshold):
+    """
+    plot efficency above threshold for columns
+    """
+    figure(figNum)
+    mc_2d = self.mc_2d(col1, edges1, col2, edges2, threshold)
+    V = arange(0,mc_2d.max(),mc_2d.max()/40)
+    contourf(edges1,edges2,mc_2d + 0.5 * V[1],V)
+    hold(True)
+    V = arange(0,mc_2d.max(),mc_2d.max()/10)
+    contour(edges1,edges2,mc_2d,V,colors='k',linewidths=1)
+    xlabel(col1, size='x-large')
+    ylabel(col2, size='x-large')
+    colorbar()
+    title('Monte Carlo Errors in Efficiency', size='x-large') 
+    if self.fig_name:
+      savefig( self.fig_name + '_' + col1 + '_' + col2 + '_mc_errors.png' )
+
 ##############################################################################
 # Class for storing the injection data
 ##############################################################################
@@ -788,6 +827,13 @@ class injAstroData:
     plot efficency above threshold for x-value, y-value
     """
     self.inj.plot_eff_contour(figNum, self.x_value, self.x_edges(), \
+                              self.y_value, self.y_edges(), threshold)
+
+  def plot_mc_contour(self, figNum, threshold):
+    """
+    plot mc errors above threshold for x-value, y-value
+    """
+    self.inj.plot_mc_contour(figNum, self.x_value, self.x_edges(), \
                               self.y_value, self.y_edges(), threshold)
 
   def plot_inj(self, figNum, threshold = 0):
@@ -1362,6 +1408,10 @@ for key in errorVal.keys():
 if opts.plot_effcontour:
   figNum += 1
   injAstro.plot_eff_contour(figNum, statThresh)
+if opts.mc_errors:
+  figNum += 1
+  injAstro.plot_mc_contour(figNum, statThresh)
+  
 if opts.plot_injections:
   figNum += 1
   injAstro.plot_inj(figNum, 0)
