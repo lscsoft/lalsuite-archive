@@ -378,7 +378,7 @@ def tophat_window2d(bins_x, bins_y):
 # =============================================================================
 #
 
-def filter_array(a, window):
+def filter_array(a, window, cyclic = False):
 	"""
 	Filter an array using the window function.  The transformation is
 	done in place.
@@ -389,31 +389,18 @@ def filter_array(a, window):
 	if 1 in map(int.__cmp__, window.shape, a.shape):
 		raise ValueError, "window data excedes size of array data"
 	if dims == 1:
-		numarray.putmask(a, 1, convolve.convolve(a, window, mode = convolve.SAME))
+		if cyclic:
+			numarray.putmask(a, 1, convolve.convolve(numarray.concatenate((a, a, a)), window, mode = convolve.SAME)[len(a) : 2 * len(a)])
+		else:
+			numarray.putmask(a, 1, convolve.convolve(a, window, mode = convolve.SAME))
 	elif dims == 2:
-		numarray.putmask(a, 1, convolve.convolve2d(a, window, mode = "constant"))
+		if cyclic:
+			numarray.putmask(a, 1, convolve.convolve2d(a, window, mode = "wrap"))
+		else:
+			numarray.putmask(a, 1, convolve.convolve2d(a, window, mode = "constant"))
 	else:
 		raise ValueError, "can only filter 1 and 2 dimensional arrays"
 	return a
-
-
-def filter(binned, window):
-	"""
-	Filter the binned data using the window function.  The
-	transformation is done in place.
-	"""
-	filter_array(binned.array, window)
-	return binned
-
-
-def filter_ratios(binned, window):
-	"""
-	Filter the binned ratio data using the window function.  The
-	transformation is done in place.
-	"""
-	filter_array(binned.numerator, window)
-	filter_array(binned.denominator, window)
-	return binned
 
 
 #
@@ -454,12 +441,12 @@ class Rate(BinnedArray):
 	def xvals(self):
 		return self.centres()[0]
 
-	def yvals(self):
+	def yvals(self, cyclic = False):
 		"""
 		Convolve the binned weights with the window to generate the
 		rate data.
 		"""
-		return filter_array(self.array, self.window())
+		return filter_array(self.array, self.window(), cyclic = cyclic)
 
 
 class RatiosRate(BinnedRatios):
@@ -491,9 +478,9 @@ class RatiosRate(BinnedRatios):
 	def xvals(self):
 		return self.centres()[0]
 
-	def yvals(self):
+	def yvals(self, cyclic = False):
 		"""
 		Convolve the ratio data with the window function to
 		generate the ratio rate data.
 		"""
-		return filter_array(self.ratio(), self.window())
+		return filter_array(self.ratio(), self.window(), cyclic = cyclic)
