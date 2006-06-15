@@ -17,163 +17,107 @@ from glue import segmentsUtils
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
-from pylal import viz
+from pylal import llwapp
+from pylal import CoincInspiralUtils
 
 ##############################################################################
 # redefine the SimInspiral columns of interest
 ##############################################################################
-class SimInspiralCut(lsctables.LSCTableRow):
-  __slots__ = {
-    "waveform": "lstring",
-    "geocent_end_time": "int_4s",
-    "geocent_end_time_ns": "int_4s",
-    "h_end_time": "int_4s",
-    "h_end_time_ns": "int_4s",
-    "l_end_time": "int_4s",
-    "l_end_time_ns": "int_4s",
-    "source": "lstring",
-    "mass1": "real_4",
-    "mass2": "real_4",
-    "mchirp": "real_4",
-    "eta": "real_4",
-    "distance": "real_4",
-    "eff_dist_h": "real_4",
-    "eff_dist_l": "real_4",
-    "eff_dist_g": "real_4",
-    "eff_dist_t": "real_4",
-    "eff_dist_v": "real_4" }
-
-lsctables.SimInspiralTable.RowType = SimInspiralCut
+lsctables.SimInspiral.__slots__ = [
+    "waveform",
+    "geocent_end_time",
+    "geocent_end_time_ns",
+    "h_end_time",
+    "h_end_time_ns",
+    "l_end_time",
+    "l_end_time_ns",
+    "source",
+    "mass1",
+    "mass2",
+    "mchirp",
+    "eta",
+    "distance",
+    "eff_dist_h",
+    "eff_dist_l",
+    "eff_dist_g",
+    "eff_dist_t",
+    "eff_dist_v"]
 
 ##############################################################################
-# function to read in a list of files and extract the simInspiral tables
+# redefine the SnglInspiral columns of interest
 ##############################################################################
-def isSimInsp(name, attrs):
-  return lsctables.IsTableProperties(lsctables.SimInspiralTable, name, attrs)
-
-def readFiles(injGlob):
-  """
-  read in the SimInspiralTables from a list of files
-  @param fList:       list of input files
-  """
-  fList = glob.glob(injGlob)
-  if not fList:
-    print >>sys.stderr, "The glob for " + injGlob + " returned no files"
-    sys.exit(1)
-
-  output = None
-  for thisFile in fList:
-    doc = ligolw.Document()
-    # read in SimInspiral
-    f = file(thisFile)
-    doc = ligolw.Document()
-    ligolw.make_parser(ligolw.PartialLIGOLWContentHandler(doc, \
-        isSimInsp)).parse(file(thisFile))
-    simInspiralTable = doc.childNodes[0]
-    if output:
-      output.extend(simInspiralTable)
-    else:
-      output = simInspiralTable
-  return output
-
-##############################################################################
-# Function to read in the source file and return a sorted list of its
-# components according to the luminosity
-##############################################################################
-def read_source_file( source_file ):
-  f = open( source_file , "r")
-  lines = f.readlines()
-  f.close()
-
-  sourcelist = []
-  luminosity = []
-
-  for line in lines:
-    if line[0] != '#':
-      b  = string.split(line)
-      if opts.delta_error:
-      	c  = { 'name': b[0], 'luminosity': float(b[4]) , 'delta_d': float(b[6])}
-      else:
-	c = {'name': b[0], 'luminosity': float(b[4])} 	
-      sourcelist.append(c)
-
-  sort_on = "luminosity"
-  decorated = [(dict_[sort_on], dict_) for dict_ in sourcelist]
-  decorated.sort()
-  sortedlist = [dict_ for (key, dict_) in decorated]
-
-  return sortedlist
-
-##############################################################################
-# Chop a simInspiralTable into segments that we care about.
-##############################################################################
-def segmentCut ( sim_table, seglist, col_name ):
-  """
-  function to remove injections outside of times contained in seglist
-  @param sim_table: a list of sim inspirals
-  @param seglist:   a list of segments 
-  @param col_name:  the column containing the time parameter
-  """
-  tmpTable = lsctables.New(lsctables.SimInspiralTable)
-
-  for entry in sim_table.rows:
-    end_time = getattr(entry,col_name)
-    if seglist.__contains__(end_time):
-      tmpTable.append(entry)
-
-  return tmpTable
-
+lsctables.SnglInspiralTable.__slots__ = [
+    "ifo",
+    "end_time",
+    "end_time_ns",
+    "eff_distance",
+    "mass1",
+    "mass2",
+    "mchirp",
+    "eta",
+    "snr",
+    "chisq",
+    "sigmasq",
+    "event_id"]
+    
 ##############################################################################
 # Define a Square Array
 ##############################################################################
-def square(M,medges,mstep,D,dedges,dstep,lum_weight=None):
+def square(xdata,xedges,ydata,yedges,lum_weight=None):
+  """
+  generate a square array with from xdata and ydata with the edges specified
+  by xedges and yedges.  Can rescale the entries by lum_weight
+  @param xdata:  array of data for parameter x
+  @param xedges: bin boundaries for parameter x
+  @param ydata:  array of data for parameter y
+  @param yedges: bin boundaries for parameter y
+  @param lum_weight: rescaling factor for the histogram
+  """
+  ng_x_y = zeros((len(xedges),len(yedges)),'d')
+  xstep = xedges[1] - xedges[0]
+  ystep = yedges[1] - yedges[0]
   
-  i = 0
-  ng_m_d = zeros((len(medges),len(dedges)),'d')
- 
-  while i < len(M):  
-    k = int((M[i]-medges[0])/mstep)
-    l = int((D[i]-dedges[0])/dstep)
+  for i in range(len(xdata)):  
+    k = int((xdata[i]-xedges[0])/xstep)
+    l = int((ydata[i]-yedges[0])/ystep)
     
     if not lum_weight:
       lum_array = 1
     else:
       lum_array = lum_weight[i]
 
-    if (k>=0 and k<len(medges)) and (l>=0 and l<len(dedges)):
-      ng_m_d[l][k] = ng_m_d[l][k] + lum_array
-  
-    i = i+1
+    if (k>=0 and k<len(xedges)) and (l>=0 and l<len(yedges)):
+      ng_x_y[l][k] += lum_array
 
-  return ng_m_d
+  return ng_x_y
   
 ##############################################################################
 # Define a Hist Function
 ##############################################################################
-def histng(M,medges,mstep,lum_weight=None):
+def histng(xdata,xedges,lum_weight=None):
   
-
-  i = 0
-  ng_m = zeros(len(medges),'d')
- 
-  while i < len(M):  
-      l = int((M[i]-medges[0])/mstep)
- 
-      if not lum_weight:
-        lum_array = 1
-
-      else: 
-        lum_array = lum_weight[i]
-
-      if (l>=0 and l<len(medges)):
-        ng_m[l] = ng_m[l] + lum_array
+  """
+  histogram xdata with edges specified xedges and yedges.  
+  Can rescale the entries by lum_weight
+  @param xdata:  array of data for parameter x
+  @param xedges: bin boundaries for parameter x
+  @param lum_weight: rescaling factor for the histogram
+  """
+  ng_x = zeros(len(xedges),'d')
+  xstep = xedges[1] - xedges[0]
   
-      i = i+1
- 
-  return ng_m
+  for i in range(len(xdata)):
+    l = int((xdata[i] - xedges[0])/xstep)
 
-    
-   
+    if not lum_weight:
+      lum_array = 1
+    else: 
+      lum_array = lum_weight[i]
+
+    if (l>=0 and l<len(xedges)):
+      ng_x[l] += lum_array
+ 
+  return ng_x
 
 ##############################################################################
 # Chop a simInspiralTable based on component masses.
@@ -195,37 +139,763 @@ def massCut (sim_table, m_low, m_high):
       tmpTable.append(entry)
 
   return tmpTable
+
+##############################################################################
+# function to read in a list of files and extract the simInspiral tables
+##############################################################################
+def readFiles(fileGlob,statistic='effective_snr'):
+  """
+  read in the Sngl and SimInspiralTables from a list of files
+  if Sngls are found, construct coincs, add injections (if any)
+  also return Sims (if any)
+  @param fileGlob: glob of input files
+  @param statistic: statistic to use in creating coincs
+  """
+  fList = glob.glob(fileGlob)
+  if not fList:
+    print >>sys.stderr, "The glob for " + fileGlob + " returned no files"
+    sys.exit(1)
+  sims = None
+  coincs = None
+  for thisFile in fList:
+    doc = llwapp.load_filename(thisFile)
+    # extract the sim inspiral table
+    try: 
+      simInspiralTable = \
+			    llwapp.get_table(doc, lsctables.SimInspiralTable.tableName)
+      if sims: sims.extend(simInspiralTable)
+      else: sims = simInspiralTable
+    except: simInspiralTable = None
+    # extract the sngl inspiral table, construct coincs
+    try: snglInspiralTable = \
+      llwapp.get_table(doc, lsctables.SnglInspiralTable.tableName)
+    except: snglInspiralTable = None
+    if snglInspiralTable:
+      coincInspiralTable = \
+        CoincInspiralUtils.coincInspiralTable(snglInspiralTable,statistic)
+      if simInspiralTable: 
+        coincInspiralTable.add_sim_inspirals(simInspiralTable) 
+      if coincs: coincs.extend(coincInspiralTable)
+      else: coincs = coincInspiralTable
+  return sims,coincs
+
+##############################################################################
+# Function to read in the source file and return a sorted list of its
+# components according to the luminosity
+##############################################################################
+def read_source_file( source_file ):
+  """
+  read in the galaxy list, from an inspsrcs.dat type file
+  @param source_file: input file name
+  """
+  f = open( source_file , "r")
+  lines = f.readlines()
+  f.close()
+
+  sourceList = {}
+  sourceList["MW"] = {"luminosity": 1.6, "delta_d": 0.0}
+  for line in lines:
+    if line[0] != '#':
+      b  = string.split(line)
+      
+      if opts.distance_error:
+        c = {"luminosity": float(b[4]) , "delta_d": float(b[6])}
+      else:
+        c = {"luminosity": float(b[4])}   
+      sourceList[b[0]] = c
+
+  return sourceList
+
+##############################################################################
+# Class for storing the time slide information
+##############################################################################
+class slideZeroData:
+  """
+  class to hold the time slide data, has methods to make the relevant plots
+  """
+  def __init__(self, slideGlob, numSlides, statistic):
+    self.num_slides = numSlides
+    self.statistic = statistic
+
+    # read in triggers, get slide loudest
+    nosims,slideCoinc = readFiles(slideGlob,statistic)
+    slideNum = range(1 , numSlides + 1)
+    slideNum.extend(range(-numSlides, 0))
+    slideLoudest = []
+    for slide in slideNum:
+      slideTrigs = slideCoinc.getslide(slide)
+      try: stat = max(slideCoinc.getslide(slide).getstat() )
+      except: stat = 0.0
+      slideLoudest.append(stat)
+      
+    self.slide_loudest = asarray(slideLoudest)
+    self.zero_loudest = None
+    minSnr = 0.95 * min(self.slide_loudest)
+    maxSnr = 1.05 * max(self.slide_loudest)
+    self.snr_array = \
+        arange(minSnr, maxSnr, (maxSnr - minSnr)/(2 * self.num_slides))
+  
+  def add_zero_lag(self, zeroGlob):
+    """
+    add zero lag data 
+    """
+    nosims,zeroCoinc = readFiles(zeroGlob,self.statistic)
+    try: stat = max(zeroCoinc.getstat())
+    except: stat = 0.0
+    self.zero_loudest = stat
+  
+  def get_cumulative(self, snrArray = None):
+    """
+    get cumulative distribution of snrs 
+    """
+    if not snrArray: snrArray = self.snr_array
+    numBelow = []
+    for snrValue in snrArray:
+      numBelow.append(sum(self.slide_loudest < snrValue))
+    numBelow = asarray(numBelow,'f')/(2 * self.num_slides)
+    return numBelow
+  
+  def plot_cumulative(self,figNum,figureName):
+    """
+    plot cumulative distribution of snrs of slide loudest events
+    """
+    figure(figNum)
+    slideCum = self.get_cumulative()
+    plot(self.snr_array, slideCum,linewidth=2,label="slide dist")
+    grid()
+    xlabel(self.statistic, size='x-large')
+    ylabel('Probability loudest event < value', size='x-large')
+    if self.zero_loudest:
+      axvline(self.zero_loudest,linewidth=2,color='r',label="zero lag")
+      P_b = self.get_cumulative([self.zero_loudest])[0]
+      print 'cumulative probability P_b at loudest event is %.2f' % P_b
+    legend()
+    if figureName:
+      savefig( figureName + '_slide_cumulative_dist.png' )
+  
+  def get_smooth_pdf(self, snrArray = None):
+    """
+    get the smooth pdf of the snrs of the slide loudest events
+    """
+    if not snrArray: snrArray = self.snr_array
+    # plot a smoothed probability distribution
+    num = [0]
+    for i in range(len(snrArray) - 1):
+      num.append(sum((self.slide_loudest > snrArray[i]) * \
+                     (self.slide_loudest < snrArray[i+1])))
+    num = asarray(num,'f')
+    # gaussian average over 5 points
+    width = 5.0
+    gauss = exp(- arange(- 1.0* (self.num_slides - 1) /width, 
+        1.0 * self.num_slides / width,
+        1.0/width )**2 / 2) / sqrt(2.0 * pi) /width
+    smooth_pb = convolve(num,gauss,mode=1)
+    return smooth_pb
+  
+  def plot_pdf(self,figNum,figureName):
+    """
+    plot the smooth pdf of the snrs of the slide loudest events
+    """
+    figure(figNum)
+    slidePDF = self.get_smooth_pdf()
+    plot(self.snr_array, slidePDF, 'k',linewidth=2,label="smoothed pdf")
+    xlabel(self.statistic, size='x-large')
+    ylabel('pdf of loudest event', size='x-large')
+    grid()
+    if self.zero_loudest:
+      x = arange(len(self.snr_array))
+      axvline(self.zero_loudest,linewidth=2,color='r',label="zero lag")
+      p_b = 0.5 * (slidePDF[max(x[self.snr_array < self.zero_loudest])] + \
+                   slidePDF[min(x[self.snr_array > self.zero_loudest])] )
+      print 'pdf p_b at loudest event is %.2f' % p_b
+    legend()
+    if figureName:
+      savefig( figureName + '_slide_pdf.png' )
   
 ##############################################################################
-# Read in a column (and if necessary calculate chirp dist)
+# Class for storing the astrophysical data
 ##############################################################################
-def readColumn(table_elem, column):
+class astroData:
   """
-  function to read a given column from an xml table.
-  If the column is chirp_dist_X, a function is called to calculate the chirp
-  distance from mchirp and effective distance for ifo X.
-  @param table_elem:       a list of sim inspirals
-  @param column:      name of the column to extract
+  class to hold the data from astrophysical injections
   """
+  def __init__(self, astroGlob, sourceFile, figName):
+    self.astro_inj,nocoincs = readFiles(astroGlob)
+    self.source_list = read_source_file(sourceFile)
+    self.fig_name = figName
+    self.max_luminosity = 0
+    for galaxy, params in self.source_list.iteritems():
+      if params["luminosity"] > self.max_luminosity:
+        self.max_galaxy = galaxy
+        self.max_luminosity = params["luminosity"]
+    self.count_sources()
 
-  if 'chirp_dist' in column:
-    return chirpDistance(table_elem, column)
+  def count_sources(self):
+    """
+    store details about galaxies
+    """
+    self.max_sources = \
+        self.astro_inj.getColumnByName('source').count(self.max_galaxy)
+    self.mw_sources = \
+        self.astro_inj.getColumnByName('source').count('MW') 
+    self.astro_normalization = self.max_luminosity/self.max_sources
 
-  return table_elem.getColumnByName(column).asarray()
+  def segment_cut(self,segmentFile):
+    """
+    cut injections which lie outside the given segment file
+    """
+    segFile = open( segmentFile , "r")
+    segList = segmentsUtils.fromsegwizard(segFile)
+    segFile.close()
+    self.astro_inj = self.astro_inj.veto(segList.__invert__())
+    self.count_sources()
+
+  def get_values(self,column,distance_error=False):
+    """
+    return the values in the specified column, 
+    if distance_error is specified, then correct values if they are distances
+    """
+    if distance_error and ("dist" in column):
+      gal_name = self.astro_inj.getColumnByName('source')
+      col_data = self.astro_inj.get_column(column)
+      for i in range(len(gal_name)):
+        col_data[i] *= (1 + self.source_list[gal_name[i]]['delta_d'])
+      return col_data
+
+    else: return self.astro_inj.get_column(column)
+
+  def hist_ng(self,column,edges,distance_error=False):
+    """
+    return a hist of the given column, with specified edges
+    """
+    if distance_error:
+      gal_name = self.astro_inj.getColumnByName('source')
+      lum = []
+      for name in gal_name:
+        lum.append( (1+self.source_list[name]['delta_d'])**2 )    
+      return (histng(self.get_values(column,distance_error),edges,lum) * \
+              self.astro_normalization)
+    else:
+      return (histng(self.get_values(column),edges) * self.astro_normalization)
+
+  def hist_2d_ng(self,col1,edges1,col2,edges2,distance_error=False):
+    """
+    return a 2-d hist of columns, given edges
+    """
+    if distance_error:
+      gal_name = self.astro_inj.getColumnByName('source')
+      lum = []
+      for name in gal_name:
+        lum.append( (1+self.source_list[name]['delta_d'])**2 )    
+      return (square(self.get_values(col1), edges1, self.get_values(col2), \
+              edges2, lum) * self.astro_normalization)
+    else:
+      return (square(self.get_values(col1),edges1, \
+                     self.get_values(col2),edges2) * \
+                     self.astro_normalization)
+
+  def plot_ng(self, figNum, column, edges, type = 'plot',distance_error=False):
+    """
+    make a plot of ng vs column
+    """
+    figure(figNum)
+    if type == 'hist':
+      bar(edges, self.hist_ng(column,edges,distance_error), (edges[1]-edges[0]))
+      ending = '_ng_hist'
+      title_text = 'Luminosity vs ' + column
+    elif type == 'cum_log':
+      loglog(edges, cumsum(self.hist_ng(column,edges,distance_error)),
+             linewidth=2)
+      ending = '_ng_cum_log'
+      title_text = 'Cumulative Luminosity vs ' + column
+    elif (type == 'cum' or type == 'curvefit'):
+      plot(edges, cumsum(self.hist_ng(column,edges,distance_error)),linewidth=2)
+      ending = '_ng_cum'
+      title_text = 'Cumulative Luminosity vs ' + column
+    else:
+      plot(edges, self.hist_ng(column,edges,distance_error),linewidth=2)
+      ending = '_ng_plot'    
+      title_text = 'Luminosity vs ' + column
+    grid( True)
+    xlim(min(edges),max(edges))
+    xlabel(column, size='x-large')
+    ylabel('N_10', size='x-large')
+    if distance_error:
+      title_text += ' with galaxy distance errors'
+      ending += 'dist_err'
+    if type == 'curvefit':
+      print 
+      print "The Fitted Curve was generated using Regression method" 
+      print "using the first 30 galaxies and fitting a Cubic polynomial"   
+      x = arange(min(edges),max(edges),(max(edges) - min(edges))/100)
+      N_Gr = 0.00611877*(x)*(x)*(x)-0.0164998*(x)*(x)+2.52*(x)
+      plot(x,N_Gr,label='Fitted Curve',linewidth=2)
+      ending = 'ng_cum_curvefit.png'
+      legend()      
+    title( title_text, size='x-large')  
+    ending += '.png'
+    if self.fig_name:
+      savefig(self.fig_name + '_' + column + ending )
+
+  def plot_2d_ng(self, figNum, col1,edges1,col2,edges2):
+    """
+    make a 2d plot of ng vs columns
+    """
+    figure(figNum)
+    ng = self.hist_2d_ng(col1,edges1,col2,edges2)
+    V = arange(0,ng.max(),ng.max()/40)
+    contourf(edges1,edges2,ng + 0.5 * V[1],V)
+    V = arange(0,ng.max(),ng.max()/10)
+    contour(edges1,edges2,ng,V,colors='k',linewidths=2)
+    xlim(min(edges1), max(edges1))
+    ylim(min(edges2), max(edges2))
+    xlabel(col1, size='x-large')
+    ylabel(col2, size='x-large')
+    title( 'Luminosity contour', size='x-large')
+    if self.fig_name:
+      savefig( self.fig_name  + '_' + col1 + '_' + \
+             col2 + '_n_g.png' )
 
 ##############################################################################
-# Calculate the chirp distance for inspirals.
+# Class for storing the injection data
 ##############################################################################
-def chirpDistance (sim_table, column, ref_mass = 1.4):
+class injData:
+  """
+  class to hold the injection data
+  """
+  def __init__(self,foundGlob, missedGlob, statistic, figName):
+    found,self.coincs = readFiles(foundGlob,statistic)
+    missed,nocoincs = readFiles(missedGlob)
+    self.coincs.add_missed_sims(missed)
+    self.fig_name = figName
 
-  effDist = 'eff_dist_' + column[-1]
-  dist = sim_table.getColumnByName(effDist).asarray()
-  mchirp = sim_table.getColumnByName('mchirp').asarray()
+  def get_injections(self,threshold):
+    """
+    extract the injections found above giventhreshold
+    """
+    return self.coincs.return_sim_inspirals(threshold)
 
-  chirpDist = dist * (  (2.**(-1./5)) * ref_mass / mchirp)**(5./6)
+  def get_values(self,column,threshold):
+    """
+    get the values contained in column for inj above threshold
+    """
+    return self.get_injections(threshold).get_column(column)
 
-  return chirpDist
+  ############################################################################
+  # 1-d operations and plots
+  ############################################################################
+  def hist_inj(self,column,edges,threshold):
+    """
+    return a hist of the given column, with specified edges
+    """  
+    return histng(self.get_values(column,threshold), edges)
+      
+  def eff(self,column,edges,threshold):
+    """
+    get efficiency vs column, above given threshold
+    """
+    all_inj = histng(self.get_values(column,0), edges)
+    found_inj = histng(self.get_values(column,threshold), edges)
+    return found_inj / (all_inj + 1e-5)
 
+  def mc(self,column,edges,threshold):
+    """
+    get mc errors for column, above given threshold
+    """
+    all_inj = histng(self.get_values(column,0), edges)
+    found_inj = histng(self.get_values(column,threshold), edges)
+    return sqrt(found_inj * (all_inj - found_inj) / (all_inj**3 + 1e-5))
+
+  def error(self,column,edges,error,threshold):
+    """
+    get errors for column, above given threshold
+    """
+    all_val = self.get_values(column,0)
+    found_val = self.get_values(column,threshold)
+    if "dist" in column and \
+        (error == "Waveform" or error[0].lower() == column[-1]):
+      # apply the correction
+      all_val = distError(all_val, errorVal[error], 0)
+      found_val = distError(found_val, errorVal[error], 0)
+    all_inj = histng(all_val, edges)
+    found_inj = histng(found_val, edges)
+    return (found_inj/(all_inj + 1e-5) - self.eff(column,edges,threshold) )
+
+  def plot_efficiency(self, figNum, column, edges, threshold = 0, error = None):
+    """
+    plot efficency above threshold for column adding errors if specified
+    """
+    figure()
+    eff = self.eff(column,edges,threshold)
+    plot(edges,eff,'b',linewidth=2)
+    if error:
+      ending = error.lower() + ".png"
+      title_text = 'Efficiency vs ' + column + ' with ' + error + ' errors'
+      if error == "Monte Carlo":
+        mc = self.mc(column,edges,threshold)
+        fit,errors = errorbar(edges,eff,mc,fmt=None,ecolor='r',linewidth=2)
+      elif "dist" in column and \
+          (error == "Waveform" or error[0].lower() == column[-1]):
+        if error == "Waveform":
+          fit,errors = errorbar(edges,eff, \
+              xerr=([edges*errorVal["Waveform"],zeros(len(edges))]),\
+              fmt=None,ecolor='g',linewidth=2)
+        else:
+          fit,errors = errorbar(edges,eff,xerr=(edges*errorVal[error]),\
+              fmt=None,ecolor='k',linewidth=2)
+      else:
+        fit,errors = errorbar(edges,eff,xerr=(zeros(len(edges))),\
+              fmt=None,ecolor='k',linewidth=2)
+              
+      for line in errors:
+        matplotlib.lines.Line2D.set_linewidth(line,1)
+        matplotlib.lines.Line2D.set_markeredgewidth(line,1)
+    else:
+      ending = "efficiency.png"
+      if threshold:
+        title_text = 'Efficiency vs ' + column
+    grid(True)
+    ylim(0, 1.1) 
+    xlabel( column, size='x-large')
+    ylabel('Efficiency', size='x-large')
+    title(title_text, size='x-large')
+    if self.fig_name:
+      savefig( self.fig_name + '_' + column + "_" + ending )
+
+  ############################################################################
+  # 2-d operations and plots
+  ############################################################################
+  def hist_2d_inj(self,col1,edges1,col2,edges2,threshold):
+    """
+    return a hist of the given columns, with specified edges
+    """  
+    return square(self.get_values(col1,threshold), edges1, \
+                  self.get_values(col2,threshold), edges2)
+  
+  def eff_2d(self,col1,edges1,col2,edges2,threshold):
+    """
+    get efficiency vs columns, above given threshold
+    """
+    all_inj = self.hist_2d_inj(col1,edges1,col2,edges2,0)
+    found_inj = self.hist_2d_inj(col1,edges1,col2,edges2,threshold)
+    return found_inj / (all_inj + 1e-5)
+
+  def mc_2d(self,col1,edges1,col2,edges2,threshold):
+    """
+    get mc errors for columns, above given threshold
+    """
+    all_inj = self.hist_2d_inj(col1,edges1,col2,edges2,0)
+    found_inj = self.hist_2d_inj(col1,edges1,col2,edges2,threshold)
+    return sqrt(found_inj * (all_inj - found_inj) / (all_inj**3 + 1e-5))
+
+  def error_2d(self,col1,edges1,col2,edges2,error,threshold):
+    """
+    get errors for columns, above given threshold
+    """
+    all = {}
+    found = {}
+    for col in [col1, col2]:
+      all[col] = self.get_values(col,0)
+      found[col] = self.get_values(col,threshold)
+      if "dist" in col and (error == "Waveform" or error[0].lower() == col[-1]):
+        # apply the correction
+        all[col] = distError(all[col], errorVal[error], 0)
+        found[col] = distError(found[col], errorVal[error], 0)
+    all_inj = square(all[col1], edges1, all[col2], edges2)
+    found_inj = square(found[col1], edges1, found[col2], edges2)
+    return (found_inj/(all_inj + 1e-5) - \
+        self.eff_2d(col1,edges1,col2,edges2,threshold) )
+
+  def plot_injections(self, figNum, col1, edges1, col2, edges2, threshold = 0):
+    """
+    plot injections above threshold for column
+    """
+    figure(figNum)
+    inj = self.hist_2d_inj(col1,edges1,col2,edges2,threshold)
+    V = arange(0,inj.max(),inj.max()/40)
+    contourf(edges1,edges2,inj + 0.5*V[1],V)
+    V = arange(0,inj.max(),inj.max()/10)
+    contour(edges1,edges2,inj,V,colors='k',linewidths=1)
+    xlabel(col1, size='x-large' )
+    ylabel(col2, size='x-large' )
+    colorbar()
+    if threshold:
+      title('Number of injections found above threshold %.2f' % threshold, 
+          size='x-large' )
+      ending = '_inj_found_above_%.2f.png' % threshold
+    else:
+      title('Number of injections', size='x-large')
+      ending = '_inj.png'
+    if self.fig_name:
+      savefig( self.fig_name + '_' + col1 + '_'  + col2 + ending )
+
+
+  def plot_eff_contour(self, figNum, col1, edges1, col2, edges2, threshold):
+    """
+    plot efficency above threshold for columns
+    """
+    figure(figNum)
+    eff_2d = self.eff_2d(col1, edges1, col2, edges2, threshold)
+    V = arange(0,41./40,1./40)
+    contourf(edges1,edges2,eff_2d + 0.5 * V[1],V)
+    hold(True)
+    V = arange(0.1,1,0.1)
+    contour(edges1,edges2,eff_2d,V,colors='k',linewidths=1)
+    xlabel(col1, size='x-large')
+    ylabel(col2, size='x-large')
+    colorbar()
+    title('Efficiency Contour', size='x-large') 
+    if self.fig_name:
+      savefig( self.fig_name + '_' + col1 + '_' + col2 + '_efficiency.png' )
+
+##############################################################################
+# Class for storing the injection data
+##############################################################################
+class injAstroData:
+  """
+  class to hold the time slide data, has methods to make the relevant plots
+  """
+  def __init__(self, xValue, yValue, nBins, figName = None, \
+               xMin = None, xMax = None, yMin = None, yMax = None):
+    self.x_value = xValue
+    self.y_value = yValue
+    self.nbins = nBins
+    self.fig_name = figName
+    self.x_min = xMin
+    self.x_max = xMax
+    self.y_min = yMin
+    self.y_max = yMax
+    self.astro = None
+    self.inj = None
+
+  def add_astro_data(self,astroGlob, sourceFile):
+    """
+    add the astrophyscially distributed injections 
+    """
+    self.astro =  astroData(astroGlob, sourceFile, self.fig_name)
+
+  def add_found_missed(self,foundGlob, missedGlob, statistic):
+    """
+    add the performed injections 
+    """
+    self.inj = injData(foundGlob, missedGlob, statistic, self.fig_name) 
+
+  ############################################################################
+  # General stuff to fix axes etc
+  ############################################################################
+  def set_x_min(self, value):
+    """
+    set the minimum value for x 
+    """
+    self.x_min = value
+
+  def set_x_max(self, value):
+    """
+    set the maximum value for x 
+    """
+    self.x_max = value
+
+  def set_y_min(self, value):
+    """
+    set the minimum value for y 
+    """
+    self.y_min = value
+
+  def set_y_max(self, value):
+    """
+    set the maximum value for y 
+    """
+    self.y_max = value
+
+  def axes_square(self):
+    """
+    make the axes square
+    """
+    if self.x_min > self.y_min:
+      self.set_x_min(self.y_min)
+    else:
+      self.set_y_min(self.x_min)
+      
+    if self.x_max < self.y_max:
+      self.set_x_max(self.y_max)
+    else:
+      self.set_y_max(self.x_max)
+
+  def axes_from_found(self):
+    """
+    take the axes from the found injections
+    """
+    if self.inj:
+      self.set_x_min(0.99 * min(self.inj.get_values(self.x_value)) )
+      self.set_x_max(1.01 * max(self.inj.get_values(self.x_value)) )
+      self.set_y_min(0.99 * min(self.inj.get_values(self.y_value)) )
+      self.set_y_max(1.01 * max(self.inj.get_values(self.y_value)) )
+    
+  def x_edges(self):
+    """
+    return the edges in the x-direction
+    """
+    return arange(self.x_min, self.x_max, (self.x_max - self.x_min)/self.nbins)
+    
+  def y_edges(self):
+    """
+    return the edges in the y-direction
+    """
+    return arange(self.y_min, self.y_max, (self.y_max - self.y_min)/self.nbins)
+
+  ############################################################################
+  # Make plots using astro data
+  ############################################################################
+  def plot_x_ng(self, figNum, type = 'plot',distance_error=False):
+    """
+    make a plot of ng vs x-value
+    """
+    self.astro.plot_ng(figNum, self.x_value, self.x_edges(), type, \
+        distance_error)
+
+  def plot_y_ng(self, figNum, type = 'plot'):
+    """
+    make a plot of ng vs y-value
+    """
+    self.astro.plot_ng(figNum, self.y_value, self.y_edges(), type)
+ 
+  def plot_2d_ng(self, figNum):
+    """
+    make a 2d plot of ng vs x-value,y-value
+    """
+    self.astro.plot_2d_ng(figNum, self.x_value, self.x_edges(), 
+                          self.y_value, self.y_edges())
+    
+  ############################################################################
+  # Make plots using injection results
+  ############################################################################
+  def plot_x_eff(self, figNum, threshold = 0, error = None):
+    """
+    plot efficency above threshold for x-value
+    """
+    self.inj.plot_efficiency(figNum, self.x_value, self.x_edges(), \
+        threshold, error)
+
+  def plot_y_eff(self, figNum, threshold = 0, error = None):
+    """
+    plot efficency above threshold for x-value
+    """
+    self.inj.plot_eff(figNum, self.y_value, self.y_edges(), \
+        threshold, error)
+
+  def plot_eff_contour(self, figNum, threshold):
+    """
+    plot efficency above threshold for x-value, y-value
+    """
+    self.inj.plot_eff_contour(figNum, self.x_value, self.x_edges(), \
+                              self.y_value, self.y_edges(), threshold)
+
+  def plot_inj(self, figNum, threshold = 0):
+    """
+    plot injections above threshold for x-value
+    """
+    self.inj.plot_injections(figNum, self.x_value, self.x_edges(), \
+                             self.y_value, self.y_edges(), threshold)
+
+  ############################################################################
+  # Make plots using injection results and astrophysical distributions
+  ############################################################################
+  def plot_search_x_ng(self, figNum, threshold):
+    """
+    plot number of galaxies searched
+    """
+    figure(figNum)
+    xng_search = self.inj.eff(self.x_value, self.x_edges(), threshold) * \
+                 self.astro.hist_ng(self.x_value, self.x_edges())
+    plot(self.x_edges(),cumsum(xng_search),linewidth=2)
+    grid( True )
+    xlabel( self.x_value, size='x-large' )
+    ylabel('N_10' , size='x-large')
+    title( 'Cumulative Search Luminosity vs ' + self.x_value, size='x-large')
+    if self.fig_name:
+      savefig( self.fig_name + '_' + opts.x_value + '_ng_search_cum.png' )
+
+  def get_search_x_ng(self, threshold):
+    """
+    get the number of galaxies searched using x integral
+    """
+    return sum(self.inj.eff(self.x_value, self.x_edges(), threshold) * \
+               self.astro.hist_ng(self.x_value, self.x_edges()) )
+
+  def get_search_x_error(self, error, threshold):
+    """
+    get the error on number of galaxies searched using x integral
+    """
+    if error == "Monte Carlo":
+      return sqrt( sum(self.inj.mc(self.x_value, self.x_edges(), threshold)**2\
+           * self.astro.hist_ng(self.x_value, self.x_edges()) ))
+    else:
+      return sum(self.inj.error(self.x_value,self.x_edges(),error,threshold) \
+           * self.astro.hist_ng(self.x_value, self.x_edges()) )
+
+     
+  def get_search_2d_ng(self, threshold):
+    """
+    get the number of galaxies searched using 2d integral
+    """
+    return sum(sum(self.inj.eff_2d(self.x_value, self.x_edges(), self.y_value, \
+                   self.y_edges(), threshold) * \
+                   self.astro.hist_2d_ng(self.x_value, self.x_edges(), \
+                   self.y_value, self.y_edges()) ))
+
+  def get_search_2d_error(self, error, threshold):
+    """
+    get the monte carlo error on number of galaxies searched using 2d integral
+    """
+    if error == "Monte Carlo":
+      return sqrt( sum(sum( self.inj.mc_2d(self.x_value, self.x_edges(), \
+                   self.y_value, self.y_edges(), threshold)**2 * \
+                   self.astro.hist_2d_ng(self.x_value, self.x_edges(), \
+                   self.y_value, self.y_edges()) )) )
+    else:
+      return sum(sum( self.inj.error_2d(self.x_value, self.x_edges(), \
+                      self.y_value, self.y_edges(), error, threshold) * \
+                      self.astro.hist_2d_ng(self.x_value, self.x_edges(), \
+                      self.y_value, self.y_edges()) ))
+
+
+##############################################################################
+# Make the plot of N_G and N_G'
+##############################################################################
+def plot_ng_vs_stat(injAstro, slideZero, figNum, integrate):
+  """
+  plot the luminosity vs statistic, using stat values taken from 
+  slides/zero lag.
+  @param injAstro:  an instance of the injAstroData class, containing the 
+                    injections and astrophysical distributions
+  @param slideZero: an instance of the slideZeroData class, containing the
+                    time slides and (possibly) zero lag information.
+  @param figNum:    the figure number
+  @param integrate: which integral to do, either 'x', 'y' or 'xy'.
+  """
+  ng_array = []
+  for statValue in slideZero.snr_array:
+    if integrate == 'x':
+      ng_array.append(injAstro.get_search_x_ng(statValue))
+    elif integrate == 'y':
+      ng_array.append(injAstro.get_search_y_ng(statValue))
+    elif integrate == 'xy':
+      ng_array.append(injAstro.get_search_2d_ng(statValue))
+    
+  figure(figNum)
+  plot(slideZero.snr_array, ng_array, 'b', linewidth=2, label="luminosity")
+  grid()
+  xlabel(slideZero.statistic, size='x-large')
+  ylabel('Luminosity visible above threshold', size='x-large')
+  if slideZero.zero_loudest:
+    axvline(slideZero.zero_loudest,linewidth=2,color='r',label="zero lag")
+    if integrate == 'x':
+      ng_zero = injAstro.get_search_x_ng(slideZero.zero_loudest)
+    elif integrate == 'y':
+      ng_zero = injAstro.get_search_y_ng(slideZero.zero_loudest)
+    elif integrate == 'xy':
+      ng_zero = injAstro.get_search_2d_ng(slideZero.zero_loudest)
+    
 ##############################################################################
 # Add systematic errors to distances
 ##############################################################################
@@ -256,68 +926,90 @@ def distError(distance, systematic=None, random = None):
 usage = """\
 plotnumgalaxies [options]
 
-  Generate a set of plots of galaxy distributions.  There are two classes of
-  plots which can be made.  The first require only the astrophysical
-  distribution of galaxies and the second require efficiency measurements from
-  a search.
-  
-  For the astrophysical plots, you must specify:
-  
+  Generate plots necessary to calculate an upper limit from a search.  The
+  code reads in different types of data files and makes the appropriate plots.
+
+  ----------------------------------------------------------------------------
+  An astrophysical population distribution can be specified with:
   --source-file:     A list of source galaxies (such as inspsrcs.dat)
   --injection-glob:  A glob of xml files of sim inspirals, generated with the
                      source file given above.
-  
+                     
   The injections can be cut to keep only those in the relevant times, if a 
   --segment-file is specified.
   
-  The number of galaxies can be plotted against the specified
+  The luminosity distribution can be plotted against the specified
   --x-value, where this can be any column in the siminspiral table, or the 
-  chirp_dist_X (where X is one of g,h,l,t,v).  The plots are:
+  chirp_dist_X (where X is one of g,h,l,t,v).  
   
-  1.  A plot of the number of galaxies.
+  The following plots can be made:
+
+  --plot-ng:       A plot of the luminosity.
+  --hist-ng:       A histogram of the luminosity (binned version of above)
+  --cumulative-ng: A cumulative plot of the luminosity.
+  --add-curvefit:  The above plot with a fitted curve added.
+  --cum-log-ng:    A log-log plot of the cumulative luminosity.
+  --plot-2d-ng:    A 2-d contour plot of the luminosity distribution.
+                   (A --y-value must also be specified)
   
-  2.  A histogram of the number of galaxies (basically a binned version of 1).
-  
-  3.  A plot of the cumulative number of galaxies.
-  
-  3b. The above plot with a fitted curve of the cumulative number of
-  
-  4.  A log-log plot of number of galaxies.
-  
-  5.  A 2-d contour plot of the number of galaxies can be made, for this
-      --y-value must also be given.
-  
-  In order to plot efficiencies from a search, you must specify:
+  If the --source-file contains distance errors for galaxies, you can add
+  --distance-error which will remake the above plots taking into account the
+  distance errors to the galaxies.
+
+  ----------------------------------------------------------------------------
+  Injection results from a search can be specified using:
   
   --glob-found:  A glob of xml files containing found injections and  
   --glob-missed: A glob of xml files containing missed injections
   
-  In this case, the plots are
+  In this case, the available plots are:
 
-  6.  An efficiency plot vs x-value
+  --plot-efficiency:  An efficiency plot vs x-value
+  --plot-effcontour:  A 2-d efficiency plot vs x-value and y-value.
+  --plot-injections:  2-d contour plots of total and found injections.
 
-  7.  The Monte Carlo errors on the efficiency.
+  Errors can also be added, using:
+  --h-calibration, --l-calibration, --waveform-systematic, --mc-errors
+
+  ----------------------------------------------------------------------------
+  If both astrophysical and injection data are given, the following additional
+  results are available:
+
+  --cum-search-ng:    The cumulative luminosity available to the search using
+                      an integration over the x-value
+  --cum-search-2d-ng: The cumulative luminosity available to the search using
+                      a 2-d integration over the x-value and y-value
+                   
+  ----------------------------------------------------------------------------
+  The time slide and zero lag results can be specified using:
+  --slide-glob, --zero-glob
+  If these are given, then you can make plots of the distributions of loudest
+  slide events to estimate the background:
+
+  --plot-cum-loudest: Plot the cumulative distribution of loudest slide events
+  --plot-pdf-loudest: Plot the pdf of the loudest events from slides
   
-  8.  The cumulative number of galaxies (taking into account the search
-      efficiency).
-
-  9.  Contour plots of the number of injections performed and found.
+  If the zero lag results are given, they are added to the plot.
   
-  10. A 2-d efficiency plot vs x-value and y-value.
+  ----------------------------------------------------------------------------
+  If the time-slide, injection and astrophysical results are given, then plots
+  of search luminosity vs statistic value are also available using:
 
-  11. The Monte Carlo errors on the 2-d efficiency plot.
-
-  12. A calculation of the total number of galaxies available to the
-      search, using the 2-d integral.
+  --plot-ng-vs-stat
+  --plot-2d-ng-vs-stat
+  
+  ----------------------------------------------------------------------------   
 """
 
 ##############################################################################
 parser = OptionParser( usage )
 
+# used letters: 
+#abcefghilmnopqrstuvwxyz
+#BCDEFGHIJKLMNOQRSTUVWXY
 # basics
 parser.add_option("-V","--verbose",action="store_true",default=False,\
     help="print additional information when running" )
-
 
 # input files
 parser.add_option("-S","--source-file",action="store",type="string",\
@@ -330,14 +1022,30 @@ parser.add_option("-I","--injection-glob",action="store",type="string",\
 parser.add_option("-G","--segment-file",action="store",type="string",\
     default=None,metavar=" SEG_LIST",help="full path to segment file")
 
-parser.add_option("-g","--glob-found",action="store",type="string",\
+parser.add_option("-g","--found-glob",action="store",type="string",\
     default=None, metavar=" FOUND_GLOB", \
     help="GLOB of found trigger/injection files to read" )
     
-parser.add_option("-m","--glob-missed",action="store",type="string",\
+parser.add_option("-m","--missed-glob",action="store",type="string",\
     default=None, metavar=" MISS_GLOB", \
     help="GLOB of files containing missed injections to read" )
+    
+parser.add_option("-z","--zero-glob",action="store",type="string",\
+    default=None, metavar=" ZERO_GLOB", \
+    help="GLOB of files containing zero lag triggers" )
+    
+parser.add_option("-T","--slide-glob",action="store",type="string",\
+    default=None, metavar=" SLIDE_GLOB", \
+    help="GLOB of files containing time slide triggers" )
 
+# statistic
+parser.add_option("-K","--statistic",action="store",type="string",\
+    default="effective_snr",metavar=" STAT",\
+    help="coincident statistic (default = effective_snr)")
+
+parser.add_option("-J","--num-slides",action="store",type="int",\
+    default=None,metavar=" NUM_SLIDES",\
+    help="number of slides")
 # mass cut
 parser.add_option("-L","--m-low",action="store",type="float",default=None,\
     metavar=" M_LOW", 
@@ -360,7 +1068,7 @@ parser.add_option("-w","--waveform-systematic",action="store",type="float",
     default=None, metavar=" WAV",
     help="systematic errors in waveform, rescale distances by D->(1+WAV)*D")
 
-parser.add_option("-R","--delta-error",action="store_true",default=False,\
+parser.add_option("-R","--distance-error",action="store_true",default=False,\
     help="incorporates the change in distance due to error in distance" )
 
 parser.add_option("-M","--mc-errors",action="store_true",default=False,\
@@ -408,11 +1116,19 @@ parser.add_option("-n","--nbins",action="store",type="int",default=20,\
     metavar=" NBINS", 
     help="number of bins for the histogram plots (default = 20)" )
 
-parser.add_option("-B","--delta-luminosity",action="store_true",default=False,\
-    help="Take into account the error in luminosity" )
-
 
 # plots to be made
+
+# using slide/zero data
+parser.add_option("-r","--plot-cum-loudest",action="store_true",
+    default=False,
+    help="plot the cumulative distribution of slide loudest events")
+
+parser.add_option("-i","--plot-pdf-loudest",action="store_true",
+    default=False,
+    help="plot the non-cumulative distribution of slide loudest events")
+
+# using astrophysical data
 parser.add_option("-N","--plot-ng",action="store_true",default=False,\
     help="plot the astrophysical ng vs x-value")
 
@@ -428,11 +1144,9 @@ parser.add_option("-l","--cum-log-ng",action="store_true",default=False,\
 parser.add_option("-c","--add-curvefit",action="store_true",default=False,\
     help="add a curve to fit the ng distribution" )
 
+# using injection data
 parser.add_option("-e","--plot-efficiency",action="store_true",default=False,\
     help="make a plot of efficiency vs x-value" )
-
-parser.add_option("-U","--cum-search-ng",action="store_true",default=False,\
-    help="make a plot of cumulative Ng for search vs x-value" )
 
 parser.add_option("-E","--plot-effcontour",action="store_true",default=False,\
     help="make an efficiency contour plot of parameters x and y")
@@ -440,11 +1154,24 @@ parser.add_option("-E","--plot-effcontour",action="store_true",default=False,\
 parser.add_option("-F","--plot-injections",action="store_true",default=False,\
     help="make contour plots of found and total injections")
 
+# using injection and astrophysical data
+parser.add_option("-U","--cum-search-ng",action="store_true",default=False,\
+    help="make a plot of cumulative Ng for search vs x-value" )
+
 parser.add_option("-O","--plot-2d-ng",action="store_true",default=False,\
     help="plot the astrophysical ng vs x-value")
 
 parser.add_option("-W","--cum-search-2d-ng",action="store_true",default=False,\
     help="calculate the cumulateive number of galaxies for this search" )
+
+# using injection, astrophysical and slide/zero data
+parser.add_option("-v","--plot-ng-vs-stat",action="store_true", \
+    default=False, \
+    help="plot the astrophysical ng from 1-dim integral vs statistic value")
+
+parser.add_option("-a","--plot-2d-ng-vs-stat",action="store_true",\
+    default=False, \
+    help="plot the astrophysical ng from 2-dim integral vs statistic value")
 
 (opts,args) = parser.parse_args()
 
@@ -452,14 +1179,28 @@ parser.add_option("-W","--cum-search-2d-ng",action="store_true",default=False,\
 # Check options
 ##############################################################################
 
-astro_plot = False
-eff_plot = False
+astroPlots = False
+injPlots = False
 
+# if making plots of background:
+if (opts.plot_cum_loudest or opts.plot_pdf_loudest or opts.plot_ng_vs_stat \
+    or opts.plot_2d_ng_vs_stat):
+  if not opts.slide_glob:
+    print >>sys.stderr, "Must specify a GLOB of slide files to read\n" + \
+                        "when plotting the distribution of loudest events\n" + \
+                        "Enter 'plotnumgalaxies --help' for usage\n"
+    sys.exit(1)
+    
+  if not opts.num_slides:
+    print >>sys.stderr, \
+      "Must specify the num_slides when plotting loudest event distributions"
+    sys.exit(1)
+  
 # if making plots of astrophysical distribution:
 if (opts.plot_ng or opts.cum_log_ng or opts.hist_ng or opts.cumulative_ng or \
     opts.cum_search_ng or opts.plot_2d_ng or opts.cum_search_2d_ng):
-  astro_plot = True
-  # check at least one trig file was specified
+  astroPlots = True
+  # check at least one injection file was specified
   if not opts.injection_glob:
     print >>sys.stderr, "Must specify a GLOB of injection files to read"
     print >>sys.stderr, "Enter 'plotnumgalaxies --help' for usage"
@@ -475,533 +1216,201 @@ if (opts.plot_ng or opts.cum_log_ng or opts.hist_ng or opts.cumulative_ng or \
 # if making plots of efficiencies:
 if (opts.plot_efficiency or opts.cum_search_ng or opts.plot_effcontour or \
     opts.plot_injections or opts.cum_search_2d_ng):
-  eff_plot = True
+  injPlots = True
   # check at least one found file was specified
-  if not opts.glob_found:
+  if not opts.found_glob:
     print >>sys.stderr, "Must specify a GLOB of found injection files to read"
     print >>sys.stderr, "Enter 'plotnumgalaxies --help' for usage"
     sys.exit(1)
 
   # check that at least one missed file was specified
-  if not opts.glob_missed:
+  if not opts.missed_glob:
     print >>sys.stderr, "Must specify a GLOB of missed injection files to read"
     print >>sys.stderr, "Enter 'plotnumgalaxies --help' for usage"
     sys.exit(1)
 
+# store the error values
+errorVal = {}
+if opts.h_calibration:
+  errorVal['Hanford Calibration'] = opts.h_calibration
+if opts.l_calibration:
+  errorVal['Livingston Calibration'] = opts.l_calibration
+if opts.waveform_systematic:
+  errorVal['Waveform'] = opts.waveform_systematic
+if opts.mc_errors:
+  errorVal['Monte Carlo'] = None
+
+figNum = 0
+statThresh = 1e-6
+##############################################################################
+# read in the time slides and zero lag
+##############################################################################
+if opts.slide_glob:
+  if opts.verbose:
+    print "Reading time slides"
+  slideLoudest = slideZeroData(opts.slide_glob, opts.num_slides, opts.statistic)
+  statThresh = max(slideLoudest.slide_loudest)
+  
+  if opts.zero_glob: 
+    slideLoudest.add_zero_lag(opts.zero_glob)
+    statThresh = slideLoudest.zero_loudest
+  
+  if opts.plot_cum_loudest: 
+    figNum += 1
+    slideLoudest.plot_cumulative(figNum, opts.figure_name)
+
+  if opts.plot_pdf_loudest: 
+    figNum += 1
+    slideLoudest.plot_pdf(figNum, opts.figure_name)
+
+  
 
 ##############################################################################
-# read in the astrophysical injections + distributions
+# read in the data
 ##############################################################################
-if (astro_plot or eff_plot):
-  simInspTriggers = readFiles(opts.injection_glob)
-
-  # sourcelist sorted from smallest to largest in the luminosity
-  sourcelist = read_source_file( opts.source_file )
-  max_luminosity = sourcelist[-1]['luminosity']
-  max_galaxy = sourcelist[-1]['name']
+injAstro = injAstroData(opts.x_value, opts.y_value, opts.nbins, \
+                        opts.figure_name, opts.x_min, opts.x_max, \
+                        opts.y_min, opts.y_max)
+if astroPlots:
+  if opts.verbose:
+    print "Reading the astrophysical injections"
+  injAstro.add_astro_data(opts.injection_glob, opts.source_file)
 
   if opts.verbose:
-    print 'The maximum luminosity = %.2f' % max_luminosity
-    print 'The Galaxy having Maximum Luminosity is ' + max_galaxy 
+    print 'The maximum luminosity = %.2f' % injAstro.astro.max_luminosity
+    print 'The Galaxy having Maximum Luminosity is ' + \
+        injAstro.astro.max_galaxy 
 
-  # select binaries with end times inside analyzed segments
   if opts.segment_file:
-
-    if opts.verbose:
-      numSources = simInspTriggers.getColumnByName('source').count(max_galaxy)
-      print 'Number of Sources in ' + max_galaxy + \
-            ' before segment selection = %.2f' % numSources
-    seg_file = open( opts.segment_file , "r")
-    segList = segmentsUtils.fromsegwizard(seg_file)
-    seg_file.close()
-    simInspTriggers = segmentCut(simInspTriggers, segList , "geocent_end_time")
-
-  
-  # Determine the number of sources with highest luminousity
-  numSources = simInspTriggers.getColumnByName('source').count(max_galaxy)
-  mwSources = simInspTriggers.getColumnByName('source').count('MW')
+    print 'Number of Sources in ' + injAstro.astro.max_galaxy + \
+          ' before segment selection = %d' % + injAstro.astro.max_sources
+    injAstro.astro.segment_cut(opts.segment_file)
 
   if opts.verbose:
-    print 'The number of Sources in ' + max_galaxy + ' = %d' % numSources
-    print 'The number of Sources in the Milky Way = %d' % mwSources
+    print 'The number of Sources in ' + injAstro.astro.max_galaxy + ' = %d' \
+          % injAstro.astro.max_sources
+    print 'The number of Sources in the Milky Way = %d' % \
+        injAstro.astro.mw_sources
     print 'The inferred Milky Way luminosity is = %.2f' % \
-         (mwSources * max_luminosity / numSources)
+        (injAstro.astro.mw_sources * injAstro.astro.max_luminosity / \
+        injAstro.astro.max_sources)
 
-  # Read the relevant columns
-  xAstro = readColumn(simInspTriggers,opts.x_value)
-  yAstro = readColumn(simInspTriggers,opts.y_value)
-   
-  
-  if(opts.delta_error):
-    gal_name = simInspTriggers.getColumnByName('source')
-
-    lum = []
-    for i in range(len(xAstro)):
-        c = 0
-        lum.append(c)
-
-
-    for i in range(len(sourcelist)):
-       for j in range(len(gal_name)):
-         if(gal_name[j]==sourcelist[i]['name']):
-            lum[j] = (1+sourcelist[i]['delta_d'])**2          
-         if (gal_name[j]=='MW'):
-            lum[j] = 1.0
-
-
-         if ('dist' in opts.x_value):  
-             xAstro[j]=xAstro[j]*(1 + sourcelist[i]['delta_d'])
-	 if ('dist' in opts.y_value):  
-	     yAstro[j]=yAstro[j]*(1 + sourcelist[i]['delta_d'])
-          
-    
-##############################################################################
-# read in the found/missed injections
-##############################################################################
-if eff_plot:
-  # read in the found/missed injections
-  found = readFiles(opts.glob_found)
-  missed = readFiles(opts.glob_missed)
-
+if injPlots:
   if opts.verbose:
-    print "Read in " + str(found.__len__()) + " found injections"
-    print "Read in " + str(missed.__len__()) + " missed injections"
+    print "Reading the found/missed injections"
+  injAstro.add_astro_data(opts.injection_glob, opts.source_file)
+  injAstro.add_found_missed(opts.found_glob, opts.missed_glob, opts.statistic)
 
-  # perform the mass cut, if requested:
-  if opts.m_low or opts.m_high:
-    found = massCut(found, opts.m_low, opts.m_high)
-    missed = massCut(missed , opts.m_low, opts.m_high)
-    
-    if opts.verbose:
-      print "After mass cut, " + str(found.__len__()) + " found injections"
-      print "After mass cut, " + str(missed.__len__()) + " missed injections"
+if opts.axes_from_found: injAstro.axes_from_found()
 
-  # extract the x-values
-  xFound = readColumn(found,opts.x_value)
-  xMissed = readColumn(missed,opts.x_value)
-  # extract the x-values
-  yFound = readColumn(found,opts.y_value)
-  yMissed = readColumn(missed,opts.y_value)
-
-
-  # reset the axes based on found injections
-  if opts.axes_from_found:
-    opts.x_max = 1.01 * max(xFound) 
-    opts.x_min = 0.99 * min(xFound) 
-  
-    opts.y_max = 1.01 * max(yFound)
-    opts.y_min = 0.99 * min(yFound)
-
-    if opts.verbose:
-
-      print "Overwriting max value for " + opts.x_value + \
-            " with found injection max, %.2f" % opts.x_max 
-
-      print "Overwriting min value for " + opts.x_value + \
-            " with found injection min, %.2f" % opts.x_min
-
-      print "Overwriting max value for " + opts.y_value + \
-            " with found injection max, %.2f" % opts.y_max
-
-      print "Overwriting min value for " + opts.y_value + \
-            " with found injection min, %.2f" % opts.y_min
+if opts.axes_square: injAstro.axes_square()
 
 ##############################################################################
-# generate the bins and the square array:
+# Make plots from astrophysical distributions
 ##############################################################################
-if opts.axes_square:
-  if opts.x_min > opts.y_min:
-    opts.x_min = opts.y_min
-  else:
-    opts.y_min = opts.x_min
-  
-  if opts.x_max < opts.y_max:
-    opts.x_max = opts.y_max
-  else:
-    opts.y_max = opts.x_max
-
-xStep = (opts.x_max - opts.x_min)/opts.nbins
-yStep = (opts.y_max - opts.y_min)/opts.nbins
-
-# for 1-d plots, extend and then delete last entry
-x1Edges = arange(opts.x_min,opts.x_max + 0.9*xStep,xStep)
-xEdges = arange(opts.x_min,opts.x_max,xStep)
-yEdges = arange(opts.y_min,opts.y_max,yStep)
-
-##############################################################################
-# calculate ng 
-##############################################################################
-if astro_plot:
-  
-  
-  if opts.delta_error:
-    x_ng = histng(xAstro,x1Edges,xStep,lum)
-  else:
-    x_ng = histng(xAstro,x1Edges,xStep)
-  
-  x_ng=x_ng[0:-1]
-  x_ng = x_ng*max_luminosity/numSources
-  xng_cum = cumsum(x_ng)
-  
- 
-  if opts.delta_error:
-    ng = square(xAstro,xEdges,xStep,yAstro,yEdges,yStep,lum)
-  else:
-    ng = square(xAstro,xEdges,xStep,yAstro,yEdges,yStep)
-
-  ng *= max_luminosity/numSources
-
-
-##############################################################################
-# calculate efficiencies 
-##############################################################################
-
-if eff_plot:
-  # calculations for 1-d plots
-  histFound,bins, stuff = hist(xFound, x1Edges)
-  histMissed,bins,stuff = hist(xMissed,x1Edges)
-  # delete the last entries to clean up plots:
-  histFound = histFound[0:-1]
-  histMissed = histMissed[0:-1]
-  xEff = 1.*(histFound)/(histFound + histMissed + 1e-5)
-
-  # calculate the MC errors
-  xError = {}
-  xError['Monte Carlo'] = \
-      sqrt(xEff * (1. - xEff) / (histFound + histMissed + 1e-5) )
-
-  # calculate the systematics
-  xFoundError = {}
-  xMissedError = {}
-  errorVal = {}
-  if opts.h_calibration:
-    errorVal['Hanford Calibration'] = opts.h_calibration
-  if opts.l_calibration:
-    errorVal['Livingston Calibration'] = opts.l_calibration
-  if opts.waveform_systematic:
-    errorVal['Waveform'] = opts.waveform_systematic
-
-  if 'dist' in opts.x_value:
-    if len(errorVal):
-      for key in errorVal.keys():
-        if key == 'Waveform' or key[0].lower() == opts.x_value[-1]:
-          xf = distError(xFound,errorVal[key],0)
-          xm = distError(xMissed,errorVal[key],0)
-          histFound,bins, stuff = hist(xf, x1Edges)
-          histMissed,bins,stuff = hist(xm,x1Edges)
-          # delete the last entries to clean up plots:
-          histFound = histFound[0:-1]
-          histMissed = histMissed[0:-1]
-          xError[key] = 1.*(histFound)/(histFound + histMissed + 1e-5) - xEff
-  clf()
-  
-  # calculations for 2D plots: 
-
-  found = square(xFound,xEdges,xStep,yFound,yEdges,yStep)
-  missed = square(xMissed,xEdges,xStep,yMissed,yEdges,yStep)
-  
-  eff2d = found/(found + missed + 1e-5) 
-  error2d = {}
-  error2d['Monte Carlo'] = sqrt(eff2d * (1. - eff2d) / (found + missed + 1e-5))
-
- 
-
-  if len(errorVal):
-    for key in errorVal.keys():
-      if ('dist' in opts.x_value) and \
-          (key == 'Waveform' or key[0].lower() == opts.x_value[-1]):
-        xf = distError(xFound,errorVal[key],0)
-        xm = distError(xMissed,errorVal[key],0)
-      else:
-        xf = xFound
-        xm = xMissed
-        
-      if ('dist' in opts.y_value) and \
-          (key == 'Waveform' or key[0].lower() == opts.y_value[-1]):
-        yf = distError(yFound,errorVal[key],0)
-        ym = distError(yMissed,errorVal[key],0)
-      else:
-        yf = yFound
-        ym = yMissed
-
-      f = square(xf,xEdges,xStep,yf,yEdges,yStep)
-      m = square(xm,xEdges,xStep,ym,yEdges,yStep)
-      error2d[key] = f/(f + m + 1e-5) - eff2d
-
-x1Edges = x1Edges[0:-1]
-
-##############################################################################
-# make a plot of n_g vs x-value
-##############################################################################
-if opts.plot_ng:
-  figure()
-  plot( x1Edges, x_ng, linewidth = 1)
-  grid( True )
-  xlim(opts.x_min,opts.x_max)
-  xlabel( opts.x_value, size='x-large' )
-  ylabel('n_10', size='x-large' )
-  title( 'Luminosity vs ' + opts.x_value, size='x-large')
-  if opts.figure_name:
-    savefig( opts.figure_name + '_' + opts.x_value + '_ng_plot.png' )
-
-##############################################################################
-# make a histogram of n_g vs x-value
-##############################################################################
+if opts.plot_ng: 
+  figNum += 1
+  injAstro.plot_x_ng(figNum,'plot')
 if opts.hist_ng:
-  figure()
-  bar(x1Edges,x_ng,xStep)
-  grid( True )
-  xlabel( opts.x_value, size='x-large' )
-  ylabel('n_10', size='x-large' )
-  title( 'Luminosity vs ' + opts.x_value, size='x-large')
-  if opts.figure_name:
-    savefig( opts.figure_name + '_' + opts.x_value + '_ng_hist.png' )
-
-##############################################################################
-# plot cumulative N_G
-##############################################################################
+  figNum += 1
+  injAstro.plot_x_ng(figNum,'hist')
 if opts.cumulative_ng:
-  figure()
-  plot(x1Edges,xng_cum,linewidth=1,label='source file')
-  grid( True )
-  xlabel( opts.x_value, size='x-large' )
-  ylabel('N_10' , size='x-large')
-  title( 'Cumulative Luminosity vs ' + opts.x_value, size='x-large')
-  if opts.figure_name:
-    savefig( opts.figure_name + '_' + opts.x_value + '_ng_cum.png' )
-
-  if opts.verbose:
-    print 
-    print 'The total luminosity = %.2f L_10' % max(xng_cum)
-
-  ############################################################################
-  # add a curve to fit the data
-  if opts.add_curvefit:
-    if opts.verbose:
-      print 
-      print "The Fitted Curve was generated using Regression method" 
-      print "using the first 30 galaxies and fitting a Cubic polynomial"  
-    
-    x = arange(0,opts.x_max,opts.x_max/100)
-    N_Gr = 0.00611877*(x)*(x)*(x)-0.0164998*(x)*(x)+2.52*(x)
-    plot(x,N_Gr,label='Fitted Curve',linewidth=1)
-    grid( True )
-    xlim(0,opts.x_max)
-    xlabel( 'Effective Distance (Mpc)', size='x-large' )
-    ylabel( 'N_G', size='x-large')
-    legend( loc=0 )
-    if opts.figure_name:
-      savefig(opts.figure_name + "_curvefit.png" ) 
-
-##############################################################################
-# make a loglog plot of cumulative n_g vs x-value
-##############################################################################
+  figNum += 1
+  injAstro.plot_x_ng(figNum,'cum')
+if opts.add_curvefit:
+  figNum += 1
+  injAstro.plot_x_ng(figNum, 'curvefit')
 if opts.cum_log_ng:
-  figure()
-  loglog( x1Edges, xng_cum, linewidth = 1)
-  grid( True )
-  xlim(opts.x_min,opts.x_max)
-  xlabel( opts.x_value, size='x-large' )
-  ylabel( 'N_10', size='x-large' )
-  title( 'Cumulative Luminosity vs ' + opts.x_value, size='x-large')
-  if opts.figure_name: 
-    savefig( opts.figure_name + "_log_ng_cum.png" )
+  figNum += 1
+  injAstro.plot_x_ng(figNum,'cum_log')
+if opts.plot_2d_ng:
+  figNum += 1
+  injAstro.plot_2d_ng(figNum)
 
 ##############################################################################
-# make an efficiency plot
+# Make plots from astrophysical distributions -- with distance error 
+##############################################################################
+if opts.distance_error:
+  if opts.plot_ng: 
+    figNum += 1
+    injAstro.plot_x_ng(figNum,'plot',distance_error=True)
+  if opts.hist_ng:
+    figNum += 1
+    injAstro.plot_x_ng(figNum,'hist',distance_error=True)
+  if opts.cumulative_ng:
+    figNum += 1
+    injAstro.plot_x_ng(figNum,'cum',distance_error=True)
+  if opts.add_curvefit:
+    figNum += 1
+    injAstro.plot_x_ng(figNum, 'curvefit',distance_error=True)
+  if opts.cum_log_ng:
+    figNum += 1
+    injAstro.plot_x_ng(figNum,'cum_log',distance_error=True)
+  if opts.plot_2d_ng:
+    figNum += 1
+    injAstro.plot_2d_ng(figNum)
+
+##############################################################################
+# Make plots using found and missed injections
 ##############################################################################
 if opts.plot_efficiency:
-  figure()
-  plot(x1Edges,xEff,'b',linewidth=1)
-  grid(True)
-  ylim(0, 1.1) 
-  xlabel( opts.x_value, size='x-large')
-  ylabel('Efficiency', size='x-large')
-  title('Efficiency vs ' + opts.x_value, size='x-large')
-  if opts.figure_name:
-    savefig( opts.figure_name + '_' + opts.x_value + '_efficiency.png' )
-
-  text = ''
-  fname = '_'
-  ############################################################################
-  # MC errors:
-  if opts.mc_errors:
-    fit,errors = errorbar(x1Edges,xEff,xError['Monte Carlo'],fmt=None,\
-        ecolor='r',linewidth=1)
-    for line in errors:
-      matplotlib.lines.Line2D.set_linewidth(line,1)
-      matplotlib.lines.Line2D.set_markeredgewidth(line,1)
-    grid(True)
-    ylim(0, 1.1)      
-    xlabel(opts.x_value, size='x-large')
-    ylabel('n_g', size='x-large')
-    text += 'Monte Carlo '
-    title(text + 'errors in efficiency', size='x-large')
-    fname += 'mc_'
-    if opts.figure_name:
-      savefig( opts.figure_name + '_' + opts.x_value + '_' + fname + \
-          'errors.png' )
-      
-  ############################################################################
-  # Systematic errors:
-  for key in errorVal.keys():
-    if key == 'Waveform' or key[0].lower() == opts.x_value[-1]:
-      if key == 'Waveform':
-        fit,errors = errorbar(x1Edges,xEff,\
-            xerr=([x1Edges*opts.waveform_systematic,zeros(len(x1Edges))]),\
-            fmt=None,ecolor='g',linewidth=1)
-        fname += "wav_"
-      else:
-        fit,errors = errorbar(x1Edges,xEff,xerr=(x1Edges*errorVal[key]),\
-            fmt=None,ecolor='k',linewidth=1)
-        fname += "cal_"
-      for line in errors:
-        matplotlib.lines.Line2D.set_linewidth(line,1)
-        matplotlib.lines.Line2D.set_markeredgewidth(line,1)
-      grid(True)
-      ylim(0, 1.1)      
-      xlabel(opts.x_value, size='x-large')
-      ylabel('n_g', size='x-large')
-      text += key + ' '
-      title(text + 'systematics in efficiency', size='x-large')
-      if opts.figure_name:
-        savefig( opts.figure_name + '_' + opts.x_value + '_' + fname + \
-            'errors.png')
+  figNum += 1
+  injAstro.plot_x_eff(figNum, statThresh)
+for key in errorVal.keys():
+  figNum += 1
+  injAstro.plot_x_eff(figNum, statThresh, key)
+if opts.plot_effcontour:
+  figNum += 1
+  injAstro.plot_eff_contour(figNum, statThresh)
+if opts.plot_injections:
+  figNum += 1
+  injAstro.plot_inj(figNum, 0)
+  figNum += 1
+  injAstro.plot_inj(figNum, statThresh)
 
 ##############################################################################
-# plot cumulative N_G for search
+# Make plots requiring both astrophysical and injection data
 ##############################################################################
 if opts.cum_search_ng:
-  xng_cum = cumsum( x_ng * xEff)
-  figure()
-  plot(x1Edges,xng_cum,linewidth=1)
-  grid( True )
-  xlabel( opts.x_value, size='x-large' )
-  ylabel('N_10' , size='x-large')
-  title( 'Cumulative Luminosity vs ' + opts.x_value, size='x-large')
-  if opts.figure_name:
-    savefig( opts.figure_name + '_' + opts.x_value + '_ng_search_cum.png' )
+  figNum += 1
+  injAstro.plot_search_x_ng(figNum, statThresh)
+  xng_cum = injAstro.get_search_x_ng(statThresh)
+  print 
+  print '1-d calculation using ' + injAstro.x_value + ' yields'
+  print 'The total luminosity = %.2f L_10' % xng_cum
+  for key in errorVal.keys():
+    err = injAstro.get_search_x_error(key,statThresh)
+    if key == "Monte Carlo":
+      print "Monte Carlo error gives error in luminosity = %.2f L_10" % err
+    else:  
+      print key + ' error of %.1f' % float(100 * errorVal[key]) + \
+      '% gives error in luminosity = ' + '%.2f L_10' % err
 
-  if opts.verbose:
-    print 
-    print '1-d calculation using ' + opts.x_value + ' yields'
-    print 'The total Luminosity = %.2f L_10' % max(xng_cum)
-    if len(xError):
-      for key in xError.keys():
-        if key == 'Monte Carlo':
-          err = sqrt(sum(xError['Monte Carlo']**2 *x_ng))
-          print 'Monte Carlo error in luminosity = %.2f L_10' % err
-        else:
-          err = sum(xError[key]*x_ng)
-          print key + ' error of %.1f' % float(100 * errorVal[key]) + \
-              '% gives error in luminosity = ' + '%.2f L_10' % err
-
-##############################################################################
-# Plot two dimensional efficiency contour
-##############################################################################
-if opts.plot_effcontour: 
-  figure()
-  V = arange(0,41./40,1./40)
-  contourf(xEdges,yEdges,eff2d + 0.5 * V[1],V)
-  hold(True)
-  V = arange(0.1,1,0.1)
-  contour(xEdges,yEdges,eff2d,V,colors='k',linewidths=1)
-  
-  xlabel(opts.x_value, size='x-large')
-  ylabel(opts.y_value, size='x-large')
-  colorbar()
-  title('Efficiency Contour', size='x-large') 
-  if opts.figure_name:
-    savefig( opts.figure_name + '_' + opts.x_value + '_' + \
-             opts.y_value + '_efficiency.png' )
-
-  ############################################################################
-  # MC errors:
-  if opts.mc_errors:
-    figure()
-    V = arange(0,error2d['Monte Carlo'].max(),error2d['Monte Carlo'].max()/40)
-    contourf(xEdges,yEdges,error2d['Monte Carlo'],V)
-    V = arange(0,error2d['Monte Carlo'].max(),error2d['Monte Carlo'].max()/10)
-    contour(xEdges,yEdges,error2d['Monte Carlo'],V,colors='k',linewidths=1)
-    xlabel(opts.x_value, size='x-large')
-    ylabel(opts.y_value, size='x-large')
-    colorbar()
-    title('Monte Carlo errors in efficiency', size='x-large')
-    if opts.figure_name:
-      savefig( opts.figure_name + '_' + opts.x_value + '_' + \
-               opts.y_value + '_mc_errors.png' )
-
-##############################################################################
-# contour plot of found injections
-##############################################################################
-if opts.plot_injections:
-  figure()
-  V = arange(0,found.max(),found.max()/40)
-  contourf(xEdges,yEdges,found + 0.5*V[1],V)
-  V = arange(0,found.max(),found.max()/10)
-  contour(xEdges,yEdges,found,V,colors='k',linewidths=1)
-  xlabel(opts.x_value, size='x-large' )
-  ylabel(opts.y_value, size='x-large' )
-  colorbar()
-  title('Number of found injections', size='x-large' )
-  if opts.figure_name:
-    savefig( opts.figure_name + '_' + opts.x_value + '_' + \
-             opts.y_value + '_found_inj.png' )
-
-##############################################################################
-# contour plot of all injections
-##############################################################################
-if opts.plot_injections:
-  figure() 
-  V = arange(0,(found + missed).max(),(found + missed).max()/40)
-  contourf(xEdges,yEdges,found + 0.5*V[1],V)
-  hold(True)
-  V = arange(0,(found + missed).max(),(found + missed).max()/10)
-  contour(xEdges,yEdges,found,V,colors='k',linewidths=1)
-  xlabel(opts.x_value, size='x-large')
-  ylabel( opts.y_value, size='x-large')
-  colorbar()
-  title('Number of injections made', size='x-large')
-  if opts.figure_name:
-    savefig( opts.figure_name + '_' + opts.x_value + '_' + \
-             opts.y_value + '_total_inj.png' )
-
-##############################################################################
-# contour plot of n_g
-##############################################################################
-if opts.plot_2d_ng:
-  figure()
-  V = arange(0,ng.max(),ng.max()/40)
-  contourf(xEdges,yEdges,ng + 0.5 * V[1],V)
-  V = arange(0,ng.max(),ng.max()/10)
-  contour(xEdges,yEdges,ng,V,colors='k',linewidths=1)
-  xlabel(opts.x_value, size='x-large')
-  ylabel( opts.y_value, size='x-large')
-  colorbar()
-  title('n_g Contour', size='x-large')
-  if opts.figure_name:
-    savefig( opts.figure_name + '_' + opts.x_value + '_' + \
-             opts.y_value + '_n_g.png' )
-
-##############################################################################
-# Count the Number of Galaxies.
-##############################################################################
 if opts.cum_search_2d_ng:
-  N_G = sum(sum(ng*eff2d))
+  N_G = injAstro.get_search_2d_ng(statThresh)
   print
-  print '2-d calculation using ' + opts.x_value + ' and ' + \
-         opts.y_value + ' yields'
-  print "The total luminosity = %.2f L_10" % N_G                      
-  if len(error2d):
-    for key in error2d.keys():
-      if key == 'Monte Carlo':
-        err = sqrt(sum(sum(error2d['Monte Carlo']**2 *ng)))
-        print 'Monte Carlo error in luminosity = %.2f L_10' % err
+  print '2-d calculation using ' + injAstro.x_value + ' and ' + \
+         injAstro.y_value + ' yields'
+  print "The total luminosity = %.2f L_10" % N_G    
+  for key in errorVal.keys():
+    err = injAstro.get_search_2d_error(key,statThresh)
+    if key == "Monte Carlo":
+      print "Monte Carlo error gives error in luminosity = %.2f L_10" % err
+    else:
+      print key + ' error of %.1f' % float(100 * errorVal[key]) + \
+          '% gives error in luminosity =' + ' %.2f L_10' % err
+    
 
-      else:
-        err = sum(sum(error2d[key]*ng))
-        print key + ' error of %.1f' % float(100 * errorVal[key]) + \
-            '% gives error in luminosity = ' + '%.2f L_10' % err
+##############################################################################
+# Make plots requiring both astrophysical and injection data
+##############################################################################
+if opts.plot_ng_vs_stat:
+  figNum +=1
+  plot_ng_vs_stat(injAstro, slideLoudest, figNum, integrate = 'x')
+
+if opts.plot_2d_ng_vs_stat:
+  figNum +=1
+  plot_ng_vs_stat(injAstro, slideLoudest, figNum, integrate = 'xy')
 
 ##############################################################################
 if opts.show_plot:
