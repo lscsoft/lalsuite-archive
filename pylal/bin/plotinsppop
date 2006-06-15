@@ -1,0 +1,73 @@
+#!/usr/bin/python
+
+import sys
+import os
+from optparse import *
+import re
+import exceptions
+import glob
+from types import *
+
+from pylab import *
+from glue import segmentsUtils
+from pylal import readMeta
+from pylal import viz
+
+##############################################################################
+usage = """usage: %prog [options] file1 (file2 file3)
+
+Inspiral Injection Plotting Functions
+
+Generate a set of summary plots from an injection file to understand
+which regions of parameter space are sampled.
+
+Available plots:
+
+1) Chirp mass accuracy can be plotted as:
+  a) a function of the injected chirp mass, using --plot-mchirp
+  b) a histogram, using --hist-mchirp
+  c) a function of the injected effective distance, using --chirp-dist
+  d) a function of the detected SNR, using --chirp-snr
+The width of all these plots is set using --chirp-axis
+
+"""
+parser = OptionParser( usage )
+parser.add_option("-v","--version",action="store_true",default=False,\
+    help="display version information " )
+parser.add_option("-d","--dist-v-dist",action="store_true",default=False,\
+    help="make a plot of hanford versus livingston effective distance" )
+parser.add_option("-s","--show-plot",action="store_true",default=False,\
+    help="display the figures on the terminal" )
+parser.add_option("-f","--fig-name",action="store",type="string",\
+    default=None, metavar=" FNAME",\
+    help="generate png figures with name FNAME-fig.png" ) 
+parser.add_option("-F","--glob-injfile",action="store",type="string",\
+    default=None, metavar=" INJFILE",\
+    help="glob of the injection file" ) 
+parser.add_option("-x","--title-text",action="store",type="string",\
+    default=None, metavar=" TEXT",\
+    help="add TEXT at start of plot titles" ) 
+
+(opts,args) = parser.parse_args()
+
+# if --version flagged
+if opts.version:
+  sys.exit(0)
+
+# glob the list of files to read in
+injfiles = glob.glob(opts.glob_injfile);
+
+# an instance of the simInspiralTable
+binaries=readMeta.metaDataTable(injfiles, "sim_inspiral")
+
+if opts.dist_v_dist:
+  viz.plot_a_v_b(binaries,"eff_dist_l","eff_dist_h",plot_sym = 'rx')
+  axis([0, 40, 0, 40])
+  grid(True)
+  if opts.fig_name:
+    savefig(opts.fig_name + "_dist-dist.png")
+    
+
+if opts.show_plot:
+  show()
+
