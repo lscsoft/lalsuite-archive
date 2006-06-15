@@ -67,6 +67,9 @@ class _Bins(object):
 		self.n = n
 		self._set_delta(min, max, n)
 
+	def __cmp__(self, other):
+		return cmp((type(self), self.min, self.max, self.n), (type(other), other.min, other.max, other.n))
+
 	def _set_delta(self, min, max, n):
 		raise NotImplementedError
 
@@ -169,6 +172,9 @@ class Bins(object):
 	def __getitem__(self, coords):
 		return tuple([self.__bins[i][coords[i]] for i in xrange(len(self.__bins))])
 
+	def __cmp__(self, other):
+		return reduce(int.__or__, map(cmp, self.__bins, other._Bins__bins))
+
 	def centres(self):
 		"""
 		Return a tuple of arrays containing the bin centres for
@@ -216,6 +222,11 @@ class BinnedArray(object):
 	def __setitem__(self, coords, val):
 		self.array[self.bins[coords]] = val
 
+	def __iadd__(self, other):
+		if cmp(self.bins, other.bins):
+			raise TypeError, "incompatible bins: %s" % repr(other)
+		self.array += other.array
+
 	def centres(self):
 		"""
 		Return a tuple of arrays containing the bin centres for
@@ -252,6 +263,17 @@ class BinnedRatios(object):
 		self.bins = bins
 		self.numerator = numarray.zeros(bins.shape, "Float64")
 		self.denominator = numarray.zeros(bins.shape, "Float64")
+
+	def __iadd__(self, other):
+		"""
+		Add the weights from other's numerator and denominator to
+		the numerator and denominator.  Note that this is not the
+		same as adding the ratios.
+		"""
+		if cmp(self.bins, other.bins):
+			raise TypeError, "incompatible bins: %s" % repr(other)
+		self.numerator += other.numerator
+		self.denominator += other.denominator
 
 	def incnumerator(self, coords, weight = 1.0):
 		"""
