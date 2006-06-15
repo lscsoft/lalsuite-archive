@@ -150,6 +150,10 @@ class Bins(object):
 	(1, 0)
 	>>> b[1, 5]
 	(0, 1)
+	>>> b[1, 1:5]
+	(0, slice(0, 1, None))
+	>>> b[1, segment(1, 5)]
+	(0, slice(0, 2, None))
 	>>> b.centres()
 	(array([  5.,  13.,  21.]), array([  1.70997595,   5.,  14.62008869]))
 	"""
@@ -176,9 +180,25 @@ class Bins(object):
 		self.shape = tuple([b.n for b in self.__bins])
 
 	def __getitem__(self, coords):
+		"""
+		Return the indeces corresponding to the tuple of
+		co-ordinates, coords.  Note that a the co-ordinates must be
+		a tuple even if there is only 1 dimension.  Each
+		co-ordinate can be a single number, a Python slice object,
+		or a glue.segments.segment object.  The difference between
+		co-ordinate ranges given as slices and ranges given as
+		segments is that a slice is exclusive of the upper bound
+		while a segment is inclusive of the upper bound.
+		"""
 		return tuple([self.__bins[i][coords[i]] for i in xrange(len(self.__bins))])
 
 	def __cmp__(self, other):
+		"""
+		Return 0 if the Bins objects are "compatible", meaning they
+		have the same upper and lower bounds, the same number of
+		bins, and the same bin spacing (linear, logarithmic, etc.).
+		Return non-zero otherwise.
+		"""
 		return reduce(int.__or__, map(cmp, self.__bins, other._Bins__bins))
 
 	def centres(self):
@@ -196,8 +216,6 @@ class Bins(object):
 #
 # =============================================================================
 #
-
-
 
 class BinnedArray(object):
 	"""
@@ -230,7 +248,7 @@ class BinnedArray(object):
 
 	def __iadd__(self, other):
 		if cmp(self.bins, other.bins):
-			raise TypeError, "incompatible bins: %s" % repr(other)
+			raise TypeError, "incompatible binning: %s" % repr(other)
 		self.array += other.array
 
 	def centres(self):
@@ -277,7 +295,7 @@ class BinnedRatios(object):
 		same as adding the ratios.
 		"""
 		if cmp(self.bins, other.bins):
-			raise TypeError, "incompatible bins: %s" % repr(other)
+			raise TypeError, "incompatible binning: %s" % repr(other)
 		self.numerator += other.numerator
 		self.denominator += other.denominator
 
@@ -409,7 +427,9 @@ def tophat_window2d(bins_x, bins_y):
 def filter_array(a, window, cyclic = False):
 	"""
 	Filter an array using the window function.  The transformation is
-	done in place.
+	done in place.  If cyclic = True, then the data are assumed to be
+	periodic in each dimension otherwise a value of 0 is assumed
+	outside of the data's domain of definition.
 	"""
 	dims = len(a.shape)
 	if dims != len(window.shape):
