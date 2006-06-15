@@ -1176,15 +1176,15 @@ class SnglInspiralTable(LSCTableUnique):
 		return self.get_column('snr')/self.get_column('chisq')**(1./2)
 		
 	def ifocut(self,ifo):
-		ifoTrigs = metaio.new_from_template(self)
+		ifoTrigs = table.new_from_template(self)
 		for row in self.rows:
 			if row.ifo == ifo:
 				ifoTrigs.append(row)
 		return ifoTrigs
 
 	def veto(self,seglist):
-		vetoed = metaio.new_from_template(self)
-		keep = metaio.new_from_template(self)
+		vetoed = table.new_from_template(self)
+		keep = table.new_from_template(self)
 		for row in self.rows:
 			time = row.get_end()
 			if time in seglist:
@@ -1199,7 +1199,7 @@ class SnglInspiralTable(LSCTableUnique):
 		Return the triggers with a specific slide number.
 		@param slide_num: the slide number to recover (contained in the event_id)
 		"""
-		slideTrigs = metaio.new_from_template(self)
+		slideTrigs = table.new_from_template(self)
 		for row in self.rows:
 			if ( (row.event_id % 1000000000) / 100000 ) == slide_num:
 				slideTrigs.append(row)
@@ -1473,21 +1473,12 @@ class SimInspiralTable(LSCTableUnique):
 		eff_dist = self.get_column('eff_dist_' + site)
 		return eff_dist * (2.**(-1./5) * ref_mass / mchirp)**(5./6)
 
-	def get_end(self,site = None):
-		if not site:
-			return lal.LIGOTimeGPS(self.geocent_end_time, self.geocent_end_time_ns)
-		else:
-			return lal.LIGOTimeGPS(getattr(self,site + 'end_time'), getattr(self,site + 'end_time_ns'))
-
-	def veto(self,seglist,site):
-		vetoed = metaio.new_from_template(self)
-		keep = metaio.new_from_template(self)
+	def veto(self,seglist,site=None):
+		keep = table.new_from_template(self)
 		for row in self.rows:
 			time = row.get_end(site)
-			if time in seglist:
-				vetoed.append(event)
-			else:
-				keep.append(event)
+			if time not in seglist:
+				keep.append(row)
 
 		return keep
 
@@ -1502,6 +1493,12 @@ class SimInspiral(LSCTableRow):
 
 	def _has_key(self, key):
 		return self.simulation_id == key
+
+	def get_end(self,site = None):
+		if not site:
+			return lal.LIGOTimeGPS(self.geocent_end_time, self.geocent_end_time_ns)
+		else:
+			return lal.LIGOTimeGPS(getattr(self,site + 'end_time'), getattr(self,site + 'end_time_ns'))
 
 SimInspiralTable.RowType = SimInspiral
 
