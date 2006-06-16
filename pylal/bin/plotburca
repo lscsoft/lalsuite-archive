@@ -240,10 +240,11 @@ class RateContours(object):
 		for row in self.tisirows:
 			self.seglistdict.offsets.update(row)
 			self.bins.incdenominator((row[self.x_instrument], row[self.y_instrument]), float(self.seglistdict.intersection(self.seglistdict.keys()).duration()))
-		rate.filter_ratios(self.bins, rate.gaussian_window2d(8, 8))
 		self.bins.logregularize()
+		zvals = self.bins.ratio()
+		rate.filter_array(zvals, rate.gaussian_window2d(8, 8))
 		xcoords, ycoords = self.bins.centres()
-		self.axes.contour(xcoords, ycoords, numarray.transpose(numarray.log(self.bins.ratio())))
+		self.axes.contour(xcoords, ycoords, numarray.transpose(numarray.log(zvals)))
 		for row in self.tisirows:
 			self.axes.plot((row[self.x_instrument],), (row[self.y_instrument],), "k+")
 		self.axes.set_title("Coincident Trigger Rate vs. Offset\n(Logarithmic Contours)")
@@ -301,7 +302,7 @@ class ConfidenceScatter(object):
 
 		bins = rate.BinnedArray(rate.Bins(min(self.background_x), max(self.background_x), 1024, min(self.background_y), max(self.background_y), 1024, spacing = ["log", "log"]))
 		map(lambda x, y: bins.__setitem__((x, y), 1), self.background_x, self.background_y)
-		rate.filter(bins, rate.gaussian_window2d(8, 8))
+		rate.filter_array(bins.array, rate.gaussian_window2d(8, 8))
 		bins.logregularize()
 		xcoords, ycoords = bins.centres()
 		max_density = math.log(bins.array.max())
