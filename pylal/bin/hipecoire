@@ -5,6 +5,7 @@ import os
 import copy
 from os import *
 from optparse import *
+from pylal.itertools import *
 from pylal.llwapp import *
 import re
 import exceptions

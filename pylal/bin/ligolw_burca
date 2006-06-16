@@ -31,6 +31,7 @@ from optparse import OptionParser
 import sys
 
 from glue.ligolw import lsctables
+from pylal import itertools
 from pylal import llwapp
 from pylal import SnglBurstUtils
 from pylal.date import LIGOTimeGPS
@@ -229,7 +230,7 @@ class Level1Iterator(object):
 		self.shortest = lengths.index(self.len)
 		self.trigiter = iter(self.triggerlists[self.shortest].triggers)
 		del self.triggerlists[self.shortest]
-		self.maxwindow = max(map(lambda pair: document.windows[tuple(pair)], llwapp.choices(instruments, 2)))
+		self.maxwindow = max(map(lambda pair: document.windows[tuple(pair)], itertools.choices(instruments, 2)))
 
 	def __len__(self):
 		return self.len
@@ -261,7 +262,7 @@ def coincident(trigs, windows):
 	trigs to be sorted by instrument.
 	"""
 	try:
-		for [a, b] in llwapp.choices(trigs, 2):
+		for [a, b] in itertools.choices(trigs, 2):
 			if Level2Test(a, b, windows[(a.ifo, b.ifo)]):
 				return False
 	except KeyError, e:
