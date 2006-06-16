@@ -83,6 +83,8 @@ def coire(data_type,input,ifos,trigs=None):
   else:
     output += "_UNCLUST" 
   
+  if opts.stat_threshold:
+    output += "_THRESH_" + opts.stat_threshold
   if data_type == "inj":
     missed = output + "_MISSED.xml"
     output += "_FOUND"

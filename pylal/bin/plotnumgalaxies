@@ -214,13 +214,19 @@ def read_source_file( source_file ):
   f.close()
 
   sourceList = {}
-  sourceList["MW"] = {"luminosity": 1.6, "delta_d": 0.0}
+  sourceList["MW"] = {"luminosity": 0.0, "delta_d": 0.0,\
+                      "delta_m":opts.mw_mag_error}
   for line in lines:
     if line[0] != '#':
       b  = string.split(line)
       
-      if opts.distance_error:
+      if opts.distance_error and opts.magnitude_error:
+        c = {"luminosity": float(b[4]) , "delta_d": float(b[6]), \
+             "delta_m": float(b[7])}
+      elif opts.distance_error:
         c = {"luminosity": float(b[4]) , "delta_d": float(b[6])}
+      elif opts.magnitude_error:
+        c = {"luminosity": float(b[4]) , "delta_m": float(b[7])}
       else:
         c = {"luminosity": float(b[4])}   
       sourceList[b[0]] = c
@@ -371,12 +377,12 @@ class astroData:
     self.astro_inj = self.astro_inj.veto(segList.__invert__())
     self.count_sources()
 
-  def get_values(self,column,distance_error=False):
+  def get_values(self,column,error=None):
     """
     return the values in the specified column, 
-    if distance_error is specified, then correct values if they are distances
+    if error is specified, then correct values if they are distances
     """
-    if distance_error and ("dist" in column):
+    if (error == "Distance") and ("dist" in column):
       gal_name = self.astro_inj.getColumnByName('source')
       col_data = self.astro_inj.get_column(column)
       for i in range(len(gal_name)):
@@ -385,65 +391,75 @@ class astroData:
 
     else: return self.astro_inj.get_column(column)
 
-  def hist_ng(self,column,edges,distance_error=False):
+  def hist_ng(self,column,edges,error=None):
     """
     return a hist of the given column, with specified edges
     """
-    if distance_error:
+    if error:
       gal_name = self.astro_inj.getColumnByName('source')
       lum = []
       for name in gal_name:
-        lum.append( (1+self.source_list[name]['delta_d'])**2 )    
-      return (histng(self.get_values(column,distance_error),edges,lum) * \
+        if error=="Distance":
+          lum.append( (1 + self.source_list[name]['delta_d'])**2 )  
+        elif error=="Magnitude":
+          lum.append( 10**(self.source_list[name]['delta_m']/2.5) )
+      return (histng(self.get_values(column,error),edges,lum) * \
               self.astro_normalization)
     else:
       return (histng(self.get_values(column),edges) * self.astro_normalization)
 
-  def hist_2d_ng(self,col1,edges1,col2,edges2,distance_error=False):
+  def hist_2d_ng(self,col1,edges1,col2,edges2,error=None):
     """
     return a 2-d hist of columns, given edges
     """
-    if distance_error:
+    if error:
       gal_name = self.astro_inj.getColumnByName('source')
       lum = []
       for name in gal_name:
-        lum.append( (1+self.source_list[name]['delta_d'])**2 )    
-      return (square(self.get_values(col1), edges1, self.get_values(col2), \
-              edges2, lum) * self.astro_normalization)
+        if error=="Distance":
+          lum.append( (1+self.source_list[name]['delta_d'])**2 )  
+        elif error=="Magnitude":
+          lum.append( 10**(self.source_list[name]['delta_m']/2.5) )
+      return (square(self.get_values(col1,error), edges1, \
+                     self.get_values(col2,error), edges2, lum) *\
+                     self.astro_normalization)
     else:
       return (square(self.get_values(col1),edges1, \
                      self.get_values(col2),edges2) * \
                      self.astro_normalization)
 
-  def plot_ng(self, figNum, column, edges, type = 'plot',distance_error=False):
+  def plot_ng(self, figNum, column, edges, type = 'plot', error = None):
     """
     make a plot of ng vs column
     """
     figure(figNum)
     if type == 'hist':
-      bar(edges, self.hist_ng(column,edges,distance_error), (edges[1]-edges[0]))
+      bar(edges, self.hist_ng(column,edges,error), (edges[1]-edges[0]))
       ending = '_ng_hist'
       title_text = 'Luminosity vs ' + column
     elif type == 'cum_log':
-      loglog(edges, cumsum(self.hist_ng(column,edges,distance_error)),
+      loglog(edges, cumsum(self.hist_ng(column,edges,error)),
              linewidth=2)
       ending = '_ng_cum_log'
       title_text = 'Cumulative Luminosity vs ' + column
     elif (type == 'cum' or type == 'curvefit'):
-      plot(edges, cumsum(self.hist_ng(column,edges,distance_error)),linewidth=2)
+      plot(edges, cumsum(self.hist_ng(column,edges,error)),linewidth=2)
       ending = '_ng_cum'
       title_text = 'Cumulative Luminosity vs ' + column
     else:
-      plot(edges, self.hist_ng(column,edges,distance_error),linewidth=2)
+      plot(edges, self.hist_ng(column,edges,error),linewidth=2)
       ending = '_ng_plot'    
       title_text = 'Luminosity vs ' + column
     grid( True)
     xlim(min(edges),max(edges))
     xlabel(column, size='x-large')
     ylabel('N_10', size='x-large')
-    if distance_error:
+    if error == "Distance":
       title_text += ' with galaxy distance errors'
-      ending += 'dist_err'
+      ending += '_dist_err'
+    elif error == "Magnitude":
+      title_text += ' with galaxy magnitude errors'
+      ending += '_mag_err'
     if type == 'curvefit':
       print 
       print "The Fitted Curve was generated using Regression method" 
@@ -458,24 +474,34 @@ class astroData:
     if self.fig_name:
       savefig(self.fig_name + '_' + column + ending )
 
-  def plot_2d_ng(self, figNum, col1,edges1,col2,edges2):
+  def plot_2d_ng(self, figNum, col1,edges1,col2,edges2,error=None):
     """
     make a 2d plot of ng vs columns
     """
     figure(figNum)
-    ng = self.hist_2d_ng(col1,edges1,col2,edges2)
+    ng = self.hist_2d_ng(col1,edges1,col2,edges2,error)
     V = arange(0,ng.max(),ng.max()/40)
     contourf(edges1,edges2,ng + 0.5 * V[1],V)
     V = arange(0,ng.max(),ng.max()/10)
     contour(edges1,edges2,ng,V,colors='k',linewidths=2)
+    colorbar()
+    title_text = "Luminosity contour"
+    ending = "_ng"
+    if error == "Distance":
+      title_text += ' with galaxy distance errors'
+      ending += '_dist_err'
+    elif error == "Magnitude":
+      title_text += ' with galaxy magnitude errors'
+      ending += '_mag_err'
+    ending += ".png"
     xlim(min(edges1), max(edges1))
     ylim(min(edges2), max(edges2))
     xlabel(col1, size='x-large')
     ylabel(col2, size='x-large')
-    title( 'Luminosity contour', size='x-large')
+    title( title_text, size='x-large')
     if self.fig_name:
       savefig( self.fig_name  + '_' + col1 + '_' + \
-             col2 + '_n_g.png' )
+             col2 + ending )
 
 ##############################################################################
 # Class for storing the injection data
@@ -785,12 +811,11 @@ class injAstroData:
   ############################################################################
   # Make plots using astro data
   ############################################################################
-  def plot_x_ng(self, figNum, type = 'plot',distance_error=False):
+  def plot_x_ng(self, figNum, type = 'plot',error=None):
     """
     make a plot of ng vs x-value
     """
-    self.astro.plot_ng(figNum, self.x_value, self.x_edges(), type, \
-        distance_error)
+    self.astro.plot_ng(figNum, self.x_value, self.x_edges(), type, error)
 
   def plot_y_ng(self, figNum, type = 'plot'):
     """
@@ -798,12 +823,12 @@ class injAstroData:
     """
     self.astro.plot_ng(figNum, self.y_value, self.y_edges(), type)
  
-  def plot_2d_ng(self, figNum):
+  def plot_2d_ng(self, figNum,error=None):
     """
     make a 2d plot of ng vs x-value,y-value
     """
     self.astro.plot_2d_ng(figNum, self.x_value, self.x_edges(), 
-                          self.y_value, self.y_edges())
+                          self.y_value, self.y_edges(),error)
     
   ############################################################################
   # Make plots using injection results
@@ -861,12 +886,12 @@ class injAstroData:
     if self.fig_name:
       savefig( self.fig_name + '_' + opts.x_value + '_ng_search_cum.png' )
 
-  def get_search_x_ng(self, threshold):
+  def get_search_x_ng(self, threshold, astroError=None):
     """
     get the number of galaxies searched using x integral
     """
     return sum(self.inj.eff(self.x_value, self.x_edges(), threshold) * \
-               self.astro.hist_ng(self.x_value, self.x_edges()) )
+               self.astro.hist_ng(self.x_value, self.x_edges(), astroError) )
 
   def get_search_x_error(self, error, threshold):
     """
@@ -878,16 +903,15 @@ class injAstroData:
     else:
       return sum(self.inj.error(self.x_value,self.x_edges(),error,threshold) \
            * self.astro.hist_ng(self.x_value, self.x_edges()) )
-
      
-  def get_search_2d_ng(self, threshold):
+  def get_search_2d_ng(self, threshold, astroError=None):
     """
     get the number of galaxies searched using 2d integral
     """
     return sum(sum(self.inj.eff_2d(self.x_value, self.x_edges(), self.y_value, \
                    self.y_edges(), threshold) * \
                    self.astro.hist_2d_ng(self.x_value, self.x_edges(), \
-                   self.y_value, self.y_edges()) ))
+                   self.y_value, self.y_edges(), astroError) ))
 
   def get_search_2d_error(self, error, threshold):
     """
@@ -1051,8 +1075,8 @@ plotnumgalaxies [options]
 parser = OptionParser( usage )
 
 # used letters: 
-#abcefghilmnopqrstuvwxyz
-#BCDEFGHIJKLMNOQRSTUVWXY
+#abcefghijlmnopqrstuvwxyz
+#BCDEFGHIJKLMNOQRSTUVWXYZ
 # basics
 parser.add_option("-V","--verbose",action="store_true",default=False,\
     help="print additional information when running" )
@@ -1113,12 +1137,19 @@ parser.add_option("-D","--l-calibration",action="store",type="float",
 parser.add_option("-w","--waveform-systematic",action="store",type="float",
     default=None, metavar=" WAV",
     help="systematic errors in waveform, rescale distances by D->(1+WAV)*D")
-
-parser.add_option("-R","--distance-error",action="store_true",default=False,\
-    help="incorporates the change in distance due to error in distance" )
-
+    
 parser.add_option("-M","--mc-errors",action="store_true",default=False,\
     help="monte carlo errors, calculated from injections performed" )
+
+parser.add_option("-R","--distance-error",action="store_true",default=False,\
+    help="errors in galaxy distance/luminosity due to uncertainty in distance" )
+
+parser.add_option("-Z","--magnitude-error",action="store_true",default=False,\
+    help="errors in galaxy luminosity due to uncertainty in apparent magnitude")
+
+parser.add_option("-j","--mw-mag-error",action="store",type="float",default=0,\
+    metavar=" MW_MAGERR", \
+    help="errors in milky way apparent magnitude (default = 0)")
 
 # plotting details
 parser.add_option("-f","--figure-name",action="store",type="string",\
@@ -1287,10 +1318,14 @@ if opts.mc_errors:
   errorVal['Monte Carlo'] = None
 
 figNum = 0
-statThresh = 1e-6
 ##############################################################################
 # read in the time slides and zero lag
 ##############################################################################
+
+# set the default threshold on statistic 
+# (above 0 so missed injections are not included)
+statThresh = 1e-6
+
 if opts.slide_glob:
   if opts.verbose:
     print "Reading time slides"
@@ -1309,7 +1344,6 @@ if opts.slide_glob:
     figNum += 1
     slideLoudest.plot_pdf(figNum, opts.figure_name)
 
-  
 
 ##############################################################################
 # read in the data
@@ -1354,47 +1388,29 @@ if opts.axes_square: injAstro.axes_square()
 ##############################################################################
 # Make plots from astrophysical distributions
 ##############################################################################
-if opts.plot_ng: 
-  figNum += 1
-  injAstro.plot_x_ng(figNum,'plot')
-if opts.hist_ng:
-  figNum += 1
-  injAstro.plot_x_ng(figNum,'hist')
-if opts.cumulative_ng:
-  figNum += 1
-  injAstro.plot_x_ng(figNum,'cum')
-if opts.add_curvefit:
-  figNum += 1
-  injAstro.plot_x_ng(figNum, 'curvefit')
-if opts.cum_log_ng:
-  figNum += 1
-  injAstro.plot_x_ng(figNum,'cum_log')
-if opts.plot_2d_ng:
-  figNum += 1
-  injAstro.plot_2d_ng(figNum)
+astroErrors = [None]
+if opts.distance_error: astroErrors.append('Distance')
+if opts.magnitude_error: astroErrors.append('Magnitude')
 
-##############################################################################
-# Make plots from astrophysical distributions -- with distance error 
-##############################################################################
-if opts.distance_error:
+for astroError in astroErrors:
   if opts.plot_ng: 
     figNum += 1
-    injAstro.plot_x_ng(figNum,'plot',distance_error=True)
+    injAstro.plot_x_ng(figNum,'plot',error = astroError)
   if opts.hist_ng:
     figNum += 1
-    injAstro.plot_x_ng(figNum,'hist',distance_error=True)
+    injAstro.plot_x_ng(figNum,'hist',error = astroError)
   if opts.cumulative_ng:
     figNum += 1
-    injAstro.plot_x_ng(figNum,'cum',distance_error=True)
+    injAstro.plot_x_ng(figNum,'cum',error = astroError)
   if opts.add_curvefit:
     figNum += 1
-    injAstro.plot_x_ng(figNum, 'curvefit',distance_error=True)
+    injAstro.plot_x_ng(figNum,'curvefit',error = astroError)
   if opts.cum_log_ng:
     figNum += 1
-    injAstro.plot_x_ng(figNum,'cum_log',distance_error=True)
+    injAstro.plot_x_ng(figNum,'cum_log',error = astroError)
   if opts.plot_2d_ng:
     figNum += 1
-    injAstro.plot_2d_ng(figNum)
+    injAstro.plot_2d_ng(figNum,error = astroError)
 
 ##############################################################################
 # Make plots using found and missed injections
@@ -1435,6 +1451,12 @@ if opts.cum_search_ng:
     else:  
       print key + ' error of %.1f' % float(100 * errorVal[key]) + \
       '% gives error in luminosity = ' + '%.2f L_10' % err
+  for astroError in astroErrors:
+    if astroError:
+      error = injAstro.get_search_2d_ng(statThresh, astroError) - xng_cum
+      print astroError + \
+          " error for galaxies gives an error in luminosity = %.2f L_10" % \
+          error
 
 if opts.cum_search_2d_ng:
   N_G = injAstro.get_search_2d_ng(statThresh)
@@ -1449,7 +1471,13 @@ if opts.cum_search_2d_ng:
     else:
       print key + ' error of %.1f' % float(100 * errorVal[key]) + \
           '% gives error in luminosity =' + ' %.2f L_10' % err
-    
+  for astroError in astroErrors:
+    if astroError:
+      error = injAstro.get_search_2d_ng(statThresh, astroError) - N_G
+      print astroError + \
+          " error for galaxies gives an error in luminosity = %.2f L_10" % \
+          error
+          
 
 ##############################################################################
 # Make plots requiring both astrophysical and injection data
