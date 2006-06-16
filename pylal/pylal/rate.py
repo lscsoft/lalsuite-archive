@@ -43,6 +43,7 @@ import numarray
 from numarray import convolve
 
 from glue import segments
+from pylal import itertools
 
 
 #
@@ -154,7 +155,7 @@ class Bins(object):
 	(0, slice(0, 1, None))
 	>>> b[1, segment(1, 5)]
 	(0, slice(0, 2, None))
-	>>> b.centres()
+	>>> b.centres
 	(array([  5.,  13.,  21.]), array([  1.70997595,   5.,  14.62008869]))
 	"""
 	def __init__(self, *args, **kwargs):
@@ -163,21 +164,24 @@ class Bins(object):
 		spacing = kwargs.get("spacing", ["lin"] * (len(args) / 3))
 		if len(spacing) != len(args) / 3:
 			raise ValueError, spacing
-		self.__bins = []
+		self.bins = []
 		try:
 			it = iter(args)
 			spacing = iter(spacing)
 			while True:
 				s = spacing.next()
 				if s == "lin":
-					self.__bins.append(_LinBins(it.next(), it.next(), it.next()))
+					self.bins.append(_LinBins(it.next(), it.next(), it.next()))
 				elif s == "log":
-					self.__bins.append(_LogBins(it.next(), it.next(), it.next()))
+					self.bins.append(_LogBins(it.next(), it.next(), it.next()))
 				else:
 					raise ValueError, s
 		except StopIteration:
 			pass
-		self.shape = tuple([b.n for b in self.__bins])
+		self.min = tuple([b.min for b in self.bins])
+		self.max = tuple([b.max for b in self.bins])
+		self.shape = tuple([b.n for b in self.bins])
+		self.centres = tuple([self.bins[i].centres() for i in xrange(len(self.bins))])
 
 	def __getitem__(self, coords):
 		"""
@@ -190,7 +194,7 @@ class Bins(object):
 		segments is that a slice is exclusive of the upper bound
 		while a segment is inclusive of the upper bound.
 		"""
-		return tuple([self.__bins[i][coords[i]] for i in xrange(len(self.__bins))])
+		return tuple([self.bins[i][coords[i]] for i in xrange(len(self.bins))])
 
 	def __cmp__(self, other):
 		"""
@@ -199,14 +203,7 @@ class Bins(object):
 		bins, and the same bin spacing (linear, logarithmic, etc.).
 		Return non-zero otherwise.
 		"""
-		return reduce(int.__or__, map(cmp, self.__bins, other._Bins__bins))
-
-	def centres(self):
-		"""
-		Return a tuple of arrays containing the bin centres for
-		each dimension.
-		"""
-		return tuple([self.__bins[i].centres() for i in xrange(len(self.__bins))])
+		return reduce(int.__or__, map(cmp, self.bins, other.bins))
 
 
 #
@@ -247,16 +244,29 @@ class BinnedArray(object):
 		self.array[self.bins[coords]] = val
 
 	def __iadd__(self, other):
-		if cmp(self.bins, other.bins):
+		"""
+		Add the contents of another BinnedArray object to this one.
+		It is not necessary for the binnings to be identical, but
+		an integer number of the bins in other must fit into each
+		bin in self.
+		"""
+		# identical binning? (fast path)
+		if not cmp(self.bins, other.bins):
+			self.array += other.array
+			return self
+		# can other's bins be put into ours?
+		if self.bins.min != other.bins.min or self.bins.max != other.bins.max or False in map(lambda a, b: (b % a) == 0, self.bins.shape, other.bins.shape):
 			raise TypeError, "incompatible binning: %s" % repr(other)
-		self.array += other.array
+		for coords in itertools.MultiIter(other.bins.centres):
+			self[coords] += other[coords]
+		return self
 
 	def centres(self):
 		"""
 		Return a tuple of arrays containing the bin centres for
 		each dimension.
 		"""
-		return self.bins.centres()
+		return self.bins.centres
 
 	def logregularize(self, epsilon = 2**-1074):
 		"""
@@ -290,14 +300,25 @@ class BinnedRatios(object):
 
 	def __iadd__(self, other):
 		"""
-		Add the weights from other's numerator and denominator to
-		the numerator and denominator.  Note that this is not the
-		same as adding the ratios.
+		Add the weights from another BinnedRatios object's
+		numerator and denominator to the numerator and denominator
+		of this one.  Note that this is not the same as adding the
+		ratios.  It is not necessary for the binnings to be
+		identical, but an integer number of the bins in other must
+		fit into each bin in self.
 		"""
-		if cmp(self.bins, other.bins):
+		# identical binning? (fast path)
+		if not cmp(self.bins, other.bins):
+			self.numerator += other.numerator
+			self.denominator += other.denominator
+			return self
+		# can other's bins be put into ours?
+		if self.bins.min != other.bins.min or self.bins.max != other.bins.max or False in map(lambda a, b: (b % a) == 0, self.bins.shape, other.bins.shape):
 			raise TypeError, "incompatible binning: %s" % repr(other)
-		self.numerator += other.numerator
-		self.denominator += other.denominator
+		for coords in itertools.MultiIter(other.bins.centres):
+			self.numerator[coords] += other.numerator[coords]
+			self.denominator[coords] += other.denominator[coords]
+		return self
 
 	def incnumerator(self, coords, weight = 1.0):
 		"""
@@ -344,7 +365,7 @@ class BinnedRatios(object):
 		Return a tuple of arrays containing the bin centres for
 		each dimension.
 		"""
-		return self.bins.centres()
+		return self.bins.centres
 
 	def used(self):
 		"""
