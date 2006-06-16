@@ -41,7 +41,7 @@ def makeplot(desc, table):
 			pass
 	bins.filter()
 
-	axes.plot(bins.xvals(), bins.yvals() / duration, "k")
+	axes.plot(bins.xvals(), bins.filtered() / duration, "k")
 
 	axes.set_xlim(list(desc.band))
 	axes.set_xticks(numarray.arange(desc.band[0], desc.band[1], 100))

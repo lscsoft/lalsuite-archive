@@ -239,7 +239,7 @@ class RateVsCentralFreq(SnglBurstUtils.BurstPlot):
 	def finish(self):
 		self.axes.set_title("Trigger Rate vs. Central Frequency\n(%d Triggers)" % self.nevents)
 		xvals = self.rate.xvals()
-		self.axes.plot(xvals, self.rate.yvals(), "k")
+		self.axes.plot(xvals, self.rate.filtered(), "k")
 		self.axes.set_xlim([min(xvals), max(xvals)])
 
 
@@ -312,7 +312,7 @@ class Delays(SnglBurstUtils.BurstPlot):
 		bins = rate.Rate(segments.segment(0, max_delay + 2), self.width)
 		for key, value in self.data.iteritems():
 			bins[key] = value
-		yvals = bins.yvals()
+		yvals = bins.filtered()
 		self.axes.plot(bins.xvals(), yvals, "k")
 
 		self.axes.set_xlim([0, self.max])

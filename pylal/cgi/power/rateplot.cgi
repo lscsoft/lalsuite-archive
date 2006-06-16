@@ -38,7 +38,7 @@ def makeplot(desc, table):
 			# trigger lies outside the bounds of the plot
 			pass
 
-	axes.plot(bins.xvals(), bins.yvals(), "k")
+	axes.plot(bins.xvals(), bins.filtered(), "k")
 
 	axes.set_xlim(list(desc.segment))
 	axes.grid(True)
