@@ -469,10 +469,12 @@ class Rate(BinnedArray):
 		"""
 		Initialize the bins for the given segment and filter width.
 		"""
-		self.binsize = filterwidth / 20
 		self.filterwidth = filterwidth
 		self.windowfunc = windowfunc
-		BinnedArray.__init__(self, Bins(segment[0], segment[1], int(segment.duration() / self.binsize + 1)))
+		# nominal bin size is 1/20th of the filterwidth
+		BinnedArray.__init__(self, Bins(segment[0], segment[1], int(segment.duration() / (filterwidth / 20.0)) + 1))
+		# determine actual bin size from bin count
+		self.binsize = float(segment.duration()) / self.bins.shape[0]
 
 	def __setitem__(self, x, weight):
 		"""
@@ -497,7 +499,7 @@ class Rate(BinnedArray):
 	def xvals(self):
 		return self.centres()[0]
 
-	def yvals(self, cyclic = False):
+	def filtered(self, cyclic = False):
 		"""
 		Convolve the binned weights with the window to generate the
 		rate data.
@@ -514,10 +516,12 @@ class RatiosRate(BinnedRatios):
 		"""
 		Initialize the bins for the given segment and filter width.
 		"""
-		self.binsize = filterwidth / 20
 		self.filterwidth = filterwidth
 		self.windowfunc = windowfunc
-		BinnedRatios.__init__(self, Bins(segment[0], segment[1], int(segment.duration() / self.binsize + 1)))
+		# nominal bin size is 1/20th of the filterwidth
+		BinnedRatios.__init__(self, Bins(segment[0], segment[1], int(segment.duration() / (filterwidth / 20.0)) + 1))
+		# determine actual bin size from bin count
+		self.binsize = float(segment.duration()) / self.bins.shape[0]
 
 	def set_filterwidth(self, filterwidth):
 		"""
@@ -533,16 +537,10 @@ class RatiosRate(BinnedRatios):
 		"""
 		return self.windowfunc(self.filterwidth / self.binsize) / self.binsize
 
-	def ratio(self):
-		"""
-		Compute and return the array of ratios.
-		"""
-		return self.numerator / self.denominator
-
 	def xvals(self):
 		return self.centres()[0]
 
-	def yvals(self, cyclic = False):
+	def filtered(self, cyclic = False):
 		"""
 		Convolve the ratio data with the window function to
 		generate the ratio rate data.
