@@ -285,19 +285,24 @@ class TableStream(ligolw.Stream):
 			self.__colnames = tuple(self.parentNode.columnnames)
 			self.tokenizer.set_types(self.parentNode.columntypes)
 			self.__numcols = len(self.__colnames)
+			self.__loadcolumns = self.parentNode.loadcolumns
 			self.__row = self.parentNode.RowType()
 
 		# tokenize buffer, and construct row objects
 		for token in self.tokenizer.add(content):
-			try:
-				setattr(self.__row, self.__colnames[self.__colindex], token)
-			except AttributeError, e:
-				# row object does not have an attribute
-				# matching this column.  by allowing this,
-				# code can be written that saves memory by
-				# setting RowType to an object with slots
-				# for only the desired columns.
-				pass
+			colname = self.__colnames[self.__colindex]
+			if self.__loadcolumns == None or colname in self.__loadcolumns:
+				try:
+					setattr(self.__row, colname, token)
+				except AttributeError, e:
+					# row object does not have an
+					# attribute matching this column.
+					# by allowing this, code can be
+					# written that saves memory by
+					# setting RowType to an object with
+					# slots for only the desired
+					# columns.
+					pass
 			self.__colindex += 1
 			if self.__colindex >= self.__numcols:
 				self.parentNode.append(self.__row)
@@ -311,6 +316,7 @@ class TableStream(ligolw.Stream):
 		"""
 		self.__colnames = None
 		self.__numcols = None
+		self.__loadcolumns = None
 		self.__row = None
 		self.__colindex = 0
 		ligolw.Stream.unlink(self)
@@ -364,6 +370,7 @@ class Table(ligolw.Table):
 	High-level Table element that knows about its columns and rows.
 	"""
 	validcolumns = None
+	loadcolumns = None
 	RowType = TableRow
 
 	def __init__(self, *attrs):
@@ -449,7 +456,7 @@ class Table(ligolw.Table):
 		try:
 			return getColumnsByName(self, name)[0]
 		except IndexError:
-			raise KeyError, "no Column matching name \"%s\"" % name
+			raise KeyError, name
 
 
 	def appendColumn(self, name):
