@@ -79,12 +79,6 @@ except ValueError, e:
 # =============================================================================
 #
 
-class SnglBurst(object):
-	__slots__ = ["ifo", "confidence", "peak_time", "peak_time_ns", "event_id"]
-
-	def get_peak(self):
-		return LIGOTimeGPS(self.peak_time, self.peak_time_ns)
-
 def snglburst_init(self, attrs):
 	lsctables.LSCTableUnique.__init__(self, attrs)
 	self.rows = {}
@@ -116,7 +110,7 @@ def coinc_map_append(self, row):
 	else:
 		raise ValueError, "unrecognized coincident event ID: %s" % str(row.event_id)
 
-lsctables.SnglBurstTable.RowType = SnglBurst
+lsctables.SnglBurstTable.loadcolumns = ["ifo", "confidence", "peak_time", "peak_time_ns", "event_id"]
 lsctables.SnglBurstTable.__init__ = snglburst_init
 lsctables.SnglBurstTable.append = snglburst_append
 lsctables.SimBurstTable.__init__ = simburst_init

@@ -82,9 +82,6 @@ except ValueError, e:
 # =============================================================================
 #
 
-class SnglBurst(object):
-	__slots__ = ["ifo", "start_time", "start_time_ns", "duration", "central_freq", "bandwidth", "snr", "confidence", "peak_time", "peak_time_ns"]
-
 def snglburst_init(self, attrs):
 	lsctables.LSCTableUnique.__init__(self, attrs)
 	self.nevents = {}
@@ -119,7 +116,7 @@ def snglburst_append(self, row):
 	# FIXME: sign
 	self.confidence[row.ifo].append(-row.confidence)
 
-lsctables.SnglBurstTable.RowType = SnglBurst
+lsctables.SnglBurstTable.loadcolumns = ["ifo", "start_time", "start_time_ns", "duration", "central_freq", "bandwidth", "snr", "confidence", "peak_time", "peak_time_ns"]
 lsctables.SnglBurstTable.__init__ = snglburst_init
 lsctables.SnglBurstTable.append = snglburst_append
 
