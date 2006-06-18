@@ -73,12 +73,6 @@ def parse_command_line():
 # =============================================================================
 #
 
-class SnglBurst(object):
-	__slots__ = ["ifo", "central_freq", "confidence", "peak_time", "peak_time_ns", "event_id"]
-
-	def get_peak(self):
-		return LIGOTimeGPS(self.peak_time, self.peak_time_ns)
-
 def snglburst_init(self, attrs):
 	lsctables.LSCTableUnique.__init__(self, attrs)
 	self.rows = {}
@@ -116,7 +110,7 @@ def timeslide_append(self, row):
 	else:
 		self.rows[id] = {row.instrument: row.offset}
 
-lsctables.SnglBurstTable.RowType = SnglBurst
+lsctables.SnglBurstTable.loadcolumns = ["ifo", "central_freq", "confidence", "peak_time", "peak_time_ns", "event_id"]
 lsctables.SnglBurstTable.__init__ = snglburst_init
 lsctables.SnglBurstTable.append = snglburst_append
 lsctables.CoincTable.__init__ = coinc_init
