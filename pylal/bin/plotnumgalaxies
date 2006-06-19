@@ -918,7 +918,7 @@ class injAstroData:
     ylabel('N_10' , size='x-large')
     title( 'Cumulative Search Luminosity vs ' + self.x_value, size='x-large')
     if self.fig_name:
-      savefig( self.fig_name + '_' + opts.x_value + '_ng_search_cum.png' )
+      savefig( self.fig_name + '_' + self.x_value + '_ng_search_cum.png' )
 
   def get_search_x_ng(self, threshold, astroError=None):
     """
@@ -966,7 +966,7 @@ class injAstroData:
 ##############################################################################
 # Make the plot of N_G and N_G'
 ##############################################################################
-def plot_ng_vs_stat(injAstro, slideZero, figNum, integrate):
+def plot_ng_vs_stat(injAstro, slideZero, figNum, integrate, figName = None):
   """
   plot the luminosity vs statistic, using stat values taken from 
   slides/zero lag.
@@ -976,6 +976,7 @@ def plot_ng_vs_stat(injAstro, slideZero, figNum, integrate):
                     time slides and (possibly) zero lag information.
   @param figNum:    the figure number
   @param integrate: which integral to do, either 'x', 'y' or 'xy'.
+  @param figName:   the figure name
   """
   ng_array = []
   for statValue in slideZero.snr_array:
@@ -995,11 +996,17 @@ def plot_ng_vs_stat(injAstro, slideZero, figNum, integrate):
     axvline(slideZero.zero_loudest,linewidth=2,color='r',label="zero lag")
     if integrate == 'x':
       ng_zero = injAstro.get_search_x_ng(slideZero.zero_loudest)
+      figName += "_ng_vs_stat_using_" + opts.x_value + "_integral.png"
     elif integrate == 'y':
       ng_zero = injAstro.get_search_y_ng(slideZero.zero_loudest)
+      figName += "_ng_vs_stat_using_" + opts.y_value + "_integral.png"
     elif integrate == 'xy':
       ng_zero = injAstro.get_search_2d_ng(slideZero.zero_loudest)
-    
+      figName += "_ng_vs_stat_using_" + opts.x_value + "_" + opts.y_value + \
+          "_integral.png"
+  if figName:
+      savefig( figName )
+
 ##############################################################################
 # Add systematic errors to distances
 ##############################################################################
@@ -1313,7 +1320,8 @@ if (opts.plot_cum_loudest or opts.plot_pdf_loudest or opts.plot_ng_vs_stat \
   
 # if making plots of astrophysical distribution:
 if (opts.plot_ng or opts.cum_log_ng or opts.hist_ng or opts.cumulative_ng or \
-    opts.cum_search_ng or opts.plot_2d_ng or opts.cum_search_2d_ng):
+    opts.cum_search_ng or opts.plot_2d_ng or opts.cum_search_2d_ng or \
+    opts.plot_ng_vs_stat or opts.plot_2d_ng_vs_stat):
   astroPlots = True
   # check at least one injection file was specified
   if not opts.injection_glob:
@@ -1330,7 +1338,8 @@ if (opts.plot_ng or opts.cum_log_ng or opts.hist_ng or opts.cumulative_ng or \
 
 # if making plots of efficiencies:
 if (opts.plot_efficiency or opts.cum_search_ng or opts.plot_effcontour or \
-    opts.plot_injections or opts.cum_search_2d_ng):
+    opts.plot_injections or opts.cum_search_2d_ng or \
+    opts.plot_ng_vs_stat or opts.plot_2d_ng_vs_stat):
   injPlots = True
   # check at least one found file was specified
   if not opts.found_glob:
@@ -1520,11 +1529,13 @@ if opts.cum_search_2d_ng:
 ##############################################################################
 if opts.plot_ng_vs_stat:
   figNum +=1
-  plot_ng_vs_stat(injAstro, slideLoudest, figNum, integrate = 'x')
+  plot_ng_vs_stat(injAstro, slideLoudest, figNum, integrate = 'x', \
+      figName = opts.figure_name)
 
 if opts.plot_2d_ng_vs_stat:
   figNum +=1
-  plot_ng_vs_stat(injAstro, slideLoudest, figNum, integrate = 'xy')
+  plot_ng_vs_stat(injAstro, slideLoudest, figNum, integrate = 'xy', \
+      figName = opts.figure_name )
 
 ##############################################################################
 if opts.show_plot:
