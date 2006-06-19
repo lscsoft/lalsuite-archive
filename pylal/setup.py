@@ -41,6 +41,11 @@ setup(
 			include_dirs = lal_pkg_config.incdirs,
 			libraries = lal_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs),
+		Extension("pylal.xlal.inject", ["src/xlal/inject.c"],
+			include_dirs = lal_pkg_config.incdirs,
+			libraries = lal_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs,
 			runtime_library_dirs = lal_pkg_config.libdirs)
 	],
 	scripts = [
@@ -49,6 +54,7 @@ setup(
 		os.path.join("bin", "plotburst"),
 		os.path.join("bin", "plotburstrate"),
 		os.path.join("bin", "plotchannel"),
+		os.path.join("bin", "plotdetresponse"),
 		os.path.join("bin", "plotsiminspiral"),
 		os.path.join("bin", "plotnumgalaxies"),
 		os.path.join("bin", "plotinspiral"),
