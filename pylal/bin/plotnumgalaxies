@@ -255,8 +255,6 @@ def add_actual_error( sourceList, distErrorType, magErrorType ):
     elif magErrorType == "random":
       galaxy["actual_delta_m"] = random.gauss(0,galaxy["delta_m"])
 
-  print sourceList["M31"]["actual_delta_d"]
-  print sourceList["M31"]["actual_delta_m"]
   return sourceList
     
 ##############################################################################
@@ -1522,6 +1520,15 @@ if opts.cum_search_2d_ng:
       print astroErrors[key].capitalize() + " " + key + \
           " error for galaxies gives an error in luminosity = %.2f L_10" % \
           error
+  fh = open( "png-output.ini", "w" )
+  fh.write( "[apriori]\n" )
+  fh.write( "ng=%f\n" % N_G )
+  fh.write( "ngprime=1.0\n")
+  fh.write( "pb=0.0\n" )
+  fh.write( "pbprime=20.0\n" )
+  fh.write( "dn_calibration=0.2\n" )
+  fh.close()
+
           
 
 ##############################################################################
