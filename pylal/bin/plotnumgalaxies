@@ -336,7 +336,9 @@ class slideZeroData:
     for i in range(len(snrArray) - 1):
       num.append(sum((self.slide_loudest > snrArray[i]) * \
                      (self.slide_loudest < snrArray[i+1])))
-    num = asarray(num,'f')
+    # normalize pdf to unity                 
+    num = asarray(num,'f') / ( len(self.slide_loudest) * \
+        (snrArray[1] - snrArray[0]) )
     # gaussian average over 5 points
     width = 5.0
     gauss = exp(- arange(- 1.0* (self.num_slides - 1) /width, 
