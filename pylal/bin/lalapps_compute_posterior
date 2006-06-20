@@ -29,6 +29,9 @@ def read_parameters(file,time):
   param["pbprime"] = float(cp.get("apriori","pbprime"))
   param["dn_calibration"] = float(cp.get("apriori","dn_calibration"))
   param["dn_luminosity"] = float(cp.get("apriori","dn_luminosity"))
+  param["dn_distance"] = float(cp.get("apriori","dn_distance"))
+  param["dn_waveform"] = float(cp.get("apriori","dn_waveform"))
+  param["dn_mc"] = float(cp.get("apriori","dn_mc"))
   param["tobs"] = float(time)
 
   return param
@@ -65,8 +68,14 @@ parser.add_option("-V","--verbose",action="store_true",default=False,\
     help="display verbose output" )
 parser.add_option("-c","--calibration-error",action="store_true",default=False,\
     help="marginalize over the calibration error" )
-parser.add_option("-l","--luminosity-error",action="store_true",default=False,\
-    help="marginalize over the luminosity error" )
+parser.add_option("-g","--magnitude-error",action="store_true",default=False,\
+    help="marginalize over the magnitude error" )
+parser.add_option("-o","--montecarlo-error",action="store_true",default=False,\
+    help="marginalize over the monte carlo error" )
+parser.add_option("-w","--waveform-error",action="store_true",default=False,\
+    help="marginalize over the waveform error" )
+parser.add_option("-i","--distance-error",action="store_true",default=False,\
+    help="marginalize over the distance error" )
 parser.add_option("-f","--galaxies-file",action="append",type="string",\
     default=None, metavar=" FNAME",\
     help="File containing the output from plotnumgalaxies" ) 
@@ -78,6 +87,12 @@ parser.add_option("-m","--max-rate",action="store",type="float",\
 parser.add_option("-d","--dr",action="store",type="float",\
     default=0.01, metavar=" MAXRATE", \
     help="dr to use in rate integral" ) 
+# plotting details
+parser.add_option("-F","--figure-name",action="store",type="string",\
+    default=None,metavar=" FNAME",\
+    help="generate ps figures with name FNAME_PlotType.ps")
+parser.add_option("-x","--xmax",action="store",type="float",\
+    default=200.0, metavar=" XMAX", help="maximum value on x-axis" ) 
 
 (opts,args) = parser.parse_args()
 
@@ -109,6 +124,9 @@ pbprime = []
 dn_calibration = []
 dn_lummu = []
 dn_lumsigma = []
+dn_distance = []
+dn_mc = []
+dn_waveform = []
 
 nepochs = len(opts.galaxies_file)
 for i in range(nepochs):
@@ -118,6 +136,9 @@ for i in range(nepochs):
   pb.append(parameters[i]["pb"])
   pbprime.append(parameters[i]["pbprime"])
   dn_calibration.append(parameters[i]["dn_calibration"])
+  dn_distance.append(parameters[i]["dn_distance"])
+  dn_waveform.append(parameters[i]["dn_waveform"])
+  dn_mc.append(parameters[i]["dn_mc"])
   dn_lummu.append(log(parameters[i]["ng"]))
   dn_lumsigma.append(log(parameters[i]["ng"]+parameters[i]["dn_luminosity"])\
       -log(parameters[i]["ng"]))
@@ -137,7 +158,7 @@ for i in range(nepochs):
   ngt += ng[i] * tobs[i]
   ngprimet += ngprime[i] * tobs[i]
   if opts.verbose:
-    print "mu = %f and sigma = %f\n" % (dn_lummu[i],dn_lumsigma[i])
+    print "mu = %f and sigma = %f" % (dn_lummu[i],dn_lumsigma[i])
 exprate = exp( - rate * ngt )
 nomarginpost = rateprior * exprate \
       * ( pbprime[0] + pb[0] * rate * ngprimet )
@@ -146,8 +167,8 @@ exprate *= 0.0
 for j in arange(1000):
   ngt = 0
   for i in range(nepochs):
-    # luminosity error is lognormal
-    if opts.luminosity_error:
+    # magnitude error is lognormal
+    if opts.magnitude_error:
       ngt += random.lognormvariate(dn_lummu[i],dn_lumsigma[i]) * tobs[i]
     else:
       ngt += ng[i] * tobs[i]
@@ -160,6 +181,29 @@ for j in arange(1000):
             * tobs[i]
       ngt = tmpngt
 
+    # monte carlo error is normal
+    if opts.montecarlo_error:
+      tmpngt = -1.0
+      while tmpngt < 0.0:
+        tmpngt = ngt + random.normalvariate(0.0,dn_mc[i]) \
+            * tobs[i]
+      ngt = tmpngt
+
+    # waveform error is normal
+    if opts.waveform_error:
+      tmpngt = ngt + 1.0
+      while (tmpngt > ngt) or (tmpngt < 0.0):
+        tmpngt = ngt + random.normalvariate(0.0,dn_waveform[i]) \
+            * tobs[i]
+      ngt = tmpngt
+
+    # distance error is normal
+    if opts.distance_error:
+      tmpngt = -1.0
+      while tmpngt < 0.0:
+        tmpngt = ngt + random.normalvariate(0.0,dn_distance[i]) \
+            * tobs[i]
+      ngt = tmpngt
   exprate += exp( - rate * ( ngt ) )
 exprate /= 1000.0
 
@@ -169,28 +213,51 @@ marginpost = rateprior * exprate \
 nomarginnorm=sum(nomarginpost)
 marginnorm=sum(marginpost)
 
+if opts.verbose:
+  print "unmarginalized value at R=0 is %f" %  (nomarginpost[0]/nomarginnorm)
+  print "marginalized value at R=0 is %f" % (marginpost[0]/marginnorm)
+
+# plot the posterior pdf
 plot(rate,nomarginpost/nomarginnorm,rate,marginpost/marginnorm)
 legend(('posterior','marginalized posterior'))
+xlabel('Rate per L10 per yr', size='x-large')
+ylabel('Probability', size='x-large')
+title('Posterior on the rate')
+grid()
+tmpv = axis()
+tmpv[1]=opts.xmax
+axis(tmpv)
+if opts.figure_name:
+  savefig( opts.figure_name + "-posterior-pdf.png")
 
 figure()
 cumnomarginpost=cumsum(nomarginpost)/nomarginnorm
 cummarginpost=cumsum(marginpost)/marginnorm
+if opts.verbose:
+  print "unmarginalized value at R=0 is %f" %  (cumnomarginpost[1])
+  print "marginalized value at R=0 is %f" % (cummarginpost[1])
 semilogy(rate,1.0-cumnomarginpost,
     rate,1.0-cummarginpost)
 legend(('posterior','marginalized posterior'))
+xlabel('Rate per L10 per yr', size='x-large')
+ylabel('Cumulative Probability', size='x-large')
+title('Cumulative posterior on the rate')
 grid()
-axis([0,200,0.001,1])
+axis([0,opts.xmax,0.001,1])
+if opts.figure_name:
+  savefig( opts.figure_name + "-posterior-cdf.png")
 
+# print out the upper limit based on 90% confidence
+for i in range(len(rate)):
+  if cumnomarginpost[i] >= 0.9:
+    print "The rate upper limit (before marginalization) is %f" % rate[i]
+    break
 
 for i in range(len(rate)):
   if cummarginpost[i] >= 0.9:
-    print "The rate upper limit (after marginalization) is %f\n" % rate[i]
+    print "The rate upper limit (after marginalization) is %f" % rate[i]
     break
 
-for i in range(len(rate)):
-  if cumnomarginpost[i] >= 0.9:
-    print "The rate upper limit (before marginalization) is %f\n" % rate[i]
-    break
 
 
 if opts.show_plot:
