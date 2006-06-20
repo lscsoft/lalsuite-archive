@@ -138,16 +138,16 @@ static PyTypeObject pylal_LALDetector_Type = {
 
 static PyObject *pylal_XLALComputeDetAMResponse(PyObject *self, PyObject *args)
 {
-	LALDetAMResponse output;
-	double right_ascension;
-	double declination;
-	double orientation;
+	double fplus, fcross;
+	double ra;
+	double dec;
+	double psi;
 	double gmst;
 	PyObject *oresponse;
 	PyArrayObject *response;
 
 	/* 3x3 array, double, double, double, double */
-	if(!PyArg_ParseTuple(args, "Odddd:XLALComputeDetAMResponse", &oresponse, &right_ascension, &declination, &orientation, &gmst))
+	if(!PyArg_ParseTuple(args, "Odddd:XLALComputeDetAMResponse", &oresponse, &ra, &dec, &psi, &gmst))
 		return NULL;
 	response = NA_InputArray(oresponse, tFloat32, NUM_C_ARRAY);
 	if(!response || (response->nd != 2) || (response->dimensions[0] != 3 && response->dimensions[1] != 3)) {
@@ -155,11 +155,11 @@ static PyObject *pylal_XLALComputeDetAMResponse(PyObject *self, PyObject *args)
 		return NULL;
 	}
 
-	XLALComputeDetAMResponse(&output, NA_OFFSETDATA(response), right_ascension, declination, orientation, gmst);
+	XLALComputeDetAMResponse(&fplus, &fcross, NA_OFFSETDATA(response), ra, dec, psi, gmst);
 	Py_XDECREF(response);
 
 	/* (double, double) */
-	return Py_BuildValue("(dd)", output.plus, output.cross);
+	return Py_BuildValue("(dd)", fplus, fcross);
 }
 
 
