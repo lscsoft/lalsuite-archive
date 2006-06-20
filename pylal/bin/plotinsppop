@@ -36,6 +36,16 @@ parser.add_option("-v","--version",action="store_true",default=False,\
     help="display version information " )
 parser.add_option("-d","--dist-v-dist",action="store_true",default=False,\
     help="make a plot of hanford versus livingston effective distance" )
+parser.add_option("-S","--spin-v-spin",action="store_true",default=False,\
+    help="make an amplitude plot of spin1 versus spin2" )
+parser.add_option("-l","--logdist",action="store_true",default=False,\
+    help="make an histogram of log of distance" )
+parser.add_option("-m","--mchirp",action="store_true",default=False,\
+    help="make an histogram of chirp mass" )
+parser.add_option("-e","--eta",action="store_true",default=False,\
+    help="make an histogram of eta" )
+parser.add_option("-M","--mass-v-mass",action="store_true",default=False,\
+    help="make a plot of mass1 versus mass2" )
 parser.add_option("-s","--show-plot",action="store_true",default=False,\
     help="display the figures on the terminal" )
 parser.add_option("-f","--fig-name",action="store",type="string",\
@@ -60,13 +70,83 @@ injfiles = glob.glob(opts.glob_injfile);
 # an instance of the simInspiralTable
 binaries=readMeta.metaDataTable(injfiles, "sim_inspiral")
 
+
 if opts.dist_v_dist:
   viz.plot_a_v_b(binaries,"eff_dist_l","eff_dist_h",plot_sym = 'rx')
   axis([0, 40, 0, 40])
   grid(True)
   if opts.fig_name:
     savefig(opts.fig_name + "_dist-dist.png")
+
+# set of arrays for each spin component
+s1x=binaries.mkarray("spin1x")
+s1y=binaries.mkarray("spin1y")
+s1z=binaries.mkarray("spin1z")
+s2x=binaries.mkarray("spin2x")
+s2y=binaries.mkarray("spin2y")
+s2z=binaries.mkarray("spin2z")
+
+# amplitude of each set of spin (1 & 2)
+amps1=sqrt(s1x*s1x+s1y*s1y+s1z*s1z)
+amps2=sqrt(s2x*s2x+s2y*s2y+s2z*s2z)
+
+if opts.spin_v_spin:
+  figure()
+  plot(amps1,amps2,'r.')
+  xlabel('S1 amplitude')
+  ylabel('S2 amplitude')
+  title('Amplitude Comparison: S1 vs S2')
+  axis([0, 1, 0, 1])
+  grid(True)
+  if opts.fig_name:
+    savefig(opts.fig_name + "_spin-spin.png")
     
+# set arrays for mass1 and mass2
+mass1=binaries.mkarray("mass1")
+mass2=binaries.mkarray("mass2")
+
+if opts.mass_v_mass:
+  figure()
+  plot(mass1,mass2, 'rx')
+  xlabel('Mass1')
+  ylabel('Mass2')
+  title('Mass1 Versus Mass2')
+  grid(True)
+  if opts.fig_name:
+    savefig(opts.fig_name + "_mass-mass.png")
+
+# set of arrays for distance
+dist=binaries.mkarray("distance")
+
+# log if distance
+logdist=log(dist)
+
+if opts.logdist:
+  figure()
+  hist(logdist)
+  title('Histogram of Log of Distance')
+  if opts.fig_name:
+    savefig(opts.fig_name + "_logdist.png")
+
+# set of arrays for mchirp
+mchirp=((mass1*mass2)**(3/5))/((mass1+mass2)**(1/5))
+
+if opts.mchirp:
+  figure()
+  hist(mchirp)
+  title('Histogram of Chirp Mass')
+  if opts.fig_name:
+    savefig(opts.fig_name + "_mchirp.png")
+
+# set of arrays for eta
+eta=binaries.mkarray("eta")
+
+if opts.eta:
+  figure()
+  hist(eta)
+  title('Histogram of Eta')
+  if opts.fig_name:
+    savefig(opts.fig_name + "_eta.png")
 
 if opts.show_plot:
   show()
