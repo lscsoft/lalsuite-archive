@@ -1,0 +1,165 @@
+#!/usr/bin/python
+
+import sys
+import os
+from optparse import *
+import re
+import exceptions
+import glob
+import ConfigParser
+import random
+from types import *
+
+from pylab import *
+from glue import segmentsUtils
+from pylal import readMeta
+from pylal import viz
+
+
+#####################################################################
+# function to read in and populate information about each time
+def read_parameters(file,time):
+  cp = ConfigParser.ConfigParser()
+  cp.read(file)
+
+  param = {}
+  param["ng"] = float(cp.get("apriori","ng"))
+  param["ngprime"] = float(cp.get("apriori","ngprime"))
+  param["pb"] = float(cp.get("apriori","pb"))
+  param["pbprime"] = float(cp.get("apriori","pbprime"))
+  param["dn_calibration"] = float(cp.get("apriori","dn_calibration"))
+  param["tobs"] = float(time)
+
+  return param
+
+
+
+##############################################################################
+usage = """usage: %prog [options] file1 (file2 file3)
+
+Inspiral Injection Plotting Functions
+
+Generate a set of summary plots from an injection file to understand
+which regions of parameter space are sampled.
+
+Available plots:
+
+1) Chirp mass accuracy can be plotted as:
+  a) a function of the injected chirp mass, using --plot-mchirp
+  b) a histogram, using --hist-mchirp
+  c) a function of the injected effective distance, using --chirp-dist
+  d) a function of the detected SNR, using --chirp-snr
+The width of all these plots is set using --chirp-axis
+
+"""
+parser = OptionParser( usage )
+parser.add_option("-v","--version",action="store_true",default=False,\
+    help="display version information " )
+parser.add_option("-p","--prior",action="store",type="string",\
+    default=None,\
+    help="which prior to use on the rate" )
+parser.add_option("-s","--show-plot",action="store_true",default=False,\
+    help="display the figures on the terminal" )
+parser.add_option("-f","--galaxies-file",action="append",type="string",\
+    default=None, metavar=" FNAME",\
+    help="File containing the output from plotnumgalaxies" ) 
+parser.add_option("-t","--observation-time",action="append",type="float",\
+    default=None, metavar=" TOBS", help="observation time" ) 
+parser.add_option("-m","--max-rate",action="store",type="float",\
+    default=200.0, metavar=" MAXRATE", \
+    help="max rate on integral for posterior" ) 
+parser.add_option("-d","--dr",action="store",type="float",\
+    default=0.01, metavar=" MAXRATE", \
+    help="dr to use in rate integral" ) 
+
+(opts,args) = parser.parse_args()
+
+# if --version flagged
+if opts.version:
+  sys.exit(0)
+
+if not opts.prior:
+  print >>sys.stderr, "Must supply a prior for calculation\n" 
+  sys.exit(0)
+
+if (len(opts.galaxies_file)-len(opts.observation_time)):
+  print >>sys.stderr, "Must give same number of galaxy files and " +\
+                      "observation times\n"
+  sys.exit(0)
+
+###########################################################################
+# create the config parser object and read in the ini file
+parameters = []
+for i in range(len(opts.galaxies_file)):
+  parameters.append(read_parameters(opts.galaxies_file[i],\
+      opts.observation_time[i]))
+  
+ngt = 0.0
+ngprimet = 0.0
+tobs = 0.0
+pb = 0.0
+pbprime = 0.0
+dn_calibration = 0.0
+
+for i in range(len(opts.galaxies_file)):
+  ngt += parameters[i]["ng"]*parameters[i]["tobs"]
+  ngprimet += parameters[i]["ngprime"]*parameters[i]["tobs"]
+  tobs += parameters[i]["tobs"]
+  pb = parameters[i]["pb"]
+  pbprime = parameters[i]["pbprime"]
+  dn_calibration = parameters[i]["dn_calibration"]
+
+
+if opts.prior == "fromfile":
+  rateprior = []
+elif opts.prior == "uniform":
+  maxrate = opts.max_rate
+  dr = opts.dr
+  rate = arange(0,maxrate,dr)
+  rateprior = ones([int(maxrate/dr)])/maxrate
+
+exprate = exp( - rate * ngt )
+nomarginpost = rateprior * exprate \
+      * ( pbprime + pb * rate * ngprimet )
+exprate *= 0.0
+
+x = 0.0*ones(1000)
+for i in arange(1000):
+  x[i] = 1.0*random.normalvariate(, 1.5)
+  exprate += exp( - rate * ( ngt * \
+      random.lognormvariate(0.0, abs(log(dn_calibration))) ) )
+exprate /= 1000.0
+
+marginpost = rateprior * exprate \
+      * ( pbprime + pb * rate * ngprimet )
+
+nomarginnorm=sum(nomarginpost)
+marginnorm=sum(marginpost)
+
+plot(rate,nomarginpost/nomarginnorm,rate,marginpost/marginnorm)
+legend(('posterior','marginalized posterior'))
+
+figure()
+cumnomarginpost=cumsum(nomarginpost)/nomarginnorm
+cummarginpost=cumsum(marginpost)/marginnorm
+semilogy(rate,1.0-cumnomarginpost,
+    rate,1.0-cummarginpost)
+legend(('posterior','marginalized posterior'))
+grid()
+axis([0,200,0.001,1])
+
+
+for i in range(len(rate)):
+  if cummarginpost[i] >= 0.9:
+    print "The rate upper limit (after marginalization) is %f\n" % rate[i]
+    break
+
+for i in range(len(rate)):
+  if cumnomarginpost[i] >= 0.9:
+    print "The rate upper limit (before marginalization) is %f\n" % rate[i]
+    break
+
+
+if opts.show_plot:
+  show()
+
