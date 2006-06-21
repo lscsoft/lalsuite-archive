@@ -136,7 +136,7 @@ set(labels, fontsize=16)
 locs, labels = yticks()
 set(labels, fontsize=16)
 legend(('H1','H2','L1'))
-tmpv=axis()
+tmpv=asarray(axis())
 tmpv[2]=opts.min_dist
 tmpv[3]=opts.max_dist
 axis(tmpv)
@@ -170,7 +170,7 @@ if opts.hist:
     plot(out[1],out[0],'go-')
   xlabel(r'Horizon Distance (Mpc)', size='x-large')
   ylabel(r'Number of blocks', size='x-large')
-  tmpv = axis()
+  tmpv = asarray(axis())
   tmpv[0]=opts.min_dist
   tmpv[1]=opts.max_dist
   axis(tmpv)

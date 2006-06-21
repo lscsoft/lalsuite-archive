@@ -224,7 +224,7 @@ xlabel('Rate per L10 per yr', size='x-large')
 ylabel('Probability', size='x-large')
 title('Posterior on the rate')
 grid()
-tmpv = axis()
+tmpv = asarray(axis())
 tmpv[1]=opts.xmax
 axis(tmpv)
 if opts.figure_name:

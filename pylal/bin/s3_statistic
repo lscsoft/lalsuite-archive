@@ -16,7 +16,7 @@ from numarray.random_array import *
 ##############################################################################
 # helper functions
 def square_axis():
-  tmpv = axis()
+  tmpv = asarray(axis())
   xmax = max([tmpv[1], tmpv[3]])
   xmin = min([tmpv[0], tmpv[2]])
   axis([xmin, xmax, xmin, xmax])
