@@ -46,6 +46,10 @@ parser.add_option("-e","--eta",action="store_true",default=False,\
     help="make an histogram of eta" )
 parser.add_option("-M","--mass-v-mass",action="store_true",default=False,\
     help="make a plot of mass1 versus mass2" )
+parser.add_option("-1","--mass-spin1",action="store_true",default=False,\
+    help="make a plot of mass1 versus mass2 with spin1 color coded" )
+parser.add_option("-2","--mass-spin2",action="store_true",default=False,\
+    help="make a plot of mass1 versus mass2 with spin2 color coded" )
 parser.add_option("-s","--show-plot",action="store_true",default=False,\
     help="display the figures on the terminal" )
 parser.add_option("-f","--fig-name",action="store",type="string",\
@@ -96,7 +100,7 @@ if opts.spin_v_spin:
   xlabel('S1 amplitude')
   ylabel('S2 amplitude')
   title('Amplitude Comparison: S1 vs S2')
-  axis([0, 1, 0, 1])
+  axis([0, .9, 0, .9])
   grid(True)
   if opts.fig_name:
     savefig(opts.fig_name + "_spin-spin.png")
@@ -123,13 +127,15 @@ logdist=log(dist)
 
 if opts.logdist:
   figure()
-  hist(logdist)
+  hist(logdist,bins=(0,.5,1,1.5,2,2.5,3,3.5,4,4.5))
   title('Histogram of Log of Distance')
   if opts.fig_name:
     savefig(opts.fig_name + "_logdist.png")
 
 # set of arrays for mchirp
-mchirp=((mass1*mass2)**(3/5))/((mass1+mass2)**(1/5))
+mass1=binaries.mkarray('mass1')
+mass2=binaries.mkarray('mass2')
+mchirp=((mass1*mass2)**(.6))/((mass1+mass2)**(.2))
 
 if opts.mchirp:
   figure()
@@ -147,6 +153,27 @@ if opts.eta:
   title('Histogram of Eta')
   if opts.fig_name:
     savefig(opts.fig_name + "_eta.png")
+
+# Scatter plot of mass1 versus mass2 with spin1
+if opts.mass_spin1:
+  figure()
+  scatter(mass1,mass2,c=amps1)
+  colorbar()
+  axis([1,3,1,3])
+  title('Mass Comparison with Spin1')
+  if opts.fig_name:
+    savefig(opts.fig_name + "_mass-spin1.png")
+
+# Scatter plot of mass1 versus mass2 with spin2
+if opts.mass_spin2:
+  figure()
+  scatter(mass1,mass2,c=amps2)
+  colorbar()
+  axis([1,3,1,3])
+  title('Mass Comparison with Spin2')
+  if opts.fig_name:
+    savefig(opts.fig_name + "_mass-spin2.png")
+
 
 if opts.show_plot:
   show()
