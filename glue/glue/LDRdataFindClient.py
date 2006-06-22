@@ -354,8 +354,7 @@ class LDRdataFindClient(object):
                         raise LDRdataFindClientException, msg
 
                 return output
-
-
+        
         def pfnQuery(self, lfn):
                 """
                 Query LDRdataFindServer to find the PFN(s) associated with a LFN and return them
@@ -382,6 +381,38 @@ class LDRdataFindClient(object):
 
                 return output
                 
+        def timeQuery(self, mytype, start, end, strict):
+                """
+                Query LDRdataFindServer for time ranges for a particular frameType.
+                Optionally supprts gpsStart and gpsEnd, these will be processed server-side.
+                
+                @param mytype: frame type
+                @param start: gps start time
+                @param stop: gps end time
+                @param strict: strict query flag
+                
+                @return: output of query.
+                """
+                if not mytype:
+                        msg = "A frame type, --type, must be specified."
+                        raise LSCdataFindClientException, msg
+                        
+                #Construct RPC
+                rpc = "SEGMENT\0type\0%s\0" % (mytype,)
+                
+                if start:
+                        rpc += "gpsStart\0%s\0" % (start,)
+                if end:
+                        rpc += "gpsEnd\0%s\0" % (end,)
+                if strict:
+                        rpc += "strict\0"
+                self.sfile.write(rpc)
+                ret,output = self.__response__()
+                
+                if ret:
+                        msg = "Error querying LDRdataFindServer for times of frame type, %s: %s" % (str(mytype),str(output))
+                        raise LSCdataFindClientException
+                return output
 
         def lfnQueryWithMetadata(self, queryList):
                 """
@@ -639,8 +670,32 @@ class LSCdataFindClient(LDRdataFindClient):
 
                 distinctValueList = LDRdataFindClient.distinctAttrValues(self, "site")
                 return distinctValueList
-
-
+        
+        
+        def showTimes(self,argDict):
+                 """
+                 Query LDRdataFind server for gps times for existing data corresponding
+                 to the specified frame type.
+                 
+                 @param argDict: Dictionary of arguments passed to all methods.
+                 
+                 @return: results of query
+                 """
+                 start = argDict['start']
+                 end   = argDict['end']
+                 strict = argDict['strict']
+                 mytype = argDict['type']
+                 
+                 # Perform basic argument check
+                 if start:
+                     self.__check_gps(start)
+                 if end:
+                     self.__check_gps(end)
+                 
+                 timelist = LDRdataFindClient.timeQuery(self,mytype,start,end,strict)
+                 return timelist
+                 
+        
         def showTypes(self, argDict):
                 """
                 Query LDRdataFindServer for the distinct values for the 'frameType' attribute
