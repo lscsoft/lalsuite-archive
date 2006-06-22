@@ -66,13 +66,15 @@ SYNOPSIS
                --gps-start-time=GPS --gps-end-time=GPS [ --lal-cache ] 
                [ --url-type=SCHEME ]  [ --match=EXPRESSION ]
                [ --names-only ] [ --limit=LIMIT ] [ --offset=OFFSET ]
-               [ --strict-time-check ] [ --version ]
+               [ --strict-time-check ] [--show-times] [ --version ]
 
         LSCdataFind --server=NAME:PORT --filename
 
         LSCdataFind --server=NAME:PORT --show-observatories
 
         LSCdataFind --server=NAME:PORT --show-types
+ 
+	LSCdataFind --server=NAME:PORT --show-times --type foo
 
         LSCdataFind --server=NAME:PORT --ping
 
@@ -124,6 +126,13 @@ DESCRIPTION
         -y, --show-types
                 list available types
 
+        -a, --show-times
+		list gps-second segments for all data of type specified.
+		Must be used with --type foo, where foo is a frame type
+		returned by --show-types. Optionally supports one or both
+		of --gps-start-time and --gps-end-time to restrict
+		returned time ranges.
+
         -p, --ping
                 ping the LDRDataFind server
 
@@ -174,7 +183,7 @@ file://localhost/netdata/s001/S1/R/H/714023808-714029599/H-R-714024336-16.gwf
 
 
 # grab command line options
-shortop = "vt:s:e:wyphlr:f:u:m:o:n"
+shortop = "vt:s:e:wyaphlr:f:u:m:o:n"
 longop = [
           "version",
           "help", 
@@ -194,6 +203,7 @@ longop = [
           "limit=",
           "offset=",
           "strict-time-check",
+          "show-times",
           ]
 
 try:
@@ -213,6 +223,7 @@ clientMethodArgDict = {
         'end': None,
         'start': None,
         'type': None,
+        'times': None,
         'filename': None,
         'urlType': None,
         'match': None,
@@ -300,6 +311,9 @@ for o, a in opts:
                 clientMethodArgDict['offset'] = int(a)
         elif o in ("--strict-time-check",):
                 clientMethodArgDict['strict'] = True
+        elif o in ("-a","--show-times"):
+                clientMethodArgDict['show-times'] = True
+                clientMethod = 'showTimes'
 
 if not clientMethod:
         print >>sys.stderr, "Bad combination or missing options"
