@@ -243,7 +243,7 @@ class Level1Iterator(object):
 		start = LIGOTimeGPS(trig.get_start())
 		intersectingtrigs = map(lambda l: l.intersects(start + trig.duration / 2, self.maxwindow + trig.duration / 2), self.triggerlists)
 		intersectingtrigs.insert(self.shortest, [trig])
-		return llwapp.MultiIter(intersectingtrigs)
+		return itertools.MultiIter(intersectingtrigs)
 
 
 #

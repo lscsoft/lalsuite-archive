@@ -27,6 +27,7 @@
 #
 
 from glue.ligolw import lsctables
+from pylal import itertools
 from pylal import llwapp
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -121,7 +122,7 @@ def append_process(doc, **kwargs):
 class SlidesIter(object):
 	def __init__(self, slides):
 		self.instruments = slides.keys()
-		self.slides = llwapp.MultiIter(slides.values())
+		self.slides = itertools.MultiIter(slides.values())
 
 	def __iter__(self):
 		return self
