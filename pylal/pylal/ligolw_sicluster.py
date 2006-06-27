@@ -143,6 +143,15 @@ def ligolw_sicluster(doc, **kwargs):
   # Add process information
   process = append_process(doc, **kwargs)
 
+  # Delete all triggers below threshold
+  if kwargs["snr_threshold"] > 0:
+    if kwargs["verbose"]:
+      print >>sys.stderr, "discarding triggers with snr < %f..." % \
+        kwargs["snr_threshold"]
+      for trigger in snglinspiraltable.rows:
+        if trigger.snr < kwargs["snr_threshold"]:
+          del trigger
+
   # Cluster
   if kwargs["verbose"]:
     print >>sys.stderr, "clustering..."

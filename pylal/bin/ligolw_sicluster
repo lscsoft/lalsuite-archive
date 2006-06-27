@@ -53,6 +53,9 @@ def parse_command_line():
   parser.add_option("-w", "--snr-cluster-window", type="float", 
     default = "0", action = "store", 
     help = "duration of snr clustering window in seconds (required)")
+  parser.add_option("-t", "--snr-threshold", type="float", 
+    default = "0", action = "store", 
+    help = "discard triggers below SNR-THRESHOLD")
   parser.add_option("-s", "--sort-by-snr", action = "store_true", 
     help = "sort output triggers by descending snr")
   parser.add_option("-v", "--verbose", action = "store_true", 
