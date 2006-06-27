@@ -61,8 +61,6 @@ def parse_command_line():
     help = "sort output triggers by descending snr", default = False)
   parser.add_option("-S", "--sort-ascending-snr", action = "store_true", 
     help = "sort output triggers by ascending snr", default = False)
-  parser.add_option("-i", "--ignore-search-summary", action = "store_true", 
-    help = "ignore any search_summary tables in the input", default = False)
   parser.add_option("-v", "--verbose", action = "store_true", 
     help = "be verbose")
   options, filenames = parser.parse_args()

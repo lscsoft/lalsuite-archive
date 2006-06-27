@@ -46,16 +46,21 @@ __date__ = "$Date$"[7:-2]
 # =============================================================================
 #
 
-def get_tables(doc,ignore_search_summary = False):
+def get_tables(doc):
   snglinspiraltable = llwapp.get_table(
     doc, lsctables.SnglInspiralTable.tableName)
-  if ignore_search_summary:
-    return None, None, snglinspiraltable
-  else:
+
+  input_times = None
+  output_times = None
+  try:
     searchsummtable = llwapp.get_table(
       doc, lsctables.SearchSummaryTable.tableName)
-    return searchsummtable.get_inlist().extent(), \
-      searchsummtable.get_outlist().extent(), snglinspiraltable
+    input_times = searchsummtable.get_inlist().extent()
+    output_times = searchsummtable.get_outlist().extent()
+  except ValueError:
+    pass
+    
+  return input_times, output_times, snglinspiraltable
 
 
 #
@@ -67,27 +72,22 @@ def get_tables(doc,ignore_search_summary = False):
 #
 
 def append_process(doc, **kwargs):
-  process = None
+  process = llwapp.append_process(
+    doc, program = "ligolw_sicluster", version = __version__, 
+    cvs_repository = "lscsoft", cvs_entry_time = __date__, 
+    comment = kwargs["comment"])
 
-  try:
-    process = llwapp.append_process(
-      doc, program = "ligolw_sicluster", version = __version__, 
-      cvs_repository = "lscsoft", cvs_entry_time = __date__, 
-      comment = kwargs["comment"])
-
+  llwapp.append_process_params(doc, process, 
+    [("--cluster-window", "lstring", kwargs["cluster_window"])])
+  if kwargs["snr_threshold"] > 0:
     llwapp.append_process_params(doc, process, 
-      [("--cluster-window", "lstring", kwargs["cluster_window"])])
-    if kwargs["snr_threshold"] > 0:
-      llwapp.append_process_params(doc, process, 
-        [("--snr-threshold", "lstring", kwargs["snr_threshold"])])
-    if kwargs["sort_descending_snr"]:
-      llwapp.append_process_params(doc, process, 
-        [("--sort-descending-snr", "lstring", " ")])
-    if kwargs["sort_ascending_snr"]:
-      llwapp.append_process_params(doc, process, 
-        [("--sort-ascending-snr", "lstring", " ")])
-  except ValueError:
-    pass
+      [("--snr-threshold", "lstring", kwargs["snr_threshold"])])
+  if kwargs["sort_descending_snr"]:
+    llwapp.append_process_params(doc, process, 
+      [("--sort-descending-snr", "lstring", " ")])
+  if kwargs["sort_ascending_snr"]:
+    llwapp.append_process_params(doc, process, 
+      [("--sort-ascending-snr", "lstring", " ")])
 
   return process
 
@@ -156,11 +156,13 @@ def ClusterSnglInspiralTable(triggers, testfunc, clusterfunc,
 
 def ligolw_sicluster(doc, **kwargs):
   # Extract segments and tables
-  inseg, outseg, snglinspiraltable = get_tables(
-    doc,kwargs["ignore_search_summary"])
+  inseg, outseg, snglinspiraltable = get_tables(doc)
 
   # Add process information
-  process = append_process(doc, **kwargs)
+  try:
+    process = append_process(doc, **kwargs)
+  except ValueError:
+    process = None
 
   # Delete all triggers below threshold
   if kwargs["snr_threshold"] > 0:
@@ -187,7 +189,7 @@ def ligolw_sicluster(doc, **kwargs):
       snglinspiraltable.rows.reverse()
 
   # Add search summary information
-  if process and not kwargs["ignore_search_summary"]:
+  if process and inseg and outseg:
     llwapp.append_search_summary(doc, process, inseg = inseg, outseg = outseg, 
       nevents = len(snglinspiraltable))
   if process:
