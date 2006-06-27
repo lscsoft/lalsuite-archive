@@ -69,7 +69,16 @@ def append_process(doc, **kwargs):
     comment = kwargs["comment"])
 
   llwapp.append_process_params(doc, process, 
-    [("--snr-cluster-window", "lstring", kwargs["snr_cluster_window"])])
+    [("--cluster-window", "lstring", kwargs["cluster_window"])])
+  if kwargs["snr_threshold"] > 0:
+    llwapp.append_process_params(doc, process, 
+      [("--snr-threshold", "lstring", kwargs["snr_threshold"])])
+  if kwargs["sort_descending_snr"]:
+    llwapp.append_process_params(doc, process, 
+      [("--sort-descending-snr", "lstring", " ")])
+  if kwargs["sort_ascending_snr"]:
+    llwapp.append_process_params(doc, process, 
+      [("--sort-ascending-snr", "lstring", " ")])
 
   return process
 
@@ -157,12 +166,15 @@ def ligolw_sicluster(doc, **kwargs):
     print >>sys.stderr, "clustering..."
   ClusterSnglInspiralTable(snglinspiraltable.rows, 
     kwargs["testfunc"], kwargs["clusterfunc"],
-    LIGOTimeGPS(kwargs["snr_cluster_window"]), kwargs["bailoutfunc"])
-  if kwargs["sort_by_snr"]:
+    LIGOTimeGPS(kwargs["cluster_window"]), kwargs["bailoutfunc"])
+
+  # Sort by signal-to-noise ratio
+  if kwargs["sort_ascending_snr"] or kwargs["sort_descending_snr"]:
     if kwargs["verbose"]:
-      print >>sys.stderr, "sorting by descending snr..."
+      print >>sys.stderr, "sorting by snr..."
     snglinspiraltable.rows.sort(SnglInspiralUtils.CompareSnglInspiralBySnr)
-    snglinspiraltable.rows.reverse()
+    if kwargs["sort_descending_snr"]:
+      snglinspiraltable.rows.reverse()
 
   # Add search summary information
   llwapp.append_search_summary(doc, process, inseg = inseg, outseg = outseg, 

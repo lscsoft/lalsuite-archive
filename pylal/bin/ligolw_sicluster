@@ -50,21 +50,23 @@ def parse_command_line():
   parser = OptionParser(version = "%prog CVS $Id$")
   parser.add_option("--comment", metavar = "text", default = "", 
     help = "set comment string in process table")
-  parser.add_option("-w", "--snr-cluster-window", type="float", 
+  parser.add_option("-w", "--cluster-window", type="float", 
     default = "0", action = "store", 
     help = "duration of snr clustering window in seconds (required)")
   parser.add_option("-t", "--snr-threshold", type="float", 
     default = "0", action = "store", 
-    help = "discard triggers below SNR-THRESHOLD")
-  parser.add_option("-s", "--sort-by-snr", action = "store_true", 
-    help = "sort output triggers by descending snr")
+    help = "discard triggers below SNR_THRESHOLD")
+  parser.add_option("-s", "--sort-descending-snr", action = "store_true", 
+    help = "sort output triggers by descending snr", default = False)
+  parser.add_option("-S", "--sort-ascending-snr", action = "store_true", 
+    help = "sort output triggers by ascending snr", default = False)
   parser.add_option("-v", "--verbose", action = "store_true", 
     help = "be verbose")
   options, filenames = parser.parse_args()
 
-  if options.snr_cluster_window == 0:
+  if options.cluster_window == 0:
     raise Exception, \
-      "missing required command line argument --snr-cluster-window"
+      "missing required command line argument --cluster-window"
     options.bailoutfunc = None
 
   options.testfunc = SnglInspiralUtils.CompareSnglInspiral
