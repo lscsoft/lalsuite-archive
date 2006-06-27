@@ -42,12 +42,19 @@ def CompareSnglInspiralByEndTime(a, b):
   return cmp(a.get_end(), b.get_end())
 
 
+def CompareSnglInspiralBySnr(a, b):
+  """
+  Orders a and b by peak time.
+  """
+  return cmp(a.snr, b.snr)
+
+
 def CompareSnglInspiral(a, b, twindow = LIGOTimeGPS(0)):
   """
-  Returns 0 if a and b are less that twindow appart, otherwise returns 1.
+  Returns 0 if a and b are less than twindow appart.
   """
-  tdiff = abs( a.end_time() - b.end_time() )
+  tdiff = abs(a.get_end() - b.get_end())
   if tdiff < twindow:
     return 0
   else:
-    return 1
+    return cmp(a.get_end(), b.get_end())

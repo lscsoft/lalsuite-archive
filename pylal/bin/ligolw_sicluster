@@ -53,6 +53,8 @@ def parse_command_line():
   parser.add_option("-w", "--snr-cluster-window", type="float", 
     default = "0", action = "store", 
     help = "duration of snr clustering window in seconds (required)")
+  parser.add_option("-s", "--sort-by-snr", action = "store_true", 
+    help = "sort output triggers by descending snr")
   parser.add_option("-v", "--verbose", action = "store_true", 
     help = "be verbose")
   options, filenames = parser.parse_args()
@@ -61,6 +63,11 @@ def parse_command_line():
     raise Exception, \
       "missing required command line argument --snr-cluster-window"
     options.bailoutfunc = None
+
+  options.testfunc = SnglInspiralUtils.CompareSnglInspiral
+  options.clusterfunc = ligolw_sicluster.SnglInspiralCluster
+  options.bailoutfunc = SnglInspiralUtils.CompareSnglInspiralByEndTime
+
   return options, (filenames or [None])
 
 
@@ -77,11 +84,11 @@ try:
 except ValueError, e:
   print >>sys.stderr, "error: %s" % str(e)
 
-try:
-  for filename in filenames:
-    doc = llwapp.load_filename(filename, options.verbose)
-    doc = ligolw_sicluster.ligolw_sicluster(doc, **options.__dict__)
-    llwapp.write_filename(doc, filename, options.verbose)
-except Exception, e:
-  print >>sys.stderr, "error: %s" % str(e)
-  sys.exit(1)
+#try:
+for filename in filenames:
+  doc = llwapp.load_filename(filename, options.verbose)
+  doc = ligolw_sicluster.ligolw_sicluster(doc, **options.__dict__)
+  llwapp.write_filename(doc, filename, options.verbose)
+#except Exception, e:
+#  print >>sys.stderr, "error: %s" % str(e)
+#  sys.exit(1)

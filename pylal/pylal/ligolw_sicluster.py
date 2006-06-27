@@ -29,6 +29,8 @@ import sys
 from glue import segments
 from glue.ligolw import lsctables
 from pylal import llwapp
+from pylal.date import LIGOTimeGPS
+from pylal import SnglInspiralUtils
 
 __author__ = "Duncan Brown <dbrown@ligo.caltech.edu>"
 __version__ = "$Revision$"[11:-2]
@@ -84,12 +86,14 @@ def SnglInspiralCluster(a, b):
   """
   Replace a with a cluster constructed from a and b. 
   """
-  if b.snr > a.snr:
-    a = b
+  if b.snr >= a.snr:
+    return b
+  else:
+    return a
 
 
 def ClusterSnglInspiralTable(triggers, testfunc, clusterfunc, 
-  bailoutfunc = None):
+  twindow, bailoutfunc = None):
   """
   Cluster the triggers in the list.  testfunc should accept a pair of
   triggers, and return 0 if they should be clustered.  clusterfunc
@@ -109,8 +113,8 @@ def ClusterSnglInspiralTable(triggers, testfunc, clusterfunc,
     while i < len(triggers):
       j = i + 1
       while j < len(triggers):
-        if not testfunc(triggers[i], triggers[j]):
-          clusterfunc(triggers[i], triggers[j])
+        if not testfunc(triggers[i], triggers[j],twindow):
+          triggers[i] = clusterfunc(triggers[i], triggers[j])
           del triggers[j]
           did_cluster = True
         else:
@@ -143,7 +147,13 @@ def ligolw_sicluster(doc, **kwargs):
   if kwargs["verbose"]:
     print >>sys.stderr, "clustering..."
   ClusterSnglInspiralTable(snglinspiraltable.rows, 
-    kwargs["testfunc"], kwargs["clusterfunc"], kwargs["bailoutfunc"])
+    kwargs["testfunc"], kwargs["clusterfunc"],
+    LIGOTimeGPS(kwargs["snr_cluster_window"]), kwargs["bailoutfunc"])
+  if kwargs["sort_by_snr"]:
+    if kwargs["verbose"]:
+      print >>sys.stderr, "sorting by descending snr..."
+    snglinspiraltable.rows.sort(SnglInspiralUtils.CompareSnglInspiralBySnr)
+    snglinspiraltable.rows.reverse()
 
   # Add search summary information
   llwapp.append_search_summary(doc, process, inseg = inseg, outseg = outseg, 
