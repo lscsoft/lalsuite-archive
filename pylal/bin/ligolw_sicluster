@@ -29,6 +29,7 @@
 from optparse import OptionParser
 import sys
 
+from glue.ligolw import ligolw
 from pylal import llwapp
 from pylal import SnglInspiralUtils
 from pylal import ligolw_sicluster
@@ -60,6 +61,8 @@ def parse_command_line():
     help = "sort output triggers by descending snr", default = False)
   parser.add_option("-S", "--sort-ascending-snr", action = "store_true", 
     help = "sort output triggers by ascending snr", default = False)
+  parser.add_option("-i", "--ignore-search-summary", action = "store_true", 
+    help = "ignore any search_summary tables in the input", default = False)
   parser.add_option("-v", "--verbose", action = "store_true", 
     help = "be verbose")
   options, filenames = parser.parse_args()
@@ -92,6 +95,9 @@ except ValueError, e:
 #try:
 for filename in filenames:
   doc = llwapp.load_filename(filename, options.verbose)
+  for comment in doc.getElementsByTagName(ligolw.Comment.tagName):
+    comment.parentNode.removeChild(comment)
+    comment.unlink()
   doc = ligolw_sicluster.ligolw_sicluster(doc, **options.__dict__)
   llwapp.write_filename(doc, filename, options.verbose)
 #except Exception, e:
