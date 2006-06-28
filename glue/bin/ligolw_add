@@ -137,7 +137,7 @@ try:
 	if options.add_lfn_table:
 		if not options.output:
 			raise Exception, "cannot add LFN table when no output filename is given"
-		doc.getElementsByTagName(ligolw.LIGO_LW.tagName)[0].appendChild(make_lfn_table(doc, options.output, options.lfn_start_time, options.lfn_end_time, options.comment))
+		doc.getElementsByTagName(ligolw.LIGO_LW.tagName)[0].appendChild(make_lfn_table(doc, options.output, options.lfn_start_time, options.lfn_end_time, options.lfn_comment))
 
 	# Output
 	if options.verbose:
