@@ -1569,6 +1569,57 @@ class SimBurst(LSCTableRow):
 	def _has_key(self, key):
 		return self.simulation_id == key
 
+	def cmp(self, other):
+		"""
+		Return 0 if self and other describe the same injection,
+		non-0 otherwise.
+		"""
+		a = (
+			self.waveform,
+			self.geocent_peak_time,
+			self.geocent_peak_time_ns,
+			self.h_peak_time,
+			self.h_peak_time_ns,
+			self.l_peak_time,
+			self.l_peak_time_ns,
+			self.peak_time_gmst,
+			self.dtminus,
+			self.dtplus,
+			self.longitude,
+			self.latitude,
+			self.coordinates,
+			self.polarization,
+			self.hrss,
+			self.hpeak,
+			self.distance,
+			self.freq,
+			self.tau,
+			self.zm_number
+		)
+		b = (
+			other.waveform,
+			other.geocent_peak_time,
+			other.geocent_peak_time_ns,
+			other.h_peak_time,
+			other.h_peak_time_ns,
+			other.l_peak_time,
+			other.l_peak_time_ns,
+			other.peak_time_gmst,
+			other.dtminus,
+			other.dtplus,
+			other.longitude,
+			other.latitude,
+			other.coordinates,
+			other.polarization,
+			other.hrss,
+			other.hpeak,
+			other.distance,
+			other.freq,
+			other.tau,
+			other.zm_number
+		)
+		return cmp(a, b)
+
 	def get_geocent_peak(self):
 		return lal.LIGOTimeGPS(self.geocent_peak_time, self.geocent_peak_time_ns)
 
@@ -2285,6 +2336,14 @@ class CoincDefTable(LSCTableMulti):
 		"table_name": "lstring"
 	}
 
+	def get_contributors(self, id):
+		"""
+		Return a list of contributing table names for the given ID.
+		"""
+		l = [row.table_name for row in self.dict[id]]
+		l.sort()
+		return l
+
 class CoincDef(LSCTableRow):
 	__slots__ = CoincDefTable.validcolumns.keys()
 
@@ -2296,14 +2355,6 @@ class CoincDef(LSCTableRow):
 
 	def _has_key(self, key):
 		return self.coinc_def_id == key
-
-	def get_contributors(self, id):
-		"""
-		Return a list of contributing table names for the given ID.
-		"""
-		l = [row.table_name for row in self.dict[id]]
-		l.sort()
-		return l
 
 CoincDefTable.RowType = CoincDef
 
