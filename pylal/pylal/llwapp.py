@@ -155,6 +155,39 @@ def segmentlistdict_fromsearchsummary(xmldoc, live_time_program = None):
 	return seglistdict.coalesce()
 
 
+def get_coinc_def_id(doc, table_names, create_new = True):
+	"""
+	Return the coinc_def_id corresponding to coincidences consisting
+	exclusively of events from the given table names.  If no matching
+	coinc_def_id is found, then a new one is created and the ID
+	returned.  If the document does not contain a coinc_definer table,
+	then one is added, a new coind_def_id created, and the ID returned.
+	If, however, create_new is False, and for any reason the ID isn't
+	found then None is returned.
+	"""
+	try:
+		coincdeftable = llwapp.get_table(doc, lsctables.CoincDefTable.tableName)
+	except ValueError:
+		if not create_new:
+			return None
+		coincdeftable = lsctables.New(lsctables.CoincDefTable)
+		doc.childNodes[0].appendChild(coincdeftable)
+	table_names.sort()
+	for id in coincdeftable.dict.keys():
+		if coincdeftable.get_contributors(id) == table_names:
+			break
+	else:
+		if not create_new:
+			return None
+		id = lsctables.NewILWDs(coincdeftable, "coinc_def_id").next()
+		for name in table_names:
+			coincdef = lsctables.CoincDef()
+			coincdef.coinc_def_id = id
+			coincdef.table_name = name
+			coincdeftable.append(coincdef)
+	return id
+
+
 #
 # =============================================================================
 #
