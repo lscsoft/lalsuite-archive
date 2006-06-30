@@ -166,7 +166,7 @@ def get_coinc_def_id(doc, table_names, create_new = True):
 	found then None is returned.
 	"""
 	try:
-		coincdeftable = llwapp.get_table(doc, lsctables.CoincDefTable.tableName)
+		coincdeftable = get_table(doc, lsctables.CoincDefTable.tableName)
 	except ValueError:
 		if not create_new:
 			return None
