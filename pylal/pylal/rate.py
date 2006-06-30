@@ -181,7 +181,7 @@ class Bins(object):
 		self.min = tuple([b.min for b in self.bins])
 		self.max = tuple([b.max for b in self.bins])
 		self.shape = tuple([b.n for b in self.bins])
-		self.centres = tuple([self.bins[i].centres() for i in xrange(len(self.bins))])
+		self.centres = tuple([b.centres() for b in self.bins])
 
 	def __getitem__(self, coords):
 		"""
@@ -194,7 +194,9 @@ class Bins(object):
 		segments is that a slice is exclusive of the upper bound
 		while a segment is inclusive of the upper bound.
 		"""
-		return tuple([self.bins[i][coords[i]] for i in xrange(len(self.bins))])
+		if len(coords) != len(self.bins):
+			raise ValueError, "dimension mismatch"
+		return tuple(map(lambda b, c: b[c], self.bins, coords))
 
 	def __cmp__(self, other):
 		"""
