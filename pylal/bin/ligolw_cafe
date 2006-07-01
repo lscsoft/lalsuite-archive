@@ -30,16 +30,10 @@
 LIGO Light-Weight XML Coincidence Analysis Front End.
 """
 
-from math import log10
 from optparse import OptionParser
 import sys
 
-from glue import segments
-from glue.lal import CacheEntry
-from glue.ligolw import lsctables
-from pylal import llwapp
-from pylal import packing
-from pylal.date import LIGOTimeGPS
+from pylal import ligolw_cafe
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __date__ = "$Date$"[7:-2]
@@ -67,190 +61,28 @@ def parse_command_line():
 
 	return options, (cachenames or [None])
 
+
+#
+# =============================================================================
+#
+#                                     Main
+#
+# =============================================================================
+#
+
 options, cachenames = parse_command_line()
 
+cache = []
+map(lambda filename: cache.extend(ligolw_cafe.load_cache(filename, options.verbose)), cachenames)
 
-#
-# =============================================================================
-#
-#                                    Input
-#
-# =============================================================================
-#
+if options.time_slides:
+	options.time_slides = ligolw_cafe.get_time_slides(options.time_slides, options.verbose)
+else:
+	options.time_slides = ligolw_cafe.null_time_slides(cache)
 
-def load_cache(filename):
-	if options.verbose:
-		print >>sys.stderr, "reading %s ..." % (filename or "stdin")
-	if filename:
-		fileobj = file(filename)
-	else:
-		fileobj = sys.stdin
-	return map(lambda l: CacheEntry(l, coltype = LIGOTimeGPS), fileobj)
-
-
-def cache_to_seglistdict(cache):
-	s = segments.segmentlistdict()
-	for c in cache:
-		if c.observatory in s:
-			s[c.observatory].append(c.segment)
-		else:
-			s[c.observatory] = segments.segmentlist([c.segment])
-	s.coalesce()
-	return s
-
-
-def get_time_slides(filename):
-	doc = llwapp.load_filename(filename, options.verbose)
-	tisitable = llwapp.get_table(doc, lsctables.TimeSlideTable.tableName)
-	for row in tisitable:
-		row.offset = LIGOTimeGPS(row.offset)
-	doc.unlink()
-	return map(tisitable.get_offset_dict, tisitable.dict.keys())
-
-
-def null_time_slides(instruments):
-	timeslide = {}
-	for instrument in instruments:
-		timeslide[instrument] = LIGOTimeGPS(0)
-	return [timeslide]
-
-
-try:
-	cache = []
-	map(lambda filename: cache.extend(load_cache(filename)), cachenames)
-	seglists = cache_to_seglistdict(cache)
-	if options.time_slides:
-		options.time_slides = get_time_slides(options.time_slides)
-	else:
-		options.time_slides = null_time_slides(seglists.keys())
-except Exception, e:
-	print >>sys.stderr, "error: %s" % str(e)
-	sys.exit(1)
-
-
-#
-# =============================================================================
-#
-#                             Output Cache Packing
-#
-# =============================================================================
-#
-
-def cacheentry_to_seglistdict(cacheentry):
-	return segments.segmentlistdict({cacheentry.observatory: segments.segmentlist([cacheentry.segment])})
-
-
-class CafePacker(packing.Packer):
-	def set_time_slides(self, offsetdictlist):
-		self.timeslides = offsetdictlist
-
-	def pack(self, size, object):
-		# find all bins in which this object belongs
-		matching_bins = []
-		for n, bin in enumerate(self.bins):
-			for offsetdict in self.timeslides:
-				size.offsets.update(offsetdict)
-				bin.size.offsets.update(offsetdict)
-				if size.is_coincident(bin.size):
-					matching_bins.append((n, bin))
-					break
-
-		# reset all offsets
-		size.offsets.clear()
-		for bin in self.bins:
-			bin.size.offsets.clear()
-
-		# add object by either adding a new bin or putting it into
-		# the first bin that was found
-		if not matching_bins:
-			self.bins.append(packing.LALCache())
-			self.bins[-1].add(object, size)
-			return
-		matching_bins[0][1].add(object, size)
-
-		# if object belongs in more than one bin, merge bins.
-		# reverse the list of matching bins so that we delete the
-		# highest-numbered bin first (otherwise the bins would
-		# shift as we go and we would delete the wrong ones).
-		matching_bins.reverse()
-		for n, bin in matching_bins[:-1]:
-			matching_bins[-1][1].objects.extend(bin.objects)
-			matching_bins[-1][1].size += bin.size
-			del self.bins[n]
-
-
-#
-# =============================================================================
-#
-#                               Pack Input Files
-#
-# =============================================================================
-#
-
-#
-# For each instrument compute the times for which it will contribute
-# triggers to a coincidence analysis.  Times not spanned by these lists are
-# those times for which no time slide can possibly produce coincident
-# triggers, and thus these lists provide the first estimate of the
-# boundaries for subsequent coincidence jobs.
-#
-
-if options.verbose:
-	print >>sys.stderr, "computing segment list..."
-seglists = llwapp.get_coincident_segmentlistdict(seglists, options.time_slides)
-
-
-#
-# Find cache entries that intersect the surviving segments and pack into
-# output caches.
-#
-
-outputcaches = []
-packer = CafePacker(outputcaches)
-packer.set_time_slides(options.time_slides)
-
-if options.verbose:
-	print >>sys.stderr, "packing files..."
-for n, cacheentry in enumerate(cache):
-	if options.verbose and not n % max(5, (len(cache)/1000)):
-		print >>sys.stderr, "	%.1f%%	(%d files, %d caches)\r" % (100.0 * n / len(cache), n, len(outputcaches)),
-	cache_seglistdict = cacheentry_to_seglistdict(cacheentry)
-	if seglists.intersects(cache_seglistdict):
-		packer.pack(cache_seglistdict, cacheentry)
-if options.verbose:
-	print >>sys.stderr, "	100.0%%	(%d files, %d caches)" % (n, len(outputcaches))
-
-
-#
-# =============================================================================
-#
-#                                    Output
-#
-# =============================================================================
-#
-
-def write_caches(base, bins, instruments):
-	filenames = []
-	if len(bins):
-		pattern = "%%s%%0%dd.cache" % int(log10(len(bins)) + 1)
-	for n, bin in enumerate(bins):
-		filename = pattern % (base, n)
-		filenames.append(filename)
-		if options.verbose:
-			print >>sys.stderr, "writing %s" % filename
-		f = file(filename, "w")
-		for cacheentry in bin.objects:
-			if cacheentry.observatory in instruments:
-				print >>f, str(cacheentry)
-	return filenames
-
-
-def write_single_instrument_caches(base, bins, instruments):
-	for instrument in instruments:
-		write_caches("%s%s_" % (base, instrument), bins, [instrument])
-
+instruments, outputcaches = ligolw_cafe.ligolw_cafe(cache, options.time_slides, options.verbose)
 
 if options.single_instrument:
-	write_single_instrument_caches(options.base, outputcaches, seglists.keys())
+	ligolw_cafe.write_single_instrument_caches(options.base, outputcaches, instruments, options.verbose)
 else:
-	write_caches(options.base, outputcaches, seglists.keys())
+	ligolw_cafe.write_caches(options.base, outputcaches, instruments, options.verbose)
