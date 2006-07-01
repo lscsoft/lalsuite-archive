@@ -155,7 +155,43 @@ def segmentlistdict_fromsearchsummary(xmldoc, live_time_program = None):
 	return seglistdict.coalesce()
 
 
-def get_coinc_def_id(doc, table_names, create_new = True):
+def get_time_slide_id(xmldoc, time_slide, create_new = True):
+	"""
+	Return the time_slide_id corresponding to the time slide described
+	by time_slide, a dictionary of instrument/offset pairs.  If no
+	matching time slide is found, then a new one is created and the ID
+	returned.  If the document does not contain a time_slide table,
+	then one is added, a new time_slide_id created, and the ID
+	returned.  If, however, create_new is False, and for any reason the
+	ID isn't found then KeyError is raised.
+	"""
+	try:
+		tisitable = get_table(xmldoc, lsctables.TimeSlideTable.tableName)
+	except ValueError:
+		if not create_new:
+			raise KeyError, time_slide
+		tisitable = lsctables.New(lsctables.TimeSlideTable)
+		xmldoc.childNodes[0].appendChild(tisitable)
+	for id, tisi in tisitable.dict.iteritems():
+		d = {}
+		for row in tisi:
+			d[row.instrument] = row.offset
+		if d == time_slide:
+			break
+	else:
+		if not create_new:
+			raise KeyError, time_slide
+		id = lsctables.NewILWDs(tisitable, "time_slide_id").next()
+		for instrument, offset in time_slide.iteritems():
+			row = lsctables.CoincDef()
+			row.time_side_id = id
+			row.instrument = instrument
+			row.offset = offset
+			tisitable.append(row)
+	return id
+
+
+def get_coinc_def_id(xmldoc, table_names, create_new = True):
 	"""
 	Return the coinc_def_id corresponding to coincidences consisting
 	exclusively of events from the given table names.  If no matching
@@ -166,12 +202,12 @@ def get_coinc_def_id(doc, table_names, create_new = True):
 	found then KeyError is raised.
 	"""
 	try:
-		coincdeftable = get_table(doc, lsctables.CoincDefTable.tableName)
+		coincdeftable = get_table(xmldoc, lsctables.CoincDefTable.tableName)
 	except ValueError:
 		if not create_new:
 			raise KeyError, table_names
 		coincdeftable = lsctables.New(lsctables.CoincDefTable)
-		doc.childNodes[0].appendChild(coincdeftable)
+		xmldoc.childNodes[0].appendChild(coincdeftable)
 	table_names.sort()
 	for id in coincdeftable.dict.keys():
 		if coincdeftable.get_contributors(id) == table_names:
@@ -181,10 +217,10 @@ def get_coinc_def_id(doc, table_names, create_new = True):
 			raise KeyError, table_names
 		id = lsctables.NewILWDs(coincdeftable, "coinc_def_id").next()
 		for name in table_names:
-			coincdef = lsctables.CoincDef()
-			coincdef.coinc_def_id = id
-			coincdef.table_name = name
-			coincdeftable.append(coincdef)
+			row = lsctables.CoincDef()
+			row.coinc_def_id = id
+			row.table_name = name
+			coincdeftable.append(row)
 	return id
 
 
