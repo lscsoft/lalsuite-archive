@@ -184,10 +184,7 @@ class TriggerList(list):
 		"""
 		Remove the offset from all triggers in the list.
 		"""
-		if self.offset != LIGOTimeGPS(0):
-			for row in self:
-				row.set_start(row.get_start() - self.offset)
-			self.offset = LIGOTimeGPS(0)
+		self.set_offset(LIGOTimeGPS(0))
 
 	def intersects(self, t, dt):
 		"""
@@ -464,13 +461,12 @@ for n, filename in enumerate(filenames):
 	if llwapp.doc_includes_process(doc, "ligolw_burca"):
 		if options.verbose:
 			print >>sys.stderr, "warning: %s already processed," % (filename or "stdin"),
-		if options.force:
-			if options.verbose:
-				print >>sys.stderr, "continuing"
-		else:
+		if not options.force:
 			if options.verbose:
 				print >>sys.stderr, "skipping"
 			continue
+		if options.verbose:
+			print >>sys.stderr, "continuing"
 	ligolw_burca(doc, **options.__dict__)
 	llwapp.write_filename(doc, filename, options.verbose)
 	doc.unlink()
