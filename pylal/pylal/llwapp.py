@@ -30,6 +30,7 @@ data in LIGO Light-Weight format.
 """
 
 import bisect
+import gzip
 import os
 import pickle
 import socket
@@ -86,35 +87,44 @@ def sort_files_by_size(filenames, verbose = False, reverse = False):
 	return [pair[1] for pair in measure_file_sizes(filenames, reverse = reverse)]
 
 
-def load_filename(filename, verbose = False):
+def load_filename(filename, verbose = False, gz = False):
 	if verbose:
-		print >>sys.stderr, "reading %s..." % (filename or "stdin")
+		print >>sys.stderr, "reading %s ..." % (filename or "stdin")
 	doc = ligolw.Document()
 	if filename:
-		ligolw.make_parser(ContentHandler(doc)).parse(file(filename))
+		fileobj = file(filename)
 	else:
-		ligolw.make_parser(ContentHandler(doc)).parse(sys.stdin)
+		fileobj = sys.stdin
+	if gz:
+		fileobj = gzip.GzipFile(mode = "rb", fileobj = fileobj)
+	ligolw.make_parser(ContentHandler(doc)).parse(fileobj)
 	return doc
 
 
-def load_url(url, verbose = False):
+def load_url(url, verbose = False, gz = False):
 	if verbose:
-		print >>sys.stderr, "reading %s..." % (url or "stdin")
+		print >>sys.stderr, "reading %s ..." % (url or "stdin")
 	doc = ligolw.Document()
 	if url:
-		ligolw.make_parser(ContentHandler(doc)).parse(urllib.urlopen(url))
+		fileobj = urllib.urlopen(url)
 	else:
-		ligolw.make_parser(ContentHandler(doc)).parse(sys.stdin)
+		fileobj = sys.stdin
+	if gz:
+		fileobj = gzip.GzipFile(mode = "rb", fileobj = fileobj)
+	ligolw.make_parser(ContentHandler(doc)).parse(fileobj)
 	return doc
 
 
-def write_filename(doc, filename, verbose = False):
+def write_filename(doc, filename, verbose = False, gz = False):
 	if verbose:
-		print >>sys.stderr, "writing %s..." % (filename or "stdout")
+		print >>sys.stderr, "writing %s ..." % (filename or "stdout")
 	if filename:
-		doc.write(file(filename, "w"))
+		fileobj = file(filename, "w")
 	else:
-		doc.write(sys.stdout)
+		fileobj = sys.stdout
+	if gz:
+		fileobj = gzip.GzipFile(mode = "wb", fileobj = fileobj)
+	doc.write(fileobj)
 
 
 #
