@@ -204,3 +204,4 @@ for n, filename in enumerate(filenames):
 	if options.verbose:
 		print >>sys.stderr, "writing %s" % (filename or "stdout")
 	write_filename(filename)
+	doc.unlink()
