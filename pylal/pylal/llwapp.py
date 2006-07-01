@@ -163,13 +163,13 @@ def get_coinc_def_id(doc, table_names, create_new = True):
 	returned.  If the document does not contain a coinc_definer table,
 	then one is added, a new coind_def_id created, and the ID returned.
 	If, however, create_new is False, and for any reason the ID isn't
-	found then None is returned.
+	found then KeyError is raised.
 	"""
 	try:
 		coincdeftable = get_table(doc, lsctables.CoincDefTable.tableName)
 	except ValueError:
 		if not create_new:
-			return None
+			raise KeyError, table_names
 		coincdeftable = lsctables.New(lsctables.CoincDefTable)
 		doc.childNodes[0].appendChild(coincdeftable)
 	table_names.sort()
@@ -178,7 +178,7 @@ def get_coinc_def_id(doc, table_names, create_new = True):
 			break
 	else:
 		if not create_new:
-			return None
+			raise KeyError, table_names
 		id = lsctables.NewILWDs(coincdeftable, "coinc_def_id").next()
 		for name in table_names:
 			coincdef = lsctables.CoincDef()
