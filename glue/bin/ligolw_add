@@ -126,33 +126,26 @@ def make_lfn_table(doc, pathname, start_time = None, end_time = None, comment = 
 # =============================================================================
 #
 
-try:
-	# Command line
-	options, urls = parse_command_line()
+# Command line
+options, urls = parse_command_line()
 
-	# Input
-	doc = ligolw_add.ligolw_add(ligolw.Document(), urls, **options.__dict__)
+# Input
+doc = ligolw_add.ligolw_add(ligolw.Document(), urls, **options.__dict__)
 
-	# LFN table
-	if options.add_lfn_table:
-		if not options.output:
-			raise Exception, "cannot add LFN table when no output filename is given"
-		doc.getElementsByTagName(ligolw.LIGO_LW.tagName)[0].appendChild(make_lfn_table(doc, options.output, options.lfn_start_time, options.lfn_end_time, options.lfn_comment))
+# LFN table
+if options.add_lfn_table:
+	if not options.output:
+		raise Exception, "cannot add LFN table when no output filename is given"
+	doc.getElementsByTagName(ligolw.LIGO_LW.tagName)[0].appendChild(make_lfn_table(doc, options.output, options.lfn_start_time, options.lfn_end_time, options.lfn_comment))
 
-	# Output
-	if options.verbose:
-		if options.output:
-			print >>sys.stderr, "writing %s..." % options.output
-		else:
-			print >>sys.stderr, "writing stdout..."
-	if options.output:
-		doc.write(file(options.output, "w"))
-	else:
-		doc.write(sys.stdout)
+# Output
+if options.verbose:
+	print >>sys.stderr, "writing %s" % (options.output or "stdout")
+if options.output:
+	doc.write(file(options.output, "w"))
+else:
+	doc.write(sys.stdout)
 
-	# Remove input
-	if options.remove_input:
-		ligolw_add.remove_input(urls, [options.output] + options.remove_input_except, options.verbose)
-except Exception, e:
-	print >>sys.stderr, "error: %s" % str(e)
-	sys.exit(1)
+# Remove input
+if options.remove_input:
+	ligolw_add.remove_input(urls, [options.output] + options.remove_input_except, options.verbose)
