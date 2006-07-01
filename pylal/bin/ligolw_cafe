@@ -82,9 +82,10 @@ def load_cache(filename):
 	if options.verbose:
 		print >>sys.stderr, "reading %s ..." % (filename or "stdin")
 	if filename:
-		return map(lambda l: CacheEntry(l, coltype = LIGOTimeGPS), file(filename))
+		fileobj = file(filename)
 	else:
-		return map(lambda l: CacheEntry(l, coltype = LIGOTimeGPS), sys.stdin)
+		fileobj = sys.stdin
+	return map(lambda l: CacheEntry(l, coltype = LIGOTimeGPS), fileobj)
 
 
 def cache_to_seglistdict(cache):
