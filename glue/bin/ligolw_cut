@@ -51,13 +51,11 @@ __version__ = "$Revision$"[11:-2]
 
 def parse_command_line():
 	parser = OptionParser(version = "%prog CVS $Id$")
-	parser.add_option("-i", "--input", metavar = "filename", help = "read input from the given file [stdin]")
-	parser.add_option("-o", "--output", metavar = "filename", help = "write output to the given file [stdout]")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
 	parser.add_option("--delete-column", metavar = "name", action = "append", default = [], help = "delete matching columns")
 	parser.add_option("--delete-element", metavar = "tag[,attr=value[,...]]", action = "append", default = [], help = "delete matching elements")
 	parser.add_option("--delete-table", metavar = "name", action = "append", default = [], help = "delete matching tables")
-	options = parser.parse_args()[0]
+	options, filenames = parser.parse_args()
 
 	# strip column names
 	# FIXME: remove duplicates
@@ -78,7 +76,7 @@ def parse_command_line():
 	# FIXME: remove duplicates
 	options.delete_table = map(table.StripTableName, options.delete_table)
 
-	return options
+	return options, (filenames or [None])
 
 
 #
@@ -89,18 +87,14 @@ def parse_command_line():
 # =============================================================================
 #
 
-#
-# Use table's content handler in order to accept documents that might
-# contain invalid columns (one use of this tool is correcting documents by
-# deleting non-conforming parts).
-#
+ContentHandler = ligolw.LIGOLWContentHandler
 
-def LoadDocuments(input):
+def load_filename(filename):
 	doc = ligolw.Document()
-	if input:
-		ligolw.make_parser(ligolw.LIGOLWContentHandler(doc)).parse(file(input))
+	if filename:
+		ligolw.make_parser(ContentHandler(doc)).parse(file(filename))
 	else:
-		ligolw.make_parser(ligolw.LIGOLWContentHandler(doc)).parse(sys.stdin)
+		ligolw.make_parser(ContentHandler(doc)).parse(sys.stdin)
 	return doc
 
 
@@ -173,9 +167,9 @@ def RemoveElements(doc, specs):
 # =============================================================================
 #
 
-def write_output(output):
-	if output:
-		doc.write(file(output, "w"))
+def write_filename(filename):
+	if filename:
+		doc.write(file(filename, "w"))
 	else:
 		doc.write(sys.stdout)
 
@@ -188,25 +182,25 @@ def write_output(output):
 # =============================================================================
 #
 
-if __name__ == "__main__":
-	# command line
-	try:
-		options = parse_command_line()
-	except Exception, e:
-		print >>sys.stderr, "error: parsing command line: %s" % str(e)
-		sys.exit(1)
+try:
+	options, filenames = parse_command_line()
+except Exception, e:
+	print >>sys.stderr, "error: parsing command line: %s" % str(e)
+	sys.exit(1)
 
-	# input
-	doc = LoadDocuments(options.input)
+for n, filename in enumerate(filenames):
+	if options.verbose:
+		print >>sys.stderr, "loading %d/%d: %s" % (n + 1, len(filenames), filename or "stdin")
+	doc = load_filename(filename)
 
-	# cut
+	if options.verbose:
+		print >>sys.stderr, "processing"
 	RemoveTables(doc, options.delete_table)
-
 	if options.delete_column:
 		RemoveColumns(doc, options.delete_column)
-
 	if options.delete_element:
 		RemoveElements(doc, options.delete_element)
 
-	# output
-	write_output(options.output)
+	if options.verbose:
+		print >>sys.stderr, "writing %s" % (filename or "stdout")
+	write_filename(filename)
