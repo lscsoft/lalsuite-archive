@@ -53,6 +53,7 @@ def parse_command_line():
 	parser.add_option("--coinc-only", action = "store_true", help = "discard triggers that are not participating in a coincident event")
 	parser.add_option("--comment", metavar = "text", default = "", help = "set comment string in process table")
 	parser.add_option("--inj-made-only", action = "store_true", help = "discard injections outside the search summary out segments")
+	parser.add_option("--inj-no-dups", action = "store_true", help = "discard duplicate injections")
 	parser.add_option("--min-amplitude", metavar = "value", help = "discard triggers below the given amplitude")
 	parser.add_option("--max-amplitude", metavar = "value", help = "discard triggers above the given amplitude")
 	parser.add_option("--min-bandwidth", metavar = "Hz", help = "discard triggers narrower than the given bandwidth")
@@ -167,6 +168,8 @@ def append_process(doc, options):
 		params += [("--coinc-only", "lstring", "")]
 	if options.inj_made_only:
 		params += [("--inj-made-only", "lstring", "")]
+	if options.inj_no_dups:
+		params += [("--inj-no-dups", "lstring", "")]
 	if options.min_amplitude != None:
 		options.min_amplitude = float(options.min_amplitude)
 		params += [("--min-amplitude", "real_4", options.min_amplitude)]
@@ -388,6 +391,21 @@ def remove_injections_by_segment(contents):
 			i += 1
 
 
+def remove_duplicate_injections(contents):
+	# FIXME: this only works if binjfind has not yet been run (if no
+	# cross-references exist to the injections)
+	a = 0
+	while a < len(contents.simbursttable):
+		sima = contents.simbursttable[a]
+		b = a + 1
+		while b < len(contents.simbursttable):
+			if not sima.cmp(contents.simbursttable[b]):
+				del contents.simbursttable[b]
+			else:
+				b += 1
+		a += 1
+
+
 def clean_coinc_tables(contents, removed_ids):
 	# FIXME:  this only works on the output of burca, not the output of
 	# binjfind.  In the case of binjfind, deleting a trigger doesn't
@@ -445,8 +463,12 @@ def apply_filters(contents, options, verbose = False):
 	removed_ids.extend(remove_events_by_parameters(contents, options))
 	if options.inj_made_only:
 		if verbose:
-			print >>sys.stderr, "filtering injections..."
+			print >>sys.stderr, "removing injections that weren't performed..."
 		remove_injections_by_segment(contents)
+	if options.inj_no_dups:
+		if verbose:
+			print >>sys.stderr, "removing duplicate injections..."
+		remove_duplicate_injections(contents)
 	removed_ids.sort()
 	if verbose:
 		print >>sys.stderr, "removing broken coincidences..."
@@ -482,12 +504,8 @@ def ligolw_bucut(doc, options):
 #
 
 options, filenames = parse_command_line()
-try:
-	for filename in filenames:
-		doc = llwapp.load_filename(filename, options.verbose)
-		doc = ligolw_bucut(doc, options)
-		llwapp.write_filename(doc, filename, options.verbose)
-		doc.unlink()
-except Exception, e:
-	print >>sys.stderr, "error: %s" % str(e)
-	sys.exit(1)
+for filename in filenames:
+	doc = llwapp.load_filename(filename, options.verbose)
+	doc = ligolw_bucut(doc, options)
+	llwapp.write_filename(doc, filename, options.verbose)
+	doc.unlink()
