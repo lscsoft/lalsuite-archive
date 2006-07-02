@@ -81,12 +81,17 @@ def snglburst_append(self, row):
 	self.rows[lsctables.ILWDID(row.event_id)] = row
 	del row.event_id
 
-def coinc_init(self, attrs):
-	lsctables.LSCTableUnique.__init__(self, attrs)
+def coinc_def_init(self, attrs):
+	lsctables.LSCTableMulti.__init__(self, attrs)
 	self.rows = {}
 
-def coinc_append(self, row):
-	self.rows[lsctables.ILWDID(row.coinc_event_id)] = lsctables.ILWDID(row.time_slide_id)
+def coinc_def_append(self, row):
+	id = lsctables.ILWDID(row.coinc_def_id)
+	if id in self.rows:
+		self.rows[id].append(row.table_name)
+		self.rows[id].sort()
+	else:
+		self.rows[id] = [row.table_name]
 
 def coinc_map_init(self, attrs):
 	lsctables.LSCTableUnique.__init__(self, attrs)
@@ -98,6 +103,12 @@ def coinc_map_append(self, row):
 		self.rows[id].append(lsctables.ILWDID(row.event_id))
 	else:
 		self.rows[id] = [lsctables.ILWDID(row.event_id)]
+
+def coinc_append(self, row):
+	row.time_slide_id = lsctables.ILWDID(row.time_slide_id)
+	row.coinc_def_id = lsctables.ILWDID(row.coinc_def_id)
+	row.coinc_event_id = lsctables.ILWDID(row.coinc_event_id)
+	self.rows.append(row)
 
 def timeslide_init(self, attrs):
 	lsctables.LSCTableMulti.__init__(self, attrs)
@@ -113,7 +124,8 @@ def timeslide_append(self, row):
 lsctables.SnglBurstTable.loadcolumns = ["ifo", "central_freq", "confidence", "peak_time", "peak_time_ns", "event_id"]
 lsctables.SnglBurstTable.__init__ = snglburst_init
 lsctables.SnglBurstTable.append = snglburst_append
-lsctables.CoincTable.__init__ = coinc_init
+lsctables.CoincDefTable.__init__ = coinc_def_init
+lsctables.CoincDefTable.append = coinc_def_append
 lsctables.CoincTable.append = coinc_append
 lsctables.CoincMapTable.__init__ = coinc_map_init
 lsctables.CoincMapTable.append = coinc_map_append
@@ -135,9 +147,8 @@ class DocContents(object):
 		# Extract tables
 		#
 
-		self.coinctable = llwapp.get_table(xmldoc, lsctables.CoincTable.tableName)
-		self.coincmaptable = llwapp.get_table(xmldoc, lsctables.CoincMapTable.tableName)
-		self.tisitable = llwapp.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
+		self.coinc_rows = llwapp.get_table(xmldoc, lsctables.CoincTable.tableName).rows
+		self.tisi_rows = llwapp.get_table(xmldoc, lsctables.TimeSlideTable.tableName).rows
 
 		#
 		# Extract segmentlist dictionary
@@ -146,23 +157,18 @@ class DocContents(object):
 		self.seglistdict = llwapp.segmentlistdict_fromsearchsummary(xmldoc, live_time_program)
 
 		#
-		# Find foreground time slide
+		# Replace ID attributes of each coinc_event row with
+		# references to the corresponding objects in the other
+		# tables.
 		#
 
-		self.foreground_tisi_id = None
-		for self.foreground_tisi_id, offsetdict in self.tisitable.rows.iteritems():
-			for offset in offsetdict.itervalues():
-				if offset != 0.0:
-					continue
-			break
-
-		#
-		# Build coinc_event_map --> sngl_burst references
-		#
-
-		burstrows = llwapp.get_table(xmldoc, lsctables.SnglBurstTable.tableName).rows
-		for key, value in self.coincmaptable.rows.iteritems():
-			self.coincmaptable.rows[key] = map(burstrows.__getitem__, value)
+		coinc_def_rows = llwapp.get_table(xmldoc, lsctables.CoincDefTable.tableName).rows
+		coinc_map_rows = llwapp.get_table(xmldoc, lsctables.CoincMapTable.tableName).rows
+		burst_rows = llwapp.get_table(xmldoc, lsctables.SnglBurstTable.tableName).rows
+		for coinc_row in self.coinc_rows:
+			coinc_row.time_slide_id = self.tisi_rows[coinc_row.time_slide_id]
+			coinc_row.coinc_def_id = coinc_def_rows[coinc_row.coinc_def_id]
+			coinc_row.coinc_event_id = map(burst_rows.__getitem__, coinc_map_rows[coinc_row.coinc_event_id])
 
 
 #
@@ -173,6 +179,16 @@ class DocContents(object):
 # =============================================================================
 #
 
+def time_slide_is_null(offsetdict):
+	"""
+	Test for all-zero time slide.
+	"""
+	for offset in offsetdict.itervalues():
+		if offset:
+			return False
+	return True
+
+
 def CoincEventIter(doc):
 	"""
 	Generates a sequence of tuples, one for each coincidence in the
@@ -182,8 +198,8 @@ def CoincEventIter(doc):
 	found, and the third is a list of the sngl_burst events in the
 	coincidence.
 	"""
-	for coinc_id, tisi_id in doc.coinctable.rows.iteritems():
-		yield tisi_id == doc.foreground_tisi_id, doc.tisitable.rows[tisi_id], doc.coincmaptable.rows[coinc_id]
+	for row in doc.coinc_rows:
+		yield time_slide_is_null(row.time_slide_id), row.time_slide_id, row.coinc_event_id
 
 
 def CoincTisiIter(doc):
@@ -192,8 +208,8 @@ def CoincTisiIter(doc):
 	coincidence in the data set, indicating the time slide at which the
 	corresponding coincidence was found.
 	"""
-	for tisi_id in doc.coinctable.rows.itervalues():
-		yield doc.tisitable.rows[tisi_id]
+	for row in doc.coinc_rows:
+		yield row.time_slide_id
 
 
 #
@@ -208,7 +224,7 @@ class RateContours(object):
 	def __init__(self, x_instrument, y_instrument):
 		self.x_instrument = x_instrument
 		self.y_instrument = y_instrument
-		self.tisirows = None
+		self.tisi_rows = None
 		self.seglistdict = None
 		self.fig = figure.Figure()
 		FigureCanvasAgg(self.fig)
@@ -220,8 +236,8 @@ class RateContours(object):
 		self.axes.set_ylabel("%s Offset (s)" % y_instrument)
 
 	def addto(self, doc):
-		if self.tisirows == None:
-			self.tisirows = doc.tisitable.rows.values()
+		if self.tisi_rows == None:
+			self.tisi_rows = doc.tisi_rows.values()
 		if self.seglistdict == None:
 			self.seglistdict = doc.seglistdict
 		else:
@@ -231,7 +247,7 @@ class RateContours(object):
 			self.bins.incnumerator((offsetdict[self.x_instrument], offsetdict[self.y_instrument]))
 
 	def finish(self):
-		for row in self.tisirows:
+		for row in self.tisi_rows:
 			self.seglistdict.offsets.update(row)
 			self.bins.incdenominator((row[self.x_instrument], row[self.y_instrument]), float(self.seglistdict.intersection(self.seglistdict.keys()).duration()))
 		self.bins.logregularize()
@@ -239,7 +255,7 @@ class RateContours(object):
 		rate.filter_array(zvals, rate.gaussian_window2d(8, 8))
 		xcoords, ycoords = self.bins.centres()
 		self.axes.contour(xcoords, ycoords, numarray.transpose(numarray.log(zvals)))
-		for row in self.tisirows:
+		for row in self.tisi_rows:
 			self.axes.plot((row[self.x_instrument],), (row[self.y_instrument],), "k+")
 		self.axes.set_title("Coincident Trigger Rate vs. Offset\n(Logarithmic Contours)")
 
@@ -294,8 +310,11 @@ class ConfidenceScatter(object):
 		#self.axes.plot(self.background_x, self.background_y, "k+")
 		#self.axes.plot(self.foreground_x, self.foreground_y, "rx")
 
-		bins = rate.BinnedArray(rate.Bins(min(self.background_x), max(self.background_x), 1024, min(self.background_y), max(self.background_y), 1024, spacing = ["log", "log"]))
-		map(lambda x, y: bins.__setitem__((x, y), 1), self.background_x, self.background_y)
+		bins = rate.BinnedArray(rate.Bins(min(self.background_x + self.foreground_x), max(self.background_x + self.foreground_x), 1024, min(self.background_y + self.foreground_y), max(self.background_y + self.foreground_y), 1024, spacing = ["log", "log"]))
+		for coords in zip(self.background_x, self.background_y):
+			bins[coords] += 1
+		for coords in zip(self.foreground_x, self.foreground_y):
+			bins[coords] += 1
 		rate.filter_array(bins.array, rate.gaussian_window2d(8, 8))
 		bins.logregularize()
 		xcoords, ycoords = bins.centres()
@@ -379,11 +398,12 @@ for n, filename in enumerate(llwapp.sort_files_by_size(filenames, options.verbos
 	if options.verbose:
 		print >>sys.stderr, "indexing..."
 	contents = DocContents(doc, options.live_time_program)
+	doc.unlink()
+	del doc
 	for n, plot in enumerate(plots):
 		if options.verbose:
 			print >>sys.stderr, "adding to plot %d..." % n
 		plot.addto(contents)
-	doc.unlink()
 
 
 #
