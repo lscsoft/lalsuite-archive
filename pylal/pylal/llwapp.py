@@ -427,16 +427,19 @@ def get_coincident_segmentlistdict(seglistdict, offsetdictlist):
 	and a set of time slides to apply to those segment lists, what
 	segments do I need to keep in the original lists so that I have all
 	the segments that will participate in a coincidence analysis done
-	over all those time slides.
+	over those time slides?
 
 	This function constructs and returns a segmentlistdict object that,
 	for each key in seglistdict, contains the segments from the
 	corresponding list in seglistdict which are coincident under at
 	least one of the time slides described by offsetdictlist.
 
-	The elements of offsetlistdict are free to contain only subsets of
-	the keys in seglistdict.  In those cases, the coincidence is
-	computed only between the lists corresponding to the given keys.
+	offsetlistdict is a list of dictionaries of instrument/offset
+	pairs, with each dictionary describing a time slide and the
+	instruments that participate in it.  Each element in the list is
+	free to contain only subsets of the keys in seglistdict.  In those
+	cases, the coincidence is computed only between the segment lists
+	corresponding to the given keys.
 
 	For example, let us say that "input" is a segmentlistdict object
 	containing segment lists for three instruments, "H1", "H2" and
