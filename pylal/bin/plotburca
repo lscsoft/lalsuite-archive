@@ -28,10 +28,7 @@
 
 from optparse import OptionParser
 import math
-import matplotlib
-matplotlib.use("Agg")
-from matplotlib import figure
-from matplotlib.backends.backend_agg import FigureCanvasAgg
+import matplotlib.cm
 import numarray
 import sys
 
@@ -39,6 +36,7 @@ from glue import segments
 from glue.ligolw import lsctables
 from pylal import llwapp
 from pylal import rate
+from pylal import SnglBurstUtils
 from pylal.date import LIGOTimeGPS
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -59,8 +57,14 @@ def parse_command_line():
 	parser.add_option("-b", "--base", metavar = "base", default = "plotburca_", help = "set the prefix for output filenames (default = plotburca_)")
 	parser.add_option("-f", "--format", metavar = "format", default = "png", help = "set the output image format (default = png)")
 	parser.add_option("-l", "--live-time-program", metavar = "program", default = "power", help = "set the name, as it appears in the process table, of the program whose search summary entries define the search live time (default = power)")
+	parser.add_option("--plot", metavar = "number", action = "append", default = None, help = "only generate the given plot number")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
 	options, filenames = parser.parse_args()
+
+	if options.plot:
+		options.plot = map(int, options.plot)
+	else:
+		options.plot = [0, 1, 2, 3, 4, 5, 6]
 
 	return options, (filenames or [None])
 
@@ -105,9 +109,13 @@ def coinc_map_append(self, row):
 		self.rows[id] = [lsctables.ILWDID(row.event_id)]
 
 def coinc_append(self, row):
-	row.time_slide_id = lsctables.ILWDID(row.time_slide_id)
-	row.coinc_def_id = lsctables.ILWDID(row.coinc_def_id)
+	try:
+		row.coinc_def_id = lsctables.ILWDID(row.coinc_def_id)
+	except AttributeError:
+		# FIXME: remove when no legacy files remain
+		pass
 	row.coinc_event_id = lsctables.ILWDID(row.coinc_event_id)
+	row.time_slide_id = lsctables.ILWDID(row.time_slide_id)
 	self.rows.append(row)
 
 def timeslide_init(self, attrs):
@@ -126,6 +134,7 @@ lsctables.SnglBurstTable.__init__ = snglburst_init
 lsctables.SnglBurstTable.append = snglburst_append
 lsctables.CoincDefTable.__init__ = coinc_def_init
 lsctables.CoincDefTable.append = coinc_def_append
+lsctables.CoincTable.loadcolumns = ["coinc_def_id", "coinc_event_id", "time_slide_id"]
 lsctables.CoincTable.append = coinc_append
 lsctables.CoincMapTable.__init__ = coinc_map_init
 lsctables.CoincMapTable.append = coinc_map_append
@@ -148,7 +157,8 @@ class DocContents(object):
 		#
 
 		self.coinc_rows = llwapp.get_table(xmldoc, lsctables.CoincTable.tableName).rows
-		self.tisi_rows = llwapp.get_table(xmldoc, lsctables.TimeSlideTable.tableName).rows
+		tisi_rows = llwapp.get_table(xmldoc, lsctables.TimeSlideTable.tableName).rows
+		self.tisi_rows = tisi_rows.values()
 
 		#
 		# Extract segmentlist dictionary
@@ -162,13 +172,27 @@ class DocContents(object):
 		# tables.
 		#
 
-		coinc_def_rows = llwapp.get_table(xmldoc, lsctables.CoincDefTable.tableName).rows
+		try:
+			coinc_def_rows = llwapp.get_table(xmldoc, lsctables.CoincDefTable.tableName).rows
+		except ValueError:
+			# FIXME: remove when no legacy files remain
+			coinc_def_rows = {}
 		coinc_map_rows = llwapp.get_table(xmldoc, lsctables.CoincMapTable.tableName).rows
 		burst_rows = llwapp.get_table(xmldoc, lsctables.SnglBurstTable.tableName).rows
-		for coinc_row in self.coinc_rows:
-			coinc_row.time_slide_id = self.tisi_rows[coinc_row.time_slide_id]
-			coinc_row.coinc_def_id = coinc_def_rows[coinc_row.coinc_def_id]
-			coinc_row.coinc_event_id = map(burst_rows.__getitem__, coinc_map_rows[coinc_row.coinc_event_id])
+		i = 0
+		while i < len(self.coinc_rows):
+			try:
+				if coinc_def_rows[self.coinc_rows[i].coinc_def_id] != [lsctables.SnglBurstTable.tableName]:
+					# not a sngl_burst <--> sngl_burst coinc
+					del self.coinc_rows[i]
+					continue
+				del self.coinc_rows[i].coinc_def_id
+			except AttributeError:
+				# FIXME: remove when no legacy files remain
+				pass
+			self.coinc_rows[i].time_slide_id = tisi_rows[self.coinc_rows[i].time_slide_id]
+			self.coinc_rows[i].coinc_event_id = map(burst_rows.__getitem__, coinc_map_rows[self.coinc_rows[i].coinc_event_id])
+			i += 1
 
 
 #
@@ -192,14 +216,12 @@ def time_slide_is_null(offsetdict):
 def CoincEventIter(doc):
 	"""
 	Generates a sequence of tuples, one for each coincidence in the
-	data set.  The first element of each tuple is True or False
-	indicating if the coincidence is a foreground event, the second
-	element is the time slide dictionary at which the coincidence was
-	found, and the third is a list of the sngl_burst events in the
-	coincidence.
+	data set.  The first element of each tuple is the time slide
+	dictionary at which the coincidence was found, and the second is a
+	list of the sngl_burst events in the coincidence.
 	"""
 	for row in doc.coinc_rows:
-		yield time_slide_is_null(row.time_slide_id), row.time_slide_id, row.coinc_event_id
+		yield row.time_slide_id, row.coinc_event_id
 
 
 def CoincTisiIter(doc):
@@ -220,24 +242,19 @@ def CoincTisiIter(doc):
 # =============================================================================
 #
 
-class RateContours(object):
-	def __init__(self, x_instrument, y_instrument):
+class RateContours(SnglBurstUtils.BurstPlot):
+	def __init__(self, x_instrument, y_instrument, min_delta_t, max_delta_t):
+		SnglBurstUtils.BurstPlot.__init__(self, "%s Offset (s)" % x_instrument, "%s Offset (s)" % y_instrument)
+		self.fig.set_figsize_inches(16,16)
 		self.x_instrument = x_instrument
 		self.y_instrument = y_instrument
 		self.tisi_rows = None
 		self.seglistdict = None
-		self.fig = figure.Figure()
-		FigureCanvasAgg(self.fig)
-		self.fig.set_figsize_inches(16,16)
-		self.axes = self.fig.gca()
-		self.bins = rate.BinnedRatios(rate.Bins(-100, 100, 81, -100, 100, 81))
-		self.axes.grid(True)
-		self.axes.set_xlabel("%s Offset (s)" % x_instrument)
-		self.axes.set_ylabel("%s Offset (s)" % y_instrument)
+		self.bins = rate.BinnedRatios(rate.Bins(min_delta_t, max_delta_t, 81, min_delta_t, max_delta_t, 81))
 
-	def addto(self, doc):
+	def add_contents(self, doc):
 		if self.tisi_rows == None:
-			self.tisi_rows = doc.tisi_rows.values()
+			self.tisi_rows = doc.tisi_rows
 		if self.seglistdict == None:
 			self.seglistdict = doc.seglistdict
 		else:
@@ -255,9 +272,15 @@ class RateContours(object):
 		rate.filter_array(zvals, rate.gaussian_window2d(8, 8))
 		xcoords, ycoords = self.bins.centres()
 		self.axes.contour(xcoords, ycoords, numarray.transpose(numarray.log(zvals)))
-		for row in self.tisi_rows:
-			self.axes.plot((row[self.x_instrument],), (row[self.y_instrument],), "k+")
-		self.axes.set_title("Coincident Trigger Rate vs. Offset\n(Logarithmic Contours)")
+		for tisi in self.tisi_rows:
+			if time_slide_is_null(tisi):
+				self.axes.plot((tisi[self.x_instrument],), (tisi[self.y_instrument],), "r+")
+			else:
+				self.axes.plot((tisi[self.x_instrument],), (tisi[self.y_instrument],), "k+")
+
+		self.axes.set_xlim([self.bins.bins.min[0], self.bins.bins.max[0]])
+		self.axes.set_ylim([self.bins.bins.min[1], self.bins.bins.max[1]])
+		self.axes.set_title("Coincident Event Rate vs. Offset\n(Logarithmic Contours)")
 
 
 #
@@ -268,58 +291,58 @@ class RateContours(object):
 # =============================================================================
 #
 
-class ConfidenceScatter(object):
-	def __init__(self, x_instrument, y_instrument):
+class ConfidenceContours(SnglBurstUtils.BurstPlot):
+	def __init__(self, x_instrument, y_instrument, min_confidence, max_confidence):
+		SnglBurstUtils.BurstPlot.__init__(self, "%s Confidence" % x_instrument, "%s Confidence" % y_instrument)
+		self.fig.set_figsize_inches(16,16)
+		self.axes.loglog()
+
 		self.x_instrument = x_instrument
 		self.y_instrument = y_instrument
 		self.n_foreground = 0
 		self.n_background = 0
-		self.foreground_x = []
-		self.foreground_y = []
-		self.background_x = []
-		self.background_y = []
-		self.fig = figure.Figure()
-		FigureCanvasAgg(self.fig)
-		self.fig.set_figsize_inches(16,16)
-		self.axes = self.fig.gca()
-		self.axes.loglog()
-		self.axes.grid(True)
-		self.axes.set_xlabel("%s Confidence" % x_instrument)
-		self.axes.set_ylabel("%s Confidence" % y_instrument)
+		self.foreground_bins = rate.BinnedArray(rate.Bins(min_confidence, max_confidence, 1024, min_confidence, max_confidence, 1024, spacing = ["log", "log"]))
+		self.background_bins = rate.BinnedArray(rate.Bins(min_confidence, max_confidence, 1024, min_confidence, max_confidence, 1024, spacing = ["log", "log"]))
 
-	def addto(self, doc):
-		for foreground, tisi, trigs in CoincEventIter(doc):
-			if foreground:
+	def add_contents(self, doc):
+		for tisi, trigs in CoincEventIter(doc):
+			if time_slide_is_null(tisi):
 				self.n_foreground += 1
 				for trig in trigs:
 					if trig.ifo == self.x_instrument:
-						self.foreground_x.append(-trig.confidence)
+						x = -trig.confidence
 					elif trig.ifo == self.y_instrument:
-						self.foreground_y.append(-trig.confidence)
+						y = -trig.confidence
+				self.foreground_bins[x, y] += 1
 			else:
 				self.n_background += 1
 				for trig in trigs:
 					if trig.ifo == self.x_instrument:
-						self.background_x.append(-trig.confidence)
+						x = -trig.confidence
 					elif trig.ifo == self.y_instrument:
-						self.background_y.append(-trig.confidence)
+						y = -trig.confidence
+				self.background_bins[x, y] += 1
 
 	def finish(self):
-		self.axes.set_title("Coincident Trigger Confidence\n(%d Foreground, %d Background Triggers)" % (self.n_foreground, self.n_background))
+		self.axes.set_title("Distribution of Coincident Event Confidence\n(%d Foreground, %d Background Events)" % (self.n_foreground, self.n_background))
+		xcoords, ycoords = self.background_bins.centres()
 
-		#self.axes.plot(self.background_x, self.background_y, "k+")
-		#self.axes.plot(self.foreground_x, self.foreground_y, "rx")
+		# prepare the data
+		rate.filter_array(self.background_bins.array, rate.gaussian_window2d(8, 8))
+		rate.filter_array(self.foreground_bins.array, rate.gaussian_window2d(8, 8))
+		self.background_bins.logregularize()
+		self.foreground_bins.logregularize()
 
-		bins = rate.BinnedArray(rate.Bins(min(self.background_x + self.foreground_x), max(self.background_x + self.foreground_x), 1024, min(self.background_y + self.foreground_y), max(self.background_y + self.foreground_y), 1024, spacing = ["log", "log"]))
-		for coords in zip(self.background_x, self.background_y):
-			bins[coords] += 1
-		for coords in zip(self.foreground_x, self.foreground_y):
-			bins[coords] += 1
-		rate.filter_array(bins.array, rate.gaussian_window2d(8, 8))
-		bins.logregularize()
-		xcoords, ycoords = bins.centres()
-		max_density = math.log(bins.array.max())
-		self.axes.contour(xcoords, ycoords, numarray.transpose(numarray.log(bins.array)), [max_density - n for n in xrange(0, 10, 1)])
+		# plot background contours
+		max_density = math.log(self.background_bins.array.max())
+		self.axes.contour(xcoords, ycoords, numarray.transpose(numarray.log(self.background_bins.array)), [max_density - n for n in xrange(0, 10, 1)], cmap = matplotlib.cm.Greys)
+
+		# plot foreground (zero-lag) contours
+		max_density = math.log(self.foreground_bins.array.max())
+		self.axes.contour(xcoords, ycoords, numarray.transpose(numarray.log(self.foreground_bins.array)), [max_density - n for n in xrange(0, 10, 1)], cmap = matplotlib.cm.Reds)
+
+		self.axes.set_xlim([self.background_bins.bins.min[0], self.background_bins.bins.max[0]])
+		self.axes.set_ylim([self.background_bins.bins.min[1], self.background_bins.bins.max[1]])
 
 
 #
@@ -330,41 +353,41 @@ class ConfidenceScatter(object):
 # =============================================================================
 #
 
-class DeltaTHistogram(object):
+class DeltaTHistogram(SnglBurstUtils.BurstPlot):
 	def __init__(self, instrument, interval, width):
+		SnglBurstUtils.BurstPlot.__init__(self, "Offset (s)", "Events per Unit Offset")
 		self.instrument = instrument
 		self.n_foreground = 0
 		self.n_background = 0
 		self.foreground = rate.Rate(interval, width)
 		self.background = rate.Rate(interval, width)
-		self.fig = figure.Figure()
-		FigureCanvasAgg(self.fig)
-		self.fig.set_figsize_inches(16,8)
-		self.axes = self.fig.gca()
-		self.axes.grid(True)
-		self.axes.set_xlabel("Offset (s)")
-		self.axes.set_ylabel("Triggers per Unit Offset")
 
-	def addto(self, doc):
-		for foreground, tisi, trigs in CoincEventIter(doc):
-			n = len(trigs)
-			mean = 0
-			t = None
+	def add_contents(self, doc):
+		for tisi, trigs in CoincEventIter(doc):
+			if self.instrument not in tisi:
+				continue
+			# sum = len(trigs) * peak_time for this instrument
+			# - sum of peak times of all instruments.  Dividing
+			# this by len(trigs) gives the peak time for this
+			# instrument - the average of all peak times.  I
+			# compute this the way I do to avoid a (very
+			# expensive!) LIGOTimeGPS division operation.
+			sum = 0
 			for trig in trigs:
 				peak = trig.get_peak() + tisi[trig.ifo]
-				mean += peak / n
-				if trig.ifo == self.instrument:
-					t = peak
-			if t != None:
-				if foreground:
-					self.n_foreground += 1
-					self.foreground[t - mean] = 1.0
+				if trig.ifo != self.instrument:
+					sum -= peak
 				else:
-					self.n_background += 1
-					self.background[t - mean] = 1.0
+					sum += (len(trigs) - 1) * peak
+			if time_slide_is_null(tisi):
+				self.n_foreground += 1
+				self.foreground[float(sum) / len(trigs)] = 1.0
+			else:
+				self.n_background += 1
+				self.background[float(sum) / len(trigs)] = 1.0
 
 	def finish(self):
-		self.axes.set_title("%s Peak Time Offset From Coincidence Mean\n(%d Foreground, %d Background Triggers)" % (self.instrument, self.n_foreground, self.n_background))
+		self.axes.set_title("%s Peak Time Offset From Coincidence Mean\n(%d Foreground, %d Background Events)" % (self.instrument, self.n_foreground, self.n_background))
 		self.axes.plot(self.background.xvals(), self.background.filtered(), "k")
 		self.axes.plot(self.foreground.xvals(), self.foreground.filtered(), "r")
 
@@ -377,24 +400,31 @@ class DeltaTHistogram(object):
 # =============================================================================
 #
 
-deltat_seg = segments.segment(-0.3, +0.3)
-deltat_width = 0.03125
-
-plots = [
-	RateContours("H2", "H1"),
-	ConfidenceScatter("H2", "H1"),
-	ConfidenceScatter("H2", "L1"),
-	ConfidenceScatter("L1", "H1"),
-	DeltaTHistogram("H1", deltat_seg, deltat_width),
-	DeltaTHistogram("H2", deltat_seg, deltat_width),
-	DeltaTHistogram("L1", deltat_seg, deltat_width)
-]
+def new_plots(plots):
+	deltat_seg = segments.segment(-0.3, +0.3)
+	deltat_width = 0.03125
+	l = [
+		RateContours("H2", "H1", -100, +100),
+		ConfidenceContours("H2", "H1", 30, 10**10),
+		ConfidenceContours("H2", "L1", 30, 10**10),
+		ConfidenceContours("L1", "H1", 30, 10**10),
+		DeltaTHistogram("H1", deltat_seg, deltat_width),
+		DeltaTHistogram("H2", deltat_seg, deltat_width),
+		DeltaTHistogram("L1", deltat_seg, deltat_width)
+	]
+	return [l[i] for i in plots]
 
 options, filenames = parse_command_line()
+
+plots = new_plots(options.plot)
+
 for n, filename in enumerate(llwapp.sort_files_by_size(filenames, options.verbose, reverse = True)):
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
-	doc = llwapp.load_filename(filename, options.verbose)
+	if filename[-3:] == ".gz":
+		doc = llwapp.load_filename(filename, options.verbose, gz = True)
+	else:
+		doc = llwapp.load_filename(filename, options.verbose)
 	if options.verbose:
 		print >>sys.stderr, "indexing..."
 	contents = DocContents(doc, options.live_time_program)
@@ -402,8 +432,8 @@ for n, filename in enumerate(llwapp.sort_files_by_size(filenames, options.verbos
 	del doc
 	for n, plot in enumerate(plots):
 		if options.verbose:
-			print >>sys.stderr, "adding to plot %d..." % n
-		plot.addto(contents)
+			print >>sys.stderr, "adding to plot %d..." % options.plot[n]
+		plot.add_contents(contents)
 
 
 #
@@ -418,9 +448,9 @@ for n, filename in enumerate(llwapp.sort_files_by_size(filenames, options.verbos
 n = 0
 format = "%%s%%0%dd.%%s" % (int(math.log10(len(plots))) + 1)
 while len(plots):
-	filename = format % (options.base, n, options.format)
+	filename = format % (options.base, options.plot[n], options.format)
 	if options.verbose:
-		print >>sys.stderr, "finishing plot %d..." % n
+		print >>sys.stderr, "finishing plot %d..." % options.plot[n]
 	plots[0].finish()
 	if options.verbose:
 		print >>sys.stderr, "writing %s..." % filename
