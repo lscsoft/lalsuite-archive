@@ -65,7 +65,8 @@ ContentHandler = ligolw.LIGOLWContentHandler
 def measure_file_sizes(filenames, reverse = False):
 	"""
 	From a list of file names, return a list of (size, name) tuples
-	sorted in ascending order by size.
+	sorted in ascending order by size (or descending order if reverse
+	is set to True).
 	"""
 	l = [(os.stat(name)[stat.ST_SIZE], name) for name in filenames if name]
 	l.sort()
