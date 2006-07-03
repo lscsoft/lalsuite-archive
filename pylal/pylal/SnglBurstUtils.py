@@ -25,7 +25,8 @@
 #
 
 import matplotlib
-matplotlib.use("Agg")
+matplotlib.use("Agg")	# use Agg backend
+matplotlib.rcParams["text.usetex"] = True	# render all text with TeX
 from matplotlib import figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 
@@ -113,6 +114,13 @@ def CompareSimBurstAndSnglBurstByTimeandFreq(sim, burst):
 #
 # =============================================================================
 #
+
+class BurstPlotError(Exception):
+	"""
+	Used to relay error messages from plotting routines to
+	applications.
+	"""
+	pass
 
 class BurstPlot(object):
 	def __init__(self, x_label, y_label):
