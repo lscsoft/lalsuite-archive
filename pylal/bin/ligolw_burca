@@ -323,7 +323,7 @@ class DocContents(object):
 		coinc.time_slide_id = tisi_id
 		coinc.nevents = len(bursts)
 		self.coinctable.append(coinc)
-		for brust in bursts:
+		for burst in bursts:
 			coincmap = lsctables.CoincMap()
 			coincmap.coinc_event_id = coinc.coinc_event_id
 			coincmap.event_id = burst.event_id
