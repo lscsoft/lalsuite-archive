@@ -450,7 +450,7 @@ for ifo in plots:
 	while len(plots[ifo]):
 		filename = format % (options.base, options.plot[n], options.format)
 		if options.verbose:
-			print >>sys.stderr, "finishing plot %d..." % options.plot[n]
+			print >>sys.stderr, "finishing %s plot %d..." % (ifo, options.plot[n])
 		plots[ifo][0].finish()
 		if options.verbose:
 			print >>sys.stderr, "writing %s..." % filename
