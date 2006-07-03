@@ -85,17 +85,20 @@ def snglburst_append(self, row):
 	self.rows[lsctables.ILWDID(row.event_id)] = row
 	del row.event_id
 
-def coinc_def_init(self, attrs):
-	lsctables.LSCTableMulti.__init__(self, attrs)
+def simburst_init(self, attrs):
+	lsctables.LSCTableUnique.__init__(self, attrs)
 	self.rows = {}
 
-def coinc_def_append(self, row):
-	id = lsctables.ILWDID(row.coinc_def_id)
-	if id in self.rows:
-		self.rows[id].append(row.table_name)
-		self.rows[id].sort()
-	else:
-		self.rows[id] = [row.table_name]
+def simburst_append(self, row):
+	pass
+
+class CoincMap(object):
+	__slots__ = ["sims", "bursts", "coincs"]
+
+	def __init__(self):
+		self.sims = []
+		self.bursts = []
+		self.coincs = []
 
 def coinc_map_init(self, attrs):
 	lsctables.LSCTableUnique.__init__(self, attrs)
@@ -103,17 +106,18 @@ def coinc_map_init(self, attrs):
 
 def coinc_map_append(self, row):
 	id = lsctables.ILWDID(row.coinc_event_id)
-	if id in self.rows:
-		self.rows[id].append(lsctables.ILWDID(row.event_id))
+	if id not in self.rows:
+		self.rows[id] = CoincMap()
+	if "sim_burst" in row.event_id:
+		self.rows[id].sims.append(lsctables.ILWDID(row.event_id))
+	elif "sngl_burst" in row.event_id:
+		self.rows[id].bursts.append(lsctables.ILWDID(row.event_id))
+	elif "coinc_event" in row.event_id:
+		self.rows[id].coincs.append(lsctables.ILWDID(row.event_id))
 	else:
-		self.rows[id] = [lsctables.ILWDID(row.event_id)]
+		raise ValueError, "unrecognized coincident event ID: %s" % str(row.event_id)
 
 def coinc_append(self, row):
-	try:
-		row.coinc_def_id = lsctables.ILWDID(row.coinc_def_id)
-	except AttributeError:
-		# FIXME: remove when no legacy files remain
-		pass
 	row.coinc_event_id = lsctables.ILWDID(row.coinc_event_id)
 	row.time_slide_id = lsctables.ILWDID(row.time_slide_id)
 	self.rows.append(row)
@@ -132,9 +136,9 @@ def timeslide_append(self, row):
 lsctables.SnglBurstTable.loadcolumns = ["ifo", "central_freq", "confidence", "peak_time", "peak_time_ns", "event_id"]
 lsctables.SnglBurstTable.__init__ = snglburst_init
 lsctables.SnglBurstTable.append = snglburst_append
-lsctables.CoincDefTable.__init__ = coinc_def_init
-lsctables.CoincDefTable.append = coinc_def_append
-lsctables.CoincTable.loadcolumns = ["coinc_def_id", "coinc_event_id", "time_slide_id"]
+lsctables.SimBurstTable.__init__ = simburst_init
+lsctables.SimBurstTable.append = simburst_append
+lsctables.CoincTable.loadcolumns = ["coinc_event_id", "time_slide_id"]
 lsctables.CoincTable.append = coinc_append
 lsctables.CoincMapTable.__init__ = coinc_map_init
 lsctables.CoincMapTable.append = coinc_map_append
@@ -164,7 +168,7 @@ class DocContents(object):
 		# Extract segmentlist dictionary
 		#
 
-		self.seglistdict = llwapp.segmentlistdict_fromsearchsummary(xmldoc, live_time_program)
+		self.seglists = llwapp.segmentlistdict_fromsearchsummary(xmldoc, live_time_program)
 
 		#
 		# Replace ID attributes of each coinc_event row with
@@ -172,26 +176,18 @@ class DocContents(object):
 		# tables.
 		#
 
-		try:
-			coinc_def_rows = llwapp.get_table(xmldoc, lsctables.CoincDefTable.tableName).rows
-		except ValueError:
-			# FIXME: remove when no legacy files remain
-			coinc_def_rows = {}
 		coinc_map_rows = llwapp.get_table(xmldoc, lsctables.CoincMapTable.tableName).rows
 		burst_rows = llwapp.get_table(xmldoc, lsctables.SnglBurstTable.tableName).rows
 		i = 0
 		while i < len(self.coinc_rows):
-			try:
-				if coinc_def_rows[self.coinc_rows[i].coinc_def_id] != [lsctables.SnglBurstTable.tableName]:
-					# not a sngl_burst <--> sngl_burst coinc
-					del self.coinc_rows[i]
-					continue
-				del self.coinc_rows[i].coinc_def_id
-			except AttributeError:
-				# FIXME: remove when no legacy files remain
-				pass
+			coinc_map = coinc_map_rows[self.coinc_rows[i].coinc_event_id]
+			if coinc_map.sims or coinc_map.coincs:
+				# not a sngl_burst <--> sngl_burst coinc
+				del self.coinc_rows[i]
+				continue
+			self.coinc_rows[i].coinc_event_id = coinc_map
 			self.coinc_rows[i].time_slide_id = tisi_rows[self.coinc_rows[i].time_slide_id]
-			self.coinc_rows[i].coinc_event_id = map(burst_rows.__getitem__, coinc_map_rows[self.coinc_rows[i].coinc_event_id])
+			coinc_map.bursts = map(burst_rows.__getitem__, coinc_map.bursts)
 			i += 1
 
 
@@ -221,7 +217,7 @@ def CoincEventIter(doc):
 	list of the sngl_burst events in the coincidence.
 	"""
 	for row in doc.coinc_rows:
-		yield row.time_slide_id, row.coinc_event_id
+		yield row.time_slide_id, row.coinc_event_id.bursts
 
 
 def CoincTisiIter(doc):
@@ -249,24 +245,24 @@ class RateContours(SnglBurstUtils.BurstPlot):
 		self.x_instrument = x_instrument
 		self.y_instrument = y_instrument
 		self.tisi_rows = None
-		self.seglistdict = None
+		self.seglists = None
 		self.bins = rate.BinnedRatios(rate.Bins(min_delta_t, max_delta_t, 81, min_delta_t, max_delta_t, 81))
 
 	def add_contents(self, doc):
 		if self.tisi_rows == None:
 			self.tisi_rows = doc.tisi_rows
-		if self.seglistdict == None:
-			self.seglistdict = doc.seglistdict
+		if self.seglists == None:
+			self.seglists = doc.seglists
 		else:
-			for instrument, seglist in doc.seglistdict.iteritems():
-				self.seglistdict[instrument] |= seglist
+			for instrument, seglist in doc.seglists.iteritems():
+				self.seglists[instrument] |= seglist
 		for offsetdict in CoincTisiIter(doc):
 			self.bins.incnumerator((offsetdict[self.x_instrument], offsetdict[self.y_instrument]))
 
 	def finish(self):
 		for row in self.tisi_rows:
-			self.seglistdict.offsets.update(row)
-			self.bins.incdenominator((row[self.x_instrument], row[self.y_instrument]), float(self.seglistdict.intersection(self.seglistdict.keys()).duration()))
+			self.seglists.offsets.update(row)
+			self.bins.incdenominator((row[self.x_instrument], row[self.y_instrument]), float(self.seglists.intersection(self.seglists.keys()).duration()))
 		self.bins.logregularize()
 		zvals = self.bins.ratio()
 		rate.filter_array(zvals, rate.gaussian_window2d(8, 8))
@@ -280,7 +276,7 @@ class RateContours(SnglBurstUtils.BurstPlot):
 
 		self.axes.set_xlim([self.bins.bins.min[0], self.bins.bins.max[0]])
 		self.axes.set_ylim([self.bins.bins.min[1], self.bins.bins.max[1]])
-		self.axes.set_title("Coincident Event Rate vs. Offset\n(Logarithmic Contours)")
+		self.axes.set_title(r"Coincident Event Rate vs. Offset\\(Logarithmic Contours)")
 
 
 #
@@ -305,26 +301,26 @@ class ConfidenceContours(SnglBurstUtils.BurstPlot):
 		self.background_bins = rate.BinnedArray(rate.Bins(min_confidence, max_confidence, 1024, min_confidence, max_confidence, 1024, spacing = ["log", "log"]))
 
 	def add_contents(self, doc):
-		for tisi, trigs in CoincEventIter(doc):
+		for tisi, bursts in CoincEventIter(doc):
 			if time_slide_is_null(tisi):
 				self.n_foreground += 1
-				for trig in trigs:
-					if trig.ifo == self.x_instrument:
-						x = -trig.confidence
-					elif trig.ifo == self.y_instrument:
-						y = -trig.confidence
+				for burst in bursts:
+					if burst.ifo == self.x_instrument:
+						x = -burst.confidence
+					elif burst.ifo == self.y_instrument:
+						y = -burst.confidence
 				self.foreground_bins[x, y] += 1
 			else:
 				self.n_background += 1
-				for trig in trigs:
-					if trig.ifo == self.x_instrument:
-						x = -trig.confidence
-					elif trig.ifo == self.y_instrument:
-						y = -trig.confidence
+				for burst in bursts:
+					if burst.ifo == self.x_instrument:
+						x = -burst.confidence
+					elif burst.ifo == self.y_instrument:
+						y = -burst.confidence
 				self.background_bins[x, y] += 1
 
 	def finish(self):
-		self.axes.set_title("Distribution of Coincident Event Confidence\n(%d Foreground, %d Background Events)" % (self.n_foreground, self.n_background))
+		self.axes.set_title(r"Distribution of Coincident Event Confidence\\(%d Foreground, %d Background Events)" % (self.n_foreground, self.n_background))
 		xcoords, ycoords = self.background_bins.centres()
 
 		# prepare the data
@@ -363,31 +359,31 @@ class DeltaTHistogram(SnglBurstUtils.BurstPlot):
 		self.background = rate.Rate(interval, width)
 
 	def add_contents(self, doc):
-		for tisi, trigs in CoincEventIter(doc):
+		for tisi, bursts in CoincEventIter(doc):
 			if self.instrument not in tisi:
 				continue
-			# sum = len(trigs) * peak_time for this instrument
+			# sum = len(bursts) * peak_time for this instrument
 			# - sum of peak times of all instruments.  Dividing
-			# this by len(trigs) gives the peak time for this
+			# this by len(bursts) gives the peak time for this
 			# instrument - the average of all peak times.  I
 			# compute this the way I do to avoid a (very
 			# expensive!) LIGOTimeGPS division operation.
 			sum = 0
-			for trig in trigs:
-				peak = trig.get_peak() + tisi[trig.ifo]
-				if trig.ifo != self.instrument:
+			for burst in bursts:
+				peak = burst.get_peak() + tisi[burst.ifo]
+				if burst.ifo != self.instrument:
 					sum -= peak
 				else:
-					sum += (len(trigs) - 1) * peak
+					sum += (len(bursts) - 1) * peak
 			if time_slide_is_null(tisi):
 				self.n_foreground += 1
-				self.foreground[float(sum) / len(trigs)] = 1.0
+				self.foreground[float(sum) / len(bursts)] = 1.0
 			else:
 				self.n_background += 1
-				self.background[float(sum) / len(trigs)] = 1.0
+				self.background[float(sum) / len(bursts)] = 1.0
 
 	def finish(self):
-		self.axes.set_title("%s Peak Time Offset From Coincidence Mean\n(%d Foreground, %d Background Events)" % (self.instrument, self.n_foreground, self.n_background))
+		self.axes.set_title(r"%s Peak Time Offset From Coincidence Mean\\(%d Foreground, %d Background Events)" % (self.instrument, self.n_foreground, self.n_background))
 		self.axes.plot(self.background.xvals(), self.background.filtered(), "k")
 		self.axes.plot(self.foreground.xvals(), self.foreground.filtered(), "r")
 
