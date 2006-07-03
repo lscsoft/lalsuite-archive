@@ -28,10 +28,6 @@
 
 import math
 from optparse import OptionParser
-import matplotlib
-matplotlib.use("Agg")
-from matplotlib import figure
-from matplotlib.backends.backend_agg import FigureCanvasAgg
 import numarray
 import sys
 
@@ -39,6 +35,7 @@ from glue import segments
 from glue.ligolw import lsctables
 from pylal import llwapp
 from pylal import rate
+from pylal import SnglBurstUtils
 from pylal.date import LIGOTimeGPS
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -79,6 +76,8 @@ except ValueError, e:
 # =============================================================================
 #
 
+# load sngl_burst table's rows as a dictionary indexed by numeric event_id
+
 def snglburst_init(self, attrs):
 	lsctables.LSCTableUnique.__init__(self, attrs)
 	self.rows = {}
@@ -86,6 +85,9 @@ def snglburst_init(self, attrs):
 def snglburst_append(self, row):
 	self.rows[lsctables.ILWDID(row.event_id)] = row
 	del row.event_id
+
+# load sim_burst table's rows as a dictionary indexed by numeric
+# simulation_id
 
 def simburst_init(self, attrs):
 	lsctables.LSCTableUnique.__init__(self, attrs)
@@ -95,6 +97,19 @@ def simburst_append(self, row):
 	self.rows[lsctables.ILWDID(row.simulation_id)] = row
 	del row.simulation_id
 
+# load the coinc_map table's rows as a dictionary indexed by numeric
+# coinc_event_id, each value being a CoincMap object whose attributes are
+# (at this stage) lists of the numeric IDs of the sim_burst, sngl_burst,
+# and coinc_event entries to which this map references.
+
+class CoincMap(object):
+	__slots__ = ["sims", "bursts", "coincs"]
+
+	def __init__(self):
+		self.sims = []
+		self.bursts = []
+		self.coincs = []
+
 def coinc_map_init(self, attrs):
 	lsctables.LSCTableUnique.__init__(self, attrs)
 	self.rows = {}
@@ -102,36 +117,52 @@ def coinc_map_init(self, attrs):
 def coinc_map_append(self, row):
 	id = lsctables.ILWDID(row.coinc_event_id)
 	if id not in self.rows:
-		self.rows[id] = ([], [])
+		self.rows[id] = CoincMap()
 	if "sim_burst" in row.event_id:
-		self.rows[id][0].append(lsctables.ILWDID(row.event_id))
+		self.rows[id].sims.append(lsctables.ILWDID(row.event_id))
 	elif "sngl_burst" in row.event_id:
-		self.rows[id][1].append(lsctables.ILWDID(row.event_id))
+		self.rows[id].bursts.append(lsctables.ILWDID(row.event_id))
+	elif "coinc_event" in row.event_id:
+		self.rows[id].coincs.append(lsctables.ILWDID(row.event_id))
 	else:
 		raise ValueError, "unrecognized coincident event ID: %s" % str(row.event_id)
+
+# load the coinc_event table's rows as a list, parsing IDs to their numeric
+# value
+
+def coinc_append(self, row):
+	row.coinc_event_id = lsctables.ILWDID(row.coinc_event_id)
+	row.time_slide_id = lsctables.ILWDID(row.time_slide_id)
+	self.rows.append(row)
+
+# load the time_slide table's rows as a dictionary indexed by numeric
+# time_slide_id
+
+def timeslide_init(self, attrs):
+	lsctables.LSCTableMulti.__init__(self, attrs)
+	self.rows = {}
+
+def timeslide_append(self, row):
+	id = lsctables.ILWDID(row.time_slide_id)
+	if id in self.rows:
+		self.rows[id][row.instrument] = row.offset
+	else:
+		self.rows[id] = {row.instrument: row.offset}
+
+# method and attribute overrides to put it all in place
 
 lsctables.SnglBurstTable.loadcolumns = ["ifo", "confidence", "peak_time", "peak_time_ns", "event_id"]
 lsctables.SnglBurstTable.__init__ = snglburst_init
 lsctables.SnglBurstTable.append = snglburst_append
+lsctables.SimBurstTable.loadcolumns = ["geocent_peak_time", "geocent_peak_time_ns", "h_peak_time", "h_peak_time_ns", "l_peak_time", "l_peak_time_ns", "freq", "hrss", "simulation_id"]
 lsctables.SimBurstTable.__init__ = simburst_init
 lsctables.SimBurstTable.append = simburst_append
+lsctables.CoincTable.loadcolumns = ["coinc_event_id", "time_slide_id", "nevents"]
+lsctables.CoincTable.append = coinc_append
 lsctables.CoincMapTable.__init__ = coinc_map_init
 lsctables.CoincMapTable.append = coinc_map_append
-
-
-class DummyTable(object):
-	"""
-	A place-holder class to simulate a table when the input document is
-	incomplete.
-	"""
-	def __init__(self):
-		self.rows = {}
-
-	def __len__(self):
-		return 0
-
-	def getColumnByName(self, name):
-		return []
+lsctables.TimeSlideTable.__init__ = timeslide_init
+lsctables.TimeSlideTable.append = timeslide_append
 
 
 #
@@ -148,49 +179,74 @@ class DocContents(object):
 		# Extract tables
 		#
 
-		self.simtable = llwapp.get_table(xmldoc, lsctables.SimBurstTable.tableName)
+		self.sim_rows = llwapp.get_table(xmldoc, lsctables.SimBurstTable.tableName).rows
 		try:
-			self.bursttable = llwapp.get_table(xmldoc, lsctables.SnglBurstTable.tableName)
-			self.coinctable = llwapp.get_table(xmldoc, lsctables.CoincTable.tableName)
-			self.coincmaptable = llwapp.get_table(xmldoc, lsctables.CoincMapTable.tableName)
+			burst_rows = llwapp.get_table(xmldoc, lsctables.SnglBurstTable.tableName).rows
+			self.coinc_rows = llwapp.get_table(xmldoc, lsctables.CoincTable.tableName).rows
+			coinc_map_rows = llwapp.get_table(xmldoc, lsctables.CoincMapTable.tableName).rows
+			tisi_rows = llwapp.get_table(xmldoc, lsctables.TimeSlideTable.tableName).rows
 		except:
 			# file contains missing or incomplete coinc
 			# information, rig for injection-only plots.
 			print >>sys.stderr, "warning: no coincidence information"
-			self.bursttable = DummyTable()
-			self.coinctable = DummyTable()
-			self.coincmaptable = DummyTable()
+			burst_rows = {}
+			self.coinc_rows = []
+			coinc_map_rows = {}
+			tisi_rows = {}
 
 		#
 		# Extract segmentlist
 		#
 
 		try:
-			seglistdict = llwapp.segmentlistdict_fromsearchsummary(xmldoc, live_time_program)
-			self.seglist = seglistdict.intersection(seglistdict.keys())
+			self.seglists = llwapp.segmentlistdict_fromsearchsummary(xmldoc, live_time_program)
+			self.instruments = self.seglists.keys()
 		except:
-			# no search summary table.
 			print >>sys.stderr, "warning: no search summary information"
-			self.seglist = []
+			self.seglists = {}
 
 		#
-		# Found and missed injection IDs
+		# Replace numeric ID attributes of each coinc_event row
+		# with references to the corresponding objects in the other
+		# tables
 		#
 
-		foundsimids = [row[0][0] for row in self.coincmaptable.rows.itervalues()]
-		foundsimids.sort()
-		missedsimids = [id for id in self.simtable.rows.iterkeys() if not llwapp.bisect_contains(foundsimids, id)]
-		missedsimids.sort()
-		self.foundsims = map(self.simtable.rows.__getitem__, foundsimids)
-		self.missedsims = map(self.simtable.rows.__getitem__, missedsimids)
+		i = 0
+		while i < len(self.coinc_rows):
+			coinc_map = coinc_map_rows[self.coinc_rows[i].coinc_event_id]
+			if not coinc_map.sims:
+				# not a sim_burst <--> anything coinc
+				del self.coinc_rows[i]
+				continue
+			self.coinc_rows[i].coinc_event_id = coinc_map
+			self.coinc_rows[i].time_slide_id = tisi_rows[self.coinc_rows[i].time_slide_id]
+			# replace the numeric IDs in the CoincMap object
+			# with references to the corresponding objects in
+			# the respective tables
+			coinc_map.sims = map(self.sim_rows.__getitem__, coinc_map.sims)
+			coinc_map.bursts = map(burst_rows.__getitem__, coinc_map.bursts)
+			# FIXME: commented out for speed;  uncomment when a
+			# plot needs info about coincident injections.
+			#coinc_map.coincs = map(lambda id: map(burst_rows.__getitem__, coinc_map_rows[id].bursts), coinc_map.coincs)
+			i += 1
 
 		#
-		# Build coinc_event_map --> sngl_burst and sim_burst
-		# references
+		# Construct lists of the found and missed injections for
+		# each instrument.
 		#
 
-		for key, value in self.coincmaptable.rows.iteritems():
-			self.coincmaptable.rows[key] = (map(self.simtable.rows.__getitem__, value[0]), map(self.bursttable.rows.__getitem__, value[1]))
+		self.foundsims = {}
+		self.missedsims = {}
+		for instrument in self.instruments:
+			self.foundsims[instrument] = []
+			for coinc in self.coinc_rows:
+				for burst in coinc.coinc_event_id.bursts:
+					if burst.ifo == instrument:
+						self.foundsims[instrument].extend(coinc.coinc_event_id.sims)
+						break
+			self.foundsims[instrument].sort()
+			self.missedsims[instrument] = [sim for sim in self.sim_rows.itervalues() if not llwapp.bisect_contains(self.foundsims[instrument], sim) and sim.get_geocent_peak() in self.seglists[instrument]]
+			self.missedsims[instrument].sort()
 
 
 #
@@ -201,32 +257,27 @@ class DocContents(object):
 # =============================================================================
 #
 
-class FreqVsTime(object):
-	def __init__(self):
+class FreqVsTime(SnglBurstUtils.BurstPlot):
+	def __init__(self, instrument):
+		SnglBurstUtils.BurstPlot.__init__(self, "GPS Time (s)", "Frequency (Hz)")
+		self.axes.semilogy()
+		self.instrument = instrument
 		self.num_injections = 0
 		self.injected_x = []
 		self.injected_y = []
 		self.missed_x = []
 		self.missed_y = []
 		self.seglist = segments.segmentlist()
-		self.fig = figure.Figure()
-		FigureCanvasAgg(self.fig)
-		self.fig.set_figsize_inches(16, 8)
-		self.axes = self.fig.gca()
-		self.axes.semilogy()
-		self.axes.grid(True)
-		self.axes.set_xlabel("GPS Time (s)")
-		self.axes.set_ylabel("Frequency (Hz)")
 
 	def add_contents(self, doc):
-		self.num_injections += len(doc.simtable)
-		for sim in doc.simtable.rows.itervalues():
+		self.num_injections += len(doc.sim_rows)
+		self.seglist |= doc.seglists[self.instrument]
+		for sim in doc.sim_rows.itervalues():
 			self.injected_x.append(float(sim.get_geocent_peak()))
 			self.injected_y.append(sim.freq)
-		for sim in doc.missedsims:
+		for sim in doc.missedsims[self.instrument]:
 			self.missed_x.append(float(sim.get_geocent_peak()))
 			self.missed_y.append(sim.freq)
-		self.seglist |= doc.seglist
 
 	def finish(self):
 		self.axes.plot(self.injected_x, self.injected_y, "k+")
@@ -246,28 +297,23 @@ class FreqVsTime(object):
 # =============================================================================
 #
 
-class AmplVsFreqScatter(object):
-	def __init__(self):
+class AmplVsFreqScatter(SnglBurstUtils.BurstPlot):
+	def __init__(self, instrument):
+		SnglBurstUtils.BurstPlot.__init__(self, "Frequency (Hz)", r"$h_{\textrm{rss}}$")
+		self.axes.loglog()
+		self.instrument = instrument
 		self.num_injections = 0
 		self.injected_x = []
 		self.injected_y = []
 		self.missed_x = []
 		self.missed_y = []
-		self.fig = figure.Figure()
-		FigureCanvasAgg(self.fig)
-		self.fig.set_figsize_inches(16, 8)
-		self.axes = self.fig.gca()
-		self.axes.loglog()
-		self.axes.grid(True)
-		self.axes.set_xlabel("Frequency (Hz)")
-		self.axes.set_ylabel("h_rss")
 
 	def add_contents(self, doc):
-		self.num_injections += len(doc.simtable)
-		for sim in doc.simtable.rows.itervalues():
+		self.num_injections += len(doc.sim_rows)
+		for sim in doc.sim_rows.itervalues():
 			self.injected_x.append(sim.freq)
 			self.injected_y.append(sim.hrss)
-		for sim in doc.missedsims:
+		for sim in doc.missedsims[self.instrument]:
 			self.missed_x.append(sim.freq)
 			self.missed_y.append(sim.hrss)
 
@@ -280,29 +326,24 @@ class AmplVsFreqScatter(object):
 		self.axes.set_title("Injection Amplitude vs. Frequency\n(%d Injections)" % self.num_injections)
 
 
-class AmplVsFreqContour(object):
-	def __init__(self, error):
+class AmplVsFreqContour(SnglBurstUtils.BurstPlot):
+	def __init__(self, instrument, error):
+		SnglBurstUtils.BurstPlot.__init__(self, "Frequency (Hz)", r"$h_{\textrm{rss}}$")
+		self.axes.loglog()
+		self.instrument = instrument
 		self.error = error
 		self.num_injections = 0
 		self.injected_x = []
 		self.injected_y = []
 		self.found_x = []
 		self.found_y = []
-		self.fig = figure.Figure()
-		FigureCanvasAgg(self.fig)
-		self.fig.set_figsize_inches(16, 8)
-		self.axes = self.fig.gca()
-		self.axes.loglog()
-		self.axes.grid(True)
-		self.axes.set_xlabel("Frequency (Hz)")
-		self.axes.set_ylabel("h_rss")
 
 	def add_contents(self, doc):
-		self.num_injections += len(doc.simtable)
-		for sim in doc.simtable.rows.itervalues():
+		self.num_injections += len(doc.sim_rows)
+		for sim in doc.sim_rows.itervalues():
 			self.injected_x.append(sim.freq)
 			self.injected_y.append(sim.hrss)
-		for sim in doc.foundsims:
+		for sim in doc.foundsims[self.instrument]:
 			self.found_x.append(sim.freq)
 			self.found_y.append(sim.hrss)
 
@@ -314,6 +355,8 @@ class AmplVsFreqContour(object):
 		#bins_per_inj = efficiency.used() / float(self.num_injections)
 		bins_per_inj = efficiency.numerator.shape[0] * efficiency.numerator.shape[1] / float(self.num_injections)
 		window_size = (bins_per_inj / self.error**2)**0.5
+		if window_size > 100:
+			raise SnglBurstUtils.BurstPlotError, "smoothing filter too large (not enough injections)"
 		efficiency.regularize()
 		xcoords, ycoords = efficiency.centres()
 		if options.made_only:
@@ -335,18 +378,13 @@ class AmplVsFreqContour(object):
 # =============================================================================
 #
 
-class TriggerCountHistogram(object):
-	def __init__(self):
+class TriggerCountHistogram(SnglBurstUtils.BurstPlot):
+	def __init__(self, instrument):
+		SnglBurstUtils.BurstPlot.__init__(self, "Number of Triggers Coincident with Injection", "Count")
+		self.axes.semilogy()
+		self.instrument = instrument
 		self.found = 0
 		self.bins = []
-		self.fig = figure.Figure()
-		FigureCanvasAgg(self.fig)
-		self.fig.set_figsize_inches(16, 8)
-		self.axes = self.fig.gca()
-		self.axes.semilogy()
-		self.axes.grid(True)
-		self.axes.set_xlabel("Number of Triggers Coincident with Injection")
-		self.axes.set_ylabel("Count")
 
 	def add_count(self, n):
 		while n + 1 >= len(self.bins):
@@ -354,8 +392,9 @@ class TriggerCountHistogram(object):
 		self.bins[n] += 1
 
 	def add_contents(self, doc):
-		self.found += len(doc.coinctable)
-		map(self.add_count, doc.coinctable.getColumnByName("nevents"))
+		self.found += len(doc.coinc_rows)
+		for row in doc.coinc_rows:
+			self.add_count(row.nevents)
 
 	def finish(self):
 		self.axes.plot(range(len(self.bins)), self.bins, "ko-")
@@ -370,25 +409,26 @@ class TriggerCountHistogram(object):
 # =============================================================================
 #
 
-class RecoveredVsInjectedAmplitude(object):
-	def __init__(self):
+class RecoveredVsInjectedAmplitude(SnglBurstUtils.BurstPlot):
+	def __init__(self, instrument):
+		SnglBurstUtils.BurstPlot.__init__(self, r"Injected $h_{\textrm{rss}}$", "Recovered Confidence")
+		self.axes.loglog()
+		self.fig.set_figsize_inches(16, 16)
+		self.instrument = instrument
 		self.found = 0
 		self.recovered = []
 		self.injected = []
-		self.fig = figure.Figure()
-		FigureCanvasAgg(self.fig)
-		self.fig.set_figsize_inches(16, 16)
-		self.axes = self.fig.gca()
-		self.axes.loglog()
-		self.axes.grid(True)
-		self.axes.set_xlabel("Injected h_rss")
-		self.axes.set_ylabel("Recovered Confidence")
 
 	def add_contents(self, doc):
-		self.found += len(doc.coinctable)
-		for sims, bursts in doc.coincmaptable.rows.itervalues():
-			confidence = max([math.fabs(burst.confidence) for burst in bursts])
-			self.injected.append(sims[0].hrss)
+		self.found += len(doc.coinc_rows)
+		for coinc in doc.coinc_rows:
+			coinc_map = coinc.coinc_event_id
+			if coinc_map.coincs:
+				# skip multi-instrument detections (must
+				# also be a single-instrument detection)
+				continue
+			confidence = max([-burst.confidence for burst in coinc_map.bursts])
+			self.injected.append(coinc_map.sims[0].hrss)
 			self.recovered.append(confidence)
 
 	def finish(self):
@@ -404,26 +444,26 @@ class RecoveredVsInjectedAmplitude(object):
 # =============================================================================
 #
 
-class RecoveredTimeOffset(object):
-	def __init__(self, interval, width):
+class RecoveredTimeOffset(SnglBurstUtils.BurstPlot):
+	def __init__(self, instrument, interval, width):
+		SnglBurstUtils.BurstPlot.__init__(self, "Offset (s)", "Triggers per Unit Offset")
+		self.instrument = instrument
 		self.found = 0
 		self.offsets = rate.Rate(interval, width)
 		self.best = rate.Rate(interval, width)
-		self.fig = figure.Figure()
-		FigureCanvasAgg(self.fig)
-		self.fig.set_figsize_inches(16, 8)
-		self.axes = self.fig.gca()
-		self.axes.grid(True)
-		self.axes.set_xlabel("Offset (s)")
-		self.axes.set_ylabel("Triggers per Unit Offset")
 
 	def add_contents(self, doc):
-		self.found += len(doc.coinctable)
-		for sims, bursts in doc.coincmaptable.rows.itervalues():
+		self.found += len(doc.coinc_rows)
+		for coinc in doc.coinc_rows:
+			coinc_map = coinc.coinc_event_id
+			if coinc_map.coincs:
+				# skip multi-instrument detections (not
+				# what this plot is about)
+				continue
 			best_conf = 0.0
 			best_dt = None
-			for burst in bursts:
-				dt = burst.get_peak() - sims[0].get_peak(burst.ifo)
+			for burst in coinc_map.bursts:
+				dt = burst.get_peak() - coinc_map.sims[0].get_peak(burst.ifo)
 				self.offsets[dt] = 1.0
 				if math.fabs(burst.confidence) > best_conf:
 					best_conf = math.fabs(burst.confidence)
@@ -445,15 +485,18 @@ class RecoveredTimeOffset(object):
 # =============================================================================
 #
 
-plots = [
-	FreqVsTime(),
-	AmplVsFreqScatter(),
-	AmplVsFreqContour(0.1),
-	TriggerCountHistogram(),
-	RecoveredVsInjectedAmplitude(),
-	RecoveredTimeOffset(segments.segment(-0.25, +0.25), 0.005)
-]
+def new_plots(instrument):
+	l = [
+		FreqVsTime(instrument),
+		AmplVsFreqScatter(instrument),
+		AmplVsFreqContour(instrument, 0.1),
+		TriggerCountHistogram(instrument),
+		RecoveredVsInjectedAmplitude(instrument),
+		RecoveredTimeOffset(instrument, segments.segment(-0.25, +0.25), 0.005)
+	]
+	return l
 
+plots = {}
 for n, filename in enumerate(llwapp.sort_files_by_size(filenames, options.verbose, reverse = True)):
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
@@ -461,11 +504,15 @@ for n, filename in enumerate(llwapp.sort_files_by_size(filenames, options.verbos
 	if options.verbose:
 		print >>sys.stderr, "indexing..."
 	contents = DocContents(doc, "power")
-	for n, plot in enumerate(plots):
-		if options.verbose:
-			print >>sys.stderr, "adding to %d..." % n
-		plot.add_contents(contents)
 	doc.unlink()
+	del doc
+	for instrument in contents.instruments:
+		if instrument not in plots:
+			plots[instrument] = new_plots(instrument)
+		for n, plot in enumerate(plots[instrument]):
+			if options.verbose:
+				print >>sys.stderr, "adding to %s plot %d..." % (instrument, n)
+			plot.add_contents(contents)
 
 
 #
@@ -477,15 +524,20 @@ for n, filename in enumerate(llwapp.sort_files_by_size(filenames, options.verbos
 #
 
 # delete the plots as we go to save memory
-n = 0
-format = "%%s%%0%dd.%%s" % (int(math.log10(len(plots))) + 1)
-while len(plots):
-	filename = format % (options.base, n, options.format)
-	if options.verbose:
-		print >>sys.stderr, "finishing plot %d..." % n
-	plots[0].finish()
-	if options.verbose:
-		print >>sys.stderr, "writing %s..." % filename
-	plots[0].fig.savefig(filename)
-	del plots[0]
-	n += 1
+for instrument in plots:
+	n = 0
+	format = "%%s%s_%%0%dd.%%s" % (instrument, int(math.log10(len(plots[instrument]))) + 1)
+	while len(plots[instrument]):
+		filename = format % (options.base, n, options.format)
+		if options.verbose:
+			print >>sys.stderr, "finishing %s plot %d..." % (instrument, n)
+		try:
+			plots[instrument][0].finish()
+		except SnglBurstUtils.BurstPlotError, e:
+			print >>sys.stderr, "can't finish %s plot %d: %s" % (instrument, n, str(e))
+		else:
+			if options.verbose:
+				print >>sys.stderr, "writing %s..." % filename
+			plots[instrument][0].fig.savefig(filename)
+		del plots[instrument][0]
+		n += 1
