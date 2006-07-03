@@ -111,6 +111,22 @@ class DocContents(object):
 			self.coincmaptable = lsctables.New(lsctables.CoincMapTable)
 			xmldoc.childNodes[0].appendChild(self.coincmaptable)
 
+		# build an index of zero-lag sngl_burst <--> sngl_burst
+		# coincs
+		self.coinc_event = {}
+		for coinc in self.coinctable:
+			if (coinc.coinc_def_id != self.bb_coinc_def_id) or not llwapp.time_slide_is_null(self.tisitable, coinc.time_slide_id):
+				continue
+			self.coinc_event[coinc] = []
+			for coincmap in self.coincmaptable:
+				if coincmap.coinc_event_id != coinc.coinc_event_id:
+					continue
+				for burst in self.snglbursttable:
+					if burst.event_id == coincmap.event_id:
+						self.coinc_event[coinc].append(burst)
+						break
+
+
 		# construct the zero-lag time slide needed to cover the
 		# instruments listed in all the triggers, then determine
 		# its ID (or create it if needed)
@@ -225,14 +241,13 @@ def find_coinc_matches(contents, sim, comparefunc):
 	with sim.
 	"""
 	matches = []
-	for coinc_event in contents.coinctable:
-		if (coinc_event.coinc_def_id != contents.bb_coinc_def_id) or not llwapp.time_slide_is_null(contents.tisitable, coinc_event.time_slide_id):
-			continue
-		for row in contents.coincmaptable:
-			if (row.coinc_event_id != coinc_event.coinc_event_id) or not comparefunc(sim, contents.snglbursttable.dict[row.event_id]):
+	for coinc_event, bursts in contents.coinc_event.iteritems():
+		for burst in bursts:
+			if not comparefunc(sim, burst):
 				break
 		else:
 			matches.append(coinc_event)
+	return matches
 
 
 def add_sim_burst_coinc_coinc(contents, process, sim, coincs):
