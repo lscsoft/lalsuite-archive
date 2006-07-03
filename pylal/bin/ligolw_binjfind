@@ -113,19 +113,25 @@ class DocContents(object):
 
 		# build an index of zero-lag sngl_burst <--> sngl_burst
 		# coincs
+		burst_event = {}
+		for row in self.snglbursttable:
+			burst_event[lsctables.ILWDID(row.event_id)] = row
+		coinc_maps = {}
+		for row in self.coincmaptable:
+			try:
+				burst = burst_event[lsctables.ILWDID(row.event_id)]
+			except KeyError:
+				continue
+			try:
+				coinc_maps[lsctables.ILWDID(row.coinc_event_id)].append(burst)
+			except KeyError:
+				coinc_maps[lsctables.ILWDID(row.coinc_event_id)] = [burst]
+		del burst_event
 		self.coinc_event = {}
 		for coinc in self.coinctable:
-			if (coinc.coinc_def_id != self.bb_coinc_def_id) or not llwapp.time_slide_is_null(self.tisitable, coinc.time_slide_id):
-				continue
-			self.coinc_event[coinc] = []
-			for coincmap in self.coincmaptable:
-				if coincmap.coinc_event_id != coinc.coinc_event_id:
-					continue
-				for burst in self.snglbursttable:
-					if burst.event_id == coincmap.event_id:
-						self.coinc_event[coinc].append(burst)
-						break
-
+			if (coinc.coinc_def_id == self.bb_coinc_def_id) and llwapp.time_slide_is_null(self.tisitable, coinc.time_slide_id):
+				self.coinc_event[coinc] = coinc_maps[lsctables.ILWDID(coinc.coinc_event_id)]
+		del coinc_maps
 
 		# construct the zero-lag time slide needed to cover the
 		# instruments listed in all the triggers, then determine
@@ -200,9 +206,9 @@ def find_sngl_burst_matches(contents, sim, comparefunc):
 	Scan the burst table for matching triggers coincident with sim.
 	"""
 	matches = []
-	for row in contents.triggers_near_starttime(sim.geocent_peak_time):
-		if comparefunc(sim, row):
-			matches.append(row)
+	for burst in contents.triggers_near_starttime(sim.geocent_peak_time):
+		if comparefunc(sim, burst):
+			matches.append(burst)
 	return matches
 
 
@@ -235,18 +241,37 @@ def add_sim_burst_sngl_burst_coinc(contents, process, sim, bursts):
 # =============================================================================
 #
 
+def cut_noninjection_coincs(contents, injections):
+	"""
+	Using the list of burst events known to be injections, delete
+	entries from the coinc event list that contain bursts not in this
+	list.  Doing this before checking each sim against the coincident
+	events greatly speeds up that search.
+	"""
+	injections.sort()
+	non_injection_coincs = []
+	for coinc, bursts in contents.coinc_event.iteritems():
+		for burst in bursts:
+			if not llwapp.bisect_contains(injections, burst):
+				non_injection_coincs.append(coinc)
+				break
+	# can't modify dictionary inside loop
+	for coinc in non_injection_coincs:
+		del contents.coinc_event[coinc]
+	
+
 def find_coinc_matches(contents, sim, comparefunc):
 	"""
 	Scan the coinc_event table for matching burst coincs coincident
 	with sim.
 	"""
 	matches = []
-	for coinc_event, bursts in contents.coinc_event.iteritems():
+	for coinc, bursts in contents.coinc_event.iteritems():
 		for burst in bursts:
 			if not comparefunc(sim, burst):
 				break
 		else:
-			matches.append(coinc_event)
+			matches.append(coinc)
 	return matches
 
 
@@ -286,13 +311,16 @@ def ligolw_binjfind(xmldoc, **kwargs):
 	contents = DocContents(xmldoc)
 	if kwargs["verbose"]:
 		print >>sys.stderr, "constructing injection-burst coincidences..."
+	injections = []	# list of burst events that are injections
 	for sim in contents.simbursttable.rows:
 		matches = find_sngl_burst_matches(contents, sim, kwargs["comparefunc"])
 		if matches:
 			add_sim_burst_sngl_burst_coinc(contents, process, sim, matches)
+			injections.extend(matches)
 	if contents.sc_coinc_def_id:
 		if kwargs["verbose"]:
 			print >>sys.stderr, "constructing injection-coinc coincidences..."
+		cut_noninjection_coincs(contents, injections)
 		for sim in contents.simbursttable.rows:
 			matches = find_coinc_matches(contents, sim, kwargs["comparefunc"])
 			if matches:
