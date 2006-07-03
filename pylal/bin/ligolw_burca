@@ -112,17 +112,15 @@ def append_process(doc, **kwargs):
 # =============================================================================
 #
 
-def find_coinc_proc_ids(doccontents, xmldoc, program):
+def find_coinc_proc_ids(xmldoc, windows, program):
 	"""
 	Take a DocContents object and set its coinc_proc_ids attribute to
 	the list of process IDs that will participate in coincidences
 	identified by the time slide table.
 	"""
-	ids = llwapp.get_process_ids_by_program(xmldoc, program)
-
 	# find the largest coincidence window
 	try:
-		halfmaxwindow = max(doccontents.windows.itervalues()) / 2
+		halfmaxwindow = max(windows.itervalues()) / 2
 	except:
 		halfmaxwindow = LIGOTimeGPS(0)
 
@@ -131,16 +129,21 @@ def find_coinc_proc_ids(doccontents, xmldoc, program):
 	seglistdict = llwapp.segmentlistdict_fromsearchsummary(xmldoc, program).protract(halfmaxwindow)
 
 	# determine the coincident segments for each instrument
-	coincseglists = llwapp.get_coincident_segmentlistdict(seglistdict, map(doccontents.get_offsetdict, doccontents.get_tisi_ids()))
+	tisitable = llwapp.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
+	seglistdict = llwapp.get_coincident_segmentlistdict(seglistdict, map(tisitable.get_offset_dict, tisitable.dict.keys()))
+
+	# get the list of all process IDs for the given program
+	proc_ids = llwapp.get_process_ids_by_program(xmldoc, program)
 
 	# find the IDs of the processes which contributed to the coincident
 	# segments
-	doccontents.coinc_proc_ids = []
-	for row in doccontents.searchsummtable:
-		if (not llwapp.bisect_contains(ids, row.process_id)) or llwapp.bisect_contains(doccontents.coinc_proc_ids, row.process_id):
+	coinc_proc_ids = []
+	for row in llwapp.get_table(xmldoc, lsctables.SearchSummaryTable.tableName):
+		if (not llwapp.bisect_contains(proc_ids, row.process_id)) or llwapp.bisect_contains(coinc_proc_ids, row.process_id):
 			continue
 		if coincseglists[row.ifos].intersects_segment(row.get_out()):
-			bisect.insort_left(doccontents.coinc_proc_ids, row.process_id)
+			bisect.insort_left(coinc_proc_ids, row.process_id)
+	return coinc_proc_ids
 
 
 #
@@ -239,11 +242,10 @@ class DocContents(object):
 		self.tisitable = llwapp.get_table(doc, lsctables.TimeSlideTable.tableName)
 		for row in self.tisitable:
 			row.offset = LIGOTimeGPS(row.offset)
-		self.searchsummtable = llwapp.get_table(doc, lsctables.SearchSummaryTable.tableName)
 
 		# find the process IDs for jobs that can participate in a
 		# coincidence
-		find_coinc_proc_ids(self, doc, program)
+		self.coinc_proc_ids = find_coinc_proc_ids(doc, self.windows, program)
 
 		# build the trigger list accessors
 		self.triggerlists = construct_trigger_lists(llwapp.get_table(doc, lsctables.SnglBurstTable.tableName), self.coinc_proc_ids)
@@ -266,19 +268,6 @@ class DocContents(object):
 		except ValueError:
 			self.coincmaptable = lsctables.New(lsctables.CoincMapTable)
 			doc.childNodes[0].appendChild(self.coincmaptable)
-
-	def get_tisi_ids(self):
-		"""
-		Return a list of the time slide IDs in this document.
-		"""
-		return self.tisitable.dict.keys()
-
-	def get_offsetdict(self, tisi_id):
-		"""
-		Return the dictionary of instrument/offset pairs for time
-		slide ID tisi_id.
-		"""
-		return self.tisitable.get_offset_dict(tisi_id)
 
 	def get_triglists(self, instruments):
 		"""
@@ -414,9 +403,9 @@ def find_coincidences(document, verbose = False):
 	"""
 	Given a DocContents object, identify and append all coincidences.
 	"""
-	tisiids = document.get_tisi_ids()
+	tisiids = document.tisitable.dict.keys()
 	for n, tisi_id in enumerate(tisiids):
-		offsetdict = document.get_offsetdict(tisi_id)
+		offsetdict = document.tisitable.get_offset_dict(tisi_id)
 		if verbose:
 			print >>sys.stderr, "time slide %d/%d: %s" % (n + 1, len(tisiids), str(offsetdict))
 		document.set_offsetdict(offsetdict)
