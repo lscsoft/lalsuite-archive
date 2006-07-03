@@ -69,24 +69,6 @@ def parse_command_line():
 #
 # =============================================================================
 #
-#                         Find The Zero-Lag Time Slide
-#
-# =============================================================================
-#
-
-def find_zero_lag_tisi(table):
-	for id, tisi in table.dict.iteritems():
-		for row in tisi:
-			if row.offset != 0.0:
-				break
-		else:
-			return id, [row.instrument for row in tisi]
-	raise ValueError, "%s does not contain a zero-lag time slide" % table.tableName
-
-
-#
-# =============================================================================
-#
 #                              Document Interface
 #
 # =============================================================================
@@ -97,52 +79,61 @@ class DocContents(object):
 	A wrapper interface to the XML document.
 	"""
 	def __init__(self, xmldoc):
-		#
-		# Locate tables
-		#
-
+		# locate tables
 		self.snglbursttable = llwapp.get_table(xmldoc, lsctables.SnglBurstTable.tableName)
 		self.simbursttable = llwapp.get_table(xmldoc, lsctables.SimBurstTable.tableName)
 		self.tisitable = llwapp.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
 
+		# get coinc_def_id for sim_burst <--> sngl_burst coincs
+		self.sb_coinc_def_id = llwapp.get_coinc_def_id(doc, [lsctables.SnglBurstTable.tableName, lsctables.SimBurstTable.tableName])
+
+		# get coinc_def_id's for sngl_burst <--> sngl_burst, and
+		# sim_burst <--> coinc coins.
+		try:
+			self.bb_coinc_def_id = llwapp.get_coinc_def_id(doc, [lsctables.SnglBurstTable.tableName], create_new = False)
+			self.sc_coinc_def_id = llwapp.get_coinc_def_id(doc, [lsctables.CoincTable.tableName, lsctables.SimBurstTable.tableName])
+		except KeyError:
+			self.bb_coinc_def_id = None
+			self.sc_coinc_def_id = None
+
+		# get coinc table, create one if needed
 		try:
 			self.coinctable = llwapp.get_table(xmldoc, lsctables.CoincTable.tableName)
 		except ValueError:
-			# FIXME: add support for coinc_definer
-			self.coinctable = lsctables.New(lsctables.CoincTable, columns = ["process_id", "coinc_event_id", "time_slide_id", "nevents"])
+			self.coinctable = lsctables.New(lsctables.CoincTable)
 			xmldoc.childNodes[0].appendChild(self.coinctable)
 		self.coincids = lsctables.NewILWDs(self.coinctable, "coinc_event_id")
 
+		# get coinc_map table, create one if needed
 		try:
 			self.coincmaptable = llwapp.get_table(xmldoc, lsctables.CoincMapTable.tableName)
 		except ValueError:
-			self.coincmaptable = lsctables.New(lsctables.CoincMapTable, columns = ["coinc_event_id", "event_id"])
+			self.coincmaptable = lsctables.New(lsctables.CoincMapTable)
 			xmldoc.childNodes[0].appendChild(self.coincmaptable)
 
-		#
-		# Identify the zero-lag time slide
-		#
+		# construct the zero-lag time slide needed to cover the
+		# instruments listed in all the triggers, then determine
+		# its ID (or create it if needed)
+		time_slide = {}
+		for instrument in self.snglbursttable.getColumnByName("ifo"):
+			time_slide[instrument] = 0.0
+		self.tisi_id = llwapp.get_time_slide_id(xmldoc, time_slide)
 
-		self.tisi_id, self.tisi_instruments = find_zero_lag_tisi(self.tisitable)
-
-		#
-		# Sort triggers by start time
-		#
-
+		# sort triggers by start time
 		self.snglbursttable.rows.sort(lambda a, b: cmp(a.get_start(), b.get_start()))
 		self.starttimes = self.snglbursttable.getColumnByName("start_time")
 
 	def triggers_near_starttime(self, t, dt = 2.0):
 		"""
-		Return a list of the triggers with start times withing dt
-		of t.
+		Return a list of the triggers with start times within dt of
+		t.
 		"""
 		return self.snglbursttable.rows[bisect.bisect_left(self.starttimes, t - dt):bisect.bisect_right(self.starttimes, t + dt)]
 
 	def sort_triggers_by_id(self):
 		"""
-		Sort the sngl_burst table's rows by ID (tidy-up document for
-		output).
+		Sort the sngl_burst table's rows by ID (tidy-up document
+		for output).
 		"""
 		self.snglbursttable.rows.sort(lambda a, b: cmp(lsctables.ILWDID(a.event_id), lsctables.ILWDID(b.event_id)))
 
@@ -167,17 +158,20 @@ def append_process(xmldoc, **kwargs):
 #
 # =============================================================================
 #
-#                  Build Injection <--> Trigger Coincidences
+#                 Build sim_burst <--> sngl_burst Coincidences
 #
 # =============================================================================
 #
 
-def new_coinc(contents, process):
+def new_coinc(contents, process, coinc_def_id):
 	"""
-	Construct a new coinc_event row attached to the given process.
+	Construct a new coinc_event row attached to the given process, and
+	belonging to the set of coincidences defined by the given
+	coinc_def_id.
 	"""
 	coinc = lsctables.Coinc()
 	coinc.process_id = process.process_id
+	coinc.coinc_def_id = coinc_def_id
 	coinc.coinc_event_id = contents.coincids.next()
 	coinc.time_slide_id = contents.tisi_id
 	coinc.nevents = 0
@@ -185,29 +179,7 @@ def new_coinc(contents, process):
 	return coinc
 
 
-def add_found_injection(contents, coinc, sim, bursts):
-	"""
-	Add arcs in the coinc_event_map linking the sim_burst row and the list
-	of sngl_burst rows to the given coinc_event row.
-	"""
-	coincmap = lsctables.CoincMap()
-	coincmap.coinc_event_id = coinc.coinc_event_id
-	coincmap.event_id = sim.simulation_id
-	contents.coincmaptable.append(coincmap)
-
-	coinc.nevents += len(bursts)
-
-	for burst in bursts:
-		if burst.ifo not in contents.tisi_instruments:
-			print >>sys.stderr, "error: zero-lag time slide does not list instrument %s needed by event %s" % (burst.ifo, burst.event_id)
-			sys.exit(1)
-		coincmap = lsctables.CoincMap()
-		coincmap.coinc_event_id = coinc.coinc_event_id
-		coincmap.event_id = burst.event_id
-		contents.coincmaptable.append(coincmap)
-
-
-def find_matches(contents, sim, comparefunc):
+def find_sngl_burst_matches(contents, sim, comparefunc):
 	"""
 	Scan the burst table for matching triggers coincident with sim.
 	"""
@@ -216,6 +188,72 @@ def find_matches(contents, sim, comparefunc):
 		if comparefunc(sim, row):
 			matches.append(row)
 	return matches
+
+
+def add_sim_burst_sngl_burst_coinc(contents, process, sim, bursts):
+	"""
+	Create a coinc_event in the coinc table, and add arcs in the
+	coinc_event_map table linking the sim_burst row and the list of
+	sngl_burst rows to the new coinc_event row.
+	"""
+	coinc = new_coinc(contents, process, contents.sb_coinc_def_id)
+	coinc.nevents += len(bursts)
+
+	coincmap = lsctables.CoincMap()
+	coincmap.coinc_event_id = coinc.coinc_event_id
+	coincmap.event_id = sim.simulation_id
+	contents.coincmaptable.append(coincmap)
+
+	for event in bursts:
+		coincmap = lsctables.CoincMap()
+		coincmap.coinc_event_id = coinc.coinc_event_id
+		coincmap.event_id = event.event_id
+		contents.coincmaptable.append(coincmap)
+
+
+#
+# =============================================================================
+#
+#                   Build sim_burst <--> coinc Coincidences
+#
+# =============================================================================
+#
+
+def find_coinc_matches(contents, sim, comparefunc):
+	"""
+	Scan the coinc_event table for matching burst coincs coincident
+	with sim.
+	"""
+	matches = []
+	for coinc_event in contents.coinctable:
+		if (coinc_event.coinc_def_id != contents.bb_coinc_def_id) or not llwapp.time_slide_is_null(contents.tisitable, coinc_event.time_slide_id):
+			continue
+		for row in contents.coincmaptable:
+			if (row.coinc_event_id != coinc_event.coinc_event_id) or not comparefunc(sim, contents.snglbursttable.dict[row.event_id]):
+				break
+		else:
+			matches.append(coinc_event)
+
+
+def add_sim_burst_coinc_coinc(contents, process, sim, coincs):
+	"""
+	Create a coinc_event in the coinc table, and add arcs in the
+	coinc_event_map table linking the sim_burst row and the list of
+	coinc_event rows to the new coinc_event row.
+	"""
+	coinc = new_coinc(contents, process, contents.sc_coinc_def_id)
+	coinc.nevents += len(coincs)
+
+	coincmap = lsctables.CoincMap()
+	coincmap.coinc_event_id = coinc.coinc_event_id
+	coincmap.event_id = sim.simulation_id
+	contents.coincmaptable.append(coincmap)
+
+	for event in coincs:
+		coincmap = lsctables.CoincMap()
+		coincmap.coinc_event_id = coinc.coinc_event_id
+		coincmap.event_id = event.coinc_event_id
+		contents.coincmaptable.append(coincmap)
 
 
 #
@@ -234,9 +272,16 @@ def ligolw_binjfind(xmldoc, **kwargs):
 	if kwargs["verbose"]:
 		print >>sys.stderr, "constructing injection-burst coincidences..."
 	for sim in contents.simbursttable.rows:
-		matches = find_matches(contents, sim, kwargs["comparefunc"])
+		matches = find_sngl_burst_matches(contents, sim, kwargs["comparefunc"])
 		if matches:
-			add_found_injection(contents, new_coinc(contents, process), sim, matches)
+			add_sim_burst_sngl_burst_coinc(contents, process, sim, matches)
+	if contents.sc_coinc_def_id:
+		if kwargs["verbose"]:
+			print >>sys.stderr, "constructing injection-coinc coincidences..."
+		for sim in contents.simbursttable.rows:
+			matches = find_coinc_matches(contents, sim, kwargs["comparefunc"])
+			if matches:
+				add_sim_burst_coinc_coinc(contents, process, sim, matches)
 	contents.sort_triggers_by_id()
 	llwapp.set_process_end_time(process)
 	return xmldoc
@@ -256,24 +301,20 @@ except Exception, e:
 	print >>sys.stderr, "error: %s" % str(e)
 	sys.exit(1)
 
-try:
-	for n, filename in enumerate(filenames):
+for n, filename in enumerate(filenames):
+	if options.verbose:
+		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
+	doc = llwapp.load_filename(filename, options.verbose)
+	if llwapp.doc_includes_process(doc, "liglw_binjfind"):
 		if options.verbose:
-			print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
-		doc = llwapp.load_filename(filename, options.verbose)
-		if llwapp.doc_includes_process(doc, "liglw_binjfind"):
+			print >>sys.stderr, "warning: %s already processed," % (filename or "stdin"),
+		if options.force:
 			if options.verbose:
-				print >>sys.stderr, "warning: %s already processed," % (filename or "stdin"),
-			if options.force:
-				if options.verbose:
-					print >>sys.stderr, "continuing"
-			else:
-				if options.verbose:
-					print >>sys.stderr, "skipping"
-				continue
-		ligolw_binjfind(doc, **options.__dict__)
-		llwapp.write_filename(doc, filename, options.verbose)
-		doc.unlink()
-except Exception, e:
-	print >>sys.stderr, "error: %s" % str(e)
-	sys.exit(1)
+				print >>sys.stderr, "continuing"
+		else:
+			if options.verbose:
+				print >>sys.stderr, "skipping"
+			continue
+	ligolw_binjfind(doc, **options.__dict__)
+	llwapp.write_filename(doc, filename, options.verbose)
+	doc.unlink()
