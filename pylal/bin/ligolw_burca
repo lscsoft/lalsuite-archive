@@ -53,18 +53,19 @@ def parse_windows(windowstrings):
 	"""
 	Turn a list of strings of the form "inst1,inst2=delta" into a
 	dictionary with (inst1, inst2) 2-tuples as keys and the deltas as
-	the values.  The instruments in the 2-tuples are sorted.
+	the values.  Each pair is listed twice, once in each order.
 	"""
 	windows = {}
 	for [pair, delay] in map(lambda w: str.split(w, "="), windowstrings):
-		pair = pair.split(",")
-		pair.sort()
-		pair = tuple(pair)
-		if len(pair) != 2:
+		AB = pair.split(",")
+		AB.sort()
+		AB = tuple(AB)
+		if len(AB) != 2:
 			raise ValueError, "incorrect number of instruments"
-		if pair in windows:
+		BA = (AB[1], AB[0])
+		if (AB in windows) or (BA in windows):
 			raise ValueError, "duplicate instrument pair"
-		windows[pair] = LIGOTimeGPS(delay)
+		windows[AB] = windows[BA] = LIGOTimeGPS(delay)
 	return windows
 
 
@@ -83,6 +84,23 @@ def parse_command_line():
 		raise ValueError, "error parsing --window: %s" % str(e)
 
 	return options, (filenames or [None])
+
+
+#
+# =============================================================================
+#
+#                                    Input
+#
+# =============================================================================
+#
+
+def sngl_burst_get_start(self):
+	return LIGOTimeGPS(self.start_time, self.start_time_ns)
+
+def sngl_burst_cmp(self, other):
+	return cmp(self.start_time, other.start_time) or cmp(self.start_time_ns, other.start_time_ns)
+
+lsctables.SnglBurst.get_start = sngl_burst_get_start
 
 
 #
@@ -141,7 +159,7 @@ def find_coinc_proc_ids(xmldoc, windows, program):
 	for row in llwapp.get_table(xmldoc, lsctables.SearchSummaryTable.tableName):
 		if (not llwapp.bisect_contains(proc_ids, row.process_id)) or llwapp.bisect_contains(coinc_proc_ids, row.process_id):
 			continue
-		if coincseglists[row.ifos].intersects_segment(row.get_out()):
+		if seglistdict[row.ifos].intersects_segment(row.get_out()):
 			bisect.insort_left(coinc_proc_ids, row.process_id)
 	return coinc_proc_ids
 
@@ -164,14 +182,13 @@ class TriggerList(list):
 
 	def mkindex(self):
 		"""
-		Build look-up tables for the triggers.  Must be called after
-		triggers have been added to the list, and before the
-		intersects() method is called.
+		Build look-up tables for the triggers.  Must be called
+		after triggers have been added to the list, and before the
+		coincs() method is called.
 		"""
-		self.sort(lambda a, b: cmp(a.get_start() + a.duration, b.get_start() + b.duration))
-		self.start_times = [LIGOTimeGPS(row.get_start()) for row in self]
-		self.stop_times = [LIGOTimeGPS(row.get_start()) + row.duration for row in self]
-		self.maxduration = max(map(lambda stop, start: stop - start, self.stop_times, self.start_times))
+		self.sort(sngl_burst_cmp)
+		self.start_times = [row.get_start() for row in self]
+		self.max_duration = max([row.duration for row in self])
 
 	def set_offset(self, offset):
 		"""
@@ -189,12 +206,13 @@ class TriggerList(list):
 		"""
 		self.set_offset(LIGOTimeGPS(0))
 
-	def intersects(self, t, dt):
+	def coincs(self, burst, window, comparefunc):
 		"""
-		Return a list of the triggers whose time intervals
-		intersect t +/- dt.
+		Return a list of the triggers coincident with burst.
 		"""
-		return [self[i] for i in xrange(bisect.bisect_left(self.stop_times, t - dt - self.offset), bisect.bisect_right(self.stop_times, t + dt + self.maxduration - self.offset)) if self.start_times[i] + self.offset <= t + dt]
+		start = burst.get_start() - window - self.offset
+		stop = burst.get_start() + burst.duration + window - self.offset
+		return [self[i] for i in xrange(bisect.bisect_left(self.start_times, start - self.max_duration), bisect.bisect_right(self.start_times, stop)) if not comparefunc(burst, self[i], window)]
 
 
 #
@@ -292,7 +310,7 @@ class DocContents(object):
 		for triggerlist in self.triggerlists.itervalues():
 			triggerlist.remove_offset()
 
-	def append_coinc(self, tisi_id, trigs):
+	def append_coinc(self, tisi_id, bursts):
 		"""
 		Takes a time slide ID and a list of triggers, and adds the
 		triggers as a new coincidence to the coinc and coincmap
@@ -303,12 +321,12 @@ class DocContents(object):
 		coinc.coinc_def_id = self.coinc_def_id
 		coinc.coinc_event_id = self.coincids.next()
 		coinc.time_slide_id = tisi_id
-		coinc.nevents = len(trigs)
+		coinc.nevents = len(bursts)
 		self.coinctable.append(coinc)
-		for trig in trigs:
+		for brust in bursts:
 			coincmap = lsctables.CoincMap()
 			coincmap.coinc_event_id = coinc.coinc_event_id
-			coincmap.event_id = trig.event_id
+			coincmap.event_id = burst.event_id
 			self.coincmaptable.append(coincmap)
 
 
@@ -320,33 +338,34 @@ class DocContents(object):
 # =============================================================================
 #
 
-class Level1Iterator(object):
+def Level1Iterator(document, instruments):
 	"""
-	Performs a coarse coincidence cut, generating a sequence of
-	MultiIter objects for iterating over sets of surviving n-tuples.
+	First-pass coincidence generator.  Generates a sequence of tuples
+	whose elements are, in order:
+
+	n:  a progress indicator whose value is in the range [0, length)
+	length:  the upper bound for n
+	event:  a burst event
+	ntuples:  see below
+
+	ntuples is (yet) another generator that produces a sequence of
+	lists of burst events.  Each list of burst events, when event is
+	added to it, constitutes a potential coincidence with exactly one
+	event from each instrument.  Each event in the list is guaranteed
+	to be coincident with event, but the mutual coincidence of the
+	events in the list has not yet been established.
 	"""
-	def __init__(self, document, instruments):
-		instruments.sort()
-		self.triggerlists = document.get_triglists(instruments)
-		lengths = map(len, self.triggerlists)
-		self.len = min(lengths)
-		self.shortest = lengths.index(self.len)
-		self.trigiter = iter(self.triggerlists[self.shortest])
-		del self.triggerlists[self.shortest]
-		self.maxwindow = max(map(lambda pair: document.windows[tuple(pair)], itertools.choices(instruments, 2)))
+	triggerlists = document.get_triglists(instruments)
+	lengths = map(len, triggerlists)
+	length = min(lengths)
+	shortest = lengths.index(length)
+	shortestlist = triggerlists[shortest]
+	del triggerlists[shortest]
 
-	def __len__(self):
-		return self.len
+	windows = map(lambda inst: document.windows[(inst, instruments[shortest])], instruments[:shortest] + instruments[shortest + 1:])
 
-	def __iter__(self):
-		return self
-
-	def next(self):
-		trig = self.trigiter.next()
-		start = LIGOTimeGPS(trig.get_start())
-		intersectingtrigs = map(lambda l: l.intersects(start + trig.duration / 2, self.maxwindow + trig.duration / 2), self.triggerlists)
-		intersectingtrigs.insert(self.shortest, [trig])
-		return itertools.MultiIter(intersectingtrigs)
+	for n, event in enumerate(shortestlist):
+		yield n, length, event, itertools.MultiIter(map(lambda (n, l): l.coincs(event, windows[n], Level2Test), enumerate(triggerlists)))
 
 
 #
@@ -359,13 +378,12 @@ class Level1Iterator(object):
 
 Level2Test = SnglBurstUtils.CompareSnglBurst
 
-def coincident(trigs, windows):
+def coincident(events, windows):
 	"""
-	Return True if the triggers are all mutually coincident.  Requires
-	trigs to be sorted by instrument.
+	Return True if the triggers are all mutually coincident.
 	"""
 	try:
-		for [a, b] in itertools.choices(trigs, 2):
+		for [a, b] in itertools.choices(events, 2):
 			if Level2Test(a, b, windows[(a.ifo, b.ifo)]):
 				return False
 	except KeyError, e:
@@ -387,14 +405,15 @@ def find_coincident_ntuples(document, instruments, tisi_id, verbose = False):
 	ID, identify and append to the document all n-way coincidences
 	involving exactly one trigger from each instrument.
 	"""
-	level1iterator = Level1Iterator(document, instruments)
-	for n, ntuples in enumerate(level1iterator):
-		if not (n % 2048):
+	for n, length, event, ntuples in Level1Iterator(document, instruments):
+		if not (n % (length / 200 + 1)):
 			if verbose:
-				print >>sys.stderr, "\t%.1f%%\r" % (100.0 * (n + 1) / len(level1iterator)),
+				print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / length),
+		# iterate over the n-tuples, and check for mutual
+		# co-incidence
 		for ntuple in ntuples:
 			if coincident(ntuple, document.windows):
-				document.append_coinc(tisi_id, ntuple)
+				document.append_coinc(tisi_id, [event] + ntuple)
 	if verbose:
 		print >>sys.stderr, "\t100.0%"
 
@@ -408,7 +427,10 @@ def find_coincidences(document, verbose = False):
 		offsetdict = document.tisitable.get_offset_dict(tisi_id)
 		if verbose:
 			print >>sys.stderr, "time slide %d/%d: %s" % (n + 1, len(tisiids), str(offsetdict))
+			print >>sys.stderr, "\tapplying time offsets ..."
 		document.set_offsetdict(offsetdict)
+		if verbose:
+			print >>sys.stderr, "\tsearching ..."
 		find_coincident_ntuples(document, offsetdict.keys(), tisi_id, verbose)
 	document.remove_offsetdict()
 
