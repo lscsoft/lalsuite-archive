@@ -276,7 +276,7 @@ class RateContours(SnglBurstUtils.BurstPlot):
 
 		self.axes.set_xlim([self.bins.bins.min[0], self.bins.bins.max[0]])
 		self.axes.set_ylim([self.bins.bins.min[1], self.bins.bins.max[1]])
-		self.axes.set_title(r"Coincident Event Rate vs. Offset\\(Logarithmic Contours)")
+		self.axes.set_title(r"Coincident Event Rate vs. Offset, Logarithmic Contours")
 
 
 #
@@ -320,7 +320,7 @@ class ConfidenceContours(SnglBurstUtils.BurstPlot):
 				self.background_bins[x, y] += 1
 
 	def finish(self):
-		self.axes.set_title(r"Distribution of Coincident Event Confidence\\(%d Foreground, %d Background Events)" % (self.n_foreground, self.n_background))
+		self.axes.set_title(r"Distribution of Coincident Event Confidence\\%d Foreground, %d Background Events, Logarithmic Contours" % (self.n_foreground, self.n_background))
 		xcoords, ycoords = self.background_bins.centres()
 
 		# prepare the data
@@ -383,7 +383,7 @@ class DeltaTHistogram(SnglBurstUtils.BurstPlot):
 				self.background[float(sum) / len(bursts)] = 1.0
 
 	def finish(self):
-		self.axes.set_title(r"%s Peak Time Offset From Coincidence Mean\\(%d Foreground, %d Background Events)" % (self.instrument, self.n_foreground, self.n_background))
+		self.axes.set_title(r"%s Peak Time Offset From Coincidence Mean\\%d Foreground, %d Background Events" % (self.instrument, self.n_foreground, self.n_background))
 		self.axes.plot(self.background.xvals(), self.background.filtered(), "k")
 		self.axes.plot(self.foreground.xvals(), self.foreground.filtered(), "r")
 
