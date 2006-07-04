@@ -131,7 +131,6 @@ class DocContents(object):
 		for coinc in self.coinctable:
 			if (coinc.coinc_def_id == self.bb_coinc_def_id) and llwapp.time_slide_is_null(self.tisitable, coinc.time_slide_id):
 				self.coinc_event[coinc] = coinc_maps[lsctables.ILWDID(coinc.coinc_event_id)]
-		del coinc_maps
 
 		# construct the zero-lag time slide needed to cover the
 		# instruments listed in all the triggers, then determine
