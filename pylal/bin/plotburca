@@ -30,9 +30,11 @@ from optparse import OptionParser
 import math
 import matplotlib.cm
 import numarray
+import sqlobject
 import sys
 
 from glue import segments
+from glue.ligolw import table
 from glue.ligolw import lsctables
 from pylal import llwapp
 from pylal import rate
@@ -72,78 +74,132 @@ def parse_command_line():
 #
 # =============================================================================
 #
+#                                   Database
+#
+# =============================================================================
+#
+
+sqlobject.sqlhub.processConnection = sqlobject.connectionForURI("sqlite:/:memory:")
+
+
+class SnglBurst(sqlobject.SQLObject):
+	class sqlmeta:
+		idName = "event_id"
+	ifo = sqlobject.StringCol(length = 2)
+	central_freq = sqlobject.FloatCol()
+	confidence = sqlobject.FloatCol()
+	peak_time = sqlobject.IntCol()
+	peak_time_ns = sqlobject.IntCol()
+
+	def get_peak(self):
+		return LIGOTimeGPS(self.peak_time, self.peak_time_ns)
+
+
+class SimBurst(sqlobject.SQLObject):
+	class sqlmeta:
+		idName = "simulation_id"
+	geocent_peak_time = sqlobject.IntCol()
+	geocent_peak_time_ns = sqlobject.IntCol()
+	h_peak_time = sqlobject.IntCol()
+	h_peak_time_ns = sqlobject.IntCol()
+	l_peak_time = sqlobject.IntCol()
+	l_peak_time_ns = sqlobject.IntCol()
+	freq = sqlobject.FloatCol()
+	hrss = sqlobject.FloatCol()
+
+
+class TimeSlide(sqlobject.SQLObject):
+	class sqlmeta:
+		idName = "time_slide_id"
+	dict = sqlobject.PickleCol()
+
+	def is_null(self):
+		for offset in self.dict.itervalues():
+			if offset != 0:
+				return False
+		return True
+
+
+class Coinc(sqlobject.SQLObject):
+	class sqlmeta:
+		idName = "coinc_event_id"
+	coinc_def_id = sqlobject.IntCol()
+	time_slide = sqlobject.ForeignKey("TimeSlide")
+	sngl_bursts = sqlobject.RelatedJoin("SnglBurst")
+	sim_bursts = sqlobject.RelatedJoin("SimBurst")
+
+
+SnglBurst.createTable()
+SimBurst.createTable()
+TimeSlide.createTable()
+Coinc.createTable()
+
+
+#
+# =============================================================================
+#
 #                                    Input
 #
 # =============================================================================
 #
 
-def snglburst_init(self, attrs):
-	lsctables.LSCTableUnique.__init__(self, attrs)
-	self.rows = {}
+def sngl_burst_append(self, row):
+	SnglBurst(
+		id = lsctables.ILWDID(row.event_id),
+		ifo = row.ifo,
+		central_freq = row.central_freq,
+		confidence = row.confidence,
+		peak_time = row.peak_time,
+		peak_time_ns = row.peak_time_ns
+	)
 
-def snglburst_append(self, row):
-	self.rows[lsctables.ILWDID(row.event_id)] = row
-	del row.event_id
 
-def simburst_init(self, attrs):
-	lsctables.LSCTableUnique.__init__(self, attrs)
-	self.rows = {}
+def sim_burst_append(self, row):
+	SimBurst(
+		id = lsctables.ILWDID(row.simulation_id),
+		geocent_peak_time = row.geocent_peak_time,
+		geocent_peak_time_ns = row.geocent_peak_time_ns,
+		h_peak_time = row.h_peak_time,
+		h_peak_time_ns = row.h_peak_time_ns,
+		l_peak_time = row.l_peak_time,
+		l_peak_time_ns = row.l_peak_time_ns,
+		freq = row.freq,
+		hrss = row.hrss
+	)
 
-def simburst_append(self, row):
-	pass
 
-class CoincMap(object):
-	__slots__ = ["sims", "bursts", "coincs"]
+def time_slide_append(self, row):
+	try:
+		TimeSlide.get(lsctables.ILWDID(row.time_slide_id)).dict[row.instrument] = row.offset
+	except sqlobject.main.SQLObjectNotFound:
+		TimeSlide(id = lsctables.ILWDID(row.time_slide_id), dict = {row.instrument: row.offset})
 
-	def __init__(self):
-		self.sims = []
-		self.bursts = []
-		self.coincs = []
-
-def coinc_map_init(self, attrs):
-	lsctables.LSCTableUnique.__init__(self, attrs)
-	self.rows = {}
-
-def coinc_map_append(self, row):
-	id = lsctables.ILWDID(row.coinc_event_id)
-	if id not in self.rows:
-		self.rows[id] = CoincMap()
-	if "sim_burst" in row.event_id:
-		self.rows[id].sims.append(lsctables.ILWDID(row.event_id))
-	elif "sngl_burst" in row.event_id:
-		self.rows[id].bursts.append(lsctables.ILWDID(row.event_id))
-	elif "coinc_event" in row.event_id:
-		self.rows[id].coincs.append(lsctables.ILWDID(row.event_id))
-	else:
-		raise ValueError, "unrecognized coincident event ID: %s" % str(row.event_id)
 
 def coinc_append(self, row):
-	row.coinc_event_id = lsctables.ILWDID(row.coinc_event_id)
-	row.time_slide_id = lsctables.ILWDID(row.time_slide_id)
-	self.rows.append(row)
+	Coinc(
+		id = lsctables.ILWDID(row.coinc_event_id),
+		coinc_def_id = lsctables.ILWDID(row.coinc_def_id),
+		time_slide = TimeSlide.get(lsctables.ILWDID(row.time_slide_id))
+	)
 
-def timeslide_init(self, attrs):
-	lsctables.LSCTableMulti.__init__(self, attrs)
-	self.rows = {}
 
-def timeslide_append(self, row):
-	id = lsctables.ILWDID(row.time_slide_id)
-	if id in self.rows:
-		self.rows[id][row.instrument] = row.offset
+def coinc_map_append(self, row):
+	coinc_event_id = lsctables.ILWDID(row.coinc_event_id)
+	event_table = lsctables.ILWDTableName(row.event_id)
+	event_id = lsctables.ILWDID(row.event_id)
+	if not table.CompareTableNames(event_table, lsctables.SnglBurstTable.tableName):
+		Coinc.get(coinc_event_id).addSnglBurst(SnglBurst.get(event_id))
+	elif not table.CompareTableNames(event_table, lsctables.SimBurstTable.tableName):
+		Coinc.get(coinc_event_id).addSimBurst(SimBurst.get(event_id))
 	else:
-		self.rows[id] = {row.instrument: row.offset}
+		raise TypeError, row.event_id
 
-lsctables.SnglBurstTable.loadcolumns = ["ifo", "central_freq", "confidence", "peak_time", "peak_time_ns", "event_id"]
-lsctables.SnglBurstTable.__init__ = snglburst_init
-lsctables.SnglBurstTable.append = snglburst_append
-lsctables.SimBurstTable.__init__ = simburst_init
-lsctables.SimBurstTable.append = simburst_append
-lsctables.CoincTable.loadcolumns = ["coinc_event_id", "time_slide_id"]
+
+lsctables.SnglBurstTable.append = sngl_burst_append
+lsctables.SimBurstTable.append = sim_burst_append
+lsctables.TimeSlideTable.append = time_slide_append
 lsctables.CoincTable.append = coinc_append
-lsctables.CoincMapTable.__init__ = coinc_map_init
 lsctables.CoincMapTable.append = coinc_map_append
-lsctables.TimeSlideTable.__init__ = timeslide_init
-lsctables.TimeSlideTable.append = timeslide_append
 
 
 #
@@ -156,78 +212,7 @@ lsctables.TimeSlideTable.append = timeslide_append
 
 class DocContents(object):
 	def __init__(self, xmldoc, live_time_program):
-		#
-		# Extract tables
-		#
-
-		self.coinc_rows = llwapp.get_table(xmldoc, lsctables.CoincTable.tableName).rows
-		tisi_rows = llwapp.get_table(xmldoc, lsctables.TimeSlideTable.tableName).rows
-		self.tisi_rows = tisi_rows.values()
-
-		#
-		# Extract segmentlist dictionary
-		#
-
 		self.seglists = llwapp.segmentlistdict_fromsearchsummary(xmldoc, live_time_program)
-
-		#
-		# Replace ID attributes of each coinc_event row with
-		# references to the corresponding objects in the other
-		# tables.
-		#
-
-		coinc_map_rows = llwapp.get_table(xmldoc, lsctables.CoincMapTable.tableName).rows
-		burst_rows = llwapp.get_table(xmldoc, lsctables.SnglBurstTable.tableName).rows
-		i = 0
-		while i < len(self.coinc_rows):
-			coinc_map = coinc_map_rows[self.coinc_rows[i].coinc_event_id]
-			if coinc_map.sims or coinc_map.coincs:
-				# not a sngl_burst <--> sngl_burst coinc
-				del self.coinc_rows[i]
-				continue
-			self.coinc_rows[i].coinc_event_id = coinc_map
-			self.coinc_rows[i].time_slide_id = tisi_rows[self.coinc_rows[i].time_slide_id]
-			coinc_map.bursts = map(burst_rows.__getitem__, coinc_map.bursts)
-			i += 1
-
-
-#
-# =============================================================================
-#
-#                            Coincidence Iterators
-#
-# =============================================================================
-#
-
-def time_slide_is_null(offsetdict):
-	"""
-	Test for all-zero time slide.
-	"""
-	for offset in offsetdict.itervalues():
-		if offset:
-			return False
-	return True
-
-
-def CoincEventIter(doc):
-	"""
-	Generates a sequence of tuples, one for each coincidence in the
-	data set.  The first element of each tuple is the time slide
-	dictionary at which the coincidence was found, and the second is a
-	list of the sngl_burst events in the coincidence.
-	"""
-	for row in doc.coinc_rows:
-		yield row.time_slide_id, row.coinc_event_id.bursts
-
-
-def CoincTisiIter(doc):
-	"""
-	Generates a sequence of time-slide dictionaries, one for each
-	coincidence in the data set, indicating the time slide at which the
-	corresponding coincidence was found.
-	"""
-	for row in doc.coinc_rows:
-		yield row.time_slide_id
 
 
 #
@@ -237,6 +222,13 @@ def CoincTisiIter(doc):
 #
 # =============================================================================
 #
+
+def time_slide_is_null(offsets):
+	for offset in offsets.itervalues():
+		if offset != 0:
+			return False
+	return True
+
 
 class RateContours(SnglBurstUtils.BurstPlot):
 	def __init__(self, x_instrument, y_instrument, min_delta_t, max_delta_t):
@@ -250,13 +242,14 @@ class RateContours(SnglBurstUtils.BurstPlot):
 
 	def add_contents(self, doc):
 		if self.tisi_rows == None:
-			self.tisi_rows = doc.tisi_rows
+			self.tisi_rows = [row.dict for row in TimeSlide.select()]
 		if self.seglists == None:
 			self.seglists = doc.seglists
 		else:
 			for instrument, seglist in doc.seglists.iteritems():
 				self.seglists[instrument] |= seglist
-		for offsetdict in CoincTisiIter(doc):
+		for row in Coinc.select():
+			offsetdict = row.time_slide.dict
 			self.bins.incnumerator((offsetdict[self.x_instrument], offsetdict[self.y_instrument]))
 
 	def finish(self):
@@ -301,10 +294,12 @@ class ConfidenceContours(SnglBurstUtils.BurstPlot):
 		self.background_bins = rate.BinnedArray(rate.Bins(min_confidence, max_confidence, 1024, min_confidence, max_confidence, 1024, spacing = ["log", "log"]))
 
 	def add_contents(self, doc):
-		for tisi, bursts in CoincEventIter(doc):
-			if time_slide_is_null(tisi):
+		for row in Coinc.select():
+			if row.sim_bursts:
+				continue
+			if row.time_slide.is_null():
 				self.n_foreground += 1
-				for burst in bursts:
+				for burst in row.sngl_bursts:
 					if burst.ifo == self.x_instrument:
 						x = -burst.confidence
 					elif burst.ifo == self.y_instrument:
@@ -312,7 +307,7 @@ class ConfidenceContours(SnglBurstUtils.BurstPlot):
 				self.foreground_bins[x, y] += 1
 			else:
 				self.n_background += 1
-				for burst in bursts:
+				for burst in row.sngl_bursts:
 					if burst.ifo == self.x_instrument:
 						x = -burst.confidence
 					elif burst.ifo == self.y_instrument:
@@ -359,7 +354,8 @@ class DeltaTHistogram(SnglBurstUtils.BurstPlot):
 		self.background = rate.Rate(interval, width)
 
 	def add_contents(self, doc):
-		for tisi, bursts in CoincEventIter(doc):
+		for row in Coinc.select():
+			tisi = row.time_slide.dict
 			if self.instrument not in tisi:
 				continue
 			# sum = len(bursts) * peak_time for this instrument
@@ -369,18 +365,18 @@ class DeltaTHistogram(SnglBurstUtils.BurstPlot):
 			# compute this the way I do to avoid a (very
 			# expensive!) LIGOTimeGPS division operation.
 			sum = 0
-			for burst in bursts:
+			for burst in row.sngl_bursts:
 				peak = burst.get_peak() + tisi[burst.ifo]
 				if burst.ifo != self.instrument:
 					sum -= peak
 				else:
-					sum += (len(bursts) - 1) * peak
-			if time_slide_is_null(tisi):
+					sum += (len(row.sngl_bursts) - 1) * peak
+			if row.time_slide.is_null():
 				self.n_foreground += 1
-				self.foreground[float(sum) / len(bursts)] = 1.0
+				self.foreground[float(sum) / len(row.sngl_bursts)] = 1.0
 			else:
 				self.n_background += 1
-				self.background[float(sum) / len(bursts)] = 1.0
+				self.background[float(sum) / len(row.sngl_bursts)] = 1.0
 
 	def finish(self):
 		self.axes.set_title(r"%s Peak Time Offset From Coincidence Mean\\%d Foreground, %d Background Events" % (self.instrument, self.n_foreground, self.n_background))
