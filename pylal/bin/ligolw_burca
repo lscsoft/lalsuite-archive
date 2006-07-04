@@ -336,12 +336,14 @@ def Level1Iterator(eventlists, instruments, windows):
 	to be coincident with event, but the mutual coincidence of the
 	events in the list has not yet been established.
 	"""
+	instruments = list(instruments)	# so we can safely modify it
 	eventlists = map(eventlists.__getitem__, instruments)
 	lengths = map(len, eventlists)
 	length = min(lengths)
 	shortest = lengths.index(length)
 	shortestlist = eventlists.pop(shortest)
-	windows = map(lambda inst: windows[(inst, instruments[shortest])], instruments[:shortest] + instruments[shortest + 1:])
+	shortestinst = instruments.pop(shortest)
+	windows = map(lambda inst: windows[(inst, shortestinst)], instruments)
 	for n, event in enumerate(shortestlist):
 		yield n, length, event, itertools.MultiIter(map(lambda l, window: l.coincs(event, window, CompareFunc), eventlists, windows))
 
