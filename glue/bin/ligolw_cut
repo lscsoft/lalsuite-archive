@@ -87,14 +87,32 @@ def parse_command_line():
 # =============================================================================
 #
 
-ContentHandler = ligolw.LIGOLWContentHandler
+ContentHandler = ligolw.FilteringLIGOLWContentHandler
 
-def load_filename(filename):
+
+class ElementFilter(object):
+	"""
+	Class implementing any cuts that can be performed during document
+	parsing.
+	"""
+	def __init__(self, delete_tables):
+		self.delete_tables = delete_tables
+
+	def element_filter(self, name, attrs):
+		# check for unwanted tables
+		if name == ligolw.Table.tagName:
+			for delete_table in self.delete_tables:
+				if not table.CompareTableNames(delete_table, attrs["Name"]):
+					return False
+		return True
+
+
+def load_filename(filename, element_filter):
 	doc = ligolw.Document()
 	if filename:
-		ligolw.make_parser(ContentHandler(doc)).parse(file(filename))
+		ligolw.make_parser(ContentHandler(doc, element_filter)).parse(file(filename))
 	else:
-		ligolw.make_parser(ContentHandler(doc)).parse(sys.stdin)
+		ligolw.make_parser(ContentHandler(doc, element_filter)).parse(sys.stdin)
 	return doc
 
 
@@ -105,16 +123,6 @@ def load_filename(filename):
 #
 # =============================================================================
 #
-
-#
-# Remove unwanted tables
-#
-
-def RemoveTables(doc, tables):
-	for name in tables:
-		for table_elem in table.getTablesByName(doc, name):
-			table_elem.parentNode.removeChild(table_elem)
-
 
 #
 # Remove unwanted columns
@@ -184,6 +192,7 @@ def write_filename(filename):
 
 try:
 	options, filenames = parse_command_line()
+	element_filter = ElementFilter(options.delete_table).element_filter
 except Exception, e:
 	print >>sys.stderr, "error: parsing command line: %s" % str(e)
 	sys.exit(1)
@@ -191,11 +200,9 @@ except Exception, e:
 for n, filename in enumerate(filenames):
 	if options.verbose:
 		print >>sys.stderr, "loading %d/%d: %s" % (n + 1, len(filenames), filename or "stdin")
-	doc = load_filename(filename)
-
+	doc = load_filename(filename, element_filter)
 	if options.verbose:
 		print >>sys.stderr, "processing"
-	RemoveTables(doc, options.delete_table)
 	if options.delete_column:
 		RemoveColumns(doc, options.delete_column)
 	if options.delete_element:
