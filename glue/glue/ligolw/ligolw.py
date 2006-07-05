@@ -644,9 +644,9 @@ class LIGOLWContentHandler(sax.handler.ContentHandler):
 
 class PartialLIGOLWContentHandler(LIGOLWContentHandler):
 	"""
-	LIGO LW content handler object with the ability to strip unwanted
-	portions of the document from the input stream.  Useful, for
-	example, when one wishes to read only a single table from the XML.
+	LIGO LW content handler object that loads only those parts of the
+	document matching some criteria.  Useful, for example, when one
+	wishes to read only a single table from a file.
 	"""
 	def __init__(self, document, element_filter):
 		"""
@@ -656,16 +656,45 @@ class PartialLIGOLWContentHandler(LIGOLWContentHandler):
 		"""
 		LIGOLWContentHandler.__init__(self, document)
 		self.element_filter = element_filter
-		self.filtered_depth = 0
+		self.depth = 0
 
 	def startElement(self, name, attrs):
-		if self.filtered_depth > 0 or self.element_filter(name, attrs):
+		if self.depth > 0 or self.element_filter(name, attrs):
 			LIGOLWContentHandler.startElement(self, name, attrs)
-			self.filtered_depth += 1
+			self.depth += 1
 
 	def endElement(self, name):
-		if self.filtered_depth > 0:
-			self.filtered_depth -= 1
+		if self.depth > 0:
+			self.depth -= 1
+			LIGOLWContentHandler.endElement(self, name)
+
+
+class FilteringLIGOLWContentHandler(LIGOLWContentHandler):
+	"""
+	LIGO LW content handler that loads everything but those parts of a
+	document that match some criteria.  Useful, for example, when one
+	wishes to read everything except a single table from a file.
+	"""
+	def __init__(self, document, element_filter):
+		"""
+		Those elements for which element_filter(name, attrs)
+		evaluates to False, and the children of those elements,
+		will not be loaded.
+		"""
+		LIGOLWContentHandler.__init__(self, document)
+		self.element_filter = element_filter
+		self.depth = 0
+
+	def startElement(self, name, attrs):
+		if self.depth > 0 or not self.element_filter(name, attrs):
+			self.depth += 1
+		else:
+			LIGOLWContentHandler.startElement(self, name, attrs)
+
+	def endElement(self, name):
+		if self.depth > 0:
+			self.depth -= 1
+		else:
 			LIGOLWContentHandler.endElement(self, name)
 
 
