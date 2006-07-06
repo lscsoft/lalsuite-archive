@@ -201,7 +201,6 @@ class Coinc(sqlobject.SQLObject):
 	coinc_def_id = sqlobject.IntCol()
 	sngl_bursts = sqlobject.RelatedJoin("SnglBurst")
 	sim_bursts = sqlobject.RelatedJoin("SimBurst")
-	#coincs = sqlobject.RelatedJoin("Coinc")
 	time_slide_id = sqlobject.IntCol()
 	nevents = sqlobject.IntCol(default = 0)
 
@@ -224,8 +223,13 @@ def coinc_map_append(self, row):
 		Coinc.get(coinc_event_id).addSnglBurst(SnglBurst.get(event_id))
 	elif not table.CompareTableNames(event_table, lsctables.SimBurstTable.tableName):
 		Coinc.get(coinc_event_id).addSimBurst(SimBurst.get(event_id))
-	#elif not table.CompareTableNames(event_table, lsctables.CoincTable.tableName):
-	#	Coinc.get(coinc_event_id).addCoinc(Coinc.get(event_id))
+		coinc.found_sims.append(event_id)
+	elif not table.CompareTableNames(event_table, lsctables.CoincTable.tableName):
+		# resolve sim/coincs to the burst events in the coinc
+		# FIXME:  we're assuming here that (a) this is a sim/coinc
+		# coinc, and (b) that the coinc target is a burst/burst
+		# coinc;  add checks of coinc_def_id's to confirm?
+		map(Coinc.get(coinc_event_id).addSnglBurst, Coinc.get(event_id).sngl_bursts)
 	else:
 		raise TypeError, row.event_id
 
@@ -264,7 +268,7 @@ class DocContents(object):
 #
 # =============================================================================
 #
-#                                Rate Contours
+#                             Burca Rate Contours
 #
 # =============================================================================
 #
@@ -276,7 +280,7 @@ def time_slide_is_null(offsets):
 	return True
 
 
-class RateContours(SnglBurstUtils.BurstPlot):
+class BurcaRateContours(SnglBurstUtils.BurstPlot):
 	def __init__(self, x_instrument, y_instrument, min_delta_t, max_delta_t):
 		SnglBurstUtils.BurstPlot.__init__(self, "%s Offset (s)" % x_instrument, "%s Offset (s)" % y_instrument)
 		self.fig.set_figsize_inches(16,16)
@@ -321,12 +325,12 @@ class RateContours(SnglBurstUtils.BurstPlot):
 #
 # =============================================================================
 #
-#                              Confidence Scatter
+#                           Burca Confidence Scatter
 #
 # =============================================================================
 #
 
-class ConfidenceContours(SnglBurstUtils.BurstPlot):
+class BurcaConfidenceContours(SnglBurstUtils.BurstPlot):
 	def __init__(self, x_instrument, y_instrument, min_confidence, max_confidence):
 		SnglBurstUtils.BurstPlot.__init__(self, "%s Confidence" % x_instrument, "%s Confidence" % y_instrument)
 		self.fig.set_figsize_inches(16,16)
@@ -383,12 +387,12 @@ class ConfidenceContours(SnglBurstUtils.BurstPlot):
 #
 # =============================================================================
 #
-#                              Delta-t Histogram
+#                           Burca Delta-t Histogram
 #
 # =============================================================================
 #
 
-class DeltaTHistogram(SnglBurstUtils.BurstPlot):
+class BurcaDeltaTHistogram(SnglBurstUtils.BurstPlot):
 	def __init__(self, instrument, interval, width):
 		SnglBurstUtils.BurstPlot.__init__(self, "Offset (s)", "Events per Unit Offset")
 		self.instrument = instrument
@@ -440,13 +444,13 @@ def new_plots(plots):
 	deltat_seg = segments.segment(-0.3, +0.3)
 	deltat_width = 0.03125
 	l = [
-		RateContours("H2", "H1", -100, +100),
-		ConfidenceContours("H2", "H1", 30, 10**10),
-		ConfidenceContours("H2", "L1", 30, 10**10),
-		ConfidenceContours("L1", "H1", 30, 10**10),
-		DeltaTHistogram("H1", deltat_seg, deltat_width),
-		DeltaTHistogram("H2", deltat_seg, deltat_width),
-		DeltaTHistogram("L1", deltat_seg, deltat_width)
+		BurcaRateContours("H2", "H1", -100, +100),
+		BurcaConfidenceContours("H2", "H1", 30, 10**10),
+		BurcaConfidenceContours("H2", "L1", 30, 10**10),
+		BurcaConfidenceContours("L1", "H1", 30, 10**10),
+		BurcaDeltaTHistogram("H1", deltat_seg, deltat_width),
+		BurcaDeltaTHistogram("H2", deltat_seg, deltat_width),
+		BurcaDeltaTHistogram("L1", deltat_seg, deltat_width)
 	]
 	return [l[i] for i in plots]
 
