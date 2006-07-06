@@ -111,7 +111,8 @@ def append_process(xmldoc, **kwargs):
 
 	params = [("--program", "lstring", kwargs["program"])]
 	for key, value in kwargs["window"].iteritems():
-		params += [("--window", "lstring", "%s,%s=%s" % (key[0], key[1], str(value)))]
+		if key[0] < key[1]:
+			params += [("--window", "lstring", "%s,%s=%s" % (key[0], key[1], str(value)))]
 	llwapp.append_process_params(xmldoc, process, params)
 
 	return process
