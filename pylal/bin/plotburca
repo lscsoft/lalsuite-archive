@@ -30,7 +30,6 @@ from optparse import OptionParser
 import math
 import matplotlib.cm
 import numarray
-import sqlobject
 import sys
 
 from glue import segments
@@ -59,14 +58,14 @@ def parse_command_line():
 	parser.add_option("-b", "--base", metavar = "base", default = "plotburca_", help = "set the prefix for output filenames (default = plotburca_)")
 	parser.add_option("-f", "--format", metavar = "format", default = "png", help = "set the output image format (default = png)")
 	parser.add_option("-l", "--live-time-program", metavar = "program", default = "power", help = "set the name, as it appears in the process table, of the program whose search summary entries define the search live time (default = power)")
-	parser.add_option("--plot", metavar = "number", action = "append", default = None, help = "only generate the given plot number")
+	parser.add_option("--plot", metavar = "number", action = "append", default = None, help = "generate the given plot number")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
 	options, filenames = parser.parse_args()
 
 	if options.plot:
 		options.plot = map(int, options.plot)
 	else:
-		options.plot = [0, 1, 2, 3, 4, 5, 6]
+		options.plot = range(7)
 
 	return options, (filenames or [None])
 
@@ -74,201 +73,7 @@ def parse_command_line():
 #
 # =============================================================================
 #
-#                                    Input
-#
-# =============================================================================
-#
-
-class SnglBurst(sqlobject.SQLObject):
-	class sqlmeta:
-		table = "sngl_burst"
-		idName = "event_id"
-	ifo = sqlobject.StringCol(length = 2)
-	central_freq = sqlobject.FloatCol()
-	confidence = sqlobject.FloatCol()
-	peak_time = sqlobject.IntCol()
-	peak_time_ns = sqlobject.IntCol()
-
-	def get_peak(self):
-		return LIGOTimeGPS(self.peak_time, self.peak_time_ns)
-
-
-def sngl_burst_append(self, row):
-	SnglBurst(
-		id = lsctables.ILWDID(row.event_id),
-		ifo = row.ifo,
-		central_freq = row.central_freq,
-		confidence = row.confidence,
-		peak_time = row.peak_time,
-		peak_time_ns = row.peak_time_ns
-	)
-
-
-class SimBurst(sqlobject.SQLObject):
-	class sqlmeta:
-		table = "sim_burst"
-		idName = "simulation_id"
-	geocent_peak_time = sqlobject.IntCol()
-	geocent_peak_time_ns = sqlobject.IntCol()
-	h_peak_time = sqlobject.IntCol()
-	h_peak_time_ns = sqlobject.IntCol()
-	l_peak_time = sqlobject.IntCol()
-	l_peak_time_ns = sqlobject.IntCol()
-	freq = sqlobject.FloatCol()
-	hrss = sqlobject.FloatCol()
-
-
-def sim_burst_append(self, row):
-	SimBurst(
-		id = lsctables.ILWDID(row.simulation_id),
-		geocent_peak_time = row.geocent_peak_time,
-		geocent_peak_time_ns = row.geocent_peak_time_ns,
-		h_peak_time = row.h_peak_time,
-		h_peak_time_ns = row.h_peak_time_ns,
-		l_peak_time = row.l_peak_time,
-		l_peak_time_ns = row.l_peak_time_ns,
-		freq = row.freq,
-		hrss = row.hrss
-	)
-
-
-class TimeSlide(sqlobject.SQLObject):
-	class sqlmeta:
-		table = "time_slide"
-	process_id = sqlobject.IntCol()
-	time_slide_id = sqlobject.IntCol()
-	instrument = sqlobject.StringCol(length = 2)
-	offset = sqlobject.FloatCol()
-
-	def get_offsets(cls, id):
-		offsets = {}
-		for instrument, offset in cls._connection.queryAll("SELECT time_slide.instrument, time_slide.offset FROM time_slide WHERE time_slide.time_slide_id == %d" % id):
-			offsets[instrument] = offset
-		return offsets
-	get_offsets = classmethod(get_offsets)
-
-	def is_null(cls, id):
-		return not cls._connection.queryOne("SELECT COUNT(*) FROM time_slide WHERE time_slide.time_slide_id == %d AND time_slide.offset != 0" % id)[0]
-	is_null = classmethod(is_null)
-
-	def all_offsets(cls):
-		return [cls.get_offsets(id) for (id, ) in cls._connection.queryAll("SELECT DISTINCT time_slide.time_slide_id FROM time_slide")]
-	all_offsets = classmethod(all_offsets)
-
-
-def time_slide_append(self, row):
-	TimeSlide(
-		process_id = lsctables.ILWDID(row.process_id),
-		time_slide_id = lsctables.ILWDID(row.time_slide_id),
-		instrument = row.instrument,
-		offset = row.offset
-	)
-
-
-class CoincDef(sqlobject.SQLObject):
-	class sqlmeta:
-		table = "coinc_definer"
-	coinc_def_id = sqlobject.IntCol()
-	table_name = sqlobject.StringCol()
-
-	def get_table_names(cls, id):
-		l = [table_name for (table_name, ) in cls._connection.queryAll("SELECT coinc_definer.table_name FROM coinc_definer WHERE coinc_definer.coinc_def_id = %d" % id)]
-		l.sort()
-		return l
-	get_table_names = classmethod(get_table_names)
-
-	def get_id(cls, table_names):
-		table_names.sort()
-		for id in [id for (id, ) in cls._connection.queryAll("SELECT DISTINCT coinc_definer.coinc_def_id FROM coinc_definer")]:
-			if cls.get_table_names(id) == table_names:
-				return id
-		raise KeyError, table_names
-	get_id = classmethod(get_id)
-
-
-def coinc_def_append(self, row):
-	CoincDef(
-		coinc_def_id = lsctables.ILWDID(row.coinc_def_id),
-		table_name = row.table_name
-	)
-
-
-class Coinc(sqlobject.SQLObject):
-	class sqlmeta:
-		table = "coinc_event"
-		idName = "coinc_event_id"
-	process_id = sqlobject.IntCol()
-	coinc_def_id = sqlobject.IntCol()
-	sngl_bursts = sqlobject.RelatedJoin("SnglBurst")
-	sim_bursts = sqlobject.RelatedJoin("SimBurst")
-	time_slide_id = sqlobject.IntCol()
-	nevents = sqlobject.IntCol(default = 0)
-
-
-def coinc_append(self, row):
-	Coinc(
-		id = lsctables.ILWDID(row.coinc_event_id),
-		process_id = lsctables.ILWDID(row.process_id),
-		coinc_def_id = lsctables.ILWDID(row.coinc_def_id),
-		time_slide_id = lsctables.ILWDID(row.time_slide_id),
-		nevents = row.nevents
-	)
-
-
-def coinc_map_append(self, row):
-	coinc_event_id = lsctables.ILWDID(row.coinc_event_id)
-	event_table = lsctables.ILWDTableName(row.event_id)
-	event_id = lsctables.ILWDID(row.event_id)
-	if not table.CompareTableNames(event_table, lsctables.SnglBurstTable.tableName):
-		Coinc.get(coinc_event_id).addSnglBurst(SnglBurst.get(event_id))
-	elif not table.CompareTableNames(event_table, lsctables.SimBurstTable.tableName):
-		Coinc.get(coinc_event_id).addSimBurst(SimBurst.get(event_id))
-		coinc.found_sims.append(event_id)
-	elif not table.CompareTableNames(event_table, lsctables.CoincTable.tableName):
-		# resolve sim/coincs to the burst events in the coinc
-		# FIXME:  we're assuming here that (a) this is a sim/coinc
-		# coinc, and (b) that the coinc target is a burst/burst
-		# coinc;  add checks of coinc_def_id's to confirm?
-		map(Coinc.get(coinc_event_id).addSnglBurst, Coinc.get(event_id).sngl_bursts)
-	else:
-		raise TypeError, row.event_id
-
-
-def InitBurstTableDatabase(connection):
-	for cls in [SnglBurst, SimBurst, TimeSlide, CoincDef, Coinc]:
-		cls._connection = connection
-		cls.createTable()
-
-	lsctables.SnglBurstTable.append = sngl_burst_append
-	lsctables.SimBurstTable.append = sim_burst_append
-	lsctables.TimeSlideTable.append = time_slide_append
-	lsctables.CoincDefTable.append = coinc_def_append
-	lsctables.CoincTable.append = coinc_append
-	lsctables.CoincMapTable.append = coinc_map_append
-
-
-def ResetBurstTables():
-	for cls in [SnglBurst, SimBurst, TimeSlide, CoincDef, Coinc]:
-		cls.clearTable()
-
-
-#
-# =============================================================================
-#
-#                            Document Comprehension
-#
-# =============================================================================
-#
-
-class DocContents(object):
-	def __init__(self, xmldoc, live_time_program):
-		self.seglists = llwapp.segmentlistdict_fromsearchsummary(xmldoc, live_time_program)
-
-
-#
-# =============================================================================
-#
-#                             Burca Rate Contours
+#                                Rate Contours
 #
 # =============================================================================
 #
@@ -280,7 +85,7 @@ def time_slide_is_null(offsets):
 	return True
 
 
-class BurcaRateContours(SnglBurstUtils.BurstPlot):
+class RateContours(SnglBurstUtils.BurstPlot):
 	def __init__(self, x_instrument, y_instrument, min_delta_t, max_delta_t):
 		SnglBurstUtils.BurstPlot.__init__(self, "%s Offset (s)" % x_instrument, "%s Offset (s)" % y_instrument)
 		self.fig.set_figsize_inches(16,16)
@@ -290,22 +95,22 @@ class BurcaRateContours(SnglBurstUtils.BurstPlot):
 		self.seglists = None
 		self.bins = rate.BinnedRatios(rate.Bins(min_delta_t, max_delta_t, 81, min_delta_t, max_delta_t, 81))
 
-	def add_contents(self, doc):
+	def add_contents(self, contents):
 		if self.tisi_rows == None:
-			self.tisi_rows = TimeSlide.all_offsets()
+			self.tisi_rows = contents.TimeSlide.all_offsets()
 		if self.seglists == None:
-			self.seglists = doc.seglists
+			self.seglists = contents.seglists
 		else:
-			for instrument, seglist in doc.seglists.iteritems():
+			for instrument, seglist in contents.seglists.iteritems():
 				self.seglists[instrument] |= seglist
-		for row in Coinc.selectBy(coinc_def_id = CoincDef.get_id([lsctables.SnglBurstTable.tableName])):
-			offsets = TimeSlide.get_offsets(row.time_slide_id)
+		for coinc in contents.Coinc.selectBy(coinc_def_id = contents.bb_definer_id):
+			offsets = coinc.get_time_slide()
 			self.bins.incnumerator((offsets[self.x_instrument], offsets[self.y_instrument]))
 
 	def finish(self):
-		for row in self.tisi_rows:
-			self.seglists.offsets.update(row)
-			self.bins.incdenominator((row[self.x_instrument], row[self.y_instrument]), float(self.seglists.intersection(self.seglists.keys()).duration()))
+		for offsets in self.tisi_rows:
+			self.seglists.offsets.update(offsets)
+			self.bins.incdenominator((offsets[self.x_instrument], offsets[self.y_instrument]), float(self.seglists.intersection(self.seglists.keys()).duration()))
 		self.bins.logregularize()
 		zvals = self.bins.ratio()
 		rate.filter_array(zvals, rate.gaussian_window2d(8, 8))
@@ -319,18 +124,18 @@ class BurcaRateContours(SnglBurstUtils.BurstPlot):
 
 		self.axes.set_xlim([self.bins.bins.min[0], self.bins.bins.max[0]])
 		self.axes.set_ylim([self.bins.bins.min[1], self.bins.bins.max[1]])
-		self.axes.set_title(r"Coincident Event Rate vs. Offset, Logarithmic Contours")
+		self.axes.set_title(r"Coincident Event Rate vs. Offset (Logarithmic Rate Contours)")
 
 
 #
 # =============================================================================
 #
-#                           Burca Confidence Scatter
+#                              Confidence Scatter
 #
 # =============================================================================
 #
 
-class BurcaConfidenceContours(SnglBurstUtils.BurstPlot):
+class ConfidenceContours(SnglBurstUtils.BurstPlot):
 	def __init__(self, x_instrument, y_instrument, min_confidence, max_confidence):
 		SnglBurstUtils.BurstPlot.__init__(self, "%s Confidence" % x_instrument, "%s Confidence" % y_instrument)
 		self.fig.set_figsize_inches(16,16)
@@ -338,16 +143,20 @@ class BurcaConfidenceContours(SnglBurstUtils.BurstPlot):
 
 		self.x_instrument = x_instrument
 		self.y_instrument = y_instrument
+		self.coinc_injections_x = []
+		self.coinc_injections_y = []
 		self.n_foreground = 0
 		self.n_background = 0
+		self.n_injections = 0
 		self.foreground_bins = rate.BinnedArray(rate.Bins(min_confidence, max_confidence, 1024, min_confidence, max_confidence, 1024, spacing = ["log", "log"]))
 		self.background_bins = rate.BinnedArray(rate.Bins(min_confidence, max_confidence, 1024, min_confidence, max_confidence, 1024, spacing = ["log", "log"]))
 
-	def add_contents(self, doc):
-		for row in Coinc.selectBy(coinc_def_id = CoincDef.get_id([lsctables.SnglBurstTable.tableName])):
-			if TimeSlide.is_null(row.time_slide_id):
+	def add_contents(self, contents):
+		for coinc in contents.Coinc.selectBy(coinc_def_id = contents.bb_definer_id):
+			if coinc.is_zero_lag():
 				self.n_foreground += 1
-				for burst in row.sngl_bursts:
+				x = y = None
+				for burst in coinc.sngl_bursts:
 					if burst.ifo == self.x_instrument:
 						x = -burst.confidence
 					elif burst.ifo == self.y_instrument:
@@ -355,15 +164,23 @@ class BurcaConfidenceContours(SnglBurstUtils.BurstPlot):
 				self.foreground_bins[x, y] += 1
 			else:
 				self.n_background += 1
-				for burst in row.sngl_bursts:
+				x = y = None
+				for burst in coinc.sngl_bursts:
 					if burst.ifo == self.x_instrument:
 						x = -burst.confidence
 					elif burst.ifo == self.y_instrument:
 						y = -burst.confidence
 				self.background_bins[x, y] += 1
+		for coinc in contents.Coinc.selectBy(coinc_def_id = contents.sc_definer_id):
+			self.n_injections += 1
+			for burst in coinc.sngl_bursts:
+				if burst.ifo == self.x_instrument:
+					self.coinc_injections_x.append(-burst.confidence)
+				elif burst.ifo == self.y_instrument:
+					self.coinc_injections_y.append(-burst.confidence)
 
 	def finish(self):
-		self.axes.set_title(r"Distribution of Coincident Event Confidence\\%d Foreground, %d Background Events, Logarithmic Contours" % (self.n_foreground, self.n_background))
+		self.axes.set_title(r"Distribution of Coincident Event Confidence (%d Foreground, %d Background Events, %d Injections Found in Coincidence, Logarithmic Density Contours)" % (self.n_foreground, self.n_background, self.n_injections))
 		xcoords, ycoords = self.background_bins.centres()
 
 		# prepare the data
@@ -380,6 +197,10 @@ class BurcaConfidenceContours(SnglBurstUtils.BurstPlot):
 		max_density = math.log(self.foreground_bins.array.max())
 		self.axes.contour(xcoords, ycoords, numarray.transpose(numarray.log(self.foreground_bins.array)), [max_density - n for n in xrange(0, 10, 1)], cmap = matplotlib.cm.Reds)
 
+		# mark injections
+		self.axes.plot(self.coinc_injections_x, self.coinc_injections_y, "b+")
+
+		# fix axes limits
 		self.axes.set_xlim([self.background_bins.bins.min[0], self.background_bins.bins.max[0]])
 		self.axes.set_ylim([self.background_bins.bins.min[1], self.background_bins.bins.max[1]])
 
@@ -387,12 +208,12 @@ class BurcaConfidenceContours(SnglBurstUtils.BurstPlot):
 #
 # =============================================================================
 #
-#                           Burca Delta-t Histogram
+#                              Delta-t Histogram
 #
 # =============================================================================
 #
 
-class BurcaDeltaTHistogram(SnglBurstUtils.BurstPlot):
+class DeltaTHistogram(SnglBurstUtils.BurstPlot):
 	def __init__(self, instrument, interval, width):
 		SnglBurstUtils.BurstPlot.__init__(self, "Offset (s)", "Events per Unit Offset")
 		self.instrument = instrument
@@ -401,9 +222,9 @@ class BurcaDeltaTHistogram(SnglBurstUtils.BurstPlot):
 		self.foreground = rate.Rate(interval, width)
 		self.background = rate.Rate(interval, width)
 
-	def add_contents(self, doc):
-		for row in Coinc.select():
-			offsets = TimeSlide.get_offsets(row.time_slide_id)
+	def add_contents(self, contents):
+		for coinc in contents.Coinc.selectBy(coinc_def_id = contents.bb_definer_id):
+			offsets = coinc.get_time_slide()
 			if self.instrument not in offsets:
 				continue
 			# sum = len(bursts) * peak_time for this instrument
@@ -413,21 +234,22 @@ class BurcaDeltaTHistogram(SnglBurstUtils.BurstPlot):
 			# compute this the way I do to avoid a (very
 			# expensive!) LIGOTimeGPS division operation.
 			sum = 0
-			for burst in row.sngl_bursts:
+			bursts = list(coinc.sngl_bursts)
+			for burst in bursts:
 				peak = burst.get_peak() + offsets[burst.ifo]
 				if burst.ifo != self.instrument:
 					sum -= peak
 				else:
-					sum += (len(row.sngl_bursts) - 1) * peak
-			if TimeSlide.is_null(row.time_slide_id):
+					sum += (len(bursts) - 1) * peak
+			if coinc.is_zero_lag():
 				self.n_foreground += 1
-				self.foreground[float(sum) / len(row.sngl_bursts)] = 1.0
+				self.foreground[float(sum) / len(bursts)] = 1.0
 			else:
 				self.n_background += 1
-				self.background[float(sum) / len(row.sngl_bursts)] = 1.0
+				self.background[float(sum) / len(bursts)] = 1.0
 
 	def finish(self):
-		self.axes.set_title(r"%s Peak Time Offset From Coincidence Mean\\%d Foreground, %d Background Events" % (self.instrument, self.n_foreground, self.n_background))
+		self.axes.set_title(r"%s Peak Time Offset From Coincidence Mean (%d Foreground, %d Background Events)" % (self.instrument, self.n_foreground, self.n_background))
 		self.axes.plot(self.background.xvals(), self.background.filtered(), "k")
 		self.axes.plot(self.foreground.xvals(), self.foreground.filtered(), "r")
 
@@ -444,13 +266,13 @@ def new_plots(plots):
 	deltat_seg = segments.segment(-0.3, +0.3)
 	deltat_width = 0.03125
 	l = [
-		BurcaRateContours("H2", "H1", -100, +100),
-		BurcaConfidenceContours("H2", "H1", 30, 10**10),
-		BurcaConfidenceContours("H2", "L1", 30, 10**10),
-		BurcaConfidenceContours("L1", "H1", 30, 10**10),
-		BurcaDeltaTHistogram("H1", deltat_seg, deltat_width),
-		BurcaDeltaTHistogram("H2", deltat_seg, deltat_width),
-		BurcaDeltaTHistogram("L1", deltat_seg, deltat_width)
+		RateContours("H2", "H1", -100, +100),
+		ConfidenceContours("H2", "H1", 30, 10**10),
+		ConfidenceContours("H2", "L1", 30, 10**10),
+		ConfidenceContours("L1", "H1", 30, 10**10),
+		DeltaTHistogram("H1", deltat_seg, deltat_width),
+		DeltaTHistogram("H2", deltat_seg, deltat_width),
+		DeltaTHistogram("L1", deltat_seg, deltat_width)
 	]
 	return [l[i] for i in plots]
 
@@ -458,25 +280,23 @@ options, filenames = parse_command_line()
 
 plots = new_plots(options.plot)
 
-InitBurstTableDatabase(sqlobject.connectionForURI("sqlite:/:memory:"))
+database = SnglBurstUtils.CoincDatabase(SnglBurstUtils.CoincDatabaseConnection())
 
 for n, filename in enumerate(llwapp.sort_files_by_size(filenames, options.verbose, reverse = True)):
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
 	if filename[-3:] == ".gz":
-		doc = llwapp.load_filename(filename, options.verbose, gz = True)
+		xmldoc = llwapp.load_filename(filename, options.verbose, gz = True)
 	else:
-		doc = llwapp.load_filename(filename, options.verbose)
-	if options.verbose:
-		print >>sys.stderr, "indexing..."
-	contents = DocContents(doc, options.live_time_program)
-	doc.unlink()
-	del doc
-	for n, plot in enumerate(plots):
+		xmldoc = llwapp.load_filename(filename, options.verbose)
+	database.summarize(xmldoc, options.live_time_program, options.verbose)
+	xmldoc.unlink()
+	del xmldoc
+	for n, plot in zip(options.plot, plots):
 		if options.verbose:
-			print >>sys.stderr, "adding to plot %d..." % options.plot[n]
-		plot.add_contents(contents)
-	ResetBurstTables()
+			print >>sys.stderr, "adding to burca plot %d..." % n
+		plot.add_contents(database)
+	database.clear()
 
 
 # delete the plots as we go to save memory
