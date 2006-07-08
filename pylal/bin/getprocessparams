@@ -1,0 +1,42 @@
+#!/usr/bin/env python
+
+# Author: Patrick Brady and Darren Woods, UWM
+
+import re, sys, os, string, glob
+from pylal import readMeta
+from optparse import *
+from glue.ligolw import lsctables
+from pylal import llwapp
+
+usage = """usage: %prog [options]
+
+Print process params from xml
+
+Reads the process parameters from a LIGO lightweight xml file.  This
+can be useful to re-run a program by hand outside of the dag.
+"""
+
+def main():
+  # define usage and command line options and arguments - parse
+  parser = OptionParser( usage )
+
+  parser.add_option("-f", "--file", dest="filename", default="", \
+      type="string", help="name of the input xml file")
+  parser.add_option("-v", "--verbose", action="store_true", default=False, \
+      help="make the output verbose")
+
+  ( options , args ) = parser.parse_args()
+  
+  # identify the template bank files and count the templates
+  doc = llwapp.load_filename(options.filename, options.verbose)
+  pps = llwapp.get_table(doc, lsctables.ProcessParamsTable.tableName)
+  args = " "
+  for row in pps:
+    args = args + " " + str(row.param)
+    args = args + " " + str(row.value)
+
+  print args
+
+if __name__=="__main__":
+        main()
+
