@@ -30,6 +30,7 @@ from optparse import OptionParser
 import math
 import matplotlib.cm
 import numarray
+from pysqlite2 import dbapi2 as sqlite
 import sys
 
 from glue import segments
@@ -97,13 +98,13 @@ class RateContours(SnglBurstUtils.BurstPlot):
 
 	def add_contents(self, contents):
 		if self.tisi_rows == None:
-			self.tisi_rows = contents.TimeSlide.all_offsets()
+			self.tisi_rows = contents.time_slide_table.all_offsets()
 		if self.seglists == None:
 			self.seglists = contents.seglists
 		else:
 			for instrument, seglist in contents.seglists.iteritems():
 				self.seglists[instrument] |= seglist
-		for coinc in contents.Coinc.selectBy(coinc_def_id = contents.bb_definer_id):
+		for coinc in contents.coinc_table.selectByDefID(contents.bb_definer_id):
 			offsets = coinc.get_time_slide()
 			self.bins.incnumerator((offsets[self.x_instrument], offsets[self.y_instrument]))
 
@@ -143,6 +144,8 @@ class ConfidenceContours(SnglBurstUtils.BurstPlot):
 
 		self.x_instrument = x_instrument
 		self.y_instrument = y_instrument
+		self.incomplete_coinc_injections_x = []
+		self.incomplete_coinc_injections_y = []
 		self.coinc_injections_x = []
 		self.coinc_injections_y = []
 		self.n_foreground = 0
@@ -152,11 +155,11 @@ class ConfidenceContours(SnglBurstUtils.BurstPlot):
 		self.background_bins = rate.BinnedArray(rate.Bins(min_confidence, max_confidence, 1024, min_confidence, max_confidence, 1024, spacing = ["log", "log"]))
 
 	def add_contents(self, contents):
-		for coinc in contents.Coinc.selectBy(coinc_def_id = contents.bb_definer_id):
+		for coinc in contents.coinc_table.selectByDefID(contents.bb_definer_id):
 			if coinc.is_zero_lag():
 				self.n_foreground += 1
 				x = y = None
-				for burst in coinc.sngl_bursts:
+				for burst in coinc.sngl_bursts():
 					if burst.ifo == self.x_instrument:
 						x = -burst.confidence
 					elif burst.ifo == self.y_instrument:
@@ -165,19 +168,25 @@ class ConfidenceContours(SnglBurstUtils.BurstPlot):
 			else:
 				self.n_background += 1
 				x = y = None
-				for burst in coinc.sngl_bursts:
+				for burst in coinc.sngl_bursts():
 					if burst.ifo == self.x_instrument:
 						x = -burst.confidence
 					elif burst.ifo == self.y_instrument:
 						y = -burst.confidence
 				self.background_bins[x, y] += 1
-		for coinc in contents.Coinc.selectBy(coinc_def_id = contents.sc_definer_id):
+		for coinc in contents.coinc_table.selectByDefID(contents.sc_definer_id):
 			self.n_injections += 1
-			for burst in coinc.sngl_bursts:
+			for burst in coinc.sngl_bursts():
 				if burst.ifo == self.x_instrument:
 					self.coinc_injections_x.append(-burst.confidence)
 				elif burst.ifo == self.y_instrument:
 					self.coinc_injections_y.append(-burst.confidence)
+		for coinc_event_id in contents.incomplete_injection_coinc_ids:
+			for burst in contents.coinc_table[coinc_event_id].sngl_bursts():
+				if burst.ifo == self.x_instrument:
+					self.incomplete_coinc_injections_x.append(-burst.confidence)
+				elif burst.ifo == self.y_instrument:
+					self.incomplete_coinc_injections_y.append(-burst.confidence)
 
 	def finish(self):
 		self.axes.set_title(r"Distribution of Coincident Event Confidence (%d Foreground, %d Background Events, %d Injections Found in Coincidence, Logarithmic Density Contours)" % (self.n_foreground, self.n_background, self.n_injections))
@@ -198,6 +207,7 @@ class ConfidenceContours(SnglBurstUtils.BurstPlot):
 		self.axes.contour(xcoords, ycoords, numarray.transpose(numarray.log(self.foreground_bins.array)), [max_density - n for n in xrange(0, 10, 1)], cmap = matplotlib.cm.Reds)
 
 		# mark injections
+		self.axes.plot(self.incomplete_coinc_injections_x, self.incomplete_coinc_injections_y, "gx")
 		self.axes.plot(self.coinc_injections_x, self.coinc_injections_y, "b+")
 
 		# fix axes limits
@@ -223,7 +233,7 @@ class DeltaTHistogram(SnglBurstUtils.BurstPlot):
 		self.background = rate.Rate(interval, width)
 
 	def add_contents(self, contents):
-		for coinc in contents.Coinc.selectBy(coinc_def_id = contents.bb_definer_id):
+		for coinc in contents.coinc_table.selectByDefID(contents.bb_definer_id):
 			offsets = coinc.get_time_slide()
 			if self.instrument not in offsets:
 				continue
@@ -234,7 +244,7 @@ class DeltaTHistogram(SnglBurstUtils.BurstPlot):
 			# compute this the way I do to avoid a (very
 			# expensive!) LIGOTimeGPS division operation.
 			sum = 0
-			bursts = list(coinc.sngl_bursts)
+			bursts = list(coinc.sngl_bursts())
 			for burst in bursts:
 				peak = burst.get_peak() + offsets[burst.ifo]
 				if burst.ifo != self.instrument:
@@ -280,7 +290,7 @@ options, filenames = parse_command_line()
 
 plots = new_plots(options.plot)
 
-database = SnglBurstUtils.CoincDatabase(SnglBurstUtils.CoincDatabaseConnection())
+database = SnglBurstUtils.CoincDatabase(sqlite.connect(":memory:"))
 
 for n, filename in enumerate(llwapp.sort_files_by_size(filenames, options.verbose, reverse = True)):
 	if options.verbose:
@@ -290,12 +300,11 @@ for n, filename in enumerate(llwapp.sort_files_by_size(filenames, options.verbos
 	else:
 		xmldoc = llwapp.load_filename(filename, options.verbose)
 	database.summarize(xmldoc, options.live_time_program, options.verbose)
-	xmldoc.unlink()
-	del xmldoc
 	for n, plot in zip(options.plot, plots):
 		if options.verbose:
 			print >>sys.stderr, "adding to burca plot %d..." % n
 		plot.add_contents(database)
+	xmldoc.unlink()
 	database.clear()
 
 
