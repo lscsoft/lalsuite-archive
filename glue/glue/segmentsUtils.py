@@ -172,7 +172,7 @@ def tosegwizard(file, seglist, header=True, coltype=int):
 	segment boundaries will be coerced to type coltype before output.
 	"""
 	if header:
-		print >>file, "# segment\tstart\tstop\tduration"
+		print >>file, "# seg\tstart    \tstop     \tduration"
 	for n, seg in enumerate(seglist):
 		print >>file, "%d\t%s\t%s\t%s" % (n, coltype(seg[0]), coltype(seg[1]), coltype(seg.duration()))
 
