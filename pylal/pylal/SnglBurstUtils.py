@@ -49,22 +49,18 @@ from pylal.date import LIGOTimeGPS
 # This is a FUGLY work-in-progress;  please be kind.
 #
 
-CoincDatabaseConnection = None
-
-
 class SnglBurstTable(table.Table):
 	tableName = lsctables.SnglBurstTable.tableName
 	validcolumns = lsctables.SnglBurstTable.validcolumns
+	connection = None
 
 	def __init__(self, *attrs):
 		table.Table.__init__(self, *attrs)
-		self.cursor = CoincDatabaseConnection.cursor()
+		self.cursor = self.connection.cursor()
 		self.cursor.execute("CREATE TABLE sngl_burst (ifo TEXT, central_freq REAL, confidence REAL, peak_time INTEGER, peak_time_ns INTEGER, event_id INTEGER UNIQUE PRIMARY KEY)")
-		CoincDatabaseConnection.commit()
 
 	def append(self, row):
 		self.cursor.execute("INSERT INTO sngl_burst VALUES (?, ?, ?, ?, ?, ?)", (row.ifo, row.central_freq, row.confidence, row.peak_time, row.peak_time_ns, lsctables.ILWDID(row.event_id)))
-		CoincDatabaseConnection.commit()
 
 	def __len__(self):
 		return self.cursor.execute("SELECT COUNT(*) FROM sngl_burst").fetchone()[0]
@@ -80,7 +76,7 @@ class SnglBurstTable(table.Table):
 		return self._row_from_cols(self.cursor.fetchone())
 
 	def select(self):
-		for values in CoincDatabaseConnection.cursor().execute("SELECT * FROM sngl_burst"):
+		for values in self.connection.cursor().execute("SELECT * FROM sngl_burst"):
 			yield self._row_from_cols(values)
 
 	def unlink(self):
@@ -98,16 +94,15 @@ SnglBurstTable.RowType = SnglBurst
 class SimBurstTable(table.Table):
 	tableName = lsctables.SimBurstTable.tableName
 	validcolumns = lsctables.SimBurstTable.validcolumns
+	connection = None
 
 	def __init__(self, *attrs):
 		table.Table.__init__(self, *attrs)
-		self.cursor = CoincDatabaseConnection.cursor()
+		self.cursor = self.connection.cursor()
 		self.cursor.execute("CREATE TABLE sim_burst (geocent_peak_time INTEGER, geocent_peak_time_ns INTEGER, h_peak_time INTEGER, h_peak_time_ns INTEGER, l_peak_time INTEGER, l_peak_time_ns INTEGER, freq REAL, hrss REAL, simulation_id INTEGER UNIQUE PRIMARY KEY)")
-		CoincDatabaseConnection.commit()
 
 	def append(self, row):
 		self.cursor.execute("INSERT INTO sim_burst VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", (row.geocent_peak_time, row.geocent_peak_time_ns, row.h_peak_time, row.h_peak_time_ns, row.l_peak_time, row.l_peak_time_ns, row.freq, row.hrss, lsctables.ILWDID(row.simulation_id)))
-		CoincDatabaseConnection.commit()
 
 	def __len__(self):
 		return self.cursor.execute("SELECT COUNT(*) FROM sim_burst").fetchone()[0]
@@ -123,7 +118,7 @@ class SimBurstTable(table.Table):
 		return self._row_from_cols(self.cursor.fetchone())
 
 	def select(self):
-		for values in CoincDatabaseConnection.cursor().execute("SELECT * FROM sim_burst"):
+		for values in self.connection.cursor().execute("SELECT * FROM sim_burst"):
 			yield self._row_from_cols(values)
 
 	def unlink(self):
@@ -141,17 +136,15 @@ SimBurstTable.RowType = SimBurst
 class TimeSlideTable(table.Table):
 	tableName = lsctables.TimeSlideTable.tableName
 	validcolumns = lsctables.TimeSlideTable.validcolumns
+	connection = None
 
 	def __init__(self, *attrs):
 		table.Table.__init__(self, *attrs)
-		self.cursor = CoincDatabaseConnection.cursor()
+		self.cursor = self.connection.cursor()
 		self.cursor.execute("CREATE TABLE time_slide (time_slide_id INTEGER, instrument TEXT, offset REAL)")
-		self.cursor.execute("CREATE INDEX time_slide_id_index ON time_slide (time_slide_id)")
-		CoincDatabaseConnection.commit()
 
 	def append(self, row):
 		self.cursor.execute("INSERT INTO time_slide VALUES (?, ?, ?)", (lsctables.ILWDID(row.time_slide_id), row.instrument, row.offset))
-		CoincDatabaseConnection.commit()
 
 	def __len__(self):
 		return self.cursor.execute("SELECT COUNT(DISTINCT time_slide_id) FROM time_slide").fetchone()[0]
@@ -163,10 +156,10 @@ class TimeSlideTable(table.Table):
 		return offsets
 
 	def is_null(self, id):
-		return not self.cursor.execute("SELECT COUNT(offset) FROM time_slide WHERE time_slide_id == ? AND offset != 0", (id,)).fetchone()[0]
+		return not self.cursor.execute("SELECT COUNT(time_slide_id) FROM time_slide WHERE time_slide_id == ? AND offset != 0 LIMIT 1", (id,)).fetchone()[0]
 
 	def all_offsets(self):
-		return [self[id] for (id,) in CoincDatabaseConnection.cursor().execute("SELECT DISTINCT time_slide_id FROM time_slide")]
+		return [self[id] for (id,) in self.connection.cursor().execute("SELECT DISTINCT time_slide_id FROM time_slide")]
 
 	def unlink(self):
 		table.Table.unlink(self)
@@ -176,17 +169,15 @@ class TimeSlideTable(table.Table):
 class CoincDefTable(table.Table):
 	tableName = lsctables.CoincDefTable.tableName
 	validcolumns = lsctables.CoincDefTable.validcolumns
+	connection = None
 
 	def __init__(self, *attrs):
 		table.Table.__init__(self, *attrs)
-		self.cursor = CoincDatabaseConnection.cursor()
+		self.cursor = self.connection.cursor()
 		self.cursor.execute("CREATE TABLE coinc_definer (coinc_def_id INTEGER, table_name TEXT)")
-		self.cursor.execute("CREATE INDEX coinc_definer_id_index ON coinc_definer (coinc_def_id)")
-		CoincDatabaseConnection.commit()
 
 	def append(self, row):
 		self.cursor.execute("INSERT INTO coinc_definer VALUES (?, ?)", (lsctables.ILWDID(row.coinc_def_id), row.table_name))
-		CoincDatabaseConnection.commit()
 
 	def __len__(self):
 		return self.cursor.execute("SELECT COUNT(DISTINCT coinc_def_id) FROM coinc_definer").fetchone()[0]
@@ -222,16 +213,15 @@ class CoincDefTable(table.Table):
 class CoincTable(table.Table):
 	tableName = lsctables.CoincTable.tableName
 	validcolumns = lsctables.CoincTable.validcolumns
+	connection = None
 
 	def __init__(self, *attrs):
 		table.Table.__init__(self, *attrs)
-		self.cursor = CoincDatabaseConnection.cursor()
+		self.cursor = self.connection.cursor()
 		self.cursor.execute("CREATE TABLE coinc_event (coinc_def_id INTEGER, time_slide_id INTEGER, nevents INTEGER, coinc_event_id INTEGER UNIQUE PRIMARY KEY)")
-		CoincDatabaseConnection.commit()
 
 	def append(self, row):
 		self.cursor.execute("INSERT INTO coinc_event VALUES (?, ?, ?, ?)", (lsctables.ILWDID(row.coinc_def_id), lsctables.ILWDID(row.time_slide_id), row.nevents, lsctables.ILWDID(row.coinc_event_id)))
-		CoincDatabaseConnection.commit()
 
 	def _row_from_cols(cls, values):
 		row = cls.RowType()
@@ -247,7 +237,7 @@ class CoincTable(table.Table):
 		return self.cursor.execute("SELECT COUNT(*) FROM coinc_event").fetchone()[0]
 
 	def selectByDefID(self, coinc_def_id):
-		for values in CoincDatabaseConnection.cursor().execute("SELECT * FROM coinc_event WHERE coinc_def_id == ?", (coinc_def_id,)):
+		for values in self.connection.cursor().execute("SELECT * FROM coinc_event WHERE coinc_def_id == ?", (coinc_def_id,)):
 			yield self._row_from_cols(values)
 
 	def unlink(self):
@@ -258,23 +248,24 @@ class CoincTable(table.Table):
 class Coinc(lsctables.Coinc):
 	def get_time_slide(self):
 		offsets = {}
-		for instrument, offset in CoincDatabaseConnection.cursor().execute("SELECT instrument, offset FROM time_slide WHERE time_slide_id == ?", (self.time_slide_id,)):
+		for instrument, offset in CoincTable.connection.cursor().execute("SELECT instrument, offset FROM time_slide WHERE time_slide_id == ?", (self.time_slide_id,)):
 			offsets[instrument] = offset
 		return offsets
 
 	def is_zero_lag(self):
-		return not CoincDatabaseConnection.cursor().execute("SELECT COUNT(offset) FROM time_slide WHERE time_slide_id == ? AND offset != 0", (self.time_slide_id,)).fetchone()[0]
+		return not CoincTable.connection.cursor().execute("SELECT COUNT(offset) FROM time_slide WHERE time_slide_id == ? AND offset != 0", (self.time_slide_id,)).fetchone()[0]
 
 	def sim_bursts(self):
-		for values in CoincDatabaseConnection.cursor().execute("SELECT * FROM sim_burst WHERE simulation_id IN (SELECT event_id FROM coinc_event_map WHERE table_name == 'sim_burst' AND coinc_event_id == ?)", (self.coinc_event_id,)):
+		for values in CoincTable.connection.cursor().execute("SELECT * FROM sim_burst WHERE simulation_id IN (SELECT event_id FROM coinc_event_map WHERE table_name == 'sim_burst' AND coinc_event_id == ?)", (self.coinc_event_id,)):
 			yield SimBurstTable._row_from_cols(values)
 
 	def sngl_bursts(self):
-		cursor = CoincDatabaseConnection.cursor()
-		for values in cursor.execute("SELECT * FROM sngl_burst WHERE event_id in (SELECT event_id FROM coinc_event_map WHERE table_name == 'sngl_burst' AND coinc_event_id == ?)", (self.coinc_event_id,)):
+		for values in CoincTable.connection.cursor().execute("SELECT * FROM sngl_burst WHERE event_id in (SELECT event_id FROM coinc_event_map WHERE table_name == 'sngl_burst' AND coinc_event_id == ?)", (self.coinc_event_id,)):
 			yield SnglBurstTable._row_from_cols(values)
-		for values in cursor.execute("SELECT * FROM sngl_burst WHERE event_id in (SELECT a.event_id FROM coinc_event_map a JOIN coinc_event_map b ON (a.coinc_event_id == b.event_id) WHERE b.table_name == 'coinc_event' AND b.coinc_event_id == ?)", (self.coinc_event_id,)):
-			yield SnglBurstTable._row_from_cols(values)
+
+	def coincs(self):
+		for values in CoincTable.connection.cursor().execute("SELECT * FROM coinc_event WHERE coinc_event_id IN (SELECT event_id FROM coinc_event_map WHERE table_name == 'coinc_event' AND coinc_event_id == ?)", (self.coinc_event_id,)):
+			yield CoincTable._row_from_cols(values)
 
 CoincTable.RowType = Coinc
 
@@ -282,17 +273,15 @@ CoincTable.RowType = Coinc
 class CoincMapTable(table.Table):
 	tableName = lsctables.CoincMapTable.tableName
 	validcolumns = lsctables.CoincMapTable.validcolumns
+	connection = None
 
 	def __init__(self, *attrs):
 		table.Table.__init__(self, *attrs)
-		self.cursor = CoincDatabaseConnection.cursor()
+		self.cursor = self.connection.cursor()
 		self.cursor.execute("CREATE TABLE coinc_event_map (coinc_event_id INTEGER, table_name TEXT, event_id INTEGER)")
-		self.cursor.execute("CREATE INDEX coinc_event_id_index ON coinc_event_map (coinc_event_id)")
-		CoincDatabaseConnection.commit()
 
 	def append(self, row):
 		self.cursor.execute("INSERT INTO coinc_event_map VALUES (?, ?, ?)", (lsctables.ILWDID(row.coinc_event_id), lsctables.ILWDTableName(row.event_id), lsctables.ILWDID(row.event_id)))
-		CoincDatabaseConnection.commit()
 
 	def unlink(self):
 		table.Table.unlink(self)
@@ -301,8 +290,13 @@ class CoincMapTable(table.Table):
 
 class CoincDatabase(object):
 	def __init__(self, connection):
-		global CoincDatabaseConnection
-		CoincDatabaseConnection = connection
+		self.connection = connection
+		SnglBurstTable.connection = connection
+		SimBurstTable.connection = connection
+		TimeSlideTable.connection = connection
+		CoincDefTable.connection = connection
+		CoincTable.connection = connection
+		CoincMapTable.connection = connection
 		lsctables.TableByName.update({
 			table.StripTableName(SnglBurstTable.tableName): SnglBurstTable,
 			table.StripTableName(SimBurstTable.tableName): SimBurstTable,
@@ -318,6 +312,10 @@ class CoincDatabase(object):
 		database.  Call this after all the data has been inserted,
 		and before you want any of this information.
 		"""
+		self.connection.commit()
+		self.connection.execute("CREATE INDEX time_slide_id_index ON time_slide (time_slide_id)")
+		self.connection.execute("CREATE INDEX coinc_event_id_index ON coinc_event_map (coinc_event_id)")
+
 		# find the tables
 		self.sngl_burst_table = llwapp.get_table(xmldoc, lsctables.SnglBurstTable.tableName)
 		self.sim_burst_table = llwapp.get_table(xmldoc, lsctables.SimBurstTable.tableName)
@@ -381,13 +379,6 @@ class CoincDatabase(object):
 			print >>sys.stderr, "\tinjection + burst coincidences: %d" % self.coinc_table.cursor.execute("SELECT COUNT(*) FROM coinc_event WHERE coinc_def_id = ?", (self.sb_definer_id,)).fetchone()[0]
 			print >>sys.stderr, "\tinjection + (burst + burst) coincidences: %d" % self.coinc_table.cursor.execute("SELECT COUNT(*) FROM coinc_event WHERE coinc_def_id = ?", (self.sc_definer_id,)).fetchone()[0]
 			print >>sys.stderr, "\tburst + burst coincidences involving at least one injection: %d" % len(self.incomplete_injection_coinc_ids)
-
-
-	def clear(self):
-		self.bb_definer_id = None
-		self.sb_definer_id = None
-		self.sc_definer_id = None
-		self.missed_injections = []
 
 
 #

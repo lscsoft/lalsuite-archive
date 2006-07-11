@@ -125,7 +125,7 @@ class RateContours(SnglBurstUtils.BurstPlot):
 
 		self.axes.set_xlim([self.bins.bins.min[0], self.bins.bins.max[0]])
 		self.axes.set_ylim([self.bins.bins.min[1], self.bins.bins.max[1]])
-		self.axes.set_title(r"Coincident Event Rate vs. Offset (Logarithmic Rate Contours)")
+		self.axes.set_title(r"Coincident Event Rate vs. Instrument Time Offset (Logarithmic Rate Contours)")
 
 
 #
@@ -176,17 +176,22 @@ class ConfidenceContours(SnglBurstUtils.BurstPlot):
 				self.background_bins[x, y] += 1
 		for coinc in contents.coinc_table.selectByDefID(contents.sc_definer_id):
 			self.n_injections += 1
-			for burst in coinc.sngl_bursts():
-				if burst.ifo == self.x_instrument:
-					self.coinc_injections_x.append(-burst.confidence)
-				elif burst.ifo == self.y_instrument:
-					self.coinc_injections_y.append(-burst.confidence)
+			for coinc in coinc.coincs():
+				for burst in coinc.sngl_bursts():
+					if burst.ifo == self.x_instrument:
+						self.coinc_injections_x.append(-burst.confidence)
+					elif burst.ifo == self.y_instrument:
+						self.coinc_injections_y.append(-burst.confidence)
+				if len(self.coinc_injections_x) != len(self.coinc_injections_y):
+					raise ValueError, "coinc_event:coinc_event_id:%d does not have both required instruments" % coinc.coinc_event_id
 		for coinc_event_id in contents.incomplete_injection_coinc_ids:
 			for burst in contents.coinc_table[coinc_event_id].sngl_bursts():
 				if burst.ifo == self.x_instrument:
 					self.incomplete_coinc_injections_x.append(-burst.confidence)
 				elif burst.ifo == self.y_instrument:
 					self.incomplete_coinc_injections_y.append(-burst.confidence)
+			if len(self.incomplete_coinc_injections_x) != len(self.incomplete_coinc_injections_y):
+				raise ValueError, "coinc_event:coinc_event_id %d does not have both required instruments" % coinc_event_id
 
 	def finish(self):
 		self.axes.set_title(r"Distribution of Coincident Event Confidence (%d Foreground, %d Background Events, %d Injections Found in Coincidence, Logarithmic Density Contours)" % (self.n_foreground, self.n_background, self.n_injections))
@@ -290,11 +295,11 @@ options, filenames = parse_command_line()
 
 plots = new_plots(options.plot)
 
-database = SnglBurstUtils.CoincDatabase(sqlite.connect(":memory:"))
 
 for n, filename in enumerate(llwapp.sort_files_by_size(filenames, options.verbose, reverse = True)):
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
+	database = SnglBurstUtils.CoincDatabase(sqlite.connect(":memory:"))
 	if filename[-3:] == ".gz":
 		xmldoc = llwapp.load_filename(filename, options.verbose, gz = True)
 	else:
@@ -305,7 +310,6 @@ for n, filename in enumerate(llwapp.sort_files_by_size(filenames, options.verbos
 			print >>sys.stderr, "adding to burca plot %d..." % n
 		plot.add_contents(database)
 	xmldoc.unlink()
-	database.clear()
 
 
 # delete the plots as we go to save memory
