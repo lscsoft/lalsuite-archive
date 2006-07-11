@@ -57,17 +57,17 @@ class SnglBurstTable(table.Table):
 	def __init__(self, *attrs):
 		table.Table.__init__(self, *attrs)
 		self.cursor = self.connection.cursor()
-		self.cursor.execute("CREATE TABLE sngl_burst (ifo TEXT, central_freq REAL, confidence REAL, peak_time INTEGER, peak_time_ns INTEGER, event_id INTEGER UNIQUE PRIMARY KEY)")
+		self.cursor.execute("CREATE TABLE sngl_burst (process_id INTEGER, ifo TEXT, search TEXT, channel TEXT, start_time INTEGER, start_time_ns INTEGER, peak_time INTEGER, peak_time_ns INTEGER, duration REAL, central_freq REAL, bandwidth REAL, amplitude REAL, snr REAL, confidence REAL, tfvolume REAL, event_id INTEGER UNIQUE PRIMARY KEY)")
 
 	def append(self, row):
-		self.cursor.execute("INSERT INTO sngl_burst VALUES (?, ?, ?, ?, ?, ?)", (row.ifo, row.central_freq, row.confidence, row.peak_time, row.peak_time_ns, lsctables.ILWDID(row.event_id)))
+		self.cursor.execute("INSERT INTO sngl_burst VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", (lsctables.ILWDID(row.process_id), row.ifo, row.search, row.channel, row.start_time, row.start_time_ns, row.peak_time, row.peak_time_ns, row.duration, row.central_freq, row.bandwidth, row.amplitude, row.snr, row.confidence, row.tfvolume, lsctables.ILWDID(row.event_id)))
 
 	def __len__(self):
 		return self.cursor.execute("SELECT COUNT(*) FROM sngl_burst").fetchone()[0]
 
 	def _row_from_cols(cls, values):
 		row = cls.RowType()
-		row.ifo, row.central_freq, row.confidence, row.peak_time, row.peak_time_ns, row.event_id = values
+		row.process_id, row.ifo, row.search, row.channel, row.start_time, row.start_time_ns, row.peak_time, row.peak_time_ns, row.duration, row.central_freq, row.bandwidth, row.amplitude, row.snr, row.confidence, row.tfvolume, row.event_id = values
 		return row
 	_row_from_cols = classmethod(_row_from_cols)
 
@@ -99,17 +99,17 @@ class SimBurstTable(table.Table):
 	def __init__(self, *attrs):
 		table.Table.__init__(self, *attrs)
 		self.cursor = self.connection.cursor()
-		self.cursor.execute("CREATE TABLE sim_burst (geocent_peak_time INTEGER, geocent_peak_time_ns INTEGER, h_peak_time INTEGER, h_peak_time_ns INTEGER, l_peak_time INTEGER, l_peak_time_ns INTEGER, freq REAL, hrss REAL, simulation_id INTEGER UNIQUE PRIMARY KEY)")
+		self.cursor.execute("CREATE TABLE sim_burst (process_id INTEGER, waveform TEXT, geocent_peak_time INTEGER, geocent_peak_time_ns INTEGER, h_peak_time INTEGER, h_peak_time_ns INTEGER, l_peak_time INTEGER, l_peak_time_ns INTEGER, peak_time_gmst REAL, dtminus REAL, dtplus REAL, longitude REAL, latitude REAL, coordinates TEXT, polarization REAL, hrss REAL, hpeak REAL, distance REAL, freq REAL, tau REAL, zm_number INTEGER, simulation_id INTEGER UNIQUE PRIMARY KEY)")
 
 	def append(self, row):
-		self.cursor.execute("INSERT INTO sim_burst VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", (row.geocent_peak_time, row.geocent_peak_time_ns, row.h_peak_time, row.h_peak_time_ns, row.l_peak_time, row.l_peak_time_ns, row.freq, row.hrss, lsctables.ILWDID(row.simulation_id)))
+		self.cursor.execute("INSERT INTO sim_burst VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", (lsctables.ILWDID(row.process_id), row.waveform, row.geocent_peak_time, row.geocent_peak_time_ns, row.h_peak_time, row.h_peak_time_ns, row.l_peak_time, row.l_peak_time_ns, row.peak_time_gmst, row.dtminus, row.dtplus, row.longitude, row.latitude, row.coordinates, row.polarization, row.hrss, row.hpeak, row.distance, row.freq, row.tau, row.zm_number, lsctables.ILWDID(row.simulation_id)))
 
 	def __len__(self):
 		return self.cursor.execute("SELECT COUNT(*) FROM sim_burst").fetchone()[0]
 
 	def _row_from_cols(cls, values):
 		row = cls.RowType()
-		row.geocent_peak_time, row.geocent_peak_time_ns, row.h_peak_time, row.h_peak_time_ns, row.l_peak_time, row.l_peak_time_ns, row.freq, row.hrss, row.simulation_id = values
+		row.process_id, row.waveform, row.geocent_peak_time, row.geocent_peak_time_ns, row.h_peak_time, row.h_peak_time_ns, row.l_peak_time, row.l_peak_time_ns, row.peak_time_gmst, row.dtminus, row.dtplus, row.longitude, row.latitude, row.coordinates, row.polarization, row.hrss, row.hpeak, row.distance, row.freq, row.tau, row.zm_number, row.simulation_id = values
 		return row
 	_row_from_cols = classmethod(_row_from_cols)
 
@@ -141,10 +141,10 @@ class TimeSlideTable(table.Table):
 	def __init__(self, *attrs):
 		table.Table.__init__(self, *attrs)
 		self.cursor = self.connection.cursor()
-		self.cursor.execute("CREATE TABLE time_slide (time_slide_id INTEGER, instrument TEXT, offset REAL)")
+		self.cursor.execute("CREATE TABLE time_slide (process_id INTEGER, time_slide_id INTEGER, instrument TEXT, offset REAL)")
 
 	def append(self, row):
-		self.cursor.execute("INSERT INTO time_slide VALUES (?, ?, ?)", (lsctables.ILWDID(row.time_slide_id), row.instrument, row.offset))
+		self.cursor.execute("INSERT INTO time_slide VALUES (?, ?, ?, ?)", (lsctables.ILWDID(row.process_id), lsctables.ILWDID(row.time_slide_id), row.instrument, row.offset))
 
 	def __len__(self):
 		return self.cursor.execute("SELECT COUNT(DISTINCT time_slide_id) FROM time_slide").fetchone()[0]
@@ -218,14 +218,14 @@ class CoincTable(table.Table):
 	def __init__(self, *attrs):
 		table.Table.__init__(self, *attrs)
 		self.cursor = self.connection.cursor()
-		self.cursor.execute("CREATE TABLE coinc_event (coinc_def_id INTEGER, time_slide_id INTEGER, nevents INTEGER, coinc_event_id INTEGER UNIQUE PRIMARY KEY)")
+		self.cursor.execute("CREATE TABLE coinc_event (process_id INTEGER, coinc_def_id INTEGER, time_slide_id INTEGER, nevents INTEGER, coinc_event_id INTEGER UNIQUE PRIMARY KEY)")
 
 	def append(self, row):
-		self.cursor.execute("INSERT INTO coinc_event VALUES (?, ?, ?, ?)", (lsctables.ILWDID(row.coinc_def_id), lsctables.ILWDID(row.time_slide_id), row.nevents, lsctables.ILWDID(row.coinc_event_id)))
+		self.cursor.execute("INSERT INTO coinc_event VALUES (?, ?, ?, ?, ?)", (lsctables.ILWDID(row.process_id), lsctables.ILWDID(row.coinc_def_id), lsctables.ILWDID(row.time_slide_id), row.nevents, lsctables.ILWDID(row.coinc_event_id)))
 
 	def _row_from_cols(cls, values):
 		row = cls.RowType()
-		row.coinc_def_id, row.time_slide_id, row.nevents, row.coinc_event_id = values
+		row.process_id, row.coinc_def_id, row.time_slide_id, row.nevents, row.coinc_event_id = values
 		return row
 	_row_from_cols = classmethod(_row_from_cols)
 
