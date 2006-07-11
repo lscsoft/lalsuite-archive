@@ -33,6 +33,7 @@ import bisect
 import gzip
 import os
 import pickle
+import signal
 import socket
 import stat
 import sys
@@ -60,7 +61,20 @@ __date__ = "$Date$"[7:-2]
 # =============================================================================
 #
 
+class IOTrappedSignal(Exception):
+	"""
+	Raised by I/O functions upon completion if they trapped a signal
+	during the operation
+	"""
+	def __init__(self, signum):
+		self.signum = signum
+
+	def __str__(self):
+		return "trapped signal %d" % self.signum
+
+
 ContentHandler = ligolw.LIGOLWContentHandler
+
 
 def measure_file_sizes(filenames, reverse = False):
 	"""
@@ -117,6 +131,17 @@ def load_url(url, verbose = False, gz = False):
 
 
 def write_filename(doc, filename, verbose = False, gz = False):
+	# trap SIGTERM to prevent Condor eviction while the document is
+	# being written
+	global llwapp_write_filename_got_sigterm
+	llwapp_write_filename_got_sigterm = False
+	def newsigterm(signum, frame):
+		global llwapp_write_filename_got_sigterm
+		llwapp_write_filename_got_sigterm = True
+	oldsigterm = signal.getsignal(signal.SIGTERM)
+	signal.signal(signal.SIGTERM, newsigterm)
+
+	# write the document
 	if verbose:
 		print >>sys.stderr, "writing %s ..." % (filename or "stdout")
 	if filename:
@@ -126,6 +151,12 @@ def write_filename(doc, filename, verbose = False, gz = False):
 	if gz:
 		fileobj = gzip.GzipFile(mode = "wb", fileobj = fileobj)
 	doc.write(fileobj)
+
+	# restore original signal handler, and report the signal if it was
+	# received
+	signal.signal(signal.SIGTERM, oldsigterm)
+	if llwapp_write_filename_got_sigterm:
+		raise IOTrappedSignal(signal.SIGTERM)
 
 
 #
