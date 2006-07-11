@@ -119,6 +119,7 @@ class DocContents(object):
 		coinc_maps = {}
 		for row in self.coincmaptable:
 			try:
+				# assumes that all coincs are burst + burst
 				burst = burst_event[lsctables.ILWDID(row.event_id)]
 			except KeyError:
 				continue
@@ -141,7 +142,7 @@ class DocContents(object):
 		self.tisi_id = llwapp.get_time_slide_id(xmldoc, time_slide)
 
 		# sort triggers by start time
-		self.snglbursttable.rows.sort(lambda a, b: cmp(a.get_start(), b.get_start()))
+		self.snglbursttable.rows.sort(lambda a, b: cmp(a.start_time, b.start_time))
 		self.starttimes = self.snglbursttable.getColumnByName("start_time")
 
 	def triggers_near_starttime(self, t, dt = 2.0):
@@ -157,6 +158,21 @@ class DocContents(object):
 		for output).
 		"""
 		self.snglbursttable.rows.sort(lambda a, b: cmp(lsctables.ILWDID(a.event_id), lsctables.ILWDID(b.event_id)))
+
+	def new_coinc(self, process, coinc_def_id):
+		"""
+		Construct a new coinc_event row attached to the given
+		process, and belonging to the set of coincidences defined
+		by the given coinc_def_id.
+		"""
+		coinc = lsctables.Coinc()
+		coinc.process_id = process.process_id
+		coinc.coinc_def_id = coinc_def_id
+		coinc.coinc_event_id = self.coincids.next()
+		coinc.time_slide_id = self.tisi_id
+		coinc.nevents = 0
+		self.coinctable.append(coinc)
+		return coinc
 
 
 #
@@ -184,21 +200,6 @@ def append_process(xmldoc, **kwargs):
 # =============================================================================
 #
 
-def new_coinc(contents, process, coinc_def_id):
-	"""
-	Construct a new coinc_event row attached to the given process, and
-	belonging to the set of coincidences defined by the given
-	coinc_def_id.
-	"""
-	coinc = lsctables.Coinc()
-	coinc.process_id = process.process_id
-	coinc.coinc_def_id = coinc_def_id
-	coinc.coinc_event_id = contents.coincids.next()
-	coinc.time_slide_id = contents.tisi_id
-	coinc.nevents = 0
-	contents.coinctable.append(coinc)
-	return coinc
-
 
 def find_sngl_burst_matches(contents, sim, comparefunc):
 	"""
@@ -217,8 +218,8 @@ def add_sim_burst_sngl_burst_coinc(contents, process, sim, bursts):
 	coinc_event_map table linking the sim_burst row and the list of
 	sngl_burst rows to the new coinc_event row.
 	"""
-	coinc = new_coinc(contents, process, contents.sb_coinc_def_id)
-	coinc.nevents += len(bursts)
+	coinc = contents.new_coinc(process, contents.sb_coinc_def_id)
+	coinc.nevents = len(bursts)
 
 	coincmap = lsctables.CoincMap()
 	coincmap.coinc_event_id = coinc.coinc_event_id
@@ -245,7 +246,10 @@ def cut_noninjection_coincs(contents, injections):
 	Using the list of burst events known to be injections, delete
 	entries from the coinc event list that contain bursts not in this
 	list.  Doing this before checking each sim against the coincident
-	events greatly speeds up that search.
+	events greatly speeds up that search.  Infact, after this step the
+	only coincs remaining are exactly the coincident injections;  all
+	that remains to be done is determine which injection matches which
+	coinc.
 	"""
 	injections.sort()
 	non_injection_coincs = []
@@ -274,21 +278,21 @@ def find_coinc_matches(contents, sim, comparefunc):
 	return matches
 
 
-def add_sim_burst_coinc_coinc(contents, process, sim, coincs):
+def add_sim_burst_coinc_coinc(contents, process, sim, coinc_events):
 	"""
 	Create a coinc_event in the coinc table, and add arcs in the
 	coinc_event_map table linking the sim_burst row and the list of
 	coinc_event rows to the new coinc_event row.
 	"""
-	coinc = new_coinc(contents, process, contents.sc_coinc_def_id)
-	coinc.nevents += len(coincs)
+	coinc = contents.new_coinc(process, contents.sc_coinc_def_id)
+	coinc.nevents = len(coincs)
 
 	coincmap = lsctables.CoincMap()
 	coincmap.coinc_event_id = coinc.coinc_event_id
 	coincmap.event_id = sim.simulation_id
 	contents.coincmaptable.append(coincmap)
 
-	for event in coincs:
+	for event in coinc_events:
 		coincmap = lsctables.CoincMap()
 		coincmap.coinc_event_id = coinc.coinc_event_id
 		coincmap.event_id = event.coinc_event_id
