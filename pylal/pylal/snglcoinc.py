@@ -185,7 +185,7 @@ class EventList(list):
 
 	def set_offset(self, offset):
 		"""
-		Set a time offset on all events in the list.
+		Add an offset to the times of all events in the list.
 		"""
 		if offset != self.offset:
 			delta = offset - self.offset
