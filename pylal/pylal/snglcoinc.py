@@ -24,6 +24,11 @@
 # =============================================================================
 #
 
+"""
+Generic coincidence engine for use with time-based event lists in LIGO
+Light Weight XML documents.
+"""
+
 import bisect
 import sys
 
