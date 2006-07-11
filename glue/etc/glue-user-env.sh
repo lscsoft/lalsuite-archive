@@ -9,6 +9,12 @@ if [ -z "${GLUE_LOCATION}" ]; then
     return 1
 fi
 
+mylibdir="lib"
+if [ `uname -i` = "x86_64" ]
+then
+  mylibdir="lib64"
+fi
+
 PATH=`echo "${PATH}" | sed -e "s%:${GLUE_LOCATION}[^:]*%%g" -e "s%^${GLUE_LOCATION}[^:]*:\{0,1\}%%"`
 PYTHONPATH=`echo "${PYTHONPATH}" | sed -e "s%:${GLUE_LOCATION}[^:]*%%g" -e "s%^${GLUE_LOCATION}[^:]*:\{0,1\}%%"`
 LD_LIBRARY_PATH=`echo "${LD_LIBRARY_PATH}" | sed -e "s%:${GLUE_LOCATION}[^:]*%%g" -e "s%^${GLUE_LOCATION}[^:]*:\{0,1\}%%"`
@@ -19,7 +25,7 @@ fi
 
 GLUE_PATH=${GLUE_LOCATION}
 PATH="${GLUE_LOCATION}/bin:${GLUE_LOCATION}/sbin:${PATH}";
-PYTHONPATH="${GLUE_LOCATION}/lib/python:${PYTHONPATH}"
+PYTHONPATH="${GLUE_LOCATION}/${mylibdir}/python:${PYTHONPATH}"
 
 if [ -n "${MANPATH}" ]; then
     MANPATH="${GLUE_LOCATION}/man:${MANPATH}"
@@ -29,6 +35,6 @@ DELIM=
 if [ -n "${LD_LIBRARY_PATH}" ]; then
     DELIM=:
 fi
-LD_LIBRARY_PATH="${GLUE_LOCATION}/lib${DELIM}${LD_LIBRARY_PATH}"
+LD_LIBRARY_PATH="${GLUE_LOCATION}/${mylibdir}${DELIM}${LD_LIBRARY_PATH}"
 
 export GLUE_PATH PATH MANPATH LD_LIBRARY_PATH PYTHONPATH

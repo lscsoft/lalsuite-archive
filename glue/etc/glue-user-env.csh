@@ -9,6 +9,11 @@ if ( ! $?GLUE_LOCATION ) then
     exit 1
 endif
 
+setenv mylibdir "lib"
+if(`uname -i` == "x86_64") then
+  setenv mylibdir "lib64"
+endif
+
 if ( ! $?LD_LIBRARY_PATH ) then
     setenv LD_LIBRARY_PATH ''
 endif
@@ -35,7 +40,7 @@ endif
 
 setenv GLUE_PATH "${GLUE_LOCATION}"
 setenv PATH "${GLUE_LOCATION}/bin:${GLUE_LOCATION}/sbin:${PATH}";
-setenv PYTHONPATH "${GLUE_LOCATION}/lib/python:${PYTHONPATH}";
+setenv PYTHONPATH "${GLUE_LOCATION}/${mylibdir}/python:${PYTHONPATH}";
 
 if ( $?MANPATH ) then
     set DELIM
@@ -49,4 +54,4 @@ set DELIM=
 if ( "X${LD_LIBRARY_PATH}" != "X" ) then
     set DELIM=:
 endif
-setenv LD_LIBRARY_PATH "${GLUE_LOCATION}/lib${DELIM}${LD_LIBRARY_PATH}"
+setenv LD_LIBRARY_PATH "${GLUE_LOCATION}/${mylibdir}${DELIM}${LD_LIBRARY_PATH}"
