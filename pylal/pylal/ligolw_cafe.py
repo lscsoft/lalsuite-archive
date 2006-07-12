@@ -107,13 +107,27 @@ class CafePacker(packing.Packer):
 		self.timeslides = offsetdictlist
 
 	def pack(self, size, object):
-		# find all bins in which this object belongs
+		# find all bins in which this object belongs.  the test is,
+		# for each bin, to iterate through time slide dictionaries
+		# applying the offsets to both the bin and the object and
+		# checking if the object's segments intersect the segments
+		# already in the bin, comparing only those that are
+		# involved in the time slide.  FIXME: what's done here is
+		# only an approximation of the correct test, that finds
+		# false positives but no false negatives.
 		matching_bins = []
 		for n, bin in enumerate(self.bins):
 			for offsetdict in self.timeslides:
 				size.offsets.update(offsetdict)
 				bin.size.offsets.update(offsetdict)
-				if size.is_coincident(bin.size):
+				a = segments.segmentlist()
+				b = segments.segmentlist()
+				for key in offsetdict.iterkeys():
+					if key in size:
+						a |= size[key]
+					if key in bin.size:
+						b |= bin.size[key]
+				if a.intersects(b):
 					matching_bins.append((n, bin))
 					break
 
