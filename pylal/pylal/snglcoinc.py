@@ -268,7 +268,9 @@ def coincident_process_ids(xmldoc, windows, program):
 	"""
 	Take an XML document tree and determine the list of process IDs
 	that will participate in coincidences identified by the time slide
-	table therein.
+	table therein.  It is OK for document to contain time slides
+	involving instruments not represented in the list of processes,
+	these time slides are ignored.
 	"""
 	# find the largest coincidence window
 	try:
@@ -280,9 +282,21 @@ def coincident_process_ids(xmldoc, windows, program):
 	# coincidence window so as to not miss edge effects
 	seglistdict = llwapp.segmentlistdict_fromsearchsummary(xmldoc, program).protract(halfmaxwindow)
 
-	# determine the coincident segments for each instrument
+	# determine which time slides are possible given the instruments in
+	# the search summary table
 	tisitable = llwapp.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
-	seglistdict = llwapp.get_coincident_segmentlistdict(seglistdict, map(tisitable.get_offset_dict, tisitable.dict.keys()))
+	timeslides = map(tisitable.get_offset_dict, tisitable.dict.keys())
+	i = 0
+	while i < len(timeslides):
+		for instrument in timeslides[i].keys():
+			if instrument not in seglistdict:
+				del timeslides[i]
+				break
+		else:
+			i += 1
+
+	# determine the coincident segments for each instrument
+	seglistdict = llwapp.get_coincident_segmentlistdict(seglistdict, timeslides)
 
 	# get the list of all process IDs for the given program
 	proc_ids = llwapp.get_process_ids_by_program(xmldoc, program)
