@@ -74,7 +74,7 @@ SYNOPSIS
 
         LSCdataFind --server=NAME:PORT --show-types
  
-	LSCdataFind --server=NAME:PORT --show-times --type foo
+	LSCdataFind --server=NAME:PORT --show-times --type foo --observatory bar
 
         LSCdataFind --server=NAME:PORT --ping
 
@@ -128,10 +128,10 @@ DESCRIPTION
 
         -a, --show-times
 		list gps-second segments for all data of type specified.
-		Must be used with --type foo, where foo is a frame type
-		returned by --show-types. Optionally supports one or both
-		of --gps-start-time and --gps-end-time to restrict
-		returned time ranges.
+		Must be used with --type foo and --observatory bar, where foo 
+                is a frame type and bar is an observatory. Optionally
+		Supports one or both of --gps-start-time and
+		--gps-end-time to restrict returned time ranges.
 
         -p, --ping
                 ping the LDRDataFind server
