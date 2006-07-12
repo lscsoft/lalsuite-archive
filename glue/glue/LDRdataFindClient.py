@@ -381,12 +381,13 @@ class LDRdataFindClient(object):
 
                 return output
                 
-        def timeQuery(self, mytype, start, end, strict):
+        def timeQuery(self, mytype, site, start, end, strict):
                 """
                 Query LDRdataFindServer for time ranges for a particular frameType.
                 Optionally supprts gpsStart and gpsEnd, these will be processed server-side.
                 
                 @param mytype: frame type
+                @param site: observatory
                 @param start: gps start time
                 @param stop: gps end time
                 @param strict: strict query flag
@@ -398,7 +399,7 @@ class LDRdataFindClient(object):
                         raise LSCdataFindClientException, msg
                         
                 #Construct RPC
-                rpc = "SEGMENT\0type\0%s\0" % (mytype,)
+                rpc = "SEGMENT\0type\0%s\0observatory\0%s\0" % (mytype,site)
                 
                 if start:
                         rpc += "gpsStart\0%s\0" % (start,)
@@ -406,6 +407,7 @@ class LDRdataFindClient(object):
                         rpc += "gpsEnd\0%s\0" % (end,)
                 if strict:
                         rpc += "strict\0"
+                
                 self.sfile.write(rpc)
                 ret,output = self.__response__()
                 
@@ -684,6 +686,7 @@ class LSCdataFindClient(LDRdataFindClient):
                  start = argDict['start']
                  end   = argDict['end']
                  strict = argDict['strict']
+                 site = argDict['observatory']
                  mytype = argDict['type']
                  
                  # Perform basic argument check
@@ -692,7 +695,7 @@ class LSCdataFindClient(LDRdataFindClient):
                  if end:
                      self.__check_gps(end)
                  
-                 timelist = LDRdataFindClient.timeQuery(self,mytype,start,end,strict)
+                 timelist = LDRdataFindClient.timeQuery(self,mytype,site,start,end,strict)
                  return timelist
                  
         
