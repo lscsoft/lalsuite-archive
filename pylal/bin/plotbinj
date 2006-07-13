@@ -29,6 +29,7 @@
 import math
 from optparse import OptionParser
 import numarray
+from pysqlite2 import dbapi2 as sqlite
 import sys
 
 from glue import segments
@@ -71,187 +72,6 @@ except ValueError, e:
 #
 # =============================================================================
 #
-#                                    Input
-#
-# =============================================================================
-#
-
-# load sngl_burst table's rows as a dictionary indexed by numeric event_id
-
-def snglburst_init(self, attrs):
-	lsctables.LSCTableUnique.__init__(self, attrs)
-	self.rows = {}
-
-def snglburst_append(self, row):
-	self.rows[lsctables.ILWDID(row.event_id)] = row
-	del row.event_id
-
-# load sim_burst table's rows as a dictionary indexed by numeric
-# simulation_id
-
-def simburst_init(self, attrs):
-	lsctables.LSCTableUnique.__init__(self, attrs)
-	self.rows = {}
-
-def simburst_append(self, row):
-	self.rows[lsctables.ILWDID(row.simulation_id)] = row
-	del row.simulation_id
-
-# load the coinc_map table's rows as a dictionary indexed by numeric
-# coinc_event_id, each value being a CoincMap object whose attributes are
-# (at this stage) lists of the numeric IDs of the sim_burst, sngl_burst,
-# and coinc_event entries to which this map references.
-
-class CoincMap(object):
-	__slots__ = ["sims", "bursts", "coincs"]
-
-	def __init__(self):
-		self.sims = []
-		self.bursts = []
-		self.coincs = []
-
-def coinc_map_init(self, attrs):
-	lsctables.LSCTableUnique.__init__(self, attrs)
-	self.rows = {}
-
-def coinc_map_append(self, row):
-	id = lsctables.ILWDID(row.coinc_event_id)
-	if id not in self.rows:
-		self.rows[id] = CoincMap()
-	if "sim_burst" in row.event_id:
-		self.rows[id].sims.append(lsctables.ILWDID(row.event_id))
-	elif "sngl_burst" in row.event_id:
-		self.rows[id].bursts.append(lsctables.ILWDID(row.event_id))
-	elif "coinc_event" in row.event_id:
-		self.rows[id].coincs.append(lsctables.ILWDID(row.event_id))
-	else:
-		raise ValueError, "unrecognized coincident event ID: %s" % str(row.event_id)
-
-# load the coinc_event table's rows as a list, parsing IDs to their numeric
-# value
-
-def coinc_append(self, row):
-	row.coinc_event_id = lsctables.ILWDID(row.coinc_event_id)
-	row.time_slide_id = lsctables.ILWDID(row.time_slide_id)
-	self.rows.append(row)
-
-# load the time_slide table's rows as a dictionary indexed by numeric
-# time_slide_id
-
-def timeslide_init(self, attrs):
-	lsctables.LSCTableMulti.__init__(self, attrs)
-	self.rows = {}
-
-def timeslide_append(self, row):
-	id = lsctables.ILWDID(row.time_slide_id)
-	if id in self.rows:
-		self.rows[id][row.instrument] = row.offset
-	else:
-		self.rows[id] = {row.instrument: row.offset}
-
-# method and attribute overrides to put it all in place
-
-lsctables.SnglBurstTable.loadcolumns = ["ifo", "confidence", "peak_time", "peak_time_ns", "event_id"]
-lsctables.SnglBurstTable.__init__ = snglburst_init
-lsctables.SnglBurstTable.append = snglburst_append
-lsctables.SimBurstTable.loadcolumns = ["geocent_peak_time", "geocent_peak_time_ns", "h_peak_time", "h_peak_time_ns", "l_peak_time", "l_peak_time_ns", "freq", "hrss", "simulation_id"]
-lsctables.SimBurstTable.__init__ = simburst_init
-lsctables.SimBurstTable.append = simburst_append
-lsctables.CoincTable.loadcolumns = ["coinc_event_id", "time_slide_id", "nevents"]
-lsctables.CoincTable.append = coinc_append
-lsctables.CoincMapTable.__init__ = coinc_map_init
-lsctables.CoincMapTable.append = coinc_map_append
-lsctables.TimeSlideTable.__init__ = timeslide_init
-lsctables.TimeSlideTable.append = timeslide_append
-
-
-#
-# =============================================================================
-#
-#                            Document Comprehension
-#
-# =============================================================================
-#
-
-class DocContents(object):
-	def __init__(self, xmldoc, live_time_program):
-		#
-		# Extract tables
-		#
-
-		self.sim_rows = llwapp.get_table(xmldoc, lsctables.SimBurstTable.tableName).rows
-		try:
-			burst_rows = llwapp.get_table(xmldoc, lsctables.SnglBurstTable.tableName).rows
-			self.coinc_rows = llwapp.get_table(xmldoc, lsctables.CoincTable.tableName).rows
-			coinc_map_rows = llwapp.get_table(xmldoc, lsctables.CoincMapTable.tableName).rows
-			tisi_rows = llwapp.get_table(xmldoc, lsctables.TimeSlideTable.tableName).rows
-		except:
-			# file contains missing or incomplete coinc
-			# information, rig for injection-only plots.
-			print >>sys.stderr, "warning: no coincidence information"
-			burst_rows = {}
-			self.coinc_rows = []
-			coinc_map_rows = {}
-			tisi_rows = {}
-
-		#
-		# Extract segmentlist
-		#
-
-		try:
-			self.seglists = llwapp.segmentlistdict_fromsearchsummary(xmldoc, live_time_program)
-			self.instruments = self.seglists.keys()
-		except:
-			print >>sys.stderr, "warning: no search summary information"
-			self.seglists = {}
-
-		#
-		# Replace numeric ID attributes of each coinc_event row
-		# with references to the corresponding objects in the other
-		# tables
-		#
-
-		i = 0
-		while i < len(self.coinc_rows):
-			coinc_map = coinc_map_rows[self.coinc_rows[i].coinc_event_id]
-			if not coinc_map.sims:
-				# not a sim_burst <--> anything coinc
-				del self.coinc_rows[i]
-				continue
-			self.coinc_rows[i].coinc_event_id = coinc_map
-			self.coinc_rows[i].time_slide_id = tisi_rows[self.coinc_rows[i].time_slide_id]
-			# replace the numeric IDs in the CoincMap object
-			# with references to the corresponding objects in
-			# the respective tables
-			coinc_map.sims = map(self.sim_rows.__getitem__, coinc_map.sims)
-			coinc_map.bursts = map(burst_rows.__getitem__, coinc_map.bursts)
-			# FIXME: commented out for speed;  uncomment when a
-			# plot needs info about coincident injections.
-			#coinc_map.coincs = map(lambda id: map(burst_rows.__getitem__, coinc_map_rows[id].bursts), coinc_map.coincs)
-			i += 1
-
-		#
-		# Construct lists of the found and missed injections for
-		# each instrument.
-		#
-
-		self.foundsims = {}
-		self.missedsims = {}
-		for instrument in self.instruments:
-			self.foundsims[instrument] = []
-			for coinc in self.coinc_rows:
-				for burst in coinc.coinc_event_id.bursts:
-					if burst.ifo == instrument:
-						self.foundsims[instrument].extend(coinc.coinc_event_id.sims)
-						break
-			self.foundsims[instrument].sort()
-			self.missedsims[instrument] = [sim for sim in self.sim_rows.itervalues() if not llwapp.bisect_contains(self.foundsims[instrument], sim) and sim.get_geocent_peak() in self.seglists[instrument]]
-			self.missedsims[instrument].sort()
-
-
-#
-# =============================================================================
-#
 #                              Frequency vs. Time
 #
 # =============================================================================
@@ -269,13 +89,13 @@ class FreqVsTime(SnglBurstUtils.BurstPlot):
 		self.missed_y = []
 		self.seglist = segments.segmentlist()
 
-	def add_contents(self, doc):
-		self.num_injections += len(doc.sim_rows)
-		self.seglist |= doc.seglists[self.instrument]
-		for sim in doc.sim_rows.itervalues():
+	def add_contents(self, contents):
+		self.num_injections += len(contents.sim_burst_table)
+		self.seglist |= contents.seglists[self.instrument]
+		for sim in contents.sim_burst_table.select():
 			self.injected_x.append(float(sim.get_geocent_peak()))
 			self.injected_y.append(sim.freq)
-		for sim in doc.missedsims[self.instrument]:
+		for sim in map(contents.sim_burst_table.__getitem__, contents.missed_injections[self.instrument]):
 			self.missed_x.append(float(sim.get_geocent_peak()))
 			self.missed_y.append(sim.freq)
 
@@ -308,12 +128,12 @@ class AmplVsFreqScatter(SnglBurstUtils.BurstPlot):
 		self.missed_x = []
 		self.missed_y = []
 
-	def add_contents(self, doc):
-		self.num_injections += len(doc.sim_rows)
-		for sim in doc.sim_rows.itervalues():
+	def add_contents(self, contents):
+		self.num_injections += len(contents.sim_burst_table)
+		for sim in contents.sim_burst_table.select():
 			self.injected_x.append(sim.freq)
 			self.injected_y.append(sim.hrss)
-		for sim in doc.missedsims[self.instrument]:
+		for sim in map(contents.sim_burst_table.__getitem__, contents.missed_injections[self.instrument]):
 			self.missed_x.append(sim.freq)
 			self.missed_y.append(sim.hrss)
 
@@ -338,12 +158,12 @@ class AmplVsFreqContour(SnglBurstUtils.BurstPlot):
 		self.found_x = []
 		self.found_y = []
 
-	def add_contents(self, doc):
-		self.num_injections += len(doc.sim_rows)
-		for sim in doc.sim_rows.itervalues():
+	def add_contents(self, contents):
+		self.num_injections += len(contents.sim_burst_table)
+		for sim in contents.sim_burst_table.select():
 			self.injected_x.append(sim.freq)
 			self.injected_y.append(sim.hrss)
-		for sim in doc.foundsims[self.instrument]:
+		for sim in map(contents.sim_burst_table.__getitem__, contents.missed_injections[self.instrument]):
 			self.found_x.append(sim.freq)
 			self.found_y.append(sim.hrss)
 
@@ -391,10 +211,10 @@ class TriggerCountHistogram(SnglBurstUtils.BurstPlot):
 			self.bins.append(0)
 		self.bins[n] += 1
 
-	def add_contents(self, doc):
-		self.found += len(doc.coinc_rows)
-		for row in doc.coinc_rows:
-			self.add_count(row.nevents)
+	def add_contents(self, contents):
+		for coinc in contents.coinc_table.selectByDefID(contents.sb_definer_id):
+			self.found += 1
+			self.add_count(coinc.nevents)
 
 	def finish(self):
 		self.axes.plot(range(len(self.bins)), self.bins, "ko-")
@@ -419,17 +239,13 @@ class RecoveredVsInjectedAmplitude(SnglBurstUtils.BurstPlot):
 		self.recovered = []
 		self.injected = []
 
-	def add_contents(self, doc):
-		self.found += len(doc.coinc_rows)
-		for coinc in doc.coinc_rows:
-			coinc_map = coinc.coinc_event_id
-			if coinc_map.coincs:
-				# skip multi-instrument detections (must
-				# also be a single-instrument detection)
-				continue
-			confidence = max([-burst.confidence for burst in coinc_map.bursts])
-			self.injected.append(coinc_map.sims[0].hrss)
-			self.recovered.append(confidence)
+	def add_contents(self, contents):
+		for coinc in contents.coinc_table.selectByDefID(contents.sb_definer_id):
+			self.found += 1
+			confidence = max([-burst.confidence for burst in coinc.sngl_bursts()])
+			for sim in coinc.sim_bursts():
+				self.injected.append(sim.hrss)
+				self.recovered.append(confidence)
 
 	def finish(self):
 		self.axes.plot(self.injected, self.recovered, "k+")
@@ -452,21 +268,17 @@ class RecoveredTimeOffset(SnglBurstUtils.BurstPlot):
 		self.offsets = rate.Rate(interval, width)
 		self.best = rate.Rate(interval, width)
 
-	def add_contents(self, doc):
-		self.found += len(doc.coinc_rows)
-		for coinc in doc.coinc_rows:
-			coinc_map = coinc.coinc_event_id
-			if coinc_map.coincs:
-				# skip multi-instrument detections (not
-				# what this plot is about)
-				continue
+	def add_contents(self, contents):
+		for coinc in contents.coinc_table.selectByDefID(contents.sb_definer_id):
+			self.found += 1
 			best_conf = 0.0
 			best_dt = None
-			for burst in coinc_map.bursts:
-				dt = burst.get_peak() - coinc_map.sims[0].get_peak(burst.ifo)
+			sim = list(coinc.sim_bursts())[0]
+			for burst in coinc.sngl_bursts():
+				dt = burst.get_peak() - sim.get_peak(burst.ifo)
 				self.offsets[dt] = 1.0
-				if math.fabs(burst.confidence) > best_conf:
-					best_conf = math.fabs(burst.confidence)
+				if -burst.confidence > best_conf:
+					best_conf = -burst.confidence
 					best_dt = dt
 			if best_dt != None:
 				self.best[best_dt] = 1.0
@@ -500,19 +312,20 @@ plots = {}
 for n, filename in enumerate(llwapp.sort_files_by_size(filenames, options.verbose, reverse = True)):
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
-	doc = llwapp.load_filename(filename, options.verbose)
-	if options.verbose:
-		print >>sys.stderr, "indexing..."
-	contents = DocContents(doc, "power")
-	doc.unlink()
-	del doc
-	for instrument in contents.instruments:
+	database = SnglBurstUtils.CoincDatabase(sqlite.connect(":memory:"))
+	if filename[-3:] == ".gz":
+		xmldoc = llwapp.load_filename(filename, options.verbose, gz = True)
+	else:
+		xmldoc = llwapp.load_filename(filename, options.verbose)
+	database.summarize(xmldoc, "power", options.verbose)
+	for instrument in database.instruments:
 		if instrument not in plots:
 			plots[instrument] = new_plots(instrument)
 		for n, plot in enumerate(plots[instrument]):
 			if options.verbose:
 				print >>sys.stderr, "adding to %s plot %d..." % (instrument, n)
-			plot.add_contents(contents)
+			plot.add_contents(database)
+	xmldoc.unlink()
 
 
 #

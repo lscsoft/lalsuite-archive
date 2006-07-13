@@ -128,7 +128,15 @@ class SimBurstTable(table.Table):
 
 class SimBurst(lsctables.SimBurst):
 	def get_geocent_peak(self):
-		return LIGOTimeGPS(self.peak_time, self.peak_time_ns)
+		return LIGOTimeGPS(self.geocent_peak_time, self.geocent_peak_time_ns)
+
+	def get_peak(self, instrument):
+		observatory = instrument[0]
+		if observatory == "H":
+			return LIGOTimeGPS(self.h_peak_time, self.h_peak_time_ns)
+		if observatory == "L":
+			return LIGOTimeGPS(self.l_peak_time, self.l_peak_time_ns)
+		raise ValueError, instrument
 
 SimBurstTable.RowType = SimBurst
 
@@ -314,7 +322,7 @@ class CoincDatabase(object):
 		"""
 		self.connection.commit()
 		self.connection.execute("CREATE INDEX time_slide_id_index ON time_slide (time_slide_id)")
-		self.connection.execute("CREATE INDEX coinc_event_id_index ON coinc_event_map (coinc_event_id)")
+		self.connection.execute("CREATE INDEX coinc_event_id_index ON coinc_event_map (table_name, coinc_event_id)")
 
 		# find the tables
 		self.sngl_burst_table = llwapp.get_table(xmldoc, lsctables.SnglBurstTable.tableName)
@@ -332,15 +340,21 @@ class CoincDatabase(object):
 		self.sb_definer_id = self.coinc_def_table.get_id([lsctables.SnglBurstTable.tableName, lsctables.SimBurstTable.tableName])
 		self.sc_definer_id = self.coinc_def_table.get_id([lsctables.CoincTable.tableName, lsctables.SimBurstTable.tableName])
 
-		# compute the missed injections
-		self.missed_injections = [simulation_id for (simulation_id,) in self.sim_burst_table.cursor.execute("SELECT simulation_id FROM sim_burst")]
+		# compute the missed injections by instrument;  first
+		# generate a copy of all injection IDs for each instrument,
+		# then remove the ones that each instrument didn't find
+		self.missed_injections = {self.instruments[0]: [simulation_id for (simulation_id,) in self.sim_burst_table.cursor.execute("SELECT simulation_id FROM sim_burst")]}
+		for instrument in self.instruments[1:]:
+			self.missed_injections[instrument] = list(self.missed_injections[self.instruments[0]])
+
 		for coinc in self.coinc_table.selectByDefID(self.sb_definer_id):
 			for sim in coinc.sim_bursts():
-				try:
-					self.missed_injections.remove(sim.simulation_id)
-				except ValueError:
-					# already removed
-					pass
+				for burst in coinc.sngl_bursts():
+					try:
+						self.missed_injections[burst.ifo].remove(sim.simulation_id)
+					except ValueError:
+						# already removed
+						pass
 
 		# determine burst <--> burst coincidences for which at
 		# least one burst, but not all, was identified as an
