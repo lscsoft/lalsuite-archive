@@ -526,7 +526,7 @@ for n, filename in enumerate(llwapp.sort_files_by_size(filenames, options.verbos
 # delete the plots as we go to save memory
 for instrument in plots:
 	n = 0
-	format = "%%s%s_%%0%dd.%%s" % (instrument, int(math.log10(len(plots[instrument]))) + 1)
+	format = "%%s%s_%%0%dd.%%s" % (instrument, int(math.log10(len(plots[instrument]) - 1)) + 1)
 	while len(plots[instrument]):
 		filename = format % (options.base, n, options.format)
 		if options.verbose:
