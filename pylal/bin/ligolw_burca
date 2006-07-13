@@ -29,7 +29,7 @@
 from optparse import OptionParser
 import sys
 
-from glue.ligolw import lsctables
+from pylal import ligolw_burca
 from pylal import llwapp
 from pylal import snglcoinc
 from pylal import SnglBurstUtils
@@ -67,69 +67,12 @@ def parse_command_line():
 #
 # =============================================================================
 #
-#                           Add Process Information
-#
-# =============================================================================
-#
-
-def append_process(xmldoc, **kwargs):
-	process = llwapp.append_process(xmldoc, program = "ligolw_burca", version = __version__, cvs_repository = "lscsoft", cvs_entry_time = __date__, comment = kwargs["comment"])
-
-	params = [("--program", "lstring", kwargs["program"])]
-	for key, value in kwargs["window"].iteritems():
-		if key[0] < key[1]:
-			params += [("--window", "lstring", "%s,%s=%s" % (key[0], key[1], str(value)))]
-	llwapp.append_process_params(xmldoc, process, params)
-
-	return process
-
-
-#
-# =============================================================================
-#
-#                                 Library API
+#                            Coincidence Criterion
 #
 # =============================================================================
 #
 
 snglcoinc.CompareFunc = SnglBurstUtils.CompareSnglBurst
-
-def ligolw_burca(xmldoc, **kwargs):
-	# add an entry in the process table
-	process = append_process(xmldoc, **kwargs)
-
-	if kwargs["verbose"]:
-		print >>sys.stderr, "indexing..."
-
-	# prepare the coincidence table interface
-	coinc_tables = snglcoinc.CoincTables(xmldoc, [lsctables.SnglBurstTable.tableName])
-
-	# build the event list accessors, populated with events from those
-	# processes that can participate in a coincidence
-	eventlists = snglcoinc.make_eventlists(xmldoc, lsctables.SnglBurstTable.tableName, kwargs["window"], kwargs["program"])
-
-	# iterate over time slides
-	time_slide_ids = coinc_tables.time_slide_ids()
-	for n, time_slide_id in enumerate(time_slide_ids):
-		offsetdict = coinc_tables.get_time_slide(time_slide_id)
-		if False in map(eventlists.__contains__, offsetdict.keys()):
-			if kwargs["verbose"]:
-				print >>sys.stderr, "skipping time slide %s" % str(offsetdict)
-			continue
-		if kwargs["verbose"]:
-			print >>sys.stderr, "time slide %d/%d: %s" % (n + 1, len(time_slide_ids), str(offsetdict))
-			print >>sys.stderr, "\tapplying time offsets ..."
-		eventlists.set_offsetdict(offsetdict)
-		if kwargs["verbose"]:
-			print >>sys.stderr, "\tsearching ..."
-		# search for and record coincidences
-		for ntuple in snglcoinc.CoincidentNTuples(eventlists, offsetdict.keys(), kwargs["window"], kwargs["verbose"]):
-			coinc_tables.append_coinc(process.process_id, time_slide_id, ntuple)
-
-	# clean up and finish
-	eventlists.remove_offsetdict()
-	llwapp.set_process_end_time(process)
-	return xmldoc
 
 
 #
@@ -159,6 +102,6 @@ for n, filename in enumerate(llwapp.sort_files_by_size(filenames, options.verbos
 			continue
 		if options.verbose:
 			print >>sys.stderr, "continuing"
-	ligolw_burca(xmldoc, **options.__dict__)
+	ligolw_burca.ligolw_burca(xmldoc, **options.__dict__)
 	llwapp.write_filename(xmldoc, filename, options.verbose)
 	xmldoc.unlink()
