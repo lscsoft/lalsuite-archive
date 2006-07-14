@@ -10,7 +10,7 @@ if ( ! $?PYLAL_LOCATION ) then
 endif
 
 setenv mylibdir "lib"
-if(`uname -i` == "x86_64") then
+if(`uname -p` == "x86_64") then
   setenv mylibdir "lib64"
 endif
 

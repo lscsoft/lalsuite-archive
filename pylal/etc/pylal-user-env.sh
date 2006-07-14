@@ -10,7 +10,7 @@ if [ -z "${PYLAL_LOCATION}" ]; then
 fi
 
 mylibdir="lib"
-if [ `uname -i` = "x86_64" ]
+if [ `uname -p` = "x86_64" ]
 then
   mylibdir="lib64"
 fi
