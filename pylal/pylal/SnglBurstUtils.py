@@ -31,6 +31,7 @@ from matplotlib import figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 import sys
 
+from glue import segments
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from pylal import llwapp
@@ -75,7 +76,7 @@ class SnglBurstTable(table.Table):
 		self.cursor.execute("SELECT * FROM sngl_burst WHERE event_id == ?", (id,))
 		return self._row_from_cols(self.cursor.fetchone())
 
-	def select(self):
+	def __iter__(self):
 		for values in self.connection.cursor().execute("SELECT * FROM sngl_burst"):
 			yield self._row_from_cols(values)
 
@@ -87,6 +88,14 @@ class SnglBurstTable(table.Table):
 class SnglBurst(lsctables.SnglBurst):
 	def get_peak(self):
 		return LIGOTimeGPS(self.peak_time, self.peak_time_ns)
+
+	def get_period(self):
+		start = LIGOTimeGPS(self.start_time, self.start_time_ns)
+		return segments.segment(start, start + self.duration)
+
+	def get_band(self):
+		low = self.central_freq - self.bandwidth / 2
+		return segments.segment(low, low + self.bandwidth)
 
 SnglBurstTable.RowType = SnglBurst
 
@@ -117,7 +126,7 @@ class SimBurstTable(table.Table):
 		self.cursor.execute("SELECT * FROM sim_burst WHERE simulation_id == ?", (id,))
 		return self._row_from_cols(self.cursor.fetchone())
 
-	def select(self):
+	def __iter__(self):
 		for values in self.connection.cursor().execute("SELECT * FROM sim_burst"):
 			yield self._row_from_cols(values)
 
@@ -326,7 +335,10 @@ class CoincDatabase(object):
 
 		# find the tables
 		self.sngl_burst_table = llwapp.get_table(xmldoc, lsctables.SnglBurstTable.tableName)
-		self.sim_burst_table = llwapp.get_table(xmldoc, lsctables.SimBurstTable.tableName)
+		try:
+			self.sim_burst_table = llwapp.get_table(xmldoc, lsctables.SimBurstTable.tableName)
+		except:
+			self.sim_burst_table = None
 		self.coinc_def_table = llwapp.get_table(xmldoc, lsctables.CoincDefTable.tableName)
 		self.coinc_table = llwapp.get_table(xmldoc, lsctables.CoincTable.tableName)
 		self.time_slide_table = llwapp.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
@@ -337,24 +349,32 @@ class CoincDatabase(object):
 
 		# determine a few coinc_definer IDs
 		self.bb_definer_id = self.coinc_def_table.get_id([lsctables.SnglBurstTable.tableName])
-		self.sb_definer_id = self.coinc_def_table.get_id([lsctables.SnglBurstTable.tableName, lsctables.SimBurstTable.tableName])
-		self.sc_definer_id = self.coinc_def_table.get_id([lsctables.CoincTable.tableName, lsctables.SimBurstTable.tableName])
+		if self.sim_burst_table:
+			self.sb_definer_id = self.coinc_def_table.get_id([lsctables.SnglBurstTable.tableName, lsctables.SimBurstTable.tableName])
+			self.sc_definer_id = self.coinc_def_table.get_id([lsctables.CoincTable.tableName, lsctables.SimBurstTable.tableName])
+		else:
+			self.sb_definer_id = None
+			self.sc_definer_id = None
 
 		# compute the missed injections by instrument;  first
 		# generate a copy of all injection IDs for each instrument,
 		# then remove the ones that each instrument didn't find
-		self.missed_injections = {self.instruments[0]: [simulation_id for (simulation_id,) in self.sim_burst_table.cursor.execute("SELECT simulation_id FROM sim_burst")]}
-		for instrument in self.instruments[1:]:
-			self.missed_injections[instrument] = list(self.missed_injections[self.instruments[0]])
-
-		for coinc in self.coinc_table.selectByDefID(self.sb_definer_id):
-			for sim in coinc.sim_bursts():
-				for burst in coinc.sngl_bursts():
-					try:
-						self.missed_injections[burst.ifo].remove(sim.simulation_id)
-					except ValueError:
-						# already removed
-						pass
+		if self.sim_burst_table:
+			self.missed_injections = {self.instruments[0]: [simulation_id for (simulation_id,) in self.sim_burst_table.cursor.execute("SELECT simulation_id FROM sim_burst")]}
+			for instrument in self.instruments[1:]:
+				self.missed_injections[instrument] = list(self.missed_injections[self.instruments[0]])
+			for coinc in self.coinc_table.selectByDefID(self.sb_definer_id):
+				for sim in coinc.sim_bursts():
+					for burst in coinc.sngl_bursts():
+						try:
+							self.missed_injections[burst.ifo].remove(sim.simulation_id)
+						except ValueError:
+							# already removed
+							pass
+		else:
+			self.missed_injections = {}
+			for instrument in self.instruments:
+				self.missed_injections[instrument] = []
 
 		# determine burst <--> burst coincidences for which at
 		# least one burst, but not all, was identified as an
@@ -368,26 +388,30 @@ class CoincDatabase(object):
 		# injections they are nevertheless injections that are
 		# found and survive a coincidence cut.
 
-		# the select inside the outer select finds a list of the
-		# burst event_ids that were marked as coincident with an
-		# injection; the outer select finds a list of the
-		# burst+burst coinc_event_ids pointing to at least one of
-		# those bursts
-		self.incomplete_injection_coinc_ids = [coinc_event_id for (coinc_event_id,) in self.coinc_table.cursor.execute("SELECT DISTINCT coinc_event.coinc_event_id FROM coinc_event JOIN coinc_event_map ON (coinc_event.coinc_event_id == coinc_event_map.coinc_event_id) WHERE coinc_def_id == ? AND table_name == 'sngl_burst' AND event_id IN (SELECT DISTINCT event_id FROM coinc_event_map JOIN coinc_event ON (coinc_event_map.coinc_event_id == coinc_event.coinc_event_id) WHERE coinc_event_map.table_name == 'sngl_burst' AND coinc_event.coinc_def_id == ?)", (self.bb_definer_id, self.sb_definer_id))]
+		if self.sim_burst_table:
+			# the select inside the outer select finds a list
+			# of the burst event_ids that were marked as
+			# coincident with an injection; the outer select
+			# finds a list of the burst+burst coinc_event_ids
+			# pointing to at least one of those bursts
+			self.incomplete_injection_coinc_ids = [coinc_event_id for (coinc_event_id,) in self.coinc_table.cursor.execute("SELECT DISTINCT coinc_event.coinc_event_id FROM coinc_event JOIN coinc_event_map ON (coinc_event.coinc_event_id == coinc_event_map.coinc_event_id) WHERE coinc_def_id == ? AND table_name == 'sngl_burst' AND event_id IN (SELECT DISTINCT event_id FROM coinc_event_map JOIN coinc_event ON (coinc_event_map.coinc_event_id == coinc_event.coinc_event_id) WHERE coinc_event_map.table_name == 'sngl_burst' AND coinc_event.coinc_def_id == ?)", (self.bb_definer_id, self.sb_definer_id))]
 
-		# now remove the coinc_event_ids for which all bursts were
-		# marked as injections
-		map(self.incomplete_injection_coinc_ids.remove, [coinc_event_id for (coinc_event_id,) in self.coinc_table.cursor.execute("SELECT DISTINCT event_id FROM coinc_event_map JOIN coinc_event ON (coinc_event_map.coinc_event_id == coinc_event.coinc_event_id) WHERE table_name == 'coinc_event' AND coinc_def_id == ?", (self.sc_definer_id,))])
+			# now remove the coinc_event_ids for which all
+			# bursts were marked as injections
+			map(self.incomplete_injection_coinc_ids.remove, [coinc_event_id for (coinc_event_id,) in self.coinc_table.cursor.execute("SELECT DISTINCT event_id FROM coinc_event_map JOIN coinc_event ON (coinc_event_map.coinc_event_id == coinc_event.coinc_event_id) WHERE table_name == 'coinc_event' AND coinc_def_id == ?", (self.sc_definer_id,))])
 
-		# now remove coinc_event_ids for coincs that are not at
-		# zero-lag
-		self.incomplete_injection_coinc_ids = filter(lambda id: self.coinc_table[id].is_zero_lag(), self.incomplete_injection_coinc_ids)
+			# now remove coinc_event_ids for coincs that are
+			# not at zero-lag
+			self.incomplete_injection_coinc_ids = filter(lambda id: self.coinc_table[id].is_zero_lag(), self.incomplete_injection_coinc_ids)
+		else:
+			self.incomplete_injection_coinc_ids = []
 
 		# verbosity
 		if verbose:
 			print >>sys.stderr, "database stats:"
 			print >>sys.stderr, "\tburst events: %d" % len(self.sngl_burst_table)
-			print >>sys.stderr, "\tinjections: %d" % len(self.sim_burst_table)
+			if self.sim_burst_table:
+				print >>sys.stderr, "\tinjections: %d" % len(self.sim_burst_table)
 			print >>sys.stderr, "\ttime slides: %d" % len(self.time_slide_table)
 			print >>sys.stderr, "\tburst + burst coincidences: %d" % self.coinc_table.cursor.execute("SELECT COUNT(*) FROM coinc_event WHERE coinc_def_id = ?", (self.bb_definer_id,)).fetchone()[0]
 			print >>sys.stderr, "\tinjection + burst coincidences: %d" % self.coinc_table.cursor.execute("SELECT COUNT(*) FROM coinc_event WHERE coinc_def_id = ?", (self.sb_definer_id,)).fetchone()[0]

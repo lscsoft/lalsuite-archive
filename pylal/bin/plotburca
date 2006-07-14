@@ -39,7 +39,8 @@ from glue.ligolw import lsctables
 from pylal import llwapp
 from pylal import rate
 from pylal import SnglBurstUtils
-from pylal.date import LIGOTimeGPS
+from pylal import date
+from pylal.xlal import inject
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
@@ -66,7 +67,7 @@ def parse_command_line():
 	if options.plot:
 		options.plot = map(int, options.plot)
 	else:
-		options.plot = range(7)
+		options.plot = range(10)
 
 	return options, (filenames or [None])
 
@@ -136,72 +137,92 @@ class RateContours(SnglBurstUtils.BurstPlot):
 # =============================================================================
 #
 
+
+def magnitude_a(burst):
+	return -burst.confidence
+
+
+def magnitude_b(burst):
+	# galactic core, J2000
+	ra, dec = 2.0318570464121519, -0.50628171572274738
+	gmst = date.XLALGreenwichMeanSiderealTime(date.LIGOTimeGPS(burst.peak_time, burst.peak_time_ns))
+	fplus, fcross = inject.XLALComputeDetAMResponse(inject.cached_detector[burst.ifo].response(), ra, dec, 0.0, gmst)
+	power_per_dof = burst.snr / (2.0 * burst.tfvolume) + 1.0
+	return power_per_dof / (fplus**2.0 + fcross**2.0)
+
+
 class ConfidenceContours(SnglBurstUtils.BurstPlot):
-	def __init__(self, x_instrument, y_instrument, min_confidence, max_confidence):
-		SnglBurstUtils.BurstPlot.__init__(self, "%s Confidence" % x_instrument, "%s Confidence" % y_instrument)
+	def __init__(self, x_instrument, y_instrument, magnitude, desc, min_magnitude, max_magnitude):
+		SnglBurstUtils.BurstPlot.__init__(self, "%s %s" % (x_instrument, desc), "%s %s" % (y_instrument, desc))
 		self.fig.set_figsize_inches(16,16)
 		self.axes.loglog()
-
 		self.x_instrument = x_instrument
 		self.y_instrument = y_instrument
-		self.incomplete_coinc_injections_x = []
-		self.incomplete_coinc_injections_y = []
-		self.coinc_injections_x = []
-		self.coinc_injections_y = []
+		self.magnitude = magnitude
 		self.n_foreground = 0
 		self.n_background = 0
 		self.n_injections = 0
-		self.foreground_bins = rate.BinnedArray(rate.Bins(min_confidence, max_confidence, 1024, min_confidence, max_confidence, 1024, spacing = ["log", "log"]))
-		self.background_bins = rate.BinnedArray(rate.Bins(min_confidence, max_confidence, 1024, min_confidence, max_confidence, 1024, spacing = ["log", "log"]))
+		self.foreground_bins = rate.BinnedArray(rate.Bins(min_magnitude, max_magnitude, 1024, min_magnitude, max_magnitude, 1024, spacing = ["log", "log"]))
+		self.background_bins = rate.BinnedArray(rate.Bins(min_magnitude, max_magnitude, 1024, min_magnitude, max_magnitude, 1024, spacing = ["log", "log"]))
+		self.coinc_injection_bins = rate.BinnedArray(rate.Bins(min_magnitude, max_magnitude, 1024, min_magnitude, max_magnitude, 1024, spacing = ["log", "log"]))
+		self.incomplete_coinc_injection_bins = rate.BinnedArray(rate.Bins(min_magnitude, max_magnitude, 1024, min_magnitude, max_magnitude, 1024, spacing = ["log", "log"]))
 
 	def add_contents(self, contents):
+		if self.x_instrument not in contents.instruments or self.y_instrument not in contents.instruments:
+			# fast path: these are not the instruments we're
+			# looking for
+			return
 		for coinc in contents.coinc_table.selectByDefID(contents.bb_definer_id):
 			if coinc.is_zero_lag():
 				self.n_foreground += 1
 				x = y = None
 				for burst in coinc.sngl_bursts():
 					if burst.ifo == self.x_instrument:
-						x = -burst.confidence
+						x = self.magnitude(burst)
 					elif burst.ifo == self.y_instrument:
-						y = -burst.confidence
+						y = self.magnitude(burst)
 				self.foreground_bins[x, y] += 1
 			else:
 				self.n_background += 1
 				x = y = None
 				for burst in coinc.sngl_bursts():
 					if burst.ifo == self.x_instrument:
-						x = -burst.confidence
+						x = self.magnitude(burst)
 					elif burst.ifo == self.y_instrument:
-						y = -burst.confidence
+						y = self.magnitude(burst)
 				self.background_bins[x, y] += 1
 		for coinc in contents.coinc_table.selectByDefID(contents.sc_definer_id):
 			self.n_injections += 1
 			for coinc in coinc.coincs():
+				x = y = None
 				for burst in coinc.sngl_bursts():
 					if burst.ifo == self.x_instrument:
-						self.coinc_injections_x.append(-burst.confidence)
+						x = self.magnitude(burst)
 					elif burst.ifo == self.y_instrument:
-						self.coinc_injections_y.append(-burst.confidence)
-				if len(self.coinc_injections_x) != len(self.coinc_injections_y):
-					raise ValueError, "coinc_event:coinc_event_id:%d does not have both required instruments" % coinc.coinc_event_id
+						y = self.magnitude(burst)
+				self.coinc_injection_bins[x, y] += 1
 		for coinc_event_id in contents.incomplete_injection_coinc_ids:
+			x = y = None
 			for burst in contents.coinc_table[coinc_event_id].sngl_bursts():
 				if burst.ifo == self.x_instrument:
-					self.incomplete_coinc_injections_x.append(-burst.confidence)
+					x = self.magnitude(burst)
 				elif burst.ifo == self.y_instrument:
-					self.incomplete_coinc_injections_y.append(-burst.confidence)
-			if len(self.incomplete_coinc_injections_x) != len(self.incomplete_coinc_injections_y):
-				raise ValueError, "coinc_event:coinc_event_id %d does not have both required instruments" % coinc_event_id
+					y = self.magnitude(burst)
+			self.incomplete_coinc_injection_bins[x, y] += 1
 
 	def finish(self):
-		self.axes.set_title(r"Distribution of Coincident Event Confidence (%d Foreground, %d Background Events, %d Injections Found in Coincidence, Logarithmic Density Contours)" % (self.n_foreground, self.n_background, self.n_injections))
+		self.axes.set_title(r"Distribution of Coincident Events (%d Foreground, %d Background Events, %d Injections Found in Coincidence, Logarithmic Density Contours)" % (self.n_foreground, self.n_background, self.n_injections))
 		xcoords, ycoords = self.background_bins.centres()
 
 		# prepare the data
-		rate.filter_array(self.background_bins.array, rate.gaussian_window2d(8, 8))
 		rate.filter_array(self.foreground_bins.array, rate.gaussian_window2d(8, 8))
-		self.background_bins.logregularize()
+		rate.filter_array(self.background_bins.array, rate.gaussian_window2d(8, 8))
+		rate.filter_array(self.coinc_injection_bins.array, rate.gaussian_window2d(8, 8))
+		rate.filter_array(self.incomplete_coinc_injection_bins.array, rate.gaussian_window2d(8, 8))
 		self.foreground_bins.logregularize()
+		self.background_bins.logregularize()
+		self.coinc_injection_bins.logregularize()
+		self.incomplete_coinc_injection_bins.logregularize()
 
 		# plot background contours
 		max_density = math.log(self.background_bins.array.max())
@@ -211,9 +232,18 @@ class ConfidenceContours(SnglBurstUtils.BurstPlot):
 		max_density = math.log(self.foreground_bins.array.max())
 		self.axes.contour(xcoords, ycoords, numarray.transpose(numarray.log(self.foreground_bins.array)), [max_density - n for n in xrange(0, 10, 1)], cmap = matplotlib.cm.Reds)
 
-		# mark injections
-		self.axes.plot(self.incomplete_coinc_injections_x, self.incomplete_coinc_injections_y, "gx")
-		self.axes.plot(self.coinc_injections_x, self.coinc_injections_y, "b+")
+		# plot coincident injection contours
+		max_density = math.log(self.coinc_injection_bins.array.max())
+		self.axes.contour(xcoords, ycoords, numarray.transpose(numarray.log(self.coinc_injection_bins.array)), [max_density - n for n in xrange(0, 10, 1)], cmap = matplotlib.cm.Blues)
+
+		# plot coincident injection contours
+		max_density = math.log(self.incomplete_coinc_injection_bins.array.max())
+		self.axes.contour(xcoords, ycoords, numarray.transpose(numarray.log(self.incomplete_coinc_injection_bins.array)), [max_density - n for n in xrange(0, 10, 1)], cmap = matplotlib.cm.Greens)
+
+		# add diagonal line
+		lower = max(self.background_bins.bins.min)
+		upper = min(self.background_bins.bins.max)
+		self.axes.plot([lower, upper], [lower, upper], "k:")
 
 		# fix axes limits
 		self.axes.set_xlim([self.background_bins.bins.min[0], self.background_bins.bins.max[0]])
@@ -277,14 +307,23 @@ class DeltaTHistogram(SnglBurstUtils.BurstPlot):
 # =============================================================================
 #
 
+inject.cached_detector.update({
+	"H1": inject.cached_detector["LHO_4k"],
+	"H2": inject.cached_detector["LHO_2k"],
+	"L1": inject.cached_detector["LLO_4k"]
+})
+
 def new_plots(plots):
 	deltat_seg = segments.segment(-0.3, +0.3)
 	deltat_width = 0.03125
 	l = [
 		RateContours("H2", "H1", -100, +100),
-		ConfidenceContours("H2", "H1", 30, 10**10),
-		ConfidenceContours("H2", "L1", 30, 10**10),
-		ConfidenceContours("L1", "H1", 30, 10**10),
+		ConfidenceContours("H2", "H1", magnitude_a, "Confidence", 1, 10**10),
+		ConfidenceContours("H2", "L1", magnitude_a, "Confidence", 1, 10**10),
+		ConfidenceContours("L1", "H1", magnitude_a, "Confidence", 1, 10**10),
+		ConfidenceContours("H2", "H1", magnitude_b, "Power / D.o.F. / ($F_{+}^{2} + F_{\cross}^{2}$)", 1, 10**10),
+		ConfidenceContours("H2", "L1", magnitude_b, "Power / D.o.F. / ($F_{+}^{2} + F_{\cross}^{2}$)", 1, 10**10),
+		ConfidenceContours("L1", "H1", magnitude_b, "Power / D.o.F. / ($F_{+}^{2} + F_{\cross}^{2}$)", 1, 10**10),
 		DeltaTHistogram("H1", deltat_seg, deltat_width),
 		DeltaTHistogram("H2", deltat_seg, deltat_width),
 		DeltaTHistogram("L1", deltat_seg, deltat_width)
@@ -294,7 +333,6 @@ def new_plots(plots):
 options, filenames = parse_command_line()
 
 plots = new_plots(options.plot)
-
 
 for n, filename in enumerate(llwapp.sort_files_by_size(filenames, options.verbose, reverse = True)):
 	if options.verbose:
@@ -314,7 +352,7 @@ for n, filename in enumerate(llwapp.sort_files_by_size(filenames, options.verbos
 
 # delete the plots as we go to save memory
 n = 0
-format = "%%s%%0%dd.%%s" % (int(math.log10(len(plots))) + 1)
+format = "%%s%%0%dd.%%s" % (int(math.log10(max(options.plot) - 1)) + 1)
 while len(plots):
 	filename = format % (options.base, options.plot[n], options.format)
 	if options.verbose:

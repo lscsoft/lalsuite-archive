@@ -90,7 +90,7 @@ class FreqVsTime(SnglBurstUtils.BurstPlot):
 	def add_contents(self, contents):
 		self.num_injections += len(contents.sim_burst_table)
 		self.seglist |= contents.seglists[self.instrument]
-		for sim in contents.sim_burst_table.select():
+		for sim in contents.sim_burst_table:
 			self.injected_x.append(float(sim.get_geocent_peak()))
 			self.injected_y.append(sim.freq)
 		for sim in map(contents.sim_burst_table.__getitem__, contents.missed_injections[self.instrument]):
@@ -100,7 +100,7 @@ class FreqVsTime(SnglBurstUtils.BurstPlot):
 	def finish(self):
 		self.axes.plot(self.injected_x, self.injected_y, "k+")
 		if not options.made_only:
-			self.axes.plot(self.missed_x, self.missed_y, "rx")
+			self.axes.plot(self.missed_x, self.missed_y, "ro")
 		for seg in ~self.seglist & segments.segmentlist([segments.segment(self.axes.get_xlim())]):
 			self.axes.axvspan(seg[0], seg[1], facecolor = "k", alpha = 0.2)
 		self.axes.set_ylim([min(self.injected_y), max(self.injected_y)])
@@ -128,7 +128,7 @@ class AmplVsFreqScatter(SnglBurstUtils.BurstPlot):
 
 	def add_contents(self, contents):
 		self.num_injections += len(contents.sim_burst_table)
-		for sim in contents.sim_burst_table.select():
+		for sim in contents.sim_burst_table:
 			self.injected_x.append(sim.freq)
 			self.injected_y.append(sim.hrss)
 		for sim in map(contents.sim_burst_table.__getitem__, contents.missed_injections[self.instrument]):
@@ -138,7 +138,7 @@ class AmplVsFreqScatter(SnglBurstUtils.BurstPlot):
 	def finish(self):
 		self.axes.plot(self.injected_x, self.injected_y, "k+")
 		if not options.made_only:
-			self.axes.plot(self.missed_x, self.missed_y, "rx")
+			self.axes.plot(self.missed_x, self.missed_y, "ro")
 		self.axes.set_xlim([min(self.injected_x), max(self.injected_x)])
 		self.axes.set_ylim([min(self.injected_y), max(self.injected_y)])
 		self.axes.set_title("Injection Amplitude vs. Frequency\n(%d Injections)" % self.num_injections)
@@ -158,7 +158,7 @@ class AmplVsFreqContour(SnglBurstUtils.BurstPlot):
 
 	def add_contents(self, contents):
 		self.num_injections += len(contents.sim_burst_table)
-		for sim in contents.sim_burst_table.select():
+		for sim in contents.sim_burst_table:
 			self.injected_x.append(sim.freq)
 			self.injected_y.append(sim.hrss)
 		for sim in map(contents.sim_burst_table.__getitem__, contents.missed_injections[self.instrument]):
