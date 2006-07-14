@@ -69,6 +69,8 @@ class SnglBurstTable(table.Table):
 	def _row_from_cols(cls, values):
 		row = cls.RowType()
 		row.process_id, row.ifo, row.search, row.channel, row.start_time, row.start_time_ns, row.peak_time, row.peak_time_ns, row.duration, row.central_freq, row.bandwidth, row.amplitude, row.snr, row.confidence, row.tfvolume, row.event_id = values
+		row.process_id = str(lsctables.ILWD("process", "process_id", row.process_id))
+		row.event_id = str(lsctables.ILWD("sngl_burst", "event_id", row.event_id))
 		return row
 	_row_from_cols = classmethod(_row_from_cols)
 
@@ -119,6 +121,8 @@ class SimBurstTable(table.Table):
 	def _row_from_cols(cls, values):
 		row = cls.RowType()
 		row.process_id, row.waveform, row.geocent_peak_time, row.geocent_peak_time_ns, row.h_peak_time, row.h_peak_time_ns, row.l_peak_time, row.l_peak_time_ns, row.peak_time_gmst, row.dtminus, row.dtplus, row.longitude, row.latitude, row.coordinates, row.polarization, row.hrss, row.hpeak, row.distance, row.freq, row.tau, row.zm_number, row.simulation_id = values
+		row.process_id = str(lsctables.ILWD("process", "process_id", row.process_id))
+		row.simulation_id = str(lsctables.ILWD("sim_burst", "simulation_id", row.simulation_id))
 		return row
 	_row_from_cols = classmethod(_row_from_cols)
 
@@ -172,6 +176,18 @@ class TimeSlideTable(table.Table):
 			offsets[instrument] = offset
 		return offsets
 
+	def _row_from_cols(cls, values):
+		row = cls.RowType()
+		row.process_id, row.time_slide_id, row.instrument, row.offset = values
+		row.process_id = str(lsctables.ILWD("process", "process_id", row.process_id))
+		row.time_slide_id = str(lsctables.ILWD("time_slide", "time_slide_id", row.time_slide_id))
+		return row
+	_row_from_cols = classmethod(_row_from_cols)
+
+	def __iter__(self):
+		for values in self.connection.cursor().execute("SELECT * FROM time_slide"):
+			yield self._row_from_cols(values)
+
 	def is_null(self, id):
 		return not self.cursor.execute("SELECT COUNT(time_slide_id) FROM time_slide WHERE time_slide_id == ? AND offset != 0 LIMIT 1", (id,)).fetchone()[0]
 
@@ -198,6 +214,17 @@ class CoincDefTable(table.Table):
 
 	def __len__(self):
 		return self.cursor.execute("SELECT COUNT(DISTINCT coinc_def_id) FROM coinc_definer").fetchone()[0]
+
+	def _row_from_cols(cls, values):
+		row = cls.RowType()
+		row.coinc_def_id, row.table_name = values
+		row.coinc_def_id = str(lsctables.ILWD("coinc_definer", "coinc_def_id", row.coinc_def_id))
+		return row
+	_row_from_cols = classmethod(_row_from_cols)
+
+	def __iter__(self):
+		for values in self.connection.cursor().execute("SELECT * FROM coinc_definer"):
+			yield self._row_from_cols(values)
 
 	def get_table_names(self, id):
 		"""
@@ -243,6 +270,10 @@ class CoincTable(table.Table):
 	def _row_from_cols(cls, values):
 		row = cls.RowType()
 		row.process_id, row.coinc_def_id, row.time_slide_id, row.nevents, row.coinc_event_id = values
+		row.process_id = str(lsctables.ILWD("process", "process_id", row.process_id))
+		row.coinc_def_id = str(lsctables.ILWD("coinc_definer", "coinc_def_id", row.coinc_def_id))
+		row.time_slide_id = str(lsctables.ILWD("time_slide", "time_slide_id", row.time_slide_id))
+		row.coinc_event_id = str(lsctables.ILWD("coinc_event", "coinc_event_id", row.coinc_event_id))
 		return row
 	_row_from_cols = classmethod(_row_from_cols)
 
@@ -252,6 +283,10 @@ class CoincTable(table.Table):
 
 	def __len__(self):
 		return self.cursor.execute("SELECT COUNT(*) FROM coinc_event").fetchone()[0]
+
+	def __iter__(self):
+		for values in self.connection.cursor().execute("SELECT * FROM coinc_event"):
+			yield self._row_from_cols(values)
 
 	def selectByDefID(self, coinc_def_id):
 		for values in self.connection.cursor().execute("SELECT * FROM coinc_event WHERE coinc_def_id == ?", (coinc_def_id,)):
@@ -297,8 +332,27 @@ class CoincMapTable(table.Table):
 		self.cursor = self.connection.cursor()
 		self.cursor.execute("CREATE TABLE coinc_event_map (coinc_event_id INTEGER, table_name TEXT, event_id INTEGER)")
 
+	def __len__(self):
+		return self.cursor.execute("SELECT COUNT(*) FROM coinc_event_map").fetchone()[0]
+
 	def append(self, row):
 		self.cursor.execute("INSERT INTO coinc_event_map VALUES (?, ?, ?)", (lsctables.ILWDID(row.coinc_event_id), lsctables.ILWDTableName(row.event_id), lsctables.ILWDID(row.event_id)))
+
+	def _row_from_cols(cls, values):
+		column_name = {
+			"sngl_burst": "event_id",
+			"sim_burst": "simulation_id",
+			"coinc_event": "coinc_event_id"
+		}[values[1]]
+		row = cls.RowType()
+		row.coinc_event_id = str(lsctables.ILWD("coinc_event", "coinc_event_id", values[0]))
+		row.event_id = str(lsctables.ILWD(values[1], column_name, values[2]))
+		return row
+	_row_from_cols = classmethod(_row_from_cols)
+
+	def __iter__(self):
+		for values in self.connection.cursor().execute("SELECT * FROM coinc_event_map"):
+			yield self._row_from_cols(values)
 
 	def unlink(self):
 		table.Table.unlink(self)
