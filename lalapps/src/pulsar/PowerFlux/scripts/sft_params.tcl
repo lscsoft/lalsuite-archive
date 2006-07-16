@@ -4,30 +4,33 @@
 #
 foreach {var value} {
 	sft_kind "ht"
-	data_set "S4"
-        interferometer "L1"
-        instrument "L"
-	sft_program "/dso-test/volodya/SFT-3/make_sft_plain"
+	data_set "S5"
+	batch	"2"
+        interferometer "H1"
+        instrument "H"
+	sft_program "/archive/home/volodya/SFT-3/make_sft_plain"
 	channel "${interferometer}:LSC-STRAIN"
-        storage_dir "/dso-test/volodya"
-        frame_library "/dso-test/volodya/${data_set}.${interferometer}.list.${sft_kind}.txt"
-        sc_files  "/dso-test/volodya/${data_set}/sc.tcl"
-        control_info_dir   "${storage_dir}/sfts_control/${data_set}.${interferometer}.${sft_kind}.geo/"
+        storage_dir "/archive/home/volodya"
+        frame_library "/archive/home/volodya/${data_set}.${sft_kind}/${data_set}.${interferometer}.list.${sft_kind}.txt"
+        sc_files  "/archive/home/volodya/${data_set}/sc.tcl"
+	run_name	"${data_set}.${interferometer}.${sft_kind}.${batch}.geo"
+        control_info_dir   "${storage_dir}/sfts_control/${run_name}/"
 	config_dir "$control_info_dir/in/"
 	err_dir "$control_info_dir/err/"
 	dag_file "$control_info_dir/dag"
 	submit_file "$control_info_dir/submit"
 	generation_log_file "$control_info_dir/generation.log"
-	log_file "/usr1/volodya/${data_set}.${interferometer}.${sft_kind}.log"
-	sfts_dir "$storage_dir/SFT-3/${data_set}.${interferometer}.${sft_kind}.geo/"
-	filename_regexp {(/archive/.*)$}
+	log_file "/usr1/volodya/${run_name}.log"
+	sfts_dir "$storage_dir/SFT-3/${run_name}/"
+	filename_regexp {(/cluster/.*)$}
 	frame_start_length_regexp {-([0-9]*)-([0-9]*).gwf}
         timebase 1800
         overlap 900
 	seg_start 0
 	seg_step    20499
+	first_gps 825729607
 	non_veto_set {}
-	veto_set {ADC_OVERFLOW OUT_OF_LOCK NO_DATA NO_RDS OUTSIDE_S4 CALIB_LINE_V01 PRELOCKLOSS_10 }
+	veto_set {}
         } {
         global $var
         set $var $value
@@ -40,7 +43,7 @@ foreach {var value} $argv {
         }
 
 # Expand variables that depend on other variables
-foreach {var} {frame_library control_info_dir 
+foreach {var} {run_name frame_library control_info_dir 
 	config_dir err_dir dag_file submit_file
 	sfts_dir sc_files log_file channel
 	generation_log_file } {

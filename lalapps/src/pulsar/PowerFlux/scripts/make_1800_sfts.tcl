@@ -135,6 +135,7 @@ foreach value $non_veto_set {
 	}
 
 set SEGMENTS_FILE [open $segments_file "r"]
+set DAG_FILE [open $dag_file "w"]
 set i 0
 set i_possible 0
 set END_PREVIOUS 0
@@ -185,6 +186,8 @@ while { ! [eof $SEGMENTS_FILE] } {
 			}
 
 		incr i_possible
+		
+		if { $end < $first_gps } { continue }
 
                 set FRAME_FILES [find_data $start $end]
 		if { $FRAME_FILES == "" } { 
@@ -197,10 +200,15 @@ while { ! [eof $SEGMENTS_FILE] } {
                 puts $FILE [subst -nocommands -nobackslashes $make_sft_config]
                 puts $FILE [join [lsort -unique -dictionary $FRAME_FILES] "\n"]
                 close $FILE
+
+		puts $DAG_FILE "JOB A$i submit"
+		puts $DAG_FILE "VARS A$i PID=\"$i\""
+
                 incr i
                 }
         }
 close $SEGMENTS_FILE
+close $DAG_FILE
 puts $LOG "Generated $i input files (out of possible $i_possible)"
 puts stderr "Generated $i input files (out of possible $i_possible)"
 
@@ -217,10 +225,4 @@ queue
 } ]
 close $SUBMIT_FILE
 
-set DAG_FILE [open $dag_file "w"]
-for { set k 0 } { $k < $i } { incr k } {
-	puts $DAG_FILE "JOB A$k submit"
-	puts $DAG_FILE "VARS A$k PID=\"$k\""
-	}
-close $DAG_FILE
 
