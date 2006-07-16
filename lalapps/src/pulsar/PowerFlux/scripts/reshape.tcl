@@ -18,7 +18,7 @@ set FIELDS {
 	"^max_high_ul:"	max_high_ul 3  		{1 4}		4
 	"^max_circ_ul:"	max_circ_ul 3  		{1 4}		4
 	"\\(TMedian\\):"	TMedian 0 	{4 4}		1
-	"median:"	median 0 		{2 2}		1
+	"median:"	median 0 		{2 3}		2
 	"qlines:"	qlines 0 		{2 2}		1
 	"qmost :"	qmost 0			{3 3}		1
 	"^side_cut"	side_cut 0		{2 2}		1
