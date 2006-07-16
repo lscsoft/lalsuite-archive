@@ -3,10 +3,12 @@
 set PARAMS {
 	IFO "H1"
 	DETECTOR "H"
-	RUN_NAME "fake_random.1"
+	RUN_NAME "fake_random.12"
 	ROOT_DIR "/archive/home/volodya/runs/$RUN_NAME/"
 	CONF_DIR "$ROOT_DIR/in/"
 	OUTPUT_DIR "$ROOT_DIR/output/"
+	STORAGE_NODE_LIST {5 6 7 8 9 10 11 12 13 14 15 16 17 18}
+	SFT_OUTPUT_DIR_TEMPLATE "/data/node\$nodenum/volodya/$RUN_NAME/"
 	ERR_DIR "$ROOT_DIR/err/"
 	STATS_DIR "$ROOT_DIR/stats"
 	STATS_SUFFIX ".$IFO"
@@ -19,6 +21,7 @@ set PARAMS {
 	RA_RANGE { 0 6.283 }
 	PSI_RANGE { 0 3.1415 }
 	PHI_RANGE { 0 3.1415 }
+	IOTA_RANGE {0 3.1415 }
 	SPINDOWN_LOG10_RANGE { -1.5 0}
 	SPINDOWN_MAX 2e-9
 	POWER_LOG10_RANGE { -1.5 0}

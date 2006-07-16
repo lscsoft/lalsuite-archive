@@ -110,7 +110,7 @@ close $FILE
 }
 	
 
-foreach filename [glob $noiseGlob] {
+foreach filename [lsort -dictionary [glob $noiseGlob]] {
 	set bin_start [expr round(floor($band_start-$band_extra)*1800)]
 	set nbins [expr round(ceil($band_start+$band+2*$band_extra)*1800)-$bin_start]
 	set sft_name ${outputDir}/inj.[file tail ${filename}]
@@ -119,7 +119,7 @@ foreach filename [glob $noiseGlob] {
 		set "noise_$var" $value
 		}
 
-	set tmpSFT	"/tmp/test${pid}.sft"
+	set tmpSFT	"${outputDir}/tmp.[file tail ${filename}]"
 	exec $makefakedata \
 		--fmin=[expr $bin_start/1800.0] \
 		--Band=[expr $nbins/1800.0] \
@@ -130,8 +130,8 @@ foreach filename [glob $noiseGlob] {
 		--ephemDir=$ephemDir \
 		--refTime=$spindown_gps_start \
 		--Tsft=1800 \
-		--longitude=$dec \
-		--latitude=$ra \
+		--longitude=$ra \
+		--latitude=$dec \
 		--psi=$psi \
 		--phi0=$phi \
 		--f1dot=$spindown \

@@ -3,11 +3,30 @@
 source "sft_injection_params.tcl"
 
 foreach $PARAMS_FORMAT $PARAMS {
+	global $var
 	set $var [subst -nocommands $value]
 	}
 
-puts stderr "ROOT_DIR=$ROOT_DIR"
+global DELETE
+set DELETE 0
 
+foreach {var value} $argv {
+	global $var
+	set $var $value
+	}
+
+puts stderr "ROOT_DIR=$ROOT_DIR"
+global N_NODES 
+set N_NODES [llength $STORAGE_NODE_LIST]
+puts stderr "$N_NODES storage nodes found"
+
+if { $DELETE } {
+	file delete -force $ROOT_DIR
+	file delete -force $CONF_DIR
+	file delete -force $OUTPUT_DIR
+	file delete -force $ERR_DIR
+	file delete -force $LOG_FILE
+	}
 file mkdir $ROOT_DIR
 file mkdir $CONF_DIR $OUTPUT_DIR $ERR_DIR
 	
@@ -21,24 +40,24 @@ set first_bin [expr round($FREQ_START*1800)]
 set i 0
 set k 0
 set PARAMS_FILE [open "$ROOT_DIR/params.txt" "w"]
-set PARAMS_LIST {i ra dec psi phi f0 spindown aPlus aCross band_start}
+set PARAMS_LIST {i h0 ra dec psi phi iota f0 spindown aPlus aCross band_start INJ_SFT_DIR}
 puts $PARAMS_FILE [join $PARAMS_LIST "\t"]
 set DAG_FILE [open "$ROOT_DIR/dag" "w"]
+set node_idx 0
 while { 1 }  {
 	set dec [sample $DEC_RANGE]
 	set ra [sample $RA_RANGE]
 	set psi [sample $PSI_RANGE]
 	set phi [sample $PHI_RANGE]
+	set iota [sample $IOTA_RANGE]
 	set freq [sample [list [expr $first_bin/1800.0] [expr ($first_bin+450)/1800.0]]]
-	set strain [expr exp([sample $POWER_LOG10_RANGE] * log(10.0)) * $POWER_MAX]
+	set h0  [expr exp([sample $POWER_LOG10_RANGE] * log(10.0)) * $POWER_MAX]
         set spindown [expr exp([sample $SPINDOWN_LOG10_RANGE] * log(10.0)) * $SPINDOWN_MAX]
-	set aPlus $strain
-	set aCross 0
+	set aPlus [expr $h0 * (1.0+cos($iota)*cos($iota))/2.0]
+	set aCross [expr $h0 * cos($iota)]
 	set f0 $freq
 	set band_start [expr $first_bin/1800.0]
 
-	set INJ_SFT_DIR "${ROOT_DIR}/sfts/$i"
-	file mkdir ${INJ_SFT_DIR}
 	#
 	# And old, but proven method of sampling arbitrary distribution
 	# Note that density_max should better be precise, or very close to precise
@@ -46,6 +65,13 @@ while { 1 }  {
 	set density_x [sample [list 0 $INJECTION_DENSITY_MAX]]
 	set density_cut [eval expr $INJECTION_DENSITY]
 	if { $density_x > $density_cut } continue
+
+	set nodenum [lindex $STORAGE_NODE_LIST $node_idx]
+	set INJ_SFT_DIR [subst -nocommands "$SFT_OUTPUT_DIR_TEMPLATE/$i"]
+	if { $DELETE } {
+		file delete -force ${INJ_SFT_DIR}
+		}
+	file mkdir ${INJ_SFT_DIR}
 
 	set L [list ]
 	foreach var $PARAMS_LIST {
@@ -76,6 +102,10 @@ while { 1 }  {
 		set first_bin [expr round($first_bin+$FREQ_STEP*1800)]
 		if { $first_bin >= $FREQ_STOP*1800 } { break }
 		set k 0
+		}
+	incr node_idx
+	if { $node_idx >= $N_NODES } { 
+		set node_idx 0
 		}
 	}
 close $PARAMS_FILE
