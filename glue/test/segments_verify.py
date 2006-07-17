@@ -308,6 +308,11 @@ class test_segmentlist(unittest.TestCase):
 			b = segmentlist(a[:]).coalesce()
 			try:
 				self.assertEqual(True, iscoalesced(b))
+				for seg in a:
+					self.assertEqual(True, seg in b)
+				for seg in a:
+					b -= segmentlist([seg])
+				self.assertEqual(b, segmentlist([]))
 			except AssertionError, e:
 				raise AssertionError, str(e) + "\na = " + str(a) + "\nb = " + str(b)
 
