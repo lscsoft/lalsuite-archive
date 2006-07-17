@@ -557,15 +557,18 @@ class segmentlist(list):
 		"""
 		Sort the elements of a list into ascending order, and merge
 		continuous segments into single segments.  This operation
-		is O(n log n), and is dominated by the sort.
+		is O(n log n).
 		"""
 		self.sort()
-		try:
-			for i in xrange(len(self) - 1):
-				while self[i].continuous(self[i+1]):
-					self[i:i+2] = [ self[i] | self[i+1] ]
-		except IndexError:
-			pass
+		i = 0
+		while i < len(self) - 1:
+			j = i + 1
+			while j < len(self) and self[i].continuous(self[j]):
+				self[i] |= self[j]
+				j += 1
+			if j > i + 1:
+				del self[i + 1 : j]
+			i += 1
 		return self
 
 	def protract(self, x):
