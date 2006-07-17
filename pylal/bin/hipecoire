@@ -85,7 +85,7 @@ def coire(data_type,input,ifos,trigs=None):
     output += "_UNCLUST" 
   
   if opts.stat_threshold:
-    output += "_THRESH_" + opts.stat_threshold
+    output += "_THRESH_" + str(opts.stat_threshold)
   if data_type == "inj":
     missed = output + "_MISSED.xml"
     output += "_FOUND"
@@ -106,8 +106,8 @@ def coire(data_type,input,ifos,trigs=None):
   if opts.cluster_time:
     command += " --coinc-stat " + opts.coinc_stat +\
                " --cluster-time " + str(1000 * opts.cluster_time)
-    if opts.stat_thresh:
-     command += " --stat-threshold " + opts.stat_thresh
+    if opts.stat_threshold:
+     command += " --stat-threshold " + str(opts.stat_threshold)
 
   return command,output
 
@@ -274,7 +274,7 @@ parser.add_option("-i","--coinc-stat",action="store",type="string",\
     default="effective_snrsq",metavar=" COINC_STAT", \
     help="cluster algorithm used in coire (default = effective_snrsq)")
     
-parser.add_option("-I","--stat-thresh",action="store",type="float",\
+parser.add_option("-I","--stat-threshold",action="store",type="float",\
     default=None,metavar=" STAT_THRESH", \
     help="statistic threshold used in coire (default = None)")
 
