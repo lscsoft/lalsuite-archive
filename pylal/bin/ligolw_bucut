@@ -361,8 +361,8 @@ def remove_coincidences(contents):
 				del contents.snglbursttable[i]
 			else:
 				i += 1
-		contents.coinctable.rows = []
-		contents.coincmaptable.rows = []
+		del contents.coinctable[:]
+		del contents.coincmaptable[:]
 		contents.coinceventids = []
 
 
