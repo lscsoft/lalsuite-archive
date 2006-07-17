@@ -566,8 +566,7 @@ class segmentlist(list):
 			while j < len(self) and self[i].continuous(self[j]):
 				self[i] |= self[j]
 				j += 1
-			if j > i + 1:
-				del self[i + 1 : j]
+			del self[i + 1 : j]
 			i += 1
 		return self
 
