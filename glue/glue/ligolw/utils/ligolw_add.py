@@ -129,7 +129,7 @@ def merge_elements(elem1, elem2):
 		map(elem1.appendChild, elem2.childNodes)
 	elif elem1.tagName == ligolw.Table.tagName:
 		# copy rows
-		elem1.rows.extend(elem2.rows)
+		map(elem1.append, elem2)
 	else:
 		raise ligolw.ElementError, "merge_elements(): can't merge %s elements." % elem1.tagName
 	if elem2.parentNode:

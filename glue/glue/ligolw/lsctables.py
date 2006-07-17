@@ -292,7 +292,7 @@ def NewIDs(elem, ilwditers):
 				continue
 			if not len(keymap):
 				continue
-			for row in table_elem.rows:
+			for row in table_elem:
 				try:
 					row._set_key(keymap[row._get_key()])
 				except KeyError:
@@ -638,14 +638,14 @@ class LfnTable(LSCTableUnique):
 		Convert ilwd:char strings into object references.
 		"""
 		tables = table.getTablesByName(elem, ProcessTable.tableName)
-		for row in self.rows:
+		for row in self:
 			row.process_id = FindILWD(tables, row.process_id)
 
 	def deReference(self):
 		"""
 		Resolve object references back to ilwd:char strings.
 		"""
-		for row in self.rows:
+		for row in self:
 			row.process_id = row.process_id._get_key()
 
 class Lfn(LSCTableRow):
@@ -735,14 +735,14 @@ class ProcessParamsTable(LSCTableMulti):
 		Convert ilwd:char strings into object references.
 		"""
 		tables = table.getTablesByName(elem, ProcessTable.tableName)
-		for row in self.rows:
+		for row in self:
 			row.process_id = FindILWD(tables, row.process_id)
 
 	def deReference(self):
 		"""
 		Resolve object references back to ilwd:char strings.
 		"""
-		for row in self.rows:
+		for row in self:
 			row.process_id = row.process_id._get_key()
 
 class ProcessParams(LSCTableRow):
@@ -815,14 +815,14 @@ class SearchSummaryTable(LSCTableMulti):
 		Convert ilwd:char strings into object references.
 		"""
 		tables = table.getTablesByName(elem, ProcessTable.tableName)
-		for row in self.rows:
+		for row in self:
 			row.process_id = FindILWD(tables, row.process_id)
 
 	def deReference(self):
 		"""
 		Resolve object references back to ilwd:char strings.
 		"""
-		for row in self.rows:
+		for row in self:
 			row.process_id = row.process_id._get_key()
 
 	def get_inlist(self):
@@ -929,14 +929,14 @@ class SearchSummVarsTable(LSCTableMulti):
 		Convert ilwd:char strings into object references.
 		"""
 		tables = table.getTablesByName(elem, ProcessTable.tableName)
-		for row in self.rows:
+		for row in self:
 			row.process_id = FindILWD(tables, row.process_id)
 
 	def deReference(self):
 		"""
 		Resolve object references back to ilwd:char strings.
 		"""
-		for row in self.rows:
+		for row in self:
 			row.process_id = row.process_id._get_key()
 
 class SearchSummVars(LSCTableRow):
@@ -1018,14 +1018,14 @@ class SnglBurstTable(LSCTableUnique):
 		Convert ilwd:char strings into object references.
 		"""
 		tables = table.getTablesByName(elem, ProcessTable.tableName)
-		for row in self.rows:
+		for row in self:
 			row.process_id = FindILWD(tables, row.process_id)
 
 	def deReference(self):
 		"""
 		Resolve object references back to ilwd:char strings.
 		"""
-		for row in self.rows:
+		for row in self:
 			row.process_id = row.process_id._get_key()
 
 class SnglBurst(LSCTableRow):
@@ -1141,14 +1141,14 @@ class SnglInspiralTable(LSCTableUnique):
 		Convert ilwd:char strings into object references.
 		"""
 		tables = table.getTablesByName(elem, ProcessTable.tableName)
-		for row in self.rows:
+		for row in self:
 			row.process_id = FindILWD(tables, row.process_id)
 
 	def deReference(self):
 		"""
 		Resolve object references back to ilwd:char strings.
 		"""
-		for row in self.rows:
+		for row in self:
 			row.process_id = row.process_id._get_key()
 
 	def get_column(self,column):
@@ -1177,7 +1177,7 @@ class SnglInspiralTable(LSCTableUnique):
 		
 	def ifocut(self,ifo):
 		ifoTrigs = table.new_from_template(self)
-		for row in self.rows:
+		for row in self:
 			if row.ifo == ifo:
 				ifoTrigs.append(row)
 		return ifoTrigs
@@ -1185,7 +1185,7 @@ class SnglInspiralTable(LSCTableUnique):
 	def veto(self,seglist):
 		vetoed = table.new_from_template(self)
 		keep = table.new_from_template(self)
-		for row in self.rows:
+		for row in self:
 			time = row.get_end()
 			if time in seglist:
 				vetoed.append(event)
@@ -1200,7 +1200,7 @@ class SnglInspiralTable(LSCTableUnique):
 		@param slide_num: the slide number to recover (contained in the event_id)
 		"""
 		slideTrigs = table.new_from_template(self)
-		for row in self.rows:
+		for row in self:
 			if ( (row.event_id % 1000000000) / 100000 ) == slide_num:
 				slideTrigs.append(row)
      
@@ -1273,14 +1273,14 @@ class SnglRingDownTable(LSCTableUnique):
 		Convert ilwd:char strings into object references.
 		"""
 		tables = table.getTablesByName(elem, ProcessTable.tableName)
-		for row in self.rows:
+		for row in self:
 			row.process_id = FindILWD(tables, row.process_id)
 
 	def deReference(self):
 		"""
 		Resolve object references back to ilwd:char strings.
 		"""
-		for row in self.rows:
+		for row in self:
 			row.process_id = row.process_id._get_key()
 
 class SnglRingDown(LSCTableRow):
@@ -1356,14 +1356,14 @@ class MultiInspiralTable(LSCTableMulti):
 		Convert ilwd:char strings into object references.
 		"""
 		tables = table.getTablesByName(elem, ProcessTable.tableName)
-		for row in self.rows:
+		for row in self:
 			row.process_id = FindILWD(tables, row.process_id)
 
 	def deReference(self):
 		"""
 		Resolve object references back to ilwd:char strings.
 		"""
-		for row in self.rows:
+		for row in self:
 			row.process_id = row.process_id._get_key()
 
 class MultiInspiral(LSCTableRow):
@@ -1451,14 +1451,14 @@ class SimInspiralTable(LSCTableUnique):
 		Convert ilwd:char strings into object references.
 		"""
 		tables = table.getTablesByName(elem, ProcessTable.tableName)
-		for row in self.rows:
+		for row in self:
 			row.process_id = FindILWD(tables, row.process_id)
 
 	def deReference(self):
 		"""
 		Resolve object references back to ilwd:char strings.
 		"""
-		for row in self.rows:
+		for row in self:
 			row.process_id = row.process_id._get_key()
 
 	def get_column(self,column):
@@ -1475,7 +1475,7 @@ class SimInspiralTable(LSCTableUnique):
 
 	def veto(self,seglist,site=None):
 		keep = table.new_from_template(self)
-		for row in self.rows:
+		for row in self:
 			time = row.get_end(site)
 			if time not in seglist:
 				keep.append(row)
@@ -1547,14 +1547,14 @@ class SimBurstTable(LSCTableUnique):
 		Convert ilwd:char strings into object references.
 		"""
 		tables = table.getTablesByName(elem, ProcessTable.tableName)
-		for row in self.rows:
+		for row in self:
 			row.process_id = FindILWD(tables, row.process_id)
 
 	def deReference(self):
 		"""
 		Resolve object references back to ilwd:char strings.
 		"""
-		for row in self.rows:
+		for row in self:
 			row.process_id = row.process_id._get_key()
 
 class SimBurst(LSCTableRow):
@@ -1694,14 +1694,14 @@ class SimRingDownTable(LSCTableUnique):
 		Convert ilwd:char strings into object references.
 		"""
 		tables = table.getTablesByName(elem, ProcessTable.tableName)
-		for row in self.rows:
+		for row in self:
 			row.process_id = FindILWD(tables, row.process_id)
 
 	def deReference(self):
 		"""
 		Resolve object references back to ilwd:char strings.
 		"""
-		for row in self.rows:
+		for row in self:
 			row.process_id = row.process_id._get_key()
 
 class SimRingDown(LSCTableRow):
@@ -1751,14 +1751,14 @@ class SummValueTable(LSCTableMulti):
 		Convert ilwd:char strings into object references.
 		"""
 		tables = table.getTablesByName(elem, ProcessTable.tableName)
-		for row in self.rows:
+		for row in self:
 			row.process_id = FindILWD(tables, row.process_id)
 
 	def deReference(self):
 		"""
 		Resolve object references back to ilwd:char strings.
 		"""
-		for row in self.rows:
+		for row in self:
 			row.process_id = row.process_id._get_key()
 
 class SummValue(LSCTableRow):
@@ -1843,14 +1843,14 @@ class StochasticTable(LSCTableMulti):
 		Convert ilwd:char strings into object references.
 		"""
 		tables = table.getTablesByName(elem, ProcessTable.tableName)
-		for row in self.rows:
+		for row in self:
 			row.process_id = FindILWD(tables, row.process_id)
 
 	def deReference(self):
 		"""
 		Resolve object references back to ilwd:char strings.
 		"""
-		for row in self.rows:
+		for row in self:
 			row.process_id = row.process_id._get_key()
 
 class Stochastic(LSCTableRow):
@@ -1899,14 +1899,14 @@ class StochSummTable(LSCTableMulti):
 		Convert ilwd:char strings into object references.
 		"""
 		tables = table.getTablesByName(elem, ProcessTable.tableName)
-		for row in self.rows:
+		for row in self:
 			row.process_id = FindILWD(tables, row.process_id)
 
 	def deReference(self):
 		"""
 		Resolve object references back to ilwd:char strings.
 		"""
-		for row in self.rows:
+		for row in self:
 			row.process_id = row.process_id._get_key()
 
 class StochSumm(LSCTableRow):
@@ -2022,14 +2022,14 @@ class FilterTable(LSCTableMulti):
 		Convert ilwd:char strings into object references.
 		"""
 		tables = table.getTablesByName(elem, ProcessTable.tableName)
-		for row in self.rows:
+		for row in self:
 			row.process_id = FindILWD(tables, row.process_id)
 
 	def deReference(self):
 		"""
 		Resolve object references back to ilwd:char strings.
 		"""
-		for row in self.rows:
+		for row in self:
 			row.process_id = row.process_id._get_key()
 
 class Filter(LSCTableRow):
@@ -2075,14 +2075,14 @@ class SegmentTable(LSCTableUnique):
 		Convert ilwd:char strings into object references.
 		"""
 		tables = table.getTablesByName(elem, ProcessTable.tableName)
-		for row in self.rows:
+		for row in self:
 			row.process_id = FindILWD(tables, row.process_id)
 
 	def deReference(self):
 		"""
 		Resolve object references back to ilwd:char strings.
 		"""
-		for row in self.rows:
+		for row in self:
 			row.process_id = row.process_id._get_key()
 
 class Segment(LSCTableRow):
@@ -2170,7 +2170,7 @@ class SegmentDefMapTable(LSCTableUnique):
 		proctabs = table.getTablesByName(elem, ProcessTable.tableName)
 		segtabs = table.getTablesByName(elem, SegmentTable.tableName)
 		deftabs = table.getTablesByName(elem, SegmentDefTable.tableName)
-		for row in self.rows:
+		for row in self:
 			row.process_id = FindILWD(proctabs, row.process_id)
 			row.segment_id = FindILWD(segtabs, row.segment_id)
 			row.segment_def_id = FindILWD(deftabs, row.segment_def_id)
@@ -2179,7 +2179,7 @@ class SegmentDefMapTable(LSCTableUnique):
 		"""
 		Resolve object references back to ilwd:char strings.
 		"""
-		for row in self.rows:
+		for row in self:
 			row.process_id = row.process_id._get_key()
 			row.segment_id = row.segment_id._get_key()
 			row.segment_def_id = row.segment_def_id._get_key()
@@ -2232,14 +2232,14 @@ class SegmentDefTable(LSCTableUnique):
 		Convert ilwd:char strings into object references.
 		"""
 		tables = table.getTablesByName(elem, ProcessTable.tableName)
-		for row in self.rows:
+		for row in self:
 			row.process_id = FindILWD(tables, row.process_id)
 
 	def deReference(self):
 		"""
 		Resolve object references back to ilwd:char strings.
 		"""
-		for row in self.rows:
+		for row in self:
 			row.process_id = row.process_id._get_key()
 
 class SegmentDef(LSCTableRow):
@@ -2279,14 +2279,14 @@ class TimeSlideTable(LSCTableMulti):
 		Convert ilwd:char strings into object references.
 		"""
 		tables = table.getTablesByName(elem, ProcessTable.tableName)
-		for row in self.rows:
+		for row in self:
 			row.process_id = FindILWD(tables, row.process_id)
 
 	def deReference(self):
 		"""
 		Resolve object references back to ilwd:char strings.
 		"""
-		for row in self.rows:
+		for row in self:
 			row.process_id = row.process_id._get_key()
 
 	def get_offset_dict(self, id):
@@ -2388,7 +2388,7 @@ class CoincTable(LSCTableUnique):
 		proctab = table.getTablesByName(elem, ProcessTable.tableName)
 		slidetab = table.getTablesByName(elem, TimeSlideTable.tableName)
 		deftab = table.getTablesByName(elem, CoincDefTable.tableName)
-		for row in self.rows:
+		for row in self:
 			row.process_id = FindILWD(proctab, row.process_id)
 			row.time_slide_id = FindILWD(slidetab, row.time_slide_id)
 			row.coinc_def_id = FindILWD(deftab, row.coinc_def_id)
@@ -2397,7 +2397,7 @@ class CoincTable(LSCTableUnique):
 		"""
 		Resolve object references back to ilwd:char strings.
 		"""
-		for row in self.rows:
+		for row in self:
 			row.process_id = row.process_id._get_key()
 			row.time_slide_id = row.time_slide_id[0]._get_key()
 			row.coinc_def_id = row.coinc_def_id[0]._get_key()
@@ -2462,7 +2462,7 @@ class CoincMapTable(LSCTableUnique):
 		eventtab = []
 		for tablename in CoincEventMapSourceNames:
 			eventtab.extend(table.getTablesByName(elem, tablename))
-		for row in self.rows:
+		for row in self:
 			row.coinc_event_id = FindILWD(coinctab, row.coinc_event_id)
 			row.event_id = FindILWD(eventtab, row.event_id)
 
@@ -2470,7 +2470,7 @@ class CoincMapTable(LSCTableUnique):
 		"""
 		Resolve object references back to ilwd:char strings.
 		"""
-		for row in self.rows:
+		for row in self:
 			row.coinc_event_id = row.coinc_event_id._get_key()
 			row.event_id = row.event_id._get_key()
 
@@ -2507,14 +2507,14 @@ class LIGOLWMonTable(LSCTableUnique):
 		Convert ilwd:char strings into object references.
 		"""
 		tables = table.getTablesByName(elem, ProcessTable.tableName)
-		for row in self.rows:
+		for row in self:
 			row.process_id = FindILWD(tables, row.process_id)
 
 	def deReference(self):
 		"""
 		Resolve object references back to ilwd:char strings.
 		"""
-		for row in self.rows:
+		for row in self:
 			row.process_id = row.process_id._get_key()
 
 class LIGOLWMon(LSCTableRow):

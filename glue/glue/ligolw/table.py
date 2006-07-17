@@ -185,7 +185,7 @@ class _ColumnIter(object):
 	An iterator class for looping through the values in a column.
 	"""
 	def __init__(self, column):
-		self.rowiter = iter(column.parentNode.rows)
+		self.rowiter = iter(column.parentNode)
 		self.attr = column.asattribute
 
 	def next(self):
@@ -204,19 +204,19 @@ class Column(ligolw.Column):
 		"""
 		Return the number of values in this column.
 		"""
-		return len(self.parentNode.rows)
+		return len(self.parentNode)
 
 	def __getitem__(self, i):
 		"""
 		Retrieve the value in this column in row i.
 		"""
-		return getattr(self.parentNode.rows[i], self.asattribute)
+		return getattr(self.parentNode[i], self.asattribute)
 
 	def __setitem__(self, i, value):
 		"""
 		Set the value in this column in row i.
 		"""
-		setattr(self.parentNode.rows[i], self.asattribute, value)
+		setattr(self.parentNode[i], self.asattribute, value)
 
 	def __iter__(self):
 		"""
@@ -230,8 +230,8 @@ class Column(ligolw.Column):
 		Return the number of rows with this column equal to value.
 		"""
 		n = 0
-		for r in self.parentNode.rows:
-			if getattr(r, self.asattribute) == value:
+		for row in self.parentNode:
+			if getattr(row, self.asattribute) == value:
 				n += 1
 		return n
 
@@ -240,8 +240,8 @@ class Column(ligolw.Column):
 		Return the smallest index of the row(s) with this column equal
 		to value.
 		"""
-		for i in range(len(self.parentNode.rows)):
-			if getattr(self.parentNode.rows[i], self.asattribute) == value:
+		for i in xrange(len(self.parentNode)):
+			if getattr(self.parentNode[i], self.asattribute) == value:
 				return i
 		raise ValueError, "%s not found" % repr(val)
 
@@ -440,9 +440,9 @@ class Table(ligolw.Table):
 		Delete all rows for which func(row) evaluates to False.
 		"""
 		i = 0
-		while i < len(self.rows):
-			if not func(self.rows[i]):
-				del self.rows[i]
+		while i < len(self):
+			if not func(self[i]):
+				del self[i]
 			else:
 				i += 1
 		return self
