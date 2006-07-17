@@ -168,7 +168,7 @@ def new_from_template(template):
 	new.childNodes = map(copy.copy, template.childNodes)
 	for child in new.childNodes:
 		child.parentNode = new
-	new.rows = []
+	del new[:]
 	return new
 
 
@@ -365,7 +365,7 @@ class TableRow(object):
 	pass
 
 
-class Table(ligolw.Table):
+class Table(ligolw.Table, list):
 	"""
 	High-level Table element that knows about its columns and rows.
 	"""
@@ -380,71 +380,18 @@ class Table(ligolw.Table):
 		ligolw.Table.__init__(self, *attrs)
 		self.columnnames = []
 		self.columntypes = []
-		self.rows = []
 
 	#
 	# Sequence methods
 	#
 
-	def __len__(self):
-		"""
-		Return the number of rows in this table.
-		"""
-		return len(self.rows)
-
-	def __getitem__(self, key):
-		"""
-		Retrieve row(s).
-		"""
-		return self.rows[key]
-
-	def __setitem__(self, key, value):
-		"""
-		Set row(s).
-		"""
-		self.rows[key] = value
-
-	def __delitem__(self, key):
-		"""
-		Remove row(s).
-		"""
-		del self.rows[key]
-
-	def __iter__(self):
-		"""
-		Return an iterator object for iterating over rows in this
-		table.
-		"""
-		return iter(self.rows)
-
-	def append(self, row):
-		"""
-		Append row to the list of rows for this table.
-		"""
-		self.rows.append(row)
-
-	def extend(self, rows):
-		"""
-		Add a list of rows to the end of the table.
-		"""
-		self.rows.extend(rows)
-
-	def pop(self, key):
-		return self.rows.pop(key)
-
-	def sort(self, *args):
-		self.rows.sort(*args)
-
 	def filterRows(self, func):
 		"""
 		Delete all rows for which func(row) evaluates to False.
 		"""
-		i = 0
-		while i < len(self):
+		for i in xrange(len(self) - 1, -1, -1):
 			if not func(self[i]):
 				del self[i]
-			else:
-				i += 1
 		return self
 
 
@@ -529,7 +476,7 @@ class Table(ligolw.Table):
 		on this element to promote garbage collection.
 		"""
 		ligolw.Table.unlink(self)
-		self.rows = []
+		del self[:]
 
 
 #
