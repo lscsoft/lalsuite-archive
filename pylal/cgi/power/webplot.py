@@ -145,7 +145,7 @@ def gettriggers(plotdesc):
 
 	# cluster
 	if plotdesc.cluster:
-		ligolw_bucluster.ClusterSnglBurstTable(bursttable.rows, SnglBurstUtils.CompareSnglBurstByPeakTimeAndFreq, ligolw_bucluster.SnglBurstCluster, SnglBurstUtils.CompareSnglBurstByPeakTime)
+		ligolw_bucluster.ClusterSnglBurstTable(bursttable, SnglBurstUtils.CompareSnglBurstByPeakTimeAndFreq, ligolw_bucluster.SnglBurstCluster, SnglBurstUtils.CompareSnglBurstByPeakTime)
 
 	# remove triggers and injections that lie outside the required segment
 	bursttable.filterRows(lambda row: row.get_peak() in plotdesc.trig_segment())

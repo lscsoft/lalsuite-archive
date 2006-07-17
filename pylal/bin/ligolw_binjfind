@@ -142,7 +142,7 @@ class DocContents(object):
 		self.tisi_id = llwapp.get_time_slide_id(xmldoc, time_slide)
 
 		# sort triggers by start time
-		self.snglbursttable.rows.sort(lambda a, b: cmp(a.start_time, b.start_time))
+		self.snglbursttable.sort(lambda a, b: cmp(a.start_time, b.start_time))
 		self.starttimes = self.snglbursttable.getColumnByName("start_time")
 
 	def triggers_near_starttime(self, t, dt = 2.0):
@@ -150,14 +150,14 @@ class DocContents(object):
 		Return a list of the triggers with start times within dt of
 		t.
 		"""
-		return self.snglbursttable.rows[bisect.bisect_left(self.starttimes, t - dt):bisect.bisect_right(self.starttimes, t + dt)]
+		return self.snglbursttable[bisect.bisect_left(self.starttimes, t - dt):bisect.bisect_right(self.starttimes, t + dt)]
 
 	def sort_triggers_by_id(self):
 		"""
 		Sort the sngl_burst table's rows by ID (tidy-up document
 		for output).
 		"""
-		self.snglbursttable.rows.sort(lambda a, b: cmp(lsctables.ILWDID(a.event_id), lsctables.ILWDID(b.event_id)))
+		self.snglbursttable.sort(lambda a, b: cmp(lsctables.ILWDID(a.event_id), lsctables.ILWDID(b.event_id)))
 
 	def new_coinc(self, process, coinc_def_id):
 		"""
@@ -315,7 +315,7 @@ def ligolw_binjfind(xmldoc, **kwargs):
 	if kwargs["verbose"]:
 		print >>sys.stderr, "constructing injection-burst coincidences..."
 	injections = []	# list of burst events that are injections
-	for sim in contents.simbursttable.rows:
+	for sim in contents.simbursttable:
 		matches = find_sngl_burst_matches(contents, sim, kwargs["comparefunc"])
 		if matches:
 			add_sim_burst_sngl_burst_coinc(contents, process, sim, matches)
@@ -324,7 +324,7 @@ def ligolw_binjfind(xmldoc, **kwargs):
 		if kwargs["verbose"]:
 			print >>sys.stderr, "constructing injection-coinc coincidences..."
 		cut_noninjection_coincs(contents, injections)
-		for sim in contents.simbursttable.rows:
+		for sim in contents.simbursttable:
 			matches = find_coinc_matches(contents, sim, kwargs["comparefunc"])
 			if matches:
 				add_sim_burst_coinc_coinc(contents, process, sim, matches)

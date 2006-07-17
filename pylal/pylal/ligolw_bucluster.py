@@ -163,7 +163,7 @@ def ligolw_bucluster(doc, **kwargs):
 	# Cluster
 	if kwargs["verbose"]:
 		print >>sys.stderr, "clustering..."
-	ClusterSnglBurstTable(snglbursttable.rows, kwargs["testfunc"], kwargs["clusterfunc"], kwargs["bailoutfunc"])
+	ClusterSnglBurstTable(snglbursttable, kwargs["testfunc"], kwargs["clusterfunc"], kwargs["bailoutfunc"])
 
 	# Add search summary information
 	llwapp.append_search_summary(doc, process, inseg = inseg, outseg = outseg, nevents = len(snglbursttable))

@@ -109,7 +109,7 @@ def column_value(table, column):
 	same value, and return that value.
 	"""
 	if options.program:
-		vals = [getattr(row, column) for row in table.rows if row.process_id.program == options.program]
+		vals = [getattr(row, column) for row in table if row.process_id.program == options.program]
 	else:
 		vals = table.getColumnByName(column)
 	value = vals[0]

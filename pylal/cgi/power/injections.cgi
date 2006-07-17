@@ -32,9 +32,9 @@ def makeplot(desc, table):
 	axes = fig.gca()
 
 	if desc.instrument[:2] in ["H1", "H2"]:
-		time = numarray.asarray([float(row.get_h_peak()) for row in table.rows])
+		time = numarray.asarray([float(row.get_h_peak()) for row in table])
 	elif desc.instrument[:2] in ["L1"]:
-		time = numarray.asarray([float(row.get_l_peak()) for row in table.rows])
+		time = numarray.asarray([float(row.get_l_peak()) for row in table])
 
 	freq = table.getColumnByName("freq").asarray()
 
