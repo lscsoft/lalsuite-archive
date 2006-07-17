@@ -26,8 +26,7 @@ def readFiles(fList):
     # read in SummValueTable
     ligolw.make_parser(ligolw.PartialLIGOLWContentHandler(doc, \
         isSummValue)).parse(file(thisFile))
-    rows = doc.childNodes[0].rows
-    for row in rows:
+    for row in doc.childNodes[0]:
       if row.name == 'inspiral_effective_distance':
         if not output.has_key(row.ifo):
           output[row.ifo] = lsctables.New(lsctables.SummValueTable)

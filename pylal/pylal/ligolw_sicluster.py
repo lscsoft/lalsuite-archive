@@ -169,14 +169,14 @@ def ligolw_sicluster(doc, **kwargs):
     if kwargs["verbose"]:
       print >>sys.stderr, "discarding triggers with snr < %f..." % \
         kwargs["snr_threshold"]
-      for trigger in snglinspiraltable.rows:
+      for trigger in snglinspiraltable:
         if trigger.snr < kwargs["snr_threshold"]:
           del trigger
 
   # Cluster
   if kwargs["verbose"]:
     print >>sys.stderr, "clustering..."
-  ClusterSnglInspiralTable(snglinspiraltable.rows, 
+  ClusterSnglInspiralTable(snglinspiraltable, 
     kwargs["testfunc"], kwargs["clusterfunc"],
     LIGOTimeGPS(kwargs["cluster_window"]), kwargs["bailoutfunc"])
 
@@ -184,9 +184,9 @@ def ligolw_sicluster(doc, **kwargs):
   if kwargs["sort_ascending_snr"] or kwargs["sort_descending_snr"]:
     if kwargs["verbose"]:
       print >>sys.stderr, "sorting by snr..."
-    snglinspiraltable.rows.sort(SnglInspiralUtils.CompareSnglInspiralBySnr)
+    snglinspiraltable.sort(SnglInspiralUtils.CompareSnglInspiralBySnr)
     if kwargs["sort_descending_snr"]:
-      snglinspiraltable.rows.reverse()
+      snglinspiraltable.reverse()
 
   # Add search summary information
   if process and inseg and outseg:

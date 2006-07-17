@@ -152,7 +152,7 @@ def massCut (sim_table, m_low, m_high):
   """
   tmpTable = lsctables.New(lsctables.SimInspiralTable)
 
-  for entry in sim_table.rows:
+  for entry in sim_table:
     m1 = getattr(entry,'mass1')
     m2 = getattr(entry,'mass2')
     if not (m_low and min(m1,m2) < m_low) and \

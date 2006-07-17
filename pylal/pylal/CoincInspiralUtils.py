@@ -56,7 +56,7 @@ class coincInspiralTable:
     eventidlist = uniq(inspTriggers.get_column("event_id"))
     for event_id in eventidlist: 
       self.rows.append(self.row(event_id))
-    for trig in inspTriggers.rows:
+    for trig in inspTriggers:
       for coinc in self.rows:
         if coinc.event_id == trig.event_id:
           coinc.add_trig(trig,stat)
