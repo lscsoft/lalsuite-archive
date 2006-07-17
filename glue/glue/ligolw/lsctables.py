@@ -341,19 +341,19 @@ class LSCTableUniqueDict(object):
 		"""
 		Initialize the mapping on the list of rows.
 		"""
-		self.rows = table_elem.rows
+		self.table = table_elem
 
 	def __len__(self):
 		"""
 		Return the number of rows.
 		"""
-		return len(self.rows)
+		return len(self.table)
 
 	def __getitem__(self, key):
 		"""
 		Retrieve a row by key.
 		"""
-		for row in self.rows:
+		for row in self.table:
 			if row._has_key(key):
 				return row
 		raise KeyError, repr(key)
@@ -363,9 +363,9 @@ class LSCTableUniqueDict(object):
 		Set a row by key.  Note: the row key carried by value need
 		not equal key, but this might not be allowed in the future.
 		"""
-		for i in range(len(self.rows)):
-			if self.rows[i]._has_key(key):
-				self.rows[i] = value
+		for i in xrange(len(self.table)):
+			if self.table[i]._has_key(key):
+				self.table[i] = value
 				return
 		# FIXME: should we call _set_key() on value to force it to have
 		# the key that was searched for?
@@ -375,9 +375,9 @@ class LSCTableUniqueDict(object):
 		"""
 		Delete a row by key.
 		"""
-		for i in range(len(self.rows)):
-			if self.rows[i]._has_get(key):
-				del self.rows[i]
+		for i in xrange(len(self.table)):
+			if self.table[i]._has_get(key):
+				del self.table[i]
 				return
 		raise KeyError, repr(key)
 
@@ -394,7 +394,7 @@ class LSCTableUniqueDict(object):
 		Return True if a row has key equal to key, otherwise return
 		False.
 		"""
-		for row in self.rows:
+		for row in self.table:
 			if row._has_key(key):
 				return True
 		return False
@@ -405,7 +405,7 @@ class LSCTableUniqueDict(object):
 		"""
 		Return a list of the keys.
 		"""
-		return [row._get_key() for row in self.rows]
+		return [row._get_key() for row in self.table]
 
 	def iteritems(self):
 		"""
@@ -417,7 +417,7 @@ class LSCTableUniqueDict(object):
 		"""
 		Return an iterator over rows.
 		"""
-		return iter(self.rows)
+		return iter(self.table)
 
 
 class LSCTableMultiItemIter(object):
@@ -443,13 +443,12 @@ class LSCTableMultiDict(LSCTableUniqueDict):
 		Initialize the mapping on the list of rows.
 		"""
 		self.table = table_elem
-		self.rows = table_elem.rows
 
 	def __getitem__(self, key):
 		"""
 		Retrieve rows by key.
 		"""
-		l = [row for row in self.rows if row._has_key(key)]
+		l = [row for row in self.table if row._has_key(key)]
 		if not len(l):
 			raise KeyError, repr(key)
 		return l
@@ -483,7 +482,7 @@ class LSCTableMultiDict(LSCTableUniqueDict):
 		Return a list of the keys.
 		"""
 		keys = []
-		for row in self.rows:
+		for row in self.table:
 			key = row._get_key()
 			if key not in keys:
 				keys.append(key)
