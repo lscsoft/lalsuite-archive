@@ -7,20 +7,38 @@ import unittest
 # Some useful code.
 #
 
-def randomlist(n):
-	def r():
-		return float(random.randint(1,99))/100
+def random_coalesced_list(n):
 	"""
 	Return a coalesced segmentlist of n elements with random boundaries.
 	"""
+	def r():
+		return float(random.randint(1, 99)) / 100
 	if n < 1:
-		raise ValueError, "randomlist(n): n must be >= 1"
+		raise ValueError, n
 	x = r()
-	list = segmentlist([segment(x, x + r())])
-	for i in range(n - 1):
-		x = list[-1][1] + r()
-		list.append(segment(x, x + r()))
-	return list
+	l = segmentlist([segment(x, x + r())])
+	for i in xrange(n - 1):
+		x = l[-1][1] + r()
+		l.append(segment(x, x + r()))
+	return l
+
+
+def random_uncoalesced_list(n):
+	"""
+	Return an uncoalesced segmentlist of n elements with random
+	boundaries.
+	"""
+	def r():
+		return float(random.randint(1, 999)) / 1000
+	if n < 1:
+		raise ValueError, n
+	x = r()
+	l = segmentlist([segment(x, x + r() / 100.0)])
+	for i in xrange(n - 1):
+		x = r()
+		l.append(segment(x, x + r() / 100.0))
+	return l
+
 
 def iscoalesced(l):
 	"""
@@ -250,8 +268,8 @@ class test_segmentlist(unittest.TestCase):
 
 	def test__or__(self):
 		for i in range(10000):
-			a = randomlist(random.randint(1, 50))
-			b = randomlist(random.randint(1, 50))
+			a = random_coalesced_list(random.randint(1, 50))
+			b = random_coalesced_list(random.randint(1, 50))
 			c = a | b
 			try:
 				# make sure c is coalesced
@@ -270,8 +288,8 @@ class test_segmentlist(unittest.TestCase):
 
 	def testintersects(self):
 		for i in range(10000):
-			a = randomlist(random.randint(1, 50))
-			b = randomlist(random.randint(1, 50))
+			a = random_coalesced_list(random.randint(1, 50))
+			b = random_coalesced_list(random.randint(1, 50))
 			c = a - b
 			d = a & b
 			try:
@@ -281,6 +299,15 @@ class test_segmentlist(unittest.TestCase):
 					self.assertEqual(True, d.intersects(a))
 					self.assertEqual(True, d.intersects(b))
 					self.assertEqual(True, a.intersects(b))
+			except AssertionError, e:
+				raise AssertionError, str(e) + "\na = " + str(a) + "\nb = " + str(b)
+
+	def testcoalesce(self):
+		for i in range(10000):
+			a = random_uncoalesced_list(random.randint(1, 300))
+			b = segmentlist(a[:]).coalesce()
+			try:
+				self.assertEqual(True, iscoalesced(b))
 			except AssertionError, e:
 				raise AssertionError, str(e) + "\na = " + str(a) + "\nb = " + str(b)
 
