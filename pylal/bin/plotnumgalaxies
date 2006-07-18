@@ -116,7 +116,7 @@ def square(xdata,xedges,ydata,yedges,lum_weight=None):
 # Define a Hist Function
 ##############################################################################
 def histng(xdata,xedges,lum_weight=None):
-  
+
   """
   histogram xdata with edges specified xedges and yedges.  
   Can rescale the entries by lum_weight
@@ -1351,10 +1351,16 @@ if (opts.plot_efficiency or opts.cum_search_ng or opts.plot_effcontour or \
     print >>sys.stderr, "Enter 'plotnumgalaxies --help' for usage"
     sys.exit(1)
 
+
+
+
 # store the error values
 errorVal = {}
+
+
 if opts.h_calibration:
   errorVal['Hanford_Calibration'] = opts.h_calibration
+  key_ini = 'Hanford_Calibration'
 if opts.l_calibration:
   errorVal['Livingston_Calibration'] = opts.l_calibration
 if opts.waveform_systematic:
@@ -1430,12 +1436,22 @@ if opts.axes_from_found: injAstro.axes_from_found()
 
 if opts.axes_square: injAstro.axes_square()
 
+
+###########################
+# Create an ini file
+###########################
+
+ini_file = open("png-output.ini","w")
+ini_file.write("[apriori]\n")
+ini_file.write("ngprime=1.0\n")
+ini_file.write("pbprime=20.0\n")
+
 ##############################################################################
 # Make plots from astrophysical distributions
 ##############################################################################
 astroErrors = {}
 if opts.distance_error: astroErrors["Distance"] = opts.distance_error
-if opts.magnitude_error: astroErrors["Magnitude"] = opts.distance_error
+if opts.magnitude_error:astroErrors["Magnitude"] = opts.distance_error 
 
 for astroError in astroErrors.keys() + [None]:
   if opts.plot_ng: 
@@ -1486,6 +1502,7 @@ if opts.cum_search_ng:
   figNum += 1
   injAstro.plot_search_x_ng(figNum, statThresh)
   xng_cum = injAstro.get_search_x_ng(statThresh)
+  ini_file.write("ng=%f\n" % xng_cum)
   print 
   print '1-d calculation using ' + injAstro.x_value + ' yields'
   print 'The total luminosity = %.2f L_10' % xng_cum
@@ -1493,18 +1510,21 @@ if opts.cum_search_ng:
     err = injAstro.get_search_x_error(key,statThresh)
     if key == "Monte_Carlo":
       print "Monte_Carlo error gives error in luminosity = %.2f L_10" % err
+      ini_file.write(key+"=%f\n" % err)
     else:  
       print key + ' error of %.1f' % float(100 * errorVal[key]) + \
       '% gives error in luminosity = ' + '%.2f L_10' % err
+      ini_file.write(key+"=%f\n" %err)
   for key in astroErrors:
       error = injAstro.get_search_x_ng(statThresh, key) - xng_cum
       print astroErrors[key].capitalize() + " " + key + \
           " error for galaxies gives an error in luminosity = %.2f L_10" % \
           error
+      ini_file.write(key+"=%f\n" % error)
 
 if opts.cum_search_2d_ng:
   N_G = injAstro.get_search_2d_ng(statThresh)
-  print
+  ini_file.write("ng=%f\n" % N_G)
   print '2-d calculation using ' + injAstro.x_value + ' and ' + \
          injAstro.y_value + ' yields'
   print "The total luminosity = %.2f L_10" % N_G    
@@ -1512,23 +1532,36 @@ if opts.cum_search_2d_ng:
     err = injAstro.get_search_2d_error(key,statThresh)
     if key == "Monte_Carlo":
       print "Monte_Carlo error gives error in luminosity = %.2f L_10" % err
+      ini_file.write(key+"=%f\n" % err)
+ 
     else:
       print key + ' error of %.1f' % float(100 * errorVal[key]) + \
           '% gives error in luminosity =' + ' %.2f L_10' % err
+      ini_file.write(key+"=%f\n" % err)
+
+       
   for key in astroErrors:
-      error = injAstro.get_search_2d_ng(statThresh, key) - N_G
+      error = injAstro.get_search_x_error(key,statThresh)
       print astroErrors[key].capitalize() + " " + key + \
           " error for galaxies gives an error in luminosity = %.2f L_10" % \
           error
-  fh = open( "png-output.ini", "w" )
-  fh.write( "[apriori]\n" )
-  fh.write( "ng=%f\n" % N_G )
-  fh.write( "ngprime=1.0\n")
-  fh.write( "pb=0.0\n" )
-  fh.write( "pbprime=20.0\n" )
-  fh.write( "dn_calibration=0.2\n" )
-  fh.close()
+      ini_file.write(key+"=%f\n" % error)
 
+
+ini_file.close()
+
+  #fh = open( "png-output.ini", "w" )
+  #fh.write( "[apriori]\n" )
+  #fh.write( "ng=%f\n" % N_G )
+  #fh.write( "ngprime=1.0\n")
+  #fh.write( "pb=0.0\n" )
+  #fh.write( "pbprime=20.0\n" )
+  #fh.write( "dn_mc=%f\n" % injAstro.get_search_x_error('Monte_Carlo',statThresh))
+  #fh:write( "dn_calibration=%f\n" % injAstro.get_search_x_error('Hanford_Calibration',statThresh))
+  #fh.write( "dn_waveform=%f\n" % injAstro.get_search_x_error('Waveform',statThresh))
+  #fh.write( "dn_distance=%f\n" % injAstro.get_search_x_error(key,statThresh)
+  #fh.close()
+               
           
 
 ##############################################################################
