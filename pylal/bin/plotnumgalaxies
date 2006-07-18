@@ -1541,7 +1541,7 @@ if opts.cum_search_2d_ng:
 
        
   for key in astroErrors:
-      error = injAstro.get_search_x_error(key,statThresh)
+      error = injAstro.get_search_2d_ng(statThresh, key) - N_G
       print astroErrors[key].capitalize() + " " + key + \
           " error for galaxies gives an error in luminosity = %.2f L_10" % \
           error
