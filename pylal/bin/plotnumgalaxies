@@ -323,6 +323,7 @@ class slideZeroData:
     legend()
     if figureName:
       savefig( figureName + '_slide_cumulative_dist.png' )
+    return P_b
   
   def get_smooth_pdf(self, snrArray = None):
     """
@@ -364,6 +365,7 @@ class slideZeroData:
     legend()
     if figureName:
       savefig( figureName + '_slide_pdf.png' )
+    return p_b
   
 ##############################################################################
 # Class for storing the astrophysical data
@@ -1351,12 +1353,8 @@ if (opts.plot_efficiency or opts.cum_search_ng or opts.plot_effcontour or \
     print >>sys.stderr, "Enter 'plotnumgalaxies --help' for usage"
     sys.exit(1)
 
-
-
-
 # store the error values
 errorVal = {}
-
 
 if opts.h_calibration:
   errorVal['Hanford_Calibration'] = opts.h_calibration
@@ -1369,6 +1367,13 @@ if opts.mc_errors:
   errorVal['Monte_Carlo'] = None
 
 figNum = 0
+##############################################################################
+# Create an ini file
+##############################################################################
+ini_file = open("png-output.ini","w")
+ini_file.write("[apriori]\n")
+ini_file.write("ngprime=1.0\n")
+
 ##############################################################################
 # read in the time slides and zero lag
 ##############################################################################
@@ -1389,11 +1394,13 @@ if opts.slide_glob:
   
   if opts.plot_cum_loudest: 
     figNum += 1
-    slideLoudest.plot_cumulative(figNum, opts.figure_name)
+    P_b=slideLoudest.plot_cumulative(figNum, opts.figure_name)
+    ini_file.write("pb=%f\n" % P_b)
 
   if opts.plot_pdf_loudest: 
     figNum += 1
-    slideLoudest.plot_pdf(figNum, opts.figure_name)
+    pbprime=slideLoudest.plot_pdf(figNum, opts.figure_name)
+    ini_file.write("pbprime=%f\n" % pbprime)
 
 
 ##############################################################################
@@ -1436,15 +1443,6 @@ if opts.axes_from_found: injAstro.axes_from_found()
 
 if opts.axes_square: injAstro.axes_square()
 
-
-###########################
-# Create an ini file
-###########################
-
-ini_file = open("png-output.ini","w")
-ini_file.write("[apriori]\n")
-ini_file.write("ngprime=1.0\n")
-ini_file.write("pbprime=20.0\n")
 
 ##############################################################################
 # Make plots from astrophysical distributions
@@ -1508,13 +1506,12 @@ if opts.cum_search_ng:
   print 'The total luminosity = %.2f L_10' % xng_cum
   for key in errorVal.keys():
     err = injAstro.get_search_x_error(key,statThresh)
+    ini_file.write(key+"=%f\n" % err)
     if key == "Monte_Carlo":
       print "Monte_Carlo error gives error in luminosity = %.2f L_10" % err
-      ini_file.write(key+"=%f\n" % err)
     else:  
       print key + ' error of %.1f' % float(100 * errorVal[key]) + \
       '% gives error in luminosity = ' + '%.2f L_10' % err
-      ini_file.write(key+"=%f\n" %err)
   for key in astroErrors:
       error = injAstro.get_search_x_ng(statThresh, key) - xng_cum
       print astroErrors[key].capitalize() + " " + key + \
@@ -1530,15 +1527,12 @@ if opts.cum_search_2d_ng:
   print "The total luminosity = %.2f L_10" % N_G    
   for key in errorVal.keys():
     err = injAstro.get_search_2d_error(key,statThresh)
+    ini_file.write(key+"=%f\n" % err)
     if key == "Monte_Carlo":
       print "Monte_Carlo error gives error in luminosity = %.2f L_10" % err
-      ini_file.write(key+"=%f\n" % err)
- 
     else:
       print key + ' error of %.1f' % float(100 * errorVal[key]) + \
           '% gives error in luminosity =' + ' %.2f L_10' % err
-      ini_file.write(key+"=%f\n" % err)
-
        
   for key in astroErrors:
       error = injAstro.get_search_2d_ng(statThresh, key) - N_G
@@ -1546,23 +1540,6 @@ if opts.cum_search_2d_ng:
           " error for galaxies gives an error in luminosity = %.2f L_10" % \
           error
       ini_file.write(key+"=%f\n" % error)
-
-
-ini_file.close()
-
-  #fh = open( "png-output.ini", "w" )
-  #fh.write( "[apriori]\n" )
-  #fh.write( "ng=%f\n" % N_G )
-  #fh.write( "ngprime=1.0\n")
-  #fh.write( "pb=0.0\n" )
-  #fh.write( "pbprime=20.0\n" )
-  #fh.write( "dn_mc=%f\n" % injAstro.get_search_x_error('Monte_Carlo',statThresh))
-  #fh:write( "dn_calibration=%f\n" % injAstro.get_search_x_error('Hanford_Calibration',statThresh))
-  #fh.write( "dn_waveform=%f\n" % injAstro.get_search_x_error('Waveform',statThresh))
-  #fh.write( "dn_distance=%f\n" % injAstro.get_search_x_error(key,statThresh)
-  #fh.close()
-               
-          
 
 ##############################################################################
 # Make plots requiring both astrophysical and injection data
@@ -1578,5 +1555,7 @@ if opts.plot_2d_ng_vs_stat:
       figName = opts.figure_name )
 
 ##############################################################################
+ini_file.close()
+
 if opts.show_plot:
   show()
