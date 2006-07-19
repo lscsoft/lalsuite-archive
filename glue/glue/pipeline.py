@@ -2068,7 +2068,7 @@ class LSCDataFindJob(CondorDAGJob, AnalysisJob):
     the LSCdataFind options are read.
     """
     self.__executable = config_file.get('condor','datafind')
-    self.__universe = 'scheduler'
+    self.__universe = 'local'
     CondorDAGJob.__init__(self,self.__universe,self.__executable)
     AnalysisJob.__init__(self,config_file)
     self.__cache_dir = cache_dir
