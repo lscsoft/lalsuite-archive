@@ -560,14 +560,17 @@ class segmentlist(list):
 		is O(n log n).
 		"""
 		self.sort()
-		i = 0
-		while i < len(self) - 1:
-			j = i + 1
-			while j < len(self) and self[i].continuous(self[j]):
-				self[i] |= self[j]
+		i = j = 0
+		n = len(self)
+		while j < n:
+			seg = self[j]
+			j += 1
+			while j < n and seg.continuous(self[j]):
+				seg |= self[j]
 				j += 1
-			del self[i + 1 : j]
+			self[i] = seg
 			i += 1
+		del self[i : ]
 		return self
 
 	def protract(self, x):
