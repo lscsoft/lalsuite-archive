@@ -519,10 +519,10 @@ class astroData:
     figure(figNum)
     ng = self.hist_2d_ng(col1,edges1,col2,edges2,error)
     V = arange(0,ng.max(),ng.max()/40)
-    contourf(edges1,edges2,ng + 0.5 * V[1],V)
+    NC=contourf(edges1,edges2,ng + 0.5 * V[1],V)
     V = arange(0,ng.max(),ng.max()/10)
     contour(edges1,edges2,ng,V,colors='k',linewidths=2)
-    colorbar()
+    colorbar(NC)
     title_text = "Luminosity contour"
     ending = "_ng"
     if error == "Distance":
@@ -698,12 +698,12 @@ class injData:
     figure(figNum)
     inj = self.hist_2d_inj(col1,edges1,col2,edges2,threshold)
     V = arange(0,inj.max(),inj.max()/40)
-    contourf(edges1,edges2,inj + 0.5*V[1],V)
+    IC=contourf(edges1,edges2,inj + 0.5*V[1],V)
     V = arange(0,inj.max(),inj.max()/10)
     contour(edges1,edges2,inj,V,colors='k',linewidths=1)
     xlabel(col1, size='x-large' )
     ylabel(col2, size='x-large' )
-    colorbar()
+    colorbar(IC)
     if threshold:
       title('Number of injections found above threshold %.2f' % threshold, 
           size='x-large' )
@@ -740,13 +740,13 @@ class injData:
     figure(figNum)
     mc_2d = self.mc_2d(col1, edges1, col2, edges2, threshold)
     V = arange(0,mc_2d.max(),mc_2d.max()/40)
-    contourf(edges1,edges2,mc_2d + 0.5 * V[1],V)
+    MC=contourf(edges1,edges2,mc_2d + 0.5 * V[1],V)
     hold(True)
     V = arange(0,mc_2d.max(),mc_2d.max()/10)
     contour(edges1,edges2,mc_2d,V,colors='k',linewidths=1)
     xlabel(col1, size='x-large')
     ylabel(col2, size='x-large')
-    colorbar()
+    colorbar(MC)
     title('Monte_Carlo Errors in Efficiency', size='x-large') 
     if self.fig_name:
       savefig( self.fig_name + '_' + col1 + '_' + col2 + '_mc_errors.png' )
