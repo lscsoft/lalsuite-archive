@@ -36,6 +36,19 @@ def read_parameters(file,time):
 
   return param
 
+#############################################################################
+# function to write posterior
+def write_file(rate, pdf, filename):
+  """
+  write out a posterior file
+  @param filename: output file name
+  """
+  outfile = open( filename, 'w' )
+  print >> outfile, "# Posterior computed using lalapps_compute_posterior"
+  for i in range(len(rate)):
+    print >> outfile, "%e\t%e" % (rate[i], pdf[i])
+  outfile.close()
+
 
 
 ##############################################################################
@@ -220,6 +233,7 @@ if opts.verbose:
   print "marginalized value at R=0 is %f" % (marginpost[0]/marginnorm)
 
 # plot the posterior pdf
+write_file(rate, nomarginpost/nomarginnorm, opts.figure_name + "-posterior-pdf.txt")
 plot(rate,nomarginpost/nomarginnorm,rate,marginpost/marginnorm)
 legend(('posterior','marginalized posterior'))
 xlabel('Rate per L10 per yr', size='x-large')
