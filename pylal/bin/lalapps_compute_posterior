@@ -87,6 +87,8 @@ parser.add_option("-m","--max-rate",action="store",type="float",\
 parser.add_option("-d","--dr",action="store",type="float",\
     default=0.01, metavar=" MAXRATE", \
     help="dr to use in rate integral" ) 
+parser.add_option("-n","--ntrials",action="store",type="int",\
+    default=1000, metavar=" NTRIALS", help="number of trials for marginalization over errors" ) 
 # plotting details
 parser.add_option("-F","--figure-name",action="store",type="string",\
     default=None,metavar=" FNAME",\
