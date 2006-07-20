@@ -1132,6 +1132,16 @@ class SnglInspiralTable(LSCTableUnique):
 		"chisq_dof": "int_4s",
 		"sigmasq": "real_8",
 		"rsqveto_duration": "real_4",
+		"Gamma0": "real_4",
+		"Gamma1": "real_4",
+		"Gamma2": "real_4",
+		"Gamma3": "real_4",
+		"Gamma4": "real_4",
+		"Gamma5": "real_4",
+		"Gamma6": "real_4",
+		"Gamma7": "real_4",
+		"Gamma8": "real_4",
+		"Gamma9": "real_4",
 		"event_id": "int_8s"
 	}
 
@@ -1156,7 +1166,7 @@ class SnglInspiralTable(LSCTableUnique):
 		if column == 'snr_over_chi':
 			return self.get_snr_over_chi()
 		elif column == 'chirp_distance':
-		  return self.get_chirp_dist()
+			return self.get_chirp_dist()
 		else:
 			return self.getColumnByName(column).asarray()
 
@@ -1464,6 +1474,10 @@ class SimInspiralTable(LSCTableUnique):
 		if 'chirp_dist' in column:
 			site = column[-1]
 			return self.get_chirp_dist(site)
+		elif column == 'spin1':
+			return self.get_spin_mag(1)
+		elif column == 'spin2':
+			return self.get_spin_mag(2)
 		else:
 			return self.getColumnByName(column).asarray()
 
@@ -1471,6 +1485,12 @@ class SimInspiralTable(LSCTableUnique):
 		mchirp = self.get_column('mchirp')
 		eff_dist = self.get_column('eff_dist_' + site)
 		return eff_dist * (2.**(-1./5) * ref_mass / mchirp)**(5./6)
+
+	def get_spin_mag(self,objectnumber):
+		sx = self.get_column('spin' + str(objectnumber) + 'x')
+		sy = self.get_column('spin' + str(objectnumber) + 'y')
+		sz = self.get_column('spin' + str(objectnumber) + 'z')
+		return sqrt(sx**2 + sy**2 + sz**2)
 
 	def veto(self,seglist,site=None):
 		keep = table.new_from_template(self)
