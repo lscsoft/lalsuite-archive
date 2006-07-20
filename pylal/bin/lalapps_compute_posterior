@@ -50,6 +50,29 @@ def write_file(rate, pdf, filename):
   outfile.close()
 
 
+#############################################################################
+# function to read posterior
+def read_file( filename ):
+   """
+   read in the galaxy list, from an inspsrcs.dat type file
+   @param source_file: input file name
+   """
+   f = open( filename , "r")
+   lines = f.readlines()
+   f.close()
+ 
+   vals = []
+   for line in lines:
+     if line[0] != '#':
+       vals.append([float(val) for val in line.split()[0:]])
+           
+   M = array(vals)
+   x = M[:,0]
+   y = M[:,1]
+
+   return x,y
+
+
 
 ##############################################################################
 usage = """usage: %prog [options] file1 (file2 file3)
@@ -75,6 +98,8 @@ parser.add_option("-v","--version",action="store_true",default=False,\
 parser.add_option("-p","--prior",action="store",type="string",\
     default=None,\
     help="which prior to use on the rate" )
+parser.add_option("-P","--prior-file",action="store",type="string",\
+    default=None, metavar=" FILE", help="name of prior file" )
 parser.add_option("-s","--show-plot",action="store_true",default=False,\
     help="display the figures on the terminal" )
 parser.add_option("-V","--verbose",action="store_true",default=False,\
@@ -160,7 +185,7 @@ for i in range(nepochs):
 
 
 if opts.prior == "fromfile":
-  rateprior = []
+  rate,rateprior = read_file(opts.prior_file)
 elif opts.prior == "uniform":
   maxrate = opts.max_rate
   dr = opts.dr
