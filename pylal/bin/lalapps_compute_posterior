@@ -166,7 +166,7 @@ nomarginpost = rateprior * exprate \
       * ( pbprime[0] + pb[0] * rate * ngprimet )
 exprate *= 0.0
 
-for j in arange(1000):
+for j in arange(opts.ntrials):
   ngt = 0
   for i in range(nepochs):
     # magnitude error is lognormal
@@ -207,7 +207,7 @@ for j in arange(1000):
             * tobs[i]
       ngt = tmpngt
   exprate += exp( - rate * ( ngt ) )
-exprate /= 1000.0
+exprate /= float(opts.ntrials)
 
 marginpost = rateprior * exprate \
       * ( pbprime[0] + pb[0] * rate * ngprimet )
