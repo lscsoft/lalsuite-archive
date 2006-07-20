@@ -55,8 +55,15 @@ def parse_command_line():
 	parser.add_option("--made-only", action = "store_true", default = False, help = "plot only injections that were made")
 	parser.add_option("-b", "--base", metavar = "base", default = "plotbinj_", help = "set the prefix for output filenames (default = plotbinj_)")
 	parser.add_option("-f", "--format", metavar = "format", default = "png", help = "set the output image format (default = png)")
+	parser.add_option("--plot", metavar = "number", action = "append", default = None, help = "generate the given plot number")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
 	options, filenames = parser.parse_args()
+
+	if options.plot:
+		options.plot = map(int, options.plot)
+	else:
+		options.plot = range(6)
+
 
 	return options, (filenames or [None])
 
@@ -295,7 +302,7 @@ class RecoveredTimeOffset(SnglBurstUtils.BurstPlot):
 # =============================================================================
 #
 
-def new_plots(instrument):
+def new_plots(instrument, plots):
 	l = [
 		FreqVsTime(instrument),
 		AmplVsFreqScatter(instrument),
@@ -304,7 +311,7 @@ def new_plots(instrument):
 		RecoveredVsInjectedAmplitude(instrument),
 		RecoveredTimeOffset(instrument, segments.segment(-0.25, +0.25), 0.005)
 	]
-	return l
+	return [l[i] for i in plots]
 
 plots = {}
 for n, filename in enumerate(llwapp.sort_files_by_size(filenames, options.verbose, reverse = True)):
@@ -318,34 +325,26 @@ for n, filename in enumerate(llwapp.sort_files_by_size(filenames, options.verbos
 	database.summarize(xmldoc, "power", options.verbose)
 	for instrument in database.instruments:
 		if instrument not in plots:
-			plots[instrument] = new_plots(instrument)
-		for n, plot in enumerate(plots[instrument]):
+			plots[instrument] = new_plots(instrument, options.plot)
+		for n, plot in zip(options.plot, plots[instrument]):
 			if options.verbose:
 				print >>sys.stderr, "adding to %s plot %d..." % (instrument, n)
 			plot.add_contents(database)
 	xmldoc.unlink()
 
 
-#
-# =============================================================================
-#
-#                                    Output
-#
-# =============================================================================
-#
-
 # delete the plots as we go to save memory
 for instrument in plots:
 	n = 0
-	format = "%%s%s_%%0%dd.%%s" % (instrument, int(math.log10(len(plots[instrument]) - 1)) + 1)
+	format = "%%s%s_%%0%dd.%%s" % (instrument, int(math.log10(max(options.plot) - 1)) + 1)
 	while len(plots[instrument]):
-		filename = format % (options.base, n, options.format)
+		filename = format % (options.base, options.plot[n], options.format)
 		if options.verbose:
-			print >>sys.stderr, "finishing %s plot %d..." % (instrument, n)
+			print >>sys.stderr, "finishing %s plot %d..." % (instrument, options.plot[n])
 		try:
 			plots[instrument][0].finish()
 		except SnglBurstUtils.BurstPlotError, e:
-			print >>sys.stderr, "can't finish %s plot %d: %s" % (instrument, n, str(e))
+			print >>sys.stderr, "can't finish %s plot %d: %s" % (instrument, options.plot[n], str(e))
 		else:
 			if options.verbose:
 				print >>sys.stderr, "writing %s..." % filename
