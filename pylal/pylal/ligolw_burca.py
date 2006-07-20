@@ -26,6 +26,7 @@
 
 import sys
 
+from glue import segments
 from glue.ligolw import lsctables
 from pylal import llwapp
 from pylal import snglcoinc
@@ -33,6 +34,30 @@ from pylal import snglcoinc
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
+
+
+#
+# =============================================================================
+#
+#                                 Speed Hacks
+#
+# =============================================================================
+#
+
+def sngl_burst_get_start(self):
+	# get_start() override to use pylal.date.LIGOTimeGPS instead of
+	# glue.lal.LIGOTimeGPS
+	return LIGOTimeGPS(self.start_time, self.start_time_ns)
+
+def sngl_burst_get_period(self):
+	# get_period() override to use pylal.date.LIGOTimeGPS instead of
+	# glue.lal.LIGOTimeGPS
+	start = LIGOTimeGPS(self.start_time, self.start_time_ns)
+	return segments.segment(start, start + self.duration)
+
+
+lsctables.SnglBurst.get_start = sngl_burst_get_start
+lsctables.SnglBurst.get_period = sngl_burst_get_period
 
 
 #

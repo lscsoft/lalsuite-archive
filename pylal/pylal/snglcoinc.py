@@ -161,14 +161,6 @@ def sngl_burst_cmp(self, other):
 	return cmp(self.start_time, other.start_time) or cmp(self.start_time_ns, other.start_time_ns)
 
 
-def sngl_burst_get_start(self):
-	# get_start() override to use pylal.date.LIGOTimeGPS instead of
-	# glue.lal.LIGOTimeGPS
-	return LIGOTimeGPS(self.start_time, self.start_time_ns)
-
-lsctables.SnglBurst.get_start = sngl_burst_get_start
-
-
 class EventList(list):
 	"""
 	A class for managing a list of events:  applying time offsets, and
