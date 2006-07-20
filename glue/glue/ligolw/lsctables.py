@@ -1490,7 +1490,7 @@ class SimInspiralTable(LSCTableUnique):
 		sx = self.get_column('spin' + str(objectnumber) + 'x')
 		sy = self.get_column('spin' + str(objectnumber) + 'y')
 		sz = self.get_column('spin' + str(objectnumber) + 'z')
-		return sqrt(sx**2 + sy**2 + sz**2)
+		return (sx**2 + sy**2 + sz**2)**(0.5)
 
 	def veto(self,seglist,site=None):
 		keep = table.new_from_template(self)
