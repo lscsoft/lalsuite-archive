@@ -27,11 +27,11 @@ def read_parameters(file,time):
   param["ngprime"] = float(cp.get("apriori","ngprime"))
   param["pb"] = float(cp.get("apriori","pb"))
   param["pbprime"] = float(cp.get("apriori","pbprime"))
-  param["dn_calibration"] = float(cp.get("apriori","dn_calibration"))
-  param["dn_luminosity"] = float(cp.get("apriori","dn_luminosity"))
-  param["dn_distance"] = float(cp.get("apriori","dn_distance"))
-  param["dn_waveform"] = float(cp.get("apriori","dn_waveform"))
-  param["dn_mc"] = float(cp.get("apriori","dn_mc"))
+  param["dn_calibration"] = float(cp.get("apriori","Hanford_Calibration"))
+  param["dn_luminosity"] = float(cp.get("apriori","Magnitude"))
+  param["dn_distance"] = float(cp.get("apriori","Distance"))
+  param["dn_waveform"] = float(cp.get("apriori","Waveform"))
+  param["dn_mc"] = float(cp.get("apriori","Monte_Carlo"))
   param["tobs"] = float(time)
 
   return param
