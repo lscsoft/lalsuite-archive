@@ -77,7 +77,6 @@ def cache_to_seglistdict(cache):
 def get_time_slides(filename, verbose = False):
 	doc = llwapp.load_filename(filename, verbose)
 	tisitable = llwapp.get_table(doc, lsctables.TimeSlideTable.tableName)
-	doc.unlink()
 	for row in tisitable:
 		row.offset = LIGOTimeGPS(row.offset)
 	return map(tisitable.get_offset_dict, tisitable.dict.keys())
