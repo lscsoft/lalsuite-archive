@@ -75,7 +75,7 @@ class SnglBurstTable(table.Table):
 	_row_from_cols = classmethod(_row_from_cols)
 
 	def __getitem__(self, id):
-		self.cursor.execute("SELECT * FROM sngl_burst WHERE event_id == ?", (id,))
+		self.cursor.execute("SELECT * FROM sngl_burst WHERE event_id == ?", (lsctables.ILWDID(id),))
 		return self._row_from_cols(self.cursor.fetchone())
 
 	def __iter__(self):
@@ -127,7 +127,7 @@ class SimBurstTable(table.Table):
 	_row_from_cols = classmethod(_row_from_cols)
 
 	def __getitem__(self, id):
-		self.cursor.execute("SELECT * FROM sim_burst WHERE simulation_id == ?", (id,))
+		self.cursor.execute("SELECT * FROM sim_burst WHERE simulation_id == ?", (lsctables.ILWDID(id),))
 		return self._row_from_cols(self.cursor.fetchone())
 
 	def __iter__(self):
@@ -172,7 +172,7 @@ class TimeSlideTable(table.Table):
 
 	def __getitem__(self, id):
 		offsets = {}
-		for instrument, offset in self.cursor.execute("SELECT instrument, offset FROM time_slide WHERE time_slide_id == ?", (id,)):
+		for instrument, offset in self.cursor.execute("SELECT instrument, offset FROM time_slide WHERE time_slide_id == ?", (lsctables.ILWDID(id),)):
 			offsets[instrument] = offset
 		return offsets
 
@@ -189,10 +189,10 @@ class TimeSlideTable(table.Table):
 			yield self._row_from_cols(values)
 
 	def is_null(self, id):
-		return not self.cursor.execute("SELECT COUNT(time_slide_id) FROM time_slide WHERE time_slide_id == ? AND offset != 0 LIMIT 1", (id,)).fetchone()[0]
+		return not self.cursor.execute("SELECT COUNT(time_slide_id) FROM time_slide WHERE time_slide_id == ? AND offset != 0 LIMIT 1", (lsctables.ILWDID(id),)).fetchone()[0]
 
 	def all_offsets(self):
-		return [self[id] for (id,) in self.connection.cursor().execute("SELECT DISTINCT time_slide_id FROM time_slide")]
+		return [self[str(lsctables.ILWD("time_slide", "time_slide_id", id))] for (id,) in self.connection.cursor().execute("SELECT DISTINCT time_slide_id FROM time_slide")]
 
 	def unlink(self):
 		table.Table.unlink(self)
@@ -228,10 +228,10 @@ class CoincDefTable(table.Table):
 
 	def get_table_names(self, id):
 		"""
-		From a numeric ID, return a sorted list of table names or
-		raise KeyError if no matching ID is found.
+		From an ID, return a sorted list of table names or raise
+		KeyError if no matching ID is found.
 		"""
-		l = [table_name for (table_name,) in self.cursor.execute("SELECT table_name FROM coinc_definer WHERE coinc_def_id == ?", (id,))]
+		l = [table_name for (table_name,) in self.cursor.execute("SELECT table_name FROM coinc_definer WHERE coinc_def_id == ?", (lsctables.ILWDID(id),))]
 		if not l:
 			raise KeyError, id
 		l.sort()
@@ -239,12 +239,12 @@ class CoincDefTable(table.Table):
 
 	def get_id(self, table_names):
 		"""
-		From a list of table names, return a numeric ID or raise
-		KeyError if no matching ID is found.
+		From a list of table names, return an ID or raise KeyError
+		if no matching ID is found.
 		"""
 		table_names = list(table_names)	# so we can modify it
 		table_names.sort()
-		for id in [id for (id,) in self.cursor.execute("SELECT DISTINCT coinc_def_id FROM coinc_definer")]:
+		for id in [str(lsctables.ILWD("coinc_definer", "coinc_def_id", id)) for (id,) in self.cursor.execute("SELECT DISTINCT coinc_def_id FROM coinc_definer")]:
 			if self.get_table_names(id) == table_names:
 				return id
 		raise KeyError, table_names
@@ -278,7 +278,7 @@ class CoincTable(table.Table):
 	_row_from_cols = classmethod(_row_from_cols)
 
 	def __getitem__(self, id):
-		self.cursor.execute("SELECT * FROM coinc_event WHERE coinc_event_id == ?", (id,))
+		self.cursor.execute("SELECT * FROM coinc_event WHERE coinc_event_id == ?", (lsctables.ILWDID(id),))
 		return self._row_from_cols(self.cursor.fetchone())
 
 	def __len__(self):
@@ -289,7 +289,7 @@ class CoincTable(table.Table):
 			yield self._row_from_cols(values)
 
 	def selectByDefID(self, coinc_def_id):
-		for values in self.connection.cursor().execute("SELECT * FROM coinc_event WHERE coinc_def_id == ?", (coinc_def_id,)):
+		for values in self.connection.cursor().execute("SELECT * FROM coinc_event WHERE coinc_def_id == ?", (lsctables.ILWDID(coinc_def_id),)):
 			yield self._row_from_cols(values)
 
 	def unlink(self):
@@ -300,23 +300,23 @@ class CoincTable(table.Table):
 class Coinc(lsctables.Coinc):
 	def get_time_slide(self):
 		offsets = {}
-		for instrument, offset in CoincTable.connection.cursor().execute("SELECT instrument, offset FROM time_slide WHERE time_slide_id == ?", (self.time_slide_id,)):
+		for instrument, offset in CoincTable.connection.cursor().execute("SELECT instrument, offset FROM time_slide WHERE time_slide_id == ?", (lsctables.ILWDID(self.time_slide_id),)):
 			offsets[instrument] = offset
 		return offsets
 
 	def is_zero_lag(self):
-		return not CoincTable.connection.cursor().execute("SELECT COUNT(offset) FROM time_slide WHERE time_slide_id == ? AND offset != 0", (self.time_slide_id,)).fetchone()[0]
+		return not CoincTable.connection.cursor().execute("SELECT COUNT(offset) FROM time_slide WHERE time_slide_id == ? AND offset != 0", (lsctables.ILWDID(self.time_slide_id),)).fetchone()[0]
 
 	def sim_bursts(self):
-		for values in CoincTable.connection.cursor().execute("SELECT * FROM sim_burst WHERE simulation_id IN (SELECT event_id FROM coinc_event_map WHERE table_name == 'sim_burst' AND coinc_event_id == ?)", (self.coinc_event_id,)):
+		for values in CoincTable.connection.cursor().execute("SELECT * FROM sim_burst WHERE simulation_id IN (SELECT event_id FROM coinc_event_map WHERE table_name == 'sim_burst' AND coinc_event_id == ?)", (lsctables.ILWDID(self.coinc_event_id),)):
 			yield SimBurstTable._row_from_cols(values)
 
 	def sngl_bursts(self):
-		for values in CoincTable.connection.cursor().execute("SELECT * FROM sngl_burst WHERE event_id in (SELECT event_id FROM coinc_event_map WHERE table_name == 'sngl_burst' AND coinc_event_id == ?)", (self.coinc_event_id,)):
+		for values in CoincTable.connection.cursor().execute("SELECT * FROM sngl_burst WHERE event_id in (SELECT event_id FROM coinc_event_map WHERE table_name == 'sngl_burst' AND coinc_event_id == ?)", (lsctables.ILWDID(self.coinc_event_id),)):
 			yield SnglBurstTable._row_from_cols(values)
 
 	def coincs(self):
-		for values in CoincTable.connection.cursor().execute("SELECT * FROM coinc_event WHERE coinc_event_id IN (SELECT event_id FROM coinc_event_map WHERE table_name == 'coinc_event' AND coinc_event_id == ?)", (self.coinc_event_id,)):
+		for values in CoincTable.connection.cursor().execute("SELECT * FROM coinc_event WHERE coinc_event_id IN (SELECT event_id FROM coinc_event_map WHERE table_name == 'coinc_event' AND coinc_event_id == ?)", (lsctables.ILWDID(self.coinc_event_id),)):
 			yield CoincTable._row_from_cols(values)
 
 CoincTable.RowType = Coinc
@@ -414,7 +414,7 @@ class CoincDatabase(object):
 		# generate a copy of all injection IDs for each instrument,
 		# then remove the ones that each instrument didn't find
 		if self.sim_burst_table:
-			self.missed_injections = {self.instruments[0]: [simulation_id for (simulation_id,) in self.sim_burst_table.cursor.execute("SELECT simulation_id FROM sim_burst")]}
+			self.missed_injections = {self.instruments[0]: [str(lsctables.ILWD("sim_burst", "simulation_id", id)) for (id,) in self.sim_burst_table.cursor.execute("SELECT simulation_id FROM sim_burst")]}
 			for instrument in self.instruments[1:]:
 				self.missed_injections[instrument] = list(self.missed_injections[self.instruments[0]])
 			for coinc in self.coinc_table.selectByDefID(self.sb_definer_id):
@@ -448,15 +448,15 @@ class CoincDatabase(object):
 			# coincident with an injection; the outer select
 			# finds a list of the burst+burst coinc_event_ids
 			# pointing to at least one of those bursts
-			self.incomplete_injection_coinc_ids = [coinc_event_id for (coinc_event_id,) in self.coinc_table.cursor.execute("SELECT DISTINCT coinc_event.coinc_event_id FROM coinc_event JOIN coinc_event_map ON (coinc_event.coinc_event_id == coinc_event_map.coinc_event_id) WHERE coinc_def_id == ? AND table_name == 'sngl_burst' AND event_id IN (SELECT DISTINCT event_id FROM coinc_event_map JOIN coinc_event ON (coinc_event_map.coinc_event_id == coinc_event.coinc_event_id) WHERE coinc_event_map.table_name == 'sngl_burst' AND coinc_event.coinc_def_id == ?)", (self.bb_definer_id, self.sb_definer_id))]
+			self.incomplete_injection_coinc_ids = [coinc_event_id for (coinc_event_id,) in self.coinc_table.cursor.execute("SELECT DISTINCT coinc_event.coinc_event_id FROM coinc_event JOIN coinc_event_map ON (coinc_event.coinc_event_id == coinc_event_map.coinc_event_id) WHERE coinc_def_id == ? AND table_name == 'sngl_burst' AND event_id IN (SELECT DISTINCT event_id FROM coinc_event_map JOIN coinc_event ON (coinc_event_map.coinc_event_id == coinc_event.coinc_event_id) WHERE coinc_event_map.table_name == 'sngl_burst' AND coinc_event.coinc_def_id == ?)", (lsctables.ILWDID(self.bb_definer_id), lsctables.ILWDID(self.sb_definer_id)))]
 
 			# now remove the coinc_event_ids for which all
 			# bursts were marked as injections
-			map(self.incomplete_injection_coinc_ids.remove, [coinc_event_id for (coinc_event_id,) in self.coinc_table.cursor.execute("SELECT DISTINCT event_id FROM coinc_event_map JOIN coinc_event ON (coinc_event_map.coinc_event_id == coinc_event.coinc_event_id) WHERE table_name == 'coinc_event' AND coinc_def_id == ?", (self.sc_definer_id,))])
+			map(self.incomplete_injection_coinc_ids.remove, [coinc_event_id for (coinc_event_id,) in self.coinc_table.cursor.execute("SELECT DISTINCT event_id FROM coinc_event_map JOIN coinc_event ON (coinc_event_map.coinc_event_id == coinc_event.coinc_event_id) WHERE table_name == 'coinc_event' AND coinc_def_id == ?", (lsctables.ILWDID(self.sc_definer_id),))])
 
 			# now remove coinc_event_ids for coincs that are
 			# not at zero-lag
-			self.incomplete_injection_coinc_ids = filter(lambda id: self.coinc_table[id].is_zero_lag(), self.incomplete_injection_coinc_ids)
+			self.incomplete_injection_coinc_ids = filter(lambda id: self.coinc_table[id].is_zero_lag(), map(lambda id: str(lsctables.ILWD("coinc_event", "coinc_event_id", id)), self.incomplete_injection_coinc_ids))
 		else:
 			self.incomplete_injection_coinc_ids = []
 
@@ -467,9 +467,9 @@ class CoincDatabase(object):
 			if self.sim_burst_table:
 				print >>sys.stderr, "\tinjections: %d" % len(self.sim_burst_table)
 			print >>sys.stderr, "\ttime slides: %d" % len(self.time_slide_table)
-			print >>sys.stderr, "\tburst + burst coincidences: %d" % self.coinc_table.cursor.execute("SELECT COUNT(*) FROM coinc_event WHERE coinc_def_id = ?", (self.bb_definer_id,)).fetchone()[0]
-			print >>sys.stderr, "\tinjection + burst coincidences: %d" % self.coinc_table.cursor.execute("SELECT COUNT(*) FROM coinc_event WHERE coinc_def_id = ?", (self.sb_definer_id,)).fetchone()[0]
-			print >>sys.stderr, "\tinjection + (burst + burst) coincidences: %d" % self.coinc_table.cursor.execute("SELECT COUNT(*) FROM coinc_event WHERE coinc_def_id = ?", (self.sc_definer_id,)).fetchone()[0]
+			print >>sys.stderr, "\tburst + burst coincidences: %d" % self.coinc_table.cursor.execute("SELECT COUNT(*) FROM coinc_event WHERE coinc_def_id = ?", (lsctables.ILWDID(self.bb_definer_id),)).fetchone()[0]
+			print >>sys.stderr, "\tinjection + burst coincidences: %d" % self.coinc_table.cursor.execute("SELECT COUNT(*) FROM coinc_event WHERE coinc_def_id = ?", (lsctables.ILWDID(self.sb_definer_id),)).fetchone()[0]
+			print >>sys.stderr, "\tinjection + (burst + burst) coincidences: %d" % self.coinc_table.cursor.execute("SELECT COUNT(*) FROM coinc_event WHERE coinc_def_id = ?", (lsctables.ILWDID(self.sc_definer_id),)).fetchone()[0]
 			print >>sys.stderr, "\tburst + burst coincidences involving at least one injection: %d" % len(self.incomplete_injection_coinc_ids)
 
 
