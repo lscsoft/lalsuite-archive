@@ -939,7 +939,7 @@ class injAstroData:
     """
     if error == "Monte_Carlo":
       return sqrt( sum(self.inj.mc(self.x_value, self.x_edges(), threshold)**2\
-           * self.astro.hist_ng(self.x_value, self.x_edges()) ))
+           * self.astro.hist_ng(self.x_value, self.x_edges())**2 ))
     else:
       return sum(self.inj.error(self.x_value,self.x_edges(),error,threshold) \
            * self.astro.hist_ng(self.x_value, self.x_edges()) )
@@ -961,7 +961,7 @@ class injAstroData:
       return sqrt( sum(sum( self.inj.mc_2d(self.x_value, self.x_edges(), \
                    self.y_value, self.y_edges(), threshold)**2 * \
                    self.astro.hist_2d_ng(self.x_value, self.x_edges(), \
-                   self.y_value, self.y_edges()) )) )
+                   self.y_value, self.y_edges())**2 )) )
     else:
       return sum(sum( self.inj.error_2d(self.x_value, self.x_edges(), \
                       self.y_value, self.y_edges(), error, threshold) * \
