@@ -133,11 +133,11 @@ def load_url(url, verbose = False, gz = False):
 def write_filename(doc, filename, verbose = False, gz = False):
 	# trap SIGTERM to prevent Condor eviction while the document is
 	# being written
-	global llwapp_write_filename_got_sigterm
-	llwapp_write_filename_got_sigterm = False
+	global __llwapp_write_filename_got_sigterm
+	__llwapp_write_filename_got_sigterm = False
 	def newsigterm(signum, frame):
-		global llwapp_write_filename_got_sigterm
-		llwapp_write_filename_got_sigterm = True
+		global __llwapp_write_filename_got_sigterm
+		__llwapp_write_filename_got_sigterm = True
 	oldsigterm = signal.getsignal(signal.SIGTERM)
 	signal.signal(signal.SIGTERM, newsigterm)
 
@@ -155,7 +155,7 @@ def write_filename(doc, filename, verbose = False, gz = False):
 	# restore original signal handler, and report the signal if it was
 	# received
 	signal.signal(signal.SIGTERM, oldsigterm)
-	if llwapp_write_filename_got_sigterm:
+	if __llwapp_write_filename_got_sigterm:
 		raise IOTrappedSignal(signal.SIGTERM)
 
 
