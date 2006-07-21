@@ -318,10 +318,7 @@ for n, filename in enumerate(llwapp.sort_files_by_size(filenames, options.verbos
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
 	database = SnglBurstUtils.CoincDatabase(sqlite.connect(":memory:"))
-	if filename[-3:] == ".gz":
-		xmldoc = llwapp.load_filename(filename, options.verbose, gz = True)
-	else:
-		xmldoc = llwapp.load_filename(filename, options.verbose)
+	xmldoc = llwapp.load_filename(filename, options.verbose, gz = filename[-3:] == ".gz")
 	database.summarize(xmldoc, "power", options.verbose)
 	for instrument in database.instruments:
 		if instrument not in plots:

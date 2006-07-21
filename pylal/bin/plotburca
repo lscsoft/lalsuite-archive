@@ -147,7 +147,8 @@ def magnitude_b(burst):
 	ra, dec = 2.0318570464121519, -0.50628171572274738
 	gmst = date.XLALGreenwichMeanSiderealTime(date.LIGOTimeGPS(burst.peak_time, burst.peak_time_ns))
 	fplus, fcross = inject.XLALComputeDetAMResponse(inject.cached_detector[burst.ifo].response(), ra, dec, 0.0, gmst)
-	power_per_dof = burst.snr / (2.0 * burst.tfvolume) + 1.0
+	#power_per_dof = burst.snr / (2.0 * burst.tfvolume) + 1.0
+	power_per_dof = (burst.snr + 2.0 * burst.tfvolume) / (2.0 * burst.bandwidth * burst.duration)
 	return power_per_dof / (fplus**2.0 + fcross**2.0)
 
 
@@ -181,7 +182,11 @@ class ConfidenceContours(SnglBurstUtils.BurstPlot):
 						x = self.magnitude(burst)
 					elif burst.ifo == self.y_instrument:
 						y = self.magnitude(burst)
-				self.foreground_bins[x, y] += 1
+				try:
+					self.foreground_bins[x, y] += 1
+				except IndexError:
+					# not on plot axes
+					pass
 			else:
 				self.n_background += 1
 				x = y = None
@@ -190,7 +195,11 @@ class ConfidenceContours(SnglBurstUtils.BurstPlot):
 						x = self.magnitude(burst)
 					elif burst.ifo == self.y_instrument:
 						y = self.magnitude(burst)
-				self.background_bins[x, y] += 1
+				try:
+					self.background_bins[x, y] += 1
+				except IndexError:
+					# not on plot axes
+					pass
 		for coinc in contents.coinc_table.selectByDefID(contents.sc_definer_id):
 			self.n_injections += 1
 			for coinc in coinc.coincs():
@@ -200,7 +209,11 @@ class ConfidenceContours(SnglBurstUtils.BurstPlot):
 						x = self.magnitude(burst)
 					elif burst.ifo == self.y_instrument:
 						y = self.magnitude(burst)
-				self.coinc_injection_bins[x, y] += 1
+				try:
+					self.coinc_injection_bins[x, y] += 1
+				except IndexError:
+					# not on plot axes
+					pass
 		for coinc_event_id in contents.incomplete_injection_coinc_ids:
 			x = y = None
 			for burst in contents.coinc_table[coinc_event_id].sngl_bursts():
@@ -208,7 +221,11 @@ class ConfidenceContours(SnglBurstUtils.BurstPlot):
 					x = self.magnitude(burst)
 				elif burst.ifo == self.y_instrument:
 					y = self.magnitude(burst)
-			self.incomplete_coinc_injection_bins[x, y] += 1
+			try:
+				self.incomplete_coinc_injection_bins[x, y] += 1
+			except IndexError:
+				# not on plot axes
+				pass
 
 	def finish(self):
 		self.axes.set_title(r"Distribution of Coincident Events (%d Foreground, %d Background Events, %d Injections Found in Coincidence, Logarithmic Density Contours)" % (self.n_foreground, self.n_background, self.n_injections))
@@ -321,9 +338,9 @@ def new_plots(plots):
 		ConfidenceContours("H2", "H1", magnitude_a, "Confidence", 1, 10**10),
 		ConfidenceContours("H2", "L1", magnitude_a, "Confidence", 1, 10**10),
 		ConfidenceContours("L1", "H1", magnitude_a, "Confidence", 1, 10**10),
-		ConfidenceContours("H2", "H1", magnitude_b, "Power / D.o.F. / ($F_{+}^{2} + F_{\cross}^{2}$)", 1, 10**10),
-		ConfidenceContours("H2", "L1", magnitude_b, "Power / D.o.F. / ($F_{+}^{2} + F_{\cross}^{2}$)", 1, 10**10),
-		ConfidenceContours("L1", "H1", magnitude_b, "Power / D.o.F. / ($F_{+}^{2} + F_{\cross}^{2}$)", 1, 10**10),
+		ConfidenceContours("H2", "H1", magnitude_b, r"Power / D.o.F. / ($F_{+}^{2} + F_{\times}^{2}$)", 1, 10**10),
+		ConfidenceContours("H2", "L1", magnitude_b, r"Power / D.o.F. / ($F_{+}^{2} + F_{\times}^{2}$)", 1, 10**10),
+		ConfidenceContours("L1", "H1", magnitude_b, r"Power / D.o.F. / ($F_{+}^{2} + F_{\times}^{2}$)", 1, 10**10),
 		DeltaTHistogram("H1", deltat_seg, deltat_width),
 		DeltaTHistogram("H2", deltat_seg, deltat_width),
 		DeltaTHistogram("L1", deltat_seg, deltat_width)
@@ -338,10 +355,7 @@ for n, filename in enumerate(llwapp.sort_files_by_size(filenames, options.verbos
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
 	database = SnglBurstUtils.CoincDatabase(sqlite.connect(":memory:"))
-	if filename[-3:] == ".gz":
-		xmldoc = llwapp.load_filename(filename, options.verbose, gz = True)
-	else:
-		xmldoc = llwapp.load_filename(filename, options.verbose)
+	xmldoc = llwapp.load_filename(filename, options.verbose, gz = filename[-3:] == ".gz")
 	database.summarize(xmldoc, options.live_time_program, options.verbose)
 	for n, plot in zip(options.plot, plots):
 		if options.verbose:
