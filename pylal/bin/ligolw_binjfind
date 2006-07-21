@@ -350,8 +350,8 @@ except Exception, e:
 for n, filename in enumerate(llwapp.sort_files_by_size(filenames, options.verbose)):
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
-	doc = llwapp.load_filename(filename, options.verbose)
-	if llwapp.doc_includes_process(doc, "ligolw_binjfind"):
+	xmldoc = llwapp.load_filename(filename, options.verbose, gz = filename[-3:] == ".gz")
+	if llwapp.doc_includes_process(xmldoc, "ligolw_binjfind"):
 		if options.verbose:
 			print >>sys.stderr, "warning: %s already processed," % (filename or "stdin"),
 		if options.force:
@@ -361,6 +361,6 @@ for n, filename in enumerate(llwapp.sort_files_by_size(filenames, options.verbos
 			if options.verbose:
 				print >>sys.stderr, "skipping"
 			continue
-	ligolw_binjfind(doc, **options.__dict__)
-	llwapp.write_filename(doc, filename, options.verbose)
-	doc.unlink()
+	ligolw_binjfind(xmldoc, **options.__dict__)
+	llwapp.write_filename(xmldoc, filename, options.verbose, gz = filename[-3:] == ".gz")
+	xmldoc.unlink()

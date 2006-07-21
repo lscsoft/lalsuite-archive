@@ -84,9 +84,10 @@ except ValueError, e:
 
 try:
 	for filename in filenames:
-		doc = llwapp.load_filename(filename, options.verbose)
-		doc = ligolw_bucluster.ligolw_bucluster(doc, **options.__dict__)
-		llwapp.write_filename(doc, filename, options.verbose)
+		xmldoc = llwapp.load_filename(filename, options.verbose, gz = filename[-3:] == ".gz")
+		xmldoc = ligolw_bucluster.ligolw_bucluster(xmldoc, **options.__dict__)
+		llwapp.write_filename(xmldoc, filename, options.verbose, gz = filename[-3:] == ".gz")
+		xmldoc.unlink()
 except Exception, e:
 	print >>sys.stderr, "error: %s" % str(e)
 	sys.exit(1)

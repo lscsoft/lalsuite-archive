@@ -505,7 +505,7 @@ def ligolw_bucut(doc, options):
 
 options, filenames = parse_command_line()
 for filename in filenames:
-	doc = llwapp.load_filename(filename, options.verbose)
-	doc = ligolw_bucut(doc, options)
-	llwapp.write_filename(doc, filename, options.verbose)
-	doc.unlink()
+	xmldoc = llwapp.load_filename(filename, options.verbose, gz = filename[-3:] == ".gz")
+	xmldoc = ligolw_bucut(xmldoc, options)
+	llwapp.write_filename(xmldoc, filename, options.verbose, gz = filename[-3:] == ".gz")
+	xmldoc.unlink()
