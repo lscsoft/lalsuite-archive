@@ -239,6 +239,9 @@ parser.add_option("-t","--test",action="store_true",default=False,\
 parser.add_option("-A","--plots-only",action="store_true",default=False,\
     help="only run the plotting routines")
 
+parser.add_option("-T","--usertag",action="store",type="string",\
+    default='', metavar=" USERTAG",help="the user tag used when running dag" )
+
 # slide options
 parser.add_option("-c","--num-slides",action="store",type="string",\
     default=None, metavar=" NSLIDES",\
@@ -418,6 +421,8 @@ for data_type in analyze:
       if data_type == "slide": input += "_SLIDE"
       if opts.second_coinc:
         input += "_" + ifos
+      if opts.usertag:
+        input += "_" + opts.usertag
       input += "-*.xml"
 
     ###################################
