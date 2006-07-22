@@ -391,6 +391,8 @@ for data_type in analyze:
       if data_type == "slide": input += "_SLIDE" 
       if opts.second_coinc:
         input += "_" + ifos
+      if opts.usertag:
+        input += "_" + opts.usertag
       input += "-*.xml"
 
       # perform vetoes for each ifo
@@ -421,8 +423,6 @@ for data_type in analyze:
       if data_type == "slide": input += "_SLIDE"
       if opts.second_coinc:
         input += "_" + ifos
-      if opts.usertag:
-        input += "_" + opts.usertag
       input += "-*.xml"
 
     ###################################
