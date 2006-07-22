@@ -468,9 +468,10 @@ class CoincDatabase(object):
 				print >>sys.stderr, "\tinjections: %d" % len(self.sim_burst_table)
 			print >>sys.stderr, "\ttime slides: %d" % len(self.time_slide_table)
 			print >>sys.stderr, "\tburst + burst coincidences: %d" % self.coinc_table.cursor.execute("SELECT COUNT(*) FROM coinc_event WHERE coinc_def_id = ?", (lsctables.ILWDID(self.bb_definer_id),)).fetchone()[0]
-			print >>sys.stderr, "\tinjection + burst coincidences: %d" % self.coinc_table.cursor.execute("SELECT COUNT(*) FROM coinc_event WHERE coinc_def_id = ?", (lsctables.ILWDID(self.sb_definer_id),)).fetchone()[0]
-			print >>sys.stderr, "\tinjection + (burst + burst) coincidences: %d" % self.coinc_table.cursor.execute("SELECT COUNT(*) FROM coinc_event WHERE coinc_def_id = ?", (lsctables.ILWDID(self.sc_definer_id),)).fetchone()[0]
-			print >>sys.stderr, "\tburst + burst coincidences involving at least one injection: %d" % len(self.incomplete_injection_coinc_ids)
+			if self.sim_burst_table:
+				print >>sys.stderr, "\tinjection + burst coincidences: %d" % self.coinc_table.cursor.execute("SELECT COUNT(*) FROM coinc_event WHERE coinc_def_id = ?", (lsctables.ILWDID(self.sb_definer_id),)).fetchone()[0]
+				print >>sys.stderr, "\tinjection + (burst + burst) coincidences: %d" % self.coinc_table.cursor.execute("SELECT COUNT(*) FROM coinc_event WHERE coinc_def_id = ?", (lsctables.ILWDID(self.sc_definer_id),)).fetchone()[0]
+				print >>sys.stderr, "\tburst + burst coincidences involving at least one injection: %d" % len(self.incomplete_injection_coinc_ids)
 
 
 #
