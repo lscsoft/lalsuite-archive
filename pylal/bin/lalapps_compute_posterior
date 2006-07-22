@@ -27,7 +27,10 @@ def read_parameters(file,time):
   param["ngprime"] = float(cp.get("apriori","ngprime"))
   param["pb"] = float(cp.get("apriori","pb"))
   param["pbprime"] = float(cp.get("apriori","pbprime"))
-  param["dn_calibration"] = float(cp.get("apriori","Hanford_Calibration"))
+  if cp.has_option("apriori","Hanford_Calibration"):
+    param["dn_lhocal"] = float(cp.get("apriori","Hanford_Calibration"))
+  if cp.has_option("apriori","Livingston_Calibration"):
+    param["dn_llocal"] = float(cp.get("apriori","Livingston_Calibration"))
   param["dn_luminosity"] = float(cp.get("apriori","Magnitude"))
   param["dn_distance"] = float(cp.get("apriori","Distance"))
   param["dn_waveform"] = float(cp.get("apriori","Waveform"))
@@ -161,7 +164,8 @@ ngprime = []
 tobs = []
 pb = []
 pbprime = []
-dn_calibration = []
+dn_lhocal = []
+dn_llocal = []
 dn_lummu = []
 dn_lumsigma = []
 dn_distance = []
@@ -175,7 +179,14 @@ for i in range(nepochs):
   tobs.append(parameters[i]["tobs"])
   pb.append(parameters[i]["pb"])
   pbprime.append(parameters[i]["pbprime"])
-  dn_calibration.append(parameters[i]["dn_calibration"])
+  if parameters[i].has_key("dn_lhocal"):
+    dn_lhocal.append(parameters[i]["dn_lhocal"])
+  else:
+    dn_lhocal.append(0.0)
+  if parameters[i].has_key("dn_llocal"):
+    dn_llocal.append(parameters[i]["dn_llocal"])
+  else:
+    dn_llocal.append(0.0)
   dn_distance.append(parameters[i]["dn_distance"])
   dn_waveform.append(parameters[i]["dn_waveform"])
   dn_mc.append(parameters[i]["dn_mc"])
@@ -213,11 +224,19 @@ for j in arange(opts.ntrials):
     else:
       ngt += ng[i] * tobs[i]
     
-    # calibration error is normal
-    if opts.calibration_error:
+    # lho calibration error is normal
+    if ( opts.calibration_error and dn_lhocal[i] != 0.0 ):
       tmpngt = -1.0
       while tmpngt < 0.0:
-        tmpngt = ngt + random.normalvariate(0.0,dn_calibration[i]) \
+        tmpngt = ngt + random.normalvariate(0.0,dn_lhocal[i]) \
+            * tobs[i]
+      ngt = tmpngt
+
+    # llo calibration error is normal
+    if ( opts.calibration_error and dn_llocal[i] != 0.0 ):
+      tmpngt = -1.0
+      while tmpngt < 0.0:
+        tmpngt = ngt + random.normalvariate(0.0,dn_llocal[i]) \
             * tobs[i]
       ngt = tmpngt
 
