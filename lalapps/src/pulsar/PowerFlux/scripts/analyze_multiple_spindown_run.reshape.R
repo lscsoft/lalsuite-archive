@@ -35,7 +35,7 @@ ofn<-function(name) {
 fn<-p(prefix, "stat", suffix)
 cat("Loading data from ", fn, "\n", sep="")
 # Cheat - get a small sample first and use it to find out types and such.
-data<-read.table(pipe(p("head --lines=1001 ", fn)), header=TRUE, na.strings=NAStrings)
+data<-read.table(pipe(p("head --lines=1001 ", fn)), header=TRUE, na.strings=NAStrings, sep=" ")
 cat("Found header with", dim(data)[2], "columns\n")
 
 Types<-lapply(data, class)
@@ -136,6 +136,10 @@ FancyMap <- function(UL, title="", levels=NULL, f0=NULL, f1=NULL) {
 
 
 	NSpindown<-length(XX)
+	if(NSpindown<2) {
+		cat("Skipping map - spindown count is too low\n")
+		return(NULL)
+		}
 	NBand<-length(YY)
 	cat("Mapping \"", title, "\" NSpindown=", NSpindown, " NBand=", NBand, "\n", sep="")
 	
