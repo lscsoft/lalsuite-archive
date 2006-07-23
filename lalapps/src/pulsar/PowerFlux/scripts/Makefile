@@ -14,3 +14,6 @@ upload.h:
 
 upload.l:
 	globus-scp -C $(UPLOAD_FILES) ldas-grid.ligo-la.caltech.edu:PowerFlux/scripts/
+
+upload.c:
+	globus-scp -C $(UPLOAD_FILES) ldas-grid.ligo.caltech.edu:PowerFlux/scripts/
