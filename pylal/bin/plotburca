@@ -67,7 +67,7 @@ def parse_command_line():
 	if options.plot:
 		options.plot = map(int, options.plot)
 	else:
-		options.plot = range(10)
+		options.plot = range(13)
 
 	return options, (filenames or [None])
 
@@ -270,6 +270,49 @@ class ConfidenceContours(SnglBurstUtils.BurstPlot):
 #
 # =============================================================================
 #
+#                             Rate vs. Confidence
+#
+# =============================================================================
+#
+
+class RateVsConfidence(SnglBurstUtils.BurstPlot):
+	def __init__(self, instrument):
+		SnglBurstUtils.BurstPlot.__init__(self, "Confidence", "Trigger Rate (Hz)")
+		self.instrument = instrument
+		self.foreground = []
+		self.background = []
+		self.foreground_segs = segments.segmentlist()
+		self.background_segs = segments.segmentlist()
+		self.axes.loglog()
+
+	def add_contents(self, contents):
+		for time_slide_id in contents.time_slide_table.iterkeys():
+			if contents.time_slide_table.is_null(time_slide_id):
+				bins = self.foreground
+				self.foreground_segs.append(contents.seglists[self.instrument])
+			else:
+				bins = self.background
+				self.background_segs.append(contents.seglists[self.instrument])
+			for coinc in contents.coinc_table.selectByTisiID(time_slide_id):
+				if coinc.coinc_def_id != contents.bb_definer_id:
+					continue
+				for burst in coinc.sngl_bursts():
+					if burst.ifo == self.instrument:
+						bins.append(-burst.confidence)
+
+	def finish(self):
+		self.axes.set_title("Cummulative Coincident Event Rate vs. Confidence in %s" % self.instrument)
+		self.background.sort()
+		self.foreground.sort()
+		background_y = numarray.arange(len(self.background), 0.0, -1.0, "Float64") / float(self.background_segs.duration())
+		foreground_y = numarray.arange(len(self.foreground), 0.0, -1.0, "Float64") / float(self.foreground_segs.duration())
+		self.axes.plot(self.background, background_y, "ko-")
+		self.axes.plot(self.foreground, foreground_y, "ro-", markeredgecolor = "r")
+
+
+#
+# =============================================================================
+#
 #                              Delta-t Histogram
 #
 # =============================================================================
@@ -341,6 +384,9 @@ def new_plots(plots):
 		ConfidenceContours("H2", "H1", magnitude_b, r"Power / D.o.F. / ($F_{+}^{2} + F_{\times}^{2}$)", 1, 10**10),
 		ConfidenceContours("H2", "L1", magnitude_b, r"Power / D.o.F. / ($F_{+}^{2} + F_{\times}^{2}$)", 1, 10**10),
 		ConfidenceContours("L1", "H1", magnitude_b, r"Power / D.o.F. / ($F_{+}^{2} + F_{\times}^{2}$)", 1, 10**10),
+		RateVsConfidence("H1"),
+		RateVsConfidence("H2"),
+		RateVsConfidence("L1"),
 		DeltaTHistogram("H1", deltat_seg, deltat_width),
 		DeltaTHistogram("H2", deltat_seg, deltat_width),
 		DeltaTHistogram("L1", deltat_seg, deltat_width)
