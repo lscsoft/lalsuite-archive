@@ -91,6 +91,9 @@ class SnglBurst(lsctables.SnglBurst):
 	def get_peak(self):
 		return LIGOTimeGPS(self.peak_time, self.peak_time_ns)
 
+	def get_start(self):
+		return LIGOTimeGPS(self.start_time, self.start_time_ns)
+
 	def get_period(self):
 		start = LIGOTimeGPS(self.start_time, self.start_time_ns)
 		return segments.segment(start, start + self.duration)
@@ -187,6 +190,10 @@ class TimeSlideTable(table.Table):
 	def __iter__(self):
 		for values in self.connection.cursor().execute("SELECT * FROM time_slide"):
 			yield self._row_from_cols(values)
+
+	def iterkeys(self):
+		for (id,) in self.connection.cursor().execute("SELECT DISTINCT time_slide_id FROM time_slide"):
+			yield str(lsctables.ILWD("time_slide", "time_slide_id", id))
 
 	def is_null(self, id):
 		return not self.cursor.execute("SELECT COUNT(time_slide_id) FROM time_slide WHERE time_slide_id == ? AND offset != 0 LIMIT 1", (lsctables.ILWDID(id),)).fetchone()[0]
@@ -292,6 +299,10 @@ class CoincTable(table.Table):
 		for values in self.connection.cursor().execute("SELECT * FROM coinc_event WHERE coinc_def_id == ?", (lsctables.ILWDID(coinc_def_id),)):
 			yield self._row_from_cols(values)
 
+	def selectByTisiID(self, time_slide_id):
+		for values in self.connection.cursor().execute("SELECT * FROM coinc_event WHERE time_slide_id == ?", (lsctables.ILWDID(time_slide_id),)):
+			yield self._row_from_cols(values)
+
 	def unlink(self):
 		table.Table.unlink(self)
 		self.cursor.execute("DROP TABLE coinc_event")
@@ -391,29 +402,35 @@ class CoincDatabase(object):
 		self.sngl_burst_table = llwapp.get_table(xmldoc, lsctables.SnglBurstTable.tableName)
 		try:
 			self.sim_burst_table = llwapp.get_table(xmldoc, lsctables.SimBurstTable.tableName)
-		except:
+		except ValueError:
 			self.sim_burst_table = None
-		self.coinc_def_table = llwapp.get_table(xmldoc, lsctables.CoincDefTable.tableName)
-		self.coinc_table = llwapp.get_table(xmldoc, lsctables.CoincTable.tableName)
-		self.time_slide_table = llwapp.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
+		try:
+			self.coinc_def_table = llwapp.get_table(xmldoc, lsctables.CoincDefTable.tableName)
+			self.coinc_table = llwapp.get_table(xmldoc, lsctables.CoincTable.tableName)
+			self.time_slide_table = llwapp.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
+		except ValueError:
+			self.coinc_def_table = None
+			self.coinc_table = None
+			self.time_slide_table = None
 
 		# get the segment lists
 		self.seglists = llwapp.segmentlistdict_fromsearchsummary(xmldoc, live_time_program)
 		self.instruments = self.seglists.keys()
 
 		# determine a few coinc_definer IDs
-		self.bb_definer_id = self.coinc_def_table.get_id([lsctables.SnglBurstTable.tableName])
+		self.bb_definer_id = None
+		self.sb_definer_id = None
+		self.sc_definer_id = None
+		if self.coinc_def_table:
+			self.bb_definer_id = self.coinc_def_table.get_id([lsctables.SnglBurstTable.tableName])
 		if self.sim_burst_table:
 			self.sb_definer_id = self.coinc_def_table.get_id([lsctables.SnglBurstTable.tableName, lsctables.SimBurstTable.tableName])
 			self.sc_definer_id = self.coinc_def_table.get_id([lsctables.CoincTable.tableName, lsctables.SimBurstTable.tableName])
-		else:
-			self.sb_definer_id = None
-			self.sc_definer_id = None
 
 		# compute the missed injections by instrument;  first
 		# generate a copy of all injection IDs for each instrument,
 		# then remove the ones that each instrument didn't find
-		if self.sim_burst_table:
+		if self.sb_definer_id:
 			self.missed_injections = {self.instruments[0]: [str(lsctables.ILWD("sim_burst", "simulation_id", id)) for (id,) in self.sim_burst_table.cursor.execute("SELECT simulation_id FROM sim_burst")]}
 			for instrument in self.instruments[1:]:
 				self.missed_injections[instrument] = list(self.missed_injections[self.instruments[0]])
