@@ -102,7 +102,6 @@ float a;
 for(i=0;i<ntotal_polarizations;i++) {
 	fprintf(stderr,"\t%s\n",polarization_results[i].name);
 	polarizations[i].orientation=polarization_results[i].orientation;
-	polarizations[i].orientation=polarization_results[i].orientation;
 	polarizations[i].name=polarization_results[i].name;
 	polarizations[i].plus_proj=polarization_results[i].plus_proj;
 	polarizations[i].cross_proj=polarization_results[i].cross_proj;
