@@ -66,6 +66,7 @@ cmdline_parser_print_help (void)
   printf("  -f, --first-bin=INT                   first frequency bin in the band to be \n                                          analyzed\n");
   printf("  -n, --nbins=INT                       number of frequency bins to analyze  \n                                          (default=`501')\n");
   printf("      --side-cut=INT                    number of bins to cut from each side \n                                          due to corruption from doppler \n                                          shifts\n");
+  printf("      --expected-timebase=INT           expected timebase in months  (default=\n                                          `6')\n");
   printf("      --hist-bins=INT                   number of bins to use when producing \n                                          histograms  (default=`200')\n");
   printf("  -d, --detector=STRING                 detector location (i.e. LHO or LLO), \n                                          passed to detresponse\n");
   printf("      --spindown-start-time=DOUBLE      specify spindown start time in GPS \n                                          sec. Assumed to be the first SFT \n                                          segment by default\n");
@@ -88,6 +89,7 @@ cmdline_parser_print_help (void)
   printf("      --write-dat=STRING                regular expression describing which \n                                          *.dat files to write  (default=`.*')\n");
   printf("      --write-png=STRING                regular expression describing which \n                                          *.png files to write  (default=`.*')\n");
   printf("      --dump-points=INT                 output averaged power bins for each \n                                          point in the sky  (default=`0')\n");
+  printf("      --dump-candidates=INT             output SFT data for first N candidates \n                                           (default=`0')\n");
   printf("      --focus-ra=DOUBLE                 focus computation on a circular area \n                                          with center at this RA\n");
   printf("      --focus-dec=DOUBLE                focus computation on a circular area \n                                          with center at this DEC\n");
   printf("      --focus-radius=DOUBLE             focus computation on a circular area \n                                          with this radius\n");
@@ -157,6 +159,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->first_bin_given = 0 ;
   args_info->nbins_given = 0 ;
   args_info->side_cut_given = 0 ;
+  args_info->expected_timebase_given = 0 ;
   args_info->hist_bins_given = 0 ;
   args_info->detector_given = 0 ;
   args_info->spindown_start_time_given = 0 ;
@@ -179,6 +182,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->write_dat_given = 0 ;
   args_info->write_png_given = 0 ;
   args_info->dump_points_given = 0 ;
+  args_info->dump_candidates_given = 0 ;
   args_info->focus_ra_given = 0 ;
   args_info->focus_dec_given = 0 ;
   args_info->focus_radius_given = 0 ;
@@ -215,6 +219,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->earth_ephemeris_arg = NULL; \
   args_info->sun_ephemeris_arg = NULL; \
   args_info->nbins_arg = 501 ;\
+  args_info->expected_timebase_arg = 6 ;\
   args_info->hist_bins_arg = 200 ;\
   args_info->detector_arg = NULL; \
   args_info->spindown_start_arg = 0.0 ;\
@@ -236,6 +241,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->write_dat_arg = gengetopt_strdup(".*") ;\
   args_info->write_png_arg = gengetopt_strdup(".*") ;\
   args_info->dump_points_arg = 0 ;\
+  args_info->dump_candidates_arg = 0 ;\
   args_info->fake_ra_arg = 3.14 ;\
   args_info->fake_dec_arg = 0.0 ;\
   args_info->fake_orientation_arg = 0.0 ;\
@@ -286,6 +292,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
         { "first-bin",	1, NULL, 'f' },
         { "nbins",	1, NULL, 'n' },
         { "side-cut",	1, NULL, 0 },
+        { "expected-timebase",	1, NULL, 0 },
         { "hist-bins",	1, NULL, 0 },
         { "detector",	1, NULL, 'd' },
         { "spindown-start-time",	1, NULL, 0 },
@@ -308,6 +315,7 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
         { "write-dat",	1, NULL, 0 },
         { "write-png",	1, NULL, 0 },
         { "dump-points",	1, NULL, 0 },
+        { "dump-candidates",	1, NULL, 0 },
         { "focus-ra",	1, NULL, 0 },
         { "focus-dec",	1, NULL, 0 },
         { "focus-radius",	1, NULL, 0 },
@@ -713,6 +721,20 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
             break;
           }
           
+          /* expected timebase in months.  */
+          else if (strcmp (long_options[option_index].name, "expected-timebase") == 0)
+          {
+            if (args_info->expected_timebase_given)
+              {
+                fprintf (stderr, "%s: `--expected-timebase' option given more than once\n", CMDLINE_PARSER_PACKAGE);
+                clear_args ();
+                exit (EXIT_FAILURE);
+              }
+            args_info->expected_timebase_given = 1;
+            args_info->expected_timebase_arg = strtol (optarg,&stop_char,0);
+            break;
+          }
+          
           /* number of bins to use when producing histograms.  */
           else if (strcmp (long_options[option_index].name, "hist-bins") == 0)
           {
@@ -1012,6 +1034,20 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
               }
             args_info->dump_points_given = 1;
             args_info->dump_points_arg = strtol (optarg,&stop_char,0);
+            break;
+          }
+          
+          /* output SFT data for first N candidates.  */
+          else if (strcmp (long_options[option_index].name, "dump-candidates") == 0)
+          {
+            if (args_info->dump_candidates_given)
+              {
+                fprintf (stderr, "%s: `--dump-candidates' option given more than once\n", CMDLINE_PARSER_PACKAGE);
+                clear_args ();
+                exit (EXIT_FAILURE);
+              }
+            args_info->dump_candidates_given = 1;
+            args_info->dump_candidates_arg = strtol (optarg,&stop_char,0);
             break;
           }
           
@@ -1799,6 +1835,24 @@ cmdline_parser_configfile (char * const filename, struct gengetopt_args_info *ar
                 }
               continue;
             }
+          if (!strcmp(fopt, "expected-timebase"))
+            {
+              if (override || !args_info->expected_timebase_given)
+                {
+                  args_info->expected_timebase_given = 1;
+                  if (fnum == 2)
+                    {
+                      args_info->expected_timebase_arg = strtol (farg,&stop_char,0);
+                    }
+                  else
+                    {
+                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
+                               filename, line_num);
+                      exit (EXIT_FAILURE);
+                    }
+                }
+              continue;
+            }
           if (!strcmp(fopt, "hist-bins"))
             {
               if (override || !args_info->hist_bins_given)
@@ -2193,6 +2247,24 @@ cmdline_parser_configfile (char * const filename, struct gengetopt_args_info *ar
                   if (fnum == 2)
                     {
                       args_info->dump_points_arg = strtol (farg,&stop_char,0);
+                    }
+                  else
+                    {
+                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
+                               filename, line_num);
+                      exit (EXIT_FAILURE);
+                    }
+                }
+              continue;
+            }
+          if (!strcmp(fopt, "dump-candidates"))
+            {
+              if (override || !args_info->dump_candidates_given)
+                {
+                  args_info->dump_candidates_given = 1;
+                  if (fnum == 2)
+                    {
+                      args_info->dump_candidates_arg = strtol (farg,&stop_char,0);
                     }
                   else
                     {

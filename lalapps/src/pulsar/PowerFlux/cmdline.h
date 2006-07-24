@@ -50,6 +50,7 @@ struct gengetopt_args_info
   int first_bin_arg;	/* first frequency bin in the band to be analyzed.  */
   int nbins_arg;	/* number of frequency bins to analyze (default='501').  */
   int side_cut_arg;	/* number of bins to cut from each side due to corruption from doppler shifts.  */
+  int expected_timebase_arg;	/* expected timebase in months (default='6').  */
   int hist_bins_arg;	/* number of bins to use when producing histograms (default='200').  */
   char * detector_arg;	/* detector location (i.e. LHO or LLO), passed to detresponse.  */
   double spindown_start_time_arg;	/* specify spindown start time in GPS sec. Assumed to be the first SFT segment by default.  */
@@ -72,6 +73,7 @@ struct gengetopt_args_info
   char * write_dat_arg;	/* regular expression describing which *.dat files to write (default='.*').  */
   char * write_png_arg;	/* regular expression describing which *.png files to write (default='.*').  */
   int dump_points_arg;	/* output averaged power bins for each point in the sky (default='0').  */
+  int dump_candidates_arg;	/* output SFT data for first N candidates (default='0').  */
   double focus_ra_arg;	/* focus computation on a circular area with center at this RA.  */
   double focus_dec_arg;	/* focus computation on a circular area with center at this DEC.  */
   double focus_radius_arg;	/* focus computation on a circular area with this radius.  */
@@ -113,6 +115,7 @@ struct gengetopt_args_info
   int first_bin_given ;	/* Whether first-bin was given.  */
   int nbins_given ;	/* Whether nbins was given.  */
   int side_cut_given ;	/* Whether side-cut was given.  */
+  int expected_timebase_given ;	/* Whether expected-timebase was given.  */
   int hist_bins_given ;	/* Whether hist-bins was given.  */
   int detector_given ;	/* Whether detector was given.  */
   int spindown_start_time_given ;	/* Whether spindown-start-time was given.  */
@@ -135,6 +138,7 @@ struct gengetopt_args_info
   int write_dat_given ;	/* Whether write-dat was given.  */
   int write_png_given ;	/* Whether write-png was given.  */
   int dump_points_given ;	/* Whether dump-points was given.  */
+  int dump_candidates_given ;	/* Whether dump-candidates was given.  */
   int focus_ra_given ;	/* Whether focus-ra was given.  */
   int focus_dec_given ;	/* Whether focus-dec was given.  */
   int focus_radius_given ;	/* Whether focus-radius was given.  */

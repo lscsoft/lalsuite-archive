@@ -7,17 +7,26 @@ typedef struct {
 	int polarization_index;
 	
 	int rank;
+	float score;
 	int domain_size;
+	float ul;
+	float S_band;
+	float M_band;
 	float max_dx;
 	float frequency;
 	float ra;
 	float dec;
 	float spindown;
-	float a_plus;
-	float a_cross;
+	float psi;
+	float iota;
 	float weight_ratio;
 	int skyband;
 	float coherence_score;
+	float chi_sq;
+	float power_cor;
+	float snr;
+	float strain;
+	float f_max;
 	} CANDIDATE;
 
 void identify_candidates(void);

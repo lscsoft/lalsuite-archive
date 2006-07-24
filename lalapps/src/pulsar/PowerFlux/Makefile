@@ -1,5 +1,5 @@
 PACKAGE=\"powerflux\"
-VERSION=1.4.4
+VERSION=1.4.5
 LALROOT=./../../../../
 LALINCLUDE=-I$(LALROOT)/include/
 LALLDFLAGS=-L$(LALROOT)/lib -L$(LALROOT)/support-lib -llalsupport -llal -lm
@@ -30,7 +30,7 @@ BAND=268200
 # 650.25 hz
 #BAND=1170450
 
-DATASET=/home/volodya/LIGO/S4/Injections/sfts/4.dst
+DATASET=/home/volodya/LIGO/S4/Injections/sfts/5.dst
 
 
 #
@@ -95,25 +95,28 @@ test3b: powerflux
 	        --earth-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/earth05-09.dat \
         	--sun-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/sun05-09.dat \
 
+#		 --focus-ra=2.2 --focus-dec=0.3 --focus-radius=0.2 \
+
 #		--fake-linear --fake-ra=3.141593 --fake-dec=0.006233 --fake-freq=199.85 --fake-strain=1e-20 \
 #		--fake-spindown=1e-9
-#		 --focus-ra=2.2 --focus-dec=0.3 --focus-radius=0.1 \
-		 --band-axis=explicit\(0.5,0.3,0.1\)
+#		 --band-axis=explicit\(0.5,0.3,0.1\)
 #		 --write-dat=NONE --write-png=ul\.png\$ \
 
 test3c: powerflux.hydra
-	./powerflux.hydra --input-format=Power --dataset=$(DATASET) -f $(BAND) -n 501 \
+	./powerflux.hydra --dataset=$(DATASET) -f $(BAND) -n 501 \
 		--ephemeris-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
-		--three-bins=0 --do-cutoff=0 \
+		--three-bins=0 --do-cutoff=1 \
 		--subtract-background=1 --ks-test=1 --filter-lines=1 \
-		--spindown-start=1e-9 \
+		--spindown-start=3.9289e-10 --dump-candidates=0 \
 	        --earth-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/earth05-09.dat \
-        	--sun-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/sun05-09.dat \
-		--fake-linear --fake-ra=3.141593 --fake-dec=0.006233 --fake-freq=199.85 --fake-strain=1e-20 \
-		--fake-spindown=1e-9
-#		 --focus-ra=2.2 --focus-dec=0.3 --focus-radius=0.1 \
-		 --band-axis=explicit\(0.5,0.3,0.1\)
-#		 --write-dat=NONE --write-png=ul\.png\$ \
+        	--sun-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/sun05-09.dat  \
+		 --focus-dec=-0.18512499 --focus-ra=3.830254 --focus-radius=0.7 \
+		 --write-dat=NONE \
+		--write-png=ul\\.png\\$$ 
+#
+#		--fake-linear --fake-ra=3.141593 --fake-dec=0.006233 --fake-freq=199.85 --fake-strain=1e-20 \
+#		--fake-spindown=1e-9\
+#		 --band-axis=explicit\(0.5,0.3,0.1\)
 
 test4: powerflux
 	valgrind --tool=cachegrind ./powerflux -i /home/volodya/LIGO/S2/S2.L1.op/power.L1. -f $(BAND) -n 501 \
@@ -246,3 +249,5 @@ upload.h: powerflux.hydra
 upload.l: powerflux.hydra
 	globus-scp -C powerflux.hydra ldas-grid.ligo-la.caltech.edu:PowerFlux/powerflux.$(VERSION)
 
+upload.c: powerflux.hydra
+	globus-scp -C powerflux.hydra ldas-grid.ligo.caltech.edu:PowerFlux/powerflux.$(VERSION)

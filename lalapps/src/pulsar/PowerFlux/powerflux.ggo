@@ -32,6 +32,7 @@ option "sun-ephemeris" 	- "Sun ephemeris file, overrides ephemeris-path argument
 option "first-bin"   	f "first frequency bin in the band to be analyzed" int no
 option "nbins"   	n "number of frequency bins to analyze" int default="501" no
 option "side-cut"    	- "number of bins to cut from each side due to corruption from doppler shifts" int no
+option "expected-timebase"    	- "expected timebase in months" int default="6" no
 option "hist-bins"      - "number of bins to use when producing histograms" int default="200" no
 
 option "detector"   	d "detector location (i.e. LHO or LLO), passed to detresponse" string no
@@ -61,6 +62,7 @@ option "lower-limit-comp" - "lower limit compensation factor - used to account f
 option "write-dat"      - "regular expression describing which *.dat files to write" string default=".*" no
 option "write-png"      - "regular expression describing which *.png files to write" string default=".*" no
 option "dump-points"	- "output averaged power bins for each point in the sky" int default="0" no
+option "dump-candidates" - "output SFT data for first N candidates" int default="0" no
 
 option "focus-ra"	- "focus computation on a circular area with center at this RA" double no
 option "focus-dec"	- "focus computation on a circular area with center at this DEC" double no
