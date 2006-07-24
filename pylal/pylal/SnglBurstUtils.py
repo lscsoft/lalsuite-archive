@@ -299,7 +299,7 @@ class CoincTable(table.Table):
 		for values in self.connection.cursor().execute("SELECT * FROM coinc_event WHERE coinc_def_id == ?", (lsctables.ILWDID(coinc_def_id),)):
 			yield self._row_from_cols(values)
 
-	def selectByTisiID(self, time_slide_id):
+	def selectByTimeSlideID(self, time_slide_id):
 		for values in self.connection.cursor().execute("SELECT * FROM coinc_event WHERE time_slide_id == ?", (lsctables.ILWDID(time_slide_id),)):
 			yield self._row_from_cols(values)
 

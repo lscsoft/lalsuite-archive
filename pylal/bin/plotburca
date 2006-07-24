@@ -277,7 +277,7 @@ class ConfidenceContours(SnglBurstUtils.BurstPlot):
 
 class RateVsConfidence(SnglBurstUtils.BurstPlot):
 	def __init__(self, instrument):
-		SnglBurstUtils.BurstPlot.__init__(self, "Confidence", "Trigger Rate (Hz)")
+		SnglBurstUtils.BurstPlot.__init__(self, "%s Confidence" % instrument, "Coincident Event Rate (Hz)")
 		self.instrument = instrument
 		self.foreground = []
 		self.background = []
@@ -293,7 +293,7 @@ class RateVsConfidence(SnglBurstUtils.BurstPlot):
 			else:
 				bins = self.background
 				self.background_segs.append(contents.seglists[self.instrument])
-			for coinc in contents.coinc_table.selectByTisiID(time_slide_id):
+			for coinc in contents.coinc_table.selectByTimeSlideID(time_slide_id):
 				if coinc.coinc_def_id != contents.bb_definer_id:
 					continue
 				for burst in coinc.sngl_bursts():
