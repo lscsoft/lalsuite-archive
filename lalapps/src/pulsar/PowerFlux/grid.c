@@ -577,7 +577,7 @@ for(k=1;k<sg->super_grid->npoints-1;k++){
 			}
 		}
 
-	if(pk!=j)fprintf(stderr, "k=%d pk=%d pi=%d j=%d  %d\n", k, pk, pi, j, pk-j);
+	//if(pk!=j)fprintf(stderr, "k=%d pk=%d pi=%d j=%d  %d\n", k, pk, pi, j, pk-j);
 	sg->reverse_map[k]=j;	
 	sg->first_map[j]=k; /* not the most efficient, but it works */
 
