@@ -102,22 +102,12 @@ def parse_command_line():
 # =============================================================================
 #
 
-def build_seglists(xmldoc, program):
-	searchsummtable = llwapp.get_table(xmldoc, lsctables.SearchSummaryTable.tableName)
-	process_ids = llwapp.get_process_ids_by_program(xmldoc, program)
-	insegs = segments.segmentlist()
-	for row in searchsummtable:
-		if (program == None) or llwapp.bisect_contains(process_ids, row.process_id):
-			insegs.append(row.get_in())
-	outsegs = llwapp.segmentlistdict_fromsearchsummary(xmldoc, program)
-	return outsegs, insegs.extent(), outsegs.extent_all()
-
-
 class DocContents(object):
 	def __init__(self, xmldoc, program = None):
 		self.snglbursttable = llwapp.get_table(xmldoc, lsctables.SnglBurstTable.tableName)
 
-		self.outsegs, self.inseg, self.outseg = build_seglists(xmldoc, program)
+		self.outsegs = llwapp.segmentlistdict_fromsearchsummary(xmldoc, program)
+		self.outseg = self.outsegs.extent_all()
 
 		try:
 			self.simbursttable = llwapp.get_table(xmldoc, lsctables.SimBurstTable.tableName)
@@ -489,7 +479,7 @@ def ligolw_bucut(doc, options):
 
 	apply_filters(contents, options, options.verbose)
 
-	llwapp.append_search_summary(doc, process, inseg = contents.inseg, outseg = contents.outseg, nevents = len(contents.snglbursttable))
+	llwapp.append_search_summary(doc, process, inseg = contents.outseg, outseg = contents.outseg, nevents = len(contents.snglbursttable))
 	llwapp.set_process_end_time(process)
 
 	return doc
