@@ -395,8 +395,10 @@ class CoincDatabase(object):
 		and before you want any of this information.
 		"""
 		self.connection.commit()
-		self.connection.execute("CREATE INDEX time_slide_id_index ON time_slide (time_slide_id)")
-		self.connection.execute("CREATE INDEX coinc_event_id_index ON coinc_event_map (table_name, coinc_event_id)")
+		cursor = self.connection.cursor()
+		cursor.execute("CREATE INDEX time_slide_id_index ON time_slide (time_slide_id)")
+		cursor.execute("CREATE INDEX coinc_event_id_index ON coinc_event_map (table_name, coinc_event_id)")
+		del cursor
 
 		# find the tables
 		self.sngl_burst_table = llwapp.get_table(xmldoc, lsctables.SnglBurstTable.tableName)
