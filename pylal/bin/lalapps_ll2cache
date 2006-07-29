@@ -122,7 +122,7 @@ def column_value(table, column):
 for pattern in patterns:
 	for filename in glob.glob(pattern):
 		# load document and extract search summary table
-		doc = llwapp.load_filename(filename, options.verbose)
+		doc = llwapp.load_filename(filename, options.verbose, gz = filename[-3:] == ".gz")
 		lsctables.makeReference(doc)
 		searchsumm = llwapp.get_table(doc, lsctables.SearchSummaryTable.tableName)
 
