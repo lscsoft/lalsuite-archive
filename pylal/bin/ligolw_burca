@@ -53,6 +53,7 @@ def parse_command_line():
 	parser.add_option("-f", "--force", action = "store_true", help = "process even if file has already been processed")
 	parser.add_option("-p", "--program", metavar = "name", default = "power", help = "set the name of the program that generated the events as it appears in the process table (default = power)")
 	parser.add_option("-w", "--window", metavar = "inst1,inst2=seconds", action = "append", default = [], help = "set the coincidence window for an instrument pair")
+	parser.add_option("-s", "--usepeaktime", action = "store_true", help = "use peak times to do coincidence (not tile overlap)")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
 	options, filenames = parser.parse_args()
 
@@ -74,7 +75,6 @@ def parse_command_line():
 
 snglcoinc.CompareFunc = SnglBurstUtils.CompareSnglBurst
 
-
 #
 # =============================================================================
 #
@@ -88,6 +88,10 @@ try:
 except ValueError, e:
 	print >>sys.stderr, "error: %s" % str(e)
 	sys.exit(1)
+
+if options.usepeaktime:
+	snglcoinc.CompareFunc = SnglBurstUtils.CompareSnglBurstByPeakTime
+
 
 for n, filename in enumerate(llwapp.sort_files_by_size(filenames, options.verbose)):
 	if options.verbose:
