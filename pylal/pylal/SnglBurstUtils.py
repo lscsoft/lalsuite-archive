@@ -547,7 +547,7 @@ def CompareSnglBurstByPeakTime(a, b, twindow = LIGOTimeGPS(0)):
 	"""
 
 	start = a.get_peak()
-	aperiod = segments.segment(start - window, start + twindow)
+	aperiod = segments.segment(start - twindow, start + twindow)
 
 	start = b.get_peak()
 	bperiod = segments.segment(start, start)
