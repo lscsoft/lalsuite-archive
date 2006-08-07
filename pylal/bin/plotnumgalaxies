@@ -1622,7 +1622,8 @@ for i in range(len(massedges)-1):
 
 #####################################################################
 # for plotting convenience, output the last row again
-ini_file.write("%e %e %e %e %e %e %e %e %e %e %e\n" % (\
+if opts.m_dm:
+  ini_file.write("%e %e %e %e %e %e %e %e %e %e %e\n" % (\
       (resultDict["mass"]+opts.m_dm),\
       resultDict["ng"],\
       resultDict["ngprime"],\
