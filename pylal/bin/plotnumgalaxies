@@ -151,7 +151,7 @@ def histng(xdata,xedges,lum_weight=None):
 ##############################################################################
 def massCut (sim_table, m_low, m_high):
   """
-  function to remove injections whose masses do not lie within [m_low,m_high]
+  function to remove injections whose total mass lies outside [m_low,m_high]
   @param sim_table: a list of sim inspirals
   @param m_low:     the low mass threshold
   @param m_high:    the high mass threshold
@@ -159,10 +159,10 @@ def massCut (sim_table, m_low, m_high):
   tmpTable = lsctables.New(lsctables.SimInspiralTable)
 
   for entry in sim_table:
-    m1 = getattr(entry,'mass1')
-    m2 = getattr(entry,'mass2')
-    if not (m_low and min(m1,m2) < m_low) and \
-       not (m_high and max(m1,m2) > m_high):
+    mass1 = getattr(entry,'mass1')
+    mass2 = getattr(entry,'mass2')
+    mtotal = mass1 + mass2
+    if (mtotal > m_low) and (mtotal < m_high):
       tmpTable.append(entry)
 
   return tmpTable
@@ -383,6 +383,7 @@ class astroData:
   def __init__(self, astroGlob, sourceFile, figName, distErrorType = None, \
       magErrorType = None):
     self.astro_inj,nocoincs = readFiles(astroGlob)
+    self.astro_inj_precut = self.astro_inj
     self.source_list = read_source_file(sourceFile)
     if distErrorType or magErrorType: 
       self.source_list = add_actual_error(self.source_list,distErrorType,\
@@ -405,6 +406,13 @@ class astroData:
         self.astro_inj.getColumnByName('source').count('MW') 
     self.astro_normalization = self.max_luminosity/self.max_sources
 
+  def mass_cut(self,mlow,mhigh):
+    """
+    cut injections by mass
+    """
+    self.astro_inj = massCut(self.astro_inj_precut,mlow,mhigh)
+    self.count_sources()
+    
   def segment_cut(self,segmentFile):
     """
     cut injections which lie outside the given segment file
@@ -1172,6 +1180,10 @@ parser.add_option("-H","--m-high",action="store",type="float",default=None,\
     metavar=" M_HIGH", 
     help="high mass threshold in mass cut" )
 
+parser.add_option("-A","--m-dm",action="store",type="float",default=None,\
+    metavar=" M_DM", 
+    help="steps in mass for mass cut" )
+
 # efficiency errors
 parser.add_option("-C","--h-calibration",action="store",type="float",
     default=None,metavar=" H_CAL",
@@ -1341,6 +1353,15 @@ if (opts.plot_ng or opts.cum_log_ng or opts.hist_ng or opts.cumulative_ng or \
     print >>sys.stderr, "Enter 'plotnumgalaxies --help' for usage"
     sys.exit(1)
 
+  # check mass cut parameters
+  if (opts.m_low or opts.m_high or opts.m_dm):
+      if not (opts.m_low and opts.m_high and opts.m_dm):
+        print >>sys.stderr, "For mass cut, all of --m-low, --m-high"
+        print >>sys.stderr, "and m-dm must be supplied"
+        print >>sys.stderr, "Enter 'plotnumgalaxies --help' for usage"
+        sys.exit(1)
+      elif opts.m_dm > (opts.m_high-opts.m_low):
+        opts.m_dm = (opts.m_high-opts.m_low)
 
 # if making plots of efficiencies:
 if (opts.plot_efficiency or opts.cum_search_ng or opts.plot_effcontour or \
@@ -1364,7 +1385,6 @@ errorVal = {}
 
 if opts.h_calibration:
   errorVal['Hanford_Calibration'] = opts.h_calibration
-  key_ini = 'Hanford_Calibration'
 if opts.l_calibration:
   errorVal['Livingston_Calibration'] = opts.l_calibration
 if opts.waveform_systematic:
@@ -1374,11 +1394,16 @@ if opts.mc_errors:
 
 figNum = 0
 ##############################################################################
-# Create an ini file
+# Output file and dictionary
 ##############################################################################
 ini_file = open("png-output.ini","w")
-ini_file.write("[apriori]\n")
-ini_file.write("ngprime=1.0\n")
+resultDict = { "mass":0.0, "ng":0.0, "ngprime":0.0, "pb":0.0, "pbprime":0.0,\
+    "Hanford_Calibration":0.0, "Livingston_Calibration":0.0,\
+    "Magnitude":0.0, "Distance":0.0, "Waveform":0.0,\
+    "Monte_Carlo":0.0}
+#ini_file.write("[apriori]\n")
+#ini_file.write("ngprime=1.0\n")
+resultDict["ngprime"]=1.0
 
 ##############################################################################
 # read in the time slides and zero lag
@@ -1401,12 +1426,14 @@ if opts.slide_glob:
   if opts.plot_cum_loudest: 
     figNum += 1
     P_b=slideLoudest.plot_cumulative(figNum, opts.figure_name)
-    ini_file.write("pb=%f\n" % P_b)
+    #ini_file.write("pb=%f\n" % P_b)
+    resultDict["pb"]=P_b
 
   if opts.plot_pdf_loudest: 
     figNum += 1
     pbprime=slideLoudest.plot_pdf(figNum, opts.figure_name)
-    ini_file.write("pbprime=%f\n" % pbprime)
+    #ini_file.write("pbprime=%f\n" % pbprime)
+    resultDict["pbprime"]=pbprime
 
 
 ##############################################################################
@@ -1430,6 +1457,7 @@ if astroPlots:
     print 'Number of Sources in ' + injAstro.astro.max_galaxy + \
           ' before segment selection = %d' % + injAstro.astro.max_sources
     injAstro.astro.segment_cut(opts.segment_file)
+    injAstro.astro.astro_inj_precut = injAstro.astro.astro_inj
 
   if opts.verbose:
     print 'The number of Sources in ' + injAstro.astro.max_galaxy + ' = %d' \
@@ -1439,6 +1467,7 @@ if astroPlots:
     print 'The inferred Milky Way luminosity is = %.2f' % \
         (injAstro.astro.mw_sources * injAstro.astro.max_luminosity / \
         injAstro.astro.max_sources)
+
 
 if injPlots:
   if opts.verbose:
@@ -1502,65 +1531,94 @@ if opts.plot_injections:
 ##############################################################################
 # Make plots requiring both astrophysical and injection data
 ##############################################################################
-if opts.cum_search_ng:
-  figNum += 1
-  injAstro.plot_search_x_ng(figNum, statThresh)
-  xng_cum = injAstro.get_search_x_ng(statThresh)
-  ini_file.write("ng=%f\n" % xng_cum)
-  print 
-  print '1-d calculation using ' + injAstro.x_value + ' yields'
-  print 'The total luminosity = %.2f L_10' % xng_cum
-  for key in errorVal.keys():
-    err = injAstro.get_search_x_error(key,statThresh)
-    ini_file.write(key+"=%f\n" % err)
-    if key == "Monte_Carlo":
-      print "Monte_Carlo error gives error in luminosity = %.2f L_10" % err
-    else:  
-      print key + ' error of %.1f' % float(100 * errorVal[key]) + \
-      '% gives error in luminosity = ' + '%.2f L_10' % err
-  for key in astroErrors:
-      error = injAstro.get_search_x_ng(statThresh, key) - xng_cum
-      print astroErrors[key].capitalize() + " " + key + \
-          " error for galaxies gives an error in luminosity = %.2f L_10" % \
-          error
-      ini_file.write(key+"=%f\n" % error)
+if astroPlots and opts.m_low and opts.m_high and opts.m_dm:
+  massedges = arange(opts.m_low,opts.m_high+1.0e-6,opts.m_dm)
+else:
+  massedges=[0.0,1.0e20]
 
-if opts.cum_search_2d_ng:
-  N_G = injAstro.get_search_2d_ng(statThresh)
-  ini_file.write("ng=%f\n" % N_G)
-  print '2-d calculation using ' + injAstro.x_value + ' and ' + \
-         injAstro.y_value + ' yields'
-  print "The total luminosity = %.2f L_10" % N_G    
-  for key in errorVal.keys():
-    err = injAstro.get_search_2d_error(key,statThresh)
-    ini_file.write(key+"=%f\n" % err)
-    if key == "Monte_Carlo":
-      print "Monte_Carlo error gives error in luminosity = %.2f L_10" % err
-    else:
-      print key + ' error of %.1f' % float(100 * errorVal[key]) + \
-          '% gives error in luminosity =' + ' %.2f L_10' % err
-       
-  for key in astroErrors:
-      error = injAstro.get_search_2d_ng(statThresh, key) - N_G
-      print astroErrors[key].capitalize() + " " + key + \
-          " error for galaxies gives an error in luminosity = %.2f L_10" % \
-          error
-      ini_file.write(key+"=%f\n" % error)
+for i in range(len(massedges)-1):
+  injAstro.astro.mass_cut(massedges[i],massedges[i+1])
+  resultDict["mass"]=0.5*(massedges[i+1] + massedges[i])
 
-##############################################################################
-# Make plots requiring both astrophysical and injection data
-##############################################################################
-if opts.plot_ng_vs_stat:
-  figNum +=1
-  plot_ng_vs_stat(injAstro, slideLoudest, figNum, integrate = 'x', \
-      figName = opts.figure_name)
+  if opts.cum_search_ng:
+    figNum += 1
+    injAstro.plot_search_x_ng(figNum, statThresh)
+    xng_cum = injAstro.get_search_x_ng(statThresh)
+    #ini_file.write("ng=%f\n" % xng_cum)
+    resultDict["ng"]=xng_cum
+    print 
+    print '1-d calculation using ' + injAstro.x_value + ' yields'
+    print 'The total luminosity = %.2f L_10' % xng_cum
+    for key in errorVal.keys():
+      err = injAstro.get_search_x_error(key,statThresh)
+      #ini_file.write(key+"=%f\n" % err)
+      resultDict[key]=err
+      if key == "Monte_Carlo":
+        print "Monte_Carlo error gives error in luminosity = %.2f L_10" % err
+      else:  
+        print key + ' error of %.1f' % float(100 * errorVal[key]) + \
+        '% gives error in luminosity = ' + '%.2f L_10' % err
+    for key in astroErrors:
+        error = injAstro.get_search_x_ng(statThresh, key) - xng_cum
+        print astroErrors[key].capitalize() + " " + key + \
+            " error for galaxies gives an error in luminosity = %.2f L_10" % \
+            error
+        #ini_file.write(key+"=%f\n" % error)
+        resultDict[key]=error
+  
+  if opts.cum_search_2d_ng:
+    N_G = injAstro.get_search_2d_ng(statThresh)
+    #ini_file.write("ng=%f\n" % N_G)
+    resultDict["ng"]=N_G
+    print '2-d calculation using ' + injAstro.x_value + ' and ' + \
+          injAstro.y_value + ' yields'
+    print "The total luminosity = %.2f L_10" % N_G    
+    for key in errorVal.keys():
+      err = injAstro.get_search_2d_error(key,statThresh)
+      #ini_file.write(key+"=%f\n" % err)
+      resultDict[key]=err
+      if key == "Monte_Carlo":
+        print "Monte_Carlo error gives error in luminosity = %.2f L_10" % err
+      else:
+        print key + ' error of %.1f' % float(100 * errorVal[key]) + \
+            '% gives error in luminosity =' + ' %.2f L_10' % err
+        
+    for key in astroErrors:
+        error = injAstro.get_search_2d_ng(statThresh, key) - N_G
+        print astroErrors[key].capitalize() + " " + key + \
+            " error for galaxies gives an error in luminosity = %.2f L_10" % \
+            error
+        #ini_file.write(key+"=%f\n" % error)
+        resultDict[key]=error
+  
+  ##############################################################################
+  # Make plots requiring both astrophysical and injection data
+  ##############################################################################
+  if opts.plot_ng_vs_stat:
+    figNum +=1
+    plot_ng_vs_stat(injAstro, slideLoudest, figNum, integrate = 'x', \
+        figName = opts.figure_name)
+  
+  if opts.plot_2d_ng_vs_stat:
+    figNum +=1
+    plot_ng_vs_stat(injAstro, slideLoudest, figNum, integrate = 'xy', \
+        figName = opts.figure_name )
+  
+  ##############################################################################
+  # 
+  ini_file.write("%e %e %e %e %e %e %e %e %e %e %e\n" % (\
+      resultDict["mass"],\
+      resultDict["ng"],\
+      resultDict["ngprime"],\
+      resultDict["pb"],\
+      resultDict["pbprime"],\
+      resultDict["Hanford_Calibration"],\
+      resultDict["Livingston_Calibration"],\
+      resultDict["Magnitude"],\
+      resultDict["Distance"],\
+      resultDict["Waveform"],\
+      resultDict["Monte_Carlo"] ) )
 
-if opts.plot_2d_ng_vs_stat:
-  figNum +=1
-  plot_ng_vs_stat(injAstro, slideLoudest, figNum, integrate = 'xy', \
-      figName = opts.figure_name )
-
-##############################################################################
 ini_file.close()
 
 if opts.show_plot:
