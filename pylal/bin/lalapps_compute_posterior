@@ -92,6 +92,26 @@ def read_file( filename ):
 
    return x,y
 
+#############################################################################
+# make steps so that fill will work properly
+def makesteps(x,y):
+  xnew=[]
+  ynew=[y[0]]
+  for i in arange(x.size-1):
+    xnew.append(x[i])
+    xnew.append(x[i+1])
+    ynew.append(y[i])
+    ynew.append(y[i+1])
+  xnew.append(x[-1])
+
+  tmpx=asarray(xnew)
+  tmpy=asarray(ynew)
+  tmpy1=10.0+0.0*tmpx
+  xnew=concatenate((tmpx,tmpx[::-1]))
+  ynew=concatenate((tmpy,tmpy1[::-1]))
+
+  return xnew,ynew
+
 
 
 ##############################################################################
@@ -354,12 +374,13 @@ ulfile.close()
 figure()
 x1=ularray[:,0]
 y1=ularray[:,1]
-y2=10.0+x1*0.0
-semilogy(ularray[:,0],ularray[:,1],ularray[:,0],ularray[:,2])
-x = concatenate( (x1,x1[::-1]) )
-y = concatenate( (y1,y2[::-1]) )
-p=fill(x,y, facecolor='g')
-setp(p, alpha=0.5)
+y2=ularray[:,2]
+semilogy(x1,y1,x1,y2)
+
+# to shade the region above the curve
+x,y=makesteps(x1,y2)
+p=fill(x,y, facecolor='k')
+setp(p, alpha=0.3)
 legend(('unmarginalized','marginalized'))
 xlabel('Total mass (Msun)', size='x-large')
 ylabel('Rate / yr / L$_{10}$', size='x-large')

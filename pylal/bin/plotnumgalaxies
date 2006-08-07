@@ -1538,7 +1538,7 @@ else:
 
 for i in range(len(massedges)-1):
   injAstro.astro.mass_cut(massedges[i],massedges[i+1])
-  resultDict["mass"]=0.5*(massedges[i+1] + massedges[i])
+  resultDict["mass"]=massedges[i]
 
   if opts.cum_search_ng:
     figNum += 1
@@ -1608,6 +1608,22 @@ for i in range(len(massedges)-1):
   # 
   ini_file.write("%e %e %e %e %e %e %e %e %e %e %e\n" % (\
       resultDict["mass"],\
+      resultDict["ng"],\
+      resultDict["ngprime"],\
+      resultDict["pb"],\
+      resultDict["pbprime"],\
+      resultDict["Hanford_Calibration"],\
+      resultDict["Livingston_Calibration"],\
+      resultDict["Magnitude"],\
+      resultDict["Distance"],\
+      resultDict["Waveform"],\
+      resultDict["Monte_Carlo"] ) )
+
+
+#####################################################################
+# for plotting convenience, output the last row again
+ini_file.write("%e %e %e %e %e %e %e %e %e %e %e\n" % (\
+      resultDict["mass"]+opts.m_dm,\
       resultDict["ng"],\
       resultDict["ngprime"],\
       resultDict["pb"],\
