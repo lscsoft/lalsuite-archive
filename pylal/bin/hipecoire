@@ -292,27 +292,27 @@ parser.add_option("-I","--stat-threshold",action="store",type="float",\
     default=None,metavar=" STAT_THRESH", \
     help="statistic threshold used in coire (default = None)")
     
-parser.add_option("-B","--h1-bittenl-a",action="store",type="float",\
+parser.add_option("-B","--h1-bittenl-a",action="store",\
     default=None,metavar=" H1-BITTENL-A", \
     help="value of a in bitten-l for H1 (default = None)")
     
-parser.add_option("-C","--h1-bittenl-b",action="store",type="float",\
+parser.add_option("-C","--h1-bittenl-b",action="store",\
     default=None,metavar=" H1-BITTENL-A", \
     help="value of b in bitten-l for H1 (default = None)")
     
-parser.add_option("-D","--h2-bittenl-a",action="store",type="float",\
+parser.add_option("-D","--h2-bittenl-a",action="store",\
     default=None,metavar=" H2-BITTENL-A", \
     help="value of a in bitten-l for H2 (default = None)")
     
-parser.add_option("-E","--h2-bittenl-b",action="store",type="float",\
+parser.add_option("-E","--h2-bittenl-b",action="store",\
     default=None,metavar=" H2-BITTENL-A", \
     help="value of a in bitten-l for H2 (default = None)")
     
-parser.add_option("-F","--l1-bittenl-a",action="store",type="float",\
+parser.add_option("-F","--l1-bittenl-a",action="store",\
     default=None,metavar=" L1-BITTENL-A", \
     help="value of a in bitten-l for L1 (default = None)")
     
-parser.add_option("-G","--l1-bittenl-b",action="store",type="float",\
+parser.add_option("-G","--l1-bittenl-b",action="store",\
     default=None,metavar=" L1-BITTENL-A", \
     help="value of a in bitten-l for L1 (default = None)")
 
