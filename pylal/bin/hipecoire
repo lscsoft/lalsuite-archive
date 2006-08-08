@@ -106,8 +106,15 @@ def coire(data_type,input,ifos,trigs=None):
   if opts.cluster_time:
     command += " --coinc-stat " + opts.coinc_stat +\
                " --cluster-time " + str(1000 * opts.cluster_time)
+    if "bitten_l" in opts.coinc_stat:
+      command += "--h1-bittenl-a " + opts.h1_bittenl_a +\
+          "--h1-bittenl-b " + opts.h1_bittenl_b +\
+          "--h2-bittenl-a " + opts.h2_bittenl_a +\
+          "--h2-bittenl-b " + opts.h2_bittenl_b +\
+          "--l1-bittenl-a " + opts.l1_bittenl_a +\
+          "--l1-bittenl-b " + opts.l1_bittenl_b
     if opts.stat_threshold:
-     command += " --stat-threshold " + str(opts.stat_threshold)
+      command += " --stat-threshold " + str(opts.stat_threshold)
 
   return command,output
 
@@ -224,6 +231,10 @@ And a few plotting specific options:
 """
 
 parser = OptionParser( usage )
+#
+# abcdefg ijklmn pqrstuvwx
+# ABCDEFG I T
+#
 
 # path
 parser.add_option("-a","--trig-path",action="store",type="string",\
@@ -280,6 +291,30 @@ parser.add_option("-i","--coinc-stat",action="store",type="string",\
 parser.add_option("-I","--stat-threshold",action="store",type="float",\
     default=None,metavar=" STAT_THRESH", \
     help="statistic threshold used in coire (default = None)")
+    
+parser.add_option("-B","--h1-bittenl-a",action="store",type="float",\
+    default=None,metavar=" H1-BITTENL-A", \
+    help="value of a in bitten-l for H1 (default = None)")
+    
+parser.add_option("-C","--h1-bittenl-b",action="store",type="float",\
+    default=None,metavar=" H1-BITTENL-A", \
+    help="value of b in bitten-l for H1 (default = None)")
+    
+parser.add_option("-D","--h2-bittenl-a",action="store",type="float",\
+    default=None,metavar=" H2-BITTENL-A", \
+    help="value of a in bitten-l for H2 (default = None)")
+    
+parser.add_option("-E","--h2-bittenl-a",action="store",type="float",\
+    default=None,metavar=" H2-BITTENL-A", \
+    help="value of a in bitten-l for H2 (default = None)")
+    
+parser.add_option("-F","--l1-bittenl-a",action="store",type="float",\
+    default=None,metavar=" L1-BITTENL-A", \
+    help="value of a in bitten-l for L1 (default = None)")
+    
+parser.add_option("-G","--l1-bittenl-a",action="store",type="float",\
+    default=None,metavar=" L1-BITTENL-A", \
+    help="value of a in bitten-l for L1 (default = None)")
 
 parser.add_option("-j","--second-coinc",action="store_true",default=False,\
     help="specify that the input comes from second coinc (default = false)")
