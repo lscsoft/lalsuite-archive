@@ -106,7 +106,7 @@ def makesteps(x,y):
 
   tmpx=asarray(xnew)
   tmpy=asarray(ynew)
-  tmpy1=10.0+0.0*tmpx
+  tmpy1=100.0+0.0*tmpx
   xnew=concatenate((tmpx,tmpx[::-1]))
   ynew=concatenate((tmpy,tmpy1[::-1]))
 
@@ -375,12 +375,15 @@ figure()
 x1=ularray[:,0]
 y1=ularray[:,1]
 y2=ularray[:,2]
-semilogy(x1,y1,x1,y2)
 
 # to shade the region above the curve
+semilogy(x1,100.0+0.0*x1,'k+')
+x,y=makesteps(x1,y1)
+p=fill(x,y, facecolor='k')
+setp(p, alpha=0.2)
 x,y=makesteps(x1,y2)
 p=fill(x,y, facecolor='k')
-setp(p, alpha=0.3)
+setp(p, alpha=0.4)
 legend(('unmarginalized','marginalized'))
 xlabel('Total mass (Msun)', size='x-large')
 ylabel('Rate / yr / L$_{10}$', size='x-large')
