@@ -94,7 +94,7 @@ def read_file( filename ):
 
 #############################################################################
 # make steps so that fill will work properly
-def makesteps(x,y):
+def makesteps(x,y,ymax):
   xnew=[]
   ynew=[y[0]]
   for i in arange(x.size-1):
@@ -106,7 +106,7 @@ def makesteps(x,y):
 
   tmpx=asarray(xnew)
   tmpy=asarray(ynew)
-  tmpy1=100.0+0.0*tmpx
+  tmpy1=ymax+0.0*tmpx
   xnew=concatenate((tmpx,tmpx[::-1]))
   ynew=concatenate((tmpy,tmpy1[::-1]))
 
@@ -173,6 +173,10 @@ parser.add_option("-F","--figure-name",action="store",type="string",\
     help="generate ps figures with name FNAME_PlotType.ps")
 parser.add_option("-x","--xmax",action="store",type="float",\
     default=200.0, metavar=" XMAX", help="maximum value on x-axis" ) 
+parser.add_option("-y","--ymin",action="store",type="float",\
+    default=0.01, metavar=" YMIN", help="minimum value on y-axis" ) 
+parser.add_option("-Y","--ymax",action="store",type="float",\
+    default=100.0, metavar=" YMAX", help="maximum value on y-axis" ) 
 
 (opts,args) = parser.parse_args()
 
@@ -377,13 +381,15 @@ y1=ularray[:,1]
 y2=ularray[:,2]
 
 # to shade the region above the curve
-semilogy(x1,100.0+0.0*x1,'k+')
-x,y=makesteps(x1,y1)
+semilogy(x1,opt.ymax+0.0*x1,'k+')
+x,y=makesteps(x1,y1,opts.ymax)
 p=fill(x,y, facecolor='k')
 setp(p, alpha=0.2)
-x,y=makesteps(x1,y2)
+ylim(opts.ymin,opts.ymax)
+x,y=makesteps(x1,y2,opts.ymax)
 p=fill(x,y, facecolor='k')
 setp(p, alpha=0.4)
+ylim(opts.ymin,opts.ymax)
 legend(('unmarginalized','marginalized'))
 xlabel('Total mass (Msun)', size='x-large')
 ylabel('Rate / yr / L$_{10}$', size='x-large')
