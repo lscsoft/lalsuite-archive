@@ -804,7 +804,7 @@ def cumhiststat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
   hold(True)
   # plot zero lag
   if trigs and trigs.nevents(): 
-    plot(bins,log10(cum_dist_zero),'rx',markersize=12)
+    plot(bins,log10(cum_dist_zero+1.0e-12),'r^',markerfacecolor="k",markersize=12)
   
   # plot time slides
   if slide_trigs and len(slide_snr_list):
@@ -812,9 +812,9 @@ def cumhiststat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
     for i in range( len(slide_mean) ):
       slide_min.append( max(slide_mean[i] - slide_std[i], 0.0001) )
       slide_mean[i] = max(slide_mean[i], 0.0001)
-    errorbar(bins,log10(slide_mean), 
-      [log10(slide_mean) - log10(slide_min), 
-      log10(slide_mean + slide_std) - log10(slide_mean)],markersize=12)
+    errorbar(bins,log10(slide_mean+1.0e-12), 
+      [log10(slide_mean+1.0e-12) - log10(slide_min+1.0e-12), 
+      log10(slide_mean + slide_std+1.0e-12) - log10(slide_mean+1.0e-12)],markersize=12)
 
   xlab = 'Combined '
   if stat:
