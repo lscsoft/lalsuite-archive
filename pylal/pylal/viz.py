@@ -804,7 +804,7 @@ def cumhiststat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
   hold(True)
   # plot zero lag
   if trigs and trigs.nevents(): 
-    plot(bins,log10(cum_dist_zero+1.0e-12),'r^',markerfacecolor="k",markersize=12)
+    plot(bins,log10(asarray(cum_dist_zero)+1.0e-12),'r^',markerfacecolor="k",markersize=12)
   
   # plot time slides
   if slide_trigs and len(slide_snr_list):
