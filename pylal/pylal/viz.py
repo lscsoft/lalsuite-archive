@@ -885,13 +885,13 @@ def efficiencyplot(found, missed, col_name, ifo=None, plot_type = 'linear', \
     bins = 10**bins
     if plot_name:
       semilogx(bins, eff, plotsym,markersize=12, markerfacecolor=None,\
-          markeredgewidth=1, linewidth=1, label = plot_name)
+          markeredgewidth=1, linewidth=2, label = plot_name)
     else:
       semilogx(bins, eff, plotsym,markersize=12, markerfacecolor=None,\
-          markeredgewidth=1, linewidth=1)
+          markeredgewidth=1, linewidth=2)
     if errors:
       errorbar(bins, eff, error,markersize=12, markerfacecolor=None,\
-          markeredgewidth=1, linewidth = 1, label = plot_name, \
+          markeredgewidth=1, linewidth = 2, label = plot_name, \
           fmt = plotsym)
             
   else:
