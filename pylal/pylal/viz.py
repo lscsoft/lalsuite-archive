@@ -9,6 +9,11 @@ from optparse import *
 from pylab    import *
 from readMeta import *
 
+#####################################################################
+# use tex labels
+params =  {'text.usetex': True }
+rcParams.update(params)
+
 def simpleplot(*args):
   if len(args)==3:
       mytable, col1, col2 = args
@@ -156,6 +161,33 @@ def timeindays(col_data ):
   col_data = (col_data - start)/(60 * 60 * 24.0)
 
   return col_data
+
+#############################################################################
+# make steps so that fill will work properly
+"""
+Function to create an array of steps suitable for filling between.
+"""
+def makesteps(x,y1,y2):
+  xnew=[]
+  y1new=[y1[0]]
+  y2new=[y2[0]]
+  for i in arange(x.size-1):
+    xnew.append(x[i])
+    xnew.append(x[i+1])
+    y1new.append(y1[i])
+    y1new.append(y1[i+1])
+    y2new.append(y2[i])
+    y2new.append(y2[i+1])
+  xnew.append(x[-1])
+
+  tmpx=asarray(xnew)
+  tmpy1=asarray(y1new)
+  tmpy2=asarray(y2new)
+  xnew=concatenate((tmpx,tmpx[::-1]))
+  ynew=concatenate((tmpy1,tmpy2[::-1]))
+
+  return xnew,ynew
+
 
 #######################################################################
 # function to plot the col1 vs col2 from the table
@@ -775,26 +807,18 @@ def cumhiststat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
   # hist of the zero lag:
   if trigs:
     [zero_dist,bin,info] = hist(snr,bins)
-
-    cum_dist_zero = [sum(zero_dist)]
-    cum_dist_zero.extend(sum(zero_dist) - cumsum(zero_dist))
-    cum_dist_zero.pop()
+    zero_dist = concatenate( (zeros(1),zero_dist) )
+    cum_dist_zero = sum(zero_dist)-cumsum(zero_dist[0:bin.size])
 
   # hist of the slides:
   if slide_trigs:  
     slide_dist = []
     cum_dist_slide = []
-    slide_mean = []
-    slide_std = []
     for slide_snr in slide_snr_list:
       [num_slide,bin,info] = hist(slide_snr,bins)
-      slide_dist.append(num_slide)
-      cum_slide = [sum(num_slide)]
-      cum_slide.extend(sum(num_slide) - cumsum(num_slide))
-      cum_slide.pop()
+      num_slide = concatenate( (zeros(1),num_slide) )
+      cum_slide = sum(num_slide)-cumsum(num_slide[0:bin.size])
       cum_dist_slide.append(cum_slide)
-    slide_mean = []
-
     cum_dist_slide = reshape(array(cum_dist_slide), \
       (len(slide_snr_list),nbins))
     slide_mean = mean(cum_dist_slide)
@@ -804,7 +828,7 @@ def cumhiststat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
   hold(True)
   # plot zero lag
   if trigs and trigs.nevents(): 
-    semilogy(bins,(asarray(cum_dist_zero)+1.0e-12),'r^',markerfacecolor="k",markersize=12)
+    semilogy(bins*bins,cum_dist_zero+0.0001,'k^',markerfacecolor="k",markersize=12)
   
   # plot time slides
   if slide_trigs and len(slide_snr_list):
@@ -812,19 +836,18 @@ def cumhiststat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
     for i in range( len(slide_mean) ):
       slide_min.append( max(slide_mean[i] - slide_std[i], 0.0001) )
       slide_mean[i] = max(slide_mean[i], 0.0001)
-    semilogy(bins,asarray(slide_mean)+1.0e-12, markersize=12)
-    #errorbar(bins,log10(slide_mean+1.0e-12), 
-      #[log10(slide_mean+1.0e-12) - log10(slide_min+1.0e-12), 
-      #log10(slide_mean + slide_std+1.0e-12) - log10(slide_mean+1.0e-12)],markersize=12)
-
-  xlab = 'Combined '
-  if stat:
-    xlab += stat
-  else:
-    xlab += 'Statistic'
+    semilogy(bins*bins,asarray(slide_mean), 'k+', markersize=12)
+    tmpx,tmpy = makesteps(bins,slide_min,slide_mean+slide_std)
+    p=fill(tmpx*tmpx,tmpy, facecolor='k')
+    setp(p, alpha=0.3)
     
-  xlabel(xlab, size='x-large')
-  ylabel('Log Number of events', size='x-large')
+  if stat:
+    xlab = r'$\rho^2$'
+  else:
+    xlab = 'Statistic'
+    
+  xlabel(r'Combined ' + xlab, size='x-large')
+  ylabel('Number of events', size='x-large')
   title_text = 'Cumulative histogram of Number of events vs Statistic'
   if ifolist:
     title_text += ' for ' 

@@ -581,6 +581,8 @@ if opts.snr_dist:
 
   viz.cumhiststat(coincTriggers, slideTriggers, None, opts.min_snr, \
         opts.max_snr, opts.nbins, opts.statistic)
+  ylim(ymin=1.0e-01)
+  ylim(ymax=2.0e+01)
   if f_name:  
     savefig(f_name + "_cum_hist_" + opts.statistic + ".png")
 
