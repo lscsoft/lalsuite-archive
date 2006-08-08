@@ -107,12 +107,12 @@ def coire(data_type,input,ifos,trigs=None):
     command += " --coinc-stat " + opts.coinc_stat +\
                " --cluster-time " + str(1000 * opts.cluster_time)
     if "bitten_l" in opts.coinc_stat:
-      command += "--h1-bittenl-a " + opts.h1_bittenl_a +\
-          "--h1-bittenl-b " + opts.h1_bittenl_b +\
-          "--h2-bittenl-a " + opts.h2_bittenl_a +\
-          "--h2-bittenl-b " + opts.h2_bittenl_b +\
-          "--l1-bittenl-a " + opts.l1_bittenl_a +\
-          "--l1-bittenl-b " + opts.l1_bittenl_b
+      command += " --h1-bittenl-a " + opts.h1_bittenl_a +\
+          " --h1-bittenl-b " + opts.h1_bittenl_b +\
+          " --h2-bittenl-a " + opts.h2_bittenl_a +\
+          " --h2-bittenl-b " + opts.h2_bittenl_b +\
+          " --l1-bittenl-a " + opts.l1_bittenl_a +\
+          " --l1-bittenl-b " + opts.l1_bittenl_b
     if opts.stat_threshold:
       command += " --stat-threshold " + str(opts.stat_threshold)
 
