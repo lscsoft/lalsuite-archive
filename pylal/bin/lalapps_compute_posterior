@@ -381,7 +381,7 @@ y1=ularray[:,1]
 y2=ularray[:,2]
 
 # to shade the region above the curve
-semilogy(x1,opt.ymax+0.0*x1,'k+')
+semilogy(x1,opts.ymax+0.0*x1,'k+')
 x,y=makesteps(x1,y1,opts.ymax)
 p=fill(x,y, facecolor='k')
 setp(p, alpha=0.2)
