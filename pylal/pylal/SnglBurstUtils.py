@@ -85,6 +85,7 @@ class SnglBurstTable(table.Table):
 	def unlink(self):
 		table.Table.unlink(self)
 		self.cursor.execute("DROP TABLE sngl_burst")
+		self.cursor = None
 
 
 class SnglBurst(lsctables.SnglBurst):
@@ -140,6 +141,7 @@ class SimBurstTable(table.Table):
 	def unlink(self):
 		table.Table.unlink(self)
 		self.cursor.execute("DROP TABLE sim_burst")
+		self.cursor = None
 
 
 class SimBurst(lsctables.SimBurst):
@@ -204,6 +206,7 @@ class TimeSlideTable(table.Table):
 	def unlink(self):
 		table.Table.unlink(self)
 		self.cursor.execute("DROP TABLE time_slide")
+		self.cursor = None
 
 
 class CoincDefTable(table.Table):
@@ -259,6 +262,7 @@ class CoincDefTable(table.Table):
 	def unlink(self):
 		table.Table.unlink(self)
 		self.cursor.execute("DROP TABLE coinc_definer")
+		self.cursor = None
 
 
 class CoincTable(table.Table):
@@ -306,6 +310,7 @@ class CoincTable(table.Table):
 	def unlink(self):
 		table.Table.unlink(self)
 		self.cursor.execute("DROP TABLE coinc_event")
+		self.cursor = None
 
 
 class Coinc(lsctables.Coinc):
@@ -368,6 +373,7 @@ class CoincMapTable(table.Table):
 	def unlink(self):
 		table.Table.unlink(self)
 		self.cursor.execute("DROP TABLE coinc_event_map")
+		self.cursor = None
 
 
 class CoincDatabase(object):
@@ -398,7 +404,6 @@ class CoincDatabase(object):
 		cursor = self.connection.cursor()
 		cursor.execute("CREATE INDEX time_slide_id_index ON time_slide (time_slide_id)")
 		cursor.execute("CREATE INDEX coinc_event_id_index ON coinc_event_map (table_name, coinc_event_id)")
-		del cursor
 
 		# find the tables
 		self.sngl_burst_table = llwapp.get_table(xmldoc, lsctables.SnglBurstTable.tableName)
@@ -420,14 +425,16 @@ class CoincDatabase(object):
 		self.instruments = self.seglists.keys()
 
 		# determine a few coinc_definer IDs
-		self.bb_definer_id = None
-		self.sb_definer_id = None
-		self.sc_definer_id = None
 		if self.coinc_def_table:
 			self.bb_definer_id = self.coinc_def_table.get_id([lsctables.SnglBurstTable.tableName])
+		else:
+			self.bb_definer_id = None
 		if self.sim_burst_table:
 			self.sb_definer_id = self.coinc_def_table.get_id([lsctables.SnglBurstTable.tableName, lsctables.SimBurstTable.tableName])
 			self.sc_definer_id = self.coinc_def_table.get_id([lsctables.CoincTable.tableName, lsctables.SimBurstTable.tableName])
+		else:
+			self.sb_definer_id = None
+			self.sc_definer_id = None
 
 		# compute the missed injections by instrument;  first
 		# generate a copy of all injection IDs for each instrument,
