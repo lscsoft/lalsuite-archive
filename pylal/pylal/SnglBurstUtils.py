@@ -548,20 +548,6 @@ def CompareSnglBurst(a, b, twindow = LIGOTimeGPS(0)):
 	return cmp_segs(a.get_period().protract(twindow), b.get_period()) or cmp_segs(a.get_band(), b.get_band())
 
 
-def CompareSnglBurstByPeakTime(a, b, twindow = LIGOTimeGPS(0)):
-	"""
-	Compares events by peak times
-	"""
-
-	start = a.get_peak()
-	aperiod = segments.segment(start - twindow, start + twindow)
-
-	start = b.get_peak()
-	bperiod = segments.segment(start, start)
-	
-	return cmp_segs(aperiod, bperiod)
-
-
 #
 # =============================================================================
 #

@@ -75,6 +75,17 @@ def parse_command_line():
 
 snglcoinc.CompareFunc = SnglBurstUtils.CompareSnglBurst
 
+def CompareStringBurstByPeakTime(a, b, twindow = LIGOTimeGPS(0)):
+	"""
+	Compares events by peak times
+	"""
+	start = a.get_peak()
+	aperiod = segments.segment(start - twindow, start + twindow)
+	start = b.get_peak()
+	bperiod = segments.segment(start, start)
+	return SnglBurstUtils.cmp_segs(aperiod, bperiod)
+
+
 #
 # =============================================================================
 #
@@ -88,10 +99,8 @@ try:
 except ValueError, e:
 	print >>sys.stderr, "error: %s" % str(e)
 	sys.exit(1)
-
 if options.usepeaktime:
-	snglcoinc.CompareFunc = SnglBurstUtils.CompareSnglBurstByPeakTime
-
+	snglcoinc.CompareFunc = CompareStringBurstByPeakTime
 
 for n, filename in enumerate(llwapp.sort_files_by_size(filenames, options.verbose)):
 	if options.verbose:
