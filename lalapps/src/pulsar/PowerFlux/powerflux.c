@@ -385,8 +385,8 @@ snprintf(s,20000,"%s/file.log", output_dir);
 FILE_LOG=fopen(s,"w");
 
 if(args_info.label_given){
-	fprintf(LOG, "%s\n", args_info.label_arg);
-	fprintf(stderr, "%s\n", args_info.label_arg);
+	fprintf(LOG, "label: \"%s\"\n", args_info.label_arg);
+	fprintf(stderr, "label: \"%s\"\n", args_info.label_arg);
 	}
 	
 if(gethostname(s, 19999)>=0){
@@ -600,6 +600,10 @@ if(args_info.input_given){
 	read_directory(args_info.input_arg,1,4000, first_bin, nbins, &nsegments, &power, &gps);
 	#endif
 	}
+
+time(&stage_time);
+fprintf(LOG, "input complete: %d\n", stage_time-start_time);
+fprintf(stderr, "input complete: %d\n", stage_time-start_time);
 
 if(nsegments==0){
 	fprintf(stderr,"ERROR: no input data found !\n");

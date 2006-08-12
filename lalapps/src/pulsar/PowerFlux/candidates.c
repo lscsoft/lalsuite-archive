@@ -305,14 +305,14 @@ fclose(fout);
 
 void output_candidate_header(FILE *fout)
 {
-fprintf(fout, "candidates: label polarization_index rank score point_index domain_size ul S M max_dx frequency psi iota ra dec spindown  weight_ratio skyband coherence_score power_cor snr strain f_max total\n");
+fprintf(fout, "candidates: label polarization_index rank score point_index domain_size ul S M max_dx frequency psi iota ra dec spindown  weight_ratio skyband coherence_score power_cor snr strain f_max ifo_freq ifo_freq_var total\n");
 }
 
 void output_candidate(FILE *fout, char * suffix, CANDIDATE *cand)
 {
-fprintf(fout, "candidate%s: \"%s\" %d %d %g %d %d %g %g %g %f %f %f %f %f %f %g %f %d %f %f %f %g %f %d\n",
+fprintf(fout, "candidate%s: \"%s\" %d %d %g %d %d %g %g %g %f %f %f %f %f %f %g %f %d %f %f %f %g %f %f %f %d\n",
 	suffix,
-	args_info.label_arg,
+	args_info.label_given ? args_info.label_arg : "",
 	cand->polarization_index,
 	cand->rank,
 	cand->score,
@@ -335,6 +335,8 @@ fprintf(fout, "candidate%s: \"%s\" %d %d %g %d %d %g %g %g %f %f %f %f %f %f %g 
 	cand->snr,
 	cand->strain,
 	cand->f_max,
+	cand->ifo_freq,
+	cand->ifo_freq_var,
 	candidate_free);
 }
 
@@ -349,7 +351,7 @@ float frequency=cand->frequency;
 int b0, b1, j, k, b, b_max;
 float a, coherence_score, power_cor, a_plus, a_cross, a_plus_sq, a_cross_sq, f_plus, f_cross, f_plus_sq, f_cross_sq;
 POLARIZATION *pl;
-double weight, total_weight, *response, *mismatch, f, x, y, *demod_signal_sum, *signal_sum, *signal_sq_sum, response_sum, response_sq_sum, response_weight, demod_weight, total_demod_weight, *cov_sum, power, mean_power, mean_power_sq, power_sd;
+double weight, total_weight, *response, *mismatch, f, x, y, *demod_signal_sum, *signal_sum, *signal_sq_sum, response_sum, response_sq_sum, response_weight, demod_weight, total_demod_weight, total_demod_weight2, *cov_sum, power, mean_power, mean_power_sq, power_sd;
 int window=20;
 int search_window=5;
 int *signal_bin;
@@ -366,6 +368,7 @@ response_sq_sum=0.0;
 response_sum=0.0;
 response_weight=0.0;
 total_demod_weight=0.0;
+total_demod_weight2=0.0;
 
 phase_sum=do_alloc(2*window+1, sizeof(*phase_sum));
 demod_signal_sum=do_alloc(2*window+1, sizeof(*signal_sum));
@@ -395,6 +398,9 @@ a_plus_sq=a_plus*a_plus;
 a_cross_sq=a_cross*a_cross;
 
 //fprintf(stderr, "psi=%f %f %f\n", cand->psi, p_proj, c_proj);
+
+cand->ifo_freq=0.0;
+cand->ifo_freq_var=0.0;
 
 /* loop over datasets */
 for(j=0;j<d_free;j++) {
@@ -458,6 +464,8 @@ for(j=0;j<d_free;j++) {
 		cand->snr=-1.0;
 		cand->strain=-1.0;
 		cand->f_max=cand->frequency;
+		cand->ifo_freq=-1;
+		cand->ifo_freq_var=-1;
 		return;
 		}
 	//fprintf(stderr, "b0=%d b1=%d\n", b0, b1);
@@ -473,9 +481,13 @@ for(j=0;j<d_free;j++) {
 		response_weight+=weight;
 
 		demod_weight=weight*response[k];
+		total_demod_weight2+=demod_weight;
 		total_demod_weight+=demod_weight*response[k];
 
 		p0=&(d->bin[k*nbins+signal_bin[k]-window]);
+
+		cand->ifo_freq+=signal_bin[k]*demod_weight;		
+		cand->ifo_freq_var+=signal_bin[k]*signal_bin[k]*demod_weight;		
 
 		for(b=0; b< (2*window+1); b++) {
 			x=p0[b].re;
@@ -487,8 +499,6 @@ for(j=0;j<d_free;j++) {
 
 			demod_signal_sum[b]+=power*demod_weight;
 			}
-
-		
 		}
 		
 	/* phase computation */
@@ -538,6 +548,13 @@ coherence_score=0;
 power_cor=0;
 response_sum/=response_weight;
 response_sq_sum/=response_weight;
+
+cand->ifo_freq/=total_demod_weight2;
+cand->ifo_freq_var/=total_demod_weight2;
+
+cand->ifo_freq_var=cand->ifo_freq_var-cand->ifo_freq*cand->ifo_freq;
+
+cand->ifo_freq=(cand->ifo_freq+first_bin)/1800.0;
 
 for(b=0;b<2*window+1;b++) {
 	/* power_cor */
@@ -612,9 +629,9 @@ free(demod_signal_sum);
 
 #define BETTER_SNR_PC(c1, c2)	(((c1).snr+(c1).power_cor)>((c2).snr+(c2).power_cor))
 
-#define BETTER_SNR_PC(c1, c2)	(((c1).snr>(c2).snr) || (((c1).snr>=(c2).snr)) && ((c1).power_cor>(c2).power_cor))
+#define BETTER_SNR_PC(c1, c2)	(((c1).snr>(c2).snr) || (((c1).snr>=(c2).snr) && ((c1).power_cor>(c2).power_cor)))
 
-#define BETTER_SNR_PC(c1, c2)	(((c1).snr>(c2).snr+0.1) || (((c1).snr>=(c2).snr)) && ((c1).strain>(c2).strain))
+#define BETTER_SNR_PC(c1, c2)	(((c1).snr>(c2).snr+0.1) || (((c1).snr>=(c2).snr) && ((c1).strain>(c2).strain)))
 
 #define BETTER_SNR_COH(c1, c2)	(((c1).snr>(c2).snr+0.1) || (((c1).snr>=(c2).snr)) && ((c1).coherence_score>(c2).coherence_score))
 

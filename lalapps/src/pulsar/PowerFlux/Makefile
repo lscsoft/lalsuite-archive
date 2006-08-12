@@ -8,6 +8,7 @@ LDFLAGS=$(LALLDFLAGS) -lpng -lz
 OPTFLAGS=-O6 -mmmx -msse -mcpu=i686
 OPTFLAGS=-O6 -march=i686 -funroll-loops
 OPTFLAGS=-O6 -msse2 -march=i686 -funroll-loops
+OPTFLAGS=-O6 -msse2 -march=opteron -funroll-loops
 CFLAGS=-Wall -g $(OPTFLAGS) -DPACKAGE=$(PACKAGE) -DVERSION=\"$(VERSION)\" \
 	$(LALINCLUDE)
 CC=gcc $(CFLAGS)
@@ -105,7 +106,7 @@ test3b: powerflux
 test3c: powerflux.hydra
 	./powerflux.hydra --dataset=$(DATASET) -f $(BAND) -n 501 \
 		--ephemeris-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
-		--three-bins=0 --do-cutoff=1 \
+		--three-bins=0 --do-cutoff=1 --lock-file=test.lock \
 		--subtract-background=1 --ks-test=1 --filter-lines=1 \
 		--spindown-start=3.9289e-10 --dump-candidates=0 \
 	        --earth-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/earth05-09.dat \

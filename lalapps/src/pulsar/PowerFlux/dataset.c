@@ -6,9 +6,13 @@
 #include <errno.h>
 #include <alloca.h>
 #include <math.h>
+#include <sys/time.h>
+#include <time.h>
 
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <dirent.h>
+#include <fcntl.h>
 
 #include "dataset.h"
 #include "statistics.h"
@@ -37,6 +41,57 @@ DATASET * datasets=NULL;
 int d_free=0;
 int d_size=0;
 
+int lock_file=-1;
+
+/* this is a busy wait.. as condor does not allow sleep() */
+static void spin_wait(int seconds)
+{
+time_t start_time, end_time;
+int i;
+time(&start_time);
+i=0;
+while(1) {
+	i++;
+	if(i>1000000) {
+		time(&end_time);
+		if(end_time>start_time+seconds)return;
+		i=0;
+		}
+	}
+}
+
+static void acquire_lock(char *filename)
+{
+struct flock fl;
+int i;
+
+lock_file=open(filename, O_CREAT | O_RDWR, 0666);
+if(lock_file<0) {
+	fprintf(stderr, "Could not open file \"%s\" for locking\n", filename);
+	return;
+	}
+fl.l_type=F_WRLCK;
+fl.l_whence=SEEK_SET;
+fl.l_start=0;
+fl.l_len=1;
+errno=0;
+i=0;
+while(fcntl(lock_file, F_SETLK, &fl)<0){
+	if(i>100) {
+		fprintf(stderr, "Waiting for lock: %s\n", strerror(errno));
+		i=0;
+		}
+	spin_wait(10);
+	i++;
+	}
+}
+
+static void release_lock(void)
+{
+if(lock_file>=0)close(lock_file);
+lock_file=-1;
+}
+
 static void inject_fake_signal(DATASET *dataset, int segment, COMPLEX *tmp)
 {
 /* TODO: add code to inject signals here - use Greg's code and simulate
@@ -48,6 +103,7 @@ static void init_dataset(DATASET *d)
 {
 memset(d, 0, sizeof(*d));
 d->name="unknown";
+d->lock_file=NULL;
 d->validated=0;
 d->detector="unknown";
 d->gps_start=0;
@@ -528,16 +584,22 @@ INT4 b, bin_start, nbins;
 REAL4 *tmp;
 float factor;
 long i;
+long retries;
 errno=0;
-fin=fopen(filename,"r");
-if((fin==NULL) && (errno==ENOENT))return -1; /* no such file */
-if(fin==NULL){
-	fprintf(stderr,"Error reading band %ld-%ld bins from file \"%s\":",startbin,startbin+count,filename);
+retries=0;
+while((fin=fopen(filename,"r"))==NULL) {
+	//if((fin==NULL) && (errno==ENOENT))return -1; /* no such file */
+	fprintf(stderr,"Error opening file \"%s\":", filename);
 	perror("");
-	return -1;	
+	retries++;
+	sleep(1);
+	}
+if(retries>0) { 
+	fprintf(stderr, "Successfully opened file \"%s\"\n", filename);
 	}
 /* read header */	
-/* Key */	
+/* Key */
+a=0.0;
 fread(&a, sizeof(a), 1, fin);
 if(a!=1.0){
 	fprintf(stderr,"Cannot read file \"%s\": wrong endianness\n", filename);
@@ -626,25 +688,65 @@ static void d_read_directory(DATASET *dst, char *dir, int length)
 DIR * d;
 struct dirent *de;
 char *s;
+struct timeval start_time, end_time, last_time;
+int i, last_i, limit=100;
+double delta, delta_avg;
+long retries;
 s=do_alloc(length+20001, sizeof(*s));
 memcpy(s, dir, length);
 s[length]=0;
 fprintf(stderr, "Reading directory %s\n", s);
-d=opendir(s);
-if(d==NULL){
+
+retries=0;
+while((d=opendir(s))==NULL) {
 	fprintf(stderr, "Error reading directory %s:", s);
 	perror("");
-	exit(-1);
+	retries++;
+	sleep(1);
 	}
+if(retries>0) {
+	fprintf(stderr, "Successfully opened directory %s\n", s);
+	}
+if(args_info.enable_dataset_locking_arg && (dst->lock_file != NULL)) {
+	acquire_lock(dst->lock_file);
+	} else 
+if(args_info.lock_file_given) {
+	acquire_lock(args_info.lock_file_arg);
+	}
+gettimeofday(&start_time, NULL);
+last_time=start_time;
+i=0;
+last_i=0;
 while((de=readdir(d))!=NULL) {
 	if(de->d_name[0]!='.') {
 		/* fprintf(stderr, "Found file \"%s\"\n", de->d_name); */
 		snprintf(s+length, 20000, "/%s", de->d_name);
 		add_file(dst, s);
+		i++;
+		}
+	if(i > limit+last_i) {
+		gettimeofday(&end_time, NULL);
+
+		delta=end_time.tv_sec-last_time.tv_sec+(end_time.tv_usec-last_time.tv_usec)*1e-6;
+		if(fabs(delta)==0.0)delta=1.0;
+
+		delta_avg=end_time.tv_sec-start_time.tv_sec+(end_time.tv_usec-start_time.tv_usec)*1e-6;
+		if(fabs(delta_avg)==0.0)delta_avg=1.0;
+
+		fprintf(stderr, "Read rate %f SFTs/sec current, %f SFTs/sec avg\n", (i-last_i)/(delta), i/delta_avg);
+		last_time=end_time;
+		limit=ceil(10*limit/delta);
+		if(limit <1 )limit=100;
+		last_i=i;
 		}
 	}
 closedir(d);
+gettimeofday(&end_time, NULL);
+delta=end_time.tv_sec-start_time.tv_sec+(end_time.tv_usec-start_time.tv_usec)*1e-6;
+if(fabs(delta)==0.0)delta=1.0;
+fprintf(stderr, "Read rate %f SFTs/sec\n", i/(delta));
 free(s);
+release_lock();
 }
 
 static void locate_arg(char *line, int length, int arg, int *arg_start, int *arg_stop)
@@ -706,6 +808,11 @@ if(d_free<1) {
 if(!strncasecmp(line, "detector", 8)) {
 	locate_arg(line, length, 1, &ai, &aj);
 	datasets[d_free-1].detector=strndup(&(line[ai]), aj-ai);
+	} else 
+if(!strncasecmp(line, "lock_file", 9)) {
+	locate_arg(line, length, 1, &ai, &aj);
+	if(datasets[d_free-1].lock_file!=NULL)free(datasets[d_free-1].lock_file);
+	datasets[d_free-1].lock_file=strndup(&(line[ai]), aj-ai);
 	} else 
 if(!strncasecmp(line, "gps_start", 9)) {
 	locate_arg(line, length, 1, &ai, &aj);

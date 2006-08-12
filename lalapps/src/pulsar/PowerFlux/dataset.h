@@ -14,6 +14,7 @@ typedef struct {
 typedef struct {
 	/* name of the data set - for logging purposes */
 	char *name; 
+	char *lock_file;
 	int validated; /* has this data set been validated ? see corresponding functions */
 
 	/* these describe which time periods we are interested in */

@@ -38,6 +38,8 @@ struct gengetopt_args_info
   double skymap_resolution_ratio_arg;	/* adjust default coarseness of the grid by this factor (default='1.0').  */
   double small_weight_ratio_arg;	/* ratio that determines which weight is too small to include in max statistics (default='0.2').  */
   char * input_arg;	/* path to input files (power or SFT).  */
+  char * lock_file_arg;	/* file to lock when reading SFTs in order to globally serialize disk access.  */
+  int enable_dataset_locking_arg;	/* set to 1 to enable dataset level locking (default='0').  */
   char * dataset_arg;	/* dataset file.  */
   char * input_munch_arg;	/* how to derive SFT name from --input (highly arcane) (default='%s%ld').  */
   char * input_format_arg;	/* format of input files (GEO, SFT, Power) (default='GEO').  */
@@ -103,6 +105,8 @@ struct gengetopt_args_info
   int skymap_resolution_ratio_given ;	/* Whether skymap-resolution-ratio was given.  */
   int small_weight_ratio_given ;	/* Whether small-weight-ratio was given.  */
   int input_given ;	/* Whether input was given.  */
+  int lock_file_given ;	/* Whether lock-file was given.  */
+  int enable_dataset_locking_given ;	/* Whether enable-dataset-locking was given.  */
   int dataset_given ;	/* Whether dataset was given.  */
   int input_munch_given ;	/* Whether input-munch was given.  */
   int input_format_given ;	/* Whether input-format was given.  */

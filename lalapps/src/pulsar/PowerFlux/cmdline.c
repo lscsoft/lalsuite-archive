@@ -54,6 +54,8 @@ cmdline_parser_print_help (void)
   printf("      --skymap-resolution-ratio=DOUBLE  adjust default coarseness of the grid \n                                          by this factor  (default=`1.0')\n");
   printf("      --small-weight-ratio=DOUBLE       ratio that determines which weight is \n                                          too small to include in max \n                                          statistics  (default=`0.2')\n");
   printf("  -i, --input=STRING                    path to input files (power or SFT)\n");
+  printf("      --lock-file=STRING                file to lock when reading SFTs in \n                                          order to globally serialize disk \n                                          access\n");
+  printf("      --enable-dataset-locking=INT      set to 1 to enable dataset level \n                                          locking  (default=`0')\n");
   printf("  -s, --dataset=STRING                  dataset file\n");
   printf("      --input-munch=STRING              how to derive SFT name from --input \n                                          (highly arcane)  (default=`%s%ld')\n");
   printf("      --input-format=STRING             format of input files (GEO, SFT, \n                                          Power)  (default=`GEO')\n");
@@ -147,6 +149,8 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->skymap_resolution_ratio_given = 0 ;
   args_info->small_weight_ratio_given = 0 ;
   args_info->input_given = 0 ;
+  args_info->lock_file_given = 0 ;
+  args_info->enable_dataset_locking_given = 0 ;
   args_info->dataset_given = 0 ;
   args_info->input_munch_given = 0 ;
   args_info->input_format_given = 0 ;
@@ -209,6 +213,8 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
   args_info->skymap_resolution_ratio_arg = 1.0 ;\
   args_info->small_weight_ratio_arg = 0.2 ;\
   args_info->input_arg = NULL; \
+  args_info->lock_file_arg = NULL; \
+  args_info->enable_dataset_locking_arg = 0 ;\
   args_info->dataset_arg = NULL; \
   args_info->input_munch_arg = gengetopt_strdup("%s%ld") ;\
   args_info->input_format_arg = gengetopt_strdup("GEO") ;\
@@ -280,6 +286,8 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
         { "skymap-resolution-ratio",	1, NULL, 0 },
         { "small-weight-ratio",	1, NULL, 0 },
         { "input",	1, NULL, 'i' },
+        { "lock-file",	1, NULL, 0 },
+        { "enable-dataset-locking",	1, NULL, 0 },
         { "dataset",	1, NULL, 's' },
         { "input-munch",	1, NULL, 0 },
         { "input-format",	1, NULL, 0 },
@@ -602,6 +610,34 @@ cmdline_parser (int argc, char * const *argv, struct gengetopt_args_info *args_i
               }
             args_info->small_weight_ratio_given = 1;
             args_info->small_weight_ratio_arg = strtod (optarg, NULL);
+            break;
+          }
+          
+          /* file to lock when reading SFTs in order to globally serialize disk access.  */
+          else if (strcmp (long_options[option_index].name, "lock-file") == 0)
+          {
+            if (args_info->lock_file_given)
+              {
+                fprintf (stderr, "%s: `--lock-file' option given more than once\n", CMDLINE_PARSER_PACKAGE);
+                clear_args ();
+                exit (EXIT_FAILURE);
+              }
+            args_info->lock_file_given = 1;
+            args_info->lock_file_arg = gengetopt_strdup (optarg);
+            break;
+          }
+          
+          /* set to 1 to enable dataset level locking.  */
+          else if (strcmp (long_options[option_index].name, "enable-dataset-locking") == 0)
+          {
+            if (args_info->enable_dataset_locking_given)
+              {
+                fprintf (stderr, "%s: `--enable-dataset-locking' option given more than once\n", CMDLINE_PARSER_PACKAGE);
+                clear_args ();
+                exit (EXIT_FAILURE);
+              }
+            args_info->enable_dataset_locking_given = 1;
+            args_info->enable_dataset_locking_arg = strtol (optarg,&stop_char,0);
             break;
           }
           
@@ -1605,6 +1641,42 @@ cmdline_parser_configfile (char * const filename, struct gengetopt_args_info *ar
                   if (fnum == 2)
                     {
                       args_info->input_arg = gengetopt_strdup (farg);
+                    }
+                  else
+                    {
+                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
+                               filename, line_num);
+                      exit (EXIT_FAILURE);
+                    }
+                }
+              continue;
+            }
+          if (!strcmp(fopt, "lock-file"))
+            {
+              if (override || !args_info->lock_file_given)
+                {
+                  args_info->lock_file_given = 1;
+                  if (fnum == 2)
+                    {
+                      args_info->lock_file_arg = gengetopt_strdup (farg);
+                    }
+                  else
+                    {
+                      fprintf (stderr, "%s:%d: required <option_name> <option_val>\n",
+                               filename, line_num);
+                      exit (EXIT_FAILURE);
+                    }
+                }
+              continue;
+            }
+          if (!strcmp(fopt, "enable-dataset-locking"))
+            {
+              if (override || !args_info->enable_dataset_locking_given)
+                {
+                  args_info->enable_dataset_locking_given = 1;
+                  if (fnum == 2)
+                    {
+                      args_info->enable_dataset_locking_arg = strtol (farg,&stop_char,0);
                     }
                   else
                     {
