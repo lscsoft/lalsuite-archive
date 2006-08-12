@@ -29,6 +29,9 @@ set FIELDS {
         "^largest:"  largest 1	{1 9}				9
         "^masked:"   masked 1	{1 2}				2
 	"^spindown  :" spindown 3	{2 2}			1
+	"^noise_floor:"  noise_floor  0  {2 2}			1
+	"^high_candidates_count:" high_candidates_count 0  {2 2} 	1
+	"^candidates_count:" candidates_count 0  {2 2} 	1
 	}
 
 set FIELDS_LAYOUT {exp var pol fields EC}
