@@ -75,15 +75,12 @@ def parse_command_line():
 
 snglcoinc.CompareFunc = SnglBurstUtils.CompareSnglBurst
 
+from pylal.date import LIGOTimeGPS
 def CompareStringBurstByPeakTime(a, b, twindow = LIGOTimeGPS(0)):
 	"""
 	Compares events by peak times
 	"""
-	start = a.get_peak()
-	aperiod = segments.segment(start - twindow, start + twindow)
-	start = b.get_peak()
-	bperiod = segments.segment(start, start)
-	return SnglBurstUtils.cmp_segs(aperiod, bperiod)
+	return b.get_peak() not in a.get_period().protract(twindow)
 
 
 #
