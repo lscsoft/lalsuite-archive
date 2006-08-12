@@ -86,3 +86,21 @@ FromNumArrayType = {
 	"Float64": "real_8"
 }
 
+ToSQLiteType = {
+	"char_s": "TEXT",
+	"ilwd:char": "TEXT",
+	"ilwd:char_u": "TEXT",
+	"lstring": "TEXT",
+	"string": "TEXT",
+	"int_2s": "INTEGER",
+	"int_2u": "INTEGER",
+	"int_4s": "INTEGER",
+	"int_4u": "INTEGER",
+	"int_8s": "INTEGER",
+	"int_8u": "INTEGER",
+	"int": "INTEGER",
+	"real_4": "REAL",
+	"real_8": "REAL",
+	"float": "REAL",
+	"double": "REAL"
+}
