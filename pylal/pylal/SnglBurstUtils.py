@@ -58,10 +58,10 @@ class SnglBurstTable(table.Table):
 	def __init__(self, *attrs):
 		table.Table.__init__(self, *attrs)
 		self.cursor = self.connection.cursor()
-		self.cursor.execute("CREATE TABLE sngl_burst (process_id INTEGER, ifo TEXT, search TEXT, channel TEXT, start_time INTEGER, start_time_ns INTEGER, peak_time INTEGER, peak_time_ns INTEGER, duration REAL, central_freq REAL, bandwidth REAL, amplitude REAL, snr REAL, confidence REAL, tfvolume REAL, event_id INTEGER UNIQUE PRIMARY KEY)")
+		self.cursor.execute("CREATE TABLE sngl_burst (process_id TEXT, ifo TEXT, search TEXT, channel TEXT, start_time INTEGER, start_time_ns INTEGER, peak_time INTEGER, peak_time_ns INTEGER, duration REAL, central_freq REAL, bandwidth REAL, amplitude REAL, snr REAL, confidence REAL, tfvolume REAL, event_id TEXT UNIQUE PRIMARY KEY)")
 
 	def append(self, row):
-		self.cursor.execute("INSERT INTO sngl_burst VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", (lsctables.ILWDID(row.process_id), row.ifo, row.search, row.channel, row.start_time, row.start_time_ns, row.peak_time, row.peak_time_ns, row.duration, row.central_freq, row.bandwidth, row.amplitude, row.snr, row.confidence, row.tfvolume, lsctables.ILWDID(row.event_id)))
+		self.cursor.execute("INSERT INTO sngl_burst VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", (row.process_id, row.ifo, row.search, row.channel, row.start_time, row.start_time_ns, row.peak_time, row.peak_time_ns, row.duration, row.central_freq, row.bandwidth, row.amplitude, row.snr, row.confidence, row.tfvolume, row.event_id))
 
 	def __len__(self):
 		return self.cursor.execute("SELECT COUNT(*) FROM sngl_burst").fetchone()[0]
@@ -69,13 +69,11 @@ class SnglBurstTable(table.Table):
 	def _row_from_cols(cls, values):
 		row = cls.RowType()
 		row.process_id, row.ifo, row.search, row.channel, row.start_time, row.start_time_ns, row.peak_time, row.peak_time_ns, row.duration, row.central_freq, row.bandwidth, row.amplitude, row.snr, row.confidence, row.tfvolume, row.event_id = values
-		row.process_id = str(lsctables.ILWD("process", "process_id", row.process_id))
-		row.event_id = str(lsctables.ILWD("sngl_burst", "event_id", row.event_id))
 		return row
 	_row_from_cols = classmethod(_row_from_cols)
 
 	def __getitem__(self, id):
-		self.cursor.execute("SELECT * FROM sngl_burst WHERE event_id == ?", (lsctables.ILWDID(id),))
+		self.cursor.execute("SELECT * FROM sngl_burst WHERE event_id == ?", (id,))
 		return self._row_from_cols(self.cursor.fetchone())
 
 	def __iter__(self):
@@ -114,10 +112,10 @@ class SimBurstTable(table.Table):
 	def __init__(self, *attrs):
 		table.Table.__init__(self, *attrs)
 		self.cursor = self.connection.cursor()
-		self.cursor.execute("CREATE TABLE sim_burst (process_id INTEGER, waveform TEXT, geocent_peak_time INTEGER, geocent_peak_time_ns INTEGER, h_peak_time INTEGER, h_peak_time_ns INTEGER, l_peak_time INTEGER, l_peak_time_ns INTEGER, peak_time_gmst REAL, dtminus REAL, dtplus REAL, longitude REAL, latitude REAL, coordinates TEXT, polarization REAL, hrss REAL, hpeak REAL, distance REAL, freq REAL, tau REAL, zm_number INTEGER, simulation_id INTEGER UNIQUE PRIMARY KEY)")
+		self.cursor.execute("CREATE TABLE sim_burst (process_id TEXT, waveform TEXT, geocent_peak_time INTEGER, geocent_peak_time_ns INTEGER, h_peak_time INTEGER, h_peak_time_ns INTEGER, l_peak_time INTEGER, l_peak_time_ns INTEGER, peak_time_gmst REAL, dtminus REAL, dtplus REAL, longitude REAL, latitude REAL, coordinates TEXT, polarization REAL, hrss REAL, hpeak REAL, distance REAL, freq REAL, tau REAL, zm_number INTEGER, simulation_id TEXT UNIQUE PRIMARY KEY)")
 
 	def append(self, row):
-		self.cursor.execute("INSERT INTO sim_burst VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", (lsctables.ILWDID(row.process_id), row.waveform, row.geocent_peak_time, row.geocent_peak_time_ns, row.h_peak_time, row.h_peak_time_ns, row.l_peak_time, row.l_peak_time_ns, row.peak_time_gmst, row.dtminus, row.dtplus, row.longitude, row.latitude, row.coordinates, row.polarization, row.hrss, row.hpeak, row.distance, row.freq, row.tau, row.zm_number, lsctables.ILWDID(row.simulation_id)))
+		self.cursor.execute("INSERT INTO sim_burst VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", (row.process_id, row.waveform, row.geocent_peak_time, row.geocent_peak_time_ns, row.h_peak_time, row.h_peak_time_ns, row.l_peak_time, row.l_peak_time_ns, row.peak_time_gmst, row.dtminus, row.dtplus, row.longitude, row.latitude, row.coordinates, row.polarization, row.hrss, row.hpeak, row.distance, row.freq, row.tau, row.zm_number, row.simulation_id))
 
 	def __len__(self):
 		return self.cursor.execute("SELECT COUNT(*) FROM sim_burst").fetchone()[0]
@@ -125,13 +123,11 @@ class SimBurstTable(table.Table):
 	def _row_from_cols(cls, values):
 		row = cls.RowType()
 		row.process_id, row.waveform, row.geocent_peak_time, row.geocent_peak_time_ns, row.h_peak_time, row.h_peak_time_ns, row.l_peak_time, row.l_peak_time_ns, row.peak_time_gmst, row.dtminus, row.dtplus, row.longitude, row.latitude, row.coordinates, row.polarization, row.hrss, row.hpeak, row.distance, row.freq, row.tau, row.zm_number, row.simulation_id = values
-		row.process_id = str(lsctables.ILWD("process", "process_id", row.process_id))
-		row.simulation_id = str(lsctables.ILWD("sim_burst", "simulation_id", row.simulation_id))
 		return row
 	_row_from_cols = classmethod(_row_from_cols)
 
 	def __getitem__(self, id):
-		self.cursor.execute("SELECT * FROM sim_burst WHERE simulation_id == ?", (lsctables.ILWDID(id),))
+		self.cursor.execute("SELECT * FROM sim_burst WHERE simulation_id == ?", (id,))
 		return self._row_from_cols(self.cursor.fetchone())
 
 	def __iter__(self):
@@ -167,25 +163,23 @@ class TimeSlideTable(table.Table):
 	def __init__(self, *attrs):
 		table.Table.__init__(self, *attrs)
 		self.cursor = self.connection.cursor()
-		self.cursor.execute("CREATE TABLE time_slide (process_id INTEGER, time_slide_id INTEGER, instrument TEXT, offset REAL)")
+		self.cursor.execute("CREATE TABLE time_slide (process_id TEXT, time_slide_id TEXT, instrument TEXT, offset REAL)")
 
 	def append(self, row):
-		self.cursor.execute("INSERT INTO time_slide VALUES (?, ?, ?, ?)", (lsctables.ILWDID(row.process_id), lsctables.ILWDID(row.time_slide_id), row.instrument, row.offset))
+		self.cursor.execute("INSERT INTO time_slide VALUES (?, ?, ?, ?)", (row.process_id, row.time_slide_id, row.instrument, row.offset))
 
 	def __len__(self):
 		return self.cursor.execute("SELECT COUNT(DISTINCT time_slide_id) FROM time_slide").fetchone()[0]
 
 	def __getitem__(self, id):
 		offsets = {}
-		for instrument, offset in self.cursor.execute("SELECT instrument, offset FROM time_slide WHERE time_slide_id == ?", (lsctables.ILWDID(id),)):
+		for instrument, offset in self.cursor.execute("SELECT instrument, offset FROM time_slide WHERE time_slide_id == ?", (id,)):
 			offsets[instrument] = offset
 		return offsets
 
 	def _row_from_cols(cls, values):
 		row = cls.RowType()
 		row.process_id, row.time_slide_id, row.instrument, row.offset = values
-		row.process_id = str(lsctables.ILWD("process", "process_id", row.process_id))
-		row.time_slide_id = str(lsctables.ILWD("time_slide", "time_slide_id", row.time_slide_id))
 		return row
 	_row_from_cols = classmethod(_row_from_cols)
 
@@ -195,13 +189,13 @@ class TimeSlideTable(table.Table):
 
 	def iterkeys(self):
 		for (id,) in self.connection.cursor().execute("SELECT DISTINCT time_slide_id FROM time_slide"):
-			yield str(lsctables.ILWD("time_slide", "time_slide_id", id))
+			yield id
 
 	def is_null(self, id):
-		return not self.cursor.execute("SELECT COUNT(time_slide_id) FROM time_slide WHERE time_slide_id == ? AND offset != 0 LIMIT 1", (lsctables.ILWDID(id),)).fetchone()[0]
+		return not self.cursor.execute("SELECT COUNT(time_slide_id) FROM time_slide WHERE time_slide_id == ? AND offset != 0 LIMIT 1", (id,)).fetchone()[0]
 
 	def all_offsets(self):
-		return [self[str(lsctables.ILWD("time_slide", "time_slide_id", id))] for (id,) in self.connection.cursor().execute("SELECT DISTINCT time_slide_id FROM time_slide")]
+		return [self[id] for (id,) in self.connection.cursor().execute("SELECT DISTINCT time_slide_id FROM time_slide")]
 
 	def unlink(self):
 		table.Table.unlink(self)
@@ -217,10 +211,10 @@ class CoincDefTable(table.Table):
 	def __init__(self, *attrs):
 		table.Table.__init__(self, *attrs)
 		self.cursor = self.connection.cursor()
-		self.cursor.execute("CREATE TABLE coinc_definer (coinc_def_id INTEGER, table_name TEXT)")
+		self.cursor.execute("CREATE TABLE coinc_definer (coinc_def_id TEXT, table_name TEXT)")
 
 	def append(self, row):
-		self.cursor.execute("INSERT INTO coinc_definer VALUES (?, ?)", (lsctables.ILWDID(row.coinc_def_id), row.table_name))
+		self.cursor.execute("INSERT INTO coinc_definer VALUES (?, ?)", (row.coinc_def_id, row.table_name))
 
 	def __len__(self):
 		return self.cursor.execute("SELECT COUNT(DISTINCT coinc_def_id) FROM coinc_definer").fetchone()[0]
@@ -228,7 +222,6 @@ class CoincDefTable(table.Table):
 	def _row_from_cols(cls, values):
 		row = cls.RowType()
 		row.coinc_def_id, row.table_name = values
-		row.coinc_def_id = str(lsctables.ILWD("coinc_definer", "coinc_def_id", row.coinc_def_id))
 		return row
 	_row_from_cols = classmethod(_row_from_cols)
 
@@ -241,7 +234,7 @@ class CoincDefTable(table.Table):
 		From an ID, return a sorted list of table names or raise
 		KeyError if no matching ID is found.
 		"""
-		l = [table_name for (table_name,) in self.cursor.execute("SELECT table_name FROM coinc_definer WHERE coinc_def_id == ?", (lsctables.ILWDID(id),))]
+		l = [table_name for (table_name,) in self.cursor.execute("SELECT table_name FROM coinc_definer WHERE coinc_def_id == ?", (id,))]
 		if not l:
 			raise KeyError, id
 		l.sort()
@@ -254,7 +247,7 @@ class CoincDefTable(table.Table):
 		"""
 		table_names = list(table_names)	# so we can modify it
 		table_names.sort()
-		for id in [str(lsctables.ILWD("coinc_definer", "coinc_def_id", id)) for (id,) in self.cursor.execute("SELECT DISTINCT coinc_def_id FROM coinc_definer")]:
+		for (id,) in self.connection.cursor().execute("SELECT DISTINCT coinc_def_id FROM coinc_definer"):
 			if self.get_table_names(id) == table_names:
 				return id
 		raise KeyError, table_names
@@ -273,23 +266,19 @@ class CoincTable(table.Table):
 	def __init__(self, *attrs):
 		table.Table.__init__(self, *attrs)
 		self.cursor = self.connection.cursor()
-		self.cursor.execute("CREATE TABLE coinc_event (process_id INTEGER, coinc_def_id INTEGER, time_slide_id INTEGER, nevents INTEGER, coinc_event_id INTEGER UNIQUE PRIMARY KEY)")
+		self.cursor.execute("CREATE TABLE coinc_event (process_id TEXT, coinc_def_id TEXT, time_slide_id TEXT, nevents INTEGER, coinc_event_id TEXT UNIQUE PRIMARY KEY)")
 
 	def append(self, row):
-		self.cursor.execute("INSERT INTO coinc_event VALUES (?, ?, ?, ?, ?)", (lsctables.ILWDID(row.process_id), lsctables.ILWDID(row.coinc_def_id), lsctables.ILWDID(row.time_slide_id), row.nevents, lsctables.ILWDID(row.coinc_event_id)))
+		self.cursor.execute("INSERT INTO coinc_event VALUES (?, ?, ?, ?, ?)", (row.process_id, row.coinc_def_id, row.time_slide_id, row.nevents, row.coinc_event_id))
 
 	def _row_from_cols(cls, values):
 		row = cls.RowType()
 		row.process_id, row.coinc_def_id, row.time_slide_id, row.nevents, row.coinc_event_id = values
-		row.process_id = str(lsctables.ILWD("process", "process_id", row.process_id))
-		row.coinc_def_id = str(lsctables.ILWD("coinc_definer", "coinc_def_id", row.coinc_def_id))
-		row.time_slide_id = str(lsctables.ILWD("time_slide", "time_slide_id", row.time_slide_id))
-		row.coinc_event_id = str(lsctables.ILWD("coinc_event", "coinc_event_id", row.coinc_event_id))
 		return row
 	_row_from_cols = classmethod(_row_from_cols)
 
 	def __getitem__(self, id):
-		self.cursor.execute("SELECT * FROM coinc_event WHERE coinc_event_id == ?", (lsctables.ILWDID(id),))
+		self.cursor.execute("SELECT * FROM coinc_event WHERE coinc_event_id == ?", (id,))
 		return self._row_from_cols(self.cursor.fetchone())
 
 	def __len__(self):
@@ -300,11 +289,11 @@ class CoincTable(table.Table):
 			yield self._row_from_cols(values)
 
 	def selectByDefID(self, coinc_def_id):
-		for values in self.connection.cursor().execute("SELECT * FROM coinc_event WHERE coinc_def_id == ?", (lsctables.ILWDID(coinc_def_id),)):
+		for values in self.connection.cursor().execute("SELECT * FROM coinc_event WHERE coinc_def_id == ?", (coinc_def_id,)):
 			yield self._row_from_cols(values)
 
 	def selectByTimeSlideID(self, time_slide_id):
-		for values in self.connection.cursor().execute("SELECT * FROM coinc_event WHERE time_slide_id == ?", (lsctables.ILWDID(time_slide_id),)):
+		for values in self.connection.cursor().execute("SELECT * FROM coinc_event WHERE time_slide_id == ?", (time_slide_id,)):
 			yield self._row_from_cols(values)
 
 	def unlink(self):
@@ -316,23 +305,23 @@ class CoincTable(table.Table):
 class Coinc(lsctables.Coinc):
 	def get_time_slide(self):
 		offsets = {}
-		for instrument, offset in CoincTable.connection.cursor().execute("SELECT instrument, offset FROM time_slide WHERE time_slide_id == ?", (lsctables.ILWDID(self.time_slide_id),)):
+		for instrument, offset in CoincTable.connection.cursor().execute("SELECT instrument, offset FROM time_slide WHERE time_slide_id == ?", (self.time_slide_id,)):
 			offsets[instrument] = offset
 		return offsets
 
 	def is_zero_lag(self):
-		return not CoincTable.connection.cursor().execute("SELECT COUNT(offset) FROM time_slide WHERE time_slide_id == ? AND offset != 0", (lsctables.ILWDID(self.time_slide_id),)).fetchone()[0]
+		return not CoincTable.connection.cursor().execute("SELECT COUNT(offset) FROM time_slide WHERE time_slide_id == ? AND offset != 0", (self.time_slide_id,)).fetchone()[0]
 
 	def sim_bursts(self):
-		for values in CoincTable.connection.cursor().execute("SELECT * FROM sim_burst WHERE simulation_id IN (SELECT event_id FROM coinc_event_map WHERE table_name == 'sim_burst' AND coinc_event_id == ?)", (lsctables.ILWDID(self.coinc_event_id),)):
+		for values in CoincTable.connection.cursor().execute("SELECT * FROM sim_burst WHERE simulation_id IN (SELECT event_id FROM coinc_event_map WHERE table_name == 'sim_burst' AND coinc_event_id == ?)", (self.coinc_event_id,)):
 			yield SimBurstTable._row_from_cols(values)
 
 	def sngl_bursts(self):
-		for values in CoincTable.connection.cursor().execute("SELECT * FROM sngl_burst WHERE event_id in (SELECT event_id FROM coinc_event_map WHERE table_name == 'sngl_burst' AND coinc_event_id == ?)", (lsctables.ILWDID(self.coinc_event_id),)):
+		for values in CoincTable.connection.cursor().execute("SELECT * FROM sngl_burst WHERE event_id in (SELECT event_id FROM coinc_event_map WHERE table_name == 'sngl_burst' AND coinc_event_id == ?)", (self.coinc_event_id,)):
 			yield SnglBurstTable._row_from_cols(values)
 
 	def coincs(self):
-		for values in CoincTable.connection.cursor().execute("SELECT * FROM coinc_event WHERE coinc_event_id IN (SELECT event_id FROM coinc_event_map WHERE table_name == 'coinc_event' AND coinc_event_id == ?)", (lsctables.ILWDID(self.coinc_event_id),)):
+		for values in CoincTable.connection.cursor().execute("SELECT * FROM coinc_event WHERE coinc_event_id IN (SELECT event_id FROM coinc_event_map WHERE table_name == 'coinc_event' AND coinc_event_id == ?)", (self.coinc_event_id,)):
 			yield CoincTable._row_from_cols(values)
 
 CoincTable.RowType = Coinc
@@ -346,23 +335,17 @@ class CoincMapTable(table.Table):
 	def __init__(self, *attrs):
 		table.Table.__init__(self, *attrs)
 		self.cursor = self.connection.cursor()
-		self.cursor.execute("CREATE TABLE coinc_event_map (coinc_event_id INTEGER, table_name TEXT, event_id INTEGER)")
+		self.cursor.execute("CREATE TABLE coinc_event_map (coinc_event_id TEXT, table_name TEXT, event_id TEXT)")
 
 	def __len__(self):
 		return self.cursor.execute("SELECT COUNT(*) FROM coinc_event_map").fetchone()[0]
 
 	def append(self, row):
-		self.cursor.execute("INSERT INTO coinc_event_map VALUES (?, ?, ?)", (lsctables.ILWDID(row.coinc_event_id), lsctables.ILWDTableName(row.event_id), lsctables.ILWDID(row.event_id)))
+		self.cursor.execute("INSERT INTO coinc_event_map VALUES (?, ?, ?)", (row.coinc_event_id, lsctables.ILWDTableName(row.event_id), row.event_id))
 
 	def _row_from_cols(cls, values):
-		column_name = {
-			"sngl_burst": "event_id",
-			"sim_burst": "simulation_id",
-			"coinc_event": "coinc_event_id"
-		}[values[1]]
 		row = cls.RowType()
-		row.coinc_event_id = str(lsctables.ILWD("coinc_event", "coinc_event_id", values[0]))
-		row.event_id = str(lsctables.ILWD(values[1], column_name, values[2]))
+		row.coinc_event_id, nul, row.event_id = values
 		return row
 	_row_from_cols = classmethod(_row_from_cols)
 
@@ -425,14 +408,14 @@ class CoincDatabase(object):
 		self.instruments = self.seglists.keys()
 
 		# determine a few coinc_definer IDs
-		if self.coinc_def_table:
+		try:
 			self.bb_definer_id = self.coinc_def_table.get_id([lsctables.SnglBurstTable.tableName])
-		else:
+		except KeyError:
 			self.bb_definer_id = None
-		if self.sim_burst_table:
+		try:
 			self.sb_definer_id = self.coinc_def_table.get_id([lsctables.SnglBurstTable.tableName, lsctables.SimBurstTable.tableName])
 			self.sc_definer_id = self.coinc_def_table.get_id([lsctables.CoincTable.tableName, lsctables.SimBurstTable.tableName])
-		else:
+		except KeyError:
 			self.sb_definer_id = None
 			self.sc_definer_id = None
 
@@ -440,7 +423,7 @@ class CoincDatabase(object):
 		# generate a copy of all injection IDs for each instrument,
 		# then remove the ones that each instrument didn't find
 		if self.sb_definer_id:
-			self.missed_injections = {self.instruments[0]: [str(lsctables.ILWD("sim_burst", "simulation_id", id)) for (id,) in self.sim_burst_table.cursor.execute("SELECT simulation_id FROM sim_burst")]}
+			self.missed_injections = {self.instruments[0]: [id for (id,) in cursor.execute("SELECT simulation_id FROM sim_burst")]}
 			for instrument in self.instruments[1:]:
 				self.missed_injections[instrument] = list(self.missed_injections[self.instruments[0]])
 			for coinc in self.coinc_table.selectByDefID(self.sb_definer_id):
@@ -474,15 +457,15 @@ class CoincDatabase(object):
 			# coincident with an injection; the outer select
 			# finds a list of the burst+burst coinc_event_ids
 			# pointing to at least one of those bursts
-			self.incomplete_injection_coinc_ids = [coinc_event_id for (coinc_event_id,) in self.coinc_table.cursor.execute("SELECT DISTINCT coinc_event.coinc_event_id FROM coinc_event JOIN coinc_event_map ON (coinc_event.coinc_event_id == coinc_event_map.coinc_event_id) WHERE coinc_def_id == ? AND table_name == 'sngl_burst' AND event_id IN (SELECT DISTINCT event_id FROM coinc_event_map JOIN coinc_event ON (coinc_event_map.coinc_event_id == coinc_event.coinc_event_id) WHERE coinc_event_map.table_name == 'sngl_burst' AND coinc_event.coinc_def_id == ?)", (lsctables.ILWDID(self.bb_definer_id), lsctables.ILWDID(self.sb_definer_id)))]
+			self.incomplete_injection_coinc_ids = [coinc_event_id for (coinc_event_id,) in cursor.execute("SELECT DISTINCT coinc_event.coinc_event_id FROM coinc_event JOIN coinc_event_map ON (coinc_event.coinc_event_id == coinc_event_map.coinc_event_id) WHERE coinc_def_id == ? AND table_name == 'sngl_burst' AND event_id IN (SELECT DISTINCT event_id FROM coinc_event_map JOIN coinc_event ON (coinc_event_map.coinc_event_id == coinc_event.coinc_event_id) WHERE coinc_event_map.table_name == 'sngl_burst' AND coinc_event.coinc_def_id == ?)", (self.bb_definer_id, self.sb_definer_id))]
 
 			# now remove the coinc_event_ids for which all
 			# bursts were marked as injections
-			map(self.incomplete_injection_coinc_ids.remove, [coinc_event_id for (coinc_event_id,) in self.coinc_table.cursor.execute("SELECT DISTINCT event_id FROM coinc_event_map JOIN coinc_event ON (coinc_event_map.coinc_event_id == coinc_event.coinc_event_id) WHERE table_name == 'coinc_event' AND coinc_def_id == ?", (lsctables.ILWDID(self.sc_definer_id),))])
+			map(self.incomplete_injection_coinc_ids.remove, [coinc_event_id for (coinc_event_id,) in cursor.execute("SELECT DISTINCT event_id FROM coinc_event_map JOIN coinc_event ON (coinc_event_map.coinc_event_id == coinc_event.coinc_event_id) WHERE table_name == 'coinc_event' AND coinc_def_id == ?", (self.sc_definer_id,))])
 
 			# now remove coinc_event_ids for coincs that are
 			# not at zero-lag
-			self.incomplete_injection_coinc_ids = filter(lambda id: self.coinc_table[id].is_zero_lag(), map(lambda id: str(lsctables.ILWD("coinc_event", "coinc_event_id", id)), self.incomplete_injection_coinc_ids))
+			self.incomplete_injection_coinc_ids = filter(lambda id: self.coinc_table[id].is_zero_lag(), self.incomplete_injection_coinc_ids)
 		else:
 			self.incomplete_injection_coinc_ids = []
 
@@ -493,10 +476,10 @@ class CoincDatabase(object):
 			if self.sim_burst_table:
 				print >>sys.stderr, "\tinjections: %d" % len(self.sim_burst_table)
 			print >>sys.stderr, "\ttime slides: %d" % len(self.time_slide_table)
-			print >>sys.stderr, "\tburst + burst coincidences: %d" % self.coinc_table.cursor.execute("SELECT COUNT(*) FROM coinc_event WHERE coinc_def_id = ?", (lsctables.ILWDID(self.bb_definer_id),)).fetchone()[0]
+			print >>sys.stderr, "\tburst + burst coincidences: %d" % cursor.execute("SELECT COUNT(*) FROM coinc_event WHERE coinc_def_id = ?", (self.bb_definer_id,)).fetchone()[0]
 			if self.sim_burst_table:
-				print >>sys.stderr, "\tinjection + burst coincidences: %d" % self.coinc_table.cursor.execute("SELECT COUNT(*) FROM coinc_event WHERE coinc_def_id = ?", (lsctables.ILWDID(self.sb_definer_id),)).fetchone()[0]
-				print >>sys.stderr, "\tinjection + (burst + burst) coincidences: %d" % self.coinc_table.cursor.execute("SELECT COUNT(*) FROM coinc_event WHERE coinc_def_id = ?", (lsctables.ILWDID(self.sc_definer_id),)).fetchone()[0]
+				print >>sys.stderr, "\tinjection + burst coincidences: %d" % cursor.execute("SELECT COUNT(*) FROM coinc_event WHERE coinc_def_id = ?", (self.sb_definer_id,)).fetchone()[0]
+				print >>sys.stderr, "\tinjection + (burst + burst) coincidences: %d" % cursor.execute("SELECT COUNT(*) FROM coinc_event WHERE coinc_def_id = ?", (self.sc_definer_id,)).fetchone()[0]
 				print >>sys.stderr, "\tburst + burst coincidences involving at least one injection: %d" % len(self.incomplete_injection_coinc_ids)
 
 
