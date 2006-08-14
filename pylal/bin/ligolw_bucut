@@ -136,8 +136,8 @@ class DocContents(object):
 			self.coinceventids = []
 		
 
-	def is_coinc_event(self, event_id):
-		return llwapp.bisect_contains(self.coinceventids, lsctables.ILWDID(event_id))
+	def is_coinc_event(self, event):
+		return llwapp.bisect_contains(self.coinceventids, lsctables.ILWDID(event.event_id))
 
 
 #
