@@ -73,14 +73,20 @@ def parse_command_line():
 # =============================================================================
 #
 
-snglcoinc.CompareFunc = SnglBurstUtils.CompareSnglBurst
-
-from pylal.date import LIGOTimeGPS
-def CompareStringBurstByPeakTime(a, b, twindow = LIGOTimeGPS(0)):
+def CompareStringBurstByPeakTime(a, b, twindow):
 	"""
 	Compares events by peak times
 	"""
 	return b.get_peak() not in a.get_period().protract(twindow)
+
+
+def CompareSnglBurst(a, b, twindow):
+	"""
+	Returns 0 (a & b are coincident) if a's peak time lies within b's
+	time interval and vice versa and the two events' frequency bands
+	intersect or touch.  Returns non-zero otherwise.
+	"""
+	return b.get_peak() not in a.get_period().protract(twindow) or a.get_peak() not in b.get_period().protract(twindow) or SnglBurstUtils.cmp_segs(a.get_band(), b.get_band())
 
 
 #
@@ -96,8 +102,11 @@ try:
 except ValueError, e:
 	print >>sys.stderr, "error: %s" % str(e)
 	sys.exit(1)
+
 if options.usepeaktime:
 	snglcoinc.CompareFunc = CompareStringBurstByPeakTime
+else:
+	snglcoinc.CompareFunc = CompareSnglBurst
 
 for n, filename in enumerate(llwapp.sort_files_by_size(filenames, options.verbose)):
 	if options.verbose:
