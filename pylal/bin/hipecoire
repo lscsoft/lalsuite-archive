@@ -56,7 +56,7 @@ def sire(data_type,input,ifos,ifo=None):
         command += " --veto-file " + file
     if opts.rsq_threshold:
       command += " --rsq-threshold " + opts.rsq_threshold + \
-                 " --rsq-max-snr " + opts.rsq_max_snr \
+                 " --rsq-max-snr " + opts.rsq_max_snr + \
                  " --rsq-coeff " + opts.rsq_coeff + \
                  " --rsq-pow " + opts.rsq_pow
 
