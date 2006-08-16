@@ -172,6 +172,17 @@ def new_from_template(template):
 	return new
 
 
+def get_table(xmldoc, name):
+	"""
+	Scan xmldoc for a table named name.  Raises ValueError if not
+	exactly 1 such table is found.
+	"""
+	tables = getTablesByName(xmldoc, name)
+	if len(tables) != 1:
+		raise ValueError, "document must contain exactly one %s table" % StripTableName(name)
+	return tables[0]
+
+
 #
 # =============================================================================
 #
