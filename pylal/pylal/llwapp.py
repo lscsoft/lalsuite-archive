@@ -30,13 +30,9 @@ data in LIGO Light-Weight format.
 """
 
 import bisect
-import gzip
 import os
 import pickle
-import signal
 import socket
-import stat
-import sys
 import time
 import urllib
 
@@ -46,6 +42,7 @@ from glue.ligolw import table
 from glue.ligolw import param
 from glue.ligolw import array
 from glue.ligolw import lsctables
+from glue.ligolw import utils
 from pylal.date import XLALUTCToGPS
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -61,102 +58,29 @@ __date__ = "$Date$"[7:-2]
 # =============================================================================
 #
 
-class IOTrappedSignal(Exception):
-	"""
-	Raised by I/O functions upon completion if they trapped a signal
-	during the operation
-	"""
-	def __init__(self, signum):
-		self.signum = signum
-
-	def __str__(self):
-		return "trapped signal %d" % self.signum
-
-
 ContentHandler = ligolw.LIGOLWContentHandler
 
 
 def measure_file_sizes(filenames, reverse = False):
-	"""
-	From a list of file names, return a list of (size, name) tuples
-	sorted in ascending order by size (or descending order if reverse
-	is set to True).
-	"""
-	l = [(os.stat(name)[stat.ST_SIZE], name) for name in filenames if name]
-	l.sort()
-	if reverse:
-		l.reverse()
-	return l
+	return utils.measure_file_sizes(filenames, reverse)
 
 
 def sort_files_by_size(filenames, verbose = False, reverse = False):
-	"""
-	Sort the file names from smallest file to largest file (or largest
-	to smallest if reverse is set to True).
-	"""
-	if verbose:
-		if reverse:
-			print >>sys.stderr, "sorting files from largest to smallest..."
-		else:
-			print >>sys.stderr, "sorting files from smallest to largest..."
-	return [pair[1] for pair in measure_file_sizes(filenames, reverse = reverse)]
+	return utils.sort_files_by_size(filenames, verbose, reverse)
 
 
 def load_filename(filename, verbose = False, gz = False):
-	if verbose:
-		print >>sys.stderr, "reading %s ..." % (filename or "stdin")
-	doc = ligolw.Document()
-	if filename:
-		fileobj = file(filename)
-	else:
-		fileobj = sys.stdin
-	if gz:
-		fileobj = gzip.GzipFile(mode = "rb", fileobj = fileobj)
-	ligolw.make_parser(ContentHandler(doc)).parse(fileobj)
-	return doc
+	utils.ContentHandler = ContentHandler
+	return utils.load_filename(filename, verbose, gz)
 
 
 def load_url(url, verbose = False, gz = False):
-	if verbose:
-		print >>sys.stderr, "reading %s ..." % (url or "stdin")
-	doc = ligolw.Document()
-	if url:
-		fileobj = urllib.urlopen(url)
-	else:
-		fileobj = sys.stdin
-	if gz:
-		fileobj = gzip.GzipFile(mode = "rb", fileobj = fileobj)
-	ligolw.make_parser(ContentHandler(doc)).parse(fileobj)
-	return doc
+	utils.ContentHandler = ContentHandler
+	return utils.load_url(url, verbose, gz)
 
 
 def write_filename(doc, filename, verbose = False, gz = False):
-	# trap SIGTERM to prevent Condor eviction while the document is
-	# being written
-	global __llwapp_write_filename_got_sigterm
-	__llwapp_write_filename_got_sigterm = False
-	def newsigterm(signum, frame):
-		global __llwapp_write_filename_got_sigterm
-		__llwapp_write_filename_got_sigterm = True
-	oldsigterm = signal.getsignal(signal.SIGTERM)
-	signal.signal(signal.SIGTERM, newsigterm)
-
-	# write the document
-	if verbose:
-		print >>sys.stderr, "writing %s ..." % (filename or "stdout")
-	if filename:
-		fileobj = file(filename, "w")
-	else:
-		fileobj = sys.stdout
-	if gz:
-		fileobj = gzip.GzipFile(mode = "wb", fileobj = fileobj)
-	doc.write(fileobj)
-
-	# restore original signal handler, and report the signal if it was
-	# received
-	signal.signal(signal.SIGTERM, oldsigterm)
-	if __llwapp_write_filename_got_sigterm:
-		raise IOTrappedSignal(signal.SIGTERM)
+	utils.write_filename(doc, filename, verbose, gz)
 
 
 #
@@ -168,14 +92,7 @@ def write_filename(doc, filename, verbose = False, gz = False):
 #
 
 def get_table(doc, name):
-	"""
-	Scan doc for a table named name.  Raises ValueError if not exactly
-	1 such table is found.
-	"""
-	tables = table.getTablesByName(doc, name)
-	if len(tables) != 1:
-		raise ValueError, "document must contain exactly one %s table" % table.StripTableName(name)
-	return tables[0]
+	return table.get_table(doc, name)
 
 
 def segmentlistdict_fromsearchsummary(xmldoc, live_time_program = None):
@@ -285,14 +202,7 @@ def get_coinc_def_id(xmldoc, table_names, create_new = True):
 #
 
 def get_array(doc, name):
-	"""
-	Scan doc for an array named name.  Raises ValueError if not exactly
-	1 such array is found.
-	"""
-	arrays = array.getArraysByName(doc, name)
-	if len(arrays) != 1:
-		raise ValueError, "document must contain exactly one %s array" % array.StripArrayName(name)
-	return arrays[0]
+	return array.get_array(doc, name)
 
 
 #
@@ -304,14 +214,7 @@ def get_array(doc, name):
 #
 
 def get_param(doc, name):
-	"""
-	Scan doc for a param named name.  Raises ValueError if not exactly
-	1 such param is found.
-	"""
-	params = param.getParamsByName(doc, name)
-	if len(params) != 1:
-		raise ValueError, "document must contain exactly one %s param" % param.StripParamName(name)
-	return params[0]
+	return param.get_param(doc, name)
 
 
 def pickle_to_param(obj, name):
