@@ -56,7 +56,9 @@ def sire(data_type,input,ifos,ifo=None):
         command += " --veto-file " + file
     if opts.rsq_threshold:
       command += " --rsq-threshold " + opts.rsq_threshold + \
-                 " --rsq-max-snr " + opts.rsq_max_snr
+                 " --rsq-max-snr " + opts.rsq_max_snr \
+                 " --rsq-coeff " + opts.rsq_coeff + \
+                 " --rsq-pow " + opts.rsq_pow
 
   return command
 
@@ -220,7 +222,7 @@ There are a couple of coire specific options, specifically:
   --cluster-time
   --coinc-stat
   --veto-file (to perform vetoes)
-  --rsq-threshold / --rsq-max-snr (to do r-squared veto)
+  --rsq-threshold / --rsq-max-snr / --rsq-coeff / --rsq-pow (to do r-squared veto)
   --second-coinc (for correct file names)
 
 And a few plotting specific options:
@@ -328,6 +330,12 @@ parser.add_option("-s","--rsq-threshold",action="store",default=None,\
     
 parser.add_option("-u","--rsq-max-snr",action="store",default=None,\
     metavar=" RSQ_MAX",help="max snr for which to apply the r-squared veto")
+
+parser.add_option("-y","--rsq-coeff",action="store",default=None,\
+    metavar=" RSQ_COEFF",help="coefficient for which to apply the r-squared veto")
+
+parser.add_option("-z","--rsq-pow",action="store",default=None,\
+    metavar=" RSQ_POW",help="power for which to apply the r-squared veto")
     
 # plotting options
 parser.add_option("-p","--num-bins",action="store",type="string",\
@@ -370,7 +378,7 @@ if not opts.ifos:
   sys.exit(1)
 
 if opts.rsq_threshold and not opts.rsq_max_snr:
-  print >> sys.stderr, "Must specify --rsq-max-snr if --rsq-threshold is given"
+  print >> sys.stderr, "Must specify --rsq-max-snr & --rsq-coeff & --rsq-pow if --rsq-threshold is given"
   sys.exit(1)
 
 if opts.num_slides and opts.injection_file:
