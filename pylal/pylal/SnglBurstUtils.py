@@ -163,7 +163,7 @@ class TimeSlideTable(table.Table):
 	def __init__(self, *attrs):
 		table.Table.__init__(self, *attrs)
 		self.cursor = self.connection.cursor()
-		self.cursor.execute("CREATE TABLE time_slide (process_id TEXT, time_slide_id TEXT, instrument TEXT, offset REAL)")
+		self.cursor.execute("CREATE TABLE time_slide (process_id TEXT, time_slide_id TEXT, instrument TEXT, offset REAL, PRIMARY KEY (time_slide_id, instrument))")
 
 	def append(self, row):
 		self.cursor.execute("INSERT INTO time_slide VALUES (?, ?, ?, ?)", (row.process_id, row.time_slide_id, row.instrument, row.offset))
@@ -192,6 +192,7 @@ class TimeSlideTable(table.Table):
 			yield id
 
 	def is_null(self, id):
+		# FIXME: use EXISTS?
 		return not self.cursor.execute("SELECT COUNT(time_slide_id) FROM time_slide WHERE time_slide_id == ? AND offset != 0 LIMIT 1", (id,)).fetchone()[0]
 
 	def all_offsets(self):
@@ -310,18 +311,19 @@ class Coinc(lsctables.Coinc):
 		return offsets
 
 	def is_zero_lag(self):
+		# FIXME: use EXISTS?
 		return not CoincTable.connection.cursor().execute("SELECT COUNT(offset) FROM time_slide WHERE time_slide_id == ? AND offset != 0", (self.time_slide_id,)).fetchone()[0]
 
 	def sim_bursts(self):
-		for values in CoincTable.connection.cursor().execute("SELECT * FROM sim_burst WHERE simulation_id IN (SELECT event_id FROM coinc_event_map WHERE table_name == 'sim_burst' AND coinc_event_id == ?)", (self.coinc_event_id,)):
+		for values in CoincTable.connection.cursor().execute("SELECT sim_burst.* FROM sim_burst JOIN coinc_event_map ON sim_burst.simulation_id == coinc_event_map.event_id WHERE coinc_event_map.table_name == 'sim_burst' AND coinc_event_map.coinc_event_id == ?", (self.coinc_event_id,)):
 			yield SimBurstTable._row_from_cols(values)
 
 	def sngl_bursts(self):
-		for values in CoincTable.connection.cursor().execute("SELECT * FROM sngl_burst WHERE event_id in (SELECT event_id FROM coinc_event_map WHERE table_name == 'sngl_burst' AND coinc_event_id == ?)", (self.coinc_event_id,)):
+		for values in CoincTable.connection.cursor().execute("SELECT sngl_burst.* FROM sngl_burst JOIN coinc_event_map ON sngl_burst.event_id == coinc_event_map.event_id WHERE coinc_event_map.table_name == 'sngl_burst' AND coinc_event_map.coinc_event_id == ?", (self.coinc_event_id,)):
 			yield SnglBurstTable._row_from_cols(values)
 
 	def coincs(self):
-		for values in CoincTable.connection.cursor().execute("SELECT * FROM coinc_event WHERE coinc_event_id IN (SELECT event_id FROM coinc_event_map WHERE table_name == 'coinc_event' AND coinc_event_id == ?)", (self.coinc_event_id,)):
+		for values in CoincTable.connection.cursor().execute("SELECT coinc_event.* FROM coinc_event JOIN coinc_event_map ON coinc_event.coinc_event_id == coinc_event_map.event_id WHERE coinc_event_map.table_name == 'coinc_event' AND coinc_event_map.coinc_event_id == ?", (self.coinc_event_id,)):
 			yield CoincTable._row_from_cols(values)
 
 CoincTable.RowType = Coinc
@@ -385,7 +387,6 @@ class CoincDatabase(object):
 		"""
 		self.connection.commit()
 		cursor = self.connection.cursor()
-		cursor.execute("CREATE INDEX time_slide_id_index ON time_slide (time_slide_id)")
 		cursor.execute("CREATE INDEX coinc_event_id_index ON coinc_event_map (table_name, coinc_event_id)")
 
 		# find the tables
@@ -450,20 +451,20 @@ class CoincDatabase(object):
 		# although they aren't "bang-on" reconstructions of
 		# injections they are nevertheless injections that are
 		# found and survive a coincidence cut.
-
 		if self.sim_burst_table:
-			# the select inside the outer select finds a list
+			# the select inside the first select finds a list
 			# of the burst event_ids that were marked as
 			# coincident with an injection; the outer select
 			# finds a list of the burst+burst coinc_event_ids
-			# pointing to at least one of those bursts
-			self.incomplete_injection_coinc_ids = [coinc_event_id for (coinc_event_id,) in cursor.execute("SELECT DISTINCT coinc_event.coinc_event_id FROM coinc_event JOIN coinc_event_map ON (coinc_event.coinc_event_id == coinc_event_map.coinc_event_id) WHERE coinc_def_id == ? AND table_name == 'sngl_burst' AND event_id IN (SELECT DISTINCT event_id FROM coinc_event_map JOIN coinc_event ON (coinc_event_map.coinc_event_id == coinc_event.coinc_event_id) WHERE coinc_event_map.table_name == 'sngl_burst' AND coinc_event.coinc_def_id == ?)", (self.bb_definer_id, self.sb_definer_id))]
+			# pointing to at least one of those bursts;  the
+			# except clause removes coinc_event_ids for which
+			# all bursts were marked as injections;  the result
+			# is a list of all coinc_event_ids for burst+burst
+			# coincidences in which at least 1 but not all
+			# burst events was identified as an injection
+			self.incomplete_injection_coinc_ids = [coinc_event_id for (coinc_event_id,) in cursor.execute("SELECT DISTINCT coinc_event.coinc_event_id FROM coinc_event JOIN coinc_event_map ON (coinc_event.coinc_event_id == coinc_event_map.coinc_event_id) WHERE coinc_def_id == ? AND table_name == 'sngl_burst' AND event_id IN (SELECT DISTINCT event_id FROM coinc_event_map JOIN coinc_event ON (coinc_event_map.coinc_event_id == coinc_event.coinc_event_id) WHERE coinc_event_map.table_name == 'sngl_burst' AND coinc_event.coinc_def_id == ?) EXCEPT SELECT DISTINCT event_id FROM coinc_event_map JOIN coinc_event ON (coinc_event_map.coinc_event_id == coinc_event.coinc_event_id) WHERE table_name == 'coinc_event' AND coinc_def_id == ?", (self.bb_definer_id, self.sb_definer_id, self.sc_definer_id))]
 
-			# now remove the coinc_event_ids for which all
-			# bursts were marked as injections
-			map(self.incomplete_injection_coinc_ids.remove, [coinc_event_id for (coinc_event_id,) in cursor.execute("SELECT DISTINCT event_id FROM coinc_event_map JOIN coinc_event ON (coinc_event_map.coinc_event_id == coinc_event.coinc_event_id) WHERE table_name == 'coinc_event' AND coinc_def_id == ?", (self.sc_definer_id,))])
-
-			# now remove coinc_event_ids for coincs that are
+			# remove coinc_event_ids for coincs that are
 			# not at zero-lag
 			self.incomplete_injection_coinc_ids = filter(lambda id: self.coinc_table[id].is_zero_lag(), self.incomplete_injection_coinc_ids)
 		else:
