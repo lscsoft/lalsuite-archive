@@ -1,3 +1,6 @@
+import sys
+
+
 def uniq(list):
   """
   return a list containing the unique elements 
@@ -11,6 +14,31 @@ def uniq(list):
   return asarray(l)
 
 
+########################################
+class coincStatistic:
+  """
+  This class specifies the statistic to be used when dealing with coincident events.
+  It also contains parameter for such cases as the BBH bitten-L statistics.
+  """
+
+  __slots__ = ["name","a","b","rsq","bl"]
+
+  def __init__(self, name, a, b):
+    self.name=name
+    self.a=a
+    self.b=b
+    self.rsq=0
+    self.bl=0
+
+  def get_bittenl(self, bl, snr ):
+    blx=self.a*snr-self.b
+    if bl==0:    
+      return blx
+    else:
+      return min(bl, blx)  
+    
+    
+#######################################
 class coincInspiralTable:
   """
   Table to hold coincident inspiral triggers.  Coincidences are reconstructed 
@@ -22,26 +50,37 @@ class coincInspiralTable:
   """
   class row(object):
     __slots__ = ["event_id", "numifos","stat","G1","H1","H2",\
-                 "L1","T1","V1","sim"]
+                 "L1","T1","V1","sim","rsq","bl"]
     
-    def __init__(self, event_id, numifos = 0, stat = 0):
+    def __init__(self, event_id, numifos = 0, stat = 0 ):
       self.event_id = event_id
       self.numifos = numifos
       self.stat = stat
+      self.rsq=0
+      self.bl=0
       
-    def add_trig(self,trig,stat):
+    def add_trig(self,trig,statistic):
+      
       self.numifos +=1
-      if stat == 'effective_snr':
-        self.stat = (self.stat**2 + trig.get_effective_snr()**2)**(1./2)
+      if statistic.name == 'effective_snr':
+        self.stat = (self.stat**2 + trig.get_effective_snr()**2)**(1./2)      
+      elif statistic.name == 'bitten_l':
+        snr=trig.snr
+        self.rsq= (self.stat**2 + snr**2)**(1./2)
+        self.bl=statistic.get_bittenl( self.bl, snr )
+        self.stat=min( self.bl, self.rsq )
       else:
-        self.stat += (self.stat**2 + getattr(trig,stat)**2)**(1./2)
-
+        self.stat += (self.stat**2 + getattr(trig,statistic.name)**2)**(1./2)
+      
+      # sets the data for the single inspiral trigger
       setattr(self,trig.ifo,trig)
+      
 
     def add_sim(self,sim):
       setattr(self,"sim",sim)
+
   
-  def __init__(self, inspTriggers = None, stat = "snr"):
+  def __init__(self, inspTriggers = None, stat = None):
     """
     @param inspTriggese: a metaDataTable containing inspiral triggers 
                          from which to construct coincidences
@@ -52,11 +91,12 @@ class coincInspiralTable:
     self.rows = []
     if not inspTriggers:
       return
+
     # use the supplied method to convert these columns into numarrays
     eventidlist = uniq(inspTriggers.get_column("event_id"))
     for event_id in eventidlist: 
       self.rows.append(self.row(event_id))
-    for trig in inspTriggers:
+    for trig in inspTriggers.rows:
       for coinc in self.rows:
         if coinc.event_id == trig.event_id:
           coinc.add_trig(trig,stat)
