@@ -170,7 +170,7 @@ def massCut (sim_table, m_low, m_high):
 ##############################################################################
 # function to read in a list of files and extract the simInspiral tables
 ##############################################################################
-def readFiles(fileGlob,statistic='effective_snr'):
+def readFiles(fileGlob,statistic=None):
   """
   read in the Sngl and SimInspiralTables from a list of files
   if Sngls are found, construct coincs, add injections (if any)
@@ -320,7 +320,7 @@ class slideZeroData:
     slideCum = self.get_cumulative()
     plot(self.snr_array, slideCum,linewidth=2,label="slide dist")
     grid()
-    xlabel(self.statistic, size='x-large')
+    xlabel(self.statistic.name, size='x-large')
     ylabel('Probability loudest event < value', size='x-large')
     if self.zero_loudest:
       axvline(self.zero_loudest,linewidth=2,color='r',label="zero lag")
@@ -359,7 +359,7 @@ class slideZeroData:
     figure(figNum)
     slidePDF = self.get_smooth_pdf()
     plot(self.snr_array, slidePDF, 'k',linewidth=2,label="smoothed pdf")
-    xlabel(self.statistic, size='x-large')
+    xlabel(self.statistic.name, size='x-large')
     ylabel('pdf of loudest event', size='x-large')
     grid()
     if self.zero_loudest:
@@ -1004,7 +1004,7 @@ def plot_ng_vs_stat(injAstro, slideZero, figNum, integrate, figName = None):
   figure(figNum)
   plot(slideZero.snr_array, ng_array, 'b', linewidth=2, label="luminosity")
   grid()
-  xlabel(slideZero.statistic, size='x-large')
+  xlabel(slideZero.statistic.name, size='x-large')
   ylabel('Luminosity visible above threshold', size='x-large')
   if slideZero.zero_loudest:
     axvline(slideZero.zero_loudest,linewidth=2,color='r',label="zero lag")
@@ -1167,6 +1167,12 @@ parser.add_option("-T","--slide-glob",action="store",type="string",\
 parser.add_option("-K","--statistic",action="store",type="string",\
     default="effective_snr",metavar=" STAT",\
     help="coincident statistic (default = effective_snr)")
+
+parser.add_option("-d","--bittenl_a",action="store",type="float",\
+    default="3", help="parameter a of bitten-l")
+
+parser.add_option("-k","--bittenl_b",action="store",type="float",\
+    default="3", help="parameter b of bitten-l")
 
 parser.add_option("-J","--num-slides",action="store",type="int",\
     default=None,metavar=" NUM_SLIDES",\
@@ -1413,10 +1419,12 @@ resultDict["ngprime"]=1.0
 # (above 0 so missed injections are not included)
 statThresh = 1e-6
 
+statistic=CoincInspiralUtils.coincStatistic( opts.statistic, opts.bittenl_a, opts.bittenl_b )
+
 if opts.slide_glob:
   if opts.verbose:
     print "Reading time slides"
-  slideLoudest = slideZeroData(opts.slide_glob, opts.num_slides, opts.statistic)
+  slideLoudest = slideZeroData(opts.slide_glob, opts.num_slides, statistic)
   statThresh = max(slideLoudest.slide_loudest)
   
   if opts.zero_glob: 
@@ -1472,7 +1480,7 @@ if astroPlots:
 if injPlots:
   if opts.verbose:
     print "Reading the found/missed injections"
-  injAstro.add_found_missed(opts.found_glob, opts.missed_glob, opts.statistic)
+  injAstro.add_found_missed(opts.found_glob, opts.missed_glob, statistic)
 
 if opts.axes_from_found: injAstro.axes_from_found()
 
