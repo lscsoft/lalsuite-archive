@@ -117,7 +117,7 @@ executable=$INJECTION_SCRIPT
 input=/dev/null
 output=$ERR_DIR/iout.\$(PID)
 error=$ERR_DIR/ierr.\$(PID)
-arguments= ra \$(ra) dec \$(dec) psi \$(psi) phi \$(phi) f0 \$(f0) spindown \$(spindown) aPlus \$(aPlus) aCross \$(aCross) band_start \$(band_start) noiseGlob ${SFT_INPUT}* outputDir \$(INJ_SFT_DIR)
+arguments= detector $IFO ra \$(ra) dec \$(dec) psi \$(psi) phi \$(phi) f0 \$(f0) spindown \$(spindown) aPlus \$(aPlus) aCross \$(aCross) band_start \$(band_start) noiseGlob ${SFT_INPUT}* outputDir \$(INJ_SFT_DIR)
 log=$LOG_FILE
 queue
 }
