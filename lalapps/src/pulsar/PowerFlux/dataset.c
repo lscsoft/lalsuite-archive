@@ -698,9 +698,10 @@ s[length]=0;
 fprintf(stderr, "Reading directory %s\n", s);
 
 retries=0;
+errno=0;
 while((d=opendir(s))==NULL) {
-	fprintf(stderr, "Error reading directory %s:", s);
-	perror("");
+	int errsv=errno;
+	fprintf(stderr, "Error reading directory %s: %s\n", s, strerror(errsv));
 	retries++;
 	sleep(1);
 	}
