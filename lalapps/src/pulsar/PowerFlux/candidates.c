@@ -305,7 +305,7 @@ fclose(fout);
 
 void output_candidate_header(FILE *fout)
 {
-fprintf(fout, "candidates: label polarization_index rank score point_index domain_size ul S M max_dx frequency psi iota ra dec spindown  weight_ratio skyband coherence_score power_cor snr strain f_max ifo_freq ifo_freq_var total\n");
+fprintf(fout, "candidates: label polarization_index rank score point_index domain_size ul S M max_dx frequency psi iota ra dec spindown  weight_ratio skyband coherence_score power_cor snr strain f_max ifo_freq ifo_freq_sd total\n");
 }
 
 void output_candidate(FILE *fout, char * suffix, CANDIDATE *cand)
@@ -336,7 +336,7 @@ fprintf(fout, "candidate%s: \"%s\" %d %d %g %d %d %g %g %g %f %f %f %f %f %f %g 
 	cand->strain,
 	cand->f_max,
 	cand->ifo_freq,
-	cand->ifo_freq_var,
+	cand->ifo_freq_sd,
 	candidate_free);
 }
 
@@ -400,7 +400,7 @@ a_cross_sq=a_cross*a_cross;
 //fprintf(stderr, "psi=%f %f %f\n", cand->psi, p_proj, c_proj);
 
 cand->ifo_freq=0.0;
-cand->ifo_freq_var=0.0;
+cand->ifo_freq_sd=0.0;
 
 /* loop over datasets */
 for(j=0;j<d_free;j++) {
@@ -465,7 +465,7 @@ for(j=0;j<d_free;j++) {
 		cand->strain=-1.0;
 		cand->f_max=cand->frequency;
 		cand->ifo_freq=-1;
-		cand->ifo_freq_var=-1;
+		cand->ifo_freq_sd=-1;
 		return;
 		}
 	//fprintf(stderr, "b0=%d b1=%d\n", b0, b1);
@@ -486,8 +486,9 @@ for(j=0;j<d_free;j++) {
 
 		p0=&(d->bin[k*nbins+signal_bin[k]-window]);
 
-		cand->ifo_freq+=signal_bin[k]*demod_weight;		
-		cand->ifo_freq_var+=signal_bin[k]*signal_bin[k]*demod_weight;		
+		f=signal_bin[k]+mismatch[k];
+		cand->ifo_freq+=f*demod_weight;		
+		cand->ifo_freq_sd+=f*f*demod_weight;		
 
 		for(b=0; b< (2*window+1); b++) {
 			x=p0[b].re;
@@ -550,9 +551,9 @@ response_sum/=response_weight;
 response_sq_sum/=response_weight;
 
 cand->ifo_freq/=total_demod_weight2;
-cand->ifo_freq_var/=total_demod_weight2;
+cand->ifo_freq_sd/=total_demod_weight2;
 
-cand->ifo_freq_var=cand->ifo_freq_var-cand->ifo_freq*cand->ifo_freq;
+cand->ifo_freq_sd=sqrt(cand->ifo_freq_sd-cand->ifo_freq*cand->ifo_freq);
 
 cand->ifo_freq=(cand->ifo_freq+first_bin)/1800.0;
 

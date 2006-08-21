@@ -28,7 +28,7 @@ typedef struct {
 	float strain;
 	float f_max;
 	float ifo_freq;
-	float ifo_freq_var;
+	float ifo_freq_sd;
 	} CANDIDATE;
 
 void identify_candidates(void);
