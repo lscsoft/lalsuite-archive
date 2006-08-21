@@ -7,7 +7,7 @@ p<-function(...) {
 	}
 
 
-FieldsUsed<-c("band.3", "spindown.2", "hist_residuals.3", "median.2",
+FieldsUsed<-c("band.3", "spindown.2", "hist_residuals.3", "hist_residuals.4", "median.2",
 		"max_dx.1", "max_dx.2", "max_dx.3", "max_dx.4",
 		"max_dx.5", "max_dx.7", "masked.2", "cputime.2")
 
@@ -73,7 +73,7 @@ gc()
 gc(reset=TRUE)
 #mem.limits(vsize=1024^3)
 
-highRes<-data[,'hist_residuals.3']
+highRes<-data[,'hist_residuals.4']
 highResMax<-highRes>ResLarge
 
 plus<-data[,'max_dx.3']=="plus"
