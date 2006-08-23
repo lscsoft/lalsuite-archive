@@ -89,13 +89,6 @@ def append_process(xmldoc, **kwargs):
 # =============================================================================
 #
 
-def sngl_burst_cmp(self, other):
-	"""
-	For sorting sngl_burst events by start time.
-	"""
-	return cmp(self.start_time, other.start_time) or cmp(self.start_time_ns, other.start_time_ns)
-
-
 class ExcessPowerEventList(snglcoinc.EventList):
 	"""
 	A customization of the EventList class for use with the excess
@@ -108,7 +101,8 @@ class ExcessPowerEventList(snglcoinc.EventList):
 		required because Python's bisection search cannot make use
 		of an external comparison function.
 		"""
-		self.sort(sngl_burst_cmp)
+		# sort in increasing order by start time
+		self.sort(lambda a, b: cmp(a.start_time, b.start_time) or cmp(a.start_time_ns, b.start_time_ns))
 		self.start_times = [event.get_start() for event in self]
 		self.max_duration = LIGOTimeGPS(max([event.duration for event in self]))
 
@@ -125,15 +119,32 @@ class ExcessPowerEventList(snglcoinc.EventList):
 		return [event_b for event_b in self[bisect.bisect_left(self.start_times, min_start) : bisect.bisect_right(self.start_times, max_start)] if not comparefunc(event_a, event_b, threshold)]
 
 
-class StringEventList(ExcessPowerEventList):
+class StringEventList(snglcoinc.EventList):
 	"""
 	A customization of the EventList class for use with the string
 	search.
 	"""
+	def make_index(self):
+		"""
+		Build a peak time look up table.  The peak time look-up
+		table is required because Python's bisection search cannot
+		make use of an external comparison function.
+		"""
+		# sort in increasing order by peak time
+		self.sort(lambda a, b: cmp(a.peak_time, b.peak_time) or cmp(a.peak_time_ns, b.peak_time_ns))
+		self.peak_times = [event.get_peak() for event in self]
+
+	def __add_offset(self, delta):
+		"""
+		Add an amount to the start time of each event.
+		"""
+		for event in self:
+			event.set_peak(event.get_peak() + delta)
+
 	def get_coincs(self, event_a, threshold, comparefunc):
-		min_start = event_a.get_start() - threshold(0) - self.max_duration - self.offset
-		max_start = event_a.get_start() + event_a.duration + threshold(0) - self.offset
-		return [event_b for event_b in self[bisect.bisect_left(self.start_times, min_start) : bisect.bisect_right(self.start_times, max_start)] if not comparefunc(event_a, event_b, threshold)]
+		min_peak = event_a.get_peak() - threshold(0) - self.offset
+		max_peak = event_a.get_peak() + threshold(0) - self.offset
+		return [event_b for event_b in self[bisect.bisect_left(self.peak_times, min_peak) : bisect.bisect_right(self.peak_times, max_peak)] if not comparefunc(event_a, event_b, threshold)]
 
 
 

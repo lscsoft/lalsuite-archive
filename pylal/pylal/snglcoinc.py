@@ -50,23 +50,27 @@ __date__ = "$Date$"[7:-2]
 # =============================================================================
 #
 
-def parse_windows(windowstrings):
+def parse_thresholds(thresholdstrings):
 	"""
 	Turn a list of strings of the form "inst1,inst2=delta" into a
 	dictionary with (inst1, inst2) 2-tuples as keys and the deltas as
-	the values.  Each pair of instruments gets two entries, once for
-	each order.
+	the values.  In the input, each pair of instruments is allowed two
+	entries, once for each order.  The output will contain exactly two
+	entries for each pair of instruments;  if the input strings do not
+	contain a set for a particular instrument order, the value for the
+	missing pair will be copied from the one provided.
 	"""
-	windows = {}
-	for [pair, delay] in map(lambda w: str.split(w, "="), windowstrings):
-		AB = tuple(pair.split(","))
-		if len(AB) != 2:
+	thresholds = {}
+	for [pair, delta] in map(lambda w: str.split(w, "="), thresholdstrings):
+		try:
+			[A, B] = pair.split(",")
+		except ValueError:
 			raise ValueError, "incorrect number of instruments"
-		BA = (AB[1], AB[0])
-		if (AB in windows) or (BA in windows):
-			raise ValueError, "duplicate instrument pair"
-		windows[AB] = windows[BA] = LIGOTimeGPS(delay)
-	return windows
+		thresholds[(A, B)] = delta
+	for (A, B), value in thresholds.iteritems():
+		if (B, A) not in thresholds:
+			thresholds[(B, A)] = value
+	return thresholds
 
 
 #

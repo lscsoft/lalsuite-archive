@@ -33,6 +33,7 @@ from pylal import ligolw_burca
 from pylal import llwapp
 from pylal import snglcoinc
 from pylal import SnglBurstUtils
+from pylal.date import LIGOTimeGPS
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
@@ -59,7 +60,9 @@ def parse_command_line():
 
 	# construct (inst_a, inst_b) --> delta t mappings
 	try:
-		options.window = snglcoinc.parse_windows(options.window)
+		options.window = snglcoinc.parse_thresholds(options.window)
+		for key, value in options.window.iteritems():
+			options.window[key] = LIGOTimeGPS(value)
 	except ValueError, e:
 		raise ValueError, "error parsing --window: %s" % str(e)
 
@@ -79,7 +82,7 @@ def parse_command_line():
 #
 # =============================================================================
 #
-#                            Coincidence Criterion
+#                             Coincidence Criteria
 #
 # =============================================================================
 #
@@ -91,10 +94,11 @@ def StringCoincCompare(a, b, thresholds):
 	according to some kinda test.
 	"""
 	dt, kappa, epsilon = thresholds
-	result = b.get_peak() not in a.get_period().protract(dt)
+	result = not (a.get_peak() - dt <= b.get_peak() <= a.get_peak() + dt)
 	if a.ifo in ("H1", "H2") and b.ifo in ("H1", "H2"):
-		delta = math.abs(a.amplitude) * (kappa / a.snr + epsilon)
-		result |= not (a.amplitude - delta <= b.amplitude <= a.amplitude + delta)
+		adelta = math.abs(a.amplitude) * (kappa / a.snr + epsilon)
+		bdelta = math.abs(b.amplitude) * (kappa / b.snr + epsilon)
+		result |= not (a.amplitude - adelta <= b.amplitude <= a.amplitude + adelta or b.amplitude - bdelta <= a.amplitude <= b.amplitude + bdelta)
 	return result
 
 
