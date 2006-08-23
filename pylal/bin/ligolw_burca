@@ -52,15 +52,26 @@ def parse_command_line():
 	parser.add_option("--comment", metavar = "text", default = "", help = "set comment string in process table")
 	parser.add_option("-f", "--force", action = "store_true", help = "process even if file has already been processed")
 	parser.add_option("-p", "--program", metavar = "name", default = "power", help = "set the name of the program that generated the events as it appears in the process table (default = power)")
-	parser.add_option("-w", "--window", metavar = "inst1,inst2=seconds", action = "append", default = [], help = "set the coincidence window for an instrument pair")
-	parser.add_option("-s", "--usepeaktime", action = "store_true", help = "use peak times to do coincidence (not tile overlap)")
+	parser.add_option("-w", "--window", metavar = "inst1,inst2=seconds", action = "append", default = [], help = "set the time coincidence window for an instrument pair")
+	parser.add_option("-s", "--string-compare", metavar = "kappa,epsilon", help = "use the string search coincidence test with H1+H2 kappa and epsilon parameters as given (hint:  try 3.0,0.5)")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
 	options, filenames = parser.parse_args()
 
+	# construct (inst_a, inst_b) --> delta t mappings
 	try:
 		options.window = snglcoinc.parse_windows(options.window)
 	except ValueError, e:
 		raise ValueError, "error parsing --window: %s" % str(e)
+
+	if options.string_compare:
+		try:
+			options.string_compare = map(float, options.string_compare.split(","))
+		except ValueError, e:
+			raise ValueError, "error parsing --string-compare: %s" % str(e)
+		# construct (inst_a, inst_b) --> (delta t, kappa, epsilon)
+		# mappings
+		for key, value in options.window.iteritems():
+			options.window[key] = (value, options.string_compare[0], options.string_compare[1])
 
 	return options, (filenames or [None])
 
@@ -73,20 +84,27 @@ def parse_command_line():
 # =============================================================================
 #
 
-def CompareStringBurstByPeakTime(a, b, twindow):
+def StringCoincCompare(a, b, thresholds):
 	"""
-	Compares events by peak times
+	Returns False (a & b are coincident) if their peak times agree
+	within dt, and in the case of H1+H2 pairs if their amplitudes agree
+	according to some kinda test.
 	"""
-	return b.get_peak() not in a.get_period().protract(twindow)
+	dt, kappa, epsilon = thresholds
+	result = b.get_peak() not in a.get_period().protract(dt)
+	if a.ifo in ("H1", "H2") and b.ifo in ("H1", "H2"):
+		delta = math.abs(a.amplitude) * (kappa / a.snr + epsilon)
+		result |= not (a.amplitude - delta <= b.amplitude <= a.amplitude + delta)
+	return result
 
 
-def CompareSnglBurst(a, b, twindow):
+def ExcessPowerCoincCompare(a, b, dt):
 	"""
-	Returns 0 (a & b are coincident) if a's peak time lies within b's
-	time interval and vice versa and the two events' frequency bands
-	intersect or touch.  Returns non-zero otherwise.
+	Returns False (a & b are coincident) if a's peak time lies within
+	b's time interval and vice versa and the two events' frequency
+	bands intersect or touch.  Returns non-zero otherwise.
 	"""
-	return b.get_peak() not in a.get_period().protract(twindow) or a.get_peak() not in b.get_period().protract(twindow) or SnglBurstUtils.cmp_segs(a.get_band(), b.get_band())
+	return b.get_peak() not in a.get_period().protract(dt) or a.get_peak() not in b.get_period().protract(dt) or SnglBurstUtils.cmp_segs(a.get_band(), b.get_band())
 
 
 #
@@ -103,10 +121,13 @@ except ValueError, e:
 	print >>sys.stderr, "error: %s" % str(e)
 	sys.exit(1)
 
-if options.usepeaktime:
-	snglcoinc.CompareFunc = CompareStringBurstByPeakTime
+if options.string_compare:
+	snglcoinc.EventListDict.EventListType = ligolw_burca.StringEventList
+	snglcoinc.CompareFunc = StringCoincCompare
 else:
-	snglcoinc.CompareFunc = CompareSnglBurst
+	snglcoinc.EventListDict.EventListType = ligolw_burca.ExcessPowerEventList
+	snglcoinc.CompareFunc = ExcessPowerCoincCompare
+
 
 for n, filename in enumerate(llwapp.sort_files_by_size(filenames, options.verbose)):
 	if options.verbose:

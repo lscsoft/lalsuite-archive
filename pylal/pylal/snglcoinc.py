@@ -154,56 +154,75 @@ class CoincTables(object):
 # =============================================================================
 #
 
-def sngl_burst_cmp(self, other):
-	"""
-	For sorting sngl_burst events by start time.
-	"""
-	return cmp(self.start_time, other.start_time) or cmp(self.start_time_ns, other.start_time_ns)
-
-
 class EventList(list):
 	"""
-	A class for managing a list of events:  applying time offsets, and
-	retrieving subsets of the list selected by time interval.
+	A parent class for managing a list of events:  applying time
+	offsets, and retrieving subsets of the list selected by time
+	interval.  Each search must provide a subclass of this class, and
+	set the EventListType attribute of the EventListDict class to their
+	own private subclass.  The only methods that *must* be overridden
+	in a subclass are the __add_offset() and get_coincs() methods.  The
+	make_index() method can be overridden if needed.  None of the other
+	methods inherited from the list parent class need to be overridden,
+	indeed they probably should not be unless you know what you're
+	doing.
 	"""
 	def __init__(self):
 		self.offset = LIGOTimeGPS(0)
 
 	def make_index(self):
 		"""
-		Build look-up tables for the events.  Must be called after
-		events have been added to the list, and before the
-		get_coincs() method is called.  Must be called again if the
-		list is modified.
+		Provided to allow for search-specific look-up tables or
+		other indexes to be constructed for use in increasing the
+		speed of the get_coincs() method.  This will be called
+		after all events have been added to the list, and again if
+		the list is ever modified, and before get_coincs() is ever
+		called.
 		"""
-		self.sort(sngl_burst_cmp)
-		self.start_times = [event.get_start() for event in self]
-		self.max_duration = LIGOTimeGPS(max([event.duration for event in self]))
+		pass
+
+	def __add_offset(self, delta):
+		"""
+		Add an amount to the time of each event.  This method is
+		used internally by the set_offset() method, and is provided
+		to simplify the construction of search-specific subclasses.
+		Typically, the __add_offset() method will be overridden
+		with a search-specific implementation, while the
+		set_offset() method is not modified (which does some
+		additional book keeping, such as updating the offset
+		attribute).
+		"""
+		raise NotImplementedError
 
 	def set_offset(self, offset):
 		"""
-		Add an offset to the times of all events in the list.
+		Set an offset on the times of all events in the list.
 		"""
 		if offset != self.offset:
-			delta = offset - self.offset
-			for event in self:
-				event.set_start(event.get_start() + delta)
+			self.__add_offset(offset - self.offset)
 			self.offset = offset
 
-	def get_coincs(self, event_a, window, comparefunc):
+	def get_coincs(self, event_a, threshold, comparefunc):
 		"""
-		Return a list of the events coincident with event_a.
+		Return a list of the events from this list that are
+		coincident with event_a.  The events must be coincident
+		with event_a, not merely be likely to be coincident with
+		event_a given more careful scrutiny, because the events
+		returned by this method will never again been compared to
+		event_a.  It is not necessary for the events returned to be
+		mutually coincident in any way (that might not even make
+		sense, since each list contains only events from a single
+		instrument).
 		"""
-		min_start = event_a.get_start() - window - self.max_duration - self.offset
-		max_start = event_a.get_start() + event_a.duration + window - self.offset
-		return [event_b for event_b in self[bisect.bisect_left(self.start_times, min_start) : bisect.bisect_right(self.start_times, max_start)] if not comparefunc(event_a, event_b, window)]
+		raise NotImplementedError
 
 
 class EventListDict(dict):
 	"""
 	A dictionary of EventList objects, indexed by instrument,
 	initialized from an XML sngl_burst table and a list of process IDs
-	whose events should be included.
+	whose events should be included.  The EventListType attribute must
+	be set to a subclass of the EventList class.
 	"""
 	EventListType = EventList
 
@@ -238,14 +257,14 @@ class EventListDict(dict):
 			l.set_offset(LIGOTimeGPS(0))
 
 
-def make_eventlists(xmldoc, event_table_name, windows, program):
+def make_eventlists(xmldoc, event_table_name, max_delta_t, program):
 	"""
 	Convenience wrapper for constructing a dictionary of event lists
 	from an XML document tree, the name of a table from which to get
-	the events, a dictionary of inter-instrument time windows, and the
-	name of the program that generated the events.
+	the events, a maximum allowed time window, and the name of the
+	program that generated the events.
 	"""
-	return EventListDict(llwapp.get_table(xmldoc, event_table_name), coincident_process_ids(xmldoc, windows, program))
+	return EventListDict(llwapp.get_table(xmldoc, event_table_name), coincident_process_ids(xmldoc, max_delta_t, program))
 
 
 #
@@ -256,23 +275,20 @@ def make_eventlists(xmldoc, event_table_name, windows, program):
 # =============================================================================
 #
 
-def coincident_process_ids(xmldoc, windows, program):
+def coincident_process_ids(xmldoc, max_delta_t, program):
 	"""
 	Take an XML document tree and determine the list of process IDs
 	that will participate in coincidences identified by the time slide
 	table therein.  It is OK for document to contain time slides
 	involving instruments not represented in the list of processes,
-	these time slides are ignored.
+	these time slides are ignored.  max_delta_t is the largest time
+	window that will be considered in the coincidence tests;  that is
+	two segments can have a gap this large between them and still be
+	considered coincident.
 	"""
-	# find the largest coincidence window
-	try:
-		halfmaxwindow = max(windows.itervalues()) / 2
-	except:
-		halfmaxwindow = LIGOTimeGPS(0)
-
 	# extract a segmentlistdict;  protract by half the largest
 	# coincidence window so as to not miss edge effects
-	seglistdict = llwapp.segmentlistdict_fromsearchsummary(xmldoc, program).protract(halfmaxwindow)
+	seglistdict = llwapp.segmentlistdict_fromsearchsummary(xmldoc, program).protract(max_delta_t / 2)
 
 	# determine which time slides are possible given the instruments in
 	# the search summary table
@@ -315,7 +331,7 @@ def coincident_process_ids(xmldoc, windows, program):
 CompareFunc = None
 
 
-def Level1Iterator(eventlists, instruments, windows):
+def Level1Iterator(eventlists, instruments, thresholds):
 	"""
 	First-pass coincidence generator.  Generates a sequence of tuples
 	whose elements are, in order:
@@ -339,37 +355,37 @@ def Level1Iterator(eventlists, instruments, windows):
 	shortest = lengths.index(length)
 	shortestlist = eventlists.pop(shortest)
 	shortestinst = instruments.pop(shortest)
-	windows = map(lambda inst: windows[(inst, shortestinst)], instruments)
+	thresholds = map(lambda inst: thresholds[(inst, shortestinst)], instruments)
 	for n, event in enumerate(shortestlist):
-		yield n, length, event, itertools.MultiIter(map(lambda eventlist, window: eventlist.get_coincs(event, window, CompareFunc), eventlists, windows))
+		yield n, length, event, itertools.MultiIter(map(lambda eventlist, threshold: eventlist.get_coincs(event, threshold, CompareFunc), eventlists, thresholds))
 
 
-def mutually_coincident(events, windows):
+def mutually_coincident(events, thresholds):
 	"""
 	Return True if the all the events in the list are mutually
 	coincident.
 	"""
 	try:
 		for [a, b] in itertools.choices(events, 2):
-			if CompareFunc(a, b, windows[(a.ifo, b.ifo)]):
+			if CompareFunc(a, b, thresholds[(a.ifo, b.ifo)]):
 				return False
 	except KeyError, e:
 		raise KeyError, "no coincidence window provided for instrument pair %s" % str(e)
 	return True
 
 
-def CoincidentNTuples(eventlists, instruments, windows, verbose = False):
+def CoincidentNTuples(eventlists, instruments, thresholds, verbose = False):
 	"""
 	Given a EventListDict object, a list of instruments, and a
-	dictionary of instrument pair time windows, generate a sequence of
+	dictionary of instrument pair thresholds, generate a sequence of
 	lists of mutually coincident events.  Each list has exactly one
 	event from each instrument.
 	"""
-	for n, length, event, ntuples in Level1Iterator(eventlists, instruments, windows):
+	for n, length, event, ntuples in Level1Iterator(eventlists, instruments, thresholds):
 		if verbose and not (n % (length / 200 or 1)):
 			print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / length),
 		for ntuple in ntuples:
-			if mutually_coincident(ntuple, windows):
+			if mutually_coincident(ntuple, thresholds):
 				ntuple.append(event)
 				yield ntuple
 	if verbose:
