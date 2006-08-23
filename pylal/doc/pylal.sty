@@ -1,4 +1,15 @@
 %
+% Dependancies
+%
+
+\RequirePackage{graphics}
+\RequirePackage{hyperref}
+\RequirePackage{amsmath}
+\RequirePackage{amssymb}
+\RequirePackage[squaren]{SIunits}
+
+
+%
 % Augment the SIunit package
 %
 
@@ -65,6 +76,11 @@
 %
 
 \newcommand{\prog}[1]{\texttt{#1}}
+\newenvironment{manpage}[1]{\cleardoublepage\section{#1}}{}
+\newcommand{\manname}[2]{\subsection{Name}#1 --- #2}
+\newcommand{\mansynopsis}[1]{\subsection{Synopsis}#1}
+\newcommand{\mancopyright}[1]{\subsection{Copyright}#1}
+\newenvironment{mansection}[1]{\subsection{#1}}{}
 
 
 %
