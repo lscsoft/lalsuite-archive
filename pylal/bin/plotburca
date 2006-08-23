@@ -30,6 +30,7 @@ from optparse import OptionParser
 import math
 import matplotlib.cm
 import numarray
+import os
 from pysqlite2 import dbapi2 as sqlite
 import sys
 
@@ -61,13 +62,16 @@ def parse_command_line():
 	parser.add_option("-f", "--format", metavar = "format", default = "png", help = "set the output image format (default = png)")
 	parser.add_option("-l", "--live-time-program", metavar = "program", default = "power", help = "set the name, as it appears in the process table, of the program whose search summary entries define the search live time (default = power)")
 	parser.add_option("--plot", metavar = "number", action = "append", default = None, help = "generate the given plot number")
+	parser.add_option("-s", "--skip", metavar = "number", default = 0, help = "skip this many files at the start of the list (default = 0)")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
 	options, filenames = parser.parse_args()
 
 	if options.plot:
 		options.plot = map(int, options.plot)
 	else:
-		options.plot = range(13)
+		options.plot = range(14)
+
+	options.skip = int(options.skip)
 
 	return options, (filenames or [None])
 
@@ -147,9 +151,33 @@ def magnitude_b(burst):
 	ra, dec = 2.0318570464121519, -0.50628171572274738
 	gmst = date.XLALGreenwichMeanSiderealTime(date.LIGOTimeGPS(burst.peak_time, burst.peak_time_ns))
 	fplus, fcross = inject.XLALComputeDetAMResponse(inject.cached_detector[burst.ifo].response(), ra, dec, 0.0, gmst)
-	#power_per_dof = burst.snr / (2.0 * burst.tfvolume) + 1.0
+	# power_per_dof = burst.snr / (2.0 * burst.tfvolume) + 1.0
 	power_per_dof = (burst.snr + 2.0 * burst.tfvolume) / (2.0 * burst.bandwidth * burst.duration)
 	return power_per_dof / (fplus**2.0 + fcross**2.0)
+
+
+from pylal import itertools
+
+def keep_1(coinc):
+	# events are coincident iff their time-frequency tiles touch or
+	# intersect
+	return True
+
+def keep_2(coinc):
+	# events are coincident iff one time-frequency tile's centre
+	# frequency and peak time are covered by the other time-frequency tile.
+	for [a, b] in itertools.choices(list(coinc.sngl_bursts()), 2):
+		if a.get_peak() not in b.get_period() or b.get_peak() not in a.get_period() or a.central_freq not in b.get_band() or b.central_freq not in a.get_band():
+			return False
+	return True
+
+def keep_3(coinc):
+	# events are coincident iff their peak time and centre frequencies
+	# equal
+	for [a, b] in itertools.choices(list(coinc.sngl_bursts()), 2):
+		if a.get_peak() != b.get_peak() or a.central_freq != b.central_freq:
+			return False
+	return True
 
 
 class ConfidenceContours(SnglBurstUtils.BurstPlot):
@@ -160,6 +188,8 @@ class ConfidenceContours(SnglBurstUtils.BurstPlot):
 		self.x_instrument = x_instrument
 		self.y_instrument = y_instrument
 		self.magnitude = magnitude
+		self.foreground_x = []
+		self.foreground_y = []
 		self.n_foreground = 0
 		self.n_background = 0
 		self.n_injections = 0
@@ -168,67 +198,58 @@ class ConfidenceContours(SnglBurstUtils.BurstPlot):
 		self.coinc_injection_bins = rate.BinnedArray(rate.Bins(min_magnitude, max_magnitude, 1024, min_magnitude, max_magnitude, 1024, spacing = ["log", "log"]))
 		self.incomplete_coinc_injection_bins = rate.BinnedArray(rate.Bins(min_magnitude, max_magnitude, 1024, min_magnitude, max_magnitude, 1024, spacing = ["log", "log"]))
 
+	def coords(self, coinc):
+		x = y = None
+		for burst in coinc.sngl_bursts():
+			if burst.ifo == self.x_instrument:
+				x = self.magnitude(burst)
+			elif burst.ifo == self.y_instrument:
+				y = self.magnitude(burst)
+		return x, y
+
 	def add_contents(self, contents):
 		if self.x_instrument not in contents.instruments or self.y_instrument not in contents.instruments:
 			# fast path: these are not the instruments we're
 			# looking for
 			return
 		for coinc in contents.coinc_table.selectByDefID(contents.bb_definer_id):
+			#if not keep_3(coinc):
+			#	continue
 			if coinc.is_zero_lag():
 				self.n_foreground += 1
-				x = y = None
-				for burst in coinc.sngl_bursts():
-					if burst.ifo == self.x_instrument:
-						x = self.magnitude(burst)
-					elif burst.ifo == self.y_instrument:
-						y = self.magnitude(burst)
+				x, y = self.coords(coinc)
 				try:
 					self.foreground_bins[x, y] += 1
+					#self.foreground_x.append(x)
+					#self.foreground_y.append(y)
 				except IndexError:
 					# not on plot axes
 					pass
 			else:
 				self.n_background += 1
-				x = y = None
-				for burst in coinc.sngl_bursts():
-					if burst.ifo == self.x_instrument:
-						x = self.magnitude(burst)
-					elif burst.ifo == self.y_instrument:
-						y = self.magnitude(burst)
 				try:
-					self.background_bins[x, y] += 1
+					self.background_bins[self.coords(coinc)] += 1
 				except IndexError:
 					# not on plot axes
 					pass
-		for coinc in contents.coinc_table.selectByDefID(contents.sc_definer_id):
-			self.n_injections += 1
-			for coinc in coinc.coincs():
-				x = y = None
-				for burst in coinc.sngl_bursts():
-					if burst.ifo == self.x_instrument:
-						x = self.magnitude(burst)
-					elif burst.ifo == self.y_instrument:
-						y = self.magnitude(burst)
-				try:
-					self.coinc_injection_bins[x, y] += 1
-				except IndexError:
-					# not on plot axes
-					pass
+		if contents.sc_definer_id:
+			for coinc in contents.coinc_table.selectByDefID(contents.sc_definer_id):
+				self.n_injections += 1
+				for coinc in coinc.coincs():
+					try:
+						self.coinc_injection_bins[self.coords(coinc)] += 1
+					except IndexError:
+						# not on plot axes
+						pass
 		for coinc_event_id in contents.incomplete_injection_coinc_ids:
-			x = y = None
-			for burst in contents.coinc_table[coinc_event_id].sngl_bursts():
-				if burst.ifo == self.x_instrument:
-					x = self.magnitude(burst)
-				elif burst.ifo == self.y_instrument:
-					y = self.magnitude(burst)
 			try:
-				self.incomplete_coinc_injection_bins[x, y] += 1
+				self.incomplete_coinc_injection_bins[self.coords(contents.coinc_table[coinc_event_id])] += 1
 			except IndexError:
 				# not on plot axes
 				pass
 
 	def finish(self):
-		self.axes.set_title(r"Distribution of Coincident Events (%d Foreground, %d Background Events, %d Injections Found in Coincidence, Logarithmic Density Contours)" % (self.n_foreground, self.n_background, self.n_injections))
+		self.axes.set_title(r"\begin{center}Distribution of Coincident Events (%d Foreground, %d Background Events, %d Injections Found in Coincidence, Logarithmic Density Contours)\end{center}" % (self.n_foreground, self.n_background, self.n_injections))
 		xcoords, ycoords = self.background_bins.centres()
 
 		# prepare the data
@@ -248,6 +269,7 @@ class ConfidenceContours(SnglBurstUtils.BurstPlot):
 		# plot foreground (zero-lag) contours
 		max_density = math.log(self.foreground_bins.array.max())
 		self.axes.contour(xcoords, ycoords, numarray.transpose(numarray.log(self.foreground_bins.array)), [max_density - n for n in xrange(0, 10, 1)], cmap = matplotlib.cm.Reds)
+		#self.axes.plot(self.foreground_x, self.foreground_y, "r+")
 
 		# plot coincident injection contours
 		max_density = math.log(self.coinc_injection_bins.array.max())
@@ -261,6 +283,106 @@ class ConfidenceContours(SnglBurstUtils.BurstPlot):
 		lower = max(self.background_bins.bins.min)
 		upper = min(self.background_bins.bins.max)
 		self.axes.plot([lower, upper], [lower, upper], "k:")
+
+		# fix axes limits
+		self.axes.set_xlim([self.background_bins.bins.min[0], self.background_bins.bins.max[0]])
+		self.axes.set_ylim([self.background_bins.bins.min[1], self.background_bins.bins.max[1]])
+
+
+class ConfidenceContourProjection(SnglBurstUtils.BurstPlot):
+	def __init__(self, x, y, magnitude, max_magnitude):
+		SnglBurstUtils.BurstPlot.__init__(self, "X", "Y")
+		self.fig.set_figsize_inches(16,16)
+		self.x = x
+		self.y = y
+		self.magnitude = magnitude
+		self.n_foreground = 0
+		self.n_background = 0
+		self.n_injections = 0
+		max_magnitude = math.log10(max_magnitude)
+		self.foreground_bins = rate.BinnedArray(rate.Bins(-max_magnitude, max_magnitude, 1024, -max_magnitude, max_magnitude, 1024, spacing = ["lin", "lin"]))
+		self.background_bins = rate.BinnedArray(rate.Bins(-max_magnitude, max_magnitude, 1024, -max_magnitude, max_magnitude, 1024, spacing = ["lin", "lin"]))
+		self.coinc_injection_bins = rate.BinnedArray(rate.Bins(-max_magnitude, max_magnitude, 1024, -max_magnitude, max_magnitude, 1024, spacing = ["lin", "lin"]))
+		self.incomplete_coinc_injection_bins = rate.BinnedArray(rate.Bins(-max_magnitude, max_magnitude, 1024, -max_magnitude, max_magnitude, 1024, spacing = ["lin", "lin"]))
+
+	def coords(self, coinc):
+		mag = numarray.zeros(3, "Float64")
+		for burst in coinc.sngl_bursts():
+			if burst.ifo == "H1":
+				mag[0] = math.log10(self.magnitude(burst))
+			elif burst.ifo == "H2":
+				mag[1] = math.log10(self.magnitude(burst))
+			elif burst.ifo == "L1":
+				mag[2] = math.log10(self.magnitude(burst))
+		return numarray.dot(mag, self.x), numarray.dot(mag, self.y)
+
+	def add_contents(self, contents):
+		for coinc in contents.coinc_table.selectByDefID(contents.bb_definer_id):
+			#if not keep_3(coinc):
+			#	continue
+			if coinc.is_zero_lag():
+				self.n_foreground += 1
+				x, y = self.coords(coinc)
+				try:
+					self.foreground_bins[x, y] += 1
+					#self.foreground_x.append(x)
+					#self.foreground_y.append(y)
+				except IndexError:
+					# not on plot axes
+					pass
+			else:
+				self.n_background += 1
+				try:
+					self.background_bins[self.coords(coinc)] += 1
+				except IndexError:
+					# not on plot axes
+					pass
+		if contents.sc_definer_id:
+			for coinc in contents.coinc_table.selectByDefID(contents.sc_definer_id):
+				self.n_injections += 1
+				for coinc in coinc.coincs():
+					try:
+						self.coinc_injection_bins[self.coords(coinc)] += 1
+					except IndexError:
+						# not on plot axes
+						pass
+		for coinc_event_id in contents.incomplete_injection_coinc_ids:
+			try:
+				self.incomplete_coinc_injection_bins[self.coords(contents.coinc_table[coinc_event_id])] += 1
+			except IndexError:
+				# not on plot axes
+				pass
+
+	def finish(self):
+		self.axes.set_title(r"\begin{center}Distribution of Coincident Events (%d Foreground, %d Background Events, %d Injections Found in Coincidence, Logarithmic Density Contours)\end{center}" % (self.n_foreground, self.n_background, self.n_injections))
+		xcoords, ycoords = self.background_bins.centres()
+
+		# prepare the data
+		rate.filter_array(self.foreground_bins.array, rate.gaussian_window2d(8, 8))
+		rate.filter_array(self.background_bins.array, rate.gaussian_window2d(8, 8))
+		rate.filter_array(self.coinc_injection_bins.array, rate.gaussian_window2d(8, 8))
+		rate.filter_array(self.incomplete_coinc_injection_bins.array, rate.gaussian_window2d(8, 8))
+		self.foreground_bins.logregularize()
+		self.background_bins.logregularize()
+		self.coinc_injection_bins.logregularize()
+		self.incomplete_coinc_injection_bins.logregularize()
+
+		# plot background contours
+		max_density = math.log(self.background_bins.array.max())
+		self.axes.contour(xcoords, ycoords, numarray.transpose(numarray.log(self.background_bins.array)), [max_density - n for n in xrange(0, 10, 1)], cmap = matplotlib.cm.Greys)
+
+		# plot foreground (zero-lag) contours
+		max_density = math.log(self.foreground_bins.array.max())
+		self.axes.contour(xcoords, ycoords, numarray.transpose(numarray.log(self.foreground_bins.array)), [max_density - n for n in xrange(0, 10, 1)], cmap = matplotlib.cm.Reds)
+		#self.axes.plot(self.foreground_x, self.foreground_y, "r+")
+
+		# plot coincident injection contours
+		max_density = math.log(self.coinc_injection_bins.array.max())
+		self.axes.contour(xcoords, ycoords, numarray.transpose(numarray.log(self.coinc_injection_bins.array)), [max_density - n for n in xrange(0, 10, 1)], cmap = matplotlib.cm.Blues)
+
+		# plot coincident injection contours
+		max_density = math.log(self.incomplete_coinc_injection_bins.array.max())
+		self.axes.contour(xcoords, ycoords, numarray.transpose(numarray.log(self.incomplete_coinc_injection_bins.array)), [max_density - n for n in xrange(0, 10, 1)], cmap = matplotlib.cm.Greens)
 
 		# fix axes limits
 		self.axes.set_xlim([self.background_bins.bins.min[0], self.background_bins.bins.max[0]])
@@ -384,12 +506,16 @@ def new_plots(plots):
 		ConfidenceContours("H2", "H1", magnitude_b, r"Power / D.o.F. / ($F_{+}^{2} + F_{\times}^{2}$)", 1, 10**10),
 		ConfidenceContours("H2", "L1", magnitude_b, r"Power / D.o.F. / ($F_{+}^{2} + F_{\times}^{2}$)", 1, 10**10),
 		ConfidenceContours("L1", "H1", magnitude_b, r"Power / D.o.F. / ($F_{+}^{2} + F_{\times}^{2}$)", 1, 10**10),
+		ConfidenceContourProjection(numarray.array((-1/math.sqrt(2), +1/math.sqrt(2), 0), "Float64"), numarray.array((-1/math.sqrt(4), -1/math.sqrt(4), +1/math.sqrt(2)), "Float64"), magnitude_b, 10**5),
 		RateVsConfidence("H1"),
 		RateVsConfidence("H2"),
 		RateVsConfidence("L1"),
 		DeltaTHistogram("H1", deltat_seg, deltat_width),
 		DeltaTHistogram("H2", deltat_seg, deltat_width),
-		DeltaTHistogram("L1", deltat_seg, deltat_width)
+		DeltaTHistogram("L1", deltat_seg, deltat_width),
+		#ConfidenceContours(r"H1_DARM_ERR", r"H1_STRAIN", magnitude_a, "Confidence", 35, 10**10),
+		#ConfidenceContours(r"H2_DARM_ERR", r"H2_STRAIN", magnitude_a, "Confidence", 35, 10**10),
+		#ConfidenceContours(r"L1_DARM_ERR", r"L1_STRAIN", magnitude_a, "Confidence", 35, 10**10)
 	]
 	return [l[i] for i in plots]
 
@@ -397,10 +523,11 @@ options, filenames = parse_command_line()
 
 plots = new_plots(options.plot)
 
-for n, filename in enumerate(llwapp.sort_files_by_size(filenames, options.verbose, reverse = True)):
+for n, filename in enumerate(llwapp.sort_files_by_size(filenames, options.verbose, reverse = True)[options.skip:]):
 	if options.verbose:
-		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
+		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames) - options.skip),
 	database = SnglBurstUtils.CoincDatabase(sqlite.connect(":memory:"))
+	#database = SnglBurstUtils.CoincDatabase(sqlite.connect("database.sqlite"))
 	xmldoc = llwapp.load_filename(filename, options.verbose, gz = filename[-3:] == ".gz")
 	database.summarize(xmldoc, options.live_time_program, options.verbose)
 	for n, plot in zip(options.plot, plots):
@@ -408,6 +535,7 @@ for n, filename in enumerate(llwapp.sort_files_by_size(filenames, options.verbos
 			print >>sys.stderr, "adding to burca plot %d..." % n
 		plot.add_contents(database)
 	xmldoc.unlink()
+	#os.remove("database.sqlite")
 
 
 # delete the plots as we go to save memory
