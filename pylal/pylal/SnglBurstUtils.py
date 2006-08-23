@@ -93,6 +93,9 @@ class SnglBurst(lsctables.SnglBurst):
 	def get_start(self):
 		return LIGOTimeGPS(self.start_time, self.start_time_ns)
 
+	def get_stop(self):
+		return LIGOTimeGPS(self.stop_time, self.stop_time_ns)
+
 	def get_period(self):
 		start = LIGOTimeGPS(self.start_time, self.start_time_ns)
 		return segments.segment(start, start + self.duration)
