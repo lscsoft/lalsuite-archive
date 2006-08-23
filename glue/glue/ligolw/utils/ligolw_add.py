@@ -28,6 +28,7 @@
 Add (merge) LIGO LW XML files containing LSC tables.
 """
 
+import gzip
 import os
 import sys
 import urllib
@@ -200,8 +201,11 @@ def ligolw_add(doc, urls, **kwargs):
 	# Input
 	for n, url in enumerate(urls):
 		if kwargs["verbose"]:
-			print >>sys.stderr, "loading %d/%d: %s" % (n + 1, len(urls), url)
-		append_document(doc, urllib.urlopen(url))
+			print >>sys.stderr, "%d/%d: reading %s ..." % (n + 1, len(urls), url)
+		fileobj = urllib.urlopen(url)
+		if url[-3:] == ".gz":
+			fileobj = gzip.GzipFile(mode = "rb", fileobj = fileobj)
+		append_document(doc, fileobj)
 
 	# ID reassignment
 	if not kwargs["non_lsc_tables_ok"] and lsctables.HasNonLSCTables(doc):

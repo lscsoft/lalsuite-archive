@@ -33,13 +33,13 @@ __version__ = "$Revision$"[11:-2]
 
 from optparse import OptionParser
 import sys
-import urllib
 
 from glue.lal import CacheEntry
 from glue import segments
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
+from glue.ligolw import utils
 
 
 #
@@ -104,17 +104,7 @@ def ContentHandler(doc):
 	else:
 		return ligolw.LIGOLWContentHandler(doc)
 
-
-#
-# How to read a document
-#
-
-def load_document(url):
-	if options.verbose:
-		print >>sys.stderr, "Reading %s" % url
-	doc = ligolw.Document()
-	ligolw.make_parser(ContentHandler(doc)).parse(urllib.urlopen(url))
-	return doc
+utils.ContentHandler = ContentHandler
 
 
 #
@@ -152,7 +142,7 @@ def row_string(table_elem, row):
 #
 
 for url in urls:
-	doc = load_document(url)
+	doc = utils.load_url(url, options.verbose, gz = (url or "stdin")[-3:] == ".gz")
 	for table_elem in get_tables(doc):
 		for n, row in enumerate(table_elem):
 			if is_requested_row(n):

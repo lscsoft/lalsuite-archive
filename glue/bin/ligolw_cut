@@ -35,6 +35,7 @@ import sys
 
 from glue.ligolw import ligolw
 from glue.ligolw import table
+from glue.ligolw import utils
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __date__ = "$Date$"[7:-2]
@@ -87,9 +88,6 @@ def parse_command_line():
 # =============================================================================
 #
 
-ContentHandler = ligolw.FilteringLIGOLWContentHandler
-
-
 class ElementFilter(object):
 	"""
 	Class implementing any cuts that can be performed during document
@@ -105,15 +103,6 @@ class ElementFilter(object):
 				if not table.CompareTableNames(delete_table, attrs["Name"]):
 					return False
 		return True
-
-
-def load_filename(filename, element_filter):
-	doc = ligolw.Document()
-	if filename:
-		ligolw.make_parser(ContentHandler(doc, element_filter)).parse(file(filename))
-	else:
-		ligolw.make_parser(ContentHandler(doc, element_filter)).parse(sys.stdin)
-	return doc
 
 
 #
@@ -192,23 +181,25 @@ def write_filename(filename):
 
 try:
 	options, filenames = parse_command_line()
-	element_filter = ElementFilter(options.delete_table).element_filter
 except Exception, e:
 	print >>sys.stderr, "error: parsing command line: %s" % str(e)
 	sys.exit(1)
 
+def ContentHandler(doc):
+	# uses options.delete_table global variable
+	return ligolw.FilteringLIGOLWContentHandler(doc, ElementFilter(options.delete_table).element_filter)
+
+utils.ContentHandler = ContentHandler
+
 for n, filename in enumerate(filenames):
 	if options.verbose:
-		print >>sys.stderr, "loading %d/%d: %s" % (n + 1, len(filenames), filename or "stdin")
-	doc = load_filename(filename, element_filter)
+		print >>sys.stderr, "%d/%d: " % (n + 1, len(filenames))
+	doc = utils.load_filename(filename, options.verbose, gz = (filename or "stdin")[-3:] == ".gz")
 	if options.verbose:
 		print >>sys.stderr, "processing"
 	if options.delete_column:
 		RemoveColumns(doc, options.delete_column)
 	if options.delete_element:
 		RemoveElements(doc, options.delete_element)
-
-	if options.verbose:
-		print >>sys.stderr, "writing %s" % (filename or "stdout")
-	write_filename(filename)
+	utils.write_filename(doc, filename, options.verbose, gz = (filename or "stdout")[-3:] == ".gz")
 	doc.unlink()

@@ -36,6 +36,7 @@ from glue import segments
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
+from glue.ligolw import utils
 from pylal.date import XLALUTCToGPS
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -67,11 +68,7 @@ del parser, args
 # =============================================================================
 #
 
-indoc = ligolw.Document()
-if options.input:
-	ligolw.make_parser(ligolw.LIGOLWContentHandler(indoc)).parse(file(options.input))
-else:
-	ligolw.make_parser(ligolw.LIGOLWContentHandler(indoc)).parse(sys.stdin)
+indoc = utils.load_filename(options.input)
 
 snglbursttables = table.getTablesByName(indoc, lsctables.SnglBurstTable.tableName)
 insearchsummtables = table.getTablesByName(indoc, lsctables.SearchSummaryTable.tableName)
@@ -219,7 +216,4 @@ searchsummtable.append(searchsumm)
 
 process.end_time = XLALUTCToGPS(time.gmtime()).seconds
 
-if options.output:
-	doc.write(file(options.output, "w"))
-else:
-	doc.write(sys.stdout)
+utils.write_filename(doc, options.output)
