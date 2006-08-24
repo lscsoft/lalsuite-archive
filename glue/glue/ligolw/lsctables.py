@@ -719,16 +719,6 @@ class ProcessParamsTable(LSCTableMulti):
 			if row.process_id == key:
 				row.program = value
 
-	def __getitem__(self, key):
-		"""
-		Return a sorted list of rows matching the process ID key.
-		"""
-		params = LSCTableMulti.__getitem__(self, key)
-		# sort by process ID, then parameter name (all rows should
-		# be unique by this measure).
-		params.sort(lambda a, b: cmp((a.process_id, a.param), (b.process_id, b.param)))
-		return params
-
 	def makeReference(self, elem):
 		"""
 		Convert ilwd:char strings into object references.
