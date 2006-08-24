@@ -799,16 +799,6 @@ class SearchSummaryTable(LSCTableMulti):
 		"nnodes": "int_4s"
 	}
 
-	def __getitem__(self, key):
-		"""
-		Return a sorted list of rows matching the process ID key.
-		"""
-		summaries = LSCTableMulti.__getitem__(self, key)
-		# sort by process ID, then output segment (all rows should
-		# be unique by this measure).
-		summaries.sort(lambda a, b: cmp((a.process_id, a.get_out()), (b.process_id, b.get_out())))
-		return summaries
-
 	def makeReference(self, elem):
 		"""
 		Convert ilwd:char strings into object references.
