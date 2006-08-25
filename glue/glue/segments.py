@@ -420,23 +420,23 @@ class segmentlist(list):
 			list1.extend(list2)
 			list1.coalesce()
 
-		which is also O(n log n), but with a smaller (by about 25%)
-		leading coefficient.
+		which is also O(n log n), but with a smaller leading
+		coefficient.
 		"""
-		low = 0
+		i = 0
 		for seg in other:
-			low = bisect.bisect_right(self, seg, low)
-			self.insert(low, seg)
-			if low:
-				if self[low-1].continuous(self[low]):
-					self[low-1:low+1] = [ self[low-1] | self[low] ]
-					low -= 1
-			try:
-				while self[low].continuous(self[low+1]):
-					self[low:low+2] = [ self[low] | self[low+1] ]
-			except IndexError:
-				pass
-			low += 1
+			i = j = bisect.bisect_right(self, seg, i)
+			if i and self[i - 1].continuous(seg):
+				i -= 1
+				seg |= self[i]
+			n = len(self)
+			while j < n and seg.continuous(self[j]):
+				j += 1
+			if j > i:
+				self[i : j] = [seg | self[j - 1]]
+			else:
+				self.insert(i, seg)
+			i += 1
 		return self
 
 	def __or__(self, other):
