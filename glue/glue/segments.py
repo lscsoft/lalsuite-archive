@@ -200,20 +200,20 @@ class segment(tuple):
 	def __and__(self, other):
 		"""
 		Return the segment that is the intersection of the given
-		segments, or None if the segments do not intersect.
+		segments.  Raises ValueError if the segments do not
+		intersect.
 		"""
 		if not self.intersects(other):
-			return None
+			raise ValueError, other
 		return segment(max(self[0], other[0]), min(self[1], other[1]))
 
 	def __or__(self, other):
 		"""
-		Return the segment that is the union of the given segments,
-		or None if the result cannot be represented as a single
-		segment.
+		Return the segment that is the union of the given segments.
+		Raises ValueError if the segments are disjoint.
 		"""
 		if not self.continuous(other):
-			return None
+			raise ValueError, other
 		return segment(min(self[0], other[0]), max(self[1], other[1]))
 
 	# addition is defined to be the union operation
@@ -222,13 +222,13 @@ class segment(tuple):
 	def __sub__(self, other):
 		"""
 		Return the segment that is that part of self which is not
-		contained in other, or None if the result cannot be
-		represented as a single segment.
+		contained in other.  Raises ValueError if the result would
+		be disjoint.
 		"""
 		if not self.intersects(other):
 			return self
 		if (self in other) or ((self[0] < other[0]) and (self[1] > other[1])):
-			return None
+			raise ValueError, other
 		if self[0] < other[0]:
 			return segment(self[0], other[0])
 		return segment(other[1], self[1])
