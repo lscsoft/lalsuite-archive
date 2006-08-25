@@ -121,17 +121,15 @@ class CafePacker(packing.Packer):
 		matching_bins = []
 		for n, bin in enumerate(self.bins):
 			for offsetdict in self.timeslides:
-				size.offsets.update(offsetdict)
 				bin.size.offsets.update(offsetdict)
 				b = segments.segmentlist()
 				for key in offsetdict.iterkeys():
 					if key in bin.size:
 						b |= bin.size[key]
-				if b.intersects_segment(object.segment):
+				if b.intersects_segment(object.segment.shift(offsetdict[object.observatory])):
 					matching_bins.append((n, bin))
 					break
 			bin.size.offsets.clear()
-		size.offsets.clear()
 
 		# add object by either adding a new bin or putting it into
 		# the first bin that was found
