@@ -60,15 +60,19 @@ def load_cache(filename, verbose = False):
 		fileobj = file(filename)
 	else:
 		fileobj = sys.stdin
-	return map(lambda l: CacheEntry(l, coltype = LIGOTimeGPS), fileobj)
+	cache = map(lambda l: CacheEntry(l, coltype = LIGOTimeGPS), fileobj)
+	if verbose:
+		print >>sys.stderr, "sorting by segment ..."
+	cache.sort(lambda a, b: cmp(a.segment, b.segment))
+	return cache
 
 
 def cache_to_seglistdict(cache):
 	s = segments.segmentlistdict()
 	for c in cache:
-		try:
+		if c.observatory in s:
 			s[c.observatory].append(c.segment)
-		except KeyError:
+		else:
 			s[c.observatory] = segments.segmentlist([c.segment])
 	s.coalesce()
 	return s
@@ -119,14 +123,11 @@ class CafePacker(packing.Packer):
 			for offsetdict in self.timeslides:
 				size.offsets.update(offsetdict)
 				bin.size.offsets.update(offsetdict)
-				a = segments.segmentlist()
 				b = segments.segmentlist()
 				for key in offsetdict.iterkeys():
-					if key in size:
-						a |= size[key]
 					if key in bin.size:
 						b |= bin.size[key]
-				if a.intersects(b):
+				if b.intersects_segment(object.segment):
 					matching_bins.append((n, bin))
 					break
 			bin.size.offsets.clear()
@@ -164,7 +165,7 @@ class CafePacker(packing.Packer):
 # output caches.
 #
 
-def build_output_caches(cache, seglists, time_slides, verbose):
+def build_output_caches(cache, time_slides, verbose):
 	outputcaches = []
 	packer = CafePacker(outputcaches)
 	packer.set_time_slides(time_slides)
@@ -174,9 +175,7 @@ def build_output_caches(cache, seglists, time_slides, verbose):
 	for n, cacheentry in enumerate(cache):
 		if verbose and not n % max(5, (len(cache)/1000)):
 			print >>sys.stderr, "	%.1f%%	(%d files, %d caches)\r" % (100.0 * n / len(cache), n, len(outputcaches)),
-		cache_seglistdict = cacheentry_to_seglistdict(cacheentry)
-		if seglists.intersects(cache_seglistdict):
-			packer.pack(cache_seglistdict, cacheentry)
+		packer.pack(cacheentry_to_seglistdict(cacheentry), cacheentry)
 	if verbose:
 		print >>sys.stderr, "	100.0%%	(%d files, %d caches)" % (n, len(outputcaches))
 
@@ -230,4 +229,8 @@ def ligolw_cafe(cache, time_slides, verbose = False):
 	# possibly produce coincident triggers.
 	seglists = llwapp.get_coincident_segmentlistdict(seglists, time_slides)
 
-	return seglists.keys(), build_output_caches(cache, seglists, time_slides, verbose)
+	# Remove cache entries that will not participate in a coincidence
+	# analysis
+	cache = [c for c in cache if seglists[c.observatory].intersects_segment(c.segment)]
+
+	return seglists.keys(), build_output_caches(cache, time_slides, verbose)
