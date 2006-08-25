@@ -668,7 +668,7 @@ class segmentlistdict(dict):
 			if key not in self:
 				raise KeyError, key
 			delta = value - self[key]
-			if delta != 0.0:
+			if delta:
 				self.__parent[key].shift(delta)
 				dict.__setitem__(self, key, self[key] + delta)
 
