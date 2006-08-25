@@ -129,11 +129,8 @@ class CafePacker(packing.Packer):
 				if a.intersects(b):
 					matching_bins.append((n, bin))
 					break
-
-		# reset all offsets
-		size.offsets.clear()
-		for bin in self.bins:
 			bin.size.offsets.clear()
+		size.offsets.clear()
 
 		# add object by either adding a new bin or putting it into
 		# the first bin that was found
