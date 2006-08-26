@@ -24,6 +24,7 @@
 # =============================================================================
 #
 
+import bisect
 import sys
 
 from glue import segments
@@ -106,7 +107,7 @@ class ExcessPowerEventList(snglcoinc.EventList):
 		self.start_times = [event.get_start() for event in self]
 		self.max_duration = LIGOTimeGPS(max([event.duration for event in self]))
 
-	def __add_offset(self, delta):
+	def _add_offset(self, delta):
 		"""
 		Add an amount to the start time of each event.
 		"""
@@ -134,7 +135,7 @@ class StringEventList(snglcoinc.EventList):
 		self.sort(lambda a, b: cmp(a.peak_time, b.peak_time) or cmp(a.peak_time_ns, b.peak_time_ns))
 		self.peak_times = [event.get_peak() for event in self]
 
-	def __add_offset(self, delta):
+	def _add_offset(self, delta):
 		"""
 		Add an amount to the start time of each event.
 		"""
@@ -142,8 +143,8 @@ class StringEventList(snglcoinc.EventList):
 			event.set_peak(event.get_peak() + delta)
 
 	def get_coincs(self, event_a, threshold, comparefunc):
-		min_peak = event_a.get_peak() - threshold(0) - self.offset
-		max_peak = event_a.get_peak() + threshold(0) - self.offset
+		min_peak = event_a.get_peak() - threshold[0] - self.offset
+		max_peak = event_a.get_peak() + threshold[0] - self.offset
 		return [event_b for event_b in self[bisect.bisect_left(self.peak_times, min_peak) : bisect.bisect_right(self.peak_times, max_peak)] if not comparefunc(event_a, event_b, threshold)]
 
 
@@ -168,8 +169,11 @@ def ligolw_burca(xmldoc, **kwargs):
 
 	# build the event list accessors, populated with events from those
 	# processes that can participate in a coincidence
-	# FIXME: correct determination of max_delta_t for string search
-	eventlists = snglcoinc.make_eventlists(xmldoc, lsctables.SnglBurstTable.tableName, max(kwargs["window"].itervalues()), kwargs["program"])
+	if "string_compare" in kwargs:
+		max_delta_t = max([t[0] for t in kwargs["window"].itervalues()])
+	else:
+		max_delta_t = max(kwargs["window"].itervalues())
+	eventlists = snglcoinc.make_eventlists(xmldoc, lsctables.SnglBurstTable.tableName, max_delta_t, kwargs["program"])
 
 	# iterate over time slides
 	time_slide_ids = coinc_tables.time_slide_ids()

@@ -67,7 +67,7 @@ def parse_thresholds(thresholdstrings):
 		except ValueError:
 			raise ValueError, "incorrect number of instruments"
 		thresholds[(A, B)] = delta
-	for (A, B), value in thresholds.iteritems():
+	for (A, B), value in thresholds.items():
 		if (B, A) not in thresholds:
 			thresholds[(B, A)] = value
 	return thresholds
@@ -165,7 +165,7 @@ class EventList(list):
 	interval.  Each search must provide a subclass of this class, and
 	set the EventListType attribute of the EventListDict class to their
 	own private subclass.  The only methods that *must* be overridden
-	in a subclass are the __add_offset() and get_coincs() methods.  The
+	in a subclass are the _add_offset() and get_coincs() methods.  The
 	make_index() method can be overridden if needed.  None of the other
 	methods inherited from the list parent class need to be overridden,
 	indeed they probably should not be unless you know what you're
@@ -185,16 +185,15 @@ class EventList(list):
 		"""
 		pass
 
-	def __add_offset(self, delta):
+	def _add_offset(self, delta):
 		"""
 		Add an amount to the time of each event.  This method is
 		used internally by the set_offset() method, and is provided
 		to simplify the construction of search-specific subclasses.
-		Typically, the __add_offset() method will be overridden
-		with a search-specific implementation, while the
-		set_offset() method is not modified (which does some
-		additional book keeping, such as updating the offset
-		attribute).
+		Typically, the _add_offset() method will be overridden with
+		a search-specific implementation, while the set_offset()
+		method is not modified (which does some additional book
+		keeping, such as updating the offset attribute).
 		"""
 		raise NotImplementedError
 
@@ -203,7 +202,7 @@ class EventList(list):
 		Set an offset on the times of all events in the list.
 		"""
 		if offset != self.offset:
-			self.__add_offset(offset - self.offset)
+			self._add_offset(offset - self.offset)
 			self.offset = offset
 
 	def get_coincs(self, event_a, threshold, comparefunc):
@@ -228,7 +227,7 @@ class EventListDict(dict):
 	whose events should be included.  The EventListType attribute must
 	be set to a subclass of the EventList class.
 	"""
-	EventListType = EventList
+	EventListType = None
 
 	def __new__(self, *args):
 		return dict.__new__(self)
