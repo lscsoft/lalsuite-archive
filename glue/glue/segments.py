@@ -94,11 +94,11 @@ class infinity:
 	def __sub__(self, other):
 		if (type(self) != type(other)) or (self.__sign != other.__sign):
 			return self
-		raise ValueError
+		raise ValueError, other
 	def __rsub__(self, other):
 		if (type(self) != type(other)) or (self.__sign != other.__sign):
 			return -self
-		raise ValueError
+		raise ValueError, other
 
 	def __neg__(self):
 		x = infinity()
@@ -204,7 +204,7 @@ class segment(tuple):
 		presented as a single segment.
 		"""
 		if not self.intersects(other):
-			raise ValueError
+			raise ValueError, other
 		return segment(max(self[0], other[0]), min(self[1], other[1]))
 
 	def __or__(self, other):
@@ -214,7 +214,7 @@ class segment(tuple):
 		single segment.
 		"""
 		if not self.continuous(other):
-			raise ValueError
+			raise ValueError, other
 		return segment(min(self[0], other[0]), max(self[1], other[1]))
 
 	# addition is defined to be the union operation
@@ -229,7 +229,7 @@ class segment(tuple):
 		if not self.intersects(other):
 			return self
 		if (self in other) or ((self[0] < other[0]) and (self[1] > other[1])):
-			raise ValueError
+			raise ValueError, other
 		if self[0] < other[0]:
 			return segment(self[0], other[0])
 		return segment(other[1], self[1])
@@ -379,7 +379,7 @@ class segmentlist(list):
 		segmentlist to be coalesced.
 		"""
 		if not len(self):
-			raise ValueError, "segmentlist.extent(): empty list"
+			raise ValueError, "empty list"
 		(min, max) = self[0]
 		for seg in self:
 			if min > seg[0]:
@@ -398,7 +398,7 @@ class segmentlist(list):
 		for i, seg in enumerate(self):
 			if item in seg:
 				return i
-		raise ValueError, "segmentlist.find(x): x not contained in segmentlist"
+		raise ValueError, item
 
 	# arithmetic operations that are sensible with segment lists
 
