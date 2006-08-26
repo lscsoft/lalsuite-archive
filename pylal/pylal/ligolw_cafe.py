@@ -109,75 +109,50 @@ class CafePacker(packing.Packer):
 	def set_time_slides(self, offsetdictlist):
 		self.timeslides = offsetdictlist
 
-	def pack(self, size, object):
-		# find all bins in which this object belongs.  the test is,
-		# for each bin, to iterate through time slide dictionaries
-		# applying the offsets to both the bin and the object and
-		# checking if the object's segments intersect the segments
-		# already in the bin, comparing only those that are
-		# involved in the time slide.  FIXME: what's done here is
-		# only an approximation of the correct test, that finds
-		# false positives but no false negatives.
+	def pack(self, cache_entry):
+		# find all bins in which this cache_entry belongs.  the
+		# test is, for each bin, to iterate through time slide
+		# dictionaries applying the offsets to both the bin and the
+		# cache_entry and checking if the cache_entry's segment
+		# intersect the segments already in the bin, comparing only
+		# those that are involved in the time slide.  FIXME: what's
+		# done here is only an approximation of the correct test;
+		# an approximation that finds false positives but no false
+		# negatives.
 		matching_bins = []
 		for n, bin in enumerate(self.bins):
 			for offsetdict in self.timeslides:
+				if cache_entry.observatory not in offsetdict:
+					continue
 				bin.size.offsets.update(offsetdict)
 				b = segments.segmentlist()
 				for key in offsetdict.iterkeys():
 					if key in bin.size:
-						b |= bin.size[key]
-				if b.intersects_segment(object.segment.shift(offsetdict[object.observatory])):
+						b.extend(bin.size[key])
+				if b.coalesce().intersects_segment(cache_entry.segment.shift(offsetdict[cache_entry.observatory])):
 					matching_bins.append((n, bin))
 					break
 			bin.size.offsets.clear()
 
-		# add object by either adding a new bin or putting it into
-		# the first bin that was found
+		# add cache_entry by either adding a new bin or putting it
+		# into the first bin that was found
+		size = cacheentry_to_seglistdict(cache_entry)
 		if not matching_bins:
 			self.bins.append(packing.LALCache())
-			self.bins[-1].add(object, size)
+			self.bins[-1].add(cache_entry, size)
 			return
-		matching_bins[0][1].add(object, size)
+		dest = matching_bins.pop(0)[1]
+		dest.add(cache_entry, size)
 
-		# if object belongs in more than one bin, merge bins.
+		# if cache_entry belongs in more than one bin, merge bins.
 		# reverse the list of matching bins so that we delete the
 		# highest-numbered bin first (otherwise the bins would
 		# shift as we go and we would delete the wrong ones).
 		matching_bins.reverse()
-		for n, bin in matching_bins[:-1]:
-			matching_bins[-1][1].objects.extend(bin.objects)
-			matching_bins[-1][1].size += bin.size
+		for n, bin in matching_bins:
+			dest.objects.extend(bin.objects)
+			dest.size += bin.size
 			del self.bins[n]
-
-
-#
-# =============================================================================
-#
-#                               Pack Input Files
-#
-# =============================================================================
-#
-
-#
-# Find cache entries that intersect the surviving segments and pack into
-# output caches.
-#
-
-def build_output_caches(cache, time_slides, verbose):
-	outputcaches = []
-	packer = CafePacker(outputcaches)
-	packer.set_time_slides(time_slides)
-
-	if verbose:
-		print >>sys.stderr, "packing files..."
-	for n, cacheentry in enumerate(cache):
-		if verbose and not n % max(5, (len(cache)/1000)):
-			print >>sys.stderr, "	%.1f%%	(%d files, %d caches)\r" % (100.0 * n / len(cache), n, len(outputcaches)),
-		packer.pack(cacheentry_to_seglistdict(cacheentry), cacheentry)
-	if verbose:
-		print >>sys.stderr, "	100.0%%	(%d files, %d caches)" % (n, len(outputcaches))
-
-	return outputcaches
 
 
 #
@@ -219,7 +194,7 @@ def write_single_instrument_caches(base, bins, instruments, verbose = False):
 
 def ligolw_cafe(cache, time_slides, verbose = False):
 	if verbose:
-		print >>sys.stderr, "computing segment list..."
+		print >>sys.stderr, "computing segment list ..."
 	seglists = cache_to_seglistdict(cache)
 	# For each instrument compute the times for which it will
 	# contribute triggers to a coincidence analysis.  Times not spanned
@@ -229,6 +204,21 @@ def ligolw_cafe(cache, time_slides, verbose = False):
 
 	# Remove cache entries that will not participate in a coincidence
 	# analysis
+	if verbose:
+		print >>sys.stderr, "removing unneeded files ..."
 	cache = [c for c in cache if seglists[c.observatory].intersects_segment(c.segment)]
 
-	return seglists.keys(), build_output_caches(cache, time_slides, verbose)
+	# Pack cache entries into output caches.
+	outputcaches = []
+	packer = CafePacker(outputcaches)
+	packer.set_time_slides(time_slides)
+	if verbose:
+		print >>sys.stderr, "packing files..."
+	for n, cacheentry in enumerate(cache):
+		if verbose and not n % max(5, (len(cache)/1000)):
+			print >>sys.stderr, "	%.1f%%	(%d files, %d caches)\r" % (100.0 * n / len(cache), n, len(outputcaches)),
+		packer.pack(cacheentry)
+	if verbose:
+		print >>sys.stderr, "	100.0%%	(%d files, %d caches)" % (n, len(outputcaches))
+
+	return seglists.keys(), outputcaches
