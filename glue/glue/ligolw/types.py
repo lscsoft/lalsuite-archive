@@ -48,6 +48,11 @@ FloatTypes = ["real_4", "real_8", "float", "double"]
 Types = StringTypes + IntTypes + FloatTypes
 
 ToFormat = {
+	"char_s": "\"%s\"",
+	"ilwd:char": "\"%s\"",
+	"ilwd:char_u": "\"%s\"",
+	"lstring": "\"%s\"",
+	"string": "\"%s\"",
 	"int_2s": "%d",
 	"int_2u": "%u",
 	"int_4s": "%d",
