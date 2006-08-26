@@ -94,11 +94,11 @@ class infinity:
 	def __sub__(self, other):
 		if (type(self) != type(other)) or (self.__sign != other.__sign):
 			return self
-		return None
+		raise ValueError
 	def __rsub__(self, other):
 		if (type(self) != type(other)) or (self.__sign != other.__sign):
 			return -self
-		return None
+		raise ValueError
 
 	def __neg__(self):
 		x = infinity()
@@ -200,20 +200,21 @@ class segment(tuple):
 	def __and__(self, other):
 		"""
 		Return the segment that is the intersection of the given
-		segments, or None if the segments do not intersect.
+		segments.  Raises ValueError if the result cannot be
+		presented as a single segment.
 		"""
 		if not self.intersects(other):
-			return None
+			raise ValueError
 		return segment(max(self[0], other[0]), min(self[1], other[1]))
 
 	def __or__(self, other):
 		"""
-		Return the segment that is the union of the given segments,
-		or None if the result cannot be represented as a single
-		segment.
+		Return the segment that is the union of the given segments.
+		Raises ValueError if the result cannot be represented as a
+		single segment.
 		"""
 		if not self.continuous(other):
-			return None
+			raise ValueError
 		return segment(min(self[0], other[0]), max(self[1], other[1]))
 
 	# addition is defined to be the union operation
@@ -222,13 +223,13 @@ class segment(tuple):
 	def __sub__(self, other):
 		"""
 		Return the segment that is that part of self which is not
-		contained in other, or None if the result cannot be
-		represented as a single segment.
+		contained in other.  Raises ValueError if the result cannot
+		be represented as a single segment.
 		"""
 		if not self.intersects(other):
 			return self
 		if (self in other) or ((self[0] < other[0]) and (self[1] > other[1])):
-			return None
+			raise ValueError
 		if self[0] < other[0]:
 			return segment(self[0], other[0])
 		return segment(other[1], self[1])
@@ -251,6 +252,16 @@ class segment(tuple):
 		if type(other) == segment:
 			return (self[0] <= other[0]) and (self[1] >= other[1])
 		else:
+			# FIXME: this is the only place where the behaviour
+			# is incorrect if segment(a, b) is to be understood
+			# as the half-open interval [a, b).  The rest of
+			# the segment class' behaviour is consistent with
+			# that interpretation.  Changing this to
+			#
+			#	self[0] <= other < self[1]
+			#
+			# does not cause any of the validation tests to
+			# fail.  Is there anything that would be affected?
 			return self[0] <= other <= self[1]
 
 	def continuous(self, other):

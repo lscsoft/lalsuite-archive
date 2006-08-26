@@ -91,8 +91,8 @@ class test_infinity(unittest.TestCase):
 		self.assertEqual(-b, (-10) - (  a))
 		self.assertEqual( b, ( 10) - ( -a))
 		self.assertEqual( b, (-10) - ( -a))
-		self.assertEqual(None, ( a) - (  a))
-		self.assertEqual(None, (-a) - ( -a))
+		self.assertRaises(ValueError, ( a).__sub__,  a)
+		self.assertRaises(ValueError, (-a).__sub__, -a)
 		self.assertEqual( b, (  a) - ( -a))
 		self.assertEqual(-b, ( -a) - (  a))
 
