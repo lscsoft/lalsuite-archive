@@ -5,6 +5,7 @@
 import re, sys, os, string, glob
 from pylal import readMeta
 from optparse import *
+from glue.ligolw import table
 from glue.ligolw import lsctables
 from pylal import llwapp
 
@@ -29,7 +30,7 @@ def main():
   
   # identify the template bank files and count the templates
   doc = llwapp.load_filename(options.filename, options.verbose)
-  pps = llwapp.get_table(doc, lsctables.ProcessParamsTable.tableName)
+  pps = table.get_table(doc, lsctables.ProcessParamsTable.tableName)
   args = " "
   for row in pps:
     args = args + " " + str(row.param)

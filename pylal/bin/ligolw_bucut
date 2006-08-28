@@ -31,6 +31,7 @@ import sys
 
 from glue import lal
 from glue import segments
+from glue.ligolw import table
 from glue.ligolw import lsctables
 from pylal import llwapp
 
@@ -104,27 +105,27 @@ def parse_command_line():
 
 class DocContents(object):
 	def __init__(self, xmldoc, program = None):
-		self.snglbursttable = llwapp.get_table(xmldoc, lsctables.SnglBurstTable.tableName)
+		self.snglbursttable = table.get_table(xmldoc, lsctables.SnglBurstTable.tableName)
 
 		self.outsegs = llwapp.segmentlistdict_fromsearchsummary(xmldoc, program)
 		self.outseg = self.outsegs.extent_all()
 
 		try:
-			self.simbursttable = llwapp.get_table(xmldoc, lsctables.SimBurstTable.tableName)
+			self.simbursttable = table.get_table(xmldoc, lsctables.SimBurstTable.tableName)
 		except:
 			self.simbursttable = []
 		try:
-			self.coinctable = llwapp.get_table(xmldoc, lsctables.CoincTable.tableName)
+			self.coinctable = table.get_table(xmldoc, lsctables.CoincTable.tableName)
 		except:
 			self.coinctable = []
 		try:
-			self.coincmaptable = llwapp.get_table(xmldoc, lsctables.CoincMapTable.tableName)
+			self.coincmaptable = table.get_table(xmldoc, lsctables.CoincMapTable.tableName)
 		except:
 			self.coincmaptable = []
 		self.make_coinceventids()
 
 		try:
-			self.vetosegs = segments.segmentlist([row.get() for row in llwapp.get_table(xmldoc, lsctables.SegmentTable.tableName) if row.get_active()]).coalesce()
+			self.vetosegs = segments.segmentlist([row.get() for row in table.get_table(xmldoc, lsctables.SegmentTable.tableName) if row.get_active()]).coalesce()
 		except:
 			self.vetosegs = segments.segmentlist()
 

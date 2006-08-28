@@ -34,6 +34,7 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg
 import sys
 import urllib
 
+from glue.ligolw import table
 from glue.ligolw import lsctables
 from pylal import llwapp
 
@@ -119,7 +120,7 @@ class Plot(object):
 		self.axes.set_xlabel("%s Offset (s)" % x_instrument)
 		self.axes.set_ylabel("%s Offset (s)" % y_instrument)
 
-		tisitable = llwapp.get_table(doc, lsctables.TimeSlideTable.tableName)
+		tisitable = table.get_table(doc, lsctables.TimeSlideTable.tableName)
 		max_offset = min_offset = tisitable[0].offset
 		for id in tisitable.dict:
 			offsets = tisitable.get_offset_dict(id)

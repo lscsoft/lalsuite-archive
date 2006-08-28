@@ -189,13 +189,13 @@ def readFiles(fileGlob,statistic=None):
     # extract the sim inspiral table
     try: 
       simInspiralTable = \
-          llwapp.get_table(doc, lsctables.SimInspiralTable.tableName)
+          table.get_table(doc, lsctables.SimInspiralTable.tableName)
       if sims: sims.extend(simInspiralTable)
       else: sims = simInspiralTable
     except: simInspiralTable = None
     # extract the sngl inspiral table, construct coincs
     try: snglInspiralTable = \
-      llwapp.get_table(doc, lsctables.SnglInspiralTable.tableName)
+      table.get_table(doc, lsctables.SnglInspiralTable.tableName)
     except: snglInspiralTable = None
     if snglInspiralTable:
       coincInspiralTable = \

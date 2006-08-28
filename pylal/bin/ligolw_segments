@@ -37,6 +37,7 @@ import sys
 from glue import segments
 from glue import segmentsUtils
 from glue.ligolw import ligolw
+from glue.ligolw import table
 from glue.ligolw import lsctables
 from pylal import llwapp
 from pylal.date import LIGOTimeGPS
@@ -154,7 +155,7 @@ class SegDBSegmentList(object):
 #
 
 def ligolw_segments(doc, options):
-	segmenttable = llwapp.get_table(doc, lsctables.SegmentTable.tableName)
+	segmenttable = table.get_table(doc, lsctables.SegmentTable.tableName)
 	process = append_process(doc, options)
 
 	if options.segwizard:
