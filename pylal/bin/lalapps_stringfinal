@@ -78,26 +78,25 @@ def parse_command_line():
 
 class Survivors(object):
 	def __init__(self):
-		self.doc = None
+		self.xmldoc = None
 
 	def add_contents(self, contents):
-		if self.doc == None:
-			self.doc = ligolw.Document()
-			self.doc.appendChild(ligolw.LIGO_LW())
+		if self.xmldoc == None:
+			self.xmldoc = ligolw.Document()
+			self.xmldoc.appendChild(ligolw.LIGO_LW())
 			self.sngl_burst_table = lsctables.New(lsctables.SnglBurstTable, contents.sngl_burst_table.columnnames)
-			self.doc.childNodes[0].appendChild(self.sngl_burst_table)
+			self.xmldoc.childNodes[0].appendChild(self.sngl_burst_table)
 
 		time_slide_id = [id for id in contents.time_slide_table.iterkeys() if contents.time_slide_table.is_null(id)]
 		if len(time_slide_id) != 1:
-			raise ValueError, "document does not contain exactly 1 zero-lag time slide (contains %d)" % len(time_slide_id)
+			raise ValueError, "document does not contain exactly 1 zero-lag time slide (contains %d of them)" % len(time_slide_id)
 		time_slide_id = time_slide_id[0]
 
-		for values in contents.connection.cursor().execute("SELECT sngl_burst.* FROM sngl_burst JOIN coinc_event_map ON (coinc_event_map.event_id == sngl_burst.event_id AND coinc_event_map.table_name == 'sngl_burst') JOIN coinc_event ON (coinc_event.coinc_event_id == coinc_event_map.coinc_event_id) WHERE coinc_event.coinc_def_id == ? AND coinc_event.time_slide_id == ?", (contents.bb_definer_id, time_slide_id)):
-			self.sngl_burst_table.append(contents.sngl_burst_table._row_from_cols(values))
+		self.sngl_burst_table.extend(map(contents.sngl_burst_table._row_from_cols, contents.connection.cursor().execute("SELECT sngl_burst.* FROM sngl_burst JOIN coinc_event_map ON (coinc_event_map.event_id == sngl_burst.event_id AND coinc_event_map.table_name == 'sngl_burst') JOIN coinc_event ON (coinc_event.coinc_event_id == coinc_event_map.coinc_event_id) WHERE coinc_event.coinc_def_id == ? AND coinc_event.time_slide_id == ?", (contents.bb_definer_id, time_slide_id))))
 
-	def finish(self):
+	def finish(self, filename, verbose = "False"):
 		self.sngl_burst_table.sort(lambda a, b: cmp((a.ifo, a.amplitude), (b.ifo, b.amplitude)))
-		self.doc.write()
+		utils.write_filename(self.xmldoc, filename, verbose = verbose, gz = (filename or "stdout")[-3:] == ".gz")
 
 
 #
@@ -143,19 +142,22 @@ class RateVsAmplitude(SnglBurstUtils.BurstPlot):
 		self.background.sort()
 		self.foreground.sort()
 		# ratio of live times
-		backgrounds_per_foreground = self.background_time / self.foreground_time
-		# number expected in foreground
-		background_y = numarray.arange(len(self.background), 0.0, -1.0, "Float64") / backgrounds_per_foreground
+		foregrounds_per_background = self.foreground_time / self.background_time
+		# cummulative number expected in foreground
+		background_y = numarray.arange(len(self.background), 0.0, -1.0, "Float64") * foregrounds_per_background
 		# \sqrt{N} std dev expected in foreground
 		background_yerr = numarray.sqrt(numarray.array(background_y))
-		# convert to units of rate
+		# convert to rate and uncertainty expected in foreground
 		background_y /= self.foreground_time
 		background_yerr /= self.foreground_time
-		# rate observed in foreground
+		# cummulative rate observed in foreground
 		foreground_y = numarray.arange(len(self.foreground), 0.0, -1.0, "Float64") / self.foreground_time
 		self.axes.errorbar(self.background, background_y, yerr = background_yerr, fmt = "k-")
 		self.axes.plot(self.foreground, foreground_y, "ro-", markeredgecolor = "r")
+		self.axes.set_xlim([1e-21, 1e-18])
 		self.axes.set_ylim([1e-9, 1e-5])
+		self.axes.xaxis.grid(True, which="minor")
+		self.axes.yaxis.grid(True, which="minor")
 
 
 #
@@ -207,6 +209,6 @@ while len(plots):
 	plots[0].fig.savefig(filename)
 	del plots[0]
 	n += 1
-survivors.finish()
+survivors.finish("string_survivors.xml", verbose = options.verbose)
 if options.verbose:
 	print >>sys.stderr, "done."
