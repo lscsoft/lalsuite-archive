@@ -105,7 +105,7 @@ def segmentlistdict_fromsearchsummary(xmldoc, live_time_program = None):
 	"""
 	procids = get_process_ids_by_program(xmldoc, live_time_program)
 	seglistdict = segments.segmentlistdict()
-	for row in get_table(xmldoc, lsctables.SearchSummaryTable.tableName):
+	for row in table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName):
 		if (live_time_program == None) or bisect_contains(procids, row.process_id):
 			if row.ifos in seglistdict:
 				seglistdict[row.ifos].append(row.get_out())
@@ -125,7 +125,7 @@ def get_time_slide_id(xmldoc, time_slide, create_new = True):
 	ID isn't found then KeyError is raised.
 	"""
 	try:
-		tisitable = get_table(xmldoc, lsctables.TimeSlideTable.tableName)
+		tisitable = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
 	except ValueError:
 		if not create_new:
 			raise KeyError, time_slide
@@ -171,7 +171,7 @@ def get_coinc_def_id(xmldoc, table_names, create_new = True):
 	found then KeyError is raised.
 	"""
 	try:
-		coincdeftable = get_table(xmldoc, lsctables.CoincDefTable.tableName)
+		coincdeftable = table.get_table(xmldoc, lsctables.CoincDefTable.tableName)
 	except ValueError:
 		if not create_new:
 			raise KeyError, table_names
@@ -254,7 +254,7 @@ def append_process(doc, program = "", version = "", cvs_repository = "", cvs_ent
 	cvs_entry_time should be a string in the format "YYYY/MM/DD
 	HH:MM:SS".  is_online should be a boolean, jobid an integer.
 	"""
-	proctable = get_table(doc, lsctables.ProcessTable.tableName)
+	proctable = table.get_table(doc, lsctables.ProcessTable.tableName)
 	process = lsctables.Process()
 	process.program = program
 	process.version = version
@@ -288,7 +288,7 @@ def get_process_ids_by_program(xmldoc, program):
 	Extract the process table, and return a sorted list of the process
 	IDs for the given program.
 	"""
-	ids = [row.process_id for row in get_table(xmldoc, lsctables.ProcessTable.tableName) if row.program == program]
+	ids = [row.process_id for row in table.get_table(xmldoc, lsctables.ProcessTable.tableName) if row.program == program]
 	ids.sort()
 	return ids
 
@@ -299,7 +299,7 @@ def append_process_params(doc, process, params):
 	table for which these are the parameters, and params is a list of
 	(name, type, value) tuples one for each parameter.
 	"""
-	paramtable = get_table(doc, lsctables.ProcessParamsTable.tableName)
+	paramtable = table.get_table(doc, lsctables.ProcessParamsTable.tableName)
 	for name, type, value in params:
 		param = lsctables.ProcessParams()
 		param.program = process.program
@@ -316,7 +316,7 @@ def doc_includes_process(doc, program):
 	Return True if the process table in doc includes entries for a
 	program named program.
 	"""
-	return program in get_table(doc, lsctables.ProcessTable.tableName).getColumnByName("program")
+	return program in table.get_table(doc, lsctables.ProcessTable.tableName).getColumnByName("program")
 
 
 #
@@ -343,7 +343,7 @@ def append_search_summary(doc, process, shared_object = "standalone", lalwrapper
 	summary.set_out(outseg)
 	summary.nevents = nevents
 	summary.nnodes = nnodes
-	get_table(doc, lsctables.SearchSummaryTable.tableName).append(summary)
+	table.get_table(doc, lsctables.SearchSummaryTable.tableName).append(summary)
 	return summary
 
 
