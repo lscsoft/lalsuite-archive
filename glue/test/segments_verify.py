@@ -267,9 +267,9 @@ class test_segmentlist(unittest.TestCase):
 		self.assertEqual(segmentlist([segment(-infinity(), -5), segment(5, infinity())]), ~segmentlist([segment(-5,5)]))
 
 	def test__or__(self):
-		for i in xrange(10000):
-			a = random_coalesced_list(random.randint(1, 50))
-			b = random_coalesced_list(random.randint(1, 50))
+		for i in xrange(4000):
+			a = random_coalesced_list(random.randint(1, 70))
+			b = random_coalesced_list(random.randint(1, 70))
 			c = a | b
 			try:
 				# make sure c is coalesced
@@ -287,9 +287,9 @@ class test_segmentlist(unittest.TestCase):
 		self.assertEqual(segmentlist([segment(0, 20)]), segmentlist([segment(3, 7), segment(13, 17)]).contract(-3))
 
 	def testintersects(self):
-		for i in xrange(10000):
-			a = random_coalesced_list(random.randint(1, 50))
-			b = random_coalesced_list(random.randint(1, 50))
+		for i in xrange(4000):
+			a = random_coalesced_list(random.randint(1, 70))
+			b = random_coalesced_list(random.randint(1, 70))
 			c = a - b
 			d = a & b
 			try:
@@ -303,8 +303,8 @@ class test_segmentlist(unittest.TestCase):
 				raise AssertionError, str(e) + "\na = " + str(a) + "\nb = " + str(b)
 
 	def testcoalesce(self):
-		for i in xrange(10000):
-			a = random_uncoalesced_list(random.randint(1, 300))
+		for i in xrange(4000):
+			a = random_uncoalesced_list(random.randint(1, 70))
 			b = segmentlist(a[:]).coalesce()
 			try:
 				self.assertEqual(True, iscoalesced(b))
