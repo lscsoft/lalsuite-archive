@@ -28,6 +28,7 @@ import sys
 
 from glue import segments
 from glue.ligolw import ligolw
+from glue.ligolw import table
 from glue.ligolw import lsctables
 from pylal import llwapp
 from pylal.date import LIGOTimeGPS
@@ -47,13 +48,13 @@ __date__ = "$Date$"[7:-2]
 #
 
 def get_tables(doc):
-  snglinspiraltable = llwapp.get_table(
+  snglinspiraltable = table.get_table(
     doc, lsctables.SnglInspiralTable.tableName)
 
   input_times = None
   output_times = None
   try:
-    searchsummtable = llwapp.get_table(
+    searchsummtable = table.get_table(
       doc, lsctables.SearchSummaryTable.tableName)
     input_times = searchsummtable.get_inlist().extent()
     output_times = searchsummtable.get_outlist().extent()

@@ -32,6 +32,7 @@ Light Weight XML documents.
 import bisect
 import sys
 
+from glue.ligolw import table
 from glue.ligolw import lsctables
 from pylal import itertools
 from pylal import llwapp
@@ -93,7 +94,7 @@ class CoincTables(object):
 
 		# find the coinc table or create one if not found
 		try:
-			self.coinctable = llwapp.get_table(xmldoc, lsctables.CoincTable.tableName)
+			self.coinctable = table.get_table(xmldoc, lsctables.CoincTable.tableName)
 		except ValueError:
 			self.coinctable = lsctables.New(lsctables.CoincTable)
 			xmldoc.childNodes[0].appendChild(self.coinctable)
@@ -103,14 +104,14 @@ class CoincTables(object):
 
 		# find the coinc_map table or create one if not found
 		try:
-			self.coincmaptable = llwapp.get_table(xmldoc, lsctables.CoincMapTable.tableName)
+			self.coincmaptable = table.get_table(xmldoc, lsctables.CoincMapTable.tableName)
 		except ValueError:
 			self.coincmaptable = lsctables.New(lsctables.CoincMapTable)
 			xmldoc.childNodes[0].appendChild(self.coincmaptable)
 
 		# find the time_slide table, and cast all offsets to
 		# LIGOTimeGPS.
-		self.tisitable = llwapp.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
+		self.tisitable = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
 		for row in self.tisitable:
 			row.offset = LIGOTimeGPS(row.offset)
 
@@ -267,7 +268,7 @@ def make_eventlists(xmldoc, event_table_name, max_delta_t, program):
 	the events, a maximum allowed time window, and the name of the
 	program that generated the events.
 	"""
-	return EventListDict(llwapp.get_table(xmldoc, event_table_name), coincident_process_ids(xmldoc, max_delta_t, program))
+	return EventListDict(table.get_table(xmldoc, event_table_name), coincident_process_ids(xmldoc, max_delta_t, program))
 
 
 #
@@ -295,7 +296,7 @@ def coincident_process_ids(xmldoc, max_delta_t, program):
 
 	# determine which time slides are possible given the instruments in
 	# the search summary table
-	tisitable = llwapp.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
+	tisitable = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
 	timeslides = map(tisitable.get_offset_dict, tisitable.dict.keys())
 	i = 0
 	while i < len(timeslides):
@@ -315,7 +316,7 @@ def coincident_process_ids(xmldoc, max_delta_t, program):
 	# find the IDs of the processes which contributed to the coincident
 	# segments
 	coinc_proc_ids = []
-	for row in llwapp.get_table(xmldoc, lsctables.SearchSummaryTable.tableName):
+	for row in table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName):
 		if (not llwapp.bisect_contains(proc_ids, row.process_id)) or llwapp.bisect_contains(coinc_proc_ids, row.process_id):
 			continue
 		if seglistdict[row.ifos].intersects_segment(row.get_out()):

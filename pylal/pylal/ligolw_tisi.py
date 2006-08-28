@@ -26,6 +26,7 @@
 # =============================================================================
 #
 
+from glue.ligolw import table
 from glue.ligolw import lsctables
 from pylal import itertools
 from pylal import llwapp
@@ -143,7 +144,7 @@ class SlidesIter(object):
 #
 
 def ligolw_tisi(doc, **kwargs):
-	timeslidetable = llwapp.get_table(doc, lsctables.TimeSlideTable.tableName)
+	timeslidetable = table.get_table(doc, lsctables.TimeSlideTable.tableName)
 	process = append_process(doc, **kwargs)
 	ids = lsctables.TimeSlideIDs()
 	for offsetdict in SlidesIter(parse_slides(kwargs["instrument"])):

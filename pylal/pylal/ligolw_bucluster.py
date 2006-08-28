@@ -27,6 +27,7 @@
 import sys
 
 from glue import segments
+from glue.ligolw import table
 from glue.ligolw import lsctables
 from pylal import llwapp
 
@@ -44,8 +45,8 @@ __date__ = "$Date$"[7:-2]
 #
 
 def get_tables(doc):
-	searchsummtable = llwapp.get_table(doc, lsctables.SearchSummaryTable.tableName)
-	snglbursttable = llwapp.get_table(doc, lsctables.SnglBurstTable.tableName)
+	searchsummtable = table.get_table(doc, lsctables.SearchSummaryTable.tableName)
+	snglbursttable = table.get_table(doc, lsctables.SnglBurstTable.tableName)
 	return searchsummtable.get_inlist().extent(), searchsummtable.get_outlist().extent(), snglbursttable
 
 

@@ -35,6 +35,7 @@ import sys
 
 from glue import segments
 from glue.lal import CacheEntry
+from glue.ligolw import table
 from glue.ligolw import lsctables
 from pylal import llwapp
 from pylal import packing
@@ -80,7 +81,7 @@ def cache_to_seglistdict(cache):
 
 def get_time_slides(filename, verbose = False):
 	doc = llwapp.load_filename(filename, verbose)
-	tisitable = llwapp.get_table(doc, lsctables.TimeSlideTable.tableName)
+	tisitable = table.get_table(doc, lsctables.TimeSlideTable.tableName)
 	for row in tisitable:
 		row.offset = LIGOTimeGPS(row.offset)
 	return map(tisitable.get_offset_dict, tisitable.dict.keys())

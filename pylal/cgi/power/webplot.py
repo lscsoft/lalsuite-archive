@@ -10,6 +10,7 @@ import urllib
 from glue.lal import CacheEntry
 from glue import segments
 from glue.ligolw import ligolw
+from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw.utils import ligolw_add
 
@@ -131,15 +132,15 @@ def CacheURLs(cachename, seg):
 def gettriggers(plotdesc):
 	doc = ligolw_add.ligolw_add(ligolw.Document(), CacheURLs(eventdisplay.cache[plotdesc.instrument], plotdesc.segment), verbose = False, non_lsc_tables_ok = False)
 	try:
-		plotdesc.seglist = llwapp.get_table(doc, lsctables.SearchSummaryTable.tableName).get_outlist().coalesce()
+		plotdesc.seglist = table.get_table(doc, lsctables.SearchSummaryTable.tableName).get_outlist().coalesce()
 	except:
 		plotdesc.seglist = segments.segmentlist()
 	try:
-		bursttable = llwapp.get_table(doc, lsctables.SnglBurstTable.tableName)
+		bursttable = table.get_table(doc, lsctables.SnglBurstTable.tableName)
 	except:
 		bursttable = lsctables.New(lsctables.SnglBurstTable)
 	try:
-		simtable = llwapp.get_table(doc, lsctables.SimBurstTable.tableName)
+		simtable = table.get_table(doc, lsctables.SimBurstTable.tableName)
 	except:
 		simtable = lsctables.New(lsctables.SnglBurstTable)
 
