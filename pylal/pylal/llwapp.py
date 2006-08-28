@@ -91,7 +91,9 @@ def write_filename(doc, filename, verbose = False, gz = False):
 # =============================================================================
 #
 
+import warnings
 def get_table(doc, name):
+	warnings.warn("pylal.llwapp.get_table() function is deprecated:  use glue.ligolw.table.get_table() instead", DeprecationWarning)
 	return table.get_table(doc, name)
 
 
