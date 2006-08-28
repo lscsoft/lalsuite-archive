@@ -34,6 +34,7 @@ import sys
 from glue import segments
 from glue.ligolw import table
 from glue.ligolw import lsctables
+from glue.ligolw import types
 from pylal import llwapp
 from pylal.date import LIGOTimeGPS
 
@@ -49,6 +50,47 @@ from pylal.date import LIGOTimeGPS
 #
 # This is a FUGLY work-in-progress;  please be kind.
 #
+
+#class Table(table.Table):
+#	connection = None
+#
+#	def __init__(self, *attrs):
+#		table.Table.__init__(self, *attrs)
+#		self.cursor = self.connection.cursor()
+#
+#	def _create(self):
+#		statement = "CREATE TABLE " + table.StripTableName(self.getAttribute("Name")) + " (" + ", ".join(map(lambda n, t: "%s %s" % (n, types.ToSQLiteType[t]), self.columnnames, self.columntypes))
+#		if self.keys:
+#			statement += ", PRIMARY KEY (" + ",".join(self.keys) + ")"
+#		statement += ")"
+#		self.cursor.execute(statement)
+#		self.append_statement = "INSERT INTO " + table.StripTableName(self.getAttribute("Name")) + " VALUES (" + ",".join("?" * len(self.columnnames)) + ")"
+#
+#	def __len__(self):
+#		return self.cursor.execute("SELECT COUNT(*) FROM " + table.StripTableName(self.getAttribute("Name"))).fetchone()[0]
+#
+#	def append(self, row)
+#		self.cursor.execute(self.append_statement, map(row.__getattr__, self.columnames))
+#
+#	def _row_from_cols(cls, values):
+#		row = cls.RowType()
+#		map(row.__setattr__, self.columnnames, values)
+#		return row
+#	_row_from_cols = classmethod(_row_from_cols)
+#
+#	def unlink(self):
+#		ligolw.Table.unlink(self)
+#		self.cursor.execute("DROP TABLE " + table.StripTableName(self.getAttribute("Name")))
+#		self.cursor = None
+#
+#
+#class TableStream(table.TableStream):
+#	def appendData(self, content):
+#		if self.__row == None:
+#			self.parentNode._create()
+#		table.TableStream.appendData(self, content)
+
+
 
 class SnglBurstTable(table.Table):
 	tableName = lsctables.SnglBurstTable.tableName
@@ -393,15 +435,15 @@ class CoincDatabase(object):
 		cursor.execute("CREATE INDEX coinc_event_id_index ON coinc_event_map (table_name, coinc_event_id)")
 
 		# find the tables
-		self.sngl_burst_table = llwapp.get_table(xmldoc, lsctables.SnglBurstTable.tableName)
+		self.sngl_burst_table = table.get_table(xmldoc, lsctables.SnglBurstTable.tableName)
 		try:
-			self.sim_burst_table = llwapp.get_table(xmldoc, lsctables.SimBurstTable.tableName)
+			self.sim_burst_table = table.get_table(xmldoc, lsctables.SimBurstTable.tableName)
 		except ValueError:
 			self.sim_burst_table = None
 		try:
-			self.coinc_def_table = llwapp.get_table(xmldoc, lsctables.CoincDefTable.tableName)
-			self.coinc_table = llwapp.get_table(xmldoc, lsctables.CoincTable.tableName)
-			self.time_slide_table = llwapp.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
+			self.coinc_def_table = table.get_table(xmldoc, lsctables.CoincDefTable.tableName)
+			self.coinc_table = table.get_table(xmldoc, lsctables.CoincTable.tableName)
+			self.time_slide_table = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
 		except ValueError:
 			self.coinc_def_table = None
 			self.coinc_table = None
