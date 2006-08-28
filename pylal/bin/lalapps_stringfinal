@@ -36,6 +36,8 @@ import numarray
 from pysqlite2 import dbapi2 as sqlite
 import sys
 
+from glue.ligolw import ligolw
+from glue.ligolw import lsctables
 from glue import segments
 from pylal import llwapp
 from pylal import SnglBurstUtils
@@ -55,10 +57,13 @@ __date__ = "$Date$"[7:-2]
 
 def parse_command_line():
 	parser = OptionParser(version="%prog CVS $Id$")
+	parser.add_option("-a", "--amplitude-factor", metavar = "factor", default = "1e-20", help = "multiple amplitudes in XML files by this amount (default = 1e-20)")
 	parser.add_option("-f", "--format", metavar = "format", default = "png", help = "set the output image format (default = png)")
 	parser.add_option("-l", "--live-time-program", metavar = "program", default = "StringSearch", help = "set the name, as it appears in the process table, of the program whose search summary entries define the search live time (default = StringSearch)")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
 	options, filenames = parser.parse_args()
+
+	options.amplitude_factor = float(options.amplitude_factor)
 
 	return options, (filenames or [None])
 
@@ -71,26 +76,28 @@ def parse_command_line():
 # =============================================================================
 #
 
-class HighestAmplitude(object):
-	def __init__(self, instrument, amplitude_factor):
-		self.instrument = instrument
-		self.amplitude_factor = amplitude_factor
-		self.event = None
+class Survivors(object):
+	def __init__(self):
+		self.doc = None
 
 	def add_contents(self, contents):
-		for coinc in contents.coinc_table.selectByDefID(contents.bb_definer_id):
-			if not coinc.is_zero_lag():
-				continue
-			for burst in coinc.sngl_bursts():
-				if burst.ifo == self.instrument and (self.event == None or burst.amplitude > self.event.amplitude):
-					self.event = burst
+		if self.doc == None:
+			self.doc = ligolw.Document()
+			self.doc.appendChild(ligolw.LIGO_LW())
+			self.sngl_burst_table = lsctables.New(lsctables.SnglBurstTable, contents.sngl_burst_table.columnnames)
+			self.doc.childNodes[0].appendChild(self.sngl_burst_table)
+
+		time_slide_id = [id for id in contents.time_slide_table.iterkeys() if contents.time_slide_table.is_null(id)]
+		if len(time_slide_id) != 1:
+			raise ValueError, "document does not contain exactly 1 zero-lag time slide (contains %d)" % len(time_slide_id)
+		time_slide_id = time_slide_id[0]
+
+		for values in contents.connection.cursor().execute("SELECT sngl_burst.* FROM sngl_burst JOIN coinc_event_map ON (coinc_event_map.event_id == sngl_burst.event_id AND coinc_event_map.table_name == 'sngl_burst') JOIN coinc_event ON (coinc_event.coinc_event_id == coinc_event_map.coinc_event_id) WHERE coinc_event.coinc_def_id == ? AND coinc_event.time_slide_id == ?", (contents.bb_definer_id, time_slide_id)):
+			self.sngl_burst_table.append(contents.sngl_burst_table._row_from_cols(values))
 
 	def finish(self):
-		print "%s zero-lag triple-coincident survivor with highest amplitude:" % self.instrument
-		if self.event != None:
-			print "\tAmplitude = %g, at GPS time %s s" % (self.event.amplitude * self.amplitude_factor, self.event.get_peak())
-		else:
-			print "\tNo event found!"
+		self.sngl_burst_table.sort(lambda a, b: cmp((a.ifo, a.amplitude), (b.ifo, b.amplitude)))
+		self.doc.write()
 
 
 #
@@ -132,16 +139,23 @@ class RateVsAmplitude(SnglBurstUtils.BurstPlot):
 		contents.seglists.offsets.clear()
 
 	def finish(self):
-		self.axes.set_title(r"\begin{center}Cummulative Coincident Event Rate vs. Amplitude in %s\\%d Foreground, %d Background Events\end{center}" % (self.instrument, len(self.foreground), len(self.background)))
+		self.axes.set_title(r"\begin{center}Cummulative Coincident Event Rate vs.\ Amplitude in %s\\%d Foreground, %d Background Events\end{center}" % (self.instrument, len(self.foreground), len(self.background)))
 		self.background.sort()
 		self.foreground.sort()
-		background_y = numarray.arange(len(self.background), 0.0, -1.0, "Float64")
+		# ratio of live times
+		backgrounds_per_foreground = self.background_time / self.foreground_time
+		# number expected in foreground
+		background_y = numarray.arange(len(self.background), 0.0, -1.0, "Float64") / backgrounds_per_foreground
+		# \sqrt{N} std dev expected in foreground
 		background_yerr = numarray.sqrt(numarray.array(background_y))
-		background_y /= self.background_time
-		background_yerr /= self.background_time
+		# convert to units of rate
+		background_y /= self.foreground_time
+		background_yerr /= self.foreground_time
+		# rate observed in foreground
 		foreground_y = numarray.arange(len(self.foreground), 0.0, -1.0, "Float64") / self.foreground_time
 		self.axes.errorbar(self.background, background_y, yerr = background_yerr, fmt = "k-")
 		self.axes.plot(self.foreground, foreground_y, "ro-", markeredgecolor = "r")
+		self.axes.set_ylim([1e-9, 1e-5])
 
 
 #
@@ -152,23 +166,17 @@ class RateVsAmplitude(SnglBurstUtils.BurstPlot):
 # =============================================================================
 #
 
-def new_plots():
+def new_plots(amplitude_factor):
 	return [
-		RateVsAmplitude("H1", 10**-20),
-		RateVsAmplitude("H2", 10**-20),
-		RateVsAmplitude("L1", 10**-20),
-	]
-def new_amplitudes():
-	return [
-		HighestAmplitude("H1", 10**-20),
-		HighestAmplitude("H2", 10**-20),
-		HighestAmplitude("L1", 10**-20)
+		RateVsAmplitude("H1", amplitude_factor),
+		RateVsAmplitude("H2", amplitude_factor),
+		RateVsAmplitude("L1", amplitude_factor),
 	]
 
 options, filenames = parse_command_line()
 
-plots = new_plots()
-amplitudes = new_amplitudes()
+plots = new_plots(options.amplitude_factor)
+survivors = Survivors()
 
 for n, filename in enumerate(llwapp.sort_files_by_size(filenames, options.verbose, reverse = True)):
 	if options.verbose:
@@ -181,11 +189,8 @@ for n, filename in enumerate(llwapp.sort_files_by_size(filenames, options.verbos
 			print >>sys.stderr, "adding to plot %d ..." % n
 		plot.add_contents(database)
 	if options.verbose:
-		print >>sys.stderr, "checking for loudest event:",
-	for amplitude in amplitudes:
-		if options.verbose:
-			print >>sys.stderr, "%s" % amplitude.instrument,
-		amplitude.add_contents(database)
+		print >>sys.stderr, "storing zero-lag survivors ...",
+	survivors.add_contents(database)
 	if options.verbose:
 		print >>sys.stderr
 	xmldoc.unlink()
@@ -202,7 +207,6 @@ while len(plots):
 	plots[0].fig.savefig(filename)
 	del plots[0]
 	n += 1
-for amplitude in amplitudes:
-	amplitude.finish()
+survivors.finish()
 if options.verbose:
 	print >>sys.stderr, "done."
