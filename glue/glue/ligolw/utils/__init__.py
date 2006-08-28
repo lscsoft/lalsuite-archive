@@ -25,7 +25,7 @@
 #
 
 """
-Collection of library back-ends for LIGO Light Weight XML utilities.
+Library of utility code for LIGO Light Weight XML applications.
 """
 
 import gzip
@@ -82,8 +82,9 @@ def measure_file_sizes(filenames, reverse = False):
 
 def sort_files_by_size(filenames, verbose = False, reverse = False):
 	"""
-	Sort the file names from smallest file to largest file (or largest
-	to smallest if reverse is set to True).
+	Return a new list of the file names sorted in order of smallest
+	file to largest file (or largest to smallest if reverse is set to
+	True).
 	"""
 	if verbose:
 		if reverse:
@@ -94,36 +95,80 @@ def sort_files_by_size(filenames, verbose = False, reverse = False):
 
 
 def load_filename(filename, verbose = False, gz = False):
+	"""
+	Parse the contents of the file identified by filename, and return
+	the contents as a LIGO Light Weight document tree.  Helpful
+	verbosity messages are printed to stderr if verbose is True, and
+	the file is gzip decompressed while reading if gz is set to True.
+	If filename is None, then stdin is parsed.
+
+	Example:
+
+	>>> from glue.ligolw import utils
+	>>> xmldoc = utils.load_filename(name, verbose = True, gz = (name or "stdin")[-3:] == ".gz")
+	"""
 	if verbose:
 		print >>sys.stderr, "reading %s ..." % (filename or "stdin")
-	doc = ligolw.Document()
+	xmldoc = ligolw.Document()
 	if filename:
 		fileobj = file(filename)
 	else:
 		fileobj = sys.stdin
 	if gz:
 		fileobj = gzip.GzipFile(mode = "rb", fileobj = fileobj)
-	ligolw.make_parser(ContentHandler(doc)).parse(fileobj)
-	return doc
+	ligolw.make_parser(ContentHandler(xmldoc)).parse(fileobj)
+	return xmldoc
 
 
 def load_url(url, verbose = False, gz = False):
+	"""
+	This function has the same behaviour as load_filename() but accepts
+	a URL instead of a filename.  Any source from which Python's urllib
+	library can read data is acceptable.  stdin is parsed if the URL is
+	None.
+
+	Example:
+
+	>>> from glue.ligolw import utils
+	>>> xmldoc = utils.load_url("file://localhost/tmp/data.xml")
+	"""
 	if verbose:
 		print >>sys.stderr, "reading %s ..." % (url or "stdin")
-	doc = ligolw.Document()
+	xmldoc = ligolw.Document()
 	if url:
 		fileobj = urllib.urlopen(url)
 	else:
 		fileobj = sys.stdin
 	if gz:
 		fileobj = gzip.GzipFile(mode = "rb", fileobj = fileobj)
-	ligolw.make_parser(ContentHandler(doc)).parse(fileobj)
-	return doc
+	ligolw.make_parser(ContentHandler(xmldoc)).parse(fileobj)
+	return xmldoc
 
 
-def write_filename(doc, filename, verbose = False, gz = False):
-	# trap SIGTERM to prevent Condor eviction while the document is
-	# being written
+def write_filename(xmldoc, filename, verbose = False, gz = False):
+	"""
+	Writes the LIGO Light Weight document tree rooted at xmldoc to the
+	file name filename.  Friendly verbosity messages are printed while
+	doing so if verbose is True.  The output data is gzip compressed on
+	the fly if gz is True.
+	
+	This function traps SIGTERM during the write process, and it does
+	this by temporarily installing its own signal handler in place of
+	the current handler.  This is done to prevent Condor eviction
+	during the write process.  If a SIGTERM is trapped, then when the
+	write process has successfully concluded, the last thing this
+	function does is raise IOTrappedSignal.  This is the only condition
+	in which this function will raise that exception, so calling code
+	that wishes its own SIGTERM handler to be executed can arrange for
+	that to happen by trapping the IOTrappedSignal exception, and then
+	manually running its own handler.
+
+	Example:
+
+	>>> from glue.ligolw import utils
+	>>> utils.write_filename(xmldoc, "data.xml")
+	"""
+	# initialize SIGTERM trap
 	global __llwapp_write_filename_got_sigterm
 	__llwapp_write_filename_got_sigterm = False
 	def newsigterm(signum, frame):
@@ -141,9 +186,9 @@ def write_filename(doc, filename, verbose = False, gz = False):
 		fileobj = sys.stdout
 	if gz:
 		fileobj = gzip.GzipFile(mode = "wb", fileobj = fileobj)
-	doc.write(fileobj)
+	xmldoc.write(fileobj)
 
-	# restore original signal handler, and report the signal if it was
+	# restore original SIGTERM handler, and report the signal if it was
 	# received
 	signal.signal(signal.SIGTERM, oldsigterm)
 	if __llwapp_write_filename_got_sigterm:
