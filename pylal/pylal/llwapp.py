@@ -61,25 +61,31 @@ __date__ = "$Date$"[7:-2]
 ContentHandler = ligolw.LIGOLWContentHandler
 
 
+import warnings
 def measure_file_sizes(filenames, reverse = False):
+	warnings.warn("pylal.llwapp.measure_file_sizes() function is deprecated:  use glue.ligolw.utils.measure_file_sizes() instead", DeprecationWarning)
 	return utils.measure_file_sizes(filenames, reverse)
 
 
 def sort_files_by_size(filenames, verbose = False, reverse = False):
+	warnings.warn("pylal.llwapp.sort_files_by_size() function is deprecated:  use glue.ligolw.utils.sort_files_by_size() instead", DeprecationWarning)
 	return utils.sort_files_by_size(filenames, verbose, reverse)
 
 
 def load_filename(filename, verbose = False, gz = False):
+	warnings.warn("pylal.llwapp.load_filename() function is deprecated:  use glue.ligolw.utils.load_filename() instead", DeprecationWarning)
 	utils.ContentHandler = ContentHandler
 	return utils.load_filename(filename, verbose, gz)
 
 
 def load_url(url, verbose = False, gz = False):
+	warnings.warn("pylal.llwapp.load_url() function is deprecated:  use glue.ligolw.utils.load_url() instead", DeprecationWarning)
 	utils.ContentHandler = ContentHandler
 	return utils.load_url(url, verbose, gz)
 
 
 def write_filename(doc, filename, verbose = False, gz = False):
+	warnings.warn("pylal.llwapp.write_filename() function is deprecated:  use glue.ligolw.utils.write_filename() instead", DeprecationWarning)
 	utils.write_filename(doc, filename, verbose, gz)
 
 
@@ -91,7 +97,6 @@ def write_filename(doc, filename, verbose = False, gz = False):
 # =============================================================================
 #
 
-import warnings
 def get_table(doc, name):
 	warnings.warn("pylal.llwapp.get_table() function is deprecated:  use glue.ligolw.table.get_table() instead", DeprecationWarning)
 	return table.get_table(doc, name)
