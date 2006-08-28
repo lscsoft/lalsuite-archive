@@ -36,7 +36,7 @@ import urllib
 
 from glue.ligolw import table
 from glue.ligolw import lsctables
-from pylal import llwapp
+from glue.ligolw import utils
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
@@ -97,7 +97,7 @@ class ContentHandler(ligolw.PartialLIGOLWContentHandler):
 	def __init__(self, doc):
 		ligolw.PartialLIGOLWContentHandler.__init__(self, doc, element_filter)
 
-llwapp.ContentHandler = ContentHandler
+utils.ContentHandler = ContentHandler
 
 
 #
@@ -146,7 +146,7 @@ class Plot(object):
 # =============================================================================
 #
 
-plot = Plot(llwapp.load_filename(filenames[0], options.verbose), options.x_instrument, options.y_instrument, options.n_instruments)
+plot = Plot(utils.load_filename(filenames[0], options.verbose), options.x_instrument, options.y_instrument, options.n_instruments)
 
 
 #

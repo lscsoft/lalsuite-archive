@@ -45,7 +45,7 @@ from glue import segments
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
-from pylal import llwapp
+from glue.ligolw import utils
 
 #
 # =============================================================================
@@ -93,7 +93,7 @@ class ContentHandler(ligolw.PartialLIGOLWContentHandler):
 	def __init__(self, doc):
 		ligolw.PartialLIGOLWContentHandler.__init__(self, doc, element_filter)
 
-llwapp.ContentHandler = ContentHandler
+utils.ContentHandler = ContentHandler
 
 
 #
@@ -123,7 +123,7 @@ def column_value(table, column):
 for pattern in patterns:
 	for filename in glob.glob(pattern):
 		# load document and extract search summary table
-		doc = llwapp.load_filename(filename, options.verbose, gz = filename[-3:] == ".gz")
+		doc = utils.load_filename(filename, options.verbose, gz = filename[-3:] == ".gz")
 		lsctables.makeReference(doc)
 		searchsumm = table.get_table(doc, lsctables.SearchSummaryTable.tableName)
 

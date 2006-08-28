@@ -17,7 +17,7 @@ from glue import segmentsUtils
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
-from pylal import llwapp
+from glue.ligolw import utils
 from pylal import CoincInspiralUtils
 
 ##############################################################################
@@ -185,7 +185,7 @@ def readFiles(fileGlob,statistic=None):
   sims = None
   coincs = None
   for thisFile in fList:
-    doc = llwapp.load_filename(thisFile)
+    doc = utils.load_filename(thisFile)
     # extract the sim inspiral table
     try: 
       simInspiralTable = \

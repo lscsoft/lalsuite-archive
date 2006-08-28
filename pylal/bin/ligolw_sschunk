@@ -42,7 +42,7 @@ from glue import segments
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
-from pylal import llwapp
+from glue.ligolw import utils
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
@@ -160,7 +160,7 @@ def write_sschunks(doc, **kwargs):
 	for chunk, seglist in chunk_document(doc, verbose = kwargs["verbose"]):
 		segment = seglist.extent()
 		chunkname = "%s-%d-%d.xml" % (kwargs["base"], int(segment[0]), int(segment.duration()))
-		llwapp.write_filename(chunk, chunkname, verbose = kwargs["verbose"])
+		utils.write_filename(chunk, chunkname, verbose = kwargs["verbose"])
 		if kwargs["write_cache"]:
 			cache += "%s\n" % str(CacheEntry(kwargs["cache_instrument"], kwargs["cache_comment"], segment, "file://localhost%s" % os.path.abspath(chunkname))
 	return cache
@@ -176,7 +176,7 @@ def write_sschunks(doc, **kwargs):
 
 cache = ""
 for filename in filenames:
-	doc = llwapp.load_filename(filename, options.verbose)
+	doc = utils.load_filename(filename, options.verbose)
 	cache += write_sschunks(doc, **options.__dict__)
 	doc.unlink()
 	if filename and options.remove_input:

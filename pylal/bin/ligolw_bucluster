@@ -29,7 +29,7 @@
 from optparse import OptionParser
 import sys
 
-from pylal import llwapp
+from glue.ligolw import utils
 from pylal import SnglBurstUtils
 from pylal import ligolw_bucluster
 
@@ -84,9 +84,9 @@ except ValueError, e:
 
 try:
 	for filename in filenames:
-		xmldoc = llwapp.load_filename(filename, options.verbose, gz = filename[-3:] == ".gz")
+		xmldoc = utils.load_filename(filename, options.verbose, gz = filename[-3:] == ".gz")
 		xmldoc = ligolw_bucluster.ligolw_bucluster(xmldoc, **options.__dict__)
-		llwapp.write_filename(xmldoc, filename, options.verbose, gz = filename[-3:] == ".gz")
+		utils.write_filename(xmldoc, filename, options.verbose, gz = filename[-3:] == ".gz")
 		xmldoc.unlink()
 except Exception, e:
 	print >>sys.stderr, "error: %s" % str(e)

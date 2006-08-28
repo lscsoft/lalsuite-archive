@@ -38,8 +38,8 @@ import sys
 
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
+from glue.ligolw import utils
 from glue import segments
-from pylal import llwapp
 from pylal import SnglBurstUtils
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -178,11 +178,11 @@ options, filenames = parse_command_line()
 plots = new_plots(options.amplitude_factor)
 survivors = Survivors()
 
-for n, filename in enumerate(llwapp.sort_files_by_size(filenames, options.verbose, reverse = True)):
+for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose, reverse = True)):
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
 	database = SnglBurstUtils.CoincDatabase(sqlite.connect(":memory:"))
-	xmldoc = llwapp.load_filename(filename, options.verbose, gz = filename[-3:] == ".gz")
+	xmldoc = utils.load_filename(filename, options.verbose, gz = filename[-3:] == ".gz")
 	database.summarize(xmldoc, options.live_time_program, options.verbose)
 	for n, plot in enumerate(plots):
 		if options.verbose:

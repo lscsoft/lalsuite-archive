@@ -33,6 +33,7 @@ from glue import lal
 from glue import segments
 from glue.ligolw import table
 from glue.ligolw import lsctables
+from glue.ligolw import utils
 from pylal import llwapp
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -496,7 +497,7 @@ def ligolw_bucut(doc, options):
 
 options, filenames = parse_command_line()
 for filename in filenames:
-	xmldoc = llwapp.load_filename(filename, options.verbose, gz = filename[-3:] == ".gz")
+	xmldoc = utils.load_filename(filename, options.verbose, gz = filename[-3:] == ".gz")
 	xmldoc = ligolw_bucut(xmldoc, options)
-	llwapp.write_filename(xmldoc, filename, options.verbose, gz = filename[-3:] == ".gz")
+	utils.write_filename(xmldoc, filename, options.verbose, gz = filename[-3:] == ".gz")
 	xmldoc.unlink()

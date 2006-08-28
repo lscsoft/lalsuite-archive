@@ -31,7 +31,7 @@ import sys
 
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
-from pylal import llwapp
+from glue.ligolw import utils
 from pylal.ligolw_tisi import ligolw_tisi
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -91,7 +91,7 @@ options, filenames = parse_command_line()
 try:
 	doc = ligolw_tisi(new_doc(), **options.__dict__)
 	for filename in filenames:
-		llwapp.write_filename(doc, filename, options.verbose)
+		utils.write_filename(doc, filename, options.verbose)
 except Exception, e:
 	print >>sys.stderr, "error: %s" % str(e)
 	sys.exit(1)

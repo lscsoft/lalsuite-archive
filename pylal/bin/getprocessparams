@@ -7,7 +7,7 @@ from pylal import readMeta
 from optparse import *
 from glue.ligolw import table
 from glue.ligolw import lsctables
-from pylal import llwapp
+from glue.ligolw import utils
 
 usage = """usage: %prog [options]
 
@@ -29,7 +29,7 @@ def main():
   ( options , args ) = parser.parse_args()
   
   # identify the template bank files and count the templates
-  doc = llwapp.load_filename(options.filename, options.verbose)
+  doc = utils.load_filename(options.filename, options.verbose)
   pps = table.get_table(doc, lsctables.ProcessParamsTable.tableName)
   args = " "
   for row in pps:

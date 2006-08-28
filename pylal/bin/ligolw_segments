@@ -39,7 +39,7 @@ from glue import segmentsUtils
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
-from pylal import llwapp
+from glue.ligolw import utils
 from pylal.date import LIGOTimeGPS
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -180,7 +180,7 @@ def ligolw_segments(doc, options):
 
 try:
 	options, filenames = parse_command_line()
-	llwapp.write_filename(ligolw_segments(new_doc(), options), options.output, options.verbose)
+	utils.write_filename(ligolw_segments(new_doc(), options), options.output, options.verbose)
 except Exception, e:
 	print >>sys.stderr, "error: %s" % str(e)
 	sys.exit(1)

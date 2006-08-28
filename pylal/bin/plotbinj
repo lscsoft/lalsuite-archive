@@ -33,6 +33,7 @@ from pysqlite2 import dbapi2 as sqlite
 import sys
 
 from glue import segments
+from glue.ligolw import utils
 from pylal import llwapp
 from pylal import rate
 from pylal import SnglBurstUtils
@@ -314,11 +315,11 @@ def new_plots(instrument, plots):
 	return [l[i] for i in plots]
 
 plots = {}
-for n, filename in enumerate(llwapp.sort_files_by_size(filenames, options.verbose, reverse = True)):
+for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose, reverse = True)):
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
 	database = SnglBurstUtils.CoincDatabase(sqlite.connect(":memory:"))
-	xmldoc = llwapp.load_filename(filename, options.verbose, gz = filename[-3:] == ".gz")
+	xmldoc = utils.load_filename(filename, options.verbose, gz = filename[-3:] == ".gz")
 	database.summarize(xmldoc, "power", options.verbose)
 	for instrument in database.instruments:
 		if instrument not in plots:
