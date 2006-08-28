@@ -209,6 +209,7 @@ def get_coinc_def_id(xmldoc, table_names, create_new = True):
 #
 
 def get_array(doc, name):
+	warnings.warn("pylal.llwapp.get_array() function is deprecated:  use glue.ligolw.array.get_array() instead", DeprecationWarning)
 	return array.get_array(doc, name)
 
 
@@ -221,6 +222,7 @@ def get_array(doc, name):
 #
 
 def get_param(doc, name):
+	warnings.warn("pylal.llwapp.get_param() function is deprecated:  use glue.ligolw.param.get_param() instead", DeprecationWarning)
 	return param.get_param(doc, name)
 
 
@@ -243,7 +245,7 @@ def pickle_from_param(elem, name):
 	Retrieve a pickled Python object from the document tree rooted at
 	elem.
 	"""
-	return pickle.loads(urllib.unquote(get_param(elem, "pickle:%s:param" % name).pcdata))
+	return pickle.loads(urllib.unquote(param.get_param(elem, "pickle:%s:param" % name).pcdata))
 
 
 #
