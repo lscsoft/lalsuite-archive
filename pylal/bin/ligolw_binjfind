@@ -57,12 +57,7 @@ def parse_command_line():
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
 	options, filenames = parser.parse_args()
 
-	# set comparison function
-	if options.compare == "bytime":
-		options.comparefunc = SnglBurstUtils.CompareSimBurstAndSnglBurstByTime
-	elif options.compare == "bytimeandfreq":
-		options.comparefunc = SnglBurstUtils.CompareSimBurstAndSnglBurstByTimeandFreq
-	else:
+	if options.compare not in ["bytime", "bytimeandfreq"]:
 		raise ValueError, "unrecognized compare test \"%s\"" % options.compare
 
 	return options, (filenames or [None])
@@ -192,6 +187,33 @@ def append_process(xmldoc, **kwargs):
 	llwapp.append_process_params(xmldoc, process, params)
 
 	return process
+
+
+#
+# =============================================================================
+#
+#                 Injection <--> Burst Event Comparison Tests
+#
+# =============================================================================
+#
+
+def CompareByTime(sim, burst):
+	"""
+	Return False if the peak time of the injection sim lies within the
+	time interval of burst.
+	"""
+	if sim.coordinates == "ZENITH":
+		return sim.get_geocent_peak() not in burst.get_period()
+	else:
+		return sim.get_peak(burst.ifo) not in burst.get_period()
+
+
+def CompareByTimeandFreq(sim, burst):
+	"""
+	Return False if the peak time and centre frequency of sim lie
+	within the time-frequency tile of burst.
+	"""
+	return not CompareByTime(sim, burst) or (sim.freq not in burst.get_band())
 
 
 #
@@ -348,6 +370,14 @@ try:
 except Exception, e:
 	print >>sys.stderr, "error: %s" % str(e)
 	sys.exit(1)
+
+
+# set comparison function
+if options.compare == "bytime":
+	options.comparefunc = CompareByTime
+elif options.compare == "bytimeandfreq":
+	options.comparefunc = CompareByTimeandFreq
+
 
 for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose)):
 	if options.verbose:

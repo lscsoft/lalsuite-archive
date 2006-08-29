@@ -580,32 +580,6 @@ def CompareSnglBurst(a, b, twindow = LIGOTimeGPS(0)):
 #
 # =============================================================================
 #
-#                              Injection Related
-#
-# =============================================================================
-#
-
-def CompareSimBurstAndSnglBurstByTime(sim, burst):
-	"""
-	Return True if the peak time of the injection sim lies within the
-	time interval of burst.
-	"""
-	if sim.coordinates == "ZENITH":
-		return sim.get_geocent_peak() in burst.get_period()
-	else:
-		return sim.get_peak(burst.ifo) in burst.get_period()
-
-def CompareSimBurstAndSnglBurstByTimeandFreq(sim, burst):
-	"""
-	Return True if the peak time and centre frequency of sim lie within
-	the time-frequency tile of burst.
-	"""
-	return CompareSimBurstAndSnglBurstByTime(sim, burst) and (sim.freq in burst.get_band())
-
-
-#
-# =============================================================================
-#
 #                                    Plots
 #
 # =============================================================================
