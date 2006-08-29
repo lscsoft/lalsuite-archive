@@ -72,10 +72,11 @@ def load_cache(filename, verbose = False):
 def cache_to_seglistdict(cache):
 	s = segments.segmentlistdict()
 	for c in cache:
-		if c.observatory in s:
-			s[c.observatory].append(c.segment)
-		else:
-			s[c.observatory] = segments.segmentlist([c.segment])
+		for instrument in c.observatory.split(","):
+			if instrument in s:
+				s[instrument].append(c.segment)
+			else:
+				s[instrument] = segments.segmentlist([c.segment])
 	s.coalesce()
 	return s
 
@@ -88,13 +89,6 @@ def get_time_slides(filename, verbose = False):
 	return map(tisitable.get_offset_dict, tisitable.dict.keys())
 
 
-def null_time_slides(cache):
-	timeslide = {}
-	for entry in cache:
-		timeslide[entry.observatory] = LIGOTimeGPS(0)
-	return [timeslide]
-
-
 #
 # =============================================================================
 #
@@ -104,7 +98,10 @@ def null_time_slides(cache):
 #
 
 def cacheentry_to_seglistdict(cacheentry):
-	return segments.segmentlistdict({cacheentry.observatory: segments.segmentlist([cacheentry.segment])})
+	s = segments.segmentlistdict()
+	for instrument in cacheentry.observatory.split(","):
+		s[instrument] = segments.segmentlist([cacheentry.segment])
+	return s
 
 
 class CafePacker(packing.Packer):
@@ -124,16 +121,18 @@ class CafePacker(packing.Packer):
 		matching_bins = []
 		for n, bin in enumerate(self.bins):
 			for offsetdict in self.timeslides:
-				if cache_entry.observatory not in offsetdict:
-					continue
-				bin.size.offsets.update(offsetdict)
-				b = segments.segmentlist()
-				for key in offsetdict.iterkeys():
-					if key in bin.size:
-						b.extend(bin.size[key])
-				if b.coalesce().intersects_segment(cache_entry.segment.shift(offsetdict[cache_entry.observatory])):
-					matching_bins.append((n, bin))
-					break
+				if True in map(offsetdict.__contains__, cache_entry.observatory.split(",")):
+					bin.size.offsets.update(offsetdict)
+					b = segments.segmentlist()
+					for key in offsetdict.iterkeys():
+						if key in bin.size:
+							b.extend(bin.size[key])
+					# FIXME: does not yet handle the case
+					# of a cache entry with multiple
+					# instruments
+					if b.coalesce().intersects_segment(cache_entry.segment.shift(offsetdict[cache_entry.observatory])):
+						matching_bins.append((n, bin))
+						break
 			bin.size.offsets.clear()
 
 		# add cache_entry by either adding a new bin or putting it
@@ -176,7 +175,7 @@ def write_caches(base, bins, instruments, verbose = False):
 			print >>sys.stderr, "writing %s" % filename
 		f = file(filename, "w")
 		for cacheentry in bin.objects:
-			if cacheentry.observatory in instruments:
+			if True in map(instruments.__contains__, cacheentry.observatory.split(",")):
 				print >>f, str(cacheentry)
 	return filenames
 
@@ -203,12 +202,6 @@ def ligolw_cafe(cache, time_slides, verbose = False):
 	# by these lists are those times for which no time slide can
 	# possibly produce coincident triggers.
 	seglists = llwapp.get_coincident_segmentlistdict(seglists, time_slides)
-
-	# Remove cache entries that will not participate in a coincidence
-	# analysis
-	if verbose:
-		print >>sys.stderr, "removing unneeded files ..."
-	cache = [c for c in cache if seglists[c.observatory].intersects_segment(c.segment)]
 
 	# Pack cache entries into output caches.
 	outputcaches = []
