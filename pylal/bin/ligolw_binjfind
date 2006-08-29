@@ -231,7 +231,7 @@ def find_sngl_burst_matches(contents, sim, comparefunc):
 	"""
 	matches = []
 	for burst in contents.triggers_near_starttime(sim.geocent_peak_time):
-		if comparefunc(sim, burst):
+		if not comparefunc(sim, burst):
 			matches.append(burst)
 	return matches
 
