@@ -469,7 +469,7 @@ def filter_array(a, window, cyclic = False):
 		raise ValueError, "array and window dimensions mismatch"
 	# check that all of the window's dimensions have an odd size
 	if 0 in map(int(1).__and__, window.shape):
-		raise ValueError, "window size is not an odd integer in direction %d" % d
+		raise ValueError, "window size is not an odd integer in at least 1 dimension"
 	# determine how much of the window function can be used
 	window_slices = []
 	for d in xrange(dims):
