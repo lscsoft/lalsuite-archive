@@ -100,7 +100,23 @@ class Survivors(object):
 			raise ValueError, "document does not contain exactly 1 zero-lag time slide (contains %d of them)" % len(time_slide_id)
 		time_slide_id = time_slide_id[0]
 
-		self.sngl_burst_table.extend(map(contents.sngl_burst_table._row_from_cols, contents.connection.cursor().execute("SELECT sngl_burst.* FROM sngl_burst JOIN coinc_event_map ON (coinc_event_map.event_id == sngl_burst.event_id AND coinc_event_map.table_name == 'sngl_burst') JOIN coinc_event ON (coinc_event.coinc_event_id == coinc_event_map.coinc_event_id) WHERE coinc_event.coinc_def_id == ? AND coinc_event.time_slide_id == ?", (contents.bb_definer_id, time_slide_id))))
+		self.sngl_burst_table.extend(map(contents.sngl_burst_table._row_from_cols, contents.connection.cursor().execute(
+			"""
+SELECT sngl_burst.* FROM
+	sngl_burst
+	JOIN coinc_event_map ON (
+		coinc_event_map.event_id == sngl_burst.event_id
+		AND coinc_event_map.table_name == 'sngl_burst'
+	)
+	JOIN coinc_event ON (
+		coinc_event.coinc_event_id == coinc_event_map.coinc_event_id
+	)
+WHERE
+	coinc_event.coinc_def_id == ?
+	AND coinc_event.time_slide_id == ?
+			""",
+			(contents.bb_definer_id, time_slide_id)
+		)))
 
 	def finish(self, filename, verbose = "False"):
 		self.sngl_burst_table.sort(lambda a, b: cmp((a.ifo, a.amplitude), (b.ifo, b.amplitude)))
@@ -194,7 +210,34 @@ class Efficiency(SnglBurstUtils.BurstPlot):
 		# get a list of the sim_burst simulation_id's for
 		# injections that matched one of those, then extract the
 		# rows for those injections.
-		self.found.extend(map(contents.sim_burst_table._row_from_cols, contents.connection.cursor().execute("SELECT * FROM sim_burst WHERE simulation_id in (SELECT DISTINCT a.event_id FROM coinc_event_map AS a JOIN coinc_event_map AS b ON (a.coinc_event_id == b.coinc_event_id AND a.table_name == 'sim_burst' AND b.table_name == 'sngl_burst') WHERE b.event_id IN (SELECT DISTINCT event_id FROM coinc_event_map JOIN coinc_event ON (coinc_event_map.coinc_event_id == coinc_event.coinc_event_id AND coinc_event_map.table_name == 'sngl_burst') WHERE coinc_event.coinc_def_id == ?))", (contents.bb_definer_id,))))
+		self.found.extend(map(contents.sim_burst_table._row_from_cols, contents.connection.cursor().execute(
+			"""
+SELECT * FROM
+	sim_burst
+WHERE
+	simulation_id IN (
+		SELECT DISTINCT a.event_id FROM
+			coinc_event_map AS a
+			JOIN coinc_event_map AS b ON (
+				a.coinc_event_id == b.coinc_event_id
+				AND a.table_name == 'sim_burst'
+				AND b.table_name == 'sngl_burst'
+			)
+		WHERE
+			b.event_id IN (
+				SELECT DISTINCT event_id FROM
+					coinc_event_map
+					JOIN coinc_event ON (
+						coinc_event_map.coinc_event_id == coinc_event.coinc_event_id
+						AND coinc_event_map.table_name == 'sngl_burst'
+					)
+				WHERE
+					coinc_event.coinc_def_id == ?
+			)
+	)
+			""",
+			(contents.bb_definer_id,)
+		)))
 		# find all injections recovered in loudest_survivor_inst
 		# with an amplitude greater than loudest_survivor_ampl:
 		# assemble a list of sngl_burst event_id's for events
@@ -202,8 +245,40 @@ class Efficiency(SnglBurstUtils.BurstPlot):
 		# coincidences, then get a list of the sim_burst
 		# simulation_id's for injections that matched one of those,
 		# then extract the rows for those injections.
-		self.found_above_loudest.extend(map(contents.sim_burst_table._row_from_cols, contents.connection.cursor().execute("SELECT * FROM sim_burst WHERE simulation_id in (SELECT DISTINCT a.event_id FROM coinc_event_map AS a JOIN coinc_event_map AS b ON (a.coinc_event_id == b.coinc_event_id AND a.table_name == 'sim_burst' AND b.table_name == 'sngl_burst') WHERE b.event_id IN (SELECT DISTINCT sngl_burst.event_id FROM sngl_burst JOIN coinc_event_map ON (sngl_burst.event_id == coinc_event_map.event_id AND coinc_event_map.table_name == 'sngl_burst') JOIN coinc_event ON (coinc_event_map.coinc_event_id == coinc_event.coinc_event_id AND coinc_event_map.table_name == 'sngl_burst') WHERE sngl_burst.ifo == ? AND sngl_burst.amplitude > ? AND coinc_event.coinc_def_id == ?))", (self.loudest_survivor_inst, self.loudest_survivor_ampl, contents.bb_definer_id,))))
-		self.all.extend(list(iter(contents.sim_burst_table)))
+		self.found_above_loudest.extend(map(contents.sim_burst_table._row_from_cols, contents.connection.cursor().execute(
+			"""
+SELECT * FROM
+	sim_burst
+WHERE
+	simulation_id IN (
+		SELECT DISTINCT a.event_id FROM
+			coinc_event_map AS a
+			JOIN coinc_event_map AS b ON (
+				a.coinc_event_id == b.coinc_event_id
+				AND a.table_name == 'sim_burst'
+				AND b.table_name == 'sngl_burst'
+			)
+		WHERE
+			b.event_id IN (
+				SELECT DISTINCT sngl_burst.event_id FROM
+					sngl_burst
+					JOIN coinc_event_map ON (
+						sngl_burst.event_id == coinc_event_map.event_id
+						AND coinc_event_map.table_name == 'sngl_burst'
+					)
+					JOIN coinc_event ON (
+						coinc_event_map.coinc_event_id == coinc_event.coinc_event_id
+					)
+				WHERE
+					sngl_burst.ifo == ?
+					AND sngl_burst.amplitude > ?
+					AND coinc_event.coinc_def_id == ?
+			)
+	)
+			""",
+			(self.loudest_survivor_inst, self.loudest_survivor_ampl, contents.bb_definer_id,)
+		)))
+		self.all.extend(iter(contents.sim_burst_table))
 
 		# move injections recovered with amplitudes lower than the
 		# loudest survivor to the missed list.
