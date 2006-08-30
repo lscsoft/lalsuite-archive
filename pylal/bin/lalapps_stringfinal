@@ -40,6 +40,7 @@ from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from glue import segments
+from pylal import rate
 from pylal import SnglBurstUtils
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -59,11 +60,18 @@ def parse_command_line():
 	parser = OptionParser(version="%prog CVS $Id$")
 	parser.add_option("-a", "--amplitude-factor", metavar = "factor", default = "1e-20", help = "multiple amplitudes in XML files by this amount (default = 1e-20)")
 	parser.add_option("-f", "--format", metavar = "format", default = "png", help = "set the output image format (default = png)")
+	parser.add_option("-i", "--injections", action = "store_true", help = "generate efficiency plots from the output files of an injection run")
+	parser.add_option("--loudest-survivor", metavar = "instrument=amplitude", default = None, help = "set amplitude of loudest zero-lag non-injection survivor for efficiency plots")
 	parser.add_option("-l", "--live-time-program", metavar = "program", default = "StringSearch", help = "set the name, as it appears in the process table, of the program whose search summary entries define the search live time (default = StringSearch)")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
 	options, filenames = parser.parse_args()
 
 	options.amplitude_factor = float(options.amplitude_factor)
+	if options.injections:
+		if options.loudest_survivor == None:
+			raise ValueError, "must set --loudest-survivor with --injections"
+		options.loudest_survivor = options.loudest_survivor.split("=")
+		options.loudest_survivor = {options.loudest_survivor[0]: float(options.loudest_survivor[1])}
 
 	return options, (filenames or [None])
 
@@ -71,7 +79,7 @@ def parse_command_line():
 #
 # =============================================================================
 #
-#                           Highest Amplitude Event
+#                              Zero-Lag Survivors
 #
 # =============================================================================
 #
@@ -152,12 +160,74 @@ class RateVsAmplitude(SnglBurstUtils.BurstPlot):
 		background_yerr /= self.foreground_time
 		# cummulative rate observed in foreground
 		foreground_y = numarray.arange(len(self.foreground), 0.0, -1.0, "Float64") / self.foreground_time
+		# plot
 		self.axes.errorbar(self.background, background_y, yerr = background_yerr, fmt = "k-")
 		self.axes.plot(self.foreground, foreground_y, "ro-", markeredgecolor = "r")
-		self.axes.set_xlim([1e-21, 1e-18])
-		self.axes.set_ylim([1e-9, 1e-5])
+		#self.axes.set_xlim([1e-21, 1e-18])
+		#self.axes.set_ylim([1e-9, 1e-5])
 		self.axes.xaxis.grid(True, which="minor")
 		self.axes.yaxis.grid(True, which="minor")
+
+
+#
+# =============================================================================
+#
+#                                  Efficiency
+#
+# =============================================================================
+#
+
+class Efficiency(SnglBurstUtils.BurstPlot):
+	def __init__(self, loudest_survivor, amplitude_factor):
+		SnglBurstUtils.BurstPlot.__init__(self, "Injection Amplitude", "Detection Efficiency")
+		self.axes.set_title(r"Detection Efficiency vs.\ Amplitude")
+		self.loudest_survivor_inst, self.loudest_survivor_ampl = loudest_survivor.items()[0]
+		self.amplitude_factor = amplitude_factor
+		self.found = []
+		self.found_above_loudest = []
+		self.all = []
+		self.axes.semilogx()
+
+	def add_contents(self, contents):
+		# find all found injections:  assemble a list of sngl_burst
+		# event_id's for events participating in coincidences, then
+		# get a list of the sim_burst simulation_id's for
+		# injections that matched one of those, then extract the
+		# rows for those injections.
+		self.found.extend(map(contents.sim_burst_table._row_from_cols, contents.connection.cursor().execute("SELECT * FROM sim_burst WHERE simulation_id in (SELECT DISTINCT a.event_id FROM coinc_event_map AS a JOIN coinc_event_map AS b ON (a.coinc_event_id == b.coinc_event_id AND a.table_name == 'sim_burst' AND b.table_name == 'sngl_burst') WHERE b.event_id IN (SELECT DISTINCT event_id FROM coinc_event_map JOIN coinc_event ON (coinc_event_map.coinc_event_id == coinc_event.coinc_event_id AND coinc_event_map.table_name == 'sngl_burst') WHERE coinc_event.coinc_def_id == ?))", (contents.bb_definer_id,))))
+		# find all injections recovered in loudest_survivor_inst
+		# with an amplitude greater than loudest_survivor_ampl:
+		# assemble a list of sngl_burst event_id's for events
+		# matching the conditions and participating in
+		# coincidences, then get a list of the sim_burst
+		# simulation_id's for injections that matched one of those,
+		# then extract the rows for those injections.
+		self.found_above_loudest.extend(map(contents.sim_burst_table._row_from_cols, contents.connection.cursor().execute("SELECT * FROM sim_burst WHERE simulation_id in (SELECT DISTINCT a.event_id FROM coinc_event_map AS a JOIN coinc_event_map AS b ON (a.coinc_event_id == b.coinc_event_id AND a.table_name == 'sim_burst' AND b.table_name == 'sngl_burst') WHERE b.event_id IN (SELECT DISTINCT sngl_burst.event_id FROM sngl_burst JOIN coinc_event_map ON (sngl_burst.event_id == coinc_event_map.event_id AND coinc_event_map.table_name == 'sngl_burst') JOIN coinc_event ON (coinc_event_map.coinc_event_id == coinc_event.coinc_event_id AND coinc_event_map.table_name == 'sngl_burst') WHERE sngl_burst.ifo == ? AND sngl_burst.amplitude > ? AND coinc_event.coinc_def_id == ?))", (self.loudest_survivor_inst, self.loudest_survivor_ampl, contents.bb_definer_id,))))
+		self.all.extend(list(iter(contents.sim_burst_table)))
+
+		# move injections recovered with amplitudes lower than the
+		# loudest survivor to the missed list.
+
+	def finish(self):
+		self.all.sort(lambda a, b: cmp(a.hpeak, b.hpeak))
+		min_amplitude = self.all[0].hpeak * self.amplitude_factor
+		max_amplitude = self.all[-1].hpeak * self.amplitude_factor
+
+		# efficiency
+		bins = rate.Bins(min_amplitude, max_amplitude, 100, spacing = ["log"])
+		efficiency = rate.BinnedRatios(bins)
+		efficiency_above_loudest = rate.BinnedRatios(bins)
+		for sim in self.found:
+			efficiency.incnumerator((sim.hpeak * self.amplitude_factor,))
+		for sim in self.found_above_loudest:
+			efficiency_above_loudest.incnumerator((sim.hpeak * self.amplitude_factor,))
+		for sim in self.all:
+			efficiency.incdenominator((sim.hpeak * self.amplitude_factor,))
+			efficiency_above_loudest.incdenominator((sim.hpeak * self.amplitude_factor,))
+		efficiency.regularize()
+		efficiency_above_loudest.regularize()
+		self.axes.plot(efficiency.centres(), efficiency.ratio(), "ko-")
+		self.axes.plot(efficiency_above_loudest.centres(), efficiency_above_loudest.ratio(), "ro-")
 
 
 #
@@ -168,17 +238,21 @@ class RateVsAmplitude(SnglBurstUtils.BurstPlot):
 # =============================================================================
 #
 
-def new_plots(amplitude_factor):
-	return [
-		RateVsAmplitude("H1", amplitude_factor),
-		RateVsAmplitude("H2", amplitude_factor),
-		RateVsAmplitude("L1", amplitude_factor),
-	]
-
 options, filenames = parse_command_line()
 
-plots = new_plots(options.amplitude_factor)
-survivors = Survivors()
+if options.injections:
+	plots = [
+		Efficiency(options.loudest_survivor, options.amplitude_factor)
+	]
+	survivors = None
+else:
+	plots = [
+		RateVsAmplitude("H1", options.amplitude_factor),
+		RateVsAmplitude("H2", options.amplitude_factor),
+		RateVsAmplitude("L1", options.amplitude_factor),
+	]
+	survivors = Survivors()
+
 
 for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose, reverse = True)):
 	if options.verbose:
@@ -190,15 +264,14 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 		if options.verbose:
 			print >>sys.stderr, "adding to plot %d ..." % n
 		plot.add_contents(database)
-	if options.verbose:
-		print >>sys.stderr, "storing zero-lag survivors ...",
-	survivors.add_contents(database)
-	if options.verbose:
-		print >>sys.stderr
+	if survivors:
+		if options.verbose:
+			print >>sys.stderr, "storing zero-lag survivors ..."
+		survivors.add_contents(database)
 	xmldoc.unlink()
 
 n = 0
-format = "%%s%%0%dd.%%s" % (int(math.log10(len(plots) - 1)) + 1)
+format = "%%s%%0%dd.%%s" % (int(math.log10(max(len(plots) - 1, 1))) + 1)
 while len(plots):
 	filename = format % ("string_", n, options.format)
 	if options.verbose:
@@ -209,6 +282,7 @@ while len(plots):
 	plots[0].fig.savefig(filename)
 	del plots[0]
 	n += 1
-survivors.finish("string_survivors.xml", verbose = options.verbose)
+if survivors:
+	survivors.finish("string_survivors.xml", verbose = options.verbose)
 if options.verbose:
 	print >>sys.stderr, "done."
