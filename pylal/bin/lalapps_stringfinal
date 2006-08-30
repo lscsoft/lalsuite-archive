@@ -121,7 +121,7 @@ WHERE
 		)))
 
 	def finish(self, filename, verbose = "False"):
-		self.sngl_burst_table.sort(lambda a, b: cmp((a.ifo, a.amplitude), (b.ifo, b.amplitude)))
+		self.sngl_burst_table.sort(lambda a, b: cmp((a.ifo, abs(a.amplitude)), (b.ifo, abs(b.amplitude))))
 		utils.write_filename(self.xmldoc, filename, verbose = verbose, gz = (filename or "stdout")[-3:] == ".gz")
 
 
