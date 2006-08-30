@@ -143,9 +143,10 @@ class DocContents(object):
 		self.snglbursttable.sort(lambda a, b: cmp(a.start_time, b.start_time))
 		self.starttimes = self.snglbursttable.getColumnByName("start_time")
 
-		# set the window for triggers_near_starttime();  add a
-		# second because of the discreteness in the look-up table
-		self.starttime_dt = max(self.snglbursttable.getColumnByName("duration")) + 1.0
+		# set the window for triggers_near_starttime();  add 2.0 s
+		# because of the discreteness in the look-up table
+		# FIXME: I think this can be reduced to 1.0 s, check that
+		self.starttime_dt = max(self.snglbursttable.getColumnByName("duration")) + 2.0
 
 	def triggers_near_starttime(self, t):
 		"""
