@@ -138,12 +138,14 @@ class DocContents(object):
 			time_slide[instrument] = 0.0
 		self.tisi_id = llwapp.get_time_slide_id(xmldoc, time_slide)
 
-		# sort triggers by start time
+		# sort triggers by start time truncated to integer seconds,
+		# and construct an integer start time look-up table
 		self.snglbursttable.sort(lambda a, b: cmp(a.start_time, b.start_time))
 		self.starttimes = self.snglbursttable.getColumnByName("start_time")
 
-		# set the window for triggers_near_starttime()
-		self.starttime_dt = max(self.snglbursttable.getColumnByName("duration")) + 0.5
+		# set the window for triggers_near_starttime();  add a
+		# second because of the discreteness in the look-up table
+		self.starttime_dt = max(self.snglbursttable.getColumnByName("duration")) + 1.0
 
 	def triggers_near_starttime(self, t):
 		"""
@@ -298,7 +300,7 @@ def find_coinc_matches(contents, sim, comparefunc):
 	matches = []
 	for coinc, bursts in contents.coinc_event.iteritems():
 		for burst in bursts:
-			if not comparefunc(sim, burst):
+			if comparefunc(sim, burst):
 				break
 		else:
 			matches.append(coinc)
