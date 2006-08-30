@@ -280,9 +280,6 @@ WHERE
 		)))
 		self.all.extend(iter(contents.sim_burst_table))
 
-		# move injections recovered with amplitudes lower than the
-		# loudest survivor to the missed list.
-
 	def finish(self):
 		self.all.sort(lambda a, b: cmp(a.hpeak, b.hpeak))
 		min_amplitude = self.all[0].hpeak * self.amplitude_factor
