@@ -142,12 +142,15 @@ class DocContents(object):
 		self.snglbursttable.sort(lambda a, b: cmp(a.start_time, b.start_time))
 		self.starttimes = self.snglbursttable.getColumnByName("start_time")
 
-	def triggers_near_starttime(self, t, dt = 2.0):
+		# set the window for triggers_near_starttime()
+		self.starttime_dt = max(self.snglbursttable.getColumnByName("duration")) + 0.5
+
+	def triggers_near_starttime(self, t):
 		"""
-		Return a list of the triggers with start times within dt of
-		t.
+		Return a list of the triggers with start times within a
+		reasonable window around t.
 		"""
-		return self.snglbursttable[bisect.bisect_left(self.starttimes, t - dt):bisect.bisect_right(self.starttimes, t + dt)]
+		return self.snglbursttable[bisect.bisect_left(self.starttimes, t - self.starttime_dt):bisect.bisect_right(self.starttimes, t + self.starttime_dt)]
 
 	def sort_triggers_by_id(self):
 		"""
