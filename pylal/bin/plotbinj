@@ -56,6 +56,7 @@ def parse_command_line():
 	parser.add_option("--made-only", action = "store_true", default = False, help = "plot only injections that were made")
 	parser.add_option("-b", "--base", metavar = "base", default = "plotbinj_", help = "set the prefix for output filenames (default = plotbinj_)")
 	parser.add_option("-f", "--format", metavar = "format", default = "png", help = "set the output image format (default = png)")
+	parser.add_option("-l", "--live-time-program", metavar = "program", default = "power", help = "set the name, as it appears in the process table, of the program whose search summary entries define the search live time (default = power)")
 	parser.add_option("--plot", metavar = "number", action = "append", default = None, help = "generate the given plot number")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
 	options, filenames = parser.parse_args()
@@ -282,12 +283,20 @@ class RecoveredTimeOffset(SnglBurstUtils.BurstPlot):
 			sim = list(coinc.sim_bursts())[0]
 			for burst in coinc.sngl_bursts():
 				dt = burst.get_peak() - sim.get_peak(burst.ifo)
-				self.offsets[dt] = 1.0
+				try:
+					self.offsets[dt] = 1.0
+				except IndexError:
+					# outside plot range
+					pass
 				if -burst.confidence > best_conf:
 					best_conf = -burst.confidence
 					best_dt = dt
 			if best_dt != None:
-				self.best[best_dt] = 1.0
+				try:
+					self.best[best_dt] = 1.0
+				except IndexError:
+					# outside plot range
+					pass
 
 	def finish(self):
 		self.axes.set_title("Trigger Peak Time - Injection Peak Time\n(%d Found Injections)" % self.found)
@@ -320,7 +329,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
 	database = SnglBurstUtils.CoincDatabase(sqlite.connect(":memory:"))
 	xmldoc = utils.load_filename(filename, options.verbose, gz = filename[-3:] == ".gz")
-	database.summarize(xmldoc, "power", options.verbose)
+	database.summarize(xmldoc, options.live_time_program, options.verbose)
 	for instrument in database.instruments:
 		if instrument not in plots:
 			plots[instrument] = new_plots(instrument, options.plot)
