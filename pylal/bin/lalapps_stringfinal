@@ -30,9 +30,11 @@
 String cusp search final output rendering tool.
 """
 
+import bisect
 from optparse import OptionParser
 import math
 import numarray
+import re
 from pysqlite2 import dbapi2 as sqlite
 import sys
 
@@ -133,7 +135,7 @@ WHERE
 
 class RateVsAmplitude(SnglBurstUtils.BurstPlot):
 	def __init__(self, instrument, amplitude_factor):
-		SnglBurstUtils.BurstPlot.__init__(self, "%s Amplitude" % instrument, "Coincident Event Rate (Hz)")
+		SnglBurstUtils.BurstPlot.__init__(self, r"%s Amplitude \(A\)" % instrument, "Coincident Event Rate (Hz)")
 		self.instrument = instrument
 		self.amplitude_factor = amplitude_factor
 		self.foreground = []
@@ -192,6 +194,22 @@ class RateVsAmplitude(SnglBurstUtils.BurstPlot):
 #
 # =============================================================================
 #
+
+def interpolate(y, x1, y1, x2, y2):	
+	"""
+	Given (x1, y1) and (x2, y2), solve for the x corresponding to y
+	assuming a straight line between between the two points.
+	"""
+	return x1 + (x2 - x1) * (y - y1) / (y2 - y1)
+
+
+def latexnumber(s):
+	"""
+	Convert strings of the form "d.dddde-dd" to "d.dddd \times
+	10^{-dd}"
+	"""
+	return re.sub(r"([.0-9]+)e?([+-]?[0-9]+)", r"\1 \\times 10^{\2}", s)
+
 
 class Efficiency(SnglBurstUtils.BurstPlot):
 	def __init__(self, loudest_survivor, amplitude_factor):
@@ -271,7 +289,7 @@ WHERE
 					)
 				WHERE
 					sngl_burst.ifo == ?
-					AND sngl_burst.amplitude > ?
+					AND abs(sngl_burst.amplitude) > ?
 					AND coinc_event.coinc_def_id == ?
 			)
 	)
@@ -285,7 +303,6 @@ WHERE
 		min_amplitude = self.all[0].hpeak * self.amplitude_factor
 		max_amplitude = self.all[-1].hpeak * self.amplitude_factor
 
-		# efficiency
 		bins = rate.Bins(min_amplitude, max_amplitude, 100, spacing = ["log"])
 		efficiency = rate.BinnedRatios(bins)
 		efficiency_above_loudest = rate.BinnedRatios(bins)
@@ -298,8 +315,35 @@ WHERE
 			efficiency_above_loudest.incdenominator((sim.hpeak * self.amplitude_factor,))
 		efficiency.regularize()
 		efficiency_above_loudest.regularize()
-		self.axes.plot(efficiency.centres(), efficiency.ratio(), "ko-")
-		self.axes.plot(efficiency_above_loudest.centres(), efficiency_above_loudest.ratio(), "ro-")
+
+		# generate and plot dots with error bars
+		(x,) = efficiency.centres()
+		eff = efficiency.ratio()
+		eff_yerr = numarray.sqrt(eff * (1 - eff) / efficiency.denominator)
+		eff_above_loudest = efficiency_above_loudest.ratio()
+		eff_above_loudest_yerr = numarray.sqrt(eff_above_loudest * (1 - eff_above_loudest) / efficiency_above_loudest.denominator)
+
+		self.axes.errorbar(x, eff, yerr = eff_yerr, fmt = "ko")
+		self.axes.errorbar(x, eff_above_loudest, yerr = eff_above_loudest_yerr, fmt = "ro")
+
+		# generate and plot trend curves
+		windowfunc = rate.gaussian_window(5)
+		rate.filter_array(efficiency.numerator, windowfunc)
+		rate.filter_array(efficiency.denominator, windowfunc)
+		rate.filter_array(efficiency_above_loudest.numerator, windowfunc)
+		rate.filter_array(efficiency_above_loudest.denominator, windowfunc)
+		eff = efficiency.ratio()
+		eff_above_loudest = efficiency_above_loudest.ratio()
+		line1 = self.axes.plot(x, eff, "k-")
+		line2 = self.axes.plot(x, eff_above_loudest, "r-")
+
+		self.axes.legend((line1, line2), ("All injections", r"Injections recovered in %s with \(A > %s\)" % (self.loudest_survivor_inst, latexnumber("%g" % (self.loudest_survivor_ampl * self.amplitude_factor)))), loc = "lower right")
+
+		# 50% point on trend curves
+		i = bisect.bisect_left(eff, 0.5)
+		print "Pipeline's 50%% efficiency point for all detections = %g" % interpolate(0.5, x[i - 1], eff[i - 1], x[i], eff[i])
+		i = bisect.bisect_left(eff_above_loudest, 0.5)
+		print "Pipeline's 50%% efficiency point for detections above loudest = %g" % interpolate(0.5, x[i - 1], eff_above_loudest[i - 1], x[i], eff_above_loudest[i])
 
 
 #
