@@ -213,7 +213,7 @@ def latexnumber(s):
 
 class Efficiency(SnglBurstUtils.BurstPlot):
 	def __init__(self, loudest_survivor, amplitude_factor):
-		SnglBurstUtils.BurstPlot.__init__(self, "Injection Amplitude", "Detection Efficiency")
+		SnglBurstUtils.BurstPlot.__init__(self, r"Injection Amplitude (\(\mathrm{s}^{-\frac{1}{3}}\))", "Detection Efficiency")
 		self.axes.set_title(r"Detection Efficiency vs.\ Amplitude")
 		self.loudest_survivor_inst, self.loudest_survivor_ampl = loudest_survivor.items()[0]
 		self.amplitude_factor = amplitude_factor
@@ -323,11 +323,11 @@ WHERE
 		eff_above_loudest = efficiency_above_loudest.ratio()
 		eff_above_loudest_yerr = numarray.sqrt(eff_above_loudest * (1 - eff_above_loudest) / efficiency_above_loudest.denominator)
 
-		self.axes.errorbar(x, eff, yerr = eff_yerr, fmt = "ko")
-		self.axes.errorbar(x, eff_above_loudest, yerr = eff_above_loudest_yerr, fmt = "ro")
+		self.axes.errorbar(x, eff, yerr = eff_yerr, fmt = "ko", label = None)
+		self.axes.errorbar(x, eff_above_loudest, yerr = eff_above_loudest_yerr, fmt = "ro", label = None)
 
 		# generate and plot trend curves
-		windowfunc = rate.gaussian_window(5)
+		windowfunc = rate.gaussian_window(5.882352941176471)
 		rate.filter_array(efficiency.numerator, windowfunc)
 		rate.filter_array(efficiency.denominator, windowfunc)
 		rate.filter_array(efficiency_above_loudest.numerator, windowfunc)
@@ -336,14 +336,20 @@ WHERE
 		eff_above_loudest = efficiency_above_loudest.ratio()
 		line1 = self.axes.plot(x, eff, "k-")
 		line2 = self.axes.plot(x, eff_above_loudest, "r-")
+		self.axes.legend((line1, line2), ("All recovered injections", r"Injections recovered in %s with \(A > %s\,\mathrm{s}^{-\frac{1}{3}}\)" % (self.loudest_survivor_inst, latexnumber("%g" % (self.loudest_survivor_ampl * self.amplitude_factor)))), loc = "lower right")
 
-		self.axes.legend((line1, line2), ("All injections", r"Injections recovered in %s with \(A > %s\)" % (self.loudest_survivor_inst, latexnumber("%g" % (self.loudest_survivor_ampl * self.amplitude_factor)))), loc = "lower right")
-
-		# 50% point on trend curves
+		# compute 50% point from trend curves
 		i = bisect.bisect_left(eff, 0.5)
-		print "Pipeline's 50%% efficiency point for all detections = %g" % interpolate(0.5, x[i - 1], eff[i - 1], x[i], eff[i])
+		A50 = interpolate(0.5, x[i - 1], eff[i - 1], x[i], eff[i])
+		print "Pipeline's 50%% efficiency point for all detections = %g" % A50
 		i = bisect.bisect_left(eff_above_loudest, 0.5)
-		print "Pipeline's 50%% efficiency point for detections above loudest = %g" % interpolate(0.5, x[i - 1], eff_above_loudest[i - 1], x[i], eff_above_loudest[i])
+		A50_above_loudest = interpolate(0.5, x[i - 1], eff_above_loudest[i - 1], x[i], eff_above_loudest[i])
+		print "Pipeline's 50%% efficiency point for detections above loudest = %g" % A50_above_loudest
+
+		# mark on graph
+		self.axes.axhline(0.5, color = "k", linestyle = "--")
+		self.axes.axvline(A50, color = "k")
+		self.axes.axvline(A50_above_loudest, color = "r")
 
 
 #
