@@ -191,17 +191,6 @@ def get_table(xmldoc, name):
 # =============================================================================
 #
 
-class _ColumnIter(object):
-	"""
-	An iterator class for looping through the values in a column.
-	"""
-	def __init__(self, column):
-		self.rowiter = iter(column.parentNode)
-		self.attr = column.asattribute
-
-	def next(self):
-		return getattr(self.rowiter.next(), self.attr)
-
 class Column(ligolw.Column):
 	"""
 	High-level column element that provides list-like access to the
@@ -221,20 +210,27 @@ class Column(ligolw.Column):
 		"""
 		Retrieve the value in this column in row i.
 		"""
-		return getattr(self.parentNode[i], self.asattribute)
+		if type(i) == slice:
+			return map(lambda r: getattr(r, self.asattribute), self.parentNode[i])
+		else:
+			return getattr(self.parentNode[i], self.asattribute)
 
 	def __setitem__(self, i, value):
 		"""
 		Set the value in this column in row i.
 		"""
-		setattr(self.parentNode[i], self.asattribute, value)
+		if type(i) == slice:
+			map(lambda r: setattr(r, self.asattribute, value), self.parentNode[i])
+		else:
+			setattr(self.parentNode[i], self.asattribute, value)
 
 	def __iter__(self):
 		"""
 		Return an iterator object for iterating over values in this
 		column.
 		"""
-		return _ColumnIter(self)
+		for row in self.parentNode:
+			yield getattr(row, self.asattribute)
 
 	def count(self, value):
 		"""
@@ -258,7 +254,9 @@ class Column(ligolw.Column):
 
 	def asarray(self):
 		"""
-		Construct a numarray array from this column.
+		Construct a numarray array from this column.  Note that
+		this creates a copy of the data, so modifications made to
+		the array will not be recorded in the original document.
 		"""
 		if self.getAttribute("Type") in types.StringTypes:
 			raise TypeError, "Column does not have numeric type"
@@ -306,14 +304,8 @@ class TableStream(ligolw.Stream):
 				try:
 					setattr(self.__row, colname, token)
 				except AttributeError, e:
-					# row object does not have an
-					# attribute matching this column.
-					# by allowing this, code can be
-					# written that saves memory by
-					# setting RowType to an object with
-					# slots for only the desired
-					# columns.
-					pass
+					import warnings
+					warnings.warn("glue.ligolw.table.TableStream.appendData():  invalid attribute %s for %s;  in the future this will be a fatal error, use Table class' loadcolumns attribute to restrict parsed columns" % (colname, repr(self.__row)), DeprecationWarning)
 			self.__colindex += 1
 			if self.__colindex >= self.__numcols:
 				self.parentNode.append(self.__row)
@@ -364,7 +356,8 @@ class TableStream(ligolw.Stream):
 
 class TableRow(object):
 	"""
-	Helpful parent class for row objects.
+	Helpful parent class for row objects.  Also used as the default row
+	class by Table instances.
 	"""
 	pass
 
@@ -404,6 +397,11 @@ class Table(ligolw.Table, list):
 	#
 
 	def getColumnByName(self, name):
+		"""
+		Retrieve and return the Column child element whose name is
+		as given.  Raises KeyError if this table has no column by
+		that name.
+		"""
 		try:
 			return getColumnsByName(self, name)[0]
 		except IndexError:
@@ -413,7 +411,10 @@ class Table(ligolw.Table, list):
 	def appendColumn(self, name):
 		"""
 		Append a column named "name" to the table.  Returns the new
-		child.
+		child.  Raises ValueError if the table already has a column
+		by that name, and KeyError if the validcolumns attribute of
+		this table does not contain an entry for a column by that
+		name.
 		"""
 		if getColumnsByName(self, name):
 			raise ValueError, "duplicate Column \"%s\"" % name
@@ -430,7 +431,11 @@ class Table(ligolw.Table, list):
 	# Element methods
 	#
 
-	def _updateColumninfo(self):
+	def _update_column_info(self):
+		"""
+		Used for validation during parsing, and additional
+		book-keeping.  For internal use only.
+		"""
 		self.columnnames = []
 		self.columntypes = []
 		for child in self.childNodes:
@@ -456,13 +461,24 @@ class Table(ligolw.Table, list):
 				raise ligolw.ElementError, "unrecognized Type attribute \"%s\" for Column \"%s\" in Table \"%s\"" % (llwtype, child.getAttribute("Name"), self.getAttribute("Name"))
 
 	def _verifyChildren(self, i):
+		"""
+		Used for validation during parsing, and additional
+		book-keeping.  For internal use only.
+		"""
 		ligolw.Table._verifyChildren(self, i)
 		child = self.childNodes[i]
 		if child.tagName == ligolw.Column.tagName:
-			self._updateColumninfo()
+			self._update_column_info()
 		elif child.tagName == ligolw.Stream.tagName:
 			if child.getAttribute("Name") != self.getAttribute("Name"):
 				raise ligolw.ElementError, "Stream name \"%s\" does not match Table name \"%s\"" % (child.getAttribute("Name"), self.getAttribute("Name"))
+
+	def _end_of_columns(self):
+		"""
+		Called during parsing to indicate that the last Column
+		child element has been added.
+		"""
+		pass
 
 	def removeChild(self, child):
 		"""
@@ -471,7 +487,7 @@ class Table(ligolw.Table, list):
 		"""
 		ligolw.Table.removeChild(self, child)
 		if child.tagName == ligolw.Column.tagName:
-			self._updateColumninfo()
+			self._update_column_info()
 		return child
 
 	def unlink(self):
@@ -503,6 +519,7 @@ def startColumn(self, attrs):
 
 def startStream(self, attrs):
 	if self.current.tagName == ligolw.Table.tagName:
+		self.current._end_of_columns()
 		return TableStream(attrs)
 	return __parent_startStream(self, attrs)
 
@@ -517,10 +534,17 @@ def endStream(self):
 def startTable(self, attrs):
 	return Table(attrs)
 
+def endTable(self):
+	# Table elements are allowed to contain 0 Stream children, but
+	# _end_of_columns() needs to be called regardless.
+	if self.current.childNodes[-1].tagName != ligolw.Stream.tagName:
+		self.current._end_of_columns()
+
 ligolw.LIGOLWContentHandler.startColumn = startColumn
 ligolw.LIGOLWContentHandler.startStream = startStream
 ligolw.LIGOLWContentHandler.endStream = endStream
 ligolw.LIGOLWContentHandler.startTable = startTable
+ligolw.LIGOLWContentHandler.endTable = endTable
 
 
 #
