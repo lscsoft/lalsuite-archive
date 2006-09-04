@@ -31,7 +31,7 @@ import math
 import matplotlib.cm
 import numarray
 import os
-from pysqlite2 import dbapi2 as sqlite
+from pysqlite2 import dbapi2 as sqlite3
 import sys
 
 from glue import segments
@@ -526,8 +526,8 @@ plots = new_plots(options.plot)
 for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose, reverse = True)[options.skip:]):
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames) - options.skip),
-	database = SnglBurstUtils.CoincDatabase(sqlite.connect(":memory:"))
-	#database = SnglBurstUtils.CoincDatabase(sqlite.connect("database.sqlite"))
+	database = SnglBurstUtils.CoincDatabase(sqlite3.connect(":memory:"))
+	#database = SnglBurstUtils.CoincDatabase(sqlite3.connect("database.sqlite"))
 	xmldoc = utils.load_filename(filename, options.verbose, gz = filename[-3:] == ".gz")
 	database.summarize(xmldoc, options.live_time_program, options.verbose)
 	for n, plot in zip(options.plot, plots):

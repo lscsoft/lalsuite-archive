@@ -29,7 +29,7 @@
 import math
 from optparse import OptionParser
 import numarray
-from pysqlite2 import dbapi2 as sqlite
+from pysqlite2 import dbapi2 as sqlite3
 import sys
 
 from glue import segments
@@ -327,7 +327,7 @@ plots = {}
 for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose, reverse = True)):
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
-	database = SnglBurstUtils.CoincDatabase(sqlite.connect(":memory:"))
+	database = SnglBurstUtils.CoincDatabase(sqlite3.connect(":memory:"))
 	xmldoc = utils.load_filename(filename, options.verbose, gz = filename[-3:] == ".gz")
 	database.summarize(xmldoc, options.live_time_program, options.verbose)
 	for instrument in database.instruments:
