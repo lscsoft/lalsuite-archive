@@ -340,6 +340,8 @@ class CacheEntry(object):
 		>>> c = CacheEntry("H1", "S5", segments.segment(815901601, 815902177.5), "file://localhost/home/kipp/tmp/1/H1-815901601-576.xml")
 		>>> print c.segment
 		[815901601 ... 815902177.5]
+		>>> print str(c)
+		'H1 S5 815901601 576.5 file://localhost/home/kipp/tmp/1/H1-815901601-576.xml'
 		>>> c = CacheEntry("H1 S5 815901601 576.5 file://localhost/home/kipp/tmp/1/H1-815901601-576.xml")
 		>>> print c.segment
 		[815901601 ... 815902177.5]
@@ -368,12 +370,20 @@ class CacheEntry(object):
 		else:
 			raise TypeError, "invalid arguments: %s" % args
 
+		# "-" indicates an empty column;  only observatory and
+		# description should be empty
+		if self.observatory == "-":
+			self.observatory = None
+		if self.description == "-":
+			self.description = None
+
 
 	def __str__(self):
 		"""
-		String representation is the line in the cache file.
+		Returns a string, with the format of a line in a LAL cache,
+		containing the contents of this cache entry.
 		"""
-		return "%s %s %s %s %s" % (self.observatory, self.description, self.segment[0], self.segment.duration(), self.url)
+		return "%s %s %s %s %s" % (self.observatory or "-", self.description or "-", self.segment[0], self.segment.duration(), self.url)
 
 	def __cmp__(self, other):
 		"""
