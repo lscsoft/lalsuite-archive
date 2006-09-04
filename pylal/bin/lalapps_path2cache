@@ -24,7 +24,6 @@ __date__ = "$Date$"[7:-2]
 
 import os.path
 import re
-import string
 import sys
 from optparse import OptionParser
 
@@ -46,12 +45,12 @@ options = parse_command_line()
 # Open input and output streams
 #
 
-if len(options.input):
+if options.input:
 	input = file(options.input)
 else:
 	input = sys.stdin
 
-if len(options.output):
+if options.output:
 	output = file(options.output)
 else:
 	output = sys.stdout
@@ -80,4 +79,4 @@ for line in input:
 	total_duration += int(duration)
 
 if options.verbose:
-	print >> sys.stderr, "number of paths: %d\ntotal duration: %d" % (path_count, total_duration)
+	print >>sys.stderr, "number of paths: %d\ntotal duration: %d" % (path_count, total_duration)
