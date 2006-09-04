@@ -33,6 +33,7 @@ String cusp search final output rendering tool.
 import bisect
 from optparse import OptionParser
 import math
+from matplotlib import patches
 import numarray
 import re
 from pysqlite2 import dbapi2 as sqlite
@@ -61,7 +62,6 @@ __date__ = "$Date$"[7:-2]
 def parse_command_line():
 	parser = OptionParser(version="%prog CVS $Id$")
 	parser.add_option("-a", "--amplitude-factor", metavar = "factor", default = "1e-20", help = "multiple amplitudes in XML files by this amount (default = 1e-20)")
-	parser.add_option("-f", "--format", metavar = "format", default = "png", help = "set the output image format (default = png)")
 	parser.add_option("-i", "--injections", action = "store_true", help = "generate efficiency plots from the output files of an injection run")
 	parser.add_option("--loudest-survivor", metavar = "instrument=amplitude", default = None, help = "set amplitude of loudest zero-lag non-injection survivor for efficiency plots")
 	parser.add_option("-l", "--live-time-program", metavar = "program", default = "StringSearch", help = "set the name, as it appears in the process table, of the program whose search summary entries define the search live time (default = StringSearch)")
@@ -195,17 +195,52 @@ class RateVsAmplitude(SnglBurstUtils.BurstPlot):
 # =============================================================================
 #
 
-def interpolate(y, x1, y1, x2, y2):	
+def solve(x, y, xval = None, yval = None):
 	"""
-	Given (x1, y1) and (x2, y2), solve for the x corresponding to y
-	assuming a straight line between between the two points.
+	From the x and y arrays, solve for the value of x where y = yval,
+	or for the value of y where x = xval.  Can't do both.  A linear
+	interpolation is done between (x,y) pairs.
 	"""
-	return x1 + (x2 - x1) * (y - y1) / (y2 - y1)
+	# FIXME: assumes x and y are both monotonically increasing!
+	if xval == None and yval != None:
+		i = bisect.bisect_left(y, yval)
+		return x[i - 1] + (x[i] - x[i - 1]) * (yval - y[i - 1]) / (y[i] - y[i - 1])
+	elif xval != None and yval == None:
+		i = bisect.bisect_left(x, xval)
+		return y[i - 1] + (y[i] - y[i - 1]) * (xval - x[i - 1]) / (x[i] - x[i - 1])
+	else:
+		raise ValueError, "invalid arguments"
+
+
+def y_per_bin(y, yval):
+	"""
+	From the x and y arrays, compute the delta y per bin at y = yval.
+	"""
+	i = bisect.bisect_left(y, yval)
+	return y[i] - y[i - 1]
+
+
+def upper_err(y, yerr, deltax):
+	z = y + yerr
+	deltax = int(deltax)
+	upper = numarray.zeros((len(yerr),), "Float64")
+	for i in xrange(len(yerr)):
+		upper[i] = max(z[max(i - deltax, 0) : min(i + deltax, len(z))])
+	return upper - y
+
+
+def lower_err(y, yerr, deltax):
+	z = y - yerr
+	deltax = int(deltax)
+	lower = numarray.zeros((len(yerr),), "Float64")
+	for i in xrange(len(yerr)):
+		lower[i] = min(z[max(i - deltax, 0) : min(i + deltax, len(z))])
+	return y - lower
 
 
 def latexnumber(s):
 	"""
-	Convert strings of the form "d.dddde-dd" to "d.dddd \times
+	Convert a string of the form "d.dddde-dd" to "d.dddd \times
 	10^{-dd}"
 	"""
 	return re.sub(r"([.0-9]+)e?([+-]?[0-9]+)", r"\1 \\times 10^{\2}", s)
@@ -303,16 +338,25 @@ WHERE
 		min_amplitude = self.all[0].hpeak * self.amplitude_factor
 		max_amplitude = self.all[-1].hpeak * self.amplitude_factor
 
-		bins = rate.Bins(min_amplitude, max_amplitude, 100, spacing = ["log"])
+		bins = rate.Bins(min_amplitude, max_amplitude, 400, spacing = ["log"])
 		efficiency = rate.BinnedRatios(bins)
 		efficiency_above_loudest = rate.BinnedRatios(bins)
 		for sim in self.found:
-			efficiency.incnumerator((sim.hpeak * self.amplitude_factor,))
+			try:
+				efficiency.incnumerator((sim.hpeak * self.amplitude_factor,))
+			except IndexError:
+				pass
 		for sim in self.found_above_loudest:
-			efficiency_above_loudest.incnumerator((sim.hpeak * self.amplitude_factor,))
+			try:
+				efficiency_above_loudest.incnumerator((sim.hpeak * self.amplitude_factor,))
+			except IndexError:
+				pass
 		for sim in self.all:
-			efficiency.incdenominator((sim.hpeak * self.amplitude_factor,))
-			efficiency_above_loudest.incdenominator((sim.hpeak * self.amplitude_factor,))
+			try:
+				efficiency.incdenominator((sim.hpeak * self.amplitude_factor,))
+				efficiency_above_loudest.incdenominator((sim.hpeak * self.amplitude_factor,))
+			except IndexError:
+				pass
 		efficiency.regularize()
 		efficiency_above_loudest.regularize()
 
@@ -323,33 +367,48 @@ WHERE
 		eff_above_loudest = efficiency_above_loudest.ratio()
 		eff_above_loudest_yerr = numarray.sqrt(eff_above_loudest * (1 - eff_above_loudest) / efficiency_above_loudest.denominator)
 
-		self.axes.errorbar(x, eff, yerr = eff_yerr, fmt = "ko", label = None)
-		self.axes.errorbar(x, eff_above_loudest, yerr = eff_above_loudest_yerr, fmt = "ro", label = None)
+		#self.axes.errorbar(x, eff, yerr = eff_yerr, fmt = "ko", label = None)
+		#self.axes.errorbar(x, eff_above_loudest, yerr = eff_above_loudest_yerr, fmt = "ro", label = None)
 
-		# generate and plot trend curves
-		windowfunc = rate.gaussian_window(5.882352941176471)
+		# generate and plot trend curves.  adjust window function
+		# normalization so that denominator array correctly
+		# represents the number of injections contributing to each
+		# bin:  make w(0) = 1.0
+		width = 16.7
+		windowfunc = rate.gaussian_window(width)
+		windowfunc /= windowfunc[len(windowfunc) / 2 + 1]
 		rate.filter_array(efficiency.numerator, windowfunc)
 		rate.filter_array(efficiency.denominator, windowfunc)
 		rate.filter_array(efficiency_above_loudest.numerator, windowfunc)
 		rate.filter_array(efficiency_above_loudest.denominator, windowfunc)
 		eff = efficiency.ratio()
+		eff_yerr = numarray.sqrt(eff * (1 - eff) / efficiency.denominator)
 		eff_above_loudest = efficiency_above_loudest.ratio()
+		eff_above_loudest_yerr = numarray.sqrt(eff_above_loudest * (1 - eff_above_loudest) / efficiency_above_loudest.denominator)
+
+		self.axes.add_patch(patches.Polygon(zip(numarray.concatenate((x, x[::-1])), numarray.concatenate((eff + upper_err(eff, eff_yerr, width / 2), (eff - lower_err(eff, eff_yerr, width / 2))[::-1]))), edgecolor = "k", facecolor="k", alpha = 0.3))
 		line1 = self.axes.plot(x, eff, "k-")
+
+		self.axes.add_patch(patches.Polygon(zip(numarray.concatenate((x, x[::-1])), numarray.concatenate((eff_above_loudest + upper_err(eff_above_loudest, eff_above_loudest_yerr, width / 2), (eff_above_loudest - lower_err(eff_above_loudest, eff_above_loudest_yerr, width / 2))[::-1]))), edgecolor = "r", facecolor="r", alpha = 0.3))
 		line2 = self.axes.plot(x, eff_above_loudest, "r-")
-		self.axes.legend((line1, line2), ("All recovered injections", r"Injections recovered in %s with \(A > %s\,\mathrm{s}^{-\frac{1}{3}}\)" % (self.loudest_survivor_inst, latexnumber("%g" % (self.loudest_survivor_ampl * self.amplitude_factor)))), loc = "lower right")
+
+		self.axes.legend((line1, line2), (r"All recovered injections", r"\noindent Injections recovered in %s with\\\(A > %s\,\mathrm{s}^{-\frac{1}{3}}\)" % (self.loudest_survivor_inst, latexnumber("%g" % (self.loudest_survivor_ampl * self.amplitude_factor)))), loc = "lower right")
 
 		# compute 50% point from trend curves
-		i = bisect.bisect_left(eff, 0.5)
-		A50 = interpolate(0.5, x[i - 1], eff[i - 1], x[i], eff[i])
+		A50 = solve(x, eff, yval = 0.5)
 		print "Pipeline's 50%% efficiency point for all detections = %g" % A50
-		i = bisect.bisect_left(eff_above_loudest, 0.5)
-		A50_above_loudest = interpolate(0.5, x[i - 1], eff_above_loudest[i - 1], x[i], eff_above_loudest[i])
+		A50_above_loudest = solve(x, eff_above_loudest, yval = 0.5)
 		print "Pipeline's 50%% efficiency point for detections above loudest = %g" % A50_above_loudest
+		print "Bins were %g samples wide, ideal would have been %g" % (width, (float(len(efficiency.denominator)) / len(self.all) / y_per_bin(eff, yval = 0.5)**2.0)**(1.0/3.0))
+		print "Average number of injections in each bin = %g" % efficiency.denominator.mean()
 
 		# mark on graph
 		self.axes.axhline(0.5, color = "k", linestyle = "--")
 		self.axes.axvline(A50, color = "k")
 		self.axes.axvline(A50_above_loudest, color = "r")
+
+		# finalize
+		self.axes.set_ylim([0, 1])
 
 
 #
@@ -395,13 +454,14 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 n = 0
 format = "%%s%%0%dd.%%s" % (int(math.log10(max(len(plots) - 1, 1))) + 1)
 while len(plots):
-	filename = format % ("string_", n, options.format)
 	if options.verbose:
 		print >>sys.stderr, "finishing plot %d ..." % n
 	plots[0].finish()
-	if options.verbose:
-		print >>sys.stderr, "writing %s ..." % filename
-	plots[0].fig.savefig(filename)
+	for ext in ["png", "eps"]:
+		filename = format % ("string_", n, ext)
+		if options.verbose:
+			print >>sys.stderr, "writing %s ..." % filename
+		plots[0].fig.savefig(filename)
 	del plots[0]
 	n += 1
 if survivors:
