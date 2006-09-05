@@ -63,8 +63,8 @@ extern PyTypeObject segments_Infinity_Type;
  * Pre-allocated instances
  */
 
-extern segments_Infinity *segments_PosInfinity;
-extern segments_Infinity *segments_NegInfinity;
+extern segments_Infinity *_infinity__pos_infinity;
+extern segments_Infinity *_infinity__neg_infinity;
 
 
 #endif /* __SEGMENTS_H__ */

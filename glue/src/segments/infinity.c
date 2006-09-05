@@ -46,8 +46,8 @@
  * Preallocated instances
  */
 
-segments_Infinity *segments_PosInfinity;
-segments_Infinity *segments_NegInfinity;
+segments_Infinity *_infinity__pos_infinity;
+segments_Infinity *_infinity__seg_infinity;
 
 
 /*
@@ -67,8 +67,25 @@ static int segments_Infinity_Check(PyObject *obj)
 
 static PyObject *__new__(PyTypeObject *subtype, PyObject *args, PyObject *kwds)
 {
-	Py_INCREF(segments_PosInfinity);
-	return (PyObject *) segments_PosInfinity;
+	int sign;
+	PyObject *self;
+
+	if(PyTuple_Size(args)) {
+		if(!PyArg_ParseTuple(args, "i:infinity", &sign))
+			return NULL;
+		if(sign > 0)
+			self = (PyObject *) _infinity__pos_infinity;
+		else if (sign < 0)
+			self = (PyObject *) _infinity__neg_infinity;
+		else {
+			PyErr_SetObject(PyExc_ValueError, args);
+			return NULL;
+		}
+	} else
+		self = (PyObject *) _infinity__pos_infinity;
+
+	Py_INCREF(self);
+	return self;
 }
 
 
@@ -97,10 +114,10 @@ static PyObject *__neg__(PyObject *self)
 		return NULL;
 	}
 
-	if(self == (PyObject *) segments_PosInfinity)
-		result = (PyObject *) segments_NegInfinity;
+	if(self == (PyObject *) _infinity__pos_infinity)
+		result = (PyObject *) _infinity__seg_infinity;
 	else
-		result = (PyObject *) segments_PosInfinity;
+		result = (PyObject *) _infinity__pos_infinity;
 	Py_INCREF(result);
 	return result;
 }
@@ -111,7 +128,7 @@ static int __nonzero__(PyObject *self)
 	if(segments_Infinity_Check(self))
 		return 1;
 	PyErr_SetObject(PyExc_TypeError, self);
-	return 0;
+	return -1;
 }
 
 
@@ -128,7 +145,7 @@ static PyObject *__pos__(PyObject *self)
 
 static PyObject *__repr__(PyObject *self)
 {
-	return PyString_FromString(self == (PyObject *) segments_PosInfinity ? "infinity" : "-infinity");
+	return PyString_FromString(self == (PyObject *) _infinity__pos_infinity ? "infinity" : "-infinity");
 }
 
 
@@ -140,19 +157,18 @@ static PyObject *__reduce__(PyObject *self, PyObject *args)
 	}
 
 	Py_INCREF(&segments_Infinity_Type);
-	/* FIXME */
-	return Py_BuildValue("(O,())", &segments_Infinity_Type);
+	return Py_BuildValue("(O,(i))", &segments_Infinity_Type, self == (PyObject *) _infinity__pos_infinity ? 1 : -1);
 }
 
 
 static PyObject *richcompare(PyObject *self, PyObject *other, int op_id)
 {
-	int s = segments_Infinity_Check(self) ? self == (PyObject *) segments_PosInfinity ? +1 : -1 : 0;
-	int o = segments_Infinity_Check(other) ? other == (PyObject *) segments_PosInfinity ? +1 : -1 : 0;
+	int s = segments_Infinity_Check(self) ? self == (PyObject *) _infinity__pos_infinity ? +1 : -1 : 0;
+	int o = segments_Infinity_Check(other) ? other == (PyObject *) _infinity__pos_infinity ? +1 : -1 : 0;
 	int d = s - o;
 	PyObject *result;
 
-	if(!s && !o) {
+	if(!(s || o)) {
 		PyErr_SetObject(PyExc_TypeError, other);
 		return NULL;
 	}
@@ -209,10 +225,10 @@ static PyObject *__sub__(PyObject *self, PyObject *other)
 			PyErr_SetObject(PyExc_TypeError, self);
 			return NULL;
 		}
-		if(other == (PyObject *) segments_PosInfinity)
-			result = (PyObject *) segments_NegInfinity;
+		if(other == (PyObject *) _infinity__pos_infinity)
+			result = (PyObject *) _infinity__seg_infinity;
 		else
-			result = (PyObject *) segments_PosInfinity;
+			result = (PyObject *) _infinity__pos_infinity;
 	}
 	Py_INCREF(result);
 	return result;

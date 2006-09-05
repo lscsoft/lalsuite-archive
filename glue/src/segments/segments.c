@@ -60,8 +60,8 @@ void init__segments(void)
 	 * Create positive and negative infinity instances
 	 */
 
-	segments_PosInfinity = (segments_Infinity *) _PyObject_New(&segments_Infinity_Type);
-	Py_INCREF(segments_PosInfinity);
-	segments_NegInfinity = (segments_Infinity *) _PyObject_New(&segments_Infinity_Type);
-	Py_INCREF(segments_NegInfinity);
+	_infinity__pos_infinity = (segments_Infinity *) _PyObject_New(&segments_Infinity_Type);
+	Py_INCREF(_infinity__pos_infinity);
+	_infinity__neg_infinity = (segments_Infinity *) _PyObject_New(&segments_Infinity_Type);
+	Py_INCREF(_infinity__neg_infinity);
 }
