@@ -1042,12 +1042,12 @@ class SnglBurst(LSCTableRow):
 		return segments.segment(start, start + self.duration)
 
 	def set_period(self, period):
-		# FIXME: should duration be forced to type float?
 		self.start_time, self.start_time_ns = period[0].seconds, period[0].nanoseconds
 		self.duration = float(period.duration())
 
 	def get_band(self):
-		return segments.segment(self.central_freq - self.bandwidth/2.0, self.central_freq + self.bandwidth/2.0)
+		low = self.central_freq - self.bandwidth / 2
+		return segments.segment(low, low + self.bandwidth)
 
 	def set_band(self, band):
 		self.central_freq = (band[0] + band[1])/2.0
