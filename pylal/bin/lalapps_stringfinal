@@ -158,7 +158,7 @@ class RateVsAmplitude(SnglBurstUtils.BurstPlot):
 			for coinc in contents.coinc_table.selectByTimeSlideID(time_slide_id):
 				if coinc.coinc_def_id != contents.bb_definer_id:
 					continue
-				for burst in coinc.sngl_bursts():
+				for burst in contents.coinc_sngl_bursts(coinc):
 					if burst.ifo == self.instrument:
 						bins.append(burst.amplitude * self.amplitude_factor)
 		contents.seglists.offsets.clear()

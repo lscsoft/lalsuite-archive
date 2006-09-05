@@ -249,8 +249,8 @@ class RecoveredVsInjectedAmplitude(SnglBurstUtils.BurstPlot):
 	def add_contents(self, contents):
 		for coinc in contents.coinc_table.selectByDefID(contents.sb_definer_id):
 			self.found += 1
-			confidence = max([-burst.confidence for burst in coinc.sngl_bursts()])
-			for sim in coinc.sim_bursts():
+			confidence = max([-burst.confidence for burst in contents.coinc_sngl_bursts(coinc)])
+			for sim in contents.coinc_sim_bursts(coinc):
 				self.injected.append(sim.hrss)
 				self.recovered.append(confidence)
 
@@ -280,8 +280,8 @@ class RecoveredTimeOffset(SnglBurstUtils.BurstPlot):
 			self.found += 1
 			best_conf = 0.0
 			best_dt = None
-			sim = list(coinc.sim_bursts())[0]
-			for burst in coinc.sngl_bursts():
+			sim = list(contents.coinc_sim_bursts(coinc))[0]
+			for burst in contents.coinc_sngl_bursts(coinc):
 				dt = burst.get_peak() - sim.get_peak(burst.ifo)
 				try:
 					self.offsets[dt] = 1.0
