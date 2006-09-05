@@ -100,7 +100,7 @@ class ExcessPowerEventList(snglcoinc.EventList):
 		Build a start time look up table and find the maximum of
 		the event durations.  The start time look-up table is
 		required because Python's bisection search cannot make use
-		of an external comparison function.
+		of an external comparison function (argh).
 		"""
 		# sort in increasing order by start time
 		self.sort(lambda a, b: cmp(a.start_time, b.start_time) or cmp(a.start_time_ns, b.start_time_ns))
@@ -129,7 +129,7 @@ class StringEventList(snglcoinc.EventList):
 		"""
 		Build a peak time look up table.  The peak time look-up
 		table is required because Python's bisection search cannot
-		make use of an external comparison function.
+		make use of an external comparison function (argh).
 		"""
 		# sort in increasing order by peak time
 		self.sort(lambda a, b: cmp(a.peak_time, b.peak_time) or cmp(a.peak_time_ns, b.peak_time_ns))
@@ -156,6 +156,8 @@ class StringEventList(snglcoinc.EventList):
 #
 # =============================================================================
 #
+
+FinalCompareFunc = None
 
 def ligolw_burca(xmldoc, **kwargs):
 	# add an entry in the process table
@@ -191,8 +193,9 @@ def ligolw_burca(xmldoc, **kwargs):
 		if kwargs["verbose"]:
 			print >>sys.stderr, "\tsearching ..."
 		# search for and record coincidences
-		for ntuple in snglcoinc.CoincidentNTuples(eventlists, offsetdict.keys(), kwargs["window"], kwargs["verbose"]):
-			coinc_tables.append_coinc(process.process_id, time_slide_id, ntuple)
+		for ntuple in snglcoinc.CoincidentNTuples(eventlists, offsetdict.iterkeys(), kwargs["window"], kwargs["verbose"]):
+			if not (FinalCompareFunc and FinalCompareFunc(ntuple, kwargs["window"])):
+				coinc_tables.append_coinc(process.process_id, time_slide_id, ntuple)
 
 	# clean up and finish
 	eventlists.remove_offsetdict()
