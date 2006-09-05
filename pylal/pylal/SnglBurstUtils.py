@@ -100,6 +100,7 @@ class SnglBurstTable(Table):
 
 
 class SnglBurst(lsctables.SnglBurst):
+	# use pylal.date.LIGOTimeGPS for speed
 	def get_peak(self):
 		return LIGOTimeGPS(self.peak_time, self.peak_time_ns)
 
@@ -112,10 +113,6 @@ class SnglBurst(lsctables.SnglBurst):
 	def get_period(self):
 		start = LIGOTimeGPS(self.start_time, self.start_time_ns)
 		return segments.segment(start, start + self.duration)
-
-	def get_band(self):
-		low = self.central_freq - self.bandwidth / 2
-		return segments.segment(low, low + self.bandwidth)
 
 SnglBurstTable.RowType = SnglBurst
 
@@ -131,6 +128,7 @@ class SimBurstTable(Table):
 
 
 class SimBurst(lsctables.SimBurst):
+	# use pylal.date.LIGOTimeGPS for speed
 	def get_geocent_peak(self):
 		return LIGOTimeGPS(self.geocent_peak_time, self.geocent_peak_time_ns)
 
@@ -146,6 +144,7 @@ SimBurstTable.RowType = SimBurst
 
 
 class TimeSlideTable(Table):
+	# this is a little different because multiple rows share ID
 	tableName = lsctables.TimeSlideTable.tableName
 	validcolumns = lsctables.TimeSlideTable.validcolumns
 	constraints = "PRIMARY KEY (time_slide_id, instrument)"
@@ -164,14 +163,14 @@ class TimeSlideTable(Table):
 			yield id
 
 	def is_null(self, id):
-		# FIXME: use EXISTS?
-		return not self.cursor.execute("SELECT COUNT(time_slide_id) FROM time_slide WHERE time_slide_id == ? AND offset != 0 LIMIT 1", (id,)).fetchone()[0]
+		return not self.cursor.execute("SELECT EXISTS (SELECT * FROM time_slide WHERE time_slide_id == ? AND offset != 0.0)", (id,)).fetchone()[0]
 
 	def all_offsets(self):
 		return [self[id] for (id,) in self.connection.cursor().execute("SELECT DISTINCT time_slide_id FROM time_slide")]
 
 
 class CoincDefTable(Table):
+	# this is a little different because multiple rows share an ID
 	tableName = lsctables.CoincDefTable.tableName
 	validcolumns = lsctables.CoincDefTable.validcolumns
 
@@ -228,8 +227,7 @@ class Coinc(lsctables.Coinc):
 		return offsets
 
 	def is_zero_lag(self):
-		# FIXME: use EXISTS?
-		return not CoincTable.connection.cursor().execute("SELECT COUNT(offset) FROM time_slide WHERE time_slide_id == ? AND offset != 0", (self.time_slide_id,)).fetchone()[0]
+		return not CoincTable.connection.cursor().execute("SELECT EXISTS (SELECT * FROM time_slide WHERE time_slide_id == ? AND offset != 0.0)", (self.time_slide_id,)).fetchone()[0]
 
 CoincTable.RowType = Coinc
 
