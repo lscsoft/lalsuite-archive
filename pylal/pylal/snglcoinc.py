@@ -213,10 +213,10 @@ class EventList(list):
 		with event_a, not merely be likely to be coincident with
 		event_a given more careful scrutiny, because the events
 		returned by this method will never again been compared to
-		event_a.  It is not necessary for the events returned to be
-		mutually coincident in any way (that might not even make
-		sense, since each list contains only events from a single
-		instrument).
+		event_a.  However, it is not necessary for the events in
+		the list returned to be themselves mutually coincident in
+		any way (that might not even make sense, since each list
+		contains only events from a single instrument).
 		"""
 		raise NotImplementedError
 
@@ -224,7 +224,7 @@ class EventList(list):
 class EventListDict(dict):
 	"""
 	A dictionary of EventList objects, indexed by instrument,
-	initialized from an XML sngl_burst table and a list of process IDs
+	initialized from an XML trigger table and a list of process IDs
 	whose events should be included.  The EventListType attribute must
 	be set to a subclass of the EventList class.
 	"""
@@ -236,26 +236,26 @@ class EventListDict(dict):
 	def __init__(self, event_table, process_ids):
 		for event in event_table:
 			if llwapp.bisect_contains(process_ids, event.process_id):
-				try:
-					self[event.ifo].append(event)
-				except KeyError:
+				if event.ifo not in self:
 					self[event.ifo] = self.EventListType()
-					self[event.ifo].append(event)
+				self[event.ifo].append(event)
 		for l in self.itervalues():
 			l.make_index()
 
 	def set_offsetdict(self, offsetdict):
 		"""
-		Set the events list offsets to those in the dictionary of
+		Set the event list offsets to those in the dictionary of
 		instrument/offset pairs.  Instruments not in offsetdict are
-		not modified.
+		not modified.  KeyError is raised if the dictionary of
+		instrument/offset pairs contains a key (instrument) that
+		this dictionary does not.
 		"""
 		for instrument, offset in offsetdict.iteritems():
 			self[instrument].set_offset(offset)
 
 	def remove_offsetdict(self):
 		"""
-		Remove the offsets from all event lists.
+		Remove the offsets from all event lists (reset them to 0).
 		"""
 		for l in self.itervalues():
 			l.set_offset(LIGOTimeGPS(0))
@@ -283,12 +283,12 @@ def coincident_process_ids(xmldoc, max_delta_t, program):
 	"""
 	Take an XML document tree and determine the list of process IDs
 	that will participate in coincidences identified by the time slide
-	table therein.  It is OK for document to contain time slides
+	table therein.  It is OK for xmldoc to contain time slides
 	involving instruments not represented in the list of processes,
 	these time slides are ignored.  max_delta_t is the largest time
 	window that will be considered in the coincidence tests;  that is
-	two segments can have a gap this large between them and still be
-	considered coincident.
+	after applying a time slide, two segments can have a gap this large
+	between them and still be considered coincident.
 	"""
 	# extract a segmentlistdict;  protract by half the largest
 	# coincidence window so as to not miss edge effects
@@ -340,8 +340,8 @@ def Level1Iterator(eventlists, instruments, thresholds):
 	First-pass coincidence generator.  Generates a sequence of tuples
 	whose elements are, in order:
 
-	n:  a progress indicator whose value is in the range [0, length)
-	length:  the upper bound for n
+	tick:  a progress indicator whose value is in the range [0, ticks)
+	ticks:  the upper bound for tick
 	event:  a burst event
 	ntuples:  see below
 
@@ -380,14 +380,15 @@ def mutually_coincident(events, thresholds):
 
 def CoincidentNTuples(eventlists, instruments, thresholds, verbose = False):
 	"""
-	Given a EventListDict object, a list of instruments, and a
-	dictionary of instrument pair thresholds, generate a sequence of
-	lists of mutually coincident events.  Each list has exactly one
-	event from each instrument.
+	Given an EventListDict object, a list (or iterator) of instruments,
+	and a dictionary of instrument pair thresholds, generate a sequence
+	of lists of mutually coincident events.  Each list of mutually
+	coincident events yielded by this generator will contain exactly
+	one event from each of the instruments in the instrument list.
 	"""
-	for n, length, event, ntuples in Level1Iterator(eventlists, instruments, thresholds):
-		if verbose and not (n % (length / 200 or 1)):
-			print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / length),
+	for tick, ticks, event, ntuples in Level1Iterator(eventlists, instruments, thresholds):
+		if verbose and not (tick % (ticks / 200 or 1)):
+			print >>sys.stderr, "\t%.1f%%\r" % (100.0 * tick / ticks),
 		for ntuple in ntuples:
 			if mutually_coincident(ntuple, thresholds):
 				ntuple.append(event)
