@@ -292,7 +292,7 @@ class TableStream(ligolw.Stream):
 		# has been set.
 		if self.__row == None:
 			self.__colnames = tuple(self.parentNode.columnnames)
-			self.tokenizer.set_types(self.parentNode.columntypes)
+			self.tokenizer.set_types(self.parentNode.columnpytypes)
 			self.__numcols = len(self.__colnames)
 			self.__loadcolumns = self.parentNode.loadcolumns
 			self.__row = self.parentNode.RowType()
@@ -377,6 +377,7 @@ class Table(ligolw.Table, list):
 		ligolw.Table.__init__(self, *attrs)
 		self.columnnames = []
 		self.columntypes = []
+		self.columnpytypes = []
 
 	#
 	# Sequence methods
@@ -438,6 +439,7 @@ class Table(ligolw.Table, list):
 		"""
 		self.columnnames = []
 		self.columntypes = []
+		self.columnpytypes = []
 		for child in self.childNodes:
 			if child.tagName != ligolw.Column.tagName:
 				continue
@@ -451,12 +453,13 @@ class Table(ligolw.Table, list):
 			if colname in self.columnnames:
 				raise ligolw.ElementError, "duplicate Column \"%s\"" % child.getAttribute("Name")
 			self.columnnames.append(colname)
+			self.columntypes.append(llwtype)
 			if llwtype in types.StringTypes:
-				self.columntypes.append(str)
+				self.columnpytypes.append(str)
 			elif llwtype in types.IntTypes:
-				self.columntypes.append(int)
+				self.columnpytypes.append(int)
 			elif llwtype in types.FloatTypes:
-				self.columntypes.append(float)
+				self.columnpytypes.append(float)
 			else:
 				raise ligolw.ElementError, "unrecognized Type attribute \"%s\" for Column \"%s\" in Table \"%s\"" % (llwtype, child.getAttribute("Name"), self.getAttribute("Name"))
 
