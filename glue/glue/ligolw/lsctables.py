@@ -179,21 +179,6 @@ def getTablesFromILWD(elem, ilwdchar):
 	return elem.getElements(lambda e: (e.tagName == ligolw.Table.tagName) and (table.CompareTableNames(e.getAttribute("Name"), IDTableName(ilwdchar)) == 0))
 
 
-def FindILWD(tables, ilwdchar):
-	"""
-	Search all rows in the list of tables for one with the given ID,
-	and return a reference to the row object.  If the ID is not unique,
-	the first row found is returned.  KeyError is raised if no rows are
-	found or the ID cannot be parsed.
-	"""
-	for t in tables:
-		try:
-			return t.dict[ilwdchar]
-		except KeyError:
-			pass
-	raise KeyError, repr(ilwdchar)
-
-
 class ILWD(object):
 	"""
 	Unique ILWD generator.
@@ -242,35 +227,10 @@ def NewILWDs(table_elem, column_name):
 	table.
 	"""
 	try:
-		n = max(map(ILWDID, table_elem.dict.keys()))
+		n = max([ILWDID(row._get_key()) for row in table_elem])
 	except ValueError:
 		n = -1
 	return ILWD(table.StripTableName(table_elem.getAttribute("Name")), column_name, n + 1)
-
-
-def makeReference(elem):
-	"""
-	Run the makeReference() method on all LSC tables below elem,
-	constructing references to other tables under elem.
-	"""
-	for table_elem in getLSCTables(elem):
-		try:
-			table_elem.makeReference(elem)
-		except AttributeError:
-			# table_elem is missing a cross-reference column.
-			pass
-
-
-def deReference(elem):
-	"""
-	Run the deReference() method on all LSC tables below elem.
-	"""
-	for table_elem in getLSCTables(elem):
-		try:
-			table_elem.deReference()
-		except AttributeError:
-			# table_elem is missing a cross-reference column.
-			pass
 
 
 def NewIDs(elem, ilwditers):
@@ -279,26 +239,17 @@ def NewIDs(elem, ilwditers):
 	recurse over all tables below elem whose names are in the
 	dictionary, and use the corresponding ILWD iterator object to
 	construct a mapping of old row keys to new row keys.  Finally,
-	apply the mapping to all rows.
+	apply the mapping to all rows of all tables.
 	"""
-	for tablename, ilwditer in ilwditers.iteritems():
-		for table_elem in table.getTablesByName(elem, tablename):
-			keymap = {}
-			try:
-				for oldkey in table_elem.dict.keys():
-					keymap[oldkey] = ilwditer.next()
-			except AttributeError:
-				# table_elem is missing its ID column
-				continue
-			if not len(keymap):
-				continue
-			for row in table_elem:
-				try:
-					row._set_key(keymap[row._get_key()])
-				except KeyError:
-					# row has a key not listed in the
-					# table's dictionary.
-					pass
+	mapping = {}
+	for tbl in elem.getElementsByTagName(ligolw.Table.tagName):
+		try:
+			ilwditer = ilwditers[table.StripTableName(tbl.tableName)]
+		except KeyError:
+			continue
+		tbl.updateKeyMapping(mapping, ilwditer)
+	for tbl in elem.getElementsByTagName(ligolw.Table.tagName):
+		tbl.applyKeyMapping(mapping)
 
 
 #
@@ -496,37 +447,84 @@ class LSCTableMultiDict(LSCTableUniqueDict):
 
 
 class LSCTableUnique(table.Table):
+	"""
+	A table containing rows where each row possesses a unique key.
+	"""
 	def __init__(self, attrs):
 		table.Table.__init__(self, attrs)
 		self.dict = LSCTableUniqueDict(self)
 
-	def makeReference(self, elem):
+	def updateKeyMapping(self, mapping, ilwditer):
 		"""
-		Convert ilwd:char strings into object references.
+		Used as the first half of the row key reassignment
+		algorithm.  Accepts a dictionary mapping old key --> new
+		key, and an ILWD iterator for generating new keys for this
+		table.  Iterates over the rows in this table, using the
+		ILWD iterator to generate a new key for each row that needs
+		it, adding the changes to the mapping.  Returns the
+		mapping.
 		"""
-		pass
+		for row in self:
+			try:
+				old = row._get_key()
+			except KeyError:
+				# row object doesn't provide a key;  FIXME:
+				# maybe bail out altogether?
+				continue
+			if old in mapping:
+				row._set_key(mapping[old])
+			else:
+				new = ilwditer.next()
+				row._set_key(new)
+				mapping[old] = new
+		return mapping
 
-	def deReference(self):
+	def applyKeyMapping(self, mapping):
 		"""
-		Convert object references into ilwd:char strings.
+		Used as the second half of the key reassignment algorithm.
+		Loops over each row in the table, replacing references to
+		old row keys with the new values from the mapping.
 		"""
 		pass
 
 
 class LSCTableMulti(table.Table):
+	"""
+	A table containing rows where multiple rows can share a key.
+	"""
 	def __init__(self, attrs):
 		table.Table.__init__(self, attrs)
 		self.dict = LSCTableMultiDict(self)
 
-	def makeReference(self, elem):
+	def updateKeyMapping(self, mapping, ilwditer):
 		"""
-		Convert ilwd:char strings into object references.
+		Used as the first half of the row key reassignment
+		algorithm.  Accepts a dictionary mapping old key --> new
+		key, and an ILWD iterator for generating new keys for this
+		table.  Iterates over the rows in this table, using the
+		ILWD iterator to generate a new key for each row that needs
+		it, adding the changes to the mapping.
 		"""
-		pass
+		for row in self:
+			try:
+				old = row._get_key()
+			except KeyError:
+				# row object doesn't provide a key;  FIXME:
+				# maybe bail out altogether?
+				continue
+			if old in mapping:
+				row._set_key(mapping[old])
+			else:
+				new = ilwditer.next()
+				row._set_key(new)
+				mapping[old] = new
+		return mapping
 
-	def deReference(self):
+	def applyKeyMapping(self, mapping):
 		"""
-		Convert object references into ilwd:char strings.
+		Used as the second half of the key reassignment algorithm.
+		Loops over each row in the table, replacing references to
+		old row keys with the new values from the mapping.
 		"""
 		pass
 
@@ -632,20 +630,10 @@ class LfnTable(LSCTableUnique):
 		"end_time": "int_4s",
 	}
 
-	def makeReference(self, elem):
-		"""
-		Convert ilwd:char strings into object references.
-		"""
-		tables = table.getTablesByName(elem, ProcessTable.tableName)
+	def applyKeyMapping(self, mapping):
 		for row in self:
-			row.process_id = FindILWD(tables, row.process_id)
+			row.process_id = mapping[row.process_id]
 
-	def deReference(self):
-		"""
-		Resolve object references back to ilwd:char strings.
-		"""
-		for row in self:
-			row.process_id = row.process_id._get_key()
 
 class Lfn(LSCTableRow):
 	__slots__ = LfnTable.validcolumns.keys()
@@ -719,20 +707,10 @@ class ProcessParamsTable(LSCTableMulti):
 			if row.process_id == key:
 				row.program = value
 
-	def makeReference(self, elem):
-		"""
-		Convert ilwd:char strings into object references.
-		"""
-		tables = table.getTablesByName(elem, ProcessTable.tableName)
+	def applyKeyMapping(self, mapping):
 		for row in self:
-			row.process_id = FindILWD(tables, row.process_id)
+			row.process_id = mapping[row.process_id]
 
-	def deReference(self):
-		"""
-		Resolve object references back to ilwd:char strings.
-		"""
-		for row in self:
-			row.process_id = row.process_id._get_key()
 
 class ProcessParams(LSCTableRow):
 	__slots__ = ProcessParamsTable.validcolumns.keys()
@@ -789,20 +767,9 @@ class SearchSummaryTable(LSCTableMulti):
 		"nnodes": "int_4s"
 	}
 
-	def makeReference(self, elem):
-		"""
-		Convert ilwd:char strings into object references.
-		"""
-		tables = table.getTablesByName(elem, ProcessTable.tableName)
+	def applyKeyMapping(self, mapping):
 		for row in self:
-			row.process_id = FindILWD(tables, row.process_id)
-
-	def deReference(self):
-		"""
-		Resolve object references back to ilwd:char strings.
-		"""
-		for row in self:
-			row.process_id = row.process_id._get_key()
+			row.process_id = mapping[row.process_id]
 
 	def get_inlist(self):
 		"""
@@ -903,20 +870,10 @@ class SearchSummVarsTable(LSCTableMulti):
 		"value": "real_8"
 	}
 
-	def makeReference(self, elem):
-		"""
-		Convert ilwd:char strings into object references.
-		"""
-		tables = table.getTablesByName(elem, ProcessTable.tableName)
+	def applyKeyMapping(self, mapping):
 		for row in self:
-			row.process_id = FindILWD(tables, row.process_id)
+			row.process_id = mapping[row.process_id]
 
-	def deReference(self):
-		"""
-		Resolve object references back to ilwd:char strings.
-		"""
-		for row in self:
-			row.process_id = row.process_id._get_key()
 
 class SearchSummVars(LSCTableRow):
 	__slots__ = SearchSummVarsTable.validcolumns.keys()
@@ -992,20 +949,10 @@ class SnglBurstTable(LSCTableUnique):
 		"event_id": "ilwd:char"
 	}
 
-	def makeReference(self, elem):
-		"""
-		Convert ilwd:char strings into object references.
-		"""
-		tables = table.getTablesByName(elem, ProcessTable.tableName)
+	def applyKeyMapping(self, mapping):
 		for row in self:
-			row.process_id = FindILWD(tables, row.process_id)
+			row.process_id = mapping[row.process_id]
 
-	def deReference(self):
-		"""
-		Resolve object references back to ilwd:char strings.
-		"""
-		for row in self:
-			row.process_id = row.process_id._get_key()
 
 class SnglBurst(LSCTableRow):
 	__slots__ = SnglBurstTable.validcolumns.keys()
@@ -1125,20 +1072,9 @@ class SnglInspiralTable(LSCTableUnique):
 		"event_id": "int_8s"
 	}
 
-	def makeReference(self, elem):
-		"""
-		Convert ilwd:char strings into object references.
-		"""
-		tables = table.getTablesByName(elem, ProcessTable.tableName)
+	def applyKeyMapping(self, mapping):
 		for row in self:
-			row.process_id = FindILWD(tables, row.process_id)
-
-	def deReference(self):
-		"""
-		Resolve object references back to ilwd:char strings.
-		"""
-		for row in self:
-			row.process_id = row.process_id._get_key()
+			row.process_id = mapping[row.process_id]
 
 	def get_column(self,column):
 		if column == 'effective_snr':
@@ -1257,20 +1193,10 @@ class SnglRingDownTable(LSCTableUnique):
 		"event_id": "int_8s"
 	}
 
-	def makeReference(self, elem):
-		"""
-		Convert ilwd:char strings into object references.
-		"""
-		tables = table.getTablesByName(elem, ProcessTable.tableName)
+	def applyKeyMapping(self, mapping):
 		for row in self:
-			row.process_id = FindILWD(tables, row.process_id)
+			row.process_id = mapping[row.process_id]
 
-	def deReference(self):
-		"""
-		Resolve object references back to ilwd:char strings.
-		"""
-		for row in self:
-			row.process_id = row.process_id._get_key()
 
 class SnglRingDown(LSCTableRow):
 	__slots__ = SnglRingDownTable.validcolumns.keys()
@@ -1340,32 +1266,22 @@ class MultiInspiralTable(LSCTableMulti):
 		"event_id": "ilwd:char"
 	}
 
-	def makeReference(self, elem):
-		"""
-		Convert ilwd:char strings into object references.
-		"""
-		tables = table.getTablesByName(elem, ProcessTable.tableName)
+	def applyKeyMapping(self, mapping):
 		for row in self:
-			row.process_id = FindILWD(tables, row.process_id)
+			row.process_id = mapping[row.process_id]
 
-	def deReference(self):
-		"""
-		Resolve object references back to ilwd:char strings.
-		"""
-		for row in self:
-			row.process_id = row.process_id._get_key()
 
 class MultiInspiral(LSCTableRow):
 	__slots__ = MultiInspiralTable.validcolumns.keys()
 
 	def _get_key(self):
-		return self.process_id
+		return self.event_id
 
 	def _set_key(self, key):
-		self.process_id = key
+		self.event_id = key
 
 	def _has_key(self, key):
-		return self.process_id == key
+		return self.event_id == key
 
 MultiInspiralTable.RowType = MultiInspiral
 
@@ -1435,20 +1351,9 @@ class SimInspiralTable(LSCTableUnique):
 		"simulation_id": "ilwd:char"
 	}
 
-	def makeReference(self, elem):
-		"""
-		Convert ilwd:char strings into object references.
-		"""
-		tables = table.getTablesByName(elem, ProcessTable.tableName)
+	def applyKeyMapping(self, mapping):
 		for row in self:
-			row.process_id = FindILWD(tables, row.process_id)
-
-	def deReference(self):
-		"""
-		Resolve object references back to ilwd:char strings.
-		"""
-		for row in self:
-			row.process_id = row.process_id._get_key()
+			row.process_id = mapping[row.process_id]
 
 	def get_column(self,column):
 		if 'chirp_dist' in column:
@@ -1541,20 +1446,9 @@ class SimBurstTable(LSCTableUnique):
 		"simulation_id": "ilwd:char"
 	}
 
-	def makeReference(self, elem):
-		"""
-		Convert ilwd:char strings into object references.
-		"""
-		tables = table.getTablesByName(elem, ProcessTable.tableName)
+	def applyKeyMapping(self, mapping):
 		for row in self:
-			row.process_id = FindILWD(tables, row.process_id)
-
-	def deReference(self):
-		"""
-		Resolve object references back to ilwd:char strings.
-		"""
-		for row in self:
-			row.process_id = row.process_id._get_key()
+			row.process_id = mapping[row.process_id]
 
 class SimBurst(LSCTableRow):
 	__slots__ = SimBurstTable.validcolumns.keys()
@@ -1688,20 +1582,9 @@ class SimRingDownTable(LSCTableUnique):
 		"simulation_id": "ilwd:char"
 	}
 
-	def makeReference(self, elem):
-		"""
-		Convert ilwd:char strings into object references.
-		"""
-		tables = table.getTablesByName(elem, ProcessTable.tableName)
+	def applyKeyMapping(self, mapping):
 		for row in self:
-			row.process_id = FindILWD(tables, row.process_id)
-
-	def deReference(self):
-		"""
-		Resolve object references back to ilwd:char strings.
-		"""
-		for row in self:
-			row.process_id = row.process_id._get_key()
+			row.process_id = mapping[row.process_id]
 
 class SimRingDown(LSCTableRow):
 	__slots__ = SimRingDownTable.validcolumns.keys()
@@ -1745,20 +1628,9 @@ class SummValueTable(LSCTableMulti):
 		"comment": "lstring"
 	}
 
-	def makeReference(self, elem):
-		"""
-		Convert ilwd:char strings into object references.
-		"""
-		tables = table.getTablesByName(elem, ProcessTable.tableName)
+	def applyKeyMapping(self, mapping):
 		for row in self:
-			row.process_id = FindILWD(tables, row.process_id)
-
-	def deReference(self):
-		"""
-		Resolve object references back to ilwd:char strings.
-		"""
-		for row in self:
-			row.process_id = row.process_id._get_key()
+			row.process_id = mapping[row.process_id]
 
 class SummValue(LSCTableRow):
 	__slots__ = SummValueTable.validcolumns.keys()
@@ -1837,20 +1709,9 @@ class StochasticTable(LSCTableMulti):
 		"cc_sigma": "real_8"
 	}
 
-	def makeReference(self, elem):
-		"""
-		Convert ilwd:char strings into object references.
-		"""
-		tables = table.getTablesByName(elem, ProcessTable.tableName)
+	def applyKeyMapping(self, mapping):
 		for row in self:
-			row.process_id = FindILWD(tables, row.process_id)
-
-	def deReference(self):
-		"""
-		Resolve object references back to ilwd:char strings.
-		"""
-		for row in self:
-			row.process_id = row.process_id._get_key()
+			row.process_id = mapping[row.process_id]
 
 class Stochastic(LSCTableRow):
 	__slots__ = StochasticTable.validcolumns.keys()
@@ -1893,20 +1754,9 @@ class StochSummTable(LSCTableMulti):
 		"error": "real_8"
 	}
 
-	def makeReference(self, elem):
-		"""
-		Convert ilwd:char strings into object references.
-		"""
-		tables = table.getTablesByName(elem, ProcessTable.tableName)
+	def applyKeyMapping(self, mapping):
 		for row in self:
-			row.process_id = FindILWD(tables, row.process_id)
-
-	def deReference(self):
-		"""
-		Resolve object references back to ilwd:char strings.
-		"""
-		for row in self:
-			row.process_id = row.process_id._get_key()
+			row.process_id = mapping[row.process_id]
 
 class StochSumm(LSCTableRow):
 	__slots__ = StochSummTable.validcolumns.keys()
@@ -1983,6 +1833,10 @@ class ExtTriggersTable(LSCTableMulti):
 		"event_status": "int_4s"
 	}
 
+	def applyKeyMapping(self, mapping):
+		for row in self:
+			row.process_id = mapping[row.process_id]
+
 class ExtTriggers(LSCTableRow):
 	__slots__ = ExtTriggersTable.validcolumns.keys()
 
@@ -2016,20 +1870,9 @@ class FilterTable(LSCTableMulti):
 		"comment": "lstring"
 	}
 
-	def makeReference(self, elem):
-		"""
-		Convert ilwd:char strings into object references.
-		"""
-		tables = table.getTablesByName(elem, ProcessTable.tableName)
+	def applyKeyMapping(self, mapping):
 		for row in self:
-			row.process_id = FindILWD(tables, row.process_id)
-
-	def deReference(self):
-		"""
-		Resolve object references back to ilwd:char strings.
-		"""
-		for row in self:
-			row.process_id = row.process_id._get_key()
+			row.process_id = mapping[row.process_id]
 
 class Filter(LSCTableRow):
 	__slots__ = FilterTable.validcolumns.keys()
@@ -2069,20 +1912,9 @@ class SegmentTable(LSCTableUnique):
 		"insertion_time": "int_4s"
 	}
 
-	def makeReference(self, elem):
-		"""
-		Convert ilwd:char strings into object references.
-		"""
-		tables = table.getTablesByName(elem, ProcessTable.tableName)
+	def applyKeyMapping(self, mapping):
 		for row in self:
-			row.process_id = FindILWD(tables, row.process_id)
-
-	def deReference(self):
-		"""
-		Resolve object references back to ilwd:char strings.
-		"""
-		for row in self:
-			row.process_id = row.process_id._get_key()
+			row.process_id = mapping[row.process_id]
 
 class Segment(LSCTableRow):
 	__slots__ = SegmentTable.validcolumns.keys()
@@ -2162,26 +1994,11 @@ class SegmentDefMapTable(LSCTableUnique):
 		"insertion_time": "int_4s"
 	}
 
-	def makeReference(self, elem):
-		"""
-		Convert ilwd:char strings into object references.
-		"""
-		proctabs = table.getTablesByName(elem, ProcessTable.tableName)
-		segtabs = table.getTablesByName(elem, SegmentTable.tableName)
-		deftabs = table.getTablesByName(elem, SegmentDefTable.tableName)
+	def applyKeyMapping(self, mapping):
 		for row in self:
-			row.process_id = FindILWD(proctabs, row.process_id)
-			row.segment_id = FindILWD(segtabs, row.segment_id)
-			row.segment_def_id = FindILWD(deftabs, row.segment_def_id)
-
-	def deReference(self):
-		"""
-		Resolve object references back to ilwd:char strings.
-		"""
-		for row in self:
-			row.process_id = row.process_id._get_key()
-			row.segment_id = row.segment_id._get_key()
-			row.segment_def_id = row.segment_def_id._get_key()
+			row.process_id = mapping[row.process_id]
+			row.segment_id = mapping[row.segment_id]
+			row.segment_def_id = mapping[row.segment_def_id]
 
 class SegmentDefMap(LSCTableRow):
 	__slots__ = SegmentDefMapTable.validcolumns.keys()
@@ -2226,20 +2043,9 @@ class SegmentDefTable(LSCTableUnique):
 		"insertion_time": "int_4s"
 	}
 
-	def makeReference(self, elem):
-		"""
-		Convert ilwd:char strings into object references.
-		"""
-		tables = table.getTablesByName(elem, ProcessTable.tableName)
+	def applyKeyMapping(self, mapping):
 		for row in self:
-			row.process_id = FindILWD(tables, row.process_id)
-
-	def deReference(self):
-		"""
-		Resolve object references back to ilwd:char strings.
-		"""
-		for row in self:
-			row.process_id = row.process_id._get_key()
+			row.process_id = mapping[row.process_id]
 
 class SegmentDef(LSCTableRow):
 	__slots__ = SegmentDefTable.validcolumns.keys()
@@ -2273,20 +2079,9 @@ class TimeSlideTable(LSCTableMulti):
 		"offset": "real_8"
 	}
 
-	def makeReference(self, elem):
-		"""
-		Convert ilwd:char strings into object references.
-		"""
-		tables = table.getTablesByName(elem, ProcessTable.tableName)
+	def applyKeyMapping(self, mapping):
 		for row in self:
-			row.process_id = FindILWD(tables, row.process_id)
-
-	def deReference(self):
-		"""
-		Resolve object references back to ilwd:char strings.
-		"""
-		for row in self:
-			row.process_id = row.process_id._get_key()
+			row.process_id = mapping[row.process_id]
 
 	def get_offset_dict(self, id):
 		"""
@@ -2294,7 +2089,9 @@ class TimeSlideTable(LSCTableMulti):
 		the given time slide ID.
 		"""
 		d = {}
-		for row in self.dict[id]:
+		for row in self:
+			if row.time_slide_id != id:
+				continue
 			if d.has_key(row.instrument):
 				raise KeyError, "%s: duplicate instrument %s" % (repr(id), row.instrument)
 			d[row.instrument] = row.offset
@@ -2339,7 +2136,7 @@ class CoincDefTable(LSCTableMulti):
 		"""
 		Return a list of contributing table names for the given ID.
 		"""
-		l = [row.table_name for row in self.dict[id]]
+		l = [row.table_name for row in self if row.coinc_def_id == id]
 		l.sort()
 		return l
 
@@ -2380,26 +2177,11 @@ class CoincTable(LSCTableUnique):
 		"nevents": "int_4u"
 	}
 
-	def makeReference(self, elem):
-		"""
-		Convert ilwd:char strings into object references.
-		"""
-		proctab = table.getTablesByName(elem, ProcessTable.tableName)
-		slidetab = table.getTablesByName(elem, TimeSlideTable.tableName)
-		deftab = table.getTablesByName(elem, CoincDefTable.tableName)
+	def applyKeyMapping(self, mapping):
 		for row in self:
-			row.process_id = FindILWD(proctab, row.process_id)
-			row.time_slide_id = FindILWD(slidetab, row.time_slide_id)
-			row.coinc_def_id = FindILWD(deftab, row.coinc_def_id)
-
-	def deReference(self):
-		"""
-		Resolve object references back to ilwd:char strings.
-		"""
-		for row in self:
-			row.process_id = row.process_id._get_key()
-			row.time_slide_id = row.time_slide_id[0]._get_key()
-			row.coinc_def_id = row.coinc_def_id[0]._get_key()
+			row.process_id = mapping[row.process_id]
+			row.time_slide_id = mapping[row.time_slide_id]
+			row.coinc_def_id = mapping[row.coinc_def_id]
 
 class Coinc(LSCTableRow):
 	__slots__ = CoincTable.validcolumns.keys()
@@ -2453,25 +2235,10 @@ class CoincMapTable(LSCTableUnique):
 		"event_id": "ilwd:char"
 	}
 
-	def makeReference(self, elem):
-		"""
-		Convert ilwd:char strings into object references.
-		"""
-		coinctab = table.getTablesByName(elem, CoincTable.tableName)
-		eventtab = []
-		for tablename in CoincEventMapSourceNames:
-			eventtab.extend(table.getTablesByName(elem, tablename))
+	def applyKeyMapping(self, mapping):
 		for row in self:
-			row.coinc_event_id = FindILWD(coinctab, row.coinc_event_id)
-			row.event_id = FindILWD(eventtab, row.event_id)
-
-	def deReference(self):
-		"""
-		Resolve object references back to ilwd:char strings.
-		"""
-		for row in self:
-			row.coinc_event_id = row.coinc_event_id._get_key()
-			row.event_id = row.event_id._get_key()
+			row.coinc_event_id = mapping[row.coinc_event_id]
+			row.event_id = mapping[row.event_id]
 
 class CoincMap(LSCTableRow):
 	__slots__ = CoincMapTable.validcolumns.keys()
@@ -2501,20 +2268,9 @@ class LIGOLWMonTable(LSCTableUnique):
 		"insertion_time": "int_4s"
 	}
 
-	def makeReference(self, elem):
-		"""
-		Convert ilwd:char strings into object references.
-		"""
-		tables = table.getTablesByName(elem, ProcessTable.tableName)
+	def applyKeyMapping(self, mapping):
 		for row in self:
-			row.process_id = FindILWD(tables, row.process_id)
-
-	def deReference(self):
-		"""
-		Resolve object references back to ilwd:char strings.
-		"""
-		for row in self:
-			row.process_id = row.process_id._get_key()
+			row.process_id = mapping[row.process_id]
 
 class LIGOLWMon(LSCTableRow):
 	__slots__ = LIGOLWMonTable.validcolumns.keys()
@@ -2580,7 +2336,8 @@ TableByName = {
 }
 
 
-# Table name ---> ILWD generator mapping.
+# Table name ---> ILWD generator mapping.  NOTE:  updateKeyMapping() must
+# only be called on tables listed in this dictionary.
 #
 # FIXME: sngl_inspiral table cannot participate in generic ilwd infrastructure
 # until LAL code generates event_id columns with the correct type.  Re-enable

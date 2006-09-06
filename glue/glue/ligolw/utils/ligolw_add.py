@@ -99,16 +99,14 @@ def remove_input(urls, preserves, verbose = False):
 
 def reassign_ids(doc):
 	"""
-	Reassign IDs to all rows in all LSC tables in doc so that there are
-	no collisions when the LIGO_LW elements are merged.
+	Assign new IDs to all rows in all LSC tables in doc so that there
+	are no collisions when the LIGO_LW elements are merged.
 	"""
 	ilwditers = {}
 	for tablename, ilwdclass in lsctables.ILWDGeneratorByTableName.iteritems():
 		ilwditers[tablename] = ilwdclass()
 	for elem in doc.getElementsByTagName(ligolw.LIGO_LW.tagName):
-		lsctables.makeReference(elem)
 		lsctables.NewIDs(elem, ilwditers)
-		lsctables.deReference(elem)
 	return doc
 
 
