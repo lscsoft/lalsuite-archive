@@ -92,9 +92,13 @@ def build_id_seglist_pairs(doc):
 	"""
 	if options.verbose:
 		print >>sys.stderr, "extracting and indexing search summary table..."
-	searchsummtable = table.get_table(doc, lsctables.SearchSummaryTable.tableName)
-	pairs = [(process_id, segments.segmentlist(map(lsctables.SearchSummary.get_out, rows)).coalesce()) for (process_id, rows) in searchsummtable.dict.iteritems()]
-	pairs.sort(lambda a, b: cmp(a[1].extent()[0], b[1].extent()[0]))
+	seglists = segments.segmentlistdict()
+	for row in table.get_table(doc, lsctables.SearchSummaryTable.tableName):
+		if row.process_id not in seglists:
+			seglists[row.process_id] = segments.segmentlist()
+		seglists[row.process_id].append(row.get_out())
+	pairs = seglists.coalesce().items()
+	pairs.sort(lambda a, b: cmp(a[1].extent(), b[1].extent()))
 	return pairs
 
 
