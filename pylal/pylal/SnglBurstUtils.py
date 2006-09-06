@@ -255,12 +255,7 @@ class CoincMapTable(Table):
 class CoincDatabase(object):
 	def __init__(self, connection):
 		self.connection = connection
-		SnglBurstTable.connection = connection
-		SimBurstTable.connection = connection
-		TimeSlideTable.connection = connection
-		CoincDefTable.connection = connection
-		CoincTable.connection = connection
-		CoincMapTable.connection = connection
+		Table.connection = connection
 		lsctables.TableByName.update({
 			table.StripTableName(SnglBurstTable.tableName): SnglBurstTable,
 			table.StripTableName(SimBurstTable.tableName): SimBurstTable,
