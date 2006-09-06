@@ -243,7 +243,7 @@ def latexnumber(s):
 	Convert a string of the form "d.dddde-dd" to "d.dddd \times
 	10^{-dd}"
 	"""
-	return re.sub(r"([.0-9]+)e?([+-]?[0-9]+)", r"\1 \\times 10^{\2}", s)
+	return re.sub(r"([+-]?[.0-9]+)[Ee]?([+-]?[0-9]+)", r"\1 \\times 10^{\2}", s)
 
 
 class Efficiency(SnglBurstUtils.BurstPlot):
