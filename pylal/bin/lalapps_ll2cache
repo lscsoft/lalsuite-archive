@@ -110,7 +110,7 @@ def column_value(table, column):
 	same value, and return that value.
 	"""
 	if options.program:
-		vals = [getattr(row, column) for row in table if row.process_id.program == options.program]
+		vals = [getattr(row, column) for row in table if row.process_id in process_ids]
 	else:
 		vals = table.getColumnByName(column)
 	value = vals[0]
@@ -124,8 +124,14 @@ for pattern in patterns:
 	for filename in glob.glob(pattern):
 		# load document and extract search summary table
 		doc = utils.load_filename(filename, options.verbose, gz = filename[-3:] == ".gz")
-		lsctables.makeReference(doc)
 		searchsumm = table.get_table(doc, lsctables.SearchSummaryTable.tableName)
+
+		# extract process_ids for the requested program
+		process_ids = []
+		if options.program:
+			for row in table.get_table(doc, lsctables.ProcessTable.tableName):
+				if row.program == options.program:
+					process_ids.append(row.process_id)
 
 		# extract observatory
 		if options.observatory:
