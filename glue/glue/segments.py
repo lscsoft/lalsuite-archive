@@ -476,7 +476,7 @@ class segmentlist(list):
 		"""
 		return (self - other) | (other - self)
 
-	# addition is defined to be the union operation
+	# addition is union
 	__iadd__ = __ior__
 	__add__ = __or__
 
@@ -485,25 +485,31 @@ class segmentlist(list):
 		Replace the segmentlist with the difference between itself
 		and another.  This operation is O(n).
 		"""
-		try:
-			other_it = iter(other)
-			other_seg = other_it.next()
-			i = 0
-			while 1:
-				seg = self[i]
-				while (seg[0] >= other_seg[1]) or not bool(other_seg):
-					other_seg = other_it.next()
-				if seg[1] <= other_seg[0]:
-					i += 1
-				elif seg in other_seg:
-					self[i:i+1] = []
-				elif (other_seg[0] > seg[0]) and (other_seg[1] < seg[1]):
-					self[i:i+1] = [segment(seg[0], other_seg[0]), segment(other_seg[1], seg[1])]
+		i = j = 0
+		while i < len(self):
+			seg = self[i]
+			while j < len(other):
+				otherseg = other[j]
+				if bool(otherseg) and otherseg[1] > seg[0]:
+					break
+				j += 1
+			else:
+				return self
+			if seg[1] <= otherseg[0]:
+				i += 1
+			elif otherseg[0] <= seg[0]:
+				if otherseg[1] >= seg[1]:
+					del self[i]
+				else:
+					self[i] -= otherseg
+			else:
+				if otherseg[1] >= seg[1]:
+					self[i] -= otherseg
 					i += 1
 				else:
-					self[i] -= other_seg
-		except (StopIteration, IndexError):
-			pass
+					self[i] = segment(seg[0], otherseg[0])
+					i += 1
+					self.insert(i, segment(otherseg[1], seg[1]))
 		return self
 
 	def __sub__(self, other):
@@ -532,7 +538,7 @@ class segmentlist(list):
 		operation is O(n).
 		"""
 		for i, seg in enumerate(self):
-			if (seg[0] < value) and (seg[1] > value):
+			if value in seg:
 				self[i:i+1] = [segment(seg[0], value), segment(value, seg[1])]
 
 	def intersects_segment(self, other):
