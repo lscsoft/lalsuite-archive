@@ -2300,12 +2300,15 @@ class LIGOLWMonIDs(ILWD):
 #
 # =============================================================================
 #
-#                               Content Handler
+#                                Table Metadata
 #
 # =============================================================================
 #
 
+#
 # Table name ---> table type mapping.
+#
+
 TableByName = {
 	table.StripTableName(ProcessTable.tableName): ProcessTable,
 	table.StripTableName(LfnTable.tableName): LfnTable,
@@ -2336,12 +2339,15 @@ TableByName = {
 }
 
 
+#
 # Table name ---> ILWD generator mapping.  NOTE:  updateKeyMapping() must
 # only be called on tables listed in this dictionary.
 #
 # FIXME: sngl_inspiral table cannot participate in generic ilwd infrastructure
 # until LAL code generates event_id columns with the correct type.  Re-enable
 # when LAL is fixed.
+#
+
 ILWDGeneratorByTableName = {
 	table.StripTableName(ProcessTable.tableName): ProcessIDs,
 	table.StripTableName(LfnTable.tableName): LfnIDs,
@@ -2359,6 +2365,15 @@ ILWDGeneratorByTableName = {
 	table.StripTableName(CoincTable.tableName): CoincIDs,
 	table.StripTableName(LIGOLWMonTable.tableName): LIGOLWMonIDs
 }
+
+
+#
+# =============================================================================
+#
+#                               Content Handler
+#
+# =============================================================================
+#
 
 
 #
