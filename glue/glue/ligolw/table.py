@@ -38,8 +38,7 @@ are the names of the table's columns.  When the document is written out
 again, the Stream element serializes the row objects back into character
 data.
 
-The list of row objects is stored as an attribute of the Table element,
-which itself exports a list-like interface to the rows.  The Column
+The Table element exports a list-like interface to the rows.  The Column
 elements also provide list-like access to the values in the corresponding
 columns of the table.
 """
