@@ -46,8 +46,8 @@
  * Preallocated instances
  */
 
-segments_Infinity *_infinity__pos_infinity;
-segments_Infinity *_infinity__seg_infinity;
+segments_Infinity *segments_PosInfinity;
+segments_Infinity *segments_NegInfinity;
 
 
 /*
@@ -74,15 +74,15 @@ static PyObject *__new__(PyTypeObject *subtype, PyObject *args, PyObject *kwds)
 		if(!PyArg_ParseTuple(args, "i:infinity", &sign))
 			return NULL;
 		if(sign > 0)
-			self = (PyObject *) _infinity__pos_infinity;
+			self = (PyObject *) segments_PosInfinity;
 		else if (sign < 0)
-			self = (PyObject *) _infinity__neg_infinity;
+			self = (PyObject *) segments_NegInfinity;
 		else {
 			PyErr_SetObject(PyExc_ValueError, args);
 			return NULL;
 		}
 	} else
-		self = (PyObject *) _infinity__pos_infinity;
+		self = (PyObject *) segments_PosInfinity;
 
 	Py_INCREF(self);
 	return self;
@@ -109,17 +109,16 @@ static PyObject *__neg__(PyObject *self)
 {
 	PyObject *result;
 
-	if(!segments_Infinity_Check(self)) {
-		PyErr_SetObject(PyExc_TypeError, self);
-		return NULL;
+	if(segments_Infinity_Check(self)) {
+		if(self == (PyObject *) segments_PosInfinity)
+			result = (PyObject *) segments_NegInfinity;
+		else
+			result = (PyObject *) segments_PosInfinity;
+		Py_INCREF(result);
+		return result;
 	}
-
-	if(self == (PyObject *) _infinity__pos_infinity)
-		result = (PyObject *) _infinity__seg_infinity;
-	else
-		result = (PyObject *) _infinity__pos_infinity;
-	Py_INCREF(result);
-	return result;
+	PyErr_SetObject(PyExc_TypeError, self);
+	return NULL;
 }
 
 
@@ -145,26 +144,25 @@ static PyObject *__pos__(PyObject *self)
 
 static PyObject *__repr__(PyObject *self)
 {
-	return PyString_FromString(self == (PyObject *) _infinity__pos_infinity ? "infinity" : "-infinity");
+	return PyString_FromString(self == (PyObject *) segments_PosInfinity ? "infinity" : "-infinity");
 }
 
 
 static PyObject *__reduce__(PyObject *self, PyObject *args)
 {
-	if(!segments_Infinity_Check(self)) {
-		PyErr_SetObject(PyExc_TypeError, self);
-		return NULL;
+	if(segments_Infinity_Check(self)) {
+		Py_INCREF(&segments_Infinity_Type);
+		return Py_BuildValue("(O,(i))", &segments_Infinity_Type, self == (PyObject *) segments_PosInfinity ? 1 : -1);
 	}
-
-	Py_INCREF(&segments_Infinity_Type);
-	return Py_BuildValue("(O,(i))", &segments_Infinity_Type, self == (PyObject *) _infinity__pos_infinity ? 1 : -1);
+	PyErr_SetObject(PyExc_TypeError, self);
+	return NULL;
 }
 
 
 static PyObject *richcompare(PyObject *self, PyObject *other, int op_id)
 {
-	int s = segments_Infinity_Check(self) ? self == (PyObject *) _infinity__pos_infinity ? +1 : -1 : 0;
-	int o = segments_Infinity_Check(other) ? other == (PyObject *) _infinity__pos_infinity ? +1 : -1 : 0;
+	int s = segments_Infinity_Check(self) ? self == (PyObject *) segments_PosInfinity ? +1 : -1 : 0;
+	int o = segments_Infinity_Check(other) ? other == (PyObject *) segments_PosInfinity ? +1 : -1 : 0;
 	int d = s - o;
 	PyObject *result;
 
@@ -212,23 +210,18 @@ static PyObject *__sub__(PyObject *self, PyObject *other)
 {
 	PyObject *result;
 
-	if(segments_Infinity_Check(self)) {
+	if(segments_Infinity_Check(self))
 		/* __sub__ case */
-		if(self == other) {
-			PyErr_SetObject(PyExc_ValueError, other);
-			return NULL;
-		}
 		result = self;
-	} else {
+	else if(segments_Infinity_Check(other)) {
 		/* __rsub__ case */
-		if(!segments_Infinity_Check(other)) {
-			PyErr_SetObject(PyExc_TypeError, self);
-			return NULL;
-		}
-		if(other == (PyObject *) _infinity__pos_infinity)
-			result = (PyObject *) _infinity__seg_infinity;
+		if(other == (PyObject *) segments_PosInfinity)
+			result = (PyObject *) segments_NegInfinity;
 		else
-			result = (PyObject *) _infinity__pos_infinity;
+			result = (PyObject *) segments_PosInfinity;
+	} else {
+		PyErr_SetObject(PyExc_TypeError, self);
+		return NULL;
 	}
 	Py_INCREF(result);
 	return result;
@@ -249,7 +242,7 @@ static PyNumberMethods as_number = {
 
 
 static struct PyMethodDef methods[] = {
-	{"__reduce__", __reduce__, METH_NOARGS, "pickle helper"},
+	{"__reduce__", __reduce__, METH_NOARGS, "Pickle support"},
 	{NULL,}
 };
 
@@ -267,8 +260,8 @@ PyTypeObject segments_Infinity_Type = {
 	">>> x = infinity()\n" \
 	">>> x > 0\n" \
 	"True\n" \
-	">>> x + 10\n" \
-	"infinity\n" \
+	">>> x + 10 == x\n" \
+	"True\n" \
 	">>> segment(-10, 10) - segment(-x, 0)\n" \
 	"segment(0, 10)",
 	.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_CHECKTYPES,
