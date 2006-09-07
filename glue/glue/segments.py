@@ -36,8 +36,8 @@ This module defines the segment and segmentlist objects, as well as the
 infinity object used to define semi-infinite and infinite segments.
 """
 
-import bisect
-import copy
+from bisect import bisect_left, bisect_right
+from copy import copy as shallowcopy
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __date__ = "$Date$"[7:-2]
@@ -436,7 +436,7 @@ class segmentlist(list):
 		"""
 		i = 0
 		for seg in other:
-			i = j = bisect.bisect_right(self, seg, i)
+			i = j = bisect_right(self, seg, i)
 			if i and self[i - 1].continuous(seg):
 				i -= 1
 				seg |= self[i]
@@ -538,7 +538,7 @@ class segmentlist(list):
 		other is not the null set, otherwise returns False.  The
 		algorithm is O(log n).  Requires the list to be coalesced.
 		"""
-		i = bisect.bisect_left(self, other)
+		i = bisect_left(self, other)
 		return ((i != 0) and (other[0] < self[i-1][1])) or ((i != len(self)) and (other[1] > self[i][0]))
 
 	def intersects(self, other):
@@ -732,7 +732,7 @@ class segmentlistdict(dict):
 		"""
 		new = self.__class__()
 		for key, value in self.iteritems():
-			new[key] = copy.copy(value)
+			new[key] = shallowcopy(value)
 		dict.update(new.offsets, self.offsets)
 		return new
 
@@ -808,7 +808,7 @@ class segmentlistdict(dict):
 			if key in self:
 				self[key] |= value
 			else:
-				self[key] = copy.copy(value)
+				self[key] = shallowcopy(value)
 		return self
 
 	def __or__(self, other):
@@ -896,7 +896,7 @@ class segmentlistdict(dict):
 		new = segmentlistdict()
 		intersection = self.intersection(keys)
 		for key in keys:
-			dict.__setitem__(new, key, copy.copy(intersection))
+			dict.__setitem__(new, key, shallowcopy(intersection))
 			dict.__setitem__(new.offsets, key, self.offsets[key])
 		return new
 
