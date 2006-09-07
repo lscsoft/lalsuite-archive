@@ -144,6 +144,8 @@ class segment(tuple):
 	True
 	>>> bool(segment(0, 0))
 	False
+	>>> segment("AAA Towing", "York University") & segment("Pool", "Zoo")
+	segment('Pool', 'York University')
 
 	Notes:
 	It is also possible to cast 2-element tuples, lists, and other
@@ -163,7 +165,7 @@ class segment(tuple):
 			return tuple.__new__(cls, (args[1], args[0]))
 
 	def __repr__(self):
-		return "segment(" + str(self[0]) + ", " + str(self[1]) + ")"
+		return "segment(" + repr(self[0]) + ", " + repr(self[1]) + ")"
 
 	def __str__(self):
 		return "[" + str(self[0]) + " ... " + str(self[1]) + "]"
