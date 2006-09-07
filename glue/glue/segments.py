@@ -156,7 +156,7 @@ class segment(tuple):
 		if len(args) == 1:
 			args = args[0]
 		if len(args) != 2:
-			raise TypeError, "__new__() takes 3 arguments or 2 arguments when the second is a 2-element container type"
+			raise TypeError, "__new__() takes 2 arguments, or 1 arguments when the second is a 2-element container type"
 		if args[0] <= args[1]:
 			return tuple.__new__(cls, args)
 		else:
@@ -203,9 +203,10 @@ class segment(tuple):
 		segments.  Raises ValueError if the result cannot be
 		presented as a single segment.
 		"""
-		if not self.intersects(other):
+		if (self[1] <= other[0]) or (self[0] >= other[1]):
+			# self and other don't intersect
 			raise ValueError, other
-		return segment(max(self[0], other[0]), min(self[1], other[1]))
+		return tuple.__new__(segment, (max(self[0], other[0]), min(self[1], other[1])))
 
 	def __or__(self, other):
 		"""
@@ -213,11 +214,12 @@ class segment(tuple):
 		Raises ValueError if the result cannot be represented as a
 		single segment.
 		"""
-		if not self.continuous(other):
+		if (self[1] < other[0]) or (self[0] > other[1]):
+			# self and other are disjoint
 			raise ValueError, other
-		return segment(min(self[0], other[0]), max(self[1], other[1]))
+		return tuple.__new__(segment, (min(self[0], other[0]), max(self[1], other[1])))
 
-	# addition is defined to be the union operation
+	# addition is union
 	__add__ = __or__
 
 	def __sub__(self, other):
@@ -226,13 +228,14 @@ class segment(tuple):
 		contained in other.  Raises ValueError if the result cannot
 		be represented as a single segment.
 		"""
-		if not self.intersects(other):
+		if (self[1] <= other[0]) or (self[0] >= other[1]):
+			# self and other do not intersect
 			return self
 		if (self in other) or ((self[0] < other[0]) and (self[1] > other[1])):
 			raise ValueError, other
 		if self[0] < other[0]:
-			return segment(self[0], other[0])
-		return segment(other[1], self[1])
+			return tuple.__new__(segment, (self[0], other[0]))
+		return tuple.__new__(segment, (other[1], self[1]))
 
 	# check for proper intersection, containment, and continuity
 
@@ -291,7 +294,7 @@ class segment(tuple):
 		Return a new segment by adding x to the upper and lower
 		bounds of this segment.
 		"""
-		return segment(self[0] + x, self[1] + x)
+		return tuple.__new__(segment, (self[0] + x, self[1] + x))
 
 
 #
