@@ -64,4 +64,6 @@ void init__segments(void)
 	segments_NegInfinity = (segments_Infinity *) _PyObject_New(&segments_Infinity_Type);
 	Py_INCREF(segments_PosInfinity);
 	Py_INCREF(segments_NegInfinity);
+	PyModule_AddObject(module, "PosInfinity", (PyObject *) segments_PosInfinity);
+	PyModule_AddObject(module, "NegInfinity", (PyObject *) segments_NegInfinity);
 }
