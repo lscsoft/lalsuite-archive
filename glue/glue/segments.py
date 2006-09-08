@@ -52,61 +52,141 @@ __version__ = "$Revision$"[11:-2]
 # =============================================================================
 #
 
-class infinity:
+class infinity(object):
 	"""
 	The infinity object possess the algebraic properties necessary for
 	use as a bound on semi-infinite and infinite segments.
+
+	This class uses comparison-by-identity rather than
+	comparison-by-value.  What this means, is there are only ever two
+	instances of this class, representing positive and negative
+	infinity respectively.  All other "instances" of this class are
+	infact simply references to one of these two, and comparisons are
+	done by checking which one you've got.  This improves speed and
+	reduces memory use, and is similar in implementation to Python's
+	boolean True and False objects.
+
+	The normal way to obtain references to positive or negative
+	infinity is to do infinity() or -infinity() respectively.  It is
+	also possible to select the sign by passing a single numeric
+	argument to the constructor.  The sign of the argument causes a
+	reference to either positive or negative infinity to be returned,
+	respectively.  For example infinity(-1) is equivalent to
+	-infinity().  However, this feature is a little slower and not
+	recommended for normal use;  it is provided only to simplify the
+	pickling and unpickling of instances of the class.
 
 	Example:
 
 	>>> x = infinity()
 	>>> x > 0
 	True
-	>>> x + 10
-	infinity
+	>>> x + 10 == x
+	True
 	>>> segment(-10, 10) - segment(-x, 0)
 	segment(0, 10)
 	"""
+	__slots__ = []
 
-	def __init__(self):
-		self.__sign = 1
-	
+	def __new__(cls, *args):
+		if args:
+			# pickle support
+			(sign,) = args
+			if sign > 0:
+				return PosInfinity
+			if sign < 0:
+				return NegInfinity
+			raise ValueError, sign
+		return PosInfinity
+
 	def __repr__(self):
-		if self.__sign > 0:
+		"""
+		Returns a string.
+		"""
+		if self is PosInfinity:
 			return "infinity"
 		return "-infinity"
-	
+
 	__str__ = __repr__
-	
-	def __nonzero__(self):
-		return True
-	
+
+	# pickle support
+
+	def __reduce__(self):
+		"""
+		Pickle support.
+		"""
+		if self is PosInfinity:
+			return (infinity, (1,))
+		# self is NegInfinity
+		return (infinity, (-1,))
+
+	# tests
+
 	def __cmp__(self, other):
-		if type(self) != type(other):
-			return self.__sign
-		return cmp(self.__sign, other.__sign)
-	
-	def __add__(self, other):
-		return self
-	def __radd__(self, other):
-		return self
-	
-	def __sub__(self, other):
-		if (type(self) != type(other)) or (self.__sign != other.__sign):
-			return self
-		raise ValueError, other
-	def __rsub__(self, other):
-		if (type(self) != type(other)) or (self.__sign != other.__sign):
-			return -self
-		raise ValueError, other
+		"""
+		Positive infinity compares as greater than everything
+		except itself, negative infinity compares as less than
+		everything except itself.
+		"""
+		if self is other:
+			return 0
+		if self is PosInfinity:
+			return 1
+		# self is NegInfinity
+		return -1
+
+	def __nonzero__(self):
+		"""
+		Returns True.
+		"""
+		return True
+
+	# arithmetic
 
 	def __neg__(self):
-		x = infinity()
-		x.__sign = -self.__sign
-		return x
+		"""
+		Returns -self.
+		"""
+		if self is PosInfinity:
+			return NegInfinity
+		# self is NegInfinity
+		return PosInfinity
 
 	def __pos__(self):
+		"""
+		Returns self.
+		"""
 		return self
+
+	def __add__(self, other):
+		"""
+		Returns self.
+		"""
+		return self
+
+	def __radd__(self, other):
+		"""
+		Returns self.
+		"""
+		return self
+
+	def __sub__(self, other):
+		"""
+		Returns self.
+		"""
+		return self
+
+	def __rsub__(self, other):
+		"""
+		Returns -self.
+		"""
+		if self is PosInfinity:
+			return NegInfinity
+		# self is NegInfinity
+		return PosInfinity
+
+PosInfinity = object.__new__(infinity)
+NegInfinity = object.__new__(infinity)
 
 
 #
@@ -528,7 +608,7 @@ class segmentlist(list):
 		Return the segmentlist that is the inversion of the given
 		list.  This operation is O(n).
 		"""
-		return segmentlist([segment(-infinity(), infinity())]) - self
+		return segmentlist([segment(NegInfinity, PosInfinity)]) - self
 
 	# other operations
 
