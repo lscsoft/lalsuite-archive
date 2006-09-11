@@ -27,7 +27,6 @@
  */
 
 #include <Python.h>
-#include <structmember.h>
 #include <stdlib.h>
 
 #include <segments.h>
@@ -70,19 +69,18 @@ static PyObject *__new__(PyTypeObject *subtype, PyObject *args, PyObject *kwds)
 	int sign;
 	PyObject *self;
 
-	if(PyTuple_Size(args)) {
-		if(!PyArg_ParseTuple(args, "i:infinity", &sign))
-			return NULL;
-		if(sign > 0)
-			self = (PyObject *) segments_PosInfinity;
-		else if (sign < 0)
-			self = (PyObject *) segments_NegInfinity;
-		else {
-			PyErr_SetObject(PyExc_ValueError, args);
-			return NULL;
-		}
-	} else
+	if(!PyTuple_Size(args))
 		self = (PyObject *) segments_PosInfinity;
+	else if(!PyArg_ParseTuple(args, "i:infinity", &sign))
+		return NULL;
+	else if(sign > 0)
+		self = (PyObject *) segments_PosInfinity;
+	else if (sign < 0)
+		self = (PyObject *) segments_NegInfinity;
+	else {
+		PyErr_SetObject(PyExc_ValueError, args);
+		return NULL;
+	}
 
 	Py_INCREF(self);
 	return self;
@@ -100,7 +98,7 @@ static PyObject *__add__(PyObject *self, PyObject *other)
 		Py_INCREF(other);
 		return other;
 	}
-	PyErr_SetObject(PyExc_TypeError, other);
+	PyErr_SetObject(PyExc_TypeError, self);
 	return NULL;
 }
 
