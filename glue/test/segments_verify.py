@@ -273,6 +273,19 @@ class test_segmentlist(unittest.TestCase):
 		self.assertEqual(segmentlist([]), ~segmentlist([segment(-infinity(), infinity())]))
 		self.assertEqual(segmentlist([segment(-infinity(), -5), segment(5, infinity())]), ~segmentlist([segment(-5,5)]))
 
+	def test__and__(self):
+		for i in xrange(algebra_repeats):
+			a = random_coalesced_list(random.randint(1, algebra_listlength))
+			b = random_coalesced_list(random.randint(1, algebra_listlength))
+			c = a & b
+			try:
+				# make sure __and__ and __sub__ have the
+				# correct relationship to one another
+				self.assertEqual(c, a - (a - b))
+				self.assertEqual(c, b - (b - a))
+			except AssertionError, e:
+				raise AssertionError, str(e) + "\na = " + str(a) + "\nb = " + str(b)
+
 	def test__or__(self):
 		for i in xrange(algebra_repeats):
 			a = random_coalesced_list(random.randint(1, algebra_listlength))
