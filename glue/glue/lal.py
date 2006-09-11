@@ -197,9 +197,7 @@ class LIGOTimeGPS(object):
 			try:
 				other = LIGOTimeGPS(other)
 			except:
-				# if other can't be converted, then the two
-				# args aren't equal.
-				return 1
+				return NotImplemented
 		return cmp((self.seconds, self.nanoseconds), (other.seconds, other.nanoseconds))
 
 	def __nonzero__(self):
