@@ -226,10 +226,9 @@ class segment(tuple):
 	False
 	>>> segment("AAA Towing", "York University") & segment("Pool", "Zoo")
 	segment('Pool', 'York University')
-
-	Notes:
-	It is also possible to cast 2-element tuples, lists, and other
-	container types to segments.  For example segment([0, 1])
+	>>> x = [0, 1]
+	>>> segment(x)
+	segment(0, 1)
 	"""
 
 	# basic class methods
