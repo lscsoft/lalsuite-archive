@@ -313,6 +313,7 @@ class segment(tuple):
 			# self and other do not intersect
 			return self
 		if (self in other) or ((self[0] < other[0]) and (self[1] > other[1])):
+			# result is not exactly 1 segment
 			raise ValueError, other
 		if self[0] < other[0]:
 			return tuple.__new__(segment, (self[0], other[0]))
