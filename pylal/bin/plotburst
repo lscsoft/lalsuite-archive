@@ -391,7 +391,7 @@ class TimeFrequencyPlane(SnglBurstUtils.BurstPlot):
 
 	def add_contents(self, doc):
 		self.nevents += doc.nevents[self.ifo]
-		viz.tfplot(doc.start_time[self.ifo], doc.duration[self.ifo], doc.lo_freq[self.ifo], doc.bandwidth[self.ifo], numarray.log(numarray.array(doc.confidence[self.ifo])), axes = self.axes)
+		viz.tfplot(numarray.array(map(float, doc.start_time[self.ifo])), numarray.array(doc.duration[self.ifo]), numarray.array(doc.lo_freq[self.ifo]), numarray.array(doc.bandwidth[self.ifo]), numarray.log(numarray.array(doc.confidence[self.ifo])), axes = self.axes)
 		self.seglist |= doc.seglists[self.ifo]
 
 	def finish(self):
