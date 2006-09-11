@@ -91,6 +91,12 @@ parser.add_option("-k","--rsq-threshold",action="store",type="string",\
 parser.add_option("-l","--rsq-max-snr",action="store",type="string",\
     default=None, metavar=" RSQ_MAX_SNR", help="rsq max snr")
 
+parser.add_option("-x","--rsq-coeff",action="store",type="string",\
+    default=None, metavar=" RSQ_COEFF", help="rsq coefficient")
+
+parser.add_option("-y","--rsq-pow",action="store",type="string",\
+    default=None, metavar=" RSQ_POW", help="rsq power")
+
 (opts,args) = parser.parse_args()
 
 #######################################################################
@@ -101,9 +107,9 @@ if not (opts.min_mass and opts.max_mass and opts.mean_mass and opts.stdev_mass):
   print >> sys.stderr, "Must specify all mass options"
   sys.exit(1)
 
-if (opts.rsq_threshold or opts.rsq_max_snr):
-  if not (opts.rsq_threshold and opts.rsq_max_snr):
-    print >> sys.stderr, "Must specify both rsq options"
+if (opts.rsq_threshold or opts.rsq_max_snr or opts.rsq_coeff or opts.rsq_pow):
+  if not (opts.rsq_threshold and opts.rsq_max_snr and opts.rsq_coeff and opts.rsq_pow):
+    print >> sys.stderr, "Must specify all rsq options"
     sys.exit(1)
 
 if not opts.config_file:
@@ -198,9 +204,10 @@ if not opts.skip_coiredata:
     --veto-file " + MYRESULTSDIR + "/combinedVetoesL1-23.list "
   if opts.second_coinc:
     command += " --second-coinc "
-  if opts.rsq_threshold and opts.rsq_max_snr:
+  if opts.rsq_threshold and opts.rsq_max_snr and opts.rsq_coeff and opts.rsq_pow:
     command += " --rsq-threshold " + opts.rsq_threshold + " --rsq-max-snr " +\
-        opts.rsq_max_snr
+        opts.rsq_max_snr + " --rsq-coeff " + opts.rsq_coeff + " --rsq-pow " +\
+        opts.rsq_pow
   if opts.test:
     print command + "\n"
   else:
@@ -237,9 +244,10 @@ if not opts.skip_coireinj:
         --veto-file " + MYRESULTSDIR + "/combinedVetoesL1-23.list "
     if opts.second_coinc:
       command += " --second-coinc "
-    if opts.rsq_threshold and opts.rsq_max_snr:
+    if opts.rsq_threshold and opts.rsq_max_snr and opts.rsq_coeff and opts.rsq_pow:
       command += " --rsq-threshold " + opts.rsq_threshold + " --rsq-max-snr " +\
-        opts.rsq_max_snr
+        opts.rsq_max_snr + " --rsq-coeff " + opts.rsq_coeff + " --rsq-pow " +\
+        opts.rsq_pow
     if opts.usertag:
       command += " --usertag " + opts.usertag
 
