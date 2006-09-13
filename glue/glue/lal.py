@@ -359,7 +359,7 @@ class CacheEntry(object):
 			self.description = match.group("description")
 			self.segment = segments.segment(coltype(match.group("start")), coltype(match.group("start")) + coltype(match.group("duration")))
 			self.url = match.group("url")
-		elif len(args) == 4 and map(type, args) == [str, str, segments.segment, str]:
+		elif len(args) == 4 and map(type, args)[2:] == [segments.segment, str]:
 			# parse arguments as observatory, description,
 			# segment, url
 			if kwargs:
