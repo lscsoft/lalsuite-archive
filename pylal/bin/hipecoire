@@ -6,7 +6,7 @@ import copy
 from os import *
 from optparse import *
 from pylal.itertools import *
-from pylal.llwapp import *
+#from pylal.llwapp import *
 import re
 import exceptions
 import glob
@@ -48,7 +48,8 @@ def sire(data_type,input,ifos,ifo=None):
     " --glob '" + input + "'" + \
     " --output " + output + ".xml" + \
     " --summary " + output + ".txt" + \
-    " --data-type " + data[data_type]
+    " --data-type " + data[data_type]+\
+    " --snr-threshold 10"
   if ifo:  
     command += " --ifo-cut " + ifo 
     for file in opts.vetoes:
@@ -466,6 +467,8 @@ for data_type in analyze:
       if data_type == "slide": input += "_SLIDE"
       if opts.second_coinc:
         input += "_" + ifos
+      if opts.usertag:
+        input += "_" + opts.usertag
       input += "-*.xml"
 
     ###################################
