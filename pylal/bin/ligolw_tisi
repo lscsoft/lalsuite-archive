@@ -50,7 +50,6 @@ __date__ = "$Date$"[7:-2]
 def parse_command_line():
 	parser = OptionParser(version = "%prog CVS $Id$")
 	parser.add_option("--comment", metavar = "text", default = "", help = "set comment string in process table")
-	parser.add_option("-o", "--output", metavar = "filename", help = "write to filename (default = stdout)")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
 	parser.add_option("-i", "--instrument", metavar = "name=first:last:step[,first:last:step[,...]]", action = "append", default = [], help = "construct time slides containing the named instrument, shifted by numbers seconds as described by the given range(s)")
 	options, filenames = parser.parse_args()
