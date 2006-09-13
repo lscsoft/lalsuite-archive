@@ -30,7 +30,8 @@ Library of utility code for LIGO Light Weight XML applications.
 
 import gzip
 import os
-import urllib
+import urllib2
+import urlparse
 import signal
 import stat
 import sys
@@ -94,13 +95,16 @@ def sort_files_by_size(filenames, verbose = False, reverse = False):
 	return [pair[1] for pair in measure_file_sizes(filenames, reverse = reverse)]
 
 
-def load_filename(filename, verbose = False, gz = False):
+def load_filename(filename, verbose = False, gz = False, xmldoc = None):
 	"""
 	Parse the contents of the file identified by filename, and return
 	the contents as a LIGO Light Weight document tree.  Helpful
 	verbosity messages are printed to stderr if verbose is True, and
 	the file is gzip decompressed while reading if gz is set to True.
-	If filename is None, then stdin is parsed.
+	If filename is None, then stdin is parsed.  If the optional xmldoc
+	argument is provided and not None, the parsed XML tree will be
+	appended to that document, otherwise a new document will be
+	created.
 
 	Example:
 
@@ -109,23 +113,26 @@ def load_filename(filename, verbose = False, gz = False):
 	"""
 	if verbose:
 		print >>sys.stderr, "reading %s ..." % (filename or "stdin")
-	xmldoc = ligolw.Document()
 	if filename:
 		fileobj = file(filename)
 	else:
 		fileobj = sys.stdin
 	if gz:
 		fileobj = gzip.GzipFile(mode = "rb", fileobj = fileobj)
+	if xmldoc == None:
+		xmldoc = ligolw.Document()
 	ligolw.make_parser(ContentHandler(xmldoc)).parse(fileobj)
 	return xmldoc
 
 
-def load_url(url, verbose = False, gz = False):
+def load_url(url, verbose = False, gz = False, xmldoc = None):
 	"""
 	This function has the same behaviour as load_filename() but accepts
-	a URL instead of a filename.  Any source from which Python's urllib
-	library can read data is acceptable.  stdin is parsed if the URL is
-	None.
+	a URL instead of a filename.  Any source from which Python's
+	urllib2 library can read data is acceptable.  stdin is parsed if
+	the URL is None.  If the optional xmldoc argument is provided and
+	is not None, the parsed XML tree will be appended to that document,
+	otherwise a new document will be created.
 
 	Example:
 
@@ -134,13 +141,26 @@ def load_url(url, verbose = False, gz = False):
 	"""
 	if verbose:
 		print >>sys.stderr, "reading %s ..." % (url or "stdin")
-	xmldoc = ligolw.Document()
 	if url:
-		fileobj = urllib.urlopen(url)
+		# hack to detect local files:  urlopen() returns an object
+		# that does not support seeking, which prevents GzipFile
+		# from working correctly;  by opening local files as
+		# regular files, this gets gzip support working for the
+		# local case;  still can't read .xml.gz files from a remote
+		# host, though;  what's needed is some kind of buffering
+		# wrapper to provide seeking (I don't think GzipFile wants
+		# to seek very far)
+		(scheme, host, path, nul, nul, nul) = urlparse.urlparse(url)
+		if scheme.lower() in ("", "file") and host.lower() in ("", "localhost"):
+			fileobj = file(path)
+		else:
+			fileobj = urllib2.urlopen(url)
 	else:
 		fileobj = sys.stdin
 	if gz:
 		fileobj = gzip.GzipFile(mode = "rb", fileobj = fileobj)
+	if xmldoc == None:
+		xmldoc = ligolw.Document()
 	ligolw.make_parser(ContentHandler(xmldoc)).parse(fileobj)
 	return xmldoc
 
