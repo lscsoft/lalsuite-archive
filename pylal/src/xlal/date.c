@@ -477,23 +477,6 @@ static PyTypeObject pylal_LIGOTimeGPS_Type = {
  * ============================================================================
  */
 
-static PyObject *pylal_XLALREAL8ToGPS(PyObject *self, PyObject *args)
-{
-	pylal_LIGOTimeGPS *new;
-	double t;
-
-	/* float */
-	if(!PyArg_ParseTuple(args, "d:XLALREAL8ToGPS", &t))
-		return NULL;
-
-	new = (pylal_LIGOTimeGPS *) _PyObject_New(&pylal_LIGOTimeGPS_Type);
-	XLALGPSSetREAL8(&new->gps, t);
-
-	/* LIGOTimeGPS */
-	return (PyObject *) new;
-}
-
-
 static PyObject *pylal_XLALGPSToINT8NS(PyObject *self, PyObject *args)
 {
 	pylal_LIGOTimeGPS *s;
@@ -521,27 +504,6 @@ static PyObject *pylal_XLALINT8NSToGPS(PyObject *self, PyObject *args)
 
 	/* LIGOTimeGPS */
 	return (PyObject *) new;
-}
-
-
-static PyObject *pylal_XLALStrToGPS(PyObject *self, PyObject *args)
-{
-	LIGOTimeGPS gps;
-	int result;
-	char *str, *end;
-
-	/* string */
-	if(!PyArg_ParseTuple(args, "s:XLALStrToGPS", &str))
-		return NULL;
-
-	result = XLALStrToGPS(&gps, str, &end);
-	if((result < 0) || (end == str)) {
-		PyErr_SetString(PyExc_ValueError, str);
-		return NULL;
-	}
-
-	/* LIGOTimeGPS */
-	return pylal_LIGOTimeGPS_New(gps);
 }
 
 
@@ -791,8 +753,6 @@ static struct PyMethodDef methods[] = {
 	{"XLALLeapSeconds", pylal_XLALLeapSeconds, METH_VARARGS, NULL},
 	{"XLALLeapSecondsUTC", pylal_XLALLeapSecondsUTC, METH_VARARGS, NULL},
 	{"XLALModifiedJulianDay", pylal_XLALModifiedJulianDay, METH_VARARGS, NULL},
-	{"XLALREAL8ToGPS", pylal_XLALREAL8ToGPS, METH_VARARGS, NULL},
-	{"XLALStrToGPS", pylal_XLALStrToGPS, METH_VARARGS, NULL},
 	{"XLALUTCToGPS", pylal_XLALUTCToGPS, METH_VARARGS, NULL},
 	{NULL,}
 };
