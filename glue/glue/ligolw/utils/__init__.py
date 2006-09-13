@@ -138,6 +138,13 @@ def load_url(url, verbose = False, gz = False, xmldoc = None):
 
 	>>> from glue.ligolw import utils
 	>>> xmldoc = utils.load_url("file://localhost/tmp/data.xml")
+
+	Bugs:
+
+	- Due to limitations in Python's gzip support and in the way its
+	  URL library transfers data, it is not possible to read gzipped
+	  XML files from remote locations.  Reading gzipped XML files
+	  locally should work correctly.
 	"""
 	if verbose:
 		print >>sys.stderr, "reading %s ..." % (url or "stdin")
