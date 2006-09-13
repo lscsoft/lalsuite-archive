@@ -28,15 +28,14 @@
 Add (merge) LIGO LW XML files containing LSC tables.
 """
 
-import gzip
 import os
 import sys
-import urllib
 from urlparse import urlparse
 
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
+from glue.ligolw import utils
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __date__ = "$Date$"[7:-2]
@@ -51,24 +50,13 @@ __version__ = "$Revision$"[11:-2]
 # =============================================================================
 #
 
-ContentHandler = ligolw.LIGOLWContentHandler
-
-def append_document(doc, file):
-	"""
-	Parse the contents of the file object file, appending to the
-	document tree doc.
-	"""
-	ligolw.make_parser(ContentHandler(doc)).parse(file)
-	return doc
-
-
 def url2path(url):
 	"""
 	If url identifies a file on the local host, return the path to the
 	file otherwise raise ValueError.
 	"""
-	(scheme, location, path, params, query, frag) = urlparse(url)
-	if scheme.lower() in ("", "file") and location.lower() in ("", "localhost"):
+	(scheme, host, path, nul, nul, nul) = urlparse(url)
+	if scheme.lower() in ("", "file") and host.lower() in ("", "localhost"):
 		return path
 	raise ValueError, url
 
@@ -199,11 +187,8 @@ def ligolw_add(doc, urls, **kwargs):
 	# Input
 	for n, url in enumerate(urls):
 		if kwargs["verbose"]:
-			print >>sys.stderr, "%d/%d: reading %s ..." % (n + 1, len(urls), url)
-		fileobj = urllib.urlopen(url)
-		if url[-3:] == ".gz":
-			fileobj = gzip.GzipFile(mode = "rb", fileobj = fileobj)
-		append_document(doc, fileobj)
+			print >>sys.stderr, "%d/%d:" % (n + 1, len(urls)),
+		utils.load_url(url, verbose = kwargs["verbose"], gz = url[-3:] == ".gz", xmldoc = doc)
 
 	# ID reassignment
 	if not kwargs["non_lsc_tables_ok"] and lsctables.HasNonLSCTables(doc):
