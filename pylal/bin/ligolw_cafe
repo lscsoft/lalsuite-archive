@@ -75,7 +75,7 @@ options, cachenames = parse_command_line()
 cache = []
 map(lambda filename: cache.extend(ligolw_cafe.load_cache(filename, options.verbose)), cachenames)
 
-instruments, outputcaches = ligolw_cafe.ligolw_cafe(cache, ligolw_cafe.get_time_slides(options.time_slides, options.verbose), options.verbose)
+instruments, outputcaches = ligolw_cafe.ligolw_cafe(cache, ligolw_cafe.get_time_slides(options.time_slides, verbose = options.verbose, gz = options.time_slides[-3:] == ".gz"), options.verbose)
 
 if options.single_instrument:
 	ligolw_cafe.write_single_instrument_caches(options.base, outputcaches, instruments, options.verbose)
