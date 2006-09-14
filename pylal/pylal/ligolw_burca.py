@@ -171,7 +171,7 @@ def ligolw_burca(xmldoc, **kwargs):
 
 	# build the event list accessors, populated with events from those
 	# processes that can participate in a coincidence
-	if "string_compare" in kwargs:
+	if kwargs["string_compare"]:
 		max_delta_t = max([t[0] for t in kwargs["window"].itervalues()])
 	else:
 		max_delta_t = max(kwargs["window"].itervalues())
