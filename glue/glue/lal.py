@@ -392,7 +392,7 @@ class CacheEntry(object):
 		else:
 			start = "-"
 			duration = "-"
-		return "%s %s %s %s %s" % (self.observatory or "-", self.description or "-", duration, duration, self.url)
+		return "%s %s %s %s %s" % (self.observatory or "-", self.description or "-", start, duration, self.url)
 
 	def __cmp__(self, other):
 		"""
