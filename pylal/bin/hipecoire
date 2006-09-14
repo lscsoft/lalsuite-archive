@@ -48,8 +48,7 @@ def sire(data_type,input,ifos,ifo=None):
     " --glob '" + input + "'" + \
     " --output " + output + ".xml" + \
     " --summary " + output + ".txt" + \
-    " --data-type " + data[data_type]+\
-    " --snr-threshold 10"
+    " --data-type " + data[data_type]
   if ifo:  
     command += " --ifo-cut " + ifo 
     for file in opts.vetoes:
