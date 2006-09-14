@@ -97,13 +97,6 @@ def get_time_slides(filename, verbose = False):
 # =============================================================================
 #
 
-def cacheentry_to_seglistdict(cacheentry):
-	s = segments.segmentlistdict()
-	for instrument in cacheentry.observatory.split(","):
-		s[instrument] = segments.segmentlist([cacheentry.segment])
-	return s
-
-
 class CafePacker(packing.Packer):
 	def set_time_slides(self, offsetdictlist):
 		self.timeslides = offsetdictlist
@@ -137,7 +130,7 @@ class CafePacker(packing.Packer):
 
 		# add cache_entry by either adding a new bin or putting it
 		# into the first bin that was found
-		size = cacheentry_to_seglistdict(cache_entry)
+		size = cache_entry.to_segmentlistdict()
 		if not matching_bins:
 			self.bins.append(packing.LALCache())
 			self.bins[-1].add(cache_entry, size)
