@@ -149,8 +149,9 @@ def get_time_slide_id(xmldoc, time_slide, create_new = True):
 			raise KeyError, time_slide
 		id = lsctables.NewILWDs(tisitable, "time_slide_id").next()
 		for instrument, offset in time_slide.iteritems():
-			row = lsctables.CoincDef()
-			row.time_side_id = id
+			row = lsctables.TimeSlide()
+			row.process_id = ""	# FIXME
+			row.time_slide_id = id
 			row.instrument = instrument
 			row.offset = offset
 			tisitable.append(row)
