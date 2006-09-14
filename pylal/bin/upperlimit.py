@@ -9,6 +9,32 @@ import exceptions
 import glob
 import ConfigParser
 
+
+def mkdirsafe( directory ):
+  """
+     Creates a directory, does not nag about when it already exists
+  """
+  try:
+     os.makedirs(directory)
+  except OSError, (errno, strerror):
+    if errno==17:
+      print "WARNING: directory %s already exist" % (directory) 
+    else:
+      raise
+  
+
+def symlinksafe( target, linkname ):
+  """
+     Creates a link, does not nag about when it already exists
+  """
+  try:
+     os.symlink( target, linkname )
+  except OSError, (errno, strerror):
+    if errno==17:
+      print "WARNING: link %s already exist" % (linkname)
+    else:
+      raise
+
 #######################################################################
 usage = """
 usage: %prog [options] 
@@ -25,7 +51,8 @@ the number of triggers is very large.
 
 parser = OptionParser( usage )
 #
-# a c i p n s u 
+# a c d e f g i j k l m n p s t u v x y 
+# A B C H L R S T
 #
 
 # path
@@ -52,6 +79,9 @@ parser.add_option("-p","--skip-population",action="store_true",default=False,\
 parser.add_option("-i","--skip-coireinj",action="store_true",default=False,\
     help="skip coiring of injections")
 
+parser.add_option("-L","--skip-plotthinca",action="store_true",default=False,\
+    help="skip plotthinca step")
+
 parser.add_option("-n","--skip-png",action="store_true",default=False,\
     help="skip plotnumgalaxies")
 
@@ -63,6 +93,9 @@ parser.add_option("-t","--usertag",action="store",type="string",\
 
 parser.add_option("-T","--test",action="store_true",\
     default=False, help="only print the commands to be run")
+
+parser.add_option("-v","--no-veto",action="store_true",\
+    default=False, help="do not apply any vetoes (in the case they already have been applied)")
 
 # mass range options
 parser.add_option("-d","--min-mass",action="store",type="float",\
@@ -97,6 +130,18 @@ parser.add_option("-x","--rsq-coeff",action="store",type="string",\
 parser.add_option("-y","--rsq-pow",action="store",type="string",\
     default=None, metavar=" RSQ_POW", help="rsq power")
 
+parser.add_option("-S","--statistic",action="store",type="string",\
+    default="effective_snrsq", metavar=" STATISTIC", help="defines the statistic to use: default is effective_snrsq, choices: effective_snrsq, bittenl")
+
+parser.add_option("-A","--bittenl_a",action="store",type="string",\
+    default=None, metavar=" BITTENL_A", help="parameter A for the bitten-l statistics")
+
+parser.add_option("-B","--bittenl_b",action="store",type="string",\
+    default=None, metavar=" BITTENL_B", help="parameter B for the bitten-l statistics")
+
+parser.add_option("-H","--threshold",action="store",type="string",\
+    default=None, metavar=" THRESHOLD", help="threshold for the coire steps in hipecoire")
+
 (opts,args) = parser.parse_args()
 
 #######################################################################
@@ -120,7 +165,12 @@ if not opts.results_dir:
   print >> sys.stderr, "Must specify --results-dir"
   sys.exit(1)
 
-##############################################################################
+if (opts.statistic=="bittenl"):
+   if not opts.bittenl_a or not opts.bittenl_b:
+      print >> sys.stderr, "Must specify both values for bittenl_a and bittenl_b"
+      sys.exit(1)
+
+#######################################################################
 # create the config parser object and read in the ini file
 cp = ConfigParser.ConfigParser()
 cp.read(opts.config_file)
@@ -128,11 +178,6 @@ fulldata = cp.items("fulldata")
 injdata = cp.items("injdata")
 vetodata = cp.items("vetodata")
 sourcedata = cp.items("sourcedata")
-
-#S4DIR="/home/htdocs/uwmlsc/root/iulgroup/investigations/s4"
-#SEARCHDIR="bns"
-#LALAPPS_LOCATION=getenv("LALAPPS_LOCATION")
-#USERTAG=""
 
 #######################################################################
 # do the set up
@@ -144,17 +189,16 @@ minmtotal = str(2.0*opts.min_mass)
 maxmtotal = str(2.0*opts.max_mass)
 
 if not opts.skip_setup:
-  os.mkdir(MYRESULTSDIR)
+  mkdirsafe(MYRESULTSDIR)
   os.chdir(MYRESULTSDIR)
 
-  os.symlink(fulldata[0][1], "./full_data")
+  symlinksafe(fulldata[0][1], "./full_data")
   for injdir in injdata:
-    os.symlink(injdir[1], "./" + injdir[0])
+    symlinksafe(injdir[1], "./" + injdir[0])
   for myfile in vetodata:
     shutil.copy(myfile[1], "./")
   for myfile in sourcedata:
     shutil.copy(myfile[1], "./inspsrcs.new")
-
   os.chdir(MYRESULTSDIR)
 
   # write out the options that were supplied
@@ -198,8 +242,9 @@ if not opts.skip_population:
 if not opts.skip_coiredata:
   print "** Processing full data set"
   command = "hipecoire --trig-path " + MYRESULTSDIR + "/full_data/ --ifo H1 --ifo H2 --ifo L1 \
-    --num-slides 50 --zero-data all_data --cluster-time 10 \
-    --veto-file " + MYRESULTSDIR + "/combinedVetoesH1-23.list \
+    --num-slides 50 --zero-data all_data --cluster-time 10"
+  if not opts.no_veto:
+    command+=" --veto-file " + MYRESULTSDIR + "/combinedVetoesH1-23.list \
     --veto-file " + MYRESULTSDIR + "/combinedVetoesH2-23.list \
     --veto-file " + MYRESULTSDIR + "/combinedVetoesL1-23.list "
   if opts.second_coinc:
@@ -208,20 +253,26 @@ if not opts.skip_coiredata:
     command += " --rsq-threshold " + opts.rsq_threshold + " --rsq-max-snr " +\
         opts.rsq_max_snr + " --rsq-coeff " + opts.rsq_coeff + " --rsq-pow " +\
         opts.rsq_pow
+  if (opts.statistic=="bittenl"):
+     command+=" --coinc-stat bitten_l --h1-bittenl-a " +opts.bittenl_a+" --h1-bittenl-b "+opts.bittenl_b+ \
+        " --h2-bittenl-a " +opts.bittenl_a+" --h2-bittenl-b "+opts.bittenl_b+ \
+        " --l1-bittenl-a " +opts.bittenl_a+" --l1-bittenl-b "+opts.bittenl_b
+  if opts.threshold:
+     command+=" --stat-threshold "+opts.threshold
   if opts.test:
     print command + "\n"
   else:
-    os.makedirs( MYRESULTSDIR + "/hipecoire/full_data" )
+    mkdirsafe( MYRESULTSDIR + "/hipecoire/full_data" )
     os.chdir( MYRESULTSDIR + "/hipecoire/full_data" )
     os.system( command )
     # link to the files needed for the upper limit
     os.chdir( MYRESULTSDIR + "/hipecoire" )
     for file in glob.glob("full_data/H*SLIDE*.xml"):
       tmpdest = os.path.splitext( os.path.basename(file) )
-      os.symlink( file, tmpdest[0] + "_slides.xml" )
+      symlinksafe( file, tmpdest[0] + "_slides.xml" )
     for file in glob.glob("full_data/H*THINCA_CLUST*.xml"):
       tmpdest = os.path.splitext( os.path.basename(file) )
-      os.symlink( file, tmpdest[0] + "_zero.xml" )
+      symlinksafe( file, tmpdest[0] + "_zero.xml" )
 
 os.chdir(MYRESULTSDIR)
 
@@ -238,8 +289,9 @@ if not opts.skip_coireinj:
     print injectionfile
     command = "hipecoire --trig-path " + MYRESULTSDIR + "/" + mydir +\
         " --ifo H1 --ifo H2 --ifo L1 --injection-file " + injectionfile[0] +\
-        " --injection-window 10 --cluster-time 10 \
-        --veto-file " + MYRESULTSDIR + "/combinedVetoesH1-23.list \
+        " --injection-window 10 --cluster-time 10 "
+    if not opts.no_veto:
+        command+="--veto-file " + MYRESULTSDIR + "/combinedVetoesH1-23.list \
         --veto-file " + MYRESULTSDIR + "/combinedVetoesH2-23.list \
         --veto-file " + MYRESULTSDIR + "/combinedVetoesL1-23.list "
     if opts.second_coinc:
@@ -250,65 +302,86 @@ if not opts.skip_coireinj:
         opts.rsq_pow
     if opts.usertag:
       command += " --usertag " + opts.usertag
-
+    if (opts.statistic=="bittenl"):
+     command+=" --coinc-stat bitten_l --h1-bittenl-a " +opts.bittenl_a+" --h1-bittenl-b "+opts.bittenl_b+ \
+        " --h2-bittenl-a " +opts.bittenl_a+" --h2-bittenl-b "+opts.bittenl_b+ \
+        " --l1-bittenl-a " +opts.bittenl_a+" --l1-bittenl-b "+opts.bittenl_b
+    if opts.threshold:
+      command+=" --stat-threshold "+opts.threshold
     if opts.test:
       print command + "\n"
     else:
-      os.makedirs( MYRESULTSDIR + "/hipecoire/" + mydir )
+      mkdirsafe( MYRESULTSDIR + "/hipecoire/" + mydir )
       os.chdir( MYRESULTSDIR + "/hipecoire/" + mydir ) 
       os.system( command )
       os.chdir( MYRESULTSDIR + "/hipecoire/" )
       for file in glob.glob( mydir + "/H*FOUND.xml"):
         tmpdest = os.path.splitext( os.path.basename(file) )
-        os.symlink( file, tmpdest[0] + "_" + mydir + ".xml" )
+        symlinksafe( file, tmpdest[0] + "_" + mydir + ".xml" )
       for file in glob.glob( mydir + "/H*MISSED.xml"):
         tmpdest = os.path.splitext( os.path.basename(file) )
-        os.symlink( file, tmpdest[0] + "_" + mydir + ".xml" )
+        symlinksafe( file, tmpdest[0] + "_" + mydir + ".xml" )
       os.chdir(MYRESULTSDIR)
 
-# generate the background/foreground number of events plot
-command = "plotthinca --glob 'H1*-THINCA_*.xml' --plot-slides --num-slides 50 \
-  --figure-name 'summary' --add-zero-lag --snr-dist --min-snr 8.5 \
-  --max-snr 11.5 --statistic effective_snr"
-if opts.test:
-  print command + "\n"
-else:
-  os.chdir( MYRESULTSDIR + "/hipecoire/full_data" )
-  os.system( command )
+
+#######################################################################
+# plotthinca step
+#######################################################################
+if not opts.skip_plotthinca:
+   # generate the background/foreground number of events plot
+   command = "plotthinca --glob 'H1*-THINCA_*.xml' --plot-slides --num-slides 50 \
+     --figure-name 'summary' --add-zero-lag --snr-dist --min-snr 8.5 \
+     --max-snr 11.5 --statistic effective_snr"
+   if opts.test:
+     print command + "\n"
+   else:
+     os.chdir( MYRESULTSDIR + "/hipecoire/full_data" )
+     os.system( command )
 
 #######################################################################
 # skip plotnumgalaxies
 #######################################################################
 if not opts.skip_png:
   timetypes = ["H1H2L1", "H1H2", "H1L1", "H2L1"]
-  for times in timetypes:
-    print "running plotnumgalaxies for " + times 
-    command = "plotnumgalaxies \
-      --slide-glob '" + MYRESULTSDIR + "/hipecoire/H*slides.xml' \
-      --zero-glob '" + MYRESULTSDIR + "/hipecoire/H*zero.xml' \
-      --found-glob '" + MYRESULTSDIR + "/hipecoire/" + times + "-THINCA*FOUND*.xml' \
-      --missed-glob '" + MYRESULTSDIR + "/hipecoire/" + times + "-THINCA*MISSED*.xml' \
-      --source-file '" + MYRESULTSDIR + "/inspsrcs.new' \
-      --injection-glob '" + MYRESULTSDIR + "/HL-INJECTIONS_1-793130413-2548800.xml'" 
-    if times == "H1H2":
-      command += " --num-slides 50 --plot-cum-loudest --plot-pdf-loudest \
-        --x-value chirp_dist_h --x-max 40.0 --plot-ng --plot-efficiency \
-        --cum-search-ng --mc-errors --figure-name H1H2 --verbose --nbins 20 \
-        --distance-error positive --magnitude-error positive \
-        --waveform-systematic 0.1 --h-calibration 0.08"
-    else:
-      command += " --num-slides 50 --plot-cum-loudest --plot-pdf-loudest \
-        --x-value chirp_dist_h --x-max 40.0 --y-value chirp_dist_l --axes-square \
-        --plot-2d-ng --plot-effcontour --cum-search-2d-ng --mc-errors \
-        --figure-name " + times + " --verbose --nbins 20 --distance-error positive \
-        --magnitude-error positive --waveform-systematic 0.1 --h-calibration 0.08 \
-        --l-calibration 0.05"
-    if opts.test:
-      print command + "\n"
-    else:
-      os.makedirs( MYRESULTSDIR + "/plotnumgalaxies/" + times )
-      os.chdir( MYRESULTSDIR + "/plotnumgalaxies/" + times )
-      os.system( command )
+  popfiles = ["/HL-INJECTIONS_1-793130413-2548800.xml","/HL-INJECTIONS_1_UNIFORM-793130413-2548800.xml"]
+  for pop in popfiles:
+    for times in timetypes:
+      print "running plotnumgalaxies for " + times
+      dir=MYRESULTSDIR + "/plotnumgalaxies/" + times
+      if  (popfiles.index(pop)==1):
+         dir=dir+"_uniform"
+      mkdirsafe( dir )
+      os.chdir( dir )
+      command = "plotnumgalaxies \
+        --slide-glob '" + MYRESULTSDIR + "/hipecoire/H*slides.xml' \
+        --zero-glob '" + MYRESULTSDIR + "/hipecoire/H*zero.xml' \
+        --found-glob '" + MYRESULTSDIR + "/hipecoire/" + times + "-THINCA*FOUND*.xml' \
+        --missed-glob '" + MYRESULTSDIR + "/hipecoire/" + times + "-THINCA*MISSED*.xml' \
+        --source-file '" + MYRESULTSDIR + "/inspsrcs.new' \
+        --injection-glob '" + MYRESULTSDIR + pop+ "' --figure-name "+times+\
+        " --num-slides 50 --plot-cum-loudest --plot-pdf-loudest"+\
+        " --x-value chirp_dist_h --x-max 40.0 --nbins 20 --verbose"+\
+        " --distance-error positive --magnitude-error positive"+ \
+        " --waveform-systematic 0.1 --h-calibration 0.08 --mc-errors"
+      if times == "H1H2":
+        command += " --plot-ng --plot-efficiency --cum-search-ng" 
+      else:
+        command += " --y-value chirp_dist_l --axes-square"+\
+          " --plot-2d-ng --plot-effcontour --cum-search-2d-ng"+\
+          " --l-calibration 0.05"
+      if (popfiles.index(pop)==1):
+        command+=" --m-low " + minmtotal + " --m-high " + maxmtotal + " --m-dm " +opts.m_dm
+      if (opts.statistic=="bittenl"):
+        command+=" --statistic bitten_l --bittenl_a "+opts.bittenl_a+" --bittenl_b "+opts.bittenl_b
+      if opts.test:
+        print command + "\n"
+      else:
+        dir=MYRESULTSDIR + "/plotnumgalaxies/" + times
+        if  (popfiles.index(pop)==1):
+          dir=dir+"_uniform"
+        mkdirsafe( dir )
+        os.chdir( dir )
+        os.system( command )
 
 
 #######################################################################
@@ -329,47 +402,6 @@ if not opts.skip_upper_limit:
   else:
     os.chdir( MYRESULTSDIR + "/plotnumgalaxies/" )
     os.system( command )
-
-
-#######################################################################
-# skip plotnumgalaxies;  this is the second run for the uniform mass
-# distribution in order give an upper limit as a function of mass
-#######################################################################
-if not opts.skip_png:
-  timetypes = ["H1H2L1", "H1H2", "H1L1", "H2L1"]
-  for times in timetypes:
-    print "running plotnumgalaxies for " + times 
-    os.makedirs( MYRESULTSDIR + "/plotnumgalaxies/" + times + "_uniform")
-    os.chdir( MYRESULTSDIR + "/plotnumgalaxies/" + times + "_uniform")
-    command = "plotnumgalaxies \
-      --slide-glob '" + MYRESULTSDIR + "/hipecoire/H*slides.xml' \
-      --zero-glob '" + MYRESULTSDIR + "/hipecoire/H*zero.xml' \
-      --found-glob '" + MYRESULTSDIR + "/hipecoire/" + times + "-THINCA*FOUND*.xml' \
-      --missed-glob '" + MYRESULTSDIR + "/hipecoire/" + times + "-THINCA*MISSED*.xml' \
-      --source-file '" + MYRESULTSDIR + "/inspsrcs.new' \
-      --injection-glob '" + MYRESULTSDIR + "/HL-INJECTIONS_1_UNIFORM-793130413-2548800.xml'" 
-    if times == "H1H2":
-      command += " --num-slides 50 --plot-cum-loudest --plot-pdf-loudest \
-        --x-value chirp_dist_h --x-max 40.0 --plot-ng --plot-efficiency \
-        --cum-search-ng --mc-errors --figure-name H1H2 --verbose --nbins 20 \
-        --distance-error positive --magnitude-error positive \
-        --waveform-systematic 0.1 --h-calibration 0.08 \
-        --m-low " + minmtotal + " --m-high " + maxmtotal + " --m-dm " +\
-        opts.m_dm
-    else:
-      command += " --num-slides 50 --plot-cum-loudest --plot-pdf-loudest \
-        --x-value chirp_dist_h --x-max 40.0 --y-value chirp_dist_l --axes-square \
-        --plot-2d-ng --plot-effcontour --cum-search-2d-ng --mc-errors \
-        --figure-name " + times + " --verbose --nbins 20 --distance-error positive \
-        --magnitude-error positive --waveform-systematic 0.1 --h-calibration 0.08 \
-        --l-calibration 0.05 \
-        --m-low " + minmtotal + " --m-high " + maxmtotal + " --m-dm " +\
-        opts.m_dm
-    if opts.test:
-      print command + "\n"
-    else:
-      os.system( command )
-
 
 #######################################################################
 # skip plotnumgalaxies
