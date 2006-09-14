@@ -81,9 +81,17 @@ def cache_to_seglistdict(cache):
 	return s
 
 
-def get_time_slides(filename, verbose = False):
-	doc = utils.load_filename(filename, verbose)
-	tisitable = table.get_table(doc, lsctables.TimeSlideTable.tableName)
+def get_time_slides(filename, verbose = False, gz = False):
+	"""
+	Load the XML document contained in filename and convert the time
+	slide table therein to a list of dictionaries of instrument/offset
+	pairs.  The optional verbose and gz parameters are the same as for
+	the glue.ligolw.utils.load_filename() function.  Raises ValueError
+	if the document does not contain exactly 1 time slide table, or if
+	one or more offsets in the table cannot be expressed as LIGOTimeGPS
+	objects.
+	"""
+	tisitable = table.get_table(utils.load_filename(filename, verbose = verbose, gz = gz), lsctables.TimeSlideTable.tableName)
 	for row in tisitable:
 		row.offset = LIGOTimeGPS(row.offset)
 	return map(tisitable.get_offset_dict, tisitable.dict.keys())
@@ -204,9 +212,9 @@ def ligolw_cafe(cache, time_slides, verbose = False):
 		print >>sys.stderr, "packing files..."
 	for n, cacheentry in enumerate(cache):
 		if verbose and not n % max(5, (len(cache)/1000)):
-			print >>sys.stderr, "	%.1f%%	(%d files, %d caches)\r" % (100.0 * n / len(cache), n, len(outputcaches)),
+			print >>sys.stderr, "	%.1f%%	(%d files, %d caches)\r" % (100.0 * n / len(cache), n + 1, len(outputcaches)),
 		packer.pack(cacheentry)
 	if verbose:
-		print >>sys.stderr, "	100.0%%	(%d files, %d caches)" % (n, len(outputcaches))
+		print >>sys.stderr, "	100.0%%	(%d files, %d caches)" % (n + 1, len(outputcaches))
 
 	return seglists.keys(), outputcaches
