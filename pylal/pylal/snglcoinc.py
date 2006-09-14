@@ -55,11 +55,11 @@ def parse_thresholds(thresholdstrings):
 	"""
 	Turn a list of strings of the form "inst1,inst2=delta" into a
 	dictionary with (inst1, inst2) 2-tuples as keys and the deltas as
-	the values.  In the input, each pair of instruments is allowed two
-	entries, once for each order.  The output will contain exactly two
-	entries for each pair of instruments;  if the input strings do not
-	contain a set for a particular instrument order, the value for the
-	missing pair will be copied from the one provided.
+	the values as strings.  In the input, each pair of instruments is
+	allowed two entries, once for each order.  The output will contain
+	exactly two entries for each pair of instruments;  if the input
+	strings do not contain a set for a particular instrument order, the
+	value for the missing pair will be copied from the one provided.
 	"""
 	thresholds = {}
 	for [pair, delta] in map(lambda w: str.split(w, "="), thresholdstrings):
