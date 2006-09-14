@@ -183,6 +183,10 @@ def ligolw_burca(xmldoc, **kwargs):
 		offsetdict = coinc_tables.get_time_slide(time_slide_id)
 		if kwargs["verbose"]:
 			print >>sys.stderr, "time slide %d/%d: %s" % (n + 1, len(time_slide_ids), str(offsetdict))
+		if len(offsetdict.keys()) < 2:
+			if kwargs["verbose"]:
+				print >>sys.stderr, "\tsingle-instrument time slide: skipped"
+			continue
 		if False in map(eventlists.__contains__, offsetdict.keys()):
 			if kwargs["verbose"]:
 				print >>sys.stderr, "\twarning: skipping due to insufficient data"
