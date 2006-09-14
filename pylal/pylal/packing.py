@@ -78,9 +78,6 @@ class LALCache(Bin):
 		Bin.__init__(self)
 		self.size = segments.segmentlistdict()
 
-	def add_new(self, observatory, description, segment, filename):
-		self.add(CacheEntry(observatory, description, segment, "file://localhost" + os.path.abspath(filename)), segments.segmentlistdict({observatory: segments.segmentlist([segment])}))
-
 	def __str__(self):
 		return "\n".join(map(str, self.objects))
 
