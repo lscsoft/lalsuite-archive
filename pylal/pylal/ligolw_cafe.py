@@ -210,6 +210,13 @@ def ligolw_cafe(cache, time_slides, verbose = False):
 	# possibly produce coincident triggers.
 	seglists = llwapp.get_coincident_segmentlistdict(seglists, time_slides)
 
+	# optimization: adding files to bins in time order keeps the number
+	# of bins from growing larger than needed.
+	if verbose:
+		print >>sys.stderr, "sorting cache by time ..."
+	cache = list(cache)
+	cache.sort(lambda a, b: cmp(a.segment, b.segment))
+
 	# Pack cache entries into output caches.
 	outputcaches = []
 	packer = CafePacker(outputcaches)
