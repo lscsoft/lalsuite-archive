@@ -128,12 +128,18 @@ class CafePacker(packing.Packer):
 					for key in offsetdict.iterkeys():
 						if key in bin.size:
 							b.extend(bin.size[key])
-					# FIXME: does not yet handle the case
-					# of a cache entry with multiple
-					# instruments
-					if b.coalesce().intersects_segment(cache_entry.segment.shift(offsetdict[cache_entry.observatory])):
-						matching_bins.append((n, bin))
-						break
+					b.coalesce()
+					# if we find a match, we want to
+					# exit from the "for offsetdict"
+					# loop, so we have to play some
+					# games with breaks and elses
+					for instrument in cache_entry.observatory.split(","):
+						if b.intersects_segment(cache_entry.segment.shift(offsetdict[instrument])):
+							matching_bins.append((n, bin))
+							break
+					else:
+						continue
+					break
 			bin.size.offsets.clear()
 
 		# add cache_entry by either adding a new bin or putting it
