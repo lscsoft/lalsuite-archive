@@ -30,6 +30,7 @@ __date__ = "$Date$"
 __version__ = "$Revision$"
 
 import re
+import urlparse
 
 from glue import segments
 
@@ -391,3 +392,35 @@ class CacheEntry(object):
 		if type(other)  != CacheEntry:
 			raise TypeError, "can only compare CacheEntry to CacheEntry"
 		return cmp((self.observatory, self.description, self.segment, self.url), (other.observatory, other.description, other.segment, other.url))
+
+	def scheme(self):
+		"""
+		Return the scheme part of the URL, eg. "file" if the URL is
+		"file://localhost/tmp/somefile")
+		"""
+		return urlparse.urlparse(self.url)[0]
+
+	def host(self):
+		"""
+		Return the host part of the URL, eg. "localhost" if the URL
+		is "file://localhost/tmp/somefile")
+		"""
+		return urlparse.urlparse(self.url)[1]
+
+	def path(self):
+		"""
+		Return the path part of the URL, eg. "/tmp/somefile" if the
+		URL is "file://localhost/tmp/somefile")
+		"""
+		return urlparse.urlparse(self.url)[2]
+
+	def to_segmentlistdict(self):
+		"""
+		Return a segmentlistdict object describing the instruments
+		and time spanned by this CacheEntry.
+		"""
+		d = segments.segmentlistdict()
+		for instrument in self.observatory.split(","):
+			d[instrument] = segments.segmentlist([self.segment])
+		return d
+
