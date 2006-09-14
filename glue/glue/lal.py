@@ -347,7 +347,6 @@ class CacheEntry(object):
 		>>> c = CacheEntry("H1 S5 815901601 576.5 file://localhost/home/kipp/tmp/1/H1-815901601-576.xml", coltype = int)
 		ValueError: invalid literal for int(): 576.5
 		"""
-		# check key-word arguments
 		if len(args) == 1 and type(args[0]) == str:
 			# parse line of text as an entry in a cache file
 			if kwargs.keys() and kwargs.keys() != ["coltype"]:
@@ -358,9 +357,15 @@ class CacheEntry(object):
 				raise ValueError, "could not convert \"%s\" to CacheEntry" % args[0]
 			self.observatory = match.group("observatory")
 			self.description = match.group("description")
-			self.segment = segments.segment(coltype(match.group("start")), coltype(match.group("start")) + coltype(match.group("duration")))
+			start = match.group("start")
+			duration = match.group("duration")
+			if start == "-" and duration == "-":
+				# no segment information
+				self.segment = None
+			else:
+				self.segment = segments.segment(coltype(start), coltype(start) + coltype(duration))
 			self.url = match.group("url")
-		elif len(args) == 4 and map(type, args)[2:] == [segments.segment, str]:
+		elif len(args) == 4:
 			# parse arguments as observatory, description,
 			# segment, url
 			if kwargs:
@@ -369,8 +374,7 @@ class CacheEntry(object):
 		else:
 			raise TypeError, "invalid arguments: %s" % args
 
-		# "-" indicates an empty column;  only observatory and
-		# description should be empty
+		# "-" indicates an empty column
 		if self.observatory == "-":
 			self.observatory = None
 		if self.description == "-":
@@ -382,7 +386,13 @@ class CacheEntry(object):
 		Returns a string, with the format of a line in a LAL cache,
 		containing the contents of this cache entry.
 		"""
-		return "%s %s %s %s %s" % (self.observatory or "-", self.description or "-", self.segment[0], self.segment.duration(), self.url)
+		if self.segment != None:
+			start = self.segment[0]
+			duration = self.segment.duration()
+		else:
+			start = "-"
+			duration = "-"
+		return "%s %s %s %s %s" % (self.observatory or "-", self.description or "-", duration, duration, self.url)
 
 	def __cmp__(self, other):
 		"""
