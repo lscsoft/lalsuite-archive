@@ -196,7 +196,7 @@ def ligolw_cafe(cache, time_slides, verbose = False):
 	# optimization: adding files to bins in time order keeps the number
 	# of bins from growing larger than needed.
 	if verbose:
-		print >>sys.stderr, "sorting cache entries by time ..."
+		print >>sys.stderr, "sorting input cache ..."
 	cache = list(cache)
 	cache.sort(lambda a, b: cmp(a.segment, b.segment))
 
@@ -205,7 +205,7 @@ def ligolw_cafe(cache, time_slides, verbose = False):
 	packer = CafePacker(outputcaches)
 	packer.set_time_slides(time_slides)
 	if verbose:
-		print >>sys.stderr, "packing files..."
+		print >>sys.stderr, "packing files ..."
 	for n, cacheentry in enumerate(cache):
 		if verbose and not n % max(5, (len(cache)/1000)):
 			print >>sys.stderr, "	%.1f%%	(%d files, %d caches)\r" % (100.0 * n / len(cache), n + 1, len(outputcaches)),
@@ -214,6 +214,6 @@ def ligolw_cafe(cache, time_slides, verbose = False):
 		print >>sys.stderr, "	100.0%%	(%d files, %d caches)" % (n + 1, len(outputcaches))
 		print >>sys.stderr, "sorting output caches ..."
 	for cache in outputcaches:
-		cache.sort()
+		cache.objects.sort()
 
 	return seglists.keys(), outputcaches
