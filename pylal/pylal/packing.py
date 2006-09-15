@@ -51,17 +51,37 @@ class Bin(object):
 	Bin object for use in packing algorithm implementations.
 	"""
 	def __init__(self):
+		"""
+		Initialize a new Bin instance.
+		"""
 		self.size = 0
 		self.objects = []
 
 	def add(self, object, size):
-		self.size += size
+		"""
+		Add the object, whose size is as given, to the bin.
+		"""
 		self.objects.append(object)
+		self.size += size
+
+	def __iadd__(self, other):
+		"""
+		Add the contents of another Bin object to this one.
+		"""
+		self.objects.extend(other.objects)
+		self.size += other.size
+		return self
 
 	def __cmp__(self, other):
+		"""
+		Compare two Bin objects by their sizes.
+		"""
 		return cmp(self.size, other.size)
 
 	def __repr__(self):
+		"""
+		A representation of the Bin object.
+		"""
 		return "(%s, %s)" % (str(self.size), str(self.objects))
 
 	__str__ = __repr__
