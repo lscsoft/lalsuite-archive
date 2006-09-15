@@ -62,11 +62,7 @@ def load_cache(filename, verbose = False):
 		fileobj = file(filename)
 	else:
 		fileobj = sys.stdin
-	cache = map(lambda l: CacheEntry(l, coltype = LIGOTimeGPS), fileobj)
-	if verbose:
-		print >>sys.stderr, "sorting by segment ..."
-	cache.sort(lambda a, b: cmp(a.segment, b.segment))
-	return cache
+	return map(lambda l: CacheEntry(l, coltype = LIGOTimeGPS), fileobj)
 
 
 def cache_to_seglistdict(cache):
@@ -213,7 +209,7 @@ def ligolw_cafe(cache, time_slides, verbose = False):
 	# optimization: adding files to bins in time order keeps the number
 	# of bins from growing larger than needed.
 	if verbose:
-		print >>sys.stderr, "sorting cache by time ..."
+		print >>sys.stderr, "sorting cache entries by time ..."
 	cache = list(cache)
 	cache.sort(lambda a, b: cmp(a.segment, b.segment))
 
