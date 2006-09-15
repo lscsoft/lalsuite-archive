@@ -212,5 +212,8 @@ def ligolw_cafe(cache, time_slides, verbose = False):
 		packer.pack(cacheentry)
 	if verbose:
 		print >>sys.stderr, "	100.0%%	(%d files, %d caches)" % (n + 1, len(outputcaches))
+		print >>sys.stderr, "sorting output caches ..."
+	for cache in outputcaches:
+		cache.sort()
 
 	return seglists.keys(), outputcaches
