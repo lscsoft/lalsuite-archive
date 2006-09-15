@@ -139,6 +139,7 @@ def timeindays(col_data ):
   @param col_data: array containing times
   """
   lvtimes = [700000000, 700086400]
+  v1times = [811132263, 811143059]
   s2times = [729273613, 734367613]
   s3times = [751658413, 757699213]
   s4times = [793130413, 795679213]
@@ -154,6 +155,8 @@ def timeindays(col_data ):
       start = s5times[0]
   elif col_data[0] > lvtimes[0] and col_data[0] < lvtimes[1]:
     start = lvtimes[0]
+  elif col_data[0] > v1times[0] and col_data[0] < v1times[1]:
+    start = v1times[0]
   else:
     print >> sys.stderr, "events not from a known science run"
     sys.exit(1)
