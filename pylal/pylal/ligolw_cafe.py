@@ -111,41 +111,30 @@ class CafePacker(packing.Packer):
 		# dictionaries applying the offsets to both the bin and the
 		# cache_entry and checking if the cache_entry's segment
 		# intersect the segments already in the bin, comparing only
-		# those that are involved in the time slide.  FIXME: what's
-		# done here is only an approximation of the correct test;
-		# an approximation that finds false positives but no false
-		# negatives.
+		# those that are involved in the time slide.  FIXME: almost
+		# correct:  still doesn't take care to compare only the
+		# segments for the instruments identified in the offset
+		# dictionary (so gives false positives but no false
+		# negatives)
+		size = cache_entry.to_segmentlistdict()
 		matching_bins = []
 		for n, bin in enumerate(self.bins):
 			for offsetdict in self.timeslides:
-				if True in map(offsetdict.__contains__, cache_entry.observatory.split(",")):
-					bin.size.offsets.update(offsetdict)
-					b = segments.segmentlist()
-					for key in offsetdict.iterkeys():
-						if key in bin.size:
-							b.extend(bin.size[key])
-					b.coalesce()
-					# if we find a match, we want to
-					# exit from the "for offsetdict"
-					# loop, so we have to play some
-					# games with breaks and elses
-					for instrument in cache_entry.observatory.split(","):
-						if b.intersects_segment(cache_entry.segment.shift(offsetdict[instrument])):
-							matching_bins.append((n, bin))
-							break
-					else:
-						continue
+				size.offsets.update(offsetdict)
+				bin.size.offsets.update(offsetdict)
+				if bin.size.is_coincident(size):
+					matching_bins.append(n)
 					break
 			bin.size.offsets.clear()
+		size.offsets.clear()
 
 		# add cache_entry by either adding a new bin or putting it
 		# into the first bin that was found
-		size = cache_entry.to_segmentlistdict()
 		if not matching_bins:
 			self.bins.append(packing.LALCache())
 			self.bins[-1].add(cache_entry, size)
 			return
-		dest = matching_bins.pop(0)[1]
+		dest = self.bins[matching_bins.pop(0)]
 		dest.add(cache_entry, size)
 
 		# if cache_entry belongs in more than one bin, merge bins.
@@ -153,10 +142,8 @@ class CafePacker(packing.Packer):
 		# highest-numbered bin first (otherwise the bins would
 		# shift as we go and we would delete the wrong ones).
 		matching_bins.reverse()
-		for n, bin in matching_bins:
-			dest.objects.extend(bin.objects)
-			dest.size += bin.size
-			del self.bins[n]
+		for n in matching_bins:
+			dest += self.bins.pop(n)
 
 
 #
