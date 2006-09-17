@@ -66,4 +66,15 @@ void init__segments(void)
 	Py_INCREF(segments_NegInfinity);
 	PyModule_AddObject(module, "PosInfinity", (PyObject *) segments_PosInfinity);
 	PyModule_AddObject(module, "NegInfinity", (PyObject *) segments_NegInfinity);
+
+	/*
+	 * Create segment class
+	 */
+
+	if(PyType_Ready(&segments_Segment_Type) < 0)
+		return;
+	Py_INCREF(&segments_Segment_Type);
+	PyModule_AddObject(module, "segment", (PyObject *) &segments_Segment_Type);
+	/* uninherit tp_print from tuple class */
+	segments_Segment_Type.tp_print = NULL;
 }

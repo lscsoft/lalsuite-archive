@@ -67,4 +67,27 @@ extern segments_Infinity *segments_PosInfinity;
 extern segments_Infinity *segments_NegInfinity;
 
 
+/*
+ * ============================================================================
+ *
+ *                               Segment Class
+ *
+ * ============================================================================
+ */
+
+
+/*
+ * Structure
+ */
+
+typedef PyTupleObject segments_Segment;
+
+
+/*
+ * Type
+ */
+
+extern PyTypeObject segments_Segment_Type;
+
+
 #endif /* __SEGMENTS_H__ */
