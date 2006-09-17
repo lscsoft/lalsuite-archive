@@ -90,8 +90,11 @@ def reassign_ids(doc):
 	Assign new IDs to all rows in all LSC tables in doc so that there
 	are no collisions when the LIGO_LW elements are merged.
 	"""
-	for elem in doc.getElementsByTagName(ligolw.LIGO_LW.tagName):
-		lsctables.NewIDs(elem)
+	# Can't simply run NewIDs() on doc because we need to construct a
+	# fresh old --> new mapping within each LIGO_LW block.
+	for elem in doc.childNodes:
+		if elem.tagName == ligolw.LIGO_LW.tagName:
+			lsctables.NewIDs(elem)
 	return doc
 
 
@@ -127,14 +130,13 @@ def tables_can_be_merged(a, b):
 	they have equivalent names, and equivalent columns according to
 	LIGO LW name conventions.
 	"""
-	if table.CompareTableNames(a.getAttribute("Name"), b.getAttribute("Name")) != 0:
+	if table.CompareTableNames(a.getAttribute("Name"), b.getAttribute("Name")):
 		return False
 	acols = [(table.StripColumnName(col.getAttribute("Name")), col.getAttribute("Type")) for col in a.getElementsByTagName(ligolw.Column.tagName)]
+	acols.sort()
 	bcols = [(table.StripColumnName(col.getAttribute("Name")), col.getAttribute("Type")) for col in b.getElementsByTagName(ligolw.Column.tagName)]
-	for acol in acols:
-		if acol not in bcols:
-			return False
-	return True
+	bcols.sort()
+	return acols == bcols
 
 
 def merge_compatible_tables(elem):
@@ -144,11 +146,13 @@ def merge_compatible_tables(elem):
 	That is, merge all SnglBurstTables that have the same columns into
 	a single table, etc..
 	"""
-	for tname in lsctables.TableByName.keys():
-		tables = table.getTablesByName(elem, tname)
-		for i in range(1, len(tables)):
-			if tables_can_be_merged(tables[0], tables[i]):
-				merge_elements(tables[0], tables[i])
+	for name in lsctables.TableByName.keys():
+		tables = table.getTablesByName(elem, name)
+		if tables:
+			dest = tables.pop(0)
+			for src in tables:
+				if tables_can_be_merged(dest, src):
+					merge_elements(dest, src)
 	return elem
 
 
@@ -159,7 +163,7 @@ def merge_all_elements(doc):
 	single tables.
 	"""
 	# LIGO_LW elements
-	reduce(merge_elements, doc.getElementsByTagName(ligolw.LIGO_LW.tagName))
+	reduce(merge_elements, [elem for elem in doc.childNodes if elem.tagName == ligolw.LIGO_LW.tagName])
 
 	# Table elements
 	merge_compatible_tables(doc)
