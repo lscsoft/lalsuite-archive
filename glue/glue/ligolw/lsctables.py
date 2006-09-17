@@ -68,13 +68,15 @@ def New(Type, columns = None):
 	>>> new = lsctables.New(lsctables.ProcessTable)
 	"""
 	new = Type(sax.xmlreader.AttributesImpl({u"Name": Type.tableName}))
-	if columns != None:
+	colnamefmt = ":".join(Type.tableName.split(":")[:-1]) + ":%%s"
+	if columns is not None:
 		for key in columns:
-			if key not in new.validcolumns.keys():
+			if key not in new.validcolumns:
 				raise ligolw.ElementError, "New(): invalid column \"%s\" for table \"%s\"." % (key, new.tableName)
-	for key, value in new.validcolumns.items():
-		if (columns == None) or (key in columns):
-			new.appendChild(table.Column(sax.xmlreader.AttributesImpl({u"Name": ":".join(Type.tableName.split(":")[:-1]) + ":" + key, u"Type": value})))
+			new.appendChild(table.Column(sax.xmlreader.AttributesImpl({u"Name": colnamefmt % key, u"Type": new.validcolumns[key]})))
+	else:
+		for key, value in new.validcolumns.items():
+			new.appendChild(table.Column(sax.xmlreader.AttributesImpl({u"Name": colnamefmt % key, u"Type": value})))
 	new.appendChild(table.TableStream(sax.xmlreader.AttributesImpl({u"Name": Type.tableName})))
 	return new
 
@@ -206,7 +208,9 @@ class ILWD(object):
 		"""
 		Compare IDs first by the base string, then by n.
 		"""
-		return cmp((self.table_name, self.column_name, self.n), (other.table_name, other.column_name, other.n))
+		if isinstance(other, ILWD):
+			return cmp((self.table_name, self.column_name, self.n), (other.table_name, other.column_name, other.n))
+		return NotImplemented
 
 	def __getitem__(self, n):
 		return "%s:%s:%d" % (self.table_name, self.column_name, n)
@@ -2022,7 +2026,7 @@ class Segment(LSCTableRow):
 		Sets the segment to active if active is True, to inactive
 		if active if False, and undefined if active is None.
 		"""
-		if active == None:
+		if active is None:
 			self.active = 0
 		elif active:
 			self.active = 1
