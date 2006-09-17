@@ -214,6 +214,9 @@ class ILWD(object):
 	def __iter__(self):
 		return self
 
+	def set_next(self, n):
+		self.n = n
+
 	def next(self):
 		s = str(self)
 		self.n += 1
@@ -233,21 +236,17 @@ def NewILWDs(table_elem, column_name):
 	return ILWD(table.StripTableName(table_elem.getAttribute("Name")), column_name, n + 1)
 
 
-def NewIDs(elem, ilwditers):
+def NewIDs(elem):
 	"""
-	Using the dictionary of table name and ILWD iterator object pairs,
-	recurse over all tables below elem whose names are in the
+	Recurse over all tables below elem whose names are in the
 	dictionary, and use the corresponding ILWD iterator object to
 	construct a mapping of old row keys to new row keys.  Finally,
 	apply the mapping to all rows of all tables.
 	"""
 	mapping = {}
 	for tbl in elem.getElementsByTagName(ligolw.Table.tagName):
-		try:
-			ilwditer = ilwditers[table.StripTableName(tbl.tableName)]
-		except KeyError:
-			continue
-		tbl.updateKeyMapping(mapping, ilwditer)
+		if tbl.ids is not None:
+			tbl.updateKeyMapping(mapping, tbl.ids)
 	for tbl in elem.getElementsByTagName(ligolw.Table.tagName):
 		tbl.applyKeyMapping(mapping)
 
@@ -450,6 +449,8 @@ class LSCTableUnique(table.Table):
 	"""
 	A table containing rows where each row possesses a unique key.
 	"""
+	ids = None
+
 	def __init__(self, attrs):
 		table.Table.__init__(self, attrs)
 		self.dict = LSCTableUniqueDict(self)
@@ -492,6 +493,8 @@ class LSCTableMulti(table.Table):
 	"""
 	A table containing rows where multiple rows can share a key.
 	"""
+	ids = None
+
 	def __init__(self, attrs):
 		table.Table.__init__(self, attrs)
 		self.dict = LSCTableMultiDict(self)
@@ -562,6 +565,11 @@ class LSCTableRow(object):
 # =============================================================================
 #
 
+class ProcessIDs(ILWD):
+	def __init__(self, n = 0):
+		ILWD.__init__(self, "process", "process_id", n)
+
+
 class ProcessTable(LSCTableUnique):
 	tableName = "process:table"
 	validcolumns = {
@@ -581,6 +589,8 @@ class ProcessTable(LSCTableUnique):
 		"ifos": "lstring",
 		"process_id": "ilwd:char"
 	}
+	ids = ProcessIDs()
+
 
 class Process(LSCTableRow):
 	__slots__ = ProcessTable.validcolumns.keys()
@@ -605,11 +615,9 @@ class Process(LSCTableRow):
 				return result
 		return 0
 
+
 ProcessTable.RowType = Process
 
-class ProcessIDs(ILWD):
-	def __init__(self, n = 0):
-		ILWD.__init__(self, "process", "process_id", n)
 
 #
 # =============================================================================
@@ -618,6 +626,11 @@ class ProcessIDs(ILWD):
 #
 # =============================================================================
 #
+
+class LfnIDs(ILWD):
+	def __init__(self, n = 0):
+		ILWD.__init__(self, "lfn", "lfn_id", n)
+
 
 class LfnTable(LSCTableUnique):
 	tableName = "lfn:table"
@@ -629,6 +642,7 @@ class LfnTable(LSCTableUnique):
 		"start_time": "int_4s",
 		"end_time": "int_4s",
 	}
+	ids = LfnIDs()
 
 	def applyKeyMapping(self, mapping):
 		for row in self:
@@ -658,11 +672,8 @@ class Lfn(LSCTableRow):
 				return result
 		return 0
 
-LfnTable.RowType = Lfn
 
-class LfnIDs(ILWD):
-	def __init__(self, n = 0):
-		ILWD.__init__(self, "lfn", "lfn_id", n)
+LfnTable.RowType = Lfn
 
 
 #
@@ -735,6 +746,7 @@ class ProcessParams(LSCTableRow):
 				return result
 		return 0
 
+
 ProcessParamsTable.RowType = ProcessParams
 
 
@@ -801,6 +813,7 @@ class SearchSummaryTable(LSCTableMulti):
 		"""
 		return [row.process_id for row in self if segments.segmentlist([row.get_out()]) & seglist]
 
+
 class SearchSummary(LSCTableRow):
 	__slots__ = SearchSummaryTable.validcolumns.keys()
 
@@ -850,6 +863,7 @@ class SearchSummary(LSCTableRow):
 		self.out_start_time, self.out_start_time_ns = seg[0].seconds, seg[0].nanoseconds
 		self.out_end_time, self.out_end_time_ns = seg[1].seconds, seg[1].nanoseconds
 
+
 SearchSummaryTable.RowType = SearchSummary
 
 
@@ -887,6 +901,7 @@ class SearchSummVars(LSCTableRow):
 	def _has_key(self, key):
 		return self.process_id == key
 
+
 SearchSummVarsTable.RowType = SearchSummVars
 
 
@@ -897,6 +912,11 @@ SearchSummVarsTable.RowType = SearchSummVars
 #
 # =============================================================================
 #
+
+class SnglBurstIDs(ILWD):
+	def __init__(self, n = 0):
+		ILWD.__init__(self, "sngl_burst", "event_id", n)
+
 
 class SnglBurstTable(LSCTableUnique):
 	tableName = "sngl_burst:table"
@@ -948,6 +968,7 @@ class SnglBurstTable(LSCTableUnique):
 		"param_three_value": "real_8",
 		"event_id": "ilwd:char"
 	}
+	ids = SnglBurstIDs()
 
 	def applyKeyMapping(self, mapping):
 		for row in self:
@@ -1000,11 +1021,8 @@ class SnglBurst(LSCTableRow):
 		self.central_freq = (band[0] + band[1])/2.0
 		self.bandwidth = band.duration()
 
-SnglBurstTable.RowType = SnglBurst
 
-class SnglBurstIDs(ILWD):
-	def __init__(self, n = 0):
-		ILWD.__init__(self, "sngl_burst", "event_id", n)
+SnglBurstTable.RowType = SnglBurst
 
 
 #
@@ -1014,6 +1032,14 @@ class SnglBurstIDs(ILWD):
 #
 # =============================================================================
 #
+
+# FIXME: class definition removed until LAL inspiral code generates ilwd:char
+# event_ids.  Re-enable when LAL is fixed.
+#
+#class SnglInspiralIDs(ILWD):
+#	def __init__(self, n = 0):
+#		ILWD.__init__(self, "sngl_inspiral", "event_id", n)
+
 
 class SnglInspiralTable(LSCTableUnique):
 	tableName = "sngl_inspiral:table"
@@ -1071,6 +1097,9 @@ class SnglInspiralTable(LSCTableUnique):
 		"Gamma9": "real_4",
 		"event_id": "int_8s"
 	}
+	# FIXME: sngl_inspiral code in LAL does not support ILWD row IDs.
+	# uncomment when LAL has been fixed
+	#ids = SnglInspiralIDs()
 
 	def applyKeyMapping(self, mapping):
 		for row in self:
@@ -1130,8 +1159,7 @@ class SnglInspiralTable(LSCTableUnique):
 				slideTrigs.append(row)
      
 		return slideTrigs
-	
-		
+
 
 class SnglInspiral(LSCTableRow):
 	__slots__ = SnglInspiralTable.validcolumns.keys()
@@ -1157,13 +1185,6 @@ class SnglInspiral(LSCTableRow):
 
 SnglInspiralTable.RowType = SnglInspiral
 
-# FIXME: class definition removed until LAL inspiral code generates ilwd:char
-# event_ids.  Re-enable when LAL is fixed.
-#
-#class SnglInspiralIDs(ILWD):
-#	def __init__(self, n = 0):
-#		ILWD.__init__(self, "sngl_inspiral", "event_id", n)
-
 
 #
 # =============================================================================
@@ -1172,6 +1193,11 @@ SnglInspiralTable.RowType = SnglInspiral
 #
 # =============================================================================
 #
+
+class SnglRingDownIDs(ILWD):
+	def __init__(self, n = 0):
+		ILWD.__init__(self, "sngl_ringdown", "event_id", n)
+
 
 class SnglRingDownTable(LSCTableUnique):
 	tableName = "sngl_ringdown:table"
@@ -1190,8 +1216,10 @@ class SnglRingDownTable(LSCTableUnique):
 		"snr": "real_4",
 		"eff_distance": "real_4",
 		"sigma_sq": "real_8",
+		# FIXME: column should be ilwd
 		"event_id": "int_8s"
 	}
+	ids = SnglRingDownIDs()
 
 	def applyKeyMapping(self, mapping):
 		for row in self:
@@ -1210,11 +1238,8 @@ class SnglRingDown(LSCTableRow):
 	def _has_key(self, key):
 		return self.event_id == key
 
-SnglRingDownTable.RowType = SnglRingDown
 
-class SnglRingDownIDs(ILWD):
-	def __init__(self, n = 0):
-		ILWD.__init__(self, "sngl_ringdown", "event_id", n)
+SnglRingDownTable.RowType = SnglRingDown
 
 
 #
@@ -1224,6 +1249,11 @@ class SnglRingDownIDs(ILWD):
 #
 # =============================================================================
 #
+
+class MultiInspiralIDs(ILWD):
+	def __init__(self, n = 0):
+		ILWD.__init__(self, "multi_inspiral", "event_id", n)
+
 
 class MultiInspiralTable(LSCTableMulti):
 	tableName = "multi_inspiral:table"
@@ -1265,6 +1295,7 @@ class MultiInspiralTable(LSCTableMulti):
 		"polarization": "real_4",
 		"event_id": "ilwd:char"
 	}
+	ids = MultiInspiralIDs()
 
 	def applyKeyMapping(self, mapping):
 		for row in self:
@@ -1283,6 +1314,7 @@ class MultiInspiral(LSCTableRow):
 	def _has_key(self, key):
 		return self.event_id == key
 
+
 MultiInspiralTable.RowType = MultiInspiral
 
 
@@ -1293,6 +1325,11 @@ MultiInspiralTable.RowType = MultiInspiral
 #
 # =============================================================================
 #
+
+class SimInspiralIDs(ILWD):
+	def __init__(self, n = 0):
+		ILWD.__init__(self, "sim_inspiral", "simulation_id", n)
+
 
 class SimInspiralTable(LSCTableUnique):
 	tableName = "sim_inspiral:table"
@@ -1350,6 +1387,7 @@ class SimInspiralTable(LSCTableUnique):
 		"eff_dist_v": "real_4",
 		"simulation_id": "ilwd:char"
 	}
+	ids = SimInspiralIDs()
 
 	def applyKeyMapping(self, mapping):
 		for row in self:
@@ -1386,6 +1424,7 @@ class SimInspiralTable(LSCTableUnique):
 
 		return keep
 
+
 class SimInspiral(LSCTableRow):
 	__slots__ = SimInspiralTable.validcolumns.keys()
 
@@ -1404,11 +1443,8 @@ class SimInspiral(LSCTableRow):
 		else:
 			return lal.LIGOTimeGPS(getattr(self,site + 'end_time'), getattr(self,site + 'end_time_ns'))
 
-SimInspiralTable.RowType = SimInspiral
 
-class SimInspiralIDs(ILWD):
-	def __init__(self, n = 0):
-		ILWD.__init__(self, "sim_inspiral", "simulation_id", n)
+SimInspiralTable.RowType = SimInspiral
 
 
 #
@@ -1418,6 +1454,11 @@ class SimInspiralIDs(ILWD):
 #
 # =============================================================================
 #
+
+class SimBurstIDs(ILWD):
+	def __init__(self, n = 0):
+		ILWD.__init__(self, "sim_burst", "simulation_id", n)
+
 
 class SimBurstTable(LSCTableUnique):
 	tableName = "sim_burst:table"
@@ -1445,10 +1486,12 @@ class SimBurstTable(LSCTableUnique):
 		"zm_number": "int_4s",
 		"simulation_id": "ilwd:char"
 	}
+	ids = SimBurstIDs()
 
 	def applyKeyMapping(self, mapping):
 		for row in self:
 			row.process_id = mapping[row.process_id]
+
 
 class SimBurst(LSCTableRow):
 	__slots__ = SimBurstTable.validcolumns.keys()
@@ -1535,11 +1578,8 @@ class SimBurst(LSCTableRow):
 			self.l_peak_time, self.l_peak_time_ns = gps.seconds, gps.nanoseconds
 		raise ValueError, instrument
 
-SimBurstTable.RowType = SimBurst
 
-class SimBurstIDs(ILWD):
-	def __init__(self, n = 0):
-		ILWD.__init__(self, "sim_burst", "simulation_id", n)
+SimBurstTable.RowType = SimBurst
 
 
 #
@@ -1549,6 +1589,11 @@ class SimBurstIDs(ILWD):
 #
 # =============================================================================
 #
+
+class SimRingDownIDs(ILWD):
+	def __init__(self, n = 0):
+		ILWD.__init__(self, "sim_ringdown", "simulation_id", n)
+
 
 class SimRingDownTable(LSCTableUnique):
 	tableName = "sim_ringdown:table"
@@ -1581,10 +1626,12 @@ class SimRingDownTable(LSCTableUnique):
 		"hrss_l": "real_4",
 		"simulation_id": "ilwd:char"
 	}
+	ids = SimRingDownIDs()
 
 	def applyKeyMapping(self, mapping):
 		for row in self:
 			row.process_id = mapping[row.process_id]
+
 
 class SimRingDown(LSCTableRow):
 	__slots__ = SimRingDownTable.validcolumns.keys()
@@ -1598,11 +1645,8 @@ class SimRingDown(LSCTableRow):
 	def _has_key(self, key):
 		return self.simulation_id == key
 
-SimRingDownTable.RowType = SimRingDown
 
-class SimRingDownIDs(ILWD):
-	def __init__(self, n = 0):
-		ILWD.__init__(self, "sim_ringdown", "simulation_id", n)
+SimRingDownTable.RowType = SimRingDown
 
 
 #
@@ -1632,6 +1676,7 @@ class SummValueTable(LSCTableMulti):
 		for row in self:
 			row.process_id = mapping[row.process_id]
 
+
 class SummValue(LSCTableRow):
 	__slots__ = SummValueTable.validcolumns.keys()
 
@@ -1644,6 +1689,7 @@ class SummValue(LSCTableRow):
 	def _has_key(self, key):
 		return self.process_id == key
 
+
 SummValueTable.RowType = SummValue
 
 
@@ -1655,6 +1701,11 @@ SummValueTable.RowType = SummValue
 # =============================================================================
 #
 
+class SimInstParamsIDs(ILWD):
+	def __init__(self, n = 0):
+		ILWD.__init__(self, "sim_inst_params", "simulation_id", n)
+
+
 class SimInstParamsTable(LSCTableMulti):
 	tableName = "sim_inst_params:table"
 	validcolumns = {
@@ -1663,6 +1714,8 @@ class SimInstParamsTable(LSCTableMulti):
 		"comment": "lstring",
 		"value": "real_8"
 	}
+	ids = SimInstParamsIDs()
+
 
 class SimInstParams(LSCTableRow):
 	__slots__ = SimInstParamsTable.validcolumns.keys()
@@ -1676,11 +1729,8 @@ class SimInstParams(LSCTableRow):
 	def _has_key(self, key):
 		return self.simulation_id == key
 
-SimInstParamsTable.RowType = SimInstParams
 
-class SimInstParamsIDs(ILWD):
-	def __init__(self, n = 0):
-		ILWD.__init__(self, "sim_inst_params", "simulation_id", n)
+SimInstParamsTable.RowType = SimInstParams
 
 
 #
@@ -1713,6 +1763,7 @@ class StochasticTable(LSCTableMulti):
 		for row in self:
 			row.process_id = mapping[row.process_id]
 
+
 class Stochastic(LSCTableRow):
 	__slots__ = StochasticTable.validcolumns.keys()
 
@@ -1724,6 +1775,7 @@ class Stochastic(LSCTableRow):
 
 	def _has_key(self, key):
 		return self.process_id == key
+
 
 StochasticTable.RowType = Stochastic
 
@@ -1758,6 +1810,7 @@ class StochSummTable(LSCTableMulti):
 		for row in self:
 			row.process_id = mapping[row.process_id]
 
+
 class StochSumm(LSCTableRow):
 	__slots__ = StochSummTable.validcolumns.keys()
 
@@ -1769,6 +1822,7 @@ class StochSumm(LSCTableRow):
 
 	def _has_key(self, key):
 		return self.process_id == key
+
 
 StochSummTable.RowType = StochSumm
 
@@ -1837,6 +1891,7 @@ class ExtTriggersTable(LSCTableMulti):
 		for row in self:
 			row.process_id = mapping[row.process_id]
 
+
 class ExtTriggers(LSCTableRow):
 	__slots__ = ExtTriggersTable.validcolumns.keys()
 
@@ -1848,6 +1903,7 @@ class ExtTriggers(LSCTableRow):
 
 	def _has_key(self, key):
 		return self.process_id == key
+
 
 ExtTriggersTable.RowType = ExtTriggers
 
@@ -1874,6 +1930,7 @@ class FilterTable(LSCTableMulti):
 		for row in self:
 			row.process_id = mapping[row.process_id]
 
+
 class Filter(LSCTableRow):
 	__slots__ = FilterTable.validcolumns.keys()
 
@@ -1886,6 +1943,7 @@ class Filter(LSCTableRow):
 	def _has_key(self, key):
 		return self.process_id == key
 
+
 FilterTable.RowType = Filter
 
 
@@ -1896,6 +1954,11 @@ FilterTable.RowType = Filter
 #
 # =============================================================================
 #
+
+class SegmentIDs(ILWD):
+	def __init__(self, n = 0):
+		ILWD.__init__(self, "segment", "segment_id", n)
+
 
 class SegmentTable(LSCTableUnique):
 	tableName = "segment:table"
@@ -1911,10 +1974,12 @@ class SegmentTable(LSCTableUnique):
 		"segnum": "int_4s",
 		"insertion_time": "int_4s"
 	}
+	ids = SegmentIDs()
 
 	def applyKeyMapping(self, mapping):
 		for row in self:
 			row.process_id = mapping[row.process_id]
+
 
 class Segment(LSCTableRow):
 	__slots__ = SegmentTable.validcolumns.keys()
@@ -1965,11 +2030,8 @@ class Segment(LSCTableRow):
 			self.active = -1
 		return self
 
-SegmentTable.RowType = Segment
 
-class SegmentIDs(ILWD):
-	def __init__(self, n = 0):
-		ILWD.__init__(self, "segment", "segment_id", n)
+SegmentTable.RowType = Segment
 
 
 #
@@ -1979,6 +2041,11 @@ class SegmentIDs(ILWD):
 #
 # =============================================================================
 #
+
+class SegmentDefMapIDs(ILWD):
+	def __init__(self, n = 0):
+		ILWD.__init__(self, "segment_def_map", "seg_def_map_id", n)
+
 
 class SegmentDefMapTable(LSCTableUnique):
 	tableName = "segment_def_map:table"
@@ -1993,12 +2060,14 @@ class SegmentDefMapTable(LSCTableUnique):
 		"state_vec_map": "int_4s",
 		"insertion_time": "int_4s"
 	}
+	ids = SegmentDefMapIDs()
 
 	def applyKeyMapping(self, mapping):
 		for row in self:
 			row.process_id = mapping[row.process_id]
 			row.segment_id = mapping[row.segment_id]
 			row.segment_def_id = mapping[row.segment_def_id]
+
 
 class SegmentDefMap(LSCTableRow):
 	__slots__ = SegmentDefMapTable.validcolumns.keys()
@@ -2012,11 +2081,8 @@ class SegmentDefMap(LSCTableRow):
 	def _has_key(self, key):
 		return self.seg_def_map_id == key
 
-SegmentDefMapTable.RowType = SegmentDefMap
 
-class SegmentDefMapIDs(ILWD):
-	def __init__(self, n = 0):
-		ILWD.__init__(self, "segment_def_map", "segment_def_id", n)
+SegmentDefMapTable.RowType = SegmentDefMap
 
 
 #
@@ -2026,6 +2092,11 @@ class SegmentDefMapIDs(ILWD):
 #
 # =============================================================================
 #
+
+class SegmentDefIDs(ILWD):
+	def __init__(self, n = 0):
+		ILWD.__init__(self, "segment_definer", "segment_def_id", n)
+
 
 class SegmentDefTable(LSCTableUnique):
 	tableName = "segment_definer:table"
@@ -2042,10 +2113,12 @@ class SegmentDefTable(LSCTableUnique):
 		"state_vec_minor": "int_4s",
 		"insertion_time": "int_4s"
 	}
+	ids = SegmentDefIDs()
 
 	def applyKeyMapping(self, mapping):
 		for row in self:
 			row.process_id = mapping[row.process_id]
+
 
 class SegmentDef(LSCTableRow):
 	__slots__ = SegmentDefTable.validcolumns.keys()
@@ -2059,6 +2132,7 @@ class SegmentDef(LSCTableRow):
 	def _has_key(self, key):
 		return self.segment_def_id == key
 
+
 SegmentDefTable.RowType = SegmentDef
 
 
@@ -2070,6 +2144,11 @@ SegmentDefTable.RowType = SegmentDef
 # =============================================================================
 #
 
+class TimeSlideIDs(ILWD):
+	def __init__(self, n = 0):
+		ILWD.__init__(self, "time_slide", "time_slide_id", n)
+
+
 class TimeSlideTable(LSCTableMulti):
 	tableName = "time_slide:table"
 	validcolumns = {
@@ -2078,6 +2157,7 @@ class TimeSlideTable(LSCTableMulti):
 		"instrument": "lstring",
 		"offset": "real_8"
 	}
+	ids = TimeSlideIDs()
 
 	def applyKeyMapping(self, mapping):
 		for row in self:
@@ -2110,11 +2190,8 @@ class TimeSlide(LSCTableRow):
 	def _has_key(self, key):
 		return self.time_slide_id == key
 
-TimeSlideTable.RowType = TimeSlide
 
-class TimeSlideIDs(ILWD):
-	def __init__(self, n = 0):
-		ILWD.__init__(self, "time_slide", "time_slide_id", n)
+TimeSlideTable.RowType = TimeSlide
 
 
 #
@@ -2125,12 +2202,18 @@ class TimeSlideIDs(ILWD):
 # =============================================================================
 #
 
+class CoincDefIDs(ILWD):
+	def __init__(self, n = 0):
+		ILWD.__init__(self, "coinc_definer", "coinc_def_id", n)
+
+
 class CoincDefTable(LSCTableMulti):
 	tableName = "coinc_definer:table"
 	validcolumns = {
 		"coinc_def_id": "ilwd:char",
 		"table_name": "lstring"
 	}
+	ids = CoincDefIDs()
 
 	def get_contributors(self, id):
 		"""
@@ -2139,6 +2222,7 @@ class CoincDefTable(LSCTableMulti):
 		l = [row.table_name for row in self if row.coinc_def_id == id]
 		l.sort()
 		return l
+
 
 class CoincDef(LSCTableRow):
 	__slots__ = CoincDefTable.validcolumns.keys()
@@ -2152,11 +2236,8 @@ class CoincDef(LSCTableRow):
 	def _has_key(self, key):
 		return self.coinc_def_id == key
 
-CoincDefTable.RowType = CoincDef
 
-class CoincDefIDs(ILWD):
-	def __init__(self, n = 0):
-		ILWD.__init__(self, "coinc_definer", "coinc_def_id", n)
+CoincDefTable.RowType = CoincDef
 
 
 #
@@ -2167,6 +2248,11 @@ class CoincDefIDs(ILWD):
 # =============================================================================
 #
 
+class CoincIDs(ILWD):
+	def __init__(self, n = 0):
+		ILWD.__init__(self, "coinc_event", "coinc_event_id", n)
+
+
 class CoincTable(LSCTableUnique):
 	tableName = "coinc_event:table"
 	validcolumns = {
@@ -2176,12 +2262,14 @@ class CoincTable(LSCTableUnique):
 		"time_slide_id": "ilwd:char",
 		"nevents": "int_4u"
 	}
+	ids = CoincIDs()
 
 	def applyKeyMapping(self, mapping):
 		for row in self:
 			row.process_id = mapping[row.process_id]
 			row.time_slide_id = mapping[row.time_slide_id]
 			row.coinc_def_id = mapping[row.coinc_def_id]
+
 
 class Coinc(LSCTableRow):
 	__slots__ = CoincTable.validcolumns.keys()
@@ -2195,11 +2283,8 @@ class Coinc(LSCTableRow):
 	def _has_key(self, key):
 		return self.coinc_event_id == key
 
-CoincTable.RowType = Coinc
 
-class CoincIDs(ILWD):
-	def __init__(self, n = 0):
-		ILWD.__init__(self, "coinc_event", "coinc_event_id", n)
+CoincTable.RowType = Coinc
 
 
 #
@@ -2228,6 +2313,7 @@ CoincEventMapSourceNames = [
 	table.StripTableName(CoincTable.tableName)
 ]
 
+
 class CoincMapTable(LSCTableUnique):
 	tableName = "coinc_event_map:table"
 	validcolumns = {
@@ -2240,8 +2326,10 @@ class CoincMapTable(LSCTableUnique):
 			row.coinc_event_id = mapping[row.coinc_event_id]
 			row.event_id = mapping[row.event_id]
 
+
 class CoincMap(LSCTableRow):
 	__slots__ = CoincMapTable.validcolumns.keys()
+
 
 CoincMapTable.RowType = CoincMap
 
@@ -2253,6 +2341,11 @@ CoincMapTable.RowType = CoincMap
 #
 # =============================================================================
 #
+
+class LIGOLWMonIDs(ILWD):
+	def __init__(self, n = 0):
+		ILWD.__init__(self, "ligolw_mon", "event_id", n)
+
 
 class LIGOLWMonTable(LSCTableUnique):
 	tableName = "ligolw_mon:table"
@@ -2267,10 +2360,12 @@ class LIGOLWMonTable(LSCTableUnique):
 		"event_id": "ilwd:char",
 		"insertion_time": "int_4s"
 	}
+	ids = LIGOLWMonIDs()
 
 	def applyKeyMapping(self, mapping):
 		for row in self:
 			row.process_id = mapping[row.process_id]
+
 
 class LIGOLWMon(LSCTableRow):
 	__slots__ = LIGOLWMonTable.validcolumns.keys()
@@ -2290,11 +2385,8 @@ class LIGOLWMon(LSCTableRow):
 	def set_time(self, gps):
 		self.time, self.time_ns = gps.seconds, gps.nanoseconds
 
-LIGOLWMonTable.RowType = LIGOLWMon
 
-class LIGOLWMonIDs(ILWD):
-	def __init__(self, n = 0):
-		ILWD.__init__(self, "ligolw_mon", "event_id", n)
+LIGOLWMonTable.RowType = LIGOLWMon
 
 
 #
@@ -2336,34 +2428,6 @@ TableByName = {
 	table.StripTableName(CoincTable.tableName): CoincTable,
 	table.StripTableName(CoincMapTable.tableName): CoincMapTable,
 	table.StripTableName(LIGOLWMonTable.tableName): LIGOLWMonTable
-}
-
-
-#
-# Table name ---> ILWD generator mapping.  NOTE:  updateKeyMapping() must
-# only be called on tables listed in this dictionary.
-#
-# FIXME: sngl_inspiral table cannot participate in generic ilwd infrastructure
-# until LAL code generates event_id columns with the correct type.  Re-enable
-# when LAL is fixed.
-#
-
-ILWDGeneratorByTableName = {
-	table.StripTableName(ProcessTable.tableName): ProcessIDs,
-	table.StripTableName(LfnTable.tableName): LfnIDs,
-	table.StripTableName(SnglBurstTable.tableName): SnglBurstIDs,
-#	table.StripTableName(SnglInspiralTable.tableName): SnglInspiralIDs,
-	table.StripTableName(SimRingDownTable.tableName): SnglRingDownIDs,
-	table.StripTableName(SimInspiralTable.tableName): SimInspiralIDs,
-	table.StripTableName(SimBurstTable.tableName): SimBurstIDs,
-	table.StripTableName(SimRingDownTable.tableName): SimRingDownIDs,
-	table.StripTableName(SimInstParamsTable.tableName): SimInstParamsIDs,
-	table.StripTableName(SegmentTable.tableName): SegmentIDs,
-	table.StripTableName(SegmentDefMapTable.tableName): SegmentDefMapIDs,
-	table.StripTableName(TimeSlideTable.tableName): TimeSlideIDs,
-	table.StripTableName(CoincDefTable.tableName): CoincDefIDs,
-	table.StripTableName(CoincTable.tableName): CoincIDs,
-	table.StripTableName(LIGOLWMonTable.tableName): LIGOLWMonIDs
 }
 
 

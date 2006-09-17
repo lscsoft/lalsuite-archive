@@ -90,11 +90,8 @@ def reassign_ids(doc):
 	Assign new IDs to all rows in all LSC tables in doc so that there
 	are no collisions when the LIGO_LW elements are merged.
 	"""
-	ilwditers = {}
-	for tablename, ilwdclass in lsctables.ILWDGeneratorByTableName.iteritems():
-		ilwditers[tablename] = ilwdclass()
 	for elem in doc.getElementsByTagName(ligolw.LIGO_LW.tagName):
-		lsctables.NewIDs(elem, ilwditers)
+		lsctables.NewIDs(elem)
 	return doc
 
 
