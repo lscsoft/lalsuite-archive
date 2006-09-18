@@ -492,6 +492,7 @@ class segmentlist(list):
 		Replace the segmentlist with the intersection of itself and
 		another.  This operation is O(n).
 		"""
+		# oddly, this is faster than self -= ~other
 		self -= self - other
 		return self
 
@@ -500,9 +501,7 @@ class segmentlist(list):
 		Return the intersection of the segmentlist and another.
 		This operation is O(n).
 		"""
-		x = segmentlist(self[:])
-		x &= other
-		return x
+		return segmentlist(self[:]).__iand__(other)
 
 	def __ior__(self, other):
 		"""
@@ -543,12 +542,8 @@ class segmentlist(list):
 		lists of similar size applies here as well.
 		"""
 		if len(self) >= len(other):
-			x = segmentlist(self[:])
-			x |= other
-		else:
-			x = segmentlist(other[:])
-			x |= self
-		return x
+			return segmentlist(self[:]).__ior__(other)
+		return segmentlist(other[:]).__ior__(self)
 
 	def __xor__(self, other):
 		"""
@@ -567,30 +562,28 @@ class segmentlist(list):
 		Replace the segmentlist with the difference between itself
 		and another.  This operation is O(n).
 		"""
+		if not other:
+			return self
 		i = j = 0
+		otherseg = other[j]
 		while i < len(self):
 			seg = self[i]
-			while j < len(other):
-				otherseg = other[j]
-				if bool(otherseg) and otherseg[1] > seg[0]:
-					break
+			while (not otherseg) or otherseg[1] <= seg[0]:
 				j += 1
-			else:
-				return self
+				if j >= len(other):
+					return self
+				otherseg = other[j]
 			if seg[1] <= otherseg[0]:
 				i += 1
 			elif otherseg[0] <= seg[0]:
 				if otherseg[1] >= seg[1]:
 					del self[i]
 				else:
-					self[i] -= otherseg
+					self[i] = segment(otherseg[1], seg[1])
 			else:
-				if otherseg[1] >= seg[1]:
-					self[i] -= otherseg
-					i += 1
-				else:
-					self[i] = segment(seg[0], otherseg[0])
-					i += 1
+				self[i] = segment(seg[0], otherseg[0])
+				i += 1
+				if otherseg[1] < seg[1]:
 					self.insert(i, segment(otherseg[1], seg[1]))
 		return self
 
@@ -599,16 +592,14 @@ class segmentlist(list):
 		Return the difference between the segmentlist and another.
 		This operation is O(n).
 		"""
-		x = segmentlist(self[:])
-		x -= other
-		return x
+		return segmentlist(self[:]).__isub__(other)
 
 	def __invert__(self):
 		"""
 		Return the segmentlist that is the inversion of the given
 		list.  This operation is O(n).
 		"""
-		return segmentlist([segment(NegInfinity, PosInfinity)]) - self
+		return segmentlist([segment(NegInfinity, PosInfinity)]).__isub__(self)
 
 	# other operations
 
@@ -640,20 +631,15 @@ class segmentlist(list):
 		calculation of the intersection, i.e. by testing len(self &
 		other).  Requires the list to be coalesced.
 		"""
-		try:
-			self_it = iter(self)
-			self_seg = self_it.next()
-			other_it = iter(other)
-			other_seg = other_it.next()
-			while True:
-				while self_seg[1] <= other_seg[0]:
-					self_seg = self_it.next()
-				while other_seg[1] <= self_seg[0]:
-					other_seg = other_it.next()
-				if self_seg[1] > other_seg[0]:
-					return True
-		except StopIteration:
-			return False
+		i = j = 0
+		while (i < len(self)) and (j < len(other)):
+			if self[i][1] <= other[j][0]:
+				i += 1
+			elif other[j][1] <= self[i][0]:
+				j += 1
+			elif self[i][1] > other[j][0]:
+				return True
+		return False
 
 	def coalesce(self):
 		"""
