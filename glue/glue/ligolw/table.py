@@ -290,20 +290,18 @@ class TableStream(ligolw.Stream):
 		# some initialization that can only be done once parentNode
 		# has been set.
 		if self.__row is None:
-			self.tokenizer.set_types(self.parentNode.columnpytypes)
-			self.__numcols = len(self.parentNode.columnnames)
-			self.__colnames = tuple([(self.parentNode.loadcolumns is None or colname in self.parentNode.loadcolumns) and colname for colname in self.parentNode.columnnames])
+			self.tokenizer.set_types([(self.parentNode.loadcolumns is None or colname in self.parentNode.loadcolumns or None) and pytype for pytype, colname in zip(self.parentNode.columnpytypes, self.parentNode.columnnames)])
+			self.__colnames = tuple([colname for colname in self.parentNode.columnnames if self.parentNode.loadcolumns is None or colname in self.parentNode.loadcolumns])
+			self.__numcols = len(self.__colnames)
 			self.__row = self.parentNode.RowType()
 
 		# tokenize buffer, and construct row objects
 		for token in self.tokenizer.add(content):
-			colname = self.__colnames[self.__colindex]
-			if colname is not False:
-				try:
-					setattr(self.__row, colname, token)
-				except AttributeError, e:
-					import warnings
-					warnings.warn("glue.ligolw.table.TableStream.appendData():  invalid attribute %s for %s;  in the future this will be a fatal error, use Table class' loadcolumns attribute to restrict parsed columns" % (colname, repr(self.__row)), DeprecationWarning)
+			try:
+				setattr(self.__row, self.__colnames[self.__colindex], token)
+			except AttributeError, e:
+				import warnings
+				warnings.warn("glue.ligolw.table.TableStream.appendData():  invalid attribute %s for %s;  in the future this will be a fatal error, use Table class' loadcolumns attribute to restrict parsed columns" % (colname, repr(self.__row)), DeprecationWarning)
 			self.__colindex += 1
 			if self.__colindex >= self.__numcols:
 				self.parentNode.append(self.__row)
