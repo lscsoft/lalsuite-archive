@@ -68,7 +68,7 @@ def New(Type, columns = None):
 	>>> new = lsctables.New(lsctables.ProcessTable)
 	"""
 	new = Type(sax.xmlreader.AttributesImpl({u"Name": Type.tableName}))
-	colnamefmt = ":".join(Type.tableName.split(":")[:-1]) + ":%%s"
+	colnamefmt = ":".join(Type.tableName.split(":")[:-1]) + ":%s"
 	if columns is not None:
 		for key in columns:
 			if key not in new.validcolumns:
