@@ -55,9 +55,9 @@ static PyTypeObject ligolw_Tokenizer_Type;
 
 typedef struct {
 	PyObject_HEAD
-	PyTypeObject **types;
-	PyTypeObject **types_length;
-	PyTypeObject **type;
+	PyObject **types;
+	PyObject **types_length;
+	PyObject **type;
 	char delimiter;
 	int allocation;
 	char *data;
@@ -178,7 +178,7 @@ static int ligolw_Tokenizer___init__(PyObject *self, PyObject *args, PyObject *k
 	tokenizer->delimiter = *delimiter;
 	tokenizer->types = malloc(1 * sizeof(*tokenizer->types));
 	tokenizer->types_length = &tokenizer->types[1];
-	tokenizer->types[0] = &PyString_Type;
+	tokenizer->types[0] = (PyObject *) &PyString_Type;
 	Py_INCREF(&PyString_Type);
 	tokenizer->type = tokenizer->types;
 	tokenizer->allocation = 0;
@@ -259,11 +259,11 @@ static PyObject *ligolw_Tokenizer_next(PyObject *self)
 	tokenizer->pos = ++pos;
 
 	*end = '\0';
-	if(*tokenizer->type == &PyString_Type) {
+	if(*tokenizer->type == (PyObject *) &PyString_Type) {
 		token = PyString_FromStringAndSize(start, end - start);
-	} else if(*tokenizer->type == &PyInt_Type) {
+	} else if(*tokenizer->type == (PyObject *) &PyInt_Type) {
 		token = PyInt_FromString(start, NULL, 0);
-	} else if(*tokenizer->type == &PyFloat_Type) {
+	} else if(*tokenizer->type == (PyObject *) &PyFloat_Type) {
 		char *ptr;
 		double x = strtod(start, &ptr);
 		if(*ptr == '\0')
@@ -272,6 +272,9 @@ static PyObject *ligolw_Tokenizer_next(PyObject *self)
 			PyErr_Format(PyExc_ValueError, "invalid literal for float(): %s", start);
 			token = NULL;
 		}
+	} else if(*tokenizer->type == Py_None) {
+		Py_INCREF(Py_None);
+		token = Py_None;
 	} else {
 		PyErr_BadArgument();
 		token = NULL;
@@ -301,10 +304,10 @@ static PyObject *ligolw_Tokenizer_set_types(PyObject *self, PyObject *list)
 		goto type_error;
 	length = PyList_GET_SIZE(list);
 	for(i = 0; i < length; i++) {
-		PyTypeObject *type = (PyTypeObject *) PyList_GET_ITEM(list, i);
+		PyObject *type = PyList_GET_ITEM(list, i);
 		if(!PyType_Check(type))
 			goto type_error;
-		if((type != &PyString_Type) && (type != &PyInt_Type) && (type != &PyFloat_Type))
+		if((type != (PyObject *) &PyString_Type) && (type != (PyObject *) &PyInt_Type) && (type != (PyObject *) &PyFloat_Type) && (type != Py_None))
 			goto type_error;
 	}
 
@@ -315,7 +318,7 @@ static PyObject *ligolw_Tokenizer_set_types(PyObject *self, PyObject *list)
 	tokenizer->type = tokenizer->types;
 
 	for(i = 0; i < length; i++) {
-		tokenizer->types[i] = (PyTypeObject *) PyList_GET_ITEM(list, i);
+		tokenizer->types[i] = PyList_GET_ITEM(list, i);
 		Py_INCREF(tokenizer->types[i]);
 	}
 
@@ -323,7 +326,7 @@ static PyObject *ligolw_Tokenizer_set_types(PyObject *self, PyObject *list)
 	return Py_None;
 
 type_error:
-	PyErr_SetString(PyExc_TypeError, "Tokenzer.set_types(): argument must be a list of types str, int, or float");
+	PyErr_SetString(PyExc_TypeError, "Tokenizer.set_types(): argument must be a list of str, int, or float types, or Nones");
 	return NULL;
 }
 
