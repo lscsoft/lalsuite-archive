@@ -309,8 +309,15 @@ class test_segmentlist(unittest.TestCase):
 			b = random_coalesced_list(random.randint(1, algebra_listlength))
 			c = a ^ b
 			try:
+				# c contains nothing that can be found in
+				# the intersection of a and b
 				self.assertEqual(False, c.intersects(a & b))
+				# c contains nothing that cannot be found
+				# in either a or b
 				self.assertEqual(segmentlist([]), c - a - b)
+				# that c + the intersection of a and b
+				# leaves no part of either a or b
+				# unconvered
 				self.assertEqual(segmentlist([]), a - (c | a & b))
 				self.assertEqual(segmentlist([]), b - (c | a & b))
 			except AssertionError, e:
