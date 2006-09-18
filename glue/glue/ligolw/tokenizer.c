@@ -197,12 +197,10 @@ static PyObject *ligolw_Tokenizer___iter__(PyObject *self)
 }
 
 
-static PyObject *ligolw_Tokenizer_next(PyObject *self)
+static PyObject *tokenizer_next_string(ligolw_Tokenizer *tokenizer, char **start, char **end)
 {
-	ligolw_Tokenizer *tokenizer = (ligolw_Tokenizer *) self;
-	PyObject *token;
 	char *pos = tokenizer->pos;
-	char *start, *end;
+	PyObject *type = *tokenizer->type;
 
 	/*
 	 * The following code matches the pattern:
@@ -233,21 +231,21 @@ static PyObject *ligolw_Tokenizer_next(PyObject *self)
 		if(++pos >= tokenizer->length)
 			goto stop_iteration;
 	if(*pos == '"') {
-		start = ++pos;
+		*start = ++pos;
 		if(pos >= tokenizer->length)
 			goto stop_iteration;
 		while(*pos != '"')
 			if(++pos >= tokenizer->length)
 				goto stop_iteration;
-		end = pos;
+		*end = pos;
 		if(++pos >= tokenizer->length)
 			goto stop_iteration;
 	} else {
-		start = pos;
+		*start = pos;
 		while(!isspace(*pos) && (*pos != tokenizer->delimiter) && (*pos != '"'))
 			if(++pos >= tokenizer->length)
 				goto stop_iteration;
-		end = pos;
+		*end = pos;
 	}
 	while(*pos != tokenizer->delimiter) {
 		if(!isspace(*pos))
@@ -258,31 +256,10 @@ static PyObject *ligolw_Tokenizer_next(PyObject *self)
 
 	tokenizer->pos = ++pos;
 
-	*end = '\0';
-	if(*tokenizer->type == (PyObject *) &PyString_Type) {
-		token = PyString_FromStringAndSize(start, end - start);
-	} else if(*tokenizer->type == (PyObject *) &PyInt_Type) {
-		token = PyInt_FromString(start, NULL, 0);
-	} else if(*tokenizer->type == (PyObject *) &PyFloat_Type) {
-		char *ptr;
-		double x = strtod(start, &ptr);
-		if(*ptr == '\0')
-			token = PyFloat_FromDouble(x);
-		else {
-			PyErr_Format(PyExc_ValueError, "invalid literal for float(): %s", start);
-			token = NULL;
-		}
-	} else if(*tokenizer->type == Py_None) {
-		Py_INCREF(Py_None);
-		token = Py_None;
-	} else {
-		PyErr_BadArgument();
-		token = NULL;
-	}
 	if(++tokenizer->type >= tokenizer->types_length)
 		tokenizer->type = tokenizer->types;
 
-	return token;
+	return type;
 
 stop_iteration:
 	shift(tokenizer, tokenizer->pos);
@@ -290,8 +267,42 @@ stop_iteration:
 	return NULL;
 
 parse_error:
-	PyErr_SetString(PyExc_ValueError, start);
+	PyErr_SetString(PyExc_ValueError, *start);
 	return NULL;
+}
+
+
+static PyObject *ligolw_Tokenizer_next(PyObject *self)
+{
+	PyObject *type;
+	PyObject *token;
+	char *start, *end;
+
+	do {
+		type = tokenizer_next_string((ligolw_Tokenizer *) self, &start, &end);
+		if(!type)
+			return NULL;
+	} while(type == Py_None);
+
+	*end = '\0';
+	if(type == (PyObject *) &PyString_Type) {
+		token = PyString_FromStringAndSize(start, end - start);
+	} else if(type == (PyObject *) &PyInt_Type) {
+		token = PyInt_FromString(start, NULL, 0);
+	} else if(type == (PyObject *) &PyFloat_Type) {
+		double x = strtod(start, &end);
+		if(*end == '\0')
+			token = PyFloat_FromDouble(x);
+		else {
+			PyErr_Format(PyExc_ValueError, "invalid literal for float(): %s", start);
+			token = NULL;
+		}
+	} else {
+		PyErr_BadArgument();
+		token = NULL;
+	}
+
+	return token;
 }
 
 
@@ -305,8 +316,6 @@ static PyObject *ligolw_Tokenizer_set_types(PyObject *self, PyObject *list)
 	length = PyList_GET_SIZE(list);
 	for(i = 0; i < length; i++) {
 		PyObject *type = PyList_GET_ITEM(list, i);
-		if(!PyType_Check(type))
-			goto type_error;
 		if((type != (PyObject *) &PyString_Type) && (type != (PyObject *) &PyInt_Type) && (type != (PyObject *) &PyFloat_Type) && (type != Py_None))
 			goto type_error;
 	}
