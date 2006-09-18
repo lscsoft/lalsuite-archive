@@ -303,6 +303,19 @@ class test_segmentlist(unittest.TestCase):
 			except AssertionError, e:
 				raise AssertionError, str(e) + "\na = " + str(a) + "\nb = " + str(b)
 
+	def test__xor__(self):
+		for i in xrange(algebra_repeats):
+			a = random_coalesced_list(random.randint(1, algebra_listlength))
+			b = random_coalesced_list(random.randint(1, algebra_listlength))
+			c = a ^ b
+			try:
+				self.assertEqual(False, c.intersects(a & b))
+				self.assertEqual(segmentlist([]), c - a - b)
+				self.assertEqual(segmentlist([]), a - (c | a & b))
+				self.assertEqual(segmentlist([]), b - (c | a & b))
+			except AssertionError, e:
+				raise AssertionError, str(e) + "\na = " + str(a) + "\nb = " + str(b)
+
 	def testcontract(self):
 		self.assertEqual(segmentlist([segment(0, 20)]), segmentlist([segment(3, 7), segment(13, 17)]).contract(-3))
 
