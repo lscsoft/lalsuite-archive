@@ -289,7 +289,7 @@ class TableStream(ligolw.Stream):
 	def appendData(self, content):
 		# some initialization that can only be done once parentNode
 		# has been set.
-		if self.__row == None:
+		if self.__row is None:
 			self.__colnames = tuple(self.parentNode.columnnames)
 			self.tokenizer.set_types(self.parentNode.columnpytypes)
 			self.__numcols = len(self.__colnames)
@@ -299,7 +299,7 @@ class TableStream(ligolw.Stream):
 		# tokenize buffer, and construct row objects
 		for token in self.tokenizer.add(content):
 			colname = self.__colnames[self.__colindex]
-			if self.__loadcolumns == None or colname in self.__loadcolumns:
+			if self.__loadcolumns is None or colname in self.__loadcolumns:
 				try:
 					setattr(self.__row, colname, token)
 				except AttributeError, e:
@@ -444,7 +444,7 @@ class Table(ligolw.Table, list):
 				continue
 			colname = StripColumnName(child.getAttribute("Name"))
 			llwtype = child.getAttribute("Type")
-			if self.validcolumns != None:
+			if self.validcolumns is not None:
 				if colname not in self.validcolumns.keys():
 					raise ligolw.ElementError, "invalid Column name \"%s\" for Table \"%s\"" % (child.getAttribute("Name"), self.getAttribute("Name"))
 				if self.validcolumns[colname] != llwtype:
