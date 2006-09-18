@@ -290,16 +290,15 @@ class TableStream(ligolw.Stream):
 		# some initialization that can only be done once parentNode
 		# has been set.
 		if self.__row is None:
-			self.__colnames = tuple(self.parentNode.columnnames)
 			self.tokenizer.set_types(self.parentNode.columnpytypes)
-			self.__numcols = len(self.__colnames)
-			self.__loadcolumns = self.parentNode.loadcolumns
+			self.__numcols = len(self.parentNode.columnnames)
+			self.__colnames = tuple([(self.parentNode.loadcolumns is None or colname in self.parentNode.loadcolumns) and colname for colname in self.parentNode.columnnames])
 			self.__row = self.parentNode.RowType()
 
 		# tokenize buffer, and construct row objects
 		for token in self.tokenizer.add(content):
 			colname = self.__colnames[self.__colindex]
-			if self.__loadcolumns is None or colname in self.__loadcolumns:
+			if colname is not False:
 				try:
 					setattr(self.__row, colname, token)
 				except AttributeError, e:
@@ -318,7 +317,6 @@ class TableStream(ligolw.Stream):
 		"""
 		self.__colnames = None
 		self.__numcols = None
-		self.__loadcolumns = None
 		self.__row = None
 		self.__colindex = 0
 		ligolw.Stream.unlink(self)
