@@ -629,17 +629,26 @@ class segmentlist(list):
 		segmentlist other is not the null set, otherwise returns
 		False.  The algorithm is O(n), but faster than explicit
 		calculation of the intersection, i.e. by testing len(self &
-		other).  Requires the list to be coalesced.
+		other).  Requires both lists to be coalesced.
 		"""
+		if not (self and other):
+			return False
 		i = j = 0
-		while (i < len(self)) and (j < len(other)):
-			if self[i][1] <= other[j][0]:
+		seg = self[0]
+		otherseg = other[0]
+		while True:
+			if seg[1] <= otherseg[0]:
 				i += 1
-			elif other[j][1] <= self[i][0]:
+				if i >= len(self):
+					return False
+				seg = self[i]
+			elif otherseg[1] <= seg[0]:
 				j += 1
-			elif self[i][1] > other[j][0]:
+				if j >= len(other):
+					return False
+				otherseg = other[j]
+			else:
 				return True
-		return False
 
 	def coalesce(self):
 		"""
