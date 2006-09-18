@@ -547,15 +547,3 @@ ligolw.LIGOLWContentHandler.startStream = startStream
 ligolw.LIGOLWContentHandler.endStream = endStream
 ligolw.LIGOLWContentHandler.startTable = startTable
 ligolw.LIGOLWContentHandler.endTable = endTable
-
-
-#
-# This class defined for backwards compatibility;  remove when nobody uses
-# it.
-#
-
-import warnings
-class LIGOLWContentHandler(ligolw.LIGOLWContentHandler):
-	def __init__(*args):
-		warnings.warn("table.LIGOLWContentHandler() class is deprecated:  use ligolw.LIGOLWContentHandler() instead", DeprecationWarning)
-		ligolw.LIGOLWContentHandler.__init__(*args)
