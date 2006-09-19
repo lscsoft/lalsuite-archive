@@ -102,6 +102,25 @@ ToFormat = {
 	"double": "%.16g"
 }
 
+ToPyType = {
+	"char_s": str,
+	"ilwd:char": str,
+	"ilwd:char_u": str,
+	"lstring": str,
+	"string": str,
+	"int_2s": int,
+	"int_2u": int,
+	"int_4s": int,
+	"int_4u": int,
+	"int_8s": int,
+	"int_8u": int,
+	"int": int,
+	"real_4": float,
+	"real_8": float,
+	"float": float,
+	"double": float
+}
+
 ToNumArrayType = {
 	"int_2s": "Int16",
 	"int_2u": "UInt16",
