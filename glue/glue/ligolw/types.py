@@ -26,6 +26,41 @@
 
 """
 Definitions of type strings found in LIGO Light Weight XML files.
+
+Notes.  To guarantee that a double-precision float-point number can be
+reconstructed exactly from its representation as a decimal number, one
+must use 17 decimal digits;  for single-precision, the number is 9.
+Python uses only double-precision numbers, but LIGO Light Weight XML
+allows for single-precision values, so I provide distinct format
+specifiers for those cases here.  In both cases, I have elected to use 1
+fewer digits than are required to uniquely reconstruct the number:  the
+XML written by this library is lossy.  I made this choice to reduce the
+file size, for
+
+>>> "%.17g" % 0.1
+'0.10000000000000001'
+
+while
+
+>>> "%.16g" % 0.1
+'0.1'
+
+In this worst case, storing full precision increases the size of the XML
+by more than an order of magnitude.  If you wish to make a different
+choice for your files, simply include the lines
+
+	glue.ligolw.types.ToFormat.update({
+		"real_4": "%.9g",
+		"real_8": "%.17g",
+		"float": "%.9g",
+		"double": "%.17g"
+	})
+
+anywhere in your code, but before you write the document to a file.
+
+References:
+
+	- http://docs.sun.com/source/806-3568/ncg_goldberg.html
 """
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -41,7 +76,8 @@ __version__ = "$Revision$"[11:-2]
 # =============================================================================
 #
 
-StringTypes = ["char_s", "ilwd:char", "ilwd:char_u", "lstring", "string"]
+IDTypes = ["ilwd:char", "ilwd:char_u"]
+StringTypes = IDTypes + ["char_s", "lstring", "string"]
 IntTypes = ["int_2s", "int_2u", "int_4s", "int_4u", "int_8s", "int_8u", "int"]
 FloatTypes = ["real_4", "real_8", "float", "double"]
 
@@ -60,9 +96,9 @@ ToFormat = {
 	"int_8s": "%d",
 	"int_8u": "%u",
 	"int": "%d",
-	"real_4": "%.7g",
+	"real_4": "%.8g",
 	"real_8": "%.16g",
-	"float": "%.7g",
+	"float": "%.8g",
 	"double": "%.16g"
 }
 
