@@ -143,7 +143,11 @@ class Element(object):
 		be the case that refchild is a child of this node; if not,
 		ValueError is raised. newchild is returned.
 		"""
-		i = self.childNodes.index(refchild)
+		for i, childNode in enumerate(self.childNodes):
+			if childNode is refchild:
+				break
+		else:
+			raise ValueError, refchild
 		self.childNodes.insert(i, newchild)
 		newchild.parentNode = self
 		self._verifyChildren(i)
@@ -156,14 +160,17 @@ class Element(object):
 		child will not be used any more, you should call its
 		unlink() method to promote garbage collection.
 		"""
-		self.childNodes.remove(child)
+		for i, childNode in enumerate(self.childNodes):
+			if childNode is child:
+				self.childNodes.pop(i)
+				break
 		child.parentNode = None
 		return child
 
 	def unlink(self):
 		"""
 		Break internal references within the document tree rooted
-		on this element to promote garbage collected.
+		on this element to promote garbage collection.
 		"""
 		self.parentNode = None
 		for child in self.childNodes:
@@ -176,7 +183,11 @@ class Element(object):
 		case that oldchild is a child of this node; if not,
 		ValueError is raised. newchild is returned.
 		"""
-		i = self.childNodes.index(refchild)
+		for i, childNode in enumerate(self.childNodes):
+			if childNode is oldchild:
+				break
+		else:
+			raise ValueError, oldchild
 		self.childNodes[i].parentNode = None
 		self.childNodes[i] = newchild
 		newchild.parentNode = self
@@ -190,7 +201,7 @@ class Element(object):
 		"""
 		l = reduce(lambda l, e: l + e.getElements(filter), self.childNodes, [])
 		if filter(self):
-			l += [self]
+			l.append(self)
 		return l
 
 	def getElementsByTagName(self, tagName):
