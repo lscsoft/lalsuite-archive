@@ -62,7 +62,7 @@ typedef struct {
  * Utilities
  */
 
-static void add_to_data(ligolw_Tokenizer *tokenizer, PyObject *string)
+static void _add_to_data(ligolw_Tokenizer *tokenizer, PyObject *string)
 {
 	int n = PyString_GET_SIZE(string);
 
@@ -82,7 +82,7 @@ static void add_to_data(ligolw_Tokenizer *tokenizer, PyObject *string)
 }
 
 
-static void shift(ligolw_Tokenizer *tokenizer, char *start)
+static void _shift(ligolw_Tokenizer *tokenizer, char *start)
 {
 	int n = start - tokenizer->data;
 
@@ -95,7 +95,7 @@ static void shift(ligolw_Tokenizer *tokenizer, char *start)
 }
 
 
-static void unref_types(ligolw_Tokenizer *tokenizer)
+static void _unref_types(ligolw_Tokenizer *tokenizer)
 {
 	for(tokenizer->type = tokenizer->types; tokenizer->type < tokenizer->types_length; tokenizer->type++)
 		Py_DECREF(*tokenizer->type);
@@ -111,14 +111,14 @@ static void unref_types(ligolw_Tokenizer *tokenizer)
  * Methods
  */
 
-static PyObject *ligolw_Tokenizer_add(PyObject *self, PyObject *data)
+static PyObject *add(PyObject *self, PyObject *data)
 {
 	if(PyUnicode_Check(data)) {
 		PyObject *string = PyUnicode_AsASCIIString(data);
-		add_to_data((ligolw_Tokenizer *) self, string);
+		_add_to_data((ligolw_Tokenizer *) self, string);
 		Py_DECREF(string);
 	} else if(PyString_Check(data)) {
-		add_to_data((ligolw_Tokenizer *) self, data);
+		_add_to_data((ligolw_Tokenizer *) self, data);
 	} else {
 		PyErr_SetObject(PyExc_TypeError, data);
 		return NULL;
@@ -129,11 +129,11 @@ static PyObject *ligolw_Tokenizer_add(PyObject *self, PyObject *data)
 }
 
 
-static void ligolw_Tokenizer___del__(PyObject *self)
+static void __del__(PyObject *self)
 {
 	ligolw_Tokenizer *tokenizer = (ligolw_Tokenizer *) self;
 
-	unref_types(tokenizer);
+	_unref_types(tokenizer);
 	free(tokenizer->data);
 	tokenizer->data = NULL;
 	tokenizer->allocation = 0;
@@ -144,7 +144,7 @@ static void ligolw_Tokenizer___del__(PyObject *self)
 }
 
 
-static int ligolw_Tokenizer___init__(PyObject *self, PyObject *args, PyObject *kwds)
+static int __init__(PyObject *self, PyObject *args, PyObject *kwds)
 {
 	ligolw_Tokenizer *tokenizer = (ligolw_Tokenizer *) self;
 	char *delimiter;
@@ -172,14 +172,14 @@ static int ligolw_Tokenizer___init__(PyObject *self, PyObject *args, PyObject *k
 }
 
 
-static PyObject *ligolw_Tokenizer___iter__(PyObject *self)
+static PyObject *__iter__(PyObject *self)
 {
 	Py_INCREF(self);
 	return self;
 }
 
 
-static PyObject *tokenizer_next_string(ligolw_Tokenizer *tokenizer, char **start, char **end)
+static PyObject *_next_string(ligolw_Tokenizer *tokenizer, char **start, char **end)
 {
 	char *pos = tokenizer->pos;
 	PyObject *type = *tokenizer->type;
@@ -244,7 +244,7 @@ static PyObject *tokenizer_next_string(ligolw_Tokenizer *tokenizer, char **start
 	return type;
 
 stop_iteration:
-	shift(tokenizer, tokenizer->pos);
+	_shift(tokenizer, tokenizer->pos);
 	PyErr_SetNone(PyExc_StopIteration);
 	return NULL;
 
@@ -254,14 +254,14 @@ parse_error:
 }
 
 
-static PyObject *ligolw_Tokenizer_next(PyObject *self)
+static PyObject *next(PyObject *self)
 {
 	PyObject *type;
 	PyObject *token;
 	char *start, *end;
 
 	do {
-		type = tokenizer_next_string((ligolw_Tokenizer *) self, &start, &end);
+		type = _next_string((ligolw_Tokenizer *) self, &start, &end);
 		if(!type)
 			return NULL;
 	} while(type == Py_None);
@@ -288,7 +288,7 @@ static PyObject *ligolw_Tokenizer_next(PyObject *self)
 }
 
 
-static PyObject *ligolw_Tokenizer_set_types(PyObject *self, PyObject *list)
+static PyObject *set_types(PyObject *self, PyObject *list)
 {
 	ligolw_Tokenizer *tokenizer = (ligolw_Tokenizer *) self;
 	int length, i;
@@ -302,7 +302,7 @@ static PyObject *ligolw_Tokenizer_set_types(PyObject *self, PyObject *list)
 			goto type_error;
 	}
 
-	unref_types(tokenizer);
+	_unref_types(tokenizer);
 
 	tokenizer->types = malloc(length * sizeof(*tokenizer->types));
 	tokenizer->types_length = &tokenizer->types[length];
@@ -327,20 +327,20 @@ type_error:
  */
 
 static struct PyMethodDef methods[] = {
-	{"add", ligolw_Tokenizer_add, METH_O, "Append a string to the tokenizer's contents"},
-	{"set_types", ligolw_Tokenizer_set_types, METH_O, "Set the list of Python types to be used cyclically for token parsing"},
+	{"add", add, METH_O, "Append a string to the tokenizer's contents"},
+	{"set_types", set_types, METH_O, "Set the list of Python types to be used cyclically for token parsing"},
 	{NULL,}
 };
 
 static PyTypeObject ligolw_Tokenizer_Type = {
 	PyObject_HEAD_INIT(NULL)
 	.tp_basicsize = sizeof(ligolw_Tokenizer),
-	.tp_dealloc = ligolw_Tokenizer___del__,
+	.tp_dealloc = __del__,
 	.tp_doc = "A tokenizer for LIGO Light Weight XML Stream and Array elements",
 	.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_CHECKTYPES,
-	.tp_init = ligolw_Tokenizer___init__,
-	.tp_iter = ligolw_Tokenizer___iter__,
-	.tp_iternext = ligolw_Tokenizer_next,
+	.tp_init = __init__,
+	.tp_iter = __iter__,
+	.tp_iternext = next,
 	.tp_methods = methods,
 	.tp_name = MODULE_NAME ".Tokenizer",
 	.tp_new = PyType_GenericNew,
