@@ -98,30 +98,21 @@ def reassign_ids(doc):
 	return doc
 
 
-def merge_elements(elem1, elem2):
+def merge_ligolws(elem):
 	"""
-	Move the children of elem2 to elem1, and unlink elem2 from its
-	parent.  The return value is elem1.
-	
-	If the two elements are tables, then more the rows of the second
-	table into the first table, and unlink the second table from the
-	document tree.  The table, column, and stream names of the first
-	table are retained, as well as the (optional) comment child
-	element.
+	Merge all LIGO_LW elements that are immediate children of elem by
+	appending their children to the first.
 	"""
-	if elem1.tagName != elem2.tagName:
-		raise ligolw.ElementError, "merge_elements(): elements must have same names"
-	if elem1.tagName == ligolw.LIGO_LW.tagName:
-		# copy children;  LIGO_LW elements have no attributes
-		map(elem1.appendChild, elem2.childNodes)
-	elif elem1.tagName == ligolw.Table.tagName:
-		# copy rows
-		map(elem1.append, elem2)
-	else:
-		raise ligolw.ElementError, "merge_elements(): can't merge %s elements." % elem1.tagName
-	if elem2.parentNode:
-		elem2.parentNode.removeChild(elem2)
-	return elem1
+	ligolws = [child for child in elem.childNodes if child.tagName == ligolw.LIGO_LW.tagName]
+	if ligolws:
+		dest = ligolws.pop(0)
+		for src in ligolws:
+			# copy children;  LIGO_LW elements have no attributes
+			map(dest.appendChild, src.childNodes)
+			# unlink from parent
+			if src.parentNode is not None:
+				src.parentNode.removeChild(src)
+	return elem
 
 
 def tables_can_be_merged(a, b):
@@ -152,23 +143,12 @@ def merge_compatible_tables(elem):
 			dest = tables.pop(0)
 			for src in tables:
 				if tables_can_be_merged(dest, src):
-					merge_elements(dest, src)
+					# copy rows
+					map(dest.append, src)
+					# unlink from parent
+					if src.parentNode is not None:
+						src.parentNode.removeChild(src)
 	return elem
-
-
-def merge_all_elements(doc):
-	"""
-	Combine the child elements of all top-level LIGO_LW elements under
-	a single LIGO_LW element, then combine equivalent tables into
-	single tables.
-	"""
-	# LIGO_LW elements
-	reduce(merge_elements, [elem for elem in doc.childNodes if elem.tagName == ligolw.LIGO_LW.tagName])
-
-	# Table elements
-	merge_compatible_tables(doc)
-
-	return doc
 
 
 #
@@ -201,6 +181,7 @@ def ligolw_add(doc, urls, **kwargs):
 	# Document merge
 	if kwargs["verbose"]:
 		print >>sys.stderr, "merging elements ..."
-	merge_all_elements(doc)
+	merge_ligolws(doc)
+	merge_compatible_tables(doc)
 
 	return doc
