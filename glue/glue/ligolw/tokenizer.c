@@ -275,10 +275,9 @@ static PyObject *next(PyObject *self)
 
 	*end = 0;
 	if(type == (PyObject *) &PyFloat_Type) {
-		double x = strtod(start, &end);
-		if(*end == 0)
-			token = PyFloat_FromDouble(x);
-		else {
+		token = PyFloat_FromDouble(strtod(start, &end));
+		if(*end != 0) {
+			Py_DECREF(token);
 			PyErr_Format(PyExc_ValueError, "invalid literal for float(): %s", start);
 			token = NULL;
 		}
