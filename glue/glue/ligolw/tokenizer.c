@@ -115,6 +115,7 @@ static void _unref_types(ligolw_Tokenizer *tokenizer)
 static PyObject *_next_string(ligolw_Tokenizer *tokenizer, char **start, char **end)
 {
 	char *pos = tokenizer->pos;
+	char *bailout = tokenizer->length;
 	PyObject *type = *tokenizer->type;
 
 	/*
@@ -140,32 +141,32 @@ static PyObject *_next_string(ligolw_Tokenizer *tokenizer, char **start, char **
 	 * non-quoted transition.
 	 */
 
-	if(pos >= tokenizer->length)
+	if(pos >= bailout)
 		goto stop_iteration;
 	while(isspace(*pos))
-		if(++pos >= tokenizer->length)
+		if(++pos >= bailout)
 			goto stop_iteration;
 	if(*pos == '"') {
 		*start = ++pos;
-		if(pos >= tokenizer->length)
+		if(pos >= bailout)
 			goto stop_iteration;
 		while(*pos != '"')
-			if(++pos >= tokenizer->length)
+			if(++pos >= bailout)
 				goto stop_iteration;
 		*end = pos;
-		if(++pos >= tokenizer->length)
+		if(++pos >= bailout)
 			goto stop_iteration;
 	} else {
 		*start = pos;
 		while(!isspace(*pos) && (*pos != tokenizer->delimiter) && (*pos != '"'))
-			if(++pos >= tokenizer->length)
+			if(++pos >= bailout)
 				goto stop_iteration;
 		*end = pos;
 	}
 	while(*pos != tokenizer->delimiter) {
 		if(!isspace(*pos))
 			goto parse_error;
-		if(++pos >= tokenizer->length)
+		if(++pos >= bailout)
 			goto stop_iteration;
 	}
 
