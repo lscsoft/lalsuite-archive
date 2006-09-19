@@ -694,6 +694,12 @@ class LSCdataFindClient(LDRdataFindClient):
                      self.__check_gps(start)
                  if end:
                      self.__check_gps(end)
+                 if not site:
+                     msg = "An observatory must be specified."
+                     raise LDRdataFindClientException,msg
+                 if not mytype:
+                     msg = "A type must be specified."
+                     raise LDRdataFindClientException,msg
                  
                  timelist = LDRdataFindClient.timeQuery(self,mytype,site,start,end,strict)
                  return timelist
