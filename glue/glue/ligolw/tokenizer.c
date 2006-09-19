@@ -74,13 +74,15 @@ static void _add_to_data(ligolw_Tokenizer *tokenizer, PyObject *string)
 			int pos = tokenizer->pos - tokenizer->data;
 			int length = tokenizer->length - tokenizer->data;
 			tokenizer->allocation += n;
-			tokenizer->data = realloc(tokenizer->data, tokenizer->allocation + 1);
-			tokenizer->data[tokenizer->allocation] = '\0';
+			/* add 1 to leave room for the null terminator */
+			/* FIXME: should check for failure */
+			tokenizer->data = realloc(tokenizer->data, (tokenizer->allocation + 1) * sizeof(*tokenizer->data));
 			tokenizer->pos = &tokenizer->data[pos];
 			tokenizer->length = &tokenizer->data[length];
 		}
-		memcpy(tokenizer->length, PyString_AS_STRING(string), n);
+		memcpy(tokenizer->length, PyString_AS_STRING(string), n * sizeof(*tokenizer->data));
 		tokenizer->length += n;
+		*tokenizer->length = 0;
 	}
 }
 
@@ -92,8 +94,8 @@ static void _shift(ligolw_Tokenizer *tokenizer, char *start)
 	if(n) {
 		tokenizer->length -= n;
 		tokenizer->pos -= n;
-		memmove(tokenizer->data, start, tokenizer->length - tokenizer->data);
-		*tokenizer->length = '\0';
+		memmove(tokenizer->data, start, (tokenizer->length - tokenizer->data) * sizeof(*tokenizer->data));
+		*tokenizer->length = 0;
 	}
 }
 
@@ -270,14 +272,14 @@ static PyObject *next(PyObject *self)
 			return NULL;
 	} while(type == Py_None);
 
-	*end = '\0';
+	*end = 0;
 	if(type == (PyObject *) &PyString_Type) {
 		token = PyString_FromStringAndSize(start, end - start);
 	} else if(type == (PyObject *) &PyInt_Type) {
 		token = PyInt_FromString(start, NULL, 0);
 	} else if(type == (PyObject *) &PyFloat_Type) {
 		double x = strtod(start, &end);
-		if(*end == '\0')
+		if(*end == 0)
 			token = PyFloat_FromDouble(x);
 		else {
 			PyErr_Format(PyExc_ValueError, "invalid literal for float(): %s", start);
