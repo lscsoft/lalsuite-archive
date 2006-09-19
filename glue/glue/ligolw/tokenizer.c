@@ -27,7 +27,6 @@
  */
 
 #include <Python.h>
-#include <structmember.h>
 #include <ctype.h>
 #include <stdlib.h>
 
@@ -41,13 +40,6 @@
  *
  * ============================================================================
  */
-
-/*
- * Forward references
- */
-
-static PyTypeObject ligolw_Tokenizer_Type;
-
 
 /*
  * Structure
@@ -64,16 +56,6 @@ typedef struct {
 	char *length;
 	char *pos;
 } ligolw_Tokenizer;
-
-
-/*
- * Member access
- */
-
-static struct PyMemberDef ligolw_Tokenizer_members[] = {
-	{"data", T_STRING, offsetof(ligolw_Tokenizer, data), 0, "text remaining after last iteration"},
-	{NULL,}
-};
 
 
 /*
@@ -344,7 +326,7 @@ type_error:
  * Type information
  */
 
-static struct PyMethodDef ligolw_Tokenizer_methods[] = {
+static struct PyMethodDef methods[] = {
 	{"add", ligolw_Tokenizer_add, METH_O, "Append a string to the tokenizer's contents"},
 	{"set_types", ligolw_Tokenizer_set_types, METH_O, "Set the list of Python types to be used cyclically for token parsing"},
 	{NULL,}
@@ -359,8 +341,7 @@ static PyTypeObject ligolw_Tokenizer_Type = {
 	.tp_init = ligolw_Tokenizer___init__,
 	.tp_iter = ligolw_Tokenizer___iter__,
 	.tp_iternext = ligolw_Tokenizer_next,
-	.tp_members = ligolw_Tokenizer_members,
-	.tp_methods = ligolw_Tokenizer_methods,
+	.tp_methods = methods,
 	.tp_name = MODULE_NAME ".Tokenizer",
 	.tp_new = PyType_GenericNew,
 };
