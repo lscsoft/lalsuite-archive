@@ -93,7 +93,7 @@ def new_param(name, type, value, comment = None):
 	"""
 	elem = Param({"Name": "%s:param" % name, "Type": type})
 	elem.pcdata = value
-	if comment != None:
+	if comment is not None:
 		elem.appendChild(ligolw.Comment())
 		elem.childNodes[-1].pcdata = comment
 	return elem
@@ -147,14 +147,7 @@ class Param(ligolw.Param):
 		except KeyError:
 			# default
 			t = "lstring"
-		if t in types.IntTypes:
-			self.pytype = int
-		elif t in types.FloatTypes:
-			self.pytype = float
-		elif t in types.StringTypes:
-			self.pytype = str
-		else:
-			raise TypeError, t
+		self.pytype = types.ToPyType[t]
 
 	def write(self, file = sys.stdout, indent = ""):
 		print >>file, self.start_tag(indent)
