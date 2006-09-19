@@ -117,19 +117,12 @@ def makesteps(x,y,ymax):
 ##############################################################################
 usage = """usage: %prog [options] file1 (file2 file3)
 
-Inspiral Injection Plotting Functions
+Computing Upperlimit
 
-Generate a set of summary plots from an injection file to understand
-which regions of parameter space are sampled.
+Calculates the final upperlimit results using the output
+of plotnumgalaxies (png-output.ini). 
 
-Available plots:
-
-1) Chirp mass accuracy can be plotted as:
-  a) a function of the injected chirp mass, using --plot-mchirp
-  b) a histogram, using --hist-mchirp
-  c) a function of the injected effective distance, using --chirp-dist
-  d) a function of the detected SNR, using --chirp-snr
-The width of all these plots is set using --chirp-axis
+Example:
 
 """
 parser = OptionParser( usage )
@@ -137,7 +130,7 @@ parser.add_option("-v","--version",action="store_true",default=False,\
     help="display version information " )
 parser.add_option("-p","--prior",action="store",type="string",\
     default=None,\
-    help="which prior to use on the rate" )
+    help="which prior to use on the rate. Example: uniform" )
 parser.add_option("-P","--prior-file",action="store",type="string",\
     default=None, metavar=" FILE", help="name of prior file" )
 parser.add_option("-s","--show-plot",action="store_true",default=False,\
@@ -158,12 +151,12 @@ parser.add_option("-f","--galaxies-file",action="append",type="string",\
     default=None, metavar=" FNAME",\
     help="File containing the output from plotnumgalaxies" ) 
 parser.add_option("-t","--observation-time",action="append",type="float",\
-    default=None, metavar=" TOBS", help="observation time" ) 
+    default=None, metavar=" TOBS", help="observation time in units of years" ) 
 parser.add_option("-m","--max-rate",action="store",type="float",\
     default=200.0, metavar=" MAXRATE", \
     help="max rate on integral for posterior" ) 
 parser.add_option("-d","--dr",action="store",type="float",\
-    default=0.01, metavar=" MAXRATE", \
+    default=0.01, metavar=" DR", \
     help="dr to use in rate integral" ) 
 parser.add_option("-n","--ntrials",action="store",type="int",\
     default=1000, metavar=" NTRIALS", help="number of trials for marginalization over errors" ) 
@@ -191,6 +184,8 @@ if not opts.prior:
 if (len(opts.galaxies_file)-len(opts.observation_time)):
   print >>sys.stderr, "Must give same number of galaxy files and " +\
                       "observation times\n"
+  print >> sys.stderr, "Number of galaxy-files (-f): "+str(len(opts.galaxies_file))+\
+                       "  number of observation times (-t):"+str(len(opts.observation_time))
   sys.exit(0)
 
 ###########################################################################
@@ -390,7 +385,7 @@ x,y=makesteps(x1,y2,opts.ymax)
 p=fill(x,y, facecolor='k')
 setp(p, alpha=0.4)
 ylim(opts.ymin,opts.ymax)
-legend(('unmarginalized','marginalized'))
+legend(('unmarginalized','marginalized'),loc='lower left')
 xlabel('Total mass (Msun)', size='x-large')
 ylabel('Rate / yr / L$_{10}$', size='x-large')
 title('Rate versus mass')
