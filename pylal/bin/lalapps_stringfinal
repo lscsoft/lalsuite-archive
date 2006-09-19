@@ -164,6 +164,8 @@ class RateVsAmplitude(SnglBurstUtils.BurstPlot):
 		contents.seglists.offsets.clear()
 
 	def finish(self):
+		print "Total time in foreground segments: %s s" % str(self.foreground_time)
+		print "Total time in background segments: %s s" % str(self.background_time)
 		self.axes.set_title(r"\begin{center}Cummulative Coincident Event Rate vs.\ Amplitude in %s\\%d Foreground, %d Background Events\end{center}" % (self.instrument, len(self.foreground), len(self.background)))
 		self.background.sort()
 		self.foreground.sort()
@@ -459,13 +461,16 @@ while len(plots):
 		print >>sys.stderr, "finishing plot %d ..." % n
 	plots[0].finish()
 	for ext in ["png", "eps"]:
-		filename = format % ("string_", n, ext)
+		if options.injections:
+			filename = format % ("string_injections_", n, ext)
+		else:
+			filename = format % ("string_triggers_", n, ext)
 		if options.verbose:
 			print >>sys.stderr, "writing %s ..." % filename
 		plots[0].fig.savefig(filename)
 	del plots[0]
 	n += 1
 if survivors:
-	survivors.finish("string_survivors.xml", verbose = options.verbose)
+	survivors.finish("string_triggers_survivors.xml", verbose = options.verbose)
 if options.verbose:
 	print >>sys.stderr, "done."
