@@ -449,13 +449,9 @@ class Table(ligolw.Table, list):
 				raise ligolw.ElementError, "duplicate Column \"%s\"" % child.getAttribute("Name")
 			self.columnnames.append(colname)
 			self.columntypes.append(llwtype)
-			if llwtype in types.StringTypes:
-				self.columnpytypes.append(str)
-			elif llwtype in types.IntTypes:
-				self.columnpytypes.append(int)
-			elif llwtype in types.FloatTypes:
-				self.columnpytypes.append(float)
-			else:
+			try:
+				self.columnpytypes.append(types.ToPyType[llwtype])
+			except KeyError:
 				raise ligolw.ElementError, "unrecognized Type attribute \"%s\" for Column \"%s\" in Table \"%s\"" % (llwtype, child.getAttribute("Name"), self.getAttribute("Name"))
 
 	def _verifyChildren(self, i):

@@ -231,13 +231,7 @@ class Array(ligolw.Array):
 		Initialize a new Array element.
 		"""
 		ligolw.Array.__init__(self, *attrs)
-		t = self.getAttribute("Type")
-		if t in types.IntTypes:
-			self.pytype = int
-		elif t in types.FloatTypes:
-			self.pytype = float
-		else:
-			raise TypeError, t
+		self.pytype = types.ToPyType[self.getAttribute("Type")]
 		self.arraytype = types.ToNumArrayType[self.getAttribute("Type")]
 		self.array = None
 
