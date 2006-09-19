@@ -87,15 +87,15 @@ static void _add_to_data(ligolw_Tokenizer *tokenizer, PyObject *string)
 }
 
 
-static void _shift(ligolw_Tokenizer *tokenizer, char *start)
+static void _advance_to_pos(ligolw_Tokenizer *tokenizer)
 {
-	int n = start - tokenizer->data;
-
-	if(n) {
-		tokenizer->length -= n;
-		tokenizer->pos -= n;
-		memmove(tokenizer->data, start, (tokenizer->length - tokenizer->data) * sizeof(*tokenizer->data));
-		*tokenizer->length = 0;
+	/* shift the contents of the tokenizer's buffer so that the data
+	 * starting at pos is moved to the start of the buffer.  when
+	 * moving data, add 1 to the length to grab the null terminator */
+	if(tokenizer->pos != tokenizer->data) {
+		tokenizer->length -= tokenizer->pos - tokenizer->data;
+		memmove(tokenizer->data, tokenizer->pos, (tokenizer->length - tokenizer->data + 1) * sizeof(*tokenizer->data));
+		tokenizer->pos = tokenizer->data;
 	}
 }
 
@@ -177,7 +177,7 @@ static PyObject *_next_string(ligolw_Tokenizer *tokenizer, char **start, char **
 	return type;
 
 stop_iteration:
-	_shift(tokenizer, tokenizer->pos);
+	_advance_to_pos(tokenizer);
 	PyErr_SetNone(PyExc_StopIteration);
 	return NULL;
 
@@ -273,11 +273,7 @@ static PyObject *next(PyObject *self)
 	} while(type == Py_None);
 
 	*end = 0;
-	if(type == (PyObject *) &PyString_Type) {
-		token = PyString_FromStringAndSize(start, end - start);
-	} else if(type == (PyObject *) &PyInt_Type) {
-		token = PyInt_FromString(start, NULL, 0);
-	} else if(type == (PyObject *) &PyFloat_Type) {
+	if(type == (PyObject *) &PyFloat_Type) {
 		double x = strtod(start, &end);
 		if(*end == 0)
 			token = PyFloat_FromDouble(x);
@@ -285,6 +281,10 @@ static PyObject *next(PyObject *self)
 			PyErr_Format(PyExc_ValueError, "invalid literal for float(): %s", start);
 			token = NULL;
 		}
+	} else if(type == (PyObject *) &PyString_Type) {
+		token = PyString_FromStringAndSize(start, end - start);
+	} else if(type == (PyObject *) &PyInt_Type) {
+		token = PyInt_FromString(start, NULL, 0);
 	} else {
 		PyErr_BadArgument();
 		token = NULL;
