@@ -131,14 +131,14 @@ static void unref_types(ligolw_Tokenizer *tokenizer)
 
 static PyObject *ligolw_Tokenizer_add(PyObject *self, PyObject *data)
 {
-	if(PyString_Check(data)) {
-		add_to_data((ligolw_Tokenizer *) self, data);
-	} else if(PyUnicode_Check(data)) {
+	if(PyUnicode_Check(data)) {
 		PyObject *string = PyUnicode_AsASCIIString(data);
 		add_to_data((ligolw_Tokenizer *) self, string);
 		Py_DECREF(string);
+	} else if(PyString_Check(data)) {
+		add_to_data((ligolw_Tokenizer *) self, data);
 	} else {
-		PyErr_SetString(PyExc_TypeError, "Tokenzer.add(): argument must be a string or unicode string");
+		PyErr_SetObject(PyExc_TypeError, data);
 		return NULL;
 	}
 
