@@ -41,9 +41,11 @@
  * ============================================================================
  */
 
+
 /*
  * Structure
  */
+
 
 typedef struct {
 	PyObject_HEAD
@@ -61,6 +63,7 @@ typedef struct {
 /*
  * Utilities
  */
+
 
 static void _add_to_data(ligolw_Tokenizer *tokenizer, PyObject *string)
 {
@@ -104,78 +107,6 @@ static void _unref_types(ligolw_Tokenizer *tokenizer)
 	tokenizer->types = NULL;
 	tokenizer->types_length = NULL;
 	tokenizer->type = NULL;
-}
-
-
-/*
- * Methods
- */
-
-static PyObject *add(PyObject *self, PyObject *data)
-{
-	if(PyUnicode_Check(data)) {
-		PyObject *string = PyUnicode_AsASCIIString(data);
-		_add_to_data((ligolw_Tokenizer *) self, string);
-		Py_DECREF(string);
-	} else if(PyString_Check(data)) {
-		_add_to_data((ligolw_Tokenizer *) self, data);
-	} else {
-		PyErr_SetObject(PyExc_TypeError, data);
-		return NULL;
-	}
-
-	Py_INCREF(self);
-	return self;
-}
-
-
-static void __del__(PyObject *self)
-{
-	ligolw_Tokenizer *tokenizer = (ligolw_Tokenizer *) self;
-
-	_unref_types(tokenizer);
-	free(tokenizer->data);
-	tokenizer->data = NULL;
-	tokenizer->allocation = 0;
-	tokenizer->length = NULL;
-	tokenizer->pos = NULL;
-
-	self->ob_type->tp_free(self);
-}
-
-
-static int __init__(PyObject *self, PyObject *args, PyObject *kwds)
-{
-	ligolw_Tokenizer *tokenizer = (ligolw_Tokenizer *) self;
-	char *delimiter;
-	int delimiter_length;
-
-	if(!PyArg_ParseTuple(args, "s#", &delimiter, &delimiter_length))
-		return -1;
-	if(delimiter_length != 1) {
-		PyErr_SetString(PyExc_TypeError, "argument must have length 1");
-		return -1;
-	}
-
-	tokenizer->delimiter = *delimiter;
-	tokenizer->types = malloc(1 * sizeof(*tokenizer->types));
-	tokenizer->types_length = &tokenizer->types[1];
-	tokenizer->types[0] = (PyObject *) &PyString_Type;
-	Py_INCREF(&PyString_Type);
-	tokenizer->type = tokenizer->types;
-	tokenizer->allocation = 0;
-	tokenizer->data = NULL;
-	tokenizer->length = tokenizer->data;
-	tokenizer->pos = tokenizer->data;
-
-	return 0;
-}
-
-
-static PyObject *__iter__(PyObject *self)
-{
-	Py_INCREF(self);
-	return self;
 }
 
 
@@ -254,6 +185,79 @@ parse_error:
 }
 
 
+/*
+ * Methods
+ */
+
+
+static PyObject *add(PyObject *self, PyObject *data)
+{
+	if(PyUnicode_Check(data)) {
+		PyObject *string = PyUnicode_AsASCIIString(data);
+		_add_to_data((ligolw_Tokenizer *) self, string);
+		Py_DECREF(string);
+	} else if(PyString_Check(data)) {
+		_add_to_data((ligolw_Tokenizer *) self, data);
+	} else {
+		PyErr_SetObject(PyExc_TypeError, data);
+		return NULL;
+	}
+
+	Py_INCREF(self);
+	return self;
+}
+
+
+static void __del__(PyObject *self)
+{
+	ligolw_Tokenizer *tokenizer = (ligolw_Tokenizer *) self;
+
+	_unref_types(tokenizer);
+	free(tokenizer->data);
+	tokenizer->data = NULL;
+	tokenizer->allocation = 0;
+	tokenizer->length = NULL;
+	tokenizer->pos = NULL;
+
+	self->ob_type->tp_free(self);
+}
+
+
+static int __init__(PyObject *self, PyObject *args, PyObject *kwds)
+{
+	ligolw_Tokenizer *tokenizer = (ligolw_Tokenizer *) self;
+	char *delimiter;
+	int delimiter_length;
+
+	if(!PyArg_ParseTuple(args, "s#", &delimiter, &delimiter_length))
+		return -1;
+	if(delimiter_length != 1) {
+		PyErr_SetString(PyExc_TypeError, "argument must have length 1");
+		return -1;
+	}
+
+	tokenizer->delimiter = *delimiter;
+	tokenizer->types = malloc(1 * sizeof(*tokenizer->types));
+	tokenizer->types_length = &tokenizer->types[1];
+	tokenizer->types[0] = (PyObject *) &PyString_Type;
+	Py_INCREF(&PyString_Type);
+	tokenizer->type = tokenizer->types;
+	tokenizer->allocation = 0;
+	tokenizer->data = NULL;
+	tokenizer->length = tokenizer->data;
+	tokenizer->pos = tokenizer->data;
+
+	return 0;
+}
+
+
+static PyObject *__iter__(PyObject *self)
+{
+	Py_INCREF(self);
+	return self;
+}
+
+
 static PyObject *next(PyObject *self)
 {
 	PyObject *type;
@@ -326,11 +330,13 @@ type_error:
  * Type information
  */
 
+
 static struct PyMethodDef methods[] = {
 	{"add", add, METH_O, "Append a string to the tokenizer's contents"},
 	{"set_types", set_types, METH_O, "Set the list of Python types to be used cyclically for token parsing"},
 	{NULL,}
 };
+
 
 static PyTypeObject ligolw_Tokenizer_Type = {
 	PyObject_HEAD_INIT(NULL)
