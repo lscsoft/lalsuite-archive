@@ -242,7 +242,7 @@ if not opts.skip_population:
 if not opts.skip_coiredata:
   print "** Processing full data set"
   command = "hipecoire --trig-path " + MYRESULTSDIR + "/full_data/ --ifo H1 --ifo H2 --ifo L1 \
-    --num-slides 50 --zero-data all_data --cluster-time 10"
+    --num-slides 50 --zero-data exclude_play --slide-data exclude_play --cluster-time 10"
   if not opts.no_veto:
     command+=" --veto-file " + MYRESULTSDIR + "/combinedVetoesH1-23.list \
     --veto-file " + MYRESULTSDIR + "/combinedVetoesH2-23.list \
@@ -259,6 +259,8 @@ if not opts.skip_coiredata:
         " --l1-bittenl-a " +opts.bittenl_a+" --l1-bittenl-b "+opts.bittenl_b
   if opts.threshold:
      command+=" --stat-threshold "+opts.threshold
+  if opts.usertag:
+     command+=" --usertag "+opts.usertag
   if opts.test:
     print command + "\n"
   else:
