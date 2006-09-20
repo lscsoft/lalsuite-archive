@@ -117,28 +117,6 @@ parser.add_option("-m","--m-dm",action="store",type="string",\
 parser.add_option("-j","--second-coinc",action="store_true",default=False,\
     help="use the second stage thinca files as input")
 
-# rsqr parameters
-parser.add_option("-k","--rsq-threshold",action="store",type="string",\
-    default=None, metavar=" RSQ_THRESH", help="rsq threshold")
-
-parser.add_option("-l","--rsq-max-snr",action="store",type="string",\
-    default=None, metavar=" RSQ_MAX_SNR", help="rsq max snr")
-
-parser.add_option("-x","--rsq-coeff",action="store",type="string",\
-    default=None, metavar=" RSQ_COEFF", help="rsq coefficient")
-
-parser.add_option("-y","--rsq-pow",action="store",type="string",\
-    default=None, metavar=" RSQ_POW", help="rsq power")
-
-parser.add_option("-S","--statistic",action="store",type="string",\
-    default="effective_snrsq", metavar=" STATISTIC", help="defines the statistic to use: default is effective_snrsq, choices: effective_snrsq, bittenl")
-
-parser.add_option("-A","--bittenl_a",action="store",type="string",\
-    default=None, metavar=" BITTENL_A", help="parameter A for the bitten-l statistics")
-
-parser.add_option("-B","--bittenl_b",action="store",type="string",\
-    default=None, metavar=" BITTENL_B", help="parameter B for the bitten-l statistics")
-
 parser.add_option("-H","--threshold",action="store",type="string",\
     default=None, metavar=" THRESHOLD", help="threshold for the coire steps in hipecoire")
 
@@ -152,11 +130,6 @@ if not (opts.min_mass and opts.max_mass and opts.mean_mass and opts.stdev_mass):
   print >> sys.stderr, "Must specify all mass options"
   sys.exit(1)
 
-if (opts.rsq_threshold or opts.rsq_max_snr or opts.rsq_coeff or opts.rsq_pow):
-  if not (opts.rsq_threshold and opts.rsq_max_snr and opts.rsq_coeff and opts.rsq_pow):
-    print >> sys.stderr, "Must specify all rsq options"
-    sys.exit(1)
-
 if not opts.config_file:
   print >> sys.stderr, "Must specify --config-file"
   sys.exit(1)
@@ -164,11 +137,6 @@ if not opts.config_file:
 if not opts.results_dir:
   print >> sys.stderr, "Must specify --results-dir"
   sys.exit(1)
-
-if (opts.statistic=="bittenl"):
-   if not opts.bittenl_a or not opts.bittenl_b:
-      print >> sys.stderr, "Must specify both values for bittenl_a and bittenl_b"
-      sys.exit(1)
 
 #######################################################################
 # create the config parser object and read in the ini file
@@ -178,6 +146,12 @@ fulldata = cp.items("fulldata")
 injdata = cp.items("injdata")
 vetodata = cp.items("vetodata")
 sourcedata = cp.items("sourcedata")
+analyzedtimes = cp.items("analyzedtimes")
+coire_options = cp.items("coire")
+plotthinca_options=cp.items("plotthinca")
+png_options = cp.items("plotnumgalaxies")
+png_y_options = cp.items("plotnumgalaxies-y")
+posterior_options=cp.items("posterior")
 
 #######################################################################
 # do the set up
@@ -249,18 +223,10 @@ if not opts.skip_coiredata:
     --veto-file " + MYRESULTSDIR + "/combinedVetoesL1-23.list "
   if opts.second_coinc:
     command += " --second-coinc "
-  if opts.rsq_threshold and opts.rsq_max_snr and opts.rsq_coeff and opts.rsq_pow:
-    command += " --rsq-threshold " + opts.rsq_threshold + " --rsq-max-snr " +\
-        opts.rsq_max_snr + " --rsq-coeff " + opts.rsq_coeff + " --rsq-pow " +\
-        opts.rsq_pow
-  if (opts.statistic=="bittenl"):
-     command+=" --coinc-stat bitten_l --h1-bittenl-a " +opts.bittenl_a+" --h1-bittenl-b "+opts.bittenl_b+ \
-        " --h2-bittenl-a " +opts.bittenl_a+" --h2-bittenl-b "+opts.bittenl_b+ \
-        " --l1-bittenl-a " +opts.bittenl_a+" --l1-bittenl-b "+opts.bittenl_b
+  for opt in coire_options:
+       command+=" --"+opt[0]+" "+opt[1]
   if opts.threshold:
      command+=" --stat-threshold "+opts.threshold
-  if opts.usertag:
-     command+=" --usertag "+opts.usertag
   if opts.test:
     print command + "\n"
   else:
@@ -277,7 +243,6 @@ if not opts.skip_coiredata:
       symlinksafe( file, tmpdest[0] + "_zero.xml" )
 
 os.chdir(MYRESULTSDIR)
-
 #######################################################################
 # sire and coire injections
 #######################################################################
@@ -298,16 +263,8 @@ if not opts.skip_coireinj:
         --veto-file " + MYRESULTSDIR + "/combinedVetoesL1-23.list "
     if opts.second_coinc:
       command += " --second-coinc "
-    if opts.rsq_threshold and opts.rsq_max_snr and opts.rsq_coeff and opts.rsq_pow:
-      command += " --rsq-threshold " + opts.rsq_threshold + " --rsq-max-snr " +\
-        opts.rsq_max_snr + " --rsq-coeff " + opts.rsq_coeff + " --rsq-pow " +\
-        opts.rsq_pow
-    if opts.usertag:
-      command += " --usertag " + opts.usertag
-    if (opts.statistic=="bittenl"):
-     command+=" --coinc-stat bitten_l --h1-bittenl-a " +opts.bittenl_a+" --h1-bittenl-b "+opts.bittenl_b+ \
-        " --h2-bittenl-a " +opts.bittenl_a+" --h2-bittenl-b "+opts.bittenl_b+ \
-        " --l1-bittenl-a " +opts.bittenl_a+" --l1-bittenl-b "+opts.bittenl_b
+    for opt in coire_options:
+       command+=" --"+opt[0]+" "+opt[1]
     if opts.threshold:
       command+=" --stat-threshold "+opts.threshold
     if opts.test:
@@ -332,8 +289,9 @@ if not opts.skip_coireinj:
 if not opts.skip_plotthinca:
    # generate the background/foreground number of events plot
    command = "plotthinca --glob 'H1*-THINCA_*.xml' --plot-slides --num-slides 50 \
-     --figure-name 'summary' --add-zero-lag --snr-dist --min-snr 8.5 \
-     --max-snr 11.5 --statistic effective_snr"
+     --figure-name 'summary' --add-zero-lag --snr-dist"
+   for opt in plotthinca_options:
+     command+=" --"+opt[0]+" "+opt[1]
    if opts.test:
      print command + "\n"
    else:
@@ -344,41 +302,30 @@ if not opts.skip_plotthinca:
 # skip plotnumgalaxies
 #######################################################################
 if not opts.skip_png:
-  timetypes = ["H1H2L1", "H1H2", "H1L1", "H2L1"]
   popfiles = ["/HL-INJECTIONS_1-793130413-2548800.xml","/HL-INJECTIONS_1_UNIFORM-793130413-2548800.xml"]
   for pop in popfiles:
-    for times in timetypes:
-      print "running plotnumgalaxies for " + times
-      dir=MYRESULTSDIR + "/plotnumgalaxies/" + times
-      if  (popfiles.index(pop)==1):
-         dir=dir+"_uniform"
-      mkdirsafe( dir )
-      os.chdir( dir )
+    for times in analyzedtimes:
+      print "running plotnumgalaxies for " + times[0].upper()
       command = "plotnumgalaxies \
         --slide-glob '" + MYRESULTSDIR + "/hipecoire/H*slides.xml' \
         --zero-glob '" + MYRESULTSDIR + "/hipecoire/H*zero.xml' \
-        --found-glob '" + MYRESULTSDIR + "/hipecoire/" + times + "-THINCA*FOUND*.xml' \
-        --missed-glob '" + MYRESULTSDIR + "/hipecoire/" + times + "-THINCA*MISSED*.xml' \
+        --found-glob '" + MYRESULTSDIR + "/hipecoire/" + times[0].upper() + "-THINCA*FOUND*.xml' \
+        --missed-glob '" + MYRESULTSDIR + "/hipecoire/" + times[0].upper() + "-THINCA*MISSED*.xml' \
         --source-file '" + MYRESULTSDIR + "/inspsrcs.new' \
-        --injection-glob '" + MYRESULTSDIR + pop+ "' --figure-name "+times+\
-        " --num-slides 50 --plot-cum-loudest --plot-pdf-loudest"+\
-        " --x-value chirp_dist_h --x-max 40.0 --nbins 20 --verbose"+\
-        " --distance-error positive --magnitude-error positive"+ \
-        " --waveform-systematic 0.1 --h-calibration 0.08 --mc-errors"
-      if times == "H1H2":
-        command += " --plot-ng --plot-efficiency --cum-search-ng" 
-      else:
-        command += " --y-value chirp_dist_l --axes-square"+\
-          " --plot-2d-ng --plot-effcontour --cum-search-2d-ng"+\
-          " --l-calibration 0.05"
+        --injection-glob '" + MYRESULTSDIR + pop+ "' --figure-name "+times[0].upper()+\
+        " --plot-cum-loudest --plot-pdf-loudest --plot-ng --plot-efficiency --cum-search-ng"
+      for opt in png_options:
+         command+=" --"+opt[0]+" "+opt[1]
+      if times != "H1H2":
+        command += " --axes-square --plot-2d-ng --plot-effcontour --cum-search-2d-ng"
+        for opt in png_y_options:
+          command+=" --"+opt[0]+" "+opt[1]
       if (popfiles.index(pop)==1):
         command+=" --m-low " + minmtotal + " --m-high " + maxmtotal + " --m-dm " +opts.m_dm
-      if (opts.statistic=="bittenl"):
-        command+=" --statistic bitten_l --bittenl_a "+opts.bittenl_a+" --bittenl_b "+opts.bittenl_b
       if opts.test:
         print command + "\n"
       else:
-        dir=MYRESULTSDIR + "/plotnumgalaxies/" + times
+        dir=MYRESULTSDIR + "/plotnumgalaxies/" + times[0].upper()
         if  (popfiles.index(pop)==1):
           dir=dir+"_uniform"
         mkdirsafe( dir )
@@ -390,37 +337,21 @@ if not opts.skip_png:
 # skip plotnumgalaxies
 #######################################################################
 if not opts.skip_upper_limit:
-  print "** computing the upper limit"
-  command = "lalapps_compute_posterior \
-      -f H1H2/png-output.ini -t 0.0143802 \
-      -f H1H2L1/png-output.ini -t 0.0416896 \
-      -f H1L1/png-output.ini -t 0.00524945 \
-      -f H2L1/png-output.ini -t 0.0044068 \
-      -p uniform -m 500 -d 0.01 -F s4-gauss -x 5 \
-      --calibration-error  --magnitude-error  --montecarlo-error \
-      --waveform-error  --distance-error -n 16000"
-  if opts.test:
-    print command + "\n"
-  else:
-    os.chdir( MYRESULTSDIR + "/plotnumgalaxies/" )
-    os.system( command )
-
-#######################################################################
-# skip plotnumgalaxies
-#######################################################################
-if not opts.skip_upper_limit:
-  print "** computing the upper limit"
-  command = "lalapps_compute_posterior \
-      -f H1H2_uniform/png-output.ini -t 0.0143802 \
-      -f H1H2L1_uniform/png-output.ini -t 0.0416896 \
-      -f H1L1_uniform/png-output.ini -t 0.00524945 \
-      -f H2L1_uniform/png-output.ini -t 0.0044068 \
-      -p uniform -m 500 -d 0.01 -F 's4-uniform' -x 5 \
-      --calibration-error  --magnitude-error  --montecarlo-error \
-      --waveform-error  --distance-error -n 16000"
-  if opts.test:
-    print command + "\n"
-  else:
-    os.chdir( MYRESULTSDIR + "/plotnumgalaxies/" )
-    os.system( command )
-
+   secondsInAYear=31556736.0
+   popfiles = ["Gaussian","Uniform"]
+   for pop in popfiles:
+     print "** Computing the upper limit for " + pop + " population"
+     command = "lalapps_compute_posterior"
+     for times in analyzedtimes:
+       command+=" -f "+times[0].upper()
+       if (popfiles.index(pop)==1):
+         command+="_uniform"
+       command+="/png-output.ini -t "+ str(float(times[1])/secondsInAYear)
+     command+=" --figure-name "+pop
+     for opt in posterior_options:
+        command+=" --"+opt[0]+" "+opt[1]
+     if opts.test:
+       print command + "\n"
+     else:
+       os.chdir( MYRESULTSDIR + "/plotnumgalaxies/" )
+       os.system( command )
