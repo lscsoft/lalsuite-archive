@@ -178,6 +178,12 @@ def readFiles(fileGlob,statistic=None):
   @param fileGlob: glob of input files
   @param statistic: statistic to use in creating coincs
   """
+  #if fileGlob is empty return empty structures...
+  if not fileGlob:
+    if opts.verbose:
+      print "Warning: No glob specified, returning empty structures..."
+    return None, CoincInspiralUtils.coincInspiralTable() 
+
   fList = glob.glob(fileGlob)
   if not fList:
     print >>sys.stderr, "The glob for " + fileGlob + " returned no files"
@@ -193,6 +199,7 @@ def readFiles(fileGlob,statistic=None):
       if sims: sims.extend(simInspiralTable)
       else: sims = simInspiralTable
     except: simInspiralTable = None
+
     # extract the sngl inspiral table, construct coincs
     try: snglInspiralTable = \
       table.get_table(doc, lsctables.SnglInspiralTable.tableName)
@@ -1421,26 +1428,30 @@ statThresh = 1e-6
 
 statistic=CoincInspiralUtils.coincStatistic( opts.statistic, opts.bittenl_a, opts.bittenl_b )
 
+# Read the time-slides. If no glob specified, an empty 'slideLoudest' is initialized
+if opts.verbose:
+  print "Reading time slides"
+slideLoudest = slideZeroData(opts.slide_glob, opts.num_slides, statistic)
+
+# Get the loudest only of a glob is specified
 if opts.slide_glob:
-  if opts.verbose:
-    print "Reading time slides"
-  slideLoudest = slideZeroData(opts.slide_glob, opts.num_slides, statistic)
   statThresh = max(slideLoudest.slide_loudest)
-  
-  if opts.zero_glob: 
-    slideLoudest.add_zero_lag(opts.zero_glob)
-    statThresh = slideLoudest.zero_loudest
-  
+ 
+# Read the zero-lag if it is given
+if opts.zero_glob: 
+  slideLoudest.add_zero_lag(opts.zero_glob)
+  statThresh = slideLoudest.zero_loudest
+
+# Calculate pb and pbprime only if the zero-lag AND the time-slides are given
+if opts.zero_glob and opts.slide_glob:  
   if opts.plot_cum_loudest: 
     figNum += 1
     P_b=slideLoudest.plot_cumulative(figNum, opts.figure_name)
-    #ini_file.write("pb=%f\n" % P_b)
     resultDict["pb"]=P_b
 
   if opts.plot_pdf_loudest: 
     figNum += 1
     pbprime=slideLoudest.plot_pdf(figNum, opts.figure_name)
-    #ini_file.write("pbprime=%f\n" % pbprime)
     resultDict["pbprime"]=pbprime
 
 
@@ -1452,7 +1463,7 @@ injAstro = injAstroData(opts.x_value, opts.y_value, opts.nbins, \
                         opts.y_min, opts.y_max)
 if astroPlots:
   if opts.verbose:
-    print "Reading the astrophysical injections"
+    print "\nReading the astrophysical injections"
   injAstro.add_astro_data(opts.injection_glob, opts.source_file, \
       opts.distance_error, opts.magnitude_error)
 
@@ -1472,14 +1483,14 @@ if astroPlots:
           % injAstro.astro.max_sources
     print 'The number of Sources in the Milky Way = %d' % \
         injAstro.astro.mw_sources
-    print 'The inferred Milky Way luminosity is = %.2f' % \
+    print 'The inferred Milky Way luminosity (from the data just above) is = %.2f' % \
         (injAstro.astro.mw_sources * injAstro.astro.max_luminosity / \
         injAstro.astro.max_sources)
 
 
 if injPlots:
   if opts.verbose:
-    print "Reading the found/missed injections"
+    print "\nReading the found/missed injections"
   injAstro.add_found_missed(opts.found_glob, opts.missed_glob, statistic)
 
 if opts.axes_from_found: injAstro.axes_from_found()
