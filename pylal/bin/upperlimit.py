@@ -256,7 +256,7 @@ if not opts.skip_coireinj:
     print injectionfile
     command = "hipecoire --trig-path " + MYRESULTSDIR + "/" + mydir +\
         " --ifo H1 --ifo H2 --ifo L1 --injection-file " + injectionfile[0] +\
-        " --injection-window 10 --cluster-time 10 "
+        " --injection-window 10 --cluster-time 3000000 "
     if not opts.no_veto:
         command+="--veto-file " + MYRESULTSDIR + "/combinedVetoesH1-23.list \
         --veto-file " + MYRESULTSDIR + "/combinedVetoesH2-23.list \
