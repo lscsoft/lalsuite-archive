@@ -1249,7 +1249,7 @@ parser.add_option("-q","--x-min",action="store",type="float",default = 1e-4,\
     help="minimum value plotted on x axis (default 0.0001)")
 
 parser.add_option("-Y","--y-value",action="store",type="string",\
-    default ="mchirp",\
+    default =None,\
     help="Assigns the parameter to x axis to plot contour, (default mchirp)")
 
 parser.add_option("-y","--y-max",action="store",type="float",default = 2.62,\
@@ -1534,12 +1534,13 @@ if opts.plot_efficiency:
 for key in errorVal.keys():
   figNum += 1
   injAstro.plot_x_eff(figNum, statThresh, key)
-if opts.plot_effcontour:
-  figNum += 1
-  injAstro.plot_eff_contour(figNum, statThresh)
-if opts.mc_errors:
-  figNum += 1
-  injAstro.plot_mc_contour(figNum, statThresh)
+if opts.y_value:
+  if opts.plot_effcontour:
+    figNum += 1
+    injAstro.plot_eff_contour(figNum, statThresh)
+  if opts.mc_errors:
+    figNum += 1
+    injAstro.plot_mc_contour(figNum, statThresh)
   
 if opts.plot_injections:
   figNum += 1
