@@ -100,7 +100,7 @@ class CoincTables(object):
 			xmldoc.childNodes[0].appendChild(self.coinctable)
 
 		# initialize the coinc_event_id iterator
-		self.coincids = lsctables.NewILWDs(self.coinctable, "coinc_event_id")
+		self.coincids = lsctables.NewILWDs(self.coinctable)
 
 		# find the coinc_map table or create one if not found
 		try:

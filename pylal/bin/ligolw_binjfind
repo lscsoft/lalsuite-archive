@@ -110,7 +110,7 @@ class DocContents(object):
 		except ValueError:
 			self.coinctable = lsctables.New(lsctables.CoincTable)
 			xmldoc.childNodes[0].appendChild(self.coinctable)
-		self.coincids = lsctables.NewILWDs(self.coinctable, "coinc_event_id")
+		self.coincids = lsctables.NewILWDs(self.coinctable)
 
 		# get coinc_map table, create one if needed
 		try:

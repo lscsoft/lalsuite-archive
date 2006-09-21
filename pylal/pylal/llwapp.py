@@ -149,7 +149,7 @@ def get_time_slide_id(xmldoc, time_slide, create_new = None):
 	else:
 		if create_new == None:
 			raise KeyError, time_slide
-		id = lsctables.NewILWDs(tisitable, "time_slide_id").next()
+		id = lsctables.NewILWDs(tisitable).next()
 		for instrument, offset in time_slide.iteritems():
 			row = lsctables.TimeSlide()
 			row.process_id = create_new.process_id
@@ -194,7 +194,7 @@ def get_coinc_def_id(xmldoc, table_names, create_new = True):
 	else:
 		if not create_new:
 			raise KeyError, table_names
-		id = lsctables.NewILWDs(coincdeftable, "coinc_def_id").next()
+		id = lsctables.NewILWDs(coincdeftable).next()
 		for name in table_names:
 			row = lsctables.CoincDef()
 			row.coinc_def_id = id
@@ -282,7 +282,7 @@ def append_process(doc, program = "", version = "", cvs_repository = "", cvs_ent
 	process.jobid = jobid
 	process.domain = domain
 	process.ifos = ifos
-	process.process_id = lsctables.NewILWDs(proctable, "process_id").next()
+	process.process_id = lsctables.NewILWDs(proctable).next()
 	proctable.append(process)
 	return process
 
