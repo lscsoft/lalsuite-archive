@@ -77,6 +77,7 @@ def New(Type, columns = None):
 	else:
 		for key, value in new.validcolumns.items():
 			new.appendChild(table.Column(sax.xmlreader.AttributesImpl({u"Name": colnamefmt % key, u"Type": value})))
+	new._end_of_columns()
 	new.appendChild(table.TableStream(sax.xmlreader.AttributesImpl({u"Name": Type.tableName})))
 	return new
 
@@ -233,11 +234,12 @@ def NewILWDs(table_elem):
 	initialized to the next unique ID following those found in the
 	table.
 	"""
-	try:
-		n = max([ILWDID(id) for id in table_elem.getColumnByName(table_elem.ids.column_name)])
-	except ValueError:
-		n = -1
-	return ILWD(table.StripTableName(table_elem.getAttribute("Name")), table_elem.ids.column_name, n + 1)
+	ids = [ILWDID(id) for id in table_elem.getColumnByName(table_elem.ids.column_name)]
+	if len(ids):
+		n = max(ids) + 1
+	else:
+		n = 0
+	return ILWD(table_elem.ids.table_name, table_elem.ids.column_name, n)
 
 
 def NewIDs(elem):
@@ -262,29 +264,6 @@ def NewIDs(elem):
 # =============================================================================
 #
 
-class LSCTableUniqueItemIter(object):
-	def __init__(self, dict):
-		self.iter = iter(dict.rows)
-
-	def __iter__(self):
-		return self
-
-	def next(self):
-		row = self.iter.next()
-		return (row._get_key(), row)
-
-
-class LSCTableUniqueKeyIter(object):
-	def __init__(self, dict):
-		self.iter = iter(dict.rows)
-
-	def __iter__(self):
-		return self
-
-	def next(self):
-		return self.iter.next()._get_key()
-
-
 class LSCTableUniqueDict(object):
 	"""
 	Class for implementing the Python mapping protocol on a list of table
@@ -294,51 +273,49 @@ class LSCTableUniqueDict(object):
 		"""
 		Initialize the mapping on the list of rows.
 		"""
-		self.table = table_elem
+		self._table = table_elem
+		self._keys = table_elem.getColumnByName(table_elem.ids.column_name)
 
 	def __len__(self):
 		"""
 		Return the number of rows.
 		"""
-		return len(self.table)
+		return len(self._table)
 
 	def __getitem__(self, key):
 		"""
 		Retrieve a row by key.
 		"""
-		for row in self.table:
-			if row._has_key(key):
-				return row
-		raise KeyError, repr(key)
+		try:
+			return self._table[self._keys.index(key)]
+		except ValueError:
+			raise KeyError, key
 
 	def __setitem__(self, key, value):
 		"""
 		Set a row by key.  Note: the row key carried by value need
 		not equal key, but this might not be allowed in the future.
 		"""
-		for i in xrange(len(self.table)):
-			if self.table[i]._has_key(key):
-				self.table[i] = value
-				return
-		# FIXME: should we call _set_key() on value to force it to have
-		# the key that was searched for?
-		self.append(value)
+		try:
+			self._table[self._keys.index(key)] = value
+		except ValueError:
+			# FIXME: should we assign the key to each value?
+			self._table.append(value)
 
 	def __delitem__(self, key):
 		"""
 		Delete a row by key.
 		"""
-		for i in xrange(len(self.table)):
-			if self.table[i]._has_get(key):
-				del self.table[i]
-				return
-		raise KeyError, repr(key)
+		try:
+			del self._table[self._keys.index(key)]
+		except ValueError:
+			raise KeyError, key
 
 	def __iter__(self):
 		"""
-		Return an iterator over the keys.
+		Iterate over the keys.
 		"""
-		return LSCTableUniqueKeyIter(self)
+		return iter(self._keys)
 
 	iterkeys = __iter__
 
@@ -347,10 +324,7 @@ class LSCTableUniqueDict(object):
 		Return True if a row has key equal to key, otherwise return
 		False.
 		"""
-		for row in self.table:
-			if row._has_key(key):
-				return True
-		return False
+		return key in self._keys
 
 	has_key = __contains__
 
@@ -358,32 +332,20 @@ class LSCTableUniqueDict(object):
 		"""
 		Return a list of the keys.
 		"""
-		return [row._get_key() for row in self.table]
+		return list(self)
 
 	def iteritems(self):
 		"""
-		Return an iterator over (key, value) pairs.
+		Iterate over (key, value) pairs.
 		"""
-		return LSCTableUniqueItemIter(self)
+		for i, key in enumerate(self):
+			yield key, self._table[i]
 
 	def itervalues(self):
 		"""
 		Return an iterator over rows.
 		"""
-		return iter(self.table)
-
-
-class LSCTableMultiItemIter(object):
-	def __init__(self, dict):
-		self.dict = dict
-		self.iter = iter(dict.keys())
-
-	def __iter__(self):
-		return self
-
-	def next(self):
-		key = self.iter.next()
-		return (key, self.dict[key])
+		return iter(self._table)
 
 
 class LSCTableMultiDict(LSCTableUniqueDict):
@@ -391,19 +353,19 @@ class LSCTableMultiDict(LSCTableUniqueDict):
 	Class for implementing the Python mapping protocol on a list of table
 	rows when multiple rows share the same key.
 	"""
-	def __init__(self, table_elem):
+	def __len__(self):
 		"""
-		Initialize the mapping on the list of rows.
+		Return the number of rows.
 		"""
-		self.table = table_elem
+		return len(self.keys())
 
 	def __getitem__(self, key):
 		"""
 		Retrieve rows by key.
 		"""
-		l = [row for row in self.table if row._has_key(key)]
+		l = [self._table[i] for i, k in enumerate(self._keys) if k == key]
 		if not len(l):
-			raise KeyError, repr(key)
+			raise KeyError, key
 		return l
 
 	def __setitem__(self, key, values):
@@ -411,49 +373,53 @@ class LSCTableMultiDict(LSCTableUniqueDict):
 		Replace the rows having key with the rows in the list values,
 		appending to the table if there are no rows with that ID.
 		"""
-		# FIXME: should we call _set_key() on value to force it to have
-		# the key that was searched for?
+		# FIXME: should we assign the key to rows?
 		del self[key]
-		map(self.table.append, params)
+		map(self._table.append, values)
 
 	def __delitem__(self, key):
 		"""
 		Delete rows by key.
 		"""
-		self.table.filterRows(lambda row: not row._has_key(key))
+		for i in xrange(len(self._keys), -1, -1):
+			if self._keys[i] == key:
+				del self._table[i]
 
 	def __iter__(self):
 		"""
-		Return an iterator over the keys.
+		Iterate over the unique keys.
 		"""
-		return iter(self.keys())
+		return iter({}.fromkeys(self._keys))
 
 	iterkeys = __iter__
 
 	def keys(self):
 		"""
-		Return a list of the keys.
+		Return a list of the unique keys.
 		"""
-		keys = []
-		for row in self.table:
-			key = row._get_key()
-			if key not in keys:
-				keys.append(key)
-		return keys
+		return {}.fromkeys(self._keys).keys()
 
 	def iteritems(self):
 		"""
-		Return an iterator over (key, value) pairs.
+		Iterate over (key, value) pairs.
 		"""
-		return LSCTableMultiItemIter(self)
+		for key in self:
+			yield key, self[key]
+
+	def itervalues(self):
+		"""
+		Return an iterator over rows.
+		"""
+		for key in self:
+			yield self[key]
 
 
 class LSCTableUnique(table.Table):
 	"""
 	A table containing rows where each row possesses a unique key.
 	"""
-	def __init__(self, attrs):
-		table.Table.__init__(self, attrs)
+	def _end_of_columns(self):
+		table.Table._end_of_columns(self)
 		self.dict = LSCTableUniqueDict(self)
 
 
@@ -461,8 +427,8 @@ class LSCTableMulti(table.Table):
 	"""
 	A table containing rows where multiple rows can share a key.
 	"""
-	def __init__(self, attrs):
-		table.Table.__init__(self, attrs)
+	def _end_of_columns(self):
+		table.Table._end_of_columns(self)
 		self.dict = LSCTableMultiDict(self)
 
 
@@ -470,25 +436,6 @@ class LSCTableMulti(table.Table):
 # feature.
 class LSCTableRow(object):
 	__slots__ = []
-
-	# Prefix with underscores to avoid collision with column names
-	def _get_key(self):
-		"""
-		Get the unique ID for this row.
-		"""
-		raise KeyError, "row object does not define a key column"
-
-	def _set_key(self, key):
-		"""
-		Set the unique ID for this row.
-		"""
-		raise KeyError, "row object does not define a key column"
-
-	def _has_key(self, key):
-		"""
-		Check if this row's unique ID is equal to key.
-		"""
-		raise KeyError, "row object does not define a key column"
 
 
 #
@@ -528,15 +475,6 @@ class ProcessTable(LSCTableUnique):
 
 class Process(LSCTableRow):
 	__slots__ = ProcessTable.validcolumns.keys()
-
-	def _get_key(self):
-		return self.process_id
-
-	def _set_key(self, key):
-		self.process_id = key
-
-	def _has_key(self, key):
-		return key == self.process_id
 
 	def cmp(self, other):
 		# FIXME: this is a hack, but I need something so I can move
@@ -586,15 +524,6 @@ class LfnTable(LSCTableUnique):
 class Lfn(LSCTableRow):
 	__slots__ = LfnTable.validcolumns.keys()
 
-	def _get_key(self):
-		return self.lfn_id
-
-	def _set_key(self, key):
-		self.lfn_id = key
-
-	def _has_key(self, key):
-		return key == self.lfn_id
-
 	def cmp(self, other):
 		# FIXME: this is a hack, but I need something so I can move
 		# forward.
@@ -618,7 +547,7 @@ LfnTable.RowType = Lfn
 # =============================================================================
 #
 
-class ProcessParamsTable(LSCTableMulti):
+class ProcessParamsTable(table.Table):
 	tableName = "process_params:table"
 	validcolumns = {
 		"program": "lstring",
@@ -631,7 +560,7 @@ class ProcessParamsTable(LSCTableMulti):
 	def append(self, row):
 		if row.type not in types.Types:
 			raise ligolw.ElementError, "ProcessParamsTable.append():  unrecognized type \"%s\"" % row.type
-		LSCTableMulti.append(self, row)
+		table.Table.append(self, row)
 
 	def get_program(self, key):
 		"""
@@ -641,7 +570,7 @@ class ProcessParamsTable(LSCTableMulti):
 		for row in self:
 			if row.process_id == key:
 				return row.program
-		raise KeyError, repr(key)
+		raise KeyError, key
 
 	def set_program(self, key, value):
 		"""
@@ -659,15 +588,6 @@ class ProcessParamsTable(LSCTableMulti):
 
 class ProcessParams(LSCTableRow):
 	__slots__ = ProcessParamsTable.validcolumns.keys()
-
-	def _get_key(self):
-		return self.process_id
-
-	def _set_key(self, key):
-		self.process_id = key
-
-	def _has_key(self, key):
-		return self.process_id == key
 
 	def cmp(self, other):
 		# FIXME: this is a hack, but I need something so I can move
@@ -692,7 +612,7 @@ ProcessParamsTable.RowType = ProcessParams
 # =============================================================================
 #
 
-class SearchSummaryTable(LSCTableMulti):
+class SearchSummaryTable(table.Table):
 	tableName = "search_summary:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -751,15 +671,6 @@ class SearchSummaryTable(LSCTableMulti):
 class SearchSummary(LSCTableRow):
 	__slots__ = SearchSummaryTable.validcolumns.keys()
 
-	def _get_key(self):
-		return self.process_id
-
-	def _set_key(self, key):
-		self.process_id = key
-
-	def _has_key(self, key):
-		return self.process_id == key
-
 	def cmp(self, other):
 		# FIXME: this is a hack, but I need something so I can move
 		# forward.
@@ -809,7 +720,7 @@ SearchSummaryTable.RowType = SearchSummary
 # =============================================================================
 #
 
-class SearchSummVarsTable(LSCTableMulti):
+class SearchSummVarsTable(table.Table):
 	tableName = "search_summvars:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -825,15 +736,6 @@ class SearchSummVarsTable(LSCTableMulti):
 
 class SearchSummVars(LSCTableRow):
 	__slots__ = SearchSummVarsTable.validcolumns.keys()
-
-	def _get_key(self):
-		return self.process_id
-
-	def _set_key(self, key):
-		self.process_id = key
-
-	def _has_key(self, key):
-		return self.process_id == key
 
 
 SearchSummVarsTable.RowType = SearchSummVars
@@ -911,16 +813,6 @@ class SnglBurstTable(LSCTableUnique):
 
 class SnglBurst(LSCTableRow):
 	__slots__ = SnglBurstTable.validcolumns.keys()
-
-	def _get_key(self):
-		return self.event_id
-
-	def _set_key(self, key):
-		self.event_id = key
-
-	def _has_key(self, key):
-		return self.event_id == key
-
 	def get_start(self):
 		return lal.LIGOTimeGPS(self.start_time, self.start_time_ns)
 
@@ -967,12 +859,9 @@ SnglBurstTable.RowType = SnglBurst
 # =============================================================================
 #
 
-# FIXME: class definition removed until LAL inspiral code generates ilwd:char
-# event_ids.  Re-enable when LAL is fixed.
-#
-#class SnglInspiralIDs(ILWD):
-#	def __init__(self, n = 0):
-#		ILWD.__init__(self, "sngl_inspiral", "event_id", n)
+class SnglInspiralIDs(ILWD):
+	def __init__(self, n = 0):
+		ILWD.__init__(self, "sngl_inspiral", "event_id", n)
 
 
 class SnglInspiralTable(LSCTableUnique):
@@ -1029,11 +918,9 @@ class SnglInspiralTable(LSCTableUnique):
 		"Gamma7": "real_4",
 		"Gamma8": "real_4",
 		"Gamma9": "real_4",
-		"event_id": "int_8s"
+		"event_id": "int_8s"	# FIXME: column should be ilwd
 	}
-	# FIXME: sngl_inspiral code in LAL does not support ILWD row IDs.
-	# uncomment when LAL has been fixed
-	#ids = SnglInspiralIDs()
+	ids = SnglInspiralIDs()
 
 	def applyKeyMapping(self, mapping):
 		for row in self:
@@ -1098,15 +985,6 @@ class SnglInspiralTable(LSCTableUnique):
 class SnglInspiral(LSCTableRow):
 	__slots__ = SnglInspiralTable.validcolumns.keys()
 
-	def _get_key(self):
-		return self.event_id
-
-	def _set_key(self, key):
-		self.event_id = key
-
-	def _has_key(self, key):
-		return self.event_id == key
-
 	def get_end(self):
 		return lal.LIGOTimeGPS(self.end_time, self.end_time_ns)
 
@@ -1150,8 +1028,7 @@ class SnglRingDownTable(LSCTableUnique):
 		"snr": "real_4",
 		"eff_distance": "real_4",
 		"sigma_sq": "real_8",
-		# FIXME: column should be ilwd
-		"event_id": "int_8s"
+		"event_id": "int_8s"	# FIXME: column should be ilwd
 	}
 	ids = SnglRingDownIDs()
 
@@ -1162,15 +1039,6 @@ class SnglRingDownTable(LSCTableUnique):
 
 class SnglRingDown(LSCTableRow):
 	__slots__ = SnglRingDownTable.validcolumns.keys()
-
-	def _get_key(self):
-		return self.event_id
-
-	def _set_key(self, key):
-		self.event_id = key
-
-	def _has_key(self, key):
-		return self.event_id == key
 
 
 SnglRingDownTable.RowType = SnglRingDown
@@ -1189,7 +1057,7 @@ class MultiInspiralIDs(ILWD):
 		ILWD.__init__(self, "multi_inspiral", "event_id", n)
 
 
-class MultiInspiralTable(LSCTableMulti):
+class MultiInspiralTable(LSCTableUnique):
 	tableName = "multi_inspiral:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -1238,15 +1106,6 @@ class MultiInspiralTable(LSCTableMulti):
 
 class MultiInspiral(LSCTableRow):
 	__slots__ = MultiInspiralTable.validcolumns.keys()
-
-	def _get_key(self):
-		return self.event_id
-
-	def _set_key(self, key):
-		self.event_id = key
-
-	def _has_key(self, key):
-		return self.event_id == key
 
 
 MultiInspiralTable.RowType = MultiInspiral
@@ -1362,15 +1221,6 @@ class SimInspiralTable(LSCTableUnique):
 class SimInspiral(LSCTableRow):
 	__slots__ = SimInspiralTable.validcolumns.keys()
 
-	def _get_key(self):
-		return self.simulation_id
-
-	def _set_key(self, key):
-		self.simulation_id = key
-
-	def _has_key(self, key):
-		return self.simulation_id == key
-
 	def get_end(self,site = None):
 		if not site:
 			return lal.LIGOTimeGPS(self.geocent_end_time, self.geocent_end_time_ns)
@@ -1429,15 +1279,6 @@ class SimBurstTable(LSCTableUnique):
 
 class SimBurst(LSCTableRow):
 	__slots__ = SimBurstTable.validcolumns.keys()
-
-	def _get_key(self):
-		return self.simulation_id
-
-	def _set_key(self, key):
-		self.simulation_id = key
-
-	def _has_key(self, key):
-		return self.simulation_id == key
 
 	def cmp(self, other):
 		"""
@@ -1570,15 +1411,6 @@ class SimRingDownTable(LSCTableUnique):
 class SimRingDown(LSCTableRow):
 	__slots__ = SimRingDownTable.validcolumns.keys()
 
-	def _get_key(self):
-		return self.simulation_id
-
-	def _set_key(self, key):
-		self.simulation_id = key
-
-	def _has_key(self, key):
-		return self.simulation_id == key
-
 
 SimRingDownTable.RowType = SimRingDown
 
@@ -1591,7 +1423,7 @@ SimRingDownTable.RowType = SimRingDown
 # =============================================================================
 #
 
-class SummValueTable(LSCTableMulti):
+class SummValueTable(table.Table):
 	tableName = "summ_value:table"
 	validcolumns = {
 		"program": "lstring",
@@ -1614,15 +1446,6 @@ class SummValueTable(LSCTableMulti):
 class SummValue(LSCTableRow):
 	__slots__ = SummValueTable.validcolumns.keys()
 
-	def _get_key(self):
-		return self.process_id
-
-	def _set_key(self, key):
-		self.process_id = key
-
-	def _has_key(self, key):
-		return self.process_id == key
-
 
 SummValueTable.RowType = SummValue
 
@@ -1640,7 +1463,7 @@ class SimInstParamsIDs(ILWD):
 		ILWD.__init__(self, "sim_inst_params", "simulation_id", n)
 
 
-class SimInstParamsTable(LSCTableMulti):
+class SimInstParamsTable(LSCTableUnique):
 	tableName = "sim_inst_params:table"
 	validcolumns = {
 		"simulation_id": "ilwd:char",
@@ -1654,15 +1477,6 @@ class SimInstParamsTable(LSCTableMulti):
 class SimInstParams(LSCTableRow):
 	__slots__ = SimInstParamsTable.validcolumns.keys()
 
-	def _get_key(self):
-		return self.simulation_id
-
-	def _set_key(self, key):
-		self.simulation_id = key
-
-	def _has_key(self, key):
-		return self.simulation_id == key
-
 
 SimInstParamsTable.RowType = SimInstParams
 
@@ -1675,7 +1489,7 @@ SimInstParamsTable.RowType = SimInstParams
 # =============================================================================
 #
 
-class StochasticTable(LSCTableMulti):
+class StochasticTable(table.Table):
 	tableName = "stochastic:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -1701,15 +1515,6 @@ class StochasticTable(LSCTableMulti):
 class Stochastic(LSCTableRow):
 	__slots__ = StochasticTable.validcolumns.keys()
 
-	def _get_key(self):
-		return self.process_id
-
-	def _set_key(self, key):
-		self.process_id = key
-
-	def _has_key(self, key):
-		return self.process_id == key
-
 
 StochasticTable.RowType = Stochastic
 
@@ -1722,7 +1527,7 @@ StochasticTable.RowType = Stochastic
 # =============================================================================
 #
 
-class StochSummTable(LSCTableMulti):
+class StochSummTable(table.Table):
 	tableName = "stochsumm:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -1748,15 +1553,6 @@ class StochSummTable(LSCTableMulti):
 class StochSumm(LSCTableRow):
 	__slots__ = StochSummTable.validcolumns.keys()
 
-	def _get_key(self):
-		return self.process_id
-
-	def _set_key(self, key):
-		self.process_id = key
-
-	def _has_key(self, key):
-		return self.process_id == key
-
 
 StochSummTable.RowType = StochSumm
 
@@ -1776,7 +1572,7 @@ StochSummTable.RowType = StochSumm
 # upon to be unique within this table (two different sources might *happen*
 # to use the same identifier format, like "event001").
 
-class ExtTriggersTable(LSCTableMulti):
+class ExtTriggersTable(table.Table):
 	tableName = "external_trigger:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -1829,15 +1625,6 @@ class ExtTriggersTable(LSCTableMulti):
 class ExtTriggers(LSCTableRow):
 	__slots__ = ExtTriggersTable.validcolumns.keys()
 
-	def _get_key(self):
-		return self.process_id
-
-	def _set_key(self, key):
-		self.process_id = key
-
-	def _has_key(self, key):
-		return self.process_id == key
-
 
 ExtTriggersTable.RowType = ExtTriggers
 
@@ -1850,7 +1637,7 @@ ExtTriggersTable.RowType = ExtTriggers
 # =============================================================================
 #
 
-class FilterTable(LSCTableMulti):
+class FilterTable(table.Table):
 	tableName = "filter:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -1867,15 +1654,6 @@ class FilterTable(LSCTableMulti):
 
 class Filter(LSCTableRow):
 	__slots__ = FilterTable.validcolumns.keys()
-
-	def _get_key(self):
-		return self.process_id
-
-	def _set_key(self, key):
-		self.process_id = key
-
-	def _has_key(self, key):
-		return self.process_id == key
 
 
 FilterTable.RowType = Filter
@@ -1917,15 +1695,6 @@ class SegmentTable(LSCTableUnique):
 
 class Segment(LSCTableRow):
 	__slots__ = SegmentTable.validcolumns.keys()
-
-	def _get_key(self):
-		return self.segment_id
-
-	def _set_key(self, key):
-		self.segment_id = key
-
-	def _has_key(self, key):
-		return self.segment_id == key
 
 	def get(self):
 		"""
@@ -2006,15 +1775,6 @@ class SegmentDefMapTable(LSCTableUnique):
 class SegmentDefMap(LSCTableRow):
 	__slots__ = SegmentDefMapTable.validcolumns.keys()
 
-	def _get_key(self):
-		return self.seg_def_map_id
-
-	def _set_key(self, key):
-		self.seg_def_map_id = key
-
-	def _has_key(self, key):
-		return self.seg_def_map_id == key
-
 
 SegmentDefMapTable.RowType = SegmentDefMap
 
@@ -2056,15 +1816,6 @@ class SegmentDefTable(LSCTableUnique):
 
 class SegmentDef(LSCTableRow):
 	__slots__ = SegmentDefTable.validcolumns.keys()
-
-	def _get_key(self):
-		return self.segment_def_id
-
-	def _set_key(self, key):
-		self.segment_def_id = key
-
-	def _has_key(self, key):
-		return self.segment_def_id == key
 
 
 SegmentDefTable.RowType = SegmentDef
@@ -2115,15 +1866,6 @@ class TimeSlideTable(LSCTableMulti):
 class TimeSlide(LSCTableRow):
 	__slots__ = TimeSlideTable.validcolumns.keys()
 
-	def _get_key(self):
-		return self.time_slide_id
-
-	def _set_key(self, key):
-		self.time_slide_id = key
-
-	def _has_key(self, key):
-		return self.time_slide_id == key
-
 
 TimeSlideTable.RowType = TimeSlide
 
@@ -2160,15 +1902,6 @@ class CoincDefTable(LSCTableMulti):
 
 class CoincDef(LSCTableRow):
 	__slots__ = CoincDefTable.validcolumns.keys()
-
-	def _get_key(self):
-		return self.coinc_def_id
-
-	def _set_key(self, key):
-		self.coinc_def_id = key
-
-	def _has_key(self, key):
-		return self.coinc_def_id == key
 
 
 CoincDefTable.RowType = CoincDef
@@ -2208,15 +1941,6 @@ class CoincTable(LSCTableUnique):
 class Coinc(LSCTableRow):
 	__slots__ = CoincTable.validcolumns.keys()
 
-	def _get_key(self):
-		return self.coinc_event_id
-
-	def _set_key(self, key):
-		self.coinc_event_id = key
-
-	def _has_key(self, key):
-		return self.coinc_event_id == key
-
 
 CoincTable.RowType = Coinc
 
@@ -2248,7 +1972,7 @@ CoincEventMapSourceNames = [
 ]
 
 
-class CoincMapTable(LSCTableUnique):
+class CoincMapTable(table.Table):
 	tableName = "coinc_event_map:table"
 	validcolumns = {
 		"coinc_event_id": "ilwd:char",
@@ -2303,15 +2027,6 @@ class LIGOLWMonTable(LSCTableUnique):
 
 class LIGOLWMon(LSCTableRow):
 	__slots__ = LIGOLWMonTable.validcolumns.keys()
-
-	def _get_key(self):
-		return self.event_id
-
-	def _set_key(self, key):
-		self.event_id = key
-
-	def _has_key(self, key):
-		return self.event_id == key
 
 	def get_time(self):
 		return lal.LIGOTimeGPS(self.time, self.time_ns)
@@ -2381,9 +2096,9 @@ TableByName = {
 __parent_startTable = ligolw.LIGOLWContentHandler.startTable
 
 def startTable(self, attrs):
-	try:
-		return TableByName[table.StripTableName(attrs["Name"])](attrs)
-	except KeyError:
-		return __parent_startTable(self, attrs)
+	name = table.StripTableName(attrs["Name"])
+	if name in TableByName:
+		return TableByName[name](attrs)
+	return __parent_startTable(self, attrs)
 
 ligolw.LIGOLWContentHandler.startTable = startTable
