@@ -494,6 +494,37 @@ class Table(ligolw.Table, list):
 		del self[:]
 
 
+	#
+	# ILWD manipulation
+	#
+
+	def updateKeyMapping(self, mapping, ilwditer):
+		"""
+		Used as the first half of the row key reassignment
+		algorithm.  Accepts a dictionary mapping old key --> new
+		key, and an ILWD iterator for generating new keys for this
+		table.  Iterates over the rows in this table, using the
+		ILWD iterator to generate a new key for each row that needs
+		it, adding the changes to the mapping.  Returns the
+		mapping.
+		"""
+		column = self.getColumnByName(ilwditer.column_name)
+		for i, old in enumerate(column):
+			if old in mapping:
+				column[i] = mapping[old]
+			else:
+				column[i] = mapping[old] = ilwditer.next()
+		return mapping
+
+	def applyKeyMapping(self, mapping):
+		"""
+		Used as the second half of the key reassignment algorithm.
+		Loops over each row in the table, replacing references to
+		old row keys with the new values from the mapping.
+		"""
+		pass
+
+
 #
 # =============================================================================
 #

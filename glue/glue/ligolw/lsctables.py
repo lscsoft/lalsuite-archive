@@ -456,39 +456,6 @@ class LSCTableUnique(table.Table):
 		table.Table.__init__(self, attrs)
 		self.dict = LSCTableUniqueDict(self)
 
-	def updateKeyMapping(self, mapping, ilwditer):
-		"""
-		Used as the first half of the row key reassignment
-		algorithm.  Accepts a dictionary mapping old key --> new
-		key, and an ILWD iterator for generating new keys for this
-		table.  Iterates over the rows in this table, using the
-		ILWD iterator to generate a new key for each row that needs
-		it, adding the changes to the mapping.  Returns the
-		mapping.
-		"""
-		for row in self:
-			try:
-				old = row._get_key()
-			except KeyError:
-				# row object doesn't provide a key;  FIXME:
-				# maybe bail out altogether?
-				continue
-			if old in mapping:
-				row._set_key(mapping[old])
-			else:
-				new = ilwditer.next()
-				row._set_key(new)
-				mapping[old] = new
-		return mapping
-
-	def applyKeyMapping(self, mapping):
-		"""
-		Used as the second half of the key reassignment algorithm.
-		Loops over each row in the table, replacing references to
-		old row keys with the new values from the mapping.
-		"""
-		pass
-
 
 class LSCTableMulti(table.Table):
 	"""
@@ -497,38 +464,6 @@ class LSCTableMulti(table.Table):
 	def __init__(self, attrs):
 		table.Table.__init__(self, attrs)
 		self.dict = LSCTableMultiDict(self)
-
-	def updateKeyMapping(self, mapping, ilwditer):
-		"""
-		Used as the first half of the row key reassignment
-		algorithm.  Accepts a dictionary mapping old key --> new
-		key, and an ILWD iterator for generating new keys for this
-		table.  Iterates over the rows in this table, using the
-		ILWD iterator to generate a new key for each row that needs
-		it, adding the changes to the mapping.
-		"""
-		for row in self:
-			try:
-				old = row._get_key()
-			except KeyError:
-				# row object doesn't provide a key;  FIXME:
-				# maybe bail out altogether?
-				continue
-			if old in mapping:
-				row._set_key(mapping[old])
-			else:
-				new = ilwditer.next()
-				row._set_key(new)
-				mapping[old] = new
-		return mapping
-
-	def applyKeyMapping(self, mapping):
-		"""
-		Used as the second half of the key reassignment algorithm.
-		Loops over each row in the table, replacing references to
-		old row keys with the new values from the mapping.
-		"""
-		pass
 
 
 # We don't subclass table.TableRow because that defeats the __slots__
