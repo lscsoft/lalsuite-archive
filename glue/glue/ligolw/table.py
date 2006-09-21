@@ -322,7 +322,7 @@ class TableStream(ligolw.Stream):
 	"""
 	def __init__(self, attrs):
 		ligolw.Stream.__init__(self, attrs)
-		self.tokenizer = tokenizer.Tokenizer(self.getAttribute("Delimiter"))
+		self.__tokenizer = tokenizer.Tokenizer(self.getAttribute("Delimiter"))
 		self.__colnames = None
 		self.__numcols = None
 		self.__row = None
@@ -332,13 +332,13 @@ class TableStream(ligolw.Stream):
 		# some initialization that can only be done once parentNode
 		# has been set.
 		if self.__row is None:
-			self.tokenizer.set_types([(self.parentNode.loadcolumns is None or colname in self.parentNode.loadcolumns or None) and pytype for pytype, colname in zip(self.parentNode.columnpytypes, self.parentNode.columnnames)])
+			self.__tokenizer.set_types([(self.parentNode.loadcolumns is None or colname in self.parentNode.loadcolumns or None) and pytype for pytype, colname in zip(self.parentNode.columnpytypes, self.parentNode.columnnames)])
 			self.__colnames = tuple([colname for colname in self.parentNode.columnnames if self.parentNode.loadcolumns is None or colname in self.parentNode.loadcolumns])
 			self.__numcols = len(self.__colnames)
 			self.__row = self.parentNode.RowType()
 
 		# tokenize buffer, and construct row objects
-		for token in self.tokenizer.add(content):
+		for token in self.__tokenizer.add(content):
 			try:
 				setattr(self.__row, self.__colnames[self.__colindex], token)
 			except AttributeError, e:
