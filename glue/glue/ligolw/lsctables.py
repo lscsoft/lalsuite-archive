@@ -227,17 +227,17 @@ class ILWD(object):
 		return s
 
 
-def NewILWDs(table_elem, column_name):
+def NewILWDs(table_elem):
 	"""
 	From the LSC table, return a compatible ILWD iterator object,
 	initialized to the next unique ID following those found in the
 	table.
 	"""
 	try:
-		n = max([ILWDID(row._get_key()) for row in table_elem])
+		n = max([ILWDID(id) for id in table_elem.getColumnByName(table_elem.ids.column_name)])
 	except ValueError:
 		n = -1
-	return ILWD(table.StripTableName(table_elem.getAttribute("Name")), column_name, n + 1)
+	return ILWD(table.StripTableName(table_elem.getAttribute("Name")), table_elem.ids.column_name, n + 1)
 
 
 def NewIDs(elem):
