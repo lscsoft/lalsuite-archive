@@ -465,7 +465,7 @@ class segmentlist(list):
 		"""
 		if not len(self):
 			raise ValueError, "empty list"
-		(min, max) = self[0]
+		min, max = self[0]
 		for seg in self:
 			if min > seg[0]:
 				min = seg[0]
@@ -876,7 +876,7 @@ class segmentlistdict(dict):
 		Return the result of running extent on the union of all
 		lists in the dictionary.
 		"""
-		return self.union(self.keys()).extent()
+		return self.union(self.iterkeys()).extent()
 
 	def find(self, seg):
 		"""
@@ -894,9 +894,7 @@ class segmentlistdict(dict):
 		return self
 
 	def __and__(self, other):
-		new = self.copy()
-		new &= other
-		return new
+		return self.copy().__iand__(other)
 
 	def __ior__(self, other):
 		for key, value in other.iteritems():
@@ -907,9 +905,7 @@ class segmentlistdict(dict):
 		return self
 
 	def __or__(self, other):
-		new = self.copy()
-		new |= other
-		return new
+		return self.copy().__ior__(other)
 
 	__iadd__ = __ior__
 	__add__ = __or__
@@ -921,9 +917,7 @@ class segmentlistdict(dict):
 		return self
 
 	def __sub__(self, other):
-		new = self.copy()
-		new -= other
-		return new
+		return self.copy().__isub__(other)
 
 	def __invert__(self):
 		new = self.copy()
