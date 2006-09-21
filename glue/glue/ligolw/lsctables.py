@@ -110,13 +110,6 @@ def getTablesByType(elem, Type):
 	return table.getTablesByName(elem, Type.tableName)
 
 
-def getLSCTables(elem):
-	"""
-	Return a list of all LSC tables under elem.
-	"""
-	return elem.getElements(lambda e: (e.tagName == ligolw.Table.tagName) and (table.StripTableName(e.getAttribute("Name")) in TableByName.keys()))
-
-
 def HasNonLSCTables(elem):
 	"""
 	Return True if the document tree below elem contains non-LSC
