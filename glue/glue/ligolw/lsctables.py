@@ -297,12 +297,6 @@ class LSCTableMulti(table.Table):
 		self.dict = LSCTableMultiDict(self)
 
 
-# We don't subclass table.TableRow because that defeats the __slots__
-# feature.
-class LSCTableRow(object):
-	__slots__ = []
-
-
 #
 # =============================================================================
 #
@@ -338,7 +332,7 @@ class ProcessTable(LSCTableUnique):
 	ids = ProcessIDs()
 
 
-class Process(LSCTableRow):
+class Process(object):
 	__slots__ = ProcessTable.validcolumns.keys()
 
 	def cmp(self, other):
@@ -386,7 +380,7 @@ class LfnTable(LSCTableUnique):
 			row.process_id = mapping[row.process_id]
 
 
-class Lfn(LSCTableRow):
+class Lfn(object):
 	__slots__ = LfnTable.validcolumns.keys()
 
 	def cmp(self, other):
@@ -451,7 +445,7 @@ class ProcessParamsTable(table.Table):
 			row.process_id = mapping[row.process_id]
 
 
-class ProcessParams(LSCTableRow):
+class ProcessParams(object):
 	__slots__ = ProcessParamsTable.validcolumns.keys()
 
 	def cmp(self, other):
@@ -533,7 +527,7 @@ class SearchSummaryTable(table.Table):
 		return [row.process_id for row in self if segments.segmentlist([row.get_out()]) & seglist]
 
 
-class SearchSummary(LSCTableRow):
+class SearchSummary(object):
 	__slots__ = SearchSummaryTable.validcolumns.keys()
 
 	def cmp(self, other):
@@ -599,7 +593,7 @@ class SearchSummVarsTable(table.Table):
 			row.process_id = mapping[row.process_id]
 
 
-class SearchSummVars(LSCTableRow):
+class SearchSummVars(object):
 	__slots__ = SearchSummVarsTable.validcolumns.keys()
 
 
@@ -676,7 +670,7 @@ class SnglBurstTable(LSCTableUnique):
 			row.process_id = mapping[row.process_id]
 
 
-class SnglBurst(LSCTableRow):
+class SnglBurst(object):
 	__slots__ = SnglBurstTable.validcolumns.keys()
 	def get_start(self):
 		return lal.LIGOTimeGPS(self.start_time, self.start_time_ns)
@@ -847,7 +841,7 @@ class SnglInspiralTable(LSCTableUnique):
 		return slideTrigs
 
 
-class SnglInspiral(LSCTableRow):
+class SnglInspiral(object):
 	__slots__ = SnglInspiralTable.validcolumns.keys()
 
 	def get_end(self):
@@ -902,7 +896,7 @@ class SnglRingDownTable(LSCTableUnique):
 			row.process_id = mapping[row.process_id]
 
 
-class SnglRingDown(LSCTableRow):
+class SnglRingDown(object):
 	__slots__ = SnglRingDownTable.validcolumns.keys()
 
 
@@ -969,7 +963,7 @@ class MultiInspiralTable(LSCTableUnique):
 			row.process_id = mapping[row.process_id]
 
 
-class MultiInspiral(LSCTableRow):
+class MultiInspiral(object):
 	__slots__ = MultiInspiralTable.validcolumns.keys()
 
 
@@ -1083,7 +1077,7 @@ class SimInspiralTable(LSCTableUnique):
 		return keep
 
 
-class SimInspiral(LSCTableRow):
+class SimInspiral(object):
 	__slots__ = SimInspiralTable.validcolumns.keys()
 
 	def get_end(self,site = None):
@@ -1142,7 +1136,7 @@ class SimBurstTable(LSCTableUnique):
 			row.process_id = mapping[row.process_id]
 
 
-class SimBurst(LSCTableRow):
+class SimBurst(object):
 	__slots__ = SimBurstTable.validcolumns.keys()
 
 	def cmp(self, other):
@@ -1273,7 +1267,7 @@ class SimRingDownTable(LSCTableUnique):
 			row.process_id = mapping[row.process_id]
 
 
-class SimRingDown(LSCTableRow):
+class SimRingDown(object):
 	__slots__ = SimRingDownTable.validcolumns.keys()
 
 
@@ -1308,7 +1302,7 @@ class SummValueTable(table.Table):
 			row.process_id = mapping[row.process_id]
 
 
-class SummValue(LSCTableRow):
+class SummValue(object):
 	__slots__ = SummValueTable.validcolumns.keys()
 
 
@@ -1339,7 +1333,7 @@ class SimInstParamsTable(LSCTableUnique):
 	ids = SimInstParamsIDs()
 
 
-class SimInstParams(LSCTableRow):
+class SimInstParams(object):
 	__slots__ = SimInstParamsTable.validcolumns.keys()
 
 
@@ -1377,7 +1371,7 @@ class StochasticTable(table.Table):
 			row.process_id = mapping[row.process_id]
 
 
-class Stochastic(LSCTableRow):
+class Stochastic(object):
 	__slots__ = StochasticTable.validcolumns.keys()
 
 
@@ -1415,7 +1409,7 @@ class StochSummTable(table.Table):
 			row.process_id = mapping[row.process_id]
 
 
-class StochSumm(LSCTableRow):
+class StochSumm(object):
 	__slots__ = StochSummTable.validcolumns.keys()
 
 
@@ -1487,7 +1481,7 @@ class ExtTriggersTable(table.Table):
 			row.process_id = mapping[row.process_id]
 
 
-class ExtTriggers(LSCTableRow):
+class ExtTriggers(object):
 	__slots__ = ExtTriggersTable.validcolumns.keys()
 
 
@@ -1517,7 +1511,7 @@ class FilterTable(table.Table):
 			row.process_id = mapping[row.process_id]
 
 
-class Filter(LSCTableRow):
+class Filter(object):
 	__slots__ = FilterTable.validcolumns.keys()
 
 
@@ -1558,7 +1552,7 @@ class SegmentTable(LSCTableUnique):
 			row.process_id = mapping[row.process_id]
 
 
-class Segment(LSCTableRow):
+class Segment(object):
 	__slots__ = SegmentTable.validcolumns.keys()
 
 	def get(self):
@@ -1637,7 +1631,7 @@ class SegmentDefMapTable(LSCTableUnique):
 			row.segment_def_id = mapping[row.segment_def_id]
 
 
-class SegmentDefMap(LSCTableRow):
+class SegmentDefMap(object):
 	__slots__ = SegmentDefMapTable.validcolumns.keys()
 
 
@@ -1679,7 +1673,7 @@ class SegmentDefTable(LSCTableUnique):
 			row.process_id = mapping[row.process_id]
 
 
-class SegmentDef(LSCTableRow):
+class SegmentDef(object):
 	__slots__ = SegmentDefTable.validcolumns.keys()
 
 
@@ -1726,7 +1720,7 @@ class TimeSlideTable(LSCTableMulti):
 		return d
 
 
-class TimeSlide(LSCTableRow):
+class TimeSlide(object):
 	__slots__ = TimeSlideTable.validcolumns.keys()
 
 
@@ -1763,7 +1757,7 @@ class CoincDefTable(LSCTableMulti):
 		return l
 
 
-class CoincDef(LSCTableRow):
+class CoincDef(object):
 	__slots__ = CoincDefTable.validcolumns.keys()
 
 
@@ -1801,7 +1795,7 @@ class CoincTable(LSCTableUnique):
 			row.coinc_def_id = mapping[row.coinc_def_id]
 
 
-class Coinc(LSCTableRow):
+class Coinc(object):
 	__slots__ = CoincTable.validcolumns.keys()
 
 
@@ -1848,7 +1842,7 @@ class CoincMapTable(table.Table):
 			row.event_id = mapping[row.event_id]
 
 
-class CoincMap(LSCTableRow):
+class CoincMap(object):
 	__slots__ = CoincMapTable.validcolumns.keys()
 
 
@@ -1888,7 +1882,7 @@ class LIGOLWMonTable(LSCTableUnique):
 			row.process_id = mapping[row.process_id]
 
 
-class LIGOLWMon(LSCTableRow):
+class LIGOLWMon(object):
 	__slots__ = LIGOLWMonTable.validcolumns.keys()
 
 	def get_time(self):
