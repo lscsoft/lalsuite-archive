@@ -34,7 +34,6 @@ generate unique IDs.
 
 import re
 
-import ligolw
 import table
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -87,14 +86,6 @@ def ILWDID(ilwdchar):
 		return int(ILWDPattern.search(ilwdchar).group("ID"))
 	except AttributeError:
 		raise ValueError, "unrecognized ID \"%s\"" % repr(ilwdchar)
-
-
-def getTablesFromILWD(elem, ilwdchar):
-	"""
-	Return a list of all tables below elem which can contain rows
-	having IDs matching ilwdchar.
-	"""
-	return elem.getElements(lambda e: (e.tagName == ligolw.Table.tagName) and (table.CompareTableNames(e.getAttribute("Name"), IDTableName(ilwdchar)) == 0))
 
 
 class ILWD(object):
