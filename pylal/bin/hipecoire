@@ -105,9 +105,13 @@ def coire(data_type,input,ifos,trigs=None):
                " --missed-injections " + missed    
   if trigs:
     command += " --coinc-cut " + trigs
-  if opts.cluster_time:
-    command += " --coinc-stat " + opts.coinc_stat +\
-               " --cluster-time " + str(1000 * opts.cluster_time)
+    
+  if opts.cluster_time or (data_type=="slide" and opts.cluster_infinity):    
+    command += " --coinc-stat " + opts.coinc_stat
+    if (data_type=="slide" and opts.cluster_infinity):
+       command+=" --cluster-time 10000000000"
+    else:
+       command+=" --cluster-time " + str(1000 * opts.cluster_time)
     if "bitten_l" in opts.coinc_stat:
       command += " --h1-bittenl-a " + opts.h1_bittenl_a +\
           " --h1-bittenl-b " + opts.h1_bittenl_b +\
@@ -235,7 +239,7 @@ And a few plotting specific options:
 parser = OptionParser( usage )
 #
 # abcdefg ijklmn pqrstuvwx
-# ABCDEFG I T
+# ABCDEFG I ST
 #
 
 # path
@@ -285,6 +289,9 @@ parser.add_option("-x","--injection-window", action="store", type="string",
 parser.add_option("-g","--cluster-time",action="store",type="int",\
     default=None,metavar=" CLUSTER_TIME", \
     help="cluster window used in coire, seconds (default = None)")
+
+parser.add_option("-S","--cluster-infinity",action="store_true",default=False,\
+    help="clusters time-slide triggers with an almost infinite clusterwindow (i.e. keeping the loudest per slide only)")
     
 parser.add_option("-i","--coinc-stat",action="store",type="string",\
     default="effective_snrsq",metavar=" COINC_STAT", \
