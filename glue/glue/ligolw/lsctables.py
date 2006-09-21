@@ -242,10 +242,9 @@ def NewILWDs(table_elem, column_name):
 
 def NewIDs(elem):
 	"""
-	Recurse over all tables below elem whose names are in the
-	dictionary, and use the corresponding ILWD iterator object to
-	construct a mapping of old row keys to new row keys.  Finally,
-	apply the mapping to all rows of all tables.
+	Recurse over all tables below elem, and use the corresponding ILWD
+	iterator object to construct a mapping of old row keys to new row
+	keys.  Finally, apply the mapping to all rows of all tables.
 	"""
 	mapping = {}
 	for tbl in elem.getElementsByTagName(ligolw.Table.tagName):
@@ -453,8 +452,6 @@ class LSCTableUnique(table.Table):
 	"""
 	A table containing rows where each row possesses a unique key.
 	"""
-	ids = None
-
 	def __init__(self, attrs):
 		table.Table.__init__(self, attrs)
 		self.dict = LSCTableUniqueDict(self)
@@ -497,8 +494,6 @@ class LSCTableMulti(table.Table):
 	"""
 	A table containing rows where multiple rows can share a key.
 	"""
-	ids = None
-
 	def __init__(self, attrs):
 		table.Table.__init__(self, attrs)
 		self.dict = LSCTableMultiDict(self)

@@ -364,6 +364,7 @@ class Table(ligolw.Table, list):
 	validcolumns = None
 	loadcolumns = None
 	RowType = TableRow
+	ids = None
 
 	def __init__(self, *attrs):
 		"""
