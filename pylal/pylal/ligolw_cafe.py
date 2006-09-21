@@ -68,12 +68,7 @@ def load_cache(filename, verbose = False):
 def cache_to_seglistdict(cache):
 	s = segments.segmentlistdict()
 	for c in cache:
-		for instrument in c.observatory.split(","):
-			if instrument in s:
-				s[instrument].append(c.segment)
-			else:
-				s[instrument] = segments.segmentlist([c.segment])
-	s.coalesce()
+		s |= c.to_segmentlistdict()
 	return s
 
 
