@@ -96,6 +96,21 @@ def get_time_slides(filename, verbose = False, gz = False):
 # =============================================================================
 #
 
+class LALCache(packing.Bin):
+	"""
+	Bin object representing a LAL file cache.  The objects attribute
+	contains a list of glue.lal.CacheEntry objects, and the size
+	attribute holds a glue.segments.segmentlistdict object summarizing
+	the times spanned by the files in the cache.
+	"""
+	def __init__(self):
+		packing.Bin.__init__(self)
+		self.size = segments.segmentlistdict()
+
+	def __str__(self):
+		return "\n".join(map(str, self.objects))
+
+
 class CafePacker(packing.Packer):
 	def set_time_slides(self, offsetdictlist):
 		self.timeslides = offsetdictlist
@@ -126,7 +141,7 @@ class CafePacker(packing.Packer):
 		# add cache_entry by either adding a new bin or putting it
 		# into the first bin that was found
 		if not matching_bins:
-			self.bins.append(packing.LALCache())
+			self.bins.append(LALCache())
 			self.bins[-1].add(cache_entry, size)
 			return
 		dest = self.bins[matching_bins.pop(0)]

@@ -63,6 +63,7 @@ class Bin(object):
 		"""
 		self.objects.append(object)
 		self.size += size
+		return self
 
 	def __iadd__(self, other):
 		"""
@@ -85,21 +86,6 @@ class Bin(object):
 		return "(%s, %s)" % (str(self.size), str(self.objects))
 
 	__str__ = __repr__
-
-
-class LALCache(Bin):
-	"""
-	Bin object representing a LAL file cache.  The objects attribute
-	contains a list of glue.lal.CacheEntry objects, and the size
-	attribute holds a glue.segments.segmentlistdict object summarizing
-	the times spanned by the files in the cache.
-	"""
-	def __init__(self):
-		Bin.__init__(self)
-		self.size = segments.segmentlistdict()
-
-	def __str__(self):
-		return "\n".join(map(str, self.objects))
 
 
 #
