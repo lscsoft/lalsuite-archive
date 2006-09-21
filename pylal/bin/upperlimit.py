@@ -50,7 +50,7 @@ the number of triggers is very large.
 """
 
 parser = OptionParser( usage )
-#
+# used letters:
 # a c d e f g i j k l m n p s t u v x y 
 # A B C H L R S T
 #
@@ -98,27 +98,24 @@ parser.add_option("-v","--no-veto",action="store_true",\
     default=False, help="do not apply any vetoes (in the case they already have been applied)")
 
 # mass range options
-parser.add_option("-d","--min-mass",action="store",type="float",\
-    default=None, metavar=" MIN_MASS",help="minimum mass covered by the search" )
+#parser.add_option("-d","--min-mass",action="store",type="float",\
+#    default=None, metavar=" MIN_MASS",help="minimum mass covered by the search" )
 
-parser.add_option("-e","--max-mass",action="store",type="float",\
-    default=None, metavar=" MAX_MASS",help="maximum mass covered by the search" )
+#parser.add_option("-e","--max-mass",action="store",type="float",\
+#    default=None, metavar=" MAX_MASS",help="maximum mass covered by the search" )
 
-parser.add_option("-f","--mean-mass",action="store",type="string",\
-    default=None, metavar=" MEAN_MASS",help="mean mass for Gaussian distribution" )
+#parser.add_option("-f","--mean-mass",action="store",type="string",\
+#    default=None, metavar=" MEAN_MASS",help="mean mass for Gaussian distribution" )
 
-parser.add_option("-g","--stdev-mass",action="store",type="string",\
-    default=None, metavar=" STD_MASS",help="std mass for Gaussian distribution" )
+#parser.add_option("-g","--stdev-mass",action="store",type="string",\
+#    default=None, metavar=" STD_MASS",help="std mass for Gaussian distribution" )
 
-parser.add_option("-m","--m-dm",action="store",type="string",\
-    default=None, metavar=" DM",help="mass interval for rate v mass" )
+#parser.add_option("-m","--m-dm",action="store",type="string",\
+#    default=None, metavar=" DM",help="mass interval for rate v mass" )
 
 # hierarchy pipeline
 parser.add_option("-j","--second-coinc",action="store_true",default=False,\
     help="use the second stage thinca files as input")
-
-parser.add_option("-H","--threshold",action="store",type="string",\
-    default=None, metavar=" THRESHOLD", help="threshold for the coire steps in hipecoire")
 
 (opts,args) = parser.parse_args()
 
@@ -126,9 +123,9 @@ parser.add_option("-H","--threshold",action="store",type="string",\
 # check options and initialize
 #######################################################################
 
-if not (opts.min_mass and opts.max_mass and opts.mean_mass and opts.stdev_mass):
-  print >> sys.stderr, "Must specify all mass options"
-  sys.exit(1)
+#if not (opts.min_mass and opts.max_mass and opts.mean_mass and opts.stdev_mass):
+#  print >> sys.stderr, "Must specify all mass options"
+#  sys.exit(1)
 
 if not opts.config_file:
   print >> sys.stderr, "Must specify --config-file"
@@ -146,21 +143,29 @@ fulldata = cp.items("fulldata")
 injdata = cp.items("injdata")
 vetodata = cp.items("vetodata")
 sourcedata = cp.items("sourcedata")
+masses = cp.items("massdata")
+stat_options = cp.items("statistic")
 analyzedtimes = cp.items("analyzedtimes")
 coire_options = cp.items("coire")
 plotthinca_options=cp.items("plotthinca")
 png_options = cp.items("plotnumgalaxies")
 png_y_options = cp.items("plotnumgalaxies-y")
-posterior_options=cp.items("posterior")
+posterior_options=cp.items("upperlimit")
+
+# convert the statistic options into a dictionary
+stat_dict=dict()
+for opt in stat_options:
+    stat_dict[opt[0]]=opt[1]
 
 #######################################################################
 # do the set up
 #######################################################################
 MYRESULTSDIR=opts.results_dir
-minmass = str(opts.min_mass)
-maxmass = str(opts.max_mass)
-minmtotal = str(2.0*opts.min_mass)
-maxmtotal = str(2.0*opts.max_mass)
+
+# dealing with the masses
+mass_dict=dict()
+for opt in masses:
+    mass_dict[opt[0]]=opt[1]
 
 if not opts.skip_setup:
   mkdirsafe(MYRESULTSDIR)
@@ -188,13 +193,14 @@ if not opts.skip_setup:
 # generate population
 #######################################################################
 if not opts.skip_population:
+  os.chdir(MYRESULTSDIR)
   print "** Generating the population with Gaussian mass distribution **"
   command = "lalapps_inspinj \
     --source-file inspsrcs.new \
     --gps-start-time 793130413 --gps-end-time 795679213 \
     --time-step 8.000000e+00 \
-    --m-distr 2 --min-mass " + minmass + " --max-mass " + maxmass + " \
-    --mean-mass " + opts.mean_mass + " --stdev-mass " + opts.stdev_mass + "  \
+    --m-distr 2 --min-mass " + mass_dict["min-mass"] + " --max-mass " +  mass_dict["max-mass"] + " \
+    --mean-mass " +  mass_dict["mean-mass"] + " --stdev-mass " +  mass_dict["stdev-mass"] + "  \
     --enable-milkyway 1.700000e+00"
   if opts.test:
     print command + "\n"
@@ -207,7 +213,7 @@ if not opts.skip_population:
     --source-file inspsrcs.new \
     --gps-start-time 793130413 --gps-end-time 795679213 \
     --time-step 8.000000e+00 \
-    --m-distr 0 --min-mass " + minmass + " --max-mass " + maxmass + " \
+    --m-distr 0 --min-mass " +  mass_dict["min-mass"] + " --max-mass " + mass_dict["max-mass"] + " \
     --enable-milkyway 1.700000e+00"
   if opts.test:
     print command + "\n"
@@ -220,23 +226,24 @@ if not opts.skip_population:
 if not opts.skip_coiredata:
   print "** Processing full data set"
   command = "hipecoire --trig-path " + MYRESULTSDIR + "/full_data/ --ifo H1 --ifo H2 --ifo L1 \
-    --num-slides 50 --zero-data exclude_play  --cluster-time 10 --cluster-infinity"
+    --num-slides 50 --zero-data exclude_play  "+\
+    "--cluster-infinity --coinc-stat " +stat_dict["statistic"] + \
+    " --h1-bittenl-a "+stat_dict["bittenl_a"]+ " --h1-bittenl-b "+stat_dict["bittenl_b"]+\
+    " --h2-bittenl-a "+stat_dict["bittenl_a"]+ " --h2-bittenl-b "+stat_dict["bittenl_b"]+\
+    " --l1-bittenl-a "+stat_dict["bittenl_a"]+ " --l1-bittenl-b "+stat_dict["bittenl_b"] 
   if not opts.no_veto:
-    command+=" --veto-file h1veto.list" + \
-      " --veto-file h2veto.list" + \
-      " --veto-file l1veto.list"
+    command+=" --veto-file h1veto.list --veto-file h2veto.list --veto-file l1veto.list"
   if opts.second_coinc:
     command += " --second-coinc "
   for opt in coire_options:
        command+=" --"+opt[0]+" "+opt[1]
-  if opts.threshold:
-     command+=" --stat-threshold "+opts.threshold
   if opts.test:
     print command + "\n"
   else:
     mkdirsafe( MYRESULTSDIR + "/hipecoire/full_data" )
     os.chdir( MYRESULTSDIR + "/hipecoire/full_data" )
     os.system( command )
+    
     # link to the files needed for the upper limit
     os.chdir( MYRESULTSDIR + "/hipecoire" )
     for file in glob.glob("full_data/H*SLIDE*.xml"):
@@ -246,7 +253,7 @@ if not opts.skip_coiredata:
       tmpdest = os.path.splitext( os.path.basename(file) )
       symlinksafe( file, tmpdest[0] + "_zero.xml" )
 
-os.chdir(MYRESULTSDIR)
+
 #######################################################################
 # sire and coire injections
 #######################################################################
@@ -254,6 +261,7 @@ if not opts.skip_coireinj:
 # loop over the injection directories running hipecoire and linking
 # the appropriate files. 
   print "** Processing the injections"
+  os.chdir(MYRESULTSDIR)
   for mydir in glob.glob( "injections*" ):
     print "** Processing " + mydir
     injectionfile=glob.glob( MYRESULTSDIR + "/" + mydir + "/HL-INJECTIONS*.xml")
@@ -262,17 +270,16 @@ if not opts.skip_coireinj:
       sys.exit(1)
     command = "hipecoire --trig-path " + MYRESULTSDIR + "/" + mydir +\
         " --ifo H1 --ifo H2 --ifo L1 --injection-file " + injectionfile[0] +\
-        " --injection-window 10 --cluster-time 10 "
+        " --injection-window 10 --coinc-stat " +stat_dict["statistic"] + \
+        " --h1-bittenl-a "+stat_dict["bittenl_a"]+ " --h1-bittenl-b "+stat_dict["bittenl_b"]+\
+        " --h2-bittenl-a "+stat_dict["bittenl_a"]+ " --h2-bittenl-b "+stat_dict["bittenl_b"]+\
+        " --l1-bittenl-a "+stat_dict["bittenl_a"]+ " --l1-bittenl-b "+stat_dict["bittenl_b"] 
     if not opts.no_veto:
-      command+=" --veto-file h1veto.list" + \
-        " --veto-file h2veto.list" + \
-        " --veto-file l1veto.list"
+      command+=" --veto-file h1veto.list --veto-file h2veto.list --veto-file l1veto.list"
     if opts.second_coinc:
       command += " --second-coinc "
     for opt in coire_options:
        command+=" --"+opt[0]+" "+opt[1]
-    if opts.threshold:
-      command+=" --stat-threshold "+opts.threshold
     if opts.test:
       print command + "\n"
     else:
@@ -311,7 +318,7 @@ if not opts.skip_png:
   popfiles = ["/HL-INJECTIONS_1-793130413-2548800.xml","/HL-INJECTIONS_1_UNIFORM-793130413-2548800.xml"]
   for pop in popfiles:
     for times in analyzedtimes:
-      print "running plotnumgalaxies for " + times[0].upper()
+      print "running plotnumgalaxies for " + times[0].upper() + " pop" + str(popfiles.index(pop))
       command = "plotnumgalaxies \
         --slide-glob '" + MYRESULTSDIR + "/hipecoire/H*slides.xml' \
         --zero-glob '" + MYRESULTSDIR + "/hipecoire/H*zero.xml' \
@@ -319,7 +326,9 @@ if not opts.skip_png:
         --missed-glob '" + MYRESULTSDIR + "/hipecoire/" + times[0].upper() + "-THINCA*MISSED*.xml' \
         --source-file '" + MYRESULTSDIR + "/inspsrcs.new' \
         --injection-glob '" + MYRESULTSDIR + pop+ "' --figure-name "+times[0].upper()+\
-        " --plot-cum-loudest --plot-pdf-loudest --plot-ng --plot-efficiency --cum-search-ng"
+        " --plot-cum-loudest --plot-pdf-loudest --plot-ng --plot-efficiency --cum-search-ng"+\
+        " --num-slides 50 --statistic "+ stat_dict["statistic"]+\
+        " --bittenl_a "+stat_dict["bittenl_a"]+ " --bittenl_b "+stat_dict["bittenl_b"]
       for opt in png_options:
          command+=" --"+opt[0]+" "+opt[1]
       if times != "H1H2":
@@ -327,7 +336,8 @@ if not opts.skip_png:
         for opt in png_y_options:
           command+=" --"+opt[0]+" "+opt[1]
       if (popfiles.index(pop)==1):
-        command+=" --m-low " + minmtotal + " --m-high " + maxmtotal + " --m-dm " +opts.m_dm
+        command+=" --m-low " + str(2.0*float(mass_dict["min-mass"])) + " --m-high " +\
+          str(2.0*float(mass_dict["max-mass"])) + " --m-dm " + mass_dict["m-dm"]
       if opts.test:
         print command + "\n"
       else:
