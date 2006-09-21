@@ -44,6 +44,7 @@ from glue import segments
 import ligolw
 import table
 import types
+import ilwd
 
 
 #
@@ -125,135 +126,6 @@ def HasNonLSCTables(elem):
 		if table.StripTableName(t.getAttribute("Name")) not in TableByName:
 			return True
 	return False
-
-
-#
-# =============================================================================
-#
-#                              ILWD Manipulation
-#
-# =============================================================================
-#
-
-# Regular expression to extract the parts of a row ID according to the LIGO
-# LW naming conventions.
-
-ILWDPattern = re.compile(r"(?P<Table>\w+):(?P<Column>\w+):(?P<ID>\d+)")
-
-
-def ILWDTableName(ilwdchar):
-	"""
-	Return the table name part of the row ID ilwdchar.  ValueError is
-	raised if the ID cannot be parsed.
-	"""
-	try:
-		return ILWDPattern.search(ilwdchar).group("Table")
-	except AttributeError:
-		raise ValueError, "unrecognized ID \"%s\"" % repr(ilwdchar)
-
-
-def ILWDColumnName(ilwdchar):
-	"""
-	Return the column name part of the row ID ilwdchar.  ValueError is
-	raised if the ID cannot be parsed.
-	"""
-	try:
-		return ILWDPattern.search(ilwdchar).group("Column")
-	except AttributeError:
-		raise ValueError, "unrecognized ID \"%s\"" % repr(ilwdchar)
-
-
-def ILWDID(ilwdchar):
-	"""
-	Return the ID part of the row ID ilwdchar.  ValueError is raised if
-	the ID cannot be parsed.
-	"""
-	try:
-		return int(ILWDPattern.search(ilwdchar).group("ID"))
-	except AttributeError:
-		raise ValueError, "unrecognized ID \"%s\"" % repr(ilwdchar)
-
-
-def getTablesFromILWD(elem, ilwdchar):
-	"""
-	Return a list of all tables below elem which can contain rows
-	having IDs matching ilwdchar.
-	"""
-	return elem.getElements(lambda e: (e.tagName == ligolw.Table.tagName) and (table.CompareTableNames(e.getAttribute("Name"), IDTableName(ilwdchar)) == 0))
-
-
-class ILWD(object):
-	"""
-	Unique ILWD generator.
-	"""
-	def __init__(self, table_name, column_name, n = 0):
-		"""
-		Initialize an ILWD object.  table_name and column_name are
-		the names of the table and column within the table for
-		which these will be used as IDs, eg., "process" and
-		"process_id".  The optional n parameter sets the starting
-		value for the numeric suffix in the ilwd:char
-		representation of ID.
-		"""
-		self.table_name = table.StripTableName(table_name)
-		self.column_name = table.StripColumnName(column_name)
-		self.n = n
-
-	def __str__(self):
-		"""
-		Return an ilwd:char string representation of this ID.
-		"""
-		return "%s:%s:%d" % (self.table_name, self.column_name, self.n)
-
-	def __cmp__(self, other):
-		"""
-		Compare IDs first by the base string, then by n.
-		"""
-		if isinstance(other, ILWD):
-			return cmp((self.table_name, self.column_name, self.n), (other.table_name, other.column_name, other.n))
-		return NotImplemented
-
-	def __getitem__(self, n):
-		return "%s:%s:%d" % (self.table_name, self.column_name, n)
-
-	def __iter__(self):
-		return self
-
-	def set_next(self, n):
-		self.n = n
-
-	def next(self):
-		s = str(self)
-		self.n += 1
-		return s
-
-
-def NewILWDs(table_elem):
-	"""
-	From the LSC table, return a compatible ILWD iterator object,
-	initialized to the next unique ID following those found in the
-	table.
-	"""
-	ids = [ILWDID(id) for id in table_elem.getColumnByName(table_elem.ids.column_name)]
-	if len(ids):
-		n = max(ids) + 1
-	else:
-		n = 0
-	return ILWD(table_elem.ids.table_name, table_elem.ids.column_name, n)
-
-
-def NewIDs(elem):
-	"""
-	Recurse over all tables below elem, and use the corresponding ILWD
-	iterator object to construct a mapping of old row keys to new row
-	keys.  Finally, apply the mapping to all rows of all tables.
-	"""
-	mapping = {}
-	for tbl in elem.getElementsByTagName(ligolw.Table.tagName):
-		if tbl.ids is not None:
-			tbl.updateKeyMapping(mapping, tbl.ids)
-	for tbl in elem.getElementsByTagName(ligolw.Table.tagName):
-		tbl.applyKeyMapping(mapping)
 
 
 #
@@ -446,9 +318,9 @@ class LSCTableRow(object):
 # =============================================================================
 #
 
-class ProcessIDs(ILWD):
+class ProcessIDs(ilwd.ILWD):
 	def __init__(self, n = 0):
-		ILWD.__init__(self, "process", "process_id", n)
+		ilwd.ILWD.__init__(self, "process", "process_id", n)
 
 
 class ProcessTable(LSCTableUnique):
@@ -499,9 +371,9 @@ ProcessTable.RowType = Process
 # =============================================================================
 #
 
-class LfnIDs(ILWD):
+class LfnIDs(ilwd.ILWD):
 	def __init__(self, n = 0):
-		ILWD.__init__(self, "lfn", "lfn_id", n)
+		ilwd.ILWD.__init__(self, "lfn", "lfn_id", n)
 
 
 class LfnTable(LSCTableUnique):
@@ -749,9 +621,9 @@ SearchSummVarsTable.RowType = SearchSummVars
 # =============================================================================
 #
 
-class SnglBurstIDs(ILWD):
+class SnglBurstIDs(ilwd.ILWD):
 	def __init__(self, n = 0):
-		ILWD.__init__(self, "sngl_burst", "event_id", n)
+		ilwd.ILWD.__init__(self, "sngl_burst", "event_id", n)
 
 
 class SnglBurstTable(LSCTableUnique):
@@ -859,9 +731,9 @@ SnglBurstTable.RowType = SnglBurst
 # =============================================================================
 #
 
-class SnglInspiralIDs(ILWD):
+class SnglInspiralIDs(ilwd.ILWD):
 	def __init__(self, n = 0):
-		ILWD.__init__(self, "sngl_inspiral", "event_id", n)
+		ilwd.ILWD.__init__(self, "sngl_inspiral", "event_id", n)
 
 
 class SnglInspiralTable(LSCTableUnique):
@@ -1006,9 +878,9 @@ SnglInspiralTable.RowType = SnglInspiral
 # =============================================================================
 #
 
-class SnglRingDownIDs(ILWD):
+class SnglRingDownIDs(ilwd.ILWD):
 	def __init__(self, n = 0):
-		ILWD.__init__(self, "sngl_ringdown", "event_id", n)
+		ilwd.ILWD.__init__(self, "sngl_ringdown", "event_id", n)
 
 
 class SnglRingDownTable(LSCTableUnique):
@@ -1052,9 +924,9 @@ SnglRingDownTable.RowType = SnglRingDown
 # =============================================================================
 #
 
-class MultiInspiralIDs(ILWD):
+class MultiInspiralIDs(ilwd.ILWD):
 	def __init__(self, n = 0):
-		ILWD.__init__(self, "multi_inspiral", "event_id", n)
+		ilwd.ILWD.__init__(self, "multi_inspiral", "event_id", n)
 
 
 class MultiInspiralTable(LSCTableUnique):
@@ -1119,9 +991,9 @@ MultiInspiralTable.RowType = MultiInspiral
 # =============================================================================
 #
 
-class SimInspiralIDs(ILWD):
+class SimInspiralIDs(ilwd.ILWD):
 	def __init__(self, n = 0):
-		ILWD.__init__(self, "sim_inspiral", "simulation_id", n)
+		ilwd.ILWD.__init__(self, "sim_inspiral", "simulation_id", n)
 
 
 class SimInspiralTable(LSCTableUnique):
@@ -1239,9 +1111,9 @@ SimInspiralTable.RowType = SimInspiral
 # =============================================================================
 #
 
-class SimBurstIDs(ILWD):
+class SimBurstIDs(ilwd.ILWD):
 	def __init__(self, n = 0):
-		ILWD.__init__(self, "sim_burst", "simulation_id", n)
+		ilwd.ILWD.__init__(self, "sim_burst", "simulation_id", n)
 
 
 class SimBurstTable(LSCTableUnique):
@@ -1365,9 +1237,9 @@ SimBurstTable.RowType = SimBurst
 # =============================================================================
 #
 
-class SimRingDownIDs(ILWD):
+class SimRingDownIDs(ilwd.ILWD):
 	def __init__(self, n = 0):
-		ILWD.__init__(self, "sim_ringdown", "simulation_id", n)
+		ilwd.ILWD.__init__(self, "sim_ringdown", "simulation_id", n)
 
 
 class SimRingDownTable(LSCTableUnique):
@@ -1458,9 +1330,9 @@ SummValueTable.RowType = SummValue
 # =============================================================================
 #
 
-class SimInstParamsIDs(ILWD):
+class SimInstParamsIDs(ilwd.ILWD):
 	def __init__(self, n = 0):
-		ILWD.__init__(self, "sim_inst_params", "simulation_id", n)
+		ilwd.ILWD.__init__(self, "sim_inst_params", "simulation_id", n)
 
 
 class SimInstParamsTable(LSCTableUnique):
@@ -1667,9 +1539,9 @@ FilterTable.RowType = Filter
 # =============================================================================
 #
 
-class SegmentIDs(ILWD):
+class SegmentIDs(ilwd.ILWD):
 	def __init__(self, n = 0):
-		ILWD.__init__(self, "segment", "segment_id", n)
+		ilwd.ILWD.__init__(self, "segment", "segment_id", n)
 
 
 class SegmentTable(LSCTableUnique):
@@ -1745,9 +1617,9 @@ SegmentTable.RowType = Segment
 # =============================================================================
 #
 
-class SegmentDefMapIDs(ILWD):
+class SegmentDefMapIDs(ilwd.ILWD):
 	def __init__(self, n = 0):
-		ILWD.__init__(self, "segment_def_map", "seg_def_map_id", n)
+		ilwd.ILWD.__init__(self, "segment_def_map", "seg_def_map_id", n)
 
 
 class SegmentDefMapTable(LSCTableUnique):
@@ -1787,9 +1659,9 @@ SegmentDefMapTable.RowType = SegmentDefMap
 # =============================================================================
 #
 
-class SegmentDefIDs(ILWD):
+class SegmentDefIDs(ilwd.ILWD):
 	def __init__(self, n = 0):
-		ILWD.__init__(self, "segment_definer", "segment_def_id", n)
+		ilwd.ILWD.__init__(self, "segment_definer", "segment_def_id", n)
 
 
 class SegmentDefTable(LSCTableUnique):
@@ -1829,9 +1701,9 @@ SegmentDefTable.RowType = SegmentDef
 # =============================================================================
 #
 
-class TimeSlideIDs(ILWD):
+class TimeSlideIDs(ilwd.ILWD):
 	def __init__(self, n = 0):
-		ILWD.__init__(self, "time_slide", "time_slide_id", n)
+		ilwd.ILWD.__init__(self, "time_slide", "time_slide_id", n)
 
 
 class TimeSlideTable(LSCTableMulti):
@@ -1850,15 +1722,13 @@ class TimeSlideTable(LSCTableMulti):
 
 	def get_offset_dict(self, id):
 		"""
-		Return a dictionary of offsets indexed by instrument for
-		the given time slide ID.
+		Return a dictionary of instrument/offset pairs as described
+		by the rows having the given ID.
 		"""
 		d = {}
-		for row in self:
-			if row.time_slide_id != id:
-				continue
-			if d.has_key(row.instrument):
-				raise KeyError, "%s: duplicate instrument %s" % (repr(id), row.instrument)
+		for row in self.dict[id]:
+			if row.instrument in d:
+				raise KeyError, "%s: duplicate instrument %s" % (id, row.instrument)
 			d[row.instrument] = row.offset
 		return d
 
@@ -1878,9 +1748,9 @@ TimeSlideTable.RowType = TimeSlide
 # =============================================================================
 #
 
-class CoincDefIDs(ILWD):
+class CoincDefIDs(ilwd.ILWD):
 	def __init__(self, n = 0):
-		ILWD.__init__(self, "coinc_definer", "coinc_def_id", n)
+		ilwd.ILWD.__init__(self, "coinc_definer", "coinc_def_id", n)
 
 
 class CoincDefTable(LSCTableMulti):
@@ -1915,9 +1785,9 @@ CoincDefTable.RowType = CoincDef
 # =============================================================================
 #
 
-class CoincIDs(ILWD):
+class CoincIDs(ilwd.ILWD):
 	def __init__(self, n = 0):
-		ILWD.__init__(self, "coinc_event", "coinc_event_id", n)
+		ilwd.ILWD.__init__(self, "coinc_event", "coinc_event_id", n)
 
 
 class CoincTable(LSCTableUnique):
@@ -2000,9 +1870,9 @@ CoincMapTable.RowType = CoincMap
 # =============================================================================
 #
 
-class LIGOLWMonIDs(ILWD):
+class LIGOLWMonIDs(ilwd.ILWD):
 	def __init__(self, n = 0):
-		ILWD.__init__(self, "ligolw_mon", "event_id", n)
+		ilwd.ILWD.__init__(self, "ligolw_mon", "event_id", n)
 
 
 class LIGOLWMonTable(LSCTableUnique):

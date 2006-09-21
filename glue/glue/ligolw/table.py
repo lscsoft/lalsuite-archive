@@ -55,6 +55,7 @@ from xml.sax.xmlreader import AttributesImpl
 import ligolw
 import tokenizer
 import types
+import ilwd
 
 
 #
@@ -180,6 +181,37 @@ def get_table(xmldoc, name):
 	if len(tables) != 1:
 		raise ValueError, "document must contain exactly one %s table" % StripTableName(name)
 	return tables[0]
+
+
+def new_ilwd(table_elem):
+	"""
+	From the table element, return a compatible ILWD instance
+	initialized to the next unique ID following those found in the
+	table.
+	"""
+	if table_elem.ids is None:
+		raise ValueError, table_elem
+	ids = [ilwd.ILWDID(id) for id in table_elem.getColumnByName(table_elem.ids.column_name)]
+	if ids:
+		n = max(ids) + 1
+	else:
+		n = 0
+	return ilwd.ILWD(table_elem.ids.table_name, table_elem.ids.column_name, n)
+
+
+def remap_ids(elem):
+	"""
+	Recurse over all tables below elem possessing an ILWD generator,
+	and use the generator to assign new IDs to the rows, recording the
+	modifications in a mapping of old row keys to new row keys.
+	Finally, apply the mapping to all rows of all tables.
+	"""
+	mapping = {}
+	for tbl in elem.getElementsByTagName(ligolw.Table.tagName):
+		if tbl.ids is not None:
+			tbl.updateKeyMapping(mapping, tbl.ids)
+	for tbl in elem.getElementsByTagName(ligolw.Table.tagName):
+		tbl.applyKeyMapping(mapping)
 
 
 #

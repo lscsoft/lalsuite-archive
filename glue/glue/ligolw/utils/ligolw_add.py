@@ -90,11 +90,11 @@ def reassign_ids(doc):
 	Assign new IDs to all rows in all LSC tables in doc so that there
 	are no collisions when the LIGO_LW elements are merged.
 	"""
-	# Can't simply run NewIDs() on doc because we need to construct a
-	# fresh old --> new mapping within each LIGO_LW block.
+	# Can't simply run remap_ids() on doc because we need to construct
+	# a fresh old --> new mapping within each LIGO_LW block.
 	for elem in doc.childNodes:
 		if elem.tagName == ligolw.LIGO_LW.tagName:
-			lsctables.NewIDs(elem)
+			table.remap_ids(elem)
 	return doc
 
 
