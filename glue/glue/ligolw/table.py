@@ -532,6 +532,8 @@ class Table(ligolw.Table, list):
 		Loops over each row in the table, replacing references to
 		old row keys with the new values from the mapping.
 		"""
+		# The implementation of this function must be defined on a
+		# table-by-table basis.
 		pass
 
 
