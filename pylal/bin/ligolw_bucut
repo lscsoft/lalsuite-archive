@@ -33,6 +33,7 @@ from glue import lal
 from glue import segments
 from glue.ligolw import table
 from glue.ligolw import lsctables
+from glue.ligolw import ilwd
 from glue.ligolw import utils
 from pylal import llwapp
 
@@ -132,14 +133,14 @@ class DocContents(object):
 
 	def make_coinceventids(self):
 		if self.coincmaptable:
-			self.coinceventids = map(lsctables.ILWDID, self.coincmaptable.getColumnByName("event_id"))
+			self.coinceventids = map(ilwd.ILWDID, self.coincmaptable.getColumnByName("event_id"))
 			self.coinceventids.sort()
 		else:
 			self.coinceventids = []
 		
 
 	def is_coinc_event(self, event):
-		return llwapp.bisect_contains(self.coinceventids, lsctables.ILWDID(event.event_id))
+		return llwapp.bisect_contains(self.coinceventids, ilwd.ILWDID(event.event_id))
 
 
 #

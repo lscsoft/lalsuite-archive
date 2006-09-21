@@ -35,6 +35,7 @@ from glue import segments
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import types
+from glue.ligolw import ilwd
 from pylal import llwapp
 from pylal.date import LIGOTimeGPS
 
@@ -244,7 +245,7 @@ class CoincMapTable(Table):
 		self.append_statement = "INSERT INTO " + table.StripTableName(self.getAttribute("Name")) + " VALUES (" + ",".join("?" * len(self.columnnames)) + ")"
 
 	def append(self, row):
-		self.cursor.execute("INSERT INTO coinc_event_map VALUES (?, ?, ?)", (row.coinc_event_id, lsctables.ILWDTableName(row.event_id), row.event_id))
+		self.cursor.execute("INSERT INTO coinc_event_map VALUES (?, ?, ?)", (row.coinc_event_id, ilwd.ILWDTableName(row.event_id), row.event_id))
 
 	def _row_from_cols(self, values):
 		row = self.RowType()

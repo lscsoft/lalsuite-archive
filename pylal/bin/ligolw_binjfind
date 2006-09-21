@@ -32,6 +32,7 @@ import sys
 
 from glue.ligolw import table
 from glue.ligolw import lsctables
+from glue.ligolw import ilwd
 from glue.ligolw import utils
 from pylal import llwapp
 from pylal import SnglBurstUtils
@@ -110,7 +111,7 @@ class DocContents(object):
 		except ValueError:
 			self.coinctable = lsctables.New(lsctables.CoincTable)
 			xmldoc.childNodes[0].appendChild(self.coinctable)
-		self.coincids = lsctables.NewILWDs(self.coinctable)
+		self.coincids = table.new_ilwd(self.coinctable)
 
 		# get coinc_map table, create one if needed
 		try:
@@ -123,23 +124,23 @@ class DocContents(object):
 		# coincs
 		burst_event = {}
 		for row in self.snglbursttable:
-			burst_event[lsctables.ILWDID(row.event_id)] = row
+			burst_event[ilwd.ILWDID(row.event_id)] = row
 		coinc_maps = {}
 		for row in self.coincmaptable:
 			try:
 				# assumes that all coincs are burst + burst
-				burst = burst_event[lsctables.ILWDID(row.event_id)]
+				burst = burst_event[ilwd.ILWDID(row.event_id)]
 			except KeyError:
 				continue
 			try:
-				coinc_maps[lsctables.ILWDID(row.coinc_event_id)].append(burst)
+				coinc_maps[ilwd.ILWDID(row.coinc_event_id)].append(burst)
 			except KeyError:
-				coinc_maps[lsctables.ILWDID(row.coinc_event_id)] = [burst]
+				coinc_maps[ilwd.ILWDID(row.coinc_event_id)] = [burst]
 		del burst_event
 		self.coinc_event = {}
 		for coinc in self.coinctable:
 			if (coinc.coinc_def_id == self.bb_coinc_def_id) and llwapp.time_slide_is_null(self.tisitable, coinc.time_slide_id):
-				self.coinc_event[coinc] = coinc_maps[lsctables.ILWDID(coinc.coinc_event_id)]
+				self.coinc_event[coinc] = coinc_maps[ilwd.ILWDID(coinc.coinc_event_id)]
 
 		# sort triggers by start time truncated to integer seconds,
 		# and construct an integer start time look-up table
@@ -163,7 +164,7 @@ class DocContents(object):
 		Sort the sngl_burst table's rows by ID (tidy-up document
 		for output).
 		"""
-		self.snglbursttable.sort(lambda a, b: cmp(lsctables.ILWDID(a.event_id), lsctables.ILWDID(b.event_id)))
+		self.snglbursttable.sort(lambda a, b: cmp(ilwd.ILWDID(a.event_id), ilwd.ILWDID(b.event_id)))
 
 	def new_coinc(self, process, coinc_def_id):
 		"""
