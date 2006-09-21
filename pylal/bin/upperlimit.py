@@ -169,8 +169,12 @@ if not opts.skip_setup:
   symlinksafe(fulldata[0][1], "./full_data")
   for injdir in injdata:
     symlinksafe(injdir[1], "./" + injdir[0])
+  vetodict=dict()  
   for myfile in vetodata:
-    shutil.copy(myfile[1], "./")
+    vetodict[myfile[0]]=myfile[1]
+  shutil.copy( vetodict["h1vetofile"], "./h1veto.list" )
+  shutil.copy( vetodict["h2vetofile"], "./h2veto.list" )
+  shutil.copy( vetodict["l1vetofile"], "./l1veto.list" )  
   for myfile in sourcedata:
     shutil.copy(myfile[1], "./inspsrcs.new")
   os.chdir(MYRESULTSDIR)
@@ -216,11 +220,11 @@ if not opts.skip_population:
 if not opts.skip_coiredata:
   print "** Processing full data set"
   command = "hipecoire --trig-path " + MYRESULTSDIR + "/full_data/ --ifo H1 --ifo H2 --ifo L1 \
-    --num-slides 50 --zero-data exclude_play --slide-data exclude_play --cluster-time 10"
+    --num-slides 50 --zero-data exclude_play  --cluster-time 10 --cluster-infinity"
   if not opts.no_veto:
-    command+=" --veto-file " + MYRESULTSDIR + "/combinedVetoesH1-23.list \
-    --veto-file " + MYRESULTSDIR + "/combinedVetoesH2-23.list \
-    --veto-file " + MYRESULTSDIR + "/combinedVetoesL1-23.list "
+    command+=" --veto-file h1veto.list" + \
+      " --veto-file h2veto.list" + \
+      " --veto-file l1veto.list"
   if opts.second_coinc:
     command += " --second-coinc "
   for opt in coire_options:
@@ -253,14 +257,16 @@ if not opts.skip_coireinj:
   for mydir in glob.glob( "injections*" ):
     print "** Processing " + mydir
     injectionfile=glob.glob( MYRESULTSDIR + "/" + mydir + "/HL-INJECTIONS*.xml")
-    print injectionfile
+    if not injectionfile:
+      print "ERROR in coireinj: No injection-file (HL*.xml) in the injections-directory. Exiting..."
+      sys.exit(1)
     command = "hipecoire --trig-path " + MYRESULTSDIR + "/" + mydir +\
         " --ifo H1 --ifo H2 --ifo L1 --injection-file " + injectionfile[0] +\
-        " --injection-window 10 --cluster-time 3000000 "
+        " --injection-window 10 --cluster-time 10 "
     if not opts.no_veto:
-        command+="--veto-file " + MYRESULTSDIR + "/combinedVetoesH1-23.list \
-        --veto-file " + MYRESULTSDIR + "/combinedVetoesH2-23.list \
-        --veto-file " + MYRESULTSDIR + "/combinedVetoesL1-23.list "
+      command+=" --veto-file h1veto.list" + \
+        " --veto-file h2veto.list" + \
+        " --veto-file l1veto.list"
     if opts.second_coinc:
       command += " --second-coinc "
     for opt in coire_options:
