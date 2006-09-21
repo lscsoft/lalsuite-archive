@@ -1419,6 +1419,8 @@ if opts.slide_glob:
  
 # Read the zero-lag if it is given
 if opts.zero_glob: 
+  if opts.verbose:
+    print "Reading zero lag"
   slideLoudest.add_zero_lag(opts.zero_glob)
   statThresh = slideLoudest.zero_loudest
 
