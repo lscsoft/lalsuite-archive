@@ -30,6 +30,7 @@
 LIGO Light-Weight XML Coincidence Analysis Front End.
 """
 
+import bisect
 from math import log10
 import sys
 
@@ -107,6 +108,19 @@ class LALCache(packing.Bin):
 		packing.Bin.__init__(self)
 		self.size = segments.segmentlistdict()
 
+	def add(self, *args):
+		packing.Bin.add(self, *args)
+		self.extent = self.size.extent_all()
+		return self
+
+	def __iadd__(self, *args):
+		packing.Bin.__iadd__(self, *args)
+		self.extent = self.size.extent_all()
+		return self
+
+	def __cmp__(self, other):
+		return cmp(self.extent, other.extent)
+
 	def __str__(self):
 		return "\n".join(map(str, self.objects))
 
@@ -114,6 +128,11 @@ class LALCache(packing.Bin):
 class CafePacker(packing.Packer):
 	def set_time_slides(self, offsetdictlist):
 		self.timeslides = offsetdictlist
+		min_offset = min([min(timeslide.itervalues()) for timeslide in offsetdictlist])
+		max_offset = max([max(timeslide.itervalues()) for timeslide in offsetdictlist])
+		# largest gap that can conceivably be closed by the time
+		# slides
+		self.max_gap = abs(max_offset - min_offset)
 
 	def pack(self, cache_entry):
 		# find all bins in which this cache_entry belongs.  the
@@ -126,34 +145,39 @@ class CafePacker(packing.Packer):
 		# segments for the instruments identified in the offset
 		# dictionary (so gives false positives but no false
 		# negatives)
-		size = cache_entry.to_segmentlistdict()
+		new = LALCache()
+		new.add(cache_entry, cache_entry.to_segmentlistdict())
+		new.extent = new.extent.protract(self.max_gap)
 		matching_bins = []
-		for n, bin in enumerate(self.bins):
+		for n in xrange((bisect.bisect_left(self.bins, new) or 1) - 1, len(self.bins)):
+			bin = self.bins[n]
 			for offsetdict in self.timeslides:
-				size.offsets.update(offsetdict)
+				new.size.offsets.update(offsetdict)
 				bin.size.offsets.update(offsetdict)
-				if bin.size.is_coincident(size):
+				if bin.size.is_coincident(new.size):
 					matching_bins.append(n)
 					break
 			bin.size.offsets.clear()
-		size.offsets.clear()
+		new.size.offsets.clear()
+		new.extent = new.size.extent_all()
 
-		# add cache_entry by either adding a new bin or putting it
-		# into the first bin that was found
 		if not matching_bins:
-			self.bins.append(LALCache())
-			self.bins[-1].add(cache_entry, size)
-			return
-		dest = self.bins[matching_bins.pop(0)]
-		dest.add(cache_entry, size)
+			# no matching bins, add a new one
+			self.bins.append(new)
+		else:
+			# put file into first bin that was found to match
+			dest = self.bins[matching_bins.pop(0)]
+			dest += new
 
-		# if cache_entry belongs in more than one bin, merge bins.
-		# reverse the list of matching bins so that we delete the
-		# highest-numbered bin first (otherwise the bins would
-		# shift as we go and we would delete the wrong ones).
-		matching_bins.reverse()
-		for n in matching_bins:
-			dest += self.bins.pop(n)
+			# if cache_entry belongs in more than one bin,
+			# merge bins.  reverse the list of matching bins so
+			# that we delete the highest-numbered bin first
+			# (otherwise the bins would shift as we go and we
+			# would delete the wrong ones).
+			matching_bins.reverse()
+			for n in matching_bins:
+				dest += self.bins.pop(n)
+		self.bins.sort()
 
 
 #
