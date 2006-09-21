@@ -23,8 +23,7 @@ from pylal import CoincInspiralUtils
 ##############################################################################
 # redefine the SimInspiral columns of interest
 ##############################################################################
-class SimInspiralCut(lsctables.LSCTableRow):
-  __slots__ = [
+lsctables.SimInspiralTable.loadcolumns = [
     "waveform",
     "geocent_end_time",
     "geocent_end_time_ns",
@@ -50,22 +49,10 @@ class SimInspiralCut(lsctables.LSCTableRow):
     "eff_dist_t",
     "eff_dist_v"]
   
-  # FIXME: It would be nice to inherit from lsctables.SimInspiral.  For now
-  # that is not possible (while cutting columns), so we repeat the methods.
-  def get_end(self,site = None):
-    if not site:
-      return lal.LIGOTimeGPS(self.geocent_end_time, self.geocent_end_time_ns)
-    else:
-      return lal.LIGOTimeGPS(getattr(self,site + 'end_time'), \
-          getattr(self,site + 'end_time_ns'))
-
-lsctables.SimInspiralTable.RowType = SimInspiralCut
-
 ##############################################################################
 # redefine the SnglInspiral columns of interest
 ##############################################################################
-class SnglInspiralCut(lsctables.SnglInspiral):
-  __slots__ = [
+lsctables.SnglInspiralTable.loadcolumns = [
     "ifo",
     "end_time",
     "end_time_ns",
@@ -76,16 +63,9 @@ class SnglInspiralCut(lsctables.SnglInspiral):
     "eta",
     "snr",
     "chisq",
+    "chisq_dof",
     "sigmasq",
     "event_id"]
-
-  # FIXME: It would be nice to inherit from lsctables.SimInspiral.  For now
-  # that is not possible (while cutting columns), so we repeat the methods.
-  def get_effective_snr(self):
-    return self.snr/ (1 + self.snr**2/250)**(0.25)/ \
-        (self.chisq/(2*self.chisq_dof - 2) )**(0.25) 
-
-lsctables.SnglInspiralTable.RowType = SnglInspiralCut
 
 ##############################################################################
 # Define a Square Array
@@ -1249,7 +1229,7 @@ parser.add_option("-q","--x-min",action="store",type="float",default = 1e-4,\
     help="minimum value plotted on x axis (default 0.0001)")
 
 parser.add_option("-Y","--y-value",action="store",type="string",\
-    default =None,\
+    default ='mchirp',\
     help="Assigns the parameter to x axis to plot contour, (default mchirp)")
 
 parser.add_option("-y","--y-max",action="store",type="float",default = 2.62,\
@@ -1531,13 +1511,13 @@ for astroError in astroErrors.keys() + [None]:
 if opts.plot_efficiency:
   figNum += 1
   injAstro.plot_x_eff(figNum, statThresh)
-for key in errorVal.keys():
-  figNum += 1
-  injAstro.plot_x_eff(figNum, statThresh, key)
-if opts.y_value:
-  if opts.plot_effcontour:
+  for key in errorVal.keys():
     figNum += 1
-    injAstro.plot_eff_contour(figNum, statThresh)
+    injAstro.plot_x_eff(figNum, statThresh, key)
+
+if opts.plot_effcontour:
+  figNum += 1
+  injAstro.plot_eff_contour(figNum, statThresh)
   if opts.mc_errors:
     figNum += 1
     injAstro.plot_mc_contour(figNum, statThresh)
@@ -1559,6 +1539,10 @@ else:
 for i in range(len(massedges)-1):
   injAstro.astro.mass_cut(massedges[i],massedges[i+1])
   resultDict["mass"]=massedges[i]
+  print 
+  if len(massedges) > 2:
+    print "Restricting to total mass between " + str(massedges[i]) + \
+        " and " + str(massedges[i+1])
 
   if opts.cum_search_ng:
     figNum += 1
@@ -1566,7 +1550,6 @@ for i in range(len(massedges)-1):
     xng_cum = injAstro.get_search_x_ng(statThresh)
     #ini_file.write("ng=%f\n" % xng_cum)
     resultDict["ng"]=xng_cum
-    print 
     print '1-d calculation using ' + injAstro.x_value + ' yields'
     print 'The total luminosity = %.2f L_10' % xng_cum
     for key in errorVal.keys():
