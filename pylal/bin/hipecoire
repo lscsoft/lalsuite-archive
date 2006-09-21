@@ -64,13 +64,14 @@ def sire(data_type,input,ifos,ifo=None):
 
 #######################################################################
 # set up a coire
-def coire(data_type,input,ifos,trigs=None):
+def coire(data_type,input,ifos,trigs=None,long_clust=False):
   """
   set up a coire
   @param data_type:  zero lag, slide or injection
   @param inupt:      the input glob
   @param ifos:       ifos being searched
   @param trigs:      trigger type (if None, keep all)
+  @param long_clust: cluster over very long time scale, keep only loudest event
   """
 
   if trigs:
@@ -80,8 +81,10 @@ def coire(data_type,input,ifos,trigs=None):
   else:
     output = ifos + "-THINCA" 
     if data_type == "slide": output += "_SLIDE"
-  
-  if opts.cluster_time:
+ 
+  if long_clust:
+    output += "_LOUDEST"
+  elif opts.cluster_time:
     output += "_CLUST_" + str(opts.cluster_time) + "s"
   else:
     output += "_UNCLUST" 
@@ -106,9 +109,9 @@ def coire(data_type,input,ifos,trigs=None):
   if trigs:
     command += " --coinc-cut " + trigs
     
-  if opts.cluster_time or (data_type=="slide" and opts.cluster_infinity):    
+  if opts.cluster_time or long_clust:
     command += " --coinc-stat " + opts.coinc_stat
-    if (data_type=="slide" and opts.cluster_infinity):
+    if long_clust:
        command+=" --cluster-time 10000000000"
     else:
        command+=" --cluster-time " + str(1000 * opts.cluster_time)
@@ -226,7 +229,8 @@ There are a couple of coire specific options, specifically:
   --cluster-time
   --coinc-stat
   --veto-file (to perform vetoes)
-  --rsq-threshold / --rsq-max-snr / --rsq-coeff / --rsq-pow (to do r-squared veto)
+  --rsq-threshold / --rsq-max-snr / 
+  --rsq-coeff / --rsq-pow (to do r-squared veto)
   --second-coinc (for correct file names)
 
 And a few plotting specific options:
@@ -291,7 +295,8 @@ parser.add_option("-g","--cluster-time",action="store",type="int",\
     help="cluster window used in coire, seconds (default = None)")
 
 parser.add_option("-S","--cluster-infinity",action="store_true",default=False,\
-    help="clusters time-slide triggers with an almost infinite clusterwindow (i.e. keeping the loudest per slide only)")
+    help="clusters time-slide triggers with an almost infinite cluster window"\
+    + " (i.e. keeping the loudest per slide only)")
     
 parser.add_option("-i","--coinc-stat",action="store",type="string",\
     default="effective_snrsq",metavar=" COINC_STAT", \
@@ -339,7 +344,8 @@ parser.add_option("-u","--rsq-max-snr",action="store",default=None,\
     metavar=" RSQ_MAX",help="max snr for which to apply the r-squared veto")
 
 parser.add_option("-y","--rsq-coeff",action="store",default=None,\
-    metavar=" RSQ_COEFF",help="coefficient for which to apply the r-squared veto")
+    metavar=" RSQ_COEFF",\
+    help="coefficient for which to apply the r-squared veto")
 
 parser.add_option("-z","--rsq-pow",action="store",default=None,\
     metavar=" RSQ_POW",help="power for which to apply the r-squared veto")
@@ -482,6 +488,10 @@ for data_type in analyze:
     command,output = coire(data_type,input,ifos)
     if not opts.plots_only: commands.append(command)
 
+    if opts.cluster_infinity:
+      command,output = coire(data_type,input,ifos,None,opts.cluster_infinity)
+      if not opts.plots_only: commands.append(command)
+    
     ######################################
     # do separate coires on each trig type
     input = output + ".xml"
