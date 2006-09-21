@@ -241,15 +241,25 @@ class Column(ligolw.Column):
 				n += 1
 		return n
 
-	def index(self, val):
+	def index(self, value):
 		"""
-		Return the smallest index of the row(s) with this column equal
-		to value.
+		Return the smallest index of the row(s) with this column
+		equal to value.
 		"""
 		for i in xrange(len(self.parentNode)):
 			if getattr(self.parentNode[i], self.asattribute) == value:
 				return i
 		raise ValueError, "%s not found" % repr(val)
+
+	def __contains__(self, value):
+		"""
+		Returns True or False if there is or is not, respectively,
+		a row containing val in this column.
+		"""
+		for i in xrange(len(self.parentNode)):
+			if getattr(self.parentNode[i], self.asattribute) == value:
+				return True
+		return False
 
 	def asarray(self):
 		"""
