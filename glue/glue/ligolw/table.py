@@ -199,7 +199,7 @@ def new_ilwd(table_elem):
 	return ilwd.ILWD(table_elem.ids.table_name, table_elem.ids.column_name, n)
 
 
-def remap_ids(elem):
+def reassign_ids(elem):
 	"""
 	Recurse over all tables below elem possessing an ILWD generator,
 	and use the generator to assign new IDs to the rows, recording the
