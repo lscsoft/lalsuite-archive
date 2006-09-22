@@ -489,7 +489,9 @@ for data_type in analyze:
     if not opts.plots_only: commands.append(command)
 
     if opts.cluster_infinity:
-      command,output = coire(data_type,input,ifos,None,opts.cluster_infinity)
+      input = output + ".xml"
+      command,output_inf = \
+          coire(data_type,input,ifos,None,opts.cluster_infinity)
       if not opts.plots_only: commands.append(command)
     
     ######################################
