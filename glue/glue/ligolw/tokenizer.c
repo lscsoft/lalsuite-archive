@@ -278,7 +278,7 @@ static PyObject *next(PyObject *self)
 		token = PyFloat_FromDouble(strtod(start, &end));
 		if(*end != 0) {
 			Py_DECREF(token);
-			PyErr_Format(PyExc_ValueError, "invalid literal for float(): %s", start);
+			PyErr_Format(PyExc_ValueError, "invalid literal for float(): '%s'", start);
 			token = NULL;
 		}
 	} else if(type == (PyObject *) &PyString_Type) {
