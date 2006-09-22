@@ -69,7 +69,7 @@ def segmentlistdict_fromsearchsummary(xmldoc, live_time_program = None):
 	procids = get_process_ids_by_program(xmldoc, live_time_program)
 	seglistdict = segments.segmentlistdict()
 	for row in table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName):
-		if (live_time_program == None) or bisect_contains(procids, row.process_id):
+		if (live_time_program is None) or bisect_contains(procids, row.process_id):
 			if row.ifos in seglistdict:
 				seglistdict[row.ifos].append(row.get_out())
 			else:
@@ -93,7 +93,7 @@ def get_time_slide_id(xmldoc, time_slide, create_new = None):
 		tisitable = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
 	except ValueError:
 		# table not found
-		if create_new == None:
+		if create_new is None:
 			raise KeyError, time_slide
 		tisitable = lsctables.New(lsctables.TimeSlideTable)
 		xmldoc.childNodes[0].appendChild(tisitable)
@@ -102,7 +102,7 @@ def get_time_slide_id(xmldoc, time_slide, create_new = None):
 			break
 	else:
 		# time slide not found in table
-		if create_new == None:
+		if create_new is None:
 			raise KeyError, time_slide
 		id = table.new_ilwd(tisitable).next()
 		for instrument, offset in time_slide.iteritems():
