@@ -48,6 +48,13 @@ class MultiIter(object):
 	list of lists.  A call to next() returns a list of elements, one
 	from each of the lists.  Subsequent calls to next() iterate over
 	all combinations of elements from the lists.
+
+	Example:
+
+	>>> x = MultiIter([[0, 1, 2], [10, 11, 12]])
+	>>> list(x)
+	[[0, 10], [1, 10], [2, 10], [0, 11], [1, 11], [2, 11], [0, 12], [1,
+	12], [2, 12]]
 	"""
 	def __init__(self, lists):
 		self.lists = tuple(lists)
@@ -79,6 +86,11 @@ def choices(vals, n):
 	"""
 	Return a list of all choices of n elements from the list vals.
 	Order is preserved.
+
+	Example:
+
+	>>> choices(["a", "b", "c"], 2)
+	[['a', 'b'], ['a', 'c'], ['b', 'c']]
 	"""
 	if n == len(vals):
 		return [vals]
