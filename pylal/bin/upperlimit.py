@@ -267,6 +267,9 @@ if not opts.skip_coireinj:
     command = "hipecoire --trig-path " + MYRESULTSDIR + "/" + mydir +\
         " --ifo H1 --ifo H2 --ifo L1 --injection-file " + injectionfile[0] +\
         " --injection-window 10 --coinc-stat " + stat_dict["statistic"]
+    if stat_dict["statistic"][-3:] == "snr":
+      # coire takes "snrsq"/"effective_snrsq"
+      command += "sq"
     if stat_dict["statistic"] == "bittenl":
       command += " --h1-bittenl-a " + stat_dict["bittenl_a"] + \
           " --h1-bittenl-b " + stat_dict["bittenl_b"] + \
