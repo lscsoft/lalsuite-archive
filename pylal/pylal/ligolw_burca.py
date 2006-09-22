@@ -104,7 +104,7 @@ class ExcessPowerEventList(snglcoinc.EventList):
 		"""
 		# sort in increasing order by start time
 		self.sort(lambda a, b: cmp(a.start_time, b.start_time) or cmp(a.start_time_ns, b.start_time_ns))
-		self.start_times = [event.get_start() for event in self]
+		self.start_times = tuple([event.get_start() for event in self])
 		self.max_duration = LIGOTimeGPS(max([event.duration for event in self]))
 
 	def _add_offset(self, delta):
@@ -133,7 +133,7 @@ class StringEventList(snglcoinc.EventList):
 		"""
 		# sort in increasing order by peak time
 		self.sort(lambda a, b: cmp(a.peak_time, b.peak_time) or cmp(a.peak_time_ns, b.peak_time_ns))
-		self.peak_times = [event.get_peak() for event in self]
+		self.peak_times = tuple([event.get_peak() for event in self])
 
 	def _add_offset(self, delta):
 		"""
