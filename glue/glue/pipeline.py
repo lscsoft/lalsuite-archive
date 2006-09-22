@@ -800,6 +800,7 @@ class CondorDAG:
       node.write_vars(dagfile)
       node.write_pre_script(dagfile)
       node.write_post_script(dagfile)
+      node.write_input_files(dagfile)
     for node in self.__nodes:
       node.write_parents(dagfile)
     dagfile.close()
@@ -2078,7 +2079,7 @@ class LSCDataFindJob(CondorDAGJob, AnalysisJob):
     # we have to do this manually for backwards compatibility with type
     for o in self.__config_file.options('datafind'):
       opt = string.strip(o)
-      if opt is not "type":
+      if opt[:4] != "type":
         arg = string.strip(self.__config_file.get('datafind',opt))
         self.add_opt(opt,arg)
 
