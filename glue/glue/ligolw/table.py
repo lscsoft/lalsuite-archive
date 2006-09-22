@@ -339,11 +339,7 @@ class TableStream(ligolw.Stream):
 
 		# tokenize buffer, and construct row objects
 		for token in self.__tokenizer.add(content):
-			try:
-				setattr(self.__row, self.__colnames[self.__colindex], token)
-			except AttributeError, e:
-				import warnings
-				warnings.warn("glue.ligolw.table.TableStream.appendData():  invalid attribute %s for %s;  in the future this will be a fatal error, use Table class' loadcolumns attribute to restrict parsed columns" % (colname, repr(self.__row)), DeprecationWarning)
+			setattr(self.__row, self.__colnames[self.__colindex], token)
 			self.__colindex += 1
 			if self.__colindex >= self.__numcols:
 				self.parentNode.append(self.__row)
