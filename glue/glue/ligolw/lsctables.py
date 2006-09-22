@@ -220,7 +220,7 @@ class LSCTableMultiDict(LSCTableUniqueDict):
 	"""
 	def __len__(self):
 		"""
-		Return the number of rows.
+		Return the number of unique keys.
 		"""
 		return len(self.keys())
 
@@ -254,7 +254,7 @@ class LSCTableMultiDict(LSCTableUniqueDict):
 		"""
 		Iterate over the unique keys.
 		"""
-		return iter({}.fromkeys(self._keys))
+		return {}.fromkeys(self._keys).iterkeys()
 
 	iterkeys = __iter__
 
