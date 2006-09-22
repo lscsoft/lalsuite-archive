@@ -53,54 +53,10 @@ __date__ = "$Date$"[7:-2]
 #
 # =============================================================================
 #
-#                                 Input/Output
-#
-# =============================================================================
-#
-
-ContentHandler = ligolw.LIGOLWContentHandler
-
-
-import warnings
-def measure_file_sizes(filenames, reverse = False):
-	warnings.warn("pylal.llwapp.measure_file_sizes() function is deprecated:  use glue.ligolw.utils.measure_file_sizes() instead", DeprecationWarning)
-	return utils.measure_file_sizes(filenames, reverse)
-
-
-def sort_files_by_size(filenames, verbose = False, reverse = False):
-	warnings.warn("pylal.llwapp.sort_files_by_size() function is deprecated:  use glue.ligolw.utils.sort_files_by_size() instead", DeprecationWarning)
-	return utils.sort_files_by_size(filenames, verbose, reverse)
-
-
-def load_filename(filename, verbose = False, gz = False):
-	warnings.warn("pylal.llwapp.load_filename() function is deprecated:  use glue.ligolw.utils.load_filename() instead", DeprecationWarning)
-	utils.ContentHandler = ContentHandler
-	return utils.load_filename(filename, verbose, gz)
-
-
-def load_url(url, verbose = False, gz = False):
-	warnings.warn("pylal.llwapp.load_url() function is deprecated:  use glue.ligolw.utils.load_url() instead", DeprecationWarning)
-	utils.ContentHandler = ContentHandler
-	return utils.load_url(url, verbose, gz)
-
-
-def write_filename(doc, filename, verbose = False, gz = False):
-	warnings.warn("pylal.llwapp.write_filename() function is deprecated:  use glue.ligolw.utils.write_filename() instead", DeprecationWarning)
-	utils.write_filename(doc, filename, verbose, gz)
-
-
-#
-# =============================================================================
-#
 #                                    Tables
 #
 # =============================================================================
 #
-
-def get_table(doc, name):
-	warnings.warn("pylal.llwapp.get_table() function is deprecated:  use glue.ligolw.table.get_table() instead", DeprecationWarning)
-	return table.get_table(doc, name)
-
 
 def segmentlistdict_fromsearchsummary(xmldoc, live_time_program = None):
 	"""
@@ -136,17 +92,16 @@ def get_time_slide_id(xmldoc, time_slide, create_new = None):
 	try:
 		tisitable = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
 	except ValueError:
+		# table not found
 		if create_new == None:
 			raise KeyError, time_slide
 		tisitable = lsctables.New(lsctables.TimeSlideTable)
 		xmldoc.childNodes[0].appendChild(tisitable)
-	for id, tisi in tisitable.dict.iteritems():
-		d = {}
-		for row in tisi:
-			d[row.instrument] = row.offset
-		if d == time_slide:
+	for id in tisitable.dict.iterkeys():
+		if tisitable.get_offset_dict(id) == time_slide:
 			break
 	else:
+		# time slide not found in table
 		if create_new == None:
 			raise KeyError, time_slide
 		id = table.new_ilwd(tisitable).next()
@@ -183,15 +138,17 @@ def get_coinc_def_id(xmldoc, table_names, create_new = True):
 	try:
 		coincdeftable = table.get_table(xmldoc, lsctables.CoincDefTable.tableName)
 	except ValueError:
+		# table not found
 		if not create_new:
 			raise KeyError, table_names
 		coincdeftable = lsctables.New(lsctables.CoincDefTable)
 		xmldoc.childNodes[0].appendChild(coincdeftable)
 	table_names.sort()
-	for id in coincdeftable.dict.keys():
+	for id in coincdeftable.dict.iterkeys():
 		if coincdeftable.get_contributors(id) == table_names:
 			break
 	else:
+		# contributor list not found in table
 		if not create_new:
 			raise KeyError, table_names
 		id = table.new_ilwd(coincdeftable).next()
@@ -206,28 +163,10 @@ def get_coinc_def_id(xmldoc, table_names, create_new = True):
 #
 # =============================================================================
 #
-#                                    Arrays
-#
-# =============================================================================
-#
-
-def get_array(doc, name):
-	warnings.warn("pylal.llwapp.get_array() function is deprecated:  use glue.ligolw.array.get_array() instead", DeprecationWarning)
-	return array.get_array(doc, name)
-
-
-#
-# =============================================================================
-#
 #                                    Params
 #
 # =============================================================================
 #
-
-def get_param(doc, name):
-	warnings.warn("pylal.llwapp.get_param() function is deprecated:  use glue.ligolw.param.get_param() instead", DeprecationWarning)
-	return param.get_param(doc, name)
-
 
 def pickle_to_param(obj, name):
 	"""
