@@ -374,10 +374,6 @@ class LfnTable(LSCTableUnique):
 	}
 	ids = LfnIDs()
 
-	def applyKeyMapping(self, mapping):
-		for row in self:
-			row.process_id = mapping[row.process_id]
-
 
 class Lfn(object):
 	__slots__ = LfnTable.validcolumns.keys()
@@ -439,10 +435,6 @@ class ProcessParamsTable(table.Table):
 			if row.process_id == key:
 				row.program = value
 
-	def applyKeyMapping(self, mapping):
-		for row in self:
-			row.process_id = mapping[row.process_id]
-
 
 class ProcessParams(object):
 	__slots__ = ProcessParamsTable.validcolumns.keys()
@@ -490,10 +482,6 @@ class SearchSummaryTable(table.Table):
 		"nevents": "int_4s",
 		"nnodes": "int_4s"
 	}
-
-	def applyKeyMapping(self, mapping):
-		for row in self:
-			row.process_id = mapping[row.process_id]
 
 	def get_inlist(self):
 		"""
@@ -587,10 +575,6 @@ class SearchSummVarsTable(table.Table):
 		"value": "real_8"
 	}
 
-	def applyKeyMapping(self, mapping):
-		for row in self:
-			row.process_id = mapping[row.process_id]
-
 
 class SearchSummVars(object):
 	__slots__ = SearchSummVarsTable.validcolumns.keys()
@@ -663,10 +647,6 @@ class SnglBurstTable(LSCTableUnique):
 		"event_id": "ilwd:char"
 	}
 	ids = SnglBurstIDs()
-
-	def applyKeyMapping(self, mapping):
-		for row in self:
-			row.process_id = mapping[row.process_id]
 
 
 class SnglBurst(object):
@@ -780,10 +760,6 @@ class SnglInspiralTable(LSCTableUnique):
 	}
 	ids = SnglInspiralIDs()
 
-	def applyKeyMapping(self, mapping):
-		for row in self:
-			row.process_id = mapping[row.process_id]
-
 	def get_column(self,column):
 		if column == 'effective_snr':
 			return self.get_effective_snr()
@@ -890,10 +866,6 @@ class SnglRingDownTable(LSCTableUnique):
 	}
 	ids = SnglRingDownIDs()
 
-	def applyKeyMapping(self, mapping):
-		for row in self:
-			row.process_id = mapping[row.process_id]
-
 
 class SnglRingDown(object):
 	__slots__ = SnglRingDownTable.validcolumns.keys()
@@ -956,10 +928,6 @@ class MultiInspiralTable(LSCTableUnique):
 		"event_id": "ilwd:char"
 	}
 	ids = MultiInspiralIDs()
-
-	def applyKeyMapping(self, mapping):
-		for row in self:
-			row.process_id = mapping[row.process_id]
 
 
 class MultiInspiral(object):
@@ -1039,10 +1007,6 @@ class SimInspiralTable(LSCTableUnique):
 		"simulation_id": "ilwd:char"
 	}
 	ids = SimInspiralIDs()
-
-	def applyKeyMapping(self, mapping):
-		for row in self:
-			row.process_id = mapping[row.process_id]
 
 	def get_column(self,column):
 		if 'chirp_dist' in column:
@@ -1129,10 +1093,6 @@ class SimBurstTable(LSCTableUnique):
 		"simulation_id": "ilwd:char"
 	}
 	ids = SimBurstIDs()
-
-	def applyKeyMapping(self, mapping):
-		for row in self:
-			row.process_id = mapping[row.process_id]
 
 
 class SimBurst(object):
@@ -1261,10 +1221,6 @@ class SimRingDownTable(LSCTableUnique):
 	}
 	ids = SimRingDownIDs()
 
-	def applyKeyMapping(self, mapping):
-		for row in self:
-			row.process_id = mapping[row.process_id]
-
 
 class SimRingDown(object):
 	__slots__ = SimRingDownTable.validcolumns.keys()
@@ -1295,10 +1251,6 @@ class SummValueTable(table.Table):
 		"value": "real_4",
 		"comment": "lstring"
 	}
-
-	def applyKeyMapping(self, mapping):
-		for row in self:
-			row.process_id = mapping[row.process_id]
 
 
 class SummValue(object):
@@ -1365,10 +1317,6 @@ class StochasticTable(table.Table):
 		"cc_sigma": "real_8"
 	}
 
-	def applyKeyMapping(self, mapping):
-		for row in self:
-			row.process_id = mapping[row.process_id]
-
 
 class Stochastic(object):
 	__slots__ = StochasticTable.validcolumns.keys()
@@ -1402,10 +1350,6 @@ class StochSummTable(table.Table):
 		"y_opt": "real_8",
 		"error": "real_8"
 	}
-
-	def applyKeyMapping(self, mapping):
-		for row in self:
-			row.process_id = mapping[row.process_id]
 
 
 class StochSumm(object):
@@ -1475,10 +1419,6 @@ class ExtTriggersTable(table.Table):
 		"event_status": "int_4s"
 	}
 
-	def applyKeyMapping(self, mapping):
-		for row in self:
-			row.process_id = mapping[row.process_id]
-
 
 class ExtTriggers(object):
 	__slots__ = ExtTriggersTable.validcolumns.keys()
@@ -1504,10 +1444,6 @@ class FilterTable(table.Table):
 		"filter_name": "lstring",
 		"comment": "lstring"
 	}
-
-	def applyKeyMapping(self, mapping):
-		for row in self:
-			row.process_id = mapping[row.process_id]
 
 
 class Filter(object):
@@ -1545,10 +1481,6 @@ class SegmentTable(LSCTableUnique):
 		"insertion_time": "int_4s"
 	}
 	ids = SegmentIDs()
-
-	def applyKeyMapping(self, mapping):
-		for row in self:
-			row.process_id = mapping[row.process_id]
 
 
 class Segment(object):
@@ -1623,12 +1555,6 @@ class SegmentDefMapTable(LSCTableUnique):
 	}
 	ids = SegmentDefMapIDs()
 
-	def applyKeyMapping(self, mapping):
-		for row in self:
-			row.process_id = mapping[row.process_id]
-			row.segment_id = mapping[row.segment_id]
-			row.segment_def_id = mapping[row.segment_def_id]
-
 
 class SegmentDefMap(object):
 	__slots__ = SegmentDefMapTable.validcolumns.keys()
@@ -1667,10 +1593,6 @@ class SegmentDefTable(LSCTableUnique):
 	}
 	ids = SegmentDefIDs()
 
-	def applyKeyMapping(self, mapping):
-		for row in self:
-			row.process_id = mapping[row.process_id]
-
 
 class SegmentDef(object):
 	__slots__ = SegmentDefTable.validcolumns.keys()
@@ -1701,10 +1623,6 @@ class TimeSlideTable(LSCTableMulti):
 		"offset": "real_8"
 	}
 	ids = TimeSlideIDs()
-
-	def applyKeyMapping(self, mapping):
-		for row in self:
-			row.process_id = mapping[row.process_id]
 
 	def get_offset_dict(self, id):
 		"""
@@ -1787,12 +1705,6 @@ class CoincTable(LSCTableUnique):
 	}
 	ids = CoincIDs()
 
-	def applyKeyMapping(self, mapping):
-		for row in self:
-			row.process_id = mapping[row.process_id]
-			row.time_slide_id = mapping[row.time_slide_id]
-			row.coinc_def_id = mapping[row.coinc_def_id]
-
 
 class Coinc(object):
 	__slots__ = CoincTable.validcolumns.keys()
@@ -1835,11 +1747,6 @@ class CoincMapTable(table.Table):
 		"event_id": "ilwd:char"
 	}
 
-	def applyKeyMapping(self, mapping):
-		for row in self:
-			row.coinc_event_id = mapping[row.coinc_event_id]
-			row.event_id = mapping[row.event_id]
-
 
 class CoincMap(object):
 	__slots__ = CoincMapTable.validcolumns.keys()
@@ -1875,10 +1782,6 @@ class LIGOLWMonTable(LSCTableUnique):
 		"insertion_time": "int_4s"
 	}
 	ids = LIGOLWMonIDs()
-
-	def applyKeyMapping(self, mapping):
-		for row in self:
-			row.process_id = mapping[row.process_id]
 
 
 class LIGOLWMon(object):
