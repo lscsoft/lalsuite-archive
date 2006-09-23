@@ -209,7 +209,7 @@ def reassign_ids(elem):
 	mapping = {}
 	for tbl in elem.getElementsByTagName(ligolw.Table.tagName):
 		if tbl.ids is not None:
-			tbl.updateKeyMapping(mapping, tbl.ids)
+			tbl.updateKeyMapping(mapping)
 	for tbl in elem.getElementsByTagName(ligolw.Table.tagName):
 		tbl.applyKeyMapping(mapping)
 
@@ -565,22 +565,28 @@ class Table(ligolw.Table, list):
 			self.ids.n = n
 		return self.ids
 
-	def updateKeyMapping(self, mapping, ilwditer):
+	def updateKeyMapping(self, mapping, ids = None):
 		"""
 		Used as the first half of the row key reassignment
 		algorithm.  Accepts a dictionary mapping old key --> new
-		key, and an ILWD iterator for generating new keys for this
-		table.  Iterates over the rows in this table, using the
-		ILWD iterator to generate a new key for each row that needs
-		it, adding the changes to the mapping.  Returns the
-		mapping.
+		key, and an optional ILWD iterator for generating new keys
+		for this table.  Iterates over the rows in this table,
+		using the ILWD generator to assign a new key to each row,
+		recording the changes in the mapping.  Returns the mapping.
+		If no ILWD generator is provided, then the table's own
+		generator is used, or ValueError is raised if the table has
+		none.
 		"""
-		column = self.getColumnByName(ilwditer.column_name)
+		if ids is None:
+			ids = self.ids
+			if ids is None:
+				raise ValueError, self
+		column = self.getColumnByName(ids.column_name)
 		for i, old in enumerate(column):
 			if old in mapping:
 				column[i] = mapping[old]
 			else:
-				column[i] = mapping[old] = ilwditer.next()
+				column[i] = mapping[old] = ids.next()
 		return mapping
 
 	def applyKeyMapping(self, mapping):
@@ -589,9 +595,12 @@ class Table(ligolw.Table, list):
 		Loops over each row in the table, replacing references to
 		old row keys with the new values from the mapping.
 		"""
-		# The implementation of this function must be defined on a
-		# table-by-table basis.
-		pass
+		for coltype, colname in zip(self.columntypes, self.columnnames):
+			if coltype in types.IDTypes and (self.ids is None or colname != self.ids.column_name):
+				column = self.getColumnByName(colname)
+				for i, old in enumerate(column):
+					if old in mapping:
+						column[i] = mapping[old]
 
 
 #
