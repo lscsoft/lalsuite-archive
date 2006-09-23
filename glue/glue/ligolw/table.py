@@ -563,6 +563,7 @@ class Table(ligolw.Table, list):
 				n = id
 		if n > self.ids.n:
 			self.ids.n = n
+		return self.ids
 
 	def updateKeyMapping(self, mapping, ilwditer):
 		"""
