@@ -111,7 +111,7 @@ class DocContents(object):
 		except ValueError:
 			self.coinctable = lsctables.New(lsctables.CoincTable)
 			xmldoc.childNodes[0].appendChild(self.coinctable)
-		self.coincids = table.new_ilwd(self.coinctable)
+		self.coinctable.sync_ids()
 
 		# get coinc_map table, create one if needed
 		try:
@@ -175,7 +175,7 @@ class DocContents(object):
 		coinc = lsctables.Coinc()
 		coinc.process_id = process.process_id
 		coinc.coinc_def_id = coinc_def_id
-		coinc.coinc_event_id = self.coincids.next()
+		coinc.coinc_event_id = self.coinctable.ids.next()
 		coinc.time_slide_id = self.tisi_id
 		coinc.nevents = 0
 		self.coinctable.append(coinc)

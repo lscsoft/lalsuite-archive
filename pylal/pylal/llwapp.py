@@ -104,7 +104,7 @@ def get_time_slide_id(xmldoc, time_slide, create_new = None):
 		# time slide not found in table
 		if create_new is None:
 			raise KeyError, time_slide
-		id = table.new_ilwd(tisitable).next()
+		id = tisitable.sync_ids().next()
 		for instrument, offset in time_slide.iteritems():
 			row = lsctables.TimeSlide()
 			row.process_id = create_new.process_id
@@ -151,7 +151,7 @@ def get_coinc_def_id(xmldoc, table_names, create_new = True):
 		# contributor list not found in table
 		if not create_new:
 			raise KeyError, table_names
-		id = table.new_ilwd(coincdeftable).next()
+		id = coincdeftable.sync_ids().next()
 		for name in table_names:
 			row = lsctables.CoincDef()
 			row.coinc_def_id = id
@@ -221,7 +221,7 @@ def append_process(doc, program = "", version = "", cvs_repository = "", cvs_ent
 	process.jobid = jobid
 	process.domain = domain
 	process.ifos = ifos
-	process.process_id = table.new_ilwd(proctable).next()
+	process.process_id = proctable.sync_ids().next()
 	proctable.append(process)
 	return process
 
