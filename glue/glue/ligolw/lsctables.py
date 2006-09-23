@@ -1721,25 +1721,6 @@ CoincTable.RowType = Coinc
 # =============================================================================
 #
 
-
-# Tables that can provide "events" for the coinc_event_map table
-# Wow:  it's annoying this has to be done by hand.
-#
-# FIXME: sngl_inspiral table cannot participate in the coinc_event table
-# infrastructure until the LAL code generates event_ids of type ilwd:char.
-# Re-list SnglInspiralTable in here when LAL is fixed.
-CoincEventMapSourceNames = [
-	table.StripTableName(SnglBurstTable.tableName),
-#	table.StripTableName(SnglInspiralTable.tableName),
-	table.StripTableName(SnglRingDownTable.tableName),
-	table.StripTableName(MultiInspiralTable.tableName),
-	table.StripTableName(SimInspiralTable.tableName),
-	table.StripTableName(SimBurstTable.tableName),
-	table.StripTableName(SimRingDownTable.tableName),
-	table.StripTableName(CoincTable.tableName)
-]
-
-
 class CoincMapTable(table.Table):
 	tableName = "coinc_event_map:table"
 	validcolumns = {
