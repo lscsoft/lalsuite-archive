@@ -334,17 +334,6 @@ class ProcessTable(LSCTableUnique):
 class Process(object):
 	__slots__ = ProcessTable.validcolumns.keys()
 
-	def cmp(self, other):
-		# FIXME: this is a hack, but I need something so I can move
-		# forward.
-		for key in ProcessTable.validcolumns.keys():
-			if key == "process_id":
-				continue
-			result = cmp(getattr(self, key), getattr(other, key))
-			if result:
-				return result
-		return 0
-
 
 ProcessTable.RowType = Process
 
@@ -439,17 +428,6 @@ class ProcessParamsTable(table.Table):
 class ProcessParams(object):
 	__slots__ = ProcessParamsTable.validcolumns.keys()
 
-	def cmp(self, other):
-		# FIXME: this is a hack, but I need something so I can move
-		# forward.
-		for key in ProcessParamsTable.validcolumns.keys():
-			if key == "process_id":
-				continue
-			result = cmp(getattr(self, key), getattr(other, key))
-			if result:
-				return result
-		return 0
-
 
 ProcessParamsTable.RowType = ProcessParams
 
@@ -516,17 +494,6 @@ class SearchSummaryTable(table.Table):
 
 class SearchSummary(object):
 	__slots__ = SearchSummaryTable.validcolumns.keys()
-
-	def cmp(self, other):
-		# FIXME: this is a hack, but I need something so I can move
-		# forward.
-		for key in SearchSummaryTable.validcolumns.keys():
-			if key == "process_id":
-				continue
-			result = cmp(getattr(self, key), getattr(other, key))
-			if result:
-				return result
-		return 0
 
 	def get_in(self):
 		"""
@@ -758,7 +725,8 @@ class SnglInspiralTable(LSCTableUnique):
 		"Gamma9": "real_4",
 		"event_id": "int_8s"	# FIXME: column should be ilwd
 	}
-	ids = SnglInspiralIDs()
+	# FIXME:  event_id column needs to be changed to ilwd
+	#ids = SnglInspiralIDs()
 
 	def get_column(self,column):
 		if column == 'effective_snr':
@@ -864,7 +832,8 @@ class SnglRingDownTable(LSCTableUnique):
 		"sigma_sq": "real_8",
 		"event_id": "int_8s"	# FIXME: column should be ilwd
 	}
-	ids = SnglRingDownIDs()
+	# FIXME:  event_id column needs to be changed to ilwd
+	#ids = SnglRingDownIDs()
 
 
 class SnglRingDown(object):
