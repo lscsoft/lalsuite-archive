@@ -538,6 +538,32 @@ class Table(ligolw.Table, list):
 	# ILWD manipulation
 	#
 
+	def sync_ids(self):
+		"""
+		Determines the highest-numbered ID in this table, and sets
+		the counter for the table's ILWD generator so as to cause
+		it to yield the next ID in the sequence and higher.  If the
+		generator is already set to yield an ID greater than the
+		max found, then it is left unmodified.  Raises ValueError
+		if the table does not possess an ILWD generator.
+
+		Note that tables of the same name typically share
+		references to the same ILWD generator so that IDs can be
+		generated that are unique across all tables.  To set the
+		generator to produce an ID greater than that in any table,
+		sync_ids() needs to be run on every table sharing the
+		generator.
+		"""
+		if self.ids is None:
+			raise ValueError, self
+		n = 0
+		for id in self.getColumnByName(self.ids.column_name):
+			id = ilwd.ILWDID(id) + 1
+			if id > n:
+				n = id
+		if n > self.ids.n:
+			self.ids.n = n
+
 	def updateKeyMapping(self, mapping, ilwditer):
 		"""
 		Used as the first half of the row key reassignment
