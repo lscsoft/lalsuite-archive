@@ -109,16 +109,6 @@ def get_time_slide_id(xmldoc, time_slide, create_new = None):
 	return id
 
 
-def time_slide_is_null(tisitable, id):
-	"""
-	Test that a time slide ID identifies an all-zero time slide.
-	"""
-	for offset in tisitable.get_offset_dict(id).itervalues():
-		if offset:
-			return False
-	return True
-
-
 def get_coinc_def_id(xmldoc, table_names, create_new = True):
 	"""
 	Return the coinc_def_id corresponding to coincidences consisting
