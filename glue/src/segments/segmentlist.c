@@ -53,11 +53,6 @@ static int segments_SegmentList_Check(PyObject *obj)
 
 
 /*
- * Basic methods
- */
-
-
-/*
  * Accessors
  */
 
@@ -228,9 +223,9 @@ static PySequenceMethods as_sequence = {
 
 
 static struct PyMethodDef methods[] = {
-	{"find", find, METH_O, ""},
 	{"duration", duration, METH_NOARGS, ""},
 	{"extent", extent, METH_NOARGS, ""},
+	{"find", find, METH_O, ""},
 	{"intersects", intersects, METH_O, ""},
 	{"intersects_segment", intersects_segment, METH_O, ""},
 	{"coalesce", coalesce, METH_NOARGS, ""},
