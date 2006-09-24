@@ -405,25 +405,6 @@ class ProcessParamsTable(table.Table):
 			raise ligolw.ElementError, "ProcessParamsTable.append(): unrecognized type '%s'" % row.type
 		table.Table.append(self, row)
 
-	def get_program(self, key):
-		"""
-		Return the name of the program associated with process ID
-		key.
-		"""
-		for row in self:
-			if row.process_id == key:
-				return row.program
-		raise KeyError, key
-
-	def set_program(self, key, value):
-		"""
-		Set the program for all entries with process ID key to
-		value.
-		"""
-		for row in self:
-			if row.process_id == key:
-				row.program = value
-
 
 class ProcessParams(object):
 	__slots__ = ProcessParamsTable.validcolumns.keys()
@@ -1638,7 +1619,7 @@ class CoincDefTable(LSCTableMulti):
 		"""
 		Return a list of contributing table names for the given ID.
 		"""
-		l = [row.table_name for row in self if row.coinc_def_id == id]
+		l = [row.table_name for row in self.dict[id]]
 		l.sort()
 		return l
 
