@@ -109,8 +109,8 @@ class CoincTables(object):
 
 		# find the time_slide table, and cast all offsets to
 		# LIGOTimeGPS.
-		self.tisitable = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
-		for row in self.tisitable:
+		self.time_slide_table = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
+		for row in self.time_slide_table:
 			row.offset = LIGOTimeGPS(row.offset)
 
 
@@ -118,7 +118,7 @@ class CoincTables(object):
 		"""
 		Return a list of the time slide IDs.
 		"""
-		return self.tisitable.dict.keys()
+		return self.time_slide_table.dict.keys()
 
 
 	def get_time_slide(self, id):
@@ -126,7 +126,7 @@ class CoincTables(object):
 		Return the time slide with the given ID as a dictionary of
 		instrument/offset pairs.
 		"""
-		return self.tisitable.get_offset_dict(id)
+		return self.time_slide_table.get_offset_dict(id)
 
 
 	def append_coinc(self, process_id, time_slide_id, events):
@@ -294,16 +294,13 @@ def coincident_process_ids(xmldoc, max_delta_t, program):
 
 	# determine which time slides are possible given the instruments in
 	# the search summary table
-	tisitable = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
-	timeslides = map(tisitable.get_offset_dict, tisitable.dict.keys())
-	i = 0
-	while i < len(timeslides):
-		for instrument in timeslides[i].keys():
+	time_slide_table = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
+	timeslides = map(time_slide_table.get_offset_dict, time_slide_table.dict.keys())
+	for i in xrange(len(timeslides) - 1, -1, -1):
+		for instrument in timeslides[i].iterkeys():
 			if instrument not in seglistdict:
 				del timeslides[i]
 				break
-		else:
-			i += 1
 
 	# determine the coincident segments for each instrument
 	seglistdict = llwapp.get_coincident_segmentlistdict(seglistdict, timeslides)
