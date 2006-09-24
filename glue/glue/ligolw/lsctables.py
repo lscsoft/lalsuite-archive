@@ -72,7 +72,7 @@ def New(Type, columns = None):
 	if columns is not None:
 		for key in columns:
 			if key not in new.validcolumns:
-				raise ligolw.ElementError, "New(): invalid column \"%s\" for table \"%s\"." % (key, new.tableName)
+				raise ligolw.ElementError, "New(): invalid Column '%s' for Table '%s'" % (key, new.tableName)
 			new.appendChild(table.Column(sax.xmlreader.AttributesImpl({u"Name": colnamefmt % key, u"Type": new.validcolumns[key]})))
 	else:
 		for key, value in new.validcolumns.items():
@@ -402,7 +402,7 @@ class ProcessParamsTable(table.Table):
 
 	def append(self, row):
 		if row.type not in types.Types:
-			raise ligolw.ElementError, "ProcessParamsTable.append():  unrecognized type \"%s\"" % row.type
+			raise ligolw.ElementError, "ProcessParamsTable.append(): unrecognized type '%s'" % row.type
 		table.Table.append(self, row)
 
 	def get_program(self, key):

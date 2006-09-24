@@ -282,7 +282,7 @@ class Column(ligolw.Column):
 		for i in xrange(len(self.parentNode)):
 			if getattr(self.parentNode[i], self.asattribute) == value:
 				return i
-		raise ValueError, "%s not found" % repr(val)
+		raise ValueError, value
 
 	def __contains__(self, value):
 		"""
@@ -484,17 +484,17 @@ class Table(ligolw.Table, list):
 			llwtype = child.getAttribute("Type")
 			if self.validcolumns is not None:
 				if colname not in self.validcolumns.keys():
-					raise ligolw.ElementError, "invalid Column name \"%s\" for Table \"%s\"" % (child.getAttribute("Name"), self.getAttribute("Name"))
+					raise ligolw.ElementError, "invalid Column '%s' for Table '%s'" % (child.getAttribute("Name"), self.getAttribute("Name"))
 				if self.validcolumns[colname] != llwtype:
-					raise ligolw.ElementError, "invalid type \"%s\" for Column \"%s\"" % (llwtype, child.getAttribute("Name"))
+					raise ligolw.ElementError, "invalid type '%s' for Column '%s' in Table '%s'" % (llwtype, child.getAttribute("Name"), self.getAttribute("Name"))
 			if colname in self.columnnames:
-				raise ligolw.ElementError, "duplicate Column \"%s\"" % child.getAttribute("Name")
+				raise ligolw.ElementError, "duplicate Column '%s'" % child.getAttribute("Name")
 			self.columnnames.append(colname)
 			self.columntypes.append(llwtype)
 			try:
 				self.columnpytypes.append(types.ToPyType[llwtype])
 			except KeyError:
-				raise ligolw.ElementError, "unrecognized Type attribute \"%s\" for Column \"%s\" in Table \"%s\"" % (llwtype, child.getAttribute("Name"), self.getAttribute("Name"))
+				raise ligolw.ElementError, "unrecognized Type '%s' for Column '%s' in Table '%s'" % (llwtype, child.getAttribute("Name"), self.getAttribute("Name"))
 
 	def _verifyChildren(self, i):
 		"""
@@ -507,7 +507,7 @@ class Table(ligolw.Table, list):
 			self._update_column_info()
 		elif child.tagName == ligolw.Stream.tagName:
 			if child.getAttribute("Name") != self.getAttribute("Name"):
-				raise ligolw.ElementError, "Stream name \"%s\" does not match Table name \"%s\"" % (child.getAttribute("Name"), self.getAttribute("Name"))
+				raise ligolw.ElementError, "Stream name '%s' does not match Table name '%s'" % (child.getAttribute("Name"), self.getAttribute("Name"))
 
 	def _end_of_columns(self):
 		"""

@@ -400,7 +400,7 @@ class Stream(Element):
 		if not attrs.has_key("Delimiter"):
 			attrs._attrs["Delimiter"] = u","
 		if attrs["Type"] not in [u"Remote", u"Local"]:
-			raise ElementError, "invalid value %s for Stream attribute Type" % attrs["Type"]
+			raise ElementError, "invalid Type for Stream: %s" % attrs["Type"]
 		Element.__init__(self, attrs)
 
 
@@ -451,7 +451,7 @@ class Time(Element):
 		if not attrs.has_key("Type"):
 			attrs._attrs["Type"] = u"ISO-8601"
 		if attrs["Type"] not in [u"GPS", u"Unix", u"ISO-8601"]:
-			raise ElementError, "invalid value %s for Time attribute Type" % attrs["Type"]
+			raise ElementError, "invalid Type for Time: %s" % attrs["Type"]
 		Element.__init__(self, attrs)
 
 
@@ -609,7 +609,7 @@ class LIGOLWContentHandler(sax.handler.ContentHandler):
 		elif name == Time.tagName:
 			child = self.startTime(attrs)
 		else:
-			raise ElementError, "unknown element tag %s" % name
+			raise ElementError, "unknown element %s" % name
 		self.current.appendChild(child)
 		self.current = child
 
@@ -641,7 +641,7 @@ class LIGOLWContentHandler(sax.handler.ContentHandler):
 		elif name == Time.tagName:
 			self.endTime()
 		else:
-			raise ElementError, "unknown element tag %s" % name
+			raise ElementError, "unknown element %s" % name
 		self.current = self.current.parentNode
 
 	def characters(self, content):

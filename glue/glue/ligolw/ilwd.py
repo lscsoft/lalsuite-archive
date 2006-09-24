@@ -63,7 +63,7 @@ def ILWDTableName(ilwdchar):
 	try:
 		return ILWDPattern.search(ilwdchar).group("Table")
 	except AttributeError:
-		raise ValueError, "unrecognized ID \"%s\"" % repr(ilwdchar)
+		raise ValueError, "unrecognized ID '%s'" % repr(ilwdchar)
 
 
 def ILWDColumnName(ilwdchar):
@@ -74,7 +74,7 @@ def ILWDColumnName(ilwdchar):
 	try:
 		return ILWDPattern.search(ilwdchar).group("Column")
 	except AttributeError:
-		raise ValueError, "unrecognized ID \"%s\"" % repr(ilwdchar)
+		raise ValueError, "unrecognized ID '%s'" % repr(ilwdchar)
 
 
 def ILWDID(ilwdchar):
@@ -85,7 +85,7 @@ def ILWDID(ilwdchar):
 	try:
 		return int(ILWDPattern.search(ilwdchar).group("ID"))
 	except AttributeError:
-		raise ValueError, "unrecognized ID \"%s\"" % repr(ilwdchar)
+		raise ValueError, "unrecognized ID '%s'" % repr(ilwdchar)
 
 
 class ILWD(object):
