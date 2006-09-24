@@ -77,4 +77,13 @@ void init__segments(void)
 	PyModule_AddObject(module, "segment", (PyObject *) &segments_Segment_Type);
 	/* uninherit tp_print from tuple class */
 	segments_Segment_Type.tp_print = NULL;
+
+	/*
+	 * Create segmentlist class
+	 */
+
+	if(PyType_Ready(&segments_SegmentList_Type) < 0)
+		return;
+	Py_INCREF(&segments_SegmentList_Type);
+	PyModule_AddObject(module, "segmentlist", (PyObject *) &segments_SegmentList_Type);
 }

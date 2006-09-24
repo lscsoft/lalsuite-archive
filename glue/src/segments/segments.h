@@ -37,7 +37,7 @@
 /*
  * ============================================================================
  *
- *                               Infinity Class
+ *                               infinity Class
  *
  * ============================================================================
  */
@@ -70,7 +70,7 @@ extern segments_Infinity *segments_NegInfinity;
 /*
  * ============================================================================
  *
- *                               Segment Class
+ *                               segment Class
  *
  * ============================================================================
  */
@@ -88,6 +88,29 @@ typedef PyTupleObject segments_Segment;
  */
 
 extern PyTypeObject segments_Segment_Type;
+
+
+/*
+ * ============================================================================
+ *
+ *                             segmentlist Class
+ *
+ * ============================================================================
+ */
+
+
+/*
+ * Structure
+ */
+
+typedef PyListObject segments_SegmentList;
+
+
+/*
+ * Type
+ */
+
+extern PyTypeObject segments_SegmentList_Type;
 
 
 #endif /* __SEGMENTS_H__ */
