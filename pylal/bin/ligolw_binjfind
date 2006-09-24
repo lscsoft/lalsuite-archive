@@ -139,7 +139,7 @@ class DocContents(object):
 		del burst_event
 		self.coinc_event = {}
 		for coinc in self.coinctable:
-			if (coinc.coinc_def_id == self.bb_coinc_def_id) and llwapp.time_slide_is_null(self.tisitable, coinc.time_slide_id):
+			if (coinc.coinc_def_id == self.bb_coinc_def_id) and self.tisitable.is_null(coinc.time_slide_id):
 				self.coinc_event[coinc] = coinc_maps[ilwd.ILWDID(coinc.coinc_event_id)]
 
 		# sort triggers by start time truncated to integer seconds,
