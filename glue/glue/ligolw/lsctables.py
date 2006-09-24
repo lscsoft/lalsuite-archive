@@ -330,6 +330,15 @@ class ProcessTable(LSCTableUnique):
 	}
 	ids = ProcessIDs()
 
+	def get_ids_by_program(self, program):
+		"""
+		Return a sorted list of the process IDs for rows whose
+		program string equals the given program.
+		"""
+		ids = [row.process_id for row in self if row.program == program]
+		ids.sort()
+		return ids
+
 
 class Process(object):
 	__slots__ = ProcessTable.validcolumns.keys()
