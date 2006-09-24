@@ -371,7 +371,7 @@ PyTypeObject segments_Segment_Type = {
 	.tp_as_sequence = &as_sequence,
 	.tp_doc =
 	"",
-	.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_CHECKTYPES,
+	.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_CHECKTYPES | Py_TPFLAGS_BASETYPE,
 	.tp_methods = methods,
 	.tp_name = MODULE_NAME ".segment",
 	.tp_new = __new__,
