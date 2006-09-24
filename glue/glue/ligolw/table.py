@@ -169,6 +169,7 @@ def new_from_template(template):
 	for child in new.childNodes:
 		child.parentNode = new
 	del new[:]
+	new._end_of_columns()
 	return new
 
 
