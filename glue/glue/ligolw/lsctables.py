@@ -1612,6 +1612,16 @@ class TimeSlideTable(LSCTableMulti):
 			d[row.instrument] = row.offset
 		return d
 
+	def is_null(self, id):
+		"""
+		Test that a time slide ID identifies an all-zero time
+		slide.
+		"""
+		for offset in self.get_offset_dict(id).itervalues():
+			if offset:
+				return False
+		return True
+
 
 class TimeSlide(object):
 	__slots__ = TimeSlideTable.validcolumns.keys()
