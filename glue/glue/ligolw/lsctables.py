@@ -472,6 +472,23 @@ class SearchSummaryTable(table.Table):
 		"""
 		return [row.process_id for row in self if segments.segmentlist([row.get_out()]) & seglist]
 
+	def get_out_segmentlistdict(self, process_ids = None):
+		"""
+		Return a segmentlistdict mapping instrument to out segment
+		list.  If process_ids is a list of process IDs, then only
+		rows with matching IDs are included otherwise all rows are
+		included.
+		"""
+		seglistdict = segments.segmentlistdict()
+		for row in self:
+			if process_ids is None or row.process_id in process_ids:
+				for ifo in row.ifos.split(","):
+					if ifo in seglistdict:
+						seglistdict[ifo].append(row.get_out())
+					else:
+						seglistdict[ifo] = segments.segmentlist([row.get_out()])
+		return seglistdict.coalesce()
+
 
 class SearchSummary(object):
 	__slots__ = SearchSummaryTable.validcolumns.keys()
