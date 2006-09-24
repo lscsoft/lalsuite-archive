@@ -192,11 +192,11 @@ def new_ilwd(table_elem):
 	"""
 	if table_elem.ids is None:
 		raise ValueError, table_elem
-	ids = [ilwd.ILWDID(id) for id in table_elem.getColumnByName(table_elem.ids.column_name)]
-	if ids:
-		n = max(ids) + 1
-	else:
-		n = 0
+	n = 0
+	for id in table_elem.getColumnByName(table_elem.ids.column_name):
+		id = ilwd.ILWDID(id) + 1
+		if id > n:
+			n = id
 	return ilwd.ILWD(table_elem.ids.table_name, table_elem.ids.column_name, n)
 
 
