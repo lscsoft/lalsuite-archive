@@ -288,9 +288,13 @@ def coincident_process_ids(xmldoc, max_delta_t, program):
 	after applying a time slide, two segments can have a gap this large
 	between them and still be considered coincident.
 	"""
+	# get the list of all process IDs for the given program
+	proc_ids = table.get_table(xmldoc, lsctables.ProcessTable.tableName).get_ids_by_program(program)
+
 	# extract a segmentlistdict;  protract by half the largest
 	# coincidence window so as to not miss edge effects
-	seglistdict = llwapp.segmentlistdict_fromsearchsummary(xmldoc, program).protract(max_delta_t / 2)
+	search_summ_table = table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName)
+	seglistdict = search_summ_table.get_out_segmentlistdict(proc_ids).protract(max_delta_t / 2)
 
 	# determine which time slides are possible given the instruments in
 	# the search summary table
@@ -305,13 +309,10 @@ def coincident_process_ids(xmldoc, max_delta_t, program):
 	# determine the coincident segments for each instrument
 	seglistdict = llwapp.get_coincident_segmentlistdict(seglistdict, timeslides)
 
-	# get the list of all process IDs for the given program
-	proc_ids = llwapp.get_process_ids_by_program(xmldoc, program)
-
 	# find the IDs of the processes which contributed to the coincident
 	# segments
 	coinc_proc_ids = []
-	for row in table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName):
+	for row in search_summ_table:
 		if (not llwapp.bisect_contains(proc_ids, row.process_id)) or llwapp.bisect_contains(coinc_proc_ids, row.process_id):
 			continue
 		if seglistdict[row.ifos].intersects_segment(row.get_out()):

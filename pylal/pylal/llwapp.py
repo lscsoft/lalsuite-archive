@@ -66,15 +66,9 @@ def segmentlistdict_fromsearchsummary(xmldoc, live_time_program = None):
 	table for matching process IDs and constructs a segmentlistdict
 	object from those rows.
 	"""
-	procids = get_process_ids_by_program(xmldoc, live_time_program)
-	seglistdict = segments.segmentlistdict()
-	for row in table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName):
-		if (live_time_program is None) or bisect_contains(procids, row.process_id):
-			if row.ifos in seglistdict:
-				seglistdict[row.ifos].append(row.get_out())
-			else:
-				seglistdict[row.ifos] = segments.segmentlist([row.get_out()])
-	return seglistdict.coalesce()
+	stbl = table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName)
+	ptbl = table.get_table(xmldoc, lsctables.ProcessTable.tableName)
+	return stbl.get_out_segmentlistdict(ptbl.get_ids_by_program(program))
 
 
 def get_time_slide_id(xmldoc, time_slide, create_new = None):
@@ -232,16 +226,6 @@ def set_process_end_time(process):
 	"""
 	process.end_time = XLALUTCToGPS(time.gmtime()).seconds
 	return process
-
-
-def get_process_ids_by_program(xmldoc, program):
-	"""
-	Extract the process table, and return a sorted list of the process
-	IDs for the given program.
-	"""
-	ids = [row.process_id for row in table.get_table(xmldoc, lsctables.ProcessTable.tableName) if row.program == program]
-	ids.sort()
-	return ids
 
 
 def append_process_params(doc, process, params):
