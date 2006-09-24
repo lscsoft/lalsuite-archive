@@ -26,7 +26,7 @@
 
 """
 A collection of utilities to assist in writing applications that manipulate
-data in LIGO Light-Weight format.
+data in LIGO Light-Weight XML format.
 """
 
 import bisect
@@ -58,17 +58,17 @@ __date__ = "$Date$"[7:-2]
 # =============================================================================
 #
 
-def segmentlistdict_fromsearchsummary(xmldoc, live_time_program = None):
+def segmentlistdict_fromsearchsummary(xmldoc, program = None):
 	"""
 	Convenience wrapper for a common case usage of the segmentlistdict
 	class: searches the process table in xmldoc for occurances of a
-	program named live_time_program, then scans the search summary
-	table for matching process IDs and constructs a segmentlistdict
-	object from those rows.
+	program named program, then scans the search summary table for
+	matching process IDs and constructs a segmentlistdict object from
+	those rows.
 	"""
 	stbl = table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName)
 	ptbl = table.get_table(xmldoc, lsctables.ProcessTable.tableName)
-	return stbl.get_out_segmentlistdict(ptbl.get_ids_by_program(program))
+	return stbl.get_out_segmentlistdict(program and ptbl.get_ids_by_program(program))
 
 
 def get_time_slide_id(xmldoc, time_slide, create_new = None):
@@ -93,19 +93,18 @@ def get_time_slide_id(xmldoc, time_slide, create_new = None):
 		xmldoc.childNodes[0].appendChild(tisitable)
 	for id in tisitable.dict.iterkeys():
 		if tisitable.get_offset_dict(id) == time_slide:
-			break
-	else:
-		# time slide not found in table
-		if create_new is None:
-			raise KeyError, time_slide
-		id = tisitable.sync_ids().next()
-		for instrument, offset in time_slide.iteritems():
-			row = lsctables.TimeSlide()
-			row.process_id = create_new.process_id
-			row.time_slide_id = id
-			row.instrument = instrument
-			row.offset = offset
-			tisitable.append(row)
+			return id
+	# time slide not found in table
+	if create_new is None:
+		raise KeyError, time_slide
+	id = tisitable.sync_ids().next()
+	for instrument, offset in time_slide.iteritems():
+		row = lsctables.TimeSlide()
+		row.process_id = create_new.process_id
+		row.time_slide_id = id
+		row.instrument = instrument
+		row.offset = offset
+		tisitable.append(row)
 	return id
 
 
@@ -127,20 +126,20 @@ def get_coinc_def_id(xmldoc, table_names, create_new = True):
 			raise KeyError, table_names
 		coincdeftable = lsctables.New(lsctables.CoincDefTable)
 		xmldoc.childNodes[0].appendChild(coincdeftable)
+	table_names = list(table_names)
 	table_names.sort()
 	for id in coincdeftable.dict.iterkeys():
 		if coincdeftable.get_contributors(id) == table_names:
-			break
-	else:
-		# contributor list not found in table
-		if not create_new:
-			raise KeyError, table_names
-		id = coincdeftable.sync_ids().next()
-		for name in table_names:
-			row = lsctables.CoincDef()
-			row.coinc_def_id = id
-			row.table_name = name
-			coincdeftable.append(row)
+			return id
+	# contributor list not found in table
+	if not create_new:
+		raise KeyError, table_names
+	id = coincdeftable.sync_ids().next()
+	for name in table_names:
+		row = lsctables.CoincDef()
+		row.coinc_def_id = id
+		row.table_name = name
+		coincdeftable.append(row)
 	return id
 
 
