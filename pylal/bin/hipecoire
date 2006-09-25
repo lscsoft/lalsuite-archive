@@ -52,7 +52,7 @@ def sire(data_type,input,ifos,ifo=None):
   if ifo:  
     command += " --ifo-cut " + ifo 
     for file in opts.vetoes:
-      if (ifo in file) or ifo.lower() in file):
+      if (ifo in file) or (ifo.lower() in file):
         command += " --veto-file " + file
     if opts.rsq_threshold:
       command += " --rsq-threshold " + opts.rsq_threshold + \
