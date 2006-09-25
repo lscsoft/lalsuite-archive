@@ -52,12 +52,13 @@ def sire(data_type,input,ifos,ifo=None):
   if ifo:  
     command += " --ifo-cut " + ifo 
     for file in opts.vetoes:
-      if ifo in file:
+      if (ifo in file) or ifo.lower() in file):
         command += " --veto-file " + file
     if opts.rsq_threshold:
       command += " --rsq-threshold " + opts.rsq_threshold + \
-                 " --rsq-max-snr " + opts.rsq_max_snr + \
-                 " --rsq-coeff " + opts.rsq_coeff + \
+                 " --rsq-max-snr " + opts.rsq_max_snr
+    if opts.rsq_pow:
+      command += " --rsq-coeff " + opts.rsq_coeff + \
                  " --rsq-pow " + opts.rsq_pow
 
   return command
@@ -390,9 +391,23 @@ if not opts.ifos:
   print >> sys.stderr, "Must specify at least two ifos using --ifo"
   sys.exit(1)
 
-if opts.rsq_threshold and not opts.rsq_max_snr:
-  print >> sys.stderr, "Must specify --rsq-max-snr & --rsq-coeff & --rsq-pow if --rsq-threshold is given"
+if (opts.rsq_threshold and not opts.rsq_max_snr) or \
+    (not opts.rsq_threshold and opts.rsq_max_snr):
+  print >> sys.stderr, \
+      "Must specify either both --rsq-max-snr and --rsq-threshold or neither"
   sys.exit(1)
+
+if (opts.rsq_pow and not opts.rsq_coeff) or \
+    (not opts.rsq_pow and opts.rsq_coeff):
+  print >> sys.stderr, \
+      "Must specify either both --rsq-pow and --rsq-coeff or neither"
+  sys.exit(1)
+
+if (opts.rsq_pow and not opts.rsq_threshold):
+  print >> sys.stderr, \
+      "Must specify --rsq-max-snr and --rsq-threshold " + \
+      "if rsq-pow and --rsq-coeff are given"
+
 
 if opts.num_slides and opts.injection_file:
   print >> sys.stderr, "Cannot do slides and injections together"
@@ -429,7 +444,6 @@ for ifo_list in ifo_combinations:
     chdir('..')
   except: mkdir(trigs)
 
-coire_out = []
 commands = []
 #######################################################################
 # loop over slide/zero-lag, running sires/coires as necessary
@@ -487,24 +501,28 @@ for data_type in analyze:
     # do a single coire on all triggers
     command,output = coire(data_type,input,ifos)
     if not opts.plots_only: commands.append(command)
+    input = output + ".xml"
 
     if opts.cluster_infinity:
-      input = output + ".xml"
       command,output_inf = \
           coire(data_type,input,ifos,None,opts.cluster_infinity)
       if not opts.plots_only: commands.append(command)
     
     ######################################
     # do separate coires on each trig type
-    input = output + ".xml"
     
     trig_choices = trig_types(ifo_list)
     for trig_ifos in trig_choices:
       trigs = "".join(trig_ifos)
    
-      command,output = coire(data_type,input,ifos,trigs)
-      coire_out.append(output + ".xml")
+      command,trig_out = coire(data_type,input,ifos,trigs)
       if not opts.plots_only: commands.append(command)
+  
+      if opts.cluster_infinity:
+        trig_input = trig_out + ".xml"
+        command,output_inf = \
+            coire(data_type,trig_input,ifos,trigs,opts.cluster_infinity)
+        if not opts.plots_only: commands.append(command)
 
 #######################################################################
 # make the summary plots 
