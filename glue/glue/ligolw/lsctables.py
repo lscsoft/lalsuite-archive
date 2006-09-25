@@ -676,7 +676,7 @@ class SnglInspiralIDs(ilwd.ILWD):
 		ilwd.ILWD.__init__(self, "sngl_inspiral", "event_id", n)
 
 
-class SnglInspiralTable(LSCTableUnique):
+class SnglInspiralTable(table.Table):	# FIXME: should be LSCTableUnique
 	tableName = "sngl_inspiral:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -820,7 +820,7 @@ class SnglRingDownIDs(ilwd.ILWD):
 		ilwd.ILWD.__init__(self, "sngl_ringdown", "event_id", n)
 
 
-class SnglRingDownTable(LSCTableUnique):
+class SnglRingDownTable(table.Table):	# FIXME: should be LSCTableUnique
 	tableName = "sngl_ringdown:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
