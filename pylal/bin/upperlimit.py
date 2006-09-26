@@ -51,7 +51,7 @@ the number of triggers is very large.
 
 parser = OptionParser( usage )
 # used letters:
-# a c d e f g i j k l m n p s t u v x y 
+# a c d e f g i j k l m n p r s t u v x y 
 # A B C H L R S T
 #
 
@@ -95,7 +95,11 @@ parser.add_option("-T","--test",action="store_true",\
     default=False, help="only print the commands to be run")
 
 parser.add_option("-v","--no-veto",action="store_true",\
-    default=False, help="do not apply any vetoes (in the case they already have been applied)")
+    default=False, \
+    help="do not apply any vetoes (in the case they already have been applied)")
+
+parser.add_option("-r","--remove-h2l1",action="store_true",\
+    default=False, help="remove H2-L1 triggers from three ifo times")
 
 # hierarchy pipeline
 parser.add_option("-j","--second-coinc",action="store_true",default=False,\
@@ -223,8 +227,9 @@ if not opts.skip_coiredata:
         " --l1-bittenl-a "+stat_dict["bittenl_a"] + \
         " --l1-bittenl-b "+stat_dict["bittenl_b"] 
   if not opts.no_veto:
-    command+=" --veto-file h1veto.list --veto-file h2veto.list" + \
-        " --veto-file l1veto.list"
+    command+=" --veto-file " + MYRESULTSDIR + "/h1veto.list " + \
+        " --veto-file " + MYRESULTSDIR + "/h2veto.list " + \
+        " --veto-file " + MYRESULTSDIR + "/l1veto.list"
   if opts.second_coinc:
     command += " --second-coinc "
   for opt in coire_options:
@@ -238,15 +243,24 @@ if not opts.skip_coiredata:
     
     # link to the files needed for the upper limit
     os.chdir( MYRESULTSDIR + "/hipecoire" )
-    for file in glob.glob("full_data/H*SLIDE*.xml"):
-      tmpdest = os.path.splitext( os.path.basename(file) )
-      symlinksafe( file, tmpdest[0] + "_slides.xml" )
-    for file in glob.glob("full_data/H*THINCA_CLUST*.xml"):
-      tmpdest = os.path.splitext( os.path.basename(file) )
-      symlinksafe( file, tmpdest[0] + "_zero.xml" )
-    for file in glob.glob("full_data/H*THINCA_LOUDEST*.xml"):
-      tmpdest = os.path.splitext( os.path.basename(file) )
-      symlinksafe( file, tmpdest[0] + "_zero.xml" )
+    if not opts.remove_h2l1:
+      for file in glob.glob("full_data/H*SLIDE*.xml"):
+        tmpdest = os.path.splitext( os.path.basename(file) )
+        symlinksafe( file, tmpdest[0] + "_slides.xml" )
+      for file in ( glob.glob("full_data/H*THINCA_CLUST*.xml") + \
+          glob.glob("full_data/H*THINCA_LOUDEST*.xml") ):
+        tmpdest = os.path.splitext( os.path.basename(file) )
+        symlinksafe( file, tmpdest[0] + "_zero.xml" )
+    else:
+      for file in ( glob.glob("full_data/H???-THINCA_SLIDE*.xml") + \
+          glob.glob("full_data/H1*/H1*SLIDE_in_H1H2L1*.xml") ):
+        tmpdest = os.path.splitext( os.path.basename(file) )
+        symlinksafe( file, tmpdest[0] + "_slides.xml" )
+      for file in ( glob.glob("full_data/H???-THINCA_CLUST*.xml") + \
+          glob.glob("full_data/H???-THINCA_LOUDEST*.xml") + \
+          glob.glob("full_data/H1*/H1*-*THINCA_in_H1H2L1*.xml") ):
+        tmpdest = os.path.splitext( os.path.basename(file) )
+        symlinksafe( file, tmpdest[0] + "_zero.xml" )
 
 
 #######################################################################
@@ -278,8 +292,9 @@ if not opts.skip_coireinj:
           " --l1-bittenl-a " + stat_dict["bittenl_a"] + \
           " --l1-bittenl-b " + stat_dict["bittenl_b"] 
     if not opts.no_veto:
-      command+=" --veto-file h1veto.list --veto-file h2veto.list " + \
-          "--veto-file l1veto.list"
+      command+=" --veto-file " + MYRESULTSDIR + "/h1veto.list " + \
+          " --veto-file " + MYRESULTSDIR + "/h2veto.list " + \
+          " --veto-file " + MYRESULTSDIR + "/l1veto.list"
     if opts.second_coinc:
       command += " --second-coinc "
     for opt in coire_options:
@@ -300,21 +315,25 @@ if not opts.skip_coireinj:
       os.chdir(MYRESULTSDIR)
 
 
+
+
 #######################################################################
 # plotthinca step
 #######################################################################
 if not opts.skip_plotthinca:
   print "running plotthinca to generate foreground/background plots"
   # generate the background/foreground number of events plot
-  command = "plotthinca --glob 'H*-THINCA*CLUST*.xml' \
-      --plot-slides --num-slides 50 \
-      --figure-name 'summary' --add-zero-lag --snr-dist"
+  command = "plotthinca --glob '" + MYRESULTSDIR + "/hipecoire/*CLUST*zero* " \
+      + MYRESULTSDIR + "/hipecoire/*CLUST*slides*' " + \
+      "--plot-slides --num-slides 50 " \
+      "--figure-name 'summary' --add-zero-lag --snr-dist"
   for opt in plotthinca_options:
     command+=" --"+opt[0]+" "+opt[1]
   if opts.test:
     print command + "\n"
   else:
-    os.chdir( MYRESULTSDIR + "/hipecoire/full_data" )
+    mkdirsafe( MYRESULTSDIR + "/plotthinca" )
+    os.chdir( MYRESULTSDIR + "/plotthinca" )
     os.system( command )
 
 #######################################################################
@@ -326,7 +345,7 @@ if not opts.skip_png:
   for pop in popfiles:
     for times in analyzedtimes:
       print "running plotnumgalaxies for " + times[0].upper() + \
-          " pop" + str(popfiles.index(pop))
+          " using population from " + pop
       command = "plotnumgalaxies " + \
           "--slide-glob '" + MYRESULTSDIR + "/hipecoire/H*LOUDEST*slides.xml' "\
           + "--zero-glob '" + MYRESULTSDIR + "/hipecoire/H*LOUDEST*zero.xml' "\
@@ -336,20 +355,22 @@ if not opts.skip_png:
           + times[0].upper() + "-THINCA*MISSED*.xml' " \
           + "--source-file '" + MYRESULTSDIR + "/inspsrcs.new' " \
           + "--injection-glob '" + MYRESULTSDIR + pop + \
-          "' --figure-name "+times[0].upper()+\
-          " --plot-cum-loudest --plot-pdf-loudest --plot-ng "\
-          + "--plot-efficiency --cum-search-ng"+\
+          "' --figure-name " + times[0].upper() + \
+          " --plot-cum-loudest --plot-pdf-loudest" + \
           " --num-slides 50 --statistic " + stat_dict["statistic"]
       if  stat_dict["statistic"] == "bittenl":
         command += " --bittenl_a " + stat_dict["bittenl_a"] + \
             " --bittenl_b "+stat_dict["bittenl_b"]
       for opt in png_options:
-         command+=" --"+opt[0]+" "+opt[1]
-      if times != "H1H2":
+        command+=" --"+opt[0]+" "+opt[1]
+      if times[0].upper() == "H1H2":
+        command +=  " --plot-ng "\
+            + "--plot-efficiency --cum-search-ng"
+      else:
         command += " --axes-square --plot-2d-ng "\
             + "--plot-effcontour --cum-search-2d-ng"
         for opt in png_y_options:
-          command+=" --"+opt[0]+" "+opt[1]
+          command+=" --" + opt[0] + " " + opt[1]
       if (popfiles.index(pop)==1):
         command+=" --m-low " + str(2.0*float(mass_dict["min-mass"])) + \
             " --m-high " + str(2.0*float(mass_dict["max-mass"])) + \
@@ -372,6 +393,7 @@ if not opts.skip_upper_limit:
    secondsInAYear=31556736.0
    popfiles = ["Gaussian","Uniform"]
    for pop in popfiles:
+     print
      print "** Computing the upper limit for " + pop + " population"
      command = "lalapps_compute_posterior"
      for times in analyzedtimes:
