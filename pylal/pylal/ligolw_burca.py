@@ -164,7 +164,7 @@ def ligolw_burca(xmldoc, **kwargs):
 	process = append_process(xmldoc, **kwargs)
 
 	if kwargs["verbose"]:
-		print >>sys.stderr, "indexing..."
+		print >>sys.stderr, "indexing ..."
 
 	# prepare the coincidence table interface
 	coinc_tables = snglcoinc.CoincTables(xmldoc, [lsctables.SnglBurstTable.tableName])
