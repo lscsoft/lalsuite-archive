@@ -198,7 +198,7 @@ def ligolw_burca(xmldoc, **kwargs):
 			print >>sys.stderr, "\tsearching ..."
 		# search for and record coincidences
 		for ntuple in snglcoinc.CoincidentNTuples(eventlists, offsetdict.iterkeys(), kwargs["window"], kwargs["verbose"]):
-			if not (FinalCompareFunc and FinalCompareFunc(ntuple, kwargs["window"])):
+			if not (FinalCompareFunc is not None and FinalCompareFunc(ntuple, kwargs["window"])):
 				coinc_tables.append_coinc(process.process_id, time_slide_id, ntuple)
 
 	# clean up and finish
