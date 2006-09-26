@@ -344,24 +344,34 @@ def add_sim_burst_coinc_coinc(contents, process, sim, coinc_events):
 def ligolw_binjfind(xmldoc, **kwargs):
 	process = append_process(xmldoc, **kwargs)
 	if kwargs["verbose"]:
-		print >>sys.stderr, "indexing..."
+		print >>sys.stderr, "indexing ..."
 	contents = DocContents(xmldoc, process)
+
 	if kwargs["verbose"]:
-		print >>sys.stderr, "constructing injection-burst coincidences..."
+		print >>sys.stderr, "constructing injection-burst coincidences:"
 	injections = []	# list of burst events that are injections
-	for sim in contents.simbursttable:
+	for n, sim in enumerate(contents.simbursttable):
+		if kwargs["verbose"] and not (n % (n / 50 or 1)):
+			print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / len(contents.simbursttable)),
 		matches = find_sngl_burst_matches(contents, sim, kwargs["comparefunc"])
 		if matches:
 			add_sim_burst_sngl_burst_coinc(contents, process, sim, matches)
 			injections.extend(matches)
+	if kwargs["verbose"]:
+		print >>sys.stderr, "\t100.0%"
+
 	if contents.sc_coinc_def_id:
 		if kwargs["verbose"]:
-			print >>sys.stderr, "constructing injection-coinc coincidences..."
+			print >>sys.stderr, "constructing injection-coinc coincidences:"
 		cut_noninjection_coincs(contents, injections)
-		for sim in contents.simbursttable:
+		for n, sim in enumerate(contents.simbursttable):
+			if kwargs["verbose"] and not (n % (n / 50 or 1)):
+				print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / len(contents.simbursttable)),
 			matches = find_coinc_matches(contents, sim, kwargs["comparefunc"])
 			if matches:
 				add_sim_burst_coinc_coinc(contents, process, sim, matches)
+		if kwargs["verbose"]:
+			print >>sys.stderr, "\t100.0%"
 	contents.sort_triggers_by_id()
 	llwapp.set_process_end_time(process)
 	return xmldoc
