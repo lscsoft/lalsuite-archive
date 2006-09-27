@@ -1,5 +1,11 @@
 #!/usr/bin/python
 
+
+# $Id$
+__author__ = "Stephen Fairhurst <fairhurst_s@ligo.caltech.edu>"
+__version__ = "$Revision$"[11:-2]
+__date__ = "$Date$"[7:-2]
+	
 import sys
 import os
 import re
@@ -1114,7 +1120,7 @@ plotnumgalaxies [options]
 """
 
 ##############################################################################
-parser = OptionParser( usage )
+parser = OptionParser( usage=usage, version= "%prog CVS $Id$")
 
 # used letters: 
 # abcefghijlmnopqrstuvwxyz
