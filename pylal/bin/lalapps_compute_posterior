@@ -177,9 +177,6 @@ parser.add_option("-Y","--ymax",action="store",type="float",\
 
 (opts,args) = parser.parse_args()
 
-# if --version flagged
-if opts.version:
-  sys.exit(0)
 
 if not opts.prior:
   print >>sys.stderr, "Must supply a prior for calculation\n" 
