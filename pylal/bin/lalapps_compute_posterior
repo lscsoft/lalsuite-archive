@@ -17,8 +17,6 @@ from types import *
 
 from pylab import *
 from glue import segmentsUtils
-from pylal import readMeta
-from pylal import viz
 
 
 #####################################################################
@@ -29,35 +27,46 @@ rcParams.update(params)
 
 #####################################################################
 # function to read in and populate information about each time
-def read_png_file(file):
+def read_png_file(file,time):
+  """
+  read an file which is formatted according to plotnumgalaxies output
+  return a 2-d array with each line of the file as a row in the array
+  @param file:  file name
+  @param time:  analyzed time associated with this file
+  """
   f = open( file , "r")
   lines = f.readlines()
   f.close()
 
-  vals = []
+  png_data = []
   for line in lines:
     if line[0] != '#':
-      vals.append([float(val) for val in line.split()[0:]])
+      png_line = get_png_array([float(val) for val in line.split()], time)
+      png_data.append(png_line)
            
-  M = array(vals)
+  return png_data
 
-  return M
-
-def get_png_array(pngmatrix,i,time):
-
+#############################################################################
+def get_png_array(data,time):
+  """
+  extract the data from a line in a png file, and store as a dictionary
+  @param data:  a list of values read from a line of a png input file
+  @param time:  the analyzed time associated to this png data
+  """
   param = {}
-  param["mass"] = pngmatrix[i,0]
-  param["ng"] = pngmatrix[i,1]
-  param["ngprime"] = pngmatrix[i,2]
-  param["pb"] = pngmatrix[i,3]
-  param["pbprime"] = pngmatrix[i,4]
-  param["dn_lhocal"] = pngmatrix[i,5]
-  param["dn_llocal"] = pngmatrix[i,6]
-  param["dn_luminosity"] = pngmatrix[i,7]
-  param["dn_distance"] = pngmatrix[i,8]
-  param["dn_waveform"] = pngmatrix[i,9]
-  param["dn_mc"] = pngmatrix[i,10]
-  param["tobs"] = float(time)
+  param["mass"]          = data[0]
+  param["ng"]            = data[1]
+  param["ngprime"]       = data[2]
+  param["pb"]            = data[3]
+  param["pbprime"]       = data[4]
+  param["dn_lhocal"]     = data[5]
+  param["dn_llocal"]     = data[6]
+  param["dn_distance"]   = data[8]
+  param["dn_waveform"]   = data[9]
+  param["dn_mc"]         = data[10]
+  param["dn_lummu"]      = log( param["ng"] )
+  param["dn_lumsigma"]   = log( param["ng"] + data[7]) - log( param["ng"])
+  param["tobs"]          = float(time)
 
   return param
 
@@ -79,7 +88,8 @@ def write_file(rate, pdf, filename):
 # function to read posterior
 def read_file( filename ):
    """
-   read in the galaxy list, from an inspsrcs.dat type file
+   read in a prior distribution for the rate, returns two 1-d arrays 
+   containing the first column (rate) and second column (prior probability)
    @param source_file: input file name
    """
    f = open( filename , "r")
@@ -134,7 +144,7 @@ parser = OptionParser( usage=usage, version="%prog CVS $Id$" )
 
 parser.add_option("-p","--prior",action="store",type="string",\
     default=None,\
-    help="which prior to use on the rate. Example: uniform" )
+    help="which prior to use on the rate. (uniform|fromfile)" )
 parser.add_option("-P","--prior-file",action="store",type="string",\
     default=None, metavar=" FILE", help="name of prior file" )
 parser.add_option("-s","--show-plot",action="store_true",default=False,\
@@ -163,7 +173,9 @@ parser.add_option("-d","--dr",action="store",type="float",\
     default=0.01, metavar=" DR", \
     help="dr to use in rate integral" ) 
 parser.add_option("-n","--ntrials",action="store",type="int",\
-    default=1000, metavar=" NTRIALS", help="number of trials for marginalization over errors" ) 
+    default=1000, metavar=" NTRIALS", \
+    help="number of trials for marginalization over errors" ) 
+
 # plotting details
 parser.add_option("-F","--figure-name",action="store",type="string",\
     default=None,metavar=" FNAME",\
@@ -185,59 +197,36 @@ if not opts.prior:
 if (len(opts.galaxies_file)-len(opts.observation_time)):
   print >>sys.stderr, "Must give same number of galaxy files and " +\
                       "observation times\n"
-  print >> sys.stderr, "Number of galaxy-files (-f): "+str(len(opts.galaxies_file))+\
-                       "  number of observation times (-t):"+str(len(opts.observation_time))
+  print >> sys.stderr, "Number of galaxy-files (-f):" + \
+      str(len(opts.galaxies_file)) + \
+      "  number of observation times (-t):" + str(len(opts.observation_time))
   sys.exit(0)
 
 ###########################################################################
 # each time-type has a different file which can have parameters for a
-# sequence of different masses.  The png_matrices in an array of such
-# matrices. 
-png_matrices = []
-for i in range(len(opts.galaxies_file)):
-  png_matrices.append(read_png_file(opts.galaxies_file[i]))
+# sequence of different masses.  The png_matrix is a list of lists of
+# dictionaries.  The first index is the given by the number of epochs,
+# the second by the number of mass windows.
+png_matrix = []
 
-ularray = zeros((len(png_matrices[0]),3),Float32)
+# nepochs is the number of distinct time types 
+nepochs = len(opts.galaxies_file)
+
+for epoch in range(nepochs):
+  png_matrix.append(read_png_file(opts.galaxies_file[epoch], \
+      opts.observation_time[epoch]))
+
 
 # note len(matrix) returns the number of rows in the matrix
-for k in range(len(png_matrices[0])):
-  parameters = []
-  for i in range(len(opts.galaxies_file)):
-    parameters.append(get_png_array(png_matrices[i],k,\
-        opts.observation_time[i]))
+# massBins is given by the number of rows in the png files (assumed the same
+# for all files)
+massBins = len(png_matrix[0])
+ularray = zeros((massBins,3),Float32)
+
+# loop over the mass bins
+for bin in range(massBins):
   
-  mass = []
-  ng = []
-  ngprime = []
-  tobs = []
-  pb = []
-  pbprime = []
-  dn_lhocal = []
-  dn_llocal = []
-  dn_lummu = []
-  dn_lumsigma = []
-  dn_distance = []
-  dn_mc = []
-  dn_waveform = []
-  
-  nepochs = len(opts.galaxies_file)
-  for i in range(nepochs):
-    mass.append(parameters[i]["mass"])
-    ng.append(parameters[i]["ng"])
-    ngprime.append(parameters[i]["ngprime"])
-    tobs.append(parameters[i]["tobs"])
-    pb.append(parameters[i]["pb"])
-    pbprime.append(parameters[i]["pbprime"])
-    dn_lhocal.append(parameters[i]["dn_lhocal"])
-    dn_llocal.append(parameters[i]["dn_llocal"])
-    dn_distance.append(parameters[i]["dn_distance"])
-    dn_waveform.append(parameters[i]["dn_waveform"])
-    dn_mc.append(parameters[i]["dn_mc"])
-    dn_lummu.append(log(parameters[i]["ng"]))
-    dn_lumsigma.append(log(parameters[i]["ng"]+parameters[i]["dn_luminosity"])\
-        -log(parameters[i]["ng"]))
-  
-  
+  # generate the prior
   if opts.prior == "fromfile":
     rate,rateprior = read_file(opts.prior_file)
   elif opts.prior == "uniform":
@@ -245,84 +234,104 @@ for k in range(len(png_matrices[0])):
     dr = opts.dr
     rate = arange(0,maxrate,dr)
     rateprior = ones([int(maxrate/dr)])/maxrate
+  else:
+    print >> sys.stderr, "--prior must be one of uniform or fromfile"
   
+  # calculate the rate
   ngt = 0
   ngprimet = 0
-  for i in range(nepochs):
-    ngt += ng[i] * tobs[i]
-    ngprimet += ngprime[i] * tobs[i]
+  for epoch in range(nepochs):
+    data = png_matrix[epoch][bin]
+    ngt += data["ng"] * data["tobs"]
+    ngprimet += data["ngprime"] * data["tobs"]
     if opts.verbose:
-      print "mu = %f and sigma = %f" % (dn_lummu[i],dn_lumsigma[i])
+      print "mu = %f and sigma = %f" % (data["dn_lummu"],data["dn_lumsigma"])
   exprate = exp( - rate * ngt )
   nomarginpost = rateprior * exprate \
-        * ( pbprime[0] + pb[0] * rate * ngprimet )
-  exprate *= 0.0
+        * ( data["pbprime"] + data["pb"] * rate * ngprimet )
   
+  # set exprate to zero
+  exprate *= 0.0
+ 
+  # perform the marginalization by generating ntrials worth of samples
+  # from the given distributions for the various systematics
   for j in arange(opts.ntrials):
     ngt = 0
-    for i in range(nepochs):
+    for epoch in range(nepochs):
+      data = png_matrix[epoch][bin]
       # magnitude error is lognormal
       if opts.magnitude_error:
-        ngt += random.lognormvariate(dn_lummu[i],dn_lumsigma[i]) * tobs[i]
+        ngt += random.lognormvariate(data["dn_lummu"],data["dn_lumsigma"]) * \
+            data["tobs"]
       else:
-        ngt += ng[i] * tobs[i]
+        ngt += data["ng"] * data["tobs"]
       
       # lho calibration error is normal
-      if ( opts.calibration_error and dn_lhocal[i] != 0.0 ):
+      if ( opts.calibration_error and data["dn_lhocal"] != 0.0 ):
         tmpngt = -1.0
         while tmpngt < 0.0:
-          tmpngt = ngt + random.normalvariate(0.0,dn_lhocal[i]) \
-              * tobs[i]
+          tmpngt = ngt + random.normalvariate(0.0,data["dn_lhocal"]) \
+              * data["tobs"]
         ngt = tmpngt
   
       # llo calibration error is normal
-      if ( opts.calibration_error and dn_llocal[i] != 0.0 ):
+      if ( opts.calibration_error and data["dn_llocal"] != 0.0 ):
         tmpngt = -1.0
         while tmpngt < 0.0:
-          tmpngt = ngt + random.normalvariate(0.0,dn_llocal[i]) \
-              * tobs[i]
+          tmpngt = ngt + random.normalvariate(0.0,data["dn_llocal"]) \
+              * data["tobs"]
         ngt = tmpngt
   
       # monte carlo error is normal
       if opts.montecarlo_error:
         tmpngt = -1.0
         while tmpngt < 0.0:
-          tmpngt = ngt + random.normalvariate(0.0,dn_mc[i]) \
-              * tobs[i]
+          tmpngt = ngt + random.normalvariate(0.0,data["dn_mc"]) \
+              * data["tobs"]
         ngt = tmpngt
   
       # waveform error is normal
       if opts.waveform_error:
         tmpngt = ngt + 1.0
         while (tmpngt > ngt) or (tmpngt < 0.0):
-          tmpngt = ngt + random.normalvariate(0.0,dn_waveform[i]) \
-              * tobs[i]
+          tmpngt = ngt + random.normalvariate(0.0,data["dn_waveform"]) \
+              * data["tobs"]
         ngt = tmpngt
   
       # distance error is normal
       if opts.distance_error:
         tmpngt = -1.0
         while tmpngt < 0.0:
-          tmpngt = ngt + random.normalvariate(0.0,dn_distance[i]) \
-              * tobs[i]
+          tmpngt = ngt + random.normalvariate(0.0,data["dn_distance"]) \
+              * data["tobs"]
         ngt = tmpngt
     exprate += exp( - rate * ( ngt ) )
   exprate /= float(opts.ntrials)
   
   marginpost = rateprior * exprate \
-        * ( pbprime[0] + pb[0] * rate * ngprimet )
+        * ( data["pbprime"] + data["pb"] * rate * ngprimet )
   
-  nomarginnorm=sum(nomarginpost)
-  marginnorm=sum(marginpost)
+  # normalize the distributions
+  nomarginpost  /= sum(nomarginpost)
+  marginpost /= sum(marginpost)
   
   if opts.verbose:
-    print "unmarginalized value at R=0 is %f" %  (nomarginpost[0]/nomarginnorm)
-    print "marginalized value at R=0 is %f" % (marginpost[0]/marginnorm)
+    print "unmarginalized value at R=0 is %f" %  (nomarginpost[0])
+    print "marginalized value at R=0 is %f" % (marginpost[0])
+  
+  if opts.figure_name:
+    if massBins > 1:
+      outputName = opts.figure_name + "-" + str(bin)
+    else:
+      outputName = opts.figure_name
+
+  # write out the data to a text file
+  if opts.figure_name:
+    write_file(rate, marginpost, outputName + "-posterior-pdf.txt")
   
   # plot the posterior pdf
-  write_file(rate, marginpost/marginnorm, opts.figure_name + "-" + str(k) + "-posterior-pdf.txt")
   figure()
-  plot(rate,nomarginpost/nomarginnorm,rate,marginpost/marginnorm)
+  plot(rate,nomarginpost,rate,marginpost)
   legend(('posterior','marginalized posterior'))
   xlabel('Rate per L10 per yr', size='x-large')
   ylabel('Probability', size='x-large')
@@ -332,14 +341,16 @@ for k in range(len(png_matrices[0])):
   tmpv[1]=opts.xmax
   axis(tmpv)
   if opts.figure_name:
-    savefig( opts.figure_name  + "-" + str(k) + "-posterior-pdf.png")
-  
-  figure()
-  cumnomarginpost=cumsum(nomarginpost)/nomarginnorm
-  cummarginpost=cumsum(marginpost)/marginnorm
+    savefig( outputName + "-posterior-pdf.png" )
+
+  # plot the cumulative probability
+  cumnomarginpost=cumsum(nomarginpost)
+  cummarginpost=cumsum(marginpost)
   if opts.verbose:
     print "unmarginalized value at R=0 is %f" %  (cumnomarginpost[1])
     print "marginalized value at R=0 is %f" % (cummarginpost[1])
+  
+  figure()
   semilogy(rate,1.0-cumnomarginpost, rate,1.0-cummarginpost)
   legend(('posterior','marginalized posterior'))
   xlabel('Rate per L10 per yr', size='x-large')
@@ -348,21 +359,21 @@ for k in range(len(png_matrices[0])):
   grid()
   axis([0,opts.xmax,0.001,1])
   if opts.figure_name:
-    savefig( opts.figure_name  + "-" + str(k) + "-posterior-cdf.png")
+    savefig( outputName + "-posterior-cdf.png")
   
   # print out the upper limit based on 90% confidence
   
-  ularray[k,0]=mass[0]
+  ularray[bin,0]=data["mass"]
   for i in range(len(rate)):
     if cumnomarginpost[i] >= 0.9:
       print "The rate upper limit (before marginalization) is %f" % rate[i]
-      ularray[k,1]=rate[i]
+      ularray[bin,1]=rate[i]
       break
   
   for i in range(len(rate)):
     if cummarginpost[i] >= 0.9:
       print "The rate upper limit (after marginalization) is %f" % rate[i]
-      ularray[k,2]=rate[i]
+      ularray[bin,2]=rate[i]
       break
 
 # write the output to a file
@@ -371,29 +382,31 @@ for k in range(len(ularray)):
   ulfile.write("%e %e %e\n" % (ularray[k,0], ularray[k,1], ularray[k,2]))
 ulfile.close()
 
-# and plot this result
-figure()
-x1=ularray[:,0]
-y1=ularray[:,1]
-y2=ularray[:,2]
+# and plot this result, if we have a range of masses
+if (massBins > 1):
+  figure()
+  x1=ularray[:,0]
+  y1=ularray[:,1]
+  y2=ularray[:,2]
 
-# to shade the region above the curve
-semilogy(x1,opts.ymax+0.0*x1,'k+')
-x,y=makesteps(x1,y1,opts.ymax)
-p=fill(x,y, facecolor='k')
-setp(p, alpha=0.2)
-ylim(opts.ymin,opts.ymax)
-x,y=makesteps(x1,y2,opts.ymax)
-p=fill(x,y, facecolor='k')
-setp(p, alpha=0.4)
-ylim(opts.ymin,opts.ymax)
-legend(('unmarginalized','marginalized'),loc='lower left')
-xlabel('Total mass (Msun)', size='x-large')
-ylabel('Rate / yr / L$_{10}$', size='x-large')
-title('Rate versus mass')
-grid()
-if opts.figure_name:
-  savefig( opts.figure_name  + "-rate-v-mass.png")
+  # to shade the region above the curve
+  semilogy(x1,opts.ymax+0.0*x1,'k+')
+  x,y=makesteps(x1,y1,opts.ymax)
+  p=fill(x,y, facecolor='k')
+  setp(p, alpha=0.2)
+  ylim(opts.ymin,opts.ymax)
+  x,y=makesteps(x1,y2,opts.ymax)
+  p=fill(x,y, facecolor='k')
+  setp(p, alpha=0.4)
+  ylim(opts.ymin,opts.ymax)
+  legend(('unmarginalized','marginalized'),loc='lower left')
+  xlabel('Total mass (Msun)', size='x-large')
+  ylabel('Rate / yr / L$_{10}$', size='x-large')
+  title('Rate versus mass')
+  grid()
+
+  if opts.figure_name:
+    savefig( opts.figure_name  + "-rate-v-mass.png")
   
 # show the plots is asked
 if opts.show_plot:
