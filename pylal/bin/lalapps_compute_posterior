@@ -1,5 +1,10 @@
 #!/usr/bin/python
 
+# $Id$
+__author__ = "Patrick Brady <patrick@gravity.phys.uwm.edu>"
+__version__ = "$Revision$"[11:-2]
+__date__ = "$Date$"[7:-2]
+
 import sys
 import os
 from optparse import *
@@ -125,9 +130,8 @@ of plotnumgalaxies (png-output.ini).
 Example:
 
 """
-parser = OptionParser( usage )
-parser.add_option("-v","--version",action="store_true",default=False,\
-    help="display version information " )
+parser = OptionParser( usage=usage, version="%prog CVS $Id$" )
+
 parser.add_option("-p","--prior",action="store",type="string",\
     default=None,\
     help="which prior to use on the rate. Example: uniform" )
@@ -320,6 +324,7 @@ for k in range(len(png_matrices[0])):
   
   # plot the posterior pdf
   write_file(rate, marginpost/marginnorm, opts.figure_name + "-" + str(k) + "-posterior-pdf.txt")
+  figure()
   plot(rate,nomarginpost/nomarginnorm,rate,marginpost/marginnorm)
   legend(('posterior','marginalized posterior'))
   xlabel('Rate per L10 per yr', size='x-large')
