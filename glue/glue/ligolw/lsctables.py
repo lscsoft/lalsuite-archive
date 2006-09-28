@@ -215,9 +215,12 @@ class LSCTable(table.Table):
 	"""
 	A table with a mapping protocol for rows.
 	"""
+	dict = None
+
 	def _end_of_columns(self):
 		table.Table._end_of_columns(self)
-		self.dict = LSCTableRowDict(self)
+		if self.ids is not None:
+			self.dict = LSCTableRowDict(self)
 
 
 #
@@ -323,7 +326,7 @@ LfnTable.RowType = Lfn
 # =============================================================================
 #
 
-class ProcessParamsTable(table.Table):
+class ProcessParamsTable(LSCTable):
 	tableName = "process_params:table"
 	validcolumns = {
 		"program": "lstring",
@@ -336,7 +339,7 @@ class ProcessParamsTable(table.Table):
 	def append(self, row):
 		if row.type not in types.Types:
 			raise ligolw.ElementError, "ProcessParamsTable.append(): unrecognized type '%s'" % row.type
-		table.Table.append(self, row)
+		LSCTable.append(self, row)
 
 
 class ProcessParams(object):
@@ -354,7 +357,7 @@ ProcessParamsTable.RowType = ProcessParams
 # =============================================================================
 #
 
-class SearchSummaryTable(table.Table):
+class SearchSummaryTable(LSCTable):
 	tableName = "search_summary:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -464,7 +467,7 @@ SearchSummaryTable.RowType = SearchSummary
 # =============================================================================
 #
 
-class SearchSummVarsTable(table.Table):
+class SearchSummVarsTable(LSCTable):
 	tableName = "search_summvars:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -600,7 +603,7 @@ class SnglInspiralIDs(ilwd.ILWD):
 		ilwd.ILWD.__init__(self, "sngl_inspiral", "event_id", n)
 
 
-class SnglInspiralTable(table.Table):	# FIXME: should be LSCTable
+class SnglInspiralTable(LSCTable):
 	tableName = "sngl_inspiral:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -744,7 +747,7 @@ class SnglRingDownIDs(ilwd.ILWD):
 		ilwd.ILWD.__init__(self, "sngl_ringdown", "event_id", n)
 
 
-class SnglRingDownTable(table.Table):	# FIXME: should be LSCTable
+class SnglRingDownTable(LSCTable):
 	tableName = "sngl_ringdown:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -1149,7 +1152,7 @@ SimRingDownTable.RowType = SimRingDown
 # =============================================================================
 #
 
-class SummValueTable(table.Table):
+class SummValueTable(LSCTable):
 	tableName = "summ_value:table"
 	validcolumns = {
 		"program": "lstring",
@@ -1211,7 +1214,7 @@ SimInstParamsTable.RowType = SimInstParams
 # =============================================================================
 #
 
-class StochasticTable(table.Table):
+class StochasticTable(LSCTable):
 	tableName = "stochastic:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -1245,7 +1248,7 @@ StochasticTable.RowType = Stochastic
 # =============================================================================
 #
 
-class StochSummTable(table.Table):
+class StochSummTable(LSCTable):
 	tableName = "stochsumm:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -1286,7 +1289,7 @@ StochSummTable.RowType = StochSumm
 # upon to be unique within this table (two different sources might *happen*
 # to use the same identifier format, like "event001").
 
-class ExtTriggersTable(table.Table):
+class ExtTriggersTable(LSCTable):
 	tableName = "external_trigger:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -1347,7 +1350,7 @@ ExtTriggersTable.RowType = ExtTriggers
 # =============================================================================
 #
 
-class FilterTable(table.Table):
+class FilterTable(LSCTable):
 	tableName = "filter:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -1643,7 +1646,7 @@ CoincTable.RowType = Coinc
 # =============================================================================
 #
 
-class CoincMapTable(table.Table):
+class CoincMapTable(LSCTable):
 	tableName = "coinc_event_map:table"
 	validcolumns = {
 		"coinc_event_id": "ilwd:char",
