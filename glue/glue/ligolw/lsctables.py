@@ -825,7 +825,19 @@ class MultiInspiralTable(LSCTable):
 		"ligo_angle_sig": "real_4",
 		"inclination": "real_4",
 		"polarization": "real_4",
-		"event_id": "ilwd:char"
+		"event_id": "ilwd:char",
+		"h1quad_re": "real_4",
+		"h1quad_im": "real_4",
+		"h2quad_re": "real_4",
+		"h2quad_im": "real_4",
+		"l1quad_re": "real_4",
+		"l1quad_im": "real_4",
+		"v1quad_re": "real_4",
+		"v1quad_im": "real_4",
+		"g1quad_re": "real_4",
+		"g1quad_im": "real_4",
+		"t1quad_re": "real_4",
+		"t1quad_im": "real_4"
 	}
 	ids = MultiInspiralIDs()
 
