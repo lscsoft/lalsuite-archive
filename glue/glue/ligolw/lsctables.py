@@ -123,15 +123,15 @@ def HasNonLSCTables(elem):
 #
 # =============================================================================
 #
-#                 Table and Row Class With a Mapping Protocol
+#                     Table Class With a Mapping Protocol
 #
 # =============================================================================
 #
 
-class LSCTableUniqueDict(object):
+class LSCTableRowDict(object):
 	"""
 	Class for implementing the Python mapping protocol on a list of table
-	rows when each row has a unique key.
+	rows when multiple rows share the same key.
 	"""
 	def __init__(self, table_elem):
 		"""
@@ -142,90 +142,13 @@ class LSCTableUniqueDict(object):
 
 	def __len__(self):
 		"""
-		Return the number of rows.
-		"""
-		return len(self._table)
-
-	def __getitem__(self, key):
-		"""
-		Retrieve a row by key.
-		"""
-		try:
-			return self._table[self._keys.index(key)]
-		except ValueError:
-			raise KeyError, key
-
-	def __setitem__(self, key, value):
-		"""
-		Set a row by key.  Note: the row key carried by value need
-		not equal key, but this might not be allowed in the future.
-		"""
-		try:
-			self._table[self._keys.index(key)] = value
-		except ValueError:
-			# FIXME: should we assign the key to each value?
-			self._table.append(value)
-
-	def __delitem__(self, key):
-		"""
-		Delete a row by key.
-		"""
-		try:
-			del self._table[self._keys.index(key)]
-		except ValueError:
-			raise KeyError, key
-
-	def __iter__(self):
-		"""
-		Iterate over the keys.
-		"""
-		return iter(self._keys)
-
-	iterkeys = __iter__
-
-	def __contains__(self, key):
-		"""
-		Return True if a row has key equal to key, otherwise return
-		False.
-		"""
-		return key in self._keys
-
-	has_key = __contains__
-
-	def keys(self):
-		"""
-		Return a list of the keys.
-		"""
-		return list(self)
-
-	def iteritems(self):
-		"""
-		Iterate over (key, value) pairs.
-		"""
-		for i, key in enumerate(self):
-			yield key, self._table[i]
-
-	def itervalues(self):
-		"""
-		Return an iterator over rows.
-		"""
-		return iter(self._table)
-
-
-class LSCTableMultiDict(LSCTableUniqueDict):
-	"""
-	Class for implementing the Python mapping protocol on a list of table
-	rows when multiple rows share the same key.
-	"""
-	def __len__(self):
-		"""
-		Return the number of unique keys.
+		Return the number of unique IDs.
 		"""
 		return len(self.keys())
 
 	def __getitem__(self, key):
 		"""
-		Retrieve rows by key.
+		Return a list of the rows whose ID equals key.
 		"""
 		l = [self._table[i] for i, k in enumerate(self._keys) if k == key]
 		if not len(l):
@@ -234,8 +157,9 @@ class LSCTableMultiDict(LSCTableUniqueDict):
 
 	def __setitem__(self, key, values):
 		"""
-		Replace the rows having key with the rows in the list values,
-		appending to the table if there are no rows with that ID.
+		Replace the rows whose ID equals key with the rows in the
+		list of values, appending to the table if there are no rows
+		with that ID.
 		"""
 		# FIXME: should we assign the key to rows?
 		del self[key]
@@ -243,7 +167,7 @@ class LSCTableMultiDict(LSCTableUniqueDict):
 
 	def __delitem__(self, key):
 		"""
-		Delete rows by key.
+		Delete all the rows whose ID equals key.
 		"""
 		for i in xrange(len(self._keys), -1, -1):
 			if self._keys[i] == key:
@@ -251,15 +175,24 @@ class LSCTableMultiDict(LSCTableUniqueDict):
 
 	def __iter__(self):
 		"""
-		Iterate over the unique keys.
+		Iterate over the unique IDs.
 		"""
 		return {}.fromkeys(self._keys).iterkeys()
 
 	iterkeys = __iter__
 
+	def __contains__(self, key):
+		"""
+		Return True if the table contains a row whose ID equals
+		key, otherwise return False.
+		"""
+		return key in self._keys
+
+	has_key = __contains__
+
 	def keys(self):
 		"""
-		Return a list of the unique keys.
+		Return a list of the unique IDs.
 		"""
 		return {}.fromkeys(self._keys).keys()
 
@@ -278,22 +211,13 @@ class LSCTableMultiDict(LSCTableUniqueDict):
 			yield self[key]
 
 
-class LSCTableUnique(table.Table):
+class LSCTable(table.Table):
 	"""
-	A table containing rows where each row possesses a unique key.
-	"""
-	def _end_of_columns(self):
-		table.Table._end_of_columns(self)
-		self.dict = LSCTableUniqueDict(self)
-
-
-class LSCTableMulti(table.Table):
-	"""
-	A table containing rows where multiple rows can share a key.
+	A table with a mapping protocol for rows.
 	"""
 	def _end_of_columns(self):
 		table.Table._end_of_columns(self)
-		self.dict = LSCTableMultiDict(self)
+		self.dict = LSCTableRowDict(self)
 
 
 #
@@ -309,7 +233,7 @@ class ProcessIDs(ilwd.ILWD):
 		ilwd.ILWD.__init__(self, "process", "process_id", n)
 
 
-class ProcessTable(LSCTableUnique):
+class ProcessTable(LSCTable):
 	tableName = "process:table"
 	validcolumns = {
 		"program": "lstring",
@@ -360,7 +284,7 @@ class LfnIDs(ilwd.ILWD):
 		ilwd.ILWD.__init__(self, "lfn", "lfn_id", n)
 
 
-class LfnTable(LSCTableUnique):
+class LfnTable(LSCTable):
 	tableName = "lfn:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -570,7 +494,7 @@ class SnglBurstIDs(ilwd.ILWD):
 		ilwd.ILWD.__init__(self, "sngl_burst", "event_id", n)
 
 
-class SnglBurstTable(LSCTableUnique):
+class SnglBurstTable(LSCTable):
 	tableName = "sngl_burst:table"
 	validcolumns = {
 		"creator_db": "int_4s",
@@ -676,7 +600,7 @@ class SnglInspiralIDs(ilwd.ILWD):
 		ilwd.ILWD.__init__(self, "sngl_inspiral", "event_id", n)
 
 
-class SnglInspiralTable(table.Table):	# FIXME: should be LSCTableUnique
+class SnglInspiralTable(table.Table):	# FIXME: should be LSCTable
 	tableName = "sngl_inspiral:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -820,7 +744,7 @@ class SnglRingDownIDs(ilwd.ILWD):
 		ilwd.ILWD.__init__(self, "sngl_ringdown", "event_id", n)
 
 
-class SnglRingDownTable(table.Table):	# FIXME: should be LSCTableUnique
+class SnglRingDownTable(table.Table):	# FIXME: should be LSCTable
 	tableName = "sngl_ringdown:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -863,7 +787,7 @@ class MultiInspiralIDs(ilwd.ILWD):
 		ilwd.ILWD.__init__(self, "multi_inspiral", "event_id", n)
 
 
-class MultiInspiralTable(LSCTableUnique):
+class MultiInspiralTable(LSCTable):
 	tableName = "multi_inspiral:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -926,7 +850,7 @@ class SimInspiralIDs(ilwd.ILWD):
 		ilwd.ILWD.__init__(self, "sim_inspiral", "simulation_id", n)
 
 
-class SimInspiralTable(LSCTableUnique):
+class SimInspiralTable(LSCTable):
 	tableName = "sim_inspiral:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -1042,7 +966,7 @@ class SimBurstIDs(ilwd.ILWD):
 		ilwd.ILWD.__init__(self, "sim_burst", "simulation_id", n)
 
 
-class SimBurstTable(LSCTableUnique):
+class SimBurstTable(LSCTable):
 	tableName = "sim_burst:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -1164,7 +1088,7 @@ class SimRingDownIDs(ilwd.ILWD):
 		ilwd.ILWD.__init__(self, "sim_ringdown", "simulation_id", n)
 
 
-class SimRingDownTable(LSCTableUnique):
+class SimRingDownTable(LSCTable):
 	tableName = "sim_ringdown:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -1249,7 +1173,7 @@ class SimInstParamsIDs(ilwd.ILWD):
 		ilwd.ILWD.__init__(self, "sim_inst_params", "simulation_id", n)
 
 
-class SimInstParamsTable(LSCTableUnique):
+class SimInstParamsTable(LSCTable):
 	tableName = "sim_inst_params:table"
 	validcolumns = {
 		"simulation_id": "ilwd:char",
@@ -1442,7 +1366,7 @@ class SegmentIDs(ilwd.ILWD):
 		ilwd.ILWD.__init__(self, "segment", "segment_id", n)
 
 
-class SegmentTable(LSCTableUnique):
+class SegmentTable(LSCTable):
 	tableName = "segment:table"
 	validcolumns = {
 		"creator_db": "int_4s",
@@ -1516,7 +1440,7 @@ class SegmentDefMapIDs(ilwd.ILWD):
 		ilwd.ILWD.__init__(self, "segment_def_map", "seg_def_map_id", n)
 
 
-class SegmentDefMapTable(LSCTableUnique):
+class SegmentDefMapTable(LSCTable):
 	tableName = "segment_def_map:table"
 	validcolumns = {
 		"creator_db": "int_4s",
@@ -1552,7 +1476,7 @@ class SegmentDefIDs(ilwd.ILWD):
 		ilwd.ILWD.__init__(self, "segment_definer", "segment_def_id", n)
 
 
-class SegmentDefTable(LSCTableUnique):
+class SegmentDefTable(LSCTable):
 	tableName = "segment_definer:table"
 	validcolumns = {
 		"creator_db": "int_4s",
@@ -1590,7 +1514,7 @@ class TimeSlideIDs(ilwd.ILWD):
 		ilwd.ILWD.__init__(self, "time_slide", "time_slide_id", n)
 
 
-class TimeSlideTable(LSCTableMulti):
+class TimeSlideTable(LSCTable):
 	tableName = "time_slide:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -1643,7 +1567,7 @@ class CoincDefIDs(ilwd.ILWD):
 		ilwd.ILWD.__init__(self, "coinc_definer", "coinc_def_id", n)
 
 
-class CoincDefTable(LSCTableMulti):
+class CoincDefTable(LSCTable):
 	tableName = "coinc_definer:table"
 	validcolumns = {
 		"coinc_def_id": "ilwd:char",
@@ -1680,7 +1604,7 @@ class CoincIDs(ilwd.ILWD):
 		ilwd.ILWD.__init__(self, "coinc_event", "coinc_event_id", n)
 
 
-class CoincTable(LSCTableUnique):
+class CoincTable(LSCTable):
 	tableName = "coinc_event:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -1735,7 +1659,7 @@ class LIGOLWMonIDs(ilwd.ILWD):
 		ilwd.ILWD.__init__(self, "ligolw_mon", "event_id", n)
 
 
-class LIGOLWMonTable(LSCTableUnique):
+class LIGOLWMonTable(LSCTable):
 	tableName = "ligolw_mon:table"
 	validcolumns = {
 		"creator_db": "int_4s",
