@@ -16,6 +16,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+
 #
 # =============================================================================
 #
@@ -23,6 +24,7 @@
 #
 # =============================================================================
 #
+
 
 """
 LSC Table definitions.  These must be kept synchronized with the official
@@ -36,7 +38,9 @@ __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __date__ = "$Date$"[7:-2]
 __version__ = "$Revision$"[11:-2]
 
+
 from xml import sax
+
 
 from glue import lal
 from glue import segments
@@ -53,6 +57,7 @@ import ilwd
 #
 # =============================================================================
 #
+
 
 def New(Type, columns = None):
 	"""
@@ -123,120 +128,18 @@ def HasNonLSCTables(elem):
 #
 # =============================================================================
 #
-#                     Table Class With a Mapping Protocol
-#
-# =============================================================================
-#
-
-class LSCTableRowDict(object):
-	"""
-	Class for implementing the Python mapping protocol on a list of table
-	rows when multiple rows share the same key.
-	"""
-	def __init__(self, table_elem):
-		"""
-		Initialize the mapping on the list of rows.
-		"""
-		self._table = table_elem
-		self._keys = table_elem.getColumnByName(table_elem.ids.column_name)
-
-	def __len__(self):
-		"""
-		Return the number of unique IDs.
-		"""
-		return len(self.keys())
-
-	def __getitem__(self, key):
-		"""
-		Return a list of the rows whose ID equals key.
-		"""
-		l = [self._table[i] for i, k in enumerate(self._keys) if k == key]
-		if not len(l):
-			raise KeyError, key
-		return l
-
-	def __setitem__(self, key, values):
-		"""
-		Replace the rows whose ID equals key with the rows in the
-		list of values, appending to the table if there are no rows
-		with that ID.
-		"""
-		# FIXME: should we assign the key to rows?
-		del self[key]
-		map(self._table.append, values)
-
-	def __delitem__(self, key):
-		"""
-		Delete all the rows whose ID equals key.
-		"""
-		for i in xrange(len(self._keys), -1, -1):
-			if self._keys[i] == key:
-				del self._table[i]
-
-	def __iter__(self):
-		"""
-		Iterate over the unique IDs.
-		"""
-		return {}.fromkeys(self._keys).iterkeys()
-
-	iterkeys = __iter__
-
-	def __contains__(self, key):
-		"""
-		Return True if the table contains a row whose ID equals
-		key, otherwise return False.
-		"""
-		return key in self._keys
-
-	has_key = __contains__
-
-	def keys(self):
-		"""
-		Return a list of the unique IDs.
-		"""
-		return {}.fromkeys(self._keys).keys()
-
-	def iteritems(self):
-		"""
-		Iterate over (key, value) pairs.
-		"""
-		for key in self:
-			yield key, self[key]
-
-	def itervalues(self):
-		"""
-		Return an iterator over rows.
-		"""
-		for key in self:
-			yield self[key]
-
-
-class LSCTable(table.Table):
-	"""
-	A table with a mapping protocol for rows.
-	"""
-	dict = None
-
-	def _end_of_columns(self):
-		table.Table._end_of_columns(self)
-		if self.ids is not None:
-			self.dict = LSCTableRowDict(self)
-
-
-#
-# =============================================================================
-#
 #                                process:table
 #
 # =============================================================================
 #
+
 
 class ProcessIDs(ilwd.ILWD):
 	def __init__(self, n = 0):
 		ilwd.ILWD.__init__(self, "process", "process_id", n)
 
 
-class ProcessTable(LSCTable):
+class ProcessTable(table.Table):
 	tableName = "process:table"
 	validcolumns = {
 		"program": "lstring",
@@ -282,12 +185,13 @@ ProcessTable.RowType = Process
 # =============================================================================
 #
 
+
 class LfnIDs(ilwd.ILWD):
 	def __init__(self, n = 0):
 		ilwd.ILWD.__init__(self, "lfn", "lfn_id", n)
 
 
-class LfnTable(LSCTable):
+class LfnTable(table.Table):
 	tableName = "lfn:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -326,7 +230,8 @@ LfnTable.RowType = Lfn
 # =============================================================================
 #
 
-class ProcessParamsTable(LSCTable):
+
+class ProcessParamsTable(table.Table):
 	tableName = "process_params:table"
 	validcolumns = {
 		"program": "lstring",
@@ -339,7 +244,7 @@ class ProcessParamsTable(LSCTable):
 	def append(self, row):
 		if row.type not in types.Types:
 			raise ligolw.ElementError, "ProcessParamsTable.append(): unrecognized type '%s'" % row.type
-		LSCTable.append(self, row)
+		table.Table.append(self, row)
 
 
 class ProcessParams(object):
@@ -357,7 +262,8 @@ ProcessParamsTable.RowType = ProcessParams
 # =============================================================================
 #
 
-class SearchSummaryTable(LSCTable):
+
+class SearchSummaryTable(table.Table):
 	tableName = "search_summary:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -467,7 +373,8 @@ SearchSummaryTable.RowType = SearchSummary
 # =============================================================================
 #
 
-class SearchSummVarsTable(LSCTable):
+
+class SearchSummVarsTable(table.Table):
 	tableName = "search_summvars:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -492,12 +399,13 @@ SearchSummVarsTable.RowType = SearchSummVars
 # =============================================================================
 #
 
+
 class SnglBurstIDs(ilwd.ILWD):
 	def __init__(self, n = 0):
 		ilwd.ILWD.__init__(self, "sngl_burst", "event_id", n)
 
 
-class SnglBurstTable(LSCTable):
+class SnglBurstTable(table.Table):
 	tableName = "sngl_burst:table"
 	validcolumns = {
 		"creator_db": "int_4s",
@@ -598,12 +506,13 @@ SnglBurstTable.RowType = SnglBurst
 # =============================================================================
 #
 
+
 class SnglInspiralIDs(ilwd.ILWD):
 	def __init__(self, n = 0):
 		ilwd.ILWD.__init__(self, "sngl_inspiral", "event_id", n)
 
 
-class SnglInspiralTable(LSCTable):
+class SnglInspiralTable(table.Table):
 	tableName = "sngl_inspiral:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -742,12 +651,13 @@ SnglInspiralTable.RowType = SnglInspiral
 # =============================================================================
 #
 
+
 class SnglRingDownIDs(ilwd.ILWD):
 	def __init__(self, n = 0):
 		ilwd.ILWD.__init__(self, "sngl_ringdown", "event_id", n)
 
 
-class SnglRingDownTable(LSCTable):
+class SnglRingDownTable(table.Table):
 	tableName = "sngl_ringdown:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -785,12 +695,13 @@ SnglRingDownTable.RowType = SnglRingDown
 # =============================================================================
 #
 
+
 class MultiInspiralIDs(ilwd.ILWD):
 	def __init__(self, n = 0):
 		ilwd.ILWD.__init__(self, "multi_inspiral", "event_id", n)
 
 
-class MultiInspiralTable(LSCTable):
+class MultiInspiralTable(table.Table):
 	tableName = "multi_inspiral:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -860,12 +771,13 @@ MultiInspiralTable.RowType = MultiInspiral
 # =============================================================================
 #
 
+
 class SimInspiralIDs(ilwd.ILWD):
 	def __init__(self, n = 0):
 		ilwd.ILWD.__init__(self, "sim_inspiral", "simulation_id", n)
 
 
-class SimInspiralTable(LSCTable):
+class SimInspiralTable(table.Table):
 	tableName = "sim_inspiral:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -976,12 +888,13 @@ SimInspiralTable.RowType = SimInspiral
 # =============================================================================
 #
 
+
 class SimBurstIDs(ilwd.ILWD):
 	def __init__(self, n = 0):
 		ilwd.ILWD.__init__(self, "sim_burst", "simulation_id", n)
 
 
-class SimBurstTable(LSCTable):
+class SimBurstTable(table.Table):
 	tableName = "sim_burst:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -1098,12 +1011,13 @@ SimBurstTable.RowType = SimBurst
 # =============================================================================
 #
 
+
 class SimRingDownIDs(ilwd.ILWD):
 	def __init__(self, n = 0):
 		ilwd.ILWD.__init__(self, "sim_ringdown", "simulation_id", n)
 
 
-class SimRingDownTable(LSCTable):
+class SimRingDownTable(table.Table):
 	tableName = "sim_ringdown:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -1152,7 +1066,8 @@ SimRingDownTable.RowType = SimRingDown
 # =============================================================================
 #
 
-class SummValueTable(LSCTable):
+
+class SummValueTable(table.Table):
 	tableName = "summ_value:table"
 	validcolumns = {
 		"program": "lstring",
@@ -1188,7 +1103,7 @@ class SimInstParamsIDs(ilwd.ILWD):
 		ilwd.ILWD.__init__(self, "sim_inst_params", "simulation_id", n)
 
 
-class SimInstParamsTable(LSCTable):
+class SimInstParamsTable(table.Table):
 	tableName = "sim_inst_params:table"
 	validcolumns = {
 		"simulation_id": "ilwd:char",
@@ -1214,7 +1129,8 @@ SimInstParamsTable.RowType = SimInstParams
 # =============================================================================
 #
 
-class StochasticTable(LSCTable):
+
+class StochasticTable(table.Table):
 	tableName = "stochastic:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -1248,7 +1164,8 @@ StochasticTable.RowType = Stochastic
 # =============================================================================
 #
 
-class StochSummTable(LSCTable):
+
+class StochSummTable(table.Table):
 	tableName = "stochsumm:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -1282,6 +1199,7 @@ StochSummTable.RowType = StochSumm
 # =============================================================================
 #
 
+
 # FIXME: this table looks broken to me.  There is no unique ID column, thus
 # it is not possible to refer to entries in this table from other tables.
 # There is a "notice_id" column, but that is for recording the native
@@ -1289,7 +1207,8 @@ StochSummTable.RowType = StochSumm
 # upon to be unique within this table (two different sources might *happen*
 # to use the same identifier format, like "event001").
 
-class ExtTriggersTable(LSCTable):
+
+class ExtTriggersTable(table.Table):
 	tableName = "external_trigger:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -1350,7 +1269,8 @@ ExtTriggersTable.RowType = ExtTriggers
 # =============================================================================
 #
 
-class FilterTable(LSCTable):
+
+class FilterTable(table.Table):
 	tableName = "filter:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -1376,12 +1296,13 @@ FilterTable.RowType = Filter
 # =============================================================================
 #
 
+
 class SegmentIDs(ilwd.ILWD):
 	def __init__(self, n = 0):
 		ilwd.ILWD.__init__(self, "segment", "segment_id", n)
 
 
-class SegmentTable(LSCTable):
+class SegmentTable(table.Table):
 	tableName = "segment:table"
 	validcolumns = {
 		"creator_db": "int_4s",
@@ -1450,12 +1371,13 @@ SegmentTable.RowType = Segment
 # =============================================================================
 #
 
+
 class SegmentDefMapIDs(ilwd.ILWD):
 	def __init__(self, n = 0):
 		ilwd.ILWD.__init__(self, "segment_def_map", "seg_def_map_id", n)
 
 
-class SegmentDefMapTable(LSCTable):
+class SegmentDefMapTable(table.Table):
 	tableName = "segment_def_map:table"
 	validcolumns = {
 		"creator_db": "int_4s",
@@ -1486,12 +1408,13 @@ SegmentDefMapTable.RowType = SegmentDefMap
 # =============================================================================
 #
 
+
 class SegmentDefIDs(ilwd.ILWD):
 	def __init__(self, n = 0):
 		ilwd.ILWD.__init__(self, "segment_definer", "segment_def_id", n)
 
 
-class SegmentDefTable(LSCTable):
+class SegmentDefTable(table.Table):
 	tableName = "segment_definer:table"
 	validcolumns = {
 		"creator_db": "int_4s",
@@ -1524,12 +1447,13 @@ SegmentDefTable.RowType = SegmentDef
 # =============================================================================
 #
 
+
 class TimeSlideIDs(ilwd.ILWD):
 	def __init__(self, n = 0):
 		ilwd.ILWD.__init__(self, "time_slide", "time_slide_id", n)
 
 
-class TimeSlideTable(LSCTable):
+class TimeSlideTable(table.Table):
 	tableName = "time_slide:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -1577,12 +1501,13 @@ TimeSlideTable.RowType = TimeSlide
 # =============================================================================
 #
 
+
 class CoincDefIDs(ilwd.ILWD):
 	def __init__(self, n = 0):
 		ilwd.ILWD.__init__(self, "coinc_definer", "coinc_def_id", n)
 
 
-class CoincDefTable(LSCTable):
+class CoincDefTable(table.Table):
 	tableName = "coinc_definer:table"
 	validcolumns = {
 		"coinc_def_id": "ilwd:char",
@@ -1614,12 +1539,13 @@ CoincDefTable.RowType = CoincDef
 # =============================================================================
 #
 
+
 class CoincIDs(ilwd.ILWD):
 	def __init__(self, n = 0):
 		ilwd.ILWD.__init__(self, "coinc_event", "coinc_event_id", n)
 
 
-class CoincTable(LSCTable):
+class CoincTable(table.Table):
 	tableName = "coinc_event:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -1646,7 +1572,8 @@ CoincTable.RowType = Coinc
 # =============================================================================
 #
 
-class CoincMapTable(LSCTable):
+
+class CoincMapTable(table.Table):
 	tableName = "coinc_event_map:table"
 	validcolumns = {
 		"coinc_event_id": "ilwd:char",
@@ -1669,12 +1596,13 @@ CoincMapTable.RowType = CoincMap
 # =============================================================================
 #
 
+
 class LIGOLWMonIDs(ilwd.ILWD):
 	def __init__(self, n = 0):
 		ilwd.ILWD.__init__(self, "ligolw_mon", "event_id", n)
 
 
-class LIGOLWMonTable(LSCTable):
+class LIGOLWMonTable(table.Table):
 	tableName = "ligolw_mon:table"
 	validcolumns = {
 		"creator_db": "int_4s",
@@ -1711,9 +1639,11 @@ LIGOLWMonTable.RowType = LIGOLWMon
 # =============================================================================
 #
 
+
 #
 # Table name ---> table type mapping.
 #
+
 
 TableByName = {
 	table.StripTableName(ProcessTable.tableName): ProcessTable,
@@ -1758,12 +1688,15 @@ TableByName = {
 # Override portions of the ligolw.LIGOLWContentHandler class
 #
 
+
 __parent_startTable = ligolw.LIGOLWContentHandler.startTable
+
 
 def startTable(self, attrs):
 	name = table.StripTableName(attrs["Name"])
 	if name in TableByName:
 		return TableByName[name](attrs)
 	return __parent_startTable(self, attrs)
+
 
 ligolw.LIGOLWContentHandler.startTable = startTable
