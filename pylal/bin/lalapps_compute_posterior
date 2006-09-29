@@ -390,7 +390,7 @@ if (massBins > 1):
   y2=ularray[:,2]
 
   # to shade the region above the curve
-  semilogy(x1,opts.ymax+0.0*x1,'k+')
+  semilogy(x1,opts.ymax+0.0*x1,'w+')
   x,y=makesteps(x1,y1,opts.ymax)
   p=fill(x,y, facecolor='k')
   setp(p, alpha=0.2)
@@ -399,7 +399,7 @@ if (massBins > 1):
   p=fill(x,y, facecolor='k')
   setp(p, alpha=0.4)
   ylim(opts.ymin,opts.ymax)
-  legend(('unmarginalized','marginalized'),loc='lower left')
+  legend(('','unmarginalized','marginalized'),loc='lower left')
   xlabel('Total mass (Msun)', size='x-large')
   ylabel('Rate / yr / L$_{10}$', size='x-large')
   title('Rate versus mass')
