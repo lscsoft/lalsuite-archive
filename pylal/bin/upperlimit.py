@@ -219,7 +219,7 @@ if not opts.skip_coiredata:
   if stat_dict["statistic"][-3:] == "snr":
     # coire takes "snrsq"/"effective_snrsq"
     command += "sq"
-  if stat_dict["statistic"] == "bittenl":
+  if stat_dict["statistic"] == "bitten_l":
     command += " --h1-bittenl-a "+stat_dict["bittenl_a"] + \
         " --h1-bittenl-b "+stat_dict["bittenl_b"] + \
         " --h2-bittenl-a "+stat_dict["bittenl_a"] + \
