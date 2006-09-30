@@ -15,7 +15,7 @@ void *do_alloc(long a, long b);
 /* include bitmaps directly - no reason to pollute namespace */
 #include "font_8x16.c"
 
-RGBPic *make_RGBPic(long width, long height)
+RGBPic *make_RGBPic(int width, int height)
 {
 RGBPic *p;
 
@@ -49,13 +49,13 @@ if(p->flag & RGBPIC_FLAG_FREE_BLUE){
 free(p);
 }
 
-void RGBPic_vprintf(RGBPic *p, long x, long y, 
-	long fg_color, long bg_color,
+void RGBPic_vprintf(RGBPic *p, int x, int y, 
+	int fg_color, int bg_color,
 	const char *format, va_list ap)
 {
 unsigned char *s,*q,*dst;
-long size=1024,count;
-long z,i,j,step;
+int size=1024,count;
+int z,i,j,step;
 unsigned char c1,c2,line,line2;
 
 /* easy sanity checking first */
@@ -115,8 +115,8 @@ for(q=s;*q;q++){
 free(s);
 }
 
-void RGBPic_printf(RGBPic *p, long x, long y, 
-	long fg_color, long bg_color,
+void RGBPic_printf(RGBPic *p, int x, int y, 
+	int fg_color, int bg_color,
 	const char *format, ...)
 {
 va_list ap;
@@ -127,13 +127,13 @@ RGBPic_vprintf(p, x, y,
 va_end(ap);
 }
 
-void RGBPic_vprintf_v(RGBPic *p, long x, long y, 
-	long fg_color, long bg_color,
+void RGBPic_vprintf_v(RGBPic *p, int x, int y, 
+	int fg_color, int bg_color,
 	const char *format, va_list ap)
 {
 unsigned char *s,*q,*dst;
-long size=1024,count;
-long z,i,j;
+int size=1024,count;
+int z,i,j;
 unsigned char c1,c2,line,line2;
 
 /* easy sanity checking first */
@@ -192,8 +192,8 @@ for(q=s;*q;q++){
 free(s);
 }
 
-void RGBPic_printf_v(RGBPic *p, long x, long y, 
-	long fg_color, long bg_color,
+void RGBPic_printf_v(RGBPic *p, int x, int y, 
+	int fg_color, int bg_color,
 	const char *format, ...)
 {
 va_list ap;
@@ -207,7 +207,7 @@ va_end(ap);
 void RGBPic_dump_ppm(char *filename, RGBPic *p)
 {
 FILE *fout;
-long i,j;
+int i,j;
 char s[20000];
 
 snprintf(s,20000,"%s%s", output_dir, filename);
@@ -246,10 +246,10 @@ system(s);
 }
 #endif
 
-void RGBPic_clear_area(RGBPic *p, long color, long x1, long y1, long x2, long y2)
+void RGBPic_clear_area(RGBPic *p, int color, int x1, int y1, int x2, int y2)
 {
 unsigned char c;
-long i;long j;
+int i;int j;
 
 /* check dimensions */
 if(x1<0)x1=0;
@@ -277,9 +277,9 @@ for(i=y1;i<=y2;i++)
 }
 
 /* Bresenham algorithm */
-void RGBPic_draw_line(RGBPic *p, long color, long x1, long y1, long x2, long y2)
+void RGBPic_draw_line(RGBPic *p, int color, int x1, int y1, int x2, int y2)
 {
-long x,y,dx,dy,adx,ady,eps;
+int x,y,dx,dy,adx,ady,eps;
 /* special case vertical lines */
 if(x1==x2){
 	if(y2<y1){
@@ -347,7 +347,7 @@ if(dx>ady){
 	}
 }
 
-PLOT *make_plot(long width, long height)
+PLOT *make_plot(int width, int height)
 {
 PLOT *r;
 r=do_alloc(1,sizeof(*r));
@@ -426,10 +426,10 @@ if(replace){
 
 #define exp10(a)	exp(M_LN10*(a))
 
-void draw_grid(RGBPic *p, PLOT *plot, long x, long y)
+void draw_grid(RGBPic *p, PLOT *plot, int x, int y)
 {
 double a,dx,dy,dsx,dsy,e10x,e10y;
-long i,j,k;
+int i,j,k;
 char s[200];
 
 if(plot->lower_x > plot->upper_x){
@@ -522,11 +522,11 @@ if(plot->logscale_x || plot->logscale_y)
 
 }
 
-void draw_points_f(RGBPic *p, PLOT *plot, long color, float *xx, float *yy, long count, long step_x, long step_y)
+void draw_points_f(RGBPic *p, PLOT *plot, int color, float *xx, float *yy, int count, int step_x, int step_y)
 {
-long i;
+int i;
 double x,y,dx,dy;
-long px,py;
+int px,py;
 dx=plot->px1-plot->px0;
 if(plot->lx1>plot->lx0)dx/=plot->lx1-plot->lx0;
 	else dx=0;
@@ -554,11 +554,11 @@ for(i=0;i<count;i++){
 	}
 }
 
-void draw_points_d(RGBPic *p, PLOT *plot, long color, double *xx, double *yy, long count, long step_x, long step_y)
+void draw_points_d(RGBPic *p, PLOT *plot, int color, double *xx, double *yy, int count, int step_x, int step_y)
 {
-long i;
+int i;
 double x,y,dx,dy;
-long px,py;
+int px,py;
 dx=plot->px1-plot->px0;
 if(plot->lx1>plot->lx0)dx/=plot->lx1-plot->lx0;
 	else dx=0;
@@ -586,9 +586,9 @@ for(i=0;i<count;i++){
 	}
 }
 
-static inline long hue_z_to_color(float z0)
+static inline int hue_z_to_color(float z0)
 {
-long color;
+int color;
 float H,S,B; /* HSB coordinates */
 int r,g,b; /* R, G, B coordinates */
 float c,s,r1, rf, gf, bf;
@@ -625,10 +625,10 @@ color=COLOR(r,g,b);
 return color;
 }
 
-PALETTE * make_hue_palette(long ncolors)
+PALETTE * make_hue_palette(int ncolors)
 {
 PALETTE *p;
-long i;
+int i;
 p=do_alloc(1,sizeof(*p));
 p->ncolors=ncolors;
 p->color=do_alloc(p->ncolors, sizeof(*(p->color)));
@@ -763,9 +763,9 @@ if(replace){
 	}
 }
 
-static inline long z_to_color(PALETTE *p,float z0)
+static inline int z_to_color(PALETTE *p,float z0)
 {
-long ii;
+int ii;
 
 #if 0   /* testing */
 return hue_z_to_color(z0);
@@ -778,11 +778,11 @@ if(ii<0)ii=0;
 return p->color[ii];
 }
 
-void draw_density_map_key(RGBPic *p, DENSITY_MAP *dm, long x, long y)
+void draw_density_map_key(RGBPic *p, DENSITY_MAP *dm, int x, int y)
 {
 int i,j;
 float z;
-long color;
+int color;
 dm->key_width=32+8*11;
 dm->key_height=196;
 
@@ -800,13 +800,13 @@ RGBPic_printf(p,x+23,y+dm->key_height-1-16,dm->fg_color, dm->bg_color, "%g", dm-
 }
 
 
-void draw_density_map_f(RGBPic *p, long x, long y, 
+void draw_density_map_f(RGBPic *p, int x, int y, 
 	DENSITY_MAP *dm, 
 	float *z, int x_count, int y_count, int step_x, int step_y)
 {
 int i,j,k,m;
 float z0,dz;
-long color,x0,y0;
+int color,x0,y0;
 int lz;
 char tmp[10];
 
@@ -887,7 +887,7 @@ for(j=0;j<y_count;j++)
 
 void layout_density_map_plot(RGBPic *p, DENSITY_MAP *dm, int max_x_count, int max_y_count)
 {
-long x;
+int x;
 RGBPic_clear_area(p,dm->bg_color,0,0,p->width-1,p->height-1);
 x=p->width-120;
 dm->x_pixels_per_point=(x-10)/max_x_count;
@@ -917,13 +917,13 @@ layout_density_map_plot(p, dm, x_count, y_count);
 draw_density_map_f(p, 0, 0, dm, z, x_count, y_count, step_x, step_y);
 }
 
-void draw_density_map_d(RGBPic *p, long x, long y, 
+void draw_density_map_d(RGBPic *p, int x, int y, 
 	DENSITY_MAP *dm, 
 	double *z, int x_count, int y_count, int step_x, int step_y)
 {
 int i,j,k,m;
 double z0,dz;
-long color,x0,y0;
+int color,x0,y0;
 
 if(dm->flip_x){
 	z=z+(x_count-1)*step_x;
@@ -993,11 +993,11 @@ layout_density_map_plot(p, dm, x_count, y_count);
 draw_density_map_d(p, 0, 0, dm, z, x_count, y_count, step_x, step_y);
 }
 
-void plot_sin_theta_f(RGBPic *p, long x, long y, DENSITY_MAP *dm, SKY_GRID *grid, float *z, int step)
+void plot_sin_theta_f(RGBPic *p, int x, int y, DENSITY_MAP *dm, SKY_GRID *grid, float *z, int step)
 {
 int i,j,k,kk,m, shift;
 float z0,dz;
-long color,x0,y0;
+int color,x0,y0;
 int lz;
 SIN_THETA_SKY_GRID_PRIV *priv;
 
@@ -1100,11 +1100,11 @@ fprintf(stderr,"**ERROR: do not know how to plot sky grid \"%s\"\n",grid->name);
 exit(-1);
 }
 
-void plot_sin_theta_d(RGBPic *p, long x, long y, DENSITY_MAP *dm, SKY_GRID *grid, double *z, int step)
+void plot_sin_theta_d(RGBPic *p, int x, int y, DENSITY_MAP *dm, SKY_GRID *grid, double *z, int step)
 {
 int i,j,k,kk,m, shift;
 double z0,dz;
-long color,x0,y0;
+int color,x0,y0;
 int lz;
 SIN_THETA_SKY_GRID_PRIV *priv;
 

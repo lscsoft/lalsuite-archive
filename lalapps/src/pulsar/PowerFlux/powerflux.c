@@ -17,6 +17,7 @@
 #include "grid.h"
 #include "polarization.h"
 #include "statistics.h"
+#include "dataset.h"
 
 extern int ntotal_polarizations, nlinear_polarizations;
 extern POLARIZATION *polarizations;
@@ -338,7 +339,7 @@ time(&start_time);
 
 if(cmdline_parser(argc, argv, &args_info))exit(-1);
 if(args_info.config_given)
-	if(cmdline_parser_configfile(args_info.config_arg, &args_info, 0))exit(-1);
+	if(cmdline_parser_configfile(args_info.config_arg, &args_info, 0, 0, 0))exit(-1);
 
 if(!args_info.input_given && !args_info.dataset_given){
 	fprintf(stderr,"** You must specify path to input files (--input) or dataset description file (--dataset)\n");
@@ -604,6 +605,10 @@ if(args_info.input_given){
 time(&stage_time);
 fprintf(LOG, "input complete: %d\n", stage_time-start_time);
 fprintf(stderr, "input complete: %d\n", stage_time-start_time);
+
+if(args_info.dump_data_given) {
+	dump_datasets(args_info.dump_data_arg);
+	}
 
 if(nsegments==0){
 	fprintf(stderr,"ERROR: no input data found !\n");

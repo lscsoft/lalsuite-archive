@@ -92,11 +92,21 @@ if(lock_file>=0)close(lock_file);
 lock_file=-1;
 }
 
-static void inject_fake_signal(DATASET *dataset, int segment, COMPLEX *tmp)
+static void inject_fake_signal(DATASET *d, int segment)
 {
-/* TODO: add code to inject signals here - use Greg's code and simulate
-  Hann windowing ?
-*/
+float plus, cross, doppler;
+float det_vel[3];
+int window=5;
+int w;
+float e[26];
+
+precompute_am_constants(e, args_info.fake_ra_arg, args_info.fake_dec_arg);
+
+get_detector_vel(d->gps[segment]+(int)(d->coherence_time/2), det_vel);
+
+doppler=e[0]*det_vel[0]+e[1]*det_vel[1]+e[2]*det_vel[2];
+
+get_AM_response(d->gps[segment], args_info.fake_dec_arg, args_info.fake_ra_arg, args_info.fake_psi_arg, &plus, &cross);
 }
 
 static void init_dataset(DATASET *d)
@@ -943,7 +953,7 @@ tmp=do_alloc(dataset->nbins, sizeof(*tmp));
 
 for(i=0;i<nsegments;i++) {
 	memcpy(tmp, &(dataset->bin[i*nbins]), nbins*sizeof(*tmp));
-	inject_fake_signal(dataset, i, tmp);
+	/* inject_fake_signal(dataset, i, tmp); */
 	c=tmp;
 	p=&(dataset->power[i*nbins]);
 	for(k=0;i<nbins;k++) {
@@ -1209,4 +1219,44 @@ for(i=0;i<d_free;i++){
 		}
 	}
 for(i=0;i<3;i++)average_det_velocity[i]/=total_weight;
+}
+
+void dump_datasets(char *filename) 
+{
+FILE *fout;
+int i,j,k;
+DATASET *d;
+double x,y;
+
+fout=fopen(filename, "w");
+if(fout==NULL) {
+	fprintf(stderr, "Error opening files %s:", filename);
+	perror("");
+	return;
+	}
+fprintf(fout, "Dataset\tDetector\tGPS");
+for(k=0;k<nbins;k++) fprintf(fout, "\tR%d", k+first_bin);
+for(k=0;k<nbins;k++) fprintf(fout, "\tI%d", k+first_bin);
+for(k=0;k<nbins;k++) fprintf(fout, "\tP%d", k+first_bin);
+fprintf(fout, "\n");
+
+for(i=0;i<d_free;i++) {
+	d=&(datasets[i]);
+	for(j=0;j<d->free;j++) {
+		fprintf(fout, "%s\t%s\t%lld", d->name, d->detector, d->gps[j]);
+		for(k=0;k<d->nbins;k++) {
+			fprintf(fout, "\t%8g", d->bin[j*d->nbins+k].re);
+			}
+		for(k=0;k<d->nbins;k++) {
+			fprintf(fout, "\t%8g",d->bin[j*d->nbins+k].im);
+			}
+		for(k=0;k<d->nbins;k++) {
+			x=d->bin[j*d->nbins+k].re;
+			y=d->bin[j*d->nbins+k].im;
+			fprintf(fout, "\t%8g", x*x+y*y);
+			}
+		fprintf(fout, "\n");
+		}
+	}
+fclose(fout);
 }

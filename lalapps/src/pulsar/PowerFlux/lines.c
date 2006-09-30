@@ -7,7 +7,7 @@
 #include "lines.h"
 #include "cmdline.h"
 
-extern long nbins, first_bin;
+extern int nbins, first_bin;
 extern FILE *LOG;
 
 #if 0

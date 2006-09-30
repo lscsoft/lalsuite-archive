@@ -26,6 +26,7 @@ typedef struct {
 	float power_cor;
 	float snr;
 	float strain;
+	float strain_err;
 	float f_max;
 	float ifo_freq;
 	float ifo_freq_sd;

@@ -1,6 +1,7 @@
 PACKAGE=\"powerflux\"
 VERSION=1.4.5
 LALROOT=./../../../../
+LALROOT=/opt/lscsoft/lal/
 LALINCLUDE=-I$(LALROOT)/include/
 LALLDFLAGS=-L$(LALROOT)/lib -L$(LALROOT)/support-lib -llalsupport -llal -lm
 LDFLAGS=$(LALLDFLAGS) -lpng -lz
@@ -9,6 +10,7 @@ OPTFLAGS=-O6 -mmmx -msse -mcpu=i686
 OPTFLAGS=-O6 -march=i686 -funroll-loops
 OPTFLAGS=-O6 -msse2 -march=i686 -funroll-loops
 OPTFLAGS=-O6 -msse2 -march=opteron -funroll-loops
+OPTFLAGS=-O6 -msse2  -funroll-loops
 CFLAGS=-Wall -g $(OPTFLAGS) -DPACKAGE=$(PACKAGE) -DVERSION=\"$(VERSION)\" \
 	$(LALINCLUDE)
 CC=gcc $(CFLAGS)
@@ -18,8 +20,10 @@ OBJS=cmdline.o rastermagic.o hookup.o fine_grid.o lines.o grid.o powerflux.o  \
 
 # 50 hz
 #BAND=90000
+# 140.5 hz
+BAND=252900
 # 149 hz
-BAND=268200
+#BAND=268200
 # 199.75 hz
 #BAND=359650
 # 200 hz
@@ -31,7 +35,10 @@ BAND=268200
 # 650.25 hz
 #BAND=1170450
 
-DATASET=/home/volodya/LIGO/S4/Injections/sfts/5.dst
+#DATASET=/home/volodya/LIGO/S4/Injections/sfts/108.dst
+DATASET=/home/volodya/LIGO/S4/Injections/sfts/58.dst
+RA=0.4687356
+DEC=-1.257051
 
 
 #
@@ -39,7 +46,7 @@ DATASET=/home/volodya/LIGO/S4/Injections/sfts/5.dst
 #
 none:
 
-all: powerflux
+all: powerflux.hydra
 
 
 test1: powerflux
@@ -103,17 +110,18 @@ test3b: powerflux
 #		 --band-axis=explicit\(0.5,0.3,0.1\)
 #		 --write-dat=NONE --write-png=ul\.png\$ \
 
-test3c: powerflux.hydra
-	./powerflux.hydra --dataset=$(DATASET) -f $(BAND) -n 501 \
+test3c: powerflux
+	./powerflux --dataset=$(DATASET) -f $(BAND) -n 501 \
 		--ephemeris-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
 		--three-bins=0 --do-cutoff=1 --lock-file=test.lock \
 		--subtract-background=1 --ks-test=1 --filter-lines=1 \
-		--spindown-start=3.9289e-10 --dump-candidates=0 \
+		--spindown-start=0 --dump-candidates=0 \
 	        --earth-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/earth05-09.dat \
         	--sun-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/sun05-09.dat  \
-		 --focus-dec=-0.18512499 --focus-ra=3.830254 --focus-radius=0.7 \
-		 --write-dat=NONE \
-		--write-png=ul\\.png\\$$ 
+		--focus-dec=$(DEC) --focus-ra=$(RA) --focus-radius=0.7 \
+		--dump-data=input.dat \
+		--write-dat=NONE \
+		--write-png=ul\\.png$$ 
 #
 #		--fake-linear --fake-ra=3.141593 --fake-dec=0.006233 --fake-freq=199.85 --fake-strain=1e-20 \
 #		--fake-spindown=1e-9\
@@ -146,15 +154,16 @@ test4b: powerflux.hydra
 
 test4c: powerflux.dyn
 	( export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):$(LALROOT)/lib:$(LALROOT)/support-lib ; \
-	valgrind --tool=memcheck --error-limit=no  --leak-check=full ./powerflux.dyn --input-format=Power --dataset=test.dst -f $(BAND) -n 501 \
+	valgrind --tool=memcheck --error-limit=no  --leak-check=full ./powerflux.dyn --dataset=$(DATASET) -f $(BAND) -n 501 \
 		--ephemeris-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
-		--detector=LHO --three-bins=0 --do-cutoff=0 \
-		--subtract-background=0 --ks-test=1 --filter-lines=0 \
-		--spindown-start=1e-9 \
+		--three-bins=0 --do-cutoff=1 --lock-file=test.lock \
+		--subtract-background=1 --ks-test=1 --filter-lines=1 \
+		--spindown-start=0 --dump-candidates=0 \
 	        --earth-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/earth05-09.dat \
-        	--sun-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/sun05-09.dat \
-		--fake-linear --fake-ra=3.141593 --fake-dec=0.006233 --fake-freq=199.85 --fake-strain=1e-20 \
-		--fake-spindown=1e-9 \
+        	--sun-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/sun05-09.dat  \
+		--focus-dec=$(DEC) --focus-ra=$(RA) --focus-radius=0.7 \
+		--write-dat=NONE \
+		--write-png=ul\\.png\\$$ \
 	)
 #		 --focus-ra=2.2 --focus-dec=0.3 --focus-radius=0.1 \
 		 --band-axis=explicit\(0.5,0.3,0.1\)
@@ -162,15 +171,26 @@ test4c: powerflux.dyn
 
 
 test4d: powerflux.hydra
-	valgrind --tool=memcheck --error-limit=no  --leak-check=full ./powerflux.hydra --input-format=Power --dataset=test.dst -f $(BAND) -n 501 \
+	valgrind --tool=memcheck --error-limit=no  --leak-check=full ./powerflux.hydra --dataset=$(DATASET) -f $(BAND) -n 501 \
 		--ephemeris-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
-		--detector=LHO --three-bins=0 --do-cutoff=0 \
-		--subtract-background=0 --ks-test=1 --filter-lines=0 \
-		--spindown-start=1e-9 \
+		--three-bins=0 --do-cutoff=1 --lock-file=test.lock \
+		--subtract-background=1 --ks-test=1 --filter-lines=1 \
+		--spindown-start=0 --dump-candidates=0 \
 	        --earth-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/earth05-09.dat \
-        	--sun-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/sun05-09.dat \
-		--fake-linear --fake-ra=3.141593 --fake-dec=0.006233 --fake-freq=199.85 --fake-strain=1e-20 \
-		--fake-spindown=1e-9 \
+        	--sun-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/sun05-09.dat  \
+		--focus-dec=$(DEC) --focus-ra=$(RA) --focus-radius=0.7 \
+		--write-dat=NONE \
+		--write-png=ul\\.png\\$$ 
+
+#./powerflux.hydra --input-format=Power --dataset=test.dst -f $(BAND) -n 501 \
+# 		--ephemeris-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
+# 		--detector=LHO --three-bins=0 --do-cutoff=0 \
+# 		--subtract-background=0 --ks-test=1 --filter-lines=0 \
+# 		--spindown-start=1e-9 \
+# 	        --earth-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/earth05-09.dat \
+#         	--sun-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/sun05-09.dat \
+# 		--fake-linear --fake-ra=3.141593 --fake-dec=0.006233 --fake-freq=199.85 --fake-strain=1e-20 \
+# 		--fake-spindown=1e-9 \
 
 test4e: powerflux
 	valgrind --tool=memcheck --error-limit=no  --leak-check=full  ./powerflux --input-format=Power --dataset=$(DATASET) -f $(BAND) -n 501 \
@@ -214,7 +234,7 @@ dat2skymap: grid.o rastermagic.o dat2skymap.o png.o
 	$(CC) grid.o rastermagic.o dat2skymap.o png.o -o dat2skymap -static $(LDFLAGS)
 
 powerflux: $(OBJS)
-	$(CC) $(OBJS) -o powerflux -static $(LDFLAGS) -lgsl -lgslcblas
+	$(CC) $(OBJS) -o powerflux -static $(LDFLAGS) -lgsl -lgslcblas -lm
 	ls -l powerflux
 
 powerflux.dyn: $(OBJS)

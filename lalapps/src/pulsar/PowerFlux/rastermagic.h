@@ -4,13 +4,13 @@
 #include <stdarg.h>
 
 typedef struct {
-	long width;
-	long height;
-	long stride;   /* offset, in bytes, between lines, 
+	int width;
+	int height;
+	int stride;   /* offset, in bytes, between lines, 
 	                  assumed to be the same for all arrays;
 			  */
-	long step;     /* offset, in bytes, between pixels */
-	long flag;    /* flag */
+	int step;     /* offset, in bytes, between pixels */
+	int flag;    /* flag */
 	unsigned char *red; /* pointer to red pixels */
 	unsigned char *green; /* etc */
 	unsigned char *blue; /* etc */
@@ -27,9 +27,9 @@ typedef struct {
 #define BLUE_COLOR(a)	(((a))&0xff)
 
 #define DRAW_POINT(pic,x,y,color)	{\
-		long c0=(color); \
+		int c0=(color); \
 		RGBPic *p0=(pic);\
-		long offset; \
+		int offset; \
 		offset=(y)*((p0)->stride)+(x)*((p0)->step); \
 		(p0)->red[offset]=RED_COLOR(c0); \
 		(p0)->green[offset]=GREEN_COLOR(c0); \
@@ -38,33 +38,33 @@ typedef struct {
 		
 		
 
-RGBPic *make_RGBPic(long width, long height);
+RGBPic *make_RGBPic(int width, int height);
 
 void free_RGBPic(RGBPic *p);
 
 
-void RGBPic_vprintf(RGBPic *p, long x, long y, 
-	long fg_color, long bg_color,
+void RGBPic_vprintf(RGBPic *p, int x, int y, 
+	int fg_color, int bg_color,
 	const char *format, va_list ap);
 	
-void RGBPic_printf(RGBPic *p, long x, long y, 
-	long fg_color, long bg_color,
+void RGBPic_printf(RGBPic *p, int x, int y, 
+	int fg_color, int bg_color,
 	const char *format, ...);
 
 /* same as above, but prints text vertically, bottom to top */
-void RGBPic_vprintf_v(RGBPic *p, long x, long y, 
-	long fg_color, long bg_color,
+void RGBPic_vprintf_v(RGBPic *p, int x, int y, 
+	int fg_color, int bg_color,
 	const char *format, va_list ap);
 	
-void RGBPic_printf_v(RGBPic *p, long x, long y, 
-	long fg_color, long bg_color,
+void RGBPic_printf_v(RGBPic *p, int x, int y, 
+	int fg_color, int bg_color,
 	const char *format, ...);
 
 /* all coordinates are inclusive, i.e. both pixels (x1,y1) and (x2,y2) are painted */
-void RGBPic_clear_area(RGBPic *p, long color, 
-	long x1, long y1, long x2, long y2);
+void RGBPic_clear_area(RGBPic *p, int color, 
+	int x1, int y1, int x2, int y2);
 
-void RGBPic_draw_line(RGBPic *p, long color, long x1, long y1, long x2, long y2);
+void RGBPic_draw_line(RGBPic *p, int color, int x1, int y1, int x2, int y2);
 
 void RGBPic_dump_ppm(char *filename, RGBPic *p);
 void RGBPic_dump_png(char *filename, RGBPic *p);
@@ -78,10 +78,10 @@ typedef struct {
 	double upper_y;
 	
 	  /* size in pixels, colors, flags */
-	long width, height;
-	long grid_color;
-	long bg_color;
-	long fg_color;
+	int width, height;
+	int grid_color;
+	int bg_color;
+	int fg_color;
 	int  logscale_x;
 	int  logscale_y;
 	
@@ -95,27 +95,27 @@ typedef struct {
 	double ly0;
 	double ly1;
 	  /* location of plot */
-	long px0;
-	long px1;
-	long py0;
-	long py1;
+	int px0;
+	int px1;
+	int py0;
+	int py1;
 	} PLOT;
 
   /* create new plot structure with reasonable defaults */
-PLOT *make_plot(long width, long height);
+PLOT *make_plot(int width, int height);
 void free_plot(PLOT *plot);
 void adjust_plot_limits_f(PLOT *plot, float *x, float *y, int count, int step_x, int step_y, int replace);
 void adjust_plot_limits_d(PLOT *plot, double *x, double *y, int count, int step_x, int step_y, int replace);
-void draw_grid(RGBPic *p, PLOT *plot, long x, long y);
-void draw_points_f(RGBPic *p, PLOT *plot, long color, float *xx, float *yy, long count, long step_x, long step_y);
-void draw_points_d(RGBPic *p, PLOT *plot, long color, double *xx, double *yy, long count, long step, long step_y);
+void draw_grid(RGBPic *p, PLOT *plot, int x, int y);
+void draw_points_f(RGBPic *p, PLOT *plot, int color, float *xx, float *yy, int count, int step_x, int step_y);
+void draw_points_d(RGBPic *p, PLOT *plot, int color, double *xx, double *yy, int count, int step, int step_y);
 
 typedef struct {
-	long ncolors;
-	long *color;
+	int ncolors;
+	int *color;
 	} PALETTE;
 
-PALETTE * make_hue_palette(long ncolors);
+PALETTE * make_hue_palette(int ncolors);
 void free_palette(PALETTE *p);
 
 typedef struct {
@@ -125,8 +125,8 @@ typedef struct {
 	double lower_z;
 	double upper_z;
 	
-	long bg_color;
-	long fg_color;
+	int bg_color;
+	int fg_color;
 	
 	/* flags.. */
 	int flip_x;   /* flip x axis */
@@ -136,29 +136,29 @@ typedef struct {
 	
 	/* nbands - assign value less than 2 to disable */
 	int nbands;
-	long dec_band_color;
+	int dec_band_color;
 	
 	PALETTE *palette; /* precomputed palette */
 	
 	/* the following values are computed by the code, 
 	   do not touch ! */
-	long actual_width;
-	long actual_height;
-	long key_width;
-	long key_height;
+	int actual_width;
+	int actual_height;
+	int key_width;
+	int key_height;
 	} DENSITY_MAP;
 
 DENSITY_MAP *make_density_map(int x_ppp, int y_ppp);
 void free_density_map(DENSITY_MAP *dm);
 void adjust_density_map_limits_f(DENSITY_MAP *plot, float *z, int count, int step, int replace);
 void adjust_density_map_limits_d(DENSITY_MAP *dm, double *z, int count, int step, int replace);
-void draw_density_map_key(RGBPic *p, DENSITY_MAP *dm, long x, long y);
-void draw_density_map_f(RGBPic *p, long x, long y, DENSITY_MAP *dm, float *z, int x_count, int y_count, int step_x, int step_y);
-void draw_density_map_d(RGBPic *p, long x, long y, DENSITY_MAP *dm, double *z, int x_count, int y_count, int step_x, int step_y);
+void draw_density_map_key(RGBPic *p, DENSITY_MAP *dm, int x, int y);
+void draw_density_map_f(RGBPic *p, int x, int y, DENSITY_MAP *dm, float *z, int x_count, int y_count, int step_x, int step_y);
+void draw_density_map_d(RGBPic *p, int x, int y, DENSITY_MAP *dm, double *z, int x_count, int y_count, int step_x, int step_y);
 
 void plot_single_density_map_f(RGBPic *p, DENSITY_MAP *dm, 
 	float *z, int x_count, int y_count, int step_x, int step_y);
-void draw_density_map_d(RGBPic *p, long x, long y, 
+void draw_density_map_d(RGBPic *p, int x, int y, 
 	DENSITY_MAP *dm, 
 	double *z, int x_count, int y_count, int step_x, int step_y);
 void plot_single_density_map_d(RGBPic *p, DENSITY_MAP *dm, 

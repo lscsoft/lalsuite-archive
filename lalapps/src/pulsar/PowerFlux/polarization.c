@@ -10,15 +10,11 @@
 
 extern struct gengetopt_args_info args_info;
 extern FILE *LOG;
-#if 0
-extern SKY_GRID_TYPE *AM_coeffs_plus,*AM_coeffs_cross;
-extern long AM_coeffs_size;
-#endif
 
 extern SKY_GRID *fine_grid, *patch_grid;
 
-extern long stored_fine_bins;
-extern long useful_bins;
+extern int stored_fine_bins;
+extern int useful_bins;
 
 int ntotal_polarizations=-1, nlinear_polarizations=-1;
 
