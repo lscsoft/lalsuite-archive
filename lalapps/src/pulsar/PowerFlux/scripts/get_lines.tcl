@@ -26,7 +26,7 @@ while { ! [eof $FILE] } {
 	if { [regexp {^firstbin.*:(.*)$} $s {} FIRSTBIN ] } {
 		continue
 		}
-	if { [regexp {^line detected: bin=(.*) z=(.*) strength=(.*) flag=(.*)$} $s {} fbin z strength flag ] } {
+	if { [regexp {background line detected: bin=(.*) z=(.*) strength=(.*) flag=(.*)$} $s {} fbin z strength flag ] } {
 		set comment ""
 		if { $strength > 2 } {
 			append comment " 6-sigma outlier"
