@@ -9,6 +9,9 @@
 #include <sys/time.h>
 #include <time.h>
 
+#include <gsl/gsl_rng.h>
+#include <gsl/gsl_randist.h>
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <dirent.h>
@@ -667,22 +670,28 @@ fclose(fin);
 return 0;
 }
 
-static void add_file(DATASET *d, char *filename)
+static void expand_sft_array(DATASET *d, int count)
 {
 void *p;
-if(d->free>=d->size) {
-	d->size=2*d->size+10;
-	fprintf(stderr, "Growing %s SFT array to %f MB count=%d\n", d->name, d->size*d->nbins*sizeof(*d->bin)/(1024.0*1024.0), d->free);
-	
-	p=do_alloc(d->size*d->nbins, sizeof(*(d->bin)));
-	if(d->free>0)memcpy(p, d->bin, d->free*d->nbins*sizeof(*(d->bin)));
-	free(d->bin);
-	d->bin=p;
 
-	p=do_alloc(d->size, sizeof(*(d->gps)));
-	if(d->free>0)memcpy(p, d->gps, d->free*sizeof(*(d->gps)));
-	free(d->gps);
-	d->gps=p;
+d->size=2*d->size+count;
+fprintf(stderr, "Growing %s SFT array to %f MB count=%d\n", d->name, d->size*d->nbins*sizeof(*d->bin)/(1024.0*1024.0), d->free);
+
+p=do_alloc(d->size*d->nbins, sizeof(*(d->bin)));
+if(d->free>0)memcpy(p, d->bin, d->free*d->nbins*sizeof(*(d->bin)));
+free(d->bin);
+d->bin=p;
+
+p=do_alloc(d->size, sizeof(*(d->gps)));
+if(d->free>0)memcpy(p, d->gps, d->free*sizeof(*(d->gps)));
+free(d->gps);
+d->gps=p;
+}
+
+static void add_file(DATASET *d, char *filename)
+{
+if(d->free>=d->size) {
+	expand_sft_array(d, 1);
 	}
 d->gps[d->free]=0;
 if(!get_geo_range(d, filename, d->first_bin, d->nbins, &(d->bin[d->free*d->nbins]), &(d->gps[d->free]))) {
@@ -782,6 +791,34 @@ if(line[*arg_start]=='"')(*arg_start)++;
 if(((*arg_stop)>(*arg_start)) && (line[(*arg_stop)-1]=='"'))(*arg_stop)--;
 }
 
+static void gaussian_fill(DATASET *d, INT64 gps_start, int step, int count, double amp)
+{
+int i,k;
+gsl_rng *rng=NULL;
+
+fprintf(stderr, "Generating %d gaussian SFTs starting with gps %lld step %d amplitude %g for dataset %s\n",
+	count, gps_start, step, amp, d->name);
+
+fprintf(LOG, "Generating %d gaussian SFTs starting with gps %lld step %d amplitude %g for dataset %s\n",
+	count, gps_start, step, amp, d->name);
+
+if((d->free+count)>=d->size)expand_sft_array(d, count);
+
+rng=gsl_rng_alloc(gsl_rng_default);
+
+for(i=d->free;i<(d->free+count);i++) {
+	d->gps[i]=gps_start+(i-d->free)*step;
+	
+	for(k=0;k<d->nbins;k++) {
+		d->bin[i*d->nbins+k].re=amp*gsl_ran_gaussian(rng, 1.0);
+		d->bin[i*d->nbins+k].im=amp*gsl_ran_gaussian(rng, 1.0);
+		}
+	}
+d->free+=count;
+
+gsl_rng_free(rng);
+}
+
 static void process_dataset_definition_line(char *line, int length)
 {
 int ai,aj;
@@ -861,6 +898,25 @@ if(!strncasecmp(line, "veto_segments_file", 18)) {
 	} else
 if(!strncasecmp(line, "apply_hanning_filter", 20)) {
 	datasets[d_free-1].apply_hanning_filter=1;	
+	} else
+if(!strncasecmp(line, "gaussian_fill", 13)) {
+	INT64 gps_start;
+	int step, count;
+	double amp;
+
+	locate_arg(line, length, 1, &ai, &aj);
+	sscanf(&(line[ai]), "%lld", &gps_start);
+
+	locate_arg(line, length, 2, &ai, &aj);
+	sscanf(&(line[ai]), "%d", &step);
+
+	locate_arg(line, length, 3, &ai, &aj);
+	sscanf(&(line[ai]), "%d", &count);
+
+	locate_arg(line, length, 4, &ai, &aj);
+	sscanf(&(line[ai]), "%lg", &amp);
+
+	gaussian_fill(&(datasets[d_free-1]), gps_start, step, count, amp);
 	} else {
 	fprintf(stderr, "*** Could not parse line: \n%*s\n *** Exiting.\n", length, line);
 	exit(-1);

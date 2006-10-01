@@ -283,6 +283,7 @@ for(i=0;i<count;i++){
 		}
 	j=floor((h->nbins*(data[i]-h->min[k]))/(h->max[k]-h->min[k]));
 	if(j>=h->nbins)j=h->nbins-1;
+	if(j<0)j=0;
 	h->hist[k*h->nbins+j]++;
 	}
 }

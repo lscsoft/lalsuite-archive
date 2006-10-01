@@ -36,7 +36,8 @@ BAND=252900
 #BAND=1170450
 
 #DATASET=/home/volodya/LIGO/S4/Injections/sfts/108.dst
-DATASET=/home/volodya/LIGO/S4/Injections/sfts/58.dst
+#DATASET=/home/volodya/LIGO/S4/Injections/sfts/58.dst
+DATASET=random.dst
 RA=0.4687356
 DEC=-1.257051
 
