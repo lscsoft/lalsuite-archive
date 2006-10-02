@@ -53,7 +53,6 @@ from pylal.date import LIGOTimeGPS
 #
 
 class Table(table.Table):
-	connection = None
 	constraints = None
 
 	def __init__(self, *attrs):
@@ -256,7 +255,7 @@ class CoincMapTable(Table):
 class CoincDatabase(object):
 	def __init__(self, connection):
 		self.connection = connection
-		Table.connection = connection
+		table.Table.connection = connection
 		lsctables.TableByName.update({
 			table.StripTableName(SnglBurstTable.tableName): SnglBurstTable,
 			table.StripTableName(SimBurstTable.tableName): SimBurstTable,
