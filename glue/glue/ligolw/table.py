@@ -495,6 +495,7 @@ class Table(ligolw.Table, list):
 	"""
 	High-level Table element that knows about its columns and rows.
 	"""
+	connection = None	# unused place-holder for future DB code
 	validcolumns = None
 	loadcolumns = None
 	RowType = TableRow
