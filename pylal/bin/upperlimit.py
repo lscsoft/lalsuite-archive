@@ -375,6 +375,7 @@ if not opts.skip_png:
         command+=" --m-low " + str(2.0*float(mass_dict["min-mass"])) + \
             " --m-high " + str(2.0*float(mass_dict["max-mass"])) + \
             " --m-dm " + mass_dict["m-dm"]
+      command+=" > output"+times[0].upper() +".log"
       if opts.test:
         print command + "\n"
       else:
