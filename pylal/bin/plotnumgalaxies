@@ -973,7 +973,8 @@ class injAstroData:
 ##############################################################################
 # Make the plot of N_G and N_G'
 ##############################################################################
-def plot_ng_vs_stat(injAstro, slideZero, figNum, integrate, figName = None):
+def plot_ng_vs_stat(injAstro, slideZero, figNum, integrate, figName = None,
+    numPts=None):
   """
   plot the luminosity vs statistic, using stat values taken from 
   slides/zero lag.
@@ -984,35 +985,56 @@ def plot_ng_vs_stat(injAstro, slideZero, figNum, integrate, figName = None):
   @param figNum:    the figure number
   @param integrate: which integral to do, either 'x', 'y' or 'xy'.
   @param figName:   the figure name
+  @param numPts:    number of points used in making the plot, 
+                    default to the number of time slides performed
   """
-  ng_array = []
-  for statValue in slideZero.snr_array:
+  ngArray = []
+
+  # set up the SNR array
+  snrArray = slideZero.snr_array
+  snrStep = snrArray[1] - snrArray[0]
+
+  if numPts:
+    # restrict the size of snrArray 
+    snrArray = arange(snrArray[0],snrArray[-1]+snrStep, 
+        (snrArray[-1] - snrArray[0])/numPts)
+    snrStep = snrArray[1] - snrArray[0]
+
+  for statValue in snrArray:
     if integrate == 'x':
-      ng_array.append(injAstro.get_search_x_ng(statValue))
+      ngArray.append(injAstro.get_search_x_ng(statValue))
     elif integrate == 'y':
-      ng_array.append(injAstro.get_search_y_ng(statValue))
+      ngArray.append(injAstro.get_search_y_ng(statValue))
     elif integrate == 'xy':
-      ng_array.append(injAstro.get_search_2d_ng(statValue))
-    
+      ngArray.append(injAstro.get_search_2d_ng(statValue))
+  ngArray = asarray(ngArray)
+
+  # make the figure
   figure(figNum)
-  plot(slideZero.snr_array, ng_array, 'b', linewidth=2, label="luminosity")
+  plot(snrArray, ngArray, 'b', linewidth=2, label="luminosity")
   grid()
   xlabel(slideZero.statistic.name, size='x-large')
   ylabel('Luminosity visible above threshold', size='x-large')
   if slideZero.zero_loudest:
     axvline(slideZero.zero_loudest,linewidth=2,color='r',label="zero lag")
+  if figName:
     if integrate == 'x':
-      ng_zero = injAstro.get_search_x_ng(slideZero.zero_loudest)
       figName += "_ng_vs_stat_using_" + opts.x_value + "_integral.png"
     elif integrate == 'y':
-      ng_zero = injAstro.get_search_y_ng(slideZero.zero_loudest)
       figName += "_ng_vs_stat_using_" + opts.y_value + "_integral.png"
     elif integrate == 'xy':
-      ng_zero = injAstro.get_search_2d_ng(slideZero.zero_loudest)
       figName += "_ng_vs_stat_using_" + opts.x_value + "_" + opts.y_value + \
           "_integral.png"
-  if figName:
-      savefig( figName )
+    savefig( figName )
+     
+  # calculate the derivative at the loudest event
+  if not slideZero.zero_loudest:
+    return 0
+  else:
+    ngArray = ngArray[ (snrArray > (slideZero.zero_loudest - snrStep)) & \
+        (snrArray < (slideZero.zero_loudest + snrStep)) ]
+    ngPrime = ( ngArray[0] - ngArray[1]) / snrStep
+    return ngPrime
 
 ##############################################################################
 # Add systematic errors to distances
@@ -1115,6 +1137,11 @@ plotnumgalaxies [options]
 
   --plot-ng-vs-stat
   --plot-2d-ng-vs-stat
+
+  by default, these use the same binning as the time slide plots, however they
+  are rather slow, so the number of points can be selected with:
+
+  --ng-vs-stat-points
   
   ----------------------------------------------------------------------------   
 """
@@ -1123,8 +1150,8 @@ plotnumgalaxies [options]
 parser = OptionParser( usage=usage, version= "%prog CVS $Id$")
 
 # used letters: 
-# abcefghijlmnopqrstuvwxyz
-# BCDEFGHIJKLMNOQRSTUVWXYZ
+# abcdefghijklmnopqrstuvwxyz
+# ABCDEFGHIJKLMNOPQRSTUVWXYZ
 # basics
 parser.add_option("-V","--verbose",action="store_true",default=False,\
     help="print additional information when running" )
@@ -1312,6 +1339,10 @@ parser.add_option("-a","--plot-2d-ng-vs-stat",action="store_true",\
     default=False, \
     help="plot the astrophysical ng from 2-dim integral vs statistic value")
 
+parser.add_option("-B","--ng-vs-stat-points",action="store",type="int",\
+    default=None, metavar=" NUMPTS",\
+    help="number of points to use in 1-d/2-d plots of ng vs stat (default = number of time slides)")
+    
 (opts,args) = parser.parse_args()
 
 ##############################################################################
@@ -1400,8 +1431,6 @@ resultDict = { "mass":0.0, "ng":0.0, "ngprime":0.0, "pb":0.0, "pbprime":0.0,\
     "Hanford_Calibration":0.0, "Livingston_Calibration":0.0,\
     "Magnitude":0.0, "Distance":0.0, "Waveform":0.0,\
     "Monte_Carlo":0.0}
-#ini_file.write("[apriori]\n")
-#ini_file.write("ngprime=1.0\n")
 resultDict["ngprime"]=1.0
 
 ##############################################################################
@@ -1412,9 +1441,11 @@ resultDict["ngprime"]=1.0
 # (above 0 so missed injections are not included)
 statThresh = 1e-6
 
-statistic=CoincInspiralUtils.coincStatistic( opts.statistic, opts.bittenl_a, opts.bittenl_b )
+statistic=CoincInspiralUtils.coincStatistic( opts.statistic, opts.bittenl_a, \
+    opts.bittenl_b )
 
-# Read the time-slides. If no glob specified, an empty 'slideLoudest' is initialized
+# Read the time-slides. If no glob specified, an empty 'slideLoudest' is 
+# initialized
 if opts.verbose:
   print "Reading time slides"
 slideLoudest = slideZeroData(opts.slide_glob, opts.num_slides, statistic)
@@ -1546,47 +1577,63 @@ else:
 
 for i in range(len(massedges)-1):
   injAstro.astro.mass_cut(massedges[i],massedges[i+1])
-  resultDict["mass"]=massedges[i]
+  resultDict["mlo"]=massedges[i]
+  resultDict["mhi"] = massedges[i+1]
   print 
   if len(massedges) > 2:
     print "Restricting to total mass between " + str(massedges[i]) + \
         " and " + str(massedges[i+1])
 
+  
+  ##############################################################################
+  # Make one dimensional plots + calculate 1-d results
+  ##############################################################################
   if opts.cum_search_ng:
     figNum += 1
     injAstro.plot_search_x_ng(figNum, statThresh)
     xng_cum = injAstro.get_search_x_ng(statThresh)
-    #ini_file.write("ng=%f\n" % xng_cum)
     resultDict["ng"]=xng_cum
     print '1-d calculation using ' + injAstro.x_value + ' yields'
     print 'The total luminosity = %.2f L_10' % xng_cum
     for key in errorVal.keys():
       err = injAstro.get_search_x_error(key,statThresh)
-      #ini_file.write(key+"=%f\n" % err)
       resultDict[key]=err
       if key == "Monte_Carlo":
         print "Monte_Carlo error gives error in luminosity = %.2f L_10" % err
       else:  
         print key + ' error of %.1f' % float(100 * errorVal[key]) + \
         '% gives error in luminosity = ' + '%.2f L_10' % err
+
+    # account for systematic errors
     for key in astroErrors:
         error = injAstro.get_search_x_ng(statThresh, key) - xng_cum
         print astroErrors[key].capitalize() + " " + key + \
             " error for galaxies gives an error in luminosity = %.2f L_10" % \
             error
-        #ini_file.write(key+"=%f\n" % error)
         resultDict[key]=error
-  
+ 
+    # plot ng vs snr/calculate ng'
+    if opts.plot_ng_vs_stat:
+      figNum +=1
+      xng_prime = plot_ng_vs_stat(injAstro, slideLoudest, figNum,\
+          integrate = 'x', figName = opts.figure_name, \
+          numPts = opts.ng_vs_stat_points)
+      if slideLoudest.zero_loudest:
+        print "The derivative of N_G = %.2f L_10" % xng_prime
+        resultDict["ngprime"] = xng_prime
+
+
+  ##############################################################################
+  # Make two dimensional plots + calculate 2-d results
+  ##############################################################################
   if opts.cum_search_2d_ng:
     N_G = injAstro.get_search_2d_ng(statThresh)
-    #ini_file.write("ng=%f\n" % N_G)
     resultDict["ng"]=N_G
     print '2-d calculation using ' + injAstro.x_value + ' and ' + \
           injAstro.y_value + ' yields'
     print "The total luminosity = %.2f L_10" % N_G    
     for key in errorVal.keys():
       err = injAstro.get_search_2d_error(key,statThresh)
-      #ini_file.write(key+"=%f\n" % err)
       resultDict[key]=err
       if key == "Monte_Carlo":
         print "Monte_Carlo error gives error in luminosity = %.2f L_10" % err
@@ -1594,48 +1641,29 @@ for i in range(len(massedges)-1):
         print key + ' error of %.1f' % float(100 * errorVal[key]) + \
             '% gives error in luminosity =' + ' %.2f L_10' % err
         
+    # account for systematic errors
     for key in astroErrors:
         error = injAstro.get_search_2d_ng(statThresh, key) - N_G
         print astroErrors[key].capitalize() + " " + key + \
             " error for galaxies gives an error in luminosity = %.2f L_10" % \
             error
-        #ini_file.write(key+"=%f\n" % error)
         resultDict[key]=error
-  
-  ##############################################################################
-  # Make plots requiring both astrophysical and injection data
-  ##############################################################################
-  if opts.plot_ng_vs_stat:
-    figNum +=1
-    plot_ng_vs_stat(injAstro, slideLoudest, figNum, integrate = 'x', \
-        figName = opts.figure_name)
-  
-  if opts.plot_2d_ng_vs_stat:
-    figNum +=1
-    plot_ng_vs_stat(injAstro, slideLoudest, figNum, integrate = 'xy', \
-        figName = opts.figure_name )
-  
+
+    # plot ng vs snr/calculate ng'
+    if opts.plot_2d_ng_vs_stat:
+      figNum +=1
+      ng_prime = plot_ng_vs_stat(injAstro, slideLoudest, figNum, \
+          integrate = 'xy', figName = opts.figure_name, \
+          numPts = opts.ng_vs_stat_points )
+      if slideLoudest.zero_loudest:
+        print "The derivative of N_G = %.2f L_10" % ng_prime
+        resultDict["ngprime"] = ng_prime
+    
   ##############################################################################
   # 
-  ini_file.write("%e %e %e %e %e %e %e %e %e %e %e\n" % (\
-      resultDict["mass"],\
-      resultDict["ng"],\
-      resultDict["ngprime"],\
-      resultDict["pb"],\
-      resultDict["pbprime"],\
-      resultDict["Hanford_Calibration"],\
-      resultDict["Livingston_Calibration"],\
-      resultDict["Magnitude"],\
-      resultDict["Distance"],\
-      resultDict["Waveform"],\
-      resultDict["Monte_Carlo"] ) )
-
-
-#####################################################################
-# for plotting convenience, output the last row again
-if opts.m_dm:
-  ini_file.write("%e %e %e %e %e %e %e %e %e %e %e\n" % (\
-      (resultDict["mass"]+opts.m_dm),\
+  ini_file.write("%e %e %e %e %e %e %e %e %e %e %e %e\n" % (\
+      resultDict["mlo"],\
+      resultDict["mhi"],\
       resultDict["ng"],\
       resultDict["ngprime"],\
       resultDict["pb"],\
