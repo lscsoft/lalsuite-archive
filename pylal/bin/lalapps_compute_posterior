@@ -362,17 +362,22 @@ for bin in range(massBins):
     savefig( outputName + "-posterior-cdf.png")
   
   # print out the upper limit based on 90% confidence
-  
+  confLevel=0.9 
+  mass1=data["mass"]
+  mass2=0
+  if massBins>1:
+	mass2=mass1+png_matrix[0][1]["mass"]-png_matrix[0][0]["mass"]
+ 
   ularray[bin,0]=data["mass"]
   for i in range(len(rate)):
-    if cumnomarginpost[i] >= 0.9:
-      print "The rate upper limit (before marginalization) is %f" % rate[i]
+    if cumnomarginpost[i] >= confLevel:
+      print "The rate upper limit (masses %.3f-%.3f, before marginalization) is %f" % (mass1,mass2,rate[i])
       ularray[bin,1]=rate[i]
       break
   
   for i in range(len(rate)):
-    if cummarginpost[i] >= 0.9:
-      print "The rate upper limit (after marginalization) is %f" % rate[i]
+    if cummarginpost[i] >= confLevel:
+      print "The rate upper limit (masses %.3f-%.3f, after marginalization) is %f" % (mass1,mass2,rate[i])
       ularray[bin,2]=rate[i]
       break
 
@@ -399,6 +404,7 @@ if (massBins > 1):
   p=fill(x,y, facecolor='k')
   setp(p, alpha=0.4)
   ylim(opts.ymin,opts.ymax)
+  xlim(min(x1), max(x1))
   legend(('','unmarginalized','marginalized'),loc='lower left')
   xlabel('Total mass (Msun)', size='x-large')
   ylabel('Rate / yr / L$_{10}$', size='x-large')
