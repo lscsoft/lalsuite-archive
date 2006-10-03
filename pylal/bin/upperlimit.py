@@ -51,7 +51,7 @@ the number of triggers is very large.
 
 parser = OptionParser( usage )
 # used letters:
-# a c d e f g i j k l m n p r s t u v x y 
+# a c d e f g i j k l m n p r s t u v x y z
 # A B C H L R S T
 #
 
@@ -100,6 +100,10 @@ parser.add_option("-v","--no-veto",action="store_true",\
 
 parser.add_option("-r","--remove-h2l1",action="store_true",\
     default=False, help="remove H2-L1 triggers from three ifo times")
+
+parser.add_option("-z","--output-to-file",action="store_true",\
+    default=False, 
+    help="pipe output from plotnumgalaxies and compute_posterior to files")
 
 # hierarchy pipeline
 parser.add_option("-j","--second-coinc",action="store_true",default=False,\
@@ -364,18 +368,20 @@ if not opts.skip_png:
       for opt in png_options:
         command+=" --"+opt[0]+" "+opt[1]
       if times[0].upper() == "H1H2":
-        command +=  " --plot-ng "\
-            + "--plot-efficiency --cum-search-ng"
+        command +=  " --plot-ng --plot-efficiency --cum-search-ng " \
+            + "--plot-ng-vs-stat"
       else:
         command += " --axes-square --plot-2d-ng "\
-            + "--plot-effcontour --cum-search-2d-ng"
+            + "--plot-effcontour --cum-search-2d-ng "\
+            + "--plot-2d-ng-vs-stat"
         for opt in png_y_options:
           command+=" --" + opt[0] + " " + opt[1]
       if (popfiles.index(pop)==1):
         command+=" --m-low " + str(2.0*float(mass_dict["min-mass"])) + \
             " --m-high " + str(2.0*float(mass_dict["max-mass"])) + \
             " --m-dm " + mass_dict["m-dm"]
-      command+=" > output"+times[0].upper() +".log"
+      if opts.output_to_file:
+        command+=" > png-output-" + times[0].upper() + ".log"
       if opts.test:
         print command + "\n"
       else:
@@ -399,12 +405,14 @@ if not opts.skip_upper_limit:
      command = "lalapps_compute_posterior"
      for times in analyzedtimes:
        command+=" -f "+times[0].upper()
-       if (popfiles.index(pop)==1):
+       if (pop=="Uniform"):
          command+="_uniform"
        command+="/png-output.ini -t "+ str(float(times[1])/secondsInAYear)
      command+=" --figure-name "+pop
      for opt in posterior_options:
         command+=" --"+opt[0]+" "+opt[1]
+     if opts.output_to_file:
+       command += " > ul-output-" + pop.lower() + ".log"
      if opts.test:
        print command + "\n"
      else:
