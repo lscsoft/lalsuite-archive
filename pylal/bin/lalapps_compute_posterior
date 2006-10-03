@@ -54,18 +54,19 @@ def get_png_array(data,time):
   @param time:  the analyzed time associated to this png data
   """
   param = {}
-  param["mass"]          = data[0]
-  param["ng"]            = data[1]
-  param["ngprime"]       = data[2]
-  param["pb"]            = data[3]
-  param["pbprime"]       = data[4]
-  param["dn_lhocal"]     = data[5]
-  param["dn_llocal"]     = data[6]
-  param["dn_distance"]   = data[8]
-  param["dn_waveform"]   = data[9]
-  param["dn_mc"]         = data[10]
+  param["mlo"]           = data[0]
+  param["mhi"]           = data[1]
+  param["ng"]            = data[2]
+  param["ngprime"]       = data[3]
+  param["pb"]            = data[4]
+  param["pbprime"]       = data[5]
+  param["dn_lhocal"]     = data[6]
+  param["dn_llocal"]     = data[7]
+  param["dn_distance"]   = data[9]
+  param["dn_waveform"]   = data[10]
+  param["dn_mc"]         = data[11]
   param["dn_lummu"]      = log( param["ng"] )
-  param["dn_lumsigma"]   = log( param["ng"] + data[7]) - log( param["ng"])
+  param["dn_lumsigma"]   = log( param["ng"] + data[8]) - log( param["ng"])
   param["tobs"]          = float(time)
 
   return param
@@ -109,21 +110,29 @@ def read_file( filename ):
 
 #############################################################################
 # make steps so that fill will work properly
-def makesteps(x,y,ymax):
+def makesteps(ularray,ymax,k):
+  """
+  make the arrays to shade the region above the limit
+  @param ularray: the array containing the upper limit details
+  @param ymax:    the maximum value for the y plo
+  @param k:       the index of the value to be plotted on y-axis
+  """
   xnew=[]
-  ynew=[y[0]]
-  for i in arange(x.size-1):
-    xnew.append(x[i])
-    xnew.append(x[i+1])
-    ynew.append(y[i])
-    ynew.append(y[i+1])
-  xnew.append(x[-1])
+  ynew=[]
+  for i in arange(len(ularray[:,0])):
+    xnew.append(ularray[i,0])
+    xnew.append(ularray[i,1])
+    ynew.append(ularray[i,k])
+    ynew.append(ularray[i,k])
+  
+  # fill in the top
+  xnew.append(ularray[-1,1])
+  ynew.append(ymax)
+  xnew.append(ularray[0,0])
+  ynew.append(ymax)
 
-  tmpx=asarray(xnew)
-  tmpy=asarray(ynew)
-  tmpy1=ymax+0.0*tmpx
-  xnew=concatenate((tmpx,tmpx[::-1]))
-  ynew=concatenate((tmpy,tmpy1[::-1]))
+  xnew = asarray(xnew)
+  ynew = asarray(ynew)
 
   return xnew,ynew
 
@@ -218,10 +227,10 @@ for epoch in range(nepochs):
 
 
 # note len(matrix) returns the number of rows in the matrix
-# massBins is given by the number of rows in the png files (assumed the same
-# for all files)
+# massBins is given by the number of rows in the png files 
+# (assumed the same for all files)
 massBins = len(png_matrix[0])
-ularray = zeros((massBins,3),Float32)
+ularray = zeros((massBins,4),Float32)
 
 # loop over the mass bins
 for bin in range(massBins):
@@ -321,7 +330,8 @@ for bin in range(massBins):
   
   if opts.figure_name:
     if massBins > 1:
-      outputName = opts.figure_name + "-" + str(bin)
+      outputName = opts.figure_name + "-" + str(data["mlo"]) + "-" + \
+          str(data["mhi"]) + "-mtotal" 
     else:
       outputName = opts.figure_name
 
@@ -362,49 +372,57 @@ for bin in range(massBins):
     savefig( outputName + "-posterior-cdf.png")
   
   # print out the upper limit based on 90% confidence
-  confLevel=0.9 
-  mass1=data["mass"]
-  mass2=0
-  if massBins>1:
-	mass2=mass1+png_matrix[0][1]["mass"]-png_matrix[0][0]["mass"]
- 
-  ularray[bin,0]=data["mass"]
+  confLevel=0.9
+
+  ularray[bin,0]=data["mlo"]
+  ularray[bin,1]=data["mhi"]
+  if (massBins > 1):
+    print
+    print "For the mass range between %e and %e" % (data["mlo"], data["mhi"])
+
   for i in range(len(rate)):
     if cumnomarginpost[i] >= confLevel:
-      print "The rate upper limit (masses %.3f-%.3f, before marginalization) is %f" % (mass1,mass2,rate[i])
-      ularray[bin,1]=rate[i]
+      print "The rate upper limit (before marginalization) is %f" % rate[i]
+      ularray[bin,2]=rate[i]
       break
   
   for i in range(len(rate)):
     if cummarginpost[i] >= confLevel:
-      print "The rate upper limit (masses %.3f-%.3f, after marginalization) is %f" % (mass1,mass2,rate[i])
-      ularray[bin,2]=rate[i]
+      print "The rate upper limit (after marginalization) is %f" % rate[i]
+      ularray[bin,3]=rate[i]
       break
 
 # write the output to a file
 ulfile = open(opts.figure_name + "-upper-limit","w")
+ulfile.write("#M_low\tM_high\tUnmarginalized Rate\tMarginalized Rate\n")
 for k in range(len(ularray)):
-  ulfile.write("%e %e %e\n" % (ularray[k,0], ularray[k,1], ularray[k,2]))
+  ulfile.write("%e\t%e\t%e\t%e\n" % (ularray[k,0], ularray[k,1], ularray[k,2],\
+      ularray[k,3]))
 ulfile.close()
 
 # and plot this result, if we have a range of masses
 if (massBins > 1):
   figure()
-  x1=ularray[:,0]
-  y1=ularray[:,1]
-  y2=ularray[:,2]
+  semilogy(ularray[:,0],opts.ymax + 0.0*ularray[:,0],'k+')
 
-  # to shade the region above the curve
-  semilogy(x1,opts.ymax+0.0*x1,'w+')
-  x,y=makesteps(x1,y1,opts.ymax)
+  # XXX This assumes that the mass bins are continuous, i.e. where one bin
+  # ends, the next one starts.  If that is not the case, then the makesteps
+  # function needs to be generalized XXX.
+
+  # plot the unmarginalized upper limit
+  x,y=makesteps(ularray,opts.ymax,k=2)
+
   p=fill(x,y, facecolor='k')
   setp(p, alpha=0.2)
   ylim(opts.ymin,opts.ymax)
-  x,y=makesteps(x1,y2,opts.ymax)
+
+  # plot the marginalized upper limit
+  x,y=makesteps(ularray,opts.ymax,k=3)
   p=fill(x,y, facecolor='k')
   setp(p, alpha=0.4)
+
   ylim(opts.ymin,opts.ymax)
-  xlim(min(x1), max(x1))
+  xlim(min(ularray[:,0]), max(ularray[:,1]))
   legend(('','unmarginalized','marginalized'),loc='lower left')
   xlabel('Total mass (Msun)', size='x-large')
   ylabel('Rate / yr / L$_{10}$', size='x-large')
