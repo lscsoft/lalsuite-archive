@@ -1,5 +1,10 @@
 #!/usr/bin/python
 
+# $Id$
+__author__ = "Stephen Fairhurst <sfairhur@gravity.phys.uwm.edu>"
+__version__ = "$Revision$"[11:-2]
+__date__ = "$Date$"[7:-2]
+
 import sys
 import os
 import copy
@@ -241,7 +246,7 @@ And a few plotting specific options:
   --s3-stat (the statistic to use)  
 """
 
-parser = OptionParser( usage )
+parser = OptionParser( usage=usage, version="%prog CVS $Id" )
 #
 # abcdefg ijklmn pqrstuvwx
 # ABCDEFG I ST
