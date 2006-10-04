@@ -246,7 +246,7 @@ And a few plotting specific options:
   --s3-stat (the statistic to use)  
 """
 
-parser = OptionParser( usage=usage, version="%prog CVS $Id" )
+parser = OptionParser( usage=usage, version="%prog CVS $Id$" )
 #
 # abcdefg ijklmn pqrstuvwx
 # ABCDEFG I ST
