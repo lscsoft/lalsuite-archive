@@ -378,7 +378,7 @@ for bin in range(massBins):
   ularray[bin,1]=data["mhi"]
   if (massBins > 1):
     print
-    print "For the mass range between %e and %e" % (data["mlo"], data["mhi"])
+    print "For the mass range between %f and %f" % (data["mlo"], data["mhi"])
 
   for i in range(len(rate)):
     if cumnomarginpost[i] >= confLevel:
