@@ -1,5 +1,10 @@
 #!/usr/bin/python
 
+# $Id$
+__author__ = "Patrick Brady <patrick@gravity.phys.uwm.edu>"
+__version__ = "$Revision$"[11:-2]
+__date__ = "$Date$"[7:-2]
+
 import sys
 import os
 import copy
@@ -49,7 +54,7 @@ the number of triggers is very large.
 
 """
 
-parser = OptionParser( usage )
+parser = OptionParser( usage=usage, version="%prog CVS $Id$" )
 # used letters:
 # a c d e f g i j k l m n p r s t u v x y z
 # A B C H L R S T
