@@ -183,10 +183,17 @@ class RateVsAmplitude(SnglBurstUtils.BurstPlot):
 		# cummulative rate observed in foreground
 		foreground_y = numarray.arange(len(self.foreground), 0.0, -1.0, "Float64") / self.foreground_time
 		# plot
-		self.axes.errorbar(self.background, background_y, yerr = background_yerr, fmt = "k-")
+		ymin = 1e-8
+		ymax = 1e-4
+		x = numarray.concatenate((self.background, self.background[::-1]))
+		y = numarray.concatenate((background_y + background_yerr, (background_y - background_yerr)[::-1]))
+		self.axes.add_patch(patches.Polygon(zip(x, numarray.clip(y, ymin, ymax)), edgecolor = "k", facecolor = "k", alpha = 0.3))
+		self.axes.plot(self.background, background_y, "ko-")
+
 		self.axes.plot(self.foreground, foreground_y, "ro-", markeredgecolor = "r")
+
 		self.axes.set_xlim([1e-21, 1e-19])
-		self.axes.set_ylim([1e-8, 1e-4])
+		self.axes.set_ylim([ymin, ymax])
 		self.axes.xaxis.grid(True, which="minor")
 		self.axes.yaxis.grid(True, which="minor")
 
