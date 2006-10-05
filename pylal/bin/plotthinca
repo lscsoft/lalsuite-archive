@@ -134,10 +134,6 @@ parser.add_option("-V","--veto-file",action="store",type="string",\
     help="read in segments from FNAME (assumed segwizard format)")
 (opts,args) = parser.parse_args()
 
-# if --version flagged
-if opts.version:
-  sys.exit(0)
-  
 if opts.plot_type not in ['log', 'linear']:
   print >>sys.stderr, "plot-type must be either \"log\" or \"linear\""
   sys.exit(1)
