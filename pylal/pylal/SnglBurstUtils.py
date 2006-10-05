@@ -450,7 +450,7 @@ class BurstPlot(object):
 		self.nevents = 0
 		self.fig = figure.Figure()
 		FigureCanvasAgg(self.fig)
-		self.fig.set_figsize_inches(16, 8)
+		self.fig.set_size_inches(16, 8)
 		self.axes = self.fig.gca()
 		self.axes.grid(True)
 		self.axes.set_xlabel(x_label)
