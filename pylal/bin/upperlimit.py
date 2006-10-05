@@ -367,7 +367,7 @@ if not opts.skip_png:
           "' --figure-name " + times[0].upper() + \
           " --plot-cum-loudest --plot-pdf-loudest" + \
           " --num-slides 50 --statistic " + stat_dict["statistic"]
-      if  stat_dict["statistic"] == "bittenl":
+      if  stat_dict["statistic"] == "bitten_l":
         command += " --bittenl_a " + stat_dict["bittenl_a"] + \
             " --bittenl_b "+stat_dict["bittenl_b"]
       for opt in png_options:
