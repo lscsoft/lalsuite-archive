@@ -294,12 +294,12 @@ class coincInspiralTable:
       for ifo in ifolist:
         if coinc.has_key(ifo):
           if stat.name=='snr' or stat.name=='effective_snr':
-            snrsq += coinc[ifo][stat.singleStat]**2
+            snrsq += coinc[ifo][stat.name]**2
           elif stat.name=="bitten_l":
             snrsq += coinc[ifo]['snr']**2
             dummy=min( stat.a*coinc[ifo]['snr']-stat.b , dummy)
           else:
-            coinc['stat'] += coinc[ifo][stat.singleStat]
+            coinc['stat'] += coinc[ifo][stat.name]
       if stat.name=='snr' or stat.name=='effective_snr':
          coinc['stat'] = sqrt(snrsq)
       elif  stat.name=="bitten_l":
