@@ -287,22 +287,23 @@ class coincInspiralTable:
     """
     Return an array of statistic values.
     """
-    
     ifolist = ['G1','H1','H2','L1']
     for coinc in self.table:
       snrsq=0;
-      coinc['stat']=1e20;
+      dummy=1e20;
       for ifo in ifolist:
         if coinc.has_key(ifo):
-          if stat=='snr' or stat=='effective_snr':
-            coinc['stat'] += coinc[ifo][stat]**2
-          elif stat.name=='bitten_l':
-            snrsq+=coinc[ifo]['snr']**2
-            coinc['stat']=min( sqrt(snrsq), stat.a*coinc[ifo]['snr']-stat.b ,coinc['stat'])
+          if stat.name=='snr' or stat.singleStat=='effective_snr':
+            snrsq += coinc[ifo][stat.singleStat]**2
+          elif stat.name=="bitten_l":
+            snrsq += coinc[ifo]['snr']**2
+            dummy=min( stat.a*coinc[ifo]['snr']-stat.b , dummy)
           else:
-            coinc['stat'] += coinc[ifo][stat]
-      if stat=='snr' or stat=='effective_snr':
-         coinc['stat'] = sqrt(coinc['stat'])
+            coinc['stat'] += coinc[ifo][stat.singleStat]
+      if stat.name=='snr' or stat.name=='effective_snr':
+         coinc['stat'] = sqrt(snrsq)
+      elif  stat.name=="bitten_l":
+         coinc['stat'] = min(dummy, sqrt(snrsq))
 
   def getstat(self):
     """
