@@ -335,9 +335,13 @@ if not opts.skip_plotthinca:
   command = "plotthinca --glob '" + MYRESULTSDIR + "/hipecoire/*CLUST*zero* " \
       + MYRESULTSDIR + "/hipecoire/*CLUST*slides*' " + \
       "--plot-slides --num-slides 50 " \
-      "--figure-name 'summary' --add-zero-lag --snr-dist"
+      "--figure-name 'summary' --add-zero-lag --snr-dist"+\
+      " --statistic " + stat_dict["statistic"]
   for opt in plotthinca_options:
     command+=" --"+opt[0]+" "+opt[1]
+  if stat_dict["statistic"] == "bitten_l":
+    command += " --bittenl_a " + stat_dict["bittenl_a"] + \
+     " --bittenl_b "+stat_dict["bittenl_b"]
   if opts.test:
     print command + "\n"
   else:
