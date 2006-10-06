@@ -136,11 +136,11 @@ class snglInspiralTable(metaDataTable):
  
   def addcol(self, column):
     """
-    Add column to the table.  The accepted columns at this time are 'snrsq',
-    'snr_over_chi' and 's3_snr_chi_stat'
+    Add column to the table.  The accepted columns at this time are 
+    'snr_over_chi', 's3_snr_chi_stat' and 'snr_over_chi'
     @param column: name of column to add
     """
-
+   
     if column == 'snr_over_chi':
       for trig in self.table:
         trig[column] = trig['snr'] / sqrt(trig['chisq'])
@@ -166,7 +166,7 @@ class coincInspiralTable:
   The stat is set by default to the snrsq: the sum of the squares of the snrs 
   of the individual triggers.
   """
-  def __init__(self, inspTriggers = None, stat = 'snr'):
+  def __init__(self, inspTriggers = None, stat = None):
     """
     @param inspTriggese: a metaDataTable containing inspiral triggers 
                          from which to construct coincidences
@@ -287,12 +287,18 @@ class coincInspiralTable:
     """
     Return an array of statistic values.
     """
+    
     ifolist = ['G1','H1','H2','L1']
     for coinc in self.table:
+      snrsq=0;
+      coinc['stat']=1e20;
       for ifo in ifolist:
         if coinc.has_key(ifo):
           if stat=='snr' or stat=='effective_snr':
             coinc['stat'] += coinc[ifo][stat]**2
+          elif stat.name=='bitten_l':
+            snrsq+=coinc[ifo]['snr']**2
+            coinc['stat']=min( sqrt(snrsq), stat.a*coinc[ifo]['snr']-stat.b ,coinc['stat'])
           else:
             coinc['stat'] += coinc[ifo][stat]
       if stat=='snr' or stat=='effective_snr':
