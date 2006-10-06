@@ -293,7 +293,7 @@ class coincInspiralTable:
       dummy=1e20;
       for ifo in ifolist:
         if coinc.has_key(ifo):
-          if stat.name=='snr' or stat.singleStat=='effective_snr':
+          if stat.name=='snr' or stat.name=='effective_snr':
             snrsq += coinc[ifo][stat.singleStat]**2
           elif stat.name=="bitten_l":
             snrsq += coinc[ifo]['snr']**2
