@@ -70,7 +70,7 @@ class coincInspiralTable:
         self.bl=statistic.get_bittenl( self.bl, snr )
         self.stat=min( self.bl, self.rsq )
       else:
-        self.stat += (self.stat**2 + getattr(trig,statistic.name)**2)**(1./2)
+        self.stat = (self.stat**2 + getattr(trig,statistic.name)**2)**(1./2)
       
       # sets the data for the single inspiral trigger
       setattr(self,trig.ifo,trig)
