@@ -7,12 +7,11 @@ from matplotlib.collections import PolyCollection
 from matplotlib.colors      import normalize, Colormap
 from optparse import * 
 from pylab    import *
-from readMeta import *
 
 #####################################################################
 # use tex labels
-params =  {'text.usetex': True }
-rcParams.update(params)
+#params =  {'text.usetex': True }
+#rcParams.update(params)
 
 def simpleplot(*args):
   if len(args)==3:
@@ -24,9 +23,9 @@ def simpleplot(*args):
   tmpvar1 = mytable.mkarray(col1)
   tmpvar2 = mytable.mkarray(col2)
   plot(tmpvar1,tmpvar2,'rx')
-  xlabel(col1, size='x-large')
-  ylabel(col2, size='x-large')
-  title(col1 + ' v ' + col2)
+  xlabel(col1.replace("_"," "), size='x-large')
+  ylabel(col2.replace("_"," "), size='x-large')
+  title(col1.replace("_"," ") + ' v ' + col2.replace("_"," "))
   grid(True)
 
 
@@ -48,8 +47,6 @@ def readcol(table, col_name, ifo=None ):
   @param ifo: name of ifo (used to extract the appropriate end_time/eff_dist)
   """
   
-  if table is not None: assert(isinstance(table, metaDataTable))
-
   col_names = [col_name]
   if ifo:
     col_names.append(col_name + '_' + ifo[0].lower())
@@ -60,25 +57,13 @@ def readcol(table, col_name, ifo=None ):
 
   col_data = []
   
-  if table.nevents():
-    if col_name == 'snr_chi':
-      # calculate snr/chi for triggers
-      snr_data = table.mkarray('snr')
-      chi_data = sqrt(table.mkarray('chisq'))
-      col_data = snr_data / chi_data
-    
-    elif col_name == 's3_snr_chi_stat':
-      # calculate snr, chi statistic for triggers:
-      snr_data = table.mkarray('snr')
-      chisq_data = table.mkarray('chisq')
-      col_data = snr_data**4 / (chisq_data * (snr_data**2 + 250) )       
-    else:
-      for c_name in col_names:
-        if table.table[0].has_key(c_name):
-          col_data = table.mkarray(c_name)
-          if 'time' in c_name:
-            col_data = col_data + 1e-9 * table.mkarray(c_name + '_ns')
-    
+  if len(table):
+    for c_name in col_names:
+      try: 
+        col_data = table.get_column(c_name)
+        if 'time' in c_name:
+          col_data = col_data + 1e-9 * table.get_column(c_name + '_ns')
+      except: x = 0
   return col_data
 
 #######################################################################
@@ -95,18 +80,15 @@ def readcolfrom2tables(table1, table2, col_name ):
   @param col_name: name of column to read in 
   """
   
-  if table1 is not None: assert(isinstance(table1, metaDataTable))
-  if table2 is not None: assert(isinstance(table2, metaDataTable))
-
-  if table1.nevents() != table2.nevents():
-    print >>sys.stderr, "nevents in table1 and table2 must be equal"
+  if len(table1) != len(table2):
+    print >>sys.stderr, "number of events in table1 and table2 must be equal"
     sys.exit(1)
  
-  if table1.nevents():
-    if table1.table[0].has_key('ifo'):
-      ifo = table1.table[0]["ifo"]
-    elif table2.table[0].has_key('ifo'):
-      ifo = table2.table[0]["ifo"]
+  if len(table1):
+    if ("ifo" in table1.validcolumns.keys()):
+      ifo = table1[0].ifo
+    elif ("ifo" in table2.validcolumns.keys()):
+      ifo = table2[0].ifo
     else:
       ifo = None
   else:
@@ -211,9 +193,9 @@ def plot_a_v_b(table, col_name_a, col_name_b, plot_type = 'linear',
   @param x_min: Minimum value of x axis
   @param x_max: Maximum value of x axis
   """
-  if not ifo and table.nevents:
-    if table.table[0].has_key('ifo'):
-      ifo = table.table[0]["ifo"]
+  if not ifo and len(table):
+    if ("ifo" in table.validcolumns.keys()):
+      ifo = table[0].ifo
   
   col_a = readcol(table, col_name_a, ifo )
   col_b = readcol(table, col_name_b, ifo )
@@ -223,7 +205,7 @@ def plot_a_v_b(table, col_name_a, col_name_b, plot_type = 'linear',
       col_a = timeindays(col_a)
     if 'time' in col_name_b:
       col_b = timeindays(col_b)
-    
+   
   if (plot_type == 'linear') or (plot_type == 'seconds'):
     plot(col_a, col_b, plot_sym, markersize=12,markeredgewidth=1,\
         markerfacecolor=None, label = plot_label)
@@ -240,9 +222,11 @@ def plot_a_v_b(table, col_name_a, col_name_b, plot_type = 'linear',
     ylim(0.95 * min(col_b), 1.05 * max(col_b))
 
   if ifo:
-    title(ifo + ' ' + col_name_a + ' vs ' + col_name_b, size='x-large')
+    title(ifo + ' ' + col_name_a.replace("_"," ") + ' vs ' + \
+        col_name_b.replace("_"," "), size='x-large')
   else:
-    title(col_name_a + ' vs ' + col_name_b, size='x-large')
+    title(col_name_a.replace("_"," ") + ' vs ' + col_name_b.replace("_"," "), \
+        size='x-large')
 
   grid(True)
 
@@ -309,11 +293,12 @@ def labeldiff(col_name, units = None, axis = [0,0,0,0], leg = None,
   """
   
   if units:
-    xlabel(col_name + ' (' + units +')', size='x-large')
-    ylabel(col_name + ' difference (' + units +')', size='x-large')
+    xlabel(col_name.replace("_"," ") + ' (' + units +')', size='x-large')
+    ylabel(col_name.replace("_"," ") + ' difference (' + units +')',\
+        size='x-large')
   else:
-    xlabel(col_name, size='x-large')
-    ylabel(col_name + ' difference', size='x-large')
+    xlabel(col_name.replace("_"," "), size='x-large')
+    ylabel(col_name.replace("_"," ") + ' difference', size='x-large')
 
   if axis[0] or axis[1]:
     xlim(axis[0], axis[1])
@@ -327,8 +312,8 @@ def labeldiff(col_name, units = None, axis = [0,0,0,0], leg = None,
   grid(True)
 
   if title_text:
-    title(title_text + ' ' + col_name + '  Accuracy', size='x-large',
-      weight='bold')
+    title(title_text + ' ' + col_name.replace("_"," ") + '  Accuracy', \
+        size='x-large', weight='bold')
   # else:
   #   title(col_name + ' Accuracy', size='x-large',weight='bold')
   
@@ -386,11 +371,11 @@ def labelfracdiff(col_name, units = None, axis = [0,0,0,0], leg = None,
   """
 
   if units:
-    xlabel(col_name + ' (' + units +')', size='x-large')
+    xlabel(col_name.replace("_"," ") + ' (' + units +')', size='x-large')
   else:
-    xlabel(col_name, size='x-large')
+    xlabel(col_name.replace("_"," "), size='x-large')
   
-  ylabel(col_name + ' fractional difference', size='x-large')
+  ylabel(col_name.replace("_"," ") + ' fractional difference', size='x-large')
 
   if axis[0] or axis[1]:
     xlim(axis[0], axis[1])
@@ -404,10 +389,11 @@ def labelfracdiff(col_name, units = None, axis = [0,0,0,0], leg = None,
   grid(True)
 
   if title_text:
-    title(title_text + ' ' + col_name + '  Accuracy', size='x-large',
-      weight='bold')
+    title(title_text + ' ' + col_name.replace("_"," ") + '  Accuracy', \
+        size='x-large', weight='bold')
   else:
-    title(col_name + ' Accuracy', size='x-large',weight='bold')
+    title(col_name.replace("_"," ") + ' Accuracy', \
+        size='x-large',weight='bold')
   
   if output_name:
     output_name += '_' + col_name + '_frac_accuracy.png'
@@ -466,14 +452,15 @@ def labeldiffa_vs_b(col_name_a, col_name_b, units_a=None, units_b=None,
   """
     
   if units_b:
-    xlabel(col_name_b + ' (' + units_b +')', size='x-large')
+    xlabel(col_name_b.replace("_"," ") + ' (' + units_b +')', size='x-large')
   else:
-    xlabel(col_name_b, size='x-large')
+    xlabel(col_name_b.replace("_"," "), size='x-large')
   
   if units_a:
-    ylabel(col_name_a + ' difference (' + units_a + ')', size='x-large')
+    ylabel(col_name_a.replace("_"," ") + ' difference (' + units_a + ')', \
+        size='x-large')
   else:
-    ylabel(col_name_a + ' difference', size='x-large')
+    ylabel(col_name_a.replace("_"," ") + ' difference', size='x-large')
  
   if axis[0] or axis[1]:
     xlim(axis[0], axis[1])
@@ -487,11 +474,13 @@ def labeldiffa_vs_b(col_name_a, col_name_b, units_a=None, units_b=None,
   grid(True)
 
   if title_text:
-    title(title_text + ' ' + col_name_a + ' Accuracy vs ' + col_name_b, 
-      size='x-large', weight='bold')
+    title(title_text + ' ' + col_name_a.replace("_"," ") + ' Accuracy vs ' + \
+        col_name_b.replace("_"," "), \
+        size='x-large', weight='bold')
   else:
-    title(col_name_a + ' Accuracy vs ' + col_name_b,
-      size='x-large',weight='bold')
+    title(col_name_a.replace("_"," ") + ' Accuracy vs ' + \
+        col_name_b.replace("_"," "),
+        size='x-large',weight='bold')
 
   if output_name:
     output_name += '_' + col_name_a + '_vs_' + col_name_b + '_accuracy.png'
@@ -554,8 +543,8 @@ def labelval(col_name, units = None, axis = [0,0,0,0], xlab = None, \
     xlab +=' (' + units +')'
     ylab += ' (' + units +')'
     
-  xlabel(xlab, size='x-large')
-  ylabel(ylab, size='x-large')
+  xlabel(xlab.replace("_"," "), size='x-large')
+  ylabel(ylab.replace("_"," "), size='x-large')
  
   if axis[0] or axis[1]:
     xlim(axis[0], axis[1])
@@ -569,9 +558,10 @@ def labelval(col_name, units = None, axis = [0,0,0,0], xlab = None, \
   grid(True)
 
   if title_text:
-    title(title_text + ' ' + col_name, size='x-large', weight='bold')
+    title(title_text + ' ' + col_name.replace("_"," "), size='x-large', \
+        weight='bold')
   else:
-    title(col_name,size='x-large',weight='bold')
+    title(col_name.replace("_"," "),size='x-large',weight='bold')
 
   if output_name:
     output_name += '_' + col_name + '_plot.png'
@@ -639,8 +629,8 @@ def plotcoinchanford(coinctable, col_name, ifo, \
 # two tables, table1 and table2
 def histcol(table1, col_name,nbins = None, width = None, output_name = None):
  
-  if table1.table[0].has_key('ifo'):
-    ifo = table1.table[0]["ifo"]
+  if ("ifo" in table.validcolumns.keys()):
+    ifo = table1.ifo
   else:
     ifo = None
 
@@ -654,7 +644,7 @@ def histcol(table1, col_name,nbins = None, width = None, output_name = None):
     for i in range(-nbins,nbins):
       bins.append(width * i/nbins)
   
-  xlabel(col_name, size='x-large')
+  xlabel(col_name.replace("_"," "), size='x-large')
   ylabel('Number', size='x-large')
 
   if bins:
@@ -666,9 +656,9 @@ def histcol(table1, col_name,nbins = None, width = None, output_name = None):
   bar(out[1],out[0],width)
   
   if ifo:
-    title(ifo + ' ' + col_name + ' histogram', size='x-large')
+    title(ifo + ' ' + col_name.replace("_"," ") + ' histogram', size='x-large')
   else:
-    title(col_name + ' histogram', size='x-large')
+    title(col_name.replace("_"," ") + ' histogram', size='x-large')
 
   grid(True)
 
@@ -685,8 +675,8 @@ def histcol(table1, col_name,nbins = None, width = None, output_name = None):
 def cumhistcol(table1, col_name, plot_type = 'logy', normalization=None, \
     output_name = None, ifo=None, xlimit = [0,0]):
  
-  if not ifo and table1.table[0].has_key('ifo'):
-    ifo = table1.table[0]["ifo"]
+  if not ifo and ("ifo" in table1.validcolumns.keys()):
+    ifo = table1[0].ifo
 
   data = readcol(table1, col_name, ifo )
 
@@ -713,7 +703,7 @@ def cumhistcol(table1, col_name, plot_type = 'logy', normalization=None, \
   if xlimit[1]:
     xmax(xlimit[1])
 
-  xlabel(col_name, size='x-large')
+  xlabel(col_name.replace("_"," "), size='x-large')
   
   if normalization:
     ylabel('Probability', size='x-large')
@@ -721,9 +711,9 @@ def cumhistcol(table1, col_name, plot_type = 'logy', normalization=None, \
     ylabel('Cumulative Number', size='x-large')
 
   if ifo:
-    title_string = ifo + ' ' + col_name
+    title_string = ifo + ' ' + col_name.replace("_"," ")
   else:
-    title_string = col_name
+    title_string = col_name.replace("_"," ")
   if normalization:
     title_string += ' normalized'
   title_string += ' cumulative histogram'
@@ -744,7 +734,7 @@ def cumhistcol(table1, col_name, plot_type = 'logy', normalization=None, \
 ######################################################################
 # function to make a cumulative histogram of the coinc inspiral statistic
 def cumhiststat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
-  max_val = None, nbins = None, stat=None):
+  max_val = None, nbins = 20, stat=None):
   """
   function to plot a cumulative histogram of the snr of coincident events
   in the zero lag and times slides
@@ -796,13 +786,10 @@ def cumhiststat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
       max_val = slide_max
 
   # set up the bin boundaries
-  if not nbins:
-    nbins = 20
-  
   if not max_val:
-    max_val = 10
+    max_val = 10.
   if not min_val:
-    min_val = 5
+    min_val = 5.
     
   step = (max_val - min_val)/nbins
   bins = arange(min_val, max_val, step)
@@ -830,8 +817,9 @@ def cumhiststat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
   clf()
   hold(True)
   # plot zero lag
-  if trigs and trigs.nevents(): 
-    semilogy(bins*bins,cum_dist_zero+0.0001,'k^',markerfacecolor="k",markersize=12)
+  if trigs and len(trigs): 
+    semilogy(bins*bins,cum_dist_zero+0.0001,'k^',markerfacecolor="k",\
+        markersize=12)
   
   # plot time slides
   if slide_trigs and len(slide_snr_list):
@@ -882,8 +870,8 @@ def efficiencyplot(found, missed, col_name, ifo=None, plot_type = 'linear', \
                     default = False
   """
   
-  if not ifo and found.table[0].has_key('ifo'):
-    ifo = found.table[0]["ifo"]
+  if not ifo and ("ifo" in found.validcolumns.keys()):
+    ifo = found[0].ifo
 
   foundVal = readcol(found,col_name, ifo)
   missedVal = readcol(missed,col_name, ifo)
@@ -930,13 +918,13 @@ def efficiencyplot(found, missed, col_name, ifo=None, plot_type = 'linear', \
       plot(bins, eff, plotsym,markersize=12, markerfacecolor=None,\
           markeredgewidth=1, linewidth=1, label = plot_name)
 
-  xlabel(col_name, size='x-large')
+  xlabel(col_name.replace("_"," "), size='x-large')
   ylabel('Efficiency', size='x-large')
   ylim(0,1.1)
   if ifo:
     title_string += ' ' + ifo  
   
-  title_string += ' ' + col_name
+  title_string += ' ' + col_name.replace("_"," ")
   title_string += ' efficiency plot'
   title(title_string, size='x-large')
 
@@ -1031,14 +1019,15 @@ def labelhistdiff(col_name, plot_type, units, leg = None, title_text = None,
   label += ' difference'
   if units and not (plot_type == 'frac_hist'):
     label += ' (' + units +')'
-  xlabel(label, size='x-large')
+  xlabel(label.replace("_"," "), size='x-large')
 
   ylabel('Number', size='x-large')
   
   if title_text:
-    title(title_text + ' ' + col_name + '  Histogram', size='x-large')
+    title(title_text + ' ' + col_name.replace("_"," ") + '  Histogram', \
+        size='x-large')
   else:
-    title(col_name + ' Histogram', size='x-large')
+    title(col_name.replace("_"," ") + ' Histogram', size='x-large')
   
   grid(True)
 
@@ -1082,6 +1071,7 @@ def histdiffdiff(ifo1_trig, ifo2_trig, inj, col_name, sym, units=None,
   width = out[1][1] - out[1][0]
   bar(out[1],out[0],width,color=histcolors[sym])
 
+  diffdiff = asarray(diffdiff)
   figtext(0.13,0.8 - 0.1* sym," mean = %6.3e" % mean(diffdiff))
   figtext(0.13,0.75 - 0.1 * sym,'sigma = %6.3e' % std(diffdiff))
  
@@ -1089,12 +1079,12 @@ def histdiffdiff(ifo1_trig, ifo2_trig, inj, col_name, sym, units=None,
   label += ' difference'
   if units:
     label += ' (' + units +')'
-  xlabel(label, size='x-large')
+  xlabel(label.replace("_"," "), size='x-large')
 
   ylabel('Number', size='x-large')
   
-  title(ifo1 + ' - ' + ifo2 + ' ' + col_name + ' difference histogram', \
-    size='x-large')
+  title(ifo1 + ' - ' + ifo2 + ' ' + col_name.replace("_"," ") + \
+      ' difference histogram', size='x-large')
   
   grid(True)
 
@@ -1120,9 +1110,9 @@ def histslides(slide_trigs, zerolag_trigs = None, ifolist = None, scalebkg = Non
   slides = []
   for slide in slide_trigs:
     if ifolist:
-      nevents.append( slide["coinc_trigs"].coinctype(ifolist).nevents() )
+      nevents.append( len(slide["coinc_trigs"].coinctype(ifolist)) )
     else:  
-      nevents.append(slide["coinc_trigs"].nevents())
+      nevents.append( len(slide["coinc_trigs"]) )
       
     slides.append(slide["slide_num"])
  
@@ -1136,9 +1126,9 @@ def histslides(slide_trigs, zerolag_trigs = None, ifolist = None, scalebkg = Non
   if zerolag_trigs:
     hold(True)
     if ifolist:
-      nfgevents = zerolag_trigs.coinctype(ifolist).nevents()
+      nfgevents = len(zerolag_trigs.coinctype(ifolist))
     else:
-      nfgevents = zerolag_trigs.nevents()
+      nfgevents = len(zerolag_trigs)
     figtext(0.13,0.70,"zero lag = %6.3e" % nfgevents )
     axvline(nfgevents,color='r',linewidth=2)
   
@@ -1154,21 +1144,23 @@ def histslides(slide_trigs, zerolag_trigs = None, ifolist = None, scalebkg = Non
 ######################################################################
 # function to histogram the difference between values of 'col_name' in
 # two tables, table1 and table2
-def plotslides(slide_trigs, zerolag_trigs = None, ifolist = None, scalebkg = None):
+def plotslides(slide_trigs, zerolag_trigs = None, ifolist = None, \
+    scalebkg = None):
   """
   function to make a histogram of the number of triggers per time slide
   
   @param slide_trigs: dictionary of time slide triggers
   @param zerolag_trigs: coincInspiralTable
   @param ifolist: list of ifos
+  @param scalebkg: if True then scale background by 600/6370
   """
   nevents = []
   slides = []
   for slide in slide_trigs:
     if ifolist:
-      nevents.append( slide["coinc_trigs"].coinctype(ifolist).nevents() )
+      nevents.append( len(slide["coinc_trigs"].coinctype(ifolist)) )
     else:  
-      nevents.append(slide["coinc_trigs"].nevents())
+      nevents.append(len(slide["coinc_trigs"]))
     slides.append(slide["slide_num"])
 
   if scalebkg:
@@ -1185,9 +1177,9 @@ def plotslides(slide_trigs, zerolag_trigs = None, ifolist = None, scalebkg = Non
   if zerolag_trigs:
     hold(True)
     if ifolist:
-      nfgevents = zerolag_trigs.coinctype(ifolist).nevents()
+      nfgevents = len(zerolag_trigs.coinctype(ifolist))
     else:
-      nfgevents = zerolag_trigs.nevents()
+      nfgevents = len(zerolag_trigs)
     plot([0],[nfgevents],'rx',markersize=12)
  
   
