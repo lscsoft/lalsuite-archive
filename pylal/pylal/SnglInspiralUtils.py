@@ -25,6 +25,36 @@
 #
 
 from pylal.date import LIGOTimeGPS
+from glue.ligolw import table
+from glue.ligolw import lsctables
+from glue.ligolw import utils
+#
+# =============================================================================
+#
+#                                   Input
+#
+# =============================================================================
+#
+
+
+def ReadSnglInspiralFromFiles(fileList):
+  """
+  Read the snglInspiral tables from a list of files
+  @param fileList: list of input files
+  """
+  snglInspiralTriggers = None
+  for thisFile in fileList:
+    doc = utils.load_filename(thisFile)
+    # extract the sngl inspiral table
+    try: snglInspiralTable = \
+      table.get_table(doc, lsctables.SnglInspiralTable.tableName)
+    except: snglInspiralTable = None
+    if snglInspiralTriggers and snglInspiralTable: 
+      snglInspiralTriggers.extend(snglInspiralTable)
+    elif not snglInspiralTriggers:
+      snglInspiralTriggers = snglInspiralTable
+
+  return snglInspiralTriggers
 
 
 #
