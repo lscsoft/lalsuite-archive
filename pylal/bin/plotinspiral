@@ -9,7 +9,8 @@ import glob
 from types import *
 
 from pylab import *
-from pylal import readMeta
+from pylal import SnglInspiralUtils
+from pylal import SimInspiralUtils
 from pylal import viz
 from glue import segments
 from glue import segmentsUtils
@@ -132,32 +133,22 @@ if not len(trigFiles):
   sys.exit(1)
 
 # an instance of the snglInspiralTable
-inspTriggers=readMeta.metaDataTable(trigFiles, "sngl_inspiral")
+inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(trigFiles)
 plotsymbols= ['r+','bx','ko']
 
 # read in the template bank if supplied
 if opts.template_bank:
-  tmpltbank=readMeta.metaDataTable([ opts.template_bank ], "sngl_inspiral")
+  tmpltbank=SnglInspiralUtils.ReadSnglInspiralFromFiles([ opts.template_bank ])
 
 # apply veto if there is one
 if opts.veto_file:
   file = open( opts.veto_file , "r")
   seglist = segmentsUtils.fromsegwizard(file)
   file.close()
+  inspTriggers = inspTriggers.veto(seglist)
   
-  vetoed = readMeta.metaDataTable( None, "sngl_inspiral")
-  keep = readMeta.metaDataTable( None, "sngl_inspiral")
-  for event in inspTriggers.table:
-    end_time = event["end_time"]
-    if seglist.__contains__(end_time):
-      vetoed.table.append(event)
-    else:
-      keep.table.append(event)
-        
-  inspTriggers = keep
-
-max_snr = max(inspTriggers.mkarray('snr'))
-min_snr = min(inspTriggers.mkarray('snr'))
+max_snr = max(inspTriggers.get_column('snr'))
+min_snr = min(inspTriggers.get_column('snr'))
 snr_range = arange( min_snr, max_snr, (max_snr - min_snr)/100  )
 
 if opts.chisq_threshold:
@@ -260,14 +251,14 @@ if opts.hist_chisq:
 if opts.cum_hist_snr_chi:
   fig_num += 1
   figure(fig_num)
-  viz.cumhistcol(inspTriggers,'snr_chi',output_name = opts.figure_name)
+  viz.cumhistcol(inspTriggers,'snr_over_chi',output_name = opts.figure_name)
 
 ###################################
 # histogram of snr
 if opts.hist_snr_chi:
   fig_num += 1
   figure(fig_num)
-  viz.histcol(inspTriggers,'snr_chi',opts.nbins,None,opts.figure_name)
+  viz.histcol(inspTriggers,'snr_over_chi',opts.nbins,None,opts.figure_name)
 
 ###################################
 # plot the template bank and overlay the triggers

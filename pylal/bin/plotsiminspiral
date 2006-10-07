@@ -10,8 +10,9 @@ from types import *
 
 from pylab import *
 from glue import segmentsUtils
-from pylal import readMeta
 from pylal import viz
+from pylal import SimInspiralUtils
+
 
 ##############################################################################
 usage = """usage: %prog [options] file1 (file2 file3)
@@ -55,8 +56,6 @@ The width of these plots is set using --dist-axis
 
 """
 parser = OptionParser( usage )
-parser.add_option("-v","--version",action="store_true",default=False,\
-    help="display version information " )
 parser.add_option("-1","--tag1",action="store",type="string",\
     default=None, metavar=" TAG",help="identifier for first input file" )
 parser.add_option("-2","--tag2",action="store",type="string",\
@@ -78,17 +77,14 @@ parser.add_option("-x","--title-text",action="store",type="string",\
 
 (opts,args) = parser.parse_args()
 
-# if --version flagged
-if opts.version:
-  sys.exit(0)
 
 # glob the list of files to read in
 missedfiles = glob.glob(opts.glob_missed);
 foundfiles = glob.glob(opts.glob_found);
 
 # an instance of the simInspiralTable
-foundbinaries=readMeta.metaDataTable(foundfiles, "sim_inspiral")
-missedbinaries=readMeta.metaDataTable(missedfiles, "sim_inspiral")
+foundbinaries = SimInspiralUtils.ReadSimInspiralFromFiles(foundfiles)
+missedbinaries= SimInspiralUtils.ReadSimInspiralFromFiles(missedfiles)
 
 viz.plot_a_v_b(foundbinaries,"eff_dist_l","eff_dist_h",plot_sym = 'rx')
 viz.plot_a_v_b(missedbinaries,"eff_dist_l","eff_dist_h",plot_sym = 'b+')
