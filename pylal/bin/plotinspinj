@@ -171,8 +171,8 @@ for i in range(len(injFiles)):
   #
   # veto if supplied
   if opts.veto_file:
-    injDict["sngl_inspiral"] = injDict["sngl_inspiral"].veto(seglist,"end_time")
-    injDict["sim_inspiral"] = injDict["sim_inspiral"].veto(seglist,"geocent_end_time")
+    injDict["sngl_inspiral"] = injDict["sngl_inspiral"].veto(seglist)
+    injDict["sim_inspiral"] = injDict["sim_inspiral"].veto(seglist)
 
   injSets.append(injDict)
 

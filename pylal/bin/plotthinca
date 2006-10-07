@@ -247,7 +247,7 @@ if coincfiles:
     file = open( opts.veto_file , "r")
     seglist = segmentsUtils.fromsegwizard(file)
     file.close()
-    inspTriggers.veto(seglist)
+    inspTriggers = inspTriggers.veto(seglist)
       
   # construct the coincs
   coincTriggers = \
@@ -285,7 +285,7 @@ if slidefiles:
     file = open( opts.veto_file , "r")
     seglist = segmentsUtils.fromsegwizard(file)
     file.close()
-    inspSlide.veto(seglist)
+    inspSlide = inspSlide.veto(seglist)
       
   slide_num = range(1 , opts.num_slides + 1)
   slide_num.extend(range(-opts.num_slides, 0))
