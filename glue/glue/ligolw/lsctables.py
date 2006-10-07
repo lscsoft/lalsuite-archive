@@ -620,6 +620,8 @@ class SnglInspiralTable(table.Table):
 		@param slide_num: the slide number to recover (contained in the event_id)
 		"""
 		slideTrigs = table.new_from_template(self)
+		if slide_num < 0:
+			slide_num = 5000 - slide_num
 		for row in self:
 			if ( (row.event_id % 1000000000) / 100000 ) == slide_num:
 				slideTrigs.append(row)
