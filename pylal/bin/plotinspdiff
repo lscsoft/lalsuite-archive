@@ -1,5 +1,11 @@
 #!/usr/bin/python
 
+# $Id$
+__author__ = "Stephen Fairhurst <sfairhurs@gravity.phys.uwm.edu>"
+__version__ = "$Revision$"[11:-2]
+__date__ = "$Date$"[7:-2]
+
+
 import sys
 import os
 from optparse import *
@@ -7,9 +13,15 @@ import re
 import exceptions
 import glob
 from types import *
+from glue.ligolw import ligolw
+from glue.ligolw import table
+from glue.ligolw import lsctables
+from glue.ligolw import utils
 
 from pylab import *
-from pylal import readMeta
+from pylal import SnglInspiralUtils
+from pylal import SimInspiralUtils
+from pylal import CoincInspiralUtils
 from pylal import viz
 
 ##############################################################################
@@ -28,9 +40,7 @@ width of the histograms, otherwise it is autoscaled.
 Example 1: ...
 Example 2: ...
 """
-parser = OptionParser( usage )
-parser.add_option("-v","--version",action="store_true",default=False,\
-    help="display version information " )
+parser = OptionParser( usage=usage, version="%prog CVS $Id$"  )
 parser.add_option("-b","--hist-mchirp",action="store_true",default=False,\
     help="histogram of the chirp mass accuracy" )
 parser.add_option("-d","--hist-timing",action="store_true",default=False,\
@@ -49,10 +59,6 @@ parser.add_option("-f","--figure-name",action="store",type="string",\
 
 (opts,args) = parser.parse_args()
 
-# if --version flagged
-if opts.version:
-  sys.exit(0)
-
 # check at least one trig file was specified
 if not args:
   print >>sys.stderr, "a trig-file must be specified"
@@ -66,7 +72,7 @@ injFiles = args
 injSets = []
 
 if len(injFiles) != 2:
-  print >>sys.stderr, "precisely two trigger files must be specified"
+  print >>sys.stderr, "an even number of trigger files must be specified"
   print >>sys.stderr, "Enter 'plotinspdiff --help' for usage"
   sys.exit(1)
 
@@ -75,11 +81,11 @@ for i in range(len(injFiles)):
   # 
   flist = []
   flist.append(injFiles[i])
-  injDict["sngl_inspiral"] = readMeta.metaDataTable(flist, "sngl_inspiral")
-  injDict["sim_inspiral"]  = readMeta.metaDataTable(flist, "sim_inspiral")
+  injDict["sngl_inspiral"] = SnglInspiralUtils.ReadSnglInspiralFromFiles(flist)
+  injDict["sim_inspiral"]  = SimInspiralUtils.ReadSimInspiralFromFiles(flist)
   #
   # test sire clustering
-  if injDict['sngl_inspiral'].nevents() != injDict['sim_inspiral'].nevents():
+  if len(injDict['sngl_inspiral']) != len(injDict['sim_inspiral']):
     print >>sys.stderr,"number of triggers and found injections must be equal"
     sys.exit(1)
   #

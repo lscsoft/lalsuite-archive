@@ -1,17 +1,23 @@
 #!/usr/bin/python
 
+# $Id$
+__author__ = "Darren Woods and Stephen Fairhurst <sfairhurs@gravity.phys.uwm.edu>"
+__version__ = "$Revision$"[11:-2]
+__date__ = "$Date$"[7:-2]
+
+
+
 import sys, os, re, glob, exceptions
 from types    import *
 from optparse import *
 from pylab    import *
-from pylal    import readMeta
-from pylal    import viz
 from matplotlib.ticker import FormatStrFormatter
 from glue import segments
 from glue import segmentsUtils
-from glue.ligolw import ligolw
-from glue.ligolw import table
-from glue.ligolw import lsctables
+
+from pylal import viz
+from pylal import SnglInspiralUtils
+from pylal import SimInspiralUtils
 
 #######################################################################
 def isSummValue(name, attrs):
@@ -46,7 +52,7 @@ Generate found and missed trig plots
 
 Example: plotinspmissed --time-dist --show-plot found.xml missed.xml
 """
-parser = OptionParser( usage )
+parser = OptionParser( usage=usage, version="%prog CVS $Id$" )
 parser.add_option("-a","--time-dist",action="store_true",default=False,\
     help="plot dist v trig end time" )
 parser.add_option("-b","--mchirp-dist-log",action="store_true",default=False,\
@@ -153,13 +159,13 @@ for i in range(len(injFiles)):
   # 
   flist = []
   flist.append(injFiles[i])
-  injDict["sim_inspiral"]  = readMeta.metaDataTable(flist, "sim_inspiral")
+  injDict["sim_inspiral"]  = SimInspiralUtils.ReadSimInspiralFromFiles(flist)
 
   if opts.ifo:
     injDict["ifo"] = opts.ifo
   else:
-    sngl = readMeta.metaDataTable(flist, "sngl_inspiral")
-    injDict["ifo"] = sngl.table[0]["ifo"]
+    sngl = SnglInspiralUtils.ReadSnglInspiralFromFiles(flist)
+    injDict["ifo"] = sngl[0].ifo
     
   injDict["inj_time"] = viz.timeindays( viz.readcol(injDict["sim_inspiral"], \
     "end_time", injDict["ifo"] ) )
@@ -175,7 +181,7 @@ for i in range(len(injFiles)):
   if misFiles:
     flist = []
     flist.append(misFiles[i])
-    misDict["sim_inspiral"]  = readMeta.metaDataTable(flist, "sim_inspiral")
+    misDict["sim_inspiral"]  = SimInspiralUtils.ReadSimInspiralFromFiles(flist)
   #
   # apply veto if there is one
   if opts.veto_file:
@@ -205,7 +211,7 @@ for i in range(len(injFiles)):
         print "Missed Distance in " + injDict["ifo"] + " was " + \
             str(misDict["mis_dist"][i]),
         print "GPS time " + \
-            str(misDict["sim_inspiral"].table[i]["geocent_end_time"])
+            str(misDict["sim_inspiral"][i].geocent_end_time)
         print "L/H Distance ratio was " + \
             str(misDict["l_dist"][i]/misDict["h_dist"][i])
         print "Chirp mass was " + \

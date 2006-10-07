@@ -1,12 +1,24 @@
 #!/usr/bin/python
 
+# $Id$
+__author__ = "Stephen Fairhurst <sfairhurs@gravity.phys.uwm.edu>"
+__version__ = "$Revision$"[11:-2]
+__date__ = "$Date$"[7:-2]
+
 import sys, os, re, glob, exceptions
 import glob
 from types    import *
 from optparse import *
-from pylab    import *
-from pylal    import readMeta
-from pylal    import viz
+from glue.ligolw import ligolw
+from glue.ligolw import table
+from glue.ligolw import lsctables
+from glue.ligolw import utils
+
+from pylab import *
+from pylal import SnglInspiralUtils
+from pylal import SimInspiralUtils
+from pylal import CoincInspiralUtils
+from pylal import viz
 
 ##############################################################################
 # parse options and arguments
@@ -14,7 +26,7 @@ usage = """Usage: %prog [options]
 
 Generate efficiency plots for inspiral triggers
 """
-parser = OptionParser( usage )
+parser = OptionParser( usage=usage, version = "%prog CVS $Id$" )
 parser.add_option("-g","--glob-found",action="store",type="string",\
     default=None, metavar=" FOUND_GLOB", \
     help="GLOB of found trigger/injection files to read" )
@@ -76,15 +88,15 @@ if not foundFiles:
   print >>sys.stderr, "The glob for " + opts.glob_missed + " returned no files"
   sys.exit(1)
 
-foundTrig = readMeta.metaDataTable(foundFiles, "sngl_inspiral")
-foundInj  = readMeta.metaDataTable(foundFiles, "sim_inspiral")
-missedInj = readMeta.metaDataTable(missedFiles, "sim_inspiral")
+foundTrig = SnglInspiralUtils.ReadSnglInspiralFromFiles(foundFiles)
+foundInj  = SimInspiralUtils.ReadSimInspiralFromFiles(foundFiles)
+missedInj = SimInspiralUtils.ReadSimInspiralFromFiles(missedFiles)
 
-if foundTrig.nevents() != foundInj.nevents():
+if len(foundTrig) != len(foundInj):
     print >>sys.stderr,"number of triggers and found injections must be equal"
     sys.exit(1)
 
-ifo = foundTrig.table[0]['ifo']
+ifo = foundTrig[0].ifo
 
 ##########################################
 # plot of efficiency vs effective distance
@@ -96,18 +108,19 @@ if opts.vs_eff_dist:
 if opts.vs_distance:
   figure(2)
   viz.efficiencyplot(foundInj, missedInj, 'distance', ifo, plot_type = 'log', \
-      nbins = 20, output_name = opts.figure_name , linewidth=2 )
+      nbins = 20, output_name = opts.figure_name )
 
 if opts.vs_snr:
   figure(3)
-  totalInj = foundInj.nevents() + missedInj.nevents()
+  totalInj = len(foundInj) + len(missedInj)
   viz.cumhistcol(foundTrig, 'snr', 'linear', normalization = totalInj, \
       xlimit = [opts.min_snr,opts.max_snr], output_name = opts.figure_name)
 
 if opts.vs_snr_chi:
   figure(4)
-  totalInj = foundInj.nevents() + missedInj.nevents()
-  viz.cumhistcol(foundTrig, 'snr_chi', 'linear', normalization = totalInj, \
+  totalInj = len(foundInj) + len(missedInj)
+  viz.cumhistcol(foundTrig, 'snr_over_chi', 'linear', \
+      normalization = totalInj, \
       xlimit = [opts.min_snr_chi,opts.max_snr_chi], \
       output_name = opts.figure_name)
 

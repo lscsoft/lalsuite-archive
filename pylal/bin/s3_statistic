@@ -7,9 +7,16 @@ import re
 import exceptions
 import glob
 from types import *
+from glue.ligolw import ligolw
+from glue.ligolw import table
+from glue.ligolw import lsctables
+from glue.ligolw import utils
 
 from pylab import *
-from pylal import readMeta
+from pylal import SnglInspiralUtils
+from pylal import SimInspiralUtils
+from pylal import CoincInspiralUtils
+
 from pylal import viz
 from numarray.random_array import *
 
@@ -32,8 +39,8 @@ def plotstat(coincInspiral, symbols, description = None, plot_type = 'linear'):
   
   # h1-h2
   h1h2_coinc = coincInspiral.coinctype(['H1','H2'])
-  h1_val = h1h2_coinc.getsngls('H1').mkarray(opts.statistic)
-  h2_val = h1h2_coinc.getsngls('H2').mkarray(opts.statistic)
+  h1_val = h1h2_coinc.getsngls('H1').get_column(opts.statistic)
+  h2_val = h1h2_coinc.getsngls('H2').get_column(opts.statistic)
  
   if description:
     my_label = description + ': H1-H2'
@@ -50,8 +57,8 @@ def plotstat(coincInspiral, symbols, description = None, plot_type = 'linear'):
 
   # h1-l1
   h1l1_coinc = coincInspiral.coinctype(['H1','L1'])
-  h1_val = h1l1_coinc.getsngls('H1').mkarray(opts.statistic)
-  l1_val = h1l1_coinc.getsngls('L1').mkarray(opts.statistic)
+  h1_val = h1l1_coinc.getsngls('H1').get_column(opts.statistic)
+  l1_val = h1l1_coinc.getsngls('L1').get_column(opts.statistic)
   
   if description:
     my_label = description + ': H1-L1'
@@ -67,8 +74,8 @@ def plotstat(coincInspiral, symbols, description = None, plot_type = 'linear'):
 
   # h2-l1
   h2l1_coinc = coincInspiral.coinctype(['H2','L1'])
-  h2_val = h2l1_coinc.getsngls('H2').mkarray(opts.statistic)
-  l1_val = h2l1_coinc.getsngls('L1').mkarray(opts.statistic)
+  h2_val = h2l1_coinc.getsngls('H2').get_column(opts.statistic)
+  l1_val = h2l1_coinc.getsngls('L1').get_column(opts.statistic)
   
   if description:
     my_label = description + ': H2-L1'
@@ -85,9 +92,9 @@ def plotstat(coincInspiral, symbols, description = None, plot_type = 'linear'):
 
   # h1-h2-l1
   h1h2l1_coinc = coincInspiral.coinctype(['H1','H2','L1'])
-  h1_val = h1h2l1_coinc.getsngls('H1').mkarray(opts.statistic)
-  h2_val = h1h2l1_coinc.getsngls('H2').mkarray(opts.statistic)
-  l1_val = h1h2l1_coinc.getsngls('L1').mkarray(opts.statistic)
+  h1_val = h1h2l1_coinc.getsngls('H1').get_column(opts.statistic)
+  h2_val = h1h2l1_coinc.getsngls('H2').get_column(opts.statistic)
+  l1_val = h1h2l1_coinc.getsngls('L1').get_column(opts.statistic)
   if opts.statistic == 'effective_snr':
     h2_l1_val = sqrt(h2_val**2 + l1_val**2)
   else:
@@ -105,8 +112,8 @@ def plotstat(coincInspiral, symbols, description = None, plot_type = 'linear'):
       plot(h1_val, h2_l1_val, symbols[3], markersize=12, \
           markeredgewidth=1, label=my_label)
 
-  xlabel('H1/H2 ' + opts.statistic, size='x-large')
-  ylabel('H2/L1 ' + opts.statistic, size='x-large')
+  xlabel('H1/H2 ' + opts.statistic.replace("_"," "), size='x-large')
+  ylabel('H2/L1 ' + opts.statistic.replace("_"," "), size='x-large')
 
 
 
@@ -245,10 +252,10 @@ parser.add_option("-k","--efficiency",action="store_true",default=False,\
 parser.add_option("-w","--pdf-efficiency",action="store_true",default=False,\
     help="plot efficiency derivative as a function of the statistic")
 
-parser.add_option("-T","--statistic",action="store",default='s3_snr_chi_stat',\
+parser.add_option("-T","--statistic",action="store",default="effective_snr",\
     type="string",\
     help="choice of statistic used in making plots, valid arguments are: "
-         "snr, snr_over_chi, s3_snr_chi_stat (DEFAULT), effective_snr")
+         "snr, snr_over_chi, effective_snr")
 
 parser.add_option("-K","--eff-vs-col",action="append",
     type="string",dest="eff_cols",metavar=" COL",
@@ -321,6 +328,7 @@ if (opts.efficiency or opts.eff_cols) and not opts.missed_glob:
 #
 #######################################################################
 
+statistic = CoincInspiralUtils.coincStatistic(opts.statistic)
 
 
 ###################################
@@ -332,11 +340,8 @@ if opts.zero_glob:
     print >>sys.stderr, "The glob for " + opts.zero_glob + " returned no files"
     sys.exit(1)
 
-  inspTriggers = readMeta.snglInspiralTable(zeroFiles,"sngl_inspiral")
-  inspTriggers.addcol(opts.statistic)
-  if opts.loudest_events: inspTriggers.addcol('effective_snr')
-  
-  coincTriggers = readMeta.coincInspiralTable(inspTriggers, opts.statistic)
+  inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(zeroFiles)
+  coincTriggers = CoincInspiralUtils.coincInspiralTable(inspTriggers,statistic)
   
   if not opts.allow_h2_l1:
     # coincs MUST have H1 trigger:
@@ -357,14 +362,13 @@ if opts.slide_glob:
   slideMax = 0
 
   slideStat = []
-  slideTriggers = readMeta.coincInspiralTable()
+  slideTriggers = CoincInspiralUtils.coincInspiralTable(stat = statistic)
 
   if not slideFiles:
     print >>sys.stderr, "The glob for " + opts.slide_glob + " returned no files"
     sys.exit(1)
 
-  inspSlide = readMeta.snglInspiralTable(slideFiles,"sngl_inspiral")
-  inspSlide.addcol(opts.statistic)
+  inspSlide = SnglInspiralUtils.ReadSnglInspiralFromFiles(slideFiles)
   
   slide_num = range(1 , opts.num_slides + 1)
   slide_num.extend(range(-opts.num_slides, 0))
@@ -372,15 +376,12 @@ if opts.slide_glob:
   for slide in slide_num:
     this_slide = {}
     this_slide["slide_num"] = slide
-    if slide > 0:
-      this_slide["sngl_trigs"] = inspSlide.getslide(slide)
-    else:
-      this_slide["sngl_trigs"] = inspSlide.getslide(5000 - slide)
+    this_slide["sngl_trigs"] = inspSlide.getslide(slide)
 
     # make coincs
     this_slide["coinc_trigs"] = \
-        readMeta.coincInspiralTable(this_slide["sngl_trigs"], 
-        opts.statistic )
+        CoincInspiralUtils.coincInspiralTable(this_slide["sngl_trigs"],\
+        statistic )
    
     if not opts.allow_h2_l1:
       # coincs MUST include an H1 trigger
@@ -393,7 +394,6 @@ if opts.slide_glob:
         this_slide["coinc_trigs"].cluster(opts.cluster_window)  
     
     # extract the statistic from the this_slide
-    slideTriggers.sort()
     thisSlideStat = this_slide["coinc_trigs"].getstat()
     slideStat.append( thisSlideStat )
     if len(thisSlideStat):
@@ -403,7 +403,7 @@ if opts.slide_glob:
 
 
     # add slide to list
-    slideTriggers.append(this_slide["coinc_trigs"])
+    slideTriggers.extend(this_slide["coinc_trigs"])
 
   slideLoudest = asarray(slideLoudest)
   slideMax = max(slideLoudest)
@@ -417,28 +417,27 @@ if opts.inj_glob:
     print >>sys.stderr, "The glob for " + opts.inj_glob + " returned no files"
     sys.exit(1)
 
-  injTriggers = readMeta.coincInspiralTable()
+  injTriggers = CoincInspiralUtils.coincInspiralTable()
   for file in injFiles:
-    thisInjSngl = readMeta.snglInspiralTable([file],"sngl_inspiral")
-    thisInjSngl.addcol(opts.statistic)
-    thisInj = readMeta.coincInspiralTable(thisInjSngl, opts.statistic)
+    thisInjSngl = SnglInspiralUtils.ReadSnglInspiralFromFiles([file])
+    thisInj = CoincInspiralUtils.coincInspiralTable(thisInjSngl, statistic)
 
     if opts.eff_cols:
-      thisSim = readMeta.snglInspiralTable([file],"sim_inspiral")
-      if thisInj.nevents() != thisSim.nevents():
+      thisSim = SimInspiralUtils.ReadSimInspiralFromFiles([file])
+      if len(thisInj) != len(thisSim):
         print >>sys.stderr, "Different number of coincs and injections in " + \
           file
         sys.exit(1)
       else:
-        for coinc in thisInj.table:
-          coinc['sim'] = thisSim.table.pop(0)
+        for coinc in thisInj:
+          coinc.sim = thisSim.pop(0)
    
     if not opts.allow_h2_l1:
       # coincs MUST include an H1 trigger
       thisInj = thisInj.coincinclude(["H1"])
-    injTriggers.append(thisInj)
+    injTriggers.extend(thisInj)
 
-  # extract the statistic from the slideTriggers
+  # extract the statistic from the injTriggers
   injTriggers.sort()
 
   injStat = injTriggers.getstat()
@@ -452,7 +451,7 @@ if opts.missed_glob:
     print >>sys.stderr, "The glob for " + opts.missed_glob + " was empty"
     sys.exit(1)
 
-  missedInj = readMeta.snglInspiralTable(missedFiles,"sim_inspiral")
+  missedInj = SimInspiralUtils.ReadSimInspiralFromFiles(missedFiles)
 
 
 #######################################################################
@@ -467,43 +466,43 @@ else:
   loudestEvent = 0
 
 if opts.loudest_events:
-  if opts.loudest_events > coincTriggers.nevents():
-     opts.loudest_events = coincTriggers.nevents()
+  if opts.loudest_events > len(coincTriggers):
+     opts.loudest_events = len(coincTriggers)
      
   if opts.loudest_file:
     loud_file = open( opts.loudest_file , "w")
      
     loud_file.write( "Loudest Events\n")
-    loud_file.write( "Time\t Stat\t  H1 snr\t H1 norm snr\t H2 snr\t" +\
-        "H2 norm snr\t" + "L1 snr\t L1 norm snr\n")
+    loud_file.write( "Time\t Stat\t  H1 snr\t H1 effective snr\t H2 snr\t" +\
+        "H2 effective snr\t" + "L1 snr\t L1 effective snr\n")
   else:
     print "Loudest Events"
-    print "Time\t Stat\t  H1 snr\t H1 norm snr\t H2 snr\t H2 norm snr\t" + \
-      "L1 snr\t L1 norm snr"
+    print "Time\t Stat\t  H1 snr\t H1 effective snr\t H2 snr\t" +\
+        " H2 effective snr\t L1 snr\t L1 effective snr"
   
 
   
   for j in range(opts.loudest_events):
     snr = {}
-    norm_snr = {}
+    effective_snr = {}
     for ifo in ['H1','H2','L1']:
-      if (coincTriggers.table[j].has_key(ifo)):
-        snr[ifo] = coincTriggers.table[j][ifo]['snr']
-        norm_snr[ifo] = coincTriggers.table[j][ifo]['effective_snr'] 
-        time = coincTriggers.table[j][ifo]['end_time']
-      else:
+      try:
+        snr[ifo] = getattr(coincTriggers[j],ifo).snr
+        effective_snr[ifo] = getattr(coincTriggers[j],ifo).get_effective_snr()
+        time = getattr(coincTriggers[j],ifo).end_time
+      except:
         snr[ifo] = 0
-        norm_snr[ifo] = 0
+        effective_snr[ifo] = 0
     if opts.loudest_file:
       loud_file.write(str(time) + \
           '\t%5.3f\t%5.3f\t%5.3f\t%5.3f\t%5.3f\t%5.3f\t%5.3f\n' % \
-          (coincTriggers.table[j]["stat"], snr['H1'], norm_snr['H1'], \
-          snr['H2'], norm_snr['H2'], snr['L1'], norm_snr['L1'] ) )
+          (coincTriggers[j].stat, snr['H1'], effective_snr['H1'], \
+          snr['H2'], effective_snr['H2'], snr['L1'], effective_snr['L1'] ) )
     else:
       print str(time) + \
           '\t%5.3f\t%5.3f\t%5.3f\t%5.3f\t%5.3f\t%5.3f\t%5.3f' % \
-          (coincTriggers.table[j]["stat"], snr['H1'], norm_snr['H1'], \
-          snr['H2'], norm_snr['H2'], snr['L1'], norm_snr['L1'] )
+          (coincTriggers[j].stat, snr['H1'], effective_snr['H1'], \
+          snr['H2'], effective_snr['H2'], snr['L1'], effective_snr['L1'] )
   
   if opts.loudest_file:
     loud_file.close()
@@ -526,7 +525,7 @@ if opts.slide_stat:
   hold(True)
   
   plotstat(slideTriggers, ['kx','b+','g1','ro'])
-  if slideTriggers.nevents(): legend()
+  if len(slideTriggers): legend()
   grid()
 
   if opts.plot_min:
@@ -552,7 +551,7 @@ if opts.slide_zero_stat:
   
   plotstat(slideTriggers, ['kx','k+','k1','ko'],'slide')
   plotstat(coincTriggers, ['rx','r+','r1','ro'],'zero-lag')
-  if slideTriggers.nevents() or coincTriggers.nevents(): legend()
+  if len(slideTriggers) or len(coincTriggers): legend()
   grid()
 
   if opts.plot_min:
@@ -578,7 +577,7 @@ if opts.slide_inj_stat:
   
   plotstat(slideTriggers, ['kx','k+','k1','ko'],'slide',opts.inj_plot_type)
   plotstat(injTriggers, ['rx','r+','r1','ro'],'inj',opts.inj_plot_type)
-  if slideTriggers.nevents() or injTriggers.nevents(): legend()
+  if len(slideTriggers) or len(injTriggers): legend()
   grid()
 
   if opts.plot_min:
@@ -602,7 +601,7 @@ if opts.inj_stat:
   hold(True)
   
   plotstat(injTriggers, ['kx','b+','g1','ro'],None,opts.inj_plot_type)
-  if injTriggers.nevents(): legend()
+  if len(injTriggers): legend()
   grid()
 
   if opts.plot_min:
@@ -626,7 +625,7 @@ if opts.zero_stat:
   hold(True)
   
   plotstat(coincTriggers, ['kx','b+','g1','ro'])
-  if coincTriggers.nevents(): legend()
+  if len(coincTriggers): legend()
   grid()
   
   if opts.plot_min:
@@ -651,7 +650,7 @@ if opts.zero_inj_stat:
   
   plotstat(coincTriggers, ['kx','k+','k1','ko'],'zero lag',opts.inj_plot_type)
   plotstat(injTriggers, ['rx','r+','r1','ro'],'injections',opts.inj_plot_type)
-  if coincTriggers.nevents() or injTriggers.nevents(): legend(loc=2)
+  if len(coincTriggers) or len(injTriggers): legend(loc=2)
   grid()
 
   if opts.plot_min:
@@ -757,7 +756,7 @@ if opts.slide_dist:
         markersize=12, markeredgewidth=1, linewidth=1, color='k')
 
      
-  xlabel('Combined ' + opts.statistic, size='x-large')
+  xlabel('Combined ' + opts.statistic.replace("_"," "), size='x-large')
   ylabel('Log Number of events', size='x-large')
   if opts.distribution == 'cumulative':
     title_text = 'Cumulative histogram of Number of events vs statistic'
@@ -796,7 +795,7 @@ if opts.slide_zero_dist:
         log10(slideMean + sqrt(slideMean)) - log10(slideMean)], 
         markersize=12, markeredgewidth=1, linewidth=1, color='k')
 
-  xlabel('Combined ' + opts.statistic, size='x-large')
+  xlabel('Combined ' + opts.statistic.replace("_"," "), size='x-large')
   ylabel('Log Number of events', size='x-large')
   if opts.distribution == 'cumulative':
     title_text = 'Cumulative histogram of Number of events vs statistic'
@@ -838,11 +837,11 @@ if opts.stat_values:
       bar(binSl, numPoisson, (2.0 * step) / 3.0, color='r')
       bar(binSl + step / 3.0 , numSl, (2.0 * step) / 3.0, color='b')
           
-    xlabel('Number of events in slide at ' + opts.statistic + ' ' \
-        + str(value), size='x-large')
+    xlabel('Number of events in slide at ' + opts.statistic.replace("_"," ") \
+        + ' ' + str(value), size='x-large')
     ylabel('Number of occurrences', size='x-large')
     if opts.figure_name:
-      savefig(opts.figure_name + "_slide_dist_at_" + value + ".png")
+      savefig(opts.figure_name + "_slide_dist_at_" + str(value) + ".png")
 
 
 ####################################
@@ -868,7 +867,7 @@ if opts.plot_cum_loudest:
     print 'pdf P_b at loudest event is ' + str(P_b)
 
   grid()
-  xlabel(opts.statistic, size='x-large')
+  xlabel(opts.statistic.replace("_"," "), size='x-large')
   ylabel('Probability loudest event < value', size='x-large')
   legend()
   if opts.figure_name:
@@ -882,7 +881,7 @@ if opts.plot_pdf_loudest:
   # plot a smoothed probability distribution
   num,snrArray,crap = hist(slideLoudest,snrArray,normed = 1)
   clf()
-  num = asarray(num,'f')
+  num = asarray(num)
   # gaussian average over 5 points
   width = 5.0
   gauss = exp(- arange(- 1.0* (opts.num_slides - 1) /width, 
@@ -898,7 +897,7 @@ if opts.plot_pdf_loudest:
                  smooth_pb[min(x[snrArray > loudestEvent])] )
     print 'pdf p_b at loudest event is ' + str(p_b)
 
-  xlabel(opts.statistic, size='x-large')
+  xlabel(opts.statistic.replace("_"," "), size='x-large')
   ylabel('pdf of loudest event', size='x-large')
   legend()
   grid()
@@ -931,10 +930,11 @@ if opts.efficiency:
   values = arange(min_val, max_val, (max_val - min_val)/1000)
   
   num_above = zeros(len(values))
+  injStat = asarray(injStat)
   for i in range(len(values)):
     num_above[i] = sum( injStat > values[i] )
-  
-  eff = num_above / float(injTriggers.nevents() + missedInj.nevents() )
+ 
+  eff = num_above / float(len(injTriggers) + len(missedInj) )
   
   plot(values, eff, 'k-', linewidth = 2,label="efficiency")
   # and the zero lag line
@@ -993,11 +993,11 @@ if opts.pdf_efficiency:
   if opts.zero_glob:
     axvline(loudestEvent,linewidth=2,color='r',label="zero lag")
     
-  xlabel(opts.statistic, size='x-large')
+  xlabel(opts.statistic.replace("_"," "), size='x-large')
   ylabel('derivative of efficiency', size='x-large')
   grid()
   if opts.figure_name:
-      savefig(opts.figure_name + "_efficiency_deriv_" + value + ".png")
+      savefig(opts.figure_name + "_efficiency_deriv_" + str(value) + ".png")
 
 
 ######################################
@@ -1011,7 +1011,7 @@ if opts.mass_windows and len(opts.mass_windows) > 1:
 # make the efficiency vs distance plot 
 if opts.eff_cols:
   # all injections with stat < loudest event go in missed.
-  foundInj = readMeta.metaDataTable(None,"sim_inspiral")
+  foundInj = lsctables.New(lsctables.SimInspiralTable)
   # if no zero lag, then find efficiency at loudest slide:
   if loudestEvent:
     title_text = 'Above zero lag loudest, '
@@ -1021,29 +1021,29 @@ if opts.eff_cols:
   else:
     title_text = ''
 
-  for injCoinc in injTriggers.table:
-    if injCoinc['stat'] < loudestEvent:
-      missedInj.table.append(injCoinc['sim'])
+  for injCoinc in injTriggers:
+    if injCoinc.stat < loudestEvent:
+      missedInj.append(injCoinc.sim)
     else:
-      foundInj.table.append(injCoinc['sim'])
+      foundInj.append(injCoinc.sim)
   
   if windows:
     for win1 in windows:
       for win2 in windows:
         if win2 >= win1:
-          foundWin = readMeta.metaDataTable(None,"sim_inspiral")
-          missedWin = readMeta.metaDataTable(None,"sim_inspiral")
+          foundWin = lsctables.New(lsctables.SimInspiralTable)
+          missedWin = lsctables.New(lsctables.SimInspiralTable)
 
-          for found in foundInj.table:
-            m_low = min(found["mass1"], found["mass2"])
-            m_high = max(found["mass1"], found["mass2"])
+          for found in foundInj:
+            m_low = min(found.mass1, found.mass2)
+            m_high = max(found.mass1, found.mass2)
             if m_low > win1[0] and m_low < win1[1] and \
                m_high > win2[0] and m_high < win2[1]:
               foundWin.table.append(found)
 
           for missed in missedInj.table:
-            m_low = min(missed["mass1"], missed["mass2"])
-            m_high = max(missed["mass1"], missed["mass2"])
+            m_low = min(missed.mass1, missed.mass2)
+            m_high = max(missed.mass1, missed.mass2)
             if m_low > win1[0] and m_low < win1[1] and \
                m_high > win2[0] and m_high < win2[1]:
               missedWin.table.append(missed)

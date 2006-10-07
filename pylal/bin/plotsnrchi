@@ -9,9 +9,9 @@ import glob
 from types import *
 
 from pylab import *
-from pylal import readMeta
 from pylal import viz
-
+from pylal import SnglInspiralUtils
+from pylal import SimInspiralUtils
 
 ##############################################################################
 def plotvarlines(snr_range, var):
@@ -216,20 +216,20 @@ if (opts.hist_stat or opts.hist_snr or opts.hist_snr_chi) and not \
    
 ###################################
 # input triggers
-inspTriggers=readMeta.metaDataTable(trigFiles,'sngl_inspiral')
+inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(trigFiles)
 # input injections:
 inj_snr = None
 inj_chisq = None
 if opts.inj_glob:
-  injTriggers=readMeta.metaDataTable(injFiles,'sngl_inspiral')
-  inj_snr = injTriggers.mkarray('snr')
-  inj_chisq = injTriggers.mkarray('chisq')
+  injTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(injFiles)
+  inj_snr = injTriggers.get_column('snr')
+  inj_chisq = injTriggers.get_column('chisq')
 
 
 ###################################
 # Set up snr arrays
-nevents = inspTriggers.nevents()
-snr = inspTriggers.mkarray('snr')
+nevents = len(inspTriggers)
+snr = inspTriggers.get_column('snr')
 
 if opts.inj_glob:
   max_snr = max(inj_snr)
@@ -245,7 +245,7 @@ snr_range = 10**snr_range
 
 ###################################
 # Set up chisq arrays
-chisq = inspTriggers.mkarray('chisq')
+chisq = inspTriggers.get_column('chisq')
 
 max_chisq = max(chisq)
 min_chisq = min(chisq)
@@ -298,12 +298,12 @@ if opts.trig_contour or opts.trig_contour_lines or opts.contour_lines \
   cont = reshape(zeros(20*20), (20,20))
   for i in range(20):  
     for j in range(20):
-      cont[i][j] = sum( (snr > snr_range[j]) *  (chisq < chisq_range[i]) )
+      cont[i][j] = sum( asarray(snr > snr_range[j]) * \
+          asarray(chisq < chisq_range[i]) )
 
   v = arange(0,log10(nevents),log10(nevents)/20)
   v = 10**v
   v = concatenate( (v,zeros(1)) )
-  print v
 
 fig_num = 0
 ###################################
@@ -349,7 +349,7 @@ if opts.contour_lines:
 
     xlabel('snr', size='x-large')
     ylabel('chisq', size='x-large')
-    title(inspTriggers.table[0]['ifo'])
+    title(inspTriggers[0].ifo)
     xlim(min_snr, max_snr)
     ylim(min_chisq, max_chisq)
     if opts.figure_name:
@@ -364,7 +364,7 @@ if opts.contour_lines:
 
     xlabel('snr', size='x-large')
     ylabel('chisq', size='x-large')
-    title(inspTriggers.table[0]['ifo'])
+    title(inspTriggers[0].ifo)
     xlim(min_snr, max_snr)
     ylim(min_chisq, max_chisq)
     if opts.figure_name:
@@ -510,7 +510,7 @@ if opts.hist_stat:
 
     print 'Statistic is variable denominator snr chi'
     loghistval(stat,inj_stat,opts.nbins)
-    title(inspTriggers.table[0]['ifo'], size='x-large')
+    title(inspTriggers[0].ifo, size='x-large')
     xlabel('variable den. statistic', size='x-large')
     ylabel('pdf', size='x-large')
     if opts.figure_name:
@@ -526,7 +526,7 @@ if opts.hist_stat:
 
     print 'Statistic is constant denominator snr chi'
     loghistval(stat,inj_stat,opts.nbins)
-    title(inspTriggers.table[0]['ifo'] + ' statistic', size='x-large')
+    title(inspTriggers[0].ifo + ' statistic', size='x-large')
     xlabel(r'$\rho^4 / (\chi^2 [\rho^2 +250])$', size='x-large')
     ylabel('pdf', size='x-large')
     if opts.figure_name:

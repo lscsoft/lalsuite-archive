@@ -1,5 +1,11 @@
 #!/usr/bin/python
 
+# $Id$
+__author__ = "Stephen Fairhurst <sfairhurs@gravity.phys.uwm.edu>"
+__version__ = "$Revision$"[11:-2]
+__date__ = "$Date$"[7:-2]
+
+
 import sys
 import os
 from optparse import *
@@ -10,7 +16,14 @@ from types import *
 
 from pylab import *
 from glue import segmentsUtils
-from pylal import readMeta
+from glue.ligolw import ligolw
+from glue.ligolw import table
+from glue.ligolw import lsctables
+from glue.ligolw import utils
+
+from pylab import *
+from pylal import SnglInspiralUtils
+from pylal import SimInspiralUtils
 from pylal import viz
 
 ##############################################################################
@@ -54,9 +67,7 @@ The width of these plots is set using --dist-axis
   c) injected vs detected distance can be plotted using --dist-dist 
 
 """
-parser = OptionParser( usage )
-parser.add_option("-v","--version",action="store_true",default=False,\
-    help="display version information " )
+parser = OptionParser( usage=usage, version="%prog CVS $Id$")
     
 parser.add_option("-m","--plot-mchirp",action="store_true",default=False,\
     help="plot the chirp mass accuracy" )
@@ -120,10 +131,6 @@ parser.add_option("-V","--veto-file",action="store",type="string",\
 
 (opts,args) = parser.parse_args()
 
-# if --version flagged
-if opts.version:
-  sys.exit(0)
-
 # check at least one trig file was specified
 if not args:
   print >>sys.stderr, "a trig-file must be specified"
@@ -154,11 +161,11 @@ for i in range(len(injFiles)):
   # 
   flist = []
   flist.append(injFiles[i])
-  injDict["sngl_inspiral"] = readMeta.metaDataTable(flist, "sngl_inspiral")
-  injDict["sim_inspiral"]  = readMeta.metaDataTable(flist, "sim_inspiral")
+  injDict["sngl_inspiral"] = SnglInspiralUtils.ReadSnglInspiralFromFiles(flist)
+  injDict["sim_inspiral"]  = SimInspiralUtils.ReadSimInspiralFromFiles(flist)
   #
   # test sire clustering
-  if injDict['sngl_inspiral'].nevents() != injDict['sim_inspiral'].nevents():
+  if len(injDict['sngl_inspiral']) != len(injDict['sim_inspiral']):
     print >>sys.stderr,"number of triggers and found injections must be equal"
     sys.exit(1)
   #

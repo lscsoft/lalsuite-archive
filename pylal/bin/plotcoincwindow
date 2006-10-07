@@ -1,5 +1,10 @@
 #!/usr/bin/python
 
+# $Id$
+__author__ = "Stephen Fairhurst <fairhurst_s@ligo.caltech.edu>"
+__version__ = "$Revision$"[11:-2]
+__date__ = "$Date$"[7:-2]
+
 import sys
 import os
 from optparse import *
@@ -9,8 +14,11 @@ import glob
 from types import *
 
 from pylab import *
-from pylal import readMeta
 from pylal import viz
+from pylal import SimInspiralUtils
+from pylal import SnglInspiralUtils
+from pylal import CoincInspiralUtils
+
 
 ##############################################################################
 def coinctest(coinc_table, ifo_list, col_name, window):
@@ -27,11 +35,11 @@ def coinctest(coinc_table, ifo_list, col_name, window):
   [val1, val2, ifo] = viz.readcolfrom2tables(coinc_table.getsngls(ifo_list[0]),
       coinc_table.getsngls(ifo_list[1]),col_name)
   diff = val1 - val2
-  event_nums = range(coinc_table.nevents())
+  event_nums = range(len(coinc_table))
   event_nums.reverse()
   for i in event_nums:
     if diff[i] < window[0] or diff[i] > window[1]:
-      coinc_table.table.pop(i)
+      coinc_table.pop(i)
 
 ######################################################################
 # function to histogram the difference between values of 'col_name' in
@@ -168,7 +176,7 @@ def makeplot(coincDict,ifo_list,col_name,width,uniform_bg=None,nbins=None):
       coincDict['fg'].getsngls(ifo_list[0]), col_name,'hist',sym,2,\
       nbins,width)
   sym+=1
-  if coincDict['bg'].nevents():
+  if len(coincDict['bg']):
     viz.histdiff(coincDict['bg'].getsngls(ifo_list[1]), \
         coincDict['bg'].getsngls(ifo_list[0]), col_name,'hist',sym,2,\
         nbins,width) 
@@ -207,9 +215,7 @@ Work as follows:
 7) Pass in the output of (3) as --glob-found and (6) as --glob-bg.
 """
 
-parser = OptionParser( usage )
-parser.add_option("-v","--version",action="store_true",default=False,\
-    help="display version information " )
+parser = OptionParser( usage = usage, version= "%prog CVS $Id$")
 parser.add_option("-a","--ifo",action="append",type="string",\
     dest="ifo_list", metavar=" IFO", help="add IFO to list of ifos" )
 parser.add_option("-r","--normalized-trigger-rate",action="append",\
@@ -290,17 +296,18 @@ if opts.glob_bg:
   
 for trigs in availTrigs:
   snglDict[trigs] = {}
-  snglDict[trigs] = readMeta.metaDataTable(files[trigs],"sngl_inspiral")
-  coincDict[trigs] = readMeta.coincInspiralTable(snglDict[trigs]) 
+  snglDict[trigs] = SnglInspiralUtils.ReadSnglInspiralFromFiles(files[trigs])
+  coincDict[trigs] = CoincInspiralUtils.coincInspiralTable(snglDict[trigs],\
+      CoincInspiralUtils.coincStatistic("snr")) 
   coincDict[trigs] = coincDict[trigs].coincinclude(opts.ifo_list) 
   coincDict[trigs] = coincDict[trigs].cluster(10) 
 
 if not opts.glob_bg:
-  snglDict['bg'] = readMeta.metaDataTable([],"")
-  coincDict['bg'] = readMeta.coincInspiralTable()
+  snglDict['bg'] = SnglInspiralUtils.ReadSnglInspiralFromFiles([])
+  coincDict['bg'] = CoincInspiralUtils.coincInspiralTable()
 
 # set number of events
-nevents = coincDict['fg'].nevents()
+nevents = len(coincDict['fg'])
 
 # find the initial coincidence windows (1.2 times the furthest outlier)
 # and remove all background outside this
@@ -325,7 +332,7 @@ while revision == True:
   # remove any fg or bg outside our windows
   for col_name in opts.coinc_cols:
     coinctest(coincDict['fg'], opts.ifo_list, col_name,window[col_name])
-    if coincDict['bg'].nevents():
+    if len(coincDict['bg']):
       coinctest(coincDict['bg'], opts.ifo_list, col_name, window[col_name])
   
   # make plots of foregroun and background
@@ -348,7 +355,7 @@ while revision == True:
   for col_name in opts.coinc_cols:
     [bins,fg] = histcoincdiff(coincDict['fg'],opts.ifo_list,col_name, \
         window[col_name],opts.nbins)
-    if coincDict['bg'].nevents():
+    if len(coincDict['bg']):
       [bins,bg] = histcoincdiff(coincDict['bg'],opts.ifo_list,col_name, \
           window[col_name],opts.nbins)
     else:

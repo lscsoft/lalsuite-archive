@@ -10,8 +10,8 @@ from types import *
 
 from pylab import *
 from glue import segmentsUtils
-from pylal import readMeta
 from pylal import viz
+from pylal import SimInspiralUtils
 
 ##############################################################################
 usage = """usage: %prog [options] file1 (file2 file3)
@@ -32,8 +32,6 @@ The width of all these plots is set using --chirp-axis
 
 """
 parser = OptionParser( usage )
-parser.add_option("-v","--version",action="store_true",default=False,\
-    help="display version information " )
 parser.add_option("-d","--dist-v-dist",action="store_true",default=False,\
     help="make a plot of hanford versus livingston effective distance" )
 parser.add_option("-S","--spin-v-spin",action="store_true",default=False,\
@@ -64,15 +62,11 @@ parser.add_option("-x","--title-text",action="store",type="string",\
 
 (opts,args) = parser.parse_args()
 
-# if --version flagged
-if opts.version:
-  sys.exit(0)
-
 # glob the list of files to read in
 injfiles = glob.glob(opts.glob_injfile);
 
 # an instance of the simInspiralTable
-binaries=readMeta.metaDataTable(injfiles, "sim_inspiral")
+binaries = SimInspiralUtils.ReadSimInspiralFromFiles(injfiles)
 
 
 if opts.dist_v_dist:
@@ -83,12 +77,12 @@ if opts.dist_v_dist:
     savefig(opts.fig_name + "_dist-dist.png")
 
 # set of arrays for each spin component
-s1x=binaries.mkarray("spin1x")
-s1y=binaries.mkarray("spin1y")
-s1z=binaries.mkarray("spin1z")
-s2x=binaries.mkarray("spin2x")
-s2y=binaries.mkarray("spin2y")
-s2z=binaries.mkarray("spin2z")
+s1x=binaries.get_column("spin1x")
+s1y=binaries.get_column("spin1y")
+s1z=binaries.get_column("spin1z")
+s2x=binaries.get_column("spin2x")
+s2y=binaries.get_column("spin2y")
+s2z=binaries.get_column("spin2z")
 
 # amplitude of each set of spin (1 & 2)
 amps1=sqrt(s1x*s1x+s1y*s1y+s1z*s1z)
@@ -106,8 +100,8 @@ if opts.spin_v_spin:
     savefig(opts.fig_name + "_spin-spin.png")
     
 # set arrays for mass1 and mass2
-mass1=binaries.mkarray("mass1")
-mass2=binaries.mkarray("mass2")
+mass1=asarray(binaries.get_column("mass1"))
+mass2=asarray(binaries.get_column("mass2"))
 
 if opts.mass_v_mass:
   figure()
@@ -120,7 +114,7 @@ if opts.mass_v_mass:
     savefig(opts.fig_name + "_mass-mass.png")
 
 # set of arrays for distance
-dist=binaries.mkarray("distance")
+dist=binaries.get_column("distance")
 
 # log if distance
 logdist=log(dist)
@@ -133,8 +127,8 @@ if opts.logdist:
     savefig(opts.fig_name + "_logdist.png")
 
 # set of arrays for mchirp
-mass1=binaries.mkarray('mass1')
-mass2=binaries.mkarray('mass2')
+mass1=binaries.get_column('mass1')
+mass2=binaries.get_column('mass2')
 mchirp=((mass1*mass2)**(.6))/((mass1+mass2)**(.2))
 
 if opts.mchirp:
@@ -145,7 +139,7 @@ if opts.mchirp:
     savefig(opts.fig_name + "_mchirp.png")
 
 # set of arrays for eta
-eta=binaries.mkarray("eta")
+eta=binaries.get_column("eta")
 
 if opts.eta:
   figure()
@@ -157,7 +151,7 @@ if opts.eta:
 # Scatter plot of mass1 versus mass2 with spin1
 if opts.mass_spin1:
   figure()
-  scatter(mass1,mass2,c=amps1)
+  scatter(mass1,mass2,c=asarray(amps1))
   colorbar()
   axis([1,3,1,3])
   title('Mass Comparison with Spin1')
