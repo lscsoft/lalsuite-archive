@@ -1,5 +1,8 @@
 import sys
-
+from glue.ligolw import ligolw
+from glue.ligolw import table
+from glue.ligolw import lsctables
+from glue.ligolw import utils
 
 def uniq(list):
   """
@@ -23,7 +26,7 @@ class coincStatistic:
 
   __slots__ = ["name","a","b","rsq","bl"]
 
-  def __init__(self, name, a, b):
+  def __init__(self, name, a=0, b=0):
     self.name=name
     self.a=a
     self.b=b
@@ -82,8 +85,9 @@ class coincInspiralTable:
   
   def __init__(self, inspTriggers = None, stat = None):
     """
-    @param inspTriggese: a metaDataTable containing inspiral triggers 
+    @param inspTriggers: a metaDataTable containing inspiral triggers 
                          from which to construct coincidences
+    @param stat:         an instance of coincStatistic
     """
     self.stat = stat
     self.sngl_table = inspTriggers
@@ -195,7 +199,8 @@ class coincInspiralTable:
     @param ifo: ifo for which to retrieve the single inspirals.
     """
     from glue.ligolw import table 
-    ifoTrigs = table.new_from_template(self.sngl_table)
+    try: ifoTrigs = table.new_from_template(self.sngl_table)
+    except: ifoTrigs = lsctables.New(lsctables.SnglInspiralTable)
     for coinc in self:
       if hasattr(coinc,ifo): 
         ifoTrigs.append(getattr(coinc,ifo))
@@ -282,6 +287,8 @@ class coincInspiralTable:
     """
     from glue.ligolw import table 
     simInspirals = table.new_from_template(self.sim_table)
+    try: simInspirals = table.new_from_template(sim.sngl_table)
+    except: simInspirals = lsctables.New(lsctables.SimInspiralTable)
     for coinc in self:
       if (hasattr(coinc,"sim")) and (coinc.stat >= thresh): 
         simInspirals.append(coinc.sim)
