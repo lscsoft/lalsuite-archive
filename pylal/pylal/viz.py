@@ -629,13 +629,12 @@ def plotcoinchanford(coinctable, col_name, ifo, \
 # two tables, table1 and table2
 def histcol(table1, col_name,nbins = None, width = None, output_name = None):
  
-  if ("ifo" in table.validcolumns.keys()):
-    ifo = table1.ifo
+  if ("ifo" in table1.validcolumns.keys()):
+    ifo = table1[0].ifo
   else:
     ifo = None
 
   data = readcol(table1, col_name, ifo )
-
   if not nbins:
     nbins = 10
   
