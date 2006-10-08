@@ -76,6 +76,7 @@ defgroup "injection" groupdesc=""
 groupoption "fake-linear" - "Inject linearly polarized fake signal" group="injection"
 groupoption "fake-circular" - "Inject circularly polarized fake signal" group="injection"
 
+option "fake-ref-time"	- "time of signal start" double default="0" no
 option "fake-ra"	- "RA of fake signal to inject" double default="3.14" no
 option "fake-dec"	- "DEC of fake signal to inject" double default="0.0" no
 option "fake-iota"	- "iota of fake signal to inject" double default="0.0" no

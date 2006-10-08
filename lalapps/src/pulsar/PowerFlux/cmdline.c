@@ -88,6 +88,7 @@ const char *gengetopt_args_info_help[] = {
   "\n Group: injection",
   "      --fake-linear             Inject linearly polarized fake signal",
   "      --fake-circular           Inject circularly polarized fake signal",
+  "      --fake-ref-time=DOUBLE    time of signal start  (default=`0')",
   "      --fake-ra=DOUBLE          RA of fake signal to inject  (default=`3.14')",
   "      --fake-dec=DOUBLE         DEC of fake signal to inject  (default=`0.0')",
   "      --fake-iota=DOUBLE        iota of fake signal to inject  (default=`0.0')",
@@ -201,6 +202,7 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->only_large_cos_given = 0 ;
   args_info->fake_linear_given = 0 ;
   args_info->fake_circular_given = 0 ;
+  args_info->fake_ref_time_given = 0 ;
   args_info->fake_ra_given = 0 ;
   args_info->fake_dec_given = 0 ;
   args_info->fake_iota_given = 0 ;
@@ -321,6 +323,8 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->focus_dec_orig = NULL;
   args_info->focus_radius_orig = NULL;
   args_info->only_large_cos_orig = NULL;
+  args_info->fake_ref_time_arg = 0;
+  args_info->fake_ref_time_orig = NULL;
   args_info->fake_ra_arg = 3.14;
   args_info->fake_ra_orig = NULL;
   args_info->fake_dec_arg = 0.0;
@@ -407,16 +411,17 @@ void init_args_info(struct gengetopt_args_info *args_info)
   args_info->only_large_cos_help = gengetopt_args_info_help[58] ;
   args_info->fake_linear_help = gengetopt_args_info_help[59] ;
   args_info->fake_circular_help = gengetopt_args_info_help[60] ;
-  args_info->fake_ra_help = gengetopt_args_info_help[61] ;
-  args_info->fake_dec_help = gengetopt_args_info_help[62] ;
-  args_info->fake_iota_help = gengetopt_args_info_help[63] ;
-  args_info->fake_psi_help = gengetopt_args_info_help[64] ;
-  args_info->fake_phi_help = gengetopt_args_info_help[65] ;
-  args_info->fake_spindown_help = gengetopt_args_info_help[66] ;
-  args_info->fake_strain_help = gengetopt_args_info_help[67] ;
-  args_info->fake_freq_help = gengetopt_args_info_help[68] ;
-  args_info->snr_precision_help = gengetopt_args_info_help[69] ;
-  args_info->max_candidates_help = gengetopt_args_info_help[70] ;
+  args_info->fake_ref_time_help = gengetopt_args_info_help[61] ;
+  args_info->fake_ra_help = gengetopt_args_info_help[62] ;
+  args_info->fake_dec_help = gengetopt_args_info_help[63] ;
+  args_info->fake_iota_help = gengetopt_args_info_help[64] ;
+  args_info->fake_psi_help = gengetopt_args_info_help[65] ;
+  args_info->fake_phi_help = gengetopt_args_info_help[66] ;
+  args_info->fake_spindown_help = gengetopt_args_info_help[67] ;
+  args_info->fake_strain_help = gengetopt_args_info_help[68] ;
+  args_info->fake_freq_help = gengetopt_args_info_help[69] ;
+  args_info->snr_precision_help = gengetopt_args_info_help[70] ;
+  args_info->max_candidates_help = gengetopt_args_info_help[71] ;
   
 }
 
@@ -851,6 +856,11 @@ cmdline_parser_release (struct gengetopt_args_info *args_info)
     {
       free (args_info->only_large_cos_orig); /* free previous argument */
       args_info->only_large_cos_orig = 0;
+    }
+  if (args_info->fake_ref_time_orig)
+    {
+      free (args_info->fake_ref_time_orig); /* free previous argument */
+      args_info->fake_ref_time_orig = 0;
     }
   if (args_info->fake_ra_orig)
     {
@@ -1331,6 +1341,13 @@ cmdline_parser_file_save(const char *filename, struct gengetopt_args_info *args_
   if (args_info->fake_circular_given) {
     fprintf(outfile, "%s\n", "fake-circular");
   }
+  if (args_info->fake_ref_time_given) {
+    if (args_info->fake_ref_time_orig) {
+      fprintf(outfile, "%s=\"%s\"\n", "fake-ref-time", args_info->fake_ref_time_orig);
+    } else {
+      fprintf(outfile, "%s\n", "fake-ref-time");
+    }
+  }
   if (args_info->fake_ra_given) {
     if (args_info->fake_ra_orig) {
       fprintf(outfile, "%s=\"%s\"\n", "fake-ra", args_info->fake_ra_orig);
@@ -1559,6 +1576,7 @@ cmdline_parser_internal (int argc, char * const *argv, struct gengetopt_args_inf
         { "only-large-cos",	1, NULL, 0 },
         { "fake-linear",	0, NULL, 0 },
         { "fake-circular",	0, NULL, 0 },
+        { "fake-ref-time",	1, NULL, 0 },
         { "fake-ra",	1, NULL, 0 },
         { "fake-dec",	1, NULL, 0 },
         { "fake-iota",	1, NULL, 0 },
@@ -2768,6 +2786,27 @@ cmdline_parser_internal (int argc, char * const *argv, struct gengetopt_args_inf
               reset_group_injection (args_info);
             args_info->injection_group_counter += 1;
             break;
+          }
+          /* time of signal start.  */
+          else if (strcmp (long_options[option_index].name, "fake-ref-time") == 0)
+          {
+            if (local_args_info.fake_ref_time_given)
+              {
+                fprintf (stderr, "%s: `--fake-ref-time' option given more than once%s\n", argv[0], (additional_error ? additional_error : ""));
+                goto failure;
+              }
+            if (args_info->fake_ref_time_given && ! override)
+              continue;
+            local_args_info.fake_ref_time_given = 1;
+            args_info->fake_ref_time_given = 1;
+            args_info->fake_ref_time_arg = strtod (optarg, &stop_char);
+            if (!(stop_char && *stop_char == '\0')) {
+              fprintf(stderr, "%s: invalid numeric value: %s\n", argv[0], optarg);
+              goto failure;
+            }
+            if (args_info->fake_ref_time_orig)
+              free (args_info->fake_ref_time_orig); /* free previous string */
+            args_info->fake_ref_time_orig = gengetopt_strdup (optarg);
           }
           /* RA of fake signal to inject.  */
           else if (strcmp (long_options[option_index].name, "fake-ra") == 0)

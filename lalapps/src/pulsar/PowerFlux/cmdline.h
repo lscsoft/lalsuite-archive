@@ -199,6 +199,9 @@ struct gengetopt_args_info
   const char *only_large_cos_help; /* restrict computation to points on the sky with cos of angle to band axis larger than a given number help description.  */
   const char *fake_linear_help; /* Inject linearly polarized fake signal help description.  */
   const char *fake_circular_help; /* Inject circularly polarized fake signal help description.  */
+  double fake_ref_time_arg;	/* time of signal start (default='0').  */
+  char * fake_ref_time_orig;	/* time of signal start original value given at command line.  */
+  const char *fake_ref_time_help; /* time of signal start help description.  */
   double fake_ra_arg;	/* RA of fake signal to inject (default='3.14').  */
   char * fake_ra_orig;	/* RA of fake signal to inject original value given at command line.  */
   const char *fake_ra_help; /* RA of fake signal to inject help description.  */
@@ -291,6 +294,7 @@ struct gengetopt_args_info
   int only_large_cos_given ;	/* Whether only-large-cos was given.  */
   int fake_linear_given ;	/* Whether fake-linear was given.  */
   int fake_circular_given ;	/* Whether fake-circular was given.  */
+  int fake_ref_time_given ;	/* Whether fake-ref-time was given.  */
   int fake_ra_given ;	/* Whether fake-ra was given.  */
   int fake_dec_given ;	/* Whether fake-dec was given.  */
   int fake_iota_given ;	/* Whether fake-iota was given.  */

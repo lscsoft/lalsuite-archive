@@ -38,7 +38,7 @@ extern char *subinstance_name;
 
 extern int nbins, first_bin, side_cut, useful_bins;
 
-INT64 spindown_start;
+extern INT64 spindown_start;
 
 CANDIDATE *candidate=NULL;
 int candidate_free=0;
@@ -2013,7 +2013,9 @@ void optimize_candidate(CANDIDATE *cand)
 CANDIDATE *tries;
 int cont, i;
 
-#define DISTANCE_PRINTF		fprintf(stderr, "distance=%f fdist=%f sdist=%f snr=%f\n", candidate_distance(cand, args_info.focus_ra_arg, args_info.focus_dec_arg), (cand->frequency-140.5972)*1800, (cand->spindown-3.794117e-10)*(max_gps()-min_gps())*1800.0, cand->snr);
+//#define DISTANCE_PRINTF		fprintf(stderr, "distance=%f fdist=%f sdist=%f snr=%f\n", candidate_distance(cand, args_info.focus_ra_arg, args_info.focus_dec_arg), (cand->frequency-140.5972)*1800, (cand->spindown-3.794117e-10)*(max_gps()-min_gps())*1800.0, cand->snr);
+
+#define DISTANCE_PRINTF		fprintf(stderr, "distance=%f fdist=%f sdist=%f snr=%f\n", candidate_distance(cand, args_info.focus_ra_arg, args_info.focus_dec_arg), (cand->frequency-args_info.fake_freq_arg)*1800, (cand->spindown-args_info.fake_spindown_arg)*(max_gps()-min_gps())*1800.0, cand->snr);
 
 
 //cand->ra=6.112886;

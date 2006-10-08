@@ -361,6 +361,7 @@ if(!args_info.dataset_given && !args_info.detector_given){
 	}
 
 gsl_rng_env_setup();
+gsl_set_error_handler_off();
 
 /* create output directories if not present */
 if(args_info.output_given){

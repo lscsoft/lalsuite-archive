@@ -11,6 +11,7 @@
 
 #include <gsl/gsl_rng.h>
 #include <gsl/gsl_randist.h>
+#include <gsl/gsl_integration.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -25,9 +26,11 @@
 #include "grid.h"
 #include "rastermagic.h"
 
-typedef double REAL8;
-typedef int INT4;
-typedef float REAL4;
+#include <lal/GeneratePulsarSignal.h>
+
+// typedef double REAL8;
+// typedef int INT4;
+// typedef float REAL4;
 
 extern FILE *LOG;
 extern struct gengetopt_args_info args_info;
@@ -37,6 +40,8 @@ extern int nbins;
 extern int ntotal_polarizations;
 extern SKY_GRID *fine_grid;
 extern SKY_GRID *patch_grid;
+
+extern INT64 spindown_start;
 
 char s[20000];
 
@@ -95,21 +100,147 @@ if(lock_file>=0)close(lock_file);
 lock_file=-1;
 }
 
+typedef struct {
+	float e[26];
+	int bin;
+
+	double a_plus;
+	double a_cross;
+	double cos_e;
+	double sin_e;
+
+	double segment_start;
+
+	double ref_time;
+
+	double freq;
+	double spindown;
+
+	double ra;
+	double dec;
+
+	} SIGNAL_PARAMS;
+
+static void compute_signal(double *re, double *im, double *f, double t, SIGNAL_PARAMS *p)
+{
+float det_vel[3];
+float f_plus, f_cross;
+double doppler, freq, omega_t;
+double response;
+
+get_detector_vel(round(t), det_vel);
+
+doppler=p->e[0]*det_vel[0]+p->e[1]*det_vel[1]+p->e[2]*det_vel[2];
+
+get_AM_response(round(t), p->dec, p->ra, 0.0, &f_plus, &f_cross);
+
+*f=p->freq*(1.0+doppler)+p->spindown*(t-p->ref_time);
+
+*f=p->freq*(1.0+doppler);
+
+/* this loses the phase coherence between segments, but avoids the need to accumulate
+  phase from the start of the run */
+omega_t=2.0*M_PI*(*f-p->bin/1800.0)*(t-p->segment_start);
+
+// response=f_plus*(p->a_plus*cos(omega_t)*p->cos_e-p->a_cross*sin(omega_t)*p->sin_e)+
+// 	f_cross*(p->a_plus*cos(omega_t)*p->sin_e-p->a_cross*sin(omega_t)*p->cos_e);
+
+*re=f_plus*(p->a_plus*cos(omega_t)*p->cos_e-p->a_cross*sin(omega_t)*p->sin_e)+
+	f_cross*(p->a_plus*cos(omega_t)*p->sin_e+p->a_cross*sin(omega_t)*p->cos_e);
+
+*im=f_plus*(p->a_plus*sin(omega_t)*p->cos_e+p->a_cross*cos(omega_t)*p->sin_e)+
+	f_cross*(p->a_plus*sin(omega_t)*p->sin_e-p->a_cross*cos(omega_t)*p->cos_e);
+
+//fprintf(stderr, "response=%g a_plus=%g a_cross=%g \n", response, p->a_plus, p->a_cross);
+
+//fprintf(stderr, "f=%.4f (%.3f) re=%.2f im=%.2f omega_t=%.2f t=%.1f\n", (*f), (*f)*1800.0-p->bin*1.0, *re, *im, omega_t, t-p->ref_time);
+
+}
+
+static double signal_re(double t, void *params)
+{
+double re, im, f;
+compute_signal(&re, &im, &f, t, params);
+return(re);
+}
+
+static double signal_im(double t, void *params)
+{
+double re, im, f;
+compute_signal(&re, &im, &f, t, params);
+return(im);
+}
+
 static void inject_fake_signal(DATASET *d, int segment)
 {
-float plus, cross, doppler;
-float det_vel[3];
-int window=5;
-int w;
-float e[26];
+double result, abserr;
+size_t neval;
+int err;
+int window=5, bin;
+int i;
+double re, im, f, cos_i;
+double a,b;
+SIGNAL_PARAMS p;
+gsl_function F; 
 
-precompute_am_constants(e, args_info.fake_ra_arg, args_info.fake_dec_arg);
+F.params=&p;
+p.bin=0;
 
-get_detector_vel(d->gps[segment]+(int)(d->coherence_time/2), det_vel);
+p.ra=args_info.fake_ra_arg;
+p.dec=args_info.fake_dec_arg;
+p.freq=args_info.fake_freq_arg;
+p.spindown=args_info.fake_spindown_arg;
+p.ref_time=args_info.fake_ref_time_arg;
+p.segment_start=d->gps[segment];
 
-doppler=e[0]*det_vel[0]+e[1]*det_vel[1]+e[2]*det_vel[2];
+cos_i=cos(args_info.fake_iota_arg);
 
-get_AM_response(d->gps[segment], args_info.fake_dec_arg, args_info.fake_ra_arg, args_info.fake_psi_arg, &plus, &cross);
+p.a_plus=(1+cos_i*cos_i)*0.5;
+p.a_cross=cos_i;
+
+p.cos_e=cos(2.0*(args_info.fake_psi_arg-args_info.fake_phi_arg));
+p.sin_e=sin(2.0*(args_info.fake_psi_arg-args_info.fake_phi_arg));
+
+precompute_am_constants(p.e, args_info.fake_ra_arg, args_info.fake_dec_arg);
+compute_signal(&re, &im, &f, d->gps[segment]+(int)(d->coherence_time/2), &p);
+
+bin=round(f*1800.0-d->first_bin);
+
+if(bin+window>nbins)bin=nbins-window;
+if(bin<window)bin=window;
+
+for(i=bin-window; i<=bin+window; i++) {
+	F.function=signal_re;
+	p.bin=i+d->first_bin;
+
+	err=gsl_integration_qng(&F, d->gps[segment], d->gps[segment]+d->coherence_time,
+		1, 1e-2,
+		&result, &abserr, &neval);
+	//fprintf(stderr, "re %d %d result=%g abserr=%g %d %s\n", segment, i, result, abserr, neval, gsl_strerror(err)); 
+	d->bin[segment*d->nbins+i].re+=args_info.fake_strain_arg*result*16384.0;
+
+
+	F.function=signal_im;
+	err=gsl_integration_qng(&F, d->gps[segment], d->gps[segment]+d->coherence_time,
+		1, 1e-2,
+		&result, &abserr, &neval);
+	//fprintf(stderr, "im %d %d result=%g abserr=%g %d %s\n", segment, i, result, abserr, neval, gsl_strerror(err)); 
+	d->bin[segment*d->nbins+i].im+=args_info.fake_strain_arg*result*16384.0;
+
+
+	}
+
+}
+
+static void inject_fake_signal2(DATASET *d, int segment)
+{
+SFTandSignalParams sft_params;
+PulsarSignalParams pulsar_params;
+
+sft_params.resTrig=0;
+sft_params.Dterms=5;
+sft_params.nSamples=5;
+
 }
 
 static void init_dataset(DATASET *d)
@@ -410,6 +541,14 @@ get_detector(d->detector);
 sort_dataset(d);
 
 if(d->apply_hanning_filter)apply_hanning_filter(d);
+
+if(args_info.fake_ra_given || args_info.fake_dec_given || args_info.fake_strain_given) {
+	fprintf(stderr, "Injecting fake signal.\n");
+	fprintf(LOG, "Injecting fake signal.\n");
+	for(i=0;i<d->free;i++) {
+		inject_fake_signal(d, i);
+		}
+	}
 
 d->power=do_alloc(d->free*d->nbins, sizeof(*d->power));
 for(i=0;i<d->free*d->nbins;i++){
@@ -916,7 +1055,7 @@ if(!strncasecmp(line, "gaussian_fill", 13)) {
 	locate_arg(line, length, 4, &ai, &aj);
 	sscanf(&(line[ai]), "%lg", &amp);
 
-	gaussian_fill(&(datasets[d_free-1]), gps_start, step, count, amp);
+	gaussian_fill(&(datasets[d_free-1]), gps_start, step, count, amp*datasets[d_free-1].coherence_time*16384.0);
 	} else {
 	fprintf(stderr, "*** Could not parse line: \n%*s\n *** Exiting.\n", length, line);
 	exit(-1);
@@ -1276,6 +1415,19 @@ for(i=0;i<d_free;i++){
 	}
 for(i=0;i<3;i++)average_det_velocity[i]/=total_weight;
 }
+
+void inject_signal(void) 
+{
+int i,j;
+DATASET *d;
+for(i=0;i<d_free;i++){
+	d=&(datasets[i]);
+	for(j=0;j<d->free;j++) {
+		inject_fake_signal(d, j);
+		}
+	}
+}
+
 
 void dump_datasets(char *filename) 
 {

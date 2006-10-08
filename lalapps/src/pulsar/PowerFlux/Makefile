@@ -36,11 +36,13 @@ BAND=252900
 #BAND=1170450
 
 #DATASET=/home/volodya/LIGO/S4/Injections/sfts/108.dst
-#DATASET=/home/volodya/LIGO/S4/Injections/sfts/58.dst
-DATASET=random.dst
+DATASET=/home/volodya/LIGO/S4/Injections/sfts/58.dst
+#DATASET=random.dst
 RA=0.4687356
 DEC=-1.257051
 
+RA=3.14
+DEC=0
 
 #
 # Do not build anything by default
@@ -116,7 +118,7 @@ test3c: powerflux
 		--ephemeris-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
 		--three-bins=0 --do-cutoff=1 --lock-file=test.lock \
 		--subtract-background=1 --ks-test=1 --filter-lines=1 \
-		--spindown-start=0 --dump-candidates=0 \
+		--dump-candidates=0 \
 	        --earth-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/earth05-09.dat \
         	--sun-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/sun05-09.dat  \
 		--focus-dec=$(DEC) --focus-ra=$(RA) --focus-radius=0.7 \
@@ -181,7 +183,7 @@ test4d: powerflux.hydra
         	--sun-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/sun05-09.dat  \
 		--focus-dec=$(DEC) --focus-ra=$(RA) --focus-radius=0.7 \
 		--write-dat=NONE \
-		--write-png=ul\\.png\\$$ 
+		--write-png=(Median.*|ul)\\.png\\$$ 
 
 #./powerflux.hydra --input-format=Power --dataset=test.dst -f $(BAND) -n 501 \
 # 		--ephemeris-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
@@ -208,6 +210,22 @@ test5: powerflux
 		--detector=LLO --three-bins=0 --do-cutoff=0 --filter-lines=1 \
 		--fake-strain=0.3e-22 --config=test_conf --resolution-ratio=1.0 \
 		--fake-orientation=0.5 --fake-ra=5.785685 --fake-dec=-1.563849
+
+test5c: powerflux
+	time ./powerflux --dataset=random.dst -f 360000 -n 501 \
+		--ephemeris-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
+		--three-bins=0 --do-cutoff=1 --lock-file=test.lock \
+		--subtract-background=1 --ks-test=1 --filter-lines=1 \
+		--dump-candidates=0 \
+	        --earth-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/earth05-09.dat \
+        	--sun-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/sun05-09.dat  \
+		--focus-dec=$(DEC) --focus-ra=$(RA) --focus-radius=7 \
+		--dump-data=input.dat \
+		--write-dat=NONE \
+		--write-png=\(Median.\*\|ul\|max.?dx.\*\)\\.png$$ \
+		--fake-ref-time=793154935 \
+		--fake-ra=$(RA) --fake-dec=$(DEC) --fake-freq=200.1 --fake-strain=3e-24 \
+		--fake-spindown=0e-9
 
 test.H1.inj.1: powerflux
 	time ./powerflux -i /home/volodya/LIGO/S2/inj/S2.H1.op.inj/power.H1. -f 2302000 \
