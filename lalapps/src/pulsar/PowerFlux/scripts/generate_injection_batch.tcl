@@ -76,15 +76,16 @@ binary scan $body f*  bins
 # 
 
 #
-# We clobber first and last bins - o3 well..
+# We set first and last bins to the noise data explicitly
 #
-set bins_out {0 0}
-
-set x0	0
-set y0 	0
-set x1	[lindex $bins 0]
-set y1	[lindex $bins 1]
 set noise_scale [expr (1.0*$nbins)/$noise_nbins]
+
+set bins_out [list [expr [lindex $noise_data 0]*$noise_scale] [expr [lindex $noise_data 1]*$noise_scale]]
+
+set x0	[lindex $bins 0]
+set y0	[lindex $bins 1]
+set x1	[lindex $bins 2]
+set y1	[lindex $bins 3]
 #set noise_scale 0
 foreach {x y} [lrange $bins 4 end] {xn yn} [lrange $noise_data 2 end-2] {
 	lappend bins_out [expr -$x0/2.0+$x1-$x/2.0 + $xn*$noise_scale]
@@ -95,7 +96,7 @@ foreach {x y} [lrange $bins 4 end] {xn yn} [lrange $noise_data 2 end-2] {
 	set y0 $y1
 	set y1 $y
 	}
-lappend bins_out 0 0
+lappend bins_out [expr [lindex $noise_data end-1]*$noise_scale] [expr [lindex $noise_data end]*$noise_scale]
 
 # Output filtered bins for testing
 #puts [join $bins_out "\n"]
@@ -112,7 +113,7 @@ close $FILE
 
 foreach filename [lsort -dictionary [glob $noiseGlob]] {
 	set bin_start [expr round(floor($band_start-$band_extra)*1800)]
-	set nbins [expr round(ceil($band_start+$band+2*$band_extra)*1800)-$bin_start]
+	set nbins [expr round(ceil($band_start+$band+$band_extra)*1800)-$bin_start]
 	set sft_name ${outputDir}/inj.[file tail ${filename}]
 
 	foreach {var value} [get_geo_range $filename $bin_start $nbins] {
