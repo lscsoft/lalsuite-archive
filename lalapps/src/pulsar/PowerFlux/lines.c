@@ -287,16 +287,16 @@ free(tmp);
 void print_lines_report(FILE *f,LINES_REPORT *lr,char *tag)
 {
 int i;
-fprintf(f,"%s median: %g\n",tag,lr->median);
-fprintf(f,"%s qmost : %g\n",tag,lr->qmost);
-fprintf(f,"%s qlines: %g\n",tag,lr->qlines);
-fprintf(f,"%s cutoff: %g\n",tag,2*lr->qmost-lr->median);
+fprintf(f,"%s median: %g\n", tag, lr->median);
+fprintf(f,"%s qmost : %g\n", tag, lr->qmost);
+fprintf(f,"%s qlines: %g\n", tag, lr->qlines);
+fprintf(f,"%s cutoff: %g\n", tag, 2*lr->qmost-lr->median);
 for(i=0;i<lr->nlines;i++)
 	if(lr->lines_list[i]>=0)
-		fprintf(f,"%s line bin: %d\n",tag,lr->lines_list[i]);
+		fprintf(f,"%s line bin: %d\n", tag, lr->lines_list[i]);
 for(i=0;i<lr->nlines;i++)
 	if(lr->lines_list[i]>=0)
-		fprintf(f,"%s line freq: %g Hz\n",tag,(first_bin+lr->lines_list[i])/1800.0);
+		fprintf(f,"%s line freq: %g Hz\n", tag, (first_bin+lr->lines_list[i])/1800.0);
 }
 
 #if 0
