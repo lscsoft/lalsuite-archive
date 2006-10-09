@@ -386,7 +386,6 @@ class slideZeroData:
     legend(loc = 4)
     if figureName:
       savefig( figureName + '_int_slide_dist.png' )
-    loudest = file("loudest_events","w")
 
 ##############################################################################
 # Class for storing the astrophysical data
