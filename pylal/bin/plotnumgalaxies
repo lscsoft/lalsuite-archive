@@ -365,7 +365,29 @@ class slideZeroData:
     if figureName:
       savefig( figureName + '_slide_pdf.png' )
     return p_b
-  
+
+  def plot_integrated_pdf(self,figNum,figureName):
+    """
+    plot the integral of the smoothed pdf, and the original cumulative dist
+    """
+    figure(figNum)
+    slidePDF = self.get_smooth_pdf()
+    smoothCum = cumsum(slidePDF)*(self.snr_array[1] - self.snr_array[0])
+    slideCum = self.get_cumulative()
+    plot(self.snr_array, smoothCum, 'k',linewidth=2,\
+        label="integral of smoothed pdf")
+    plot(self.snr_array, slideCum, 'b',linewidth=2,label="cumulative dist")
+    xlabel(self.statistic.name, size='x-large')
+    ylabel('Probability loudest event < value', size='x-large')
+    grid()
+    if self.zero_loudest:
+      x = arange(len(self.snr_array))
+      axvline(self.zero_loudest,linewidth=2,color='r',label="zero lag")
+    legend(loc = 4)
+    if figureName:
+      savefig( figureName + '_int_slide_dist.png' )
+    loudest = file("loudest_events","w")
+
 ##############################################################################
 # Class for storing the astrophysical data
 ##############################################################################
@@ -1128,7 +1150,9 @@ plotnumgalaxies [options]
 
   --plot-cum-loudest: Plot the cumulative distribution of loudest slide events
   --plot-pdf-loudest: Plot the pdf of the loudest events from slides
-  
+  --plot-int-pdf:     Plot the integral of the pdf to check that the smoothing
+                      used to get the pdf is reasonable
+
   If the zero lag results are given, they are added to the plot.
   
   ----------------------------------------------------------------------------
@@ -1152,6 +1176,8 @@ parser = OptionParser( usage=usage, version= "%prog CVS $Id$")
 # used letters: 
 # abcdefghijklmnopqrstuvwxyz
 # ABCDEFGHIJKLMNOPQRSTUVWXYZ
+# !
+
 # basics
 parser.add_option("-V","--verbose",action="store_true",default=False,\
     help="print additional information when running" )
@@ -1293,6 +1319,11 @@ parser.add_option("-r","--plot-cum-loudest",action="store_true",
 parser.add_option("-i","--plot-pdf-loudest",action="store_true",
     default=False,
     help="plot the non-cumulative distribution of slide loudest events")
+
+
+parser.add_option("-!","--plot-int-pdf",action="store_true",
+    default=False,
+    help="plot the integrated pdf and the original distribution")
 
 # using astrophysical data
 parser.add_option("-N","--plot-ng",action="store_true",default=False,\
@@ -1474,6 +1505,10 @@ if opts.zero_glob and opts.slide_glob:
     resultDict["pbprime"]=pbprime
 
 
+  if opts.plot_int_pdf: 
+    figNum += 1
+    slideLoudest.plot_integrated_pdf(figNum, opts.figure_name)
+
 ##############################################################################
 # read in the data
 ##############################################################################
@@ -1572,8 +1607,10 @@ if opts.plot_injections:
 ##############################################################################
 if astroPlots and opts.m_low and opts.m_high and opts.m_dm:
   massedges = arange(opts.m_low,opts.m_high+1.0e-6,opts.m_dm)
-else:
+elif astroPlots:
   massedges=[0.0,1.0e20]
+else:
+  massedges=[]
 
 for i in range(len(massedges)-1):
   injAstro.astro.mass_cut(massedges[i],massedges[i+1])
