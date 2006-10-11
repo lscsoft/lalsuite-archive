@@ -107,7 +107,7 @@ def make_lfn_table(doc, pathname, start_time = None, end_time = None, comment = 
 	name = os.path.basename(pathname)
 	ids = lsctables.LfnIDs()
 	for process_table in lsctables.getTablesByType(doc, lsctables.ProcessTable):
-		for pid in process_table.getColumByName("process_id"):
+		for pid in process_table.getColumnByName("process_id"):
 			row = lsctables.Lfn()
 			row.process_id = pid
 			row.lfn_id = ids.next()
