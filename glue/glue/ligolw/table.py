@@ -159,10 +159,10 @@ def new_from_template(template):
 	as the template table, that is it has the same columns etc..  The
 	rows are not copied.  Note that a fair amount of metadata is shared
 	between the original and new tables.  In particular, a copy of the
-	Table object itself is created, copies of the child nodes are
-	created, and a new row list is created.  All other object
-	references are shared between the two instances, such as the
-	RowType attribute on the Table object.
+	Table object itself is created (but with no rows), and copies of
+	the child nodes are created.  All other object references are
+	shared between the two instances, such as the RowType attribute on
+	the Table object.
 	"""
 	new = copy.copy(template)
 	new.childNodes = map(copy.copy, template.childNodes)
