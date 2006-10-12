@@ -355,7 +355,8 @@ if not opts.skip_plotthinca:
 if not opts.skip_png:
   popfiles = ["/HL-INJECTIONS_1-793130413-2548800.xml",
       "/HL-INJECTIONS_1_UNIFORM-793130413-2548800.xml"]
-  for pop in popfiles:
+  for nr in range(0,2):
+    pop=popfiles[nr]
     for times in analyzedtimes:
       print "running plotnumgalaxies for " + times[0].upper() + \
           " using population from " + pop
@@ -385,7 +386,7 @@ if not opts.skip_png:
             + "--plot-2d-ng-vs-stat"
         for opt in png_y_options:
           command+=" --" + opt[0] + " " + opt[1]
-      if (popfiles.index(pop)==1):
+      if (nr==1):
         command+=" --m-low " + str(2.0*float(mass_dict["min-mass"])) + \
             " --m-high " + str(2.0*float(mass_dict["max-mass"])) + \
             " --m-dm " + mass_dict["m-dm"]
@@ -395,7 +396,7 @@ if not opts.skip_png:
         print command + "\n"
       else:
         dir=MYRESULTSDIR + "/plotnumgalaxies/" + times[0].upper()
-        if  (popfiles.index(pop)==1):
+        if  (nr==1):
           dir=dir+"_uniform"
         mkdirsafe( dir )
         os.chdir( dir )
