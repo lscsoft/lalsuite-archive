@@ -10,8 +10,8 @@ from pylab    import *
 
 #####################################################################
 # use tex labels
-#params =  {'text.usetex': True }
-#rcParams.update(params)
+params =  {'text.usetex': True }
+rcParams.update(params)
 
 def simpleplot(*args):
   if len(args)==3:
