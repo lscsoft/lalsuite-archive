@@ -813,29 +813,34 @@ def cumhiststat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
     slide_mean = mean(cum_dist_slide)
     slide_std = std(cum_dist_slide)
 
+  if stat=="bitten_l":
+     xvals=bins
+  else:
+     xvals=bins*bins;
+
   clf()
   hold(True)
   # plot zero lag
-  if trigs and len(trigs): 
-    semilogy(bins*bins,cum_dist_zero+0.0001,'k^',markerfacecolor="k",\
+  if trigs and len(trigs):
+    semilogy(xvals,cum_dist_zero+0.0001,'r^',markerfacecolor="b",\
         markersize=12)
   
   # plot time slides
+  ds=step/2
   if slide_trigs and len(slide_snr_list):
     slide_min = []
     for i in range( len(slide_mean) ):
       slide_min.append( max(slide_mean[i] - slide_std[i], 0.0001) )
       slide_mean[i] = max(slide_mean[i], 0.0001)
-    semilogy(bins*bins,asarray(slide_mean), 'k+', markersize=12)
+    semilogy(xvals,asarray(slide_mean), 'r+', markersize=12)
     tmpx,tmpy = makesteps(bins,slide_min,slide_mean+slide_std)
-    p=fill(tmpx*tmpx,tmpy, facecolor='k')
+    if stat=="bitten_l":
+       p=fill((tmpx-ds),tmpy, facecolor='y')
+    else:
+       p=fill((tmpx-ds)*(tmpx-ds),tmpy, facecolor='y')
     setp(p, alpha=0.3)
     
-  if stat:
-    xlab = r'$\rho^2$'
-  else:
-    xlab = 'Statistic'
-    
+  xlab='Statistic'
   xlabel(r'Combined ' + xlab, size='x-large')
   ylabel('Number of events', size='x-large')
   title_text = 'Cumulative histogram of Number of events vs Statistic'
