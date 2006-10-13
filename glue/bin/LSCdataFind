@@ -67,6 +67,7 @@ SYNOPSIS
                [ --url-type=SCHEME ]  [ --match=EXPRESSION ]
                [ --names-only ] [ --limit=LIMIT ] [ --offset=OFFSET ]
                [ --strict-time-check ] [--show-times] [ --version ]
+               [ --no-proxy ]
 
         LSCdataFind --server=NAME:PORT --filename
 
@@ -115,6 +116,9 @@ DESCRIPTION
         -n, --names-only
                 return only the names of files with particular values for
                 instrument, type, start, and end rather than full URLs
+
+        -p, --no-proxy
+                attempt to authenticate without a grid proxy.
 
         -u, --url-type
                 return only URLs with particular scheme or head such as
@@ -183,7 +187,7 @@ file://localhost/netdata/s001/S1/R/H/714023808-714029599/H-R-714024336-16.gwf
 
 
 # grab command line options
-shortop = "vt:s:e:wyaphlr:f:u:m:o:n"
+shortop = "vt:s:e:wyaphlr:f:u:m:o:np"
 longop = [
           "version",
           "help", 
@@ -204,6 +208,7 @@ longop = [
           "offset=",
           "strict-time-check",
           "show-times",
+          "no-proxy",
           ]
 
 try:
@@ -217,6 +222,7 @@ except getopt.GetoptError:
 hostPortString = None
 port = 30010
 lalcache = False
+noproxy = False # i.e., use proxy by default
 
 clientMethodArgDict = {
         'observatory': None,
@@ -314,6 +320,8 @@ for o, a in opts:
         elif o in ("-a","--show-times"):
                 clientMethodArgDict['show-times'] = True
                 clientMethod = 'showTimes'
+        elif o in ("-p","--no-proxy"):
+                noproxy = True
 
 if not clientMethod:
         print >>sys.stderr, "Bad combination or missing options"
@@ -337,7 +345,7 @@ else:
 
 # open connection to LDRdataFindServer
 try:
-        myClient = LDRdataFindClient.LSCdataFindClient(host, port)
+        myClient = LDRdataFindClient.LSCdataFindClient(host, port, noproxy )
 except Exception, e:
         print >>sys.stderr, "Unable to connect to LDRdataFindServer %s:%d" % (host, port)
         if gsiserverutils.checkCredentials():

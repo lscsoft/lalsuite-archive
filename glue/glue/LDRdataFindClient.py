@@ -145,7 +145,7 @@ class LDRdataFindClient(object):
         that clients for interacting with a LDRdataFindServer will inherit from this base
         class.
         """
-        def __init__(self, host, port):
+        def __init__(self, host, port, noproxy):
                 """
                 Open a connection to a LDRdataFindServer and return an instance of
                 class LDRdataFindClient. One of the public methods can then be 
@@ -157,13 +157,17 @@ class LDRdataFindClient(object):
                 @param port: port on which the LDRdataFindServer listens
                 @type port: integer
 
+                @pararm noproxy: whether or not to connect with a proxy
+                                 certificate.
+                @type noproxy: boolean
+
 
                 @return: Instance of LDRdataFindClient
                 """
                 # try to connect and if there are any exceptions catch them
                 # and turn them into LDRdataFindClientException
                 try:
-                        self.__connect__(host, port)
+                        self.__connect__(host, port, noproxy)
                 except Exception, e:
                         raise LDRdataFindClientException, e
 
@@ -177,7 +181,7 @@ class LDRdataFindClient(object):
                 self.__disconnect__()
 
 
-        def __connect__(self, host, port):
+        def __connect__(self, host, port, noproxy):
                 """
                 Attempt to open a connection to the LDRdataFindServer
                 using the 'host' and 'port' and expecting the server
@@ -192,6 +196,10 @@ class LDRdataFindClient(object):
 
                 @param port: port on which the LDRdataFindServer listens
                 @type port: integer
+
+                @param noproxy: whether or not to attempt connection with
+                                a proxy certificate.
+                @type noproxy: boolean
 
                 @return: None
                 """
@@ -215,24 +223,39 @@ class LDRdataFindClient(object):
                         pass
 
                 try:
+                        if not noproxy:
+                                # Try normal GSI-authenticated connection
+                                # create TCPIOAttr instance and set authentication mode to be NONE
+                                myAttr = io.TCPIOAttr()
+                                myAttr.set_authentication_mode(io.ioc.GLOBUS_IO_SECURE_AUTHENTICATION_MODE_GSSAPI)
 
-                        # create TCPIOAttr instance and set authentication mode to be GSSAPI 
-                        myAttr = io.TCPIOAttr()
-                        myAttr.set_authentication_mode(io.ioc.GLOBUS_IO_SECURE_AUTHENTICATION_MODE_GSSAPI)
+                        
+                                authData = io.AuthData()
+                                # set authorization, channel, and delegation modes
+                                myAttr.set_authorization_mode(io.ioc.GLOBUS_IO_SECURE_AUTHORIZATION_MODE_HOST,authData)
+                                myAttr.set_channel_mode(io.ioc.GLOBUS_IO_SECURE_CHANNEL_MODE_CLEAR)
+                                myAttr.set_delegation_mode(io.ioc.GLOBUS_IO_SECURE_DELEGATION_MODE_LIMITED_PROXY)
 
-                        # create AuthData instance
-                        authData = io.AuthData()
+                        else:
+                                # Try connecting without the proxy
+                                # create TCPIOAttr instance and set authentication mode to be NONE
+                                myAttr = io.TCPIOAttr()
+                                myAttr.set_authentication_mode(io.ioc.GLOBUS_IO_SECURE_AUTHENTICATION_MODE_NONE)
 
-                        # set authorization, channel, and delegation modes
-                        myAttr.set_authorization_mode(io.ioc.GLOBUS_IO_SECURE_AUTHORIZATION_MODE_HOST, authData)
-                        myAttr.set_channel_mode(io.ioc.GLOBUS_IO_SECURE_CHANNEL_MODE_CLEAR)
-                        myAttr.set_delegation_mode(io.ioc.GLOBUS_IO_SECURE_DELEGATION_MODE_LIMITED_PROXY)
+
+                                authData = io.AuthData()
+                                # set authorization, channel, and delegation modes
+                                myAttr.set_authorization_mode(io.ioc.GLOBUS_IO_SECURE_AUTHORIZATION_MODE_NONE,authData)
+                                myAttr.set_channel_mode(io.ioc.GLOBUS_IO_SECURE_CHANNEL_MODE_CLEAR)
+                                myAttr.set_delegation_mode(io.ioc.GLOBUS_IO_SECURE_DELEGATION_MODE_NONE)
+                        # fi
 
                         # create socket instance and attempt to connect
                         s = io.GSITCPSocket()
                         s.connect(host, port, myAttr)
                         self.socket = s
                         self.sfile = s.makefile("rw")
+
 
                 finally:
                         sys.stdout = sys.__stdout__
@@ -598,7 +621,7 @@ class LSCdataFindClient(LDRdataFindClient):
         Class that represents this client interacting with a LDRdataFindServer in
         order to find LSC data.
         """
-        def __init__(self, host, port=30010):
+        def __init__(self, host, port=30010, noproxy=False):
                 """
                 Open a connection to a LDRdataFindServer and return an instance of
                 class LDRdataFindClient. One of the public methods can then be 
@@ -609,6 +632,10 @@ class LSCdataFindClient(LDRdataFindClient):
 
                 @param port: port on which the LDRdataFindServer listens
                 @type port: integer
+                
+                @param noproxy: whether or not to attempt to use a proxy
+                                certificate.
+                @type noproxy: boolean
 
 
                 @return: Instance of LSCdataFindClient
@@ -626,7 +653,7 @@ class LSCdataFindClient(LDRdataFindClient):
                         msg = "Argument 'port' must be a positive integer"
                         raise LSCdataFindClientException, msg
                  
-                LDRdataFindClient.__init__(self, host, port)
+                LDRdataFindClient.__init__(self, host, port, noproxy)
 
         def __check_gps(self, gpsString):
                 """
