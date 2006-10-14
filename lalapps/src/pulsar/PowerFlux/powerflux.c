@@ -511,7 +511,9 @@ if(!args_info.side_cut_given){
 	if(fabs(args_info.spindown_start_arg)>max_spindown)max_spindown=fabs(args_info.spindown_start_arg);
 	/* determine side cut from resolution, 6.0 factor is empirical */
 	/* also add in spindown contribution - for now just plan for 4 months of data */
-	side_cut=50+ceil(M_PI/resolution)/6.0+ceil((1800.0)*max_spindown*args_info.expected_timebase_arg*3600*24*31);
+	side_cut=260+ceil(M_PI/resolution)/6.0+ceil((1800.0)*max_spindown*args_info.expected_timebase_arg*3600*24*31);
+	/* round it up to a multiple of 450 */
+	side_cut=450*ceil(side_cut/450.0);
 	}
 fprintf(stderr,"side_cut=%d\n", side_cut);
 first_bin=args_info.first_bin_arg-side_cut;
@@ -587,6 +589,25 @@ fprintf(LOG,"make cutoff: %s\n",do_CutOff ? "yes" : "no" );
 fflush(LOG);
 
 init_polarizations0();
+
+/* do we need to inject fake signal ? */
+if(args_info.fake_freq_given) {
+	fake_injection=1;
+
+   	fprintf(LOG,"fake signal injection: yes\n");
+	fprintf(LOG,"fake psi : %f\n", args_info.fake_psi_arg);
+	fprintf(LOG,"fake phi : %f\n", args_info.fake_phi_arg);
+	fprintf(LOG,"fake iota : %f\n", args_info.fake_iota_arg);
+	fprintf(LOG,"fake ra : %f\n", args_info.fake_ra_arg);
+	fprintf(LOG,"fake dec: %f\n", args_info.fake_dec_arg);
+	fprintf(LOG,"fake spindown: %g\n", args_info.fake_spindown_arg);
+	fprintf(LOG,"fake strain: %g\n", args_info.fake_strain_arg);
+	fprintf(LOG,"fake frequency: %f\n", args_info.fake_freq_arg);
+	
+   	} else {
+   	fprintf(LOG,"fake signal injection: none\n");
+	}
+
 
 /* INPUT stage */
 
@@ -784,96 +805,6 @@ plot_grid_f(p, fine_grid, fine_grid->longitude,1);
 RGBPic_dump_png("fine_longitude.png", p);
 dump_floats("fine_longitude.dat", fine_grid->longitude, fine_grid->npoints, 1);
 
-#if 0
-/* do we need to inject fake signal ? */
-if(args_info.fake_linear_given ||
-   args_info.fake_circular_given){
-	fake_injection=1;
-	if(!args_info.fake_freq_given){
-		args_info.fake_freq_arg=(first_bin+nbins*0.5)/1800.0;
-		}
-
-
-   	fprintf(LOG,"fake signal injection: yes\n");
-	fprintf(LOG,"fake ra : %f\n", args_info.fake_ra_arg);
-	fprintf(LOG,"fake dec: %f\n", args_info.fake_dec_arg);
-	fprintf(LOG,"fake orientation: %f\n", args_info.fake_orientation_arg);
-	fprintf(LOG,"fake spindown: %g\n", args_info.fake_spindown_arg);
-	fprintf(LOG,"fake strain: %g\n", args_info.fake_strain_arg);
-	fprintf(LOG,"fake frequency: %f\n", args_info.fake_freq_arg);
-	
-	inject_fake_signal();
-   	} else {
-   	fprintf(LOG,"fake signal injection: none\n");
-	}
-#endif	
-
-#if 0
-/* compute time from the start of the run */
-hours=do_alloc(nsegments, sizeof(*hours));
-hours_d=do_alloc(nsegments, sizeof(*hours_d));
-for(i=0;i<nsegments;i++){
-	hours[i]=(1.0*(gps[i]-gps[0]))/3600.0;
-	hours_d[i]=(1.0*(gps[i]-gps[0]))/3600.0;
-	}
-/* compute frequency array */
-frequencies=do_alloc(nbins, sizeof(*frequencies));
-freq_d=do_alloc(nbins, sizeof(*freq_d));
-for(i=0;i<nbins;i++){
-	freq_d[i]=(1.0*(first_bin+i))/1800.0;
-	frequencies[i]=(1.0*(first_bin+i))/1800.0;
-	}
-
-mean=do_alloc(nbins, sizeof(*mean));
-weighted_mean=do_alloc(nbins, sizeof(*weighted_mean));
-weight=do_alloc(nbins, sizeof(*weight));
-sigma=do_alloc(nbins, sizeof(*sigma));
-median=do_alloc(nbins, sizeof(*median));
-ks_test=do_alloc(nbins, sizeof(*ks_test));
-
-/* first pass - raw statistics */
-fprintf(stderr,"Computing background statistics\n");
-
-for(i=0;i<nbins;i++){
-	mean[i]=0;
-	sigma[i]=0;
-	}
-for(i=0;i<nsegments;i++){
-	for(j=0;j<nbins;j++){
-		a=power[i*nbins+j];
-		mean[j]+=a;
-		sigma[j]+=a*a;
-		}
-	}
-for(i=0;i<nbins;i++){
-	mean[i]/=nsegments;
-	sigma[i]=sqrt((sigma[i]-nsegments*mean[i]*mean[i])/(nsegments-1));
-	nonparametric(power+i,nbins,nsegments,&(median[i]),&(ks_test[i]));
-	}
-	
-adjust_plot_limits_d(plot, freq_d, mean, nbins, 1, 1, 1);
-draw_grid(p, plot, 0, 0);
-draw_points_d(p, plot, COLOR(255,0,0), freq_d, mean, nbins, 1, 1);
-RGBPic_dump_png("mean.png", p);
-dump_doubles("mean.dat", mean, nbins, 1);
-
-adjust_plot_limits_d(plot, freq_d, sigma, nbins, 1, 1, 1);
-draw_grid(p, plot, 0, 0);
-draw_points_d(p, plot, COLOR(255,0,0), freq_d, sigma, nbins, 1, 1);
-RGBPic_dump_png("sigma.png", p);
-
-adjust_plot_limits_f(plot, frequencies, median, nbins, 1, 1, 1);
-draw_grid(p, plot, 0, 0);
-draw_points_f(p, plot, COLOR(255,0,0), frequencies, median, nbins, 1, 1);
-RGBPic_dump_png("median.png", p);
-dump_floats("median.dat", median, nbins, 1);
-
-adjust_plot_limits_f(plot, frequencies, ks_test, nbins, 1, 1, 1);
-draw_grid(p, plot, 0, 0);
-draw_points_f(p, plot, COLOR(255,0,0), frequencies, ks_test, nbins, 1, 1);
-RGBPic_dump_png("ks_test.png", p);
-dump_floats("ks_test.dat", ks_test, nbins, 1);
-#endif
 
 /* COMP3 stage */
 
@@ -884,132 +815,8 @@ if(args_info.no_decomposition_arg){
 	exit(0);
 	}
 
-#if 0
-/* allocate TMedians, FMedians */
-TMedians=do_alloc(nsegments, sizeof(*TMedians));
-expTMedians=do_alloc(nsegments, sizeof(*expTMedians));
-tm=do_alloc(nsegments, sizeof(*tm));
-FMedians=do_alloc(nbins, sizeof(*FMedians));
-max_residuals=do_alloc(nsegments, sizeof(*max_residuals));
-min_residuals=do_alloc(nsegments, sizeof(*max_residuals));
-
-/* decompose noise into FMedians, TMedians and residuals */
-//compute_noise_curves();
-
-if(args_info.subtract_background_arg){
-	fprintf(LOG, "subtract background: yes\n");
-	for(i=0;i<nsegments;i++){
-		for(j=0;j<nbins;j++){
-			power[i*nbins+j]-=exp(M_LN10*(TMedians[i]+FMedians[j]));
-			}
-		}
-	}
-#endif
 /* DIAG4 stage */
 
-#if 0
-for(i=0;i<nsegments;i++){
-	expTMedians[i]=exp(-M_LN10*2.0*(TMedians[i]-TMedian));
-	}
-expTMedian=exp(-M_LN10*2.0*TMedian);
-
-adjust_plot_limits_f(plot, hours, TMedians, nsegments, 1, 1, 1);
-draw_grid(p, plot, 0, 0);
-draw_points_f(p, plot, COLOR(255,0,0), hours, TMedians, nsegments, 1, 1);
-RGBPic_dump_png("TMedians.png", p);
-dump_floats("TMedians.dat", TMedians, nsegments, 1);
-
-adjust_plot_limits_f(plot, hours, max_residuals, nsegments, 1, 1, 1);
-draw_grid(p, plot, 0, 0);
-draw_points_f(p, plot, COLOR(255,0,0), hours, max_residuals, nsegments, 1, 1);
-RGBPic_dump_png("max_residuals.png", p);
-dump_floats("max_residuals.dat", max_residuals, nsegments, 1);
-
-adjust_plot_limits_f(plot, hours, min_residuals, nsegments, 1, 1, 1);
-draw_grid(p, plot, 0, 0);
-draw_points_f(p, plot, COLOR(255,0,0), hours, min_residuals, nsegments, 1, 1);
-RGBPic_dump_png("min_residuals.png", p);
-dump_floats("min_residuals.dat", min_residuals, nsegments, 1);
-
-adjust_plot_limits_f(plot, frequencies, FMedians,nbins, 1, 1, 1);
-draw_grid(p, plot, 0, 0);
-draw_points_f(p, plot, COLOR(255,0,0), frequencies, FMedians, nbins, 1, 1);
-RGBPic_dump_png("FMedians.png", p);
-dump_floats("FMedians.dat", FMedians, nbins, 1);
-
-/* compute CutOff for non-demodulated analysis */
-for(i=0;i<nsegments;i++)tm[i]=exp(M_LN10*TMedians[i]);
-CutOff=log10(FindCutOff(tm));
-fprintf(stderr,"CutOff=%g\n",CutOff);
-
-for(i=0;i<nbins;i++){
-	weighted_mean[i]=0;
-	weight[i]=0;
-	}
-for(i=0;i<nsegments;i++){
-	w=expTMedians[i];
-	for(j=0;j<nbins;j++){
-		a=power[i*nbins+j];
-		weight[j]+=w;
-		weighted_mean[j]+=a*w;
-		}
-	}
-for(i=0;i<nbins;i++){
-	weighted_mean[i]/=weight[i];
-	}
-
-adjust_plot_limits_d(plot, freq_d, weighted_mean, nbins, 1, 1, 1);
-draw_grid(p, plot, 0, 0);
-draw_points_d(p, plot, COLOR(255,0,0), freq_d, weighted_mean, nbins, 1, 1);
-RGBPic_dump_png("weighted_mean.png", p);
-dump_doubles("weighted_mean.dat", weighted_mean, nbins, 1);
-
-/* second pass - apply CutOff */
-
-for(i=0;i<nbins;i++){
-	mean[i]=0;
-	sigma[i]=0;
-	weighted_mean[i]=0;
-	weight[i]=0;
-	}
-count=0;
-for(i=0;i<nsegments;i++){
-	if(TMedians[i]>=CutOff)continue;
-	w=expTMedians[i];
-	count++;
-	for(j=0;j<nbins;j++){
-		a=power[i*nbins+j];
-		mean[j]+=a;
-		sigma[j]+=a*a;
-		weight[j]+=w;
-		weighted_mean[j]+=a*w;
-		}
-	}
-for(i=0;i<nbins;i++){
-	mean[i]/=count;
-	sigma[i]=sqrt((sigma[i]-count*mean[i]*mean[i])/(count-1));
-	weighted_mean[i]/=weight[i];
-	}
-adjust_plot_limits_d(plot, freq_d, mean, nbins, 1, 1, 1);
-draw_grid(p, plot, 0, 0);
-draw_points_d(p, plot, COLOR(255,0,0), freq_d, mean, nbins, 1, 1);
-RGBPic_dump_png("new_mean.png", p);
-dump_doubles("new_mean.dat", mean, nbins, 1);
-
-adjust_plot_limits_d(plot, freq_d, weighted_mean, nbins, 1, 1, 1);
-draw_grid(p, plot, 0, 0);
-draw_points_d(p, plot, COLOR(255,0,0), freq_d, weighted_mean, nbins, 1, 1);
-RGBPic_dump_png("new_weighted_mean.png", p);
-dump_doubles("new_weighted_mean.dat", weighted_mean, nbins, 1);
-
-adjust_plot_limits_d(plot, freq_d, sigma, nbins, 1, 1, 1);
-draw_grid(p, plot, 0, 0);
-draw_points_d(p, plot, COLOR(255,0,0), freq_d, sigma, nbins, 1, 1);
-RGBPic_dump_png("new_sigma.png", p);
-
-fprintf(stderr,"Checking background lines\n");
-detect_background_lines(weighted_mean);
-#endif
 
 if(args_info.no_demodulation_arg){
 	fprintf(stderr,"Exiting as requested (--no-demodulation=1\n");
@@ -1019,98 +826,6 @@ if(args_info.no_demodulation_arg){
 	}
 
 /* PREP5 stage */
-
-#if 0
-get_whole_sky_AM_response(gps, nsegments, args_info.orientation_arg, &AM_coeffs_plus, &AM_coeffs_cross, &AM_coeffs_size);
-
-init_polarizations();
-
-/* Check AM_response for correctness */
-fprintf(stderr, "Verifying AM response computation\n");
-for(i=0;i<ntotal_polarizations;i++){
-	verify_whole_sky_AM_response(gps, nsegments, polarizations[i].orientation, 
-		fine_grid, 
-		polarizations[i].AM_coeffs, polarizations[i].name);	
-	}
-#endif
-
-
-#if 0 /* verify patch grid */
-{
-float *patch_cross=NULL, *patch_plus=NULL;
-
-fprintf(stderr,"Computing patch grid\n");
-fprintf(LOG,"patch grid size: %f KB\n",
-	2*patch_grid->npoints*nsegments*sizeof(*patch_cross)/(1024.0));
-fflush(LOG);
-patch_cross=do_alloc(patch_grid->npoints*nsegments, sizeof(*patch_cross));
-patch_plus=do_alloc(patch_grid->npoints*nsegments, sizeof(*patch_plus));
-
-for(i=0;i<nsegments;i++){
-	for(j=0;j<patch_grid->npoints;j++){
-		get_AM_response(gps[i]+900, 
-			patch_grid->latitude[j], 
-			patch_grid->longitude[j], 
-			&(patch_plus[j+i*patch_grid->npoints]), &(patch_cross[j+i*patch_grid->npoints]));
-		fprintf(stderr,"%g ", patch_plus[j+i*patch_grid->npoints]-AM_response(i, patch_grid, j, AM_coeffs_plus));
-		fprintf(stderr,"%g ", patch_cross[j+i*patch_grid->npoints]-AM_response(i, patch_grid, j, AM_coeffs_cross));
-
-		patch_plus[j+i*patch_grid->npoints]-=AM_response(i, patch_grid, j, AM_coeffs_plus);
-		patch_cross[j+i*patch_grid->npoints]-=AM_response(i, patch_grid, j, AM_coeffs_cross);
-
-		}
-	}
-dump_floats("patch_plus0.dat",patch_plus,patch_grid->npoints,1);
-dump_floats("patch_cross0.dat",patch_cross,patch_grid->npoints,1);
-
-/* just testing.. */
-adjust_plot_limits_f(plot, hours, patch_plus, nsegments, 1, patch_grid->npoints, 1);
-draw_grid(p, plot, 0, 0);
-draw_points_f(p, plot, COLOR(255,0,0), hours, patch_plus, nsegments, 1, patch_grid->npoints);
-RGBPic_dump_png("patch_plus0.png", p);
-
-/* just testing.. */
-plot_grid_f(p, patch_grid, patch_plus,1);
-RGBPic_dump_png("patch_plus_gps0.png", p);
-
-plot_grid_f(p, patch_grid, patch_cross,1);
-RGBPic_dump_png("patch_cross_gps0.png", p);
-}
-#endif		
-
-/* PREP6 stage */
-
-#if 0
-fprintf(stderr,"Computing cutoff values\n");
-/* compute CutOff values for each patch */
-
-for(i=0;i<patch_grid->npoints;i++){
-	
-	for(m=0;m<ntotal_polarizations;m++){
-		if(patch_grid->band[i]<0){
-			polarizations[m].patch_CutOff[i]=0.0;
-			continue;
-			}
-		for(j=0;j<nsegments;j++)tm[j]=1.0/(sqrt(expTMedians[j])*AM_response(j, patch_grid, i, polarizations[m].AM_coeffs));
-		polarizations[m].patch_CutOff[i]=FindCutOff(tm);
-		}
-	}
-
-for(m=0;m<ntotal_polarizations;m++){
-	plot_grid_f(p, patch_grid, polarizations[m].patch_CutOff,1);
-	snprintf(s,20000,"patch_CutOff_%s.png",polarizations[m].name);
-	RGBPic_dump_png(s, p);
-	}
-
-#endif
-	
-#if 0
-/* free patch modulations data - it can be quite large, esp for S3 */
-free(patch_plus);
-patch_plus=NULL;
-free(patch_cross);
-patch_cross=NULL;
-#endif
 
 output_datasets_info();
 
