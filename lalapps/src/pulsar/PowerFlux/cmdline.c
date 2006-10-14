@@ -68,6 +68,7 @@ const char *gengetopt_args_info_help[] = {
   "      --nlinear-polarizations=INT\n                                even number of linear polarizations to profile, \n                                  distributed uniformly between 0 and PI/2  \n                                  (default=`4')",
   "      --no-demodulation=INT     do not perform demodulation stage, analyze \n                                  background only  (default=`0')",
   "      --no-decomposition=INT    do not perform noise decomposition stage, \n                                  output simple statistics only  (default=`0')",
+  "      --no-candidates=INT       do not perform analysis to identify candidates  \n                                  (default=`0')",
   "      --no-am-response=INT      force AM_response() function to return 1.0 \n                                  irrespective of the arguments  (default=`0')",
   "      --subtract-background=INT subtract rank 1 matrix in order to flatten \n                                  noise spectrum  (default=`0')",
   "      --three-bins=INT          average 3 neighbouring bins to broaden Doppler \n                                  curves  (default=`0')",
@@ -98,7 +99,7 @@ const char *gengetopt_args_info_help[] = {
   "      --fake-strain=DOUBLE      amplitude of fake signal to inject  \n                                  (default=`1e-23')",
   "      --fake-freq=DOUBLE        frequency of fake signal to inject",
   "      --snr-precision=DOUBLE    Assumed level of error in detection strength - \n                                  used for listing candidates  (default=`0.2')",
-  "      --max-candidates=INT      Do not output more than this number of \n                                  candidates  (default=`50')",
+  "      --max-candidates=INT      Do not output more than this number of \n                                  candidates  (default=`10000')",
     0
 };
 
@@ -183,6 +184,7 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->nlinear_polarizations_given = 0 ;
   args_info->no_demodulation_given = 0 ;
   args_info->no_decomposition_given = 0 ;
+  args_info->no_candidates_given = 0 ;
   args_info->no_am_response_given = 0 ;
   args_info->subtract_background_given = 0 ;
   args_info->three_bins_given = 0 ;
@@ -293,6 +295,8 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->no_demodulation_orig = NULL;
   args_info->no_decomposition_arg = 0;
   args_info->no_decomposition_orig = NULL;
+  args_info->no_candidates_arg = 0;
+  args_info->no_candidates_orig = NULL;
   args_info->no_am_response_arg = 0;
   args_info->no_am_response_orig = NULL;
   args_info->subtract_background_arg = 0;
@@ -342,7 +346,7 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->fake_freq_orig = NULL;
   args_info->snr_precision_arg = 0.2;
   args_info->snr_precision_orig = NULL;
-  args_info->max_candidates_arg = 50;
+  args_info->max_candidates_arg = 10000;
   args_info->max_candidates_orig = NULL;
   
 }
@@ -392,36 +396,37 @@ void init_args_info(struct gengetopt_args_info *args_info)
   args_info->nlinear_polarizations_help = gengetopt_args_info_help[39] ;
   args_info->no_demodulation_help = gengetopt_args_info_help[40] ;
   args_info->no_decomposition_help = gengetopt_args_info_help[41] ;
-  args_info->no_am_response_help = gengetopt_args_info_help[42] ;
-  args_info->subtract_background_help = gengetopt_args_info_help[43] ;
-  args_info->three_bins_help = gengetopt_args_info_help[44] ;
-  args_info->do_cutoff_help = gengetopt_args_info_help[45] ;
-  args_info->filter_lines_help = gengetopt_args_info_help[46] ;
-  args_info->ks_test_help = gengetopt_args_info_help[47] ;
-  args_info->compute_betas_help = gengetopt_args_info_help[48] ;
-  args_info->upper_limit_comp_help = gengetopt_args_info_help[49] ;
-  args_info->lower_limit_comp_help = gengetopt_args_info_help[50] ;
-  args_info->write_dat_help = gengetopt_args_info_help[51] ;
-  args_info->write_png_help = gengetopt_args_info_help[52] ;
-  args_info->dump_points_help = gengetopt_args_info_help[53] ;
-  args_info->dump_candidates_help = gengetopt_args_info_help[54] ;
-  args_info->focus_ra_help = gengetopt_args_info_help[55] ;
-  args_info->focus_dec_help = gengetopt_args_info_help[56] ;
-  args_info->focus_radius_help = gengetopt_args_info_help[57] ;
-  args_info->only_large_cos_help = gengetopt_args_info_help[58] ;
-  args_info->fake_linear_help = gengetopt_args_info_help[59] ;
-  args_info->fake_circular_help = gengetopt_args_info_help[60] ;
-  args_info->fake_ref_time_help = gengetopt_args_info_help[61] ;
-  args_info->fake_ra_help = gengetopt_args_info_help[62] ;
-  args_info->fake_dec_help = gengetopt_args_info_help[63] ;
-  args_info->fake_iota_help = gengetopt_args_info_help[64] ;
-  args_info->fake_psi_help = gengetopt_args_info_help[65] ;
-  args_info->fake_phi_help = gengetopt_args_info_help[66] ;
-  args_info->fake_spindown_help = gengetopt_args_info_help[67] ;
-  args_info->fake_strain_help = gengetopt_args_info_help[68] ;
-  args_info->fake_freq_help = gengetopt_args_info_help[69] ;
-  args_info->snr_precision_help = gengetopt_args_info_help[70] ;
-  args_info->max_candidates_help = gengetopt_args_info_help[71] ;
+  args_info->no_candidates_help = gengetopt_args_info_help[42] ;
+  args_info->no_am_response_help = gengetopt_args_info_help[43] ;
+  args_info->subtract_background_help = gengetopt_args_info_help[44] ;
+  args_info->three_bins_help = gengetopt_args_info_help[45] ;
+  args_info->do_cutoff_help = gengetopt_args_info_help[46] ;
+  args_info->filter_lines_help = gengetopt_args_info_help[47] ;
+  args_info->ks_test_help = gengetopt_args_info_help[48] ;
+  args_info->compute_betas_help = gengetopt_args_info_help[49] ;
+  args_info->upper_limit_comp_help = gengetopt_args_info_help[50] ;
+  args_info->lower_limit_comp_help = gengetopt_args_info_help[51] ;
+  args_info->write_dat_help = gengetopt_args_info_help[52] ;
+  args_info->write_png_help = gengetopt_args_info_help[53] ;
+  args_info->dump_points_help = gengetopt_args_info_help[54] ;
+  args_info->dump_candidates_help = gengetopt_args_info_help[55] ;
+  args_info->focus_ra_help = gengetopt_args_info_help[56] ;
+  args_info->focus_dec_help = gengetopt_args_info_help[57] ;
+  args_info->focus_radius_help = gengetopt_args_info_help[58] ;
+  args_info->only_large_cos_help = gengetopt_args_info_help[59] ;
+  args_info->fake_linear_help = gengetopt_args_info_help[60] ;
+  args_info->fake_circular_help = gengetopt_args_info_help[61] ;
+  args_info->fake_ref_time_help = gengetopt_args_info_help[62] ;
+  args_info->fake_ra_help = gengetopt_args_info_help[63] ;
+  args_info->fake_dec_help = gengetopt_args_info_help[64] ;
+  args_info->fake_iota_help = gengetopt_args_info_help[65] ;
+  args_info->fake_psi_help = gengetopt_args_info_help[66] ;
+  args_info->fake_phi_help = gengetopt_args_info_help[67] ;
+  args_info->fake_spindown_help = gengetopt_args_info_help[68] ;
+  args_info->fake_strain_help = gengetopt_args_info_help[69] ;
+  args_info->fake_freq_help = gengetopt_args_info_help[70] ;
+  args_info->snr_precision_help = gengetopt_args_info_help[71] ;
+  args_info->max_candidates_help = gengetopt_args_info_help[72] ;
   
 }
 
@@ -751,6 +756,11 @@ cmdline_parser_release (struct gengetopt_args_info *args_info)
     {
       free (args_info->no_decomposition_orig); /* free previous argument */
       args_info->no_decomposition_orig = 0;
+    }
+  if (args_info->no_candidates_orig)
+    {
+      free (args_info->no_candidates_orig); /* free previous argument */
+      args_info->no_candidates_orig = 0;
     }
   if (args_info->no_am_response_orig)
     {
@@ -1216,6 +1226,13 @@ cmdline_parser_file_save(const char *filename, struct gengetopt_args_info *args_
       fprintf(outfile, "%s\n", "no-decomposition");
     }
   }
+  if (args_info->no_candidates_given) {
+    if (args_info->no_candidates_orig) {
+      fprintf(outfile, "%s=\"%s\"\n", "no-candidates", args_info->no_candidates_orig);
+    } else {
+      fprintf(outfile, "%s\n", "no-candidates");
+    }
+  }
   if (args_info->no_am_response_given) {
     if (args_info->no_am_response_orig) {
       fprintf(outfile, "%s=\"%s\"\n", "no-am-response", args_info->no_am_response_orig);
@@ -1557,6 +1574,7 @@ cmdline_parser_internal (int argc, char * const *argv, struct gengetopt_args_inf
         { "nlinear-polarizations",	1, NULL, 0 },
         { "no-demodulation",	1, NULL, 0 },
         { "no-decomposition",	1, NULL, 0 },
+        { "no-candidates",	1, NULL, 0 },
         { "no-am-response",	1, NULL, 0 },
         { "subtract-background",	1, NULL, 0 },
         { "three-bins",	1, NULL, 0 },
@@ -2403,6 +2421,27 @@ cmdline_parser_internal (int argc, char * const *argv, struct gengetopt_args_inf
             if (args_info->no_decomposition_orig)
               free (args_info->no_decomposition_orig); /* free previous string */
             args_info->no_decomposition_orig = gengetopt_strdup (optarg);
+          }
+          /* do not perform analysis to identify candidates.  */
+          else if (strcmp (long_options[option_index].name, "no-candidates") == 0)
+          {
+            if (local_args_info.no_candidates_given)
+              {
+                fprintf (stderr, "%s: `--no-candidates' option given more than once%s\n", argv[0], (additional_error ? additional_error : ""));
+                goto failure;
+              }
+            if (args_info->no_candidates_given && ! override)
+              continue;
+            local_args_info.no_candidates_given = 1;
+            args_info->no_candidates_given = 1;
+            args_info->no_candidates_arg = strtol (optarg, &stop_char, 0);
+            if (!(stop_char && *stop_char == '\0')) {
+              fprintf(stderr, "%s: invalid numeric value: %s\n", argv[0], optarg);
+              goto failure;
+            }
+            if (args_info->no_candidates_orig)
+              free (args_info->no_candidates_orig); /* free previous string */
+            args_info->no_candidates_orig = gengetopt_strdup (optarg);
           }
           /* force AM_response() function to return 1.0 irrespective of the arguments.  */
           else if (strcmp (long_options[option_index].name, "no-am-response") == 0)

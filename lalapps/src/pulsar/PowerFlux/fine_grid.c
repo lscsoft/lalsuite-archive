@@ -1281,6 +1281,7 @@ for(i=0;i<ntotal_polarizations;i++){
 	}
 	
 output_unified_limits();
-identify_candidates();
+
+if(!args_info.no_candidates_arg)identify_candidates();
 }
 

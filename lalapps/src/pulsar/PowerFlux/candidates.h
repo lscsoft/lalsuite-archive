@@ -27,6 +27,7 @@ typedef struct {
 	float snr;
 	float strain;
 	float strain_err;
+	float total_weight;
 	float f_max;
 	float ifo_freq;
 	float ifo_freq_sd;

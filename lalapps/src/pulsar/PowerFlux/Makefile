@@ -219,13 +219,14 @@ test5c: powerflux
 		--dump-candidates=0 \
 	        --earth-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/earth05-09.dat \
         	--sun-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/sun05-09.dat  \
-		--focus-dec=$(DEC) --focus-ra=$(RA) --focus-radius=7 \
+		--focus-dec=$(DEC) --focus-ra=$(RA) --focus-radius=0.3 \
 		--dump-data=input.dat \
 		--write-dat=NONE \
-		--write-png=\(Median.\*\|ul\|max.?dx.\*\)\\.png$$ \
+		--write-png=\(S.\*\|Median.\*\|weight.\*\|max_dx.\*\)\\.png$$ \
 		--fake-ref-time=793154935 \
-		--fake-ra=$(RA) --fake-dec=$(DEC) --fake-freq=200.1 --fake-strain=3e-24 \
-		--fake-spindown=0e-9
+		--fake-ra=$(RA) --fake-dec=$(DEC) --fake-freq=200.1 --fake-strain=7e-24 \
+		--fake-spindown=0e-9 --fake-iota=0 --fake-psi=0.3 \
+		--max-candidates=5
 
 test.H1.inj.1: powerflux
 	time ./powerflux -i /home/volodya/LIGO/S2/inj/S2.H1.op.inj/power.H1. -f 2302000 \

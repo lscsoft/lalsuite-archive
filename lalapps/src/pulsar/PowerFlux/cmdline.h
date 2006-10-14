@@ -146,6 +146,9 @@ struct gengetopt_args_info
   int no_decomposition_arg;	/* do not perform noise decomposition stage, output simple statistics only (default='0').  */
   char * no_decomposition_orig;	/* do not perform noise decomposition stage, output simple statistics only original value given at command line.  */
   const char *no_decomposition_help; /* do not perform noise decomposition stage, output simple statistics only help description.  */
+  int no_candidates_arg;	/* do not perform analysis to identify candidates (default='0').  */
+  char * no_candidates_orig;	/* do not perform analysis to identify candidates original value given at command line.  */
+  const char *no_candidates_help; /* do not perform analysis to identify candidates help description.  */
   int no_am_response_arg;	/* force AM_response() function to return 1.0 irrespective of the arguments (default='0').  */
   char * no_am_response_orig;	/* force AM_response() function to return 1.0 irrespective of the arguments original value given at command line.  */
   const char *no_am_response_help; /* force AM_response() function to return 1.0 irrespective of the arguments help description.  */
@@ -229,7 +232,7 @@ struct gengetopt_args_info
   double snr_precision_arg;	/* Assumed level of error in detection strength - used for listing candidates (default='0.2').  */
   char * snr_precision_orig;	/* Assumed level of error in detection strength - used for listing candidates original value given at command line.  */
   const char *snr_precision_help; /* Assumed level of error in detection strength - used for listing candidates help description.  */
-  int max_candidates_arg;	/* Do not output more than this number of candidates (default='50').  */
+  int max_candidates_arg;	/* Do not output more than this number of candidates (default='10000').  */
   char * max_candidates_orig;	/* Do not output more than this number of candidates original value given at command line.  */
   const char *max_candidates_help; /* Do not output more than this number of candidates help description.  */
   
@@ -275,6 +278,7 @@ struct gengetopt_args_info
   int nlinear_polarizations_given ;	/* Whether nlinear-polarizations was given.  */
   int no_demodulation_given ;	/* Whether no-demodulation was given.  */
   int no_decomposition_given ;	/* Whether no-decomposition was given.  */
+  int no_candidates_given ;	/* Whether no-candidates was given.  */
   int no_am_response_given ;	/* Whether no-am-response was given.  */
   int subtract_background_given ;	/* Whether subtract-background was given.  */
   int three_bins_given ;	/* Whether three-bins was given.  */
