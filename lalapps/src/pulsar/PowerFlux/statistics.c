@@ -77,9 +77,9 @@ fprintf(stderr, "Normal distribution approximation error is %f\n", err);
 fprintf(LOG, "Normal distribution approximation error: %f\n", err);
 }
 
-void compute_normal_sorted_stats(float *data, long count, NORMAL_STATS *stats)
+void compute_normal_sorted_stats(float *data, int count, NORMAL_STATS *stats)
 {
-long i, ks_count_plus, ks_count_minus, dir;
+int i, ks_count_plus, ks_count_minus, dir;
 STAT_TYPE a,b,quantile2std, ks_level;
 float mean, sigma, step;
 double d;
@@ -181,13 +181,13 @@ if(*a>*b)return 1;
 return 0;
 }
 
-void sort_floats(float *data, long count)
+void sort_floats(float *data, int count)
 {
 qsort(data, count, sizeof(float), float_cmp);
 }
 
 
-void compute_normal_stats(float *data, long count, NORMAL_STATS *stats)
+void compute_normal_stats(float *data, int count, NORMAL_STATS *stats)
 {
 float *tmp;
 
@@ -243,7 +243,7 @@ free(h->min);
 free(h);
 }
 
-void compute_histogram_f(HISTOGRAM *h, float *data, int *bands, long count)
+void compute_histogram_f(HISTOGRAM *h, float *data, int *bands, int count)
 {
 int i,j,k;
 float f;
@@ -295,7 +295,7 @@ fprintf(f,"histogram: band min max counts..\n");
 for(k=0;k<h->nbands;k++){
 	fprintf(f, "%s: %d %g %g", prefix, k, h->min[k], h->max[k]);
 	for(i=0;i<h->nbins;i++)
-		fprintf(f, " %ld", h->hist[k*h->nbins+i]);
+		fprintf(f, " %d", h->hist[k*h->nbins+i]);
 	fprintf(f,"\n");
 	}
 }

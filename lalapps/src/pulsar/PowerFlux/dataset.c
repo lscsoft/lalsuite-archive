@@ -43,6 +43,8 @@ extern SKY_GRID *patch_grid;
 
 extern INT64 spindown_start;
 
+extern int fake_injection;
+
 char s[20000];
 
 DATASET * datasets=NULL;
@@ -216,7 +218,7 @@ for(i=bin-window; i<=bin+window; i++) {
 	err=gsl_integration_qng(&F, d->gps[segment], d->gps[segment]+d->coherence_time,
 		1, 1e-2,
 		&result, &abserr, &neval);
-	//fprintf(stderr, "re %d %d result=%g abserr=%g %d %s\n", segment, i, result, abserr, neval, gsl_strerror(err)); 
+/*	fprintf(stderr, "re %d %d result=%g abserr=%g %d %s\n", segment, i, result, abserr, neval, gsl_strerror(err)); */
 	d->bin[segment*d->nbins+i].re+=args_info.fake_strain_arg*result*16384.0;
 
 
@@ -224,7 +226,7 @@ for(i=bin-window; i<=bin+window; i++) {
 	err=gsl_integration_qng(&F, d->gps[segment], d->gps[segment]+d->coherence_time,
 		1, 1e-2,
 		&result, &abserr, &neval);
-	//fprintf(stderr, "im %d %d result=%g abserr=%g %d %s\n", segment, i, result, abserr, neval, gsl_strerror(err)); 
+/*	fprintf(stderr, "im %d %d result=%g abserr=%g %d %s\n", segment, i, result, abserr, neval, gsl_strerror(err)); */
 	d->bin[segment*d->nbins+i].im+=args_info.fake_strain_arg*result*16384.0;
 
 
@@ -413,20 +415,22 @@ float FindCutOff(float *tm, int nsegments)
 int i;
 double sum,sum_squared,mean,sigma;
 double best_cutoff,smallest_sigma;
+double a;
 int best_i;
 sort_floats(tm, nsegments);
 sum=0;
 sum_squared=0;
 best_i=0;
-smallest_sigma=10*tm[0];
+smallest_sigma=10;
 best_cutoff=tm[0];
-for(i=0;i<nsegments;i++){
-	sum+=tm[i];
-	sum_squared+=tm[i]*tm[i];
+for(i=0;i<nsegments;i++) {
+	a=tm[i]/tm[0];
+	sum+=a;
+	sum_squared+=a*a;
 	mean=sum/(i+1);
 	sigma=10*sqrt((sum_squared))/(i+1);
 	
-	if(sigma<smallest_sigma){
+	if(sigma<smallest_sigma) {
 		smallest_sigma=sigma;
 		best_i=i;
 		best_cutoff=tm[i];
@@ -542,7 +546,7 @@ sort_dataset(d);
 
 if(d->apply_hanning_filter)apply_hanning_filter(d);
 
-if(args_info.fake_ra_given || args_info.fake_dec_given || args_info.fake_strain_given) {
+if(fake_injection) {
 	fprintf(stderr, "Injecting fake signal.\n");
 	fprintf(LOG, "Injecting fake signal.\n");
 	for(i=0;i<d->free;i++) {
@@ -1262,8 +1266,6 @@ for(i=0;i<d->free;i++){
 d->expTMedian=exp(-M_LN10*2.0*d->TMedian);
 */
 
-/* compute CutOff for non-demodulated analysis */
-tmp=do_alloc(d->free, sizeof(*tmp));
 
 d->mean=do_alloc(d->nbins, sizeof(*(d->mean)));
 d->weighted_mean=do_alloc(d->nbins, sizeof(*(d->weighted_mean)));
@@ -1275,13 +1277,17 @@ d->new_weighted_mean=do_alloc(d->nbins, sizeof(*(d->new_weighted_mean)));
 d->new_sigma=do_alloc(d->nbins, sizeof(*(d->new_sigma)));
 d->new_bin_weight=do_alloc(d->nbins, sizeof(*(d->new_bin_weight)));
 
+/* compute CutOff for non-demodulated analysis */
+tmp=do_alloc(d->free, sizeof(*tmp));
 for(i=0;i<d->free;i++)tmp[i]=exp(M_LN10*d->TMedians[i]);
 CutOff=log10(FindCutOff(tmp, d->free));
-fprintf(stderr,"CutOff=%g\n",CutOff);
+fprintf(stderr,"%s CutOff=%g\n", d->name, CutOff);
+free(tmp);
+tmp=NULL;
 
 for(i=0;i<d->nbins;i++){
-	d->weighted_mean[i]=0;
-	d->bin_weight[i]=0;
+	d->weighted_mean[i]=0.0;
+	d->bin_weight[i]=0.0;
 	}
 for(i=0;i<d->free;i++){
 	w=d->expTMedians[i];
@@ -1312,7 +1318,7 @@ for(i=0;i<d->nbins;i++){
 	d->new_bin_weight[i]=0;
 	}
 count=0;
-for(i=0;i<d->free;i++){
+for(i=0;i<d->free;i++) {
 	if(d->TMedians[i]>=CutOff)continue;
 	w=d->expTMedians[i];
 	count++;

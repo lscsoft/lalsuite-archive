@@ -21,30 +21,30 @@ typedef struct {
 	STAT_TYPE  sigma;
 	/* statistics results */
 	STAT_TYPE  ks_test;
-	long ks_count;
+	int ks_count;
 	} NORMAL_STATS;
 
 
 
-void compute_normal_sorted_stats(float *data, long count, NORMAL_STATS *stats);
+void compute_normal_sorted_stats(float *data, int count, NORMAL_STATS *stats);
 
-void compute_normal_stats(float *data, long count, NORMAL_STATS *stats);
+void compute_normal_stats(float *data, int count, NORMAL_STATS *stats);
 
-void sort_floats(float *data, long count);
+void sort_floats(float *data, int count);
 
 typedef struct {
 	int nbands;
 	int nbins;  /* these are histogram bins.. */
 	STAT_TYPE *max;
 	STAT_TYPE *min;
-	long *hist; /* counts */
+	int *hist; /* counts */
 	} HISTOGRAM;
 
 void init_statistics(void);
 
 HISTOGRAM * new_histogram(int nbins, int nbands);
 void free_histogram(HISTOGRAM *h);
-void compute_histogram_f(HISTOGRAM *h, float *data, int *bands, long count);
+void compute_histogram_f(HISTOGRAM *h, float *data, int *bands, int count);
 void print_histogram(FILE *f, HISTOGRAM *h, char *prefix);
 
 #endif
