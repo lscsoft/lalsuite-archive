@@ -389,7 +389,8 @@ if not opts.skip_png:
       if (nr==1):
         command+=" --m-low " + str(2.0*float(mass_dict["min-mass"])) + \
             " --m-high " + str(2.0*float(mass_dict["max-mass"])) + \
-            " --m-dm " + mass_dict["m-dm"]
+            " --m-dm " + mass_dict["m-dm"] + " --cut-inj-by-mass " + \
+            mass_dict["cut-inj-by-mass"]
       if opts.output_to_file:
         command+=" > png-output-" + times[0].upper() + ".log"
       if opts.test:
