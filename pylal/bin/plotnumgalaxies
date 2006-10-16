@@ -153,6 +153,27 @@ def massCut (sim_table, m_low, m_high):
 
   return tmpTable
 
+###############################################################################
+# Chop a snglInspiralTable based on component masses
+###############################################################################
+def injMassCut (sngl_insp_table, m_low, m_high):
+  """
+  function to remove injections whose total mass lies outside [m_low,m_high]
+  @param sngl_insp_table: a list of sngl inspirals
+  @param m_low:     the low mass threshold
+  @param m_high:    the high mass threshold
+  """
+  tmpTable = lsctables.New(lsctables.SnglInspiralTable)
+
+  for entry in sngl_insp_table:
+    mass1 = getattr(entry, 'mass1')
+    mass2 = getattr(entry, 'mass2')
+    mtotal = mass1 + mass2
+    if (mtotal > m_low) and (mtotal < m_high):
+      tmpTable.append(entry)
+  
+  return tmpTable
+
 ##############################################################################
 # function to read in a list of files and extract the simInspiral tables
 ##############################################################################
@@ -571,11 +592,15 @@ class injData:
   class to hold the injection data
   """
   def __init__(self,foundGlob, missedGlob, statistic, figName):
-    found,self.coincs = readFiles(foundGlob,statistic)
-    missed,nocoincs = readFiles(missedGlob)
-    self.coincs.add_missed_sims(missed)
+    self.found,self.coincs = readFiles(foundGlob,statistic)
+    self.missed,self.nocoincs = readFiles(missedGlob)
+    self.coincs.add_missed_sims(self.missed)
     self.fig_name = figName
-
+    self.found_precut = self.found
+    self.coincs_precut = self.coincs
+    self.missed_precut = self.missed
+    self.nocoincs_precut = self.nocoincs 
+   
   def get_injections(self,threshold):
     """
     extract the injections found above giventhreshold
@@ -587,7 +612,20 @@ class injData:
     get the values contained in column for inj above threshold
     """
     return self.get_injections(threshold).get_column(column)
-
+  
+  def mass_cut(self,mlow,mhigh):
+    """
+    cut injections by mass
+    """
+    self.found = massCut(self.found_precut,mlow,mhigh)
+    self.coincs.sngl_table = \
+                          injMassCut(self.coincs_precut.sngl_table,mlow,mhigh)
+    self.missed = massCut(self.missed_precut,mlow,mhigh)
+    if self.nocoincs:
+      self.nocoincs.sngl_table = \
+                        injMassCut(self.nocoincs_precut.sngl_table,mlow,mhigh) 
+    #self.count_sources()
+  
   ############################################################################
   # 1-d operations and plots
   ############################################################################
@@ -1222,6 +1260,7 @@ parser.add_option("-k","--bittenl_b",action="store",type="float",\
 parser.add_option("-J","--num-slides",action="store",type="int",\
     default=None,metavar=" NUM_SLIDES",\
     help="number of slides")
+
 # mass cut
 parser.add_option("-L","--m-low",action="store",type="float",default=None,\
     metavar=" M_LOW", 
@@ -1234,6 +1273,9 @@ parser.add_option("-H","--m-high",action="store",type="float",default=None,\
 parser.add_option("-A","--m-dm",action="store",type="float",default=None,\
     metavar=" M_DM", 
     help="steps in mass for mass cut" )
+
+parser.add_option("--cut-inj-by-mass",action="store",type="int",default=1,\
+                  help="cut injections by mass in addition to sources" )
 
 # efficiency errors
 parser.add_option("-C","--h-calibration",action="store",type="float",
@@ -1613,12 +1655,18 @@ else:
 
 for i in range(len(massedges)-1):
   injAstro.astro.mass_cut(massedges[i],massedges[i+1])
+  if opts.cut_inj_by_mass:
+    injAstro.inj.mass_cut(massedges[i],massedges[i+1])
+    print "Restricting to total mass of injections from " + \
+        str(massedges[i]) + " to " + str(massedges[i+1])
+  else:
+    print "Warning: not restricting masses of injections" 
   resultDict["mlo"]=massedges[i]
   resultDict["mhi"] = massedges[i+1]
   print 
   if len(massedges) > 2:
-    print "Restricting to total mass between " + str(massedges[i]) + \
-        " and " + str(massedges[i+1])
+    print "Restricting to total mass of sources between " + str(massedges[i]) \
+         + " and " + str(massedges[i+1])
 
   
   ##############################################################################
