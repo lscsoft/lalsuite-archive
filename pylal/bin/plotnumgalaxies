@@ -154,24 +154,28 @@ def massCut (sim_table, m_low, m_high):
   return tmpTable
 
 ###############################################################################
-# Chop a snglInspiralTable based on component masses
+# Chop a coincInspiralTable based on component masses of the sim
 ###############################################################################
-def injMassCut (sngl_insp_table, m_low, m_high):
+def injMassCut (coinc_table, m_low, m_high):
   """
   function to remove injections whose total mass lies outside [m_low,m_high]
-  @param sngl_insp_table: a list of sngl inspirals
+  @param coinc_table: a list of coincs
   @param m_low:     the low mass threshold
   @param m_high:    the high mass threshold
   """
-  tmpTable = lsctables.New(lsctables.SnglInspiralTable)
-
-  for entry in sngl_insp_table:
-    mass1 = getattr(entry, 'mass1')
-    mass2 = getattr(entry, 'mass2')
+  tmpTable = CoincInspiralUtils.coincInspiralTable()
+  tmpTable.sngl_table = lsctables.New(lsctables.SnglInspiralTable)
+  for entry in coinc_table:
+    sim = getattr(entry, 'sim')
+    event_id = getattr(entry, 'event_id')
+    mass1 = getattr(sim, 'mass1')
+    mass2 = getattr(sim, 'mass2')
     mtotal = mass1 + mass2
     if (mtotal > m_low) and (mtotal < m_high):
       tmpTable.append(entry)
-  
+      for trig in coinc_table.sngl_table:
+        if trig.event_id == event_id:
+          tmpTable.sngl_table.append(trig)
   return tmpTable
 
 ##############################################################################
@@ -592,14 +596,23 @@ class injData:
   class to hold the injection data
   """
   def __init__(self,foundGlob, missedGlob, statistic, figName):
-    self.found,self.coincs = readFiles(foundGlob,statistic)
-    self.missed,self.nocoincs = readFiles(missedGlob)
+    self.found_precut,self.coincs_precut = readFiles(foundGlob,statistic)
+    self.missed_precut,self.nocoincs_precut = readFiles(missedGlob)
+    #self.missed = lsctables.New(lsctables.SimInspiralTable)
+    #self.missed.extend(self.missed_precut) 
+    #self.coincs = CoincInspiralUtils.coincInspiralTable()
+    #self.coincs.extend(self.coincs_precut)
+    #self.found = lsctables.New(lsctables.SimInspiralTable)
+    #self.found.extend(self.found_precut)
+    #self.nocoincs = CoincInspiralUtils.coincInspiralTable()
+    #if self.nocoincs: self.nocoincs.extend(self.nocoincs_precut)
+    self.missed = self.missed_precut
+    self.found = self.found_precut
+    self.coincs = self.coincs_precut
+    self.nocoincs = self.nocoincs_precut
     self.coincs.add_missed_sims(self.missed)
     self.fig_name = figName
-    self.found_precut = self.found
-    self.coincs_precut = self.coincs
-    self.missed_precut = self.missed
-    self.nocoincs_precut = self.nocoincs 
+    self.found = self.found_precut
    
   def get_injections(self,threshold):
     """
@@ -618,13 +631,12 @@ class injData:
     cut injections by mass
     """
     self.found = massCut(self.found_precut,mlow,mhigh)
-    self.coincs.sngl_table = \
-                          injMassCut(self.coincs_precut.sngl_table,mlow,mhigh)
+    # this correctly cleans up coincs and the sngl_table but
+    # not the sim table, I do that below
+    self.coincs = injMassCut(self.coincs_precut,mlow,mhigh)
     self.missed = massCut(self.missed_precut,mlow,mhigh)
-    if self.nocoincs:
-      self.nocoincs.sngl_table = \
-                        injMassCut(self.nocoincs_precut.sngl_table,mlow,mhigh) 
-    #self.count_sources()
+    # The sim_table is the last to clean up 
+    self.coincs.sim_table = self.found
   
   ############################################################################
   # 1-d operations and plots
@@ -1663,7 +1675,6 @@ for i in range(len(massedges)-1):
     print "Warning: not restricting masses of injections" 
   resultDict["mlo"]=massedges[i]
   resultDict["mhi"] = massedges[i+1]
-  print 
   if len(massedges) > 2:
     print "Restricting to total mass of sources between " + str(massedges[i]) \
          + " and " + str(massedges[i+1])
