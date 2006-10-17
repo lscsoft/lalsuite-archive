@@ -223,7 +223,7 @@ if not opts.skip_coiredata:
   print "** Processing full data set"
   command = "hipecoire --trig-path " + MYRESULTSDIR + \
       "/full_data/ --ifo H1 --ifo H2 --ifo L1 " + \
-      "--num-slides 50 --zero-data exclude_play  " + \
+      "--num-slides 50 " + \
       "--cluster-infinity --coinc-stat " + stat_dict["statistic"]
   if stat_dict["statistic"][-3:] == "snr":
     # coire takes "snrsq"/"effective_snrsq"
