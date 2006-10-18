@@ -845,6 +845,10 @@ class SimInspiralTable(table.Table):
 			return self.get_spin_mag(1)
 		elif column == 'spin2':
 			return self.get_spin_mag(2)
+		elif column == 'total_mass':
+			m1=self.getColumnByName('mass1').asarray()
+			m2=self.getColumnByName('mass2').asarray()
+			return m1+m2 
 		else:
 			return self.getColumnByName(column).asarray()
 
