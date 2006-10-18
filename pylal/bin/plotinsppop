@@ -30,6 +30,14 @@ Available plots:
   d) a function of the detected SNR, using --chirp-snr
 The width of all these plots is set using --chirp-axis
 
+Any two-dimensional plot is also available for each of the value that is stored
+in the sim_inspiral table, including 'total_mass','spin1' and 'spin2'. Just specify the values you want to have plotted with '--x-value' and '--y-value' (repetitive arguments possible).
+
+Example:
+plotinsppop --glob-injfile \"../Injection/HL/HL*.xml\" --fig-name s5_test --logdist --mass-v-mass
+
+plotinsppop --glob-injfile \"../Injection/HL/HL*.xml\" --fig-name s5_test --x-value total_mass --y-value distanceLOG --x-value mass1 --y-value mass2 --x-value inclination --y-value distanceLOG
+
 """
 parser = OptionParser( usage )
 parser.add_option("-d","--dist-v-dist",action="store_true",default=False,\
@@ -59,16 +67,12 @@ parser.add_option("-F","--glob-injfile",action="store",type="string",\
 parser.add_option("-x","--title-text",action="store",type="string",\
     default=None, metavar=" TEXT",\
     help="add TEXT at start of plot titles" )
-parser.add_option("-X","--x-value",action="store",type="string",\
+parser.add_option("-X","--x-value",action="append",type="string",\
     default=None, metavar=" TEXT",\
-    help="variable to plot on the x-axis" )
-parser.add_option("-Y","--y-value",action="store",type="string",\
+    help="variable to plot on the x-axis. Add 'LOG' at the end to make it a log  axis" )
+parser.add_option("-Y","--y-value",action="append",type="string",\
     default=None, metavar=" TEXT",\
-    help="variable to plot on the y-axis" )
-parser.add_option("-a","--x-log",action="store_true",default=False,\
-    help="make x axis logarithmic" )
-parser.add_option("-b","--y-log",action="store_true",default=False,\
-    help="make y axis logarithmic" )
+    help="variable to plot on the y-axis. Add 'LOG' at the end to make it a log  axis" )
 
 (opts,args) = parser.parse_args()
 
@@ -180,22 +184,41 @@ if opts.mass_spin2:
 
 
 if opts.x_value and opts.y_value:
-  if opts.x_log and not opts.y_log:
-    semilogx(binaries.get_column(opts.x_value),\
-             binaries.get_column(opts.y_value),'bo')
-  elif not opts.x_log and opts.y_log:
-    semilogy(binaries.get_column(opts.x_value), \
-             binaries.get_column(opts.y_value),'bo')
-  else:
-    plot(binaries.get_column(opts.x_value),\
-         binaries.get_column(opts.y_value),'bo')
 
-  xlabel(opts.x_value)
-  ylabel(opts.y_value)
-  title(opts.y_value+ ' versus '+ opts.x_value)
-  grid(True)
-  if opts.fig_name:
-    savefig(opts.fig_name + "_"+opts.y_value +'-'+ opts.x_value+".png")
+  # loop over the given values
+  numberPlot = len(opts.x_value)
+  for i in range(numberPlot):
+
+    # restore the corresponding value
+    xval=opts.x_value[i]
+    yval=opts.y_value[i]
+
+    # test for log-plot
+    xlog=False
+    ylog=False
+    if xval[len(xval)-3:]=='LOG':
+      xlog=True
+      xval=xval[0:len(xval)-3]
+    if yval[len(yval)-3:]=='LOG':
+      ylog=True
+      yval=yval[0:len(yval)-3]
+
+    if xlog and not ylog:
+      semilogx(binaries.get_column(xval),\
+             binaries.get_column(yval),'bo')
+    elif not xlog and ylog:
+      semilogy(binaries.get_column(xval), \
+             binaries.get_column(yval),'bo')
+    else:
+      plot(binaries.get_column(xval),\
+         binaries.get_column(yval),'bo')
+
+    xlabel(xval)
+    ylabel(yval)
+    title(yval+ ' versus '+ xval)
+    grid(True)
+    if opts.fig_name:
+      savefig(opts.fig_name + "_"+ yval +'-'+ xval+".png")
 
   
 
