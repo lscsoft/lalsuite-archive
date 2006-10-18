@@ -58,7 +58,17 @@ parser.add_option("-F","--glob-injfile",action="store",type="string",\
     help="glob of the injection file" ) 
 parser.add_option("-x","--title-text",action="store",type="string",\
     default=None, metavar=" TEXT",\
-    help="add TEXT at start of plot titles" ) 
+    help="add TEXT at start of plot titles" )
+parser.add_option("-X","--x-value",action="store",type="string",\
+    default=None, metavar=" TEXT",\
+    help="variable to plot on the x-axis" )
+parser.add_option("-Y","--y-value",action="store",type="string",\
+    default=None, metavar=" TEXT",\
+    help="variable to plot on the y-axis" )
+parser.add_option("-a","--x-log",action="store_true",default=False,\
+    help="make x axis logarithmic" )
+parser.add_option("-b","--y-log",action="store_true",default=False,\
+    help="make y axis logarithmic" )
 
 (opts,args) = parser.parse_args()
 
@@ -168,6 +178,26 @@ if opts.mass_spin2:
   if opts.fig_name:
     savefig(opts.fig_name + "_mass-spin2.png")
 
+
+if opts.x_value and opts.y_value:
+  if opts.x_log and not opts.y_log:
+    semilogx(binaries.get_column(opts.x_value),\
+             binaries.get_column(opts.y_value),'bo')
+  elif not opts.x_log and opts.y_log:
+    semilogy(binaries.get_column(opts.x_value), \
+             binaries.get_column(opts.y_value),'bo')
+  else:
+    plot(binaries.get_column(opts.x_value),\
+         binaries.get_column(opts.y_value),'bo')
+
+  xlabel(opts.x_value)
+  ylabel(opts.y_value)
+  title(opts.y_value+ ' versus '+ opts.x_value)
+  grid(True)
+  if opts.fig_name:
+    savefig(opts.fig_name + "_"+opts.y_value +'-'+ opts.x_value+".png")
+
+  
 
 if opts.show_plot:
   show()
