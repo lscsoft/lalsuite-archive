@@ -17,6 +17,9 @@ import string
 import random 
 from optparse import *
 from types import *
+import matplotlib
+matplotlib.use('Agg')
+
 from pylab import *
 from glue import segments
 from glue import segmentsUtils
