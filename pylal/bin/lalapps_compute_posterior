@@ -403,7 +403,7 @@ ulfile.close()
 # and plot this result, if we have a range of masses
 if (massBins > 1):
   figure()
-  semilogy(ularray[:,0],opts.ymax + 0.0*ularray[:,0],'k+')
+  semilogy(ularray[:,0],opts.ymax + 0.0*ularray[:,0],'w+')
 
   # XXX This assumes that the mass bins are continuous, i.e. where one bin
   # ends, the next one starts.  If that is not the case, then the makesteps
@@ -427,7 +427,7 @@ if (massBins > 1):
   xlabel('Total mass (Msun)', size='x-large')
   ylabel('Rate / yr / L$_{10}$', size='x-large')
   title('Rate versus mass')
-  grid()
+  grid(True)
 
   if opts.figure_name:
     savefig( opts.figure_name  + "-rate-v-mass.png")
