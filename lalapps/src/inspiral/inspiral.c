@@ -56,7 +56,6 @@
 #include <lal/FindChirpBCV.h>
 #include <lal/FindChirpBCVSpin.h>
 #include <lal/FindChirpChisq.h>
-#include <lal/LALTrigScanCluster.h>
 
 RCSID( "$Id$" );
 
@@ -193,12 +192,7 @@ INT4 flagFilterInjOnly  = -1;            /* flag for filtering inj. only */
 /* rsq veto params */
 INT4 enableRsqVeto      = -1;           /* enable the r^2 veto          */
 REAL4 rsqVetoWindow     = -1;           /* r^2 veto time window         */ 
-REAL4 rsqVetoThresh     = -1;           /* r^2 veto threshold           */
-INT4 doRsqVeto          = 0;            /* do the r^2 veto              */
-REAL4 rsqVetoTimeThresh = -1;           /* r^2 veto time threshold      */
-REAL4 rsqVetoMaxSNR     = -1;           /* r^2 veto maximum snr         */
-REAL4 rsqVetoCoeff      = -1;           /* r^2 veto coefficient         */
-REAL4 rsqVetoPow        = -1;           /* r^2 veto power               */
+REAL4 rsqVetoThresh     = -1;           /* r^2 veto threshold           */ 
 
 /* generic simulation parameters */
 enum { unset, urandom, user } randSeedType = unset;    /* sim seed type */
@@ -213,10 +207,6 @@ CHAR *bankSimFileName   = NULL;         /* file contining sim_inspiral  */
 FindChirpBankSimParams bankSimParams = { 0, 0, -1, -1, NULL, -1, NULL, NULL };
                                         /* template bank sim params     */
 
-/* reverse chirp bank option */
-INT4 reverseChirpBank      = 0;           /* enable the reverse chirp     */
-                                        /* template bank option         */
-
 /* output parameters */
 CHAR  *userTag          = NULL;         /* string the user can tag with */
 CHAR  *ifoTag           = NULL;         /* string to tag parent IFOs    */
@@ -224,20 +214,6 @@ CHAR   fileName[FILENAME_MAX];          /* name of output files         */
 INT4   maximizationInterval = 0;        /* Max over template in this    */ 
                                         /* maximizationInterval Nanosec */ 
                                         /* interval                     */
-trigScanType trigScanMethod = trigScanNone;    
-                                        /* Switch for clustering        */
-                                        /* triggers in template         */
-                                        /* parameters and end time      */
-REAL8  trigScanDeltaEndTime = 0.0;      /* Use this interval (msec)     */
-                                        /* over trigger end time while  */
-                                        /* using trigScanCluster        */
-REAL8  trigScanVolumeSafetyFac = 0.0;     
-/* Use this safety factor for  the volume spanned by a trigger in the     */
-/* parameter space. When set to 1.0, the volume is taken to be that of the*/
-/* ambiguity ellipsoid at the template MM.                                */ 
-INT2  trigScanAppendStragglers = -1;    /* Switch to append cluster     */
-                                        /* out-liers (stragglers)       */
-
 INT8   trigStartTimeNS  = 0;            /* write triggers only after    */
 INT8   trigEndTimeNS    = 0;            /* write triggers only before   */
 INT8   outTimeNS        = 0;            /* search summ out time         */
@@ -382,20 +358,14 @@ int main( int argc, char *argv[] )
   SimInspiralTable    *injections = NULL;
   SimInspiralTable    *thisInj = NULL;
 
-  /* Time domain follow-up events */
-  int                  numTDFollowUpEvents = 0;
-  SnglInspiralTable    *tdFollowUpEvents = NULL;
-  SnglInspiralTable    *thisFollowUpEvent  = NULL;
+  /* Time domain follow-up fake injections */
+  int                  numTDFollowUpInjections = 0;
+  SimInspiralTable    *tdFollowUpInjections = NULL;
 
   /* --fast option related variables */
   UINT4  *analyseThisTmplt = NULL;
   INT4    thisTemplateIndex = 0;
   UINT4   analyseTag;
-  
-  /* trigScan clustering input parameters */
-  trigScanClusterIn  *condenseIn=NULL; 
-  REAL8              bankMinMatch=0.0L;
-
 
   /*
    *
@@ -570,12 +540,6 @@ int main( int argc, char *argv[] )
 
   if ( vrbflg ) fprintf( stdout, "parsed %d templates from %s\n", 
       numTmplts, bankFileName );
-
-  /* Store the bankMinMatch before it gets over-riden below */
-  if ( bankHead )
-  {
-    bankMinMatch = bankHead->minMatch;
-  }
 
   /* override the minimal match of the bank if specified on the command line */
   if ( minimalMatch >= 0 )
@@ -1050,17 +1014,11 @@ int main( int argc, char *argv[] )
   if ( tdFollowUpFile )
   {
     INT4 injSafety = 10;
-    LIGOTimeGPS startKeep = gpsStartTime;
-    LIGOTimeGPS endKeep   = gpsEndTime;
-
-    startKeep.gpsSeconds -= injSafety;
-    endKeep.gpsSeconds   += injSafety;
 
     /* read in the time domain follow-up data from XML */
-    numTDFollowUpEvents = LALSnglInspiralTableFromLIGOLw( &tdFollowUpEvents,
-            tdFollowUpFile, 0, -1);
-    tdFollowUpEvents = XLALTimeCutSingleInspiral( tdFollowUpEvents,
-        &startKeep, &endKeep);
+    numTDFollowUpInjections = SimInspiralTableFromLIGOLw( &tdFollowUpInjections,
+            tdFollowUpFile, gpsStartTime.gpsSeconds - injSafety,
+            gpsEndTime.gpsSeconds + injSafety );
   }
 
   /*
@@ -1612,20 +1570,24 @@ int main( int argc, char *argv[] )
   LAL_CALL( LALInitializeDataSegmentVector( &status, &dataSegVec,
         &chan, &spec, &resp, fcInitParams ), &status );
 
-  /* set the analyze flag according to what we are doing */
+  /************************************************************************/
   if ( tdFollowUpFile || injectionFile )
   {
-    if (tdFollowUpFile)
-    {
+     BOOLEAN isTdFollowUp = 0;
+
+     if (tdFollowUpFile)
+     {
       /* Only analyze segments containing coincident BCV triggers */
-      XLALFindChirpSetFollowUpSegment (dataSegVec, &tdFollowUpEvents);
-    }
-    else
-    {
+      isTdFollowUp = 1;
+      XLALFindChirpSetAnalyzeSegment (dataSegVec, tdFollowUpInjections, isTdFollowUp);
+     }
+     else
+     {
       /* set the analyzeSegment flag only on segments with injections */
-      XLALFindChirpSetAnalyzeSegment (dataSegVec, injections);
-    }
+      XLALFindChirpSetAnalyzeSegment (dataSegVec, injections, isTdFollowUp);
+     }
   }
+  /************************************************************************/
 
   /* create the findchirp data storage */
   LAL_CALL( LALCreateFindChirpSegmentVector( &status, &fcSegVec, 
@@ -1638,7 +1600,6 @@ int main( int argc, char *argv[] )
   fcDataParams->dynRange = fcTmpltParams->dynRange = dynRange;
   fcTmpltParams->deltaT = chan.deltaT;
   fcTmpltParams->fLow = fLow;
-  fcTmpltParams->reverseChirpBank = reverseChirpBank;
 
   /* initialize findchirp filter functions */
   LAL_CALL( LALFindChirpFilterInit( &status, &fcFilterParams, fcInitParams ), 
@@ -1653,13 +1614,6 @@ int main( int argc, char *argv[] )
       LALCalloc( 1, sizeof(FindChirpFilterOutputVetoParams) );
     fcFilterParams->filterOutputVetoParams->rsqvetoWindow = rsqVetoWindow;
     fcFilterParams->filterOutputVetoParams->rsqvetoThresh = rsqVetoThresh;
-    if ( doRsqVeto )
-    {
-      fcFilterParams->filterOutputVetoParams->rsqvetoTimeThresh = rsqVetoTimeThresh;
-      fcFilterParams->filterOutputVetoParams->rsqvetoMaxSNR = rsqVetoMaxSNR;
-      fcFilterParams->filterOutputVetoParams->rsqvetoCoeff = rsqVetoCoeff;
-      fcFilterParams->filterOutputVetoParams->rsqvetoPow = rsqVetoPow;
-    }
   }
   else
   {
@@ -1870,33 +1824,31 @@ int main( int argc, char *argv[] )
       }  
     }
 
-    if ( injectionFile )
+    /************************************************************************/
+    if ( tdFollowUpFile || injectionFile )
     {
       /* Make space for analyseThisTmplt */
       analyseThisTmplt = (UINT4 *) LALCalloc (numTmplts, sizeof(UINT4));
 
+      if ( injectionFile )
+      {
       /* set the analyseThisTmplt flag on templates     */
       /* that are 'close' to the injections             */
       LAL_CALL( LALFindChirpSetAnalyseTemplate( &status, analyseThisTmplt,
             mmFast, fcSegVec->data[0].data->deltaF, sampleRate, fcDataParams,
             numTmplts, tmpltHead, numInjections, injections ), &status );
 
-    }
+      }
+      else
+      {
 
-    /* If using trigScan clustering, then init the clustering */
-    /* input parameters before they are freed up in the code. */
-    /* Anand :: We had to put the numTmplts > 0 condition as  */
-    /* trig2tmplt would sometime return an empty template     */
-    /* bank file in the absence of coinc triggers.            */
-    if ( trigScanMethod && numTmplts > 0 )
-    { 
-        XLALPopulateTrigScanInput( &condenseIn, fcDataParams, 
-                fcTmpltParams, fcFilterParams, bankHead );
-        /* minMatch stored in bankHead could be mangled. Reset 
-         * to the actual value used to create the bank here  */
-        condenseIn->mmCoarse = bankMinMatch;
-    }
+      LAL_CALL( LALFindChirpSetAnalyseTemplate( &status, analyseThisTmplt,
+            -1.0, fcSegVec->data[0].data->deltaF, sampleRate, fcDataParams,
+            numTmplts, tmpltHead, 1, tdFollowUpInjections ), &status );
 
+      }
+    }
+    /************************************************************************/
 
     /*
      *
@@ -1910,10 +1862,9 @@ int main( int argc, char *argv[] )
         tmpltCurrent = tmpltCurrent->next, inserted = 0, thisTemplateIndex++ )
     {
 
-      /* If we are injecting or in td-follow-up mode and the    */
-      /* analyseThisTmpltFlag is down look no further:          */
-      /* simply continue to the next template                   */
-      if ( injectionFile )
+      /* If we are injecting / in td-follow-up mode and the analyseThisTmpltFlag is down -
+       * look no further - simply continue to the next template */
+      if ( tdFollowUpFile || injectionFile )
       {
         if ( ! analyseThisTmplt[thisTemplateIndex] )
           continue;
@@ -1985,30 +1936,26 @@ int main( int argc, char *argv[] )
         /* segment with the template (analyseTag = 1)           */
         analyseTag = 1;
 
-        /* If injections are being done or if in td follow-up mode */
-        /* check if for any reason the analyseTag flag needs to be */
-        /* brought down                                            */
-        if ( tdFollowUpFile || ( injectionFile  && flagFilterInjOnly ))
+        /* If injections are being done or if in td follow-up mode, - check if for any      */
+        /* reason the analyseTag flag needs to be brought down. */
+        if ( ( tdFollowUpFile || injectionFile ) && flagFilterInjOnly )
         {
-          if ( tdFollowUpFile )
-          {
-#if 0
-            analyseTag = XLALCmprSgmntTmpltFlags( numTDFollowUpEvents,
-                analyseThisTmplt[thisTemplateIndex], 
-                fcSegVec->data[i].analyzeSegment );
-#endif
-            if ( !fcSegVec->data[i].analyzeSegment )
+            if ( tdFollowUpFile )
             {
-              analyseTag = 0;
-            }
+                /*analyseTag = XLALCmprSgmntTmpltFlags( numTDFollowUpInjections,           */
+                /*analyseThisTmplt[thisTemplateIndex], fcSegVec->data[i].analyzeSegment ); */
+                if ( !fcSegVec->data[i].analyzeSegment )
+                {
+                    analyseTag = 0;
+                }
 
-          }
-          else
-          {
-            analyseTag = XLALCmprSgmntTmpltFlags( numInjections,
-                analyseThisTmplt[thisTemplateIndex],
-                fcSegVec->data[i].analyzeSegment );
-          }
+            }
+            else
+            {
+                analyseTag = XLALCmprSgmntTmpltFlags( numInjections,
+                          analyseThisTmplt[thisTemplateIndex],
+                          fcSegVec->data[i].analyzeSegment );
+            }
         }
 
         /* filter data segment */ 
@@ -2586,7 +2533,7 @@ int main( int argc, char *argv[] )
     LALFree( this_summ_value );
   }
 
-  /* free the search summary table after the summ_value table is written */
+  /* free the search summary table */
   free( searchsumm.searchSummaryTable );
 
   /* write the sngl_inspiral triggers to the output xml */
@@ -2652,33 +2599,6 @@ int main( int argc, char *argv[] )
           maximizationInterval);
     }
 
-    /* trigScanClustering */ 
-    if ( trigScanMethod ) 
-    { 
-        if ( condenseIn && (savedEvents.snglInspiralTable) ) 
-        { 
-            condenseIn->bin_time   = trigScanDeltaEndTime; 
-            condenseIn->sf_volume  = trigScanVolumeSafetyFac; 
-            condenseIn->scanMethod = trigScanMethod; 
-            condenseIn->n          = XLALCountSnglInspiral ( (savedEvents.snglInspiralTable) ); 
-            condenseIn->vrbflag    = vrbflg;
-            condenseIn->appendStragglers = trigScanAppendStragglers; 
-            
-            /* Call the clustering routine */ 
-            LAL_CALL( LALClusterSnglInspiralOverTemplatesAndEndTime ( &status, 
-                        &(savedEvents.snglInspiralTable), condenseIn ), &status );
-            
-            LALFree ( condenseIn ); 
-        }
-        else
-        {
-            if ( vrbflg )
-                  fprintf (stderr, 
-                          "The event head appears to be null containing %d triggers \n", 
-                          XLALCountSnglInspiral ( (savedEvents.snglInspiralTable) ));
-        }
-    }
-
     /* if we haven't thrown all the triggers away, write sngl_inspiral table */
     if ( savedEvents.snglInspiralTable )
     {
@@ -2690,7 +2610,6 @@ int main( int argc, char *argv[] )
       LAL_CALL( LALEndLIGOLwXMLTable ( &status, &results ), &status );
     }
   }
-  
   while ( savedEvents.snglInspiralTable )
   {
     event = savedEvents.snglInspiralTable;
@@ -2741,11 +2660,11 @@ int main( int argc, char *argv[] )
   if ( tdFollowUpFile )
   {
     free ( tdFollowUpFile );
-    while ( tdFollowUpEvents )
+    while ( tdFollowUpInjections )
     {
-      thisFollowUpEvent = tdFollowUpEvents;
-      tdFollowUpEvents = tdFollowUpEvents->next;
-      XLALFreeSnglInspiral( &thisFollowUpEvent );
+      thisInj = tdFollowUpInjections;
+      tdFollowUpInjections = tdFollowUpInjections->next;
+      LALFree( thisInj );
     }
   }
 
@@ -2832,8 +2751,7 @@ LALSnprintf( this_proc_param->value, LIGOMETA_VALUE_MAX, format, ppvalue );
 "  --bank-file FILE             read template bank parameters from FILE\n"\
 "  --minimal-match M            override bank minimal match with M (sets delta)\n"\
 "  --start-template N           start filtering at template number N in bank\n"\
-"  --stop-template N            stop filtering at template number N in bank\n"\
-"  --reverse-chirp-bank         filters data using a reverse chirp template bank\n"\
+"  --stop-templateN             stop filtering at template number N in bank\n"\
 "\n"\
 "  --sample-rate F              filter data at F Hz, downsampling if necessary\n"\
 "  --resample-filter TYPE       set resample filter to TYPE (ldas|butterworth)\n"\
@@ -2867,19 +2785,7 @@ LALSnprintf( this_proc_param->value, LIGOMETA_VALUE_MAX, format, ppvalue );
 "  --rsq-veto-window SEC        set the r^2 veto window to SEC\n"\
 "  --rsq-veto-threshold RSQ     set r^2 veto threshold to RSQ\n"\
 "\n"\
-"  --do-rsq-veto                do the r^2 veto\n"\
-"  --rsq-veto-time-thresh SEC   set the r^2 veto window to SEC\n"\
-"  --rsq-veto-max-snr MAXSNR    set the r^2 veto maximum snr to MAXSNR\n"\
-"  --rsq-veto-coeff COEFF       set the r^2 veto coefficient to COEFF\n"\
-"  --rsq-veto-pow POW           set the r^2 veto power to POW\n"\
-"\n"\
 "  --maximization-interval msec set length of maximization interval\n"\
-"\n"\
-"  --ts-cluster   MTHD          max over template and end time MTHD \n"\
-"                                 (T0T3Tc|T0T3TcAS|Psi0Psi3Tc|Psi0Psi3TcAS)\n"\
-"  --ts-endtime-interval msec   set end-time interval for TrigScan clustering\n"\
-"  --ts-volume-safety fac       set template volume safety factor for TrigScan clustering\n"\
-"                                 fac should be >= 1.0\n"\
 "\n"\
 "  --enable-output              write the results to a LIGO LW XML file\n"\
 "  --output-mask MASK           write the output sngl_inspiral table\n"\
@@ -2936,8 +2842,6 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
     {"disable-rsq-veto",        no_argument,       &enableRsqVeto,    0 },
     {"enable-filter-inj-only",  no_argument,       &flagFilterInjOnly,1 },
     {"disable-filter-inj-only", no_argument,       &flagFilterInjOnly,0 },
-    {"reverse-chirp-bank",      no_argument,       &reverseChirpBank, 1 },
-    {"do-rsq-veto",             no_argument,       &doRsqVeto,        1 },
     /* these options don't set a flag */
     {"gps-start-time",          required_argument, 0,                'a'},
     {"gps-start-time-ns",       required_argument, 0,                'A'},
@@ -3004,13 +2908,6 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
     {"sim-frame-file",          required_argument, 0,                '7'},
     {"sim-frame-channel",       required_argument, 0,                '8'},
     {"td-follow-up",            required_argument, 0,                '9'},
-    {"ts-cluster",              required_argument, 0,                '*'},
-    {"ts-endtime-interval",     required_argument, 0,                '<'},
-    {"ts-volume-safety",        required_argument, 0,                '>'},
-    {"rsq-veto-time-thresh",    required_argument, 0,                '('},
-    {"rsq-veto-max-snr",        required_argument, 0,                ')'},
-    {"rsq-veto-coeff",          required_argument, 0,                '['},
-    {"rsq-veto-pow",            required_argument, 0,                ']'},
     /* frame writing options */
     {"write-raw-data",          no_argument,       &writeRawData,     1 },
     {"write-filter-data",       no_argument,       &writeFilterData,  1 },
@@ -3046,7 +2943,7 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
     c = getopt_long_only( argc, argv, 
         "-A:B:C:D:E:F:G:H:I:J:K:L:M:N:O:P:Q:R:S:T:U:VW:X:Y:Z:"
         "a:b:c:d:e:f:g:hi:j:k:l:m:n:o:p:q:r:s:t:u:v:w:x:y:z:"
-        "0:1::2:3:4:567:8:9:*:>:<:(:):[:]",
+        "0:1::2:3:4:567:8:9:",
         long_options, &option_index );
 
     /* detect the end of the options */
@@ -4064,121 +3961,8 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
         ADD_PROCESS_PARAM( "string", "%s", optarg );
         break;
 
-      case '*':
-        /* store trigSanClustering method */
-        if ( ! strcmp( "T0T3Tc", optarg ) )
-        {
-            trigScanMethod = T0T3Tc;
-            trigScanAppendStragglers = 0;
-        }
-        else if ( ! strcmp( "T0T3TcAS", optarg ) )
-        {
-            trigScanMethod = T0T3Tc;
-            trigScanAppendStragglers = 1;
-        }
-        else if ( ! strcmp( "Psi0Psi3Tc", optarg ) )
-        {
-            trigScanMethod = Psi0Psi3Tc;
-            trigScanAppendStragglers = 0;
-        }
-        else if ( ! strcmp( "Psi0Psi3TcAS", optarg ) )
-        {
-            trigScanMethod = Psi0Psi3Tc;
-            trigScanAppendStragglers = 1;
-        }
-        else 
-        {
-          fprintf( stderr, "invalid argument to --%s:\n"
-              "unknown scan method specified: %s\n"
-              "(Must be one of T0T3Tc, T0T3TcAS, Psi0Psi3Tc, Psi0Psi3TcAS)\n", 
-              long_options[option_index].name, optarg );
-          exit( 1 );
-        }
-        ADD_PROCESS_PARAM( "string", "%s", optarg );
-        break;
-
-      case '<':
-        /* TrigScan Delta End Time */ 
-        trigScanDeltaEndTime = atof( optarg ); 
-        if ( trigScanDeltaEndTime < 0.0L ) 
-        { 
-          fprintf( stderr, "invalid argument to --%s:\n" 
-              "ts-endtime-interval must be positive: " 
-              "(%f specified)\n",  
-              long_options[option_index].name, trigScanDeltaEndTime ); 
-          exit( 1 ); 
-        } 
-        ADD_PROCESS_PARAM( "float", "%s", optarg ); 
-        break; 
-      
-      case '>':
-        /* TrigScan Template Volume Safety Factor */ 
-        trigScanVolumeSafetyFac = atof( optarg ); 
-        if ( trigScanVolumeSafetyFac < 1.0 ) 
-        { 
-          fprintf( stderr, "invalid argument to --%s:\n" 
-              "ts-volume-safety must be >= 1.0 : " 
-              "(%f specified)\n",  
-              long_options[option_index].name, trigScanVolumeSafetyFac ); 
-          exit( 1 ); 
-        } 
-        ADD_PROCESS_PARAM( "float", "%s", optarg ); 
-        break; 
-
       case '?':
         exit( 1 );
-        break;
-
-      case '(':
-        rsqVetoTimeThresh = atof( optarg );
-        if ( rsqVetoTimeThresh < 0 )
-        {
-          fprintf( stderr, "invalid argument to --%s:\n"
-              " r^2 veto time threshold must be positive: "
-              "(%f specified)\n",
-              long_options[option_index].name, rsqVetoTimeThresh );
-          exit( 1 );
-        }
-        ADD_PROCESS_PARAM( "float", "%s", optarg );
-        break;
-
-      case ')':
-        rsqVetoMaxSNR = atof( optarg );
-        if ( rsqVetoMaxSNR < 0 )
-        {
-          fprintf( stderr, "invalid argument to --%s:\n"
-              " r^2 veto maximum snr must be positive: "
-              "(%f specified)\n",
-              long_options[option_index].name, rsqVetoMaxSNR );
-          exit( 1 );
-        }
-        ADD_PROCESS_PARAM( "float", "%s", optarg );
-        break;
-
-      case '[':
-        rsqVetoCoeff = atof( optarg );
-        if ( rsqVetoCoeff < 0 )
-        {
-          fprintf( stderr, "invalid argument to --%s:\n"
-              " r^2 veto coefficient must be positive: "
-              "(%f specified)\n",
-              long_options[option_index].name, rsqVetoCoeff );
-          exit( 1 );
-        }
-        ADD_PROCESS_PARAM( "float", "%s", optarg );
-        break;
-
-      case ']':
-        rsqVetoPow = atof( optarg );
-        if ( rsqVetoPow < 0 )
-        {
-          fprintf( stderr, "invalid argument to --%s:\n"
-              " r^2 veto power must be positive: "
-              "(%f specified)\n",
-              long_options[option_index].name, rsqVetoPow );
-          exit( 1 );
-        }
-        ADD_PROCESS_PARAM( "float", "%s", optarg );
         break;
 
       default:
@@ -4586,25 +4370,6 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
     exit( 1 );
   }
 
-  /* check FindChirpSP is used if reverse chirp bank is specified */
-  if ( reverseChirpBank )
-  {
-    if ( reverseChirpBank && ! ( approximant == FindChirpSP ) )
-    {
-      fprintf( stderr, "--approximant must be FindChirpSP if "
-          "--reverse-chirp-bank is specified\n" );
-      exit( 1 );
-    }
-    this_proc_param = this_proc_param->next = (ProcessParamsTable *)
-      calloc( 1, sizeof(ProcessParamsTable) );
-    LALSnprintf( this_proc_param->program, LIGOMETA_PROGRAM_MAX,
-        "%s", PROGRAM_NAME );
-    LALSnprintf( this_proc_param->param, LIGOMETA_PARAM_MAX,
-        "--reverse-chirp-bank" );
-    LALSnprintf( this_proc_param->type, LIGOMETA_TYPE_MAX, "string" );
-    LALSnprintf( this_proc_param->value, LIGOMETA_VALUE_MAX, " " );
-  }
-
   /* check that a random seed for gaussian noise generation has been given */
   if ( gaussianNoise && randSeedType == unset )
   {
@@ -4712,43 +4477,6 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
     exit( 1 );
   }
 
-  if ( doRsqVeto == 1 )
-  {
-    if ( enableRsqVeto == 0 )
-    {
-      fprintf( stderr, "--enable-rsq-veto must be specified \n"
-          "if the --do-rsq-veto argument is specified\n" );
-      exit( 1 );
-    }
-    else if ( ( rsqVetoTimeThresh < 0 ) || ( rsqVetoMaxSNR < 0 ) )
-    {
-      fprintf( stderr, "--rsq-veto-time-thresh and --rsq-veto-max-snr must be \n"
-          "specified if the --do-rsq-veto argument is specified\n" );
-      exit( 1 );      
-    }
-    else if ( ( rsqVetoCoeff > 0 ) && ( ( rsqVetoTimeThresh < 0 ) || ( rsqVetoMaxSNR < 0 ) || ( rsqVetoPow < 0 ) ) )
-    {
-      fprintf( stderr, "--rsq-veto-time-thresh --rsq-veto-max-snr and --rsq-veto-pow \n"
-          "must be specified if --rsq-veto-coeff is specified\n" );
-      exit( 1 );
-    }
-   else if ( ( rsqVetoPow > 0 ) && ( ( rsqVetoTimeThresh < 0 ) || ( rsqVetoMaxSNR < 0 ) || ( rsqVetoCoeff < 0 ) ) )
-    {
-      fprintf( stderr, "--rsq-veto-time-thresh --rsq-veto-max-snr and --rsq-veto-coeff \n"
-          "must be specified if --rsq-veto-pow is specified\n" );
-      exit( 1 );
-    }
-
-    this_proc_param = this_proc_param->next = (ProcessParamsTable *)
-      calloc( 1, sizeof(ProcessParamsTable) );
-    LALSnprintf( this_proc_param->program, LIGOMETA_PROGRAM_MAX,
-        "%s", PROGRAM_NAME );
-    LALSnprintf( this_proc_param->param, LIGOMETA_PARAM_MAX,
-        "--do-rsq-veto" );
-    LALSnprintf( this_proc_param->type, LIGOMETA_TYPE_MAX, "string" );
-    LALSnprintf( this_proc_param->value, LIGOMETA_VALUE_MAX, " " );
-  }
-
   /* check to filter injection segments only */
   if ( flagFilterInjOnly == 1 )
   {
@@ -4778,27 +4506,6 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
         "--disable-filter-inj-only must be specified\n" );
     exit( 1 );
   }
-
-  /* Check the trigScan input parameters */
-  if ( trigScanMethod )
-  {
-      if ( trigScanVolumeSafetyFac < 1.0 )
-      {
-          fprintf ( stderr, "You must specify --ts-volume-safety\n" );
-          exit(1);
-      }
-
-      if ( maximizationInterval )
-      {
-          fprintf ( stderr, "Cannot specify both --maximization-interval"
-                  " and --ts-cluster \nChoose any one of the two methods"
-                  " for clustering raw inspiral triggers.\n" );
-          exit(1);
-      }
-  }
-  /* If the trigScan parameters are reasonable, set trigScanDeltaEndTime*/
-  /* Here we change trigScanDeltaEndTime to msec                        */
-  trigScanDeltaEndTime /= 1000.L;
 
   return 0;
 }
