@@ -166,11 +166,12 @@ class RateVsAmplitude(SnglBurstUtils.BurstPlot):
 		contents.seglists.offsets.clear()
 
 	def finish(self):
-		print "Total time in foreground segments: %s s" % str(self.foreground_time)
-		print "Total time in background segments: %s s" % str(self.background_time)
+		print "Total time in %s foreground segments: %s s" % (self.instrument, str(self.foreground_time))
+		print "Total time in %s background segments: %s s" % (self.instrument, str(self.background_time))
 		self.axes.set_title(r"\begin{center}Cummulative Coincident Event Rate vs.\ Amplitude in %s\\%d Foreground, %d Background Events\end{center}" % (self.instrument, len(self.foreground), len(self.background)))
 		self.background.sort()
 		self.foreground.sort()
+		print "Amplitude of loudest %s zero-lag survivor: %.9g s^(-1/3)" % (self.instrument, self.foreground[-1])
 		# ratio of live times
 		foregrounds_per_background = self.foreground_time / self.background_time
 		# cummulative number expected in foreground
@@ -183,16 +184,21 @@ class RateVsAmplitude(SnglBurstUtils.BurstPlot):
 		# cummulative rate observed in foreground
 		foreground_y = numarray.arange(len(self.foreground), 0.0, -1.0, "Float64") / self.foreground_time
 		# plot
+		# warning:  the error bar polygon is not *really* clipped
+		# to the axes' bounding box, the result will be incorrect
+		# if the number of sample points is small.
+		xmin = 5e-21
+		xmax = 1e-19
 		ymin = 1e-8
 		ymax = 1e-4
-		x = numarray.concatenate((self.background, self.background[::-1]))
-		y = numarray.concatenate((background_y + background_yerr, (background_y - background_yerr)[::-1]))
-		self.axes.add_patch(patches.Polygon(zip(x, numarray.clip(y, ymin, ymax)), edgecolor = "k", facecolor = "k", alpha = 0.3))
+		poly_x = numarray.concatenate((self.background, self.background[::-1]))
+		poly_y = numarray.concatenate((background_y + 2 * background_yerr, (background_y - 2 * background_yerr)[::-1]))
+		self.axes.add_patch(patches.Polygon(zip(poly_x, numarray.clip(poly_y, ymin, ymax)), edgecolor = "k", facecolor = "k", alpha = 0.3))
 		self.axes.plot(self.background, background_y, "ko-")
 
 		self.axes.plot(self.foreground, foreground_y, "ro-", markeredgecolor = "r")
 
-		self.axes.set_xlim([1e-21, 1e-19])
+		self.axes.set_xlim([xmin, xmax])
 		self.axes.set_ylim([ymin, ymax])
 		self.axes.xaxis.grid(True, which="minor")
 		self.axes.yaxis.grid(True, which="minor")
@@ -205,6 +211,18 @@ class RateVsAmplitude(SnglBurstUtils.BurstPlot):
 #
 # =============================================================================
 #
+
+def slope(x, y):
+	"""
+	From the x and y array, compute the slope everywhere.
+	"""
+	slope = numarray.zeros((len(x),), numarray.Float64)
+	slope[0] = (y[1] - y[0]) / (x[1] - x[0])
+	for i in xrange(1, len(x) - 1):
+		slope[i] = (y[i + 1] - y[i - 1]) / (x[i + 1] - x[i - 1])
+	slope[-1] = (y[-1] - y[-2]) / (x[-1] - x[-2])
+	return slope
+
 
 def solve(x, y, xval = None, yval = None):
 	"""
@@ -221,14 +239,6 @@ def solve(x, y, xval = None, yval = None):
 		return y[i - 1] + (y[i] - y[i - 1]) * (xval - x[i - 1]) / (x[i] - x[i - 1])
 	else:
 		raise ValueError, "invalid arguments"
-
-
-def y_per_bin(y, yval):
-	"""
-	From the x and y arrays, compute the delta y per bin at y = yval.
-	"""
-	i = bisect.bisect_left(y, yval)
-	return y[i] - y[i - 1]
 
 
 def upper_err(y, yerr, deltax):
@@ -249,20 +259,67 @@ def lower_err(y, yerr, deltax):
 	return y - lower
 
 
+def write_efficiency(fileobj, bins, eff, yerr, filterwidth):
+	print >>fileobj, "# ln(A)	e	D[e]"
+	DlnA = bins.bins[0].delta * filterwidth / 2.0
+	for A, e, De in zip(bins.centres[0], eff, yerr):
+		print >>fileobj, math.log(A), e, De
+
+
+def render_data_from_bins(dump_file, axes, efficiency, filter_width, colour):
+	# extract array of x co-ordinates, and the factor by which x
+	# increases from one sample to the next.
+	(x,) = efficiency.centres()
+	x_factor_per_sample = efficiency.bins.bins[0].delta
+
+	# compute the efficiency, the slope (units = efficiency per
+	# sample), the y uncertainty (units = efficiency) due to binomial
+	# counting fluctuations, and the x uncertainty (units = samples)
+	# due to the width of the smoothing filter.
+	eff = efficiency.ratio()
+	dydx = slope(numarray.arange(len(x), type = numarray.Float64), eff)
+	yerr = numarray.sqrt(eff * (1 - eff) / efficiency.denominator)
+	xerr = numarray.array([filter_width / 2] * len(yerr))
+
+	# compute net xerr (units = percent) by dividing yerr by slope and
+	# adding the two errors in quadrature then multiplying by the
+	# fractional change in x per sample.
+	net_xerr = numarray.sqrt(xerr**2 + (yerr / numarray.where(dydx != 0, dydx, 1e-12))**2) * x_factor_per_sample
+
+	# compute net yerr (units = efficiency) by multiplying xerr by
+	# slope and adding the two errors in quadrature
+	net_yerr = numarray.sqrt((xerr * dydx)**2 + yerr**2)
+
+	# write the efficiency data to file
+	write_efficiency(dump_file, efficiency.bins, eff, net_yerr, filter_width)
+
+	# plot the efficiency curve and uncertainty region
+	patch = patches.Polygon(zip(numarray.concatenate((x, x[::-1])), numarray.concatenate((eff + upper_err(eff, yerr, filter_width / 2), (eff - lower_err(eff, yerr, filter_width / 2))[::-1]))), edgecolor = colour, facecolor = colour, alpha = 0.3)
+	axes.add_patch(patch)
+	line = axes.plot(x, eff, colour + "-")
+
+	# compute 50% point and its uncertainty
+	A50 = solve(x, eff, yval = 0.5)
+	A50_err = solve(x, net_xerr, xval = A50)
+
+	# mark 50% point on on graph
+	axes.axvline(A50, color = colour)
+
+	# print some analysis
+	num_injections = efficiency.denominator.sum()
+	num_samples = len(efficiency.denominator)
+	print "Bins were %g samples wide, ideal would have been %g" % (filter_width, (num_samples / num_injections / solve(x, dydx, xval = A50)**2.0)**(1.0/3.0))
+	print "Average number of injections in each bin = %g" % efficiency.denominator.mean()
+
+	return line, A50, A50_err
+
+
 def latexnumber(s):
 	"""
 	Convert a string of the form "d.dddde-dd" to "d.dddd \times
 	10^{-dd}"
 	"""
 	return re.sub(r"([+-]?[.0-9]+)[Ee]?([+-]?[0-9]+)", r"\1 \\times 10^{\2}", s)
-
-
-def write_efficiency(fileobj, bins, eff, yerr, filterwidth):
-	# FIXME: are the uncertainties even close to being right?
-	print >>fileobj, "# ln(A)	e	D[e]"
-	DlnA = bins.bins[0].delta * filterwidth / 2.0
-	for A, e, De in zip(bins.centres[0], eff, yerr):
-		print >>fileobj, math.log(A), e, De
 
 
 class Efficiency(SnglBurstUtils.BurstPlot):
@@ -354,6 +411,8 @@ WHERE
 		self.all.extend(iter(contents.sim_burst_table))
 
 	def finish(self):
+		# put made and found injections in the denominators and
+		# numerators of the efficiency bins
 		self.all.sort(lambda a, b: cmp(a.hpeak, b.hpeak))
 		min_amplitude = self.all[0].hpeak * self.amplitude_factor
 		max_amplitude = self.all[-1].hpeak * self.amplitude_factor
@@ -362,21 +421,15 @@ WHERE
 		efficiency = rate.BinnedRatios(bins)
 		efficiency_above_loudest = rate.BinnedRatios(bins)
 		for sim in self.found:
-			try:
-				efficiency.incnumerator((sim.hpeak * self.amplitude_factor,))
-			except IndexError:
-				pass
+			efficiency.incnumerator((sim.hpeak * self.amplitude_factor,))
 		for sim in self.found_above_loudest:
-			try:
-				efficiency_above_loudest.incnumerator((sim.hpeak * self.amplitude_factor,))
-			except IndexError:
-				pass
+			efficiency_above_loudest.incnumerator((sim.hpeak * self.amplitude_factor,))
 		for sim in self.all:
-			try:
-				efficiency.incdenominator((sim.hpeak * self.amplitude_factor,))
-				efficiency_above_loudest.incdenominator((sim.hpeak * self.amplitude_factor,))
-			except IndexError:
-				pass
+			efficiency.incdenominator((sim.hpeak * self.amplitude_factor,))
+			efficiency_above_loudest.incdenominator((sim.hpeak * self.amplitude_factor,))
+
+		# regularize:  adjust unused bins so that the efficiency
+		# ratio comes out to 0
 		efficiency.regularize()
 		efficiency_above_loudest.regularize()
 
@@ -384,42 +437,26 @@ WHERE
 		# normalization so that denominator array correctly
 		# represents the number of injections contributing to each
 		# bin:  make w(0) = 1.0
-		(x,) = efficiency.centres()
 		windowfunc = rate.gaussian_window(self.width)
 		windowfunc /= windowfunc[len(windowfunc) / 2 + 1]
 		rate.filter_array(efficiency.numerator, windowfunc)
 		rate.filter_array(efficiency.denominator, windowfunc)
 		rate.filter_array(efficiency_above_loudest.numerator, windowfunc)
 		rate.filter_array(efficiency_above_loudest.denominator, windowfunc)
-		eff = efficiency.ratio()
-		eff_yerr = numarray.sqrt(eff * (1 - eff) / efficiency.denominator)
-		write_efficiency(file("string_efficiency.dat", "w"), bins, eff, eff_yerr, self.width)
-		eff_above_loudest = efficiency_above_loudest.ratio()
-		eff_above_loudest_yerr = numarray.sqrt(eff_above_loudest * (1 - eff_above_loudest) / efficiency_above_loudest.denominator)
-		write_efficiency(file("string_efficiency_above_loudest.dat", "w"), bins, eff_above_loudest, eff_above_loudest_yerr, self.width)
 
-		self.axes.add_patch(patches.Polygon(zip(numarray.concatenate((x, x[::-1])), numarray.concatenate((eff + upper_err(eff, eff_yerr, self.width / 2), (eff - lower_err(eff, eff_yerr, self.width / 2))[::-1]))), edgecolor = "k", facecolor="k", alpha = 0.3))
-		line1 = self.axes.plot(x, eff, "k-")
+		line1, A50, A50_err = render_data_from_bins(file("string_efficiency.dat", "w"), self.axes, efficiency, self.width, "k")
+		print "Pipeline's 50%% efficiency point for all detections = %g +/- %g%%\n" % (A50, A50_err * 100)
 
-		self.axes.add_patch(patches.Polygon(zip(numarray.concatenate((x, x[::-1])), numarray.concatenate((eff_above_loudest + upper_err(eff_above_loudest, eff_above_loudest_yerr, self.width / 2), (eff_above_loudest - lower_err(eff_above_loudest, eff_above_loudest_yerr, self.width / 2))[::-1]))), edgecolor = "r", facecolor="r", alpha = 0.3))
-		line2 = self.axes.plot(x, eff_above_loudest, "r-")
+		line2, A50_above_loudest, A50_above_loudest_err = render_data_from_bins(file("string_efficiency_above_loudest.dat", "w"), self.axes, efficiency_above_loudest, self.width, "r")
+		print "Pipeline's 50%% efficiency point for detections above loudest = %g +/- %g%%\n" % (A50_above_loudest, A50_above_loudest_err * 100)
 
+		# add horizontal line at 50%
+		self.axes.axhline(0.5, color = "k", linestyle = "--")
+
+		# add a legend to the axes
 		self.axes.legend((line1, line2), (r"All recovered injections", r"\noindent Injections recovered in %s with\\\(A > %s\,\mathrm{s}^{-\frac{1}{3}}\)" % (self.loudest_survivor_inst, latexnumber("%g" % (self.loudest_survivor_ampl * self.amplitude_factor)))), loc = "lower right")
 
-		# compute 50% point from trend curves
-		A50 = solve(x, eff, yval = 0.5)
-		print "Pipeline's 50%% efficiency point for all detections = %g" % A50
-		A50_above_loudest = solve(x, eff_above_loudest, yval = 0.5)
-		print "Pipeline's 50%% efficiency point for detections above loudest = %g" % A50_above_loudest
-		print "Bins were %g samples wide, ideal would have been %g" % (self.width, (float(len(efficiency.denominator)) / len(self.all) / y_per_bin(eff, yval = 0.5)**2.0)**(1.0/3.0))
-		print "Average number of injections in each bin = %g" % efficiency.denominator.mean()
-
-		# mark on graph
-		self.axes.axhline(0.5, color = "k", linestyle = "--")
-		self.axes.axvline(A50, color = "k")
-		self.axes.axvline(A50_above_loudest, color = "r")
-
-		# finalize
+		# adjust vertical limits
 		self.axes.set_ylim([0, 1])
 
 
