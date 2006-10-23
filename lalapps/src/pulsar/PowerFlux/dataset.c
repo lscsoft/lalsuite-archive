@@ -219,7 +219,7 @@ for(i=bin-window; i<=bin+window; i++) {
 		1, 1e-2,
 		&result, &abserr, &neval);
 /*	fprintf(stderr, "re %d %d result=%g abserr=%g %d %s\n", segment, i, result, abserr, neval, gsl_strerror(err)); */
-	d->bin[segment*d->nbins+i].re+=args_info.fake_strain_arg*result*16384.0;
+	d->bin[segment*d->nbins+i].re+=args_info.fake_strain_arg*result*16384.0/args_info.strain_norm_factor_arg;
 
 
 	F.function=signal_im;
@@ -227,7 +227,7 @@ for(i=bin-window; i<=bin+window; i++) {
 		1, 1e-2,
 		&result, &abserr, &neval);
 /*	fprintf(stderr, "im %d %d result=%g abserr=%g %d %s\n", segment, i, result, abserr, neval, gsl_strerror(err)); */
-	d->bin[segment*d->nbins+i].im+=args_info.fake_strain_arg*result*16384.0;
+	d->bin[segment*d->nbins+i].im+=args_info.fake_strain_arg*result*16384.0/args_info.strain_norm_factor_arg;
 
 
 	}
@@ -504,6 +504,26 @@ d->gps=gps;
 free(p);
 }
 
+static void compute_power(DATASET *d)
+{
+int i;
+float x,y;
+if(d->power!=NULL)free(d->power);
+
+d->power=do_alloc(d->free*d->nbins, sizeof(*d->power));
+for(i=0;i<d->free*d->nbins;i++){
+	x=d->bin[i].re;
+	y=d->bin[i].im;
+	d->power[i]=x*x+y*y;
+	}
+}
+
+void recompute_power(void)
+{
+int i;
+for(i=0;i<d_free;i++)compute_power(&(datasets[i]));
+}
+
 static int validate_dataset(DATASET *d)
 {
 int i,j, m;
@@ -554,12 +574,7 @@ if(fake_injection) {
 		}
 	}
 
-d->power=do_alloc(d->free*d->nbins, sizeof(*d->power));
-for(i=0;i<d->free*d->nbins;i++){
-	x=d->bin[i].re;
-	y=d->bin[i].im;
-	d->power[i]=x*x+y*y;
-	}
+compute_power(d);
 
 /* compute time from the start of the run */
 d->hours=do_alloc(d->free, sizeof(*(d->hours)));
@@ -794,11 +809,11 @@ if(fread(tmp,4,count*2,fin)<count*2){
 	}
 /* reverse normalization applied to geo format files */
 if(timebase < 0) {
-	factor=1.0; /* make_sft_op did not apply normalization .. */
+	factor=1.0/args_info.strain_norm_factor_arg; /* make_sft_op did not apply normalization .. */
 	fprintf(stderr,"** Timebase is negative, assuming unnormalized data\n");
 	fprintf(LOG,"** Timebase is negative, assuming unnormalized data\n");
 	} else {
-	factor=(0.5*1800.0*16384.0)/nbins; /* use fixed normalization for 1800 sec SFTs .. */
+	factor=(0.5*1800.0*16384.0)/(args_info.strain_norm_factor_arg*nbins); /* use fixed normalization for 1800 sec SFTs .. */
 	}
 for(i=0;i<2*count;i++){
 	data[i]=tmp[i]*factor;
@@ -948,6 +963,8 @@ fprintf(LOG, "Generating %d gaussian SFTs starting with gps %lld step %d amplitu
 if((d->free+count)>=d->size)expand_sft_array(d, count);
 
 rng=gsl_rng_alloc(gsl_rng_default);
+
+amp/=args_info.strain_norm_factor_arg;
 
 for(i=d->free;i<(d->free+count);i++) {
 	d->gps[i]=gps_start+(i-d->free)*step;

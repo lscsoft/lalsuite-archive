@@ -163,6 +163,11 @@ static int sweep_neighbourhood(int index, int mark)
 int j,m, count=0;
 float fudge=resolution*3.1;
 float cosfudge=1.0-cos(fudge);
+float frequency;
+
+if(polarization_index[index]<0)return 0;
+
+frequency=polarization_results[polarization_index[index]].skymap.freq_map[index];
 
 for(j=inverse_dec_order[index]+1;j<fine_grid->npoints;j++) {
 	m=dec_order[j];
@@ -174,6 +179,8 @@ for(j=inverse_dec_order[index]+1;j<fine_grid->npoints;j++) {
 	if(max_dx[m]>max_dx[index])continue;
 	
 	if(polarization_index[m]<0)continue;
+
+	if(((max_dx[m]+1.0)>max_dx[index]) && (fabs(frequency-polarization_results[polarization_index[m]].skymap.freq_map[m])>3/1800.0))continue;
 
 	if(fast_spherical_distance(fine_grid->longitude[m], fine_grid->latitude[m],
 				fine_grid->longitude[index], fine_grid->latitude[index])<cosfudge) {
@@ -348,6 +355,12 @@ fprintf(fout, "candidate%s: \"%s\" %d %d %g %d %d %g %g %g %f %f %f %f %f %f %g 
 	cand->ifo_freq_sd,
 	candidate_free);
 }
+
+#define SNR_FORMULA1 cand->snr=(demod_signal_sum[b_max]-mean_power)/power_sd;
+#define SNR_FORMULA2 cand->snr=(demod_signal_sum[b_max]-0.25*fabs(demod_signal_sum[b_max-1]-demod_signal_sum[b_max+1])-mean_power)/power_sd;
+#define SNR_FORMULA3 cand->snr=(0.6*demod_signal_sum[b_max]+0.15*(demod_signal_sum[b_max-1]+demod_signal_sum[b_max+1])-mean_power)/power_sd;
+
+#define SNR_FORMULA SNR_FORMULA1
 
 void compute_scores(CANDIDATE *cand, int debug)
 {
@@ -591,7 +604,8 @@ for(b=window-search_window;b<window+search_window+1;b++) {
 	a=sqrt(phase_sum[b].re*phase_sum[b].re+phase_sum[b].im*phase_sum[b].im);
 	if(a>coherence_score)coherence_score=a;		
 	}
-b_max=window;
+
+cand->f_max=cand->frequency+(b_max-window)/1800.0;
 
 mean_power=0.0;
 mean_power_sq=0.0;
@@ -617,23 +631,24 @@ if(debug) {
 	fprintf(stderr, "\n");
 	}
 
+
+b_max=window;
+
 cand->coherence_score=coherence_score;
 cand->power_cor=power_cor;
-cand->snr=(demod_signal_sum[b_max]-mean_power)/power_sd;
+/*cand->snr=(demod_signal_sum[b_max]-mean_power)/power_sd;*/
 cand->total_weight=total_demod_weight;
-//cand->snr=(demod_signal_sum[b_max]-0.25*fabs(demod_signal_sum[b_max-1]-demod_signal_sum[b_max+1])-mean_power)/power_sd;
+/*cand->snr=(demod_signal_sum[b_max]-0.25*fabs(demod_signal_sum[b_max-1]-demod_signal_sum[b_max+1])-mean_power)/power_sd;*/
 //cand->snr=(demod_signal_sum[b_max]-0.25*fabs(demod_signal_sum[b_max-1]-demod_signal_sum[b_max+1])-0.5*mean_power)/power_sd;
+SNR_FORMULA
 
 if(demod_signal_sum[b_max]< mean_power)cand->strain=0.0;
 	else
-	cand->strain=2.0*sqrt(demod_signal_sum[b_max]-mean_power)/(1800.0*16384.0);
+	cand->strain=2.0*sqrt(demod_signal_sum[b_max]-mean_power)*args_info.strain_norm_factor_arg/(1800.0*16384.0);
 if(cand->strain>0)
-	cand->strain_err=0.5*4.0*power_sd/(cand->strain*1800.0*1800.0*16384.0*16384.0);
+	cand->strain_err=0.5*4.0*power_sd*args_info.strain_norm_factor_arg/(cand->strain*1800.0*1800.0*16384.0*16384.0);
 	else
 	cand->strain_err=1;
-
-
-cand->f_max=cand->frequency+(b_max-window)/1800.0;
 
 free(phase_sum);
 free(signal_sum);
@@ -825,12 +840,11 @@ DATASET *d;
 float spindown=cand->spindown;
 float frequency=cand->frequency;
 int j, k, b, b_max;
-double weight, f, x, y, demod_weight, total_demod_weight, power, mean_power, mean_power_sq, power_sd;
+double weight, f, total_demod_weight, mean_power, mean_power_sq, power_sd;
 float *response;
 float *doppler;
 int signal_bin;
-COMPLEX *p0;
-double demod_signal_sum[(2*WINDOW+1)*2];
+float demod_signal_sum[(2*WINDOW+1)*2], *power, *pout, demod_weight;
 
 if((ad->valid & (VALID_RESPONSE | VALID_DOPPLER))!=(VALID_RESPONSE | VALID_DOPPLER)) {
 	cand->strain=-1;
@@ -870,14 +884,14 @@ for(j=0;j<d_free;j++) {
 		f=frequency+frequency*doppler[k]+spindown*(d->gps[k]-spindown_start);
 		signal_bin=rintf(1800.0*f-first_bin);
 
-		p0=&(d->bin[k*nbins+signal_bin-WINDOW]);
+		power=&(d->power[k*nbins+signal_bin-WINDOW]);
+		pout=demod_signal_sum;
 
 		for(b=0; b< (2*WINDOW+1); b++) {
-			x=p0[b].re;
-			y=p0[b].im;
-			power=x*x+y*y;
 
-			demod_signal_sum[b]+=power*demod_weight;
+			(*pout)+=(*power)*demod_weight;
+			pout++;
+			power++;
 			}
 		}
 	}
@@ -916,20 +930,212 @@ if(debug) {
 	fprintf(stderr, "\n");
 	}
 
+cand->f_max=cand->frequency+(b_max-WINDOW)/1800.0;
+
 b_max=WINDOW;
-cand->snr=(demod_signal_sum[b_max]-mean_power)/power_sd;
-//cand->snr=(demod_signal_sum[b_max]-0.25*fabs(demod_signal_sum[b_max-1]-demod_signal_sum[b_max+1])-mean_power)/power_sd;
+cand->total_weight=total_demod_weight;
+/*cand->snr=(demod_signal_sum[b_max]-mean_power)/power_sd;
+cand->snr=(demod_signal_sum[b_max]-0.25*fabs(demod_signal_sum[b_max-1]-demod_signal_sum[b_max+1])-mean_power)/power_sd;*/
+SNR_FORMULA
+
 if(demod_signal_sum[b_max]< mean_power)cand->strain=0.0;
 	else
-	cand->strain=2.0*sqrt(demod_signal_sum[b_max]-mean_power)/(1800.0*16384.0);
+	cand->strain=2.0*sqrt(demod_signal_sum[b_max]-mean_power)*args_info.strain_norm_factor_arg/(1800.0*16384.0);
 
 if(cand->strain>0)
-	cand->strain_err=0.5*4.0*power_sd/(cand->strain*(1800.0*1800.0*16384.0*16384.0));
+	cand->strain_err=0.5*4.0*power_sd*args_info.strain_norm_factor_arg/(cand->strain*(1800.0*1800.0*16384.0*16384.0));
 	else
 	cand->strain_err=1;
 
+}
+
+/* This is used to speedup optimization in iota and psi */
+
+typedef struct {
+	float f_plus_sq[(2*WINDOW+1)*2];
+	float f_cross_sq[(2*WINDOW+1)*2];
+	float f_plus_cross[(2*WINDOW+1)*2];
+	} SNR_DATA;
+
+
+static void precompute_snr_data(SNR_DATA *sd, SCORE_AUX_DATA *ad, CANDIDATE *cand, int debug)
+{
+DATASET *d;
+float spindown=cand->spindown;
+float frequency=cand->frequency;
+int j, k, b, b_max;
+double weight, f, mean_power, mean_power_sq, power_sd;
+float *response;
+float *doppler;
+int signal_bin;
+float *power, *pout, *cout, *pcout, pweight, cweight, pcweight, f_plus, f_cross;
+POLARIZATION *pl;
+
+
+for(b=0;b<(2*WINDOW+1);b++) {
+	sd->f_plus_sq[b]=0.0;
+	sd->f_cross_sq[b]=0.0;
+	sd->f_plus_cross[b]=0.0;
+	}
+
+if((ad->valid & VALID_DOPPLER)!=VALID_DOPPLER) {
+	fprintf(stderr, "precompute_snr_data: score_aux_data is not valid\n");
+	return;
+	}
+
+/* loop over datasets */
+for(j=0;j<d_free;j++) {
+	d=&(datasets[j]);
+
+	doppler=&(ad->doppler[ad->offset[j]]);
+	pl=&(d->polarizations[0]);	
+
+	for(k=0;k<d->free;k++) {
+		/* skip SFTs with low weight */
+		if(d->expTMedians[k]<0.05)continue;
+
+		f_plus=F_plus_coeff(k, ad->e, pl->AM_coeffs);
+		f_cross=F_plus_coeff(k, ad->e, pl->conjugate->AM_coeffs);
+
+		/* power_cor computation */
+		weight=d->expTMedians[k]*d->weight;
+
+		pweight=weight*f_plus*f_plus;
+		cweight=weight*f_cross*f_cross;
+		pcweight=weight*f_plus*f_cross;
+
+		f=frequency+frequency*doppler[k]+spindown*(d->gps[k]-spindown_start);
+		signal_bin=rintf(1800.0*f-first_bin);
+
+		power=&(d->power[k*nbins+signal_bin-WINDOW]);
+
+		pout=sd->f_plus_sq;
+		cout=sd->f_cross_sq;
+		pcout=sd->f_plus_cross;
+
+		for(b=0; b< (2*WINDOW+1); b++) {
+
+			(*pout)+=(*power)*pweight;
+			(*cout)+=(*power)*cweight;
+			(*pcout)+=(*power)*pcweight;
+
+			pout++;
+			cout++;
+			pcout++;
+			power++;
+			}
+		}
+	}
+}
+
+void compute_alignment_snr(SNR_DATA *sd, CANDIDATE *cand, int debug)
+{
+int b, b_max;
+float demod_signal_sum[(2*WINDOW+1)];
+double mean_power, mean_power_sq, power_sd;
+float ac, ap, apc, ci;
+
+ci=cos(cand->iota);
+ci=ci*ci;
+
+ap=(1+ci)*0.5;
+ap=ap*ap;
+
+ac=ap-ci;
+ap=ap+ci;
+
+apc=ac;
+ac=ac*cos(4*cand->psi);
+
+apc=2.0*apc*sin(4*cand->psi);
+
+// fprintf(stderr, "ap=%f ac=%f apc=%f\n", ap, ac, apc);
+
+for(b=0;b<(2*WINDOW+1);b++)
+	demod_signal_sum[b]=(sd->f_plus_sq[b]+sd->f_cross_sq[b])*ap+(sd->f_plus_sq[b]-sd->f_cross_sq[b])*ac+sd->f_plus_cross[b]*apc;
+
+b_max=WINDOW;
+for(b=WINDOW-SEARCH_WINDOW;b<WINDOW+SEARCH_WINDOW+1;b++) {
+	if(demod_signal_sum[b_max]<demod_signal_sum[b]) b_max=b;
+	}
+
+mean_power=0.0;
+mean_power_sq=0.0;
+
+for(b=0;b< WINDOW-SEARCH_WINDOW;b++){
+	mean_power+=demod_signal_sum[b];
+	mean_power_sq+=demod_signal_sum[b]*demod_signal_sum[b];
+	}
+for(b=WINDOW+SEARCH_WINDOW+1;b<2*WINDOW+1;b++){
+	mean_power+=demod_signal_sum[b];
+	mean_power_sq+=demod_signal_sum[b]*demod_signal_sum[b];
+	}
+	
+mean_power*=0.5/((WINDOW-SEARCH_WINDOW));
+mean_power_sq*=0.5/((WINDOW-SEARCH_WINDOW));
+power_sd=sqrt((mean_power_sq-mean_power*mean_power)*(2.0*(WINDOW-SEARCH_WINDOW)/(2.0*(WINDOW-SEARCH_WINDOW)-1)));
+
+if(debug) {
+	fprintf(stderr, "mean_power=%g mean_power_sq=%g power_sd=%g\n", mean_power, mean_power_sq, power_sd);
+	fprintf(stderr, "Power: ");
+	for(b=0;b<2*WINDOW+1;b++) {
+		fprintf(stderr, "%.2f ", (demod_signal_sum[b]-mean_power)/power_sd);
+		}
+	fprintf(stderr, "\n");
+	}
 
 cand->f_max=cand->frequency+(b_max-WINDOW)/1800.0;
+
+b_max=WINDOW;
+SNR_FORMULA
+}
+
+static void test_alignment_snr(CANDIDATE *cand)
+{
+CANDIDATE c1, c2;
+SCORE_AUX_DATA *ad;
+SNR_DATA sd;
+int i,j, N=16;
+double err_max, err;
+
+memcpy(&c1, cand, sizeof(*cand));
+memcpy(&c2, cand, sizeof(*cand));
+
+ad=allocate_score_aux_data();
+
+fill_e(ad, &c1);
+fill_response(ad, &c1);
+fill_doppler(ad);
+
+precompute_snr_data(&sd, ad, &c1, 0);
+
+err_max=0;
+
+for(i=-N; i<=N; i++) {
+	for(j=-N; j<=N; j++) {
+		c1.psi=cand->psi+j*M_PI/128.0;
+		c1.iota=cand->iota+i*M_PI/128.0;
+
+		c1.psi=M_PI/2.0;
+		c1.iota=M_PI/2.0;
+
+		c2.psi=c1.psi;
+		c2.iota=c1.iota;
+
+		fill_response(ad, &c1);
+		compute_simple_snr(ad, &c1, 0);
+		compute_alignment_snr(&sd, &c2, 0);
+		err=c1.snr-c2.snr;
+		if(fabs(err)>1e-5)
+			fprintf(stderr, "iota=%f psi=%f c1.snr=%f c2.snr=%f snr_diff=%f\n", c1.iota, c1.psi, c1.snr, c2.snr, err);
+		if(err>err_max)err_max=err;
+		}
+	}
+
+fprintf(stderr, "candidate_debug rank=%d alignment error %f\n", cand->rank, err_max);
+fprintf(LOG, "candidate_debug rank=%d alignment error %f\n", cand->rank, err_max);
+
+free_score_aux_data(ad);
 }
 
 
@@ -941,12 +1147,11 @@ DATASET *d;
 float spindown=cand->spindown;
 float frequency=cand->frequency;
 int i, j, k, b, b_max;
-double weight, f, x, y, demod_weight, total_demod_weight, power, mean_power, mean_power_sq, power_sd;
+double weight, f, demod_weight, total_demod_weight, mean_power, mean_power_sq, power_sd;
 float *response;
 float *doppler;
 int signal_bin, offset;
-COMPLEX *p0;
-double demod_signal_sum[(2*WINDOW+1)*FREQ_STEPS];
+float demod_signal_sum[(2*WINDOW+1)*FREQ_STEPS], *power, *pout;
 
 if((ad->valid & (VALID_RESPONSE | VALID_DOPPLER))!=(VALID_RESPONSE | VALID_DOPPLER)) {
 	cand->strain=-1;
@@ -988,14 +1193,13 @@ for(j=0;j<d_free;j++) {
 			signal_bin=rintf(1800.0*f-first_bin);
 			offset=i*(2*WINDOW+1);
 	
-			p0=&(d->bin[k*nbins+signal_bin-WINDOW]);
+			power=&(d->power[k*nbins+signal_bin-WINDOW]);
+			pout=&(demod_signal_sum[offset]);
 	
 			for(b=0; b< (2*WINDOW+1); b++) {
-				x=p0[b].re;
-				y=p0[b].im;
-				power=x*x+y*y;
-	
-				demod_signal_sum[b+offset]+=power*demod_weight;
+				(*pout)+=*power*demod_weight;
+				power++;
+				pout++;
 				}
 			}
 		}
@@ -1038,20 +1242,23 @@ if(debug) {
 	fprintf(stderr, "\n");
 	}
 
+cand->f_max=cand->frequency+(b_max-WINDOW)/1800.0;
+
 b_max=WINDOW;
-cand->snr=(demod_signal_sum[b_max]-mean_power)/power_sd;
-//cand->snr=(demod_signal_sum[b_max]-0.25*fabs(demod_signal_sum[b_max-1]-demod_signal_sum[b_max+1])-mean_power)/power_sd;
+cand->total_weight=total_demod_weight;
+/*cand->snr=(demod_signal_sum[b_max]-mean_power)/power_sd;
+cand->snr=(demod_signal_sum[b_max]-0.25*fabs(demod_signal_sum[b_max-1]-demod_signal_sum[b_max+1])-mean_power)/power_sd;*/
+SNR_FORMULA
 if(demod_signal_sum[b_max]< mean_power)cand->strain=0.0;
 	else
-	cand->strain=2.0*sqrt(demod_signal_sum[b_max]-mean_power)/(1800.0*16384.0);
+	cand->strain=2.0*sqrt(demod_signal_sum[b_max]-mean_power)*args_info.strain_norm_factor_arg/(1800.0*16384.0);
 
 if(cand->strain>0)
-	cand->strain_err=0.5*4.0*power_sd/(cand->strain*(1800.0*1800.0*16384.0*16384.0));
+	cand->strain_err=0.5*4.0*power_sd*args_info.strain_norm_factor_arg/(cand->strain*(1800.0*1800.0*16384.0*16384.0));
 	else
 	cand->strain_err=1;
 
 
-cand->f_max=cand->frequency+(b_max-WINDOW)/1800.0;
 }
 
 typedef struct {
@@ -1378,24 +1585,32 @@ h->frequency_shift/=1800.0;
 	int i, max_i;\
 	float f, max; \
 	float step=step0; \
+	SCORE_AUX_DATA *ad; \
+	\
+	ad=allocate_score_aux_data(); \
 	\
 	start: \
 	memcpy(&c, cand, sizeof(*cand));  \
 	\
 	max_i=-N-1; \
 	max=0; \
-	fprintf(stderr, "" # opt_var "=%f step=%f ", c.opt_var, step); \
+	/* fprintf(stderr, "" # opt_var "=%f step=%f ", c.opt_var, step); */ \
 	for(i=-N;i<=N;i++) { \
 		c.opt_var=cand->opt_var+i*step; \
-		compute_scores(&c, 0); \
+		fill_e(ad, &c); \
+		fill_response(ad, &c); \
+		fill_doppler(ad); \
+		\
+		compute_simple_snr(ad, &c, 0); \
 		f=opt_expr; \
-		fprintf(stderr, ",%f", f); \
+		/* fprintf(stderr, ",%f", f); */ \
 		if(max_i<-N || (f>max) || (f>=max && !max_i)) { \
 			max_i=i; \
 			max=f; \
 			} \
 		} \
-	fprintf(stderr, "\n");  \
+	free_score_aux_data(ad); \
+	/* fprintf(stderr, "\n"); */ \
 	if(max<cand->snr+0.001)return 0; \
 	cand->opt_var+=max_i*step; \
 	cand->snr=max; \
@@ -1535,7 +1750,25 @@ return(acos(sin(cand->dec)*sin(dec)+cos(cand->dec)*cos(dec)*cos(cand->ra-ra)-1e-
 
 float candidate_alignment(CANDIDATE *cand, float iota, float psi)
 {
-return(acos(fabs(sin(cand->iota)*sin(iota)*cos(cand->psi-psi)+cos(cand->iota)*cos(iota))-1e-14));
+double a, b, a2, b2, c, dist;
+a=cos(iota);
+a2=fabs(a);
+a2=(1.0-a2)/(1.0+a2);
+a2=a2*a2;
+
+b=cos(cand->iota);
+b2=fabs(b);
+b2=(1.0-b2)/(1.0+b2);
+b2=b2*b2;
+
+c=cand->psi-psi;
+while(c>M_PI)c-=M_PI;
+while(c<0)c+=M_PI;
+
+dist=fabs(a2-b2)+0.5*fmin((1.0-a)*(1.0-a), (1.0-b)*(1.0-b))*c;
+
+return(dist);
+//return(acos(fabs(sin(cand->iota)*sin(iota)*cos(cand->psi-psi)+cos(cand->iota)*cos(iota))-1e-14));
 }
 
 int search_vec(CANDIDATE *cand, float freq_step, float psi_step, float iota_step, float ra_step, float dec_step, float spindown_step, int N)
@@ -1556,7 +1789,7 @@ max_i=0;
 max=cand->snr;
 if(c.snr>max)max=c.snr;
 
-fprintf(stderr, " vec(freq=%g, psi=%f, iota=%f, ra=%f, dec=%f, spindown=%f) ", freq_step, psi_step, iota_step, ra_step, dec_step, spindown_step);
+/*fprintf(stderr, " vec(freq=%g, psi=%f, iota=%f, ra=%f, dec=%f, spindown=%f) ", freq_step, psi_step, iota_step, ra_step, dec_step, spindown_step);*/
 for(i=-N;i<=N;i++) {
 	c.frequency=cand->frequency+i*freq_step;
 	c.psi=cand->psi+i*psi_step;
@@ -1567,14 +1800,14 @@ for(i=-N;i<=N;i++) {
 
 	compute_scores(&c, 0);
 	f=c.snr;
-	fprintf(stderr, ",%f", f);
+/*	fprintf(stderr, ",%f", f); */
 	if(f>max) {
 		memcpy(&best_c, &c, sizeof(c));
 		max_i=i;
 		max=f;
 		}
 	}
-fprintf(stderr, "\n");
+/*fprintf(stderr, "\n");*/
 if(max<cand->snr+0.001)return 0;
 
 if(max_i)memcpy(cand, &best_c, sizeof(best_c));
@@ -1592,8 +1825,8 @@ ngap=0;
 while(1) {
 
 	freq_dir=2.0*rand()/RAND_MAX-1.0;
-	psi_dir=2.0*rand()/RAND_MAX-1.0;
-	iota_dir=2.0*rand()/RAND_MAX-1.0;
+/*	psi_dir=2.0*rand()/RAND_MAX-1.0;
+	iota_dir=2.0*rand()/RAND_MAX-1.0;*/
 	ra_dir=2.0*rand()/RAND_MAX-1.0;
 	dec_dir=2.0*rand()/RAND_MAX-1.0;
 	spindown_dir=2.0*rand()/RAND_MAX-1.0;	
@@ -1620,6 +1853,104 @@ while(1) {
 		return(ngap<niter);
 		}
 	}
+}
+
+int search_four_vec(CANDIDATE *cand)
+{
+int ra_dir, dec_dir, spindown_dir, frequency_dir;
+int found=0;
+CANDIDATE c, best_c;
+int i, N=8;
+float max;
+SCORE_AUX_DATA *ad;
+
+
+ad=allocate_score_aux_data();
+
+
+memcpy(&c, cand, sizeof(*cand)); 
+
+fill_e(ad, &c);
+fill_response(ad, &c);
+fill_doppler(ad);
+
+compute_simple_snr(ad, &c, 0);
+
+c.frequency=c.f_max;
+
+fprintf(stderr, "%f\n", c.frequency);
+
+max=cand->snr;
+if(c.snr>max)max=c.snr;
+
+compute_simple_snr(ad, &c, 0);
+if(c.snr>max)max=c.snr;
+
+
+for(i=1;i<=N;i++) {
+
+for(ra_dir=-1; ra_dir<=1;ra_dir++) {
+for(dec_dir=-1; dec_dir<=1;dec_dir++) {
+
+	c.ra=cand->ra+i*ra_dir*resolution*0.5*0.125/(cos(cand->dec)+0.001);
+	c.dec=cand->dec+i*dec_dir*resolution*0.5*0.125;
+
+	fill_e(ad, &c);
+	fill_response(ad, &c);
+	fill_doppler(ad);
+
+	for(spindown_dir=-1; spindown_dir<=1;spindown_dir++) {
+		c.spindown=cand->spindown+i*spindown_dir*1e-11;
+		c.frequency=cand->f_max;
+
+	for(frequency_dir=-5; frequency_dir<5; frequency_dir++) {
+
+		c.frequency=cand->frequency+frequency_dir*0.05/1800.0;
+	
+		compute_simple_snr(ad, &c, 0);
+
+		//compute_scores(&c, 0);
+	
+	/*	fprintf(stderr, ",%f", f); */
+		if(c.snr>max) {
+			fprintf(stderr, "%d %d %d %d\n", ra_dir, dec_dir, spindown_dir, frequency_dir);
+			memcpy(&best_c, &c, sizeof(c));
+			max=c.snr;
+			found=1;
+			}
+
+		if(fabs(c.f_max-c.frequency)>(0.5/1800.0)) {
+			c.frequency=c.f_max;
+			compute_simple_snr(ad, &c, 0);
+			if(c.snr>max) {
+				fprintf(stderr, "%d %d %d %d\n", ra_dir, dec_dir, spindown_dir, frequency_dir);
+				memcpy(&best_c, &c, sizeof(c));
+				max=c.snr;
+				found=1;
+				}
+
+			}
+
+		}}
+	}}
+
+	if(found) {
+		memcpy(cand, &best_c, sizeof(best_c));
+		free_score_aux_data(ad);
+		return 1;
+		}
+
+	}
+
+free_score_aux_data(ad);
+
+return 0;
+/*fprintf(stderr, "\n");*/
+if(max<cand->snr+0.001)return 0;
+
+memcpy(cand, &best_c, sizeof(best_c));
+
+return 1;
 }
 
 int chase_frequency1(CANDIDATE *cand)
@@ -1707,9 +2038,9 @@ if(fabs(best_c.ra-cand->ra)>0 || fabs(best_c.dec-cand->dec)>0) {
 return 0;
 }
 
-int search_alignment(CANDIDATE *cand)
+int search_alignment1(CANDIDATE *cand)
 {
-int i,j, k, N=32;
+int i,j, k, N=8;
 CANDIDATE c, best_c;
 
 memcpy(&c, cand, sizeof(CANDIDATE));
@@ -1723,14 +2054,14 @@ for(i=-N;i<N;i++) {
 	for(j=-N;j<N;j++) {
 		c.psi=cand->psi+j*M_PI/128.0;
 			compute_scores(&c, 0);
-			fprintf(stderr, "% 2d", (int)floor(10.0*c.snr/best_c.snr));
+/*			fprintf(stderr, "% 2d", (int)floor(10.0*c.snr/best_c.snr));*/
 			if(c.snr>best_c.snr) {
 				memcpy(&best_c, &c, sizeof(CANDIDATE));
 				fprintf(stderr, "found snr=%f\n", c.snr);
 				//return 1;
 				}
 		}
-	fprintf(stderr, "\n");
+/*	fprintf(stderr, "\n");*/
 	}
 //return 0;
 if(fabs(best_c.iota-cand->iota)>0 || fabs(best_c.psi-cand->psi)>0) {
@@ -1739,6 +2070,84 @@ if(fabs(best_c.iota-cand->iota)>0 || fabs(best_c.psi-cand->psi)>0) {
 	}
 return 0;
 }
+
+int search_alignment(CANDIDATE *cand)
+{
+int i,j, k, N=8, found;
+CANDIDATE c, best_c;
+SCORE_AUX_DATA *ad;
+SNR_DATA sd;
+
+memcpy(&c, cand, sizeof(CANDIDATE));
+memcpy(&best_c, cand, sizeof(CANDIDATE));
+
+ad=allocate_score_aux_data();
+
+fill_e(ad, &c);
+fill_response(ad, &c);
+fill_doppler(ad);
+
+precompute_snr_data(&sd, ad, &best_c, 0);
+
+compute_alignment_snr(&sd, &best_c, 0);
+fprintf(stderr, "search_alignment start snr=%f\n", best_c.snr);
+
+while(1) {
+	found=0;
+
+	c.psi=best_c.psi;
+	for(i=1;i<N;i++) {
+		c.iota=best_c.iota+i*M_PI/128.0;
+
+		compute_alignment_snr(&sd, &c, 0);
+		if(c.snr>best_c.snr) {
+			memcpy(&best_c, &c, sizeof(CANDIDATE));
+			fprintf(stderr, "found snr=%f\n", c.snr);
+			found=1;
+			break;
+			}
+		c.iota=best_c.iota-i*M_PI/128.0;
+		compute_alignment_snr(&sd, &c, 0);
+		if(c.snr>best_c.snr) {
+			memcpy(&best_c, &c, sizeof(CANDIDATE));
+			fprintf(stderr, "found snr=%f\n", c.snr);
+			found=1;
+			break;
+			}
+		}
+
+	c.iota=best_c.iota;
+	for(j=1;j<N;j++) {
+		c.psi=best_c.psi+j*M_PI/128.0;
+		compute_alignment_snr(&sd, &c, 0);
+		if(c.snr>best_c.snr) {
+			memcpy(&best_c, &c, sizeof(CANDIDATE));
+			fprintf(stderr, "found snr=%f\n", c.snr);
+			found=1;
+			break;
+			}
+		c.psi=best_c.psi-j*M_PI/128.0;
+		compute_alignment_snr(&sd, &c, 0);
+		if(c.snr>best_c.snr) {
+			memcpy(&best_c, &c, sizeof(CANDIDATE));
+			fprintf(stderr, "found snr=%f\n", c.snr);
+			found=1;
+			break;
+			}
+		}
+	if(!found)break;
+	}
+
+free_score_aux_data(ad);
+
+fprintf(stderr, "search_alignment stop snr=%f\n", best_c.snr);
+if(fabs(best_c.iota-cand->iota)>0 || fabs(best_c.psi-cand->psi)>0) {
+	memcpy(cand, &best_c, sizeof(best_c));
+	return 1;
+	}
+return 0;
+}
+
 
 int search_spindown1(CANDIDATE *cand)
 {
@@ -2221,27 +2630,33 @@ return 0;
 }
 
 
-void tabulate_neighbourhood(CANDIDATE *cand)
+void tabulate_neighbourhood(char *filename, CANDIDATE *cand)
 {
 FILE *fout;
-int i,j, N=30;
+int i, j, k, m, N=16;
 CANDIDATE c;
-fout=fopen("t.txt", "w");
+fout=fopen(filename, "w");
 if(fout==NULL){
 	perror("");
 	return;
 	}
-fprintf(fout, "ra_ind\tdec_ind\tra\tdec\tsnr\n");
+fprintf(fout, "ra_ind\tdec_ind\tfreq_ind\tspindown_ind\tra\tdec\tfrequency\tspindown\tsnr\tsnr_max\tf_max\n");
 memcpy(&c, cand, sizeof(c));
 
 for(i=-N;i<=N;i++) {
-	c.dec=cand->dec+i*resolution*0.25;
-	for(j=-N;j<=N;j++) {
-		c.ra=cand->ra+j*resolution*0.25/(cos(c.dec)+0.001);
+for(j=-N;j<=N;j++) {
+for(k=-N;k<=N;k++) {
+for(m=-N;m<=N;m++) {
+		c.dec=cand->dec+i*resolution*0.5*0.125;
+		c.ra=cand->ra+j*resolution*0.5*0.125/(cos(c.dec)+0.001);
+		c.spindown=cand->spindown+k*1e-11;
+		c.frequency=cand->frequency+m*0.02/1800.0;
 		compute_scores(&c, 0);
-		fprintf(fout, "%d\t%d\t%f\t%f\t%f\n", j, i, c.ra, c.dec, c.snr);
-		}
-	}
+		fprintf(fout, "%d\t%d\t%d\t\%d\t%f\t%f\t%f\t%g\t%f", j, i, m, k, c.ra, c.dec, c.frequency, c.spindown, c.snr);
+		c.frequency=c.f_max;
+		compute_scores(&c, 0);
+		fprintf(fout, "\t%f\t%f\n", c.snr, c.f_max);
+	}}}}
 fclose(fout);
 }
 
@@ -2249,7 +2664,7 @@ void optimize_candidate(CANDIDATE *cand)
 {
 CANDIDATE *tries;
 int cont, i;
-int psi_dir, iota_dir, ra_dir, dec_dir, spindown_dir;
+int frequency_dir, psi_dir, iota_dir, ra_dir, dec_dir, spindown_dir;
 float factor;
 
 //#define DISTANCE_PRINTF		fprintf(stderr, "distance=%f fdist=%f sdist=%f snr=%f\n", candidate_distance(cand, args_info.focus_ra_arg, args_info.focus_dec_arg), (cand->frequency-140.5972)*1800, (cand->spindown-3.794117e-10)*(max_gps()-min_gps())*1800.0, cand->snr);
@@ -2265,8 +2680,10 @@ compute_scores(cand, 1);
 DISTANCE_PRINTF
 output_candidate(stderr, "", cand);
 
-cand->ra=args_info.fake_ra_arg;
-cand->dec=args_info.fake_dec_arg;
+if(cand->rank==0)test_alignment_snr(cand);
+
+/*cand->ra=args_info.fake_ra_arg;
+cand->dec=args_info.fake_dec_arg;*/
 /*cand->iota=0.0;
 cand->psi=0.0;
 cand->spindown=0.0;*/
@@ -2291,6 +2708,9 @@ cand->spindown=0.0;*/
 	output_candidate(stderr, "", cand);
 	}*/
 
+// tabulate_neighbourhood("cand_0.txt", cand);
+// exit(0);
+
 factor=1.0;
 
 for(i=0;i<1000;i++) {
@@ -2301,8 +2721,8 @@ for(i=0;i<1000;i++) {
 
 	cont|=search_dec(cand, resolution*0.5);*/
 /*	compute_scores(cand, 0);*/
-	compute_scores(cand, 0);
-	DISTANCE_PRINTF
+// 	compute_scores(cand, 0);
+// 	DISTANCE_PRINTF
 
 // 	cont=chase_ra(cand);
 // /*	compute_scores(cand, 0);*/
@@ -2349,7 +2769,7 @@ for(i=0;i<1000;i++) {
 // 	cont|=search_monte_carlo(cand, resolution*5, 2e-10, 1000);
 
 	cont+=search_frequency(cand, 0.02/1800.0, 256);
-	compute_scores(cand, 0);
+/*	compute_scores(cand, 0);*/
  	DISTANCE_PRINTF
 	output_candidate(stderr, "", cand);
 
@@ -2380,26 +2800,31 @@ for(i=0;i<1000;i++) {
 //  	DISTANCE_PRINTF
 // 	output_candidate(stderr, "", cand);
 
-// 	for(psi_dir=0; psi_dir<=1;psi_dir++) {
-// 	for(iota_dir=-1; iota_dir<=1;iota_dir++) {
-// 	for(ra_dir=-1; ra_dir<=1;ra_dir++) {
+// 	for(ra_dir=0; ra_dir<=1;ra_dir++) {
 // 	for(dec_dir=-1; dec_dir<=1;dec_dir++) {
 // 	for(spindown_dir=-1; spindown_dir<=1;spindown_dir++) {
+// 	for(frequency_dir=-1; frequency_dir<=1; frequency_dir++) {
+// 		fprintf(stderr, "%d %d %d %d\n", ra_dir, dec_dir, spindown_dir, frequency_dir);
 // 
-// 		cont|=search_vec(cand, 
-// 				psi_dir*M_PI/256.0, 
-// 				iota_dir*M_PI/128, 
+// 		if(search_vec(cand, 
+// 				frequency_dir*0.02/1800.0,
+// 				0.0, 
+// 				0.0, 
 // 				ra_dir*resolution*0.5*0.125/(cos(cand->dec)+0.001), 
 // 				dec_dir*resolution*0.5*0.125, 
 // 				spindown_dir*1e-11, 
-// 				128);
-// 		compute_scores(cand, 0);
-// 		DISTANCE_PRINTF
-// 		output_candidate(stderr, "", cand);
+// 				128)) {
+// 			cont+=1;
+// 			compute_scores(cand, 0);
+// 			DISTANCE_PRINTF
+// 			output_candidate(stderr, "", cand);
+// 			}
 // 
-// 		}}}}}
+// 		}}}}
 
-//   	cont|=search_monte_carlo_vec(cand);
+	cont+=search_four_vec(cand);
+
+//    	cont|=search_monte_carlo_vec(cand);
 
 // 	if(!cont && (cand->f_max!=cand->frequency)) {
 // 		cand->frequency=cand->f_max;
@@ -2429,8 +2854,8 @@ for(i=0;i<1000;i++) {
 
 	if(!cont)break;
 /*	compute_scores(cand, 1);*/
-	compute_scores(cand, 0);
-	output_candidate(stderr, "", cand);
+/*	compute_scores(cand, 0);*/
+/*	output_candidate(stderr, "", cand);*/
 	//exit(0);
 	}
 
@@ -2452,6 +2877,8 @@ SUM_TYPE a;
 int i,k,m;
 float *a_f;
 
+/* compute power without applying whitening procedure */
+recompute_power();
 
 candidate_free=0;
 candidate_size=100;
@@ -2505,8 +2932,10 @@ for(i=0;i<fine_grid->npoints;i++) {
 	inverse_ra_order[ra_order[i]]=i;
 	}
 
-/* Take noise floor to be bottom 1/3 of max_dx */
-noise_floor=max_dx[max_dx_order[(fine_grid->npoints*2)/3]];
+/* Take noise floor to be bottom 1/3 of max_dx above 2 */
+for(i=0;i<fine_grid->npoints;i++)
+	if(max_dx[max_dx_order[i]]<2.0)break;
+noise_floor=max_dx[max_dx_order[(i*2)/3]];
 fprintf(LOG, "noise_floor: %f\n", noise_floor);
 fprintf(stderr, "noise_floor: %f\n", noise_floor);
 	
@@ -2517,7 +2946,7 @@ for(i=0;i<fine_grid->npoints;i++) {
 	if(polarization_index[k]<0)continue;
 	
 	/* is the point marked already ? */
-	if(max_dx_local_map[k]>=0){
+	if(max_dx_local_map[k]>=0) {
 		a=polarization_results[polarization_index[k]].skymap.max_dx[k];
 		if(a>candidate[max_dx_local_map[k]].max_dx)candidate[max_dx_local_map[k]].max_dx=a;
 		sweep_neighbourhood(k, max_dx_local_map[k]);
@@ -2543,53 +2972,6 @@ for(i=0;i<fine_grid->npoints;i++) {
 	k=max_dx_local_map[i];
 	if(k>=0)candidate[k].domain_size++;
 	}
-
-output_candidate_header(LOG);
-
-m=0;	
-for(i=0;i<candidate_free;i++) {
-	k=candidate[i].point_index;
-	//fprintf(stderr, "k=%d\n", k);
-	candidate[i].polarization_index=polarization_index[k];
-	//fprintf(stderr, "polarization_index=%d\n", polarization_index[k]);
-	candidate[i].rank=i;
-	candidate[i].score=max_dx[k];
-	if(candidate[i].score>noise_floor)m++;
-	candidate[i].ra=fine_grid->longitude[k];
-	candidate[i].dec=fine_grid->latitude[k];
-	candidate[i].spindown=spindown;
-	/* candidate[i].max_dx=polarization_results[polarization_index[k]].skymap.max_dx[k]; */
-	candidate[i].psi=polarization_results[polarization_index[k]].orientation;
-	/* currently we have either circular or linear polarizations */
-	if(polarization_results[polarization_index[k]].cross_factor>0)candidate[i].iota=0.0;
-		else	candidate[i].iota=M_PI/2.0;
-	//candidate[i].a_plus=polarization_results[polarization_index[k]].plus_proj;
-	//candidate[i].a_cross=polarization_results[polarization_index[k]].cross_proj;
-	candidate[i].ul=polarization_results[polarization_index[k]].skymap.max_upper_limit[k];
-	candidate[i].S_band=polarization_results[polarization_index[k]].skymap.S_map[k];
-	candidate[i].M_band=polarization_results[polarization_index[k]].skymap.M_map[k];
-	candidate[i].frequency=polarization_results[polarization_index[k]].skymap.freq_map[k];
-	candidate[i].weight_ratio=1.0-polarization_results[polarization_index[k]].skymap.max_sub_weight[k]/polarization_results[polarization_index[k]].skymap.total_weight[k];
-	candidate[i].skyband=fine_grid->band[k];
-	
-	//fprintf(stderr, "Computing scores\n");
-	compute_scores(&(candidate[i]), 0);
-	
-	output_candidate(LOG, "_initial", &(candidate[i]));
-
-	if(i<args_info.max_candidates_arg) {
-		optimize_candidate(&(candidate[i]));
-		output_candidate(LOG, "_optimized", &(candidate[i]));
-		}
-
-	if(i<args_info.dump_candidates_arg)dump_candidate(i);
-	}
-
-fprintf(LOG, "high_candidates_count: %d\n", m);
-fprintf(stderr, "high_candidates_count: %d\n", m);
-
-fprintf(LOG, "candidates_count: %d\n", candidate_free);
-fprintf(stderr, "candidates_count: %d\n", candidate_free);
 
 snprintf(s, 19999, "%smax_dx.png", subinstance_name);
 if(clear_name_png(s)){
@@ -2649,6 +3031,56 @@ if(clear_name_png(s)){
 	}
 snprintf(s, 19999, "%smax_dx_polarization_index.dat", subinstance_name);
 dump_shorts(s, polarization_index, fine_grid->npoints, 1);
+
+/* Now do detailed processing of the candidates */
+
+output_candidate_header(LOG);
+
+m=0;	
+for(i=0;i<candidate_free;i++) {
+	k=candidate[i].point_index;
+	//fprintf(stderr, "k=%d\n", k);
+	candidate[i].polarization_index=polarization_index[k];
+	//fprintf(stderr, "polarization_index=%d\n", polarization_index[k]);
+	candidate[i].rank=i;
+	candidate[i].score=max_dx[k];
+	if(candidate[i].score>noise_floor)m++;
+	candidate[i].ra=fine_grid->longitude[k];
+	candidate[i].dec=fine_grid->latitude[k];
+	candidate[i].spindown=spindown;
+	/* candidate[i].max_dx=polarization_results[polarization_index[k]].skymap.max_dx[k]; */
+	candidate[i].psi=polarization_results[polarization_index[k]].orientation;
+	/* currently we have either circular or linear polarizations */
+	if(polarization_results[polarization_index[k]].cross_factor>0)candidate[i].iota=0.0;
+		else	candidate[i].iota=M_PI/2.0;
+	//candidate[i].a_plus=polarization_results[polarization_index[k]].plus_proj;
+	//candidate[i].a_cross=polarization_results[polarization_index[k]].cross_proj;
+	candidate[i].ul=polarization_results[polarization_index[k]].skymap.max_upper_limit[k];
+	candidate[i].S_band=polarization_results[polarization_index[k]].skymap.S_map[k];
+	candidate[i].M_band=polarization_results[polarization_index[k]].skymap.M_map[k];
+	candidate[i].frequency=polarization_results[polarization_index[k]].skymap.freq_map[k];
+	candidate[i].weight_ratio=1.0-polarization_results[polarization_index[k]].skymap.max_sub_weight[k]/polarization_results[polarization_index[k]].skymap.total_weight[k];
+	candidate[i].skyband=fine_grid->band[k];
+	
+	//fprintf(stderr, "Computing scores\n");
+	compute_scores(&(candidate[i]), 0);
+	
+	output_candidate(LOG, "_initial", &(candidate[i]));
+
+	if(i<args_info.max_candidates_arg) {
+		optimize_candidate(&(candidate[i]));
+		output_candidate(LOG, "_optimized", &(candidate[i]));
+		}
+
+	if(i<args_info.dump_candidates_arg)dump_candidate(i);
+	}
+
+fprintf(LOG, "high_candidates_count: %d\n", m);
+fprintf(stderr, "high_candidates_count: %d\n", m);
+
+fprintf(LOG, "candidates_count: %d\n", candidate_free);
+fprintf(stderr, "candidates_count: %d\n", candidate_free);
+
 
 
 free(a_f);

@@ -16,6 +16,7 @@ option "fine-factor"	-  "make fine grid this times finer"	int default="5" no
 option "skymap-resolution" - "specify skymap resolution explicitly" double no
 option "skymap-resolution-ratio" - "adjust default coarseness of the grid by this factor" double default="1.0" no
 option "small-weight-ratio" - "ratio that determines which weight is too small to include in max statistics" double default="0.2" no
+option "strain-norm-factor" - "strain normalization factor to prevent overflowing of the exponent" double default="1e-20" no
 
 option "input"		i "path to input files (power or SFT)" string no
 option "lock-file"	- "file to lock when reading SFTs in order to globally serialize disk access"	string no

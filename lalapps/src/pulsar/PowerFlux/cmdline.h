@@ -65,6 +65,9 @@ struct gengetopt_args_info
   double small_weight_ratio_arg;	/* ratio that determines which weight is too small to include in max statistics (default='0.2').  */
   char * small_weight_ratio_orig;	/* ratio that determines which weight is too small to include in max statistics original value given at command line.  */
   const char *small_weight_ratio_help; /* ratio that determines which weight is too small to include in max statistics help description.  */
+  double strain_norm_factor_arg;	/* strain normalization factor to prevent overflowing of the exponent (default='1e-20').  */
+  char * strain_norm_factor_orig;	/* strain normalization factor to prevent overflowing of the exponent original value given at command line.  */
+  const char *strain_norm_factor_help; /* strain normalization factor to prevent overflowing of the exponent help description.  */
   char * input_arg;	/* path to input files (power or SFT).  */
   char * input_orig;	/* path to input files (power or SFT) original value given at command line.  */
   const char *input_help; /* path to input files (power or SFT) help description.  */
@@ -251,6 +254,7 @@ struct gengetopt_args_info
   int skymap_resolution_given ;	/* Whether skymap-resolution was given.  */
   int skymap_resolution_ratio_given ;	/* Whether skymap-resolution-ratio was given.  */
   int small_weight_ratio_given ;	/* Whether small-weight-ratio was given.  */
+  int strain_norm_factor_given ;	/* Whether strain-norm-factor was given.  */
   int input_given ;	/* Whether input was given.  */
   int lock_file_given ;	/* Whether lock-file was given.  */
   int enable_dataset_locking_given ;	/* Whether enable-dataset-locking was given.  */

@@ -1183,6 +1183,8 @@ upper_limit_comp/=(1800.0*16384.0);
 	/* Extra factor to account for the fact that only half of SFT
 	   coefficients is stored */
 upper_limit_comp*=sqrt(2.0);
+	/* Revert strain normalization */
+upper_limit_comp*=args_info.strain_norm_factor_arg;
 
 if(!strcasecmp("Hann", args_info.lower_limit_comp_arg)){
 	if(args_info.three_bins_arg){
@@ -1203,6 +1205,8 @@ lower_limit_comp/=(1800.0*16384.0);
 	/* Extra factor to account for the fact that only half of SFT
 	   coefficients is stored */
 lower_limit_comp*=sqrt(2.0);
+	/* Revert strain normalization */
+lower_limit_comp*=args_info.strain_norm_factor_arg;
 
 }
 

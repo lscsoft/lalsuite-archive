@@ -93,6 +93,9 @@ void output_dataset_info(DATASET *d);
 void characterize_dataset(DATASET *d);
 void compute_noise_curves(DATASET *dataset);
 
+void recompute_power(void);
+
+
 void load_dataset_from_file(char *file);
 long total_segments(void);
 float datasets_normalizing_weight(void);
