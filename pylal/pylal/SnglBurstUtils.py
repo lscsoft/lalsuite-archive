@@ -24,9 +24,20 @@
 # =============================================================================
 #
 
+import math
 import matplotlib
 matplotlib.use("Agg")	# use Agg backend
-matplotlib.rcParams["text.usetex"] = True	# render all text with TeX
+matplotlib.rcParams.update({
+	"font.size": 8.0,
+	"axes.titlesize": 10.0,
+	"axes.labelsize": 10.0,
+	"xtick.labelsize": 8.0,
+	"ytick.labelsize": 8.0,
+	"legend.fontsize": 8.0,
+	"figure.dpi": 300,
+	"savefig.dpi": 300,
+	"text.usetex": True	# render all text with TeX
+})
 from matplotlib import figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 import sys
@@ -450,7 +461,9 @@ class BurstPlot(object):
 		self.nevents = 0
 		self.fig = figure.Figure()
 		FigureCanvasAgg(self.fig)
-		self.fig.set_size_inches(16, 8)
+		# 6.5" wide, golden ratio high
+		self.fig.set_size_inches(6.5, 6.5 / ((1 + math.sqrt(5)) / 2))
+		#self.fig.set_size_inches(16, 8)
 		self.axes = self.fig.gca()
 		self.axes.grid(True)
 		self.axes.set_xlabel(x_label)
