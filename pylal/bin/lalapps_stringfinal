@@ -286,15 +286,16 @@ def render_data_from_bins(dump_file, axes, efficiency, cal_uncertainty, filter_w
 	yerr = numarray.sqrt(eff * (1 - eff) / efficiency.denominator)
 	xerr = numarray.array([filter_width / 2] * len(yerr))
 
-	# compute net xerr (units = percent) by dividing yerr by slope and
-	# adding the two errors in quadrature then multiplying by the
-	# fractional change in x per sample.
-	net_xerr = numarray.sqrt((xerr**2 + (yerr / numarray.where(dydx != 0, dydx, 1e-12))**2) * x_factor_per_sample**2 + cal_uncertainty**2)
+	# compute the net y err (units = efficiency) by (i) multiplying the
+	# x err by the slope, (ii) dividing the calibration uncertainty
+	# (units = percent) by the fractional change in x per sample and
+	# multiplying by the slope, (iii) adding the two in quadradure with
+	# the y err.
+	net_yerr = numarray.sqrt((xerr * dydx)**2 + yerr**2 + (cal_uncertainty / x_factor_per_sample * dydx)**2)
 
-	# compute the equivalent net yerr (units = efficiency) by dividing
-	# the net xerr by the fractional change in x per sample (to convert
-	# the net error to samples) and then multiplying by the slope.
-	net_yerr = numarray.sqrt(net_xerr / x_factor_per_sample * dydx)
+	# compute net xerr (units = percent) by dividing yerr by slope and
+	# then multiplying by the fractional change in x per sample.
+	net_xerr = net_yerr / dydx * x_factor_per_sample
 
 	# write the efficiency data to file
 	write_efficiency(dump_file, efficiency.bins, eff, net_yerr, filter_width)
