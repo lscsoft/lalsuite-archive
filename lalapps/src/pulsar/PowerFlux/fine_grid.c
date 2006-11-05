@@ -676,8 +676,6 @@ if(fake_injection){
 		args_info.compute_betas_arg?pol->skymap.beta2[largest_i]:NAN);
 	}
 
-
-
 snprintf(s,19999,"%s%s_max_strain.dat", subinstance_name, pol->name);
 dump_floats(s,pol->skymap.max_upper_limit,fine_grid->npoints,1);
 
@@ -1280,10 +1278,12 @@ fflush(LOG);
 fprintf(stderr,"\nMaximum bin shift is %d\n", max_shift);
 fprintf(stderr,"Minimum bin shift is %d\n", min_shift);
 
+fprintf(stderr, "Writing polarization specific results\n");
 for(i=0;i<ntotal_polarizations;i++){
 	output_limits(&(polarization_results[i]));
 	}
 	
+fprintf(stderr, "Writing unified results\n");
 output_unified_limits();
 
 if(!args_info.no_candidates_arg)identify_candidates();
