@@ -129,6 +129,7 @@ float det_vel[3];
 float f_plus, f_cross;
 double doppler, freq, omega_t;
 double response;
+double hann;
 
 get_detector_vel(round(t), det_vel);
 
@@ -143,14 +144,15 @@ get_AM_response(round(t), p->dec, p->ra, 0.0, &f_plus, &f_cross);
 /* this loses the phase coherence between segments, but avoids the need to accumulate
   phase from the start of the run */
 omega_t=2.0*M_PI*(*f-p->bin/1800.0)*(t-p->segment_start);
+hann=(1.0+cos(M_PI*(t-p->segment_start)/1800.0));
 
 // response=f_plus*(p->a_plus*cos(omega_t)*p->cos_e-p->a_cross*sin(omega_t)*p->sin_e)+
 // 	f_cross*(p->a_plus*cos(omega_t)*p->sin_e-p->a_cross*sin(omega_t)*p->cos_e);
 
-*re=f_plus*(p->a_plus*cos(omega_t)*p->cos_e-p->a_cross*sin(omega_t)*p->sin_e)+
+*re=hann*f_plus*(p->a_plus*cos(omega_t)*p->cos_e-p->a_cross*sin(omega_t)*p->sin_e)+
 	f_cross*(p->a_plus*cos(omega_t)*p->sin_e+p->a_cross*sin(omega_t)*p->cos_e);
 
-*im=f_plus*(p->a_plus*sin(omega_t)*p->cos_e+p->a_cross*cos(omega_t)*p->sin_e)+
+*im=hann*f_plus*(p->a_plus*sin(omega_t)*p->cos_e+p->a_cross*cos(omega_t)*p->sin_e)+
 	f_cross*(p->a_plus*sin(omega_t)*p->sin_e-p->a_cross*cos(omega_t)*p->cos_e);
 
 //fprintf(stderr, "response=%g a_plus=%g a_cross=%g \n", response, p->a_plus, p->a_cross);
@@ -1232,6 +1234,7 @@ for(j=0;j<nbins;j++){
 		}
 	}
 b_initial=b;
+fprintf(stderr,"%g\n",b);
 while(b>0){
 	b=0;
 	for(i=0;i<nsegments;i++){
@@ -1256,6 +1259,7 @@ while(b>0){
 	/* if one of r nbins or nsegments are even break because of order of
 	   magnitude, do not try to solve exactly */
 	if(!((nsegments &1)&&(nbins&1)) && (b<(b_initial*(1E-16))))break;
+	//if(b<(b_initial*(1E-16)))break;
 	}
 
 hist=new_histogram(args_info.hist_bins_arg, 1);
