@@ -221,11 +221,17 @@ def plot_a_v_b(table, col_name_a, col_name_b, plot_type = 'linear',
     xlim(0.95 * min(col_a), 1.05 * max(col_a))
     ylim(0.95 * min(col_b), 1.05 * max(col_b))
 
+  xlabel(col_name_a.replace("_"," "),size='x-large')
+  ylabel(col_name_b.replace("_"," "),size='x-large')
+
+  xticks(fontsize='x-large')
+  yticks(fontsize='x-large')
+
   if ifo:
     title(ifo + ' ' + col_name_a.replace("_"," ") + ' vs ' + \
         col_name_b.replace("_"," "), size='x-large')
   else:
-    title(col_name_a.replace("_"," ") + ' vs ' + col_name_b.replace("_"," "), \
+    title(col_name_b.replace("_"," ") + ' vs ' + col_name_a.replace("_"," "), \
         size='x-large')
 
   grid(True)
@@ -300,6 +306,9 @@ def labeldiff(col_name, units = None, axis = [0,0,0,0], leg = None,
     xlabel(col_name.replace("_"," "), size='x-large')
     ylabel(col_name.replace("_"," ") + ' difference', size='x-large')
 
+  xticks(fontsize='x-large')
+  yticks(fontsize='x-large')
+  
   if axis[0] or axis[1]:
     xlim(axis[0], axis[1])
 
@@ -376,6 +385,9 @@ def labelfracdiff(col_name, units = None, axis = [0,0,0,0], leg = None,
     xlabel(col_name.replace("_"," "), size='x-large')
   
   ylabel(col_name.replace("_"," ") + ' fractional difference', size='x-large')
+
+  xticks(fontsize='x-large')
+  yticks(fontsize='x-large')
 
   if axis[0] or axis[1]:
     xlim(axis[0], axis[1])
@@ -461,7 +473,10 @@ def labeldiffa_vs_b(col_name_a, col_name_b, units_a=None, units_b=None,
         size='x-large')
   else:
     ylabel(col_name_a.replace("_"," ") + ' difference', size='x-large')
- 
+
+  xticks(fontsize='x-large')
+  yticks(fontsize='x-large')
+
   if axis[0] or axis[1]:
     xlim(axis[0], axis[1])
 
