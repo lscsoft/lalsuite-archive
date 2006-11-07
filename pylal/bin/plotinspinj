@@ -177,7 +177,7 @@ for i in range(len(injFiles)):
   injSets.append(injDict)
 
 # set lists of plot symbols
-plotsymbols= ['rx','b+','ko']
+plotsymbols= ['rx','b+','ko','rx','b+','ko']
 
 ################################
 # plot of mchirp error vs mchirp
@@ -189,8 +189,9 @@ if opts.plot_mchirp:
     viz.plotdiff(set['sim_inspiral'], set['sngl_inspiral'],\
                  'mchirp', 'linear', plotsymbols[sym])
     sym+=1
-  viz.labeldiff('mchirp', 'M_sun', [0,0,-opts.chirp_axis,opts.chirp_axis],\
-    tags,opts.title_text, opts.fig_name) 
+  viz.labeldiff('mchirp', '$M_{\odot}$', \
+      [0,0,-opts.chirp_axis,opts.chirp_axis],\
+      tags,opts.title_text, opts.fig_name) 
   
 ###############################  
 # histogram of chirp mass error
@@ -203,7 +204,7 @@ if opts.hist_mchirp:
                  'hist', sym, len(injSets), opts.nbins, \
                  [-opts.chirp_axis,opts.chirp_axis])
     sym+=1
-  viz.labelhistdiff('mchirp', 'hist', 'M_sun', tags, opts.title_text,\
+  viz.labelhistdiff('mchirp', 'hist', '$M_{\odot}$', tags, opts.title_text,\
                     opts.fig_name)
   
  
@@ -315,7 +316,7 @@ if opts.chirp_dist:
     viz.plotdiffa_vs_b(set['sim_inspiral'], set['sngl_inspiral'],\
                  'mchirp', 'eff_dist', 'log', plotsymbols[sym])
     sym+=1
-  viz.labeldiffa_vs_b('mchirp', 'eff_dist','M_sun','Mpc', \
+  viz.labeldiffa_vs_b('mchirp', 'eff_dist','$M_{\odot}','Mpc', \
     [0,0,-opts.chirp_axis,opts.chirp_axis], tags, opts.title_text,\
     opts.fig_name)
 
@@ -329,7 +330,7 @@ if opts.time_dist:
     viz.plotdiffa_vs_b(set['sim_inspiral'], set['sngl_inspiral'],\
                  'end_time', 'eff_dist', 'log', plotsymbols[sym])
     sym+=1
-  viz.labeldiffa_vs_b('end_time', 'eff_dist','M_sun','Mpc', \
+  viz.labeldiffa_vs_b('end_time', 'eff_dist','$M_{\odot}$','Mpc', \
     [0,0,-opts.time_axis,opts.time_axis], tags, opts.title_text,\
     opts.fig_name)
 
@@ -344,7 +345,7 @@ if opts.chirp_snr:
     viz.plotdiffa_vs_b(set['sngl_inspiral'], set['sim_inspiral'], \
                  'mchirp', 'snr', 'log', plotsymbols[sym])
     sym+=1
-  viz.labeldiffa_vs_b('mchirp', 'snr','M_sun',None, \
+  viz.labeldiffa_vs_b('mchirp', 'snr','$M_{\odot}$',None, \
     [0,0,-opts.chirp_axis,opts.chirp_axis], tags, opts.title_text,\
     opts.fig_name)
 
@@ -373,7 +374,7 @@ if opts.eta_snr:
     viz.plotdiffa_vs_b(set['sngl_inspiral'], set['sim_inspiral'], \
                  'eta', 'snr', 'log', plotsymbols[sym])
     sym+=1
-  viz.labeldiffa_vs_b('eta', 'snr','seconds',None, \
+  viz.labeldiffa_vs_b('eta', 'snr',None,None, \
     [0,0,-opts.eta_axis,opts.eta_axis], tags, opts.title_text,\
     opts.fig_name)
 
