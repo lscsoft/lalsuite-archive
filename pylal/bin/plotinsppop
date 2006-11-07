@@ -202,7 +202,8 @@ if opts.x_value and opts.y_value:
     if yval[len(yval)-3:]=='LOG':
       ylog=True
       yval=yval[0:len(yval)-3]
-
+ 
+    clf()
     if xlog and not ylog:
       semilogx(binaries.get_column(xval),\
              binaries.get_column(yval),'bo')
