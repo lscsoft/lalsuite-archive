@@ -8,6 +8,8 @@ from distutils.command import install
 from distutils import log
 from sys import version_info
 
+ver = "1.11"
+
 class glue_install(install.install):
   def run(self):
 
@@ -60,7 +62,7 @@ class glue_install(install.install):
 # altogether.
 if version_info >= (2, 3):
   setup( name = "glue",
-    version = "1.10",
+    version = ver,
     author = "Duncan Brown",
     author_email = "dbrown@ligo.caltech.edu",
     description = "Grid LSC User Engine",
@@ -100,7 +102,7 @@ if version_info >= (2, 3):
     )
 else:
   setup( name = "glue",
-    version = "1.10",
+    version = ver,
     author = "Duncan Brown",
     author_email = "dbrown@ligo.caltech.edu",
     description = "Grid LSC User Engine",
