@@ -5,6 +5,7 @@
 import os
 from distutils.core import setup, Extension
 from distutils.command import install
+from distutils.command import sdist
 from distutils import log
 from sys import version_info
 
@@ -56,6 +57,19 @@ class glue_install(install.install):
     # now run the installer
     install.install.run(self)
 
+class glue_sdist(sdist.sdist):
+  def run(self):
+    # remove the automatically generated user env scripts
+    for script in [ 'glue-user-env.sh', 'glue-user-env.csh' ]:
+      log.info( 'removing ' + script )
+      try:
+        os.unlink(os.path.join('etc',script))
+      except:
+        pass
+
+    # now run sdist
+    sdist.sdist.run(self)
+
 # Add py_modules to the argument list for setup() if this is at least Python
 # 2.3.  Duplicating this function call is ugly but it solves the problem.
 # When, finally, nobody we care about it using RH9, we can kill off this mess
@@ -69,7 +83,7 @@ if version_info >= (2, 3):
     url = "http://www.lsc-group.phys.uwm.edu/daswg/",
     license = 'See file LICENSE',
     packages = [ 'glue', 'glue.ligolw', 'glue.ligolw.utils' ],
-    cmdclass = { 'install' : glue_install },
+    cmdclass = { 'install' : glue_install, 'sdist' : glue_sdist },
     py_modules = [ 'glue.segfindserver.segments_1_7.segments' ],
     ext_modules = [
       Extension("glue.ligolw.tokenizer", ["glue/ligolw/tokenizer.c"]),
@@ -109,7 +123,7 @@ else:
     url = "http://www.lsc-group.phys.uwm.edu/daswg/",
     license = 'See file LICENSE',
     packages = [ 'glue', 'glue.ligolw' ],
-    cmdclass = { 'install' : glue_install },
+    cmdclass = { 'install' : glue_install, 'sdist' : glue_sdist },
     ext_modules = [
       Extension("glue.ligolw.tokenizer", ["glue/ligolw/tokenizer.c"]),
       #Extension("glue.__segments", ["src/segments/segments.c", "src/segments/infinity.c", "src/segments/segment.c", "src/segments/segmentlist.c"], include_dirs = ["src/segments"])
