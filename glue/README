@@ -99,7 +99,7 @@ and csh users should type:
 Assuming you have installed the glue sources in ${HOME}/src/glue, type:
 
   cd ${HOME}/src/glue
-  ${PYTHON} setup.py install --home=${GLUE_LOCATION}
+  ${PYTHON} setup.py install --prefix=${GLUE_LOCATION}
 
 This will build and install all the glue modules and programs.
 
