@@ -27,15 +27,14 @@
 """
 Definitions of type strings found in LIGO Light Weight XML files.
 
-Notes.  To guarantee that a double-precision float-point number can be
-reconstructed exactly from its representation as a decimal number, one
-must use 17 decimal digits;  for single-precision, the number is 9.
-Python uses only double-precision numbers, but LIGO Light Weight XML
-allows for single-precision values, so I provide distinct format
-specifiers for those cases here.  In both cases, I have elected to use 1
-fewer digits than are required to uniquely reconstruct the number:  the
-XML written by this library is lossy.  I made this choice to reduce the
-file size, for
+Notes.  To guarantee that a double-precision floating-point number can be
+reconstructed exactly from its representation as a decimal number, one must
+use 17 decimal digits;  for single-precision, the number is 9.  Python uses
+only double-precision numbers, but LIGO Light Weight XML allows for
+single-precision values, so I provide distinct format specifiers for those
+cases here.  In both cases, I have elected to use 1 fewer digits than are
+required to uniquely reconstruct the number:  the XML written by this
+library is lossy.  I made this choice to reduce the file size, for example
 
 >>> "%.17g" % 0.1
 '0.10000000000000001'
@@ -45,9 +44,10 @@ while
 >>> "%.16g" % 0.1
 '0.1'
 
-In this worst case, storing full precision increases the size of the XML
-by more than an order of magnitude.  If you wish to make a different
-choice for your files, simply include the lines
+In this worst case, storing full precision increases the size of the XML by
+more than an order of magnitude.  If you wish to make a different choice
+for your files, for example if you wish your XML files to be lossless,
+simply include the lines
 
 	glue.ligolw.types.ToFormat.update({
 		"real_4": "%.9g",
