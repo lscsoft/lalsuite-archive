@@ -77,12 +77,16 @@ static PyObject *__new__(PyTypeObject *type, PyObject *args, PyObject *kwds)
 			return NULL;
 		}
 
-	delta = PyObject_Compare(a, b);
-	if(PyErr_Occurred())
-		return NULL;
-
 	Py_INCREF(a);
 	Py_INCREF(b);
+
+	delta = PyObject_Compare(a, b);
+	if(PyErr_Occurred()) {
+		Py_DECREF(a);
+		Py_DECREF(b);
+		return NULL;
+	}
+
 	if(delta <= 0)
 		return segments_Segment_New(type, a, b);
 	return segments_Segment_New(type, b, a);
@@ -283,11 +287,8 @@ static PyObject *__sub__(PyObject *self, PyObject *other)
 
 static PyObject *protract(PyObject *self, PyObject *delta)
 {
-	PyObject *a = PyTuple_GET_ITEM(self, 0);
-	PyObject *b = PyTuple_GET_ITEM(self, 1);
-
-	a = PyNumber_Subtract(a, delta);
-	b = PyNumber_Add(b, delta);
+	PyObject *a = PyNumber_Subtract(PyTuple_GET_ITEM(self, 0), delta);
+	PyObject *b = PyNumber_Add(PyTuple_GET_ITEM(self, 1), delta);
 	if(PyErr_Occurred()) {
 		Py_DECREF(a);
 		Py_DECREF(b);
@@ -301,11 +302,8 @@ static PyObject *protract(PyObject *self, PyObject *delta)
 
 static PyObject *contract(PyObject *self, PyObject *delta)
 {
-	PyObject *a = PyTuple_GET_ITEM(self, 0);
-	PyObject *b = PyTuple_GET_ITEM(self, 1);
-
-	a = PyNumber_Add(a, delta);
-	b = PyNumber_Subtract(b, delta);
+	PyObject *a = PyNumber_Add(PyTuple_GET_ITEM(self, 0), delta);
+	PyObject *b = PyNumber_Subtract(PyTuple_GET_ITEM(self, 1), delta);
 	if(PyErr_Occurred()) {
 		Py_DECREF(a);
 		Py_DECREF(b);
@@ -319,11 +317,8 @@ static PyObject *contract(PyObject *self, PyObject *delta)
 
 static PyObject *shift(PyObject *self, PyObject *delta)
 {
-	PyObject *a = PyTuple_GET_ITEM(self, 0);
-	PyObject *b = PyTuple_GET_ITEM(self, 1);
-
-	a = PyNumber_Add(a, delta);
-	b = PyNumber_Add(b, delta);
+	PyObject *a = PyNumber_Add(PyTuple_GET_ITEM(self, 0), delta);
+	PyObject *b = PyNumber_Add(PyTuple_GET_ITEM(self, 1), delta);
 	if(PyErr_Occurred()) {
 		Py_DECREF(a);
 		Py_DECREF(b);
