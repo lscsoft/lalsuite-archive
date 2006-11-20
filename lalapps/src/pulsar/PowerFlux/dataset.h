@@ -38,9 +38,6 @@ typedef struct {
 	int nbins;	/* number of bins in each segment */
 	double coherence_time; /* how long the SFTs are */
 
-	/* flags */
-	int apply_hanning_filter;
-
 	/* statistics and data derived from this data set */
 	double *mean;
 	double *weighted_mean;

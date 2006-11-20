@@ -71,8 +71,8 @@ const char *gengetopt_args_info_help[] = {
   "      --no-decomposition=INT    do not perform noise decomposition stage, \n                                  output simple statistics only  (default=`0')",
   "      --no-candidates=INT       do not perform analysis to identify candidates  \n                                  (default=`0')",
   "      --no-am-response=INT      force AM_response() function to return 1.0 \n                                  irrespective of the arguments  (default=`0')",
+  "      --averaging-mode=STRING   1 - use one bin, 3 - average 3, matched - use 7 \n                                  bin matched filter  (default=`1')",
   "      --subtract-background=INT subtract rank 1 matrix in order to flatten \n                                  noise spectrum  (default=`0')",
-  "      --three-bins=INT          average 3 neighbouring bins to broaden Doppler \n                                  curves  (default=`0')",
   "      --do-cutoff=INT           neglect contribution from SFT with high \n                                  effective noise level  (default=`1')",
   "      --filter-lines=INT        perform detection of lines in background noise \n                                  and veto corresponding frequency bins  \n                                  (default=`1')",
   "      --ks-test=INT             perform Kolmogorov-Smirnov test for normality \n                                  of averaged powers  (default=`1')",
@@ -188,8 +188,8 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->no_decomposition_given = 0 ;
   args_info->no_candidates_given = 0 ;
   args_info->no_am_response_given = 0 ;
+  args_info->averaging_mode_given = 0 ;
   args_info->subtract_background_given = 0 ;
-  args_info->three_bins_given = 0 ;
   args_info->do_cutoff_given = 0 ;
   args_info->filter_lines_given = 0 ;
   args_info->ks_test_given = 0 ;
@@ -303,10 +303,10 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->no_candidates_orig = NULL;
   args_info->no_am_response_arg = 0;
   args_info->no_am_response_orig = NULL;
+  args_info->averaging_mode_arg = gengetopt_strdup ("1");
+  args_info->averaging_mode_orig = NULL;
   args_info->subtract_background_arg = 0;
   args_info->subtract_background_orig = NULL;
-  args_info->three_bins_arg = 0;
-  args_info->three_bins_orig = NULL;
   args_info->do_cutoff_arg = 1;
   args_info->do_cutoff_orig = NULL;
   args_info->filter_lines_arg = 1;
@@ -403,8 +403,8 @@ void init_args_info(struct gengetopt_args_info *args_info)
   args_info->no_decomposition_help = gengetopt_args_info_help[42] ;
   args_info->no_candidates_help = gengetopt_args_info_help[43] ;
   args_info->no_am_response_help = gengetopt_args_info_help[44] ;
-  args_info->subtract_background_help = gengetopt_args_info_help[45] ;
-  args_info->three_bins_help = gengetopt_args_info_help[46] ;
+  args_info->averaging_mode_help = gengetopt_args_info_help[45] ;
+  args_info->subtract_background_help = gengetopt_args_info_help[46] ;
   args_info->do_cutoff_help = gengetopt_args_info_help[47] ;
   args_info->filter_lines_help = gengetopt_args_info_help[48] ;
   args_info->ks_test_help = gengetopt_args_info_help[49] ;
@@ -777,15 +777,20 @@ cmdline_parser_release (struct gengetopt_args_info *args_info)
       free (args_info->no_am_response_orig); /* free previous argument */
       args_info->no_am_response_orig = 0;
     }
+  if (args_info->averaging_mode_arg)
+    {
+      free (args_info->averaging_mode_arg); /* free previous argument */
+      args_info->averaging_mode_arg = 0;
+    }
+  if (args_info->averaging_mode_orig)
+    {
+      free (args_info->averaging_mode_orig); /* free previous argument */
+      args_info->averaging_mode_orig = 0;
+    }
   if (args_info->subtract_background_orig)
     {
       free (args_info->subtract_background_orig); /* free previous argument */
       args_info->subtract_background_orig = 0;
-    }
-  if (args_info->three_bins_orig)
-    {
-      free (args_info->three_bins_orig); /* free previous argument */
-      args_info->three_bins_orig = 0;
     }
   if (args_info->do_cutoff_orig)
     {
@@ -1257,18 +1262,18 @@ cmdline_parser_file_save(const char *filename, struct gengetopt_args_info *args_
       fprintf(outfile, "%s\n", "no-am-response");
     }
   }
+  if (args_info->averaging_mode_given) {
+    if (args_info->averaging_mode_orig) {
+      fprintf(outfile, "%s=\"%s\"\n", "averaging-mode", args_info->averaging_mode_orig);
+    } else {
+      fprintf(outfile, "%s\n", "averaging-mode");
+    }
+  }
   if (args_info->subtract_background_given) {
     if (args_info->subtract_background_orig) {
       fprintf(outfile, "%s=\"%s\"\n", "subtract-background", args_info->subtract_background_orig);
     } else {
       fprintf(outfile, "%s\n", "subtract-background");
-    }
-  }
-  if (args_info->three_bins_given) {
-    if (args_info->three_bins_orig) {
-      fprintf(outfile, "%s=\"%s\"\n", "three-bins", args_info->three_bins_orig);
-    } else {
-      fprintf(outfile, "%s\n", "three-bins");
     }
   }
   if (args_info->do_cutoff_given) {
@@ -1594,8 +1599,8 @@ cmdline_parser_internal (int argc, char * const *argv, struct gengetopt_args_inf
         { "no-decomposition",	1, NULL, 0 },
         { "no-candidates",	1, NULL, 0 },
         { "no-am-response",	1, NULL, 0 },
+        { "averaging-mode",	1, NULL, 0 },
         { "subtract-background",	1, NULL, 0 },
-        { "three-bins",	1, NULL, 0 },
         { "do-cutoff",	1, NULL, 0 },
         { "filter-lines",	1, NULL, 0 },
         { "ks-test",	1, NULL, 0 },
@@ -2503,6 +2508,25 @@ cmdline_parser_internal (int argc, char * const *argv, struct gengetopt_args_inf
               free (args_info->no_am_response_orig); /* free previous string */
             args_info->no_am_response_orig = gengetopt_strdup (optarg);
           }
+          /* 1 - use one bin, 3 - average 3, matched - use 7 bin matched filter.  */
+          else if (strcmp (long_options[option_index].name, "averaging-mode") == 0)
+          {
+            if (local_args_info.averaging_mode_given)
+              {
+                fprintf (stderr, "%s: `--averaging-mode' option given more than once%s\n", argv[0], (additional_error ? additional_error : ""));
+                goto failure;
+              }
+            if (args_info->averaging_mode_given && ! override)
+              continue;
+            local_args_info.averaging_mode_given = 1;
+            args_info->averaging_mode_given = 1;
+            if (args_info->averaging_mode_arg)
+              free (args_info->averaging_mode_arg); /* free previous string */
+            args_info->averaging_mode_arg = gengetopt_strdup (optarg);
+            if (args_info->averaging_mode_orig)
+              free (args_info->averaging_mode_orig); /* free previous string */
+            args_info->averaging_mode_orig = gengetopt_strdup (optarg);
+          }
           /* subtract rank 1 matrix in order to flatten noise spectrum.  */
           else if (strcmp (long_options[option_index].name, "subtract-background") == 0)
           {
@@ -2523,27 +2547,6 @@ cmdline_parser_internal (int argc, char * const *argv, struct gengetopt_args_inf
             if (args_info->subtract_background_orig)
               free (args_info->subtract_background_orig); /* free previous string */
             args_info->subtract_background_orig = gengetopt_strdup (optarg);
-          }
-          /* average 3 neighbouring bins to broaden Doppler curves.  */
-          else if (strcmp (long_options[option_index].name, "three-bins") == 0)
-          {
-            if (local_args_info.three_bins_given)
-              {
-                fprintf (stderr, "%s: `--three-bins' option given more than once%s\n", argv[0], (additional_error ? additional_error : ""));
-                goto failure;
-              }
-            if (args_info->three_bins_given && ! override)
-              continue;
-            local_args_info.three_bins_given = 1;
-            args_info->three_bins_given = 1;
-            args_info->three_bins_arg = strtol (optarg, &stop_char, 0);
-            if (!(stop_char && *stop_char == '\0')) {
-              fprintf(stderr, "%s: invalid numeric value: %s\n", argv[0], optarg);
-              goto failure;
-            }
-            if (args_info->three_bins_orig)
-              free (args_info->three_bins_orig); /* free previous string */
-            args_info->three_bins_orig = gengetopt_strdup (optarg);
           }
           /* neglect contribution from SFT with high effective noise level.  */
           else if (strcmp (long_options[option_index].name, "do-cutoff") == 0)

@@ -155,12 +155,12 @@ struct gengetopt_args_info
   int no_am_response_arg;	/* force AM_response() function to return 1.0 irrespective of the arguments (default='0').  */
   char * no_am_response_orig;	/* force AM_response() function to return 1.0 irrespective of the arguments original value given at command line.  */
   const char *no_am_response_help; /* force AM_response() function to return 1.0 irrespective of the arguments help description.  */
+  char * averaging_mode_arg;	/* 1 - use one bin, 3 - average 3, matched - use 7 bin matched filter (default='1').  */
+  char * averaging_mode_orig;	/* 1 - use one bin, 3 - average 3, matched - use 7 bin matched filter original value given at command line.  */
+  const char *averaging_mode_help; /* 1 - use one bin, 3 - average 3, matched - use 7 bin matched filter help description.  */
   int subtract_background_arg;	/* subtract rank 1 matrix in order to flatten noise spectrum (default='0').  */
   char * subtract_background_orig;	/* subtract rank 1 matrix in order to flatten noise spectrum original value given at command line.  */
   const char *subtract_background_help; /* subtract rank 1 matrix in order to flatten noise spectrum help description.  */
-  int three_bins_arg;	/* average 3 neighbouring bins to broaden Doppler curves (default='0').  */
-  char * three_bins_orig;	/* average 3 neighbouring bins to broaden Doppler curves original value given at command line.  */
-  const char *three_bins_help; /* average 3 neighbouring bins to broaden Doppler curves help description.  */
   int do_cutoff_arg;	/* neglect contribution from SFT with high effective noise level (default='1').  */
   char * do_cutoff_orig;	/* neglect contribution from SFT with high effective noise level original value given at command line.  */
   const char *do_cutoff_help; /* neglect contribution from SFT with high effective noise level help description.  */
@@ -284,8 +284,8 @@ struct gengetopt_args_info
   int no_decomposition_given ;	/* Whether no-decomposition was given.  */
   int no_candidates_given ;	/* Whether no-candidates was given.  */
   int no_am_response_given ;	/* Whether no-am-response was given.  */
+  int averaging_mode_given ;	/* Whether averaging-mode was given.  */
   int subtract_background_given ;	/* Whether subtract-background was given.  */
-  int three_bins_given ;	/* Whether three-bins was given.  */
   int do_cutoff_given ;	/* Whether do-cutoff was given.  */
   int filter_lines_given ;	/* Whether filter-lines was given.  */
   int ks_test_given ;	/* Whether ks-test was given.  */

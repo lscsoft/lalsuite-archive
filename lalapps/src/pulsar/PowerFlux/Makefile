@@ -1,5 +1,5 @@
 PACKAGE=\"powerflux\"
-VERSION=1.4.5
+VERSION=1.4.8-64
 LALROOT=./../../../../
 LALROOT=/opt/lscsoft/lal/
 LALINCLUDE=-I$(LALROOT)/include/
@@ -10,13 +10,13 @@ OPTFLAGS=-O6 -mmmx -msse -mcpu=i686
 OPTFLAGS=-O6 -march=i686 -funroll-loops
 OPTFLAGS=-O6 -msse2 -march=i686 -funroll-loops
 OPTFLAGS=-O6 -msse2 -march=opteron -funroll-loops
-OPTFLAGS=-O6 -msse2  -funroll-loops
+OPTFLAGS=-O6 -msse2  -funroll-loops -fno-stack-protector
 CFLAGS=-Wall -g $(OPTFLAGS) -DPACKAGE=$(PACKAGE) -DVERSION=\"$(VERSION)\" \
 	$(LALINCLUDE)
 CC=gcc $(CFLAGS)
 
 OBJS=cmdline.o rastermagic.o hookup.o fine_grid.o lines.o grid.o powerflux.o  \
-	png.o polarization.o intervals.o statistics.o dataset.o candidates.o
+	png.o polarization.o intervals.o statistics.o dataset.o candidates.o util.o
 
 # 50 hz
 #BAND=90000
@@ -212,21 +212,24 @@ test5: powerflux
 		--fake-orientation=0.5 --fake-ra=5.785685 --fake-dec=-1.563849
 
 test5c: powerflux
-	time ./powerflux --dataset=random.dst -f 360000 -n 501 \
+	time ./powerflux --dataset=random2.dst -f 360000 -n 501 \
 		--ephemeris-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
-		--three-bins=0 --do-cutoff=1 --lock-file=test.lock \
-		--subtract-background=1 --ks-test=1 --filter-lines=1 \
+		--averaging-mode=one --do-cutoff=1 --lock-file=test.lock \
+		--subtract-background=0 --ks-test=1 --filter-lines=0 \
 		--dump-candidates=0 \
 	        --earth-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/earth05-09.dat \
         	--sun-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/sun05-09.dat  \
-		--focus-dec=$(DEC) --focus-ra=$(RA) --focus-radius=0.5 \
 		--dump-data=input.dat \
-		--write-dat=NONE \
-		--write-png=\(S.\*\|Median.\*\|weight.\*\|max_dx.\*\)\\.png$$ \
-		--fake-ref-time=793154935 \
-		--fake-ra=$(RA) --fake-dec=$(DEC) --fake-freq=200.1 --fake-strain=1e-24 \
-		--fake-spindown=0e-9 --fake-iota=0 --fake-psi=0.5 \
+ 		--focus-dec=$(DEC) --focus-ra=$(RA) --focus-radius=0.5 \
+ 		--fake-ref-time=793154935 \
+ 		--fake-ra=$(RA) --fake-dec=$(DEC) --fake-freq=200.1 --fake-strain=0.5e-24 \
+ 		--fake-spindown=0.0e-10 --fake-iota=0 --fake-psi=0.5 \
 		--max-candidates=20
+
+# 		--write-dat=NONE \
+# 		--write-png=\(.\*strain.\*\|high.\*\|S.\*\|Median.\*\|weight.\*\|max_dx.\*\)\\.png$$ \
+
+
 
 test.H1.inj.1: powerflux
 	time ./powerflux -i /home/volodya/LIGO/S2/inj/S2.H1.op.inj/power.H1. -f 2302000 \
@@ -262,10 +265,7 @@ powerflux.dyn: $(OBJS)
 	ls -l powerflux.dyn
 
 powerflux.hydra: $(OBJS)
-	(export PATH=/opt/condor/bin:$$PATH ; \
-	 export CONDOR_CONFIG=/opt/condor-6.7.3/etc/condor_config ; \
-	 condor_compile $(CC) $(OBJS) -o powerflux.hydra -static $(LDFLAGS) -lgsl -lgslcblas \
-	 )
+	 condor_compile $(CC) $(OBJS) -o powerflux.hydra -static $(LDFLAGS) -lgsl -lgslcblas -lm
 	ls -l powerflux.hydra
 	
 

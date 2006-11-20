@@ -25,6 +25,7 @@
 #include "hookup.h"
 #include "grid.h"
 #include "rastermagic.h"
+#include "util.h"
 
 #include <lal/GeneratePulsarSignal.h>
 
@@ -139,12 +140,12 @@ get_AM_response(round(t), p->dec, p->ra, 0.0, &f_plus, &f_cross);
 
 *f=p->freq*(1.0+doppler)+p->spindown*(t-p->ref_time);
 
-*f=p->freq*(1.0+doppler);
+//*f=p->freq*(1.0+doppler);
 
 /* this loses the phase coherence between segments, but avoids the need to accumulate
   phase from the start of the run */
 omega_t=2.0*M_PI*(*f-p->bin/1800.0)*(t-p->segment_start);
-hann=(1.0+cos(M_PI*(t-p->segment_start)/1800.0));
+hann=(1.0-cos(2.0*M_PI*(t-p->segment_start)/1800.0));
 
 // response=f_plus*(p->a_plus*cos(omega_t)*p->cos_e-p->a_cross*sin(omega_t)*p->sin_e)+
 // 	f_cross*(p->a_plus*cos(omega_t)*p->sin_e-p->a_cross*sin(omega_t)*p->cos_e);
@@ -181,6 +182,7 @@ double result, abserr;
 size_t neval;
 int err;
 int window=5, bin;
+float filter[11];
 int i;
 double re, im, f, cos_i;
 double a,b;
@@ -210,8 +212,11 @@ compute_signal(&re, &im, &f, d->gps[segment]+(int)(d->coherence_time/2), &p);
 
 bin=round(f*1800.0-d->first_bin);
 
+fill_hann_filterN(filter, 11, 5, f*1800.0-bin-d->first_bin);
+
 if(bin+window>nbins)bin=nbins-window;
 if(bin<window)bin=window;
+
 
 for(i=bin-window; i<=bin+window; i++) {
 	F.function=signal_re;
@@ -270,7 +275,6 @@ d->gps=do_alloc(d->size, sizeof(*d->gps));
 d->bin=do_alloc(d->size*d->nbins, sizeof(*d->bin));
 d->power=NULL;
 
-d->apply_hanning_filter=0;
 d->weight=1.0;
 
 d->polarizations=NULL;
@@ -291,7 +295,7 @@ d->average_detector_velocity[1]=0.0;
 d->average_detector_velocity[2]=0.0;
 for(i=0;i<d->free;i++){
 	/* middle of the 30min interval */
-	get_detector_vel(d->gps[i]+(int)(d->coherence_time/2),&(d->detector_velocity[3*i]));
+	get_detector_vel(d->gps[i]+(int)(d->coherence_time*0.5),&(d->detector_velocity[3*i]));
 		
 	d->average_detector_velocity[0]+=d->detector_velocity[3*i];
 	d->average_detector_velocity[1]+=d->detector_velocity[3*i+1];
@@ -448,11 +452,14 @@ int i,k;
 COMPLEX *tmp, *p;
 tmp=do_alloc(d->nbins, sizeof(*tmp));
 for(i=0;i<d->free;i++) {
-	tmp[0].re=0;
-	tmp[0].im=0;
-	tmp[d->nbins-1].re=0;
-	tmp[d->nbins-1].im=0;
 	p=&(d->bin[i*d->nbins]);
+
+	/* wrap around, just so that we don't have 0 exactly */
+	tmp[0].re=p[0].re-(p[d->nbins-1].re+p[1].re)*0.5;
+	tmp[0].im=p[0].im-(p[d->nbins-1].im+p[1].im)*0.5;
+	tmp[d->nbins-1].re=p[d->nbins-1].re-(p[d->nbins-2].re+p[0].re)*0.5;
+	tmp[d->nbins-1].im=p[d->nbins-1].im-(p[d->nbins-2].im+p[0].im)*0.5;
+
 	for(k=1;k<(d->nbins-1);k++) {
 		tmp[k].re=p[k].re-(p[k-1].re+p[k+1].re)*0.5;
 		tmp[k].im=p[k].im-(p[k-1].im+p[k+1].im)*0.5;
@@ -565,8 +572,6 @@ if(!strcmp(d->detector, "unknown")) {
 get_detector(d->detector);
 
 sort_dataset(d);
-
-if(d->apply_hanning_filter)apply_hanning_filter(d);
 
 if(fake_injection) {
 	fprintf(stderr, "Injecting fake signal.\n");
@@ -929,27 +934,7 @@ free(s);
 release_lock();
 }
 
-static void locate_arg(char *line, int length, int arg, int *arg_start, int *arg_stop)
-{
-int i;
-int k;
-*arg_start=0;
-*arg_stop=0;
-for(i=0,k=0;i<length;i++) {
-	if((line[i]=='\n') || (line[i]=='\r'))break;
-	if((line[i]==' ') || (line[i]=='\t')) {
-		k++;
-		while((i<length) && ((line[i]==' ') || (line[i]=='\t')))i++;
-		}
-	if(k==arg)break;
-	}
-if(k!=arg)return;
-*arg_start=i;
-while((i<length) && !((line[i]==' ') || (line[i]=='\t') || (line[i]=='\n')))i++;
-*arg_stop=i;
-if(line[*arg_start]=='"')(*arg_start)++;
-if(((*arg_stop)>(*arg_start)) && (line[(*arg_stop)-1]=='"'))(*arg_stop)--;
-}
+long int fill_seed=0;
 
 static void gaussian_fill(DATASET *d, INT64 gps_start, int step, int count, double amp)
 {
@@ -965,6 +950,7 @@ fprintf(LOG, "Generating %d gaussian SFTs starting with gps %lld step %d amplitu
 if((d->free+count)>=d->size)expand_sft_array(d, count);
 
 rng=gsl_rng_alloc(gsl_rng_default);
+gsl_rng_set(rng, fill_seed);
 
 amp/=args_info.strain_norm_factor_arg;
 
@@ -978,6 +964,7 @@ for(i=d->free;i<(d->free+count);i++) {
 	}
 d->free+=count;
 
+fill_seed=gsl_rng_get(rng);
 gsl_rng_free(rng);
 }
 
@@ -1059,7 +1046,7 @@ if(!strncasecmp(line, "veto_segments_file", 18)) {
 	free(s2);
 	} else
 if(!strncasecmp(line, "apply_hanning_filter", 20)) {
-	datasets[d_free-1].apply_hanning_filter=1;	
+	apply_hanning_filter(&(datasets[d_free-1]));
 	} else
 if(!strncasecmp(line, "gaussian_fill", 13)) {
 	INT64 gps_start;
@@ -1160,21 +1147,20 @@ return(total);
 
 void compute_powers(DATASET *dataset)
 {
-COMPLEX *tmp;
 int i,k;
 float *p;
 float x,y;
 COMPLEX *c;
 int nbins=dataset->nbins;
 int nsegments=dataset->free;
-tmp=do_alloc(dataset->nbins, sizeof(*tmp));
+float max, min;
 
 for(i=0;i<nsegments;i++) {
-	memcpy(tmp, &(dataset->bin[i*nbins]), nbins*sizeof(*tmp));
-	/* inject_fake_signal(dataset, i, tmp); */
-	c=tmp;
+
+	c=&(dataset->bin[i*nbins]);
 	p=&(dataset->power[i*nbins]);
-	for(k=0;i<nbins;k++) {
+
+	for(k=0;k<nbins;k++) {
 		x=(*c).re;
 		y=(*c).im;
 		*p=x*x+y*y;
@@ -1191,7 +1177,7 @@ int i;
 tmp=alloca(count*sizeof(float));
 for(i=0;i<count;i++)tmp[i]=firstbin[i*step];
 sort_floats(tmp, count);
-if(!(count & 1))return (tmp[count>>1]+tmp[(count>>1)-1])/2.0;
+if(!(count & 1))return (tmp[count>>1]+tmp[(count>>1)-1])*0.5;
 return tmp[count>>1];
 }
 
@@ -1201,7 +1187,7 @@ float *tmp;
 float *p,*t;
 float a;
 int i,j;
-float b, b_initial;
+double b, b_initial;
 int nsegments=dataset->free;
 int nbins=dataset->nbins;
 HISTOGRAM *hist;

@@ -401,6 +401,7 @@ if(gethostname(s, 19999)>=0){
 
 init_hookup();
 init_statistics();
+tabulate_hann_filter7();
 
 do_CutOff=args_info.do_cutoff_arg;
 
@@ -603,6 +604,7 @@ if(args_info.fake_freq_given) {
 	fprintf(LOG,"fake spindown: %g\n", args_info.fake_spindown_arg);
 	fprintf(LOG,"fake strain: %g\n", args_info.fake_strain_arg);
 	fprintf(LOG,"fake frequency: %f\n", args_info.fake_freq_arg);
+	fprintf(LOG,"fake reference time: %f\n", args_info.fake_ref_time_arg);
 	
    	} else {
    	fprintf(LOG,"fake signal injection: none\n");

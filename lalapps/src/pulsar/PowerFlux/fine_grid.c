@@ -17,6 +17,7 @@
 #include "statistics.h"
 #include "dataset.h"
 #include "candidates.h"
+#include "util.h"
 
 extern POLARIZATION_RESULTS *polarization_results;
 extern int nlinear_polarizations, ntotal_polarizations;
@@ -174,7 +175,7 @@ for(i=0,kk=super_grid->first_map[pi];kk>=0;kk=super_grid->list_map[kk],i++)
 			sum++;
 			}
 		/* subtract lines */
-		for(n=0;(d->lines_report->lines_list[n]>=0)&&(n<d->lines_report->nlines);n++){
+		for(n=0;(d->lines_report->lines_list[n]>=0)&&(n<d->lines_report->nlines);n++) {
 			b=d->lines_report->lines_list[n];
 			if(b<b0)continue;
 			if(b>=b1)continue;
@@ -331,6 +332,151 @@ for(i=0,kk=super_grid->first_map[pi];kk>=0;kk=super_grid->list_map[kk],i++)
 		}
 
 }
+
+/* Use matched filter to estimate power */
+
+static void process_patch_matched(DATASET *d, int pol_index, int pi, int k, float CutOff)
+{
+int i,kk,b,b0,b1,n,offset;
+int bin_shift;
+SUM_TYPE mod;
+SUM_TYPE a,w,w2;
+SUM_TYPE *sum,*sq_sum;
+float x, y, power;
+float doppler;
+float f_plus, f_cross, beta1, beta2;
+POLARIZATION_RESULTS *pr=&(polarization_results[pol_index]);
+POLARIZATION *pl=&(d->polarizations[pol_index]);
+float filter[7];
+float shift;
+COMPLEX *bin;
+
+
+CutOff=2*CutOff; /* weighted sum can benefit from more SFTs */
+
+
+for(i=0,kk=super_grid->first_map[pi];kk>=0;kk=super_grid->list_map[kk],i++)
+		{
+
+		if(fine_grid->band[kk]<0)continue;
+		
+		/* Get amplitude response */
+		f_plus=F_plus(k, fine_grid, kk, pl->AM_coeffs);
+		f_cross=F_plus(k, fine_grid, kk, pl->conjugate->AM_coeffs);
+
+
+		mod=1.0/(pl->plus_factor*f_plus*f_plus+pl->cross_factor*f_cross*f_cross); 
+
+		if(do_CutOff && (mod>CutOff))continue;
+
+		/* this assumes that both relfreq and spindown are small enough that the bin number
+		   down not change much within the band - usually true */
+		doppler=fine_grid->e[0][kk]*d->detector_velocity[3*k+0]+
+			fine_grid->e[1][kk]*d->detector_velocity[3*k+1]+
+			fine_grid->e[2][kk]*d->detector_velocity[3*k+2];
+
+		shift=((first_bin+nbins*0.5)*doppler+d->coherence_time*spindown*(d->gps[k]-spindown_start));
+		bin_shift=rintf(shift);
+
+		tabulated_fill_hann_filter7(filter, (shift-bin_shift));
+
+		if(bin_shift>max_shift)max_shift=bin_shift;
+		if(bin_shift<min_shift)min_shift=bin_shift;
+		b0=side_cut+bin_shift;
+		b1=(nbins-side_cut)+bin_shift;
+		if((b0<3)||(b1>nbins-3)){
+			fprintf(stderr,"Working frequency range obscured by bin_shift shift: bin_shift=%d kk=%d i=%d pi=%d\n",
+				bin_shift, kk, i, pi);
+			exit(-1);
+			}
+		
+		if(args_info.compute_betas_arg){
+		        beta1=f_cross*f_plus*mod;	
+			beta2=(-pl->cross_factor*f_plus*f_plus+pl->plus_factor*f_cross*f_cross)*mod;
+			}
+
+		/* prime array pointers */
+		#ifdef WEIGHTED_SUM
+		w2=d->expTMedians[k]*d->weight/mod;
+		w=w2/mod;
+		pr->skymap.total_weight[kk]+=w;
+	
+		if(args_info.compute_betas_arg){
+			pr->skymap.beta1[kk]+=w*beta1;
+			pr->skymap.beta2[kk]+=w*beta2;
+			}
+		#else
+		pr->skymap.total_count[kk]++;
+
+		if(args_info.compute_betas_arg){
+			pr->skymap.beta1[kk]+=beta1;
+			pr->skymap.beta2[kk]+=beta2;
+			}
+		#endif
+		
+		sum=&(pr->fine_grid_sum[useful_bins*i]);
+		#ifdef COMPUTE_SIGMA
+		sq_sum=&(pr->fine_grid_sq_sum[useful_bins*i]);
+		#endif
+		bin=&(d->bin[k*nbins+b0]);
+
+		/* cycle over bins */
+		for(b=b0;b<b1;b++){
+			
+			x=bin[-3].re*filter[0]+bin[-2].re*filter[1]+bin[-1].re*filter[2]+bin[0].re*filter[3]+bin[1].re*filter[4]+bin[2].re*filter[5]+bin[3].re*filter[6];
+			y=bin[-3].im*filter[0]+bin[-2].im*filter[1]+bin[-1].im*filter[2]+bin[0].im*filter[3]+bin[1].im*filter[4]+bin[2].im*filter[5]+bin[3].im*filter[6];
+
+			power=x*x+y*y;
+
+			#ifdef WEIGHTED_SUM
+			a=power*w2;
+			(*sum)+=a;
+			#else
+			a=power*mod;
+			(*sum)+=a;
+			#ifdef COMPUTE_SIGMA
+			(*sq_sum)+=a*a;
+			sq_sum++;
+			#endif			
+			#endif
+		
+			bin++;
+			sum++;
+			}
+
+		#if 0  /* filter is 7 bins wide - do not do line subtraction */
+		/* subtract lines */
+		for(n=0;(d->lines_report->lines_list[n]>=0)&&(n<d->lines_report->nlines);n++) {
+			b=d->lines_report->lines_list[n];
+			if(b<b0)continue;
+			if(b>=b1)continue;
+			offset=b-side_cut+bin_shift+useful_bins*i;
+			/* prime array pointers */
+			sum=&(pr->fine_grid_sum[offset]);
+			p=&(d->power[k*nbins+b]);
+
+			#ifdef WEIGHTED_SUM
+			pr->fine_grid_weight[offset]+=w;
+			#else
+			pr->fine_grid_count[offset]++;
+			#endif
+			
+			#ifdef WEIGHTED_SUM
+			a=(*p)*w2;
+			(*sum)-=a;
+			#else
+			a=(*p)*mod;
+			(*sum)-=a;
+			#ifdef COMPUTE_SIGMA
+			pr->fine_grid_sq_sum[offset]-=a*a;
+			#endif			
+			#endif
+			}
+		#endif
+		}
+
+}
+
 
 void dump_pic(char *file, double *z)
 {
@@ -606,6 +752,8 @@ for(i=0;i<fine_grid->npoints;i++){
 	}
 
 /* output interesting points around fake injection */
+largest_i=0;
+largest=0.0;
 if(fake_injection){
 	double ds, best_ds;
 	int best_i=-1;
@@ -681,9 +829,9 @@ dump_floats(s,pol->skymap.max_upper_limit,fine_grid->npoints,1);
 
 max_dx=0.0;
 max_dx_i=0;
-largest=0.0;
-largest_i=0;
 masked=0;
+largest_i=0;
+largest=0.0;
 for(i=0;i<args_info.nskybands_arg;i++){
 	max_band[i]=-1.0;
 	masked_max_band[i]=-1.0;
@@ -1144,7 +1292,12 @@ skymap_circ_ul=do_alloc(fine_grid->npoints, sizeof(*skymap_circ_ul));
 skymap_circ_ul_freq=do_alloc(fine_grid->npoints, sizeof(*skymap_circ_ul_freq));
 spectral_plot_circ_ul=do_alloc(useful_bins*args_info.nskybands_arg, sizeof(*spectral_plot_circ_ul));
 
-if(args_info.three_bins_arg){
+if(!strcasecmp(args_info.averaging_mode_arg, "matched")) {
+	quantile2std=1.0;  /* TODO - make sure this number is right */
+	process_patch=process_patch_matched;
+	fprintf(LOG,"mode: matched filter\n");	
+	} else
+if(!strcasecmp(args_info.averaging_mode_arg, "3") || !strcasecmp(args_info.averaging_mode_arg, "three")){
 	quantile2std=0.88;
 	process_patch=process_patch3;
 	fprintf(LOG,"mode: 3 bins\n");
@@ -1156,7 +1309,10 @@ if(args_info.three_bins_arg){
 	}
 
 if(!strcasecmp("Hann", args_info.upper_limit_comp_arg)){
-	if(args_info.three_bins_arg){
+	if(!strcasecmp(args_info.averaging_mode_arg, "matched")) {
+		upper_limit_comp=1.0; /* TODO - make sure this number is right */
+		} else
+	if(!strcasecmp(args_info.averaging_mode_arg, "3") || !strcasecmp(args_info.averaging_mode_arg, "three")){
 		/* 3 bins should contain the entire signal, regardless
 		   of positioning */
 		upper_limit_comp=sqrt(3.0);
@@ -1185,7 +1341,10 @@ upper_limit_comp*=sqrt(2.0);
 upper_limit_comp*=args_info.strain_norm_factor_arg;
 
 if(!strcasecmp("Hann", args_info.lower_limit_comp_arg)){
-	if(args_info.three_bins_arg){
+	if(!strcasecmp(args_info.averaging_mode_arg, "matched")) {
+		lower_limit_comp=1.0; /* TODO - make sure this number is right */
+		} else
+	if(!strcasecmp(args_info.averaging_mode_arg, "3") || !strcasecmp(args_info.averaging_mode_arg, "three")){
 		lower_limit_comp=sqrt(3.0);
 		} else 
 		{
@@ -1210,7 +1369,7 @@ lower_limit_comp*=args_info.strain_norm_factor_arg;
 
 void fine_grid_stage(void)
 {
-int pi,i,j, k,m;
+int pi,i,j, k,m, last_pi;
 double a,b;
 
 clear_polarization_arrays();
@@ -1227,6 +1386,7 @@ for(i=0;i<useful_bins*args_info.nskybands_arg;i++){
 	}
 	
 fprintf(stderr,"Main loop: %d patches to process.\n", patch_grid->npoints);
+last_pi=0;
 for(pi=0;pi<patch_grid->npoints;pi++){
 	if(patch_grid->band[pi]<0)continue;
 	
@@ -1263,7 +1423,10 @@ for(pi=0;pi<patch_grid->npoints;pi++){
 		}
 	make_unified_limits(pi);
 
-	if(! (pi % 100))fprintf(stderr,"%d ",pi);
+	if(pi>last_pi+99) {
+		fprintf(stderr,"%d ",pi);
+		last_pi=pi;
+		}
 	/* for debugging only: */
 	#if 0
 	if(pi>300)break;

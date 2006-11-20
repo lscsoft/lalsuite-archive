@@ -18,11 +18,12 @@
 #include "statistics.h"
 #include "dataset.h"
 #include "candidates.h"
+#include "util.h"
 
 #define DISTANCE_PRINTF		fprintf(stderr, "rank=%d distance=%f alignment=%f fdist=%f sdist=%f snr=%f strain=%g\n", cand->rank, candidate_distance(cand, args_info.focus_ra_arg, args_info.focus_dec_arg), candidate_alignment(cand, args_info.fake_iota_arg, args_info.fake_psi_arg), (cand->frequency-args_info.fake_freq_arg)*1800, (cand->spindown-args_info.fake_spindown_arg)*(max_gps()-min_gps())*1800.0, cand->snr, cand->strain);
 
 #define WINDOW 240
-#define SEARCH_WINDOW 5
+#define SEARCH_WINDOW 10
 
 
 extern DATASET *datasets;
@@ -902,6 +903,127 @@ ad->d_dec[1]=total_weight/ad->d_dec[1];
 ad->valid |= VALID_DIFF_SHIFT;
 }
 
+static void fill_matched_diff_shift(SCORE_AUX_DATA *ad, CANDIDATE *cand)
+{
+float doppler, ra_doppler, dec_doppler;
+float *response;
+float demod_weight, total_weight;
+float spindown=cand->spindown;
+float frequency=cand->frequency;
+float mismatch, f;
+float a;
+float one1800;
+DATASET *d;
+int i, j, k, signal_bin;
+float filter[7];
+float diff_filter[7];
+COMPLEX *bin;
+float x, y, dx, dy;
+double power, dpower;
+
+if(! (ad->valid & VALID_E) || !(ad->valid & VALID_RESPONSE) ) {
+	fprintf(stderr, "E vector or response has not been computed !\n");
+	exit(-1);
+	}
+
+ad->d_freq[0]=0;
+ad->d_freq[1]=0;
+
+ad->d_spindown[0]=0;
+ad->d_spindown[1]=0;
+
+ad->d_ra[0]=0;
+ad->d_ra[1]=0;
+
+ad->d_dec[0]=0;
+ad->d_dec[1]=0;
+
+total_weight=0;
+
+for(j=0;j<d_free;j++) {
+	d=&(datasets[j]);
+
+	response=&(ad->response[ad->offset[j]]);
+
+	one1800=1.0/d->coherence_time;
+	/* TODO */
+
+	/* process single SFTs */
+	for(k=0;k<d->free;k++) {
+
+		demod_weight=d->expTMedians[k]*d->weight*response[k];
+		total_weight+=demod_weight;
+
+		doppler=ad->e[0]*d->detector_velocity[3*k+0]+
+			ad->e[1]*d->detector_velocity[3*k+1]+
+			ad->e[2]*d->detector_velocity[3*k+2];
+
+		ra_doppler=-ad->e[1]*d->detector_velocity[3*k+0]+
+			ad->e[0]*d->detector_velocity[3*k+1];
+
+		dec_doppler=-ad->e[2]*ad->e[4]*d->detector_velocity[3*k+0]
+			-ad->e[2]*ad->e[5]*d->detector_velocity[3*k+1]+
+			ad->e[3]*d->detector_velocity[3*k+2];
+
+
+		f=frequency+frequency*doppler+spindown*(d->gps[k]-spindown_start+d->coherence_time*0.5);
+		signal_bin=rintf(d->coherence_time*f-first_bin);
+
+		mismatch=f*d->coherence_time-first_bin-signal_bin;
+
+		fill_hann_filter7(filter, mismatch);
+		fill_diff_hann_filter7(diff_filter, mismatch);
+
+		bin=&(d->bin[k*nbins+signal_bin-3]);
+
+		x=0;
+		y=0;
+		dx=0;
+		dy=0;
+
+		for(i=0;i<7;i++) {
+			x+=bin[i].re*filter[i];
+			y+=bin[i].re*filter[i];
+			dx+=bin[i].re*diff_filter[i];
+			dy+=bin[i].re*diff_filter[i];
+			}
+
+		power=x*x+y*y;
+		dpower=2.0*(x*dx+y*dy);
+
+		//ad->d_freq[0]+=-dpower*demod_weight;
+		ad->d_freq[1]+=dpower*demod_weight;
+		
+		a=d->gps[k]-spindown_start+d->coherence_time*0.5;
+		//ad->d_spindown[0]+=-demod_weight*a*dpower;
+		ad->d_spindown[1]+=demod_weight*a*dpower;
+
+		a=frequency*ra_doppler;
+		//ad->d_ra[0]+=-demod_weight*a*dpower;
+		ad->d_ra[1]+=demod_weight*a*dpower;
+
+		a=frequency*dec_doppler;
+		//ad->d_dec[0]+=-demod_weight*a*dpower;
+		ad->d_dec[1]+=demod_weight*a*dpower;
+		}
+
+	}
+
+ad->d_freq[0]=-ad->d_freq[1]/total_weight;
+ad->d_freq[1]=ad->d_freq[1]/total_weight;
+
+ad->d_spindown[0]=-ad->d_spindown[1]/total_weight;
+ad->d_spindown[1]=ad->d_spindown[1]/total_weight;
+
+ad->d_ra[0]=-ad->d_ra[1]/total_weight;
+ad->d_ra[1]=ad->d_ra[1]/total_weight;
+
+ad->d_dec[0]=-ad->d_dec[1]/total_weight;
+ad->d_dec[1]=ad->d_dec[1]/total_weight;
+
+ad->valid |= VALID_DIFF_SHIFT;
+}
+
 static void print_diff_shift(FILE *f, SCORE_AUX_DATA *ad)
 {
 fprintf(f, "ra=[%f,%f] dec=[%f,%f] freq=[%g,%g] spindown=[%g,%g]\n",
@@ -1072,13 +1194,168 @@ if(cand->strain>0)
 
 }
 
+inline static void compute_matched_snr(SCORE_AUX_DATA *ad, CANDIDATE *cand, int debug)
+{
+DATASET *d;
+float spindown=cand->spindown;
+float frequency=cand->frequency;
+int j, k, b, b_max;
+double weight, f, total_demod_weight, mean_power, mean_power_sq, power_sd;
+float *response;
+float *doppler;
+int signal_bin;
+float demod_signal_sum[(2*WINDOW+1)*2], power, *pout, demod_weight, x, y;
+double demod_signal_sum_d[(2*WINDOW+1)*2];
+COMPLEX *bin;
+float mismatch;
+float filter[7];
+int count;
+
+if((ad->valid & (VALID_RESPONSE | VALID_DOPPLER))!=(VALID_RESPONSE | VALID_DOPPLER)) {
+	cand->strain=-1;
+	cand->snr=-1;
+	cand->f_max=cand->frequency;
+	fprintf(stderr, "compute_snr: score_aux_data is not valid\n");
+	return;
+	}
+
+total_demod_weight=0.0;
+
+for(b=0;b<(2*WINDOW+1);b++) {
+	demod_signal_sum[b]=0.0;
+	demod_signal_sum_d[b]=0.0;
+	}
+
+
+cand->ifo_freq=0.0;
+cand->ifo_freq_sd=0.0;
+
+// fprintf(stderr, "(1) spindown =%g\n", spindown);
+
+/* loop over datasets */
+for(j=0;j<d_free;j++) {
+	d=&(datasets[j]);
+
+	response=&(ad->response[ad->offset[j]]);
+	doppler=&(ad->doppler[ad->offset[j]]);
+
+	count=0;
+
+	for(k=0;k<d->free;k++) {
+		/* skip SFTs with low weight */
+		if(d->expTMedians[k]<0.05)continue;
+
+		/* power_cor computation */
+		weight=d->expTMedians[k]*d->weight;
+
+		demod_weight=weight*response[k];
+		total_demod_weight+=demod_weight*response[k];
+
+
+		f=frequency+frequency*doppler[k]+spindown*(d->gps[k]-spindown_start+d->coherence_time*0.5);
+		signal_bin=rintf(1800.0*f-first_bin);
+		mismatch=1800.0*f-(signal_bin+first_bin);
+
+// 		if(fabs(spindown)<2e-12)
+// 		fprintf(stderr, "%d %g %g f=%f %d %f\n", k, spindown*(d->gps[k]-spindown_start+d->coherence_time*0.5), spindown*(d->gps[k]-spindown_start+d->coherence_time*0.5)*1800.0, f, signal_bin, mismatch);
+
+		fill_hann_filter7(filter, mismatch);
+
+		if((signal_bin<WINDOW+3) || (signal_bin+WINDOW+3>=nbins)) {
+			fprintf(stderr, "Attempting to sample signal outside loaded band, aborting\n");
+			exit(-1);
+			}
+
+		bin=&(d->bin[k*nbins+signal_bin-WINDOW]);
+
+		pout=demod_signal_sum;
+
+		for(b=0; b< (2*WINDOW+1); b++) {
+
+			x=bin[-3].re*filter[0]+bin[-2].re*filter[1]+bin[-1].re*filter[2]+bin[0].re*filter[3]+bin[1].re*filter[4]+bin[2].re*filter[5]+bin[3].re*filter[6];
+			y=bin[-3].im*filter[0]+bin[-2].im*filter[1]+bin[-1].im*filter[2]+bin[0].im*filter[3]+bin[1].im*filter[4]+bin[2].im*filter[5]+bin[3].im*filter[6];
+
+			power=x*x+y*y;
+
+			(*pout)+=(power)*demod_weight;
+			pout++;
+			bin++;
+			}
+		count++;
+		if(count>100) {
+			for(b=0; b< (2*WINDOW+1); b++) {
+				demod_signal_sum_d[b]+=demod_signal_sum[b];
+				demod_signal_sum[b]=0.0;
+				}
+			count=0;
+			}
+		}
+	for(b=0; b< (2*WINDOW+1); b++) {
+		demod_signal_sum_d[b]+=demod_signal_sum[b];
+		demod_signal_sum[b]=0.0;
+		}
+	}
+
+total_demod_weight=1.0/total_demod_weight;
+for(b=0;b<2*WINDOW+1;b++) {
+	demod_signal_sum[b]=demod_signal_sum_d[b]*total_demod_weight;
+	}
+
+b_max=WINDOW;
+for(b=WINDOW-SEARCH_WINDOW;b<WINDOW+SEARCH_WINDOW+1;b++) {
+	if(demod_signal_sum[b_max]<demod_signal_sum[b]) b_max=b;
+	}
+
+mean_power=0.0;
+mean_power_sq=0.0;
+for(b=0;b<WINDOW-SEARCH_WINDOW;b++){
+	mean_power+=demod_signal_sum[b];
+	mean_power_sq+=demod_signal_sum[b]*demod_signal_sum[b];
+	}
+for(b=WINDOW+SEARCH_WINDOW+1;b<2*WINDOW+1;b++){
+	mean_power+=demod_signal_sum[b];
+	mean_power_sq+=demod_signal_sum[b]*demod_signal_sum[b];
+	}
+	
+mean_power*=0.5/(WINDOW-SEARCH_WINDOW);
+mean_power_sq*=0.5/(WINDOW-SEARCH_WINDOW);
+power_sd=sqrt((mean_power_sq-mean_power*mean_power)*(2.0*(WINDOW-SEARCH_WINDOW)/(2.0*(WINDOW-SEARCH_WINDOW)-1)));
+
+if(debug) {
+	fprintf(stderr, "mean_power=%g mean_power_sq=%g power_sd=%g\n", mean_power, mean_power_sq, power_sd);
+	fprintf(stderr, "Power: ");
+	for(b=0;b<2*WINDOW+1;b++) {
+		fprintf(stderr, "%.2f ", (demod_signal_sum[b]-mean_power)/power_sd);
+		}
+	fprintf(stderr, "\n");
+	}
+
+cand->f_max=cand->frequency+(b_max-WINDOW)/1800.0;
+
+b_max=WINDOW;
+cand->total_weight=total_demod_weight;
+/*cand->snr=(demod_signal_sum[b_max]-mean_power)/power_sd;
+cand->snr=(demod_signal_sum[b_max]-0.25*fabs(demod_signal_sum[b_max-1]-demod_signal_sum[b_max+1])-mean_power)/power_sd;*/
+SNR_FORMULA
+
+if(demod_signal_sum[b_max]< mean_power)cand->strain=0.0;
+	else
+	cand->strain=2.0*sqrt(demod_signal_sum[b_max]-mean_power)*args_info.strain_norm_factor_arg/(1800.0*16384.0);
+
+if(cand->strain>0)
+	cand->strain_err=0.5*4.0*power_sd*args_info.strain_norm_factor_arg/(cand->strain*(1800.0*1800.0*16384.0*16384.0));
+	else
+	cand->strain_err=1;
+
+}
+
 /* This is used to speedup optimization in iota and psi and changes in the frequency path*/
 
 typedef struct {
 	CANDIDATE cand; /* candidate data this was computed for */
-	float f_plus_sq[(2*WINDOW+1)*2];
-	float f_cross_sq[(2*WINDOW+1)*2];
-	float f_plus_cross[(2*WINDOW+1)*2];
+	double f_plus_sq[(2*WINDOW+1)*2];
+	double f_cross_sq[(2*WINDOW+1)*2];
+	double f_plus_cross[(2*WINDOW+1)*2];
 	int iter_count;
 	} SNR_DATA;
 
@@ -1095,6 +1372,11 @@ float *doppler;
 int signal_bin;
 float *power, *pout, *cout, *pcout, pweight, cweight, pcweight, f_plus, f_cross;
 POLARIZATION *pl;
+float f_plus_sq[(2*WINDOW+1)*2];
+float f_cross_sq[(2*WINDOW+1)*2];
+float f_plus_cross[(2*WINDOW+1)*2];
+int count;
+
 
 memcpy(&(sd->cand), cand, sizeof(*cand));
 sd->iter_count=0;
@@ -1116,6 +1398,13 @@ for(j=0;j<d_free;j++) {
 	doppler=&(ad->doppler[ad->offset[j]]);
 	pl=&(d->polarizations[0]);	
 
+	for(b=0;b<(2*WINDOW+1);b++) {
+		f_plus_sq[b]=0.0;
+		f_cross_sq[b]=0.0;
+		f_plus_cross[b]=0.0;
+		}
+	count=0;
+
 	for(k=0;k<d->free;k++) {
 		/* skip SFTs with low weight */
 		if(d->expTMedians[k]<0.05)continue;
@@ -1136,9 +1425,9 @@ for(j=0;j<d_free;j++) {
 
 		power=&(d->power[k*nbins+signal_bin-WINDOW]);
 
-		pout=sd->f_plus_sq;
-		cout=sd->f_cross_sq;
-		pcout=sd->f_plus_cross;
+		pout=f_plus_sq;
+		cout=f_cross_sq;
+		pcout=f_plus_cross;
 
 		for(b=0; b< (2*WINDOW+1); b++) {
 
@@ -1151,6 +1440,23 @@ for(j=0;j<d_free;j++) {
 			pcout++;
 			power++;
 			}
+		count++;
+		if(count>100) {
+			for(b=0;b<(2*WINDOW+1);b++) {
+				sd->f_plus_sq[b]+=f_plus_sq[b];
+				sd->f_cross_sq[b]+=f_cross_sq[b];
+				sd->f_plus_cross[b]+=f_plus_cross[b];
+				f_plus_sq[b]=0;
+				f_cross_sq[b]=0;
+				f_plus_cross[b]=0;
+				}
+			count=0;
+			}
+		}
+	for(b=0;b<(2*WINDOW+1);b++) {
+		sd->f_plus_sq[b]+=f_plus_sq[b];
+		sd->f_cross_sq[b]+=f_cross_sq[b];
+		sd->f_plus_cross[b]+=f_plus_cross[b];
 		}
 	}
 }
@@ -1167,6 +1473,10 @@ float *doppler;
 int signal_bin, signal_bin0;
 float *power, *power0, p, *pout, *cout, *pcout, pweight, cweight, pcweight, f_plus, f_cross;
 POLARIZATION *pl;
+float f_plus_sq[(2*WINDOW+1)*2];
+float f_cross_sq[(2*WINDOW+1)*2];
+float f_plus_cross[(2*WINDOW+1)*2];
+int count;
 
 
 if((ad->valid & VALID_DOPPLER)!=VALID_DOPPLER) {
@@ -1182,6 +1492,13 @@ for(j=0;j<d_free;j++) {
 
 	doppler=&(ad->doppler[ad->offset[j]]);
 	pl=&(d->polarizations[0]);	
+
+	for(b=0;b<(2*WINDOW+1);b++) {
+		f_plus_sq[b]=0.0;
+		f_cross_sq[b]=0.0;
+		f_plus_cross[b]=0.0;
+		}
+	count=0;
 
 	for(k=0;k<d->free;k++) {
 		/* skip SFTs with low weight */
@@ -1211,9 +1528,9 @@ for(j=0;j<d_free;j++) {
 		power=&(d->power[k*nbins+signal_bin-WINDOW]);
 		power0=&(d->power[k*nbins+signal_bin0-WINDOW]);
 
-		pout=sd->f_plus_sq;
-		cout=sd->f_cross_sq;
-		pcout=sd->f_plus_cross;
+		pout=f_plus_sq;
+		cout=f_cross_sq;
+		pcout=f_plus_cross;
 
 		for(b=0; b< (2*WINDOW+1); b++) {
 			p=(*power)-(*power0);
@@ -1227,9 +1544,141 @@ for(j=0;j<d_free;j++) {
 			power++;
 			power0++;
 			}
+		count++;
+		if(count>100) {
+			for(b=0;b<(2*WINDOW+1);b++) {
+				sd->f_plus_sq[b]+=f_plus_sq[b];
+				sd->f_cross_sq[b]+=f_cross_sq[b];
+				sd->f_plus_cross[b]+=f_plus_cross[b];
+				f_plus_sq[b]=0;
+				f_cross_sq[b]=0;
+				f_plus_cross[b]=0;
+				}
+			count=0;
+			}
+		}
+	for(b=0;b<(2*WINDOW+1);b++) {
+		sd->f_plus_sq[b]+=f_plus_sq[b];
+		sd->f_cross_sq[b]+=f_cross_sq[b];
+		sd->f_plus_cross[b]+=f_plus_cross[b];
 		}
 	}
 memcpy(&(sd->cand), cand, sizeof(*cand));
+}
+
+static void matched_precompute_snr_data(SNR_DATA *sd, SCORE_AUX_DATA *ad, CANDIDATE *cand, int debug)
+{
+DATASET *d;
+float spindown=cand->spindown;
+float frequency=cand->frequency;
+int j, k, b, b_max;
+double weight, f, mean_power, mean_power_sq, power_sd;
+float *response;
+float *doppler;
+int signal_bin;
+float power, *pout, *cout, *pcout, pweight, cweight, pcweight, f_plus, f_cross, x, y;
+POLARIZATION *pl;
+COMPLEX *bin;
+float mismatch;
+float filter[7];
+float f_plus_sq[(2*WINDOW+1)*2];
+float f_cross_sq[(2*WINDOW+1)*2];
+float f_plus_cross[(2*WINDOW+1)*2];
+int count;
+
+memcpy(&(sd->cand), cand, sizeof(*cand));
+sd->iter_count=0;
+for(b=0;b<(2*WINDOW+1);b++) {
+	sd->f_plus_sq[b]=0.0;
+	sd->f_cross_sq[b]=0.0;
+	sd->f_plus_cross[b]=0.0;
+	}
+
+if((ad->valid & VALID_DOPPLER)!=VALID_DOPPLER) {
+	fprintf(stderr, "matched_precompute_snr_data: score_aux_data is not valid\n");
+	return;
+	}
+
+/* loop over datasets */
+for(j=0;j<d_free;j++) {
+	d=&(datasets[j]);
+
+	doppler=&(ad->doppler[ad->offset[j]]);
+	pl=&(d->polarizations[0]);	
+
+	for(b=0;b<(2*WINDOW+1);b++) {
+		f_plus_sq[b]=0.0;
+		f_cross_sq[b]=0.0;
+		f_plus_cross[b]=0.0;
+		}
+	count=0;
+
+	for(k=0;k<d->free;k++) {
+		/* skip SFTs with low weight */
+		if(d->expTMedians[k]<0.05)continue;
+		sd->iter_count++;
+
+		f_plus=F_plus_coeff(k, ad->e, pl->AM_coeffs);
+		f_cross=F_plus_coeff(k, ad->e, pl->conjugate->AM_coeffs);
+
+		/* power_cor computation */
+		weight=d->expTMedians[k]*d->weight;
+
+		pweight=weight*f_plus*f_plus;
+		cweight=weight*f_cross*f_cross;
+		pcweight=weight*f_plus*f_cross;
+
+		f=frequency+frequency*doppler[k]+spindown*(d->gps[k]-spindown_start+d->coherence_time*0.5);
+		signal_bin=rintf(1800.0*f-first_bin);
+		mismatch=1800.0*f-signal_bin-first_bin;
+
+		fill_hann_filter7(filter, mismatch);
+
+		bin=&(d->bin[k*nbins+signal_bin-WINDOW]);
+
+		pout=f_plus_sq;
+		cout=f_cross_sq;
+		pcout=f_plus_cross;
+
+		for(b=0; b< (2*WINDOW+1); b++) {
+
+			/*  Tcl code to generate these lines:
+			for { set i -3 } { $i < 4 } { incr i } { puts -nonewline "bin\[$i\].re*filter\[[expr $i+3]\]+" }
+			*/
+
+			x=bin[-3].re*filter[0]+bin[-2].re*filter[1]+bin[-1].re*filter[2]+bin[0].re*filter[3]+bin[1].re*filter[4]+bin[2].re*filter[5]+bin[3].re*filter[6];
+			y=bin[-3].im*filter[0]+bin[-2].im*filter[1]+bin[-1].im*filter[2]+bin[0].im*filter[3]+bin[1].im*filter[4]+bin[2].im*filter[5]+bin[3].im*filter[6];
+
+			power=x*x+y*y;
+
+			(*pout)+=(power)*pweight;
+			(*cout)+=(power)*cweight;
+			(*pcout)+=(power)*pcweight;
+
+			pout++;
+			cout++;
+			pcout++;
+			bin++;
+			}
+		count++;
+		if(count>100) {
+			for(b=0;b<(2*WINDOW+1);b++) {
+				sd->f_plus_sq[b]+=f_plus_sq[b];
+				sd->f_cross_sq[b]+=f_cross_sq[b];
+				sd->f_plus_cross[b]+=f_plus_cross[b];
+				f_plus_sq[b]=0;
+				f_cross_sq[b]=0;
+				f_plus_cross[b]=0;
+				}
+			count=0;
+			}
+		}
+	for(b=0;b<(2*WINDOW+1);b++) {
+		sd->f_plus_sq[b]+=f_plus_sq[b];
+		sd->f_cross_sq[b]+=f_cross_sq[b];
+		sd->f_plus_cross[b]+=f_plus_cross[b];
+		}
+	}
 }
 
 void compute_alignment_snr(SNR_DATA *sd, CANDIDATE *cand, int debug)
@@ -1320,8 +1769,8 @@ for(i=-N; i<=N; i++) {
 		c1.psi=cand->psi+j*M_PI/128.0;
 		c1.iota=cand->iota+i*M_PI/128.0;
 
-		c1.psi=M_PI/2.0;
-		c1.iota=M_PI/2.0;
+		//c1.psi=M_PI/2.0;
+		//c1.iota=M_PI/2.0;
 
 		c2.psi=c1.psi;
 		c2.iota=c1.iota;
@@ -1330,7 +1779,7 @@ for(i=-N; i<=N; i++) {
 		compute_simple_snr(ad, &c1, 0);
 		compute_alignment_snr(&sd, &c2, 0);
 		err=c1.snr-c2.snr;
-		if(fabs(err)>1e-5)
+		if(fabs(err)>1e-3)
 			fprintf(stderr, "iota=%f psi=%f c1.snr=%f c2.snr=%f snr_diff=%f\n", c1.iota, c1.psi, c1.snr, c2.snr, err);
 		if(err>err_max)err_max=err;
 		}
@@ -1573,7 +2022,7 @@ h->frequency_shift/=1800.0;
 
 #define PLAIN_SNR(c1, c2)	((c1).snr>(c2).snr)
 
-#define CHASE(opt_cond, opt_var, first_step) \
+#define CHASE1(opt_cond, opt_var, first_step) \
 	int chase_##opt_var(CANDIDATE *cand)  \
 	{  \
 	CANDIDATE c;  \
@@ -1633,6 +2082,61 @@ h->frequency_shift/=1800.0;
 			} \
 		c.frequency=cand->f_max+0.75/1800.0; \
 		compute_snr(ad, &c, 0); \
+		if(opt_cond(c, *cand)) {  \
+			/* c.frequency=c.f_max; */ \
+			memcpy(cand, &c, sizeof(CANDIDATE));  \
+			status=1;  \
+			improv=1; \
+			continue;  \
+			} \
+		c.opt_var-=step;  \
+		if(status==0) {  \
+			step=-step;  \
+			}  \
+		status=0;  \
+		step=step/2.0;  \
+		}  \
+	free_score_aux_data(ad); \
+	if(improv) {  \
+		return 1;  \
+		} else {  \
+		return 0;  \
+		}  \
+	}
+
+#define CHASE(opt_cond, opt_var, first_step) \
+	int chase_##opt_var(CANDIDATE *cand)  \
+	{  \
+	CANDIDATE c;  \
+	SCORE_AUX_DATA *ad; \
+	float fs; \
+	float step;  \
+	int status=0;  \
+	int improv=0; \
+	  \
+	fs=first_step; \
+	step=fs; \
+	  \
+	ad=allocate_score_aux_data(); \
+	\
+	memcpy(&c, cand, sizeof(*cand));  \
+	\
+	fill_e(ad, cand); \
+	fill_response(ad, cand); \
+	fill_doppler(ad); \
+	\
+	compute_snr(ad, cand, 0); \
+	  \
+	while(fabs(step)>fs*1e-10) {  \
+		/* c.frequency=cand->f_max; */ \
+		c.opt_var+=step;  \
+		\
+		fill_e(ad, &c); \
+		fill_response(ad, &c); \
+		fill_doppler(ad); \
+		\
+		compute_matched_snr(ad, &c, 0); \
+		\
 		if(opt_cond(c, *cand)) {  \
 			/* c.frequency=c.f_max; */ \
 			memcpy(cand, &c, sizeof(CANDIDATE));  \
@@ -1805,7 +2309,7 @@ h->frequency_shift/=1800.0;
 		fill_response(ad, &c); \
 		fill_doppler(ad); \
 		\
-		compute_simple_snr(ad, &c, 0); \
+		compute_matched_snr(ad, &c, (i==-N)); \
 		f=opt_expr; \
 		fprintf(stderr, ",%f", f); \
 		if(max_i<-N || (f>max) || (f>=max && !max_i)) { \
@@ -1815,7 +2319,7 @@ h->frequency_shift/=1800.0;
 		} \
 	free_score_aux_data(ad); \
 	fprintf(stderr, "\n"); \
-	if(max<cand->snr+0.001)return 0; \
+	if(max<cand->snr+0.001 && cand->snr>0)return 0; \
 	cand->opt_var+=max_i*step; \
 	cand->snr=max; \
 	return max_i!=0; \
@@ -1899,9 +2403,9 @@ h->frequency_shift/=1800.0;
 
 CHASE(PLAIN_SNR, psi, M_PI/32.0)
 CHASE(PLAIN_SNR, iota, M_PI/256.0)
-CHASE(PLAIN_SNR, ra, 0.5*resolution)
-CHASE(PLAIN_SNR, dec, 0.5*resolution)
-CHASE(PLAIN_SNR, spindown, 0.5/(1800.0*(max_gps()-min_gps())))
+CHASE(PLAIN_SNR, ra, resolution/128.0)
+CHASE(PLAIN_SNR, dec, resolution/128.0)
+CHASE(PLAIN_SNR, spindown, 0.01/(1800.0*(max_gps()-min_gps())))
 //CHASE(PLAIN_SNR, frequency, 1/3600.0)
 
 
@@ -2022,7 +2526,7 @@ return max_i!=0;
 int search_monte_carlo_vec(CANDIDATE *cand)
 {
 int niter, ngap;
-float freq_dir, psi_dir, iota_dir, ra_dir, dec_dir, spindown_dir;
+float freq_dir=0, psi_dir=0, iota_dir=0, ra_dir=0, dec_dir=0, spindown_dir=0;
 
 niter=0;
 ngap=0;
@@ -2162,6 +2666,78 @@ memcpy(cand, &best_c, sizeof(best_c));
 return 1;
 }
 
+int search_gradient_vec(CANDIDATE *cand, int N)
+{
+CANDIDATE c, best_c;
+int i, max_i;
+float f, max;
+float a, step=1.0;
+
+SCORE_AUX_DATA *ad;
+
+ad=allocate_score_aux_data();
+
+memcpy(&c, cand, sizeof(*cand)); 
+
+fill_e(ad, &c);
+fill_response(ad, &c);
+fill_doppler(ad);
+fill_matched_diff_shift(ad, &c);
+print_diff_shift(stderr, ad);
+compute_matched_snr(ad, &c, 0);
+
+max_i=0;
+max=cand->snr;
+if(c.snr>max)max=c.snr;
+
+if(fabs(step*ad->d_freq[1]) > 0.1/1800.0)step=0.1/(1800.0*ad->d_freq[1]);
+if(fabs(step*ad->d_spindown[1]) > 1e-12)step= 1e-14/(ad->d_spindown[1]);
+step=0.01;
+max_i=0;
+fprintf(stderr, "gradient search start snr=%f step=%g\n", c.snr, step);
+for(i=-N;i<=N;i++) {
+	//if(!i)continue;
+
+	c.frequency=cand->frequency+i*step/ad->d_freq[1];
+	c.psi=cand->psi+i*step*0;
+	c.iota=cand->iota+i*step*0;
+	c.ra=cand->ra+i*step/ad->d_ra[1];
+	c.dec=cand->dec+i*step/ad->d_dec[1];
+	c.spindown=cand->spindown+i*step/ad->d_spindown[1];
+
+// 	c.frequency=cand->frequency+i*step*ad->d_freq[1];
+// 	c.psi=cand->psi+i*step*0;
+// 	c.iota=cand->iota+i*step*0;
+// 	c.ra=cand->ra+i*step*ad->d_ra[1];
+// 	c.dec=cand->dec+i*step*ad->d_dec[1];
+// 	c.spindown=cand->spindown+i*step*ad->d_spindown[1];
+
+	fill_e(ad, &c);
+	fill_response(ad, &c);
+	fill_doppler(ad);
+	compute_matched_snr(ad, &c, 0);
+
+	f=c.snr;
+	fprintf(stderr, ",%f", f);
+	if(f>max) {
+		memcpy(&best_c, &c, sizeof(c));
+		max_i=i;
+		max=f;
+		}
+	}
+
+fprintf(stderr, "\n");
+
+free_score_aux_data(ad);
+
+/*fprintf(stderr, "\n");*/
+if(!max_i || (max<cand->snr+0.001))return 0;
+
+memcpy(cand, &best_c, sizeof(best_c));
+
+return 1;
+}
+
 
 int search_all(CANDIDATE *cand)
 {
@@ -2169,7 +2745,7 @@ int ra_dir, dec_dir, spindown_dir, frequency_dir;
 int found=0, lfound;
 float frequency;
 CANDIDATE c, best_c;
-int i, N=20, N_sky=32, sign;
+int i, N=5, N_sky=10, sign;
 float max, lmax;
 SCORE_AUX_DATA *ad;
 SNR_DATA sd0, sd;
@@ -2187,7 +2763,9 @@ fill_doppler(ad);
 fill_diff_shift(ad, &c);
 print_diff_shift(stderr, ad);
 
-compute_simple_snr(ad, &c, 0);
+compute_matched_snr(ad, &c, 0);
+
+if(cand->snr<0)cand->snr=c.snr;
 
 c.frequency=c.f_max;
 
@@ -2207,8 +2785,8 @@ for(ra_dir=-N_sky; ra_dir<=N_sky;ra_dir++) {
 // 	c.ra=cand->ra+i*ra_dir*resolution*0.5*0.125/(cos(cand->dec)+0.001);
 // 	c.dec=cand->dec+i*dec_dir*resolution*0.5*0.125;
 
-	c.ra=cand->ra+ra_dir*(ad->d_ra[1]-ad->d_ra[0])*0.05;
-	c.dec=cand->dec+dec_dir*(ad->d_ra[1]-ad->d_ra[0])*0.05;
+	c.ra=cand->ra+ra_dir*(ad->d_ra[1]-ad->d_ra[0])*0.025;
+	c.dec=cand->dec+dec_dir*(ad->d_ra[1]-ad->d_ra[0])*0.025;
 	c.spindown=cand->spindown;
 	c.frequency=cand->frequency;
 
@@ -2216,7 +2794,7 @@ for(ra_dir=-N_sky; ra_dir<=N_sky;ra_dir++) {
 	fill_response(ad, &c);
 	fill_doppler(ad);
 
-	compute_simple_snr(ad, &c, 0);
+	compute_matched_snr(ad, &c, 0);
 	frequency=c.f_max;
 	//fprintf(stderr,"[%2d]", (int)round(10*c.snr/cand->snr));
 
@@ -2232,21 +2810,27 @@ for(ra_dir=-N_sky; ra_dir<=N_sky;ra_dir++) {
 	if(sign!=-1 && sign!=1)fprintf(stderr, "sign=%d\n", sign);
 	for(frequency_dir=-5; frequency_dir<=5; frequency_dir++) {
 
-		c.frequency=cand->frequency+(c.spindown-cand->spindown)*timebase*0.5+sign*frequency_dir*(ad->d_freq[1]-ad->d_freq[0])*0.025;
-	
-		if(spindown_dir==-N && frequency_dir==-N)
-			precompute_snr_data(&sd, ad, &c, 0);
+		c.frequency=cand->frequency-(c.spindown-cand->spindown)*timebase*0.5+sign*frequency_dir*(ad->d_freq[1]-ad->d_freq[0])*0.025;
+
+		if(0) {	
+		if(spindown_dir==-N && frequency_dir==-5)
+			matched_precompute_snr_data(&sd, ad, &c, 0);
 			else {
-			update_snr_data(&sd, ad, &c, 0);
+			matched_precompute_snr_data(&sd, ad, &c, 0);
+			//update_snr_data(&sd, ad, &c, 0);
 			if(0 && sd.iter_count*10>4001) {
 				fprintf(stderr, "*%d %d %d|", sign, spindown_dir, frequency_dir);
-				precompute_snr_data(&sd, ad, &c, 0);
+				matched_precompute_snr_data(&sd, ad, &c, 0);
 				//memcpy(&sd, &sd0, sizeof(sd0));
 				}
 			}
 //		fprintf(stderr, "[%d %d] ", sd.iter_count, sd0.iter_count);
 		compute_alignment_snr(&sd, &c, 0);
+		} else {
+		compute_matched_snr(ad, &c, 0);
+		}
 
+		//fprintf(stderr, " %f %f %f\n", c.snr, lmax, cand->snr);
 		//compute_scores(&c, 0);
 	
 	/*	fprintf(stderr, ",%f", f); */
@@ -2335,14 +2919,15 @@ fill_e(ad, cand);
 fill_response(ad, cand);
 fill_doppler(ad);
 
-compute_snr(ad, cand, 0);
+compute_matched_snr(ad, cand, 0);
 
 var_start=cand->snr;
 
-while(fabs(step)>1/720000.0) {
-	c.frequency=cand->f_max+step;
+while(fabs(step)>1e-6) {
+	//c.frequency=cand->f_max+step;
+	c.frequency=cand->frequency+step;
 
-	compute_snr(ad, &c, 0);
+	compute_matched_snr(ad, &c, 0);
 
 	//fprintf(stderr, "%s step=%g  %g\n", __FUNCTION__, step, c.snr);
 
@@ -2516,11 +3101,12 @@ return 0;
 }
 
 
-int search_spindown1(CANDIDATE *cand)
+int search_spindown1(CANDIDATE *cand, float step, int N)
 {
-int i,j, k, N=40;
+int i,j, k;
 CANDIDATE c, best_c;
 SCORE_AUX_DATA *ad;
+double timebase=max_gps()-min_gps();
 
 memcpy(&c, cand, sizeof(CANDIDATE));
 memcpy(&best_c, cand, sizeof(CANDIDATE));
@@ -2531,21 +3117,21 @@ fill_e(ad, &c);
 fill_response(ad, &c);
 fill_doppler(ad);
 
-compute_snr(ad, &best_c, 0);
-fprintf(stderr, "spindown search start snr=%f ", best_c.snr);
+compute_matched_snr(ad, &best_c, 0);
+fprintf(stderr, "spindown search start snr=%f step=%g initial %g", best_c.snr, step, cand->spindown);
 
 for(i=-N;i<=N;i++) {
-	c.spindown=cand->spindown+i*1e-11;
-	for(j=0;j<=3;j++) {
-		c.frequency=cand->f_max-i*1e-11*(max_gps()-min_gps())*0.5+j*0.25/1800.0;
+	c.spindown=cand->spindown+i*step;
+	for(j=-1;j<=1;j++) {
+		c.frequency=cand->frequency-i*step*timebase*0.5+j*0.05/1800.0;
 		//c.frequency=c.f_max;
 		//chase_frequency1(&c);
-		compute_snr(ad, &c, 0);
+		compute_matched_snr(ad, &c, 0);
 		fprintf(stderr, ",%f", c.snr);
-		if(c.snr>best_c.snr-3) {
+		if(0 && c.snr>best_c.snr-3) {
 			for(k=0;k<=7;k++) {
-				c.frequency=cand->f_max-i*1e-11*(max_gps()-min_gps())*0.5+(j+k*0.125)*0.25/1800.0;
-				compute_snr(ad, &c, 0);
+				c.frequency=cand->f_max-i*step*timebase*0.5+(j+k*0.125)*0.25/1800.0;
+				compute_matched_snr(ad, &c, 0);
 				if(c.snr>best_c.snr) {
 					memcpy(&best_c, &c, sizeof(CANDIDATE));
 					fprintf(stderr, "found spindown=%g snr=%f\n", c.spindown, c.snr);
@@ -3033,6 +3619,7 @@ CANDIDATE *tries;
 int cont, i;
 int frequency_dir, psi_dir, iota_dir, ra_dir, dec_dir, spindown_dir;
 float factor;
+float timebase=max_gps()-min_gps();
 
 //#define DISTANCE_PRINTF		fprintf(stderr, "distance=%f fdist=%f sdist=%f snr=%f\n", candidate_distance(cand, args_info.focus_ra_arg, args_info.focus_dec_arg), (cand->frequency-140.5972)*1800, (cand->spindown-3.794117e-10)*(max_gps()-min_gps())*1800.0, cand->snr);
 
@@ -3085,40 +3672,44 @@ for(i=0;i<1000;i++) {
 /*	cont=search_ra(cand, resolution*0.5/(cos(cand->dec)+0.001));
 	compute_scores(cand, 0);
 	fprintf(stderr, "distance=%f fdist=%f snr=%f\n", candidate_distance(cand, 6.112886, -0.6992048), (cand->frequency-140.5285)*1800, cand->snr);
-
-	cont|=search_dec(cand, resolution*0.5);*/
+*/
+/*	cont|=search_dec(cand, resolution*0.125, 128);*/
 /*	compute_scores(cand, 0);*/
 // 	compute_scores(cand, 0);
-// 	DISTANCE_PRINTF
+//  	DISTANCE_PRINTF
+// 	exit(0);
 
-// 	cont=chase_ra(cand);
+// 	cont+=chase_ra(cand);
 // /*	compute_scores(cand, 0);*/
 // 	DISTANCE_PRINTF
 // 
-// 	cont|=chase_dec(cand);
-// /*	compute_scores(cand, 0);*/
-// 	DISTANCE_PRINTF
-
-// /*	while(search_iota(cand, M_PI/256.0))cont|=1;
-// /*	cont|=chase_iota(cand);*/
-// /*	compute_scores(cand, 0);*/
-// 	compute_scores(cand, 0);
-// 	DISTANCE_PRINTF
-// 	output_candidate(stderr, "", cand);*/
-// 	
-// /*	cont|=search_psi(cand, M_PI/256.0);*/
-// 	cont|=chase_psi(cand);
+// 	cont+=chase_dec(cand);
 // /*	compute_scores(cand, 0);*/
 // 	DISTANCE_PRINTF
 // 
-/*	cont|=chase_frequency1(cand);
-	compute_scores(cand, 0);
-	DISTANCE_PRINTF
-	output_candidate(stderr, "", cand);*/
+// // /*	while(search_iota(cand, M_PI/256.0))cont|=1;
+// // /*	cont|=chase_iota(cand);*/
+// // /*	compute_scores(cand, 0);*/
+// // 	compute_scores(cand, 0);
+// // 	DISTANCE_PRINTF
+// // 	output_candidate(stderr, "", cand);*/
+// // 	
+// // /*	cont|=search_psi(cand, M_PI/256.0);*/
+// // 	cont|=chase_psi(cand);
+// // /*	compute_scores(cand, 0);*/
+// // 	DISTANCE_PRINTF
 // 
-//  	cont|=chase_spindown(cand);
+// 	cont+=chase_frequency1(cand);
+// /*	compute_scores(cand, 0);*/
+// 	DISTANCE_PRINTF
+// // 	output_candidate(stderr, "", cand);
+// 
+//  	cont+=chase_spindown(cand);
 // /* 	compute_scores(cand, 0);*/
 //  	DISTANCE_PRINTF
+
+	cont+=search_gradient_vec(cand, 64);
+  	DISTANCE_PRINTF
 
 // 	cont|=fit_psi(cand, M_PI/64.0);
 //  	DISTANCE_PRINTF
@@ -3134,15 +3725,15 @@ for(i=0;i<1000;i++) {
 // 	output_candidate(stderr, "", cand);
 
 // 	cont|=search_monte_carlo(cand, resolution*5, 2e-10, 1000);
-
-// /*/*	cont+=search_frequency(cand, 0.02/1800.0, 256);
+// /*
+// 	cont+=search_frequency(cand, 0.01/1800.0, 64);
 // /*	compute_scores(cand, 0);*/
 //  	DISTANCE_PRINTF
 // 	output_candidate(stderr, "", cand);
-// 
- 	cont+=search_alignment(cand);
-  	DISTANCE_PRINTF
-// 
+
+// /* 	cont+=search_alignment(cand);
+//   	DISTANCE_PRINTF*/
+// // 
 // 	cont+=search_psi(cand, factor*M_PI/512.0, 128);
 // 	//compute_scores(cand, 0);
 //  	DISTANCE_PRINTF
@@ -3153,24 +3744,25 @@ for(i=0;i<1000;i++) {
 // 	DISTANCE_PRINTF
 // 	output_candidate(stderr, "", cand);
 // 
-// 	cont+=search_ra(cand, factor*0.5*resolution*0.125/(cos(cand->dec)+0.001), 256);
+// 	cont+=search_ra(cand, 0.01*resolution*0.125/(cos(cand->dec)+0.001), 128);
 // 	//compute_scores(cand, 0);
 //  	DISTANCE_PRINTF
 // 	output_candidate(stderr, "", cand);
 // 
-// 	cont+=search_dec(cand, factor*0.5*resolution*0.125, 256);
+// 	cont+=search_dec(cand, 0.01*resolution*0.125, 128);
 // 	//compute_scores(cand, 0);
 //  	DISTANCE_PRINTF
 // 	output_candidate(stderr, "", cand);
 // 
-// 	cont+=search_spindown(cand, factor*1e-11, 128);
+// 	cont+=search_spindown(cand, 1e-11, 128);
 // /*	compute_scores(cand, 0);*/
 //  	DISTANCE_PRINTF
 // 	output_candidate(stderr, "", cand);
-// */*/
 
-	cont+=search_all(cand);
-	DISTANCE_PRINTF
+
+
+//  	cont+=search_all(cand);
+// 	DISTANCE_PRINTF
 
 // 	for(ra_dir=0; ra_dir<=1;ra_dir++) {
 // 	for(dec_dir=-1; dec_dir<=1;dec_dir++) {
