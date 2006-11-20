@@ -1048,6 +1048,10 @@ if(!strncasecmp(line, "veto_segments_file", 18)) {
 if(!strncasecmp(line, "apply_hanning_filter", 20)) {
 	apply_hanning_filter(&(datasets[d_free-1]));
 	} else
+if(!strncasecmp(line, "gaussian_fill_seed", 18)) {
+	locate_arg(line, length, 1, &ai, &aj);
+	sscanf(&(line[ai]), "%ld", &fill_seed);
+	} else
 if(!strncasecmp(line, "gaussian_fill", 13)) {
 	INT64 gps_start;
 	int step, count;
