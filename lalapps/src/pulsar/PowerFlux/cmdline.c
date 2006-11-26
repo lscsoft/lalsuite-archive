@@ -33,10 +33,11 @@ const char *gengetopt_args_info_help[] = {
   "      --sky-grid=STRING         sky grid type (arcsin, plain_rectangular, \n                                  sin_theta)  (default=`sin_theta')",
   "      --skymap-orientation=STRING\n                                orientation of produced skymaps: equatorial, \n                                  ecliptic, band_axis  (default=`equatorial')",
   "      --skyband-method=STRING   method of assigning band numbers: angle, S  \n                                  (default=`S')",
-  "      --nskybands=INT           split sky in this many bands for logging \n                                  maximum upper limits  (default=`5')",
+  "      --nskybands=INT           split sky in this many bands for logging \n                                  maximum upper limits  (default=`11')",
   "      --large-S=DOUBLE          value of S to consider good enough",
   "      --band-axis=STRING        which band axis to use for splitting sky into \n                                  bands (perpendicular to band axis) (possible \n                                  values: equatorial, auto, \n                                  explicit(float,float,float)  (default=`auto')",
   "      --band-axis-norm=DOUBLE   norm of band axis vector to use in S value \n                                  calculation",
+  "      --sky-marks-file=STRING   file describing how to mark up a sky",
   "      --fine-factor=INT         make fine grid this times finer  (default=`5')",
   "      --skymap-resolution=DOUBLE\n                                specify skymap resolution explicitly",
   "      --skymap-resolution-ratio=DOUBLE\n                                adjust default coarseness of the grid by this \n                                  factor  (default=`1.0')",
@@ -100,7 +101,7 @@ const char *gengetopt_args_info_help[] = {
   "      --fake-strain=DOUBLE      amplitude of fake signal to inject  \n                                  (default=`1e-23')",
   "      --fake-freq=DOUBLE        frequency of fake signal to inject",
   "      --snr-precision=DOUBLE    Assumed level of error in detection strength - \n                                  used for listing candidates  (default=`0.2')",
-  "      --max-candidates=INT      Do not output more than this number of \n                                  candidates  (default=`10000')",
+  "      --max-candidates=INT      Do not output more than this number of \n                                  candidates  (default=`0')",
     0
 };
 
@@ -154,6 +155,7 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->large_S_given = 0 ;
   args_info->band_axis_given = 0 ;
   args_info->band_axis_norm_given = 0 ;
+  args_info->sky_marks_file_given = 0 ;
   args_info->fine_factor_given = 0 ;
   args_info->skymap_resolution_given = 0 ;
   args_info->skymap_resolution_ratio_given = 0 ;
@@ -233,12 +235,14 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->skymap_orientation_orig = NULL;
   args_info->skyband_method_arg = gengetopt_strdup ("S");
   args_info->skyband_method_orig = NULL;
-  args_info->nskybands_arg = 5;
+  args_info->nskybands_arg = 11;
   args_info->nskybands_orig = NULL;
   args_info->large_S_orig = NULL;
   args_info->band_axis_arg = gengetopt_strdup ("auto");
   args_info->band_axis_orig = NULL;
   args_info->band_axis_norm_orig = NULL;
+  args_info->sky_marks_file_arg = NULL;
+  args_info->sky_marks_file_orig = NULL;
   args_info->fine_factor_arg = 5;
   args_info->fine_factor_orig = NULL;
   args_info->skymap_resolution_orig = NULL;
@@ -350,7 +354,7 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->fake_freq_orig = NULL;
   args_info->snr_precision_arg = 0.2;
   args_info->snr_precision_orig = NULL;
-  args_info->max_candidates_arg = 10000;
+  args_info->max_candidates_arg = 0;
   args_info->max_candidates_orig = NULL;
   
 }
@@ -369,69 +373,70 @@ void init_args_info(struct gengetopt_args_info *args_info)
   args_info->large_S_help = gengetopt_args_info_help[8] ;
   args_info->band_axis_help = gengetopt_args_info_help[9] ;
   args_info->band_axis_norm_help = gengetopt_args_info_help[10] ;
-  args_info->fine_factor_help = gengetopt_args_info_help[11] ;
-  args_info->skymap_resolution_help = gengetopt_args_info_help[12] ;
-  args_info->skymap_resolution_ratio_help = gengetopt_args_info_help[13] ;
-  args_info->small_weight_ratio_help = gengetopt_args_info_help[14] ;
-  args_info->strain_norm_factor_help = gengetopt_args_info_help[15] ;
-  args_info->input_help = gengetopt_args_info_help[16] ;
-  args_info->lock_file_help = gengetopt_args_info_help[17] ;
-  args_info->enable_dataset_locking_help = gengetopt_args_info_help[18] ;
-  args_info->dataset_help = gengetopt_args_info_help[19] ;
-  args_info->input_munch_help = gengetopt_args_info_help[20] ;
-  args_info->input_format_help = gengetopt_args_info_help[21] ;
-  args_info->segments_file_help = gengetopt_args_info_help[22] ;
-  args_info->veto_segments_file_help = gengetopt_args_info_help[23] ;
-  args_info->dump_data_help = gengetopt_args_info_help[24] ;
-  args_info->output_help = gengetopt_args_info_help[25] ;
-  args_info->ephemeris_path_help = gengetopt_args_info_help[26] ;
-  args_info->earth_ephemeris_help = gengetopt_args_info_help[27] ;
-  args_info->sun_ephemeris_help = gengetopt_args_info_help[28] ;
-  args_info->first_bin_help = gengetopt_args_info_help[29] ;
-  args_info->nbins_help = gengetopt_args_info_help[30] ;
-  args_info->side_cut_help = gengetopt_args_info_help[31] ;
-  args_info->expected_timebase_help = gengetopt_args_info_help[32] ;
-  args_info->hist_bins_help = gengetopt_args_info_help[33] ;
-  args_info->detector_help = gengetopt_args_info_help[34] ;
-  args_info->spindown_start_time_help = gengetopt_args_info_help[35] ;
-  args_info->spindown_start_help = gengetopt_args_info_help[36] ;
-  args_info->spindown_step_help = gengetopt_args_info_help[37] ;
-  args_info->spindown_count_help = gengetopt_args_info_help[38] ;
-  args_info->orientation_help = gengetopt_args_info_help[39] ;
-  args_info->nlinear_polarizations_help = gengetopt_args_info_help[40] ;
-  args_info->no_demodulation_help = gengetopt_args_info_help[41] ;
-  args_info->no_decomposition_help = gengetopt_args_info_help[42] ;
-  args_info->no_candidates_help = gengetopt_args_info_help[43] ;
-  args_info->no_am_response_help = gengetopt_args_info_help[44] ;
-  args_info->averaging_mode_help = gengetopt_args_info_help[45] ;
-  args_info->subtract_background_help = gengetopt_args_info_help[46] ;
-  args_info->do_cutoff_help = gengetopt_args_info_help[47] ;
-  args_info->filter_lines_help = gengetopt_args_info_help[48] ;
-  args_info->ks_test_help = gengetopt_args_info_help[49] ;
-  args_info->compute_betas_help = gengetopt_args_info_help[50] ;
-  args_info->upper_limit_comp_help = gengetopt_args_info_help[51] ;
-  args_info->lower_limit_comp_help = gengetopt_args_info_help[52] ;
-  args_info->write_dat_help = gengetopt_args_info_help[53] ;
-  args_info->write_png_help = gengetopt_args_info_help[54] ;
-  args_info->dump_points_help = gengetopt_args_info_help[55] ;
-  args_info->dump_candidates_help = gengetopt_args_info_help[56] ;
-  args_info->focus_ra_help = gengetopt_args_info_help[57] ;
-  args_info->focus_dec_help = gengetopt_args_info_help[58] ;
-  args_info->focus_radius_help = gengetopt_args_info_help[59] ;
-  args_info->only_large_cos_help = gengetopt_args_info_help[60] ;
-  args_info->fake_linear_help = gengetopt_args_info_help[61] ;
-  args_info->fake_circular_help = gengetopt_args_info_help[62] ;
-  args_info->fake_ref_time_help = gengetopt_args_info_help[63] ;
-  args_info->fake_ra_help = gengetopt_args_info_help[64] ;
-  args_info->fake_dec_help = gengetopt_args_info_help[65] ;
-  args_info->fake_iota_help = gengetopt_args_info_help[66] ;
-  args_info->fake_psi_help = gengetopt_args_info_help[67] ;
-  args_info->fake_phi_help = gengetopt_args_info_help[68] ;
-  args_info->fake_spindown_help = gengetopt_args_info_help[69] ;
-  args_info->fake_strain_help = gengetopt_args_info_help[70] ;
-  args_info->fake_freq_help = gengetopt_args_info_help[71] ;
-  args_info->snr_precision_help = gengetopt_args_info_help[72] ;
-  args_info->max_candidates_help = gengetopt_args_info_help[73] ;
+  args_info->sky_marks_file_help = gengetopt_args_info_help[11] ;
+  args_info->fine_factor_help = gengetopt_args_info_help[12] ;
+  args_info->skymap_resolution_help = gengetopt_args_info_help[13] ;
+  args_info->skymap_resolution_ratio_help = gengetopt_args_info_help[14] ;
+  args_info->small_weight_ratio_help = gengetopt_args_info_help[15] ;
+  args_info->strain_norm_factor_help = gengetopt_args_info_help[16] ;
+  args_info->input_help = gengetopt_args_info_help[17] ;
+  args_info->lock_file_help = gengetopt_args_info_help[18] ;
+  args_info->enable_dataset_locking_help = gengetopt_args_info_help[19] ;
+  args_info->dataset_help = gengetopt_args_info_help[20] ;
+  args_info->input_munch_help = gengetopt_args_info_help[21] ;
+  args_info->input_format_help = gengetopt_args_info_help[22] ;
+  args_info->segments_file_help = gengetopt_args_info_help[23] ;
+  args_info->veto_segments_file_help = gengetopt_args_info_help[24] ;
+  args_info->dump_data_help = gengetopt_args_info_help[25] ;
+  args_info->output_help = gengetopt_args_info_help[26] ;
+  args_info->ephemeris_path_help = gengetopt_args_info_help[27] ;
+  args_info->earth_ephemeris_help = gengetopt_args_info_help[28] ;
+  args_info->sun_ephemeris_help = gengetopt_args_info_help[29] ;
+  args_info->first_bin_help = gengetopt_args_info_help[30] ;
+  args_info->nbins_help = gengetopt_args_info_help[31] ;
+  args_info->side_cut_help = gengetopt_args_info_help[32] ;
+  args_info->expected_timebase_help = gengetopt_args_info_help[33] ;
+  args_info->hist_bins_help = gengetopt_args_info_help[34] ;
+  args_info->detector_help = gengetopt_args_info_help[35] ;
+  args_info->spindown_start_time_help = gengetopt_args_info_help[36] ;
+  args_info->spindown_start_help = gengetopt_args_info_help[37] ;
+  args_info->spindown_step_help = gengetopt_args_info_help[38] ;
+  args_info->spindown_count_help = gengetopt_args_info_help[39] ;
+  args_info->orientation_help = gengetopt_args_info_help[40] ;
+  args_info->nlinear_polarizations_help = gengetopt_args_info_help[41] ;
+  args_info->no_demodulation_help = gengetopt_args_info_help[42] ;
+  args_info->no_decomposition_help = gengetopt_args_info_help[43] ;
+  args_info->no_candidates_help = gengetopt_args_info_help[44] ;
+  args_info->no_am_response_help = gengetopt_args_info_help[45] ;
+  args_info->averaging_mode_help = gengetopt_args_info_help[46] ;
+  args_info->subtract_background_help = gengetopt_args_info_help[47] ;
+  args_info->do_cutoff_help = gengetopt_args_info_help[48] ;
+  args_info->filter_lines_help = gengetopt_args_info_help[49] ;
+  args_info->ks_test_help = gengetopt_args_info_help[50] ;
+  args_info->compute_betas_help = gengetopt_args_info_help[51] ;
+  args_info->upper_limit_comp_help = gengetopt_args_info_help[52] ;
+  args_info->lower_limit_comp_help = gengetopt_args_info_help[53] ;
+  args_info->write_dat_help = gengetopt_args_info_help[54] ;
+  args_info->write_png_help = gengetopt_args_info_help[55] ;
+  args_info->dump_points_help = gengetopt_args_info_help[56] ;
+  args_info->dump_candidates_help = gengetopt_args_info_help[57] ;
+  args_info->focus_ra_help = gengetopt_args_info_help[58] ;
+  args_info->focus_dec_help = gengetopt_args_info_help[59] ;
+  args_info->focus_radius_help = gengetopt_args_info_help[60] ;
+  args_info->only_large_cos_help = gengetopt_args_info_help[61] ;
+  args_info->fake_linear_help = gengetopt_args_info_help[62] ;
+  args_info->fake_circular_help = gengetopt_args_info_help[63] ;
+  args_info->fake_ref_time_help = gengetopt_args_info_help[64] ;
+  args_info->fake_ra_help = gengetopt_args_info_help[65] ;
+  args_info->fake_dec_help = gengetopt_args_info_help[66] ;
+  args_info->fake_iota_help = gengetopt_args_info_help[67] ;
+  args_info->fake_psi_help = gengetopt_args_info_help[68] ;
+  args_info->fake_phi_help = gengetopt_args_info_help[69] ;
+  args_info->fake_spindown_help = gengetopt_args_info_help[70] ;
+  args_info->fake_strain_help = gengetopt_args_info_help[71] ;
+  args_info->fake_freq_help = gengetopt_args_info_help[72] ;
+  args_info->snr_precision_help = gengetopt_args_info_help[73] ;
+  args_info->max_candidates_help = gengetopt_args_info_help[74] ;
   
 }
 
@@ -541,6 +546,16 @@ cmdline_parser_release (struct gengetopt_args_info *args_info)
     {
       free (args_info->band_axis_norm_orig); /* free previous argument */
       args_info->band_axis_norm_orig = 0;
+    }
+  if (args_info->sky_marks_file_arg)
+    {
+      free (args_info->sky_marks_file_arg); /* free previous argument */
+      args_info->sky_marks_file_arg = 0;
+    }
+  if (args_info->sky_marks_file_orig)
+    {
+      free (args_info->sky_marks_file_orig); /* free previous argument */
+      args_info->sky_marks_file_orig = 0;
     }
   if (args_info->fine_factor_orig)
     {
@@ -1022,6 +1037,13 @@ cmdline_parser_file_save(const char *filename, struct gengetopt_args_info *args_
       fprintf(outfile, "%s=\"%s\"\n", "band-axis-norm", args_info->band_axis_norm_orig);
     } else {
       fprintf(outfile, "%s\n", "band-axis-norm");
+    }
+  }
+  if (args_info->sky_marks_file_given) {
+    if (args_info->sky_marks_file_orig) {
+      fprintf(outfile, "%s=\"%s\"\n", "sky-marks-file", args_info->sky_marks_file_orig);
+    } else {
+      fprintf(outfile, "%s\n", "sky-marks-file");
     }
   }
   if (args_info->fine_factor_given) {
@@ -1565,6 +1587,7 @@ cmdline_parser_internal (int argc, char * const *argv, struct gengetopt_args_inf
         { "large-S",	1, NULL, 0 },
         { "band-axis",	1, NULL, 0 },
         { "band-axis-norm",	1, NULL, 0 },
+        { "sky-marks-file",	1, NULL, 0 },
         { "fine-factor",	1, NULL, 0 },
         { "skymap-resolution",	1, NULL, 0 },
         { "skymap-resolution-ratio",	1, NULL, 0 },
@@ -1937,6 +1960,25 @@ cmdline_parser_internal (int argc, char * const *argv, struct gengetopt_args_inf
             if (args_info->band_axis_norm_orig)
               free (args_info->band_axis_norm_orig); /* free previous string */
             args_info->band_axis_norm_orig = gengetopt_strdup (optarg);
+          }
+          /* file describing how to mark up a sky.  */
+          else if (strcmp (long_options[option_index].name, "sky-marks-file") == 0)
+          {
+            if (local_args_info.sky_marks_file_given)
+              {
+                fprintf (stderr, "%s: `--sky-marks-file' option given more than once%s\n", argv[0], (additional_error ? additional_error : ""));
+                goto failure;
+              }
+            if (args_info->sky_marks_file_given && ! override)
+              continue;
+            local_args_info.sky_marks_file_given = 1;
+            args_info->sky_marks_file_given = 1;
+            if (args_info->sky_marks_file_arg)
+              free (args_info->sky_marks_file_arg); /* free previous string */
+            args_info->sky_marks_file_arg = gengetopt_strdup (optarg);
+            if (args_info->sky_marks_file_orig)
+              free (args_info->sky_marks_file_orig); /* free previous string */
+            args_info->sky_marks_file_orig = gengetopt_strdup (optarg);
           }
           /* make fine grid this times finer.  */
           else if (strcmp (long_options[option_index].name, "fine-factor") == 0)

@@ -41,7 +41,7 @@ struct gengetopt_args_info
   char * skyband_method_arg;	/* method of assigning band numbers: angle, S (default='S').  */
   char * skyband_method_orig;	/* method of assigning band numbers: angle, S original value given at command line.  */
   const char *skyband_method_help; /* method of assigning band numbers: angle, S help description.  */
-  int nskybands_arg;	/* split sky in this many bands for logging maximum upper limits (default='5').  */
+  int nskybands_arg;	/* split sky in this many bands for logging maximum upper limits (default='11').  */
   char * nskybands_orig;	/* split sky in this many bands for logging maximum upper limits original value given at command line.  */
   const char *nskybands_help; /* split sky in this many bands for logging maximum upper limits help description.  */
   double large_S_arg;	/* value of S to consider good enough.  */
@@ -53,6 +53,9 @@ struct gengetopt_args_info
   double band_axis_norm_arg;	/* norm of band axis vector to use in S value calculation.  */
   char * band_axis_norm_orig;	/* norm of band axis vector to use in S value calculation original value given at command line.  */
   const char *band_axis_norm_help; /* norm of band axis vector to use in S value calculation help description.  */
+  char * sky_marks_file_arg;	/* file describing how to mark up a sky.  */
+  char * sky_marks_file_orig;	/* file describing how to mark up a sky original value given at command line.  */
+  const char *sky_marks_file_help; /* file describing how to mark up a sky help description.  */
   int fine_factor_arg;	/* make fine grid this times finer (default='5').  */
   char * fine_factor_orig;	/* make fine grid this times finer original value given at command line.  */
   const char *fine_factor_help; /* make fine grid this times finer help description.  */
@@ -235,7 +238,7 @@ struct gengetopt_args_info
   double snr_precision_arg;	/* Assumed level of error in detection strength - used for listing candidates (default='0.2').  */
   char * snr_precision_orig;	/* Assumed level of error in detection strength - used for listing candidates original value given at command line.  */
   const char *snr_precision_help; /* Assumed level of error in detection strength - used for listing candidates help description.  */
-  int max_candidates_arg;	/* Do not output more than this number of candidates (default='10000').  */
+  int max_candidates_arg;	/* Do not output more than this number of candidates (default='0').  */
   char * max_candidates_orig;	/* Do not output more than this number of candidates original value given at command line.  */
   const char *max_candidates_help; /* Do not output more than this number of candidates help description.  */
   
@@ -250,6 +253,7 @@ struct gengetopt_args_info
   int large_S_given ;	/* Whether large-S was given.  */
   int band_axis_given ;	/* Whether band-axis was given.  */
   int band_axis_norm_given ;	/* Whether band-axis-norm was given.  */
+  int sky_marks_file_given ;	/* Whether sky-marks-file was given.  */
   int fine_factor_given ;	/* Whether fine-factor was given.  */
   int skymap_resolution_given ;	/* Whether skymap-resolution was given.  */
   int skymap_resolution_ratio_given ;	/* Whether skymap-resolution-ratio was given.  */

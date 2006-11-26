@@ -7,10 +7,11 @@ option "label"		- "arbitrary string to be printed in the beginning of PowerFlux 
 option "sky-grid"	- "sky grid type (arcsin, plain_rectangular, sin_theta)" string default="sin_theta" no
 option "skymap-orientation" - "orientation of produced skymaps: equatorial, ecliptic, band_axis" string default="equatorial" no
 option "skyband-method"   - "method of assigning band numbers: angle, S" string default="S" no
-option "nskybands"		- "split sky in this many bands for logging maximum upper limits" int default="5" no
+option "nskybands"		- "split sky in this many bands for logging maximum upper limits" int default="11" no
 option "large-S"		- "value of S to consider good enough" double no
 option "band-axis"	- "which band axis to use for splitting sky into bands (perpendicular to band axis) (possible values: equatorial, auto, explicit(float,float,float)" string default="auto" no
 option "band-axis-norm"	- "norm of band axis vector to use in S value calculation" double no
+option "sky-marks-file"	- "file describing how to mark up a sky" string no
 
 option "fine-factor"	-  "make fine grid this times finer"	int default="5" no
 option "skymap-resolution" - "specify skymap resolution explicitly" double no
@@ -89,4 +90,4 @@ option "fake-strain"	- "amplitude of fake signal to inject" double default="1e-2
 option "fake-freq"	- "frequency of fake signal to inject" double no
 
 option "snr-precision"	- "Assumed level of error in detection strength - used for listing candidates" double default="0.2" no
-option "max-candidates"	- "Do not output more than this number of candidates" int default="10000" no
+option "max-candidates"	- "Do not output more than this number of candidates" int default="0" no

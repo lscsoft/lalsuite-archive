@@ -43,6 +43,10 @@ double large_S=-1;
 
 int first_bin;
 
+char *sky_marks=NULL;
+int sky_marks_free=0;
+int sky_marks_size=0;
+
 #if 0
 
 float *TMedians=NULL,*FMedians=NULL, *expTMedians=NULL, *hours=NULL,*frequencies=NULL,*ks_test=NULL,*median=NULL,
@@ -83,6 +87,8 @@ void *do_alloc(long a, long b)
 {
 void *r;
 int i=0;
+if(a<1)a=1;
+if(b<1)b=1;
 r=calloc(a,b);
 while(r==NULL){
 	fprintf(stderr,"Could not allocate %ld chunks of %ld bytes each (%ld bytes total)\n",a,b,a*b);
@@ -572,6 +578,7 @@ fprintf(LOG,"nbins     : %d\n",nbins);
 fprintf(LOG,"side_cut  : %d\n",side_cut);
 fprintf(LOG,"useful bins : %d\n",useful_bins);
 fprintf(LOG,"useful band start: %g Hz\n",(first_bin+side_cut)/1800.0);
+fprintf(LOG,"averaging mode: %s\n", args_info.averaging_mode_arg);
 
 fprintf(LOG,"patch_type: %s\n", patch_grid->name);
 fprintf(LOG,"patch_grid: %dx%d\n", patch_grid->max_n_ra, patch_grid->max_n_dec);
@@ -625,6 +632,32 @@ if(args_info.input_given){
 	read_directory(args_info.input_arg,1,4000, first_bin, nbins, &nsegments, &power, &gps);
 	#endif
 	}
+
+if(args_info.sky_marks_file_given) {
+	FILE *f;
+	int a;
+	f=fopen(args_info.sky_marks_file_arg, "r");
+	sky_marks_size=10000;
+	sky_marks=do_alloc(sky_marks_size, sizeof(char));
+	sky_marks_free=0;
+
+	while(1) {
+		a=fread(&(sky_marks[sky_marks_free]), 1, 10000, f);
+		if(a>0)sky_marks_free+=a;
+		if(a<10000)break;
+
+		if(sky_marks_free+10000>=sky_marks_size) {
+			char *p;
+			sky_marks_size*=2;
+			p=do_alloc(sky_marks_size, sizeof(char));
+			memcpy(p, sky_marks, sky_marks_free);
+			free(sky_marks);
+			sky_marks=p;
+			}
+		}
+	fclose(f);
+	}
+		
 
 time(&stage_time);
 fprintf(LOG, "input complete: %d\n", stage_time-start_time);
@@ -831,6 +864,15 @@ if(args_info.no_demodulation_arg){
 
 output_datasets_info();
 
+
+/* this is so we know how many skybands we have */
+if(sky_marks!=NULL) {
+	process_marks(fine_grid, sky_marks, sky_marks_free);
+	process_marks(patch_grid, sky_marks, sky_marks_free);
+	} else {
+	S_assign_bands(fine_grid, args_info.nskybands_arg, large_S, spindown, (first_bin+nbins*0.5)/1800.0);
+	}
+
 init_fine_grid_stage();
 
 subinstance_name=do_alloc(20, 1);
@@ -850,22 +892,27 @@ for(subinstance=0;subinstance<args_info.spindown_count_arg;subinstance++){
 	fprintf(stderr,"-------------------------------- SUBINSTANCE %d ------------------------------\n", subinstance);
 	fprintf(stderr, "subinstance name: \"%s\"\n", subinstance_name);
 
-	/* assign bands */
-	if(!strcasecmp("S", args_info.skyband_method_arg)) {
-		S_assign_bands(patch_grid, args_info.nskybands_arg, large_S, spindown, (first_bin+nbins*0.5)/1800.0);
-		S_assign_bands(fine_grid, args_info.nskybands_arg, large_S, spindown, (first_bin+nbins*0.5)/1800.0);
-		} else 
-	if(!strcasecmp("angle", args_info.skyband_method_arg)) {
-		angle_assign_bands(patch_grid, args_info.nskybands_arg);
-		angle_assign_bands(fine_grid, args_info.nskybands_arg);		
+	if(sky_marks!=NULL) {
+		process_marks(fine_grid, sky_marks, sky_marks_free);
+		process_marks(patch_grid, sky_marks, sky_marks_free);
 		} else {
-		fprintf(stderr, "*** ERROR: unknown band assigment method \"%s\"\n",
-			args_info.skyband_method_arg);
-		fprintf(LOG, "*** ERROR: unknown band assigment method \"%s\"\n",
-			args_info.skyband_method_arg);
-		exit(-1);
+
+		/* assign bands */
+		if(!strcasecmp("S", args_info.skyband_method_arg)) {
+			S_assign_bands(patch_grid, args_info.nskybands_arg, large_S, spindown, (first_bin+nbins*0.5)/1800.0);
+			S_assign_bands(fine_grid, args_info.nskybands_arg, large_S, spindown, (first_bin+nbins*0.5)/1800.0);
+			} else 
+		if(!strcasecmp("angle", args_info.skyband_method_arg)) {
+			angle_assign_bands(patch_grid, args_info.nskybands_arg);
+			angle_assign_bands(fine_grid, args_info.nskybands_arg);		
+			} else {
+			fprintf(stderr, "*** ERROR: unknown band assigment method \"%s\"\n",
+				args_info.skyband_method_arg);
+			fprintf(LOG, "*** ERROR: unknown band assigment method \"%s\"\n",
+				args_info.skyband_method_arg);
+			exit(-1);
+			}
 		}
-		
 	/* mask points if requested */
 	
 	if(args_info.focus_ra_given && 
@@ -885,13 +932,13 @@ for(subinstance=0;subinstance<args_info.spindown_count_arg;subinstance++){
 		}
 
 
+	print_grid_statistics(LOG, subinstance_name, fine_grid);
 
-	plot_grid_f(p, fine_grid, fine_grid->band_f,1);
+	plot_grid_f(p, fine_grid, fine_grid->band_f, 1);
 	snprintf(s, 20000, "%sbands.png", subinstance_name);
 	RGBPic_dump_png(s, p);
 	snprintf(s, 20000, "%sbands.dat", subinstance_name);
 	dump_ints(s, fine_grid->band, fine_grid->npoints, 1);
-	print_grid_statistics(LOG, subinstance_name, fine_grid);
 	
 	fflush(LOG);
 

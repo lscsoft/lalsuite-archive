@@ -335,6 +335,94 @@ for(i=0,kk=super_grid->first_map[pi];kk>=0;kk=super_grid->list_map[kk],i++)
 
 /* Use matched filter to estimate power */
 
+struct {
+	DATASET *d;
+	int segment;
+	float **power;
+	float *shift;
+	int free;
+	int size;
+	int hits;
+	long long total_hits;
+	long long total_misses;
+	} power_cache = {
+	d: NULL,
+	segment: -1,
+	power: NULL,
+	shift: NULL,
+	free: 0,
+	size: 0,
+	hits: 0,
+	total_hits: 0,
+	total_misses: 0
+	};
+
+float *get_matched_power(float shift, DATASET *d, int k)
+{
+float *bin_re, *bin_im;
+int i, m, bin_shift;
+float filter[7];
+float *power;
+float x, y;
+
+if( (power_cache.d!=d) || power_cache.segment!=k) {
+	power_cache.d=d;
+	power_cache.segment=k;
+	power_cache.free=0;
+	if(power_cache.size==0) {
+		power_cache.size=100;
+		power_cache.power=do_alloc(power_cache.size, sizeof(*power_cache.power));
+		power_cache.shift=do_alloc(power_cache.size, sizeof(*power_cache.shift));
+		for(i=0;i<power_cache.size;i++) {
+			power_cache.power[i]=do_alloc(nbins-2*side_cut, sizeof(**power_cache.power));
+			}
+		}
+	}
+
+for(m=0;m<power_cache.free;m++) {
+	/* There is no difference in SNR between 0.01 and 0.05, while
+           there are substantial savings in run time (at least 14%) */
+	if(fabs(power_cache.shift[m]-shift)<0.05) {
+		power_cache.hits++;
+		return(power_cache.power[m]);
+		}
+	}
+power_cache.total_misses++;
+power_cache.total_hits+=power_cache.hits+1;
+power_cache.hits=0;
+m=power_cache.free;
+power_cache.free++;
+
+if(m>=power_cache.size) {
+	fprintf(stderr, "Aieee ! power cache overflowed\n");
+	exit(-1);
+	}
+
+power_cache.shift[m]=shift;
+
+bin_shift=rintf(shift);
+
+bin_re=&(d->re[k*nbins+side_cut+bin_shift]);
+bin_im=&(d->im[k*nbins+side_cut+bin_shift]);
+
+tabulated_fill_hann_filter7(filter, (shift-bin_shift));
+
+power=power_cache.power[m];
+
+for(i=nbins-2*side_cut;i>0;i--) {
+	
+	x=bin_re[-3]*filter[0]+bin_re[-2]*filter[1]+bin_re[-1]*filter[2]+bin_re[0]*filter[3]+bin_re[1]*filter[4]+bin_re[2]*filter[5]+bin_re[3]*filter[6];
+	y=bin_im[-3]*filter[0]+bin_im[-2]*filter[1]+bin_im[-1]*filter[2]+bin_im[0]*filter[3]+bin_im[1]*filter[4]+bin_im[2]*filter[5]+bin_im[3]*filter[6];
+
+	*power=x*x+y*y;
+	bin_re++;
+	bin_im++;
+	power++;
+	}
+
+return(power_cache.power[m]);
+}
+
 static void process_patch_matched(DATASET *d, int pol_index, int pi, int k, float CutOff)
 {
 int i,kk,b,b0,b1,n,offset;
@@ -342,18 +430,15 @@ int bin_shift;
 SUM_TYPE mod;
 SUM_TYPE a,w,w2;
 SUM_TYPE *sum,*sq_sum;
-float x, y, power;
+float *power;
 float doppler;
 float f_plus, f_cross, beta1, beta2;
 POLARIZATION_RESULTS *pr=&(polarization_results[pol_index]);
 POLARIZATION *pl=&(d->polarizations[pol_index]);
-float filter[7];
 float shift;
-COMPLEX *bin;
 
 
 CutOff=2*CutOff; /* weighted sum can benefit from more SFTs */
-
 
 for(i=0,kk=super_grid->first_map[pi];kk>=0;kk=super_grid->list_map[kk],i++)
 		{
@@ -377,8 +462,6 @@ for(i=0,kk=super_grid->first_map[pi];kk>=0;kk=super_grid->list_map[kk],i++)
 
 		shift=((first_bin+nbins*0.5)*doppler+d->coherence_time*spindown*(d->gps[k]-spindown_start));
 		bin_shift=rintf(shift);
-
-		tabulated_fill_hann_filter7(filter, (shift-bin_shift));
 
 		if(bin_shift>max_shift)max_shift=bin_shift;
 		if(bin_shift<min_shift)min_shift=bin_shift;
@@ -418,29 +501,25 @@ for(i=0,kk=super_grid->first_map[pi];kk>=0;kk=super_grid->list_map[kk],i++)
 		#ifdef COMPUTE_SIGMA
 		sq_sum=&(pr->fine_grid_sq_sum[useful_bins*i]);
 		#endif
-		bin=&(d->bin[k*nbins+b0]);
+
+		power=get_matched_power(shift, d, k);
 
 		/* cycle over bins */
-		for(b=b0;b<b1;b++){
+		for(b=b0;b<b1;b++) {
 			
-			x=bin[-3].re*filter[0]+bin[-2].re*filter[1]+bin[-1].re*filter[2]+bin[0].re*filter[3]+bin[1].re*filter[4]+bin[2].re*filter[5]+bin[3].re*filter[6];
-			y=bin[-3].im*filter[0]+bin[-2].im*filter[1]+bin[-1].im*filter[2]+bin[0].im*filter[3]+bin[1].im*filter[4]+bin[2].im*filter[5]+bin[3].im*filter[6];
-
-			power=x*x+y*y;
-
 			#ifdef WEIGHTED_SUM
-			a=power*w2;
+			a=(*power)*w2;
 			(*sum)+=a;
 			#else
-			a=power*mod;
+			a=(*power)*mod;
 			(*sum)+=a;
 			#ifdef COMPUTE_SIGMA
 			(*sq_sum)+=a*a;
 			sq_sum++;
-			#endif			
 			#endif
-		
-			bin++;
+			#endif
+
+			power++;	
 			sum++;
 			}
 
@@ -474,7 +553,6 @@ for(i=0,kk=super_grid->first_map[pi];kk>=0;kk=super_grid->list_map[kk],i++)
 			}
 		#endif
 		}
-
 }
 
 
@@ -687,11 +765,11 @@ HISTOGRAM *hist;
 freq_f=do_alloc(useful_bins, sizeof(*freq_f));
 for(i=0;i<useful_bins;i++)freq_f[i]=(first_bin+side_cut+i)/1800.0;
 
-max_band=do_alloc(args_info.nskybands_arg, sizeof(*max_band));
-masked_max_band=do_alloc(args_info.nskybands_arg, sizeof(*max_band));
-max_band_arg=do_alloc(args_info.nskybands_arg, sizeof(*max_band_arg));
-masked_max_band_arg=do_alloc(args_info.nskybands_arg, sizeof(*max_band_arg));
-hist=new_histogram(args_info.hist_bins_arg, args_info.nskybands_arg);
+max_band=do_alloc(fine_grid->nbands, sizeof(*max_band));
+masked_max_band=do_alloc(fine_grid->nbands, sizeof(*max_band));
+max_band_arg=do_alloc(fine_grid->nbands, sizeof(*max_band_arg));
+masked_max_band_arg=do_alloc(fine_grid->nbands, sizeof(*max_band_arg));
+hist=new_histogram(args_info.hist_bins_arg, fine_grid->nbands);
 
 if(fine_grid->max_n_dec<800){
 	p=make_RGBPic(fine_grid->max_n_ra*(800/fine_grid->max_n_dec)+140, fine_grid->max_n_dec*(800/fine_grid->max_n_dec));
@@ -832,7 +910,7 @@ max_dx_i=0;
 masked=0;
 largest_i=0;
 largest=0.0;
-for(i=0;i<args_info.nskybands_arg;i++){
+for(i=0;i<fine_grid->nbands;i++){
 	max_band[i]=-1.0;
 	masked_max_band[i]=-1.0;
 	max_band_arg[i]=-1;
@@ -891,7 +969,7 @@ fprintf(LOG, "largest: %f %f %s %f %g %g %f %f %f\n",fine_grid->longitude[larges
 				args_info.compute_betas_arg?pol->skymap.beta2[largest_i]:NAN);
 
 fprintf(LOG, "max/masked band format: band_num longitude latitude pol max_dx upper_strain freq beta1 beta2\n");
-for(i=0;i<args_info.nskybands_arg;i++){
+for(i=0;i<fine_grid->nbands;i++){
 	if(max_band_arg[i]<0){
 		fprintf(LOG, "max_band: %d NAN NAN %s NAN NAN NAN NAN NAN\n", i, pol->name); 
 		fprintf(LOG, "masked_max_band: %d NAN NAN %s NAN NAN NAN NAN NAN\n", i, pol->name);
@@ -955,11 +1033,11 @@ for(i=0;i<args_info.nskybands_arg;i++){
 	*/
 	}
 
-for(i=0;i<args_info.nskybands_arg*useful_bins;i++){
+for(i=0;i<fine_grid->nbands*useful_bins;i++){
 	pol->spectral_plot.max_upper_limit[i]=sqrt(pol->spectral_plot.max_upper_limit[i])*upper_limit_comp;
 	}
 
-for(i=0;i<args_info.nskybands_arg;i++){
+for(i=0;i<fine_grid->nbands;i++){
 	snprintf(s,19999,"%s%s_max_upper_strain_band_%d.png", subinstance_name, pol->name, i);
 	if(clear_name_png(s)){
 		adjust_plot_limits_f(plot, freq_f, &(pol->spectral_plot.max_upper_limit[i*useful_bins]), useful_bins, 1, 1, 1);
@@ -1033,8 +1111,8 @@ for(i=0;i<useful_bins;i++)freq_f[i]=(first_bin+side_cut+i)/1800.0;
 
 skymap_high_ul=do_alloc(fine_grid->npoints, sizeof(*skymap_high_ul));
 skymap_high_ul_freq=do_alloc(fine_grid->npoints, sizeof(*skymap_high_ul_freq));
-spectral_plot_high_ul=do_alloc(useful_bins*args_info.nskybands_arg, sizeof(*spectral_plot_high_ul));
-hist=new_histogram(args_info.hist_bins_arg, args_info.nskybands_arg);
+spectral_plot_high_ul=do_alloc(useful_bins*fine_grid->nbands, sizeof(*spectral_plot_high_ul));
+hist=new_histogram(args_info.hist_bins_arg, fine_grid->nbands);
 
 if(fine_grid->max_n_dec<800){
 	p=make_RGBPic(fine_grid->max_n_ra*(800/fine_grid->max_n_dec)+140, fine_grid->max_n_dec*(800/fine_grid->max_n_dec));
@@ -1119,7 +1197,7 @@ compute_histogram_f(hist, skymap_high_ul, fine_grid->band, fine_grid->npoints);
 print_histogram(LOG, hist, "hist_high_ul");
 
 
-for(i=0;i<useful_bins*args_info.nskybands_arg;i++){
+for(i=0;i<useful_bins*fine_grid->nbands;i++){
 	spectral_plot_circ_ul[i]=sqrt(spectral_plot_circ_ul[i])*upper_limit_comp;
 	
 	spectral_plot_high_ul[i]=polarization_results[0].spectral_plot.max_upper_limit[i];
@@ -1130,7 +1208,7 @@ for(i=0;i<useful_bins*args_info.nskybands_arg;i++){
 
 fprintf(LOG,"band upper limits: band UL freq\n");
 
-for(i=0;i<args_info.nskybands_arg;i++){
+for(i=0;i<fine_grid->nbands;i++){
 
 	max_high_ul_i=0;
 	max_high_ul=spectral_plot_high_ul[i*useful_bins];
@@ -1290,7 +1368,7 @@ circ_ul=do_alloc(stored_fine_bins*useful_bins, sizeof(*circ_ul));
 circ_ul_freq=do_alloc(stored_fine_bins*useful_bins, sizeof(*circ_ul_freq));
 skymap_circ_ul=do_alloc(fine_grid->npoints, sizeof(*skymap_circ_ul));
 skymap_circ_ul_freq=do_alloc(fine_grid->npoints, sizeof(*skymap_circ_ul_freq));
-spectral_plot_circ_ul=do_alloc(useful_bins*args_info.nskybands_arg, sizeof(*spectral_plot_circ_ul));
+spectral_plot_circ_ul=do_alloc(useful_bins*fine_grid->nbands, sizeof(*spectral_plot_circ_ul));
 
 if(!strcasecmp(args_info.averaging_mode_arg, "matched")) {
 	quantile2std=1.0;  /* TODO - make sure this number is right */
@@ -1381,7 +1459,7 @@ for(i=0;i<fine_grid->npoints;i++){
 	skymap_circ_ul[i]=-1.0;
 	skymap_circ_ul_freq[i]=-1.0;	
 	}
-for(i=0;i<useful_bins*args_info.nskybands_arg;i++){
+for(i=0;i<useful_bins*fine_grid->nbands;i++){
 	spectral_plot_circ_ul[i]=-1.0;
 	}
 	
@@ -1432,13 +1510,26 @@ for(pi=0;pi<patch_grid->npoints;pi++){
 	if(pi>300)break;
 	#endif
 	}
-fprintf(stderr,"%d ",pi);
+/* 146m59.347s  146m49.450s 
+   124m29.298s  124m17.621s
+*/
+
+fprintf(stderr,"%d\n",pi);
+
+fprintf(stderr, "Power cache hits: %lld\n", power_cache.total_hits);
+fprintf(stderr, "Power cache misses: %lld\n", power_cache.total_misses);
+
+fprintf(LOG, "Power cache hits: %lld\n", power_cache.total_hits);
+fprintf(LOG, "Power cache misses: %lld\n", power_cache.total_misses);
+
+/* reset power cache */
+power_cache.free=0;
 
 fprintf(LOG,"Maximum bin shift: %d\n", max_shift);
 fprintf(LOG,"Minimum bin shift: %d\n", min_shift);
 fflush(LOG);
 
-fprintf(stderr,"\nMaximum bin shift is %d\n", max_shift);
+fprintf(stderr,"Maximum bin shift is %d\n", max_shift);
 fprintf(stderr,"Minimum bin shift is %d\n", min_shift);
 
 fprintf(stderr, "Writing polarization specific results\n");
@@ -1448,6 +1539,8 @@ for(i=0;i<ntotal_polarizations;i++){
 	
 fprintf(stderr, "Writing unified results\n");
 output_unified_limits();
+
+fflush(LOG);
 
 if(!args_info.no_candidates_arg)identify_candidates();
 }

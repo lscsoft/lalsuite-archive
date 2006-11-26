@@ -25,6 +25,7 @@
 #include "hookup.h"
 #include "grid.h"
 #include "rastermagic.h"
+#include "hookup.h"
 #include "util.h"
 
 #include <lal/GeneratePulsarSignal.h>
@@ -128,8 +129,7 @@ static void compute_signal(double *re, double *im, double *f, double t, SIGNAL_P
 {
 float det_vel[3];
 float f_plus, f_cross;
-double doppler, freq, omega_t;
-double response;
+double doppler, omega_t;
 double hann;
 
 get_detector_vel(round(t), det_vel);
@@ -146,9 +146,6 @@ get_AM_response(round(t), p->dec, p->ra, 0.0, &f_plus, &f_cross);
   phase from the start of the run */
 omega_t=2.0*M_PI*(*f-p->bin/1800.0)*(t-p->segment_start);
 hann=(1.0-cos(2.0*M_PI*(t-p->segment_start)/1800.0));
-
-// response=f_plus*(p->a_plus*cos(omega_t)*p->cos_e-p->a_cross*sin(omega_t)*p->sin_e)+
-// 	f_cross*(p->a_plus*cos(omega_t)*p->sin_e-p->a_cross*sin(omega_t)*p->cos_e);
 
 *re=hann*f_plus*(p->a_plus*cos(omega_t)*p->cos_e-p->a_cross*sin(omega_t)*p->sin_e)+
 	f_cross*(p->a_plus*cos(omega_t)*p->sin_e+p->a_cross*sin(omega_t)*p->cos_e);
@@ -185,7 +182,6 @@ int window=5, bin;
 float filter[11];
 int i;
 double re, im, f, cos_i;
-double a,b;
 SIGNAL_PARAMS p;
 gsl_function F; 
 
@@ -226,7 +222,7 @@ for(i=bin-window; i<=bin+window; i++) {
 		1, 1e-2,
 		&result, &abserr, &neval);
 /*	fprintf(stderr, "re %d %d result=%g abserr=%g %d %s\n", segment, i, result, abserr, neval, gsl_strerror(err)); */
-	d->bin[segment*d->nbins+i].re+=args_info.fake_strain_arg*result*16384.0/args_info.strain_norm_factor_arg;
+	d->re[segment*d->nbins+i]+=args_info.fake_strain_arg*result*16384.0/args_info.strain_norm_factor_arg;
 
 
 	F.function=signal_im;
@@ -234,7 +230,7 @@ for(i=bin-window; i<=bin+window; i++) {
 		1, 1e-2,
 		&result, &abserr, &neval);
 /*	fprintf(stderr, "im %d %d result=%g abserr=%g %d %s\n", segment, i, result, abserr, neval, gsl_strerror(err)); */
-	d->bin[segment*d->nbins+i].im+=args_info.fake_strain_arg*result*16384.0/args_info.strain_norm_factor_arg;
+	d->im[segment*d->nbins+i]+=args_info.fake_strain_arg*result*16384.0/args_info.strain_norm_factor_arg;
 
 
 	}
@@ -272,7 +268,8 @@ d->veto_segment_list=NULL;
 d->size=1000;
 d->free=0;
 d->gps=do_alloc(d->size, sizeof(*d->gps));
-d->bin=do_alloc(d->size*d->nbins, sizeof(*d->bin));
+d->re=do_alloc(d->size*d->nbins, sizeof(*d->re));
+d->im=do_alloc(d->size*d->nbins, sizeof(*d->im));
 d->power=NULL;
 
 d->weight=1.0;
@@ -449,20 +446,29 @@ return best_cutoff;
 void apply_hanning_filter(DATASET *d)
 {
 int i,k;
-COMPLEX *tmp, *p;
+float *tmp, *p;
 tmp=do_alloc(d->nbins, sizeof(*tmp));
 for(i=0;i<d->free;i++) {
-	p=&(d->bin[i*d->nbins]);
+	p=&(d->re[i*d->nbins]);
 
 	/* wrap around, just so that we don't have 0 exactly */
-	tmp[0].re=p[0].re-(p[d->nbins-1].re+p[1].re)*0.5;
-	tmp[0].im=p[0].im-(p[d->nbins-1].im+p[1].im)*0.5;
-	tmp[d->nbins-1].re=p[d->nbins-1].re-(p[d->nbins-2].re+p[0].re)*0.5;
-	tmp[d->nbins-1].im=p[d->nbins-1].im-(p[d->nbins-2].im+p[0].im)*0.5;
+	tmp[0]=p[0]-(p[d->nbins-1]+p[1])*0.5;
+	tmp[d->nbins-1]=p[d->nbins-1]-(p[d->nbins-2]+p[0])*0.5;
 
 	for(k=1;k<(d->nbins-1);k++) {
-		tmp[k].re=p[k].re-(p[k-1].re+p[k+1].re)*0.5;
-		tmp[k].im=p[k].im-(p[k-1].im+p[k+1].im)*0.5;
+		tmp[k]=p[k]-(p[k-1]+p[k+1])*0.5;
+		}
+	memcpy(p, tmp, nbins*sizeof(*p));	
+	}
+for(i=0;i<d->free;i++) {
+	p=&(d->im[i*d->nbins]);
+
+	/* wrap around, just so that we don't have 0 exactly */
+	tmp[0]=p[0]-(p[d->nbins-1]+p[1])*0.5;
+	tmp[d->nbins-1]=p[d->nbins-1]-(p[d->nbins-2]+p[0])*0.5;
+
+	for(k=1;k<(d->nbins-1);k++) {
+		tmp[k]=p[k]-(p[k-1]+p[k+1])*0.5;
 		}
 	memcpy(p, tmp, nbins*sizeof(*p));	
 	}
@@ -484,7 +490,7 @@ return 0;
 void sort_dataset(DATASET *d)
 {
 ELEMENT *p;
-COMPLEX *bin;
+float *bin_re, *bin_im;
 INT64 *gps;
 int i, k;
 
@@ -496,18 +502,22 @@ for(i=0;i<d->free;i++) {
 
 qsort(p, d->free, sizeof(*p), element_cmp);
 
-bin=do_alloc(d->free*d->nbins, sizeof(*bin));
+bin_re=do_alloc(d->free*d->nbins, sizeof(*bin_re));
+bin_im=do_alloc(d->free*d->nbins, sizeof(*bin_im));
 gps=do_alloc(d->free, sizeof(*gps));
 for(i=0;i<d->free;i++) {
 	k=p[i].index;
 	gps[i]=d->gps[k];
-	memcpy(&(bin[i*d->nbins]), &(d->bin[k*d->nbins]), d->nbins*sizeof(*bin));
+	memcpy(&(bin_re[i*d->nbins]), &(d->re[k*d->nbins]), d->nbins*sizeof(*bin_re));
+	memcpy(&(bin_im[i*d->nbins]), &(d->im[k*d->nbins]), d->nbins*sizeof(*bin_im));
 	}
 
 d->size=d->free;
-free(d->bin);
+free(d->re);
+free(d->im);
 free(d->gps);
-d->bin=bin;
+d->re=bin_re;
+d->im=bin_im;
 d->gps=gps;
 
 free(p);
@@ -521,8 +531,8 @@ if(d->power!=NULL)free(d->power);
 
 d->power=do_alloc(d->free*d->nbins, sizeof(*d->power));
 for(i=0;i<d->free*d->nbins;i++){
-	x=d->bin[i].re;
-	y=d->bin[i].im;
+	x=d->re[i];
+	y=d->im[i];
 	d->power[i]=x*x+y*y;
 	}
 }
@@ -536,7 +546,7 @@ for(i=0;i<d_free;i++)compute_power(&(datasets[i]));
 static int validate_dataset(DATASET *d)
 {
 int i,j, m;
-float x,y, *tm;
+float *tm;
 if(d->validated)return 1;
 fprintf(stderr, "Validating dataset \"%s\"\n", d->name);
 fprintf(stderr, "Found %d segments\n", d->free);
@@ -548,9 +558,11 @@ if(d->free<1){
 	/* free large chunks of ram that might have been reserved */
 	if(d->size>0) {
 		free(d->gps);
-		free(d->bin);
+		free(d->re);
+		free(d->im);
 		d->gps=NULL;
-		d->bin=NULL;
+		d->re=NULL;
+		d->im=NULL;
 		}
 	if(d->power!=NULL){
 		free(d->power);
@@ -642,13 +654,13 @@ fprintf(stderr,"Computing cutoff values for dataset %s\n", d->name);
 
 tm=do_alloc(d->free, sizeof(*tm));
 
-for(i=0;i<patch_grid->npoints;i++){
+for(i=0;i<patch_grid->npoints;i++) {
 	
-	for(m=0;m<ntotal_polarizations;m++){
-		if(patch_grid->band[i]<0){
+	for(m=0;m<ntotal_polarizations;m++) {
+/*		if(patch_grid->band[i]<0){
 			d->polarizations[m].patch_CutOff[i]=0.0;
 			continue;
-			}
+			}*/
 		for(j=0;j<d->free;j++)tm[j]=1.0/(sqrt(d->expTMedians[j])*AM_response(j, patch_grid, i, d->polarizations[m].AM_coeffs));
 		d->polarizations[m].patch_CutOff[i]=FindCutOff(tm, d->free);
 		}
@@ -754,7 +766,7 @@ fprintf(stderr, "Output dataset summary data\n");
 for(i=0;i<d_free;i++)output_dataset_info(&(datasets[i]));
 }
 
-static int get_geo_range(DATASET *d, char *filename, long startbin, long count, float *data, INT64 *gps)
+static int get_geo_range(DATASET *d, char *filename, long startbin, long count, float *re, float *im, INT64 *gps)
 {
 FILE *fin;
 REAL8 a, timebase;
@@ -822,9 +834,10 @@ if(timebase < 0) {
 	} else {
 	factor=(0.5*1800.0*16384.0)/(args_info.strain_norm_factor_arg*nbins); /* use fixed normalization for 1800 sec SFTs .. */
 	}
-for(i=0;i<2*count;i++){
-	data[i]=tmp[i]*factor;
-	if(!isfinite(data[i])) {
+for(i=0;i<count;i++){
+	re[i]=tmp[2*i]*factor;
+	im[i]=tmp[2*i+1]*factor;
+	if(!isfinite(re[i]) || !isfinite(im[i])) {
 		free(tmp);
 		fprintf(stderr, "Infinite value encountered in file \"%s\"\n", filename);
 		return -2;
@@ -840,12 +853,17 @@ static void expand_sft_array(DATASET *d, int count)
 void *p;
 
 d->size=2*d->size+count;
-fprintf(stderr, "Growing %s SFT array to %f MB count=%d\n", d->name, d->size*d->nbins*sizeof(*d->bin)/(1024.0*1024.0), d->free);
+fprintf(stderr, "Growing %s SFT array to %f MB count=%d\n", d->name, d->size*d->nbins*2*sizeof(*d->re)/(1024.0*1024.0), d->free);
 
-p=do_alloc(d->size*d->nbins, sizeof(*(d->bin)));
-if(d->free>0)memcpy(p, d->bin, d->free*d->nbins*sizeof(*(d->bin)));
-free(d->bin);
-d->bin=p;
+p=do_alloc(d->size*d->nbins, sizeof(*(d->re)));
+if(d->free>0)memcpy(p, d->re, d->free*d->nbins*sizeof(*(d->re)));
+free(d->re);
+d->re=p;
+
+p=do_alloc(d->size*d->nbins, sizeof(*(d->im)));
+if(d->free>0)memcpy(p, d->im, d->free*d->nbins*sizeof(*(d->im)));
+free(d->im);
+d->im=p;
 
 p=do_alloc(d->size, sizeof(*(d->gps)));
 if(d->free>0)memcpy(p, d->gps, d->free*sizeof(*(d->gps)));
@@ -859,7 +877,7 @@ if(d->free>=d->size) {
 	expand_sft_array(d, 1);
 	}
 d->gps[d->free]=0;
-if(!get_geo_range(d, filename, d->first_bin, d->nbins, &(d->bin[d->free*d->nbins]), &(d->gps[d->free]))) {
+if(!get_geo_range(d, filename, d->first_bin, d->nbins, &(d->re[d->free*d->nbins]), &(d->im[d->free*d->nbins]), &(d->gps[d->free]))) {
 	/* fprintf(stderr, "Loaded file %s (%lld)\n", filename, d->gps[d->free]); */
 	d->free++;
 	} else {
@@ -958,8 +976,8 @@ for(i=d->free;i<(d->free+count);i++) {
 	d->gps[i]=gps_start+(i-d->free)*step;
 	
 	for(k=0;k<d->nbins;k++) {
-		d->bin[i*d->nbins+k].re=amp*gsl_ran_gaussian(rng, 1.0);
-		d->bin[i*d->nbins+k].im=amp*gsl_ran_gaussian(rng, 1.0);
+		d->re[i*d->nbins+k]=amp*gsl_ran_gaussian(rng, 1.0);
+		d->im[i*d->nbins+k]=amp*gsl_ran_gaussian(rng, 1.0);
 		}
 	}
 d->free+=count;
@@ -1154,22 +1172,24 @@ void compute_powers(DATASET *dataset)
 int i,k;
 float *p;
 float x,y;
-COMPLEX *c;
+float *bin_re, *bin_im;
 int nbins=dataset->nbins;
 int nsegments=dataset->free;
-float max, min;
 
 for(i=0;i<nsegments;i++) {
 
-	c=&(dataset->bin[i*nbins]);
+	bin_re=&(dataset->re[i*nbins]);
+	bin_im=&(dataset->im[i*nbins]);
+
 	p=&(dataset->power[i*nbins]);
 
 	for(k=0;k<nbins;k++) {
-		x=(*c).re;
-		y=(*c).im;
+		x=*bin_re;
+		y=*bin_im;
 		*p=x*x+y*y;
 		p++;
-		c++;
+		bin_re++;
+		bin_im++;
 		}
 	}
 }
@@ -1470,14 +1490,14 @@ for(i=0;i<d_free;i++) {
 	for(j=0;j<d->free;j++) {
 		fprintf(fout, "%s\t%s\t%lld", d->name, d->detector, d->gps[j]);
 		for(k=0;k<d->nbins;k++) {
-			fprintf(fout, "\t%8g", d->bin[j*d->nbins+k].re);
+			fprintf(fout, "\t%8g", d->re[j*d->nbins+k]);
 			}
 		for(k=0;k<d->nbins;k++) {
-			fprintf(fout, "\t%8g",d->bin[j*d->nbins+k].im);
+			fprintf(fout, "\t%8g",d->im[j*d->nbins+k]);
 			}
 		for(k=0;k<d->nbins;k++) {
-			x=d->bin[j*d->nbins+k].re;
-			y=d->bin[j*d->nbins+k].im;
+			x=d->re[j*d->nbins+k];
+			y=d->im[j*d->nbins+k];
 			fprintf(fout, "\t%8g", x*x+y*y);
 			}
 		fprintf(fout, "\n");

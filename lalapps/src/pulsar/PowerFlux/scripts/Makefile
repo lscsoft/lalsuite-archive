@@ -2,7 +2,8 @@
 UPLOAD_FILES=make_run.tcl split.tcl get_param.tcl make_1800_sfts.tcl \
 	get_lines.tcl make_power_injection_run.tcl split_pi.tcl reshape.tcl \
 	generate_injection_batch.tcl make_sft_injection_run.tcl split_dataset.tcl \
-	split_sfti.tcl make_second_sft_injection_run.tcl normalize_sft_name.tcl
+	split_sfti.tcl make_second_sft_injection_run.tcl normalize_sft_name.tcl \
+	make_native_sft_injection_run.tcl reshape_sfti.tcl
 
 all:
 

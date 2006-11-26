@@ -1,22 +1,24 @@
 PACKAGE=\"powerflux\"
-VERSION=1.4.8-64
+VERSION=1.4.10-64
 LALROOT=./../../../../
 LALROOT=/opt/lscsoft/lal/
 LALINCLUDE=-I$(LALROOT)/include/
 LALLDFLAGS=-L$(LALROOT)/lib -L$(LALROOT)/support-lib -llalsupport -llal -lm
-LDFLAGS=$(LALLDFLAGS) -lpng -lz
+LDFLAGS=$(LALLDFLAGS) -L. -lpng -lz
 #OPTFLAGS=-O2 -funroll-loops 
 OPTFLAGS=-O6 -mmmx -msse -mcpu=i686
 OPTFLAGS=-O6 -march=i686 -funroll-loops
 OPTFLAGS=-O6 -msse2 -march=i686 -funroll-loops
-OPTFLAGS=-O6 -msse2 -march=opteron -funroll-loops
-OPTFLAGS=-O6 -msse2  -funroll-loops -fno-stack-protector
+OPTFLAGS=-O6 -march=opteron -funroll-loops -fno-stack-protector
+#OPTFLAGS=-O6 -msse2 -funroll-loops -fno-stack-protector
 CFLAGS=-Wall -g $(OPTFLAGS) -DPACKAGE=$(PACKAGE) -DVERSION=\"$(VERSION)\" \
 	$(LALINCLUDE)
 CC=gcc $(CFLAGS)
 
 OBJS=cmdline.o rastermagic.o hookup.o fine_grid.o lines.o grid.o powerflux.o  \
 	png.o polarization.o intervals.o statistics.o dataset.o candidates.o util.o
+
+FILES=sky_marks.txt
 
 # 50 hz
 #BAND=90000
@@ -196,10 +198,11 @@ test4d: powerflux.hydra
 # 		--fake-spindown=1e-9 \
 
 test4e: powerflux
-	valgrind --tool=memcheck --error-limit=no  --leak-check=full  ./powerflux --input-format=Power --dataset=$(DATASET) -f $(BAND) -n 501 \
+	valgrind --tool=memcheck --error-limit=no  --leak-check=full  ./powerflux --dataset=$(DATASET) -f $(BAND) -n 501 \
 		--ephemeris-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
-		--detector=LHO --three-bins=0 --do-cutoff=0 \
+		--detector=LHO --averaging-mode=matched --do-cutoff=0 \
 		--subtract-background=1 --ks-test=1 --filter-lines=1 \
+		--sky-marks-file=sky_marks.txt \
 		--spindown-start=0e-9 \
 	        --earth-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/earth05-09.dat \
         	--sun-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/sun05-09.dat \
@@ -212,23 +215,24 @@ test5: powerflux
 		--fake-orientation=0.5 --fake-ra=5.785685 --fake-dec=-1.563849
 
 test5c: powerflux
-	time ./powerflux --dataset=random2.dst -f 360000 -n 501 \
+	time ./powerflux --dataset=random.dst -f 360000 -n 501 \
 		--ephemeris-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
-		--averaging-mode=one --do-cutoff=1 --lock-file=test.lock \
+		--averaging-mode=matched --do-cutoff=1 --lock-file=test.lock \
 		--subtract-background=0 --ks-test=1 --filter-lines=0 \
 		--dump-candidates=0 \
+		--sky-marks-file=sky_marks.txt \
 	        --earth-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/earth05-09.dat \
         	--sun-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/sun05-09.dat  \
-		--dump-data=input.dat \
- 		--focus-dec=$(DEC) --focus-ra=$(RA) --focus-radius=0.5 \
+ 		--write-dat=NONE \
+ 		--write-png=\(.\*bands\|.\*strain.\*\|high.\*\|S.\*\|Median.\*\|weight.\*\|max_dx.\*\)\\.png$$ \
+ 		--focus-dec=$(DEC) --focus-ra=$(RA) --focus-radius=5 \
  		--fake-ref-time=793154935 \
- 		--fake-ra=$(RA) --fake-dec=$(DEC) --fake-freq=200.1 --fake-strain=0.5e-24 \
- 		--fake-spindown=0.0e-10 --fake-iota=0 --fake-psi=0.5 \
-		--max-candidates=20
+ 		--fake-ra=$(RA) --fake-dec=$(DEC) --fake-freq=200.1 --fake-strain=10e-24 \
+ 		--fake-spindown=0.0e-10 --fake-iota=1.570 --fake-psi=0.0 \
+		--max-candidates=0 --skymap-resolution-ratio=1
 
-# 		--write-dat=NONE \
-# 		--write-png=\(.\*strain.\*\|high.\*\|S.\*\|Median.\*\|weight.\*\|max_dx.\*\)\\.png$$ \
 
+#		--dump-data=input.dat \
 
 
 test.H1.inj.1: powerflux
@@ -280,15 +284,20 @@ clean:
 
 upload: powerflux.hydra
 	globus-scp -C powerflux.hydra hydra.phys.uwm.edu:PowerFlux/powerflux.$(VERSION)
+	globus-scp -C $(FILES) hydra.phys.uwm.edu:PowerFlux/
 	
 upload.g: powerflux.hydra
 	scp -C powerflux.hydra gallatin.physics.lsa.umich.edu:PowerFlux/powerflux.$(VERSION)
+	scp -C $(FILES) gallatin.physics.lsa.umich.edu:PowerFlux/
 	
 upload.h: powerflux.hydra
 	globus-scp -C powerflux.hydra ldas-grid.ligo-wa.caltech.edu:PowerFlux/powerflux.$(VERSION)
+	globus-scp -C $(FILES) ldas-grid.ligo-wa.caltech.edu:PowerFlux/
 
 upload.l: powerflux.hydra
 	globus-scp -C powerflux.hydra ldas-grid.ligo-la.caltech.edu:PowerFlux/powerflux.$(VERSION)
+	globus-scp -C $(FILES) ldas-grid.ligo-la.caltech.edu:PowerFlux/
 
 upload.c: powerflux.hydra
 	globus-scp -C powerflux.hydra ldas-grid.ligo.caltech.edu:PowerFlux/powerflux.$(VERSION)
+	globus-scp -C $(FILES) ldas-grid.ligo.caltech.edu:PowerFlux/

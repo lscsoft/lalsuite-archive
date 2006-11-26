@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <string.h>
 
 #include <gsl/gsl_sf_trig.h>
 
@@ -33,15 +34,15 @@ if(((*arg_stop)>(*arg_start)) && (line[(*arg_stop)-1]=='"'))(*arg_stop)--;
 float hann_response(float delta)
 {
 if(fabs(delta-1.0)<0.5) {
-	return((2.0/3.0)*gsl_sf_sinc(delta-1.0)/(delta*(1+delta)));
+	return(gsl_sf_sinc(delta-1.0)/(delta*(1+delta)));
 	}
 if(fabs(delta+1.0)<0.5) {
-	return((2.0/3.0)*gsl_sf_sinc(delta+1.0)/(delta*(delta-1)));
+	return(gsl_sf_sinc(delta+1.0)/(delta*(delta-1)));
 	}
 if(fabs(delta)<0.5) {
-	return((2.0/3.0)*gsl_sf_sinc(delta)/(1-delta*delta));
+	return(gsl_sf_sinc(delta)/(1-delta*delta));
 	}
-return((2.0/3.0)*sin(M_PI*delta)/(M_PI*delta*(1-delta*delta)));
+return(sin(M_PI*delta)/(M_PI*delta*(1-delta*delta)));
 }
 
 
@@ -159,12 +160,12 @@ void test_filter(void)
 {
 float filter[7];
 float mismatch;
-int i, j;
+int i;
 for(i=0;i<=100;i++) {
 	mismatch=(i-50)*0.02;
 	fill_hann_filterN(filter, 7, 3, mismatch);
 
-	fprintf(stderr, "%d %f %f %f %f %f %f %f %f %f\n", 
+	fprintf(stderr, "%d %f %f %f %f %f %f %f %f\n", 
 		i, mismatch,
 		filter[0],
 		filter[1],

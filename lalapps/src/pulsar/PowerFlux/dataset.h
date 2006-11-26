@@ -7,11 +7,6 @@
 #include "intervals.h"
 
 typedef struct {
-	float re;
-	float im;
-	} COMPLEX;
-
-typedef struct {
 	/* name of the data set - for logging purposes */
 	char *name; 
 	char *lock_file;
@@ -28,8 +23,14 @@ typedef struct {
 	INT64 gps_stop;
 
 	INT64 *gps;
-	COMPLEX *bin;
-	float *power;
+
+	/* real and imaginary parts - they are separate to facilitate use of vectorized operations */
+	float *re; 
+	float *im;
+
+	/* precomputed power */
+	float *power; 
+
 	int size;
 	int free;	/* this used to be called nsegments */
 

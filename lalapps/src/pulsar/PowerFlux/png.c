@@ -21,7 +21,7 @@ if(!clear_name_png(filename))return;
 snprintf(s,20000,"%s%s", output_dir, filename);
 fout=fopen(s, "wb");
 if(fout==NULL){
-	fprintf(stderr,"Error dumping %ldx%ld picture to \"%s\" in PNG format:",
+	fprintf(stderr,"Error dumping %dx%d picture to \"%s\" in PNG format:",
 		p->width, p->height, filename);
 	perror("");
 	return;

@@ -645,7 +645,7 @@ free(p->color);
 free(p);
 }
 
-DENSITY_MAP *make_density_map(int x_ppp, int y_ppp)
+DENSITY_MAP *make_density_map(int x_ppp, int y_ppp, int nbands)
 {
 DENSITY_MAP *dm;
 dm=do_alloc(1, sizeof(*dm));
@@ -657,7 +657,7 @@ dm->flip_x=1;
 dm->flip_y=1;
 dm->swap_xy=0;
 dm->logscale_z=0;
-dm->nbands=args_info.nskybands_arg;
+dm->nbands=nbands;
 dm->dec_band_color=COLOR(127,127,127);
 dm->palette=make_hue_palette(230);
 return dm;
@@ -1081,7 +1081,7 @@ void plot_grid_f(RGBPic *p, SKY_GRID *grid, float *z, int step)
 if(!strcmp(grid->name,"arcsin") || !strcmp(grid->name,"plain rectangular")){
 	DENSITY_MAP *dm;
 	RECT_SKY_GRID_PRIV *priv=grid->grid_priv;
-	dm=make_density_map(1,1);
+	dm=make_density_map(1, 1, grid->nbands);
 	adjust_masked_density_map_limits_f(dm, z, grid->band, grid->npoints, step, 1);
 	plot_single_density_map_f(p, dm, z, priv->num_ra, priv->num_dec, step*priv->num_dec, step);
 	free_density_map(dm);
@@ -1089,7 +1089,7 @@ if(!strcmp(grid->name,"arcsin") || !strcmp(grid->name,"plain rectangular")){
 	}
 if(!strcmp(grid->name,"sin theta")){
 	DENSITY_MAP *dm;
-	dm=make_density_map(1,1);
+	dm=make_density_map(1, 1, grid->nbands);
 	adjust_masked_density_map_limits_f(dm, z, grid->band, grid->npoints, step, 1);
 	layout_density_map_plot(p, dm, grid->max_n_ra, grid->max_n_dec);
 	plot_sin_theta_f(p, 0, 0, dm, grid, z, step);
@@ -1175,7 +1175,7 @@ void plot_grid_d(RGBPic *p, SKY_GRID *grid, double *z, int step)
 if(!strcmp(grid->name,"arcsin") || !strcmp(grid->name,"plain rectangular")){
 	DENSITY_MAP *dm;
 	RECT_SKY_GRID_PRIV *priv=grid->grid_priv;
-	dm=make_density_map(1,1);
+	dm=make_density_map(1,1, grid->nbands);
 	adjust_masked_density_map_limits_d(dm, z, grid->band, grid->npoints, step, 1);
 	plot_single_density_map_d(p, dm, z, priv->num_ra, priv->num_dec, step*priv->num_dec, step);
 	free_density_map(dm);
@@ -1183,7 +1183,7 @@ if(!strcmp(grid->name,"arcsin") || !strcmp(grid->name,"plain rectangular")){
 	}
 if(!strcmp(grid->name,"sin theta")){
 	DENSITY_MAP *dm;
-	dm=make_density_map(1,1);
+	dm=make_density_map(1,1, grid->nbands);
 	adjust_masked_density_map_limits_d(dm, z, grid->band, grid->npoints, step, 1);
 	layout_density_map_plot(p, dm, grid->max_n_ra, grid->max_n_dec);
 	plot_sin_theta_d(p, 0, 0, dm, grid, z, step);

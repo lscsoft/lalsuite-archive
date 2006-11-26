@@ -4,6 +4,7 @@
 #include <math.h>
 #include "global.h"
 #include "grid.h"
+#include "util.h"
 
 extern FILE *LOG;
 
@@ -89,8 +90,14 @@ grid->max_n_ra=num_ra;
 grid->name="arcsin rectangular";
 grid->latitude=do_alloc(grid->npoints, sizeof(SKY_GRID_TYPE));
 grid->longitude=do_alloc(grid->npoints, sizeof(SKY_GRID_TYPE));
+
+grid->nbands_size=2000;
+grid->nbands=0;
+grid->band_name=do_alloc(grid->nbands_size, sizeof(*grid->band_name));
+
 grid->band=do_alloc(grid->npoints, sizeof(*grid->band));
 grid->band_f=do_alloc(grid->npoints, sizeof(*grid->band_f));
+
 for(i=0;i<GRID_E_COUNT;i++)
 	grid->e[i]=do_alloc(grid->npoints, sizeof(SKY_GRID_TYPE));
 priv=do_alloc(1, sizeof(*priv));
@@ -106,6 +113,7 @@ for(i=0;i<num_ra;i++){
 		b=asin(-1.0+(1.0+2.0*j)/num_dec);
 		grid->latitude[k]=b;
 		grid->longitude[k]=a;
+		grid->band[k]=-1;
 		}
 	}
 precompute_values(grid);
@@ -127,6 +135,9 @@ grid->max_n_ra=num_ra;
 grid->name="plain rectangular";
 grid->latitude=do_alloc(grid->npoints, sizeof(SKY_GRID_TYPE));
 grid->longitude=do_alloc(grid->npoints, sizeof(SKY_GRID_TYPE));
+grid->nbands_size=2000;
+grid->nbands=0;
+grid->band_name=do_alloc(grid->nbands_size, sizeof(*grid->band_name));
 grid->band=do_alloc(grid->npoints, sizeof(*grid->band));
 grid->band_f=do_alloc(grid->npoints, sizeof(*grid->band_f));
 for(i=0;i<GRID_E_COUNT;i++)
@@ -144,6 +155,7 @@ for(i=0;i<num_ra;i++){
 		b=M_PI_2*(-1.0+(1.0+2.0*j)/num_dec);
 		grid->latitude[k]=b;
 		grid->longitude[k]=a;
+		grid->band[k]=-1;
 		}
 	}
 precompute_values(grid);
@@ -179,20 +191,27 @@ for(i=0;i<priv->num_dec;i++){
 
 grid->latitude=do_alloc(grid->npoints, sizeof(SKY_GRID_TYPE));
 grid->longitude=do_alloc(grid->npoints, sizeof(SKY_GRID_TYPE));
+
+grid->nbands_size=2000;
+grid->nbands=0;
+grid->band_name=do_alloc(grid->nbands_size, sizeof(*grid->band_name));
+
 grid->band=do_alloc(grid->npoints, sizeof(*grid->band));
 grid->band_f=do_alloc(grid->npoints, sizeof(*grid->band_f));
+
 for(i=0;i<GRID_E_COUNT;i++)
 	grid->e[i]=do_alloc(grid->npoints, sizeof(SKY_GRID_TYPE));
 grid->grid_priv=priv;
 
 /* fill in the coordinates */
 k=0;
-for(i=0;i<priv->num_dec;i++){
+for(i=0;i<priv->num_dec;i++) {
 	a=M_PI_2*(-1.0+(1.0+2.0*i)/priv->num_dec);
 	for(j=0;j<priv->num_ra[i];j++){
 		b=M_PI*(1.0+2.0*j)/priv->num_ra[i];
 		grid->latitude[k]=a;
 		grid->longitude[k]=b;
+		grid->band[k]=-1;
 		k++;
 		}
 	}
@@ -273,11 +292,69 @@ for(i=0;i<sg->super_grid->npoints;i++){
 	}
 }
 
+void print_grid_statistics(FILE *file, char *prefix, SKY_GRID *grid)
+{
+long *count;
+long masked_count;
+int i;
+
+count=alloca(grid->nbands*sizeof(*count));
+
+for(i=0;i<grid->nbands;i++)count[i]=0;
+masked_count=0;
+
+for(i=0;i<grid->npoints;i++){
+	if(grid->band[i]<0) {
+		masked_count++;
+		continue;
+		}
+	count[grid->band[i]]++;	
+	}
+for(i=0;i<grid->nbands;i++){
+	fprintf(file, "%sgrid_points: %d \"%s\" %ld\n", prefix, i, grid->band_name[i], count[i]);
+	}
+fprintf(file, "%smasked_points: %ld\n", prefix, masked_count);
+}
+
+int add_band(SKY_GRID *sky_grid, char *name, int length)
+{
+int i;
+if(length<0)length=strlen(name);
+/* empty name matches nothing */
+if(length==0)return (-1);
+
+for(i=0;i<sky_grid->nbands;i++) {
+	if(!strncmp(sky_grid->band_name[i], name, length))return i;
+	}
+/* band does not exist, add it */
+if(sky_grid->nbands>=sky_grid->nbands_size) {
+	/* one can put expanding code here, but I do not anticipate large number of bands, so make it static */
+	fprintf(stderr, "*** ERROR: run out of band name array space\n");
+	exit(-1);
+	}
+
+sky_grid->band_name[sky_grid->nbands]=do_alloc(length+1, 1);
+memcpy(sky_grid->band_name[sky_grid->nbands], name, length);
+sky_grid->band_name[sky_grid->nbands][length]=0;
+sky_grid->nbands++;
+return(sky_grid->nbands-1);
+}
+
+
 void angle_assign_bands(SKY_GRID *grid, int n_bands)
 {
 int i,k;
+int *band_id;
+char s[30];
 SKY_GRID_TYPE angle, proj, x,y,z;
-for(i=0;i<grid->npoints;i++){
+
+band_id=alloca(n_bands*sizeof(int));
+for(i=0;i<n_bands;i++) {
+	sprintf(s, "Angle_%d", i);
+	band_id[i]=add_band(grid, s, -1);
+	}
+
+for(i=0;i<grid->npoints;i++) {
 	/* convert into 3d */
 	x=cos(grid->longitude[i])*cos(grid->latitude[i]);
 	y=sin(grid->longitude[i])*cos(grid->latitude[i]);
@@ -292,30 +369,8 @@ for(i=0;i<grid->npoints;i++){
 	k=floor((angle/M_PI)*n_bands);
 	if(k<0)k=0;
 	if(k>=n_bands)k=n_bands-1;
-	grid->band[i]=k;
-	grid->band_f[i]=k;
-	}
-}
-
-void print_grid_statistics(FILE *file, char *prefix, SKY_GRID *grid)
-{
-long *count;
-int nband;
-int i,k;
-
-nband=0;
-for(i=0;i<grid->npoints;i++)
-	if(grid->band[i]>nband)nband=grid->band[i];
-nband++;
-count=alloca(nband*sizeof(*count));
-
-for(i=0;i<nband;i++)count[i]=0;
-
-for(i=0;i<grid->npoints;i++){
-	count[grid->band[i]]++;	
-	}
-for(i=0;i<nband;i++){
-	fprintf(file, "%sgrid_points: %d %ld\n", prefix, i, count[i]);
+	grid->band[i]=band_id[k];
+	grid->band_f[i]=band_id[k];
 	}
 }
 
@@ -323,9 +378,17 @@ void S_assign_bands(SKY_GRID *grid, int n_bands, double large_S, double spindown
 {
 int i,k;
 double S;
-SKY_GRID_TYPE angle, proj, x,y,z;
+int *band_id;
+char s[30];
+SKY_GRID_TYPE x,y,z;
 
-for(i=0;i<grid->npoints;i++){
+band_id=alloca(n_bands*sizeof(int));
+for(i=0;i<n_bands;i++) {
+	sprintf(s, "S_%d", i);
+	band_id[i]=add_band(grid, s, -1);
+	}
+
+for(i=0;i<grid->npoints;i++) {
 	/* convert into 3d */
 	x=cos(grid->longitude[i])*cos(grid->latitude[i]);
 	y=sin(grid->longitude[i])*cos(grid->latitude[i]);
@@ -347,8 +410,8 @@ for(i=0;i<grid->npoints;i++){
 	if(k>=n_bands)k=n_bands-1;
 	if(k<1)k=1;
 
-	grid->band[i]=k;
-	grid->band_f[i]=k;
+	grid->band[i]=band_id[k];
+	grid->band_f[i]=band_id[k];
 	}
 }
 
@@ -384,6 +447,149 @@ for(i=0;i<grid->npoints;i++){
 		grid->band[i]=-1;
 		grid->band_f[i]=-1;
 		}
+	}
+}
+
+void mark_closest(SKY_GRID *sky_grid, int band_to, int band_from, SKY_GRID_TYPE ra, SKY_GRID_TYPE dec)
+{
+SKY_GRID_TYPE ds, ds_min;
+int i,k;
+
+k=-1;
+ds_min=100;
+
+for(i=0;i<sky_grid->npoints;i++) {
+	ds=acos(sin(sky_grid->latitude[i])*sin(dec)+
+		cos(sky_grid->latitude[i])*cos(dec)*
+		cos(sky_grid->longitude[i]-ra));
+	if((ds<ds_min) && ((band_from<0) || sky_grid->band[i]==band_from)) {
+		ds_min=ds;
+		k=i;
+		}
+	}
+
+if( k>=0 ) {
+	sky_grid->band[k]=band_to;
+	sky_grid->band_f[k]=band_to;
+	}
+}
+
+void process_band_definition_line(SKY_GRID *sky_grid, char *line, int length)
+{
+int ai,aj, i;
+SKY_GRID_TYPE ra, dec, radius, ds;
+int band_to, band_from;
+
+/* skip whitespace in the beginning */
+while(((*line)==' ') || ((*line)=='\t'))line++;
+/* skip comments */
+if((*line)=='#')return;
+/* skip empty lines */
+if((*line)=='\n')return;
+if((*line)=='\r')return;
+if((*line)==0)return;
+
+/* General format of the command:
+	command band_to band_from [other_args]
+*/
+
+locate_arg(line, length, 1, &ai, &aj);
+band_to=add_band(sky_grid, &(line[ai]), aj-ai);
+
+locate_arg(line, length, 2, &ai, &aj);
+band_from=add_band(sky_grid, &(line[ai]), aj-ai);
+
+if(!strncasecmp(line, "disk", 4)) {
+	int count;
+	
+	locate_arg(line, length, 3, &ai, &aj);
+	sscanf(&(line[ai]), "%g", &ra);
+
+	locate_arg(line, length, 4, &ai, &aj);
+	sscanf(&(line[ai]), "%g", &dec);
+
+	locate_arg(line, length, 5, &ai, &aj);
+	sscanf(&(line[ai]), "%g", &radius);
+
+	fprintf(stderr, "Marking disk (%d <- %d) around (%g, %g) with radius %g\n", band_to, band_from, ra, dec, radius);
+	fprintf(LOG, "Marking disk (%d <- %d) around (%g, %g) with radius %g\n", band_to, band_from, ra, dec, radius);
+
+	count=0;
+	/* mark disk */
+	for(i=0;i<sky_grid->npoints;i++){
+		ds=acos(sin(sky_grid->latitude[i])*sin(dec)+
+			cos(sky_grid->latitude[i])*cos(dec)*
+			cos(sky_grid->longitude[i]-ra));
+		if(ds<radius && ((band_from<0) || sky_grid->band[i]==band_from)) {
+			count++;
+			sky_grid->band[i]=band_to;
+			sky_grid->band_f[i]=band_to;
+			}
+		}
+
+	/* if the grid was too coarse and the radius too small just mark the closest point */
+	if(count<1)mark_closest(sky_grid, band_to, band_from, ra, dec);
+	} else
+if(!strncasecmp(line, "band", 4)) {
+	SKY_GRID_TYPE x0, y0, z0, level1, level2;
+	locate_arg(line, length, 3, &ai, &aj);
+	sscanf(&(line[ai]), "%g", &ra);
+
+	locate_arg(line, length, 4, &ai, &aj);
+	sscanf(&(line[ai]), "%g", &dec);
+
+	locate_arg(line, length, 5, &ai, &aj);
+	sscanf(&(line[ai]), "%g", &level1);
+
+	locate_arg(line, length, 6, &ai, &aj);
+	sscanf(&(line[ai]), "%g", &level2);
+
+	fprintf(stderr, "Marking band (%d <- %d) around (%g, %g) with with cos in [%g, %g]\n", band_to, band_from, ra, dec, level1, level2);
+	fprintf(LOG, "Marking band (%d <- %d) around (%g, %g) with with cos in [%g, %g]\n", band_to, band_from, ra, dec, level1, level2);
+
+	x0=cos(ra)*sin(M_PI_2-dec);
+	y0=sin(ra)*sin(M_PI_2-dec);
+	z0=cos(M_PI_2-dec);
+
+	for(i=0;i<sky_grid->npoints;i++){
+		ds=sky_grid->e[0][i]*x0+
+			sky_grid->e[1][i]*y0+
+			sky_grid->e[2][i]*z0;
+
+		if((ds>level1) && (ds<level2) && ((band_from<0) || sky_grid->band[i]==band_from)){
+			sky_grid->band[i]=band_to;
+			sky_grid->band_f[i]=band_to;
+			}
+		}
+	} else 
+if(!strncasecmp(line, "closest", 7)) {
+
+	locate_arg(line, length, 3, &ai, &aj);
+	sscanf(&(line[ai]), "%g", &ra);
+
+	locate_arg(line, length, 4, &ai, &aj);
+	sscanf(&(line[ai]), "%g", &dec);
+
+	fprintf(stderr, "Marking point (%d <- %d) closest to (%g, %g)\n", band_to, band_from, ra, dec);
+	fprintf(LOG, "Marking point (%d <- %d) closest to (%g, %g)\n", band_to, band_from, ra, dec);
+
+	mark_closest(sky_grid, band_to, band_from, ra, dec);
+	} else
+	{
+	fprintf(stderr, "*** UNKNOWN masking command \"%s\"\n", line);
+	}
+}
+
+void process_marks(SKY_GRID *sky_grid, char *s, int length)
+{
+int ai, aj;
+ai=0;
+aj=0;
+while(aj<length) {
+	ai=aj;
+	while(s[aj] && s[aj]!='\n' && (aj<length))aj++;
+	process_band_definition_line(sky_grid, &(s[ai]), aj-ai);
+	aj++;
 	}
 }
 

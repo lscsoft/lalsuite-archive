@@ -24,6 +24,11 @@ typedef struct {
 	char *name; 
 	SKY_GRID_TYPE *latitude;
 	SKY_GRID_TYPE *longitude;
+
+	char **band_name;
+	int nbands;
+	int nbands_size;
+
 	int *band;
 	float *band_f;  /* just a convenience data.. */
 	SKY_GRID_TYPE *e[GRID_E_COUNT];  /* 3d coordinates: 
@@ -81,6 +86,7 @@ void angle_assign_bands(SKY_GRID *grid, int n_bands);
 void S_assign_bands(SKY_GRID *grid, int n_bands, double large_S, double s, double f);
 void mask_far_points(SKY_GRID *grid, SKY_GRID_TYPE ra, SKY_GRID_TYPE dec, SKY_GRID_TYPE radius);
 void mask_small_cos(SKY_GRID *grid, SKY_GRID_TYPE x, SKY_GRID_TYPE y, SKY_GRID_TYPE z, SKY_GRID_TYPE cos_level);
+void process_marks(SKY_GRID *sky_grid, char *s, int length);
 
 void propagate_far_points_to_super_grid(SKY_GRID *grid, SKY_SUPERGRID *super_grid);
 void propagate_far_points_from_super_grid(SKY_GRID *grid, SKY_SUPERGRID *super_grid);

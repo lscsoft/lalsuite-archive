@@ -1,0 +1,18 @@
+
+#
+# Mark general sky areas as band 0
+#
+disk "sky" "" 0 0 100
+#
+# Using J2000, equatorial coordinates
+# All numbers in radians
+#
+disk "North_pole" "" 4.712389 1.16 0.05
+disk "South_pole" "" 1.570796 -1.16 0.05
+
+disk "M31" "" 0.1864829 0.7202806 0.05526
+#
+# Don't know size of these objects:
+#
+closest "M55" "" 5.148677 -0.5403902 
+closest "Sgr_A*" "" 4.649851 -0.5062816

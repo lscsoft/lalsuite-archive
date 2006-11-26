@@ -148,7 +148,7 @@ typedef struct {
 	int key_height;
 	} DENSITY_MAP;
 
-DENSITY_MAP *make_density_map(int x_ppp, int y_ppp);
+DENSITY_MAP *make_density_map(int x_ppp, int y_ppp, int nbands);
 void free_density_map(DENSITY_MAP *dm);
 void adjust_density_map_limits_f(DENSITY_MAP *plot, float *z, int count, int step, int replace);
 void adjust_density_map_limits_d(DENSITY_MAP *dm, double *z, int count, int step, int replace);

@@ -181,7 +181,10 @@ for(j=inverse_dec_order[index]+1;j<fine_grid->npoints;j++) {
 	
 	if(polarization_index[m]<0)continue;
 
-	if(((max_dx[m]+1.0)>max_dx[index]) && (fabs(frequency-polarization_results[polarization_index[m]].skymap.freq_map[m])>3/1800.0))continue;
+	if(((max_dx[m]+1.0)>max_dx[index]) && 
+		(fabs(frequency-polarization_results[polarization_index[m]].skymap.freq_map[m])>3/1800.0) &&
+		(fabs(polarization_results[polarization_index[m]].skymap.freq_map[index]-polarization_results[polarization_index[m]].skymap.freq_map[m])>3/1800.0)
+		)continue;
 
 	if(fast_spherical_distance(fine_grid->longitude[m], fine_grid->latitude[m],
 				fine_grid->longitude[index], fine_grid->latitude[index])<cosfudge) {
@@ -305,11 +308,11 @@ for(j=0;j<d_free;j++) {
 			a_cross,
 			d->expTMedians[k]);
 		for(b=b0; b<b1;b++) {
-			a=d->bin[k*nbins+b].im;
+			a=d->im[k*nbins+b];
 			if(a>0)
-				fprintf(fout, "\t%g+%gi", d->bin[k*nbins+b].re, a);
+				fprintf(fout, "\t%g+%gi", d->re[k*nbins+b], a);
 				else 
-				fprintf(fout, "\t%g%gi", d->bin[k*nbins+b].re, a);
+				fprintf(fout, "\t%g%gi", d->im[k*nbins+b], a);
 			}
 
 		fprintf(fout, "\n");
@@ -379,7 +382,7 @@ double weight, total_weight, *response, *mismatch, f, x, y, *demod_signal_sum, *
 int window=WINDOW;
 int search_window=SEARCH_WINDOW;
 int *signal_bin;
-COMPLEX *p0, *p1, *p2, w, z;
+float *bin_re, *bin_im;
 float e[26];
 float p_proj, c_proj;
 struct {
@@ -508,15 +511,16 @@ for(j=0;j<d_free;j++) {
 		total_demod_weight2+=demod_weight;
 		total_demod_weight+=demod_weight*response[k];
 
-		p0=&(d->bin[k*nbins+signal_bin[k]-window]);
+		bin_re=&(d->re[k*nbins+signal_bin[k]-window]);
+		bin_im=&(d->im[k*nbins+signal_bin[k]-window]);
 
 		f=signal_bin[k]+mismatch[k];
 		cand->ifo_freq+=f*demod_weight;		
 		cand->ifo_freq_sd+=f*f*demod_weight;		
 
 		for(b=0; b< (2*window+1); b++) {
-			x=p0[b].re;
-			y=p0[b].im;
+			x=bin_re[b];
+			y=bin_im[b];
 			power=x*x+y*y;
 			#if 1
 			signal_sum[b]+=power*weight;
@@ -917,7 +921,7 @@ DATASET *d;
 int i, j, k, signal_bin;
 float filter[7];
 float diff_filter[7];
-COMPLEX *bin;
+float *bin_re, *bin_im;
 float x, y, dx, dy;
 double power, dpower;
 
@@ -974,7 +978,8 @@ for(j=0;j<d_free;j++) {
 		fill_hann_filter7(filter, mismatch);
 		fill_diff_hann_filter7(diff_filter, mismatch);
 
-		bin=&(d->bin[k*nbins+signal_bin-3]);
+		bin_re=&(d->re[k*nbins+signal_bin-3]);
+		bin_im=&(d->im[k*nbins+signal_bin-3]);
 
 		x=0;
 		y=0;
@@ -982,10 +987,10 @@ for(j=0;j<d_free;j++) {
 		dy=0;
 
 		for(i=0;i<7;i++) {
-			x+=bin[i].re*filter[i];
-			y+=bin[i].re*filter[i];
-			dx+=bin[i].re*diff_filter[i];
-			dy+=bin[i].re*diff_filter[i];
+			x+=bin_re[i]*filter[i];
+			y+=bin_im[i]*filter[i];
+			dx+=bin_re[i]*diff_filter[i];
+			dy+=bin_im[i]*diff_filter[i];
 			}
 
 		power=x*x+y*y;
@@ -1206,7 +1211,7 @@ float *doppler;
 int signal_bin;
 float demod_signal_sum[(2*WINDOW+1)*2], power, *pout, demod_weight, x, y;
 double demod_signal_sum_d[(2*WINDOW+1)*2];
-COMPLEX *bin;
+float *bin_re, *bin_im;
 float mismatch;
 float filter[7];
 int count;
@@ -1266,20 +1271,22 @@ for(j=0;j<d_free;j++) {
 			exit(-1);
 			}
 
-		bin=&(d->bin[k*nbins+signal_bin-WINDOW]);
+		bin_re=&(d->re[k*nbins+signal_bin-WINDOW]);
+		bin_im=&(d->im[k*nbins+signal_bin-WINDOW]);
 
 		pout=demod_signal_sum;
 
 		for(b=0; b< (2*WINDOW+1); b++) {
 
-			x=bin[-3].re*filter[0]+bin[-2].re*filter[1]+bin[-1].re*filter[2]+bin[0].re*filter[3]+bin[1].re*filter[4]+bin[2].re*filter[5]+bin[3].re*filter[6];
-			y=bin[-3].im*filter[0]+bin[-2].im*filter[1]+bin[-1].im*filter[2]+bin[0].im*filter[3]+bin[1].im*filter[4]+bin[2].im*filter[5]+bin[3].im*filter[6];
+			x=bin_re[-3]*filter[0]+bin_re[-2]*filter[1]+bin_re[-1]*filter[2]+bin_re[0]*filter[3]+bin_re[1]*filter[4]+bin_re[2]*filter[5]+bin_re[3]*filter[6];
+			y=bin_im[-3]*filter[0]+bin_im[-2]*filter[1]+bin_im[-1]*filter[2]+bin_im[0]*filter[3]+bin_im[1]*filter[4]+bin_im[2]*filter[5]+bin_im[3]*filter[6];
 
 			power=x*x+y*y;
 
 			(*pout)+=(power)*demod_weight;
 			pout++;
-			bin++;
+			bin_re++;
+			bin_im++;
 			}
 		count++;
 		if(count>100) {
@@ -1578,7 +1585,7 @@ float *doppler;
 int signal_bin;
 float power, *pout, *cout, *pcout, pweight, cweight, pcweight, f_plus, f_cross, x, y;
 POLARIZATION *pl;
-COMPLEX *bin;
+float *bin_re, *bin_im;
 float mismatch;
 float filter[7];
 float f_plus_sq[(2*WINDOW+1)*2];
@@ -1634,7 +1641,8 @@ for(j=0;j<d_free;j++) {
 
 		fill_hann_filter7(filter, mismatch);
 
-		bin=&(d->bin[k*nbins+signal_bin-WINDOW]);
+		bin_re=&(d->re[k*nbins+signal_bin-WINDOW]);
+		bin_im=&(d->re[k*nbins+signal_bin-WINDOW]);
 
 		pout=f_plus_sq;
 		cout=f_cross_sq;
@@ -1646,8 +1654,8 @@ for(j=0;j<d_free;j++) {
 			for { set i -3 } { $i < 4 } { incr i } { puts -nonewline "bin\[$i\].re*filter\[[expr $i+3]\]+" }
 			*/
 
-			x=bin[-3].re*filter[0]+bin[-2].re*filter[1]+bin[-1].re*filter[2]+bin[0].re*filter[3]+bin[1].re*filter[4]+bin[2].re*filter[5]+bin[3].re*filter[6];
-			y=bin[-3].im*filter[0]+bin[-2].im*filter[1]+bin[-1].im*filter[2]+bin[0].im*filter[3]+bin[1].im*filter[4]+bin[2].im*filter[5]+bin[3].im*filter[6];
+			x=bin_re[-3]*filter[0]+bin_re[-2]*filter[1]+bin_re[-1]*filter[2]+bin_re[0]*filter[3]+bin_re[1]*filter[4]+bin_re[2]*filter[5]+bin_re[3]*filter[6];
+			y=bin_im[-3]*filter[0]+bin_im[-2]*filter[1]+bin_im[-1]*filter[2]+bin_im[0]*filter[3]+bin_im[1]*filter[4]+bin_im[2]*filter[5]+bin_im[3]*filter[6];
 
 			power=x*x+y*y;
 
@@ -1658,7 +1666,8 @@ for(j=0;j<d_free;j++) {
 			pout++;
 			cout++;
 			pcout++;
-			bin++;
+			bin_re++;
+			bin_im++;
 			}
 		count++;
 		if(count>100) {
@@ -1779,7 +1788,7 @@ for(i=-N; i<=N; i++) {
 		compute_simple_snr(ad, &c1, 0);
 		compute_alignment_snr(&sd, &c2, 0);
 		err=c1.snr-c2.snr;
-		if(fabs(err)>1e-3)
+		if(fabs(err)>(1e-3)*(fabs(c1.snr)+fabs(c2.snr)))
 			fprintf(stderr, "iota=%f psi=%f c1.snr=%f c2.snr=%f snr_diff=%f\n", c1.iota, c1.psi, c1.snr, c2.snr, err);
 		if(err>err_max)err_max=err;
 		}
@@ -1935,7 +1944,7 @@ double weight, f, x, y, demod_weight, power[3], freq_hint_right[FREQ_STEPS], fre
 float *response;
 float *doppler;
 int signal_bin;
-COMPLEX *p0;
+float *bin_re, *bin_im;
 
 if((ad->valid & (VALID_RESPONSE | VALID_DOPPLER))!=(VALID_RESPONSE | VALID_DOPPLER)) {
 	cand->strain=-1;
@@ -1970,11 +1979,12 @@ for(j=0;j<d_free;j++) {
 		signal_bin=rint(1800.0*f-first_bin);
 		mismatch=1800.0*f-first_bin-signal_bin;
 
-		p0=&(d->bin[k*nbins+signal_bin-1]);
+		bin_re=&(d->re[k*nbins+signal_bin-1]);
+		bin_im=&(d->im[k*nbins+signal_bin-1]);
 
 		for(b=0;b<=2; b++) {
-			x=p0[b].re;
-			y=p0[b].im;
+			x=bin_re[b];
+			y=bin_im[b];
 			power[b]=(x*x+y*y)*demod_weight;
 			}
 		for(i=0;i<FREQ_STEPS;i++) {
@@ -2671,7 +2681,7 @@ int search_gradient_vec(CANDIDATE *cand, int N)
 CANDIDATE c, best_c;
 int i, max_i;
 float f, max;
-float a, step=1.0;
+float a, step=1.0, norm;
 
 SCORE_AUX_DATA *ad;
 
@@ -2690,27 +2700,30 @@ max_i=0;
 max=cand->snr;
 if(c.snr>max)max=c.snr;
 
-if(fabs(step*ad->d_freq[1]) > 0.1/1800.0)step=0.1/(1800.0*ad->d_freq[1]);
-if(fabs(step*ad->d_spindown[1]) > 1e-12)step= 1e-14/(ad->d_spindown[1]);
-step=0.01;
+// if(fabs(step*ad->d_freq[1]) > 0.1/1800.0)step=0.1/(1800.0*ad->d_freq[1]);
+// if(fabs(step*ad->d_spindown[1]) > 1e-12)step= 1e-14/(ad->d_spindown[1]);
+
+norm=1.0/(ad->d_freq[1]*ad->d_freq[1]+ad->d_ra[1]*ad->d_ra[1]+ad->d_dec[1]*ad->d_dec[1]+ad->d_spindown[1]*ad->d_spindown[1]);
+step=1;
+start:
 max_i=0;
-fprintf(stderr, "gradient search start snr=%f step=%g\n", c.snr, step);
+fprintf(stderr, "gradient search start snr=%f step=%g norm=%g\n", c.snr, step, 1.0/norm);
 for(i=-N;i<=N;i++) {
 	//if(!i)continue;
 
-	c.frequency=cand->frequency+i*step/ad->d_freq[1];
-	c.psi=cand->psi+i*step*0;
-	c.iota=cand->iota+i*step*0;
-	c.ra=cand->ra+i*step/ad->d_ra[1];
-	c.dec=cand->dec+i*step/ad->d_dec[1];
-	c.spindown=cand->spindown+i*step/ad->d_spindown[1];
-
-// 	c.frequency=cand->frequency+i*step*ad->d_freq[1];
+// 	c.frequency=cand->frequency+i*step/ad->d_freq[1];
 // 	c.psi=cand->psi+i*step*0;
 // 	c.iota=cand->iota+i*step*0;
-// 	c.ra=cand->ra+i*step*ad->d_ra[1];
-// 	c.dec=cand->dec+i*step*ad->d_dec[1];
-// 	c.spindown=cand->spindown+i*step*ad->d_spindown[1];
+// 	c.ra=cand->ra+i*step/ad->d_ra[1];
+// 	c.dec=cand->dec+i*step/ad->d_dec[1];
+// 	c.spindown=cand->spindown+i*step/ad->d_spindown[1];
+
+	c.frequency=cand->frequency+i*step*norm*ad->d_freq[1];
+	c.psi=cand->psi+i*step*0;
+	c.iota=cand->iota+i*step*0;
+	c.ra=cand->ra+i*step*norm*ad->d_ra[1];
+	c.dec=cand->dec+i*step*norm*ad->d_dec[1];
+	c.spindown=cand->spindown+i*step*norm*ad->d_spindown[1];
 
 	fill_e(ad, &c);
 	fill_response(ad, &c);
@@ -2728,10 +2741,16 @@ for(i=-N;i<=N;i++) {
 
 fprintf(stderr, "\n");
 
+if(!max_i || (max<cand->snr+0.001)) {
+	step*=0.5;
+	if(step>=1e-3)goto start;
+	}
+
 free_score_aux_data(ad);
 
+if(step<1e-3)return 0;
+
 /*fprintf(stderr, "\n");*/
-if(!max_i || (max<cand->snr+0.001))return 0;
 
 memcpy(cand, &best_c, sizeof(best_c));
 
@@ -3708,7 +3727,7 @@ for(i=0;i<1000;i++) {
 // /* 	compute_scores(cand, 0);*/
 //  	DISTANCE_PRINTF
 
-	cont+=search_gradient_vec(cand, 64);
+	cont+=search_gradient_vec(cand, 16);
   	DISTANCE_PRINTF
 
 // 	cont|=fit_psi(cand, M_PI/64.0);
