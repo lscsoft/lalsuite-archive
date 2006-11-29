@@ -1135,13 +1135,19 @@ def histslides(slide_trigs, zerolag_trigs = None, ifolist = None, scalebkg = Non
       
     slides.append(slide["slide_num"])
  
+  mean_events = mean(nevents)
+  std_events = std(nevents)
+
   if scalebkg:
     for i in range(len(nevents)):
-      nevents[i] = nevents[i] * (600.0/6370.0)
+      nevents[i] = nevents[i] * ( 600.0 / 6370.0 )
+    mean_events = mean(nevents)
+    std_events = std(nevents) * ( 6370.0 / 600.0 ) ** ( 0.5 )
 
   hist(nevents)
-  figtext(0.13,0.8, " mean = %6.3e" % mean(nevents))
-  figtext(0.13,0.75,"sigma = %6.3e" % std(nevents))
+
+  figtext(0.13,0.8, " mean = %6.3e" % mean_events)
+  figtext(0.13,0.75,"sigma = %6.3e" % std_events)
   if zerolag_trigs:
     hold(True)
     if ifolist:
@@ -1150,7 +1156,24 @@ def histslides(slide_trigs, zerolag_trigs = None, ifolist = None, scalebkg = Non
       nfgevents = len(zerolag_trigs)
     figtext(0.13,0.70,"zero lag = %6.3e" % nfgevents )
     axvline(nfgevents,color='r',linewidth=2)
+
+  v = axis()
   
+  if scalebkg:
+    x_gauss = []
+    y_gauss = []
+    min_events = min(nevents)
+    max_events = max(nevents)
+    bin_size = ( max_events - min_events ) / 10.0
+    normalization = bin_size * len(nevents) / \
+      ( std_events * ( 2.0 * pi ) ** ( 0.5 ) )
+    for i in range(101):
+      x_gauss.append( mean_events + 3.0 * ( ( i / 50.0 ) - 1.0 ) * std_events )
+      y_gauss.append( exp( -( ( x_gauss[i] - mean_events ) ** ( 2.0 ) ) / \
+        ( 2.0 * ( std_events ** ( 2.0 ) ) ) ) * normalization )
+    plot(x_gauss,y_gauss,'b',linewidth=2)
+    axis(v)
+
   xlabel('Number of triggers',size='x-large')
   title_text = 'Histogram of number coincident '
   if ifolist:
@@ -1182,12 +1205,15 @@ def plotslides(slide_trigs, zerolag_trigs = None, ifolist = None, \
       nevents.append(len(slide["coinc_trigs"]))
     slides.append(slide["slide_num"])
 
-  if scalebkg:
-    for i in range(len(nevents)):
-      nevents[i] = nevents[i] * (600.0/6370.0)
- 
   mean_events = mean(nevents)
   std_events = std(nevents)
+
+  if scalebkg:
+    for i in range(len(nevents)):
+      nevents[i] = nevents[i] * ( 600.0 / 6370.0 )
+    mean_events = mean(nevents)
+    std_events = std(nevents) * ( 6370.0 / 600.0 ) ** ( 0.5 )
+
   plot(slides,nevents,'bx',markersize=12)
   axhline(mean_events,color='k',linewidth=2)
   axhline(mean_events + std_events,color='k',linestyle='--',linewidth=2)
