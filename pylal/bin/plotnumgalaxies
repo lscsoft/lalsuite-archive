@@ -308,10 +308,12 @@ class slideZeroData:
       
     self.slide_loudest = asarray(slideLoudest)
     self.zero_loudest = None
-    minSnr = 0.95 * min(self.slide_loudest)
-    maxSnr = 1.05 * max(self.slide_loudest)
-    self.snr_array = \
-        arange(minSnr, maxSnr, (maxSnr - minSnr)/(2 * self.num_slides))
+    if self.num_slides:
+      minSnr = 0.95 * min(self.slide_loudest)
+      maxSnr = 1.05 * max(self.slide_loudest)
+      self.snr_array = \
+          arange(minSnr, maxSnr, (maxSnr - minSnr)/(2 * self.num_slides))
+    else: self.snr_array = []
   
   def add_zero_lag(self, zeroGlob):
     """
@@ -535,7 +537,8 @@ class astroData:
       ending = '_ng_cum'
       title_text = 'Cumulative Luminosity vs ' + column
     else:
-      plot(edges, self.hist_ng(column,edges,error),linewidth=2)
+      plot(edges, self.hist_ng(column,edges,error)/(edges[1] - edges[0]),
+          linewidth=2)
       ending = '_ng_plot'    
       title_text = 'Luminosity vs ' + column
     grid( True)
@@ -568,6 +571,7 @@ class astroData:
     """
     figure(figNum)
     ng = self.hist_2d_ng(col1,edges1,col2,edges2,error)
+    ng = ng / (edges1[1] - edges1[0]) / (edges2[1] - edges2[0])
     V = arange(0,ng.max(),ng.max()/40)
     NC=contourf(edges1,edges2,ng + 0.5 * V[1],V)
     V = arange(0,ng.max(),ng.max()/10)
@@ -796,7 +800,7 @@ class injData:
     """
     figure(figNum)
     eff_2d = self.eff_2d(col1, edges1, col2, edges2, threshold)
-    V = arange(0,41./40,1./40)
+    V = arange(0,42./40,1./40)
     EC=contourf(edges1,edges2,eff_2d + 0.5 * V[1],V)
     hold(True)
     V = arange(0.1,1,0.1)
@@ -901,15 +905,15 @@ class injAstroData:
     else:
       self.set_y_max(self.x_max)
 
-  def axes_from_found(self):
+  def axes_from_found(self,threshold):
     """
     take the axes from the found injections
     """
     if self.inj:
-      self.set_x_min(0.99 * min(self.inj.get_values(self.x_value)) )
-      self.set_x_max(1.01 * max(self.inj.get_values(self.x_value)) )
-      self.set_y_min(0.99 * min(self.inj.get_values(self.y_value)) )
-      self.set_y_max(1.01 * max(self.inj.get_values(self.y_value)) )
+      self.set_x_min(0.99 * min(self.inj.get_values(self.x_value,threshold)) )
+      self.set_x_max(1.01 * max(self.inj.get_values(self.x_value,threshold)) )
+      self.set_y_min(0.99 * min(self.inj.get_values(self.y_value,threshold)) )
+      self.set_y_max(1.01 * max(self.inj.get_values(self.y_value,threshold)) )
     
   def x_edges(self):
     """
@@ -1273,7 +1277,7 @@ parser.add_option("-k","--bittenl_b",action="store",type="float",\
     default="3", help="parameter b of bitten-l")
 
 parser.add_option("-J","--num-slides",action="store",type="int",\
-    default=None,metavar=" NUM_SLIDES",\
+    default=0,metavar=" NUM_SLIDES",\
     help="number of slides")
 
 # mass cut
@@ -1603,7 +1607,7 @@ if injPlots:
     print "\nReading the found/missed injections"
   injAstro.add_found_missed(opts.found_glob, opts.missed_glob, statistic)
 
-if opts.axes_from_found: injAstro.axes_from_found()
+if opts.axes_from_found: injAstro.axes_from_found(statThresh)
 
 if opts.axes_square: injAstro.axes_square()
 
@@ -1613,7 +1617,7 @@ if opts.axes_square: injAstro.axes_square()
 ##############################################################################
 astroErrors = {}
 if opts.distance_error: astroErrors["Distance"] = opts.distance_error
-if opts.magnitude_error:astroErrors["Magnitude"] = opts.distance_error 
+if opts.magnitude_error:astroErrors["Magnitude"] = opts.magnitude_error 
 
 for astroError in astroErrors.keys() + [None]:
   if opts.plot_ng: 
@@ -1670,7 +1674,7 @@ else:
 
 for i in range(len(massedges)-1):
   injAstro.astro.mass_cut(massedges[i],massedges[i+1])
-  if opts.cut_inj_by_mass:
+  if opts.cut_inj_by_mass and injAstro.inj:
     injAstro.inj.mass_cut(massedges[i],massedges[i+1])
     print "Restricting to total mass of injections from " + \
         str(massedges[i]) + " to " + str(massedges[i+1])
