@@ -17,7 +17,6 @@ for n, a in enumerate(doc.getElementsByTagName(ligolw.Array.tagName)):
 	print "Found %s array \"%s\"..." % ("x".join(map(str, a.array.shape)), a.getAttribute("Name")),
 	fig = figure.Figure()
 	FigureCanvasAgg(fig)
-	fig.set_figsize_inches(16, 8)
 	axes = fig.gca()
 	axes.loglog()
 	axes.grid(True)
