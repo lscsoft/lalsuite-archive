@@ -147,3 +147,158 @@ def getstatistic(opts):
   return statistic
 
 
+#############################################################################
+# Follow up list class definition
+#############################################################################
+class followUpList:
+  """
+  Class to hold gps and ifo pairs to send to subsequent functions
+  It also holds an instance of the coinc class which contains
+  All of the relevant xml information
+  """
+  def __init__(self,Coincs = None, Missed = None ):
+    self.gpsTime = {"H1" : None, "H2" : None, "L1" : None,
+                  "G1" : None, "V1" : None, "T1" : None}
+    self.coincs = Coincs
+    self.missed = Missed
+    self.eventID = None
+    self.stat = None
+  def add_coincs(self,Coincs):
+    setattr(self,"coincs",Coincs)
+    self.eventID = Coincs.event_id
+    self.statValue = Coincs.stat
+  def add_missed(self,Missed):
+    setattr(self,"missed",Missed)
+  def is_trigs(self):
+    if isinstance(self.coincs,CoincInspiralUtils.coincInspiralTable.row):
+      return 1
+  def is_found(self):
+    if isinstance(self.coincs.sim,glue.ligolw.lsctables.SimInspiral):
+      return 1
+  def is_missed(self):
+    if isinstance(self.missed,glue.ligolw.lsctables.SimInspiralTable):
+      return 1
+
+#############################################################################
+# Function to return the follow up list of coinc triggers
+#############################################################################
+def getfollowuptrigs(opts,coincs=None,missed=None):
+
+  followups = []
+
+  if coincs:
+    coincs.sort()
+    numTrigs = 0
+    for ckey in coincs:
+      fuList = followUpList()
+      fuList.add_coincs(ckey)
+      try:
+        getattr(ckey,'H1')
+        fuList.gpsTime["H1"] = (float(getattr(ckey,'H1').end_time_ns)/1000000000)+float(getattr(ckey,'H1').end_time)
+      except: fuList.gpsTime["H1"] = None
+      try:
+        getattr(ckey,'H2')
+        fuList.gpsTime["H2"] = (float(getattr(ckey,'H2').end_time_ns)/1000000000)+float(getattr(ckey,'H2').end_time)
+      except: fuList.gpsTime["H2"] = None
+      try:
+        getattr(ckey,'L1')
+        fuList.gpsTime["L1"] = (float(getattr(ckey,'L1').end_time_ns)/1000000000)+float(getattr(ckey,'L1').end_time)
+      except: fuList.gpsTime["L1"] = None
+      try:
+        getattr(ckey,'G1')
+        fuList.gpsTime["G1"] = (float(getattr(ckey,'G1').end_time_ns)/1000000000)+float(getattr(ckey,'G1').end_time)
+      except: fuList.gpsTime["G1"] = None
+      try:
+        getattr(ckey,'V1')
+        fuList.gpsTime["V1"] = (float(getattr(ckey,'V1').end_time_ns)/1000000000)+float(getattr(ckey,'V1').end_time)
+      except: fuList.gpsTime["V1"] = None
+      try:
+        getattr(ckey,'T1')
+        fuList.gpsTime["T1"] = (float(getattr(ckey,'T1').end_time_ns)/1000000000)+float(getattr(ckey,'T1').end_time)
+      except: fuList.gpsTime["T1"] = None
+      followups.append(fuList)
+      numTrigs += 1
+      if numTrigs >= opts.num_trigs:
+        break
+
+  # the missed stuff doesnt work yet!!!
+  if missed:
+    followups
+
+  return followups
+
+#############################################################################
+# Class to hold summary HTML information for all of the functions
+#############################################################################
+class summaryHTMLTable:
+
+  def __init__(self,trig):
+    if trig.is_trigs():
+      self.eventID = trig.eventID
+      self.statValue = trig.statValue
+      self.summarypath = "followuptrigs/"
+    else:
+      self.eventID = None
+      self.statValue = None
+    self.H1time = trig.gpsTime["H1"]
+    self.H2time = trig.gpsTime["H2"]
+    self.L1time = trig.gpsTime["L1"]
+    self.G1time = trig.gpsTime["G1"]
+    self.V1time = trig.gpsTime["V1"]
+    self.T1time = trig.gpsTime["T1"]
+    self.containers = []
+
+class HTMLcontainer:
+
+  def __init__(self,trig,name):
+    # The injections dont work yet!!!
+    self.name = name.rsplit(".")[-1]
+    if trig.is_trigs():
+      #self.summarypath = "followuptrigs/"
+      os.chdir("followuptrigs")
+      try: 
+        os.chdir(self.name)
+        os.chdir("../../")
+      except: 
+        os.mkdir(self.name)
+        os.chdir("../")
+      self.detailpath = "followuptrigs/" + self.name + "/"
+    else: 
+      #self.summarypath = "" # fix this for injections!
+      self.detailpath = ""
+    self.image = self.detailpath + str(trig.statValue) + "_" + str(trig.eventID) + "_" + self.name + ".png" 
+    self.text = "click here"
+    self.link = self.detailpath + str(trig.statValue) + "_" + str(trig.eventID) + "_" + self.name + ".html"
+
+
+
+
+##############################################################################
+# Function to write the HTML tables to pages
+##############################################################################
+def beginSummaryTable(file, table):
+  file.write("<h2>Trigger [" + str(table.eventID) + 
+             "] with combined statistic = " + str(table.statValue) + "</h2>")
+  file.write('\n<br><table width=1000 border=1>')
+  
+def endSummaryTable(file, table):
+  file.write('\n</table>')
+
+def writeModule(file, container):
+  file.write('\n<tr><td width=600><font color="red" size=5> MODULE NAME '+
+             container.name + '</font>')
+  file.write('\n<br><a href= "' + container.link + '">' + container.text 
+             + "</a></td>")
+  file.write('\n<td><a href= "' + container.image + '">\n<img src="' + 
+              container.image + '" width=400></a></td></tr>')
+
+def writeHTMLTables(summaryHTMLlist):
+  for table in summaryHTMLlist:
+    tableFile = open(table.summarypath + str(table.statValue) + "_" + 
+                      str(table.eventID) + "_summary.html" ,'w')
+    beginSummaryTable(tableFile,table)
+    for container in table.containers:
+      writeModule(tableFile, container)
+    endSummaryTable(tableFile,table)
+    tableFile.close()
+
