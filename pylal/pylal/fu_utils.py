@@ -173,10 +173,10 @@ class followUpList:
     if isinstance(self.coincs,CoincInspiralUtils.coincInspiralTable.row):
       return 1
   def is_found(self):
-    if isinstance(self.coincs.sim,glue.ligolw.lsctables.SimInspiral):
+    if isinstance(self.coincs.sim,lsctables.SimInspiral):
       return 1
   def is_missed(self):
-    if isinstance(self.missed,glue.ligolw.lsctables.SimInspiralTable):
+    if isinstance(self.missed,lsctables.SimInspiralTable):
       return 1
 
 #############################################################################
@@ -236,7 +236,10 @@ class summaryHTMLTable:
     if trig.is_trigs():
       self.eventID = trig.eventID
       self.statValue = trig.statValue
+    if trig.is_trigs() and not trig.is_found():
       self.summarypath = "followuptrigs/"
+    if trig.is_trigs() and trig.is_found():
+      self.summarypath = "followupfound/"
     else:
       self.eventID = None
       self.statValue = None
@@ -251,10 +254,10 @@ class summaryHTMLTable:
 class HTMLcontainer:
 
   def __init__(self,trig,name):
-    # The injections dont work yet!!!
+    # The missed injections dont work yet!!!
     self.name = name.rsplit(".")[-1]
-    if trig.is_trigs():
-      #self.summarypath = "followuptrigs/"
+
+    if trig.is_trigs() and not trig.is_found():    
       os.chdir("followuptrigs")
       try: 
         os.chdir(self.name)
@@ -264,8 +267,20 @@ class HTMLcontainer:
         os.chdir("../")
       self.detailpath = "followuptrigs/" + self.name + "/"
     else: 
-      #self.summarypath = "" # fix this for injections!
       self.detailpath = ""
+
+    if trig.is_trigs() and trig.is_found():
+      os.chdir("followupfound")
+      try:
+        os.chdir(self.name)
+        os.chdir("../../")
+      except:
+        os.mkdir(self.name)
+        os.chdir("../")
+      self.detailpath = "followupfound/" + self.name + "/"
+    else:
+      self.detailpath = ""
+
     self.image = self.detailpath + str(trig.statValue) + "_" + str(trig.eventID) + "_" + self.name + ".png" 
     self.text = "click here"
     self.link = self.detailpath + str(trig.statValue) + "_" + str(trig.eventID) + "_" + self.name + ".html"
