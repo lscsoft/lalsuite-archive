@@ -31,7 +31,7 @@ from pylal import CoincInspiralUtils
 
 # this imports the follow up utilities necessary to run this code
 from pylal.fu_utils import *
-
+from pylal.fu_dosomething import *
 ##############################################################################
 # help message
 ##############################################################################
@@ -357,136 +357,136 @@ def readFiles(fileGlob,statistic=None):
 #############################################################################
 # Follow up list class definition
 #############################################################################
-class followUpList:
-  """
-  Class to hold gps and ifo pairs to send to subsequent functions
-  It also holds an instance of the coinc class which contains 
-  All of the relevant xml information
-  """
-  def __init__(self,Coincs = None, Missed = None ):
-    self.gpsTime = {"H1" : None, "H2" : None, "L1" : None,
-                  "G1" : None, "V1" : None, "T1" : None}
-    self.coincs = Coincs
-    self.missed = Missed
-  def add_coincs(self,Coincs):
-    setattr(self,"coincs",Coincs)
-  def add_missed(self,Missed):
-    setattr(self,"missed",Missed)
-  def is_trigs(self):
-    if isinstance(self.coincs,CoincInspiralUtils.coincInspiralTable.row):
-      return 1
-  #def is_found(self):
-  #def is_missed(self):
+#class followUpList:
+#  """
+#  Class to hold gps and ifo pairs to send to subsequent functions
+#  It also holds an instance of the coinc class which contains 
+#  All of the relevant xml information
+#  """
+#  def __init__(self,Coincs = None, Missed = None ):
+#    self.gpsTime = {"H1" : None, "H2" : None, "L1" : None,
+#                  "G1" : None, "V1" : None, "T1" : None}
+#    self.coincs = Coincs
+#    self.missed = Missed
+#  def add_coincs(self,Coincs):
+#    setattr(self,"coincs",Coincs)
+#  def add_missed(self,Missed):
+#    setattr(self,"missed",Missed)
+#  def is_trigs(self):
+#    if isinstance(self.coincs,CoincInspiralUtils.coincInspiralTable.row):
+#      return 1
+#  #def is_found(self):
+#  #def is_missed(self):
   
 #############################################################################
 # Function to return the follow up list of coinc triggers
 #############################################################################
-def getfollowuptrigs(coincs=None,missed=None):
-  
-  followups = []
-
-  if coincs:
-    coincs.sort()
-    numTrigs = 0
-    for ckey in coincs:
-      fuList = followUpList()
-      fuList.add_coincs(ckey)
-      try:
-        getattr(ckey,'H1')
-        fuList.gpsTime["H1"] = (float(getattr(ckey,'H1').end_time_ns)/1000000000)+float(getattr(ckey,'H1').end_time)  
-      except: fuList.gpsTime["H1"] = None
-      try:
-        getattr(ckey,'H2')
-        fuList.gpsTime["H2"] = (float(getattr(ckey,'H2').end_time_ns)/1000000000)+float(getattr(ckey,'H2').end_time)
-      except: fuList.gpsTime["H2"] = None
-      try:
-        getattr(ckey,'L1')
-        fuList.gpsTime["L1"] = (float(getattr(ckey,'L1').end_time_ns)/1000000000)+float(getattr(ckey,'L1').end_time)
-      except: fuList.gpsTime["L1"] = None
-      try:
-        getattr(ckey,'G1')
-        fuList.gpsTime["G1"] = (float(getattr(ckey,'G1').end_time_ns)/1000000000)+float(getattr(ckey,'G1').end_time)
-      except: fuList.gpsTime["G1"] = None
-      try:
-        getattr(ckey,'V1')
-        fuList.gpsTime["V1"] = (float(getattr(ckey,'V1').end_time_ns)/1000000000)+float(getattr(ckey,'V1').end_time)
-      except: fuList.gpsTime["V1"] = None
-      try:
-        getattr(ckey,'T1')
-        fuList.gpsTime["T1"] = (float(getattr(ckey,'T1').end_time_ns)/1000000000)+float(getattr(ckey,'T1').end_time)
-      except: fuList.gpsTime["T1"] = None
-      followups.append(fuList) 
-      numTrigs += 1
-      if numTrigs >= opts.num_trigs:
-        break
-  
-  # the missed stuff doesnt work yet!!!
-  if missed:
-    followups = None
-
-  return followups
+#def getfollowuptrigs(coincs=None,missed=None):
+#  
+#  followups = []
+#
+#  if coincs:
+#    coincs.sort()
+#    numTrigs = 0
+#    for ckey in coincs:
+#      fuList = followUpList()
+#      fuList.add_coincs(ckey)
+#      try:
+#        getattr(ckey,'H1')
+#        fuList.gpsTime["H1"] = (float(getattr(ckey,'H1').end_time_ns)/1000000000)+float(getattr(ckey,'H1').end_time)  
+#      except: fuList.gpsTime["H1"] = None
+#      try:
+#        getattr(ckey,'H2')
+#        fuList.gpsTime["H2"] = (float(getattr(ckey,'H2').end_time_ns)/1000000000)+float(getattr(ckey,'H2').end_time)
+#      except: fuList.gpsTime["H2"] = None
+#      try:
+#        getattr(ckey,'L1')
+#        fuList.gpsTime["L1"] = (float(getattr(ckey,'L1').end_time_ns)/1000000000)+float(getattr(ckey,'L1').end_time)
+#      except: fuList.gpsTime["L1"] = None
+#      try:
+#        getattr(ckey,'G1')
+#        fuList.gpsTime["G1"] = (float(getattr(ckey,'G1').end_time_ns)/1000000000)+float(getattr(ckey,'G1').end_time)
+#      except: fuList.gpsTime["G1"] = None
+#      try:
+#        getattr(ckey,'V1')
+#        fuList.gpsTime["V1"] = (float(getattr(ckey,'V1').end_time_ns)/1000000000)+float(getattr(ckey,'V1').end_time)
+#      except: fuList.gpsTime["V1"] = None
+#      try:
+#        getattr(ckey,'T1')
+#        fuList.gpsTime["T1"] = (float(getattr(ckey,'T1').end_time_ns)/1000000000)+float(getattr(ckey,'T1').end_time)
+#      except: fuList.gpsTime["T1"] = None
+#      followups.append(fuList) 
+#      numTrigs += 1
+#      if numTrigs >= opts.num_trigs:
+#        break
+#  
+#  # the missed stuff doesnt work yet!!!
+#  if missed:
+#    followups = None
+#
+#  return followups
 
   
 #############################################################################
 # Class to hold summary HTML information for all of the functions
 #############################################################################
-class summaryHTMLTable:
-
-  def __init__(self,trig):
-    if trig.is_trigs():
-      self.eventID = trig.coincs.event_id
-      self.statValue = trig.coincs.stat
-    else:
-      self.eventID = None
-      self.statValue = None
-    self.H1time = trig.gpsTime["H1"]
-    self.H2time = trig.gpsTime["H2"]
-    self.L1time = trig.gpsTime["L1"]
-    self.G1time = trig.gpsTime["G1"]
-    self.V1time = trig.gpsTime["V1"]
-    self.T1time = trig.gpsTime["T1"]
-    self.containers = []
-    
-class HTMLcontainer:
-  
-  def __init__(self,trig):
-    # The injections dont work yet!!!
-    if trig.is_trigs():
-      self.path = "followuptrigs/"
-    else: self.path = ""
-    self.name = __name__
-    self.image = self.path + __name__ + ".png"
-    self.text = "click here"
-    self.link = self.path + self.name + ".html"
+#class summaryHTMLTable:
+#
+#  def __init__(self,trig):
+#    if trig.is_trigs():
+#      self.eventID = trig.coincs.event_id
+#      self.statValue = trig.coincs.stat
+#    else:
+#      self.eventID = None
+#      self.statValue = None
+#    self.H1time = trig.gpsTime["H1"]
+#    self.H2time = trig.gpsTime["H2"]
+#    self.L1time = trig.gpsTime["L1"]
+#    self.G1time = trig.gpsTime["G1"]
+#    self.V1time = trig.gpsTime["V1"]
+#    self.T1time = trig.gpsTime["T1"]
+#    self.containers = []
+#    
+#class HTMLcontainer:
+#  
+#  def __init__(self,trig):
+#    # The injections dont work yet!!!
+#    if trig.is_trigs():
+#      self.path = "followuptrigs/"
+#    else: self.path = ""
+#    self.name = __name__
+#    self.image = self.path + __name__ + ".png"
+#    self.text = "click here"
+#    self.link = self.path + self.name + ".html"
 
 ##############################################################################
 # Function to write the HTML tables to pages
 ##############################################################################
-def writeHTMLTables(summaryHTMLlist):
-  for table in summaryHTMLlist:
-    print table.eventID
-    for container in table.containers:
-      print container.name
-      # this is the wrong value for function name - it give __main__
+#def writeHTMLTables(summaryHTMLlist):
+#  for table in summaryHTMLlist:
+#    print table.eventID
+#    for container in table.containers:
+#      print container.name
+#      # this is the wrong value for function name - it give __main__
 
 
 ##############################################################################
 # Examples of follow up functions
 ##############################################################################
-def dosomething(trig):
-  container = HTMLcontainer(trig)
-  return container
+#def dosomething(trig):
+#  container = HTMLcontainer(trig)
+#  return container
 
-def dosomethingelse(trig):
-  container = HTMLcontainer(trig)
-  # lets say I don't have an image for this function or a link
-  # I need to set their value to None -  that will prevent
-  # the HTML from displaying an empty image or a bogus link!
-  # Otherwise I should make sure and produce and image with the
-  # default name and create a file with the default link name!
-  container.image = None
-  container.link = None
-  return container
+#def dosomethingelse(trig):
+#  container = HTMLcontainer(trig,__name__)
+#  # lets say I don't have an image for this function or a link
+#  # I need to set their value to None -  that will prevent
+#  # the HTML from displaying an empty image or a bogus link!
+#  # Otherwise I should make sure and produce and image with the
+#  # default name and create a file with the default link name!
+#  container.image = None
+#  container.link = None
+#  return container
 
 ##############################################################################
 # MAIN PROGRAM - I like this heading.
@@ -516,7 +516,7 @@ else:
 # this will get either the found injections (if injections were specified)
 # and the missed injections 
 # or just the coincidence triggers 
-followuptrigs = getfollowuptrigs(coincs,missed)
+followuptrigs = getfollowuptrigs(opts,coincs,missed)
 
 summaryHTMLlist = []
 
@@ -528,7 +528,7 @@ for trig in followuptrigs:
   # Call the followup functions they should all return
   # an HTMLcontainer class
   summaryHTML.containers.append(dosomething(trig))
-  summaryHTML.containers.append(dosomethingelse(trig))
+  #summaryHTML.containers.append(dosomethingelse(trig))
   # ....................................................
   # Add your functions Here in th following way        :
   # summaryHTML.containers.append(<yourfunction>(trig)): 
