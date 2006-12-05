@@ -32,6 +32,7 @@ from pylal import CoincInspiralUtils
 # this imports the follow up utilities necessary to run this code
 from pylal.fu_utils import *
 from pylal.fu_dosomething import *
+from pylal.fu_writeXMLparams import *
 ##############################################################################
 # help message
 ##############################################################################
@@ -45,15 +46,15 @@ followup.py [options]
 
   ----------------------------------------------------------------------------
   --verbose:			Make a lot of text everywhere!	
-  --statistic: 			Coinc stat to use
-  --bitten-l-a:                 bitten l a
-  --bitten-l-b:                 bitten l b
+  --statistic: 			Coinc stat to use [effective_snrsq]
+  --bitten-l-a:                 bitten l a [3]
+  --bitten-l-b:                 bitten l b [3]
   --xml-glob:  			A glob of xml files 
   --injection-glob:  		A glob of the astrophysical injections
-  --cluster-time:		The cluster time for triggers
-  --injection-coinc-time:  	How close to consider a found injection
+  --cluster-time:		The cluster time for triggers [10]
+  --injection-coinc-time:  	How close to consider a found injection [0.1]
   --data-type		        playground_only | all_data | exclude_play 
-  --num-trigs			The number of triggers to follow up
+  --num-trigs			The number of triggers to follow up [1]
 """
 
 
@@ -105,7 +106,7 @@ parser.add_option("-c","--cluster-time",action="store",type="float",\
 
 parser.add_option("-i","--injection-coinc-time",action="store",type="float",\
     default=10,metavar=" INJ_TIME",\
-    help="injection cluster time in seconds (default = .10)")
+    help="injection coincidence time in seconds (default = .10)")
 
 parser.add_option("-d","--data-type",action="store",type="string",\
     default="all_data",metavar=" DATA_TYPE",\
@@ -114,6 +115,10 @@ parser.add_option("-d","--data-type",action="store",type="string",\
 parser.add_option("-n","--num-trigs",action="store",type="float",\
     default=1,metavar=" NUM_TRIGS",\
     help="number of triggers to follow up (default = 1)")
+
+parser.add_option("-p","--page",action="store",type="string",\
+    default="investigations/s5/people/followups/",metavar=" PAGE",\
+    help="web page path (default 'investigations/s5/people/followups/'")
 
 
 # Now that things are set up we will actually parse the options
@@ -276,7 +281,7 @@ for trig in followuptrigs:
   # Call the followup functions they should all return
   # an HTMLcontainer class
   summaryHTML.containers.append(dosomething(trig))
-  #summaryHTML.containers.append(dosomethingelse(trig))
+  summaryHTML.containers.append(writeXMLparams(trig))
   # ....................................................
   # Add your functions Here in th following way        :
   # summaryHTML.containers.append(<yourfunction>(trig)): 
@@ -286,4 +291,5 @@ for trig in followuptrigs:
   
 writeHTMLTables(summaryHTMLlist)
 
+publishToIULGroup(opts.page)
 sys.exit(1)
