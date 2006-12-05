@@ -135,13 +135,15 @@ class coincInspiralTable:
     from numarray import asarray
     return asarray(stat)
 
-  def sort(self):
+  def sort(self, descending = True):
     """
-    Sort the list based on stat value
+    Sort the list based on stat value 
+    default is to descending
     """
     stat_list = [ (coinc.stat, coinc) for coinc in self.rows ]
     stat_list.sort()
-    stat_list.reverse()
+    if descending:
+      stat_list.reverse()
     self.rows = [coinc for (stat,coinc) in stat_list]
     
   def getslide(self, slide_num):
