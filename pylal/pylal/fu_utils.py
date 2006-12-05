@@ -165,12 +165,20 @@ class followUpList:
     self.eventID = None
     self.stat = None
     self.page = None
+    self.summarydir = None
+    self.summarypage = None
   def add_coincs(self,Coincs):
     setattr(self,"coincs",Coincs)
     self.eventID = Coincs.event_id
     self.statValue = Coincs.stat
+    if self.is_found():
+      self.summarydir = "followupfound"
+    else: 
+      if self.is_trigs():
+        self.summarydir = "followuptrigs"
   def add_missed(self,Missed):
     setattr(self,"missed",Missed)
+    self.summarydir = "followupmissed"
   def is_trigs(self):
     if isinstance(self.coincs,CoincInspiralUtils.coincInspiralTable.row):
       return 1
@@ -310,8 +318,8 @@ def writeIULHeader(file):
   file.write('<%method title>Follow Up Report</%method><%method headline>Follow Up Report</%method><%method cvsid>$Id$</%method>\n')
 
 def beginSummaryTable(file, table):
-  file.write("<h2>Trigger [" + str(table.eventID) + 
-             "] with combined statistic = " + str(table.statValue) + "</h2>")
+  file.write("<h3>Trigger [" + str(table.eventID) + 
+             "] with combined statistic = " + str(table.statValue) + "</h3>")
   file.write('\n<br><table width=800 border=1>')
   
 def endSummaryTable(file, table):
