@@ -611,6 +611,13 @@ class Table(ligolw.Table, list):
 		if self.ids is not None:
 			self.dict = TableRowDict(self)
 
+	def _end_of_rows(self):
+		"""
+		Called during parsing to indicate that the last row has
+		been added.
+		"""
+		pass
+
 	def removeChild(self, child):
 		"""
 		Remove a child from this element.  The child element is
@@ -728,6 +735,9 @@ class DBTable(Table):
 		self.cursor.execute(statement)
 		self.append_statement = "INSERT INTO " + StripTableName(self.getAttribute("Name")) + " VALUES (" + ",".join("?" * len(self.columnnames)) + ")"
 
+	def _end_of_rows(self):
+		Table._end_of_rows(self)
+
 	def __len__(self):
 		return self.cursor.execute("SELECT COUNT(*) FROM " + StripTableName(self.getAttribute("Name"))).fetchone()[0]
 
@@ -777,8 +787,10 @@ def startStream(self, attrs):
 def endStream(self):
 	# stream tokenizer uses delimiter to identify end of each token, so
 	# add a final delimiter to induce the last token to get parsed.
+	# Also call _end_of_rows() hook.
 	if self.current.parentNode.tagName == ligolw.Table.tagName:
 		self.current.appendData(self.current.getAttribute("Delimiter"))
+		self.current.parentNode._end_of_rows()
 	else:
 		__parent_endStream(self)
 
@@ -787,9 +799,11 @@ def startTable(self, attrs):
 
 def endTable(self):
 	# Table elements are allowed to contain 0 Stream children, but
-	# _end_of_columns() needs to be called regardless.
+	# _end_of_columns() and _end_of_rows() hooks need to be called
+	# regardless.
 	if self.current.childNodes[-1].tagName != ligolw.Stream.tagName:
 		self.current._end_of_columns()
+		self.current._end_of_rows()
 
 ligolw.LIGOLWContentHandler.startColumn = startColumn
 ligolw.LIGOLWContentHandler.startStream = startStream
