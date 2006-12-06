@@ -750,6 +750,7 @@ class DBTable(Table):
 
 	def _end_of_rows(self):
 		Table._end_of_rows(self)
+		self.connection.commit()
 
 	def __len__(self):
 		return self.cursor.execute("SELECT COUNT(*) FROM " + StripTableName(self.getAttribute("Name"))).fetchone()[0]
