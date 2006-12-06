@@ -726,6 +726,10 @@ class DBTable(Table):
 	table's CREATE statement where constraints go, for example you
 	might wish to set this to "PRIMARY KEY (event_id)" for a table with
 	an event_id column.
+
+	Note:  because the table is stored in an SQL engine, the use of
+	this class imposes the restriction that table names be unique
+	within a document.
 	"""
 	connection = None
 	constraints = None
