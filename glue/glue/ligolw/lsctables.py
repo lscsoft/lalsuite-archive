@@ -1583,6 +1583,7 @@ class CoincMapTable(table.Table):
 	tableName = "coinc_event_map:table"
 	validcolumns = {
 		"coinc_event_id": "ilwd:char",
+		"table_name": "char_v",
 		"event_id": "ilwd:char"
 	}
 
