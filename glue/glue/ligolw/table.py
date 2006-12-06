@@ -716,6 +716,17 @@ class Table(ligolw.Table, list):
 
 
 class DBTable(Table):
+	"""
+	A special version of the Table class using an SQL database engine
+	for storage.  Many of the features of the Table class are not
+	available here, but instead the user can use SQL to query the
+	table's contents.  Before use, the connection attribute must be set
+	to a Python DB-API 2.0 "connection" object.  The constraints
+	attribute can be set to a text string that will be added to the
+	table's CREATE statement where constraints go, for example you
+	might wish to set this to "PRIMARY KEY (event_id)" for a table with
+	an event_id column.
+	"""
 	connection = None
 	constraints = None
 
@@ -724,6 +735,8 @@ class DBTable(Table):
 		Initialize
 		"""
 		Table.__init__(self, *attrs)
+		if self.connection is None:
+			raise ElementError, "must set connection attribute before instantiating DBTable"
 		self.cursor = self.connection.cursor()
 
 	def _end_of_columns(self):
