@@ -495,7 +495,6 @@ class Table(ligolw.Table, list):
 	"""
 	High-level Table element that knows about its columns and rows.
 	"""
-	connection = None	# unused place-holder for future DB code
 	validcolumns = None
 	loadcolumns = None
 	RowType = TableRow
@@ -698,6 +697,57 @@ class Table(ligolw.Table, list):
 				for i, old in enumerate(column):
 					if old in mapping:
 						column[i] = mapping[old]
+
+
+#
+# =============================================================================
+#
+#                            Database-backed Table
+#
+# =============================================================================
+#
+
+
+class DBTable(Table):
+	connection = None
+	constraints = None
+
+	def __init__(self, *attrs):
+		"""
+		Initialize
+		"""
+		Table.__init__(self, *attrs)
+		self.cursor = self.connection.cursor()
+
+	def _end_of_columns(self):
+		Table._end_of_columns(self)
+		statement = "CREATE TABLE " + StripTableName(self.getAttribute("Name")) + " (" + ", ".join(map(lambda n, t: "%s %s" % (n, types.ToSQLiteType[t]), self.columnnames, self.columntypes))
+		if self.constraints is not None:
+			statement += ", " + self.constraints
+		statement += ")"
+		self.cursor.execute(statement)
+		self.append_statement = "INSERT INTO " + StripTableName(self.getAttribute("Name")) + " VALUES (" + ",".join("?" * len(self.columnnames)) + ")"
+
+	def __len__(self):
+		return self.cursor.execute("SELECT COUNT(*) FROM " + StripTableName(self.getAttribute("Name"))).fetchone()[0]
+
+	def __iter__(self):
+		for values in self.connection.cursor().execute("SELECT * FROM " + StripTableName(self.getAttribute("Name"))):
+			yield self._row_from_cols(values)
+
+	def append(self, row):
+		self.cursor.execute(self.append_statement, map(lambda n: getattr(row, n), self.columnnames))
+
+	def _row_from_cols(self, values):
+		row = self.RowType()
+		for c, v in zip(self.columnnames, values):
+			setattr(row, c, v)
+		return row
+
+	def unlink(self):
+		Table.unlink(self)
+		self.cursor.execute("DROP TABLE " + StripTableName(self.getAttribute("Name")))
+		self.cursor = None
 
 
 #
