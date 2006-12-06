@@ -257,12 +257,14 @@ def add_sim_burst_sngl_burst_coinc(contents, process, sim, bursts):
 
 	coincmap = lsctables.CoincMap()
 	coincmap.coinc_event_id = coinc.coinc_event_id
+	coincmap.table_name = ilwd.ILWDTableName(sim.simulation_id)
 	coincmap.event_id = sim.simulation_id
 	contents.coincmaptable.append(coincmap)
 
 	for event in bursts:
 		coincmap = lsctables.CoincMap()
 		coincmap.coinc_event_id = coinc.coinc_event_id
+		coincmap.table_name = ilwd.ILWDTableName(event.event_id)
 		coincmap.event_id = event.event_id
 		contents.coincmaptable.append(coincmap)
 
@@ -323,12 +325,14 @@ def add_sim_burst_coinc_coinc(contents, process, sim, coinc_events):
 
 	coincmap = lsctables.CoincMap()
 	coincmap.coinc_event_id = coinc.coinc_event_id
+	coincmap.table_name = ilwd.ILWDTableName(sim.simulation_id)
 	coincmap.event_id = sim.simulation_id
 	contents.coincmaptable.append(coincmap)
 
 	for event in coinc_events:
 		coincmap = lsctables.CoincMap()
 		coincmap.coinc_event_id = coinc.coinc_event_id
+		coincmap.table_name = ilwd.ILWDTableName(event.event_id)
 		coincmap.event_id = event.coinc_event_id
 		contents.coincmaptable.append(coincmap)
 

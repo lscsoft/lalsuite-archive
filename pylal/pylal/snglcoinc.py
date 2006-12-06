@@ -34,6 +34,7 @@ import sys
 
 from glue.ligolw import table
 from glue.ligolw import lsctables
+from glue.ligolw import ilwd
 from pylal import itertools
 from pylal import llwapp
 from pylal.date import LIGOTimeGPS
@@ -145,6 +146,7 @@ class CoincTables(object):
 		for event in events:
 			coincmap = lsctables.CoincMap()
 			coincmap.coinc_event_id = coinc.coinc_event_id
+			coincmap.table_name = ilwd.ILWDTableName(event.event_id)
 			coincmap.event_id = event.event_id
 			self.coincmaptable.append(coincmap)
 
