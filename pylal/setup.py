@@ -49,6 +49,7 @@ setup(
 			runtime_library_dirs = lal_pkg_config.libdirs)
 	],
 	scripts = [
+                os.path.join("bin", "followup.py"),
 		os.path.join("bin", "plotbinj"),
 		os.path.join("bin", "plotburca"),
 		os.path.join("bin", "plotburst"),

@@ -171,17 +171,19 @@ class followUpList:
     setattr(self,"coincs",Coincs)
     self.eventID = Coincs.event_id
     self.statValue = Coincs.stat
+    if self.is_trigs():
+      self.summarydir = "followuptrigs"
     if self.is_found():
       self.summarydir = "followupfound"
-    else: 
-      if self.is_trigs():
-        self.summarydir = "followuptrigs"
+  
   def add_missed(self,Missed):
     setattr(self,"missed",Missed)
     self.summarydir = "followupmissed"
+  
   def is_trigs(self):
     if isinstance(self.coincs,CoincInspiralUtils.coincInspiralTable.row):
       return 1
+  
   def is_found(self):
     sim = None
     try: 
@@ -215,6 +217,7 @@ def getfollowuptrigs(opts,coincs=None,missed=None):
       fuList = followUpList()
       fuList.add_coincs(ckey)
       fuList.add_page(opts.page)
+      print fuList.page
       try:
         getattr(ckey,'H1')
         fuList.gpsTime["H1"] = (float(getattr(ckey,'H1').end_time_ns)/1000000000)+float(getattr(ckey,'H1').end_time)
@@ -275,8 +278,12 @@ class HTMLcontainer:
   def __init__(self,trig,name):
     # The missed injections dont work yet!!!
     self.name = name.rsplit(".")[-1]
-
-    if trig.is_trigs() and not trig.is_found():    
+    self.detailpath = ""
+    if trig.is_trigs() and not trig.is_found():   
+      print "is trigs"
+      print os.getcwd()
+      print self.name
+      print trig.page 
       os.chdir("followuptrigs")
       try: 
         os.chdir(self.name)
@@ -286,8 +293,6 @@ class HTMLcontainer:
         os.chdir("../")
       self.detailpath = trig.page + "/followuptrigs/" + self.name + "/"
       self.localdetailpath = "followuptrigs/" + self.name + "/"
-    else: 
-      self.detailpath = ""
 
     if trig.is_trigs() and trig.is_found():
       os.chdir("followupfound")
@@ -299,15 +304,15 @@ class HTMLcontainer:
         os.chdir("../")
       self.detailpath = trig.page + "/followupfound/" + self.name + "/"
       self.localdetailpath = "followupfound/" + self.name + "/"
-    else:
-      self.detailpath = ""
 
     self.image = self.detailpath + str(trig.statValue) + "_" + str(trig.eventID) + "_" + self.name + ".png"
     self.localimage = self.localdetailpath + str(trig.statValue) + "_" + str(trig.eventID) + "_" + self.name + ".png" 
     self.text = "click here"
     self.link = self.detailpath + str(trig.statValue) + "_" + str(trig.eventID) + "_" + self.name + ".html"
     self.locallink = self.localdetailpath + str(trig.statValue) + "_" + str(trig.eventID) + "_" + self.name + ".html"
-
+    print "link is " + self.link
+    print "detail path is " + self.detailpath
+    print "hello"
 
 
 
@@ -339,6 +344,7 @@ def writeHTMLTables(summaryHTMLlist):
                       str(table.eventID) + "_summary.html" ,'w')
     beginSummaryTable(tableFile,table)
     for container in table.containers:
+      print container.link
       writeModule(tableFile, container)
     endSummaryTable(tableFile,table)
     writeIULHeader(tableFile)
@@ -397,7 +403,7 @@ def publishToIULGroup(page):
     table.write(indexFile)  
   os.chdir('..')
 
-  # Then do the triggers 
+# First do the found trigs
   files = os.chdir('followuptrigs')
   files = os.listdir('.')
   table = HTMLTable()
@@ -410,17 +416,44 @@ def publishToIULGroup(page):
       if temp:
         fList.append((float(temp.group().rsplit('_')[0]), \
                   temp.group().rsplit('_')[1]))
-    indexFile.write('<h3>Trigger follow ups</h3>\n')
-    sortedF = sorted(fList,key=operator.itemgetter(0),reverse=True)
+    indexFile.write('<h3>Found Trigger follow ups</h3>\n')
+    sortedF = sorted(fList,key=operator.itemgetter(0),reverse=False)
     for i in sortedF:
       stat.append(str(i[0]))
       ID.append('<a href="' +page+ '/followuptrigs/'+str(i[0])+'_'+str(i[1])+
-                '_summary.html">'+i[1]+'</a>')    
+                '_summary.html">'+i[1]+'</a>')
     table.add_column(stat,'Stat Value')
     table.add_column(ID,'ID')
     table.write(indexFile)
-  
   os.chdir('..')
+
+
+
+#  # Then do the triggers 
+#  files = os.chdir('followuptrigs')
+#  files = os.listdir('.')
+#  table = HTMLTable()
+#  fList = []
+#  stat = []
+#  ID = []
+#  if files:
+#    for f in files:
+#      temp = patt.match(f)
+#      if temp:
+#        fList.append((float(temp.group().rsplit('_')[0]), \
+#                  temp.group().rsplit('_')[1]))
+#    indexFile.write('<h3>Trigger follow ups</h3>\n')
+#    sortedF = sorted(fList,key=operator.itemgetter(0),reverse=True)
+#    for i in sortedF:
+#      stat.append(str(i[0]))
+#      ID.append('<a href="' +page+ '/followuptrigs/'+str(i[0])+'_'+str(i[1])+
+#                '_summary.html">'+i[1]+'</a>')    
+#    table.add_column(stat,'Stat Value')
+#    table.add_column(ID,'ID')
+#    table.write(indexFile)
+#  
+#  os.chdir('..')
+
   writeIULHeader(indexFile)
   indexFile.close()
   #This needs to be done so that it doesn't keep writing over this 

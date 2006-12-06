@@ -41,8 +41,8 @@ def writeXMLparams(trig):
   #tableFile = open(container.link,'w')
   tableFile.write('<h3>Follow up of trigger [' +str(trig.eventID) +']</h3>\n')
   container.text = "click here for a link to the xml parameters"
-  if trig.is_trigs():
-    pass
+  #if trig.is_trigs():
+  #  pass
   table = HTMLTable()
   for ifo in trig.gpsTime:
     if trig.gpsTime[ifo]: 
