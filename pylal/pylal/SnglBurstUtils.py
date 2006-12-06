@@ -207,23 +207,8 @@ CoincTable.RowType = Coinc
 
 
 class CoincMapTable(table.DBTable):
-	# this is different because we create a table_name column, which
-	# never appears in the XML, in order to simplify queries
 	tableName = lsctables.CoincMapTable.tableName
 	validcolumns = lsctables.CoincMapTable.validcolumns
-
-	def _end_of_columns(self):
-		table.Table._end_of_columns(self)
-		self.cursor.execute("CREATE TABLE coinc_event_map (coinc_event_id TEXT, table_name TEXT, event_id TEXT)")
-		self.append_statement = "INSERT INTO " + table.StripTableName(self.getAttribute("Name")) + " VALUES (" + ",".join("?" * len(self.columnnames)) + ")"
-
-	def append(self, row):
-		self.cursor.execute("INSERT INTO coinc_event_map VALUES (?, ?, ?)", (row.coinc_event_id, ilwd.ILWDTableName(row.event_id), row.event_id))
-
-	def _row_from_cols(self, values):
-		row = self.RowType()
-		row.coinc_event_id, nul, row.event_id = values
-		return row
 
 
 class CoincDatabase(object):
