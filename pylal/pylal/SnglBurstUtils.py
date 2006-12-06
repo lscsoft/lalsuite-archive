@@ -210,6 +210,10 @@ class CoincMapTable(table.DBTable):
 	tableName = lsctables.CoincMapTable.tableName
 	validcolumns = lsctables.CoincMapTable.validcolumns
 
+	def _end_of_rows(self):
+		table.DBTable._end_of_rows(self)
+		self.cursor.execute("CREATE INDEX coinc_event_id_index ON coinc_event_map (table_name, coinc_event_id)")
+
 
 class CoincDatabase(object):
 	def __init__(self, connection):
@@ -232,7 +236,6 @@ class CoincDatabase(object):
 		"""
 		self.connection.commit()
 		cursor = self.connection.cursor()
-		cursor.execute("CREATE INDEX coinc_event_id_index ON coinc_event_map (table_name, coinc_event_id)")
 
 		# find the tables
 		self.sngl_burst_table = table.get_table(xmldoc, lsctables.SnglBurstTable.tableName)
