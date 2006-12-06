@@ -1517,7 +1517,7 @@ class CoincDefTable(table.Table):
 	tableName = "coinc_definer:table"
 	validcolumns = {
 		"coinc_def_id": "ilwd:char",
-		"table_name": "lstring"
+		"table_name": "char_v"
 	}
 	ids = CoincDefIDs()
 
