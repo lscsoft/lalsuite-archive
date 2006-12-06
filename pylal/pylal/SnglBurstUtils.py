@@ -63,44 +63,7 @@ from pylal.date import LIGOTimeGPS
 # This is a work-in-progress;  please be kind.
 #
 
-class Table(table.Table):
-	constraints = None
-
-	def __init__(self, *attrs):
-		table.Table.__init__(self, *attrs)
-		self.cursor = self.connection.cursor()
-
-	def _end_of_columns(self):
-		table.Table._end_of_columns(self)
-		statement = "CREATE TABLE " + table.StripTableName(self.getAttribute("Name")) + " (" + ", ".join(map(lambda n, t: "%s %s" % (n, types.ToSQLiteType[t]), self.columnnames, self.columntypes))
-		if self.constraints:
-			statement += ", " + self.constraints
-		statement += ")"
-		self.cursor.execute(statement)
-		self.append_statement = "INSERT INTO " + table.StripTableName(self.getAttribute("Name")) + " VALUES (" + ",".join("?" * len(self.columnnames)) + ")"
-
-	def __len__(self):
-		return self.cursor.execute("SELECT COUNT(*) FROM " + table.StripTableName(self.getAttribute("Name"))).fetchone()[0]
-
-	def __iter__(self):
-		for values in self.connection.cursor().execute("SELECT * FROM " + table.StripTableName(self.getAttribute("Name"))):
-			yield self._row_from_cols(values)
-
-	def append(self, row):
-		self.cursor.execute(self.append_statement, map(lambda n: getattr(row, n), self.columnnames))
-
-	def _row_from_cols(self, values):
-		row = self.RowType()
-		map(lambda c, v: setattr(row, c, v), self.columnnames, values)
-		return row
-
-	def unlink(self):
-		table.Table.unlink(self)
-		self.cursor.execute("DROP TABLE " + table.StripTableName(self.getAttribute("Name")))
-		self.cursor = None
-
-
-class SnglBurstTable(Table):
+class SnglBurstTable(table.DBTable):
 	tableName = lsctables.SnglBurstTable.tableName
 	validcolumns = lsctables.SnglBurstTable.validcolumns
 	constraints = "PRIMARY KEY (event_id)"
@@ -128,7 +91,7 @@ class SnglBurst(lsctables.SnglBurst):
 SnglBurstTable.RowType = SnglBurst
 
 
-class SimBurstTable(Table):
+class SimBurstTable(table.DBTable):
 	tableName = lsctables.SimBurstTable.tableName
 	validcolumns = lsctables.SimBurstTable.validcolumns
 	constraints = "PRIMARY KEY (simulation_id)"
@@ -154,7 +117,7 @@ class SimBurst(lsctables.SimBurst):
 SimBurstTable.RowType = SimBurst
 
 
-class TimeSlideTable(Table):
+class TimeSlideTable(table.DBTable):
 	# this is a little different because multiple rows share ID
 	tableName = lsctables.TimeSlideTable.tableName
 	validcolumns = lsctables.TimeSlideTable.validcolumns
@@ -180,7 +143,7 @@ class TimeSlideTable(Table):
 		return [self[id] for (id,) in self.connection.cursor().execute("SELECT DISTINCT time_slide_id FROM time_slide")]
 
 
-class CoincDefTable(Table):
+class CoincDefTable(table.DBTable):
 	# this is a little different because multiple rows share an ID
 	tableName = lsctables.CoincDefTable.tableName
 	validcolumns = lsctables.CoincDefTable.validcolumns
@@ -212,7 +175,7 @@ class CoincDefTable(Table):
 		raise KeyError, table_names
 
 
-class CoincTable(Table):
+class CoincTable(table.DBTable):
 	tableName = lsctables.CoincTable.tableName
 	validcolumns = lsctables.CoincTable.validcolumns
 	constraints = "PRIMARY KEY (coinc_event_id)"
@@ -243,7 +206,7 @@ class Coinc(lsctables.Coinc):
 CoincTable.RowType = Coinc
 
 
-class CoincMapTable(Table):
+class CoincMapTable(table.DBTable):
 	# this is different because we create a table_name column, which
 	# never appears in the XML, in order to simplify queries
 	tableName = lsctables.CoincMapTable.tableName
@@ -266,7 +229,7 @@ class CoincMapTable(Table):
 class CoincDatabase(object):
 	def __init__(self, connection):
 		self.connection = connection
-		table.Table.connection = connection
+		table.DBTable.connection = connection
 		lsctables.TableByName.update({
 			table.StripTableName(SnglBurstTable.tableName): SnglBurstTable,
 			table.StripTableName(SimBurstTable.tableName): SimBurstTable,
