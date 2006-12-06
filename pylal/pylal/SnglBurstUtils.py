@@ -24,6 +24,7 @@
 # =============================================================================
 #
 
+
 import math
 import matplotlib
 matplotlib.use("Agg")	# use Agg backend
@@ -59,9 +60,11 @@ from pylal.date import LIGOTimeGPS
 # =============================================================================
 #
 
+
 #
 # This is a work-in-progress;  please be kind.
 #
+
 
 class SnglBurstTable(table.DBTable):
 	tableName = lsctables.SnglBurstTable.tableName
@@ -88,6 +91,7 @@ class SnglBurst(lsctables.SnglBurst):
 		start = LIGOTimeGPS(self.start_time, self.start_time_ns)
 		return segments.segment(start, start + self.duration)
 
+
 SnglBurstTable.RowType = SnglBurst
 
 
@@ -113,6 +117,7 @@ class SimBurst(lsctables.SimBurst):
 		if observatory == "L":
 			return LIGOTimeGPS(self.l_peak_time, self.l_peak_time_ns)
 		raise ValueError, instrument
+
 
 SimBurstTable.RowType = SimBurst
 
@@ -203,6 +208,7 @@ class Coinc(lsctables.Coinc):
 	def is_zero_lag(self):
 		return not CoincTable.connection.cursor().execute("SELECT EXISTS (SELECT * FROM time_slide WHERE time_slide_id == ? AND offset != 0.0)", (self.time_slide_id,)).fetchone()[0]
 
+
 CoincTable.RowType = Coinc
 
 
@@ -234,7 +240,6 @@ class CoincDatabase(object):
 		database.  Call this after all the data has been inserted,
 		and before you want any of this information.
 		"""
-		self.connection.commit()
 		cursor = self.connection.cursor()
 
 		# find the tables
@@ -352,6 +357,7 @@ class CoincDatabase(object):
 # =============================================================================
 #
 
+
 def cmp_segs(a, b):
 	"""
 	Returns 1 if a covers an interval above b's interval, -1 if a
@@ -400,12 +406,14 @@ def CompareSnglBurst(a, b, twindow = LIGOTimeGPS(0)):
 # =============================================================================
 #
 
+
 class BurstPlotError(Exception):
 	"""
 	Used to relay error messages from plotting routines to
 	applications.
 	"""
 	pass
+
 
 class BurstPlot(object):
 	def __init__(self, x_label, y_label):
