@@ -296,4 +296,46 @@ class coincInspiralTable:
         simInspirals.append(coinc.sim)
     
     return simInspirals
-    
+
+  def getTotalMass(self,mLow,mHigh):
+    """
+    Return triggers with mLow <= mean total mass < mHigh
+    @param mLow: a float
+    @param mHigh: a float
+    """
+    triggers_in_mass_range = coincInspiralTable()
+    ifolist = ['G1','H1','H2','L1','T1','V1']
+    for coinc in self:
+      ifos = []
+      mass_numer = 0.0
+      mass_denom = float(coinc.numifos)
+      for ifo in ifolist:
+        if hasattr(coinc,ifo):
+          mass_numer += getattr(coinc,ifo).mass1 + getattr(coinc,ifo).mass2
+      mean_total_mass = mass_numer / mass_denom
+      if (mean_total_mass >= mLow) and (mean_total_mass < mHigh):
+        triggers_in_mass_range.append(coinc)
+
+    return triggers_in_mass_range
+
+  def getChirpMass(self,mLow,mHigh):
+    """
+    Return triggers with mLow <= mean chirp mass < mHigh
+    @param mLow: a float
+    @param mHigh: a float
+    """
+    triggers_in_mass_range = coincInspiralTable()
+    ifolist = ['G1','H1','H2','L1','T1','V1']
+    for coinc in self:
+      ifos = []
+      mass_numer = 0.0
+      mass_denom = float(coinc.numifos)
+      for ifo in ifolist:
+        if hasattr(coinc,ifo):
+          mass_numer += getattr(coinc,ifo).mchirp
+      mean_total_mass = mass_numer / mass_denom
+      if (mean_total_mass >= mLow) and (mean_total_mass < mHigh):
+        triggers_in_mass_range.append(coinc)
+
+    return triggers_in_mass_range
+
