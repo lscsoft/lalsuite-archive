@@ -574,7 +574,7 @@ int float_cmp(float *a, float *b);
 
 void make_limits(POLARIZATION_RESULTS *pol, int pi)
 {
-SUM_TYPE M,Q80,Q20,S,dx;
+SUM_TYPE M, S,dx;
 SUM_TYPE a,b,c;
 SUM_TYPE *tmp=NULL;
 int i,j,k,offset,band;
@@ -833,7 +833,7 @@ for(i=0;i<fine_grid->npoints;i++){
 largest_i=0;
 largest=0.0;
 if(fake_injection){
-	double ds, best_ds;
+	double ds, best_ds=10;
 	int best_i=-1;
 	fprintf(LOG,"Interesting points: index longitude latitude pol max_dx upper_strain lower_strain freq beta1 beta2\n");
 	for(i=0;i<fine_grid->npoints;i++){
@@ -879,11 +879,7 @@ if(fake_injection){
 				}
 		   	}
 
-		if(best_i<0){
-			best_ds=ds;
-			best_i=i;
-			} else
-		if(ds<best_ds){
+		if((best_i<0) || (ds<best_ds)){
 			best_ds=ds;
 			best_i=i;
 			}

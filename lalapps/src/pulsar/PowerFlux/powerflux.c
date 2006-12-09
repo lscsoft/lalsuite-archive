@@ -660,8 +660,8 @@ if(args_info.sky_marks_file_given) {
 		
 
 time(&stage_time);
-fprintf(LOG, "input complete: %d\n", stage_time-start_time);
-fprintf(stderr, "input complete: %d\n", stage_time-start_time);
+fprintf(LOG, "input complete: %d\n", (int)(stage_time-start_time));
+fprintf(stderr, "input complete: %d\n", (int)(stage_time-start_time));
 
 if(args_info.dump_data_given) {
 	dump_datasets(args_info.dump_data_arg);
@@ -878,8 +878,8 @@ init_fine_grid_stage();
 subinstance_name=do_alloc(20, 1);
 for(subinstance=0;subinstance<args_info.spindown_count_arg;subinstance++){
 	time(&stage_time);
-	fprintf(LOG, "instance_start: %d\n", stage_time-start_time);
-	fprintf(stderr, "instance_start: %d\n", stage_time-start_time);
+	fprintf(LOG, "instance_start: %d\n", (int)(stage_time-start_time));
+	fprintf(stderr, "instance_start: %d\n", (int)(stage_time-start_time));
 
 	if(args_info.spindown_count_arg<2)subinstance_name[0]=0;
 		else snprintf(subinstance_name, 20, "si_%d_", subinstance);

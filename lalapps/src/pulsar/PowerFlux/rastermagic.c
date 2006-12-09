@@ -213,12 +213,12 @@ char s[20000];
 snprintf(s,20000,"%s%s", output_dir, filename);
 fout=fopen(s, "wb");
 if(fout==NULL){
-	fprintf(stderr,"Error dumping %ldx%ld picture to \"%s\" in PPM format:",
+	fprintf(stderr,"Error dumping %dx%d picture to \"%s\" in PPM format:",
 		p->width, p->height, filename);
 	perror("");
 	return;
 	}
-fprintf(fout,"P6\n%ld\n%ld\n255\n", p->width, p->height);
+fprintf(fout,"P6\n%d\n%d\n255\n", p->width, p->height);
 for(i=0;i<p->height;i++)
 	for(j=0;j<p->width;j++){
 		fputc(p->red[i*p->stride+j*p->step],fout);
