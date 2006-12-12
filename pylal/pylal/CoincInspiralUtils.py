@@ -67,18 +67,20 @@ class coincInspiralTable:
       self.numifos +=1
       if statistic.name == 'effective_snr':
         self.stat = (self.stat**2 + trig.get_effective_snr()**2)**(1./2)      
-      elif statistic.name == 'bitten_l':
+      elif 'bitten_l' in statistic.name:
         snr=trig.snr
-        self.rsq= (self.stat**2 + snr**2)**(1./2)
+        self.rsq= (self.rsq**2 + snr**2)**(1./2)
         self.bl=statistic.get_bittenl( self.bl, snr )
         self.stat=min( self.bl, self.rsq )
+        if statistic.name == 'bitten_lsq' and self.numifos >2:
+          self.stat = self.rsq
+
       else:
         self.stat = (self.stat**2 + getattr(trig,statistic.name)**2)**(1./2)
       
       # sets the data for the single inspiral trigger
       setattr(self,trig.ifo,trig)
       
-
     def add_sim(self,sim):
       setattr(self,"sim",sim)
 
