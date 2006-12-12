@@ -228,7 +228,7 @@ if not opts.skip_coiredata:
   if stat_dict["statistic"][-3:] == "snr":
     # coire takes "snrsq"/"effective_snrsq"
     command += "sq"
-  if stat_dict["statistic"] == "bitten_l":
+  if "bitten_l" in stat_dict["statistic"]:
     command += " --h1-bittenl-a "+stat_dict["bittenl_a"] + \
         " --h1-bittenl-b "+stat_dict["bittenl_b"] + \
         " --h2-bittenl-a "+stat_dict["bittenl_a"] + \
@@ -293,7 +293,7 @@ if not opts.skip_coireinj:
     if stat_dict["statistic"][-3:] == "snr":
       # coire takes "snrsq"/"effective_snrsq"
       command += "sq"
-    if stat_dict["statistic"] == "bitten_l":
+    if "bitten_l" in stat_dict["statistic"]:
       command += " --h1-bittenl-a " + stat_dict["bittenl_a"] + \
           " --h1-bittenl-b " + stat_dict["bittenl_b"] + \
           " --h2-bittenl-a " + stat_dict["bittenl_a"] + \
@@ -339,7 +339,7 @@ if not opts.skip_plotthinca:
       " --statistic " + stat_dict["statistic"]
   for opt in plotthinca_options:
     command+=" --"+opt[0]+" "+opt[1]
-  if stat_dict["statistic"] == "bitten_l":
+  if "bitten_l" in stat_dict["statistic"]:
     command += " --bittenl_a " + stat_dict["bittenl_a"] + \
      " --bittenl_b "+stat_dict["bittenl_b"]
   if opts.test:
@@ -371,8 +371,8 @@ if not opts.skip_png:
           + "--injection-glob '" + MYRESULTSDIR + pop + \
           "' --figure-name " + times[0].upper() + \
           " --plot-cum-loudest --plot-pdf-loudest" + \
-          " --num-slides 50 --statistic " + stat_dict["statistic"]
-      if  stat_dict["statistic"] == "bitten_l":
+          " --num-slides 50 --statistic " + stat_dict["statistic"] +" --plot-efficiency"
+      if  "bitten_l" in stat_dict["statistic"]:
         command += " --bittenl_a " + stat_dict["bittenl_a"] + \
             " --bittenl_b "+stat_dict["bittenl_b"]
       for opt in png_options:
