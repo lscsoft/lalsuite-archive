@@ -34,6 +34,8 @@ def square_axis():
   xmin = min([tmpv[0], tmpv[2]])
   axis([xmin, xmax, xmin, xmax])
 
+
+
 ##############################################################################
 usage = """
 usage: %prog [options] 
@@ -112,7 +114,7 @@ parser.add_option("-b","--snr-snr",action="store_true",default=False,\
 parser.add_option("-S","--statistic",action="store",default='snr',\
     type="string",\
     help="choice of statistic used in making plots, valid arguments are: "
-          "snr (DEFAULT), snr_over_chi, s3_snr_chi_stat, effective_snr, bitten_l") 
+          "snr (DEFAULT), snr_over_chi, s3_snr_chi_stat, effective_snr, bitten_l, bitten_lsq") 
 parser.add_option("-F","--bittenl_a",action="store",type="float",default=None,\
     metavar=" BITTENL_A", help="parameter a for bitten-l statistic" ) 	 
 parser.add_option("-G","--bittenl_b",action="store",type="float",default=None,\
@@ -144,6 +146,7 @@ parser.add_option("-t","--plot-type",action="store",type="string",\
 parser.add_option("-V","--veto-file",action="store",type="string",\
     default=None,metavar=" FNAME",\
     help="read in segments from FNAME (assumed segwizard format)")
+
 (opts,args) = parser.parse_args()
 
 if opts.plot_type not in ['log', 'linear']:
@@ -166,14 +169,15 @@ if opts.hist_slides or opts.slide_snr:
 if (opts.statistic != 'snr') and (opts.statistic != 'snr_over_chi') \
     and (opts.statistic != 's3_snr_chi_stat') \
     and (opts.statistic != 'effective_snr')\
+    and (opts.statistic != 'bitten_lsq')\
     and (opts.statistic != 'bitten_l'):
   print >>sys.stderr, "--statistic must be one of"
   print >>sys.stderr, "(snr|snr_over_chi|s3_snr_chi_stat|effective_snr|bitten_l)"
   sys.exit(1)
 
-# check if bittenl-parameters has been specified, set snglStat 	 
+# check if bittenl-parameters has been specified (or bitten_lsq), set snglStat 	 
 snglStat=opts.statistic 	 
-if (opts.statistic == 'bitten_l'): 	 
+if 'bitten_l' in opts.statistic: 	 
    snglStat='snr' 	 
    if (not opts.bittenl_a or not opts.bittenl_b): 	 
      print >>sys.stderr, "--bittenl_a and --bittenl_b must be specified" 	 
@@ -274,6 +278,7 @@ if coincfiles:
   if opts.cluster_window:
     coincTriggers = coincTriggers.cluster(opts.cluster_window)
 
+
   if not opts.max_snr:
     if len(inspTriggers):
       xhigh = max( inspTriggers.get_column(snglStat) )
@@ -320,10 +325,12 @@ if slidefiles:
     if opts.cluster_window:
       this_slide["coinc_trigs"] = \
         this_slide["coinc_trigs"].cluster(opts.cluster_window)  
-    
+
+
+
     # add slide to list
     slideTriggers.append(this_slide)
-  
+ 
   if len(inspSlide):
     slide_high = max( inspSlide.get_column(snglStat) )
     slide_low = min( inspSlide.get_column(snglStat) )
@@ -605,8 +612,9 @@ if opts.snr_dist:
 
   viz.cumhiststat(coincTriggers, slideTriggers, None, opts.min_snr, \
         opts.max_snr, opts.nbins, statistic.name)
-  ylim(ymin=1.0e-01)
+  ylim(ymin=1.0e-02)
   ylim(ymax=20)
+  grid(True)
   if f_name:  
     savefig(f_name + "_cum_hist_" + statistic.name + ".png")
 
