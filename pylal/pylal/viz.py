@@ -828,7 +828,7 @@ def cumhiststat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
     slide_mean = mean(cum_dist_slide)
     slide_std = std(cum_dist_slide)
 
-  if stat=="bitten_l":
+  if "bitten_l" in stat:
      xvals=bins
   else:
      xvals=bins*bins;
@@ -849,7 +849,7 @@ def cumhiststat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
       slide_mean[i] = max(slide_mean[i], 0.0001)
     semilogy(xvals,asarray(slide_mean), 'r+', markersize=12)
     tmpx,tmpy = makesteps(bins,slide_min,slide_mean+slide_std)
-    if stat=="bitten_l":
+    if "bitten_l" in stat:
        p=fill((tmpx-ds),tmpy, facecolor='y')
     else:
        p=fill((tmpx-ds)*(tmpx-ds),tmpy, facecolor='y')
