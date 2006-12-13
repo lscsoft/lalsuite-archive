@@ -468,7 +468,7 @@ class LDRdataFindClient(object):
                 ret, output = self.__response__()
 
                 if ret:
-                        msg = "Error querying LDRdataFindServer for LFNs with metadata query %s : %s" % (sql, str(output[0]))
+                        msg = "Error querying LDRdataFindServer for LFNs: %s" % (str(output[0],))
                         raise LDRdataFindClientException, msg
 
 
@@ -503,7 +503,7 @@ class LDRdataFindClient(object):
                 ret, output = self.__response__()
 
                 if ret:
-                        msg = "Error querying LDRdataFindServer for PFNs with metadata query %s : %s" % (sql, str(output[0]))
+                        msg = "Error querying LDRdataFindServer for PFNs: %s" % (str(output[0],))
                         raise LDRdataFindClientException, msg
 
                 return output
