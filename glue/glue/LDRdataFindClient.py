@@ -164,12 +164,13 @@ class LDRdataFindClient(object):
 
                 @return: Instance of LDRdataFindClient
                 """
-                # try to connect and if there are any exceptions catch them
-                # and turn them into LDRdataFindClientException
-                try:
-                        self.__connect__(host, port, noproxy)
-                except Exception, e:
-                        raise LDRdataFindClientException, e
+                # Connection to be performed just before
+                # query is sent to server. So just store 
+                # the necessary connection information
+                self.host = host
+                self.port = port
+                self.noproxy = noproxy
+                
 
 
         def __del__(self):
@@ -181,7 +182,7 @@ class LDRdataFindClient(object):
                 self.__disconnect__()
 
 
-        def __connect__(self, host, port, noproxy):
+        def __connect__(self):
                 """
                 Attempt to open a connection to the LDRdataFindServer
                 using the 'host' and 'port' and expecting the server
@@ -211,8 +212,7 @@ class LDRdataFindClient(object):
                 except:
                         pass
 
-                self.host = host
-                self.port = port
+                
 
                 # redirect stdout and stderror for now
                 try:
@@ -223,7 +223,7 @@ class LDRdataFindClient(object):
                         pass
 
                 try:
-                        if not noproxy:
+                        if not self.noproxy:
                                 # Try normal GSI-authenticated connection
                                 # create TCPIOAttr instance and set authentication mode to be NONE
                                 myAttr = io.TCPIOAttr()
@@ -252,7 +252,7 @@ class LDRdataFindClient(object):
 
                         # create socket instance and attempt to connect
                         s = io.GSITCPSocket()
-                        s.connect(host, port, myAttr)
+                        s.connect(self.host, self.port, myAttr)
                         self.socket = s
                         self.sfile = s.makefile("rw")
 
@@ -335,6 +335,7 @@ class LDRdataFindClient(object):
                 """
 
                 msg = "PING\0"
+                self.__connect__()
                 self.sfile.write(msg)
 
                 ret, output = self.__response__()
@@ -368,6 +369,7 @@ class LDRdataFindClient(object):
                         raise LDRdataFindClientException, msg
         
                 msg = "DISTINCT\0%s\0" % str(attr)
+                self.__connect__()
                 self.sfile.write(msg)
 
                 ret, output = self.__response__()
@@ -394,6 +396,7 @@ class LDRdataFindClient(object):
                         raise LDRdataFindClientException, msg
 
                 msg = "LFNPFN\0%s\0" % str(lfn)
+                self.__connect__()
                 self.sfile.write(msg)
 
                 ret, output = self.__response__()
@@ -420,7 +423,11 @@ class LDRdataFindClient(object):
                 if not mytype:
                         msg = "A frame type, --type, must be specified."
                         raise LSCdataFindClientException, msg
-                        
+                if long(end) < long(start):
+                        msg = "Supplied start time, %s, is later than supplied end time, %s" % (start,end)
+                        raise LSCdataFindClientException,msg
+
+                
                 #Construct RPC
                 rpc = "SEGMENT\0type\0%s\0observatory\0%s\0" % (mytype,site)
                 
@@ -431,12 +438,13 @@ class LDRdataFindClient(object):
                 if strict:
                         rpc += "strict\0"
                 
+                self.__connect__()
                 self.sfile.write(rpc)
                 ret,output = self.__response__()
                 
                 if ret:
                         msg = "Error querying LDRdataFindServer for times of frame type, %s: %s" % (str(mytype),str(output))
-                        raise LSCdataFindClientException
+                        raise LSCdataFindClientException,msg
                 return output
 
         def lfnQueryWithMetadata(self, queryList):
@@ -462,7 +470,7 @@ class LDRdataFindClient(object):
                 msg = "METALFN\0"
                 for q in queryList:
                         msg += "%s" % str(q)
-
+                self.__connect__()
                 self.sfile.write(msg)
 
                 ret, output = self.__response__()
@@ -497,7 +505,7 @@ class LDRdataFindClient(object):
                 msg = "METAPFN\0" 
                 for q in queryList:
                         msg += "%s" % str(q)
-
+                self.__connect__()
                 self.sfile.write(msg)
 
                 ret, output = self.__response__()
@@ -562,7 +570,7 @@ class LDRdataFindClient(object):
                         msg += "0\0"
                 if number:
                         msg += "%d\0" % number
-
+                self.__connect__()
                 self.sfile.write(msg)
 
                 ret, output = self.__response__()
@@ -602,7 +610,7 @@ class LDRdataFindClient(object):
                         raise LDRdataFindClientException, msg
 
                 msg = "METAPFNUNION\0%s\0%s\0" % (str(sql1), str(sql2))
-
+                self.__connect__()
                 self.sfile.write(msg)
 
                 ret, output = self.__response__()
@@ -777,6 +785,9 @@ class LSCdataFindClient(LDRdataFindClient):
                 number = argDict['limit']
                 strict = argDict['strict']
 
+                
+               
+                
                 # check that combination of command-line arguments is sound
                 if (not instrument) or (not type) or (not start) or (not end):
                         msg = """\
@@ -785,9 +796,13 @@ Bad combination of command line arguments:
 be present when searching for groups of files
 """
                         raise LSCdataFindClientException, msg
-
+                
                 self.__check_gps(start)
                 self.__check_gps(end)
+                
+                if long(end) < long(start):
+                        msg = "Supplied start time, %s, is later than supplied end time, %s" % (start,end)
+                        raise LSCdataFindClientException,msg
 
                 q1 = LDRMetadataQuery()
                 q2 = LDRMetadataQuery()
@@ -844,11 +859,13 @@ Bad combination of command line arguments:
 be present when searching for groups of files
 """
                         raise LSCdataFindClientException, msg
-
-
+                
                 self.__check_gps(start)
                 self.__check_gps(end)
-
+                
+                if long(end) < long(start):
+                        msg = "Supplied start time, %s, is later than supplied end time, %s" % (start,end)
+                        raise LSCdataFindClientException,msg
                 q1 = LDRMetadataQuery()
                 q2 = LDRMetadataQuery()
 
@@ -914,6 +931,11 @@ be present when searching for groups of files
 
                 self.__check_gps(start)
                 self.__check_gps(end)
+
+                if long(end) < long(start):
+                        msg = "Supplied start time, %s, is later than supplied end time, %s" % (start,end)
+                        raise LSCdataFindClientException,msg
+
 
                 # should do sanity check here on the urlType and match that have been passed
                 # and check for proper quoting
