@@ -9,7 +9,13 @@ from distutils.command import sdist
 from distutils import log
 from sys import version_info
 
-ver = "1.11"
+ver = "1.12"
+
+def remove_root(path,root):
+  if root:
+    return os.path.normpath(path).replace(os.path.normpath(root),"",1)
+  else:
+    return os.path.normpath(path)
 
 class glue_install(install.install):
   def run(self):
@@ -19,38 +25,43 @@ class glue_install(install.install):
       glue_pythonpath = self.install_purelib
     else:
       glue_pythonpath = self.install_platlib + ":" + self.install_purelib
+
+    glue_prefix = remove_root(self.prefix,self.root)
+    glue_install_scripts = remove_root(self.install_scripts,self.root)
+    glue_pythonpath = remove_root(glue_pythonpath,self.root)
+    glue_install_platlib = remove_root(self.install_platlib,self.root)
     
     log.info("creating glue-user-env.sh script")
     env_file = open(os.path.join('etc','glue-user-env.sh'),'w')
     print >> env_file, "# Source this file to access GLUE"
-    print >> env_file, "GLUE_PREFIX=" + self.prefix
+    print >> env_file, "GLUE_PREFIX=" + glue_prefix
     print >> env_file, "export GLUE_PREFIX"
-    print >> env_file, "PATH=" + self.install_scripts + ":${PATH}"
+    print >> env_file, "PATH=" + glue_install_scripts + ":${PATH}"
     print >> env_file, "PYTHONPATH=" + glue_pythonpath + ":${PYTHONPATH}"
-    print >> env_file, "LD_LIBRARY_PATH=" + self.install_platlib + ":${LD_LIBRARY_PATH}"
-    print >> env_file, "DYLD_LIBRARY_PATH=" + self.install_platlib + ":${DYLD_LIBRARY_PATH}"
+    print >> env_file, "LD_LIBRARY_PATH=" + glue_install_platlib + ":${LD_LIBRARY_PATH}"
+    print >> env_file, "DYLD_LIBRARY_PATH=" + glue_install_platlib + ":${DYLD_LIBRARY_PATH}"
     print >> env_file, "export PATH PYTHONPATH LD_LIBRARY_PATH DYLD_LIBRARY_PATH"
     env_file.close()
 
     log.info("creating glue-user-env.csh script")
     env_file = open(os.path.join('etc','glue-user-env.csh'),'w')
     print >> env_file, "# Source this file to access GLUE"
-    print >> env_file, "setenv GLUE_PREFIX " + self.prefix
-    print >> env_file, "setenv PATH " + self.install_scripts + ":${PATH}"
+    print >> env_file, "setenv GLUE_PREFIX " + glue_prefix
+    print >> env_file, "setenv PATH " + glue_install_scripts + ":${PATH}"
     print >> env_file, "if ( $?PYTHONPATH ) then"
     print >> env_file, "  setenv PYTHONPATH " + glue_pythonpath + ":${PYTHONPATH}"
     print >> env_file, "else"
     print >> env_file, "  setenv PYTHONPATH " + glue_pythonpath
     print >> env_file, "endif"
     print >> env_file, "if ( $?LD_LIBRARY_PATH ) then"
-    print >> env_file, "  setenv LD_LIBRARY_PATH " + self.install_platlib + ":${LD_LIBRARY_PATH}"
+    print >> env_file, "  setenv LD_LIBRARY_PATH " + glue_install_platlib + ":${LD_LIBRARY_PATH}"
     print >> env_file, "else"
-    print >> env_file, "  setenv LD_LIBRARY_PATH " + self.install_platlib
+    print >> env_file, "  setenv LD_LIBRARY_PATH " + glue_install_platlib
     print >> env_file, "endif"
     print >> env_file, "if ( $?DYLD_LIBRARY_PATH ) then"
-    print >> env_file, "  setenv DYLD_LIBRARY_PATH " + self.install_platlib + ":${DYLD_LIBRARY_PATH}"
+    print >> env_file, "  setenv DYLD_LIBRARY_PATH " + glue_install_platlib + ":${DYLD_LIBRARY_PATH}"
     print >> env_file, "else"
-    print >> env_file, "  setenv DYLD_LIBRARY_PATH " + self.install_platlib
+    print >> env_file, "  setenv DYLD_LIBRARY_PATH " + glue_install_platlib
     print >> env_file, "endif"
     env_file.close()
 
