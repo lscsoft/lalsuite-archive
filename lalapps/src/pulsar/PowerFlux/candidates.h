@@ -7,6 +7,7 @@ typedef struct {
 	int polarization_index;
 	
 	int rank;
+	int opt_rank;
 	float score;
 	int domain_size;
 	float ul;

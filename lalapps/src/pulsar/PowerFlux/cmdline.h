@@ -238,9 +238,12 @@ struct gengetopt_args_info
   double snr_precision_arg;	/* Assumed level of error in detection strength - used for listing candidates (default='0.2').  */
   char * snr_precision_orig;	/* Assumed level of error in detection strength - used for listing candidates original value given at command line.  */
   const char *snr_precision_help; /* Assumed level of error in detection strength - used for listing candidates help description.  */
-  int max_candidates_arg;	/* Do not output more than this number of candidates (default='0').  */
-  char * max_candidates_orig;	/* Do not output more than this number of candidates original value given at command line.  */
-  const char *max_candidates_help; /* Do not output more than this number of candidates help description.  */
+  int max_candidates_arg;	/* Do not optimize more than this number of candidates (default='0').  */
+  char * max_candidates_orig;	/* Do not optimize more than this number of candidates original value given at command line.  */
+  const char *max_candidates_help; /* Do not optimize more than this number of candidates help description.  */
+  double min_candidate_snr_arg;	/* Do not optimize candidates with SNR below this level (default='5.0').  */
+  char * min_candidate_snr_orig;	/* Do not optimize candidates with SNR below this level original value given at command line.  */
+  const char *min_candidate_snr_help; /* Do not optimize candidates with SNR below this level help description.  */
   
   int help_given ;	/* Whether help was given.  */
   int version_given ;	/* Whether version was given.  */
@@ -317,6 +320,7 @@ struct gengetopt_args_info
   int fake_freq_given ;	/* Whether fake-freq was given.  */
   int snr_precision_given ;	/* Whether snr-precision was given.  */
   int max_candidates_given ;	/* Whether max-candidates was given.  */
+  int min_candidate_snr_given ;	/* Whether min-candidate-snr was given.  */
 
   int injection_group_counter; /* counter for group injection */
 } ;

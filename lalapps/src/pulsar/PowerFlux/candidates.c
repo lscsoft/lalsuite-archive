@@ -323,16 +323,17 @@ fclose(fout);
 
 void output_candidate_header(FILE *fout)
 {
-fprintf(fout, "candidates: label polarization_index rank score point_index domain_size ul S M max_dx frequency psi iota ra dec spindown weight_ratio skyband coherence_score power_cor snr strain strain_err total_weight f_max ifo_freq ifo_freq_sd total\n");
+fprintf(fout, "candidates: label polarization_index rank opt_rank score point_index domain_size ul S M max_dx frequency psi iota ra dec spindown weight_ratio skyband coherence_score power_cor snr strain strain_err total_weight f_max ifo_freq ifo_freq_sd total\n");
 }
 
 void output_candidate(FILE *fout, char * suffix, CANDIDATE *cand)
 {
-fprintf(fout, "candidate%s: \"%s\" %d %d %g %d %d %g %g %g %f %f %f %f %f %f %g %f %d %f %f %f %g %g %f %f %f %f %d\n",
+fprintf(fout, "candidate%s: \"%s\" %d %d %d %g %d %d %g %g %g %f %f %f %f %f %f %g %f %d %f %f %f %g %g %f %f %f %f %d\n",
 	suffix,
 	args_info.label_given ? args_info.label_arg : "",
 	cand->polarization_index,
 	cand->rank,
+	cand->opt_rank,
 	cand->score,
 	cand->point_index,
 	cand->domain_size,
@@ -1209,7 +1210,7 @@ if(cand->strain>0)
 
 }
 
-inline static void compute_matched_snr(SCORE_AUX_DATA *ad, CANDIDATE *cand, int debug)
+static void compute_matched_snr(SCORE_AUX_DATA *ad, CANDIDATE *cand, int debug)
 {
 DATASET *d;
 float spindown=cand->spindown;
@@ -2489,10 +2490,10 @@ b2=(1.0-b2)/(1.0+b2);
 b2=b2*b2;
 
 c=cand->psi-psi;
-while(c>M_PI)c-=M_PI;
-while(c<0)c+=M_PI;
+while(c>M_PI*0.5)c-=M_PI;
+while(c< -M_PI*0.5)c+=M_PI;
 
-dist=fabs(a2-b2)+0.5*fmin((1.0-a)*(1.0-a), (1.0-b)*(1.0-b))*c;
+dist=fabs(a2-b2)+0.5*fmin((1.0-a)*(1.0-a), (1.0-b)*(1.0-b))*fabs(c);
 
 return(dist);
 //return(acos(fabs(sin(cand->iota)*sin(iota)*cos(cand->psi-psi)+cos(cand->iota)*cos(iota))-1e-14));
@@ -2696,6 +2697,12 @@ SCORE_AUX_DATA *ad;
 
 ad=allocate_score_aux_data();
 
+step=0.1;
+
+init:
+
+search_alignment(cand);
+
 memcpy(&c, cand, sizeof(*cand)); 
 memcpy(&best_c, cand, sizeof(c));
 
@@ -2715,21 +2722,48 @@ if(c.snr>max)max=c.snr;
 // if(fabs(step*ad->d_spindown[1]) > 1e-12)step= 1e-14/(ad->d_spindown[1]);
 
 norm=(ad->d_freq[1]*ad->d_freq[1]+ad->d_ra[1]*ad->d_ra[1]+ad->d_dec[1]*ad->d_dec[1]+ad->d_spindown[1]*ad->d_spindown[1]);
-step=0.1;
+
 max_i=0;
-fprintf(stderr, "rank=%d gradient search start snr=%f step=%g norm=%g\n", c.rank, max, step, norm);
+fprintf(stderr, "rank=%d gradient search init snr=%f step=%g norm=%g\n", c.rank, max, step, norm);
+
 start:
+
+/* R code:
+
+x<-matrix(0, 81, 4)
+m<-1
+for(i in -1:1)
+for(j in -1:1)
+for(k in -1:1)
+for(l in -1:1)
+{
+x[m, 1]<-i
+x[m, 2]<-j
+x[m, 3]<-k
+x[m, 4]<-l
+m<-m+1
+}
+y<-x[,1]+x[,2]+x[,3]+x[,4]
+
+Total: 81
+  y>=0 50
+  y>=0 & y<=1 35
+
+*/
+
 //for(i=-N;i<=N;i++)
 for(dir_f=-1;dir_f<=1;dir_f++)
 for(dir_sp=-1;dir_sp<=1;dir_sp++)
 for(dir_ra=-1;dir_ra<=1;dir_ra++)
-for(dir_dec=-1;dir_dec<=1;dir_dec++)
- {
-	i=1;
-	//if(!i)continue;
+for(dir_dec=-1;dir_dec<=1;dir_dec++) {
 
 	/* do not go against the gradient */
-	if(dir_f+dir_sp+dir_ra+dir_dec<0)continue;
+	if(dir_f+dir_sp+dir_ra+dir_dec< -1)continue;
+	/* I have never seen the search to go along the gradient "too much": */
+	if(dir_f+dir_sp+dir_ra+dir_dec>1)continue;
+
+	for(i=1;;i++) {
+	//if(!i)continue;
 
 	c.frequency=cand->frequency+dir_f*i*step/ad->d_freq[1];
 	c.psi=cand->psi-i*step*0;
@@ -2764,12 +2798,21 @@ for(dir_dec=-1;dir_dec<=1;dir_dec++)
 		memcpy(&best_c, &c, sizeof(c));
 		max_i=i;
 		max=f;
+		continue;
 		}
+
+	if(best_c.snr>cand->snr && best_c.snr>=max) {
+		memcpy(cand, &best_c, sizeof(best_c));
+		goto init;
+		}
+	/* failed at this i - try different combination */
+	break;
 	}
+}
 
 if((max-cand->snr<=0)) {
-	step*=0.5;
-	if(step>=1e-6)goto start;
+	step*=0.1;
+	if(step>=1e-7)goto start;
 	}
 
 free_score_aux_data(ad);
@@ -3662,222 +3705,51 @@ fclose(fout);
 
 void optimize_candidate(CANDIDATE *cand)
 {
-CANDIDATE *tries;
-int cont, i;
-int frequency_dir, psi_dir, iota_dir, ra_dir, dec_dir, spindown_dir;
-float factor;
-float timebase=max_gps()-min_gps();
-
-//#define DISTANCE_PRINTF		fprintf(stderr, "distance=%f fdist=%f sdist=%f snr=%f\n", candidate_distance(cand, args_info.focus_ra_arg, args_info.focus_dec_arg), (cand->frequency-140.5972)*1800, (cand->spindown-3.794117e-10)*(max_gps()-min_gps())*1800.0, cand->snr);
-
-
-
-//cand->ra=6.112886;
-//cand->dec=-0.6992048;
-
-
-output_candidate_header(stderr);
 compute_scores(cand, 1);
-DISTANCE_PRINTF
+output_candidate_header(stderr);
 output_candidate(stderr, "", cand);
+DISTANCE_PRINTF
 
 if(cand->rank==0)test_alignment_snr(cand);
 
-/*cand->ra=args_info.fake_ra_arg;
-cand->dec=args_info.fake_dec_arg;*/
-/*cand->iota=0.0;
-cand->psi=0.0;
-cand->spindown=0.0;*/
-// cand->frequency=200.1;
-
-/*for(i=0;i<1000;i++) {
-	cont=0;
-	cont|=chase_iota(cand);
-	fprintf(stderr, "distance=%f snr=%f\n", candidate_distance(cand, 6.112886, -0.6992048), cand->snr);
-	cont|=chase_psi(cand);
-	fprintf(stderr, "distance=%f snr=%f\n", candidate_distance(cand, 6.112886, -0.6992048), cand->snr);
-	cont|=chase_ra(cand);
-	fprintf(stderr, "distance=%f snr=%f\n", candidate_distance(cand, 6.112886, -0.6992048), cand->snr);
-	cont|=chase_dec(cand);
-	fprintf(stderr, "distance=%f snr=%f\n", candidate_distance(cand, 6.112886, -0.6992048), cand->snr);
-	cont|=chase_frequency(cand);
-	fprintf(stderr, "distance=%f snr=%f\n", candidate_distance(cand, 6.112886, -0.6992048), cand->snr);
-	//cont|=chase_spindown(cand);
-
-	if(!cont)break;
-	compute_scores(cand, 1);
-	output_candidate(stderr, "", cand);
-	}*/
 
 // tabulate_neighbourhood("cand_0.txt", cand);
 // exit(0);
 
-factor=1.0;
+search_gradient_vec(cand, 16);
 
-for(i=0;i<1000;i++) {
-	cont=0;
-/*	cont=search_ra(cand, resolution*0.5/(cos(cand->dec)+0.001));
-	compute_scores(cand, 0);
-	fprintf(stderr, "distance=%f fdist=%f snr=%f\n", candidate_distance(cand, 6.112886, -0.6992048), (cand->frequency-140.5285)*1800, cand->snr);
-*/
-/*	cont|=search_dec(cand, resolution*0.125, 128);*/
-/*	compute_scores(cand, 0);*/
-// 	compute_scores(cand, 0);
-//  	DISTANCE_PRINTF
-// 	exit(0);
-
-// 	cont+=chase_ra(cand);
-// /*	compute_scores(cand, 0);*/
-// 	DISTANCE_PRINTF
-// 
-// 	cont+=chase_dec(cand);
-// /*	compute_scores(cand, 0);*/
-// 	DISTANCE_PRINTF
-// 
-// // /*	while(search_iota(cand, M_PI/256.0))cont|=1;
-// // /*	cont|=chase_iota(cand);*/
-// // /*	compute_scores(cand, 0);*/
-// // 	compute_scores(cand, 0);
-// // 	DISTANCE_PRINTF
-// // 	output_candidate(stderr, "", cand);*/
-// // 	
-// // /*	cont|=search_psi(cand, M_PI/256.0);*/
-// // 	cont|=chase_psi(cand);
-// // /*	compute_scores(cand, 0);*/
-// // 	DISTANCE_PRINTF
-// 
-// 	cont+=chase_frequency1(cand);
-// /*	compute_scores(cand, 0);*/
-// 	DISTANCE_PRINTF
-// // 	output_candidate(stderr, "", cand);
-// 
-//  	cont+=chase_spindown(cand);
-// /* 	compute_scores(cand, 0);*/
-//  	DISTANCE_PRINTF
-
-	cont+=search_gradient_vec(cand, 16);
-  	DISTANCE_PRINTF
-
-// 	cont|=fit_psi(cand, M_PI/64.0);
-//  	DISTANCE_PRINTF
-// 
-// 	cont+=fit_ra(cand, resolution*0.125/(cos(cand->dec)+0.001));
-// 	compute_scores(cand, 0);
-//  	DISTANCE_PRINTF
-// 	output_candidate(stderr, "", cand);
-// 
-// 	cont+=fit_dec(cand, resolution*0.125);
-// 	compute_scores(cand, 0);
-//  	DISTANCE_PRINTF
-// 	output_candidate(stderr, "", cand);
-
-// 	cont|=search_monte_carlo(cand, resolution*5, 2e-10, 1000);
-// /*
-// 	cont+=search_frequency(cand, 0.01/1800.0, 64);
-// /*	compute_scores(cand, 0);*/
-//  	DISTANCE_PRINTF
-// 	output_candidate(stderr, "", cand);
-
- 	cont+=search_alignment(cand);
-   	DISTANCE_PRINTF
-// // 
-// 	cont+=search_psi(cand, factor*M_PI/512.0, 128);
-// 	//compute_scores(cand, 0);
-//  	DISTANCE_PRINTF
-// 	output_candidate(stderr, "", cand);
-// 
-// 	cont+=search_iota(cand, factor*M_PI/128.0, 64);
-// 	//compute_scores(cand, 0);
-// 	DISTANCE_PRINTF
-// 	output_candidate(stderr, "", cand);
-// 
-// 	cont+=search_ra(cand, 0.01*resolution*0.125/(cos(cand->dec)+0.001), 128);
-// 	//compute_scores(cand, 0);
-//  	DISTANCE_PRINTF
-// 	output_candidate(stderr, "", cand);
-// 
-// 	cont+=search_dec(cand, 0.01*resolution*0.125, 128);
-// 	//compute_scores(cand, 0);
-//  	DISTANCE_PRINTF
-// 	output_candidate(stderr, "", cand);
-// 
-// 	cont+=search_spindown(cand, 1e-11, 128);
-// /*	compute_scores(cand, 0);*/
-//  	DISTANCE_PRINTF
-// 	output_candidate(stderr, "", cand);
-
-
-
-//  	cont+=search_all(cand);
-// 	DISTANCE_PRINTF
-
-// 	for(ra_dir=0; ra_dir<=1;ra_dir++) {
-// 	for(dec_dir=-1; dec_dir<=1;dec_dir++) {
-// 	for(spindown_dir=-1; spindown_dir<=1;spindown_dir++) {
-// 	for(frequency_dir=-1; frequency_dir<=1; frequency_dir++) {
-// 		fprintf(stderr, "%d %d %d %d\n", ra_dir, dec_dir, spindown_dir, frequency_dir);
-// 
-// 		if(search_vec(cand, 
-// 				frequency_dir*0.02/1800.0,
-// 				0.0, 
-// 				0.0, 
-// 				ra_dir*resolution*0.5*0.125/(cos(cand->dec)+0.001), 
-// 				dec_dir*resolution*0.5*0.125, 
-// 				spindown_dir*1e-11, 
-// 				128)) {
-// 			cont+=1;
-// 			compute_scores(cand, 0);
-// 			DISTANCE_PRINTF
-// 			output_candidate(stderr, "", cand);
-// 			}
-// 
-// 		}}}}
-
-//	cont+=search_four_vec(cand);
-
-//    	cont|=search_monte_carlo_vec(cand);
-
-// 	if(!cont && (cand->f_max!=cand->frequency)) {
-// 		cand->frequency=cand->f_max;
-// 		cont=1;
-// 		}
-
-//  	if(!cont)cont|=search_spindown(cand);
-
-//	if(!cont)cont|=search_monte_carlo(cand, resolution*5, 2e-10);
-
-/* 	if(!cont)cont|=search_four(cand);*/
-// 
-
-// 	if(!cont) { 
-// 		cont|=search_sky(cand);
-// 		compute_scores(cand, 0);
-// 		DISTANCE_PRINTF
-// 		}
-
-	if(!cont) {
-		factor=factor*0.5;
-		//cont= factor > 1e-6;
-		} else 
-	if( (cont>2) && (factor<1.0) ) {
-		//factor=factor*2.0;
-		}
-
-	if(!cont)break;
-/*	compute_scores(cand, 1);*/
-/*	compute_scores(cand, 0);*/
-/*	output_candidate(stderr, "", cand);*/
-	//exit(0);
-	}
 
 compute_scores(cand, 1);
 fprintf(LOG, "distance=%f snr=%f\n", candidate_distance(cand, args_info.focus_ra_arg, args_info.focus_dec_arg), cand->snr);
 DISTANCE_PRINTF
 output_candidate(stderr, "", cand);
+}
 
-// tabulate_neighbourhood(cand);
-// exit(0);
+int compare_opt_ranks(int *a, int *b)
+{
+if(candidate[*a].opt_rank<0 && candidate[*b].opt_rank<0)return 0;
+if(candidate[*a].opt_rank<0)return 1;
+if(candidate[*b].opt_rank<0)return -1;
+if(candidate[*a].snr<candidate[*b].snr)return 1;
+if(candidate[*a].snr>candidate[*b].snr)return -1;
+return 0;
+}
 
+void assign_opt_ranks(void)
+{
+int *index;
+int i;
+
+index=do_alloc(candidate_free, sizeof(*index));
+
+for(i=0;i<candidate_free;i++)index[i]=i;
+
+qsort(index, candidate_free, sizeof(*index), compare_opt_ranks);
+
+for(i=0;i<candidate_free;i++) {
+	if(candidate[index[i]].opt_rank<0)continue;
+	candidate[index[i]].opt_rank=i;
+	}
 }
 
 void identify_candidates(void)
@@ -3887,6 +3759,8 @@ PLOT *plot;
 SUM_TYPE a;
 int i,k,m;
 float *a_f;
+time_t start, now;
+int opt_candidates_count;
 
 /* compute power without applying whitening procedure */
 fprintf(stderr, "Recomputing power\n");
@@ -4053,6 +3927,7 @@ fprintf(stderr, "Optimizing candidates (pass 2)\n");
 
 output_candidate_header(LOG);
 
+time(&start);
 m=0;	
 for(i=0;i<candidate_free;i++) {
 	k=candidate[i].point_index;
@@ -4084,13 +3959,29 @@ for(i=0;i<candidate_free;i++) {
 	
 	output_candidate(LOG, "_initial", &(candidate[i]));
 
-	if(i<args_info.max_candidates_arg) {
+	if( (i<args_info.max_candidates_arg) && (max_dx[k]>args_info.min_candidate_snr_arg)) {
+		time(&now);
 		optimize_candidate(&(candidate[i]));
-		output_candidate(LOG, "_optimized", &(candidate[i]));
+		fprintf(stderr, "Time per candidate %f\n", ((now-start)*1.0)/(i+1));
+		candidate[i].opt_rank=0;
+		} else {
+		candidate[i].opt_rank=-1;
 		}
 
 	if(i<args_info.dump_candidates_arg)dump_candidate(i);
 	}
+
+assign_opt_ranks();
+
+opt_candidates_count=0;
+for(i=0;i<candidate_free;i++) {
+	if(candidate[i].opt_rank<0)continue;
+	output_candidate(LOG, "_optimized", &(candidate[i]));
+	opt_candidates_count++;
+	}
+
+fprintf(LOG, "optimized_candidates_count: %d\n", opt_candidates_count);
+fprintf(stderr, "optimized_candidates_count: %d\n", opt_candidates_count);
 
 fprintf(LOG, "high_candidates_count: %d\n", m);
 fprintf(stderr, "high_candidates_count: %d\n", m);
@@ -4098,6 +3989,9 @@ fprintf(stderr, "high_candidates_count: %d\n", m);
 fprintf(LOG, "candidates_count: %d\n", candidate_free);
 fprintf(stderr, "candidates_count: %d\n", candidate_free);
 
+time(&now);
+fprintf(stderr, "Second pass processing time: %d\n", now-start);
+fprintf(LOG, "Second pass processing time: %d\n", now-start);
 
 
 free(a_f);

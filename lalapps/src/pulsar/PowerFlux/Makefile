@@ -1,5 +1,5 @@
 PACKAGE=\"powerflux\"
-VERSION=1.4.10-64
+VERSION=1.4.11-64
 LALROOT=./../../../../
 LALROOT=/opt/lscsoft/lal/
 LALINCLUDE=-I$(LALROOT)/include/
@@ -215,7 +215,7 @@ test5: powerflux
 		--fake-orientation=0.5 --fake-ra=5.785685 --fake-dec=-1.563849
 
 test5c: powerflux
-	time ./powerflux --dataset=random2.dst -f 360000 -n 501 \
+	time ./powerflux --dataset=random.dst -f 360000 -n 501 \
 		--ephemeris-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
 		--averaging-mode=matched --do-cutoff=1 --lock-file=test.lock \
 		--subtract-background=0 --ks-test=1 --filter-lines=0 \
@@ -225,9 +225,9 @@ test5c: powerflux
         	--sun-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/sun05-09.dat  \
  		--write-dat=NONE \
  		--write-png=\(.\*bands\|.\*strain.\*\|high.\*\|S.\*\|Median.\*\|weight.\*\|max_dx.\*\)\\.png$$ \
- 		--focus-dec=$(DEC) --focus-ra=$(RA) --focus-radius=0.5 \
+ 		--focus-dec=$(DEC) --focus-ra=$(RA) --focus-radius=5 \
  		--fake-ref-time=793154935 \
- 		--fake-ra=$(RA) --fake-dec=$(DEC) --fake-freq=200.1 --fake-strain=10e-24 \
+ 		--fake-ra=$(RA) --fake-dec=$(DEC) --fake-freq=200.1 --fake-strain=5e-24 \
  		--fake-spindown=5e-10 --fake-iota=1.570 --fake-psi=0.0 \
 		--max-candidates=10000 --skymap-resolution-ratio=1
 

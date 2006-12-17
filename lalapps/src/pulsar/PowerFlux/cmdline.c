@@ -101,7 +101,8 @@ const char *gengetopt_args_info_help[] = {
   "      --fake-strain=DOUBLE      amplitude of fake signal to inject  \n                                  (default=`1e-23')",
   "      --fake-freq=DOUBLE        frequency of fake signal to inject",
   "      --snr-precision=DOUBLE    Assumed level of error in detection strength - \n                                  used for listing candidates  (default=`0.2')",
-  "      --max-candidates=INT      Do not output more than this number of \n                                  candidates  (default=`0')",
+  "      --max-candidates=INT      Do not optimize more than this number of \n                                  candidates  (default=`0')",
+  "      --min-candidate-snr=DOUBLE\n                                Do not optimize candidates with SNR below this \n                                  level  (default=`5.0')",
     0
 };
 
@@ -219,6 +220,7 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->fake_freq_given = 0 ;
   args_info->snr_precision_given = 0 ;
   args_info->max_candidates_given = 0 ;
+  args_info->min_candidate_snr_given = 0 ;
   args_info->injection_group_counter = 0 ;
 }
 
@@ -356,6 +358,8 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->snr_precision_orig = NULL;
   args_info->max_candidates_arg = 0;
   args_info->max_candidates_orig = NULL;
+  args_info->min_candidate_snr_arg = 5.0;
+  args_info->min_candidate_snr_orig = NULL;
   
 }
 
@@ -437,6 +441,7 @@ void init_args_info(struct gengetopt_args_info *args_info)
   args_info->fake_freq_help = gengetopt_args_info_help[72] ;
   args_info->snr_precision_help = gengetopt_args_info_help[73] ;
   args_info->max_candidates_help = gengetopt_args_info_help[74] ;
+  args_info->min_candidate_snr_help = gengetopt_args_info_help[75] ;
   
 }
 
@@ -951,6 +956,11 @@ cmdline_parser_release (struct gengetopt_args_info *args_info)
     {
       free (args_info->max_candidates_orig); /* free previous argument */
       args_info->max_candidates_orig = 0;
+    }
+  if (args_info->min_candidate_snr_orig)
+    {
+      free (args_info->min_candidate_snr_orig); /* free previous argument */
+      args_info->min_candidate_snr_orig = 0;
     }
   
   clear_given (args_info);
@@ -1479,6 +1489,13 @@ cmdline_parser_file_save(const char *filename, struct gengetopt_args_info *args_
       fprintf(outfile, "%s\n", "max-candidates");
     }
   }
+  if (args_info->min_candidate_snr_given) {
+    if (args_info->min_candidate_snr_orig) {
+      fprintf(outfile, "%s=\"%s\"\n", "min-candidate-snr", args_info->min_candidate_snr_orig);
+    } else {
+      fprintf(outfile, "%s\n", "min-candidate-snr");
+    }
+  }
   
   fclose (outfile);
 
@@ -1651,6 +1668,7 @@ cmdline_parser_internal (int argc, char * const *argv, struct gengetopt_args_inf
         { "fake-freq",	1, NULL, 0 },
         { "snr-precision",	1, NULL, 0 },
         { "max-candidates",	1, NULL, 0 },
+        { "min-candidate-snr",	1, NULL, 0 },
         { NULL,	0, NULL, 0 }
       };
 
@@ -3120,7 +3138,7 @@ cmdline_parser_internal (int argc, char * const *argv, struct gengetopt_args_inf
               free (args_info->snr_precision_orig); /* free previous string */
             args_info->snr_precision_orig = gengetopt_strdup (optarg);
           }
-          /* Do not output more than this number of candidates.  */
+          /* Do not optimize more than this number of candidates.  */
           else if (strcmp (long_options[option_index].name, "max-candidates") == 0)
           {
             if (local_args_info.max_candidates_given)
@@ -3140,6 +3158,27 @@ cmdline_parser_internal (int argc, char * const *argv, struct gengetopt_args_inf
             if (args_info->max_candidates_orig)
               free (args_info->max_candidates_orig); /* free previous string */
             args_info->max_candidates_orig = gengetopt_strdup (optarg);
+          }
+          /* Do not optimize candidates with SNR below this level.  */
+          else if (strcmp (long_options[option_index].name, "min-candidate-snr") == 0)
+          {
+            if (local_args_info.min_candidate_snr_given)
+              {
+                fprintf (stderr, "%s: `--min-candidate-snr' option given more than once%s\n", argv[0], (additional_error ? additional_error : ""));
+                goto failure;
+              }
+            if (args_info->min_candidate_snr_given && ! override)
+              continue;
+            local_args_info.min_candidate_snr_given = 1;
+            args_info->min_candidate_snr_given = 1;
+            args_info->min_candidate_snr_arg = strtod (optarg, &stop_char);
+            if (!(stop_char && *stop_char == '\0')) {
+              fprintf(stderr, "%s: invalid numeric value: %s\n", argv[0], optarg);
+              goto failure;
+            }
+            if (args_info->min_candidate_snr_orig)
+              free (args_info->min_candidate_snr_orig); /* free previous string */
+            args_info->min_candidate_snr_orig = gengetopt_strdup (optarg);
           }
           
           break;
