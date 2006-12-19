@@ -61,11 +61,6 @@ from pylal.date import LIGOTimeGPS
 #
 
 
-#
-# This is a work-in-progress;  please be kind.
-#
-
-
 class SnglBurstTable(table.DBTable):
 	tableName = lsctables.SnglBurstTable.tableName
 	validcolumns = lsctables.SnglBurstTable.validcolumns
