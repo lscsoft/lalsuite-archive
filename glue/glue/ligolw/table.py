@@ -194,9 +194,7 @@ def new_ilwd(table_elem):
 		raise ValueError, table_elem
 	n = 0
 	for id in table_elem.getColumnByName(table_elem.ids.column_name):
-		id = ilwd.ILWDID(id) + 1
-		if id > n:
-			n = id
+		n = max(n, ilwd.ILWDID(id) + 1)
 	return ilwd.ILWD(table_elem.ids.table_name, table_elem.ids.column_name, n)
 
 
@@ -668,28 +666,23 @@ class Table(ligolw.Table, list):
 			self.ids.n = n
 		return self.ids
 
-	def updateKeyMapping(self, mapping, ids = None):
+	def updateKeyMapping(self, mapping):
 		"""
 		Used as the first half of the row key reassignment
 		algorithm.  Accepts a dictionary mapping old key --> new
-		key, and an optional ILWD iterator for generating new keys
-		for this table.  Iterates over the rows in this table,
-		using the ILWD generator to assign a new key to each row,
-		recording the changes in the mapping.  Returns the mapping.
-		If no ILWD generator is provided, then the table's own
-		generator is used, or ValueError is raised if the table has
-		none.
+		key.  Iterates over the rows in this table, using the
+		table's own ILWD generator to assign a new key to each row,
+		recording the changes in the mapping.  Returns the mapping
+		or ValueError if the table has no ILWD generator.
 		"""
-		if ids is None:
-			ids = self.ids
-			if ids is None:
-				raise ValueError, self
-		column = self.getColumnByName(ids.column_name)
+		if self.ids is None:
+			raise ValueError, self
+		column = self.getColumnByName(self.ids.column_name)
 		for i, old in enumerate(column):
 			if old in mapping:
 				column[i] = mapping[old]
 			else:
-				column[i] = mapping[old] = ids.next()
+				column[i] = mapping[old] = self.ids.next()
 		return mapping
 
 	def applyKeyMapping(self, mapping):
@@ -717,17 +710,17 @@ class Table(ligolw.Table, list):
 
 class DBTable(Table):
 	"""
-	A special version of the Table class using an SQL database engine
-	for storage.  Many of the features of the Table class are not
-	available here, but instead the user can use SQL to query the
-	table's contents.  Before use, the connection attribute must be set
-	to a Python DB-API 2.0 "connection" object.  The constraints
-	attribute can be set to a text string that will be added to the
-	table's CREATE statement where constraints go, for example you
-	might wish to set this to "PRIMARY KEY (event_id)" for a table with
-	an event_id column.
+	A special version of the Table class using an SQL database for
+	storage.  Many of the features of the Table class are not available
+	here, but instead the user can use SQL to query the table's
+	contents.  Before use, the connection attribute must be set to a
+	Python DB-API 2.0 "connection" object.  The constraints attribute
+	can be set to a text string that will be added to the table's
+	CREATE statement where constraints go, for example you might wish
+	to set this to "PRIMARY KEY (event_id)" for a table with an
+	event_id column.
 
-	Note:  because the table is stored in an SQL engine, the use of
+	Note:  because the table is stored in an SQL database, the use of
 	this class imposes the restriction that table names be unique
 	within a document.
 	"""
