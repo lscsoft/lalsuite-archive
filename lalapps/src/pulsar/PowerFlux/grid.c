@@ -5,6 +5,7 @@
 #include "global.h"
 #include "grid.h"
 #include "util.h"
+#include "dataset.h"
 
 extern FILE *LOG;
 
@@ -324,7 +325,7 @@ if(length<0)length=strlen(name);
 if(length==0)return (-1);
 
 for(i=0;i<sky_grid->nbands;i++) {
-	if(!strncmp(sky_grid->band_name[i], name, length))return i;
+	if(!strncmp(sky_grid->band_name[i], name, length) && strlen(sky_grid->band_name[i])==length)return i;
 	}
 /* band does not exist, add it */
 if(sky_grid->nbands>=sky_grid->nbands_size) {
@@ -474,6 +475,34 @@ if( k>=0 ) {
 	}
 }
 
+void signal_sweep(SKY_GRID *sky_grid, int band_to, int band_from, SKY_GRID_TYPE ra, SKY_GRID_TYPE dec, float weight_ratio_level, float tolerance)
+{
+int i;
+
+for(i=0;i<sky_grid->npoints;i++) {
+	if((band_from>=0) && sky_grid->band[i]!=band_from)continue;
+	/* TODO: compute weight ratio when source does not show up based on least squares spindown fit */
+	if(effective_weight_ratio(sky_grid->longitude[i], sky_grid->latitude[i], ra, dec, tolerance)>weight_ratio_level) {
+		sky_grid->band[i]=band_to;
+		sky_grid->band_f[i]=band_to;
+		}
+	}
+}
+
+void stationary_sweep(SKY_GRID *sky_grid, int band_to, int band_from, float weight_ratio_level, float tolerance)
+{
+int i;
+
+for(i=0;i<sky_grid->npoints;i++) {
+	if((band_from>=0) && sky_grid->band[i]!=band_from)continue;
+	/* TODO: compute weight ratio when source does not show up based on least squares spindown fit */
+	if(stationary_effective_weight_ratio(sky_grid->longitude[i], sky_grid->latitude[i], tolerance)>weight_ratio_level) {
+		sky_grid->band[i]=band_to;
+		sky_grid->band_f[i]=band_to;
+		}
+	}
+}
+
 void process_band_definition_line(SKY_GRID *sky_grid, char *line, int length)
 {
 int ai,aj, i;
@@ -574,6 +603,39 @@ if(!strncasecmp(line, "closest", 7)) {
 	fprintf(LOG, "Marking point (%d <- %d) closest to (%g, %g)\n", band_to, band_from, ra, dec);
 
 	mark_closest(sky_grid, band_to, band_from, ra, dec);
+	} else
+if(!strncasecmp(line, "response", 7)) {
+	float weight_ratio_level, bin_tolerance;
+	locate_arg(line, length, 3, &ai, &aj);
+	sscanf(&(line[ai]), "%g", &ra);
+
+	locate_arg(line, length, 4, &ai, &aj);
+	sscanf(&(line[ai]), "%g", &dec);
+
+	locate_arg(line, length, 5, &ai, &aj);
+	sscanf(&(line[ai]), "%g", &weight_ratio_level);
+
+	locate_arg(line, length, 6, &ai, &aj);
+	sscanf(&(line[ai]), "%g", &bin_tolerance);
+
+	fprintf(stderr, "Marking points (%d <- %d) swept by (%g, %g) weight_ratio=%g bin_width=%g\n", band_to, band_from, ra, dec, weight_ratio_level, bin_tolerance);
+	fprintf(LOG, "Marking points (%d <- %d) swept by (%g, %g) weight_ratio=%g bin_width=%g\n", band_to, band_from, ra, dec, weight_ratio_level, bin_tolerance);
+
+	signal_sweep(sky_grid, band_to, band_from, ra, dec, weight_ratio_level, bin_tolerance);
+	} else
+if(!strncasecmp(line, "line_response", 11)) {
+	float weight_ratio_level, bin_tolerance;
+
+	locate_arg(line, length, 3, &ai, &aj);
+	sscanf(&(line[ai]), "%g", &weight_ratio_level);
+
+	locate_arg(line, length, 4, &ai, &aj);
+	sscanf(&(line[ai]), "%g", &bin_tolerance);
+
+	fprintf(stderr, "Marking points (%d <- %d) swept by lines weight_ratio=%g bin_width=%g\n", band_to, band_from, weight_ratio_level, bin_tolerance);
+	fprintf(LOG, "Marking points (%d <- %d) swept by lines weight_ratio=%g bin_width=%g\n", band_to, band_from, weight_ratio_level, bin_tolerance);
+
+	stationary_sweep(sky_grid, band_to, band_from, weight_ratio_level, bin_tolerance);
 	} else
 	{
 	fprintf(stderr, "*** UNKNOWN masking command \"%s\"\n", line);

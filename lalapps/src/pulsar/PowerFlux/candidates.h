@@ -3,12 +3,12 @@
 
 typedef struct {
 		
-	int point_index;
 	int polarization_index;
 	
 	int rank;
 	int opt_rank;
 	float score;
+	int point_index;
 	int domain_size;
 	float ul;
 	float S_band;

@@ -1453,6 +1453,125 @@ for(i=0;i<d_free;i++){
 for(i=0;i<3;i++)average_det_velocity[i]/=total_weight;
 }
 
+float effective_weight_ratio(float target_ra, float target_dec, float source_ra, float source_dec, float bin_tolerance)
+{
+int i, k;
+double total_weight=0.0, w, fdiff, f1, f2, c1, c2;
+DATASET *d;
+float e1[26], e2[26], ed[26];
+double offset, fdot;
+double timebase=max_gps()-min_gps()+1800.0;
+double inv_timebase=1.0/timebase;
+
+precompute_am_constants(e1, source_ra, source_dec);
+precompute_am_constants(e2, target_ra, target_dec);
+
+for(i=0;i<26;i++)ed[i]=e2[i]-e1[i];
+
+/* fit first */
+f1=0;
+f2=0;
+c1=0;
+c2=0;
+for(i=0;i<d_free;i++) {
+	d=&(datasets[i]);
+	for(k=0;k<d->free;k++) {
+		w=d->expTMedians[k]*d->weight;
+		total_weight+=w;
+
+		fdiff=(first_bin+nbins*0.5)*(
+				ed[0]*d->detector_velocity[3*k+0]+
+				ed[1]*d->detector_velocity[3*k+1]+
+				ed[2]*d->detector_velocity[3*k+2]
+				);
+		f1+=fdiff*w;
+		w*=(d->gps[k]-spindown_start+d->coherence_time*0.5)*inv_timebase;
+		f2+=fdiff*w;
+		c1+=w;
+		c2+=w*w;
+		}
+	}
+f1/=total_weight;
+f2/=total_weight;
+c1/=total_weight;
+c2/=total_weight;
+
+/* Note: the denominator will only be zero if we have only one SFT - in which case this has issues working anyway */
+offset=(c2*f1-c1*f2)/(c2-c1*c1);
+fdot=(-c1*f1+f2)/(c2-c1*c1);
+
+/* fprintf(stderr, "%g %g %g %g %g\n", f1, f2, total_weight, offset, fdot); */
+/* now compare */
+f1=0;
+for(i=0;i<d_free;i++) {
+	d=&(datasets[i]);
+	for(k=0;k<d->free;k++) {
+		w=d->expTMedians[k]*d->weight;
+		total_weight+=w;
+
+		fdiff=(first_bin+nbins*0.5)*(
+				ed[0]*d->detector_velocity[3*k+0]+
+				ed[1]*d->detector_velocity[3*k+1]+
+				ed[2]*d->detector_velocity[3*k+2]
+				)-
+			offset-fdot*(d->gps[k]-spindown_start+d->coherence_time*0.5)*inv_timebase;
+		if(fabs(fdiff*d->coherence_time)<bin_tolerance)f1+=w;
+		}
+	}
+/* fprintf(stderr, "%g %g\n", f1, total_weight); */
+return f1/total_weight;
+}
+
+float stationary_effective_weight_ratio(float target_ra, float target_dec, float bin_tolerance)
+{
+int i, k;
+double total_weight=0.0, w, fdiff, f1;
+DATASET *d;
+float e[26];
+double offset;
+
+precompute_am_constants(e, target_ra, target_dec);
+
+/* fit first */
+f1=0;
+for(i=0;i<d_free;i++) {
+	d=&(datasets[i]);
+	for(k=0;k<d->free;k++) {
+		w=d->expTMedians[k]*d->weight;
+		total_weight+=w;
+
+		fdiff=(first_bin+nbins*0.5)*(
+				e[0]*d->detector_velocity[3*k+0]+
+				e[1]*d->detector_velocity[3*k+1]+
+				e[2]*d->detector_velocity[3*k+2]
+				);
+		f1+=fdiff*w;
+		}
+	}
+offset=f1/total_weight;
+
+/* fprintf(stderr, "%g %g %g %g %g\n", f1, f2, total_weight, offset, fdot); */
+/* now compare */
+f1=0;
+for(i=0;i<d_free;i++) {
+	d=&(datasets[i]);
+	for(k=0;k<d->free;k++) {
+		w=d->expTMedians[k]*d->weight;
+		total_weight+=w;
+
+		fdiff=(first_bin+nbins*0.5)*(
+				e[0]*d->detector_velocity[3*k+0]+
+				e[1]*d->detector_velocity[3*k+1]+
+				e[2]*d->detector_velocity[3*k+2]
+				)-offset;
+
+		if(fabs(fdiff*d->coherence_time)<bin_tolerance)f1+=w;
+		}
+	}
+/* fprintf(stderr, "%g %g\n", f1, total_weight); */
+return f1/total_weight;
+}
+
 void inject_signal(void) 
 {
 int i,j;

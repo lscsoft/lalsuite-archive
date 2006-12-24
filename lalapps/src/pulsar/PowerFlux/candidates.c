@@ -2796,6 +2796,7 @@ for(dir_dec=-1;dir_dec<=1;dir_dec++) {
 	if(f>max) {
 		fprintf(stderr, "%f * [%d,%d,%d,%d]\n", f, dir_f, dir_sp, dir_ra, dir_dec);
 		memcpy(&best_c, &c, sizeof(c));
+		output_candidate(LOG, "_intermediate", &(candidate[i]));
 		max_i=i;
 		max=f;
 		continue;

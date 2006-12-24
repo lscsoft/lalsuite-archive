@@ -102,6 +102,8 @@ INT64 max_gps(void);
 void post_init_datasets(void);
 void output_datasets_info(void);
 void datasets_average_detector_speed(double *average_det_velocity);
+float effective_weight_ratio(float target_ra, float target_dec, float source_ra, float source_dec, float bin_tolerance);
+float stationary_effective_weight_ratio(float target_ra, float target_dec, float bin_tolerance);
 void dump_datasets(char *filename);
 
 #endif 
