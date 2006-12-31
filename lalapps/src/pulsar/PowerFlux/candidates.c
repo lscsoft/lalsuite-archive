@@ -55,8 +55,9 @@ extern struct gengetopt_args_info args_info;
 
 char s[20000];
 
-SUM_TYPE *max_dx=NULL;
-short *polarization_index=NULL;
+extern SUM_TYPE *max_dx;
+extern short *max_dx_polarization_index;
+
 int *max_dx_order=NULL;
 int *dec_order=NULL;
 int *inverse_dec_order=NULL;
@@ -166,9 +167,9 @@ float fudge=resolution*3.1;
 float cosfudge=1.0-cos(fudge);
 float frequency;
 
-if(polarization_index[index]<0)return 0;
+if(max_dx_polarization_index[index]<0)return 0;
 
-frequency=polarization_results[polarization_index[index]].skymap.freq_map[index];
+frequency=polarization_results[max_dx_polarization_index[index]].skymap.freq_map[index];
 
 for(j=inverse_dec_order[index]+1;j<fine_grid->npoints;j++) {
 	m=dec_order[j];
@@ -179,11 +180,11 @@ for(j=inverse_dec_order[index]+1;j<fine_grid->npoints;j++) {
 	
 	if(max_dx[m]>max_dx[index])continue;
 	
-	if(polarization_index[m]<0)continue;
+	if(max_dx_polarization_index[m]<0)continue;
 
 	if(((max_dx[m]+1.0)>max_dx[index]) && 
-		(fabs(frequency-polarization_results[polarization_index[m]].skymap.freq_map[m])>3/1800.0) &&
-		(fabs(polarization_results[polarization_index[m]].skymap.freq_map[index]-polarization_results[polarization_index[m]].skymap.freq_map[m])>3/1800.0)
+		(fabs(frequency-polarization_results[max_dx_polarization_index[m]].skymap.freq_map[m])>3/1800.0) &&
+		(fabs(polarization_results[max_dx_polarization_index[m]].skymap.freq_map[index]-polarization_results[max_dx_polarization_index[m]].skymap.freq_map[m])>3/1800.0)
 		)continue;
 
 	if(fast_spherical_distance(fine_grid->longitude[m], fine_grid->latitude[m],
@@ -203,7 +204,7 @@ for(j=inverse_dec_order[index]-1;j>=0;j--) {
 
 	if(max_dx[m]>max_dx[index])continue;
 	
-	if(polarization_index[m]<0)continue;
+	if(max_dx_polarization_index[m]<0)continue;
 
 	if(fast_spherical_distance(fine_grid->longitude[m], fine_grid->latitude[m],
 				fine_grid->longitude[index], fine_grid->latitude[index])<cosfudge) {
@@ -276,7 +277,7 @@ fprintf(fout, "\n");
 /* loop over datasets */
 for(j=0;j<d_free;j++) {
 	d=&(datasets[j]);
-	pl=&(d->polarizations[candidate[i].polarization_index]);	
+	pl=&(d->polarizations[candidate[i].max_dx_polarization_index]);	
 	
 	/* process single SFT */
 	for(k=0;k<d->free;k++){
@@ -331,7 +332,7 @@ void output_candidate(FILE *fout, char * suffix, CANDIDATE *cand)
 fprintf(fout, "candidate%s: \"%s\" %d %d %d %g %d %d %g %g %g %f %f %f %f %f %f %g %f %d %f %f %f %g %g %f %f %f %f %d\n",
 	suffix,
 	args_info.label_given ? args_info.label_arg : "",
-	cand->polarization_index,
+	cand->max_dx_polarization_index,
 	cand->rank,
 	cand->opt_rank,
 	cand->score,
@@ -434,7 +435,7 @@ cand->ifo_freq_sd=0.0;
 /* loop over datasets */
 for(j=0;j<d_free;j++) {
 	d=&(datasets[j]);
-	//pl=&(d->polarizations[cand->polarization_index]);	
+	//pl=&(d->polarizations[cand->max_dx_polarization_index]);	
 	pl=&(d->polarizations[0]);	
 	
 	response=do_alloc(d->free, sizeof(*response));
@@ -761,7 +762,7 @@ a_cross_sq=a_cross*a_cross;
 
 for(j=0;j<d_free;j++) {
 	d=&(datasets[j]);
-	//pl=&(d->polarizations[cand->polarization_index]);	
+	//pl=&(d->polarizations[cand->max_dx_polarization_index]);	
 	pl=&(d->polarizations[0]);	
 	
 	response=&(ad->response[ad->offset[j]]);	
@@ -3706,7 +3707,7 @@ fclose(fout);
 
 void optimize_candidate(CANDIDATE *cand)
 {
-compute_scores(cand, 1);
+compute_scores(cand, 0);
 output_candidate_header(stderr);
 output_candidate(stderr, "", cand);
 DISTANCE_PRINTF
@@ -3773,7 +3774,6 @@ candidate_free=0;
 candidate_size=100;
 candidate=do_alloc(candidate_size, sizeof(*candidate));
 
-max_dx=do_alloc(fine_grid->npoints, sizeof(*max_dx));
 max_dx_local_map=do_alloc(fine_grid->npoints, sizeof(*max_dx_local_map));
 max_dx_order=do_alloc(fine_grid->npoints, sizeof(*max_dx_order));
 
@@ -3784,7 +3784,6 @@ ra_order=do_alloc(fine_grid->npoints, sizeof(*ra_order));
 inverse_ra_order=do_alloc(fine_grid->npoints, sizeof(*inverse_ra_order));
 
 a_f=do_alloc(fine_grid->npoints, sizeof(*a_f));
-polarization_index=do_alloc(fine_grid->npoints, sizeof(*polarization_index));
 
 if(fine_grid->max_n_dec<800){
 	p=make_RGBPic(fine_grid->max_n_ra*(800/fine_grid->max_n_dec)+140, fine_grid->max_n_dec*(800/fine_grid->max_n_dec));
@@ -3794,24 +3793,29 @@ if(fine_grid->max_n_dec<800){
 plot=make_plot(p->width, p->height);
 
 for(i=0;i<fine_grid->npoints;i++) {
+	#if 0
 	max_dx[i]=0;
-	polarization_index[i]=-1;
+	max_dx_polarization_index[i]=-1;
+	#endif
 	max_dx_order[i]=i;
 	dec_order[i]=i;
 	ra_order[i]=i;
 	max_dx_local_map[i]=-1;
 	}
 
+#if 0
 for(i=0;i<fine_grid->npoints;i++) {
 	for(k=0;k<ntotal_polarizations;k++){
 		a=polarization_results[k].skymap.max_dx[i];
 		if(a<0)continue;
 		if(a>max_dx[i]) {
 			max_dx[i]=a;
-			polarization_index[i]=k;
+			max_dx_polarization_index[i]=k;
 			}
 		}
 	}
+#endif
+
 qsort(max_dx_order, fine_grid->npoints, sizeof(*max_dx_order), max_dx_compare);
 qsort(dec_order, fine_grid->npoints, sizeof(*dec_order), dec_compare);
 qsort(ra_order, fine_grid->npoints, sizeof(*ra_order), ra_compare);
@@ -3832,11 +3836,11 @@ fprintf(stderr, "noise_floor: %f\n", noise_floor);
 for(i=0;i<fine_grid->npoints;i++) {
 	k=max_dx_order[i];
 	/* skip masked points.. */
-	if(polarization_index[k]<0)continue;
+	if(max_dx_polarization_index[k]<0)continue;
 	
 	/* is the point marked already ? */
 	if(max_dx_local_map[k]>=0) {
-		a=polarization_results[polarization_index[k]].skymap.max_dx[k];
+		a=polarization_results[max_dx_polarization_index[k]].skymap.max_dx[k];
 		if(a>candidate[max_dx_local_map[k]].max_dx)candidate[max_dx_local_map[k]].max_dx=a;
 		sweep_neighbourhood(k, max_dx_local_map[k]);
 		continue;
@@ -3863,14 +3867,6 @@ for(i=0;i<fine_grid->npoints;i++) {
 	}
 
 fprintf(stderr, "Writing skymaps\n");
-
-snprintf(s, 19999, "%smax_dx.png", subinstance_name);
-if(clear_name_png(s)){
-	plot_grid_f(p, fine_grid, max_dx, 1);
-	RGBPic_dump_png(s, p);
-	}
-snprintf(s, 19999, "%smax_dx.dat", subinstance_name);
-dump_floats(s, max_dx, fine_grid->npoints, 1);
 
 for(i=0;i<fine_grid->npoints;i++) {
 	a_f[max_dx_order[i]]=fine_grid->npoints-i;
@@ -3913,15 +3909,15 @@ snprintf(s, 19999, "%smax_dx_local_map.dat", subinstance_name);
 dump_ints(s, max_dx_local_map, fine_grid->npoints, 1);
 
 for(i=0;i<fine_grid->npoints;i++) {
-	a_f[i]=polarization_index[i];
+	a_f[i]=max_dx_polarization_index[i];
 	}
-snprintf(s, 19999, "%smax_dx_polarization_index.png", subinstance_name);
+snprintf(s, 19999, "%smax_dx_max_dx_polarization_index.png", subinstance_name);
 if(clear_name_png(s)){
 	plot_grid_f(p, fine_grid, a_f, 1);
 	RGBPic_dump_png(s, p);
 	}
-snprintf(s, 19999, "%smax_dx_polarization_index.dat", subinstance_name);
-dump_shorts(s, polarization_index, fine_grid->npoints, 1);
+snprintf(s, 19999, "%smax_dx_max_dx_polarization_index.dat", subinstance_name);
+dump_shorts(s, max_dx_polarization_index, fine_grid->npoints, 1);
 
 /* Now do detailed processing of the candidates */
 fprintf(stderr, "Optimizing candidates (pass 2)\n");
@@ -3933,26 +3929,26 @@ m=0;
 for(i=0;i<candidate_free;i++) {
 	k=candidate[i].point_index;
 	//fprintf(stderr, "k=%d\n", k);
-	candidate[i].polarization_index=polarization_index[k];
-	//fprintf(stderr, "polarization_index=%d\n", polarization_index[k]);
+	candidate[i].max_dx_polarization_index=max_dx_polarization_index[k];
+	//fprintf(stderr, "max_dx_polarization_index=%d\n", max_dx_polarization_index[k]);
 	candidate[i].rank=i;
 	candidate[i].score=max_dx[k];
 	if(candidate[i].score>noise_floor)m++;
 	candidate[i].ra=fine_grid->longitude[k];
 	candidate[i].dec=fine_grid->latitude[k];
 	candidate[i].spindown=spindown;
-	/* candidate[i].max_dx=polarization_results[polarization_index[k]].skymap.max_dx[k]; */
-	candidate[i].psi=polarization_results[polarization_index[k]].orientation;
+	/* candidate[i].max_dx=polarization_results[max_dx_polarization_index[k]].skymap.max_dx[k]; */
+	candidate[i].psi=polarization_results[max_dx_polarization_index[k]].orientation;
 	/* currently we have either circular or linear polarizations */
-	if(polarization_results[polarization_index[k]].cross_factor>0)candidate[i].iota=0.0;
+	if(polarization_results[max_dx_polarization_index[k]].cross_factor>0)candidate[i].iota=0.0;
 		else	candidate[i].iota=M_PI/2.0;
-	//candidate[i].a_plus=polarization_results[polarization_index[k]].plus_proj;
-	//candidate[i].a_cross=polarization_results[polarization_index[k]].cross_proj;
-	candidate[i].ul=polarization_results[polarization_index[k]].skymap.max_upper_limit[k];
-	candidate[i].S_band=polarization_results[polarization_index[k]].skymap.S_map[k];
-	candidate[i].M_band=polarization_results[polarization_index[k]].skymap.M_map[k];
-	candidate[i].frequency=polarization_results[polarization_index[k]].skymap.freq_map[k];
-	candidate[i].weight_ratio=1.0-polarization_results[polarization_index[k]].skymap.max_sub_weight[k]/polarization_results[polarization_index[k]].skymap.total_weight[k];
+	//candidate[i].a_plus=polarization_results[max_dx_polarization_index[k]].plus_proj;
+	//candidate[i].a_cross=polarization_results[max_dx_polarization_index[k]].cross_proj;
+	candidate[i].ul=polarization_results[max_dx_polarization_index[k]].skymap.max_upper_limit[k];
+	candidate[i].S_band=polarization_results[max_dx_polarization_index[k]].skymap.S_map[k];
+	candidate[i].M_band=polarization_results[max_dx_polarization_index[k]].skymap.M_map[k];
+	candidate[i].frequency=polarization_results[max_dx_polarization_index[k]].skymap.freq_map[k];
+	candidate[i].weight_ratio=1.0-polarization_results[max_dx_polarization_index[k]].skymap.max_sub_weight[k]/polarization_results[max_dx_polarization_index[k]].skymap.total_weight[k];
 	candidate[i].skyband=fine_grid->band[k];
 	
 	//fprintf(stderr, "Computing scores\n");
@@ -4000,7 +3996,6 @@ a_f=NULL;
 free_plot(plot);
 free_RGBPic(p);
 
-free(max_dx);
 free(max_dx_local_map);
 free(max_dx_order);
 max_dx=NULL;
@@ -4018,7 +4013,6 @@ ra_order=NULL;
 inverse_ra_order=NULL;
 
 free(candidate);
-free(polarization_index);
 candidate=NULL;
-polarization_index=NULL;
+max_dx_polarization_index=NULL;
 }

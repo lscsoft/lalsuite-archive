@@ -98,7 +98,7 @@ if(stats->flag & STAT_FLAG_ESTIMATE_MEAN){
 	stats->mean=mean;
 	}
 
-if(stats->flag & STAT_FLAG_ESTIMATE_SIGMA){
+if(stats->flag & STAT_FLAG_ESTIMATE_SIGMA) {
 	sigma=0.0;
 	mean=stats->mean;
 	for(i=50;i<count-50;i++){

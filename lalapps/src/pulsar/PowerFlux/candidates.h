@@ -3,7 +3,7 @@
 
 typedef struct {
 		
-	int polarization_index;
+	int max_dx_polarization_index;
 	
 	int rank;
 	int opt_rank;

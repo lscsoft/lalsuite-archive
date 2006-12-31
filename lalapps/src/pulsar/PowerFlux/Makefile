@@ -220,18 +220,19 @@ test5c: powerflux
 		--averaging-mode=matched --do-cutoff=1 --lock-file=test.lock \
 		--subtract-background=0 --ks-test=1 --filter-lines=0 \
 		--dump-candidates=0 \
+		--dump-points=0 \
 		--sky-marks-file=sky_marks.txt \
 	        --earth-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/earth05-09.dat \
         	--sun-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/sun05-09.dat  \
  		--write-dat=NONE \
- 		--write-png=\(.\*bands\|.\*strain.\*\|high.\*\|S.\*\|Median.\*\|weight.\*\|max_dx.\*\)\\.png$$ \
- 		--focus-dec=$(DEC) --focus-ra=$(RA) --focus-radius=5 \
+ 		--focus-dec=$(DEC) --focus-ra=$(RA) --focus-radius=0.5 \
  		--fake-ref-time=793154935 \
- 		--fake-ra=$(RA) --fake-dec=$(DEC) --fake-freq=200.1 --fake-strain=5e-24 \
- 		--fake-spindown=5e-10 --fake-iota=1.570 --fake-psi=0.0 \
+ 		--fake-ra=$(RA) --fake-dec=$(DEC) --fake-freq=200.10027777 --fake-strain=10e-24 \
+ 		--fake-spindown=0e-10 --fake-iota=1.57 --fake-psi=0.0 \
 		--max-candidates=10000 --skymap-resolution-ratio=1
 
 
+# 		--write-png=\(.\*bands\|.\*strain.\*\|high.\*\|S.\*\|Median.\*\|weight.\*\|max_dx.\*\)\\.png$$ \
 #		--dump-data=input.dat \
 
 

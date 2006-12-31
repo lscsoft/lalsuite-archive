@@ -123,20 +123,25 @@ typedef struct {
 	double ra;
 	double dec;
 
+	double coherence_time;
+
 	} SIGNAL_PARAMS;
 
 static void compute_signal(double *re, double *im, double *f, double t, SIGNAL_PARAMS *p)
 {
 float det_vel[3];
 float f_plus, f_cross;
-double doppler, omega_t;
+double doppler, omega_t, c_omega_t, s_omega_t;
 double hann;
 
 get_detector_vel(round(t), det_vel);
 
 doppler=p->e[0]*det_vel[0]+p->e[1]*det_vel[1]+p->e[2]*det_vel[2];
 
+/*get_AM_response(round(t), p->dec, p->ra, 0.7853982, &f_plus, &f_cross);
+fprintf(stderr, "%d f_plus=%f f_cross=%f\n", (int)round(t), f_plus, f_cross);*/
 get_AM_response(round(t), p->dec, p->ra, 0.0, &f_plus, &f_cross);
+// fprintf(stderr, "%d f_plus=%f f_cross=%f\n", (int)round(t), f_plus, f_cross);
 
 *f=p->freq*(1.0+doppler)+p->spindown*(t-p->ref_time);
 
@@ -144,14 +149,32 @@ get_AM_response(round(t), p->dec, p->ra, 0.0, &f_plus, &f_cross);
 
 /* this loses the phase coherence between segments, but avoids the need to accumulate
   phase from the start of the run */
-omega_t=2.0*M_PI*(*f-p->bin/1800.0)*(t-p->segment_start);
-hann=(1.0-cos(2.0*M_PI*(t-p->segment_start)/1800.0));
+omega_t=2.0*M_PI*(*f-p->bin/p->coherence_time)*(t-p->segment_start);
+hann=0.5*(1.0-cos(2.0*M_PI*(t-p->segment_start)/p->coherence_time));
 
-*re=hann*f_plus*(p->a_plus*cos(omega_t)*p->cos_e-p->a_cross*sin(omega_t)*p->sin_e)+
-	f_cross*(p->a_plus*cos(omega_t)*p->sin_e+p->a_cross*sin(omega_t)*p->cos_e);
+c_omega_t=cos(omega_t);
+s_omega_t=sin(omega_t);
 
-*im=hann*f_plus*(p->a_plus*sin(omega_t)*p->cos_e+p->a_cross*cos(omega_t)*p->sin_e)+
-	f_cross*(p->a_plus*sin(omega_t)*p->sin_e-p->a_cross*cos(omega_t)*p->cos_e);
+/* 
+	cos(a)*cos(-b)=0.5*(cos(a-b)+cos(a+b))
+	sin(a)*cos(-b)=0.5*(sin(a-b)+sin(a+b))
+	cos(a)*sin(-b)=0.5*(sin(a-b)-sin(a+b))
+	sin(a)*sin(-b)=0.5*(cos(a-b)-cos(a+b))
+
+	|f-w|<<1
+	cos(ft)*exp(-iwt)~= 0.5*(cos((f-w)t)+i*sin((f-w)t))
+	sin(ft)*exp(-iwt)~= 0.5*(sin((f-w)t)-i*cos((f-w)t))
+*/
+
+// fprintf(stderr, "a_plus=%f a_cross=%f cos_e=%f sin_e=%f\n", p->a_plus, p->a_cross, p->cos_e, p->sin_e);
+
+/* Note: we do not have an extra factor of 0.5 because of normalization convention used, 
+  there is an extra factor of 2.0 to compensate for Hann windowing */
+*re=hann*(f_plus*(p->a_plus*c_omega_t*p->cos_e-p->a_cross*s_omega_t*p->sin_e)+
+	f_cross*(p->a_plus*c_omega_t*p->sin_e+p->a_cross*s_omega_t*p->cos_e));
+
+*im=hann*(f_plus*(p->a_plus*s_omega_t*p->cos_e+p->a_cross*c_omega_t*p->sin_e)+
+	f_cross*(p->a_plus*s_omega_t*p->sin_e-p->a_cross*c_omega_t*p->cos_e));
 
 //fprintf(stderr, "response=%g a_plus=%g a_cross=%g \n", response, p->a_plus, p->a_cross);
 
@@ -179,7 +202,6 @@ double result, abserr;
 size_t neval;
 int err;
 int window=5, bin;
-float filter[11];
 int i;
 double re, im, f, cos_i;
 SIGNAL_PARAMS p;
@@ -194,6 +216,7 @@ p.freq=args_info.fake_freq_arg;
 p.spindown=args_info.fake_spindown_arg;
 p.ref_time=args_info.fake_ref_time_arg;
 p.segment_start=d->gps[segment];
+p.coherence_time=d->coherence_time;
 
 cos_i=cos(args_info.fake_iota_arg);
 
@@ -203,12 +226,12 @@ p.a_cross=cos_i;
 p.cos_e=cos(2.0*(args_info.fake_psi_arg-args_info.fake_phi_arg));
 p.sin_e=sin(2.0*(args_info.fake_psi_arg-args_info.fake_phi_arg));
 
+// fprintf(stderr, "a_plus=%f a_cross=%f cos_e=%f sin_e=%f\n", p.a_plus, p.a_cross, p.cos_e, p.sin_e);
+
 precompute_am_constants(p.e, args_info.fake_ra_arg, args_info.fake_dec_arg);
 compute_signal(&re, &im, &f, d->gps[segment]+(int)(d->coherence_time/2), &p);
 
 bin=round(f*1800.0-d->first_bin);
-
-fill_hann_filterN(filter, 11, 5, f*1800.0-bin-d->first_bin);
 
 if(bin+window>nbins)bin=nbins-window;
 if(bin<window)bin=window;
@@ -219,7 +242,7 @@ for(i=bin-window; i<=bin+window; i++) {
 	p.bin=i+d->first_bin;
 
 	err=gsl_integration_qng(&F, d->gps[segment], d->gps[segment]+d->coherence_time,
-		1, 1e-2,
+		1, 1e-3,
 		&result, &abserr, &neval);
 /*	fprintf(stderr, "re %d %d result=%g abserr=%g %d %s\n", segment, i, result, abserr, neval, gsl_strerror(err)); */
 	d->re[segment*d->nbins+i]+=args_info.fake_strain_arg*result*16384.0/args_info.strain_norm_factor_arg;
@@ -227,7 +250,7 @@ for(i=bin-window; i<=bin+window; i++) {
 
 	F.function=signal_im;
 	err=gsl_integration_qng(&F, d->gps[segment], d->gps[segment]+d->coherence_time,
-		1, 1e-2,
+		1, 1e-3,
 		&result, &abserr, &neval);
 /*	fprintf(stderr, "im %d %d result=%g abserr=%g %d %s\n", segment, i, result, abserr, neval, gsl_strerror(err)); */
 	d->im[segment*d->nbins+i]+=args_info.fake_strain_arg*result*16384.0/args_info.strain_norm_factor_arg;
@@ -1609,14 +1632,14 @@ for(i=0;i<d_free;i++) {
 	for(j=0;j<d->free;j++) {
 		fprintf(fout, "%s\t%s\t%lld", d->name, d->detector, d->gps[j]);
 		for(k=0;k<d->nbins;k++) {
-			fprintf(fout, "\t%8g", d->re[j*d->nbins+k]);
+			fprintf(fout, "\t%8g", d->re[j*d->nbins+k]*args_info.strain_norm_factor_arg/(0.5*1800.0*16384.0));
 			}
 		for(k=0;k<d->nbins;k++) {
-			fprintf(fout, "\t%8g",d->im[j*d->nbins+k]);
+			fprintf(fout, "\t%8g",d->im[j*d->nbins+k]*args_info.strain_norm_factor_arg/(0.5*1800.0*16384.0));
 			}
 		for(k=0;k<d->nbins;k++) {
-			x=d->re[j*d->nbins+k];
-			y=d->im[j*d->nbins+k];
+			x=d->re[j*d->nbins+k]*args_info.strain_norm_factor_arg/(0.5*1800.0*16384.0);
+			y=d->im[j*d->nbins+k]*args_info.strain_norm_factor_arg/(0.5*1800.0*16384.0);
 			fprintf(fout, "\t%8g", x*x+y*y);
 			}
 		fprintf(fout, "\n");

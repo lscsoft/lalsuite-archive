@@ -60,10 +60,8 @@ SUM_TYPE  *circ_ul, *circ_ul_freq;  /* lower (over polarizations) accumulation l
 SUM_TYPE *skymap_circ_ul, *skymap_circ_ul_freq; /* skymaps */
 SUM_TYPE *spectral_plot_circ_ul; /* spectral plots */
 
-/* the value 1.22 is obtained by S.R script. It is valid for single-bin processing
-   the value 0.88 is obtained by the same script. It is valid for 3 averaged neighboring bins */
-
-float quantile2std=1.22;
+SUM_TYPE *max_dx=NULL;
+short *max_dx_polarization_index=NULL;
 
 float upper_limit_comp;
 float lower_limit_comp;
@@ -627,18 +625,20 @@ for(i=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[o
 		(a-tmp[0]*tmp[0]+tmp[useful_bins-1]*tmp[useful_bins-1]-c*c/(useful_bins-1))
 		));
 	
+	
 	/* Output point data if requested */
-	if(args_info.dump_points_arg){
+	if(args_info.dump_points_arg) {
 		char s[20000];
 		snprintf(s, 20000, "points/%s%s_%d.png", subinstance_name, pol->name, offset);
-		if(clear_name_png(s)){
+		if(clear_name_png(s)) {
 			RGBPic *p;
 			PLOT *plot;
 			float *freq_f;
 
-			freq_f=do_alloc(useful_bins, sizeof(*freq_f));			
-			for(i=0;i<useful_bins;i++)freq_f[i]=(first_bin+side_cut+i)/1800.0;
-
+			freq_f=do_alloc(useful_bins, sizeof(*freq_f));
+			for(j=0;j<useful_bins;j++) {
+				freq_f[j]=(first_bin+side_cut+j)/1800.0;
+				}
 		
 			if(fine_grid->max_n_dec<800)
 				p=make_RGBPic(fine_grid->max_n_ra*(800/fine_grid->max_n_dec)+140, fine_grid->max_n_dec*(800/fine_grid->max_n_dec));
@@ -647,11 +647,11 @@ for(i=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[o
 
 			plot=make_plot(p->width, p->height);
 
-
 			adjust_plot_limits_f(plot, freq_f, tmp, useful_bins, 1, 1, 1);
 			draw_grid(p, plot, 0, 0);
 			draw_points_f(p, plot, COLOR(255,0,0), freq_f, tmp, useful_bins, 1, 1);
 			RGBPic_dump_png(s, p);
+
 
 			free_plot(plot);
 			free_RGBPic(p);
@@ -661,7 +661,7 @@ for(i=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[o
 		snprintf(s, 20000, "points/%s%s_%d.dat", subinstance_name, pol->name, offset);
 		dump_floats(s, tmp, useful_bins, 1);
 		}
-	
+
 	compute_normal_stats(tmp, useful_bins, &nstats);
 
 	pol->skymap.ks_test[offset]=nstats.ks_test;
@@ -677,7 +677,7 @@ for(i=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[o
 	for(k=0;k<useful_bins;k++){
 		dx=(pol->fine_grid_sum[i*useful_bins+k]-M)/S;		
 		a=upper_limit95(dx)*S;
-		if(a>pol->skymap.max_upper_limit[offset]){
+		if(a>pol->skymap.max_upper_limit[offset]) {
 			pol->skymap.max_upper_limit[offset]=a;
 			pol->skymap.freq_map[offset]=(first_bin+side_cut+k)/1800.0;
 			}
@@ -832,7 +832,7 @@ for(i=0;i<fine_grid->npoints;i++){
 /* output interesting points around fake injection */
 largest_i=0;
 largest=0.0;
-if(fake_injection){
+if(fake_injection) {
 	double ds, best_ds=10;
 	int best_i=-1;
 	fprintf(LOG,"Interesting points: index longitude latitude pol max_dx upper_strain lower_strain freq beta1 beta2\n");
@@ -1093,7 +1093,7 @@ void output_unified_limits(void)
 {
 RGBPic *p;
 PLOT *plot;
-int i,k;
+int i,k, m;
 char s[20000];
 SUM_TYPE *skymap_high_ul, *skymap_high_ul_freq;
 SUM_TYPE *spectral_plot_high_ul;
@@ -1101,9 +1101,19 @@ float *freq_f;
 SUM_TYPE max_high_ul, max_circ_ul;
 int max_high_ul_i, max_circ_ul_i;
 HISTOGRAM *hist;
+SUM_TYPE a;
+SUM_TYPE *max_dx_band;
+int *max_dx_band_index;
 
 freq_f=do_alloc(useful_bins, sizeof(*freq_f));
 for(i=0;i<useful_bins;i++)freq_f[i]=(first_bin+side_cut+i)/1800.0;
+
+max_dx_band=do_alloc(fine_grid->nbands, sizeof(*max_dx_band));
+max_dx_band_index=do_alloc(fine_grid->nbands, sizeof(*max_dx_band_index));
+for(i=0;i<fine_grid->nbands;i++) {
+	max_dx_band[i]=0;
+	max_dx_band_index[i]=-1;
+	}
 
 skymap_high_ul=do_alloc(fine_grid->npoints, sizeof(*skymap_high_ul));
 skymap_high_ul_freq=do_alloc(fine_grid->npoints, sizeof(*skymap_high_ul_freq));
@@ -1119,7 +1129,7 @@ plot=make_plot(p->width, p->height);
 
 max_high_ul_i=-1;
 max_circ_ul_i=-1;
-for(i=0;i<fine_grid->npoints;i++){
+for(i=0;i<fine_grid->npoints;i++) {
 	if(fine_grid->band[i]<0){
 		skymap_circ_ul[i]=-1.0;
 		skymap_high_ul[i]=-1.0;
@@ -1154,7 +1164,58 @@ for(i=0;i<fine_grid->npoints;i++){
 			max_circ_ul=skymap_circ_ul[i];
 			}
 		}
+	for(k=0;k<ntotal_polarizations;k++) {
+		a=polarization_results[k].skymap.max_dx[i];
+		if(a<0)continue;
+		if(a>max_dx[i]) {
+			max_dx[i]=a;
+			max_dx_polarization_index[i]=k;
+			}
+		}
+
+	if(max_dx_band_index[fine_grid->band[i]]<0 || (max_dx[i]>max_dx_band[fine_grid->band[i]])) {
+		max_dx_band_index[fine_grid->band[i]]=i;
+		max_dx_band[fine_grid->band[i]]=max_dx[i];
+		}
 	}
+
+fprintf(LOG,"band SNR: band band_name max_dx pol freq ra dec pt_index\n");
+for(i=0;i<fine_grid->nbands;i++) {
+
+	k=max_dx_band_index[i];
+	if(k<0) {
+		fprintf(LOG, "max_dx_band: %d \"%s\" NaN -1 NaN NaN NaN -1\n",
+			i, fine_grid->band_name[i], max_dx_band[i]);
+		continue;
+		}
+
+	m=max_dx_polarization_index[k];
+	if(m<0) {
+		fprintf(LOG, "max_dx_band: %d \"%s\" NaN -1 NaN %f %f %d\n",
+			i, fine_grid->band_name[i], max_dx_band[i], 
+			fine_grid->longitude[k],
+			fine_grid->latitude[k],
+			k);
+		continue;
+		}
+
+	fprintf(LOG, "max_dx_band: %d \"%s\" %f %d %f %f %f %d\n",
+		i, fine_grid->band_name[i], max_dx_band[i], 
+		m,
+		polarization_results[m].skymap.freq_map[k],
+		fine_grid->longitude[k],
+		fine_grid->latitude[k],
+		k);		
+	}
+
+snprintf(s, 19999, "%smax_dx.png", subinstance_name);
+if(clear_name_png(s)){
+	plot_grid_f(p, fine_grid, max_dx, 1);
+	RGBPic_dump_png(s, p);
+	}
+snprintf(s, 19999, "%smax_dx.dat", subinstance_name);
+dump_floats(s, max_dx, fine_grid->npoints, 1);
+
 if(max_high_ul_i>=0){
 	fprintf(LOG, "max_high_ul legend: RA DEC high_ul freq\n");
 	fprintf(LOG, "max_high_ul: %f %f %g %f\n", 
@@ -1249,6 +1310,8 @@ for(i=0;i<fine_grid->nbands;i++){
 	dump_floats(s, &(spectral_plot_high_ul[i*useful_bins]), useful_bins, 1);
 	}
 
+free(max_dx_band);
+free(max_dx_band_index);
 free_histogram(hist);
 free_plot(plot);
 free_RGBPic(p);
@@ -1365,22 +1428,22 @@ circ_ul_freq=do_alloc(stored_fine_bins*useful_bins, sizeof(*circ_ul_freq));
 skymap_circ_ul=do_alloc(fine_grid->npoints, sizeof(*skymap_circ_ul));
 skymap_circ_ul_freq=do_alloc(fine_grid->npoints, sizeof(*skymap_circ_ul_freq));
 spectral_plot_circ_ul=do_alloc(useful_bins*fine_grid->nbands, sizeof(*spectral_plot_circ_ul));
+max_dx=do_alloc(fine_grid->npoints, sizeof(*max_dx));
+max_dx_polarization_index=do_alloc(fine_grid->npoints, sizeof(*max_dx_polarization_index));
 
 if(!strcasecmp(args_info.averaging_mode_arg, "matched")) {
-	quantile2std=1.0;  /* TODO - make sure this number is right */
-	process_patch=process_patch_matched;
-	fprintf(LOG,"mode: matched filter\n");	
-	} else
+       process_patch=process_patch_matched;
+       fprintf(LOG,"mode: matched filter\n");
+       } else
 if(!strcasecmp(args_info.averaging_mode_arg, "3") || !strcasecmp(args_info.averaging_mode_arg, "three")){
-	quantile2std=0.88;
-	process_patch=process_patch3;
-	fprintf(LOG,"mode: 3 bins\n");
-	} else 
-	{
-	quantile2std=1.22;
-	process_patch=process_patch1;
-	fprintf(LOG,"mode: 1 bin\n");
-	}
+       process_patch=process_patch3;
+       fprintf(LOG,"mode: 3 bins\n");
+       } else
+       {
+       process_patch=process_patch1;
+       fprintf(LOG,"mode: 1 bin\n");
+       }
+
 
 if(!strcasecmp("Hann", args_info.upper_limit_comp_arg)){
 	if(!strcasecmp(args_info.averaging_mode_arg, "matched")) {
@@ -1451,9 +1514,11 @@ clear_polarization_arrays();
 min_shift=0;
 max_shift=0;
 
-for(i=0;i<fine_grid->npoints;i++){
+for(i=0;i<fine_grid->npoints;i++) {
 	skymap_circ_ul[i]=-1.0;
-	skymap_circ_ul_freq[i]=-1.0;	
+	skymap_circ_ul_freq[i]=-1.0;
+	max_dx[i]=0;
+	max_dx_polarization_index[i]=-1;
 	}
 for(i=0;i<useful_bins*fine_grid->nbands;i++){
 	spectral_plot_circ_ul[i]=-1.0;
