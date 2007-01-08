@@ -30,15 +30,16 @@ set FIELDS {
         "^masked:"   masked 1	{1 2}				2
 	"^spindown  :" spindown 3	{2 2}			1
 	"^noise_floor:"  noise_floor  0  {2 2}			1
-	"^optimized_candidates_count:" optimized_candidates_count 1  {1 1} 	1
-	"^high_candidates_count:" high_candidates_count 1  {1 1} 	1
-	"^candidates_count:" candidates_count 1  {1 1} 	1
+	"^optimized_candidates_count:" optimized_candidates_count 3  {1 1} 	1
+	"^high_candidates_count:" high_candidates_count 3  {1 1} 	1
+	"^candidates_count:" candidates_count 3  {1 1} 	1
 	}
 
 set FIELDS_LAYOUT {exp var pol fields EC}
 
 for { set band 0 } { $band < $NBANDS } { incr band } {
 	lappend FIELDS "grid_points: $band" "grid_points.$band" 3 {1 3} 3
+	lappend FIELDS "^max_dx_band: $band " "max_dx_band.$band" 3	{1 8}		8
 	lappend FIELDS "^max_high_ul_band: $band " "max_high_ul_band.$band" 3	{1 3}		3
 	lappend FIELDS "^max_circ_ul_band: $band " "max_circ_ul_band.$band" 3	{1 3}		3
         lappend FIELDS "^max_band: $band " "max_band.$band" 1	{1 9}				9
@@ -82,7 +83,7 @@ return [join $LL " "]
 }
 
 # Comment this out to check for completed jobs
-set cputime [list "seconds elapsed: NA"]
+set cputime [list "seconds elapsed: NaN"]
 
 set spindown_count 1
 
@@ -124,11 +125,13 @@ file mkdir $STATS_DIR
 
 set OFILENAME "$STATS_DIR/stat${STATS_SUFFIX}.dat"
 
-set appending [file exists $OFILENAME]
+#set appending [file exists $OFILENAME]
 
 set FOUT [open $OFILENAME "a"]
+fconfigure $FOUT -buffering full -buffersize 10000000
 
-if { !$appending } {
+if { [tell $FOUT] == 0 } {
+	puts stderr "\tWriting header"
 	puts -nonewline $FOUT "LogFile"
 	# Write out header
 	foreach $FIELDS_LAYOUT $FIELDS {
