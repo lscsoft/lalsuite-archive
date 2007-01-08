@@ -10,11 +10,6 @@
 extern int nbins, first_bin;
 extern FILE *LOG;
 
-#if 0
-unsigned char *lines;
-int lines_list[5]={-1,-1,-1,-1,-1};
-#endif
-
 extern struct gengetopt_args_info args_info;
 
 int double_cmp(double *a, double *b)
@@ -51,40 +46,6 @@ void free_lines_report(LINES_REPORT *lr)
 free(lr->lines);
 free(lr->lines_list);
 }
-
-#if 0 
-/* old simpler code.. comment it out */
-void detect_lines(double *mean)
-{
-double *tmp;
-double median,q5,q30;
-int i,j;
-lines=do_alloc(nbins, sizeof(*lines));
-tmp=do_alloc(nbins, sizeof(*tmp));
-memcpy(tmp, mean, nbins*sizeof(*tmp));
-qsort(tmp, nbins, sizeof(double), double_cmp);
-
-median=tmp[nbins>>1];
-q5=tmp[nbins-5];
-q30=tmp[nbins-30];
-
-for(i=0;i<nbins;i++){
-	if(mean[i]<q5)lines[i]=0;
-		else {
-		if(mean[i]>(2*q30-median)){
-			lines[i]=1;
-			fprintf(stderr,"Line found in %d bin: \t%g Hz\n",
-				i, (first_bin+i)/1800.0);
-			for(j=0;j<5;j++){
-				if(lines_list[j]<0)lines_list[j]=i;
-				}
-			}
-		}
-	}
-
-free(tmp);
-}
-#endif
 
 void detect_lines_d(double *z, LINES_REPORT *lr, char *tag)
 {
@@ -298,44 +259,3 @@ for(i=0;i<lr->nlines;i++)
 	if(lr->lines_list[i]>=0)
 		fprintf(f,"%s line freq: %g Hz\n", tag, (first_bin+lr->lines_list[i])/1800.0);
 }
-
-#if 0
-void detect_background_lines(double *mean)
-{
-LINES_REPORT lr;
-int i;
-/* there is a reason why we use global arrays here: 
-   It is important to avoid another inner cycle when accumulating
-   mean. By having a fixed array with a fixed number of 
-   background lines and a hardcoded if we have only one
-   if statement which is almost never taken - a good situation for
-   todays cpus. A for loop would be more expensive and I am not certain
-   the compiler would be smart enough to optimize a fixed loop away
-   
-   Note: alternative approach would be to accumulate line detection value
-   using a for loop with hardcoded number of lines. The hardcoding can be
-   done as a #define so that the compiler sees a small fixed loop and unwraps it.
-
-   The latter requires testing and will certainly not happen without optimization
-   flags turned on.
-    */
-lr.nlines=5;
-lr.lines_list=lines_list;
-lines=do_alloc(nbins, sizeof(*lines));
-lr.lines=lines;
-lr.x0=0;
-lr.x1=nbins-1;
-lr.nlittle=30;
-for(i=0;i<lr.nlines;i++)lines_list[i]=-1; /* no line */
-
-detect_lines_d(mean, &lr);
-print_lines_report(LOG,&lr,"background");
-
-if(!args_info.filter_lines_arg){
-	fprintf(stderr,"Background lines removal will not be performed\n");
-	fprintf(LOG, "Background lines removal will not be performed\n");
-	for(i=0;i<lr.nlines;i++)lines_list[i]=-1; /* no line */
-	}
-fflush(LOG);
-}
-#endif

@@ -25,9 +25,6 @@ extern POLARIZATION *polarizations;
 FILE *LOG=NULL, *FILE_LOG=NULL;
 time_t start_time, end_time, stage_time;
 
-#if 0
-float *power=NULL; /* nsegments, nbins */
-#endif
 extern INT64 spindown_start;
 
 int nsegments;
@@ -47,15 +44,6 @@ char *sky_marks=NULL;
 int sky_marks_free=0;
 int sky_marks_size=0;
 
-#if 0
-
-float *TMedians=NULL,*FMedians=NULL, *expTMedians=NULL, *hours=NULL,*frequencies=NULL,*ks_test=NULL,*median=NULL,
-      *max_residuals, *min_residuals;
-float TMedian,expTMedian;
-float *tm=NULL;
-double *mean=NULL,*weighted_mean=NULL,*weight=NULL,*sigma=NULL,*freq_d=NULL,*hours_d=NULL;
-#endif
-
 int subinstance;
 char *subinstance_name;
 
@@ -74,11 +62,6 @@ int no_am_response;
 SKY_GRID *fine_grid=NULL;
 SKY_SUPERGRID *super_grid=NULL;
 SKY_GRID *patch_grid=NULL;
-
-#if 0
-SKY_GRID_TYPE *AM_coeffs_plus=NULL,*AM_coeffs_cross=NULL;
-int AM_coeffs_size=0;
-#endif
 
 char *output_dir;
 

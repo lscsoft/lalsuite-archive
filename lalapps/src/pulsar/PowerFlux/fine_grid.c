@@ -31,10 +31,6 @@ extern int nbins, first_bin, side_cut, useful_bins;
 
 INT64 spindown_start;
 
-#if 0
-extern int lines_list[];
-#endif
-
 extern SKY_GRID *fine_grid, *patch_grid;
 extern SKY_SUPERGRID *super_grid;
 
@@ -521,7 +517,7 @@ for(i=0,kk=super_grid->first_map[pi];kk>=0;kk=super_grid->list_map[kk],i++)
 			sum++;
 			}
 
-		#if 0  /* filter is 7 bins wide - do not do line subtraction */
+		#if 0  /* filter is 7 bins wide - do not do line subtraction for now */
 		/* subtract lines */
 		for(n=0;(d->lines_report->lines_list[n]>=0)&&(n<d->lines_report->nlines);n++) {
 			b=d->lines_report->lines_list[n];
