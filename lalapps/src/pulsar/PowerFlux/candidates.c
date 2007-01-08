@@ -2797,7 +2797,7 @@ for(dir_dec=-1;dir_dec<=1;dir_dec++) {
 	if(f>max) {
 		fprintf(stderr, "%f * [%d,%d,%d,%d]\n", f, dir_f, dir_sp, dir_ra, dir_dec);
 		memcpy(&best_c, &c, sizeof(c));
-		output_candidate(LOG, "_intermediate", &(candidate[i]));
+		//output_candidate(LOG, "_intermediate", &(candidate[i]));
 		max_i=i;
 		max=f;
 		continue;
@@ -3752,6 +3752,7 @@ for(i=0;i<candidate_free;i++) {
 	if(candidate[index[i]].opt_rank<0)continue;
 	candidate[index[i]].opt_rank=i;
 	}
+free(index);
 }
 
 void identify_candidates(void)
@@ -3765,8 +3766,6 @@ time_t start, now;
 int opt_candidates_count;
 
 /* compute power without applying whitening procedure */
-fprintf(stderr, "Recomputing power\n");
-recompute_power();
 
 fprintf(stderr, "Identifying candidates - pass 1\n");
 
@@ -3998,7 +3997,6 @@ free_RGBPic(p);
 
 free(max_dx_local_map);
 free(max_dx_order);
-max_dx=NULL;
 max_dx_local_map=NULL;
 max_dx_order=NULL;
 
@@ -4014,5 +4012,4 @@ inverse_ra_order=NULL;
 
 free(candidate);
 candidate=NULL;
-max_dx_polarization_index=NULL;
 }
