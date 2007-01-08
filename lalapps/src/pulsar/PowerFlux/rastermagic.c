@@ -1093,6 +1093,7 @@ if(!strcmp(grid->name,"sin theta")){
 	adjust_masked_density_map_limits_f(dm, z, grid->band, grid->npoints, step, 1);
 	layout_density_map_plot(p, dm, grid->max_n_ra, grid->max_n_dec);
 	plot_sin_theta_f(p, 0, 0, dm, grid, z, step);
+	free_density_map(dm);
 	return;
 	}
 
