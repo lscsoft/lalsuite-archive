@@ -475,14 +475,14 @@ if( k>=0 ) {
 	}
 }
 
-void signal_sweep(SKY_GRID *sky_grid, int band_to, int band_from, SKY_GRID_TYPE ra, SKY_GRID_TYPE dec, float weight_ratio_level, float tolerance)
+void signal_sweep(SKY_GRID *sky_grid, int band_to, int band_from, SKY_GRID_TYPE ra, SKY_GRID_TYPE dec, float weight_ratio_level, float bin_tolerance, float spindown_tolerance)
 {
 int i;
 
 for(i=0;i<sky_grid->npoints;i++) {
 	if((band_from>=0) && sky_grid->band[i]!=band_from)continue;
 	/* TODO: compute weight ratio when source does not show up based on least squares spindown fit */
-	if(effective_weight_ratio(sky_grid->longitude[i], sky_grid->latitude[i], ra, dec, tolerance)>weight_ratio_level) {
+	if(effective_weight_ratio(sky_grid->longitude[i], sky_grid->latitude[i], ra, dec, bin_tolerance, spindown_tolerance)>weight_ratio_level) {
 		sky_grid->band[i]=band_to;
 		sky_grid->band_f[i]=band_to;
 		}
@@ -605,7 +605,7 @@ if(!strncasecmp(line, "closest", 7)) {
 	mark_closest(sky_grid, band_to, band_from, ra, dec);
 	} else
 if(!strncasecmp(line, "response", 7)) {
-	float weight_ratio_level, bin_tolerance;
+	float weight_ratio_level, bin_tolerance, spindown_tolerance;
 	locate_arg(line, length, 3, &ai, &aj);
 	sscanf(&(line[ai]), "%g", &ra);
 
@@ -618,10 +618,13 @@ if(!strncasecmp(line, "response", 7)) {
 	locate_arg(line, length, 6, &ai, &aj);
 	sscanf(&(line[ai]), "%g", &bin_tolerance);
 
-	fprintf(stderr, "Marking points (%d <- %d) swept by (%g, %g) weight_ratio=%g bin_width=%g\n", band_to, band_from, ra, dec, weight_ratio_level, bin_tolerance);
-	fprintf(LOG, "Marking points (%d <- %d) swept by (%g, %g) weight_ratio=%g bin_width=%g\n", band_to, band_from, ra, dec, weight_ratio_level, bin_tolerance);
+	locate_arg(line, length, 7, &ai, &aj);
+	sscanf(&(line[ai]), "%g", &spindown_tolerance);
 
-	signal_sweep(sky_grid, band_to, band_from, ra, dec, weight_ratio_level, bin_tolerance);
+	fprintf(stderr, "Marking points (%d <- %d) swept by (%g, %g) weight_ratio=%g bin_width=%g spindown_width=%g\n", band_to, band_from, ra, dec, weight_ratio_level, bin_tolerance, spindown_tolerance);
+	fprintf(LOG, "Marking points (%d <- %d) swept by (%g, %g) weight_ratio=%g bin_width=%g spindown_width=%g\n", band_to, band_from, ra, dec, weight_ratio_level, bin_tolerance, spindown_tolerance);
+
+	signal_sweep(sky_grid, band_to, band_from, ra, dec, weight_ratio_level, bin_tolerance, spindown_tolerance);
 	} else
 if(!strncasecmp(line, "line_response", 11)) {
 	float weight_ratio_level, bin_tolerance;
