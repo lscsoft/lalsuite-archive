@@ -71,9 +71,6 @@ struct gengetopt_args_info
   double strain_norm_factor_arg;	/* strain normalization factor to prevent overflowing of the exponent (default='1e-20').  */
   char * strain_norm_factor_orig;	/* strain normalization factor to prevent overflowing of the exponent original value given at command line.  */
   const char *strain_norm_factor_help; /* strain normalization factor to prevent overflowing of the exponent help description.  */
-  char * input_arg;	/* path to input files (power or SFT).  */
-  char * input_orig;	/* path to input files (power or SFT) original value given at command line.  */
-  const char *input_help; /* path to input files (power or SFT) help description.  */
   char * lock_file_arg;	/* file to lock when reading SFTs in order to globally serialize disk access.  */
   char * lock_file_orig;	/* file to lock when reading SFTs in order to globally serialize disk access original value given at command line.  */
   const char *lock_file_help; /* file to lock when reading SFTs in order to globally serialize disk access help description.  */
@@ -83,18 +80,9 @@ struct gengetopt_args_info
   char * dataset_arg;	/* dataset file.  */
   char * dataset_orig;	/* dataset file original value given at command line.  */
   const char *dataset_help; /* dataset file help description.  */
-  char * input_munch_arg;	/* how to derive SFT name from --input (highly arcane) (default='%s%ld').  */
-  char * input_munch_orig;	/* how to derive SFT name from --input (highly arcane) original value given at command line.  */
-  const char *input_munch_help; /* how to derive SFT name from --input (highly arcane) help description.  */
   char * input_format_arg;	/* format of input files (GEO, SFT, Power) (default='GEO').  */
   char * input_format_orig;	/* format of input files (GEO, SFT, Power) original value given at command line.  */
   const char *input_format_help; /* format of input files (GEO, SFT, Power) help description.  */
-  char * segments_file_arg;	/* file with list of segments to process - this allows subsetting of full SFT set.  */
-  char * segments_file_orig;	/* file with list of segments to process - this allows subsetting of full SFT set original value given at command line.  */
-  const char *segments_file_help; /* file with list of segments to process - this allows subsetting of full SFT set help description.  */
-  char * veto_segments_file_arg;	/* file with list of segments *NOT* to process - this allows subsetting of full SFT set.  */
-  char * veto_segments_file_orig;	/* file with list of segments *NOT* to process - this allows subsetting of full SFT set original value given at command line.  */
-  const char *veto_segments_file_help; /* file with list of segments *NOT* to process - this allows subsetting of full SFT set help description.  */
   char * dump_data_arg;	/* file to output loaded SFT data into, for testing.  */
   char * dump_data_orig;	/* file to output loaded SFT data into, for testing original value given at command line.  */
   const char *dump_data_help; /* file to output loaded SFT data into, for testing help description.  */
@@ -134,9 +122,9 @@ struct gengetopt_args_info
   double spindown_start_arg;	/* first spindown value to process (default='0.0').  */
   char * spindown_start_orig;	/* first spindown value to process original value given at command line.  */
   const char *spindown_start_help; /* first spindown value to process help description.  */
-  double spindown_step_arg;	/* step for processing multiple spindown values, also determines width of spindown range investigated (default='5e-10').  */
-  char * spindown_step_orig;	/* step for processing multiple spindown values, also determines width of spindown range investigated original value given at command line.  */
-  const char *spindown_step_help; /* step for processing multiple spindown values, also determines width of spindown range investigated help description.  */
+  double spindown_step_arg;	/* step for processing multiple spindown values (default='5e-10').  */
+  char * spindown_step_orig;	/* step for processing multiple spindown values original value given at command line.  */
+  const char *spindown_step_help; /* step for processing multiple spindown values help description.  */
   int spindown_count_arg;	/* how many separate spindown values to process (default='1').  */
   char * spindown_count_orig;	/* how many separate spindown values to process original value given at command line.  */
   const char *spindown_count_help; /* how many separate spindown values to process help description.  */
@@ -262,14 +250,10 @@ struct gengetopt_args_info
   int skymap_resolution_ratio_given ;	/* Whether skymap-resolution-ratio was given.  */
   int small_weight_ratio_given ;	/* Whether small-weight-ratio was given.  */
   int strain_norm_factor_given ;	/* Whether strain-norm-factor was given.  */
-  int input_given ;	/* Whether input was given.  */
   int lock_file_given ;	/* Whether lock-file was given.  */
   int enable_dataset_locking_given ;	/* Whether enable-dataset-locking was given.  */
   int dataset_given ;	/* Whether dataset was given.  */
-  int input_munch_given ;	/* Whether input-munch was given.  */
   int input_format_given ;	/* Whether input-format was given.  */
-  int segments_file_given ;	/* Whether segments-file was given.  */
-  int veto_segments_file_given ;	/* Whether veto-segments-file was given.  */
   int dump_data_given ;	/* Whether dump-data was given.  */
   int output_given ;	/* Whether output was given.  */
   int ephemeris_path_given ;	/* Whether ephemeris-path was given.  */

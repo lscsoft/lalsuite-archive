@@ -43,14 +43,10 @@ const char *gengetopt_args_info_help[] = {
   "      --skymap-resolution-ratio=DOUBLE\n                                adjust default coarseness of the grid by this \n                                  factor  (default=`1.0')",
   "      --small-weight-ratio=DOUBLE\n                                ratio that determines which weight is too small \n                                  to include in max statistics  (default=`0.2')",
   "      --strain-norm-factor=DOUBLE\n                                strain normalization factor to prevent \n                                  overflowing of the exponent  \n                                  (default=`1e-20')",
-  "  -i, --input=STRING            path to input files (power or SFT)",
   "      --lock-file=STRING        file to lock when reading SFTs in order to \n                                  globally serialize disk access",
   "      --enable-dataset-locking=INT\n                                set to 1 to enable dataset level locking  \n                                  (default=`0')",
   "  -s, --dataset=STRING          dataset file",
-  "      --input-munch=STRING      how to derive SFT name from --input (highly \n                                  arcane)  (default=`%s%ld')",
   "      --input-format=STRING     format of input files (GEO, SFT, Power)  \n                                  (default=`GEO')",
-  "      --segments-file=STRING    file with list of segments to process - this \n                                  allows subsetting of full SFT set",
-  "      --veto-segments-file=STRING\n                                file with list of segments *NOT* to process - \n                                  this allows subsetting of full SFT set",
   "      --dump-data=STRING        file to output loaded SFT data into, for \n                                  testing",
   "  -o, --output=STRING           output directory",
   "      --ephemeris-path=STRING   path to detresponse program from lalapps",
@@ -64,7 +60,7 @@ const char *gengetopt_args_info_help[] = {
   "  -d, --detector=STRING         detector location (i.e. LHO or LLO), passed to \n                                  detresponse",
   "      --spindown-start-time=DOUBLE\n                                specify spindown start time in GPS sec. Assumed \n                                  to be the first SFT segment by default",
   "      --spindown-start=DOUBLE   first spindown value to process  \n                                  (default=`0.0')",
-  "      --spindown-step=DOUBLE    step for processing multiple spindown values, \n                                  also determines width of spindown range \n                                  investigated  (default=`5e-10')",
+  "      --spindown-step=DOUBLE    step for processing multiple spindown values  \n                                  (default=`5e-10')",
   "      --spindown-count=INT      how many separate spindown values to process  \n                                  (default=`1')",
   "      --orientation=DOUBLE      additional orientation phase, specifying 0.7853 \n                                  will turn plus into cross  (default=`0')",
   "      --nlinear-polarizations=INT\n                                even number of linear polarizations to profile, \n                                  distributed uniformly between 0 and PI/2  \n                                  (default=`4')",
@@ -162,14 +158,10 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->skymap_resolution_ratio_given = 0 ;
   args_info->small_weight_ratio_given = 0 ;
   args_info->strain_norm_factor_given = 0 ;
-  args_info->input_given = 0 ;
   args_info->lock_file_given = 0 ;
   args_info->enable_dataset_locking_given = 0 ;
   args_info->dataset_given = 0 ;
-  args_info->input_munch_given = 0 ;
   args_info->input_format_given = 0 ;
-  args_info->segments_file_given = 0 ;
-  args_info->veto_segments_file_given = 0 ;
   args_info->dump_data_given = 0 ;
   args_info->output_given = 0 ;
   args_info->ephemeris_path_given = 0 ;
@@ -254,22 +246,14 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->small_weight_ratio_orig = NULL;
   args_info->strain_norm_factor_arg = 1e-20;
   args_info->strain_norm_factor_orig = NULL;
-  args_info->input_arg = NULL;
-  args_info->input_orig = NULL;
   args_info->lock_file_arg = NULL;
   args_info->lock_file_orig = NULL;
   args_info->enable_dataset_locking_arg = 0;
   args_info->enable_dataset_locking_orig = NULL;
   args_info->dataset_arg = NULL;
   args_info->dataset_orig = NULL;
-  args_info->input_munch_arg = gengetopt_strdup ("%s%ld");
-  args_info->input_munch_orig = NULL;
   args_info->input_format_arg = gengetopt_strdup ("GEO");
   args_info->input_format_orig = NULL;
-  args_info->segments_file_arg = NULL;
-  args_info->segments_file_orig = NULL;
-  args_info->veto_segments_file_arg = NULL;
-  args_info->veto_segments_file_orig = NULL;
   args_info->dump_data_arg = NULL;
   args_info->dump_data_orig = NULL;
   args_info->output_arg = NULL;
@@ -383,65 +367,61 @@ void init_args_info(struct gengetopt_args_info *args_info)
   args_info->skymap_resolution_ratio_help = gengetopt_args_info_help[14] ;
   args_info->small_weight_ratio_help = gengetopt_args_info_help[15] ;
   args_info->strain_norm_factor_help = gengetopt_args_info_help[16] ;
-  args_info->input_help = gengetopt_args_info_help[17] ;
-  args_info->lock_file_help = gengetopt_args_info_help[18] ;
-  args_info->enable_dataset_locking_help = gengetopt_args_info_help[19] ;
-  args_info->dataset_help = gengetopt_args_info_help[20] ;
-  args_info->input_munch_help = gengetopt_args_info_help[21] ;
-  args_info->input_format_help = gengetopt_args_info_help[22] ;
-  args_info->segments_file_help = gengetopt_args_info_help[23] ;
-  args_info->veto_segments_file_help = gengetopt_args_info_help[24] ;
-  args_info->dump_data_help = gengetopt_args_info_help[25] ;
-  args_info->output_help = gengetopt_args_info_help[26] ;
-  args_info->ephemeris_path_help = gengetopt_args_info_help[27] ;
-  args_info->earth_ephemeris_help = gengetopt_args_info_help[28] ;
-  args_info->sun_ephemeris_help = gengetopt_args_info_help[29] ;
-  args_info->first_bin_help = gengetopt_args_info_help[30] ;
-  args_info->nbins_help = gengetopt_args_info_help[31] ;
-  args_info->side_cut_help = gengetopt_args_info_help[32] ;
-  args_info->expected_timebase_help = gengetopt_args_info_help[33] ;
-  args_info->hist_bins_help = gengetopt_args_info_help[34] ;
-  args_info->detector_help = gengetopt_args_info_help[35] ;
-  args_info->spindown_start_time_help = gengetopt_args_info_help[36] ;
-  args_info->spindown_start_help = gengetopt_args_info_help[37] ;
-  args_info->spindown_step_help = gengetopt_args_info_help[38] ;
-  args_info->spindown_count_help = gengetopt_args_info_help[39] ;
-  args_info->orientation_help = gengetopt_args_info_help[40] ;
-  args_info->nlinear_polarizations_help = gengetopt_args_info_help[41] ;
-  args_info->no_demodulation_help = gengetopt_args_info_help[42] ;
-  args_info->no_decomposition_help = gengetopt_args_info_help[43] ;
-  args_info->no_candidates_help = gengetopt_args_info_help[44] ;
-  args_info->no_am_response_help = gengetopt_args_info_help[45] ;
-  args_info->averaging_mode_help = gengetopt_args_info_help[46] ;
-  args_info->subtract_background_help = gengetopt_args_info_help[47] ;
-  args_info->do_cutoff_help = gengetopt_args_info_help[48] ;
-  args_info->filter_lines_help = gengetopt_args_info_help[49] ;
-  args_info->ks_test_help = gengetopt_args_info_help[50] ;
-  args_info->compute_betas_help = gengetopt_args_info_help[51] ;
-  args_info->upper_limit_comp_help = gengetopt_args_info_help[52] ;
-  args_info->lower_limit_comp_help = gengetopt_args_info_help[53] ;
-  args_info->write_dat_help = gengetopt_args_info_help[54] ;
-  args_info->write_png_help = gengetopt_args_info_help[55] ;
-  args_info->dump_points_help = gengetopt_args_info_help[56] ;
-  args_info->dump_candidates_help = gengetopt_args_info_help[57] ;
-  args_info->focus_ra_help = gengetopt_args_info_help[58] ;
-  args_info->focus_dec_help = gengetopt_args_info_help[59] ;
-  args_info->focus_radius_help = gengetopt_args_info_help[60] ;
-  args_info->only_large_cos_help = gengetopt_args_info_help[61] ;
-  args_info->fake_linear_help = gengetopt_args_info_help[62] ;
-  args_info->fake_circular_help = gengetopt_args_info_help[63] ;
-  args_info->fake_ref_time_help = gengetopt_args_info_help[64] ;
-  args_info->fake_ra_help = gengetopt_args_info_help[65] ;
-  args_info->fake_dec_help = gengetopt_args_info_help[66] ;
-  args_info->fake_iota_help = gengetopt_args_info_help[67] ;
-  args_info->fake_psi_help = gengetopt_args_info_help[68] ;
-  args_info->fake_phi_help = gengetopt_args_info_help[69] ;
-  args_info->fake_spindown_help = gengetopt_args_info_help[70] ;
-  args_info->fake_strain_help = gengetopt_args_info_help[71] ;
-  args_info->fake_freq_help = gengetopt_args_info_help[72] ;
-  args_info->snr_precision_help = gengetopt_args_info_help[73] ;
-  args_info->max_candidates_help = gengetopt_args_info_help[74] ;
-  args_info->min_candidate_snr_help = gengetopt_args_info_help[75] ;
+  args_info->lock_file_help = gengetopt_args_info_help[17] ;
+  args_info->enable_dataset_locking_help = gengetopt_args_info_help[18] ;
+  args_info->dataset_help = gengetopt_args_info_help[19] ;
+  args_info->input_format_help = gengetopt_args_info_help[20] ;
+  args_info->dump_data_help = gengetopt_args_info_help[21] ;
+  args_info->output_help = gengetopt_args_info_help[22] ;
+  args_info->ephemeris_path_help = gengetopt_args_info_help[23] ;
+  args_info->earth_ephemeris_help = gengetopt_args_info_help[24] ;
+  args_info->sun_ephemeris_help = gengetopt_args_info_help[25] ;
+  args_info->first_bin_help = gengetopt_args_info_help[26] ;
+  args_info->nbins_help = gengetopt_args_info_help[27] ;
+  args_info->side_cut_help = gengetopt_args_info_help[28] ;
+  args_info->expected_timebase_help = gengetopt_args_info_help[29] ;
+  args_info->hist_bins_help = gengetopt_args_info_help[30] ;
+  args_info->detector_help = gengetopt_args_info_help[31] ;
+  args_info->spindown_start_time_help = gengetopt_args_info_help[32] ;
+  args_info->spindown_start_help = gengetopt_args_info_help[33] ;
+  args_info->spindown_step_help = gengetopt_args_info_help[34] ;
+  args_info->spindown_count_help = gengetopt_args_info_help[35] ;
+  args_info->orientation_help = gengetopt_args_info_help[36] ;
+  args_info->nlinear_polarizations_help = gengetopt_args_info_help[37] ;
+  args_info->no_demodulation_help = gengetopt_args_info_help[38] ;
+  args_info->no_decomposition_help = gengetopt_args_info_help[39] ;
+  args_info->no_candidates_help = gengetopt_args_info_help[40] ;
+  args_info->no_am_response_help = gengetopt_args_info_help[41] ;
+  args_info->averaging_mode_help = gengetopt_args_info_help[42] ;
+  args_info->subtract_background_help = gengetopt_args_info_help[43] ;
+  args_info->do_cutoff_help = gengetopt_args_info_help[44] ;
+  args_info->filter_lines_help = gengetopt_args_info_help[45] ;
+  args_info->ks_test_help = gengetopt_args_info_help[46] ;
+  args_info->compute_betas_help = gengetopt_args_info_help[47] ;
+  args_info->upper_limit_comp_help = gengetopt_args_info_help[48] ;
+  args_info->lower_limit_comp_help = gengetopt_args_info_help[49] ;
+  args_info->write_dat_help = gengetopt_args_info_help[50] ;
+  args_info->write_png_help = gengetopt_args_info_help[51] ;
+  args_info->dump_points_help = gengetopt_args_info_help[52] ;
+  args_info->dump_candidates_help = gengetopt_args_info_help[53] ;
+  args_info->focus_ra_help = gengetopt_args_info_help[54] ;
+  args_info->focus_dec_help = gengetopt_args_info_help[55] ;
+  args_info->focus_radius_help = gengetopt_args_info_help[56] ;
+  args_info->only_large_cos_help = gengetopt_args_info_help[57] ;
+  args_info->fake_linear_help = gengetopt_args_info_help[58] ;
+  args_info->fake_circular_help = gengetopt_args_info_help[59] ;
+  args_info->fake_ref_time_help = gengetopt_args_info_help[60] ;
+  args_info->fake_ra_help = gengetopt_args_info_help[61] ;
+  args_info->fake_dec_help = gengetopt_args_info_help[62] ;
+  args_info->fake_iota_help = gengetopt_args_info_help[63] ;
+  args_info->fake_psi_help = gengetopt_args_info_help[64] ;
+  args_info->fake_phi_help = gengetopt_args_info_help[65] ;
+  args_info->fake_spindown_help = gengetopt_args_info_help[66] ;
+  args_info->fake_strain_help = gengetopt_args_info_help[67] ;
+  args_info->fake_freq_help = gengetopt_args_info_help[68] ;
+  args_info->snr_precision_help = gengetopt_args_info_help[69] ;
+  args_info->max_candidates_help = gengetopt_args_info_help[70] ;
+  args_info->min_candidate_snr_help = gengetopt_args_info_help[71] ;
   
 }
 
@@ -587,16 +567,6 @@ cmdline_parser_release (struct gengetopt_args_info *args_info)
       free (args_info->strain_norm_factor_orig); /* free previous argument */
       args_info->strain_norm_factor_orig = 0;
     }
-  if (args_info->input_arg)
-    {
-      free (args_info->input_arg); /* free previous argument */
-      args_info->input_arg = 0;
-    }
-  if (args_info->input_orig)
-    {
-      free (args_info->input_orig); /* free previous argument */
-      args_info->input_orig = 0;
-    }
   if (args_info->lock_file_arg)
     {
       free (args_info->lock_file_arg); /* free previous argument */
@@ -622,16 +592,6 @@ cmdline_parser_release (struct gengetopt_args_info *args_info)
       free (args_info->dataset_orig); /* free previous argument */
       args_info->dataset_orig = 0;
     }
-  if (args_info->input_munch_arg)
-    {
-      free (args_info->input_munch_arg); /* free previous argument */
-      args_info->input_munch_arg = 0;
-    }
-  if (args_info->input_munch_orig)
-    {
-      free (args_info->input_munch_orig); /* free previous argument */
-      args_info->input_munch_orig = 0;
-    }
   if (args_info->input_format_arg)
     {
       free (args_info->input_format_arg); /* free previous argument */
@@ -641,26 +601,6 @@ cmdline_parser_release (struct gengetopt_args_info *args_info)
     {
       free (args_info->input_format_orig); /* free previous argument */
       args_info->input_format_orig = 0;
-    }
-  if (args_info->segments_file_arg)
-    {
-      free (args_info->segments_file_arg); /* free previous argument */
-      args_info->segments_file_arg = 0;
-    }
-  if (args_info->segments_file_orig)
-    {
-      free (args_info->segments_file_orig); /* free previous argument */
-      args_info->segments_file_orig = 0;
-    }
-  if (args_info->veto_segments_file_arg)
-    {
-      free (args_info->veto_segments_file_arg); /* free previous argument */
-      args_info->veto_segments_file_arg = 0;
-    }
-  if (args_info->veto_segments_file_orig)
-    {
-      free (args_info->veto_segments_file_orig); /* free previous argument */
-      args_info->veto_segments_file_orig = 0;
     }
   if (args_info->dump_data_arg)
     {
@@ -1091,13 +1031,6 @@ cmdline_parser_file_save(const char *filename, struct gengetopt_args_info *args_
       fprintf(outfile, "%s\n", "strain-norm-factor");
     }
   }
-  if (args_info->input_given) {
-    if (args_info->input_orig) {
-      fprintf(outfile, "%s=\"%s\"\n", "input", args_info->input_orig);
-    } else {
-      fprintf(outfile, "%s\n", "input");
-    }
-  }
   if (args_info->lock_file_given) {
     if (args_info->lock_file_orig) {
       fprintf(outfile, "%s=\"%s\"\n", "lock-file", args_info->lock_file_orig);
@@ -1119,32 +1052,11 @@ cmdline_parser_file_save(const char *filename, struct gengetopt_args_info *args_
       fprintf(outfile, "%s\n", "dataset");
     }
   }
-  if (args_info->input_munch_given) {
-    if (args_info->input_munch_orig) {
-      fprintf(outfile, "%s=\"%s\"\n", "input-munch", args_info->input_munch_orig);
-    } else {
-      fprintf(outfile, "%s\n", "input-munch");
-    }
-  }
   if (args_info->input_format_given) {
     if (args_info->input_format_orig) {
       fprintf(outfile, "%s=\"%s\"\n", "input-format", args_info->input_format_orig);
     } else {
       fprintf(outfile, "%s\n", "input-format");
-    }
-  }
-  if (args_info->segments_file_given) {
-    if (args_info->segments_file_orig) {
-      fprintf(outfile, "%s=\"%s\"\n", "segments-file", args_info->segments_file_orig);
-    } else {
-      fprintf(outfile, "%s\n", "segments-file");
-    }
-  }
-  if (args_info->veto_segments_file_given) {
-    if (args_info->veto_segments_file_orig) {
-      fprintf(outfile, "%s=\"%s\"\n", "veto-segments-file", args_info->veto_segments_file_orig);
-    } else {
-      fprintf(outfile, "%s\n", "veto-segments-file");
     }
   }
   if (args_info->dump_data_given) {
@@ -1610,14 +1522,10 @@ cmdline_parser_internal (int argc, char * const *argv, struct gengetopt_args_inf
         { "skymap-resolution-ratio",	1, NULL, 0 },
         { "small-weight-ratio",	1, NULL, 0 },
         { "strain-norm-factor",	1, NULL, 0 },
-        { "input",	1, NULL, 'i' },
         { "lock-file",	1, NULL, 0 },
         { "enable-dataset-locking",	1, NULL, 0 },
         { "dataset",	1, NULL, 's' },
-        { "input-munch",	1, NULL, 0 },
         { "input-format",	1, NULL, 0 },
-        { "segments-file",	1, NULL, 0 },
-        { "veto-segments-file",	1, NULL, 0 },
         { "dump-data",	1, NULL, 0 },
         { "output",	1, NULL, 'o' },
         { "ephemeris-path",	1, NULL, 0 },
@@ -1673,7 +1581,7 @@ cmdline_parser_internal (int argc, char * const *argv, struct gengetopt_args_inf
       };
 
       stop_char = 0;
-      c = getopt_long (argc, argv, "hVc:i:s:o:f:n:d:", long_options, &option_index);
+      c = getopt_long (argc, argv, "hVc:s:o:f:n:d:", long_options, &option_index);
 
       if (c == -1) break;	/* Exit from `while (1)' loop.  */
 
@@ -1705,24 +1613,6 @@ cmdline_parser_internal (int argc, char * const *argv, struct gengetopt_args_inf
           if (args_info->config_orig)
             free (args_info->config_orig); /* free previous string */
           args_info->config_orig = gengetopt_strdup (optarg);
-          break;
-
-        case 'i':	/* path to input files (power or SFT).  */
-          if (local_args_info.input_given)
-            {
-              fprintf (stderr, "%s: `--input' (`-i') option given more than once%s\n", argv[0], (additional_error ? additional_error : ""));
-              goto failure;
-            }
-          if (args_info->input_given && ! override)
-            continue;
-          local_args_info.input_given = 1;
-          args_info->input_given = 1;
-          if (args_info->input_arg)
-            free (args_info->input_arg); /* free previous string */
-          args_info->input_arg = gengetopt_strdup (optarg);
-          if (args_info->input_orig)
-            free (args_info->input_orig); /* free previous string */
-          args_info->input_orig = gengetopt_strdup (optarg);
           break;
 
         case 's':	/* dataset file.  */
@@ -2143,25 +2033,6 @@ cmdline_parser_internal (int argc, char * const *argv, struct gengetopt_args_inf
               free (args_info->enable_dataset_locking_orig); /* free previous string */
             args_info->enable_dataset_locking_orig = gengetopt_strdup (optarg);
           }
-          /* how to derive SFT name from --input (highly arcane).  */
-          else if (strcmp (long_options[option_index].name, "input-munch") == 0)
-          {
-            if (local_args_info.input_munch_given)
-              {
-                fprintf (stderr, "%s: `--input-munch' option given more than once%s\n", argv[0], (additional_error ? additional_error : ""));
-                goto failure;
-              }
-            if (args_info->input_munch_given && ! override)
-              continue;
-            local_args_info.input_munch_given = 1;
-            args_info->input_munch_given = 1;
-            if (args_info->input_munch_arg)
-              free (args_info->input_munch_arg); /* free previous string */
-            args_info->input_munch_arg = gengetopt_strdup (optarg);
-            if (args_info->input_munch_orig)
-              free (args_info->input_munch_orig); /* free previous string */
-            args_info->input_munch_orig = gengetopt_strdup (optarg);
-          }
           /* format of input files (GEO, SFT, Power).  */
           else if (strcmp (long_options[option_index].name, "input-format") == 0)
           {
@@ -2180,44 +2051,6 @@ cmdline_parser_internal (int argc, char * const *argv, struct gengetopt_args_inf
             if (args_info->input_format_orig)
               free (args_info->input_format_orig); /* free previous string */
             args_info->input_format_orig = gengetopt_strdup (optarg);
-          }
-          /* file with list of segments to process - this allows subsetting of full SFT set.  */
-          else if (strcmp (long_options[option_index].name, "segments-file") == 0)
-          {
-            if (local_args_info.segments_file_given)
-              {
-                fprintf (stderr, "%s: `--segments-file' option given more than once%s\n", argv[0], (additional_error ? additional_error : ""));
-                goto failure;
-              }
-            if (args_info->segments_file_given && ! override)
-              continue;
-            local_args_info.segments_file_given = 1;
-            args_info->segments_file_given = 1;
-            if (args_info->segments_file_arg)
-              free (args_info->segments_file_arg); /* free previous string */
-            args_info->segments_file_arg = gengetopt_strdup (optarg);
-            if (args_info->segments_file_orig)
-              free (args_info->segments_file_orig); /* free previous string */
-            args_info->segments_file_orig = gengetopt_strdup (optarg);
-          }
-          /* file with list of segments *NOT* to process - this allows subsetting of full SFT set.  */
-          else if (strcmp (long_options[option_index].name, "veto-segments-file") == 0)
-          {
-            if (local_args_info.veto_segments_file_given)
-              {
-                fprintf (stderr, "%s: `--veto-segments-file' option given more than once%s\n", argv[0], (additional_error ? additional_error : ""));
-                goto failure;
-              }
-            if (args_info->veto_segments_file_given && ! override)
-              continue;
-            local_args_info.veto_segments_file_given = 1;
-            args_info->veto_segments_file_given = 1;
-            if (args_info->veto_segments_file_arg)
-              free (args_info->veto_segments_file_arg); /* free previous string */
-            args_info->veto_segments_file_arg = gengetopt_strdup (optarg);
-            if (args_info->veto_segments_file_orig)
-              free (args_info->veto_segments_file_orig); /* free previous string */
-            args_info->veto_segments_file_orig = gengetopt_strdup (optarg);
           }
           /* file to output loaded SFT data into, for testing.  */
           else if (strcmp (long_options[option_index].name, "dump-data") == 0)
@@ -2400,7 +2233,7 @@ cmdline_parser_internal (int argc, char * const *argv, struct gengetopt_args_inf
               free (args_info->spindown_start_orig); /* free previous string */
             args_info->spindown_start_orig = gengetopt_strdup (optarg);
           }
-          /* step for processing multiple spindown values, also determines width of spindown range investigated.  */
+          /* step for processing multiple spindown values.  */
           else if (strcmp (long_options[option_index].name, "spindown-step") == 0)
           {
             if (local_args_info.spindown_step_given)

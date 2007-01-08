@@ -111,95 +111,6 @@ if(!(count & 1))return (tmp[count>>1]+tmp[(count>>1)-1])/2.0;
 return tmp[count>>1];
 }
 
-#if 0
-void compute_noise_curves1(void)
-{
-float *tmp;
-float *p,*t;
-float a;
-int i,j;
-float b, b_initial;
-HISTOGRAM *hist;
-tmp=do_alloc(nsegments*nbins,sizeof(float));
-for(i=0;i<nsegments;i++){
-	t=&(tmp[i*nbins]);
-	p=&(power[i*nbins]);
-	for(j=0;j<nbins;j++){
-		t[j]=log10(p[j]);
-		}
-	}
-b=0;
-for(i=0;i<nsegments;i++){
-	a=compute_median(tmp+i*nbins,1,nbins);
-	TMedians[i]=a;
-	b+=a*a;
-	t=&(tmp[i*nbins]);
-	for(j=0;j<nbins;j++){
-		t[j]-=a;
-		}
-	}
-for(j=0;j<nbins;j++){
-	a=compute_median(tmp+j,nbins,nsegments);
-	FMedians[j]=a;
-	b+=a*a;
-	t=&(tmp[j]);
-	for(i=0;i<nsegments;i++){
-		t[i*nbins]-=a;
-		}
-	}
-b_initial=b;
-while(b>0){
-	b=0;
-	for(i=0;i<nsegments;i++){
-		a=compute_median(tmp+i*nbins,1,nbins);
-		TMedians[i]+=a;
-		b+=a*a;
-		t=&(tmp[i*nbins]);
-		for(j=0;j<nbins;j++){
-			t[j]-=a;
-			}
-		}
-	for(j=0;j<nbins;j++){
-		a=compute_median(tmp+j,nbins,nsegments);
-		FMedians[j]+=a;
-		b+=a*a;
-		t=&(tmp[j]);
-		for(i=0;i<nsegments;i++){
-			t[i*nbins]-=a;
-			}
-		}
-	fprintf(stderr,"%g\n",b);
-	/* if one of r nbins or nsegments are even break because of order of
-	   magnitude, do not try to solve exactly */
-	if(!((nsegments &1)&&(nbins&1)) && (b<(b_initial*(1E-16))))break;
-	}
-
-for(i=0;i<nsegments;i++){
-	max_residuals[i]=tmp[i*nbins];
-	min_residuals[i]=tmp[i*nbins];
-	for(j=1;j<nbins;j++){
-		if(max_residuals[i]<tmp[i*nbins+j]){
-			max_residuals[i]=tmp[i*nbins+j];
-			}
-		if(min_residuals[i]>tmp[i*nbins+j]){
-			min_residuals[i]=tmp[i*nbins+j];
-			}
-		}
-	}
-hist=new_histogram(args_info.hist_bins_arg, 1);
-compute_histogram_f(hist, tmp, NULL, nsegments*nbins);
-print_histogram(LOG, hist, "hist_residuals");
-print_histogram(stderr, hist, "hist_residuals");
-free_histogram(hist);
-
-free(tmp);
-TMedian=compute_median(TMedians,1,nsegments);
-fprintf(LOG,"Median noise level (TMedian): %g\n",TMedian);
-fflush(LOG);
-}
-
-#endif
-
 
 static double exponential_distribution(double x, double lambda)
 {
@@ -238,98 +149,6 @@ fclose(LOG);
 fclose(FILE_LOG);
 }
 
-#if 0
-void inject_fake_signal(void)
-{
-int i, bin, min_bin=-1, max_bin=-1;
-float plus, cross, a, b, e[3], fake_power;
-gsl_rng *rng=NULL;
-double average_freq, weight, mixed, plus_sq, cross_sq;
-
-rng=gsl_rng_alloc(gsl_rng_default);
-
-if(args_info.fake_linear_given){
-	fprintf(LOG, "fake_injection: linear\n");
-	} else 
-if(args_info.fake_circular_given){
-	fprintf(LOG, "fake_injection: circular\n");
-	}
-
-/* First compute the amplitude. Do not take windowing effects into account */
-
-fake_power=args_info.fake_strain_arg;
-	/* Extra factor to convert to amplitude from RMS power */
-fake_power/=sqrt(2.0);
-	/* Extra factor to convert to strain from raw SFT units */
-fake_power*=(1800.0*16384.0);
-	/* Extra factor to account for the fact that only half of SFT
-	   coefficients is stored */
-fake_power/=sqrt(2.0);
-
-/* Now square to obtain power */
-fake_power=fake_power*fake_power;
-
-fprintf(LOG, "fake_power: %g\n", fake_power);
-
-average_freq=0.0;
-weight=0.0;
-mixed=0.0;
-plus_sq=0.0;
-cross_sq=0.0;
-for(i=0;i<nsegments;i++){
-	get_AM_response(gps[i]+900, 
-		args_info.fake_dec_arg, args_info.fake_ra_arg,
-		args_info.fake_orientation_arg,
-		&plus, &cross);
-	/* effective power, ignoring phase, and taking into account windowing and
-	   fourier coefficient (we are keeping only half of them)*/
-	if(args_info.fake_linear_given){
-		a=plus*plus*fake_power;
-		} else 
-	if(args_info.fake_circular_given){
-		a=(plus*plus+cross*cross)*fake_power;
-		} else {
-		fprintf(stderr, "*** INTERNAL ERROR: unrecognized fake injection mode\n");
-		exit(-1);
-		}
-	mixed+=plus*cross;
-	plus_sq+=plus*plus;
-	cross_sq+=cross*cross;
-	/* effective frequency */
-	e[0]=cos(args_info.fake_dec_arg)*cos(args_info.fake_ra_arg);
-	e[1]=cos(args_info.fake_dec_arg)*sin(args_info.fake_ra_arg);
-	e[2]=sin(args_info.fake_dec_arg);
-	b=args_info.fake_spindown_arg*(gps[i]-spindown_start)+
-	  args_info.fake_freq_arg*(1.0+(det_velocity[3*i]*e[0]+
-		det_velocity[3*i+1]*e[1]+
-		det_velocity[3*i+2]*e[2]));
-	average_freq+=b*a;
-	weight+=a;
-	bin=rint(b*1800.0);
-	if(bin<first_bin)continue;
-	if(bin>=first_bin+nbins)continue;
-	power[i*nbins+bin-first_bin]+=a+2.0*sqrt(a*power[i*nbins+bin-first_bin])*cos(gsl_rng_uniform(rng)*M_PI);
-	if(!i){
-		min_bin=bin;
-		max_bin=bin;
-		continue;
-		}
-	if(min_bin>bin)min_bin=bin;
-	if(max_bin<bin)max_bin=bin;
-	}
-
-average_freq/=weight;
-fprintf(LOG,"average effective fake frequency: %f\n", average_freq);
-fprintf(LOG,"mixed: %g\n",mixed/nsegments);
-fprintf(LOG,"plus_sq: %g\n",plus_sq/nsegments);
-fprintf(LOG,"cross_sq: %g\n",cross_sq/nsegments);
-fprintf(LOG,"min_bin: %d\n",min_bin);
-fprintf(LOG,"max_bin: %d\n",max_bin);
-
-gsl_rng_free(rng);
-}
-#endif
-
 int main(int argc, char *argv[])
 {
 RGBPic *p;
@@ -347,8 +166,8 @@ if(cmdline_parser(argc, argv, &args_info))exit(-1);
 if(args_info.config_given)
 	if(cmdline_parser_configfile(args_info.config_arg, &args_info, 0, 0, 0))exit(-1);
 
-if(!args_info.input_given && !args_info.dataset_given){
-	fprintf(stderr,"** You must specify path to input files (--input) or dataset description file (--dataset)\n");
+if(!args_info.dataset_given){
+	fprintf(stderr,"** You must specify dataset description file (--dataset)\n");
 	exit(-1);
 	}
 if(!args_info.ephemeris_path_given &&
@@ -587,7 +406,6 @@ fprintf(LOG,"fine_factor: %d\n", args_info.fine_factor_arg);
 fprintf(LOG,"fine_type : %s\n",fine_grid->name);
 fprintf(LOG,"fine_grid npoints  : %d\n", fine_grid->npoints);
 fprintf(LOG,"fine_grid : %dx%d\n", fine_grid->max_n_ra, fine_grid->max_n_dec);
-if(args_info.input_given)fprintf(LOG,"input_data: %s\n",args_info.input_arg);
 if(args_info.dataset_given)fprintf(LOG,"dataset: %s\n",args_info.dataset_arg);
 fprintf(LOG,"first spindown: %g\n", args_info.spindown_start_arg);
 fprintf(LOG,"spindown step : %g\n", args_info.spindown_step_arg);
@@ -624,13 +442,6 @@ if(args_info.dataset_given) {
 	fprintf(stderr, "Loading data from dataset %s\n", args_info.dataset_arg);
 	load_dataset_from_file(args_info.dataset_arg);
 	nsegments=total_segments();
-	} else
-if(args_info.input_given){
-	fprintf(stderr, "Reading directory %s\n", args_info.input_arg);
-	fprintf(stderr, "Not implemented  yet\n");
-	#if 0
-	read_directory(args_info.input_arg,1,4000, first_bin, nbins, &nsegments, &power, &gps);
-	#endif
 	}
 
 if(args_info.sky_marks_file_given) {
