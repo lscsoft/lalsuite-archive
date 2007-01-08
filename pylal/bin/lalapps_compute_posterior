@@ -190,11 +190,13 @@ parser.add_option("-F","--figure-name",action="store",type="string",\
     default=None,metavar=" FNAME",\
     help="generate ps figures with name FNAME_PlotType.ps")
 parser.add_option("-x","--xmax",action="store",type="float",\
-    default=200.0, metavar=" XMAX", help="maximum value on x-axis" ) 
+    default=200.0, metavar=" XMAX", 
+    help="maximum value on x-axis (default = 200)" ) 
 parser.add_option("-y","--ymin",action="store",type="float",\
     default=0.01, metavar=" YMIN", help="minimum value on y-axis" ) 
 parser.add_option("-Y","--ymax",action="store",type="float",\
-    default=100.0, metavar=" YMAX", help="maximum value on y-axis" ) 
+    default=100.0, metavar=" YMAX", 
+    help="maximum value on y-axis (default = 100)" ) 
 
 (opts,args) = parser.parse_args()
 
@@ -341,7 +343,7 @@ for bin in range(massBins):
   
   # plot the posterior pdf
   figure()
-  plot(rate,nomarginpost,rate,marginpost)
+  plot(rate,nomarginpost,rate,marginpost,linewidth=2)
   legend(('posterior','marginalized posterior'))
   xlabel('Rate per L10 per yr', size='x-large')
   ylabel('Probability', size='x-large')
@@ -361,7 +363,7 @@ for bin in range(massBins):
     print "marginalized value at R=0 is %f" % (cummarginpost[1])
   
   figure()
-  semilogy(rate,1.0-cumnomarginpost, rate,1.0-cummarginpost)
+  semilogy(rate,1.0-cumnomarginpost, rate,1.0-cummarginpost,linewidth=2)
   legend(('posterior','marginalized posterior'))
   xlabel('Rate per L10 per yr', size='x-large')
   ylabel('Cumulative Probability', size='x-large')
@@ -393,12 +395,13 @@ for bin in range(massBins):
       break
 
 # write the output to a file
-ulfile = open(opts.figure_name + "-upper-limit","w")
-ulfile.write("#M_low\tM_high\tUnmarginalized Rate\tMarginalized Rate\n")
-for k in range(len(ularray)):
-  ulfile.write("%e\t%e\t%e\t%e\n" % (ularray[k,0], ularray[k,1], ularray[k,2],\
-      ularray[k,3]))
-ulfile.close()
+if opts.figure_name:
+  ulfile = open(opts.figure_name + "-upper-limit","w")
+  ulfile.write("#M_low\tM_high\tUnmarginalized Rate\tMarginalized Rate\n")
+  for k in range(len(ularray)):
+    ulfile.write("%e\t%e\t%e\t%e\n" % (ularray[k,0], ularray[k,1], \
+        ularray[k,2],ularray[k,3]))
+  ulfile.close()
 
 # and plot this result, if we have a range of masses
 if (massBins > 1):
