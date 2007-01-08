@@ -46,6 +46,7 @@ extern SKY_GRID *patch_grid;
 extern INT64 spindown_start;
 
 extern int fake_injection;
+extern double spindown;
 
 char s[20000];
 
@@ -125,6 +126,9 @@ typedef struct {
 
 	double coherence_time;
 
+	double extra_phase; /* phase accumulated from the start of the run */
+	double phase_integration_factor;
+
 	} SIGNAL_PARAMS;
 
 static void compute_signal(double *re, double *im, double *f, double t, SIGNAL_PARAMS *p)
@@ -147,9 +151,7 @@ get_AM_response(round(t), p->dec, p->ra, 0.0, &f_plus, &f_cross);
 
 //*f=p->freq*(1.0+doppler);
 
-/* this loses the phase coherence between segments, but avoids the need to accumulate
-  phase from the start of the run */
-omega_t=2.0*M_PI*(*f-p->bin/p->coherence_time)*(t-p->segment_start);
+omega_t=2.0*M_PI*(*f-p->bin/p->coherence_time)*(t-p->segment_start)+p->extra_phase;
 hann=0.5*(1.0-cos(2.0*M_PI*(t-p->segment_start)/p->coherence_time));
 
 c_omega_t=cos(omega_t);
@@ -196,7 +198,21 @@ compute_signal(&re, &im, &f, t, params);
 return(im);
 }
 
-static void inject_fake_signal(DATASET *d, int segment)
+static double signal_omega(double t, void *params)
+{
+SIGNAL_PARAMS *p=params;
+float det_vel[3];
+double doppler, omega;
+
+get_detector_vel(round(t), det_vel);
+
+doppler=p->e[0]*det_vel[0]+p->e[1]*det_vel[1]+p->e[2]*det_vel[2];
+omega=2.0*M_PI*p->freq*doppler-p->phase_integration_factor;
+
+return(omega);
+}
+
+static void inject_fake_signal(DATASET *d, int segment, gsl_integration_workspace *giw, int giw_size)
 {
 double result, abserr;
 size_t neval;
@@ -231,16 +247,46 @@ p.sin_e=sin(2.0*(args_info.fake_psi_arg-args_info.fake_phi_arg));
 precompute_am_constants(p.e, args_info.fake_ra_arg, args_info.fake_dec_arg);
 compute_signal(&re, &im, &f, d->gps[segment]+(int)(d->coherence_time/2), &p);
 
+
 bin=round(f*1800.0-d->first_bin);
 
 if(bin+window>nbins)bin=nbins-window;
 if(bin<window)bin=window;
 
+F.function=signal_omega;
+p.phase_integration_factor=0.0;
+
+while(1) {
+	err=gsl_integration_qag(&F, p.ref_time, d->gps[segment],
+		0.05, 1e-3,
+		giw_size,
+		GSL_INTEG_GAUSS61,
+		giw,
+		&result,
+		&abserr
+		);
+
+	if(fabs(result)>10) {
+		p.phase_integration_factor+=result/(d->gps[segment]-p.ref_time);
+		continue;
+		}
+
+	p.extra_phase=result+p.phase_integration_factor*(d->gps[segment]-p.ref_time)+
+		2*M_PI*(p.freq*(d->gps[segment]-p.ref_time)+
+			0.5*p.spindown*(d->gps[segment]-p.ref_time)*(d->gps[segment]-p.ref_time));
+
+	if(err)fprintf(stderr, "phase %d result=%g (%g) pif=%g abserr=%g %s\n", segment, result, result/(d->gps[segment]-p.ref_time), p.phase_integration_factor, abserr,  gsl_strerror(err)); 
+	break;
+	}
+/* this loses the phase coherence between segments, but avoids the need to accumulate
+  phase from the start of the run */
+// p.extra_phase=0;
+
 
 for(i=bin-window; i<=bin+window; i++) {
-	F.function=signal_re;
 	p.bin=i+d->first_bin;
 
+	F.function=signal_re;
 	err=gsl_integration_qng(&F, d->gps[segment], d->gps[segment]+d->coherence_time,
 		1, 1e-3,
 		&result, &abserr, &neval);
@@ -609,11 +655,16 @@ get_detector(d->detector);
 sort_dataset(d);
 
 if(fake_injection) {
+	gsl_integration_workspace *giw;
+
 	fprintf(stderr, "Injecting fake signal.\n");
 	fprintf(LOG, "Injecting fake signal.\n");
+	giw=gsl_integration_workspace_alloc(d->free*2);
+
 	for(i=0;i<d->free;i++) {
-		inject_fake_signal(d, i);
+		inject_fake_signal(d, i, giw, d->free*2);
 		}
+	gsl_integration_workspace_free(giw);
 	}
 
 compute_power(d);
@@ -1476,7 +1527,9 @@ for(i=0;i<d_free;i++){
 for(i=0;i<3;i++)average_det_velocity[i]/=total_weight;
 }
 
-float effective_weight_ratio(float target_ra, float target_dec, float source_ra, float source_dec, float bin_tolerance)
+#define TRACE_EFFECTIVE 0
+
+float effective_weight_ratio(float target_ra, float target_dec, float source_ra, float source_dec, float bin_tolerance, float spindown_tolerance)
 {
 int i, k;
 double total_weight=0.0, w, fdiff, f1, f2, c1, c2;
@@ -1485,6 +1538,10 @@ float e1[26], e2[26], ed[26];
 double offset, fdot;
 double timebase=max_gps()-min_gps()+1800.0;
 double inv_timebase=1.0/timebase;
+double max_fdot;
+#if TRACE_EFFECTIVE
+static once=1;
+#endif
 
 precompute_am_constants(e1, source_ra, source_dec);
 precompute_am_constants(e2, target_ra, target_dec);
@@ -1508,10 +1565,13 @@ for(i=0;i<d_free;i++) {
 				ed[2]*d->detector_velocity[3*k+2]
 				);
 		f1+=fdiff*w;
+		#if TRACE_EFFECTIVE
+		if(once)fprintf(LOG, "%8f %8f %8f\n",w,  (d->gps[k]-spindown_start+d->coherence_time*0.5)*inv_timebase, fdiff);
+		#endif
 		w*=(d->gps[k]-spindown_start+d->coherence_time*0.5)*inv_timebase;
 		f2+=fdiff*w;
 		c1+=w;
-		c2+=w*w;
+		c2+=w*(d->gps[k]-spindown_start+d->coherence_time*0.5)*inv_timebase;
 		}
 	}
 f1/=total_weight;
@@ -1523,7 +1583,23 @@ c2/=total_weight;
 offset=(c2*f1-c1*f2)/(c2-c1*c1);
 fdot=(-c1*f1+f2)/(c2-c1*c1);
 
-/* fprintf(stderr, "%g %g %g %g %g\n", f1, f2, total_weight, offset, fdot); */
+/* make it a width parameter */
+bin_tolerance*=0.5;
+
+max_fdot=0.5*fabs(spindown_tolerance)*timebase*datasets[0].coherence_time;
+if(fdot>max_fdot) {
+	offset=offset+(fdot-max_fdot)*c1;
+	fdot=max_fdot;
+	}
+if(fdot< -max_fdot) {
+	offset=offset+(fdot+max_fdot)*c1;
+	fdot=-max_fdot;
+	}
+
+#if TRACE_EFFECTIVE
+if(once)fprintf(LOG, "%g %g %g %g %g\n", f1, f2, total_weight, offset, fdot);
+once=0;
+#endif
 /* now compare */
 f1=0;
 for(i=0;i<d_free;i++) {
@@ -1538,7 +1614,7 @@ for(i=0;i<d_free;i++) {
 				ed[2]*d->detector_velocity[3*k+2]
 				)-
 			offset-fdot*(d->gps[k]-spindown_start+d->coherence_time*0.5)*inv_timebase;
-		if(fabs(fdiff*d->coherence_time)<bin_tolerance)f1+=w;
+		if(fabs(fdiff)<bin_tolerance)f1+=w;
 		}
 	}
 /* fprintf(stderr, "%g %g\n", f1, total_weight); */
@@ -1567,11 +1643,14 @@ for(i=0;i<d_free;i++) {
 				e[0]*d->detector_velocity[3*k+0]+
 				e[1]*d->detector_velocity[3*k+1]+
 				e[2]*d->detector_velocity[3*k+2]
-				);
+				)
+			+d->coherence_time*spindown*(d->gps[k]-spindown_start+d->coherence_time*0.5);
 		f1+=fdiff*w;
 		}
 	}
 offset=f1/total_weight;
+
+bin_tolerance*=0.5; /* make it a width */
 
 /* fprintf(stderr, "%g %g %g %g %g\n", f1, f2, total_weight, offset, fdot); */
 /* now compare */
@@ -1586,9 +1665,11 @@ for(i=0;i<d_free;i++) {
 				e[0]*d->detector_velocity[3*k+0]+
 				e[1]*d->detector_velocity[3*k+1]+
 				e[2]*d->detector_velocity[3*k+2]
-				)-offset;
+				)
+			+d->coherence_time*spindown*(d->gps[k]-spindown_start+d->coherence_time*0.5)
+			-offset;
 
-		if(fabs(fdiff*d->coherence_time)<bin_tolerance)f1+=w;
+		if(fabs(fdiff)<bin_tolerance)f1+=w;
 		}
 	}
 /* fprintf(stderr, "%g %g\n", f1, total_weight); */
@@ -1599,11 +1680,19 @@ void inject_signal(void)
 {
 int i,j;
 DATASET *d;
+gsl_integration_workspace *giw;
+
 for(i=0;i<d_free;i++){
+
 	d=&(datasets[i]);
+
+	giw=gsl_integration_workspace_alloc(d->free*2);
+
 	for(j=0;j<d->free;j++) {
-		inject_fake_signal(d, j);
+		inject_fake_signal(d, j, giw, d->free*2);
 		}
+
+	gsl_integration_workspace_free(giw);
 	}
 }
 
