@@ -64,7 +64,7 @@ const char *gengetopt_args_info_help[] = {
   "  -d, --detector=STRING         detector location (i.e. LHO or LLO), passed to \n                                  detresponse",
   "      --spindown-start-time=DOUBLE\n                                specify spindown start time in GPS sec. Assumed \n                                  to be the first SFT segment by default",
   "      --spindown-start=DOUBLE   first spindown value to process  \n                                  (default=`0.0')",
-  "      --spindown-step=DOUBLE    step for processing multiple spindown values  \n                                  (default=`0.0')",
+  "      --spindown-step=DOUBLE    step for processing multiple spindown values, \n                                  also determines width of spindown range \n                                  investigated  (default=`5e-10')",
   "      --spindown-count=INT      how many separate spindown values to process  \n                                  (default=`1')",
   "      --orientation=DOUBLE      additional orientation phase, specifying 0.7853 \n                                  will turn plus into cross  (default=`0')",
   "      --nlinear-polarizations=INT\n                                even number of linear polarizations to profile, \n                                  distributed uniformly between 0 and PI/2  \n                                  (default=`4')",
@@ -293,7 +293,7 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->spindown_start_time_orig = NULL;
   args_info->spindown_start_arg = 0.0;
   args_info->spindown_start_orig = NULL;
-  args_info->spindown_step_arg = 0.0;
+  args_info->spindown_step_arg = 5e-10;
   args_info->spindown_step_orig = NULL;
   args_info->spindown_count_arg = 1;
   args_info->spindown_count_orig = NULL;
@@ -2400,7 +2400,7 @@ cmdline_parser_internal (int argc, char * const *argv, struct gengetopt_args_inf
               free (args_info->spindown_start_orig); /* free previous string */
             args_info->spindown_start_orig = gengetopt_strdup (optarg);
           }
-          /* step for processing multiple spindown values.  */
+          /* step for processing multiple spindown values, also determines width of spindown range investigated.  */
           else if (strcmp (long_options[option_index].name, "spindown-step") == 0)
           {
             if (local_args_info.spindown_step_given)

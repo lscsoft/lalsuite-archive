@@ -205,7 +205,27 @@ test4e: powerflux
 		--sky-marks-file=sky_marks.txt \
 		--spindown-start=0e-9 \
 	        --earth-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/earth05-09.dat \
-        	--sun-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/sun05-09.dat \
+        	--sun-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/sun05-09.dat
+
+test4f: powerflux.dyn
+	( export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):$(LALROOT)/lib:$(LALROOT)/support-lib ; \
+	valgrind --tool=memcheck --error-limit=no  --leak-check=full ./powerflux.dyn --dataset=random.dst -f 360000 -n 501 \
+		--ephemeris-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
+		--averaging-mode=matched --do-cutoff=1 --lock-file=test.lock \
+		--subtract-background=0 --ks-test=1 --filter-lines=0 \
+		--spindown-start=0.0 --spindown-step=2e-10 --spindown-count=2 \
+		--dump-candidates=0 \
+		--dump-points=0 \
+		--sky-marks-file=sky_marks.txt \
+	        --earth-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/earth05-09.dat \
+        	--sun-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/sun05-09.dat  \
+ 		--write-dat=NONE \
+ 		--focus-dec=$(DEC) --focus-ra=$(RA) --focus-radius=0.1 \
+ 		--fake-ref-time=793154935 \
+ 		--fake-ra=$(RA) --fake-dec=$(DEC) --fake-freq=200.10027777 --fake-strain=10e-24 \
+ 		--fake-spindown=0e-10 --fake-iota=1.57 --fake-psi=0.0 \
+		--max-candidates=10000 --skymap-resolution-ratio=1 \
+	)
 
 test5: powerflux
 	time ./powerflux -i /home/volodya/LIGO/S2/S2.L1.op/power.L1. -f $(BAND) -n 501 \
@@ -215,17 +235,18 @@ test5: powerflux
 		--fake-orientation=0.5 --fake-ra=5.785685 --fake-dec=-1.563849
 
 test5c: powerflux
-	time ./powerflux --dataset=random.dst -f 360000 -n 501 \
+	./powerflux --dataset=random.dst -f 360000 -n 501 \
 		--ephemeris-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
 		--averaging-mode=matched --do-cutoff=1 --lock-file=test.lock \
 		--subtract-background=0 --ks-test=1 --filter-lines=0 \
+		--spindown-start=0.0 --spindown-step=2e-10 --spindown-count=2 \
 		--dump-candidates=0 \
 		--dump-points=0 \
 		--sky-marks-file=sky_marks.txt \
 	        --earth-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/earth05-09.dat \
         	--sun-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/sun05-09.dat  \
  		--write-dat=NONE \
- 		--focus-dec=$(DEC) --focus-ra=$(RA) --focus-radius=0.5 \
+ 		--focus-dec=$(DEC) --focus-ra=$(RA) --focus-radius=0.1 \
  		--fake-ref-time=793154935 \
  		--fake-ra=$(RA) --fake-dec=$(DEC) --fake-freq=200.10027777 --fake-strain=10e-24 \
  		--fake-spindown=0e-10 --fake-iota=1.57 --fake-psi=0.0 \

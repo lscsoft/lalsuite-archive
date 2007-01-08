@@ -134,9 +134,9 @@ struct gengetopt_args_info
   double spindown_start_arg;	/* first spindown value to process (default='0.0').  */
   char * spindown_start_orig;	/* first spindown value to process original value given at command line.  */
   const char *spindown_start_help; /* first spindown value to process help description.  */
-  double spindown_step_arg;	/* step for processing multiple spindown values (default='0.0').  */
-  char * spindown_step_orig;	/* step for processing multiple spindown values original value given at command line.  */
-  const char *spindown_step_help; /* step for processing multiple spindown values help description.  */
+  double spindown_step_arg;	/* step for processing multiple spindown values, also determines width of spindown range investigated (default='5e-10').  */
+  char * spindown_step_orig;	/* step for processing multiple spindown values, also determines width of spindown range investigated original value given at command line.  */
+  const char *spindown_step_help; /* step for processing multiple spindown values, also determines width of spindown range investigated help description.  */
   int spindown_count_arg;	/* how many separate spindown values to process (default='1').  */
   char * spindown_count_orig;	/* how many separate spindown values to process original value given at command line.  */
   const char *spindown_count_help; /* how many separate spindown values to process help description.  */

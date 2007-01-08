@@ -1184,14 +1184,14 @@ for(i=0;i<fine_grid->nbands;i++) {
 
 	k=max_dx_band_index[i];
 	if(k<0) {
-		fprintf(LOG, "max_dx_band: %d \"%s\" NaN -1 NaN NaN NaN -1\n",
+		fprintf(LOG, "max_dx_band: %d \"%s\" NaN NaN NaN NaN NaN -1\n",
 			i, fine_grid->band_name[i], max_dx_band[i]);
 		continue;
 		}
 
 	m=max_dx_polarization_index[k];
 	if(m<0) {
-		fprintf(LOG, "max_dx_band: %d \"%s\" NaN -1 NaN %f %f %d\n",
+		fprintf(LOG, "max_dx_band: %d \"%s\" NaN NaN NaN %f %f %d\n",
 			i, fine_grid->band_name[i], max_dx_band[i], 
 			fine_grid->longitude[k],
 			fine_grid->latitude[k],
@@ -1199,9 +1199,9 @@ for(i=0;i<fine_grid->nbands;i++) {
 		continue;
 		}
 
-	fprintf(LOG, "max_dx_band: %d \"%s\" %f %d %f %f %f %d\n",
+	fprintf(LOG, "max_dx_band: %d \"%s\" %f \"%s\" %f %f %f %d\n",
 		i, fine_grid->band_name[i], max_dx_band[i], 
-		m,
+		polarization_results[m].name,
 		polarization_results[m].skymap.freq_map[k],
 		fine_grid->longitude[k],
 		fine_grid->latitude[k],
