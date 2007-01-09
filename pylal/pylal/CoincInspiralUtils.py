@@ -3,6 +3,7 @@ from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
+from pylal.tools import XLALCalculateEThincaParameter
 
 def uniq(list):
   """
@@ -341,3 +342,19 @@ class coincInspiralTable:
 
     return triggers_in_mass_range
 
+  def getEThincaValues(self,ifos):
+    """
+    Return ethinca values for the coincidences
+    @param ifos: a list of the 2 ifos
+    """
+    ethinca = []
+    for coinc in self:
+      if ( hasattr(coinc,ifos[0]) == False ) or \
+          ( hasattr(coinc,ifos[1]) == False ):
+        ethinca.append(0.0)
+      else:
+        ethinca.append( XLALCalculateEThincaParameter(getattr(coinc,ifos[0]), 
+            getattr(coinc,ifos[1]) ) )
+    
+    from numarray import asarray
+    return asarray(ethinca)
