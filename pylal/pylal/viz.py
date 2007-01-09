@@ -228,8 +228,8 @@ def plot_a_v_b(table, col_name_a, col_name_b, plot_type = 'linear',
   yticks(fontsize='x-large')
 
   if ifo:
-    title(ifo + ' ' + col_name_a.replace("_"," ") + ' vs ' + \
-        col_name_b.replace("_"," "), size='x-large')
+    title(ifo + ' ' + col_name_b.replace("_"," ") + ' vs ' + \
+        col_name_a.replace("_"," "), size='x-large')
   else:
     title(col_name_b.replace("_"," ") + ' vs ' + col_name_a.replace("_"," "), \
         size='x-large')
