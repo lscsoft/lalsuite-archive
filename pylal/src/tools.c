@@ -12,7 +12,7 @@ SnglInspiralTable *PySnglInspiral2CSnglInspiral(PyObject *row) {
     PyObject *temp; /* Holds each datum for copy and refcount decrement */
 
     /* allocate new memory for row */
-    event = (SnglInspiralTable *) LALCalloc( 1, sizeof(SnglInspiralTable) );
+    event = (SnglInspiralTable *) LALCalloc(1, sizeof(SnglInspiralTable));
     
     /* copy to C SnglInspiral row */
     /* Procedure for each variable:
@@ -64,10 +64,10 @@ SnglInspiralTable *PySnglInspiral2CSnglInspiral(PyObject *row) {
     event->coa_phase = PyFloat_AsDouble(temp);
     Py_XDECREF(temp);
     temp = PyObject_GetAttrString(row, "mass1");
-    event->mass1  = PyFloat_AsDouble(temp);
+    event->mass1 = PyFloat_AsDouble(temp);
     Py_XDECREF(temp);
     temp = PyObject_GetAttrString(row, "mass2");
-    event->mass2  =  PyFloat_AsDouble(temp);
+    event->mass2 =  PyFloat_AsDouble(temp);
     Py_XDECREF(temp);
     temp = PyObject_GetAttrString(row, "mchirp");
     event->mchirp =  PyFloat_AsDouble(temp);
@@ -76,34 +76,34 @@ SnglInspiralTable *PySnglInspiral2CSnglInspiral(PyObject *row) {
     event->mtotal =  PyFloat_AsDouble(temp);
     Py_XDECREF(temp);
     temp = PyObject_GetAttrString(row, "eta");
-    event->eta    = PyFloat_AsDouble(temp);
+    event->eta = PyFloat_AsDouble(temp);
     Py_XDECREF(temp);
     temp = PyObject_GetAttrString(row, "tau0");
-    event->tau0   = PyFloat_AsDouble(temp);
+    event->tau0 = PyFloat_AsDouble(temp);
     Py_XDECREF(temp);
     temp = PyObject_GetAttrString(row, "tau2");
-    event->tau2   = PyFloat_AsDouble(temp);
+    event->tau2 = PyFloat_AsDouble(temp);
     Py_XDECREF(temp);
     temp = PyObject_GetAttrString(row, "tau3");
-    event->tau3   = PyFloat_AsDouble(temp);
+    event->tau3 = PyFloat_AsDouble(temp);
     Py_XDECREF(temp);
     temp = PyObject_GetAttrString(row, "tau4");
-    event->tau4   = PyFloat_AsDouble(temp);
+    event->tau4 = PyFloat_AsDouble(temp);
     Py_XDECREF(temp);
     temp = PyObject_GetAttrString(row, "tau5");
-    event->tau5   = PyFloat_AsDouble(temp);
+    event->tau5 = PyFloat_AsDouble(temp);
     Py_XDECREF(temp);
     temp = PyObject_GetAttrString(row, "ttotal");
     event->ttotal = PyFloat_AsDouble(temp);
     Py_XDECREF(temp);
     temp = PyObject_GetAttrString(row, "psi0");
-    event->psi0   = PyFloat_AsDouble(temp);
+    event->psi0 = PyFloat_AsDouble(temp);
     Py_XDECREF(temp);
     temp = PyObject_GetAttrString(row, "psi3");
-    event->psi3   = PyFloat_AsDouble(temp);
+    event->psi3 = PyFloat_AsDouble(temp);
     Py_XDECREF(temp);
     temp = PyObject_GetAttrString(row, "alpha");
-    event->alpha  = PyFloat_AsDouble(temp);
+    event->alpha = PyFloat_AsDouble(temp);
     Py_XDECREF(temp);
     temp = PyObject_GetAttrString(row, "alpha1");
     event->alpha1 = PyFloat_AsDouble(temp);
@@ -124,16 +124,16 @@ SnglInspiralTable *PySnglInspiral2CSnglInspiral(PyObject *row) {
     event->alpha6 = PyFloat_AsDouble(temp);
     Py_XDECREF(temp);
     temp = PyObject_GetAttrString(row, "beta");
-    event->beta   = PyFloat_AsDouble(temp);
+    event->beta = PyFloat_AsDouble(temp);
     Py_XDECREF(temp);
     temp = PyObject_GetAttrString(row, "f_final");
-    event->f_final= PyFloat_AsDouble(temp);
+    event->f_final = PyFloat_AsDouble(temp);
     Py_XDECREF(temp);
     temp = PyObject_GetAttrString(row, "snr");
-    event->snr    = PyFloat_AsDouble(temp);
+    event->snr = PyFloat_AsDouble(temp);
     Py_XDECREF(temp);
     temp = PyObject_GetAttrString(row, "chisq");
-    event->chisq  = PyFloat_AsDouble(temp);
+    event->chisq = PyFloat_AsDouble(temp);
     Py_XDECREF(temp);
     temp = PyObject_GetAttrString(row, "chisq_dof");
     event->chisq_dof = PyInt_AsLong(temp);
@@ -176,7 +176,7 @@ SnglInspiralTable *PySnglInspiral2CSnglInspiral(PyObject *row) {
     event->Gamma[9] = (float)PyFloat_AsDouble(temp);
     Py_XDECREF(temp);
     
-    event->event_id = (EventIDColumn *) LALCalloc( 1, sizeof(EventIDColumn) );
+    event->event_id = (EventIDColumn *) LALCalloc(1, sizeof(EventIDColumn));
     temp = PyObject_GetAttrString(row, "event_id");
     event->event_id->id = PyLong_AsLongLong(temp);
     Py_XDECREF(temp);
@@ -220,7 +220,11 @@ static PyObject *PyCalculateEThincaParameter(PyObject *self, PyObject *args) {
 }
 
 static struct PyMethodDef tools_methods[] = {
-    {"XLALCalculateEThincaParameter", PyCalculateEThincaParameter, 1},
+    {"XLALCalculateEThincaParameter", PyCalculateEThincaParameter, METH_VARARGS,
+	 "XLALCalculateEThincaParameter(SnglInspiral1, SnglInspiral2)\n"
+	 "\n"
+	 "Takes two SnglInspiral objects (rows of a SnglInspiralTable) and\n"
+	 "calculates the overlap factor between them."},
     {NULL, NULL, 0}
 };
 
