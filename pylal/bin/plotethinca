@@ -1,0 +1,111 @@
+#!/usr/bin/python
+
+# $Id$
+__author__ = "Stephen Fairhurst <sfairhur@gravity.phys.uwm.edu>"
+__version__ = "$Revision$"[11:-2]
+__date__ = "$Date$"[7:-2]
+
+import sys
+import os
+from optparse import *
+import re
+import exceptions
+import glob
+from types import *
+
+from pylab import *
+from pylal import viz
+from glue import segments
+from glue import segmentsUtils
+from glue.ligolw import ligolw
+from glue.ligolw import table
+from glue.ligolw import lsctables
+from glue.ligolw import utils
+from pylal import CoincInspiralUtils
+from pylal import SnglInspiralUtils
+from pylal import itertools
+
+##############################################################################
+usage = """
+usage: %prog [options] 
+
+Thinca Triggers Plotting Function
+
+Generate a set of summary plots from a list of thinca files.  First, specify
+which ifos the triggers come from using:
+--g1-triggers, --h1-triggers, --h2-triggers, --l1-triggers.
+
+Generate plots of ethinca parameter vs time or mass or snr.
+"""
+
+parser = OptionParser( usage=usage, version="%prog CVS $Id$ " )
+parser.add_option("-g","--glob",action="store",type="string",\
+    default=None, metavar=" GLOB",help="GLOB of thinca files to read" )
+parser.add_option("-L","--cluster-window",action="store",type="int",default=0,\
+    metavar=" SEC", help="length of time over which to cluster triggers" )
+parser.add_option("-f","--figure-name",action="store",type="string",\
+    default=None, metavar=" FNAME",\
+    help="generate png figures with name FNAME-fig.png" )
+parser.add_option("-i","--ifo",action="append",type="string",\
+    metavar="IFO",dest="ifo_list",\
+    help="look at triggers for specified ifo (append to list)" )
+parser.add_option("-c","--x-value",action="append",type="string",\
+    metavar="COL_NAME",dest="columns",\
+    help=\
+    "plot ethinca parameter against this sngl_inspiral column (add to list)" )
+parser.add_option("-S","--statistic",action="store",default='snr',\
+    type="string",\
+    help="choice of statistic used in making plots, valid arguments are: "
+          "snr (DEFAULT), snr_over_chi, s3_snr_chi_stat, effective_snr,")
+parser.add_option("-s","--show-plot",action="store_true",default=False,\
+    help="display the figures on the terminal" )
+
+(opts,args) = parser.parse_args()
+
+if len(opts.ifo_list) < 2:
+  print >>sys.stderr, "Must specify at least 2 ifos with triggers"
+  print >>sys.stderr, "Enter 'plotethinca --help' for usage"
+  sys.exit(1)
+  
+if not opts.columns:
+  print >>sys.stderr, \
+      "Must specify at least one --x-value against which to plot ethinca param"
+  print >>sys.stderr, "Enter 'plotethinca --help' for usage"
+  sys.exit(1)
+
+two_ifo_list = itertools.choices(opts.ifo_list,2)
+
+if opts.glob:
+  files = glob.glob(opts.glob)
+
+if files:
+  inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(files)
+  
+  statistic = CoincInspiralUtils.coincStatistic( opts.statistic )
+  # construct the coincs
+  coincTriggers = \
+      CoincInspiralUtils.coincInspiralTable(inspTriggers,statistic)
+
+  # cluster them
+  if opts.cluster_window:
+    coincTriggers = coincTriggers.cluster(opts.cluster_window)
+
+for ifos in two_ifo_list:
+  coincs = coincTriggers.coincinclude(ifos)
+  ethincaVals = coincs.getEThincaValues(ifos)
+  for col in opts.columns:
+    for ifo in ifos:
+      xVals = coincs.getsngls(ifo).get_column(col)
+      figure()
+      plot(xVals,ethincaVals,'kx',markeredgewidth=1,markersize=6)
+      ylim(0,1)
+      xlabel(ifo + " " + col, size="x-large")
+      ylabel("E-thinca parameter", size="x-large")
+      title("E-thinca parameter vs " + col + " for " + ifos[0] + \
+          " and " + ifos[1] + " triggers", size="x-large")
+      if opts.figure_name:
+        savefig(opts.figure_name + "_" + ifos[0] + "_" + ifos[1] + \
+            "_ethinca_vs_" + ifo + "_" + col + ".png")
+
+if opts.show_plot:
+  show() 
