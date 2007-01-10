@@ -2,7 +2,7 @@
 # 
 # setup for pylal
 
-import os
+import os, numpy
 from distutils.core import setup, Extension
 
 class PkgConfig(object):
@@ -32,8 +32,8 @@ setup(
 			libraries = full_lal_pkg_config.libs,
 			library_dirs = full_lal_pkg_config.libdirs,
 			runtime_library_dirs = full_lal_pkg_config.libdirs),
-		Extension("pylal.frgetvect", ["src/frgetvect.c"],
-			include_dirs = full_lal_pkg_config.incdirs,
+                Extension("pylal.Fr", ["src/Fr.c"],
+                        include_dirs = full_lal_pkg_config.incdirs + [numpy.get_include()],
 			libraries = full_lal_pkg_config.libs,
 			library_dirs = full_lal_pkg_config.libdirs,
 			runtime_library_dirs = full_lal_pkg_config.libdirs),
