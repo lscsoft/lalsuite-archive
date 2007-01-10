@@ -1,5 +1,5 @@
 #include <Python.h>
-#include <lal/LALstdio.h>
+#include <lal/LALStdio.h>
 #include <lal/LIGOMetadataUtils.h>
 #include <lal/CoincInspiralEllipsoid.h>
 
