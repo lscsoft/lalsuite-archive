@@ -80,9 +80,8 @@ fprintf(LOG, "Normal distribution approximation error: %f\n", err);
 void compute_normal_sorted_stats(float *data, int count, NORMAL_STATS *stats)
 {
 int i, ks_count_plus, ks_count_minus, dir;
-STAT_TYPE a,b,quantile2std, ks_level;
+STAT_TYPE a, b, ks_level;
 float mean, sigma, step;
-double d;
 
 if(count==0)return;
 

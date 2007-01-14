@@ -20,7 +20,9 @@
 #include "candidates.h"
 #include "util.h"
 
-#define DISTANCE_PRINTF		fprintf(stderr, "rank=%d distance=%f alignment=%f fdist=%f sdist=%f snr=%f strain=%g\n", cand->rank, candidate_distance(cand, args_info.focus_ra_arg, args_info.focus_dec_arg), candidate_alignment(cand, args_info.fake_iota_arg, args_info.fake_psi_arg), (cand->frequency-args_info.fake_freq_arg)*1800, (cand->spindown-args_info.fake_spindown_arg)*(max_gps()-min_gps())*1800.0, cand->snr, cand->strain);
+//#define DISTANCE_PRINTF		fprintf(stderr, "rank=%d distance=%f alignment=%f fdist=%f sdist=%f snr=%f strain=%g\n", cand->rank, candidate_distance(cand, args_info.focus_ra_arg, args_info.focus_dec_arg), candidate_alignment(cand, args_info.fake_iota_arg, args_info.fake_psi_arg), (cand->frequency-args_info.fake_freq_arg)*1800, (cand->spindown-args_info.fake_spindown_arg)*(max_gps()-min_gps())*1800.0, cand->snr, cand->strain);
+
+#define DISTANCE_PRINTF
 
 #define WINDOW 240
 #define SEARCH_WINDOW 10
@@ -66,6 +68,34 @@ int *inverse_ra_order=NULL;
 int *max_dx_local_map=NULL;
 
 float noise_floor;
+
+float candidate_distance(CANDIDATE *cand, float ra, float dec)
+{
+return(acos(sin(cand->dec)*sin(dec)+cos(cand->dec)*cos(dec)*cos(cand->ra-ra)-1e-14));
+}
+
+float candidate_alignment(CANDIDATE *cand, float iota, float psi)
+{
+double a, b, a2, b2, c, dist;
+a=cos(iota);
+a2=fabs(a);
+a2=(1.0-a2)/(1.0+a2);
+a2=a2*a2;
+
+b=cos(cand->iota);
+b2=fabs(b);
+b2=(1.0-b2)/(1.0+b2);
+b2=b2*b2;
+
+c=cand->psi-psi;
+while(c>M_PI*0.5)c-=M_PI;
+while(c< -M_PI*0.5)c+=M_PI;
+
+dist=fabs(a2-b2)+0.5*fmin((1.0-a)*(1.0-a), (1.0-b)*(1.0-b))*fabs(c);
+
+return(dist);
+//return(acos(fabs(sin(cand->iota)*sin(iota)*cos(cand->psi-psi)+cos(cand->iota)*cos(iota))-1e-14));
+}
 
 int max_dx_compare(int *a1, int *a2) 
 {
@@ -374,7 +404,6 @@ void compute_scores(CANDIDATE *cand, int debug)
 float doppler;
 DATASET *d;
 int index=cand->point_index;
-int patch_index=super_grid->reverse_map[index];
 float spindown=cand->spindown;
 float frequency=cand->frequency;
 int b0, b1, j, k, b, b_max;
@@ -1043,6 +1072,7 @@ ad->valid |= VALID_DIFF_SHIFT;
 
 static void print_diff_shift(FILE *f, SCORE_AUX_DATA *ad)
 {
+return;
 fprintf(f, "ra=[%f,%f] dec=[%f,%f] freq=[%g,%g] spindown=[%g,%g]\n",
 	ad->d_ra[0], ad->d_ra[1],
 	ad->d_dec[0], ad->d_dec[1],
@@ -1387,9 +1417,8 @@ static void precompute_snr_data(SNR_DATA *sd, SCORE_AUX_DATA *ad, CANDIDATE *can
 DATASET *d;
 float spindown=cand->spindown;
 float frequency=cand->frequency;
-int j, k, b, b_max;
-double weight, f, mean_power, mean_power_sq, power_sd;
-float *response;
+int j, k, b;
+double weight, f;
 float *doppler;
 int signal_bin;
 float *power, *pout, *cout, *pcout, pweight, cweight, pcweight, f_plus, f_cross;
@@ -1488,9 +1517,8 @@ static void update_snr_data(SNR_DATA *sd, SCORE_AUX_DATA *ad, CANDIDATE *cand, i
 DATASET *d;
 float spindown=cand->spindown;
 float frequency=cand->frequency;
-int j, k, b, b_max;
-double weight, f, f0, mean_power, mean_power_sq, power_sd;
-float *response;
+int j, k, b;
+double weight, f, f0;
 float *doppler;
 int signal_bin, signal_bin0;
 float *power, *power0, p, *pout, *cout, *pcout, pweight, cweight, pcweight, f_plus, f_cross;
@@ -1593,9 +1621,8 @@ static void matched_precompute_snr_data(SNR_DATA *sd, SCORE_AUX_DATA *ad, CANDID
 DATASET *d;
 float spindown=cand->spindown;
 float frequency=cand->frequency;
-int j, k, b, b_max;
-double weight, f, mean_power, mean_power_sq, power_sd;
-float *response;
+int j, k, b;
+double weight, f;
 float *doppler;
 int signal_bin;
 float power, *pout, *cout, *pcout, pweight, cweight, pcweight, f_plus, f_cross, x, y;
@@ -2023,6 +2050,109 @@ for(i=0;i<FREQ_STEPS;i++) {
 	}
 h->max_power=max_hint;
 h->frequency_shift/=1800.0;
+}
+
+/* candidate cache */
+
+VARRAY *candidate_cache=NULL;
+VARRAY **bin_index=NULL;
+double index_queries_total=0.0;
+double index_snr_total=0.0;
+double index_hits=0.0;
+double improvement_queries_total=0.0;
+double improvements=0.0;
+double improvement_snr_total=0.0;
+
+void init_candidates(void)
+{
+int i;
+candidate_cache=new_varray(sizeof(CANDIDATE));
+bin_index=do_alloc(nbins, sizeof(*bin_index));
+for(i=0;i<nbins;i++) {
+	bin_index[i]=new_varray(sizeof(int));
+	}
+}
+
+int find_next_candidate(CANDIDATE *cand)
+{
+int i;
+int k;
+int best;
+double best_snr;
+VARRAY *v;
+CANDIDATE *c;
+double timebase=max_gps()-min_gps();
+
+index_queries_total++;
+
+k=round(cand->frequency*1800.0 -first_bin);
+if(k<0)k=0;
+if(k>=nbins)k=nbins-1;
+v=bin_index[k];
+
+best_snr=cand->snr;
+best=-1;
+for(i=v->free-1;i>=0;i--) {
+	k=VELT(v, int, i);
+	c=&(VELT(candidate_cache, CANDIDATE, k));
+
+	if(c->snr <= best_snr)continue;
+	if(fabs(cand->spindown-c->spindown)*timebase*1800.0>3)continue;
+	if(candidate_distance(c, cand->ra, cand->dec)>5.5*resolution)continue;
+
+	best=k;
+	best_snr=c->snr;
+	}
+if(best>0) {
+	index_hits++;
+	index_snr_total+=best_snr-cand->snr;
+	}
+return best;
+}
+
+int find_better_candidate(int index)
+{
+int k;
+float start_snr;
+improvement_queries_total++;
+
+if(index<0)return index;
+
+start_snr=VELT(candidate_cache, CANDIDATE, index).snr;
+
+while( (k=VELT(candidate_cache, CANDIDATE, index).better_candidate)>=0)index=k;
+
+if(index>0) {
+	improvements++;
+	improvement_snr_total+=VELT(candidate_cache, CANDIDATE, index).snr - start_snr;
+	}
+return index;
+}
+
+static CANDIDATE *get_candidate(int index)
+{
+if(index<0)return NULL;
+if(index>=candidate_cache->free)return NULL;
+return &(VELT(candidate_cache, CANDIDATE, index));
+}
+
+int add_candidate(CANDIDATE *cand, int improves)
+{
+int i, k;
+int bin;
+
+k=varray_add(candidate_cache, cand);
+VELT(candidate_cache, CANDIDATE, k).better_candidate=-1;
+
+if(improves>=0)VELT(candidate_cache, CANDIDATE, improves).better_candidate=k;
+
+bin=round(cand->frequency*1800.0-first_bin);
+for(i=bin-3;i<=bin+3;i++) {
+	if(i<0)continue;
+	if(i>=nbins)continue;
+	varray_add(bin_index[i], &k);
+	}
+return(k);
 }
 
 #define SNR_TOLERANCE 0.01
@@ -2472,33 +2602,6 @@ RECURSIVE_SEARCH(c.snr, dec)
 // ORACLE(snr, frequency, 149.10508763, 1)
 
 
-float candidate_distance(CANDIDATE *cand, float ra, float dec)
-{
-return(acos(sin(cand->dec)*sin(dec)+cos(cand->dec)*cos(dec)*cos(cand->ra-ra)-1e-14));
-}
-
-float candidate_alignment(CANDIDATE *cand, float iota, float psi)
-{
-double a, b, a2, b2, c, dist;
-a=cos(iota);
-a2=fabs(a);
-a2=(1.0-a2)/(1.0+a2);
-a2=a2*a2;
-
-b=cos(cand->iota);
-b2=fabs(b);
-b2=(1.0-b2)/(1.0+b2);
-b2=b2*b2;
-
-c=cand->psi-psi;
-while(c>M_PI*0.5)c-=M_PI;
-while(c< -M_PI*0.5)c+=M_PI;
-
-dist=fabs(a2-b2)+0.5*fmin((1.0-a)*(1.0-a), (1.0-b)*(1.0-b))*fabs(c);
-
-return(dist);
-//return(acos(fabs(sin(cand->iota)*sin(iota)*cos(cand->psi-psi)+cos(cand->iota)*cos(iota))-1e-14));
-}
 
 int search_vec(CANDIDATE *cand, float freq_step, float psi_step, float iota_step, float ra_step, float dec_step, float spindown_step, int N)
 {
@@ -2693,6 +2796,7 @@ CANDIDATE c, best_c;
 int i, max_i, dir_ra, dir_dec, dir_f, dir_sp;
 float f, max;
 float a, step=1.0, norm;
+int original_index=-1;
 
 SCORE_AUX_DATA *ad;
 
@@ -2701,6 +2805,15 @@ ad=allocate_score_aux_data();
 step=0.1;
 
 init:
+
+cand->better_candidate=find_better_candidate(find_next_candidate(cand));
+original_index=add_candidate(cand, original_index);
+if(cand->better_candidate>=0) {
+	original_index=cand->better_candidate;
+	memcpy(cand, get_candidate(original_index), sizeof(CANDIDATE));
+	free_score_aux_data(ad);
+	return 1;
+	}
 
 search_alignment(cand);
 
@@ -2725,7 +2838,7 @@ if(c.snr>max)max=c.snr;
 norm=(ad->d_freq[1]*ad->d_freq[1]+ad->d_ra[1]*ad->d_ra[1]+ad->d_dec[1]*ad->d_dec[1]+ad->d_spindown[1]*ad->d_spindown[1]);
 
 max_i=0;
-fprintf(stderr, "rank=%d gradient search init snr=%f step=%g norm=%g\n", c.rank, max, step, norm);
+//fprintf(stderr, "rank=%d gradient search init snr=%f step=%g norm=%g\n", c.rank, max, step, norm);
 
 start:
 
@@ -2795,7 +2908,7 @@ for(dir_dec=-1;dir_dec<=1;dir_dec++) {
 
 	f=c.snr;
 	if(f>max) {
-		fprintf(stderr, "%f * [%d,%d,%d,%d]\n", f, dir_f, dir_sp, dir_ra, dir_dec);
+		//fprintf(stderr, "%f * [%d,%d,%d,%d]\n", f, dir_f, dir_sp, dir_ra, dir_dec);
 		memcpy(&best_c, &c, sizeof(c));
 		//output_candidate(LOG, "_intermediate", &(candidate[i]));
 		max_i=i;
@@ -3066,7 +3179,7 @@ for(i=-N;i<=N;i++) {
 			compute_scores(&c, 0);
 			if(c.snr>best_c.snr) {
 				memcpy(&best_c, &c, sizeof(CANDIDATE));
-				fprintf(stderr, "found snr=%f\n", c.snr);
+				//fprintf(stderr, "found snr=%f\n", c.snr);
 				//return 1;
 				}
 			}
@@ -3089,7 +3202,7 @@ memcpy(&c, cand, sizeof(CANDIDATE));
 memcpy(&best_c, cand, sizeof(CANDIDATE));
 
 compute_scores(&best_c, 0);
-fprintf(stderr, "search_alignment start snr=%f\n", best_c.snr);
+//fprintf(stderr, "search_alignment start snr=%f\n", best_c.snr);
 
 for(i=-N;i<N;i++) {
 	c.iota=cand->iota+i*M_PI/128.0;
@@ -3099,7 +3212,7 @@ for(i=-N;i<N;i++) {
 /*			fprintf(stderr, "% 2d", (int)floor(10.0*c.snr/best_c.snr));*/
 			if(c.snr>best_c.snr) {
 				memcpy(&best_c, &c, sizeof(CANDIDATE));
-				fprintf(stderr, "found snr=%f\n", c.snr);
+				//fprintf(stderr, "found snr=%f\n", c.snr);
 				//return 1;
 				}
 		}
@@ -3134,7 +3247,7 @@ fill_doppler(ad);
 matched_precompute_snr_data(&sd, ad, &best_c, 0);
 
 compute_alignment_snr(&sd, &best_c, 0);
-fprintf(stderr, "search_alignment start snr=%f\n", best_c.snr);
+//fprintf(stderr, "search_alignment start snr=%f\n", best_c.snr);
 
 while(1) {
 	found=0;
@@ -3146,7 +3259,7 @@ while(1) {
 		compute_alignment_snr(&sd, &c, 0);
 		if(c.snr>best_c.snr) {
 			memcpy(&best_c, &c, sizeof(CANDIDATE));
-			fprintf(stderr, "found snr=%f\n", c.snr);
+			//fprintf(stderr, "found snr=%f\n", c.snr);
 			found=1;
 			break;
 			}
@@ -3154,7 +3267,7 @@ while(1) {
 		compute_alignment_snr(&sd, &c, 0);
 		if(c.snr>best_c.snr) {
 			memcpy(&best_c, &c, sizeof(CANDIDATE));
-			fprintf(stderr, "found snr=%f\n", c.snr);
+			//fprintf(stderr, "found snr=%f\n", c.snr);
 			found=1;
 			break;
 			}
@@ -3166,7 +3279,7 @@ while(1) {
 		compute_alignment_snr(&sd, &c, 0);
 		if(c.snr>best_c.snr) {
 			memcpy(&best_c, &c, sizeof(CANDIDATE));
-			fprintf(stderr, "found snr=%f\n", c.snr);
+			//fprintf(stderr, "found snr=%f\n", c.snr);
 			found=1;
 			break;
 			}
@@ -3174,7 +3287,7 @@ while(1) {
 		compute_alignment_snr(&sd, &c, 0);
 		if(c.snr>best_c.snr) {
 			memcpy(&best_c, &c, sizeof(CANDIDATE));
-			fprintf(stderr, "found snr=%f\n", c.snr);
+			//fprintf(stderr, "found snr=%f\n", c.snr);
 			found=1;
 			break;
 			}
@@ -3184,7 +3297,7 @@ while(1) {
 
 free_score_aux_data(ad);
 
-fprintf(stderr, "search_alignment stop snr=%f\n", best_c.snr);
+//fprintf(stderr, "search_alignment stop snr=%f\n", best_c.snr);
 if(fabs(best_c.iota-cand->iota)>0 || fabs(best_c.psi-cand->psi)>0) {
 	memcpy(cand, &best_c, sizeof(best_c));
 	return 1;
@@ -3352,7 +3465,7 @@ for(i=-N;i<=N;i++) {
 
 						if(c.snr>best_c.snr) {
 							memcpy(&best_c, &c, sizeof(CANDIDATE));
-							fprintf(stderr, "found snr=%f\n", c.snr);
+							//fprintf(stderr, "found snr=%f\n", c.snr);
 							//return 1;
 							}
 						}
@@ -3721,8 +3834,8 @@ if(cand->rank==0)test_alignment_snr(cand);
 search_gradient_vec(cand, 16);
 
 
-compute_scores(cand, 1);
-fprintf(LOG, "distance=%f snr=%f\n", candidate_distance(cand, args_info.focus_ra_arg, args_info.focus_dec_arg), cand->snr);
+compute_scores(cand, 0);
+//fprintf(LOG, "distance=%f snr=%f\n", candidate_distance(cand, args_info.focus_ra_arg, args_info.focus_dec_arg), cand->snr);
 DISTANCE_PRINTF
 output_candidate(stderr, "", cand);
 }
@@ -4012,4 +4125,40 @@ inverse_ra_order=NULL;
 
 free(candidate);
 candidate=NULL;
+}
+
+void output_candidates(FILE *fout)
+{
+int i;
+int non_zero_count=0;
+int leaf_count=0;
+float sum=0.0;
+int max=0;
+for(i=0;i<nbins;i++) {
+	if(bin_index[i]->free>0) {
+		non_zero_count++;
+		sum+=bin_index[i]->free;
+		if(bin_index[i]->free>max)max=bin_index[i]->free;
+		}
+	}
+output_candidate_header(fout);
+for(i=0;i<candidate_cache->free;i++) {
+	if(VELT(candidate_cache, CANDIDATE, i).better_candidate>=0)continue;
+	if(find_next_candidate(&VELT(candidate_cache, CANDIDATE, i))>=0)continue;
+	output_candidate(fout, "_final", &VELT(candidate_cache, CANDIDATE, i));
+	leaf_count++;
+	}
+fprintf(fout, "candidates cache length: %d\n", candidate_cache->free);
+fprintf(fout, "candidates cache leaves: %d\n", leaf_count);
+fprintf(fout, "candidates index non zero count: %d\n", non_zero_count);
+fprintf(fout, "candidates index max length: %d\n", max);
+fprintf(fout, "candidates index average length: %f\n", non_zero_count > 0 ? sum/non_zero_count : 0.0 );
+fprintf(fout, "index queries total: %lf\n", index_queries_total);
+fprintf(fout, "index hits: %lf\n", index_hits);
+fprintf(fout, "index hit ratio: %lf\n", index_hits/index_queries_total);
+fprintf(fout, "index average snr change: %lf\n", index_snr_total/index_queries_total);
+fprintf(fout, "improvement queries total: %lf\n", improvement_queries_total);
+fprintf(fout, "improvements: %lf\n", improvements);
+fprintf(fout, "improvement ratio: %lf\n", improvements/improvement_queries_total);
+fprintf(fout, "improvement average snr change: %lf\n", improvement_snr_total/improvement_queries_total);
 }

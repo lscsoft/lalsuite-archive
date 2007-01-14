@@ -10,4 +10,20 @@ void fill_diff_hann_filter7(float *coeffs, float mismatch);
 void tabulate_hann_filter7(void);
 void tabulated_fill_hann_filter7(float *coeffs, float mismatch);
 
+typedef struct {
+	void *data;
+	int item_size;
+	int size;
+	int free;
+	} VARRAY;
+
+#define VELT(v, type, i)  (*((type *) &( ( (char *) (v->data) )[v->item_size*(i)])))
+
+//#define VELT(v, type, i)  ( (((type) *)v->data) [(i)] )
+
+VARRAY *new_varray(int item_size);
+void free_varray(VARRAY *v);
+int varray_add(VARRAY *v, void *item);
+
+
 #endif

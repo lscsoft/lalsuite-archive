@@ -23,7 +23,7 @@ POLARIZATION_RESULTS *polarization_results=NULL;
 
 void init_polarizations0()
 {
-int i,k, nderived=1;
+int i, nderived=1;
 float a;
 
 nlinear_polarizations=args_info.nlinear_polarizations_arg;;
@@ -92,8 +92,7 @@ fprintf(stderr,"\t%s %f %f\n",polarization_results[nlinear_polarizations+0].name
 
 void init_polarizations1(POLARIZATION *polarizations, SKY_GRID_TYPE *AM_coeffs_plus, SKY_GRID_TYPE *AM_coeffs_cross, long AM_coeffs_size)
 {
-int i,k, nderived=1;
-float a;
+int i, k;
 
 for(i=0;i<ntotal_polarizations;i++) {
 	fprintf(stderr,"\t%s\n",polarization_results[i].name);

@@ -5,6 +5,7 @@
 
 #include <gsl/gsl_sf_trig.h>
 
+#include "global.h"
 #include "util.h"
 
 extern FILE *LOG;
@@ -176,4 +177,37 @@ for(i=0;i<=100;i++) {
 		filter[6]
 		);
 	}
+}
+
+VARRAY *new_varray(int item_size)
+{
+VARRAY *v;
+v=do_alloc(1, sizeof(*v));
+v->item_size=item_size;
+v->free=0;
+v->size=100;
+v->data=do_alloc(v->size, v->item_size);
+return v;
+}
+
+void free_varray(VARRAY *v)
+{
+free(v->data);
+v->data=NULL;
+free(v);
+}
+
+int varray_add(VARRAY *v, void *item)
+{
+if(v->free>=v->size) {
+	void *p;
+	v->size=2*v->size+10;
+	p=do_alloc(v->size, v->item_size);
+	if(v->free>0)memcpy(p, v->data, v->free*v->item_size);
+	if(v->data!=NULL)free(v->data);
+	v->data=p;
+	}
+memcpy(& ((((char *)(v->data))[v->free*v->item_size])), item, v->item_size);
+v->free++;
+return(v->free-1);
 }

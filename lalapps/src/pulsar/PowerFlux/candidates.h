@@ -2,6 +2,7 @@
 #define __CANDIDATES_H__
 
 typedef struct {
+	int better_candidate;
 		
 	int max_dx_polarization_index;
 	
@@ -34,6 +35,8 @@ typedef struct {
 	float ifo_freq_sd;
 	} CANDIDATE;
 
+void init_candidates(void);
 void identify_candidates(void);
+void output_candidates(FILE *fout);
 
 #endif

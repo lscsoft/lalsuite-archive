@@ -212,7 +212,60 @@ omega=2.0*M_PI*p->freq*doppler-p->phase_integration_factor;
 return(omega);
 }
 
-static void inject_fake_signal(DATASET *d, int segment, gsl_integration_workspace *giw, int giw_size)
+static double compute_phase(gsl_integration_workspace *giw, int giw_size, double start_time, double end_time)
+{
+SIGNAL_PARAMS p;
+gsl_function F; 
+int err;
+double result, abserr;
+double T=end_time-start_time;
+
+if(!(fabs(T)>0))return 0.0;
+
+F.params=&p;
+p.bin=0;
+
+p.ra=args_info.fake_ra_arg;
+p.dec=args_info.fake_dec_arg;
+p.freq=args_info.fake_freq_arg;
+p.spindown=args_info.fake_spindown_arg;
+p.ref_time=args_info.fake_ref_time_arg;
+p.segment_start=0;
+p.coherence_time=0;
+
+p.cos_e=cos(2.0*(args_info.fake_psi_arg-args_info.fake_phi_arg));
+p.sin_e=sin(2.0*(args_info.fake_psi_arg-args_info.fake_phi_arg));
+
+precompute_am_constants(p.e, args_info.fake_ra_arg, args_info.fake_dec_arg);
+
+F.function=signal_omega;
+p.phase_integration_factor=0.0;
+
+while(1) {
+	err=gsl_integration_qag(&F, start_time, end_time,
+		1e-6, 1e-5,
+		giw_size,
+		GSL_INTEG_GAUSS61,
+		giw,
+		&result,
+		&abserr
+		);
+
+	if(fabs(result)>10) {
+		p.phase_integration_factor+=result/T;
+		continue;
+		}
+
+	p.extra_phase=result+p.phase_integration_factor*T+
+		2*M_PI*(p.freq*T+0.5*p.spindown*T*T+p.spindown*(start_time-p.ref_time)*T);
+
+/*	if(err)fprintf(stderr, "phase %d result=%g (%g) pif=%g abserr=%g %s\n", segment, result, result/(d->gps[segment]-p.ref_time), p.phase_integration_factor, abserr,  gsl_strerror(err)); */
+	break;
+	}
+return(p.extra_phase);
+}
+
+static void inject_fake_signal(DATASET *d, int segment, double accumulated_phase)
 {
 double result, abserr;
 size_t neval;
@@ -253,34 +306,7 @@ bin=round(f*1800.0-d->first_bin);
 if(bin+window>nbins)bin=nbins-window;
 if(bin<window)bin=window;
 
-F.function=signal_omega;
-p.phase_integration_factor=0.0;
-
-while(1) {
-	err=gsl_integration_qag(&F, p.ref_time, d->gps[segment],
-		0.05, 1e-3,
-		giw_size,
-		GSL_INTEG_GAUSS61,
-		giw,
-		&result,
-		&abserr
-		);
-
-	if(fabs(result)>10) {
-		p.phase_integration_factor+=result/(d->gps[segment]-p.ref_time);
-		continue;
-		}
-
-	p.extra_phase=result+p.phase_integration_factor*(d->gps[segment]-p.ref_time)+
-		2*M_PI*(p.freq*(d->gps[segment]-p.ref_time)+
-			0.5*p.spindown*(d->gps[segment]-p.ref_time)*(d->gps[segment]-p.ref_time));
-
-	if(err)fprintf(stderr, "phase %d result=%g (%g) pif=%g abserr=%g %s\n", segment, result, result/(d->gps[segment]-p.ref_time), p.phase_integration_factor, abserr,  gsl_strerror(err)); 
-	break;
-	}
-/* this loses the phase coherence between segments, but avoids the need to accumulate
-  phase from the start of the run */
-// p.extra_phase=0;
+p.extra_phase=accumulated_phase;
 
 
 for(i=bin-window; i<=bin+window; i++) {
@@ -300,8 +326,6 @@ for(i=bin-window; i<=bin+window; i++) {
 		&result, &abserr, &neval);
 /*	fprintf(stderr, "im %d %d result=%g abserr=%g %d %s\n", segment, i, result, abserr, neval, gsl_strerror(err)); */
 	d->im[segment*d->nbins+i]+=args_info.fake_strain_arg*result*16384.0/args_info.strain_norm_factor_arg;
-
-
 	}
 
 }
@@ -656,13 +680,22 @@ sort_dataset(d);
 
 if(fake_injection) {
 	gsl_integration_workspace *giw;
+	double accumulated_phase, current_phase, start_time;
+	int workspace_size=10000;
 
 	fprintf(stderr, "Injecting fake signal.\n");
 	fprintf(LOG, "Injecting fake signal.\n");
-	giw=gsl_integration_workspace_alloc(d->free*2);
+	giw=gsl_integration_workspace_alloc(workspace_size);
 
+	start_time=args_info.fake_ref_time_arg;
+	accumulated_phase=0;
 	for(i=0;i<d->free;i++) {
-		inject_fake_signal(d, i, giw, d->free*2);
+		current_phase=compute_phase(giw, workspace_size, start_time, d->gps[i]);
+		inject_fake_signal(d, i, accumulated_phase+current_phase);
+		if(fabs(d->gps[i]-start_time)>50000) {
+			start_time=d->gps[i];
+			accumulated_phase+=current_phase;
+			}
 		}
 	gsl_integration_workspace_free(giw);
 	}
@@ -1681,19 +1714,29 @@ void inject_signal(void)
 int i,j;
 DATASET *d;
 gsl_integration_workspace *giw;
+double accumulated_phase, start_time, current_phase;
+int workspace_size=10000;
+
+giw=gsl_integration_workspace_alloc(workspace_size);
 
 for(i=0;i<d_free;i++){
 
 	d=&(datasets[i]);
 
-	giw=gsl_integration_workspace_alloc(d->free*2);
+	start_time=args_info.fake_ref_time_arg;
+	accumulated_phase=0;
 
 	for(j=0;j<d->free;j++) {
-		inject_fake_signal(d, j, giw, d->free*2);
+		current_phase=compute_phase(giw, workspace_size, start_time, d->gps[i]);
+		inject_fake_signal(d, i, accumulated_phase+current_phase);
+		if(fabs(d->gps[i]-start_time)>90000) {
+			start_time=d->gps[i];
+			accumulated_phase+=current_phase;
+			}
 		}
 
-	gsl_integration_workspace_free(giw);
 	}
+gsl_integration_workspace_free(giw);
 }
 
 

@@ -1181,14 +1181,14 @@ for(i=0;i<fine_grid->nbands;i++) {
 	k=max_dx_band_index[i];
 	if(k<0) {
 		fprintf(LOG, "max_dx_band: %d \"%s\" NaN NaN NaN NaN NaN -1\n",
-			i, fine_grid->band_name[i], max_dx_band[i]);
+			i, fine_grid->band_name[i]);
 		continue;
 		}
 
 	m=max_dx_polarization_index[k];
 	if(m<0) {
 		fprintf(LOG, "max_dx_band: %d \"%s\" NaN NaN NaN %f %f %d\n",
-			i, fine_grid->band_name[i], max_dx_band[i], 
+			i, fine_grid->band_name[i],
 			fine_grid->longitude[k],
 			fine_grid->latitude[k],
 			k);

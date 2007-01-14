@@ -1,5 +1,5 @@
 PACKAGE=\"powerflux\"
-VERSION=1.4.12-64
+VERSION=1.4.15-64
 LALROOT=./../../../../
 LALROOT=/opt/lscsoft/lal/
 LALINCLUDE=-I$(LALROOT)/include/
@@ -246,13 +246,14 @@ test5c: powerflux
 	        --earth-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/earth05-09.dat \
         	--sun-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/sun05-09.dat  \
  		--write-dat=NONE \
- 		--focus-dec=$(DEC) --focus-ra=$(RA) --focus-radius=0.1 \
+ 		--focus-dec=$(DEC) --focus-ra=$(RA) --focus-radius=5 \
  		--fake-ref-time=793154935 \
  		--fake-ra=$(RA) --fake-dec=$(DEC) --fake-freq=200.10027777 --fake-strain=10e-24 \
- 		--fake-spindown=0e-10 --fake-iota=1.57 --fake-psi=0.0 \
+ 		--fake-spindown=2e-10 --fake-iota=1.57 --fake-psi=0.0 \
 		--max-candidates=10000 --skymap-resolution-ratio=1
 
 
+#		--write-png=NONE \
 # 		--write-png=\(.\*bands\|.\*strain.\*\|high.\*\|S.\*\|Median.\*\|weight.\*\|max_dx.\*\)\\.png$$ \
 #		--dump-data=input.dat \
 

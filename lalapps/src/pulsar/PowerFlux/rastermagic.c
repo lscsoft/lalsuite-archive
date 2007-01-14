@@ -53,7 +53,8 @@ void RGBPic_vprintf(RGBPic *p, int x, int y,
 	int fg_color, int bg_color,
 	const char *format, va_list ap)
 {
-unsigned char *s,*q,*dst;
+unsigned char *dst;
+char *s, *q;
 int size=1024,count;
 int z,i,j,step;
 unsigned char c1,c2,line,line2;
@@ -131,7 +132,8 @@ void RGBPic_vprintf_v(RGBPic *p, int x, int y,
 	int fg_color, int bg_color,
 	const char *format, va_list ap)
 {
-unsigned char *s,*q,*dst;
+unsigned char *dst;
+char *s, *q;
 int size=1024,count;
 int z,i,j;
 unsigned char c1,c2,line,line2;
@@ -328,7 +330,7 @@ if(dx>ady){
 		
 		y=y2;
 		y2=y1;
-		y1=y;		
+		y1=y;
 		}
 	x=x1;
 	dx=x2-x1;
@@ -429,7 +431,7 @@ if(replace){
 void draw_grid(RGBPic *p, PLOT *plot, int x, int y)
 {
 double a,dx,dy,dsx,dsy,e10x,e10y;
-int i,j,k;
+int j,k;
 char s[200];
 
 if(plot->lower_x > plot->upper_x){
@@ -808,7 +810,6 @@ int i,j,k,m;
 float z0,dz;
 int color,x0,y0;
 int lz;
-char tmp[10];
 
 if(dm->flip_x){
 	z=z+(x_count-1)*step_x;

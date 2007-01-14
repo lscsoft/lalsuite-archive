@@ -18,6 +18,8 @@
 #include "polarization.h"
 #include "statistics.h"
 #include "dataset.h"
+#include "candidates.h"
+#include "util.h"
 
 extern int ntotal_polarizations, nlinear_polarizations;
 extern POLARIZATION *polarizations;
@@ -136,9 +138,6 @@ int main(int argc, char *argv[])
 {
 RGBPic *p;
 PLOT *plot;
-int i,j,m,count;
-float CutOff;
-double a,w;
 char s[20000];
 
 /* INIT stage */
@@ -668,6 +667,7 @@ if(sky_marks!=NULL) {
 	}
 
 init_fine_grid_stage();
+init_candidates();
 
 subinstance_name=do_alloc(20, 1);
 for(subinstance=0;subinstance<args_info.spindown_count_arg;subinstance++){
@@ -741,6 +741,10 @@ for(subinstance=0;subinstance<args_info.spindown_count_arg;subinstance++){
 
 	fflush(LOG);
 	}
+
+output_candidates(LOG);
+fflush(LOG);
+output_candidates(stderr);
 
 wrap_up();
 return 0;
