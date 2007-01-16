@@ -361,8 +361,9 @@ SimInspiralTable *PySimInspiral2CSimInspiral(PyObject *row) {
     Py_XDECREF(temp);
     
     event->event_id = (EventIDColumn *) LALCalloc(1, sizeof(EventIDColumn));
-    temp = PyObject_GetAttrString(row, "event_id");
-    event->event_id->id = PyLong_AsLongLong(temp);
+    temp = PyObject_GetAttrString(row, "simulation_id");
+    LALSnprintf( event->event_id->textId, LIGOMETA_IFO_MAX  * sizeof(CHAR),
+                 "%s", PyString_AsString(temp));
     Py_XDECREF(temp);
     
     event->next = NULL;
@@ -396,8 +397,8 @@ static PyObject *PyCalculateEThincaParameter(PyObject *self, PyObject *args) {
 }
 
 static PyObject *PyEThincaParameterForInjection(PyObject *self, PyObject *args) {
-    /* Take a Python SnglInspiral value and a Python SimInspiral value
-    (rows of SnglInspiralTable and SimInspiralTable, respectively) and
+    /* Take a Python SimInspiral value and a Python SnglInspiral value
+    (rows of SimInspiralTable and SnglInspiralTable, respectively) and
     call XLALEThincaParameterForInjection on their contents. */
     
     double result;
@@ -409,8 +410,8 @@ static PyObject *PyEThincaParameterForInjection(PyObject *self, PyObject *args) 
         return NULL;
     
     /* Get rows into a format suitable for the LAL call */
-    c_row1 = PySnglInspiral2CSnglInspiral(py_row1);
-    c_row2 = PySimInspiral2CSimInspiral(py_row2);
+    c_row1 = PySimInspiral2CSimInspiral(py_row1);
+    c_row2 = PySnglInspiral2CSnglInspiral(py_row2);
     
     /* This is the main call */
     result = XLALEThincaParameterForInjection(c_row1, c_row2);
@@ -431,10 +432,10 @@ static struct PyMethodDef tools_methods[] = {
      "calculates the overlap factor between them."},
      {"XLALEThincaParameterForInjection", PyEThincaParameterForInjection,
       METH_VARARGS, \
-      "XLALEThincaParameterForInjection(SnglInspiral, SimInspiral)\n"
+      "XLALEThincaParameterForInjection(SimInspiral, SnglInspiral)\n"
       "\n"
-      "Takes a SnglInspiral and a SimInspiral object (rows of\n"
-      "SnglInspiralTable and SimInspiralTable, respectively) and\n"
+      "Takes a SimInspiral and a SnglInspiral object (rows of\n"
+      "SimInspiralTable and SnglInspiralTable, respectively) and\n"
       "calculates the ethinca parameter required to put the SimInspiral\n"
       "parameters inside the SnglInspiral template's ellipse."},
     {NULL, NULL, 0}
