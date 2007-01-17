@@ -1214,7 +1214,7 @@ def plotslides(slide_trigs, zerolag_trigs = None, ifolist = None, \
     mean_events = mean(nevents)
     std_events = std(nevents) * ( 6370.0 / 600.0 ) ** ( 0.5 )
 
-  plot(slides,nevents,'bx',markersize=12)
+  bar(slides, nevents, 0.8, 0, color='b') 
   axhline(mean_events,color='k',linewidth=2)
   axhline(mean_events + std_events,color='k',linestyle='--',linewidth=2)
   axhline(mean_events - std_events,color='k',linestyle='--',linewidth=2)
@@ -1225,9 +1225,9 @@ def plotslides(slide_trigs, zerolag_trigs = None, ifolist = None, \
       nfgevents = len(zerolag_trigs.coinctype(ifolist))
     else:
       nfgevents = len(zerolag_trigs)
-    plot([0],[nfgevents],'rx',markersize=12)
+    bar([0], [nfgevents], 0.8, 0, color='r') 
  
-  
+  xlim(min(slides),max(slides)) 
   xlabel('Number of time slide',size='x-large')
   ylabel('Number of triggers in slide',size='x-large')
   title_text = 'Plot of number coincident '
