@@ -167,12 +167,13 @@ def ligolw_sicluster(doc, **kwargs):
 
   # Delete all triggers below threshold
   if kwargs["snr_threshold"] > 0:
+    thresh = float(kwargs["snr_threshold"])
     if kwargs["verbose"]:
       print >>sys.stderr, "discarding triggers with snr < %f..." % \
         kwargs["snr_threshold"]
-      for trigger in snglinspiraltable:
-        if trigger.snr < kwargs["snr_threshold"]:
-          del trigger
+    for i in range(len(snglinspiraltable) - 1, -1, -1):
+      if snglinspiraltable[i].snr <= thresh:
+        del snglinspiraltable[i]
 
   # Cluster
   if kwargs["verbose"]:
