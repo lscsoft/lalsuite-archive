@@ -677,7 +677,7 @@ class SnglRingDownTable(table.Table):
 		"epsilon": "real_4",
 		"amplitude": "real_4",
 		"snr": "real_4",
-		"eff_distance": "real_4",
+		"eff_dist": "real_4",
 		"sigma_sq": "real_8",
 		"event_id": "ilwd:char"
 	}
