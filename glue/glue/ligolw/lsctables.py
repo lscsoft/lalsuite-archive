@@ -568,7 +568,7 @@ class SnglInspiralTable(table.Table):
 		"Gamma9": "real_4",
 		"event_id": "int_8s"	# FIXME: column should be ilwd
 	}
-	# FIXME:  event_id column needs to be changed to ilwd
+	# FIXME:  inspiral pipeline needs to not encode data in event_id
 	#ids = SnglInspiralIDs()
 
 	def get_column(self,column):
@@ -671,14 +671,17 @@ class SnglRingDownTable(table.Table):
 		"start_time_gmst": "real_8",
 		"frequency": "real_4",
 		"quality": "real_4",
+		"phase": "real_4",
 		"mass": "real_4",
 		"spin": "real_4",
+		"epsilon": "real_4",
+		"amplitude": "real_4",
 		"snr": "real_4",
 		"eff_distance": "real_4",
 		"sigma_sq": "real_8",
-		"event_id": "int_8s"	# FIXME: column should be ilwd
+		"event_id": "ilwd:char"
 	}
-	# FIXME:  event_id column needs to be changed to ilwd
+	# FIXME:  ringdown pipeline needs to not encode data in event_id
 	#ids = SnglRingDownIDs()
 
 
