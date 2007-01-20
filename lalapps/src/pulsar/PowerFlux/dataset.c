@@ -786,6 +786,10 @@ RGBPic *p;
 PLOT *plot;
 int m;
 
+
+fprintf(stderr, "dataset %s allocated size: %f MB\n", d->name, (12.0*d->free*nbins)/(1024.0*1024.0));
+fprintf(LOG, "dataset %s allocated size: %f MB\n", d->name, (12.0*d->free*nbins)/(1024.0*1024.0));
+
 fprintf(stderr, "dataset %s adjusted weight: %g\n", d->name, d->weight);
 fprintf(LOG, "dataset %s adjusted weight: %g\n", d->name, d->weight);
 
