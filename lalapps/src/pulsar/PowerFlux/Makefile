@@ -239,7 +239,7 @@ test5c: powerflux
 		--ephemeris-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
 		--averaging-mode=matched --do-cutoff=1 --lock-file=test.lock \
 		--subtract-background=0 --ks-test=1 --filter-lines=0 \
-		--spindown-start=0.0 --spindown-step=2e-10 --spindown-count=2 \
+		--spindown-start=0.0 --spindown-step=2e-10 --spindown-count=1 \
 		--dump-candidates=0 \
 		--dump-points=0 \
 		--sky-marks-file=sky_marks.txt \

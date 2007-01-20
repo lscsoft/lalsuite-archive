@@ -97,8 +97,10 @@ const char *gengetopt_args_info_help[] = {
   "      --fake-strain=DOUBLE      amplitude of fake signal to inject  \n                                  (default=`1e-23')",
   "      --fake-freq=DOUBLE        frequency of fake signal to inject",
   "      --snr-precision=DOUBLE    Assumed level of error in detection strength - \n                                  used for listing candidates  (default=`0.2')",
-  "      --max-candidates=INT      Do not optimize more than this number of \n                                  candidates  (default=`0')",
+  "      --max-candidates=INT      Do not optimize more than this number of \n                                  candidates  (default=`-1')",
   "      --min-candidate-snr=DOUBLE\n                                Do not optimize candidates with SNR below this \n                                  level  (default=`5.0')",
+  "      --output-initial=INT      write initial candidates into log file  \n                                  (default=`0')",
+  "      --output-optimized=INT    write optimized (second pass) candidates into \n                                  log file  (default=`0')",
     0
 };
 
@@ -213,6 +215,8 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->snr_precision_given = 0 ;
   args_info->max_candidates_given = 0 ;
   args_info->min_candidate_snr_given = 0 ;
+  args_info->output_initial_given = 0 ;
+  args_info->output_optimized_given = 0 ;
   args_info->injection_group_counter = 0 ;
 }
 
@@ -340,10 +344,14 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->fake_freq_orig = NULL;
   args_info->snr_precision_arg = 0.2;
   args_info->snr_precision_orig = NULL;
-  args_info->max_candidates_arg = 0;
+  args_info->max_candidates_arg = -1;
   args_info->max_candidates_orig = NULL;
   args_info->min_candidate_snr_arg = 5.0;
   args_info->min_candidate_snr_orig = NULL;
+  args_info->output_initial_arg = 0;
+  args_info->output_initial_orig = NULL;
+  args_info->output_optimized_arg = 0;
+  args_info->output_optimized_orig = NULL;
   
 }
 
@@ -422,6 +430,8 @@ void init_args_info(struct gengetopt_args_info *args_info)
   args_info->snr_precision_help = gengetopt_args_info_help[69] ;
   args_info->max_candidates_help = gengetopt_args_info_help[70] ;
   args_info->min_candidate_snr_help = gengetopt_args_info_help[71] ;
+  args_info->output_initial_help = gengetopt_args_info_help[72] ;
+  args_info->output_optimized_help = gengetopt_args_info_help[73] ;
   
 }
 
@@ -901,6 +911,16 @@ cmdline_parser_release (struct gengetopt_args_info *args_info)
     {
       free (args_info->min_candidate_snr_orig); /* free previous argument */
       args_info->min_candidate_snr_orig = 0;
+    }
+  if (args_info->output_initial_orig)
+    {
+      free (args_info->output_initial_orig); /* free previous argument */
+      args_info->output_initial_orig = 0;
+    }
+  if (args_info->output_optimized_orig)
+    {
+      free (args_info->output_optimized_orig); /* free previous argument */
+      args_info->output_optimized_orig = 0;
     }
   
   clear_given (args_info);
@@ -1408,6 +1428,20 @@ cmdline_parser_file_save(const char *filename, struct gengetopt_args_info *args_
       fprintf(outfile, "%s\n", "min-candidate-snr");
     }
   }
+  if (args_info->output_initial_given) {
+    if (args_info->output_initial_orig) {
+      fprintf(outfile, "%s=\"%s\"\n", "output-initial", args_info->output_initial_orig);
+    } else {
+      fprintf(outfile, "%s\n", "output-initial");
+    }
+  }
+  if (args_info->output_optimized_given) {
+    if (args_info->output_optimized_orig) {
+      fprintf(outfile, "%s=\"%s\"\n", "output-optimized", args_info->output_optimized_orig);
+    } else {
+      fprintf(outfile, "%s\n", "output-optimized");
+    }
+  }
   
   fclose (outfile);
 
@@ -1577,6 +1611,8 @@ cmdline_parser_internal (int argc, char * const *argv, struct gengetopt_args_inf
         { "snr-precision",	1, NULL, 0 },
         { "max-candidates",	1, NULL, 0 },
         { "min-candidate-snr",	1, NULL, 0 },
+        { "output-initial",	1, NULL, 0 },
+        { "output-optimized",	1, NULL, 0 },
         { NULL,	0, NULL, 0 }
       };
 
@@ -3012,6 +3048,48 @@ cmdline_parser_internal (int argc, char * const *argv, struct gengetopt_args_inf
             if (args_info->min_candidate_snr_orig)
               free (args_info->min_candidate_snr_orig); /* free previous string */
             args_info->min_candidate_snr_orig = gengetopt_strdup (optarg);
+          }
+          /* write initial candidates into log file.  */
+          else if (strcmp (long_options[option_index].name, "output-initial") == 0)
+          {
+            if (local_args_info.output_initial_given)
+              {
+                fprintf (stderr, "%s: `--output-initial' option given more than once%s\n", argv[0], (additional_error ? additional_error : ""));
+                goto failure;
+              }
+            if (args_info->output_initial_given && ! override)
+              continue;
+            local_args_info.output_initial_given = 1;
+            args_info->output_initial_given = 1;
+            args_info->output_initial_arg = strtol (optarg, &stop_char, 0);
+            if (!(stop_char && *stop_char == '\0')) {
+              fprintf(stderr, "%s: invalid numeric value: %s\n", argv[0], optarg);
+              goto failure;
+            }
+            if (args_info->output_initial_orig)
+              free (args_info->output_initial_orig); /* free previous string */
+            args_info->output_initial_orig = gengetopt_strdup (optarg);
+          }
+          /* write optimized (second pass) candidates into log file.  */
+          else if (strcmp (long_options[option_index].name, "output-optimized") == 0)
+          {
+            if (local_args_info.output_optimized_given)
+              {
+                fprintf (stderr, "%s: `--output-optimized' option given more than once%s\n", argv[0], (additional_error ? additional_error : ""));
+                goto failure;
+              }
+            if (args_info->output_optimized_given && ! override)
+              continue;
+            local_args_info.output_optimized_given = 1;
+            args_info->output_optimized_given = 1;
+            args_info->output_optimized_arg = strtol (optarg, &stop_char, 0);
+            if (!(stop_char && *stop_char == '\0')) {
+              fprintf(stderr, "%s: invalid numeric value: %s\n", argv[0], optarg);
+              goto failure;
+            }
+            if (args_info->output_optimized_orig)
+              free (args_info->output_optimized_orig); /* free previous string */
+            args_info->output_optimized_orig = gengetopt_strdup (optarg);
           }
           
           break;

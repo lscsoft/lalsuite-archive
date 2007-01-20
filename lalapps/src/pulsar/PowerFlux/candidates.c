@@ -4066,12 +4066,12 @@ for(i=0;i<candidate_free;i++) {
 	//fprintf(stderr, "Computing scores\n");
 	compute_scores(&(candidate[i]), 0);
 	
-	output_candidate(LOG, "_initial", &(candidate[i]));
+	if(args_info.output_initial_arg)output_candidate(LOG, "_initial", &(candidate[i]));
 
-	if( (i<args_info.max_candidates_arg) && (max_dx[k]>args_info.min_candidate_snr_arg)) {
+	if( ((args_info.max_candidates_arg<0) || (i<args_info.max_candidates_arg)) && (max_dx[k]>args_info.min_candidate_snr_arg)) {
 		time(&now);
 		optimize_candidate(&(candidate[i]));
-		fprintf(stderr, "Time per candidate %f\n", ((now-start)*1.0)/(i+1));
+		//fprintf(stderr, "Time per candidate %f\n", ((now-start)*1.0)/(i+1));
 		candidate[i].opt_rank=0;
 		} else {
 		candidate[i].opt_rank=-1;
@@ -4085,7 +4085,7 @@ assign_opt_ranks();
 opt_candidates_count=0;
 for(i=0;i<candidate_free;i++) {
 	if(candidate[i].opt_rank<0)continue;
-	output_candidate(LOG, "_optimized", &(candidate[i]));
+	if(args_info.output_optimized_arg)output_candidate(LOG, "_optimized", &(candidate[i]));
 	opt_candidates_count++;
 	}
 
