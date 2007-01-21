@@ -304,7 +304,7 @@ class SearchSummaryTable(table.Table):
 		input segments intersect some part of the segmentlist
 		seglist.
 		"""
-		return [row.process_id for row in self if segments.segmentlist([row.get_in()]) & seglist]
+		return [row.process_id for row in self if seglist.intersects_segment(row.get_in())]
 
 	def get_outprocs(self, seglist):
 		"""
@@ -312,7 +312,7 @@ class SearchSummaryTable(table.Table):
 		output segments intersect some part of the segmentlist
 		seglist.
 		"""
-		return [row.process_id for row in self if segments.segmentlist([row.get_out()]) & seglist]
+		return [row.process_id for row in self if seglist.intersects_segment(row.get_out())]
 
 	def get_out_segmentlistdict(self, process_ids = None):
 		"""
@@ -594,7 +594,7 @@ class SnglInspiralTable(table.Table):
 
 	def get_snr_over_chi(self):
 		return self.get_column('snr')/self.get_column('chisq')**(1./2)
-		
+
 	def ifocut(self,ifo):
 		ifoTrigs = table.new_from_template(self)
 		for row in self:
@@ -611,7 +611,6 @@ class SnglInspiralTable(table.Table):
 				vetoed.append(event)
 			else:
 				keep.append(event)
-
 		return keep
 	
 	def getslide(self,slide_num):
@@ -625,7 +624,6 @@ class SnglInspiralTable(table.Table):
 		for row in self:
 			if ( (row.event_id % 1000000000) / 100000 ) == slide_num:
 				slideTrigs.append(row)
-     
 		return slideTrigs
 
 
@@ -872,7 +870,6 @@ class SimInspiralTable(table.Table):
 			time = row.get_end(site)
 			if time not in seglist:
 				keep.append(row)
-
 		return keep
 
 
@@ -940,6 +937,7 @@ class SimBurst(object):
 		Return 0 if self and other describe the same injection,
 		non-0 otherwise.
 		"""
+		# Ouch, this hurts.
 		a = (
 			self.waveform,
 			self.geocent_peak_time,
@@ -1106,6 +1104,7 @@ SummValueTable.RowType = SummValue
 #
 # =============================================================================
 #
+
 
 class SimInstParamsIDs(ilwd.ILWD):
 	def __init__(self, n = 0):
