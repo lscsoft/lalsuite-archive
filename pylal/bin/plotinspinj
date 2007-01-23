@@ -394,6 +394,7 @@ if opts.ethinca_vs_diff is not None:
   
   fig = figure(15)
   ax = fig.add_subplot(111)
+  ax.grid(True)
   for injSet,symb in zip(injSets, plotsymbols):
     table1 = injSet['sim_inspiral']
     table2 = injSet['sngl_inspiral']
