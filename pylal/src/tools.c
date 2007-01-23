@@ -387,7 +387,7 @@ static PyObject *PyCalculateEThincaParameter(PyObject *self, PyObject *args) {
     c_row2 = PySnglInspiral2CSnglInspiral(py_row2);
     
     /* This is the main call */
-    result = XLALCalculateEThincaParameter(c_row1, c_row2);
+    result = (double) XLALCalculateEThincaParameter(c_row1, c_row2);
     
     /* Free temporary memory */
     LALFree(c_row1);
@@ -414,7 +414,7 @@ static PyObject *PyEThincaParameterForInjection(PyObject *self, PyObject *args) 
     c_row2 = PySnglInspiral2CSnglInspiral(py_row2);
     
     /* This is the main call */
-    result = XLALEThincaParameterForInjection(c_row1, c_row2);
+    result = (double) XLALEThincaParameterForInjection(c_row1, c_row2);
     
     /* Free temporary memory */
     LALFree(c_row1);
