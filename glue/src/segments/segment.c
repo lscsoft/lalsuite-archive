@@ -73,7 +73,7 @@ static PyObject *__new__(PyTypeObject *type, PyObject *args, PyObject *kwds)
 
 	if(!PyArg_ParseTuple(args, "OO", &a, &b))
 		if(!PyArg_ParseTuple(args, "(OO)", &a, &b)) {
-			PyErr_SetString(PyExc_TypeError, "__new__() takes 2 arguments, or 1 arguments when the second is a sequence of length 2");
+			PyErr_SetString(PyExc_TypeError, "__new__() takes 2 arguments, or 1 arguments when it is a sequence of length 2");
 			return NULL;
 		}
 
@@ -158,7 +158,7 @@ static int __contains__(PyObject *self, PyObject *other)
 		PyObject *ob = PyTuple_GET_ITEM(other, 1);
 		return (PyObject_Compare(sa, oa) <= 0) && (PyObject_Compare(sb, ob) >= 0);
 	} else
-		return (PyObject_Compare(sa, other) <= 0) && (PyObject_Compare(other, sb) <= 0);
+		return (PyObject_Compare(sa, other) <= 0) && (PyObject_Compare(other, sb) < 0);
 }
 
 

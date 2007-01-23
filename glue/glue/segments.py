@@ -201,7 +201,7 @@ class segment(tuple):
 	"""
 	The segment class defines objects that represent a range of values.
 	A segment has a start and an end, and is taken to represent the
-	range of values from the start to the end inclusively.  Some
+	range of values in the semi-open interval [start, end).  Some
 	limited arithmetic operations are possible with segments, but
 	because the set of (single) segments is not closed under the
 	sensible definitions of the standard arithmetic operations, the
@@ -237,7 +237,7 @@ class segment(tuple):
 		if len(args) == 1:
 			args = args[0]
 		if len(args) != 2:
-			raise TypeError, "__new__() takes 2 arguments, or 1 arguments when the second is a sequence of length 2"
+			raise TypeError, "__new__() takes 2 arguments, or 1 argument when it is a sequence of length 2"
 		if args[0] <= args[1]:
 			return tuple.__new__(cls, args)
 		else:
@@ -337,17 +337,7 @@ class segment(tuple):
 		if type(other) == segment:
 			return (self[0] <= other[0]) and (self[1] >= other[1])
 		else:
-			# FIXME: this is the only place where the behaviour
-			# is incorrect if segment(a, b) is to be understood
-			# as the half-open interval [a, b).  The rest of
-			# the segment class' behaviour is consistent with
-			# that interpretation.  Changing this to
-			#
-			#	self[0] <= other < self[1]
-			#
-			# does not cause any of the validation tests to
-			# fail.  Is there anything that would be affected?
-			return self[0] <= other <= self[1]
+			return self[0] <= other < self[1]
 
 	def continuous(self, other):
 		"""
