@@ -32,7 +32,7 @@ representation.
 
 In particular, the document tree associated with an Array element is
 enhanced.  During parsing, the Stream element in this module converts the
-character data contained within it into the elements of a numarray array
+character data contained within it into the elements of a numpy array
 object.  The array has the appropriate dimensions and type.  When the
 document is written out again, the Stream element serializes the array back
 into character data.
@@ -44,7 +44,7 @@ __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __date__ = "$Date$"[7:-2]
 __version__ = "$Revision$"[11:-2]
 
-import numarray
+import numpy
 import re
 import sys
 
@@ -104,9 +104,9 @@ def getArraysByName(elem, name):
 def from_array(name, array, dim_names = None):
 	"""
 	Construct a LIGO Light Weight XML Array document subtree from a
-	numarray array object.
+	numpy array object.
 	"""
-	doc = Array({"Name": name, "Type": types.FromNumArrayType[str(array.type())]})
+	doc = Array({"Name": name, "Type": types.FromNumPyType[str(array.type())]})
 	s = list(array.shape)
 	s.reverse()
 	for n, dim in enumerate(s):
@@ -181,7 +181,7 @@ class ArrayStream(ligolw.Stream):
 		# has been set.
 		if self.__index == None:
 			self.tokenizer.set_types([self.parentNode.pytype])
-			self.parentNode.array = numarray.zeros(self.parentNode.get_shape(), self.parentNode.arraytype)
+			self.parentNode.array = numpy.zeros(self.parentNode.get_shape(), self.parentNode.arraytype)
 			self.__index = _IndexIter(self.parentNode.array.shape)
 
 		# tokenize buffer, and assign to array
@@ -232,7 +232,7 @@ class Array(ligolw.Array):
 		"""
 		ligolw.Array.__init__(self, *attrs)
 		self.pytype = types.ToPyType[self.getAttribute("Type")]
-		self.arraytype = types.ToNumArrayType[self.getAttribute("Type")]
+		self.arraytype = types.ToNumPyType[self.getAttribute("Type")]
 		self.array = None
 
 	def get_shape(self):

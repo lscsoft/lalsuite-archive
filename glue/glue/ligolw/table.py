@@ -387,22 +387,14 @@ class Column(ligolw.Column):
 
 	def asarray(self):
 		"""
-		Construct a numarray array from this column.  Note that
-		this creates a copy of the data, so modifications made to
-		the array will not be recorded in the original document.
+		Construct a numpy array from this column.  Note that this
+		creates a copy of the data, so modifications made to the
+		array will not be recorded in the original document.
 		"""
 		if self.getAttribute("Type") in types.StringTypes:
 			raise TypeError, "Column does not have numeric type"
-		# hack to work around bug in numarray:  numarray tests that
-		# an object can be turned into an array, that is it is
-		# "list like", by trying to retrieve element 0.  This fails
-		# if the list like object has 0 length, causing numarray to
-		# barf.  If the object is, in fact, a real Python list then
-		# numarray is made happy.
-		import numarray
-		if not len(self):
-			return numarray.array([], type = types.ToNumArrayType[self.getAttribute("Type")], shape = (len(self),))
-		return numarray.array(self, type = types.ToNumArrayType[self.getAttribute("Type")], shape = (len(self),))
+		import numpy
+		return numpy.fromiter(self, dtype = types.ToNumPyType[self.getAttribute("Type")])
 
 
 class TableStream(ligolw.Stream):
@@ -461,6 +453,8 @@ class TableStream(ligolw.Stream):
 		rowiter = iter(self.parentNode)
 		try:
 			row = rowiter.next()
+			# FIXME: in Python 2.5, use attrgetter(*colnames)
+			# for attribute tuplizing
 			file.write(rowfmt % tuple([getattr(row, name) for name in colnames]))
 			rowfmt = self.getAttribute("Delimiter") + "\n" + rowfmt
 			while True:
@@ -659,9 +653,7 @@ class Table(ligolw.Table, list):
 			raise ValueError, self
 		n = 0
 		for id in self.getColumnByName(self.ids.column_name):
-			id = ilwd.ILWDID(id) + 1
-			if id > n:
-				n = id
+			n = max(n, ilwd.ILWDID(id) + 1)
 		if n > self.ids.n:
 			self.ids.n = n
 		return self.ids
@@ -757,6 +749,8 @@ class DBTable(Table):
 			yield self._row_from_cols(values)
 
 	def append(self, row):
+		# FIXME: in Python 2.5 use attrgetter() for attribute
+		# tuplization.
 		self.cursor.execute(self.append_statement, map(lambda n: getattr(row, n), self.columnnames))
 
 	def _row_from_cols(self, values):

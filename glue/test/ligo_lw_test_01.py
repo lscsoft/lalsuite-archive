@@ -2,7 +2,7 @@ import matplotlib
 matplotlib.use("Agg")
 from matplotlib import figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg
-import numarray
+import numpy
 
 from glue.ligolw import ligolw
 from glue.ligolw import table
@@ -21,7 +21,7 @@ for n, a in enumerate(doc.getElementsByTagName(ligolw.Array.tagName)):
 	axes.loglog()
 	axes.grid(True)
 	for i in range(1, a.array.shape[0]):
-		axes.plot(numarray.fabs(a.array[0]), numarray.fabs(a.array[i]))
+		axes.plot(numpy.fabs(a.array[0]), numpy.fabs(a.array[i]))
 	axes.set_title(a.getAttribute("Name"))
 	fig.savefig("ligo_lw_test_01_%d.png" % n)
 	print "saved as ligo_lw_test_01_%d.png" % n

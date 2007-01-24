@@ -123,7 +123,7 @@ ToPyType = {
 	"double": float
 }
 
-ToNumArrayType = {
+ToNumPyType = {
 	"int_2s": "Int16",
 	"int_2u": "UInt16",
 	"int_4s": "Int32",
@@ -137,7 +137,7 @@ ToNumArrayType = {
 	"double": "Float64"
 }
 
-FromNumArrayType = {
+FromNumPyType = {
 	"Int16": "int_2s",
 	"UInt16": "int_2u",
 	"Int32": "int_4s",
