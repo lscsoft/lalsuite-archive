@@ -100,7 +100,7 @@ parser.add_option("-D","--dist-axis",action="store",type="float",\
     default=0,metavar=" FRAC_DIFF",help="width of distance accuracy in plots")
 
 parser.add_option("", "--ethinca-vs-diff", dest="ethinca_vs_diff", \
-    default=None, help="plot maximum ethinca parameter for which "\
+    action='append', help="plot maximum ethinca parameter for which "\
     "the trigger's ellipse encloses the true injection params "\
     "vs difference in given column between injection and trigger")
 parser.add_option("", "--log-x", action="store_true",\
@@ -385,14 +385,14 @@ if opts.eta_snr:
     opts.fig_name)
 
 ################################
-# plot of ethinca parameter vs the difference between any paramater's
+# plot of ethinca parameter vs the difference between any parameter's
 # injected and recovered values
 
-if opts.ethinca_vs_diff is not None:
+for i,ethinca_vs_diff in enumerate(opts.ethinca_vs_diff):
   from pylal.tools import XLALEThincaParameterForInjection as ethinca_param
   from pylal.viz import readcolfrom2tables
   
-  fig = figure(15)
+  fig = figure(15 + i)
   ax = fig.add_subplot(111)
   ax.grid(True)
   for injSet,symb in zip(injSets, plotsymbols):
@@ -405,8 +405,7 @@ if opts.ethinca_vs_diff is not None:
     # Print first row of table2
     # print [(k, table2[0].__getattribute__(k)) for k in table2.columnnames]
     
-    [par1, par2, ifo] = readcolfrom2tables(table1, table2, \
-      opts.ethinca_vs_diff)
+    [par1, par2, ifo] = readcolfrom2tables(table1, table2, ethinca_vs_diff)
     
     diff_a = (par1 - par2)
     col_b = [1-ethinca_param(sim, sngl) for sim, sngl in zip(table1, table2)]
@@ -419,16 +418,15 @@ if opts.ethinca_vs_diff is not None:
       ax.set_yscale('log')
     
     ax.set_xlabel('$\delta (\mathrm{%s})$' \
-      % opts.ethinca_vs_diff.replace('_', r'\_'), size='x-large')
+      % ethinca_vs_diff.replace('_', r'\_'), size='x-large')
     ax.set_ylabel('1 - ethinca-parameter', size='x-large')
 
     if opts.title_text is not None:
       ax.set_title(opts.title_text, size='x-large', weight='bold')
     
     if opts.fig_name:
-      output_name = opts.fig_name + '_ethinca_vs_' +\
-        opts.ethinca_vs_diff + '_accuracy.png'
-      savefig(output_name)
+      savefig(opts.fig_name + '_ethinca_vs_' + ethinca_vs_diff + \
+        '_accuracy.png')
 
 if opts.show_plot:
   show()
