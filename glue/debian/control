@@ -1,5 +1,5 @@
 Source: python-glue
-Section: non-free/python
+Section: python
 Priority: optional
 Maintainer: Kipp Cannon <kipp@gravity.phys.uwm.edu>
 Build-Depends: python (>= 2.3)
