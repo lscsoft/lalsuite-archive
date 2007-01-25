@@ -706,6 +706,69 @@ class segmentlist(list):
 # =============================================================================
 #
 
+
+class _offsets(dict):
+	"""
+	Implements the segmentlist offset book-keeping in the
+	segmentlistdict class.  Not intended for use outside of the
+	segmentlistdict class.
+	"""
+	def __new__(cls, parent):
+		return dict.__new__(cls)
+
+	def __init__(self, parent):
+		self.__parent = parent
+		for key in self.__parent:
+			dict.__setitem__(self, key, 0.0)
+
+	def __setitem__(self, key, value):
+		"""
+		Set an offset.  If the new offset is identical to the
+		current offset this is a no-op, otherwise the corresponding
+		segmentlist object is shifted.
+		"""
+		if key not in self:
+			raise KeyError, key
+		delta = value - self[key]
+		if delta:
+			self.__parent[key].shift(delta)
+			dict.__setitem__(self, key, self[key] + delta)
+
+	def update(self, d):
+		"""
+		From a dictionary of offsets, apply each offset to the
+		corresponding segmentlist.  NOTE:  it is acceptable for the
+		offset dictionary to contain entries for which there is no
+		matching segmentlist; no error will be raised, but the
+		offset will be ignored.  This simplifies the case of
+		updating several segmentlistdict objects from a common
+		offset dictionary, when one or more of the segmentlistdict
+		contains only a subset of the keys.
+		"""
+		for key, value in d.iteritems():
+			try:
+				self[key] = value
+			except KeyError:
+				pass
+
+	def clear(self):
+		"""
+		Remove the offsets from all segmentlists.
+		"""
+		for key in self:
+			self[key] = 0.0
+
+	# stubs to prevent bugs
+	def __delitem__(*args):
+		raise NotImplementedError
+	def fromkeys(*args):
+		raise NotImplementedError
+	def pop(*args):
+		raise NotImplementedError
+	def popitem(*args):
+		raise NotImplementedError
+
+
 class segmentlistdict(dict):
 	"""
 	A dictionary associating a set of segmentlist objects with a set of
@@ -743,69 +806,9 @@ class segmentlistdict(dict):
 	>>> c
 	{'H2': [segment(11.0, 15)], 'H1': [segment(5.0, 9.0)]}
 	"""
-	class __offsets(dict):
-		"""
-		For internal use only.
-		"""
-		def __new__(cls, parent):
-			return dict.__new__(cls)
-
-		def __init__(self, parent):
-			self.__parent = parent
-			for key in self.__parent:
-				dict.__setitem__(self, key, 0.0)
-
-		def __setitem__(self, key, value):
-			"""
-			Set an offset.  If the new offset is identical to
-			the current offset this is a no-op, otherwise the
-			corresponding segmentlist object is shifted.
-			"""
-			if key not in self:
-				raise KeyError, key
-			delta = value - self[key]
-			if delta:
-				self.__parent[key].shift(delta)
-				dict.__setitem__(self, key, self[key] + delta)
-
-		def update(self, d):
-			"""
-			From a dictionary of offsets, apply each offset to
-			the corresponding segmentlist.  NOTE:  it is
-			acceptable for the offset dictionary to contain
-			entries for which there is no matching segmentlist;
-			no error will be raised, but the offset will be
-			ignored.  This simplifies the case of updating
-			several segmentlistdict objects from a common
-			offset dictionary, when one or more of the
-			segmentlistdict contains only a subset of the keys.
-			"""
-			for key, value in d.iteritems():
-				try:
-					self[key] = value
-				except KeyError:
-					pass
-
-		def clear(self):
-			"""
-			Remove the offsets from all segmentlists.
-			"""
-			for key in self:
-				self[key] = 0.0
-
-		# stubs to prevent bugs
-		def __delitem__(*args):
-			raise NotImplementedError
-		def fromkeys(*args):
-			raise NotImplementedError
-		def pop(*args):
-			raise NotImplementedError
-		def popitem(*args):
-			raise NotImplementedError
-
 	def __init__(self, *args):
 		dict.__init__(self, *args)
-		self.offsets = segmentlistdict.__offsets(self)
+		self.offsets = _offsets(self)
 		if args and isinstance(args[0], segmentlistdict):
 			dict.update(self.offsets, args[0].offsets)
 
