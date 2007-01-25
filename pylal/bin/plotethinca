@@ -49,7 +49,7 @@ parser.add_option("-f","--figure-name",action="store",type="string",\
 parser.add_option("-i","--ifo",action="append",type="string",\
     metavar="IFO",dest="ifo_list",\
     help="look at triggers for specified ifo (append to list)" )
-parser.add_option("-c","--x-value",action="append",type="string",\
+parser.add_option("-x","--x-value",action="append",type="string",\
     metavar="COL_NAME",dest="columns",\
     help=\
     "plot ethinca parameter against this sngl_inspiral column (add to list)" )
@@ -57,6 +57,11 @@ parser.add_option("-S","--statistic",action="store",default='snr',\
     type="string",\
     help="choice of statistic used in making plots, valid arguments are: "
           "snr (DEFAULT), snr_over_chi, s3_snr_chi_stat, effective_snr,")
+parser.add_option("-H","--hist",action="store_true",default=False,\
+    help="make a histogram of the e-thinca values" )
+parser.add_option("-n","--num-bins",action="store",type="float",\
+    default=20, metavar=" NUM",\
+    help="number of bins used in histogram" )
 parser.add_option("-s","--show-plot",action="store_true",default=False,\
     help="display the figures on the terminal" )
 
@@ -67,13 +72,22 @@ if len(opts.ifo_list) < 2:
   print >>sys.stderr, "Enter 'plotethinca --help' for usage"
   sys.exit(1)
   
-if not opts.columns:
+if not opts.columns and not opts.hist:
   print >>sys.stderr, \
-      "Must specify at least one --x-value against which to plot ethinca param"
+      "Must specify --hist or at least one --x-value against which to plot ethinca param"
   print >>sys.stderr, "Enter 'plotethinca --help' for usage"
   sys.exit(1)
 
 two_ifo_list = itertools.choices(opts.ifo_list,2)
+
+if opts.num_bins:
+  numBins = opts.num_bins
+else:
+  numBins = 20
+
+bins = []
+for i in range(numBins+1):
+  bins.append(float(i)/float(numBins))
 
 if opts.glob:
   files = glob.glob(opts.glob)
@@ -93,19 +107,30 @@ if files:
 for ifos in two_ifo_list:
   coincs = coincTriggers.coincinclude(ifos)
   ethincaVals = coincs.getEThincaValues(ifos)
-  for col in opts.columns:
-    for ifo in ifos:
-      xVals = coincs.getsngls(ifo).get_column(col)
-      figure()
-      plot(xVals,ethincaVals,'kx',markeredgewidth=1,markersize=6)
-      ylim(0,1)
-      xlabel(ifo + " " + col, size="x-large")
-      ylabel("E-thinca parameter", size="x-large")
-      title("E-thinca parameter vs " + col + " for " + ifos[0] + \
-          " and " + ifos[1] + " triggers", size="x-large")
-      if opts.figure_name:
-        savefig(opts.figure_name + "_" + ifos[0] + "_" + ifos[1] + \
-            "_ethinca_vs_" + ifo + "_" + col + ".png")
-
+  if opts.columns:
+    for col in opts.columns:
+      for ifo in ifos:
+        xVals = coincs.getsngls(ifo).get_column(col)
+        figure()
+        plot(xVals,ethincaVals,'kx',markeredgewidth=1,markersize=6)
+        ylim(0,1)
+        xlabel(ifo + " " + col, size="x-large")
+        ylabel("E-thinca parameter", size="x-large")
+        title("E-thinca parameter vs " + col + " for " + ifos[0] + \
+            " and " + ifos[1] + " triggers", size="x-large")
+        if opts.figure_name:
+          savefig(opts.figure_name + "_" + ifos[0] + "_" + ifos[1] + \
+              "_ethinca_vs_" + ifo + "_" + col + ".png")
+  if opts.hist:
+    figure()
+    hist(ethincaVals,bins)
+    xlim(0,1)
+    ylabel("\#", size="x-large")
+    xlabel("E-thinca parameter", size="x-large")
+    title("E-thinca parameter Histogram for " + ifos[0] + \
+        " and " + ifos[1] + " triggers", size="x-large")
+    if opts.figure_name:
+      savefig(opts.figure_name + "_" + ifos[0] + "_" + ifos[1] + \
+        "_ethinca_hist.png")
 if opts.show_plot:
   show() 
