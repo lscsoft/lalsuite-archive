@@ -34,8 +34,6 @@ def square_axis():
   xmin = min([tmpv[0], tmpv[2]])
   axis([xmin, xmax, xmin, xmax])
 
-
-
 ##############################################################################
 usage = """
 usage: %prog [options] 
@@ -114,7 +112,7 @@ parser.add_option("-b","--snr-snr",action="store_true",default=False,\
 parser.add_option("-S","--statistic",action="store",default='snr',\
     type="string",\
     help="choice of statistic used in making plots, valid arguments are: "
-          "snr (DEFAULT), snr_over_chi, s3_snr_chi_stat, effective_snr, bitten_l, bitten_lsq") 
+          "snr (DEFAULT), snr_over_chi, s3_snr_chi_stat, effective_snr, bitten_l") 
 parser.add_option("-F","--bittenl_a",action="store",type="float",default=None,\
     metavar=" BITTENL_A", help="parameter a for bitten-l statistic" ) 	 
 parser.add_option("-G","--bittenl_b",action="store",type="float",default=None,\
@@ -136,6 +134,10 @@ parser.add_option("-Z","--zero-lag-playground",action="store_true",\
     help="scale number of bkg triggers in slide plots by 600/6370")
 parser.add_option("-k","--snr-dist",action="store_true",default=False,\
     help="plot distribution of snr" )
+parser.add_option("-m","--mass-dependent",action="store_true",default=False,\
+    help="sort triggers by mass range" )
+parser.add_option("-M","--mass-range",action="store",type="string",\
+    metavar=" MASS_RANGE",default=None,help="sort triggers by mass range" )
 parser.add_option("-n","--nbins",action="store",type="int",default=20,\
     metavar=" NBINS", help="number of bins for the histogram plots" )
 parser.add_option("-N","--num-slides",action="store",type="int",default=0,\
@@ -146,7 +148,6 @@ parser.add_option("-t","--plot-type",action="store",type="string",\
 parser.add_option("-V","--veto-file",action="store",type="string",\
     default=None,metavar=" FNAME",\
     help="read in segments from FNAME (assumed segwizard format)")
-
 (opts,args) = parser.parse_args()
 
 if opts.plot_type not in ['log', 'linear']:
@@ -169,15 +170,14 @@ if opts.hist_slides or opts.slide_snr:
 if (opts.statistic != 'snr') and (opts.statistic != 'snr_over_chi') \
     and (opts.statistic != 's3_snr_chi_stat') \
     and (opts.statistic != 'effective_snr')\
-    and (opts.statistic != 'bitten_lsq')\
     and (opts.statistic != 'bitten_l'):
   print >>sys.stderr, "--statistic must be one of"
   print >>sys.stderr, "(snr|snr_over_chi|s3_snr_chi_stat|effective_snr|bitten_l)"
   sys.exit(1)
 
-# check if bittenl-parameters has been specified (or bitten_lsq), set snglStat 	 
+# check if bittenl-parameters has been specified, set snglStat 	 
 snglStat=opts.statistic 	 
-if 'bitten_l' in opts.statistic: 	 
+if (opts.statistic == 'bitten_l'): 	 
    snglStat='snr' 	 
    if (not opts.bittenl_a or not opts.bittenl_b): 	 
      print >>sys.stderr, "--bittenl_a and --bittenl_b must be specified" 	 
@@ -231,6 +231,19 @@ for ifo1 in ifo_list:
         if ifo1 < ifo2 and ifo2 < ifo3 and ifo3 < ifo4:
           ifo_coincs.append([ifo1, ifo2, ifo3, ifo4])
 
+#######################################################
+# turn the mass range from a string to a list of floats
+
+if opts.mass_range:
+  mass_range = []
+  mass_range_string = ''
+  for i in range(len(opts.mass_range)):
+    if opts.mass_range[i] in ['0','1','2','3','4','5','6','7','8','9','.']:
+      mass_range_string += opts.mass_range[i]
+    elif opts.mass_range[i] == ',':
+      mass_range.append(float(mass_range_string))
+      mass_range_string = ''
+  mass_range.append(float(mass_range_string))
 
 ###################################
 # glob the list of files to read in
@@ -278,9 +291,8 @@ if coincfiles:
   if opts.cluster_window:
     coincTriggers = coincTriggers.cluster(opts.cluster_window)
 
-
   if not opts.max_snr:
-    if len(inspTriggers):
+    if inspTriggers:
       xhigh = max( inspTriggers.get_column(snglStat) )
     else:
       xhigh = 50.0
@@ -288,7 +300,7 @@ if coincfiles:
     xhigh = opts.max_snr + 1
 
   if not opts.min_snr:
-    if len(inspTriggers):
+    if inspTriggers:
       xlow = min( inspTriggers.get_column(snglStat) )
     else:
       xlow = 1.0
@@ -296,7 +308,16 @@ if coincfiles:
     xlow = opts.min_snr
 else:
   coincTriggers = None
-  
+
+if opts.mass_dependent:
+  coincTriggersByMass = []
+  for i in range(len(mass_range)-1):
+    if coincTriggers:
+      coincTriggersByMass.append( \
+        coincTriggers.getChirpMass(mass_range[i],mass_range[i+1]) )
+    else:
+      coincTriggersByMass.append( coincTriggers )
+
 ########################
 # read in slide triggers
 slideTriggers = []
@@ -325,18 +346,30 @@ if slidefiles:
     if opts.cluster_window:
       this_slide["coinc_trigs"] = \
         this_slide["coinc_trigs"].cluster(opts.cluster_window)  
-
-
-
+    
     # add slide to list
     slideTriggers.append(this_slide)
- 
-  if len(inspSlide):
+    print (str(slide) + ' ' + str(len(this_slide["sngl_trigs"])))
+  
+  if inspSlide:
     slide_high = max( inspSlide.get_column(snglStat) )
     slide_low = min( inspSlide.get_column(snglStat) )
   else:
     slide_high = 50.0
     slide_low = 1.0
+
+if opts.mass_dependent:
+  slideTriggersByMass = []
+  for i in range(len(mass_range)-1):
+    slideTriggersByMass.append( [] )
+    for j in range(len(slideTriggers)):
+      tmp_this_slide = {}
+      tmp_this_slide["slide_num"] = slideTriggers[j]["slide_num"]
+      if slideTriggers[j]["coinc_trigs"]:
+        tmp_this_slide["coinc_trigs"] = slideTriggers[j]["coinc_trigs"].getChirpMass(mass_range[i],mass_range[i+1])
+      else:
+        tmp_this_slide["coinc_trigs"] = slideTriggers[j]["coinc_trigs"]
+      slideTriggersByMass[i].append( tmp_this_slide )
 
 fig_num = 1
 
@@ -387,6 +420,35 @@ if opts.snr_snr or opts.slide_snr:
     if f_name:
       savefig(f_name + "_H1_vs_H2_" + snglStat + ".png")
 
+if (opts.snr_snr or opts.slide_snr) and opts.mass_dependent:
+  for i in range(len(mass_range)-1):
+    if 'H1' in ifo_list and 'H2' in ifo_list:
+      figure(fig_num)
+      fig_num += 1
+      hold(True)
+      if opts.slide_snr:
+        for slide in slideTriggersByMass[i]:
+          viz.plotcoincval(slide["coinc_trigs"], snglStat, 'H1', 'H2', \
+            'k+',opts.plot_type)
+      if opts.snr_snr:
+        viz.plotcoincval(coincTriggersByMass[i], snglStat, 'H1', 'H2', \
+            'r+',opts.plot_type)
+
+      xlabel(snglStat.replace("_"," ") + ' H1', size='x-large')
+      ylabel(snglStat.replace("_"," ") + ' H2', size='x-large')
+      title('H1 vs H2 coincident event SNR')
+      grid(True)
+      if opts.min_snr:
+        xlim(xmin=opts.min_snr)
+        ylim(ymin=opts.min_snr)
+      if opts.max_snr:
+        xlim(xmax=opts.max_snr)
+        ylim(ymax=opts.max_snr)
+      else:
+        square_axis()
+      if f_name:
+        savefig(f_name + "_H1_vs_H2_" + snglStat + str(mass_range[i]) \
+          + "_" + str(mass_range[i+1]) +".png")
 
 ################################
 # plot of hanford vs other snr
@@ -462,6 +524,81 @@ if opts.snr_snr or opts.slide_snr:
       if f_name:
         savefig(f_name + "_H_vs_" + ifo + "_" + snglStat + ".png")
 
+if (opts.snr_snr or opts.slide_snr) and opts.mass_dependent:
+  for i in range(len(mass_range)-1):
+    if 'H1' in ifo_list or 'H2' in ifo_list:
+      for ifo in ifo_non_h:
+        figure(fig_num)
+        fig_num += 1
+        hold(True)
+        if opts.slide_snr:
+          for slide in slideTriggersByMass[i]:
+            if 'H1' in ifo_list:
+              viz.plotcoincval(slide["coinc_trigs"], snglStat, 'H1', ifo, \
+                'kx', opts.plot_type)
+            if 'H2' in ifo_list:
+              viz.plotcoincval(slide["coinc_trigs"], snglStat, 'H2', ifo, \
+                'k+', opts.plot_type)
+            if 'H1' in ifo_list and 'H2' in ifo_list:
+              viz.plotcoinchanford(slide["coinc_trigs"], snglStat, ifo, \
+                'sqrtsqr', 'k1', opts.plot_type)
+
+        if opts.snr_snr:
+          sym = 0
+          legend_text = []
+          if 'H1' in ifo_list:
+            viz.plotcoincval(coincTriggersByMass[i], snglStat, 'H1', ifo, \
+                hanfordsym[sym], opts.plot_type)
+            legend_text.append('H1' + ifo)
+            for add_ifo in ifo_non_h:
+              if add_ifo != ifo:
+                viz.plotcoincval(coincTriggersByMass[i], snglStat, 'H1', ifo, \
+                    addsym[sym], opts.plot_type, add_ifo)
+                legend_text.append('H1' + ifo + '(also in ' + add_ifo + ')')
+
+          if not opts.slide_snr: sym += 1
+          if 'H2' in ifo_list:
+            viz.plotcoincval(coincTriggersByMass[i], snglStat, 'H2', ifo, \
+                hanfordsym[sym], opts.plot_type)
+            legend_text.append('H2' + ifo)
+            for add_ifo in ifo_non_h:
+              if add_ifo != ifo:
+                viz.plotcoincval(coincTriggersByMass[i], snglStat, 'H2', ifo, \
+                    addsym[sym], opts.plot_type, add_ifo)
+                legend_text.append('H2' + ifo + '(also in ' + add_ifo + ')')
+
+          if not opts.slide_snr: sym += 1
+          if 'H1' in ifo_list and 'H2' in ifo_list:
+            viz.plotcoinchanford(coincTriggersByMass[i], snglStat, ifo, \
+                'sqrtsqr', hanfordsym[sym], opts.plot_type)
+            legend_text.append('H1H2' + ifo)
+            for add_ifo in ifo_non_h:
+              if add_ifo != ifo:
+                viz.plotcoinchanford(coincTriggersByMass[i], snglStat, ifo, \
+                    'sqrtsqr', addsym[sym],opts.plot_type, add_ifo)
+                legend_text.append('H1H2' + ifo + '(also in ' + add_ifo + ')')
+
+
+        if not opts.slide_snr:
+          legend(legend_text,2)
+        xlabel(snglStat.replace("_"," ") + ' Hanford', size='x-large')
+        ylabel(snglStat.replace("_"," ") + ' '+ ifo, size='x-large')
+        title('Hanford vs ' + ifo + ' coincident event SNR \n' + \
+          'mass range ' + str(mass_range[i]) + ' to ' + \
+          str(mass_range[i+1]))
+        grid(True)
+        if opts.min_snr:
+          xlim(xmin=opts.min_snr)
+          ylim(ymin=opts.min_snr)
+        if opts.max_snr:
+          xlim(xmax=opts.max_snr)
+          ylim(ymax=opts.max_snr)
+        else:
+          square_axis()
+        if f_name:
+          savefig(f_name + "_H_vs_" + ifo + "_" + snglStat + \
+            str(mass_range[i]) + "_" + str(mass_range[i+1]) + ".png")
+
 
 ################################
 # plot of non hanford snr
@@ -495,6 +632,37 @@ if opts.snr_snr or opts.slide_snr:
       savefig(f_name + "_" + ifo_non_h[0] + "_vs_" + ifo_non_h[1] + "_" +\
           snglStat + ".png")
 
+if (opts.snr_snr or opts.slide_snr) and opts.mass_dependent:
+  for i in range(len(mass_range)-1):
+    if len(ifo_non_h) >= 2:
+      figure(fig_num)
+      fig_num += 1
+      hold(True)
+      if opts.slide_snr:
+        for slide in slideTriggersByMass[i]:
+          viz.plotcoincval(slide["coinc_trigs"], snglStat, ifo_non_h[0],
+              ifo_non_h[1], 'kx',opts.plot_type)
+      if opts.snr_snr:
+        viz.plotcoincval(coincTriggersByMass[i], snglStat, ifo_non_h[0],
+            ifo_non_h[1], 'r+',opts.plot_type)
+
+      xlabel(snr + ' ' + ifo_non_h[0], size='x-large')
+      ylabel(snr + ' ' + ifo_non_h[1], size='x-large')
+      title(ifo_non_h[0] + ' vs ' + ifo_non_h[1] + ' coincident event SNR \n' \
+        + 'mass range ' + str(mass_range[i]) + ' to ' + str(mass_range[i+1]))
+      grid(True)
+      if opts.min_snr:
+        xlim(xmin=opts.min_snr)
+        ylim(ymin=opts.min_snr)
+      if opts.max_snr:
+        xlim(xmax=opts.max_snr)
+        ylim(ymax=opts.max_snr)
+      else:
+        square_axis()
+      if f_name:
+        savefig(f_name + "_" + ifo_non_h[0] + "_vs_" + ifo_non_h[1] + "_" + \
+          snglStat + str(mass_range[i]) + "_" + str(mass_range[i+1]) + ".png")
+
 
 ################################
 # plot of h1 vs h2 eff dist
@@ -527,6 +695,38 @@ if opts.dist_dist:
     if f_name:
       savefig(f_name + "_H1_vs_H2_dist.png")
 
+if opts.dist_dist and opts.mass_dependent:
+  for i in range(len(mass_range)-1):
+    if 'H1' in ifo_list and 'H2' in ifo_list:
+      figure(fig_num)
+      fig_num += 1
+      hold(True)
+      if opts.slide_dist:
+        for slide in slideTriggersByMass[i]:
+          viz.plotcoincval(slide["coinc_trigs"], 'eff_distance', 'H1', 'H2', \
+            'kx', opts.plot_type)
+
+      if opts.dist_dist:
+        viz.plotcoincval(coincTriggersByMass[i], 'eff_distance', 'H1', 'H2', \
+            'r+', opts.plot_type)
+
+      xlabel('eff distance H1 (Mpc)', size='x-large')
+      ylabel('eff distance H2 (Mpc)', size='x-large')
+      title('H1 vs H2 coincident event effective distance \n' + \
+        'mass range ' + str(mass_range[i]) + ' to ' + str(mass_range[i+1]))
+      grid(True)
+      if opts.min_snr:
+        xlim(xmin=opts.min_snr)
+        ylim(ymin=opts.min_snr)
+      if opts.max_snr:
+        xlim(xmax=opts.max_snr)
+        ylim(ymax=opts.max_snr)
+      else:
+        square_axis()
+      if f_name:
+        savefig(f_name + "_H1_vs_H2_dist" + str(mass_range[i]) + "_" + \
+          str(mass_range[i+1]) + ".png")
+
 
 ####################################
 # plot of statistic vs time (for each ifo)
@@ -558,6 +758,38 @@ if opts.snr_time:
   if f_name:
     savefig(f_name + '_' + snglStat + "_vs_time.png")
 
+if opts.snr_time and opts.mass_dependent:
+  for i in range(len(mass_range)-1):
+    figure(fig_num)
+    fig_num += 1
+    hold(True)
+    sym = 0
+    for ifo in ifo_list:
+      ifoTrigs = coincTriggersByMass[i].getsngls(ifo)
+      if opts.plot_type == 'linear':
+        plot_type = 'linear'
+      elif opts.plot_type == 'log':
+        plot_type = 'logy'
+
+      viz.plot_a_v_b(ifoTrigs, 'end_time', snglStat, plot_type, \
+          plotsymbols[sym])
+      legend(ifo_list,2)
+      title( snglStat.replace("_"," ") + ' vs end time \n' + \
+        'mass range ' + str(mass_range[i]) + ' to ' + \
+        str(mass_range[i+1]))
+      xlabel('end time (days into run)',size='x-large')
+      ylabel(snglStat.replace("_"," "),size='x-large')
+      grid(True)
+      sym += 1
+      if opts.min_snr:
+        ylim(ymin=opts.min_snr)
+      if opts.max_snr:
+        ylim(ymax=opts.max_snr)
+
+    if f_name:
+      savefig(f_name + '_' + snglStat + "_vs_time" + str(mass_range[i]) + \
+        "_" + str(mass_range[i+1]) + ".png")
+
 ################################################
 # make plot/hist of number of triggers per slide
 if opts.hist_slides or opts.plot_slides:
@@ -565,21 +797,21 @@ if opts.hist_slides or opts.plot_slides:
     coincTrigs = coincTriggers
   else:
     coincTrigs = None
-    
+
   if opts.hist_slides:
     figure(fig_num)
     fig_num += 1
     viz.histslides(slideTriggers,coincTrigs,scalebkg=opts.zero_lag_playground)
     if f_name:
       savefig(f_name + "_hist_slide_trigs.png")
-      
+
   if opts.plot_slides:
     figure(fig_num)
     fig_num += 1
     viz.plotslides(slideTriggers,coincTrigs,scalebkg=opts.zero_lag_playground)
     if f_name:
       savefig(f_name + "_plot_slide_trigs.png")
-     
+
   for ifos in ifo_coincs:
     if opts.hist_slides:
       figure(fig_num)
@@ -588,7 +820,7 @@ if opts.hist_slides or opts.plot_slides:
       if f_name:
         output_name = f_name + '_'
         for ifo in ifos:
-          output_name += ifo 
+          output_name += ifo
         output_name += "_hist_slide_trigs.png"
         savefig(output_name)
 
@@ -603,6 +835,56 @@ if opts.hist_slides or opts.plot_slides:
         output_name += "_plot_slide_trigs.png"
         savefig(output_name)
 
+if (opts.hist_slides or opts.plot_slides) and opts.mass_dependent:
+  for i in range(len(mass_range)-1):
+    if opts.add_zero_lag:
+      coincTrigs = coincTriggersByMass[i]
+    else:
+      coincTrigs = None
+    
+    if opts.hist_slides:
+      figure(fig_num)
+      fig_num += 1
+      viz.histslides(slideTriggersByMass[i],coincTrigs, \
+        scalebkg=opts.zero_lag_playground)
+      if f_name:
+        savefig(f_name + "_hist_slide_trigs" + str(mass_range[i]) + "_" + \
+          str(mass_range[i+1]) + ".png")
+      
+    if opts.plot_slides:
+      figure(fig_num)
+      fig_num += 1
+      viz.plotslides(slideTriggersByMass[i],coincTrigs, \
+        scalebkg=opts.zero_lag_playground)
+      if f_name:
+        savefig(f_name + "_plot_slide_trigs" + str(mass_range[i]) + "_" + \
+          str(mass_range[i+1]) + ".png")
+     
+    for ifos in ifo_coincs:
+      if opts.hist_slides:
+        figure(fig_num)
+        fig_num += 1
+        viz.histslides(slideTriggersByMass[i],coincTrigs,ifos)
+        if f_name:
+          output_name = f_name + '_'
+          for ifo in ifos:
+            output_name += ifo 
+          output_name += "_hist_slide_trigs" + str(mass_range[i]) + "_" + \
+            str(mass_range[i+1]) + ".png"
+          savefig(output_name)
+
+      if opts.plot_slides:
+        figure(fig_num)
+        fig_num += 1
+        viz.plotslides(slideTriggersByMass[i],coincTrigs,ifos)
+        if f_name:
+          output_name = f_name + '_'
+          for ifo in ifos:
+            output_name += ifo
+          output_name += "_plot_slide_trigs" + str(mass_range[i]) + "_" + \
+            str(mass_range[i+1]) + ".png"
+          savefig(output_name)
+
 
 ################################################
 # make histogram of stat distribution
@@ -611,10 +893,9 @@ if opts.snr_dist:
   fig_num += 1
 
   viz.cumhiststat(coincTriggers, slideTriggers, None, opts.min_snr, \
-        opts.max_snr, opts.nbins, statistic.name)
-  ylim(ymin=1.0e-02)
+      opts.max_snr, opts.nbins, statistic.name)
+  ylim(ymin=1.0e-01)
   ylim(ymax=20)
-  grid(True)
   if f_name:  
     savefig(f_name + "_cum_hist_" + statistic.name + ".png")
 
@@ -631,6 +912,34 @@ if opts.snr_dist:
         output_name += ifo
       output_name += "_cum_hist_" + statistic.name + ".png"
       savefig(output_name)
+
+if opts.snr_dist and opts.mass_dependent:
+  for i in range(len(mass_range)-1):
+    figure(fig_num)
+    fig_num += 1
+
+    viz.cumhiststat(coincTriggersByMass[i], slideTriggersByMass[i], None, \
+      opts.min_snr, opts.max_snr, opts.nbins, statistic.name)
+    ylim(ymin=1.0e-01)
+    ylim(ymax=20)
+    if f_name:
+      savefig(f_name + "_cum_hist_" + statistic.name + str(mass_range[i]) + \
+        "_" + str(mass_range[i+1]) + ".png")
+
+
+
+    for ifos in ifo_coincs:
+      figure(fig_num)
+      fig_num += 1
+      viz.cumhiststat(coincTriggersByMass[i], slideTriggersByMass[i], ifos, \
+        opts.min_snr, opts.max_snr, opts.nbins, statistic.name)
+      if f_name:
+        output_name = f_name + '_'
+        for ifo in ifos:
+          output_name += ifo
+        output_name += "_cum_hist_" + statistic.name + str(mass_range[i]) + \
+          "_" + str(mass_range[i+1]) + ".png"
+        savefig(output_name)
 
 
 if opts.show_plot:
