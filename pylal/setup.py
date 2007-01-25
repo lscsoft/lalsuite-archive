@@ -55,6 +55,7 @@ setup(
 	],
 	scripts = [
                 os.path.join("bin", "followup.py"),
+	        os.path.join("bin", "plotbank"),
 		os.path.join("bin", "plotbinj"),
 		os.path.join("bin", "plotburca"),
 		os.path.join("bin", "plotburst"),
@@ -66,6 +67,7 @@ setup(
 		os.path.join("bin", "upperlimit.py"),
 		os.path.join("bin", "write_iul_page"),
 		os.path.join("bin", "lalapps_compute_posterior"),
+	        os.path.join("bin", "plotinjnum"),
 		os.path.join("bin", "plotinspiral"),
 		os.path.join("bin", "plotinspinj"),
 		os.path.join("bin", "plotinspdiff"),

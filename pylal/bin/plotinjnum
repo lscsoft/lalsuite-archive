@@ -1,0 +1,113 @@
+#! /usr/bin/env python
+
+import sys
+import os
+from optparse import *
+import re
+import exceptions
+import glob
+from types import *
+
+from pylab import *
+from glue.ligolw import ligolw
+from glue.ligolw import table
+from pylal import SimInspiralUtils
+from pylal import SnglInspiralUtils
+from pylal import CoincInspiralUtils
+
+##############################################################################
+usage = """
+usage: %prog [options]
+
+Injection Plotting Function
+
+Generates plots showing the number of IFOs an injection is found in
+"""
+
+parser = OptionParser( usage=usage, version="" )
+parser.add_option("-g","--found-glob",action="store",type="string",\
+    default=None, metavar=" GLOB",\
+    help="GLOB of FOUND injection files to read" )
+parser.add_option("-m","--missed-glob",action="store",type="string",\
+    default=None, metavar=" GLOB",\
+    help="GLOB of MISSED injection files to read" )
+parser.add_option("-f","--figure-name",action="store",type="string",\
+    default=None, metavar=" FNAME",\
+    help="generate png figures with name FNAME-fig.png" )
+parser.add_option("-S","--statistic",action="store",default='snr',\
+    type="string",\
+    help="choice of statistic used in making plots, valid arguments are: "
+          "snr (DEFAULT), snr_over_chi, s3_snr_chi_stat, effective_snr,")
+parser.add_option("-s","--show-plot",action="store_true",default=False,\
+    help="display the figures on the terminal" )
+
+(opts,args) = parser.parse_args()
+
+if opts.found_glob:
+  foundFiles = glob.glob(opts.found_glob)
+else:
+  print >>sys.stderr, "Must specify a glob of FOUND injections"
+  sys.exit(1)
+
+if opts.missed_glob:
+   missedFiles = glob.glob(opts.missed_glob)
+else:
+  print >>sys.stderr, "Must specify a glob of MISSED injections"
+  sys.exit(1)
+
+statistic = CoincInspiralUtils.coincStatistic( opts.statistic )
+coincTriggers = CoincInspiralUtils.coincInspiralTable()
+for file in foundFiles:
+  file = [file]
+  simFound = SimInspiralUtils.ReadSimInspiralFromFiles(file)
+  inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(file)
+  # construct the coincs
+  fileCoincTriggers = \
+    CoincInspiralUtils.coincInspiralTable(inspTriggers,statistic)
+  fileCoincTriggers.add_sim_inspirals(simFound)
+  for coinc in fileCoincTriggers:
+    coincTriggers.append(coinc)
+
+missed = [[],[],[]]
+for file in missedFiles:
+  file = [file]
+  simMissed = SimInspiralUtils.ReadSimInspiralFromFiles(file)
+  for sim in simMissed:
+    missed[0].append(sim.mchirp)
+    missed[1].append(sim.end_time_gmst)
+    missed[2].append(sim.eff_dist_h)
+
+doubles = [[],[],[]]
+triples = [[],[],[]]
+for coinc in coincTriggers:
+  if coinc.numifos == 2:
+    doubles[0].append(coinc.sim.mchirp)
+    doubles[1].append(coinc.sim.end_time_gmst)
+    doubles[2].append(coinc.sim.eff_dist_h)
+  if coinc.numifos == 3:
+    triples[0].append(coinc.sim.mchirp)
+    triples[1].append(coinc.sim.end_time_gmst)
+    triples[2].append(coinc.sim.eff_dist_h)
+
+figure(1)
+semilogy(triples[0],triples[2],'bx',doubles[0],doubles[2],'cx',missed[0],missed[2],'rx')
+grid()
+title('Found and Missed Injections')
+xlabel('mchirp',size='x-large')
+ylabel('eff_dist',size='x-large')
+legend(('triples','doubles','missed'),loc=0)
+if opts.figure_name:
+  savefig(opts.figure_name + '_missed_found_vs_mchirp.png')
+
+figure(2)
+semilogy(triples[1],triples[2],'bx',doubles[1],doubles[2],'cx',missed[1],missed[2],'rx')
+grid()
+title('Found and Missed Injections')
+xlabel('end_time_gmst',size='x-large')
+ylabel('eff_dist',size='x-large')
+legend(('triples','doubles','missed'),loc=0)
+if opts.figure_name:
+   savefig(opts.figure_name + '_missed_found_vs_end_time.png')
+
+if opts.show_plot:
+  show()

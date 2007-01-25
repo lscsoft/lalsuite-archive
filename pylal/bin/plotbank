@@ -1,0 +1,178 @@
+#! /usr/bin/env python
+
+import sys
+import os
+from optparse import *
+import re
+import exceptions
+import glob
+from types import *
+
+#import operator
+from pylab import *
+from glue.ligolw import ligolw
+from glue.ligolw import table
+from pylal import SnglInspiralUtils
+
+##############################################################################
+usage = """
+usage: %prog [options]
+
+Bank Plotting Function
+
+Generates plots showing the sngl_inspiral mass paramters contain in a file
+"""
+
+parser = OptionParser( usage=usage, version="" )
+parser.add_option("-g","--glob",action="store",type="string",\
+    default=None, metavar=" GLOB",\
+    help="GLOB of xml files with sngl_inspiral tables to read" )
+parser.add_option("-f","--figure-name",action="store",type="string",\
+    default=None, metavar=" FNAME",\
+    help="generate png figures with name FNAME-fig.png" )
+parser.add_option("-m","--m1-m2",action="store_true",default=False,\
+    help="make plots of mass2 vs mass1" )
+parser.add_option("-M","--mchirp-eta",action="store_true",default=False,\
+    help="make plots of eta vs mchirp" )
+parser.add_option("-t","--tau0-tau3",action="store_true",default=False,\
+    help="make plots of tau3 vs tau0" )
+parser.add_option("-x","--x-lim",action="store",type="float",default=None,\
+    help="x limit" )
+parser.add_option("-y","--y-lim",action="store",type="float",default=None,\
+    help="y limit" )
+parser.add_option("-i","--inj-time",action="store",type="float",default=None,\
+    help="plot templates within 1 sec of injection time" )
+parser.add_option("-G","--get-bins",action="store",type="string",default=0,\
+    help="plot N bins of equal number of templates" )
+parser.add_option("-p","--print-bins",action="store_true",default=False,\
+    help="print the bins on the terminal" )
+parser.add_option("-s","--show-plot",action="store_true",default=False,\
+    help="display the figures on the terminal" )
+
+(opts,args) = parser.parse_args()
+
+if opts.glob:
+  file = glob.glob(opts.glob)
+else:
+  print >>sys.stderr, "Must specify a glob of files"
+  sys.exit(1)
+
+if not (opts.m1_m2 or opts.mchirp_eta or opts.tau0_tau3):
+  print >>sys.stderr, "Must specify --m1-m2, --mchirp-eta, or --tau0-tau3"
+  sys.exit(1)
+
+templates = SnglInspiralUtils.ReadSnglInspiralFromFiles(file)
+
+if opts.get_bins:
+  n_lines = opts.get_bins
+
+  x_bins = []
+  for i in range(n_lines):
+    x_bins.append(0)
+  x_bins.append(0)
+
+  tmplts = []
+  for i in range(len(x)):
+    tmplts.append((x[i],y[i]))
+
+  tmplts.sort(key=operator.itemgetter(0))
+
+  if get_bins:
+    i_break = len(tmplts)//n_lines
+
+    x_break = []
+    for i in range(n_lines):
+      tmp1, tmp2 = tmplts[i*i_break]
+      x_break.append(tmp1)
+      x_bins[i] += tmp1
+    tmp1, tmp2 = tmplts[len(tmplts)-1]
+    x_break.append(tmp1)
+    x_bins[n_lines] += tmp1
+
+fig_num = 0
+if opts.m1_m2:
+  fig_num += 1
+  figure(fig_num)
+  plot(templates.get_column('mass1'),templates.get_column('mass2'),'bx')
+  grid()
+  title(file[0])
+  xlabel('mass1')
+  ylabel('mass2')
+
+  print len(templates)
+
+if opts.mchirp_eta:
+  fig_num += 1
+  figure(fig_num)
+  plot(templates.get_column('mchirp'),templates.get_column('eta'),'bx')
+  grid()
+  title(file[0])
+  xlabel('mchirp')
+  ylabel('eta')
+
+if opts.tau0_tau3:
+  fig_num += 1
+  figure(fig_num)
+  plot(templates.get_column('tau0'),templates.get_column('tau3'),'bx', \
+    [3.628166],[1.292681],'r1')
+  grid()
+  if opts.x_lim and opts.y_lim:
+    axis([0.0,opts.x_lim,0.0,opts.y_lim])
+  title(file[0])
+  xlabel('tau0')
+  ylabel('tau3')
+  if opts.figure_name:
+    savefig(opts.figure_name + '.png')
+
+if opts.inj_time:
+  injTemplates = [[],[]]
+  for tmplt in templates:
+    if abs(tmplt.end_time - opts.inj_time + \
+         10**(-9) * tmplt.end_time_ns) < 1.0:
+      injTemplates[0].append(tmplt.tau0)
+      injTemplates[1].append(tmplt.tau3)
+  fig_num += 1
+  figure(fig_num)
+  plot(injTemplates[0],injTemplates[1],'bx',[3.628166],[1.292681],'r1')
+  grid()
+  if opts.x_lim and opts.y_lim:
+    axis([0.0,opts.x_lim,0.0,opts.y_lim])
+  title(file[0] + '\n' + str(int(opts.inj_time)))
+  xlabel('tau0')
+  ylabel('tau3')
+  if opts.figure_name:
+    savefig(opts.figure_name + '_' + str(int(opts.inj_time)) + '.png')
+
+if opts.show_plot:
+  show()
+
+#  if get_bins:
+#    for i in range(len(x_break)):
+#      axvline(x_break[i],linewidth=2,color='k')
+#  elif x_break:
+#    v = axis()
+#    contour_x = []
+#    contour_y = []
+#    contour_z = []
+#    for i in range(101):
+#      contour_x.append( (v[1]-v[0])*float(i)/100.0 + v[0] )
+#      contour_y.append( (v[3]-v[2])*float(i)/100.0 + v[2] )
+#    for i in range(101):
+#      contour_z.append([])
+#      for j in range(101):
+#        contour_z[i].append( ((contour_x[i]*contour_y[j])**(3.0/5.0))/((contour_x[i]+contour_y[j]+0.00001)**(1.0/5.0)) )
+#    contour(contour_x,contour_y,contour_z,x_break,linewidths=2,colors='k')
+#    axis(v)
+#  title(tmplt)
+#  xlabel(x_name)
+#  ylabel(y_name)
+#    savefig(tmplt + file_name_add + '.png')
+#  fig_num += 1
+
+#  if get_bins:
+#    print len(tmplts)
+#    print x_break
+
+#for i in range(len(x_bins)):
+#  x_bins[i] /= float(n_names)
+
