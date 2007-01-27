@@ -80,8 +80,9 @@ IDTypes = ["ilwd:char", "ilwd:char_u"]
 StringTypes = IDTypes + ["char_s", "char_v", "lstring", "string"]
 IntTypes = ["int_2s", "int_2u", "int_4s", "int_4u", "int_8s", "int_8u", "int"]
 FloatTypes = ["real_4", "real_8", "float", "double"]
+TimeTypes = ["GPS", "Unix", "ISO-8601"]
 
-Types = StringTypes + IntTypes + FloatTypes
+Types = StringTypes + IntTypes + FloatTypes + TimeTypes
 
 ToFormat = {
 	"char_s": "\"%s\"",
