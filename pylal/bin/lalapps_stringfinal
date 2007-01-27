@@ -321,14 +321,6 @@ def render_data_from_bins(dump_file, axes, efficiency, cal_uncertainty, filter_w
 	return line, A50, A50_err
 
 
-def latexnumber(s):
-	"""
-	Convert a string of the form "d.dddde-dd" to "d.dddd \times
-	10^{-dd}"
-	"""
-	return re.sub(r"([+-]?[.0-9]+)[Ee]?([+-]?[0-9]+)", r"\1 \\times 10^{\2}", s)
-
-
 class Efficiency(SnglBurstUtils.BurstPlot):
 	def __init__(self, loudest_survivor, cal_uncertainty, amplitude_factor, filter_width):
 		SnglBurstUtils.BurstPlot.__init__(self, r"Injection Amplitude (\(\mathrm{s}^{-\frac{1}{3}}\))", "Detection Efficiency")
@@ -463,7 +455,7 @@ WHERE
 		print "Pipeline's 50%% efficiency point for detections above loudest = %g +/- %g%%\n" % (A50_above_loudest, A50_above_loudest_err * 100)
 
 		# add a legend to the axes
-		self.axes.legend((line1, line2), (r"All recovered injections", r"\noindent Injections recovered in %s with\\\(A > %s\,\mathrm{s}^{-\frac{1}{3}}\)" % (self.loudest_survivor_inst, latexnumber("%g" % (self.loudest_survivor_ampl * self.amplitude_factor)))), loc = "lower right")
+		self.axes.legend((line1, line2), (r"All recovered injections", r"\noindent Injections recovered in %s with\\\(A > %s\,\mathrm{s}^{-\frac{1}{3}}\)" % (self.loudest_survivor_inst, SnglBurstUtils.latexnumber("%g" % (self.loudest_survivor_ampl * self.amplitude_factor)))), loc = "lower right")
 
 		# adjust vertical limits
 		self.axes.set_ylim([0, 1])
