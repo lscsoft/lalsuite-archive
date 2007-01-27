@@ -62,6 +62,7 @@ setup(
 		os.path.join("bin", "plotburstrate"),
 		os.path.join("bin", "plotchannel"),
 		os.path.join("bin", "plotdetresponse"),
+		os.path.join("bin", "plotlalseries"),
 		os.path.join("bin", "plotsiminspiral"),
 		os.path.join("bin", "plotnumgalaxies"),
 		os.path.join("bin", "upperlimit.py"),
