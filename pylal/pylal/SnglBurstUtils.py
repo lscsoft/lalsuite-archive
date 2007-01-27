@@ -41,6 +41,7 @@ matplotlib.rcParams.update({
 })
 from matplotlib import figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg
+import re
 import sys
 
 from glue import segments
