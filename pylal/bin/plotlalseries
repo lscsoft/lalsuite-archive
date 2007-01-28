@@ -160,7 +160,8 @@ for filename in filenames:
 	#
 
 	for n, a in enumerate(xmldoc.getElementsByTagName(ligolw.Array.tagName)):
-		print "Found %s array \"%s\"..." % ("x".join(map(str, a.array.shape)), a.getAttribute("Name")),
+		if options.verbose:
+			print "\tfound %s array \"%s\" ..." % ("x".join(map(str, a.array.shape)), a.getAttribute("Name"))
 
 		metadata = LALmetadata(a)
 
@@ -182,5 +183,6 @@ for filename in filenames:
 
 		plotname = "%s_%02d.png" % (basename, n)
 		fig.savefig(plotname)
-		print "saved as %s" % plotname
+		if options.verbose:
+			print "\t\tsaved as %s" % plotname
 
