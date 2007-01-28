@@ -41,6 +41,8 @@ import re
 import sys
 from xml import sax
 
+import types
+
 
 #
 # =============================================================================
@@ -450,7 +452,7 @@ class Time(Element):
 	def __init__(self, attrs = sax.xmlreader.AttributesImpl({})):
 		if not attrs.has_key("Type"):
 			attrs._attrs["Type"] = u"ISO-8601"
-		if attrs["Type"] not in [u"GPS", u"Unix", u"ISO-8601"]:
+		if attrs["Type"] not in types.TimeTypes:
 			raise ElementError, "invalid Type for Time: %s" % attrs["Type"]
 		Element.__init__(self, attrs)
 
