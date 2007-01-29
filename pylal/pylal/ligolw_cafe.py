@@ -218,20 +218,28 @@ def write_single_instrument_caches(base, bins, instruments, verbose = False):
 #
 
 def ligolw_cafe(cache, time_slides, verbose = False):
+	# Construct a segment list dictionary from the cache
 	if verbose:
 		print >>sys.stderr, "computing segment list ..."
 	seglists = cache_to_seglistdict(cache)
+
 	# For each instrument compute the times for which it will
 	# contribute triggers to a coincidence analysis.  Times not spanned
 	# by these lists are those times for which no time slide can
 	# possibly produce coincident triggers.
 	seglists = llwapp.get_coincident_segmentlistdict(seglists, time_slides)
 
+	# Remove files that will not participate in a coincidence.  Rather
+	# than modifying the list in place, we make a copy so as to not
+	# modify the calling code's data.
+	if verbose:
+		print >>sys.stderr, "filtering input cache ..."
+	cache = [c for c in cache if seglists.intersects(c.to_segmentlistdict())]
+
 	# optimization: adding files to bins in time order keeps the number
 	# of bins from growing larger than needed.
 	if verbose:
 		print >>sys.stderr, "sorting input cache ..."
-	cache = list(cache)
 	cache.sort(lambda a, b: cmp(a.segment, b.segment))
 
 	# Pack cache entries into output caches.
