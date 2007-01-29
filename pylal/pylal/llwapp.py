@@ -303,7 +303,7 @@ def get_coincident_segmentlistdict(seglistdict, offsetdictlist):
 	corresponding list in seglistdict which are coincident under at
 	least one of the time slides described by offsetdictlist.
 
-	offsetlistdict is a list of dictionaries of instrument/offset
+	offsetdictlist is a list of dictionaries of instrument/offset
 	pairs, with each dictionary describing a time slide and the
 	instruments that participate in it.  Each element in the list is
 	free to contain only subsets of the keys in seglistdict.  In those
