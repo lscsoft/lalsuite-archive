@@ -185,7 +185,7 @@ def make_xticks(segment):
 # build a figure whose axes are 3" wide per week, and whose height is the width
 # of a US letter page (minus some typical printer margins)
 def newfig(segment):
-	weeks = float(segment.duration())/86400.0/7.0	# FIXME: leep seconds?
+	weeks = float(abs(segment))/86400.0/7.0	# FIXME: leep seconds?
 	border = [0.5, 0.75, 0.125, 0.625]	# inches
 	width = weeks * 3.0 + border[0] + border[2]	# inches
 	height = 8.0	# inches
