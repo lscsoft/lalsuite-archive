@@ -39,8 +39,8 @@ __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
 
 import math
-import numarray
-from numarray import convolve
+import numpy
+from scipy.signal import signaltools
 
 from glue import segments
 from pylal import itertools
@@ -100,7 +100,7 @@ class _LinBins(_Bins):
 		raise IndexError, x
 
 	def centres(self):
-		return self.min + self.delta * numarray.arange(0.5, self.n + 0.5, 1, "Float64")
+		return self.min + self.delta * numpy.arange(0.5, self.n + 0.5, 1, "Float64")
 
 
 class _LogBins(_Bins):
@@ -125,7 +125,7 @@ class _LogBins(_Bins):
 		raise IndexError, x
 
 	def centres(self):
-		return self.min * numarray.exp(self.delta * numarray.arange(0.5, self.n + 0.5, 1, "Float64"))
+		return self.min * numpy.exp(self.delta * numpy.arange(0.5, self.n + 0.5, 1, "Float64"))
 
 
 class Bins(object):
@@ -237,7 +237,7 @@ class BinnedArray(object):
 	"""
 	def __init__(self, bins):
 		self.bins = bins
-		self.array = numarray.zeros(bins.shape, "Float64")
+		self.array = numpy.zeros(bins.shape, "Float64")
 
 	def __getitem__(self, coords):
 		return self.array[self.bins[coords]]
@@ -276,14 +276,14 @@ class BinnedArray(object):
 		effect of allowing the logarithm of the array to be
 		evaluated without error.
 		"""
-		numarray.where(self.array > 0, self.array, epsilon, out = self.array)
+		self.array = numpy.where(self.array > 0, self.array, epsilon)
 		return self
 
 	def used(self):
 		"""
 		Return the number of bins that are non-zero.
 		"""
-		return len(numarray.nonzero(self.array)[0])
+		return len(numpy.nonzero(self.array)[0])
 
 
 class BinnedRatios(object):
@@ -297,8 +297,8 @@ class BinnedRatios(object):
 	"""
 	def __init__(self, bins):
 		self.bins = bins
-		self.numerator = numarray.zeros(bins.shape, "Float64")
-		self.denominator = numarray.zeros(bins.shape, "Float64")
+		self.numerator = numpy.zeros(bins.shape, "Float64")
+		self.denominator = numpy.zeros(bins.shape, "Float64")
 
 	def __iadd__(self, other):
 		"""
@@ -348,7 +348,7 @@ class BinnedRatios(object):
 		evaluated without error, returning zeros in those bins that
 		have had no weight added to them.
 		"""
-		numarray.where(self.denominator > 0, self.denominator, 1.0, out = self.denominator)
+		self.denominator = numpy.where(self.denominator > 0, self.denominator, 1.0)
 		return self
 
 	def logregularize(self, epsilon = 2**-1074):
@@ -358,8 +358,8 @@ class BinnedRatios(object):
 		float epsilon.  This has the effect of allowing the
 		logarithm of the ratio array to be evaluated without error.
 		"""
-		numarray.where(self.denominator > 0, self.numerator, epsilon, out = self.numerator)
-		numarray.where(self.denominator > 0, self.denominator, 1.0, out = self.denominator)
+		self.numerator = numpy.where(self.denominator > 0, self.numerator, epsilon)
+		self.denominator = numpy.where(self.denominator > 0, self.denominator, 1.0)
 		return self
 
 	def centres(self):
@@ -373,7 +373,7 @@ class BinnedRatios(object):
 		"""
 		Return the number of bins with non-zero denominator.
 		"""
-		return len(numarray.nonzero(self.denominator)[0])
+		return len(numpy.nonzero(self.denominator)[0])
 
 
 #
@@ -392,7 +392,7 @@ def gaussian_window(bins):
 	if bins <= 0:
 		raise ValueError, bins
 	bins /= 2.0	# half-width
-	return numarray.exp(-numarray.arrayrange(-10 * int(bins), 10 * int(bins) + 1, 1, "Float64")**2.0 / (2.0 * bins**2.0)) / math.sqrt(2.0 * math.pi) / bins
+	return numpy.exp(-numpy.arange(-10 * int(bins), 10 * int(bins) + 1, 1, "Float64")**2.0 / (2.0 * bins**2.0)) / math.sqrt(2.0 * math.pi) / bins
 
 
 def gaussian_window2d(bins_x, bins_y):
@@ -401,7 +401,7 @@ def gaussian_window2d(bins_x, bins_y):
 	dimensions.  bins_x and bins_y set the widths of the window in bin
 	counts.
 	"""
-	return numarray.outerproduct(gaussian_window(bins_x), gaussian_window(bins_y))
+	return numpy.outer(gaussian_window(bins_x), gaussian_window(bins_y))
 
 
 def tophat_window(bins):
@@ -412,7 +412,7 @@ def tophat_window(bins):
 	if bins <= 0:
 		raise ValueError, bins
 	bins = int(bins / 2) * 2 + 1
-	return numarray.ones(bins, "Float64") / bins
+	return numpy.ones(bins, "Float64") / bins
 
 
 def tophat_window2d(bins_x, bins_y):
@@ -427,7 +427,7 @@ def tophat_window2d(bins_x, bins_y):
 		raise ValueError, bins_y
 
 	# fill rectangle with ones
-	window = numarray.ones((int(bins_x / 2) * 2 + 1, int(bins_y / 2) * 2 + 1), "Float64")
+	window = numpy.ones((int(bins_x / 2) * 2 + 1, int(bins_y / 2) * 2 + 1), "Float64")
 
 	# zero the bins outside the window
 	for x in xrange(int(bins_x / 2) * 2 + 1):
@@ -436,7 +436,7 @@ def tophat_window2d(bins_x, bins_y):
 				window[x, y] = 0.0
 
 	# normalize
-	return window / numarray.sum(numarray.sum(window))
+	return window / numpy.sum(numpy.sum(window))
 
 
 #
@@ -482,14 +482,17 @@ def filter_array(a, window, cyclic = False):
 			window_slices.append(slice(0, window.shape[d]))
 	if dims == 1:
 		if cyclic:
-			numarray.putmask(a, 1, convolve.convolve(numarray.concatenate((a, a, a)), window[window_slices], mode = convolve.SAME)[len(a) : 2 * len(a)])
+			# FIXME: use fftconvolve for increase in speed when
+			# cyclic boundaries are wanted.  but look into
+			# accuracy.
+			a[:] = signaltools.convolve(numpy.concatenate((a, a, a)), window[window_slices], mode = "same")[len(a) : 2 * len(a)]
 		else:
-			numarray.putmask(a, 1, convolve.convolve(a, window[window_slices], mode = convolve.SAME))
+			a[:] = signaltools.convolve(a, window[window_slices], mode = "same")
 	elif dims == 2:
 		if cyclic:
-			numarray.putmask(a, 1, convolve.convolve2d(a, window[window_slices], mode = "wrap"))
+			a[:,:] = signaltools.convolve2d(a, window[window_slices], mode = "same", boundary = "wrap")
 		else:
-			numarray.putmask(a, 1, convolve.convolve2d(a, window[window_slices], mode = "constant"))
+			a[:,:] = signaltools.convolve2d(a, window[window_slices], mode = "same")
 	else:
 		raise ValueError, "can only filter 1 and 2 dimensional arrays"
 	return a
@@ -516,9 +519,9 @@ class Rate(BinnedArray):
 		self.filterwidth = filterwidth
 		self.windowfunc = windowfunc
 		# nominal bin size is 1/20th of the filterwidth
-		BinnedArray.__init__(self, Bins(segment[0], segment[1], int(segment.duration() / (filterwidth / 20.0)) + 1))
+		BinnedArray.__init__(self, Bins(segment[0], segment[1], int(abs(segment) / (filterwidth / 20.0)) + 1))
 		# determine actual bin size from bin count
-		self.binsize = float(segment.duration()) / self.bins.shape[0]
+		self.binsize = float(abs(segment)) / self.bins.shape[0]
 
 	def __setitem__(self, x, weight):
 		"""
@@ -563,9 +566,9 @@ class RatiosRate(BinnedRatios):
 		self.filterwidth = filterwidth
 		self.windowfunc = windowfunc
 		# nominal bin size is 1/20th of the filterwidth
-		BinnedRatios.__init__(self, Bins(segment[0], segment[1], int(segment.duration() / (filterwidth / 20.0)) + 1))
+		BinnedRatios.__init__(self, Bins(segment[0], segment[1], int(abs(segment) / (filterwidth / 20.0)) + 1))
 		# determine actual bin size from bin count
-		self.binsize = float(segment.duration()) / self.bins.shape[0]
+		self.binsize = float(abs(segment)) / self.bins.shape[0]
 
 	def set_filterwidth(self, filterwidth):
 		"""
