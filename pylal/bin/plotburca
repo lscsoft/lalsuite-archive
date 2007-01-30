@@ -29,7 +29,7 @@
 from optparse import OptionParser
 import math
 import matplotlib.cm
-import numarray
+import numpy
 import os
 from pysqlite2 import dbapi2 as sqlite3
 import sys
@@ -94,7 +94,7 @@ def time_slide_is_null(offsets):
 class RateContours(SnglBurstUtils.BurstPlot):
 	def __init__(self, x_instrument, y_instrument, min_delta_t, max_delta_t):
 		SnglBurstUtils.BurstPlot.__init__(self, "%s Offset (s)" % x_instrument, "%s Offset (s)" % y_instrument)
-		self.fig.set_figsize_inches(16,16)
+		self.fig.set_size_inches(6,6)
 		self.x_instrument = x_instrument
 		self.y_instrument = y_instrument
 		self.tisi_rows = None
@@ -116,12 +116,12 @@ class RateContours(SnglBurstUtils.BurstPlot):
 	def finish(self):
 		for offsets in self.tisi_rows:
 			self.seglists.offsets.update(offsets)
-			self.bins.incdenominator((offsets[self.x_instrument], offsets[self.y_instrument]), float(self.seglists.intersection(self.seglists.keys()).duration()))
+			self.bins.incdenominator((offsets[self.x_instrument], offsets[self.y_instrument]), float(abs(self.seglists.intersection(self.seglists.keys()))))
 		self.bins.logregularize()
 		zvals = self.bins.ratio()
 		rate.filter_array(zvals, rate.gaussian_window2d(8, 8))
 		xcoords, ycoords = self.bins.centres()
-		self.axes.contour(xcoords, ycoords, numarray.transpose(numarray.log(zvals)))
+		self.axes.contour(xcoords, ycoords, numpy.transpose(numpy.log(zvals)))
 		for offsets in self.tisi_rows:
 			if time_slide_is_null(offsets):
 				self.axes.plot((offsets[self.x_instrument],), (offsets[self.y_instrument],), "r+")
@@ -183,7 +183,7 @@ def keep_3(coinc_bursts):
 class ConfidenceContours(SnglBurstUtils.BurstPlot):
 	def __init__(self, x_instrument, y_instrument, magnitude, desc, min_magnitude, max_magnitude):
 		SnglBurstUtils.BurstPlot.__init__(self, "%s %s" % (x_instrument, desc), "%s %s" % (y_instrument, desc))
-		self.fig.set_figsize_inches(16,16)
+		self.fig.set_size_inches(6,6)
 		self.axes.loglog()
 		self.x_instrument = x_instrument
 		self.y_instrument = y_instrument
@@ -264,20 +264,20 @@ class ConfidenceContours(SnglBurstUtils.BurstPlot):
 
 		# plot background contours
 		max_density = math.log(self.background_bins.array.max())
-		self.axes.contour(xcoords, ycoords, numarray.transpose(numarray.log(self.background_bins.array)), [max_density - n for n in xrange(0, 10, 1)], cmap = matplotlib.cm.Greys)
+		self.axes.contour(xcoords, ycoords, numpy.transpose(numpy.log(self.background_bins.array)), [max_density - n for n in xrange(0, 10, 1)], cmap = matplotlib.cm.Greys)
 
 		# plot foreground (zero-lag) contours
 		max_density = math.log(self.foreground_bins.array.max())
-		self.axes.contour(xcoords, ycoords, numarray.transpose(numarray.log(self.foreground_bins.array)), [max_density - n for n in xrange(0, 10, 1)], cmap = matplotlib.cm.Reds)
+		self.axes.contour(xcoords, ycoords, numpy.transpose(numpy.log(self.foreground_bins.array)), [max_density - n for n in xrange(0, 10, 1)], cmap = matplotlib.cm.Reds)
 		#self.axes.plot(self.foreground_x, self.foreground_y, "r+")
 
 		# plot coincident injection contours
 		max_density = math.log(self.coinc_injection_bins.array.max())
-		self.axes.contour(xcoords, ycoords, numarray.transpose(numarray.log(self.coinc_injection_bins.array)), [max_density - n for n in xrange(0, 10, 1)], cmap = matplotlib.cm.Blues)
+		self.axes.contour(xcoords, ycoords, numpy.transpose(numpy.log(self.coinc_injection_bins.array)), [max_density - n for n in xrange(0, 10, 1)], cmap = matplotlib.cm.Blues)
 
 		# plot coincident injection contours
 		max_density = math.log(self.incomplete_coinc_injection_bins.array.max())
-		self.axes.contour(xcoords, ycoords, numarray.transpose(numarray.log(self.incomplete_coinc_injection_bins.array)), [max_density - n for n in xrange(0, 10, 1)], cmap = matplotlib.cm.Greens)
+		self.axes.contour(xcoords, ycoords, numpy.transpose(numpy.log(self.incomplete_coinc_injection_bins.array)), [max_density - n for n in xrange(0, 10, 1)], cmap = matplotlib.cm.Greens)
 
 		# add diagonal line
 		lower = max(self.background_bins.bins.min)
@@ -292,7 +292,7 @@ class ConfidenceContours(SnglBurstUtils.BurstPlot):
 class ConfidenceContourProjection(SnglBurstUtils.BurstPlot):
 	def __init__(self, x, y, magnitude, max_magnitude):
 		SnglBurstUtils.BurstPlot.__init__(self, "X", "Y")
-		self.fig.set_figsize_inches(16,16)
+		self.fig.set_size_inches(6,6)
 		self.x = x
 		self.y = y
 		self.magnitude = magnitude
@@ -306,7 +306,7 @@ class ConfidenceContourProjection(SnglBurstUtils.BurstPlot):
 		self.incomplete_coinc_injection_bins = rate.BinnedArray(rate.Bins(-max_magnitude, max_magnitude, 1024, -max_magnitude, max_magnitude, 1024, spacing = ["lin", "lin"]))
 
 	def coords(self, coinc_bursts):
-		mag = numarray.zeros(3, "Float64")
+		mag = numpy.zeros(3, "Float64")
 		for burst in coinc_bursts:
 			if burst.ifo == "H1":
 				mag[0] = math.log10(self.magnitude(burst))
@@ -314,7 +314,7 @@ class ConfidenceContourProjection(SnglBurstUtils.BurstPlot):
 				mag[1] = math.log10(self.magnitude(burst))
 			elif burst.ifo == "L1":
 				mag[2] = math.log10(self.magnitude(burst))
-		return numarray.dot(mag, self.x), numarray.dot(mag, self.y)
+		return numpy.inner(mag, self.x), numpy.inner(mag, self.y)
 
 	def add_contents(self, contents):
 		for coinc in contents.coinc_table.selectByDefID(contents.bb_definer_id):
@@ -369,20 +369,20 @@ class ConfidenceContourProjection(SnglBurstUtils.BurstPlot):
 
 		# plot background contours
 		max_density = math.log(self.background_bins.array.max())
-		self.axes.contour(xcoords, ycoords, numarray.transpose(numarray.log(self.background_bins.array)), [max_density - n for n in xrange(0, 10, 1)], cmap = matplotlib.cm.Greys)
+		self.axes.contour(xcoords, ycoords, numpy.transpose(numpy.log(self.background_bins.array)), [max_density - n for n in xrange(0, 10, 1)], cmap = matplotlib.cm.Greys)
 
 		# plot foreground (zero-lag) contours
 		max_density = math.log(self.foreground_bins.array.max())
-		self.axes.contour(xcoords, ycoords, numarray.transpose(numarray.log(self.foreground_bins.array)), [max_density - n for n in xrange(0, 10, 1)], cmap = matplotlib.cm.Reds)
+		self.axes.contour(xcoords, ycoords, numpy.transpose(numpy.log(self.foreground_bins.array)), [max_density - n for n in xrange(0, 10, 1)], cmap = matplotlib.cm.Reds)
 		#self.axes.plot(self.foreground_x, self.foreground_y, "r+")
 
 		# plot coincident injection contours
 		max_density = math.log(self.coinc_injection_bins.array.max())
-		self.axes.contour(xcoords, ycoords, numarray.transpose(numarray.log(self.coinc_injection_bins.array)), [max_density - n for n in xrange(0, 10, 1)], cmap = matplotlib.cm.Blues)
+		self.axes.contour(xcoords, ycoords, numpy.transpose(numpy.log(self.coinc_injection_bins.array)), [max_density - n for n in xrange(0, 10, 1)], cmap = matplotlib.cm.Blues)
 
 		# plot coincident injection contours
 		max_density = math.log(self.incomplete_coinc_injection_bins.array.max())
-		self.axes.contour(xcoords, ycoords, numarray.transpose(numarray.log(self.incomplete_coinc_injection_bins.array)), [max_density - n for n in xrange(0, 10, 1)], cmap = matplotlib.cm.Greens)
+		self.axes.contour(xcoords, ycoords, numpy.transpose(numpy.log(self.incomplete_coinc_injection_bins.array)), [max_density - n for n in xrange(0, 10, 1)], cmap = matplotlib.cm.Greens)
 
 		# fix axes limits
 		self.axes.set_xlim([self.background_bins.bins.min[0], self.background_bins.bins.max[0]])
@@ -426,8 +426,8 @@ class RateVsConfidence(SnglBurstUtils.BurstPlot):
 		self.axes.set_title("Cummulative Coincident Event Rate vs. Confidence in %s" % self.instrument)
 		self.background.sort()
 		self.foreground.sort()
-		background_y = numarray.arange(len(self.background), 0.0, -1.0, "Float64") / float(self.background_segs.duration())
-		foreground_y = numarray.arange(len(self.foreground), 0.0, -1.0, "Float64") / float(self.foreground_segs.duration())
+		background_y = numpy.arange(len(self.background), 0.0, -1.0, "Float64") / float(abs(self.background_segs))
+		foreground_y = numpy.arange(len(self.foreground), 0.0, -1.0, "Float64") / float(abs(self.foreground_segs))
 		self.axes.plot(self.background, background_y, "ko-")
 		self.axes.plot(self.foreground, foreground_y, "ro-", markeredgecolor = "r")
 
@@ -506,7 +506,7 @@ def new_plots(plots):
 		ConfidenceContours("H2", "H1", magnitude_b, r"Power / D.o.F. / ($F_{+}^{2} + F_{\times}^{2}$)", 1, 10**10),
 		ConfidenceContours("H2", "L1", magnitude_b, r"Power / D.o.F. / ($F_{+}^{2} + F_{\times}^{2}$)", 1, 10**10),
 		ConfidenceContours("L1", "H1", magnitude_b, r"Power / D.o.F. / ($F_{+}^{2} + F_{\times}^{2}$)", 1, 10**10),
-		ConfidenceContourProjection(numarray.array((-1/math.sqrt(2), +1/math.sqrt(2), 0), "Float64"), numarray.array((-1/math.sqrt(4), -1/math.sqrt(4), +1/math.sqrt(2)), "Float64"), magnitude_b, 10**5),
+		ConfidenceContourProjection(numpy.array((-1/math.sqrt(2), +1/math.sqrt(2), 0), "Float64"), numpy.array((-1/math.sqrt(4), -1/math.sqrt(4), +1/math.sqrt(2)), "Float64"), magnitude_b, 10**5),
 		RateVsConfidence("H1"),
 		RateVsConfidence("H2"),
 		RateVsConfidence("L1"),
