@@ -12,6 +12,8 @@ import re
 import exceptions
 import glob
 from types import *
+import matplotlib
+matplotlib.use('Agg')
 
 from pylab import *
 from pylal import viz
@@ -112,7 +114,8 @@ for ifos in two_ifo_list:
       for ifo in ifos:
         xVals = coincs.getsngls(ifo).get_column(col)
         figure()
-        plot(xVals,ethincaVals,'kx',markeredgewidth=1,markersize=6)
+        plot(xVals,ethincaVals,'rx',markeredgewidth=1,markersize=6)
+        grid(True)
         ylim(0,1)
         xlabel(ifo + " " + col, size="x-large")
         ylabel("E-thinca parameter", size="x-large")
