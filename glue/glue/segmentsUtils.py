@@ -122,14 +122,14 @@ def fromsegwizard(file, coltype=int, strict=True):
 			try:
 				[tokens] = twocolsegpat.findall(line)
 				seg = segments.segment(map(coltype, tokens[0:2]))
-				duration = seg.duration()
+				duration = abs(seg)
 				this_line_format = 2
 			except ValueError:
 				break
 		if strict:
-			if seg.duration() != duration:
+			if abs(seg) != duration:
 				raise ValueError, "segment \"" + line + "\" has incorrect duration"
-			if not format:
+			if format is None:
 				format = this_line_format
 			elif format != this_line_format:
 				raise ValueError, "segment \"" + line + "\" format mismatch"
@@ -174,7 +174,7 @@ def tosegwizard(file, seglist, header=True, coltype=int):
 	if header:
 		print >>file, "# seg\tstart    \tstop     \tduration"
 	for n, seg in enumerate(seglist):
-		print >>file, "%d\t%s\t%s\t%s" % (n, coltype(seg[0]), coltype(seg[1]), coltype(seg.duration()))
+		print >>file, "%d\t%s\t%s\t%s" % (n, coltype(seg[0]), coltype(seg[1]), coltype(abs(seg)))
 
 
 #

@@ -57,7 +57,7 @@ static int segments_SegmentList_Check(PyObject *obj)
  */
 
 
-static PyObject *duration(PyObject *self, PyObject *nul)
+static PyObject *__abs__(PyObject *self)
 {
 	/* FIXME */
 	return NULL;
@@ -214,6 +214,7 @@ static PyNumberMethods as_number = {
 	.nb_inplace_subtract = __isub__,
 	.nb_subtract = __sub__,
 	.nb_invert = __invert__,
+	.nb_absolute = __abs__,
 };
 
 
@@ -223,7 +224,6 @@ static PySequenceMethods as_sequence = {
 
 
 static struct PyMethodDef methods[] = {
-	{"duration", duration, METH_NOARGS, ""},
 	{"extent", extent, METH_NOARGS, ""},
 	{"find", find, METH_O, ""},
 	{"intersects", intersects, METH_O, ""},

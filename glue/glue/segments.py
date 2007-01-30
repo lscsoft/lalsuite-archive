@@ -251,12 +251,14 @@ class segment(tuple):
 
 	# accessors
 
-	def duration(self):
+	def __abs__(self):
 		"""
 		Returns the length of the interval represented by the
 		segment.
 		"""
 		return self[1] - self[0]
+
+	duration = __abs__
 
 	# comparisons
 
@@ -437,15 +439,17 @@ class segmentlist(list):
 
 	# suplementary accessors
 
-	def duration(self):
+	def __abs__(self):
 		"""
 		Return the sum of the durations of all segments in self.
 		Does not require the segmentlist to be coalesced.
 		"""
 		d = 0
 		for seg in self:
-			d += seg.duration()
+			d += abs(seg)
 		return d
+
+	duration = __abs__
 
 	def extent(self):
 		"""
@@ -850,12 +854,14 @@ class segmentlistdict(dict):
 			d[key] = func(value)
 		return d
 
-	def duration(self):
+	def __abs__(self):
 		"""
-		Return a dictionary of the results of running duration() on
+		Return a dictionary of the results of running abs() on
 		each of the segmentlists.
 		"""
-		return self.map(segmentlist.duration)
+		return self.map(abs)
+
+	duration = __abs__
 
 	def extent(self):
 		"""

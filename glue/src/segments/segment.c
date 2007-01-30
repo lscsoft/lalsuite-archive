@@ -80,6 +80,7 @@ static PyObject *__new__(PyTypeObject *type, PyObject *args, PyObject *kwds)
 	Py_INCREF(a);
 	Py_INCREF(b);
 
+	PyErr_Clear();
 	delta = PyObject_Compare(a, b);
 	if(PyErr_Occurred()) {
 		Py_DECREF(a);
@@ -120,7 +121,7 @@ static PyObject *__str__(PyObject *self)
  */
 
 
-static PyObject *duration(PyObject *self, PyObject *nul)
+static PyObject *__abs__(PyObject *self)
 {
 	return PyNumber_Subtract(PyTuple_GET_ITEM(self, 1), PyTuple_GET_ITEM(self, 0));
 }
@@ -336,6 +337,7 @@ static PyObject *shift(PyObject *self, PyObject *delta)
 static PyNumberMethods as_number = {
 	.nb_add = __or__,
 	.nb_and = __and__,
+	.nb_absolute = __abs__,
 	.nb_nonzero = __nonzero__,
 	.nb_or = __or__,
 	.nb_subtract = __sub__,
@@ -348,7 +350,6 @@ static PySequenceMethods as_sequence = {
 
 
 static struct PyMethodDef methods[] = {
-	{"duration", duration, METH_NOARGS, ""},
 	{"order", order, METH_O, ""},
 	{"intersects", intersects, METH_O, ""},
 	{"continuous", continuous, METH_O, ""},

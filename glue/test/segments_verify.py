@@ -164,7 +164,7 @@ class test_segment(unittest.TestCase):
 			infinity(),
 			infinity()
 		]
-		map(lambda i, r, a: self.assertEqual((i, r), (i, a.duration())), xrange(len(results)), results, self.set2)
+		map(lambda i, r, a: self.assertEqual((i, r), (i, abs(a))), xrange(len(results)), results, self.set2)
 
 	def testintersects(self):
 		results = [
