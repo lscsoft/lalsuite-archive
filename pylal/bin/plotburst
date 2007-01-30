@@ -28,7 +28,7 @@
 
 import math
 from optparse import OptionParser
-import numarray
+import numpy
 import sys
 
 from glue import segments
@@ -85,7 +85,7 @@ except ValueError, e:
 #
 
 def snglburst_init(self, attrs):
-	lsctables.LSCTableUnique.__init__(self, attrs)
+	table.Table.__init__(self, attrs)
 	self.nevents = {}
 	self.start_time = {}
 	self.duration = {}
@@ -186,7 +186,7 @@ class ConfidenceVsTime(SnglBurstUtils.BurstPlot):
 		self.axes.set_title("Trigger Confidence vs. Time\n(%d Triggers)" % self.nevents)
 		self.axes.plot(self.x, self.y, "k+")
 		for seg in ~self.seglist & segments.segmentlist([segments.segment(self.axes.get_xlim())]):
-			self.axes.axvspan(seg[0], seg[1], facecolor = "k", alpha = 0.2)
+			self.axes.axvspan(float(seg[0]), float(seg[1]), facecolor = "k", alpha = 0.2)
 
 
 #
@@ -342,7 +342,7 @@ class RateVsSNR(SnglBurstUtils.BurstPlot):
 	def finish(self):
 		self.axes.set_title("Cummulative Trigger Rate vs. SNR\n(%d Triggers)" % self.nevents)
 		self.x.sort()
-		self.y = numarray.arange(len(self.x), 0.0, -1.0) / float(self.seglist.duration())
+		self.y = numpy.arange(len(self.x), 0.0, -1.0) / float(abs(self.seglist))
 		self.axes.plot(self.x, self.y, "ko-")
 
 
@@ -370,7 +370,7 @@ class RateVsConfidence(SnglBurstUtils.BurstPlot):
 	def finish(self):
 		self.axes.set_title("Cummulative Trigger Rate vs. Confidence\n(%d Triggers)" % self.nevents)
 		self.x.sort()
-		self.y = numarray.arange(len(self.x), 0.0, -1.0, "Float64") / float(self.seglist.duration())
+		self.y = numpy.arange(len(self.x), 0.0, -1.0, "Float64") / float(abs(self.seglist))
 		self.axes.plot(self.x, self.y, "ko-")
 
 
@@ -391,13 +391,13 @@ class TimeFrequencyPlane(SnglBurstUtils.BurstPlot):
 
 	def add_contents(self, doc):
 		self.nevents += doc.nevents[self.ifo]
-		viz.tfplot(numarray.array(map(float, doc.start_time[self.ifo])), numarray.array(doc.duration[self.ifo]), numarray.array(doc.lo_freq[self.ifo]), numarray.array(doc.bandwidth[self.ifo]), numarray.log(numarray.array(doc.confidence[self.ifo])), axes = self.axes)
+		viz.tfplot(numpy.array(map(float, doc.start_time[self.ifo])), numpy.array(doc.duration[self.ifo]), numpy.array(doc.lo_freq[self.ifo]), numpy.array(doc.bandwidth[self.ifo]), numpy.log(numpy.array(doc.confidence[self.ifo])), axes = self.axes)
 		self.seglist |= doc.seglists[self.ifo]
 
 	def finish(self):
 		self.axes.set_title("Time-Frequency Plane\n(%d Triggers)" % self.nevents)
 		for seg in ~self.seglist & segments.segmentlist([segments.segment(self.axes.get_xlim())]):
-			self.axes.axvspan(seg[0], seg[1], facecolor = "k", alpha = 0.2)
+			self.axes.axvspan(float(seg[0]), float(seg[1]), facecolor = "k", alpha = 0.2)
 
 
 #
