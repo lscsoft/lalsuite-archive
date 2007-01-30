@@ -484,7 +484,7 @@ class SnglBurst(object):
 
 	def set_period(self, period):
 		self.start_time, self.start_time_ns = period[0].seconds, period[0].nanoseconds
-		self.duration = float(period.duration())
+		self.duration = float(abs(period))
 
 	def get_band(self):
 		low = self.central_freq - self.bandwidth / 2
@@ -492,7 +492,7 @@ class SnglBurst(object):
 
 	def set_band(self, band):
 		self.central_freq = (band[0] + band[1])/2.0
-		self.bandwidth = band.duration()
+		self.bandwidth = abs(band)
 
 
 SnglBurstTable.RowType = SnglBurst

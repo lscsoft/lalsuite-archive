@@ -278,7 +278,7 @@ try:
       elif format == 'segwizard':
         i = 0
         for seg in seglist:
-          print i,seg[0],seg[1],seg.duration()
+          print i,seg[0],seg[1],abs(seg)
           i += 1
       elif format == 'tcl' or format == 'python':
         if format == 'tcl':

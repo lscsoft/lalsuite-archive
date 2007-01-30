@@ -388,7 +388,7 @@ class CacheEntry(object):
 		"""
 		if self.segment != None:
 			start = self.segment[0]
-			duration = self.segment.duration()
+			duration = abs(self.segment)
 		else:
 			start = "-"
 			duration = "-"
