@@ -111,7 +111,7 @@ def from_array(name, array, dim_names = None):
 	s.reverse()
 	for n, dim in enumerate(s):
 		attrs = {}
-		if dim_names != None:
+		if dim_names is not None:
 			attrs["Name"] = dim_names[n]
 		child = ligolw.Dim(attrs)
 		child.pcdata = str(dim)
@@ -179,18 +179,16 @@ class ArrayStream(ligolw.Stream):
 	def appendData(self, content):
 		# some initialization that can only be done once parentNode
 		# has been set.
-		if self.__index == None:
+		if self.__index is None:
 			self.tokenizer.set_types([self.parentNode.pytype])
 			self.parentNode.array = numpy.zeros(self.parentNode.get_shape(), self.parentNode.arraytype)
 			self.__index = _IndexIter(self.parentNode.array.shape)
 
 		# tokenize buffer, and assign to array
 		a = self.parentNode.array
-		try:
-			for token in self.tokenizer.add(content):
-				a[self.__index.next()] = token
-		except StopIteration:
-			raise ligolw.ElementError, "too many values in Array"
+		n = self.__index.next
+		for token in self.tokenizer.add(content):
+			a[n()] = token
 
 	def unlink(self):
 		"""
