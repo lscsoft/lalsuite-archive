@@ -46,7 +46,7 @@ def parse_slidespec(slidespec):
 	"""
 	Accepts a string in the format
 	instrument=first:last:step[,first:last:step]...  and returns the
-	tuple (instruct, [offset1, offset2, ....]) where the offsets are
+	tuple (instrument, [offset1, offset2, ....]) where the offsets are
 	the sorted list of numbers described by the ranges.
 	"""
 	try:
