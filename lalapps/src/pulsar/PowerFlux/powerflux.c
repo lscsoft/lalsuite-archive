@@ -430,6 +430,10 @@ if(args_info.sky_marks_file_given) {
 	FILE *f;
 	int a;
 	f=fopen(args_info.sky_marks_file_arg, "r");
+	if(f==NULL) {
+		perror("Could not open skymarks file:");
+		exit(-1);
+		}
 	sky_marks_size=10000;
 	sky_marks=do_alloc(sky_marks_size, sizeof(char));
 	sky_marks_free=0;
