@@ -1,5 +1,3 @@
-#!/usr/bin/python
-#
 # $Id$
 #
 # Copyright (C) 2006  Kipp C. Cannon
