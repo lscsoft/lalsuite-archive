@@ -2,7 +2,8 @@
 # 
 # setup for pylal
 
-import os, numpy
+import os
+from numpy.lib.utils import get_include as numpy_get_include
 from distutils.core import setup, Extension
 
 class PkgConfig(object):
@@ -33,7 +34,7 @@ setup(
 			library_dirs = full_lal_pkg_config.libdirs,
 			runtime_library_dirs = full_lal_pkg_config.libdirs),
                 Extension("pylal.Fr", ["src/Fr.c"],
-                        include_dirs = full_lal_pkg_config.incdirs + [numpy.get_include()],
+                        include_dirs = full_lal_pkg_config.incdirs + [numpy_get_include()],
 			libraries = full_lal_pkg_config.libs,
 			library_dirs = full_lal_pkg_config.libdirs,
 			runtime_library_dirs = full_lal_pkg_config.libdirs),
@@ -48,7 +49,7 @@ setup(
 			library_dirs = lal_pkg_config.libdirs,
 			runtime_library_dirs = lal_pkg_config.libdirs),
 		Extension("pylal.xlal.inject", ["src/xlal/inject.c"],
-			include_dirs = lal_pkg_config.incdirs,
+			include_dirs = lal_pkg_config.incdirs + [numpy_get_include()],
 			libraries = lal_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs,
 			runtime_library_dirs = lal_pkg_config.libdirs)

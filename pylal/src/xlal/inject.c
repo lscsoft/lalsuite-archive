@@ -28,7 +28,7 @@
 
 #include <Python.h>
 #include <structmember.h>
-#include <numarray/libnumarray.h>
+#include <numpy/arrayobject.h>
 #include <lal/LALDetectors.h>
 #include <lal/DetResponse.h>
 
@@ -143,19 +143,18 @@ static PyObject *pylal_XLALComputeDetAMResponse(PyObject *self, PyObject *args)
 	double dec;
 	double psi;
 	double gmst;
-	PyObject *oresponse;
-	PyArrayObject *response;
+	PyObject *response;
 
 	/* 3x3 array, double, double, double, double */
-	if(!PyArg_ParseTuple(args, "Odddd:XLALComputeDetAMResponse", &oresponse, &ra, &dec, &psi, &gmst))
+	if(!PyArg_ParseTuple(args, "Odddd:XLALComputeDetAMResponse", &response, &ra, &dec, &psi, &gmst))
 		return NULL;
-	response = NA_InputArray(oresponse, tFloat32, NUM_C_ARRAY);
-	if(!response || (response->nd != 2) || (response->dimensions[0] != 3 && response->dimensions[1] != 3)) {
+	response = PyArray_FromAny(response, PyArray_DescrFromType(NPY_FLOAT32), 2, 2, NPY_CONTIGUOUS, NULL);
+	if(!response || (PyArray_DIM(response, 0) != 3) || (PyArray_DIM(response, 1) != 3)) {
 		Py_XDECREF(response);
 		return NULL;
 	}
 
-	XLALComputeDetAMResponse(&fplus, &fcross, NA_OFFSETDATA(response), ra, dec, psi, gmst);
+	XLALComputeDetAMResponse(&fplus, &fcross, PyArray_DATA(response), ra, dec, psi, gmst);
 	Py_XDECREF(response);
 
 	/* (double, double) */
@@ -197,7 +196,7 @@ void initinject(void)
 {
 	PyObject *module = Py_InitModule3(MODULE_NAME, methods, "Wrapper for LAL's inject package (and friends).");
 
-	import_libnumarray();
+	import_array();
 
 	/* LALDetector */
 	if(PyType_Ready(&pylal_LALDetector_Type) < 0)
