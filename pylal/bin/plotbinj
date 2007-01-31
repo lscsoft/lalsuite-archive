@@ -28,7 +28,7 @@
 
 import math
 from optparse import OptionParser
-import numarray
+import numpy
 from pysqlite2 import dbapi2 as sqlite3
 import sys
 
@@ -189,11 +189,11 @@ class AmplVsFreqContour(SnglBurstUtils.BurstPlot):
 		if options.made_only:
 			zvals = efficiency.denominator
 			rate.filter_array(zvals, rate.gaussian_window2d(window_size, window_size))
-			cset = self.axes.contour(xcoords, ycoords, numarray.transpose(zvals))
+			cset = self.axes.contour(xcoords, ycoords, numpy.transpose(zvals))
 		else:
 			zvals = efficiency.ratio()
 			rate.filter_array(zvals, rate.gaussian_window2d(window_size, window_size))
-			cset = self.axes.contour(xcoords, ycoords, numarray.transpose(zvals), [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9])
+			cset = self.axes.contour(xcoords, ycoords, numpy.transpose(zvals), [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9])
 		self.axes.set_title("Injection Detection Efficiency\n(%d Injections, Contours at 10%% Intervals, %g%% Uncertainty)" % (self.num_injections, 100 * self.error))
 
 
