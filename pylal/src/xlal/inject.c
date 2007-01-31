@@ -85,25 +85,25 @@ static struct PyMemberDef pylal_LALDetector_members[] = {
  * Methods
  */
 
-static PyObject *pylal_LALDetector_location(PyObject *self, PyObject *args)
+static PyObject *pylal_LALDetector_location(PyObject *self, PyObject *null)
 {
-	double *location = ((pylal_LALDetector *) self)->detector.location;
+	int dims[] = {3};
 
-	return Py_BuildValue("(ddd)", location[0], location[1], location[2]);
+	return PyArray_SimpleNewFromData(1, dims, NPY_FLOAT64, ((pylal_LALDetector *) self)->detector.location);
 }
 
 
-static PyObject *pylal_LALDetector_response(PyObject *self, PyObject *args)
+static PyObject *pylal_LALDetector_response(PyObject *self, PyObject *null)
 {
-	float *response[3] = {((pylal_LALDetector *) self)->detector.response[0], ((pylal_LALDetector *) self)->detector.response[1], ((pylal_LALDetector *) self)->detector.response[2]};
+	int dims[] = {3, 3};
 
-	return Py_BuildValue("((ddd)(ddd)(ddd))", (double) response[0][0], (double) response[0][1], (double) response[0][2], (double) response[1][0], (double) response[1][1], (double) response[1][2], (double) response[2][0], (double) response[2][1], (double) response[2][2]);
+	return PyArray_SimpleNewFromData(2, dims, NPY_FLOAT32, ((pylal_LALDetector *) self)->detector.response);
 }
 
 
 static struct PyMethodDef pylal_LALDetector_methods[] = {
-	{"location", pylal_LALDetector_location, METH_VARARGS, "get detector location"},
-	{"response", pylal_LALDetector_response, METH_VARARGS, "get detector response"},
+	{"location", pylal_LALDetector_location, METH_NOARGS, "get detector location"},
+	{"response", pylal_LALDetector_response, METH_NOARGS, "get detector response"},
 	{NULL,}
 };
 
