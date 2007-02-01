@@ -111,7 +111,7 @@ class FreqVsTime(SnglBurstUtils.BurstPlot):
 		if not options.made_only:
 			self.axes.plot(self.missed_x, self.missed_y, "ro")
 		for seg in ~self.seglist & segments.segmentlist([segments.segment(self.axes.get_xlim())]):
-			self.axes.axvspan(seg[0], seg[1], facecolor = "k", alpha = 0.2)
+			self.axes.axvspan(float(seg[0]), float(seg[1]), facecolor = "k", alpha = 0.2)
 		self.axes.set_ylim([min(self.injected_y), max(self.injected_y)])
 		self.axes.set_title("Injection Locations\n(%d Injections)" % self.num_injections)
 
@@ -240,7 +240,7 @@ class RecoveredVsInjectedAmplitude(SnglBurstUtils.BurstPlot):
 	def __init__(self, instrument):
 		SnglBurstUtils.BurstPlot.__init__(self, r"Injected $h_{\textrm{rss}}$", "Recovered Confidence")
 		self.axes.loglog()
-		self.fig.set_figsize_inches(16, 16)
+		self.fig.set_size_inches(16, 16)
 		self.instrument = instrument
 		self.found = 0
 		self.recovered = []
