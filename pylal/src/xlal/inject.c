@@ -156,11 +156,11 @@ static PyObject *make_cached_detectors(void)
 		new = (pylal_LALDetector *) _PyObject_New(&pylal_LALDetector_Type);
 		memcpy(&new->detector, &lalCachedDetectors[i], sizeof(new->detector));
 		{
-		int dims[] = {3};
+		npy_intp dims[] = {3};
 		new->location = PyArray_SimpleNewFromData(1, dims, NPY_FLOAT64, new->detector.location);
 		}
 		{
-		int dims[] = {3, 3};
+		npy_intp dims[] = {3, 3};
 		new->response = PyArray_SimpleNewFromData(2, dims, NPY_FLOAT32, new->detector.response);
 		}
 
