@@ -58,6 +58,8 @@ static PyTypeObject pylal_LALDetector_Type;
 typedef struct {
 	PyObject_HEAD
 	LALDetector detector;
+	PyObject *location;
+	PyObject *response;
 } pylal_LALDetector;
 
 
@@ -77,33 +79,8 @@ static struct PyMemberDef pylal_LALDetector_members[] = {
 	{"yArmAzimuthRadians", T_FLOAT, offsetof(pylal_LALDetector, detector.frDetector.yArmAzimuthRadians), READONLY, "yArmAzimuthRadians"},
 	{"xArmMidpoint", T_FLOAT, offsetof(pylal_LALDetector, detector.frDetector.xArmMidpoint), READONLY, "xArmMidpoint"},
 	{"yArmMidpoint", T_FLOAT, offsetof(pylal_LALDetector, detector.frDetector.yArmMidpoint), READONLY, "yArmMidpoint"},
-	{NULL,}
-};
-
-
-/*
- * Methods
- */
-
-static PyObject *pylal_LALDetector_location(PyObject *self, PyObject *null)
-{
-	int dims[] = {3};
-
-	return PyArray_SimpleNewFromData(1, dims, NPY_FLOAT64, ((pylal_LALDetector *) self)->detector.location);
-}
-
-
-static PyObject *pylal_LALDetector_response(PyObject *self, PyObject *null)
-{
-	int dims[] = {3, 3};
-
-	return PyArray_SimpleNewFromData(2, dims, NPY_FLOAT32, ((pylal_LALDetector *) self)->detector.response);
-}
-
-
-static struct PyMethodDef pylal_LALDetector_methods[] = {
-	{"location", pylal_LALDetector_location, METH_NOARGS, "get detector location"},
-	{"response", pylal_LALDetector_response, METH_NOARGS, "get detector response"},
+	{"location", T_OBJECT, offsetof(pylal_LALDetector, location), READONLY, "location"},
+	{"response", T_OBJECT, offsetof(pylal_LALDetector, response), READONLY, "response"},
 	{NULL,}
 };
 
@@ -118,7 +95,6 @@ static PyTypeObject pylal_LALDetector_Type = {
 	.tp_doc = "LALDetector structure",
 	.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_CHECKTYPES,
 	.tp_members = pylal_LALDetector_members,
-	.tp_methods = pylal_LALDetector_methods,
 	.tp_name = MODULE_NAME ".LALDetector",
 	.tp_new = PyType_GenericNew
 };
@@ -179,6 +155,15 @@ static PyObject *make_cached_detectors(void)
 	for(i = 0; i < LALNumCachedDetectors; i++) {
 		new = (pylal_LALDetector *) _PyObject_New(&pylal_LALDetector_Type);
 		memcpy(&new->detector, &lalCachedDetectors[i], sizeof(new->detector));
+		{
+		int dims[] = {3};
+		new->location = PyArray_SimpleNewFromData(1, dims, NPY_FLOAT64, new->detector.location);
+		}
+		{
+		int dims[] = {3, 3};
+		new->response = PyArray_SimpleNewFromData(2, dims, NPY_FLOAT32, new->detector.response);
+		}
+
 		PyDict_SetItemString(cached_detector, new->detector.frDetector.name, (PyObject *) new);
 	}
 

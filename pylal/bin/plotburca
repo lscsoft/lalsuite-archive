@@ -150,7 +150,7 @@ def magnitude_b(burst):
 	# galactic core, J2000
 	ra, dec = 2.0318570464121519, -0.50628171572274738
 	gmst = date.XLALGreenwichMeanSiderealTime(date.LIGOTimeGPS(burst.peak_time, burst.peak_time_ns))
-	fplus, fcross = inject.XLALComputeDetAMResponse(inject.cached_detector[burst.ifo].response(), ra, dec, 0.0, gmst)
+	fplus, fcross = inject.XLALComputeDetAMResponse(inject.cached_detector[burst.ifo].response, ra, dec, 0.0, gmst)
 	# power_per_dof = burst.snr / (2.0 * burst.tfvolume) + 1.0
 	power_per_dof = (burst.snr + 2.0 * burst.tfvolume) / (2.0 * burst.bandwidth * burst.duration)
 	return power_per_dof / (fplus**2.0 + fcross**2.0)
