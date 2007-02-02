@@ -126,7 +126,7 @@ class FreqVsTime(SnglBurstUtils.BurstPlot):
 
 class AmplVsFreqScatter(SnglBurstUtils.BurstPlot):
 	def __init__(self, instrument):
-		SnglBurstUtils.BurstPlot.__init__(self, "Frequency (Hz)", r"$h_{\textrm{rss}}$")
+		SnglBurstUtils.BurstPlot.__init__(self, "Frequency (Hz)", r"$h_{\mathrm{rss}}$")
 		self.axes.loglog()
 		self.instrument = instrument
 		self.num_injections = 0
@@ -155,7 +155,7 @@ class AmplVsFreqScatter(SnglBurstUtils.BurstPlot):
 
 class AmplVsFreqContour(SnglBurstUtils.BurstPlot):
 	def __init__(self, instrument, error):
-		SnglBurstUtils.BurstPlot.__init__(self, "Frequency (Hz)", r"$h_{\textrm{rss}}$")
+		SnglBurstUtils.BurstPlot.__init__(self, "Frequency (Hz)", r"$h_{\mathrm{rss}}$")
 		self.axes.loglog()
 		self.instrument = instrument
 		self.error = error
@@ -231,16 +231,16 @@ class TriggerCountHistogram(SnglBurstUtils.BurstPlot):
 #
 # =============================================================================
 #
-#                       Recovered vs. Injected Amplitude
+#                         Recovered vs. Injected h_rss
 #
 # =============================================================================
 #
 
-class RecoveredVsInjectedAmplitude(SnglBurstUtils.BurstPlot):
+class RecoveredVsInjectedhrss(SnglBurstUtils.BurstPlot):
 	def __init__(self, instrument):
-		SnglBurstUtils.BurstPlot.__init__(self, r"Injected $h_{\textrm{rss}}$", "Recovered Confidence")
+		SnglBurstUtils.BurstPlot.__init__(self, r"Injected $h_{\mathrm{rss}}$", "Recovered $h_{\mathrm{rss}}$")
 		self.axes.loglog()
-		self.fig.set_size_inches(16, 16)
+		self.fig.set_size_inches(8, 8)
 		self.instrument = instrument
 		self.found = 0
 		self.recovered = []
@@ -256,7 +256,7 @@ class RecoveredVsInjectedAmplitude(SnglBurstUtils.BurstPlot):
 
 	def finish(self):
 		self.axes.plot(self.injected, self.recovered, "k+")
-		self.axes.set_title("Recovered Amplitude vs. Injected Amplitude\n(%d Found Injections)" % self.found)
+		self.axes.set_title("Recovered $h_{\mathrm{rss}}$ vs. Injected $h_{\mathrm{rss}}$\n(%d Found Injections)" % self.found)
 
 
 #
@@ -318,7 +318,7 @@ def new_plots(instrument, plots):
 		AmplVsFreqScatter(instrument),
 		AmplVsFreqContour(instrument, 0.1),
 		TriggerCountHistogram(instrument),
-		RecoveredVsInjectedAmplitude(instrument),
+		RecoveredVsInjectedhrss(instrument),
 		RecoveredTimeOffset(instrument, segments.segment(-0.25, +0.25), 0.005)
 	]
 	return [l[i] for i in plots]
