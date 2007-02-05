@@ -2408,6 +2408,10 @@ int main( int argc, char *argv[] )
       &status );
   LAL_CALL( LALDestroyFindChirpInput( &status, &fcFilterInput ), 
       &status );
+  if ( fcFilterParams->filterOutputVetoParams ) 
+  {
+    LALFree( fcFilterParams->filterOutputVetoParams );
+  }
   LAL_CALL( LALFindChirpFilterFinalize( &status, &fcFilterParams ), 
       &status );
   LAL_CALL( LALFindChirpTemplateFinalize( &status, &fcTmpltParams ), 
@@ -2693,8 +2697,6 @@ int main( int argc, char *argv[] )
             /* Call the clustering routine */ 
             LAL_CALL( LALClusterSnglInspiralOverTemplatesAndEndTime ( &status, 
                         &(savedEvents.snglInspiralTable), condenseIn ), &status );
-            
-            LALFree ( condenseIn ); 
         }
         else
         {
