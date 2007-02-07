@@ -241,9 +241,9 @@ class ConfidenceContours(SnglBurstUtils.BurstPlot):
 					except IndexError:
 						# not on plot axes
 						pass
-		for coinc_event_id in contents.incomplete_injection_coinc_ids:
+		for coinc in contents.incomplete_injection_coincs():
 			try:
-				self.incomplete_coinc_injection_bins[self.coords(contents.coinc_sngl_bursts(contents.coinc_table[coinc_event_id]))] += 1
+				self.incomplete_coinc_injection_bins[self.coords(contents.coinc_sngl_bursts(coinc))] += 1
 			except IndexError:
 				# not on plot axes
 				pass
@@ -346,9 +346,9 @@ class ConfidenceContourProjection(SnglBurstUtils.BurstPlot):
 					except IndexError:
 						# not on plot axes
 						pass
-		for coinc_event_id in contents.incomplete_injection_coinc_ids:
+		for coinc in contents.incomplete_injection_coincs():
 			try:
-				self.incomplete_coinc_injection_bins[self.coords(contents.coinc_sngl_bursts(contents.coinc_table[coinc_event_id]))] += 1
+				self.incomplete_coinc_injection_bins[self.coords(contents.coinc_sngl_bursts(coinc))] += 1
 			except IndexError:
 				# not on plot axes
 				pass

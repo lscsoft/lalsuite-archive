@@ -102,7 +102,7 @@ class FreqVsTime(SnglBurstUtils.BurstPlot):
 		for sim in contents.sim_burst_table:
 			self.injected_x.append(float(sim.get_geocent_peak()))
 			self.injected_y.append(sim.freq)
-		for sim in map(contents.sim_burst_table.__getitem__, contents.missed_injections[self.instrument]):
+		for sim in contents.missed_injections(self.instrument):
 			self.missed_x.append(float(sim.get_geocent_peak()))
 			self.missed_y.append(sim.freq)
 
@@ -140,7 +140,7 @@ class AmplVsFreqScatter(SnglBurstUtils.BurstPlot):
 		for sim in contents.sim_burst_table:
 			self.injected_x.append(sim.freq)
 			self.injected_y.append(sim.hrss)
-		for sim in map(contents.sim_burst_table.__getitem__, contents.missed_injections[self.instrument]):
+		for sim in contents.missed_injections(self.instrument):
 			self.missed_x.append(sim.freq)
 			self.missed_y.append(sim.hrss)
 
@@ -170,7 +170,7 @@ class AmplVsFreqContour(SnglBurstUtils.BurstPlot):
 		for sim in contents.sim_burst_table:
 			self.injected_x.append(sim.freq)
 			self.injected_y.append(sim.hrss)
-		for sim in map(contents.sim_burst_table.__getitem__, contents.missed_injections[self.instrument]):
+		for sim in contents.missed_injections(self.instrument):
 			self.found_x.append(sim.freq)
 			self.found_y.append(sim.hrss)
 

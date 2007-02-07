@@ -271,64 +271,106 @@ class CoincDatabase(object):
 		except KeyError:
 			self.sc_definer_id = None
 
-		# compute the missed injections by instrument;  first
-		# generate a copy of all injection IDs for each instrument,
-		# then remove the ones that each instrument didn't find
-		if self.sb_definer_id:
-			self.missed_injections = {}
-			for instrument in self.instruments:
-				self.missed_injections[instrument] = [id for (id,) in cursor.execute(
-					"""
-SELECT simulation_id FROM
-	sim_burst
-WHERE
-	simulation_id NOT IN (
-		SELECT DISTINCT sim_burst.simulation_id FROM
-			sim_burst
-			JOIN coinc_event_map AS a ON (
-				sim_burst.simulation_id == a.event_id
-				AND a.table_name == 'sim_burst'
-			)
-			JOIN coinc_event_map AS b ON (
-				b.table_name == 'sngl_burst'
-				AND b.coinc_event_id == a.coinc_event_id
-			)
-			JOIN sngl_burst ON (
-				b.event_id == sngl_burst.event_id
-				AND sngl_burst.ifo == ?
-			)
-	)
-					""",
-					(instrument,))]
-		else:
-			self.missed_injections = {}
-			for instrument in self.instruments:
-				self.missed_injections[instrument] = []
+		# verbosity
+		if verbose:
+			print >>sys.stderr, "database stats:"
+			print >>sys.stderr, "\tburst events: %d" % len(self.sngl_burst_table)
+			if self.sim_burst_table is not None:
+				print >>sys.stderr, "\tinjections: %d" % len(self.sim_burst_table)
+			if self.time_slide_table is not None:
+				print >>sys.stderr, "\ttime slides: %d" % len(self.time_slide_table)
+			if self.bb_definer_id is not None:
+				print >>sys.stderr, "\tburst + burst coincidences: %d" % cursor.execute("SELECT COUNT(*) FROM coinc_event WHERE coinc_def_id = ?", (self.bb_definer_id,)).fetchone()[0]
+			if self.sb_definer_id is not None:
+				print >>sys.stderr, "\tinjection + burst coincidences: %d" % cursor.execute("SELECT COUNT(*) FROM coinc_event WHERE coinc_def_id = ?", (self.sb_definer_id,)).fetchone()[0]
+			if self.sc_definer_id is not None:
+				print >>sys.stderr, "\tinjection + (burst + burst) coincidences: %d" % cursor.execute("SELECT COUNT(*) FROM coinc_event WHERE coinc_def_id = ?", (self.sc_definer_id,)).fetchone()[0]
 
+	def missed_injections(self, instrument):
+		for values in self.connection.cursor().execute(
+			"""
+SELECT * FROM
+	sim_burst
+EXCEPT SELECT sim_burst.* FROM
+	sim_burst
+	JOIN coinc_event_map AS a ON (
+		sim_burst.simulation_id == a.event_id
+		AND a.table_name == 'sim_burst'
+	)
+	JOIN coinc_event_map AS b ON (
+		a.coinc_event_id == b.coinc_event_id
+		AND b.table_name == 'sngl_burst'
+	)
+	JOIN sngl_burst ON (
+		b.event_id == sngl_burst.event_id
+		AND sngl_burst.ifo == ?
+	)
+			""", (instrument,)):
+			yield self.sim_burst_table._row_from_cols(values)
+
+	def coinc_sim_bursts(self, coinc):
+		for values in self.connection.cursor().execute(
+			"""
+SELECT sim_burst.* FROM
+	sim_burst
+	JOIN coinc_event_map ON
+		sim_burst.simulation_id == coinc_event_map.event_id
+WHERE
+	coinc_event_map.table_name == 'sim_burst'
+	AND coinc_event_map.coinc_event_id == ?
+			""", (coinc.coinc_event_id,)):
+			yield self.sim_burst_table._row_from_cols(values)
+
+	def coinc_sngl_bursts(self, coinc):
+		for values in self.connection.cursor().execute(
+			"""
+SELECT sngl_burst.* FROM
+	sngl_burst
+	JOIN coinc_event_map ON
+		sngl_burst.event_id == coinc_event_map.event_id
+WHERE
+	coinc_event_map.table_name == 'sngl_burst'
+	AND coinc_event_map.coinc_event_id == ?
+			""", (coinc.coinc_event_id,)):
+			yield self.sngl_burst_table._row_from_cols(values)
+
+	def coinc_coincs(self, coinc):
+		for values in self.connection.cursor().execute(
+			"""
+SELECT coinc_event.* FROM
+	coinc_event
+	JOIN coinc_event_map ON
+		coinc_event.coinc_event_id == coinc_event_map.event_id
+WHERE
+	coinc_event_map.table_name == 'coinc_event'
+	AND coinc_event_map.coinc_event_id == ?
+			""", (coinc.coinc_event_id,)):
+			yield self.coinc_table._row_from_cols(values)
+
+	def incomplete_injection_coincs(self):
 		# determine burst <--> burst coincidences for which at
-		# least one burst, but not all, was identified as an
+		# least one burst, *but not all*, was identified as an
 		# injection;  these are places in the data where an
 		# injection was done, a coincident event was seen, but
 		# where, later, the injection was not found to match all
 		# events in the coincidence;  these perhaps indicate power
 		# leaking from the injection into nearby tiles, or
-		# accidental coincidence with near-by noise, etc, and so
-		# although they aren't "bang-on" reconstructions of
-		# injections they are nevertheless injections that are
-		# found and survive a coincidence cut.
-		if self.sim_burst_table:
-			# the select inside the first select finds a list
-			# of the burst event_ids that were marked as
-			# coincident with an injection; the outer select
-			# finds a list of the burst+burst coinc_event_ids
-			# pointing to at least one of those bursts;  the
-			# except clause removes coinc_event_ids for which
-			# all bursts were marked as injections;  the result
-			# is a list of all coinc_event_ids for burst+burst
-			# coincidences in which at least 1 but not all
-			# burst events was identified as an injection
-			self.incomplete_injection_coinc_ids = [coinc_event_id for (coinc_event_id,) in cursor.execute(
-				"""
+		# accidental coincidence of a marginal injection with
+		# near-by noise, etc, and so although they aren't "bang-on"
+		# reconstructions of injections they are nevertheless
+		# injections that are found and survive a coincidence cut.
+		#
+		# the select inside the first select finds a list of the
+		# burst event_ids that were marked as coincident with an
+		# injection; the outer select finds a list of the
+		# burst+burst coinc_event_ids pointing to at least one of
+		# those bursts;  the except clause removes coinc_event_ids
+		# for which all bursts were marked as injections;  the
+		# result is a list of all coinc_event_ids for burst+burst
+		# coincidences in which at least 1 but not all burst events
+		# was identified as an injection
+		for (id,) in self.connection.cursor().execute(
+			"""
 SELECT DISTINCT coinc_event.coinc_event_id FROM
 	coinc_event
 	JOIN coinc_event_map ON (
@@ -343,52 +385,22 @@ WHERE
 			JOIN coinc_event ON (
 				coinc_event_map.coinc_event_id == coinc_event.coinc_event_id
 			)
-			WHERE
-				coinc_event_map.table_name == 'sngl_burst'
-				AND coinc_event.coinc_def_id == ?
-	)
-EXCEPT
-	SELECT DISTINCT event_id FROM
-		coinc_event_map
-		JOIN coinc_event ON (
-			coinc_event_map.coinc_event_id == coinc_event.coinc_event_id
-		)
 		WHERE
-			table_name == 'coinc_event'
-			AND coinc_def_id == ?
-				""",
-				(self.bb_definer_id, self.sb_definer_id, self.sc_definer_id))]
-
-			# remove coinc_event_ids for coincs that are
-			# not at zero-lag
-			self.incomplete_injection_coinc_ids = filter(lambda id: self.coinc_table[id].is_zero_lag(), self.incomplete_injection_coinc_ids)
-		else:
-			self.incomplete_injection_coinc_ids = []
-
-		# verbosity
-		if verbose:
-			print >>sys.stderr, "database stats:"
-			print >>sys.stderr, "\tburst events: %d" % len(self.sngl_burst_table)
-			if self.sim_burst_table:
-				print >>sys.stderr, "\tinjections: %d" % len(self.sim_burst_table)
-			print >>sys.stderr, "\ttime slides: %d" % len(self.time_slide_table)
-			print >>sys.stderr, "\tburst + burst coincidences: %d" % cursor.execute("SELECT COUNT(*) FROM coinc_event WHERE coinc_def_id = ?", (self.bb_definer_id,)).fetchone()[0]
-			if self.sim_burst_table:
-				print >>sys.stderr, "\tinjection + burst coincidences: %d" % cursor.execute("SELECT COUNT(*) FROM coinc_event WHERE coinc_def_id = ?", (self.sb_definer_id,)).fetchone()[0]
-				print >>sys.stderr, "\tinjection + (burst + burst) coincidences: %d" % cursor.execute("SELECT COUNT(*) FROM coinc_event WHERE coinc_def_id = ?", (self.sc_definer_id,)).fetchone()[0]
-				print >>sys.stderr, "\tburst + burst coincidences involving at least one injection: %d" % len(self.incomplete_injection_coinc_ids)
-
-	def coinc_sim_bursts(self, coinc):
-		for values in self.connection.cursor().execute("SELECT sim_burst.* FROM sim_burst JOIN coinc_event_map ON sim_burst.simulation_id == coinc_event_map.event_id WHERE coinc_event_map.table_name == 'sim_burst' AND coinc_event_map.coinc_event_id == ?", (coinc.coinc_event_id,)):
-			yield self.sim_burst_table._row_from_cols(values)
-
-	def coinc_sngl_bursts(self, coinc):
-		for values in self.connection.cursor().execute("SELECT sngl_burst.* FROM sngl_burst JOIN coinc_event_map ON sngl_burst.event_id == coinc_event_map.event_id WHERE coinc_event_map.table_name == 'sngl_burst' AND coinc_event_map.coinc_event_id == ?", (coinc.coinc_event_id,)):
-			yield self.sngl_burst_table._row_from_cols(values)
-
-	def coinc_coincs(self, coinc):
-		for values in self.connection.cursor().execute("SELECT coinc_event.* FROM coinc_event JOIN coinc_event_map ON coinc_event.coinc_event_id == coinc_event_map.event_id WHERE coinc_event_map.table_name == 'coinc_event' AND coinc_event_map.coinc_event_id == ?", (self.coinc_event_id,)):
-			yield self.coinc_table._row_from_cols(values)
+			coinc_event_map.table_name == 'sngl_burst'
+			AND coinc_event.coinc_def_id == ?
+	)
+EXCEPT SELECT DISTINCT event_id FROM
+	coinc_event_map
+	JOIN coinc_event ON (
+		coinc_event_map.coinc_event_id == coinc_event.coinc_event_id
+	)
+WHERE
+	table_name == 'coinc_event'
+	AND coinc_def_id == ?
+			""", (self.bb_definer_id, self.sb_definer_id, self.sc_definer_id)):
+			row = self.coinc_table[id]
+			if row.is_zero_lag():
+				yield row
 
 
 #
