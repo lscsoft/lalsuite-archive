@@ -448,7 +448,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 # delete the plots as we go to save memory
 for ifo in plots:
 	n = 0
-	format = "%%s%s_%%0%dd.%%s" % (ifo, int(math.log10(len(plots[ifo]))) + 1)
+	format = "%%s%s_%%0%dd.%%s" % (ifo, int(math.log10(max(options.plot) or 1)) + 1)
 	while len(plots[ifo]):
 		filename = format % (options.base, options.plot[n], options.format)
 		if options.verbose:
