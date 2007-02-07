@@ -264,26 +264,42 @@ class CoincDatabase(object):
 			self.bb_definer_id = None
 		try:
 			self.sb_definer_id = self.coinc_def_table.get_id([lsctables.SnglBurstTable.tableName, lsctables.SimBurstTable.tableName])
-			self.sc_definer_id = self.coinc_def_table.get_id([lsctables.CoincTable.tableName, lsctables.SimBurstTable.tableName])
 		except KeyError:
 			self.sb_definer_id = None
+		try:
+			self.sc_definer_id = self.coinc_def_table.get_id([lsctables.CoincTable.tableName, lsctables.SimBurstTable.tableName])
+		except KeyError:
 			self.sc_definer_id = None
 
 		# compute the missed injections by instrument;  first
 		# generate a copy of all injection IDs for each instrument,
 		# then remove the ones that each instrument didn't find
 		if self.sb_definer_id:
-			self.missed_injections = {self.instruments[0]: [id for (id,) in cursor.execute("SELECT simulation_id FROM sim_burst")]}
-			for instrument in self.instruments[1:]:
-				self.missed_injections[instrument] = list(self.missed_injections[self.instruments[0]])
-			for coinc in self.coinc_table.selectByDefID(self.sb_definer_id):
-				for sim in self.coinc_sim_bursts(coinc):
-					for burst in self.coinc_sngl_bursts(coinc):
-						try:
-							self.missed_injections[burst.ifo].remove(sim.simulation_id)
-						except ValueError:
-							# already removed
-							pass
+			self.missed_injections = {}
+			for instrument in self.instruments:
+				self.missed_injections[instrument] = [id for (id,) in cursor.execute(
+					"""
+SELECT simulation_id FROM
+	sim_burst
+WHERE
+	simulation_id NOT IN (
+		SELECT DISTINCT sim_burst.simulation_id FROM
+			sim_burst
+			JOIN coinc_event_map AS a ON (
+				sim_burst.simulation_id == a.event_id
+				AND a.table_name == 'sim_burst'
+			)
+			JOIN coinc_event_map AS b ON (
+				b.table_name == 'sngl_burst'
+				AND b.coinc_event_id == a.coinc_event_id
+			)
+			JOIN sngl_burst ON (
+				b.event_id == sngl_burst.event_id
+				AND sngl_burst.ifo == ?
+			)
+	)
+					""",
+					(instrument,))]
 		else:
 			self.missed_injections = {}
 			for instrument in self.instruments:
@@ -311,7 +327,37 @@ class CoincDatabase(object):
 			# is a list of all coinc_event_ids for burst+burst
 			# coincidences in which at least 1 but not all
 			# burst events was identified as an injection
-			self.incomplete_injection_coinc_ids = [coinc_event_id for (coinc_event_id,) in cursor.execute("SELECT DISTINCT coinc_event.coinc_event_id FROM coinc_event JOIN coinc_event_map ON (coinc_event.coinc_event_id == coinc_event_map.coinc_event_id) WHERE coinc_def_id == ? AND table_name == 'sngl_burst' AND event_id IN (SELECT DISTINCT event_id FROM coinc_event_map JOIN coinc_event ON (coinc_event_map.coinc_event_id == coinc_event.coinc_event_id) WHERE coinc_event_map.table_name == 'sngl_burst' AND coinc_event.coinc_def_id == ?) EXCEPT SELECT DISTINCT event_id FROM coinc_event_map JOIN coinc_event ON (coinc_event_map.coinc_event_id == coinc_event.coinc_event_id) WHERE table_name == 'coinc_event' AND coinc_def_id == ?", (self.bb_definer_id, self.sb_definer_id, self.sc_definer_id))]
+			self.incomplete_injection_coinc_ids = [coinc_event_id for (coinc_event_id,) in cursor.execute(
+				"""
+SELECT DISTINCT coinc_event.coinc_event_id FROM
+	coinc_event
+	JOIN coinc_event_map ON (
+		coinc_event.coinc_event_id == coinc_event_map.coinc_event_id
+	)
+WHERE
+	coinc_def_id == ?
+	AND table_name == 'sngl_burst'
+	AND event_id IN (
+		SELECT DISTINCT event_id FROM
+			coinc_event_map
+			JOIN coinc_event ON (
+				coinc_event_map.coinc_event_id == coinc_event.coinc_event_id
+			)
+			WHERE
+				coinc_event_map.table_name == 'sngl_burst'
+				AND coinc_event.coinc_def_id == ?
+	)
+EXCEPT
+	SELECT DISTINCT event_id FROM
+		coinc_event_map
+		JOIN coinc_event ON (
+			coinc_event_map.coinc_event_id == coinc_event.coinc_event_id
+		)
+		WHERE
+			table_name == 'coinc_event'
+			AND coinc_def_id == ?
+				""",
+				(self.bb_definer_id, self.sb_definer_id, self.sc_definer_id))]
 
 			# remove coinc_event_ids for coincs that are
 			# not at zero-lag
