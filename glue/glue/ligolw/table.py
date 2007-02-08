@@ -730,12 +730,20 @@ class DBTable(Table):
 
 	def _end_of_columns(self):
 		Table._end_of_columns(self)
-		statement = "CREATE TABLE " + StripTableName(self.getAttribute("Name")) + " (" + ", ".join(map(lambda n, t: "%s %s" % (n, types.ToSQLiteType[t]), self.columnnames, self.columntypes))
+		# dbcolumnnames and types have the "not loaded" columns removed
+		self.dbcolumnnames = list(self.columnnames)
+		self.dbcolumntypes = list(self.columntypes)
+		if self.loadcolumns is not None:
+			for i in xrange(len(self.columnnames) - 1, -1, -1):
+				if self.dbcolumnnames[i] not in self.loadcolumns:
+					del self.dbcolumnnames[i]
+					del self.dbcolumntypes[i]
+		statement = "CREATE TABLE " + StripTableName(self.getAttribute("Name")) + " (" + ", ".join(map(lambda n, t: "%s %s" % (n, types.ToSQLiteType[t]), self.dbcolumnnames, self.dbcolumntypes))
 		if self.constraints is not None:
 			statement += ", " + self.constraints
 		statement += ")"
 		self.cursor.execute(statement)
-		self.append_statement = "INSERT INTO " + StripTableName(self.getAttribute("Name")) + " VALUES (" + ",".join("?" * len(self.columnnames)) + ")"
+		self.append_statement = "INSERT INTO " + StripTableName(self.getAttribute("Name")) + " VALUES (" + ",".join("?" * len(self.dbcolumnnames)) + ")"
 
 	def _end_of_rows(self):
 		Table._end_of_rows(self)
@@ -751,11 +759,11 @@ class DBTable(Table):
 	def append(self, row):
 		# FIXME: in Python 2.5 use attrgetter() for attribute
 		# tuplization.
-		self.cursor.execute(self.append_statement, map(lambda n: getattr(row, n), self.columnnames))
+		self.cursor.execute(self.append_statement, map(lambda n: getattr(row, n), self.dbcolumnnames))
 
 	def _row_from_cols(self, values):
 		row = self.RowType()
-		for c, v in zip(self.columnnames, values):
+		for c, v in zip(self.dbcolumnnames, values):
 			setattr(row, c, v)
 		return row
 
