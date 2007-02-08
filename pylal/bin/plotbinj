@@ -34,6 +34,7 @@ import sys
 
 from glue import segments
 from glue.ligolw import utils
+from glue.ligolw import lsctables
 from pylal import llwapp
 from pylal import rate
 from pylal import SnglBurstUtils
@@ -74,6 +75,19 @@ try:
 except ValueError, e:
 	print >>sys.stderr, "error: %s" % str(e)
 	sys.exit(1)
+
+
+#
+# =============================================================================
+#
+#                                    Input
+#
+# =============================================================================
+#
+
+# save memory by not storing channel name
+lsctables.SnglBurstTable.loadcolumns = lsctables.SnglBurstTable.validcolumns.keys()
+lsctables.SnglBurstTable.loadcolumns.remove("channel")
 
 
 #
