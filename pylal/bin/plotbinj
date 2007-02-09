@@ -29,12 +29,12 @@
 import math
 from optparse import OptionParser
 import numpy
+import os
 from pysqlite2 import dbapi2 as sqlite3
 import sys
 
 from glue import segments
 from glue.ligolw import utils
-from glue.ligolw import lsctables
 from pylal import llwapp
 from pylal import rate
 from pylal import SnglBurstUtils
@@ -85,9 +85,14 @@ except ValueError, e:
 # =============================================================================
 #
 
-# save memory by not storing channel name
-lsctables.SnglBurstTable.loadcolumns = lsctables.SnglBurstTable.validcolumns.keys()
-lsctables.SnglBurstTable.loadcolumns.remove("channel")
+# save memory by not storing superfluous strings in the heavy-weight tables
+SnglBurstUtils.SnglBurstTable.loadcolumns = SnglBurstUtils.SnglBurstTable.validcolumns.keys()
+SnglBurstUtils.SnglBurstTable.loadcolumns.remove("channel")
+SnglBurstUtils.SnglBurstTable.loadcolumns.remove("search")
+SnglBurstUtils.SnglBurstTable.loadcolumns.remove("process_id")
+SnglBurstUtils.CoincTable.loadcolumns = SnglBurstUtils.CoincTable.validcolumns.keys()
+SnglBurstUtils.CoincTable.loadcolumns.remove("process_id")
+SnglBurstUtils.CoincTable.loadcolumns.remove("time_slide_id")
 
 
 #
@@ -116,7 +121,7 @@ class FreqVsTime(SnglBurstUtils.BurstPlot):
 		for sim in contents.sim_burst_table:
 			self.injected_x.append(float(sim.get_geocent_peak()))
 			self.injected_y.append(sim.freq)
-		for sim in contents.missed_injections(self.instrument):
+		for sim in SnglBurstUtils.missed_injections(contents, self.instrument):
 			self.missed_x.append(float(sim.get_geocent_peak()))
 			self.missed_y.append(sim.freq)
 
@@ -154,7 +159,7 @@ class AmplVsFreqScatter(SnglBurstUtils.BurstPlot):
 		for sim in contents.sim_burst_table:
 			self.injected_x.append(sim.freq)
 			self.injected_y.append(sim.hrss)
-		for sim in contents.missed_injections(self.instrument):
+		for sim in SnglBurstUtils.missed_injections(contents, self.instrument):
 			self.missed_x.append(sim.freq)
 			self.missed_y.append(sim.hrss)
 
@@ -184,7 +189,7 @@ class AmplVsFreqContour(SnglBurstUtils.BurstPlot):
 		for sim in contents.sim_burst_table:
 			self.injected_x.append(sim.freq)
 			self.injected_y.append(sim.hrss)
-		for sim in contents.missed_injections(self.instrument):
+		for sim in SnglBurstUtils.found_injections(contents, self.instrument):
 			self.found_x.append(sim.freq)
 			self.found_y.append(sim.hrss)
 
@@ -196,6 +201,7 @@ class AmplVsFreqContour(SnglBurstUtils.BurstPlot):
 		bins_per_inj = efficiency.used() / float(self.num_injections)
 		#bins_per_inj = efficiency.numerator.shape[0] * efficiency.numerator.shape[1] / float(self.num_injections)
 		window_size = (bins_per_inj / self.error**2)**0.5
+		window_size = 3
 		if window_size > 100:
 			raise SnglBurstUtils.BurstPlotError, "smoothing filter too large (not enough injections)"
 		efficiency.regularize()
@@ -305,7 +311,7 @@ class RecoveredTimeOffset(SnglBurstUtils.BurstPlot):
 				if -burst.confidence > best_conf:
 					best_conf = -burst.confidence
 					best_dt = dt
-			if best_dt != None:
+			if best_dt is not None:
 				try:
 					self.best[best_dt] = 1.0
 				except IndexError:
@@ -316,6 +322,7 @@ class RecoveredTimeOffset(SnglBurstUtils.BurstPlot):
 		self.axes.set_title("Trigger Peak Time - Injection Peak Time\n(%d Found Injections)" % self.found)
 		self.axes.plot(self.offsets.xvals(), self.offsets.filtered(), "k")
 		self.axes.plot(self.best.xvals(), self.best.filtered(), "r")
+		self.axes.legend(["All matching triggers", "Highest confidence match"])
 
 
 #
@@ -342,6 +349,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
 	database = SnglBurstUtils.CoincDatabase(sqlite3.connect(":memory:"))
+	#database = SnglBurstUtils.CoincDatabase(sqlite3.connect("plotbinj.sqlite"))
 	xmldoc = utils.load_filename(filename, options.verbose, gz = filename[-3:] == ".gz")
 	database.summarize(xmldoc, options.live_time_program, options.verbose)
 	for instrument in database.instruments:
@@ -351,7 +359,9 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 			if options.verbose:
 				print >>sys.stderr, "adding to %s plot %d..." % (instrument, n)
 			plot.add_contents(database)
-	xmldoc.unlink()
+	#xmldoc.unlink()
+	#database.connection.close()
+	#os.remove("plotbinj.sqlite")
 
 
 # delete the plots as we go to save memory
