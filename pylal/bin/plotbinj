@@ -268,10 +268,14 @@ class RecoveredVsInjectedhrss(SnglBurstUtils.BurstPlot):
 	def add_contents(self, contents):
 		for coinc in contents.coinc_table.selectByDefID(contents.sb_definer_id):
 			self.found += 1
-			confidence = max([-burst.confidence for burst in contents.coinc_sngl_bursts(coinc)])
+			confidence = 0.0
+			for burst in contents.coinc_sngl_bursts(coinc):
+				if -burst.confidence > confidence:
+					confidence = -burst.confidence
+					hrss = burst.amplitude
 			for sim in contents.coinc_sim_bursts(coinc):
 				self.injected.append(sim.hrss)
-				self.recovered.append(confidence)
+				self.recovered.append(hrss)
 
 	def finish(self):
 		self.axes.plot(self.injected, self.recovered, "k+")
