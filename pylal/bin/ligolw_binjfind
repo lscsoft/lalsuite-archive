@@ -97,7 +97,7 @@ class DocContents(object):
 		self.sb_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, [lsctables.SnglBurstTable.tableName, lsctables.SimBurstTable.tableName])
 
 		# get coinc_def_id's for sngl_burst <--> sngl_burst, and
-		# sim_burst <--> coinc coins.
+		# sim_burst <--> coinc coincs.
 		try:
 			self.bb_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, [lsctables.SnglBurstTable.tableName], create_new = False)
 			self.sc_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, [lsctables.CoincTable.tableName, lsctables.SimBurstTable.tableName])
@@ -223,7 +223,7 @@ def CompareByTimeandFreq(sim, burst):
 	Return False if the peak time and centre frequency of sim lie
 	within the time-frequency tile of burst.
 	"""
-	return not CompareByTime(sim, burst) or (sim.freq not in burst.get_band())
+	return CompareByTime(sim, burst) or (sim.freq not in burst.get_band())
 
 
 #
