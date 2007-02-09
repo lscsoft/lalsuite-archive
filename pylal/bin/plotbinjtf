@@ -27,7 +27,7 @@
 #
 
 import math
-from matplotlib import collections
+from matplotlib import cm, colors, collections
 import numpy
 from optparse import OptionParser
 import os
@@ -67,24 +67,6 @@ options, filenames = parse_command_line()
 #
 # =============================================================================
 #
-#                                    Input
-#
-# =============================================================================
-#
-
-# save memory by not storing superfluous strings in the heavy-weight tables
-SnglBurstUtils.SnglBurstTable.loadcolumns = SnglBurstUtils.SnglBurstTable.validcolumns.keys()
-SnglBurstUtils.SnglBurstTable.loadcolumns.remove("channel")
-SnglBurstUtils.SnglBurstTable.loadcolumns.remove("search")
-SnglBurstUtils.SnglBurstTable.loadcolumns.remove("process_id")
-SnglBurstUtils.CoincTable.loadcolumns = SnglBurstUtils.CoincTable.validcolumns.keys()
-SnglBurstUtils.CoincTable.loadcolumns.remove("process_id")
-SnglBurstUtils.CoincTable.loadcolumns.remove("time_slide_id")
-
-
-#
-# =============================================================================
-#
 #                             Time-Frequency Plane
 #
 # =============================================================================
@@ -107,6 +89,9 @@ def time_freq_plot(database, instrument, sim):
 	colours = []
 	peakx = []
 	peaky = []
+	# find triggers from the desired instrument that are coincident
+	# with the injection, and iterate over them in order from least to
+	# most confident
 	for values in database.connection.cursor().execute(
 		"""
 SELECT sngl_burst.* FROM
@@ -138,15 +123,17 @@ ORDER BY
 		peakx.append(float(burst.get_peak() - sim.get_peak(instrument)))
 		peaky.append(burst.central_freq - sim.freq)
 
-		# adjust bounding box
+		# update bounding box
 		xmin = min(xmin, tmin)
 		xmax = max(xmax, tmax)
 		ymin = min(ymin, fmin)
 		ymax = max(ymax, fmax)
 
-	#polys = collections.PolyCollection(verts, facecolors = colours)
 	polys = collections.PolyCollection(verts)
+	polys.set_array(numpy.array(colours))
 	polys.set_alpha(0.3)
+	polys.set_cmap(cm.get_cmap())
+	polys.set_norm(colors.normalize())
 	axes.add_collection(polys)
 
 	axes.plot(peakx, peaky, "k+")
@@ -154,7 +141,7 @@ ORDER BY
 	axes.axvline(0, color = "k")
 	axes.axhline(0, color = "k")
 
-	# double the size of the bounding box
+	# set the bounding box
 	axes.set_xlim([1.4 * xmin, 1.4 * xmax])
 	axes.set_ylim([1.4 * ymin, 1.4 * ymax])
 
@@ -177,5 +164,8 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 	database.summarize(xmldoc, "power", options.verbose)
 	for instrument in database.instruments:
 		for sim in SnglBurstUtils.found_injections(database, instrument):
-			time_freq_plot(database, instrument, sim).savefig("%s%d_%s.%s" % (options.base, sim.get_peak(instrument).seconds, instrument, options.format))
+			plotname = "%s%d_%s.%s" % (options.base, sim.get_peak(instrument).seconds, instrument, options.format)
+			if options.verbose:
+				print >>sys.stderr, "--> %s" % plotname
+			time_freq_plot(database, instrument, sim).savefig(plotname)
 	database.connection.close()
