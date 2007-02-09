@@ -201,7 +201,6 @@ class AmplVsFreqContour(SnglBurstUtils.BurstPlot):
 		bins_per_inj = efficiency.used() / float(self.num_injections)
 		#bins_per_inj = efficiency.numerator.shape[0] * efficiency.numerator.shape[1] / float(self.num_injections)
 		window_size = (bins_per_inj / self.error**2)**0.5
-		window_size = 3
 		if window_size > 100:
 			raise SnglBurstUtils.BurstPlotError, "smoothing filter too large (not enough injections)"
 		efficiency.regularize()
