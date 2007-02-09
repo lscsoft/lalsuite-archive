@@ -1,0 +1,181 @@
+#!/usr/bin/python
+#
+# $Id$
+#
+# Copyright (C) 2007  Kipp C. Cannon
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 2 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+#
+# =============================================================================
+#
+#                                   Preamble
+#
+# =============================================================================
+#
+
+import math
+from matplotlib import collections
+import numpy
+from optparse import OptionParser
+import os
+from pysqlite2 import dbapi2 as sqlite3
+import sys
+
+from glue import segments
+from glue.ligolw import utils
+from pylal import llwapp
+from pylal import SnglBurstUtils
+
+__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__version__ = "$Revision$"[11:-2]
+__date__ = "$Date$"[7:-2]
+
+
+#
+# =============================================================================
+#
+#                                 Command Line
+#
+# =============================================================================
+#
+
+def parse_command_line():
+	parser = OptionParser(version="%prog CVS $Id$")
+	parser.add_option("-b", "--base", metavar = "base", default = "plotbinjtf_", help = "set the prefix for output filenames (default = plotbinj_)")
+	parser.add_option("-f", "--format", metavar = "format", default = "png", help = "set the output image format (default = png)")
+	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
+	options, filenames = parser.parse_args()
+
+	return options, (filenames or [None])
+
+options, filenames = parse_command_line()
+
+
+#
+# =============================================================================
+#
+#                                    Input
+#
+# =============================================================================
+#
+
+# save memory by not storing superfluous strings in the heavy-weight tables
+SnglBurstUtils.SnglBurstTable.loadcolumns = SnglBurstUtils.SnglBurstTable.validcolumns.keys()
+SnglBurstUtils.SnglBurstTable.loadcolumns.remove("channel")
+SnglBurstUtils.SnglBurstTable.loadcolumns.remove("search")
+SnglBurstUtils.SnglBurstTable.loadcolumns.remove("process_id")
+SnglBurstUtils.CoincTable.loadcolumns = SnglBurstUtils.CoincTable.validcolumns.keys()
+SnglBurstUtils.CoincTable.loadcolumns.remove("process_id")
+SnglBurstUtils.CoincTable.loadcolumns.remove("time_slide_id")
+
+
+#
+# =============================================================================
+#
+#                             Time-Frequency Plane
+#
+# =============================================================================
+#
+
+def time_freq_plot(database, instrument, sim):
+	fig = SnglBurstUtils.figure.Figure()
+	SnglBurstUtils.FigureCanvasAgg(fig)
+	# 6.5" wide, golden ratio high
+	fig.set_size_inches(6.5, 6.5 / ((1 + math.sqrt(5)) / 2))
+	axes = fig.gca()
+	axes.grid(True)
+	axes.set_xlabel("Time - Injection Time (s)")
+	axes.set_ylabel("Frequency - Injection Frequency (Hz)")
+	axes.set_title("%s Triggers Matching %g Hz Injection at GPS %s" % (instrument, sim.freq, sim.get_peak(instrument)))
+
+	xmin = xmax = 0.0
+	ymin = ymax = 0.0
+	verts = []
+	colours = []
+	peakx = []
+	peaky = []
+	for values in database.connection.cursor().execute(
+		"""
+SELECT sngl_burst.* FROM
+	sngl_burst
+	JOIN coinc_event_map AS a ON (
+		sngl_burst.event_id == a.event_id
+		AND a.table_name == 'sngl_burst'
+	)
+	JOIN coinc_event_map AS b ON (
+		a.coinc_event_id == b.coinc_event_id
+		AND b.table_name == 'sim_burst'
+	)
+WHERE
+	sngl_burst.ifo == ?
+	AND b.event_id == ?
+ORDER BY
+	sngl_burst.confidence DESC
+		""", (instrument, sim.simulation_id)):
+		burst = database.sngl_burst_table._row_from_cols(values)
+
+		# Add time-frequency tile to collection
+		tmin = float(burst.get_start() - sim.get_peak(instrument))
+		tmax = float(burst.get_start() + burst.duration - sim.get_peak(instrument))
+		fmin = burst.central_freq - burst.bandwidth / 2 - sim.freq
+		fmax = burst.central_freq + burst.bandwidth / 2 - sim.freq
+		verts.append(((tmin, fmin), (tmax, fmin), (tmax, fmax), (tmin, fmax)))
+		colours.append(-burst.confidence)
+
+		peakx.append(float(burst.get_peak() - sim.get_peak(instrument)))
+		peaky.append(burst.central_freq - sim.freq)
+
+		# adjust bounding box
+		xmin = min(xmin, tmin)
+		xmax = max(xmax, tmax)
+		ymin = min(ymin, fmin)
+		ymax = max(ymax, fmax)
+
+	#polys = collections.PolyCollection(verts, facecolors = colours)
+	polys = collections.PolyCollection(verts)
+	polys.set_alpha(0.3)
+	axes.add_collection(polys)
+
+	axes.plot(peakx, peaky, "k+")
+
+	axes.axvline(0, color = "k")
+	axes.axhline(0, color = "k")
+
+	# double the size of the bounding box
+	axes.set_xlim([1.4 * xmin, 1.4 * xmax])
+	axes.set_ylim([1.4 * ymin, 1.4 * ymax])
+
+	return fig
+
+
+#
+# =============================================================================
+#
+#                                     Plot
+#
+# =============================================================================
+#
+
+for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose, reverse = True)):
+	if options.verbose:
+		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
+	database = SnglBurstUtils.CoincDatabase(sqlite3.connect(":memory:"))
+	xmldoc = utils.load_filename(filename, options.verbose, gz = filename[-3:] == ".gz")
+	database.summarize(xmldoc, "power", options.verbose)
+	for instrument in database.instruments:
+		for sim in SnglBurstUtils.found_injections(database, instrument):
+			time_freq_plot(database, instrument, sim).savefig("%s%d_%s.%s" % (options.base, sim.get_peak(instrument).seconds, instrument, options.format))
+	database.connection.close()
