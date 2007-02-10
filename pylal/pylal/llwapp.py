@@ -29,12 +29,12 @@ A collection of utilities to assist in writing applications that manipulate
 data in LIGO Light-Weight XML format.
 """
 
+import base64
 import bisect
 import os
 import pickle
 import socket
 import time
-import urllib
 
 from glue import segments
 from glue.ligolw import ligolw
@@ -154,23 +154,17 @@ def get_coinc_def_id(xmldoc, table_names, create_new = True):
 def pickle_to_param(obj, name):
 	"""
 	Return the top-level element of a document sub-tree containing the
-	pickled serialization of a Python object.
+	base64-encoded pickled serialization of a Python object.
 	"""
-	# WARNING:  this is an abuse of most of the things involved;  but,
-	# hey, it's a one-liner so it's hard to resist.  Do NOT use this in
-	# files you care about.  If there proves to be a real desire for
-	# this kind of thing, then we need to think of a proper way to do
-	# it.  For example, there is at least one library that can
-	# serialize a Python object into proper XML.
-	return param.new_param("pickle:%s" % name, "lstring", urllib.quote(pickle.dumps(obj)))
+	return param.new_param("pickle64:%s" % name, "lstring", base64.b64encode(pickle.dumps(obj)))
 
 
 def pickle_from_param(elem, name):
 	"""
-	Retrieve a pickled Python object from the document tree rooted at
-	elem.
+	Retrieve a base64-encoded pickled Python object from the document
+	tree rooted at elem.
 	"""
-	return pickle.loads(urllib.unquote(param.get_param(elem, "pickle:%s:param" % name).pcdata))
+	return pickle.loads(base64.b64decode(param.get_param(elem, "pickle64:%s:param" % name).pcdata))
 
 
 #
