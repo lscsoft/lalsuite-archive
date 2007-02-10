@@ -150,7 +150,11 @@ class DocContents(object):
 		# set the window for triggers_near_starttime();  add 2.0 s
 		# because of the discreteness in the look-up table
 		# FIXME: I think this can be reduced to 1.0 s, check that
-		self.starttime_dt = max(self.snglbursttable.getColumnByName("duration")) + 2.0
+		if len(self.starttimes):
+			self.starttime_dt = max(self.snglbursttable.getColumnByName("duration")) + 2.0
+		else:
+			# max() doesn't like empty sequences
+			self.starttime_dt = 2.0
 
 	def triggers_near_starttime(self, t):
 		"""
