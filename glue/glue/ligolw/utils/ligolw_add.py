@@ -119,19 +119,17 @@ def merge_ligolws(elem):
 	return elem
 
 
-def tables_can_be_merged(a, b):
+def compare_table_cols(a, b):
 	"""
-	Return True if the two tables a and b can be merged.  This means
-	they have equivalent names, and equivalent columns according to
-	LIGO LW name conventions.
+	Return False if the two tables a and b have the same columns
+	(ignoring order) according to LIGO LW name conventions, return True
+	otherwise.
 	"""
-	if table.CompareTableNames(a.getAttribute("Name"), b.getAttribute("Name")):
-		return False
 	acols = [(table.StripColumnName(col.getAttribute("Name")), col.getAttribute("Type")) for col in a.getElementsByTagName(ligolw.Column.tagName)]
 	acols.sort()
 	bcols = [(table.StripColumnName(col.getAttribute("Name")), col.getAttribute("Type")) for col in b.getElementsByTagName(ligolw.Column.tagName)]
 	bcols.sort()
-	return acols == bcols
+	return acols != bcols
 
 
 def merge_compatible_tables(elem):
@@ -146,12 +144,19 @@ def merge_compatible_tables(elem):
 		if tables:
 			dest = tables.pop(0)
 			for src in tables:
-				if tables_can_be_merged(dest, src):
-					# copy rows
-					map(dest.append, src)
-					# unlink from parent
-					if src.parentNode is not None:
-						src.parentNode.removeChild(src)
+				if table.CompareTableNames(src.getAttribute("Name"), dest.getAttribute("Name")):
+					# src and dest have different names
+					continue
+				# src and dest have the same names
+				if compare_table_cols(dest, src):
+					# but they have different columns
+					raise ValueError, "document contains %s tables with incompatible columns" % dest.getAttribute("Name")
+				# and the have the same columns
+				# copy src rows to dest
+				map(dest.append, src)
+				# unlink src from parent
+				if src.parentNode is not None:
+					src.parentNode.removeChild(src)
 	return elem
 
 
