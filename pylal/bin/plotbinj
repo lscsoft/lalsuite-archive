@@ -268,18 +268,22 @@ class RecoveredVsInjectedhrss(SnglBurstUtils.BurstPlot):
 	def add_contents(self, contents):
 		for coinc in contents.coinc_table.selectByDefID(contents.sb_definer_id):
 			self.found += 1
-			confidence = 0.0
-			for burst in contents.coinc_sngl_bursts(coinc):
-				if -burst.confidence > confidence:
-					confidence = -burst.confidence
-					hrss = burst.amplitude
+			# select hrss of most confident match
+			#confidence = 0.0
+			#for burst in contents.coinc_sngl_bursts(coinc):
+			#	if -burst.confidence > confidence:
+			#		confidence = -burst.confidence
+			#		hrss = burst.amplitude
+
+			# select highest matching hrss
+			hrss = max([burst.amplitude for burst in contents.coinc_sngl_bursts(coinc)])
 			for sim in contents.coinc_sim_bursts(coinc):
 				self.injected.append(sim.hrss)
 				self.recovered.append(hrss)
 
 	def finish(self):
 		self.axes.plot(self.injected, self.recovered, "k+")
-		self.axes.set_title("Recovered $h_{\mathrm{rss}}$ vs. Injected $h_{\mathrm{rss}}$\n(%d Found Injections)" % self.found)
+		self.axes.set_title(r"Max.\ Recovered $h_{\mathrm{rss}}$ vs.\ Injected $h_{\mathrm{rss}}$ (%d Found Injections)" % self.found)
 
 
 #
@@ -362,7 +366,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 			if options.verbose:
 				print >>sys.stderr, "adding to %s plot %d..." % (instrument, n)
 			plot.add_contents(database)
-	#xmldoc.unlink()
+	xmldoc.unlink()
 	#database.connection.close()
 	#os.remove("plotbinj.sqlite")
 
