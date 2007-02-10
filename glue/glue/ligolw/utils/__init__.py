@@ -16,6 +16,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+
 #
 # =============================================================================
 #
@@ -23,6 +24,7 @@
 #
 # =============================================================================
 #
+
 
 """
 Library of utility code for LIGO Light Weight XML applications.
@@ -53,6 +55,7 @@ __all__ = []
 # =============================================================================
 #
 
+
 class IOTrappedSignal(Exception):
 	"""
 	Raised by I/O functions upon completion if they trapped a signal
@@ -74,7 +77,14 @@ def measure_file_sizes(filenames, reverse = False):
 	sorted in ascending order by size (or descending order if reverse
 	is set to True).
 	"""
-	l = [(os.stat(name)[stat.ST_SIZE], name) for name in filenames if name]
+	l = []
+	for filename in filenames:
+		if filename is None:
+			# used internally by most ligolw codes to indicate
+			# stdin
+			l.append((0, None))
+		else
+			l.append((os.stat(filename)[stat.ST_SIZE], filename))
 	l.sort()
 	if reverse:
 		l.reverse()
@@ -113,13 +123,13 @@ def load_filename(filename, verbose = False, gz = False, xmldoc = None):
 	"""
 	if verbose:
 		print >>sys.stderr, "reading %s ..." % (filename or "stdin")
-	if filename:
+	if filename is not None:
 		fileobj = file(filename)
 	else:
 		fileobj = sys.stdin
 	if gz:
 		fileobj = gzip.GzipFile(mode = "rb", fileobj = fileobj)
-	if xmldoc == None:
+	if xmldoc is None:
 		xmldoc = ligolw.Document()
 	ligolw.make_parser(ContentHandler(xmldoc)).parse(fileobj)
 	return xmldoc
@@ -147,7 +157,7 @@ def load_url(url, verbose = False, gz = False, xmldoc = None):
 	"""
 	if verbose:
 		print >>sys.stderr, "reading %s ..." % (url or "stdin")
-	if url:
+	if url is not None:
 		# hack to detect local files:  urlopen() returns an object
 		# that does not support seeking, which prevents GzipFile
 		# from working correctly;  by opening local files as
@@ -155,7 +165,7 @@ def load_url(url, verbose = False, gz = False, xmldoc = None):
 		# local case;  still can't read .xml.gz files from a remote
 		# host, though;  what's needed is some kind of buffering
 		# wrapper to provide seeking (I don't think GzipFile wants
-		# to seek very far)
+		# to seek very far, so it wouldn't need a big buffer)
 		(scheme, host, path, nul, nul, nul) = urlparse.urlparse(url)
 		if scheme.lower() in ("", "file") and host.lower() in ("", "localhost"):
 			fileobj = file(path)
@@ -165,7 +175,7 @@ def load_url(url, verbose = False, gz = False, xmldoc = None):
 		fileobj = sys.stdin
 	if gz:
 		fileobj = gzip.GzipFile(mode = "rb", fileobj = fileobj)
-	if xmldoc == None:
+	if xmldoc is None:
 		xmldoc = ligolw.Document()
 	ligolw.make_parser(ContentHandler(xmldoc)).parse(fileobj)
 	return xmldoc
@@ -206,7 +216,7 @@ def write_filename(xmldoc, filename, verbose = False, gz = False):
 	# write the document
 	if verbose:
 		print >>sys.stderr, "writing %s ..." % (filename or "stdout")
-	if filename:
+	if filename is not None:
 		fileobj = file(filename, "w")
 	else:
 		fileobj = sys.stdout
