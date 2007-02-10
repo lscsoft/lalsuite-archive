@@ -83,7 +83,7 @@ def measure_file_sizes(filenames, reverse = False):
 			# used internally by most ligolw codes to indicate
 			# stdin
 			l.append((0, None))
-		else
+		else:
 			l.append((os.stat(filename)[stat.ST_SIZE], filename))
 	l.sort()
 	if reverse:
