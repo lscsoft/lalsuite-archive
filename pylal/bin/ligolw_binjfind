@@ -109,6 +109,6 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 			continue
 		if options.verbose:
 			print >>sys.stderr, "continuing by --force"
-	ligolw_binjfind(xmldoc, **options.__dict__)
+	ligolw_binjfind.ligolw_binjfind(xmldoc, **options.__dict__)
 	utils.write_filename(xmldoc, filename, options.verbose, gz = filename[-3:] == ".gz")
 	xmldoc.unlink()
