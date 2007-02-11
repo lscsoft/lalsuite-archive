@@ -16,6 +16,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+
 #
 # =============================================================================
 #
@@ -24,23 +25,27 @@
 # =============================================================================
 #
 
+
 """
-This module provides facilities for handling impulsive events.  A number
+This module provides facilities for studying impulsive events.  A number of
 multi-dimensional binning functions are provided, as well as code to
-convolve binned data with integral-preserving window functions to produce
-smoothed representations of data sets.  This is particularly well suited
-for use in computing moving-average rate data from collections of impulsive
-events, elliminating binning artifacts from histograms, and improving the
-appearance of contour plots.
+convolve binned data with integral- and phase-preserving window functions
+to produce smoothed representations of data sets.  This is particularly
+well suited for use in computing moving-average rate data from collections
+of impulsive events, elliminating binning artifacts from histograms, and
+smoothing contour plots.
 """
+
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
 
+
 import math
 import numpy
 from scipy.signal import signaltools
+
 
 from glue import segments
 from pylal import itertools
@@ -53,6 +58,7 @@ from pylal import itertools
 #
 # =============================================================================
 #
+
 
 class _Bins(object):
 	"""
@@ -89,14 +95,14 @@ class _LinBins(_Bins):
 		if isinstance(x, segments.segment):
 			return slice(self[x[0]], self[x[1]] + 1)
 		if isinstance(x, slice):
-			if x.step != None:
+			if x.step is not None:
 				raise NotImplementedError, "slices with steps not yet supported"
 			return slice(self[x.start], self[x.stop])
+		if self.min <= x < self.max:
+			return int((x - self.min) / self.delta)
 		if x == self.max:
 			# special "measure zero" corner case
 			return self.n - 1
-		if self.min <= x < self.max:
-			return int((x - self.min) / self.delta)
 		raise IndexError, x
 
 	def centres(self):
@@ -114,14 +120,14 @@ class _LogBins(_Bins):
 		if isinstance(x, segments.segment):
 			return slice(self[x[0]], self[x[1]] + 1)
 		if isinstance(x, slice):
-			if x.step != None:
+			if x.step is not None:
 				raise NotImplementedError, "slices with steps not yet supported"
 			return slice(self[x.start], self[x.stop])
+		if self.min <= x < self.max:
+			return int(math.log(x / self.min) / self.delta)
 		if x == self.max:
 			# special "measure zero" corner case
 			return self.n - 1
-		if self.min <= x < self.max:
-			return int(math.log(x / self.min) / self.delta)
 		raise IndexError, x
 
 	def centres(self):
@@ -216,6 +222,7 @@ class Bins(object):
 # =============================================================================
 #
 
+
 class BinnedArray(object):
 	"""
 	A convenience wrapper, using the Bins class to provide access to
@@ -276,6 +283,7 @@ class BinnedArray(object):
 		effect of allowing the logarithm of the array to be
 		evaluated without error.
 		"""
+		# FIXME:  assign to array's contents instead
 		self.array = numpy.where(self.array > 0, self.array, epsilon)
 		return self
 
@@ -348,7 +356,8 @@ class BinnedRatios(object):
 		evaluated without error, returning zeros in those bins that
 		have had no weight added to them.
 		"""
-		self.denominator = numpy.where(self.denominator > 0, self.denominator, 1.0)
+		# FIXME: assign to denominator's contents instead
+		self.denominator = numpy.where(self.denominator, self.denominator, 1.0)
 		return self
 
 	def logregularize(self, epsilon = 2**-1074):
@@ -358,8 +367,9 @@ class BinnedRatios(object):
 		float epsilon.  This has the effect of allowing the
 		logarithm of the ratio array to be evaluated without error.
 		"""
-		self.numerator = numpy.where(self.denominator > 0, self.numerator, epsilon)
-		self.denominator = numpy.where(self.denominator > 0, self.denominator, 1.0)
+		# FIXME: assign to contents instead
+		self.numerator = numpy.where(self.denominator, self.numerator, epsilon)
+		self.denominator = numpy.where(self.denominator, self.denominator, 1.0)
 		return self
 
 	def centres(self):
@@ -373,7 +383,7 @@ class BinnedRatios(object):
 		"""
 		Return the number of bins with non-zero denominator.
 		"""
-		return len(numpy.nonzero(self.denominator)[0])
+		return numpy.sum(numpy.where(self.denominator, 1, 0))
 
 
 #
@@ -383,6 +393,7 @@ class BinnedRatios(object):
 #
 # =============================================================================
 #
+
 
 def gaussian_window(bins):
 	"""
@@ -436,7 +447,9 @@ def tophat_window2d(bins_x, bins_y):
 				window[x, y] = 0.0
 
 	# normalize
-	return window / numpy.sum(numpy.sum(window))
+	window /= numpy.sum(window)
+
+	return window
 
 
 #
@@ -446,6 +459,7 @@ def tophat_window2d(bins_x, bins_y):
 #
 # =============================================================================
 #
+
 
 def filter_array(a, window, cyclic = False):
 	"""
@@ -506,6 +520,7 @@ def filter_array(a, window, cyclic = False):
 # =============================================================================
 #
 
+
 class Rate(BinnedArray):
 	"""
 	An object for binning and smoothing impulsive data in 1 dimension,
@@ -520,7 +535,8 @@ class Rate(BinnedArray):
 		self.windowfunc = windowfunc
 		# nominal bin size is 1/20th of the filterwidth
 		BinnedArray.__init__(self, Bins(segment[0], segment[1], int(abs(segment) / (filterwidth / 20.0)) + 1))
-		# determine actual bin size from bin count
+		# determine actual bin size from bin count to adjust for
+		# round-off
 		self.binsize = float(abs(segment)) / self.bins.shape[0]
 
 	def __setitem__(self, x, weight):
