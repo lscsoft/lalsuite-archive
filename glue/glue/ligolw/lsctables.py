@@ -158,6 +158,7 @@ class ProcessTable(table.Table):
 		"ifos": "lstring",
 		"process_id": "ilwd:char"
 	}
+	constraints = "PRIMARY KEY (process_id)"
 	ids = ProcessIDs()
 
 	def get_ids_by_program(self, program):
@@ -199,8 +200,9 @@ class LfnTable(table.Table):
 		"name": "lstring",
 		"comment": "lstring",
 		"start_time": "int_4s",
-		"end_time": "int_4s",
+		"end_time": "int_4s"
 	}
+	constraints = "PRIMARY KEY (lfn_id)"
 	ids = LfnIDs()
 
 
@@ -240,6 +242,8 @@ class ProcessParamsTable(table.Table):
 		"type": "lstring",
 		"value": "lstring"
 	}
+	# FIXME: these constraints break ID remapping in the DB backend
+	#constraints = "PRIMARY KEY (process_id, param)"
 
 	def append(self, row):
 		if row.type not in types.Types:
@@ -374,14 +378,22 @@ SearchSummaryTable.RowType = SearchSummary
 #
 
 
+class SearchSummVarsIDs(ilwd.ILWD):
+	def __init__(self, n = 0):
+		ilwd.ILWD.__init__(self, "search_summvars", "search_summvar_id", n)
+
+
 class SearchSummVarsTable(table.Table):
 	tableName = "search_summvars:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
+		"search_summvar_id": "ilwd:char",
 		"name": "lstring",
 		"string": "lstring",
 		"value": "real_8"
 	}
+	constraints = "PRIMARY KEY (search_summvar_id)"
+	ids = SearchSummVarsIDs()
 
 
 class SearchSummVars(object):
@@ -455,6 +467,7 @@ class SnglBurstTable(table.Table):
 		"param_three_value": "real_8",
 		"event_id": "ilwd:char"
 	}
+	constraints = "PRIMARY KEY (event_id)"
 	ids = SnglBurstIDs()
 
 
@@ -568,6 +581,7 @@ class SnglInspiralTable(table.Table):
 		"Gamma9": "real_4",
 		"event_id": "int_8s"	# FIXME: column should be ilwd
 	}
+	constraints = "PRIMARY KEY (event_id)"
 	# FIXME:  inspiral pipeline needs to not encode data in event_id
 	#ids = SnglInspiralIDs()
 
@@ -679,6 +693,7 @@ class SnglRingDownTable(table.Table):
 		"sigma_sq": "real_8",
 		"event_id": "ilwd:char"
 	}
+	constraints = "PRIMARY KEY (event_id)"
 	# FIXME:  ringdown pipeline needs to not encode data in event_id
 	#ids = SnglRingDownIDs()
 
@@ -756,6 +771,7 @@ class MultiInspiralTable(table.Table):
 		"t1quad_re": "real_4",
 		"t1quad_im": "real_4"
 	}
+	constraints = "PRIMARY KEY (event_id)"
 	ids = MultiInspiralIDs()
 
 
@@ -836,6 +852,7 @@ class SimInspiralTable(table.Table):
 		"eff_dist_v": "real_4",
 		"simulation_id": "ilwd:char"
 	}
+	constraints = "PRIMARY KEY (simulation_id)"
 	ids = SimInspiralIDs()
 
 	def get_column(self,column):
@@ -926,6 +943,7 @@ class SimBurstTable(table.Table):
 		"zm_number": "int_4s",
 		"simulation_id": "ilwd:char"
 	}
+	constraints = "PRIMARY KEY (simulation_id)"
 	ids = SimBurstIDs()
 
 
@@ -1055,6 +1073,7 @@ class SimRingDownTable(table.Table):
 		"hrss_l": "real_4",
 		"simulation_id": "ilwd:char"
 	}
+	constraints = "PRIMARY KEY (simulation_id)"
 	ids = SimRingDownIDs()
 
 
@@ -1074,11 +1093,19 @@ SimRingDownTable.RowType = SimRingDown
 #
 
 
+class SummValueIDs(ilwd.ILWD):
+	def __init__(self, n = 0):
+		ilwd.ILWD.__init__(self, "summ_value", "summ_value_id", n)
+
+
 class SummValueTable(table.Table):
 	tableName = "summ_value:table"
 	validcolumns = {
+		"summ_value_id": "ilwd:char",
 		"program": "lstring",
 		"process_id": "ilwd:char",
+		"frameset_group": "lstring",
+		"segment_def_id": "ilwd:char",
 		"start_time": "int_4s",
 		"start_time_ns": "int_4s",
 		"end_time": "int_4s",
@@ -1086,8 +1113,12 @@ class SummValueTable(table.Table):
 		"ifo": "lstring",
 		"name": "lstring",
 		"value": "real_4",
+		"error": "real_4",
+		"intvalue": "int_4s",
 		"comment": "lstring"
 	}
+	constraints = "PRIMARY KEY (summ_value_id)"
+	ids = SummValueIDs()
 
 
 class SummValue(object):
@@ -1208,12 +1239,8 @@ StochSummTable.RowType = StochSumm
 #
 
 
-# FIXME: this table looks broken to me.  There is no unique ID column, thus
-# it is not possible to refer to entries in this table from other tables.
-# There is a "notice_id" column, but that is for recording the native
-# identifier as used by the source of the trigger.  It cannot be relied
-# upon to be unique within this table (two different sources might *happen*
-# to use the same identifier format, like "event001").
+# FIXME: this table is completely different from the official definition.
+# Someone *HAS* to sort this out.
 
 
 class ExtTriggersTable(table.Table):
@@ -1278,6 +1305,11 @@ ExtTriggersTable.RowType = ExtTriggers
 #
 
 
+class FilterIDs(ilwd.ILWD):
+	def __init__(self, n = 0):
+		ilwd.ILWD.__init__(self, "filter", "filter_id", n)
+
+
 class FilterTable(table.Table):
 	tableName = "filter:table"
 	validcolumns = {
@@ -1285,8 +1317,12 @@ class FilterTable(table.Table):
 		"program": "lstring",
 		"start_time": "int_4s",
 		"filter_name": "lstring",
+		"filter_id": "ilwd:char",
+		"param_set": "int_4s",
 		"comment": "lstring"
 	}
+	constraints = "PRIMARY KEY (filter_id)"
+	ids = FilterIDs()
 
 
 class Filter(object):
@@ -1324,6 +1360,7 @@ class SegmentTable(table.Table):
 		"segnum": "int_4s",
 		"insertion_time": "int_4s"
 	}
+	constraints = "PRIMARY KEY (segment_id)"
 	ids = SegmentIDs()
 
 
@@ -1398,6 +1435,7 @@ class SegmentDefMapTable(table.Table):
 		"state_vec_map": "int_4s",
 		"insertion_time": "int_4s"
 	}
+	constraints = "PRIMARY KEY (segment_def_map_id)"
 	ids = SegmentDefMapIDs()
 
 
@@ -1437,6 +1475,7 @@ class SegmentDefTable(table.Table):
 		"state_vec_minor": "int_4s",
 		"insertion_time": "int_4s"
 	}
+	constraints = "PRIMARY KEY (segment_def_id)"
 	ids = SegmentDefIDs()
 
 
@@ -1469,6 +1508,7 @@ class TimeSlideTable(table.Table):
 		"instrument": "lstring",
 		"offset": "real_8"
 	}
+	constraints = "PRIMARY KEY (time_slide_id, instrument)"
 	ids = TimeSlideIDs()
 
 	def get_offset_dict(self, id):
@@ -1521,6 +1561,7 @@ class CoincDefTable(table.Table):
 		"coinc_def_id": "ilwd:char",
 		"table_name": "char_v"
 	}
+	constraints = "PRIMARY KEY (coinc_def_id)"
 	ids = CoincDefIDs()
 
 	def get_contributors(self, id):
@@ -1562,6 +1603,7 @@ class CoincTable(table.Table):
 		"time_slide_id": "ilwd:char",
 		"nevents": "int_4u"
 	}
+	constraints = "PRIMARY KEY (coinc_event_id)"
 	ids = CoincIDs()
 
 
@@ -1624,6 +1666,7 @@ class LIGOLWMonTable(table.Table):
 		"event_id": "ilwd:char",
 		"insertion_time": "int_4s"
 	}
+	constraints = "PRIMARY KEY (event_id)"
 	ids = LIGOLWMonIDs()
 
 
