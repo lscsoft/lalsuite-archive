@@ -16,6 +16,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+
 #
 # =============================================================================
 #
@@ -23,6 +24,7 @@
 #
 # =============================================================================
 #
+
 
 """
 While the ligolw module provides classes and parser support for reading and
@@ -66,6 +68,7 @@ import ilwd
 # =============================================================================
 #
 
+
 # Regular expression to extract the significant part of a column name
 # according to the LIGO LW naming conventions.
 
@@ -75,6 +78,7 @@ import ilwd
 #
 # but people are putting upper case letters in names!!!!!  Someone is going
 # to get the beats.
+
 
 ColumnPattern = re.compile(r"(?:\A\w+:|\A)(?P<FullName>(?:(?P<Table>\w+):|\A)(?P<Name>\w+))\Z")
 
@@ -113,8 +117,10 @@ def getColumnsByName(elem, name):
 # =============================================================================
 #
 
+
 # Regular expression used to extract the signifcant portion of a table or
 # stream name, according to LIGO LW naming conventions.
+
 
 TablePattern = re.compile(r"(?:\A[a-z0-9_]+:|\A)(?P<Name>[a-z0-9_]+):table\Z")
 
@@ -152,6 +158,7 @@ def getTablesByName(elem, name):
 #
 # =============================================================================
 #
+
 
 def new_from_template(template):
 	"""
@@ -220,6 +227,7 @@ def reassign_ids(elem):
 #
 # =============================================================================
 #
+
 
 class TableRowDict(object):
 	"""
@@ -313,6 +321,7 @@ class TableRowDict(object):
 #
 # =============================================================================
 #
+
 
 class Column(ligolw.Column):
 	"""
@@ -489,6 +498,7 @@ class Table(ligolw.Table, list):
 	"""
 	validcolumns = None
 	loadcolumns = None
+	constraints = None
 	RowType = TableRow
 	ids = None
 	dict = None
@@ -601,7 +611,11 @@ class Table(ligolw.Table, list):
 		child element has been added.
 		"""
 		if self.ids is not None:
-			self.dict = TableRowDict(self)
+			try:
+				self.dict = TableRowDict(self)
+			except:
+				# don't try too hard
+				pass
 
 	def _end_of_rows(self):
 		"""
@@ -664,12 +678,16 @@ class Table(ligolw.Table, list):
 		algorithm.  Accepts a dictionary mapping old key --> new
 		key.  Iterates over the rows in this table, using the
 		table's own ILWD generator to assign a new key to each row,
-		recording the changes in the mapping.  Returns the mapping
-		or ValueError if the table has no ILWD generator.
+		recording the changes in the mapping.  Returns the mapping.
+		Raises ValueError if the table has no ILWD generator.
 		"""
 		if self.ids is None:
 			raise ValueError, self
-		column = self.getColumnByName(self.ids.column_name)
+		try:
+			column = self.getColumnByName(self.ids.column_name)
+		except KeyError:
+			# table is missing its ID column
+			return mapping
 		for i, old in enumerate(column):
 			if old in mapping:
 				column[i] = mapping[old]
@@ -717,7 +735,6 @@ class DBTable(Table):
 	within a document.
 	"""
 	connection = None
-	constraints = None
 
 	def __init__(self, *attrs):
 		"""
@@ -734,7 +751,7 @@ class DBTable(Table):
 		self.dbcolumnnames = list(self.columnnames)
 		self.dbcolumntypes = list(self.columntypes)
 		if self.loadcolumns is not None:
-			for i in xrange(len(self.columnnames) - 1, -1, -1):
+			for i in xrange(len(self.dbcolumnnames) - 1, -1, -1):
 				if self.dbcolumnnames[i] not in self.loadcolumns:
 					del self.dbcolumnnames[i]
 					del self.dbcolumntypes[i]
@@ -781,21 +798,26 @@ class DBTable(Table):
 # =============================================================================
 #
 
+
 #
 # Override portions of the ligolw.LIGOLWContentHandler class
 #
 
+
 __parent_startStream = ligolw.LIGOLWContentHandler.startStream
 __parent_endStream = ligolw.LIGOLWContentHandler.endStream
 
+
 def startColumn(self, attrs):
 	return Column(attrs)
+
 
 def startStream(self, attrs):
 	if self.current.tagName == ligolw.Table.tagName:
 		self.current._end_of_columns()
 		return TableStream(attrs)
 	return __parent_startStream(self, attrs)
+
 
 def endStream(self):
 	# stream tokenizer uses delimiter to identify end of each token, so
@@ -807,16 +829,19 @@ def endStream(self):
 	else:
 		__parent_endStream(self)
 
+
 def startTable(self, attrs):
 	return Table(attrs)
 
+
 def endTable(self):
 	# Table elements are allowed to contain 0 Stream children, but
-	# _end_of_columns() and _end_of_rows() hooks need to be called
-	# regardless.
+	# _end_of_columns() and _end_of_rows() hooks must be called
+	# regardless, so we do that here if needed.
 	if self.current.childNodes[-1].tagName != ligolw.Stream.tagName:
 		self.current._end_of_columns()
 		self.current._end_of_rows()
+
 
 ligolw.LIGOLWContentHandler.startColumn = startColumn
 ligolw.LIGOLWContentHandler.startStream = startStream
