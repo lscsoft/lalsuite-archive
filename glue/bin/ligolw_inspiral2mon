@@ -70,9 +70,6 @@ del parser, args
 
 indoc = utils.load_filename(options.input)
 
-snglinsptables = table.getTablesByName(indoc, lsctables.SnglInspiralTable.tableName)
-insearchsummtables = table.getTablesByName(indoc, lsctables.SearchSummaryTable.tableName)
-
 
 #
 # =============================================================================
@@ -148,9 +145,7 @@ if options.output != None:
 # =============================================================================
 #
 
-seglist = segments.segmentlist([])
-for table_elem in insearchsummtables:
-	seglist |= table_elem.get_outlist().coalesce()
+seglist = table.get_table(indoc, lsctables.SearchSummaryTable.tableName).get_outlist().coalesce()
 
 segmentids = lsctables.SegmentIDs()
 for seg in seglist:
@@ -171,16 +166,15 @@ for seg in seglist:
 #
 
 ligolwmonids = lsctables.LIGOLWMonIDs()
-for table_elem in snglinsptables:
-	for inspiral in table_elem.rows:
-		ligolwmon = lsctables.LIGOLWMon()
-		ligolwmon.process_id = process.process_id
-		ligolwmon.event_id = ligolwmonids.next()
-		ligolwmon.set_time(inspiral.get_end())
-		ligolwmon.amplitude = inspiral.snr
-		ligolwmon.confidence = inspiral.chisq
-		ligolwmon.frequency = inspiral.f_final
-		ligolwmontable.append(ligolwmon)
+for inspiral in table.get_table(indoc, lsctables.SnglInspiralTable.tableName).rows:
+	ligolwmon = lsctables.LIGOLWMon()
+	ligolwmon.process_id = process.process_id
+	ligolwmon.event_id = ligolwmonids.next()
+	ligolwmon.set_time(inspiral.get_end())
+	ligolwmon.amplitude = inspiral.snr
+	ligolwmon.confidence = inspiral.chisq
+	ligolwmon.frequency = inspiral.f_final
+	ligolwmontable.append(ligolwmon)
 
 
 #
