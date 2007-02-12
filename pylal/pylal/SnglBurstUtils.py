@@ -65,7 +65,7 @@ from pylal.date import LIGOTimeGPS
 class SnglBurstTable(table.DBTable):
 	tableName = lsctables.SnglBurstTable.tableName
 	validcolumns = lsctables.SnglBurstTable.validcolumns
-	constraints = "PRIMARY KEY (event_id)"
+	constraints = lsctables.SnglBurstTable.constraints
 
 	def __getitem__(self, id):
 		self.cursor.execute("SELECT * FROM sngl_burst WHERE event_id == ?", (id,))
@@ -94,7 +94,7 @@ SnglBurstTable.RowType = SnglBurst
 class SimBurstTable(table.DBTable):
 	tableName = lsctables.SimBurstTable.tableName
 	validcolumns = lsctables.SimBurstTable.validcolumns
-	constraints = "PRIMARY KEY (simulation_id)"
+	constraints = lsctables.SimBurstTable.constraints
 
 	def __getitem__(self, id):
 		self.cursor.execute("SELECT * FROM sim_burst WHERE simulation_id == ?", (id,))
@@ -122,7 +122,7 @@ class TimeSlideTable(table.DBTable):
 	# this is a little different because multiple rows share ID
 	tableName = lsctables.TimeSlideTable.tableName
 	validcolumns = lsctables.TimeSlideTable.validcolumns
-	constraints = "PRIMARY KEY (time_slide_id, instrument)"
+	constraints = lsctables.TimeSlideTable.constraints
 
 	def __len__(self):
 		return self.cursor.execute("SELECT COUNT(DISTINCT time_slide_id) FROM time_slide").fetchone()[0]
@@ -179,7 +179,7 @@ class CoincDefTable(table.DBTable):
 class CoincTable(table.DBTable):
 	tableName = lsctables.CoincTable.tableName
 	validcolumns = lsctables.CoincTable.validcolumns
-	constraints = "PRIMARY KEY (coinc_event_id)"
+	constraints = lsctables.CoincTable.constraints
 
 	def __getitem__(self, id):
 		self.cursor.execute("SELECT * FROM coinc_event WHERE coinc_event_id == ?", (id,))
