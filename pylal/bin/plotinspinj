@@ -408,7 +408,7 @@ for i,ethinca_vs_diff in enumerate(opts.ethinca_vs_diff):
     [par1, par2, ifo] = readcolfrom2tables(table1, table2, ethinca_vs_diff)
     
     diff_a = (par1 - par2)
-    col_b = [1-ethinca_param(sim, sngl) for sim, sngl in zip(table1, table2)]
+    col_b = [ethinca_param(sim, sngl) for sim, sngl in zip(table1, table2)]
     
     ax.plot(diff_a, col_b, symb)
     
@@ -419,7 +419,7 @@ for i,ethinca_vs_diff in enumerate(opts.ethinca_vs_diff):
     
     ax.set_xlabel('$\delta (\mathrm{%s})$' \
       % ethinca_vs_diff.replace('_', r'\_'), size='x-large')
-    ax.set_ylabel('1 - ethinca-parameter', size='x-large')
+    ax.set_ylabel('ethinca-parameter', size='x-large')
 
     if opts.title_text is not None:
       ax.set_title(opts.title_text, size='x-large', weight='bold')
