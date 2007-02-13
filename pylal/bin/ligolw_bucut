@@ -56,7 +56,6 @@ def parse_command_line():
 	parser.add_option("--coinc-only", action = "store_true", help = "discard triggers that are not participating in a coincident event")
 	parser.add_option("--comment", metavar = "text", default = "", help = "set comment string in process table")
 	parser.add_option("--inj-made-only", action = "store_true", help = "discard injections outside the search summary out segments")
-	parser.add_option("--inj-no-dups", action = "store_true", help = "discard duplicate injections")
 	parser.add_option("--min-amplitude", metavar = "value", help = "discard triggers below the given amplitude")
 	parser.add_option("--max-amplitude", metavar = "value", help = "discard triggers above the given amplitude")
 	parser.add_option("--min-bandwidth", metavar = "Hz", help = "discard triggers narrower than the given bandwidth")
@@ -161,8 +160,6 @@ def append_process(doc, options):
 		params += [("--coinc-only", "lstring", "")]
 	if options.inj_made_only:
 		params += [("--inj-made-only", "lstring", "")]
-	if options.inj_no_dups:
-		params += [("--inj-no-dups", "lstring", "")]
 	if options.min_amplitude != None:
 		options.min_amplitude = float(options.min_amplitude)
 		params += [("--min-amplitude", "real_4", options.min_amplitude)]
@@ -384,18 +381,6 @@ def remove_injections_by_segment(contents):
 			i += 1
 
 
-def remove_duplicate_injections(contents):
-	# FIXME: this only works if binjfind has not yet been run (if no
-	# cross-references exist to the injections)
-	for a, sima in enumerate(contents.simbursttable):
-		b = a + 1
-		while b < len(contents.simbursttable):
-			if not sima.cmp(contents.simbursttable[b]):
-				del contents.simbursttable[b]
-			else:
-				b += 1
-
-
 def clean_coinc_tables(contents, removed_ids):
 	# FIXME:  this only works on the output of burca, not the output of
 	# binjfind.  In the case of binjfind, deleting a trigger doesn't
@@ -406,30 +391,21 @@ def clean_coinc_tables(contents, removed_ids):
 	# deleting the coincidence).
 	# remove dangling coinc_event_map rows
 	removed_coincs = []
-	i = 0
-	while i < len(contents.coincmaptable):
+	for i in range(len(contents.coincmaptable) - 1, -1, -1):
 		if llwapp.bisect_contains(removed_ids, contents.coincmaptable[i].event_id):
 			removed_coincs.append(contents.coincmaptable[i].coinc_event_id)
 			del contents.coincmaptable[i]
-		else:
-			i += 1
 	removed_coincs.sort()
 
 	# remove broken coinc_event rows
-	i = 0
-	while i < len(contents.coinctable):
+	for i in range(len(contents.coinctable) - 1, -1, -1):
 		if llwapp.bisect_contains(removed_coincs, contents.coinctable[i].coinc_event_id):
 			del contents.coinctable[i]
-		else:
-			i += 1
 
 	# remove dangling coinc_event_map rows
-	i = 0
-	while i < len(contents.coincmaptable):
+	for i in range(len(contents.coincmaptable) - 1, -1, -1):
 		if llwapp.bisect_contains(removed_coincs, contents.coincmaptable[i].coinc_event_id):
 			del contents.coincmaptable[i]
-		else:
-			i += 1
 
 	contents.make_coinceventids()
 
@@ -455,10 +431,6 @@ def apply_filters(contents, options, verbose = False):
 		if verbose:
 			print >>sys.stderr, "removing injections that weren't performed..."
 		remove_injections_by_segment(contents)
-	if options.inj_no_dups:
-		if verbose:
-			print >>sys.stderr, "removing duplicate injections..."
-		remove_duplicate_injections(contents)
 	removed_ids.sort()
 	if verbose:
 		print >>sys.stderr, "removing broken coincidences..."
