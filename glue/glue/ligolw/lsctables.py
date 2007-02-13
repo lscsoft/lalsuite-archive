@@ -77,7 +77,7 @@ def New(Type, columns = None):
 	if columns is not None:
 		for key in columns:
 			if key not in new.validcolumns:
-				raise ligolw.ElementError, "New(): invalid Column '%s' for Table '%s'" % (key, new.tableName)
+				raise ligolw.ElementError, "invalid Column '%s' for Table '%s'" % (key, new.tableName)
 			new.appendChild(table.Column(sax.xmlreader.AttributesImpl({u"Name": colnamefmt % key, u"Type": new.validcolumns[key]})))
 	else:
 		for key, value in new.validcolumns.items():
@@ -209,17 +209,6 @@ class LfnTable(table.Table):
 class Lfn(object):
 	__slots__ = LfnTable.validcolumns.keys()
 
-	def cmp(self, other):
-		# FIXME: this is a hack, but I need something so I can move
-		# forward.
-		for key in LfnTable.validcolumns.keys():
-			if key == "lfn_id":
-				continue
-			result = cmp(getattr(self, key), getattr(other, key))
-			if result:
-				return result
-		return 0
-
 
 LfnTable.RowType = Lfn
 
@@ -247,7 +236,7 @@ class ProcessParamsTable(table.Table):
 
 	def append(self, row):
 		if row.type not in types.Types:
-			raise ligolw.ElementError, "ProcessParamsTable.append(): unrecognized type '%s'" % row.type
+			raise ligolw.ElementError, "unrecognized type '%s'" % row.type
 		table.Table.append(self, row)
 
 
