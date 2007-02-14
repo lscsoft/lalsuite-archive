@@ -720,6 +720,24 @@ class Table(ligolw.Table, list):
 #
 
 
+def DBTable_idmap_create(connection):
+	connection.cursor().execute("CREATE TEMPORARY TABLE _idmap_ (old TEXT PRIMARY KEY, new TEXT)")
+
+
+def DBTable_idmap_reset(connection):
+	connection.cursor().execute("DELETE FROM _idmap_")
+
+
+def DBTable_idmap_getnew(connection, old, ids):
+	cursor = connection.cursor()
+	new = cursor.execute("SELECT new FROM _idmap_ WHERE old == ?", (old,)).fetchone()
+	if new is None:
+		new = ids.next()
+		cursor.execute("INSERT INTO _idmap_ VALUES (?, ?)", (old, new))
+		return new
+	return new[0]
+
+
 class DBTable(Table):
 	"""
 	A special version of the Table class using an SQL database for
@@ -750,23 +768,42 @@ class DBTable(Table):
 	def _end_of_columns(self):
 		Table._end_of_columns(self)
 		# dbcolumnnames and types have the "not loaded" columns removed
-		self.dbcolumnnames = list(self.columnnames)
-		self.dbcolumntypes = list(self.columntypes)
 		if self.loadcolumns is not None:
-			for i in xrange(len(self.dbcolumnnames) - 1, -1, -1):
-				if self.dbcolumnnames[i] not in self.loadcolumns:
-					del self.dbcolumnnames[i]
-					del self.dbcolumntypes[i]
-		statement = "CREATE TABLE " + StripTableName(self.getAttribute("Name")) + " (" + ", ".join(map(lambda n, t: "%s %s" % (n, types.ToSQLiteType[t]), self.dbcolumnnames, self.dbcolumntypes))
+			self.dbcolumnnames = [name for name in self.columnnames if name in self.loadcolumns]
+			self.dbcolumntypes = [name for i, name in enumerate(self.columntypes) if self.columnnames[i] in self.loadcolumns]
+		else:
+			self.dbcolumnnames = self.columnnames
+			self.dbcolumntypes = self.columntypes
+
+		# create the table
+		statement = "CREATE TABLE IF NOT EXISTS " + StripTableName(self.getAttribute("Name")) + " (" + ", ".join(map(lambda n, t: "%s %s" % (n, types.ToSQLiteType[t]), self.dbcolumnnames, self.dbcolumntypes))
 		if self.constraints is not None:
 			statement += ", " + self.constraints
 		statement += ")"
 		self.cursor.execute(statement)
+
+		# record the highest internal row ID
+		self.last_maxrowid = self.maxrowid() or 0
+
+		# construct the SQL to be used to insert new rows
 		self.append_statement = "INSERT INTO " + StripTableName(self.getAttribute("Name")) + " VALUES (" + ",".join("?" * len(self.dbcolumnnames)) + ")"
 
 	def _end_of_rows(self):
 		Table._end_of_rows(self)
 		self.connection.commit()
+
+	def sync_ids(self):
+		if self.ids is not None:
+			statement = "SELECT MAX(CAST(SUBSTR(%s, %d, 10) AS INTEGER)) FROM %s" % (self.ids.column_name, self.ids.index_offset + 1, StripTableName(self.getAttribute("Name")))
+			last = self.cursor.execute(statement).fetchone()[0]
+			if last is None:
+				self.ids.set_next(0)
+			else:
+				self.ids.set_next(last + 1)
+		return self.ids
+
+	def maxrowid(self):
+		return self.cursor.execute("SELECT MAX(ROWID) FROM %s" % StripTableName(self.getAttribute("Name"))).fetchone()[0]
 
 	def __len__(self):
 		return self.cursor.execute("SELECT COUNT(*) FROM " + StripTableName(self.getAttribute("Name"))).fetchone()[0]
@@ -775,10 +812,27 @@ class DBTable(Table):
 		for values in self.connection.cursor().execute("SELECT * FROM " + StripTableName(self.getAttribute("Name"))):
 			yield self._row_from_cols(values)
 
-	def append(self, row):
+	def _append(self, row):
 		# FIXME: in Python 2.5 use attrgetter() for attribute
 		# tuplization.
 		self.cursor.execute(self.append_statement, map(lambda n: getattr(row, n), self.dbcolumnnames))
+
+	def _remapping_append(self, row):
+		"""
+		Replacement for the standard append() method.  This version
+		performs on the fly row ID reassignment, and so also
+		performs the function of the updateKeyMapping() method.
+		SQL does not permit the PRIMARY KEY of a row to be
+		modified, so it needs to be done prior to insertion.  This
+		method is intended for internal use only.
+		"""
+		if self.ids is not None:
+			setattr(row, self.ids.column_name, DBTable_idmap_getnew(self.connection, getattr(row, self.ids.column_name), self.ids))
+		# FIXME: in Python 2.5 use attrgetter() for attribute
+		# tuplization.
+		self.cursor.execute(self.append_statement, map(lambda n: getattr(row, n), self.dbcolumnnames))
+
+	append = _append
 
 	def _row_from_cols(self, values):
 		row = self.RowType()
@@ -788,8 +842,27 @@ class DBTable(Table):
 
 	def unlink(self):
 		Table.unlink(self)
-		self.cursor.execute("DROP TABLE " + StripTableName(self.getAttribute("Name")))
+		#self.cursor.execute("DROP TABLE " + StripTableName(self.getAttribute("Name")))
 		self.cursor = None
+
+	def applyKeyMapping(self):
+		"""
+		Used as the second half of the key reassignment algorithm.
+		Loops over each row in the table, replacing references to
+		old row keys with the new values from the _idmap_ table.
+		"""
+		assignments = []
+		for colname in [colname for coltype, colname in zip(self.dbcolumntypes, self.dbcolumnnames) if coltype in types.IDTypes and (self.ids is None or colname != self.ids.column_name)]:
+			assignments.append(" %s = (SELECT new FROM _idmap_ WHERE old == %s)" % (colname, colname))
+		if not assignments:
+			return
+		maxrowid = self.maxrowid() or 0
+		if maxrowid <= self.last_maxrowid:
+			return
+		# in SQLite, BETWEEN means a <= x <= b
+		statement = "UPDATE "+ StripTableName(self.getAttribute("Name")) + " SET" + ",".join(assignments) + " WHERE ROWID BETWEEN %d AND %d" % (self.last_maxrowid + 1, maxrowid)
+		self.cursor.execute(statement)
+		self.last_maxrowid = maxrowid
 
 
 #
