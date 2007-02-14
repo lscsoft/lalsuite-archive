@@ -423,16 +423,18 @@ class TableStream(ligolw.Stream):
 		self.__row = None
 		self.__colindex = 0
 
-	def appendData(self, content):
-		# some initialization that can only be done once parentNode
-		# has been set.
-		if self.__row is None:
-			self.__tokenizer.set_types([(self.parentNode.loadcolumns is None or colname in self.parentNode.loadcolumns or None) and pytype for pytype, colname in zip(self.parentNode.columnpytypes, self.parentNode.columnnames)])
-			self.__colnames = tuple([colname for colname in self.parentNode.columnnames if self.parentNode.loadcolumns is None or colname in self.parentNode.loadcolumns])
-			self.__numcols = len(self.__colnames)
-			self.__row = self.parentNode.RowType()
+	def config(self, parentNode):
+		# some initialization that requires access to the
+		# parentNode, and so cannot be done inside the __init__()
+		# function.
+		self.__tokenizer.set_types([(parentNode.loadcolumns is None or colname in parentNode.loadcolumns or None) and pytype for pytype, colname in zip(parentNode.columnpytypes, parentNode.columnnames)])
+		self.__colnames = tuple([colname for colname in parentNode.columnnames if parentNode.loadcolumns is None or colname in parentNode.loadcolumns])
+		self.__numcols = len(self.__colnames)
+		self.__row = parentNode.RowType()
+		return self
 
-		# tokenize buffer, and construct row objects
+	def appendData(self, content):
+		# tokenize buffer, and pack into row objects
 		for token in self.__tokenizer.add(content):
 			setattr(self.__row, self.__colnames[self.__colindex], token)
 			self.__colindex += 1
@@ -653,8 +655,9 @@ class Table(ligolw.Table, list):
 		the counter for the table's ILWD generator so as to cause
 		it to yield the next ID in the sequence and higher.  If the
 		generator is already set to yield an ID greater than the
-		max found, then it is left unmodified.  Raises ValueError
-		if the table does not possess an ILWD generator.
+		max found, then it is left unmodified.  The return value is
+		the ILWD generator object.  If the table does not possess
+		an ILWD generator, then this function is a no-op.
 
 		Note that tables of the same name typically share
 		references to the same ILWD generator so that IDs can be
@@ -663,13 +666,12 @@ class Table(ligolw.Table, list):
 		sync_ids() needs to be run on every table sharing the
 		generator.
 		"""
-		if self.ids is None:
-			raise ValueError, self
-		n = 0
-		for id in self.getColumnByName(self.ids.column_name):
-			n = max(n, ilwd.ILWDID(id) + 1)
-		if n > self.ids.n:
-			self.ids.n = n
+		if self.ids is not None:
+			n = 0
+			for id in self.getColumnByName(self.ids.column_name):
+				n = max(n, ilwd.ILWDID(id) + 1)
+			if n > self.ids.n:
+				self.ids.n = n
 		return self.ids
 
 	def updateKeyMapping(self, mapping):
@@ -815,7 +817,7 @@ def startColumn(self, attrs):
 def startStream(self, attrs):
 	if self.current.tagName == ligolw.Table.tagName:
 		self.current._end_of_columns()
-		return TableStream(attrs)
+		return TableStream(attrs).config(self.current)
 	return __parent_startStream(self, attrs)
 
 
