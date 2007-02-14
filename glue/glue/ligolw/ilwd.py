@@ -99,11 +99,15 @@ class ILWD(object):
 		which these will be used as IDs, eg., "process" and
 		"process_id".  The optional n parameter sets the starting
 		value for the numeric suffix in the ilwd:char
-		representation of ID (default is 0).
+		representation of ID (default is 0).  An initialized ILWD
+		generator instance has the attribute index_offset
+		containing the location of the numeric index portion of the
+		ID within the string.
 		"""
 		self.table_name = table.StripTableName(table_name)
 		self.column_name = table.StripColumnName(column_name)
 		self.n = n
+		self.index_offset = len(self.table_name) + len(self.column_name) + 2
 
 	def __str__(self):
 		"""
