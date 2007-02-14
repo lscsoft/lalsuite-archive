@@ -1,0 +1,244 @@
+#!/usr/bin/python
+#
+# $Id$
+#
+# Copyright (C) 2006  Kipp C. Cannon
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 2 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+
+#
+# =============================================================================
+#
+#                                   Preamble
+#
+# =============================================================================
+#
+
+
+"""
+Transfer table data between LIGO Light Weight XML files and SQLite
+databases.
+"""
+
+
+from optparse import OptionParser
+from pysqlite2 import dbapi2 as sqlite3
+import sys
+from xml import sax
+
+from glue.lal import CacheEntry
+from glue.ligolw import ligolw
+from glue.ligolw import table
+from glue.ligolw import lsctables
+from glue.ligolw import utils
+from glue.ligolw.utils import ligolw_add
+
+__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__date__ = "$Date$"[7:-2]
+__version__ = "$Revision$"[11:-2]
+
+
+#
+# =============================================================================
+#
+#                                 Command Line
+#
+# =============================================================================
+#
+
+
+def parse_command_line():
+	"""
+	Parse the command line, return an options object and a list of file
+	names.
+	"""
+	parser = OptionParser(version = "%prog CVS $Id$")
+	parser.add_option("-o", "--database", metavar = "filename", help = "use the SQLite3 database named filename")
+	parser.add_option("-i", "--input-cache", metavar = "filename", action = "append", default = [], help = "get XML files to insert from the LAL cache named filename")
+	parser.add_option("-x", "--extract", action = "store_true", help = "extract database contents to XML file (default is to insert from XML files)")
+	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
+	options, filenames = parser.parse_args()
+
+	for cache in options.input_cache:
+		filenames += [c.path() for c in map(CacheEntry, file(cache))]
+
+	if not filenames:
+		raise ValueError, "no input files"
+
+	if options.extract:
+		if len(filenames) > 1:
+			raise ValueError, "multiple output files specified"
+		if options.input_cache:
+			raise ValueError, "cannot set --input-cache with --extract"
+
+	if not options.database:
+		raise ValueError, "must set --database"
+
+	return options, filenames
+
+
+#
+# =============================================================================
+#
+#                           Jam In Experimental Code
+#
+# =============================================================================
+#
+
+
+#
+# hack to use DBTable class for Table elements
+#
+
+
+def startTable(self, attrs):
+	return table.DBTable(attrs)
+
+ligolw.LIGOLWContentHandler.startTable = startTable
+
+
+#
+# hack to enable on-the-fly ID remapping
+#
+
+
+table.DBTable.append = table.DBTable._remapping_append
+
+
+#
+# hack to grab metadata from lsctables
+#
+
+
+DBTable__init__orig = table.DBTable.__init__
+
+def DBTable__init__new(self, *attrs):
+	DBTable__init__orig(self, *attrs)
+	try:
+		cls = lsctables.TableByName[table.StripTableName(self.getAttribute("Name"))]
+		self.tableName = cls.tableName
+		self.validcolumns = cls.validcolumns
+		self.constraints = cls.constraints
+		self.ids = cls.ids
+	except KeyError:
+		# unknown table type
+		pass
+
+table.DBTable.__init__ = DBTable__init__new
+
+
+#
+# =============================================================================
+#
+#                                     Main
+#
+# =============================================================================
+#
+
+
+#
+# How to insert
+#
+
+
+def insert(connection, filenames):
+	table.DBTable_idmap_create(connection)
+	for n, url in enumerate(filenames):
+		# load document (row IDs are reassigned on input)
+		if options.verbose:
+			print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
+		doc = utils.load_url(url, verbose = options.verbose, gz = url[-3:] == ".gz")
+
+		# update references to row IDs
+		if options.verbose:
+			print >>sys.stderr, "updating IDs:",
+		for tbl in doc.getElementsByTagName(ligolw.Table.tagName):
+			if options.verbose:
+				print >>sys.stderr, "%s" % table.StripTableName(tbl.getAttribute("Name")),
+			tbl.applyKeyMapping()
+		if options.verbose:
+			print >>sys.stderr
+
+		# reset ID mapping for next document
+		table.DBTable_idmap_reset(connection)
+
+		# delete cursors
+		doc.unlink()
+	connection.commit()
+
+
+#
+# How to extract
+#
+
+
+def extract(connection, filename):
+	doc = ligolw.Document()
+	doc.appendChild(ligolw.LIGO_LW())
+
+	table_names = [name for (name,) in connection.cursor().execute("SELECT name FROM sqlite_master WHERE type == 'table'")]
+	for table_name in table_names:
+		cls = lsctables.TableByName[table_name]
+		column_names = [name for (name, type_code, display_size, internal_size, precision, scale, null_ok) in connection.cursor().execute("SELECT * FROM %s LIMIT 1" % table_name).description]
+
+		# build the table document tree.  copied from
+		# lsctables.New()
+		table_elem = table.DBTable(sax.xmlreader.AttributesImpl({u"Name": cls.tableName}))
+		colnamefmt = ":".join(cls.tableName.split(":")[:-1]) + ":%s"
+		for column_name in column_names:
+			table_elem.appendChild(table.Column(sax.xmlreader.AttributesImpl({u"Name": colnamefmt % column_name, u"Type": cls.validcolumns[column_name]})))
+		table_elem._end_of_columns()
+		table_elem.appendChild(table.TableStream(sax.xmlreader.AttributesImpl({u"Name": cls.tableName})))
+
+		# insert into document
+		doc.childNodes[-1].appendChild(table_elem)
+
+	utils.write_filename(filename, gz = filename[-3:] == ".gz", verbose = options.verbose)
+
+
+#
+# Command line
+#
+
+
+options, filenames = parse_command_line()
+
+
+#
+# Open database
+#
+
+
+table.DBTable.connection = sqlite3.connect(options.database)
+
+
+#
+# Do selected operation
+#
+
+
+if options.extract:
+	extract(table.DBTable.connection, filenames[0])
+else:
+	insert(table.DBTable.connection, filenames)
+
+
+#
+# Close database
+#
+
+
+table.DBTable.connection.close()
