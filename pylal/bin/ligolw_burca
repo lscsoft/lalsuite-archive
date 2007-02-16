@@ -18,6 +18,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+
 #
 # =============================================================================
 #
@@ -25,6 +26,7 @@
 #
 # =============================================================================
 #
+
 
 from optparse import OptionParser
 import sys
@@ -48,6 +50,7 @@ __date__ = "$Date$"[7:-2]
 #
 # =============================================================================
 #
+
 
 def parse_command_line():
 	parser = OptionParser(version = "%prog CVS $Id$")
@@ -88,6 +91,7 @@ def parse_command_line():
 # =============================================================================
 #
 
+
 def StringCoincCompare(a, b, thresholds):
 	"""
 	Returns False (a & b are coincident) if their peak times agree
@@ -120,11 +124,9 @@ def ExcessPowerCoincCompare(a, b, dt):
 # =============================================================================
 #
 
-try:
-	options, filenames = parse_command_line()
-except ValueError, e:
-	print >>sys.stderr, "error: %s" % str(e)
-	sys.exit(1)
+
+options, filenames = parse_command_line()
+
 
 if options.string_compare:
 	snglcoinc.EventListDict.EventListType = ligolw_burca.StringEventList
