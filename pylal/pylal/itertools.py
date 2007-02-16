@@ -84,24 +84,25 @@ class MultiIter(object):
 
 def choices(vals, n):
 	"""
-	Return a list of all choices of n elements from the list vals.
-	Order is preserved.
+	Iterate over all choices of n elements from the list vals.  In each
+	result returned, the original order of the values is preserved.
 
 	Example:
 
-	>>> choices(["a", "b", "c"], 2)
+	>>> list(choices(["a", "b", "c"], 2))
 	[['a', 'b'], ['a', 'c'], ['b', 'c']]
 	"""
 	if n == len(vals):
-		return [vals]
-	if n == 1:
-		return [[v] for v in vals]
-	if n < 1:
+		yield vals
+	elif n > 1:
+		for i in xrange(len(vals) - n + 1):
+			for c in choices(vals[i+1:], n - 1):
+				c.insert(0, vals[i])
+				yield c
+	elif n == 1:
+		for v in vals:
+			yield [v]
+	else:
+		# n < 1
 		raise ValueError, n
-	l = []
-	for i in xrange(len(vals) - n + 1):
-		for c in choices(vals[i+1:], n - 1):
-			c.insert(0, vals[i])
-			l.append(c)
-	return l
 
