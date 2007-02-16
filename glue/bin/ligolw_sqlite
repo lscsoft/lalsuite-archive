@@ -148,8 +148,12 @@ def insert(filenames, preserve_ids = True, verbose = False):
 
 def add_coinc_indeces(connection):
 	connection.cursor().execute("""
-CREATE INDEX cem_tn_cei_index ON coinc_event_map (table_name, coinc_event_id);
+CREATE INDEX cem_tn_cei_index ON coinc_event_map (table_name, coinc_event_id)
+	""")
+	connection.cursor().execute("""
 CREATE INDEX ce_cdi_index ON coinc_event (coinc_def_id);
+	""")
+	connection.cursor().execute("""
 CREATE INDEX ce_tsi_index ON coinc_event (time_slide_id);
 	""")
 
