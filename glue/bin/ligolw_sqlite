@@ -37,12 +37,11 @@ databases.
 from optparse import OptionParser
 from pysqlite2 import dbapi2 as sqlite3
 import sys
-from xml import sax
 
 from glue.lal import CacheEntry
 from glue.ligolw import ligolw
 from glue.ligolw import table
-from glue.ligolw import lsctables
+from glue.ligolw import dbtables
 from glue.ligolw import utils
 from glue.ligolw.utils import ligolw_add
 
@@ -66,8 +65,10 @@ def parse_command_line():
 	names.
 	"""
 	parser = OptionParser(version = "%prog CVS $Id$")
-	parser.add_option("-o", "--database", metavar = "filename", help = "use the SQLite3 database named filename")
+	parser.add_option("-d", "--database", metavar = "filename", help = "use the SQLite3 database named filename")
 	parser.add_option("-i", "--input-cache", metavar = "filename", action = "append", default = [], help = "get XML files to insert from the LAL cache named filename")
+	parser.add_option("--add-coinc-indeces", action = "store_true", help = "after inserting all XML files, construct the standard indeces on the coincidence tables")
+	parser.add_option("--preserve-ids", action = "store_true", help = "preserve row IDs from the XML in the database (the default is to assign new IDs to prevent collisisions;  inserts will fail if collisions occur)")
 	parser.add_option("-x", "--extract", action = "store_true", help = "extract database contents to XML file (default is to insert from XML files)")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
 	options, filenames = parser.parse_args()
@@ -83,6 +84,8 @@ def parse_command_line():
 			raise ValueError, "multiple output files specified"
 		if options.input_cache:
 			raise ValueError, "cannot set --input-cache with --extract"
+		if options.add_coinc_indeces:
+			raise ValueError, "cannot set --add-coinc-indeces with --extract"
 
 	if not options.database:
 		raise ValueError, "must set --database"
@@ -93,51 +96,62 @@ def parse_command_line():
 #
 # =============================================================================
 #
-#                           Jam In Experimental Code
+#                                 Library Code
 #
 # =============================================================================
 #
 
 
 #
-# hack to use DBTable class for Table elements
+# How to insert
 #
 
 
-def startTable(self, attrs):
-	return table.DBTable(attrs)
+def insert(filenames, preserve_ids = True, verbose = False):
+	"""
+	Iterate over the give filenames, and parse and insert each one into
+	the database the dbtables.DBTable class is currently connected to.
+	"""
+	if not preserve_ids:
+		# enable ID remapping
+		dbtables.DBTable_idmap_create()
+		dbtables.DBTable.append = dbtables.DBTable._remapping_append
+	for n, filename in enumerate(filenames):
+		# load document (if enabled, row IDs are reassigned on
+		# input)
+		if verbose:
+			print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
+		doc = utils.load_filename(filename, verbose = verbose, gz = filename[-3:] == ".gz")
 
-ligolw.LIGOLWContentHandler.startTable = startTable
+		# update references to row IDs
+		if not preserve_ids:
+			table_elems = doc.getElementsByTagName(ligolw.Table.tagName)
+			for i, tbl in enumerate(table_elems):
+				if verbose:
+					print >>sys.stderr, "updating IDs: %d%%\r" % (100 * i / len(table_elems)),
+				tbl.applyKeyMapping()
+			if verbose:
+				print >>sys.stderr, "updating IDs: 100%"
+
+			# reset ID mapping for next document
+			dbtables.DBTable_idmap_reset()
+
+		# delete cursors
+		doc.unlink()
+	dbtables.DBTable_commit()
 
 
 #
-# hack to enable on-the-fly ID remapping
+# Standard coinc indeces
 #
 
 
-table.DBTable.append = table.DBTable._remapping_append
-
-
-#
-# hack to grab metadata from lsctables
-#
-
-
-DBTable__init__orig = table.DBTable.__init__
-
-def DBTable__init__new(self, *attrs):
-	DBTable__init__orig(self, *attrs)
-	try:
-		cls = lsctables.TableByName[table.StripTableName(self.getAttribute("Name"))]
-		self.tableName = cls.tableName
-		self.validcolumns = cls.validcolumns
-		self.constraints = cls.constraints
-		self.ids = cls.ids
-	except KeyError:
-		# unknown table type
-		pass
-
-table.DBTable.__init__ = DBTable__init__new
+def add_coinc_indeces(connection):
+	connection.cursor().execute("""
+CREATE INDEX cem_tn_cei_index ON coinc_event_map (table_name, coinc_event_id);
+CREATE INDEX ce_cdi_index ON coinc_event (coinc_def_id);
+CREATE INDEX ce_tsi_index ON coinc_event (time_slide_id);
+	""")
 
 
 #
@@ -149,71 +163,6 @@ table.DBTable.__init__ = DBTable__init__new
 #
 
 
-#
-# How to insert
-#
-
-
-def insert(connection, filenames):
-	table.DBTable_idmap_create(connection)
-	for n, url in enumerate(filenames):
-		# load document (row IDs are reassigned on input)
-		if options.verbose:
-			print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
-		doc = utils.load_url(url, verbose = options.verbose, gz = url[-3:] == ".gz")
-
-		# update references to row IDs
-		if options.verbose:
-			print >>sys.stderr, "updating IDs:",
-		for tbl in doc.getElementsByTagName(ligolw.Table.tagName):
-			if options.verbose:
-				print >>sys.stderr, "%s" % table.StripTableName(tbl.getAttribute("Name")),
-			tbl.applyKeyMapping()
-		if options.verbose:
-			print >>sys.stderr
-
-		# reset ID mapping for next document
-		table.DBTable_idmap_reset(connection)
-
-		# delete cursors
-		doc.unlink()
-	connection.commit()
-
-
-#
-# How to extract
-#
-
-
-def extract(connection, filename):
-	doc = ligolw.Document()
-	doc.appendChild(ligolw.LIGO_LW())
-
-	table_names = [name for (name,) in connection.cursor().execute("SELECT name FROM sqlite_master WHERE type == 'table'")]
-	for table_name in table_names:
-		cls = lsctables.TableByName[table_name]
-		column_names = [name for (name, type_code, display_size, internal_size, precision, scale, null_ok) in connection.cursor().execute("SELECT * FROM %s LIMIT 1" % table_name).description]
-
-		# build the table document tree.  copied from
-		# lsctables.New()
-		table_elem = table.DBTable(sax.xmlreader.AttributesImpl({u"Name": cls.tableName}))
-		colnamefmt = ":".join(cls.tableName.split(":")[:-1]) + ":%s"
-		for column_name in column_names:
-			table_elem.appendChild(table.Column(sax.xmlreader.AttributesImpl({u"Name": colnamefmt % column_name, u"Type": cls.validcolumns[column_name]})))
-		table_elem._end_of_columns()
-		table_elem.appendChild(table.TableStream(sax.xmlreader.AttributesImpl({u"Name": cls.tableName})))
-
-		# insert into document
-		doc.childNodes[-1].appendChild(table_elem)
-
-	utils.write_filename(filename, gz = filename[-3:] == ".gz", verbose = options.verbose)
-
-
-#
-# Command line
-#
-
-
 options, filenames = parse_command_line()
 
 
@@ -222,7 +171,8 @@ options, filenames = parse_command_line()
 #
 
 
-table.DBTable.connection = sqlite3.connect(options.database)
+connection = sqlite3.connect(options.database)
+dbtables.DBTable_set_connection(connection)
 
 
 #
@@ -231,9 +181,16 @@ table.DBTable.connection = sqlite3.connect(options.database)
 
 
 if options.extract:
-	extract(table.DBTable.connection, filenames[0])
+	doc = ligolw.Document()
+	doc.appendChild(dbtables.DBTable_get_xml())
+	filename = filenames[0]
+	utils.write_filename(doc, filename, gz = filename[-3:] == ".gz", verbose = options.verbose)
 else:
-	insert(table.DBTable.connection, filenames)
+	insert(filenames, preserve_ids = options.preserve_ids, verbose = options.verbose)
+	if options.add_coinc_indeces:
+		if options.verbose:
+			print >>sys.stderr, "constructing coincidence indeces ..."
+		add_coinc_indeces(connection)
 
 
 #
@@ -241,4 +198,4 @@ else:
 #
 
 
-table.DBTable.connection.close()
+connection.close()
