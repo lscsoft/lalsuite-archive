@@ -58,6 +58,7 @@ __date__ = "$Date$"[7:-2]
 # =============================================================================
 #
 
+
 def segmentlistdict_fromsearchsummary(xmldoc, program = None):
 	"""
 	Convenience wrapper for a common case usage of the segmentlistdict
@@ -151,6 +152,7 @@ def get_coinc_def_id(xmldoc, table_names, create_new = True):
 # =============================================================================
 #
 
+
 def pickle_to_param(obj, name):
 	"""
 	Return the top-level element of a document sub-tree containing the
@@ -174,6 +176,7 @@ def pickle_from_param(elem, name):
 #
 # =============================================================================
 #
+
 
 def append_process(doc, program = "", version = "", cvs_repository = "", cvs_entry_time = "", comment = "", is_online = False, jobid = 0, domain = "", ifos = ""):
 	"""
@@ -245,6 +248,7 @@ def doc_includes_process(doc, program):
 # =============================================================================
 #
 
+
 def append_search_summary(doc, process, shared_object = "standalone", lalwrapper_cvs_tag = "", lal_cvs_tag = "", comment = None, ifos = None, inseg = None, outseg = None, nevents = 0, nnodes = 1):
 	"""
 	Append search summary information associated with the given process
@@ -272,6 +276,7 @@ def append_search_summary(doc, process, shared_object = "standalone", lalwrapper
 #
 # =============================================================================
 #
+
 
 def bisect_contains(array, val):
 	"""
