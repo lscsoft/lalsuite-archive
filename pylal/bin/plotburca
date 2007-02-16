@@ -36,7 +36,7 @@ import sys
 
 from glue import segments
 from glue.ligolw import table
-from glue.ligolw import lsctables
+from glue.ligolw import dbtables
 from glue.ligolw import utils
 from pylal import rate
 from pylal import SnglBurstUtils
@@ -103,13 +103,13 @@ class RateContours(SnglBurstUtils.BurstPlot):
 
 	def add_contents(self, contents):
 		if self.tisi_rows == None:
-			self.tisi_rows = contents.time_slide_table.all_offsets()
+			self.tisi_rows = [contents.time_slide_table[id] for id in contents.time_slide_table]
 		if self.seglists == None:
 			self.seglists = contents.seglists
 		else:
 			for instrument, seglist in contents.seglists.iteritems():
 				self.seglists[instrument] |= seglist
-		for coinc in contents.coinc_table.selectByDefID(contents.bb_definer_id):
+		for coinc in contents.coinc_select_by_def_id(contents.bb_definer_id):
 			offsets = coinc.get_time_slide()
 			self.bins.incnumerator((offsets[self.x_instrument], offsets[self.y_instrument]))
 
@@ -212,7 +212,7 @@ class ConfidenceContours(SnglBurstUtils.BurstPlot):
 			# fast path: these are not the instruments we're
 			# looking for
 			return
-		for coinc in contents.coinc_table.selectByDefID(contents.bb_definer_id):
+		for coinc in contents.coinc_select_by_def_id(contents.bb_definer_id):
 			#if not keep_3(contents.coinc_sngl_bursts(coinc)):
 			#	continue
 			if coinc.is_zero_lag():
@@ -233,7 +233,7 @@ class ConfidenceContours(SnglBurstUtils.BurstPlot):
 					# not on plot axes
 					pass
 		if contents.sc_definer_id:
-			for coinc in contents.coinc_table.selectByDefID(contents.sc_definer_id):
+			for coinc in contents.coinc_select_by_def_id(contents.sc_definer_id):
 				self.n_injections += 1
 				for coinc in contents.coinc_coincs(coinc):
 					try:
@@ -317,12 +317,13 @@ class ConfidenceContourProjection(SnglBurstUtils.BurstPlot):
 		return numpy.inner(mag, self.x), numpy.inner(mag, self.y)
 
 	def add_contents(self, contents):
-		for coinc in contents.coinc_table.selectByDefID(contents.bb_definer_id):
-			#if not keep_3(contents.coinc_sngl_bursts(coinc)):
+		for coinc in contents.coinc_select_by_def_id(contents.bb_definer_id):
+			bursts = contents.coinc_sngl_bursts(coinc)
+			#if not keep_3(bursts):
 			#	continue
+			x, y = self.coords(bursts)
 			if coinc.is_zero_lag():
 				self.n_foreground += 1
-				x, y = self.coords(contents.coinc_sngl_bursts(coinc))
 				try:
 					self.foreground_bins[x, y] += 1
 					#self.foreground_x.append(x)
@@ -333,12 +334,12 @@ class ConfidenceContourProjection(SnglBurstUtils.BurstPlot):
 			else:
 				self.n_background += 1
 				try:
-					self.background_bins[self.coords(contents.coinc_sngl_bursts(coinc))] += 1
+					self.background_bins[x, y] += 1
 				except IndexError:
 					# not on plot axes
 					pass
 		if contents.sc_definer_id:
-			for coinc in contents.coinc_table.selectByDefID(contents.sc_definer_id):
+			for coinc in contents.coinc_select_by_def_id(contents.sc_definer_id):
 				self.n_injections += 1
 				for coinc in contents.coinc_coincs(coinc):
 					try:
@@ -415,7 +416,7 @@ class RateVsConfidence(SnglBurstUtils.BurstPlot):
 			else:
 				bins = self.background
 				self.background_segs.append(contents.seglists[self.instrument])
-			for coinc in contents.coinc_table.selectByTimeSlideID(time_slide_id):
+			for coinc in contents.coinc_select_by_time_slide_id(time_slide_id):
 				if coinc.coinc_def_id != contents.bb_definer_id:
 					continue
 				for burst in contents.coinc_sngl_bursts(coinc):
@@ -450,7 +451,7 @@ class DeltaTHistogram(SnglBurstUtils.BurstPlot):
 		self.background = rate.Rate(interval, width)
 
 	def add_contents(self, contents):
-		for coinc in contents.coinc_table.selectByDefID(contents.bb_definer_id):
+		for coinc in contents.coinc_select_by_def_id(contents.bb_definer_id):
 			offsets = coinc.get_time_slide()
 			if self.instrument not in offsets:
 				continue

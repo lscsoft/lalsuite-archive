@@ -18,6 +18,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+
 #
 # =============================================================================
 #
@@ -25,6 +26,7 @@
 #
 # =============================================================================
 #
+
 
 import math
 from matplotlib import cm, colors, collections
@@ -35,6 +37,7 @@ from pysqlite2 import dbapi2 as sqlite3
 import sys
 
 from glue import segments
+from glue.ligolw import dbtables
 from glue.ligolw import utils
 from pylal import llwapp
 from pylal import SnglBurstUtils
@@ -51,6 +54,7 @@ __date__ = "$Date$"[7:-2]
 #
 # =============================================================================
 #
+
 
 def parse_command_line():
 	parser = OptionParser(version="%prog CVS $Id$")
@@ -77,10 +81,15 @@ def time_freq_plot(database, instrument, sim):
 	SnglBurstUtils.FigureCanvasAgg(fig)
 	# 6.5" wide, golden ratio high
 	fig.set_size_inches(6.5, 6.5 / ((1 + math.sqrt(5)) / 2))
-	axes = fig.gca()
+
+	#
+	# top plot --- triggers that matched injection
+	#
+
+	axes = fig.add_subplot(211)
 	axes.grid(True)
-	axes.set_xlabel("Time - Injection Time (s)")
-	axes.set_ylabel("Frequency - Injection Frequency (Hz)")
+	#axes.set_xlabel("$t - t_{\mathrm{injection}}$ (s)")
+	axes.set_ylabel("$f - f_{\mathrm{injection}}$ (Hz)")
 	axes.set_title("%s Triggers Matching %g Hz Injection at GPS %s" % (instrument, sim.freq, sim.get_peak(instrument)))
 
 	xmin = xmax = 0.0
@@ -89,11 +98,11 @@ def time_freq_plot(database, instrument, sim):
 	colours = []
 	peakx = []
 	peaky = []
+	match_ids = []
 	# find triggers from the desired instrument that are coincident
 	# with the injection, and iterate over them in order from least to
 	# most confident
-	for values in database.connection.cursor().execute(
-		"""
+	for values in database.connection.cursor().execute("""
 SELECT sngl_burst.* FROM
 	sngl_burst
 	JOIN coinc_event_map AS a ON (
@@ -109,8 +118,9 @@ WHERE
 	AND b.event_id == ?
 ORDER BY
 	sngl_burst.confidence DESC
-		""", (instrument, sim.simulation_id)):
+	""", (instrument, sim.simulation_id)):
 		burst = database.sngl_burst_table._row_from_cols(values)
+		match_ids.append(burst.event_id)
 
 		# Add time-frequency tile to collection
 		tmin = float(burst.get_start() - sim.get_peak(instrument))
@@ -145,6 +155,77 @@ ORDER BY
 	axes.set_xlim([1.4 * xmin, 1.4 * xmax])
 	axes.set_ylim([1.4 * ymin, 1.4 * ymax])
 
+	#
+	# bottom plot --- triggers near injection
+	#
+
+	axes = fig.add_subplot(212)
+	axes.grid(True)
+	axes.set_xlabel("$t - t_{\mathrm{injection}}$ (s)")
+	axes.set_ylabel("$f - f_{\mathrm{injection}}$ (Hz)")
+	#axes.set_title("%s Triggers Matching %g Hz Injection at GPS %s" % (instrument, sim.freq, sim.get_peak(instrument)))
+
+	xmin = xmax = 0.0
+	ymin = ymax = 0.0
+	verts = []
+	colours = []
+	edgecolours = []
+	peakx = []
+	peaky = []
+	# find triggers from the desired instrument that are near the
+	# injection, and iterate over them in order from least to most
+	# confident
+	for values in database.connection.cursor().execute("""
+SELECT * FROM
+	sngl_burst
+WHERE
+	ifo == ?
+	AND start_time BETWEEN ? AND ?
+	AND central_freq BETWEEN ? AND ?
+ORDER BY
+	sngl_burst.confidence DESC
+	""", (instrument, int(sim.get_peak(instrument) - 2), int(sim.get_peak(instrument) + 2), sim.freq - 300, sim.freq + 300)):
+		burst = database.sngl_burst_table._row_from_cols(values)
+
+		# Add time-frequency tile to collection
+		tmin = float(burst.get_start() - sim.get_peak(instrument))
+		tmax = float(burst.get_start() + burst.duration - sim.get_peak(instrument))
+		fmin = burst.central_freq - burst.bandwidth / 2 - sim.freq
+		fmax = burst.central_freq + burst.bandwidth / 2 - sim.freq
+		verts.append(((tmin, fmin), (tmax, fmin), (tmax, fmax), (tmin, fmax)))
+		colours.append(-burst.confidence)
+		if burst.event_id in match_ids:
+			edgecolours.append("g")
+		else:
+			edgecolours.append("k")
+
+		peakx.append(float(burst.get_peak() - sim.get_peak(instrument)))
+		peaky.append(burst.central_freq - sim.freq)
+
+		# update bounding box
+		xmin = min(xmin, tmin)
+		xmax = max(xmax, tmax)
+		ymin = min(ymin, fmin)
+		ymax = max(ymax, fmax)
+
+	polys = collections.PolyCollection(verts, edgecolors = edgecolours)
+	polys.set_array(numpy.array(colours))
+	polys.set_alpha(0.3)
+	polys.set_cmap(cm.get_cmap())
+	polys.set_norm(colors.normalize())
+	axes.add_collection(polys)
+
+	axes.plot(peakx, peaky, "k+")
+
+	axes.axvline(0, color = "k")
+	axes.axhline(0, color = "k")
+
+	# set the bounding box
+	axes.set_xlim([1.4 * xmin, 1.4 * xmax])
+	axes.set_ylim([1.4 * ymin, 1.4 * ymax])
+
+
+
 	return fig
 
 
@@ -158,14 +239,14 @@ ORDER BY
 
 for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose, reverse = True)):
 	if options.verbose:
-		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
-	database = SnglBurstUtils.CoincDatabase(sqlite3.connect(":memory:"))
-	xmldoc = utils.load_filename(filename, options.verbose, gz = filename[-3:] == ".gz")
-	database.summarize(xmldoc, "power", options.verbose)
+		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
+	connection = sqlite3.connect(filename)
+	dbtables.DBTable_set_connection(connection)
+	database = SnglBurstUtils.CoincDatabase().summarize(dbtables.DBTable_get_xml(), "power", options.verbose)
 	for instrument in database.instruments:
-		for sim in SnglBurstUtils.found_injections(database, instrument):
+		for sim in database.found_injections(instrument):
 			plotname = "%s%d_%s.%s" % (options.base, sim.get_peak(instrument).seconds, instrument, options.format)
 			if options.verbose:
 				print >>sys.stderr, "--> %s" % plotname
 			time_freq_plot(database, instrument, sim).savefig(plotname)
-	database.connection.close()
+	connection.close()

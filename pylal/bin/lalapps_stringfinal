@@ -18,6 +18,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+
 #
 # =============================================================================
 #
@@ -25,6 +26,7 @@
 #
 # =============================================================================
 #
+
 
 """
 String cusp search final output rendering tool.
@@ -40,6 +42,7 @@ import sys
 
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
+from glue.ligolw import dbtables
 from glue.ligolw import utils
 from glue import segments
 from pylal import rate
@@ -57,6 +60,7 @@ __date__ = "$Date$"[7:-2]
 #
 # =============================================================================
 #
+
 
 def parse_command_line():
 	parser = OptionParser(version="%prog CVS $Id$")
@@ -92,12 +96,13 @@ def parse_command_line():
 # =============================================================================
 #
 
+
 class Survivors(object):
 	def __init__(self):
 		self.xmldoc = None
 
 	def add_contents(self, contents):
-		if self.xmldoc == None:
+		if self.xmldoc is None:
 			self.xmldoc = ligolw.Document()
 			self.xmldoc.appendChild(ligolw.LIGO_LW())
 			self.sngl_burst_table = lsctables.New(lsctables.SnglBurstTable, contents.sngl_burst_table.columnnames)
@@ -108,8 +113,7 @@ class Survivors(object):
 			raise ValueError, "document does not contain exactly 1 zero-lag time slide (contains %d of them)" % len(time_slide_id)
 		time_slide_id = time_slide_id[0]
 
-		self.sngl_burst_table.extend(map(contents.sngl_burst_table._row_from_cols, contents.connection.cursor().execute(
-			"""
+		self.sngl_burst_table.extend(map(contents.sngl_burst_table._row_from_cols, contents.connection.cursor().execute("""
 SELECT sngl_burst.* FROM
 	sngl_burst
 	JOIN coinc_event_map ON (
@@ -122,9 +126,7 @@ SELECT sngl_burst.* FROM
 WHERE
 	coinc_event.coinc_def_id == ?
 	AND coinc_event.time_slide_id == ?
-			""",
-			(contents.bb_definer_id, time_slide_id)
-		)))
+		""", (contents.bb_definer_id, time_slide_id))))
 
 	def finish(self, filename, verbose = "False"):
 		self.sngl_burst_table.sort(lambda a, b: cmp((a.ifo, abs(a.amplitude)), (b.ifo, abs(b.amplitude))))
@@ -138,6 +140,7 @@ WHERE
 #
 # =============================================================================
 #
+
 
 class RateVsAmplitude(SnglBurstUtils.BurstPlot):
 	def __init__(self, instrument, amplitude_factor):
@@ -161,12 +164,22 @@ class RateVsAmplitude(SnglBurstUtils.BurstPlot):
 			else:
 				bins = self.background
 				self.background_time += live_time
-			for coinc in contents.coinc_table.selectByTimeSlideID(time_slide_id):
-				if coinc.coinc_def_id != contents.bb_definer_id:
-					continue
-				for burst in contents.coinc_sngl_bursts(coinc):
-					if burst.ifo == self.instrument:
-						bins.append(abs(burst.amplitude) * self.amplitude_factor)
+			for amplitude, in contents.connection.cursor().execute("""
+SELECT sngl_burst.amplitude FROM
+	sngl_burst
+	JOIN coinc_event_map ON (
+		sngl_burst.event_id == coinc_event_map.event_id
+		AND coinc_event_map.table_name == 'sngl_burst'
+	)
+	JOIN coinc_event ON (
+		coinc_event_map.coinc_event_id == coinc_event.coinc_event_id
+	)
+WHERE
+	sngl_burst.ifo == ?
+	AND coinc_event.coinc_def_id == ?
+	AND coinc_event.time_slide_id == ?
+			""", (self.instrument, contents.bb_definer_id, time_slide_id)):
+				bins.append(abs(amplitude) * self.amplitude_factor)
 		contents.seglists.offsets.clear()
 
 	def finish(self):
@@ -216,6 +229,7 @@ class RateVsAmplitude(SnglBurstUtils.BurstPlot):
 # =============================================================================
 #
 
+
 def slope(x, y):
 	"""
 	From the x and y array, compute the slope everywhere.
@@ -235,10 +249,10 @@ def solve(x, y, xval = None, yval = None):
 	interpolation is done between (x,y) pairs.
 	"""
 	# FIXME: assumes x and y are both monotonically increasing!
-	if xval == None and yval != None:
+	if xval is None and yval is not None:
 		i = bisect.bisect_left(y, yval)
 		return x[i - 1] + (x[i] - x[i - 1]) * (yval - y[i - 1]) / (y[i] - y[i - 1])
-	elif xval != None and yval == None:
+	elif xval is not None and yval is None:
 		i = bisect.bisect_left(x, xval)
 		return y[i - 1] + (y[i] - y[i - 1]) * (xval - x[i - 1]) / (x[i] - x[i - 1])
 	else:
@@ -343,8 +357,7 @@ class Efficiency(SnglBurstUtils.BurstPlot):
 		# get a list of the sim_burst simulation_id's for
 		# injections that matched one of those, then extract the
 		# rows for those injections.
-		self.found.extend(map(contents.sim_burst_table._row_from_cols, contents.connection.cursor().execute(
-			"""
+		self.found.extend(map(contents.sim_burst_table._row_from_cols, contents.connection.cursor().execute("""
 SELECT * FROM
 	sim_burst
 WHERE
@@ -368,9 +381,7 @@ WHERE
 					coinc_event.coinc_def_id == ?
 			)
 	)
-			""",
-			(contents.bb_definer_id,)
-		)))
+		""", (contents.bb_definer_id,))))
 		# find all injections recovered in loudest_survivor_inst
 		# with an amplitude greater than loudest_survivor_ampl:
 		# assemble a list of sngl_burst event_id's for events
@@ -378,8 +389,8 @@ WHERE
 		# coincidences, then get a list of the sim_burst
 		# simulation_id's for injections that matched one of those,
 		# then extract the rows for those injections.
-		self.found_above_loudest.extend(map(contents.sim_burst_table._row_from_cols, contents.connection.cursor().execute(
-			"""
+		# FIXME: this query can be simplified
+		self.found_above_loudest.extend(map(contents.sim_burst_table._row_from_cols, contents.connection.cursor().execute("""
 SELECT * FROM
 	sim_burst
 WHERE
@@ -408,9 +419,7 @@ WHERE
 					AND coinc_event.coinc_def_id == ?
 			)
 	)
-			""",
-			(self.loudest_survivor_inst, self.loudest_survivor_ampl, contents.bb_definer_id,)
-		)))
+		""", (self.loudest_survivor_inst, self.loudest_survivor_ampl, contents.bb_definer_id,))))
 		self.all.extend(iter(contents.sim_burst_table))
 
 	def finish(self):
@@ -468,6 +477,7 @@ WHERE
 # =============================================================================
 #
 
+
 options, filenames = parse_command_line()
 
 if options.injections:
@@ -487,9 +497,10 @@ else:
 for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose, reverse = True)):
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
-	database = SnglBurstUtils.CoincDatabase(sqlite3.connect(":memory:"))
+	connection = sqlite3.connect(":memory:")
+	dbtables.DBTable_set_connection(connection)
 	xmldoc = utils.load_filename(filename, options.verbose, gz = filename[-3:] == ".gz")
-	database.summarize(xmldoc, options.live_time_program, options.verbose)
+	database = SnglBurstUtils.CoincDatabase().summarize(xmldoc, options.live_time_program, options.verbose)
 	for n, plot in enumerate(plots):
 		if options.verbose:
 			print >>sys.stderr, "adding to plot %d ..." % n
@@ -498,7 +509,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 		if options.verbose:
 			print >>sys.stderr, "storing zero-lag survivors ..."
 		survivors.add_contents(database)
-	xmldoc.unlink()
+	connection.close()
 
 n = 0
 format = "%%s%%0%dd.%%s" % (int(math.log10(max(len(plots) - 1, 1))) + 1)

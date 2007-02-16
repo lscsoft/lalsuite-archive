@@ -62,16 +62,6 @@ from pylal.date import LIGOTimeGPS
 #
 
 
-class SnglBurstTable(table.DBTable):
-	tableName = lsctables.SnglBurstTable.tableName
-	validcolumns = lsctables.SnglBurstTable.validcolumns
-	constraints = lsctables.SnglBurstTable.constraints
-
-	def __getitem__(self, id):
-		self.cursor.execute("SELECT * FROM sngl_burst WHERE event_id == ?", (id,))
-		return self._row_from_cols(self.cursor.fetchone())
-
-
 class SnglBurst(lsctables.SnglBurst):
 	# use pylal.date.LIGOTimeGPS for speed
 	def get_peak(self):
@@ -88,112 +78,6 @@ class SnglBurst(lsctables.SnglBurst):
 		return segments.segment(start, start + self.duration)
 
 
-SnglBurstTable.RowType = SnglBurst
-
-
-class SimBurstTable(table.DBTable):
-	tableName = lsctables.SimBurstTable.tableName
-	validcolumns = lsctables.SimBurstTable.validcolumns
-	constraints = lsctables.SimBurstTable.constraints
-
-	def __getitem__(self, id):
-		self.cursor.execute("SELECT * FROM sim_burst WHERE simulation_id == ?", (id,))
-		return self._row_from_cols(self.cursor.fetchone())
-
-
-class SimBurst(lsctables.SimBurst):
-	# use pylal.date.LIGOTimeGPS for speed
-	def get_geocent_peak(self):
-		return LIGOTimeGPS(self.geocent_peak_time, self.geocent_peak_time_ns)
-
-	def get_peak(self, instrument):
-		observatory = instrument[0]
-		if observatory == "H":
-			return LIGOTimeGPS(self.h_peak_time, self.h_peak_time_ns)
-		if observatory == "L":
-			return LIGOTimeGPS(self.l_peak_time, self.l_peak_time_ns)
-		raise ValueError, instrument
-
-
-SimBurstTable.RowType = SimBurst
-
-
-class TimeSlideTable(table.DBTable):
-	# this is a little different because multiple rows share ID
-	tableName = lsctables.TimeSlideTable.tableName
-	validcolumns = lsctables.TimeSlideTable.validcolumns
-	constraints = lsctables.TimeSlideTable.constraints
-
-	def __len__(self):
-		return self.cursor.execute("SELECT COUNT(DISTINCT time_slide_id) FROM time_slide").fetchone()[0]
-
-	def __getitem__(self, id):
-		offsets = {}
-		for instrument, offset in self.cursor.execute("SELECT instrument, offset FROM time_slide WHERE time_slide_id == ?", (id,)):
-			offsets[instrument] = offset
-		return offsets
-
-	def iterkeys(self):
-		for (id,) in self.connection.cursor().execute("SELECT DISTINCT time_slide_id FROM time_slide"):
-			yield id
-
-	def is_null(self, id):
-		return not self.cursor.execute("SELECT EXISTS (SELECT * FROM time_slide WHERE time_slide_id == ? AND offset != 0.0)", (id,)).fetchone()[0]
-
-	def all_offsets(self):
-		return [self[id] for (id,) in self.connection.cursor().execute("SELECT DISTINCT time_slide_id FROM time_slide")]
-
-
-class CoincDefTable(table.DBTable):
-	# this is a little different because multiple rows share an ID
-	tableName = lsctables.CoincDefTable.tableName
-	validcolumns = lsctables.CoincDefTable.validcolumns
-
-	def __len__(self):
-		return self.cursor.execute("SELECT COUNT(DISTINCT coinc_def_id) FROM coinc_definer").fetchone()[0]
-
-	def get_table_names(self, id):
-		"""
-		From an ID, return a sorted list of table names or raise
-		KeyError if no matching ID is found.
-		"""
-		l = [table_name for (table_name,) in self.cursor.execute("SELECT table_name FROM coinc_definer WHERE coinc_def_id == ?", (id,))]
-		if not l:
-			raise KeyError, id
-		l.sort()
-		return l
-
-	def get_id(self, table_names):
-		"""
-		From a list of table names, return an ID or raise KeyError
-		if no matching ID is found.
-		"""
-		table_names = list(table_names)	# so we can modify it
-		table_names.sort()
-		for (id,) in self.connection.cursor().execute("SELECT DISTINCT coinc_def_id FROM coinc_definer"):
-			if self.get_table_names(id) == table_names:
-				return id
-		raise KeyError, table_names
-
-
-class CoincTable(table.DBTable):
-	tableName = lsctables.CoincTable.tableName
-	validcolumns = lsctables.CoincTable.validcolumns
-	constraints = lsctables.CoincTable.constraints
-
-	def __getitem__(self, id):
-		self.cursor.execute("SELECT * FROM coinc_event WHERE coinc_event_id == ?", (id,))
-		return self._row_from_cols(self.cursor.fetchone())
-
-	def selectByDefID(self, coinc_def_id):
-		for values in self.connection.cursor().execute("SELECT * FROM coinc_event WHERE coinc_def_id == ?", (coinc_def_id,)):
-			yield self._row_from_cols(values)
-
-	def selectByTimeSlideID(self, time_slide_id):
-		for values in self.connection.cursor().execute("SELECT * FROM coinc_event WHERE time_slide_id == ?", (time_slide_id,)):
-			yield self._row_from_cols(values)
-
-
 class Coinc(lsctables.Coinc):
 	def get_time_slide(self):
 		offsets = {}
@@ -205,30 +89,12 @@ class Coinc(lsctables.Coinc):
 		return not CoincTable.connection.cursor().execute("SELECT EXISTS (SELECT * FROM time_slide WHERE time_slide_id == ? AND offset != 0.0)", (self.time_slide_id,)).fetchone()[0]
 
 
-CoincTable.RowType = Coinc
-
-
-class CoincMapTable(table.DBTable):
-	tableName = lsctables.CoincMapTable.tableName
-	validcolumns = lsctables.CoincMapTable.validcolumns
-
-	def _end_of_rows(self):
-		table.DBTable._end_of_rows(self)
-		self.cursor.execute("CREATE INDEX coinc_event_id_index ON coinc_event_map (table_name, coinc_event_id)")
-
-
 class CoincDatabase(object):
-	def __init__(self, connection):
-		self.connection = connection
-		table.DBTable.connection = connection
-		lsctables.TableByName.update({
-			table.StripTableName(SnglBurstTable.tableName): SnglBurstTable,
-			table.StripTableName(SimBurstTable.tableName): SimBurstTable,
-			table.StripTableName(TimeSlideTable.tableName): TimeSlideTable,
-			table.StripTableName(CoincDefTable.tableName): CoincDefTable,
-			table.StripTableName(CoincTable.tableName): CoincTable,
-			table.StripTableName(CoincMapTable.tableName): CoincMapTable
-		})
+	def __init__(self):
+		from glue.ligolw import dbtables
+		self.connection = dbtables.DBTable_get_connection()
+		dbtables.SnglBurstTable.RowType = SnglBurst
+		dbtables.CoincTable.RowType = Coinc
 
 	def summarize(self, xmldoc, live_time_program, verbose = False):
 		"""
@@ -259,15 +125,15 @@ class CoincDatabase(object):
 
 		# determine a few coinc_definer IDs
 		try:
-			self.bb_definer_id = self.coinc_def_table.get_id([lsctables.SnglBurstTable.tableName])
+			self.bb_definer_id = self.get_coinc_def_id([lsctables.SnglBurstTable.tableName])
 		except KeyError:
 			self.bb_definer_id = None
 		try:
-			self.sb_definer_id = self.coinc_def_table.get_id([lsctables.SnglBurstTable.tableName, lsctables.SimBurstTable.tableName])
+			self.sb_definer_id = self.get_coinc_def_id([lsctables.SnglBurstTable.tableName, lsctables.SimBurstTable.tableName])
 		except KeyError:
 			self.sb_definer_id = None
 		try:
-			self.sc_definer_id = self.coinc_def_table.get_id([lsctables.CoincTable.tableName, lsctables.SimBurstTable.tableName])
+			self.sc_definer_id = self.get_coinc_def_id([lsctables.CoincTable.tableName, lsctables.SimBurstTable.tableName])
 		except KeyError:
 			self.sc_definer_id = None
 
@@ -286,9 +152,34 @@ class CoincDatabase(object):
 			if self.sc_definer_id is not None:
 				print >>sys.stderr, "\tinjection + (burst + burst) coincidences: %d" % cursor.execute("SELECT COUNT(*) FROM coinc_event WHERE coinc_def_id = ?", (self.sc_definer_id,)).fetchone()[0]
 
+		return self
+
+	def get_coinc_def_id(self, table_names):
+		"""
+		From a list of table names, return an ID or raise KeyError
+		if no matching ID is found.
+		"""
+		table_names = list(table_names)	# so we can modify it
+		table_names.sort()
+		for (id,) in self.connection.cursor().execute("SELECT DISTINCT coinc_def_id FROM coinc_definer"):
+			l = [table_name for (table_name,) in self.connection.cursor().execute("SELECT table_name FROM coinc_definer WHERE coinc_def_id == ?", (id,))]
+			if not l:
+				raise KeyError, id
+			l.sort()
+			if l == table_names:
+				return id
+		raise KeyError, table_names
+
+	def coinc_select_by_def_id(self, coinc_def_id):
+		for values in self.connection.cursor().execute("SELECT * FROM coinc_event WHERE coinc_def_id == ?", (coinc_def_id,)):
+			yield self.coinc_table._row_from_cols(values)
+
+	def coinc_select_by_time_slide_id(self, time_slide_id):
+		for values in self.connection.cursor().execute("SELECT * FROM coinc_event WHERE time_slide_id == ?", (time_slide_id,)):
+			yield self.coinc_table._row_from_cols(values)
+
 	def coinc_sim_bursts(self, coinc):
-		for values in self.connection.cursor().execute(
-			"""
+		for values in self.connection.cursor().execute("""
 SELECT sim_burst.* FROM
 	sim_burst
 	JOIN coinc_event_map ON (
@@ -297,12 +188,11 @@ SELECT sim_burst.* FROM
 	)
 WHERE
 	coinc_event_map.coinc_event_id == ?
-			""", (coinc.coinc_event_id,)):
+		""", (coinc.coinc_event_id,)):
 			yield self.sim_burst_table._row_from_cols(values)
 
 	def coinc_sngl_bursts(self, coinc):
-		for values in self.connection.cursor().execute(
-			"""
+		for values in self.connection.cursor().execute("""
 SELECT sngl_burst.* FROM
 	sngl_burst
 	JOIN coinc_event_map ON (
@@ -311,12 +201,11 @@ SELECT sngl_burst.* FROM
 	)
 WHERE
 	coinc_event_map.coinc_event_id == ?
-			""", (coinc.coinc_event_id,)):
+		""", (coinc.coinc_event_id,)):
 			yield self.sngl_burst_table._row_from_cols(values)
 
 	def coinc_coincs(self, coinc):
-		for values in self.connection.cursor().execute(
-			"""
+		for values in self.connection.cursor().execute("""
 SELECT coinc_event.* FROM
 	coinc_event
 	JOIN coinc_event_map ON (
@@ -325,7 +214,7 @@ SELECT coinc_event.* FROM
 	)
 WHERE
 	coinc_event_map.coinc_event_id == ?
-			""", (coinc.coinc_event_id,)):
+		""", (coinc.coinc_event_id,)):
 			yield self.coinc_table._row_from_cols(values)
 
 	def incomplete_injection_coincs(self):
@@ -350,8 +239,7 @@ WHERE
 		# result is a list of all coinc_event_ids for burst+burst
 		# coincidences in which at least 1 but not all burst events
 		# was identified as an injection
-		for (id,) in self.connection.cursor().execute(
-			"""
+		for (id,) in self.connection.cursor().execute("""
 SELECT DISTINCT coinc_event.coinc_event_id FROM
 	coinc_event
 	JOIN coinc_event_map ON (
@@ -378,25 +266,16 @@ EXCEPT SELECT DISTINCT coinc_event_map.event_id FROM
 WHERE
 	coinc_event_map.table_name == 'coinc_event'
 	AND coinc_event.coinc_def_id == ?
-			""", (self.bb_definer_id, self.sb_definer_id, self.sc_definer_id)):
+		""", (self.bb_definer_id, self.sb_definer_id, self.sc_definer_id)):
 			row = self.coinc_table[id]
 			if row.is_zero_lag():
 				yield row
 
-
-#
-# =============================================================================
-#
-#                                   Queries
-#
-# =============================================================================
-#
-
-
-def found_injections(database, instrument):
-	# iterate over found injections
-	for values in database.connection.cursor().execute(
+	def found_injections(self, instrument):
 		"""
+		Iterate over found injections.
+		"""
+		for values in self.connection.cursor().execute("""
 SELECT DISTINCT sim_burst.* FROM
 	sim_burst
 	JOIN coinc_event_map AS a ON (
@@ -413,13 +292,13 @@ SELECT DISTINCT sim_burst.* FROM
 WHERE
 	sngl_burst.ifo == ?
 		""", (instrument,)):
-		yield database.sim_burst_table._row_from_cols(values)
+			yield self.sim_burst_table._row_from_cols(values)
 
-
-def missed_injections(database, instrument):
-	# iterate over missed injections
-	for values in database.connection.cursor().execute(
+	def missed_injections(self, instrument):
 		"""
+		Iterate over missed injections.
+		"""
+		for values in self.connection.cursor().execute("""
 SELECT * FROM
 	sim_burst
 EXCEPT SELECT sim_burst.* FROM
@@ -438,7 +317,7 @@ EXCEPT SELECT sim_burst.* FROM
 WHERE
 	sngl_burst.ifo == ?
 		""", (instrument,)):
-		yield database.sim_burst_table._row_from_cols(values)
+			yield self.sim_burst_table._row_from_cols(values)
 
 
 #

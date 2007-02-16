@@ -18,6 +18,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+
 #
 # =============================================================================
 #
@@ -25,6 +26,7 @@
 #
 # =============================================================================
 #
+
 
 import math
 from optparse import OptionParser
@@ -34,6 +36,7 @@ from pysqlite2 import dbapi2 as sqlite3
 import sys
 
 from glue import segments
+from glue.ligolw import dbtables
 from glue.ligolw import utils
 from pylal import llwapp
 from pylal import rate
@@ -51,6 +54,7 @@ __date__ = "$Date$"[7:-2]
 #
 # =============================================================================
 #
+
 
 def parse_command_line():
 	parser = OptionParser(version="%prog CVS $Id$")
@@ -80,28 +84,11 @@ except ValueError, e:
 #
 # =============================================================================
 #
-#                                    Input
-#
-# =============================================================================
-#
-
-# save memory by not storing superfluous strings in the heavy-weight tables
-SnglBurstUtils.SnglBurstTable.loadcolumns = SnglBurstUtils.SnglBurstTable.validcolumns.keys()
-SnglBurstUtils.SnglBurstTable.loadcolumns.remove("channel")
-SnglBurstUtils.SnglBurstTable.loadcolumns.remove("search")
-SnglBurstUtils.SnglBurstTable.loadcolumns.remove("process_id")
-SnglBurstUtils.CoincTable.loadcolumns = SnglBurstUtils.CoincTable.validcolumns.keys()
-SnglBurstUtils.CoincTable.loadcolumns.remove("process_id")
-SnglBurstUtils.CoincTable.loadcolumns.remove("time_slide_id")
-
-
-#
-# =============================================================================
-#
 #                              Frequency vs. Time
 #
 # =============================================================================
 #
+
 
 class FreqVsTime(SnglBurstUtils.BurstPlot):
 	def __init__(self, instrument):
@@ -121,7 +108,7 @@ class FreqVsTime(SnglBurstUtils.BurstPlot):
 		for sim in contents.sim_burst_table:
 			self.injected_x.append(float(sim.get_geocent_peak()))
 			self.injected_y.append(sim.freq)
-		for sim in SnglBurstUtils.missed_injections(contents, self.instrument):
+		for sim in contents.missed_injections(self.instrument):
 			self.missed_x.append(float(sim.get_geocent_peak()))
 			self.missed_y.append(sim.freq)
 
@@ -143,6 +130,7 @@ class FreqVsTime(SnglBurstUtils.BurstPlot):
 # =============================================================================
 #
 
+
 class AmplVsFreqScatter(SnglBurstUtils.BurstPlot):
 	def __init__(self, instrument):
 		SnglBurstUtils.BurstPlot.__init__(self, "Frequency (Hz)", r"$h_{\mathrm{rss}}$")
@@ -159,7 +147,7 @@ class AmplVsFreqScatter(SnglBurstUtils.BurstPlot):
 		for sim in contents.sim_burst_table:
 			self.injected_x.append(sim.freq)
 			self.injected_y.append(sim.hrss)
-		for sim in SnglBurstUtils.missed_injections(contents, self.instrument):
+		for sim in contents.missed_injections(self.instrument):
 			self.missed_x.append(sim.freq)
 			self.missed_y.append(sim.hrss)
 
@@ -189,7 +177,7 @@ class AmplVsFreqContour(SnglBurstUtils.BurstPlot):
 		for sim in contents.sim_burst_table:
 			self.injected_x.append(sim.freq)
 			self.injected_y.append(sim.hrss)
-		for sim in SnglBurstUtils.found_injections(contents, self.instrument):
+		for sim in contents.found_injections(self.instrument):
 			self.found_x.append(sim.freq)
 			self.found_y.append(sim.hrss)
 
@@ -224,6 +212,7 @@ class AmplVsFreqContour(SnglBurstUtils.BurstPlot):
 # =============================================================================
 #
 
+
 class TriggerCountHistogram(SnglBurstUtils.BurstPlot):
 	def __init__(self, instrument):
 		SnglBurstUtils.BurstPlot.__init__(self, "Number of Triggers Coincident with Injection", "Count")
@@ -232,15 +221,17 @@ class TriggerCountHistogram(SnglBurstUtils.BurstPlot):
 		self.found = 0
 		self.bins = []
 
-	def add_count(self, n):
-		while n + 1 >= len(self.bins):
-			self.bins.append(0)
-		self.bins[n] += 1
-
 	def add_contents(self, contents):
-		for coinc in contents.coinc_table.selectByDefID(contents.sb_definer_id):
+		for nevents, in contents.connection.cursor().execute("""
+SELECT nevents FROM
+	coinc_event
+WHERE
+	coinc_def_id == ?
+		""", (contents.sb_definer_id,)):
 			self.found += 1
-			self.add_count(coinc.nevents)
+			while nevents + 1 >= len(self.bins):
+				self.bins.append(0)
+			self.bins[nevents] += 1
 
 	def finish(self):
 		self.axes.plot(range(len(self.bins)), self.bins, "ko-")
@@ -255,6 +246,7 @@ class TriggerCountHistogram(SnglBurstUtils.BurstPlot):
 # =============================================================================
 #
 
+
 class RecoveredVsInjectedhrss(SnglBurstUtils.BurstPlot):
 	def __init__(self, instrument):
 		SnglBurstUtils.BurstPlot.__init__(self, r"Injected $h_{\mathrm{rss}}$", "Recovered $h_{\mathrm{rss}}$")
@@ -266,20 +258,27 @@ class RecoveredVsInjectedhrss(SnglBurstUtils.BurstPlot):
 		self.injected = []
 
 	def add_contents(self, contents):
-		for coinc in contents.coinc_table.selectByDefID(contents.sb_definer_id):
+		for injected, recovered in contents.connection.cursor().execute("""
+SELECT sim_burst.hrss, MAX(sngl_burst.amplitude) FROM
+	sim_burst
+	JOIN coinc_event_map AS a ON (
+		sim_burst.simulation_id == a.event_id
+		AND a.table_name == 'sim_burst'
+	)
+	JOIN coinc_event_map AS b ON (
+		a.coinc_event_id == b.coinc_event_id
+		AND b.table_name == 'sngl_burst'
+	)
+	JOIN sngl_burst ON (
+		b.event_id == sngl_burst.event_id
+		AND sngl_burst.ifo == ?
+	)
+GROUP BY
+	sim_burst.simulation_id
+		""", (self.instrument,)):
 			self.found += 1
-			# select hrss of most confident match
-			#confidence = 0.0
-			#for burst in contents.coinc_sngl_bursts(coinc):
-			#	if -burst.confidence > confidence:
-			#		confidence = -burst.confidence
-			#		hrss = burst.amplitude
-
-			# select highest matching hrss
-			hrss = max([burst.amplitude for burst in contents.coinc_sngl_bursts(coinc)])
-			for sim in contents.coinc_sim_bursts(coinc):
-				self.injected.append(sim.hrss)
-				self.recovered.append(hrss)
+			self.injected.append(injected)
+			self.recovered.append(recovered)
 
 	def finish(self):
 		self.axes.plot(self.injected, self.recovered, "k+")
@@ -294,6 +293,7 @@ class RecoveredVsInjectedhrss(SnglBurstUtils.BurstPlot):
 # =============================================================================
 #
 
+
 class RecoveredTimeOffset(SnglBurstUtils.BurstPlot):
 	def __init__(self, instrument, interval, width):
 		SnglBurstUtils.BurstPlot.__init__(self, "Offset (s)", "Triggers per Unit Offset")
@@ -303,7 +303,7 @@ class RecoveredTimeOffset(SnglBurstUtils.BurstPlot):
 		self.best = rate.Rate(interval, width)
 
 	def add_contents(self, contents):
-		for coinc in contents.coinc_table.selectByDefID(contents.sb_definer_id):
+		for coinc in contents.coinc_select_by_def_id(contents.sb_definer_id):
 			self.found += 1
 			best_conf = 0.0
 			best_dt = None
@@ -340,11 +340,12 @@ class RecoveredTimeOffset(SnglBurstUtils.BurstPlot):
 # =============================================================================
 #
 
+
 def new_plots(instrument, plots):
 	l = [
 		FreqVsTime(instrument),
 		AmplVsFreqScatter(instrument),
-		AmplVsFreqContour(instrument, 0.1),
+		AmplVsFreqContour(instrument, 0.3),
 		TriggerCountHistogram(instrument),
 		RecoveredVsInjectedhrss(instrument),
 		RecoveredTimeOffset(instrument, segments.segment(-0.25, +0.25), 0.005)
@@ -354,11 +355,10 @@ def new_plots(instrument, plots):
 plots = {}
 for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose, reverse = True)):
 	if options.verbose:
-		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
-	database = SnglBurstUtils.CoincDatabase(sqlite3.connect(":memory:"))
-	#database = SnglBurstUtils.CoincDatabase(sqlite3.connect("plotbinj.sqlite"))
-	xmldoc = utils.load_filename(filename, options.verbose, gz = filename[-3:] == ".gz")
-	database.summarize(xmldoc, options.live_time_program, options.verbose)
+		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
+	connection = sqlite3.connect(filename)
+	dbtables.DBTable_set_connection(connection)
+	database = SnglBurstUtils.CoincDatabase().summarize(dbtables.DBTable_get_xml(), "power", options.verbose)
 	for instrument in database.instruments:
 		if instrument not in plots:
 			plots[instrument] = new_plots(instrument, options.plot)
@@ -366,9 +366,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 			if options.verbose:
 				print >>sys.stderr, "adding to %s plot %d..." % (instrument, n)
 			plot.add_contents(database)
-	xmldoc.unlink()
-	#database.connection.close()
-	#os.remove("plotbinj.sqlite")
+	connection.close()
 
 
 # delete the plots as we go to save memory
