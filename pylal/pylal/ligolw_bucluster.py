@@ -124,7 +124,7 @@ def ClusterSnglBurstTable(triggers, testfunc, clusterfunc, bailoutfunc = None):
 	while True:
 		did_cluster = False
 
-		if bailoutfunc:
+		if bailoutfunc is not None:
 			triggers.sort(testfunc)
 
 		i = 0
@@ -136,7 +136,7 @@ def ClusterSnglBurstTable(triggers, testfunc, clusterfunc, bailoutfunc = None):
 					del triggers[j]
 					did_cluster = True
 				else:
-					if bailoutfunc:
+					if bailoutfunc is not None:
 						if bailoutfunc(triggers[i], triggers[j]):
 							break
 					j += 1
