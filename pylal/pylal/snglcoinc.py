@@ -16,6 +16,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+
 #
 # =============================================================================
 #
@@ -23,6 +24,7 @@
 #
 # =============================================================================
 #
+
 
 """
 Generic coincidence engine for use with time-based event lists in LIGO
@@ -51,6 +53,7 @@ __date__ = "$Date$"[7:-2]
 #
 # =============================================================================
 #
+
 
 def parse_thresholds(thresholdstrings):
 	"""
@@ -82,6 +85,7 @@ def parse_thresholds(thresholdstrings):
 #
 # =============================================================================
 #
+
 
 class CoincTables(object):
 	"""
@@ -158,6 +162,7 @@ class CoincTables(object):
 #
 # =============================================================================
 #
+
 
 class EventList(list):
 	"""
@@ -279,6 +284,7 @@ def make_eventlists(xmldoc, event_table_name, max_delta_t, program):
 # =============================================================================
 #
 
+
 def coincident_process_ids(xmldoc, max_delta_t, program):
 	"""
 	Take an XML document tree and determine the list of process IDs
@@ -329,6 +335,7 @@ def coincident_process_ids(xmldoc, max_delta_t, program):
 #
 # =============================================================================
 #
+
 
 CompareFunc = None
 

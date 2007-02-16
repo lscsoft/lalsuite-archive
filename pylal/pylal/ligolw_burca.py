@@ -16,6 +16,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+
 #
 # =============================================================================
 #
@@ -23,6 +24,7 @@
 #
 # =============================================================================
 #
+
 
 import bisect
 import sys
@@ -46,10 +48,12 @@ __date__ = "$Date$"[7:-2]
 # =============================================================================
 #
 
+
 def sngl_burst_get_start(self):
 	# get_start() override to use pylal.date.LIGOTimeGPS instead of
 	# glue.lal.LIGOTimeGPS
 	return LIGOTimeGPS(self.start_time, self.start_time_ns)
+
 
 def sngl_burst_get_period(self):
 	# get_period() override to use pylal.date.LIGOTimeGPS instead of
@@ -70,6 +74,7 @@ lsctables.SnglBurst.get_period = sngl_burst_get_period
 # =============================================================================
 #
 
+
 def append_process(xmldoc, **kwargs):
 	process = llwapp.append_process(xmldoc, program = "ligolw_burca", version = __version__, cvs_repository = "lscsoft", cvs_entry_time = __date__, comment = kwargs["comment"])
 
@@ -89,6 +94,7 @@ def append_process(xmldoc, **kwargs):
 #
 # =============================================================================
 #
+
 
 class ExcessPowerEventList(snglcoinc.EventList):
 	"""
@@ -157,7 +163,9 @@ class StringEventList(snglcoinc.EventList):
 # =============================================================================
 #
 
+
 FinalCompareFunc = None
+
 
 def ligolw_burca(xmldoc, **kwargs):
 	# add an entry in the process table
