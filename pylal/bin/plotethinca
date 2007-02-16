@@ -80,8 +80,6 @@ if not opts.columns and not opts.hist:
   print >>sys.stderr, "Enter 'plotethinca --help' for usage"
   sys.exit(1)
 
-two_ifo_list = itertools.choices(opts.ifo_list,2)
-
 if opts.num_bins:
   numBins = opts.num_bins
 else:
@@ -106,7 +104,7 @@ if files:
   if opts.cluster_window:
     coincTriggers = coincTriggers.cluster(opts.cluster_window)
 
-for ifos in two_ifo_list:
+for ifos in itertools.choices(opts.ifo_list,2):
   coincs = coincTriggers.coincinclude(ifos)
   ethincaVals = coincs.getEThincaValues(ifos)
   if opts.columns:
