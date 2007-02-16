@@ -664,11 +664,6 @@ if(d->free<1){
 	return 0;
 	}
 
-/* TODO: fixme 
-fprintf(LOG, "dataset %s first gps : %lld\n", d->name, d->gps[0]);
-fprintf(LOG, "dataset %s last gps  : %lld\n", d->name, d->gps[d->free-1]);
-*/
-
 if(!strcmp(d->detector, "unknown")) {
 	fprintf(stderr, "Each dataset must specify detector being used\n");
 	return 0;
