@@ -2831,6 +2831,7 @@ compute_matched_snr(ad, &c, 0);
 max_i=0;
 max=cand->snr;
 if(c.snr>max)max=c.snr;
+max*=1.000001; /* this makes sure we don't have infinite loops due to precision issues */
 
 // if(fabs(step*ad->d_freq[1]) > 0.1/1800.0)step=0.1/(1800.0*ad->d_freq[1]);
 // if(fabs(step*ad->d_spindown[1]) > 1e-12)step= 1e-14/(ad->d_spindown[1]);
