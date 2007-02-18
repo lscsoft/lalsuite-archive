@@ -282,6 +282,13 @@ GROUP BY
 
 	def finish(self):
 		self.axes.plot(self.injected, self.recovered, "k+")
+		xmin, xmax = self.axes.get_xlim()
+		ymin, ymax = self.axes.get_ylim()
+		xmin = ymin = min(xmin, ymin)
+		xmax = ymax = max(xmax, ymax)
+		self.axes.set_xlim([xmin, xmax])
+		self.axes.set_ylim([ymin, ymax])
+		self.axes.plot([xmin, xmax], [ymin, ymax], "k-")
 		self.axes.set_title(r"Max.\ Recovered $h_{\mathrm{rss}}$ vs.\ Injected $h_{\mathrm{rss}}$ (%d Found Injections)" % self.found)
 
 
