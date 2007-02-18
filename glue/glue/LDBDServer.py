@@ -20,6 +20,16 @@ import cPickle
 from glue import ldbd
 import rlsClient
 
+def dtd_uri_callback(uri):
+  if uri == 'http://ldas-sw.ligo.caltech.edu/doc/ligolwAPI/html/ligolw_dtd.txt':
+    # if the XML file contants a http pointer to the ligolw DTD at CIT then
+    # return a local copy to avoid any network problems
+    return 'file://localhost' + os.path.join( os.environ["GLUE_LOCATION"],
+      'etc/ligolw_dtd.txt' )
+  else:
+    # otherwise just use the uri in the file
+    return uri
+
 def initialize(configuration,log):
   # define the global variables used by the server
   global logger, max_bytes, xmlparser, lwtparser, dbobj, rls
@@ -36,6 +46,15 @@ def initialize(configuration,log):
   # create the xml and ligolw parsers
   xmlparser = pyRXP.Parser()
   lwtparser = ldbd.LIGOLwParser()
+
+  # use a local copy of the DTD, if one is available
+  try:
+    GLUE_LOCATION = os.environ["GLUE_LOCATION"]
+    xmlparser.eoCB = dtd_uri_callback
+    logger.info("Using local DTD in " + 
+      'file://localhost' + os.path.join( GLUE_LOCATION, 'etc') )
+  except KeyError:
+    logger.warning('GLUE_LOCATION not set, unable to use local DTD') 
 
   # open a connection to the rls server
   rls_server = configuration['rls']

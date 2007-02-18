@@ -9,7 +9,7 @@ from distutils.command import sdist
 from distutils import log
 from sys import version_info
 
-ver = "1.12"
+ver = "1.14"
 
 def remove_root(path,root):
   if root:
@@ -123,7 +123,8 @@ if version_info >= (2, 3):
       os.path.join('etc','glue-user-env.csh'),
       os.path.join('etc','lscsegfindserver.ini'),
       os.path.join('etc','segpagegen.ini'),
-      os.path.join('etc','ldbdserver.ini')
+      os.path.join('etc','ldbdserver.ini'),
+      os.path.join('etc','ligolw_dtd.txt')
       ] ) ]
     )
 else:
@@ -158,6 +159,7 @@ else:
       os.path.join('etc','glue-user-env.csh'),
       os.path.join('etc','lscsegfindserver.ini'),
       os.path.join('etc','segpagegen.ini'),
-      os.path.join('etc','ldbdserver.ini')
+      os.path.join('etc','ldbdserver.ini'),
+      os.path.join('etc','ligolw_dtd.txt')
       ] ) ]
     )
