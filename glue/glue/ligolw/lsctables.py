@@ -479,6 +479,7 @@ class SnglBurstTable(table.Table):
 
 class SnglBurst(object):
 	__slots__ = SnglBurstTable.validcolumns.keys()
+
 	def get_start(self):
 		return lal.LIGOTimeGPS(self.start_time, self.start_time_ns)
 
@@ -512,6 +513,34 @@ class SnglBurst(object):
 	def set_band(self, band):
 		self.central_freq = (band[0] + band[1])/2.0
 		self.bandwidth = abs(band)
+
+
+	def get_ms_start(self):
+		return lal.LIGOTimeGPS(self.ms_start_time, self.ms_start_time_ns)
+
+	def set_ms_start(self, gps):
+		self.ms_start_time, self.ms_start_time_ns = gps.seconds, gps.nanoseconds
+
+	def get_ms_stop(self):
+		return lal.LIGOTimeGPS(self.ms_stop_time, self.ms_stop_time_ns)
+
+	def set_ms_stop(self, gps):
+		self.ms_stop_time, self.ms_stop_time_ns = gps.seconds, gps.nanoseconds
+
+	def get_ms_period(self):
+		start = lal.LIGOTimeGPS(self.ms_start_time, self.ms_start_time_ns)
+		return segments.segment(start, start + self.ms_duration)
+
+	def set_ms_period(self, period):
+		self.ms_start_time, self.ms_start_time_ns = period[0].seconds, period[0].nanoseconds
+		self.ms_duration = float(abs(period))
+
+	def get_ms_band(self):
+		return segments.segment(self.ms_flow, self.ms_flow + self.ms_bandwidth)
+
+	def set_ms_band(self, band):
+		self.ms_flow = band[0]
+		self.ms_bandwidth = abs(band)
 
 
 SnglBurstTable.RowType = SnglBurst
