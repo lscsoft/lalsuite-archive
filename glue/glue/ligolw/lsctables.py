@@ -480,6 +480,10 @@ class SnglBurstTable(table.Table):
 class SnglBurst(object):
 	__slots__ = SnglBurstTable.validcolumns.keys()
 
+	#
+	# Tile properties
+	#
+
 	def get_start(self):
 		return lal.LIGOTimeGPS(self.start_time, self.start_time_ns)
 
@@ -514,6 +518,9 @@ class SnglBurst(object):
 		self.central_freq = (band[0] + band[1])/2.0
 		self.bandwidth = abs(band)
 
+	#
+	# "Most significant pixel" properties
+	#
 
 	def get_ms_start(self):
 		return lal.LIGOTimeGPS(self.ms_start_time, self.ms_start_time_ns)
