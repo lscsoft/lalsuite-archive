@@ -9,6 +9,7 @@ $Id$
 
 __version__ = '$Revision$'[11:-2]
 
+import os
 import sys
 import re
 import types
