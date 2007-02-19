@@ -159,7 +159,8 @@ for ifo in ['H1', 'H2', 'L1']:
     for r in segnums:
       ret_segs_dict[r].coalesce()
       for s in ret_segs_dict[r]:
-        print >> seg_fh, "%d %d %d %d" % (r, s[0], s[1], s[1] - s[0])
+        print >> seg_fh, str(r) + ' ' + str(s[0]) + ' ' + str(s[1]) + \
+          ' ' + str(s[1] - s[0])
 
     # close the file
     seg_fh.close()
