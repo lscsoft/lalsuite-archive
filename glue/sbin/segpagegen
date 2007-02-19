@@ -14,69 +14,8 @@ import types
 import ConfigParser
 import mx.ODBC.DB2
 from glue import gpstime
-
-#####################################################################
-# Define a couple of classes that we need for the segments based
-# on the glue segments module. We can't use glue.segments directly
-# as we need the extra field for the segment number.
-class sciseg(tuple):
-  """
-  A science segment is a tuple that contains (start, end, segnum).
-  """
-  def __new__(cls, *args):
-    if len(args) == 1:
-      args = args[0]
-    if len(args) != 3:
-      raise TypeError, "__new__() takes 4 arguments or 2 arguments " \
-        + "when the second is a 3-element container type"
-    if args[0] <= args[1]:
-      return tuple.__new__(cls, args)
-    else:
-      return tuple.__new__(cls, args[1], args[0], args[2])
-
-  def __str__(self):
-    """
-    Return the segment in segwizard format.
-    """
-    return str(self[2]) + ' ' + str(self[0]) + ' ' + str(self[1]) + ' ' + \
-      str(self[1] - self[0])
-
-  def __or__(self,other):
-    """
-    Return the segment that is the union of the given segments, or
-    None if the result cannot be represented as a single segment.
-    """
-    if not self.continuous(other):
-      return None
-    return sciseg(min(self[0], other[0]), max(self[1], other[1]), self[2])
-
-  def continuous(self, other):
-    """
-    Return True if self and other are not disjoint and share the same
-    science segment number.
-    """
-    return (self[1] >= other[0]) and (self[0] <= other[1]) \
-      and (self[2] == other[2])
-
-class sciseglist(list):
-  """
-  The sciseglist defines a list of scisegs, and is an extension of the
-  built in list class. This class provides an extra method to coalesce
-  pre-sorted lists.
-  """
-  def coalesce(self):
-    """
-    This will only work if the list has already been sorted by time,
-    but we assume that DB2 has taken care of this when returning the
-    results of the query.
-    """
-    try:
-      for i in range(len(self) - 1):
-        while self[i].continuous(self[i+1]):
-          self[i:i+2] = [ self[i] | self[i+1] ]
-    except IndexError:
-      pass
-    return self
+from glue.__segments import *
+from glue.segments import segmentlist
 
 #####################################################################
 # Parse command line options.
@@ -199,17 +138,30 @@ for ifo in ['H1', 'H2', 'L1']:
     if verbose: 
       print "coalescing %d segments for ifo %s, state %s and writing to file" \
         % (len(result), ifo, segtype)
-    ret_segs = sciseglist()
-    for r in result:
-      ret_segs.append(sciseg(r[0],r[1],r[2]))
-    ret_segs.coalesce()
 
-    # write the segments to the output file
+    # put each segment number into a different segment list
+    ret_segs_dict = {}
+    for r in result:
+      try:
+        ret_segs_dict[r[2]].append(segment(r[0],r[1]))
+      except KeyError:
+        ret_segs_dict[r[2]] = segmentlist()
+        ret_segs_dict[r[2]].append(segment(r[0],r[1]))
+
+    # print the header to the file
     print >> seg_fh, "# %s" % configuration['dbname']
     print >> seg_fh, "# %d" % midnight_gps
     print >> seg_fh, "# number gps_start_time gps_end_time duration"
-    for s in ret_segs:
-      print >> seg_fh, str(s)
+
+    # coalesce the segments and print them out in order of seg number
+    segnums = ret_segs_dict.keys()
+    segnums.sort()
+    for r in segnums:
+      ret_segs_dict[r].coalesce()
+      for s in ret_segs_dict[r]:
+        print >> seg_fh, "%d %d %d %d" % (k, s[0], s[1], s[1] - s[0])
+
+    # close the file
     seg_fh.close()
 
   # get all the data quality segments into a single file
@@ -241,17 +193,27 @@ for ifo in ['H1', 'H2', 'L1']:
     sql += "ORDER BY segment.start_time asc FOR READ ONLY"
     curs.execute(sql)
     result = curs.fetchall()
-    ret_segs = sciseglist()
+
+    on_segs = segmentlist()
+    off_segs = segmentlist()
 
     if verbose: 
       print "coalescing %d segments for %s,%s,%d and writing to file" \
         % (len(result), ifo, dq[0], dq[1])
     for r in result:
-      ret_segs.append(sciseg(r[0],r[1],r[2]))
-    ret_segs.coalesce()
+      if r[2] == 0:
+        off_segs.append(segment(r[0],r[1]))
+      elif r[2] == 1:
+        on_segs.append(segment(r[0],r[1]))
+
+    on_segs.coalesce()
+    off_segs.coalesce()
   
-    for s in ret_segs:
-      print >> seg_fh, "%s %d %d %d %d" % (dq[0], dq[1], s[0], s[1], s[2])
+    for s in on_segs:
+      print >> seg_fh, "%s %d %d %d 1" % (dq[0], dq[1], s[0], s[1])
+
+    for s in off_segs:
+      print >> seg_fh, "%s %d %d %d 0" % (dq[0], dq[1], s[0], s[1])
 
   seg_fh.close()
 
