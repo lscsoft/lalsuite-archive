@@ -323,55 +323,6 @@ WHERE
 #
 # =============================================================================
 #
-#                                  Clustering
-#
-# =============================================================================
-#
-
-
-def cmp_segs(a, b):
-	"""
-	Returns 1 if a covers an interval above b's interval, -1 if a
-	covers an interval below b's, and 0 if the two intervals overlap
-	(including if their edges touch).
-	"""
-	if a[0] > b[1]:
-		return 1
-	if a[1] < b[0]:
-		return -1
-	return 0
-
-
-def CompareSnglBurstByPeakTime(a, b):
-	"""
-	Orders a and b by peak time.
-	"""
-	return cmp(a.get_peak(), b.get_peak())
-
-
-def CompareSnglBurstByPeakTimeAndFreq(a, b):
-	"""
-	Orders a and b by peak time, then by frequency band.  Returns 0 if
-	a and b have the same peak time, and their frequency bands
-	intersect.
-	"""
-	return cmp(a.get_peak(), b.get_peak()) or cmp_segs(a.get_band(), b.get_band())
-
-
-def CompareSnglBurst(a, b, twindow = LIGOTimeGPS(0)):
-	"""
-	Orders a and b by time interval, then by frequency band.  Returns 0
-	if a and b's time-frequency tiles intersect.  A time window can be
-	optionally applied, and the time-frequency tiles will continue to
-	compare as equal if they do not overlap by as much as the window
-	amount.
-	"""
-	return cmp_segs(a.get_period().protract(twindow), b.get_period()) or cmp_segs(a.get_band(), b.get_band())
-
-
-#
-# =============================================================================
-#
 #                                 TeX Helpers
 #
 # =============================================================================

@@ -18,6 +18,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+
 #
 # =============================================================================
 #
@@ -26,11 +27,11 @@
 # =============================================================================
 #
 
+
 from optparse import OptionParser
 import sys
 
 from glue.ligolw import utils
-from pylal import SnglBurstUtils
 from pylal import ligolw_bucluster
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -46,25 +47,25 @@ __date__ = "$Date$"[7:-2]
 # =============================================================================
 #
 
+
 def parse_command_line():
 	parser = OptionParser(version = "%prog CVS $Id$")
 	parser.add_option("--comment", metavar = "text", default = "", help = "set comment string in process table")
-	parser.add_option("-m", "--cluster", metavar = "[bypeaktimeandfreq|bytimeandfreq]", help = "set clustering method (required)")
+	parser.add_option("-c", "--cluster-algorithm", metavar = "[excesspower]", help = "set clustering method (required)")
+	parser.add_option("-p", "--program", metavar = "name", default = "power", help = "set the name of the program that generated the events as it appears in the process table (default = power)")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
 	options, filenames = parser.parse_args()
 
-	if options.cluster == None:
+	if options.cluster_algorithm is None:
 		raise Exception, "missing required command line argument --cluster"
-	if options.cluster == "bypeaktimeandfreq":
-		options.testfunc = SnglBurstUtils.CompareSnglBurstByPeakTimeAndFreq
-		options.clusterfunc = ligolw_bucluster.SnglBurstCluster
-		options.bailoutfunc = SnglBurstUtils.CompareSnglBurstByPeakTime
-	elif options.cluster == "bytimeandfreq":
-		options.testfunc = SnglBurstUtils.CompareSnglBurst
-		options.clusterfunc = ligolw_bucluster.SnglBurstCluster
-		options.bailoutfunc = None
+	if options.cluster_algorithm == "excesspower":
+		options.prefunc = ligolw_bucluster.ExcessPowerPreFunc
+		options.postfunc = ligolw_bucluster.ExcessPowerPostFunc
+		options.testfunc = ligolw_bucluster.ExcessPowerTestFunc
+		options.bailoutfunc = ligolw_bucluster.ExcessPowerBailoutFunc
+		options.clusterfunc = ligolw_bucluster.ExcessPowerClusterFunc
 	else:
-		raise Exception, "unrecognized cluster method %s" % options.cluster
+		raise Exception, "unrecognized cluster method %s" % options.cluster_algorithm
 
 	return options, (filenames or [None])
 
@@ -77,17 +78,13 @@ def parse_command_line():
 # =============================================================================
 #
 
-try:
-	options, filenames = parse_command_line()
-except ValueError, e:
-	print >>sys.stderr, "error: %s" % str(e)
 
-try:
-	for filename in filenames:
-		xmldoc = utils.load_filename(filename, options.verbose, gz = filename[-3:] == ".gz")
-		xmldoc = ligolw_bucluster.ligolw_bucluster(xmldoc, **options.__dict__)
-		utils.write_filename(xmldoc, filename, options.verbose, gz = filename[-3:] == ".gz")
-		xmldoc.unlink()
-except Exception, e:
-	print >>sys.stderr, "error: %s" % str(e)
-	sys.exit(1)
+options, filenames = parse_command_line()
+
+
+for filename in filenames:
+	xmldoc = utils.load_filename(filename, options.verbose, gz = (filename or "stdin")[-3:] == ".gz")
+	ligolw_bucluster.add_ms_columns(xmldoc)
+	ligolw_bucluster.ligolw_bucluster(xmldoc, **options.__dict__)
+	utils.write_filename(xmldoc, filename, options.verbose, gz = (filename or "stdout")[-3:] == ".gz")
+	xmldoc.unlink()

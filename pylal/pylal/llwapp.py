@@ -278,6 +278,26 @@ def append_search_summary(doc, process, shared_object = "standalone", lalwrapper
 #
 
 
+def cmp_seg_intervals(a, b):
+	"""
+	Returns 1 if a covers an interval above b's interval, -1 if a
+	covers an interval below b's, and 0 if the two intervals are not
+	disjoint (intersect or touch).
+	"""
+	if a[0] > b[1]:
+		return 1
+	if a[1] < b[0]:
+		return -1
+	return 0
+
+
+def smallest_enclosing_seg(a, b):
+	"""
+	Return the smallest segment that contains both a and b.
+	"""
+	return segments.segment(min(a[0], b[0]), max(a[1], b[1]))
+
+
 def bisect_contains(array, val):
 	"""
 	Uses a bisection search to determine if val is in array.  Returns

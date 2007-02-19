@@ -117,7 +117,7 @@ WHERE
 	sngl_burst.ifo == ?
 	AND b.event_id == ?
 ORDER BY
-	sngl_burst.confidence DESC
+	ABS(sngl_burst.confidence) ASC
 	""", (instrument, sim.simulation_id)):
 		burst = database.sngl_burst_table._row_from_cols(values)
 		match_ids.append(burst.event_id)
@@ -128,12 +128,31 @@ ORDER BY
 		fmin = burst.central_freq - burst.bandwidth / 2 - sim.freq
 		fmax = burst.central_freq + burst.bandwidth / 2 - sim.freq
 		verts.append(((tmin, fmin), (tmax, fmin), (tmax, fmax), (tmin, fmax)))
-		colours.append(-burst.confidence)
+		colours.append(abs(burst.confidence))
+
+		try:
+			# draw most significant tile if there is one
+			tmin = float(burst.get_ms_start() - sim.get_peak(instrument))
+			tmax = float(burst.get_ms_start() + burst.ms_duration - sim.get_peak(instrument))
+			fmin = burst.ms_flow - sim.freq
+			fmax = burst.ms_flow + burst.ms_bandwidth - sim.freq
+			verts.append(((tmin, fmin), (tmax, fmin), (tmax, fmax), (tmin, fmax)))
+			colours.append(abs(burst.ms_confidence))
+		except AttributeError:
+			pass
 
 		peakx.append(float(burst.get_peak() - sim.get_peak(instrument)))
-		peaky.append(burst.central_freq - sim.freq)
+		try:
+			# use peak_frequency col if it exists
+			peaky.append(burst.peak_frequency - sim.freq)
+		except AttributeError:
+			peaky.append(burst.central_freq - sim.freq)
 
 		# update bounding box
+		tmin = float(burst.get_start() - sim.get_peak(instrument))
+		tmax = float(burst.get_start() + burst.duration - sim.get_peak(instrument))
+		fmin = burst.central_freq - burst.bandwidth / 2 - sim.freq
+		fmax = burst.central_freq + burst.bandwidth / 2 - sim.freq
 		xmin = min(xmin, tmin)
 		xmax = max(xmax, tmax)
 		ymin = min(ymin, fmin)
@@ -183,7 +202,7 @@ WHERE
 	AND start_time BETWEEN ? AND ?
 	AND central_freq BETWEEN ? AND ?
 ORDER BY
-	sngl_burst.confidence DESC
+	ABS(sngl_burst.confidence) ASC
 	""", (instrument, int(sim.get_peak(instrument) - 2), int(sim.get_peak(instrument) + 2), sim.freq - 300, sim.freq + 300)):
 		burst = database.sngl_burst_table._row_from_cols(values)
 
@@ -193,14 +212,18 @@ ORDER BY
 		fmin = burst.central_freq - burst.bandwidth / 2 - sim.freq
 		fmax = burst.central_freq + burst.bandwidth / 2 - sim.freq
 		verts.append(((tmin, fmin), (tmax, fmin), (tmax, fmax), (tmin, fmax)))
-		colours.append(-burst.confidence)
+		colours.append(abs(burst.confidence))
 		if burst.event_id in match_ids:
 			edgecolours.append("g")
 		else:
 			edgecolours.append("k")
 
 		peakx.append(float(burst.get_peak() - sim.get_peak(instrument)))
-		peaky.append(burst.central_freq - sim.freq)
+		try:
+			# use peak_frequency col if it exists
+			peaky.append(burst.peak_frequency - sim.freq)
+		except:
+			peaky.append(burst.central_freq - sim.freq)
 
 		# update bounding box
 		xmin = min(xmin, tmin)
