@@ -14,7 +14,7 @@ def uniq(list):
   for m in list:
     if m not in l:
       l.append(m)
-  from numarray import asarray
+  from numpy import asarray
   return asarray(l)
 
 
@@ -99,7 +99,7 @@ class coincInspiralTable:
     if not inspTriggers:
       return
 
-    # use the supplied method to convert these columns into numarrays
+    # use the supplied method to convert these columns into numpy arrays
     eventidlist = uniq(inspTriggers.get_column("event_id"))
     for event_id in eventidlist: 
       self.rows.append(self.row(event_id))
@@ -135,7 +135,7 @@ class coincInspiralTable:
     stat = []
     for coinc in self.rows:
       stat.append(coinc.stat)
-    from numarray import asarray
+    from numpy import asarray
     return asarray(stat)
 
   def sort(self, descending = True):
@@ -356,5 +356,5 @@ class coincInspiralTable:
         ethinca.append( XLALCalculateEThincaParameter(getattr(coinc,ifos[0]), 
             getattr(coinc,ifos[1]) ) )
     
-    from numarray import asarray
+    from numpy import asarray
     return asarray(ethinca)
