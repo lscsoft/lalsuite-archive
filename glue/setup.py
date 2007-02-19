@@ -98,7 +98,7 @@ if version_info >= (2, 3):
     py_modules = [ 'glue.segfindserver.segments_1_7.segments' ],
     ext_modules = [
       Extension("glue.ligolw.tokenizer", ["glue/ligolw/tokenizer.c"]),
-      #Extension("glue.__segments", ["src/segments/segments.c", "src/segments/infinity.c", "src/segments/segment.c", "src/segments/segmentlist.c"], include_dirs = ["src/segments"])
+      Extension("glue.__segments", ["src/segments/segments.c", "src/segments/infinity.c", "src/segments/segment.c", "src/segments/segmentlist.c"], include_dirs = ["src/segments"])
     ],
     scripts = [
       os.path.join('bin','LSCdataFind'),
@@ -139,7 +139,7 @@ else:
     cmdclass = { 'install' : glue_install, 'sdist' : glue_sdist },
     ext_modules = [
       Extension("glue.ligolw.tokenizer", ["glue/ligolw/tokenizer.c"]),
-      #Extension("glue.__segments", ["src/segments/segments.c", "src/segments/infinity.c", "src/segments/segment.c", "src/segments/segmentlist.c"], include_dirs = ["src/segments"])
+      Extension("glue.__segments", ["src/segments/segments.c", "src/segments/infinity.c", "src/segments/segment.c", "src/segments/segmentlist.c"], include_dirs = ["src/segments"])
     ],
     scripts = [ os.path.join('bin','LSCdataFind'),
       os.path.join('bin','LSCdataFind'),
