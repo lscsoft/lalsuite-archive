@@ -76,9 +76,6 @@ def parse_command_line():
 	for cache in options.input_cache:
 		filenames += [c.path() for c in map(CacheEntry, file(cache))]
 
-	if not filenames:
-		raise ValueError, "no input files"
-
 	if options.extract:
 		if len(filenames) > 1:
 			raise ValueError, "multiple output files specified"
@@ -86,11 +83,13 @@ def parse_command_line():
 			raise ValueError, "cannot set --input-cache with --extract"
 		if options.add_coinc_indeces:
 			raise ValueError, "cannot set --add-coinc-indeces with --extract"
+	elif not filenames:
+		raise ValueError, "no input files"
 
 	if not options.database:
 		raise ValueError, "must set --database"
 
-	return options, filenames
+	return options, (filenames or [None])
 
 
 #
@@ -188,13 +187,18 @@ if options.extract:
 	doc = ligolw.Document()
 	doc.appendChild(dbtables.DBTable_get_xml())
 	filename = filenames[0]
-	utils.write_filename(doc, filename, gz = filename[-3:] == ".gz", verbose = options.verbose)
+	utils.write_filename(doc, filename, gz = (filename or "stdout")[-3:] == ".gz", verbose = options.verbose)
 else:
 	insert(filenames, preserve_ids = options.preserve_ids, verbose = options.verbose)
 	if options.add_coinc_indeces:
 		if options.verbose:
 			print >>sys.stderr, "constructing coincidence indeces ..."
 		add_coinc_indeces(connection)
+	elif options.verbose:
+		# check if the user forgot to index coinc tables
+		table_names = dbtables.DBTable_table_names()
+		if "coinc_event" in table_names or "coinc_event_map" in table_names:
+			print >>sys.stderr, "warning: coincidence tables were not indexed"
 
 
 #
