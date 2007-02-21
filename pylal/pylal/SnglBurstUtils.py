@@ -301,21 +301,24 @@ WHERE
 		for values in self.connection.cursor().execute("""
 SELECT * FROM
 	sim_burst
-EXCEPT SELECT sim_burst.* FROM
-	sim_burst
-	JOIN coinc_event_map AS a ON (
-		sim_burst.simulation_id == a.event_id
-		AND a.table_name == 'sim_burst'
-	)
-	JOIN coinc_event_map AS b ON (
-		a.coinc_event_id == b.coinc_event_id
-		AND b.table_name == 'sngl_burst'
-	)
-	JOIN sngl_burst ON (
-		b.event_id == sngl_burst.event_id
-	)
 WHERE
-	sngl_burst.ifo == ?
+	simulation_id NOT IN (
+		SELECT sim_burst.simulation_id FROM
+			sim_burst
+			JOIN coinc_event_map AS a ON (
+				a.event_id == sim_burst.simulation_id
+				AND a.table_name == 'sim_burst'
+			)
+			JOIN coinc_event_map AS b ON (
+				b.coinc_event_id == a.coinc_event_id
+				AND b.table_name == 'sngl_burst'
+			)
+			JOIN sngl_burst ON (
+				sngl_burst.event_id == b.event_id
+			)
+		WHERE
+			sngl_burst.ifo == ?
+	)
 		""", (instrument,)):
 			yield self.sim_burst_table._row_from_cols(values)
 
