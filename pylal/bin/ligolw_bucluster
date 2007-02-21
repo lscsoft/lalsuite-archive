@@ -32,7 +32,6 @@ from optparse import OptionParser
 import sys
 
 from glue.ligolw import utils
-from pylal import llwapp
 from pylal import ligolw_bucluster
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -53,7 +52,6 @@ def parse_command_line():
 	parser = OptionParser(version = "%prog CVS $Id$")
 	parser.add_option("--comment", metavar = "text", default = "", help = "set comment string in process table")
 	parser.add_option("-c", "--cluster-algorithm", metavar = "[excesspower]", help = "set clustering method (required)")
-	parser.add_option("-f", "--force", action = "store_true", help = "process even if file has already been processed")
 	parser.add_option("-p", "--program", metavar = "name", default = "power", help = "set the name of the program that generated the events as it appears in the process table (default = power)")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
 	options, filenames = parser.parse_args()
@@ -86,15 +84,6 @@ options, filenames = parse_command_line()
 
 for filename in filenames:
 	xmldoc = utils.load_filename(filename, options.verbose, gz = (filename or "stdin")[-3:] == ".gz")
-	if llwapp.doc_includes_process(xmldoc, ligolw_bucluster.process_program_name):
-		if options.verbose:
-			print >>sys.stderr, "warning: %s already processed," % (filename or "stdin"),
-		if not options.force:
-			if options.verbose:
-				print >>sys.stderr, "skipping"
-			continue
-		if options.verbose:
-			print >>sys.stderr, "continuing anyway"
 	ligolw_bucluster.add_ms_columns(xmldoc)
 	ligolw_bucluster.ligolw_bucluster(xmldoc, **options.__dict__)
 	utils.write_filename(xmldoc, filename, options.verbose, gz = (filename or "stdout")[-3:] == ".gz")
