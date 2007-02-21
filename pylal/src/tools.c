@@ -2,6 +2,7 @@
 #include <lal/LALStdio.h>
 #include <lal/LIGOMetadataUtils.h>
 #include <lal/CoincInspiralEllipsoid.h>
+#include <lal/TimeDelay.h>
 
 SnglInspiralTable *PySnglInspiral2CSnglInspiral(PyObject *row) {
     /* Convert a Python SnglInspiral (row) to a C SnglInspiralTable.
@@ -378,6 +379,7 @@ static PyObject *PyCalculateEThincaParameter(PyObject *self, PyObject *args) {
     double result;
     PyObject *py_row1, *py_row2;
     SnglInspiralTable *c_row1, *c_row2;
+    InspiralAccuracyList* accuracyParams=NULL;
     
     if (! PyArg_ParseTuple(args, "OO", &py_row1, &py_row2))
         return NULL;
@@ -386,12 +388,67 @@ static PyObject *PyCalculateEThincaParameter(PyObject *self, PyObject *args) {
     c_row1 = PySnglInspiral2CSnglInspiral(py_row1);
     c_row2 = PySnglInspiral2CSnglInspiral(py_row2);
     
-    /* This is the main call */
-    result = (double) XLALCalculateEThincaParameter(c_row1, c_row2);
+    accuracyParams=(InspiralAccuracyList*)LALMalloc( sizeof( InspiralAccuracyList) );
+
+    XLALPopulateAccuracyParams( accuracyParams );
+
+    /* This is the main call */    
+    result = (double) XLALCalculateEThincaParameter(c_row1, c_row2, accuracyParams);
     
     /* Free temporary memory */
     LALFree(c_row1);
     LALFree(c_row2);
+    LALFree(accuracyParams);
+    
+    return Py_BuildValue("d", result);
+}
+
+static PyObject *PyCalculateEThincaParameterExt(PyObject *self, PyObject *args) {
+    /* Take two Python SnglInspiral values (rows of SnglInspiralTable) and
+    call XLALCalculateEThincaParameter on their contents. */
+    
+    double result;
+    double ra_deg, dec_deg;
+    long gps;
+    LIGOTimeGPS *gpstime;
+    PyObject    *py_row1, *py_row2;
+    SnglInspiralTable *c_row1, *c_row2;
+    InspiralAccuracyList* accuracyParams;
+    
+    if (! PyArg_ParseTuple(args, "OOldd", &py_row1, &py_row2, &gps, &ra_deg, &dec_deg ))
+        return NULL;
+    
+    /* check the values */
+    if (ra_deg<0 || ra_deg > 360) 
+    {
+      XLALPrintError("Right ascension value outside [0; 360]. Value given: %f\n", ra_deg);
+      return NULL;
+    }
+    if (dec_deg<-90 || dec_deg>90) 
+    {
+      XLALPrintError("Declination value outside [-90; 90]. Value given: %f\n", dec_deg);
+      return NULL;
+    }
+
+    /* Get rows into a format suitable for the LAL call */
+    c_row1 = PySnglInspiral2CSnglInspiral(py_row1);
+    c_row2 = PySnglInspiral2CSnglInspiral(py_row2);
+    
+    gpstime=(LIGOTimeGPS*)LALMalloc( sizeof(LIGOTimeGPS) );
+    gpstime->gpsSeconds=gps;
+    gpstime->gpsNanoSeconds=0;
+
+    accuracyParams=(InspiralAccuracyList*)LALMalloc( sizeof( InspiralAccuracyList) );
+    XLALPopulateAccuracyParamsExt( accuracyParams, gpstime, ra_deg, dec_deg );
+
+    /* This is the main call */    
+    result = (double) XLALCalculateEThincaParameter(c_row1, c_row2, accuracyParams);
+    
+    /* Free temporary memory */
+    LALFree(c_row1);
+    LALFree(c_row2);
+    LALFree(accuracyParams);
+    LALFree(gpstime);
     
     return Py_BuildValue("d", result);
 }
@@ -430,6 +487,13 @@ static struct PyMethodDef tools_methods[] = {
      "\n"
      "Takes two SnglInspiral objects (rows of a SnglInspiralTable) and\n"
      "calculates the overlap factor between them."},
+    {"XLALCalculateEThincaParameterExt", PyCalculateEThincaParameterExt,
+     METH_VARARGS,
+     "XLALCalculateEThincaParameterExt(SnglInspiral1, SnglInspiral2, gps, ra_deg, dec_deg)\n"
+     "\n"
+     "Takes two SnglInspiral objects (rows of a SnglInspiralTable) and\n"
+     "calculates the overlap factor between them, using the known time delay \n"
+     "between the IFO's at a given time for a given sky location (given in degrees)."},
      {"XLALEThincaParameterForInjection", PyEThincaParameterForInjection,
       METH_VARARGS, \
       "XLALEThincaParameterForInjection(SimInspiral, SnglInspiral)\n"
