@@ -138,20 +138,20 @@ def ExcessPowerPostFunc(sngl_burst_table, offset):
 
 def ExcessPowerBailoutFunc(a, b):
 	"""
-	Orders a and b by ifo, then by time interval.  Returns 0 if a and b
-	are from the same instrument and their time intervals are not
-	disjoint.
+	Orders a and b by ifo, then by channel, then by time interval.
+	Returns 0 if a and b are from the same instrument and their time
+	intervals are not disjoint.
 	"""
-	return cmp(a.ifo, b.ifo) or llwapp.cmp_seg_intervals(a.get_period(), b.get_period())
+	return cmp(a.ifo, b.ifo) or cmp(a.channel, b.channel) or llwapp.cmp_seg_intervals(a.get_period(), b.get_period())
 
 
 def ExcessPowerTestFunc(a, b):
 	"""
-	Orders a and b by ifo, then time interval, then by frequency band.
-	Returns 0 if a and b are from the same instrument, and their
-	time-frequency tiles are not disjoint.
+	Orders a and b by ifo, then by channel, then time interval, then by
+	frequency band.  Returns 0 if a and b are from the same instrument,
+	and their time-frequency tiles are not disjoint.
 	"""
-	return cmp(a.ifo, b.ifo) or llwapp.cmp_seg_intervals(a.get_period(), b.get_period()) or llwapp.cmp_seg_intervals(a.get_band(), b.get_band())
+	return cmp(a.ifo, b.ifo) or cmp (a.channel, b.channel) or llwapp.cmp_seg_intervals(a.get_period(), b.get_period()) or llwapp.cmp_seg_intervals(a.get_band(), b.get_band())
 
 
 def ExcessPowerClusterFunc(a, b):
