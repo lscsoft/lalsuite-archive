@@ -112,7 +112,7 @@ def ExcessPowerCoincCompare(a, b, dt):
 	b's time interval and vice versa and the two events' frequency
 	bands intersect or touch.  Returns non-zero otherwise.
 	"""
-	return b.get_peak() not in a.get_period().protract(dt) or a.get_peak() not in b.get_period().protract(dt) or llwapp.cmp_segs(a.get_band(), b.get_band())
+	return b.get_peak() not in a.get_period().protract(dt) or a.get_peak() not in b.get_period().protract(dt) or llwapp.cmp_seg_intervals(a.get_band(), b.get_band())
 
 
 #
