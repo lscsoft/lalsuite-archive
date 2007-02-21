@@ -45,8 +45,11 @@ __date__ = "$Date$"[7:-2]
 #
 
 
+process_program_name = "ligolw_bucluster"
+
+
 def append_process(doc, **kwargs):
-	process = llwapp.append_process(doc, program = "ligolw_bucluster", version = __version__, cvs_repository = "lscsoft", cvs_entry_time = __date__, comment = kwargs["comment"])
+	process = llwapp.append_process(doc, program = process_program_name, version = __version__, cvs_repository = "lscsoft", cvs_entry_time = __date__, comment = kwargs["comment"])
 
 	llwapp.append_process_params(doc, process, [("--cluster-algorithm", "lstring", kwargs["cluster_algorithm"])])
 
