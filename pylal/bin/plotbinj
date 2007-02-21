@@ -259,7 +259,7 @@ class RecoveredVsInjectedhrss(SnglBurstUtils.BurstPlot):
 
 	def add_contents(self, contents):
 		for injected, recovered in contents.connection.cursor().execute("""
-SELECT sim_burst.hrss, MAX(sngl_burst.amplitude) FROM
+SELECT sim_burst.hrss, MAX(sngl_burst.ms_hrss) FROM
 	sim_burst
 	JOIN coinc_event_map AS a ON (
 		sim_burst.simulation_id == a.event_id
@@ -355,7 +355,7 @@ def new_plots(instrument, plots):
 		AmplVsFreqContour(instrument, 0.3),
 		TriggerCountHistogram(instrument),
 		RecoveredVsInjectedhrss(instrument),
-		RecoveredTimeOffset(instrument, segments.segment(-0.25, +0.25), 0.005)
+		RecoveredTimeOffset(instrument, segments.segment(-0.075, +0.075), 0.005)
 	]
 	return [l[i] for i in plots]
 
