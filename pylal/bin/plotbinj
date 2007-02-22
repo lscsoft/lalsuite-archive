@@ -353,7 +353,7 @@ def new_plots(instrument, plots):
 		AmplVsFreqContour(instrument, 0.3),
 		TriggerCountHistogram(instrument),
 		RecoveredVsInjectedhrss(instrument),
-		RecoveredTimeOffset(instrument, segments.segment(-0.075, +0.075), 0.005)
+		RecoveredTimeOffset(instrument, segments.segment(-0.075, +0.075), 0.002)
 	]
 	return [l[i] for i in plots]
 

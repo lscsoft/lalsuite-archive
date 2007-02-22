@@ -115,8 +115,7 @@ def snglburst_append(self, row):
 	self.bandwidth[row.ifo].append(row.bandwidth)
 	self.lo_freq[row.ifo].append(row.central_freq - row.bandwidth / 2.0)
 	self.snr[row.ifo].append(row.snr)
-	# FIXME: sign
-	self.confidence[row.ifo].append(-row.confidence)
+	self.confidence[row.ifo].append(abs(row.confidence))
 
 lsctables.SnglBurstTable.loadcolumns = ["ifo", "start_time", "start_time_ns", "duration", "central_freq", "bandwidth", "snr", "confidence", "peak_time", "peak_time_ns"]
 lsctables.SnglBurstTable.__init__ = snglburst_init
