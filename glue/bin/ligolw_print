@@ -18,6 +18,16 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+
+#
+# =============================================================================
+#
+#                                   Preamble
+#
+# =============================================================================
+#
+
+
 """
 Print things from LIGO LW XML files.  Inspired by lwtprint from LIGOTools.
 """
@@ -27,15 +37,10 @@ __date__ = "$Date$"[7:-2]
 __version__ = "$Revision$"[11:-2]
 
 
-#
-# Preamble.
-#
-
 from optparse import OptionParser
-import sys
 
 from glue.lal import CacheEntry
-from glue import segments
+from glue import segmentsUtils
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
@@ -43,60 +48,63 @@ from glue.ligolw import utils
 
 
 #
-# Parse command line.
+# =============================================================================
+#
+#                                 Command Line
+#
+# =============================================================================
 #
 
-parser = OptionParser(version = "%prog CVS $Id$")
-parser.add_option("-i", "--input-cache", metavar = "CACHEFILE", action = "append", help = "get input files from trigger cache CACHEFILE")
-parser.add_option("-c", "--column", metavar = "COLUMN", action = "append", help = "print column named COLUMN")
-parser.add_option("-d", "--delimiter", metavar = "DELIMITER", action = "store", help = "delimit output with DELIMITER")
-parser.add_option("-r", "--rows", metavar = "ROWSPEC", action = "append", help = "print rows in the range(s) ROWSPEC")
-parser.add_option("-t", "--table", metavar = "TABLE", action = "append", help = "read from table TABLE")
-parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
-options, urls = parser.parse_args()
-del parser
 
-# add urls from cache files
-if options.input_cache:
-	for cache in options.input_cache:
-		urls += [c.url for c in map(CacheEntry, file(cache))]
+def parse_command_line():
+	parser = OptionParser(
+		version = "%prog CVS $Id$",
+		usage = "%prog [options] [url,...]",
+		description = "%prog prints the contents of table elements from a LIGO Light Weight XML files to stdout in delimited ASCII format.  In addition to standard files, the program can read from many common URLs such as http:// and ftp://.  Any file name or URL that ends in \".gz\" is assumed to be gzip-compressed, and will be decompressed on input.  If no file names or URLs are given, then input is read from stdin."
+	)
+	parser.add_option("-i", "--input-cache", metavar = "name", action = "append", help = "get URLs from the LAL cache file;  can be provided multiple times to name several caches to iterate over")
+	parser.add_option("-c", "--column", metavar = "name", action = "append", help = "print only the contents of the given column;  can be provided multiple times to print multiple columns (default is to print all columns from each table)")
+	parser.add_option("-d", "--delimiter", metavar = "string", default = ",", help = "delimit output with the given string (default is \",\")")
+	parser.add_option("-r", "--rows", metavar = "rowspec", default = ":", help = "print rows in the given range(s);  the format is first:last[,first:last,...] where if the start or stop boundary of a individual range is omited it means the first or last row in the table (default is \":\", or to print all rows)")
+	parser.add_option("-t", "--table", metavar = "name", action = "append", help = "dump rows from the given table;  can be provided multiple times to dump rows from multiple tables (default is to dump the contents of all tables)")
+	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
+	options, urls = parser.parse_args()
 
-if len(urls) < 1:
-	raise Exception, "no input files!"
+	# add urls from cache files
+	if options.input_cache:
+		for cache in options.input_cache:
+			urls += [c.url for c in map(CacheEntry, file(cache))]
 
-# set the default delimiter
-if not options.delimiter:
-	options.delimiter = ","
+	# strip table names
+	if options.table:
+		options.table = map(table.StripTableName, options.table)
 
-# strip table names
-if options.table:
-	options.table = map(table.StripTableName, options.table)
+	# turn row requests into a segment list
+	try:
+		options.rows = segmentsUtils.from_range_strings(options.rows.split(","))
+	except ValueError, e:
+		raise ValueError, "invalid rowspec: %s" % str(e)
 
-# turn row requests into a segment list
-if options.rows:
-	rowlist = segments.segmentlist([])
-	for parts in map(lambda x: str.split(x, ":"), options.rows):
-		if len(parts) == 1:
-			rowlist.append(segments.segment(int(parts[0]), int(parts[0])))
-		elif len(parts) != 2:
-			raise ValueError, "invalid rowspec \"" + ":".join(parts) + "\""
-		else:
-			try:
-				parts[0] = int(parts[0])
-			except ValueError:
-				parts[0] = -segments.infinity()
-			try:
-				parts[1] = int(parts[1])
-			except ValueError:
-				parts[1] = segments.infinity()
-			if parts[1] > parts[0]:
-				parts[1] -= 1
-			rowlist.append(segments.segment(parts[0], parts[1]))
+	# success
+	return options, (urls or [None])
 
 
 #
-# How to construct the content handler.
+# =============================================================================
 #
+#                                    Input
+#
+# =============================================================================
+#
+
+
+#
+# If specific table names have been asked for, don't parse other tables so
+# as to improve parsing speed and reduce memory requirements.  Because we
+# do this, we can assume later that we should print all the tables that can
+# be found in the document.
+#
+
 
 def ContentHandler(doc):
 	if options.table:
@@ -104,31 +112,23 @@ def ContentHandler(doc):
 	else:
 		return ligolw.LIGOLWContentHandler(doc)
 
+
 utils.ContentHandler = ContentHandler
 
 
 #
-# How to find the tables to dump
+# =============================================================================
 #
-
-def get_tables(doc):
-	if options.table:
-		return doc.getElements(lambda e: (e.tagName == ligolw.Table.tagName) and (table.StripTableName(e.getAttribute("Name")) in options.table))
-	else:
-		return doc.getElements(lambda e: (e.tagName == ligolw.Table.tagName))
-
-
+#                         How to find things to print
 #
-# How to choose rows
+# =============================================================================
 #
-
-def is_requested_row(n):
-	return (not options.rows) or (n in rowlist)
 
 
 #
 # How to print a row
 #
+
 
 def row_string(table_elem, row):
 	if options.column:
@@ -138,13 +138,21 @@ def row_string(table_elem, row):
 
 
 #
-# Loop over all input documents.
+# =============================================================================
+#
+#                                     Main
+#
+# =============================================================================
 #
 
+
+options, urls = parse_command_line()
+
+
 for url in urls:
-	doc = utils.load_url(url, options.verbose, gz = (url or "stdin")[-3:] == ".gz")
-	for table_elem in get_tables(doc):
+	doc = utils.load_url(url, verbose = options.verbose, gz = (url or "stdin")[-3:] == ".gz")
+	for table_elem in doc.getElements(lambda e: (e.tagName == ligolw.Table.tagName)):
 		for n, row in enumerate(table_elem):
-			if is_requested_row(n):
+			if n in options.rows:
 				print row_string(table_elem, row)
 	doc.unlink()
