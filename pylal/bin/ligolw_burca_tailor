@@ -38,6 +38,7 @@ import sys
 from glue import segments
 from glue.ligolw import dbtables
 from glue.ligolw import utils
+from pylal import itertools
 from pylal import rate
 from pylal import SnglBurstUtils
 from pylal.date import LIGOTimeGPS
@@ -59,8 +60,8 @@ __date__ = "$Date$"[7:-2]
 def parse_command_line():
 	parser = OptionParser(version="%prog CVS $Id$")
 
-	parser.add_option("-i", "--injection-glob", default = None, help = "shell filename pattern for injection files")
-	parser.add_option("-b", "--background-glob", default = None, help = "shell filename pattern for non-injection files")
+	parser.add_option("-i", "--injection-glob", metavar = "pattern", default = None, help = "shell filename pattern for injection files")
+	parser.add_option("-b", "--background-glob", metavar = "pattern", default = None, help = "shell filename pattern for non-injection files")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
 	options, filenames = parser.parse_args()
 
@@ -70,87 +71,163 @@ def parse_command_line():
 #
 # =============================================================================
 #
-#                            Recovered Time Offset
+#                              Deltas Bookkeeping
 #
 # =============================================================================
 #
 
 
-class PeakTimeDeltaHistogram(SnglBurstUtils.BurstPlot):
-	def __init__(self, instrument1, instrument2, interval, width):
-		SnglBurstUtils.BurstPlot.__init__(self, r"$t_{\mathrm{%s}} - t_{\mathrm{%s}}$ (s)" % (instrument1, instrument2), "Probability Density")
-		self.axes.set_title(r"Difference in Candidate Peak Times, Injections vs.\ Background")
-		self.instrument1 = instrument1
-		self.instrument2 = instrument2
-		self.n_injections = 0
-		self.n_backgrounds = 0
-		self.injection_deltas = rate.Rate(interval, width)
-		self.background_deltas = rate.Rate(interval, width)
+class Deltas(object):
+	def __init__(self, dtinterval, dfinterval, dhinterval):
+		self.inj_dt = rate.Rate(dtinterval, abs(dtinterval) / 75.0)
+		self.inj_df = rate.Rate(dfinterval, abs(dfinterval) / 75.0)
+		self.inj_dh = rate.Rate(dhinterval, abs(dhinterval) / 75.0)
+		self.bak_dt = rate.Rate(dtinterval, abs(dtinterval) / 75.0)
+		self.bak_df = rate.Rate(dfinterval, abs(dfinterval) / 75.0)
+		self.bak_dh = rate.Rate(dhinterval, abs(dhinterval) / 75.0)
+		self.dt_axes = None
+		self.df_axes = None
+		self.dh_axes = None
 
-	def add_background(self, contents):
-		for b1_peak_time, b1_peak_time_ns, b2_peak_time, b2_peak_time_ns in contents.connection.cursor().execute("""
-SELECT b1.peak_time, b1.peak_time_ns, b2.peak_time, b2.peak_time_ns FROM
-	sngl_burst AS b1
-	JOIN coinc_event_map AS a ON (
-		a.event_id == b1.event_id
-		AND a.table_name == 'sngl_burst'
-	)
-	JOIN coinc_event_map AS b ON (
-		b.coinc_event_id == a.coinc_event_id
-	)
-	JOIN sngl_burst AS b2 ON (
-		b.event_id == b2.event_id
-		AND b.table_name == 'sngl_burst'
-	)
-	JOIN coinc_event ON (
-		coinc_event.coinc_event_id == a.coinc_event_id
-	)
-WHERE
-	coinc_event.coinc_def_id == ?
-	AND b1.ifo == ?
-	AND b2.ifo == ?
-		""", (contents.bb_definer_id, self.instrument1, self.instrument2)):
-			try:
-				self.background_deltas[float(LIGOTimeGPS(b1_peak_time, b1_peak_time_ns) - LIGOTimeGPS(b2_peak_time, b2_peak_time_ns))] = 1.0
-			except IndexError:
-				# not on plot
-				pass
+	def add_inj(self, dt, df, dh):
+		# IndexError == not on plot
+		try:
+			self.inj_dt[dt] = 1.0
+		except IndexError:
+			pass
+		try:
+			self.inj_df[df] = 1.0
+		except IndexError:
+			pass
+		try:
+			self.inj_dh[dh] = 1.0
+		except IndexError:
+			pass
 
-	def add_injections(self, contents):
-		for b1_peak_time, b1_peak_time_ns, b2_peak_time, b2_peak_time_ns in contents.connection.cursor().execute("""
-SELECT b1.peak_time, b1.peak_time_ns, b2.peak_time, b2.peak_time_ns FROM
-	sngl_burst AS b1
-	JOIN coinc_event_map AS a ON (
-		a.event_id == b1.event_id
-		AND a.table_name == 'sngl_burst'
-	)
-	JOIN coinc_event_map AS b ON (
-		b.coinc_event_id == a.coinc_event_id
-	)
-	JOIN sngl_burst AS b2 ON (
-		b.event_id == b2.event_id
-		AND b.table_name == 'sngl_burst'
-	)
-	JOIN coinc_event ON (
-		coinc_event.coinc_event_id == a.coinc_event_id
-	)
-WHERE
-	coinc_event.coinc_def_id == ?
-	AND b1.ifo == ?
-	AND b2.ifo == ?
-		""", (contents.sb_definer_id, self.instrument1, self.instrument2)):
-			try:
-				self.injection_deltas[float(LIGOTimeGPS(b1_peak_time, b1_peak_time_ns) - LIGOTimeGPS(b2_peak_time, b2_peak_time_ns))] = 1.0
-			except IndexError:
-				# not on plot
-				pass
+	def add_bak(self, dt, df, dh):
+		# IndexError == not on plot
+		try:
+			self.bak_dt[dt] = 1.0
+		except IndexError:
+			pass
+		try:
+			self.bak_df[df] = 1.0
+		except IndexError:
+			pass
+		try:
+			self.bak_dh[dh] = 1.0
+		except IndexError:
+			pass
 
 	def finish(self):
-		self.background_deltas.array /= numpy.sum(self.background_deltas.array)
-		self.injection_deltas.array /= numpy.sum(self.injection_deltas.array)
-		self.axes.plot(self.background_deltas.xvals(), self.background_deltas.filtered(), "k")
-		self.axes.plot(self.injection_deltas.xvals(), self.injection_deltas.filtered(), "r")
-		self.axes.legend(["Non-injection", "Injection"])
+		self.inj_dt.array /= numpy.sum(self.inj_dt.array)
+		self.inj_df.array /= numpy.sum(self.inj_df.array)
+		self.inj_dh.array /= numpy.sum(self.inj_dh.array)
+		self.bak_dt.array /= numpy.sum(self.bak_dt.array)
+		self.bak_df.array /= numpy.sum(self.bak_df.array)
+		self.bak_dh.array /= numpy.sum(self.bak_dh.array)
+		self.dt_axes.plot(self.inj_dt.xvals(), self.inj_dt.filtered(), "r")
+		self.df_axes.plot(self.inj_df.xvals(), self.inj_df.filtered(), "r")
+		self.dh_axes.plot(self.inj_dh.xvals(), self.inj_dh.filtered(), "r")
+		self.dt_axes.plot(self.bak_dt.xvals(), self.bak_dt.filtered(), "k")
+		self.df_axes.plot(self.bak_df.xvals(), self.bak_df.filtered(), "k")
+		self.dh_axes.plot(self.bak_dh.xvals(), self.bak_dh.filtered(), "k")
+
+
+class Plots(object):
+	def __init__(self, instruments, dtinterval, dfinterval, dhinterval):
+		self.fig = SnglBurstUtils.figure.Figure()
+		SnglBurstUtils.FigureCanvas(self.fig)
+		# golden ratio
+		self.fig.set_size_inches(12, 12 / ((1 + math.sqrt(5)) / 2))
+
+		self.deltas = {}
+		for pair in itertools.choices(instruments, 2):
+			self.deltas[tuple(pair)] = Deltas(dtinterval, dfinterval, dhinterval)
+
+		for i, pair in enumerate(self.deltas.keys()):
+			vlabel_allowance = .05
+			hlabel_allowance = .03
+			border = .007
+			left = float(i) / len(self.deltas) + hlabel_allowance + border
+			width = 1.0 / len(self.deltas) - hlabel_allowance - 2 * border
+			height = 1.0 / 3.0
+			self.deltas[pair].dt_axes = self.fig.add_axes((left, 0 * height + vlabel_allowance + border, width, height - vlabel_allowance - 2 * border))
+			self.deltas[pair].df_axes = self.fig.add_axes((left, 1 * height + vlabel_allowance + border, width, height - vlabel_allowance - 2 * border))
+			self.deltas[pair].dh_axes = self.fig.add_axes((left, 2 * height + vlabel_allowance + border, width, height - vlabel_allowance - 2 * border))
+
+			self.deltas[pair].dt_axes.set_xlabel(r"$(t_{\mathrm{%s}} - t_{\mathrm{%s}}) / \left< \Delta t \right>$" % pair)
+			self.deltas[pair].df_axes.set_xlabel(r"$(f_{\mathrm{%s}} - f_{\mathrm{%s}}) / \left< f \right>$" % pair)
+			self.deltas[pair].dh_axes.set_xlabel(r"$({h_{\mathrm{rss}}}_{\mathrm{%s}} - {h_{\mathrm{rss}}}_{\mathrm{%s}}) / \left< h_{\mathrm{rss}} \right>$" % pair)
+
+
+	def add_background(self, contents):
+		# iterate over burst+burst coincidences involving the two
+		# desired instruments
+		for pair, deltas in self.deltas.items():
+			for b1_peak_time, b1_peak_time_ns, b1_duration, b1_peak_frequency, b1_bandwidth, b1_hrss, b2_peak_time, b2_peak_time_ns, b2_duration, b2_peak_frequency, b2_bandwidth, b2_hrss in contents.connection.cursor().execute("""
+SELECT b1.peak_time, b1.peak_time_ns, b1.ms_duration, b1.peak_frequency, b1.ms_duration, b1.ms_hrss, b2.peak_time, b2.peak_time_ns, b2.ms_duration, b2.peak_frequency, b2.ms_bandwidth, b2.ms_hrss FROM
+	sngl_burst AS b1
+	JOIN coinc_event_map AS a ON (
+		a.event_id == b1.event_id
+		AND a.table_name == 'sngl_burst'
+	)
+	JOIN coinc_event_map AS b ON (
+		b.coinc_event_id == a.coinc_event_id
+	)
+	JOIN sngl_burst AS b2 ON (
+		b.event_id == b2.event_id
+		AND b.table_name == 'sngl_burst'
+	)
+	JOIN coinc_event ON (
+		coinc_event.coinc_event_id == a.coinc_event_id
+	)
+WHERE
+	coinc_event.coinc_def_id == ?
+	AND b1.ifo == ?
+	AND b2.ifo == ?
+			""", (contents.bb_definer_id, pair[0], pair[1])):
+				dt = float(LIGOTimeGPS(b1_peak_time, b1_peak_time_ns) - LIGOTimeGPS(b2_peak_time, b2_peak_time_ns)) / ((b1_duration + b2_duration) / 2)
+				#df = (b1_peak_frequency - b2_peak_frequency) / ((b1_bandwidth + b2_bandwidth) / 2)
+				df = (b1_peak_frequency - b2_peak_frequency) / ((b1_peak_frequency + b2_peak_frequency) / 2)
+				dh = (b1_hrss - b2_hrss) / ((b1_hrss + b2_hrss) / 2)
+				deltas.add_bak(dt, df, dh)
+
+	def add_injections(self, contents):
+		# iterate over injections recovered in both of the two
+		# desired instruments
+		for pair, deltas in self.deltas.items():
+			for b1_peak_time, b1_peak_time_ns, b1_duration, b1_peak_frequency, b1_bandwidth, b1_hrss, b2_peak_time, b2_peak_time_ns, b2_duration, b2_peak_frequency, b2_bandwidth, b2_hrss in contents.connection.cursor().execute("""
+SELECT b1.peak_time, b1.peak_time_ns, b1.ms_duration, b1.peak_frequency, b1.ms_duration, b1.ms_hrss, b2.peak_time, b2.peak_time_ns, b2.ms_duration, b2.peak_frequency, b2.ms_bandwidth, b2.ms_hrss FROM
+	sngl_burst AS b1
+	JOIN coinc_event_map AS a ON (
+		a.event_id == b1.event_id
+		AND a.table_name == 'sngl_burst'
+	)
+	JOIN coinc_event_map AS b ON (
+		b.coinc_event_id == a.coinc_event_id
+	)
+	JOIN sngl_burst AS b2 ON (
+		b.event_id == b2.event_id
+		AND b.table_name == 'sngl_burst'
+	)
+	JOIN coinc_event ON (
+		coinc_event.coinc_event_id == a.coinc_event_id
+	)
+WHERE
+	coinc_event.coinc_def_id == ?
+	AND b1.ifo == ?
+	AND b2.ifo == ?
+			""", (contents.sb_definer_id, pair[0], pair[1])):
+				dt = float(LIGOTimeGPS(b1_peak_time, b1_peak_time_ns) - LIGOTimeGPS(b2_peak_time, b2_peak_time_ns)) / ((b1_duration + b2_duration) / 2)
+				#df = (b1_peak_frequency - b2_peak_frequency) / ((b1_bandwidth + b2_bandwidth) / 2)
+				df = (b1_peak_frequency - b2_peak_frequency) / ((b1_peak_frequency + b2_peak_frequency) / 2)
+				dh = (b1_hrss - b2_hrss) / ((b1_hrss + b2_hrss) / 2)
+				deltas.add_inj(dt, df, dh)
+
+	def finish(self):
+		for deltas in self.deltas.values():
+			deltas.finish()
 
 
 #
@@ -165,9 +242,7 @@ WHERE
 options, filenames = parse_command_line()
 
 
-plot0 = PeakTimeDeltaHistogram("H1", "H2", segments.segment(-0.1, +0.1), 0.002)
-plot1 = PeakTimeDeltaHistogram("H1", "L1", segments.segment(-0.1, +0.1), 0.002)
-plot2 = PeakTimeDeltaHistogram("H2", "L1", segments.segment(-0.1, +0.1), 0.002)
+plots = Plots(["H1", "H2", "L1"], segments.segment(-0.3, +0.3), segments.segment(-0.15, +0.15), segments.segment(-2.0, +2.0))
 
 
 if options.verbose:
@@ -182,9 +257,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 	dbtables.DBTable_set_connection(connection)
 	database = SnglBurstUtils.CoincDatabase().summarize(dbtables.DBTable_get_xml(), "power", options.verbose)
 
-	plot0.add_injections(database)
-	plot1.add_injections(database)
-	plot2.add_injections(database)
+	plots.add_injections(database)
 
 	connection.close()
 
@@ -201,17 +274,11 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 	dbtables.DBTable_set_connection(connection)
 	database = SnglBurstUtils.CoincDatabase().summarize(dbtables.DBTable_get_xml(), "power", options.verbose)
 
-	plot0.add_background(database)
-	plot1.add_background(database)
-	plot2.add_background(database)
+	plots.add_background(database)
 
 	connection.close()
 
 
-plot0.finish()
-plot1.finish()
-plot2.finish()
+plots.finish()
 
-plot0.fig.savefig("ligolw_burca_tailor_H1_H2.png")
-plot1.fig.savefig("ligolw_burca_tailor_H1_L1.png")
-plot2.fig.savefig("ligolw_burca_tailor_H2_L1.png")
+plots.fig.savefig("ligolw_burca_tailor.png")
