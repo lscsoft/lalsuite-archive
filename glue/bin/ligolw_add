@@ -57,7 +57,11 @@ def parse_command_line():
 	"""
 	Parse the command line, return an options object and a list of URLs.
 	"""
-	parser = OptionParser(version = "%prog CVS $Id$")
+	parser = OptionParser(
+		version = "%prog CVS $Id$",
+		usage = "%prog [options] file1[,file2,...]",
+		description = "%prog combines one or more LIGO Light Weight XML files into a single output file.  The output is written to stdout or to a named file if --output is specified.  Any input files whose names end in \".gz\" are assumed to be gzip-compressed, and will be uncompressed while reading.  If the output file's name ends in \".gz\", the output document will be gzip-compressed while writing.  Table elements contained in the document will be merged so that there is not more than one table of any given name in the output.  To accomplish this, any tables in the input documents that share the same name must have compatible columns, meaning the same column names with matching types (but not necessarily in the same order)."
+	)
 	parser.add_option("-i", "--input-cache", metavar = "filename", action = "append", default = [], help = "get input files from the LAL cache named filename")
 	parser.add_option("--add-lfn-table", action = "store_true", help = "add an lfn entry for each process")
 	parser.add_option("--lfn-start-time", metavar = "GPS seconds", help = "set lfn start_time (optional)")
