@@ -1,0 +1,217 @@
+#!/usr/bin/python
+#
+# $Id$
+#
+# Copyright (C) 2007  Kipp C. Cannon
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 2 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+
+#
+# =============================================================================
+#
+#                                   Preamble
+#
+# =============================================================================
+#
+
+
+import glob
+import math
+import numpy
+from optparse import OptionParser
+from pysqlite2 import dbapi2 as sqlite3
+import sys
+
+from glue import segments
+from glue.ligolw import dbtables
+from glue.ligolw import utils
+from pylal import rate
+from pylal import SnglBurstUtils
+from pylal.date import LIGOTimeGPS
+
+__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__version__ = "$Revision$"[11:-2]
+__date__ = "$Date$"[7:-2]
+
+
+#
+# =============================================================================
+#
+#                                 Command Line
+#
+# =============================================================================
+#
+
+
+def parse_command_line():
+	parser = OptionParser(version="%prog CVS $Id$")
+
+	parser.add_option("-i", "--injection-glob", default = None, help = "shell filename pattern for injection files")
+	parser.add_option("-b", "--background-glob", default = None, help = "shell filename pattern for non-injection files")
+	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
+	options, filenames = parser.parse_args()
+
+	return options, (filenames or [None])
+
+
+#
+# =============================================================================
+#
+#                            Recovered Time Offset
+#
+# =============================================================================
+#
+
+
+class PeakTimeDeltaHistogram(SnglBurstUtils.BurstPlot):
+	def __init__(self, instrument1, instrument2, interval, width):
+		SnglBurstUtils.BurstPlot.__init__(self, r"$t_{\mathrm{%s}} - t_{\mathrm{%s}}$ (s)" % (instrument1, instrument2), "Probability Density")
+		self.axes.set_title(r"Difference in Candidate Peak Times, Injections vs.\ Background")
+		self.instrument1 = instrument1
+		self.instrument2 = instrument2
+		self.n_injections = 0
+		self.n_backgrounds = 0
+		self.injection_deltas = rate.Rate(interval, width)
+		self.background_deltas = rate.Rate(interval, width)
+
+	def add_background(self, contents):
+		for b1_peak_time, b1_peak_time_ns, b2_peak_time, b2_peak_time_ns in contents.connection.cursor().execute("""
+SELECT b1.peak_time, b1.peak_time_ns, b2.peak_time, b2.peak_time_ns FROM
+	sngl_burst AS b1
+	JOIN coinc_event_map AS a ON (
+		a.event_id == b1.event_id
+		AND a.table_name == 'sngl_burst'
+	)
+	JOIN coinc_event_map AS b ON (
+		b.coinc_event_id == a.coinc_event_id
+	)
+	JOIN sngl_burst AS b2 ON (
+		b.event_id == b2.event_id
+		AND b.table_name == 'sngl_burst'
+	)
+	JOIN coinc_event ON (
+		coinc_event.coinc_event_id == a.coinc_event_id
+	)
+WHERE
+	coinc_event.coinc_def_id == ?
+	AND b1.ifo == ?
+	AND b2.ifo == ?
+		""", (contents.bb_definer_id, self.instrument1, self.instrument2)):
+			try:
+				self.background_deltas[float(LIGOTimeGPS(b1_peak_time, b1_peak_time_ns) - LIGOTimeGPS(b2_peak_time, b2_peak_time_ns))] = 1.0
+			except IndexError:
+				# not on plot
+				pass
+
+	def add_injections(self, contents):
+		for b1_peak_time, b1_peak_time_ns, b2_peak_time, b2_peak_time_ns in contents.connection.cursor().execute("""
+SELECT b1.peak_time, b1.peak_time_ns, b2.peak_time, b2.peak_time_ns FROM
+	sngl_burst AS b1
+	JOIN coinc_event_map AS a ON (
+		a.event_id == b1.event_id
+		AND a.table_name == 'sngl_burst'
+	)
+	JOIN coinc_event_map AS b ON (
+		b.coinc_event_id == a.coinc_event_id
+	)
+	JOIN sngl_burst AS b2 ON (
+		b.event_id == b2.event_id
+		AND b.table_name == 'sngl_burst'
+	)
+	JOIN coinc_event ON (
+		coinc_event.coinc_event_id == a.coinc_event_id
+	)
+WHERE
+	coinc_event.coinc_def_id == ?
+	AND b1.ifo == ?
+	AND b2.ifo == ?
+		""", (contents.sb_definer_id, self.instrument1, self.instrument2)):
+			try:
+				self.injection_deltas[float(LIGOTimeGPS(b1_peak_time, b1_peak_time_ns) - LIGOTimeGPS(b2_peak_time, b2_peak_time_ns))] = 1.0
+			except IndexError:
+				# not on plot
+				pass
+
+	def finish(self):
+		self.background_deltas.array /= numpy.sum(self.background_deltas.array)
+		self.injection_deltas.array /= numpy.sum(self.injection_deltas.array)
+		self.axes.plot(self.background_deltas.xvals(), self.background_deltas.filtered(), "k")
+		self.axes.plot(self.injection_deltas.xvals(), self.injection_deltas.filtered(), "r")
+		self.axes.legend(["Non-injection", "Injection"])
+
+
+#
+# =============================================================================
+#
+#                                     Plot
+#
+# =============================================================================
+#
+
+
+options, filenames = parse_command_line()
+
+
+plot0 = PeakTimeDeltaHistogram("H1", "H2", segments.segment(-0.1, +0.1), 0.002)
+plot1 = PeakTimeDeltaHistogram("H1", "L1", segments.segment(-0.1, +0.1), 0.002)
+plot2 = PeakTimeDeltaHistogram("H2", "L1", segments.segment(-0.1, +0.1), 0.002)
+
+
+if options.verbose:
+	print >>sys.stderr, "=== Injections ==="
+
+filenames = glob.glob(options.injection_glob)
+for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose, reverse = True)):
+
+	if options.verbose:
+		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
+	connection = sqlite3.connect(filename)
+	dbtables.DBTable_set_connection(connection)
+	database = SnglBurstUtils.CoincDatabase().summarize(dbtables.DBTable_get_xml(), "power", options.verbose)
+
+	plot0.add_injections(database)
+	plot1.add_injections(database)
+	plot2.add_injections(database)
+
+	connection.close()
+
+
+if options.verbose:
+	print >>sys.stderr, "=== Background ==="
+
+filenames = glob.glob(options.background_glob)
+for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose, reverse = True)):
+
+	if options.verbose:
+		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
+	connection = sqlite3.connect(filename)
+	dbtables.DBTable_set_connection(connection)
+	database = SnglBurstUtils.CoincDatabase().summarize(dbtables.DBTable_get_xml(), "power", options.verbose)
+
+	plot0.add_background(database)
+	plot1.add_background(database)
+	plot2.add_background(database)
+
+	connection.close()
+
+
+plot0.finish()
+plot1.finish()
+plot2.finish()
+
+plot0.fig.savefig("ligolw_burca_tailor_H1_H2.png")
+plot1.fig.savefig("ligolw_burca_tailor_H1_L1.png")
+plot2.fig.savefig("ligolw_burca_tailor_H2_L1.png")
