@@ -78,7 +78,7 @@ options, filenames = parse_command_line()
 
 def time_freq_plot(database, instrument, sim):
 	fig = SnglBurstUtils.figure.Figure()
-	SnglBurstUtils.FigureCanvasAgg(fig)
+	SnglBurstUtils.FigureCanvas(fig)
 	# 6.5" wide, golden ratio high
 	fig.set_size_inches(6.5, 6.5 / ((1 + math.sqrt(5)) / 2))
 

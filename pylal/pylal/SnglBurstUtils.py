@@ -40,7 +40,7 @@ matplotlib.rcParams.update({
 	"text.usetex": True	# render all text with TeX
 })
 from matplotlib import figure
-from matplotlib.backends.backend_agg import FigureCanvasAgg
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 import re
 import sys
 
@@ -361,7 +361,7 @@ class BurstPlot(object):
 	def __init__(self, x_label, y_label):
 		self.nevents = 0
 		self.fig = figure.Figure()
-		FigureCanvasAgg(self.fig)
+		FigureCanvas(self.fig)
 		# 6.5" wide, golden ratio high
 		self.fig.set_size_inches(6.5, 6.5 / ((1 + math.sqrt(5)) / 2))
 		#self.fig.set_size_inches(16, 8)
