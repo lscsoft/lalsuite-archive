@@ -18,6 +18,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+
 #
 # =============================================================================
 #
@@ -25,6 +26,7 @@
 #
 # =============================================================================
 #
+
 
 """
 Cut pieces out of LIGO LW XML files containing LSC tables.
@@ -50,8 +52,13 @@ __version__ = "$Revision$"[11:-2]
 # =============================================================================
 #
 
+
 def parse_command_line():
-	parser = OptionParser(version = "%prog CVS $Id$")
+	parser = OptionParser(
+		version = "%prog CVS $Id$",
+		usage = "%prog [options] [file,...]",
+		description = "%prog removes XML elements from a LIGO Light Weight XML file.  If file names are given on the command line, those files are read, processed, and rewritten one at a time, otherwise input is read from stdin and output written to stdout.  Any file name ending in \".gz\" is assumed to be gzip-compressed and will be decompressed and recompressed during I/O."
+	)
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
 	parser.add_option("--delete-column", metavar = "name", action = "append", default = [], help = "delete matching columns")
 	parser.add_option("--delete-element", metavar = "tag[,attr=value[,...]]", action = "append", default = [], help = "delete matching elements")
@@ -88,6 +95,7 @@ def parse_command_line():
 # =============================================================================
 #
 
+
 class ElementFilter(object):
 	"""
 	Class implementing any cuts that can be performed during document
@@ -113,9 +121,11 @@ class ElementFilter(object):
 # =============================================================================
 #
 
+
 #
 # Remove unwanted columns
 #
+
 
 def RemoveColumns(doc, columns):
 	for table_elem in doc.getElementsByTagName(ligolw.Table.tagName):
@@ -127,6 +137,7 @@ def RemoveColumns(doc, columns):
 #
 # Remove unwanted elements
 #
+
 
 def CompareDeleteElement(elem, elemspec):
 	"""
@@ -142,6 +153,7 @@ def CompareDeleteElement(elem, elemspec):
 			return 1
 	return 0
 
+
 def IsDeleteElement(elem, specs):
 	"""
 	Return True if elem matches an elem spec for deleting.
@@ -150,6 +162,7 @@ def IsDeleteElement(elem, specs):
 		if CompareDeleteElement(elem, spec) == 0:
 			return True
 	return False
+
 
 def RemoveElements(doc, specs):
 	for elem in doc.getElements(lambda e: IsDeleteElement(e, specs)):
@@ -163,6 +176,7 @@ def RemoveElements(doc, specs):
 #
 # =============================================================================
 #
+
 
 def write_filename(filename):
 	if filename:
@@ -179,17 +193,16 @@ def write_filename(filename):
 # =============================================================================
 #
 
-try:
-	options, filenames = parse_command_line()
-except Exception, e:
-	print >>sys.stderr, "error: parsing command line: %s" % str(e)
-	sys.exit(1)
+
+options, filenames = parse_command_line()
+
 
 def ContentHandler(doc):
 	# uses options.delete_table global variable
 	return ligolw.FilteringLIGOLWContentHandler(doc, ElementFilter(options.delete_table).element_filter)
 
 utils.ContentHandler = ContentHandler
+
 
 for n, filename in enumerate(filenames):
 	if options.verbose:
