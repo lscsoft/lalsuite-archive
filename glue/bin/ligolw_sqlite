@@ -176,19 +176,19 @@ else:
 		if options.verbose:
 			print >>sys.stderr, "indexing coinc_event table ..."
 		connection.cursor().execute("""
-			CREATE INDEX ce_cdi_index ON coinc_event (coinc_def_id);
+			CREATE INDEX IF NOT EXISTS ce_cdi_index ON coinc_event (coinc_def_id);
 		""")
 		connection.cursor().execute("""
-			CREATE INDEX ce_tsi_index ON coinc_event (time_slide_id);
+			CREATE INDEX IF NOT EXISTS ce_tsi_index ON coinc_event (time_slide_id);
 		""")
 	if "coinc_event_map" in table_names:
 		if options.verbose:
 			print >>sys.stderr, "indexing coinc_event_map table ..."
 		connection.cursor().execute("""
-			CREATE INDEX cem_tn_ei_index ON coinc_event_map (table_name, event_id)
+			CREATE INDEX IF NOT EXISTS cem_tn_ei_index ON coinc_event_map (table_name, event_id)
 		""")
 		connection.cursor().execute("""
-			CREATE INDEX cem_cei_index ON coinc_event_map (coinc_event_id)
+			CREATE INDEX IF NOT EXISTS cem_cei_index ON coinc_event_map (coinc_event_id)
 		""")
 
 
