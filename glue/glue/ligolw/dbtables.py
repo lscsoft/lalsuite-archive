@@ -296,7 +296,7 @@ class DBTable(table.Table):
 		"""
 		if self.ids is not None:
 			# assign (and record) a new ID before inserting the
-			# row to avoid collisions is existing rows
+			# row to avoid collisions with existing rows
 			setattr(row, self.ids.column_name, DBTable_idmap_get_new(getattr(row, self.ids.column_name), self.ids))
 		# FIXME: in Python 2.5 use attrgetter() for attribute
 		# tuplization.
