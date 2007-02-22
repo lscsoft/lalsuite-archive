@@ -67,7 +67,6 @@ def parse_command_line():
 	parser = OptionParser(version = "%prog CVS $Id$")
 	parser.add_option("-d", "--database", metavar = "filename", help = "use the SQLite3 database named filename")
 	parser.add_option("-i", "--input-cache", metavar = "filename", action = "append", default = [], help = "get XML files to insert from the LAL cache named filename")
-	parser.add_option("--add-coinc-indeces", action = "store_true", help = "after inserting all XML files, construct the standard indeces on the coincidence tables")
 	parser.add_option("--preserve-ids", action = "store_true", help = "preserve row IDs from the XML in the database (the default is to assign new IDs to prevent collisisions;  inserts will fail if collisions occur)")
 	parser.add_option("-x", "--extract", action = "store_true", help = "extract database contents to XML file (default is to insert from XML files)")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
@@ -81,8 +80,6 @@ def parse_command_line():
 			raise ValueError, "multiple output files specified"
 		if options.input_cache:
 			raise ValueError, "cannot set --input-cache with --extract"
-		if options.add_coinc_indeces:
-			raise ValueError, "cannot set --add-coinc-indeces with --extract"
 	elif not filenames:
 		raise ValueError, "no input files"
 
@@ -141,23 +138,6 @@ def insert(filenames, preserve_ids = True, verbose = False):
 
 
 #
-# Standard coinc indeces
-#
-
-
-def add_coinc_indeces(connection):
-	connection.cursor().execute("""
-CREATE INDEX cem_tn_cei_index ON coinc_event_map (coinc_event_id, table_name)
-	""")
-	connection.cursor().execute("""
-CREATE INDEX ce_cdi_index ON coinc_event (coinc_def_id);
-	""")
-	connection.cursor().execute("""
-CREATE INDEX ce_tsi_index ON coinc_event (time_slide_id);
-	""")
-
-
-#
 # =============================================================================
 #
 #                                     Main
@@ -190,15 +170,26 @@ if options.extract:
 	utils.write_filename(doc, filename, gz = (filename or "stdout")[-3:] == ".gz", verbose = options.verbose)
 else:
 	insert(filenames, preserve_ids = options.preserve_ids, verbose = options.verbose)
-	if options.add_coinc_indeces:
+	# check for coincidence tables, and index as needed
+	table_names = dbtables.DBTable_table_names()
+	if "coinc_event" in table_names:
 		if options.verbose:
-			print >>sys.stderr, "constructing coincidence indeces ..."
-		add_coinc_indeces(connection)
-	elif options.verbose:
-		# check if the user forgot to index coinc tables
-		table_names = dbtables.DBTable_table_names()
-		if "coinc_event" in table_names or "coinc_event_map" in table_names:
-			print >>sys.stderr, "warning: coincidence tables were not indexed"
+			print >>sys.stderr, "indexing coinc_event table ..."
+		connection.cursor().execute("""
+			CREATE INDEX ce_cdi_index ON coinc_event (coinc_def_id);
+		""")
+		connection.cursor().execute("""
+			CREATE INDEX ce_tsi_index ON coinc_event (time_slide_id);
+		""")
+	if "coinc_event_map" in table_names:
+		if options.verbose:
+			print >>sys.stderr, "indexing coinc_event_map table ..."
+		connection.cursor().execute("""
+			CREATE INDEX cem_tn_ei_index ON coinc_event_map (table_name, event_id)
+		""")
+		connection.cursor().execute("""
+			CREATE INDEX cem_cei_index ON coinc_event_map (coinc_event_id)
+		""")
 
 
 #
@@ -207,3 +198,6 @@ else:
 
 
 connection.close()
+
+if options.verbose:
+	print >>sys.stderr, "done."
