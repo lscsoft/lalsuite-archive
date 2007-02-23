@@ -29,7 +29,6 @@ import sys
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from pylal import llwapp
-from pylal.date import LIGOTimeGPS
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
@@ -112,28 +111,25 @@ def add_ms_columns(xmldoc):
 
 def ExcessPowerPreFunc(sngl_burst_table):
 	"""
-	SNR-weight the peak times and peak frequencies.
+	For speed, convert peak times to floats relative to epoch.
 	"""
 	if not len(sngl_burst_table):
 		return
-	offset = LIGOTimeGPS(sngl_burst_table[0].peak_time)
+	offset = sngl_burst_table[0].get_peak()
 	for row in sngl_burst_table:
-		row.param_one_value = float(row.get_peak() - offset) * row.snr
-		row.peak_frequency *= row.snr
+		row.peak_time = float(row.get_peak() - offset)
 	return offset
 
 
 
 def ExcessPowerPostFunc(sngl_burst_table, offset):
 	"""
-	Un-weight the SNR-weighted peak times and peak frequencies.
+	Restore peak times to absolute LIGOTimeGPS values.
 	"""
 	if not len(sngl_burst_table):
 		return
 	for row in sngl_burst_table:
-		row.set_peak(offset + row.param_one_value / row.snr)
-		row.peak_frequency /= row.snr
-		del row.param_one_value
+		row.set_peak(offset + row.peak_time)
 
 
 def ExcessPowerBailoutFunc(a, b):
@@ -160,7 +156,7 @@ def ExcessPowerClusterFunc(a, b):
 	time-frequency tile is the smallest tile that contains the original
 	two tiles, and the "most signficiant" contributor for the cluster
 	is the most confident of the two input tiles most significant
-	contributors.
+	contributors.  The event a is returned.
 	"""
 	#
 	# Save the properties of the most significant contributor
@@ -174,18 +170,21 @@ def ExcessPowerClusterFunc(a, b):
 		a.ms_confidence = b.ms_confidence
 
 	#
-	# Compute the SNR-weighted peak time and frequency
+	# Compute the SNR-weighted peak time and frequency (recall that the
+	# peak times have been converted to floats relative to epoch, and
+	# stored in the peak_time column).
 	#
 
-	a.param_one_value += b.param_one_value
-	a.peak_frequency += b.peak_frequency
+	a.peak_time = (a.snr * a.peak_time + b.snr * b.peak_time) / (a.snr + b.snr)
+	a.peak_frequency = (a.snr * a.peak_frequency + b.snr * b.peak_frequency) / (a.snr + b.snr)
 
 	#
 	# Compute the combined hrss and snr by summing the original ones.
 	# Note that no accounting of the overlap of the events is made, so
 	# these parameters are being horribly overcounted, but the SNR in
-	# particular must be summed like this in order to unweight the peak
-	# time and frequency when clustering is finsihed.
+	# particular must be summed like this in order to carry the
+	# information needed to continue computing the SNR-weighted peak
+	# time and frequencies.
 	#
 
 	a.amplitude += b.amplitude
@@ -212,6 +211,12 @@ def ExcessPowerClusterFunc(a, b):
 	#
 
 	a.set_period(llwapp.smallest_enclosing_seg(a.get_period(), b.get_period()))
+
+	#
+	# Success
+	#
+
+	return a
 
 
 #
@@ -297,6 +302,8 @@ def ligolw_bucluster(doc, **kwargs):
 	# Preprocess candidates
 	#
 
+	if kwargs["verbose"]:
+		print >>sys.stderr, "pre-processing ..."
 	preprocess_output = kwargs["prefunc"](sngl_burst_table)
 
 	#
@@ -311,6 +318,8 @@ def ligolw_bucluster(doc, **kwargs):
 	# Postprocess candidates
 	#
 
+	if kwargs["verbose"]:
+		print >>sys.stderr, "post-processing ..."
 	kwargs["postfunc"](sngl_burst_table, preprocess_output)
 
 	#
