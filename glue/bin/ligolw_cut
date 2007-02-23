@@ -56,7 +56,7 @@ __version__ = "$Revision$"[11:-2]
 def parse_command_line():
 	parser = OptionParser(
 		version = "%prog CVS $Id$",
-		usage = "%prog [options] [file,...]",
+		usage = "%prog [options] [file [file ...]]",
 		description = "%prog removes XML elements from a LIGO Light Weight XML file.  If file names are given on the command line, those files are read, processed, and rewritten one at a time, otherwise input is read from stdin and output written to stdout.  Any file name ending in \".gz\" is assumed to be gzip-compressed and will be decompressed and recompressed during I/O."
 	)
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
