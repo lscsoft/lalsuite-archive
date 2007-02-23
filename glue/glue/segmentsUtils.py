@@ -308,17 +308,21 @@ def S2playground(extent):
 
 def segmentlist_range(start, stop, period):
 	"""
-	Analogous to Python's range() builtin, returns a segmentlist of
-	continuous adjacent segments each of length "period" with the first
-	starting at "start" and the last ending not after "stop".  Note
-	that the output of this function is not a coalesced list.  start,
-	stop, and period can be any objects which support basic arithmetic
-	operations.
+	Analogous to Python's range() builtin, this generator yields a
+	sequence of continuous adjacent segments each of length "period"
+	with the first starting at "start" and the last ending not after
+	"stop".  Note that the segments generated do not form a coalesced
+	list (they are not disjoint).  start, stop, and period can be any
+	objects which support basic arithmetic operations.
+
+	Example:
+
+	>>> from glue.segments import *
+	>>> segmentlist(segmentlist_range(0, 15, 5))
+	[segment(0, 5), segment(5, 10), segment(10, 15)]
 	"""
-	new = segments.segmentlist()
 	for n in xrange(int((stop - start) / period)):
-		new.append(segments.segment(start + n * period, start + (n + 1) * period))
-	return new
+		yield segments.segment(start + n * period, start + (n + 1) * period)
 
 
 #
@@ -336,6 +340,13 @@ def Fold(seglist1, seglist2):
 	the segment start and stop values are adjusted to be with respect
 	to the start of the corresponding segment in seglist2.  See also
 	the segmentlist_range() function.
+
+	Example:
+
+	>>> from glue.segments import *
+	>>> x = segmentlist([segment(0, 13), segment(14, 20)])
+	>>> segmentlist(Fold(x, segmentlist_range(0, 20, 10)))
+	[[segment(0, 10)], [segment(0, 3), segment(4, 10)]]
 	"""
 	for seg in seglist2:
 		yield (seglist1 & segments.segmentlist([seg])).shift(-seg[0])
