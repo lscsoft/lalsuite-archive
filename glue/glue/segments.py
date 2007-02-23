@@ -500,14 +500,15 @@ class segmentlist(list):
 		Replace the segmentlist with the union of itself and
 		another.  If the two lists have numbers of elements m and n
 		respectively, then this algorithm is O(n log m), which
-		means it is optimized for the case when the latter list
-		contains a small number of segments.  If you have two large
-		lists of n elements each, then it is faster to do
+		means it is optimized for the case when self is large and
+		other is small.  In practice, this has been found to be the
+		more common scenario.  If you have two large lists of
+		comparable size, n, then it is faster to do
 
-			list1.extend(list2)
-			list1.coalesce()
+		>>> list1.extend(list2)
+		>>> list1.coalesce()
 
-		which is also O(n log n), but with a smaller leading
+		This is still O(n log n), but with a smaller leading
 		coefficient.
 		"""
 		i = 0
@@ -746,7 +747,7 @@ class _offsets(dict):
 		matching segmentlist; no error will be raised, but the
 		offset will be ignored.  This simplifies the case of
 		updating several segmentlistdict objects from a common
-		offset dictionary, when one or more of the segmentlistdict
+		offset dictionary, when one or more of the segmentlistdicts
 		contains only a subset of the keys.
 		"""
 		for key, value in d.iteritems():
@@ -775,17 +776,22 @@ class _offsets(dict):
 
 class segmentlistdict(dict):
 	"""
-	A dictionary associating a set of segmentlist objects with a set of
-	labels, with the ability to apply numeric offsets to the segment
-	lists.
+	A dictionary associating a unique label and numeric offset with
+	each of a set of segmentlist objects.
 
-	At the surface, this class implements a normal dictionary
-	interface.  The offsets that are currently applied to the
-	segmentlists are stored in the "offsets" attribute, which itself is
-	a dictionary associating a number with each label.  Assigning to
-	the entries in the offsets dictionary has the effect of shifting
-	the corresponding segmentlist by the given amount.  The clear()
-	method of the offsets attribute resets the offsets to 0.
+	This class implements a standard mapping interface, with additional
+	features added to assist with the manipulation of a collection of
+	segmentlist objects.  In particular, methods for taking unions and
+	intersections of the lists in the dictionary are available, as well
+	as the ability to record and apply numeric offsets to the
+	boundaries of the segments in each list.
+
+	The numeric offsets are stored in the "offsets" attribute, which
+	itself is a dictionary, associating a number with each key in the
+	main dictionary.  Assigning to one of the entries of the offsets
+	attribute has the effect of shifting the corresponding segmentlist
+	from its original position (not its current position) by the given
+	amount.
 
 	Example:
 
