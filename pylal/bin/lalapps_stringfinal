@@ -63,7 +63,11 @@ __date__ = "$Date$"[7:-2]
 
 
 def parse_command_line():
-	parser = OptionParser(version="%prog CVS $Id$")
+	parser = OptionParser(
+		version="%prog CVS $Id$",
+		usage = "%prog [options] [file [file ...]]",
+		description = "%prog performs the final, summary, stages of the upper-limit string cusp search.  Input files ending in \".gz\" are assumed to be gzip-compressed, and if no files are specified on the command line then input is read from stdin."
+	)
 	parser.add_option("-a", "--amplitude-factor", metavar = "factor", default = "1e-20", help = "multiple amplitudes in XML files by this amount (default = 1e-20)")
 	parser.add_option("--cal-uncertainty", metavar = "fraction", default = "0.0", help = "set the fractional uncertainty in amplitude due to calibration uncertainty (eg. 0.08)")
 	parser.add_option("-i", "--injections", action = "store_true", help = "generate efficiency plots from the output files of an injection run")
