@@ -57,21 +57,44 @@ __date__ = "$Date$"[7:-2]
 
 def parse_thresholds(thresholdstrings):
 	"""
-	Turn a list of strings of the form "inst1,inst2=delta" into a
-	dictionary with (inst1, inst2) 2-tuples as keys and the deltas as
-	the values as strings.  In the input, each pair of instruments is
-	allowed two entries, once for each order.  The output will contain
-	exactly two entries for each pair of instruments;  if the input
-	strings do not contain a set for a particular instrument order, the
-	value for the missing pair will be copied from the one provided.
+	Turn a list of strings of the form
+	inst1,inst2=threshold1[,threshold2,...] into a dictionary with
+	(inst1, inst2) 2-tuples as keys and the thresholds parsed into
+	lists of individual strings as the values, with their order
+	preserved.
+
+	For each pair of instruments represented among the input strings,
+	the two possible orders are considered independent:  the input
+	strings are allowed to contain one set of thresholds for (inst1,
+	inst2), and a different set of thresholds for (inst2, inst1).  Be
+	aware that no input checking is done to ensure the user has not
+	provided duplicate, incompatible, thresholds;  this is considered
+	the responsibility of the application program to verify.
+
+	The output dictionary contains threshold sets for both instrument
+	orders regardless of whether or not they were supplied,
+	independently, by the input strings.  If the input strings
+	specified thresholds for only one of the two orders, the thresholds
+	for the other order are copied from the one that was provided.
+
+	Whitespace is removed from the start and end of all strings.
+
+	A typical use for this function is in parsing command line
+	arguments or configuration file entries.
+
+	Example:
+
+	>>> from pylal.snglcoinc import parse_thresholds
+	>>> parse_thresholds(["H1,H2=0.1,100", "H1,L1=.2,100"])
+	{('H1', 'H2'): ['0.1', '100'], ('H1', 'L1'): ['.2', '100'], ('H2', 'H1'): ['0.1', '100'], ('L1', 'H1'): ['.2', '100']}
 	"""
 	thresholds = {}
-	for [pair, delta] in map(lambda w: str.split(w, "="), thresholdstrings):
+	for pair, delta in map(lambda w: str.split(w, "="), thresholdstrings):
 		try:
-			[A, B] = pair.split(",")
-		except ValueError:
-			raise ValueError, "incorrect number of instruments"
-		thresholds[(A, B)] = delta
+			A, B = map(str.strip, pair.split(","))
+		except Exception:
+			raise ValueError, "cannot parse instruments %s" % pair
+		thresholds[(A, B)] = map(str.strip, delta.split(","))
 	for (A, B), value in thresholds.items():
 		if (B, A) not in thresholds:
 			thresholds[(B, A)] = value
@@ -121,9 +144,12 @@ class CoincTables(object):
 
 	def time_slide_ids(self):
 		"""
-		Return a list of the time slide IDs.
+		Return a list of the time slide IDs.  The list is sorted in
+		increasing order by ID number.
 		"""
-		return self.time_slide_table.dict.keys()
+		ids = self.time_slide_table.dict.keys()
+		ids.sort(lambda a, b: cmp(ilwd.ILWDID(a), ilwd.ILWDID(b)))
+		return ids
 
 
 	def get_time_slide(self, id):
@@ -266,14 +292,14 @@ class EventListDict(dict):
 			l.set_offset(LIGOTimeGPS(0))
 
 
-def make_eventlists(xmldoc, event_table_name, max_delta_t, program):
+def make_eventlists(xmldoc, event_table_name, max_segment_gap, program):
 	"""
 	Convenience wrapper for constructing a dictionary of event lists
 	from an XML document tree, the name of a table from which to get
 	the events, a maximum allowed time window, and the name of the
 	program that generated the events.
 	"""
-	return EventListDict(table.get_table(xmldoc, event_table_name), coincident_process_ids(xmldoc, max_delta_t, program))
+	return EventListDict(table.get_table(xmldoc, event_table_name), coincident_process_ids(xmldoc, max_segment_gap, program))
 
 
 #
@@ -285,16 +311,15 @@ def make_eventlists(xmldoc, event_table_name, max_delta_t, program):
 #
 
 
-def coincident_process_ids(xmldoc, max_delta_t, program):
+def coincident_process_ids(xmldoc, max_segment_gap, program):
 	"""
 	Take an XML document tree and determine the list of process IDs
 	that will participate in coincidences identified by the time slide
 	table therein.  It is OK for xmldoc to contain time slides
-	involving instruments not represented in the list of processes,
-	these time slides are ignored.  max_delta_t is the largest time
-	window that will be considered in the coincidence tests;  that is
-	after applying a time slide, two segments can have a gap this large
-	between them and still be considered coincident.
+	involving instruments not represented in the list of processes;
+	these time slides are ignored.  max_segment_gap is the largest gap
+	that can exist between two segments, and it still be possible for
+	the two to provide events coincident with one another.
 	"""
 	# get the list of all process IDs for the given program
 	proc_ids = table.get_table(xmldoc, lsctables.ProcessTable.tableName).get_ids_by_program(program)
@@ -302,7 +327,7 @@ def coincident_process_ids(xmldoc, max_delta_t, program):
 	# extract a segmentlistdict;  protract by half the largest
 	# coincidence window so as to not miss edge effects
 	search_summ_table = table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName)
-	seglistdict = search_summ_table.get_out_segmentlistdict(proc_ids).protract(max_delta_t / 2)
+	seglistdict = search_summ_table.get_out_segmentlistdict(proc_ids).protract(max_segment_gap / 2)
 
 	# determine which time slides are possible given the instruments in
 	# the search summary table
@@ -337,10 +362,7 @@ def coincident_process_ids(xmldoc, max_delta_t, program):
 #
 
 
-CompareFunc = None
-
-
-def Level1Iterator(eventlists, instruments, thresholds):
+def Level1Iterator(eventlists, comparefunc, instruments, thresholds):
 	"""
 	First-pass coincidence generator.  Generates a sequence of tuples
 	whose elements are, in order:
@@ -366,24 +388,24 @@ def Level1Iterator(eventlists, instruments, thresholds):
 	shortestinst = instruments.pop(shortest)
 	thresholds = map(lambda inst: thresholds[(inst, shortestinst)], instruments)
 	for n, event in enumerate(shortestlist):
-		yield n, length, event, itertools.MultiIter(map(lambda eventlist, threshold: eventlist.get_coincs(event, threshold, CompareFunc), eventlists, thresholds))
+		yield n, length, event, itertools.MultiIter(map(lambda eventlist, threshold: eventlist.get_coincs(event, threshold, comparefunc), eventlists, thresholds))
 
 
-def mutually_coincident(events, thresholds):
+def mutually_coincident(events, comparefunc, thresholds):
 	"""
 	Return True if the all the events in the list are mutually
 	coincident.
 	"""
 	try:
-		for [a, b] in itertools.choices(events, 2):
-			if CompareFunc(a, b, thresholds[(a.ifo, b.ifo)]):
+		for a, b in itertools.choices(events, 2):
+			if comparefunc(a, b, thresholds[(a.ifo, b.ifo)]):
 				return False
 	except KeyError, e:
-		raise KeyError, "no coincidence window provided for instrument pair %s" % str(e)
+		raise KeyError, "no coincidence thresholds provided for instrument pair %s" % str(e)
 	return True
 
 
-def CoincidentNTuples(eventlists, instruments, thresholds, verbose = False):
+def CoincidentNTuples(eventlists, comparefunc, instruments, thresholds, verbose = False):
 	"""
 	Given an EventListDict object, a list (or iterator) of instruments,
 	and a dictionary of instrument pair thresholds, generate a sequence
@@ -391,11 +413,11 @@ def CoincidentNTuples(eventlists, instruments, thresholds, verbose = False):
 	coincident events yielded by this generator will contain exactly
 	one event from each of the instruments in the instrument list.
 	"""
-	for tick, ticks, event, ntuples in Level1Iterator(eventlists, instruments, thresholds):
-		if verbose and not (tick % (ticks / 200 or 1)):
+	for tick, ticks, event, ntuples in Level1Iterator(eventlists, comparefunc, instruments, thresholds):
+		if verbose and not (tick % 500):
 			print >>sys.stderr, "\t%.1f%%\r" % (100.0 * tick / ticks),
 		for ntuple in ntuples:
-			if mutually_coincident(ntuple, thresholds):
+			if mutually_coincident(ntuple, comparefunc, thresholds):
 				ntuple.append(event)
 				yield ntuple
 	if verbose:

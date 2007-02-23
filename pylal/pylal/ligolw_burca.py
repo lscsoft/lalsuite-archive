@@ -30,6 +30,7 @@ import bisect
 import sys
 
 from glue import segments
+from glue.ligolw import table
 from glue.ligolw import lsctables
 from pylal import llwapp
 from pylal import snglcoinc
@@ -55,6 +56,12 @@ def sngl_burst_get_start(self):
 	return LIGOTimeGPS(self.start_time, self.start_time_ns)
 
 
+def sngl_burst_get_peak(self):
+	# get_peak() override to use pylal.date.LIGOTimeGPS instead of
+	# glue.lal.LIGOTimeGPS
+	return LIGOTimeGPS(self.peak_time, self.peak_time_ns)
+
+
 def sngl_burst_get_period(self):
 	# get_period() override to use pylal.date.LIGOTimeGPS instead of
 	# glue.lal.LIGOTimeGPS
@@ -62,8 +69,15 @@ def sngl_burst_get_period(self):
 	return segments.segment(start, start + self.duration)
 
 
+def sngl_burst___cmp__(self, other):
+	# compare self's peak time to the LIGOTimeGPS instance other
+	return cmp(self.peak_time, other.seconds) or cmp(self.peak_time_ns, other.nanoseconds)
+
+
 lsctables.SnglBurst.get_start = sngl_burst_get_start
+lsctables.SnglBurst.get_peak = sngl_burst_get_peak
 lsctables.SnglBurst.get_period = sngl_burst_get_period
+lsctables.SnglBurst.__cmp__ = sngl_burst___cmp__
 
 
 #
@@ -75,13 +89,28 @@ lsctables.SnglBurst.get_period = sngl_burst_get_period
 #
 
 
-def append_process(xmldoc, **kwargs):
-	process = llwapp.append_process(xmldoc, program = "ligolw_burca", version = __version__, cvs_repository = "lscsoft", cvs_entry_time = __date__, comment = kwargs["comment"])
+process_program_name = "ligolw_burca"
 
-	params = [("--program", "lstring", kwargs["program"])]
-	for key, value in kwargs["window"].iteritems():
+
+def append_process(xmldoc, **kwargs):
+	process = llwapp.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = "lscsoft", cvs_entry_time = __date__, comment = kwargs["comment"])
+
+	params = [
+		("--program", "lstring", kwargs["program"]),
+		("--coincidence-algorithm", "lstring", kwargs["coincidence_algorithm"])
+	]
+	if "stringcusp_params" in kwargs:
+		params += [("--stringcusp-params", "lstring", kwargs["stringcusp_params"])]
+	if "force" in kwargs:
+		params += [("--force", "lstring", "")]
+	# FIXME: this loop doesn't actually reproduce the original command
+	# line arguments correctly.  The information stored in the table is
+	# correct and complete, it's just that you have to understand how
+	# burca works, internally, to know how to turn the table's contents
+	# back into a valid command line.
+	for key, value in kwargs["thresholds"].iteritems():
 		if key[0] < key[1]:
-			params += [("--window", "lstring", "%s,%s=%s" % (key[0], key[1], str(value)))]
+			params += [("--thresholds", "lstring", "%s,%s=%s" % (key[0], key[1], ",".join(map(str, value))))]
 	llwapp.append_process_params(xmldoc, process, params)
 
 	return process
@@ -96,6 +125,29 @@ def append_process(xmldoc, **kwargs):
 #
 
 
+#
+# For use with excess power coincidence test
+#
+
+
+def ExcessPowerMaxSegmentGap(xmldoc, thresholds):
+	"""
+	Determine the maximum allowed segment gap for use with the excess
+	power coincidence test.
+	"""
+	# longest duration among events
+	max_duration = max(table.get_table(xmldoc, lsctables.SnglBurstTable.tableName).getColumnByName("duration"))
+
+	# loosest relative threshold
+	max_dt = max([t[0] for t in thresholds.itervalues()])
+
+	# convert to absolute threshold
+	max_dt = max_dt * max_duration
+
+	# double for safety
+	return 2 * max_dt
+
+
 class ExcessPowerEventList(snglcoinc.EventList):
 	"""
 	A customization of the EventList class for use with the excess
@@ -103,27 +155,44 @@ class ExcessPowerEventList(snglcoinc.EventList):
 	"""
 	def make_index(self):
 		"""
-		Build a start time look up table and find the maximum of
-		the event durations.  The start time look-up table is
-		required because Python's bisection search cannot make use
-		of an external comparison function (argh).
+		Sort events by peak time so that a bisection search can
+		retrieve them.  Note that the bisection search relies on
+		the __cmp__() method of the SnglBurst row class having
+		previously been set to compare the event's peak time to a
+		LIGOTimeGPS.
 		"""
-		# sort in increasing order by start time
-		self.sort(lambda a, b: cmp(a.start_time, b.start_time) or cmp(a.start_time_ns, b.start_time_ns))
-		self.start_times = tuple([event.get_start() for event in self])
+		# sort by peak time
+		self.sort(lambda a, b: cmp(a.peak_time, b.peak_time) or cmp(a.peak_time_ns, b.peak_time_ns))
 		self.max_duration = LIGOTimeGPS(max([event.duration for event in self]))
 
 	def _add_offset(self, delta):
 		"""
-		Add an amount to the start time of each event.
+		Add an amount to the peak time of each event.
 		"""
 		for event in self:
-			event.set_start(event.get_start() + delta)
+			event.set_peak(event.get_peak() + delta)
 
 	def get_coincs(self, event_a, threshold, comparefunc):
-		min_start = event_a.get_start() - threshold - self.max_duration - self.offset
-		max_start = event_a.get_start() + event_a.duration + threshold - self.offset
-		return [event_b for event_b in self[bisect.bisect_left(self.start_times, min_start) : bisect.bisect_right(self.start_times, max_start)] if not comparefunc(event_a, event_b, threshold)]
+		min_peak = event_a.get_peak() - threshold[0] * self.max_duration
+		max_peak = event_a.get_peak() + threshold[0] * self.max_duration
+		return [event_b for event_b in self[bisect.bisect_left(self, min_peak) : bisect.bisect_right(self, max_peak)] if not comparefunc(event_a, event_b, threshold)]
+
+
+#
+# For use with string coincidence test
+#
+
+
+def StringMaxSegmentGap(xmldoc, thresholds):
+	"""
+	Determine the maximum allowed segment gap for use with the string
+	coincidence test.
+	"""
+	# loosest threshold
+	max_dt = max([t[0] for t in thresholds.itervalues()])
+
+	# double for safety
+	return 2 * max_dt
 
 
 class StringEventList(snglcoinc.EventList):
@@ -133,26 +202,98 @@ class StringEventList(snglcoinc.EventList):
 	"""
 	def make_index(self):
 		"""
-		Build a peak time look up table.  The peak time look-up
-		table is required because Python's bisection search cannot
-		make use of an external comparison function (argh).
+		Sort events by peak time so that a bisection search can
+		retrieve them.  Note that the bisection search relies on
+		the __cmp__() method of the SnglBurst row class having
+		previously been set to compare the event's peak time to a
+		LIGOTimeGPS.
 		"""
-		# sort in increasing order by peak time
 		self.sort(lambda a, b: cmp(a.peak_time, b.peak_time) or cmp(a.peak_time_ns, b.peak_time_ns))
-		self.peak_times = tuple([event.get_peak() for event in self])
 
 	def _add_offset(self, delta):
 		"""
-		Add an amount to the start time of each event.
+		Add an amount to the peak time of each event.
 		"""
 		for event in self:
 			event.set_peak(event.get_peak() + delta)
 
 	def get_coincs(self, event_a, threshold, comparefunc):
-		min_peak = event_a.get_peak() - threshold[0] - self.offset
-		max_peak = event_a.get_peak() + threshold[0] - self.offset
-		return [event_b for event_b in self[bisect.bisect_left(self.peak_times, min_peak) : bisect.bisect_right(self.peak_times, max_peak)] if not comparefunc(event_a, event_b, threshold)]
+		min_peak = event_a.get_peak() - threshold[0]
+		max_peak = event_a.get_peak() + threshold[0]
+		return [event_b for event_b in self[bisect.bisect_left(self, min_peak) : bisect.bisect_right(self, max_peak)] if not comparefunc(event_a, event_b, threshold)]
 
+
+#
+# =============================================================================
+#
+#                              Coincidence Tests
+#
+# =============================================================================
+#
+
+
+def ExcessPowerCoincCompare(a, b, thresholds):
+	"""
+	There are three thresholds, dt, df, and dhrss, setting,
+	respectively, the maximum allowed fractional difference in peak
+	times, the maximum allowed fractional difference in peak
+	frequencies, and the maximum allowed fractional difference in
+	h_{rss}.
+
+	In the case of the peak times, the difference is taken as a
+	fraction of the average of the two events' durations, and for the
+	peak frequencies, the difference is taken as a fraction of the
+	average of the two events' bandwidths.  So, for example, dt = 0
+	means the peak times must be exactly equal, while dt = 1 is
+	roughtly equivalent to requiring the events' time intervals to
+	intersect (it is equilvalent to requiring intersection if the peak
+	times are centred in the tiles), and dt -> \infty is equivalent to
+	no constraint.  Likewise for df.
+
+	For h_{rss}, the difference is taken as a fraction of the average
+	of the two events' h_{rss}s.  So dhrss = 0 means the two events'
+	h_{rss}s must be exactly equal, while dhrss = 2 is equivalent to no
+	constraint on h_{rss} (h_{rss} cannot be negative, so no two values
+	can differ by more than twice their average).
+
+	Returns False (a & b are coincident) if the two events match within
+	the tresholds.  Retruns non-zero otherwise.
+	"""
+	# unpack thresholds
+	dt, df, dhrss = thresholds
+
+	# convert fractional deltas to absolute deltas
+	dt = dt * (a.duration + b.duration) / 2
+	df = df * (a.bandwidth + b.bandwidth) / 2
+	dhrss = dhrss * (a.ms_hrss + b.ms_hrss) / 2
+
+	# test for coincidence
+	coincident = abs(float(a.get_peak() - b.get_peak())) <= dt and abs(a.peak_frequency - b.peak_frequency) <= df and abs(a.ms_hrss - b.ms_hrss) <= dhrss
+
+	# return result
+	return not coincident
+
+
+def StringCoincCompare(a, b, thresholds):
+	"""
+	Returns False (a & b are coincident) if their peak times agree
+	within dt, and in the case of H1+H2 pairs if their amplitudes agree
+	according to some kinda test.
+	"""
+	# unpack thresholds
+	dt, kappa, epsilon = thresholds
+
+	# test for time coincidence
+	coincident = abs(float(a.get_peak() - b.get_peak())) <= dt
+
+	# for H1+H2, also test for amplitude coincidence
+	if a.ifo in ("H1", "H2") and b.ifo in ("H1", "H2"):
+		adelta = abs(a.amplitude) * (kappa / a.snr + epsilon)
+		bdelta = abs(b.amplitude) * (kappa / b.snr + epsilon)
+		coincident = coincident and a.amplitude - adelta <= b.amplitude <= a.amplitude + adelta and b.amplitude - bdelta <= a.amplitude <= b.amplitude + bdelta
+
+	# return result
+	return not coincident
 
 
 #
@@ -164,10 +305,7 @@ class StringEventList(snglcoinc.EventList):
 #
 
 
-FinalCompareFunc = None
-
-
-def ligolw_burca(xmldoc, **kwargs):
+def ligolw_burca(xmldoc, comparefunc, **kwargs):
 	# add an entry in the process table
 	process = append_process(xmldoc, **kwargs)
 
@@ -179,18 +317,14 @@ def ligolw_burca(xmldoc, **kwargs):
 
 	# build the event list accessors, populated with events from those
 	# processes that can participate in a coincidence
-	if kwargs["string_compare"]:
-		max_delta_t = max([t[0] for t in kwargs["window"].itervalues()])
-	else:
-		max_delta_t = max(kwargs["window"].itervalues())
-	eventlists = snglcoinc.make_eventlists(xmldoc, lsctables.SnglBurstTable.tableName, max_delta_t, kwargs["program"])
+	eventlists = snglcoinc.make_eventlists(xmldoc, lsctables.SnglBurstTable.tableName, kwargs["get_max_segment_gap"](xmldoc, kwargs["thresholds"]), kwargs["program"])
 
 	# iterate over time slides
 	time_slide_ids = coinc_tables.time_slide_ids()
 	for n, time_slide_id in enumerate(time_slide_ids):
 		offsetdict = coinc_tables.get_time_slide(time_slide_id)
 		if kwargs["verbose"]:
-			print >>sys.stderr, "time slide %d/%d: %s" % (n + 1, len(time_slide_ids), str(offsetdict))
+			print >>sys.stderr, "time slide %d/%d: %s" % (n + 1, len(time_slide_ids), ",".join([" %s = %+.16g s" % (i, float(o)) for i, o in offsetdict.iteritems()]))
 		if len(offsetdict.keys()) < 2:
 			if kwargs["verbose"]:
 				print >>sys.stderr, "\tsingle-instrument time slide: skipped"
@@ -205,9 +339,8 @@ def ligolw_burca(xmldoc, **kwargs):
 		if kwargs["verbose"]:
 			print >>sys.stderr, "\tsearching ..."
 		# search for and record coincidences
-		for ntuple in snglcoinc.CoincidentNTuples(eventlists, offsetdict.iterkeys(), kwargs["window"], kwargs["verbose"]):
-			if not (FinalCompareFunc is not None and FinalCompareFunc(ntuple, kwargs["window"])):
-				coinc_tables.append_coinc(process.process_id, time_slide_id, ntuple)
+		for ntuple in snglcoinc.CoincidentNTuples(eventlists, comparefunc, offsetdict.iterkeys(), kwargs["thresholds"], kwargs["verbose"]):
+			coinc_tables.append_coinc(process.process_id, time_slide_id, ntuple)
 
 	# clean up and finish
 	eventlists.remove_offsetdict()

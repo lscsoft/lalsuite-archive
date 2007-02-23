@@ -52,67 +52,64 @@ __date__ = "$Date$"[7:-2]
 
 
 def parse_command_line():
-	parser = OptionParser(version = "%prog CVS $Id$")
-	parser.add_option("--comment", metavar = "text", default = "", help = "set comment string in process table")
+	parser = OptionParser(
+		version = "%prog CVS $Id$",
+		usage = "%prog [options] [file [file ...]]",
+		description = "%prog implements the excess power and string cusp coincidence algorithms for use in performing trigger-based multi-instrument searches for gravitational wave events.  The LIGO Light Weight XML files listed on the command line are processed one by one in order, and over-written with the results.  If no files are named, then input is read from stdin and output written to stdout.  Any files whose names end in \".gz\" are assumed to be gzip-compressed and will be decompressed and recompressed during I/O."
+	)
+	parser.add_option("-c", "--comment", metavar = "text", default = "", help = "set comment string in process table (default is \"\")")
 	parser.add_option("-f", "--force", action = "store_true", help = "process even if file has already been processed")
-	parser.add_option("-p", "--program", metavar = "name", default = "power", help = "set the name of the program that generated the events as it appears in the process table (default = power)")
-	parser.add_option("-w", "--window", metavar = "inst1,inst2=seconds", action = "append", default = [], help = "set the time coincidence window for an instrument pair")
-	parser.add_option("-s", "--string-compare", metavar = "kappa,epsilon", help = "use the string search coincidence test with H1+H2 kappa and epsilon parameters as given (hint:  try 3.0,0.5)")
+	parser.add_option("-p", "--program", metavar = "name", help = "set the name of the program that generated the events as it appears in the process table;  the program name is used to extract live time information from the search summary tables in the input files")
+	parser.add_option("-a", "--coincidence-algorithm", metavar = "[excesspower|stringcusp]", default = None, help = "select the coincidence test algorithm to use")
+	parser.add_option("-t", "--thresholds", metavar = "inst1,inst2=threshold1[,threshold2,...]", action = "append", default = [], help = "set the coincidence algorithm's thresholds for an instrument pair;  for excesspower the threshold format is dt,df,dhrss;  for stringcusp the threshold format is dt;  one set of thresholds must be provided for each instrument combination that will be compared")
+	parser.add_option("-s", "--stringcusp-params", metavar = "kappa,epsilon", help = "set the H1+H2 kappa and epsilon parameters for the stringcusp coincidence test (hint: try 3.0,0.5)")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
 	options, filenames = parser.parse_args()
 
-	# construct (inst_a, inst_b) --> delta t mappings
+	# check for missing required arguments
+	if options.coincidence_algorithm is None:
+		raise ValueError, "missing required argument --coincidence-algorithm"
+	if options.program is None:
+		raise ValueError, "missing required argument --program"
+
+	# parse --thresholds options into instrument pairs and components
 	try:
-		options.window = snglcoinc.parse_thresholds(options.window)
-		for key, value in options.window.iteritems():
-			options.window[key] = LIGOTimeGPS(value)
-	except ValueError, e:
-		raise ValueError, "error parsing --window: %s" % str(e)
+		options.thresholds = snglcoinc.parse_thresholds(options.thresholds)
+	except Exceptions, e:
+		raise ValueError, "error parsing --thresholds: %s" % str(e)
 
-	if options.string_compare:
+	# parse the components from --thresholds options
+	if options.coincidence_algorithm == "excesspower":
+		# parse threshold components into dt, df, dh_rss triples
+		# for excesspower coincidence algorithm
 		try:
-			options.string_compare = map(float, options.string_compare.split(","))
-		except ValueError, e:
-			raise ValueError, "error parsing --string-compare: %s" % str(e)
-		# construct (inst_a, inst_b) --> (delta t, kappa, epsilon)
-		# mappings
-		for key, value in options.window.iteritems():
-			options.window[key] = (value, options.string_compare[0], options.string_compare[1])
+			# don't use iteritems because we're going to modify
+			# the dictionary while we go
+			for instrumentpair, value in options.thresholds.items():
+				dt, df, dhrss = value
+				options.thresholds[instrumentpair] = (LIGOTimeGPS(dt), float(df), float(dhrss))
+		except Exception, e:
+			raise ValueError, "error parsing --thresholds: %s" % str(e)
+	elif options.coincidence_algorithm == "stringcusp":
+		# parse threshold components into dt, kapp, epsilon triples
+		# for stringcusp coincidence algorithm
+		try:
+			kappa, epsilon = options.stringcusp_params.split(",")
+		except Exception, e:
+			raise ValueError, "error parsing --stringcusp-params: %s" % str(e)
+		try:
+			# don't use iteritems because we're going to modify
+			# the dictionary while we go
+			for instrumentpair, value in options.thresholds.items():
+				dt, = value
+				options.thresholds[instrumentpair] = (float(dt), float(kappa), float(epsilon))
+		except Exception, e:
+			raise ValueError, "error parsing --thresholds: %s" % str(e)
+	else:
+		raise ValueError, "unknown coincidence algorithm %s" % options.coincidence_algorithm
 
+	# success
 	return options, (filenames or [None])
-
-
-#
-# =============================================================================
-#
-#                             Coincidence Criteria
-#
-# =============================================================================
-#
-
-
-def StringCoincCompare(a, b, thresholds):
-	"""
-	Returns False (a & b are coincident) if their peak times agree
-	within dt, and in the case of H1+H2 pairs if their amplitudes agree
-	according to some kinda test.
-	"""
-	dt, kappa, epsilon = thresholds
-	coincident = a.get_peak() - dt <= b.get_peak() <= a.get_peak() + dt
-	if a.ifo in ("H1", "H2") and b.ifo in ("H1", "H2"):
-		adelta = abs(a.amplitude) * (kappa / a.snr + epsilon)
-		bdelta = abs(b.amplitude) * (kappa / b.snr + epsilon)
-		coincident &= a.amplitude - adelta <= b.amplitude <= a.amplitude + adelta and b.amplitude - bdelta <= a.amplitude <= b.amplitude + bdelta
-	return not coincident
-
-
-def ExcessPowerCoincCompare(a, b, dt):
-	"""
-	Returns False (a & b are coincident) if a's peak time lies within
-	b's time interval and vice versa and the two events' frequency
-	bands intersect or touch.  Returns non-zero otherwise.
-	"""
-	return b.get_peak() not in a.get_period().protract(dt) or a.get_peak() not in b.get_period().protract(dt) or llwapp.cmp_seg_intervals(a.get_band(), b.get_band())
 
 
 #
@@ -127,19 +124,21 @@ def ExcessPowerCoincCompare(a, b, dt):
 options, filenames = parse_command_line()
 
 
-if options.string_compare:
+if options.coincidence_algorithm == "stringcusp":
 	snglcoinc.EventListDict.EventListType = ligolw_burca.StringEventList
-	snglcoinc.CompareFunc = StringCoincCompare
+	comparefunc = ligolw_burca.StringCoincCompare
+	options.get_max_segment_gap = ligolw_burca.StringMaxSegmentGap
 else:
 	snglcoinc.EventListDict.EventListType = ligolw_burca.ExcessPowerEventList
-	snglcoinc.CompareFunc = ExcessPowerCoincCompare
+	comparefunc = ligolw_burca.ExcessPowerCoincCompare
+	options.get_max_segment_gap = ligolw_burca.ExcessPowerMaxSegmentGap
 
 
-for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose)):
+for n, filename in enumerate(filenames):
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
-	xmldoc = utils.load_filename(filename, options.verbose, gz = filename[-3:] == ".gz")
-	if llwapp.doc_includes_process(xmldoc, "ligolw_burca"):
+	xmldoc = utils.load_filename(filename, options.verbose, gz = (filename or "stdin")[-3:] == ".gz")
+	if llwapp.doc_includes_process(xmldoc, ligolw_burca.process_program_name):
 		if options.verbose:
 			print >>sys.stderr, "warning: %s already processed," % (filename or "stdin"),
 		if not options.force:
@@ -147,7 +146,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 				print >>sys.stderr, "skipping"
 			continue
 		if options.verbose:
-			print >>sys.stderr, "continuing"
-	ligolw_burca.ligolw_burca(xmldoc, **options.__dict__)
-	utils.write_filename(xmldoc, filename, options.verbose, gz = filename[-3:] == ".gz")
+			print >>sys.stderr, "continuing anyway"
+	ligolw_burca.ligolw_burca(xmldoc, comparefunc, **options.__dict__)
+	utils.write_filename(xmldoc, filename, options.verbose, gz = (filename or "stdout")[-3:] == ".gz")
 	xmldoc.unlink()
