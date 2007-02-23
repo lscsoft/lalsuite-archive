@@ -268,6 +268,7 @@ class LIGOTimeGPS(object):
 		Multiply a LIGOTimeGPS by a number.
 
 		Example:
+
 		>>> LIGOTimeGPS(100.5) * 2
 		LIGOTimeGPS(201, 0)
 		"""
