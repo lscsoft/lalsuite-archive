@@ -425,7 +425,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
 	doc = utils.load_filename(filename, options.verbose, gz = filename[-3:] == ".gz")
-	contents = DocContents(doc, "power")
+	contents = DocContents(doc, "lalapps_power")
 	for ifo in contents.ifos:
 		if ifo not in plots:
 			plots[ifo] = new_plots(ifo, options.plot)

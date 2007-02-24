@@ -59,7 +59,7 @@ def parse_command_line():
 	parser.add_option("--made-only", action = "store_true", default = False, help = "plot only injections that were made")
 	parser.add_option("-b", "--base", metavar = "base", default = "plotbinj_", help = "set the prefix for output filenames (default = plotbinj_)")
 	parser.add_option("-f", "--format", metavar = "format", default = "png", help = "set the output image format (default = png)")
-	parser.add_option("-l", "--live-time-program", metavar = "program", default = "power", help = "set the name, as it appears in the process table, of the program whose search summary entries define the search live time (default = power)")
+	parser.add_option("-l", "--live-time-program", metavar = "program", default = "lalapps_power", help = "set the name, as it appears in the process table, of the program whose search summary entries define the search live time (default = lalapps_power)")
 	parser.add_option("--plot", metavar = "number", action = "append", default = None, help = "generate the given plot number")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
 	options, filenames = parser.parse_args()
@@ -363,7 +363,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
 	connection = sqlite3.connect(filename)
 	dbtables.DBTable_set_connection(connection)
-	database = SnglBurstUtils.CoincDatabase().summarize(dbtables.DBTable_get_xml(), "power", options.verbose)
+	database = SnglBurstUtils.CoincDatabase().summarize(dbtables.DBTable_get_xml(), "lalapps_power", options.verbose)
 	for instrument in database.instruments:
 		if instrument not in plots:
 			plots[instrument] = new_plots(instrument, options.plot)

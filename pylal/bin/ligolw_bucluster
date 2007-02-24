@@ -52,7 +52,7 @@ def parse_command_line():
 	parser = OptionParser(version = "%prog CVS $Id$")
 	parser.add_option("--comment", metavar = "text", default = "", help = "set comment string in process table")
 	parser.add_option("-c", "--cluster-algorithm", metavar = "[excesspower]", help = "set clustering method (required)")
-	parser.add_option("-p", "--program", metavar = "name", default = "power", help = "set the name of the program that generated the events as it appears in the process table (default = power)")
+	parser.add_option("-p", "--program", metavar = "name", default = "lalapps_power", help = "set the name of the program that generated the events as it appears in the process table (default = lalapps_power)")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
 	options, filenames = parser.parse_args()
 
