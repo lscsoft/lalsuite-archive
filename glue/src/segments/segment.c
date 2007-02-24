@@ -109,7 +109,7 @@ static PyObject *__str__(PyObject *self)
 {
 	PyObject *a = PyObject_Str(PyTuple_GET_ITEM(self, 0));
 	PyObject *b = PyObject_Str(PyTuple_GET_ITEM(self, 1));
-	PyObject *result = PyString_FromFormat("[%s ... %s]", PyString_AsString(a), PyString_AsString(b));
+	PyObject *result = PyString_FromFormat("[%s ... %s)", PyString_AsString(a), PyString_AsString(b));
 	Py_DECREF(a);
 	Py_DECREF(b);
 	return result;
