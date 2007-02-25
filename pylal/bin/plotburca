@@ -143,7 +143,7 @@ class RateContours(SnglBurstUtils.BurstPlot):
 
 
 def magnitude_a(burst):
-	return -burst.confidence
+	return burst.confidence
 
 
 def magnitude_b(burst):
@@ -421,7 +421,7 @@ class RateVsConfidence(SnglBurstUtils.BurstPlot):
 					continue
 				for burst in contents.coinc_sngl_bursts(coinc):
 					if burst.ifo == self.instrument:
-						bins.append(-burst.confidence)
+						bins.append(burst.confidence)
 
 	def finish(self):
 		self.axes.set_title("Cummulative Coincident Event Rate vs. Confidence in %s" % self.instrument)

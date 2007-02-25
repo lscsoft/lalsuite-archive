@@ -320,8 +320,8 @@ class RecoveredTimeOffset(SnglBurstUtils.BurstPlot):
 				except IndexError:
 					# outside plot range
 					pass
-				if -burst.confidence > best_conf:
-					best_conf = -burst.confidence
+				if burst.confidence > best_conf:
+					best_conf = burst.confidence
 					best_dt = dt
 			if best_dt is not None:
 				try:

@@ -117,7 +117,7 @@ WHERE
 	sngl_burst.ifo == ?
 	AND b.event_id == ?
 ORDER BY
-	ABS(sngl_burst.confidence) ASC
+	sngl_burst.confidence ASC
 	""", (instrument, sim.simulation_id)):
 		burst = database.sngl_burst_table._row_from_cols(values)
 		match_ids.append(burst.event_id)
@@ -128,7 +128,7 @@ ORDER BY
 		fmin = burst.central_freq - burst.bandwidth / 2 - sim.freq
 		fmax = burst.central_freq + burst.bandwidth / 2 - sim.freq
 		verts.append(((tmin, fmin), (tmax, fmin), (tmax, fmax), (tmin, fmax)))
-		colours.append(abs(burst.confidence))
+		colours.append(burst.confidence)
 
 		try:
 			# draw most significant tile if there is one
@@ -137,7 +137,7 @@ ORDER BY
 			fmin = burst.ms_flow - sim.freq
 			fmax = burst.ms_flow + burst.ms_bandwidth - sim.freq
 			verts.append(((tmin, fmin), (tmax, fmin), (tmax, fmax), (tmin, fmax)))
-			colours.append(abs(burst.ms_confidence))
+			colours.append(burst.ms_confidence)
 		except AttributeError:
 			pass
 
@@ -202,7 +202,7 @@ WHERE
 	AND start_time BETWEEN ? AND ?
 	AND central_freq BETWEEN ? AND ?
 ORDER BY
-	ABS(sngl_burst.confidence) ASC
+	sngl_burst.confidence ASC
 	""", (instrument, int(sim.get_peak(instrument) - 2), int(sim.get_peak(instrument) + 2), sim.freq - 300, sim.freq + 300)):
 		burst = database.sngl_burst_table._row_from_cols(values)
 
@@ -212,7 +212,7 @@ ORDER BY
 		fmin = burst.central_freq - burst.bandwidth / 2 - sim.freq
 		fmax = burst.central_freq + burst.bandwidth / 2 - sim.freq
 		verts.append(((tmin, fmin), (tmax, fmin), (tmax, fmax), (tmin, fmax)))
-		colours.append(abs(burst.confidence))
+		colours.append(burst.confidence)
 		if burst.event_id in match_ids:
 			edgecolours.append("g")
 		else:

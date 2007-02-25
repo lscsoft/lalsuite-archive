@@ -162,7 +162,7 @@ def ExcessPowerClusterFunc(a, b):
 	# Save the properties of the most significant contributor
 	#
 
-	if abs(b.ms_confidence) > abs(a.ms_confidence):
+	if b.ms_confidence > a.ms_confidence:
 		a.set_ms_period(b.get_ms_period())
 		a.set_ms_band(b.get_ms_band())
 		a.ms_hrss = b.ms_hrss
