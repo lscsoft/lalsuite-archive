@@ -228,7 +228,7 @@ class coincInspiralTable:
         if hasattr(coinc,ifo):
           end_time = getattr(coinc,ifo).end_time
           break
-      cluster_times.append(cluster_window * (end_time/cluster_window) )
+      cluster_times.append(cluster_window * (end_time//cluster_window) )
     cluster_times = uniq(cluster_times)
     
     cluster_triggers = coincInspiralTable(stat = self.stat)
@@ -241,7 +241,7 @@ class coincInspiralTable:
           if hasattr(coinc,ifo):
             end_time = getattr(coinc,ifo).end_time
             break
-        if ((end_time - cluster_time) / cluster_window == 0):   
+        if ((end_time - cluster_time) < cluster_window):   
           cluster.append(coinc)
 
       # find loudest trigger in time and append
