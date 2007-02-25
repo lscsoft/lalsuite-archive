@@ -18,6 +18,12 @@
 #include "numpy/arrayobject.h"
 #include "FrameL.h"
 
+#if PY_VERSION_HEX < 0x02040000
+#define Py_RETURN_NONE return Py_INCREF(Py_None), Py_None
+#define Py_RETURN_TRUE return Py_INCREF(Py_True), Py_True
+#define Py_RETURN_FALSE return Py_INCREF(Py_False), Py_False
+#endif
+
 static PyObject *version;
 static PyObject *author;
 static PyObject *PyExc_FrError;
