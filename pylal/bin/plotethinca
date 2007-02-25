@@ -1,6 +1,9 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 # $Id$
+
+from __future__ import division
+
 __author__ = "Stephen Fairhurst <sfairhur@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
@@ -12,11 +15,8 @@ import re
 import exceptions
 import glob
 from types import *
-import matplotlib
-matplotlib.use('Agg')
+import itertools   # This is Python's included itertools, not Pylal's
 
-from pylab import *
-from pylal import viz
 from glue import segments
 from glue import segmentsUtils
 from glue.ligolw import ligolw
@@ -25,7 +25,8 @@ from glue.ligolw import lsctables
 from glue.ligolw import utils
 from pylal import CoincInspiralUtils
 from pylal import SnglInspiralUtils
-from pylal import itertools
+from pylal import itertools as pylal_itertools
+from numpy import histogram
 
 ##############################################################################
 usage = """
@@ -34,15 +35,19 @@ usage: %prog [options]
 Thinca Triggers Plotting Function
 
 Generate a set of summary plots from a list of thinca files.  First, specify
-which ifos the triggers come from using:
---g1-triggers, --h1-triggers, --h2-triggers, --l1-triggers.
+the ifos from which the triggers come using as many of --ifo options as
+necessary.
 
-Generate plots of ethinca parameter vs time or mass or snr.
+If you wish to overlay different populations of triggers together, provide
+multiple --glob options.
+
+Generate plots of ethinca parameter vs time or mass or snr with --x-value
+or histogram the ethinca values with --hist.
 """
 
 parser = OptionParser( usage=usage, version="%prog CVS $Id$ " )
-parser.add_option("-g","--glob",action="store",type="string",\
-    default=None, metavar=" GLOB",help="GLOB of thinca files to read" )
+parser.add_option("-g","--glob",action="append",type="string",\
+    default=[], metavar=" GLOB",help="GLOB of thinca files to read" )
 parser.add_option("-L","--cluster-window",action="store",type="int",default=0,\
     metavar=" SEC", help="length of time over which to cluster triggers" )
 parser.add_option("-f","--figure-name",action="store",type="string",\
@@ -52,7 +57,7 @@ parser.add_option("-i","--ifo",action="append",type="string",\
     metavar="IFO",dest="ifo_list",\
     help="look at triggers for specified ifo (append to list)" )
 parser.add_option("-x","--x-value",action="append",type="string",\
-    metavar="COL_NAME",dest="columns",\
+    metavar="COL_NAME",dest="columns",default=[],\
     help=\
     "plot ethinca parameter against this sngl_inspiral column (add to list)" )
 parser.add_option("-S","--statistic",action="store",default='snr',\
@@ -61,7 +66,7 @@ parser.add_option("-S","--statistic",action="store",default='snr',\
           "snr (DEFAULT), snr_over_chi, s3_snr_chi_stat, effective_snr,")
 parser.add_option("-H","--hist",action="store_true",default=False,\
     help="make a histogram of the e-thinca values" )
-parser.add_option("-n","--num-bins",action="store",type="float",\
+parser.add_option("-n","--num-bins",action="store",type='int',\
     default=20, metavar=" NUM",\
     help="number of bins used in histogram" )
 parser.add_option("-s","--show-plot",action="store_true",default=False,\
@@ -80,58 +85,88 @@ if not opts.columns and not opts.hist:
   print >>sys.stderr, "Enter 'plotethinca --help' for usage"
   sys.exit(1)
 
-if opts.num_bins:
-  numBins = opts.num_bins
-else:
-  numBins = 20
+# If show() is not required, use Agg backend to prevent X display dependency
+if not opts.show_plot:
+  import matplotlib
+  matplotlib.use('Agg')
+from pylab import *
+from pylal import viz
+rc('font', size='x-large')
 
-bins = []
-for i in range(numBins+1):
-  bins.append(float(i)/float(numBins))
+bins = [i/opts.num_bins for i in range(opts.num_bins+1)]
 
-if opts.glob:
-  files = glob.glob(opts.glob)
+filelists = [glob.glob(g) for g in opts.glob]
+statistic = CoincInspiralUtils.coincStatistic(opts.statistic)
 
-if files:
-  inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(files)
+coincTriggersList = []
+for filegroup in filelists:
+  # read raw triggers
+  inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(filegroup)
   
-  statistic = CoincInspiralUtils.coincStatistic( opts.statistic )
   # construct the coincs
-  coincTriggers = \
-      CoincInspiralUtils.coincInspiralTable(inspTriggers,statistic)
-
+  newCoincs = CoincInspiralUtils.coincInspiralTable(inspTriggers, statistic)
+  
   # cluster them
   if opts.cluster_window:
-    coincTriggers = coincTriggers.cluster(opts.cluster_window)
+    newCoincs = newCoincs.cluster(opts.cluster_window)
+  
+  # append them to our list
+  coincTriggersList.append(newCoincs)
 
-for ifos in itertools.choices(opts.ifo_list,2):
-  coincs = coincTriggers.coincinclude(ifos)
-  ethincaVals = coincs.getEThincaValues(ifos)
-  if opts.columns:
-    for col in opts.columns:
+# Plot
+figure_numbers = itertools.count(1) # An infinite "list" of numbers, starting at 1
+symbol_list = ('rx', 'bo', 'k^', 'g*')
+color_list = ('r', 'b', 'k', 'g')
+if len(opts.glob) > min(len(symbol_list), len(color_list)):
+  print >>sys.stderr, "Warning: Only the first %d globs being used.  Extend "\
+    "symbol_list or color_list to handle more of them."
+
+for ifos in pylal_itertools.choices(opts.ifo_list, 2):
+  # Pick out relevant double coincs and calculate ethinca parameters
+  coincs_list = [x.coincinclude(ifos) for x in coincTriggersList]
+  ethinca_list = [x.getEThincaValues(ifos) for x in coincs_list]
+  
+  for col in opts.columns:  # ethinca-param vs col
+    figure(figure_numbers.next())
+    
+    for coincs, ethincaVals, symbol in zip(coincs_list, ethinca_list, symbol_list):
       for ifo in ifos:
         xVals = coincs.getsngls(ifo).get_column(col)
-        figure()
-        plot(xVals,ethincaVals,'rx',markeredgewidth=1,markersize=6)
-        grid(True)
-        ylim(0,1)
-        xlabel(ifo + " " + col, size="x-large")
-        ylabel("E-thinca parameter", size="x-large")
-        title("E-thinca parameter vs " + col + " for " + ifos[0] + \
-            " and " + ifos[1] + " triggers", size="x-large")
-        if opts.figure_name:
-          savefig(opts.figure_name + "_" + ifos[0] + "_" + ifos[1] + \
-              "_ethinca_vs_" + ifo + "_" + col + ".png")
+        plot(xVals, ethincaVals, symbol, markeredgewidth=1, markersize=6)
+    
+    grid(True)
+    if max(ethincaVals) < 1:
+      ylim((0,1))
+    xlabel("%s %s" % (ifo, col))
+    ylabel("E-thinca parameter")
+    title("E-thinca parameter vs " + col + " for " + ifos[0] + \
+        " and " + ifos[1] + " triggers")
+    
+    if opts.figure_name:
+      savefig(opts.figure_name + "_" + ifos[0] + "_" + ifos[1] + \
+          "_ethinca_vs_" + ifo + "_" + col + ".png")
+    if not opts.show_plot:
+      close()
+  
   if opts.hist:
-    figure()
-    hist(ethincaVals,bins)
-    xlim(0,1)
-    ylabel("\#", size="x-large")
-    xlabel("E-thinca parameter", size="x-large")
+    figure(figure_numbers.next())
+    
+    # Histogram all datasets with the same bins
+    ep_max = max([max(eps) for eps in ethinca_list])
+    y_list, x_list = zip(*[histogram(eps, bins=opts.num_bins, range=[0, ep_max]) \
+                           for eps in ethinca_list])
+    
+    for x, y, color in zip(x_list, y_list, color_list):
+      bar(x, y, color=color, width=0.9*ep_max/opts.num_bins, alpha=0.5)
+    ylabel("\#")
+    xlabel("E-thinca parameter")
     title("E-thinca parameter Histogram for " + ifos[0] + \
-        " and " + ifos[1] + " triggers", size="x-large")
+          " and " + ifos[1] + " triggers")
     if opts.figure_name:
       savefig(opts.figure_name + "_" + ifos[0] + "_" + ifos[1] + \
         "_ethinca_hist.png")
+    if not opts.show_plot:
+      close()
+
 if opts.show_plot:
-  show() 
+  show()
