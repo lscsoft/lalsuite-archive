@@ -12,11 +12,7 @@ import re
 import exceptions
 import glob
 from types import *
-import matplotlib
-matplotlib.use('Agg')
 
-from pylab import *
-from pylal import viz
 from glue import segments
 from glue import segmentsUtils
 from glue.ligolw import ligolw
@@ -183,6 +179,13 @@ if 'bitten_l' in opts.statistic:
    if (not opts.bittenl_a or not opts.bittenl_b): 	 
      print >>sys.stderr, "--bittenl_a and --bittenl_b must be specified" 	 
      sys.exit(1)
+
+# Change to Agg back-end if show() will not be called
+if not opts.show_plot:
+  import matplotlib
+  matplotlib.use('Agg')
+from pylab import *
+from pylal import viz
 
 statistic = CoincInspiralUtils.coincStatistic( opts.statistic, opts.bittenl_a, \
      opts.bittenl_b )

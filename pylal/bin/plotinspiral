@@ -8,10 +8,8 @@ import exceptions
 import glob
 from types import *
 
-from pylab import *
 from pylal import SnglInspiralUtils
 from pylal import SimInspiralUtils
-from pylal import viz
 from glue import segments
 from glue import segmentsUtils
 
@@ -126,6 +124,13 @@ if opts.norm_hist_snr and not opts.analyzed_time:
   print >>sys.stderr, "to make the normalized cumulative histogram"
   print >>sys.stderr, "the --analyzed-time must be specified"
   sys.exit(1)
+
+# Now, use the Agg backend if it's unnecessary to call plot(), then do imports
+if not opts.show_plot:
+  import matplotlib
+  matplotlib.use('Agg')
+from pylab import *
+from pylal import viz
 
 trigFiles = glob.glob(opts.glob)
 if not len(trigFiles):
