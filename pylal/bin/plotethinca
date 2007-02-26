@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 
 # $Id$
 
@@ -135,7 +135,7 @@ for ifos in pylal_itertools.choices(opts.ifo_list, 2):
         plot(xVals, ethincaVals, symbol, markeredgewidth=1, markersize=6)
     
     grid(True)
-    if max(ethincaVals) < 1:
+    if len(ethincaVals) and max(ethincaVals) < 1:
       ylim((0,1))
     xlabel("%s %s" % (ifo, col))
     ylabel("E-thinca parameter")
@@ -152,12 +152,14 @@ for ifos in pylal_itertools.choices(opts.ifo_list, 2):
     figure(figure_numbers.next())
     
     # Histogram all datasets with the same bins
-    ep_max = max([max(eps) for eps in ethinca_list])
+    ep_max = max([max(eps) for eps in ethinca_list if len(eps)] + [0.1])
     y_list, x_list = zip(*[histogram(eps, bins=opts.num_bins, range=[0, ep_max]) \
                            for eps in ethinca_list])
     
-    for x, y, color in zip(x_list, y_list, color_list):
-      bar(x, y, color=color, width=0.9*ep_max/opts.num_bins, alpha=0.5)
+    n = len(x_list)
+    for i, x, y, color in zip(range(n), x_list, y_list, color_list):
+      x = asarray(x) + 0.1*i*ep_max/opts.num_bins  # Introduce some stagger
+      bar(x, y, color=color, width=(1-0.1*n)*ep_max/opts.num_bins)
     ylabel("\#")
     xlabel("E-thinca parameter")
     title("E-thinca parameter Histogram for " + ifos[0] + \
