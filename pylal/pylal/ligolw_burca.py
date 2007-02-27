@@ -241,20 +241,24 @@ def ExcessPowerCoincCompare(a, b, thresholds):
 	h_{rss}.
 
 	In the case of the peak times, the difference is taken as a
-	fraction of the average of the two events' durations, and for the
-	peak frequencies, the difference is taken as a fraction of the
-	average of the two events' bandwidths.  So, for example, dt = 0
-	means the peak times must be exactly equal, while dt = 1 is
-	roughtly equivalent to requiring the events' time intervals to
-	intersect (it is equilvalent to requiring intersection if the peak
-	times are centred in the tiles), and dt -> \infty is equivalent to
-	no constraint.  Likewise for df.
+	fraction of the average of the durations of the two events' most
+	significant contributing tile.  For the peak frequencies, the
+	difference is taken as a fraction of the average of the two events'
+	peak frequencies.  So, for example, dt = 0 means the peak times
+	must be exactly equal, while dt = 1 is roughtly equivalent to
+	requiring the events' most significant contributing tile's time
+	intervals to intersect, and dt -> \infty is equivalent to no
+	constraint.  On the other hand, df = 0 means the peak frequencies
+	must be identical, while df = 2 is equivalent to no constraint on
+	the peak frequencies (since the peak frequencies must be
+	non-negative).
 
 	For h_{rss}, the difference is taken as a fraction of the average
-	of the two events' h_{rss}s.  So dhrss = 0 means the two events'
-	h_{rss}s must be exactly equal, while dhrss = 2 is equivalent to no
-	constraint on h_{rss} (h_{rss} cannot be negative, so no two values
-	can differ by more than twice their average).
+	of the h_{rss} of the two events' most significant contributing
+	tiles.  So dhrss = 0 means the two events' h_{rss}s must be exactly
+	equal, while dhrss = 2 is equivalent to no constraint on h_{rss}
+	(h_{rss} cannot be negative, so no two values can differ by more
+	than twice their average).
 
 	Returns False (a & b are coincident) if the two events match within
 	the tresholds.  Retruns non-zero otherwise.
@@ -263,8 +267,8 @@ def ExcessPowerCoincCompare(a, b, thresholds):
 	dt, df, dhrss = thresholds
 
 	# convert fractional deltas to absolute deltas
-	dt = dt * (a.duration + b.duration) / 2
-	df = df * (a.bandwidth + b.bandwidth) / 2
+	dt = dt * (a.ms_duration + b.ms_duration) / 2
+	df = df * (a.peak_frequency + b.peak_frequency) / 2
 	dhrss = dhrss * (a.ms_hrss + b.ms_hrss) / 2
 
 	# test for coincidence
