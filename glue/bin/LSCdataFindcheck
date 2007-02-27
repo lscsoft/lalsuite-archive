@@ -16,6 +16,16 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+
+#
+# =============================================================================
+#
+#                                   Preamble
+#
+# =============================================================================
+#
+
+
 """
 This utility checks that the output of LSCdataFind spans a given segment,
 and optionally that the files are accessible.
@@ -35,10 +45,20 @@ from glue import segments
 from glue import segmentsUtils
 
 
+#
+# =============================================================================
+#
+#                                 Command Line
+#
+# =============================================================================
+#
+
+
 def parse_command_line():
 	parser = OptionParser(version = "%prog CVS $Id$")
-	parser.add_option("--gps-start-time", metavar = "seconds", help = "set desired start time")
-	parser.add_option("--gps-end-time", metavar = "seconds", help = "set desired end time")
+	parser.add_option("--segwizard-segments", metavar = "filename", help = "read segments to check from the named segwizard-format text file")
+	parser.add_option("--gps-start-time", metavar = "seconds", help = "check a single segment starting at this time (must also set --gps-end-time)")
+	parser.add_option("--gps-end-time", metavar = "seconds", help = "check a single segment ending at this time (must also set --gps-start-time)")
 	parser.add_option("--dagman-return", metavar = "value", default = 0, help = "set $RETURN value from dagman")
 	parser.add_option("--stat", action = "store_true", default = False, help = "test that files exist and are accessible")
 	options, filenames = parser.parse_args()
@@ -46,9 +66,12 @@ def parse_command_line():
 	if options.dagman_return:
 		options.dagman_return = int(options.dagman_return)
 
-	if not (options.gps_start_time and options.gps_end_time):
-		raise ValueError, "must set --gps-start-time and --gps-end-time"
-	options.seg = segments.segment(LIGOTimeGPS(options.gps_start_time), LIGOTimeGPS(options.gps_end_time))
+	if options.segwizard_segments:
+		options.segs = segmentsUtils.fromsegwizard(file(options.segwizard_segments), coltype = LIGOTimeGPS).coalesce()
+	elif options.gps_start_time and options.gps_end_time:
+		options.segs = segments.segmentlist([segments.segment(LIGOTimeGPS(options.gps_start_time), LIGOTimeGPS(options.gps_end_time))])
+	else:
+		raise ValueError, "must set --segwizard-segments, or --gps-start-time and --gps-end-time"
 
 	return options, (filenames or [None])
 
@@ -60,13 +83,46 @@ except ValueError, e:
 	sys.exit(1)
 
 
+#
+# =============================================================================
+#
+#                                Dagman Helper
+#
+# =============================================================================
+#
+
+
+#
+# The idea here is that LSCdataFindcheck is designed to be added as a post
+# script on an LSCdataFind DAG node in a Condor dagman application.  To
+# support this usage, it's necessary for the post script to propogate any
+# error codes the LSCdataFind reports, and so this program has the
+# --dagman-return command line option.  In a Condor .dag file, the post
+# script's command line options should include "--dagman-return $RETURN".
+# dagman will replace "$RETURN" with the ASCII representation of the
+# LSCdataFind's return code, which this program will the return as its
+# result.
+#
+
+
 if options.dagman_return:
 	print >>sys.stderr, "LSCdataFindcheck: error: dag job execution failed"
 	sys.exit(options.dagman_return)
 
+
+#
+# =============================================================================
+#
+#                                     Main
+#
+# =============================================================================
+#
+
+
 #
 # loop over LAL cache files
 #
+
 
 for filename in filenames:
 	#
@@ -79,24 +135,23 @@ for filename in filenames:
 		cache = [CacheEntry(line) for line in sys.stdin]
 
 	#
-	# check that the cache spans the requested segment
+	# check that the cache spans the requested segment(s)
 	#
 
 	seglist = segments.segmentlist([c.segment for c in cache]).coalesce()
-	if options.seg not in seglist:
-		print >>sys.stderr, "LSCdataFindcheck: error: %s does not span %s:  missing %s" % (filename, str(options.seg), str(segments.segmentlist([options.seg]) - seglist))
+	if options.segs - seglist:
+		print >>sys.stderr, "LSCdataFindcheck: error: %s does not span %s: missing %s" % (filename or "stdin", str(options.segs), str(options.segs - seglist))
 		sys.exit(1)
 
 	#
-	# check that the files spanned by the requested segment are
+	# check that the files spanning the desired segment(s) are
 	# accessible (only local files are tested)
 	#
 
 	if options.stat:
 		badpaths = []
-		seglist &= segments.segmentlist([options.seg])
 		for c in cache:
-			if not (seglist.intersects_segment(c.segment) and c.host().lower() in ("", "localhost")):
+			if not (options.segs.intersects_segment(c.segment) and c.host().lower() in ("", "localhost")):
 				# not local, or don't need it
 				continue
 			if not os.access(c.path(), os.R_OK):
