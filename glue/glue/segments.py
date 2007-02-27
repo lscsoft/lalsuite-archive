@@ -826,7 +826,9 @@ class segmentlistdict(dict):
 		"""
 		Return a copy of the segmentlistdict object.  The return
 		value is a new object with references to the original keys,
-		and shallow copies of the segment lists.
+		and shallow copies of the segment lists.  The point is,
+		modifications made to the segmentlists in the object
+		returned by this method will not affect the original.
 		"""
 		new = self.__class__()
 		for key, value in self.iteritems():
