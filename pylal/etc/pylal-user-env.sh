@@ -9,6 +9,9 @@ if [ -z "${PYLAL_LOCATION}" ]; then
     return 1
 fi
 
+#python -V outputs to stderr, so have to redirect to catch it
+PYTHON_VERSION=`python -V 2>&1 | awk '{ print $2 }'`
+
 mylibdir="lib"
 if [ `uname -p` = "x86_64" ]
 then
@@ -25,7 +28,7 @@ fi
 
 LGT_PATH=${PYLAL_LOCATION}
 PATH="${PYLAL_LOCATION}/bin:${PYLAL_LOCATION}/sbin:${PATH}";
-PYTHONPATH="${PYLAL_LOCATION}/${mylibdir}/python:${PYTHONPATH}"
+PYTHONPATH="${PYLAL_LOCATION}/${mylibdir}/python$PYTHON_VERSION/site-packages:${PYTHONPATH}"
 
 if [ -n "${MANPATH}" ]; then
     MANPATH="${PYLAL_LOCATION}/man:${MANPATH}"

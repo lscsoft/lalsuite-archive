@@ -9,6 +9,9 @@ if ( ! $?PYLAL_LOCATION ) then
     exit 1
 endif
 
+#python -V outputs to stderr, so have to redirect to catch it
+setenv PYTHON_VERSION `python -V 2>&1 | awk '{ print $2 }'`
+
 setenv mylibdir "lib"
 if(`uname -p` == "x86_64") then
   setenv mylibdir "lib64"
@@ -36,7 +39,7 @@ endif
 
 setenv PYLAL_PATH "${PYLAL_LOCATION}"
 setenv PATH "${PYLAL_LOCATION}/bin:${PYLAL_LOCATION}/sbin:${PATH}";
-setenv PYTHONPATH "${PYLAL_LOCATION}/${mylibdir}/python:${PYTHONPATH}";
+setenv PYTHONPATH "${PYLAL_LOCATION}/${mylibdir}/python$PYTHON_VERSION/site-packages:${PYTHONPATH}";
 
 if ( $?MANPATH ) then
     set DELIM
@@ -52,4 +55,5 @@ if ( "X${LD_LIBRARY_PATH}" != "X" ) then
 endif
 setenv LD_LIBRARY_PATH "${PYLAL_LOCATION}/${mylibdir}${DELIM}${LD_LIBRARY_PATH}"
 
+unsetenv PYTHON_VERSION
 unsetenv mylibdir
