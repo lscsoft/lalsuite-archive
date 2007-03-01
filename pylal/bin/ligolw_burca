@@ -35,7 +35,6 @@ from glue.ligolw import utils
 from pylal import ligolw_burca
 from pylal import llwapp
 from pylal import snglcoinc
-from pylal.date import LIGOTimeGPS
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
@@ -87,7 +86,7 @@ def parse_command_line():
 			# the dictionary while we go
 			for instrumentpair, value in options.thresholds.items():
 				dt, df, dhrss = value
-				options.thresholds[instrumentpair] = (LIGOTimeGPS(dt), float(df), float(dhrss))
+				options.thresholds[instrumentpair] = (float(dt), float(df), float(dhrss))
 		except Exception, e:
 			raise ValueError, "error parsing --thresholds: %s" % str(e)
 	elif options.coincidence_algorithm == "stringcusp":
