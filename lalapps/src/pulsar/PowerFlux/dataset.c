@@ -1311,6 +1311,23 @@ if(!(count & 1))return (tmp[count>>1]+tmp[(count>>1)-1])*0.5;
 return tmp[count>>1];
 }
 
+static void test_compute_median(void)
+{
+float test1[11]={-0.256, -0.096, 1.357, 0.442, -0.728, 1.084, 0.178, -1.527, 0.333, 0.651, 0.809};
+float test2[12]={-0.308, -2.124, 0.153, 0.314, 1.91, -1.646, 3.299, -0.226, 0.201, 1.22, 0.122, 0.751};
+float err;
+
+err=compute_median(test1, 1, 11)-0.333;
+fprintf(stderr, "compute_median_test1: %g\n", err); 
+fprintf(LOG, "compute_median_test1: %g\n", err);
+if(fabs(err)>1e-6)exit(-1); 
+
+err=compute_median(test2, 1, 12)-0.177;
+fprintf(stderr, "compute_median_test2: %g\n", err); 
+fprintf(LOG, "compute_median_test2: %g\n", err);
+if(fabs(err)>1e-6)exit(-1); 
+}
+
 void compute_noise_curves(DATASET *dataset)
 {
 float *tmp;
@@ -1777,4 +1794,11 @@ for(i=0;i<d_free;i++) {
 		}
 	}
 fclose(fout);
+}
+
+void test_datasets(void)
+{
+test_compute_median();
+
+
 }
