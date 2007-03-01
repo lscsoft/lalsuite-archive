@@ -166,7 +166,7 @@ class Plots(object):
 		# desired instruments
 		for pair, deltas in self.deltas.items():
 			for b1_peak_time, b1_peak_time_ns, b1_duration, b1_peak_frequency, b1_bandwidth, b1_hrss, b2_peak_time, b2_peak_time_ns, b2_duration, b2_peak_frequency, b2_bandwidth, b2_hrss in contents.connection.cursor().execute("""
-SELECT b1.peak_time, b1.peak_time_ns, b1.ms_duration, b1.peak_frequency, b1.ms_duration, b1.ms_hrss, b2.peak_time, b2.peak_time_ns, b2.ms_duration, b2.peak_frequency, b2.ms_bandwidth, b2.ms_hrss FROM
+SELECT b1.peak_time + t1.offset, b1.peak_time_ns, b1.ms_duration, b1.peak_frequency, b1.ms_duration, b1.ms_hrss, b2.peak_time + t2.offset, b2.peak_time_ns, b2.ms_duration, b2.peak_frequency, b2.ms_bandwidth, b2.ms_hrss FROM
 	sngl_burst AS b1
 	JOIN coinc_event_map AS a ON (
 		a.event_id == b1.event_id
@@ -181,6 +181,14 @@ SELECT b1.peak_time, b1.peak_time_ns, b1.ms_duration, b1.peak_frequency, b1.ms_d
 	)
 	JOIN coinc_event ON (
 		coinc_event.coinc_event_id == a.coinc_event_id
+	)
+	JOIN time_slide AS t1 ON (
+		coinc_event.time_slide_id == t1.time_slide_id
+		AND b1.ifo == t1.instrument
+	)
+	JOIN time_slide AS t2 ON (
+		coinc_event.time_slide_id == t2.time_slide_id
+		AND b2.ifo == t2.instrument
 	)
 WHERE
 	coinc_event.coinc_def_id == ?
@@ -198,7 +206,7 @@ WHERE
 		# desired instruments
 		for pair, deltas in self.deltas.items():
 			for b1_peak_time, b1_peak_time_ns, b1_duration, b1_peak_frequency, b1_bandwidth, b1_hrss, b2_peak_time, b2_peak_time_ns, b2_duration, b2_peak_frequency, b2_bandwidth, b2_hrss in contents.connection.cursor().execute("""
-SELECT b1.peak_time, b1.peak_time_ns, b1.ms_duration, b1.peak_frequency, b1.ms_duration, b1.ms_hrss, b2.peak_time, b2.peak_time_ns, b2.ms_duration, b2.peak_frequency, b2.ms_bandwidth, b2.ms_hrss FROM
+SELECT b1.peak_time + t1.offset, b1.peak_time_ns, b1.ms_duration, b1.peak_frequency, b1.ms_duration, b1.ms_hrss, b2.peak_time + t2.offset, b2.peak_time_ns, b2.ms_duration, b2.peak_frequency, b2.ms_bandwidth, b2.ms_hrss FROM
 	sngl_burst AS b1
 	JOIN coinc_event_map AS a ON (
 		a.event_id == b1.event_id
@@ -213,6 +221,14 @@ SELECT b1.peak_time, b1.peak_time_ns, b1.ms_duration, b1.peak_frequency, b1.ms_d
 	)
 	JOIN coinc_event ON (
 		coinc_event.coinc_event_id == a.coinc_event_id
+	)
+	JOIN time_slide AS t1 ON (
+		coinc_event.time_slide_id == t1.time_slide_id
+		AND b1.ifo == t1.instrument
+	)
+	JOIN time_slide AS t2 ON (
+		coinc_event.time_slide_id == t2.time_slide_id
+		AND b2.ifo == t2.instrument
 	)
 WHERE
 	coinc_event.coinc_def_id == ?
