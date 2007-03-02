@@ -16,6 +16,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+
 #
 # =============================================================================
 #
@@ -24,12 +25,14 @@
 # =============================================================================
 #
 
+
 #
 # NOTE:  the logic in this code is unintuitively complicated.  Small,
 # apparently irrelevant, changes to conditionals can have subtly unexpected
 # consequences to the behaviour of the class methods.  ALWAYS make sure that
 # the test suite returns OK on ALL tests after any changes you make.
 #
+
 
 """
 This module defines the segment and segmentlist objects, as well as the
@@ -38,6 +41,7 @@ infinity object used to define semi-infinite and infinite segments.
 
 from bisect import bisect_left, bisect_right
 from copy import copy as shallowcopy
+
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __date__ = "$Date$"[7:-2]
@@ -51,6 +55,7 @@ __version__ = "$Revision$"[11:-2]
 #
 # =============================================================================
 #
+
 
 class infinity(object):
 	"""
@@ -185,6 +190,7 @@ class infinity(object):
 		# self is NegInfinity
 		return PosInfinity
 
+
 PosInfinity = object.__new__(infinity)
 NegInfinity = object.__new__(infinity)
 
@@ -196,6 +202,7 @@ NegInfinity = object.__new__(infinity)
 #
 # =============================================================================
 #
+
 
 class segment(tuple):
 	"""
@@ -378,6 +385,7 @@ class segment(tuple):
 #
 # =============================================================================
 #
+
 
 class segmentlist(list):
 	"""
@@ -986,8 +994,8 @@ class segmentlistdict(dict):
 		"""
 		Return a new segmentlistdict containing only those
 		segmentlists associated with the keys in keys, with each
-		set to the intersection of the original lists.  The offsets
-		are preserved.
+		set to their mutual intersection.  The offsets are
+		preserved.
 		"""
 		new = segmentlistdict()
 		intersection = self.intersection(keys)
