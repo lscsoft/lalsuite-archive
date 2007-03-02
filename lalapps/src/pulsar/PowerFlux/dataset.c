@@ -133,7 +133,7 @@ typedef struct {
 
 static void compute_signal(double *re, double *im, double *f, double t, SIGNAL_PARAMS *p)
 {
-float det_vel[3];
+float det_vel[3]={NAN, NAN, NAN};
 float f_plus, f_cross;
 double doppler, omega_t, c_omega_t, s_omega_t;
 double hann;
@@ -180,7 +180,7 @@ s_omega_t=sin(omega_t);
 
 //fprintf(stderr, "response=%g a_plus=%g a_cross=%g \n", response, p->a_plus, p->a_cross);
 
-//fprintf(stderr, "f=%.4f (%.3f) re=%.2f im=%.2f omega_t=%.2f t=%.1f\n", (*f), (*f)*1800.0-p->bin*1.0, *re, *im, omega_t, t-p->ref_time);
+// fprintf(stderr, "f=%.4f (%.3f) re=%.2f im=%.2f omega_t=%.2f t=%.1f (%f) doppler=%g\n", (*f), (*f)*1800.0-p->bin*1.0, *re, *im, omega_t, t-p->ref_time, t, doppler);
 
 }
 
@@ -263,6 +263,69 @@ while(1) {
 	break;
 	}
 return(p.extra_phase);
+}
+
+static void test_inject_fake_signal(void)
+{
+SIGNAL_PARAMS p;
+double cos_i;
+double re, im, f, re2, im2, f2;
+int status=0;
+
+p.bin=0;
+
+p.ra=2.56;
+p.dec=1.43;
+p.freq=500.12;
+p.spindown=1.23e-9;
+p.ref_time=793154935;
+p.segment_start=793161245;
+p.coherence_time=1800.0;
+p.extra_phase=0;
+
+cos_i=cos(1.23);
+
+p.a_plus=(1+cos_i*cos_i)*0.5;
+p.a_cross=cos_i;
+
+p.cos_e=cos(2.0*(1.23));
+p.sin_e=sin(2.0*(1.23));
+precompute_am_constants(p.e, p.ra, p.dec);
+
+get_detector("LHO");
+
+compute_signal(&re, &im, &f, 793161250.0, &p);
+fprintf(stderr, "compute_signal_test1: %g %g %f\n", re, im, f);
+fprintf(LOG, "compute_signal_test1: %g %g %f\n", re, im, f);
+
+if(abs(re-9.59669e-06)>1e-11 ||
+   abs(im-1.83957e-05)>1e-11 ||
+   abs(f-500.101774)>1e-5) status|=1;
+
+p.cos_e=1.0;
+p.sin_e=0.0;
+
+compute_signal(&re, &im, &f, 793161250.0, &p);
+fprintf(stderr, "compute_signal_test2: %g %g %f\n", re, im, f);
+fprintf(LOG, "compute_signal_test2: %g %g %f\n", re, im, f);
+
+p.cos_e=1.0;
+p.sin_e=0.0;
+p.extra_phase=M_PI*0.5;
+
+compute_signal(&re2, &im2, &f2, 793161250.0, &p);
+fprintf(stderr, "compute_signal_test3: %g %g %f\n", re2, im2, f2);
+fprintf(LOG, "compute_signal_test3: %g %g %f\n", re2, im2, f2);
+
+if(abs(f2-f)>1e-5 ||
+   abs(re-im2)>1e-11 ||
+   abs(im+re2)>1e-11) status|=2;
+
+if(status) {
+	fprintf(stderr, "compute_signal_test: failed %d\n", status);
+	fprintf(LOG, "compute_signal_test: failed %d\n", status);
+	exit(-1);
+	}
 }
 
 static void inject_fake_signal(DATASET *d, int segment, double accumulated_phase)
@@ -1798,7 +1861,6 @@ fclose(fout);
 
 void test_datasets(void)
 {
+test_inject_fake_signal();
 test_compute_median();
-
-
 }

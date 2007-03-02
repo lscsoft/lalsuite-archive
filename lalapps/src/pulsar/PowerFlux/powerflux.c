@@ -209,8 +209,6 @@ if(gethostname(s, 19999)>=0){
 init_hookup();
 init_statistics();
 tabulate_hann_filter7();
-test_datasets();
-
 do_CutOff=args_info.do_cutoff_arg;
 
 if(args_info.earth_ephemeris_given){
@@ -418,6 +416,7 @@ if(args_info.fake_freq_given) {
    	fprintf(LOG,"fake signal injection: none\n");
 	}
 
+test_datasets();
 
 /* INPUT stage */
 
