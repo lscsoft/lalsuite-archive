@@ -10,7 +10,7 @@ if [ -z "${PYLAL_LOCATION}" ]; then
 fi
 
 #python -V outputs to stderr, so have to redirect to catch it
-PYTHON_VERSION=`python -V 2>&1 | awk '{ print $2 }'`
+PYTHON_VERSION=`python -V 2>&1 | cut -d" " -f2 | cut -d. -f1-2`
 
 mylibdir="lib"
 if [ `uname -p` = "x86_64" ]

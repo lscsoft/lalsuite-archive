@@ -10,7 +10,7 @@ if ( ! $?PYLAL_LOCATION ) then
 endif
 
 #python -V outputs to stderr, so have to redirect to catch it
-setenv PYTHON_VERSION `python -V 2>&1 | awk '{ print $2 }'`
+setenv PYTHON_VERSION `python -V 2>&1 | cut -d" " -f2 | cut -d. -f1-2`
 
 setenv mylibdir "lib"
 if(`uname -p` == "x86_64") then
