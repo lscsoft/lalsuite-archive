@@ -64,24 +64,23 @@ def parse_command_line():
 	Parse the command line, return an options object and a list of file
 	names.
 	"""
-	parser = OptionParser(version = "%prog CVS $Id$")
+	parser = OptionParser(
+		version = "%prog CVS $Id$",
+		usage = "%prog [options] [xml [xml ...]]",
+		description = "Transfers data between LIGO Light Weight XML files and SQLite database files.  The contents of the XML files listed on the command line will be inserted, in order, into the SQLite database file identified by the --database argument.  If --extract is given on the command line, then the database contents will be converted to XML and written to the given file.  Input XML files ending in .gz will be gzip-decompressed while being read, and if the filename given via --extract ends in .gz then it will be gzip-compressed when written."
+	)
 	parser.add_option("-d", "--database", metavar = "filename", help = "use the SQLite3 database named filename")
 	parser.add_option("-i", "--input-cache", metavar = "filename", action = "append", default = [], help = "get XML files to insert from the LAL cache named filename")
 	parser.add_option("--preserve-ids", action = "store_true", help = "preserve row IDs from the XML in the database (the default is to assign new IDs to prevent collisisions;  inserts will fail if collisions occur)")
-	parser.add_option("-x", "--extract", action = "store_true", help = "extract database contents to XML file (default is to insert from XML files)")
+	parser.add_option("-x", "--extract", metavar = "filename", default = None, help = "extract database contents to the given XML file, \"-\" == stdout (extraction is done after any inserts)")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
 	options, filenames = parser.parse_args()
 
 	for cache in options.input_cache:
 		filenames += [c.path() for c in map(CacheEntry, file(cache))]
 
-	if options.extract:
-		if len(filenames) > 1:
-			raise ValueError, "multiple output files specified"
-		if options.input_cache:
-			raise ValueError, "cannot set --input-cache with --extract"
-	elif not filenames:
-		raise ValueError, "no input files"
+	if options.extract is None and not filenames:
+		raise ValueError, "nothing to do!"
 
 	if not options.database:
 		raise ValueError, "must set --database"
@@ -138,6 +137,17 @@ def insert(filenames, preserve_ids = True, verbose = False):
 
 
 #
+# How to extract
+#
+
+
+def extract(filename, verbose = False):
+	doc = ligolw.Document()
+	doc.appendChild(dbtables.DBTable_get_xml())
+	utils.write_filename(doc, filename, gz = (filename or "stdout")[-3:] == ".gz", verbose = verbose)
+
+
+#
 # =============================================================================
 #
 #                                     Main
@@ -159,19 +169,19 @@ dbtables.DBTable_set_connection(connection)
 
 
 #
-# Do selected operation
+# Insert files
 #
 
 
-if options.extract:
-	doc = ligolw.Document()
-	doc.appendChild(dbtables.DBTable_get_xml())
-	filename = filenames[0]
-	utils.write_filename(doc, filename, gz = (filename or "stdout")[-3:] == ".gz", verbose = options.verbose)
-else:
+if filenames:
 	insert(filenames, preserve_ids = options.preserve_ids, verbose = options.verbose)
+
+	#
 	# check for coincidence tables, and index as needed
+	#
+
 	table_names = dbtables.DBTable_table_names()
+
 	if "coinc_event" in table_names:
 		if options.verbose:
 			print >>sys.stderr, "indexing coinc_event table ..."
@@ -181,6 +191,7 @@ else:
 		connection.cursor().execute("""
 			CREATE INDEX IF NOT EXISTS ce_tsi_index ON coinc_event (time_slide_id);
 		""")
+
 	if "coinc_event_map" in table_names:
 		if options.verbose:
 			print >>sys.stderr, "indexing coinc_event_map table ..."
@@ -190,6 +201,18 @@ else:
 		connection.cursor().execute("""
 			CREATE INDEX IF NOT EXISTS cem_cei_index ON coinc_event_map (coinc_event_id)
 		""")
+
+
+#
+# Extract database contents
+#
+
+
+if options.extract is not None:
+	if options.extract == "-":
+		# stdout
+		options.extract = None
+	extract(options.extract, verbose = options.verbose)
 
 
 #
