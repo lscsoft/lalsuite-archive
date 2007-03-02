@@ -93,10 +93,11 @@ def DBTable_commit():
 
 def DBTable_idmap_create():
 	"""
-	Create the temporary _idmap_ table.  This table has columns "old"
-	and "new" containing text strings mapping old IDs to new IDs.  The
-	old column is a primary key (is indexed and must contain unique
-	entries).
+	Create the _idmap_ table.  This table has columns "old" and "new"
+	containing text strings mapping old IDs to new IDs.  The old column
+	is a primary key (is indexed and must contain unique entries).  The
+	table is created as a temporary table, so it will be automatically
+	dropped when the database connection is closed.
 	"""
 	DBTable.connection.cursor().execute("CREATE TEMPORARY TABLE _idmap_ (old TEXT PRIMARY KEY, new TEXT)")
 
