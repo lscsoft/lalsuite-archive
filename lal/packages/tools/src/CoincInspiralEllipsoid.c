@@ -279,6 +279,7 @@ XLALSnglInspiralCoincTestEllipsoid(
   return;
 }
 
+
 /* <lalVerbatim file="CoincInspiralEllipsoidCP"> */
 INT2 XLALCompareInspiralsEllipsoid(
       TriggerErrorList              *aPtr,
@@ -315,17 +316,20 @@ INT2 XLALCompareInspiralsEllipsoid(
     curTimeANS = XLALGPStoINT8( &(aPtr->trigger->end_time) );
     curTimeBNS = XLALGPStoINT8( &(bPtr->trigger->end_time) );
 
-    /* Reset the times to avoid any precision problems */
-    XLALSetTimeInPositionVector( aPtr->position, 0.0 );
-    XLALSetTimeInPositionVector( bPtr->position,
-          (curTimeBNS - curTimeANS) * 1.0e-9 );
-
     /* if analyzing a grb the position and time-delay is KNOWN */
-    if (params->grb) 
+    if (params->exttrig) 
     {
       timeShift=travelTime;
-      XLALSetTimeInPositionVector( aPtr->position, timeShift );
     }
+    else
+    {
+      timeShift = -travelTime;
+    }
+
+    /* Reset the times to avoid any precision problems */
+    XLALSetTimeInPositionVector( aPtr->position, timeShift );
+    XLALSetTimeInPositionVector( bPtr->position,
+          (curTimeBNS - curTimeANS) * 1.0e-9 );
 
     /* Loop over the time shift to sweep the light travel time */
     while (timeShift <= travelTime)
@@ -363,7 +367,8 @@ INT2 XLALCompareInspiralsEllipsoid(
 /* <lalVerbatim file="CoincInspiralEllipsoidCP"> */
 REAL8 XLALCalculateEThincaParameter( 
           SnglInspiralTable *table1,
-          SnglInspiralTable *table2
+          SnglInspiralTable *table2,
+          InspiralAccuracyList* accuracyParams
              )
 /* </lalVerbatim> */
 {
@@ -372,42 +377,22 @@ REAL8 XLALCalculateEThincaParameter(
 
    TriggerErrorList   errorList[2];
 
-   REAL8 loMatch, hiMatch, midMatch;
-   
-   INT4 ifoNumber, ifoTwo, i;
+   REAL8 loMatch, hiMatch, midMatch;  
+   INT4 i;
    INT2  isOverlap;
-   LALDetector aDet, bDet;
-   InspiralAccuracyList accuracyParams;
    fContactWorkSpace    *workSpace;
-   
 
    loMatch = 0.0001;
    hiMatch = 1.0;
 
-  if ( !table1 || !table2 )
+  if ( !table1 || !table2 || !accuracyParams)
     XLAL_ERROR_REAL8( func, XLAL_EFAULT );
 
   workSpace = XLALInitFContactWorkSpace( 3, NULL, NULL, gsl_min_fminimizer_brent, 1.0e-2 );
   if (!workSpace)
   {
     XLAL_ERROR_REAL8( func, XLAL_EFUNC );
-  }
-
-  memset( &accuracyParams, 0, sizeof( InspiralAccuracyList ));
-
-  /* Populate the lightTravel matrix */
-  for( ifoNumber = 0; ifoNumber < LAL_NUM_IFO; ifoNumber++)
-  {
-    XLALReturnDetector( &aDet, ifoNumber );
-
-    for ( ifoTwo = 0; ifoTwo < LAL_NUM_IFO; ifoTwo++)
-    {
-      XLALReturnDetector( &bDet, ifoTwo );
-
-      accuracyParams.lightTravelTime[ ifoNumber][ ifoTwo ] =
-      XLALLightTravelTime( &aDet, &bDet );
-    }
-  }
+  }  
 
   /* Set up the trigger lists */
   if ( XLALGPStoINT8( &(table1->end_time) ) < XLALGPStoINT8( &(table2->end_time )) )
@@ -433,7 +418,7 @@ REAL8 XLALCalculateEThincaParameter(
    * nothing more to be done.
    */
    isOverlap = XLALCompareInspiralsEllipsoid( &errorList[0], &errorList[1], workSpace,
-                                        &accuracyParams );
+                                        accuracyParams );
 
    for (i = 0; i < 2; i++ )
    {
@@ -453,13 +438,12 @@ REAL8 XLALCalculateEThincaParameter(
   /* Now test for the largest error */
   for (i = 0; i < 2; i++ )
   {
-
     errorList[i].err_matrix = XLALGetErrorMatrixFromSnglInspiral( errorList[i].trigger,
                                  hiMatch );
   }
    
    isOverlap = XLALCompareInspiralsEllipsoid( &errorList[0], &errorList[1], workSpace,
-                                        &accuracyParams );
+                                        accuracyParams );
 
    for (i = 0; i < 2; i++ )
    {
@@ -484,12 +468,11 @@ REAL8 XLALCalculateEThincaParameter(
 
      for (i = 0; i < 2; i++ )
      {
-
       errorList[i].err_matrix = XLALGetErrorMatrixFromSnglInspiral( errorList[i].trigger,
                                  midMatch );
      }
      isOverlap = XLALCompareInspiralsEllipsoid( &errorList[0], &errorList[1], workSpace,
-                                        &accuracyParams );
+                                        accuracyParams );
 
      for (i = 0; i < 2; i++ )
      {
@@ -524,7 +507,7 @@ REAL8 XLALEThincaParameterForInjection(
                     )
 {
 
-  const static char *func = "XLALEThincaParameterForInjection";
+  static const char *func = "XLALEThincaParameterForInjection";
 
   /* Trigger parameters */
   REAL8 fLower;
