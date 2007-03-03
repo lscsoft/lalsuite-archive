@@ -67,16 +67,18 @@ total_duration = 0
 # Filter input one line at a time
 #
 
+pattern = re.compile(r"\s*(?P<instrument>[^-]+)-(?P<type>[^-]+)-(?P<start>[^-]+)-(?P<duration>[^-\.]+)\.(?P<extension>.*)\s*")
+
 for line in input:
-	path, file = os.path.split(line)
-	file = file.strip()
+	path, file = os.path.split(line.strip())
 	try:
-		[instrument, type, start, duration, extension] = re.split("[.-]", file)
-	except ValueError:
+		match = pattern.match(file).groupdict()
+	except AttributeError:
+		# match() returned None, which has no groupdict() method
 		raise Exception, "Filename format not recognized"
-	print >>output, instrument[0], type, start, duration, "file://localhost" + os.path.abspath(os.path.join(path, file))
+	print >>output, match["instrument"][0], match["type"], match["start"], match["duration"], "file://localhost" + os.path.abspath(os.path.join(path, file))
 	path_count += 1
-	total_duration += int(duration)
+	total_duration += int(match["duration"])
 
 if options.verbose:
 	print >>sys.stderr, "number of paths: %d\ntotal duration: %d" % (path_count, total_duration)
