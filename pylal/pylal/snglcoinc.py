@@ -248,6 +248,12 @@ class EventList(list):
 		the list returned to be themselves mutually coincident in
 		any way (that might not even make sense, since each list
 		contains only events from a single instrument).
+
+		The threshold argument will be the thresholds appropriate
+		for "instrument_a, instrument_b", in that order, where
+		instrument_a is the instrument for event_a, and
+		instrument_b is the instrument for the events in this
+		EventList.
 		"""
 		raise NotImplementedError
 
@@ -386,7 +392,7 @@ def Level1Iterator(eventlists, comparefunc, instruments, thresholds):
 	shortest = lengths.index(length)
 	shortestlist = eventlists.pop(shortest)
 	shortestinst = instruments.pop(shortest)
-	thresholds = map(lambda inst: thresholds[(inst, shortestinst)], instruments)
+	thresholds = map(lambda inst: thresholds[(shortestinst, inst)], instruments)
 	for n, event in enumerate(shortestlist):
 		yield n, length, event, itertools.MultiIter(map(lambda eventlist, threshold: eventlist.get_coincs(event, threshold, comparefunc), eventlists, thresholds))
 
