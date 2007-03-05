@@ -4,6 +4,7 @@ from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from pylal.tools import XLALCalculateEThincaParameter
+import numpy
 
 def uniq(list):
   """
@@ -99,14 +100,32 @@ class coincInspiralTable:
     if not inspTriggers:
       return
 
-    # use the supplied method to convert these columns into numpy arrays
-    eventidlist = uniq(inspTriggers.get_column("event_id"))
-    for event_id in eventidlist: 
-      self.rows.append(self.row(event_id))
-    for trig in inspTriggers:
-      for coinc in self.rows:
-        if coinc.event_id == trig.event_id:
-          coinc.add_trig(trig,stat)
+    # sort the not-uniq list of event-ID's
+    eventidlistOrig=inspTriggers.get_column ("event_id")
+    eventidlistSortIndex=numpy.argsort( numpy.asarray(eventidlistOrig)  )
+
+    eventIDold=0
+    coinc=None
+    # loop through the indices
+    for index in eventidlistSortIndex:
+      eventID=eventidlistOrig[index]   # retrieve event_ID
+      trigger=inspTriggers[index]      # retrieve corresponding trigger
+      if eventID!=eventIDold:
+        # store the old one
+        if coinc:
+          self.rows.append( coinc )
+      
+        # insert new coincident event
+        coinc=self.row( eventID )
+        coinc.add_trig( trigger, stat )
+
+        eventIDold=eventID
+      else:
+        coinc.add_trig( trigger, stat )
+       
+    # store the last one as well
+    if coinc:
+      self.rows.append( coinc )
 
     # make sure that there are at least twos ifo in each coinc
     pruned_coincs = coincInspiralTable()
