@@ -1,0 +1,138 @@
+#!/usr/bin/python
+#
+# $Id$
+#
+# Copyright (C) 2006  Kipp C. Cannon
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 2 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+
+#
+# =============================================================================
+#
+#                                   Preamble
+#
+# =============================================================================
+#
+
+
+"""
+Translate int_8s sngl_inspiral event_id's to ilwd:char and vice-versa.
+"""
+
+
+from optparse import OptionParser
+import sys
+
+
+from glue.ligolw import table
+from glue.ligolw import lsctables
+from glue.ligolw import ilwd
+from glue.ligolw import utils
+
+
+__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__version__ = "$Revision$"[11:-2]
+__date__ = "$Date$"[7:-2]
+
+
+#
+# =============================================================================
+#
+#                                 Command Line
+#
+# =============================================================================
+#
+
+
+def parse_command_line():
+	parser = OptionParser(
+		version = "%prog CVS $Id$",
+		usage = "%prog --int-to-ilwd|--ilwd-to-int [options] [file [file ...]]",
+		description = "Converts the event_id column in a sngl_inspiral table from int_8s to ilwd:char and vice-versa.  Each file named on the command line is converted in place, or if no file names are given then input is read from stdin and written to stdout.  Files whose names end in \".gz\" are assumed to be gzip-compressed."
+	)
+	parser.add_option("--int-to-ilwd", action = "store_true", help = "Convert int_8s IDs to ilwd:char IDs.")
+	parser.add_option("--ilwd-to-int", action = "store_true", help = "Convert ilwd:char to int_8s IDs.")
+	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
+	options, filenames = parser.parse_args()
+
+	if not (options.int_to_ilwd ^ options.ilwd_to_int):
+		raise ValueError, "must set exactly one of --int-to-ilwd or --ilwd-to-int"
+	del options.ilwd_to_int
+
+	return options, (filenames or [None])
+
+
+#
+# =============================================================================
+#
+#                                    Input
+#
+# =============================================================================
+#
+
+
+def load_filename(filename, int_to_ilwd, verbose = False, gz = False):
+	# set the column type to prevent errors during parsing
+	if int_to_ilwd:
+		lsctables.SnglInspiralTable.validcolumns["event_id"] = "int_8s"
+	else:
+		lsctables.SnglInspiralTable.validcolumns["event_id"] = "ilwd:char"
+	return utils.load_filename(filename, verbose = verbose, gz = gz)
+
+
+#
+# =============================================================================
+#
+#                                  Translate
+#
+# =============================================================================
+#
+
+
+def int_to_ilwd(xmldoc):
+	sngl_inspiral = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+	ids = lsctables.SnglInspiralIDs()
+	for row in sngl_inspiral:
+		row.event_id = ids[row.event_id]
+	lsctables.SnglInspiralTable.validcolumns["event_id"] = "ilwd:char"
+	return xmldoc
+
+
+def ilwd_to_int(xmldoc):
+	sngl_inspiral = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+	for row in sngl_inspiral:
+		row.event_id = ilwd.ILWDID(row.event_id)
+	lsctables.SnglInspiralTable.validcolumns["event_id"] = "int_8s"
+	return xmldoc
+
+
+#
+# =============================================================================
+#
+#                                     Main
+#
+# =============================================================================
+#
+
+
+options, filenames = parse_command_line()
+
+
+for filename in filenames:
+	xmldoc = load_filename(filename, options.int_to_ilwd, verbose = options.verbose, gz = (filename or "stdin")[-3:] == ".gz")
+	if options.int_to_ilwd:
+		int_to_ilwd(xmldoc)
+	utils.write_filename(filename, verbose = options.verbose, gz = (filename or "stdout")[-3:] == ".gz")
