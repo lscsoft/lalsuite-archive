@@ -18,6 +18,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+
 #
 # =============================================================================
 #
@@ -25,6 +26,7 @@
 #
 # =============================================================================
 #
+
 
 import math
 from optparse import OptionParser
@@ -42,6 +44,7 @@ from pylal import rate
 from pylal import SnglBurstUtils
 from pylal import viz
 
+
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
@@ -54,6 +57,7 @@ __date__ = "$Date$"[7:-2]
 #
 # =============================================================================
 #
+
 
 def parse_command_line():
 	parser = OptionParser(version="%prog CVS $Id$")
@@ -86,17 +90,19 @@ options, filenames = parse_command_line()
 # =============================================================================
 #
 
+
 def snglburst_init(self, attrs):
 	table.Table.__init__(self, attrs)
 	self.nevents = {}
 	self.start_time = {}
 	self.duration = {}
 	self.peak_time = {}
-	self.central_freq = {}
+	self.peak_freq = {}
 	self.bandwidth = {}
 	self.lo_freq = {}
 	self.snr = {}
 	self.confidence = {}
+
 
 def snglburst_append(self, row):
 	if row.ifo not in self.nevents:
@@ -104,7 +110,7 @@ def snglburst_append(self, row):
 		self.start_time[row.ifo] = []
 		self.duration[row.ifo] = []
 		self.peak_time[row.ifo] = []
-		self.central_freq[row.ifo] = []
+		self.peak_freq[row.ifo] = []
 		self.bandwidth[row.ifo] = []
 		self.lo_freq[row.ifo] = []
 		self.snr[row.ifo] = []
@@ -113,13 +119,13 @@ def snglburst_append(self, row):
 	self.start_time[row.ifo].append(date.LIGOTimeGPS(row.start_time, row.start_time_ns))
 	self.duration[row.ifo].append(row.duration)
 	self.peak_time[row.ifo].append(date.LIGOTimeGPS(row.peak_time, row.peak_time_ns))
-	self.central_freq[row.ifo].append(row.central_freq)
+	self.peak_freq[row.ifo].append(row.peak_frequency)
 	self.bandwidth[row.ifo].append(row.bandwidth)
 	self.lo_freq[row.ifo].append(row.central_freq - row.bandwidth / 2.0)
 	self.snr[row.ifo].append(row.snr)
 	self.confidence[row.ifo].append(row.confidence)
 
-lsctables.SnglBurstTable.loadcolumns = ["ifo", "start_time", "start_time_ns", "duration", "central_freq", "bandwidth", "snr", "confidence", "peak_time", "peak_time_ns"]
+lsctables.SnglBurstTable.loadcolumns = ["ifo", "start_time", "start_time_ns", "duration", "central_freq", "bandwidth", "snr", "confidence", "peak_time", "peak_time_ns", "peak_frequency"]
 lsctables.SnglBurstTable.__init__ = snglburst_init
 lsctables.SnglBurstTable.append = snglburst_append
 
@@ -131,6 +137,7 @@ lsctables.SnglBurstTable.append = snglburst_append
 #
 # =============================================================================
 #
+
 
 class DocContents(object):
 	"""
@@ -153,7 +160,7 @@ class DocContents(object):
 		self.start_time = bursttable.start_time
 		self.duration = bursttable.duration
 		self.peak_time = bursttable.peak_time
-		self.central_freq = bursttable.central_freq
+		self.peak_freq = bursttable.peak_freq
 		self.bandwidth = bursttable.bandwidth
 		self.lo_freq = bursttable.lo_freq
 		self.snr = bursttable.snr
@@ -167,6 +174,7 @@ class DocContents(object):
 #
 # =============================================================================
 #
+
 
 class ConfidenceVsTime(SnglBurstUtils.BurstPlot):
 	def __init__(self, ifo):
@@ -193,14 +201,15 @@ class ConfidenceVsTime(SnglBurstUtils.BurstPlot):
 #
 # =============================================================================
 #
-#                       Confidence vs. Central Frequency
+#                        Confidence vs. Peak Frequency
 #
 # =============================================================================
 #
 
+
 class ConfidenceVsFrequencyScatter(SnglBurstUtils.BurstPlot):
 	def __init__(self, ifo):
-		SnglBurstUtils.BurstPlot.__init__(self, "Central Frequency (Hz)", "Confidence")
+		SnglBurstUtils.BurstPlot.__init__(self, "Peak Frequency (Hz)", "Confidence")
 		self.ifo = ifo
 		self.x = []
 		self.y = []
@@ -208,11 +217,11 @@ class ConfidenceVsFrequencyScatter(SnglBurstUtils.BurstPlot):
 
 	def add_contents(self, contents):
 		self.nevents += contents.nevents[self.ifo]
-		self.x.extend(contents.central_freq[self.ifo])
+		self.x.extend(contents.peak_freq[self.ifo])
 		self.y.extend(contents.confidence[self.ifo])
 
 	def finish(self):
-		self.axes.set_title("Trigger Confidence vs. Central Frequency\n(%d Triggers)" % self.nevents)
+		self.axes.set_title("Trigger Confidence vs. Peak Frequency\n(%d Triggers)" % self.nevents)
 		self.axes.plot(self.x, self.y, "k+")
 		self.axes.set_xlim([min(self.x), max(self.x)])
 
@@ -220,24 +229,25 @@ class ConfidenceVsFrequencyScatter(SnglBurstUtils.BurstPlot):
 #
 # =============================================================================
 #
-#                          Rate vs. Central Frequency
+#                           Rate vs. Peak Frequency
 #
 # =============================================================================
 #
 
-class RateVsCentralFreq(SnglBurstUtils.BurstPlot):
+
+class RateVsPeakFreq(SnglBurstUtils.BurstPlot):
 	def __init__(self, ifo, interval, width):
-		SnglBurstUtils.BurstPlot.__init__(self, "Central Frequency (Hz)", "Trigger Rate Spectral Density (triggers / s / Hz)")
+		SnglBurstUtils.BurstPlot.__init__(self, "Peak Frequency (Hz)", "Trigger Rate Spectral Density (triggers / s / Hz)")
 		self.ifo = ifo
 		self.rate = rate.Rate(interval, width)
 
 	def add_contents(self, contents):
 		self.nevents += contents.nevents[self.ifo]
-		for f in contents.central_freq[self.ifo]:
+		for f in contents.peak_freq[self.ifo]:
 			self.rate[f] = 1.0
 
 	def finish(self):
-		self.axes.set_title("Trigger Rate vs. Central Frequency\n(%d Triggers)" % self.nevents)
+		self.axes.set_title("Trigger Rate vs. Peak Frequency\n(%d Triggers)" % self.nevents)
 		xvals = self.rate.xvals()
 		self.axes.plot(xvals, self.rate.filtered(), "k")
 		self.axes.semilogy()
@@ -251,6 +261,7 @@ class RateVsCentralFreq(SnglBurstUtils.BurstPlot):
 #
 # =============================================================================
 #
+
 
 class Durations(SnglBurstUtils.BurstPlot):
 	def __init__(self, ifo):
@@ -281,6 +292,7 @@ class Durations(SnglBurstUtils.BurstPlot):
 # =============================================================================
 #
 
+
 class Delays(SnglBurstUtils.BurstPlot):
 	def __init__(self, ifo, width, max):
 		SnglBurstUtils.BurstPlot.__init__(self, "Delay (s)", "Count / Delay")
@@ -305,9 +317,10 @@ class Delays(SnglBurstUtils.BurstPlot):
 
 	def finish(self):
 		self.axes.set_title("Time Between Triggers\n(%d Triggers)" % self.nevents)
-		data = zip(self.data.iterkeys(), self.data.itervalues())
-		data.sort()
-		self.axes.plot([d[0] for d in data], [d[1] for d in data], "ko-")
+
+		#data = zip(self.data.iterkeys(), self.data.itervalues())
+		#data.sort()
+		#self.axes.plot([d[0] for d in data], [d[1] for d in data], "ko-")
 
 		max_delay = max(self.data.iterkeys())
 		bins = rate.Rate(segments.segment(0, max_delay + 2), self.width)
@@ -327,6 +340,7 @@ class Delays(SnglBurstUtils.BurstPlot):
 #
 # =============================================================================
 #
+
 
 class RateVsSNR(SnglBurstUtils.BurstPlot):
 	def __init__(self, ifo):
@@ -356,6 +370,7 @@ class RateVsSNR(SnglBurstUtils.BurstPlot):
 # =============================================================================
 #
 
+
 class RateVsConfidence(SnglBurstUtils.BurstPlot):
 	def __init__(self, ifo):
 		SnglBurstUtils.BurstPlot.__init__(self, "Confidence", "Trigger Rate (Hz)")
@@ -384,6 +399,7 @@ class RateVsConfidence(SnglBurstUtils.BurstPlot):
 # =============================================================================
 #
 
+
 class TimeFrequencyPlane(SnglBurstUtils.BurstPlot):
 	def __init__(self, ifo):
 		SnglBurstUtils.BurstPlot.__init__(self, "GPS Time (s)", "Frequency (Hz)")
@@ -409,11 +425,12 @@ class TimeFrequencyPlane(SnglBurstUtils.BurstPlot):
 # =============================================================================
 #
 
+
 def new_plots(ifo, plots):
 	l = [
-		RateVsCentralFreq(ifo, segments.segment(70, 2118), 5),
+		RateVsPeakFreq(ifo, segments.segment(70, 2118), 16),
 		Durations(ifo),
-		Delays(ifo, 0.125, 200),
+		Delays(ifo, 0.25, 200),
 		RateVsSNR(ifo),
 		RateVsConfidence(ifo),
 		ConfidenceVsTime(ifo),
@@ -448,7 +465,9 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 # =============================================================================
 #
 
+
 # delete the plots as we go to save memory
+
 for ifo in plots:
 	n = 0
 	format = "%%s%s_%%0%dd.%%s" % (ifo, int(math.log10(max(options.plot) or 1)) + 1)
