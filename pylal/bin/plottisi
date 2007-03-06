@@ -18,6 +18,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+
 #
 # =============================================================================
 #
@@ -26,17 +27,18 @@
 # =============================================================================
 #
 
+
 from optparse import OptionParser
 import matplotlib
 matplotlib.use("Agg")
 from matplotlib import figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 import sys
-import urllib
 
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
+
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
@@ -67,9 +69,7 @@ def parse_command_line():
 	if not options.x_instrument or not options.y_instrument:
 		raise ValueError, "must set instruments for x and y axes"
 
-	if not options.n_instruments:
-		options.n_instruments = 2
-	else:
+	if options.n_instruments:
 		try:
 			options.n_instruments = int(options.n_instruments)
 		except:
@@ -81,10 +81,34 @@ def parse_command_line():
 #
 # =============================================================================
 #
+#                           Time Slide Table Helper
+#
+# =============================================================================
+#
+
+
+def time_slide_append(self, row):
+	if row.time_slide_id not in self.dict:
+		self.dict[row.time_slide_id] = {}
+	self.dict[row.time_slide_id][row.instrument] = row.offset
+
+
+def time_slide__end_of_columns(self):
+	self.dict = {}
+
+
+lsctables.TimeSlideTable.append = time_slide_append
+lsctables.TimeSlideTable._end_of_columns = time_slide__end_of_columns
+
+
+#
+# =============================================================================
+#
 #                                     Plot
 #
 # =============================================================================
 #
+
 
 class Plot(object):
 	def __init__(self, doc, x_instrument, y_instrument, n):
@@ -99,10 +123,11 @@ class Plot(object):
 		self.axes.set_ylabel("%s Offset (s)" % y_instrument)
 
 		tisitable = table.get_table(doc, lsctables.TimeSlideTable.tableName)
-		max_offset = min_offset = tisitable[0].offset
-		for id in tisitable.dict:
-			offsets = tisitable.get_offset_dict(id)
-			if len(offsets) == n:
+		# grab an offset from one of the diciontaries of offsets in
+		# the time slide table.
+		max_offset = min_offset = tisitable.dict.itervalues().next().itervalues().next()
+		for offsets in tisitable.dict.itervalues():
+			if n is None or len(offsets) == n:
 				x = offsets[x_instrument]
 				y = offsets[y_instrument]
 				self.axes.plot((x,), (y,), "k+")
@@ -113,7 +138,10 @@ class Plot(object):
 		self.axes.set_xlim([min_offset, max_offset])
 		self.axes.set_ylim([min_offset, max_offset])
 
-		self.axes.set_title("%d %d-Instrument Time Slides" % (slides, n))
+		if n is not None:
+			self.axes.set_title("%d %d-Instrument Time Slides" % (slides, n))
+		else:
+			self.axes.set_title("%d Time Slides" % slides)
 
 
 #
@@ -131,6 +159,10 @@ options, filenames = parse_command_line()
 for filename in filenames:
 	xmldoc = utils.load_filename(filename, verbose = options.verbose, gz = (filename or "stdin")[-3:] == ".gz")
 
+	if options.verbose:
+		print >>sys.stderr, "plotting ..."
 	plot = Plot(xmldoc, options.x_instrument, options.y_instrument, options.n_instruments)
 
+	if options.verbose:
+		print >>sys.stderr, "writing %s ..." % options.output
 	plot.fig.savefig(options.output)
