@@ -242,16 +242,17 @@ def ExcessPowerCoincCompare(a, b, thresholds):
 
 	In the case of the peak times, the difference is taken as a
 	fraction of the average of the durations of the two events' most
-	significant contributing tile.  For the peak frequencies, the
-	difference is taken as a fraction of the average of the two events'
-	peak frequencies.  So, for example, dt = 0 means the peak times
-	must be exactly equal, while dt = 1 is roughtly equivalent to
+	significant contributing tile.  For example, dt = 0 means the peak
+	times must be exactly equal, while dt = 1 is roughtly equivalent to
 	requiring the events' most significant contributing tile's time
 	intervals to intersect, and dt -> \infty is equivalent to no
-	constraint.  On the other hand, df = 0 means the peak frequencies
-	must be identical, while df = 2 is equivalent to no constraint on
-	the peak frequencies (since the peak frequencies must be
-	non-negative).
+	constraint.
+
+	For the peak frequencies, the difference is taken as a fraction of
+	the average of the two events' peak frequencies.  Therefore, df = 0
+	means the peak frequencies must be identical, while df = 2 is
+	equivalent to no constraint on the peak frequencies (since the peak
+	frequencies must be non-negative).
 
 	For h_{rss}, the difference is taken as a fraction of the average
 	of the h_{rss} of the two events' most significant contributing
