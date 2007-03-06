@@ -16,6 +16,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+
 #
 # =============================================================================
 #
@@ -24,9 +25,11 @@
 # =============================================================================
 #
 
+
 """
-LIGO Light-Weight XML Coincidence Analysis Front End.
+LIGO Light-Weight XML coincidence analysis front end.
 """
+
 
 import bisect
 from math import log10
@@ -41,6 +44,7 @@ from pylal import llwapp
 from pylal import packing
 from pylal.date import LIGOTimeGPS
 
+
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __date__ = "$Date$"[7:-2]
 __version__ = "$Revision$"[11:-2]
@@ -53,6 +57,7 @@ __version__ = "$Revision$"[11:-2]
 #
 # =============================================================================
 #
+
 
 def load_cache(filename, verbose = False):
 	if verbose:
@@ -82,9 +87,12 @@ def get_time_slides(filename, verbose = False, gz = False):
 	objects.
 	"""
 	tisitable = table.get_table(utils.load_filename(filename, verbose = verbose, gz = gz), lsctables.TimeSlideTable.tableName)
+	slides = {}
 	for row in tisitable:
-		row.offset = LIGOTimeGPS(row.offset)
-	return map(tisitable.get_offset_dict, tisitable.dict.keys())
+		if row.time_slide_id not in slides:
+			slides[row.time_slide_id] = {}
+		slides[row.time_slide_id][row.instrument] = LIGOTimeGPS(row.offset)
+	return slides.values()
 
 
 #
@@ -94,6 +102,7 @@ def get_time_slides(filename, verbose = False, gz = False):
 #
 # =============================================================================
 #
+
 
 class LALCache(packing.Bin):
 	"""
@@ -186,6 +195,7 @@ class CafePacker(packing.Packer):
 # =============================================================================
 #
 
+
 def write_caches(base, bins, instruments, verbose = False):
 	filenames = []
 	if len(bins):
@@ -214,6 +224,7 @@ def write_single_instrument_caches(base, bins, instruments, verbose = False):
 #
 # =============================================================================
 #
+
 
 def ligolw_cafe(cache, time_slides, verbose = False):
 	# Construct a segment list dictionary from the cache
