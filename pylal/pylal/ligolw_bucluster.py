@@ -16,6 +16,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+
 #
 # =============================================================================
 #
@@ -24,11 +25,13 @@
 # =============================================================================
 #
 
+
 import sys
 
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from pylal import llwapp
+
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
@@ -135,8 +138,8 @@ def ExcessPowerPostFunc(sngl_burst_table, offset):
 def ExcessPowerBailoutFunc(a, b):
 	"""
 	Orders a and b by ifo, then by channel, then by time interval.
-	Returns 0 if a and b are from the same instrument and their time
-	intervals are not disjoint.
+	Returns 0 if a and b are from the same channel of the same
+	instrument and their time intervals are not disjoint.
 	"""
 	return cmp(a.ifo, b.ifo) or cmp(a.channel, b.channel) or llwapp.cmp_seg_intervals(a.get_period(), b.get_period())
 
@@ -144,10 +147,11 @@ def ExcessPowerBailoutFunc(a, b):
 def ExcessPowerTestFunc(a, b):
 	"""
 	Orders a and b by ifo, then by channel, then time interval, then by
-	frequency band.  Returns 0 if a and b are from the same instrument,
-	and their time-frequency tiles are not disjoint.
+	frequency band.  Returns 0 if a and b are from the same channel of
+	the same instrument, and their time-frequency tiles are not
+	disjoint.
 	"""
-	return cmp(a.ifo, b.ifo) or cmp (a.channel, b.channel) or llwapp.cmp_seg_intervals(a.get_period(), b.get_period()) or llwapp.cmp_seg_intervals(a.get_band(), b.get_band())
+	return cmp(a.ifo, b.ifo) or cmp(a.channel, b.channel) or llwapp.cmp_seg_intervals(a.get_period(), b.get_period()) or llwapp.cmp_seg_intervals(a.get_band(), b.get_band())
 
 
 def ExcessPowerClusterFunc(a, b):
