@@ -51,53 +51,31 @@ __date__ = "$Date$"[7:-2]
 # =============================================================================
 #
 
-parser = OptionParser(version="%prog CVS $Id$")
-parser.add_option("-o", "--output", metavar = "filename", help = "set output file name (required)")
-parser.add_option("-x", "--x-instrument", metavar = "instrument", help = "plot this instrument's offsets along the x axis")
-parser.add_option("-y", "--y-instrument", metavar = "instrument", help = "plot this instrument's offsets along the y axis")
-parser.add_option("-n", "--n-instruments", metavar = "number", help = "plot only time slides involving this many instruments")
-parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
-options, filenames = parser.parse_args()
-del parser
 
-if len(filenames) != 1:
-	print >>sys.stderr, "error: must specify exactly one input file"
-	sys.exit(1)
+def parse_command_line():
+	parser = OptionParser(version="%prog CVS $Id$")
+	parser.add_option("-o", "--output", metavar = "filename", help = "set output file name (required)")
+	parser.add_option("-x", "--x-instrument", metavar = "instrument", help = "plot this instrument's offsets along the x axis")
+	parser.add_option("-y", "--y-instrument", metavar = "instrument", help = "plot this instrument's offsets along the y axis")
+	parser.add_option("-n", "--n-instruments", metavar = "number", help = "plot only time slides involving this many instruments")
+	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
+	options, filenames = parser.parse_args()
 
-if not options.output:
-	print >>sys.stderr, "error: no output file specified"
-	sys.exit(1)
+	if not options.output:
+		raise ValueError, "no output file specified"
 
-if not options.x_instrument or not options.y_instrument:
-	print >>sys.stderr, "error: must set instruments for x and y axes"
-	sys.exit(1)
+	if not options.x_instrument or not options.y_instrument:
+		raise ValueError, "must set instruments for x and y axes"
 
-if not options.n_instruments:
-	options.n_instruments = 2
-else:
-	try:
-		options.n_instruments = int(options.n_instruments)
-	except:
-		print >>sys.stderr, "error: invalid --n"
-		sys.exit(1)
+	if not options.n_instruments:
+		options.n_instruments = 2
+	else:
+		try:
+			options.n_instruments = int(options.n_instruments)
+		except:
+			raise ValueError, "invalid --n"
 
-
-#
-# =============================================================================
-#
-#                                    Input
-#
-# =============================================================================
-#
-
-def element_filter(name, attrs):
-	return lsctables.IsTableProperties(lsctables.TimeSlideTable, name, attrs)
-
-class ContentHandler(ligolw.PartialLIGOLWContentHandler):
-	def __init__(self, doc):
-		ligolw.PartialLIGOLWContentHandler.__init__(self, doc, element_filter)
-
-utils.ContentHandler = ContentHandler
+	return options, (filenames or [None])
 
 
 #
@@ -141,20 +119,18 @@ class Plot(object):
 #
 # =============================================================================
 #
-#                                     Plot
+#                                     Main
 #
 # =============================================================================
 #
 
-plot = Plot(utils.load_filename(filenames[0], options.verbose), options.x_instrument, options.y_instrument, options.n_instruments)
+
+options, filenames = parse_command_line()
 
 
-#
-# =============================================================================
-#
-#                                    Output
-#
-# =============================================================================
-#
+for filename in filenames:
+	xmldoc = utils.load_filename(filename, verbose = options.verbose, gz = (filename or "stdin")[-3:] == ".gz")
 
-plot.fig.savefig(options.output, dpi=300)
+	plot = Plot(xmldoc, options.x_instrument, options.y_instrument, options.n_instruments)
+
+	plot.fig.savefig(options.output)
