@@ -1859,8 +1859,40 @@ for(i=0;i<d_free;i++) {
 fclose(fout);
 }
 
+void fake_dataset_test(void)
+{
+DATASET ds;
+long int old_fill_seed=fill_seed;
+int old_fake_injection=fake_injection;
+int pass=1;
+
+memset(&ds, 0, sizeof(ds));
+init_dataset(&ds);
+ds.name="internal_test";
+ds.detector="LHO";
+ds.coherence_time=1800.0;
+
+fill_seed=0;
+gaussian_fill(&ds, 793161250, 900, 1000, 1e-24*ds.coherence_time*16384.0);
+fill_seed=old_fill_seed;
+CHECKPOINT
+fake_injection=0;
+validate_dataset(&ds);
+fake_injection=old_fake_injection;
+if(fabs(ds.TMedian-7.08164)>1e-5) {
+	fprintf(stderr, "ERROR test TMedian has unexpected value: %g\n", ds.TMedian); 
+	fprintf(LOG, "ERROR test TMedian has unexpected value: %g\n", ds.TMedian); 
+	pass=0;
+	}
+if(!pass)exit(-1);
+}
+
 void test_datasets(void)
 {
 test_inject_fake_signal();
 test_compute_median();
+
+if(args_info.extended_test_arg) {
+	fake_dataset_test();
+	}
 }

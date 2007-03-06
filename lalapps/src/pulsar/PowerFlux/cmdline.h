@@ -238,6 +238,9 @@ struct gengetopt_args_info
   int output_optimized_arg;	/* write optimized (second pass) candidates into log file (default='0').  */
   char * output_optimized_orig;	/* write optimized (second pass) candidates into log file original value given at command line.  */
   const char *output_optimized_help; /* write optimized (second pass) candidates into log file help description.  */
+  int extended_test_arg;	/* Perform extended self test (default='0').  */
+  char * extended_test_orig;	/* Perform extended self test original value given at command line.  */
+  const char *extended_test_help; /* Perform extended self test help description.  */
   
   int help_given ;	/* Whether help was given.  */
   int version_given ;	/* Whether version was given.  */
@@ -313,6 +316,7 @@ struct gengetopt_args_info
   int min_candidate_snr_given ;	/* Whether min-candidate-snr was given.  */
   int output_initial_given ;	/* Whether output-initial was given.  */
   int output_optimized_given ;	/* Whether output-optimized was given.  */
+  int extended_test_given ;	/* Whether extended-test was given.  */
 
   int injection_group_counter; /* counter for group injection */
 } ;

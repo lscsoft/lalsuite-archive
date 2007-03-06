@@ -91,3 +91,5 @@ option "min-candidate-snr" - "Do not optimize candidates with SNR below this lev
 option "output-initial" - "write initial candidates into log file" int default="0" no
 option "output-optimized" - "write optimized (second pass) candidates into log file" int default="0" no
 
+option "extended-test" - "Perform extended self test" int default="0" no
+
