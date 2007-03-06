@@ -84,13 +84,16 @@ def get_time_slides(filename, verbose = False, gz = False):
 	the glue.ligolw.utils.load_filename() function.  Raises ValueError
 	if the document does not contain exactly 1 time slide table, or if
 	one or more offsets in the table cannot be expressed as LIGOTimeGPS
-	objects.
+	objects.  Raises KeyError if a time slide lists the same instrument
+	more than once.
 	"""
 	tisitable = table.get_table(utils.load_filename(filename, verbose = verbose, gz = gz), lsctables.TimeSlideTable.tableName)
 	slides = {}
 	for row in tisitable:
 		if row.time_slide_id not in slides:
 			slides[row.time_slide_id] = {}
+		if row.instrument in slides[row.time_slide_id]:
+			raise KeyError, "repeated instruments in %s" % row.time_slide_id
 		slides[row.time_slide_id][row.instrument] = LIGOTimeGPS(row.offset)
 	return slides.values()
 
