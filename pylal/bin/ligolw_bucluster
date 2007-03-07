@@ -95,6 +95,7 @@ options, filenames = parse_command_line()
 for filename in filenames:
 	xmldoc = utils.load_filename(filename, options.verbose, gz = (filename or "stdin")[-3:] == ".gz")
 	ligolw_bucluster.add_ms_columns(xmldoc)
-	ligolw_bucluster.ligolw_bucluster(xmldoc, **options.__dict__)
-	utils.write_filename(xmldoc, filename, options.verbose, gz = (filename or "stdout")[-3:] == ".gz")
+	xmldoc, changed = ligolw_bucluster.ligolw_bucluster(xmldoc, **options.__dict__)
+	if changed:
+		utils.write_filename(xmldoc, filename, options.verbose, gz = (filename or "stdout")[-3:] == ".gz")
 	xmldoc.unlink()

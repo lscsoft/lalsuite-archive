@@ -289,6 +289,14 @@ def ClusterSnglBurstTable(sngl_burst_table, testfunc, clusterfunc, bailoutfunc =
 
 
 def ligolw_bucluster(doc, **kwargs):
+	"""
+	Run the clustering algorithm on the list of burst candidates.  The
+	return value is the tuple (doc, changed), where doc is the input
+	document, and changed is a boolean that is True if the contents of
+	the sngl_burst table were altered, and False if the triggers were
+	not modified by the clustering process.
+	"""
+
 	#
 	# Extract live time segment and sngl_burst table
 	#
@@ -316,7 +324,12 @@ def ligolw_bucluster(doc, **kwargs):
 
 	if kwargs["verbose"]:
 		print >>sys.stderr, "clustering ..."
+
+	length_before = len(sngl_burst_table)
+
 	ClusterSnglBurstTable(sngl_burst_table, kwargs["testfunc"], kwargs["clusterfunc"], kwargs["bailoutfunc"])
+
+	length_after = len(sngl_burst_table)
 
 	#
 	# Postprocess candidates
@@ -338,4 +351,8 @@ def ligolw_bucluster(doc, **kwargs):
 
 	llwapp.set_process_end_time(process)
 
-	return doc
+	#
+	# Done
+	#
+
+	return doc, (length_after != length_before)
