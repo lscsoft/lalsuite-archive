@@ -16,12 +16,6 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-"""
-This module is a wrapper of the xlal.date module, supplementing the C code
-in that module with additional features that are more easily implemented in
-Python.  It is recommended that you import this module rather than
-importing xlal.date directly.
-"""
 
 #
 # =============================================================================
@@ -31,14 +25,24 @@ importing xlal.date directly.
 # =============================================================================
 #
 
-__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
-__date__ = "$Date$"[7:-2]
-__version__ = "$Revision$"[11:-2]
+
+"""
+This module is a wrapper of the xlal.date module, supplementing the C code
+in that module with additional features that are more easily implemented in
+Python.  It is recommended that you import this module rather than
+importing xlal.date directly.
+"""
+
 
 import math
 
 from glue import segments
 from xlal.date import *
+
+
+__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__date__ = "$Date$"[7:-2]
+__version__ = "$Revision$"[11:-2]
 
 
 #
@@ -49,11 +53,14 @@ from xlal.date import *
 # =============================================================================
 #
 
+
 def XLALGreenwichMeanSiderealTime(gps):
 	return XLALGreenwichSiderealTime(gps, 0.0)
 
+
 def XLALGreenwichSiderealTimeToGPS(gmst, equation_of_equinoxes):
 	return XLALGreenwichMeanSiderealTimeToGPS(gmst) - equation_of_equinoxes
+
 
 def XLALTimeDelayFromEarthCenter(pos, ra, dec, gps):
 	return XLALArrivalTimeDiff(pos, [0.0, 0.0, 0.0], ra, dec, gps)
@@ -66,6 +73,7 @@ def XLALTimeDelayFromEarthCenter(pos, ra, dec, gps):
 #
 # =============================================================================
 #
+
 
 def utc_midnight(gps):
 	"""
@@ -127,14 +135,23 @@ def GMST_0hs(start, end):
 # =============================================================================
 #
 
+
 def gmst_days(gps_start, gps_stop):
 	"""
 	Generates a segmentlist whose segments are the Greenwich Mean
 	Sidereal days spanning the given range of GPS times.  Input and
 	output times are all GPS seconds.
 	"""
+	# construct an iterator for computing sequential 0h GMST in
+	# LIGOTimeGPS
 	gmst_0hs = GMST_0hs(gmst_0h(gps_start), gps_stop + 86402)
+
+	# initialize a segmentlist with the first sidereal day
 	l = segments.segmentlist([segments.segment(gmst_0hs.next(), gmst_0hs.next())])
+
+	# append each subsequent sideral day as another segment
 	while l[-1][1] < gps_stop:
 		l.append(segments.segment(l[-1][1], gmst_0hs.next()))
+
+	# done
 	return l
