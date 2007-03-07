@@ -18,6 +18,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+
 #
 # =============================================================================
 #
@@ -25,6 +26,7 @@
 #
 # =============================================================================
 #
+
 
 from optparse import OptionParser
 import math
@@ -35,13 +37,20 @@ from pysqlite2 import dbapi2 as sqlite3
 import sys
 
 from glue import segments
-from glue.ligolw import table
 from glue.ligolw import dbtables
 from glue.ligolw import utils
 from pylal import rate
 from pylal import SnglBurstUtils
 from pylal import date
 from pylal.xlal import inject
+
+
+inject.cached_detector.update({
+	"H1": inject.cached_detector["LHO_4k"],
+	"H2": inject.cached_detector["LHO_2k"],
+	"L1": inject.cached_detector["LLO_4k"]
+})
+
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
@@ -55,6 +64,7 @@ __date__ = "$Date$"[7:-2]
 #
 # =============================================================================
 #
+
 
 def parse_command_line():
 	parser = OptionParser(version="%prog CVS $Id$")
@@ -84,6 +94,16 @@ def parse_command_line():
 # =============================================================================
 #
 
+
+def time_slides_extent(offsets):
+	min_offset = max_offset = offsets[0].itervalues().next()
+	for d in offsets:
+		for offset in d.itervalues():
+			min_offset = min(min_offset, offset)
+			max_offset = max(max_offset, offset)
+	return min_offset, max_offset
+
+
 def time_slide_is_null(offsets):
 	for offset in offsets.itervalues():
 		if offset != 0:
@@ -92,26 +112,62 @@ def time_slide_is_null(offsets):
 
 
 class RateContours(SnglBurstUtils.BurstPlot):
-	def __init__(self, x_instrument, y_instrument, min_delta_t, max_delta_t):
+	def __init__(self, x_instrument, y_instrument):
 		SnglBurstUtils.BurstPlot.__init__(self, "%s Offset (s)" % x_instrument, "%s Offset (s)" % y_instrument)
 		self.fig.set_size_inches(6,6)
 		self.x_instrument = x_instrument
 		self.y_instrument = y_instrument
 		self.tisi_rows = None
-		self.seglists = None
-		self.bins = rate.BinnedRatios(rate.Bins(min_delta_t, max_delta_t, 81, min_delta_t, max_delta_t, 81))
+		self.seglists = segments.segmentlistdict()
+		self.bins = None
 
 	def add_contents(self, contents):
-		if self.tisi_rows == None:
-			self.tisi_rows = [contents.time_slide_table[id] for id in contents.time_slide_table]
-		if self.seglists == None:
-			self.seglists = contents.seglists
-		else:
-			for instrument, seglist in contents.seglists.iteritems():
-				self.seglists[instrument] |= seglist
-		for coinc in contents.coinc_select_by_def_id(contents.bb_definer_id):
-			offsets = coinc.get_time_slide()
-			self.bins.incnumerator((offsets[self.x_instrument], offsets[self.y_instrument]))
+		if self.tisi_rows is None:
+			# get a list of time slide dictionaries
+			self.tisi_rows = SnglBurstUtils.db_get_time_slides(connection).values()
+
+			# find the largest and smallest offsets
+			min_offset, max_offset = time_slides_extent(self.tisi_rows)
+
+			# a guess at the time slide spacing:  works if the
+			# time slides are distributed as a square grid over
+			# the plot area.  (max - min)^2 gives the area of
+			# the time slide square in square seconds; dividing
+			# by the length of the time slide list gives the
+			# average area per time slide;  taking the square
+			# root of that gives the average distance between
+			# adjacent time slides in seconds
+			time_slide_spacing = ((max_offset - min_offset)**2 / len(self.tisi_rows))**0.5
+
+			# use an average of 3 bins per time slide in each
+			# direction, but round to an odd integer
+			nbins = (max_offset - min_offset) / time_slide_spacing * 3
+			nbins = int(nbins / 2) * 2 + 1
+
+			# construct the binning
+			self.bins = rate.BinnedRatios(rate.Bins(min_offset, max_offset, nbins, min_offset, max_offset, nbins))
+
+		self.seglists |= contents.seglists
+
+		for x_offset, y_offset in connection.cursor().execute("""
+SELECT tx.offset, ty.offset FROM
+	coinc_event
+	JOIN time_slide AS tx ON (
+		tx.time_slide_id == coinc_event.time_slide_id
+	)
+	JOIN time_slide AS ty ON (
+		ty.time_slide_id == coinc_event.time_slide_id
+	)
+WHERE
+	coinc_event.coinc_def_id == ?
+	AND tx.instrument == ?
+	AND ty.instrument == ?
+		""", (contents.bb_definer_id, self.x_instrument, self.y_instrument)):
+			try:
+				self.bins.incnumerator((x_offset, y_offset))
+			except IndexError:
+				# beyond plot boundaries
+				pass
 
 	def finish(self):
 		for offsets in self.tisi_rows:
@@ -119,7 +175,7 @@ class RateContours(SnglBurstUtils.BurstPlot):
 			self.bins.incdenominator((offsets[self.x_instrument], offsets[self.y_instrument]), float(abs(self.seglists.intersection(self.seglists.keys()))))
 		self.bins.logregularize()
 		zvals = self.bins.ratio()
-		rate.filter_array(zvals, rate.gaussian_window2d(8, 8))
+		rate.filter_array(zvals, rate.gaussian_window2d(3, 3))
 		xcoords, ycoords = self.bins.centres()
 		self.axes.contour(xcoords, ycoords, numpy.transpose(numpy.log(zvals)))
 		for offsets in self.tisi_rows:
@@ -143,7 +199,7 @@ class RateContours(SnglBurstUtils.BurstPlot):
 
 
 def magnitude_a(burst):
-	return burst.confidence
+	return burst.ms_hrss
 
 
 def magnitude_b(burst):
@@ -151,33 +207,7 @@ def magnitude_b(burst):
 	ra, dec = 2.0318570464121519, -0.50628171572274738
 	gmst = date.XLALGreenwichMeanSiderealTime(date.LIGOTimeGPS(burst.peak_time, burst.peak_time_ns))
 	fplus, fcross = inject.XLALComputeDetAMResponse(inject.cached_detector[burst.ifo].response, ra, dec, 0.0, gmst)
-	# power_per_dof = burst.snr / (2.0 * burst.tfvolume) + 1.0
-	power_per_dof = (burst.snr + 2.0 * burst.tfvolume) / (2.0 * burst.bandwidth * burst.duration)
-	return power_per_dof / (fplus**2.0 + fcross**2.0)
-
-
-from pylal import itertools
-
-def keep_1(coinc_bursts):
-	# events are coincident iff their time-frequency tiles touch or
-	# intersect
-	return True
-
-def keep_2(coinc_bursts):
-	# events are coincident iff one time-frequency tile's centre
-	# frequency and peak time are covered by the other time-frequency tile.
-	for [a, b] in itertools.choices(coinc_bursts, 2):
-		if a.get_peak() not in b.get_period() or b.get_peak() not in a.get_period() or a.central_freq not in b.get_band() or b.central_freq not in a.get_band():
-			return False
-	return True
-
-def keep_3(coinc_bursts):
-	# events are coincident iff their peak time and centre frequencies
-	# equal
-	for [a, b] in itertools.choices(coinc_bursts, 2):
-		if a.get_peak() != b.get_peak() or a.central_freq != b.central_freq:
-			return False
-	return True
+	return (burst.ms_hrss**2.0 / (fplus**2.0 + fcross**2.0))**0.5
 
 
 class ConfidenceContours(SnglBurstUtils.BurstPlot):
@@ -213,8 +243,6 @@ class ConfidenceContours(SnglBurstUtils.BurstPlot):
 			# looking for
 			return
 		for coinc in contents.coinc_select_by_def_id(contents.bb_definer_id):
-			#if not keep_3(contents.coinc_sngl_bursts(coinc)):
-			#	continue
 			if coinc.is_zero_lag():
 				self.n_foreground += 1
 				x, y = self.coords(contents.coinc_sngl_bursts(coinc))
@@ -319,8 +347,6 @@ class ConfidenceContourProjection(SnglBurstUtils.BurstPlot):
 	def add_contents(self, contents):
 		for coinc in contents.coinc_select_by_def_id(contents.bb_definer_id):
 			bursts = contents.coinc_sngl_bursts(coinc)
-			#if not keep_3(bursts):
-			#	continue
 			x, y = self.coords(bursts)
 			if coinc.is_zero_lag():
 				self.n_foreground += 1
@@ -398,6 +424,7 @@ class ConfidenceContourProjection(SnglBurstUtils.BurstPlot):
 # =============================================================================
 #
 
+
 class RateVsConfidence(SnglBurstUtils.BurstPlot):
 	def __init__(self, instrument):
 		SnglBurstUtils.BurstPlot.__init__(self, "%s Confidence" % instrument, "Coincident Event Rate (Hz)")
@@ -440,6 +467,7 @@ class RateVsConfidence(SnglBurstUtils.BurstPlot):
 #
 # =============================================================================
 #
+
 
 class DeltaTHistogram(SnglBurstUtils.BurstPlot):
 	def __init__(self, instrument, interval, width):
@@ -490,17 +518,12 @@ class DeltaTHistogram(SnglBurstUtils.BurstPlot):
 # =============================================================================
 #
 
-inject.cached_detector.update({
-	"H1": inject.cached_detector["LHO_4k"],
-	"H2": inject.cached_detector["LHO_2k"],
-	"L1": inject.cached_detector["LLO_4k"]
-})
 
 def new_plots(plots):
 	deltat_seg = segments.segment(-0.3, +0.3)
 	deltat_width = 0.03125
 	l = [
-		RateContours("H2", "H1", -100, +100),
+		RateContours("H2", "H1"),
 		ConfidenceContours("H2", "H1", magnitude_a, "Confidence", 1, 10**10),
 		ConfidenceContours("H2", "L1", magnitude_a, "Confidence", 1, 10**10),
 		ConfidenceContours("L1", "H1", magnitude_a, "Confidence", 1, 10**10),
@@ -514,29 +537,31 @@ def new_plots(plots):
 		DeltaTHistogram("H1", deltat_seg, deltat_width),
 		DeltaTHistogram("H2", deltat_seg, deltat_width),
 		DeltaTHistogram("L1", deltat_seg, deltat_width),
-		#ConfidenceContours(r"H1_DARM_ERR", r"H1_STRAIN", magnitude_a, "Confidence", 35, 10**10),
-		#ConfidenceContours(r"H2_DARM_ERR", r"H2_STRAIN", magnitude_a, "Confidence", 35, 10**10),
-		#ConfidenceContours(r"L1_DARM_ERR", r"L1_STRAIN", magnitude_a, "Confidence", 35, 10**10)
 	]
 	return [l[i] for i in plots]
 
+
 options, filenames = parse_command_line()
 
+
 plots = new_plots(options.plot)
+
 
 for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose, reverse = True)[options.skip:]):
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames) - options.skip),
-	database = SnglBurstUtils.CoincDatabase(sqlite3.connect(":memory:"))
-	#database = SnglBurstUtils.CoincDatabase(sqlite3.connect("database.sqlite"))
-	xmldoc = utils.load_filename(filename, options.verbose, gz = filename[-3:] == ".gz")
-	database.summarize(xmldoc, options.live_time_program, options.verbose)
+
+	connection = sqlite3.connect(filename)
+	dbtables.DBTable_set_connection(connection)
+	database = SnglBurstUtils.CoincDatabase()
+	database.summarize(dbtables.DBTable_get_xml(), options.live_time_program, options.verbose)
+
 	for n, plot in zip(options.plot, plots):
 		if options.verbose:
 			print >>sys.stderr, "adding to burca plot %d..." % n
 		plot.add_contents(database)
-	xmldoc.unlink()
-	#os.remove("database.sqlite")
+
+	connection.close()
 
 
 # delete the plots as we go to save memory
@@ -552,5 +577,6 @@ while len(plots):
 	plots[0].fig.savefig(filename)
 	del plots[0]
 	n += 1
+
 if options.verbose:
 	print >>sys.stderr, "done."
