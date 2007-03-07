@@ -63,9 +63,9 @@ def parse_command_line():
 		usage = "%prog --int-to-ilwd|--ilwd-to-int [options] [file [file ...]]",
 		description = "Converts the event_id column in a sngl_inspiral table from int_8s to ilwd:char and vice-versa.  Each file named on the command line is converted in place, or if no file names are given then input is read from stdin and written to stdout.  Files whose names end in \".gz\" are assumed to be gzip-compressed."
 	)
-	parser.add_option("--int-to-ilwd", action = "store_true", help = "Convert int_8s IDs to ilwd:char IDs.")
-	parser.add_option("--ilwd-to-int", action = "store_true", help = "Convert ilwd:char to int_8s IDs.")
-	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
+	parser.add_option("--int-to-ilwd", action = "store_true", default = False, help = "Convert int_8s IDs to ilwd:char IDs.")
+	parser.add_option("--ilwd-to-int", action = "store_true", default = False, help = "Convert ilwd:char to int_8s IDs.")
+	parser.add_option("-v", "--verbose", action = "store_true", default = False, help = "be verbose")
 	options, filenames = parser.parse_args()
 
 	if not (options.int_to_ilwd ^ options.ilwd_to_int):
@@ -135,4 +135,4 @@ for filename in filenames:
 	xmldoc = load_filename(filename, options.int_to_ilwd, verbose = options.verbose, gz = (filename or "stdin")[-3:] == ".gz")
 	if options.int_to_ilwd:
 		int_to_ilwd(xmldoc)
-	utils.write_filename(filename, verbose = options.verbose, gz = (filename or "stdout")[-3:] == ".gz")
+	utils.write_filename(xmldoc, filename, verbose = options.verbose, gz = (filename or "stdout")[-3:] == ".gz")
