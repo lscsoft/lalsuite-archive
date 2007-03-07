@@ -31,6 +31,7 @@
 from optparse import OptionParser
 import sys
 
+from glue.lal import CacheEntry
 from glue.ligolw import utils
 from pylal import ligolw_bucluster
 
@@ -49,15 +50,24 @@ __date__ = "$Date$"[7:-2]
 
 
 def parse_command_line():
-	parser = OptionParser(version = "%prog CVS $Id$")
-	parser.add_option("--comment", metavar = "text", default = "", help = "set comment string in process table")
-	parser.add_option("-c", "--cluster-algorithm", metavar = "[excesspower]", help = "set clustering method (required)")
-	parser.add_option("-p", "--program", metavar = "name", default = "lalapps_power", help = "set the name of the program that generated the events as it appears in the process table (default = lalapps_power)")
-	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
+	parser = OptionParser(
+		version = "%prog CVS $Id$",
+		usage = "%prog [options] [file [file ...]]",
+		description = "Run a single-instrument burst clustering algorithm on the sngl_burst events contained in LIGO Light Weight XML files.  Files can be listed on the command line and/or in one or more LAL cache files.  If no files are named, then input is read from stdin and written to stdout.  Any file whose name ends in \".gz\" is assumed to be gzip-compressed."
+	)
+	parser.add_option("--comment", metavar = "text", default = "", help = "Set the comment string to be recorded in the process table (default = \"\").")
+	parser.add_option("-c", "--cluster-algorithm", metavar = "[excesspower]", help = "Set clustering method (required).")
+	parser.add_option("-i", "--input-cache", metavar = "filename", action = "append", default = [], help = "Process the files listed in this LAL cache.")
+	parser.add_option("-p", "--program", metavar = "name", default = "lalapps_power", help = "Set the name of the program that generated the events as it appears in the process table (default = lalapps_power).")
+	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
 
 	if options.cluster_algorithm is None:
 		raise Exception, "missing required command line argument --cluster"
+
+	for cache in options.input_cache:
+		filenames += [c.path() for c in map(CacheEntry, file(cache))]
+
 	if options.cluster_algorithm == "excesspower":
 		options.prefunc = ligolw_bucluster.ExcessPowerPreFunc
 		options.postfunc = ligolw_bucluster.ExcessPowerPostFunc
