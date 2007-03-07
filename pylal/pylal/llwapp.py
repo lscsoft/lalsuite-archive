@@ -62,10 +62,10 @@ __date__ = "$Date$"[7:-2]
 def segmentlistdict_fromsearchsummary(xmldoc, program = None):
 	"""
 	Convenience wrapper for a common case usage of the segmentlistdict
-	class: searches the process table in xmldoc for occurances of a
+	class:  searches the process table in xmldoc for occurances of a
 	program named program, then scans the search summary table for
 	matching process IDs and constructs a segmentlistdict object from
-	those rows.
+	the out segments in those rows.
 	"""
 	stbl = table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName)
 	ptbl = table.get_table(xmldoc, lsctables.ProcessTable.tableName)
