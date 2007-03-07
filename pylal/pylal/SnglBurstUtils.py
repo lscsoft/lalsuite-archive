@@ -89,6 +89,20 @@ class Coinc(lsctables.Coinc):
 		return not CoincTable.connection.cursor().execute("SELECT EXISTS (SELECT * FROM time_slide WHERE time_slide_id == ? AND offset != 0.0)", (self.time_slide_id,)).fetchone()[0]
 
 
+def db_get_time_slides(connection):
+	"""
+	Translate the contents of the time_slide table in the database at
+	the given connection into a dictionary mapping time_slide_id to
+	dictionaryies of instrument->offset mappings.
+	"""
+	offsets = {}
+	for id, in connection.cursor().execute("SELECT DISTINCT time_slide_id FROM time_slide"):
+		offsets[id] = {}
+		for instrument, offset in connection.cursor().execute("SELECT instrument, offset FROM time_slide WHERE time_slide_id == ?", (id,)):
+			offsets[id][instrument] = offset
+	return offsets
+
+
 class CoincDatabase(object):
 	def __init__(self):
 		from glue.ligolw import dbtables
