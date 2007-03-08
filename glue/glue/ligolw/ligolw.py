@@ -223,7 +223,11 @@ class Element(object):
 		return self.attributes[attrname]
 
 	def setAttribute(self, attrname, value):
-		self.attributes[attrname] = str(value)
+		# cafeful:  this digs inside an AttributesImpl object and
+		# modifies its internal data.  probably not a good idea,
+		# but I don't know how else to edit an attribute because
+		# the stupid things don't export a method to do it.
+		self.attributes._attrs[attrname] = str(value)
 
 	def appendData(self, content):
 		"""
