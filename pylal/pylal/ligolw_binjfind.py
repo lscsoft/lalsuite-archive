@@ -202,7 +202,7 @@ def append_process(xmldoc, **kwargs):
 #
 
 
-def CompareByTime(sim, burst):
+def StringCuspCompare(sim, burst):
 	"""
 	Return False if the peak time of the injection sim lies within the
 	time interval of burst.
@@ -213,12 +213,12 @@ def CompareByTime(sim, burst):
 		return sim.get_peak(burst.ifo) not in burst.get_period()
 
 
-def CompareByTimeandFreq(sim, burst):
+def ExcessPowerCompare(sim, burst):
 	"""
 	Return False if the peak time and centre frequency of sim lie
 	within the time-frequency tile of burst.
 	"""
-	return CompareByTime(sim, burst) or (sim.freq not in burst.get_band())
+	return StringCuspCompare(sim, burst) or (sim.freq not in burst.get_band())
 
 
 #
