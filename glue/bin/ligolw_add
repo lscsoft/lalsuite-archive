@@ -158,6 +158,7 @@ options, urls = parse_command_line()
 if options.mangle_sngl_inspiral_ids:
 	print >>sys.stderr, "WARNING: sngl_inspiral event_id mangling enabled!"
 	lsctables.SnglInspiralTable.ids = lsctables.SnglInspiralIDs()
+	lsctables.SnglInspiralTable.validcolumns["event_id"] = "ilwd:char"
 
 
 #
