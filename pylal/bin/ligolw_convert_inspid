@@ -108,6 +108,9 @@ def int_to_ilwd(xmldoc):
 	for row in sngl_inspiral:
 		row.event_id = ids[row.event_id]
 	lsctables.SnglInspiralTable.validcolumns["event_id"] = "ilwd:char"
+	event_id = sngl_inspiral.getColumnByName("event_id")
+	event_id.setAttribute("Type", "ilwd:char")
+	sngl_inspiral._update_column_info()
 	return xmldoc
 
 
@@ -116,6 +119,9 @@ def ilwd_to_int(xmldoc):
 	for row in sngl_inspiral:
 		row.event_id = ilwd.ILWDID(row.event_id)
 	lsctables.SnglInspiralTable.validcolumns["event_id"] = "int_8s"
+	event_id = sngl_inspiral.getColumnByName("event_id")
+	event_id.setAttribute("Type", "int_8s")
+	sngl_inspiral._update_column_info()
 	return xmldoc
 
 
