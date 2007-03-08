@@ -142,5 +142,5 @@ for filename in filenames:
 	if options.int_to_ilwd:
 		int_to_ilwd(xmldoc)
 	else:
-	  ilwd_to_int(xmldoc)
+		ilwd_to_int(xmldoc)
 	utils.write_filename(xmldoc, filename, verbose = options.verbose, gz = (filename or "stdout")[-3:] == ".gz")
