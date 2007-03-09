@@ -249,8 +249,12 @@ def ClusterSnglBurstTable(sngl_burst_table, testfunc, clusterfunc, bailoutfunc =
 	"greater" than the second, <0 if the first is "less" than the
 	second, and 0 if the order does not matter (like a subtraction
 	operator).
+
+	The return value is True if the sngl_burst table was modified, and
+	False if it was not.
 	"""
 	# enter loop
+	table_changed = False
 	did_cluster = True
 	while did_cluster:
 		did_cluster = False
@@ -276,7 +280,8 @@ def ClusterSnglBurstTable(sngl_burst_table, testfunc, clusterfunc, bailoutfunc =
 			for j in xrange(end - 1, i, -1):
 				if not testfunc(sngl_burst_table[i], sngl_burst_table[j]):
 					clusterfunc(sngl_burst_table[i], sngl_burst_table.pop(j))
-					did_cluster = True
+					table_changed = did_cluster = True
+	return table_changed
 
 
 #
@@ -325,11 +330,7 @@ def ligolw_bucluster(doc, **kwargs):
 	if kwargs["verbose"]:
 		print >>sys.stderr, "clustering ..."
 
-	length_before = len(sngl_burst_table)
-
-	ClusterSnglBurstTable(sngl_burst_table, kwargs["testfunc"], kwargs["clusterfunc"], kwargs["bailoutfunc"])
-
-	length_after = len(sngl_burst_table)
+	table_changed = ClusterSnglBurstTable(sngl_burst_table, kwargs["testfunc"], kwargs["clusterfunc"], kwargs["bailoutfunc"])
 
 	#
 	# Postprocess candidates
@@ -355,4 +356,4 @@ def ligolw_bucluster(doc, **kwargs):
 	# Done
 	#
 
-	return doc, (length_after != length_before)
+	return doc, table_changed
