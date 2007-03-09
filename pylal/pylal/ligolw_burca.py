@@ -243,16 +243,20 @@ def ExcessPowerCoincCompare(a, b, thresholds):
 	In the case of the peak times, the difference is taken as a
 	fraction of the average of the durations of the two events' most
 	significant contributing tile.  For example, dt = 0 means the peak
-	times must be exactly equal, while dt = 1 is roughtly equivalent to
+	times must be exactly equal, while dt = 1 is roughly equivalent to
 	requiring the events' most significant contributing tile's time
 	intervals to intersect, and dt -> \infty is equivalent to no
 	constraint.
 
 	For the peak frequencies, the difference is taken as a fraction of
-	the average of the two events' peak frequencies.  Therefore, df = 0
-	means the peak frequencies must be identical, while df = 2 is
-	equivalent to no constraint on the peak frequencies (since the peak
-	frequencies must be non-negative).
+	the average of the bandwidths of two events' most significant
+	contributing tile.  For example, df = 0 means the peak frequencies
+	must be exactly equal, while df = 1 is roughly equivalent to
+	requiring the events' most significant contributing tile's
+	frequency bands to intersect, and df -> \infty is equivalent to no
+	constraint (although since the bandwidth of the search is finite,
+	and there is a minimum bandwidth for a candidate event, there
+	exists a finite df threshold which admits all events)
 
 	For h_{rss}, the difference is taken as a fraction of the average
 	of the h_{rss} of the two events' most significant contributing
@@ -269,7 +273,7 @@ def ExcessPowerCoincCompare(a, b, thresholds):
 
 	# convert fractional deltas to absolute deltas
 	dt = dt * (a.ms_duration + b.ms_duration) / 2
-	df = df * (a.peak_frequency + b.peak_frequency) / 2
+	df = df * (a.ms_bandwidth + b.ms_bandwidth) / 2
 	dhrss = dhrss * (a.ms_hrss + b.ms_hrss) / 2
 
 	# test for coincidence
