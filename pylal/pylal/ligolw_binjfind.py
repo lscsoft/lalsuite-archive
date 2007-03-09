@@ -187,7 +187,7 @@ def append_process(xmldoc, **kwargs):
 	"""
 	process = llwapp.append_process(xmldoc, program = "ligolw_binjfind", version = __version__, cvs_repository = "lscsoft", cvs_entry_time = __date__, comment = kwargs["comment"])
 
-	params = [("--compare", "lstring", kwargs["compare"])]
+	params = [("--match-algorithm", "lstring", kwargs["match_algorithm"])]
 	llwapp.append_process_params(xmldoc, process, params)
 
 	return process
