@@ -33,6 +33,7 @@ import math
 import numpy
 from optparse import OptionParser
 from pysqlite2 import dbapi2 as sqlite3
+from scipy.stats import stats
 import sys
 
 from glue import segments
@@ -71,102 +72,203 @@ def parse_command_line():
 #
 # =============================================================================
 #
-#                              Deltas Bookkeeping
+#                                 Bookkeeping
 #
 # =============================================================================
 #
 
 
-class Deltas(object):
-	def __init__(self, dtinterval, dfinterval, dhinterval):
-		self.inj_dt = rate.Rate(dtinterval, abs(dtinterval) / 75.0)
-		self.inj_df = rate.Rate(dfinterval, abs(dfinterval) / 75.0)
-		self.inj_dh = rate.Rate(dhinterval, abs(dhinterval) / 75.0)
-		self.bak_dt = rate.Rate(dtinterval, abs(dtinterval) / 75.0)
-		self.bak_df = rate.Rate(dfinterval, abs(dfinterval) / 75.0)
-		self.bak_dh = rate.Rate(dhinterval, abs(dhinterval) / 75.0)
-		self.dt_axes = None
-		self.df_axes = None
-		self.dh_axes = None
+#
+# Plot of showing grid of distributions for individual deltas
+#
 
-	def add_inj(self, dt, df, dh):
+
+class Plot1(object):
+	def __init__(self, instruments, dtinterval, dfinterval, dhinterval):
+		self.instruments = instruments
+
+		self.fig = SnglBurstUtils.figure.Figure()
+		SnglBurstUtils.FigureCanvas(self.fig)
+
+		# how many instrument pairs are there?
+		n_horiz = len(list(itertools.choices(instruments, 2)))
+
+		# each sub plot's aspect ratio is the golden ratio
+		size = 12.0
+		n_vert = 3
+		self.fig.set_size_inches(size * n_horiz / n_vert, size / ((1 + math.sqrt(5)) / 2))
+
+		# initialize the axes
+		self.dt_axes = {}
+		self.df_axes = {}
+		self.dh_axes = {}
+		for i, pair in enumerate(map(tuple, itertools.choices(instruments, 2))):
+			vlabel_allowance = .05
+			hlabel_allowance = .03
+			border = .007
+			left = float(i) / n_horiz + hlabel_allowance + border
+			width = 1.0 / n_horiz - hlabel_allowance - 2 * border
+			height = 1.0 / n_vert
+
+			self.dt_axes[pair] = self.fig.add_axes((left, 0 * height + vlabel_allowance + border, width, height - vlabel_allowance - 2 * border))
+			self.df_axes[pair] = self.fig.add_axes((left, 1 * height + vlabel_allowance + border, width, height - vlabel_allowance - 2 * border))
+			self.dh_axes[pair] = self.fig.add_axes((left, 2 * height + vlabel_allowance + border, width, height - vlabel_allowance - 2 * border))
+
+			self.dt_axes[pair].set_xlabel(r"$(t_{\mathrm{%s}} - t_{\mathrm{%s}}) / \left< \Delta t \right>$" % pair)
+			self.dt_axes[pair].set_ylabel(r"$P$")
+			self.df_axes[pair].set_xlabel(r"$(f_{\mathrm{%s}} - f_{\mathrm{%s}}) / \left< \Delta f \right>$" % pair)
+			self.df_axes[pair].set_ylabel(r"$P$")
+			self.dh_axes[pair].set_xlabel(r"$({h_{\mathrm{rss}}}_{\mathrm{%s}} - {h_{\mathrm{rss}}}_{\mathrm{%s}}) / \left< h_{\mathrm{rss}} \right>$" % pair)
+			self.dh_axes[pair].set_ylabel(r"$P$")
+
+		# initialize the binnings
+		self.inj_dt = {}
+		self.bak_dt = {}
+		self.inj_df = {}
+		self.bak_df = {}
+		self.inj_dh = {}
+		self.bak_dh = {}
+		for pair in map(tuple, itertools.choices(instruments, 2)):
+			self.inj_dt[pair] = rate.Rate(dtinterval, abs(dtinterval) / 75.0)
+			self.bak_dt[pair] = rate.Rate(dtinterval, abs(dtinterval) / 75.0)
+			self.inj_df[pair] = rate.Rate(dfinterval, abs(dfinterval) / 75.0)
+			self.bak_df[pair] = rate.Rate(dfinterval, abs(dfinterval) / 75.0)
+			self.inj_dh[pair] = rate.Rate(dhinterval, abs(dhinterval) / 75.0)
+			self.bak_dh[pair] = rate.Rate(dhinterval, abs(dhinterval) / 75.0)
+
+	def add_inj(self, pair, dt, df, dh):
 		# IndexError == not on plot
 		try:
-			self.inj_dt[dt] = 1.0
+			self.inj_dt[pair][dt] = 1.0
 		except IndexError:
 			pass
 		try:
-			self.inj_df[df] = 1.0
+			self.inj_df[pair][df] = 1.0
 		except IndexError:
 			pass
 		try:
-			self.inj_dh[dh] = 1.0
+			self.inj_dh[pair][dh] = 1.0
 		except IndexError:
 			pass
 
-	def add_bak(self, dt, df, dh):
+	def add_bak(self, pair, dt, df, dh):
 		# IndexError == not on plot
 		try:
-			self.bak_dt[dt] = 1.0
+			self.bak_dt[pair][dt] = 1.0
 		except IndexError:
 			pass
 		try:
-			self.bak_df[df] = 1.0
+			self.bak_df[pair][df] = 1.0
 		except IndexError:
 			pass
 		try:
-			self.bak_dh[dh] = 1.0
+			self.bak_dh[pair][dh] = 1.0
 		except IndexError:
 			pass
 
 	def finish(self):
-		self.inj_dt.array /= numpy.sum(self.inj_dt.array)
-		self.inj_df.array /= numpy.sum(self.inj_df.array)
-		self.inj_dh.array /= numpy.sum(self.inj_dh.array)
-		self.bak_dt.array /= numpy.sum(self.bak_dt.array)
-		self.bak_df.array /= numpy.sum(self.bak_df.array)
-		self.bak_dh.array /= numpy.sum(self.bak_dh.array)
-		self.dt_axes.plot(self.inj_dt.xvals(), self.inj_dt.filtered(), "r")
-		self.df_axes.plot(self.inj_df.xvals(), self.inj_df.filtered(), "r")
-		self.dh_axes.plot(self.inj_dh.xvals(), self.inj_dh.filtered(), "r")
-		self.dt_axes.plot(self.bak_dt.xvals(), self.bak_dt.filtered(), "k")
-		self.df_axes.plot(self.bak_df.xvals(), self.bak_df.filtered(), "k")
-		self.dh_axes.plot(self.bak_dh.xvals(), self.bak_dh.filtered(), "k")
+		for pair in map(tuple, itertools.choices(self.instruments, 2)):
+			self.inj_dt[pair].array /= numpy.sum(self.inj_dt[pair].array)
+			self.bak_dt[pair].array /= numpy.sum(self.bak_dt[pair].array)
+			self.inj_df[pair].array /= numpy.sum(self.inj_df[pair].array)
+			self.bak_df[pair].array /= numpy.sum(self.bak_df[pair].array)
+			self.inj_dh[pair].array /= numpy.sum(self.inj_dh[pair].array)
+			self.bak_dh[pair].array /= numpy.sum(self.bak_dh[pair].array)
+			self.dt_axes[pair].plot(self.inj_dt[pair].xvals(), self.inj_dt[pair].filtered(), "r")
+			self.dt_axes[pair].plot(self.bak_dt[pair].xvals(), self.bak_dt[pair].filtered(), "k")
+			self.df_axes[pair].plot(self.inj_df[pair].xvals(), self.inj_df[pair].filtered(), "r")
+			self.df_axes[pair].plot(self.bak_df[pair].xvals(), self.bak_df[pair].filtered(), "k")
+			self.dh_axes[pair].plot(self.inj_dh[pair].xvals(), self.inj_dh[pair].filtered(), "r")
+			self.dh_axes[pair].plot(self.bak_dh[pair].xvals(), self.bak_dh[pair].filtered(), "k")
+
+
+#
+# Delta f vs. Delta t scatter plot
+#
+
+
+class Plot2(object):
+	def __init__(self):
+		self.fig = SnglBurstUtils.figure.Figure()
+		SnglBurstUtils.FigureCanvas(self.fig)
+		self.fig.set_size_inches(10.0, 10.0 / ((1 + math.sqrt(5)) / 2))
+		self.axes = self.fig.gca()
+		self.axes.set_title(r"Parameter Reconstruction Independence")
+		self.axes.set_xlabel(r"$(t_{\mathrm{%s}} - t_{\mathrm{%s}}) / \left< \Delta t \right>$" % ("H1", "H2"))
+		self.axes.set_ylabel(r"$(f_{\mathrm{%s}} - f_{\mathrm{%s}}) / \left< \Delta f \right>$" % ("H1", "H2"))
+		self.inj_x = []
+		self.inj_y = []
+		self.bak_x = []
+		self.bak_y = []
+
+	def add_inj(self, pair, x, y):
+		self.inj_x.append(x)
+		self.inj_y.append(y)
+
+	def add_bak(self, pair, x, y):
+		self.bak_x.append(x)
+		self.bak_y.append(y)
+
+	def finish(self):
+		self.axes.plot(self.inj_x, self.inj_y, "r+")
+		self.axes.plot(self.bak_x, self.bak_y, "k+")
+		self.axes.legend(["Injections", "Accidentals"])
+
+
+#
+# Covariance matrix
+#
+
+
+class Covariance(object):
+	def __init__(self):
+		self.inj_observations = []
+		self.bak_observations = []
+
+	def add_inj(self, dt, df, dh):
+		self.inj_observations.append([dt, df, dh])
+
+	def add_bak(self, dt, df, dh):
+		self.bak_observations.append([dt, df, dh])
+
+	def finish(self):
+		self.inj_observations = numpy.array(self.inj_observations)
+		self.bak_observations = numpy.array(self.bak_observations)
+		self.inj_cov = stats.cov(self.inj_observations)
+		self.bak_cov = stats.cov(self.bak_observations)
+
+
+#
+# =============================================================================
+#
+#                                  Interface
+#
+# =============================================================================
+#
 
 
 class Plots(object):
 	def __init__(self, instruments, dtinterval, dfinterval, dhinterval):
-		self.fig = SnglBurstUtils.figure.Figure()
-		SnglBurstUtils.FigureCanvas(self.fig)
-		# golden ratio
-		self.fig.set_size_inches(12, 12 / ((1 + math.sqrt(5)) / 2))
+		self.instruments = instruments
+		self.n_time_slides = None
+		self.n_background_events = 0
 
-		self.deltas = {}
-		for pair in itertools.choices(instruments, 2):
-			self.deltas[tuple(pair)] = Deltas(dtinterval, dfinterval, dhinterval)
-
-		for i, pair in enumerate(self.deltas.keys()):
-			vlabel_allowance = .05
-			hlabel_allowance = .03
-			border = .007
-			left = float(i) / len(self.deltas) + hlabel_allowance + border
-			width = 1.0 / len(self.deltas) - hlabel_allowance - 2 * border
-			height = 1.0 / 3.0
-			self.deltas[pair].dt_axes = self.fig.add_axes((left, 0 * height + vlabel_allowance + border, width, height - vlabel_allowance - 2 * border))
-			self.deltas[pair].df_axes = self.fig.add_axes((left, 1 * height + vlabel_allowance + border, width, height - vlabel_allowance - 2 * border))
-			self.deltas[pair].dh_axes = self.fig.add_axes((left, 2 * height + vlabel_allowance + border, width, height - vlabel_allowance - 2 * border))
-
-			self.deltas[pair].dt_axes.set_xlabel(r"$(t_{\mathrm{%s}} - t_{\mathrm{%s}}) / \left< \Delta t \right>$" % pair)
-			self.deltas[pair].df_axes.set_xlabel(r"$(f_{\mathrm{%s}} - f_{\mathrm{%s}}) / \left< f \right>$" % pair)
-			self.deltas[pair].dh_axes.set_xlabel(r"$({h_{\mathrm{rss}}}_{\mathrm{%s}} - {h_{\mathrm{rss}}}_{\mathrm{%s}}) / \left< h_{\mathrm{rss}} \right>$" % pair)
+		self.plot1 = Plot1(instruments, dtinterval, dfinterval, dhinterval)
+		self.plot2 = Plot2()
+		self.covariance = Covariance()
 
 
 	def add_background(self, contents):
+		# count the number of time slides (assume all input files
+		# list the exact same time slides)
+		if self.n_time_slides is None:
+			self.n_time_slides = contents.connection.cursor().execute("""SELECT COUNT(DISTINCT time_slide_id) FROM time_slide""").fetchone()[0]
+
 		# iterate over burst+burst coincidences involving the two
 		# desired instruments
-		for pair, deltas in self.deltas.items():
-			for b1_peak_time, b1_peak_time_ns, b1_duration, b1_peak_frequency, b1_bandwidth, b1_hrss, b2_peak_time, b2_peak_time_ns, b2_duration, b2_peak_frequency, b2_bandwidth, b2_hrss in contents.connection.cursor().execute("""
-SELECT b1.peak_time + t1.offset, b1.peak_time_ns, b1.ms_duration, b1.peak_frequency, b1.ms_duration, b1.ms_hrss, b2.peak_time + t2.offset, b2.peak_time_ns, b2.ms_duration, b2.peak_frequency, b2.ms_bandwidth, b2.ms_hrss FROM
+		for pair in map(tuple, itertools.choices(self.instruments, 2)):
+			for b1_confidence, b1_peak_time, b1_peak_time_ns, b1_duration, b1_peak_frequency, b1_bandwidth, b1_hrss, b2_confidence, b2_peak_time, b2_peak_time_ns, b2_duration, b2_peak_frequency, b2_bandwidth, b2_hrss in contents.connection.cursor().execute("""
+SELECT b1.confidence, b1.peak_time + t1.offset, b1.peak_time_ns, b1.ms_duration, b1.peak_frequency, b1.ms_bandwidth, b1.ms_hrss, b2.confidence, b2.peak_time + t2.offset, b2.peak_time_ns, b2.ms_duration, b2.peak_frequency, b2.ms_bandwidth, b2.ms_hrss FROM
 	sngl_burst AS b1
 	JOIN coinc_event_map AS a ON (
 		a.event_id == b1.event_id
@@ -195,18 +297,23 @@ WHERE
 	AND b1.ifo == ?
 	AND b2.ifo == ?
 			""", (contents.bb_definer_id, pair[0], pair[1])):
+				self.n_background_events += 1
+
 				dt = float(LIGOTimeGPS(b1_peak_time, b1_peak_time_ns) - LIGOTimeGPS(b2_peak_time, b2_peak_time_ns)) / ((b1_duration + b2_duration) / 2)
-				#df = (b1_peak_frequency - b2_peak_frequency) / ((b1_bandwidth + b2_bandwidth) / 2)
-				df = (b1_peak_frequency - b2_peak_frequency) / ((b1_peak_frequency + b2_peak_frequency) / 2)
+				df = (b1_peak_frequency - b2_peak_frequency) / ((b1_bandwidth + b2_bandwidth) / 2)
 				dh = (b1_hrss - b2_hrss) / ((b1_hrss + b2_hrss) / 2)
-				deltas.add_bak(dt, df, dh)
+
+				self.plot1.add_bak(pair, dt, df, dh)
+				self.plot2.add_bak(pair, dt, df)
+				self.covariance.add_bak(dt, df, dh)
+
 
 	def add_injections(self, contents):
 		# iterate over injections recovered in both of the two
 		# desired instruments
-		for pair, deltas in self.deltas.items():
-			for b1_peak_time, b1_peak_time_ns, b1_duration, b1_peak_frequency, b1_bandwidth, b1_hrss, b2_peak_time, b2_peak_time_ns, b2_duration, b2_peak_frequency, b2_bandwidth, b2_hrss in contents.connection.cursor().execute("""
-SELECT b1.peak_time + t1.offset, b1.peak_time_ns, b1.ms_duration, b1.peak_frequency, b1.ms_duration, b1.ms_hrss, b2.peak_time + t2.offset, b2.peak_time_ns, b2.ms_duration, b2.peak_frequency, b2.ms_bandwidth, b2.ms_hrss FROM
+		for pair in map(tuple, itertools.choices(self.instruments, 2)):
+			for b1_confidence, b1_peak_time, b1_peak_time_ns, b1_duration, b1_peak_frequency, b1_bandwidth, b1_hrss, b2_confidence, b2_peak_time, b2_peak_time_ns, b2_duration, b2_peak_frequency, b2_bandwidth, b2_hrss in contents.connection.cursor().execute("""
+SELECT b1.confidence, b1.peak_time + t1.offset, b1.peak_time_ns, b1.ms_duration, b1.peak_frequency, b1.ms_bandwidth, b1.ms_hrss, b2.confidence, b2.peak_time + t2.offset, b2.peak_time_ns, b2.ms_duration, b2.peak_frequency, b2.ms_bandwidth, b2.ms_hrss FROM
 	sngl_burst AS b1
 	JOIN coinc_event_map AS a ON (
 		a.event_id == b1.event_id
@@ -236,14 +343,24 @@ WHERE
 	AND b2.ifo == ?
 			""", (contents.sb_definer_id, pair[0], pair[1])):
 				dt = float(LIGOTimeGPS(b1_peak_time, b1_peak_time_ns) - LIGOTimeGPS(b2_peak_time, b2_peak_time_ns)) / ((b1_duration + b2_duration) / 2)
-				#df = (b1_peak_frequency - b2_peak_frequency) / ((b1_bandwidth + b2_bandwidth) / 2)
-				df = (b1_peak_frequency - b2_peak_frequency) / ((b1_peak_frequency + b2_peak_frequency) / 2)
+				df = (b1_peak_frequency - b2_peak_frequency) / ((b1_bandwidth + b2_bandwidth) / 2)
 				dh = (b1_hrss - b2_hrss) / ((b1_hrss + b2_hrss) / 2)
-				deltas.add_inj(dt, df, dh)
+
+				self.plot1.add_inj(pair, dt, df, dh)
+				self.plot2.add_inj(pair, dt, df)
+				self.covariance.add_inj(dt, df, dh)
 
 	def finish(self):
-		for deltas in self.deltas.values():
-			deltas.finish()
+		self.plot1.finish()
+		self.plot2.finish()
+		self.covariance.finish()
+
+		print >>sys.stderr, "=== Summary ==="
+		print >>sys.stderr, "Non-injection average event rate = %g events / time slide" % (float(self.n_background_events) / self.n_time_slides)
+		print >>sys.stderr, "Injection covariance matrix ="
+		print >>sys.stderr, str(self.covariance.inj_cov)
+		print >>sys.stderr, "Background covariance matrix ="
+		print >>sys.stderr, str(self.covariance.bak_cov)
 
 
 #
@@ -258,7 +375,7 @@ WHERE
 options, filenames = parse_command_line()
 
 
-plots = Plots(["H1", "H2", "L1"], segments.segment(-0.3, +0.3), segments.segment(-0.15, +0.15), segments.segment(-2.0, +2.0))
+plots = Plots(["H1", "H2", "L1"], segments.segment(-1.0, +1.0), segments.segment(-5.0, +5.0), segments.segment(-2.0, +2.0))
 
 
 if options.verbose:
@@ -297,4 +414,5 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 
 plots.finish()
 
-plots.fig.savefig("ligolw_burca_tailor.png")
+plots.plot1.fig.savefig("ligolw_burca_tailor.png")
+plots.plot2.fig.savefig("ligolw_burca_tailor_2.png")
