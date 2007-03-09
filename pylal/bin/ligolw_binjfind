@@ -70,9 +70,9 @@ def parse_command_line():
 		options.comparefunc = {
 			"stringcusp": ligolw_binjfind.StringCuspCompare,
 			"excesspower": ligolw_binjfind.ExcessPowerCompare
-		}[options.compare]
+		}[options.match_algorithm]
 	except KeyError:
-		raise ValueError, "unrecognized compare test \"%s\"" % options.compare
+		raise ValueError, "unrecognized match algorithm \"%s\"" % options.match_algorithm
 
 	return options, (filenames or [None])
 
@@ -102,7 +102,7 @@ options, filenames = parse_command_line()
 for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose)):
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
-	xmldoc = utils.load_filename(filename, options.verbose, gz = filename[-3:] == ".gz")
+	xmldoc = utils.load_filename(filename, options.verbose, gz = (filename or "stdin")[-3:] == ".gz")
 	if llwapp.doc_includes_process(xmldoc, "ligolw_binjfind"):
 		if options.verbose:
 			print >>sys.stderr, "warning: %s already processed," % (filename or "stdin"),
@@ -113,5 +113,5 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 		if options.verbose:
 			print >>sys.stderr, "continuing by --force"
 	ligolw_binjfind.ligolw_binjfind(xmldoc, **options.__dict__)
-	utils.write_filename(xmldoc, filename, options.verbose, gz = filename[-3:] == ".gz")
+	utils.write_filename(xmldoc, filename, options.verbose, gz = (filename or "stdout")[-3:] == ".gz")
 	xmldoc.unlink()
