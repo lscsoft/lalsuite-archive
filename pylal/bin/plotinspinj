@@ -6,13 +6,15 @@ __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
 
 
-import sys, os, re, exceptions, glob, optparse
+import sys, os, re, exceptions, glob, optparse, itertools
 from types import *
 
 from glue import segmentsUtils
-from glue.ligolw import ligolw, table, lsctables, utils
+from glue.ligolw import ligolw, table as tab, lsctables, utils
 
 from pylal import SnglInspiralUtils, SimInspiralUtils
+from pylal.tools import XLALEThincaParameterForInjection as ethinca_param
+from numpy import histogram
 
 ##############################################################################
 usage = """usage: %prog [options] file1 (file2 file3)
@@ -54,7 +56,10 @@ The width of all these plots is set using --time-axis
 The width of these plots is set using --dist-axis
   c) injected vs detected distance can be plotted using --dist-dist 
 
-5) 
+5) E-thinca parameter between a trigger and an injection can be plotted as:
+  a) a function of the difference between a common parameter in the trigger and
+     injections, using --ethinca-param-vs (ex: --ethinca-param-vs=end_time)
+  b) histogram, using --hist-ethinca
 
 """
 parser = optparse.OptionParser( usage=usage, version="%prog CVS $Id$")
@@ -103,12 +108,17 @@ parser.add_option("", "--ethinca-vs-diff", dest="ethinca_vs_diff", \
     action='append', help="plot maximum ethinca parameter for which "\
     "the trigger's ellipse encloses the true injection params "\
     "vs difference in given column between injection and trigger")
-parser.add_option("", "--log-x", action="store_true",\
+parser.add_option("", "--log-x", action="store_true", default=False,\
     help="plot the x-axis on a log scale (only implemented for ethinca "
     " plots)")
-parser.add_option("", "--log-y", action="store_true",\
+parser.add_option("", "--log-y", action="store_true", default=False,\
     help="plot the y-axis on a log scale (only implemented for ethinca "
     " plots)")
+parser.add_option("", "--hist-ethinca", action="store_true", default=False,\
+    help="histogram ethinca parameters between injections and recovered triggers")
+
+parser.add_option("-c", "--coire-split", action="store_true", default=False,\
+    help="split coired triggers into sire-like single ifo triggers")
 
 parser.add_option("-1","--tag1",action="store",type="string",\
     default=None, metavar=" TAG",help="identifier for first input file" )
@@ -119,7 +129,7 @@ parser.add_option("-3","--tag3",action="store",type="string",\
 parser.add_option("-s","--show-plot",action="store_true",default=False,\
     help="display the figures on the terminal" )
 parser.add_option("-n","--nbins",action="store",type="int",default=10,\
-    metavar=" NBINS", help="number of bins for the histogram plots" )
+    metavar=" NBINS", help="number of bins for the histogram plots (default 10)" )
 parser.add_option("-f","--fig-name",action="store",type="string",\
     default=None, metavar=" FNAME",\
     help="generate png figures with name FNAME-fig.png" ) 
@@ -166,34 +176,52 @@ injSets = []
 
 for injGlob in injGlobs:
   injDict = {}
-  # 
+  
+  # read in triggers
   flist = glob.glob(injGlob)
+  assert flist != [], "empty glob: \"%s\"" % injGlob
   injDict["sngl_inspiral"] = SnglInspiralUtils.ReadSnglInspiralFromFiles(flist)
   injDict["sim_inspiral"]  = SimInspiralUtils.ReadSimInspiralFromFiles(flist)
-  #
-  # test sire clustering
-  assert len(injDict['sngl_inspiral']) == len(injDict['sim_inspiral']), \
-    "number of triggers and found injections must be equal"
-  #
+  
   # veto if supplied
   if opts.veto_file:
     injDict["sngl_inspiral"] = injDict["sngl_inspiral"].veto(seglist)
     injDict["sim_inspiral"] = injDict["sim_inspiral"].veto(seglist)
   
+  # provide a matching sim_inspiral for each sngl_inspiral if requested
+  if opts.coire_split:
+    new_sim_table = tab.new_from_template(injDict["sim_inspiral"])
+    
+    # iterator over consecutive triggers with matching event_ids
+    coincs = itertools.groupby(injDict["sngl_inspiral"],
+                               lambda row: row.event_id)
+    for coinc, inj in itertools.izip(coincs, injDict["sim_inspiral"]):
+      # coinc is tuple of (key, iterator); count length of iterator
+      num_coincs = reduce(lambda x,y: x + 1, coinc[1], 0)
+      new_sim_table.extend([inj] * num_coincs)
+    injDict['sim_inspiral'] = new_sim_table
+  
+  # test sire/coire sanity
+  assert len(injDict['sngl_inspiral']) == len(injDict['sim_inspiral']), \
+    "number of triggers and found injections must be equal"
+  
   injSets.append(injDict)
   
 # set lists of plot symbols
-plotsymbols= ['rx','b+','ko','rx','b+','ko']
+plot_symbols = ['rx','b+','ko','rx','b+','ko']
+plot_colors = ['r', 'b', 'k', 'g', 'y']
 
+# infinite sequence of integers, starting at 1
+plot_num = itertools.count(1)
 ################################
 # plot of mchirp error vs mchirp
 if opts.plot_mchirp:
-  figure(1)
+  figure(plot_num.next())
   hold(True)
   sym=0
   for injSet in injSets:
     viz.plotdiff(injSet['sim_inspiral'], injSet['sngl_inspiral'],\
-                 'mchirp', 'linear', plotsymbols[sym])
+                 'mchirp', 'linear', plot_symbols[sym])
     sym+=1
   viz.labeldiff('mchirp', '$M_{\odot}$', \
       [0,0,-opts.chirp_axis,opts.chirp_axis],\
@@ -202,7 +230,7 @@ if opts.plot_mchirp:
 ###############################  
 # histogram of chirp mass error
 if opts.hist_mchirp:
-  figure(2)
+  figure(plot_num.next())
   hold(True) 
   sym=0
   for injSet in injSets:
@@ -217,12 +245,12 @@ if opts.hist_mchirp:
 ################################
 # plot of eta error vs eta
 if opts.plot_eta:
-  figure(3)
+  figure(plot_num.next())
   hold(True) 
   sym=0
   for injSet in injSets:
     viz.plotdiff(injSet['sim_inspiral'], injSet['sngl_inspiral'],\
-                 'eta', 'linear', plotsymbols[sym])
+                 'eta', 'linear', plot_symbols[sym])
     sym+=1
   viz.labeldiff('eta', None, [0,0,-opts.eta_axis,opts.eta_axis],\
     tags,opts.title_text, opts.fig_name) 
@@ -231,7 +259,7 @@ if opts.plot_eta:
 ###############################  
 # histogram of chirp mass error
 if opts.hist_eta:
-  figure(4)
+  figure(plot_num.next())
   hold(True)
   sym=0
   for injSet in injSets:
@@ -246,12 +274,12 @@ if opts.hist_eta:
 ################################
 # plot of timing error vs time
 if opts.plot_time:
-  figure(5)
+  figure(plot_num.next())
   hold(True) 
   sym=0
   for injSet in injSets:
     viz.plotdiff(injSet['sim_inspiral'], injSet['sngl_inspiral'],\
-                 'end_time', 'linear', plotsymbols[sym] )
+                 'end_time', 'linear', plot_symbols[sym] )
     sym+=1
   viz.labeldiff('end_time', 'days', [0,0,-opts.time_axis,opts.time_axis],\
     tags,opts.title_text, opts.fig_name) 
@@ -260,7 +288,7 @@ if opts.plot_time:
 ###############################  
 # histogram of timing error
 if opts.hist_time:
-  figure(6)
+  figure(plot_num.next())
   hold(True) 
   sym=0
   for injSet in injSets:
@@ -275,12 +303,12 @@ if opts.hist_time:
 ################################
 # plot of distance error vs dist
 if opts.plot_dist:
-  figure(7)
+  figure(plot_num.next())
   hold(True) 
   sym=0
   for injSet in injSets:
     viz.plotfracdiff(injSet['sim_inspiral'], injSet['sngl_inspiral'],\
-                     'eff_dist', 'log', plotsymbols[sym] )
+                     'eff_dist', 'log', plot_symbols[sym] )
     sym+=1
   viz.labelfracdiff('eff_dist', 'Mpc', [0,0,-opts.dist_axis,opts.dist_axis],\
     tags,opts.title_text, opts.fig_name) 
@@ -288,7 +316,7 @@ if opts.plot_dist:
 ###############################  
 # histogram of dist error
 if opts.hist_dist:
-  figure(8)
+  figure(plot_num.next())
   hold(True)
   sym=0
   for injSet in injSets:
@@ -302,12 +330,12 @@ if opts.hist_dist:
 #######################################
 # plot of injected vs detected distamce    
 if opts.dist_dist:  
-  figure(9)
+  figure(plot_num.next())
   hold(True)
   sym=0
   for injSet in injSets:
     viz.plotval(injSet['sim_inspiral'], injSet['sngl_inspiral'],\
-                'eff_dist', 'log', plotsymbols[sym] )
+                'eff_dist', 'log', plot_symbols[sym] )
     sym+=1
   viz.labelval('eff_dist', 'Mpc', [0,0,0,0],'Injected','Recovered',\
     tags,opts.title_text, opts.fig_name) 
@@ -315,12 +343,12 @@ if opts.dist_dist:
 ################################
 # plot of mchirp error vs eff_dist
 if opts.chirp_dist:
-  figure(10)
+  figure(plot_num.next())
   hold(True) 
   sym=0
   for injSet in injSets:
     viz.plotdiffa_vs_b(injSet['sim_inspiral'], injSet['sngl_inspiral'],\
-                 'mchirp', 'eff_dist', 'log', plotsymbols[sym])
+                 'mchirp', 'eff_dist', 'log', plot_symbols[sym])
     sym+=1
   viz.labeldiffa_vs_b('mchirp', 'eff_dist','$M_{\odot}','Mpc', \
     [0,0,-opts.chirp_axis,opts.chirp_axis], tags, opts.title_text,\
@@ -329,12 +357,12 @@ if opts.chirp_dist:
 ################################
 # plot of mchirp error vs mchirp
 if opts.time_dist:
-  figure(11)
+  figure(plot_num.next())
   hold(True)
   sym=0
   for injSet in injSets:
     viz.plotdiffa_vs_b(injSet['sim_inspiral'], injSet['sngl_inspiral'],\
-                 'end_time', 'eff_dist', 'log', plotsymbols[sym])
+                 'end_time', 'eff_dist', 'log', plot_symbols[sym])
     sym+=1
   viz.labeldiffa_vs_b('end_time', 'eff_dist','$M_{\odot}$','Mpc', \
     [0,0,-opts.time_axis,opts.time_axis], tags, opts.title_text,\
@@ -344,12 +372,12 @@ if opts.time_dist:
 ################################
 # plot of mchirp error vs snr
 if opts.chirp_snr:
-  figure(12)
+  figure(plot_num.next())
   hold(True)
   sym=0
   for injSet in injSets:
     viz.plotdiffa_vs_b(injSet['sngl_inspiral'], injSet['sim_inspiral'], \
-                 'mchirp', 'snr', 'log', plotsymbols[sym])
+                 'mchirp', 'snr', 'log', plot_symbols[sym])
     sym+=1
   viz.labeldiffa_vs_b('mchirp', 'snr','$M_{\odot}$',None, \
     [0,0,-opts.chirp_axis,opts.chirp_axis], tags, opts.title_text,\
@@ -359,12 +387,12 @@ if opts.chirp_snr:
 ################################
 # plot of mchirp error vs snr
 if opts.time_snr:
-  figure(13)
+  figure(plot_num.next())
   hold(True)
   sym=0
   for injSet in injSets:
     viz.plotdiffa_vs_b(injSet['sngl_inspiral'], injSet['sim_inspiral'], \
-                 'end_time', 'snr', 'log', plotsymbols[sym])
+                 'end_time', 'snr', 'log', plot_symbols[sym])
     sym+=1
   viz.labeldiffa_vs_b('end_time', 'snr','seconds',None, \
     [0,0,-opts.time_axis,opts.time_axis], tags, opts.title_text,\
@@ -373,12 +401,12 @@ if opts.time_snr:
 ################################
 # plot of eta error vs snr
 if opts.eta_snr:
-  figure(14)
+  figure(plot_num.next())
   hold(True)
   sym=0
   for injSet in injSets:
     viz.plotdiffa_vs_b(injSet['sngl_inspiral'], injSet['sim_inspiral'], \
-                 'eta', 'snr', 'log', plotsymbols[sym])
+                 'eta', 'snr', 'log', plot_symbols[sym])
     sym+=1
   viz.labeldiffa_vs_b('eta', 'snr',None,None, \
     [0,0,-opts.eta_axis,opts.eta_axis], tags, opts.title_text,\
@@ -388,14 +416,11 @@ if opts.eta_snr:
 # plot of ethinca parameter vs the difference between any parameter's
 # injected and recovered values
 
-for i,ethinca_vs_diff in enumerate(opts.ethinca_vs_diff):
-  from pylal.tools import XLALEThincaParameterForInjection as ethinca_param
-  from pylal.viz import readcolfrom2tables
-  
-  fig = figure(15 + i)
+for ethinca_vs_diff in opts.ethinca_vs_diff:
+  fig = figure(plot_num.next())
   ax = fig.add_subplot(111)
   ax.grid(True)
-  for injSet,symb in zip(injSets, plotsymbols):
+  for injSet,symb in zip(injSets, plot_symbols):
     table1 = injSet['sim_inspiral']
     table2 = injSet['sngl_inspiral']
     
@@ -405,7 +430,7 @@ for i,ethinca_vs_diff in enumerate(opts.ethinca_vs_diff):
     # Print first row of table2
     # print [(k, table2[0].__getattribute__(k)) for k in table2.columnnames]
     
-    [par1, par2, ifo] = readcolfrom2tables(table1, table2, ethinca_vs_diff)
+    [par1, par2, ifo] = viz.readcolfrom2tables(table1, table2, ethinca_vs_diff)
     
     diff_a = (par1 - par2)
     col_b = [ethinca_param(sim, sngl) for sim, sngl in zip(table1, table2)]
@@ -425,8 +450,42 @@ for i,ethinca_vs_diff in enumerate(opts.ethinca_vs_diff):
       ax.set_title(opts.title_text, size='x-large', weight='bold')
     
     if opts.fig_name:
-      savefig(opts.fig_name + '_ethinca_vs_' + ethinca_vs_diff + \
-        '_accuracy.png')
+      fig.savefig('%s_ethinca_vs_%s_accuracy.png' % \
+        (opts.fig_name, ethinca_vs_diff))
+    if not opts.show_plot:
+      close()
+
+# Histogram of ethinca values
+if opts.hist_ethinca:
+  fig = figure(plot_num.next())
+  ax = fig.add_subplot(111)
+  
+  sim_tables = [x['sim_inspiral'] for x in injSets]
+  sngl_tables = [x['sngl_inspiral'] for x in injSets]
+  
+  ethinca_list = [[ethinca_param(sim, sngl) \
+                  for sim, sngl in zip(sim_table, sngl_table)] \
+                  for sim_table, sngl_table in zip(sim_tables, sngl_tables)]
+  
+  # Histogram all datasets with the same bins
+  ep_max = max([max(eps) for eps in ethinca_list])
+  y_list, x_list = zip(*[histogram(eps, bins=opts.nbins, range=[0, ep_max]) \
+                         for eps in ethinca_list])
+  
+  n = len(x_list)
+  for i, x, y, color in zip(range(n), x_list, y_list, plot_colors):
+    x += 0.1*i*ep_max/opts.nbins  # Introduce some stagger
+    ax.bar(x, y, color=color, width=(1-0.1*n)*ep_max/opts.nbins)
+  ax.set_ylabel("\#")
+  ax.set_xlabel("E-thinca parameter")
+  
+  if opts.title_text is not None:
+    ax.set_title(opts.title_text, size='x-large', weight='bold')
+  
+  if opts.fig_name:
+    fig.savefig(opts.fig_name + "_inj-trig_ethinca_hist.png")
+  if not opts.show_plot:
+    close()
 
 if opts.show_plot:
   show()
