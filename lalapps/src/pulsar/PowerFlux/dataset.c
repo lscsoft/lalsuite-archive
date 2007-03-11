@@ -1268,12 +1268,6 @@ void load_datasets(char *definition)
 char *p=definition;
 int k;
 
-if(d_size<1) {
-	d_size=10;
-	d_free=-1;
-	datasets=do_alloc(d_size, sizeof(*datasets));
-	}
-
 while(1){
 	/* skip whitespace in the beginning */
 	while((*p==' ') | (*p=='\t'))p++;
@@ -1572,11 +1566,11 @@ fflush(LOG);
 float datasets_normalizing_weight(void)
 {
 int i;
-float max_tm=0;
+float min_tm=0;
 for(i=0;i<d_free;i++){
-	if(!i || datasets[i].TMedian<max_tm)max_tm=datasets[i].TMedian;
+	if(!i || datasets[i].TMedian<min_tm)min_tm=datasets[i].TMedian;
 	}
-return(exp(-M_LN10*max_tm));
+return(exp(-M_LN10*min_tm));
 }
 
 INT64 min_gps(void)
@@ -1875,13 +1869,27 @@ ds.coherence_time=1800.0;
 fill_seed=0;
 gaussian_fill(&ds, 793161250, 900, 1000, 1e-24*ds.coherence_time*16384.0);
 fill_seed=old_fill_seed;
-CHECKPOINT
 fake_injection=0;
 validate_dataset(&ds);
 fake_injection=old_fake_injection;
-if(fabs(ds.TMedian-7.08164)>1e-5) {
+if(fabs(ds.TMedian-7.08164)>1e-2) {
 	fprintf(stderr, "ERROR test TMedian has unexpected value: %g\n", ds.TMedian); 
 	fprintf(LOG, "ERROR test TMedian has unexpected value: %g\n", ds.TMedian); 
+	pass=0;
+	}
+if(fabs(ds.average_detector_velocity[0]+3.59906e-05)>1e-10 ||
+   fabs(ds.average_detector_velocity[1]+8.57193e-05)>1e-10 ||
+   fabs(ds.average_detector_velocity[2]+3.71474e-05)>1e-10 ) {
+	fprintf(stderr, "ERROR test average detector velocity has unexpected value: (%g, %g, %g)\n", 
+		ds.average_detector_velocity[0],
+		ds.average_detector_velocity[1],
+		ds.average_detector_velocity[2]
+		); 
+	fprintf(LOG, "ERROR test average detector velocity has unexpected value: (%g, %g, %g)\n", 
+		ds.average_detector_velocity[0],
+		ds.average_detector_velocity[1],
+		ds.average_detector_velocity[2]
+		); 
 	pass=0;
 	}
 if(!pass)exit(-1);
