@@ -14,6 +14,10 @@ set PARAMS {
 	FREQ_START	50
 	FREQ_STEP	0.25
 	FREQ_END	250
+	FIRST_SPINDOWN  -1.00e-8
+	LAST_SPINDOWN  1.00e-8
+	SPINDOWN_STEP   5e-10
+	MAX_SPINDOWN_COUNT {10*400*400/(\$band*\$band)}
 	NBANDS	10
 	ANALYSIS_PROGRAM "/home/volodya/PowerFlux/powerflux"
 	}
@@ -25,6 +29,10 @@ label run $RUN_NAME
 input /scratch4/volodya/SFT-3/S3.${IFO}.ht.geo/sft.${IFO}.
 input-format GEO
 detector L${DETECTOR}O
+averaging-mode one
+spindown-start $spindown_start
+spindown-step $SPINDOWN_STEP
+spindown-count $spindown_count
 ephemeris-path /home/volodya/detresponse
 first-bin $firstbin
 nbins 501
