@@ -409,7 +409,7 @@ for(i in 1:(dim(BandData)[1])) {
 	FancyMap(vn("max_ratio", skyband,3), title="Maximum veto ratio (by weight)")
 	dev.off()
 
-	F<- Diff_DxMaxBandCapped>2.0
+	F<- Diff_DxMaxBandCapped>DiffDxLarge
 	F[is.na(F)]<-FALSE
 	
 	file<-ofn(paste("Outliers_", BandName, ".txt", sep=""))
