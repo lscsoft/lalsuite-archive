@@ -112,6 +112,22 @@ def initialize_process(xmldoc, comment = ""):
 
 
 #
+# record command line arguments
+#
+
+
+def set_process_params(xmldoc, process, options):
+	params = []
+	if options.int_to_ilwd:
+		params.append(("--int-to-ilwd", "lstring", ""))
+	else:
+		params.append(("--ilwd-to-int", "lstring", ""))
+	llwapp.append_process_params(xmldoc, process, params)
+
+	return xmldoc
+
+
+#
 # =============================================================================
 #
 #                                    Input
@@ -486,7 +502,7 @@ for filename in filenames:
 
 	# FIXME: how does one know if the document is a "found injections"
 	# file?
-	injections = llwapp.doc_includes_process(xmldoc, "coire"):
+	injections = llwapp.doc_includes_process(xmldoc, "coire")
 
 	#
 	# do conversion
