@@ -486,10 +486,7 @@ for filename in filenames:
 
 	# FIXME: how does one know if the document is a "found injections"
 	# file?
-	if llwapp.doc_includes_process(xmldoc, "coire"):
-		injections = True
-	else:
-		injections = False
+	injections = llwapp.doc_includes_process(xmldoc, "coire"):
 
 	#
 	# do conversion
