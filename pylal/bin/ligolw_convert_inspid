@@ -371,8 +371,7 @@ def populate_coinc_event_sims(xmldoc):
 	# iterate over reconstructed coincs
 	#
 
-	sims = iter(sim_inspiral)
-	for event_id, events in itertools.groupby(sngl_inspiral, lambda row: row.event_id):
+	for (event_id, events), sim in itertools.izip(itertools.groupby(sngl_inspiral, lambda row: row.event_id), sim_inspiral):
 		events = list(events)
 
 		#
@@ -395,7 +394,7 @@ def populate_coinc_event_sims(xmldoc):
 
 		coincmap = lsctables.CoincMap()
 		coincmap.coinc_event_id = coinc.coinc_event_id
-		coincmap.event_id = sims.next().simulation_id
+		coincmap.event_id = sim.simulation_id
 		coincmap.table_name = ilwd.ILWDTableName(coincmap.event_id)
 		coinc_event_map.append(coincmap)
 
