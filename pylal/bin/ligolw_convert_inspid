@@ -192,6 +192,25 @@ def sngl_inspiral_int_to_ilwd(xmldoc):
 	sngl_inspiral._update_column_info()
 
 	#
+	# find the summ_value table
+	#
+
+	summ_value = table.get_table(xmldoc, lsctables.SummValueTable.tableName)
+
+	#
+	# add and populate a summ_value_id column
+	#
+
+	try:
+		summ_value.appendColumn("summ_value_id")
+	except ValueError:
+		# already has one
+		pass
+	else:
+		for row in summ_value:
+			row.summ_value_id = summ_value.ids.next()
+
+	#
 	# done
 	#
 
@@ -222,6 +241,13 @@ def sngl_inspiral_ilwd_to_int(xmldoc):
 	event_id = sngl_inspiral.getColumnByName("event_id")
 	event_id.setAttribute("Type", "int_8s")
 	sngl_inspiral._update_column_info()
+
+	#
+	# find the summ_value table, and remove the summ_value_id column
+	#
+
+	summ_value = table.get_table(xmldoc, lsctables.SummValueTable.tableName)
+	summ_value.removeChild(summ_value.getColumnByName("summ_value_id"))
 
 	#
 	# done
