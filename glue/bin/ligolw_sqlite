@@ -124,7 +124,7 @@ def insert(filenames, preserve_ids = True, verbose = False):
 		# input)
 		if verbose:
 			print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
-		doc = utils.load_filename(filename, verbose = verbose, gz = filename[-3:] == ".gz")
+		doc = utils.load_filename(filename, verbose = verbose, gz = (filename or "stdin")[-3:] == ".gz")
 
 		# update references to row IDs
 		if not preserve_ids:
@@ -181,7 +181,7 @@ dbtables.DBTable_set_connection(connection)
 #
 
 
-if filenames:
+if (options.extract is None) or (filenames != [None]):
 	insert(filenames, preserve_ids = options.preserve_ids, verbose = options.verbose)
 
 	#
