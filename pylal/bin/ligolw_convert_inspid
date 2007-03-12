@@ -510,6 +510,7 @@ for filename in filenames:
 
 	if options.int_to_ilwd:
 		initialize_process(xmldoc)
+		set_process_params(xmldoc, process, options)
 		sngl_inspiral_int_to_ilwd(xmldoc)
 		populate_time_slide(xmldoc)
 		if options.verbose:
