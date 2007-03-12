@@ -1625,6 +1625,10 @@ class CoincMapTable(table.Table):
 class CoincMap(object):
 	__slots__ = CoincMapTable.validcolumns.keys()
 
+	def set_event_id(self, event_id):
+		self.event_id = event_id
+		self.table_name = ilwd.ILWDTableName(event_id)
+
 
 CoincMapTable.RowType = CoincMap
 
