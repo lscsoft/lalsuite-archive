@@ -45,6 +45,14 @@ from glue.ligolw import dbtables
 from glue.ligolw import utils
 from glue.ligolw.utils import ligolw_add
 
+# FIXME: this is a hack to allow documents w/ "valid" sngl_inspiral tables
+# to be inserted;  remove when this is no longer required
+if dbtables.lsctables.SnglInspiralTable.validcolumns["event_id"] == "ilwd:char":
+	raise Exception, "FIXME: yay, the sngl_inspiral:event_id hack is no longer be required!!  (ask Kipp to fix)"
+dbtables.lsctables.SnglInspiralTable.validcolumns["event_id"] = "ilwd:char"
+dbtables.lsctables.SnglInspiralTable.ids = dbtables.lsctables.SnglInspiralIDs()
+
+
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __date__ = "$Date$"[7:-2]
 __version__ = "$Revision$"[11:-2]
@@ -79,11 +87,11 @@ def parse_command_line():
 	for cache in options.input_cache:
 		filenames += [c.path() for c in map(CacheEntry, file(cache))]
 
-	if options.extract is None and not filenames:
-		raise ValueError, "nothing to do!"
-
 	if not options.database:
 		raise ValueError, "must set --database"
+
+	if options.extract is None and not filenames:
+		raise ValueError, "nothing to do!"
 
 	return options, (filenames or [None])
 
