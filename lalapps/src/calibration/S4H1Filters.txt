@@ -1,3 +1,4 @@
+$Header$ $Name$
 SENSING
 4 UPSAMPLING_FACTOR
 -19 DELAY
