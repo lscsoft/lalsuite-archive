@@ -38,10 +38,8 @@ you use it you will have to be willing to track changes as I make them.
 I'm still figuring out how this should work.
 """
 
-__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
-__date__ = "$Date$"[7:-2]
-__version__ = "$Revision$"[11:-2]
 
+import re
 from xml.sax.xmlreader import AttributesImpl
 
 import ligolw
@@ -49,6 +47,11 @@ import table
 import lsctables
 import types
 from glue import segments
+
+
+__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__date__ = "$Date$"[7:-2]
+__version__ = "$Revision$"[11:-2]
 
 
 #
@@ -135,6 +138,19 @@ def DBTable_idmap_get_new(old, ids):
 #
 
 
+#
+# SQL parsing
+#
+
+_sql_create_table_pattern = re.compile(r"CREATE\s+TABLE\s+(?P<name>\w+)\s*\((?P<coldefs>.*)\)")
+_sql_coldef_pattern = re.compile(r"\s*(?P<name>\w+)\s+(?P<type>\w+)[^,]*")
+
+
+#
+# Database info extraction utils
+#
+
+
 def DBTable_table_names():
 	"""
 	Return a list of the table names in the database.
@@ -142,11 +158,14 @@ def DBTable_table_names():
 	return [name for (name,) in DBTable.connection.cursor().execute("SELECT name FROM sqlite_master WHERE type == 'table'")]
 
 
-def DBTable_column_names(table_name):
+def DBTable_column_info(table_name):
 	"""
-	Return an in order list of the column names for the given table.
+	Return an in order list of (name, type) tuples describing the
+	columns for the given table.
 	"""
-	return [name for (name, type_code, display_size, internal_size, precision, scale, null_ok) in DBTable.connection.cursor().execute("SELECT * FROM %s LIMIT 1" % table_name).description]
+	statement, = DBTable.connection.cursor().execute("""SELECT sql FROM sqlite_master WHERE type == "table" AND name == ?""", (table_name,)).fetchone()
+	coldefs = re.match(_sql_create_table_pattern, statement.upper()).groupdict()["coldefs"]
+	return [(coldef.groupdict()["name"].lower(), coldef.groupdict()["type"]) for coldef in re.finditer(_sql_coldef_pattern, coldefs)]
 
 
 def DBTable_get_xml():
@@ -164,11 +183,17 @@ def DBTable_get_xml():
 		except:
 			cls = DBTable
 		table_elem = cls(AttributesImpl({u"Name": table_name + ":table"}))
-		colnamefmt = ":".join(table_elem.tableName.split(":")[:-1]) + ":%s"
-		for column_name in DBTable_column_names(table_elem.dbtablename):
-			table_elem.appendChild(table.Column(AttributesImpl({u"Name": colnamefmt % column_name, u"Type": table_elem.validcolumns[column_name]})))
+		colnamefmt = table_name + ":%s"
+		for column_name, column_type in DBTable_column_info(table_elem.dbtablename):
+			if table_elem.validcolumns is None:
+				column_type = types.FromSQLiteType[column_type]
+			else:
+				column_type = table_elem.validcolumns[column_name]
+			column_name = colnamefmt % column_name
+			table_elem.appendChild(table.Column(AttributesImpl({u"Name": column_name, u"Type": column_type})))
+
 		table_elem._end_of_columns()
-		table_elem.appendChild(table.TableStream(AttributesImpl({u"Name": table_elem.tableName})))
+		table_elem.appendChild(table.TableStream(AttributesImpl({u"Name": table_name + ":table"})))
 		ligo_lw.appendChild(table_elem)
 	return ligo_lw
 
@@ -198,13 +223,16 @@ class DBTable(table.Table):
 	this class imposes the restriction that table names be unique
 	within a document.
 
-	Also note that at the present time there is really only support for
-	the pre-defined tables in the lsctables module.  It is possible to
-	read custom tables without any modification to this code, but
-	writing a database to an XML file when the database contains custom
-	tables will require developer intervention because there is no way
-	to map SQL column types to the correct/desired LIGO Light Weight
-	XML column type.
+	Also note that at the present time there is really only proper
+	support for the pre-defined tables in the lsctables module.  It is
+	possible to load unrecognized tables into a database from LIGO
+	Light Weight XML files, but without developer intervention there is
+	no way to indicate the constraints that should be imposed on the
+	columns, for example which columns should be used as primary keys
+	and so on.  This can result in poor query performance.  It is also
+	possible to write a database' contents to a LIGO Light Weight XML
+	file even when the database contains unrecognized tables, but
+	without developer intervention the column types will be guessed.
 	"""
 	#
 	# Global Python DB-API 2.0 connection object shared by all code.
