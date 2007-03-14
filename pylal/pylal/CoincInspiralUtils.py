@@ -8,16 +8,11 @@ import numpy
 
 def uniq(list):
   """
-  return a list containing the unique elements 
-  from the original list
+  Return the unique items of a list, preserving order.
+  http://mail.python.org/pipermail/tutor/2002-March/012930.html
   """
-  l = []
-  for m in list:
-    if m not in l:
-      l.append(m)
-  from numpy import asarray
-  return asarray(l)
-
+  temp_dict = {}
+  return [temp_dict.setdefault(e,e) for e in list if e not in temp_dict]
 
 ########################################
 class coincStatistic:
@@ -42,7 +37,7 @@ class coincStatistic:
     else:
       return min(bl, blx)  
     
-    
+
 #######################################
 class coincInspiralTable:
   """
@@ -100,23 +95,23 @@ class coincInspiralTable:
     if not inspTriggers:
       return
 
-    # use the supplied method to convert these columns into numpy arrays
-    eventidlist = uniq(inspTriggers.get_column("event_id"))
-    for event_id in eventidlist: 
-      self.rows.append(self.row(event_id))
-    for trig in inspTriggers:
-      for coinc in self.rows:
-        if coinc.event_id == trig.event_id:
-          coinc.add_trig(trig,stat)
+    # At present, coincidence is recorded by coire by over-writing event_ids.
+    # The event_ids uniquely label coincidences now, rather than triggers.
+    # This is formally O(N log_2 N).
+    row_dict = {}
+    unique_id_list = []
+    for trig in inspTriggers:  # N
+      if trig.event_id not in row_dict: # log_2 N
+        unique_id_list += [trig.event_id]
+        row_dict[trig.event_id] = self.row(trig.event_id)
+      row_dict[trig.event_id].add_trig(trig, stat)
 
-    # make sure that there are at least twos ifo in each coinc
-    pruned_coincs = coincInspiralTable()
-    for coinc in self.rows:
-      if coinc.numifos > 1:
-        pruned_coincs.rows.append(coinc)
+    # make sure that there are at least twos ifo in each coinc; restore order
+    pruned_rows = [row_dict[k] for k in unique_id_list \
+      if row_dict[k].numifos > 1]
 
-    self.rows = pruned_coincs.rows
-
+    self.rows = pruned_rows      
+    
   def __len__(self):
     return len(self.rows)
   
