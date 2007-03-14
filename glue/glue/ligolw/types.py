@@ -124,6 +124,13 @@ ToPyType = {
 	"double": float
 }
 
+FromPyType = {
+	str: "lstring",
+	int: "int_4s",
+	long: "int_8s",
+	float: "real_8"
+}
+
 ToNumPyType = {
 	"int_2s": "Int16",
 	"int_2u": "UInt16",
@@ -167,4 +174,11 @@ ToSQLiteType = {
 	"real_8": "REAL",
 	"float": "REAL",
 	"double": "REAL"
+}
+
+FromSQLiteType = {
+	"TEXT": "lstring",
+	"STRING": "lstring",
+	"INTEGER": "int_4s",
+	"REAL": "real_8"
 }
