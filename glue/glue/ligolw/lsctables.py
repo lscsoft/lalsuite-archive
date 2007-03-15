@@ -73,7 +73,7 @@ def New(Type, columns = None):
 	>>> new = lsctables.New(lsctables.ProcessTable)
 	"""
 	new = Type(sax.xmlreader.AttributesImpl({u"Name": Type.tableName}))
-	colnamefmt = ":".join(Type.tableName.split(":")[:-1]) + ":%s"
+	colnamefmt = u":".join(Type.tableName.split(":")[:-1]) + u":%s"
 	if columns is not None:
 		for key in columns:
 			if key not in new.validcolumns:
@@ -94,7 +94,7 @@ def IsTableElement(Type, elem):
 	"""
 	if elem.tagName != ligolw.Table.tagName:
 		return False
-	return table.CompareTableNames(elem.getAttribute("Name"), Type.tableName) == 0
+	return table.CompareTableNames(elem.getAttribute(u"Name"), Type.tableName) == 0
 
 
 def IsTableProperties(Type, tagname, attrs):
@@ -104,7 +104,7 @@ def IsTableProperties(Type, tagname, attrs):
 	"""
 	if tagname != ligolw.Table.tagName:
 		return False
-	return table.CompareTableNames(attrs["Name"], Type.tableName) == 0
+	return table.CompareTableNames(attrs[u"Name"], Type.tableName) == 0
 
 
 def getTablesByType(elem, Type):
@@ -120,7 +120,7 @@ def HasNonLSCTables(elem):
 	tables, otherwise return False.
 	"""
 	for t in elem.getElementsByTagName(ligolw.Table.tagName):
-		if table.StripTableName(t.getAttribute("Name")) not in TableByName:
+		if table.StripTableName(t.getAttribute(u"Name")) not in TableByName:
 			return True
 	return False
 
@@ -1739,7 +1739,7 @@ __parent_startTable = ligolw.LIGOLWContentHandler.startTable
 
 
 def startTable(self, attrs):
-	name = table.StripTableName(attrs["Name"])
+	name = table.StripTableName(attrs[u"Name"])
 	if name in TableByName:
 		return TableByName[name](attrs)
 	return __parent_startTable(self, attrs)

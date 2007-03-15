@@ -245,7 +245,7 @@ class DBTable(table.Table):
 		Initialize
 		"""
 		table.Table.__init__(self, *attrs)
-		self.dbtablename = table.StripTableName(self.getAttribute("Name"))
+		self.dbtablename = table.StripTableName(self.getAttribute(u"Name"))
 		try:
 			# copy metadata from lsctables
 			cls = lsctables.TableByName[self.dbtablename]
@@ -548,7 +548,7 @@ TableByName = {
 
 
 def startTable(self, attrs):
-	name = table.StripTableName(attrs["Name"])
+	name = table.StripTableName(attrs[u"Name"])
 	if name in TableByName:
 		return TableByName[name](attrs)
 	return DBTable(attrs)

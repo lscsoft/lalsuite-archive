@@ -16,6 +16,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+
 #
 # =============================================================================
 #
@@ -23,6 +24,7 @@
 #
 # =============================================================================
 #
+
 
 """
 While the ligolw module provides classes and parser support for reading and
@@ -40,9 +42,6 @@ into character data.
 The array is stored as an attribute of the Array element.
 """
 
-__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
-__date__ = "$Date$"[7:-2]
-__version__ = "$Revision$"[11:-2]
 
 import numpy
 import re
@@ -53,6 +52,11 @@ import tokenizer
 import types
 
 
+__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__date__ = "$Date$"[7:-2]
+__version__ = "$Revision$"[11:-2]
+
+
 #
 # =============================================================================
 #
@@ -61,8 +65,12 @@ import types
 # =============================================================================
 #
 
+
+#
 # Regular expression used to extract the signifcant portion of an array or
 # stream name, according to LIGO LW naming conventions.
+#
+
 
 ArrayPattern = re.compile(r"(?:\A[a-z0-9_]+:|\A)(?P<Name>[a-z0-9_]+):array\Z")
 
@@ -101,22 +109,23 @@ def getArraysByName(elem, name):
 # =============================================================================
 #
 
+
 def from_array(name, array, dim_names = None):
 	"""
 	Construct a LIGO Light Weight XML Array document subtree from a
 	numpy array object.
 	"""
-	doc = Array({"Name": name, "Type": types.FromNumPyType[str(array.type())]})
+	doc = Array({u"Name": name, u"Type": types.FromNumPyType[str(array.type())]})
 	s = list(array.shape)
 	s.reverse()
 	for n, dim in enumerate(s):
 		attrs = {}
 		if dim_names is not None:
-			attrs["Name"] = dim_names[n]
+			attrs[u"Name"] = dim_names[n]
 		child = ligolw.Dim(attrs)
 		child.pcdata = str(dim)
 		doc.appendChild(child)
-	child = ArrayStream({"Type": "Local", "Delimiter": " "})
+	child = ArrayStream({u"Type": u"Local", u"Delimiter": u" "})
 	doc.appendChild(child)
 	doc.array = array
 	return doc
@@ -140,6 +149,7 @@ def get_array(xmldoc, name):
 #
 # =============================================================================
 #
+
 
 class _IndexIter(object):
 	def __init__(self, shape):
@@ -173,7 +183,7 @@ class ArrayStream(ligolw.Stream):
 	"""
 	def __init__(self, attrs):
 		ligolw.Stream.__init__(self, attrs)
-		self.tokenizer = tokenizer.Tokenizer(self.getAttribute("Delimiter"))
+		self.tokenizer = tokenizer.Tokenizer(self.getAttribute(u"Delimiter"))
 		self.__index = None
 
 	def appendData(self, content):
@@ -198,12 +208,12 @@ class ArrayStream(ligolw.Stream):
 		self.__index = None
 		ligolw.Stream.unlink(self)
 
-	def write(self, file = sys.stdout, indent = ""):
+	def write(self, file = sys.stdout, indent = u""):
 		# This is complicated because we need to not put a
 		# delimiter after the last element.
 		print >>file, self.start_tag(indent)
-		delim = self.getAttribute("Delimiter")
-		format = types.ToFormat[self.parentNode.getAttribute("Type")]
+		delim = self.getAttribute(u"Delimiter")
+		format = types.ToFormat[self.parentNode.getAttribute(u"Type")]
 		a = self.parentNode.array
 		it = iter(_IndexIter(a.shape))
 		try:
@@ -214,9 +224,9 @@ class ArrayStream(ligolw.Stream):
 				indeces = it.next()
 				file.write(delim)
 				if not indeces[0]:
-					file.write("\n" + indent + ligolw.Indent)
+					file.write(u"\n" + indent + ligolw.Indent)
 		except StopIteration:
-			file.write("\n")
+			file.write(u"\n")
 		print >>file, self.end_tag(indent)
 
 
@@ -229,8 +239,8 @@ class Array(ligolw.Array):
 		Initialize a new Array element.
 		"""
 		ligolw.Array.__init__(self, *attrs)
-		self.pytype = types.ToPyType[self.getAttribute("Type")]
-		self.arraytype = types.ToNumPyType[self.getAttribute("Type")]
+		self.pytype = types.ToPyType[self.getAttribute(u"Type")]
+		self.arraytype = types.ToNumPyType[self.getAttribute(u"Type")]
 		self.array = None
 
 	def get_shape(self):
@@ -266,28 +276,34 @@ class Array(ligolw.Array):
 # =============================================================================
 #
 
+
 #
 # Override portions of ligolw.LIGOLWContentHandler class
 #
 
+
 __parent_startStream = ligolw.LIGOLWContentHandler.startStream
 __parent_endStream = ligolw.LIGOLWContentHandler.endStream
+
 
 def startStream(self, attrs):
 	if self.current.tagName == ligolw.Array.tagName:
 		return ArrayStream(attrs)
 	return __parent_startStream(self, attrs)
 
+
 def endStream(self):
 	# stream tokenizer uses delimiter to identify end of each token, so
 	# add a final delimiter to induce the last token to get parsed.
 	if self.current.parentNode.tagName == ligolw.Array.tagName:
-		self.current.appendData(self.current.getAttribute("Delimiter"))
+		self.current.appendData(self.current.getAttribute(u"Delimiter"))
 	else:
 		__parent_endStream(self)
 
+
 def startArray(self, attrs):
 	return Array(attrs)
+
 
 ligolw.LIGOLWContentHandler.startStream = startStream
 ligolw.LIGOLWContentHandler.endStream = endStream

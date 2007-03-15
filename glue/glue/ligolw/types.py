@@ -16,6 +16,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+
 #
 # =============================================================================
 #
@@ -23,6 +24,7 @@
 #
 # =============================================================================
 #
+
 
 """
 Definitions of type strings found in LIGO Light Weight XML files.
@@ -63,6 +65,7 @@ References:
 	- http://docs.sun.com/source/806-3568/ncg_goldberg.html
 """
 
+
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __date__ = "$Date$"[7:-2]
 __version__ = "$Revision$"[11:-2]
@@ -76,109 +79,118 @@ __version__ = "$Revision$"[11:-2]
 # =============================================================================
 #
 
-IDTypes = ["ilwd:char", "ilwd:char_u"]
-StringTypes = IDTypes + ["char_s", "char_v", "lstring", "string"]
-IntTypes = ["int_2s", "int_2u", "int_4s", "int_4u", "int_8s", "int_8u", "int"]
-FloatTypes = ["real_4", "real_8", "float", "double"]
+
+IDTypes = [u"ilwd:char", u"ilwd:char_u"]
+StringTypes = IDTypes + [u"char_s", u"char_v", u"lstring", u"string"]
+IntTypes = [u"int_2s", u"int_2u", u"int_4s", u"int_4u", u"int_8s", u"int_8u", u"int"]
+FloatTypes = [u"real_4", u"real_8", u"float", u"double"]
 TimeTypes = [u"GPS", u"Unix", u"ISO-8601"]
+
 
 Types = StringTypes + IntTypes + FloatTypes + TimeTypes
 
+
 ToFormat = {
-	"char_s": "\"%s\"",
-	"char_v": "\"%s\"",
-	"ilwd:char": "\"%s\"",
-	"ilwd:char_u": "\"%s\"",
-	"lstring": "\"%s\"",
-	"string": "\"%s\"",
-	"int_2s": "%d",
-	"int_2u": "%u",
-	"int_4s": "%d",
-	"int_4u": "%u",
-	"int_8s": "%d",
-	"int_8u": "%u",
-	"int": "%d",
-	"real_4": "%.8g",
-	"real_8": "%.16g",
-	"float": "%.8g",
-	"double": "%.16g"
+	u"char_s": "\"%s\"",
+	u"char_v": "\"%s\"",
+	u"ilwd:char": "\"%s\"",
+	u"ilwd:char_u": "\"%s\"",
+	u"lstring": "\"%s\"",
+	u"string": "\"%s\"",
+	u"int_2s": "%d",
+	u"int_2u": "%u",
+	u"int_4s": "%d",
+	u"int_4u": "%u",
+	u"int_8s": "%d",
+	u"int_8u": "%u",
+	u"int": "%d",
+	u"real_4": "%.8g",
+	u"real_8": "%.16g",
+	u"float": "%.8g",
+	u"double": "%.16g"
 }
+
 
 ToPyType = {
-	"char_s": str,
-	"char_v": str,
-	"ilwd:char": str,
-	"ilwd:char_u": str,
-	"lstring": str,
-	"string": str,
-	"int_2s": int,
-	"int_2u": int,
-	"int_4s": int,
-	"int_4u": int,
-	"int_8s": int,
-	"int_8u": int,
-	"int": int,
-	"real_4": float,
-	"real_8": float,
-	"float": float,
-	"double": float
+	u"char_s": str,
+	u"char_v": str,
+	u"ilwd:char": str,
+	u"ilwd:char_u": str,
+	u"lstring": str,
+	u"string": str,
+	u"int_2s": int,
+	u"int_2u": int,
+	u"int_4s": int,
+	u"int_4u": int,
+	u"int_8s": int,
+	u"int_8u": int,
+	u"int": int,
+	u"real_4": float,
+	u"real_8": float,
+	u"float": float,
+	u"double": float
 }
+
 
 FromPyType = {
-	str: "lstring",
-	int: "int_4s",
-	long: "int_8s",
-	float: "real_8"
+	str: u"lstring",
+	int: u"int_4s",
+	long: u"int_8s",
+	float: u"real_8"
 }
+
 
 ToNumPyType = {
-	"int_2s": "Int16",
-	"int_2u": "UInt16",
-	"int_4s": "Int32",
-	"int_4u": "UInt32",
-	"int_8s": "Int64",
-	"int_8u": "UInt64",
-	"int": "Int32",
-	"real_4": "Float32",
-	"real_8": "Float64",
-	"float": "Float64",
-	"double": "Float64"
+	u"int_2s": "Int16",
+	u"int_2u": "UInt16",
+	u"int_4s": "Int32",
+	u"int_4u": "UInt32",
+	u"int_8s": "Int64",
+	u"int_8u": "UInt64",
+	u"int": "Int32",
+	u"real_4": "Float32",
+	u"real_8": "Float64",
+	u"float": "Float64",
+	u"double": "Float64"
 }
+
 
 FromNumPyType = {
-	"Int16": "int_2s",
-	"UInt16": "int_2u",
-	"Int32": "int_4s",
-	"UInt32": "int_4u",
-	"Int64": "int_8s",
-	"UInt64": "int_8u",
-	"Float32": "real_4",
-	"Float64": "real_8"
+	"Int16": u"int_2s",
+	"UInt16": u"int_2u",
+	"Int32": u"int_4s",
+	"UInt32": u"int_4u",
+	"Int64": u"int_8s",
+	"UInt64": u"int_8u",
+	"Float32": u"real_4",
+	"Float64": u"real_8"
 }
+
 
 ToSQLiteType = {
-	"char_s": "TEXT",
-	"char_v": "TEXT",
-	"ilwd:char": "TEXT",
-	"ilwd:char_u": "TEXT",
-	"lstring": "TEXT",
-	"string": "TEXT",
-	"int_2s": "INTEGER",
-	"int_2u": "INTEGER",
-	"int_4s": "INTEGER",
-	"int_4u": "INTEGER",
-	"int_8s": "INTEGER",
-	"int_8u": "INTEGER",
-	"int": "INTEGER",
-	"real_4": "REAL",
-	"real_8": "REAL",
-	"float": "REAL",
-	"double": "REAL"
+	u"char_s": "TEXT",
+	u"char_v": "TEXT",
+	u"ilwd:char": "TEXT",
+	u"ilwd:char_u": "TEXT",
+	u"lstring": "TEXT",
+	u"string": "TEXT",
+	u"int_2s": "INTEGER",
+	u"int_2u": "INTEGER",
+	u"int_4s": "INTEGER",
+	u"int_4u": "INTEGER",
+	u"int_8s": "INTEGER",
+	u"int_8u": "INTEGER",
+	u"int": "INTEGER",
+	u"real_4": "REAL",
+	u"real_8": "REAL",
+	u"float": "REAL",
+	u"double": "REAL"
 }
 
+
 FromSQLiteType = {
-	"TEXT": "lstring",
-	"STRING": "lstring",
-	"INTEGER": "int_4s",
-	"REAL": "real_8"
+	"TEXT": u"lstring",
+	"STRING": u"lstring",
+	"INTEGER": u"int_4s",
+	"REAL": u"real_8"
 }

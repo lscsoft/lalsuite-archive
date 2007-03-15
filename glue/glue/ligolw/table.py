@@ -454,8 +454,8 @@ class TableStream(ligolw.Stream):
 		self.__colindex = 0
 		ligolw.Stream.unlink(self)
 
-	def write(self, file = sys.stdout, indent = ""):
-		rowfmt = indent + ligolw.Indent + self.getAttribute("Delimiter").join([types.ToFormat[c.getAttribute("Type")] for c in self.parentNode.getElementsByTagName(ligolw.Column.tagName)])
+	def write(self, file = sys.stdout, indent = u""):
+		rowfmt = unicode(indent + ligolw.Indent + self.getAttribute("Delimiter").join([types.ToFormat[c.getAttribute("Type")] for c in self.parentNode.getElementsByTagName(ligolw.Column.tagName)]))
 		colnames = self.parentNode.columnnames
 
 		# loop over parent's rows.  This is complicated because we
@@ -467,13 +467,13 @@ class TableStream(ligolw.Stream):
 			# FIXME: in Python 2.5, use attrgetter(*colnames)
 			# for attribute tuplizing
 			file.write(rowfmt % tuple([getattr(row, name) for name in colnames]))
-			rowfmt = self.getAttribute("Delimiter") + "\n" + rowfmt
+			rowfmt = unicode(self.getAttribute("Delimiter") + "\n" + rowfmt)
 			while True:
 				row = rowiter.next()
 				file.write(rowfmt % tuple([getattr(row, name) for name in colnames]))
 		except StopIteration:
 			if len(self.parentNode) > 0:
-				file.write("\n")
+				file.write(u"\n")
 		print >>file, self.end_tag(indent)
 
 	# FIXME: This function is for the metaio library:  metaio cares

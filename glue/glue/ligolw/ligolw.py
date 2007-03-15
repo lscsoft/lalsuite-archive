@@ -52,10 +52,10 @@ import types
 # =============================================================================
 #
 
-Header = """<?xml version='1.0' encoding='utf-8' ?>
+Header = u"""<?xml version='1.0' encoding='utf-8' ?>
 <!DOCTYPE LIGO_LW SYSTEM "http://ldas-sw.ligo.caltech.edu/doc/ligolwAPI/html/ligolw_dtd.txt">"""
 
-Indent = "\t"
+Indent = u"\t"
 
 
 #
@@ -117,17 +117,17 @@ class Element(object):
 		"""
 		Generate the string for the element's start tag.
 		"""
-		s = indent + "<" + self.tagName
+		s = indent + u"<" + self.tagName
 		for keyvalue in self.attributes.items():
-			s += " %s=\"%s\"" % keyvalue
-		s += ">"
+			s += u" %s=\"%s\"" % keyvalue
+		s += u">"
 		return s
 
 	def end_tag(self, indent):
 		"""
 		Generate the string for the element's end tag.
 		"""
-		return indent + "</" + self.tagName + ">"
+		return indent + u"</" + self.tagName + u">"
 
 	def appendChild(self, child):
 		"""
@@ -247,7 +247,7 @@ class Element(object):
 		"""
 		pass
 
-	def write(self, file = sys.stdout, indent = ""):
+	def write(self, file = sys.stdout, indent = u""):
 		"""
 		Recursively write an element and it's children to a file.
 		"""
@@ -284,11 +284,11 @@ class Comment(Element):
 	"""
 	tagName = u"Comment"
 
-	def write(self, file = sys.stdout, indent = ""):
+	def write(self, file = sys.stdout, indent = u""):
 		if self.pcdata:
-			print >>file, self.start_tag(indent) + self.pcdata + self.end_tag("")
+			print >>file, self.start_tag(indent) + self.pcdata + self.end_tag(u"")
 		else:
-			print >>file, self.start_tag(indent) + self.end_tag("")
+			print >>file, self.start_tag(indent) + self.end_tag(u"")
 
 
 class Param(Element):
@@ -340,19 +340,19 @@ class Column(Element):
 		"""
 		Generate the string for the element's start tag.
 		"""
-		s = indent + "<" + self.tagName
+		s = indent + u"<" + self.tagName
 		for keyvalue in self.attributes.items():
-			s += " %s=\"%s\"" % keyvalue
-		s += "/>"
+			s += u" %s=\"%s\"" % keyvalue
+		s += u"/>"
 		return s
 
 	def end_tag(self, indent):
 		"""
 		Generate the string for the element's end tag.
 		"""
-		return ""
+		return u""
 
-	def write(self, file = sys.stdout, indent = ""):
+	def write(self, file = sys.stdout, indent = u""):
 		"""
 		Recursively write an element and it's children to a file.
 		"""
@@ -386,11 +386,11 @@ class Dim(Element):
 	tagName = u"Dim"
 	validattributes = [u"Name", u"Unit", u"Start", u"Scale"]
 
-	def write(self, file = sys.stdout, indent = ""):
+	def write(self, file = sys.stdout, indent = u""):
 		if self.pcdata:
-			print >>file, self.start_tag(indent) + self.pcdata + self.end_tag("")
+			print >>file, self.start_tag(indent) + self.pcdata + self.end_tag(u"")
 		else:
-			print >>file, self.start_tag(indent) + self.end_tag("")
+			print >>file, self.start_tag(indent) + self.end_tag(u"")
 
 
 class Stream(Element):
@@ -401,12 +401,12 @@ class Stream(Element):
 	validattributes = [u"Name", u"Type", u"Delimiter", u"Encoding", u"Content"]
 
 	def __init__(self, attrs = sax.xmlreader.AttributesImpl({})):
-		if not attrs.has_key("Type"):
-			attrs._attrs["Type"] = u"Local"
-		if not attrs.has_key("Delimiter"):
-			attrs._attrs["Delimiter"] = u","
-		if attrs["Type"] not in [u"Remote", u"Local"]:
-			raise ElementError, "invalid Type for Stream: %s" % attrs["Type"]
+		if not attrs.has_key(u"Type"):
+			attrs._attrs[u"Type"] = u"Local"
+		if not attrs.has_key(u"Delimiter"):
+			attrs._attrs[u"Delimiter"] = u","
+		if attrs[u"Type"] not in [u"Remote", u"Local"]:
+			raise ElementError, "invalid Type for Stream: %s" % attrs[u"Type"]
 		Element.__init__(self, attrs)
 
 
@@ -454,10 +454,10 @@ class Time(Element):
 	validattributes = [u"Name", u"Type"]
 
 	def __init__(self, attrs = sax.xmlreader.AttributesImpl({})):
-		if not attrs.has_key("Type"):
-			attrs._attrs["Type"] = u"ISO-8601"
-		if attrs["Type"] not in types.TimeTypes:
-			raise ElementError, "invalid Type for Time: %s" % attrs["Type"]
+		if not attrs.has_key(u"Type"):
+			attrs._attrs[u"Type"] = u"ISO-8601"
+		if attrs[u"Type"] not in types.TimeTypes:
+			raise ElementError, "invalid Type for Time: %s" % attrs[u"Type"]
 		Element.__init__(self, attrs)
 
 
@@ -651,11 +651,9 @@ class LIGOLWContentHandler(sax.handler.ContentHandler):
 		self.current = self.current.parentNode
 
 	def characters(self, content):
-		"""
-		Discard character data for all elements but Comments and
-		Streams.
-		"""
-		if self.current.tagName in [Comment.tagName, Dim.tagName, Param.tagName, Stream.tagName, Time.tagName]:
+		# Discard character data for all elements except those for
+		# which it is meaningful.
+		if self.current.tagName in (Comment.tagName, Dim.tagName, Param.tagName, Stream.tagName, Time.tagName):
 			self.current.appendData(content)
 
 
