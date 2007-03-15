@@ -60,6 +60,15 @@ class coincInspiralTable:
       self.bl=0
       
     def add_trig(self,trig,statistic):
+      # Coincidence IDs are intended to be unique.  If there is a collision,
+      # multiple triggers from the same ifo can get mixed together.  This is
+      # a serious problem.  This won't detect all cases, but with more and
+      # more triggers being added, it becomes increasingly likely that
+      # we'll notice and halt the program.
+      assert not hasattr(self, trig.ifo), "Trying to add %s trigger to a"\
+        " coincidence for the second time. Coincidence so far:\n%s"\
+        "\n\nTrigger:\n%s" % (trig.ifo, dict([(x, getattr(self, x)) for x in \
+        self.__slots__ if hasattr(self, x)]), trig.event_id)
       
       self.numifos +=1
       if statistic.name == 'effective_snr':
@@ -155,7 +164,7 @@ class coincInspiralTable:
     if slide_num < 0:
       slide_num = 5000 - slide_num
     for coinc in self.rows:
-      if ( (coinc.event_id % 1000000000) / 100000 ) == slide_num:
+      if ( (coinc.event_id % 1000000000) // 100000 ) == slide_num:
         slide_coincs.rows.append(coinc)
      
     return slide_coincs 
