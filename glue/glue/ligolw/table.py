@@ -460,7 +460,7 @@ class TableStream(ligolw.Stream):
 
 		# loop over parent's rows.  This is complicated because we
 		# need to not put a delimiter at the end of the last row.
-		print >>file, self.start_tag(indent)
+		file.write(self.start_tag(indent) + u"\n")
 		rowiter = iter(self.parentNode)
 		try:
 			row = rowiter.next()
@@ -474,7 +474,7 @@ class TableStream(ligolw.Stream):
 		except StopIteration:
 			if len(self.parentNode) > 0:
 				file.write(u"\n")
-		print >>file, self.end_tag(indent)
+		file.write(self.end_tag(indent) + u"\n")
 
 	# FIXME: This function is for the metaio library:  metaio cares
 	# what order the attributes of XML tags come in.  This function

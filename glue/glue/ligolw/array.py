@@ -211,7 +211,7 @@ class ArrayStream(ligolw.Stream):
 	def write(self, file = sys.stdout, indent = u""):
 		# This is complicated because we need to not put a
 		# delimiter after the last element.
-		print >>file, self.start_tag(indent)
+		file.write(self.start_tag(indent) + u"\n")
 		delim = self.getAttribute(u"Delimiter")
 		format = types.ToFormat[self.parentNode.getAttribute(u"Type")]
 		a = self.parentNode.array
@@ -227,7 +227,7 @@ class ArrayStream(ligolw.Stream):
 					file.write(u"\n" + indent + ligolw.Indent)
 		except StopIteration:
 			file.write(u"\n")
-		print >>file, self.end_tag(indent)
+		file.write(self.end_tag(indent) + u"\n")
 
 
 class Array(ligolw.Array):

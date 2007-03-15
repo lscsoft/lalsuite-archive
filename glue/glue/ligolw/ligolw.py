@@ -52,7 +52,7 @@ import types
 # =============================================================================
 #
 
-Header = u"""<?xml version='1.0' encoding='utf-8' ?>
+Header = u"""<?xml version='1.0' encoding='utf-8'?>
 <!DOCTYPE LIGO_LW SYSTEM "http://ldas-sw.ligo.caltech.edu/doc/ligolwAPI/html/ligolw_dtd.txt">"""
 
 Indent = u"\t"
@@ -251,14 +251,15 @@ class Element(object):
 		"""
 		Recursively write an element and it's children to a file.
 		"""
-		print >>file, self.start_tag(indent)
+		file.write(self.start_tag(indent) + u"\n")
 		for c in self.childNodes:
 			if c.tagName not in self.validchildren:
 				raise ElementError, "invalid child %s for %s" % (c.tagName, self.tagName)
 			c.write(file, indent + Indent)
 		if self.pcdata:
-			print >>file, self.pcdata
-		print >>file, self.end_tag(indent)
+			file.write(self.pcdata)
+			file.write(u"\n")
+		file.write(self.end_tag(indent) + u"\n")
 
 
 #
@@ -286,9 +287,11 @@ class Comment(Element):
 
 	def write(self, file = sys.stdout, indent = u""):
 		if self.pcdata:
-			print >>file, self.start_tag(indent) + self.pcdata + self.end_tag(u"")
+			file.write(self.start_tag(indent))
+			file.write(self.pcdata)
+			file.write(self.end_tag(u"") + u"\n")
 		else:
-			print >>file, self.start_tag(indent) + self.end_tag(u"")
+			file.write(self.start_tag(indent) + self.end_tag(u"") + u"\n")
 
 
 class Param(Element):
@@ -356,7 +359,7 @@ class Column(Element):
 		"""
 		Recursively write an element and it's children to a file.
 		"""
-		print >>file, self.start_tag(indent)
+		file.write(self.start_tag(indent) + u"\n")
 
 
 class Array(Element):
@@ -388,9 +391,11 @@ class Dim(Element):
 
 	def write(self, file = sys.stdout, indent = u""):
 		if self.pcdata:
-			print >>file, self.start_tag(indent) + self.pcdata + self.end_tag(u"")
+			file.write(self.start_tag(indent))
+			file.write(self.pcdata)
+			file.write(self.end_tag(u"") + u"\n")
 		else:
-			print >>file, self.start_tag(indent) + self.end_tag(u"")
+			file.write(self.start_tag(indent) + self.end_tag(u"") + u"\n")
 
 
 class Stream(Element):
@@ -472,7 +477,7 @@ class Document(Element):
 		"""
 		Write the document.
 		"""
-		print >>file, Header
+		file.write(Header + u"\n")
 		for c in self.childNodes:
 			if c.tagName not in self.validchildren:
 				raise ElementError, "invalid child %s for %s" % (c.tagName, self.tagName)

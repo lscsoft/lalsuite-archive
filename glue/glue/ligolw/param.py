@@ -150,7 +150,7 @@ class Param(ligolw.Param):
 		self.pytype = types.ToPyType[t]
 
 	def write(self, file = sys.stdout, indent = ""):
-		print >>file, self.start_tag(indent)
+		file.write(self.start_tag(indent) + u"\n")
 		for c in self.childNodes:
 			if c.tagName not in self.validchildren:
 				raise ElementError, "invalid child %s for %s" % (c.tagName, self.tagName)
@@ -158,8 +158,10 @@ class Param(ligolw.Param):
 		if self.pcdata:
 			# FIXME:  does this satisfactorily preserve precision
 			# in floating point values?
-			print >>file, indent + ligolw.Indent + str(self.pcdata)
-		print >>file, self.end_tag(indent)
+			file.write(indent + ligolw.Indent)
+			file.write(str(self.pcdata))
+			file.write(u"\n")
+		file.write(self.end_tag(indent) + u"\n")
 
 
 #
