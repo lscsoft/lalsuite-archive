@@ -30,6 +30,8 @@
 Library of utility code for LIGO Light Weight XML applications.
 """
 
+
+import codecs
 import gzip
 import os
 import urllib2
@@ -40,9 +42,11 @@ import sys
 
 from glue.ligolw import ligolw
 
+
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __date__ = "$Date$"[7:-2]
 __version__ = "$Revision$"[11:-2]
+
 
 __all__ = []
 
@@ -222,6 +226,7 @@ def write_filename(xmldoc, filename, verbose = False, gz = False):
 		fileobj = sys.stdout
 	if gz:
 		fileobj = gzip.GzipFile(mode = "wb", fileobj = fileobj)
+	fileobj = codecs.EncodedFile(fileobj, "unicode_internal", "utf_8")
 	xmldoc.write(fileobj)
 
 	# restore original SIGTERM handler, and report the signal if it was
