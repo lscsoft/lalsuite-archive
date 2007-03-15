@@ -1144,7 +1144,7 @@ def histslides(slide_trigs, zerolag_trigs = None, ifolist = None, scalebkg = Non
     mean_events = mean(nevents)
     std_events = std(nevents) * ( 6370.0 / 600.0 ) ** ( 0.5 )
 
-  hist(nevents)
+  hist(nevents, align='center')
 
   figtext(0.13,0.8, " mean = %6.3e" % mean_events)
   figtext(0.13,0.75,"sigma = %6.3e" % std_events)
@@ -1214,7 +1214,7 @@ def plotslides(slide_trigs, zerolag_trigs = None, ifolist = None, \
     mean_events = mean(nevents)
     std_events = std(nevents) * ( 6370.0 / 600.0 ) ** ( 0.5 )
 
-  bar(slides, nevents, 0.8, 0, color='b') 
+  bar(slides, nevents, 0.8, 0, color='b', align="center") 
   axhline(mean_events,color='k',linewidth=2)
   axhline(mean_events + std_events,color='k',linestyle='--',linewidth=2)
   axhline(mean_events - std_events,color='k',linestyle='--',linewidth=2)
@@ -1225,9 +1225,9 @@ def plotslides(slide_trigs, zerolag_trigs = None, ifolist = None, \
       nfgevents = len(zerolag_trigs.coinctype(ifolist))
     else:
       nfgevents = len(zerolag_trigs)
-    bar([0], [nfgevents], 0.8, 0, color='r') 
+    bar([0], [nfgevents], 0.8, 0, color='r', align="center") 
  
-  xlim(min(slides),max(slides)) 
+  xlim(min(slides)-0.5,max(slides)+0.5) 
   xlabel('Number of time slide',size='x-large')
   ylabel('Number of triggers in slide',size='x-large')
   title_text = 'Plot of number coincident '
