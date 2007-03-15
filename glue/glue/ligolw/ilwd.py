@@ -16,6 +16,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+
 #
 # =============================================================================
 #
@@ -23,6 +24,7 @@
 #
 # =============================================================================
 #
+
 
 """
 The ilwd:char and ilwd:char_u types are used as IDs for objects within LIGO
@@ -35,6 +37,7 @@ generate unique IDs.
 import re
 
 import table
+
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __date__ = "$Date$"[7:-2]
@@ -49,8 +52,12 @@ __version__ = "$Revision$"[11:-2]
 # =============================================================================
 #
 
+
+#
 # Regular expression to extract the parts of a row ID according to the LIGO
 # LW naming conventions.
+#
+
 
 ILWDPattern = re.compile(r"(?P<Table>\w+):(?P<Column>\w+):(?P<ID>\d+)")
 
@@ -143,4 +150,3 @@ class ILWD(object):
 		s = str(self)
 		self.n += 1
 		return s
-
