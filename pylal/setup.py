@@ -3,8 +3,12 @@
 # setup for pylal
 
 import os
-from numpy.lib.utils import get_include as numpy_get_include
 from distutils.core import setup, Extension
+from distutils.command import install
+from distutils.command import sdist
+from distutils import log
+from sys import version_info
+from numpy.lib.utils import get_include as numpy_get_include
 
 class PkgConfig(object):
 	def __init__(self, names):
@@ -17,6 +21,76 @@ class PkgConfig(object):
 full_lal_pkg_config = PkgConfig("lal lalframe lalmetaio lalsupport")
 lal_pkg_config = PkgConfig("lal")
 
+def remove_root(path,root):
+  if root:
+    return os.path.normpath(path).replace(os.path.normpath(root),"",1)
+  else:
+    return os.path.normpath(path)
+
+class pylal_install(install.install):
+  def run(self):
+
+    # create the user env scripts
+    if self.install_purelib == self.install_platlib:
+      pylal_pythonpath = self.install_purelib
+    else:
+      pylal_pythonpath = self.install_platlib + ":" + self.install_purelib
+
+    pylal_prefix = remove_root(self.prefix,self.root)
+    pylal_install_scripts = remove_root(self.install_scripts,self.root)
+    pylal_pythonpath = remove_root(pylal_pythonpath,self.root)
+    pylal_install_platlib = remove_root(self.install_platlib,self.root)
+    
+    log.info("creating pylal-user-env.sh script")
+    env_file = open(os.path.join('etc','pylal-user-env.sh'),'w')
+    print >> env_file, "# Source this file to access PYLAL"
+    print >> env_file, "PYLAL_PREFIX=" + pylal_prefix
+    print >> env_file, "export PYLAL_PREFIX"
+    print >> env_file, "PATH=" + pylal_install_scripts + ":${PATH}"
+    print >> env_file, "PYTHONPATH=" + pylal_pythonpath + ":${PYTHONPATH}"
+    print >> env_file, "LD_LIBRARY_PATH=" + pylal_install_platlib + ":${LD_LIBRARY_PATH}"
+    print >> env_file, "DYLD_LIBRARY_PATH=" + pylal_install_platlib + ":${DYLD_LIBRARY_PATH}"
+    print >> env_file, "export PATH PYTHONPATH LD_LIBRARY_PATH DYLD_LIBRARY_PATH"
+    env_file.close()
+
+    log.info("creating pylal-user-env.csh script")
+    env_file = open(os.path.join('etc','pylal-user-env.csh'),'w')
+    print >> env_file, "# Source this file to access PYLAL"
+    print >> env_file, "setenv PYLAL_PREFIX " + pylal_prefix
+    print >> env_file, "setenv PATH " + pylal_install_scripts + ":${PATH}"
+    print >> env_file, "if ( $?PYTHONPATH ) then"
+    print >> env_file, "  setenv PYTHONPATH " + pylal_pythonpath + ":${PYTHONPATH}"
+    print >> env_file, "else"
+    print >> env_file, "  setenv PYTHONPATH " + pylal_pythonpath
+    print >> env_file, "endif"
+    print >> env_file, "if ( $?LD_LIBRARY_PATH ) then"
+    print >> env_file, "  setenv LD_LIBRARY_PATH " + pylal_install_platlib + ":${LD_LIBRARY_PATH}"
+    print >> env_file, "else"
+    print >> env_file, "  setenv LD_LIBRARY_PATH " + pylal_install_platlib
+    print >> env_file, "endif"
+    print >> env_file, "if ( $?DYLD_LIBRARY_PATH ) then"
+    print >> env_file, "  setenv DYLD_LIBRARY_PATH " + pylal_install_platlib + ":${DYLD_LIBRARY_PATH}"
+    print >> env_file, "else"
+    print >> env_file, "  setenv DYLD_LIBRARY_PATH " + pylal_install_platlib
+    print >> env_file, "endif"
+    env_file.close()
+
+    # now run the installer
+    install.install.run(self)
+
+class pylal_sdist(sdist.sdist):
+  def run(self):
+    # remove the automatically generated user env scripts
+    for script in [ 'pylal-user-env.sh', 'pylal-user-env.csh' ]:
+      log.info( 'removing ' + script )
+      try:
+        os.unlink(os.path.join('etc',script))
+      except:
+        pass
+
+    # now run sdist
+    sdist.sdist.run(self)
+
 
 setup(
 	name = "pylal",
@@ -27,6 +101,7 @@ setup(
 	url = "http://www.lsc-group.phys.uwm.edu/daswg/",
 	license = "See file LICENSE",
 	packages = ["pylal", "pylal.xlal"],
+        cmdclass = { 'install' : pylal_install, 'sdist' : pylal_sdist },
 	ext_modules = [
 		Extension("pylal.support", ["src/support.c"],
 			include_dirs = full_lal_pkg_config.incdirs,
@@ -103,10 +178,9 @@ setup(
 		os.path.join("bin", "ligolw_sicluster"),
 		os.path.join("bin", "ligolw_tisi")
 	],
-	data_files = [
-		("etc", [
-			os.path.join("etc", "pylal-user-env.sh"),
-			os.path.join("etc", "pylal-user-env.csh")
-		])
-	]
+        data_files = [ ('etc',[
+                os.path.join('etc','pylal-user-env.sh'),
+                os.path.join('etc','pylal-user-env.csh')
+        ] ) ]
+
 )
