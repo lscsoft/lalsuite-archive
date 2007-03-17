@@ -40,6 +40,7 @@ __version__ = "$Revision$"[11:-2]
 import re
 import sys
 from xml import sax
+from xml.sax.saxutils import escape as xmlescape
 from xml.sax.saxutils import unescape as xmlunescape
 
 import types
@@ -258,7 +259,7 @@ class Element(object):
 				raise ElementError, "invalid child %s for %s" % (c.tagName, self.tagName)
 			c.write(file, indent + Indent)
 		if self.pcdata:
-			file.write(self.pcdata)
+			file.write(xmlescape(self.pcdata))
 			file.write(u"\n")
 		file.write(self.end_tag(indent) + u"\n")
 
@@ -289,7 +290,7 @@ class Comment(Element):
 	def write(self, file = sys.stdout, indent = u""):
 		if self.pcdata:
 			file.write(self.start_tag(indent))
-			file.write(self.pcdata)
+			file.write(xmlescape(self.pcdata))
 			file.write(self.end_tag(u"") + u"\n")
 		else:
 			file.write(self.start_tag(indent) + self.end_tag(u"") + u"\n")
@@ -393,7 +394,7 @@ class Dim(Element):
 	def write(self, file = sys.stdout, indent = u""):
 		if self.pcdata:
 			file.write(self.start_tag(indent))
-			file.write(self.pcdata)
+			file.write(xmlescape(self.pcdata))
 			file.write(self.end_tag(u"") + u"\n")
 		else:
 			file.write(self.start_tag(indent) + self.end_tag(u"") + u"\n")
