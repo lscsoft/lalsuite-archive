@@ -34,6 +34,7 @@ __version__ = "$Revision$"[11:-2]
 
 import re
 import sys
+from xml.sax.saxutils import escape as xmlescape
 
 import ligolw
 import types
@@ -159,7 +160,7 @@ class Param(ligolw.Param):
 			# FIXME:  does this satisfactorily preserve precision
 			# in floating point values?
 			file.write(indent + ligolw.Indent)
-			file.write(str(self.pcdata))
+			file.write(xmlescape(str(self.pcdata)))
 			file.write(u"\n")
 		file.write(self.end_tag(indent) + u"\n")
 

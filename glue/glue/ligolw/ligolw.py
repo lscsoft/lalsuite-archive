@@ -40,6 +40,7 @@ __version__ = "$Revision$"[11:-2]
 import re
 import sys
 from xml import sax
+from xml.sax.saxutils import unescape as xmlunescape
 
 import types
 
@@ -659,7 +660,7 @@ class LIGOLWContentHandler(sax.handler.ContentHandler):
 		# Discard character data for all elements except those for
 		# which it is meaningful.
 		if self.current.tagName in (Comment.tagName, Dim.tagName, Param.tagName, Stream.tagName, Time.tagName):
-			self.current.appendData(content)
+			self.current.appendData(xmlunescape(content))
 
 
 class PartialLIGOLWContentHandler(LIGOLWContentHandler):

@@ -46,6 +46,7 @@ The array is stored as an attribute of the Array element.
 import numpy
 import re
 import sys
+from xml.sax.saxutils import escape as xmlescape
 
 import ligolw
 import tokenizer
@@ -197,7 +198,7 @@ class ArrayStream(ligolw.Stream):
 		# tokenize buffer, and assign to array
 		a = self.parentNode.array
 		n = self.__index.next
-		for token in self.tokenizer.add(content):
+		for token in self.tokenizer.append(content):
 			a[n()] = token
 
 	def unlink(self):
@@ -220,7 +221,7 @@ class ArrayStream(ligolw.Stream):
 			indeces = it.next()
 			file.write(indent + ligolw.Indent)
 			while True:
-				file.write(format % a[indeces])
+				file.write(xmlescape(format % a[indeces]))
 				indeces = it.next()
 				file.write(delim)
 				if not indeces[0]:
