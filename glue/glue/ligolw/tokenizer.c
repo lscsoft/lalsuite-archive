@@ -197,6 +197,8 @@ static PyObject *add(PyObject *self, PyObject *data)
 {
 	if(PyUnicode_Check(data)) {
 		PyObject *string = PyUnicode_AsASCIIString(data);
+		if(!string)
+			return NULL;
 		_add_to_data((ligolw_Tokenizer *) self, string);
 		Py_DECREF(string);
 	} else if(PyString_Check(data)) {
