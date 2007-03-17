@@ -198,7 +198,7 @@ class ArrayStream(ligolw.Stream):
 		# tokenize buffer, and assign to array
 		a = self.parentNode.array
 		n = self.__index.next
-		for token in self.tokenizer.append(content):
+		for token in self.tokenizer.add(content):
 			a[n()] = token
 
 	def unlink(self):
