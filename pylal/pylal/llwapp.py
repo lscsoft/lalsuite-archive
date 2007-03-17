@@ -29,7 +29,6 @@ A collection of utilities to assist in writing applications that manipulate
 data in LIGO Light-Weight XML format.
 """
 
-import base64
 import bisect
 import os
 import pickle
@@ -156,17 +155,17 @@ def get_coinc_def_id(xmldoc, table_names, create_new = True):
 def pickle_to_param(obj, name):
 	"""
 	Return the top-level element of a document sub-tree containing the
-	base64-encoded pickled serialization of a Python object.
+	pickled serialization of a Python object.
 	"""
-	return param.new_param("pickle64:%s" % name, "lstring", base64.b64encode(pickle.dumps(obj)))
+	return param.new_param("pickle:%s" % name, "lstring", pickle.dumps(obj))
 
 
 def pickle_from_param(elem, name):
 	"""
-	Retrieve a base64-encoded pickled Python object from the document
-	tree rooted at elem.
+	Retrieve a pickled Python object from the document tree rooted at
+	elem.
 	"""
-	return pickle.loads(base64.b64decode(param.get_param(elem, "pickle64:%s:param" % name).pcdata))
+	return pickle.loads(param.get_param(elem, "pickle:%s:param" % name).pcdata)
 
 
 #
