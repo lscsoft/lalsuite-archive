@@ -52,6 +52,7 @@ __version__ = "$Revision$"[11:-2]
 import copy
 import re
 import sys
+from xml.sax.saxutils import escape as xmlescape
 from xml.sax.xmlreader import AttributesImpl
 
 import ligolw
@@ -466,11 +467,11 @@ class TableStream(ligolw.Stream):
 			row = rowiter.next()
 			# FIXME: in Python 2.5, use attrgetter(*colnames)
 			# for attribute tuplizing
-			file.write(rowfmt % tuple([getattr(row, name) for name in colnames]))
+			file.write(xmlescape(rowfmt % tuple([getattr(row, name) for name in colnames])))
 			rowfmt = unicode(self.getAttribute("Delimiter") + "\n" + rowfmt)
 			while True:
 				row = rowiter.next()
-				file.write(rowfmt % tuple([getattr(row, name) for name in colnames]))
+				file.write(xmlescape(rowfmt % tuple([getattr(row, name) for name in colnames])))
 		except StopIteration:
 			if len(self.parentNode) > 0:
 				file.write(u"\n")
