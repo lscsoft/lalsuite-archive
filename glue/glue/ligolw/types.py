@@ -142,29 +142,29 @@ FromPyType = {
 
 
 ToNumPyType = {
-	u"int_2s": "Int16",
-	u"int_2u": "UInt16",
-	u"int_4s": "Int32",
-	u"int_4u": "UInt32",
-	u"int_8s": "Int64",
-	u"int_8u": "UInt64",
-	u"int": "Int32",
-	u"real_4": "Float32",
-	u"real_8": "Float64",
-	u"float": "Float64",
-	u"double": "Float64"
+	u"int_2s": "int16",
+	u"int_2u": "uint16",
+	u"int_4s": "int32",
+	u"int_4u": "uint32",
+	u"int_8s": "int64",
+	u"int_8u": "uint64",
+	u"int": "int32",
+	u"real_4": "float32",
+	u"real_8": "float64",
+	u"float": "float64",
+	u"double": "float64"
 }
 
 
 FromNumPyType = {
-	"Int16": u"int_2s",
-	"UInt16": u"int_2u",
-	"Int32": u"int_4s",
-	"UInt32": u"int_4u",
-	"Int64": u"int_8s",
-	"UInt64": u"int_8u",
-	"Float32": u"real_4",
-	"Float64": u"real_8"
+	"int16": u"int_2s",
+	"uint16": u"int_2u",
+	"int32": u"int_4s",
+	"uint32": u"int_4u",
+	"int64": u"int_8s",
+	"uint64": u"int_8u",
+	"float32": u"real_4",
+	"float64": u"real_8"
 }
 
 
