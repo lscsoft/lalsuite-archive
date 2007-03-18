@@ -16,6 +16,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+
 #
 # =============================================================================
 #
@@ -24,13 +25,11 @@
 # =============================================================================
 #
 
+
 """
 High-level support for Param elements.
 """
 
-__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
-__date__ = "$Date$"[7:-2]
-__version__ = "$Revision$"[11:-2]
 
 import re
 import sys
@@ -38,6 +37,11 @@ from xml.sax.saxutils import escape as xmlescape
 
 import ligolw
 import types
+
+
+__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__date__ = "$Date$"[7:-2]
+__version__ = "$Revision$"[11:-2]
 
 
 #
@@ -48,8 +52,12 @@ import types
 # =============================================================================
 #
 
+
+#
 # Regular expression used to extract the signifcant portion of a param
 # name, according to LIGO LW naming conventions.
+#
+
 
 ParamPattern = re.compile(r"(?:\A[a-z0-9_]+:|\A)(?P<Name>[a-z0-9_]+):param\Z")
 
@@ -88,11 +96,12 @@ def getParamsByName(elem, name):
 # =============================================================================
 #
 
+
 def new_param(name, type, value, comment = None):
 	"""
 	Construct a LIGO Light Weight XML Param document subtree.
 	"""
-	elem = Param({"Name": "%s:param" % name, "Type": type})
+	elem = Param({u"Name": u"%s:param" % name, u"Type": type})
 	elem.pcdata = value
 	if comment is not None:
 		elem.appendChild(ligolw.Comment())
@@ -119,6 +128,8 @@ def get_param(xmldoc, name):
 # =============================================================================
 #
 
+
+#
 # FIXME: params of type string should be quoted in order to correctly
 # delimit their extent.  If that were done, then the pcdata in a Param
 # element could be parsed using the Stream tokenizer (i.e., as though it
@@ -129,9 +140,11 @@ def get_param(xmldoc, name):
 # stop of all Param pcdata.  If this causes your string Param values to be
 # corrupted (because you need leading and trailing white space preserved),
 # then you need to make everyone switch to quoting their string Param
-# values and once that is done then this code will be changed.  Perhaps a
+# values, and once that is done then this code will be changed.  Perhaps a
 # warning should be emitted for non-quoted strings to encourage a
 # transition?
+#
+
 
 class Param(ligolw.Param):
 	"""
@@ -147,10 +160,10 @@ class Param(ligolw.Param):
 			t = self.getAttribute("Type")
 		except KeyError:
 			# default
-			t = "lstring"
+			t = u"lstring"
 		self.pytype = types.ToPyType[t]
 
-	def write(self, file = sys.stdout, indent = ""):
+	def write(self, file = sys.stdout, indent = u""):
 		file.write(self.start_tag(indent) + u"\n")
 		for c in self.childNodes:
 			if c.tagName not in self.validchildren:
@@ -160,7 +173,7 @@ class Param(ligolw.Param):
 			# FIXME:  does this satisfactorily preserve precision
 			# in floating point values?
 			file.write(indent + ligolw.Indent)
-			file.write(xmlescape(str(self.pcdata)))
+			file.write(xmlescape(unicode(self.pcdata)))
 			file.write(u"\n")
 		file.write(self.end_tag(indent) + u"\n")
 
@@ -173,15 +186,19 @@ class Param(ligolw.Param):
 # =============================================================================
 #
 
+
 #
 # Override portions of ligolw.LIGOLWContentHandler class
 #
 
+
 def startParam(self, attrs):
 	return Param(attrs)
 
+
 def endParam(self):
 	self.current.pcdata = self.current.pytype(self.current.pcdata.strip())
+
 
 ligolw.LIGOLWContentHandler.startParam = startParam
 ligolw.LIGOLWContentHandler.endParam = endParam
