@@ -556,6 +556,46 @@ SnglBurstTable.RowType = SnglBurst
 #
 # =============================================================================
 #
+#                              multi_burst:table
+#
+# =============================================================================
+#
+
+
+class MultiBurstTable(table.Table):
+	tableName = "multi_burst:table"
+	validcolumns = {
+		"creator_db": "int_4s",
+		"process_id": "ilwd:char",
+		"filter_id": "ilwd:char",
+		"ifos": "lstring",
+		"start_time": "int_4s",
+		"start_time_ns": "int_4s",
+		"duration": "real_4",
+		"central_freq": "real_4",
+		"bandwidth": "real_4",
+		"amplitude": "real_4",
+		"snr": "real_4",
+		"confidence": "real_4",
+		"ligo_axis_ra": "real_4",
+		"ligo_axis_dec": "real_4",
+		"ligo_angle": "real_4",
+		"ligo_angle_sig": "real_4",
+		"coinc_event_id": "ilwd:char"
+	}
+	constraints = "PRIMARY KEY (event_id)"
+
+
+class MultiBurst(object):
+	__slots__ = MultiBurstTable.validcolumns.keys()
+
+
+MultiBurstTable.RowType = MutliBurst
+
+
+#
+# =============================================================================
+#
 #                             sngl_inspiral:table
 #
 # =============================================================================
@@ -1698,6 +1738,7 @@ TableByName = {
 	table.StripTableName(SearchSummaryTable.tableName): SearchSummaryTable,
 	table.StripTableName(SearchSummVarsTable.tableName): SearchSummVarsTable,
 	table.StripTableName(SnglBurstTable.tableName): SnglBurstTable,
+	table.StripTableName(MultiBurstTable.tableName): MultiBurstTable,
 	table.StripTableName(SnglInspiralTable.tableName): SnglInspiralTable,
 	table.StripTableName(SnglRingDownTable.tableName): SnglRingDownTable,
 	table.StripTableName(MultiInspiralTable.tableName): MultiInspiralTable,
