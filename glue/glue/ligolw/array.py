@@ -116,7 +116,7 @@ def from_array(name, array, dim_names = None):
 	Construct a LIGO Light Weight XML Array document subtree from a
 	numpy array object.
 	"""
-	doc = Array({u"Name": name, u"Type": types.FromNumPyType[str(array.type())]})
+	doc = Array({u"Name": name, u"Type": types.FromNumPyType[str(array.dtype)]})
 	s = list(array.shape)
 	s.reverse()
 	for n, dim in enumerate(s):
@@ -124,7 +124,7 @@ def from_array(name, array, dim_names = None):
 		if dim_names is not None:
 			attrs[u"Name"] = dim_names[n]
 		child = ligolw.Dim(attrs)
-		child.pcdata = str(dim)
+		child.pcdata = unicode(dim)
 		doc.appendChild(child)
 	child = ArrayStream({u"Type": u"Local", u"Delimiter": u" "})
 	doc.appendChild(child)
