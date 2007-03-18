@@ -163,9 +163,9 @@ def DBTable_column_info(table_name):
 	Return an in order list of (name, type) tuples describing the
 	columns for the given table.
 	"""
-	statement, = DBTable.connection.cursor().execute("""SELECT sql FROM sqlite_master WHERE type == "table" AND name == ?""", (table_name,)).fetchone()
+	statement, = DBTable.connection.cursor().execute("SELECT sql FROM sqlite_master WHERE type == 'table' AND name == ?", (table_name,)).fetchone()
 	coldefs = re.match(_sql_create_table_pattern, statement.upper()).groupdict()["coldefs"]
-	return [(coldef.groupdict()["name"].lower(), coldef.groupdict()["type"]) for coldef in re.finditer(_sql_coldef_pattern, coldefs)]
+	return [(coldef.groupdict()["name"].lower(), coldef.groupdict()["type"]) for coldef in re.finditer(_sql_coldef_pattern, coldefs) if coldef.groupdict()["name"] not in ("PRIMARY", "UNIQUE", "CHECK")]
 
 
 def DBTable_get_xml():
@@ -180,15 +180,17 @@ def DBTable_get_xml():
 		# lsctables.New()
 		try:
 			cls = TableByName[table_name]
-		except:
+		except KeyError:
 			cls = DBTable
 		table_elem = cls(AttributesImpl({u"Name": table_name + ":table"}))
 		colnamefmt = table_name + ":%s"
 		for column_name, column_type in DBTable_column_info(table_elem.dbtablename):
-			if table_elem.validcolumns is None:
-				column_type = types.FromSQLiteType[column_type]
-			else:
+			if table_elem.validcolumns is not None:
+				# use the pre-defined column type
 				column_type = table_elem.validcolumns[column_name]
+			else:
+				# guess the column type
+				column_type = types.FromSQLiteType[column_type]
 			column_name = colnamefmt % column_name
 			table_elem.appendChild(table.Column(AttributesImpl({u"Name": column_name, u"Type": column_type})))
 
