@@ -52,10 +52,10 @@ for your files, for example if you wish your XML files to be lossless,
 simply include the lines
 
 	glue.ligolw.types.ToFormat.update({
-		"real_4": "%.9g",
-		"real_8": "%.17g",
-		"float": "%.9g",
-		"double": "%.17g"
+		"real_4": u"%.9g",
+		"real_8": u"%.17g",
+		"float": u"%.9g",
+		"double": u"%.17g"
 	})
 
 anywhere in your code, but before you write the document to a file.
@@ -91,33 +91,33 @@ Types = StringTypes + IntTypes + FloatTypes + TimeTypes
 
 
 ToFormat = {
-	u"char_s": "\"%s\"",
-	u"char_v": "\"%s\"",
-	u"ilwd:char": "\"%s\"",
-	u"ilwd:char_u": "\"%s\"",
-	u"lstring": "\"%s\"",
-	u"string": "\"%s\"",
-	u"int_2s": "%d",
-	u"int_2u": "%u",
-	u"int_4s": "%d",
-	u"int_4u": "%u",
-	u"int_8s": "%d",
-	u"int_8u": "%u",
-	u"int": "%d",
-	u"real_4": "%.8g",
-	u"real_8": "%.16g",
-	u"float": "%.8g",
-	u"double": "%.16g"
+	u"char_s": u"\"%s\"",
+	u"char_v": u"\"%s\"",
+	u"ilwd:char": u"\"%s\"",
+	u"ilwd:char_u": u"\"%s\"",
+	u"lstring": u"\"%s\"",
+	u"string": u"\"%s\"",
+	u"int_2s": u"%d",
+	u"int_2u": u"%u",
+	u"int_4s": u"%d",
+	u"int_4u": u"%u",
+	u"int_8s": u"%d",
+	u"int_8u": u"%u",
+	u"int": u"%d",
+	u"real_4": u"%.8g",
+	u"real_8": u"%.16g",
+	u"float": u"%.8g",
+	u"double": u"%.16g"
 }
 
 
 ToPyType = {
-	u"char_s": str,
-	u"char_v": str,
+	u"char_s": unicode,
+	u"char_v": unicode,
 	u"ilwd:char": str,
 	u"ilwd:char_u": str,
-	u"lstring": str,
-	u"string": str,
+	u"lstring": unicode,
+	u"string": unicode,
 	u"int_2s": int,
 	u"int_2u": int,
 	u"int_4s": int,
@@ -134,6 +134,7 @@ ToPyType = {
 
 FromPyType = {
 	str: u"lstring",
+	unicode: u"lstring",
 	int: u"int_4s",
 	long: u"int_8s",
 	float: u"real_8"

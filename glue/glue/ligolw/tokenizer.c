@@ -18,6 +18,7 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
+
 /*
  * ============================================================================
  *
@@ -26,9 +27,13 @@
  * ============================================================================
  */
 
+
 #include <Python.h>
 #include <ctype.h>
 #include <stdlib.h>
+#include <wchar.h>
+#include <wctype.h>
+
 
 #define MODULE_NAME "glue.ligolw.tokenizer"
 
@@ -49,49 +54,97 @@
 
 typedef struct {
 	PyObject_HEAD
+	/* list of the types to which parsed tokens will be converted */
 	PyObject **types;
+	/* end of the types list */
 	PyObject **types_length;
+	/* the type to which the next parsed token will be converted */
 	PyObject **type;
-	char delimiter;
+	/* delimiter character to be used in parsing */
+	wchar_t delimiter;
+	/* size of internal buffer, minus null terminator */
 	int allocation;
-	char *data;
-	char *length;
-	char *pos;
+	/* internal buffer */
+	wchar_t *data;
+	/* end of internal buffer's contents (null terminator) */
+	wchar_t *length;
+	/* current offset in buffer */
+	wchar_t *pos;
 } ligolw_Tokenizer;
 
 
 /*
- * Utilities
+ * Append the contents of a unicode object to a tokenizer's internal
+ * buffer, increasing the size of the buffer if needed.
  */
 
 
-static void _add_to_data(ligolw_Tokenizer *tokenizer, PyObject *string)
+static int add_to_data(ligolw_Tokenizer *tokenizer, PyObject *unicode)
 {
-	int n = PyString_GET_SIZE(string);
+	int n = PyUnicode_GET_SIZE(unicode);
 
 	if(n) {
 		if(tokenizer->length - tokenizer->data + n > tokenizer->allocation) {
+			/*
+			 * convert pointers to integer offsets
+			 */
+
 			int pos = tokenizer->pos - tokenizer->data;
 			int length = tokenizer->length - tokenizer->data;
+
+			/*
+			 * increase buffer size, adding 1 to leave room for
+			 * the null terminator
+			 */
+
+			wchar_t *old_data = tokenizer->data;
+
+			tokenizer->data = realloc(tokenizer->data, (tokenizer->allocation + n + 1) * sizeof(*tokenizer->data));
+			if(!tokenizer->data) {
+				/*
+				 * memory failure, restore pointer and exit
+				 */
+
+				tokenizer->data = old_data;
+				return -1;
+			}
 			tokenizer->allocation += n;
-			/* add 1 to leave room for the null terminator */
-			/* FIXME: should check for failure */
-			tokenizer->data = realloc(tokenizer->data, (tokenizer->allocation + 1) * sizeof(*tokenizer->data));
+
+			/*
+			 * convert integer offsets back to pointers
+			 */
+
 			tokenizer->pos = &tokenizer->data[pos];
 			tokenizer->length = &tokenizer->data[length];
 		}
-		memcpy(tokenizer->length, PyString_AS_STRING(string), n * sizeof(*tokenizer->data));
+
+		/*
+		 * copy data from unicode into buffer, appending null
+		 * terminator
+		 */
+
+		PyUnicode_AsWideChar((PyUnicodeObject *) unicode, tokenizer->length, n);
 		tokenizer->length += n;
 		*tokenizer->length = 0;
 	}
+
+	/*
+	 * success
+	 */
+
+	return 0;
 }
 
 
-static void _advance_to_pos(ligolw_Tokenizer *tokenizer)
+/*
+ * Shift the contents of the tokenizer's buffer so that the data starting
+ * at pos is moved to the start of the buffer.  When moving data, add 1 to
+ * the length to also move the null terminator.
+ */
+
+
+static void advance_to_pos(ligolw_Tokenizer *tokenizer)
 {
-	/* shift the contents of the tokenizer's buffer so that the data
-	 * starting at pos is moved to the start of the buffer.  when
-	 * moving data, add 1 to the length to grab the null terminator */
 	if(tokenizer->pos != tokenizer->data) {
 		tokenizer->length -= tokenizer->pos - tokenizer->data;
 		memmove(tokenizer->data, tokenizer->pos, (tokenizer->length - tokenizer->data + 1) * sizeof(*tokenizer->data));
@@ -100,7 +153,12 @@ static void _advance_to_pos(ligolw_Tokenizer *tokenizer)
 }
 
 
-static void _unref_types(ligolw_Tokenizer *tokenizer)
+/*
+ * Free the tokenizer's types list.
+ */
+
+
+static void unref_types(ligolw_Tokenizer *tokenizer)
 {
 	for(tokenizer->type = tokenizer->types; tokenizer->type < tokenizer->types_length; tokenizer->type++)
 		Py_DECREF(*tokenizer->type);
@@ -112,10 +170,21 @@ static void _unref_types(ligolw_Tokenizer *tokenizer)
 }
 
 
-static PyObject *_next_string(ligolw_Tokenizer *tokenizer, char **start, char **end)
+/*
+ * Identify the next token to extract from the tokenizer's internal buffer.
+ * On success, start will be left pointing to the address of the start of
+ * the string, and end will be pointing to the first character after the
+ * string.  The return value is the Python type to which the text should be
+ * converted, or NULL on error.  On error, the values of start and end are
+ * undefined.  Raises StopIteration if the end of the tokenizer's internal
+ * buffer is reached, or ValueError if a parse error occurs.
+ */
+
+
+static PyObject *next_token(ligolw_Tokenizer *tokenizer, wchar_t **start, wchar_t **end)
 {
-	char *pos = tokenizer->pos;
-	char *bailout = tokenizer->length;
+	wchar_t *pos = tokenizer->pos;
+	wchar_t *bailout = tokenizer->length;
 	PyObject *type = *tokenizer->type;
 
 	/*
@@ -143,7 +212,7 @@ static PyObject *_next_string(ligolw_Tokenizer *tokenizer, char **start, char **
 
 	if(pos >= bailout)
 		goto stop_iteration;
-	while(isspace(*pos))
+	while(iswspace(*pos))
 		if(++pos >= bailout)
 			goto stop_iteration;
 	if(*pos == '"') {
@@ -158,13 +227,13 @@ static PyObject *_next_string(ligolw_Tokenizer *tokenizer, char **start, char **
 			goto stop_iteration;
 	} else {
 		*start = pos;
-		while(!isspace(*pos) && (*pos != tokenizer->delimiter) && (*pos != '"'))
+		while(!iswspace(*pos) && (*pos != tokenizer->delimiter) && (*pos != '"'))
 			if(++pos >= bailout)
 				goto stop_iteration;
 		*end = pos;
 	}
 	while(*pos != tokenizer->delimiter) {
-		if(!isspace(*pos))
+		if(!iswspace(*pos))
 			goto parse_error;
 		if(++pos >= bailout)
 			goto stop_iteration;
@@ -172,52 +241,80 @@ static PyObject *_next_string(ligolw_Tokenizer *tokenizer, char **start, char **
 
 	tokenizer->pos = ++pos;
 
+	/*
+	 * Select the next type
+	 */
+
 	if(++tokenizer->type >= tokenizer->types_length)
 		tokenizer->type = tokenizer->types;
 
+	/*
+	 * Done
+	 */
+
 	return type;
 
+	/*
+	 * Errors
+	 */
+
 stop_iteration:
-	_advance_to_pos(tokenizer);
+	advance_to_pos(tokenizer);
 	PyErr_SetNone(PyExc_StopIteration);
 	return NULL;
 
 parse_error:
-	PyErr_SetString(PyExc_ValueError, *start);
+	{
+	PyObject *unicode = PyUnicode_FromWideChar(*start, tokenizer->length - *start);
+	PyErr_SetObject(PyExc_ValueError, unicode);
+	Py_DECREF(unicode);
 	return NULL;
+	}
 }
 
 
 /*
- * Methods
+ * append() method
  */
 
 
-static PyObject *add(PyObject *self, PyObject *data)
+static PyObject *append(PyObject *self, PyObject *data)
 {
+	int fail;
+
 	if(PyUnicode_Check(data)) {
-		PyObject *string = PyUnicode_AsASCIIString(data);
-		if(!string)
-			return NULL;
-		_add_to_data((ligolw_Tokenizer *) self, string);
-		Py_DECREF(string);
+		fail = add_to_data((ligolw_Tokenizer *) self, data);
 	} else if(PyString_Check(data)) {
-		_add_to_data((ligolw_Tokenizer *) self, data);
+		/* decode to unicode */
+		PyObject *unicode = PyUnicode_FromEncodedObject(data, NULL, NULL);
+		if(!unicode)
+			/* decode failure */
+			return NULL;
+		fail = add_to_data((ligolw_Tokenizer *) self, data);
+		Py_DECREF(unicode);
 	} else {
 		PyErr_SetObject(PyExc_TypeError, data);
 		return NULL;
 	}
+
+	if(fail < 0)
+		return PyErr_NoMemory();
 
 	Py_INCREF(self);
 	return self;
 }
 
 
+/*
+ * __del__() method
+ */
+
+
 static void __del__(PyObject *self)
 {
 	ligolw_Tokenizer *tokenizer = (ligolw_Tokenizer *) self;
 
-	_unref_types(tokenizer);
+	unref_types(tokenizer);
 	free(tokenizer->data);
 	tokenizer->data = NULL;
 	tokenizer->allocation = 0;
@@ -228,24 +325,29 @@ static void __del__(PyObject *self)
 }
 
 
+/*
+ * __init__() method
+ */
+
+
 static int __init__(PyObject *self, PyObject *args, PyObject *kwds)
 {
 	ligolw_Tokenizer *tokenizer = (ligolw_Tokenizer *) self;
-	char *delimiter;
+	Py_UNICODE *delimiter;
 	int delimiter_length;
 
-	if(!PyArg_ParseTuple(args, "s#", &delimiter, &delimiter_length))
+	if(!PyArg_ParseTuple(args, "u#", &delimiter, &delimiter_length))
 		return -1;
 	if(delimiter_length != 1) {
-		PyErr_SetString(PyExc_TypeError, "argument must have length 1");
+		PyErr_SetString(PyExc_ValueError, "delimiter must have length 1");
 		return -1;
 	}
 
 	tokenizer->delimiter = *delimiter;
 	tokenizer->types = malloc(1 * sizeof(*tokenizer->types));
 	tokenizer->types_length = &tokenizer->types[1];
-	tokenizer->types[0] = (PyObject *) &PyString_Type;
-	Py_INCREF(&PyString_Type);
+	tokenizer->types[0] = (PyObject *) &PyUnicode_Type;
+	Py_INCREF(tokenizer->types[0]);
 	tokenizer->type = tokenizer->types;
 	tokenizer->allocation = 0;
 	tokenizer->data = NULL;
@@ -256,6 +358,11 @@ static int __init__(PyObject *self, PyObject *args, PyObject *kwds)
 }
 
 
+/*
+ * __iter__() method
+ */
+
+
 static PyObject *__iter__(PyObject *self)
 {
 	Py_INCREF(self);
@@ -263,37 +370,72 @@ static PyObject *__iter__(PyObject *self)
 }
 
 
+/*
+ * next() method
+ */
+
+
 static PyObject *next(PyObject *self)
 {
 	PyObject *type;
 	PyObject *token;
-	char *start, *end;
+	wchar_t *start, *end;
+
+	/*
+	 * Identify the start and end of the next token.
+	 */
 
 	do {
-		type = _next_string((ligolw_Tokenizer *) self, &start, &end);
+		type = next_token((ligolw_Tokenizer *) self, &start, &end);
 		if(!type)
 			return NULL;
 	} while(type == Py_None);
 
+	/*
+	 * Null-terminate the token.
+	 */
+
 	*end = 0;
+
+	/*
+	 * Extract token as desired type.
+	 */
+
 	if(type == (PyObject *) &PyFloat_Type) {
-		token = PyFloat_FromDouble(strtod(start, &end));
-		if(*end != 0) {
+		char ascii_buffer[end - start + 1];
+		char *ascii_end;
+		if(PyUnicode_EncodeDecimal(start, end - start, ascii_buffer, NULL))
+			return NULL;
+		token = PyFloat_FromDouble(strtod(ascii_buffer, &ascii_end));
+		if(*ascii_end != 0) {
 			Py_DECREF(token);
-			PyErr_Format(PyExc_ValueError, "invalid literal for float(): '%s'", start);
+			PyErr_Format(PyExc_ValueError, "invalid literal for float(): '%s'", ascii_buffer);
 			token = NULL;
 		}
+	} else if(type == (PyObject *) &PyUnicode_Type) {
+		token = PyUnicode_FromWideChar(start, end - start);
 	} else if(type == (PyObject *) &PyString_Type) {
-		token = PyString_FromStringAndSize(start, end - start);
+		token = PyUnicode_Encode(start, end - start, NULL, NULL);
 	} else if(type == (PyObject *) &PyInt_Type) {
-		token = PyInt_FromString(start, NULL, 0);
+		token = PyInt_FromUnicode(start, end - start, 0);
 	} else {
+		/* shouldn't get here:  set_types() is supposed to validate
+		 * its input */
 		PyErr_BadArgument();
 		token = NULL;
 	}
 
+	/*
+	 * Done.
+	 */
+
 	return token;
 }
+
+
+/*
+ * set_types() method
+ */
 
 
 static PyObject *set_types(PyObject *self, PyObject *list)
@@ -301,18 +443,37 @@ static PyObject *set_types(PyObject *self, PyObject *list)
 	ligolw_Tokenizer *tokenizer = (ligolw_Tokenizer *) self;
 	int length, i;
 
+	/*
+	 * The argument must be a list.
+	 */
+
 	if(!PyList_Check(list))
 		goto type_error;
+
+	/*
+	 * Make sure it contains only allowed types.
+	 */
+
 	length = PyList_GET_SIZE(list);
 	for(i = 0; i < length; i++) {
 		PyObject *type = PyList_GET_ITEM(list, i);
-		if((type != (PyObject *) &PyString_Type) && (type != (PyObject *) &PyInt_Type) && (type != (PyObject *) &PyFloat_Type) && (type != Py_None))
+		if((type != (PyObject *) &PyUnicode_Type) && (type != (PyObject *) &PyString_Type) && (type != (PyObject *) &PyInt_Type) && (type != (PyObject *) &PyFloat_Type) && (type != Py_None))
 			goto type_error;
 	}
 
-	_unref_types(tokenizer);
+	/*
+	 * Clear the current internal type list.
+	 */
+
+	unref_types(tokenizer);
+
+	/*
+	 * Copy the new list's contents into the internal type list.
+	 */
 
 	tokenizer->types = malloc(length * sizeof(*tokenizer->types));
+	if(!tokenizer->types)
+		return PyErr_NoMemory();
 	tokenizer->types_length = &tokenizer->types[length];
 	tokenizer->type = tokenizer->types;
 
@@ -321,11 +482,19 @@ static PyObject *set_types(PyObject *self, PyObject *list)
 		Py_INCREF(tokenizer->types[i]);
 	}
 
+	/*
+	 * Done.
+	 */
+
 	Py_INCREF(Py_None);
 	return Py_None;
 
+	/*
+	 * Errors.
+	 */
+
 type_error:
-	PyErr_SetString(PyExc_TypeError, "Tokenizer.set_types(): argument must be a list of str, int, or float types, or Nones");
+	PyErr_SetString(PyExc_TypeError, "Tokenizer.set_types(): argument must be a list whose values are chosen from the types unicode, str, int, and float, or None");
 	return NULL;
 }
 
@@ -336,8 +505,8 @@ type_error:
 
 
 static struct PyMethodDef methods[] = {
-	{"add", add, METH_O, "Append a string to the tokenizer's contents"},
-	{"set_types", set_types, METH_O, "Set the list of Python types to be used cyclically for token parsing"},
+	{"append", append, METH_O, "Append a string to the tokenizer's contents."},
+	{"set_types", set_types, METH_O, "Set the list of Python types to be used cyclically for token parsing."},
 	{NULL,}
 };
 
@@ -346,7 +515,30 @@ static PyTypeObject ligolw_Tokenizer_Type = {
 	PyObject_HEAD_INIT(NULL)
 	.tp_basicsize = sizeof(ligolw_Tokenizer),
 	.tp_dealloc = __del__,
-	.tp_doc = "A tokenizer for LIGO Light Weight XML Stream and Array elements",
+	.tp_doc =
+		"A tokenizer for LIGO Light Weight XML Stream and Array elements.  Converts\n" \
+		"(usually comma-) delimited text streams into sequences of Python objects.  An\n" \
+		"instance is created by calling the class with the delimiter character as the\n" \
+		"single argument.  Text is appended to the internal buffer by passing it to the\n" \
+		"append() method.  Tokens are extracted by iterating over the instance.  The\n" \
+		"Tokenizer is able to directly extract tokens as various Python types.  The\n" \
+		"set_types() method is passed a list of the types to which tokens are to be\n" \
+		"converted.  The types will be used in order, cyclically.  For example, passing\n" \
+		"[int] to set_types() causes all tokens to be converted to ints, while\n" \
+		"[str, int] causes the first token to be returned as a string, the second as an\n" \
+		"int, then the third as a string again, and so on.  The default is to extract\n" \
+		"all tokens as strings.  Note that the last token will not be extracted until\n" \
+		"a delimiter character is seen.\n" \
+		"\n" \
+		"Example:\n" \
+		"\n" \
+		">>> from glue.ligolw import tokenizer\n" \
+		">>> t = tokenizer.Tokenizer(\",\")\n" \
+		">>> t.set_types([str, int])\n" \
+		">>> list(t.append(\"a,10,b,2\"))\n" \
+		"['a', 10, 'b']\n" \
+		">>> list(t.append(\"0,\"))\n" \
+		"[20]\n",
 	.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_CHECKTYPES,
 	.tp_init = __init__,
 	.tp_iter = __iter__,
@@ -372,6 +564,7 @@ void inittokenizer(void)
 
 	if(PyType_Ready(&ligolw_Tokenizer_Type) < 0)
 		return;
+
 	Py_INCREF(&ligolw_Tokenizer_Type);
 	PyModule_AddObject(module, "Tokenizer", (PyObject *) &ligolw_Tokenizer_Type);
 }
