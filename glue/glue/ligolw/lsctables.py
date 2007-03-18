@@ -583,7 +583,7 @@ class MultiBurstTable(table.Table):
 		"ligo_angle_sig": "real_4",
 		"coinc_event_id": "ilwd:char"
 	}
-	constraints = "PRIMARY KEY (event_id)"
+	constraints = "PRIMARY KEY (coinc_event_id)"
 
 
 class MultiBurst(object):
