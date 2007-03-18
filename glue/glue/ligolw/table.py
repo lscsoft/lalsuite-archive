@@ -318,7 +318,7 @@ class TableRowDict(object):
 #
 # =============================================================================
 #
-#                               Element Classes
+#                                Column Element
 #
 # =============================================================================
 #
@@ -407,6 +407,15 @@ class Column(ligolw.Column):
 		return numpy.fromiter(self, dtype = types.ToNumPyType[self.getAttribute("Type")])
 
 
+#
+# =============================================================================
+#
+#                                Stream Element
+#
+# =============================================================================
+#
+
+
 class TableStream(ligolw.Stream):
 	"""
 	High-level Stream element for use inside Tables.  This element
@@ -436,7 +445,7 @@ class TableStream(ligolw.Stream):
 
 	def appendData(self, content):
 		# tokenize buffer, and pack into row objects
-		for token in self.__tokenizer.add(content):
+		for token in self.__tokenizer.append(content):
 			setattr(self.__row, self.__colnames[self.__colindex], token)
 			self.__colindex += 1
 			if self.__colindex >= self.__numcols:
@@ -484,7 +493,16 @@ class TableStream(ligolw.Stream):
 		"""
 		Generate the element start tag.
 		"""
-		return indent + "<%s Name=\"%s\" Type=\"%s\" Delimiter=\"%s\">" % (self.tagName, self.getAttribute("Name"), self.getAttribute("Type"), self.getAttribute("Delimiter"))
+		return indent + u"<%s Name=\"%s\" Type=\"%s\" Delimiter=\"%s\">" % (self.tagName, self.getAttribute("Name"), self.getAttribute("Type"), self.getAttribute("Delimiter"))
+
+
+#
+# =============================================================================
+#
+#                                Table Element
+#
+# =============================================================================
+#
 
 
 class TableRow(object):
