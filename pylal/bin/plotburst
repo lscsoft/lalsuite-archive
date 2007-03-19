@@ -74,7 +74,7 @@ def parse_command_line():
 	if options.plot:
 		options.plot = map(int, options.plot)
 	else:
-		options.plot = [0, 1, 2, 3, 4, 5, 6, 7]
+		options.plot = range(8)
 
 	return options, (filenames or [None])
 
@@ -124,6 +124,7 @@ def snglburst_append(self, row):
 	self.lo_freq[row.ifo].append(row.central_freq - row.bandwidth / 2.0)
 	self.snr[row.ifo].append(row.snr)
 	self.confidence[row.ifo].append(row.confidence)
+
 
 lsctables.SnglBurstTable.loadcolumns = ["ifo", "start_time", "start_time_ns", "duration", "central_freq", "bandwidth", "snr", "confidence", "peak_time", "peak_time_ns", "peak_frequency"]
 lsctables.SnglBurstTable.__init__ = snglburst_init
