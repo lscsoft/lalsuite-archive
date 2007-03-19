@@ -31,8 +31,6 @@
 #include <Python.h>
 #include <ctype.h>
 #include <stdlib.h>
-#include <wchar.h>
-#include <wctype.h>
 
 
 #define MODULE_NAME "glue.ligolw.tokenizer"
@@ -61,15 +59,15 @@ typedef struct {
 	/* the type to which the next parsed token will be converted */
 	PyObject **type;
 	/* delimiter character to be used in parsing */
-	wchar_t delimiter;
+	Py_UNICODE delimiter;
 	/* size of internal buffer, minus null terminator */
 	int allocation;
 	/* internal buffer */
-	wchar_t *data;
+	Py_UNICODE *data;
 	/* end of internal buffer's contents (null terminator) */
-	wchar_t *length;
+	Py_UNICODE *length;
 	/* current offset in buffer */
-	wchar_t *pos;
+	Py_UNICODE *pos;
 } ligolw_Tokenizer;
 
 
@@ -97,7 +95,7 @@ static int add_to_data(ligolw_Tokenizer *tokenizer, PyObject *unicode)
 			 * the null terminator
 			 */
 
-			wchar_t *old_data = tokenizer->data;
+			Py_UNICODE *old_data = tokenizer->data;
 
 			tokenizer->data = realloc(tokenizer->data, (tokenizer->allocation + n + 1) * sizeof(*tokenizer->data));
 			if(!tokenizer->data) {
@@ -123,7 +121,7 @@ static int add_to_data(ligolw_Tokenizer *tokenizer, PyObject *unicode)
 		 * terminator
 		 */
 
-		PyUnicode_AsWideChar((PyUnicodeObject *) unicode, tokenizer->length, n);
+		memcpy(tokenizer->length, PyUnicode_AsUnicode(unicode), n * sizeof(*tokenizer->length));
 		tokenizer->length += n;
 		*tokenizer->length = 0;
 	}
@@ -181,10 +179,10 @@ static void unref_types(ligolw_Tokenizer *tokenizer)
  */
 
 
-static PyObject *next_token(ligolw_Tokenizer *tokenizer, wchar_t **start, wchar_t **end)
+static PyObject *next_token(ligolw_Tokenizer *tokenizer, Py_UNICODE **start, Py_UNICODE **end)
 {
-	wchar_t *pos = tokenizer->pos;
-	wchar_t *bailout = tokenizer->length;
+	Py_UNICODE *pos = tokenizer->pos;
+	Py_UNICODE *bailout = tokenizer->length;
 	PyObject *type = *tokenizer->type;
 
 	/*
@@ -212,7 +210,7 @@ static PyObject *next_token(ligolw_Tokenizer *tokenizer, wchar_t **start, wchar_
 
 	if(pos >= bailout)
 		goto stop_iteration;
-	while(iswspace(*pos))
+	while(Py_UNICODE_ISSPACE(*pos))
 		if(++pos >= bailout)
 			goto stop_iteration;
 	if(*pos == '"') {
@@ -227,13 +225,13 @@ static PyObject *next_token(ligolw_Tokenizer *tokenizer, wchar_t **start, wchar_
 			goto stop_iteration;
 	} else {
 		*start = pos;
-		while(!iswspace(*pos) && (*pos != tokenizer->delimiter) && (*pos != '"'))
+		while(!Py_UNICODE_ISSPACE(*pos) && (*pos != tokenizer->delimiter) && (*pos != '"'))
 			if(++pos >= bailout)
 				goto stop_iteration;
 		*end = pos;
 	}
 	while(*pos != tokenizer->delimiter) {
-		if(!iswspace(*pos))
+		if(!Py_UNICODE_ISSPACE(*pos))
 			goto parse_error;
 		if(++pos >= bailout)
 			goto stop_iteration;
@@ -265,7 +263,7 @@ stop_iteration:
 
 parse_error:
 	{
-	PyObject *unicode = PyUnicode_FromWideChar(*start, tokenizer->length - *start);
+	PyObject *unicode = PyUnicode_FromUnicode(*start, tokenizer->length - *start);
 	PyErr_SetObject(PyExc_ValueError, unicode);
 	Py_DECREF(unicode);
 	return NULL;
@@ -379,7 +377,7 @@ static PyObject *next(PyObject *self)
 {
 	PyObject *type;
 	PyObject *token;
-	wchar_t *start, *end;
+	Py_UNICODE *start, *end;
 
 	/*
 	 * Identify the start and end of the next token.
@@ -413,7 +411,7 @@ static PyObject *next(PyObject *self)
 			token = NULL;
 		}
 	} else if(type == (PyObject *) &PyUnicode_Type) {
-		token = PyUnicode_FromWideChar(start, end - start);
+		token = PyUnicode_FromUnicode(start, end - start);
 	} else if(type == (PyObject *) &PyString_Type) {
 		token = PyUnicode_Encode(start, end - start, NULL, NULL);
 	} else if(type == (PyObject *) &PyInt_Type) {
