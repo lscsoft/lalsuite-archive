@@ -271,6 +271,13 @@ class EventListDict(dict):
 		return dict.__new__(self)
 
 	def __init__(self, event_table, process_ids):
+		"""
+		Initialize a newly-created instance.  event_table is a list
+		of events (e.g., an instance of a glue.ligolw.table.Table
+		subclass), and process_ids is a sorted list of the
+		process_ids whose events should be considered in the
+		coincidence analysis.
+		"""
 		for event in event_table:
 			if llwapp.bisect_contains(process_ids, event.process_id):
 				if event.ifo not in self:
@@ -298,14 +305,14 @@ class EventListDict(dict):
 			l.set_offset(LIGOTimeGPS(0))
 
 
-def make_eventlists(xmldoc, event_table_name, max_segment_gap, program):
+def make_eventlists(xmldoc, event_table_name, max_segment_gap, program_name):
 	"""
 	Convenience wrapper for constructing a dictionary of event lists
 	from an XML document tree, the name of a table from which to get
 	the events, a maximum allowed time window, and the name of the
 	program that generated the events.
 	"""
-	return EventListDict(table.get_table(xmldoc, event_table_name), coincident_process_ids(xmldoc, max_segment_gap, program))
+	return EventListDict(table.get_table(xmldoc, event_table_name), coincident_process_ids(xmldoc, max_segment_gap, program_name))
 
 
 #
@@ -322,10 +329,10 @@ def coincident_process_ids(xmldoc, max_segment_gap, program):
 	Take an XML document tree and determine the list of process IDs
 	that will participate in coincidences identified by the time slide
 	table therein.  It is OK for xmldoc to contain time slides
-	involving instruments not represented in the list of processes;
+	involving instruments not represented in the list of processes:
 	these time slides are ignored.  max_segment_gap is the largest gap
-	that can exist between two segments, and it still be possible for
-	the two to provide events coincident with one another.
+	(in seconds) that can exist between two segments and it still be
+	possible for the two to provide events coincident with one another.
 	"""
 	# get the list of all process IDs for the given program
 	proc_ids = table.get_table(xmldoc, lsctables.ProcessTable.tableName).get_ids_by_program(program)
@@ -338,7 +345,7 @@ def coincident_process_ids(xmldoc, max_segment_gap, program):
 	# determine which time slides are possible given the instruments in
 	# the search summary table
 	time_slide_table = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
-	timeslides = map(time_slide_table.get_offset_dict, time_slide_table.dict.keys())
+	timeslides = time_slide_table.get_offset_dict_list()
 	for i in xrange(len(timeslides) - 1, -1, -1):
 		for instrument in timeslides[i].iterkeys():
 			if instrument not in seglistdict:
