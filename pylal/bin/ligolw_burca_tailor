@@ -37,6 +37,8 @@ from scipy.stats import stats
 import sys
 
 from glue import segments
+from glue.ligolw import ligolw
+from glue.ligolw import array
 from glue.ligolw import dbtables
 from glue.ligolw import utils
 from pylal import itertools
@@ -220,22 +222,31 @@ class Plot2(object):
 #
 
 
+def covariance_normalize(c):
+	"""
+	Normalize a covariance matrix so that the variances (diagonal
+	elements) are 1.
+	"""
+	std_dev = numpy.sqrt(numpy.diagonal(c))
+	return c / numpy.outer(std_dev, std_dev)
+
+
 class Covariance(object):
 	def __init__(self):
 		self.inj_observations = []
 		self.bak_observations = []
 
 	def add_inj(self, dt, df, dh):
-		self.inj_observations.append([dt, df, dh])
+		self.inj_observations.append((dt, df, dh))
 
 	def add_bak(self, dt, df, dh):
-		self.bak_observations.append([dt, df, dh])
+		self.bak_observations.append((dt, df, dh))
 
 	def finish(self):
 		self.inj_observations = numpy.array(self.inj_observations)
 		self.bak_observations = numpy.array(self.bak_observations)
-		self.inj_cov = stats.cov(self.inj_observations)
-		self.bak_cov = stats.cov(self.bak_observations)
+		self.inj_cov = covariance_normalize(stats.cov(self.inj_observations))
+		self.bak_cov = covariance_normalize(stats.cov(self.bak_observations))
 
 
 #
@@ -264,8 +275,8 @@ class Plots(object):
 		if self.n_time_slides is None:
 			self.n_time_slides = contents.connection.cursor().execute("""SELECT COUNT(DISTINCT time_slide_id) FROM time_slide""").fetchone()[0]
 
-		# iterate over burst+burst coincidences involving the two
-		# desired instruments
+		# iterate over non-zero-lag burst+burst coincidences
+		# involving the two desired instruments
 		for pair in map(tuple, itertools.choices(self.instruments, 2)):
 			for b1_confidence, b1_peak_time, b1_peak_time_ns, b1_duration, b1_peak_frequency, b1_bandwidth, b1_hrss, b2_confidence, b2_peak_time, b2_peak_time_ns, b2_duration, b2_peak_frequency, b2_bandwidth, b2_hrss in contents.connection.cursor().execute("""
 SELECT b1.confidence, b1.peak_time + t1.offset, b1.peak_time_ns, b1.ms_duration, b1.peak_frequency, b1.ms_bandwidth, b1.ms_hrss, b2.confidence, b2.peak_time + t2.offset, b2.peak_time_ns, b2.ms_duration, b2.peak_frequency, b2.ms_bandwidth, b2.ms_hrss FROM
@@ -294,6 +305,7 @@ SELECT b1.confidence, b1.peak_time + t1.offset, b1.peak_time_ns, b1.ms_duration,
 	)
 WHERE
 	coinc_event.coinc_def_id == ?
+	AND EXISTS (SELECT * FROM time_slide WHERE time_slide.time_slide_id == coinc_event.time_slide_id AND time_slide.offset != 0)
 	AND b1.ifo == ?
 	AND b2.ifo == ?
 			""", (contents.bb_definer_id, pair[0], pair[1])):
@@ -357,10 +369,31 @@ WHERE
 
 		print >>sys.stderr, "=== Summary ==="
 		print >>sys.stderr, "Non-injection average event rate = %g events / time slide" % (float(self.n_background_events) / self.n_time_slides)
-		print >>sys.stderr, "Injection covariance matrix ="
+		print >>sys.stderr, "Injection normalized covariance matrix ="
 		print >>sys.stderr, str(self.covariance.inj_cov)
-		print >>sys.stderr, "Background covariance matrix ="
+		print >>sys.stderr, "Background normalized covariance matrix ="
 		print >>sys.stderr, str(self.covariance.bak_cov)
+
+		write_likelihood_control("ligolw_burca_likelihood_control.xml.gz", self.plot1)
+
+
+#
+# =============================================================================
+#
+#                          Likelihood Control Output
+#
+# =============================================================================
+#
+
+
+def write_likelihood_control(filename, plot1, verbose = False):
+	xmldoc = ligolw.Document()
+	xmldoc.appendChild(ligolw.LIGO_LW())
+	for pair in map(tuple, itertools.choices(plot1.instruments, 2)):
+		xmldoc.childNodes[-1].appendChild(array.from_array(u"%s_%s_dt" % pair, numpy.array([plot1.inj_dt[pair].xvals(), plot1.inj_dt[pair].array, plot1.bak_dt[pair].array]), (u"dt", u"dt,P_inj,P_bak")))
+		xmldoc.childNodes[-1].appendChild(array.from_array(u"%s_%s_df" % pair, numpy.array([plot1.inj_df[pair].xvals(), plot1.inj_df[pair].array, plot1.bak_df[pair].array]), (u"df", u"df,P_inj,P_bak")))
+		xmldoc.childNodes[-1].appendChild(array.from_array(u"%s_%s_dh" % pair, numpy.array([plot1.inj_dh[pair].xvals(), plot1.inj_dh[pair].array, plot1.bak_dh[pair].array]), (u"dh", u"dh,P_inj,P_bak")))
+	utils.write_filename(xmldoc, filename, verbose = verbose, gz = (filename or "stdout")[-3:] == ".gz")
 
 
 #
