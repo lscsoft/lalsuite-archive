@@ -590,7 +590,7 @@ class MultiBurst(object):
 	__slots__ = MultiBurstTable.validcolumns.keys()
 
 
-MultiBurstTable.RowType = MutliBurst
+MultiBurstTable.RowType = MultiBurst
 
 
 #
