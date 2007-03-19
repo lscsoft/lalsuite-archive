@@ -1553,6 +1553,20 @@ class TimeSlideTable(table.Table):
 			d[row.instrument] = row.offset
 		return d
 
+	def get_offset_dict_list(self):
+		"""
+		Return a list of all time slides as dictionaries of
+		instrument --> offset mappings.
+		"""
+		slides = {}
+		for row in self:
+			if row.time_slide_id not in slides:
+				slides[row.time_slide_id] = {}
+			if row.instrument in slides[row.time_slide_id]:
+				raise KeyError, "%s: duplicate instrument %s" % (row.time_slide_id, row.instrument)
+			slides[row.time_slide_id][row.instrument] = row.offset
+		return slides.values()
+
 	def is_null(self, id):
 		"""
 		Test that a time slide ID identifies an all-zero time
