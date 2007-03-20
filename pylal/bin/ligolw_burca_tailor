@@ -42,8 +42,10 @@ from glue.ligolw import array
 from glue.ligolw import dbtables
 from glue.ligolw import utils
 from pylal import itertools
+from pylal import llwapp
 from pylal import rate
 from pylal import SnglBurstUtils
+from pylal import snglcoinc
 from pylal.date import LIGOTimeGPS
 
 
@@ -64,12 +66,50 @@ __date__ = "$Date$"[7:-2]
 def parse_command_line():
 	parser = OptionParser(version="%prog CVS $Id$")
 
-	parser.add_option("-i", "--injection-glob", metavar = "pattern", default = None, help = "shell filename pattern for injection files")
-	parser.add_option("-b", "--background-glob", metavar = "pattern", default = None, help = "shell filename pattern for non-injection files")
+	parser.add_option("-i", "--injection-glob", metavar = "pattern", default = None, help = "Shell filename pattern for injection files.")
+	parser.add_option("-b", "--background-glob", metavar = "pattern", default = None, help = "Shell filename pattern for non-injection files.")
+	parser.add_option("-t", "--thresholds", metavar = "inst1,inst2=threshold1[,threshold2,...]", action = "append", default = [], help = "Specify the thresholds as provided to ligolw_burca (see ligolw_burca for details).")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
 	options, filenames = parser.parse_args()
 
+	try:
+		options.thresholds = snglcoinc.parse_thresholds(options.thresholds)
+		for instrumentpair, value in options.thresholds.items():
+			dt, df, dhrss = value
+			options.thresholds[instrumentpair] = (float(dt), float(df), float(dhrss))
+	except Exception, e:
+		raise ValueError, "error parsing --thresholds: %s" % str(e)
+
 	return options, (filenames or [None])
+
+
+#
+# =============================================================================
+#
+#                          Thresholds Pre-Processing
+#
+# =============================================================================
+#
+
+
+#
+# Maximize thresholds, convert to intervals, and remove duplicates
+#
+
+
+def clean_thresholds(thresholds):
+	for (inst1, inst2), (dt, df, dh) in thresholds.items():
+		if inst1 > inst2:
+			continue
+		dt_other, df_other, dh_other = thresholds[(inst2, inst1)]
+		dt = segments.segment(-dt, +dt) | segments.segment(-dt_other, +dt_other)
+		df = segments.segment(-df, +df) | segments.segment(-df_other, +df_other)
+		dh = segments.segment(-dh, +dh) | segments.segment(-dh_other, +dh_other)
+		thresholds[(inst1, inst2)] = thresholds[(inst2, inst1)] = (dt, df, dh)
+	for pair in thresholds.keys():
+		if pair[0] > pair[1]:
+			del thresholds[pair]
+	return thresholds
 
 
 #
@@ -87,14 +127,13 @@ def parse_command_line():
 
 
 class Plot1(object):
-	def __init__(self, instruments, dtinterval, dfinterval, dhinterval):
-		self.instruments = instruments
-
+	def __init__(self, thresholds):
+		self.thresholds = thresholds
 		self.fig = SnglBurstUtils.figure.Figure()
 		SnglBurstUtils.FigureCanvas(self.fig)
 
 		# how many instrument pairs are there?
-		n_horiz = len(list(itertools.choices(instruments, 2)))
+		n_horiz = len(thresholds.keys())
 
 		# each sub plot's aspect ratio is the golden ratio
 		size = 12.0
@@ -105,7 +144,7 @@ class Plot1(object):
 		self.dt_axes = {}
 		self.df_axes = {}
 		self.dh_axes = {}
-		for i, pair in enumerate(map(tuple, itertools.choices(instruments, 2))):
+		for i, pair in enumerate(thresholds.keys()):
 			vlabel_allowance = .05
 			hlabel_allowance = .03
 			border = .007
@@ -131,7 +170,7 @@ class Plot1(object):
 		self.bak_df = {}
 		self.inj_dh = {}
 		self.bak_dh = {}
-		for pair in map(tuple, itertools.choices(instruments, 2)):
+		for pair, (dtinterval, dfinterval, dhinterval) in thresholds.items():
 			self.inj_dt[pair] = rate.Rate(dtinterval, abs(dtinterval) / 75.0)
 			self.bak_dt[pair] = rate.Rate(dtinterval, abs(dtinterval) / 75.0)
 			self.inj_df[pair] = rate.Rate(dfinterval, abs(dfinterval) / 75.0)
@@ -170,7 +209,7 @@ class Plot1(object):
 			pass
 
 	def finish(self):
-		for pair in map(tuple, itertools.choices(self.instruments, 2)):
+		for pair in self.thresholds.keys():
 			self.inj_dt[pair].array /= numpy.sum(self.inj_dt[pair].array)
 			self.bak_dt[pair].array /= numpy.sum(self.bak_dt[pair].array)
 			self.inj_df[pair].array /= numpy.sum(self.inj_df[pair].array)
@@ -260,12 +299,12 @@ class Covariance(object):
 
 
 class Plots(object):
-	def __init__(self, instruments, dtinterval, dfinterval, dhinterval):
-		self.instruments = instruments
+	def __init__(self, thresholds):
+		self.thresholds = thresholds
 		self.n_time_slides = None
 		self.n_background_events = 0
 
-		self.plot1 = Plot1(instruments, dtinterval, dfinterval, dhinterval)
+		self.plot1 = Plot1(thresholds)
 		self.plot2 = Plot2()
 		self.covariance = Covariance()
 
@@ -278,7 +317,7 @@ class Plots(object):
 
 		# iterate over non-zero-lag burst+burst coincidences
 		# involving the two desired instruments
-		for pair in map(tuple, itertools.choices(self.instruments, 2)):
+		for pair in self.thresholds.keys():
 			for b1_confidence, b1_peak_time, b1_peak_time_ns, b1_duration, b1_peak_frequency, b1_bandwidth, b1_hrss, b2_confidence, b2_peak_time, b2_peak_time_ns, b2_duration, b2_peak_frequency, b2_bandwidth, b2_hrss in contents.connection.cursor().execute("""
 SELECT b1.confidence, b1.peak_time + t1.offset, b1.peak_time_ns, b1.ms_duration, b1.peak_frequency, b1.ms_bandwidth, b1.ms_hrss, b2.confidence, b2.peak_time + t2.offset, b2.peak_time_ns, b2.ms_duration, b2.peak_frequency, b2.ms_bandwidth, b2.ms_hrss FROM
 	sngl_burst AS b1
@@ -330,7 +369,7 @@ WHERE
 	def add_injections(self, contents):
 		# iterate over injections recovered in both of the two
 		# desired instruments
-		for pair in map(tuple, itertools.choices(self.instruments, 2)):
+		for pair in self.thresholds.keys():
 			for b1_confidence, b1_peak_time, b1_peak_time_ns, b1_duration, b1_peak_frequency, b1_bandwidth, b1_hrss, b2_confidence, b2_peak_time, b2_peak_time_ns, b2_duration, b2_peak_frequency, b2_bandwidth, b2_hrss in contents.connection.cursor().execute("""
 SELECT b1.confidence, b1.peak_time + t1.offset, b1.peak_time_ns, b1.ms_duration, b1.peak_frequency, b1.ms_bandwidth, b1.ms_hrss, b2.confidence, b2.peak_time + t2.offset, b2.peak_time_ns, b2.ms_duration, b2.peak_frequency, b2.ms_bandwidth, b2.ms_hrss FROM
 	sngl_burst AS b1
@@ -396,7 +435,8 @@ WHERE
 def write_likelihood_control(filename, plot1, verbose = False):
 	xmldoc = ligolw.Document()
 	xmldoc.appendChild(ligolw.LIGO_LW())
-	for pair in map(tuple, itertools.choices(plot1.instruments, 2)):
+	xmldoc.childNodes[-1].appendChild(llwapp.pickle_to_param(plot1.thresholds, "thresholds"))
+	for pair in plot1.thresholds.keys():
 		xmldoc.childNodes[-1].appendChild(array.from_array(u"%s_%s_dt" % pair, numpy.array([plot1.inj_dt[pair].xvals(), plot1.inj_dt[pair].array, plot1.bak_dt[pair].array]), (u"dt", u"dt,P_inj,P_bak")))
 		xmldoc.childNodes[-1].appendChild(array.from_array(u"%s_%s_df" % pair, numpy.array([plot1.inj_df[pair].xvals(), plot1.inj_df[pair].array, plot1.bak_df[pair].array]), (u"df", u"df,P_inj,P_bak")))
 		xmldoc.childNodes[-1].appendChild(array.from_array(u"%s_%s_dh" % pair, numpy.array([plot1.inj_dh[pair].xvals(), plot1.inj_dh[pair].array, plot1.bak_dh[pair].array]), (u"dh", u"dh,P_inj,P_bak")))
@@ -412,10 +452,16 @@ def write_likelihood_control(filename, plot1, verbose = False):
 #
 
 
+#
+# Command line
+#
+
+
 options, filenames = parse_command_line()
+options.thresholds = clean_thresholds(options.thresholds)
 
 
-plots = Plots(["H1", "H2", "L1"], segments.segment(-1.0, +1.0), segments.segment(-5.0, +5.0), segments.segment(-2.0, +2.0))
+plots = Plots(options.thresholds)
 
 
 if options.verbose:
