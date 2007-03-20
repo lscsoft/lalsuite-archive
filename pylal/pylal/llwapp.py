@@ -157,7 +157,7 @@ def pickle_to_param(obj, name):
 	Return the top-level element of a document sub-tree containing the
 	pickled serialization of a Python object.
 	"""
-	return param.new_param("pickle:%s" % name, "lstring", pickle.dumps(obj))
+	return param.new_param(u"pickle:%s" % name, u"lstring", unicode(pickle.dumps(obj)))
 
 
 def pickle_from_param(elem, name):
@@ -165,7 +165,7 @@ def pickle_from_param(elem, name):
 	Retrieve a pickled Python object from the document tree rooted at
 	elem.
 	"""
-	return pickle.loads(str(param.get_param(elem, "pickle:%s:param" % name).pcdata))
+	return pickle.loads(str(param.get_param(elem, u"pickle:%s:param" % name).pcdata))
 
 
 #
