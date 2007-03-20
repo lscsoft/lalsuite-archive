@@ -74,7 +74,7 @@ def parse_command_line():
 	# parse --thresholds options into instrument pairs and components
 	try:
 		options.thresholds = snglcoinc.parse_thresholds(options.thresholds)
-	except Exceptions, e:
+	except Exception, e:
 		raise ValueError, "error parsing --thresholds: %s" % str(e)
 
 	# parse the components from --thresholds options
