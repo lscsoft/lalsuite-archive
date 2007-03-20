@@ -108,6 +108,44 @@ def get_time_slide_id(xmldoc, time_slide, create_new = None):
 	return id
 
 
+def get_zero_lag_time_slides(xmldoc, instrument_combinations = None):
+	"""
+	Return a dictionary of the time slides that describe zero-lag time
+	slides.  The dictionary maps time slide IDs to ditionaries of
+	instrument --> offset mappings.  The optional
+	instrument_combinations argument can be used to provide a list of
+	lists of instrument combinations to consider.  For example, [["H1",
+	"H2"], ["H1", "H2", "L1"]] requests all time slide IDs describing
+	all-zero offsets for either the H1+H2 or H1+H2+L1 instrument
+	combinations.  Order doesn't matter within an individual instrument
+	combination.  Passing instrument_combinations = None (the default)
+	indicates any instrument combination.
+	"""
+	# convert instrument combinations into sets for easy comparison
+	if instrument_combinations is not None:
+		instrument_combinations = map(set, instrument_combinations)
+
+	# extract zero-lag ID --> offset dictionary mapping
+	zero_lag_offset_dicts = {}
+	for id, offset_dict in table.get_table(xmldoc, lsctables.TimeSlideTable.tableName).get_offsets().iteritems():
+		for offset in offset_dict.itervalues():
+			if offset != 0:
+				# not zero-lag
+				break
+		else:
+			# loop exited normally (all offsets == 0)
+			zero_lag_offset_dicts[id] = offset_dict
+
+	# remove unwanted instrument combinations
+	if instrument_combinations is not None:
+		for id, offset_dict in zero_lag_offset_dicts.items():
+			if set(offset_dict.keys()) not in instrument_combinations:
+				del zero_lag_offset_dicts[id]
+
+	# done
+	return zero_lag_offset_dicts
+
+
 def get_coinc_def_id(xmldoc, table_names, create_new = True):
 	"""
 	Return the coinc_def_id corresponding to coincidences consisting
