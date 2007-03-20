@@ -46,6 +46,7 @@ from pylal import rate
 from pylal import SnglBurstUtils
 from pylal.date import LIGOTimeGPS
 
+
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
@@ -305,7 +306,13 @@ SELECT b1.confidence, b1.peak_time + t1.offset, b1.peak_time_ns, b1.ms_duration,
 	)
 WHERE
 	coinc_event.coinc_def_id == ?
-	AND EXISTS (SELECT * FROM time_slide WHERE time_slide.time_slide_id == coinc_event.time_slide_id AND time_slide.offset != 0)
+	AND EXISTS (
+		SELECT * FROM
+			time_slide
+		WHERE
+			time_slide.time_slide_id == coinc_event.time_slide_id
+			AND time_slide.offset != 0
+	)
 	AND b1.ifo == ?
 	AND b2.ifo == ?
 			""", (contents.bb_definer_id, pair[0], pair[1])):
