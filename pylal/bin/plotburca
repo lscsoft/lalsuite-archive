@@ -79,7 +79,7 @@ def parse_command_line():
 	if options.plot:
 		options.plot = map(int, options.plot)
 	else:
-		options.plot = range(14)
+		options.plot = range(11)
 
 	options.skip = int(options.skip)
 
@@ -463,56 +463,6 @@ class RateVsConfidence(SnglBurstUtils.BurstPlot):
 #
 # =============================================================================
 #
-#                              Delta-t Histogram
-#
-# =============================================================================
-#
-
-
-class DeltaTHistogram(SnglBurstUtils.BurstPlot):
-	def __init__(self, instrument, interval, width):
-		SnglBurstUtils.BurstPlot.__init__(self, "Offset (s)", "Events per Unit Offset")
-		self.instrument = instrument
-		self.n_foreground = 0
-		self.n_background = 0
-		self.foreground = rate.Rate(interval, width)
-		self.background = rate.Rate(interval, width)
-
-	def add_contents(self, contents):
-		for coinc in contents.coinc_select_by_def_id(contents.bb_definer_id):
-			offsets = coinc.get_time_slide()
-			if self.instrument not in offsets:
-				continue
-			# sum = len(bursts) * peak_time for this instrument
-			# - sum of peak times of all instruments.  Dividing
-			# this by len(bursts) gives the peak time for this
-			# instrument - the average of all peak times.  I
-			# compute this the way I do to avoid a (very
-			# expensive!) LIGOTimeGPS division operation.
-			sum = 0
-			bursts = list(contents.coinc_sngl_bursts(coinc))
-			for burst in bursts:
-				peak = burst.get_peak() + offsets[burst.ifo]
-				if burst.ifo != self.instrument:
-					sum -= peak
-				else:
-					sum += (len(bursts) - 1) * peak
-			if coinc.is_zero_lag():
-				self.n_foreground += 1
-				self.foreground[float(sum) / len(bursts)] = 1.0
-			else:
-				self.n_background += 1
-				self.background[float(sum) / len(bursts)] = 1.0
-
-	def finish(self):
-		self.axes.set_title(r"%s Peak Time Offset From Coincidence Mean (%d Foreground, %d Background Events)" % (self.instrument, self.n_foreground, self.n_background))
-		self.axes.plot(self.background.xvals(), self.background.filtered(), "k")
-		self.axes.plot(self.foreground.xvals(), self.foreground.filtered(), "r")
-
-
-#
-# =============================================================================
-#
 #                                     Main
 #
 # =============================================================================
@@ -533,10 +483,7 @@ def new_plots(plots):
 		ConfidenceContourProjection(numpy.array((-1/math.sqrt(2), +1/math.sqrt(2), 0), "Float64"), numpy.array((-1/math.sqrt(4), -1/math.sqrt(4), +1/math.sqrt(2)), "Float64"), magnitude_b, 10**5),
 		RateVsConfidence("H1"),
 		RateVsConfidence("H2"),
-		RateVsConfidence("L1"),
-		DeltaTHistogram("H1", deltat_seg, deltat_width),
-		DeltaTHistogram("H2", deltat_seg, deltat_width),
-		DeltaTHistogram("L1", deltat_seg, deltat_width),
+		RateVsConfidence("L1")
 	]
 	return [l[i] for i in plots]
 
