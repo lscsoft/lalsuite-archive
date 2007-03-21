@@ -2085,10 +2085,22 @@ int main( int argc, char *argv[] )
               LAL_CALL( LALFindChirpTDNormalize( &status, 
                     fcFilterInput->fcTmplt, fcFilterInput->segment, 
                     fcDataParams ), &status );
+
               /* ...and fall through to FindChirpFilterSegment() */
             case FindChirpSP:
               LAL_CALL( LALFindChirpFilterSegment( &status, 
                     &eventList, fcFilterInput, fcFilterParams ), &status ); 
+
+              /* find any events in the time series of snr and chisq */
+              LAL_CALL( LALFindChirpClusterEvents( &status,
+                    &eventList, fcFilterInput, fcFilterParams ), &status );
+
+              /* apply the rsq veto to any surviving events */
+              if ( fcFilterParams->filterOutputVetoParams )
+              {
+                LAL_CALL( LALFindChirpFilterOutputVeto( &status,
+                    &eventList, fcFilterInput, fcFilterParams ), &status ); 
+              }
               break;
 
             case BCV:
