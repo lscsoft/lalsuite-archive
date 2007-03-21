@@ -337,8 +337,6 @@ int main( int argc, char *argv[] )
   /* counters and other variables */
   const LALUnit strainPerCount = {0,{0,0,0,0,0,1,-1},{0,0,0,0,0,0,0}};
   UINT4 i, j, k;
-  INT4  inserted;
-  INT4  currentLevel;
   INT4  cDataForFrame = 0;
   CHAR  fname[FILENAME_MAX];
   CHAR  cdataStr[LALNameLength];
@@ -518,7 +516,7 @@ int main( int argc, char *argv[] )
 
   /*
    *
-   * create a (possibly heirarcical) template bank
+   * create a template bank
    *
    */
 
@@ -1943,14 +1941,14 @@ int main( int argc, char *argv[] )
 
     /*
      *
-     * hierarchial search engine
+     * search engine
      *
      */
 
 
-    for ( tmpltCurrent = tmpltHead, inserted = 0, thisTemplateIndex = 0; 
+    for ( tmpltCurrent = tmpltHead, thisTemplateIndex = 0; 
         tmpltCurrent; 
-        tmpltCurrent = tmpltCurrent->next, inserted = 0, thisTemplateIndex++ )
+        tmpltCurrent = tmpltCurrent->next, thisTemplateIndex++ )
     {
 
       /* If we are injecting or in td-follow-up mode and the    */
@@ -2104,7 +2102,7 @@ int main( int argc, char *argv[] )
               break;
 
             case BCV:
-              if (!bcvConstraint)
+              if ( ! bcvConstraint )
               {
                 LAL_CALL( LALFindChirpBCVFilterSegment( &status,
                       &eventList, fcFilterInput, fcFilterParams ), &status );
@@ -2169,8 +2167,8 @@ int main( int argc, char *argv[] )
               if ( coherentInputData )
               {
                 cDataForFrame = 1;
-		LALSnprintf( cdataStr, LALNameLength*sizeof(CHAR),
-			     "CData_%Ld", tmpltCurrent->tmpltPtr->event_id->id );
+                LALSnprintf( cdataStr, LALNameLength*sizeof(CHAR),
+                    "CData_%Ld", tmpltCurrent->tmpltPtr->event_id->id );
                 strcpy( coherentInputData->name, chan.name );
                 if ( ! coherentFrames )
                 {
@@ -2230,43 +2228,16 @@ int main( int argc, char *argv[] )
               fcFilterInput->fcTmplt->tmplt.psi0, 
               fcFilterInput->fcTmplt->tmplt.psi3 );
 
-          if ( tmpltCurrent->tmpltPtr->fine != NULL && inserted == 0 )
+          if ( vrbflg ) fprintf( stdout, "***>  dumping events  <***\n" );
+
+          if ( ! savedEvents.snglInspiralTable )
           {
-            if ( vrbflg ) fprintf( stdout, 
-                "inserting fine templates into list\n" );
-
-            tmpltInsert = tmpltCurrent;
-            inserted = 1;
-            fcSegVec->data[i].level += 1;
-
-            for ( bankCurrent = tmpltCurrent->tmpltPtr->fine ; 
-                bankCurrent; bankCurrent = bankCurrent->next )
-            {
-              LAL_CALL( LALFindChirpCreateTmpltNode( &status, 
-                    bankCurrent, &tmpltInsert ), &status );
-            }
-
-          }
-          else if ( ! tmpltCurrent->tmpltPtr->fine )
-          {
-            if ( vrbflg ) fprintf( stdout, "***>  dumping events  <***\n" );
-
-            if ( ! savedEvents.snglInspiralTable )
-            {
-              savedEvents.snglInspiralTable = eventList;
-            }
-            else
-            {
-              event->next = eventList;
-            }
+            savedEvents.snglInspiralTable = eventList;
           }
           else
           {
-            if ( vrbflg ) fprintf( stdout, 
-                "already inserted fine templates, skipping\n" ); 
-
-            fcSegVec->data[i].level += 1;
-          } 
+            event->next = eventList;
+          }
 
           /* save a ptr to the last event in the list and count the events */
           ++numEvents;
@@ -2277,32 +2248,8 @@ int main( int argc, char *argv[] )
           }
           event = eventList;
           eventList = NULL;
+
         } /* end if ( events ) */
-
-        /* if going up a level, remove inserted nodes, reset segment levels */ 
-        if ( tmpltCurrent->next && (tmpltCurrent->next->tmpltPtr->level < 
-              tmpltCurrent->tmpltPtr->level) )
-        {
-          /* record the current number */
-          currentLevel = tmpltCurrent->tmpltPtr->level;
-
-          /* decrease segment filter levels if the have been increased */
-          for ( i = 0 ; i < fcSegVec->length; i++ )
-          {
-            if ( fcSegVec->data[i].level == currentLevel )
-            {
-              fcSegVec->data[i].level -= 1;
-            }
-          }
-
-          if ( vrbflg ) fprintf( stdout, "removing inserted fine templates\n" );
-
-          while ( tmpltCurrent->tmpltPtr->level == currentLevel )
-          {
-            LAL_CALL( LALFindChirpDestroyTmpltNode( &status, &tmpltCurrent ),
-                &status );
-          }          
-        } /* end if up a level */
 
       } /* end loop over data segments */
 
