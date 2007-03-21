@@ -40,20 +40,18 @@ LALFindChirpStoreEvent (
     FindChirpFilterParams      *params,
     SnglInspiralTable          *thisEvent,
     COMPLEX8                   *q,
+    UINT4                       kmax,
     REAL4                       norm,
     UINT4                       eventStartIdx,
     UINT4                       numChisqBins,
-    CHAR                       *searchName
+    CHAR                        searchName[LIGOMETA_SEARCH_MAX]
 )
 /* </lalVerbatim> */
 
 {
-  UINT4                      numPoints;
-  UINT4                      kmax;
   INT8                       timeNS;
   INT4                       timeIndex;
   REAL4                      deltaT;
-  REAL8                      deltaF;
   LALMSTUnitsAndAcc          gmstUnits;
 
   INITSTATUS( status, "LALFindChirpStoreEvent", FINDCHIRPSTOREEVENTC );
@@ -90,16 +88,10 @@ LALFindChirpStoreEvent (
    */
 
 
-
-
   /* point local pointer to event and params pointers */
   /* note: we expect the gps seconds to be set before calling this routine */
   timeIndex = thisEvent->end_time.gpsSeconds;
-  numPoints = params->qVec->length;
   deltaT = params->deltaT;
-  deltaF = 1.0 / ( (REAL4) params->deltaT * (REAL4) numPoints );
-  kmax = input->fcTmplt->tmplt.fFinal / deltaF < numPoints/2 ?
-    input->fcTmplt->tmplt.fFinal / deltaF : numPoints/2;
 
   /* set the gmst units and strictness */
   gmstUnits.units = MST_HRS;

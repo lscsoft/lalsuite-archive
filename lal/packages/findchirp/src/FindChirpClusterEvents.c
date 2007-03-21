@@ -48,8 +48,10 @@ LALFindChirpClusterEvents (
   UINT4                 ignoreIndex = 0;
   UINT4                 eventStartIdx = 0;
   UINT4  		deltaEventIndex = 0;
-  UINT4                 j;
+  UINT4                 j, kmax;
   REAL4                 norm = 0;
+  REAL4                 deltaT;
+  REAL8                 deltaF;
   REAL4                 modqsqThresh = 0;
   REAL4                 chisqThreshFac = 0;
   UINT4                 numChisqBins = 0;
@@ -138,7 +140,14 @@ LALFindChirpClusterEvents (
   q = params->qVec->data;
   numPoints = params->qVec->length;
   ignoreIndex = params->ignoreIndex;
-  norm = params->norm;
+  deltaT = params->deltaT;
+  deltaF = 1.0 / ( (REAL4) params->deltaT * (REAL4) numPoints );
+  kmax = input->fcTmplt->tmplt.fFinal / deltaF < numPoints/2 ?
+    input->fcTmplt->tmplt.fFinal / deltaF : numPoints/2;
+
+  /* normalisation */
+  norm =
+    4.0 * (deltaT / (REAL4)numPoints) / input->segment->segNorm->data[kmax];
 
   /* normalised snr threhold */
   modqsqThresh = params->rhosqThresh / norm;
@@ -180,12 +189,12 @@ LALFindChirpClusterEvents (
    if ( params->clusterMethod == tmplt )
    {
      deltaEventIndex = 
-       (UINT4) rint( (input->fcTmplt->tmplt.tC / params->deltaT) + 1.0 );
+       (UINT4) rint( (input->fcTmplt->tmplt.tC / deltaT) + 1.0 );
    }
    else if ( params->clusterMethod == window )
    {
      deltaEventIndex = 
-       (UINT4) rint( (params->clusterWindow / params->deltaT) + 1.0 );
+       (UINT4) rint( (params->clusterWindow / deltaT) + 1.0 );
    }
 
 
@@ -244,7 +253,7 @@ LALFindChirpClusterEvents (
           /* clean up this event */
           SnglInspiralTable *lastEvent;
           LALFindChirpStoreEvent(status->statusPtr, input, params,
-              thisEvent, q, norm, eventStartIdx, numChisqBins, 
+              thisEvent, q, kmax, norm, eventStartIdx, numChisqBins, 
               searchName );
           CHECKSTATUSPTR( status );
 
@@ -278,7 +287,7 @@ LALFindChirpClusterEvents (
   if ( thisEvent )
   {
     LALFindChirpStoreEvent(status->statusPtr, input, params,
-         thisEvent, q, norm, eventStartIdx, numChisqBins, 
+         thisEvent, q, kmax, norm, eventStartIdx, numChisqBins, 
          searchName );
     CHECKSTATUSPTR( status );
   }

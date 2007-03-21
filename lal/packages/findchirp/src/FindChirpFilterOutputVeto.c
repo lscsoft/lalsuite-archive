@@ -90,10 +90,10 @@ for future analysis.
 \subsubsection*{Uses}
 
 \subsubsection*{Notes}
-The same test described here could also be employed for monitoring the behavior 
-of the signal to noise time series, $\rho(\emph{t$_j$})$, about a trigger, 
-therefore the inclusion of \texttt{qVec} and \texttt{qNorm} as input to the function 
-for future work.
+The same test described here could also be employed for monitoring the
+behavior of the signal to noise time series, $\rho(\emph{t$_j$})$, about a
+trigger, therefore the inclusion of \texttt{qVec} and \texttt{qNorm} as
+input to the function for future work.
 
 \vfill{\footnotesize\input{FindChirpFilterOutputVetoCV}}
 </lalLaTeX>
@@ -133,7 +133,6 @@ LALFindChirpFilterOutputVeto(
   REAL4Vector          *chisqVec;
   REAL8                 deltaT;
   COMPLEX8Vector       *qVec;
-  REAL4                qNorm;
   FindChirpFilterOutputVetoParams *params;
 
   event = *eventList;
@@ -155,7 +154,6 @@ LALFindChirpFilterOutputVeto(
   chisqVec = fcParams->chisqVec;
   deltaT = fcParams->deltaT;
   qVec = fcParams->qVec;
-  qNorm = fcParams->norm;
   params = fcParams->filterOutputVetoParams;
 
   /* check that the filterOutputVeto parameter structure exist */	

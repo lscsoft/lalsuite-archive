@@ -454,7 +454,6 @@ tagFindChirpFilterParams
   REAL4                         rhosqThresh;
   REAL4                         chisqThresh;
   REAL4                         chisqDelta;
-  REAL4                         norm;
   UINT4                         maximiseOverChirp;
   UINT4                         ignoreIndex;
   Clustering                    clusterMethod;          
@@ -862,6 +861,7 @@ LALFindChirpStoreEvent (
     FindChirpFilterParams      *params,
     SnglInspiralTable          *thisEvent,
     COMPLEX8                   *q,
+    UINT4                       kmax,
     REAL4                       norm,
     UINT4                       eventStartIdx,
     UINT4                       numChisqBins,

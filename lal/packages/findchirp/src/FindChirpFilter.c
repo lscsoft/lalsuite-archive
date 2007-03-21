@@ -319,7 +319,7 @@ LALFindChirpFilterSegment (
     memset( params->cVec->data->data, 0, numPoints * sizeof( COMPLEX8 ) ); 
 
   /* normalisation */
-  params->norm = norm = 
+  norm = 
     4.0 * (deltaT / (REAL4)numPoints) / input->segment->segNorm->data[kmax];
 
   /* normalised snr threhold */
