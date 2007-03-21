@@ -40,23 +40,22 @@ LALFindChirpClusterEvents (
     LALStatus                  *status,
     SnglInspiralTable         **eventList,
     FindChirpFilterInput       *input,
-    FindChirpFilterParams      *params,
-    COMPLEX8                   *q,
-    UINT4                       kmax,
-    UINT4                       numPoints,
-    UINT4                       ignoreIndex,
-    REAL4                       norm,
-    REAL4                       modqsqThresh,
-    REAL4                       chisqThreshFac,
-    UINT4                       numChisqBins,
-    CHAR                        searchName[LIGOMETA_SEARCH_MAX] 
-		)
+    FindChirpFilterParams      *params
+    )
 /* </lalVerbatim> */
 {
+  UINT4                 numPoints = 0;
+  UINT4                 ignoreIndex = 0;
   UINT4                 eventStartIdx = 0;
   UINT4  		deltaEventIndex = 0;
   UINT4                 j;
+  REAL4                 norm = 0;
+  REAL4                 modqsqThresh = 0;
+  REAL4                 chisqThreshFac = 0;
+  UINT4                 numChisqBins = 0;
+  COMPLEX8             *q = NULL;
   SnglInspiralTable    *thisEvent = NULL;
+  CHAR                  searchName[LIGOMETA_SEARCH_MAX];
 
   INITSTATUS( status, "LALFindChirpClusterEvents", FINDCHIRPCLUSTEREVENTSC );
   ATTATCHSTATUSPTR( status );
@@ -73,20 +72,120 @@ LALFindChirpClusterEvents (
   ASSERT( eventList, status, FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
   ASSERT( !*eventList, status, FINDCHIRPH_ENNUL, FINDCHIRPH_MSGENNUL );
 
+  /* check the allowed approximants */
+  switch ( params->approximant )
+  {
+    case TaylorT1:
+      LALSnprintf( searchName, LIGOMETA_SEARCH_MAX * sizeof(CHAR),
+          "TaylorT1twoPN" );
+      break;
+
+    case TaylorT2:
+      LALSnprintf( searchName, LIGOMETA_SEARCH_MAX * sizeof(CHAR),
+          "TaylorT2twoPN" );
+      break;
+
+    case TaylorT3:
+      LALSnprintf( searchName, LIGOMETA_SEARCH_MAX * sizeof(CHAR),
+          "TaylorT3twoPN" );
+      break;
+
+    case TaylorF2:
+      LALSnprintf( searchName, LIGOMETA_SEARCH_MAX * sizeof(CHAR),
+          "TaylorF2twoPN" );
+      break;
+
+    case GeneratePPN:
+      LALSnprintf( searchName, LIGOMETA_SEARCH_MAX * sizeof(CHAR),
+          "GeneratePPNtwoPN" );
+      break;
+
+    case PadeT1:
+      LALSnprintf( searchName, LIGOMETA_SEARCH_MAX * sizeof(CHAR),
+          "PadeT1twoPN" );
+      break;
+
+    case EOB:
+      LALSnprintf( searchName, LIGOMETA_SEARCH_MAX * sizeof(CHAR),
+          "EOBtwoPN" );
+      break;
+
+    case FindChirpSP:
+      LALSnprintf( searchName, LIGOMETA_SEARCH_MAX * sizeof(CHAR),
+          "FindChirpSPtwoPN" );
+      break;
+
+    default:
+      ABORT( status, FINDCHIRPH_EUAPX, FINDCHIRPH_MSGEUAPX );
+      break;
+  }
+
+  /* make sure the approximant in the tmplt and segment agree */
+  if ( params->approximant != input->fcTmplt->tmplt.approximant ||
+      params->approximant != input->segment->approximant )
+  {
+    ABORT( status, FINDCHIRPH_EAPRX, FINDCHIRPH_MSGEAPRX );
+  }
+
+
+  /*
+   *
+   * set up the variables needed to cluster
+   *
+   */
+
+  
+  q = params->qVec->data;
+  numPoints = params->qVec->length;
+  ignoreIndex = params->ignoreIndex;
+  norm = params->norm;
+
+  /* normalised snr threhold */
+  modqsqThresh = params->rhosqThresh / norm;
+
+  /* the length of the chisq bin vec is the number of bin boundaries so the */
+  /* number of chisq bins is (length - 1) or 0 if there are no boundaries   */
+  numChisqBins = input->segment->chisqBinVec->length ?
+    input->segment->chisqBinVec->length - 1 : 0;
+
+  /* we threshold on the "modified" chisq threshold computed from       */
+  /*   chisqThreshFac = chisqDelta * norm / p                           */
+  /*                                                                    */
+  /*   rho^2 = norm * modqsq                                            */
+  /*                                                                    */
+  /* So we actually threshold on                                        */
+  /*                                                                    */
+  /*    r^2 < chisqThresh * ( 1 + modqsq * chisqThreshFac )             */
+  /*                                                                    */
+  /* which is the same as thresholding on                               */
+  /*    r^2 < chisqThresh * ( 1 + rho^2 * chisqDelta / p )              */
+  /* and since                                                          */
+  /*    chisq = p r^2                                                   */
+  /* this is equivalent to thresholding on                              */
+  /*    chisq < chisqThresh * ( p + rho^2 chisqDelta )                  */
+  /*                                                                    */
+  /* The raw chisq is stored in the database. this quantity is chisq    */
+  /* distributed with 2p-2 degrees of freedom.                          */
+  chisqThreshFac = norm * params->chisqDelta / (REAL4) numChisqBins;
+
+
   /*
    *
    * Apply one of the clustering algorithms
    *
    */
 
+
    /* set deltaEventIndex depending on clustering method used */
    if ( params->clusterMethod == tmplt )
    {
-     deltaEventIndex = (UINT4) rint( (input->fcTmplt->tmplt.tC / params->deltaT) + 1.0 );
+     deltaEventIndex = 
+       (UINT4) rint( (input->fcTmplt->tmplt.tC / params->deltaT) + 1.0 );
    }
    else if ( params->clusterMethod == window )
    {
-     deltaEventIndex = (UINT4) rint( (params->clusterWindow / params->deltaT) + 1.0 );
+     deltaEventIndex = 
+       (UINT4) rint( (params->clusterWindow / params->deltaT) + 1.0 );
    }
 
 
@@ -145,7 +244,7 @@ LALFindChirpClusterEvents (
           /* clean up this event */
           SnglInspiralTable *lastEvent;
           LALFindChirpStoreEvent(status->statusPtr, input, params,
-              thisEvent, q, kmax, norm, eventStartIdx, numChisqBins, 
+              thisEvent, q, norm, eventStartIdx, numChisqBins, 
               searchName );
           CHECKSTATUSPTR( status );
 
@@ -179,7 +278,7 @@ LALFindChirpClusterEvents (
   if ( thisEvent )
   {
     LALFindChirpStoreEvent(status->statusPtr, input, params,
-         thisEvent, q, kmax, norm, eventStartIdx, numChisqBins, 
+         thisEvent, q, norm, eventStartIdx, numChisqBins, 
          searchName );
     CHECKSTATUSPTR( status );
   }

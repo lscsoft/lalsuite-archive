@@ -88,7 +88,6 @@ that implement the search.
 #include <lal/GeneratePPNInspiral.h>
 #include <lal/FindChirpDatatypes.h>
 #include <lal/FindChirpChisq.h>
-#include <lal/FindChirpFilterOutputVeto.h>
 
 #ifdef  __cplusplus
 extern "C" {
@@ -407,6 +406,37 @@ given by the argument to the flag \texttt{--cluster-window}
 
 \end{description}
 
+\subsubsection*{Structure \texttt{FindChirpFilterOutputVetoParams}}
+\idx[Type]{FindChirpFilterOutputVetoParams}
+
+\noindent This structure provides the parameters for the filter
+output veto.
+
+</lalLaTeX>
+#endif
+/* <lalVerbatim> */
+typedef struct
+tagFindChirpFilterOutputVetoParams
+{
+  REAL4          rsqvetoWindow;
+  REAL4          rsqvetoThresh;
+  REAL4          rsqvetoTimeThresh;
+  REAL4          rsqvetoMaxSNR;
+  REAL4          rsqvetoCoeff;
+  REAL4          rsqvetoPow;
+}
+FindChirpFilterOutputVetoParams;
+/* </lalVerbatim> */
+#if 0
+<lalLaTeX>
+
+\begin{description}
+\item[\texttt{REAL4 rsqvetoWindow}] Width of the $r^2$ veto window in units of 
+seconds.
+
+\item[\texttt{REAL4 rsqvetoThresh}] Threshold of the $r^2$ veto test analogous to the 
+$r^2$ threshold employed in the bns and macho inspiral searches.
+\end{description}
 \subsubsection*{Structure \texttt{FindChirpFilterParams}}
 \idx[Type]{FindChirpFilterParams}
 
@@ -426,6 +456,7 @@ tagFindChirpFilterParams
   REAL4                         chisqDelta;
   REAL4                         norm;
   UINT4                         maximiseOverChirp;
+  UINT4                         ignoreIndex;
   Clustering                    clusterMethod;          
   Approximant                   approximant;
   COMPLEX8Vector               *qVec;
@@ -630,6 +661,7 @@ FindChirpBankSimParams;
 \item[\texttt{REAL4 maxMass}] Maximum mass of injected signals.
 \end{description}
 
+
 \vfill{\footnotesize\input{FindChirpHV}}
 </lalLaTeX> 
 #endif
@@ -830,11 +862,10 @@ LALFindChirpStoreEvent (
     FindChirpFilterParams      *params,
     SnglInspiralTable          *thisEvent,
     COMPLEX8                   *q,
-    UINT4                       kmax,
     REAL4                       norm,
     UINT4                       eventStartIdx,
     UINT4                       numChisqBins,
-    CHAR                        searchName[LIGOMETA_SEARCH_MAX]
+    CHAR                       *searchName
     );
 
 void
@@ -842,18 +873,22 @@ LALFindChirpClusterEvents (
     LALStatus                  *status,
     SnglInspiralTable         **eventList,
     FindChirpFilterInput       *input,
-    FindChirpFilterParams      *params,
-    COMPLEX8                   *q,
-    UINT4                       kmax,
-    UINT4                       numPoints,
-    UINT4                       ignoreIndex,
-    REAL4                       norm,
-    REAL4                       modqsqThresh,
-    REAL4                       chisqThreshFac,
-    UINT4                       numChisqBins,
-    CHAR                        searchName[LIGOMETA_SEARCH_MAX] 
+    FindChirpFilterParams      *params
     );
 
+#if 0
+<lalLaTeX>
+\newpage\input{FindChirpFilterOutputVetoC}
+</lalLaTeX>
+#endif
+
+void 
+LALFindChirpFilterOutputVeto( 
+    LALStatus                          *status,
+    SnglInspiralTable                 **eventList,
+    FindChirpFilterInput               *input,
+    FindChirpFilterParams              *fcParams
+    );
 
 #if 0
 <lalLaTeX>
