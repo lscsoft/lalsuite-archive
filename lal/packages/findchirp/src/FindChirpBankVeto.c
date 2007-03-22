@@ -121,13 +121,15 @@ XLALFindChirpCreateSubBanks(
   {
     thisTmplt = nextTmplt;
     thisSubBank->bankHead = thisTmplt;
-    for ( i = 0; i < thisSubBank->subBankSize; ++i )
+    for ( i = 0; i < thisSubBank->subBankSize - 1; ++i )
     {
       thisTmplt = thisTmplt->next;
     }
     nextTmplt = thisTmplt->next;
     thisTmplt->next = NULL;
   }
+
+  LALFree( bankSizes );
 
   return subBankHead;
 }
