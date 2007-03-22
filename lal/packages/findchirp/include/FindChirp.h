@@ -907,7 +907,7 @@ LALFindChirpInjectSignals (
 INT4
 XLALFindChirpTagTemplateAndSegment (
     DataSegmentVector       *dataSegVec,
-    InspiralTemplateNode    *tmpltHead,
+    InspiralTemplate        *tmpltHead,
     SnglInspiralTable       **events,
     CHAR                    *ifo,
     REAL4                   tdFast,
@@ -936,7 +936,7 @@ LALFindChirpSetAnalyseTemplate (
     INT4                         sampleRate,
     FindChirpDataParams          *fcDataParams,
     int                          numTmplts,
-    InspiralTemplateNode         *tmpltHead,
+    InspiralTemplate             *tmpltHead,
     int                          numInjections,
     SimInspiralTable             *injections
     );
