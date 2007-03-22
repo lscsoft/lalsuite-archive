@@ -983,6 +983,14 @@ XLALFindChirpBankSimComputeMatch (
     REAL4                matchNorm
     );
 
+FindChirpSubBank*
+XLALFindChirpCreateSubBanks(
+    UINT4                      *maxSubBankSize,
+    UINT4                       subBankSize,
+    UINT4                       bankSize,
+    InspiralTemplate           *bankHead
+    );
+
 #ifdef  __cplusplus
 #pragma {
 }

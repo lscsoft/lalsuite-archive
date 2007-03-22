@@ -209,6 +209,7 @@ veto.
 typedef struct
 tagFindChirpSubBank
 {
+  UINT4                         subBankSize;
   InspiralTemplate             *bankHead;
   struct tagFindChirpSubBank   *next;
 }
