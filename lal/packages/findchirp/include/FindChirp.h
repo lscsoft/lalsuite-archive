@@ -629,6 +629,29 @@ in a form that can be used by \texttt{FindChirpFilterSegment()}
 in a form that can be used by \texttt{FindChirpFilterSegment()}
 \end{description}
 
+\subsubsection*{Structure \texttt{FindChirpSubBankData}}
+\idx[Type]{FindChirpSubBankData}
+
+\noindent This structure contains data needed for the bank veto.
+</lalLaTeX>
+#endif
+/* <lalVerbatim> */
+typedef struct
+tagFindChirpBankVetoData
+{
+  UINT4                   length;
+  COMPLEX8Vector        **qVecArray;
+  FindChirpFilterInput  **fcInputArray;
+}
+FindChirpBankVetoData;
+/* </lalVerbatim> */
+#if 0
+<lalLaTeX>
+\begin{description}
+
+\item[\texttt{struct tagFindChirpSubBankData *next}] The next structure in
+the linked list.
+\end{description}
 
 </lalLaTeX>
 #endif
@@ -873,7 +896,9 @@ LALFindChirpClusterEvents (
     LALStatus                  *status,
     SnglInspiralTable         **eventList,
     FindChirpFilterInput       *input,
-    FindChirpFilterParams      *params
+    FindChirpFilterParams      *params,
+    FindChirpBankVetoData      *bankVetoData,
+    UINT4                       subBankIndex
     );
 
 #if 0

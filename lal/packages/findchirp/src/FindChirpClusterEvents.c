@@ -40,7 +40,9 @@ LALFindChirpClusterEvents (
     LALStatus                  *status,
     SnglInspiralTable         **eventList,
     FindChirpFilterInput       *input,
-    FindChirpFilterParams      *params
+    FindChirpFilterParams      *params,
+    FindChirpBankVetoData      *bankVetoData,
+    UINT4                       subBankIndex
     )
 /* </lalVerbatim> */
 {
