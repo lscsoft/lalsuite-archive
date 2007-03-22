@@ -215,8 +215,11 @@ FindChirpBankSimParams bankSimParams = { 0, 0, -1, -1, NULL, -1, NULL, NULL };
                                         /* template bank sim params     */
 
 /* reverse chirp bank option */
-INT4 reverseChirpBank      = 0;           /* enable the reverse chirp     */
+INT4 reverseChirpBank      = 0;         /* enable the reverse chirp     */
                                         /* template bank option         */
+
+/* template bank veto options */
+UINT4 subBankSize          = 1;         /* num templates in a subbank   */
 
 /* output parameters */
 CHAR  *userTag          = NULL;         /* string the user can tag with */
@@ -2828,6 +2831,8 @@ LALSnprintf( this_proc_param->value, LIGOMETA_VALUE_MAX, format, ppvalue );
 "  --rsq-veto-coeff COEFF       set the r^2 veto coefficient to COEFF\n"\
 "  --rsq-veto-pow POW           set the r^2 veto power to POW\n"\
 "\n"\
+"  --bank-veto-subbank-size N   set the number of tmplts in a subbank to N\n"\
+"\n"\
 "  --maximization-interval msec set length of maximization interval\n"\
 "\n"\
 "  --ts-cluster   MTHD          max over template and end time MTHD \n"\
@@ -2966,6 +2971,7 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
     {"rsq-veto-max-snr",        required_argument, 0,                ')'},
     {"rsq-veto-coeff",          required_argument, 0,                '['},
     {"rsq-veto-pow",            required_argument, 0,                ']'},
+    {"bank-veto-subbank-size",  required_argument, 0,                ','},
     /* frame writing options */
     {"write-raw-data",          no_argument,       &writeRawData,     1 },
     {"write-filter-data",       no_argument,       &writeFilterData,  1 },
@@ -3001,7 +3007,7 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
     c = getopt_long_only( argc, argv, 
         "-A:B:C:D:E:F:G:H:I:J:K:L:M:N:O:P:Q:R:S:T:U:VW:X:Y:Z:"
         "a:b:c:d:e:f:g:hi:j:k:l:m:n:o:p:q:r:s:t:u:v:w:x:y:z:"
-        "0:1::2:3:4:567:8:9:*:>:<:(:):[:]",
+        "0:1::2:3:4:567:8:9:*:>:<:(:):[:],:",
         long_options, &option_index );
 
     /* detect the end of the options */
@@ -4148,6 +4154,24 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
           exit( 1 );
         }
         ADD_PROCESS_PARAM( "float", "%s", optarg );
+        break;
+
+      case ',':
+        {
+          int subBankSizeArg = atoi( optarg );
+
+          if ( subBankSizeArg < 1 )
+          {
+            fprintf( stderr, "invalid argument to --%s:\n"
+                " number of templates in a subbank must be greater than zero: "
+                "(%d specified)\n",
+                long_options[option_index].name, subBankSizeArg );
+            exit( 1 );
+          }
+          ADD_PROCESS_PARAM( "int", "%s", optarg );
+
+          subBankSize = (UINT4) subBankSizeArg;
+        }
         break;
 
       default:
