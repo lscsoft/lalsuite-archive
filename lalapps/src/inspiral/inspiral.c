@@ -313,6 +313,11 @@ int main( int argc, char *argv[] )
   InspiralTemplate             *bankHead     = NULL;
   InspiralTemplate             *bankCurrent  = NULL;
 
+  /* template bank veto structures */
+  UINT4                         maxSubBankSize = 0;
+  FindChirpSubBank             *subBankHead = NULL;
+  FindChirpSubBank             *subBankCurrent = NULL;
+
   /* inspiral events */
   INT4                          numEvents   = 0;
   SnglInspiralTable            *event       = NULL;
@@ -1919,6 +1924,25 @@ int main( int argc, char *argv[] )
 
     /*
      *
+     * split the template bank into subbanks for the bank veto
+     *
+     */
+
+
+    if ( vrbflg ) fprintf( stdout, 
+        "splitting bank in to subbanks of size ~ %d\n", subBankSize );
+
+    subBankHead = XLALFindChirpCreateSubBanks( &maxSubBankSize,
+        subBankSize, numTmplts, bankHead );
+
+    if ( vrbflg ) fprintf( stdout, "maximum subbank size = %d\n", 
+        maxSubBankSize );
+
+    bankHead = subBankHead->bankHead;
+
+
+    /*
+     *
      * search engine
      *
      */
@@ -2358,16 +2382,23 @@ int main( int argc, char *argv[] )
   LALFree( fcInitParams );
 
   /* free the template bank */
-  while ( bankHead )
+  while ( subBankHead )
   {
-    bankCurrent = bankHead;
-    bankHead = bankHead->next;
-    if ( bankCurrent->event_id )
+    subBankCurrent = subBankHead;
+    while ( subBankCurrent->bankHead )
     {
-      LALFree( bankCurrent->event_id );
+      bankCurrent = subBankCurrent->bankHead;
+      subBankCurrent->bankHead = subBankCurrent->bankHead->next;
+      if ( bankCurrent->event_id )
+      {
+        LALFree( bankCurrent->event_id );
+      }
+      LALFree( bankCurrent );
+      bankCurrent = NULL;
     }
-    LALFree( bankCurrent );
-    bankCurrent = NULL;
+    subBankHead = subBankHead->next;
+    LALFree( subBankCurrent );
+    subBankCurrent = NULL;
   }
 
   /* free any bank sim parameters */
