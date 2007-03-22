@@ -309,9 +309,6 @@ int main( int argc, char *argv[] )
   INT4                          numTmplts    = 0;
   InspiralTemplate             *bankHead     = NULL;
   InspiralTemplate             *bankCurrent  = NULL;
-  InspiralTemplateNode         *tmpltHead    = NULL;
-  InspiralTemplateNode         *tmpltCurrent = NULL;
-  InspiralTemplateNode         *tmpltInsert  = NULL;
 
   /* inspiral events */
   INT4                          numEvents   = 0;
@@ -565,29 +562,6 @@ int main( int argc, char *argv[] )
 
   if ( vrbflg ) fprintf( stdout, "parsed %d templates from %s\n", 
       numTmplts, bankFileName );
-
-  if ( numTmplts )
-  {
-    /* save the minimal match of the bank in the process params: create */
-    /* the table entry with calloc() since it will be freed with free() */
-    this_proc_param = this_proc_param->next = (ProcessParamsTable *) 
-      calloc( 1, sizeof(ProcessParamsTable) ); 
-    LALSnprintf( this_proc_param->program, LIGOMETA_PROGRAM_MAX, "%s", 
-        PROGRAM_NAME );
-    LALSnprintf( this_proc_param->param, LIGOMETA_PARAM_MAX, 
-        "--minimal-match" );
-    LALSnprintf( this_proc_param->type, LIGOMETA_TYPE_MAX, "float" ); 
-    LALSnprintf( this_proc_param->value, LIGOMETA_VALUE_MAX, "%e", 
-        bankHead->minMatch );
-  }
-
-  /* create the linked list of template nodes for coarse templates */
-  for ( bankCurrent = bankHead; bankCurrent; bankCurrent = bankCurrent->next )
-  {
-    LAL_CALL( LALFindChirpCreateTmpltNode( &status, 
-          bankCurrent, &tmpltCurrent ), &status );
-    if ( !tmpltHead ) tmpltHead = tmpltCurrent;
-  }
 
 
   /*
@@ -1902,7 +1876,8 @@ int main( int argc, char *argv[] )
      *      F           F           F        Do Nothing
      *      F           F           T        Irrelevant (do nothing)
      *================================================================*/
-    if ( numTmplts > 0 && ( injectionFile  || (tdFollowUpFiles && mmFast >= 0.0) ))
+    if ( numTmplts > 0 && 
+        ( injectionFile  || (tdFollowUpFiles && mmFast >= 0.0) ) )
     {
       /* Make space for analyseThisTmplt */
       analyseThisTmplt = (UINT4 *) LALCalloc (numTmplts, sizeof(UINT4));
@@ -1917,13 +1892,13 @@ int main( int argc, char *argv[] )
       /* that are 'close' to the injections             */
         LAL_CALL( LALFindChirpSetAnalyseTemplate( &status, analyseThisTmplt,
             mmFast, fcSegVec->data[0].data->deltaF, sampleRate, fcDataParams,
-            numTmplts, tmpltHead, numInjections, injections ), &status );
+            numTmplts, bankHead, numInjections, injections ), &status );
 
       }
       else
       {
-        XLALFindChirpTagTemplateAndSegment(dataSegVec, tmpltHead, &tdFollowUpEvents,
-                ifo, mmFast, analyseThisTmplt );
+        XLALFindChirpTagTemplateAndSegment(dataSegVec, bankHead, 
+            &tdFollowUpEvents, ifo, mmFast, analyseThisTmplt );
       }
     }  
 
@@ -1946,9 +1921,9 @@ int main( int argc, char *argv[] )
      */
 
 
-    for ( tmpltCurrent = tmpltHead, thisTemplateIndex = 0; 
-        tmpltCurrent; 
-        tmpltCurrent = tmpltCurrent->next, thisTemplateIndex++ )
+    for ( bankCurrent = bankHead, thisTemplateIndex = 0; 
+        bankCurrent; 
+        bankCurrent = bankCurrent->next, thisTemplateIndex++ )
     {
 
       /* If we are injecting or in td-follow-up mode and the    */
@@ -1973,22 +1948,22 @@ int main( int argc, char *argv[] )
         case PadeT1:
         case EOB:
           LAL_CALL( LALFindChirpTDTemplate( &status, fcFilterInput->fcTmplt, 
-                tmpltCurrent->tmpltPtr, fcTmpltParams ), &status );
+                bankCurrent, fcTmpltParams ), &status );
           break;
 
         case FindChirpSP:
           LAL_CALL( LALFindChirpSPTemplate( &status, fcFilterInput->fcTmplt, 
-                tmpltCurrent->tmpltPtr, fcTmpltParams ), &status );
+                bankCurrent, fcTmpltParams ), &status );
           break;
 
         case BCV:
           LAL_CALL( LALFindChirpBCVTemplate( &status, fcFilterInput->fcTmplt, 
-                tmpltCurrent->tmpltPtr, fcTmpltParams ), &status );
+                bankCurrent, fcTmpltParams ), &status );
           break;
 
         case BCVSpin:
           LAL_CALL( LALFindChirpBCVSpinTemplate( &status, 
-                fcFilterInput->fcTmplt, tmpltCurrent->tmpltPtr, 
+                fcFilterInput->fcTmplt, bankCurrent, 
                 fcTmpltParams, fcDataParams ), &status );
           break;
 
@@ -2056,15 +2031,14 @@ int main( int argc, char *argv[] )
         }
 
         /* filter data segment */ 
-        if ( fcSegVec->data[i].level == tmpltCurrent->tmpltPtr->level && 
-            analyseTag )
+        if ( analyseTag )
         {
           if ( vrbflg ) fprintf( stdout, 
               "filtering segment %d/%d [%lld-%lld] "
               "against template %d/%d (%e,%e)\n", 
-              fcSegVec->data[i].number,  fcSegVec->length,
+              fcSegVec->data[i].number, fcSegVec->length,
               fcSegStartTimeNS, fcSegEndTimeNS,
-              tmpltCurrent->tmpltPtr->number, numTmplts,
+              bankCurrent->number, numTmplts,
               fcFilterInput->fcTmplt->tmplt.mass1, 
               fcFilterInput->fcTmplt->tmplt.mass2 );
 
@@ -2137,10 +2111,10 @@ int main( int argc, char *argv[] )
                 fcFilterParams->rhosqVec, "none", snrsqStr );
           }
 
-          if ( writeCData && ! strcmp(ifo,tmpltCurrent->tmpltPtr->ifo) )
+          if ( writeCData && ! strcmp(ifo, bankCurrent->ifo) )
           {
-            trigTime = tmpltCurrent->tmpltPtr->end_time.gpsSeconds + 1e-9 * 
-              tmpltCurrent->tmpltPtr->end_time.gpsNanoSeconds;
+            trigTime = bankCurrent->end_time.gpsSeconds + 1e-9 * 
+              bankCurrent->end_time.gpsNanoSeconds;
             lowerBound = gpsStartTime.gpsSeconds + numPoints/(4 * sampleRate );
             upperBound = gpsEndTime.gpsSeconds - numPoints/(4 * sampleRate );
 
@@ -2150,12 +2124,12 @@ int main( int argc, char *argv[] )
                 LALCalloc(1, sizeof(SnglInspiralTable) );
               tempTmplt->event_id = (EventIDColumn *) 
                 LALCalloc(1, sizeof(EventIDColumn) );
-              tempTmplt->mass1 = tmpltCurrent->tmpltPtr->mass1;
+              tempTmplt->mass1 = bankCurrent->mass1;
               tempTmplt->end_time.gpsSeconds = 
-                tmpltCurrent->tmpltPtr->end_time.gpsSeconds;
+                bankCurrent->end_time.gpsSeconds;
               tempTmplt->end_time.gpsNanoSeconds = 
-                tmpltCurrent->tmpltPtr->end_time.gpsNanoSeconds;
-              tempTmplt->event_id->id = tmpltCurrent->tmpltPtr->event_id->id;
+                bankCurrent->end_time.gpsNanoSeconds;
+              tempTmplt->event_id->id = bankCurrent->event_id->id;
 
               LAL_CALL( LALFindChirpCreateCoherentInput( &status,
                   &coherentInputData, fcFilterParams->cVec, 
@@ -2168,7 +2142,7 @@ int main( int argc, char *argv[] )
               {
                 cDataForFrame = 1;
                 LALSnprintf( cdataStr, LALNameLength*sizeof(CHAR),
-                    "CData_%Ld", tmpltCurrent->tmpltPtr->event_id->id );
+                    "CData_%Ld", bankCurrent->event_id->id );
                 strcpy( coherentInputData->name, chan.name );
                 if ( ! coherentFrames )
                 {
@@ -2210,11 +2184,10 @@ int main( int argc, char *argv[] )
         }
         else
         {
-          if ( vrbflg ) fprintf( stdout, "skipping segment %d/%d [%lld-%lld] "
-              "(segment level %d, template level %d)\n", 
+          if ( vrbflg ) fprintf( stdout, 
+              "skipping segment %d/%d [%lld-%lld]\n",
               fcSegVec->data[i].number, fcSegVec->length, 
-              fcSegStartTimeNS, fcSegEndTimeNS,
-              fcSegVec->data[i].level, tmpltCurrent->tmpltPtr->level );
+              fcSegStartTimeNS, fcSegEndTimeNS );
         }
 
         /*  test if filter returned any events */
@@ -2392,12 +2365,6 @@ int main( int argc, char *argv[] )
     }
     LALFree( bankCurrent );
     bankCurrent = NULL;
-  }
-
-  /* destroy linked list of template nodes */
-  while ( tmpltHead )
-  {
-    LAL_CALL( LALFindChirpDestroyTmpltNode( &status, &tmpltHead ), &status );
   }
 
   /* free any bank sim parameters */
