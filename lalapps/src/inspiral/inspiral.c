@@ -2481,11 +2481,14 @@ int main( int argc, char *argv[] )
   for ( i = 0; i < bankVetoData.length; ++i )
   {
     XLALDestroyCOMPLEX8Vector( bankVetoData.qVecArray[i] );
+    bankVetoData.qVecArray[i] = NULL;
     LAL_CALL( LALDestroyFindChirpInput( &status, 
           &(bankVetoData.fcInputArray[i]) ), &status );
+    bankVetoData.fcInputArray[i] = NULL;
   }
   LALFree( bankVetoData.qVecArray );
   LALFree( bankVetoData.fcInputArray );
+  fcFilterParams->qVec = NULL;
 
   if ( fcFilterParams->filterOutputVetoParams ) 
   {

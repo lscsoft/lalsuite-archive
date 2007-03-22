@@ -55,10 +55,10 @@ XLALFindChirpCreateSubBanks(
   {
     /* the bank is smaller than the subbank size, so return the entire */
     /* template bank as the subbank                                    */
-    maxSubBankSize = bankSize;
     subBankHead = (FindChirpSubBank *) LALCalloc( 1, sizeof(FindChirpSubBank) );
     subBankHead->bankHead = bankHead;
     subBankHead->subBankSize = bankSize;
+    *maxSubBankSize = bankSize;
     return subBankHead;
   }
 
