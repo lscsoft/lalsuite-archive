@@ -101,11 +101,6 @@ XLALFindChirpCreateSubBanks(
         (FindChirpSubBank *) LALCalloc( 1, sizeof(FindChirpSubBank) );
     }
 
-    if ( ! thisSubBank )
-    {
-      XLAL_ERROR( func, XLAL_ENOMEM );
-    }
-
     thisSubBank->subBankSize = bankSizes[i];
 
     /* store the size of the biggest bank */

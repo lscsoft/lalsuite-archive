@@ -1004,7 +1004,7 @@ XLALFindChirpBankSimMaxMatch (
 
 SimInstParamsTable *
 XLALFindChirpBankSimComputeMatch (
-    SnglInspiralTable   *tmplt,
+    SnglInspiralTable   *inputTmplt,
     REAL4                matchNorm
     );
 
