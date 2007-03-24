@@ -299,10 +299,15 @@ def ligolw_burca2(xmldoc, likelihood, verbose = False):
 
 	if verbose:
 		print >>sys.stderr, "computing likelihoods ..."
+		n_coincs = len(coinc_table)
 
-	for coinc in coinc_table:
+	for n, coinc in enumerate(coinc_table):
+		if verbose and not n % 50:
+			print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / n_coincs),
 		if coinc.coinc_def_id == bb_definer_id:
 			coinc.likelihood = likelihood(index[coinc.coinc_event_id], time_slides[coinc.time_slide_id])
+	if verbose:
+		print >>sys.stderr, "\t100.0%"
 
 	#
 	# Done
