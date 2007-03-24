@@ -60,7 +60,8 @@ LALFindChirpClusterEvents (
   COMPLEX8             *q = NULL;
   SnglInspiralTable    *thisEvent = NULL;
   CHAR                  searchName[LIGOMETA_SEARCH_MAX];
-
+  UINT4			bvDOF = 0;
+  REAL4			bvChisq = 0;
   INITSTATUS( status, "LALFindChirpClusterEvents", FINDCHIRPCLUSTEREVENTSC );
   ATTATCHSTATUSPTR( status );
 
@@ -148,8 +149,9 @@ LALFindChirpClusterEvents (
     input->fcTmplt->tmplt.fFinal / deltaF : numPoints/2;
 
   /* normalisation */
-  norm =
-    4.0 * (deltaT / (REAL4)numPoints) / input->segment->segNorm->data[kmax];
+  norm = input->fcTmplt->norm;
+ 
+  /*4.0 * (deltaT / (REAL4)numPoints) / input->segment->segNorm->data[kmax];*/
 
   /* normalised snr threhold */
   modqsqThresh = params->rhosqThresh / norm;
@@ -254,10 +256,15 @@ LALFindChirpClusterEvents (
         {
           /* clean up this event */
           SnglInspiralTable *lastEvent;
+          bvChisq = XLALComputeBankVeto( bankVetoData, subBankIndex,
+                             thisEvent->end_time.gpsSeconds, &bvDOF);
+          thisEvent->chisq_dof = bvDOF;
           LALFindChirpStoreEvent(status->statusPtr, input, params,
               thisEvent, q, kmax, norm, eventStartIdx, numChisqBins, 
               searchName );
           CHECKSTATUSPTR( status );
+          thisEvent->chisq_dof = bvDOF;
+          thisEvent->chisq = bvChisq;
 
           /* store the start of the crossing */
           eventStartIdx = j;
@@ -288,9 +295,16 @@ LALFindChirpClusterEvents (
 
   if ( thisEvent )
   {
+    bvChisq = XLALComputeBankVeto( bankVetoData, subBankIndex,
+                             thisEvent->end_time.gpsSeconds, &bvDOF);
+    thisEvent->chisq_dof = bvDOF;
+
     LALFindChirpStoreEvent(status->statusPtr, input, params,
          thisEvent, q, kmax, norm, eventStartIdx, numChisqBins, 
          searchName );
+    thisEvent->chisq_dof = bvDOF;
+    thisEvent->chisq = bvChisq;
+
     CHECKSTATUSPTR( status );
   }
 

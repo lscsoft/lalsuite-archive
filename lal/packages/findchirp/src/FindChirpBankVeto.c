@@ -100,7 +100,7 @@ XLALFindChirpCreateSubBanks(
       thisSubBank = thisSubBank->next = 
         (FindChirpSubBank *) LALCalloc( 1, sizeof(FindChirpSubBank) );
     }
-
+    
     thisSubBank->subBankSize = bankSizes[i];
 
     /* store the size of the biggest bank */
@@ -127,4 +127,113 @@ XLALFindChirpCreateSubBanks(
   LALFree( bankSizes );
 
   return subBankHead;
+}
+
+void 
+XLALBankVetoCCMat ( FindChirpBankVetoData *bankVetoData, 
+                    FindChirpSubBank *vetoBank,
+                    REAL4 dynRange, 
+                    REAL4 fLow,
+                    REAL4 deltaF,
+                    REAL4 deltaT )
+
+{
+
+  UINT4 i,j,k,iMax,jMax;
+  UINT4 iSize = bankVetoData->length;
+  UINT4 tmpLen = bankVetoData->fcInputArray[0]->fcTmplt->data->length;
+  REAL4 ABr, ABi, Br, Bi, sqResp;
+  UINT4 stIX = floor( fLow / deltaF );
+  for ( i = 0; i < iSize; i++ )
+  {
+    for ( j = i; j < iSize; j++ )
+    {
+      if ( i >= vetoBank->subBankSize ) 
+      {
+        bankVetoData->ccMat->data[i*iSize + j] = 0;
+        /* bankVetoData->normMat->data[j] = 0; */
+      }
+      else
+      {
+        iMax = bankVetoData->fcInputArray[i]->fcTmplt->tmplt.fFinal / deltaF;
+        jMax = bankVetoData->fcInputArray[j]->fcTmplt->tmplt.fFinal / deltaF;
+        ABr = ABi = 0;
+        for ( k = stIX; k < tmpLen; k++ )
+        {
+          if ( (k > iMax) || (k > jMax) ) break;
+          sqResp = ( bankVetoData->resp->data[k].re * 
+                     bankVetoData->resp->data[k].re +
+                     bankVetoData->resp->data[k].im *
+                     bankVetoData->resp->data[k].im ) * dynRange * dynRange;
+
+          if ( bankVetoData->spec->data[k] != 0 && sqResp != 0 )
+          {
+            Br = bankVetoData->fcInputArray[j]->fcTmplt->data->data[k].re /
+                 ( bankVetoData->spec->data[k] * sqResp );
+            Bi = bankVetoData->fcInputArray[j]->fcTmplt->data->data[k].im /
+                 ( bankVetoData->spec->data[k] * sqResp );
+            ABr += bankVetoData->fcInputArray[i]->fcTmplt->data->data[k].re*Br+
+                   bankVetoData->fcInputArray[i]->fcTmplt->data->data[k].im*Bi;
+            ABi += bankVetoData->fcInputArray[i]->fcTmplt->data->data[k].re*Bi-
+                   bankVetoData->fcInputArray[i]->fcTmplt->data->data[k].im*Br; 
+          }
+          bankVetoData->ccMat->data[i*iSize + j] = sqrt(ABr*ABr + ABi*ABi);
+          bankVetoData->ccMat->data[j*iSize + i] = sqrt(ABr*ABr + ABi*ABi);
+          /* bankVetoData->normMat->data[j] = 4.0 * (deltaT / (REAL4) tmpLen / 2.0) /
+              bankVetoData->fcInputArray[j]->segment->segNorm->data[jMax]; */
+
+
+        }
+      }
+    }
+  }
+}
+
+REAL4
+XLALComputeBankVeto( FindChirpBankVetoData *bankVetoData,
+                     UINT4 i,
+                     UINT4 snrIX,
+                     UINT4 *dof)
+{
+
+  REAL4 iSNR = 0;
+  REAL4 jSNR = 0;
+  REAL4 chisq = 0;
+  UINT4 j = 0;
+  REAL4 ii,jj,ij,denomFac;
+  UINT4 iSize = bankVetoData->length;
+  
+  iSNR = sqrt( ( bankVetoData->qVecArray[i]->data[snrIX].re *
+                 bankVetoData->qVecArray[i]->data[snrIX].re +
+                 bankVetoData->qVecArray[i]->data[snrIX].im *
+                 bankVetoData->qVecArray[i]->data[snrIX].im ) *
+                bankVetoData->fcInputArray[i]->fcTmplt->norm );
+  *dof = 0;
+  /*fprintf(stderr, "norm %e norm %e \n", bankVetoData->normMat->data[i], 
+          bankVetoData->fcInputArray[i]->fcTmplt->norm);
+  fprintf(stderr, "iSNR %f\n", iSNR); */
+  if (iSize == 1) return 0;
+
+  for (j = 0; j < iSize; j++)
+  {
+    ij = bankVetoData->ccMat->data[i*iSize + j];
+    ii = bankVetoData->ccMat->data[i*iSize + i];
+    jj = bankVetoData->ccMat->data[j*iSize + j];
+
+    denomFac = ( (ij / ii) - (jj / ij) ) * 
+               bankVetoData->fcInputArray[j]->fcTmplt->norm /
+               bankVetoData->fcInputArray[i]->fcTmplt->norm ;
+    if ( denomFac != 0.0 )
+    {
+      jSNR = sqrt( ( bankVetoData->qVecArray[j]->data[snrIX].re *
+                     bankVetoData->qVecArray[j]->data[snrIX].re +
+                     bankVetoData->qVecArray[j]->data[snrIX].im *
+                     bankVetoData->qVecArray[j]->data[snrIX].im ) *
+                   bankVetoData->fcInputArray[j]->fcTmplt->norm );
+      chisq += (iSNR - sqrt(ii*jj) / ij * jSNR) / denomFac *
+               (iSNR - sqrt(ii*jj) / ij * jSNR) / denomFac;
+      (*dof)++;
+    }
+  }
+  return chisq;
 }

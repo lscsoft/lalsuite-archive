@@ -642,6 +642,10 @@ tagFindChirpBankVetoData
   UINT4                   length;
   COMPLEX8Vector        **qVecArray;
   FindChirpFilterInput  **fcInputArray;
+  REAL4Vector            *ccMat;
+  REAL4Vector		 *normMat;
+  REAL4Vector		 *spec;
+  COMPLEX8Vector         *resp;
 }
 FindChirpBankVetoData;
 /* </lalVerbatim> */
@@ -1015,6 +1019,23 @@ XLALFindChirpCreateSubBanks(
     UINT4                       bankSize,
     InspiralTemplate           *bankHead
     );
+
+void
+XLALBankVetoCCMat ( 
+    FindChirpBankVetoData 	*bankVetoData,
+    FindChirpSubBank            *vetoBank,
+    REAL4 			dynRange, 
+    REAL4 			fLow,
+    REAL4 			deltaF,
+    REAL4			deltaT
+    );
+
+REAL4
+XLALComputeBankVeto( FindChirpBankVetoData *bankVetoData,
+                     UINT4 i,
+                     UINT4 snrIX,
+                     UINT4 *dof);
+
 
 #ifdef  __cplusplus
 #pragma {
