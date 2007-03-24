@@ -66,6 +66,8 @@ def parse_command_line():
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
 
+	if options.match_algorithm is None:
+		raise ValueError, "missing required --match-algorithm option"
 	try:
 		options.comparefunc = {
 			"stringcusp": ligolw_binjfind.StringCuspCompare,
