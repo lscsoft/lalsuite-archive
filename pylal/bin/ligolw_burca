@@ -31,10 +31,13 @@
 from optparse import OptionParser
 import sys
 
+
 from glue.ligolw import utils
 from pylal import ligolw_burca
+from pylal import ligolw_burca2
 from pylal import llwapp
 from pylal import snglcoinc
+
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
@@ -50,62 +53,102 @@ __date__ = "$Date$"[7:-2]
 #
 
 
-def parse_command_line():
-	parser = OptionParser(
-		version = "%prog CVS $Id$",
-		usage = "%prog [options] [file [file ...]]",
-		description = "%prog implements the excess power and string cusp coincidence algorithms for use in performing trigger-based multi-instrument searches for gravitational wave events.  The LIGO Light Weight XML files listed on the command line are processed one by one in order, and over-written with the results.  If no files are named, then input is read from stdin and output written to stdout.  Any files whose names end in \".gz\" are assumed to be gzip-compressed and will be decompressed and recompressed during I/O."
-	)
-	parser.add_option("-c", "--comment", metavar = "text", default = "", help = "set comment string in process table (default is \"\")")
-	parser.add_option("-f", "--force", action = "store_true", help = "process even if file has already been processed")
-	parser.add_option("-p", "--program", metavar = "name", help = "set the name of the program that generated the events as it appears in the process table;  the program name is used to extract live time information from the search summary tables in the input files")
-	parser.add_option("-a", "--coincidence-algorithm", metavar = "[excesspower|stringcusp]", default = None, help = "select the coincidence test algorithm to use")
-	parser.add_option("-t", "--thresholds", metavar = "inst1,inst2=threshold1[,threshold2,...]", action = "append", default = [], help = "set the coincidence algorithm's thresholds for an instrument pair;  for excesspower the threshold format is dt,df,dhrss;  for stringcusp the threshold format is dt;  one set of thresholds must be provided for each instrument combination that will be compared")
-	parser.add_option("-s", "--stringcusp-params", metavar = "kappa,epsilon", help = "set the H1+H2 kappa and epsilon parameters for the stringcusp coincidence test (hint: try 3.0,0.5)")
-	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
-	options, filenames = parser.parse_args()
-
-	# check for missing required arguments
-	if options.coincidence_algorithm is None:
-		raise ValueError, "missing required argument --coincidence-algorithm"
-	if options.program is None:
-		raise ValueError, "missing required argument --program"
-
+def parse_thresholds(options):
+	#
 	# parse --thresholds options into instrument pairs and components
+	#
+
 	try:
 		options.thresholds = snglcoinc.parse_thresholds(options.thresholds)
 	except Exception, e:
 		raise ValueError, "error parsing --thresholds: %s" % str(e)
 
+	#
 	# parse the components from --thresholds options
+	#
+
 	if options.coincidence_algorithm == "excesspower":
+		#
 		# parse threshold components into dt, df, dh_rss triples
 		# for excesspower coincidence algorithm
+		#
+
 		try:
+			#
 			# don't use iteritems because we're going to modify
 			# the dictionary while we go
+			#
+
 			for instrumentpair, value in options.thresholds.items():
 				dt, df, dhrss = value
 				options.thresholds[instrumentpair] = (float(dt), float(df), float(dhrss))
 		except Exception, e:
 			raise ValueError, "error parsing --thresholds: %s" % str(e)
 	elif options.coincidence_algorithm == "stringcusp":
+		#
 		# parse threshold components into dt, kapp, epsilon triples
 		# for stringcusp coincidence algorithm
+		#
+
 		try:
 			kappa, epsilon = options.stringcusp_params.split(",")
 		except Exception, e:
 			raise ValueError, "error parsing --stringcusp-params: %s" % str(e)
 		try:
+			#
 			# don't use iteritems because we're going to modify
 			# the dictionary while we go
+			#
+
 			for instrumentpair, value in options.thresholds.items():
 				dt, = value
 				options.thresholds[instrumentpair] = (float(dt), float(kappa), float(epsilon))
 		except Exception, e:
 			raise ValueError, "error parsing --thresholds: %s" % str(e)
+
+
+def parse_command_line():
+	parser = OptionParser(
+		version = "%prog CVS $Id$",
+		usage = "%prog [options] [file [file ...]]",
+		description = "%prog implements the excess power and string cusp coincidence algorithms for use in performing trigger-based multi-instrument searches for gravitational wave events.  The LIGO Light Weight XML files listed on the command line are processed one by one in order, and over-written with the results.  If no files are named, then input is read from stdin and output written to stdout.  Any files whose names end in \".gz\" are assumed to be gzip-compressed and will be decompressed and recompressed during I/O."
+	)
+	parser.add_option("-c", "--comment", metavar = "text", default = "", help = "Set comment string in process table (default is \"\").")
+	parser.add_option("-f", "--force", action = "store_true", help = "Process document even if it has already been processed.")
+	parser.add_option("-p", "--program", metavar = "name", help = "Set the name of the program that generated the events as it appears in the process table.  The program name is used to extract live time information from the search summary tables in the input files.")
+	parser.add_option("-a", "--coincidence-algorithm", metavar = "[excesspower|excesspower2|stringcusp]", default = None, help = "Select the coincidence test algorithm to use.")
+	parser.add_option("-d", "--distribution-file", metavar = "filename", help = "Set the name of the LIGO Light Weight XML file from which to read the coincidence parameter distribution functions.")
+	parser.add_option("-P", "--probability-gw", metavar = "[0..1]", help = "Set the probability that a zero-lag coincidence survivor chosen at random is a gravitational wave event.  0.0 means all events are noise, 1.0 means all events are gravitational waves.")
+	parser.add_option("-t", "--thresholds", metavar = "inst1,inst2=threshold1[,threshold2,...]", action = "append", default = [], help = "Set the coincidence algorithm's thresholds for an instrument pair.  For excesspower the threshold format is dt,df,dhrss.  For stringcusp the threshold format is dt.  One set of thresholds must be provided for each instrument combination that will be compared")
+	parser.add_option("-s", "--stringcusp-params", metavar = "kappa,epsilon", help = "Set the H1+H2 kappa and epsilon parameters for the stringcusp coincidence test (hint: try 3.0,0.5).")
+	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
+	options, filenames = parser.parse_args()
+
+	#
+	# check and convert and bunch of arguments
+	#
+
+	if options.coincidence_algorithm is None:
+		raise ValueError, "missing required argument --coincidence-algorithm"
+	if options.coincidence_algorithm not in ("excesspower", "excesspower2", "stringcusp"):
+		raise ValueError, "unrecognized --coincidence-algorithm %s" % options.coincidence_algorithm
+	if options.coincidence_algorithm == "excesspower2":
+		if options.distribution_file is None:
+			raise ValueError, "missing required argument --distribution-file"
+		if options.probability_gw is None:
+			raise ValueError, "missing required argument --probability-gw"
+		else:
+			options.probability_gw = float(options.probability_gw)
 	else:
-		raise ValueError, "unknown coincidence algorithm %s" % options.coincidence_algorithm
+		if options.program is None:
+			raise ValueError, "missing required argument --program"
+
+	#
+	# parse the --thresholds arguments
+	#
+
+	if options.coincidence_algorithm in ("excesspower", "stringcusp"):
+		parse_thresholds(options)
 
 	# success
 	return options, (filenames or [None])
@@ -120,23 +163,53 @@ def parse_command_line():
 #
 
 
+#
+# Command line
+#
+
+
 options, filenames = parse_command_line()
 
 
-if options.coincidence_algorithm == "stringcusp":
-	snglcoinc.EventListDict.EventListType = ligolw_burca.StringEventList
-	comparefunc = ligolw_burca.StringCoincCompare
-	options.get_max_segment_gap = ligolw_burca.StringMaxSegmentGap
-else:
+#
+# For excesspower and stringcusp methods, select the appropriate event
+# comparison and bookkeeping functions.  For excesspower2, load the
+# foreground and background parameter distribution files.
+#
+
+
+if options.coincidence_algorithm == "excesspower":
 	snglcoinc.EventListDict.EventListType = ligolw_burca.ExcessPowerEventList
 	comparefunc = ligolw_burca.ExcessPowerCoincCompare
 	options.get_max_segment_gap = ligolw_burca.ExcessPowerMaxSegmentGap
+elif options.coincidence_algorithm == "excesspower2":
+	likelihood = ligolw_burca2.load_distributions(options.distribution_file, verbose = options.verbose)
+	likelihood.set_P_gw(options.probability_gw)
+else:
+	# "stringcusp"
+	snglcoinc.EventListDict.EventListType = ligolw_burca.StringEventList
+	comparefunc = ligolw_burca.StringCoincCompare
+	options.get_max_segment_gap = ligolw_burca.StringMaxSegmentGap
+
+
+#
+# Iterate over files.
+#
 
 
 for n, filename in enumerate(filenames):
+	#
+	# Load the file.
+	#
+
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
 	xmldoc = utils.load_filename(filename, options.verbose, gz = (filename or "stdin")[-3:] == ".gz")
+
+	#
+	# Have we already processed it?
+	#
+
 	if llwapp.doc_includes_process(xmldoc, ligolw_burca.process_program_name):
 		if options.verbose:
 			print >>sys.stderr, "warning: %s already processed," % (filename or "stdin"),
@@ -146,6 +219,20 @@ for n, filename in enumerate(filenames):
 			continue
 		if options.verbose:
 			print >>sys.stderr, "continuing anyway"
-	ligolw_burca.ligolw_burca(xmldoc, comparefunc, **options.__dict__)
+
+	#
+	# Run coincidence algorithm.
+	#
+
+	if options.coincidence_algorithm in ("excesspower", "stringcusp"):
+		ligolw_burca.ligolw_burca(xmldoc, comparefunc, **options.__dict__)
+	else:
+		# excesspower2
+		ligolw_burca2.ligolw_burca2(xmldoc, likelihood, verbose = options.verbose)
+
+	#
+	# Write back to disk, and clean up.
+	#
+
 	utils.write_filename(xmldoc, filename, options.verbose, gz = (filename or "stdout")[-3:] == ".gz")
 	xmldoc.unlink()
