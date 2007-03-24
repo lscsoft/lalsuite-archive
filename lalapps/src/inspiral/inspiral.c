@@ -220,7 +220,7 @@ INT4 reverseChirpBank      = 0;         /* enable the reverse chirp     */
 
 /* template bank veto options */
 UINT4 subBankSize          = 0;         /* num templates in a subbank   */
-
+UINT4 ccFlag = 0;
 /* output parameters */
 CHAR  *userTag          = NULL;         /* string the user can tag with */
 CHAR  *ifoTag           = NULL;         /* string to tag parent IFOs    */
@@ -1948,7 +1948,15 @@ int main( int argc, char *argv[] )
       LALCalloc( bankVetoData.length, sizeof(COMPLEX8Vector*) );
     bankVetoData.fcInputArray = (FindChirpFilterInput **)
       LALCalloc( bankVetoData.length, sizeof(FindChirpFilterInput*) );
-
+    /* create ccMat for bank veto */
+    bankVetoData.ccMat = 
+      XLALCreateVector( bankVetoData.length * bankVetoData.length );
+    /* bankVetoData.normMat = XLALCreateVector( bankVetoData.length ); */
+   
+    /* point to response and spectrum */
+    bankVetoData.spec = spec.data;
+    bankVetoData.resp = resp.data;
+     
     for ( i = 0; i < bankVetoData.length; ++i )
     {
       bankVetoData.qVecArray[i] = 
@@ -1956,7 +1964,6 @@ int main( int argc, char *argv[] )
       LAL_CALL( LALCreateFindChirpInput( &status, 
             &(bankVetoData.fcInputArray[i]), fcInitParams ), &status );
     }
-
 
     /*
      *
@@ -2028,6 +2035,11 @@ int main( int argc, char *argv[] )
         }
       }
 
+      /* If doing bank veto compute CC Matrix       
+      if (subBankCurrent->subBankSize > 1)
+        XLALBankVetoCCMat( &bankVetoData, subBankCurrent, 
+          dynRange, fLow, spec.deltaF, chan.deltaT);*/
+      ccFlag = 1;
       /* loop over data segments */
       for ( i = 0; i < fcSegVec->length ; ++i )
       {
@@ -2285,7 +2297,15 @@ int main( int argc, char *argv[] )
 
           } /* end if ( events ) for BCV and BCVSpin */
         } /* end of loop over templates in subbank */
-
+        
+        /* If doing bank veto compute CC Matrix */
+        if (ccFlag && (subBankCurrent->subBankSize > 1) )
+        {
+          fprintf(stderr, "doing ccmat\n");
+          XLALBankVetoCCMat( &bankVetoData, subBankCurrent,
+          dynRange, fLow, spec.deltaF, chan.deltaT);
+        }
+        ccFlag = 0;
         /* now look through the filter outputs of the subbank for events */
         for ( bankCurrent = subBankCurrent->bankHead, subBankIndex = 0;
             bankCurrent; bankCurrent = bankCurrent->next, ++subBankIndex )
@@ -2488,6 +2508,9 @@ int main( int argc, char *argv[] )
   }
   LALFree( bankVetoData.qVecArray );
   LALFree( bankVetoData.fcInputArray );
+  XLALDestroyVector( bankVetoData.ccMat );
+  /* XLALDestroyVector( bankVetoData.normMat ); */
+
   fcFilterParams->qVec = NULL;
 
   if ( fcFilterParams->filterOutputVetoParams ) 
