@@ -1645,7 +1645,8 @@ class CoincTable(table.Table):
 		"coinc_def_id": "ilwd:char",
 		"coinc_event_id": "ilwd:char",
 		"time_slide_id": "ilwd:char",
-		"nevents": "int_4u"
+		"nevents": "int_4u",
+		"likelihood": "real_8"
 	}
 	constraints = "PRIMARY KEY (coinc_event_id)"
 	ids = CoincIDs()
