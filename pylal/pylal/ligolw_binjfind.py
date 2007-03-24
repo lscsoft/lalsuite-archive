@@ -106,27 +106,20 @@ class DocContents(object):
 			self.coincmaptable = lsctables.New(lsctables.CoincMapTable)
 			xmldoc.childNodes[0].appendChild(self.coincmaptable)
 
-		# build an index of zero-lag sngl_burst <--> sngl_burst
-		# coincs
-		burst_event = {}
+		# index the document
+		index = {}
 		for row in self.snglbursttable:
-			burst_event[ilwd.ILWDID(row.event_id)] = row
-		coinc_maps = {}
+			index[row.event_id] = row
 		for row in self.coincmaptable:
-			try:
-				# assumes that all coincs are burst + burst
-				burst = burst_event[ilwd.ILWDID(row.event_id)]
-			except KeyError:
+			if row.table_name != "sngl_burst":
 				continue
-			try:
-				coinc_maps[ilwd.ILWDID(row.coinc_event_id)].append(burst)
-			except KeyError:
-				coinc_maps[ilwd.ILWDID(row.coinc_event_id)] = [burst]
-		del burst_event
+			if row.coinc_event_id not in index:
+				index[row.coinc_event_id] = []
+			index[row.coinc_event_id].append(index[row.event_id])
 		self.coinc_event = {}
 		for coinc in self.coinctable:
 			if (coinc.coinc_def_id == self.bb_coinc_def_id) and self.tisitable.is_null(coinc.time_slide_id):
-				self.coinc_event[coinc] = coinc_maps[ilwd.ILWDID(coinc.coinc_event_id)]
+				self.coinc_event[coinc] = tuple(index[coinc.coinc_event_id])
 
 		# sort triggers by start time truncated to integer seconds,
 		# and construct an integer start time look-up table
@@ -168,6 +161,7 @@ class DocContents(object):
 		coinc.coinc_event_id = self.coinctable.ids.next()
 		coinc.time_slide_id = self.tisi_id
 		coinc.nevents = 0
+		coinc.likelihood = 1.0
 		self.coinctable.append(coinc)
 		return coinc
 
