@@ -111,11 +111,10 @@ class DocContents(object):
 		for row in self.snglbursttable:
 			index[row.event_id] = row
 		for row in self.coincmaptable:
-			if row.table_name != "sngl_burst":
-				continue
-			if row.coinc_event_id not in index:
-				index[row.coinc_event_id] = []
-			index[row.coinc_event_id].append(index[row.event_id])
+			if row.table_name == table.StripTableName(lsctables.SnglBurstTable.tableName):
+				if row.coinc_event_id not in index:
+					index[row.coinc_event_id] = []
+				index[row.coinc_event_id].append(index[row.event_id])
 		self.coinc_event = {}
 		for coinc in self.coinctable:
 			if (coinc.coinc_def_id == self.bb_coinc_def_id) and self.tisitable.is_null(coinc.time_slide_id):
