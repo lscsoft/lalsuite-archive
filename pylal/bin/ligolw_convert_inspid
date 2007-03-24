@@ -87,7 +87,7 @@ def parse_command_line():
 
 
 #
-# a row in the process table
+# a row in the process table for this job
 #
 
 
@@ -95,7 +95,7 @@ process = None
 
 
 #
-# create and initialize a row in the process table
+# create and initialize this job's row in the process table
 #
 
 
@@ -104,7 +104,7 @@ def initialize_process(xmldoc, comment = ""):
 
 	if process is not None:
 		# already initialized
-		raise Exception, "oops"
+		raise Exception, "oops, program tried to reinitialize process information"
 
 	process = llwapp.append_process(xmldoc, program = "ligolw_convert_inspid", version = __version__, cvs_repository = "lscsoft", cvs_entry_time = __date__, comment = comment)
 
@@ -348,6 +348,7 @@ def populate_coinc_event_sngls(xmldoc):
 		# of the event_id
 		coinc.time_slide_id = lsctables.TimeSlideTable.ids[(ilwd.ILWDID(events[0].event_id) / long(1e9)) % long(1e13)]
 		coinc.nevents = len(events)
+		coinc.likelihood = 1.0
 		coinc_event.append(coinc)
 
 		#
