@@ -445,7 +445,7 @@ class segmentlist(list):
 				return True
 		return False
 
-	# suplementary accessors
+	# supplementary accessors
 
 	def __abs__(self):
 		"""
@@ -858,7 +858,7 @@ class segmentlistdict(dict):
 		dict.__delitem__(self, key)
 		dict.__delitem__(self.offsets, key)
 
-	# suplementary accessors
+	# supplementary accessors
 
 	def map(self, func):
 		"""
