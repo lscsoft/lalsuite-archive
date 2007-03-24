@@ -35,10 +35,13 @@ from optparse import OptionParser
 from pysqlite2 import dbapi2 as sqlite3
 from scipy.stats import stats
 import sys
+from xml import sax
 
 from glue import segments
 from glue.ligolw import ligolw
 from glue.ligolw import array
+from glue.ligolw import param
+from glue.ligolw import lsctables
 from glue.ligolw import dbtables
 from glue.ligolw import utils
 from pylal import itertools
@@ -432,14 +435,46 @@ WHERE
 #
 
 
+#
+# Process information
+#
+
+
+process_program_name = "ligolw_burca_tailor"
+
+def append_process(xmldoc, **kwargs):
+	process = llwapp.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = "lscsoft", cvs_entry_time = __date__, comment = kwargs["comment"])
+
+	params = []
+	for (inst1, inst2), value in kwargs["thresholds"].iteritems():
+		params += [(u"--thresholds", u"lstring", u"%s,%s=%s" % (inst1, inst2, ",".join(map(unicode, value))))]
+	llwapp.append_process_params(xmldoc, process, params)
+
+	return process
+
+
+#
+# Distribution information
+#
+
+
 def write_likelihood_control(filename, plot1, verbose = False):
 	xmldoc = ligolw.Document()
-	xmldoc.appendChild(ligolw.LIGO_LW())
-	xmldoc.childNodes[-1].appendChild(llwapp.pickle_to_param(plot1.thresholds, "thresholds"))
+	node = xmldoc.appendChild(ligolw.LIGO_LW())
+
+	node.appendChild(lsctables.New(lsctables.ProcessTable))
+	node.appendChild(lsctables.New(lsctables.ProcessParamsTable))
+	process = append_process(xmldoc, thresholds = plot1.thresholds, comment = u"")
+
+	node = node.appendChild(ligolw.LIGO_LW(sax.xmlreader.AttributesImpl({u"Name": process_program_name})))
+	node.appendChild(param.new_param(u"process_id", u"ilwd:char", process.process_id))
+
+	node.appendChild(llwapp.pickle_to_param(plot1.thresholds, u"thresholds"))
 	for pair in plot1.thresholds.keys():
-		xmldoc.childNodes[-1].appendChild(array.from_array(u"%s_%s_dt" % pair, numpy.array([plot1.inj_dt[pair].xvals(), plot1.inj_dt[pair].array, plot1.bak_dt[pair].array]), (u"dt", u"dt,P_inj,P_bak")))
-		xmldoc.childNodes[-1].appendChild(array.from_array(u"%s_%s_df" % pair, numpy.array([plot1.inj_df[pair].xvals(), plot1.inj_df[pair].array, plot1.bak_df[pair].array]), (u"df", u"df,P_inj,P_bak")))
-		xmldoc.childNodes[-1].appendChild(array.from_array(u"%s_%s_dh" % pair, numpy.array([plot1.inj_dh[pair].xvals(), plot1.inj_dh[pair].array, plot1.bak_dh[pair].array]), (u"dh", u"dh,P_inj,P_bak")))
+		node.appendChild(array.from_array(u"%s_%s_dt" % pair, numpy.array([plot1.inj_dt[pair].xvals(), plot1.inj_dt[pair].array, plot1.bak_dt[pair].array]), (u"dt", u"dt,P_inj,P_bak")))
+		node.appendChild(array.from_array(u"%s_%s_df" % pair, numpy.array([plot1.inj_df[pair].xvals(), plot1.inj_df[pair].array, plot1.bak_df[pair].array]), (u"df", u"df,P_inj,P_bak")))
+		node.appendChild(array.from_array(u"%s_%s_dh" % pair, numpy.array([plot1.inj_dh[pair].xvals(), plot1.inj_dh[pair].array, plot1.bak_dh[pair].array]), (u"dh", u"dh,P_inj,P_bak")))
+
 	utils.write_filename(xmldoc, filename, verbose = verbose, gz = (filename or "stdout")[-3:] == ".gz")
 
 
