@@ -2035,10 +2035,6 @@ int main( int argc, char *argv[] )
         }
       }
 
-      /* If doing bank veto compute CC Matrix       
-      if (subBankCurrent->subBankSize > 1)
-        XLALBankVetoCCMat( &bankVetoData, subBankCurrent, 
-          dynRange, fLow, spec.deltaF, chan.deltaT);*/
       ccFlag = 1;
       /* loop over data segments */
       for ( i = 0; i < fcSegVec->length ; ++i )
@@ -2100,7 +2096,7 @@ int main( int argc, char *argv[] )
         for ( bankCurrent = subBankCurrent->bankHead, subBankIndex = 0;
             bankCurrent; bankCurrent = bankCurrent->next, ++subBankIndex )
         {
-          /* set fcFilterInput and qVec to the correct ones */
+          /* set fcFilterInput and qVec to the correct ones 
           fcFilterInput = bankVetoData.fcInputArray[subBankIndex];
           if ( vrbflg ) fprintf( stdout,
               "Using template in fcInputArray[%d] at %p\n", subBankIndex,
@@ -2109,10 +2105,22 @@ int main( int argc, char *argv[] )
           if ( vrbflg ) fprintf( stdout,
               "Using qVec in qVecArray[%d] at %p\n", subBankIndex,
               fcFilterParams->qVec );
-
+          if (vrbflg) fprintf(stderr, "\n analyseTag %d\n\n", analyseTag);*/
           /* filter data segment */ 
           if ( analyseTag )
           {
+            /* CHAD - moved to fix enable filter inj only bug */
+            /* set fcFilterInput and qVec to the correct ones */
+            fcFilterInput = bankVetoData.fcInputArray[subBankIndex];
+            if ( vrbflg ) fprintf( stdout,
+                "Using template in fcInputArray[%d] at %p\n", subBankIndex,
+                fcFilterInput );
+            fcFilterParams->qVec = bankVetoData.qVecArray[subBankIndex];
+            if ( vrbflg ) fprintf( stdout,
+                "Using qVec in qVecArray[%d] at %p\n", subBankIndex,
+                fcFilterParams->qVec );
+            if (vrbflg) fprintf(stderr, "\n analyseTag %d\n\n", analyseTag);
+            /* END CHADs CHANGES */
             if ( vrbflg ) fprintf( stdout, 
                 "filtering segment %d/%d [%lld-%lld] "
                 "against template %d/%d (%e,%e)\n", 
@@ -2299,87 +2307,91 @@ int main( int argc, char *argv[] )
         } /* end of loop over templates in subbank */
         
         /* If doing bank veto compute CC Matrix */
-        if (ccFlag && (subBankCurrent->subBankSize > 1) )
+        if (ccFlag && (subBankCurrent->subBankSize > 1) && analyseTag)
         {
           if (vrbflg) fprintf(stderr, "doing ccmat\n");
           XLALBankVetoCCMat( &bankVetoData, subBankCurrent,
           dynRange, fLow, spec.deltaF, chan.deltaT);
+          ccFlag = 0;
         }
-        ccFlag = 0;
         /* now look through the filter outputs of the subbank for events */
         for ( bankCurrent = subBankCurrent->bankHead, subBankIndex = 0;
             bankCurrent; bankCurrent = bankCurrent->next, ++subBankIndex )
         {
-          /* set fcFilterInput and qVec to the correct ones */
-          fcFilterInput = bankVetoData.fcInputArray[subBankIndex];
-          if ( vrbflg ) fprintf( stdout,
-              "Using template in fcInputArray[%d] at %p\n", subBankIndex,
-              fcFilterInput );
-          fcFilterParams->qVec = bankVetoData.qVecArray[subBankIndex];
-          if ( vrbflg ) fprintf( stdout,
-              "Using qVec in qVecArray[%d] at %p\n", subBankIndex,
-              fcFilterParams->qVec );
-
-          /* determine if FindChirpFilterSegment returned any events */
-          switch ( approximant )
+          if ( analyseTag )
           {
-            case TaylorT1:
-            case TaylorT2:
-            case TaylorT3:
-            case GeneratePPN:
-            case PadeT1:
-            case EOB:
-            case FindChirpSP:
-              /* find any events in the time series of snr and chisq */
-              LAL_CALL( LALFindChirpClusterEvents( &status,
-                    &eventList, fcFilterInput, fcFilterParams,
-                    &bankVetoData, subBankIndex ), &status );
+            /* set fcFilterInput and qVec to the correct ones */
+            fcFilterInput = bankVetoData.fcInputArray[subBankIndex];
+            if ( vrbflg ) fprintf( stdout,
+                "Finding Events - Using template in fcInputArray[%d] at %p\n", 
+                subBankIndex, fcFilterInput );
+            fcFilterParams->qVec = bankVetoData.qVecArray[subBankIndex];
+            if ( vrbflg ) fprintf( stdout,
+                "Finding Events - Using qVec in qVecArray[%d] at %p\n", 
+                subBankIndex, fcFilterParams->qVec );
 
-              /* apply the rsq veto to any surviving events */
-              if ( fcFilterParams->filterOutputVetoParams )
+            /* determine if FindChirpFilterSegment returned any events */
+            switch ( approximant )
+            {
+              case TaylorT1:
+              case TaylorT2:
+              case TaylorT3:
+              case GeneratePPN:
+              case PadeT1:
+              case EOB:
+              case FindChirpSP:
+                /* find any events in the time series of snr and chisq */
+                LAL_CALL( LALFindChirpClusterEvents( &status,
+                      &eventList, fcFilterInput, fcFilterParams,
+                      &bankVetoData, subBankIndex ), &status );
+
+                /* apply the rsq veto to any surviving events */
+                if ( fcFilterParams->filterOutputVetoParams )
+                {
+                  LAL_CALL( LALFindChirpFilterOutputVeto( &status,
+                        &eventList, fcFilterInput, fcFilterParams ), &status ); 
+                }
+                break;
+              default:
+                break;
+            }
+
+            /*  test if filter returned any events */
+            if ( eventList )
+            {
+              /* this can only happen for FindChirpFilter */
+              if ( vrbflg ) fprintf( stdout, 
+                  "segment %d rang template [m (%e,%e)] [psi (%e,%e)]\n",
+                  fcSegVec->data[i].number,
+                  fcFilterInput->fcTmplt->tmplt.mass1, 
+                  fcFilterInput->fcTmplt->tmplt.mass2,
+                  fcFilterInput->fcTmplt->tmplt.psi0, 
+                  fcFilterInput->fcTmplt->tmplt.psi3 );
+
+              if ( vrbflg ) fprintf( stdout, "***>  dumping events  <***\n" );
+
+              if ( ! savedEvents.snglInspiralTable )
               {
-                LAL_CALL( LALFindChirpFilterOutputVeto( &status,
-                      &eventList, fcFilterInput, fcFilterParams ), &status ); 
+                savedEvents.snglInspiralTable = eventList;
               }
-              break;
-            default:
-              break;
-          }
+              else
+              {
+                event->next = eventList;
+              }
 
-          /*  test if filter returned any events */
-          if ( eventList )
-          {
-            /* this can only happen for FindChirpFilter */
-            if ( vrbflg ) fprintf( stdout, 
-                "segment %d rang template [m (%e,%e)] [psi (%e,%e)]\n",
-                fcSegVec->data[i].number,
-                fcFilterInput->fcTmplt->tmplt.mass1, 
-                fcFilterInput->fcTmplt->tmplt.mass2,
-                fcFilterInput->fcTmplt->tmplt.psi0, 
-                fcFilterInput->fcTmplt->tmplt.psi3 );
-
-            if ( vrbflg ) fprintf( stdout, "***>  dumping events  <***\n" );
-
-            if ( ! savedEvents.snglInspiralTable )
-            {
-              savedEvents.snglInspiralTable = eventList;
-            }
-            else
-            {
-              event->next = eventList;
-            }
-
-            /* save a ptr to the last event in the list and count the events */
-            ++numEvents;
-            while ( eventList->next )
-            {
-              eventList = eventList->next;
+              /* save a ptr to the last event in the list , count the events */
               ++numEvents;
-            }
-            event = eventList;
-            eventList = NULL;
+              while ( eventList->next )
+              {
+                eventList = eventList->next;
+                ++numEvents;
+              }
+              event = eventList;
+              eventList = NULL;
 
-          } /* end if ( events ) for FindChirpFilter */
+            } /* end if ( events ) for FindChirpFilter */
+
+          } /* end if (analyseTag) */
 
         } /* end loop over template in subbank */
 
