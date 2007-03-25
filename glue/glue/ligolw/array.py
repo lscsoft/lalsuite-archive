@@ -152,7 +152,7 @@ def get_array(xmldoc, name):
 #
 
 
-class _IndexIter(object):
+class IndexIter(object):
 	def __init__(self, shape):
 		self.shape = shape
 		self.index = [0] * len(shape)
@@ -185,19 +185,20 @@ class ArrayStream(ligolw.Stream):
 	def __init__(self, attrs):
 		ligolw.Stream.__init__(self, attrs)
 		self.tokenizer = tokenizer.Tokenizer(self.getAttribute(u"Delimiter"))
-		self.__index = None
+		self.index = None
 
-	def appendData(self, content):
+	def config(self, parentNode):
 		# some initialization that can only be done once parentNode
 		# has been set.
-		if self.__index is None:
-			self.tokenizer.set_types([self.parentNode.pytype])
-			self.parentNode.array = numpy.zeros(self.parentNode.get_shape(), self.parentNode.arraytype)
-			self.__index = _IndexIter(self.parentNode.array.shape)
+		self.tokenizer.set_types([parentNode.pytype])
+		parentNode.array = numpy.zeros(parentNode.get_shape(), parentNode.arraytype)
+		self.index = iter(IndexIter(parentNode.array.shape))
+		return self
 
+	def appendData(self, content):
 		# tokenize buffer, and assign to array
 		a = self.parentNode.array
-		n = self.__index.next
+		n = self.index.next
 		for token in self.tokenizer.append(content):
 			a[n()] = token
 
@@ -206,7 +207,7 @@ class ArrayStream(ligolw.Stream):
 		Break internal references within the document tree rooted
 		on this element to promote garbage collection.
 		"""
-		self.__index = None
+		self.index = None
 		ligolw.Stream.unlink(self)
 
 	def write(self, file = sys.stdout, indent = u""):
@@ -216,13 +217,13 @@ class ArrayStream(ligolw.Stream):
 		delim = self.getAttribute(u"Delimiter")
 		format = types.ToFormat[self.parentNode.getAttribute(u"Type")]
 		a = self.parentNode.array
-		it = iter(_IndexIter(a.shape))
+		index = iter(IndexIter(a.shape))
 		try:
-			indeces = it.next()
+			indeces = index.next()
 			file.write(indent + ligolw.Indent)
 			while True:
 				file.write(xmlescape(format % a[indeces]))
-				indeces = it.next()
+				indeces = index.next()
 				file.write(delim)
 				if not indeces[0]:
 					file.write(u"\n" + indent + ligolw.Indent)
@@ -289,7 +290,7 @@ __parent_endStream = ligolw.LIGOLWContentHandler.endStream
 
 def startStream(self, attrs):
 	if self.current.tagName == ligolw.Array.tagName:
-		return ArrayStream(attrs)
+		return ArrayStream(attrs).config(self.current)
 	return __parent_startStream(self, attrs)
 
 
