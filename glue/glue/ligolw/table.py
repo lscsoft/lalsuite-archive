@@ -423,8 +423,6 @@ class TableStream(ligolw.Stream):
 	parent element, and knows how to turn the parent's rows back into a
 	character stream.
 	"""
-	__slots__ = ["__tokenizer", "__colnames", "__numcols", "__row", "__colindex"]
-
 	def __init__(self, attrs):
 		ligolw.Stream.__init__(self, attrs)
 		self.__tokenizer = tokenizer.Tokenizer(self.getAttribute("Delimiter"))
