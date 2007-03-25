@@ -2301,7 +2301,7 @@ int main( int argc, char *argv[] )
         /* If doing bank veto compute CC Matrix */
         if (ccFlag && (subBankCurrent->subBankSize > 1) )
         {
-          fprintf(stderr, "doing ccmat\n");
+          if (vrbflg) fprintf(stderr, "doing ccmat\n");
           XLALBankVetoCCMat( &bankVetoData, subBankCurrent,
           dynRange, fLow, spec.deltaF, chan.deltaT);
         }
