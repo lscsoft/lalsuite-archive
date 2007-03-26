@@ -994,24 +994,27 @@ layout_density_map_plot(p, dm, x_count, y_count);
 draw_density_map_d(p, 0, 0, dm, z, x_count, y_count, step_x, step_y);
 }
 
-void plot_sin_theta_f(RGBPic *p, int x, int y, DENSITY_MAP *dm, SKY_GRID *grid, float *z, int step)
+void plot_grid_d(RGBPic *p, SKY_GRID *grid, double *z, int step)
 {
-int i,j,k,kk,m, shift;
+DENSITY_MAP *dm;
+dm=make_density_map(1,1, grid->nbands);
+adjust_masked_density_map_limits_d(dm, z, grid->band, grid->npoints, step, 1);
+layout_density_map_plot(p, dm, grid->max_x, grid->max_y);
+plot_grid_xy_d(p, 0, 0, dm, grid, z, step);
+free_density_map(dm);
+}
+
+void plot_grid_xy_f(RGBPic *p, int x, int y, DENSITY_MAP *dm, SKY_GRID *grid, float *z, int step)
+{
+int k,kk,m;
 float z0,dz;
 int color,x0,y0;
 int lz;
-SIN_THETA_SKY_GRID_PRIV *priv;
 
-if(strcmp(grid->name,"sin theta")){
-	fprintf(stderr,"Cannot apply function %s to grid %s\n", __FUNCTION__,
-		grid->name);
-	exit(-1);
-	}
+dm->actual_width=grid->max_x*dm->x_pixels_per_point;
+dm->actual_height=grid->max_y*dm->y_pixels_per_point;
 
-priv=grid->grid_priv;
 
-dm->actual_width=grid->max_n_ra*dm->x_pixels_per_point;
-dm->actual_height=grid->max_n_dec*dm->y_pixels_per_point;
 
 lz=dm->logscale_z;
 
@@ -1030,167 +1033,40 @@ if(lz){
 	}
 RGBPic_clear_area(p,dm->bg_color,x,y,x+dm->actual_width-1,y+dm->actual_height-1);
 
-#if 0
-if(dm->nbands>=2){
-	for(j=0;j<=dm->nbands;j++){
-		RGBPic_draw_line(p, dm->dec_band_color, 
-			x, y+(j*dm->actual_height-1)/dm->nbands,
-			x+dm->actual_width-1, y+(j*dm->actual_height-1)/dm->nbands);
+for(kk=0;kk<grid->npoints;kk++) {
+	z0=z[kk*step]-dm->lower_z;
+	if(z0<-0.0001)continue;
+	if(lz){
+		z0=log10(z0)/dz; /* normalize so it is between 0 and 1 */
+		} else {
+		z0=z0/dz; /* normalize so it is between 0 and 1 */
 		}
-	for(j=0;j<dm->nbands;j++){
-		RGBPic_printf(p,x+2,y+((2*j+1)*(dm->actual_height-1))/(2*dm->nbands),
-			dm->fg_color, dm->bg_color, "%d", j);
+	if(z0>1.0001)continue;
+
+	color=z_to_color(dm->palette,z0);
+
+	if(dm->flip_x){
+		x0=x+(grid->max_x-grid->x[kk]-1)*dm->x_pixels_per_point;
+		} else {
+		x0=x+(grid->x[kk])*dm->x_pixels_per_point;
 		}
-	}
-#endif
-
-kk=0;
-for(j=0;j<priv->num_dec;j++){
-	shift=(grid->max_n_ra-priv->num_ra[j])>>1;
-	for(i=0;i<priv->num_ra[j];i++){
-		z0=z[kk]-dm->lower_z;
-		kk+=step;
-		if(z0<-0.0001)continue;
-		if(lz){
-			z0=log10(z0)/dz; /* normalize so it is between 0 and 1 */
-			} else {
-			z0=z0/dz; /* normalize so it is between 0 and 1 */
-			}
-		if(z0>1.0001)continue;
-
-		color=z_to_color(dm->palette,z0);
-
-		if(dm->flip_x){
-			x0=x+(shift+priv->num_ra[j]-i-1)*dm->x_pixels_per_point;
-			} else {
-			x0=x+(shift+i)*dm->x_pixels_per_point;
-			}
-		if(dm->flip_y){
-			y0=y+(priv->num_dec-j-1)*dm->y_pixels_per_point;
-			} else {
-			y0=y+j*dm->y_pixels_per_point;
-			}
-		for(m=0;m<dm->y_pixels_per_point;m++)
-			for(k=0;k<dm->x_pixels_per_point;k++)
-				DRAW_POINT(p,x0+k,y0+m,color);
+	if(dm->flip_y){
+		y0=y+(grid->max_y-grid->y[kk]-1)*dm->y_pixels_per_point;
+		} else {
+		y0=y+grid->y[kk]*dm->y_pixels_per_point;
 		}
+	for(m=0;m<dm->y_pixels_per_point;m++)
+		for(k=0;k<dm->x_pixels_per_point;k++)
+			DRAW_POINT(p,x0+k,y0+m,color);
 	}
 }
 
 void plot_grid_f(RGBPic *p, SKY_GRID *grid, float *z, int step)
 {
-if(!strcmp(grid->name,"arcsin") || !strcmp(grid->name,"plain rectangular")){
-	DENSITY_MAP *dm;
-	RECT_SKY_GRID_PRIV *priv=grid->grid_priv;
-	dm=make_density_map(1, 1, grid->nbands);
-	adjust_masked_density_map_limits_f(dm, z, grid->band, grid->npoints, step, 1);
-	plot_single_density_map_f(p, dm, z, priv->num_ra, priv->num_dec, step*priv->num_dec, step);
-	free_density_map(dm);
-	return;
-	}
-if(!strcmp(grid->name,"sin theta")){
-	DENSITY_MAP *dm;
-	dm=make_density_map(1, 1, grid->nbands);
-	adjust_masked_density_map_limits_f(dm, z, grid->band, grid->npoints, step, 1);
-	layout_density_map_plot(p, dm, grid->max_n_ra, grid->max_n_dec);
-	plot_sin_theta_f(p, 0, 0, dm, grid, z, step);
-	free_density_map(dm);
-	return;
-	}
-
-fprintf(stderr,"**ERROR: do not know how to plot sky grid \"%s\"\n",grid->name);
-exit(-1);
-}
-
-void plot_sin_theta_d(RGBPic *p, int x, int y, DENSITY_MAP *dm, SKY_GRID *grid, double *z, int step)
-{
-int i,j,k,kk,m, shift;
-double z0,dz;
-int color,x0,y0;
-int lz;
-SIN_THETA_SKY_GRID_PRIV *priv;
-
-if(strcmp(grid->name,"sin theta")){
-	fprintf(stderr,"Cannot apply function %s to grid %s\n", __FUNCTION__,
-		grid->name);
-	exit(-1);
-	}
-
-priv=grid->grid_priv;
-
-dm->actual_width=grid->max_n_ra*dm->x_pixels_per_point;
-dm->actual_height=grid->max_n_dec*dm->y_pixels_per_point;
-
-
-lz=dm->logscale_z;
-
-
-if(lz && (dm->lower_z<0)){
-	fprintf(stderr,"numbers must be positive for logscale_z mode\n");
-	lz=0;
-	}
-
-if(lz){
-	dz=log10(dm->upper_z)-log10(dm->lower_z);
-	if(dz<=0)dz=1;
-	} else {
-	dz=dm->upper_z-dm->lower_z;
-	if(dz<=0)dz=1;
-	}
-RGBPic_clear_area(p,dm->bg_color,x,y,x+dm->actual_width-1,y+dm->actual_height-1);
-
-kk=0;
-for(j=0;j<priv->num_dec;j++){
-	shift=(grid->max_n_ra-priv->num_ra[j])>>1;
-	for(i=0;i<priv->num_ra[j];i++){
-		z0=z[kk]-dm->lower_z;
-		kk++;
-		if(z0<-0.0001)continue;
-		if(lz){
-			z0=log10(z0)/dz; /* normalize so it is between 0 and 1 */
-			} else {
-			z0=z0/dz; /* normalize so it is between 0 and 1 */
-			}
-		if(z0>1.0001)continue;
-
-		color=z_to_color(dm->palette,z0);
-
-		if(dm->flip_x){
-			x0=x+(shift+priv->num_ra[j]-i-1)*dm->x_pixels_per_point;
-			} else {
-			x0=x+(shift+i)*dm->x_pixels_per_point;
-			}
-		if(dm->flip_y){
-			y0=y+(priv->num_dec-j-1)*dm->y_pixels_per_point;
-			} else {
-			y0=y+j*dm->y_pixels_per_point;
-			}
-		for(m=0;m<dm->y_pixels_per_point;m++)
-			for(k=0;k<dm->x_pixels_per_point;k++)
-				DRAW_POINT(p,x0+k,y0+m,color);
-		}
-	}
-}
-
-void plot_grid_d(RGBPic *p, SKY_GRID *grid, double *z, int step)
-{
-if(!strcmp(grid->name,"arcsin") || !strcmp(grid->name,"plain rectangular")){
-	DENSITY_MAP *dm;
-	RECT_SKY_GRID_PRIV *priv=grid->grid_priv;
-	dm=make_density_map(1,1, grid->nbands);
-	adjust_masked_density_map_limits_d(dm, z, grid->band, grid->npoints, step, 1);
-	plot_single_density_map_d(p, dm, z, priv->num_ra, priv->num_dec, step*priv->num_dec, step);
-	free_density_map(dm);
-	return;
-	}
-if(!strcmp(grid->name,"sin theta")){
-	DENSITY_MAP *dm;
-	dm=make_density_map(1,1, grid->nbands);
-	adjust_masked_density_map_limits_d(dm, z, grid->band, grid->npoints, step, 1);
-	layout_density_map_plot(p, dm, grid->max_n_ra, grid->max_n_dec);
-	plot_sin_theta_d(p, 0, 0, dm, grid, z, step);
-	return;
-	}
-fprintf(stderr,"**ERROR: do not know how to plot sky grid \"%s\"\n",grid->name);
-exit(-1);
+DENSITY_MAP *dm;
+dm=make_density_map(1,1, grid->nbands);
+adjust_masked_density_map_limits_f(dm, z, grid->band, grid->npoints, step, 1);
+layout_density_map_plot(p, dm, grid->max_x, grid->max_y);
+plot_grid_xy_f(p, 0, 0, dm, grid, z, step);
+free_density_map(dm);
 }

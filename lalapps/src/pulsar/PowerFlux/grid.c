@@ -92,6 +92,11 @@ grid->name="arcsin rectangular";
 grid->latitude=do_alloc(grid->npoints, sizeof(SKY_GRID_TYPE));
 grid->longitude=do_alloc(grid->npoints, sizeof(SKY_GRID_TYPE));
 
+grid->max_x=num_dec;
+grid->max_y=num_ra;
+grid->x=do_alloc(grid->npoints, sizeof(*(grid->x)));
+grid->y=do_alloc(grid->npoints, sizeof(*(grid->y)));
+
 grid->nbands_size=2000;
 grid->nbands=0;
 grid->band_name=do_alloc(grid->nbands_size, sizeof(*grid->band_name));
@@ -115,6 +120,9 @@ for(i=0;i<num_ra;i++){
 		grid->latitude[k]=b;
 		grid->longitude[k]=a;
 		grid->band[k]=-1;
+
+		grid->x[k]=i;
+		grid->y[k]=j;
 		}
 	}
 precompute_values(grid);
@@ -136,6 +144,12 @@ grid->max_n_ra=num_ra;
 grid->name="plain rectangular";
 grid->latitude=do_alloc(grid->npoints, sizeof(SKY_GRID_TYPE));
 grid->longitude=do_alloc(grid->npoints, sizeof(SKY_GRID_TYPE));
+
+grid->max_x=num_dec;
+grid->max_y=num_ra;
+grid->x=do_alloc(grid->npoints, sizeof(*(grid->x)));
+grid->y=do_alloc(grid->npoints, sizeof(*(grid->y)));
+
 grid->nbands_size=2000;
 grid->nbands=0;
 grid->band_name=do_alloc(grid->nbands_size, sizeof(*grid->band_name));
@@ -157,6 +171,9 @@ for(i=0;i<num_ra;i++){
 		grid->latitude[k]=b;
 		grid->longitude[k]=a;
 		grid->band[k]=-1;
+
+		grid->x[k]=i;
+		grid->y[k]=j;
 		}
 	}
 precompute_values(grid);
@@ -193,6 +210,11 @@ for(i=0;i<priv->num_dec;i++){
 grid->latitude=do_alloc(grid->npoints, sizeof(SKY_GRID_TYPE));
 grid->longitude=do_alloc(grid->npoints, sizeof(SKY_GRID_TYPE));
 
+grid->max_x=2*(grid->max_n_ra>>1)+1;
+grid->max_y=grid->max_n_dec;
+grid->x=do_alloc(grid->npoints, sizeof(*(grid->x)));
+grid->y=do_alloc(grid->npoints, sizeof(*(grid->y)));
+
 grid->nbands_size=2000;
 grid->nbands=0;
 grid->band_name=do_alloc(grid->nbands_size, sizeof(*grid->band_name));
@@ -213,6 +235,10 @@ for(i=0;i<priv->num_dec;i++) {
 		grid->latitude[k]=a;
 		grid->longitude[k]=b;
 		grid->band[k]=-1;
+
+		grid->x[k]=(grid->max_x>>1)-(priv->num_ra[i]>>1)+j;
+		grid->y[k]=i;
+
 		k++;
 		}
 	}
@@ -273,6 +299,8 @@ if(!strcmp(grid->name,"arcsin")){
 	}
 free(grid->latitude);
 free(grid->longitude);
+free(grid->x);
+free(grid->y);
 free(grid->band);
 free(grid->band_f);
 for(i=0;i<GRID_E_COUNT;i++)free(grid->e[i]);

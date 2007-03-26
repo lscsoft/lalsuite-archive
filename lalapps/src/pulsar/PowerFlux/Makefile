@@ -1,5 +1,5 @@
 PACKAGE=\"powerflux\"
-VERSION=1.4.15-64
+VERSION=1.4.16-64
 LALROOT=./../../../../
 LALROOT=/opt/lscsoft/lal/
 LALINCLUDE=-I$(LALROOT)/include/
@@ -235,11 +235,11 @@ test5: powerflux
 		--fake-orientation=0.5 --fake-ra=5.785685 --fake-dec=-1.563849
 
 test5c: powerflux
-	./powerflux --dataset=random.dst -f 360000 -n 501 \
+	./powerflux --dataset=random.dst -f 450000 -n 501 \
 		--ephemeris-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
 		--averaging-mode=matched --do-cutoff=1 --lock-file=test.lock \
 		--subtract-background=0 --ks-test=1 --filter-lines=0 \
-		--spindown-start=0.0 --spindown-step=2e-10 --spindown-count=1 \
+		--spindown-start=0.0 --spindown-step=2e-8 --spindown-count=2 \
 		--dump-candidates=0 \
 		--dump-points=0 \
 		--sky-marks-file=sky_marks.txt \

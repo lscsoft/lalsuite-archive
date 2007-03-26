@@ -29,6 +29,12 @@ typedef struct {
 	int nbands;
 	int nbands_size;
 
+	/* for plotting - coordinates of points to mark */
+	int max_x;
+	int max_y;
+	int *x;
+	int *y;
+
 	int *band;
 	float *band_f;  /* just a convenience data.. */
 	SKY_GRID_TYPE *e[GRID_E_COUNT];  /* 3d coordinates: 
