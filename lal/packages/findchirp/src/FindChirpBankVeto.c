@@ -144,6 +144,8 @@ XLALBankVetoCCMat ( FindChirpBankVetoData *bankVetoData,
   UINT4 tmpLen = bankVetoData->fcInputArray[0]->fcTmplt->data->length;
   REAL4 ABr, ABi, Br, Bi, sqResp;
   UINT4 stIX = floor( fLow / deltaF );
+  /*  fprintf(stderr, "tmpLen %d, resp->length %d, spec->length %d\n",
+         tmpLen, bankVetoData->resp->length, bankVetoData->spec->length); */
   for ( i = 0; i < iSize; i++ )
   {
     for ( j = i; j < iSize; j++ )
@@ -177,13 +179,18 @@ XLALBankVetoCCMat ( FindChirpBankVetoData *bankVetoData,
             ABi += bankVetoData->fcInputArray[i]->fcTmplt->data->data[k].re*Bi-
                    bankVetoData->fcInputArray[i]->fcTmplt->data->data[k].im*Br; 
           }
-          bankVetoData->ccMat->data[i*iSize + j] = sqrt(ABr*ABr + ABi*ABi);
-          bankVetoData->ccMat->data[j*iSize + i] = sqrt(ABr*ABr + ABi*ABi);
-          /* bankVetoData->normMat->data[j] = 4.0 * (deltaT / (REAL4) tmpLen / 2.0) /
-              bankVetoData->fcInputArray[j]->segment->segNorm->data[jMax]; */
+        }  
+        bankVetoData->ccMat->data[i*iSize + j] = sqrt(ABr*ABr+ ABi*ABi) *
+           sqrt( bankVetoData->fcInputArray[i]->fcTmplt->norm * 
+                 bankVetoData->fcInputArray[j]->fcTmplt->norm );
 
+        bankVetoData->ccMat->data[j*iSize + i] = sqrt(ABr*ABr + ABi*ABi) * 
+           sqrt( bankVetoData->fcInputArray[i]->fcTmplt->norm *
+                 bankVetoData->fcInputArray[j]->fcTmplt->norm );
 
-        }
+        /*fprintf(stderr,"ccMat[%d,%d] = %f, iMax %d, jMax %d\n", i,j,
+                bankVetoData->ccMat->data[i*iSize + j], iMax, jMax); */
+        
       }
     }
   }
@@ -220,9 +227,9 @@ XLALComputeBankVeto( FindChirpBankVetoData *bankVetoData,
     ii = bankVetoData->ccMat->data[i*iSize + i];
     jj = bankVetoData->ccMat->data[j*iSize + j];
 
-    denomFac = ( (ij / ii) - (jj / ij) ) * 
-               bankVetoData->fcInputArray[j]->fcTmplt->norm /
-               bankVetoData->fcInputArray[i]->fcTmplt->norm ;
+    denomFac = ( (ij / ii) - (jj / ij) ) ;
+               /* bankVetoData->fcInputArray[j]->fcTmplt->norm /
+               bankVetoData->fcInputArray[i]->fcTmplt->norm; */
     if ( denomFac != 0.0 )
     {
       jSNR = sqrt( ( bankVetoData->qVecArray[j]->data[snrIX].re *
