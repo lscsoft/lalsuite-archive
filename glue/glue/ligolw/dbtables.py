@@ -260,7 +260,7 @@ class DBTable(table.Table):
 			# unknown table
 			pass
 		if self.connection is None:
-			raise ElementError, "connection attribute not set"
+			raise ligolw.ElementError, "connection attribute not set"
 		self.cursor = self.connection.cursor()
 
 	def _end_of_columns(self):
