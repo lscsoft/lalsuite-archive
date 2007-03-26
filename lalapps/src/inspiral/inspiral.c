@@ -5060,16 +5060,29 @@ static InspiralTemplate * sortTemplates( InspiralTemplate *bankHead, UINT4 num )
 
 static int compareTemplate (const void * a, const void * b)
 {
+  REAL4 mVal1 = 1.0 / ( (*((InspiralTemplate**)a))->mass1 + 
+                  (*((InspiralTemplate**)a))->mass2 ) /
+                  (*((InspiralTemplate**)a))->mass1 /
+                  (*((InspiralTemplate**)a))->mass2;
+  REAL4 mVal2 = 1.0 / ( (*((InspiralTemplate**)b))->mass1 +
+                  (*((InspiralTemplate**)b))->mass2 ) /
+                  (*((InspiralTemplate**)b))->mass1 /
+                  (*((InspiralTemplate**)b))->mass2;
+
   REAL4 tau3_a = (*((InspiralTemplate**)a))->t3;
   REAL4 tau3_b = (*((InspiralTemplate**)b))->t3;
   REAL4 tau0_a = (*((InspiralTemplate**)a))->t0;
   REAL4 tau0_b = (*((InspiralTemplate**)b))->t0;
   REAL4 aVal = tau0_a + tau3_a;
   REAL4 bVal = tau0_b + tau3_b;
-
+  
   if ( aVal > bVal ) return 1;
   if ( aVal == bVal ) return 0;
   if ( aVal < bVal ) return -1;
+  
+  /*if ( aVal > bVal ) return 1;
+  if ( aVal == bVal ) return 0;
+  if ( aVal < bVal ) return -1;*/
 }
 
 #undef ADD_PROCESS_PARAM
