@@ -132,7 +132,7 @@ WHERE
 	AND coinc_event.time_slide_id == ?
 		""", (contents.bb_definer_id, time_slide_id))))
 
-	def finish(self, filename, verbose = "False"):
+	def finish(self, filename, verbose = False):
 		self.sngl_burst_table.sort(lambda a, b: cmp((a.ifo, abs(a.amplitude)), (b.ifo, abs(b.amplitude))))
 		utils.write_filename(self.xmldoc, filename, verbose = verbose, gz = (filename or "stdout")[-3:] == ".gz")
 
