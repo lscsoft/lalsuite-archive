@@ -57,20 +57,21 @@ __date__ = "$Date$"[7:-2]
 
 
 def parse_command_line():
-	parser = OptionParser(version="%prog CVS $Id$")
-
-	parser.add_option("-i", "--injection-glob", metavar = "pattern", default = None, help = "Shell filename pattern for injection files.")
-	parser.add_option("-b", "--background-glob", metavar = "pattern", default = None, help = "Shell filename pattern for non-injection files.")
-	parser.add_option("-t", "--thresholds", metavar = "inst1,inst2=threshold1[,threshold2,...]", action = "append", default = [], help = "Specify the thresholds as provided to ligolw_burca (see ligolw_burca for details).")
+	parser = OptionParser(
+		version = "%prog CVS $Id$",
+		usage = "%prog [options] -i|--injection-glob pattern -b|--background-glob pattern",
+		description = "%prog analyzes a collection of SQLite database files converted from ligolw_burca XML outputs, and measures probability distributions for a variety of parameters computed from the coincidences therein.  The measured distributions are recorded separately for coincidences identified as injections, and coincidences identified as non-zero-lag backgrouds.  The distributions are written to a likelihood data file in XML format, which can be used by ligolw_burca in a second pass to assign likelihoods to each coincidence in a collection of input files.  The command line arguments are used to provide shell path patterns for the files to obtain injection data from, and the files to obtain background data from."
+	)
+	parser.add_option("-c", "--control-file", metavar = "filename", default = "ligolw_burca_likelihood_control.xml.gz", help = "Set the name of the likelihood control file to write (default = \"ligolw_burca_likelihood_control.xml.gz\").")
+	parser.add_option("-i", "--injection-glob", metavar = "pattern", help = "Shell filename pattern for injection files.")
+	parser.add_option("-b", "--background-glob", metavar = "pattern", help = "Shell filename pattern for non-injection files.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
 	options, filenames = parser.parse_args()
 
-	try:
-		options.thresholds = snglcoinc.parse_thresholds(options.thresholds)
-		for instrumentpair, (dt, df, dhrss) in options.thresholds.items():
-			options.thresholds[instrumentpair] = (float(dt), float(df), float(dhrss))
-	except Exception, e:
-		raise ValueError, "error parsing --thresholds: %s" % str(e)
+	if options.background_glob is None:
+		raise ValueError, "missing required --background-glob argument"
+	if options.injection_glob is None:
+		raise ValueError, "missing required --injection-glob argument"
 
 	return options, (filenames or [None])
 
@@ -90,21 +91,36 @@ def parse_command_line():
 
 
 def plot_Deltas(deltas):
-	# create a figure
+	#
+	# Create a figure.
+	#
+
 	fig = SnglBurstUtils.figure.Figure()
 	SnglBurstUtils.FigureCanvas(fig)
 
-	# how many instrument pairs are there?
+	#
+	# How many instrument pairs are there?
+	#
+
 	n_horiz = len(deltas.thresholds.keys())
 
-	# each sub plot's aspect ratio is the golden ratio
+	#
+	# Each sub plot's aspect ratio is the golden ratio.
+	#
+
 	size = 12.0
 	n_vert = 3
 	fig.set_size_inches(size * n_horiz / n_vert, size / ((1 + math.sqrt(5)) / 2))
 
-	# iterate over instrument pairs
+	#
+	# Iterate over instrument pairs.
+	#
+
 	for i, pair in enumerate(deltas.thresholds.keys()):
-		# construct the axes for this instrument pair
+		#
+		# Construct the axes for this instrument pair.
+		#
+
 		vlabel_allowance = .05
 		hlabel_allowance = .03
 		border = .007
@@ -123,7 +139,10 @@ def plot_Deltas(deltas):
 		dh_axes.set_xlabel(r"$({h_{\mathrm{rss}}}_{\mathrm{%s}} - {h_{\mathrm{rss}}}_{\mathrm{%s}}) / \left< h_{\mathrm{rss}} \right>$" % pair)
 		dh_axes.set_ylabel(r"$P$")
 
-		# plot the data on them
+		#
+		# Plot the data on them.
+		#
+
 		dt_axes.plot(deltas.inj_dt[pair].xvals(), deltas.inj_dt[pair].filtered(), "r")
 		dt_axes.plot(deltas.bak_dt[pair].xvals(), deltas.bak_dt[pair].filtered(), "k")
 		df_axes.plot(deltas.inj_df[pair].xvals(), deltas.inj_df[pair].filtered(), "r")
@@ -131,7 +150,10 @@ def plot_Deltas(deltas):
 		dh_axes.plot(deltas.inj_dh[pair].xvals(), deltas.inj_dh[pair].filtered(), "r")
 		dh_axes.plot(deltas.bak_dh[pair].xvals(), deltas.bak_dh[pair].filtered(), "k")
 
-	# done
+	#
+	# Done.
+	#
+
 	return fig
 
 
@@ -162,33 +184,19 @@ def plot_Scatter(scatter):
 
 
 #
-# Command line
+# Command line.
 #
 
 
 options, filenames = parse_command_line()
-options.thresholds = ligolw_burca_tailor.clean_thresholds(options.thresholds)
-
-plots = ligolw_burca_tailor.Plots(options.thresholds)
 
 
 #
-# Iterate over injection files
+# Clear the statistics book-keep object.
 #
 
 
-if options.verbose:
-	print >>sys.stderr, "=== Injections ==="
-
-filenames = glob.glob(options.injection_glob)
-for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose, reverse = True)):
-	if options.verbose:
-		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
-	connection = sqlite3.connect(filename)
-	dbtables.DBTable_set_connection(connection)
-	database = SnglBurstUtils.CoincDatabase().summarize(dbtables.DBTable_get_xml(), "lalapps_power", options.verbose)
-	plots.add_injections(database)
-	connection.close()
+stats = None
 
 
 #
@@ -200,40 +208,92 @@ if options.verbose:
 	print >>sys.stderr, "=== Background ==="
 
 filenames = glob.glob(options.background_glob)
+if not len(filenames):
+	raise ValueError, "error:  no background files found"
+
 for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose, reverse = True)):
+	#
+	# Open the database file.
+	#
+
 	if options.verbose:
 		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
 	connection = sqlite3.connect(filename)
 	dbtables.DBTable_set_connection(connection)
 	database = SnglBurstUtils.CoincDatabase().summarize(dbtables.DBTable_get_xml(), "power", options.verbose)
-	plots.add_background(database)
+
+	#
+	# If not already done, recover the --thresholds arguments, and
+	# construct a book-keeping object.
+	#
+
+	if stats is None:
+		stats = ligolw_burca_tailor.Stats(ligolw_burca_tailor.dbget_thresholds(connection))
+
+	#
+	# Record statistics.
+	#
+
+	stats.add_background(database)
 	connection.close()
 
 
 #
-# Post-process and generate plots
+# Iterate over injection files.
 #
 
 
-plots.finish()
+if options.verbose:
+	print >>sys.stderr, "=== Injections ==="
+
+filenames = glob.glob(options.injection_glob)
+if not len(filenames):
+	raise ValueError, "error:  no injections files found"
+
+for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose, reverse = True)):
+	#
+	# Open the database file.
+	#
+
+	if options.verbose:
+		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
+	connection = sqlite3.connect(filename)
+	dbtables.DBTable_set_connection(connection)
+	database = SnglBurstUtils.CoincDatabase().summarize(dbtables.DBTable_get_xml(), "lalapps_power", options.verbose)
+
+	#
+	# Record statistics.
+	#
+
+	stats.add_injections(database)
+	connection.close()
+
+
+#
+# Post-process and generate plots.
+#
+
+
+stats.finish()
 
 print >>sys.stderr, "=== Summary ==="
-print >>sys.stderr, "Non-injection average event rate = %g events / time slide" % (float(plots.n_background_events) / plots.n_time_slides)
+print >>sys.stderr, "Non-injection average event rate = %g events / time slide" % (float(stats.n_background_events) / stats.n_time_slides)
 print >>sys.stderr, "Injection normalized covariance matrix ="
-print >>sys.stderr, str(plots.covariance.inj_cov)
+print >>sys.stderr, str(stats.covariance.inj_cov)
 print >>sys.stderr, "Background normalized covariance matrix ="
-print >>sys.stderr, str(plots.covariance.bak_cov)
+print >>sys.stderr, str(stats.covariance.bak_cov)
 
-plot_Deltas(plots.deltas).savefig("ligolw_burca_tailor.png")
-fig = plot_Scatter(plots.scatter)
+plot_Deltas(stats.deltas).savefig("ligolw_burca_tailor.png")
+fig = plot_Scatter(stats.scatter)
 fig.gca().set_xlabel(r"$(t_{\mathrm{%s}} - t_{\mathrm{%s}}) / \left< \Delta t \right>$" % ("H1", "H2"))
 fig.gca().set_ylabel(r"$(f_{\mathrm{%s}} - f_{\mathrm{%s}}) / \left< \Delta f \right>$" % ("H1", "H2"))
 fig.savefig("ligolw_burca_tailor_2.png")
 
 
 #
-# Write likelihood control file for second burca pass
+# Write likelihood control file for second ligolw_burca pass.
 #
 
-likelihood_control = ligolw_burca_tailor.gen_likelihood_control(plots.deltas)
-utils.write_filename(likelihood_control, "ligolw_burca_likelihood_control.xml.gz", verbose = options.verbose, gz = True)
+
+likelihood_control = ligolw_burca_tailor.gen_likelihood_control(stats.deltas)
+utils.write_filename(likelihood_control, options.control_file, verbose = options.verbose, gz = options.control_file[-3:] == ".gz")

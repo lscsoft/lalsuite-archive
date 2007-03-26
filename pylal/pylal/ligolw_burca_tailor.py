@@ -36,6 +36,7 @@ from glue.ligolw import ligolw
 from glue.ligolw import array
 from glue.ligolw import param
 from glue.ligolw import lsctables
+from pylal import ligolw_burca
 from pylal import llwapp
 from pylal import rate
 from pylal.date import LIGOTimeGPS
@@ -49,18 +50,30 @@ __date__ = "$Date$"[7:-2]
 #
 # =============================================================================
 #
-#                          Thresholds Pre-Processing
+#                             Thresholds Recovery
 #
 # =============================================================================
 #
 
 
-#
-# Maximize thresholds, convert to intervals, and remove duplicates
-#
+def dbget_thresholds(connection):
+	"""
+	Extract ligolw_burca's --thresholds arguments from the
+	process_params table, and munge into the form desired by the rest
+	of the code in this module.
+	"""
 
+	#
+	# Retrieve the --thresholds arguments from the process_params
+	# table.
+	#
 
-def clean_thresholds(thresholds):
+	thresholds = ligolw_burca.dbget_thresholds(connection)
+
+	#
+	# Convert to symmetric intervals
+	#
+
 	for (inst1, inst2), (dt, df, dh) in thresholds.items():
 		if inst1 > inst2:
 			continue
@@ -69,9 +82,19 @@ def clean_thresholds(thresholds):
 		df = segments.segment(-df, +df) | segments.segment(-df_other, +df_other)
 		dh = segments.segment(-dh, +dh) | segments.segment(-dh_other, +dh_other)
 		thresholds[(inst1, inst2)] = thresholds[(inst2, inst1)] = (dt, df, dh)
+
+	#
+	# Remove duplicates.
+	#
+
 	for pair in thresholds.keys():
 		if pair[0] > pair[1]:
 			del thresholds[pair]
+
+	#
+	# Done.
+	#
+
 	return thresholds
 
 
@@ -95,19 +118,19 @@ class Delta_Distributions(object):
 		self.thresholds = thresholds
 
 		# initialize the binnings
-		self.inj_dt = {}
 		self.bak_dt = {}
-		self.inj_df = {}
+		self.inj_dt = {}
 		self.bak_df = {}
-		self.inj_dh = {}
+		self.inj_df = {}
 		self.bak_dh = {}
+		self.inj_dh = {}
 		for pair, (dtinterval, dfinterval, dhinterval) in thresholds.items():
-			self.inj_dt[pair] = rate.Rate(dtinterval, abs(dtinterval) / 75.0)
 			self.bak_dt[pair] = rate.Rate(dtinterval, abs(dtinterval) / 75.0)
-			self.inj_df[pair] = rate.Rate(dfinterval, abs(dfinterval) / 75.0)
+			self.inj_dt[pair] = rate.Rate(dtinterval, abs(dtinterval) / 75.0)
 			self.bak_df[pair] = rate.Rate(dfinterval, abs(dfinterval) / 75.0)
-			self.inj_dh[pair] = rate.Rate(dhinterval, abs(dhinterval) / 75.0)
+			self.inj_df[pair] = rate.Rate(dfinterval, abs(dfinterval) / 75.0)
 			self.bak_dh[pair] = rate.Rate(dhinterval, abs(dhinterval) / 75.0)
+			self.inj_dh[pair] = rate.Rate(dhinterval, abs(dhinterval) / 75.0)
 
 	def add_background(self, pair, dt, df, dh):
 		# IndexError == not within thresholds
@@ -142,12 +165,12 @@ class Delta_Distributions(object):
 	def finish(self):
 		# normalize the distributions
 		for pair in self.thresholds.keys():
-			self.inj_dt[pair].array /= numpy.sum(self.inj_dt[pair].array)
 			self.bak_dt[pair].array /= numpy.sum(self.bak_dt[pair].array)
-			self.inj_df[pair].array /= numpy.sum(self.inj_df[pair].array)
+			self.inj_dt[pair].array /= numpy.sum(self.inj_dt[pair].array)
 			self.bak_df[pair].array /= numpy.sum(self.bak_df[pair].array)
-			self.inj_dh[pair].array /= numpy.sum(self.inj_dh[pair].array)
+			self.inj_df[pair].array /= numpy.sum(self.inj_df[pair].array)
 			self.bak_dh[pair].array /= numpy.sum(self.bak_dh[pair].array)
+			self.inj_dh[pair].array /= numpy.sum(self.inj_dh[pair].array)
 
 
 #
@@ -157,10 +180,10 @@ class Delta_Distributions(object):
 
 class Scatter(object):
 	def __init__(self):
-		self.inj_x = []
-		self.inj_y = []
 		self.bak_x = []
 		self.bak_y = []
+		self.inj_x = []
+		self.inj_y = []
 
 	def add_background(self, pair, x, y):
 		self.bak_x.append(x)
@@ -190,8 +213,8 @@ def covariance_normalize(c):
 
 class Covariance(object):
 	def __init__(self):
-		self.inj_observations = []
 		self.bak_observations = []
+		self.inj_observations = []
 
 	def add_background(self, *args):
 		self.bak_observations.append(args)
@@ -200,10 +223,10 @@ class Covariance(object):
 		self.inj_observations.append(args)
 
 	def finish(self):
-		self.inj_observations = numpy.array(self.inj_observations)
 		self.bak_observations = numpy.array(self.bak_observations)
-		self.inj_cov = covariance_normalize(stats.cov(self.inj_observations))
+		self.inj_observations = numpy.array(self.inj_observations)
 		self.bak_cov = covariance_normalize(stats.cov(self.bak_observations))
+		self.inj_cov = covariance_normalize(stats.cov(self.inj_observations))
 
 
 #
@@ -215,7 +238,7 @@ class Covariance(object):
 #
 
 
-class Plots(object):
+class Stats(object):
 	def __init__(self, thresholds):
 		self.thresholds = thresholds
 		self.n_time_slides = None
@@ -226,16 +249,16 @@ class Plots(object):
 		self.covariance = Covariance()
 
 
-	def add_background(self, contents):
+	def add_background(self, database):
 		# count the number of time slides (assume all input files
 		# list the exact same time slides)
 		if self.n_time_slides is None:
-			self.n_time_slides = contents.connection.cursor().execute("""SELECT COUNT(DISTINCT time_slide_id) FROM time_slide""").fetchone()[0]
+			self.n_time_slides = database.connection.cursor().execute("""SELECT COUNT(DISTINCT time_slide_id) FROM time_slide""").fetchone()[0]
 
 		# iterate over non-zero-lag burst+burst coincidences
 		# involving the two desired instruments
 		for pair in self.thresholds.keys():
-			for b1_confidence, b1_peak_time, b1_peak_time_ns, b1_duration, b1_peak_frequency, b1_bandwidth, b1_hrss, b2_confidence, b2_peak_time, b2_peak_time_ns, b2_duration, b2_peak_frequency, b2_bandwidth, b2_hrss in contents.connection.cursor().execute("""
+			for b1_confidence, b1_peak_time, b1_peak_time_ns, b1_duration, b1_peak_frequency, b1_bandwidth, b1_hrss, b2_confidence, b2_peak_time, b2_peak_time_ns, b2_duration, b2_peak_frequency, b2_bandwidth, b2_hrss in database.connection.cursor().execute("""
 SELECT b1.confidence, b1.peak_time + t1.offset, b1.peak_time_ns, b1.ms_duration, b1.peak_frequency, b1.ms_bandwidth, b1.ms_hrss, b2.confidence, b2.peak_time + t2.offset, b2.peak_time_ns, b2.ms_duration, b2.peak_frequency, b2.ms_bandwidth, b2.ms_hrss FROM
 	sngl_burst AS b1
 	JOIN coinc_event_map AS a ON (
@@ -271,7 +294,7 @@ WHERE
 	)
 	AND b1.ifo == ?
 	AND b2.ifo == ?
-			""", (contents.bb_definer_id, pair[0], pair[1])):
+			""", (database.bb_definer_id, pair[0], pair[1])):
 				self.n_background_events += 1
 
 				dt = float(LIGOTimeGPS(b1_peak_time, b1_peak_time_ns) - LIGOTimeGPS(b2_peak_time, b2_peak_time_ns)) / ((b1_duration + b2_duration) / 2)
@@ -283,11 +306,11 @@ WHERE
 				self.covariance.add_background(dt, df, dh)
 
 
-	def add_injections(self, contents):
+	def add_injections(self, database):
 		# iterate over injections recovered in both of the two
 		# desired instruments
 		for pair in self.thresholds.keys():
-			for b1_confidence, b1_peak_time, b1_peak_time_ns, b1_duration, b1_peak_frequency, b1_bandwidth, b1_hrss, b2_confidence, b2_peak_time, b2_peak_time_ns, b2_duration, b2_peak_frequency, b2_bandwidth, b2_hrss in contents.connection.cursor().execute("""
+			for b1_confidence, b1_peak_time, b1_peak_time_ns, b1_duration, b1_peak_frequency, b1_bandwidth, b1_hrss, b2_confidence, b2_peak_time, b2_peak_time_ns, b2_duration, b2_peak_frequency, b2_bandwidth, b2_hrss in database.connection.cursor().execute("""
 SELECT b1.confidence, b1.peak_time + t1.offset, b1.peak_time_ns, b1.ms_duration, b1.peak_frequency, b1.ms_bandwidth, b1.ms_hrss, b2.confidence, b2.peak_time + t2.offset, b2.peak_time_ns, b2.ms_duration, b2.peak_frequency, b2.ms_bandwidth, b2.ms_hrss FROM
 	sngl_burst AS b1
 	JOIN coinc_event_map AS a ON (
@@ -316,7 +339,7 @@ WHERE
 	coinc_event.coinc_def_id == ?
 	AND b1.ifo == ?
 	AND b2.ifo == ?
-			""", (contents.sb_definer_id, pair[0], pair[1])):
+			""", (database.sb_definer_id, pair[0], pair[1])):
 				dt = float(LIGOTimeGPS(b1_peak_time, b1_peak_time_ns) - LIGOTimeGPS(b2_peak_time, b2_peak_time_ns)) / ((b1_duration + b2_duration) / 2)
 				df = (b1_peak_frequency - b2_peak_frequency) / ((b1_bandwidth + b2_bandwidth) / 2)
 				dh = (b1_hrss - b2_hrss) / ((b1_hrss + b2_hrss) / 2)
