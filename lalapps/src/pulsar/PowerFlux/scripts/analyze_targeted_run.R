@@ -170,7 +170,7 @@ no60hzReduced<-no60hz
 highResMaxReduced<-highResMax
 
 	
-FancyPlot <- function(UL, f0=NULL, f1=NULL, ylab="y", title=ylab, median_shift=2, median_scale=1) {
+FancyPlot <- function(UL, f0=NULL, f1=NULL, ylab="y", title=ylab, median_shift=2, median_scale=1, skip.high.dx=FALSE) {
 	cat("Plotting \"", title, "\"\n", sep="")
 
 	if(is.null(f0)) {
@@ -185,7 +185,7 @@ FancyPlot <- function(UL, f0=NULL, f1=NULL, ylab="y", title=ylab, median_shift=2
 
 	#points(Freq, median_scale*(log10(2.0*data[,'median.2'])*0.5-log10(1800*16384))+median_shift, col="pink", type="s")
 
-	points(Freq[!no60hzReduced], UL[!no60hzReduced], col="light blue", pch=19)
+	points(Freq[!no60hzReduced], UL[!no60hzReduced], col="magenta", pch="*")
 	Factor=no60hzReduced
 
 	points(Freq[Factor & !ksVetoP], UL[Factor & !ksVetoP], col="blue", pch=20)
@@ -194,9 +194,13 @@ FancyPlot <- function(UL, f0=NULL, f1=NULL, ylab="y", title=ylab, median_shift=2
 	points(Freq[Factor & highResMaxReduced], UL[Factor & highResMaxReduced], col="red", pch=23)
 	Factor=Factor & !highResMaxReduced
 
-	points(Freq[Factor & !highDxAny], UL[Factor & !highDxAny], col="dark green", pch="+")
+	if(skip.high.dx) {
+		points(Freq[Factor], UL[Factor], col="dark green", pch="+")
+		} else {
+		points(Freq[Factor & !highDxAny], UL[Factor & !highDxAny], col="dark green", pch="+")
 
-	points(Freq[Factor & highDxAny], UL[Factor & highDxAny], col="red", pch=20)
+		points(Freq[Factor & highDxAny], UL[Factor & highDxAny], col="red", pch=20)
+		}
 	}
 
 FancyMap <- function(UL, title="", levels=NULL, f0=NULL, f1=NULL) {
