@@ -176,6 +176,12 @@ class Confidence(Likelihood):
 #
 
 
+#
+# This must be kept synchronized with the gen_likelihood_control() function
+# in pylal.ligolw_burca_tailor.
+#
+
+
 def load_distributions(filename, verbose = False):
 	#
 	# Load the XML document
