@@ -269,6 +269,34 @@ def append_process_params(doc, process, params):
 	return process
 
 
+def get_process_params(xmldoc, program, param):
+	process_ids = table.get_table(xmldoc, lsctables.ProcessTable.tableName).get_ids_by_program(program)
+	if len(process_ids) != 1:
+		raise ValueError, "process table must contain exactly one program named %s" % program
+	values = []
+	for row in table.get_table(xmldoc, lsctables.ProcessParamsTable.tableName):
+		if row.process_id in process_ids:
+			values.append(row.value)
+	return values
+
+
+def dbget_process_params(connection, program, param):
+	process_ids = set()
+	values = []
+	for process_id, value in connection.cursor().execute("""
+SELECT process_id, value FROM
+	process_params
+WHERE
+	program == ?
+	AND param == ?
+	""", (program, param)):
+		process_ids |= set((process_id,))
+		values.append(value)
+	if len(process_ids) != 1:
+		raise ValueError, "process table must contain exactly one program named %s with params %s" % (program, param)
+	return values
+
+
 def doc_includes_process(doc, program):
 	"""
 	Return True if the process table in doc includes entries for a
