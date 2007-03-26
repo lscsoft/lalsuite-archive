@@ -30,26 +30,16 @@
 
 import glob
 import math
-import numpy
 from optparse import OptionParser
 from pysqlite2 import dbapi2 as sqlite3
-from scipy.stats import stats
 import sys
-from xml import sax
 
-from glue import segments
-from glue.ligolw import ligolw
-from glue.ligolw import array
-from glue.ligolw import param
-from glue.ligolw import lsctables
+
 from glue.ligolw import dbtables
 from glue.ligolw import utils
-from pylal import itertools
-from pylal import llwapp
-from pylal import rate
+from pylal import ligolw_burca_tailor
 from pylal import SnglBurstUtils
 from pylal import snglcoinc
-from pylal.date import LIGOTimeGPS
 
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -77,42 +67,12 @@ def parse_command_line():
 
 	try:
 		options.thresholds = snglcoinc.parse_thresholds(options.thresholds)
-		for instrumentpair, value in options.thresholds.items():
-			dt, df, dhrss = value
+		for instrumentpair, (dt, df, dhrss) in options.thresholds.items():
 			options.thresholds[instrumentpair] = (float(dt), float(df), float(dhrss))
 	except Exception, e:
 		raise ValueError, "error parsing --thresholds: %s" % str(e)
 
 	return options, (filenames or [None])
-
-
-#
-# =============================================================================
-#
-#                          Thresholds Pre-Processing
-#
-# =============================================================================
-#
-
-
-#
-# Maximize thresholds, convert to intervals, and remove duplicates
-#
-
-
-def clean_thresholds(thresholds):
-	for (inst1, inst2), (dt, df, dh) in thresholds.items():
-		if inst1 > inst2:
-			continue
-		dt_other, df_other, dh_other = thresholds[(inst2, inst1)]
-		dt = segments.segment(-dt, +dt) | segments.segment(-dt_other, +dt_other)
-		df = segments.segment(-df, +df) | segments.segment(-df_other, +df_other)
-		dh = segments.segment(-dh, +dh) | segments.segment(-dh_other, +dh_other)
-		thresholds[(inst1, inst2)] = thresholds[(inst2, inst1)] = (dt, df, dh)
-	for pair in thresholds.keys():
-		if pair[0] > pair[1]:
-			del thresholds[pair]
-	return thresholds
 
 
 #
@@ -125,363 +85,77 @@ def clean_thresholds(thresholds):
 
 
 #
-# Plot of showing grid of distributions for individual deltas
+# Make a plot from a Delta_Distributions object.
 #
 
 
-class Plot1(object):
-	def __init__(self, thresholds):
-		self.thresholds = thresholds
-		self.fig = SnglBurstUtils.figure.Figure()
-		SnglBurstUtils.FigureCanvas(self.fig)
+def plot_Deltas(deltas):
+	# create a figure
+	fig = SnglBurstUtils.figure.Figure()
+	SnglBurstUtils.FigureCanvas(fig)
 
-		# how many instrument pairs are there?
-		n_horiz = len(thresholds.keys())
+	# how many instrument pairs are there?
+	n_horiz = len(deltas.thresholds.keys())
 
-		# each sub plot's aspect ratio is the golden ratio
-		size = 12.0
-		n_vert = 3
-		self.fig.set_size_inches(size * n_horiz / n_vert, size / ((1 + math.sqrt(5)) / 2))
+	# each sub plot's aspect ratio is the golden ratio
+	size = 12.0
+	n_vert = 3
+	fig.set_size_inches(size * n_horiz / n_vert, size / ((1 + math.sqrt(5)) / 2))
 
-		# initialize the axes
-		self.dt_axes = {}
-		self.df_axes = {}
-		self.dh_axes = {}
-		for i, pair in enumerate(thresholds.keys()):
-			vlabel_allowance = .05
-			hlabel_allowance = .03
-			border = .007
-			left = float(i) / n_horiz + hlabel_allowance + border
-			width = 1.0 / n_horiz - hlabel_allowance - 2 * border
-			height = 1.0 / n_vert
+	# iterate over instrument pairs
+	for i, pair in enumerate(deltas.thresholds.keys()):
+		# construct the axes for this instrument pair
+		vlabel_allowance = .05
+		hlabel_allowance = .03
+		border = .007
+		left = float(i) / n_horiz + hlabel_allowance + border
+		width = 1.0 / n_horiz - hlabel_allowance - 2 * border
+		height = 1.0 / n_vert
 
-			self.dt_axes[pair] = self.fig.add_axes((left, 0 * height + vlabel_allowance + border, width, height - vlabel_allowance - 2 * border))
-			self.df_axes[pair] = self.fig.add_axes((left, 1 * height + vlabel_allowance + border, width, height - vlabel_allowance - 2 * border))
-			self.dh_axes[pair] = self.fig.add_axes((left, 2 * height + vlabel_allowance + border, width, height - vlabel_allowance - 2 * border))
+		dt_axes = fig.add_axes((left, 0 * height + vlabel_allowance + border, width, height - vlabel_allowance - 2 * border))
+		df_axes = fig.add_axes((left, 1 * height + vlabel_allowance + border, width, height - vlabel_allowance - 2 * border))
+		dh_axes = fig.add_axes((left, 2 * height + vlabel_allowance + border, width, height - vlabel_allowance - 2 * border))
 
-			self.dt_axes[pair].set_xlabel(r"$(t_{\mathrm{%s}} - t_{\mathrm{%s}}) / \left< \Delta t \right>$" % pair)
-			self.dt_axes[pair].set_ylabel(r"$P$")
-			self.df_axes[pair].set_xlabel(r"$(f_{\mathrm{%s}} - f_{\mathrm{%s}}) / \left< \Delta f \right>$" % pair)
-			self.df_axes[pair].set_ylabel(r"$P$")
-			self.dh_axes[pair].set_xlabel(r"$({h_{\mathrm{rss}}}_{\mathrm{%s}} - {h_{\mathrm{rss}}}_{\mathrm{%s}}) / \left< h_{\mathrm{rss}} \right>$" % pair)
-			self.dh_axes[pair].set_ylabel(r"$P$")
+		dt_axes.set_xlabel(r"$(t_{\mathrm{%s}} - t_{\mathrm{%s}}) / \left< \Delta t \right>$" % pair)
+		dt_axes.set_ylabel(r"$P$")
+		df_axes.set_xlabel(r"$(f_{\mathrm{%s}} - f_{\mathrm{%s}}) / \left< \Delta f \right>$" % pair)
+		df_axes.set_ylabel(r"$P$")
+		dh_axes.set_xlabel(r"$({h_{\mathrm{rss}}}_{\mathrm{%s}} - {h_{\mathrm{rss}}}_{\mathrm{%s}}) / \left< h_{\mathrm{rss}} \right>$" % pair)
+		dh_axes.set_ylabel(r"$P$")
 
-		# initialize the binnings
-		self.inj_dt = {}
-		self.bak_dt = {}
-		self.inj_df = {}
-		self.bak_df = {}
-		self.inj_dh = {}
-		self.bak_dh = {}
-		for pair, (dtinterval, dfinterval, dhinterval) in thresholds.items():
-			self.inj_dt[pair] = rate.Rate(dtinterval, abs(dtinterval) / 75.0)
-			self.bak_dt[pair] = rate.Rate(dtinterval, abs(dtinterval) / 75.0)
-			self.inj_df[pair] = rate.Rate(dfinterval, abs(dfinterval) / 75.0)
-			self.bak_df[pair] = rate.Rate(dfinterval, abs(dfinterval) / 75.0)
-			self.inj_dh[pair] = rate.Rate(dhinterval, abs(dhinterval) / 75.0)
-			self.bak_dh[pair] = rate.Rate(dhinterval, abs(dhinterval) / 75.0)
+		# plot the data on them
+		dt_axes.plot(deltas.inj_dt[pair].xvals(), deltas.inj_dt[pair].filtered(), "r")
+		dt_axes.plot(deltas.bak_dt[pair].xvals(), deltas.bak_dt[pair].filtered(), "k")
+		df_axes.plot(deltas.inj_df[pair].xvals(), deltas.inj_df[pair].filtered(), "r")
+		df_axes.plot(deltas.bak_df[pair].xvals(), deltas.bak_df[pair].filtered(), "k")
+		dh_axes.plot(deltas.inj_dh[pair].xvals(), deltas.inj_dh[pair].filtered(), "r")
+		dh_axes.plot(deltas.bak_dh[pair].xvals(), deltas.bak_dh[pair].filtered(), "k")
 
-	def add_inj(self, pair, dt, df, dh):
-		# IndexError == not on plot
-		try:
-			self.inj_dt[pair][dt] = 1.0
-		except IndexError:
-			pass
-		try:
-			self.inj_df[pair][df] = 1.0
-		except IndexError:
-			pass
-		try:
-			self.inj_dh[pair][dh] = 1.0
-		except IndexError:
-			pass
-
-	def add_bak(self, pair, dt, df, dh):
-		# IndexError == not on plot
-		try:
-			self.bak_dt[pair][dt] = 1.0
-		except IndexError:
-			pass
-		try:
-			self.bak_df[pair][df] = 1.0
-		except IndexError:
-			pass
-		try:
-			self.bak_dh[pair][dh] = 1.0
-		except IndexError:
-			pass
-
-	def finish(self):
-		for pair in self.thresholds.keys():
-			self.inj_dt[pair].array /= numpy.sum(self.inj_dt[pair].array)
-			self.bak_dt[pair].array /= numpy.sum(self.bak_dt[pair].array)
-			self.inj_df[pair].array /= numpy.sum(self.inj_df[pair].array)
-			self.bak_df[pair].array /= numpy.sum(self.bak_df[pair].array)
-			self.inj_dh[pair].array /= numpy.sum(self.inj_dh[pair].array)
-			self.bak_dh[pair].array /= numpy.sum(self.bak_dh[pair].array)
-			self.dt_axes[pair].plot(self.inj_dt[pair].xvals(), self.inj_dt[pair].filtered(), "r")
-			self.dt_axes[pair].plot(self.bak_dt[pair].xvals(), self.bak_dt[pair].filtered(), "k")
-			self.df_axes[pair].plot(self.inj_df[pair].xvals(), self.inj_df[pair].filtered(), "r")
-			self.df_axes[pair].plot(self.bak_df[pair].xvals(), self.bak_df[pair].filtered(), "k")
-			self.dh_axes[pair].plot(self.inj_dh[pair].xvals(), self.inj_dh[pair].filtered(), "r")
-			self.dh_axes[pair].plot(self.bak_dh[pair].xvals(), self.bak_dh[pair].filtered(), "k")
+	# done
+	return fig
 
 
 #
-# Delta f vs. Delta t scatter plot
+# Make a plot from a scatter object
 #
 
 
-class Plot2(object):
-	def __init__(self):
-		self.fig = SnglBurstUtils.figure.Figure()
-		SnglBurstUtils.FigureCanvas(self.fig)
-		self.fig.set_size_inches(10.0, 10.0 / ((1 + math.sqrt(5)) / 2))
-		self.axes = self.fig.gca()
-		self.axes.set_title(r"Parameter Reconstruction Independence")
-		self.axes.set_xlabel(r"$(t_{\mathrm{%s}} - t_{\mathrm{%s}}) / \left< \Delta t \right>$" % ("H1", "H2"))
-		self.axes.set_ylabel(r"$(f_{\mathrm{%s}} - f_{\mathrm{%s}}) / \left< \Delta f \right>$" % ("H1", "H2"))
-		self.inj_x = []
-		self.inj_y = []
-		self.bak_x = []
-		self.bak_y = []
-
-	def add_inj(self, pair, x, y):
-		self.inj_x.append(x)
-		self.inj_y.append(y)
-
-	def add_bak(self, pair, x, y):
-		self.bak_x.append(x)
-		self.bak_y.append(y)
-
-	def finish(self):
-		self.axes.plot(self.inj_x, self.inj_y, "r+")
-		self.axes.plot(self.bak_x, self.bak_y, "k+")
-		self.axes.legend(["Injections", "Accidentals"])
-
-
-#
-# Covariance matrix
-#
-
-
-def covariance_normalize(c):
-	"""
-	Normalize a covariance matrix so that the variances (diagonal
-	elements) are 1.
-	"""
-	std_dev = numpy.sqrt(numpy.diagonal(c))
-	return c / numpy.outer(std_dev, std_dev)
-
-
-class Covariance(object):
-	def __init__(self):
-		self.inj_observations = []
-		self.bak_observations = []
-
-	def add_inj(self, dt, df, dh):
-		self.inj_observations.append((dt, df, dh))
-
-	def add_bak(self, dt, df, dh):
-		self.bak_observations.append((dt, df, dh))
-
-	def finish(self):
-		self.inj_observations = numpy.array(self.inj_observations)
-		self.bak_observations = numpy.array(self.bak_observations)
-		self.inj_cov = covariance_normalize(stats.cov(self.inj_observations))
-		self.bak_cov = covariance_normalize(stats.cov(self.bak_observations))
+def plot_Scatter(scatter):
+	fig = SnglBurstUtils.figure.Figure()
+	SnglBurstUtils.FigureCanvas(fig)
+	fig.set_size_inches(10.0, 10.0 / ((1 + math.sqrt(5)) / 2))
+	axes = fig.gca()
+	axes.set_title(r"Parameter Reconstruction Independence")
+	axes.plot(scatter.inj_x, scatter.inj_y, "r+")
+	axes.plot(scatter.bak_x, scatter.bak_y, "k+")
+	axes.legend(["Injections", "Accidentals"])
+	return fig
 
 
 #
 # =============================================================================
 #
-#                                  Interface
-#
-# =============================================================================
-#
-
-
-class Plots(object):
-	def __init__(self, thresholds):
-		self.thresholds = thresholds
-		self.n_time_slides = None
-		self.n_background_events = 0
-
-		self.plot1 = Plot1(thresholds)
-		self.plot2 = Plot2()
-		self.covariance = Covariance()
-
-
-	def add_background(self, contents):
-		# count the number of time slides (assume all input files
-		# list the exact same time slides)
-		if self.n_time_slides is None:
-			self.n_time_slides = contents.connection.cursor().execute("""SELECT COUNT(DISTINCT time_slide_id) FROM time_slide""").fetchone()[0]
-
-		# iterate over non-zero-lag burst+burst coincidences
-		# involving the two desired instruments
-		for pair in self.thresholds.keys():
-			for b1_confidence, b1_peak_time, b1_peak_time_ns, b1_duration, b1_peak_frequency, b1_bandwidth, b1_hrss, b2_confidence, b2_peak_time, b2_peak_time_ns, b2_duration, b2_peak_frequency, b2_bandwidth, b2_hrss in contents.connection.cursor().execute("""
-SELECT b1.confidence, b1.peak_time + t1.offset, b1.peak_time_ns, b1.ms_duration, b1.peak_frequency, b1.ms_bandwidth, b1.ms_hrss, b2.confidence, b2.peak_time + t2.offset, b2.peak_time_ns, b2.ms_duration, b2.peak_frequency, b2.ms_bandwidth, b2.ms_hrss FROM
-	sngl_burst AS b1
-	JOIN coinc_event_map AS a ON (
-		a.event_id == b1.event_id
-		AND a.table_name == 'sngl_burst'
-	)
-	JOIN coinc_event_map AS b ON (
-		b.coinc_event_id == a.coinc_event_id
-	)
-	JOIN sngl_burst AS b2 ON (
-		b.event_id == b2.event_id
-		AND b.table_name == 'sngl_burst'
-	)
-	JOIN coinc_event ON (
-		coinc_event.coinc_event_id == a.coinc_event_id
-	)
-	JOIN time_slide AS t1 ON (
-		coinc_event.time_slide_id == t1.time_slide_id
-		AND b1.ifo == t1.instrument
-	)
-	JOIN time_slide AS t2 ON (
-		coinc_event.time_slide_id == t2.time_slide_id
-		AND b2.ifo == t2.instrument
-	)
-WHERE
-	coinc_event.coinc_def_id == ?
-	AND EXISTS (
-		SELECT * FROM
-			time_slide
-		WHERE
-			time_slide.time_slide_id == coinc_event.time_slide_id
-			AND time_slide.offset != 0
-	)
-	AND b1.ifo == ?
-	AND b2.ifo == ?
-			""", (contents.bb_definer_id, pair[0], pair[1])):
-				self.n_background_events += 1
-
-				dt = float(LIGOTimeGPS(b1_peak_time, b1_peak_time_ns) - LIGOTimeGPS(b2_peak_time, b2_peak_time_ns)) / ((b1_duration + b2_duration) / 2)
-				df = (b1_peak_frequency - b2_peak_frequency) / ((b1_bandwidth + b2_bandwidth) / 2)
-				dh = (b1_hrss - b2_hrss) / ((b1_hrss + b2_hrss) / 2)
-
-				self.plot1.add_bak(pair, dt, df, dh)
-				self.plot2.add_bak(pair, dt, df)
-				self.covariance.add_bak(dt, df, dh)
-
-
-	def add_injections(self, contents):
-		# iterate over injections recovered in both of the two
-		# desired instruments
-		for pair in self.thresholds.keys():
-			for b1_confidence, b1_peak_time, b1_peak_time_ns, b1_duration, b1_peak_frequency, b1_bandwidth, b1_hrss, b2_confidence, b2_peak_time, b2_peak_time_ns, b2_duration, b2_peak_frequency, b2_bandwidth, b2_hrss in contents.connection.cursor().execute("""
-SELECT b1.confidence, b1.peak_time + t1.offset, b1.peak_time_ns, b1.ms_duration, b1.peak_frequency, b1.ms_bandwidth, b1.ms_hrss, b2.confidence, b2.peak_time + t2.offset, b2.peak_time_ns, b2.ms_duration, b2.peak_frequency, b2.ms_bandwidth, b2.ms_hrss FROM
-	sngl_burst AS b1
-	JOIN coinc_event_map AS a ON (
-		a.event_id == b1.event_id
-		AND a.table_name == 'sngl_burst'
-	)
-	JOIN coinc_event_map AS b ON (
-		b.coinc_event_id == a.coinc_event_id
-	)
-	JOIN sngl_burst AS b2 ON (
-		b.event_id == b2.event_id
-		AND b.table_name == 'sngl_burst'
-	)
-	JOIN coinc_event ON (
-		coinc_event.coinc_event_id == a.coinc_event_id
-	)
-	JOIN time_slide AS t1 ON (
-		coinc_event.time_slide_id == t1.time_slide_id
-		AND b1.ifo == t1.instrument
-	)
-	JOIN time_slide AS t2 ON (
-		coinc_event.time_slide_id == t2.time_slide_id
-		AND b2.ifo == t2.instrument
-	)
-WHERE
-	coinc_event.coinc_def_id == ?
-	AND b1.ifo == ?
-	AND b2.ifo == ?
-			""", (contents.sb_definer_id, pair[0], pair[1])):
-				dt = float(LIGOTimeGPS(b1_peak_time, b1_peak_time_ns) - LIGOTimeGPS(b2_peak_time, b2_peak_time_ns)) / ((b1_duration + b2_duration) / 2)
-				df = (b1_peak_frequency - b2_peak_frequency) / ((b1_bandwidth + b2_bandwidth) / 2)
-				dh = (b1_hrss - b2_hrss) / ((b1_hrss + b2_hrss) / 2)
-
-				self.plot1.add_inj(pair, dt, df, dh)
-				self.plot2.add_inj(pair, dt, df)
-				self.covariance.add_inj(dt, df, dh)
-
-	def finish(self):
-		self.plot1.finish()
-		self.plot2.finish()
-		self.covariance.finish()
-
-		print >>sys.stderr, "=== Summary ==="
-		print >>sys.stderr, "Non-injection average event rate = %g events / time slide" % (float(self.n_background_events) / self.n_time_slides)
-		print >>sys.stderr, "Injection normalized covariance matrix ="
-		print >>sys.stderr, str(self.covariance.inj_cov)
-		print >>sys.stderr, "Background normalized covariance matrix ="
-		print >>sys.stderr, str(self.covariance.bak_cov)
-
-		write_likelihood_control("ligolw_burca_likelihood_control.xml.gz", self.plot1)
-
-
-#
-# =============================================================================
-#
-#                          Likelihood Control Output
-#
-# =============================================================================
-#
-
-
-#
-# Process information
-#
-
-
-process_program_name = "ligolw_burca_tailor"
-
-def append_process(xmldoc, **kwargs):
-	process = llwapp.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = "lscsoft", cvs_entry_time = __date__, comment = kwargs["comment"])
-
-	params = []
-	for (inst1, inst2), value in kwargs["thresholds"].iteritems():
-		params += [(u"--thresholds", u"lstring", u"%s,%s=%s" % (inst1, inst2, ",".join(map(unicode, value))))]
-	llwapp.append_process_params(xmldoc, process, params)
-
-	return process
-
-
-#
-# Distribution information
-#
-
-
-def write_likelihood_control(filename, plot1, verbose = False):
-	xmldoc = ligolw.Document()
-	node = xmldoc.appendChild(ligolw.LIGO_LW())
-
-	node.appendChild(lsctables.New(lsctables.ProcessTable))
-	node.appendChild(lsctables.New(lsctables.ProcessParamsTable))
-	process = append_process(xmldoc, thresholds = plot1.thresholds, comment = u"")
-
-	node = node.appendChild(ligolw.LIGO_LW(sax.xmlreader.AttributesImpl({u"Name": process_program_name})))
-	node.appendChild(param.new_param(u"process_id", u"ilwd:char", process.process_id))
-
-	node.appendChild(llwapp.pickle_to_param(plot1.thresholds, u"thresholds"))
-	for pair in plot1.thresholds.keys():
-		node.appendChild(array.from_array(u"%s_%s_dt" % pair, numpy.array([plot1.inj_dt[pair].xvals(), plot1.inj_dt[pair].array, plot1.bak_dt[pair].array]), (u"dt", u"dt,P_inj,P_bak")))
-		node.appendChild(array.from_array(u"%s_%s_df" % pair, numpy.array([plot1.inj_df[pair].xvals(), plot1.inj_df[pair].array, plot1.bak_df[pair].array]), (u"df", u"df,P_inj,P_bak")))
-		node.appendChild(array.from_array(u"%s_%s_dh" % pair, numpy.array([plot1.inj_dh[pair].xvals(), plot1.inj_dh[pair].array, plot1.bak_dh[pair].array]), (u"dh", u"dh,P_inj,P_bak")))
-
-	utils.write_filename(xmldoc, filename, verbose = verbose, gz = (filename or "stdout")[-3:] == ".gz")
-
-
-#
-# =============================================================================
-#
-#                                     Plot
+#                                     Main
 #
 # =============================================================================
 #
@@ -493,10 +167,14 @@ def write_likelihood_control(filename, plot1, verbose = False):
 
 
 options, filenames = parse_command_line()
-options.thresholds = clean_thresholds(options.thresholds)
+options.thresholds = ligolw_burca_tailor.clean_thresholds(options.thresholds)
+
+plots = ligolw_burca_tailor.Plots(options.thresholds)
 
 
-plots = Plots(options.thresholds)
+#
+# Iterate over injection files
+#
 
 
 if options.verbose:
@@ -504,16 +182,18 @@ if options.verbose:
 
 filenames = glob.glob(options.injection_glob)
 for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose, reverse = True)):
-
 	if options.verbose:
 		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
 	connection = sqlite3.connect(filename)
 	dbtables.DBTable_set_connection(connection)
 	database = SnglBurstUtils.CoincDatabase().summarize(dbtables.DBTable_get_xml(), "lalapps_power", options.verbose)
-
 	plots.add_injections(database)
-
 	connection.close()
+
+
+#
+# Iterate over non-injection files
+#
 
 
 if options.verbose:
@@ -521,19 +201,39 @@ if options.verbose:
 
 filenames = glob.glob(options.background_glob)
 for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose, reverse = True)):
-
 	if options.verbose:
 		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
 	connection = sqlite3.connect(filename)
 	dbtables.DBTable_set_connection(connection)
 	database = SnglBurstUtils.CoincDatabase().summarize(dbtables.DBTable_get_xml(), "power", options.verbose)
-
 	plots.add_background(database)
-
 	connection.close()
+
+
+#
+# Post-process and generate plots
+#
 
 
 plots.finish()
 
-plots.plot1.fig.savefig("ligolw_burca_tailor.png")
-plots.plot2.fig.savefig("ligolw_burca_tailor_2.png")
+print >>sys.stderr, "=== Summary ==="
+print >>sys.stderr, "Non-injection average event rate = %g events / time slide" % (float(plots.n_background_events) / plots.n_time_slides)
+print >>sys.stderr, "Injection normalized covariance matrix ="
+print >>sys.stderr, str(plots.covariance.inj_cov)
+print >>sys.stderr, "Background normalized covariance matrix ="
+print >>sys.stderr, str(plots.covariance.bak_cov)
+
+plot_Deltas(plots.deltas).savefig("ligolw_burca_tailor.png")
+fig = plot_Scatter(plots.scatter)
+fig.gca().set_xlabel(r"$(t_{\mathrm{%s}} - t_{\mathrm{%s}}) / \left< \Delta t \right>$" % ("H1", "H2"))
+fig.gca().set_ylabel(r"$(f_{\mathrm{%s}} - f_{\mathrm{%s}}) / \left< \Delta f \right>$" % ("H1", "H2"))
+fig.savefig("ligolw_burca_tailor_2.png")
+
+
+#
+# Write likelihood control file for second burca pass
+#
+
+likelihood_control = ligolw_burca_tailor.gen_likelihood_control(plots.deltas)
+utils.write_filename(likelihood_control, "ligolw_burca_likelihood_control.xml.gz", verbose = options.verbose, gz = True)
