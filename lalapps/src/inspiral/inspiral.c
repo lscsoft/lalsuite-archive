@@ -117,6 +117,12 @@ tagFrameHNode
 }
 FrameHNode;
 
+/* function to sort templates */
+static InspiralTemplate * sortTemplates( InspiralTemplate *bankHead, 
+                                         UINT4 num );
+static int compareTemplate (const void * a, const void * b);
+
+
 /*
  *
  * variables that control program behaviour
@@ -1927,9 +1933,15 @@ int main( int argc, char *argv[] )
      *
      */
 
-
+    bankHead = sortTemplates( bankHead, numTmplts );
+ 
     if ( vrbflg ) fprintf( stdout, 
         "splitting bank in to subbanks of size ~ %d\n", subBankSize );
+    
+    /*for (bankCurrent=bankHead; bankCurrent; bankCurrent=bankCurrent->next)
+    {
+      fprintf(stderr, "tau3+tau0 %f\n", bankCurrent->t3+bankCurrent->t0);
+    }*/
 
     subBankHead = XLALFindChirpCreateSubBanks( &maxSubBankSize,
         subBankSize, numTmplts, bankHead );
@@ -2119,7 +2131,6 @@ int main( int argc, char *argv[] )
             if ( vrbflg ) fprintf( stdout,
                 "Using qVec in qVecArray[%d] at %p\n", subBankIndex,
                 fcFilterParams->qVec );
-            if (vrbflg) fprintf(stderr, "\n analyseTag %d\n\n", analyseTag);
             /* END CHADs CHANGES */
             if ( vrbflg ) fprintf( stdout, 
                 "filtering segment %d/%d [%lld-%lld] "
@@ -5017,6 +5028,48 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
   }
 
   return 0;
+}
+
+static InspiralTemplate * sortTemplates( InspiralTemplate *bankHead, UINT4 num )
+{
+
+  InspiralTemplate **bankArray = NULL;    
+  InspiralTemplate *bankFirst = NULL;
+  UINT4 i = 0;
+  bankFirst = bankHead;
+  bankArray = (InspiralTemplate **) LALCalloc(num, sizeof(InspiralTemplate *));
+
+
+  for (i = 0; (i < num); bankHead = bankHead->next, i++)
+  {
+    bankArray[i] = bankHead; /* populate pointer array */
+  }
+  
+  qsort(bankArray, num, sizeof(InspiralTemplate *), compareTemplate);
+  
+  bankFirst = bankHead = bankArray[0];
+  /* repopulate linked list */
+  for (i=1; i < num; i++)
+  {
+    bankHead = bankHead->next = bankArray[i];
+  }
+  bankHead->next = NULL;
+  LALFree(bankArray);
+  return bankFirst;
+}
+
+static int compareTemplate (const void * a, const void * b)
+{
+  REAL4 tau3_a = (*((InspiralTemplate**)a))->t3;
+  REAL4 tau3_b = (*((InspiralTemplate**)b))->t3;
+  REAL4 tau0_a = (*((InspiralTemplate**)a))->t0;
+  REAL4 tau0_b = (*((InspiralTemplate**)b))->t0;
+  REAL4 aVal = tau0_a + tau3_a;
+  REAL4 bVal = tau0_b + tau3_b;
+
+  if ( aVal > bVal ) return 1;
+  if ( aVal == bVal ) return 0;
+  if ( aVal < bVal ) return -1;
 }
 
 #undef ADD_PROCESS_PARAM
