@@ -1,0 +1,406 @@
+#!/usr/bin/python
+#
+# $Id$
+#
+# Copyright (C) 2007  Kipp C. Cannon
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 2 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+
+#
+# =============================================================================
+#
+#                                   Preamble
+#
+# =============================================================================
+#
+
+
+"""
+Excess power upper limit final result tool.
+"""
+
+
+import bisect
+import glob
+import math
+import numpy
+from optparse import OptionParser
+from pysqlite2 import dbapi2 as sqlite3
+import sys
+
+
+from glue.ligolw import ligolw
+from glue.ligolw import lsctables
+from glue.ligolw import dbtables
+from glue.ligolw import utils
+from glue import segments
+from pylal import rate
+from pylal import SnglBurstUtils
+
+
+__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__version__ = "$Revision$"[11:-2]
+__date__ = "$Date$"[7:-2]
+
+
+#
+# =============================================================================
+#
+#                                 Command Line
+#
+# =============================================================================
+#
+
+
+def parse_command_line():
+	parser = OptionParser(
+		version="%prog CVS $Id$",
+		usage = "%prog [options] -i|--injection-glob pattern -b|--background-glob pattern",
+		description = "%prog performs the final, summary, stages of an upper-limit excess power search for burst-like gravitational waves."
+	)
+	parser.add_option("-b", "--background-glob", metavar = "pattern", help = "Shell filename pattern for non-injection files.")
+	parser.add_option("-i", "--injection-glob", metavar = "pattern", help = "Shell filename pattern for injection files.")
+	parser.add_option("-l", "--live-time-program", metavar = "program", default = "lalapps_power", help = "Set the name, as it appears in the process table, of the program whose search summary entries define the search live time (default = \"lalapps_power\")")
+	parser.add_option("--foreground-survivors", metavar = "number", help = "Tune the coincidence likelihood threshold to result in this many survivors being expected in the foreground. (e.g., 0.1)")
+	parser.add_option("--survivors-output", metavar = "filename", help = "Set the name of the XML file to which zero-lag survivors will be written.  Default is to not record zero-lag survivors file (keep the box closed).")
+	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
+	options, filenames = parser.parse_args()
+
+	if options.background_glob is None:
+		raise ValueError, "missing required --background-glob argument"
+	if options.injection_glob is None:
+		raise ValueError, "missing required --injection-glob argument"
+	if options.foreground_survivors is None:
+		raise ValueError, "missing required --foreground-survivors argument"
+
+	options.foreground_survivors = float(options.foreground_survivors)
+
+	return options, (filenames or [None])
+
+
+#
+# =============================================================================
+#
+#                          Tune Likelihood Threshold
+#
+# =============================================================================
+#
+
+
+class Likelihood_Histogram(object):
+	def __init__(self):
+		self.injection_likelihoods = []
+		self.background_likelihoods = []
+		self.foreground_likelihoods = []
+		self.n_background_time_slides = None
+
+	def set_time_slides(self, contents):
+		#
+		# If not already done, count the number of non-zero-lag
+		# time slides.  Assume all files list the same time slides.
+		#
+
+		if self.n_background_time_slides is None:
+			self.n_background_time_slides = contents.connection.cursor().execute("""SELECT COUNT(DISTINCT time_slide_id) FROM time_slide WHERE offset != 0""").fetchone()[0]
+
+	def add_background(self, contents):
+		self.set_time_slides(contents)
+
+		#
+		# Iterate over non-zero-lag coincidences.
+		#
+
+		for (likelihood,) in contents.connection.cursor().execute("""
+SELECT coinc_event.likelihood FROM
+	coinc_event
+WHERE
+	coinc_event.coinc_def_id == ?
+	AND EXISTS (
+		SELECT * FROM
+			time_slide
+		WHERE
+			time_slide.time_slide_id == coinc_event.time_slide_id
+			AND time_slide.offset != 0
+	)
+		""", (contents.bb_definer_id,)):
+			self.background_likelihoods.append(likelihood)
+
+	def add_foreground(self, contents):
+		self.set_time_slides(contents)
+
+		#
+		# Iterate over zero-lag coincidences.
+		#
+
+		for (likelihood,) in contents.connection.cursor().execute("""
+SELECT coinc_event.likelihood FROM
+	coinc_event
+WHERE
+	coinc_event.coinc_def_id == ?
+	AND NOT EXISTS (
+		SELECT * FROM
+			time_slide
+		WHERE
+			time_slide.time_slide_id == coinc_event.time_slide_id
+			AND time_slide.offset != 0
+	)
+		""", (contents.bb_definer_id,)):
+			self.foreground_likelihoods.append(likelihood)
+
+	def add_injections(self, contents):
+		self.set_time_slides(contents)
+
+		#
+		# Iterate over zero-lag coincidences involving one or more
+		# events identified as being the result of injections.
+		#
+
+		for (likelihood,) in contents.connection.cursor().execute("""
+SELECT coinc_event.likelihood FROM
+	coinc_event
+WHERE
+	coinc_event.coinc_def_id == ?
+	AND NOT EXISTS (
+		SELECT * FROM
+			time_slide
+		WHERE
+			time_slide.time_slide_id == coinc_event.time_slide_id
+			AND time_slide.offset != 0
+	)
+	AND EXISTS (
+		-- Find an injection coinc containing at least one of the
+		-- bursts in this coinc
+		SELECT * FROM
+			coinc_event AS a
+			JOIN coinc_event_map AS b ON (
+				a.coinc_event_id == b.coinc_event_id
+			)
+			JOIN coinc_event_map AS c ON (
+				b.event_id == c.event_id
+				AND b.table_name == 'sngl_burst'
+				AND c.table_name == 'sngl_burst'
+			)
+		WHERE
+			c.coinc_event_id == coinc_event.coinc_event_id
+			AND a.coinc_def_id == ?
+	)
+		""", (contents.bb_definer_id, contents.sb_definer_id)):
+			self.injection_likelihoods.append(likelihood)
+
+	def finish(self):
+		self.foreground_likelihoods.sort(reverse = True)
+		self.background_likelihoods.sort(reverse = True)
+		self.injection_likelihoods.sort(reverse = True)
+
+		self.foreground_rate = rate.Rate(segments.segment(0.0, 1.0), 0.01)
+		self.background_rate = rate.Rate(segments.segment(0.0, 1.0), 0.01)
+		self.injection_rate = rate.Rate(segments.segment(0.0, 1.0), 0.01)
+
+		for likelihood in self.foreground_likelihoods:
+			self.foreground_rate[likelihood] = 1.0
+		for likelihood in self.background_likelihoods:
+			self.background_rate[likelihood] = 1.0
+		for likelihood in self.injection_likelihoods:
+			self.injection_rate[likelihood] = 1.0
+
+		self.foreground_rate.array /= len(self.foreground_likelihoods)
+		self.background_rate.array /= len(self.background_likelihoods)
+		self.injection_rate.array /= len(self.injection_likelihoods)
+
+	def find_likelihood_threshold(self, events_per_time_slide):
+		"""
+		Given the desired average number of events per time slide,
+		determine the likelihood threshold to cut coincidences on.
+		The interpretation is that coincidences with a likelihood
+		greater than (not equal to) the value returned by this
+		function are to be retained.
+		"""
+		#
+		# How many events to retain from the non-zero-lag
+		# coincidences.
+		#
+
+		n_background = int(round(self.n_background_time_slides * events_per_time_slide))
+
+		#
+		# Likelihood that will keep n_background background events.
+		#
+
+		return self.background_likelihoods[n_background]
+
+
+#
+# =============================================================================
+#
+#                              Zero-Lag Survivors
+#
+# =============================================================================
+#
+
+
+class Survivors(object):
+	def __init__(self):
+		self.xmldoc = None
+
+	def add(self, contents):
+		if self.xmldoc is None:
+			self.xmldoc = ligolw.Document()
+			self.xmldoc.appendChild(ligolw.LIGO_LW())
+			self.sngl_burst_table = lsctables.New(lsctables.SnglBurstTable, contents.sngl_burst_table.columnnames)
+			self.xmldoc.childNodes[0].appendChild(self.sngl_burst_table)
+
+		time_slide_id = [id for id in contents.time_slide_table.iterkeys() if contents.time_slide_table.is_null(id)]
+		if len(time_slide_id) != 1:
+			raise ValueError, "document does not contain exactly 1 zero-lag time slide (contains %d of them)" % len(time_slide_id)
+		time_slide_id = time_slide_id[0]
+
+		self.sngl_burst_table.extend(map(contents.sngl_burst_table._row_from_cols, contents.connection.cursor().execute("""
+SELECT sngl_burst.* FROM
+	sngl_burst
+	JOIN coinc_event_map ON (
+		coinc_event_map.event_id == sngl_burst.event_id
+		AND coinc_event_map.table_name == 'sngl_burst'
+	)
+	JOIN coinc_event ON (
+		coinc_event.coinc_event_id == coinc_event_map.coinc_event_id
+	)
+WHERE
+	coinc_event.coinc_def_id == ?
+	AND coinc_event.time_slide_id == ?
+		""", (contents.bb_definer_id, time_slide_id))))
+
+	def finish(self, filename, verbose = False):
+		utils.write_filename(self.xmldoc, filename, verbose = verbose, gz = (filename or "stdout")[-3:] == ".gz")
+
+
+#
+# =============================================================================
+#
+#                                     Main
+#
+# =============================================================================
+#
+
+
+#
+# Command line.
+#
+
+
+options, filenames = parse_command_line()
+
+
+#
+# Set up book-keeping tools.
+#
+
+
+if options.survivors_output is not None:
+	survivors = Survivors()
+else:
+	survivors = None
+likelihood_histogram = Likelihood_Histogram()
+
+
+#
+# Iterate over background files.
+#
+
+
+if options.verbose:
+	print >>sys.stderr, "=== Background & Foreground ==="
+
+filenames = glob.glob(options.background_glob)
+if not len(filenames):
+	raise ValueError, "error:  no background files found"
+
+for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose, reverse = True)):
+	#
+	# Open the database file.
+	#
+
+	if options.verbose:
+		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
+	connection = sqlite3.connect(filename)
+	dbtables.DBTable_set_connection(connection)
+	database = SnglBurstUtils.CoincDatabase().summarize(dbtables.DBTable_get_xml(), options.live_time_program, options.verbose)
+
+	#
+	# Process database contents.
+	#
+
+	if survivors is not None:
+		survivors.add(database)
+	likelihood_histogram.add_foreground(database)
+	likelihood_histogram.add_background(database)
+
+	#
+	# Done with this file.
+	#
+
+	connection.close()
+
+
+#
+# Iterate over injection files.
+#
+
+
+if options.verbose:
+	print >>sys.stderr, "=== Injections =="
+
+filenames = glob.glob(options.injection_glob)
+if not len(filenames):
+	raise ValueError, "error:  no injection files found"
+
+for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose, reverse = True)):
+	#
+	# Open the database file.
+	#
+
+	if options.verbose:
+		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
+	connection = sqlite3.connect(filename)
+	dbtables.DBTable_set_connection(connection)
+	database = SnglBurstUtils.CoincDatabase().summarize(dbtables.DBTable_get_xml(), options.live_time_program, options.verbose)
+
+	#
+	# Process database contents.
+	#
+
+	likelihood_histogram.add_injections(database)
+
+	#
+	# Done with this file.
+	#
+
+	connection.close()
+
+
+#
+# Summary.
+#
+
+
+likelihood_histogram.finish()
+
+
+threshold = likelihood_histogram.find_likelihood_threshold(options.foreground_survivors)
+
+
+print "Likelihood threshold for 0.1 events / time slide = %g" % threshold
+print "Total number of zero-lag coincidences = %d" % len(likelihood_histogram.foreground_likelihoods)
+print "Total number of zero-lag coincidences surviving final likelihood cut = %d" % len([x for x in likelihood_histogram.foreground_likelihoods if x > threshold])
