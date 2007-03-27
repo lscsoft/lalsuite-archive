@@ -127,6 +127,9 @@ class Likelihood(object):
 		P_bak = 1.0
 		for event1, event2 in itertools.choices(events, 2):
 			ifos = (event1.ifo, event2.ifo)
+			if ifos not in self.dt_inj:
+				# no statistics for this instrument pair
+				continue
 
 			t1 = LIGOTimeGPS(event1.peak_time, event1.peak_time_ns) + offsets[event1.ifo]
 			t2 = LIGOTimeGPS(event2.peak_time, event2.peak_time_ns) + offsets[event2.ifo]
