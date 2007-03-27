@@ -452,7 +452,10 @@ WHERE
 		# generate and plot trend curves.  adjust window function
 		# normalization so that denominator array correctly
 		# represents the number of injections contributing to each
-		# bin:  make w(0) = 1.0
+		# bin:  make w(0) = 1.0.  note that this factor has no
+		# effect on the efficiency because it is common to the
+		# numerator and denominator arrays, we do this for the
+		# purpose of tracking the Poisson error bars.
 		windowfunc = rate.gaussian_window(self.width)
 		windowfunc /= windowfunc[len(windowfunc) / 2 + 1]
 		rate.filter_array(efficiency.numerator, windowfunc)
