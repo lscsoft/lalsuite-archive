@@ -183,7 +183,7 @@ if options.coincidence_algorithm == "excesspower":
 	comparefunc = ligolw_burca.ExcessPowerCoincCompare
 	options.get_max_segment_gap = ligolw_burca.ExcessPowerMaxSegmentGap
 elif options.coincidence_algorithm == "excesspower2":
-	likelihood = ligolw_burca2.load_distributions(options.distribution_file, verbose = options.verbose)
+	likelihood = ligolw_burca2.load_likelihood_control(options.distribution_file, verbose = options.verbose)
 	likelihood.set_P_gw(options.probability_gw)
 else:
 	# "stringcusp"

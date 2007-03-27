@@ -162,7 +162,7 @@ class Delta_Distributions(object):
 		except IndexError:
 			pass
 
-	def finish(self):
+	def normalize(self):
 		# normalize the distributions
 		for pair in self.thresholds.keys():
 			self.bak_dt[pair].array /= numpy.sum(self.bak_dt[pair].array)
@@ -349,7 +349,7 @@ WHERE
 				self.covariance.add_injections(dt, df, dh)
 
 	def finish(self):
-		self.deltas.finish()
+		self.deltas.normalize()
 		self.scatter.finish()
 		self.covariance.finish()
 
@@ -357,14 +357,9 @@ WHERE
 #
 # =============================================================================
 #
-#                          Likelihood Control Output
+#                             Process Information
 #
 # =============================================================================
-#
-
-
-#
-# Process information
 #
 
 
@@ -383,7 +378,16 @@ def append_process(xmldoc, **kwargs):
 
 
 #
-# Document construction
+# =============================================================================
+#
+#                           Likelihood Control File
+#
+# =============================================================================
+#
+
+
+#
+# Construct LIGO Light Weight likelihood distributions document.
 #
 
 
@@ -405,3 +409,4 @@ def gen_likelihood_control(deltas):
 		node.appendChild(array.from_array(u"%s_%s_dh" % pair, numpy.array([deltas.inj_dh[pair].xvals(), deltas.inj_dh[pair].array, deltas.bak_dh[pair].array]), (u"dh", u"dh,P_inj,P_bak")))
 
 	return xmldoc
+

@@ -31,12 +31,14 @@ import numpy
 from scipy.interpolate import interpolate
 import sys
 
+
 from glue.ligolw import ligolw
 from glue.ligolw import array
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from pylal import itertools
+from pylal import ligolw_burca_tailor
 from pylal import llwapp
 from pylal.date import LIGOTimeGPS
 
@@ -85,7 +87,7 @@ def make_interps(interp_dict, pair, x, y):
 	# the end of the x co-ordinate array (the parameters are still in
 	# the bin, but in the outer half).
 	x = numpy.hstack((x[0] + (x[0] - x[1]), x, x[-1] + (x[-1] - x[-2])))
-	y = numpy.hstack((y[0], y, y[-1]))
+	y = numpy.hstack((y[0] + (y[0] - y[1]), y, y[-1] + (y[-1] - y[-2])))
 
 	# construct interpolator
 	interp_dict[pair] = interpolate.interp1d(x, y)
@@ -97,25 +99,25 @@ def make_interps(interp_dict, pair, x, y):
 
 class Likelihood(object):
 	def __init__(self):
-		self.dt_inj = {}
 		self.dt_bak = {}
-		self.df_inj = {}
+		self.dt_inj = {}
 		self.df_bak = {}
-		self.dh_inj = {}
+		self.df_inj = {}
 		self.dh_bak = {}
+		self.dh_inj = {}
 		self.P_gw = None
 
 	def set_dt_from_xml(self, pair, xml):
-		make_interps(self.dt_inj, pair, xml.array[0], xml.array[1])
 		make_interps(self.dt_bak, pair, xml.array[0], xml.array[2])
+		make_interps(self.dt_inj, pair, xml.array[0], xml.array[1])
 
 	def set_df_from_xml(self, pair, xml):
-		make_interps(self.df_inj, pair, xml.array[0], xml.array[1])
 		make_interps(self.df_bak, pair, xml.array[0], xml.array[2])
+		make_interps(self.df_inj, pair, xml.array[0], xml.array[1])
 
 	def set_dh_from_xml(self, pair, xml):
-		make_interps(self.dh_inj, pair, xml.array[0], xml.array[1])
 		make_interps(self.dh_bak, pair, xml.array[0], xml.array[2])
+		make_interps(self.dh_inj, pair, xml.array[0], xml.array[1])
 
 	def set_P_gw(self, P):
 		self.P_gw = P
@@ -136,19 +138,20 @@ class Likelihood(object):
 
 			P_inj *= self.dt_inj[ifos](dt)[0] * self.df_inj[ifos](df)[0] * self.dh_inj[ifos](dh)[0]
 			P_bak *= self.dt_bak[ifos](dt)[0] * self.df_bak[ifos](df)[0] * self.dh_bak[ifos](dh)[0]
-		return P_inj, P_bak
+		return P_bak, P_inj
 
 	def __call__(self, events, offsets):
 		"""
-		Compute the likelihood that the list of events are the
-		result of a gravitational wave:  the probability that the
-		hypothesis "the events are a gravitational wave" is
-		correct, in the context of the measured background and
-		foreground distributions, and the intrinsic event rate.
-		offsets is a dictionary of instrument --> offset mappings
-		to be used to time shift the events before comparison.
+		Compute the likelihood that the coincident n-tuple of
+		events are the result of a gravitational wave:  the
+		probability that the hypothesis "the events are a
+		gravitational wave" is correct, in the context of the
+		measured background and foreground distributions, and the
+		intrinsic rate of gravitational wave coincidences.  offsets
+		is a dictionary of instrument --> offset mappings to be
+		used to time shift the events before comparison.
 		"""
-		P_inj, P_bak = self.P(events, offsets)
+		P_bak, P_inj = self.P(events, offsets)
 		return (P_inj * self.P_gw) / (P_bak + (P_inj - P_bak) * self.P_gw)
 
 
@@ -163,7 +166,7 @@ class Confidence(Likelihood):
 		to 1, so 1 - P is a small positive number, and so -ln of
 		that is a large positive number.
 		"""
-		P_inj, P_bak = self.P(events, offsets)
+		P_bak, P_inj = self.P(events, offsets)
 		return  math.log(P_bak + (P_inj - P_bak) * self.P_gw) - math.log(P_inj) - math.log(self.P_gw)
 
 
@@ -177,12 +180,12 @@ class Confidence(Likelihood):
 
 
 #
-# This must be kept synchronized with the gen_likelihood_control() function
-# in pylal.ligolw_burca_tailor.
+# Load likelihood distribution functions.  This must be kept synchronized
+# with the document generator in pylal.ligolw_burca_tailor.
 #
 
 
-def load_distributions(filename, verbose = False):
+def load_likelihood_control(filename, verbose = False):
 	#
 	# Load the XML document
 	#
@@ -197,11 +200,11 @@ def load_distributions(filename, verbose = False):
 	subtree = None
 	for node in xmldoc.getElementsByTagName(ligolw.LIGO_LW.tagName):
 		try:
-			if node.getAttribute("Name") == "ligolw_burca_tailor":
+			if node.getAttribute("Name") == ligolw_burca_tailor.process_program_name:
 				subtree = node
 				break
 		except KeyError:
-			# doesn't have a Name attribute
+			# doesn't have a Name attribute, so can't be it
 			pass
 	if subtree is None:
 		raise ValueError, "%s does not contain likelihood information" % filename
@@ -267,7 +270,7 @@ def ligolw_burca2(xmldoc, likelihood, verbose = False):
 	Assigns likelihood values to excess power coincidences.  xmldoc is
 	an XML document tree to process, and likelihood is a Likelihood
 	class instance initialized from a likelihood control file (for
-	example as obtained by calling load_distributions()).
+	example as obtained by calling load_likelihood_control()).
 	"""
 	#
 	# Find document parts.
