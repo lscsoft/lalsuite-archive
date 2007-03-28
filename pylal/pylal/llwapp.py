@@ -110,16 +110,16 @@ def get_time_slide_id(xmldoc, time_slide, create_new = None):
 
 def get_zero_lag_time_slides(xmldoc, instrument_combinations = None):
 	"""
-	Return a dictionary of the time slides that describe zero-lag time
-	slides.  The dictionary maps time slide IDs to ditionaries of
-	instrument --> offset mappings.  The optional
-	instrument_combinations argument can be used to provide a list of
-	lists of instrument combinations to consider.  For example, [["H1",
-	"H2"], ["H1", "H2", "L1"]] requests all time slide IDs describing
-	all-zero offsets for either the H1+H2 or H1+H2+L1 instrument
-	combinations.  Order doesn't matter within an individual instrument
-	combination.  Passing instrument_combinations = None (the default)
-	indicates any instrument combination.
+	Return a dictionary of the time slides that have all zero offsets.
+	The dictionary maps time slide IDs to dictionaries of instrument
+	--> offset mappings.  The optional instrument_combinations argument
+	can be used to provide a list of lists of instrument combinations
+	to consider.  For example, [["H1", "H2"], ["H1", "H2", "L1"]]
+	requests time slides describing all-zero offsets for either the
+	H1+H2 or H1+H2+L1 instrument combinations.  Order doesn't matter
+	within an individual instrument combination.  Passing
+	instrument_combinations = None (the default) requests time slides
+	for all instrument combinations.
 	"""
 	# convert instrument combinations into sets for easy comparison
 	if instrument_combinations is not None:
