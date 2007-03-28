@@ -29,6 +29,8 @@ $Id$
 
 NRCSID (FINDCHIRPBANKVETOC, "$Id$");
 
+static int compareTemplate (const void * a, const void * b);
+
 /* <lalVerbatim file="FindChirpBankVetoCP"> */
 FindChirpSubBank*
 XLALFindChirpCreateSubBanks(
@@ -162,7 +164,7 @@ XLALBankVetoCCMat ( FindChirpBankVetoData *bankVetoData,
         ABr = ABi = 0;
         for ( k = stIX; k < tmpLen; k++ )
         {
-          if ( (k > iMax) || (k > jMax) ) break;
+          /*if ( (k > iMax) || (k > jMax) ) break;*/
           sqResp = ( bankVetoData->resp->data[k].re * 
                      bankVetoData->resp->data[k].re +
                      bankVetoData->resp->data[k].im *
@@ -180,13 +182,13 @@ XLALBankVetoCCMat ( FindChirpBankVetoData *bankVetoData,
                    bankVetoData->fcInputArray[i]->fcTmplt->data->data[k].im*Br; 
           }
         }  
-        bankVetoData->ccMat->data[i*iSize + j] = sqrt(ABr*ABr+ ABi*ABi) *
+        bankVetoData->ccMat->data[i*iSize + j] = sqrt(ABr*ABr+ ABi*ABi); /*
            sqrt( bankVetoData->fcInputArray[i]->fcTmplt->norm * 
-                 bankVetoData->fcInputArray[j]->fcTmplt->norm );
+                 bankVetoData->fcInputArray[j]->fcTmplt->norm );*/
 
-        bankVetoData->ccMat->data[j*iSize + i] = sqrt(ABr*ABr + ABi*ABi) * 
+        bankVetoData->ccMat->data[j*iSize + i] = sqrt(ABr*ABr + ABi*ABi);  /* 
            sqrt( bankVetoData->fcInputArray[i]->fcTmplt->norm *
-                 bankVetoData->fcInputArray[j]->fcTmplt->norm );
+                 bankVetoData->fcInputArray[j]->fcTmplt->norm );*/
 
         /*fprintf(stderr,"ccMat[%d,%d] = %f, iMax %d, jMax %d\n", i,j,
                 bankVetoData->ccMat->data[i*iSize + j], iMax, jMax); */
@@ -213,8 +215,8 @@ XLALComputeBankVeto( FindChirpBankVetoData *bankVetoData,
   iSNR = sqrt( ( bankVetoData->qVecArray[i]->data[snrIX].re *
                  bankVetoData->qVecArray[i]->data[snrIX].re +
                  bankVetoData->qVecArray[i]->data[snrIX].im *
-                 bankVetoData->qVecArray[i]->data[snrIX].im ) *
-                bankVetoData->fcInputArray[i]->fcTmplt->norm );
+                 bankVetoData->qVecArray[i]->data[snrIX].im ) * 
+                 bankVetoData->fcInputArray[i]->fcTmplt->norm ); 
   *dof = 0;
   /*fprintf(stderr, "norm %e norm %e \n", bankVetoData->normMat->data[i], 
           bankVetoData->fcInputArray[i]->fcTmplt->norm);
@@ -227,7 +229,8 @@ XLALComputeBankVeto( FindChirpBankVetoData *bankVetoData,
     ii = bankVetoData->ccMat->data[i*iSize + i];
     jj = bankVetoData->ccMat->data[j*iSize + j];
 
-    denomFac = ( (ij / ii) - (jj / ij) ) ;
+    denomFac = ij/sqrt(ii*jj) - sqrt(ii*jj)/ij; 
+               /* ( (ij / ii) - (jj / ij) ) ; */
                /* bankVetoData->fcInputArray[j]->fcTmplt->norm /
                bankVetoData->fcInputArray[i]->fcTmplt->norm; */
     if ( denomFac != 0.0 )
@@ -235,8 +238,8 @@ XLALComputeBankVeto( FindChirpBankVetoData *bankVetoData,
       jSNR = sqrt( ( bankVetoData->qVecArray[j]->data[snrIX].re *
                      bankVetoData->qVecArray[j]->data[snrIX].re +
                      bankVetoData->qVecArray[j]->data[snrIX].im *
-                     bankVetoData->qVecArray[j]->data[snrIX].im ) *
-                   bankVetoData->fcInputArray[j]->fcTmplt->norm );
+                     bankVetoData->qVecArray[j]->data[snrIX].im ) * 
+                     bankVetoData->fcInputArray[j]->fcTmplt->norm ); 
       chisq += (iSNR - sqrt(ii*jj) / ij * jSNR) / denomFac *
                (iSNR - sqrt(ii*jj) / ij * jSNR) / denomFac;
       (*dof)++;
@@ -244,3 +247,45 @@ XLALComputeBankVeto( FindChirpBankVetoData *bankVetoData,
   }
   return chisq;
 }
+
+
+InspiralTemplate * 
+XLALFindChirpSortTemplates( InspiralTemplate *bankHead, UINT4 num ){
+
+  InspiralTemplate **bankArray = NULL;
+  InspiralTemplate *bankFirst = NULL;
+  UINT4 i = 0;
+  bankFirst = bankHead;
+  bankArray = (InspiralTemplate **) LALCalloc(num, sizeof(InspiralTemplate *));
+
+
+  for (i = 0; (i < num); bankHead = bankHead->next, i++)
+  {
+    bankArray[i] = bankHead; /* populate pointer array */
+  }
+
+  qsort(bankArray, num, sizeof(InspiralTemplate *), compareTemplate);
+
+  bankFirst = bankHead = bankArray[0];
+  /* repopulate linked list */
+  for (i=1; i < num; i++)
+  {
+    bankHead = bankHead->next = bankArray[i];
+  }
+  bankHead->next = NULL;
+  LALFree(bankArray);
+  return bankFirst;
+}
+
+static int compareTemplate (const void * a, const void * b)
+{
+  REAL4 mVal1 =   (*((InspiralTemplate**)a))->mass1 +
+                  (*((InspiralTemplate**)a))->mass2 ;
+  REAL4 mVal2 =   (*((InspiralTemplate**)b))->mass1 +
+                  (*((InspiralTemplate**)b))->mass2 ;
+
+  if ( mVal1 > mVal2 ) return 1;
+  if ( mVal1 == mVal2 ) return 0;
+  if ( mVal1 < mVal2 ) return -1;
+}
+

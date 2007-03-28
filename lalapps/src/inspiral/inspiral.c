@@ -1933,7 +1933,7 @@ int main( int argc, char *argv[] )
      *
      */
 
-    bankHead = sortTemplates( bankHead, numTmplts );
+    bankHead = XLALFindChirpSortTemplates( bankHead, numTmplts );
  
     if ( vrbflg ) fprintf( stdout, 
         "splitting bank in to subbanks of size ~ %d\n", subBankSize );
@@ -2318,12 +2318,22 @@ int main( int argc, char *argv[] )
         } /* end of loop over templates in subbank */
         
         /* If doing bank veto compute CC Matrix */
+        /* I removed the ccFlag dependence - this is being computed
+           for each segment now!!! */
         if (ccFlag && (subBankCurrent->subBankSize > 1) && analyseTag)
         {
           if (vrbflg) fprintf(stderr, "doing ccmat\n");
           XLALBankVetoCCMat( &bankVetoData, subBankCurrent,
           dynRange, fLow, spec.deltaF, chan.deltaT);
           ccFlag = 0;
+          /*char filename[10];
+          sprintf(filename, "ccmat%d.dat",i);
+          FILE *FP = NULL;
+          FP = fopen(filename,"w");
+          for(j = 0; j < bankVetoData.ccMat->length; ++j)
+          {
+            fprintf(FP, "%e\n",bankVetoData.ccMat->data[j]);
+          }*/
         }
         /* now look through the filter outputs of the subbank for events */
         for ( bankCurrent = subBankCurrent->bankHead, subBankIndex = 0;
@@ -5030,6 +5040,7 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
   return 0;
 }
 
+#if 0
 static InspiralTemplate * sortTemplates( InspiralTemplate *bankHead, UINT4 num )
 {
 
@@ -5060,29 +5071,26 @@ static InspiralTemplate * sortTemplates( InspiralTemplate *bankHead, UINT4 num )
 
 static int compareTemplate (const void * a, const void * b)
 {
-  REAL4 mVal1 = 1.0 / ( (*((InspiralTemplate**)a))->mass1 + 
-                  (*((InspiralTemplate**)a))->mass2 ) /
-                  (*((InspiralTemplate**)a))->mass1 /
-                  (*((InspiralTemplate**)a))->mass2;
-  REAL4 mVal2 = 1.0 / ( (*((InspiralTemplate**)b))->mass1 +
-                  (*((InspiralTemplate**)b))->mass2 ) /
-                  (*((InspiralTemplate**)b))->mass1 /
-                  (*((InspiralTemplate**)b))->mass2;
+  REAL4 mVal1 =   (*((InspiralTemplate**)a))->mass1 + 
+                  (*((InspiralTemplate**)a))->mass2 ;
+  REAL4 mVal2 =   (*((InspiralTemplate**)b))->mass1 +
+                  (*((InspiralTemplate**)b))->mass2 ;
 
-  REAL4 tau3_a = (*((InspiralTemplate**)a))->t3;
+  /*REAL4 tau3_a = (*((InspiralTemplate**)a))->t3;
   REAL4 tau3_b = (*((InspiralTemplate**)b))->t3;
   REAL4 tau0_a = (*((InspiralTemplate**)a))->t0;
   REAL4 tau0_b = (*((InspiralTemplate**)b))->t0;
   REAL4 aVal = tau0_a + tau3_a;
-  REAL4 bVal = tau0_b + tau3_b;
+  REAL4 bVal = tau0_b + tau3_b;*/
   
-  if ( aVal > bVal ) return 1;
-  if ( aVal == bVal ) return 0;
-  if ( aVal < bVal ) return -1;
+  if ( mVal1 > mVal2 ) return 1;
+  if ( mVal1 == mVal2 ) return 0;
+  if ( mVal1 < mVal2 ) return -1;
   
   /*if ( aVal > bVal ) return 1;
   if ( aVal == bVal ) return 0;
   if ( aVal < bVal ) return -1;*/
 }
+#endif
 
 #undef ADD_PROCESS_PARAM

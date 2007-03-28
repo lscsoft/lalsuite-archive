@@ -1036,6 +1036,9 @@ XLALComputeBankVeto( FindChirpBankVetoData *bankVetoData,
                      UINT4 snrIX,
                      UINT4 *dof);
 
+InspiralTemplate * 
+XLALFindChirpSortTemplates( InspiralTemplate *bankHead, UINT4 num );
+
 
 #ifdef  __cplusplus
 #pragma {

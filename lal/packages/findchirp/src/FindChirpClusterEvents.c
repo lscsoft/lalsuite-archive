@@ -149,9 +149,10 @@ LALFindChirpClusterEvents (
     input->fcTmplt->tmplt.fFinal / deltaF : numPoints/2;
 
   /* normalisation */
-  norm = input->fcTmplt->norm;
- 
-  /*4.0 * (deltaT / (REAL4)numPoints) / input->segment->segNorm->data[kmax];*/
+  norm = input->fcTmplt->norm; 
+  /* 4.0 * (deltaT / (REAL4)numPoints) / 
+         input->segment->segNorm->data[kmax]; */
+
 
   /* normalised snr threhold */
   modqsqThresh = params->rhosqThresh / norm;
