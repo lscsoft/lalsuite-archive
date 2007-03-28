@@ -1928,17 +1928,14 @@ int main( int argc, char *argv[] )
      * split the template bank into subbanks for the bank veto
      *
      */
-
-    bankHead = XLALFindChirpSortTemplates( bankHead, numTmplts );
+    
+    /* only sort the bank if doing bank veto */
+    if (subBankSize > 1)   
+        bankHead = XLALFindChirpSortTemplates( bankHead, numTmplts );
  
     if ( vrbflg ) fprintf( stdout, 
         "splitting bank in to subbanks of size ~ %d\n", subBankSize );
     
-    /*for (bankCurrent=bankHead; bankCurrent; bankCurrent=bankCurrent->next)
-    {
-      fprintf(stderr, "tau3+tau0 %f\n", bankCurrent->t3+bankCurrent->t0);
-    }*/
-
     subBankHead = XLALFindChirpCreateSubBanks( &maxSubBankSize,
         subBankSize, numTmplts, bankHead );
 
@@ -2094,10 +2091,13 @@ int main( int argc, char *argv[] )
 
           }
           else
-          {
-            analyseTag = XLALCmprSgmntTmpltFlags( numInjections,
-                analyseThisTmplt[thisTemplateIndex],
-                fcSegVec->data[i].analyzeSegment );
+          { 
+            if (subBankSize > 1)
+               analyseTag = fcSegVec->data[i].analyzeSegment;
+            else
+               analyseTag = XLALCmprSgmntTmpltFlags( numInjections,
+                  analyseThisTmplt[thisTemplateIndex],
+                  fcSegVec->data[i].analyzeSegment );
           }
         }
 
