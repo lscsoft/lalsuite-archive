@@ -141,7 +141,7 @@ def ExcessPowerBailoutFunc(a, b):
 	Returns 0 if a and b are from the same channel of the same
 	instrument and their time intervals are not disjoint.
 	"""
-	return cmp(a.ifo, b.ifo) or cmp(a.channel, b.channel) or llwapp.cmp_seg_intervals(a.get_period(), b.get_period())
+	return cmp(a.ifo, b.ifo) or cmp(a.channel, b.channel) or cmp(a.search, b.search) or llwapp.cmp_seg_intervals(a.get_period(), b.get_period())
 
 
 def ExcessPowerTestFunc(a, b):
@@ -151,7 +151,7 @@ def ExcessPowerTestFunc(a, b):
 	the same instrument, and their time-frequency tiles are not
 	disjoint.
 	"""
-	return cmp(a.ifo, b.ifo) or cmp(a.channel, b.channel) or llwapp.cmp_seg_intervals(a.get_period(), b.get_period()) or llwapp.cmp_seg_intervals(a.get_band(), b.get_band())
+	return cmp(a.ifo, b.ifo) or cmp(a.channel, b.channel) or cmp(a.search, b.search) or llwapp.cmp_seg_intervals(a.get_period(), b.get_period()) or llwapp.cmp_seg_intervals(a.get_band(), b.get_band())
 
 
 def ExcessPowerClusterFunc(a, b):
