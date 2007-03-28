@@ -83,7 +83,9 @@ class DocContents(object):
 		self.sb_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, [lsctables.SnglBurstTable.tableName, lsctables.SimBurstTable.tableName])
 
 		# get coinc_def_id's for sngl_burst <--> sngl_burst, and
-		# sim_burst <--> coinc coincs.
+		# sim_burst <--> coinc coincs.  set both to None if this
+		# document does not contain any sngl_burst <--> sngl_burst
+		# coincs.
 		try:
 			self.bb_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, [lsctables.SnglBurstTable.tableName], create_new = False)
 			self.sc_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, [lsctables.CoincTable.tableName, lsctables.SimBurstTable.tableName])
@@ -317,7 +319,7 @@ def add_sim_burst_coinc_coinc(contents, process, sim, coinc_events):
 	for event in coinc_events:
 		coincmap = lsctables.CoincMap()
 		coincmap.coinc_event_id = coinc.coinc_event_id
-		coincmap.table_name = ilwd.ILWDTableName(event.event_id)
+		coincmap.table_name = ilwd.ILWDTableName(event.coinc_event_id)
 		coincmap.event_id = event.coinc_event_id
 		contents.coincmaptable.append(coincmap)
 
