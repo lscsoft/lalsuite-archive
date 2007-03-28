@@ -72,7 +72,7 @@ class Efficiency_hrss_vs_freq(object):
 			self.found_y.append(sim.hrss)
 
 	def finish(self):
-		self.efficiency = rate.BinnedRatios(rate.Bins(min(self.injected_x), max(self.injected_x), 512, min(self.injected_y), max(self.injected_y), 512, spacing = ["log", "log"]))
+		self.efficiency = rate.BinnedRatios(rate.Bins(min(self.injected_x), max(self.injected_x), 64, min(self.injected_y), max(self.injected_y), 64, spacing = ["log", "log"]))
 		map(self.efficiency.incdenominator, zip(self.injected_x, self.injected_y))
 		map(self.efficiency.incnumerator, zip(self.found_x, self.found_y))
 
@@ -114,5 +114,5 @@ def plot_Efficiency_hrss_vs_freq(efficiency):
 	xcoords, ycoords = efficiency.efficiency.centres()
 	zvals = efficiency.efficiency.ratio()
 	cset = plot.axes.contour(xcoords, ycoords, numpy.transpose(zvals), [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9])
-	plot.axes.set_title(r"Injection Detection Efficiency (%d Injections, Contours at 10\\%% Intervals, %g\\%% Uncertainty)" % (efficiency.num_injections, 100 * efficiency.error))
+	plot.axes.set_title(r"Injection Detection Efficiency (%d Injections, Contours at 10\%% Intervals, %g\%% Uncertainty)" % (efficiency.num_injections, 100 * efficiency.error))
 	return plot.fig
