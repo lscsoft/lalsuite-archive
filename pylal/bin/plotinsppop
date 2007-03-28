@@ -214,9 +214,10 @@ if opts.x_value and opts.y_value:
       plot(binaries.get_column(xval),\
          binaries.get_column(yval),'bo')
 
-    xlabel(xval)
-    ylabel(yval)
-    title(yval+ ' versus '+ xval)
+    xlabel(xval.replace('_','-'))
+    ylabel(yval.replace('_','-'))
+    titleString=yval+ ' versus '+ xval
+    title(titleString.replace('_','-'))
     grid(True)
     if opts.fig_name:
       savefig(opts.fig_name + "_"+ yval +'-'+ xval+".png")
