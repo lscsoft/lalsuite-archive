@@ -72,7 +72,7 @@ class Efficiency_hrss_vs_freq(object):
 			self.found_y.append(sim.hrss)
 
 	def finish(self):
-		self.efficiency = rate.BinnedRatios(rate.Bins(min(self.injected_x), max(self.injected_x), 64, min(self.injected_y), max(self.injected_y), 64, spacing = ["log", "log"]))
+		self.efficiency = rate.BinnedRatios(rate.Bins(min(self.injected_x), max(self.injected_x), 256, min(self.injected_y), max(self.injected_y), 256, spacing = ["log", "log"]))
 		map(self.efficiency.incdenominator, zip(self.injected_x, self.injected_y))
 		map(self.efficiency.incnumerator, zip(self.found_x, self.found_y))
 
@@ -87,9 +87,6 @@ class Efficiency_hrss_vs_freq(object):
 		if window_size > 100:
 			raise ValueError, "smoothing filter too large (not enough injections)"
 
-		# regularize to prevent divide-by-zero errors
-		self.efficiency.regularize()
-
 		# convolve the numerators and denominators with a window
 		# function to smooth the binned data.  the numerators and
 		# denominators are convolved separately because we require
@@ -102,6 +99,9 @@ class Efficiency_hrss_vs_freq(object):
 		windowfunc = rate.gaussian_window2d(window_size, window_size)
 		rate.filter_array(self.efficiency.numerator, windowfunc)
 		rate.filter_array(self.efficiency.denominator, windowfunc)
+
+		# regularize to prevent divide-by-zero errors
+		self.efficiency.regularize()
 
 
 def plot_Efficiency_hrss_vs_freq(efficiency):
