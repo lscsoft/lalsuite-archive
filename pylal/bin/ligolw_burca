@@ -34,7 +34,11 @@ import sys
 
 from glue.ligolw import utils
 from pylal import ligolw_burca
-from pylal import ligolw_burca2
+try:
+	from pylal import ligolw_burca2
+except ImportError:
+	# scipy not installed
+	pass
 from pylal import llwapp
 from pylal import snglcoinc
 
