@@ -68,6 +68,10 @@ def sim_burst_get_geocent_peak(self):
 	return LIGOTimeGPS(self.geocent_peak_time, self.geocent_peak_time_ns)
 
 
+def sngl_burst_get_peak(self):
+	return LIGOTimeGPS(self.peak_time, self.peak_time_ns)
+
+
 def sngl_burst___cmp__(self, other):
 	"""
 	Compare self's peak time to the LIGOTimeGPS instance other.
@@ -76,8 +80,8 @@ def sngl_burst___cmp__(self, other):
 
 
 lsctables.SimBurst.get_geocent_peak = sim_burst_get_geocent_peak
+lsctables.SnglBurst.get_peak = sngl_burst_get_peak
 lsctables.SnglBurst.__cmp__ = sngl_burst___cmp__
-
 
 
 #
@@ -107,17 +111,15 @@ class DocContents(object):
 		# its ID (or create it if needed)
 		#
 
-		time_slide = {}
-		for instrument in self.snglbursttable.getColumnByName("ifo"):
-			time_slide[instrument] = 0.0
-		self.tisi_id = llwapp.get_time_slide_id(xmldoc, time_slide, create_new = process)
+		self.tisi_id = llwapp.get_time_slide_id(xmldoc, {}.fromkeys(self.snglbursttable.getColumnByName("ifo"), 0.0), create_new = process)
 
 		#
-		# locate the time_slide table;  get_time_slide_id() above
-		# will have created the table if it didn't exist
+		# identify the IDs of zero-lag time slides;
+		# get_time_slide_id() above will have created the time
+		# slide table if it didn't exist
 		#
 
-		self.tisitable = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
+		zero_lag_time_slides = tuple(llwapp.get_zero_lag_time_slides(xmldoc).keys())
 
 		#
 		# get coinc_def_id for sim_burst <--> sngl_burst coincs
@@ -161,9 +163,13 @@ class DocContents(object):
 			xmldoc.childNodes[0].appendChild(self.coincmaptable)
 
 		#
-		# index the document
+		# index the document.  after this, coinc_peak_time_window
+		# is the time, in seconds, separating the peak times of the
+		# widely-separated event pairs in the burst <--> burst
+		# coincs.
 		#
 
+		self.coinc_peak_time_window = 0
 		index = {}
 		for row in self.snglbursttable:
 			index[row.event_id] = row
@@ -174,31 +180,42 @@ class DocContents(object):
 				index[row.coinc_event_id].append(index[row.event_id])
 		self.index = {}
 		for coinc in self.coinctable:
-			if (coinc.coinc_def_id == self.bb_coinc_def_id) and self.tisitable.is_null(coinc.time_slide_id):
+			if (coinc.coinc_def_id == self.bb_coinc_def_id) and (coinc.time_slide_id in zero_lag_time_slides):
+				# sort bursts by their peak times
+				index[coinc.coinc_event_id].sort(lambda a, b: cmp(a.peak_time, b.peak_time) or cmp(a.peak_time_ns, b.peak_time_ns))
+				# store in index
 				self.index[coinc] = tuple(index[coinc.coinc_event_id])
+				# update coinc peak time window
+				self.coinc_peak_time_window = max(self.coinc_peak_time_window, float(self.index[coinc][-1].get_peak() - self.index[coinc][0].get_peak()))
 
 		#
-		# sort triggers by peak time
+		# sort sngl_burst table by peak time
 		#
 
 		self.snglbursttable.sort(lambda a, b: cmp(a.peak_time, b.peak_time) or cmp(a.peak_time_ns, b.peak_time_ns))
 
 		#
-		# set the window for triggers_near_peaktime()
+		# set the window for bursts_near_peaktime()
 		#
 
 		if len(self.snglbursttable):
-			self.peak_time_window = max(self.snglbursttable.getColumnByName("duration"))
+			self.burst_peak_time_window = max(self.snglbursttable.getColumnByName("duration"))
 		else:
 			# max() doesn't like empty sequences
-			self.peak_time_window = 0.0
+			self.burst_peak_time_window = 0.0
 
-	def triggers_near_peaktime(self, t):
+		#
+		# set the window for identifying coincs near a peak time
+		#
+
+		self.coinc_peak_time_window += self.burst_peak_time_window
+
+	def bursts_near_peaktime(self, t):
 		"""
-		Return a list of the triggers with peak times within some
-		window around t.  The window is +/- self.peak_time_window.
+		Return a list of the burst events with peak times are
+		within self.burst_peak_time_window of t.
 		"""
-		return self.snglbursttable[bisect.bisect_left(self.snglbursttable, t - self.peak_time_window):bisect.bisect_right(self.snglbursttable, t + self.peak_time_window)]
+		return self.snglbursttable[bisect.bisect_left(self.snglbursttable, t - self.burst_peak_time_window):bisect.bisect_right(self.snglbursttable, t + self.burst_peak_time_window)]
 
 	def sort_triggers_by_id(self):
 		"""
@@ -289,7 +306,7 @@ def find_sngl_burst_matches(contents, sim, comparefunc):
 	"""
 	Scan the burst table for triggers matching sim.
 	"""
-	return [burst for burst in contents.triggers_near_peaktime(sim.get_geocent_peak()) if not comparefunc(sim, burst)]
+	return [burst for burst in contents.bursts_near_peaktime(sim.get_geocent_peak()) if not comparefunc(sim, burst)]
 
 
 def add_sim_burst_coinc(contents, process, sim, bursts):
@@ -351,7 +368,7 @@ def find_coinc_matches(contents, sim, comparefunc):
 	Return a list of the burst<-->burst coincs in which all burst
 	events match sim.
 	"""
-	return [coinc for coinc, bursts in contents.index.iteritems() if True not in map(lambda burst: comparefunc(sim, burst), bursts)]
+	return [coinc for coinc, bursts in contents.index.iteritems() if (abs(float(bursts[0].get_peak() - sim.get_geocent_peak())) <= contents.coinc_peak_time_window) and True not in map(lambda burst: comparefunc(sim, burst), bursts)]
 
 
 def add_sim_coinc_coinc(contents, process, sim, coinc_events):
@@ -410,7 +427,7 @@ def ligolw_binjfind(xmldoc, **kwargs):
 	#
 
 	if kwargs["verbose"]:
-		print >>sys.stderr, "constructing injection-burst coincidences:"
+		print >>sys.stderr, "constructing injection--burst coincidences:"
 	injection_burst_ids = []
 	for n, sim in enumerate(contents.simbursttable):
 		if kwargs["verbose"] and not (n % (N / 50 or 1)):
@@ -428,7 +445,7 @@ def ligolw_binjfind(xmldoc, **kwargs):
 
 	if contents.sc_coinc_def_id:
 		if kwargs["verbose"]:
-			print >>sys.stderr, "constructing injection-coinc coincidences:"
+			print >>sys.stderr, "constructing injection--coinc coincidences:"
 		cut_noninjection_coincs(contents, injection_burst_ids)
 		for n, sim in enumerate(contents.simbursttable):
 			if kwargs["verbose"] and not (n % (N / 50 or 1)):
