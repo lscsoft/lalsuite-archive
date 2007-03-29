@@ -165,8 +165,8 @@ class DocContents(object):
 		#
 		# index the document.  after this, coinc_peak_time_window
 		# is the time, in seconds, separating the peak times of the
-		# widely-separated event pairs in the burst <--> burst
-		# coincs.
+		# most widely-separated event pair of all the burst <-->
+		# burst coincs.
 		#
 
 		self.coinc_peak_time_window = 0
