@@ -48,6 +48,7 @@ from glue.ligolw import dbtables
 from glue.ligolw import utils
 from glue import segments
 from pylal import rate
+from pylal import SimBurstUtils
 from pylal import SnglBurstUtils
 
 
@@ -94,7 +95,7 @@ def parse_command_line():
 #
 # =============================================================================
 #
-#                          Tune Likelihood Threshold
+#                           Likelihood Book-Keeping
 #
 # =============================================================================
 #
@@ -107,7 +108,7 @@ class Likelihood_Histogram(object):
 		self.foreground_likelihoods = []
 		self.n_background_time_slides = None
 
-	def set_time_slides(self, contents):
+	def count_time_slides(self, contents):
 		#
 		# If not already done, count the number of non-zero-lag
 		# time slides.  Assume all files list the same time slides.
@@ -117,8 +118,6 @@ class Likelihood_Histogram(object):
 			self.n_background_time_slides = contents.connection.cursor().execute("""SELECT COUNT(DISTINCT time_slide_id) FROM time_slide WHERE offset != 0""").fetchone()[0]
 
 	def add_background(self, contents):
-		self.set_time_slides(contents)
-
 		#
 		# Iterate over non-zero-lag coincidences.
 		#
@@ -139,8 +138,6 @@ WHERE
 			self.background_likelihoods.append(likelihood)
 
 	def add_foreground(self, contents):
-		self.set_time_slides(contents)
-
 		#
 		# Iterate over zero-lag coincidences.
 		#
@@ -161,8 +158,6 @@ WHERE
 			self.foreground_likelihoods.append(likelihood)
 
 	def add_injections(self, contents):
-		self.set_time_slides(contents)
-
 		#
 		# Iterate over zero-lag coincidences involving one or more
 		# events identified as being the result of injections.
@@ -200,24 +195,26 @@ WHERE
 		""", (contents.bb_definer_id, contents.sb_definer_id)):
 			self.injection_likelihoods.append(likelihood)
 
-	def finish(self):
+	def finish_non_injections(self):
 		self.foreground_likelihoods.sort(reverse = True)
 		self.background_likelihoods.sort(reverse = True)
-		self.injection_likelihoods.sort(reverse = True)
 
 		self.foreground_rate = rate.Rate(segments.segment(0.0, 1.0), 0.01)
 		self.background_rate = rate.Rate(segments.segment(0.0, 1.0), 0.01)
-		self.injection_rate = rate.Rate(segments.segment(0.0, 1.0), 0.01)
 
 		for likelihood in self.foreground_likelihoods:
 			self.foreground_rate[likelihood] = 1.0
 		for likelihood in self.background_likelihoods:
 			self.background_rate[likelihood] = 1.0
-		for likelihood in self.injection_likelihoods:
-			self.injection_rate[likelihood] = 1.0
 
 		self.foreground_rate.array /= len(self.foreground_likelihoods)
 		self.background_rate.array /= len(self.background_likelihoods)
+
+	def finish_injections(self):
+		self.injection_likelihoods.sort(reverse = True)
+		self.injection_rate = rate.Rate(segments.segment(0.0, 1.0), 0.01)
+		for likelihood in self.injection_likelihoods:
+			self.injection_rate[likelihood] = 1.0
 		self.injection_rate.array /= len(self.injection_likelihoods)
 
 	def find_likelihood_threshold(self, events_per_time_slide):
@@ -289,6 +286,61 @@ WHERE
 #
 # =============================================================================
 #
+#                                  Efficiency
+#
+# =============================================================================
+#
+
+
+def Efficiency_hrss_vs_freq_add_contents(self, contents):
+	self.num_injections += len(contents.sim_burst_table)
+	for sim in contents.sim_burst_table:
+		self.injected_x.append(sim.freq)
+		self.injected_y.append(sim.hrss)
+	for sim in map(contents.sim_burst_table._row_from_cols, contents.connection.cursor().execute("""
+SELECT sim_burst.* FROM
+	sim_burst
+WHERE
+	EXISTS (
+		-- Find a zero-lag burst<-->burst coinc containing a burst
+		-- that matches this injection, and whose likelihood is
+		-- above threshold
+		SELECT * FROM
+			coinc_event
+			JOIN coinc_event_map AS a ON (
+				a.coinc_event_id == coinc_event.coinc_event_id
+			)
+			JOIN coinc_event_map AS b ON (
+				b.table_name == a.table_name
+				AND b.event_id == a.event_id
+			)
+			JOIN coinc_event_map AS c ON (
+				c.coinc_event_id == b.coinc_event_id
+				AND c.table_name == 'sim_burst'
+			)
+		WHERE
+			coinc_event.coinc_def_id == ?
+			AND coinc_event.likelihood > ?
+			AND NOT EXISTS (
+				SELECT * FROM
+					time_slide
+				WHERE
+					time_slide.time_slide_id == coinc_event.time_slide_id
+					AND time_slide.offset != 0
+			)
+			AND c.event_id == sim_burst.simulation_id
+	)
+	""", (contents.bb_definer_id, self.threshold))):
+		self.found_x.append(sim.freq)
+		self.found_y.append(sim.hrss)
+
+
+SimBurstUtils.Efficiency_hrss_vs_freq.add_contents = Efficiency_hrss_vs_freq_add_contents
+
+
+#
+# =============================================================================
+#
 #                                     Main
 #
 # =============================================================================
@@ -313,6 +365,7 @@ if options.survivors_output is not None:
 else:
 	survivors = None
 likelihood_histogram = Likelihood_Histogram()
+efficiency = SimBurstUtils.Efficiency_hrss_vs_freq(None, 0.1)
 
 
 #
@@ -344,6 +397,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 
 	if survivors is not None:
 		survivors.add(database)
+	likelihood_histogram.count_time_slides(database)
 	likelihood_histogram.add_foreground(database)
 	likelihood_histogram.add_background(database)
 
@@ -352,6 +406,16 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 	#
 
 	connection.close()
+
+
+#
+# Determine likelihood threshold.
+#
+
+
+likelihood_histogram.finish_non_injections()
+threshold = likelihood_histogram.find_likelihood_threshold(options.foreground_survivors)
+efficiency.threshold = threshold
 
 
 #
@@ -382,6 +446,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 	#
 
 	likelihood_histogram.add_injections(database)
+	efficiency.add_contents(database)
 
 	#
 	# Done with this file.
@@ -395,12 +460,10 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 #
 
 
-likelihood_histogram.finish()
-
-
-threshold = likelihood_histogram.find_likelihood_threshold(options.foreground_survivors)
-
+likelihood_histogram.finish_injections()
+efficiency.finish()
 
 print "Likelihood threshold for 0.1 events / time slide = %g" % threshold
 print "Total number of zero-lag coincidences = %d" % len(likelihood_histogram.foreground_likelihoods)
 print "Total number of zero-lag coincidences surviving final likelihood cut = %d" % len([x for x in likelihood_histogram.foreground_likelihoods if x > threshold])
+SimBurstUtils.plot_Efficiency_hrss_vs_freq(efficiency).savefig("lalapps_excesspowerfinal_efficiency.png")
