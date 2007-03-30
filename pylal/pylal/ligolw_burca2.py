@@ -282,7 +282,12 @@ def ligolw_burca2(xmldoc, likelihood, verbose = False):
 	if verbose:
 		print >>sys.stderr, "indexing ..."
 
-	bb_definer_id = llwapp.get_coinc_def_id(xmldoc, [lsctables.SnglBurstTable.tableName], create_new = False)
+	definer_ids = [llwapp.get_coinc_def_id(xmldoc, [lsctables.SnglBurstTable.tableName], create_new = False)]
+	try:
+		definer_ids.append(llwapp.get_coinc_def_id(xmldoc, [lsctables.SnglBurstTable.tableName, lsctables.SimBurstTable.tableName], create_new = False))
+	except KeyError:
+		# guess there are no injections in this file?
+		pass
 	time_slides = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName).get_offsets()
 	zero_lag_tisi_ids = llwapp.get_zero_lag_time_slides(xmldoc).keys()
 	coinc_table = table.get_table(xmldoc, lsctables.CoincTable.tableName)
@@ -306,7 +311,8 @@ def ligolw_burca2(xmldoc, likelihood, verbose = False):
 			index[row.coinc_event_id].append(index[row.event_id])
 
 	#
-	# Iterate over coincs, assigning likelihoods to burst+burst coincs
+	# Iterate over coincs, assigning likelihoods to burst+burst coincs,
+	# and sim+burst coincs if the document contains them.
 	#
 
 	if verbose:
@@ -314,9 +320,9 @@ def ligolw_burca2(xmldoc, likelihood, verbose = False):
 		n_coincs = len(coinc_table)
 
 	for n, coinc in enumerate(coinc_table):
-		if verbose and not n % 50:
+		if verbose and not n % 30:
 			print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / n_coincs),
-		if coinc.coinc_def_id == bb_definer_id:
+		if coinc.coinc_def_id in definer_ids:
 			coinc.likelihood = likelihood(index[coinc.coinc_event_id], time_slides[coinc.time_slide_id])
 	if verbose:
 		print >>sys.stderr, "\t100.0%"
