@@ -103,9 +103,9 @@ def sort_files_by_size(filenames, verbose = False, reverse = False):
 	"""
 	if verbose:
 		if reverse:
-			print >>sys.stderr, "sorting files from largest to smallest..."
+			print >>sys.stderr, "sorting files from largest to smallest ..."
 		else:
-			print >>sys.stderr, "sorting files from smallest to largest..."
+			print >>sys.stderr, "sorting files from smallest to largest ..."
 	return [pair[1] for pair in measure_file_sizes(filenames, reverse = reverse)]
 
 
