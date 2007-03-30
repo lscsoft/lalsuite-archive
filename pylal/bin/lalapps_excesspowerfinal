@@ -50,11 +50,28 @@ from glue import segments
 from pylal import rate
 from pylal import SimBurstUtils
 from pylal import SnglBurstUtils
+from pylal.date import LIGOTimeGPS
 
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
+
+
+#
+# =============================================================================
+#
+#                                 Speed Hacks
+#
+# =============================================================================
+#
+
+
+def SearchSummary_get_out(self):
+	return segments.segment(LIGOTimeGPS(self.out_start_time, self.out_start_time_ns), LIGOTimeGPS(self.out_end_time, self.out_end_time_ns))
+
+
+lsctables.SearchSummary.get_out = SearchSummary_get_out
 
 
 #
@@ -217,20 +234,20 @@ WHERE
 			self.injection_rate[likelihood] = 1.0
 		self.injection_rate.array /= len(self.injection_likelihoods)
 
-	def find_likelihood_threshold(self, events_per_time_slide):
+	def find_likelihood_threshold(self, events_per_foreground, foreground_live_time, background_live_time):
 		"""
-		Given the desired average number of events per time slide,
-		determine the likelihood threshold to cut coincidences on.
-		The interpretation is that coincidences with a likelihood
-		greater than (not equal to) the value returned by this
-		function are to be retained.
+		Given the desired average number of events per foreground
+		live time, determine the likelihood threshold to cut
+		coincidences on.  The interpretation is that coincidences
+		with a likelihood greater than (not equal to) the value
+		returned by this function are to be retained.
 		"""
 		#
 		# How many events to retain from the non-zero-lag
 		# coincidences.
 		#
 
-		n_background = int(round(self.n_background_time_slides * events_per_time_slide))
+		n_background = int(round(events_per_foreground * background_live_time / foreground_live_time))
 
 		#
 		# Likelihood that will keep n_background background events.
@@ -294,9 +311,16 @@ WHERE
 
 def Efficiency_hrss_vs_freq_add_contents(self, contents):
 	self.num_injections += len(contents.sim_burst_table)
+	coinc_segs = contents.seglists.intersection(contents.seglists.keys())
 	for sim in contents.sim_burst_table:
-		self.injected_x.append(sim.freq)
-		self.injected_y.append(sim.hrss)
+		if SimBurstUtils.injection_was_made(sim, coinc_segs, contents.seglists.keys()):
+			self.injected_x.append(sim.freq)
+			self.injected_y.append(sim.hrss)
+	# FIXME: careful, the check for a coincidence will find any
+	# coincidence, no matter how many instruments participate.  For
+	# now, I'm running fixed networks so this is not a problem, but if
+	# variable configuration networks are adopted in the future, then
+	# this will need to be re-thought.
 	for sim in map(contents.sim_burst_table._row_from_cols, contents.connection.cursor().execute("""
 SELECT sim_burst.* FROM
 	sim_burst
@@ -311,12 +335,14 @@ WHERE
 				a.coinc_event_id == coinc_event.coinc_event_id
 			)
 			JOIN coinc_event_map AS b ON (
-				b.table_name == a.table_name
+				a.table_name == 'sngl_burst'
+				AND b.table_name == 'sngl_burst'
 				AND b.event_id == a.event_id
 			)
 			JOIN coinc_event_map AS c ON (
 				c.coinc_event_id == b.coinc_event_id
 				AND c.table_name == 'sim_burst'
+				AND c.event_id == sim_burst.simulation_id
 			)
 		WHERE
 			coinc_event.coinc_def_id == ?
@@ -328,7 +354,6 @@ WHERE
 					time_slide.time_slide_id == coinc_event.time_slide_id
 					AND time_slide.offset != 0
 			)
-			AND c.event_id == sim_burst.simulation_id
 	)
 	""", (contents.bb_definer_id, self.threshold))):
 		self.found_x.append(sim.freq)
@@ -336,6 +361,64 @@ WHERE
 
 
 SimBurstUtils.Efficiency_hrss_vs_freq.add_contents = Efficiency_hrss_vs_freq_add_contents
+
+
+#
+# =============================================================================
+#
+#                                  Live Time
+#
+# =============================================================================
+#
+
+
+def get_background_time_slides(contents):
+	"""
+	Query the database for the IDs and offsets of non-zero-lag time
+	slides.
+	"""
+	time_slides = {}
+	for time_slide_id, in contents.connection.cursor().execute("""
+SELECT DISTINCT(time_slide_id) FROM
+	time_slide
+WHERE
+	offset != 0
+	"""):
+		time_slides[time_slide_id] = {}
+		for instrument, offset in contents.connection.cursor().execute("""
+SELECT instrument, offset FROM
+	time_slide
+WHERE
+	time_slide_id == ?
+		""", (time_slide_id,)):
+			time_slides[time_slide_id][instrument] = offset
+	return time_slides
+
+
+def zero_lag_livetime(seglists):
+	"""
+	Return the total live time in the zero lag time slide.
+	"""
+	return float(abs(seglists.intersection(seglists.keys())))
+
+
+def time_slides_livetime(seglists, time_slides, verbose = False):
+	"""
+	For each of the time slides, which are instrument --> offset
+	mappings, compute the live time, and return the sum.
+	"""
+	livetime = 0
+	old_offsets = seglists.offsets
+	N = len(time_slides)
+	for n, time_slide in enumerate(time_slides):
+		if verbose:
+			print >>sys.stderr, "\t%.1g%%" % (100.0 * n / N),
+		seglists.offsets.update(time_slide)
+		livetime += float(abs(seglists.intersection(time_slide.keys())))
+	seglists.offsets.update(old_offsets)
+	if verbose:
+		print >>sys.stderr, "\t100.0%"
+	return livetime
 
 
 #
@@ -366,6 +449,9 @@ else:
 	survivors = None
 likelihood_histogram = Likelihood_Histogram()
 efficiency = SimBurstUtils.Efficiency_hrss_vs_freq(None, 0.1)
+non_injection_seglists = segments.segmentlistdict()
+injection_seglists = segments.segmentlistdict()
+background_time_slides = None
 
 
 #
@@ -395,11 +481,14 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 	# Process database contents.
 	#
 
+	if background_time_slides is None:
+		background_time_slides = get_background_time_slides(database)
 	if survivors is not None:
 		survivors.add(database)
 	likelihood_histogram.count_time_slides(database)
 	likelihood_histogram.add_foreground(database)
 	likelihood_histogram.add_background(database)
+	non_injection_seglists |= database.seglists
 
 	#
 	# Done with this file.
@@ -413,9 +502,19 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 #
 
 
+if options.verbose:
+	print >>sys.stderr, "=== Threshold ==="
+	print >>sys.stderr, "measuring live time ..."
+foreground_live_time = zero_lag_livetime(non_injection_seglists)
+background_live_time = time_slides_livetime(non_injection_seglists, background_time_slides.values())
+
+if options.verbose:
+	print >>sys.stderr, "sorting and binning foreground and background likelihoods ..."
 likelihood_histogram.finish_non_injections()
-threshold = likelihood_histogram.find_likelihood_threshold(options.foreground_survivors)
-efficiency.threshold = threshold
+
+if options.verbose:
+	print >>sys.stderr, "computing likelihood threshold ..."
+efficiency.threshold = threshold = likelihood_histogram.find_likelihood_threshold(options.foreground_survivors, foreground_live_time, background_live_time)
 
 
 #
@@ -447,6 +546,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 
 	likelihood_histogram.add_injections(database)
 	efficiency.add_contents(database)
+	injection_seglists |= database.seglists
 
 	#
 	# Done with this file.
@@ -463,7 +563,26 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 likelihood_histogram.finish_injections()
 efficiency.finish()
 
-print "Likelihood threshold for 0.1 events / time slide = %g" % threshold
-print "Total number of zero-lag coincidences = %d" % len(likelihood_histogram.foreground_likelihoods)
-print "Total number of zero-lag coincidences surviving final likelihood cut = %d" % len([x for x in likelihood_histogram.foreground_likelihoods if x > threshold])
+
+print
+print "=== Input Summary ==="
+print "Total live time in background = %s s" % background_live_time
+print "Total live time in foreground = %s s" % foreground_live_time
+print "Number of events in background = %d" % len(likelihood_histogram.background_likelihoods)
+print "Average number of background events per foreground live time = %g" % (len(likelihood_histogram.background_likelihoods) / background_live_time * foreground_live_time)
+print "Number of events in foreground = %d" % len(likelihood_histogram.foreground_likelihoods)
+
+print
+print "=== Threshold ==="
+print "Likelihood threshold for which is expected %g events in foreground = %g" % (options.foreground_survivors, threshold)
+
+# FIXME: in the future, don't display this until the box is open.
+#if survivors is not None:
+print "Number of foreground events above threshold = %d" % len([x for x in likelihood_histogram.foreground_likelihoods if x > threshold])
+
+print
+print "Writing plots ..."
 SimBurstUtils.plot_Efficiency_hrss_vs_freq(efficiency).savefig("lalapps_excesspowerfinal_efficiency.png")
+
+print
+print "=== Done ==="
