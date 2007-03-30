@@ -90,9 +90,6 @@ def parse_command_line():
 	if not options.database:
 		raise ValueError, "must set --database"
 
-	if options.extract is None and not filenames:
-		raise ValueError, "nothing to do!"
-
 	return options, (filenames or [None])
 
 
