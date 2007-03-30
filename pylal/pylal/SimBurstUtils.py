@@ -41,6 +41,23 @@ __date__ = "$Date$"[7:-2]
 #
 # =============================================================================
 #
+#                                    Misc.
+#
+# =============================================================================
+#
+
+
+def injection_was_made(sim, seglist, instruments):
+	"""
+	Return True if the peak times for sim for all of the instruments
+	lie within the segment list.
+	"""
+	return False not in map(lambda i: sim.get_peak(i) in seglist, instruments)
+
+
+#
+# =============================================================================
+#
 #                             Efficiency Contours
 #
 # =============================================================================
@@ -65,8 +82,9 @@ class Efficiency_hrss_vs_freq(object):
 	def add_contents(self, contents):
 		self.num_injections += len(contents.sim_burst_table)
 		for sim in contents.sim_burst_table:
-			self.injected_x.append(sim.freq)
-			self.injected_y.append(sim.hrss)
+			if injection_was_made(sim, contents.seglists[self.instrument], [self.instrument]):
+				self.injected_x.append(sim.freq)
+				self.injected_y.append(sim.hrss)
 		for sim in contents.found_injections(self.instrument):
 			self.found_x.append(sim.freq)
 			self.found_y.append(sim.hrss)
