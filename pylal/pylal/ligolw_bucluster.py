@@ -28,6 +28,7 @@
 
 import sys
 
+
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from pylal import llwapp
@@ -137,19 +138,19 @@ def ExcessPowerPostFunc(sngl_burst_table, offset):
 
 def ExcessPowerBailoutFunc(a, b):
 	"""
-	Orders a and b by ifo, then by channel, then by time interval.
-	Returns 0 if a and b are from the same channel of the same
-	instrument and their time intervals are not disjoint.
+	Orders a and b by ifo, then by channel, then by search, then by
+	time interval.  Returns 0 if a and b are from the same channel of
+	the same instrument and their time intervals are not disjoint.
 	"""
 	return cmp(a.ifo, b.ifo) or cmp(a.channel, b.channel) or cmp(a.search, b.search) or llwapp.cmp_seg_intervals(a.get_period(), b.get_period())
 
 
 def ExcessPowerTestFunc(a, b):
 	"""
-	Orders a and b by ifo, then by channel, then time interval, then by
-	frequency band.  Returns 0 if a and b are from the same channel of
-	the same instrument, and their time-frequency tiles are not
-	disjoint.
+	Orders a and b by ifo, then by channel, then by search, then time
+	interval, then by frequency band.  Returns 0 if a and b are from
+	the same channel of the same instrument, and their time-frequency
+	tiles are not disjoint.
 	"""
 	return cmp(a.ifo, b.ifo) or cmp(a.channel, b.channel) or cmp(a.search, b.search) or llwapp.cmp_seg_intervals(a.get_period(), b.get_period()) or llwapp.cmp_seg_intervals(a.get_band(), b.get_band())
 
@@ -197,7 +198,8 @@ def ExcessPowerClusterFunc(a, b):
 	#
 	# The confidence is the confidence of the most significant tile.
 	# FIXME:  correctly, this should be computed from some sort of
-	# joint distribution
+	# joint distribution, but it's not currently used anywhere so
+	# there's no point in obsessing over it right now.
 	#
 
 	a.confidence = a.ms_confidence
