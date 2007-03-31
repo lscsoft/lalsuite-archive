@@ -69,7 +69,7 @@ def parse_command_line():
 	if options.plot:
 		options.plot = map(int, options.plot)
 	else:
-		options.plot = range(6)
+		options.plot = range(7)
 
 
 	return options, (filenames or [None])
@@ -202,39 +202,38 @@ WHERE
 
 class RecoveredVsInjectedhrss(SnglBurstUtils.BurstPlot):
 	def __init__(self, instrument):
-		SnglBurstUtils.BurstPlot.__init__(self, r"Injected $h_{\mathrm{rss}}$", "Recovered $h_{\mathrm{rss}}$")
+		SnglBurstUtils.BurstPlot.__init__(self, r"Injected $h_{\mathrm{rss}}$", r"Recovered $h_{\mathrm{rss}}^{\mathrm{ms}}$")
 		self.axes.loglog()
 		self.fig.set_size_inches(8, 8)
 		self.instrument = instrument
 		self.found = 0
-		self.recovered = []
-		self.injected = []
+		self.x = []
+		self.y = []
 
 	def add_contents(self, contents):
 		for injected, recovered in contents.connection.cursor().execute("""
-SELECT sim_burst.hrss, MAX(sngl_burst.ms_hrss) FROM
+SELECT sim_burst.hrss, sngl_burst.ms_hrss FROM
 	sim_burst
 	JOIN coinc_event_map AS a ON (
-		sim_burst.simulation_id == a.event_id
-		AND a.table_name == 'sim_burst'
+		a.table_name == 'sim_burst'
+		AND a.event_id == sim_burst.simulation_id
 	)
 	JOIN coinc_event_map AS b ON (
 		a.coinc_event_id == b.coinc_event_id
-		AND b.table_name == 'sngl_burst'
 	)
 	JOIN sngl_burst ON (
-		b.event_id == sngl_burst.event_id
-		AND sngl_burst.ifo == ?
+		b.table_name == 'sngl_burst'
+		AND b.event_id == sngl_burst.event_id
 	)
-GROUP BY
-	sim_burst.simulation_id
+WHERE
+	sngl_burst.ifo == ?
 		""", (self.instrument,)):
 			self.found += 1
-			self.injected.append(injected)
-			self.recovered.append(recovered)
+			self.x.append(injected)
+			self.y.append(recovered)
 
 	def finish(self):
-		self.axes.plot(self.injected, self.recovered, "k+")
+		self.axes.plot(self.x, self.y, "k+")
 		xmin, xmax = self.axes.get_xlim()
 		ymin, ymax = self.axes.get_ylim()
 		xmin = ymin = min(xmin, ymin)
@@ -242,7 +241,44 @@ GROUP BY
 		self.axes.set_xlim([xmin, xmax])
 		self.axes.set_ylim([ymin, ymax])
 		self.axes.plot([xmin, xmax], [ymin, ymax], "k-")
-		self.axes.set_title(r"Max.\ Recovered $h_{\mathrm{rss}}$ vs.\ Injected $h_{\mathrm{rss}}$ (%d Found Injections)" % self.found)
+		self.axes.set_title(r"Recovered $h_{\mathrm{rss}}$ vs.\ Injected $h_{\mathrm{rss}}$ (%d Found Injections)" % self.found)
+
+
+class RecoveredPerInjectedhrssVsFreq(SnglBurstUtils.BurstPlot):
+	def __init__(self, instrument):
+		SnglBurstUtils.BurstPlot.__init__(self, r"$f_{\mathrm{centre}}^{\mathrm{ms}}$", r"$\frac{\mathrm{recovered}\ h_{\mathrm{rss}}^{\mathrm{ms}}}{\mathrm{injected}\ h_{\mathrm{rss}}^{\mathrm{ms}}}$")
+		self.axes.loglog()
+		self.fig.set_size_inches(8, 8)
+		self.instrument = instrument
+		self.found = 0
+		self.x = []
+		self.y = []
+
+	def add_contents(self, contents):
+		for injected, recovered, snr, dof, f in contents.connection.cursor().execute("""
+SELECT sim_burst.hrss, sngl_burst.ms_hrss, sngl_burst.ms_snr, (2 * sngl_burst.ms_bandwidth * sngl_burst.ms_duration), (sngl_burst.ms_flow + .5 * sngl_burst.ms_bandwidth) FROM
+	sim_burst
+	JOIN coinc_event_map AS a ON (
+		a.table_name == 'sim_burst'
+		AND a.event_id == sim_burst.simulation_id
+	)
+	JOIN coinc_event_map AS b ON (
+		a.coinc_event_id == b.coinc_event_id
+	)
+	JOIN sngl_burst ON (
+		b.table_name == 'sngl_burst'
+		AND b.event_id == sngl_burst.event_id
+	)
+WHERE
+	sngl_burst.ifo == ?
+		""", (self.instrument,)):
+			self.found += 1
+			self.x.append(f)
+			self.y.append(recovered / injected)
+
+	def finish(self):
+		self.axes.plot(self.x, self.y, "k+")
+		self.axes.set_title(r"Ratio of Recovered to Injected $h_{\mathrm{rss}}$ vs.\ Frequency (%d Found Injections)" % self.found)
 
 
 #
@@ -308,6 +344,7 @@ def new_plots(instrument, plots):
 		SimBurstUtils.Efficiency_hrss_vs_freq(instrument, 0.1),
 		TriggerCountHistogram(instrument),
 		RecoveredVsInjectedhrss(instrument),
+		RecoveredPerInjectedhrssVsFreq(instrument),
 		RecoveredTimeOffset(instrument, segments.segment(-0.075, +0.075), 0.002)
 	]
 	return [l[i] for i in plots]
@@ -324,7 +361,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 			plots[instrument] = new_plots(instrument, options.plot)
 		for n, plot in zip(options.plot, plots[instrument]):
 			if options.verbose:
-				print >>sys.stderr, "adding to %s plot %d..." % (instrument, n)
+				print >>sys.stderr, "adding to %s plot %d ..." % (instrument, n)
 			plot.add_contents(database)
 	connection.close()
 
@@ -336,14 +373,14 @@ for instrument in plots:
 	while len(plots[instrument]):
 		filename = format % (options.base, options.plot[n], options.format)
 		if options.verbose:
-			print >>sys.stderr, "finishing %s plot %d..." % (instrument, options.plot[n])
+			print >>sys.stderr, "finishing %s plot %d ..." % (instrument, options.plot[n])
 		try:
 			plots[instrument][0].finish()
 		except SnglBurstUtils.BurstPlotError, e:
 			print >>sys.stderr, "can't finish %s plot %d: %s" % (instrument, options.plot[n], str(e))
 		else:
 			if options.verbose:
-				print >>sys.stderr, "writing %s..." % filename
+				print >>sys.stderr, "writing %s ..." % filename
 			if isinstance(plots[instrument][0], SimBurstUtils.Efficiency_hrss_vs_freq):
 				SimBurstUtils.plot_Efficiency_hrss_vs_freq(plots[instrument][0]).savefig(filename)
 			else:
