@@ -88,7 +88,7 @@ def parse_command_line():
 		filenames += [c.path() for c in map(CacheEntry, file(cache))]
 
 	if not options.database:
-		raise ValueError, "must set --database"
+		raise ValueError, "missing required argument --database"
 
 	return options, (filenames or [None])
 
@@ -165,12 +165,14 @@ options, filenames = parse_command_line()
 
 
 #
-# Open database
+# Open database, and synchronize ID generators with its contents
 #
 
 
 connection = sqlite3.connect(options.database)
 dbtables.DBTable_set_connection(connection)
+for table in dbtables.DBTable_get_xml().getElementsByTagName(ligolw.Table.tagName):
+	table.sync_ids()
 
 
 #
