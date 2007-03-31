@@ -246,7 +246,7 @@ WHERE
 
 class RecoveredPerInjectedhrssVsFreq(SnglBurstUtils.BurstPlot):
 	def __init__(self, instrument):
-		SnglBurstUtils.BurstPlot.__init__(self, r"$f_{\mathrm{centre}}^{\mathrm{ms}}$", r"$\frac{\mathrm{recovered}\ h_{\mathrm{rss}}^{\mathrm{ms}}}{\mathrm{injected}\ h_{\mathrm{rss}}^{\mathrm{ms}}}$")
+		SnglBurstUtils.BurstPlot.__init__(self, r"$f_{\mathrm{injected}}$", r"$\frac{\mathrm{Recovered}\ h_{\mathrm{rss}}^{\mathrm{ms}}}{\mathrm{Injected}\ h_{\mathrm{rss}}^{\mathrm{ms}}}$")
 		self.axes.loglog()
 		self.fig.set_size_inches(8, 8)
 		self.instrument = instrument
@@ -256,7 +256,7 @@ class RecoveredPerInjectedhrssVsFreq(SnglBurstUtils.BurstPlot):
 
 	def add_contents(self, contents):
 		for injected, recovered, snr, dof, f in contents.connection.cursor().execute("""
-SELECT sim_burst.hrss, sngl_burst.ms_hrss, sngl_burst.ms_snr, (2 * sngl_burst.ms_bandwidth * sngl_burst.ms_duration), (sngl_burst.ms_flow + .5 * sngl_burst.ms_bandwidth) FROM
+SELECT sim_burst.hrss, sngl_burst.ms_hrss, sngl_burst.ms_snr, (2 * sngl_burst.ms_bandwidth * sngl_burst.ms_duration), sim_burst.freq FROM
 	sim_burst
 	JOIN coinc_event_map AS a ON (
 		a.table_name == 'sim_burst'
@@ -278,6 +278,7 @@ WHERE
 
 	def finish(self):
 		self.axes.plot(self.x, self.y, "k+")
+		self.axes.set_xlim([min(self.x), max(self.x)])
 		self.axes.set_title(r"Ratio of Recovered to Injected $h_{\mathrm{rss}}$ vs.\ Frequency (%d Found Injections)" % self.found)
 
 
