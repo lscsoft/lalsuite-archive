@@ -422,6 +422,8 @@ class RowBuilder(object):
 	def __init__(self, rowtype, attributes):
 		self.rowtype = rowtype
 		self.attributes = tuple(attributes)
+		if len(self.attributes) < 1:
+			raise ValueError, attributes
 		self.row = self.rowtype()
 		self.i = 0
 
