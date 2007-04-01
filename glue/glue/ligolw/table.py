@@ -416,6 +416,25 @@ class Column(ligolw.Column):
 #
 
 
+class RowBuilder(object):
+	__slots__ = ["rowtype", "attributes", "row", "i"]
+
+	def __init__(self, rowtype, attributes):
+		self.rowtype = rowtype
+		self.attributes = tuple(attributes)
+		self.row = self.rowtype()
+		self.i = 0
+
+	def append(self, tokens):
+		for token in tokens:
+			setattr(self.row, self.attributes[self.i], token)
+			self.i += 1
+			if self.i >= len(self.attributes):
+				yield self.row
+				self.row = self.rowtype()
+				self.i = 0
+
+
 class TableStream(ligolw.Stream):
 	"""
 	High-level Stream element for use inside Tables.  This element
@@ -426,40 +445,28 @@ class TableStream(ligolw.Stream):
 	def __init__(self, attrs):
 		ligolw.Stream.__init__(self, attrs)
 		self.__tokenizer = tokenizer.Tokenizer(self.getAttribute("Delimiter"))
-		self.__colnames = None
-		self.__numcols = None
-		self.__row = None
-		self.__colindex = 0
+		self.__rowbuilder = None
 
 	def config(self, parentNode):
 		# some initialization that requires access to the
 		# parentNode, and so cannot be done inside the __init__()
 		# function.
 		self.__tokenizer.set_types([(parentNode.loadcolumns is None or colname in parentNode.loadcolumns or None) and pytype for pytype, colname in zip(parentNode.columnpytypes, parentNode.columnnames)])
-		self.__colnames = tuple([colname for colname in parentNode.columnnames if parentNode.loadcolumns is None or colname in parentNode.loadcolumns])
-		self.__numcols = len(self.__colnames)
-		self.__row = parentNode.RowType()
+		self.__rowbuilder = RowBuilder(parentNode.RowType, [colname for colname in parentNode.columnnames if parentNode.loadcolumns is None or colname in parentNode.loadcolumns])
 		return self
 
 	def appendData(self, content):
-		# tokenize buffer, and pack into row objects
-		for token in self.__tokenizer.append(content):
-			setattr(self.__row, self.__colnames[self.__colindex], token)
-			self.__colindex += 1
-			if self.__colindex >= self.__numcols:
-				self.parentNode.append(self.__row)
-				self.__row = self.parentNode.RowType()
-				self.__colindex = 0
+		# tokenize buffer, pack into row objects, and append to
+		# table
+		self.parentNode.extend(self.__rowbuilder.append(self.__tokenizer.append(content)))
 
 	def unlink(self):
 		"""
 		Break internal references within the document tree rooted
 		on this element to promote garbage collection.
 		"""
-		self.__colnames = None
-		self.__numcols = None
-		self.__row = None
-		self.__colindex = 0
+		self.__tokenizer = None
+		self.__rowbuilder = None
 		ligolw.Stream.unlink(self)
 
 	def write(self, file = sys.stdout, indent = u""):
