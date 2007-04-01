@@ -22,44 +22,21 @@
 /*
  * ============================================================================
  *
- *                   glue.ligolw.tokenizer Extension Module
+ *                           tokenizer Module API
  *
  * ============================================================================
  */
 
 
 #include <Python.h>
-#include <stdlib.h>
-#include <tokenizer.h>
+
+
+#define MODULE_NAME "glue.ligolw.tokenizer"
 
 
 /*
- * ============================================================================
- *
- *                            Module Registration
- *
- * ============================================================================
+ * Type information
  */
 
 
-void inittokenizer(void)
-{
-	/*
-	 * Create the module.
-	 */
-
-	PyObject *module = Py_InitModule3(MODULE_NAME, NULL,
-		"This module provides a tokenizer for LIGO Light Weight XML Stream and Array\n" \
-		"elements, as well as other utilities to assist in packing parsed tokens into\n" \
-		"various data storage units."
-	);
-
-	/*
-	 * Add the Tokenizer class.
-	 */
-
-	if(PyType_Ready(&ligolw_tokenizer_Tokenizer_Type) < 0)
-		return;
-	Py_INCREF(&ligolw_tokenizer_Tokenizer_Type);
-	PyModule_AddObject(module, "Tokenizer", (PyObject *) &ligolw_tokenizer_Tokenizer_Type);
-}
+extern PyTypeObject ligolw_tokenizer_Tokenizer_Type;
