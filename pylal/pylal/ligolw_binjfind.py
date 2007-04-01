@@ -122,7 +122,9 @@ class DocContents(object):
 		zero_lag_time_slides = tuple(llwapp.get_zero_lag_time_slides(xmldoc).keys())
 
 		#
-		# get coinc_def_id for sim_burst <--> sngl_burst coincs
+		# get coinc_def_id for sim_burst <--> sngl_burst coincs;
+		# this creates a coinc_definer table if the document
+		# doesn't have one
 		#
 
 		self.sb_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, [lsctables.SnglBurstTable.tableName, lsctables.SimBurstTable.tableName])
@@ -183,7 +185,7 @@ class DocContents(object):
 			if (coinc.coinc_def_id == self.bb_coinc_def_id) and (coinc.time_slide_id in zero_lag_time_slides):
 				# sort bursts by their peak times
 				index[coinc.coinc_event_id].sort(lambda a, b: cmp(a.peak_time, b.peak_time) or cmp(a.peak_time_ns, b.peak_time_ns))
-				# store in index
+				# store in coinc index
 				self.index[coinc] = tuple(index[coinc.coinc_event_id])
 				# update coinc peak time window
 				self.coinc_peak_time_window = max(self.coinc_peak_time_window, float(self.index[coinc][-1].get_peak() - self.index[coinc][0].get_peak()))
