@@ -255,15 +255,15 @@ class RecoveredPerInjectedhrssVsFreq(SnglBurstUtils.BurstPlot):
 		self.y = []
 
 	def add_contents(self, contents):
-		for injected, recovered, snr, dof, f in contents.connection.cursor().execute("""
-SELECT sim_burst.hrss, sngl_burst.ms_hrss, sngl_burst.ms_snr, (2 * sngl_burst.ms_bandwidth * sngl_burst.ms_duration), sim_burst.freq FROM
+		for injected, recovered, f in contents.connection.cursor().execute("""
+SELECT sim_burst.hrss, sngl_burst.ms_hrss, sim_burst.freq FROM
 	sim_burst
 	JOIN coinc_event_map AS a ON (
 		a.table_name == 'sim_burst'
 		AND a.event_id == sim_burst.simulation_id
 	)
 	JOIN coinc_event_map AS b ON (
-		a.coinc_event_id == b.coinc_event_id
+		b.coinc_event_id == a.coinc_event_id
 	)
 	JOIN sngl_burst ON (
 		b.table_name == 'sngl_burst'
