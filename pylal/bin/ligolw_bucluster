@@ -31,9 +31,11 @@
 from optparse import OptionParser
 import sys
 
+
 from glue.lal import CacheEntry
 from glue.ligolw import utils
 from pylal import ligolw_bucluster
+
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
@@ -58,16 +60,12 @@ def parse_command_line():
 	parser.add_option("--comment", metavar = "text", default = "", help = "Set the comment string to be recorded in the process table (default = \"\").")
 	parser.add_option("-c", "--cluster-algorithm", metavar = "[excesspower]", help = "Set clustering method (required).")
 	parser.add_option("-i", "--input-cache", metavar = "filename", action = "append", default = [], help = "Process the files listed in this LAL cache.")
-	parser.add_option("-p", "--program", metavar = "name", default = "lalapps_power", help = "Set the name of the program that generated the events as it appears in the process table (default = lalapps_power).")
+	parser.add_option("-p", "--program", metavar = "name", default = "lalapps_power", help = "Set the name of the program that generated the events as it appears in the process table (default = \"lalapps_power\").")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
 
 	if options.cluster_algorithm is None:
-		raise Exception, "missing required command line argument --cluster"
-
-	for cache in options.input_cache:
-		filenames += [c.path() for c in map(CacheEntry, file(cache))]
-
+		raise ValueError, "missing required argument --cluster-algorithm"
 	if options.cluster_algorithm == "excesspower":
 		options.prefunc = ligolw_bucluster.ExcessPowerPreFunc
 		options.postfunc = ligolw_bucluster.ExcessPowerPostFunc
@@ -75,7 +73,10 @@ def parse_command_line():
 		options.bailoutfunc = ligolw_bucluster.ExcessPowerBailoutFunc
 		options.clusterfunc = ligolw_bucluster.ExcessPowerClusterFunc
 	else:
-		raise Exception, "unrecognized cluster method %s" % options.cluster_algorithm
+		raise ValueError, "unrecognized --cluster-algorithm %s" % options.cluster_algorithm
+
+	for cache in options.input_cache:
+		filenames += [c.path() for c in map(CacheEntry, file(cache))]
 
 	return options, (filenames or [None])
 
