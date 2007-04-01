@@ -155,6 +155,16 @@ data<-dbGetQuery(con, p("SELECT ", p(Fields, collapse=", ")," FROM ", DataSet, "
 highRes<-data[,'hist_residuals_max']
 highResMax<-highRes>ResLarge
 
+start_plot("HighResHist")
+plot(hist(highRes, 50))
+dev.off()
+
+start_plot("HighRes")
+plot(data[,'band'], highRes)
+points(data[,'band'], rep(ResLarge, dim(data)[1]), col="red", type="l")
+dev.off()
+
+
 # plus<-data[,'max_dx.3']=="plus"
 # cross<-data[,'max_dx.3']=="cross"
 # pol1<-data[,'max_dx.3']=="pi_1_8"
@@ -170,7 +180,7 @@ no60hzReduced<-no60hz
 highResMaxReduced<-highResMax
 
 	
-FancyPlot <- function(UL, f0=NULL, f1=NULL, ylab="y", title=ylab, median_shift=2, median_scale=1, skip.high.dx=FALSE) {
+FancyPlot <- function(UL, f0=NULL, f1=NULL, ylab="y", title=ylab, median_shift=2, median_scale=1, skip.high.dx=FALSE, summary.curve=NULL) {
 	cat("Plotting \"", title, "\"\n", sep="")
 
 	if(is.null(f0)) {
@@ -194,6 +204,7 @@ FancyPlot <- function(UL, f0=NULL, f1=NULL, ylab="y", title=ylab, median_shift=2
 	points(Freq[Factor & highResMaxReduced], UL[Factor & highResMaxReduced], col="red", pch=23)
 	Factor=Factor & !highResMaxReduced
 
+
 	if(skip.high.dx) {
 		points(Freq[Factor], UL[Factor], col="dark green", pch="+")
 		} else {
@@ -201,6 +212,11 @@ FancyPlot <- function(UL, f0=NULL, f1=NULL, ylab="y", title=ylab, median_shift=2
 
 		points(Freq[Factor & highDxAny], UL[Factor & highDxAny], col="red", pch=20)
 		}
+
+	if(!is.null(summary.curve)) {
+		points(Freq, summary.curve, col="cyan", type="l")
+		}
+
 	}
 
 FancyMap <- function(UL, title="", levels=NULL, f0=NULL, f1=NULL) {
@@ -325,6 +341,8 @@ for(i in 1:(dim(BandData)[1])) {
 		next
 		}
 	
+	SummaryCurve<-SummaryFunc(Freq)
+
 	#
 	# Histogram of detected strength
 	#
@@ -336,8 +354,14 @@ for(i in 1:(dim(BandData)[1])) {
 	
 	# Plot of general limits on h0
 	start_plot("h0UL")
-	FancyPlot(log10(pulsarUL), title=h0ULtitle, ylab="Log10 Strain")
+	FancyPlot(log10(pulsarUL), title=h0ULtitle, ylab="Log10 Strain", summary.curve=log10(SummaryCurve))
 	dev.off()
+
+	start_plot("h0_summary_hist")
+	F<- no60zReduced & ksVetoP
+	plot(hist(log10(pulsarUL[F])-log10(SummaryCurve[F]), 100), xlab="log10(h0/summary)", main="Summary curve deviation", ylab="Count")
+	dev.off()
+
 
 	start_plot("diff_h0UL")
 	FancyPlot(Diff_pulsarUL, title=h0ULtitle, ylab="Excess strain")
