@@ -1415,18 +1415,6 @@ verify_limits();
 
 normalizing_weight=datasets_normalizing_weight();
 
-stored_fine_bins=super_grid->max_npatch;
-
-allocate_polarization_arrays();
-
-circ_ul=do_alloc(stored_fine_bins*useful_bins, sizeof(*circ_ul));
-circ_ul_freq=do_alloc(stored_fine_bins*useful_bins, sizeof(*circ_ul_freq));
-skymap_circ_ul=do_alloc(fine_grid->npoints, sizeof(*skymap_circ_ul));
-skymap_circ_ul_freq=do_alloc(fine_grid->npoints, sizeof(*skymap_circ_ul_freq));
-spectral_plot_circ_ul=do_alloc(useful_bins*fine_grid->nbands, sizeof(*spectral_plot_circ_ul));
-max_dx=do_alloc(fine_grid->npoints, sizeof(*max_dx));
-max_dx_polarization_index=do_alloc(fine_grid->npoints, sizeof(*max_dx_polarization_index));
-
 if(!strcasecmp(args_info.averaging_mode_arg, "matched")) {
        process_patch=process_patch_matched;
        fprintf(LOG,"mode: matched filter\n");
@@ -1500,6 +1488,36 @@ lower_limit_comp*=args_info.strain_norm_factor_arg;
 
 }
 
+void fine_grid_allocate_arrays(void)
+{
+stored_fine_bins=super_grid->max_npatch;
+
+allocate_polarization_arrays();
+
+circ_ul=do_alloc(stored_fine_bins*useful_bins, sizeof(*circ_ul));
+circ_ul_freq=do_alloc(stored_fine_bins*useful_bins, sizeof(*circ_ul_freq));
+skymap_circ_ul=do_alloc(fine_grid->npoints, sizeof(*skymap_circ_ul));
+skymap_circ_ul_freq=do_alloc(fine_grid->npoints, sizeof(*skymap_circ_ul_freq));
+spectral_plot_circ_ul=do_alloc(useful_bins*fine_grid->nbands, sizeof(*spectral_plot_circ_ul));
+max_dx=do_alloc(fine_grid->npoints, sizeof(*max_dx));
+max_dx_polarization_index=do_alloc(fine_grid->npoints, sizeof(*max_dx_polarization_index));
+}
+
+void fine_grid_free_arrays(void)
+{
+free_polarization_arrays();
+
+#define FREE(var) { free(var); var=NULL; }
+
+FREE(circ_ul);
+FREE(circ_ul_freq);
+FREE(skymap_circ_ul);
+FREE(skymap_circ_ul_freq);
+FREE(spectral_plot_circ_ul);
+FREE(max_dx);
+FREE(max_dx_polarization_index);
+}
+
 void fine_grid_stage(void)
 {
 int pi,i,j, k,m, last_pi;
@@ -1524,7 +1542,8 @@ fprintf(stderr,"Main loop: %d patches to process.\n", patch_grid->npoints);
 last_pi=0;
 for(pi=0;pi<patch_grid->npoints;pi++){
 	if(patch_grid->band[pi]<0)continue;
-	
+	if(super_grid->first_map[pi]<0)continue;
+
 	clear_accumulation_arrays();	
 
 	/* loop over datasets */

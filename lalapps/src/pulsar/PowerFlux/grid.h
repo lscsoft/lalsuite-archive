@@ -64,7 +64,12 @@ typedef struct {
 	} SIN_THETA_SKY_GRID_PRIV;
 
 typedef struct {
+	int *original_index;
+	} REDUCED_SKY_GRID_PRIV;	
+
+typedef struct {
 	SKY_GRID *super_grid;		/* larger grid */
+	int subgrid_npoints;
 	int *first_map;      /* these are indices of subgrid points */
 	int *reverse_map;    /* reverse map from grid to nearest subgrid point */
 	int *list_map;    /* these indices form lists of nearest neighbours */
@@ -80,12 +85,16 @@ SKY_GRID_TYPE fast_spherical_distance(SKY_GRID_TYPE ra0, SKY_GRID_TYPE dec0,
 SKY_GRID *make_arcsin_grid(long num_ra, long num_dec);
 SKY_GRID *make_rect_grid(long num_ra, long num_dec);
 SKY_GRID *make_sin_theta_grid(SKY_GRID_TYPE resolution);
+/* This reduces the grid by eliminating band=-1 points */
+SKY_GRID * reduced_grid(SKY_GRID *g);
 void free_grid(SKY_GRID *grid);
 
 long find_sin_theta_closest(SKY_GRID *grid, float RA, float DEC);
 
 SKY_SUPERGRID *make_rect_supergrid(SKY_GRID *grid, int ra_factor, int dec_factor);
 SKY_SUPERGRID *make_sin_theta_supergrid(SKY_GRID *grid, int factor);
+SKY_SUPERGRID * reduced_supergrid(SKY_SUPERGRID *sg0);
+void free_supergrid(SKY_SUPERGRID *sg);
 
 void print_grid_statistics(FILE *file, char *prefix, SKY_GRID *grid);
 void angle_assign_bands(SKY_GRID *grid, int n_bands);

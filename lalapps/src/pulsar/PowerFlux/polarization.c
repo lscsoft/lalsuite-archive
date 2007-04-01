@@ -199,6 +199,60 @@ for(i=0;i<ntotal_polarizations;i++){
 
 }
 
+void free_polarization_arrays(void)
+{
+int i;
+#define FREE(var) { free(var); var=NULL; }
+for(i=0;i<ntotal_polarizations;i++){
+	/* Accumulation arrays */
+	FREE(polarization_results[i].fine_grid_sum);
+	#ifdef COMPUTE_SIGMA
+	FREE(polarization_results[i].fine_grid_sq_sum);
+	#endif
+
+
+	#ifdef WEIGHTED_SUM
+	FREE(polarization_results[i].fine_grid_weight);
+	
+	FREE(polarization_results[i].skymap.total_weight);
+	#else
+	FREE(polarization_results[i].fine_grid_count);
+	
+	FREE(polarization_results[i].skymap.total_count);
+	#endif
+
+	/* Output arrrays - skymaps*/
+	FREE(polarization_results[i].skymap.max_sub_weight);
+	FREE(polarization_results[i].skymap.max_dx);
+	FREE(polarization_results[i].skymap.M_map);
+	FREE(polarization_results[i].skymap.S_map);
+	FREE(polarization_results[i].skymap.max_upper_limit);
+	FREE(polarization_results[i].skymap.max_lower_limit);
+	FREE(polarization_results[i].skymap.freq_map);
+	FREE(polarization_results[i].skymap.cor1);
+	FREE(polarization_results[i].skymap.cor2);
+	FREE(polarization_results[i].skymap.ks_test);
+	FREE(polarization_results[i].skymap.ks_count);
+
+	if(args_info.compute_betas_arg){
+		FREE(polarization_results[i].skymap.beta1);
+		FREE(polarization_results[i].skymap.beta2);
+		} else {
+		polarization_results[i].skymap.beta1=NULL;
+		polarization_results[i].skymap.beta2=NULL;
+		}
+
+	/* Output arrays - spectral plots */
+	FREE(polarization_results[i].spectral_plot.max_upper_limit);
+	FREE(polarization_results[i].spectral_plot.ul_dec);
+	FREE(polarization_results[i].spectral_plot.ul_ra);
+	FREE(polarization_results[i].spectral_plot.max_dx);
+	FREE(polarization_results[i].spectral_plot.dx_dec);
+	FREE(polarization_results[i].spectral_plot.dx_ra);
+	FREE(polarization_results[i].spectral_plot.max_mask_ratio);
+	}
+}
+
 void clear_polarization_arrays(void)
 {
 int i,k;

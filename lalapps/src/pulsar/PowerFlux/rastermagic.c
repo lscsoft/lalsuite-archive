@@ -994,6 +994,63 @@ layout_density_map_plot(p, dm, x_count, y_count);
 draw_density_map_d(p, 0, 0, dm, z, x_count, y_count, step_x, step_y);
 }
 
+void plot_grid_xy_d(RGBPic *p, int x, int y, DENSITY_MAP *dm, SKY_GRID *grid, double *z, int step)
+{
+int k,kk,m;
+double z0,dz;
+int color,x0,y0;
+int lz;
+
+dm->actual_width=grid->max_x*dm->x_pixels_per_point;
+dm->actual_height=grid->max_y*dm->y_pixels_per_point;
+
+
+
+lz=dm->logscale_z;
+
+
+if(lz && (dm->lower_z<0)){
+	fprintf(stderr,"numbers must be positive for logscale_z mode\n");
+	lz=0;
+	}
+
+if(lz){
+	dz=log10(dm->upper_z)-log10(dm->lower_z);
+	if(dz<=0)dz=1;
+	} else {
+	dz=dm->upper_z-dm->lower_z;
+	if(dz<=0)dz=1;
+	}
+RGBPic_clear_area(p,dm->bg_color,x,y,x+dm->actual_width-1,y+dm->actual_height-1);
+
+for(kk=0;kk<grid->npoints;kk++) {
+	z0=z[kk*step]-dm->lower_z;
+	if(z0<-0.0001)continue;
+	if(lz){
+		z0=log10(z0)/dz; /* normalize so it is between 0 and 1 */
+		} else {
+		z0=z0/dz; /* normalize so it is between 0 and 1 */
+		}
+	if(z0>1.0001)continue;
+
+	color=z_to_color(dm->palette,z0);
+
+	if(dm->flip_x){
+		x0=x+(grid->max_x-grid->x[kk]-1)*dm->x_pixels_per_point;
+		} else {
+		x0=x+(grid->x[kk])*dm->x_pixels_per_point;
+		}
+	if(dm->flip_y){
+		y0=y+(grid->max_y-grid->y[kk]-1)*dm->y_pixels_per_point;
+		} else {
+		y0=y+grid->y[kk]*dm->y_pixels_per_point;
+		}
+	for(m=0;m<dm->y_pixels_per_point;m++)
+		for(k=0;k<dm->x_pixels_per_point;k++)
+			DRAW_POINT(p,x0+k,y0+m,color);
+	}
+}
+
 void plot_grid_d(RGBPic *p, SKY_GRID *grid, double *z, int step)
 {
 DENSITY_MAP *dm;

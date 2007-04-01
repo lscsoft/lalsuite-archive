@@ -164,6 +164,7 @@ return (a*a);
 void init_polarizations0(void);
 void init_polarizations1(POLARIZATION *polarizations, SKY_GRID_TYPE *AM_coeffs_plus, SKY_GRID_TYPE *AM_coeffs_cross, long AM_coeffs_size);
 void allocate_polarization_arrays(void);
+void free_polarization_arrays(void);
 void clear_polarization_arrays(void);
 void clear_accumulation_arrays(void);
 

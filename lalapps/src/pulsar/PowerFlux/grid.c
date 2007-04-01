@@ -275,23 +275,82 @@ for(i=j_start;i<j_stop;i++){
 return best_i;
 }
 
+/* This reduces the grid by eliminating band=-1 points */
+SKY_GRID * reduced_grid(SKY_GRID *g)
+{
+SKY_GRID *grid;
+REDUCED_SKY_GRID_PRIV *priv;
+int i,k;
+
+/* set all up */
+grid=do_alloc(1,sizeof(*grid));
+grid->npoints=0;
+for(i=0;i<g->npoints;i++)if(g->band[i]>=0)grid->npoints++;
+grid->max_n_dec=g->max_n_dec;
+grid->max_n_ra=g->max_n_ra;
+grid->name="reduced";
+grid->latitude=do_alloc(grid->npoints, sizeof(SKY_GRID_TYPE));
+grid->longitude=do_alloc(grid->npoints, sizeof(SKY_GRID_TYPE));
+
+grid->max_x=g->max_x;
+grid->max_y=g->max_y;
+grid->x=do_alloc(grid->npoints, sizeof(*(grid->x)));
+grid->y=do_alloc(grid->npoints, sizeof(*(grid->y)));
+
+grid->nbands_size=2000;
+grid->nbands=g->nbands;
+grid->band_name=do_alloc(grid->nbands_size, sizeof(*grid->band_name));
+for(i=0;i<grid->nbands;i++)grid->band_name[i]=strdup(g->band_name[i]);
+
+grid->band=do_alloc(grid->npoints, sizeof(*grid->band));
+grid->band_f=do_alloc(grid->npoints, sizeof(*grid->band_f));
+for(i=0;i<GRID_E_COUNT;i++)
+	grid->e[i]=do_alloc(grid->npoints, sizeof(SKY_GRID_TYPE));
+priv=do_alloc(1, sizeof(*priv));
+priv->original_index=do_alloc(grid->npoints, sizeof(*(priv->original_index)));
+grid->grid_priv=priv;
+
+/* fill in the points */
+k=0;
+for(i=0;i<g->npoints;i++) {
+	if(g->band[i]<0)continue;
+	priv->original_index[k]=i;
+	grid->latitude[k]=g->latitude[i];
+	grid->longitude[k]=g->longitude[i];
+	grid->band[k]=g->band[i];
+	grid->band_f[k]=g->band_f[i];
+	grid->x[k]=g->x[i];
+	grid->y[k]=g->y[i];
+	k++;
+	}
+
+precompute_values(grid);
+return grid;
+}
+
 void free_grid(SKY_GRID *grid)
 {
 long i;
 /* free private fields */
-if(!strcmp(grid->name,"sin theta")){
+if(!strcmp(grid->name,"sin theta")) {
 	SIN_THETA_SKY_GRID_PRIV *priv;
 	priv=grid->grid_priv;
 	free(priv->num_ra);
 	free(priv);	
 	} else
-if(!strcmp(grid->name,"plain rectangular")){
+if(!strcmp(grid->name,"reduced")) {
+	REDUCED_SKY_GRID_PRIV *priv;
+	priv=grid->grid_priv;
+	free(priv->original_index);
+	free(priv);	
+	} else
+if(!strcmp(grid->name,"plain rectangular")) {
 	free(grid->grid_priv);
 	} else
-if(!strcmp(grid->name,"arcsin")){
+if(!strcmp(grid->name,"arcsin")) {
 	free(grid->grid_priv);
 	} else {
-	if(grid->grid_priv!=NULL){
+	if(grid->grid_priv!=NULL) {
 		fprintf(stderr,"** Unknown grid type \"%s\", possible memory leak when freeing private structure\n", grid->name);
 		fprintf(LOG,"** Unknown grid type \"%s\", possible memory leak when freeing private structure\n", grid->name);
 		free(grid->grid_priv);
@@ -613,7 +672,7 @@ if(!strncasecmp(line, "band", 4)) {
 			sky_grid->e[1][i]*y0+
 			sky_grid->e[2][i]*z0;
 
-		if((ds>level1) && (ds<level2) && ((band_from<0) || sky_grid->band[i]==band_from)){
+		if((ds>level1) && (ds<=level2) && ((band_from<0) || sky_grid->band[i]==band_from)){
 			sky_grid->band[i]=band_to;
 			sky_grid->band_f[i]=band_to;
 			}
@@ -781,6 +840,7 @@ priv=grid->grid_priv;
 sg=do_alloc(1, sizeof(*sg));
 sg->super_grid=make_sin_theta_grid(priv->resolution/factor);
 
+sg->subgrid_npoints=grid->npoints;
 sg->first_map=do_alloc(grid->npoints, sizeof(*sg->first_map));
 sg->reverse_map=do_alloc(sg->super_grid->npoints, sizeof(*sg->reverse_map));
 sg->list_map=do_alloc(sg->super_grid->npoints, sizeof(*sg->list_map));
@@ -886,6 +946,64 @@ for(k=1;k<sg->super_grid->npoints-1;k++){
 compute_list_map(sg);
 return sg;
 }
+
+SKY_SUPERGRID * reduced_supergrid(SKY_SUPERGRID *sg0)
+{
+SKY_SUPERGRID *sg;
+REDUCED_SKY_GRID_PRIV *priv;
+int i,k;
+int *new_index;
+
+sg=do_alloc(1, sizeof(*sg));
+sg->super_grid=reduced_grid(sg0->super_grid);
+priv=sg->super_grid->grid_priv;
+
+sg->subgrid_npoints=sg0->subgrid_npoints;
+sg->first_map=do_alloc(sg->subgrid_npoints, sizeof(*sg->first_map));
+sg->reverse_map=do_alloc(sg->super_grid->npoints, sizeof(*sg->reverse_map));
+sg->list_map=do_alloc(sg->super_grid->npoints, sizeof(*sg->list_map));
+sg->max_npatch=sg0->max_npatch;
+
+fprintf(stderr,"reduced npoints=%d to npoints=%d\n", sg0->super_grid->npoints, sg->super_grid->npoints);
+
+new_index=do_alloc(sg0->super_grid->npoints, sizeof(*new_index));
+for(i=0;i<sg0->super_grid->npoints;i++)new_index[i]=-1;
+for(i=0;i<sg->super_grid->npoints;i++)new_index[priv->original_index[i]]=i;
+
+for(i=0;i<sg->subgrid_npoints;i++) {
+	k=sg0->first_map[i];
+	if(k<0) {
+		sg->first_map[i]=k;
+		} else {
+		while( (sg0->super_grid->band[k]<0) && (sg0->list_map[k]>=0))k=sg0->list_map[k];
+		sg->first_map[i]=new_index[k]; /* will be -1 if band[k]<0 */
+		}
+
+	}
+
+for(i=0;i<sg->super_grid->npoints;i++) {
+	sg->reverse_map[i]=sg0->reverse_map[priv->original_index[i]];
+
+	k=sg0->list_map[priv->original_index[i]];
+	while( (k>=0) && (sg0->super_grid->band[k]<0))k=sg0->list_map[k];
+	if(k<0)sg->list_map[i]=-1;
+		else sg->list_map[i]=new_index[k];
+	}
+free(new_index);
+return(sg);
+}
+
+void free_supergrid(SKY_SUPERGRID *sg)
+{
+free(sg->first_map);
+free(sg->list_map);
+free(sg->reverse_map);
+free_grid(sg->super_grid);
+sg->first_map=NULL;
+sg->list_map=NULL;
+sg->reverse_map=NULL;
+}
+
 
 void rotate_xz(SKY_GRID_TYPE RA_in, SKY_GRID_TYPE DEC_in, 
 			SKY_GRID_TYPE * RA_out, SKY_GRID_TYPE * DEC_out, 

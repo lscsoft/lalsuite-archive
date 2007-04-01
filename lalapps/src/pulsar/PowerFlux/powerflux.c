@@ -62,7 +62,7 @@ int fake_injection=0;
 int no_am_response;
 
 SKY_GRID *fine_grid=NULL;
-SKY_SUPERGRID *super_grid=NULL;
+SKY_SUPERGRID *super_grid=NULL, *proto_super_grid=NULL;
 SKY_GRID *patch_grid=NULL;
 
 char *output_dir;
@@ -269,20 +269,20 @@ if(args_info.skymap_resolution_given){
 fprintf(LOG,"resolution : %f\n", resolution);
 if(!strcasecmp("sin_theta", args_info.sky_grid_arg)){
 	patch_grid=make_sin_theta_grid(resolution*args_info.fine_factor_arg);
-	super_grid=make_sin_theta_supergrid(patch_grid, args_info.fine_factor_arg);
+	proto_super_grid=make_sin_theta_supergrid(patch_grid, args_info.fine_factor_arg);
 	} else
 if(!strcasecmp("plain_rectangular", args_info.sky_grid_arg)){
 	patch_grid=make_rect_grid(ceil(2.0*M_PI/(resolution*args_info.fine_factor_arg)), ceil(M_PI/(resolution*args_info.fine_factor_arg)));
-	super_grid=make_rect_supergrid(patch_grid, args_info.fine_factor_arg, args_info.fine_factor_arg);
+	proto_super_grid=make_rect_supergrid(patch_grid, args_info.fine_factor_arg, args_info.fine_factor_arg);
 	} else
 if(!strcasecmp("arcsin", args_info.sky_grid_arg)){
 	patch_grid=make_arcsin_grid(ceil(2.0*M_PI/(resolution*args_info.fine_factor_arg)), ceil(M_PI/(resolution*args_info.fine_factor_arg)));
-	super_grid=make_rect_supergrid(patch_grid, args_info.fine_factor_arg, args_info.fine_factor_arg);
+	proto_super_grid=make_rect_supergrid(patch_grid, args_info.fine_factor_arg, args_info.fine_factor_arg);
 	} else {
 	fprintf(stderr,"*** Unknown sky grid type: \"%s\"\n", args_info.sky_grid_arg);
 	exit(-1);
 	}
-fine_grid=super_grid->super_grid;
+fine_grid=proto_super_grid->super_grid;
 
 fprintf(stderr,"fine grid: max_n_ra=%d max_n_dec=%d\n", 
 	fine_grid->max_n_ra, fine_grid->max_n_dec);
@@ -327,9 +327,9 @@ first_bin=args_info.first_bin_arg-side_cut;
 useful_bins=args_info.nbins_arg;
 nbins=args_info.nbins_arg+2*side_cut;
 
-if(fine_grid->max_n_dec<800){
+if(fine_grid->max_n_dec<800) {
 	p=make_RGBPic(fine_grid->max_n_ra*(800/fine_grid->max_n_dec)+140, fine_grid->max_n_dec*(800/fine_grid->max_n_dec));
-	} else 
+	} else
 	p=make_RGBPic(fine_grid->max_n_ra+140, fine_grid->max_n_dec);
 
 plot=make_plot(p->width, p->height);
@@ -444,12 +444,12 @@ if(args_info.sky_marks_file_given) {
 		if(a<10000)break;
 
 		if(sky_marks_free+10000>=sky_marks_size) {
-			char *p;
+			char *ptr;
 			sky_marks_size*=2;
-			p=do_alloc(sky_marks_size, sizeof(char));
-			memcpy(p, sky_marks, sky_marks_free);
+			ptr=do_alloc(sky_marks_size, sizeof(char));
+			memcpy(ptr, sky_marks, sky_marks_free);
 			free(sky_marks);
-			sky_marks=p;
+			sky_marks=ptr;
 			}
 		}
 	fclose(f);
@@ -720,15 +720,17 @@ for(subinstance=0;subinstance<args_info.spindown_count_arg;subinstance++){
    		fprintf(LOG, "focus dec   : %f\n", args_info.focus_dec_arg);
    		fprintf(LOG, "focus radius: %f\n", args_info.focus_radius_arg);
    		mask_far_points(fine_grid, args_info.focus_ra_arg, args_info.focus_dec_arg, args_info.focus_radius_arg);
-		propagate_far_points_from_super_grid(patch_grid, super_grid);
+		propagate_far_points_from_super_grid(patch_grid, proto_super_grid);
    		}
 
 	if(args_info.only_large_cos_given){
 		fprintf(LOG, "only large cos level: %f\n", args_info.only_large_cos_arg);
    		mask_small_cos(fine_grid, band_axis[0], band_axis[1], band_axis[3], args_info.only_large_cos_arg);
-		propagate_far_points_from_super_grid(patch_grid, super_grid);
+		propagate_far_points_from_super_grid(patch_grid, proto_super_grid);
 		}
 
+	super_grid=reduced_supergrid(proto_super_grid);
+	fine_grid=super_grid->super_grid;
 
 	print_grid_statistics(LOG, subinstance_name, fine_grid);
 
@@ -741,9 +743,15 @@ for(subinstance=0;subinstance<args_info.spindown_count_arg;subinstance++){
 	fflush(LOG);
 
 	/* MAIN LOOP stage */
+	fine_grid_allocate_arrays();
 	fine_grid_stage();
 
 	fflush(LOG);
+
+	fine_grid_free_arrays();
+	fine_grid=proto_super_grid->super_grid;
+	free_supergrid(super_grid);
+	super_grid=NULL;
 	}
 
 output_candidates(LOG);
