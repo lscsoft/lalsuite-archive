@@ -475,6 +475,7 @@ class SnglBurstTable(table.Table):
 	}
 	constraints = "PRIMARY KEY (event_id)"
 	ids = SnglBurstIDs()
+	interncolumns = ("process_id", "ifo", "search", "channel")
 
 
 class SnglBurst(object):
@@ -1650,6 +1651,7 @@ class CoincTable(table.Table):
 	}
 	constraints = "PRIMARY KEY (coinc_event_id)"
 	ids = CoincIDs()
+	interncolumns = ("process_id", "coinc_def_id")
 
 
 class Coinc(object):
@@ -1675,6 +1677,7 @@ class CoincMapTable(table.Table):
 		"table_name": "char_v",
 		"event_id": "ilwd:char"
 	}
+	interncolumns = ("table_name",)
 
 
 class CoincMap(object):

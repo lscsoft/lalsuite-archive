@@ -416,19 +416,58 @@ class Column(ligolw.Column):
 #
 
 
-class RowBuilder(object):
-	__slots__ = ["rowtype", "attributes", "row", "i"]
+#
+# FIXME:  the "interning" features is commented out until this has been
+# thought through properly.  This feature is designed to reduce the memory
+# pressure from heavy weight tables such as sngl_burst and sngl_inspiral.
+# Often the string-valued columns in these tables will have nearly
+# identical values in all rows, for example the "search" column of the
+# sngl_burst table contains exactly the same string in every row (when only
+# the triggers from a single search are present, which is usual).
+#
+# It's not clear how to do this correctly.  For example, how does a string
+# get un-interned?  And experiments show that enabling this feature gives
+# about a factor of 2 reduction in RAM requirements for typical, large,
+# documents, so it's not clear that it's worth the added complexity.  An
+# application that is within a factor of 2 of being unusable will probably
+# need to have its RAM problems fixed some other way, anyway.  Also note
+# that the DBTable class must *not* be used with interning enabled, or it
+# defeats one of the reasons for storing the data in an external database.
+#
+# To enable the feature, uncomment _interns below, then in the RowBuilder
+# class replace the single setattr() with the commented-out if/else
+# construct.  Finally, add a default value for the interncolumns attribute
+# to your favourite table in glue.ligolw.lsctables (see SnglBurstTable for
+# an example).
+#
 
-	def __init__(self, rowtype, attributes):
+
+#_interns = {}
+
+
+class RowBuilder(object):
+	__slots__ = ["rowtype", "attributes", "interns", "row", "i"]
+
+	def __init__(self, rowtype, attributes, interns):
 		self.rowtype = rowtype
 		self.attributes = tuple(attributes)
 		if len(self.attributes) < 1:
 			raise ValueError, attributes
+		if interns is None:
+			self.interns = tuple([False] * len(self.attributes))
+		else:
+			self.interns = tuple(interns)
+			if len(self.interns) != len(attributes):
+				raise ValueError, interns
 		self.row = self.rowtype()
 		self.i = 0
 
 	def append(self, tokens):
 		for token in tokens:
+			#if self.interns[self.i]:
+			#	setattr(self.row, self.attributes[self.i], _interns.setdefault(token, token))
+			#else:
+			#	setattr(self.row, self.attributes[self.i], token)
 			setattr(self.row, self.attributes[self.i], token)
 			self.i += 1
 			if self.i >= len(self.attributes):
@@ -454,7 +493,9 @@ class TableStream(ligolw.Stream):
 		# parentNode, and so cannot be done inside the __init__()
 		# function.
 		self.__tokenizer.set_types([(parentNode.loadcolumns is None or colname in parentNode.loadcolumns or None) and pytype for pytype, colname in zip(parentNode.columnpytypes, parentNode.columnnames)])
-		self.__rowbuilder = RowBuilder(parentNode.RowType, [colname for colname in parentNode.columnnames if parentNode.loadcolumns is None or colname in parentNode.loadcolumns])
+		columnnames = [name for name in parentNode.columnnames if parentNode.loadcolumns is None or name in parentNode.loadcolumns]
+		interns = [name in (parentNode.interncolumns or tuple()) for name in columnnames]
+		self.__rowbuilder = RowBuilder(parentNode.RowType, columnnames, interns)
 		return self
 
 	def appendData(self, content):
@@ -527,6 +568,7 @@ class Table(ligolw.Table, list):
 	"""
 	validcolumns = None
 	loadcolumns = None
+	interncolumns = None
 	constraints = None
 	RowType = TableRow
 	ids = None
