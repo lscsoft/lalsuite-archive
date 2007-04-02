@@ -39,7 +39,6 @@ from glue import segments
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import param
-from glue.ligolw import array
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from pylal.date import XLALUTCToGPS
@@ -259,13 +258,13 @@ def append_process_params(doc, process, params):
 	"""
 	paramtable = table.get_table(doc, lsctables.ProcessParamsTable.tableName)
 	for name, type, value in params:
-		param = lsctables.ProcessParams()
-		param.program = process.program
-		param.process_id = process.process_id
-		param.param = str(name)
-		param.type = str(type)
-		param.value = str(value)
-		paramtable.append(param)
+		row = lsctables.ProcessParams()
+		row.program = process.program
+		row.process_id = process.process_id
+		row.param = str(name)
+		row.type = str(type)
+		row.value = str(value)
+		paramtable.append(row)
 	return process
 
 
@@ -275,7 +274,7 @@ def get_process_params(xmldoc, program, param):
 		raise ValueError, "process table must contain exactly one program named %s" % program
 	values = []
 	for row in table.get_table(xmldoc, lsctables.ProcessParamsTable.tableName):
-		if row.process_id in process_ids:
+		if (row.process_id in process_ids) and (row.param == param):
 			values.append(row.value)
 	return values
 
