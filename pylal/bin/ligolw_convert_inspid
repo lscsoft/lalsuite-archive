@@ -346,7 +346,7 @@ def populate_coinc_event_sngls(xmldoc):
 		coinc.coinc_event_id = coinc_event.ids.next()
 		# time_slide_id is digits 9--12 (inclusively, zero-origin)
 		# of the event_id
-		coinc.time_slide_id = lsctables.TimeSlideTable.ids[(ilwd.ILWDID(events[0].event_id) / long(1e9)) % long(1e13)]
+		coinc.time_slide_id = lsctables.TimeSlideTable.ids[(ilwd.ILWDID(events[0].event_id) / long(1e9)) % long(1e4)]
 		coinc.nevents = len(events)
 		coinc.likelihood = 1.0
 		coinc_event.append(coinc)
@@ -427,7 +427,7 @@ def populate_coinc_event_sims(xmldoc):
 		coinc.coinc_event_id = coinc_event.ids.next()
 		# time_slide_id is digits 9--12 (inclusively, zero-origin)
 		# of the event_id
-		coinc.time_slide_id = lsctables.TimeSlideTable.ids[(ilwd.ILWDID(events[0].event_id) / long(1e9)) % long(1e13)]
+		coinc.time_slide_id = lsctables.TimeSlideTable.ids[(ilwd.ILWDID(events[0].event_id) / long(1e9)) % long(1e4)]
 		coinc.nevents = len(events)
 		coinc_event.append(coinc)
 
