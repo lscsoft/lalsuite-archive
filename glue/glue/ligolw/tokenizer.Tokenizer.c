@@ -282,12 +282,11 @@ static PyObject *append(PyObject *self, PyObject *data)
 		fail = add_to_data((ligolw_Tokenizer *) self, data);
 	} else if(PyString_Check(data)) {
 		/* decode to unicode */
-		PyObject *unicode = PyUnicode_FromEncodedObject(data, NULL, NULL);
-		if(!unicode)
+		if(!(data = PyUnicode_FromObject(data)))
 			/* decode failure */
 			return NULL;
 		fail = add_to_data((ligolw_Tokenizer *) self, data);
-		Py_DECREF(unicode);
+		Py_DECREF(data);
 	} else {
 		PyErr_SetObject(PyExc_TypeError, data);
 		return NULL;
