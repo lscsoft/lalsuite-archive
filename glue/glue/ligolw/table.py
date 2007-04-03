@@ -417,32 +417,8 @@ class Column(ligolw.Column):
 
 
 #
-# FIXME:  the "interning" features is commented out until this has been
-# thought through properly.  This feature is designed to reduce the memory
-# pressure from heavy weight tables such as sngl_burst and sngl_inspiral.
-# Often the string-valued columns in these tables will have nearly
-# identical values in all rows, for example the "search" column of the
-# sngl_burst table contains exactly the same string in every row (when only
-# the triggers from a single search are present, which is usual).
+# Row builder class.
 #
-# It's not clear how to do this correctly.  For example, how does a string
-# get un-interned?  And experiments show that enabling this feature gives
-# about a factor of 2 reduction in RAM requirements for typical, large,
-# documents, so it's not clear that it's worth the added complexity.  An
-# application that is within a factor of 2 of being unusable will probably
-# need to have its RAM problems fixed some other way, anyway.  Also note
-# that the DBTable class must *not* be used with interning enabled, or it
-# defeats one of the reasons for storing the data in an external database.
-#
-# To enable the feature, uncomment _interns below, then in the RowBuilder
-# class replace the single setattr() with the commented-out if/else
-# construct.  Finally, add a default value for the interncolumns attribute
-# to your favourite table in glue.ligolw.lsctables (see SnglBurstTable for
-# an example).
-#
-
-
-#_interns = {}
 
 
 class RowBuilder(object):
@@ -469,10 +445,38 @@ class RowBuilder(object):
 	6.7999999999999998
 	>>> l[1].time
 	15
-	"""
-	__slots__ = ["rowtype", "attributes", "interns", "row", "i"]
 
-	def __init__(self, rowtype, attributes, interns = None):
+	Hint:  If you wish to try to save memory by "interning" the values
+	in certain columns of a table, try sub-classing this and replacing
+	the append method with your own.
+
+	Example:
+
+	>>> strings = {}
+	>>> OldRowBuilder = RowBuilder
+	>>> class MyRowBuilder(RowBuilder):
+	...	def append(self, tokens):
+	...		for row in OldRowBuilder.append(self, tokens):
+	...			if hasattr(row, "channel"):
+	...				row.channel = strings.setdefault(row.channel, row.channel)
+	...			yield row
+	...
+	>>> RowBuilder = MyRowBuilder
+
+	This will significantly slow down table parsing, but for now this
+	approach of allowing individual applications to override row
+	construction on an as-desired basis seems to be the best way to
+	implement the feature without adding a great deal of complexity.
+	Note that when initialized the RowBuilder class is passed the
+	interns argument which is an iterable of attribute names that
+	should be considered for interning.  These names come from hints
+	stored in the Table class definitions, and will have been filtered
+	so that only names corresponding to columns actually in the table
+	will be listed.
+	"""
+	__slots__ = ["rowtype", "attributes", "N", "interns", "row", "i"]
+
+	def __init__(self, rowtype, attributes, interns = tuple()):
 		"""
 		Initialize an instance of the RowBuilder class.  The
 		rowtype argument provides a class which will be repeatedly
@@ -490,14 +494,10 @@ class RowBuilder(object):
 		"""
 		self.rowtype = rowtype
 		self.attributes = tuple(attributes)
-		if len(self.attributes) < 1:
+		self.N = len(self.attributes)
+		if self.N < 1:
 			raise ValueError, attributes
-		if interns is None:
-			self.interns = tuple([False] * len(self.attributes))
-		else:
-			self.interns = tuple(interns)
-			if len(self.interns) != len(attributes):
-				raise ValueError, interns
+		self.interns = tuple(interns)
 		self.row = self.rowtype()
 		self.i = 0
 
@@ -520,16 +520,17 @@ class RowBuilder(object):
 		...
 		"""
 		for token in tokens:
-			#if self.interns[self.i]:
-			#	setattr(self.row, self.attributes[self.i], _interns.setdefault(token, token))
-			#else:
-			#	setattr(self.row, self.attributes[self.i], token)
 			setattr(self.row, self.attributes[self.i], token)
 			self.i += 1
-			if self.i >= len(self.attributes):
+			if self.i >= self.N:
 				yield self.row
 				self.row = self.rowtype()
 				self.i = 0
+
+
+#
+# Stream element class.
+#
 
 
 class TableStream(ligolw.Stream):
@@ -550,8 +551,8 @@ class TableStream(ligolw.Stream):
 		# function.
 		self.__tokenizer.set_types([(parentNode.loadcolumns is None or colname in parentNode.loadcolumns or None) and pytype for pytype, colname in zip(parentNode.columnpytypes, parentNode.columnnames)])
 		columnnames = [name for name in parentNode.columnnames if parentNode.loadcolumns is None or name in parentNode.loadcolumns]
-		interns = [name in (parentNode.interncolumns or tuple()) for name in columnnames]
-		self.__rowbuilder = RowBuilder(parentNode.RowType, columnnames, interns)
+		interncolumns = [name for name in (parentNode.interncolumns or tuple()) if name in columnnames]
+		self.__rowbuilder = RowBuilder(parentNode.RowType, columnnames, interncolumns)
 		return self
 
 	def appendData(self, content):
