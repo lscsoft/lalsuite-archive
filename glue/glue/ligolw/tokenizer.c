@@ -58,8 +58,8 @@ void inittokenizer(void)
 	 * Add the Tokenizer class.
 	 */
 
-	if(PyType_Ready(&ligolw_tokenizer_Tokenizer_Type) < 0)
+	if(PyType_Ready(&ligolw_Tokenizer_Type) < 0)
 		return;
-	Py_INCREF(&ligolw_tokenizer_Tokenizer_Type);
-	PyModule_AddObject(module, "Tokenizer", (PyObject *) &ligolw_tokenizer_Tokenizer_Type);
+	Py_INCREF(&ligolw_Tokenizer_Type);
+	PyModule_AddObject(module, "Tokenizer", (PyObject *) &ligolw_Tokenizer_Type);
 }

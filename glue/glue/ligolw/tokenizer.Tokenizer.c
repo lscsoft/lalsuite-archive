@@ -329,17 +329,21 @@ static void __del__(PyObject *self)
 static int __init__(PyObject *self, PyObject *args, PyObject *kwds)
 {
 	ligolw_Tokenizer *tokenizer = (ligolw_Tokenizer *) self;
-	Py_UNICODE *delimiter;
+	PyObject *arg;
 	int delimiter_length;
 
-	if(!PyArg_ParseTuple(args, "u#", &delimiter, &delimiter_length))
+	if(!PyArg_ParseTuple(args, "O", &arg))
 		return -1;
+	if(!(arg = PyUnicode_FromObject(arg)))
+		return -1;
+	delimiter_length = PyUnicode_GET_SIZE(arg);
+	tokenizer->delimiter = *PyUnicode_AS_UNICODE(arg);
+	Py_DECREF(arg);
 	if(delimiter_length != 1) {
 		PyErr_SetString(PyExc_ValueError, "delimiter must have length 1");
 		return -1;
 	}
 
-	tokenizer->delimiter = *delimiter;
 	tokenizer->types = malloc(1 * sizeof(*tokenizer->types));
 	tokenizer->types_length = &tokenizer->types[1];
 	tokenizer->types[0] = (PyObject *) &PyUnicode_Type;
@@ -507,7 +511,7 @@ static struct PyMethodDef methods[] = {
 };
 
 
-PyTypeObject ligolw_tokenizer_Tokenizer_Type = {
+PyTypeObject ligolw_Tokenizer_Type = {
 	PyObject_HEAD_INIT(NULL)
 	.tp_basicsize = sizeof(ligolw_Tokenizer),
 	.tp_dealloc = __del__,

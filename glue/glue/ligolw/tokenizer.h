@@ -39,4 +39,4 @@
  */
 
 
-extern PyTypeObject ligolw_tokenizer_Tokenizer_Type;
+extern PyTypeObject ligolw_Tokenizer_Type;
