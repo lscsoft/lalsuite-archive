@@ -430,19 +430,27 @@ def tophat_window2d(bins_x, bins_y):
 	"""
 	Generate a normalized (integral = 1) top-hat window in 2
 	dimensions.  bins_x and bins_y set the widths of the window in bin
-	counts.
+	counts.  The result is a rectangular array, with an elliptical
+	pattern of elements set to a constant value centred on the array's
+	mid-point, and all other elements set to 0.
 	"""
 	if bins_x <= 0:
 		raise ValueError, bins_x
 	if bins_y <= 0:
 		raise ValueError, bins_y
 
-	# fill rectangle with ones
+	# This might appear to be using a screwy, slow, algorithm but it's
+	# the only way I have found to get a window with the correct bins
+	# set and cleared as appropriate.  I'd love this to be replaced by
+	# something that's easier to know is correct.
+
+	# fill rectangle with ones, making the number of bins odd in each
+	# direction
 	window = numpy.ones((int(bins_x / 2) * 2 + 1, int(bins_y / 2) * 2 + 1), "Float64")
 
 	# zero the bins outside the window
-	for x in xrange(int(bins_x / 2) * 2 + 1):
-		for y in xrange(int(bins_y / 2) * 2 + 1):
+	for x in xrange(window.shape[0]):
+		for y in xrange(window.shape[1]):
 			if ((x - window.shape[0] / 2) / float(bins_x) * 2.0)**2 + ((y - window.shape[1] / 2) / float(bins_y) * 2.0)**2 > 1.0:
 				window[x, y] = 0.0
 
@@ -512,6 +520,37 @@ def filter_array(a, window, cyclic = False):
 	return a
 
 
+def filter_binned_ratios(ratios, window, cyclic = False):
+	"""
+	Convolve the numerator and denominator of a BinnedRatios instance
+	each with the same window function.  This has the effect of
+	interpolating the ratio of the two betweeen bins where it has been
+	measured, weighting bins by the number of measurements made in
+	each.  For example, consider a 1-dimensional binning, with zeros in
+	the denominator and numerator bins everywhere except in one bin
+	where both are set to 1.0.  The ratio is 1.0 in that bin, and
+	undefined everywhere else, where it has not been measured.
+	Convolving both numerator and denominator with a Gaussian window
+	will replace the "delta function" in each with a smooth hill
+	spanning a number of bins, but the same smooth hill will be seen in
+	both the numerator and the denominator bins, and so the ratio of
+	the two is now exactly 1 everywhere the window function had
+	support.  Contrast this to the result of convolving the ratio with
+	a window function.
+
+	Convolving the numerator and denominator bins separately with a
+	window function (what this function does) is normally what you want
+	to be doing.
+
+	Note that you should be using the window functions defined in this
+	module, which are carefully designed to be norm preserving (the
+	integrals of the numerator and denominator bins are preserved), and
+	phase preserving.
+	"""
+	filter_array(ratios.numerator, window, cyclic = cyclic)
+	filter_array(ratios.denominator, window, cyclic = cyclic)
+
+
 #
 # =============================================================================
 #
@@ -568,44 +607,3 @@ class Rate(BinnedArray):
 		rate data.
 		"""
 		return filter_array(self.array, self.window(), cyclic = cyclic)
-
-
-class RatiosRate(BinnedRatios):
-	"""
-	An object for binning and smoothing impulsive rate information in 1
-	dimension, normalized so as to measure rate per filter width.
-	"""
-	def __init__(self, segment, filterwidth, windowfunc = gaussian_window):
-		"""
-		Initialize the bins for the given segment and filter width.
-		"""
-		self.filterwidth = filterwidth
-		self.windowfunc = windowfunc
-		# nominal bin size is 1/20th of the filterwidth
-		BinnedRatios.__init__(self, Bins(segment[0], segment[1], int(abs(segment) / (filterwidth / 20.0)) + 1))
-		# determine actual bin size from bin count
-		self.binsize = float(abs(segment)) / self.bins.shape[0]
-
-	def set_filterwidth(self, filterwidth):
-		"""
-		Adjust the window function's width.
-		"""
-		if filterwidth / self.binsize < 3:
-			raise ValueError, "filter too narrow (less than 3 bins)"
-		self.filterwidth = filterwidth
-
-	def window(self):
-		"""
-		Generate the window function.
-		"""
-		return self.windowfunc(self.filterwidth / self.binsize) / self.binsize
-
-	def xvals(self):
-		return self.centres()[0]
-
-	def filtered(self, cyclic = False):
-		"""
-		Convolve the ratio data with the window function to
-		generate the ratio rate data.
-		"""
-		return filter_array(self.ratio(), self.window(), cyclic = cyclic)
