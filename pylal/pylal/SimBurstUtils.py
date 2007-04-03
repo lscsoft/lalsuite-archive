@@ -114,9 +114,7 @@ class Efficiency_hrss_vs_freq(object):
 		# number of made injections) to be preserved separately,
 		# not the integral of the efficiency curve (which would be
 		# meaningless).
-		windowfunc = rate.gaussian_window2d(window_size, window_size)
-		rate.filter_array(self.efficiency.numerator, windowfunc)
-		rate.filter_array(self.efficiency.denominator, windowfunc)
+		rate.filter_binned_ratios(self.efficiency, rate.gaussian_window2d(window_size, window_size))
 
 		# regularize to prevent divide-by-zero errors
 		self.efficiency.regularize()
