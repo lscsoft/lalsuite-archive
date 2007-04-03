@@ -97,7 +97,7 @@ if version_info >= (2, 3):
     cmdclass = { 'install' : glue_install, 'sdist' : glue_sdist },
     py_modules = [ 'glue.segfindserver.segments_1_7.segments' ],
     ext_modules = [
-      Extension("glue.ligolw.tokenizer", ["glue/ligolw/tokenizer.c", "glue/ligolw/tokenizer.Tokenizer.c"], include_dirs = ["glue/ligolw"]),
+      Extension("glue.ligolw.tokenizer", ["glue/ligolw/tokenizer.c", "glue/ligolw/tokenizer.Tokenizer.c", "glue/ligolw/tokenizer.RowBuilder.c"], include_dirs = ["glue/ligolw"]),
       Extension("glue.__segments", ["src/segments/segments.c", "src/segments/infinity.c", "src/segments/segment.c", "src/segments/segmentlist.c"], include_dirs = ["src/segments"])
     ],
     scripts = [
