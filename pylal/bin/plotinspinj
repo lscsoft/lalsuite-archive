@@ -105,7 +105,8 @@ parser.add_option("-D","--dist-axis",action="store",type="float",\
     default=0,metavar=" FRAC_DIFF",help="width of distance accuracy in plots")
 
 parser.add_option("", "--ethinca-vs-diff", dest="ethinca_vs_diff", \
-    action='append', help="plot maximum ethinca parameter for which "\
+    action='append', default=[], \
+    help="plot maximum ethinca parameter for which "\
     "the trigger's ellipse encloses the true injection params "\
     "vs difference in given column between injection and trigger")
 parser.add_option("", "--log-x", action="store_true", default=False,\
