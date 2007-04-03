@@ -446,9 +446,48 @@ class Column(ligolw.Column):
 
 
 class RowBuilder(object):
+	"""
+	This class provides the logic required to transform a sequence of
+	of tokens parsed out of the delimited text of a Stream element into
+	a sequence of row objects for insertion into a Table element.  An
+	instance of this class is initialized with a Python class, to be
+	instantiated to form row objects, and an iterable providing the
+	names of the row class' attributes to which tokens will be assigned
+	in order.
+
+	Example:
+
+	>>> from glue.ligolw import tokenizer
+	>>> class Row(object):
+	...	pass
+	...
+	>>> t = tokenizer.Tokenizer(u",")
+	>>> t.set_types([int, float])
+	>>> rows = RowBuilder(Row, ["time", "snr"])
+	>>> l = list(rows.append(t.append(u"10,6.8,15,29.1,")))
+	>>> l[0].snr
+	6.7999999999999998
+	>>> l[1].time
+	15
+	"""
 	__slots__ = ["rowtype", "attributes", "interns", "row", "i"]
 
-	def __init__(self, rowtype, attributes, interns):
+	def __init__(self, rowtype, attributes, interns = None):
+		"""
+		Initialize an instance of the RowBuilder class.  The
+		rowtype argument provides a class which will be repeatedly
+		instantiated to create new row objects as needed.  The
+		attributes argument is an iterable providing a sequence of
+		strings giving the names of the attributes of the rowtype
+		class to which tokens will be assigned.  The attributes
+		will be assigned to cyclically, starting with the first
+		attribute in the sequence.
+
+		Example:
+
+		>>> rows = RowBuilder(Row, ["time", "snr"])
+
+		"""
 		self.rowtype = rowtype
 		self.attributes = tuple(attributes)
 		if len(self.attributes) < 1:
@@ -463,6 +502,23 @@ class RowBuilder(object):
 		self.i = 0
 
 	def append(self, tokens):
+		"""
+		Append a sequence of tokens to the row builder, returning
+		an iterator for generating a sequence of new row instances.
+		The tokens argument should be an iterable, producing a
+		sequence of token objects.  If fewer tokens are yielded
+		from the iterable than are required to construct a complete
+		row, then the row is retained in its state, and its
+		construction will continue upon the next invocation.  Note
+		that it is possible that a call to this method will yield
+		no new rows at all.
+
+		Example:
+
+		>>> for row in rows.append([10, 6.8, 15, 29.1]):
+		...	print row.snr
+		...
+		"""
 		for token in tokens:
 			#if self.interns[self.i]:
 			#	setattr(self.row, self.attributes[self.i], _interns.setdefault(token, token))
