@@ -257,15 +257,22 @@ LALFindChirpClusterEvents (
         {
           /* clean up this event */
           SnglInspiralTable *lastEvent;
-          bvChisq = XLALComputeBankVeto( bankVetoData, subBankIndex,
+          if ( bankVetoData->length > 1 ) 
+          {
+            bvChisq = XLALComputeBankVeto( bankVetoData, subBankIndex,
                              thisEvent->end_time.gpsSeconds, &bvDOF);
-          thisEvent->chisq_dof = bvDOF;
+          }
+
           LALFindChirpStoreEvent(status->statusPtr, input, params,
               thisEvent, q, kmax, norm, eventStartIdx, numChisqBins, 
               searchName );
           CHECKSTATUSPTR( status );
-          thisEvent->chisq_dof = bvDOF;
-          thisEvent->chisq = bvChisq;
+
+          if ( bankVetoData->length > 1 )
+          {
+            thisEvent->chisq_dof = bvDOF;
+            thisEvent->chisq = bvChisq;
+          }
 
           /* store the start of the crossing */
           eventStartIdx = j;
@@ -296,16 +303,21 @@ LALFindChirpClusterEvents (
 
   if ( thisEvent )
   {
-    bvChisq = XLALComputeBankVeto( bankVetoData, subBankIndex,
+    if ( bankVetoData->length > 1 )
+    {
+      bvChisq = XLALComputeBankVeto( bankVetoData, subBankIndex,
                              thisEvent->end_time.gpsSeconds, &bvDOF);
-    thisEvent->chisq_dof = bvDOF;
+    }
 
     LALFindChirpStoreEvent(status->statusPtr, input, params,
          thisEvent, q, kmax, norm, eventStartIdx, numChisqBins, 
          searchName );
-    thisEvent->chisq_dof = bvDOF;
-    thisEvent->chisq = bvChisq;
 
+    if ( bankVetoData->length > 1 )
+    {
+      thisEvent->chisq_dof = bvDOF;
+      thisEvent->chisq = bvChisq;
+    }
     CHECKSTATUSPTR( status );
   }
 

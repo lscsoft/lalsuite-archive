@@ -5010,7 +5010,7 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
   }
   else
   {
-    if ( numChisqBins > 0 )
+    if ( numChisqBins > 0 && subBankSize != 1 )
     {
       fprintf( stderr, 
           "Template bank veto is incompatible with --num-chisq-bins %d\n"
