@@ -416,123 +416,6 @@ class Column(ligolw.Column):
 #
 
 
-#
-# Row builder class.
-#
-
-
-class RowBuilder(object):
-	"""
-	This class provides the logic required to transform a sequence of
-	of tokens parsed out of the delimited text of a Stream element into
-	a sequence of row objects for insertion into a Table element.  An
-	instance of this class is initialized with a Python class, to be
-	instantiated to form row objects, and an iterable providing the
-	names of the row class' attributes to which tokens will be assigned
-	in order.
-
-	Example:
-
-	>>> from glue.ligolw import tokenizer
-	>>> class Row(object):
-	...	pass
-	...
-	>>> t = tokenizer.Tokenizer(u",")
-	>>> t.set_types([int, float])
-	>>> rows = RowBuilder(Row, ["time", "snr"])
-	>>> l = list(rows.append(t.append(u"10,6.8,15,29.1,")))
-	>>> l[0].snr
-	6.7999999999999998
-	>>> l[1].time
-	15
-
-	Hint:  If you wish to try to save memory by "interning" the values
-	in certain columns of a table, try sub-classing this and replacing
-	the append method with your own.
-
-	Example:
-
-	>>> strings = {}
-	>>> OldRowBuilder = RowBuilder
-	>>> class MyRowBuilder(RowBuilder):
-	...	def append(self, tokens):
-	...		for row in OldRowBuilder.append(self, tokens):
-	...			if hasattr(row, "channel"):
-	...				row.channel = strings.setdefault(row.channel, row.channel)
-	...			yield row
-	...
-	>>> RowBuilder = MyRowBuilder
-
-	This will significantly slow down table parsing, but for now this
-	approach of allowing individual applications to override row
-	construction on an as-desired basis seems to be the best way to
-	implement the feature without adding a great deal of complexity.
-	Note that when initialized the RowBuilder class is passed the
-	interns argument which is an iterable of attribute names that
-	should be considered for interning.  These names come from hints
-	stored in the Table class definitions, and will have been filtered
-	so that only names corresponding to columns actually in the table
-	will be listed.
-	"""
-	__slots__ = ["rowtype", "attributes", "N", "interns", "row", "i"]
-
-	def __init__(self, rowtype, attributes, interns = tuple()):
-		"""
-		Initialize an instance of the RowBuilder class.  The
-		rowtype argument provides a class which will be repeatedly
-		instantiated to create new row objects as needed.  The
-		attributes argument is an iterable providing a sequence of
-		strings giving the names of the attributes of the rowtype
-		class to which tokens will be assigned.  The attributes
-		will be assigned to cyclically, starting with the first
-		attribute in the sequence.
-
-		Example:
-
-		>>> rows = RowBuilder(Row, ["time", "snr"])
-
-		"""
-		self.rowtype = rowtype
-		self.attributes = tuple(attributes)
-		self.N = len(self.attributes)
-		if self.N < 1:
-			raise ValueError, attributes
-		self.interns = tuple(interns)
-		self.row = self.rowtype()
-		self.i = 0
-
-	def append(self, tokens):
-		"""
-		Append a sequence of tokens to the row builder, returning
-		an iterator for generating a sequence of new row instances.
-		The tokens argument should be an iterable, producing a
-		sequence of token objects.  If fewer tokens are yielded
-		from the iterable than are required to construct a complete
-		row, then the row is retained in its state, and its
-		construction will continue upon the next invocation.  Note
-		that it is possible that a call to this method will yield
-		no new rows at all.
-
-		Example:
-
-		>>> for row in rows.append([10, 6.8, 15, 29.1]):
-		...	print row.snr
-		...
-		"""
-		for token in tokens:
-			setattr(self.row, self.attributes[self.i], token)
-			self.i += 1
-			if self.i >= self.N:
-				yield self.row
-				self.row = self.rowtype()
-				self.i = 0
-
-
-#
-# Stream element class.
-#
-
-
 class TableStream(ligolw.Stream):
 	"""
 	High-level Stream element for use inside Tables.  This element
@@ -552,7 +435,7 @@ class TableStream(ligolw.Stream):
 		self.__tokenizer.set_types([(parentNode.loadcolumns is None or colname in parentNode.loadcolumns or None) and pytype for pytype, colname in zip(parentNode.columnpytypes, parentNode.columnnames)])
 		columnnames = [name for name in parentNode.columnnames if parentNode.loadcolumns is None or name in parentNode.loadcolumns]
 		interncolumns = [name for name in (parentNode.interncolumns or tuple()) if name in columnnames]
-		self.__rowbuilder = RowBuilder(parentNode.RowType, columnnames, interncolumns)
+		self.__rowbuilder = tokenizer.RowBuilder(parentNode.RowType, columnnames, interncolumns)
 		return self
 
 	def appendData(self, content):
