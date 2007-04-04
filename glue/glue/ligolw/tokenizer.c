@@ -62,4 +62,13 @@ void inittokenizer(void)
 		return;
 	Py_INCREF(&ligolw_Tokenizer_Type);
 	PyModule_AddObject(module, "Tokenizer", (PyObject *) &ligolw_Tokenizer_Type);
+
+	/*
+	 * Add the RowBuilder class.
+	 */
+
+	if(PyType_Ready(&ligolw_RowBuilder_Type) < 0)
+		return;
+	Py_INCREF(&ligolw_RowBuilder_Type);
+	PyModule_AddObject(module, "RowBuilder", (PyObject *) &ligolw_RowBuilder_Type);
 }
