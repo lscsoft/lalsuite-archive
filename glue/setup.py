@@ -5,15 +5,22 @@
 import os, sys
 
 try:
-  from distutils.core import setup, Extension
-  from distutils.command import install
-  from distutils.command import sdist
-  from distutils import log
   from sys import version_info
 except:
-  print >> sys.stderr, "Unable to import required modules from distutils"
+  print >> sys.stderr, "Unable to determine the python version"
   print >> sys.stderr, "Please check that your python version is >= 2.3"
-  raise
+  sys.exit(1)
+
+if version_info < (2, 3):
+  print >> sys.stderr, "Your python version " + str(version_info) + " appears to be less than 2.3"
+  print >> sys.stderr, "Please check that your python version is >= 2.3"
+  print >> sys.stderr, "Glue requires at least version 2.3"
+  sys.exit(1)
+
+from distutils.core import setup, Extension
+from distutils.command import install
+from distutils.command import sdist
+from distutils import log
 
 ver = "1.14"
 
@@ -134,38 +141,7 @@ if version_info >= (2, 3):
       ] ) ]
     )
 else:
-  setup( name = "glue",
-    version = ver,
-    author = "Duncan Brown",
-    author_email = "dbrown@ligo.caltech.edu",
-    description = "Grid LSC User Engine",
-    url = "http://www.lsc-group.phys.uwm.edu/daswg/",
-    license = 'See file LICENSE',
-    packages = [ 'glue', 'glue.ligolw' ],
-    cmdclass = { 'install' : glue_install, 'sdist' : glue_sdist },
-    ext_modules = [
-      Extension("glue.ligolw.tokenizer", ["glue/ligolw/tokenizer.c", "glue/ligolw/tokenizer.Tokenizer.c", "glue/ligolw/tokenizer.RowBuilder.c"], include_dirs = ["glue/ligolw"]),
-      Extension("glue.__segments", ["src/segments/segments.c", "src/segments/infinity.c", "src/segments/segment.c", "src/segments/segmentlist.c"], include_dirs = ["src/segments"])
-    ],
-    scripts = [ os.path.join('bin','LSCdataFind'),
-      os.path.join('bin','LSCdataFind'),
-      os.path.join('bin','LSCsegFind'),
-      os.path.join('bin','LSCfileAdd'),
-      os.path.join('bin','ldbdc'),
-      os.path.join('bin','dmtdq_seg_insert'),
-      os.path.join('bin','ligolw_add'),
-      os.path.join('sbin','ldbdd'),
-      os.path.join('sbin','segpagegen'),
-      os.path.join('sbin','LSCdqInsert'),
-      os.path.join('sbin','publishstatefromfile'),
-      os.path.join('sbin','bulkpublishstate'), ],
-    data_files = [ ('etc',[
-      os.path.join('etc','vdsproperties'),
-      os.path.join('etc','glue-user-env.sh'),
-      os.path.join('etc','glue-user-env.csh'),
-      os.path.join('etc','lscsegfindserver.ini'),
-      os.path.join('etc','segpagegen.ini'),
-      os.path.join('etc','ldbdserver.ini'),
-      os.path.join('etc','ligolw_dtd.txt')
-      ] ) ]
-    )
+  print >> sys.stderr, "Your python version " + str(version_info) + " appears to be less than 2.3"
+  print >> sys.stderr, "Please check that your python version is >= 2.3"
+  print >> sys.stderr, "Glue requires at least version 2.3"
+  sys.exit(1)
