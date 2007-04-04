@@ -172,6 +172,11 @@ static PyObject *next(PyObject *self)
 	int result;
 	PyObject *item;
 
+	if(!rowbuilder->iter) {
+		PyErr_SetNone(PyExc_StopIteration);
+		return NULL;
+	}
+
 	while((item = PyIter_Next(rowbuilder->iter))) {
 		result = PyObject_SetAttr(rowbuilder->row, PyTuple_GET_ITEM(rowbuilder->attributes, rowbuilder->i), item);
 		Py_DECREF(item);
