@@ -2,12 +2,18 @@
 # 
 # setup script for glue
 
-import os
-from distutils.core import setup, Extension
-from distutils.command import install
-from distutils.command import sdist
-from distutils import log
-from sys import version_info
+import os, sys
+
+try:
+  from distutils.core import setup, Extension
+  from distutils.command import install
+  from distutils.command import sdist
+  from distutils import log
+  from sys import version_info
+except:
+  print >> sys.stderr, "Unable to import required modules from distutils"
+  print >> sys.stderr, "Please check that your python version is >= 2.3"
+  raise
 
 ver = "1.14"
 
