@@ -102,6 +102,7 @@ static void __del__(PyObject *self)
 		Py_DECREF(rowbuilder->iter);
 		rowbuilder->iter = NULL;
 	}
+	Py_DECREF(rowbuilder->row);
 
 	self->ob_type->tp_free(self);
 }
