@@ -83,17 +83,6 @@ static int pylal_LIGOTimeGPS_Check(PyObject *obj)
 
 
 /*
- * Member access
- */
-
-static struct PyMemberDef pylal_LIGOTimeGPS_members[] = {
-	{"seconds", T_INT, offsetof(pylal_LIGOTimeGPS, gps.gpsSeconds), 0, "integer seconds"},
-	{"nanoseconds", T_INT, offsetof(pylal_LIGOTimeGPS, gps.gpsNanoSeconds), 0, "integer nanoseconds"},
-	{NULL,}
-};
-
-
-/*
  * Converter function
  */
 
@@ -432,6 +421,12 @@ static PyObject *pylal_LIGOTimeGPS___sub__(PyObject *self, PyObject *other)
  * Type information
  */
 
+static struct PyMemberDef pylal_LIGOTimeGPS_members[] = {
+	{"seconds", T_INT, offsetof(pylal_LIGOTimeGPS, gps.gpsSeconds), 0, "integer seconds"},
+	{"nanoseconds", T_INT, offsetof(pylal_LIGOTimeGPS, gps.gpsNanoSeconds), 0, "integer nanoseconds"},
+	{NULL,}
+};
+
 static PyNumberMethods pylal_LIGOTimeGPS_as_number = {
 	.nb_absolute = pylal_LIGOTimeGPS___abs__,
 	.nb_add = pylal_LIGOTimeGPS___add__,
@@ -742,7 +737,7 @@ static PyObject *pylal_XLALArrivalTimeDiff(PyObject *self, PyObject *args)
  * ============================================================================
  */
 
-static struct PyMethodDef methods[] = {
+static struct PyMethodDef module_methods[] = {
 	{"XLALArrivalTimeDiff", pylal_XLALArrivalTimeDiff, METH_VARARGS, NULL},
 	{"XLALGPSToINT8NS", pylal_XLALGPSToINT8NS, METH_VARARGS, NULL},
 	{"XLALGPSToUTC", pylal_XLALGPSToUTC, METH_VARARGS, NULL},
@@ -760,7 +755,7 @@ static struct PyMethodDef methods[] = {
 
 void initdate(void)
 {
-	PyObject *module = Py_InitModule3(MODULE_NAME, methods, "Wrapper for LAL's date package.");
+	PyObject *module = Py_InitModule3(MODULE_NAME, module_methods, "Wrapper for LAL's date package.");
 
 	/* LIGOTimeGPS */
 	if(PyType_Ready(&pylal_LIGOTimeGPS_Type) < 0)
