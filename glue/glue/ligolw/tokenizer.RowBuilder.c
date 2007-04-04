@@ -131,9 +131,16 @@ static int __init__(PyObject *self, PyObject *args, PyObject *kwds)
 		Py_DECREF(rowbuilder->attributes);
 		return -1;
 	}
-	Py_INCREF(rowbuilder->rowtype);
 
+	Py_INCREF(rowbuilder->rowtype);
 	rowbuilder->row = PyType_GenericNew(rowbuilder->rowtype, NULL, NULL);
+	if(!rowbuilder->row) {
+		Py_DECREF(rowbuilder->attributes);
+		Py_DECREF(rowbuilder->interns);
+		Py_DECREF(rowbuilder->rowtype);
+		return -1;
+	}
+
 	rowbuilder->i = 0;
 	rowbuilder->iter = NULL;
 
@@ -177,8 +184,11 @@ static PyObject *next(PyObject *self)
 		}
 	}
 
-	if(!PyErr_Occurred())
+	if(!PyErr_Occurred()) {
 		PyErr_SetNone(PyExc_StopIteration);
+		Py_DECREF(rowbuilder->iter);
+		rowbuilder->iter = NULL;
+	}
 	return NULL;
 }
 
