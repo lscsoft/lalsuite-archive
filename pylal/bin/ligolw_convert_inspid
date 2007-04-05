@@ -168,10 +168,34 @@ def load_filename(filename, int_to_ilwd, verbose = False, gz = False):
 
 def sngl_inspiral_int_to_ilwd(xmldoc):
 	#
+	# find the summ_value table
+	#
+
+	summ_value = table.get_table(xmldoc, lsctables.SummValueTable.tableName)
+
+	#
+	# add and populate a summ_value_id column
+	#
+
+	try:
+		summ_value.appendColumn("summ_value_id")
+	except ValueError:
+		# already has one
+		pass
+	else:
+		for row in summ_value:
+			row.summ_value_id = summ_value.ids.next()
+
+	#
 	# find the sngl_inspiral table
 	#
 
-	sngl_inspiral = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+	try:
+		sngl_inspiral = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+	except ValueError:
+		print "Error reading sngl_inspiral table, will try to continue ..."
+		return xmldoc
+		
 
 	#
 	# convert the event_id attribute on every row object
@@ -192,25 +216,6 @@ def sngl_inspiral_int_to_ilwd(xmldoc):
 	sngl_inspiral._update_column_info()
 
 	#
-	# find the summ_value table
-	#
-
-	summ_value = table.get_table(xmldoc, lsctables.SummValueTable.tableName)
-
-	#
-	# add and populate a summ_value_id column
-	#
-
-	try:
-		summ_value.appendColumn("summ_value_id")
-	except ValueError:
-		# already has one
-		pass
-	else:
-		for row in summ_value:
-			row.summ_value_id = summ_value.ids.next()
-
-	#
 	# done
 	#
 
@@ -222,7 +227,11 @@ def sngl_inspiral_ilwd_to_int(xmldoc):
 	# find the sngl_inspiral table
 	#
 
-	sngl_inspiral = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+	try:
+		sngl_inspiral = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+	except ValueError:
+		print "Error reading sngl_inspiral table, will try to continue ..."
+		return
 
 	#
 	# convert the event_id attribute on every row object
@@ -292,7 +301,11 @@ def populate_coinc_event_sngls(xmldoc):
 	# find the sngl_inspiral table
 	#
 
-	sngl_inspiral = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+	try:
+		sngl_inspiral = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+	except ValueError:
+		print "Error reading sngl_inspiral table, will try to continue ..."
+		return
 
 	#
 	# find the coinc_definer_id for sngl_inspiral <--> sngl_inspiral
@@ -375,7 +388,12 @@ def populate_coinc_event_sims(xmldoc):
 	# find the sngl_inspiral and sim_inspiral tables
 	#
 
-	sngl_inspiral = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+	try:
+		sngl_inspiral = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+	except ValueError:
+		print "Error reading sngl_inspiral table, will try to continue ..."
+		return
+
 	sim_inspiral = table.get_table(xmldoc, lsctables.SimInspiralTable.tableName)
 
 	#
@@ -429,6 +447,7 @@ def populate_coinc_event_sims(xmldoc):
 		# of the event_id
 		coinc.time_slide_id = lsctables.TimeSlideTable.ids[(ilwd.ILWDID(events[0].event_id) / long(1e9)) % long(1e4)]
 		coinc.nevents = len(events)
+		coinc.likelihood = 1.0
 		coinc_event.append(coinc)
 
 		#
@@ -479,7 +498,11 @@ def depopulate_sngl_inspiral(xmldoc):
 	# find the sngl_inspiral table
 	#
 
-	sngl_inspiral = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+	try:
+		sngl_inspiral = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+	except ValueError:
+		print "Error reading sngl_inspiral table, will try to continue ..."
+		return
 
 	#
 	# delete duplicates, recording replacement event_ids
