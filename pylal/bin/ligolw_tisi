@@ -28,7 +28,6 @@
 #
 
 
-import math
 from optparse import OptionParser
 import sys
 
@@ -114,28 +113,45 @@ offsetdicts = list(ligolw_tisi.SlidesIter(ligolw_tisi.parse_slides(options.instr
 
 
 #
-# How many will go into each file?  Take the ceil() so we don't run out of
-# file names.
-#
-
-
-N = int(math.ceil(float(len(offsetdicts)) / len(filenames)))
-
-
-#
 # Make documents.
 #
 
 
 while offsetdicts:
+	#
+	# Create an empty document, populate the process information, and
+	# start an ID generator for the time slides.
+	#
+
 	xmldoc = new_doc()
 	timeslidetable = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
 	process = ligolw_tisi.append_process(xmldoc, **options.__dict__)
 	ids = lsctables.TimeSlideIDs()
+
+	#
+	# How many slides will go into this file?
+	#
+
+	N = int(round(float(len(offsetdicts)) / len(filenames)))
+
+	#
+	# Put them in.
+	#
+
 	for offsetdict in offsetdicts[:N]:
 		for row in ligolw_tisi.RowsFromOffsetDict(offsetdict, ids.next(), process):
 			timeslidetable.append(row)
 	del offsetdicts[:N]
+
+	#
+	# Finish off the document.
+	#
+
 	llwapp.set_process_end_time(process)
+
+	#
+	# Write.
+	#
+
 	filename = filenames.pop(0)
 	utils.write_filename(xmldoc, filename, options.verbose, gz = (filename or "stdout")[-3:] == ".gz")
