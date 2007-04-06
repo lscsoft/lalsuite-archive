@@ -1,0 +1,214 @@
+#!/usr/bin/python
+#
+# $Id$
+#
+# Copyright (C) 2006  Kipp C. Cannon
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 2 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+
+#
+# =============================================================================
+#
+#                                   Preamble
+#
+# =============================================================================
+#
+
+
+"""
+Add (merge) LIGO LW XML files containing LSC tables.
+"""
+
+
+from optparse import OptionParser
+import sys
+import os
+import glob
+
+from glue.lal import CacheEntry
+from glue.ligolw.utils import ligolw_add
+from glue.ligolw import ligolw
+from glue.ligolw import lsctables
+from glue.ligolw import table
+from glue.ligolw import utils
+
+from pylal import SnglInspiralUtils
+
+__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__date__ = "$Date$"[7:-2]
+__version__ = "$Revision$"[11:-2]
+
+
+#
+# =============================================================================
+#
+#                                 Command Line
+#
+# =============================================================================
+#
+
+
+def parse_command_line():
+	"""
+	Parse the command line, return an options object and a list of URLs.
+	"""
+	parser = OptionParser(
+		version = "%prog CVS $Id$",
+		usage = "%prog [options] [file [file ...]]",
+		description = "%prog combines one or more LIGO Light Weight XML files into a single output file.  The output is written to stdout or to a named file if --output is specified.  Any input files whose names end in \".gz\" are assumed to be gzip-compressed, and will be uncompressed while reading.  If the output file's name ends in \".gz\", the output document will be gzip-compressed while writing.  Table elements contained in the document will be merged so that there is not more than one table of any given name in the output.  To accomplish this, any tables in the input documents that share the same name must have compatible columns, meaning the same column names with matching types (but not necessarily in the same order)."
+	)
+	parser.add_option("-i", "--input-cache", metavar = "filename", action = "append", default = [], help = "Get input files from the LAL cache named filename.")
+	parser.add_option("-g", "--glob", metavar = "GLOB", action = "store", default = None, help = "Glob for filenames.")
+	parser.add_option("--add-lfn-table", action = "store_true", help = "Add an lfn entry for each process.")
+	parser.add_option("--lfn-start-time", metavar = "GPS seconds", help = "Set lfn start_time (optional).")
+	parser.add_option("--lfn-end-time", metavar = "GPS seconds", help = "Set lfn end_time (optional).")
+	parser.add_option("--lfn-comment", metavar = "string", help = "Set lfn comment (optional).")
+	parser.add_option("--mangle-sngl-inspiral-ids", action = "store_true", help = "Reassign sngl_inspiral event IDs to prevent collisions, just like other tables.  CAUTION:  this messes up a normal inspiral analysis, do not do this unless you know what you are doing!")
+	parser.add_option("--non-lsc-tables-ok", action = "store_true", help = "OK to merge documents containing non-LSC tables.")
+	parser.add_option("-o", "--output", metavar = "filename", help = "Write output to filename (default = stdout).")
+	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
+	parser.add_option("--remove-input", action = "store_true", help = "Remove input files after writing output (an attempt is made to not delete the output file in the event that it overwrote one of the input files).")
+	parser.add_option("--remove-input-except", metavar = "filename", action = "append", default = [], help = "When deleting input files, do not delete this file.")
+	options, urls = parser.parse_args()
+
+	if options.lfn_start_time:
+		options.lfn_start_time = int(options.lfn_start_time)
+	if options.lfn_end_time:
+		options.lfn_end_time = int(options.lfn_end_time)
+
+	for cache in options.input_cache:
+		urls += [c.url for c in map(CacheEntry, file(cache))]
+
+	return options, urls
+
+
+#
+# =============================================================================
+#
+#                                  LFN Table
+#
+# =============================================================================
+#
+
+
+def make_lfn_table(doc, pathname, start_time = None, end_time = None, comment = None):
+	"""
+	Generate an LFN table for a document.
+	"""
+	cols = ["process_id", "lfn_id", "name"]
+	if start_time != None:
+		cols.append("start_time")
+	if end_time != None:
+		cols.append("end_time")
+	if comment != None:
+		cols.append("comment")
+	lfn_table = lsctables.New(lsctables.LfnTable, cols)
+	name = os.path.basename(pathname)
+	ids = lsctables.LfnIDs()
+	for process_table in lsctables.getTablesByType(doc, lsctables.ProcessTable):
+		for pid in process_table.getColumnByName("process_id"):
+			row = lsctables.Lfn()
+			row.process_id = pid
+			row.lfn_id = ids.next()
+			row.name = name
+			row.start_time = start_time
+			row.end_time = end_time
+			row.comment = comment
+			lfn_table.append(row)
+	return lfn_table
+
+
+#
+# =============================================================================
+#
+#                                     Main
+#
+# =============================================================================
+#
+
+
+#
+# Command line
+#
+
+
+options, urls = parse_command_line()
+
+
+#
+# sngl_inspiral event_id re-assignment
+#
+# FIXME:  fix this when the sngl_inspiral event_id column no longer encodes
+# information in the number
+#
+
+fileList = glob.glob(options.glob)
+snglInspiralTriggers = None
+ncoincs = 0
+for index, thisFile in enumerate(fileList):
+  doc = utils.load_filename(thisFile)
+  # extract the sngl inspiral table
+  try: snglInspiralTable = \
+    table.get_table(doc, lsctables.SnglInspiralTable.tableName)
+  except: 
+    snglInspiralTable = None
+
+  # if there is an inspiral table, update the 
+  if snglInspiralTable:
+    row_dict = {}
+    for trig in snglInspiralTable:  # N
+      if trig.event_id not in row_dict: # log_2 N
+        ncoincs += 1
+        row_dict[trig.event_id] = SnglInspiralUtils.ReassignEventId(trig, ncoincs)
+      trig.event_id = row_dict[trig.event_id]
+
+  utils.write_filename(doc, thisFile)
+
+
+#
+# Input
+#
+
+lsctables.SummValueTable.ids = None
+lsctables.SnglInspiralTable.validcolumns["event_id"] = "int_8s"
+doc = ligolw_add.ligolw_add(ligolw.Document(), fileList, **options.__dict__)
+
+#
+# LFN table
+#
+
+
+if options.add_lfn_table:
+	if not options.output:
+		raise Exception, "cannot add LFN table when no output filename is given"
+	doc.getElementsByTagName(ligolw.LIGO_LW.tagName)[0].appendChild(make_lfn_table(doc, options.output, options.lfn_start_time, options.lfn_end_time, options.lfn_comment))
+
+
+#
+# Output
+#
+
+
+utils.write_filename(doc, options.output, verbose = options.verbose, gz = (options.output or "stdout")[-3:] == ".gz")
+
+
+#
+# Remove input
+#
+
+
+if options.remove_input:
+	ligolw_add.remove_input(urls, [options.output] + options.remove_input_except, options.verbose)
