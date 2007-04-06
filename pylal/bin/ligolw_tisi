@@ -18,6 +18,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+
 #
 # =============================================================================
 #
@@ -26,13 +27,19 @@
 # =============================================================================
 #
 
+
+import math
 from optparse import OptionParser
 import sys
 
+
 from glue.ligolw import ligolw
+from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
-from pylal.ligolw_tisi import ligolw_tisi
+from pylal import ligolw_tisi
+from pylal import llwapp
+
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
@@ -47,8 +54,11 @@ __date__ = "$Date$"[7:-2]
 # =============================================================================
 #
 
+
 def parse_command_line():
-	parser = OptionParser(version = "%prog CVS $Id$")
+	parser = OptionParser(
+		version = "%prog CVS $Id$"
+	)
 	parser.add_option("--comment", metavar = "text", default = "", help = "set comment string in process table")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
 	parser.add_option("-i", "--instrument", metavar = "name=first:last:step[,first:last:step[,...]]", action = "append", default = [], help = "construct time slides containing the named instrument, shifted by numbers seconds as described by the given range(s)")
@@ -64,6 +74,7 @@ def parse_command_line():
 #
 # =============================================================================
 #
+
 
 def new_doc():
 	doc = ligolw.Document()
@@ -86,11 +97,45 @@ def new_doc():
 # =============================================================================
 #
 
+
+#
+# Command line.
+#
+
+
 options, filenames = parse_command_line()
-try:
-	doc = ligolw_tisi(new_doc(), **options.__dict__)
-	for filename in filenames:
-		utils.write_filename(doc, filename, options.verbose)
-except Exception, e:
-	print >>sys.stderr, "error: %s" % str(e)
-	sys.exit(1)
+
+
+#
+# Make the time slides
+#
+
+offsetdicts = list(ligolw_tisi.SlidesIter(ligolw_tisi.parse_slides(options.instrument)))
+
+
+#
+# How many will go into each file?  Take the ceil() so we don't run out of
+# file names.
+#
+
+
+N = int(math.ceil(float(len(offsetdicts)) / len(filenames)))
+
+
+#
+# Make documents.
+#
+
+
+while offsetdicts:
+	xmldoc = new_doc()
+	timeslidetable = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
+	process = ligolw_tisi.append_process(xmldoc, **options.__dict__)
+	ids = lsctables.TimeSlideIDs()
+	for offsetdict in offsetdicts[:N]:
+		for row in ligolw_tisi.RowsFromOffsetDict(offsetdict, ids.next(), process):
+			timeslidetable.append(row)
+	del offsetdicts[:N]
+	llwapp.set_process_end_time(process)
+	filename = filenames.pop(0)
+	utils.write_filename(xmldoc, filename, options.verbose, gz = (filename or "stdout")[-3:] == ".gz")
