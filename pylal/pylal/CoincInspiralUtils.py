@@ -90,6 +90,16 @@ class coincInspiralTable:
     def add_sim(self,sim):
       setattr(self,"sim",sim)
 
+    def get_ifos(self): 
+      ifolist = ['G1','H1','H2','L1','T1','V1']
+      ifos = ""
+      ifolist_in_coinc = []
+      for ifo in ifolist:
+        if hasattr(self,ifo):
+          ifos = ifos + ifo
+          ifolist_in_coinc.append(ifo)
+
+      return ifos,ifolist_in_coinc
   
   def __init__(self, inspTriggers = None, stat = None):
     """
@@ -140,8 +150,7 @@ class coincInspiralTable:
     stat = []
     for coinc in self.rows:
       stat.append(coinc.stat)
-    from numpy import asarray
-    return asarray(stat)
+    return numpy.asarray(stat)
 
   def sort(self, descending = True):
     """
@@ -361,5 +370,51 @@ class coincInspiralTable:
         ethinca.append( XLALCalculateEThincaParameter(getattr(coinc,ifos[0]), 
             getattr(coinc,ifos[1]) ) )
     
-    from numpy import asarray
-    return asarray(ethinca)
+    return numpy.asarray(ethinca)
+
+  def metricHistogram(self, candidate):
+    """
+    Return distance squared between candidate and coincident triggers
+    using the following metric
+
+    d^2 = ( 1/n ) * sum_i ( |cparam_i - trigparam_i|^2 / cparam_i^2 )
+
+    @param candidate: a coincInspiral describing a candidate
+    """
+    c_ifos,ifolist = candidate.get_ifos()
+    dsquared = []
+
+    for trig in self:
+      trig_ifos,tmplist = trig.get_ifos()
+      tmp_d_squared = 0.0
+      if c_ifos == trig_ifos:
+        for ifo in ifolist: 
+          # distance^2 apart in effective snr
+          c_lambda = getattr(candidate,ifo).get_effective_snr()
+          t_lambda = getattr(trig,ifo).get_effective_snr()
+          tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
+
+          # distance^2 apart in mchirp
+          c_lambda = getattr(candidate,ifo).mchirp
+          t_lambda = getattr(trig,ifo).mchirp
+          tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
+
+          # distance^2 apart in effective distance
+          c_lambda = getattr(candidate,ifo).eff_distance
+          t_lambda = getattr(trig,ifo).eff_distance
+          tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
+
+          # distance^2 apart in ethinca
+          c_lambda = XLALCalculateEThincaParameter(\
+              getattr(candidate,tmplist[0]),\
+              getattr(candidate,tmplist[1]) ) 
+          t_lambda = XLALCalculateEThincaParameter(\
+              getattr(trig,tmplist[0]),\
+              getattr(trig,tmplist[1]) ) 
+          tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
+
+      dsquared.append(tmp_d_squared / float(3.0 * len(tmplist))) 
+
+    return numpy.asarray(dsquared)
+
+
