@@ -550,9 +550,8 @@ for filename in filenames:
 	# is the document a "found injections" list?
 	#
 
-	# FIXME: how does one know if the document is a "found injections"
-	# file?
-	injections = llwapp.doc_includes_process(xmldoc, "coire")
+	injections = llwapp.doc_includes_process(xmldoc, "coire") \
+	    and len(llwapp.get_process_params(xmldoc, "coire", "--injection-file"))
 
 	#
 	# do conversion
