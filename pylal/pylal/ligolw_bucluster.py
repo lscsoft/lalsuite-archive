@@ -75,8 +75,7 @@ def append_process(doc, **kwargs):
 #
 
 
-def add_ms_columns(xmldoc):
-	sngl_burst_table = table.get_table(xmldoc, lsctables.SnglBurstTable.tableName)
+def add_ms_columns(sngl_burst_table):
 	# add columns if required
 	added = False
 	for colname in ("peak_frequency", "ms_start_time", "ms_start_time_ns", "ms_duration", "ms_flow", "ms_bandwidth", "ms_hrss", "ms_snr", "ms_confidence"):
@@ -302,14 +301,27 @@ def ligolw_bucluster(doc, **kwargs):
 	document, and changed is a boolean that is True if the contents of
 	the sngl_burst table were altered, and False if the triggers were
 	not modified by the clustering process.
+
+	If the document does not contain a sngl_burst table, then the
+	document is not modified (including no modifications to the process
+	metadata tables).
 	"""
 
 	#
 	# Extract live time segment and sngl_burst table
 	#
 
+	try:
+		sngl_burst_table = table.get_table(doc, lsctables.SnglBurstTable.tableName)
+	except ValueError:
+		# no-op:  document does not contain a sngl_burst table
+		if kwargs["verbose"]:
+			print >>sys.stderr, "document does not contain a sngl_burst table, skipping ..."
+		return doc, False
 	seg = llwapp.segmentlistdict_fromsearchsummary(doc, program = kwargs["program"]).extent_all()
-	sngl_burst_table = table.get_table(doc, lsctables.SnglBurstTable.tableName)
+
+	# FIXME:  don't do this:  fix lalapps_power's output
+	add_ms_columns(sngl_burst_table)
 
 	#
 	# Add process information
