@@ -82,6 +82,10 @@ If the zero lag data only contains playground, the number of triggers in the
 parser = OptionParser( usage=usage, version="%prog CVS $Id$ " )
 parser.add_option("-g","--glob",action="store",type="string",\
     default=None, metavar=" GLOB",help="GLOB of thinca files to read" )
+parser.add_option("-o","--off-source-glob",action="store",type="string",\
+    default=None, metavar=" GLOB",help="GLOB off-source thinca files to read" )
+parser.add_option("-E","--ext-trig",action="store_true",default=False,\
+    help="external trigger search, so should have off-source triggers" )
 parser.add_option("-L","--cluster-window",action="store",type="int",default=0,\
     metavar=" SEC", help="length of time over which to cluster triggers" )
 parser.add_option("-f","--figure-name",action="store",type="string",\
@@ -152,6 +156,11 @@ if opts.plot_type not in ['log', 'linear']:
 
 if not opts.glob:
   print >>sys.stderr, "Must specify a GLOB of files to read"
+  print >>sys.stderr, "Enter 'plotthinca --help' for usage"
+  sys.exit(1)
+
+if not opts.off_source_glob and opts.ext_trig:
+  print >>sys.stderr, "Must specify a off source GLOB of files to read"
   print >>sys.stderr, "Enter 'plotthinca --help' for usage"
   sys.exit(1)
 
@@ -252,6 +261,7 @@ if opts.mass_range:
 ###################################
 # glob the list of files to read in
 
+# On source
 if opts.glob:  
   allfiles = []
   gl_pats = opts.glob.split(" ")
@@ -264,12 +274,31 @@ if opts.glob:
 
   slidefiles = []
   coincfiles = []
+  offsourcefiles = []
+
 
   for file in allfiles:
     if 'SLIDE' in file:
       slidefiles.append(file)
     else:
       coincfiles.append(file)
+
+# Off Source Files
+if opts.off_source_glob:  
+  allfiles = []
+  gl_pats = opts.off_source_glob.split(" ")
+  for gl in gl_pats:
+    allfiles += glob.glob(gl)
+
+  if len(allfiles) < 1:
+    print >>sys.stderr, "The glob for " + opts.off_source_glob + \
+        " returned no files"
+    sys.exit(1)
+
+  for file in allfiles: 
+    offsourcefiles.append(file)
+
+
 
 ########################
 # read in coinc triggers
@@ -321,6 +350,45 @@ if opts.mass_dependent:
         coincTriggers.getChirpMass(mass_range[i],mass_range[i+1]) )
     else:
       coincTriggersByMass.append( coincTriggers )
+
+########################
+# read in off-source triggers
+offsourceTriggers = None
+
+if offsourcefiles:
+  inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(offsourcefiles)
+  # perform the veto
+  if opts.veto_file:
+    file = open( opts.veto_file , "r")
+    seglist = segmentsUtils.fromsegwizard(file)
+    file.close()
+    inspTriggers = inspTriggers.veto(seglist)
+      
+  # construct the coincs
+  offsourceTriggers = \
+      CoincInspiralUtils.coincInspiralTable(inspTriggers,statistic)
+
+  # cluster them
+  if opts.cluster_window:
+    offsourceTriggers = offsourceTriggers.cluster(opts.cluster_window)
+
+  if not opts.max_snr:
+    if inspTriggers:
+      xhigh = max( inspTriggers.get_column(snglStat) )
+    else:
+      xhigh = 50.0
+  else:
+    xhigh = opts.max_snr + 1
+
+  if not opts.min_snr:
+    if inspTriggers:
+      xlow = min( inspTriggers.get_column(snglStat) )
+    else:
+      xlow = 1.0
+  else:
+    xlow = opts.min_snr
+else:
+  offsourceTriggers = None
 
 ########################
 # read in slide triggers
@@ -384,6 +452,11 @@ if (opts.snr_time or opts.snr_snr or opts.add_zero_lag) and not coincTriggers:
      "there must be non time slide files in the glob"
   sys.exit(1)
   
+if (opts.ext_trig) and not offsourceTriggers:
+  print >>sys.stderr, \
+     "there must be off-source files in the glob"
+  sys.exit(1)
+
 if (opts.slide_snr or opts.slide_dist or opts.plot_slides or opts.hist_slides)\
     and not slideTriggers:
   print >>sys.stderr, \
@@ -405,9 +478,13 @@ if opts.snr_snr or opts.slide_snr:
       for slide in slideTriggers:
         viz.plotcoincval(slide["coinc_trigs"], snglStat, 'H1', 'H2', \
           'k+',opts.plot_type)
+    if opts.ext_trig:
+      viz.plotcoincval(offsourceTriggers, snglStat, 'H1', 'H2', \
+          'bo',opts.plot_type)
     if opts.snr_snr:
       viz.plotcoincval(coincTriggers, snglStat, 'H1', 'H2', \
           'r+',opts.plot_type)
+
 
     xlabel(snglStat.replace("_"," ") + ' H1', size='x-large')
     ylabel(snglStat.replace("_"," ") + ' H2', size='x-large')
@@ -680,6 +757,10 @@ if opts.dist_dist:
         viz.plotcoincval(slide["coinc_trigs"], 'eff_distance', 'H1', 'H2', \
           'kx', opts.plot_type)
       
+    if opts.ext_trig:
+      viz.plotcoincval(offsourceTriggers, 'eff_distance', 'H1', 'H2', 'bo', \
+          opts.plot_type)
+
     if opts.dist_dist:
       viz.plotcoincval(coincTriggers, 'eff_distance', 'H1', 'H2', 'r+', \
           opts.plot_type)
