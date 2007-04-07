@@ -18,6 +18,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+
 #
 # =============================================================================
 #
@@ -26,14 +27,18 @@
 # =============================================================================
 #
 
+
 """
 LIGO Light-Weight XML Coincidence Analysis Front End.
 """
 
+
 from optparse import OptionParser
 import sys
 
+
 from pylal import ligolw_cafe
+
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __date__ = "$Date$"[7:-2]
@@ -47,6 +52,7 @@ __version__ = "$Revision$"[11:-2]
 #
 # =============================================================================
 #
+
 
 def parse_command_line():
 	parser = OptionParser(version = "%prog CVS $Id$")
@@ -70,12 +76,18 @@ def parse_command_line():
 # =============================================================================
 #
 
+
 options, cachenames = parse_command_line()
 
-cache = []
-map(lambda filename: cache.extend(ligolw_cafe.load_cache(filename, options.verbose)), cachenames)
 
-instruments, outputcaches = ligolw_cafe.ligolw_cafe(cache, ligolw_cafe.get_time_slides(options.time_slides, verbose = options.verbose, gz = options.time_slides[-3:] == ".gz"), options.verbose)
+cache = []
+for filename in cachenames:
+	cache.extend(ligolw_cafe.load_cache(filename, options.verbose))
+
+
+seglists, outputcaches = ligolw_cafe.ligolw_cafe(cache, ligolw_cafe.get_time_slides(options.time_slides, verbose = options.verbose, gz = options.time_slides[-3:] == ".gz"), options.verbose)
+instruments = seglists.keys()
+
 
 if options.single_instrument:
 	ligolw_cafe.write_single_instrument_caches(options.base, outputcaches, instruments, options.verbose)
