@@ -117,6 +117,7 @@ class LALCache(packing.Bin):
 	def __init__(self):
 		packing.Bin.__init__(self)
 		self.size = segments.segmentlistdict()
+		self.extent = self.size.extent_all()
 
 	def add(self, *args):
 		packing.Bin.add(self, *args)
@@ -149,15 +150,15 @@ class CafePacker(packing.Packer):
 		# test is, for each bin, to iterate through time slide
 		# dictionaries applying the offsets to both the bin and the
 		# cache_entry and checking if the cache_entry's segment
-		# intersect the segments already in the bin, comparing only
-		# those that are involved in the time slide.  FIXME: almost
-		# correct:  still doesn't take care to compare only the
-		# segments for the instruments identified in the offset
+		# intersects the segments already in the bin, comparing
+		# only those that are involved in the time slide.  FIXME:
+		# almost correct:  still doesn't take care to compare only
+		# the segments for the instruments identified in the offset
 		# dictionary (so gives false positives but no false
 		# negatives)
 		new = LALCache()
 		new.add(cache_entry, cache_entry.to_segmentlistdict())
-		new.extent = new.extent.protract(self.max_gap)
+		new.extent.protract(self.max_gap)
 		matching_bins = []
 		for n in xrange((bisect.bisect_left(self.bins, new) or 1) - 1, len(self.bins)):
 			bin = self.bins[n]
@@ -261,7 +262,7 @@ def ligolw_cafe(cache, time_slides, verbose = False):
 	if verbose:
 		print >>sys.stderr, "packing files ..."
 	for n, cacheentry in enumerate(cache):
-		if verbose and not n % max(5, (len(cache)/1000)):
+		if verbose and not n % 7:
 			print >>sys.stderr, "	%.1f%%	(%d files, %d caches)\r" % (100.0 * n / len(cache), n + 1, len(outputcaches)),
 		packer.pack(cacheentry)
 	if verbose:
@@ -270,4 +271,4 @@ def ligolw_cafe(cache, time_slides, verbose = False):
 	for cache in outputcaches:
 		cache.objects.sort()
 
-	return seglists.keys(), outputcaches
+	return seglists, outputcaches
