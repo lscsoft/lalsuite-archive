@@ -16,6 +16,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+
 #
 # =============================================================================
 #
@@ -24,18 +25,15 @@
 # =============================================================================
 #
 
+
 """
 This module provides bin packing utilities.
 """
 
+
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
-
-import os
-
-from glue.lal import CacheEntry
-from glue import segments
 
 
 #
@@ -46,9 +44,23 @@ from glue import segments
 # =============================================================================
 #
 
+
 class Bin(object):
 	"""
-	Bin object for use in packing algorithm implementations.
+	Bin object for use in packing algorithm implementations.  A Bin
+	instance has two attributes:  size, which is the total "size" of
+	the contents of the Bin, and objects, which is a list of the Bins
+	contents.
+
+	Example:
+
+	>>> strings = Bin()
+	>>> s = "hello"
+	>>> strings.add(s, len(s))
+	>>> s.objects
+	['hello']
+	>>> s.size
+	5
 	"""
 	def __init__(self):
 		"""
@@ -83,7 +95,7 @@ class Bin(object):
 		"""
 		A representation of the Bin object.
 		"""
-		return "(%s, %s)" % (str(self.size), str(self.objects))
+		return "Bin(size=%s, %s)" % (str(self.size), str(self.objects))
 
 	__str__ = __repr__
 
@@ -96,22 +108,12 @@ class Bin(object):
 # =============================================================================
 #
 
-def bin_list(n, bintype = Bin):
-	"""
-	Convenience function for constructing a list of bins.
-	"""
-	# [bintype()] * n doesn't work because it produces a list of
-	# references to the same object, rather than a list of references
-	# to distinct objects.
-	l = []
-	for i in xrange(n):
-		l.append(bintype())
-	return l
-
 
 class Packer(object):
 	"""
-	Generic parent class for packing algorithms.
+	Parent class for packing algorithms.  Specific packing algorithms
+	should sub-class this, providing implementations of the pack() and
+	packlist() methods.
 	"""
 	def __init__(self, bins):
 		"""
@@ -127,7 +129,7 @@ class Packer(object):
 
 	def packlist(self, size_object_pairs):
 		"""
-		Pack the list of (size, object) tuples into the bins.
+		Pack a list of (size, object) tuples into the bins.
 		"""
 		raise NotImplementedError
 
@@ -140,7 +142,7 @@ class BiggestIntoEmptiest(Packer):
 		min(self.bins).add(object, size)
 
 	def packlist(self, size_object_pairs):
-		size_object_pairs.sort()
-		size_object_pairs.reverse()
+		list(size_object_pairs)
+		size_object_pairs.sort(reverse = True)
 		for size, object in size_object_pairs:
 			self.pack(size, object)
