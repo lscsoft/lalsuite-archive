@@ -60,6 +60,10 @@ __version__ = "$Revision$"[11:-2]
 
 
 def load_cache(filename, verbose = False):
+	"""
+	Parses a LAL cache file named filenamed into a list of
+	glue.lal.CacheEntry objects.
+	"""
 	if verbose:
 		print >>sys.stderr, "reading %s ..." % (filename or "stdin")
 	if filename:
@@ -70,6 +74,10 @@ def load_cache(filename, verbose = False):
 
 
 def cache_to_seglistdict(cache):
+	"""
+	Constructs a coalesced segmentlistdict object from a list of
+	glue.lal.CacheEntry objects.
+	"""
 	s = segments.segmentlistdict()
 	for c in cache:
 		s |= c.to_segmentlistdict()
@@ -107,7 +115,7 @@ def get_time_slides(filename, verbose = False, gz = False):
 #
 
 
-class LALCache(packing.Bin):
+class LALCacheBin(packing.Bin):
 	"""
 	Bin object representing a LAL file cache.  The objects attribute
 	contains a list of glue.lal.CacheEntry objects, and the size
@@ -117,7 +125,7 @@ class LALCache(packing.Bin):
 	def __init__(self):
 		packing.Bin.__init__(self)
 		self.size = segments.segmentlistdict()
-		self.extent = self.size.extent_all()
+		self.extent = None
 
 	def add(self, *args):
 		packing.Bin.add(self, *args)
@@ -156,7 +164,7 @@ class CafePacker(packing.Packer):
 		# the segments for the instruments identified in the offset
 		# dictionary (so gives false positives but no false
 		# negatives)
-		new = LALCache()
+		new = LALCacheBin()
 		new.add(cache_entry, cache_entry.to_segmentlistdict())
 		new.extent.protract(self.max_gap)
 		matching_bins = []
@@ -208,7 +216,7 @@ def write_caches(base, bins, instruments, verbose = False):
 		filename = pattern % (base, n)
 		filenames.append(filename)
 		if verbose:
-			print >>sys.stderr, "writing %s" % filename
+			print >>sys.stderr, "writing %s ..." % filename
 		f = file(filename, "w")
 		for cacheentry in bin.objects:
 			if True in map(instruments.__contains__, cacheentry.observatory.split(",")):
