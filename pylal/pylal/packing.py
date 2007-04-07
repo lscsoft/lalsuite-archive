@@ -66,8 +66,8 @@ class Bin(object):
 		"""
 		Initialize a new Bin instance.
 		"""
-		self.size = 0
 		self.objects = []
+		self.size = 0
 
 	def add(self, object, size):
 		"""
