@@ -400,15 +400,17 @@ def get_coincident_segmentlistdict(seglistdict, offsetdictlist):
 
 	output = get_coincident_segmentlistdict(input, slides)
 
-	output will contain, for each instrument, the segments (or parts
-	thereof) from the original lists that are required in order to
-	perform a triple-coincident analysis at zero lag betwen the three
-	instruments, *and* a double-coincident analysis between H1 and H2
-	with H2 offset by 10 seconds.
+	output will contain, for each of the three instruments, the
+	segments (or parts thereof) from the original lists that are
+	required in order to perform a triple-coincident analysis at zero
+	lag betwen the three instruments, *and* a double-coincident
+	analysis between H1 and H2 with H2 offset by 10 seconds.
 
 	During the computations, the input segmentlistdict object will have
 	offsets applied to it in place, but they will be restored to their
-	original value upon exit.
+	original values upon exit.  The segmentlistdict object returned by
+	this function has its offsets initialized to those of the input
+	segmentlistdict.
 	"""
 	origoffsets = {}
 	origoffsets.update(seglistdict.offsets)
