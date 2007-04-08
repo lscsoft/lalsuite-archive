@@ -165,7 +165,7 @@ if options.mangle_sngl_inspiral_ids:
 #
 
 
-doc = ligolw_add.ligolw_add(ligolw.Document(), urls, **options.__dict__)
+xmldoc = ligolw_add.ligolw_add(ligolw.Document(), urls, non_lsc_tables_ok = options.non_lsc_tables_ok, verbose = options.verbose)
 
 
 #
@@ -176,7 +176,7 @@ doc = ligolw_add.ligolw_add(ligolw.Document(), urls, **options.__dict__)
 if options.add_lfn_table:
 	if not options.output:
 		raise Exception, "cannot add LFN table when no output filename is given"
-	doc.getElementsByTagName(ligolw.LIGO_LW.tagName)[0].appendChild(make_lfn_table(doc, options.output, options.lfn_start_time, options.lfn_end_time, options.lfn_comment))
+	xmldoc.getElementsByTagName(ligolw.LIGO_LW.tagName)[0].appendChild(make_lfn_table(xmldoc, options.output, options.lfn_start_time, options.lfn_end_time, options.lfn_comment))
 
 
 #
@@ -184,7 +184,7 @@ if options.add_lfn_table:
 #
 
 
-utils.write_filename(doc, options.output, verbose = options.verbose, gz = (options.output or "stdout")[-3:] == ".gz")
+utils.write_filename(xmldoc, options.output, verbose = options.verbose, gz = (options.output or "stdout")[-3:] == ".gz")
 
 
 #

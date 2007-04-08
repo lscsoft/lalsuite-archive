@@ -16,6 +16,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+
 #
 # =============================================================================
 #
@@ -24,18 +25,22 @@
 # =============================================================================
 #
 
+
 """
 Add (merge) LIGO LW XML files containing LSC tables.
 """
+
 
 import os
 import sys
 from urlparse import urlparse
 
+
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
+
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __date__ = "$Date$"[7:-2]
@@ -50,12 +55,13 @@ __version__ = "$Revision$"[11:-2]
 # =============================================================================
 #
 
+
 def url2path(url):
 	"""
 	If url identifies a file on the local host, return the path to the
 	file otherwise raise ValueError.
 	"""
-	(scheme, host, path, nul, nul, nul) = urlparse(url)
+	scheme, host, path, nul, nul, nul = urlparse(url)
 	if scheme.lower() in ("", "file") and host.lower() in ("", "localhost"):
 		return path
 	raise ValueError, url
@@ -84,6 +90,7 @@ def remove_input(urls, preserves, verbose = False):
 #
 # =============================================================================
 #
+
 
 def reassign_ids(doc, verbose = False):
 	"""
@@ -129,7 +136,7 @@ def compare_table_cols(a, b):
 	acols.sort()
 	bcols = [(table.StripColumnName(col.getAttribute("Name")), col.getAttribute("Type")) for col in b.getElementsByTagName(ligolw.Column.tagName)]
 	bcols.sort()
-	return acols != bcols
+	return cmp(acols, bcols)
 
 
 def merge_compatible_tables(elem):
@@ -168,25 +175,26 @@ def merge_compatible_tables(elem):
 # =============================================================================
 #
 
-def ligolw_add(doc, urls, **kwargs):
+
+def ligolw_add(doc, urls, non_lsc_tables_ok = False, verbose = False):
 	"""
 	An implementation of the LIGO LW add algorithm.  urls is a list of
-	URLs to load, doc is the XML document tree to which they should be
-	added.
+	URLs (or filenames) to load, doc is the XML document tree to which
+	they should be added.
 	"""
 	# Input
 	for n, url in enumerate(urls):
-		if kwargs["verbose"]:
+		if verbose:
 			print >>sys.stderr, "%d/%d:" % (n + 1, len(urls)),
-		utils.load_url(url, verbose = kwargs["verbose"], gz = url[-3:] == ".gz", xmldoc = doc)
+		utils.load_url(url, verbose = verbose, gz = url[-3:] == ".gz", xmldoc = doc)
 
 	# ID reassignment
-	if not kwargs["non_lsc_tables_ok"] and lsctables.HasNonLSCTables(doc):
+	if not non_lsc_tables_ok and lsctables.HasNonLSCTables(doc):
 		raise ValueError, "non-LSC tables found.  Use --non-lsc-tables-ok to force"
-	reassign_ids(doc, verbose = kwargs["verbose"])
+	reassign_ids(doc, verbose = verbose)
 
 	# Document merge
-	if kwargs["verbose"]:
+	if verbose:
 		print >>sys.stderr, "merging elements ..."
 	merge_ligolws(doc)
 	merge_compatible_tables(doc)
