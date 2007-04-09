@@ -16,7 +16,7 @@ requires LAL, Metaio and Python.  These packages should be available at
   http://www.lsc-group.phys.uwm.edu/daswg/download/repositories.html
 
 Note: matplotlib and numpy are now part of the standard LSCSOFT stack (at
-least for FC3) and can be obtained using:
+least for FC4) and can be obtained using:
 
   yum groupinstall "LSCSOFT"
 
@@ -33,27 +33,16 @@ by "numerix      : numpy"
 
 1. Determine your Python version
 
-Python version 2.2 or greater is required to install PyLAL. Type:
+Python version 2.3 or greater is required to install PyLAL. Type:
 
   python -V
 
 to determine the version of python installed on your machine. For example:
 
-  [duncan@contra lalapps]$ python -V
-  Python 2.2.2
+  nvf@dirac:~$ python -V
+  Python 2.4.4
 
-On some operating systems (e.g. Red Hat 7.3) the program named python runs
-python version 1 and the version 2 executable is named python2. If python -V
-does not return 2.2 or greater, type:
-
-  python2 -V
-
-For example:
-
-  [dbrown@neutron dbrown]$ python2 -V
-  Python 2.3
-
-If you do not have version 2.2 or greater installed, contact your system
+If you do not have version 2.3 or greater installed, contact your system
 administrator for help installing Python.
 
 Set the environment variable PYTHON to be the name of your python version 2
