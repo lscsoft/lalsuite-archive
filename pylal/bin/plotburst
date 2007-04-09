@@ -273,14 +273,13 @@ class Durations(SnglBurstUtils.BurstPlot):
 	def add_contents(self, contents):
 		self.nevents += contents.nevents[self.ifo]
 		for dt in contents.duration[self.ifo]:
-			if dt in self.bins:
-				self.bins[dt] += 1
-			else:
-				self.bins[dt] = 1
+			if dt not in self.bins:
+				self.bins[dt] = 0
+			self.bins[dt] += 1
 
 	def finish(self):
 		self.axes.set_title("Trigger Durations\n(%d Triggers)" % self.nevents)
-		data = zip(self.bins.keys(), self.bins.values())
+		data = self.bins.items()
 		data.sort()
 		self.axes.plot([d[0] for d in data], [d[1] for d in data], "ko-")
 
