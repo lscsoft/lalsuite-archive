@@ -26,6 +26,9 @@
 #
 
 
+import sys
+
+
 from glue.ligolw import lsctables
 from pylal import itertools
 from pylal import llwapp
@@ -84,15 +87,21 @@ def parse_slidespec(slidespec):
 def parse_slides(slides):
 	"""
 	Accepts a list of strings of the format understood by
-	parse_slidespec() and returns a dictionary of instrument, offsets
-	pairs
+	parse_slidespec(), and returns a dictionary mapping instrument
+	names to sorted lists of unique offsets.
 	"""
 	d = {}
+	# store the offsets for each instrument as sets to uniquify the
+	# numbers
 	for slidespec in slides:
 		instrument, offsets = parse_slidespec(slidespec)
-		if instrument in d:
-			raise ValueError, "duplicate instrument \"%s\" in time slides" % instrument
-		d[instrument] = offsets
+		if instrument not in d:
+			d[instrument] = set()
+		d[instrument] |= set(offsets)
+	# convert offsets back to lists, and sort
+	for instrument, offsets in d.items():
+		d[instrument] = list(offsets)
+		d[instrument].sort()
 	return d
 
 
@@ -185,22 +194,22 @@ def time_slide_cmp(offsetdict1, offsetdict2):
 	0
 
 	because although the absolute offsets are not equal in the two
-	dictionaries, the relative offsets are.
+	dictionaries, all relative offsets are.
 	"""
 	if offsetdict2:
-		# there is at least one entry in offsetdict2, pick an
-		# instrument at random
-		inst = offsetdict2.iterkeys().next()
-		if inst in offsetdict1:
-			# it is listed in offsetdict1, so make a working
-			# copy of offsetdict2
+		# offsetdict2 is not empty, pick an instrument at random
+		instrument, offset = offsetdict2.iteritems().next()
+		if instrument in offsetdict1:
+			# the instrument is listed in offsetdict1, so make
+			# a working copy of offsetdict2
 			offsetdict2 = offsetdict2.copy()
 			# compute the offset difference for the common
 			# instrument
-			delta = offsetdict1[inst] - offsetdict2[inst]
-			# add it to the offsets in offsetdict2
-			for inst in offsetdict2.keys():
-				offsetdict2[inst] += delta
+			delta = offsetdict1[instrument] - offset
+			# add it to the offsets in the working copy of
+			# offsetdict2
+			for instrument in offsetdict2.iterkeys():
+				offsetdict2[instrument] += delta
 	# either the offsets have now been normalized to one another, or it
 	# was discovered that the two offset dictionaries have different
 	# instrument lists;  either way we can now use the built-in cmp
@@ -208,7 +217,7 @@ def time_slide_cmp(offsetdict1, offsetdict2):
 	return cmp(offsetdict1, offsetdict2)
 
 
-def time_slides_vacuum(time_slides):
+def time_slides_vacuum(time_slides, verbose = False):
 	"""
 	Given a dictionary mapping time slide IDs to instrument-->offset
 	mappings, for example as returned by the get_offsets() method of
@@ -234,10 +243,14 @@ def time_slides_vacuum(time_slides):
 	"""
 	# so we can modify it
 	time_slides = time_slides.copy()
+	N = len(time_slides)
 	# old --> new mapping
 	mapping = {}
 	# while there are time slide offset dictionaries remaining
 	while time_slides:
+		n = N - len(time_slides)
+		if verbose and not (n % 10):
+			print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / N),
 		# pull out an ID/offset dictionary pair at random
 		id1, offsetdict1 = time_slides.popitem()
 		# for every other ID/offset dictionary pair in the time
@@ -250,5 +263,7 @@ def time_slides_vacuum(time_slides):
 				time_slides.pop(id2)
 				mapping[id2] = id1
 	# done
+	if verbose:
+		print >>sys.stderr, "\t100.0%"
 	return mapping
 
