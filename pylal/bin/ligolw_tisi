@@ -65,7 +65,13 @@ def parse_command_line():
 	parser.add_option("--comment", metavar = "text", default = "", help = "Set comment string in process table (default = \"\").")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	parser.add_option("-i", "--instrument", metavar = "name=first:last:step[,first:last:step[,...]]", action = "append", default = [], help = "Provide a description of the set of offsets to use for a particular instrument.  The set of offsets is (first + n * step) where n is an integer such that first <= offset <= last.  More than one set of offsets can be given for the same instrument, in which case the union is used.  As a short-hand, the sets can be combined into a single command line argument by separating the first:last:step triples with commas.")
+	parser.add_option("-n", "--normalize", metavar = "name=offset", default = [], action = "append", help = "Normalize the time slides so that this instrument has the specified offset in all.  The other offsets in each time slide are adjusted so that the relative offsets are preserved.  Time slides that do not involve this instrument are unaffected.  If this option is given multiple times, then they are applied in order to each time slide until the first is found that affects the offsets of the time slide.")
 	options, filenames = parser.parse_args()
+
+	try:
+		options.normalize = dict([(name.strip(), float(offset)) for name, offset in map(lambda s: s.split("="), options.normalize)])
+	except Exception, e:
+		raise ValueError, "unable to parse --normalize arguments: %s" % str(e)
 
 	return options, (filenames or [None])
 
@@ -168,6 +174,17 @@ if options.verbose:
 
 time_slides = time_slides.items()
 time_slides.sort(lambda a, b: cmp(ilwd.ILWDID(a[0]), ilwd.ILWDID(b[0])), reverse = True)
+
+
+#
+# Normalize the time slides
+#
+
+
+if options.normalize:
+	if options.verbose:
+		print >>sys.stderr, "Normalizing the time slides ..."
+	time_slides = [(id, ligolw_tisi.time_slide_normalize(offsetdict, **options.normalize)) for id, offsetdict in time_slides]
 
 
 #
