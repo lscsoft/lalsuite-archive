@@ -54,6 +54,12 @@ def parse_slidespec(slidespec):
 	instrument=first:last:step[,first:last:step]...  and returns the
 	tuple (instrument, [offset1, offset2, ....]) where the offsets are
 	the sorted list of numbers described by the ranges.
+
+	Example:
+
+	>>> parse_slidespec("H1=-5:+5:0.5")
+	('H1', [-5.0, -4.5, -4.0, -3.5, -3.0, -2.5, -2.0, -1.5, -1.0, -0.5,
+	0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0])
 	"""
 	try:
 		instrument, rangespec = slidespec.split("=")
@@ -89,6 +95,11 @@ def parse_slides(slides):
 	Accepts a list of strings of the format understood by
 	parse_slidespec(), and returns a dictionary mapping instrument
 	names to sorted lists of unique offsets.
+
+	Example:
+
+	>>> parse_slides(["H1=-1:+1:+1", "H2=-1:+1:+1", "L1=0:0:0"])
+	{'H2': [-1.0, 0.0, 1.0], 'H1': [-1.0, 0.0, 1.0], 'L1': [0.0]}
 	"""
 	d = {}
 	# store the offsets for each instrument as sets to uniquify the
@@ -133,9 +144,10 @@ def append_process(doc, **kwargs):
 
 def SlidesIter(slides):
 	"""
-	Accepts a dictionary mapping instrument --> list-of-offsets, and
-	iterates over the cartesian (outer) product of the offset lists,
-	yielding all possible N-way instrument --> offset mappings.
+	Accepts a dictionary mapping instrument --> list-of-offsets (for
+	example, as returned by parse_slides()), and iterates over the
+	cartesian (outer) product of the offset lists, yielding all
+	possible N-way instrument --> offset mappings.
 
 	Example:
 
@@ -188,9 +200,9 @@ def time_slide_cmp(offsetdict1, offsetdict2):
 
 	Example:
 
-	>>> d1 = {"H1": 0.0, "H2": 0.0, "L1": 0.0}
-	>>> d2 = {"H1": 10.0, "H2": 10.0, "L1": 10.0}
-	>>> time_slide_cmp(d1, d2)
+	>>> offsets1 = {"H1": 0.0, "H2": 0.0, "L1": 0.0}
+	>>> offsets2 = {"H1": 10.0, "H2": 10.0, "L1": 10.0}
+	>>> time_slide_cmp(offsets1, offsets2)
 	0
 
 	because although the absolute offsets are not equal in the two
@@ -238,8 +250,8 @@ def time_slides_vacuum(time_slides, verbose = False):
 	indicating that time_slide_id:1 describes a time slide that is
 	equivalent to time_slide_id:0.  The calling code could use this
 	information to delete time_slide_id:1 from the time_slide table,
-	and replace occurances of that ID with time_slide_id:0 in other
-	tables.
+	and replace references to that ID in other tables with references
+	to time_slide_id:0.
 	"""
 	# so we can modify it
 	time_slides = time_slides.copy()
@@ -267,3 +279,41 @@ def time_slides_vacuum(time_slides, verbose = False):
 		print >>sys.stderr, "\t100.0%"
 	return mapping
 
+
+#
+# =============================================================================
+#
+#                           Time Slide Manipulation
+#
+# =============================================================================
+#
+
+
+def time_slide_normalize(time_slide, **kwargs):
+	"""
+	The time slide, a mapping of instrument --> offset, is adjusted so
+	that a particular instrument in the slide has the desired offset.
+	All other instruments have their offsets adjusted so that the
+	relative offsets are preserved.  The instrument to noramlize, and
+	the offset one wishes it to have, are provided as a key-word
+	argument.  More than one key-word argument can be given, in which
+	case they are considered in order until one is found that is
+	applicable, that is the instrument is in the time slide.  This
+	function is a no-op if no key-word argument is found that applies.
+	The return value is the time slide dictionary, which is modified in
+	place.
+
+	Example:
+
+	>>> time_slide_normalize({"H1": -10, "H2": -10, "L1": -10}, L1 = 0)
+	{'H2': 0, 'H1': 0, 'L1': 0}
+	>>> time_slide_normalize({"H1": -10, "H2": -10}, L1 = 0, H2 = 5)
+	{'H2': 5, 'H1': 5}
+	"""
+	for instrument, offset in kwargs.iteritems():
+		if instrument in time_slide:
+			delta = offset - time_slide[instrument]
+			for instrument in time_slide.iterkeys():
+				time_slide[instrument] += delta
+			break
+	return time_slide
