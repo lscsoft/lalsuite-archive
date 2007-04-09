@@ -400,7 +400,7 @@ class CacheEntry(object):
 		Sort by observatory, then description, then segment, then
 		URL.
 		"""
-		if type(other)  != CacheEntry:
+		if type(other) != CacheEntry:
 			raise TypeError, "can only compare CacheEntry to CacheEntry"
 		return cmp((self.observatory, self.description, self.segment, self.url), (other.observatory, other.description, other.segment, other.url))
 
