@@ -431,7 +431,7 @@ def new_plots(ifo, plots):
 	l = [
 		RateVsPeakFreq(ifo, segments.segment(70, 2118), 16),
 		Durations(ifo),
-		Delays(ifo, 0.25, 200),
+		Delays(ifo, 0.25, 20),
 		RateVsSNR(ifo),
 		RateVsConfidence(ifo),
 		ConfidenceVsTime(ifo),
