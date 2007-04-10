@@ -396,16 +396,16 @@ def get_coincident_segmentlistdict(seglistdict, offsetdictlist):
 	During the computations, the input segmentlistdict object will have
 	offsets applied to it in place, but they will be restored to their
 	original values upon exit.  The segmentlistdict object returned by
-	this function has its offsets initialized to those of the input
+	this function has its offsets set to those of the input
 	segmentlistdict.
 	"""
-	origoffsets = {}
-	origoffsets.update(seglistdict.offsets)
+	origoffsets = dict(seglistdict.offsets)
 	coincseglists = segments.segmentlistdict()
 	for offsetdict in offsetdictlist:
 		seglistdict.offsets.update(offsetdict)
-		intersection = seglistdict.extract_common(offsetdict.keys())
-		intersection.offsets.update(origoffsets)
+		intersection = seglistdict.extract_common(offsetdict.iterkeys())
+		intersection.offsets.clear()
 		coincseglists |= intersection
 	seglistdict.offsets.update(origoffsets)
+	coincseglists.offsets.update(origoffsets)
 	return coincseglists
