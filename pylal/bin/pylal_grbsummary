@@ -38,7 +38,8 @@ def get_options():
     """
     Parse user input and return opts.
     """
-    parser = optparse.OptionParser(usage=__doc__, version="%prog CVS $Id$")
+    parser = optparse.OptionParser(usage=__doc__,
+        version="%prog CVS $Id$")
     
     # always required parameters
     parser.add_option("-f", "--full-segfile",
@@ -63,6 +64,7 @@ def get_options():
         default=False, help="call lalapps_sire on inspiral triggers")
     parser.add_option("-C", "--coire-thinca", action="store_true",
         default=False, help="call lalapps_coire on thinca coincidences")
+    parser.add_option("-n", "--figure-name", help="tag for plot output")
     
     # auxiliary parameters
     parser.add_option("-t", "--injection-window-ms", type="float",
@@ -73,7 +75,6 @@ def get_options():
         help="number of timeslides")
     parser.add_option("-u", "--usertag",
         help="the usertag, if any, specified in the ini file")
-    parser.add_option("-n", "--figure-name", help="tag for plot output")
     
     (opts, args) = parser.parse_args()
     
@@ -99,7 +100,7 @@ def get_options():
     opts.full_segfile = p.expanduser(opts.full_segfile)
     opts.on_source_segfile = p.expanduser(opts.on_source_segfile)
     
-    # expand ~ in globs
+    # expand ~ in globs and expand globs
     if opts.inspiral_globs is not None:
         opts.inspiral_globs = [p.expanduser(g) for g in opts.inspiral_globs]
         opts.inspiral_files = [glob.glob(g) for g in opts.inspiral_globs]
@@ -331,7 +332,7 @@ def call_plotinspiral(inspiral_globs, vetofile=None, figure_name=None,
 
 def call_plotthinca(thinca_cache, vetofile=None, figure_name=None):
     """
-    Based on what information is available, produce plotinspiral plots of
+    Based on what information is available, produce plotthinca plots of
     interest.
     TODO: HTML markup (<a href=""><img src="" alt=""></a>)
     """
@@ -355,10 +356,36 @@ def call_plotthinca(thinca_cache, vetofile=None, figure_name=None):
     
     make_external_call(" ".join(args))
 
+def call_plotethinca(thinca_cache, vetofile=None, figure_name=None):
+    """
+    Based on what information is available, produce plotethinca plots of
+    interest.
+    """
+    print "* Running plotethinca on the input file \"%s\"" % thinca_cache
+    thinca_files = read_lal_cache(thinca_cache)
+    ifos, start, dur = ifos_start_dur_from_files(thinca_files)
+    
+    args = ["plotethinca", "--ethinca-vs-stat", "--x-value=snr",
+        "--x-value=mchirp", "--x-value=eta", "--hist",
+        "--input=%s" % thinca_cache]
+    
+    for ifo in ifos:
+        args += ["--ifo=%s" % ifo]
+    if vetofile is not None:
+        args += ["--veto-file=%s" % vetofile]
+    if figure_name is not None:
+        args += ["--figure-name=%s" % figure_name]
+    if is_second_stage(thinca_files[0]):
+        args += ["--statistic=effective_snr"]
+    else:
+        args += ["--statistic=snr"]
+    
+    make_external_call(" ".join(args))
+
 def call_plotthincaslide(slide_cache, num_slides, vetofile=None,
     figure_name=None):
     """
-    Based on what information is available, produce plotinspiral plots of
+    Based on what information is available, produce plotthinca plots of
     interest.
     TODO: HTML markup (<a href=""><img src="" alt=""></a>)
     """
@@ -451,6 +478,10 @@ if __name__ == "__main__":
             call_plotthinca(thinca_cache, opts.on_source_segfile,
                 "%s_off" % opts.figure_name)
             call_plotthinca(thinca_cache, opts.off_source_segfile,
+                "%s_on" % opts.figure_name)
+            call_plotethinca(thinca_cache, opts.on_source_segfile,
+                "%s_off" % opts.figure_name)
+            call_plotethinca(thinca_cache, opts.off_source_segfile,
                 "%s_on" % opts.figure_name)
     
     # thinca slide
