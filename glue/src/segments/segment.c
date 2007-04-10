@@ -163,6 +163,21 @@ static int __contains__(PyObject *self, PyObject *other)
 }
 
 
+static PyObject *not_continuous(PyObject *self, PyObject *other)
+{
+	PyObject *sa = PyTuple_GET_ITEM(self, 0);
+	PyObject *sb = PyTuple_GET_ITEM(self, 1);
+	PyObject *oa = PyTuple_GET_ITEM(other, 0);
+	PyObject *ob = PyTuple_GET_ITEM(other, 1);
+	PyObject *result;
+	if(PyObject_Compare(sa, ob) > 0)
+		return PyInt_FromLong(1);
+	if(PyObject_Compare(sb, oa) < 0)
+		return PyInt_FromLong(-1);
+	return PyInt_FromLong(0);
+}
+
+
 static PyObject *continuous(PyObject *self, PyObject *other)
 {
 	PyObject *sa = PyTuple_GET_ITEM(self, 0);
@@ -350,6 +365,7 @@ static PySequenceMethods as_sequence = {
 
 
 static struct PyMethodDef methods[] = {
+	{"not_continuous", not_continuous, METH_O, ""},
 	{"order", order, METH_O, ""},
 	{"intersects", intersects, METH_O, ""},
 	{"continuous", continuous, METH_O, ""},
