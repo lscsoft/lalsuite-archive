@@ -29,7 +29,9 @@
 import sys
 
 
+from glue.ligolw import table
 from glue.ligolw import lsctables
+from glue.ligolw import utils
 from pylal import itertools
 from pylal import llwapp
 
