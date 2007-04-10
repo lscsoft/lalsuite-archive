@@ -911,7 +911,8 @@ class segmentlistdict(dict):
 		Return the result of running extent on the union of all
 		lists in the dictionary.
 		"""
-		return self.union(self.iterkeys()).extent()
+		segs = self.extent().values()
+		return segment(min(seg[0] for seg in segs), max(seg[1] for seg in segs))
 
 	def find(self, seg):
 		"""
@@ -1028,6 +1029,7 @@ class segmentlistdict(dict):
 		set to their mutual intersection.  The offsets are
 		preserved.
 		"""
+		keys = set(keys)
 		new = segmentlistdict()
 		intersection = self.intersection(keys)
 		for key in keys:
