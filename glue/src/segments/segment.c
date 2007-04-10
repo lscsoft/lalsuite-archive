@@ -169,7 +169,6 @@ static PyObject *not_continuous(PyObject *self, PyObject *other)
 	PyObject *sb = PyTuple_GET_ITEM(self, 1);
 	PyObject *oa = PyTuple_GET_ITEM(other, 0);
 	PyObject *ob = PyTuple_GET_ITEM(other, 1);
-	PyObject *result;
 	if(PyObject_Compare(sa, ob) > 0)
 		return PyInt_FromLong(1);
 	if(PyObject_Compare(sb, oa) < 0)
