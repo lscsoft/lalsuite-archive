@@ -833,10 +833,12 @@ class segmentlistdict(dict):
 	def copy(self):
 		"""
 		Return a copy of the segmentlistdict object.  The return
-		value is a new object with references to the original keys,
-		and shallow copies of the segment lists.  The point is,
-		modifications made to the segmentlists in the object
-		returned by this method will not affect the original.
+		value is a new object with a new offsets attribute, with
+		references to the original keys, and shallow copies of the
+		segment lists.  In summary, modifications made to the
+		offset dictionary or segmentlists in the object returned by
+		this method will not affect the original, but without using
+		much memory until such modifications are made.
 		"""
 		new = self.__class__()
 		for key, value in self.iteritems():
@@ -1017,14 +1019,25 @@ class segmentlistdict(dict):
 
 	# multi-list operations
 
-	def is_coincident(self, other):
+	def is_coincident(self, other, keys = None):
 		"""
 		Return True if any segment in any list in self intersects
-		any segment in any list in other.
+		any segment in any list in other.  If the optional keys
+		argument is not None, then only segment lists for the given
+		keys are considered.  Keys not represented in both segment
+		lists are ignored.  If keys is None (the default) then all
+		segment lists are considered.
 		"""
-		for l1 in self.itervalues():
-			for l2 in other.itervalues():
-				if l1.intersects(l2):
+		keys1 = set(self.iterkeys())
+		keys2 = set(other.iterkeys())
+		if keys is not None:
+			keys = set(keys)
+			keys1 &= keys
+			keys2 &= keys
+		for key1 in keys1:
+			l1 = self[key1]
+			for key2 in keys2:
+				if l1.intersects(other[key2]):
 					return True
 		return False
 
@@ -1036,8 +1049,8 @@ class segmentlistdict(dict):
 		if not keys:
 			return segmentlist()
 		seglist = ~segmentlist()
-		for value in map(self.__getitem__, keys):
-			seglist &= value
+		for key in keys:
+			seglist &= self[key]
 		return seglist
 
 	def union(self, keys):
@@ -1046,7 +1059,7 @@ class segmentlistdict(dict):
 		keys in keys.
 		"""
 		seglist = segmentlist()
-		for value in map(self.__getitem__, keys):
-			seglist |= value
+		for key in keys:
+			seglist |= self[key]
 		return seglist
 
