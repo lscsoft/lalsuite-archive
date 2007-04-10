@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 # $Id$
 
@@ -143,14 +143,14 @@ for ifos in pylal_itertools.choices(opts.ifo_list, 2):
       grid(True)
       if len(ethincaVals) == 0 or max(ethincaVals) < 1:
         ylim((0,1))
-      xlabel("%s %s" % (ifo, col))
+      xlabel("%s %s" % (ifo, col.replace('_', r'\_')))
       ylabel("E-thinca parameter")
-      title("E-thinca parameter vs " + col + " for " + ifos[0] + \
-          " and " + ifos[1] + " triggers")
+      title("E-thinca parameter vs %s for %s and %s triggers" % \
+        (col.replace('_', r'\_'), ifos[0], ifos[1]))
       
       if opts.figure_name:
-        savefig(opts.figure_name + "_" + ifos[0] + "_" + ifos[1] + \
-            "_ethinca_vs_" + ifo + "_" + col + ".png")
+        savefig("%s_%s_%s_ethinca_vs_%s_%s.jng" % \
+          (opts.figure_name, ifos[0], ifos[1], ifo, col.replace('_', r'\_')))
       if not opts.show_plot:
         close()
   
@@ -163,10 +163,10 @@ for ifos in pylal_itertools.choices(opts.ifo_list, 2):
     grid(True)
     if len(ethincaVals) and max(ethincaVals) < 1:
       ylim((0,1))
-    xlabel("Combined %s" % opts.statistic)
+    xlabel("Combined %s" % opts.statistic.replace('_', r'\_'))
     ylabel("E-thinca parameter")
     title("E-thinca parameter vs combined %s for %s and %s triggers" % \
-      (opts.statistic, ifos[0], ifos[1]))
+      (opts.statistic.replace('_', r'\_'), ifos[0], ifos[1]))
 
     if opts.figure_name:
       savefig("%s_%s_%s_ethinca_vs_combined_%s.png" % (opts.figure_name,
