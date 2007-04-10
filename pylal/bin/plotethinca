@@ -17,6 +17,7 @@ import glob
 from types import *
 import itertools   # This is Python's included itertools, not Pylal's
 
+from glue import lal
 from glue import segments
 from glue import segmentsUtils
 from glue.ligolw import ligolw
@@ -29,8 +30,7 @@ from pylal import itertools as pylal_itertools
 from numpy import histogram
 
 ##############################################################################
-usage = """
-usage: %prog [options] 
+usage = """%prog [options] 
 
 Thinca Triggers Plotting Function
 
@@ -48,6 +48,8 @@ or histogram the ethinca values with --hist.
 parser = OptionParser( usage=usage, version="%prog CVS $Id$ " )
 parser.add_option("-g","--glob",action="append",type="string",\
   default=[], metavar=" GLOB",help="GLOB of thinca files to read" )
+parser.add_option("-I", "--input", action="append", default=[],
+  help="read thinca filenames from input file")
 parser.add_option("-L","--cluster-window",action="store",type="int",default=0,\
   metavar=" SEC", help="length of time over which to cluster triggers" )
 parser.add_option("-f","--figure-name",action="store",type="string",\
@@ -70,6 +72,9 @@ parser.add_option("-H","--hist",action="store_true",default=False,\
 parser.add_option("-n","--num-bins",action="store",type='int',\
   default=20, metavar=" NUM",\
   help="number of bins used in histogram" )
+parser.add_option("-V","--veto-file",action="store",type="string",\
+  default=None,metavar=" FNAME",\
+  help="read in segments from FNAME (assumed segwizard format)")
 parser.add_option("-s","--show-plot",action="store_true",default=False,\
   help="display the figures on the terminal" )
 
@@ -77,12 +82,6 @@ parser.add_option("-s","--show-plot",action="store_true",default=False,\
 
 if len(opts.ifo_list) < 2:
   print >>sys.stderr, "Must specify at least 2 ifos with triggers"
-  print >>sys.stderr, "Enter 'plotethinca --help' for usage"
-  sys.exit(1)
-  
-if not opts.columns and not opts.hist:
-  print >>sys.stderr, \
-      "Must specify --hist or at least one --x-value against which to plot ethinca param"
   print >>sys.stderr, "Enter 'plotethinca --help' for usage"
   sys.exit(1)
 
@@ -96,13 +95,19 @@ rc('font', size='x-large')
 
 bins = [i/opts.num_bins for i in range(opts.num_bins+1)]
 
-filelists = [glob.glob(g) for g in opts.glob]
+filelists = [glob.glob(g) for g in opts.glob] + \
+    [[lal.CacheEntry(line).path() for line in open(f)] for f in opts.input]
 statistic = CoincInspiralUtils.coincStatistic(opts.statistic)
 
 coincTriggersList = []
 for filegroup in filelists:
   # read raw triggers
   inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(filegroup)
+  
+  # perform the veto
+  if opts.veto_file is not None:
+    seglist = segmentsUtils.fromsegwizard(open(opts.veto_file))
+    inspTriggers = inspTriggers.veto(seglist)
   
   # reconstruct the coincs
   newCoincs = CoincInspiralUtils.coincInspiralTable(inspTriggers, statistic)
@@ -118,10 +123,11 @@ for filegroup in filelists:
 figure_numbers = itertools.count(1) # Infinite "list" of numbers starting at 1
 symbol_list = ('rx', 'b+', 'k^', 'g*')
 color_list = ('r', 'b', 'k', 'g')
-if len(opts.glob) > min(len(symbol_list), len(color_list)):
+if len(filelists) > min(len(symbol_list), len(color_list)):
   print >>sys.stderr, "Warning: Only the first %d globs being used.  Extend "\
     "symbol_list or color_list to handle more of them."
 
+# For each pair of IFOs:
 for ifos in pylal_itertools.choices(opts.ifo_list, 2):
   # Pick out relevant double coincs and calculate ethinca parameters
   coincs_list = [x.coincinclude(ifos) for x in coincTriggersList]
