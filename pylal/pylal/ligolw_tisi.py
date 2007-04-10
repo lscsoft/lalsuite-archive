@@ -116,6 +116,27 @@ def parse_slides(slides):
 	return d
 
 
+def load_time_slides(filename, verbose = False, gz = False):
+	"""
+	Load a time_slide table from the LIGO Light Weight XML file named
+	filename, or stdin if filename is None.  Extra verbosity is printed
+	if verbose is True, and the file is gzip decompressed while reading
+	if gz is Tue.  The output is returned as a dictionary, mapping each
+	time slide ID to a dictionary providing a mapping of instrument to
+	offset for that time slide.
+
+	Note that a side effect of this function is that the ID generator
+	associated with the TimeSlideTable class in glue.ligolw.lsctables
+	is synchronized with the result, so that the next ID it generates
+	will be immediately following the IDs listed in the dictionary
+	returned by this function.
+	"""
+	time_slide_table = table.get_table(utils.load_filename(filename, verbose = verbose, gz = (filename or "stdin")[-3:] == ".gz"), lsctables.TimeSlideTable.tableName)
+	time_slides = time_slide_table.get_offsets()
+	time_slide_table.sync_ids()
+	return time_slides
+
+
 #
 # =============================================================================
 #

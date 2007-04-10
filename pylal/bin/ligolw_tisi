@@ -98,15 +98,6 @@ def new_doc():
 	return doc
 
 
-def load_time_slides(filename, verbose = False):
-	time_slide_table = table.get_table(utils.load_filename(options.add_to, verbose = options.verbose, gz = options.add_to[-3:] == ".gz"), lsctables.TimeSlideTable.tableName)
-	time_slides = time_slide_table.get_offsets()
-	if verbose:
-		print >>sys.stderr, "Loaded %d time slides." % len(time_slides)
-	time_slide_table.sync_ids()
-	return time_slides
-
-
 #
 # =============================================================================
 #
@@ -130,7 +121,9 @@ options, filenames = parse_command_line()
 
 
 if options.add_to is not None:
-	time_slides = load_time_slides(options.add_to, verbose = options.verbose)
+	time_slides = ligolw_tisi.load_time_slides(options.add_to, gz = options.add_to[-3:] == ".gz", verbose = options.verbose)
+	if verbose:
+		print >>sys.stderr, "Loaded %d time slides." % len(time_slides)
 else:
 	time_slides = {}
 
