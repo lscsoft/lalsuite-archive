@@ -88,11 +88,15 @@ def parse_command_line():
 		options.lfn_start_time = int(options.lfn_start_time)
 	if options.lfn_end_time:
 		options.lfn_end_time = int(options.lfn_end_time)
+	
+	if options.glob is not None:
+		files = glob.glob(options.glob)
+	else:
+		files = []
+		for cache in options.input_cache:
+			files += [c.path() for c in map(CacheEntry, file(cache))]
 
-	for cache in options.input_cache:
-		urls += [c.url for c in map(CacheEntry, file(cache))]
-
-	return options, urls
+	return options, files
 
 
 #
@@ -145,7 +149,7 @@ def make_lfn_table(doc, pathname, start_time = None, end_time = None, comment = 
 #
 
 
-options, urls = parse_command_line()
+options, fileList = parse_command_line()
 
 
 #
@@ -155,10 +159,9 @@ options, urls = parse_command_line()
 # information in the number
 #
 
-fileList = glob.glob(options.glob)
 snglInspiralTriggers = None
 ncoincs = 0
-for index, thisFile in enumerate(fileList):
+for thisFile in fileList:
   doc = utils.load_filename(thisFile)
   # extract the sngl inspiral table
   try: snglInspiralTable = \
