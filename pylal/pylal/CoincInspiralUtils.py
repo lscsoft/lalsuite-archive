@@ -417,4 +417,37 @@ class coincInspiralTable:
 
     return numpy.asarray(dsquared)
 
+  def improvedMetricHistogram(self, candidate):
+    """
+    Return distance squared between candidate and coincident triggers
+    using the following metric
+
+    d^2 = ( 1/n ) * sum_i ( |cparam_i - trigparam_i|^2 / cparam_i^2 )
+
+    @param candidate: a coincInspiral describing a candidate
+    """
+    c_ifos,ifolist = candidate.get_ifos()
+    dsquared = []
+
+    for trig in self:
+      trig_ifos,tmplist = trig.get_ifos()
+      tmp_d_squared = 0.0
+      if c_ifos == trig_ifos:
+        trigparamlist = []
+        for ifo in ifolist:
+          trigparam.append(getattr(trig,ifo).get_effective_snr())
+          trigparam.append(getattr(trig,ifo).mchirp)
+          trigparam.append(getattr(trig,ifo).eff_distance)
+        # Ruslan: add ethinca parameters to the array
+
+        trigparam = numpy.asarray(trigparamlist)
+
+        # Ruslan: add a similar thing for candidate which might be at
+        # start of this method.
+        candparam = numpy.asarray([1.0])
+
+      dsquared.append( numpy.sum( numpy.power( \
+          (candparam - trigparam)/candparam,2.0) ) )
+
+    return numpy.asarray(dsquared)
 
