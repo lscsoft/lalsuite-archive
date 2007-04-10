@@ -163,7 +163,7 @@ static int __contains__(PyObject *self, PyObject *other)
 }
 
 
-static PyObject *not_continuous(PyObject *self, PyObject *other)
+static PyObject *disjoint(PyObject *self, PyObject *other)
 {
 	PyObject *sa = PyTuple_GET_ITEM(self, 0);
 	PyObject *sb = PyTuple_GET_ITEM(self, 1);
@@ -364,7 +364,7 @@ static PySequenceMethods as_sequence = {
 
 
 static struct PyMethodDef methods[] = {
-	{"not_continuous", not_continuous, METH_O, ""},
+	{"disjoint", disjoint, METH_O, ""},
 	{"order", order, METH_O, ""},
 	{"intersects", intersects, METH_O, ""},
 	{"continuous", continuous, METH_O, ""},

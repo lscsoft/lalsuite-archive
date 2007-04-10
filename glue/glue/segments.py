@@ -275,7 +275,7 @@ class segment(tuple):
 		"""
 		return self[0] != self[1]
 
-	def not_continuous(self, other):
+	def disjoint(self, other):
 		"""
 		Returns >0 if self covers an interval above other's
 		interval, <0 if self covers an interval below other's, or 0
@@ -368,9 +368,9 @@ class segment(tuple):
 		"""
 		Return True if self and other are not disjoint.
 		"""
-		# FIXME: deprecate this in favour of not_continuous()
+		# FIXME: deprecate this in favour of disjoint()
 		# above.
-		return not self.not_continuous(other)
+		return not self.disjoint(other)
 
 	# protraction and contraction and shifting
 
@@ -540,11 +540,11 @@ class segmentlist(list):
 		i = 0
 		for seg in other:
 			i = j = bisect_right(self, seg, i)
-			if i and not self[i - 1].not_continuous(seg):
+			if i and not self[i - 1].disjoint(seg):
 				i -= 1
 				seg |= self[i]
 			n = len(self)
-			while j < n and not seg.not_continuous(self[j]):
+			while j < n and not seg.disjoint(self[j]):
 				j += 1
 			if j > i:
 				self[i : j] = [seg | self[j - 1]]
@@ -692,7 +692,7 @@ class segmentlist(list):
 		while j < n:
 			seg = self[j]
 			j += 1
-			while j < n and not seg.not_continuous(self[j]):
+			while j < n and not seg.disjoint(self[j]):
 				seg |= self[j]
 				j += 1
 			self[i] = seg
