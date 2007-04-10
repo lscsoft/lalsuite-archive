@@ -275,12 +275,28 @@ class segment(tuple):
 		"""
 		return self[0] != self[1]
 
+	def not_continuous(self, other):
+		"""
+		Returns >0 if self covers an interval above other's
+		interval, <0 if self covers an interval below other's, or 0
+		if the two intervals are not disjoint (intersect or touch).
+		A return value of 0 indicates the two segments would
+		coalesce.
+		"""
+		if self[0] > other[1]:
+			return 1
+		if self[1] < other[0]:
+			return -1
+		return 0
+
 	def order(self, other):
 		"""
 		Equivalent to cmp(self, other) except that a result of 0
 		indicates that other is contained in self rather than being
 		identically equal to self.
 		"""
+		# FIXME: is this used?  It is not used anywhere in glue or
+		# pylal.  I want to deprecate it.
 		if other in self:
 			return 0
 		return cmp(self, other)
@@ -352,7 +368,9 @@ class segment(tuple):
 		"""
 		Return True if self and other are not disjoint.
 		"""
-		return (self[1] >= other[0]) and (self[0] <= other[1])
+		# FIXME: deprecate this in favour of not_continuous()
+		# above.
+		return not self.not_continuous(other)
 
 	# protraction and contraction and shifting
 
@@ -522,11 +540,11 @@ class segmentlist(list):
 		i = 0
 		for seg in other:
 			i = j = bisect_right(self, seg, i)
-			if i and self[i - 1].continuous(seg):
+			if i and not self[i - 1].not_continuous(seg):
 				i -= 1
 				seg |= self[i]
 			n = len(self)
-			while j < n and seg.continuous(self[j]):
+			while j < n and not seg.not_continuous(self[j]):
 				j += 1
 			if j > i:
 				self[i : j] = [seg | self[j - 1]]
@@ -674,7 +692,7 @@ class segmentlist(list):
 		while j < n:
 			seg = self[j]
 			j += 1
-			while j < n and seg.continuous(self[j]):
+			while j < n and not seg.not_continuous(self[j]):
 				seg |= self[j]
 				j += 1
 			self[i] = seg
