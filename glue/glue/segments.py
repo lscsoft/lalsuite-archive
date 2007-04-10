@@ -952,19 +952,30 @@ class segmentlistdict(dict):
 				return True
 		return False
 
-	def intersects(self, other):
+	def intersects_all(self, other):
 		"""
 		Returns True if each segmentlist in other intersects the
 		corresponding segmentlist in self;  returns False
 		otherwise.
 		"""
-		# FIXME: should this be the other way around?  Returns True
-		# if each segmentlist in self intersects the corresponding
-		# segmentlist in other?
 		for key, value in other.iteritems():
-			if not self[key].intersects(value):
+			if key not in self or not self[key].intersects(value):
 				return False
 		return True
+
+	def all_intersects(self, other):
+		"""
+		Returns True if each segmentlist in self intersects the
+		corresponding segmentlist in other;  returns False
+		otherwise.
+		"""
+		for key, value in self.iteritems():
+			if key not in other or not other[key].intersects(value):
+				return False
+		return True
+
+	# FIXME: deprecate this
+	intersects = intersects_all
 
 	def coalesce(self):
 		"""
