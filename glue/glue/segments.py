@@ -758,8 +758,6 @@ class _offsets(dict):
 		current offset this is a no-op, otherwise the corresponding
 		segmentlist object is shifted.
 		"""
-		if key not in self:
-			raise KeyError, key
 		delta = value - self[key]
 		if delta:
 			self.__parent[key].shift(delta)
@@ -927,6 +925,8 @@ class segmentlistdict(dict):
 		for key, value in other.iteritems():
 			if key in self:
 				self[key] &= value
+			else:
+				self[key] = segmentlist()
 		return self
 
 	def __and__(self, other):
