@@ -10,6 +10,7 @@ from types import *
 
 from pylal import SnglInspiralUtils
 from pylal import SimInspiralUtils
+from glue import lal
 from glue import segments
 from glue import segmentsUtils
 
@@ -54,6 +55,7 @@ parser.add_option("-f","--figure-name",action="store",type="string",\
     help="generate png figures with name FNAME-fig.png")
 parser.add_option("-g","--glob",action="store",type="string",\
     default=None, metavar=" GLOB",help="GLOB of trigger files to read" )
+parser.add_option("-i", "--input", help="read trigger filenames from input file")
 parser.add_option("-t","--title",action="store",type="string",default=None,\
     metavar=" STRING",help="title string for plots")
 parser.add_option("-s","--show-plot",action="store_true",default=False,\
@@ -115,8 +117,8 @@ if opts.version:
   sys.exit(0)
 
 # check at least one trig file was specified
-if not opts.glob:
-  print >>sys.stderr, "Must specify a GLOB of files to read"
+if opts.glob is None and opts.input is None:
+  print >>sys.stderr, "Must specify a GLOB of files to read or a LAL cache"
   print >>sys.stderr, "Enter 'plotinspiral --help' for usage"
   sys.exit(1)
 
@@ -132,9 +134,14 @@ if not opts.show_plot:
 from pylab import *
 from pylal import viz
 
-trigFiles = glob.glob(opts.glob)
+# determine trigger files
+trigFiles = []
+if opts.glob is not None:
+    trigFiles += glob.glob(opts.glob)
+if opts.input is not None:
+    trigFiles += [lal.CacheEntry(line).path() for line in open(opts.input)]
 if not len(trigFiles):
-  print >>sys.stderr, "The glob for " + opts.glob + " returned no files"
+  print >>sys.stderr, "There are no files in your glob and/or lal cache"
   sys.exit(1)
 
 # an instance of the snglInspiralTable
