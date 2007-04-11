@@ -353,11 +353,10 @@ def cut_noninjection_coincs(contents, injection_burst_ids):
 	that remains to be done is determine which injection matches which
 	coinc.
 	"""
-	injection_burst_ids.sort()
 	coincs_to_delete = []
 	for coinc, bursts in contents.index.iteritems():
 		for burst in bursts:
-			if not llwapp.bisect_contains(injection_burst_ids, id(burst)):
+			if id(burst) not in injection_burst_ids:
 				coincs_to_delete.append(coinc)
 				break
 	# can't modify dictionary inside loop
@@ -430,14 +429,14 @@ def ligolw_binjfind(xmldoc, **kwargs):
 
 	if kwargs["verbose"]:
 		print >>sys.stderr, "constructing injection--burst coincidences:"
-	injection_burst_ids = []
+	injection_burst_ids = set()
 	for n, sim in enumerate(contents.simbursttable):
 		if kwargs["verbose"] and not (n % (N / 50 or 1)):
 			print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / N),
 		matches = find_sngl_burst_matches(contents, sim, kwargs["comparefunc"])
 		if matches:
 			add_sim_burst_coinc(contents, process, sim, matches)
-			injection_burst_ids.extend(map(id, matches))
+			injection_burst_ids |= set(map(id, matches))
 	if kwargs["verbose"]:
 		print >>sys.stderr, "\t100.0%"
 

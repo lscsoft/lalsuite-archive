@@ -31,7 +31,6 @@ Generic coincidence engine for use with time-based event lists in LIGO
 Light Weight XML documents.
 """
 
-import bisect
 import sys
 
 from glue.ligolw import table
@@ -275,12 +274,12 @@ class EventListDict(dict):
 		"""
 		Initialize a newly-created instance.  event_table is a list
 		of events (e.g., an instance of a glue.ligolw.table.Table
-		subclass), and process_ids is a sorted list of the
+		subclass), and process_ids is a list or set of the
 		process_ids whose events should be considered in the
 		coincidence analysis.
 		"""
 		for event in event_table:
-			if llwapp.bisect_contains(process_ids, event.process_id):
+			if event.process_id in process_ids:
 				if event.ifo not in self:
 					self[event.ifo] = self.EventListType()
 				self[event.ifo].append(event)
@@ -327,7 +326,7 @@ def make_eventlists(xmldoc, event_table_name, max_segment_gap, program_name):
 
 def coincident_process_ids(xmldoc, max_segment_gap, program):
 	"""
-	Take an XML document tree and determine the list of process IDs
+	Take an XML document tree and determine the set of process IDs
 	that will participate in coincidences identified by the time slide
 	table therein.  It is OK for xmldoc to contain time slides
 	involving instruments not represented in the list of processes:
@@ -358,12 +357,12 @@ def coincident_process_ids(xmldoc, max_segment_gap, program):
 
 	# find the IDs of the processes which contributed to the coincident
 	# segments
-	coinc_proc_ids = []
+	coinc_proc_ids = set()
 	for row in search_summ_table:
-		if (not llwapp.bisect_contains(proc_ids, row.process_id)) or llwapp.bisect_contains(coinc_proc_ids, row.process_id):
+		if row.process_id not in proc_ids or row.process_id in coinc_proc_ids:
 			continue
 		if seglistdict[row.ifos].intersects_segment(row.get_out()):
-			bisect.insort_left(coinc_proc_ids, row.process_id)
+			coinc_proc_ids.add(row.process_id)
 	return coinc_proc_ids
 
 
