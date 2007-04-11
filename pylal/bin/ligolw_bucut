@@ -18,6 +18,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+
 #
 # =============================================================================
 #
@@ -26,8 +27,10 @@
 # =============================================================================
 #
 
+
 from optparse import OptionParser
 import sys
+
 
 from glue import lal
 from glue import segments
@@ -36,6 +39,7 @@ from glue.ligolw import lsctables
 from glue.ligolw import ilwd
 from glue.ligolw import utils
 from pylal import llwapp
+
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
@@ -49,6 +53,7 @@ __date__ = "$Date$"[7:-2]
 #
 # =============================================================================
 #
+
 
 def parse_command_line():
 	parser = OptionParser(version = "%prog CVS $Id$")
@@ -104,6 +109,7 @@ def parse_command_line():
 # =============================================================================
 #
 
+
 class DocContents(object):
 	def __init__(self, xmldoc, program = None):
 		self.snglbursttable = table.get_table(xmldoc, lsctables.SnglBurstTable.tableName)
@@ -132,14 +138,13 @@ class DocContents(object):
 
 	def make_coinceventids(self):
 		if self.coincmaptable:
-			self.coinceventids = map(ilwd.ILWDID, self.coincmaptable.getColumnByName("event_id"))
-			self.coinceventids.sort()
+			self.coinceventids = set(ilwd.ILWDID(id) for id in self.coincmaptable.getColumnByName("event_id"))
 		else:
-			self.coinceventids = []
+			self.coinceventids = set()
 		
 
 	def is_coinc_event(self, event):
-		return llwapp.bisect_contains(self.coinceventids, ilwd.ILWDID(event.event_id))
+		return ilwd.ILWDID(event.event_id) in self.coinceventids
 
 
 #
@@ -149,6 +154,7 @@ class DocContents(object):
 #
 # =============================================================================
 #
+
 
 def append_process(doc, options):
 	process = llwapp.append_process(doc, program = "ligolw_bucut", version = __version__, cvs_repository = "lscsoft", cvs_entry_time = __date__, comment = options.comment)
@@ -257,12 +263,13 @@ def append_process(doc, options):
 # =============================================================================
 #
 
+
 def remove_events_by_segment(contents):
-	ids = []
+	ids = set()
 	i = 0
 	while i < len(contents.snglbursttable):
 		if contents.vetosegs.intersects_segment(contents.snglbursttable[i].get_period()):
-			ids.append(contents.snglbursttable[i].event_id)
+			ids.add(contents.snglbursttable[i].event_id)
 			del contents.snglbursttable[i]
 		else:
 			i += 1
@@ -332,13 +339,13 @@ def keep_this_sngl_burst(burst, options):
 
 
 def remove_events_by_parameters(contents, options):
-	ids = []
+	ids = set()
 	i = 0
 	while i < len(contents.snglbursttable):
 		if keep_this_sngl_burst(contents.snglbursttable[i], options):
 			i += 1
 		else:
-			ids.append(contents.snglbursttable[i].event_id)
+			ids.add(contents.snglbursttable[i].event_id)
 			del contents.snglbursttable[i]
 	return ids
 
@@ -353,7 +360,7 @@ def remove_coincidences(contents):
 				i += 1
 		del contents.coinctable[:]
 		del contents.coincmaptable[:]
-		contents.coinceventids = []
+		contents.coinceventids = set()
 
 
 def remove_non_coincidences(contents):
@@ -390,21 +397,20 @@ def clean_coinc_tables(contents, removed_ids):
 	# only then should the injection be marked as not found (by
 	# deleting the coincidence).
 	# remove dangling coinc_event_map rows
-	removed_coincs = []
+	removed_coincs = set()
 	for i in range(len(contents.coincmaptable) - 1, -1, -1):
-		if llwapp.bisect_contains(removed_ids, contents.coincmaptable[i].event_id):
-			removed_coincs.append(contents.coincmaptable[i].coinc_event_id)
+		if contents.coincmaptable[i].event_id in removed_ids:
+			removed_coincs.add(contents.coincmaptable[i].coinc_event_id)
 			del contents.coincmaptable[i]
-	removed_coincs.sort()
 
 	# remove broken coinc_event rows
 	for i in range(len(contents.coinctable) - 1, -1, -1):
-		if llwapp.bisect_contains(removed_coincs, contents.coinctable[i].coinc_event_id):
+		if contents.coinctable[i].coinc_event_id in removed_coincs:
 			del contents.coinctable[i]
 
 	# remove dangling coinc_event_map rows
 	for i in range(len(contents.coincmaptable) - 1, -1, -1):
-		if llwapp.bisect_contains(removed_coincs, contents.coincmaptable[i].coinc_event_id):
+		if contents.coincmaptable[i].coinc_event_id in removed_coincs:
 			del contents.coincmaptable[i]
 
 	contents.make_coinceventids()
@@ -418,20 +424,20 @@ def clean_coinc_tables(contents, removed_ids):
 # =============================================================================
 #
 
+
 def apply_filters(contents, options, verbose = False):
-	removed_ids = []
+	removed_ids = set()
 	if options.veto_segments:
 		if verbose:
 			print >>sys.stderr, "applying veto segment list..."
-		removed_ids.extend(remove_events_by_segment(contents))
+		removed_ids |= remove_events_by_segment(contents)
 	if verbose:
 		print >>sys.stderr, "filtering sngl_burst rows by parameters..."
-	removed_ids.extend(remove_events_by_parameters(contents, options))
+	removed_ids |= remove_events_by_parameters(contents, options)
 	if options.inj_made_only:
 		if verbose:
 			print >>sys.stderr, "removing injections that weren't performed..."
 		remove_injections_by_segment(contents)
-	removed_ids.sort()
 	if verbose:
 		print >>sys.stderr, "removing broken coincidences..."
 	clean_coinc_tables(contents, removed_ids)
@@ -465,7 +471,10 @@ def ligolw_bucut(doc, options):
 # =============================================================================
 #
 
+
 options, filenames = parse_command_line()
+
+
 for filename in filenames:
 	xmldoc = utils.load_filename(filename, options.verbose, gz = filename[-3:] == ".gz")
 	xmldoc = ligolw_bucut(xmldoc, options)
