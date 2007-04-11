@@ -272,11 +272,7 @@ def get_process_params(xmldoc, program, param):
 	process_ids = table.get_table(xmldoc, lsctables.ProcessTable.tableName).get_ids_by_program(program)
 	if len(process_ids) != 1:
 		raise ValueError, "process table must contain exactly one program named %s" % program
-	values = []
-	for row in table.get_table(xmldoc, lsctables.ProcessParamsTable.tableName):
-		if (row.process_id in process_ids) and (row.param == param):
-			values.append(row.value)
-	return values
+	return [row.value for row in table.get_table(xmldoc, lsctables.ProcessParamsTable.tableName) if (row.process_id in process_ids) and (row.param == param)]
 
 
 def dbget_process_params(connection, program, param):
@@ -289,7 +285,7 @@ WHERE
 	program == ?
 	AND param == ?
 	""", (program, param)):
-		process_ids |= set((process_id,))
+		process_ids.add(process_id)
 		values.append(value)
 	if len(process_ids) != 1:
 		raise ValueError, "process table must contain exactly one program named %s with params %s" % (program, param)
@@ -352,7 +348,8 @@ def smallest_enclosing_seg(a, b):
 def bisect_contains(array, val):
 	"""
 	Uses a bisection search to determine if val is in array.  Returns
-	True or False.
+	True or False.  NOTE:  this is going to be removed, use Python sets
+	instead.
 	"""
 	try:
 		return array[bisect.bisect_left(array, val)] == val
