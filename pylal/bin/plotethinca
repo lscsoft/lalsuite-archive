@@ -149,7 +149,7 @@ for ifos in pylal_itertools.choices(opts.ifo_list, 2):
         (col.replace('_', r'\_'), ifos[0], ifos[1]))
       
       if opts.figure_name:
-        savefig("%s_%s_%s_ethinca_vs_%s_%s.jng" % \
+        savefig("%s_%s_%s_ethinca_vs_%s_%s.png" % \
           (opts.figure_name, ifos[0], ifos[1], ifo, col.replace('_', r'\_')))
       if not opts.show_plot:
         close()
