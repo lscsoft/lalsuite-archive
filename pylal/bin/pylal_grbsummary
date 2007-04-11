@@ -103,30 +103,20 @@ def get_options():
     # expand ~ in globs and expand globs
     if opts.inspiral_globs is not None:
         opts.inspiral_globs = [p.expanduser(g) for g in opts.inspiral_globs]
-        opts.inspiral_files = [glob.glob(g) for g in opts.inspiral_globs]
     for s in ["thinca", "injection", "slide"]:
         myglob = getattr(opts, "%s_glob" % s)
         if myglob is not None:
             myglob = p.expanduser(myglob)
             setattr(opts, "%s_glob" % s, myglob)
-            setattr(opts, "%s_files" % s, glob.glob(myglob))
-        else:
-            setattr(opts, "%s_files" % s, None)
     
     return opts
 
-_second_stage_regex = re.compile(r"_((\w\d)+)-")
+_second_stage_regex = re.compile(r"_((\w\d)+)")
 def is_second_stage(filename):
     """
     Determine if a filename comes from a second-stage INSPIRAL, THINCA, etc.
     """
     return (_second_stage_regex.search(filename) is not None)
-
-def expand_globs(exps):
-    """
-    Expand each glob in a list of glob expressions and join the results.
-    """
-    return reduce(list.__add__, [glob.glob(e) for e in exps])
 
 def ifos_start_dur_from_files(files):
     """
@@ -147,18 +137,18 @@ def ifos_start_dur_from_files(files):
     
     return ifos, start, dur
 
-def write_lal_cache(input_file, filenames):
+def write_lal_cache(cache_file, filenames):
     """
-    Write the list of files in filenames to the file input_file. if we are
+    Write the list of files in filenames to the file cache_file. if we are
     passed a file object, write to it.  Else, create a new one.  The file
     format is that of a LAL cache.
     """
-    if not hasattr(input_file, 'write'):
-        input_file = open(input_file, 'w')
+    if not hasattr(cache_file, 'write'):
+        cache_file = open(cache_file, 'w')
     for f in filenames:
-        ifos, start, dur = ifos_start_dur_from_files([f])
+        basedir, ifos, tag, extratag, start, dur, ext = filename_to_tuple(f)
         url = urlparse.urljoin("file://localhost", f)
-        input_file.write(' '.join(["".join(ifos), 'GRB', str(start), str(dur), url]) + '\n')
+        cache_file.write(' '.join([ifos, 'GRB', str(start), str(dur), url]) + '\n')
 
 def read_lal_cache(input_file):
     """
@@ -185,71 +175,129 @@ def make_external_call(command, show_stdout=False):
         #sys.exit(status)
     elif show_stdout:
         print out.read()
+    stdin.close()
+    out.close()
+    err.close()
 
-def basedir_from_file(filename):
+def filename_to_tuple(path):
     """
-    Determine basedir from file if possible.  Else, take PWD from the
-    environment.
+    Return tuple of (basedir, ifos, basetag, extratag, start, duration, extension).
+    If there is no basedir, take PWD from the environment.
+    start and dur are cast to ints.
+    Ex: 
     """
-    return p.abspath(p.split(filename)[0]) or os.environ['PWD']
+    basedir, name = p.split(path)
+    basedir = p.expanduser(basedir) or os.environ['PWD']
+    
+    name, ext = p.splitext(name)
+    name, ext2 = p.splitext(name)
+    ext += ext2  # in case we have double-extensions like .xml.gz
+    
+    ifos, tag, start, dur = name.split('-')
+    
+    index = tag.find('_')
+    if index > -1:
+        tag, extratag = tag[:index], tag[index:]
+    else:
+        extratag = ""
+    
+    start = int(start)
+    dur = int(dur)
+    
+    return (basedir, ifos, tag, extratag, start, dur, ext)
+
+def tuple_to_filename(tup):
+    """
+    Return reconstructed filename from a tuple of (basedir, ifos, tag,
+    extratag, start, duration, extension)
+    """
+    return "%s/%s-%s%s-%d-%d%s" % tup
+
+def lal_cache_name_from_files(files):
+    """
+    Return a good name for a lal cache containing these files.
+    We assume that all files share basedir, tag, and extension.
+    """
+    if files is None or len(files) == 0:
+        return
+    basedir, ifos, tag, extratag, start, dur, ext = filename_to_tuple(files[0])
+    ifolist, start, dur = ifos_start_dur_from_files(files)
+    
+    return tuple_to_filename((basedir, "".join(ifolist), tag, extratag, start, dur, ".input"))
 
 ##############################################################################
 # Call external programs
 ##############################################################################
 
-def call_sire(inspiral_globs, cluster_time_ms=None, injection_files=None):
+def call_sire(inspiral_globs, cluster_time_ms=None, injection_glob=None,
+    injection_window_ms=None):
     """
     Call sire on each glob in inspiral_globs and return sire output filenames.
     """
     # separate by ifo and call helper function on each set
     sire_outputs = []
     for g in inspiral_globs:
-        sire_outputs.append(_sire_by_ifo(g, cluster_time_ms, injection_files))
+        sire_outputs.append(_sire_by_ifo(g, cluster_time_ms, injection_glob,
+            injection_window_ms))
     return sire_outputs
 
-def _sire_by_ifo(inspiral_glob, cluster_time_ms=None, injection_files=None):
+def _sire_by_ifo(inspiral_glob, cluster_time_ms=None, injection_glob=None,
+    injection_window_ms=None):
     """
     Call sire on inspiral_glob and return output filename for a single IFO.
     TODO: support injection files
     """
-    print "* Running lalapps_sire on the glob \"%s\"" % inspiral_glob
+    print "* Running lalapps_sire on each file in the glob \"%s\"" % inspiral_glob
     inspiral_files = glob.glob(inspiral_glob)
-    
-    ifos, start, dur = ifos_start_dur_from_files(inspiral_files)
-    assert len(ifos) == 1
-    ifo = ifos[0]
+    ifolist, start, dur = ifos_start_dur_from_files(inspiral_files)
+    assert len(ifolist) == 1
+    ifo = ifolist[0]
     
     args = ["lalapps_sire", "--data-type=all_data"]
     if cluster_time_ms is not None:
         args.extend(["--cluster-algorithm=snr", 
                      "--cluster-time=%d" % cluster_time_ms])
-    args += ["--glob=\"%s\"" % inspiral_glob]
+    if injection_glob is not None:
+        injection_files = glob.glob(injection_glob)
+        assert len(injection_files) == len(thinca_files)
+        args += ["--injection-window=%d" % injection_window_ms]
+    else:  # no injection files
+        injection_files = itertools.repeat(None)  # endless stream of None
     
-    # output file; TODO: respect usertag
-    tag = "SIRE"
-    if is_second_stage(inspiral_files[0]): tag += "2"
-    basedir = basedir_from_file(inspiral_files[0])
-    output_file = "%s/%s-%s-%d-%d.xml" % (basedir, ifo, tag, start, dur)
-    args += ["--output=%s" % output_file]
-    
-    make_external_call(" ".join(args))
-    return output_file
+    output_files = []
+    for f, inj in zip(inspiral_files, injection_files):
+        tempargs = ["--glob=\"%s\"" % f]
+        
+        # handle injections
+        if inj is not None: tempargs += ["--injection-file=%s" % inj]
+        
+        # determine output file
+        basedir, ifos, tag, extratag, start, dur, ext = filename_to_tuple(f)
+        output_file = tuple_to_filename((basedir, ifos, "SIRE", extratag, start, dur, ext))
+        tempargs += ["--output=%s" % output_file]
+        
+        # make the call
+        make_external_call(" ".join(args + tempargs))
+        
+        # record output file
+        output_files += [output_file]
+    return output_files
 
-def call_coire(thinca_glob, cluster_time_ms=None, injection_files=None,
+def call_coire(thinca_glob, cluster_time_ms=None, injection_glob=None,
     injection_window_ms=None, num_slides=None):
     """
-    Call sire on files in inspiral_globs and return sire output filenames.
+    Call coire on files in inspiral_globs and return coire output filenames.
     """
     print "* Running lalapps_coire on each file in \"%s\"" % thinca_glob
     thinca_files = glob.glob(thinca_glob)
-    ifos, start, dur = ifos_start_dur_from_files(thinca_files)
     
     # common to all coire calls
     args = ["lalapps_coire", "--data-type=all_data"]
     if cluster_time_ms is not None:
         args += ["--coinc-stat=snrsq"]
         args += ["--cluster-time=%d" % cluster_time_ms]
-    if injection_files is not None:
+    if injection_glob is not None:
+        injection_files = glob.glob(injection_glob)
         assert len(injection_files) == len(thinca_files)
         args += ["--injection-window=%d" % injection_window_ms]
     else:  # no injection files
@@ -261,20 +309,14 @@ def call_coire(thinca_glob, cluster_time_ms=None, injection_files=None,
         tempargs = ["--glob=\"%s\"" % f]
         
         # handle injections
-        if inj is not None:
-            tempargs += ["--injection-file=%s" % inj]
+        if inj is not None: tempargs += ["--injection-file=%s" % inj]
+        
+        # handle slides
+        if "SLIDE" in f: tempargs += ["--num-slides=%d" % num_slides]
         
         # determine output file
-        tag = "COIRE"
-        if is_second_stage(f): tag += "_" + "".join(ifos)
-        if "SLIDE" in f:
-            tag += "_SLIDE"
-            tempargs += ["--num-slides=%d" % num_slides]
-
-        basedir = basedir_from_file(f)
-        ifos, start, dur = ifos_start_dur_from_files([f])
-
-        output_file = "%s/%s-%s-%d-%d.xml" % (basedir, "".join(ifos), tag, start, dur)
+        basedir, ifos, tag, extratag, start, dur, ext = filename_to_tuple(f)
+        output_file = tuple_to_filename((basedir, ifos, "COIRE", extratag, start, dur, ext))
         tempargs += ["--output=%s" % output_file]
         
         # make the call
@@ -291,28 +333,18 @@ def call_add_inspiral(thinca_cache):
     """
     print "* Running ligolw_add_inspiral on the input file \"%s\"" \
         % thinca_cache
-    thinca_files = read_lal_cache(thinca_cache)
-    ifos, start, dur = ifos_start_dur_from_files(thinca_files)
     
     args = ["ligolw_add_inspiral", "--input=\"%s\"" % thinca_cache]
     
-    # output file; TODO: respect usertag
-    basedir = basedir_from_file(thinca_files[0])
-    if "COIRE" in thinca_files[0]:
-        tag = "COIRE"
-    else:
-        tag = "THINCA"
-    if "SLIDE" in thinca_files[0]:
-        tag += "_SLIDE"
-    if is_second_stage(thinca_files[0]): tag += "_" + "".join(ifos)
-    output_file = "%s/%s-%s-%d-%d.xml" % (basedir, "".join(ifos), tag, start, dur)
+    # output file
+    basedir, ifos, tag, extratag, start, dur, ext = filename_to_tuple(thinca_cache)
+    output_file = tuple_to_filename((basedir, ifos, tag, extratag, start, dur, ".xml"))
     args += ["--output=%s" % output_file]
     
     make_external_call(" ".join(args))
     return output_file
     
-def call_plotinspiral(inspiral_globs, vetofile=None, figure_name=None,
-    ):
+def call_plotinspiral(inspiral_caches, vetofile=None, figure_name=None):
     """
     Based on what information is available, produce plotinspiral plots of
     interest.
@@ -326,97 +358,94 @@ def call_plotinspiral(inspiral_globs, vetofile=None, figure_name=None,
     if figure_name is not None:
         args += ["--figure-name=%s" % figure_name]
     
-    for g in inspiral_globs:
+    for g in inspiral_caches:
         print "* Running plotinspiral on the files in the glob %s" % g
-        make_external_call(" ".join(args + ["--glob=%s" % g]))
+        make_external_call(" ".join(args + ["--input=%s" % g]))
 
-def call_plotthinca(thinca_cache, vetofile=None, figure_name=None):
+def call_plotthinca(thinca_file, vetofile=None, figure_name=None):
     """
     Based on what information is available, produce plotthinca plots of
     interest.
     TODO: HTML markup (<a href=""><img src="" alt=""></a>)
     """
-    print "* Running plotthinca on the input file \"%s\"" % thinca_cache
-    thinca_files = read_lal_cache(thinca_cache)
-    ifos, start, dur = ifos_start_dur_from_files(thinca_files)
+    print "* Running plotthinca on the file \"%s\"" % thinca_file
+    basedir, ifos, tag, extratag, start, dur, ext = filename_to_tuple(thinca_file)
     
     args = ["plotthinca", "--snr-snr", "--snr-dist",
-        "--input=%s" % thinca_cache]
+        "--glob=%s" % thinca_file]
     
-    for ifo in ifos:
+    for ifo in ["".join(ifos[2*i:2*i+2]) for i in range(len(ifos)//2)]:
         args += ["--%s-triggers" % ifo.lower()]
     if vetofile is not None:
         args += ["--veto-file=%s" % vetofile]
     if figure_name is not None:
         args += ["--figure-name=%s" % figure_name]
-    if is_second_stage(thinca_files[0]):
+    if is_second_stage(extratag):
         args += ["--statistic=effective_snr"]
     else:
         args += ["--statistic=snr"]
     
     make_external_call(" ".join(args))
 
-def call_plotethinca(thinca_cache, vetofile=None, figure_name=None):
+def call_plotethinca(thinca_file, vetofile=None, figure_name=None):
     """
     Based on what information is available, produce plotethinca plots of
     interest.
     """
-    print "* Running plotethinca on the input file \"%s\"" % thinca_cache
-    thinca_files = read_lal_cache(thinca_cache)
-    ifos, start, dur = ifos_start_dur_from_files(thinca_files)
+    print "* Running plotethinca on the file \"%s\"" % thinca_file
+    basedir, ifos, tag, extratag, start, dur, ext = filename_to_tuple(thinca_file)
     
     args = ["plotethinca", "--ethinca-vs-stat", "--x-value=snr",
         "--x-value=mchirp", "--x-value=eta", "--hist",
-        "--input=%s" % thinca_cache]
+        "--glob=%s" % thinca_file]
     
-    for ifo in ifos:
+    for ifo in ["".join(ifos[2*i:2*i+2]) for i in range(len(ifos)//2)]:
         args += ["--ifo=%s" % ifo]
     if vetofile is not None:
         args += ["--veto-file=%s" % vetofile]
     if figure_name is not None:
         args += ["--figure-name=%s" % figure_name]
-    if is_second_stage(thinca_files[0]):
+    if is_second_stage(extratag):
         args += ["--statistic=effective_snr"]
     else:
         args += ["--statistic=snr"]
     
     make_external_call(" ".join(args))
 
-def call_plotthincaslide(slide_cache, num_slides, vetofile=None,
+def call_plotthincaslide(slide_file, num_slides, vetofile=None,
     figure_name=None):
     """
     Based on what information is available, produce plotthinca plots of
     interest.
     TODO: HTML markup (<a href=""><img src="" alt=""></a>)
     """
-    print "* Running plotthinca on the input file \"%s\"" % slide_cache
-    slide_files = read_lal_cache(slide_cache)
-    ifos, start, dur = ifos_start_dur_from_files(slide_files)
+    print "* Running plotthinca on the file \"%s\"" % slide_file
+    basedir, ifos, tag, extratag, start, dur, ext = filename_to_tuple(slide_file)
     
     args = ["plotthinca", "--statistic=snr", "--snr-dist", "--slide-snr",
         "--slide-dist", "--hist-slide", "--plot-slide",
-        "--num-slide=%d" % num_slides, "--input=%s" % slide_cache]
+        "--num-slide=%d" % num_slides, "--glob=%s" % slide_file]
     
-    for ifo in ifos:
+    for ifo in ["".join(ifos[2*i:2*i+2]) for i in range(len(ifos)//2)]:
         args += ["--%s-triggers" % ifo.lower()]
     if vetofile is not None:
         args += ["--veto-file=%s" % vetofile]
     if figure_name is not None:
         args += ["--figure-name=%s" % figure_name]
-    if is_second_stage(slide_files[0]):
+    if is_second_stage(slide_file):
         args += ["--statistic=effective_snr"]
     else:
         args += ["--statistic=snr"]
     
     make_external_call(" ".join(args))
 
-def call_timeslide_stats(slide_cache):
+def call_timeslide_stats(slide_file):
     """
     Determine the mean number of triggers per slide per (n seconds / 180 seconds)
     """
     print "* Running pylal_grbtimeslide_stats"
     
-    args = ["pylal_grbtimeslide_stats", "--input=%s" % slide_cache,
+    args = ["pylal_grbtimeslide_stats", "--glob=%s" % slide_file,
         "--fold-time=180"]
     
     make_external_call(" ".join(args), show_stdout=True)
@@ -429,7 +458,7 @@ if __name__ == "__main__":
     # parse input
     opts = get_options()
     
-    # create an off-source segfile
+    # create an off-source segfile if necessary
     if not p.exists(opts.off_source_segfile):
         print "Writing an off-source segfile"
         full_segs = segmentsUtils.fromsegwizard(open(opts.full_segfile))
@@ -440,77 +469,76 @@ if __name__ == "__main__":
     
     # inspiral
     if opts.inspiral_globs is not None:
-        # sire as necessary
+        # sire together as necessary
         if opts.sire_inspiral:
-            opts.inspiral_globs = call_sire(opts.inspiral_globs, opts.cluster_time_ms, opts.injection_files)
-            opts.inspiral_files = expand_globs(opts.inspiral_globs)
+            inspiral_filegroups = call_sire(opts.inspiral_globs,
+                opts.cluster_time_ms, opts.injection_glob,
+                opts.injection_window_ms)
+        else:
+            inspiral_filegroups = [glob.glob(g) for g in opts.inspiral_globs]
+        
+        # write lal caches
+        inspiral_caches = [lal_cache_name_from_files(g) for g in inspiral_filegroups]
+        for cachefile, g in zip(inspiral_caches, inspiral_filegroups):
+            write_lal_cache(cachefile, g)
         
         # plot each inspiral file
         if opts.figure_name is not None:
-            call_plotinspiral(opts.inspiral_globs, opts.on_source_segfile,
+            call_plotinspiral(inspiral_caches, opts.on_source_segfile,
                 "%s_off" % opts.figure_name)
-            call_plotinspiral(opts.inspiral_globs, opts.off_source_segfile,
+            call_plotinspiral(inspiral_caches, opts.off_source_segfile,
                 "%s_on" % opts.figure_name)
     
     # thinca
     if opts.thinca_glob is not None:
-        ifos, start, dur = ifos_start_dur_from_files(opts.thinca_files)
-        basedir = basedir_from_file(opts.thinca_files[0])
-        
         # cluster triggers file by file; either way, create input file 
         if opts.coire_thinca:
-            tag = "COIRE"
             thinca_files = call_coire(opts.thinca_glob, opts.cluster_time_ms,
-                opts.injection_files, opts.injection_window_ms, opts.num_slides)
+                opts.injection_glob, opts.injection_window_ms)
         else:
-            tag = "THINCA"
-            thinca_files = opts.thinca_files
-        if is_second_stage(thinca_files[0]): tag += "_" + "".join(ifos)
-        thinca_cache = "%s/%s-%s-%d-%d.input" % (basedir, "".join(ifos), tag, start, dur)
+            thinca_files = glob.glob(opts.thinca_glob)
+        
+        # write lal cache
+        thinca_cache = lal_cache_name_from_files(thinca_files)
         write_lal_cache(thinca_cache, thinca_files)
         
         # add coincs, handling inspid business; overwrite input file
         new_thinca_file = call_add_inspiral(thinca_cache)
-        write_lal_cache(thinca_cache, [new_thinca_file])
         
         # plot
         if opts.figure_name is not None:
-            call_plotthinca(thinca_cache, opts.on_source_segfile,
+            call_plotthinca(new_thinca_file, opts.on_source_segfile,
                 "%s_off" % opts.figure_name)
-            call_plotthinca(thinca_cache, opts.off_source_segfile,
+            call_plotthinca(new_thinca_file, opts.off_source_segfile,
                 "%s_on" % opts.figure_name)
-            call_plotethinca(thinca_cache, opts.on_source_segfile,
+            call_plotethinca(new_thinca_file, opts.on_source_segfile,
                 "%s_off" % opts.figure_name)
-            call_plotethinca(thinca_cache, opts.off_source_segfile,
+            call_plotethinca(new_thinca_file, opts.off_source_segfile,
                 "%s_on" % opts.figure_name)
     
     # thinca slide
     if opts.slide_glob is not None:
-        ifos, start, dur = ifos_start_dur_from_files(opts.slide_files)
-        basedir = basedir_from_file(opts.slide_files[0])
-        
         # cluster triggers file by file; either way, create input file
         if opts.coire_thinca:
-            tag = "COIRE_SLIDE"
             slide_files = call_coire(opts.slide_glob, opts.cluster_time_ms,
-                opts.injection_files, opts.injection_window_ms, opts.num_slides)
+                opts.injection_glob, opts.injection_window_ms,
+                opts.num_slides)
         else:
-            tag = "THINCA_SLIDE"
-            slide_files = opts.slide_files
-        if is_second_stage(slide_files[0]): tag += "_" + "".join(ifos)
-        slide_cache = "%s/%s-%s-%d-%d.input" % (basedir, "".join(ifos), tag, start, dur)
+            slide_files = glob.glob(slide_glob)
+        
+        # write lal cache
+        slide_cache = lal_cache_name_from_files(slide_files)
         write_lal_cache(slide_cache, slide_files)
         
         # add coincs, handling inspid business; overwrite input file
         new_slide_file = call_add_inspiral(slide_cache)
-        write_lal_cache(slide_cache, [new_slide_file])
         
         # first, a summary
-        call_timeslide_stats(slide_cache)
+        call_timeslide_stats(new_slide_file)
         
         # plot
         if opts.figure_name is not None:
-            call_plotthincaslide(slide_cache, opts.num_slides,
+            call_plotthincaslide(new_slide_file, opts.num_slides,
                 opts.on_source_segfile, "%s_off" % opts.figure_name)
-            call_plotthincaslide(slide_cache, opts.num_slides,
+            call_plotthincaslide(new_slide_file, opts.num_slides,
                 opts.off_source_segfile, "%s_on" % opts.figure_name)
