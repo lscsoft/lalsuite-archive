@@ -393,17 +393,15 @@ class ProcessTable(DBTable):
 
 	def get_ids_by_program(self, program):
 		"""
-		Return a sorted list of the process IDs for rows whose
-		program string equals the given program.
+		Return a set of the process IDs from rows whose program
+		string equals the given program.
 		"""
-		ids = [id for (id,) in self.cursor.execute("""
+		return set(id for (id,) in self.cursor.execute("""
 			SELECT process_id FROM
 				process
 			WHERE
 				program == ?
-		""", (program,))]
-		ids.sort()
-		return ids
+		""", (program,)))
 
 
 class ProcessParamsTable(DBTable):

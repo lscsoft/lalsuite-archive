@@ -163,12 +163,10 @@ class ProcessTable(table.Table):
 
 	def get_ids_by_program(self, program):
 		"""
-		Return a sorted list of the process IDs for rows whose
+		Return a set containing the process IDs from rows whose
 		program string equals the given program.
 		"""
-		ids = [row.process_id for row in self if row.program == program]
-		ids.sort()
-		return ids
+		return set(row.process_id for row in self if row.program == program)
 
 
 class Process(object):
