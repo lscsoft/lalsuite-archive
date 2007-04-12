@@ -26,7 +26,7 @@ ver = "1.14"
 
 def remove_root(path,root):
   if root:
-    return os.path.normpath(path).replace(os.path.normpath(root),"",1)
+    return os.path.normpath(path).replace(os.path.normpath(root),"")
   else:
     return os.path.normpath(path)
 

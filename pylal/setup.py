@@ -23,7 +23,7 @@ lal_pkg_config = PkgConfig("lal")
 
 def remove_root(path,root):
   if root:
-    return os.path.normpath(path).replace(os.path.normpath(root),"",1)
+    return os.path.normpath(path).replace(os.path.normpath(root),"")
   else:
     return os.path.normpath(path)
 
