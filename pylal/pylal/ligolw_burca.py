@@ -336,6 +336,11 @@ def ligolw_burca(xmldoc, comparefunc, **kwargs):
 	# prepare the coincidence table interface
 	coinc_tables = snglcoinc.CoincTables(xmldoc, [lsctables.SnglBurstTable.tableName])
 
+	# cast offsets in time_slide table to LIGOTimeGPS (avoids repeated
+	# conversion when applying the time slide to each trigger)
+	for row in coinc_tables.time_slide_table:
+		row.offset = LIGOTimeGPS(row.offset)
+
 	# build the event list accessors, populated with events from those
 	# processes that can participate in a coincidence
 	eventlists = snglcoinc.make_eventlists(xmldoc, lsctables.SnglBurstTable.tableName, kwargs["get_max_segment_gap"](xmldoc, kwargs["thresholds"]), kwargs["program"])

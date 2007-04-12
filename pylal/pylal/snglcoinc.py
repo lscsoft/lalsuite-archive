@@ -134,11 +134,8 @@ class CoincTables(object):
 			self.coincmaptable = lsctables.New(lsctables.CoincMapTable)
 			xmldoc.childNodes[0].appendChild(self.coincmaptable)
 
-		# find the time_slide table, and cast all offsets to
-		# LIGOTimeGPS.
+		# find the time_slide table
 		self.time_slide_table = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
-		for row in self.time_slide_table:
-			row.offset = LIGOTimeGPS(row.offset)
 
 
 	def time_slide_ids(self):
