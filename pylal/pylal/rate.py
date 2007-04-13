@@ -671,6 +671,30 @@ def bins_from_xml(xml):
 	return Bins(*args, **kwargs)
 
 
+def binned_array_to_xml(binnedarray, name):
+	"""
+	Retrun an XML document tree describing a rate.BinnedArray object.
+	"""
+	xml = ligolw.LIGO_LW({u"Name": u"%s:pylal_rate_binnedarray" % name})
+	xml.appendChild(bins_to_xml(binnedarray.bins))
+	xml.appendChild(array.from_array(u"array", binnedarray.array))
+	return xml
+
+
+def binned_array_from_xml(xml, name):
+	"""
+	Search for the description of a rate.BinnedArray object named
+	"name" in the XML document tree rooted at xml, and construct and
+	return a new rate.BinnedArray object from the data contained
+	therein.
+	"""
+	xml, = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.getAttribute(u"Name") == u"%s:pylal_rate_binnedarray" % name]
+	binnedarray = BinnedArray(Bins())
+	binnedarray.bins = bins_from_xml(xml)
+	binnedarray.array = array.get_array(xml, u"array").array
+	return binnedarray
+
+
 def binned_ratios_to_xml(ratios, name):
 	"""
 	Return an XML document tree describing a rate.BinnedRatios object.
