@@ -192,7 +192,7 @@ class CafePacker(packing.Packer):
 		new.add(cache_entry, cache_entry.to_segmentlistdict())
 		new.extent = new.extent.protract(self.max_gap)
 		matching_bins = []
-		for n in xrange(bisect.bisect_left(tuple(bin.extent[1] for bin in self.bins), new.extent[0]), len(self.bins)):
+		for n in xrange(bisect.bisect_left([bin.extent[1] for bin in self.bins], new.extent[0]), len(self.bins)):
 			bin = self.bins[n]
 			for offsetdict in self.timeslides:
 				new.size.offsets.update(offsetdict)
