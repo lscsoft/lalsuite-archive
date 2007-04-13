@@ -171,14 +171,16 @@ class Bins(object):
 		if len(spacing) != len(args) / 3:
 			raise ValueError, spacing
 		it = iter(args)
-		self.bins = tuple({
+		# FIXME: don't construct the intermediate lists when we
+		# no longer care about Python 2.3 compatibility.
+		self.bins = tuple([{
 			"lin": _LinBins,
 			"log": _LogBins
-		}[s](it.next(), it.next(), it.next()) for s in spacing)
-		self.min = tuple(b.min for b in self.bins)
-		self.max = tuple(b.max for b in self.bins)
-		self.shape = tuple(b.n for b in self.bins)
-		self.centres = tuple(b.centres() for b in self.bins)
+		}[s](it.next(), it.next(), it.next()) for s in spacing])
+		self.min = tuple([b.min for b in self.bins])
+		self.max = tuple([b.max for b in self.bins])
+		self.shape = tuple([b.n for b in self.bins])
+		self.centres = tuple([b.centres() for b in self.bins])
 
 	def __getitem__(self, coords):
 		"""
