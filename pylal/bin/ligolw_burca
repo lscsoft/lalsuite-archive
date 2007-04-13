@@ -63,7 +63,7 @@ def parse_thresholds(options):
 	#
 
 	try:
-		options.thresholds = snglcoinc.parse_thresholds(options.thresholds)
+		thresholds = snglcoinc.parse_thresholds(options.thresholds)
 	except Exception, e:
 		raise ValueError, "error parsing --thresholds: %s" % str(e)
 
@@ -83,9 +83,8 @@ def parse_thresholds(options):
 			# the dictionary while we go
 			#
 
-			for instrumentpair, value in options.thresholds.items():
-				dt, df, dhrss = value
-				options.thresholds[instrumentpair] = (float(dt), float(df), float(dhrss))
+			for instrumentpair, (dt, df, dhrss) in thresholds.items():
+				thresholds[instrumentpair] = (float(dt), float(df), float(dhrss))
 		except Exception, e:
 			raise ValueError, "error parsing --thresholds: %s" % str(e)
 	elif options.coincidence_algorithm == "stringcusp":
@@ -104,11 +103,22 @@ def parse_thresholds(options):
 			# the dictionary while we go
 			#
 
-			for instrumentpair, value in options.thresholds.items():
-				dt, = value
-				options.thresholds[instrumentpair] = (float(dt), float(kappa), float(epsilon))
+			for instrumentpair, (dt,) in thresholds.items():
+				thresholds[instrumentpair] = (float(dt), float(kappa), float(epsilon))
 		except Exception, e:
 			raise ValueError, "error parsing --thresholds: %s" % str(e)
+	else:
+		#
+		# unrecognized coincidence algorithm
+		#
+
+		raise ValueError, options.coincidence_algorithm
+
+	#
+	# Done
+	#
+
+	return thresholds
 
 
 def parse_command_line():
@@ -141,8 +151,7 @@ def parse_command_line():
 			raise ValueError, "missing required argument --distribution-file"
 		if options.probability_gw is None:
 			raise ValueError, "missing required argument --probability-gw"
-		else:
-			options.probability_gw = float(options.probability_gw)
+		options.probability_gw = float(options.probability_gw)
 	else:
 		if options.program is None:
 			raise ValueError, "missing required argument --program"
@@ -152,7 +161,7 @@ def parse_command_line():
 	#
 
 	if options.coincidence_algorithm in ("excesspower", "stringcusp"):
-		parse_thresholds(options)
+		options.thresholds = parse_thresholds(options)
 
 	# success
 	return options, (filenames or [None])
@@ -177,7 +186,7 @@ options, filenames = parse_command_line()
 
 #
 # For excesspower and stringcusp methods, select the appropriate event
-# comparison and bookkeeping functions.  For excesspower2, load the
+# comparison and book-keeping functions.  For excesspower2, load the
 # foreground and background parameter distribution files.
 #
 
