@@ -143,12 +143,12 @@ def plot_Deltas(deltas):
 		# Plot the data on them.
 		#
 
-		dt_axes.plot(deltas.inj_dt[pair].xvals(), deltas.inj_dt[pair].filtered(), "r")
-		dt_axes.plot(deltas.bak_dt[pair].xvals(), deltas.bak_dt[pair].filtered(), "k")
-		df_axes.plot(deltas.inj_df[pair].xvals(), deltas.inj_df[pair].filtered(), "r")
-		df_axes.plot(deltas.bak_df[pair].xvals(), deltas.bak_df[pair].filtered(), "k")
-		dh_axes.plot(deltas.inj_dh[pair].xvals(), deltas.inj_dh[pair].filtered(), "r")
-		dh_axes.plot(deltas.bak_dh[pair].xvals(), deltas.bak_dh[pair].filtered(), "k")
+		dt_axes.plot(deltas.inj_dt[pair].xvals(), deltas.inj_dt[pair].array, "r")
+		dt_axes.plot(deltas.bak_dt[pair].xvals(), deltas.bak_dt[pair].array, "k")
+		df_axes.plot(deltas.inj_df[pair].xvals(), deltas.inj_df[pair].array, "r")
+		df_axes.plot(deltas.bak_df[pair].xvals(), deltas.bak_df[pair].array, "k")
+		dh_axes.plot(deltas.inj_dh[pair].xvals(), deltas.inj_dh[pair].array, "r")
+		dh_axes.plot(deltas.bak_dh[pair].xvals(), deltas.bak_dh[pair].array, "k")
 
 	#
 	# Done.

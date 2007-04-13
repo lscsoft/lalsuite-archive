@@ -33,8 +33,10 @@ from xml import sax
 
 from glue import segments
 from glue.ligolw import ligolw
+from glue.ligolw import ilwd
 from glue.ligolw import array
 from glue.ligolw import param
+from glue.ligolw import table
 from glue.ligolw import lsctables
 from pylal import ligolw_burca
 from pylal import llwapp
@@ -101,7 +103,7 @@ def dbget_thresholds(connection):
 #
 # =============================================================================
 #
-#                                 Bookkeeping
+#                                 Book-keeping
 #
 # =============================================================================
 #
@@ -162,15 +164,21 @@ class Delta_Distributions(object):
 		except IndexError:
 			pass
 
-	def normalize(self):
-		# normalize the distributions
+	def finish(self):
+		# normalize the distributions, and interpolate
 		for pair in self.thresholds.keys():
 			self.bak_dt[pair].array /= numpy.sum(self.bak_dt[pair].array)
+			self.bak_dt[pair].filtered()
 			self.inj_dt[pair].array /= numpy.sum(self.inj_dt[pair].array)
+			self.inj_dt[pair].filtered()
 			self.bak_df[pair].array /= numpy.sum(self.bak_df[pair].array)
+			self.bak_df[pair].filtered()
 			self.inj_df[pair].array /= numpy.sum(self.inj_df[pair].array)
+			self.inj_df[pair].filtered()
 			self.bak_dh[pair].array /= numpy.sum(self.bak_dh[pair].array)
+			self.bak_dh[pair].filtered()
 			self.inj_dh[pair].array /= numpy.sum(self.inj_dh[pair].array)
+			self.inj_dh[pair].filtered()
 
 
 #
@@ -349,7 +357,7 @@ WHERE
 				self.covariance.add_injections(dt, df, dh)
 
 	def finish(self):
-		self.deltas.normalize()
+		self.deltas.finish()
 		self.scatter.finish()
 		self.covariance.finish()
 
@@ -410,3 +418,40 @@ def gen_likelihood_control(deltas):
 
 	return xmldoc
 
+
+#
+# =============================================================================
+#
+#                           param_dist_definer:table
+#
+# =============================================================================
+#
+
+
+class ParamDistDefinerIDs(ilwd.ILWD):
+	def __init__(self, n = 0):
+		ilwd.ILWD.__init__(self, "param_dist_definer", "param_dist_def_id", n)
+
+
+class ParamDistDefinerTable(table.Table):
+	tableName = "param_dist_definer:table"
+	validcolumns = {
+		"process_id": "ilwd:char",
+		"param_dist_def_id": "ilwd:char",
+		"search": "lstring",
+		"distribution_name": "lstring",
+		"start_time": "int_4s",
+		"start_time_ns": "int_4s",
+		"end_time": "int_4s",
+		"end_time_ns": "int_4s",
+		"array_name": "lstring"
+	}
+	constraints = "PRIMARY KEY (param_dist_def_id)"
+	ids = ParamDistDefinerIDs()
+
+
+class ParamDistDefiner(object):
+	__slots__ = ParamDistDefinerTable.validcolumns.keys()
+
+
+ParamDistDefinerTable.RowType = ParamDistDefiner
