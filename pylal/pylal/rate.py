@@ -170,24 +170,15 @@ class Bins(object):
 		spacing = kwargs.get("spacing", ["lin"] * (len(args) / 3))
 		if len(spacing) != len(args) / 3:
 			raise ValueError, spacing
-		self.bins = []
-		try:
-			it = iter(args)
-			spacing = iter(spacing)
-			while True:
-				s = spacing.next()
-				if s == "lin":
-					self.bins.append(_LinBins(it.next(), it.next(), it.next()))
-				elif s == "log":
-					self.bins.append(_LogBins(it.next(), it.next(), it.next()))
-				else:
-					raise ValueError, s
-		except StopIteration:
-			pass
-		self.min = tuple([b.min for b in self.bins])
-		self.max = tuple([b.max for b in self.bins])
-		self.shape = tuple([b.n for b in self.bins])
-		self.centres = tuple([b.centres() for b in self.bins])
+		it = iter(args)
+		self.bins = tuple({
+			"lin": _LinBins,
+			"log": _LogBins
+		}[s](it.next(), it.next(), it.next()) for s in spacing)
+		self.min = tuple(b.min for b in self.bins)
+		self.max = tuple(b.max for b in self.bins)
+		self.shape = tuple(b.n for b in self.bins)
+		self.centres = tuple(b.centres() for b in self.bins)
 
 	def __getitem__(self, coords):
 		"""
@@ -607,3 +598,97 @@ class Rate(BinnedArray):
 		rate data.
 		"""
 		return filter_array(self.array, self.window(), cyclic = cyclic)
+
+
+#
+# =============================================================================
+#
+#                                     I/O
+#
+# =============================================================================
+#
+
+
+from glue.ligolw import ligolw
+from glue.ligolw import array
+from glue.ligolw import table
+from glue.ligolw import lsctables
+
+
+class BinsTable(table.Table):
+	"""
+	LIGO Light Weight XML table defining a binning.
+	"""
+	tableName = "pylal_rate_bins:table"
+	validcolumns = {
+		"order": "int_4u",
+		"type": "lstring",
+		"min": "real_8",
+		"max": "real_8",
+		"n": "int_4u"
+	}
+
+
+def bins_to_xml(bins):
+	"""
+	Construct a LIGO Light Weight XML table representation of the
+	rate.Bins instance bins.
+	"""
+	xml = lsctables.New(BinsTable)
+	for order, bin in enumerate(bins.bins):
+		row = xml.RowType()
+		row.order = order
+		row.type = {
+			_LinBins: "lin",
+			_LogBins: "log"
+		}[bin.__class__]
+		row.min = bin.min
+		row.max = bin.max
+		row.n = bin.n
+		xml.append(row)
+	return xml
+
+
+def bins_from_xml(xml):
+	"""
+	From the XML document tree rooted at xml, retrieve the table
+	describing a binning, and construct and return a rate.Bins object
+	from it.
+	"""
+	xml = table.get_table(xml, BinsTable.tableName)
+	args = [None] * 3 * len(xml)
+	kwargs = {}
+	kwargs["spacing"] = [None] * len(xml)
+	for row in xml:
+		args[row.order * 3 + 0] = row.min
+		args[row.order * 3 + 1] = row.max
+		args[row.order * 3 + 2] = row.n
+		kwargs["spacing"][row.order] = row.type
+	if None in args:
+		raise ValueError, "incomplete bin spec: %s" % str(args)
+	return Bins(*args, **kwargs)
+
+
+def binned_ratios_to_xml(ratios, name):
+	"""
+	Return an XML document tree describing a rate.BinnedRatios object.
+	"""
+	xml = ligolw.LIGO_LW({u"Name": u"%s:pylal_rate_binnedratios" % name})
+	xml.appendChild(bins_to_xml(ratios.bins))
+	xml.appendChild(array.from_array(u"numerator", ratios.numerator))
+	xml.appendChild(array.from_array(u"denominator", ratios.denominator))
+	return xml
+
+
+def binned_ratios_from_xml(xml, name):
+	"""
+	Search for the description of a rate.BinnedRatios object named
+	"name" in the XML document tree rooted at xml, and construct and
+	return a new rate.BinnedRatios object from the data contained
+	therein.
+	"""
+	xml, = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.getAttribute(u"Name") == u"%s:pylal_rate_binnedratios" % name]
+	ratios = BinnedRatios(bins_from_xml(xml))
+	ratios.numerator = array.get_array(xml, u"numerator").array
+	ratios.denominator = array.get_array(xml, u"denominator").array
+	return ratios
