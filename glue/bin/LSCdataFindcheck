@@ -31,18 +31,21 @@ This utility checks that the output of LSCdataFind spans a given segment,
 and optionally that the files are accessible.
 """
 
-__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
-__date__ = "$Date$"[7:-2]
-__version__ = "$Revision$"[11:-2]
 
 from optparse import OptionParser
 import os
 import sys
 
+
 from glue.lal import CacheEntry
 from glue.lal import LIGOTimeGPS
 from glue import segments
 from glue import segmentsUtils
+
+
+__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__date__ = "$Date$"[7:-2]
+__version__ = "$Revision$"[11:-2]
 
 
 #
@@ -56,22 +59,31 @@ from glue import segmentsUtils
 
 def parse_command_line():
 	parser = OptionParser(version = "%prog CVS $Id$")
-	parser.add_option("--segwizard-segments", metavar = "filename", help = "read segments to check from the named segwizard-format text file")
-	parser.add_option("--gps-start-time", metavar = "seconds", help = "check a single segment starting at this time (must also set --gps-end-time)")
-	parser.add_option("--gps-end-time", metavar = "seconds", help = "check a single segment ending at this time (must also set --gps-start-time)")
-	parser.add_option("--dagman-return", metavar = "value", default = 0, help = "set $RETURN value from dagman")
-	parser.add_option("--stat", action = "store_true", default = False, help = "test that files exist and are accessible")
+	parser.add_option("--segwizard-segments", metavar = "filename", help = "Read segments to check from the named segwizard-format text file.")
+	parser.add_option("--gps-start-time", metavar = "seconds", help = "Check a single segment starting at this time (must also set --gps-end-time).")
+	parser.add_option("--gps-end-time", metavar = "seconds", help = "Check a single segment ending at this time (must also set --gps-start-time).")
+	parser.add_option("--gps-segment-list", metavar = "start:end[,start:end]...", help = "Check this list of segments.")
+	parser.add_option("--dagman-return", metavar = "value", default = 0, help = "Set $RETURN value from dagman.")
+	parser.add_option("--stat", action = "store_true", default = False, help = "Test that files exist and are accessible.")
 	options, filenames = parser.parse_args()
 
 	if options.dagman_return:
 		options.dagman_return = int(options.dagman_return)
 
+	if len(tuple(option for option in (options.segwizard_segments, options.gps_segment_list, options.gps_start_time) if bool(option))) != 1:
+		raise ValueError, "must supply exactly one of --segwizard-segments, or --gps-segment-list, or both --gps-start-time and --gps-end-time"
+	if bool(options.gps_start_time) ^ bool(options.gps_end_time):
+		raise ValueError, "cannot set only one of --gps-start-time and --gps-end-time"
+
 	if options.segwizard_segments:
 		options.segs = segmentsUtils.fromsegwizard(file(options.segwizard_segments), coltype = LIGOTimeGPS).coalesce()
+	elif options.gps_segment_list:
+		options.segs = segmentsUtils.from_range_strings(options.gps_segment_list, boundtype = LIGOTimeGPS)
 	elif options.gps_start_time and options.gps_end_time:
 		options.segs = segments.segmentlist([segments.segment(LIGOTimeGPS(options.gps_start_time), LIGOTimeGPS(options.gps_end_time))])
 	else:
-		raise ValueError, "must set --segwizard-segments, or --gps-start-time and --gps-end-time"
+		# should not get here
+		raise ValueError, "oops, script error"
 
 	return options, (filenames or [None])
 
