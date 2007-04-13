@@ -688,7 +688,8 @@ def binned_ratios_from_xml(xml, name):
 	therein.
 	"""
 	xml, = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.getAttribute(u"Name") == u"%s:pylal_rate_binnedratios" % name]
-	ratios = BinnedRatios(bins_from_xml(xml))
+	ratios = BinnedRatios(Bins())
+	ratios.bins = bins_from_xml(xml)
 	ratios.numerator = array.get_array(xml, u"numerator").array
 	ratios.denominator = array.get_array(xml, u"denominator").array
 	return ratios
