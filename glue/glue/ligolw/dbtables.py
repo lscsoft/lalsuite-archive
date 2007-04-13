@@ -41,6 +41,11 @@ I'm still figuring out how this should work.
 
 import re
 from xml.sax.xmlreader import AttributesImpl
+# Python 2.3 compatibility
+try:
+	from sets import Set as set
+except:
+	pass
 
 import ligolw
 import table

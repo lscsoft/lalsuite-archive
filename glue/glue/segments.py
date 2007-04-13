@@ -41,6 +41,11 @@ infinity object used to define semi-infinite and infinite segments.
 
 from bisect import bisect_left, bisect_right
 from copy import copy as shallowcopy
+# Python 2.3 compatibility
+try:
+	from sets import Set as set
+except:
+	pass
 
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
