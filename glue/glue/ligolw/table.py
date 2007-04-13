@@ -194,7 +194,7 @@ def get_table(xmldoc, name):
 
 def new_ilwd(table_elem):
 	"""
-	From the table element, return a compatible ILWD instance
+	From the table element, return a compatible ID generator instance
 	initialized to the next unique ID following those found in the
 	table.
 	"""
@@ -208,10 +208,10 @@ def new_ilwd(table_elem):
 
 def reassign_ids(elem):
 	"""
-	Recurse over all tables below elem possessing an ILWD generator,
-	and use the generator to assign new IDs to the rows, recording the
-	modifications in a mapping of old row keys to new row keys.
-	Finally, apply the mapping to all rows of all tables.
+	Recurse over all tables below elem which possess ID generators, and
+	use the generators to assign new IDs to the rows in each table,
+	recording the modifications in a mapping of old row keys to new row
+	keys.  Finally, apply the mapping to all rows of all tables.
 	"""
 	mapping = {}
 	for tbl in elem.getElementsByTagName(ligolw.Table.tagName):
@@ -655,21 +655,21 @@ class Table(ligolw.Table, list):
 
 
 	#
-	# ILWD manipulation
+	# Row ID manipulation
 	#
 
 	def sync_ids(self):
 		"""
 		Determines the highest-numbered ID in this table, and sets
-		the counter for the table's ILWD generator so as to cause
+		the counter for the table's row ID generator so as to cause
 		it to yield the next ID in the sequence and higher.  If the
 		generator is already set to yield an ID greater than the
 		max found, then it is left unmodified.  The return value is
-		the ILWD generator object.  If the table does not possess
-		an ILWD generator, then this function is a no-op.
+		the row ID generator object.  If the table does not possess
+		a row ID generator, then this function is a no-op.
 
 		Note that tables of the same name typically share
-		references to the same ILWD generator so that IDs can be
+		references to the same ID generator so that IDs can be
 		generated that are unique across all tables.  To set the
 		generator to produce an ID greater than that in any table,
 		sync_ids() needs to be run on every table sharing the
@@ -688,9 +688,10 @@ class Table(ligolw.Table, list):
 		Used as the first half of the row key reassignment
 		algorithm.  Accepts a dictionary mapping old key --> new
 		key.  Iterates over the rows in this table, using the
-		table's own ILWD generator to assign a new key to each row,
-		recording the changes in the mapping.  Returns the mapping.
-		Raises ValueError if the table has no ILWD generator.
+		table's own row ID generator to assign a new key to each
+		row, recording the changes in the mapping.  Returns the
+		mapping.  Raises ValueError if the table has no ID
+		generator.
 		"""
 		if self.ids is None:
 			raise ValueError, self
