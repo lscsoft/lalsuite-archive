@@ -79,22 +79,28 @@ __date__ = "$Date$"[7:-2]
 #
 
 
-def make_interps(interp_dict, pair, x, y):
+def make_interps(pair, x, y):
 	# extrapolate x and y arrays by one element at each end.  this has
 	# to be done because the Rate class in pylal.rate returns the x
 	# co-ordinates as the bin centres, which is correct, but it means
 	# that an event can have a set of parameter values that lie beyond
 	# the end of the x co-ordinate array (the parameters are still in
-	# the bin, but in the outer half).
+	# the bin, but in the outer half), meanwhile the scipy interpolator
+	# insists on only interpolating (go figger) so it throws an error
+	# when such an event is encountered.
 	x = numpy.hstack((x[0] + (x[0] - x[1]), x, x[-1] + (x[-1] - x[-2])))
 	y = numpy.hstack((y[0] + (y[0] - y[1]), y, y[-1] + (y[-1] - y[-2])))
 
 	# construct interpolator
+	interp_dict = {}
 	interp_dict[pair] = interpolate.interp1d(x, y)
 
 	# construct reversed interpolator (for when the instrument pair is
 	# reversed)
 	interp_dict[(pair[1], pair[0])] = interpolate.interp1d(-x[::-1], y[::-1])
+
+	# done
+	return interp_dict
 
 
 class Likelihood(object):
@@ -108,16 +114,16 @@ class Likelihood(object):
 		self.P_gw = None
 
 	def set_dt_from_xml(self, pair, xml):
-		make_interps(self.dt_bak, pair, xml.array[0], xml.array[2])
-		make_interps(self.dt_inj, pair, xml.array[0], xml.array[1])
+		self.dt_bak.update(make_interps(pair, xml.array[0], xml.array[2]))
+		self.dt_inj.update(make_interps(pair, xml.array[0], xml.array[1]))
 
 	def set_df_from_xml(self, pair, xml):
-		make_interps(self.df_bak, pair, xml.array[0], xml.array[2])
-		make_interps(self.df_inj, pair, xml.array[0], xml.array[1])
+		self.df_bak.update(make_interps(pair, xml.array[0], xml.array[2]))
+		self.df_inj.update(make_interps(pair, xml.array[0], xml.array[1]))
 
 	def set_dh_from_xml(self, pair, xml):
-		make_interps(self.dh_bak, pair, xml.array[0], xml.array[2])
-		make_interps(self.dh_inj, pair, xml.array[0], xml.array[1])
+		self.dh_bak.update(make_interps(pair, xml.array[0], xml.array[2]))
+		self.dh_inj.update(make_interps(pair, xml.array[0], xml.array[1]))
 
 	def set_P_gw(self, P):
 		self.P_gw = P
