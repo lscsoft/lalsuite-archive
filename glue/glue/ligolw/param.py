@@ -120,6 +120,24 @@ def get_param(xmldoc, name):
 	return params[0]
 
 
+def from_pyvalue(name, value, comment = None):
+	"""
+	Convenience wrapper for new_param() that constructs a Param element
+	from an instance of a Python builtin type.
+	"""
+	llwtype = types.FromPyType[value.__class__]
+	return new_param(name, llwtype, types.ToFormat[llwtype] % value, comment = comment)
+
+
+def get_pyvalue(xml, name):
+	"""
+	Convenience wrapper for get_param() that recovers an instance of a
+	Python builtin type from a Param element.
+	"""
+	xml = get_param(xml, name)
+	return types.ToPyType[xml.getAttribute("Type")](xml.pcdata)
+
+
 #
 # =============================================================================
 #
