@@ -563,16 +563,32 @@ class Rate(BinnedArray):
 		"""
 		Initialize the bins for the given segment and filter width.
 		"""
-		self.filterwidth = filterwidth
-		self.windowfunc = windowfunc
-		# nominal bin size is 1/20th of the filterwidth
+		#
+		# nominal bin size is 1/20th of the filter's width
+		#
+
 		BinnedArray.__init__(self, Bins(segment[0], segment[1], int(abs(segment) / (filterwidth / 20.0)) + 1))
-		# determine actual bin size from bin count to adjust for
-		# round-off
+
+		#
+		# determine the true bin size from the integer bin count
+		# and the interval's length (correct for round-off)
+		#
+
 		self.binsize = float(abs(segment)) / self.bins.shape[0]
+
+		#
 		# safety-check filter width
-		if filterwidth / self.binsize < 3:
+		#
+
+		if self.filterwidth / self.binsize < 3:
 			raise ValueError, "filter too narrow (less than 3 bins)"
+		self.filterwidth = filterwidth
+
+		#
+		# Construct and store the window function
+		#
+
+		self.set_window(windowfunc)
 
 	def __setitem__(self, x, weight):
 		"""
@@ -580,11 +596,11 @@ class Rate(BinnedArray):
 		"""
 		self.array[self.bins[x,]] += weight
 
-	def window(self):
+	def set_window(self, windowfunc):
 		"""
-		Generate the window function.
+		Recompute the filter data from a window function.
 		"""
-		return self.windowfunc(self.filterwidth / self.binsize) / self.binsize
+		self.filter = windowfunc(self.filterwidth / self.binsize) / self.binsize
 
 	def xvals(self):
 		return self.centres()[0]
@@ -594,7 +610,7 @@ class Rate(BinnedArray):
 		Convolve the binned weights with the window to generate the
 		rate data.
 		"""
-		return filter_array(self.array, self.window(), cyclic = cyclic)
+		return filter_array(self.array, self.filter, cyclic = cyclic)
 
 
 #
