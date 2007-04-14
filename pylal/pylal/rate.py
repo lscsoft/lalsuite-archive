@@ -570,20 +570,15 @@ class Rate(BinnedArray):
 		# determine actual bin size from bin count to adjust for
 		# round-off
 		self.binsize = float(abs(segment)) / self.bins.shape[0]
+		# safety-check filter width
+		if filterwidth / self.binsize < 3:
+			raise ValueError, "filter too narrow (less than 3 bins)"
 
 	def __setitem__(self, x, weight):
 		"""
 		Add weight to the bin corresponding to x.
 		"""
 		self.array[self.bins[x,]] += weight
-
-	def set_filterwidth(self, filterwidth):
-		"""
-		Adjust the window function's width.
-		"""
-		if filterwidth / self.binsize < 3:
-			raise ValueError, "filter too narrow (less than 3 bins)"
-		self.filterwidth = filterwidth
 
 	def window(self):
 		"""
