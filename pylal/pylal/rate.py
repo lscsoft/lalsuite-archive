@@ -580,7 +580,7 @@ class Rate(BinnedArray):
 		# safety-check filter width
 		#
 
-		if self.filterwidth / self.binsize < 3:
+		if filterwidth / self.binsize < 3:
 			raise ValueError, "filter too narrow (less than 3 bins)"
 		self.filterwidth = filterwidth
 
@@ -624,6 +624,7 @@ class Rate(BinnedArray):
 
 from glue.ligolw import ligolw
 from glue.ligolw import array
+from glue.ligolw import param
 from glue.ligolw import table
 from glue.ligolw import lsctables
 
@@ -704,6 +705,35 @@ def binned_array_from_xml(xml, name):
 	binnedarray.bins = bins_from_xml(xml)
 	binnedarray.array = array.get_array(xml, u"array").array
 	return binnedarray
+
+
+def rate_to_xml(rate, name):
+	"""
+	Retrun an XML document tree describing a rate.BinnedArray object.
+	"""
+	xml = binned_array_to_xml(rate, name)
+	xml.appendChild(param.from_pyvalue(u"binsize", rate.binsize))
+	xml.appendChild(param.from_pyvalue(u"filterwidth", rate.filterwidth))
+	xml.appendChild(array.from_array(u"filterdata", rate.filterdata))
+	return xml
+
+
+def rate_from_xml(xml, name):
+	"""
+	Search for the description of a rate.Rate object named "name" in
+	the XML document tree rooted at xml, and construct and return a new
+	rate.Rate instance initialized from the data contained therein.
+	"""
+	# FIXME:  figure out how to not duplicate code from
+	# binned_array_from_xml()
+	xml, = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.getAttribute(u"Name") == u"%s:pylal_rate_binnedarray" % name]
+	rate = Rate(segments.segment(0, 1), 1)
+	rate.bins = bins_from_xml(xml)
+	rate.array = array.get_array(xml, u"array").array
+	rate.binsize = param.get_pyvalue(xml, u"binsize")
+	rate.filterwidth = param.get_pyvalue(xml, u"filterwidth")
+	rate.filterdata = array.get_array(xml, u"filterdata")
+	return rate
 
 
 def binned_ratios_to_xml(ratios, name):
