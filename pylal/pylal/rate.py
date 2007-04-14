@@ -600,17 +600,17 @@ class Rate(BinnedArray):
 		"""
 		Recompute the filter data from a window function.
 		"""
-		self.filter = windowfunc(self.filterwidth / self.binsize) / self.binsize
+		self.filterdata = windowfunc(self.filterwidth / self.binsize) / self.binsize
 
 	def xvals(self):
 		return self.centres()[0]
 
-	def filtered(self, cyclic = False):
+	def filter(self, cyclic = False):
 		"""
 		Convolve the binned weights with the window to generate the
 		rate data.
 		"""
-		return filter_array(self.array, self.filter, cyclic = cyclic)
+		return filter_array(self.array, self.filterdata, cyclic = cyclic)
 
 
 #

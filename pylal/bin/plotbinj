@@ -324,8 +324,8 @@ class RecoveredTimeOffset(SnglBurstUtils.BurstPlot):
 
 	def finish(self):
 		self.axes.set_title("Trigger Peak Time - Injection Peak Time\n(%d Found Injections)" % self.found)
-		self.axes.plot(self.offsets.xvals(), self.offsets.filtered(), "k")
-		self.axes.plot(self.best.xvals(), self.best.filtered(), "r")
+		self.axes.plot(self.offsets.xvals(), self.offsets.filter(), "k")
+		self.axes.plot(self.best.xvals(), self.best.filter(), "r")
 		self.axes.legend(["All matching triggers", "Highest confidence match"])
 
 

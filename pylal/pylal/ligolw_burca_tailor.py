@@ -168,17 +168,17 @@ class Delta_Distributions(object):
 		# normalize the distributions, and interpolate
 		for pair in self.thresholds.keys():
 			self.bak_dt[pair].array /= numpy.sum(self.bak_dt[pair].array)
-			self.bak_dt[pair].filtered()
+			self.bak_dt[pair].filter()
 			self.inj_dt[pair].array /= numpy.sum(self.inj_dt[pair].array)
-			self.inj_dt[pair].filtered()
+			self.inj_dt[pair].filter()
 			self.bak_df[pair].array /= numpy.sum(self.bak_df[pair].array)
-			self.bak_df[pair].filtered()
+			self.bak_df[pair].filter()
 			self.inj_df[pair].array /= numpy.sum(self.inj_df[pair].array)
-			self.inj_df[pair].filtered()
+			self.inj_df[pair].filter()
 			self.bak_dh[pair].array /= numpy.sum(self.bak_dh[pair].array)
-			self.bak_dh[pair].filtered()
+			self.bak_dh[pair].filter()
 			self.inj_dh[pair].array /= numpy.sum(self.inj_dh[pair].array)
-			self.inj_dh[pair].filtered()
+			self.inj_dh[pair].filter()
 
 
 #

@@ -198,7 +198,7 @@ def newfig(segment):
 fig = newfig(options.segment)
 axes = fig.gca()
 
-axes.plot(rate.xvals(), rate.filtered())
+axes.plot(rate.xvals(), rate.filter())
 
 axes.set_xlim(list(options.segment))
 axes.grid(True)

@@ -76,8 +76,8 @@ def makeplot(desc, table):
 		except IndexError:
 			# trigger lies outside bounds of plot
 			pass
-	yvals = bins.array = bins.filtered()
-	yvals2 = bins2.array = bins2.filtered()
+	yvals = bins.array = bins.filter()
+	yvals2 = bins2.array = bins2.filter()
 
 	# resample to match sample rate of short time scale.
 	bins2.array = nd_image.zoom(bins2.array, float(len(yvals)) / float(len(yvals2)))
