@@ -73,7 +73,7 @@ __version__ = "$Revision$"[11:-2]
 #
 
 
-ArrayPattern = re.compile(r"(?:\A[a-z0-9_]+:|\A)(?P<Name>[a-z0-9_]+):array\Z")
+ArrayPattern = re.compile(r"(?P<Name>[a-z0-9_:]+):array\Z")
 
 
 def StripArrayName(name):
@@ -116,7 +116,7 @@ def from_array(name, array, dim_names = None):
 	Construct a LIGO Light Weight XML Array document subtree from a
 	numpy array object.
 	"""
-	doc = Array({u"Name": name, u"Type": types.FromNumPyType[str(array.dtype)]})
+	doc = Array({u"Name": "%s:array" % name, u"Type": types.FromNumPyType[str(array.dtype)]})
 	s = list(array.shape)
 	s.reverse()
 	for n, dim in enumerate(s):
