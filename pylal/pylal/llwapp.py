@@ -202,7 +202,7 @@ def pickle_from_param(elem, name):
 	Retrieve a pickled Python object from the document tree rooted at
 	elem.
 	"""
-	return pickle.loads(str(param.get_pyvalue(elem, u"pickle:%s:param" % name)))
+	return pickle.loads(str(param.get_pyvalue(elem, u"pickle:%s" % name)))
 
 
 #
