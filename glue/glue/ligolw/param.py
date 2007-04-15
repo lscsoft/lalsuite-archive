@@ -59,7 +59,7 @@ __version__ = "$Revision$"[11:-2]
 #
 
 
-ParamPattern = re.compile(r"(?:\A[a-z0-9_]+:|\A)(?P<Name>[a-z0-9_]+):param\Z")
+ParamPattern = re.compile(r"(?P<Name>[a-z0-9_:]+):param\Z")
 
 
 def StripParamName(name):
