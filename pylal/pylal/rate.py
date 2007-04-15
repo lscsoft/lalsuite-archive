@@ -588,19 +588,13 @@ class Rate(BinnedArray):
 		# Construct and store the window function
 		#
 
-		self.set_window(windowfunc)
+		self.filterdata = windowfunc(self.filterwidth / self.binsize) / self.binsize
 
 	def __setitem__(self, x, weight):
 		"""
 		Add weight to the bin corresponding to x.
 		"""
 		self.array[self.bins[x,]] += weight
-
-	def set_window(self, windowfunc):
-		"""
-		Recompute the filter data from a window function.
-		"""
-		self.filterdata = windowfunc(self.filterwidth / self.binsize) / self.binsize
 
 	def xvals(self):
 		return self.centres()[0]
