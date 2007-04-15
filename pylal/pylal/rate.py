@@ -37,11 +37,6 @@ smoothing contour plots.
 """
 
 
-__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
-
-
 import math
 import numpy
 from scipy.signal import signaltools
@@ -49,6 +44,11 @@ from scipy.signal import signaltools
 
 from glue import segments
 from pylal import itertools
+
+
+__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__version__ = "$Revision$"[11:-2]
+__date__ = "$Date$"[7:-2]
 
 
 #
