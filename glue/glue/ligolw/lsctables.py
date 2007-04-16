@@ -1031,6 +1031,7 @@ class SimBurstTable(table.Table):
 	}
 	constraints = "PRIMARY KEY (simulation_id)"
 	ids = SimBurstIDs()
+	interncolumns = ("process_id", "waveform", "coordinates")
 
 
 class SimBurst(object):
@@ -1544,6 +1545,7 @@ class TimeSlideTable(table.Table):
 	}
 	constraints = "PRIMARY KEY (time_slide_id, instrument)"
 	ids = TimeSlideIDs()
+	interncolumns = ("process_id", "instrument")
 
 	def get_offset_dict(self, id):
 		"""
