@@ -416,6 +416,35 @@ class Column(ligolw.Column):
 #
 
 
+class InterningRowBuilder(tokenizer.RowBuilder):
+	"""
+	This subclass of the tokenizer.RowBuilder class respects the
+	"interning" hints provided by table definitions, and attempts to
+	replace the values of row attributes associated with interned
+	columns with references to shared instances of those values.  This
+	results in a slight reduction in memory use.  The values are stored
+	in a dictionary that is shared between all instances of this class,
+	and which survives forever.  Note that nothing is ever
+	"uninterned", which is likely to be a problem for many users except
+	in special cases.
+	"""
+	strings = {}
+	def append(self, tokens):
+		for row in tokenizer.RowBuilder.append(self, tokens):
+			for col in self.interns:
+				val = getattr(row, col)
+				setattr(row, col, self.strings.setdefault(val, val))
+			yield row
+
+
+#
+# Select the RowBuilder class to use when parsing tables.
+#
+
+
+RowBuilder = tokenizer.RowBuilder
+
+
 class TableStream(ligolw.Stream):
 	"""
 	High-level Stream element for use inside Tables.  This element
@@ -435,7 +464,7 @@ class TableStream(ligolw.Stream):
 		self.__tokenizer.set_types([(parentNode.loadcolumns is None or colname in parentNode.loadcolumns or None) and pytype for pytype, colname in zip(parentNode.columnpytypes, parentNode.columnnames)])
 		columnnames = [name for name in parentNode.columnnames if parentNode.loadcolumns is None or name in parentNode.loadcolumns]
 		interncolumns = [name for name in (parentNode.interncolumns or tuple()) if name in columnnames]
-		self.__rowbuilder = tokenizer.RowBuilder(parentNode.RowType, columnnames, interncolumns)
+		self.__rowbuilder = RowBuilder(parentNode.RowType, columnnames, interncolumns)
 		return self
 
 	def appendData(self, content):
