@@ -193,10 +193,10 @@ if (options.extract is None) or (filenames != [None]):
 		if options.verbose:
 			print >>sys.stderr, "indexing coinc_event table ..."
 		connection.cursor().execute("""
-			CREATE INDEX IF NOT EXISTS ce_cdi_index ON coinc_event (coinc_def_id);
+			CREATE INDEX IF NOT EXISTS ce_cdi_index ON coinc_event (coinc_def_id)
 		""")
 		connection.cursor().execute("""
-			CREATE INDEX IF NOT EXISTS ce_tsi_index ON coinc_event (time_slide_id);
+			CREATE INDEX IF NOT EXISTS ce_tsi_index ON coinc_event (time_slide_id)
 		""")
 
 	if "coinc_event_map" in table_names:
