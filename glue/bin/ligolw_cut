@@ -113,6 +113,27 @@ class ElementFilter(object):
 		return True
 
 
+def ContentHandler(doc):
+	# uses options.delete_table global variable
+	return ligolw.FilteringLIGOLWContentHandler(doc, ElementFilter(options.delete_table).element_filter)
+
+
+#
+# Enable attribute interning
+#
+
+
+table.RowBuilder = table.InterningRowBuilder
+
+
+#
+# Over-ride default content handler with our special one
+#
+
+
+utils.ContentHandler = ContentHandler
+
+
 #
 # =============================================================================
 #
@@ -197,13 +218,6 @@ def write_filename(filename):
 options, filenames = parse_command_line()
 
 
-def ContentHandler(doc):
-	# uses options.delete_table global variable
-	return ligolw.FilteringLIGOLWContentHandler(doc, ElementFilter(options.delete_table).element_filter)
-
-utils.ContentHandler = ContentHandler
-
-
 for n, filename in enumerate(filenames):
 	if options.verbose:
 		print >>sys.stderr, "%d/%d: " % (n + 1, len(filenames))
@@ -216,3 +230,4 @@ for n, filename in enumerate(filenames):
 		RemoveElements(doc, options.delete_element)
 	utils.write_filename(doc, filename, options.verbose, gz = (filename or "stdout")[-3:] == ".gz")
 	doc.unlink()
+	table.InterningRowBuilder.strings.clear()
