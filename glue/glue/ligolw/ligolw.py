@@ -221,6 +221,9 @@ class Element(object):
 				pass
 		return l
 
+	def hasAttribute(self, attrname):
+		return self.attributes.has_key(attrname)
+
 	def getAttribute(self, attrname):
 		return self.attributes[attrname]
 
