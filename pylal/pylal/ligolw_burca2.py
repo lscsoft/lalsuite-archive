@@ -79,7 +79,12 @@ __date__ = "$Date$"[7:-2]
 #
 
 
-def make_interps(pair, x, y):
+#
+# How to make an interpolator
+#
+
+
+def make_interp(x, y):
 	# extrapolate x and y arrays by one element at each end.  this has
 	# to be done because the Rate class in pylal.rate returns the x
 	# co-ordinates as the bin centres, which is correct, but it means
@@ -92,64 +97,37 @@ def make_interps(pair, x, y):
 	y = numpy.hstack((y[0] + (y[0] - y[1]), y, y[-1] + (y[-1] - y[-2])))
 
 	# construct interpolator
-	interp_dict = {}
-	interp_dict[pair] = interpolate.interp1d(x, y)
+	return interpolate.interp1d(x, y)
 
-	# construct reversed interpolator (for when the instrument pair is
-	# reversed)
-	interp_dict[(pair[1], pair[0])] = interpolate.interp1d(-x[::-1], y[::-1])
 
-	# done
-	return interp_dict
+#
+# Class for computing foreground likelihoods from the measurements in a
+# CoincParamsDistributions instance.
+#
 
 
 class Likelihood(object):
-	def __init__(self):
-		self.dt_bak = {}
-		self.dt_inj = {}
-		self.df_bak = {}
-		self.df_inj = {}
-		self.dh_bak = {}
-		self.dh_inj = {}
-		self.P_gw = None
-
-	def set_dt_from_xml(self, pair, xml):
-		self.dt_bak.update(make_interps(pair, xml.array[0], xml.array[2]))
-		self.dt_inj.update(make_interps(pair, xml.array[0], xml.array[1]))
-
-	def set_df_from_xml(self, pair, xml):
-		self.df_bak.update(make_interps(pair, xml.array[0], xml.array[2]))
-		self.df_inj.update(make_interps(pair, xml.array[0], xml.array[1]))
-
-	def set_dh_from_xml(self, pair, xml):
-		self.dh_bak.update(make_interps(pair, xml.array[0], xml.array[2]))
-		self.dh_inj.update(make_interps(pair, xml.array[0], xml.array[1]))
+	def __init__(self, coinc_param_distributions):
+		# construct interpolators from the distribution data
+		self.background_rates = {}
+		self.injection_rates = {}
+		for name, rate in coinc_param_distributions.background_rates.iteritems():
+			self.background_rates[name] = make_interp(name, rate.centres(), rate.array)
+		for name, rate in coinc_param_distributions.injection_rates.iteritems():
+			self.injection_rates[name] = make_interp(name, rate.centres(), rate.array)
 
 	def set_P_gw(self, P):
 		self.P_gw = P
 
-	def P(self, events, offsets):
-		P_inj = 1.0
-		P_bak = 1.0
-		for event1, event2 in itertools.choices(events, 2):
-			ifos = (event1.ifo, event2.ifo)
-			if ifos not in self.dt_inj:
-				# no statistics for this instrument pair
-				continue
+	def P(self, param_func, events, offsetdict):
+		P_background = 1.0
+		P_injection = 1.0
+		for name, value in param_func(events, offsetdict).iteritems():
+			P_background *= self.background_rates[name](value)[0]
+			P_injection *= self.injection_rates[name](value)[0]
+		return P_background, P_injection
 
-			t1 = LIGOTimeGPS(event1.peak_time, event1.peak_time_ns) + offsets[event1.ifo]
-			t2 = LIGOTimeGPS(event2.peak_time, event2.peak_time_ns) + offsets[event2.ifo]
-			dt = float(t1 - t2) / ((event1.ms_duration + event2.ms_duration) / 2)
-
-			df = (event1.peak_frequency - event2.peak_frequency) / ((event1.ms_bandwidth + event2.ms_bandwidth) / 2)
-
-			dh = (event1.ms_hrss - event2.ms_hrss) / ((event1.ms_hrss + event2.ms_hrss) / 2)
-
-			P_inj *= self.dt_inj[ifos](dt)[0] * self.df_inj[ifos](df)[0] * self.dh_inj[ifos](dh)[0]
-			P_bak *= self.dt_bak[ifos](dt)[0] * self.df_bak[ifos](df)[0] * self.dh_bak[ifos](dh)[0]
-		return P_bak, P_inj
-
-	def __call__(self, events, offsets):
+	def __call__(self, param_func, events, offsetdict):
 		"""
 		Compute the likelihood that the coincident n-tuple of
 		events are the result of a gravitational wave:  the
@@ -160,12 +138,12 @@ class Likelihood(object):
 		is a dictionary of instrument --> offset mappings to be
 		used to time shift the events before comparison.
 		"""
-		P_bak, P_inj = self.P(events, offsets)
-		return (P_inj * self.P_gw) / (P_bak + (P_inj - P_bak) * self.P_gw)
+		P_background, P_injection = self.P(param_func, events, offsetdict)
+		return (P_injection * self.P_gw) / (P_background + (P_injection - P_background) * self.P_gw)
 
 
 class Confidence(Likelihood):
-	def __call__(self, events, offsets):
+	def __call__(self, param_func, events, offsetdict):
 		"""
 		Compute the confidence that the list of events are the
 		result of a gravitational wave:  -ln[1 - P(gw)], where
@@ -175,7 +153,7 @@ class Confidence(Likelihood):
 		to 1, so 1 - P is a small positive number, and so -ln of
 		that is a large positive number.
 		"""
-		P_bak, P_inj = self.P(events, offsets)
+		P_bak, P_inj = self.P(param_func, events, offsetdict)
 		return  math.log(P_bak + (P_inj - P_bak) * self.P_gw) - math.log(P_inj) - math.log(self.P_gw)
 
 
@@ -189,8 +167,7 @@ class Confidence(Likelihood):
 
 
 #
-# Load likelihood distribution functions.  This must be kept synchronized
-# with the document generator in pylal.ligolw_burca_tailor.
+# Load likelihood distribution functions.
 #
 
 
@@ -202,67 +179,16 @@ def load_likelihood_control(filename, verbose = False):
 	xmldoc = utils.load_filename(filename, verbose = verbose, gz = filename[-3:] == ".gz")
 
 	#
-	# Find the first LIGO_LW element with the name
-	# "ligolw_burca_tailor"
+	# Extract the encoded CoincParamsDistributions object
 	#
 
-	subtree = None
-	for node in xmldoc.getElementsByTagName(ligolw.LIGO_LW.tagName):
-		try:
-			if node.getAttribute("Name") == ligolw_burca_tailor.process_program_name:
-				subtree = node
-				break
-		except KeyError:
-			# doesn't have a Name attribute, so can't be it
-			pass
-	if subtree is None:
-		raise ValueError, "%s does not contain likelihood information" % filename
+	coinc_params_distributions = ligolw_burca_tailor.coinc_params_distributions_from_xml(xmldoc, u"ligolw_burca_tailor")
 
 	#
-	# Extract the pickled thresholds object
+	# Construct and return a Likelihood calculator
 	#
 
-	thresholds = llwapp.pickle_from_param(subtree, "thresholds")
-
-	#
-	# Extract the likelihood arrays
-	#
-
-	likelihood = Likelihood()
-	for pair in thresholds.keys():
-		rev = (pair[1], pair[0])
-
-		try:
-			a = array.get_array(subtree, "%s_%s_dt" % pair)
-			likelihood.set_dt_from_xml(pair, a)
-		except ValueError:
-			try:
-				a = array.get_array(subtree, "%s_%s_dt" % rev)
-				likelihood.set_dt_from_xml(rev, a)
-			except ValueError:
-				raise ValueError, "no delta t distribution information for instrument pair %s in %s" % (pair, filename)
-
-		try:
-			a = array.get_array(subtree, "%s_%s_df" % pair)
-			likelihood.set_df_from_xml(pair, a)
-		except ValueError:
-			try:
-				a = array.get_array(subtree, "%s_%s_df" % rev)
-				likelihood.set_df_from_xml(rev, a)
-			except ValueError:
-				raise ValueError, "no delta f distribution information for instrument pair %s in %s" % (pair, filename)
-
-		try:
-			a = array.get_array(subtree, "%s_%s_dh" % pair)
-			likelihood.set_dh_from_xml(pair, a)
-		except ValueError:
-			try:
-				a = array.get_array(subtree, "%s_%s_dh" % rev)
-				likelihood.set_dh_from_xml(rev, a)
-			except ValueError:
-				raise ValueError, "no delta h_rss distribution information for instrument pair %s in %s" % (pair, filename)
-	
-	return likelihood
+	return Likelihood(coinc_params_distributions)
 
 
 #
@@ -288,9 +214,9 @@ def ligolw_burca2(xmldoc, likelihood, verbose = False):
 	if verbose:
 		print >>sys.stderr, "indexing ..."
 
-	definer_ids = [llwapp.get_coinc_def_id(xmldoc, [lsctables.SnglBurstTable.tableName], create_new = False)]
+	definer_ids = set([llwapp.get_coinc_def_id(xmldoc, [lsctables.SnglBurstTable.tableName], create_new = False)])
 	try:
-		definer_ids.append(llwapp.get_coinc_def_id(xmldoc, [lsctables.SnglBurstTable.tableName, lsctables.SimBurstTable.tableName], create_new = False))
+		definer_ids.add(llwapp.get_coinc_def_id(xmldoc, [lsctables.SnglBurstTable.tableName, lsctables.SimBurstTable.tableName], create_new = False))
 	except KeyError:
 		# guess there are no injections in this file?
 		pass
@@ -329,7 +255,11 @@ def ligolw_burca2(xmldoc, likelihood, verbose = False):
 		if verbose and not n % 30:
 			print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / n_coincs),
 		if coinc.coinc_def_id in definer_ids:
-			coinc.likelihood = likelihood(index[coinc.coinc_event_id], time_slides[coinc.time_slide_id])
+			# sort events by instrument name
+			events = index[coinc.coinc_event_id]
+			events.sort(lambda a, b: cmp(a.ifo, b.ifo))
+			# compute likelihood
+			coinc.likelihood = likelihood(ligolw_burca_tailor.coinc_params, events, time_slides[coinc.time_slide_id])
 	if verbose:
 		print >>sys.stderr, "\t100.0%"
 

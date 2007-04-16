@@ -27,6 +27,7 @@
 
 
 import numpy
+from scipy.interpolate import interpolate
 from scipy.stats import stats
 from xml import sax
 
@@ -38,6 +39,7 @@ from glue.ligolw import array
 from glue.ligolw import param
 from glue.ligolw import table
 from glue.ligolw import lsctables
+from pylal import itertools
 from pylal import ligolw_burca
 from pylal import llwapp
 from pylal import rate
@@ -77,16 +79,25 @@ def dbget_thresholds(connection):
 	#
 
 	for (inst1, inst2), (dt, df, dh) in thresholds.items():
+		# break order degeneracy by requiring instrument pairs to
+		# be in alphabetical order
 		if inst1 > inst2:
 			continue
+
+		# now retrieve the thresholds for the other order
 		dt_other, df_other, dh_other = thresholds[(inst2, inst1)]
+
+		# determine the smallest intervals enclosing both intervals
 		dt = segments.segment(-dt, +dt) | segments.segment(-dt_other, +dt_other)
 		df = segments.segment(-df, +df) | segments.segment(-df_other, +df_other)
 		dh = segments.segment(-dh, +dh) | segments.segment(-dh_other, +dh_other)
+
+		# record the result
 		thresholds[(inst1, inst2)] = thresholds[(inst2, inst1)] = (dt, df, dh)
 
 	#
-	# Remove duplicates.
+	# Remove duplicates.  Leave only instrument pairs in which the
+	# instruments are listed in alphabetical order.
 	#
 
 	for pair in thresholds.keys():
@@ -110,75 +121,95 @@ def dbget_thresholds(connection):
 
 
 #
-# Track the distributions of the parameters associated with background and
-# injection coincidences.
+# How to compute coincidence parameters from burst events
 #
 
 
-class Delta_Distributions(object):
-	def __init__(self, thresholds):
-		self.thresholds = thresholds
+# FIXME:  should probably introduct a CoincParams class, initialized from a
+# list of events, rather than mucking with dictionaries.
 
-		# initialize the binnings
-		self.bak_dt = {}
-		self.inj_dt = {}
-		self.bak_df = {}
-		self.inj_df = {}
-		self.bak_dh = {}
-		self.inj_dh = {}
-		for pair, (dtinterval, dfinterval, dhinterval) in thresholds.items():
-			self.bak_dt[pair] = rate.Rate(dtinterval, abs(dtinterval) / 75.0)
-			self.inj_dt[pair] = rate.Rate(dtinterval, abs(dtinterval) / 75.0)
-			self.bak_df[pair] = rate.Rate(dfinterval, abs(dfinterval) / 75.0)
-			self.inj_df[pair] = rate.Rate(dfinterval, abs(dfinterval) / 75.0)
-			self.bak_dh[pair] = rate.Rate(dhinterval, abs(dhinterval) / 75.0)
-			self.inj_dh[pair] = rate.Rate(dhinterval, abs(dhinterval) / 75.0)
 
-	def add_background(self, pair, dt, df, dh):
-		# IndexError == not within thresholds
-		try:
-			self.bak_dt[pair][dt] = 1.0
-		except IndexError:
-			pass
-		try:
-			self.bak_df[pair][df] = 1.0
-		except IndexError:
-			pass
-		try:
-			self.bak_dh[pair][dh] = 1.0
-		except IndexError:
-			pass
+def coinc_params(events, offsetdict):
+	events.sort(lambda a, b: cmp(a.ifo, b.ifo))
+	params = {}
+	for event1, event2 in itertools.choices(events, 2):
+		if event1.ifo == event2.ifo:
+			# a coincidence is parameterized only by
+			# inter-instrument deltas
+			continue
 
-	def add_injections(self, pair, dt, df, dh):
-		# IndexError == not within thresholds
-		try:
-			self.inj_dt[pair][dt] = 1.0
-		except IndexError:
-			pass
-		try:
-			self.inj_df[pair][df] = 1.0
-		except IndexError:
-			pass
-		try:
-			self.inj_dh[pair][dh] = 1.0
-		except IndexError:
-			pass
+		prefix = "%s_%s_" % (event1.ifo, event2.ifo)
+
+		# in each of the following, if the list of events contains
+		# more than one event from a given instrument, the smallest
+		# deltas are recorded
+		dt = float(event1.get_peak() + offsetdict[event1.ifo] - event2.get_peak() - offsetdict[event1.ifo]) / ((event1.ms_duration + event2.ms_duration) / 2)
+		if prefix + "dt" not in params or params[prefix + "dt"] > dt:
+			params[prefix + "dt"] = dt
+
+		df = (event1.peak_frequency - event2.peak_frequency) / ((event1.ms_bandwidth + event2.ms_bandwidth) / 2)
+		if prefix + "df" not in params or params[prefix + "df"] > df:
+			params[prefix + "df"] = df
+
+		dh = (event1.ms_hrss - event2.ms_hrss) / ((event1.ms_hrss + event2.ms_hrss) / 2)
+		if prefix + "dh" not in params or params[prefix + "dh"] > dt:
+			params[prefix + "dh"] = dt
+
+	return params
+
+
+#
+# A class for measuring 1-D parameter distributions
+#
+
+
+class CoincParamsDistributions(object):
+	def __init__(self, ranges):
+		self.background_rates = {}
+		self.injection_rates = {}
+		for name, range in ranges.iteritems():
+			self.background_rates[name] = rate.Rate(range, abs(range) / 100.0)
+			self.injection_rates[name] = rate.Rate(range, abs(range) / 100.0)
+
+	def __iadd__(self, other):
+		if type(other) != CoincParamsDistributions:
+			raise TypeError, other
+		for name, rate in other.background_rates.iteritems():
+			if name in self.background_rates:
+				self.background_rates[name] += rate
+			else:
+				self.background_rates[name] = rate
+		for name, rate in other.injection_rates.iteritems():
+			if name in self.injection_rates:
+				self.injection_rates[name] += rate
+			else:
+				self.injection_rates[name] = rate
+
+	def add_background(self, param_func, events, offsetdict):
+		for name, value in param_func(events, offsetdict).iteritems():
+			rate = self.background_rates[name]
+			try:
+				rate[value] = 1.0
+			except IndexError:
+				# param value out of range
+				pass
+
+	def add_injection(self, param_func, events, offsetdict):
+		for name, value in param_func(events, offsetdict).iteritems():
+			rate = self.injection_rates[name]
+			try:
+				rate[value] = 1.0
+			except IndexError:
+				# param value out of range
+				pass
 
 	def finish(self):
-		# normalize the distributions, and interpolate
-		for pair in self.thresholds.keys():
-			self.bak_dt[pair].array /= numpy.sum(self.bak_dt[pair].array)
-			self.bak_dt[pair].filter()
-			self.inj_dt[pair].array /= numpy.sum(self.inj_dt[pair].array)
-			self.inj_dt[pair].filter()
-			self.bak_df[pair].array /= numpy.sum(self.bak_df[pair].array)
-			self.bak_df[pair].filter()
-			self.inj_df[pair].array /= numpy.sum(self.inj_df[pair].array)
-			self.inj_df[pair].filter()
-			self.bak_dh[pair].array /= numpy.sum(self.bak_dh[pair].array)
-			self.bak_dh[pair].filter()
-			self.inj_dh[pair].array /= numpy.sum(self.inj_dh[pair].array)
-			self.inj_dh[pair].filter()
+		for rate in self.background_rates.itervalues():
+			rate.array /= numpy.sum(rate.array)
+			rate.filter()
+		for rate in self.injection_rates.itervalues():
+			rate.array /= numpy.sum(rate.array)
+			rate.filter()
 
 
 #
@@ -193,11 +224,11 @@ class Scatter(object):
 		self.inj_x = []
 		self.inj_y = []
 
-	def add_background(self, pair, x, y):
+	def add_background(self, x, y):
 		self.bak_x.append(x)
 		self.bak_y.append(y)
 
-	def add_injections(self, pair, x, y):
+	def add_injection(self, x, y):
 		self.inj_x.append(x)
 		self.inj_y.append(y)
 
@@ -227,7 +258,7 @@ class Covariance(object):
 	def add_background(self, *args):
 		self.bak_observations.append(args)
 
-	def add_injections(self, *args):
+	def add_injection(self, *args):
 		self.inj_observations.append(args)
 
 	def finish(self):
@@ -252,47 +283,34 @@ class Stats(object):
 		self.n_time_slides = None
 		self.n_background_events = 0
 
-		self.deltas = Delta_Distributions(thresholds)
 		self.scatter = Scatter()
 		self.covariance = Covariance()
+
+		# careful, the intervals have to be unpacked in the order
+		# in which they were packed by dbget_thresholds(); also
+		# each instrument pair must list the instruments in
+		# alphabetical order, or the parameters returned by
+		# coinc_params() won't match Rate instances
+		ranges = {}
+		for pair, (dtinterval, dfinterval, dhinterval) in thresholds.items():
+			ranges["%s_%s_dt" % pair] = dtinterval
+			ranges["%s_%s_df" % pair] = dfinterval
+			ranges["%s_%s_dh" % pair] = dhinterval
+		self.distributions = CoincParamsDistributions(ranges)
 
 
 	def add_background(self, database):
 		# count the number of time slides (assume all input files
-		# list the exact same time slides)
+		# list the exact same time slides, so only do this once)
 		if self.n_time_slides is None:
 			self.n_time_slides = database.connection.cursor().execute("""SELECT COUNT(DISTINCT time_slide_id) FROM time_slide""").fetchone()[0]
 
-		# iterate over non-zero-lag burst+burst coincidences
-		# involving the two desired instruments
-		for pair in self.thresholds.keys():
-			for b1_confidence, b1_peak_time, b1_peak_time_ns, b1_duration, b1_peak_frequency, b1_bandwidth, b1_hrss, b2_confidence, b2_peak_time, b2_peak_time_ns, b2_duration, b2_peak_frequency, b2_bandwidth, b2_hrss in database.connection.cursor().execute("""
-SELECT b1.confidence, b1.peak_time + t1.offset, b1.peak_time_ns, b1.ms_duration, b1.peak_frequency, b1.ms_bandwidth, b1.ms_hrss, b2.confidence, b2.peak_time + t2.offset, b2.peak_time_ns, b2.ms_duration, b2.peak_frequency, b2.ms_bandwidth, b2.ms_hrss FROM
-	sngl_burst AS b1
-	JOIN coinc_event_map AS a ON (
-		a.event_id == b1.event_id
-		AND a.table_name == 'sngl_burst'
-	)
-	JOIN coinc_event_map AS b ON (
-		b.coinc_event_id == a.coinc_event_id
-	)
-	JOIN sngl_burst AS b2 ON (
-		b.event_id == b2.event_id
-		AND b.table_name == 'sngl_burst'
-	)
-	JOIN coinc_event ON (
-		coinc_event.coinc_event_id == a.coinc_event_id
-	)
-	JOIN time_slide AS t1 ON (
-		coinc_event.time_slide_id == t1.time_slide_id
-		AND b1.ifo == t1.instrument
-	)
-	JOIN time_slide AS t2 ON (
-		coinc_event.time_slide_id == t2.time_slide_id
-		AND b2.ifo == t2.instrument
-	)
+		# iterate over non-zero-lag burst<-->burst coincs
+		for (coinc_event_id,) in database.connection.cursor().execute("""
+SELECT coinc_event_id FROM
+	coinc_event
 WHERE
-	coinc_event.coinc_def_id == ?
+	coinc_def_id == ?
 	AND EXISTS (
 		SELECT * FROM
 			time_slide
@@ -300,66 +318,131 @@ WHERE
 			time_slide.time_slide_id == coinc_event.time_slide_id
 			AND time_slide.offset != 0
 	)
-	AND b1.ifo == ?
-	AND b2.ifo == ?
-			""", (database.bb_definer_id, pair[0], pair[1])):
-				self.n_background_events += 1
+		""", (database.bb_definer_id,)):
+			# add 1 to the count of background coincs
+			self.n_background_events += 1
 
-				dt = float(LIGOTimeGPS(b1_peak_time, b1_peak_time_ns) - LIGOTimeGPS(b2_peak_time, b2_peak_time_ns)) / ((b1_duration + b2_duration) / 2)
-				df = (b1_peak_frequency - b2_peak_frequency) / ((b1_bandwidth + b2_bandwidth) / 2)
-				dh = (b1_hrss - b2_hrss) / ((b1_hrss + b2_hrss) / 2)
+			# retrieve the list of the sngl_bursts in this
+			# coinc, and adjust their peak times by the
+			# appropriate time slide offsets
+			events = []
+			offsetdict = {}
+			for values in database.connection.cursor().execute("""
+SELECT sngl_burst.*, time_slide.offset FROM
+	sngl_burst
+	JOIN coinc_event_map ON (
+		coinc_event_map.event_id == sngl_burst.event_id
+		AND coinc_event_map.table_name == 'sngl_burst'
+	)
+	JOIN coinc_event ON (
+		coinc_event.coinc_event_id == coinc_event_map.coinc_event_id
+	)
+	JOIN time_slide ON (
+		coinc_event.time_slide_id == time_slide.time_slide_id
+		AND sngl_burst.ifo == time_slide.instrument
+	)
+WHERE
+	coinc_event.coinc_event_id == ?
+		""", (coinc_event_id,)):
+				# reconstruct the event
+				event = database.sngl_burst_table._row_from_cols(values[:-1])
 
-				self.deltas.add_background(pair, dt, df, dh)
-				self.scatter.add_background(pair, dt, df)
-				self.covariance.add_background(dt, df, dh)
+				# add to list
+				events.append(event)
+
+				# store the time slide offset
+				offsetdict[event.ifo] = values[-1]
+
+			self.distributions.add_background(coinc_params, events, offsetdict)
+			params = coinc_params(events, offsetdict)
+			for event1, event2 in itertools.choices(events, 2):
+				if event1.ifo == event2.ifo:
+					continue
+				prefix = "%s_%s_" % (event1.ifo, event2.ifo)
+				self.scatter.add_background(params[prefix + "dt"], params[prefix + "df"])
+				self.covariance.add_background(params[prefix + "dt"], params[prefix + "df"], params[prefix + "dh"])
 
 
 	def add_injections(self, database):
-		# iterate over injections recovered in both of the two
-		# desired instruments
-		for pair in self.thresholds.keys():
-			for b1_confidence, b1_peak_time, b1_peak_time_ns, b1_duration, b1_peak_frequency, b1_bandwidth, b1_hrss, b2_confidence, b2_peak_time, b2_peak_time_ns, b2_duration, b2_peak_frequency, b2_bandwidth, b2_hrss in database.connection.cursor().execute("""
-SELECT b1.confidence, b1.peak_time + t1.offset, b1.peak_time_ns, b1.ms_duration, b1.peak_frequency, b1.ms_bandwidth, b1.ms_hrss, b2.confidence, b2.peak_time + t2.offset, b2.peak_time_ns, b2.ms_duration, b2.peak_frequency, b2.ms_bandwidth, b2.ms_hrss FROM
-	sngl_burst AS b1
-	JOIN coinc_event_map AS a ON (
-		a.event_id == b1.event_id
-		AND a.table_name == 'sngl_burst'
-	)
-	JOIN coinc_event_map AS b ON (
-		b.coinc_event_id == a.coinc_event_id
-	)
-	JOIN sngl_burst AS b2 ON (
-		b.event_id == b2.event_id
-		AND b.table_name == 'sngl_burst'
+		# iterate over burst<-->injection coincs
+		for (coinc_event_id,) in database.connection.cursor().execute("""
+SELECT coinc_event_id FROM
+	coinc_event
+WHERE
+	coinc_def_id == ?
+		""", (database.sb_definer_id,)):
+			# retrieve the list of the sngl_bursts in this
+			# coinc, and adjust their peak times by the
+			# appropriate time slide offsets
+			events = []
+			offsetdict = {}
+			for values in database.connection.cursor().execute("""
+SELECT sngl_burst.*, time_slide.offset FROM
+	sngl_burst
+	JOIN coinc_event_map ON (
+		coinc_event_map.event_id == sngl_burst.event_id
+		AND coinc_event_map.table_name == 'sngl_burst'
 	)
 	JOIN coinc_event ON (
-		coinc_event.coinc_event_id == a.coinc_event_id
+		coinc_event.coinc_event_id == coinc_event_map.coinc_event_id
 	)
-	JOIN time_slide AS t1 ON (
-		coinc_event.time_slide_id == t1.time_slide_id
-		AND b1.ifo == t1.instrument
-	)
-	JOIN time_slide AS t2 ON (
-		coinc_event.time_slide_id == t2.time_slide_id
-		AND b2.ifo == t2.instrument
+	JOIN time_slide ON (
+		coinc_event.time_slide_id == time_slide.time_slide_id
+		AND sngl_burst.ifo == time_slide.instrument
 	)
 WHERE
-	coinc_event.coinc_def_id == ?
-	AND b1.ifo == ?
-	AND b2.ifo == ?
-			""", (database.sb_definer_id, pair[0], pair[1])):
-				dt = float(LIGOTimeGPS(b1_peak_time, b1_peak_time_ns) - LIGOTimeGPS(b2_peak_time, b2_peak_time_ns)) / ((b1_duration + b2_duration) / 2)
-				df = (b1_peak_frequency - b2_peak_frequency) / ((b1_bandwidth + b2_bandwidth) / 2)
-				dh = (b1_hrss - b2_hrss) / ((b1_hrss + b2_hrss) / 2)
+	coinc_event.coinc_event_id == ?
+			""", (coinc_event_id,)):
+				# reconstruct the burst events
+				event = database.sngl_burst_table._row_from_cols(values[:-1])
 
-				self.deltas.add_injections(pair, dt, df, dh)
-				self.scatter.add_injections(pair, dt, df)
-				self.covariance.add_injections(dt, df, dh)
+				# add to list
+				events.append(event)
+
+				# store the time slide offset
+				offsetdict[event.ifo] = values[-1]
+
+			self.distributions.add_injection(coinc_params, events, offsetdict)
+			params = coinc_params(events, offsetdict)
+			for event1, event2 in itertools.choices(events, 2):
+				if event1.ifo == event2.ifo:
+					continue
+				prefix = "%s_%s_" % (event1.ifo, event2.ifo)
+				self.scatter.add_injection(params[prefix + "dt"], params[prefix + "df"])
+				self.covariance.add_injection(params[prefix + "dt"], params[prefix + "df"], params[prefix + "dh"])
 
 	def finish(self):
-		self.deltas.finish()
+		self.distributions.finish()
 		self.scatter.finish()
 		self.covariance.finish()
+
+
+#
+# =============================================================================
+#
+#                                     I/O
+#
+# =============================================================================
+#
+
+
+def coinc_params_distributions_to_xml(coinc_params_distributions, name):
+	xml = ligolw.LIGO_LW({u"Name": u"%s:pylal_ligolw_burca_tailor_coincparamsdistributions" % name})
+	for name, rateobj in coinc_params_distributions.background_rates.iteritems():
+		xml.appendChild(rate.rate_to_xml(rateobj, "background:%s" % name))
+	for name, rateobj in coinc_params_distributions.injection_rates.iteritems():
+		xml.appendChild(rate.rate_to_xml(rateobj, "injection:%s" % name))
+	return xml
+
+
+def coinc_params_distributions_from_xml(xml, name):
+	xml, = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.getAttribute(u"Name") == u"%s:pylal_ligolw_burca_tailor_coincparamsdistributions" % name]
+	names = [elem.getAttribute("Name").split(":")[1] for elem in xml.childNodes if elem.getAttribute("Name")[:11] == "background:"]
+	coinc_params_distributions = CoincParamsDistributions({})
+	for name in names:
+		coinc_params_distributions.background_rates[name] = rate.rate_from_xml(xml, "background:%s" % name)
+		coinc_params_distributions.injection_rates[name] = rate.rate_from_xml(xml, "injection:%s" % name)
+	return coinc_params_distributions
 
 
 #
@@ -375,14 +458,7 @@ process_program_name = "ligolw_burca_tailor"
 
 
 def append_process(xmldoc, **kwargs):
-	process = llwapp.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = "lscsoft", cvs_entry_time = __date__, comment = kwargs["comment"])
-
-	params = []
-	for (inst1, inst2), value in kwargs["thresholds"].iteritems():
-		params += [(u"--thresholds", u"lstring", u"%s,%s=%s" % (inst1, inst2, ",".join(map(unicode, value))))]
-	llwapp.append_process_params(xmldoc, process, params)
-
-	return process
+	return llwapp.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = "lscsoft", cvs_entry_time = __date__, comment = kwargs["comment"])
 
 
 #
@@ -399,22 +475,15 @@ def append_process(xmldoc, **kwargs):
 #
 
 
-def gen_likelihood_control(deltas):
+def gen_likelihood_control(coinc_params_distributions):
 	xmldoc = ligolw.Document()
 	node = xmldoc.appendChild(ligolw.LIGO_LW())
 
 	node.appendChild(lsctables.New(lsctables.ProcessTable))
 	node.appendChild(lsctables.New(lsctables.ProcessParamsTable))
-	process = append_process(xmldoc, thresholds = deltas.thresholds, comment = u"")
+	process = append_process(xmldoc, comment = u"")
 
-	node = node.appendChild(ligolw.LIGO_LW(sax.xmlreader.AttributesImpl({u"Name": process_program_name})))
-	node.appendChild(param.new_param(u"process_id", u"ilwd:char", process.process_id))
-
-	node.appendChild(llwapp.pickle_to_param(deltas.thresholds, u"thresholds"))
-	for pair in deltas.thresholds.keys():
-		node.appendChild(array.from_array(u"%s_%s_dt" % pair, numpy.array([deltas.inj_dt[pair].xvals(), deltas.inj_dt[pair].array, deltas.bak_dt[pair].array]), (u"dt", u"dt,P_inj,P_bak")))
-		node.appendChild(array.from_array(u"%s_%s_df" % pair, numpy.array([deltas.inj_df[pair].xvals(), deltas.inj_df[pair].array, deltas.bak_df[pair].array]), (u"df", u"df,P_inj,P_bak")))
-		node.appendChild(array.from_array(u"%s_%s_dh" % pair, numpy.array([deltas.inj_dh[pair].xvals(), deltas.inj_dh[pair].array, deltas.bak_dh[pair].array]), (u"dh", u"dh,P_inj,P_bak")))
+	node.appendChild(coinc_params_distributions_to_xml(coinc_params_distributions, u"ligolw_burca_tailor"))
 
 	return xmldoc
 

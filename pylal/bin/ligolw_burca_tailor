@@ -31,8 +31,10 @@
 import glob
 import math
 from optparse import OptionParser
+import os
 from pysqlite2 import dbapi2 as sqlite3
 import sys
+import tempfile
 
 
 from glue.ligolw import dbtables
@@ -60,11 +62,12 @@ def parse_command_line():
 	parser = OptionParser(
 		version = "%prog CVS $Id$",
 		usage = "%prog [options] -i|--injection-glob pattern -b|--background-glob pattern",
-		description = "%prog analyzes a collection of SQLite database files converted from ligolw_burca XML outputs, and measures probability distributions for a variety of parameters computed from the coincidences therein.  The measured distributions are recorded separately for coincidences identified as injections, and coincidences identified as non-zero-lag backgrouds.  The distributions are written to a likelihood data file in XML format, which can be used by ligolw_burca in a second pass to assign likelihoods to each coincidence in a collection of input files.  The command line arguments are used to provide shell path patterns for the files to obtain injection data from, and the files to obtain background data from."
+		description = "%prog analyzes a collection of ligolw_burca XML outputs, and measures probability distributions for a variety of parameters computed from the coincidences therein.  The distributions are written to a likelihood data file in XML format, which can be used by ligolw_burca in a second pass to assign likelihoods to each coincidence in a collection of input files.  The command line arguments are used to provide shell path patterns for the files to obtain injection data from, and the files to obtain background data from."
 	)
-	parser.add_option("-c", "--control-file", metavar = "filename", default = "ligolw_burca_likelihood_control.xml.gz", help = "Set the name of the likelihood control file to write (default = \"ligolw_burca_likelihood_control.xml.gz\").")
-	parser.add_option("-i", "--injection-glob", metavar = "pattern", help = "Shell filename pattern for injection files.")
 	parser.add_option("-b", "--background-glob", metavar = "pattern", help = "Shell filename pattern for non-injection files.")
+	parser.add_option("-i", "--injection-glob", metavar = "pattern", help = "Shell filename pattern for injection files.")
+	parser.add_option("-o", "--output", metavar = "filename", default = None, help = "Set the name of the likelihood control file to write (default = stdout).")
+	parser.add_option("-s", "--scratch-path", metavar = "path", default = "/tmp", help = "Set the name of a directory to be used as a temporary scratch space (default = \"/tmp\").  For speed this should be on a local disk, and there will need to be enough free space available to store the uncompressed contents of the largest input file.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
 	options, filenames = parser.parse_args()
 
@@ -86,11 +89,11 @@ def parse_command_line():
 
 
 #
-# Make a plot from a Delta_Distributions object.
+# Make a plot from a CoincParamsDistributions object.
 #
 
 
-def plot_Deltas(deltas):
+def plot_Deltas(distributions):
 	#
 	# Create a figure.
 	#
@@ -101,8 +104,11 @@ def plot_Deltas(deltas):
 	#
 	# How many instrument pairs are there?
 	#
+	# FIXME: don't hard code the instrument pairs
+	#
 
-	n_horiz = len(deltas.thresholds.keys())
+	pairs = (("H1", "H2"), ("H1", "L1"), ("H2", "L1"))
+	n_horiz = len(pairs)
 
 	#
 	# Each sub plot's aspect ratio is the golden ratio.
@@ -116,7 +122,7 @@ def plot_Deltas(deltas):
 	# Iterate over instrument pairs.
 	#
 
-	for i, pair in enumerate(deltas.thresholds.keys()):
+	for i, pair in enumerate(pairs):
 		#
 		# Construct the axes for this instrument pair.
 		#
@@ -143,12 +149,19 @@ def plot_Deltas(deltas):
 		# Plot the data on them.
 		#
 
-		dt_axes.plot(deltas.inj_dt[pair].xvals(), deltas.inj_dt[pair].array, "r")
-		dt_axes.plot(deltas.bak_dt[pair].xvals(), deltas.bak_dt[pair].array, "k")
-		df_axes.plot(deltas.inj_df[pair].xvals(), deltas.inj_df[pair].array, "r")
-		df_axes.plot(deltas.bak_df[pair].xvals(), deltas.bak_df[pair].array, "k")
-		dh_axes.plot(deltas.inj_dh[pair].xvals(), deltas.inj_dh[pair].array, "r")
-		dh_axes.plot(deltas.bak_dh[pair].xvals(), deltas.bak_dh[pair].array, "k")
+		prefix = "%s_%s_" % pair
+		rate = distributions.injection_rates[prefix + "dt"]
+		dt_axes.plot(rate.xvals(), rate.array, "r")
+		rate = distributions.background_rates[prefix + "dt"]
+		dt_axes.plot(rate.xvals(), rate.array, "k")
+		rate = distributions.injection_rates[prefix + "df"]
+		df_axes.plot(rate.xvals(), rate.array, "r")
+		rate = distributions.background_rates[prefix + "df"]
+		df_axes.plot(rate.xvals(), rate.array, "k")
+		rate = distributions.injection_rates[prefix + "dh"]
+		dh_axes.plot(rate.xvals(), rate.array, "r")
+		rate = distributions.background_rates[prefix + "dh"]
+		dh_axes.plot(rate.xvals(), rate.array, "k")
 
 	#
 	# Done.
@@ -213,18 +226,32 @@ if not len(filenames):
 
 for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose, reverse = True)):
 	#
-	# Open the database file.
+	# Load the XML file into a database.
 	#
 
 	if options.verbose:
 		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
-	connection = sqlite3.connect(filename)
+
+	dbfilename = tempfile.mkstemp(suffix = ".sqlite", dir = options.scratch_path)[1]
+	connection = sqlite3.connect(dbfilename)
 	dbtables.DBTable_set_connection(connection)
-	database = SnglBurstUtils.CoincDatabase().summarize(dbtables.DBTable_get_xml(), "power", options.verbose)
+	xmldoc = utils.load_filename(filename, verbose = options.verbose, gz = (filename or "stdin")[-3:] == ".gz")
+
+	#
+	# Index the database.
+	#
+
+	if options.verbose:
+		print >>sys.stderr, "indexing ..."
+	connection.cursor().execute("""CREATE INDEX IF NOT EXISTS ce_cdi_index ON coinc_event (coinc_def_id)""")
+	connection.cursor().execute("""CREATE INDEX IF NOT EXISTS ce_tsi_index ON coinc_event (time_slide_id)""")
+	connection.cursor().execute("""CREATE INDEX IF NOT EXISTS cem_tn_ei_index ON coinc_event_map (table_name, event_id)""")
+	connection.cursor().execute("""CREATE INDEX IF NOT EXISTS cem_cei_index ON coinc_event_map (coinc_event_id)""")
+	database = SnglBurstUtils.CoincDatabase().summarize(xmldoc, "power", options.verbose)
 
 	#
 	# If not already done, recover the --thresholds arguments, and
-	# construct a book-keeping object.
+	# construct a stats book-keeping object.
 	#
 
 	if stats is None:
@@ -235,7 +262,13 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 	#
 
 	stats.add_background(database)
-	connection.close()
+
+	#
+	# Clean up.
+	#
+
+	del database, connection, xmldoc
+	os.remove(dbfilename)
 
 
 #
@@ -252,21 +285,41 @@ if not len(filenames):
 
 for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose, reverse = True)):
 	#
-	# Open the database file.
+	# Load the XML file into a database.
 	#
 
 	if options.verbose:
 		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
-	connection = sqlite3.connect(filename)
+
+	dbfilename = tempfile.mkstemp(suffix = ".sqlite", dir = options.scratch_path)[1]
+	connection = sqlite3.connect(dbfilename)
 	dbtables.DBTable_set_connection(connection)
-	database = SnglBurstUtils.CoincDatabase().summarize(dbtables.DBTable_get_xml(), "lalapps_power", options.verbose)
+	xmldoc = utils.load_filename(filename, verbose = options.verbose, gz = (filename or "stdin")[-3:] == ".gz")
+
+	#
+	# Index the database.
+	#
+
+	if options.verbose:
+		print >>sys.stderr, "indexing ..."
+	connection.cursor().execute("""CREATE INDEX IF NOT EXISTS ce_cdi_index ON coinc_event (coinc_def_id)""")
+	connection.cursor().execute("""CREATE INDEX IF NOT EXISTS ce_tsi_index ON coinc_event (time_slide_id)""")
+	connection.cursor().execute("""CREATE INDEX IF NOT EXISTS cem_tn_ei_index ON coinc_event_map (table_name, event_id)""")
+	connection.cursor().execute("""CREATE INDEX IF NOT EXISTS cem_cei_index ON coinc_event_map (coinc_event_id)""")
+	database = SnglBurstUtils.CoincDatabase().summarize(xmldoc, "lalapps_power", options.verbose)
 
 	#
 	# Record statistics.
 	#
 
 	stats.add_injections(database)
-	connection.close()
+
+	#
+	# Clean up.
+	#
+
+	del database, connection, xmldoc
+	os.remove(dbfilename)
 
 
 #
@@ -283,7 +336,7 @@ print >>sys.stderr, str(stats.covariance.inj_cov)
 print >>sys.stderr, "Background normalized covariance matrix ="
 print >>sys.stderr, str(stats.covariance.bak_cov)
 
-plot_Deltas(stats.deltas).savefig("ligolw_burca_tailor.png")
+plot_Deltas(stats.distributions).savefig("ligolw_burca_tailor.png")
 fig = plot_Scatter(stats.scatter)
 fig.gca().set_xlabel(r"$(t_{\mathrm{%s}} - t_{\mathrm{%s}}) / \left< \Delta t \right>$" % ("H1", "H2"))
 fig.gca().set_ylabel(r"$(f_{\mathrm{%s}} - f_{\mathrm{%s}}) / \left< \Delta f \right>$" % ("H1", "H2"))
@@ -295,5 +348,5 @@ fig.savefig("ligolw_burca_tailor_2.png")
 #
 
 
-likelihood_control = ligolw_burca_tailor.gen_likelihood_control(stats.deltas)
-utils.write_filename(likelihood_control, options.control_file, verbose = options.verbose, gz = options.control_file[-3:] == ".gz")
+likelihood_control = ligolw_burca_tailor.gen_likelihood_control(stats.distributions)
+utils.write_filename(likelihood_control, options.output, verbose = options.verbose, gz = (options.output or "stdout")[-3:] == ".gz")
