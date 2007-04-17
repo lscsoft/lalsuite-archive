@@ -32,6 +32,12 @@ Light Weight XML documents.
 """
 
 import sys
+# Python 2.3 compatibility
+try:
+	from sets import Set as set
+except:
+	pass
+
 
 from glue.ligolw import table
 from glue.ligolw import lsctables
@@ -143,7 +149,7 @@ class CoincTables(object):
 		Return a list of the time slide IDs.  The list is sorted in
 		increasing order by ID number.
 		"""
-		ids = self.time_slide_table.dict.keys()
+		ids = list(set([row.time_slide_id for row in self.time_slide_table]))
 		ids.sort(lambda a, b: cmp(ilwd.ILWDID(a), ilwd.ILWDID(b)))
 		return ids
 

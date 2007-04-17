@@ -90,8 +90,8 @@ def get_time_slide_id(xmldoc, time_slide, create_new = None):
 			raise KeyError, time_slide
 		tisitable = lsctables.New(lsctables.TimeSlideTable)
 		xmldoc.childNodes[0].appendChild(tisitable)
-	for id in tisitable.dict.iterkeys():
-		if tisitable.get_offset_dict(id) == time_slide:
+	for id, offsetdict in tisitable.get_offsets().iteritems():
+		if offsetdict == time_slide:
 			return id
 	# time slide not found in table
 	if create_new is None:
@@ -165,8 +165,8 @@ def get_coinc_def_id(xmldoc, table_names, create_new = True):
 		xmldoc.childNodes[0].appendChild(coincdeftable)
 	table_names = list(table_names)
 	table_names.sort()
-	for id in coincdeftable.dict.iterkeys():
-		if coincdeftable.get_contributors(id) == table_names:
+	for id, names in coincdeftable.as_dict().iteritems():
+		if names == table_names:
 			return id
 	# contributor list not found in table
 	if not create_new:
