@@ -1553,10 +1553,13 @@ class TimeSlideTable(table.Table):
 		by the rows having the given ID.
 		"""
 		d = {}
-		for row in self.dict[id]:
-			if row.instrument in d:
-				raise KeyError, "%s: duplicate instrument %s" % (id, row.instrument)
-			d[row.instrument] = row.offset
+		for row in self:
+			if row.time_slide_id == id:
+				if row.instrument in d:
+					raise KeyError, "%s: duplicate instrument %s" % (id, row.instrument)
+				d[row.instrument] = row.offset
+		if not d:
+			raise KeyError, id
 		return d
 
 	def get_offsets(self):
@@ -1618,7 +1621,9 @@ class CoincDefTable(table.Table):
 		"""
 		Return a list of contributing table names for the given ID.
 		"""
-		l = [row.table_name for row in self.dict[id]]
+		l = [row.table_name for row in self if row.coinc_def_id == id]
+		if not l:
+			raise KeyError, id
 		l.sort()
 		return l
 
