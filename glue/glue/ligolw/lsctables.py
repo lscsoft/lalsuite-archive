@@ -1627,6 +1627,22 @@ class CoincDefTable(table.Table):
 		l.sort()
 		return l
 
+	def as_dict(self):
+		"""
+		Return a dictionary mapping coinc_def_id to sorted lists of
+		contributing table names.
+		"""
+		d = {}
+		for row in self:
+			if row.coinc_def_id not in d:
+				d[row.coinc_def_id] = []
+			if row.table_name in d[row.coinc_def_id]:
+				raise KeyError, "%s: duplicate table_name %s" % (row.coinc_def_id, row.table_name)
+			d[row.coinc_def_id].append(row.table_name)
+		for l in d.itervalues():
+			l.sort()
+		return d
+
 
 class CoincDef(object):
 	__slots__ = CoincDefTable.validcolumns.keys()
