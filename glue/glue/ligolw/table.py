@@ -224,100 +224,6 @@ def reassign_ids(elem):
 #
 # =============================================================================
 #
-#                          Mapping Protocol for Rows
-#
-# =============================================================================
-#
-
-
-class TableRowDict(object):
-	"""
-	Class for implementing the Python mapping protocol on a Table
-	element, using the Table's ID column to retrieve and modify rows.
-	Note:  pretty much everything about this class is *SLOW*, so use it
-	only as a last resort.
-	"""
-	def __init__(self, table_elem):
-		"""
-		Initialize the ID --> row mapping.
-		"""
-		self._table = table_elem
-		self._keys = table_elem.getColumnByName(table_elem.ids.column_name)
-
-	def __len__(self):
-		"""
-		Return the number of unique IDs.
-		"""
-		return len(self.keys())
-
-	def __getitem__(self, key):
-		"""
-		Return a list of the rows whose ID equals key.
-		"""
-		l = [self._table[i] for i, k in enumerate(self._keys) if k == key]
-		if not len(l):
-			raise KeyError, key
-		return l
-
-	def __setitem__(self, key, values):
-		"""
-		Replace the rows whose ID equals key with the rows in the
-		list of values, appending to the table if there are no rows
-		with that ID.
-		"""
-		# FIXME: should we assign the key to rows?
-		del self[key]
-		map(self._table.append, values)
-
-	def __delitem__(self, key):
-		"""
-		Delete all the rows whose ID equals key.
-		"""
-		for i in xrange(len(self._keys), -1, -1):
-			if self._keys[i] == key:
-				del self._table[i]
-
-	def __iter__(self):
-		"""
-		Iterate over the unique IDs.
-		"""
-		return {}.fromkeys(self._keys).iterkeys()
-
-	iterkeys = __iter__
-
-	def __contains__(self, key):
-		"""
-		Return True if the table contains a row whose ID equals
-		key, otherwise return False.
-		"""
-		return key in self._keys
-
-	has_key = __contains__
-
-	def keys(self):
-		"""
-		Return a list of the unique IDs.
-		"""
-		return {}.fromkeys(self._keys).keys()
-
-	def iteritems(self):
-		"""
-		Iterate over (key, value) pairs.
-		"""
-		for key in self:
-			yield key, self[key]
-
-	def itervalues(self):
-		"""
-		Return an iterator over rows.
-		"""
-		for key in self:
-			yield self[key]
-
-
-#
-# =============================================================================
-#
 #                                Column Element
 #
 # =============================================================================
@@ -541,7 +447,6 @@ class Table(ligolw.Table, list):
 	constraints = None
 	RowType = TableRow
 	ids = None
-	dict = None
 
 	def __init__(self, *attrs):
 		"""
@@ -650,12 +555,7 @@ class Table(ligolw.Table, list):
 		Called during parsing to indicate that the last Column
 		child element has been added.
 		"""
-		if self.ids is not None:
-			try:
-				self.dict = TableRowDict(self)
-			except:
-				# don't try too hard
-				pass
+		pass
 
 	def _end_of_rows(self):
 		"""
