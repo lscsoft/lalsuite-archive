@@ -57,7 +57,7 @@ def iscoalesced(l):
 
 
 def set1():
-	return [
+	return (
 		segments.segment(-2, 2),
 		segments.segment(-2, 2),
 		segments.segment(-2, 2),
@@ -72,11 +72,11 @@ def set1():
 		segments.segment(-2, 2),
 		segments.segment(-2, 2),
 		segments.segment(-2, 2)
-	]
+	)
 
 
 def set2():
-	return [
+	return (
 		segments.segment(-4, -3),
 		segments.segment(-4, -2),
 		segments.segment(-4,  0),
@@ -91,7 +91,7 @@ def set2():
 		segments.segment(-segments.infinity(), segments.infinity()),
 		segments.segment(0, segments.infinity()),
 		segments.segment(-segments.infinity(), 0)
-	]
+	)
 
 
 #
@@ -153,7 +153,7 @@ class test_segment(unittest.TestCase):
 		self.assertEqual((-segments.infinity(), segments.infinity()), tuple(segments.segment(-segments.infinity(), segments.infinity())))
 
 	def testduration(self):
-		results = [
+		results = (
 			1,
 			2,
 			4,
@@ -168,11 +168,11 @@ class test_segment(unittest.TestCase):
 			segments.infinity(),
 			segments.infinity(),
 			segments.infinity()
-		]
+		)
 		map(lambda i, r, a: self.assertEqual((i, r), (i, abs(a))), xrange(len(results)), results, set2())
 
 	def testintersects(self):
-		results = [
+		results = (
 			False,
 			False,
 			True,
@@ -187,11 +187,11 @@ class test_segment(unittest.TestCase):
 			True,
 			True,
 			True
-		]
+		)
 		map(lambda i, r, a, b: self.assertEqual((i, r), (i, a.intersects(b))), xrange(len(results)), results, set1(), set2())
 
 	def test__contains__(self):
-		results = [
+		results = (
 			False,
 			False,
 			False,
@@ -206,30 +206,30 @@ class test_segment(unittest.TestCase):
 			False,
 			False,
 			False
-		]
+		)
 		map(lambda i, r, a, b: self.assertEqual((i, r), (i, a.__contains__(b))), xrange(len(results)), results, set1(), set2())
 
-	def testcontinuous(self):
-		results = [
-			False,
-			True,
-			True,
-			True,
-			True,
-			True,
-			True,
-			True,
-			False,
-			True,
-			True,
-			True,
-			True,
-			True
-		]
-		map(lambda i, r, a, b: self.assertEqual((i, r), (i, a.continuous(b))), xrange(len(results)), results, set1(), set2())
+	def testdisjoint(self):
+		results = (
+			+1,
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+			-1,
+			0,
+			0,
+			0,
+			0,
+			0
+		)
+		map(lambda i, r, a, b: self.assertEqual((i, r), (i, a.disjoint(b))), xrange(len(results)), results, set1(), set2())
 
 	def testcontract(self):
-		results = [
+		results = (
 			segments.segment(-5, -2),
 			segments.segment(-4, -2),
 			segments.segment(-2, -2),
@@ -244,7 +244,7 @@ class test_segment(unittest.TestCase):
 			segments.segment(-segments.infinity(), segments.infinity()),
 			segments.segment(2, segments.infinity()),
 			segments.segment(-segments.infinity(), -2)
-		]
+		)
 		map(lambda i, r, a: self.assertEqual((i, r), (i, a.contract(2))), xrange(len(results)), results, set2())
 
 
