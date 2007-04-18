@@ -82,7 +82,7 @@ class PlotDescription(object):
 		form = cgi.FieldStorage()
 
 		start = LIGOTimeGPS(form.getfirst("start", str(self.segment[0])))
-		duration = LIGOTimeGPS(form.getfirst("dur", str(self.segment.duration())))
+		duration = LIGOTimeGPS(form.getfirst("dur", str(abs(self.segment))))
 
 		self.segment = segments.segment(start, start + duration)
 		self.ratewidth = float(form.getfirst("ratewidth", str(self.ratewidth)))

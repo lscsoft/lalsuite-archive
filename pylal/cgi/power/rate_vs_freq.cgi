@@ -25,7 +25,7 @@ class Plot(webplot.PlotDescription):
 #
 
 def makeplot(desc, table):
-	duration = float(segments.segmentlist.duration(desc.seglist & segments.segmentlist([desc.segment])))
+	duration = float(abs(desc.seglist & segments.segmentlist([desc.segment])))
 	
 	fig = figure.Figure()
 	canvas = FigureCanvasAgg(fig)

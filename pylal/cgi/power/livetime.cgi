@@ -12,14 +12,14 @@ import eventdisplay
 #
 
 def live_time_row_markup(inst, seglist):
-	livetime = float(seglist.duration())
+	livetime = float(abs(seglist))
 	if livetime > 0.0:
-		rate = livetime / float(seglist.extent().duration())
+		rate = livetime / float(abs(seglist.extent()))
 	else:
 		rate = 0.0
 	if len(seglist):
 		averageseg = livetime / len(seglist)
-		durations = [float(seg.duration()) for seg in seglist]
+		durations = [float(abs(seg)) for seg in seglist]
 		longestseg = max(durations)
 		shortestseg = min(durations)
 		del durations
@@ -76,9 +76,9 @@ def live_time_markup(trigsegs):
 
 def s5_live_time_summary(now, seglist):
 	s5length = 1.0 * 365.25 * 24.0 * 60.0 * 60.0	# 1 year
-	livetime = float(seglist.duration())
+	livetime = float(abs(seglist))
 	if livetime > 0.0:
-		rate = livetime / float(seglist.extent().duration())
+		rate = livetime / float(abs(seglist.extent()))
 	else:
 		rate = 0.0
 	s5end = now + (s5length - livetime) / rate
