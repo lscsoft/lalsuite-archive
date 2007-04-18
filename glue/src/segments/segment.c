@@ -177,26 +177,6 @@ static PyObject *disjoint(PyObject *self, PyObject *other)
 }
 
 
-static PyObject *continuous(PyObject *self, PyObject *other)
-{
-	PyObject *sa = PyTuple_GET_ITEM(self, 0);
-	PyObject *sb = PyTuple_GET_ITEM(self, 1);
-	PyObject *oa = PyTuple_GET_ITEM(other, 0);
-	PyObject *ob = PyTuple_GET_ITEM(other, 1);
-	PyObject *result = (PyObject_Compare(sb, oa) >= 0) && (PyObject_Compare(sa, ob) <= 0) ? Py_True : Py_False;
-	Py_INCREF(result);
-	return result;
-}
-
-
-static PyObject *order(PyObject *self, PyObject *other)
-{
-	if(__contains__(self, other))
-		return PyInt_FromLong(0);
-	return PyInt_FromLong(PyObject_Compare(self, other));
-}
-
-
 /*
  * Arithmetic
  */
@@ -365,9 +345,7 @@ static PySequenceMethods as_sequence = {
 
 static struct PyMethodDef methods[] = {
 	{"disjoint", disjoint, METH_O, ""},
-	{"order", order, METH_O, ""},
 	{"intersects", intersects, METH_O, ""},
-	{"continuous", continuous, METH_O, ""},
 	{"protract", protract, METH_O, ""},
 	{"contract", contract, METH_O, ""},
 	{"shift", shift, METH_O, ""},
