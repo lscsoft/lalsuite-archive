@@ -294,18 +294,6 @@ class segment(tuple):
 			return -1
 		return 0
 
-	def order(self, other):
-		"""
-		Equivalent to cmp(self, other) except that a result of 0
-		indicates that other is contained in self rather than being
-		identically equal to self.
-		"""
-		# FIXME: is this used?  It is not used anywhere in glue or
-		# pylal.  I want to deprecate it.
-		if other in self:
-			return 0
-		return cmp(self, other)
-
 	# some arithmetic operations that (mostly) make sense for segments
 
 	def __and__(self, other):
@@ -368,14 +356,6 @@ class segment(tuple):
 			return (self[0] <= other[0]) and (self[1] >= other[1])
 		else:
 			return self[0] <= other < self[1]
-
-	def continuous(self, other):
-		"""
-		Return True if self and other are not disjoint.
-		"""
-		# FIXME: deprecate this in favour of disjoint()
-		# above.
-		return not self.disjoint(other)
 
 	# protraction and contraction and shifting
 
@@ -999,9 +979,6 @@ class segmentlistdict(dict):
 			if key not in other or not other[key].intersects(value):
 				return False
 		return True
-
-	# FIXME: deprecate this
-	intersects = intersects_all
 
 	def coalesce(self):
 		"""
