@@ -708,9 +708,9 @@ class SnglInspiralTable(table.Table):
 		for row in self:
 			time = row.get_end()
 			if time in seglist:
-				vetoed.append(event)
+				vetoed.append(row)
 			else:
-				keep.append(event)
+				keep.append(row)
 		return keep
 	
 	def getslide(self,slide_num):
