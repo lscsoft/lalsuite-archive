@@ -160,40 +160,6 @@ class Confidence(Likelihood):
 #
 # =============================================================================
 #
-#                         Load Distribution Functions
-#
-# =============================================================================
-#
-
-
-#
-# Load likelihood distribution functions.
-#
-
-
-def load_likelihood_control(filename, verbose = False):
-	#
-	# Load the XML document
-	#
-
-	xmldoc = utils.load_filename(filename, verbose = verbose, gz = filename[-3:] == ".gz")
-
-	#
-	# Extract the encoded CoincParamsDistributions object
-	#
-
-	coinc_params_distributions = ligolw_burca_tailor.coinc_params_distributions_from_xml(xmldoc, u"ligolw_burca_tailor")
-
-	#
-	# Construct and return a Likelihood calculator
-	#
-
-	return Likelihood(coinc_params_distributions)
-
-
-#
-# =============================================================================
-#
 #                              Library Interface
 #
 # =============================================================================
