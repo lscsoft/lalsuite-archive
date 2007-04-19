@@ -62,12 +62,11 @@ def parse_command_line():
 	parser = OptionParser(
 		version = "%prog CVS $Id$",
 		usage = "%prog [options] -i|--injection-glob pattern -b|--background-glob pattern",
-		description = "%prog analyzes a collection of ligolw_burca XML outputs, and measures probability distributions for a variety of parameters computed from the coincidences therein.  The distributions are written to a likelihood data file in XML format, which can be used by ligolw_burca in a second pass to assign likelihoods to each coincidence in a collection of input files.  The command line arguments are used to provide shell path patterns for the files to obtain injection data from, and the files to obtain background data from."
+		description = "%prog analyzes a collection of ligolw_burca XML outputs, and measures probability distributions for a variety of parameters computed from the coincidences therein.  The distributions are written to a likelihood data file in XML format, which can be used by ligolw_burca in a second pass to assign likelihoods to each coincidence in a collection of input files.  The command line arguments are used to provide shell path patterns for the files to obtain injection data from, and the files to obtain background data from.  Note that disk space is used to hold working data, set the TMPDIR environment variable (or TMP or TEMP) to select a particular directory to use."
 	)
 	parser.add_option("-b", "--background-glob", metavar = "pattern", help = "Shell filename pattern for non-injection files.")
 	parser.add_option("-i", "--injection-glob", metavar = "pattern", help = "Shell filename pattern for injection files.")
 	parser.add_option("-o", "--output", metavar = "filename", default = None, help = "Set the name of the likelihood control file to write (default = stdout).")
-	parser.add_option("-s", "--scratch-path", metavar = "path", default = "/tmp", help = "Set the name of a directory to be used as a temporary scratch space (default = \"/tmp\").  For speed this should be on a local disk, and there will need to be enough free space available to store the uncompressed contents of the largest input file.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
 	options, filenames = parser.parse_args()
 
@@ -251,7 +250,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
 
-	dbfilename = tempfile.mkstemp(suffix = ".sqlite", dir = options.scratch_path)[1]
+	dbfilename = tempfile.mkstemp(suffix = ".sqlite")[1]
 	connection = sqlite3.connect(dbfilename)
 	dbtables.DBTable_set_connection(connection)
 	xmldoc = utils.load_filename(filename, verbose = options.verbose, gz = (filename or "stdin")[-3:] == ".gz")
@@ -304,7 +303,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
 
-	dbfilename = tempfile.mkstemp(suffix = ".sqlite", dir = options.scratch_path)[1]
+	dbfilename = tempfile.mkstemp(suffix = ".sqlite")[1]
 	connection = sqlite3.connect(dbfilename)
 	dbtables.DBTable_set_connection(connection)
 	xmldoc = utils.load_filename(filename, verbose = options.verbose, gz = (filename or "stdin")[-3:] == ".gz")
@@ -334,7 +333,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 #
 
 
-stats.finish()
+#stats.finish()
 
 print >>sys.stderr, "=== Summary ==="
 print >>sys.stderr, "Non-injection average event rate = %g events / time slide" % (float(stats.n_background_events) / stats.n_time_slides)
