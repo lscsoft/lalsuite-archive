@@ -97,6 +97,13 @@ def parse_command_line():
 # =============================================================================
 #
 
+#
+# Enable column interning
+#
+
+
+table.RowBuilder = table.InterningRowBuilder
+
 
 #
 # If specific table names have been asked for, don't parse other tables so
@@ -156,3 +163,4 @@ for url in urls:
 			if n in options.rows:
 				print row_string(table_elem, row)
 	doc.unlink()
+	table.InterningRowBuilder.strings.clear()
