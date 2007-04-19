@@ -415,8 +415,8 @@ WHERE
 
 	def finish(self):
 		self.distributions.finish()
-		#self.scatter.finish()
-		#self.covariance.finish()
+		self.scatter.finish()
+		self.covariance.finish()
 
 
 #
