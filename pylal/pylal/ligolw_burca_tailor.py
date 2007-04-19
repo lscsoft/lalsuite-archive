@@ -27,8 +27,7 @@
 
 
 import numpy
-from scipy.interpolate import interpolate
-from scipy.stats import stats
+#from scipy.stats import stats
 from xml import sax
 
 
@@ -172,7 +171,7 @@ class CoincParamsDistributions(object):
 			self.injection_rates[name] = rate.Rate(range, abs(range) / 100.0)
 
 	def __iadd__(self, other):
-		if type(other) != CoincParamsDistributions:
+		if type(other) != type(self):
 			raise TypeError, other
 		for name, rate in other.background_rates.iteritems():
 			if name in self.background_rates:
@@ -184,6 +183,7 @@ class CoincParamsDistributions(object):
 				self.injection_rates[name] += rate
 			else:
 				self.injection_rates[name] = rate
+		return self
 
 	def add_background(self, param_func, events, offsetdict):
 		for name, value in param_func(events, offsetdict).iteritems():
@@ -262,8 +262,6 @@ class Covariance(object):
 		self.inj_observations.append(args)
 
 	def finish(self):
-		self.bak_observations = numpy.array(self.bak_observations)
-		self.inj_observations = numpy.array(self.inj_observations)
 		self.bak_cov = covariance_normalize(stats.cov(self.bak_observations))
 		self.inj_cov = covariance_normalize(stats.cov(self.inj_observations))
 
@@ -354,13 +352,15 @@ WHERE
 				offsetdict[event.ifo] = values[-1]
 
 			self.distributions.add_background(coinc_params, events, offsetdict)
-			params = coinc_params(events, offsetdict)
-			for event1, event2 in itertools.choices(events, 2):
-				if event1.ifo == event2.ifo:
-					continue
-				prefix = "%s_%s_" % (event1.ifo, event2.ifo)
-				self.scatter.add_background(params[prefix + "dt"], params[prefix + "df"])
-				self.covariance.add_background(params[prefix + "dt"], params[prefix + "df"], params[prefix + "dh"])
+			#params = coinc_params(events, offsetdict)
+			#items = params.items()
+			#items.sort()
+			#self.covariance.add_background([value for name, value in items])
+			#for event1, event2 in itertools.choices(events, 2):
+			#	if event1.ifo == event2.ifo:
+			#		continue
+			#	prefix = "%s_%s_" % (event1.ifo, event2.ifo)
+			#	self.scatter.add_background(params[prefix + "dt"], params[prefix + "df"])
 
 
 	def add_injections(self, database):
@@ -403,18 +403,20 @@ WHERE
 				offsetdict[event.ifo] = values[-1]
 
 			self.distributions.add_injection(coinc_params, events, offsetdict)
-			params = coinc_params(events, offsetdict)
-			for event1, event2 in itertools.choices(events, 2):
-				if event1.ifo == event2.ifo:
-					continue
-				prefix = "%s_%s_" % (event1.ifo, event2.ifo)
-				self.scatter.add_injection(params[prefix + "dt"], params[prefix + "df"])
-				self.covariance.add_injection(params[prefix + "dt"], params[prefix + "df"], params[prefix + "dh"])
+			#params = coinc_params(events, offsetdict)
+			#items = params.items()
+			#items.sort()
+			#self.covariance.add_injection([value for name, value in items])
+			#for event1, event2 in itertools.choices(events, 2):
+			#	if event1.ifo == event2.ifo:
+			#		continue
+			#	prefix = "%s_%s_" % (event1.ifo, event2.ifo)
+			#	self.scatter.add_injection(params[prefix + "dt"], params[prefix + "df"])
 
 	def finish(self):
 		self.distributions.finish()
-		self.scatter.finish()
-		self.covariance.finish()
+		#self.scatter.finish()
+		#self.covariance.finish()
 
 
 #
@@ -438,11 +440,11 @@ def coinc_params_distributions_to_xml(coinc_params_distributions, name):
 def coinc_params_distributions_from_xml(xml, name):
 	xml, = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.getAttribute(u"Name") == u"%s:pylal_ligolw_burca_tailor_coincparamsdistributions" % name]
 	names = [elem.getAttribute("Name").split(":")[1] for elem in xml.childNodes if elem.getAttribute("Name")[:11] == "background:"]
-	coinc_params_distributions = CoincParamsDistributions({})
+	c = CoincParamsDistributions({})
 	for name in names:
-		coinc_params_distributions.background_rates[name] = rate.rate_from_xml(xml, "background:%s" % name)
-		coinc_params_distributions.injection_rates[name] = rate.rate_from_xml(xml, "injection:%s" % name)
-	return coinc_params_distributions
+		c.background_rates[name] = rate.rate_from_xml(xml, "background:%s" % name)
+		c.injection_rates[name] = rate.rate_from_xml(xml, "injection:%s" % name)
+	return c
 
 
 #

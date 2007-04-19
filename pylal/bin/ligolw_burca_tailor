@@ -82,6 +82,25 @@ def parse_command_line():
 #
 # =============================================================================
 #
+#                                    Input
+#
+# =============================================================================
+#
+
+
+def index_and_summarize(xmldoc, connection, verbose = False):
+	if options.verbose:
+		print >>sys.stderr, "indexing ..."
+	connection.cursor().execute("""CREATE INDEX IF NOT EXISTS ce_cdi_index ON coinc_event (coinc_def_id)""")
+	connection.cursor().execute("""CREATE INDEX IF NOT EXISTS ce_tsi_index ON coinc_event (time_slide_id)""")
+	connection.cursor().execute("""CREATE INDEX IF NOT EXISTS cem_tn_ei_index ON coinc_event_map (table_name, event_id)""")
+	connection.cursor().execute("""CREATE INDEX IF NOT EXISTS cem_cei_index ON coinc_event_map (coinc_event_id)""")
+	return SnglBurstUtils.CoincDatabase().summarize(xmldoc, "lalapps_power", options.verbose)
+
+
+#
+# =============================================================================
+#
 #                                 Bookkeeping
 #
 # =============================================================================
@@ -230,7 +249,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 	#
 
 	if options.verbose:
-		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
+		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
 
 	dbfilename = tempfile.mkstemp(suffix = ".sqlite", dir = options.scratch_path)[1]
 	connection = sqlite3.connect(dbfilename)
@@ -241,13 +260,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 	# Index the database.
 	#
 
-	if options.verbose:
-		print >>sys.stderr, "indexing ..."
-	connection.cursor().execute("""CREATE INDEX IF NOT EXISTS ce_cdi_index ON coinc_event (coinc_def_id)""")
-	connection.cursor().execute("""CREATE INDEX IF NOT EXISTS ce_tsi_index ON coinc_event (time_slide_id)""")
-	connection.cursor().execute("""CREATE INDEX IF NOT EXISTS cem_tn_ei_index ON coinc_event_map (table_name, event_id)""")
-	connection.cursor().execute("""CREATE INDEX IF NOT EXISTS cem_cei_index ON coinc_event_map (coinc_event_id)""")
-	database = SnglBurstUtils.CoincDatabase().summarize(xmldoc, "power", options.verbose)
+	database = index_and_summarize(xmldoc, connection, verbose = options.verbose)
 
 	#
 	# If not already done, recover the --thresholds arguments, and
@@ -289,7 +302,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 	#
 
 	if options.verbose:
-		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
+		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
 
 	dbfilename = tempfile.mkstemp(suffix = ".sqlite", dir = options.scratch_path)[1]
 	connection = sqlite3.connect(dbfilename)
@@ -300,13 +313,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 	# Index the database.
 	#
 
-	if options.verbose:
-		print >>sys.stderr, "indexing ..."
-	connection.cursor().execute("""CREATE INDEX IF NOT EXISTS ce_cdi_index ON coinc_event (coinc_def_id)""")
-	connection.cursor().execute("""CREATE INDEX IF NOT EXISTS ce_tsi_index ON coinc_event (time_slide_id)""")
-	connection.cursor().execute("""CREATE INDEX IF NOT EXISTS cem_tn_ei_index ON coinc_event_map (table_name, event_id)""")
-	connection.cursor().execute("""CREATE INDEX IF NOT EXISTS cem_cei_index ON coinc_event_map (coinc_event_id)""")
-	database = SnglBurstUtils.CoincDatabase().summarize(xmldoc, "lalapps_power", options.verbose)
+	database = index_and_summarize(xmldoc, connection, verbose = options.verbose)
 
 	#
 	# Record statistics.
@@ -332,15 +339,15 @@ stats.finish()
 print >>sys.stderr, "=== Summary ==="
 print >>sys.stderr, "Non-injection average event rate = %g events / time slide" % (float(stats.n_background_events) / stats.n_time_slides)
 print >>sys.stderr, "Injection normalized covariance matrix ="
-print >>sys.stderr, str(stats.covariance.inj_cov)
+#print >>sys.stderr, str(stats.covariance.inj_cov)
 print >>sys.stderr, "Background normalized covariance matrix ="
-print >>sys.stderr, str(stats.covariance.bak_cov)
+#print >>sys.stderr, str(stats.covariance.bak_cov)
 
-plot_Deltas(stats.distributions).savefig("ligolw_burca_tailor.png")
-fig = plot_Scatter(stats.scatter)
-fig.gca().set_xlabel(r"$(t_{\mathrm{%s}} - t_{\mathrm{%s}}) / \left< \Delta t \right>$" % ("H1", "H2"))
-fig.gca().set_ylabel(r"$(f_{\mathrm{%s}} - f_{\mathrm{%s}}) / \left< \Delta f \right>$" % ("H1", "H2"))
-fig.savefig("ligolw_burca_tailor_2.png")
+#plot_Deltas(stats.distributions).savefig("ligolw_burca_tailor.png")
+#fig = plot_Scatter(stats.scatter)
+#fig.gca().set_xlabel(r"$(t_{\mathrm{%s}} - t_{\mathrm{%s}}) / \left< \Delta t \right>$" % ("H1", "H2"))
+#fig.gca().set_ylabel(r"$(f_{\mathrm{%s}} - f_{\mathrm{%s}}) / \left< \Delta f \right>$" % ("H1", "H2"))
+#fig.savefig("ligolw_burca_tailor_2.png")
 
 
 #
