@@ -28,12 +28,18 @@
 #
 
 
+import glob
 from optparse import OptionParser
 import sys
 
 
 from glue.ligolw import utils
 from pylal import ligolw_burca
+try:
+	from pylal import ligolw_burca_tailor
+except ImportError:
+	# scipy not installed
+	pass
 try:
 	from pylal import ligolw_burca2
 except ImportError:
@@ -131,7 +137,7 @@ def parse_command_line():
 	parser.add_option("-f", "--force", action = "store_true", help = "Process document even if it has already been processed.")
 	parser.add_option("-p", "--program", metavar = "name", help = "Set the name of the program that generated the events as it appears in the process table.  The program name is used to extract live time information from the search summary tables in the input files.")
 	parser.add_option("-a", "--coincidence-algorithm", metavar = "[excesspower|excesspower2|stringcusp]", default = None, help = "Select the coincidence test algorithm to use.")
-	parser.add_option("-d", "--distribution-file", metavar = "filename", help = "Set the name of the LIGO Light Weight XML file from which to read the coincidence parameter distribution functions.")
+	parser.add_option("-d", "--distribution-files", metavar = "pattern", help = "Set the shell filename pattern of the LIGO Light Weight XML files from which to read the coincidence parameter distribution functions.  The distribution data from all files is summed to construct a single set of distribution functions.")
 	parser.add_option("-P", "--probability-gw", metavar = "[0..1]", help = "Set the probability that a zero-lag coincidence survivor chosen at random is a gravitational wave event.  0.0 means all events are noise, 1.0 means all events are gravitational waves.")
 	parser.add_option("-t", "--thresholds", metavar = "inst1,inst2=threshold1[,threshold2,...]", action = "append", default = [], help = "Set the coincidence algorithm's thresholds for an instrument pair.  For excesspower the threshold format is dt,df,dhrss.  For stringcusp the threshold format is dt.  One set of thresholds must be provided for each instrument combination that will be compared")
 	parser.add_option("-s", "--stringcusp-params", metavar = "kappa,epsilon", help = "Set the H1+H2 kappa and epsilon parameters for the stringcusp coincidence test (hint: try 3.0,0.5).")
@@ -162,6 +168,13 @@ def parse_command_line():
 
 	if options.coincidence_algorithm in ("excesspower", "stringcusp"):
 		options.thresholds = parse_thresholds(options)
+
+	#
+	# get the distribution_files file list
+	#
+
+	if options.distribution_files:
+		options.distribution_files = glob.glob(options.distribution_files)
 
 	# success
 	return options, (filenames or [None])
@@ -196,7 +209,7 @@ if options.coincidence_algorithm == "excesspower":
 	comparefunc = ligolw_burca.ExcessPowerCoincCompare
 	options.get_max_segment_gap = ligolw_burca.ExcessPowerMaxSegmentGap
 elif options.coincidence_algorithm == "excesspower2":
-	likelihood = ligolw_burca2.load_likelihood_control(options.distribution_file, verbose = options.verbose)
+	likelihood = ligolw_burca2.Likelihood(ligolw_burca_tailor.coinc_params_distributions_from_filenames(options.distribution_files), u"ligolw_burca_tailor", verbose = options.verbose)
 	likelihood.set_P_gw(options.probability_gw)
 else:
 	# "stringcusp"
