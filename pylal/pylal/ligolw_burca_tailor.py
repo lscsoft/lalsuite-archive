@@ -38,6 +38,7 @@ from glue.ligolw import array
 from glue.ligolw import param
 from glue.ligolw import table
 from glue.ligolw import lsctables
+from glue import utils
 from pylal import itertools
 from pylal import ligolw_burca
 from pylal import llwapp
@@ -444,6 +445,13 @@ def coinc_params_distributions_from_xml(xml, name):
 	for name in names:
 		c.background_rates[name] = rate.rate_from_xml(xml, "background:%s" % name)
 		c.injection_rates[name] = rate.rate_from_xml(xml, "injection:%s" % name)
+	return c
+
+
+def coinc_params_distributions_from_filenames(filenames, name, verbose = False):
+	c = CoincParamsDistributions({})
+	for filename in filenames:
+		c += coinc_params_distributions_from_xml(utils.load_filename(filename, verbose = verbose, gz = (filename or "stdin")[-3:] == ".gz"), name)
 	return c
 
 
