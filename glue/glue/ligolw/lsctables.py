@@ -1545,7 +1545,7 @@ class TimeSlideTable(table.Table):
 	}
 	constraints = "PRIMARY KEY (time_slide_id, instrument)"
 	ids = TimeSlideIDs()
-	interncolumns = ("process_id", "instrument")
+	interncolumns = ("process_id", "time_slide_id", "instrument")
 
 	def get_offset_dict(self, id):
 		"""
@@ -1677,7 +1677,7 @@ class CoincTable(table.Table):
 	}
 	constraints = "PRIMARY KEY (coinc_event_id)"
 	ids = CoincIDs()
-	interncolumns = ("process_id", "coinc_def_id")
+	interncolumns = ("process_id", "coinc_def_id", "time_slide_id")
 
 
 class Coinc(object):
