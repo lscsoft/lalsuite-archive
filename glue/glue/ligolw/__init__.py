@@ -32,4 +32,4 @@ __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __date__ = "$Date$"[7:-2]
 __version__ = "$Revision$"[11:-2]
 
-__all__ = ["ligolw", "table", "array", "param", "lsctables", "types", "ilwd", "utils"]
+__all__ = ["ligolw", "types", "ilwd", "table", "array", "param", "lsctables", "utils"]
