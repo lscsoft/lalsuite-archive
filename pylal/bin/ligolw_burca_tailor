@@ -239,8 +239,6 @@ if options.verbose:
 	print >>sys.stderr, "=== Background ==="
 
 filenames = glob.glob(options.background_glob)
-if not len(filenames):
-	raise ValueError, "error:  no background files found"
 
 for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose, reverse = True)):
 	#
@@ -292,8 +290,6 @@ if options.verbose:
 	print >>sys.stderr, "=== Injections ==="
 
 filenames = glob.glob(options.injection_glob)
-if not len(filenames):
-	raise ValueError, "error:  no injections files found"
 
 for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose, reverse = True)):
 	#
@@ -315,6 +311,14 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 	database = index_and_summarize(xmldoc, connection, verbose = options.verbose)
 
 	#
+	# If not already done, recover the --thresholds arguments, and
+	# construct a stats book-keeping object.
+	#
+
+	if stats is None:
+		stats = ligolw_burca_tailor.Stats(ligolw_burca_tailor.dbget_thresholds(connection))
+
+	#
 	# Record statistics.
 	#
 
@@ -326,6 +330,17 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 
 	del database, connection, xmldoc
 	os.remove(dbfilename)
+
+
+#
+# Did we process any files?
+#
+
+
+if stats is None:
+	if options.verbose:
+		print >>sys.stderr, "warning:  no input files!"
+	sys.exit()
 
 
 #
