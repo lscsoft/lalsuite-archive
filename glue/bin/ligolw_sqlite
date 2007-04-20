@@ -184,30 +184,15 @@ if (options.extract is None) or (filenames != [None]):
 	insert(filenames, preserve_ids = options.preserve_ids, verbose = options.verbose)
 
 	#
-	# check for coincidence tables, and index as needed
+	# construct indexes
 	#
 
-	table_names = dbtables.DBTable_table_names()
-
-	if "coinc_event" in table_names:
-		if options.verbose:
-			print >>sys.stderr, "indexing coinc_event table ..."
-		connection.cursor().execute("""
-			CREATE INDEX IF NOT EXISTS ce_cdi_index ON coinc_event (coinc_def_id)
-		""")
-		connection.cursor().execute("""
-			CREATE INDEX IF NOT EXISTS ce_tsi_index ON coinc_event (time_slide_id)
-		""")
-
-	if "coinc_event_map" in table_names:
-		if options.verbose:
-			print >>sys.stderr, "indexing coinc_event_map table ..."
-		connection.cursor().execute("""
-			CREATE INDEX IF NOT EXISTS cem_tn_ei_index ON coinc_event_map (table_name, event_id)
-		""")
-		connection.cursor().execute("""
-			CREATE INDEX IF NOT EXISTS cem_cei_index ON coinc_event_map (coinc_event_id)
-		""")
+	for table_name in dbtables.DBTable_table_names():
+		indexes = dbtables.TableByName[table_name].how_to_index
+		if options.verbose and indexes:
+			print >>sys.stderr, "indexing %s table ..." % table_name
+		for index_name, cols in indexes.iteritems():
+			connection.cursor().execute("CREATE INDEX IF NOT EXISTS %s ON %s (%s)" % (index_name, table_name, ",".join(cols)))
 
 
 #
