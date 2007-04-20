@@ -64,11 +64,13 @@ __date__ = "$Date$"[7:-2]
 
 def parse_command_line():
 	parser = OptionParser(
-		version = "%prog CVS $Id$"
+		version = "%prog CVS $Id$",
+		usage = "%prog [options]",
+		description = "Utility for manipulating segment lists in XML form.  At the moment, all this can do is convert segment lists in segwizard format to XML representations."
 	)
 	parser.add_option("--comment", metavar = "text", default = "", help = "Set comment string in process and segment_definer tables.")
-	parser.add_option("-o", "--output", metavar = "filename", help = "Write output to this (default = stdout).  If the file name ends in \".gz\", it will be gzip compressed.")
-	parser.add_option("--segwizard", metavar = "instrument=filename", default = [], action = "append", help = "Read list of active segments from segwizard file.  Can be given more than once to specify segment lists for multiple instruments.")
+	parser.add_option("-o", "--output", metavar = "filename", help = "Write output to this file (default = stdout).  If the file name ends in \".gz\", it will be gzip compressed.")
+	parser.add_option("--segwizard", metavar = "instrument=filename", default = [], action = "append", help = "Read list of active segments from segwizard file, coalesce and insert into output.  Can be given more than once to specify multiple segwizard inputs, one each for different instruments.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
 
