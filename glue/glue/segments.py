@@ -270,9 +270,6 @@ class segment(tuple):
 		"""
 		return self[1] - self[0]
 
-	# FIXME: this is deprecated.  remove
-	duration = __abs__
-
 	# comparisons
 
 	def __nonzero__(self):
@@ -460,9 +457,6 @@ class segmentlist(list):
 		for seg in self:
 			d += abs(seg)
 		return d
-
-	# FIXME: this is deprecated.  remove
-	duration = __abs__
 
 	def extent(self):
 		"""
@@ -881,9 +875,6 @@ class segmentlistdict(dict):
 		each of the segmentlists.
 		"""
 		return self.map(abs)
-
-	# FIXME: this is deprecated.  remove
-	duration = __abs__
 
 	def extent(self):
 		"""
