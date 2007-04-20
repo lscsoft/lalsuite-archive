@@ -152,7 +152,7 @@ class test_segment(unittest.TestCase):
 		self.assertEqual((2, segments.infinity()), tuple(segments.segment(2, segments.infinity())))
 		self.assertEqual((-segments.infinity(), segments.infinity()), tuple(segments.segment(-segments.infinity(), segments.infinity())))
 
-	def testduration(self):
+	def test__abs__(self):
 		results = (
 			1,
 			2,
