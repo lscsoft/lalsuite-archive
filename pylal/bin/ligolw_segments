@@ -95,7 +95,7 @@ def new_doc():
 	xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.ProcessParamsTable))
 	xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.SegmentDefTable, ["process_id", "segment_def_id", "ifos", "name", "comment"]))
 	xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.SegmentTable, ["process_id", "segment_id", "start_time", "start_time_ns", "end_time", "end_time_ns", "active"]))
-	xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.SegmentDefMapTable, ["process_id", "segment_id", "segment_def_id"]))
+	xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.SegmentDefMapTable, ["process_id", "segment_id", "segment_def_id", "seg_def_map_id"]))
 
 	return xmldoc
 
@@ -197,11 +197,12 @@ def segment_table_rows(active, inactive, ids, process):
 	return rows
 
 
-def seg_def_map(seg, seg_def, process):
+def seg_def_map(seg, seg_def, ids, process):
 	row = lsctables.SegmentDefMap()
 	row.process_id = process.process_id
 	row.segment_id = seg.segment_id
 	row.segment_def_id = seg_def.segment_def_id
+	row.seg_def_map_id = ids.next()
 	return row
 
 
@@ -221,7 +222,7 @@ def add_from_segwizard(segdeftable, segtable, segdefmaptable, filename, instrume
 	inactive_segs = ~active_segs & segments.segmentlist([active_segs.extent()])
 	for seg in segment_table_rows(active_segs, inactive_segs, segtable.ids, process):
 		segtable.append(seg)
-		segdefmaptable.append(seg_def_map(seg, segdef, process))
+		segdefmaptable.append(seg_def_map(seg, segdef, segdefmaptable.ids, process))
 
 
 def ligolw_segments(xmldoc, options):
@@ -232,6 +233,7 @@ def ligolw_segments(xmldoc, options):
 	segtable.sync_ids()
 
 	segdefmaptable = table.get_table(xmldoc, lsctables.SegmentDefMapTable.tableName)
+	segdefmaptable.sync_ids()
 
 	process = append_process(xmldoc, options)
 
