@@ -1397,6 +1397,7 @@ class SegmentTable(table.Table):
 	}
 	constraints = "PRIMARY KEY (segment_id)"
 	ids = SegmentIDs()
+	interncolumns = ("process_id",)
 
 
 class Segment(object):
@@ -1470,8 +1471,9 @@ class SegmentDefMapTable(table.Table):
 		"state_vec_map": "int_4s",
 		"insertion_time": "int_4s"
 	}
-	constraints = "PRIMARY KEY (segment_def_map_id)"
+	constraints = "PRIMARY KEY (seg_def_map_id)"
 	ids = SegmentDefMapIDs()
+	interncolumns = ("process_id", "segment_def_id")
 
 
 class SegmentDefMap(object):
@@ -1512,6 +1514,7 @@ class SegmentDefTable(table.Table):
 	}
 	constraints = "PRIMARY KEY (segment_def_id)"
 	ids = SegmentDefIDs()
+	interncolumns = ("process_id",)
 
 
 class SegmentDef(object):
