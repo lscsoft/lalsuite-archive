@@ -87,13 +87,10 @@ def parse_command_line():
 #
 
 
-def index_and_summarize(xmldoc, connection, verbose = False):
+def index_and_summarize(xmldoc, verbose = False):
+	dbtables.build_indexes(verbose)
 	if options.verbose:
-		print >>sys.stderr, "indexing ..."
-	connection.cursor().execute("""CREATE INDEX IF NOT EXISTS ce_cdi_index ON coinc_event (coinc_def_id)""")
-	connection.cursor().execute("""CREATE INDEX IF NOT EXISTS ce_tsi_index ON coinc_event (time_slide_id)""")
-	connection.cursor().execute("""CREATE INDEX IF NOT EXISTS cem_tn_ei_index ON coinc_event_map (table_name, event_id)""")
-	connection.cursor().execute("""CREATE INDEX IF NOT EXISTS cem_cei_index ON coinc_event_map (coinc_event_id)""")
+		print >>sys.stderr, "summarizing ..."
 	return SnglBurstUtils.CoincDatabase().summarize(xmldoc, "lalapps_power", options.verbose)
 
 
@@ -257,7 +254,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 	# Index the database.
 	#
 
-	database = index_and_summarize(xmldoc, connection, verbose = options.verbose)
+	database = index_and_summarize(xmldoc, verbose = options.verbose)
 
 	#
 	# If not already done, recover the --thresholds arguments, and
@@ -308,7 +305,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 	# Index the database.
 	#
 
-	database = index_and_summarize(xmldoc, connection, verbose = options.verbose)
+	database = index_and_summarize(xmldoc, verbose = options.verbose)
 
 	#
 	# If not already done, recover the --thresholds arguments, and
