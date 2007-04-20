@@ -66,11 +66,13 @@ def parse_command_line():
 	parser = OptionParser(
 		version = "%prog CVS $Id$"
 	)
-	parser.add_option("--comment", metavar = "text", default = "", help = "Set comment string in process table.")
+	parser.add_option("--comment", metavar = "text", default = "", help = "Set comment string in process and segment_definer tables.")
 	parser.add_option("-o", "--output", metavar = "filename", help = "Write output to this (default = stdout).  If the file name ends in \".gz\", it will be gzip compressed.")
-	parser.add_option("--segwizard", metavar = "filename", help = "Read segment list from segwizard file.")
+	parser.add_option("--segwizard", metavar = "instrument=filename", default = [], action = "append", help = "Read list of active segments from segwizard file.  Can be given more than once to specify segment lists for multiple instruments.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
+
+	options.segwizard = dict([argument.split("=") for argument in options.segwizard])
 
 	return options, (filenames or [None])
 
@@ -111,8 +113,8 @@ def append_process(xmldoc, options):
 	params = []
 	if options.output != None:
 		params += [("--output", "lstring", options.output)]
-	if options.segwizard != None:
-		params += [("--segwizard", "lstring", options.segwizard)]
+	for item in options.segwizard.iteritems():
+		params += [("--segwizard", "lstring", "=".join(item))]
 	llwapp.append_process_params(xmldoc, process, params)
 
 	return process
@@ -231,10 +233,10 @@ def ligolw_segments(xmldoc, options):
 
 	process = append_process(xmldoc, options)
 
-	if options.segwizard:
+	for instrument, filename in options.segwizard.iteritems():
 		if options.verbose:
-			print >>sys.stderr, "reading %s ..." % options.segwizard
-		add_from_segwizard(segdeftable, segtable, segdefmaptable, options.segwizard, "", process)
+			print >>sys.stderr, "reading %s ..." % filename
+		add_from_segwizard(segdeftable, segtable, segdefmaptable, filename, instrument, process)
 
 	llwapp.set_process_end_time(process)
 
