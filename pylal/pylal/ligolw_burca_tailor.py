@@ -38,7 +38,7 @@ from glue.ligolw import array
 from glue.ligolw import param
 from glue.ligolw import table
 from glue.ligolw import lsctables
-from glue import utils
+from glue.ligolw import utils
 from pylal import itertools
 from pylal import ligolw_burca
 from pylal import llwapp
