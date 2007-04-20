@@ -40,6 +40,7 @@ I'm still figuring out how this should work.
 
 
 import re
+import sys
 from xml.sax.xmlreader import AttributesImpl
 # Python 2.3 compatibility
 try:
@@ -511,6 +512,30 @@ class CoincMapTable(DBTable):
 	ids = lsctables.CoincMapTable.ids
 	RowType = lsctables.CoincMapTable.RowType
 	how_to_index = lsctables.CoincMapTable.how_to_index
+
+
+#
+# =============================================================================
+#
+#                                Table Metadata
+#
+# =============================================================================
+#
+
+
+def build_indexes(verbose = False):
+	"""
+	Using the how_to_index annotations in the table class definitions,
+	construct a set of indexes for the database at the current
+	connection.
+	"""
+	cursor = DBTable_get_connection().cursor()
+	for table_name in DBTable_table_names():
+		indexes = TableByName[table_name].how_to_index
+		if verbose and indexes:
+			print >>sys.stderr, "indexing %s table ..." % table_name
+		for index_name, cols in indexes.iteritems():
+			cursor.execute("CREATE INDEX IF NOT EXISTS %s ON %s (%s)" % (index_name, table_name, ",".join(cols)))
 
 
 #
