@@ -211,6 +211,7 @@ class CoincParamsDistributions(object):
 		for rate in self.injection_rates.itervalues():
 			rate.array /= numpy.sum(rate.array)
 			rate.filter()
+		return self
 
 
 #
