@@ -501,6 +501,10 @@ class CoincTable(DBTable):
 	constraints = lsctables.CoincTable.constraints
 	ids = lsctables.CoincTable.ids
 	RowType = lsctables.CoincTable.RowType
+	how_to_index = {
+		"ce_cdi_index": ("coinc_def_id",),
+		"ce_tsi_index": ("time_slide_id",)
+	}
 
 
 class CoincMapTable(DBTable):
@@ -509,6 +513,10 @@ class CoincMapTable(DBTable):
 	constraints = lsctables.CoincMapTable.constraints
 	ids = lsctables.CoincMapTable.ids
 	RowType = lsctables.CoincMapTable.RowType
+	how_to_index = {
+		"cem_tn_ei_index": ("table_name", "event_id"),
+		"cem_cei_index": ("coinc_event_id",)
+	}
 
 
 #
