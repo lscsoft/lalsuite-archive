@@ -1681,6 +1681,10 @@ class CoincTable(table.Table):
 	constraints = "PRIMARY KEY (coinc_event_id)"
 	ids = CoincIDs()
 	interncolumns = ("process_id", "coinc_def_id", "time_slide_id")
+	how_to_index = {
+		"ce_cdi_index": ("coinc_def_id",),
+		"ce_tsi_index": ("time_slide_id",)
+	}
 
 
 class Coinc(object):
@@ -1707,6 +1711,10 @@ class CoincMapTable(table.Table):
 		"event_id": "ilwd:char"
 	}
 	interncolumns = ("table_name",)
+	how_to_index = {
+		"cem_tn_ei_index": ("table_name", "event_id"),
+		"cem_cei_index": ("coinc_event_id",)
+	}
 
 
 class CoincMap(object):
