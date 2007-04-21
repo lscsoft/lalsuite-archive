@@ -167,8 +167,22 @@ class Confidence(Likelihood):
 #
 
 
-def coinc_map_table___cmp__(self, other):
+#
+# Sorting and bisection search is used coinc_event_map retrieval in lieu of
+# a look-up table.
+#
+
+
+def coinc_map___cmp__(self, other):
 	return cmp(self.coinc_event_id, other.coinc_event_id)
+
+
+lsctables.CoincMap.__cmp__ = coinc_map___cmp__
+
+
+#
+# Main routine
+#
 
 
 def ligolw_burca2(xmldoc, likelihood, verbose = False):
@@ -207,7 +221,6 @@ def ligolw_burca2(xmldoc, likelihood, verbose = False):
 	#
 
 	coinc_map_table = table.get_table(xmldoc, lsctables.CoincMapTable.tableName)
-	coinc_map_table.__cmp__ = coinc_map_table___cmp__
 	coinc_map_table.sort()
 
 	#
