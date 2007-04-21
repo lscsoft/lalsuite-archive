@@ -143,17 +143,17 @@ def coinc_params(events, offsetdict):
 		# in each of the following, if the list of events contains
 		# more than one event from a given instrument, the smallest
 		# deltas are recorded
-		dt = float(event1.get_peak() + offsetdict[event1.ifo] - event2.get_peak() - offsetdict[event1.ifo]) / ((event1.ms_duration + event2.ms_duration) / 2)
-		if prefix + "dt" not in params or params[prefix + "dt"] > dt:
+		dt = float(event1.get_peak() + offsetdict[event1.ifo] - event2.get_peak() - offsetdict[event2.ifo]) / ((event1.ms_duration + event2.ms_duration) / 2)
+		if prefix + "dt" not in params or abs(params[prefix + "dt"]) > abs(dt):
 			params[prefix + "dt"] = dt
 
 		df = (event1.peak_frequency - event2.peak_frequency) / ((event1.ms_bandwidth + event2.ms_bandwidth) / 2)
-		if prefix + "df" not in params or params[prefix + "df"] > df:
+		if prefix + "df" not in params or abs(params[prefix + "df"]) > abs(df):
 			params[prefix + "df"] = df
 
 		dh = (event1.ms_hrss - event2.ms_hrss) / ((event1.ms_hrss + event2.ms_hrss) / 2)
-		if prefix + "dh" not in params or params[prefix + "dh"] > dt:
-			params[prefix + "dh"] = dt
+		if prefix + "dh" not in params or abs(params[prefix + "dh"]) > abs(dh):
+			params[prefix + "dh"] = dh
 
 	return params
 
