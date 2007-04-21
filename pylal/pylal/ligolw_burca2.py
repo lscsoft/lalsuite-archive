@@ -26,6 +26,7 @@
 #
 
 
+import bisect
 import math
 import numpy
 from scipy.interpolate import interpolate
@@ -166,6 +167,10 @@ class Confidence(Likelihood):
 #
 
 
+def coinc_map_table___cmp__(self, other):
+	return cmp(self.coinc_event_id, other.coinc_event_id)
+
+
 def ligolw_burca2(xmldoc, likelihood, verbose = False):
 	"""
 	Assigns likelihood values to excess power coincidences.  xmldoc is
@@ -187,7 +192,6 @@ def ligolw_burca2(xmldoc, likelihood, verbose = False):
 		# guess there are no injections in this file?
 		pass
 	time_slides = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName).get_offsets()
-	zero_lag_tisi_ids = llwapp.get_zero_lag_time_slides(xmldoc).keys()
 	coinc_table = table.get_table(xmldoc, lsctables.CoincTable.tableName)
 
 	#
@@ -202,11 +206,9 @@ def ligolw_burca2(xmldoc, likelihood, verbose = False):
 	# Index the coinc_event_map table.
 	#
 
-	for row in table.get_table(xmldoc, lsctables.CoincMapTable.tableName):
-		if row.table_name == table.StripTableName(lsctables.SnglBurstTable.tableName):
-			if row.coinc_event_id not in index:
-				index[row.coinc_event_id] = []
-			index[row.coinc_event_id].append(index[row.event_id])
+	coinc_map_table = table.get_table(xmldoc, lsctables.CoincMapTable.tableName)
+	coinc_map_table.__cmp__ = coinc_map_table___cmp__
+	coinc_map_table.sort()
 
 	#
 	# Iterate over coincs, assigning likelihoods to burst+burst coincs,
@@ -221,8 +223,9 @@ def ligolw_burca2(xmldoc, likelihood, verbose = False):
 		if verbose and not n % 30:
 			print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / n_coincs),
 		if coinc.coinc_def_id in definer_ids:
+			# retrieve events
+			events = [index[row.event_id] for row in coinc_map_table[bisect.bisect_left(coinc_map_table, coinc):bisect.bisect_right(coinc_map_table, coinc)]]
 			# sort events by instrument name
-			events = index[coinc.coinc_event_id]
 			events.sort(lambda a, b: cmp(a.ifo, b.ifo))
 			# compute likelihood
 			coinc.likelihood = likelihood(ligolw_burca_tailor.coinc_params, events, time_slides[coinc.time_slide_id])
