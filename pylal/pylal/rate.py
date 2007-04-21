@@ -726,7 +726,7 @@ def rate_from_xml(xml, name):
 	rate.array = array.get_array(xml, u"array").array
 	rate.binsize = param.get_pyvalue(xml, u"binsize")
 	rate.filterwidth = param.get_pyvalue(xml, u"filterwidth")
-	rate.filterdata = array.get_array(xml, u"filterdata")
+	rate.filterdata = array.get_array(xml, u"filterdata").array
 	return rate
 
 
