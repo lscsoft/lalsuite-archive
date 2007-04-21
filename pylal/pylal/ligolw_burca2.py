@@ -233,7 +233,7 @@ def ligolw_burca2(xmldoc, likelihood, verbose = False):
 		n_coincs = len(coinc_table)
 
 	for n, coinc in enumerate(coinc_table):
-		if verbose and not n % 30:
+		if verbose and not n % 200:
 			print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / n_coincs),
 		if coinc.coinc_def_id in definer_ids:
 			# retrieve events
