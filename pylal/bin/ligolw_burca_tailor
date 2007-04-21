@@ -31,17 +31,14 @@
 import glob
 import math
 from optparse import OptionParser
-import os
 from pysqlite2 import dbapi2 as sqlite3
 import sys
-import tempfile
 
 
 from glue.ligolw import dbtables
 from glue.ligolw import utils
 from pylal import ligolw_burca_tailor
 from pylal import SnglBurstUtils
-from pylal import snglcoinc
 
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -62,7 +59,7 @@ def parse_command_line():
 	parser = OptionParser(
 		version = "%prog CVS $Id$",
 		usage = "%prog [options] -i|--injection-glob pattern -b|--background-glob pattern",
-		description = "%prog analyzes a collection of ligolw_burca XML outputs, and measures probability distributions for a variety of parameters computed from the coincidences therein.  The distributions are written to a likelihood data file in XML format, which can be used by ligolw_burca in a second pass to assign likelihoods to each coincidence in a collection of input files.  The command line arguments are used to provide shell path patterns for the files to obtain injection data from, and the files to obtain background data from.  Note that disk space is used to hold working data, set the TMPDIR environment variable (or TMP or TEMP) to select a particular directory to use."
+		description = "%prog analyzes a collection of SQLite3 database files containing ligolw_burca outputs, and measures probability distributions for a variety of parameters computed from the coincidences therein.  The distributions are written to a likelihood data file in XML format, which can be used by ligolw_burca in a second pass to assign likelihoods to each coincidence.  The command line arguments are used to provide shell path patterns for the files to obtain injection data from, and the files to obtain background data from."
 	)
 	parser.add_option("-b", "--background-glob", metavar = "pattern", help = "Shell filename pattern for non-injection files.")
 	parser.add_option("-i", "--injection-glob", metavar = "pattern", help = "Shell filename pattern for injection files.")
@@ -76,22 +73,6 @@ def parse_command_line():
 		raise ValueError, "missing required --injection-glob argument"
 
 	return options, (filenames or [None])
-
-
-#
-# =============================================================================
-#
-#                                    Input
-#
-# =============================================================================
-#
-
-
-def index_and_summarize(xmldoc, verbose = False):
-	dbtables.build_indexes(verbose)
-	if options.verbose:
-		print >>sys.stderr, "summarizing ..."
-	return SnglBurstUtils.CoincDatabase().summarize(xmldoc, "lalapps_power", options.verbose)
 
 
 #
@@ -239,22 +220,20 @@ filenames = glob.glob(options.background_glob)
 
 for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose, reverse = True)):
 	#
-	# Load the XML file into a database.
+	# Open the database file.
 	#
 
 	if options.verbose:
-		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
+		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename),
 
-	dbfilename = tempfile.mkstemp(suffix = ".sqlite")[1]
-	connection = sqlite3.connect(dbfilename)
+	connection = sqlite3.connect(filename)
 	dbtables.DBTable_set_connection(connection)
-	xmldoc = utils.load_filename(filename, verbose = options.verbose, gz = (filename or "stdin")[-3:] == ".gz")
 
 	#
-	# Index the database.
+	# Summarize the database.
 	#
 
-	database = index_and_summarize(xmldoc, verbose = options.verbose)
+	database = SnglBurstUtils.CoincDatabase().summarize(dbtables.DBTable_get_xml(), "lalapps_power", options.verbose)
 
 	#
 	# If not already done, recover the --thresholds arguments, and
@@ -274,8 +253,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 	# Clean up.
 	#
 
-	del database, connection, xmldoc
-	os.remove(dbfilename)
+	del database, connection
 
 
 #
@@ -290,22 +268,20 @@ filenames = glob.glob(options.injection_glob)
 
 for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose, reverse = True)):
 	#
-	# Load the XML file into a database.
+	# Open the database file.
 	#
 
 	if options.verbose:
-		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
+		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename),
 
-	dbfilename = tempfile.mkstemp(suffix = ".sqlite")[1]
-	connection = sqlite3.connect(dbfilename)
+	connection = sqlite3.connect(filename)
 	dbtables.DBTable_set_connection(connection)
-	xmldoc = utils.load_filename(filename, verbose = options.verbose, gz = (filename or "stdin")[-3:] == ".gz")
 
 	#
-	# Index the database.
+	# Summarize the database.
 	#
 
-	database = index_and_summarize(xmldoc, verbose = options.verbose)
+	database = SnglBurstUtils.CoincDatabase().summarize(dbtables.DBTable_get_xml(), "lalapps_power", options.verbose)
 
 	#
 	# If not already done, recover the --thresholds arguments, and
@@ -325,8 +301,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 	# Clean up.
 	#
 
-	del database, connection, xmldoc
-	os.remove(dbfilename)
+	del database, connection
 
 
 #
