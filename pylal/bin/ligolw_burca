@@ -33,6 +33,8 @@ from optparse import OptionParser
 import sys
 
 
+from glue.ligolw import table
+from glue.ligolw import lsctables
 from glue.ligolw import utils
 from pylal import ligolw_burca
 from pylal import llwapp
@@ -173,6 +175,18 @@ def parse_command_line():
 #
 # =============================================================================
 #
+#                                    Input
+#
+# =============================================================================
+#
+
+
+table.RowBuilder = table.InterningRowBuilder
+
+
+#
+# =============================================================================
+#
 #                                     Main
 #
 # =============================================================================
@@ -223,6 +237,7 @@ for n, filename in enumerate(filenames):
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
 	xmldoc = utils.load_filename(filename, options.verbose, gz = (filename or "stdin")[-3:] == ".gz")
+	table.InterningRowBuilder.strings.clear()
 
 	#
 	# Have we already processed it?
