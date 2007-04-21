@@ -112,9 +112,9 @@ class Likelihood(object):
 		self.background_rates = {}
 		self.injection_rates = {}
 		for name, rate in coinc_param_distributions.background_rates.iteritems():
-			self.background_rates[name] = make_interp(rate.centres(), rate.array)
+			self.background_rates[name] = make_interp(rate.centres()[0], rate.array)
 		for name, rate in coinc_param_distributions.injection_rates.iteritems():
-			self.injection_rates[name] = make_interp(rate.centres(), rate.array)
+			self.injection_rates[name] = make_interp(rate.centres()[0], rate.array)
 
 	def set_P_gw(self, P):
 		self.P_gw = P
