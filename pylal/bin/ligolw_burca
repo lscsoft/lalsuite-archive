@@ -35,16 +35,6 @@ import sys
 
 from glue.ligolw import utils
 from pylal import ligolw_burca
-try:
-	from pylal import ligolw_burca_tailor
-except ImportError:
-	# scipy not installed
-	pass
-try:
-	from pylal import ligolw_burca2
-except ImportError:
-	# scipy not installed
-	pass
 from pylal import llwapp
 from pylal import snglcoinc
 
@@ -153,8 +143,8 @@ def parse_command_line():
 	if options.coincidence_algorithm not in ("excesspower", "excesspower2", "stringcusp"):
 		raise ValueError, "unrecognized --coincidence-algorithm %s" % options.coincidence_algorithm
 	if options.coincidence_algorithm == "excesspower2":
-		if options.distribution_file is None:
-			raise ValueError, "missing required argument --distribution-file"
+		if options.distribution_files is None:
+			raise ValueError, "missing required argument --distribution-files"
 		if options.probability_gw is None:
 			raise ValueError, "missing required argument --probability-gw"
 		options.probability_gw = float(options.probability_gw)
@@ -209,6 +199,8 @@ if options.coincidence_algorithm == "excesspower":
 	comparefunc = ligolw_burca.ExcessPowerCoincCompare
 	options.get_max_segment_gap = ligolw_burca.ExcessPowerMaxSegmentGap
 elif options.coincidence_algorithm == "excesspower2":
+	from pylal import ligolw_burca_tailor
+	from pylal import ligolw_burca2
 	likelihood = ligolw_burca2.Likelihood(ligolw_burca_tailor.coinc_params_distributions_from_filenames(options.distribution_files, u"ligolw_burca_tailor", verbose = options.verbose).finish())
 	likelihood.set_P_gw(options.probability_gw)
 else:
