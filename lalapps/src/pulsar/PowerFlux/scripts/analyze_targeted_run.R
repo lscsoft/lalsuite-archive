@@ -154,15 +154,9 @@ data<-dbGetQuery(con, p("SELECT ", p(Fields, collapse=", ")," FROM ", DataSet, "
 
 highRes<-data[,'hist_residuals_max']
 highResMax<-highRes>ResLarge
+BandName<-""
+dir.create(output_dir)	
 
-start_plot("HighResHist")
-plot(hist(highRes, 50))
-dev.off()
-
-start_plot("HighRes")
-plot(data[,'band'], highRes)
-points(data[,'band'], rep(ResLarge, dim(data)[1]), col="red", type="l")
-dev.off()
 
 
 # plus<-data[,'max_dx.3']=="plus"
@@ -178,6 +172,15 @@ no60hz <- (((data[,'band']+1)%% 60)>2) & (((data[,'band']+1.25)%% 60)>2)
 Freq<-data[, 'band']
 no60hzReduced<-no60hz
 highResMaxReduced<-highResMax
+
+start_plot("HighResHist")
+plot(hist(highRes, 50))
+dev.off()
+
+start_plot("HighRes")
+plot(data[,'band'], highRes)
+points(data[,'band'], rep(ResLarge, dim(data)[1]), col="red", type="l")
+dev.off()
 
 	
 FancyPlot <- function(UL, f0=NULL, f1=NULL, ylab="y", title=ylab, median_shift=2, median_scale=1, skip.high.dx=FALSE, summary.curve=NULL) {
@@ -271,7 +274,6 @@ FancyMap <- function(UL, title="", levels=NULL, f0=NULL, f1=NULL) {
 		xlab="Spindown", ylab="Frequency", main=title))
 	}
 
-dir.create(output_dir)	
 
 #
 # Compute time estimates
@@ -358,7 +360,7 @@ for(i in 1:(dim(BandData)[1])) {
 	dev.off()
 
 	start_plot("h0_summary_hist")
-	F<- no60zReduced & ksVetoP
+	F<- no60hzReduced & ksVetoP
 	plot(hist(log10(pulsarUL[F])-log10(SummaryCurve[F]), 100), xlab="log10(h0/summary)", main="Summary curve deviation", ylab="Count")
 	dev.off()
 
