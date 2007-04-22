@@ -134,6 +134,7 @@ setup(
 	        os.path.join("bin", "plotbank"),
 		os.path.join("bin", "plotbinj"),
 		os.path.join("bin", "plotburca"),
+		os.path.join("bin", "plotburca2"),
 		os.path.join("bin", "plotburst"),
 		os.path.join("bin", "plotburstrate"),
 		os.path.join("bin", "plotchannel"),
