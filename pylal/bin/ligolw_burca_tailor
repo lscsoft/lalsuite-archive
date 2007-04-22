@@ -61,15 +61,15 @@ def parse_command_line():
 		usage = "%prog [options] -i|--injection-glob pattern -b|--background-glob pattern",
 		description = "%prog analyzes a collection of SQLite3 database files containing ligolw_burca outputs, and measures probability distributions for a variety of parameters computed from the coincidences therein.  The distributions are written to a likelihood data file in XML format, which can be used by ligolw_burca in a second pass to assign likelihoods to each coincidence.  The command line arguments are used to provide shell path patterns for the files to obtain injection data from, and the files to obtain background data from."
 	)
-	parser.add_option("-b", "--background-glob", metavar = "pattern", help = "Shell filename pattern for non-injection files.")
-	parser.add_option("-i", "--injection-glob", metavar = "pattern", help = "Shell filename pattern for injection files.")
+	parser.add_option("-b", "--background-glob", metavar = "pattern", default = [], action = "append", help = "Shell filename pattern for non-injection files.")
+	parser.add_option("-i", "--injection-glob", metavar = "pattern", default = [], action = "append", help = "Shell filename pattern for injection files.")
 	parser.add_option("-o", "--output", metavar = "filename", default = None, help = "Set the name of the likelihood control file to write (default = stdout).")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
 
-	if options.background_glob is None:
+	if not options.background_glob:
 		raise ValueError, "missing required --background-glob argument"
-	if options.injection_glob is None:
+	if not options.injection_glob:
 		raise ValueError, "missing required --injection-glob argument"
 
 	return options, (filenames or [None])
@@ -216,7 +216,7 @@ stats = None
 if options.verbose:
 	print >>sys.stderr, "=== Background ==="
 
-filenames = glob.glob(options.background_glob)
+filenames = reduce(list.__add__, [glob.glob(g) for g in options.background_glob])
 
 for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose, reverse = True)):
 	#
@@ -264,7 +264,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 if options.verbose:
 	print >>sys.stderr, "=== Injections ==="
 
-filenames = glob.glob(options.injection_glob)
+filenames = reduce(list.__add__, [glob.glob(g) for g in options.injection_glob])
 
 for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose, reverse = True)):
 	#
