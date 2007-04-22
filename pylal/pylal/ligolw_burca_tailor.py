@@ -27,7 +27,7 @@
 
 
 import numpy
-#from scipy.stats import stats
+from scipy.stats import stats
 from xml import sax
 
 
@@ -277,14 +277,16 @@ class Covariance(object):
 #
 
 
+#
+# Base class used to hook the database contents into a statistics analyzer.
+#
+
+
 class Stats(object):
 	def __init__(self, thresholds):
 		self.thresholds = thresholds
 		self.n_time_slides = None
 		self.n_background_events = 0
-
-		self.scatter = Scatter()
-		self.covariance = Covariance()
 
 		# careful, the intervals have to be unpacked in the order
 		# in which they were packed by dbget_thresholds(); also
@@ -296,7 +298,14 @@ class Stats(object):
 			ranges["%s_%s_dt" % pair] = dtinterval
 			ranges["%s_%s_df" % pair] = dfinterval
 			ranges["%s_%s_dh" % pair] = dhinterval
-		self.distributions = CoincParamsDistributions(ranges)
+
+
+	def _add_background(self, events, offsetdict):
+		pass
+
+
+	def _add_injections(self, events, offsetdict):
+		pass
 
 
 	def add_background(self, database):
@@ -353,16 +362,7 @@ WHERE
 				# store the time slide offset
 				offsetdict[event.ifo] = values[-1]
 
-			self.distributions.add_background(coinc_params, events, offsetdict)
-			#params = coinc_params(events, offsetdict)
-			#items = params.items()
-			#items.sort()
-			#self.covariance.add_background([value for name, value in items])
-			#for event1, event2 in itertools.choices(events, 2):
-			#	if event1.ifo == event2.ifo:
-			#		continue
-			#	prefix = "%s_%s_" % (event1.ifo, event2.ifo)
-			#	self.scatter.add_background(params[prefix + "dt"], params[prefix + "df"])
+			self._add_background(coinc_params, events, offsetdict)
 
 
 	def add_injections(self, database):
@@ -404,21 +404,93 @@ WHERE
 				# store the time slide offset
 				offsetdict[event.ifo] = values[-1]
 
-			self.distributions.add_injection(coinc_params, events, offsetdict)
-			#params = coinc_params(events, offsetdict)
-			#items = params.items()
-			#items.sort()
-			#self.covariance.add_injection([value for name, value in items])
-			#for event1, event2 in itertools.choices(events, 2):
-			#	if event1.ifo == event2.ifo:
-			#		continue
-			#	prefix = "%s_%s_" % (event1.ifo, event2.ifo)
-			#	self.scatter.add_injection(params[prefix + "dt"], params[prefix + "df"])
+			# pass the events to whatever wants them
+			self._add_injections(events, offsetdict)
+
+	def finish(self):
+		pass
+
+
+#
+# Scatter plot data
+#
+
+
+class ScatterStats(Stats):
+	def __init__(self, thresholds):
+		Stats.__init__(self, thresholds)
+		self.scatter = Scatter()
+
+	def _add_background(self, events, offsetdict):
+		params = coinc_params(events, offsetdict)
+		for event1, event2 in itertools.choices(events, 2):
+			if event1.ifo == event2.ifo:
+				continue
+			prefix = "%s_%s_" % (event1.ifo, event2.ifo)
+			self.scatter.add_background(params[prefix + "dt"], params[prefix + "df"])
+
+	def _add_injections(self, events, offsetdict):
+		params = coinc_params(events, offsetdict)
+		for event1, event2 in itertools.choices(events, 2):
+			if event1.ifo == event2.ifo:
+				continue
+			prefix = "%s_%s_" % (event1.ifo, event2.ifo)
+			self.scatter.add_injection(params[prefix + "dt"], params[prefix + "df"])
+
+	def finish(self):
+		self.scatter.finish()
+
+
+#
+# Covariance data
+#
+
+
+class CovarianceStats(Stats):
+	def __init__(self, thresholds):
+		Stats.__init__(self, thresholds)
+		self.covariance = Covariance()
+
+	def _add_background(self, events, offsetdict):
+		params = coinc_params(events, offsetdict)
+		items = params.items()
+		items.sort()
+		self.covariance.add_background([value for name, value in items])
+
+	def _add_injections(self, events, offsetdict):
+		params = coinc_params(events, offsetdict)
+		items = params.items()
+		items.sort()
+		self.covariance.add_injection([value for name, value in items])
+
+	def finish(self):
+		self.covariance.finish()
+
+
+class DistributionsStats(Stats):
+	def __init__(self, thresholds):
+		Stats.__init__(self, thresholds)
+		# careful, the intervals have to be unpacked in the order
+		# in which they were packed by dbget_thresholds(); also
+		# each instrument pair must list the instruments in
+		# alphabetical order, or the parameters returned by
+		# coinc_params() won't match Rate instances
+		ranges = {}
+		for pair, (dtinterval, dfinterval, dhinterval) in thresholds.items():
+			ranges["%s_%s_dt" % pair] = dtinterval
+			ranges["%s_%s_df" % pair] = dfinterval
+			ranges["%s_%s_dh" % pair] = dhinterval
+		self.distributions = CoincParamsDistributions(ranges)
+
+
+	def _add_background(self, events, offsetdict):
+		self.distributions.add_background(coinc_params, events, offsetdict)
+
+	def _add_injections(self, events, offsetdict):
+		self.distributions.add_injection(coinc_params, events, offsetdict)
 
 	def finish(self):
 		self.distributions.finish()
-		self.scatter.finish()
-		self.covariance.finish()
 
 
 #
