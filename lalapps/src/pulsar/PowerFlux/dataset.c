@@ -750,7 +750,7 @@ if(fake_injection) {
 	for(i=0;i<d->free;i++) {
 		current_phase=compute_phase(giw, workspace_size, start_time, d->gps[i]);
 		inject_fake_signal(d, i, accumulated_phase+current_phase);
-		if(fabs(d->gps[i]-start_time)>50000) {
+		if(fabs(d->gps[i]-start_time)>PHASE_ACCUMULATION_TIMEOUT) {
 			start_time=d->gps[i];
 			accumulated_phase+=current_phase;
 			}
@@ -1802,7 +1802,7 @@ for(i=0;i<d_free;i++){
 	for(j=0;j<d->free;j++) {
 		current_phase=compute_phase(giw, workspace_size, start_time, d->gps[i]);
 		inject_fake_signal(d, i, accumulated_phase+current_phase);
-		if(fabs(d->gps[i]-start_time)>90000) {
+		if(fabs(d->gps[i]-start_time)>PHASE_ACCUMULATION_TIMEOUT) {
 			start_time=d->gps[i];
 			accumulated_phase+=current_phase;
 			}

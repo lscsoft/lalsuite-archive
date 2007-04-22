@@ -103,4 +103,6 @@ float stationary_effective_weight_ratio(float target_ra, float target_dec, float
 void dump_datasets(char *filename);
 void test_datasets(void);
 
+#define PHASE_ACCUMULATION_TIMEOUT 50000
+
 #endif 

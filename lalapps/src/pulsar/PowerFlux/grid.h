@@ -87,6 +87,10 @@ SKY_GRID *make_rect_grid(long num_ra, long num_dec);
 SKY_GRID *make_sin_theta_grid(SKY_GRID_TYPE resolution);
 /* This reduces the grid by eliminating band=-1 points */
 SKY_GRID * reduced_grid(SKY_GRID *g);
+
+void precompute_values(SKY_GRID *grid);
+void free_values(SKY_GRID *grid);
+
 void free_grid(SKY_GRID *grid);
 
 long find_sin_theta_closest(SKY_GRID *grid, float RA, float DEC);

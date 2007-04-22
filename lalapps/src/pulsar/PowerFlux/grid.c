@@ -32,8 +32,13 @@ return ds;
 /* Precompute values that are used later */
 void precompute_values(SKY_GRID *grid)
 {
-long k;
+long i, k;
 SKY_GRID_TYPE e2,e3,e4,e5;
+
+for(i=0;i<GRID_E_COUNT;i++) {
+	if(grid->e[i]==NULL)grid->e[i]=do_alloc(grid->npoints, sizeof(SKY_GRID_TYPE));
+	}
+
 for(k=0;k<grid->npoints;k++){
 		e2=cos(M_PI_2-grid->latitude[k]);
 		e3=sin(M_PI_2-grid->latitude[k]);
@@ -74,6 +79,17 @@ for(k=0;k<grid->npoints;k++){
 		grid->e[25][k]=e3*e3*e4*e5;
 	}
 
+}
+
+void free_values(SKY_GRID *grid)
+{
+int i;
+for(i=0;i<GRID_E_COUNT;i++) {
+	if(grid->e[i]!=NULL) {
+		free(grid->e[i]);
+		grid->e[i]=NULL;
+		}
+	}
 }
 
 SKY_GRID *make_arcsin_grid(long num_ra, long num_dec)
@@ -362,7 +378,11 @@ free(grid->x);
 free(grid->y);
 free(grid->band);
 free(grid->band_f);
-for(i=0;i<GRID_E_COUNT;i++)free(grid->e[i]);
+for(i=0;i<grid->nbands;i++)free(grid->band_name[i]);
+free(grid->band_name);
+for(i=0;i<GRID_E_COUNT;i++) {
+	if(grid->e[i]!=NULL)free(grid->e[i]);
+	}
 free(grid);
 }
 
@@ -547,10 +567,13 @@ k=-1;
 ds_min=100;
 
 for(i=0;i<sky_grid->npoints;i++) {
+	if((band_from>=0) && sky_grid->band[i]!=band_from)continue;
+
 	ds=acos(sin(sky_grid->latitude[i])*sin(dec)+
 		cos(sky_grid->latitude[i])*cos(dec)*
 		cos(sky_grid->longitude[i]-ra));
-	if((ds<ds_min) && ((band_from<0) || sky_grid->band[i]==band_from)) {
+
+	if((ds<ds_min)) {
 		ds_min=ds;
 		k=i;
 		}
@@ -568,7 +591,7 @@ int i;
 
 for(i=0;i<sky_grid->npoints;i++) {
 	if((band_from>=0) && sky_grid->band[i]!=band_from)continue;
-	/* TODO: compute weight ratio when source does not show up based on least squares spindown fit */
+
 	if(effective_weight_ratio(sky_grid->longitude[i], sky_grid->latitude[i], ra, dec, bin_tolerance, spindown_tolerance)>weight_ratio_level) {
 		sky_grid->band[i]=band_to;
 		sky_grid->band_f[i]=band_to;
@@ -582,7 +605,7 @@ int i;
 
 for(i=0;i<sky_grid->npoints;i++) {
 	if((band_from>=0) && sky_grid->band[i]!=band_from)continue;
-	/* TODO: compute weight ratio when source does not show up based on least squares spindown fit */
+
 	if(stationary_effective_weight_ratio(sky_grid->longitude[i], sky_grid->latitude[i], tolerance)>weight_ratio_level) {
 		sky_grid->band[i]=band_to;
 		sky_grid->band_f[i]=band_to;
@@ -633,10 +656,12 @@ if(!strncasecmp(line, "disk", 4)) {
 	count=0;
 	/* mark disk */
 	for(i=0;i<sky_grid->npoints;i++){
+		if((band_from>=0) && sky_grid->band[i]!=band_from)continue;
+
 		ds=acos(sin(sky_grid->latitude[i])*sin(dec)+
 			cos(sky_grid->latitude[i])*cos(dec)*
 			cos(sky_grid->longitude[i]-ra));
-		if(ds<radius && ((band_from<0) || sky_grid->band[i]==band_from)) {
+		if(ds<radius) {
 			count++;
 			sky_grid->band[i]=band_to;
 			sky_grid->band_f[i]=band_to;
@@ -667,12 +692,14 @@ if(!strncasecmp(line, "band", 4)) {
 	y0=sin(ra)*sin(M_PI_2-dec);
 	z0=cos(M_PI_2-dec);
 
-	for(i=0;i<sky_grid->npoints;i++){
-		ds=sky_grid->e[0][i]*x0+
-			sky_grid->e[1][i]*y0+
-			sky_grid->e[2][i]*z0;
+	for(i=0;i<sky_grid->npoints;i++) {
+		if((band_from>=0) && sky_grid->band[i]!=band_from)continue;
 
-		if((ds>level1) && (ds<=level2) && ((band_from<0) || sky_grid->band[i]==band_from)){
+		ds=cos(sky_grid->latitude[i])*cos(sky_grid->longitude[i])*x0+
+			cos(sky_grid->latitude[i])*sin(sky_grid->longitude[i])*y0+
+			sin(sky_grid->latitude[i])*z0;
+
+		if((ds>level1) && (ds<=level2)) {
 			sky_grid->band[i]=band_to;
 			sky_grid->band_f[i]=band_to;
 			}
@@ -691,7 +718,7 @@ if(!strncasecmp(line, "closest", 7)) {
 
 	mark_closest(sky_grid, band_to, band_from, ra, dec);
 	} else
-if(!strncasecmp(line, "response", 7)) {
+if(!strncasecmp(line, "response", 8)) {
 	float weight_ratio_level, bin_tolerance, spindown_tolerance;
 	locate_arg(line, length, 3, &ai, &aj);
 	sscanf(&(line[ai]), "%g", &ra);
@@ -713,7 +740,7 @@ if(!strncasecmp(line, "response", 7)) {
 
 	signal_sweep(sky_grid, band_to, band_from, ra, dec, weight_ratio_level, bin_tolerance, spindown_tolerance);
 	} else
-if(!strncasecmp(line, "line_response", 11)) {
+if(!strncasecmp(line, "line_response", 13)) {
 	float weight_ratio_level, bin_tolerance;
 
 	locate_arg(line, length, 3, &ai, &aj);

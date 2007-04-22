@@ -619,6 +619,8 @@ if(!strcasecmp("band_axis", args_info.skymap_orientation_arg)){
 	rotate_grid_xy(fine_grid, band_axis_ra);
 	}
 
+free_values(fine_grid);
+
 /* now that we have new grid positions plot them */
 
 plot_grid_f(p, patch_grid, patch_grid->latitude,1);
