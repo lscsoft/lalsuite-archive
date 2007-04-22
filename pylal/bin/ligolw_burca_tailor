@@ -85,88 +85,6 @@ def parse_command_line():
 
 
 #
-# Make a plot from a CoincParamsDistributions object.
-#
-
-
-def plot_Deltas(distributions):
-	#
-	# Create a figure.
-	#
-
-	fig = SnglBurstUtils.figure.Figure()
-	SnglBurstUtils.FigureCanvas(fig)
-
-	#
-	# How many instrument pairs are there?
-	#
-	# FIXME: don't hard code the instrument pairs
-	#
-
-	pairs = (("H1", "H2"), ("H1", "L1"), ("H2", "L1"))
-	n_horiz = len(pairs)
-
-	#
-	# Each sub plot's aspect ratio is the golden ratio.
-	#
-
-	size = 12.0
-	n_vert = 3
-	fig.set_size_inches(size * n_horiz / n_vert, size / ((1 + math.sqrt(5)) / 2))
-
-	#
-	# Iterate over instrument pairs.
-	#
-
-	for i, pair in enumerate(pairs):
-		#
-		# Construct the axes for this instrument pair.
-		#
-
-		vlabel_allowance = .05
-		hlabel_allowance = .03
-		border = .007
-		left = float(i) / n_horiz + hlabel_allowance + border
-		width = 1.0 / n_horiz - hlabel_allowance - 2 * border
-		height = 1.0 / n_vert
-
-		dt_axes = fig.add_axes((left, 0 * height + vlabel_allowance + border, width, height - vlabel_allowance - 2 * border))
-		df_axes = fig.add_axes((left, 1 * height + vlabel_allowance + border, width, height - vlabel_allowance - 2 * border))
-		dh_axes = fig.add_axes((left, 2 * height + vlabel_allowance + border, width, height - vlabel_allowance - 2 * border))
-
-		dt_axes.set_xlabel(r"$(t_{\mathrm{%s}} - t_{\mathrm{%s}}) / \left< \Delta t \right>$" % pair)
-		dt_axes.set_ylabel(r"$P$")
-		df_axes.set_xlabel(r"$(f_{\mathrm{%s}} - f_{\mathrm{%s}}) / \left< \Delta f \right>$" % pair)
-		df_axes.set_ylabel(r"$P$")
-		dh_axes.set_xlabel(r"$({h_{\mathrm{rss}}}_{\mathrm{%s}} - {h_{\mathrm{rss}}}_{\mathrm{%s}}) / \left< h_{\mathrm{rss}} \right>$" % pair)
-		dh_axes.set_ylabel(r"$P$")
-
-		#
-		# Plot the data on them.
-		#
-
-		prefix = "%s_%s_" % pair
-		rate = distributions.injection_rates[prefix + "dt"]
-		dt_axes.plot(rate.xvals(), rate.array, "r")
-		rate = distributions.background_rates[prefix + "dt"]
-		dt_axes.plot(rate.xvals(), rate.array, "k")
-		rate = distributions.injection_rates[prefix + "df"]
-		df_axes.plot(rate.xvals(), rate.array, "r")
-		rate = distributions.background_rates[prefix + "df"]
-		df_axes.plot(rate.xvals(), rate.array, "k")
-		rate = distributions.injection_rates[prefix + "dh"]
-		dh_axes.plot(rate.xvals(), rate.array, "r")
-		rate = distributions.background_rates[prefix + "dh"]
-		dh_axes.plot(rate.xvals(), rate.array, "k")
-
-	#
-	# Done.
-	#
-
-	return fig
-
-
-#
 # Make a plot from a scatter object
 #
 
@@ -241,7 +159,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 	#
 
 	if stats is None:
-		stats = ligolw_burca_tailor.Stats(ligolw_burca_tailor.dbget_thresholds(connection))
+		stats = ligolw_burca_tailor.DistributionsStats(ligolw_burca_tailor.dbget_thresholds(connection))
 
 	#
 	# Record statistics.
@@ -289,7 +207,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 	#
 
 	if stats is None:
-		stats = ligolw_burca_tailor.Stats(ligolw_burca_tailor.dbget_thresholds(connection))
+		stats = ligolw_burca_tailor.DistributionsStats(ligolw_burca_tailor.dbget_thresholds(connection))
 
 	#
 	# Record statistics.
@@ -320,16 +238,16 @@ if stats is None:
 #
 
 
-#stats.finish()
+stats.finish()
 
 print >>sys.stderr, "=== Summary ==="
 print >>sys.stderr, "Non-injection average event rate = %g events / time slide" % (float(stats.n_background_events) / stats.n_time_slides)
-print >>sys.stderr, "Injection normalized covariance matrix ="
+
+#print >>sys.stderr, "Injection normalized covariance matrix ="
 #print >>sys.stderr, str(stats.covariance.inj_cov)
-print >>sys.stderr, "Background normalized covariance matrix ="
+#print >>sys.stderr, "Background normalized covariance matrix ="
 #print >>sys.stderr, str(stats.covariance.bak_cov)
 
-#plot_Deltas(stats.distributions).savefig("ligolw_burca_tailor.png")
 #fig = plot_Scatter(stats.scatter)
 #fig.gca().set_xlabel(r"$(t_{\mathrm{%s}} - t_{\mathrm{%s}}) / \left< \Delta t \right>$" % ("H1", "H2"))
 #fig.gca().set_ylabel(r"$(f_{\mathrm{%s}} - f_{\mathrm{%s}}) / \left< \Delta f \right>$" % ("H1", "H2"))
