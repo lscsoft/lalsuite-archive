@@ -1,0 +1,146 @@
+#!/usr/bin/env python
+"""
+Given a segment list, this program will return all data quality flags defined
+within those segments, as well as the sub-segments over which each flag
+is enabled.
+"""
+from __future__ import division
+
+import glob
+import optparse
+import os
+import re
+import sys
+import urllib
+
+from glue import segments
+from glue import segmentsUtils
+
+__author__ = "Nickolas Fotopoulos (nvf@gravity.phys.uwm.edu)"
+__version__ = "$Revision$"[11:-2]
+__date__ = "$Date: "
+
+dq_url_pattern = "http://ldas-cit.ligo.caltech.edu/segments/S5/%s/dq_segments.txt"
+
+##############################################################################
+# Utility functions
+##############################################################################
+
+def parse_args():
+    parser = optparse.OptionParser(usage=__doc__, version="$Id: ")
+    parser.add_option("-i", "--ifo", dest="ifos", action="append",
+        help="IFO whose DQ flags should be analyzed")
+    parser.add_option("-d", "--dq-segfile", dest="dq_segfiles",
+        action="append", help="File containing data quality flags with "\
+        "segments for an IFO (default: download from ldas-cit); --dq-segfile "\
+        "options must have the same order as --ifo options")
+    parser.add_option("-p", "--at-point", type="int",
+        help="Discover what DQ flags were active at a point in time")
+    parser.add_option("-s", "--segfile",
+        help="File containing segments of interest")
+    opts, args = parser.parse_args()
+    
+    if not ((opts.segfile is None) ^ (opts.at_point is None)):
+        raise ValueError, "Must specify either --segfile or --at-point"
+    
+    if opts.segfile is not None:
+        assert os.path.exists(opts.segfile)
+    if opts.dq_segfiles is not None:
+        for f in opts.dq_segfiles:
+            assert os.path.exists(f)
+    
+    return opts, args
+
+def get_dq_file(ifo):
+    """
+    Connect to a server and download the dq_segments.txt file for each IFO to
+    a temporary file.  The path to this temporary file is returned.
+    """
+    print "Downloading dq_segments.txt for ifo %s" % ifo
+    dest, info = urllib.urlretrieve(dq_url_pattern % ifo)
+    print info
+    return dest
+
+def fromDQsegments(file, coltype=int, strict=True):
+    """
+    Given a data quality segment file, return a segmentlistdict containing a
+    segmentlist for each DQ flag.  Column 0 is the flag name and channel 1
+    is the version of that flag.  %(name)s_v%(version)s will be the key on the
+    segmentlistdict and columns 2 and 3 will be cast to coltype and used as
+    start and end times for segments.
+    
+    If strict==True, then check that the durations (column 4) are consistent
+    with the length of the segments created from columns 2 and 3.
+    """
+    commentpat = re.compile(r"\s*([#;].*)?\Z", re.DOTALL)
+    fivecolsegpat = re.compile(r"\A(\w+)\s+([\d]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\Z")
+    
+    d = segments.segmentlistdict({})
+    for line in file:
+        line = commentpat.split(line)[0]
+        if not len(line):
+            continue
+        try:
+            [tokens] = fivecolsegpat.findall(line)
+            name = "%s_v%s" % (tokens[0], tokens[1])
+            seg = segments.segment(map(coltype, tokens[2:4]))
+            duration = coltype(tokens[4])
+        except ValueError:
+            break
+        if strict and abs(seg) != duration:
+            raise ValueError, "segment \"%s\" has incorrect duration" % line
+        if name not in d.keys():
+            d[name] = segments.segmentlist([])
+        d[name].append(seg)
+    return d
+
+##############################################################################
+# Main
+##############################################################################
+
+if __name__ == "__main__":
+    opts, args = parse_args()
+    
+    # download DQ flag segfiles if necessary
+    if opts.dq_segfiles is None:
+        opts.dq_segfiles = [get_dq_file(ifo) for ifo in opts.ifos]
+    
+    # construct segmentdict
+    dq_dict = segments.segmentlistdict({})
+    for ifo, dq_file in zip(opts.ifos, opts.dq_segfiles):
+        new_dict = fromDQsegments(open(dq_file), strict=False)
+        
+        # rename flags to keep track of IFO
+        for flag,val in new_dict.iteritems():
+            dq_dict["%s:%s" % (ifo, flag)] = val
+    
+    # do math
+    if opts.segfile is not None:
+        window = segmentsUtils.fromsegwizard(open(opts.segfile))
+        mask = ~window
+        for key, val in dq_dict.iteritems():
+            dq_dict[key] -= mask
+    elif opts.at_point is not None:
+        def find(seglist):
+            try:
+                ind = seglist.find(opts.at_point)
+                return segments.segmentlist([seglist[ind]])
+            except ValueError:
+                return segments.segmentlist([])
+        dq_dict = dq_dict.map(find)
+    
+    # separate into zero-length and non-zero-length piles
+    nocontrib_flags = []
+    contrib_flags_segdict = {}
+    for key, val in dq_dict.iteritems():
+        if len(val):
+            contrib_flags_segdict[key] = val
+        else:
+            nocontrib_flags.append(key)
+    
+    # output information in a useful manner
+    print "These DQ flags were checked, but were not active in the segment(s)"\
+        " of interest: %s" % ", ".join(nocontrib_flags)
+    print "These DQ flags were raised:"
+    for key,val in contrib_flags_segdict.iteritems():
+        print "%s: %s" % (key, val)
