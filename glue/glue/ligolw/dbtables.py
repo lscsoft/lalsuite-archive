@@ -262,7 +262,8 @@ class DBTable(table.Table):
 			self.constraints = cls.constraints
 			self.ids = cls.ids
 			self.RowType = cls.RowType
-		except:
+			self.how_to_index = cls.how_to_index
+		except KeyError:
 			# unknown table
 			pass
 		if self.connection is None:
@@ -299,8 +300,7 @@ class DBTable(table.Table):
 
 	def sync_ids(self):
 		if self.ids is not None:
-			statement = "SELECT MAX(CAST(SUBSTR(%s, %d, 10) AS INTEGER)) FROM %s" % (self.ids.column_name, self.ids.index_offset + 1, self.dbtablename)
-			last = self.cursor.execute(statement).fetchone()[0]
+			last = self.cursor.execute("SELECT MAX(CAST(SUBSTR(%s, %d, 10) AS INTEGER)) FROM %s" % (self.ids.column_name, self.ids.index_offset + 1, self.dbtablename)).fetchone()[0]
 			if last is None:
 				self.ids.set_next(0)
 			else:
@@ -396,18 +396,19 @@ class ProcessTable(DBTable):
 	constraints = lsctables.ProcessTable.constraints
 	ids = lsctables.ProcessTable.ids
 	RowType = lsctables.ProcessTable.RowType
+	how_to_index = lsctables.ProcessTable.how_to_index
 
 	def get_ids_by_program(self, program):
 		"""
 		Return a set of the process IDs from rows whose program
 		string equals the given program.
 		"""
-		return set(id for (id,) in self.cursor.execute("""
+		return set([id for (id,) in self.cursor.execute("""
 			SELECT process_id FROM
 				process
 			WHERE
 				program == ?
-		""", (program,)))
+		""", (program,))])
 
 
 class ProcessParamsTable(DBTable):
@@ -416,6 +417,7 @@ class ProcessParamsTable(DBTable):
 	constraints = lsctables.ProcessParamsTable.constraints
 	ids = lsctables.ProcessParamsTable.ids
 	RowType = lsctables.ProcessParamsTable.RowType
+	how_to_index = lsctables.ProcessParamsTable.how_to_index
 
 	def append(self, row):
 		if row.type not in types.Types:
@@ -429,6 +431,7 @@ class SearchSummaryTable(DBTable):
 	constraints = lsctables.SearchSummaryTable.constraints
 	ids = lsctables.SearchSummaryTable.ids
 	RowType = lsctables.SearchSummaryTable.RowType
+	how_to_index = lsctables.SearchSummaryTable.how_to_index
 
 	def get_out_segmentlistdict(self, process_ids = None):
 		"""
@@ -454,6 +457,7 @@ class SnglBurstTable(DBTable):
 	constraints = lsctables.SnglBurstTable.constraints
 	ids = lsctables.SnglBurstTable.ids
 	RowType = lsctables.SnglBurstTable.RowType
+	how_to_index = lsctables.SnglBurstTable.how_to_index
 
 
 class SimBurstTable(DBTable):
@@ -462,6 +466,7 @@ class SimBurstTable(DBTable):
 	constraints = lsctables.SimBurstTable.constraints
 	ids = lsctables.SimBurstTable.ids
 	RowType = lsctables.SimBurstTable.RowType
+	how_to_index = lsctables.SimBurstTable.how_to_index
 
 
 class TimeSlideTable(DBTable):
@@ -470,6 +475,7 @@ class TimeSlideTable(DBTable):
 	constraints = lsctables.TimeSlideTable.constraints
 	ids = lsctables.TimeSlideTable.ids
 	RowType = lsctables.TimeSlideTable.RowType
+	how_to_index = lsctables.TimeSlideTable.how_to_index
 
 	def __len__(self):
 		return self.cursor.execute("SELECT COUNT(DISTINCT time_slide_id) FROM time_slide").fetchone()[0]
@@ -494,6 +500,7 @@ class CoincDefTable(DBTable):
 	constraints = lsctables.CoincDefTable.constraints
 	ids = lsctables.CoincDefTable.ids
 	RowType = lsctables.CoincDefTable.RowType
+	how_to_index = lsctables.CoincDefTable.how_to_index
 
 
 class CoincTable(DBTable):
