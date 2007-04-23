@@ -88,6 +88,7 @@ typedef PyTupleObject segments_Segment;
  */
 
 extern PyTypeObject segments_Segment_Type;
+PyObject *segments_Segment_New(PyTypeObject *, PyObject *, PyObject *);
 
 
 /*

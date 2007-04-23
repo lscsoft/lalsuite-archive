@@ -18,6 +18,7 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
+
 /*
  * ============================================================================
  *
@@ -26,8 +27,10 @@
  * ============================================================================
  */
 
+
 #include <Python.h>
 #include <stdlib.h>
+
 
 #include <segments.h>
 
@@ -57,7 +60,7 @@ static int segments_Segment_Check(PyObject *obj)
  */
 
 
-static PyObject *segments_Segment_New(PyTypeObject *type, PyObject *a, PyObject *b)
+PyObject *segments_Segment_New(PyTypeObject *type, PyObject *a, PyObject *b)
 {
 	PyObject *new = type->tp_alloc(type, 2);
 	PyTuple_SET_ITEM(new, 0, a);
