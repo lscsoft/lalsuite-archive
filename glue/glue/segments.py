@@ -39,6 +39,7 @@ This module defines the segment and segmentlist objects, as well as the
 infinity object used to define semi-infinite and infinite segments.
 """
 
+
 from bisect import bisect_left, bisect_right
 from copy import copy as shallowcopy
 # Python 2.3 compatibility
@@ -335,7 +336,7 @@ class segment(tuple):
 			return tuple.__new__(segment, (self[0], other[0]))
 		return tuple.__new__(segment, (other[1], self[1]))
 
-	# check for proper intersection, containment, and continuity
+	# check for proper intersection and subsetness
 
 	def intersects(self, other):
 		"""
@@ -348,7 +349,7 @@ class segment(tuple):
 		"""
 		Return True if other is wholly contained in self.  other
 		can be another segment or an object of the same type as the
-		bounds of self.
+		bounds of self (a scalar).
 		"""
 		if type(other) == segment:
 			return (self[0] <= other[0]) and (self[1] >= other[1])
@@ -599,7 +600,7 @@ class segmentlist(list):
 		Return the segmentlist that is the inversion of the given
 		list.  This operation is O(n).
 		"""
-		if len(self) == 0:
+		if not len(self):
 			return segmentlist([segment(NegInfinity, PosInfinity)])
 		l = segmentlist()
 		if self[0][0] > NegInfinity:
