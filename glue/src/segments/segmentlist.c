@@ -18,6 +18,7 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
+
 /*
  * ============================================================================
  *
@@ -26,8 +27,10 @@
  * ============================================================================
  */
 
+
 #include <Python.h>
 #include <stdlib.h>
+
 
 #include <segments.h>
 
@@ -59,21 +62,93 @@ static int segments_SegmentList_Check(PyObject *obj)
 
 static PyObject *__abs__(PyObject *self)
 {
-	/* FIXME */
-	return NULL;
+	int n = PyList_GET_SIZE(self);
+	int i;
+	PyObject *abs;
+
+	if(n < 0)
+		return NULL;
+
+	abs = PyInt_FromLong(0);
+	if(!abs)
+		return NULL;
+
+	for(i = 0; i < n; i++) {
+		PyObject *itemsize, *newabs;
+		itemsize = PyNumber_Absolute(PyList_GET_ITEM(self, i));
+		if(!itemsize) {
+			Py_DECREF(abs);
+			return NULL;
+		}
+		newabs = PyNumber_InPlaceAdd(abs, itemsize);
+		Py_DECREF(itemsize);
+		Py_DECREF(abs);
+		abs = newabs;
+		if(!abs)
+			return NULL;
+	}
+
+	return abs;
 }
 
 
 static PyObject *extent(PyObject *self, PyObject *nul)
 {
-	/* FIXME */
-	return NULL;
+	int n = PyList_GET_SIZE(self);
+	int i;
+	PyObject *seg, *min, *max;
+
+	if(n < 0)
+		return NULL;
+	if(n < 1) {
+		PyErr_SetString(PyExc_ValueError, "empty list");
+		return NULL;
+	}
+
+	seg = PyList_GET_ITEM(self, 0);
+	min = PySequence_GetItem(seg, 0);
+	max = PySequence_GetItem(seg, 1);
+
+	for(i = 1; i < n; i++) {
+		PyObject *item_min, *item_max;
+
+		seg = PyList_GET_ITEM(self, i);
+		item_min = PySequence_GetItem(seg, 0);
+		item_max = PySequence_GetItem(seg, 1);
+
+		if(PyObject_RichCompareBool(min, item_min, Py_GT)) {
+			Py_DECREF(min);
+			min = item_min;
+		} else
+			Py_DECREF(item_min);
+
+		if(PyObject_RichCompareBool(max, item_max, Py_LT)) {
+			Py_DECREF(max);
+			max = item_max;
+		} else
+			Py_DECREF(item_max);
+	}
+
+	return segments_Segment_New(&segments_Segment_Type, min, max);
 }
 
 
 static PyObject *find(PyObject *self, PyObject *item)
 {
-	/* FIXME */
+	int n = PyList_GET_SIZE(self);
+	int i;
+
+	if(n < 0)
+		return NULL;
+	for(i = 0; i < n; i++) {
+		int result = PySequence_Contains(PyList_GET_ITEM(self, i), item);
+		if(result > 0)
+			return PyInt_FromLong(i);
+		if(result < 0)
+			return NULL;
+	}
+
+	PyErr_SetObject(PyExc_ValueError, item);
 	return NULL;
 }
 
