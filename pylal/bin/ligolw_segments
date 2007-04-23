@@ -145,21 +145,6 @@ def segment_table_rows(active, inactive, ids, process):
 	if active.intersects(inactive):
 		raise ValueError, "active and inactive intersect"
 
-	extent = []
-	try:
-		extent.append(active.extent())
-	except ValueError:
-		# empty list
-		pass
-	try:
-		extent.append(inactive.extent())
-	except ValueError:
-		# empty list
-		pass
-	extent = segments.segmentlist([segments.segmentlist(extent).extent()])
-
-	undefined = ~(active | inactive)
-
 	rows = []
 
 	# "active" segments
@@ -172,14 +157,6 @@ def segment_table_rows(active, inactive, ids, process):
 
 	# "inactive" segments
 	for seg in inactive:
-		row = lsctables.Segment()
-		row.process_id = process.process_id
-		row.set(seg)
-		row.active = -1
-		rows.append(row)
-
-	# undefined segments
-	for seg in undefined & extent:
 		row = lsctables.Segment()
 		row.process_id = process.process_id
 		row.set(seg)
@@ -219,8 +196,7 @@ def add_from_segwizard(segdeftable, segtable, segdefmaptable, filename, instrume
 	segdef = segment_def(instrument, "segwizard", options.comment, segdeftable.ids, process)
 	segdeftable.append(segdef)
 	active_segs = segmentsUtils.fromsegwizard(file(filename), coltype = LIGOTimeGPS).coalesce()
-	inactive_segs = ~active_segs & segments.segmentlist([active_segs.extent()])
-	for seg in segment_table_rows(active_segs, inactive_segs, segtable.ids, process):
+	for seg in segment_table_rows(active_segs, segments.segmentlist(), segtable.ids, process):
 		segtable.append(seg)
 		segdefmaptable.append(seg_def_map(seg, segdef, segdefmaptable.ids, process))
 
