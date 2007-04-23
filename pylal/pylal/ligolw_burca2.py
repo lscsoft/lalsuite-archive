@@ -124,8 +124,15 @@ class Likelihood(object):
 		P_background = 1.0
 		P_injection = 1.0
 		for name, value in param_func(events, offsetdict).iteritems():
-			P_background *= self.background_rates[name](value)[0]
-			P_injection *= self.injection_rates[name](value)[0]
+			try:
+				P_b = self.background_rates[name](value)[0]
+				P_i = self.injection_rates[name](value)[0]
+			except ValueError:
+				# param value is outside an interpolator
+				# domain, skip
+				continue
+			P_background *= P_b
+			P_injection *= P_i
 		return P_background, P_injection
 
 	def __call__(self, param_func, events, offsetdict):
@@ -237,7 +244,7 @@ def ligolw_burca2(xmldoc, likelihood, verbose = False):
 			print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / n_coincs),
 		if coinc.coinc_def_id in definer_ids:
 			# retrieve events
-			events = [index[row.event_id] for row in coinc_map_table[bisect.bisect_left(coinc_map_table, coinc):bisect.bisect_right(coinc_map_table, coinc)]]
+			events = [index[row.event_id] for row in coinc_map_table[bisect.bisect_left(coinc_map_table, coinc):bisect.bisect_right(coinc_map_table, coinc)] if row.table_name == "sngl_burst"]
 			# sort events by instrument name
 			events.sort(lambda a, b: cmp(a.ifo, b.ifo))
 			# compute likelihood
