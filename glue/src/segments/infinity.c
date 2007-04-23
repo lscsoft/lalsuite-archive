@@ -18,6 +18,7 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
+
 /*
  * ============================================================================
  *
@@ -26,8 +27,10 @@
  * ============================================================================
  */
 
+
 #include <Python.h>
 #include <stdlib.h>
+
 
 #include <segments.h>
 
@@ -44,6 +47,7 @@
 /*
  * Preallocated instances
  */
+
 
 segments_Infinity *segments_PosInfinity;
 segments_Infinity *segments_NegInfinity;
@@ -63,6 +67,7 @@ static int segments_Infinity_Check(PyObject *obj)
 /*
  * Methods
  */
+
 
 static PyObject *__new__(PyTypeObject *subtype, PyObject *args, PyObject *kwds)
 {
@@ -229,6 +234,7 @@ static PyObject *__sub__(PyObject *self, PyObject *other)
 /*
  * Type information
  */
+
 
 static PyNumberMethods as_number = {
 	.nb_add = __add__,
