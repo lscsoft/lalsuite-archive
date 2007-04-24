@@ -44,9 +44,9 @@ import sys
 from xml.sax.xmlreader import AttributesImpl
 # Python 2.3 compatibility
 try:
+	set
+except NameError:
 	from sets import Set as set
-except:
-	pass
 
 import ligolw
 import table

@@ -44,9 +44,9 @@ from bisect import bisect_left, bisect_right
 from copy import copy as shallowcopy
 # Python 2.3 compatibility
 try:
+	set
+except NameError:
 	from sets import Set as set
-except:
-	pass
 
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -643,8 +643,10 @@ class segmentlist(list):
 		calculation of the intersection, i.e. by testing len(self &
 		other).  Requires both lists to be coalesced.
 		"""
+		# if either has zero length, the answer is False
 		if not (self and other):
 			return False
+		# walk through both lists in order, searching for a match
 		i = j = 0
 		seg = self[0]
 		otherseg = other[0]

@@ -42,9 +42,9 @@ __version__ = "$Revision$"[11:-2]
 from xml import sax
 # Python 2.3 compatibility
 try:
+	set
+except NameError:
 	from sets import Set as set
-except:
-	pass
 
 
 from glue import lal
