@@ -55,6 +55,34 @@ static int segments_SegmentList_Check(PyObject *obj)
 }
 
 
+static int bisect_left(PyObject *seglist, PyObject *seg, int lo, int hi)
+{
+	if(lo < 0)
+		lo = 0;
+	if(hi < 0)
+		hi = PyList_GET_SIZE(seglist);
+	while(lo < hi) {
+		int mid = (lo + hi) / 2;
+		PyObject *s = PyList_GET_ITEM(seglist, mid);
+		int result;
+		Py_INCREF(s);
+		result = PyObject_RichCompareBool(s, seg, Py_LT);
+		Py_DECREF(s);
+		if(result > 0)
+			/* s < seg */
+			lo = mid + 1;
+		else if(result == 0)
+			/* s >= seg */
+			hi = mid;
+		else
+			/* error */
+			return -1;
+	}
+
+	return lo;
+}
+
+
 /*
  * Accessors
  */
@@ -293,8 +321,50 @@ static PyObject *intersects(PyObject *self, PyObject *other)
 
 static PyObject *intersects_segment(PyObject *self, PyObject *other)
 {
-	/* FIXME */
-	return NULL;
+	int i = bisect_left(self, other, -1, -1);
+	PyObject *a, *b;
+	int result;
+
+	if(i < 0)
+		/* error */
+		return NULL;
+
+	if(i != 0) {
+		a = PyTuple_GetItem(other, 0);
+		b = PyTuple_GetItem(PyList_GET_ITEM(self, i - 1), 1);
+		Py_INCREF(a);
+		Py_INCREF(b);
+		result = PyObject_RichCompareBool(a, b, Py_LT);
+		Py_DECREF(a);
+		Py_DECREF(b);
+		if(result > 0) {
+			Py_INCREF(Py_True);
+			return Py_True;
+		}
+		if(result < 0)
+			/* error */
+			return NULL;
+	}
+
+	if(i != PyList_GET_SIZE(self)) {
+		a = PyTuple_GetItem(other, 1);
+		b = PyTuple_GetItem(PyList_GET_ITEM(self, i), 0);
+		Py_INCREF(a);
+		Py_INCREF(b);
+		result = PyObject_RichCompareBool(a, b, Py_GT);
+		Py_DECREF(a);
+		Py_DECREF(b);
+		if(result > 0) {
+			Py_INCREF(Py_True);
+			return Py_True;
+		}
+		if(result < 0)
+			/* error */
+			return NULL;
+	}
+
+	Py_INCREF(Py_False);
+	return Py_False;
 }
 
 
