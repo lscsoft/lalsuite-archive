@@ -892,7 +892,8 @@ class segmentlistdict(dict):
 		lists in the dictionary.
 		"""
 		segs = self.extent().values()
-		return segment(min(seg[0] for seg in segs), max(seg[1] for seg in segs))
+		# FIXME: use generator expressions in >= 2.4
+		return segment(min([seg[0] for seg in segs]), max([seg[1] for seg in segs]))
 
 	def find(self, seg):
 		"""
