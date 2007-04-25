@@ -89,17 +89,17 @@ def parse_command_line():
 		usage = "%prog [options] -i|--injection-glob pattern -b|--background-glob pattern",
 		description = "%prog performs the final, summary, stages of an upper-limit excess power search for burst-like gravitational waves."
 	)
-	parser.add_option("-b", "--background-glob", metavar = "pattern", help = "Shell filename pattern for non-injection files.")
-	parser.add_option("-i", "--injection-glob", metavar = "pattern", help = "Shell filename pattern for injection files.")
+	parser.add_option("-b", "--background-glob", metavar = "pattern", default = [], action = "append", help = "Shell filename pattern for non-injection files.")
+	parser.add_option("-i", "--injection-glob", metavar = "pattern", default = [], action = "append", help = "Shell filename pattern for injection files.")
 	parser.add_option("-l", "--live-time-program", metavar = "program", default = "lalapps_power", help = "Set the name, as it appears in the process table, of the program whose search summary entries define the search live time (default = \"lalapps_power\")")
 	parser.add_option("--foreground-survivors", metavar = "number", help = "Tune the coincidence likelihood threshold to result in this many survivors being expected in the foreground. (e.g., 0.1)")
 	parser.add_option("--survivors-output", metavar = "filename", help = "Set the name of the XML file to which zero-lag survivors will be written.  Default is to not record zero-lag survivors file (keep the box closed).")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
 	options, filenames = parser.parse_args()
 
-	if options.background_glob is None:
+	if not options.background_glob:
 		raise ValueError, "missing required --background-glob argument"
-	if options.injection_glob is None:
+	if not options.injection_glob:
 		raise ValueError, "missing required --injection-glob argument"
 	if options.foreground_survivors is None:
 		raise ValueError, "missing required --foreground-survivors argument"
@@ -462,7 +462,8 @@ background_time_slides = None
 if options.verbose:
 	print >>sys.stderr, "=== Background & Foreground ==="
 
-filenames = glob.glob(options.background_glob)
+filenames = reduce(list.__add__, [glob.glob(g) for g in options.background_glob])
+
 if not len(filenames):
 	raise ValueError, "error:  no background files found"
 
@@ -525,7 +526,8 @@ efficiency.threshold = threshold = likelihood_histogram.find_likelihood_threshol
 if options.verbose:
 	print >>sys.stderr, "=== Injections =="
 
-filenames = glob.glob(options.injection_glob)
+filenames = reduce(list.__add__, [glob.glob(g) for g in options.injection_glob])
+
 if not len(filenames):
 	raise ValueError, "error:  no injection files found"
 
