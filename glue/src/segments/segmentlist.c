@@ -420,8 +420,12 @@ static int __contains__(PyObject *self, PyObject *other)
 
 static PyObject *__iand__(PyObject *self, PyObject *other)
 {
-	/* FIXME */
-	return NULL;
+	other = PyNumber_Invert(other);
+	if(!other)
+		return NULL;
+	self = PyNumber_Subtract(self, other);
+	Py_DECREF(other);
+	return self;
 }
 
 
@@ -460,8 +464,21 @@ static PyObject *__or__(PyObject *self, PyObject *other)
 
 static PyObject *__xor__(PyObject *self, PyObject *other)
 {
-	/* FIXME */
-	return NULL;
+	PyObject *a, *b, *result;
+
+	a = PyNumber_Subtract(self, other);
+	if(!a)
+		return NULL;
+	b = PyNumber_Subtract(other, self);
+	if(!b) {
+		Py_DECREF(a);
+		return NULL;
+	}
+	result = PyNumber_Or(a, b);
+	Py_DECREF(a);
+	Py_DECREF(b);
+
+	return result;
 }
 
 
