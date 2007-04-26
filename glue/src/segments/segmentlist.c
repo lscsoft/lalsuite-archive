@@ -59,20 +59,25 @@ static int bisect_left(PyObject *seglist, PyObject *seg, int lo, int hi)
 {
 	if(lo < 0)
 		lo = 0;
-	if(hi < 0)
+	if(hi < 0) {
 		hi = PyList_GET_SIZE(seglist);
+		if(hi < 0)
+			return -1;
+	}
 	while(lo < hi) {
 		int mid = (lo + hi) / 2;
-		PyObject *s = PyList_GET_ITEM(seglist, mid);
+		PyObject *item = PyList_GET_ITEM(seglist, mid);
 		int result;
-		Py_INCREF(s);
-		result = PyObject_RichCompareBool(s, seg, Py_LT);
-		Py_DECREF(s);
+		if(!item)
+			return -1;
+		Py_INCREF(item);
+		result = PyObject_RichCompareBool(item, seg, Py_LT);
+		Py_DECREF(item);
 		if(result > 0)
-			/* s < seg */
+			/* item < seg */
 			lo = mid + 1;
 		else if(result == 0)
-			/* s >= seg */
+			/* item >= seg */
 			hi = mid;
 		else
 			/* error */
@@ -80,6 +85,24 @@ static int bisect_left(PyObject *seglist, PyObject *seg, int lo, int hi)
 	}
 
 	return lo;
+}
+
+
+static PyListObject *segments_SegmentList_New(PyTypeObject *type, PyObject *sequence)
+{
+	PyListObject *new;
+
+	new = (PyListObject *) type->tp_alloc(type, 0);
+	if(!new)
+		return NULL;
+
+	if(sequence)
+		if(!_PyList_Extend(new, sequence)) {
+			Py_DECREF(new);
+			return NULL;
+		}
+
+	return new;
 }
 
 
@@ -238,6 +261,8 @@ static PyObject *intersects(PyObject *self, PyObject *other)
 	int i = 0;
 	int j = 0;
 
+	if((n_self < 0) || (n_other < 0))
+		return NULL;
 	if((n_self < 1) || (n_other < 1)) {
 		Py_INCREF(Py_False);
 		return Py_False;
@@ -402,8 +427,14 @@ static PyObject *__iand__(PyObject *self, PyObject *other)
 
 static PyObject *__and__(PyObject *self, PyObject *other)
 {
-	/* FIXME */
-	return NULL;
+	PyObject *result;
+
+	self = (PyObject *) segments_SegmentList_New(&segments_SegmentList_Type, self);
+	if(!self)
+		return NULL;
+	result = PyNumber_InPlaceAnd(self, other);
+	Py_DECREF(self);
+	return result;
 }
 
 
@@ -416,8 +447,14 @@ static PyObject *__ior__(PyObject *self, PyObject *other)
 
 static PyObject *__or__(PyObject *self, PyObject *other)
 {
-	/* FIXME */
-	return NULL;
+	PyObject *result;
+
+	self = (PyObject *) segments_SegmentList_New(&segments_SegmentList_Type, self);
+	if(!self)
+		return NULL;
+	result = PyNumber_InPlaceOr(self, other);
+	Py_DECREF(self);
+	return result;
 }
 
 
@@ -437,8 +474,14 @@ static PyObject *__isub__(PyObject *self, PyObject *other)
 
 static PyObject *__sub__(PyObject *self, PyObject *other)
 {
-	/* FIXME */
-	return NULL;
+	PyObject *result;
+
+	self = (PyObject *) segments_SegmentList_New(&segments_SegmentList_Type, self);
+	if(!self)
+		return NULL;
+	result = PyNumber_InPlaceSubtract(self, other);
+	Py_DECREF(self);
+	return result;
 }
 
 
