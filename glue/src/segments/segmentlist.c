@@ -55,15 +55,19 @@ static int segments_SegmentList_Check(PyObject *obj)
 }
 
 
+/* copied from bisect.py */
+
 static int bisect_left(PyObject *seglist, PyObject *seg, int lo, int hi)
 {
 	if(lo < 0)
 		lo = 0;
+
 	if(hi < 0) {
 		hi = PyList_GET_SIZE(seglist);
 		if(hi < 0)
 			return -1;
 	}
+
 	while(lo < hi) {
 		int mid = (lo + hi) / 2;
 		PyObject *item = PyList_GET_ITEM(seglist, mid);
@@ -79,6 +83,43 @@ static int bisect_left(PyObject *seglist, PyObject *seg, int lo, int hi)
 		else if(result == 0)
 			/* item >= seg */
 			hi = mid;
+		else
+			/* error */
+			return -1;
+	}
+
+	return lo;
+}
+
+
+/* copied from bisect.py */
+
+static int bisect_right(PyObject *seglist, PyObject *seg, int lo, int hi)
+{
+	if(lo < 0)
+		lo = 0;
+
+	if(hi < 0) {
+		hi = PyList_GET_SIZE(seglist);
+		if(hi < 0)
+			return -1;
+	}
+
+	while(lo < hi) {
+		int mid = (lo + hi) / 2;
+		PyObject *item = PyList_GET_ITEM(seglist, mid);
+		int result;
+		if(!item)
+			return -1;
+		Py_INCREF(item);
+		result = PyObject_RichCompareBool(seg, item, Py_LT);
+		Py_DECREF(item);
+		if(result > 0)
+			/* seg < item */
+			hi = mid;
+		else if(result == 0)
+			/* seg >= item */
+			lo = mid + 1;
 		else
 			/* error */
 			return -1;
