@@ -255,8 +255,11 @@ def sngl_inspiral_ilwd_to_int(xmldoc):
 	# find the summ_value table, and remove the summ_value_id column
 	#
 
-	summ_value = table.get_table(xmldoc, lsctables.SummValueTable.tableName)
-	summ_value.removeChild(summ_value.getColumnByName("summ_value_id"))
+	try:
+		summ_value = table.get_table(xmldoc, lsctables.SummValueTable.tableName)
+		summ_value.removeChild(summ_value.getColumnByName("summ_value_id"))
+	except (ValueError, KeyError):
+	    pass
 
 	#
 	# done
