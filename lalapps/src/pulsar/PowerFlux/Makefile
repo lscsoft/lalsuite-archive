@@ -18,7 +18,7 @@ CC=gcc $(CFLAGS)
 OBJS=cmdline.o rastermagic.o hookup.o fine_grid.o lines.o grid.o powerflux.o  \
 	png.o polarization.o intervals.o statistics.o dataset.o candidates.o util.o
 
-FILES=sky_marks.txt
+FILES=sky_marks.txt all_sky_marks_*.txt
 
 # 50 hz
 #BAND=90000
@@ -235,14 +235,14 @@ test5: powerflux
 		--fake-orientation=0.5 --fake-ra=5.785685 --fake-dec=-1.563849
 
 test5c: powerflux
-	./powerflux --dataset=random2.dst -f 180000 -n 501 \
+	./powerflux --dataset=random2.dst -f 720000 -n 501 \
 		--ephemeris-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
 		--averaging-mode=matched --do-cutoff=1 --lock-file=test.lock \
 		--subtract-background=0 --ks-test=1 --filter-lines=0 \
 		--spindown-start=0.0 --spindown-step=2e-8 --spindown-count=1 \
 		--dump-candidates=0 \
 		--dump-points=0 \
-		--sky-marks-file=sky_marks.txt \
+		--sky-marks-file=all_sky_marks_1.txt \
 	        --earth-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/earth05-09.dat \
         	--sun-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/sun05-09.dat  \
  		--focus-dec=$(DEC) --focus-ra=$(RA) --focus-radius=0.5e2 \
