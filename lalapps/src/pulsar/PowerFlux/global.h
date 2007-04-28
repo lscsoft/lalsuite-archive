@@ -12,7 +12,7 @@ typedef long long INT64;
 typedef float SUM_TYPE;
 typedef short COUNT_TYPE;
 
-
+#define MEMUSAGE	((long)sbrk(0))
 
 #define TRACE(a)	{fprintf(stderr,"TRACE(__FUNCTION__):" a); \
 			fprintf(stderr,"\n");}

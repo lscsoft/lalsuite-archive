@@ -128,6 +128,7 @@ for(i=0;i<count;i++){
 void wrap_up(void)
 {
 time(&end_time);
+fprintf(stderr, "exit memory: %g MB\n", (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
 fprintf(LOG,"seconds elapsed: %ld\n",end_time-start_time);
 fprintf(stderr,"seconds elapsed: %ld\n",end_time-start_time);
 fclose(LOG);
@@ -143,6 +144,8 @@ char s[20000];
 /* INIT stage */
 
 time(&start_time);
+
+fprintf(stderr, "Initial memory: %g MB\n", (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
 
 if(cmdline_parser(argc, argv, &args_info))exit(-1);
 if(args_info.config_given)
@@ -366,6 +369,9 @@ dump_floats("e5.dat",patch_grid->e[5],patch_grid->npoints,1);
 
 no_am_response=args_info.no_am_response_arg;
 
+fprintf(stderr, "Full grid memory: %g MB\n", (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
+fprintf(LOG, "Full grid memory: %g MB\n", (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
+
 
 fprintf(LOG,"powerflux : %s\n",VERSION);
 if(no_am_response){
@@ -453,6 +459,7 @@ if(args_info.sky_marks_file_given) {
 			}
 		}
 	fclose(f);
+	fprintf(LOG, "sky marks file: \"%s\"\n", args_info.sky_marks_file_arg);
 	}
 		
 
@@ -675,11 +682,14 @@ if(sky_marks!=NULL) {
 init_fine_grid_stage();
 init_candidates();
 
+
 subinstance_name=do_alloc(20, 1);
 for(subinstance=0;subinstance<args_info.spindown_count_arg;subinstance++){
 	time(&stage_time);
 	fprintf(LOG, "instance_start: %d\n", (int)(stage_time-start_time));
 	fprintf(stderr, "instance_start: %d\n", (int)(stage_time-start_time));
+	fprintf(LOG, "instance_start memory: %g MB\n", (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
+	fprintf(stderr, "instance_start memory: %g MB\n", (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
 
 	if(args_info.spindown_count_arg<2)subinstance_name[0]=0;
 		else snprintf(subinstance_name, 20, "si_%d_", subinstance);
