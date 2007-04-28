@@ -33,6 +33,7 @@ from optparse import OptionParser
 import numpy
 import sys
 
+
 from glue import segments
 from glue.lal import CacheEntry
 from glue.ligolw import table
@@ -126,7 +127,6 @@ def snglburst_append(self, row):
 	self.confidence[row.ifo].append(row.confidence)
 
 
-lsctables.SnglBurstTable.loadcolumns = ["ifo", "start_time", "start_time_ns", "duration", "central_freq", "bandwidth", "snr", "confidence", "peak_time", "peak_time_ns", "peak_frequency"]
 lsctables.SnglBurstTable.__init__ = snglburst_init
 lsctables.SnglBurstTable.append = snglburst_append
 
@@ -224,7 +224,7 @@ class ConfidenceVsFrequencyScatter(SnglBurstUtils.BurstPlot):
 	def finish(self):
 		self.axes.set_title("Trigger Confidence vs. Peak Frequency\n(%d Triggers)" % self.nevents)
 		self.axes.plot(self.x, self.y, "k+")
-		self.axes.set_xlim([min(self.x), max(self.x)])
+		self.axes.set_xlim((min(self.x), max(self.x)))
 
 
 #
@@ -252,7 +252,7 @@ class RateVsPeakFreq(SnglBurstUtils.BurstPlot):
 		xvals = self.rate.xvals()
 		self.axes.plot(xvals, self.rate.filter(), "k")
 		self.axes.semilogy()
-		self.axes.set_xlim([min(xvals), max(xvals)])
+		self.axes.set_xlim((min(xvals), max(xvals)))
 
 
 #
@@ -297,40 +297,30 @@ class Delays(SnglBurstUtils.BurstPlot):
 	def __init__(self, ifo, width, max):
 		SnglBurstUtils.BurstPlot.__init__(self, "Delay (s)", "Count / Delay")
 		self.ifo = ifo
-		self.data = {}
-		self.width = width
-		self.max = max
+		self.bins = rate.Rate(segments.segment(0, max + 2), width)
 		self.axes.semilogy()
 
 	def add_contents(self, contents):
 		self.nevents += contents.nevents[self.ifo]
-		peaks = contents.peak_time[self.ifo]
+		peaks = list(contents.peak_time[self.ifo])
 		peaks.sort()
 		for i in xrange(1, len(peaks)):
 			dt = float(peaks[i] - peaks[i - 1])
-			if dt > max:
-				continue
-			if dt in self.data:
-				self.data[dt] += 1
-			else:
-				self.data[dt] = 1
+			try:
+				self.bins[dt] = 1
+			except IndexError:
+				# out of bounds
+				pass
 
 	def finish(self):
 		self.axes.set_title("Time Between Triggers\n(%d Triggers)" % self.nevents)
 
-		#data = zip(self.data.iterkeys(), self.data.itervalues())
-		#data.sort()
-		#self.axes.plot([d[0] for d in data], [d[1] for d in data], "ko-")
+		xvals = self.bins.xvals()
+		yvals = self.bins.filter()
+		self.axes.plot(xvals, yvals, "k")
 
-		max_delay = max(self.data.iterkeys())
-		bins = rate.Rate(segments.segment(0, max_delay + 2), self.width)
-		for key, value in self.data.iteritems():
-			bins[key] = value
-		yvals = bins.filter()
-		self.axes.plot(bins.xvals(), yvals, "k")
-
-		self.axes.set_xlim([0, self.max])
-		self.axes.set_ylim([1, 10.0**(int(math.log10(max(yvals))) + 1)])
+		self.axes.set_xlim((0, xvals[-1]))
+		self.axes.set_ylim((1, 10.0**(int(math.log10(max(yvals))) + 1)))
 
 
 #
@@ -427,7 +417,7 @@ class TimeFrequencyPlane(SnglBurstUtils.BurstPlot):
 
 
 def new_plots(ifo, plots):
-	l = [
+	l = (
 		RateVsPeakFreq(ifo, segments.segment(70, 2118), 16),
 		Durations(ifo),
 		Delays(ifo, 0.25, 20),
@@ -436,7 +426,7 @@ def new_plots(ifo, plots):
 		ConfidenceVsTime(ifo),
 		ConfidenceVsFrequencyScatter(ifo),
 		TimeFrequencyPlane(ifo)
-	]
+	)
 	return [l[i] for i in plots]
 
 plots = {}
