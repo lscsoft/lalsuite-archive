@@ -467,7 +467,7 @@ filenames = reduce(list.__add__, [glob.glob(g) for g in options.background_glob]
 if not len(filenames):
 	raise ValueError, "error:  no background files found"
 
-for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose, reverse = True)):
+for n, filename in enumerate(filenames):
 	#
 	# Open the database file.
 	#
@@ -531,7 +531,7 @@ filenames = reduce(list.__add__, [glob.glob(g) for g in options.injection_glob])
 if not len(filenames):
 	raise ValueError, "error:  no injection files found"
 
-for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose, reverse = True)):
+for n, filename in enumerate(filenames):
 	#
 	# Open the database file.
 	#
