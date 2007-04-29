@@ -619,7 +619,7 @@ class SnglInspiralIDs_old(object):
 
 	def new(self, row):
 		self.n += 1
-		x, slidenum, y = row.get_old_id_parts()
+		x, slidenum, y = row.get_id_parts()
 		x = 100000000 + (self.n // 100000)
 		y = self.n % 100000
 		return (1000000000 * x + slidenum * 100000 + y)
