@@ -72,7 +72,7 @@ def parse_command_line():
 	parser.add_option("--lfn-start-time", metavar = "GPS seconds", help = "Set lfn start_time (optional).")
 	parser.add_option("--lfn-end-time", metavar = "GPS seconds", help = "Set lfn end_time (optional).")
 	parser.add_option("--lfn-comment", metavar = "string", help = "Set lfn comment (optional).")
-	parser.add_option("--mangle-sngl-inspiral-ids", action = "store_true", help = "Reassign sngl_inspiral event IDs to prevent collisions, just like other tables.  CAUTION:  this messes up a normal inspiral analysis, do not do this unless you know what you are doing!")
+	parser.add_option("--mangle-sngl-inspiral-ids", metavar = "type", default = None, help = "Reassign sngl_inspiral event IDs to prevent collisions, just like other tables.  The type parameter is the column type appearing in the input files, and must be either \"int_8s\" or \"ilwd:char\".  CAUTION:  this messes up a normal inspiral analysis, do not do this unless you know what you are doing!")
 	parser.add_option("--non-lsc-tables-ok", action = "store_true", help = "OK to merge documents containing non-LSC tables.")
 	parser.add_option("-o", "--output", metavar = "filename", help = "Write output to filename (default = stdout).")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
@@ -86,10 +86,13 @@ def parse_command_line():
 		options.lfn_end_time = int(options.lfn_end_time)
 
 	for cache in options.input_cache:
-		urls += [c.url for c in map(CacheEntry, file(cache))]
+		urls += [CacheEntry(line).url for line in file(cache)]
 
 	if len(urls) < 1:
-		raise Exception, "no input files!"
+		raise ValueError, "no input files!"
+
+	if options.mangle_sngl_inspiral_ids not in (None, "int_8s", "ilwd:char"):
+		raise ValueError, "unrecognized --mangle-sngl-inspiral-ids %s" % options.mangle_sngl_inspiral_ids
 
 	return options, urls
 
@@ -150,12 +153,14 @@ options, urls = parse_command_line()
 #
 # sngl_inspiral event_id re-assignment
 #
-# FIXME:  fix this when the sngl_inspiral event_id column no longer encodes
-# information in the number
+# FIXME: remove this when the sngl_inspiral event_id column is converted to
+# ilwd:char
 #
 
 
-if options.mangle_sngl_inspiral_ids:
+if options.mangle_sngl_inspiral_ids == "int_8s":
+	lsctables.SnglInspiralTable.ids = lsctables.SnglInspiralIDs_old()
+elif options.mangle_sngl_inspiral_ids == "ilwd:char":
 	lsctables.SnglInspiralTable.ids = lsctables.SnglInspiralIDs()
 	lsctables.SnglInspiralTable.validcolumns["event_id"] = "ilwd:char"
 
