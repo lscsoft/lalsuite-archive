@@ -170,7 +170,7 @@ def CompareDeleteElement(elem, elemspec):
 		try:
 			if elem.getAttribute(name) != value:
 				return 1
-		except AttributeError:
+		except KeyError:
 			return 1
 	return 0
 
