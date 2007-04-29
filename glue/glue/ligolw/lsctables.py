@@ -606,6 +606,25 @@ MultiBurstTable.RowType = MultiBurst
 #
 
 
+class SnglInspiralIDs_old(object):
+	"""
+	Custom ID generator for sngl_inspiral tables with int_8s event IDs.
+	"""
+	# FIXME: remove this class when the event_id column has been
+	# converted to ilwd:char
+	column_name = "event_id"
+
+	def __init__(self, n = 0):
+		self.n = n
+
+	def new(self, row):
+		self.n += 1
+		x, slidenum, y = row.get_old_id_parts()
+		x = 100000000 + (self.n // 100000)
+		y = self.n % 100000
+		return (1000000000 * x + slidenum * 100000 + y)
+
+
 class SnglInspiralIDs(ilwd.ILWD):
 	def __init__(self, n = 0):
 		ilwd.ILWD.__init__(self, "sngl_inspiral", "event_id", n)
@@ -665,11 +684,22 @@ class SnglInspiralTable(table.Table):
 		"Gamma7": "real_4",
 		"Gamma8": "real_4",
 		"Gamma9": "real_4",
-		"event_id": "int_8s"	# FIXME: column should be ilwd
+		"event_id": "int_8s"	# FIXME: column should be ilwd:char
 	}
 	constraints = "PRIMARY KEY (event_id)"
-	# FIXME:  inspiral pipeline needs to not encode data in event_id
+	# FIXME:  uncomment the next line when the event_id column is
+	# converted to ilwd:char
 	#ids = SnglInspiralIDs()
+
+	def updateKeyMapping(self, mapping):
+		# FIXME: remove this method when the event_id column is
+		# converted to ilwd:char
+		if self.ids is not None:
+			for row in self:
+				if row.event_id not in mapping:
+					mapping[row.event_id] = self.ids.new(row)
+				row.event_id = mapping[row.event_id]
+		return mapping
 
 	def get_column(self,column):
 		if column == 'effective_snr':
@@ -738,6 +768,16 @@ class SnglInspiral(object):
 
 	def get_effective_snr(self):
 		return self.snr/ (1 + self.snr**2/250)**(0.25)/(self.chisq/(2*self.chisq_dof - 2) )**(0.25) 
+
+	def get_id_parts(self):
+		"""
+		Return the three pieces of the int_8s-style sngl_inspiral
+		event_id.
+		"""
+		x = self.event_id // 1000000000
+		slidenum = (self.event_id % 1000000000) // 100000
+		y = self.event_id % 100000
+		return x, slidenum, y
 
 
 SnglInspiralTable.RowType = SnglInspiral
