@@ -175,8 +175,8 @@ class Confidence(Likelihood):
 
 
 #
-# Sorting and bisection search is used coinc_event_map retrieval in lieu of
-# a look-up table.
+# Sorting and bisection search is used for coinc_event_map retrieval in
+# lieu of a look-up table.
 #
 
 
@@ -210,7 +210,7 @@ def ligolw_burca2(xmldoc, likelihood, verbose = False):
 	try:
 		definer_ids.add(llwapp.get_coinc_def_id(xmldoc, [lsctables.SnglBurstTable.tableName, lsctables.SimBurstTable.tableName], create_new = False))
 	except KeyError:
-		# guess there are no injections in this file?
+		# there appear to be no injections in this file
 		pass
 	time_slides = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName).get_offsets()
 	coinc_table = table.get_table(xmldoc, lsctables.CoincTable.tableName)
