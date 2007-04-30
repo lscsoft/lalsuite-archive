@@ -577,6 +577,29 @@ class Rate(BinnedArray):
 		self.binsize = float(abs(segment)) / self.bins.shape[0]
 
 		#
+		# Generate the filter data
+		#
+
+		self.set_filter(filterwidth, windowfunc)
+
+	def __setitem__(self, x, weight):
+		"""
+		Add weight to the bin corresponding to x.
+		"""
+		self.array[self.bins[x,]] += weight
+
+	def xvals(self):
+		return self.centres()[0]
+
+	def set_filter(self, filterwidth, windowfunc):
+		"""
+		Update the filter function.  Note that this is less ideal
+		than specifying the correct filter function at object
+		creation time because the binning may not be appropriate
+		for this new filter (too many bins or too few).  Returns
+		self.
+		"""
+		#
 		# safety-check filter width
 		#
 
@@ -590,14 +613,11 @@ class Rate(BinnedArray):
 
 		self.filterdata = windowfunc(self.filterwidth / self.binsize) / self.binsize
 
-	def __setitem__(self, x, weight):
-		"""
-		Add weight to the bin corresponding to x.
-		"""
-		self.array[self.bins[x,]] += weight
+		#
+		# Done
+		#
 
-	def xvals(self):
-		return self.centres()[0]
+		return self
 
 	def filter(self, cyclic = False):
 		"""
