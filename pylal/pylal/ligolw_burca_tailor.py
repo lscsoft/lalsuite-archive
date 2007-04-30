@@ -155,6 +155,10 @@ def coinc_params(events, offsetdict):
 		if prefix + "dh" not in params or abs(params[prefix + "dh"]) > abs(dh):
 			params[prefix + "dh"] = dh
 
+		dband = (event1.ms_bandwidth - event2.ms_bandwidth) / ((event1.ms_bandwidth + event2.ms_bandwidth) / 2)
+		if prefix + "dband" not in params or abs(params[prefix + "dband"]) > abs(dband):
+			params[prefix + "dband"] = dband
+
 	return params
 
 
@@ -164,12 +168,12 @@ def coinc_params(events, offsetdict):
 
 
 class CoincParamsDistributions(object):
-	def __init__(self, ranges):
+	def __init__(self, rate_args):
 		self.background_rates = {}
 		self.injection_rates = {}
-		for name, range in ranges.iteritems():
-			self.background_rates[name] = rate.Rate(range, abs(range) / 100.0)
-			self.injection_rates[name] = rate.Rate(range, abs(range) / 100.0)
+		for name, args in rate_args.iteritems():
+			self.background_rates[name] = rate.Rate(*args)
+			self.injection_rates[name] = rate.Rate(*args)
 
 	def __iadd__(self, other):
 		if type(other) != type(self):
@@ -203,6 +207,10 @@ class CoincParamsDistributions(object):
 			except IndexError:
 				# param value out of range
 				pass
+
+	def set_filter(self, name, filterwidth, windowfunc):
+		self.background_rates[name].set_filter(filterwidth, windowfunc)
+		self.injection_rates[name].set_filter(filterwidth, windowfunc)
 
 	def finish(self):
 		for rate in self.background_rates.itervalues():
@@ -288,23 +296,12 @@ class Stats(object):
 		self.n_time_slides = None
 		self.n_background_events = 0
 
-		# careful, the intervals have to be unpacked in the order
-		# in which they were packed by dbget_thresholds(); also
-		# each instrument pair must list the instruments in
-		# alphabetical order, or the parameters returned by
-		# coinc_params() won't match Rate instances
-		ranges = {}
-		for pair, (dtinterval, dfinterval, dhinterval) in thresholds.items():
-			ranges["%s_%s_dt" % pair] = dtinterval
-			ranges["%s_%s_df" % pair] = dfinterval
-			ranges["%s_%s_dh" % pair] = dhinterval
 
-
-	def _add_background(self, events, offsetdict):
+	def _add_background(self, param_func, events, offsetdict):
 		pass
 
 
-	def _add_injections(self, events, offsetdict):
+	def _add_injections(self, param_func, events, offsetdict):
 		pass
 
 
@@ -332,8 +329,7 @@ WHERE
 			self.n_background_events += 1
 
 			# retrieve the list of the sngl_bursts in this
-			# coinc, and adjust their peak times by the
-			# appropriate time slide offsets
+			# coinc, and their time slide dictionary
 			events = []
 			offsetdict = {}
 			for values in database.connection.cursor().execute("""
@@ -352,7 +348,7 @@ SELECT sngl_burst.*, time_slide.offset FROM
 	)
 WHERE
 	coinc_event.coinc_event_id == ?
-		""", (coinc_event_id,)):
+			""", (coinc_event_id,)):
 				# reconstruct the event
 				event = database.sngl_burst_table._row_from_cols(values[:-1])
 
@@ -374,8 +370,7 @@ WHERE
 	coinc_def_id == ?
 		""", (database.sb_definer_id,)):
 			# retrieve the list of the sngl_bursts in this
-			# coinc, and adjust their peak times by the
-			# appropriate time slide offsets
+			# coinc, and their time slide dictionary
 			events = []
 			offsetdict = {}
 			for values in database.connection.cursor().execute("""
@@ -405,7 +400,7 @@ WHERE
 				offsetdict[event.ifo] = values[-1]
 
 			# pass the events to whatever wants them
-			self._add_injections(events, offsetdict)
+			self._add_injections(coinc_params, events, offsetdict)
 
 	def finish(self):
 		pass
@@ -421,16 +416,16 @@ class ScatterStats(Stats):
 		Stats.__init__(self, thresholds)
 		self.scatter = Scatter()
 
-	def _add_background(self, events, offsetdict):
-		params = coinc_params(events, offsetdict)
+	def _add_background(self, param_func, events, offsetdict):
+		params = param_func(events, offsetdict)
 		for event1, event2 in itertools.choices(events, 2):
 			if event1.ifo == event2.ifo:
 				continue
 			prefix = "%s_%s_" % (event1.ifo, event2.ifo)
 			self.scatter.add_background(params[prefix + "dt"], params[prefix + "df"])
 
-	def _add_injections(self, events, offsetdict):
-		params = coinc_params(events, offsetdict)
+	def _add_injections(self, param_func, events, offsetdict):
+		params = param_func(events, offsetdict)
 		for event1, event2 in itertools.choices(events, 2):
 			if event1.ifo == event2.ifo:
 				continue
@@ -451,14 +446,14 @@ class CovarianceStats(Stats):
 		Stats.__init__(self, thresholds)
 		self.covariance = Covariance()
 
-	def _add_background(self, events, offsetdict):
-		params = coinc_params(events, offsetdict)
+	def _add_background(self, param_func, events, offsetdict):
+		params = param_func(events, offsetdict)
 		items = params.items()
 		items.sort()
 		self.covariance.add_background([value for name, value in items])
 
-	def _add_injections(self, events, offsetdict):
-		params = coinc_params(events, offsetdict)
+	def _add_injections(self, param_func, events, offsetdict):
+		params = param_func(events, offsetdict)
 		items = params.items()
 		items.sort()
 		self.covariance.add_injection([value for name, value in items])
@@ -468,6 +463,21 @@ class CovarianceStats(Stats):
 
 
 class DistributionsStats(Stats):
+	filter_widths = {
+		"H1_H2_dband": 1.0 / 25,
+		"H1_L1_dband": 1.0 / 25,
+		"H2_L1_dband": 1.0 / 25,
+		"H1_H2_df": 1.0 / 60,
+		"H1_L1_df": 1.0 / 60,
+		"H2_L1_df": 1.0 / 60,
+		"H1_H2_dh": 1.0 / 150,
+		"H1_L1_dh": 1.0 / 9,
+		"H2_L1_dh": 1.0 / 9,
+		"H1_H2_dt": 1.0 / 300,
+		"H1_L1_dt": 1.0 / 75,
+		"H2_L1_dt": 1.0 / 75
+	}
+
 	def __init__(self, thresholds):
 		Stats.__init__(self, thresholds)
 		# careful, the intervals have to be unpacked in the order
@@ -475,19 +485,24 @@ class DistributionsStats(Stats):
 		# each instrument pair must list the instruments in
 		# alphabetical order, or the parameters returned by
 		# coinc_params() won't match Rate instances
-		ranges = {}
+		rate_args = {}
 		for pair, (dtinterval, dfinterval, dhinterval) in thresholds.items():
-			ranges["%s_%s_dt" % pair] = dtinterval
-			ranges["%s_%s_df" % pair] = dfinterval
-			ranges["%s_%s_dh" % pair] = dhinterval
-		self.distributions = CoincParamsDistributions(ranges)
+			name = "%s_%s_dt" % pair
+			rate_args[name] = (dtinterval, self.filter_widths[name])
+			name = "%s_%s_df" % pair
+			rate_args[name] = (dfinterval, self.filter_widths[name])
+			name = "%s_%s_dh" % pair
+			rate_args[name] = (dhinterval, self.filter_widths[name])
+			name = "%s_%s_dband" % pair
+			rate_args[name] = (segments.segment(-2.0, 2.0), self.filter_widths[name])
+		self.distributions = CoincParamsDistributions(rate_args)
 
 
-	def _add_background(self, events, offsetdict):
-		self.distributions.add_background(coinc_params, events, offsetdict)
+	def _add_background(self, param_func, events, offsetdict):
+		self.distributions.add_background(param_func, events, offsetdict)
 
-	def _add_injections(self, events, offsetdict):
-		self.distributions.add_injection(coinc_params, events, offsetdict)
+	def _add_injections(self, param_func, events, offsetdict):
+		self.distributions.add_injection(param_func, events, offsetdict)
 
 	def finish(self):
 		self.distributions.finish()
