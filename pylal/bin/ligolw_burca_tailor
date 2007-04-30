@@ -136,7 +136,7 @@ if options.verbose:
 
 filenames = reduce(list.__add__, [glob.glob(g) for g in options.background_glob])
 
-for n, filename in enumerate(filenames):
+for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose, reverse = True)):
 	#
 	# Open the database file.
 	#
@@ -184,7 +184,7 @@ if options.verbose:
 
 filenames = reduce(list.__add__, [glob.glob(g) for g in options.injection_glob])
 
-for n, filename in enumerate(filenames):
+for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose, reverse = True)):
 	#
 	# Open the database file.
 	#
