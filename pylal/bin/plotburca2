@@ -106,7 +106,7 @@ def plot_coinc_params(distributions):
 	#
 
 	size = 12.0
-	n_vert = 3
+	n_vert = 4
 	fig.set_size_inches(size * n_horiz / n_vert, size / ((1 + math.sqrt(5)) / 2))
 
 	#
@@ -128,6 +128,7 @@ def plot_coinc_params(distributions):
 		dt_axes = fig.add_axes((left, 0 * height + vlabel_allowance + border, width, height - vlabel_allowance - 2 * border))
 		df_axes = fig.add_axes((left, 1 * height + vlabel_allowance + border, width, height - vlabel_allowance - 2 * border))
 		dh_axes = fig.add_axes((left, 2 * height + vlabel_allowance + border, width, height - vlabel_allowance - 2 * border))
+		dband_axes = fig.add_axes((left, 3 * height + vlabel_allowance + border, width, height - vlabel_allowance - 2 * border))
 
 		dt_axes.set_xlabel(r"$(t_{\mathrm{%s}} - t_{\mathrm{%s}}) / \left< \Delta t \right>$" % pair)
 		dt_axes.set_ylabel(r"$P$")
@@ -135,6 +136,8 @@ def plot_coinc_params(distributions):
 		df_axes.set_ylabel(r"$P$")
 		dh_axes.set_xlabel(r"$({h_{\mathrm{rss}}}_{\mathrm{%s}} - {h_{\mathrm{rss}}}_{\mathrm{%s}}) / \left< h_{\mathrm{rss}} \right>$" % pair)
 		dh_axes.set_ylabel(r"$P$")
+		dband_axes.set_xlabel(r"$(\Delta f_{\mathrm{%s}} - \Delta f_{\mathrm{%s}}) / \left< \Delta f \right>$" % pair)
+		dband_axes.set_ylabel(r"$P$")
 
 		#
 		# Plot the data on them.
@@ -145,14 +148,21 @@ def plot_coinc_params(distributions):
 		dt_axes.plot(rate.xvals(), rate.array, "r")
 		rate = distributions.background_rates[prefix + "dt"]
 		dt_axes.plot(rate.xvals(), rate.array, "k")
+
 		rate = distributions.injection_rates[prefix + "df"]
 		df_axes.plot(rate.xvals(), rate.array, "r")
 		rate = distributions.background_rates[prefix + "df"]
 		df_axes.plot(rate.xvals(), rate.array, "k")
+
 		rate = distributions.injection_rates[prefix + "dh"]
 		dh_axes.plot(rate.xvals(), rate.array, "r")
 		rate = distributions.background_rates[prefix + "dh"]
 		dh_axes.plot(rate.xvals(), rate.array, "k")
+
+		rate = distributions.injection_rates[prefix + "dband"]
+		dband_axes.plot(rate.xvals(), rate.array, "r")
+		rate = distributions.background_rates[prefix + "dband"]
+		dband_axes.plot(rate.xvals(), rate.array, "k")
 
 	#
 	# Done.
