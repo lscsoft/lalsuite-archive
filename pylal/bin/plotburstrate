@@ -114,7 +114,7 @@ def snglburst_append(table_elem, trigger):
 	global num_triggers, rate
 	num_triggers += 1
 	if options.read_segment[0] <= trigger.get_peak() < options.read_segment[1]:
-		rate[trigger.get_peak()] = 1.0
+		rate[trigger.get_peak()] += 1.0
 	if not (num_triggers % 500):
 		print >>sys.stderr, "triggers: %d\r" % num_triggers,
 

@@ -220,9 +220,9 @@ WHERE
 		self.background_rate = rate.Rate(segments.segment(0.0, 1.0), 0.01)
 
 		for likelihood in self.foreground_likelihoods:
-			self.foreground_rate[likelihood] = 1.0
+			self.foreground_rate[likelihood] += 1.0
 		for likelihood in self.background_likelihoods:
-			self.background_rate[likelihood] = 1.0
+			self.background_rate[likelihood] += 1.0
 
 		self.foreground_rate.array /= len(self.foreground_likelihoods)
 		self.background_rate.array /= len(self.background_likelihoods)
@@ -231,7 +231,7 @@ WHERE
 		self.injection_likelihoods.sort(reverse = True)
 		self.injection_rate = rate.Rate(segments.segment(0.0, 1.0), 0.01)
 		for likelihood in self.injection_likelihoods:
-			self.injection_rate[likelihood] = 1.0
+			self.injection_rate[likelihood] += 1.0
 		self.injection_rate.array /= len(self.injection_likelihoods)
 
 	def find_likelihood_threshold(self, events_per_foreground, foreground_live_time, background_live_time):

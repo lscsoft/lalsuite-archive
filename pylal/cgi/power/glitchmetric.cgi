@@ -71,8 +71,8 @@ def makeplot(desc, table):
 	bins2 = rate.Rate(desc.trig_segment(), desc.widthratio * desc.ratewidth)
 	for i in xrange(len(peaktime)):
 		try:
-			bins[peaktime[i]] = confidence[i]
-			bins2[peaktime[i]] = confidence[i]
+			bins[peaktime[i]] += confidence[i]
+			bins2[peaktime[i]] += confidence[i]
 		except IndexError:
 			# trigger lies outside bounds of plot
 			pass
@@ -89,7 +89,7 @@ def makeplot(desc, table):
 	glitchsegs = glitchsegments(bins.xvals(), yvals, desc.glitchthreshold)
 
 	# subtract segments near boundaries of data
-	glitchsegs -= segments.segmentlist.protract(~desc.seglist, desc.widthratio * desc.ratewidth)
+	glitchsegs -= (~desc.seglist).protract(desc.widthratio * desc.ratewidth)
 
 	# plot ratio vs time
 	axes.plot(bins.xvals(), yvals, "k")

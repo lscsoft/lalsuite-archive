@@ -35,7 +35,7 @@ def makeplot(desc, table):
 	bins = rate.Rate(desc.band, desc.freqwidth)
 	for f in table.getColumnByName("central_freq"):
 		try:
-			bins[f] = 1
+			bins[f] += 1
 		except IndexError:
 			# trigger lies outside bounds of plot
 			pass

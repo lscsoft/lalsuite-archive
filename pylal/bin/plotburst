@@ -245,7 +245,7 @@ class RateVsPeakFreq(SnglBurstUtils.BurstPlot):
 	def add_contents(self, contents):
 		self.nevents += contents.nevents[self.ifo]
 		for f in contents.peak_freq[self.ifo]:
-			self.rate[f] = 1.0
+			self.rate[f] += 1.0
 
 	def finish(self):
 		self.axes.set_title("Trigger Rate vs. Peak Frequency\n(%d Triggers)" % self.nevents)
@@ -307,7 +307,7 @@ class Delays(SnglBurstUtils.BurstPlot):
 		for i in xrange(1, len(peaks)):
 			dt = float(peaks[i] - peaks[i - 1])
 			try:
-				self.bins[dt] = 1
+				self.bins[dt] += 1
 			except IndexError:
 				# out of bounds
 				pass

@@ -194,7 +194,7 @@ class CoincParamsDistributions(object):
 		for name, value in param_func(events, offsetdict).iteritems():
 			rate = self.background_rates[name]
 			try:
-				rate[value] = 1.0
+				rate[value] += 1.0
 			except IndexError:
 				# param value out of range
 				pass
@@ -203,7 +203,7 @@ class CoincParamsDistributions(object):
 		for name, value in param_func(events, offsetdict).iteritems():
 			rate = self.injection_rates[name]
 			try:
-				rate[value] = 1.0
+				rate[value] += 1.0
 			except IndexError:
 				# param value out of range
 				pass

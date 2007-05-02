@@ -308,7 +308,7 @@ class RecoveredTimeOffset(SnglBurstUtils.BurstPlot):
 			for burst in contents.coinc_sngl_bursts(coinc):
 				dt = burst.get_peak() - sim.get_peak(burst.ifo)
 				try:
-					self.offsets[dt] = 1.0
+					self.offsets[dt] += 1.0
 				except IndexError:
 					# outside plot range
 					pass
@@ -317,7 +317,7 @@ class RecoveredTimeOffset(SnglBurstUtils.BurstPlot):
 					best_dt = dt
 			if best_dt is not None:
 				try:
-					self.best[best_dt] = 1.0
+					self.best[best_dt] += 1.0
 				except IndexError:
 					# outside plot range
 					pass
