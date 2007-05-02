@@ -582,11 +582,11 @@ class Rate(BinnedArray):
 
 		self.set_filter(filterwidth, windowfunc)
 
-	def __setitem__(self, x, weight):
-		"""
-		Add weight to the bin corresponding to x.
-		"""
-		self.array[self.bins[x,]] += weight
+	def __getitem__(self, x):
+		return self.array[self.bins[x,]]
+
+	def __setitem__(self, x, value):
+		self.array[self.bins[x,]] = value
 
 	def xvals(self):
 		return self.centres()[0]
