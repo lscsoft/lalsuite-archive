@@ -387,33 +387,42 @@ class coincInspiralTable:
     for trig in self:
       trig_ifos,tmplist = trig.get_ifos()
       tmp_d_squared = 0.0
+      param_counter = 0
       if c_ifos == trig_ifos:
-        for ifo in ifolist: 
+        for ifo1 in ifolist: 
           # distance^2 apart in effective snr
-          c_lambda = getattr(candidate,ifo).get_effective_snr()
-          t_lambda = getattr(trig,ifo).get_effective_snr()
+          c_lambda = getattr(candidate,ifo1).get_effective_snr()
+          t_lambda = getattr(trig,ifo1).get_effective_snr()
           tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
+          param_counter += 1
 
           # distance^2 apart in mchirp
-          c_lambda = getattr(candidate,ifo).mchirp
-          t_lambda = getattr(trig,ifo).mchirp
+          c_lambda = getattr(candidate,ifo1).mchirp
+          t_lambda = getattr(trig,ifo1).mchirp
           tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
+          param_counter += 1
 
           # distance^2 apart in effective distance
-          c_lambda = getattr(candidate,ifo).eff_distance
-          t_lambda = getattr(trig,ifo).eff_distance
+          c_lambda = getattr(candidate,ifo1).eff_distance
+          t_lambda = getattr(trig,ifo1).eff_distance
           tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
+          param_counter += 1
 
           # distance^2 apart in ethinca
-          c_lambda = XLALCalculateEThincaParameter(\
-              getattr(candidate,tmplist[0]),\
-              getattr(candidate,tmplist[1]) ) 
-          t_lambda = XLALCalculateEThincaParameter(\
-              getattr(trig,tmplist[0]),\
-              getattr(trig,tmplist[1]) ) 
-          tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
+	  for ifo2 in ifolist:
+            if ifo1 < ifo2:
+              c_lambda = XLALCalculateEThincaParameter(\
+              getattr(candidate,ifo1),\
+              getattr(candidate,ifo2) ) 
+              t_lambda = XLALCalculateEThincaParameter(\
+              getattr(trig,ifo1),\
+              getattr(trig,ifo2) ) 
+              tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
+              param_counter += 1
 
-      dsquared.append(tmp_d_squared / float(3.0 * len(tmplist))) 
+        dsquared.append(tmp_d_squared / float(param_counter))
+      else:
+        dsquared.append(-1.0) 
 
     return numpy.asarray(dsquared)
 
