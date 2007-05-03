@@ -158,9 +158,19 @@ class Metadata(object):
     def __or__(self, other):
         return self.copy().__ior__(other)
     
+    def __eq__(self, other):
+        for slot in self.__slots__:
+            if getattr(self, slot) != getattr(other, slot):
+                return False
+        return True
+    
     def copy(self):
         return type(self)(dict([(slot, getattr(self, slot)) for slot \
             in self.__slots__ if slot != "typemap"]))
+    
+    def todict(self):
+        return dict([(key, getattr(self, key)) for key in self.__slots__ \
+            if key != "typemap"])
 
 class MetaArray(numpy.ndarray):
     """
@@ -211,7 +221,7 @@ class MetaArray(numpy.ndarray):
         is set to something.
         """
         self.metadata = getattr(obj, "metadata", None)
-        self._baseclass = getattr(obj, '_baseclass', type(obj))
+        self._baseclass = getattr(obj, "_baseclass", type(obj))
     
     def __array_wrap__(self, obj):
         """
@@ -223,10 +233,10 @@ class MetaArray(numpy.ndarray):
         return result
     
     def __repr__(self):
-        return "%s, %s)" % (numpy.ndarray.__repr__(self)[:-1], repr(self.metadata))
+        return "%s, %s)" % (repr(self.view(numpy.ndarray))[:-1], repr(self.metadata))
     
     def __str__(self):
-        return "%s %s" % (numpy.ndarray.__str__(self), str(self.metadata))
+        return "%s %s" % (str(self.view(numpy.ndarray)), str(self.metadata))
     
     # methods that return an array, wrapped to return a MetaArray
     __abs__ = _arraymethod('__abs__')
@@ -290,6 +300,55 @@ class MetaArray(numpy.ndarray):
     def _get_data(self):
         return self.view(self._baseclass)
     A = property(fget=_get_data) # get at the underlying Array data
+    
+    # Pickling
+    def __getstate__(self):
+        """
+        Returns the internal state of the object, for pickling purposes.
+        """
+        state = (1,
+                 self.shape,
+                 self.dtype,
+                 self.flags.fnc,
+                 self.A.tostring(),
+                 self.metadata.todict(),
+                 )
+        return state
+    
+    def __setstate__(self, state):
+        """
+        Restores the internal state of the masked array, for unpickling
+        purposes. `state` is typically the output of the ``__getstate__``
+        output, and is a 5-tuple:
+        
+        - class name
+        - a tuple giving the shape of the data
+        - a typecode for the data
+        - a binary string for the data
+        - a binary string for the mask.
+        """
+        (ver, shp, typ, isf, raw, meta) = state
+        if ver != 1: raise NotImplemented
+        numpy.ndarray.__setstate__(self, (shp, typ, isf, raw))
+        self.metadata = self._metadata_type(meta)
+    
+    def __reduce__(self):
+        """
+        Returns a 3-tuple for pickling a MetaArray
+        - reconstruction function
+        - tuple to pass reconstruction function
+        - state, which will be passed to __setstate__
+        """
+        return (_mareconstruct,
+                (self.__class__, self._baseclass, (0,), 'b', ),
+                self.__getstate__())
+    
+def _mareconstruct(subtype, baseclass, baseshape, basetype):
+    """
+    Internal function that builds a new MaskedArray from the information
+    stored in a pickle.
+    """
+    return subtype.__new__(subtype, [], dtype=basetype)
 
 class MetaArrayList(list):
     _itemtype = MetaArray
@@ -369,21 +428,20 @@ class MetaArrayList(list):
         return [x.view(x._baseclass) for x in self]
     A = property(fget=_get_data)
 
+
 ##############################################################################
-# Define Spectrum and associated structures
+# Define TimeSeries and associated structures
 ##############################################################################
 
-class SpectrumMetadata(Metadata):
+class TimeSeriesMetadata(Metadata):
     """
     Hold the metadata associated with a spectrum, including frequency
     resolution, a segmentlist indicating what times were involved in taking
     the spectrum, a channel name, etc.
     """
     # specify all allowed metadata here; type is required
-    typemap = {"df": float,
-               "f_low": float,
-               "f_high": float,
-               "num_bins": int,
+    typemap = {"name": str,
+               "dt": float,
                "segments": segments.segmentlist,
                "comments": list}
     __slots__ = typemap.keys() + ['typemap']
@@ -403,6 +461,105 @@ class SpectrumMetadata(Metadata):
             for attr in self.__slots__ \
             if attr not in ('segments', 'comments', 'typemap')])
         
+        # add, but do not join, segments
+        self.segments |= other.segments
+        
+        # add only new comments
+        self.comments.extend([comment for comment in other.comments \
+            if comment not in self.comments])
+        return self
+
+class TimeSeries(MetaArray):
+    """
+    This is a MetaArray, but with the metadata typemap specified.
+    """
+    _metadata_type = TimeSeriesMetadata
+    
+    def ordinates(self):
+        """
+        Return an single-precision ndarray containing the times at
+        which this TimeSeries is sampled.
+        """
+        m = self.metadata
+        segs = m.segments
+        segs.coalesce()
+        
+        # start with a uniformly spaced domain
+        result = numpy.arange(len(self), dtype=numpy.float32)*m.dt
+        
+        # split domain by applying different offsets for each segment
+        offsets = [seg[0] for seg in segs]
+        seg_lengths = [int(abs(seg)/m.dt) for seg in segs]
+        assert sum(seg_lengths) == len(self)
+        boundaries = [0]+[sum(seg_lengths[:i]) for i in range(1, len(seg_lengths)+1)]
+        assert boundaries[-1] == len(self)
+        slices = [slice(a, b) for a,b in zip(boundaries[:-1], boundaries[1:])]
+        
+        for sl, offset in zip(slices, offsets):
+            result[sl] += offset
+        return result
+
+class TimeSeriesList(MetaArrayList):
+    """
+    A list of TimeSeries.
+    """
+    _itemtype = TimeSeries
+
+    def segments(self):
+        """
+        Return the (uncoalesced) list of segments represented by the Spectra
+        in this SpectrumList.
+        """
+        segs = segments.segmentlist()
+        for series in self:
+            segs.extend(series.metadata.segments)
+        return segs
+
+    def extent(self):
+        """
+        Return the combined extent of time spanned by this SpectrumList.
+        """
+        return self.segments().extent()
+    
+    def merge_list(self):
+        """
+        Concatenate the list into one single TimeSeries.
+        """
+        meta = reduce(lambda a,b: a|b, [ts.metadata for ts in self])
+        return TimeSeries(numpy.concatenate(self.A), meta)
+
+##############################################################################
+# Define Spectrum and associated structures
+##############################################################################
+
+class SpectrumMetadata(Metadata):
+    """
+    Hold the metadata associated with a spectrum, including frequency
+    resolution, a segmentlist indicating what times were involved in taking
+    the spectrum, a channel name, etc.
+    """
+    # specify all allowed metadata here; type is required
+    typemap = {"name": str,
+               "df": float,
+               "f_low": float,
+               "segments": segments.segmentlist,
+               "comments": list}
+    __slots__ = typemap.keys() + ['typemap']
+    
+    def __ior__(self, other):
+        """
+        Merge metadata.  No repeats.  Throw error on incompatible spectra.
+        Let None act as identity.
+        """
+        if other is None:
+            return self
+        if self is None:
+            return other
+        
+        # check that metadata are compatible for merging
+        assert numpy.alltrue([getattr(self, attr) == getattr(other, attr) \
+            for attr in ("df", "f_low")])
+        
         # union segments
         self.segments |= other.segments
         
@@ -412,14 +569,22 @@ class SpectrumMetadata(Metadata):
         return self
 
 class Spectrum(MetaArray):
-    """ This is a MetaArray, but with the metadata typemap specified. """
+    """
+    This is a MetaArray, but with the metadata typemap specified.
+    """
     _metadata_type = SpectrumMetadata
-    pass
+    
+    def ordinates(self):
+        """
+        Return an single-precision ndarray containing the frequencies at
+        which this Spectrum is sampled.
+        """
+        m = self.metadata
+        return numpy.arange(len(self), dtype=numpy.float32)*m.df + m.f_low
 
 class SpectrumList(MetaArrayList):
     """
-    A list of Spectra with a few convenience functions defined for all lists
-    of spectra.  Intended to be subclassed.
+    A list of Spectra.
     """
     _itemtype = Spectrum
     
@@ -430,11 +595,34 @@ class SpectrumList(MetaArrayList):
         """
         segs = segments.segmentlist()
         for spectrum in self:
-            segs.extend(spectrum)
+            segs.extend(spectrum.metadata.segments)
         return segs
     
     def extent(self):
+        """
+        Return the combined extent of time spanned by this SpectrumList.
+        """
         return self.segments().extent()
+    
+    def ordinates(self):
+        """
+        Return an single-precision ndarray containing the frequencies at
+        which these Spectrums are sampled (they are required to match).
+        For an empty list, return a zero-length array.
+        """
+        if len(self) == 0:
+            return numpy.array([], dtype=numpy.float32)
+        m = self[0].metadata
+        return numpy.arange(len(self[0]), dtype=numpy.float32)*m.df + m.f_low
+    
+    def sum_spectra(self):
+        """
+        Sum across Spectrums, returning a single Spectrum
+        """
+        if len(self) == 0:
+            raise ValueError
+        meta = reduce(lambda a,b: a|b, [s.metadata for s in self])
+        return Spectrum(numpy.sum(self.A, axis=0), meta)
 
 class SpectrumDict(dict):
     """
