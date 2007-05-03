@@ -24,6 +24,9 @@ class MySnglInspiral(lsctables.SnglInspiral):
 
 lsctables.SnglInspiralTable.RowType = MySnglInspiral
 
+
+##-------------------------------------
+##-------------------------------------
 import string
 class NumberReader:
  def __init__(self, file):
@@ -161,6 +164,68 @@ def calculateOverlap( trigger1, trigger2, delay=None):
 
   return maxVal
   
+##############################################################################
+## calculate range of a binary system 
+##############################################################################
+def calculateOverlap( mass1=1.4, mass2=1.4, flow=40.0, deltaT=0.000244, deltaF=0.003906, nPoints=1048576, snr=8, psd=None ):
+  """
+  Calculate the range of a binary system given the PSD and the two m,asses of the system.
+  Algorithm taken from the code 'tmpltbank.c'
+  @params mass1: Mass of the first component
+  @params mass2: Mass of the second component
+  @params flower: lower
+  @params: psd: 
+  """
+
+  # REAL4 compute_candle_distance(REAL4 candleM1, REAL4 candleM2,
+  #64 patrick 1.1     REAL4 snr, REAL8 chanDeltaT, INT4 nPoints, 
+  #65                 REAL8FrequencySeries *spec, UINT4 cut)
+  #66             {
+  #67               UINT4 k;
+  #68               REAL8 sigmaSqSum = 0;
+  #69               REAL8 distance = 0;
+
+  # defining some constants:
+  negativeSevenOverThree = -7.0/3.0
+  MRSUN=1.4766e+3
+  MTSUN=4.925e-6
+  PC=3.0857e+16
+
+  distNorm = 2.0 * MRSUN / (1.0e6 * PC )
+  
+  # what else do I need?: deltaT and deltaF and nPoints
+  # cut=int(flower/deltaF)
+  # numPoint=2*length(psd), might not...
+  
+  totalMass =  mass1 + mass2
+  mu = mass1 * mass2 / totalMass
+  a = sqrt( (5.0 * mu) / 96.0 ) * pow( totalMass/( pi*pi ), 1.0/3.0 ) * pow( MTSUN / deltaT, -1.0/6.0 )
+  sigmaSq = 4.0 * ( deltaT / nPoints ) * distNorm * distNorm * a * a
+  fmax = 1.0 / (6.0 * sqrt(6.0) * pi * totalMass * MTSUN)
+  f = 0
+  
+  sigmaSqSum = 0
+  binLow=int(flow/deltaF)
+  binHigh=int(fmax/deltaF)
+  print binLow, binHigh
+  for k in range(binLow, binHigh):
+    f=k*deltaF
+    sigmaSqSum+=pow( float(k) /  nPoints, negativeSevenOverThree ) / psd[k]
+
+  sigmaSq *= sigmaSqSum;
+  distance = sqrt( sigmaSq ) / snr;
+
+  return distance
+ 
+ #82               for ( k = cut, f = spec->deltaF * cut; 
+ #83                   k < spec->data->length && f < fmax; 
+ #84                   ++k, f = spec->deltaF * k )
+ #85 patrick 1.1   {
+ #86                 sigmaSqSum += 
+ #87                   pow( (REAL8) k / (REAL8) nPoints, negativeSevenOverThree ) 
+ #88                   / spec->data->data[k];
+ #89               }
+
 
 ##############################################################################
 ## class coincGRBInspiralTable
@@ -183,7 +248,7 @@ class coincGRBInspiralTable(CoincInspiralUtils.coincInspiralTable):
     # initialize the underlying class (the original coincInspiralTable)
     CoincInspiralUtils.coincInspiralTable.__init__(self,inspTriggers, stat)
 
-    self.reslide(821428403,600)
+    #self.reslide(821428403,600)
 
     # number for accounting the number of the injection
     self.injNumber=None
@@ -967,7 +1032,12 @@ class grbInjectionTable:
     @param statistic: a structure containing the statistics to use
     @param injNumbers: 2-component vector to specify the injections to read.
     """
-    self.listIFO=['G1','H1','H2','L1','T1','V1']       
+    self.listIFO=['G1','H1','H2','L1','T1','V1']
+
+    # set the chisq-values
+    self.chiThreshold=10
+    self.chiBins=16
+    self.chiDelta=0.20
     
     if not injNumbers:
       print >>sys.stderr, "No injection numbers specified. Must specify range of injections to be read."
@@ -995,8 +1065,10 @@ class grbInjectionTable:
       self.readThinca(globName, globSim)
     else:
       self.readCoire(globName, multiCoire)
-      
+
+  ## --------------
   ## --readThinca--
+  ## --------------      
   def readThinca( self, globName, globSim):
     """
     Reads the coincidences from THINCA files and the corresponding injection (HL) files.
@@ -1028,7 +1100,9 @@ class grbInjectionTable:
       coinc.calcEllipsMatch()  # calculate the ellipse-match
       self.list.append( coinc )
 
+  ## --------------
   ## --readCoire--
+  ## --------------
   def readCoire( self, globName, multiCoire):
     """
     Reads the coincident triggers from the COIRE files, identify the missed and found injections,
@@ -1098,8 +1172,10 @@ class grbInjectionTable:
     # output to screen
     print "Triggers found: "+str(len(self.found))+ " triggers missed: "+\
           str(len(self.missed))
- 
-  ## --getTimeDiff-- 
+
+  ## --------------
+  ## --getTimeDiff--
+  ## --------------
   def getTimeDiff(self, trigger, sim):
     """
     Returns the difference of time between the given trigger and
@@ -1119,8 +1195,9 @@ class grbInjectionTable:
     diff= (trigger.end_time- simTime)+(trigger.end_time_ns-simTimeNS)/1.0e+9
     return -diff
 
-
+  ## --------------
   ## --getValList--
+  ## --------------
   def getValList(self, object, key, index=None):
     """
     Returns a list of values that are stored in a
@@ -1147,7 +1224,9 @@ class grbInjectionTable:
 
     return list
 
-  ## ---getTriggerList--- ##
+  ## ------------------
+  ## ---getTriggerList
+  ## ------------------
   def getTriggerList(self, key, ifo, index=None):
     """
     Get a list of values from the recovered triggers. 'key' describes what values to return.
@@ -1172,13 +1251,28 @@ class grbInjectionTable:
       t1=reduce(add, t1)
       t2=reduce(add, t2)
       list=[t1[i]+t2[i]/1.0e+9 for i in range(0, len(t1))]
+    elif key=="chicut":
+      chi=[self.list[i].getTriggerListIntern( "chisq", ifo)  for i in index]
+      snr=[self.list[i].getTriggerListIntern( "snr", ifo)  for i in index]
+      chi=reduce(add, chi)
+      snr=reduce(add, snr)
+      threshold=[self.chiThreshold*(self.chiBins+snr[i]*snr[i]*self.chiDelta) for i in range(0, len(chi))]
+      list=[chi[i]/threshold[i] for i in range(0, len(chi))]
+    elif key=="effective_snr":
+      for i in index:
+        for coinc in self.list[i].rows:
+          if hasattr( coinc,ifo ):
+            list.append( getattr(coinc,ifo).get_effective_snr() ) 
+      #list=[self.list[i].get_effective_snr()  for i in index]
     else:
       list=[self.list[i].getTriggerListIntern( key, ifo)  for i in index]
       list=reduce(add, list)
     
     return list
-  
+
+  ## --------------  
   ## --getSimList--
+  ## --------------  
   def getSimList(self, key, index=None):
     """
     Returns a list of values, corresponding to the entry with key KEY,
@@ -1212,9 +1306,9 @@ class grbInjectionTable:
     return list
     
   
-  ## ----------------------------------
+  ## -----------------
   ## plotMissedFound
-  ## ----------------------------------
+  ## -----------------
   def plotMissedFound( self, xvalue='mchirp', linlog='lin',
                        useDist='distance', filename=None ):
     """
@@ -1237,17 +1331,21 @@ class grbInjectionTable:
 
     ## insert 'wrong' injections
     if len(self.wrong)>0:
-      simDistW=[getattr(self.list[i].getSimTable(), useDist) for i in self.wrong]
+      simDistW=[getattr(self.list[i].getSimTable(), useDist) \
+                for i in self.wrong]
       xValueWrong=self.getSimList( xvalue, self.wrong )
       if linlog=='lin':
-        semilogy(xValueWrong, simDistW, 'mo',markersize=15,markerfacecolor=None, markeredgewidth=2, markeredgecolor='m')
+        semilogy(xValueWrong, simDistW, 'mo',markersize=15,\
+                 markerfacecolor=None, markeredgewidth=2, markeredgecolor='m')
       else:
-        loglog( xValueWrong, simDistW,'mo',markersize=15,markerfacecolor=None, markeredgewidth=2, markeredgecolor='m')
+        loglog( xValueWrong, simDistW,'mo',markersize=15,\
+                markerfacecolor=None, markeredgewidth=2, markeredgecolor='m')
       hold(True)
 
     ## plot the missed injections
     if len(self.missed)>0:
-      simDistM=[getattr(self.list[i].getSimTable(), useDist) for i in self.missed]
+      simDistM=[getattr(self.list[i].getSimTable(), useDist) \
+                for i in self.missed]
       xValueMissed=self.getSimList( xvalue, self.missed )
       if linlog=='lin':
         semilogy(xValueMissed, simDistM, 'rx')
@@ -1257,7 +1355,8 @@ class grbInjectionTable:
     plotLine=0
     if plotLine:
       # calculate a line that DISTinguish the found/missed regime
-      lineX, lineY = self.computeDistLine( xValueFound, simDistF, xValueMissed, simDistM)
+      lineX, lineY = self.computeDistLine( xValueFound, simDistF, \
+                                           xValueMissed, simDistM)
       lineX[0]=lineX[0]+0.001
       hold(True)
       semilogy( lineX, lineY, 'g-', linewidth=3)
@@ -1269,13 +1368,13 @@ class grbInjectionTable:
       legend( ('found','missed') )
 
     if xvalue=='h_end_time':
-      axis([853168884,853169064, 1, 10000 ]) 
+      axis([854378304,854378844, 1, 10000 ]) 
     if filename:      
       savefig(filename+'.png')
       
-  ## ----------------------------------
+  ## -------------------
   ## plotMissedFound2
-  ## ----------------------------------
+  ## -------------------
   def plotMissedFound2( self, xvalue='mass1', xlog='linear', yvalue='mass2', ylog='linear',
                         filename=None ):
     """
@@ -1324,23 +1423,86 @@ class grbInjectionTable:
       savefig(filename+'.png')
 
       
-  ## ----------------------------------
+  ## ------------
   ## plotFound
-  ## ----------------------------------
+  ## ------------
   def plotFound( self, xvalue='mass1', xifo='H1', xlog='linear', yvalue='mass2', yifo='H1', ylog='linear',
                         filename=None ):
     """
     Function to create a plots showing recovered triggers.
     For plots showing sim/triggers see plotSimFound
     """
-  
+
     ## plot the found injections
     clf()
     px=self.getTriggerList( xvalue, xifo)
     py=self.getTriggerList( yvalue, yifo)
-    #print px
-    #print py
     plot( px, py, 'bo')
+
+    ## insert marked triggers
+    if len(self.wrong)>0:
+      xMarked=self.getTriggerList( xvalue, xifo, self.wrong )
+      yMarked=self.getTriggerList( yvalue, yifo, self.wrong )
+      hold(True)
+      plot(xMarked, yMarked, 'mo',markersize=15,\
+           markerfacecolor=None, markeredgewidth=2, markeredgecolor='m')
+      hold(False)
+      
+    xlabel( xvalue+' '+xifo, size='x-large')
+    ylabel( yvalue+' '+yifo, size='x-large')
+    title('Recovered triggers',size='x-large')
+    grid(True)
+    hold(True)
+  
+    # scale the axis
+    ax=gca()
+    ax.set_xscale(xlog)
+    ax.set_yscale(ylog)     
+    if filename:      
+      savefig(filename+'.png')
+
+  ## ------------
+  ## plotFound2
+  ## ------------
+  def plotFound2( self, xvalue='mass1', xifo='H1', xlog='linear',\
+                  yvalue='mass2', yifo='H1', ylog='linear',
+                        filename=None ):
+    """
+    Function to create a plots showing recovered triggers.
+    For plots showing sim/triggers see plotSimFound
+    """
+
+    ## plot the found injections
+    clf()
+    if xifo=='sim':
+      px=self.getSimList( xvalue, self.found)
+    else:
+      px=self.getTriggerList( xvalue, xifo)
+    if yifo=='sim':    
+      py=self.getSimList( yvalue, self.found)
+    else:
+      py=self.getTriggerList( yvalue, yifo)
+
+
+    # plot the data
+    plot( px, py, 'bo')
+
+    ## insert marked triggers
+    if len(self.wrong)>0:
+      if xifo=='sim':
+        xMarked= self.getSimList( xvalue, self.wrong)
+      else:
+        xMarked=self.getTriggerList( xvalue, xifo, self.wrong )
+      if yifo=='sim':   
+        yMarked=self.getSimList( yvalue, self.wrong)
+      else:
+        yMarked=self.getTriggerList( yvalue, yifo, self.wrong )
+        
+      hold(True)
+      plot(xMarked, yMarked, 'mo',markersize=15,\
+           markerfacecolor=None, markeredgewidth=2, markeredgecolor='m')
+      hold(False)
+      
     xlabel( xvalue+' '+xifo, size='x-large')
     ylabel( yvalue+' '+yifo, size='x-large')
     title('Recovered triggers',size='x-large')
@@ -1355,9 +1517,9 @@ class grbInjectionTable:
       savefig(filename+'.png')
 
 
-  ## ----------------------------------
+  ## ---------------
   ## plotSimFound
-  ## ----------------------------------
+  ## ---------------
   def plotSimFound( self, xvalue='mass1', xlog='linear', yvalue='mass2', yifo='H1', ylog='linear',
                         filename=None ):
     """
@@ -1369,10 +1531,21 @@ class grbInjectionTable:
     px=self.getSimList( xvalue, self.found )   
     #px=self.getTriggerList( xvalue, xifo)
     py=self.getTriggerList( yvalue, yifo)
-    #print px
-    #print py
     diff=[py[i]-px[i] for i in range(0,len(py))]
     plot( px, diff, 'bo')
+
+
+    ## insert marked triggers
+    if len(self.wrong)>0:
+      xMarked=self.getSimList( xvalue, self.wrong )
+      yMarked=self.getTriggerList( yvalue, yifo, self.wrong )
+      print xMarked, yMarked
+      diffMarked=[yMarked[i]-xMarked[i] for i in range(0,len(yMarked))]
+      hold(True)
+      plot(xMarked, diffMarked, 'mo',markersize=15,\
+           markerfacecolor=None, markeredgewidth=1, markeredgecolor='m')
+      hold(False)
+    
     xlabel( xvalue+' inj', size='x-large')
     ylabel( yvalue+' '+yifo+' -' + xvalue+' inj', size='x-large')
     title('Injected and recovered triggers',size='x-large')
@@ -1382,13 +1555,14 @@ class grbInjectionTable:
     # scale the axis
     ax=gca()
     ax.set_xscale(xlog)
-    ax.set_yscale(ylog)     
+    ax.set_yscale(ylog)
+    axis('tight')
     if filename:      
       savefig(filename+'.png')
       
-  ## ----------------------------------
+  ## -----------------
   ## plotEfficiency
-  ## ----------------------------------
+  ## -----------------
   def plotEfficiency( self, value='mass1', nbins=30, range=None, filename=None ):
     """
     Plots the recovery efficiency as a function of the given parameter
@@ -1426,9 +1600,9 @@ class grbInjectionTable:
     if filename:
       savefig(filename+'.png')
   
-  ## ----------------------------------
+  ## ----------------
   ## markTriggers
-  ## ----------------------------------
+  ## ----------------
   def markTriggers( self, set='missed', parameter='eff_dist_h', order='ascending', number = None):
     """
     Function to mark special triggers, either found/missed triggers and with
@@ -1472,9 +1646,9 @@ class grbInjectionTable:
     #print valueSet
 
     
-  ## ----------------------------------
+  ## -----------------
   ## computeDistLine
-  ## ----------------------------------
+  ## -----------------    
   def computeDistLine2( self, xFound, yFound, xMissed, yMissed):
     """
     returns coordinates for a line that DISTinguish the found/missed injections
@@ -1500,6 +1674,7 @@ class grbInjectionTable:
     # loop over the number of bins
     for i in range(0,n):
       xPoint=i*xDelta+xMin
+
 
 
       testMin=xPoint-xDelta
@@ -1546,9 +1721,9 @@ class grbInjectionTable:
 
     return xArray, yArray
 
-  ## ----------------------------------
+  ## -------------------
   ## computeDistLine
-  ## ----------------------------------
+  ## -------------------
   def computeDistLine( self, xFound, yFound, xMissed, yMissed):
     """
     returns coordinates for a line that DISTinguish the found/missed injections
@@ -1614,9 +1789,9 @@ class grbInjectionTable:
     return xArray, yArray
       
     
-  ## ----------------------------------
+  ## ------------------
   ## printMissed
-  ## ----------------------------------
+  ## ------------------
   def printMissed( self, filename=None ):
     """
     Prints out a list of missed injections, sorted by the distance
@@ -1647,9 +1822,9 @@ class grbInjectionTable:
       else:
         print s
       
-  ## ----------------------------------
+  ## ---------------
   ## printFound
-  ## ----------------------------------
+  ## ---------------
   def printFound( self, ifo='H1', index=None, filename=None ):
     """
     Function to compile a list of found injections
@@ -1673,9 +1848,8 @@ class grbInjectionTable:
 
           c+=1
           endtime=trigger.end_time+trigger.end_time_ns/1e+9;
-          s= "%2d. ( %3d ) %s | effDist:  %6.2f | masses: %5.2f / %5.2f ( %5.2f / %5.2f ) mc: %5.2f ( %f )| eta: %5.3f | snr: %6.2f chisq: %7.2f | time: %6.3f" \
-             % (c,injNumber, ifo, trigger.eff_distance, trigger.mass1, trigger.mass2, sim.mass1, sim.mass2, trigger.mchirp, sim.mchirp,trigger.eta, trigger.snr, trigger.chisq, endtime)
-          
+          s= "%2d. ( %3d ) %s | effDist:  %6.2f | masses: %5.2f / %5.2f ( %5.2f / %5.2f ) mc: %5.2f ( %f )| eta: %5.3f | snr: %6.2f chisq: %7.2f | effsnr: %6.3f | time: %6.3f" \
+             % (c,injNumber, ifo, trigger.eff_distance, trigger.mass1, trigger.mass2, sim.mass1, sim.mass2, trigger.mchirp, sim.mchirp,trigger.eta, trigger.snr, trigger.chisq, trigger.get_effective_snr(), endtime)
           if file:
             file.write(s+"\n")
           else:
