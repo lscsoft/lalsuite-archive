@@ -27,7 +27,6 @@
 
 import math
 import matplotlib
-matplotlib.use("Agg")	# use Agg backend
 matplotlib.rcParams.update({
 	"font.size": 8.0,
 	"axes.titlesize": 10.0,
