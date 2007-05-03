@@ -125,13 +125,9 @@ def dbget_thresholds(connection):
 #
 
 
-# FIXME:  should probably introduct a CoincParams class, initialized from a
-# list of events, rather than mucking with dictionaries.
-
-
 def coinc_params(events, offsetdict):
-	events.sort(lambda a, b: cmp(a.ifo, b.ifo))
 	params = {}
+	events.sort(lambda a, b: cmp(a.ifo, b.ifo))
 	for event1, event2 in itertools.choices(events, 2):
 		if event1.ifo == event2.ifo:
 			# a coincidence is parameterized only by
@@ -143,21 +139,26 @@ def coinc_params(events, offsetdict):
 		# in each of the following, if the list of events contains
 		# more than one event from a given instrument, the smallest
 		# deltas are recorded
+
 		dt = float(event1.get_peak() + offsetdict[event1.ifo] - event2.get_peak() - offsetdict[event2.ifo]) / ((event1.ms_duration + event2.ms_duration) / 2)
-		if prefix + "dt" not in params or abs(params[prefix + "dt"]) > abs(dt):
-			params[prefix + "dt"] = dt
+		name = prefix + "dt"
+		if name not in params or abs(params[name]) > abs(dt):
+			params[name] = dt
 
 		df = (event1.peak_frequency - event2.peak_frequency) / ((event1.ms_bandwidth + event2.ms_bandwidth) / 2)
-		if prefix + "df" not in params or abs(params[prefix + "df"]) > abs(df):
-			params[prefix + "df"] = df
+		name = prefix + "df"
+		if name not in params or abs(params[name]) > abs(df):
+			params[name] = df
 
 		dh = (event1.ms_hrss - event2.ms_hrss) / ((event1.ms_hrss + event2.ms_hrss) / 2)
-		if prefix + "dh" not in params or abs(params[prefix + "dh"]) > abs(dh):
-			params[prefix + "dh"] = dh
+		name = prefix + "dh"
+		if name not in params or abs(params[name]) > abs(dh):
+			params[name] = dh
 
 		dband = (event1.ms_bandwidth - event2.ms_bandwidth) / ((event1.ms_bandwidth + event2.ms_bandwidth) / 2)
-		if prefix + "dband" not in params or abs(params[prefix + "dband"]) > abs(dband):
-			params[prefix + "dband"] = dband
+		name = prefix + "dband"
+		if name not in params or abs(params[name]) > abs(dband):
+			params[name] = dband
 
 	return params
 
@@ -168,49 +169,49 @@ def coinc_params(events, offsetdict):
 
 
 class CoincParamsDistributions(object):
-	def __init__(self, rate_args):
+	def __init__(self, **kwargs):
 		self.background_rates = {}
 		self.injection_rates = {}
-		for name, args in rate_args.iteritems():
-			self.background_rates[name] = rate.Rate(*args)
-			self.injection_rates[name] = rate.Rate(*args)
+		for param, rateargs in kwargs.iteritems():
+			self.background_rates[param] = rate.Rate(*rateargs)
+			self.injection_rates[param] = rate.Rate(*rateargs)
 
 	def __iadd__(self, other):
 		if type(other) != type(self):
 			raise TypeError, other
-		for name, rate in other.background_rates.iteritems():
-			if name in self.background_rates:
-				self.background_rates[name] += rate
+		for param, rate in other.background_rates.iteritems():
+			if param in self.background_rates:
+				self.background_rates[param] += rate
 			else:
-				self.background_rates[name] = rate
-		for name, rate in other.injection_rates.iteritems():
-			if name in self.injection_rates:
-				self.injection_rates[name] += rate
+				self.background_rates[param] = rate
+		for param, rate in other.injection_rates.iteritems():
+			if param in self.injection_rates:
+				self.injection_rates[param] += rate
 			else:
-				self.injection_rates[name] = rate
+				self.injection_rates[param] = rate
 		return self
 
-	def add_background(self, param_func, events, offsetdict):
-		for name, value in param_func(events, offsetdict).iteritems():
-			rate = self.background_rates[name]
+	def add_background(self, param_func, events, timeslide):
+		for param, value in param_func(events, timeslide).iteritems():
+			rate = self.background_rates[param]
 			try:
 				rate[value] += 1.0
 			except IndexError:
 				# param value out of range
 				pass
 
-	def add_injection(self, param_func, events, offsetdict):
-		for name, value in param_func(events, offsetdict).iteritems():
-			rate = self.injection_rates[name]
+	def add_injection(self, param_func, events, timeslide):
+		for param, value in param_func(events, timeslide).iteritems():
+			rate = self.injection_rates[param]
 			try:
 				rate[value] += 1.0
 			except IndexError:
 				# param value out of range
 				pass
 
-	def set_filter(self, name, filterwidth, windowfunc):
-		self.background_rates[name].set_filter(filterwidth, windowfunc)
-		self.injection_rates[name].set_filter(filterwidth, windowfunc)
+	def set_filter(self, param, filterwidth, windowfunc):
+		self.background_rates[param].set_filter(filterwidth, windowfunc)
+		self.injection_rates[param].set_filter(filterwidth, windowfunc)
 
 	def finish(self):
 		for rate in self.background_rates.itervalues():
@@ -297,11 +298,11 @@ class Stats(object):
 		self.n_background_events = 0
 
 
-	def _add_background(self, param_func, events, offsetdict):
+	def _add_background(self, param_func, events, timeslide):
 		pass
 
 
-	def _add_injections(self, param_func, events, offsetdict):
+	def _add_injections(self, param_func, events, timeslide):
 		pass
 
 
@@ -495,7 +496,7 @@ class DistributionsStats(Stats):
 			rate_args[name] = (dhinterval, self.filter_widths[name])
 			name = "%s_%s_dband" % pair
 			rate_args[name] = (segments.segment(-2.0, 2.0), self.filter_widths[name])
-		self.distributions = CoincParamsDistributions(rate_args)
+		self.distributions = CoincParamsDistributions(**rate_args)
 
 
 	def _add_background(self, param_func, events, offsetdict):
@@ -529,7 +530,7 @@ def coinc_params_distributions_to_xml(coinc_params_distributions, name):
 def coinc_params_distributions_from_xml(xml, name):
 	xml, = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.getAttribute(u"Name") == u"%s:pylal_ligolw_burca_tailor_coincparamsdistributions" % name]
 	names = [elem.getAttribute("Name").split(":")[1] for elem in xml.childNodes if elem.getAttribute("Name")[:11] == "background:"]
-	c = CoincParamsDistributions({})
+	c = CoincParamsDistributions()
 	for name in names:
 		c.background_rates[name] = rate.rate_from_xml(xml, "background:%s" % name)
 		c.injection_rates[name] = rate.rate_from_xml(xml, "injection:%s" % name)
@@ -537,7 +538,7 @@ def coinc_params_distributions_from_xml(xml, name):
 
 
 def coinc_params_distributions_from_filenames(filenames, name, verbose = False):
-	c = CoincParamsDistributions({})
+	c = CoincParamsDistributions()
 	for filename in filenames:
 		c += coinc_params_distributions_from_xml(utils.load_filename(filename, verbose = verbose, gz = (filename or "stdin")[-3:] == ".gz"), name)
 	return c
