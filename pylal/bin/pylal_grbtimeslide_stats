@@ -25,6 +25,8 @@ parser.add_option("-g", "--glob", action="append",
     help="glob of thinca slide files to read")
 parser.add_option("-i", "--input", action="append",
     help="lal cache of thinca slide files to read")
+parser.add_option("-V", "--veto-file",
+    help="segwizard file with times to ignore")
 parser.add_option("-t", "--fold-time", type="float",
     help="express result in terms of segments of length FOLD_TIME")
 (opts,args) = parser.parse_args()
@@ -45,18 +47,24 @@ else:
 # compute stats
 dummy_stat = CoincInspiralUtils.coincStatistic('snr')
 for input, files in zip(input_source, filegroups):
-    # I/O
+    # read triggers and segments
     triggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(files)
-    coincTable = CoincInspiralUtils.coincInspiralTable(triggers, dummy_stat)
-    
-    # compute
-    lens = numpy.array([len(coincTable.getslide(x)) \
-                        for x in range(-10,0)+range(1,11)])
     segs = segmentsUtils.fromfilenames(files)
     
-    assert 2*lens.sum() == len(triggers)
+    # veto triggers
+    if opts.veto_file is not None:
+        veto_segs = segmentsUtils.fromsegwizard(open(opts.veto_file))
+        triggers = triggers.veto(veto_segs)
+        segs -= veto_segs
     
-    # find count per 180s segment
+    # reconstruct coincidences
+    coincTable = CoincInspiralUtils.coincInspiralTable(triggers, dummy_stat)
+    
+    # count coincs per slide
+    lens = numpy.array([len(coincTable.getslide(x)) \
+                        for x in range(-10,0)+range(1,11)])
+    
+    # count coincs per slide per fold time
     if opts.fold_time is not None:
         nsegs = abs(segs) / opts.fold_time
         lens = lens / nsegs  # in-place wouldn't upcast to float
