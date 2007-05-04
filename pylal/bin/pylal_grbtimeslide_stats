@@ -25,6 +25,8 @@ parser.add_option("-g", "--glob", action="append",
     help="glob of thinca slide files to read")
 parser.add_option("-i", "--input", action="append",
     help="lal cache of thinca slide files to read")
+parser.add_option("-o", "--outfile", default="stdout",
+    help="write results to output file (default: stdout)")
 parser.add_option("-V", "--veto-file",
     help="segwizard file with times to ignore")
 parser.add_option("-t", "--fold-time", type="float",
@@ -34,6 +36,11 @@ parser.add_option("-t", "--fold-time", type="float",
 if opts.glob is None and opts.input is None:
     print >>sys.stderr, "A glob or input file is required"
     sys.exit(2)
+
+if opts.outfile.lower() == "stdout":
+    opts.outfile = sys.stdout
+else:
+    opts.outfile = open(opts.outfile, 'w')
 
 # discover files containing coincs
 if opts.glob is not None:
@@ -71,6 +78,5 @@ for input, files in zip(input_source, filegroups):
     else:
         nsegs = 1.
     
-    print "Statistics for: \"%s\"" % input
-    print "  Mean coincidences per slide per segment: %f" % lens.mean()
-    print "  Stdev of mean: %f" % (lens.std() / numpy.sqrt(nsegs))
+    print >>opts.outfile, "  Mean coincidences per slide per segment: %f" % lens.mean()
+    print >>opts.outfile, "  Stdev of mean: %f" % (lens.std() / numpy.sqrt(nsegs))
