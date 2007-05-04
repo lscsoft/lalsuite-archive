@@ -39,6 +39,8 @@ def parse_args():
         help="Discover what DQ flags were active at a point in time")
     parser.add_option("-s", "--segfile",
         help="File containing segments of interest")
+    parser.add_option("-o", "--outfile",
+        help="Output file; if unspecified, print to stdout")
     parser.add_option("-v", "--verbose", action="store_true", default=False,
         help="Print extra information.")
     opts, args = parser.parse_args()
@@ -71,7 +73,7 @@ def get_dq_file(ifo, verbose=False):
         print info
     return dest
 
-def fromDQsegments(file, coltype=int, strict=True):
+def fromDQsegments(file, coltype=int, discard_disabled=True):
     """
     Given a data quality segment file, return a segmentlistdict containing a
     segmentlist for each DQ flag.  Column 0 is the flag name and channel 1
@@ -79,8 +81,7 @@ def fromDQsegments(file, coltype=int, strict=True):
     segmentlistdict and columns 2 and 3 will be cast to coltype and used as
     start and end times for segments.
 
-    If strict==True, then check that the durations (column 4) are consistent
-    with the length of the segments created from columns 2 and 3.
+    If use_disabled==True, then check that the enabled flag (column) is >0.
     """
     commentpat = re.compile(r"\s*([#;].*)?\Z", re.DOTALL)
     fivecolsegpat = re.compile(r"\A(\w+)\s+([\d]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\Z")
@@ -94,11 +95,11 @@ def fromDQsegments(file, coltype=int, strict=True):
             [tokens] = fivecolsegpat.findall(line)
             name = "%s_v%s" % (tokens[0], tokens[1])
             seg = segments.segment(map(coltype, tokens[2:4]))
-            duration = coltype(tokens[4])
+            enabled = coltype(tokens[4])
         except ValueError:
             break
-        if strict and abs(seg) != duration:
-            raise ValueError, "segment \"%s\" has incorrect duration" % line
+        if discard_disabled and not enabled:
+            continue
         if name not in d.keys():
             d[name] = segments.segmentlist([])
         d[name].append(seg)
@@ -110,6 +111,10 @@ def fromDQsegments(file, coltype=int, strict=True):
 
 if __name__ == "__main__":
     opts, args = parse_args()
+    
+    # redirect output; XXX: this is probably less than optimal
+    if opts.outfile.lower() != "stdout":
+        sys.stdout = open(opts.outfile, 'w')
 
     # download DQ flag segfiles if necessary
     if opts.dq_segfiles is None:
@@ -118,7 +123,7 @@ if __name__ == "__main__":
     # construct segmentdict
     dq_dict = segments.segmentlistdict({})
     for ifo, dq_file in zip(opts.ifos, opts.dq_segfiles):
-        new_dict = fromDQsegments(open(dq_file), strict=False)
+        new_dict = fromDQsegments(open(dq_file))
 
         # rename flags to keep track of IFO
         for flag,val in new_dict.iteritems():
@@ -128,7 +133,7 @@ if __name__ == "__main__":
     if opts.segfile is not None:
         window = segmentsUtils.fromsegwizard(open(opts.segfile))
         mask = ~window
-        for key, val in dq_dict.iteritems():
+        for key,val in dq_dict.iteritems():
             dq_dict[key] -= mask
     elif opts.at_point is not None:
         def find(seglist):
@@ -158,3 +163,5 @@ if __name__ == "__main__":
         print "These DQ flags were raised:"
     for key in contrib_flags_order:
         print "%s: %s" % (key, contrib_flags_segdict[key])
+    if len(contrib_flags_order) == 0:
+        print "None"
