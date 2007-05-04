@@ -20,6 +20,7 @@ import os
 import os.path as p
 import re
 import sys
+import time
 import urlparse
 
 from glue import lal
@@ -51,6 +52,8 @@ def get_options():
         "created if it does not exist)")
     
     # mode parameters - their presence turns on a feature
+    parser.add_option("-q", "--query-dq", action="store_true", default=False,
+        help="query for data quality flags")
     parser.add_option("-I", "--inspiral-glob", action="append",
         dest="inspiral_globs", help="generate inspiral plots for files in "\
         "INSPIRAL_GLOB; provide multiple globs for multiple IFOs")
@@ -65,6 +68,9 @@ def get_options():
     parser.add_option("-C", "--coire-thinca", action="store_true",
         default=False, help="call lalapps_coire on thinca coincidences")
     parser.add_option("-n", "--figure-name", help="tag for plot output")
+    parser.add_option("-b", "--analyze-onsource", action="store_true",
+        default=False,
+        help="open the box and include on-source segments in the summary")
     
     # auxiliary parameters
     parser.add_option("-t", "--injection-window-ms", type="float",
@@ -73,8 +79,12 @@ def get_options():
         help="cluster-time to pass to sire and coire")
     parser.add_option("-N", "--num-slides", type="int",
         help="number of timeslides")
-    parser.add_option("-u", "--usertag",
-        help="the usertag, if any, specified in the ini file")
+    parser.add_option("-H", "--chisq-threshold", type="float",
+        help="specify the chisq threshold for inspiral plots")
+    parser.add_option("-D", "--chisq-delta", type="float",
+        help="specify the chisq delta for inspiral plots")
+    parser.add_option("-B", "--chisq-bins", type="int",
+        help="specify the chisq bins for inspiral plots")
     
     (opts, args) = parser.parse_args()
     
@@ -229,6 +239,33 @@ def lal_cache_name_from_files(files):
 # Call external programs
 ##############################################################################
 
+def call_query_dq(segfile, files):
+    """
+    Retrieve data quality flags enabled during our segment of interest.
+    """
+    print "* Querying for data quality information"
+    ifos, start, dur = ifos_start_dur_from_files(files)
+    
+    args = ["pylal_query_dq", "--segfile=%s" % segfile,
+        #"-d H1_dq_segments.txt", "-d H2_dq_segments.txt", # XXX: Remove me!!
+        ]
+    
+    for ifo in ifos:
+        args.append("--ifo %s" % ifo)
+    
+    # determine output name
+    basedir, ifos, tag, extratag, start, dur, ext = filename_to_tuple(files[0])
+    ifolist, start, dur = ifos_start_dur_from_files(files)
+    
+    outname = tuple_to_filename((basedir, ifos, "DQ_INFO", extratag, start,
+        dur, ".txt"))
+    args.append("--outfile=%s" % outname)
+    
+    # make the call
+    make_external_call(" ".join(args))
+    
+    return outname
+
 def call_sire(inspiral_globs, cluster_time_ms=None, injection_glob=None,
     injection_window_ms=None):
     """
@@ -326,15 +363,15 @@ def call_coire(thinca_glob, cluster_time_ms=None, injection_glob=None,
         output_files += [output_file]
     return output_files
 
-def call_add_inspiral(thinca_cache):
+def call_ligolw_add(thinca_cache):
     """
-    Call ligolw_add_inspiral on files in thinca_globs and return the combined
+    Call ligolw_add on files in thinca_globs and return the combined
     output filename.
     """
-    print "* Running ligolw_add_inspiral on the input file \"%s\"" \
+    print "* Running ligolw_add on the input file \"%s\"" \
         % thinca_cache
     
-    args = ["ligolw_add_inspiral", "--input=\"%s\"" % thinca_cache]
+    args = ["ligolw_add", "--input=\"%s\"" % thinca_cache]
     
     # output file
     basedir, ifos, tag, extratag, start, dur, ext = filename_to_tuple(thinca_cache)
@@ -344,19 +381,26 @@ def call_add_inspiral(thinca_cache):
     make_external_call(" ".join(args))
     return output_file
     
-def call_plotinspiral(inspiral_caches, vetofile=None, figure_name=None):
+def call_plotinspiral(inspiral_caches, vetofile=None, figure_name=None,
+    chisq_threshold=None, chisq_delta=None, chisq_bins=None):
     """
     Based on what information is available, produce plotinspiral plots of
     interest.
     TODO: HTML markup (<a href=""><img src="" alt=""></a>), first vs second
           stage
     """
-    args = ["plotinspiral", "--snr-time"]
+    args = ["plotinspiral", "--snr-time", "--log-snr-chisq", "--hist-snr"]
     
     if vetofile is not None:
         args += ["--veto-file=%s" % vetofile]
     if figure_name is not None:
         args += ["--figure-name=%s" % figure_name]
+    if chisq_threshold is not None:
+        args += ["--chisq-threshold=%f" % chisq_threshold]
+    if chisq_delta is not None:
+        args += ["--chisq-delta=%f" % chisq_delta]
+    if chisq_bins is not None:
+        args += ["--chisq-bins=%d" % chisq_bins]
     
     for g in inspiral_caches:
         print "* Running plotinspiral on the files in the glob %s" % g
@@ -366,7 +410,6 @@ def call_plotthinca(thinca_file, vetofile=None, figure_name=None):
     """
     Based on what information is available, produce plotthinca plots of
     interest.
-    TODO: HTML markup (<a href=""><img src="" alt=""></a>)
     """
     print "* Running plotthinca on the file \"%s\"" % thinca_file
     basedir, ifos, tag, extratag, start, dur, ext = filename_to_tuple(thinca_file)
@@ -439,7 +482,7 @@ def call_plotthincaslide(slide_file, num_slides, vetofile=None,
     
     make_external_call(" ".join(args))
 
-def call_timeslide_stats(slide_file):
+def call_timeslide_stats(slide_file, veto_file=None):
     """
     Determine the mean number of triggers per slide per (n seconds / 180 seconds)
     """
@@ -448,7 +491,274 @@ def call_timeslide_stats(slide_file):
     args = ["pylal_grbtimeslide_stats", "--glob=%s" % slide_file,
         "--fold-time=180"]
     
-    make_external_call(" ".join(args), show_stdout=True)
+    if veto_file is not None:
+        args += ["--veto-file=%s" % veto_file]
+    
+    # determine output name
+    basedir, ifos, tag, extratag, start, dur, ext = filename_to_tuple(slide_file)
+    outname = tuple_to_filename((basedir, ifos, "SLIDE_STATS", extratag, start,
+        dur, ".txt"))
+    args.append("--outfile=%s" % outname)
+    
+    make_external_call(" ".join(args))
+    
+    return outname
+
+##############################################################################
+# HTML generation
+##############################################################################
+
+class GRBSummarySection(object):
+    def __init__(self, tag, name, content):
+        self.tag = tag
+        self.name = name
+        self.content = content
+    
+    def _header(self):
+        return "<a name=\"%s\">\n<h2>%s</h2>" % (self.tag, self.name)
+    
+    def _footer(self):
+        return "<b>[<a href=\"#toc\">return to table of contents</a>]</b>"
+    
+    def __str__(self):
+        return "\n".join((self._header(), self.content, self._footer()))
+    
+    def toc_entry(self):
+        return "  <li><a href=\"#%s\">%s</a></li>" % (self.tag, self.name)
+
+class GRBSectionList(list):
+    def __str__(self):
+        return "\n".join([str(elem) for elem in self])
+
+class GRBSummaryDoc(object):
+    """
+    Structure to accumulate pieces of information necessary to generate an
+    HTML summary of this GRB search.
+    """
+    def __init__(self, **kwargs):
+        self.header = """
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html lang="en">
+<head>
+    <meta name="Author" content="Nickolas Fotopoulos">
+    <style type="text/css"><!-- 
+    div.realbody { background-color: white; padding-left: 0.3ex;
+        padding-right: 0.5ex; font-family: sans-serif; }
+    h1 { text-align: center; font-family: sans-serif; margin-top: 1em;}
+    h2 { font-family: sans-serif; padding: 0.3em 1em; margin-top: 2em; 
+        border-top: 1px solid gray; border-bottom: 1px solid gray;
+        background-color: #FDFCC5; }
+    p { font-size: 90%%; line-height: 1.35; }
+    p + p { text-indent:1em; margin-top:0 }
+    img { border: 1px solid gray; }
+    table { text-align: center; padding: 0.5ex; margin: 0em 1em 0em 1em;
+        white-space: normal;}
+    table th,td { padding: 0.5ex 0.8ex 0.5ex 0.8ex;}
+    table td { background-color: #f1f1f3;}
+    code { font-size: 115%%; }
+    caption { font-family: sans-serif; font-size: 90%%; text-align: left;
+        padding-left: 3em; caption-side: bottom; margin-bottom: 1em; }
+    div.codebox{ font-family: monospace; background-color:#f1f1f3;
+        border:1px dotted gray;  white-space: pre; padding: 0em 1em 1em 1em;
+        margin: 0em 1em 1em 1em; float: left; max-width: 90%% ;
+        overflow: auto;}
+    div.figurebox { text-align: center; max-width: 90%%;
+        border: thin silver solid; margin: 0.5em; padding: 0.5em;
+        float: left; }
+    div.figurecaption{ text-align: left; margin-left: 0.5em; }
+    div.tablebox { text-align: center; max-width: 90%%;
+            margin: 0.5em; padding: 0.5em; float: left; overflow: auto;}
+    div.clearfix:after { content: "."; display: block; height: 0; clear: both; 
+        visibility: hidden; }
+    ol { font-size: 90%%; background-color: #FFF8E9; 
+        margin: 1em; padding: 1em 1em 0.6em 1em; border: 1px dotted gray; }
+    ol li { line-height: 1.3; margin-left: 1em; margin-bottom: 0.4em; }
+    --> </style>
+    <title>%(title)s</title>
+</head>
+<body>
+<div class="realbody">
+
+<h1>%(title)s</h1>
+<center>%(timestamp)s</center>
+
+<!-- End generic header -->
+"""
+        self.footer = """
+<!-- Start generic footer -->
+</div>
+</body>
+</html>
+"""
+        self.sections = GRBSectionList([])
+        
+        # record some parameters for string substitution in text
+        self.params = {}
+        self.params["title"] = "GRB Summary"
+        self.params["timestamp"] = time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime())
+        
+        # take whatever information is known up front
+        self.params.update(kwargs)
+        
+        # set up a figure numberer
+        self.figure_nums = itertools.count(1)
+    
+    def toc(self):
+        """
+        Generate a table of contents section.
+        """
+        toc_text = """
+<h2>Table of Contents</h2>
+<a name="toc"></a>
+
+<ol>
+  %s
+</ol>
+
+<!-- End auto-generated TOC -->
+"""
+        toc_entry_fmt = "<li><a href=\"#%s\">%s</a></li>"
+        toc_entries = [section.toc_entry() for section in self.sections]
+        return toc_text % ("\n".join(toc_entries))
+    
+    def write_to(self, fileobj):
+        text = "%s\n%s\n%s\n%s" % (self.header % self.params, self.toc(),
+            self.sections, self.footer)
+        fileobj.write(text)
+    
+    def add_section_segments(self, full_segfile, onsource_segfile):
+        """
+        Describe the segments used in this analysis.
+        """
+        # read the files
+        full_text = open(full_segfile).read()
+        onsource_text = open(onsource_segfile).read()
+        
+        # generate html
+        section_text = """
+<p>The full segment(s) analyzed, including on-source and off-source times, are:</p>
+
+<div class="clearfix"><div class="codebox">
+%s</div></div>
+
+<p>The on-source window (-120s to +60s of the optical trigger time) is:</p>
+
+<div class="clearfix"><div class="codebox">
+%s</div></div>
+""" % (full_text, onsource_text)
+        
+        # add section
+        self.sections.append(GRBSummarySection("segments",
+            "Segment Information", section_text))
+    
+    def add_section_dataquality(self, dq_file):
+        """
+        Describe data quality flags enabled in the region of interest.
+        """
+        # read the file
+        dq_text = open(dq_file).read()
+
+        # generate html
+        section_text = """
+<p>The data quality flags raised during the full segment(s), are:</p>
+
+<div class="clearfix"><div class="codebox">
+%s</div></div>
+""" % (dq_text)
+
+        # add section
+        self.sections.append(GRBSummarySection("dq",
+            "Data Quality Flags", section_text))
+    
+    def add_section_inspiral(self, figure_name):
+        """
+        Present the most-looked-at inspiral plots.
+        """
+        section_text = """
+<div class="clearfix"><div class="figurebox">
+    <a href="%s_H1_end_time_vs_snr.png"><img src="%s_H1_end_time_vs_snr.png" width="300" height="225" alt="%s_H1_end_time_vs_snr.png"></a>
+    <a href="%s_H2_end_time_vs_snr.png"><img src="%s_H2_end_time_vs_snr.png" width="300" height="225" alt="%s_H2_end_time_vs_snr.png"></a>
+    <div class="figurecaption">
+        Figure %d: SNR vs time, second inspiral
+        <br>
+        <span style="font-size: 90%% ;">Left: H1, Right: H2</span>
+    </div>
+</div></div>
+"""
+        # substitute the figure name as many times as necessary
+        substitutions = [figure_name] * section_text.count("%s")\
+            + [self.figure_nums.next()]
+        section_text = section_text % tuple(substitutions)
+        
+        # add section
+        self.sections.append(GRBSummarySection("%s_inspiral" % figure_name, 
+            "%s Inspiral Summary" % figure_name, section_text))
+    
+    def add_section_thinca(self, figure_name):
+        """
+        Present the most-looked-at thinca plots.
+        """
+        section_text = """
+<div class="clearfix"><div class="figurebox">
+    <a href="%s_H1_vs_H2_effective_snr.png"><img src="%s_H1_vs_H2_effective_snr.png" alt="%s_H1_vs_H2_effective_snr.png" width="300" height="225"></a>
+    <div class="figurecaption">
+    Figure %d: Second coincidence, clustered
+    <br>
+    <span style="font-size: 90%% ;">H1_vs_H2_effective_snr</span></div>
+</div></div>
+"""
+        # substitute the figure name as many times as necessary
+        substitutions = [figure_name] * section_text.count("%s")\
+            + [self.figure_nums.next()]
+        section_text = section_text % tuple(substitutions)
+
+        # add section
+        self.sections.append(GRBSummarySection("%s_thinca" % figure_name, 
+            "%s Thinca Summary" % figure_name, section_text))
+
+    def add_section_slide(self, figure_name, slide_summary_stat_file):
+        """
+        Present the most-looked-at slide plots.
+        """
+        print slide_summary_stat_file
+        
+        section_text = """
+<div class="clearfix"><div class="codebox">
+%s</div></div>
+""" % (open(slide_summary_stat_file).read())
+        
+        section_text += """
+<div class="clearfix"><div class="figurebox">
+    <a href="%s_cum_hist_effective_snr.png"><img src="%s_cum_hist_effective_snr.png" alt="%s_cum_hist_effective_snr.png" width="300" height="225"></a>
+<div class="figurecaption">
+Figure %d: Second coincidence, clustered.
+<br>
+<span style="font-size: 90%% ;">cum_hist_snr</span></div>
+</div></div>
+<div class="clearfix"><div class="figurebox">
+    <a href="%s_hist_slide_trigs.png"><img src="%s_hist_slide_trigs.png" alt="%s_hist_slide_trigs.png" width="300" height="225"></a>
+    <div class="figurecaption">
+    Figure %d: Second coincidence, clustered.
+    <br>
+    <span style="font-size: 90%% ;">hist_slide_trigs</span></div>
+</div></div>
+<div class="clearfix"><div class="figurebox">
+    <a href="%s_plot_slide_trigs.png"><img src="%s_plot_slide_trigs.png" alt="%s_plot_slide_trigs.png" width="300" height="225"></a>
+    <div class="figurecaption">
+    Figure %d: Second coincidence, clustered.
+    <br>
+    <span style="font-size: 90%% ;">plot_slide_trigs</span></div>
+</div></div>
+"""
+        # substitute the figure name as many times as necessary
+        substitutions = [self.figure_nums.next() for i in \
+            xrange(section_text.count("%d"))]
+        section_text = section_text.replace("%s", figure_name) \
+            % tuple(substitutions)
+
+        # add section
+        self.sections.append(GRBSummarySection("%s_slide" % figure_name, 
+            "%s Slide Summary" % figure_name, section_text))
 
 ##############################################################################
 # Main
@@ -458,6 +768,9 @@ if __name__ == "__main__":
     # parse input
     opts = get_options()
     
+    # start a fresh HTML document
+    summary_doc = GRBSummaryDoc()
+    
     # create an off-source segfile if necessary
     if not p.exists(opts.off_source_segfile):
         print "Writing an off-source segfile"
@@ -466,6 +779,18 @@ if __name__ == "__main__":
         off_source_segs = full_segs - on_source_segs
         segmentsUtils.tosegwizard(open(opts.off_source_segfile, 'w'),
             off_source_segs)
+    
+    # add segment information to summary
+    summary_doc.add_section_segments(opts.full_segfile, opts.on_source_segfile)
+
+    # data quality
+    if opts.query_dq:
+        dq_file = call_query_dq(opts.full_segfile,
+            reduce(lambda a,b: a+b, [glob.glob(g) for g in opts.inspiral_globs]) \
+            or glob.glob(opts.thinca_files) or glob.glob(opts.slides_files))
+    
+        # add data quality information to summary
+        summary_doc.add_section_dataquality(dq_file)
     
     # inspiral
     if opts.inspiral_globs is not None:
@@ -485,10 +810,16 @@ if __name__ == "__main__":
         # plot each inspiral file
         if opts.figure_name is not None:
             call_plotinspiral(inspiral_caches, opts.on_source_segfile,
-                "%s_off" % opts.figure_name)
-            call_plotinspiral(inspiral_caches, opts.off_source_segfile,
-                "%s_on" % opts.figure_name)
-    
+                "%s_off" % opts.figure_name, opts.chisq_threshold,
+                opts.chisq_delta, opts.chisq_bins)
+            summary_doc.add_section_inspiral("%s_off" % opts.figure_name)
+            
+            if opts.analyze_onsource:
+                summary_doc.add_section_inspiral("%s_on" % opts.figure_name)
+                call_plotinspiral(inspiral_caches, opts.off_source_segfile,
+                    "%s_on" % opts.figure_name, opts.chisq_threshold,
+                    opts.chisq_delta, opts.chisq_bins)
+
     # thinca
     if opts.thinca_glob is not None:
         # cluster triggers file by file; either way, create input file 
@@ -503,18 +834,22 @@ if __name__ == "__main__":
         write_lal_cache(thinca_cache, thinca_files)
         
         # add coincs, handling inspid business; overwrite input file
-        new_thinca_file = call_add_inspiral(thinca_cache)
+        new_thinca_file = call_ligolw_add(thinca_cache)
         
         # plot
         if opts.figure_name is not None:
             call_plotthinca(new_thinca_file, opts.on_source_segfile,
                 "%s_off" % opts.figure_name)
-            call_plotthinca(new_thinca_file, opts.off_source_segfile,
-                "%s_on" % opts.figure_name)
             call_plotethinca(new_thinca_file, opts.on_source_segfile,
                 "%s_off" % opts.figure_name)
-            call_plotethinca(new_thinca_file, opts.off_source_segfile,
-                "%s_on" % opts.figure_name)
+            summary_doc.add_section_thinca("%s_off" % opts.figure_name)
+            
+            if opts.analyze_onsource:
+                call_plotthinca(new_thinca_file, opts.off_source_segfile,
+                    "%s_on" % opts.figure_name)
+                call_plotethinca(new_thinca_file, opts.off_source_segfile,
+                    "%s_on" % opts.figure_name)
+                summary_doc.add_section_thinca("%s_on" % opts.figure_name)
     
     # thinca slide
     if opts.slide_glob is not None:
@@ -531,14 +866,22 @@ if __name__ == "__main__":
         write_lal_cache(slide_cache, slide_files)
         
         # add coincs, handling inspid business; overwrite input file
-        new_slide_file = call_add_inspiral(slide_cache)
+        new_slide_file = call_ligolw_add(slide_cache)
         
-        # first, a summary
-        call_timeslide_stats(new_slide_file)
+        # summary stats
+        slide_summary_stat_file = call_timeslide_stats(new_slide_file)
         
         # plot
         if opts.figure_name is not None:
             call_plotthincaslide(new_slide_file, opts.num_slides,
                 opts.on_source_segfile, "%s_off" % opts.figure_name)
-            call_plotthincaslide(new_slide_file, opts.num_slides,
-                opts.off_source_segfile, "%s_on" % opts.figure_name)
+            summary_doc.add_section_slide("%s_off" % opts.figure_name,
+                slide_summary_stat_file)                
+
+            if opts.analyze_onsource:
+                call_plotthincaslide(new_slide_file, opts.num_slides,
+                    opts.off_source_segfile, "%s_on" % opts.figure_name)
+                summary_doc.add_section_slide("%s_on" % opts.figure_name,
+                    slide_summary_stat_file)
+    
+    summary_doc.write_to(open('%s.html' % opts.figure_name, 'w'))
