@@ -606,8 +606,8 @@ class segmentlist(list):
 		if self[0][0] > NegInfinity:
 			l.append(segment(NegInfinity, self[0][0]))
 		last = self[0][1]
-		for j in xrange(1, len(self)):
-			l.append(segment(last, self[j][0]))
+		for i in xrange(1, len(self)):
+			l.append(segment(last, self[i][0]))
 			last = self[j][1]
 		if last < PosInfinity:
 			l.append(segment(last, PosInfinity))
