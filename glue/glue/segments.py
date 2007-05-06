@@ -608,7 +608,7 @@ class segmentlist(list):
 		last = self[0][1]
 		for i in xrange(1, len(self)):
 			l.append(segment(last, self[i][0]))
-			last = self[j][1]
+			last = self[i][1]
 		if last < PosInfinity:
 			l.append(segment(last, PosInfinity))
 		return l
