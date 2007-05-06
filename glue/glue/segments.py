@@ -524,7 +524,7 @@ class segmentlist(list):
 			i = j = bisect_right(self, seg, i)
 			if i and not self[i - 1].disjoint(seg):
 				i -= 1
-				seg |= self[i]
+				seg = seg | self[i]
 			n = len(self)
 			while j < n and not seg.disjoint(self[j]):
 				j += 1
