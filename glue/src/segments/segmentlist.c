@@ -979,8 +979,46 @@ static PyObject *__invert__(PyObject *self)
 
 static PyObject *coalesce(PyObject *self, PyObject *nul)
 {
-	/* FIXME */
-	return NULL;
+	PyObject *seg;
+	int result;
+	int i, j;
+	int n;
+
+	if(PyList_Sort(self) < 0)
+		return NULL;
+
+	n = PyList_GET_SIZE(self);
+	if(n < 0)
+		return NULL;
+
+	i = j = 0;
+	while(j < n) {
+		seg = PyList_GET_ITEM(self, j++);
+		Py_INCREF(seg);
+		result = 0;
+		while((j < n) && !(result = segs_are_disjoint(seg, PyList_GET_ITEM(self, j)))) {
+			PyObject *new = PyNumber_Or(seg, PyList_GET_ITEM(self, j++));
+			Py_DECREF(seg);
+			seg = new;
+			if(!seg)
+				return NULL;
+		}
+		if(result < 0) {
+			Py_DECREF(seg);
+			return NULL;
+		}
+		/* _SET_ITEM consumes seg's ref */
+		if(PyList_SET_ITEM(self, i, seg) < 0) {
+			Py_DECREF(seg);
+			return NULL;
+		}
+		i++;
+	}
+	if(PyList_SetSlice(self, i, n, NULL) < 0)
+		return NULL;
+	
+	Py_INCREF(self);
+	return self;
 }
 
 
