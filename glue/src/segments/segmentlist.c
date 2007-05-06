@@ -994,6 +994,8 @@ static PyObject *coalesce(PyObject *self, PyObject *nul)
 	i = j = 0;
 	while(j < n) {
 		seg = PyList_GET_ITEM(self, j++);
+		if(!seg)
+			return NULL;
 		Py_INCREF(seg);
 		result = 0;
 		while((j < n) && !(result = segs_are_disjoint(seg, PyList_GET_ITEM(self, j)))) {
@@ -1016,7 +1018,7 @@ static PyObject *coalesce(PyObject *self, PyObject *nul)
 	}
 	if(PyList_SetSlice(self, i, n, NULL) < 0)
 		return NULL;
-	
+
 	Py_INCREF(self);
 	return self;
 }
@@ -1029,22 +1031,116 @@ static PyObject *coalesce(PyObject *self, PyObject *nul)
 
 static PyObject *protract(PyObject *self, PyObject *delta)
 {
-	/* FIXME */
-	return NULL;
+	PyObject *protract;
+	PyObject *seg, *new;
+	int i;
+	int n;
+
+	n = PyList_GET_SIZE(self);
+	if(n < 0)
+		return NULL;
+
+	protract = PyString_FromString("protract");
+	if(!protract)
+		return NULL;
+
+	for(i = 0; i < n; i++) {
+		seg = PyList_GET_ITEM(self, i);
+		if(!seg) {
+			Py_DECREF(protract);
+			return NULL;
+		}
+		new = PyObject_CallMethodObjArgs(seg, protract, delta, NULL);
+		if(!new) {
+			Py_DECREF(protract);
+			return NULL;
+		}
+		if(PyList_SetItem(self, i, new) < 0) {
+			Py_DECREF(protract);
+			return NULL;
+		}
+	}
+
+	Py_DECREF(protract);
+
+	return coalesce(self, NULL);
 }
 
 
 static PyObject *contract(PyObject *self, PyObject *delta)
 {
-	/* FIXME */
-	return NULL;
+	PyObject *contract;
+	PyObject *seg, *new;
+	int i;
+	int n;
+
+	n = PyList_GET_SIZE(self);
+	if(n < 0)
+		return NULL;
+
+	contract = PyString_FromString("contract");
+	if(!contract)
+		return NULL;
+
+	for(i = 0; i < n; i++) {
+		seg = PyList_GET_ITEM(self, i);
+		if(!seg) {
+			Py_DECREF(contract);
+			return NULL;
+		}
+		new = PyObject_CallMethodObjArgs(seg, contract, delta, NULL);
+		if(!new) {
+			Py_DECREF(contract);
+			return NULL;
+		}
+		if(PyList_SetItem(self, i, new) < 0) {
+			Py_DECREF(contract);
+			return NULL;
+		}
+	}
+
+	Py_DECREF(contract);
+
+	return coalesce(self, NULL);
 }
 
 
 static PyObject *shift(PyObject *self, PyObject *delta)
 {
-	/* FIXME */
-	return NULL;
+	PyObject *shift;
+	PyObject *seg, *new;
+	int i;
+	int n;
+
+	n = PyList_GET_SIZE(self);
+	if(n < 0)
+		return NULL;
+
+	shift = PyString_FromString("shift");
+	if(!shift)
+		return NULL;
+
+	for(i = 0; i < n; i++) {
+		seg = PyList_GET_ITEM(self, i);
+		if(!seg) {
+			Py_DECREF(shift);
+			return NULL;
+		}
+		new = PyObject_CallMethodObjArgs(seg, shift, delta, NULL);
+		if(!new) {
+			Py_DECREF(shift);
+			return NULL;
+		}
+		if(PyList_SetItem(self, i, new) < 0) {
+			Py_DECREF(shift);
+			return NULL;
+		}
+	}
+
+	Py_DECREF(shift);
+
+	Py_INCREF(self);
+	return self;
 }
 
 
