@@ -77,15 +77,14 @@ static int bisect_left(PyObject *seglist, PyObject *seg, int lo, int hi)
 		Py_INCREF(item);
 		result = PyObject_RichCompareBool(item, seg, Py_LT);
 		Py_DECREF(item);
-		if(result > 0)
+		if(result < 0)
+			return -1;
+		else if(result > 0)
 			/* item < seg */
 			lo = mid + 1;
-		else if(result == 0)
+		else
 			/* item >= seg */
 			hi = mid;
-		else
-			/* error */
-			return -1;
 	}
 
 	return lo;
@@ -114,15 +113,14 @@ static int bisect_right(PyObject *seglist, PyObject *seg, int lo, int hi)
 		Py_INCREF(item);
 		result = PyObject_RichCompareBool(seg, item, Py_LT);
 		Py_DECREF(item);
-		if(result > 0)
+		if(result < 0)
+			return -1;
+		else if(result > 0)
 			/* seg < item */
 			hi = mid;
-		else if(result == 0)
+		else
 			/* seg >= item */
 			lo = mid + 1;
-		else
-			/* error */
-			return -1;
 	}
 
 	return lo;
@@ -262,29 +260,27 @@ static PyObject *extent(PyObject *self, PyObject *nul)
 		Py_INCREF(item_min);
 		Py_INCREF(item_max);
 
-		result = PyObject_RichCompareBool(min, item_min, Py_GT);
-		if(result > 0) {
-			Py_DECREF(min);
-			min = item_min;
-		} else if(result < 0) {
+		if((result = PyObject_RichCompareBool(min, item_min, Py_GT)) < 0) {
 			Py_DECREF(min);
 			Py_DECREF(max);
 			Py_DECREF(item_min);
 			Py_DECREF(item_max);
 			return NULL;
+		} else if(result > 0) {
+			Py_DECREF(min);
+			min = item_min;
 		} else
 			Py_DECREF(item_min);
 
-		result = PyObject_RichCompareBool(max, item_max, Py_LT);
-		if(result > 0) {
-			Py_DECREF(max);
-			max = item_max;
-		} else if(result < 0) {
+		if((result = PyObject_RichCompareBool(max, item_max, Py_LT)) < 0) {
 			Py_DECREF(min);
 			Py_DECREF(max);
 			Py_DECREF(item_min);
 			Py_DECREF(item_max);
 			return NULL;
+		} else if(result > 0) {
+			Py_DECREF(max);
+			max = item_max;
 		} else
 			Py_DECREF(item_max);
 	}
@@ -307,15 +303,11 @@ static PyObject *find(PyObject *self, PyObject *item)
 		Py_INCREF(seg);
 		result = PySequence_Contains(seg, item);
 		Py_DECREF(seg);
-		if(result == 0)
-			/* not a match */
-			continue;
-		Py_DECREF(item);
-		if(result > 0)
+		if(result < 0)
+			return NULL;
+		else if(result > 0)
 			/* match found */
 			return PyInt_FromLong(i);
-		/* result < 0 == error */
-		return NULL;
 	}
 
 	PyErr_SetObject(PyExc_ValueError, item);
@@ -337,8 +329,8 @@ static PyObject *intersects(PyObject *self, PyObject *other)
 	PyObject *seg_hi;
 	PyObject *oth_lo;
 	PyObject *oth_hi;
-	int i = 0;
-	int j = 0;
+	int result;
+	int i, j;
 
 	if((n_self < 0) || (n_other < 0))
 		return NULL;
@@ -347,31 +339,32 @@ static PyObject *intersects(PyObject *self, PyObject *other)
 		return Py_False;
 	}
 
+	i = j = 0;
+
 	seg = PyList_GET_ITEM(self, 0);
 	seg_lo = PyTuple_GetItem(seg, 0);
 	seg_hi = PyTuple_GetItem(seg, 1);
 	seg = PySequence_GetItem(other, 0);
 	oth_lo = PyTuple_GetItem(seg, 0);
 	oth_hi = PyTuple_GetItem(seg, 1);
-	Py_DECREF(seg);
-	if(!(seg_lo && seg_hi && oth_lo && oth_hi))
+	if(!(seg_lo && seg_hi && oth_lo && oth_hi)) {
+		Py_DECREF(seg);
 		return NULL;
+	}
 	Py_INCREF(seg_lo);
 	Py_INCREF(seg_hi);
 	Py_INCREF(oth_lo);
 	Py_INCREF(oth_hi);
-	while(1) {
-		int result;
+	Py_DECREF(seg);
 
-		result = PyObject_RichCompareBool(seg_hi, oth_lo, Py_LE);
-		if(result < 0) {
+	while(1) {
+		if((result = PyObject_RichCompareBool(seg_hi, oth_lo, Py_LE)) < 0) {
 			Py_DECREF(seg_lo);
 			Py_DECREF(seg_hi);
 			Py_DECREF(oth_lo);
 			Py_DECREF(oth_hi);
 			return NULL;
-		}
-		if(result > 1) {
+		} else if(result > 0) {
 			Py_DECREF(seg_lo);
 			Py_DECREF(seg_hi);
 			if(++i >= n_self) {
@@ -383,22 +376,20 @@ static PyObject *intersects(PyObject *self, PyObject *other)
 			seg = PyList_GET_ITEM(self, i);
 			seg_lo = PyTuple_GetItem(seg, 0);
 			seg_hi = PyTuple_GetItem(seg, 1);
-			if(!(seg_lo && seg_hi))
+			if(!(seg_lo && seg_hi)) {
+				Py_DECREF(oth_lo);
+				Py_DECREF(oth_hi);
 				return NULL;
+			}
 			Py_INCREF(seg_lo);
 			Py_INCREF(seg_hi);
-			continue;
-		}
-
-		result = PyObject_RichCompareBool(oth_hi, seg_lo, Py_LE);
-		if(result < 0) {
+		} else if((result = PyObject_RichCompareBool(oth_hi, seg_lo, Py_LE)) < 0) {
 			Py_DECREF(seg_lo);
 			Py_DECREF(seg_hi);
 			Py_DECREF(oth_lo);
 			Py_DECREF(oth_hi);
 			return NULL;
-		}
-		if(result > 1) {
+		} else if(result > 0) {
 			Py_DECREF(oth_lo);
 			Py_DECREF(oth_hi);
 			if(++j >= n_other) {
@@ -410,17 +401,20 @@ static PyObject *intersects(PyObject *self, PyObject *other)
 			seg = PySequence_GetItem(other, j);
 			oth_lo = PyTuple_GetItem(seg, 0);
 			oth_hi = PyTuple_GetItem(seg, 1);
-			Py_DECREF(seg);
-			if(!(oth_lo && oth_hi))
+			if(!(oth_lo && oth_hi)) {
+				Py_DECREF(seg_lo);
+				Py_DECREF(seg_hi);
+				Py_DECREF(seg);
 				return NULL;
+			}
 			Py_INCREF(oth_lo);
 			Py_INCREF(oth_hi);
-			continue;
+			Py_DECREF(seg);
+		} else {
+			/* self[i] and other[j] intersect */
+			Py_INCREF(Py_True);
+			return Py_True;
 		}
-
-		/* self[i] and other[j] intersect */
-		Py_INCREF(Py_True);
-		return Py_True;
 	}
 }
 
@@ -447,7 +441,7 @@ static PyObject *intersects_segment(PyObject *self, PyObject *other)
 		Py_DECREF(b);
 		if(result < 0)
 			return NULL;
-		if(result > 0) {
+		else if(result > 0) {
 			Py_INCREF(Py_True);
 			return Py_True;
 		}
@@ -465,7 +459,7 @@ static PyObject *intersects_segment(PyObject *self, PyObject *other)
 		Py_DECREF(b);
 		if(result < 0)
 			return NULL;
-		if(result > 0) {
+		else if(result > 0) {
 			Py_INCREF(Py_True);
 			return Py_True;
 		}
@@ -541,8 +535,7 @@ static PyObject *__ior__(PyObject *self, PyObject *other)
 			Py_DECREF(other);
 			return NULL;
 		} else if(i > 0) {
-			result = segs_are_disjoint(PyList_GET_ITEM(self, i - 1), seg);
-			if(result < 0) {
+			if((result = segs_are_disjoint(PyList_GET_ITEM(self, i - 1), seg)) < 0) {
 				Py_DECREF(seg);
 				Py_DECREF(other);
 				return NULL;
