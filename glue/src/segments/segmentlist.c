@@ -412,6 +412,10 @@ static PyObject *intersects(PyObject *self, PyObject *other)
 			Py_DECREF(seg);
 		} else {
 			/* self[i] and other[j] intersect */
+			Py_DECREF(lo);
+			Py_DECREF(hi);
+			Py_DECREF(olo);
+			Py_DECREF(ohi);
 			Py_INCREF(Py_True);
 			return Py_True;
 		}
