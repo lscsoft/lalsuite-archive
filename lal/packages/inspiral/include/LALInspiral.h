@@ -425,6 +425,7 @@ typedef enum {
    SpinTaylorT3,
    SpinTaylor,
    FindChirpSP,
+   FindChirpPTF,
    GeneratePPN,
    BCVC,
    FrameFile,
@@ -505,6 +506,10 @@ tagInspiralTemplate
   REAL8 sourceTheta;
   REAL8 sourcePhi;
   REAL8 polarisationAngle;
+
+/* Spin parameters for the PTF template */
+  REAL8 chi; /* dimensionless spin of black hole (i.e. mass1) */
+  REAL8 kappa; /* cosine of angle between spin of mass1 and orb ang mom */
 
 /* Parameters which are currently might be used */
 

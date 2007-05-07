@@ -83,6 +83,7 @@ LALFindChirpTDData (
     case PadeT1:
     case EOB:
     case BCVSpin:
+    case FindChirpPTF:
       /* store the input approximant */
       approx = params->approximant;
       break;

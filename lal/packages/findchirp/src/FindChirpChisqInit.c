@@ -113,6 +113,7 @@ LALFindChirpChisqVetoInit (
     case TaylorF2:
     case GeneratePPN:
     case FindChirpSP:
+    case FindChirpPTF:
     case PadeT1:
     case EOB:
     case BCV:
@@ -299,6 +300,7 @@ LALFindChirpChisqVetoFinalize (
     case TaylorF2:
     case GeneratePPN:
     case FindChirpSP:
+    case FindChirpPTF:
     case PadeT1:
     case EOB:
     case BCV:

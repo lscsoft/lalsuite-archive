@@ -400,6 +400,9 @@ tagFindChirpTemplate
 {
   InspiralTemplate              tmplt;
   COMPLEX8Vector               *data;
+  COMPLEX8VectorSequence       *PTFQtilde;
+  REAL4Array                   *PTFBinverse;
+  REAL4Array                   *PTFB;  
   REAL4                         tmpltNorm;
   REAL4				norm;
   REAL8                         momentI;
