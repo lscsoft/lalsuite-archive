@@ -519,6 +519,11 @@ class segmentlist(list):
 		This is still O(n log n), but with a smaller leading
 		coefficient.
 		"""
+		# FIXME:  add switch to automatically select fastest
+		# algorithm, but what is the test?
+		#if len(other) > 1000 and len(other) > len(self) / 2:
+		#	self.extend(other)
+		#	return self.coalesce()
 		i = 0
 		for seg in other:
 			i = j = bisect_right(self, seg, i)
