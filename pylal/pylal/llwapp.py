@@ -84,10 +84,10 @@ def get_time_slide_id(xmldoc, time_slide, create_new = None):
 	"""
 	try:
 		tisitable = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
-	except ValueError:
+	except ValueError, e:
 		# table not found
 		if create_new is None:
-			raise KeyError, time_slide
+			raise e
 		tisitable = lsctables.New(lsctables.TimeSlideTable)
 		xmldoc.childNodes[0].appendChild(tisitable)
 	for id, offsetdict in tisitable.get_offsets().iteritems():
@@ -157,10 +157,10 @@ def get_coinc_def_id(xmldoc, table_names, create_new = True):
 	"""
 	try:
 		coincdeftable = table.get_table(xmldoc, lsctables.CoincDefTable.tableName)
-	except ValueError:
+	except ValueError, e:
 		# table not found
 		if not create_new:
-			raise KeyError, table_names
+			raise e
 		coincdeftable = lsctables.New(lsctables.CoincDefTable)
 		xmldoc.childNodes[0].appendChild(coincdeftable)
 	table_names = list(table_names)
