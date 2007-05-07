@@ -494,6 +494,58 @@ static int __contains__(PyObject *self, PyObject *other)
 
 
 /*
+ * Coalesce
+ */
+
+
+static PyObject *coalesce(PyObject *self, PyObject *nul)
+{
+	PyObject *seg;
+	int result;
+	int i, j;
+	int n;
+
+	if(PyList_Sort(self) < 0)
+		return NULL;
+
+	n = PyList_GET_SIZE(self);
+	if(n < 0)
+		return NULL;
+
+	i = j = 0;
+	while(j < n) {
+		seg = PyList_GET_ITEM(self, j++);
+		if(!seg)
+			return NULL;
+		Py_INCREF(seg);
+		result = 0;
+		while((j < n) && !(result = segs_are_disjoint(seg, PyList_GET_ITEM(self, j)))) {
+			PyObject *new = PyNumber_Or(seg, PyList_GET_ITEM(self, j++));
+			Py_DECREF(seg);
+			seg = new;
+			if(!seg)
+				return NULL;
+		}
+		if(result < 0) {
+			Py_DECREF(seg);
+			return NULL;
+		}
+		/* _SetItem consumes a ref count */
+		if(PyList_SetItem(self, i, seg) < 0) {
+			Py_DECREF(seg);
+			return NULL;
+		}
+		i++;
+	}
+	if(PyList_SetSlice(self, i, n, NULL) < 0)
+		return NULL;
+
+	Py_INCREF(self);
+	return self;
+}
+
+
+/*
  * Arithmetic
  */
 
@@ -527,6 +579,15 @@ static PyObject *__ior__(PyObject *self, PyObject *other)
 	PyObject *seg;
 	int result;
 	int i, j, n;
+
+	/* OK to ignore errors returned from size functions because either
+	 * way it will likely just cause the code to fall back to the
+	 * implementation below */
+	if(PySequence_Size(other) > PyList_GET_SIZE(self) / 2) {
+		if(!_PyList_Extend((PyListObject *) self, other))
+			return NULL;
+		return coalesce(self, NULL);
+	}
 
 	i = 0;
 	other = PyObject_GetIter(other);
@@ -994,53 +1055,6 @@ static PyObject *__invert__(PyObject *self)
 	}
 
 	return new;
-}
-
-
-static PyObject *coalesce(PyObject *self, PyObject *nul)
-{
-	PyObject *seg;
-	int result;
-	int i, j;
-	int n;
-
-	if(PyList_Sort(self) < 0)
-		return NULL;
-
-	n = PyList_GET_SIZE(self);
-	if(n < 0)
-		return NULL;
-
-	i = j = 0;
-	while(j < n) {
-		seg = PyList_GET_ITEM(self, j++);
-		if(!seg)
-			return NULL;
-		Py_INCREF(seg);
-		result = 0;
-		while((j < n) && !(result = segs_are_disjoint(seg, PyList_GET_ITEM(self, j)))) {
-			PyObject *new = PyNumber_Or(seg, PyList_GET_ITEM(self, j++));
-			Py_DECREF(seg);
-			seg = new;
-			if(!seg)
-				return NULL;
-		}
-		if(result < 0) {
-			Py_DECREF(seg);
-			return NULL;
-		}
-		/* _SetItem consumes a ref count */
-		if(PyList_SetItem(self, i, seg) < 0) {
-			Py_DECREF(seg);
-			return NULL;
-		}
-		i++;
-	}
-	if(PyList_SetSlice(self, i, n, NULL) < 0)
-		return NULL;
-
-	Py_INCREF(self);
-	return self;
 }
 
 

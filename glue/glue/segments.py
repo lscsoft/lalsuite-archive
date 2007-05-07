@@ -506,24 +506,13 @@ class segmentlist(list):
 	def __ior__(self, other):
 		"""
 		Replace the segmentlist with the union of itself and
-		another.  If the two lists have numbers of elements m and n
-		respectively, then this algorithm is O(n log m), which
-		means it is optimized for the case when self is large and
-		other is small.  In practice, this has been found to be the
-		more common scenario.  If you have two large lists of
-		comparable size, n, then it is faster to do
-
-		>>> list1.extend(list2)
-		>>> list1.coalesce()
-
-		This is still O(n log n), but with a smaller leading
-		coefficient.
+		another.  If the two lists have numbers of elements n and m
+		respectively, then for m << n the algorithm is O(m log n),
+		otherwise it is O((n + m) log (n + m)).
 		"""
-		# FIXME:  add switch to automatically select fastest
-		# algorithm, but what is the test?
-		#if len(other) > 1000 and len(other) > len(self) / 2:
-		#	self.extend(other)
-		#	return self.coalesce()
+		if len(other) > len(self) / 2:
+			self.extend(other)
+			return self.coalesce()
 		i = 0
 		for seg in other:
 			i = j = bisect_right(self, seg, i)
@@ -545,9 +534,9 @@ class segmentlist(list):
 	def __or__(self, other):
 		"""
 		Return the union of the segment list and another.  The
-		comment in the segmentlist.__ior__() method about
-		performance optimization when computing the union of large
-		lists of similar size applies here as well.
+		algorithm has the same scaling as in the
+		segmentlist.__ior__() method, except that the lists are
+		reordered to attempt to use the O(m log n) case.
 		"""
 		if len(self) >= len(other):
 			return segmentlist(self).__ior__(other)
