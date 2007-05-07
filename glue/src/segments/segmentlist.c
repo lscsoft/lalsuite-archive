@@ -605,10 +605,24 @@ static PyObject *__ior__(PyObject *self, PyObject *other)
 static PyObject *__or__(PyObject *self, PyObject *other)
 {
 	PyObject *new = NULL;
-	self = (PyObject *) segments_SegmentList_New(&segments_SegmentList_Type, self);
-	if(self) {
-		new = PyNumber_InPlaceOr(self, other);
-		Py_DECREF(self);
+	int nself = PyList_GET_SIZE(self);
+	int nother = PySequence_Size(other);
+
+	if(nself < 0 || nother < 0)
+		return NULL;
+
+	if(nself >= nother) {
+		self = (PyObject *) segments_SegmentList_New(&segments_SegmentList_Type, self);
+		if(self) {
+			new = PyNumber_InPlaceOr(self, other);
+			Py_DECREF(self);
+		}
+	} else {
+		other = (PyObject *) segments_SegmentList_New(&segments_SegmentList_Type, other);
+		if(other) {
+			new = PyNumber_InPlaceOr(other, self);
+			Py_DECREF(other);
+		}
 	}
 	return new;
 }
