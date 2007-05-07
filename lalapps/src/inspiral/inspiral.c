@@ -55,6 +55,7 @@
 #include <lal/FindChirpTD.h>
 #include <lal/FindChirpBCV.h>
 #include <lal/FindChirpBCVSpin.h>
+#include <lal/FindChirpPTF.h>
 #include <lal/FindChirpChisq.h>
 #include <lal/LALTrigScanCluster.h>
 
@@ -1731,8 +1732,9 @@ int main( int argc, char *argv[] )
       case GeneratePPN:
       case PadeT1:
       case EOB:
+      case FindChirpPTF:
         if ( vrbflg ) 
-          fprintf( stdout, "findchirp conditioning data for TD\n" );
+          fprintf( stdout, "findchirp conditioning data for TD or PTF\n" );
         LAL_CALL( LALFindChirpTDData( &status, fcSegVec, dataSegVec, 
               fcDataParams ), &status );
         break;
@@ -2032,6 +2034,11 @@ int main( int argc, char *argv[] )
                   fcTmpltParams, fcDataParams ), &status );
             break;
 
+          case FindChirpPTF:
+            LAL_CALL( LALFindChirpPTFTemplate( &status, fcFilterInput->fcTmplt,
+                  bankCurrent, fcTmpltParams ), &status );
+            break;
+
           default:
             fprintf( stderr, 
                 "error: unknown waveform template approximant \n" );
@@ -2176,6 +2183,14 @@ int main( int argc, char *argv[] )
                 LAL_CALL( LALFindChirpBCVSpinFilterSegment( &status,
                       &eventList, fcFilterInput, fcFilterParams, fcDataParams 
                       ), &status );
+                break;
+
+              case FindChirpPTF:
+                LAL_CALL( LALFindChirpPTFNormalize( &status, 
+                      fcFilterInput->fcTmplt, fcFilterInput->segment, 
+                      fcDataParams ), &status );
+                LAL_CALL( LALFindChirpPTFFilterSegment( &status, 
+                      &eventList, fcFilterInput, fcFilterParams ), &status ); 
                 break;
 
               default:
@@ -3018,7 +3033,7 @@ LALSnprintf( this_proc_param->value, LIGOMETA_VALUE_MAX, format, ppvalue );
 "\n"\
 "  --approximant APPROX         set approximant of the waveform to APPROX\n"\
 "                               (FindChirpSP|BCV|BCVC|BCVSpin|TaylorT1|TaylorT2|\n"\
-"                                  TaylorT3|PadeT1|EOB|GeneratePPN)\n"\
+"                                  TaylorT3|PadeT1|EOB|GeneratePPN|FindChirpPTF)\n"\
 "  --snr-threshold RHO          set signal-to-noise threshold to RHO\n"\
 "  --chisq-bins P               set number of chisq veto bins to P\n"\
 "  --chisq-delta DELTA          set chisq delta parameter to DELTA\n"\
@@ -3727,11 +3742,16 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
         {
           approximant = BCVSpin;
         }
+        else if ( ! strcmp( "FindChirpPTF", optarg ) )
+        {
+          approximant = FindChirpPTF;
+        }
         else
         {
           fprintf( stderr, "invalid argument to --%s:\n"
               "unknown order specified: "
-              "%s (must be either FindChirpSP or BCV or BCVC or BCVSpin)\n", 
+              "%s (must be either FindChirpSP, BCV, BCVC, BCVSpin, FindChirpPTF\n"
+              "TaylorT1, TaylorT2, TaylorT3, GeneratePPN, PadeT1 or EOB)\n", 
               long_options[option_index].name, optarg );
           exit( 1 );
         }
