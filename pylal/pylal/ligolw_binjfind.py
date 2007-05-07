@@ -119,7 +119,7 @@ class DocContents(object):
 		# slide table if it didn't exist
 		#
 
-		zero_lag_time_slides = tuple(llwapp.get_zero_lag_time_slides(xmldoc).keys())
+		zero_lag_time_slides = set(llwapp.get_zero_lag_time_slides(xmldoc).keys())
 
 		#
 		# get coinc_def_id for sim_burst <--> sngl_burst coincs;
