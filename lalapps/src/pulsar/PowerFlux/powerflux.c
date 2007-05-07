@@ -674,7 +674,8 @@ output_datasets_info();
 /* this is so we know how many skybands we have */
 if(sky_marks!=NULL) {
 	process_marks(fine_grid, sky_marks, sky_marks_free);
-	process_marks(patch_grid, sky_marks, sky_marks_free);
+	process_marks(patch_grid, "disk \"sky\" \"\" 0 0 100", 21);
+	propagate_far_points_from_super_grid(patch_grid, proto_super_grid);
 	} else {
 	S_assign_bands(fine_grid, args_info.nskybands_arg, large_S, spindown, (first_bin+nbins*0.5)/1800.0);
 	}
@@ -704,7 +705,9 @@ for(subinstance=0;subinstance<args_info.spindown_count_arg;subinstance++){
 
 	if(sky_marks!=NULL) {
 		process_marks(fine_grid, sky_marks, sky_marks_free);
-		process_marks(patch_grid, sky_marks, sky_marks_free);
+		process_marks(patch_grid, "disk \"sky\" \"\" 0 0 100", 21);
+		propagate_far_points_from_super_grid(patch_grid, proto_super_grid);
+		//process_marks(patch_grid, sky_marks, sky_marks_free);
 		} else {
 
 		/* assign bands */
@@ -727,7 +730,7 @@ for(subinstance=0;subinstance<args_info.spindown_count_arg;subinstance++){
 	
 	if(args_info.focus_ra_given && 
 	   args_info.focus_dec_given && 
-	   args_info.focus_radius_given){
+	   args_info.focus_radius_given) {
    		fprintf(LOG, "focus ra    : %f\n", args_info.focus_ra_arg);
    		fprintf(LOG, "focus dec   : %f\n", args_info.focus_dec_arg);
    		fprintf(LOG, "focus radius: %f\n", args_info.focus_radius_arg);
@@ -735,7 +738,7 @@ for(subinstance=0;subinstance<args_info.spindown_count_arg;subinstance++){
 		propagate_far_points_from_super_grid(patch_grid, proto_super_grid);
    		}
 
-	if(args_info.only_large_cos_given){
+	if(args_info.only_large_cos_given) {
 		fprintf(LOG, "only large cos level: %f\n", args_info.only_large_cos_arg);
    		mask_small_cos(fine_grid, band_axis[0], band_axis[1], band_axis[3], args_info.only_large_cos_arg);
 		propagate_far_points_from_super_grid(patch_grid, proto_super_grid);
