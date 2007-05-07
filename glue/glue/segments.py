@@ -501,7 +501,7 @@ class segmentlist(list):
 		Return the intersection of the segmentlist and another.
 		This operation is O(n).
 		"""
-		return segmentlist(self[:]).__iand__(other)
+		return segmentlist(self).__iand__(other)
 
 	def __ior__(self, other):
 		"""
@@ -543,8 +543,8 @@ class segmentlist(list):
 		lists of similar size applies here as well.
 		"""
 		if len(self) >= len(other):
-			return segmentlist(self[:]).__ior__(other)
-		return segmentlist(other[:]).__ior__(self)
+			return segmentlist(self).__ior__(other)
+		return segmentlist(other).__ior__(self)
 
 	def __xor__(self, other):
 		"""
@@ -593,7 +593,7 @@ class segmentlist(list):
 		Return the difference between the segmentlist and another.
 		This operation is O(n).
 		"""
-		return segmentlist(self[:]).__isub__(other)
+		return segmentlist(self).__isub__(other)
 
 	def __invert__(self):
 		"""
