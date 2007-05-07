@@ -155,7 +155,7 @@ data<-dbGetQuery(con, p("SELECT ", p(Fields, collapse=", ")," FROM ", DataSet, "
 highRes<-data[,'hist_residuals_max']
 highResMax<-highRes>ResLarge
 BandName<-""
-dir.create(output_dir)	
+dir.create(output_dir)
 
 
 
