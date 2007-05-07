@@ -941,6 +941,17 @@ class segmentlistdict(dict):
 				return True
 		return False
 
+	def intersects(self, other):
+		"""
+		Returns True if there exists a segmentlist in self that
+		intersects the corresponding segmentlist in other;  returns
+		False otherwise.
+		"""
+		for key, value in other.iteritems():
+			if key in self and self[key].intersects(value):
+				return True
+		return False
+
 	def intersects_all(self, other):
 		"""
 		Returns True if each segmentlist in other intersects the
