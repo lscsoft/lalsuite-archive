@@ -522,14 +522,16 @@ class segmentlist(list):
 		i = 0
 		for seg in other:
 			i = j = bisect_right(self, seg, i)
-			if i and not self[i - 1].disjoint(seg):
+			lo, hi = seg
+			if i and self[i - 1][1] >= lo:
 				i -= 1
-				seg = seg | self[i]
+				lo = self[i][0]
 			n = len(self)
-			while j < n and not seg.disjoint(self[j]):
+			while j < n and self[j][0] <= hi:
 				j += 1
 			if j > i:
-				self[i : j] = [seg | self[j - 1]]
+				self[i] = segment(lo, max(hi, self[j - 1][1]))
+				del self[i + 1 : j]
 			else:
 				self.insert(i, seg)
 			i += 1
