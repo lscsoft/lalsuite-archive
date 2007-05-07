@@ -6,7 +6,7 @@ import unittest
 #
 
 algebra_repeats = 8000
-algebra_listlength = 140
+algebra_listlength = 200
 
 
 #
