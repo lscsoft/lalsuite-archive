@@ -462,7 +462,8 @@ class TimeSeriesMetadata(Metadata):
             if attr not in ('segments', 'comments', 'typemap')])
         
         # add, but do not join, segments
-        self.segments |= other.segments
+        self.segments.extend([seg for seg in other.segments \
+            if seg not in self.segments])
         
         # add only new comments
         self.comments.extend([comment for comment in other.comments \
@@ -560,8 +561,9 @@ class SpectrumMetadata(Metadata):
         assert numpy.alltrue([getattr(self, attr) == getattr(other, attr) \
             for attr in ("df", "f_low")])
         
-        # union segments
-        self.segments |= other.segments
+        # add, but do not join segments
+        self.segments.extend([seg for seg in other.segments \
+            if seg not in self.segments])
         
         # add only new comments
         self.comments.extend([comment for comment in other.comments \
