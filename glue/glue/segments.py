@@ -676,12 +676,12 @@ class segmentlist(list):
 		i = j = 0
 		n = len(self)
 		while j < n:
-			seg = self[j]
+			lo, hi = self[j]
 			j += 1
-			while j < n and not seg.disjoint(self[j]):
-				seg |= self[j]
+			while j < n and hi >= self[j][0]:
+				hi = max(hi, self[j][1])
 				j += 1
-			self[i] = seg
+			self[i] = segment(lo, hi)
 			i += 1
 		del self[i : ]
 		return self
