@@ -384,6 +384,7 @@ segments.infinity = __segments.infinity
 segments.NegInfinity = __segments.NegInfinity
 segments.PosInfinity = __segments.PosInfinity
 segments.segment = __segments.segment
+segments.segmentlist = __segments.segmentlist
 
 suite = unittest.TestSuite()
 suite.addTest(unittest.makeSuite(test_infinity))
