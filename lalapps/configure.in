@@ -141,6 +141,13 @@ fi
 AC_CHECK_LIB(mysqlclient, mysql_init)
 AC_CHECK_LIB(datacondCaller, DatacondCaller)
 
+dnl LAPACK
+lalapps_save_LIBS="$LIBS"
+LIBS=""
+AC_FC_LIBRARY_LDFLAGS
+ACX_LAPACK( , AC_MSG_ERROR(could not find the LAPACK library))
+LIBS="$lalapps_save_LIBS $LAPACK_LIBS $BLAS_LIBS $FCLIBS"
+
 dnl Checks for header files.
 AC_HEADER_STDC
 AC_CHECK_HEADERS(getopt.h)
