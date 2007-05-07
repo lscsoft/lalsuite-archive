@@ -74,13 +74,14 @@ def get_time_slide_id(xmldoc, time_slide, create_new = None):
 	"""
 	Return the time_slide_id corresponding to the time slide described
 	by time_slide, a dictionary of instrument/offset pairs.  If the
-	document does not contain exactly 1 time_slide table, or the table
-	does not describe a matching time slide, then KeyError is raised.
-	If, however, the optional create_new argument is set to an
-	lsctables.Process object (or any other object with a process_id
-	attribute), then a time slide table will be created if needed and
-	or the missing time slide description added to the table, and
-	indicated as having been created by the given process.
+	document does not contain exactly 1 time_slide table then
+	ValueError is raised, or the table does not describe a matching
+	time slide, then KeyError is raised.  If, however, the optional
+	create_new argument is set to an lsctables.Process object (or any
+	other object with a process_id attribute), then a time slide table
+	will be created if needed and or the missing time slide description
+	added to the table, and indicated as having been created by the
+	given process.
 	"""
 	try:
 		tisitable = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
@@ -153,7 +154,10 @@ def get_coinc_def_id(xmldoc, table_names, create_new = True):
 	returned.  If the document does not contain a coinc_definer table,
 	then one is added, a new coind_def_id created, and the ID returned.
 	If, however, create_new is False, and for any reason the ID isn't
-	found then KeyError is raised.
+	found then ValueError is raised if the reason is that the document
+	doesn't contain exactly 1 coinc_definer table, or KeyError is
+	raised if the reason is that the table doesn't contain the desired
+	coinc definition.
 	"""
 	try:
 		coincdeftable = table.get_table(xmldoc, lsctables.CoincDefTable.tableName)
