@@ -45,10 +45,16 @@ for { set band $FREQ_START } { $band < $FREQ_END } { set band [expr $band+$FREQ_
 		set spindown_count [expr round(1.0+($LAST_SPINDOWN-$spindown_start)/$SPINDOWN_STEP)]
 		if { $spindown_count > $max_spindown_count } { set spindown_count $max_spindown_count }
 
-		set FILE [open "$CONF_DIR/$i" "w"]
-		puts $FILE [subst -nocommands -nobackslashes $POWERFLUX_CONF_FILE]
-		close $FILE
-		incr i
+		#
+		# Loop over skymarks file
+		#
+		foreach skymarks $SKYMARKS {
+			set FILE [open "$CONF_DIR/$i" "w"]
+			puts $FILE [subst -nocommands -nobackslashes $POWERFLUX_CONF_FILE]
+			close $FILE
+			incr i
+			}
+
 		set spindown_start [expr $spindown_start + $SPINDOWN_STEP*$spindown_count]
 		}
 	if { $i > $last_i+500 } {

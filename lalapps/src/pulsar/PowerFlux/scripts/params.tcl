@@ -18,6 +18,7 @@ set PARAMS {
 	LAST_SPINDOWN  1.00e-8
 	SPINDOWN_STEP   5e-10
 	MAX_SPINDOWN_COUNT {10*400*400/(\$band*\$band)}
+	SKYMARKS {/home/volodya/PowerFlux/sky_marks.txt}
 	NBANDS	10
 	ANALYSIS_PROGRAM "/home/volodya/PowerFlux/powerflux"
 	}
@@ -30,6 +31,7 @@ input /scratch4/volodya/SFT-3/S3.${IFO}.ht.geo/sft.${IFO}.
 input-format GEO
 detector L${DETECTOR}O
 averaging-mode one
+sky-marks $skymarks
 spindown-start $spindown_start
 spindown-step $SPINDOWN_STEP
 spindown-count $spindown_count
