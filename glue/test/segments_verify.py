@@ -18,14 +18,16 @@ def random_coalesced_list(n):
 	Return a coalesced segmentlist of n elements with random boundaries.
 	"""
 	def r():
-		return float(random.randint(1, 99)) / 100
+		return random.randint(1, 127) / 128.0
 	if n < 1:
 		raise ValueError, n
+	l = segments.segmentlist([None] * n)
 	x = r()
-	l = segments.segmentlist([segments.segment(x, x + r())])
-	for i in xrange(n - 1):
-		x = l[-1][1] + r()
-		l.append(segments.segment(x, x + r()))
+	l[0] = segments.segment(x, x + r())
+	x = l[0][1] + r()
+	for i in xrange(1, n):
+		l[i] = segments.segment(x, x + r())
+		x = l[i][1] + r()
 	return l
 
 
@@ -366,30 +368,31 @@ class test_segmentlist(unittest.TestCase):
 # Construct and run the test suite.
 #
 
-# first with the pure Python segments implementation
+if __name__ == "__main__":
 
-from glue import segments
+	# first with the pure Python segments implementation
 
-suite = unittest.TestSuite()
-suite.addTest(unittest.makeSuite(test_infinity))
-suite.addTest(unittest.makeSuite(test_segment))
-suite.addTest(unittest.makeSuite(test_segmentlist))
+	from glue import segments
 
-unittest.TextTestRunner(verbosity=2).run(suite)
+	suite = unittest.TestSuite()
+	suite.addTest(unittest.makeSuite(test_infinity))
+	suite.addTest(unittest.makeSuite(test_segment))
+	suite.addTest(unittest.makeSuite(test_segmentlist))
 
-# then with C extension implementation
+	unittest.TextTestRunner(verbosity=2).run(suite)
 
-from glue import __segments
-segments.infinity = __segments.infinity
-segments.NegInfinity = __segments.NegInfinity
-segments.PosInfinity = __segments.PosInfinity
-segments.segment = __segments.segment
-segments.segmentlist = __segments.segmentlist
+	# then with C extension implementation
 
-suite = unittest.TestSuite()
-suite.addTest(unittest.makeSuite(test_infinity))
-suite.addTest(unittest.makeSuite(test_segment))
-suite.addTest(unittest.makeSuite(test_segmentlist))
+	from glue import __segments
+	segments.infinity = __segments.infinity
+	segments.NegInfinity = __segments.NegInfinity
+	segments.PosInfinity = __segments.PosInfinity
+	segments.segment = __segments.segment
+	segments.segmentlist = __segments.segmentlist
 
-unittest.TextTestRunner(verbosity=2).run(suite)
+	suite = unittest.TestSuite()
+	suite.addTest(unittest.makeSuite(test_infinity))
+	suite.addTest(unittest.makeSuite(test_segment))
+	suite.addTest(unittest.makeSuite(test_segmentlist))
 
+	unittest.TextTestRunner(verbosity=2).run(suite)
