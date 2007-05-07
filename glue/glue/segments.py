@@ -622,17 +622,6 @@ class segmentlist(list):
 
 	# other operations
 
-	def split(self, value):
-		"""
-		Break all segments that stradle the given value at that
-		value.  Does not require the segmentlist to be coalesced,
-		and the result is not coalesced by definition.  This
-		operation is O(n).
-		"""
-		for i, seg in enumerate(self):
-			if value in seg:
-				self[i:i+1] = [segment(seg[0], value), segment(value, seg[1])]
-
 	def intersects_segment(self, other):
 		"""
 		Returns True if the intersection of self and the segment
