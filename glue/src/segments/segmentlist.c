@@ -387,7 +387,7 @@ static PyObject *intersects(PyObject *self, PyObject *other)
 	if(unpack(seg, &olo, &ohi)) {
 		Py_DECREF(lo);
 		Py_DECREF(hi);
-		Py_DECREF(seg);
+		Py_XDECREF(seg);
 		return NULL;
 	}
 	Py_DECREF(seg);
@@ -432,7 +432,7 @@ static PyObject *intersects(PyObject *self, PyObject *other)
 			if(unpack(seg, &olo, &ohi)) {
 				Py_DECREF(lo);
 				Py_DECREF(hi);
-				Py_DECREF(seg);
+				Py_XDECREF(seg);
 				return NULL;
 			}
 			Py_DECREF(seg);
@@ -798,34 +798,18 @@ static PyObject *__isub__(PyObject *self, PyObject *other)
 	i = j = 0;
 
 	seg = PySequence_GetItem(other, j);
-	if(!seg)
-		return NULL;
-	olo = PyTuple_GetItem(seg, 0);
-	ohi = PyTuple_GetItem(seg, 1);
-	if(!(olo && ohi)) {
-		Py_DECREF(seg);
+	if(unpack(seg, &olo, &ohi)) {
+		Py_XDECREF(seg);
 		return NULL;
 	}
-	Py_INCREF(olo);
-	Py_INCREF(ohi);
 	Py_DECREF(seg);
 
 	while(i < PyList_GET_SIZE(self)) {
-		seg = PyList_GET_ITEM(self, i);
-		if(!seg) {
+		if(unpack(PyList_GET_ITEM(self, i), &lo, &hi)) {
 			Py_DECREF(olo);
 			Py_DECREF(ohi);
 			return NULL;
 		}
-		lo = PyTuple_GetItem(seg, 0);
-		hi = PyTuple_GetItem(seg, 1);
-		if(!(lo && hi)) {
-			Py_DECREF(olo);
-			Py_DECREF(ohi);
-			return NULL;
-		}
-		Py_INCREF(lo);
-		Py_INCREF(hi);
 
 		while((result = PyObject_RichCompareBool(ohi, lo, Py_LE))) {
 			if(result < 0) {
@@ -846,21 +830,12 @@ static PyObject *__isub__(PyObject *self, PyObject *other)
 			Py_DECREF(olo);
 			Py_DECREF(ohi);
 			seg = PySequence_GetItem(other, j);
-			if(!seg) {
+			if(unpack(seg, &olo, &ohi)) {
 				Py_DECREF(lo);
 				Py_DECREF(hi);
+				Py_XDECREF(seg);
 				return NULL;
 			}
-			olo = PyTuple_GetItem(seg, 0);
-			ohi = PyTuple_GetItem(seg, 1);
-			if(!(olo && ohi)) {
-				Py_DECREF(lo);
-				Py_DECREF(hi);
-				Py_DECREF(seg);
-				return NULL;
-			}
-			Py_INCREF(olo);
-			Py_INCREF(ohi);
 			Py_DECREF(seg);
 		}
 
@@ -1021,18 +996,11 @@ static PyObject *__invert__(PyObject *self)
 		return new;
 	}
 
-	seg = PyList_GET_ITEM(self, 0);
-	if(!seg) {
-		Py_DECREF(new);
-		return NULL;
-	}
-	a = PyTuple_GetItem(seg, 0);
-	if(!a) {
+	if(unpack(seg = PyList_GET_ITEM(self, 0), &a, NULL)) {
 		Py_DECREF(new);
 		return NULL;
 	}
 	Py_INCREF(segments_NegInfinity);
-	Py_INCREF(a);
 	if((result = PyObject_RichCompareBool(a, (PyObject *) segments_NegInfinity, Py_GT)) < 0) {
 		Py_DECREF(segments_NegInfinity);
 		Py_DECREF(a);
@@ -1061,19 +1029,13 @@ static PyObject *__invert__(PyObject *self)
 		Py_DECREF(new);
 		return NULL;
 	}
+	Py_INCREF(last);
 	for(i = 1; i < n; i++) {
-		seg = PyList_GET_ITEM(self, i);
-		if(!seg) {
+		if(unpack(PyList_GET_ITEM(self, i), &a, NULL)) {
+			Py_INCREF(last);
 			Py_DECREF(new);
 			return NULL;
 		}
-		a = PyTuple_GetItem(seg, 0);
-		if(!a) {
-			Py_DECREF(new);
-			return NULL;
-		}
-		Py_INCREF(last);
-		Py_INCREF(a);
 		newseg = make_segment(last, a);
 		if(!newseg) {
 			Py_DECREF(new);
@@ -1086,19 +1048,13 @@ static PyObject *__invert__(PyObject *self)
 			return NULL;
 		}
 		Py_DECREF(newseg);
-		seg = PyList_GET_ITEM(self, i);
-		if(!seg) {
-			Py_DECREF(new);
-			return NULL;
-		}
-		last = PyTuple_GetItem(seg, 1);
-		if(!last) {
+
+		if(unpack(PyList_GET_ITEM(self, i), NULL, &last)) {
 			Py_DECREF(new);
 			return NULL;
 		}
 	}
 
-	Py_INCREF(last);
 	Py_INCREF(segments_PosInfinity);
 	if((result = PyObject_RichCompareBool(last, (PyObject *) segments_PosInfinity, Py_LT)) < 0) {
 		Py_DECREF(last);
