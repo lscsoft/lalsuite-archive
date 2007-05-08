@@ -75,7 +75,7 @@ LALFindChirpPTFTemplate (
    * check that the arguments are reasonable
    *
    */
-  
+
 
   /* check that the output structures exist */
   ASSERT( fcTmplt, status, 
@@ -133,23 +133,23 @@ LALFindChirpPTFTemplate (
         onebysqrtoftwo, onebysqrtofsix;
   REAL4Vector Q[5];
   COMPLEX8Vector Qtilde[5];
-  
+
   sqrtoftwo      = sqrt(2.0);
   onebysqrtoftwo = 1.0 / sqrtoftwo;
   onebysqrtofsix = 1.0 / sqrt(6.0);
   len = params->PTFphi->length;
-  
+
   /* Point the dummy variables Q and Qtilde to the actual output structures */
-  for (i=0; i<5; i++)
+  for ( i = 0; i < 5; ++i )
   {
     Q[i].length      = len;
     Qtilde[i].length = len / 2 + 1;
     Q[i].data        = params->PTFQ->data + i * len;
     Qtilde[i].data   = fcTmplt->PTFQtilde->data + i * (len / 2 + 1) ;
   }  
-  
+
   /* evaluate the Q^I factors from the dynamical variables */
-  for( i=0; i < len; i++)
+  for( i = 0; i < len; ++i)
   {
     omega_2_3 = params->PTFomega_2_3->data[i];
     phi       = params->PTFphi->data[i];
@@ -159,29 +159,29 @@ LALFindChirpPTFTemplate (
     e2x       = params->PTFe2->data[i];
     e2y       = params->PTFe2->data[len + i];
     e2z       = params->PTFe2->data[2 * len + i];
-    
+
     Q[0].data[i] = omega_2_3 * onebysqrtoftwo * ( cos(2 * phi) * ( e1x * e1x +
-                   e2y * e2y - e2x * e2x - e1y * e1y ) + 2 * sin(2 * phi) *
-                   ( e1x * e2x - e1y * e2y ));
+          e2y * e2y - e2x * e2x - e1y * e1y ) + 2 * sin(2 * phi) *
+        ( e1x * e2x - e1y * e2y ));
     Q[1].data[i] = omega_2_3 * sqrtoftwo * ( cos(2 * phi) * ( e1x * e1y - 
-                   e2x * e2y ) + sin(2 * phi) * ( e1x * e2y + e1y * e2x ));
+          e2x * e2y ) + sin(2 * phi) * ( e1x * e2y + e1y * e2x ));
     Q[2].data[i] = omega_2_3 * sqrtoftwo * ( cos(2 * phi) * ( e1x * e1z - 
-                   e2x * e2z ) + sin(2 * phi) * ( e1x * e2z + e1z * e2x ));
+          e2x * e2z ) + sin(2 * phi) * ( e1x * e2z + e1z * e2x ));
     Q[3].data[i] = omega_2_3 * sqrtoftwo * ( cos(2 * phi) * ( e1y * e1z - 
-                   e2y * e2z ) + sin(2 * phi) * ( e1y * e2z + e1z * e2y ));
+          e2y * e2z ) + sin(2 * phi) * ( e1y * e2z + e1z * e2y ));
     Q[4].data[i] = omega_2_3 * onebysqrtofsix * ( cos(2 * phi) * 
-                   ( 2 * e2z * e2z - 2 * e1z * e1z + e1x * e1x + e1y * e1y - 
-                   e2x * e2x - e2y * e2y ) + 2 * sin(2 * phi) * ( e1x * e2x +
-                   e1y * e2y - 2 * e1z * e2z ));                               
+        ( 2 * e2z * e2z - 2 * e1z * e1z + e1x * e1x + e1y * e1y - 
+          e2x * e2x - e2y * e2y ) + 2 * sin(2 * phi) * ( e1x * e2x +
+            e1y * e2y - 2 * e1z * e2z ));                               
   }
-  
+
   /* Fourier transform the Q's into the Qtilde's */
-  for ( i=0; i<5; i++ )
+  for ( i = 0; i < 5; ++i )
   {
     LALForwardRealFFT( status->statusPtr, &Qtilde[i], &Q[i],
-                       params->fwdPlan);
+        params->fwdPlan);
   }
-  
+
   /* normal exit */
   DETATCHSTATUSPTR( status );
   RETURN( status );
@@ -238,8 +238,8 @@ LALFindChirpPTFNormalize(
   deltaF    = 1.0 / ( (REAL4) deltaT * (REAL4) len);
   fmin      = fcTmplt->tmplt.fLower;
   kmin      = fmin / deltaF > 1 ?  fmin / deltaF : 1;
-  
-  
+
+
   /* output is B_{IJ}^{-1} */
 
   fprintf( stderr, 
@@ -253,18 +253,18 @@ LALFindChirpPTFNormalize(
    */
 
   /* Compute B_ij from Qtilde_i and Qtilde_j */
-  for( i=0; i<5; i++ )
+  for( i = 0; i < 5; ++i )
   {
-    for ( j=0; j<i+1; j++ )
+    for ( j = 0; j < i + 1; ++j )
     {  
-        for ( k=kmin; k<len; ++k )
-        {  
-          PTFB[5 * i + j] += (PTFQtilde[k + i * len].re * 
-                              PTFQtilde[k + j * len].re +
-                              PTFQtilde[k + i * len].im * 
-                              PTFQtilde[k + j * len].im ) / 
-                              wtilde[k].re ;
-        }    
+      for ( k = kmin; k < len; ++k )
+      {  
+        PTFB[5 * i + j] += (PTFQtilde[k + i * len].re * 
+            PTFQtilde[k + j * len].re +
+            PTFQtilde[k + i * len].im * 
+            PTFQtilde[k + j * len].im ) / 
+          wtilde[k].re ;
+      }    
       PTFB[5 * i + j] *= 4.0 * deltaF ;
       /* Use the symmetry of B */
       PTFB[5 * i + j] = PTFB[5 * j + i];
@@ -278,7 +278,3 @@ LALFindChirpPTFNormalize(
   DETATCHSTATUSPTR( status );
   RETURN( status );
 }
-
-
-
-
