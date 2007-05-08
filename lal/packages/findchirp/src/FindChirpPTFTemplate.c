@@ -66,6 +66,9 @@ LALFindChirpPTFTemplate (
     )
 /* </lalVerbatim> */
 {
+  /* declare variables here */
+  UINT4 errcode;
+
   INITSTATUS( status, "LALFindChirpPTFTemplate", FINDCHIRPPTFTEMPLATEC );
   ATTATCHSTATUSPTR( status );
 
@@ -147,6 +150,15 @@ LALFindChirpPTFTemplate (
     Q[i].data        = params->PTFQ->data + i * len;
     Qtilde[i].data   = fcTmplt->PTFQtilde->data + i * (len / 2 + 1) ;
   }  
+
+  /* call the waveform function */
+#if 0
+  errcode = XLALFindChirpPTFWaveform();
+  if ( errcode != XLAL_SUCCESS )
+  {
+    ABORT( status, FINDCHIRPH_EPTFW, FINDCHIRPH_MSGEPTFW );
+  }
+#endif
 
   /* evaluate the Q^I factors from the dynamical variables */
   for( i = 0; i < len; ++i)
@@ -272,7 +284,9 @@ LALFindChirpPTFNormalize(
   }  
 
   /* Invert B and store the outut in Binverse */
-  LALSMatrixInverse ( status, det, fcTmplt->PTFB, fcTmplt->PTFBinverse );
+  LALSMatrixInverse ( status->statusPtr, 
+      det, fcTmplt->PTFB, fcTmplt->PTFBinverse );
+  CHECKSTATUSPTR( status );
 
   /* normal exit */
   DETATCHSTATUSPTR( status );
