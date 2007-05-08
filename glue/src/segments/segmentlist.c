@@ -131,7 +131,7 @@ static int unpack(PyObject *seg, PyObject **lo, PyObject **hi)
 {
 	if(!seg)
 		return -1;
-
+		
 	if(lo) {
 		*lo = PyTuple_GetItem(seg, 0);
 		if(!*lo)
@@ -141,8 +141,12 @@ static int unpack(PyObject *seg, PyObject **lo, PyObject **hi)
 
 	if(hi) {
 		*hi = PyTuple_GetItem(seg, 1);
-		if(!*hi)
+		if(!*hi) {
+			if(lo) {
+				Py_XDECREF(*lo);
+			}
 			return -1;
+		}
 		Py_INCREF(*hi);
 	}
 
