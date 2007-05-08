@@ -46,7 +46,7 @@ def ReadSnglInspiralFromFiles(fileList, mangle_event_id = False):
   snglInspiralTriggers = None
   ncoincs = 0
   for thisFile in fileList:
-    doc = utils.load_filename(thisFile)
+    doc = utils.load_filename(thisFile, gz=(thisFile or "stdin").endswith(".gz"))
     # extract the sngl inspiral table
     try: snglInspiralTable = \
       table.get_table(doc, lsctables.SnglInspiralTable.tableName)
