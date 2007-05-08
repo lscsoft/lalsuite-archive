@@ -14,7 +14,7 @@ FINDCHIRPSOURCES = FindChirpMemory.c FindChirpLinkedList.c \
   FindChirpBCVFilter.c FindChirpBCVChisq.c \
   FindChirpBCVSpinData.c FindChirpBCVSpinTemplate.c \
   FindChirpBCVSpinFilter.c FindChirpBCVSpinChisq.c \
-  FindChirpPTFTemplate.c FindChirpPTFFilter.c \
+  FindChirpPTFTemplate.c FindChirpPTFWaveform.c FindChirpPTFFilter.c \
   FindChirpSimulation.c FindChirpFilterOutputVeto.c \
   FindChirpStoreEvent.c FindChirpClusterEvents.c \
   FindChirpBCVCFilter.c CoherentInspiralFilter.c \
