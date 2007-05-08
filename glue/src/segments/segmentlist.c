@@ -245,6 +245,10 @@ static PyObject *__abs__(PyObject *self)
 	for(i = 0; i < n; i++) {
 		PyObject *seg, *segsize, *newabs;
 		seg = PyList_GET_ITEM(self, i);
+		if(!seg) {
+			Py_DECREF(abs);
+			return NULL;
+		}
 		Py_INCREF(seg);
 		segsize = PyNumber_Absolute(seg);
 		Py_DECREF(seg);
@@ -302,6 +306,7 @@ static PyObject *extent(PyObject *self, PyObject *nul)
 		} else
 			Py_DECREF(item_min);
 
+		/* FIXME: use max() helper func */
 		if((result = PyObject_RichCompareBool(max, item_max, Py_LT)) < 0) {
 			Py_DECREF(min);
 			Py_DECREF(max);
@@ -455,12 +460,11 @@ static PyObject *intersects_segment(PyObject *self, PyObject *other)
 		return NULL;
 
 	if(i != 0) {
-		a = PyTuple_GetItem(other, 0);
-		b = PyTuple_GetItem(PyList_GET_ITEM(self, i - 1), 1);
-		if(!(a && b))
+		if(unpack(other, &a, NULL) || unpack(PyList_GET_ITEM(self, i - 1), NULL, &b)) {
+			Py_XDECREF(a);
+			Py_XDECREF(b);
 			return NULL;
-		Py_INCREF(a);
-		Py_INCREF(b);
+		}
 		result = PyObject_RichCompareBool(a, b, Py_LT);
 		Py_DECREF(a);
 		Py_DECREF(b);
@@ -473,12 +477,11 @@ static PyObject *intersects_segment(PyObject *self, PyObject *other)
 	}
 
 	if(i != PyList_GET_SIZE(self)) {
-		a = PyTuple_GetItem(other, 1);
-		b = PyTuple_GetItem(PyList_GET_ITEM(self, i), 0);
-		if(!(a && b))
+		if(unpack(other, NULL, &a) || unpack(PyList_GET_ITEM(self, i), &b, NULL)) {
+			Py_XDECREF(a);
+			Py_XDECREF(b);
 			return NULL;
-		Py_INCREF(a);
-		Py_INCREF(b);
+		}
 		result = PyObject_RichCompareBool(a, b, Py_GT);
 		Py_DECREF(a);
 		Py_DECREF(b);
@@ -503,6 +506,8 @@ static int __contains__(PyObject *self, PyObject *other)
 	for(i = 0; i < n; i++) {
 		PyObject *seg = PyList_GET_ITEM(self, i);
 		int result;
+		if(!seg)
+			return -1;
 		Py_INCREF(seg);
 		result = PySequence_Contains(seg, other);
 		Py_DECREF(seg);
@@ -521,7 +526,7 @@ static int __contains__(PyObject *self, PyObject *other)
 
 static PyObject *coalesce(PyObject *self, PyObject *nul)
 {
-	PyObject *seg, *lo, *hi;
+	PyObject *lo, *hi;
 	int result;
 	int i, j;
 	int n;
@@ -571,7 +576,9 @@ static PyObject *coalesce(PyObject *self, PyObject *nul)
 			Py_DECREF(hi);
 			return NULL;
 		} else if(result > 0) {
-			seg = make_segment(lo, hi);
+			PyObject *seg = make_segment(lo, hi);
+			if(!seg)
+				return NULL;
 			/* _SetItem consumes a ref count */
 			if(PyList_SetItem(self, i, seg) < 0) {
 				Py_DECREF(seg);
@@ -613,11 +620,22 @@ static PyObject *__iand__(PyObject *self, PyObject *other)
 static PyObject *__and__(PyObject *self, PyObject *other)
 {
 	PyObject *new = NULL;
-	self = (PyObject *) segments_SegmentList_New(&segments_SegmentList_Type, self);
-	if(self) {
-		new = PyNumber_InPlaceAnd(self, other);
-		Py_DECREF(self);
+
+	/* error checking on size functions not required */
+	if(PyList_GET_SIZE(self) >= PySequence_Size(other)) {
+		self = (PyObject *) segments_SegmentList_New(&segments_SegmentList_Type, self);
+		if(self) {
+			new = PyNumber_InPlaceAnd(self, other);
+			Py_DECREF(self);
+		}
+	} else {
+		other = (PyObject *) segments_SegmentList_New(&segments_SegmentList_Type, other);
+		if(other) {
+			new = PyNumber_InPlaceAnd(other, self);
+			Py_DECREF(other);
+		}
 	}
+
 	return new;
 }
 
@@ -714,13 +732,9 @@ static PyObject *__ior__(PyObject *self, PyObject *other)
 static PyObject *__or__(PyObject *self, PyObject *other)
 {
 	PyObject *new = NULL;
-	int nself = PyList_GET_SIZE(self);
-	int nother = PySequence_Size(other);
 
-	if(nself < 0 || nother < 0)
-		return NULL;
-
-	if(nself >= nother) {
+	/* error checking on size functions not required */
+	if(PyList_GET_SIZE(self) >= PySequence_Size(other)) {
 		self = (PyObject *) segments_SegmentList_New(&segments_SegmentList_Type, self);
 		if(self) {
 			new = PyNumber_InPlaceOr(self, other);
@@ -739,19 +753,26 @@ static PyObject *__or__(PyObject *self, PyObject *other)
 
 static PyObject *__xor__(PyObject *self, PyObject *other)
 {
-	PyObject *a, *b, *new;
+	PyObject *new;
 
-	a = PyNumber_Subtract(self, other);
-	if(!a)
-		return NULL;
-	b = PyNumber_Subtract(other, self);
-	if(!b) {
-		Py_DECREF(a);
+	new = PyNumber_Subtract(self, other);
+	other = PyNumber_Subtract(other, self);
+	if(!(new && other)) {
+		Py_XDECREF(new);
+		Py_XDECREF(other);
 		return NULL;
 	}
-	new = PyNumber_Or(a, b);
-	Py_DECREF(a);
-	Py_DECREF(b);
+	if(!_PyList_Extend((PyListObject *) new, other)) {
+		Py_DECREF(new);
+		Py_DECREF(other);
+		return NULL;
+	}
+	Py_DECREF(other);
+
+	if(PyList_Sort(new) < 0) {
+		Py_DECREF(new);
+		return NULL;
+	}
 
 	return new;
 }

@@ -501,7 +501,9 @@ class segmentlist(list):
 		Return the intersection of the segmentlist and another.
 		This operation is O(n).
 		"""
-		return segmentlist(self).__iand__(other)
+		if len(self) >= len(other):
+			return segmentlist(self).__iand__(other)
+		return segmentlist(other).__iand__(self)
 
 	def __ior__(self, other):
 		"""
@@ -548,7 +550,10 @@ class segmentlist(list):
 		contained in exactly one of this and another list.  This
 		operation is O(n log n).
 		"""
-		return (self - other) | (other - self)
+		l = self - other
+		l.extend(other - self)
+		l.sort()
+		return l
 
 	# addition is union
 	__iadd__ = __ior__
