@@ -35,6 +35,7 @@ databases.
 
 
 from optparse import OptionParser
+import os
 from pysqlite2 import dbapi2 as sqlite3
 import sys
 
@@ -77,15 +78,16 @@ def parse_command_line():
 		usage = "%prog [options] [xml [xml ...]]",
 		description = "Transfers data between LIGO Light Weight XML files and SQLite database files.  The contents of the XML files listed on the command line will be inserted, in order, into the SQLite database file identified by the --database argument.  If --extract is given on the command line, then the database contents will be converted to XML and written to the given file.  Input XML files ending in .gz will be gzip-decompressed while being read, and if the filename given via --extract ends in .gz then it will be gzip-compressed when written."
 	)
-	parser.add_option("-d", "--database", metavar = "filename", help = "use the SQLite3 database named filename")
-	parser.add_option("-i", "--input-cache", metavar = "filename", action = "append", default = [], help = "get XML files to insert from the LAL cache named filename")
-	parser.add_option("--preserve-ids", action = "store_true", help = "preserve row IDs from the XML in the database (the default is to assign new IDs to prevent collisisions;  inserts will fail if collisions occur)")
-	parser.add_option("-x", "--extract", metavar = "filename", default = None, help = "extract database contents to the given XML file, \"-\" == stdout (extraction is done after any inserts)")
-	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
+	parser.add_option("-d", "--database", metavar = "filename", help = "Use the SQLite3 database named filename.")
+	parser.add_option("-r", "--replace", action = "store_true", help = "If the database file already exists, over write it instead of inserting into it.")
+	parser.add_option("-i", "--input-cache", metavar = "filename", action = "append", default = [], help = "Get XML files to insert from the LAL cache named filename.")
+	parser.add_option("--preserve-ids", action = "store_true", help = "Preserve row IDs from the XML in the database (the default is to assign new IDs to prevent collisisions;  inserts will fail if collisions occur).")
+	parser.add_option("-x", "--extract", metavar = "filename", default = None, help = "Extract database contents to the given XML file, \"-\" == stdout (extraction is done after any inserts).")
+	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
 
 	for cache in options.input_cache:
-		filenames += [c.path() for c in map(CacheEntry, file(cache))]
+		filenames += [CacheEntry(line).path() for line in file(cache)]
 
 	if not options.database:
 		raise ValueError, "missing required argument --database"
@@ -168,6 +170,21 @@ options, filenames = parse_command_line()
 # Open database, and synchronize ID generators with its contents
 #
 
+
+def truncate_if_exists(filename, verbose = False):
+	if os.access(filename, os.F_OK):
+		if verbose:
+			print >>sys.stderr, "%s exists, truncating ..." % filename
+		try:
+			fd = os.open(filename, os.O_WRONLY | os.O_TRUNC)
+		except:
+			raise e, "cannot truncate %s" % filename
+		os.close(fd)
+		if verbose:
+			print >>sys.stderr, "done."
+
+if options.replace:
+	truncate_if_exists(options.database, verbose = options.verbose)
 
 connection = sqlite3.connect(options.database)
 dbtables.DBTable_set_connection(connection)
