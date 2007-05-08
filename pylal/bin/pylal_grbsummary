@@ -169,10 +169,12 @@ def read_lal_cache(input_file):
         input_file = open(input_file, 'r')
     return [lal.CacheEntry(line).path() for line in input_file]
 
-def make_external_call(command, show_stdout=True):
+def make_external_call(command, show_stdout=False, show_command=True):
     """
     Run a program on the shell and print informative messages on failure.
     """
+    if show_command: print command
+    
     stdin, out, err = os.popen3(command)
     pid, status = os.wait()
 
@@ -263,7 +265,7 @@ def call_query_dq(segfile, files):
 
     # grab stdout, as well
     args.append("--verbose")
-    dq_info_file = tuple_to_filename((basedir, ifos, "DQ_VETO_MASK", extratag,
+    dq_info_file = tuple_to_filename((basedir, ifos, "DQ_INFO", extratag,
         start, dur, ".txt"))
     args.append("> %s" % dq_info_file)
 
@@ -821,11 +823,6 @@ Figure %d: H1H2_cum_hist_effective_snr</div>
     <br>
     <span style="font-size: 90%% ;">H1_vs_H2_effective_snr</span></div>
 </div></div>
-<div class="clearfix"><div class="figurebox">
-    <a href="%s_H1H2_cum_hist_effective_snr.png"><img src="%s_H1H2_cum_hist_effective_snr.png" alt="%s_H1H2_cum_hist_effective_snr.png" width="300" height="225"></a>
-    <div class="figurecaption">
-    Figure %d: H1H2_cum_hist_effective_snr</div>
-</div></div>
 """
         # substitute the figure name as many times as necessary in arbitrary
         # order
@@ -874,9 +871,9 @@ if __name__ == "__main__":
         # add data quality information to summary
         summary_doc.add_section_dataquality(dq_info_file)
 
-        # mask all flagged times
-        on_source_segs -= dq_mask
-        off_source_segs -= dq_mask
+        # mask all flagged times (on_source_segs used as veto for off-source)
+        on_source_segs |= dq_mask
+        off_source_segs |= dq_mask
 
         # create veto files that will get used for post-processing
         opts.on_source_segfile = "%s_onsource_mask.txt" % opts.figure_name
