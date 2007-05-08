@@ -565,7 +565,7 @@ class segmentlist(list):
 		otherseg = other[j]
 		while i < len(self):
 			seg = self[i]
-			while (not otherseg) or otherseg[1] <= seg[0]:
+			while otherseg[1] <= seg[0]:
 				j += 1
 				if j >= len(other):
 					return self

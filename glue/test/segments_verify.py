@@ -273,7 +273,6 @@ class test_segmentlist(unittest.TestCase):
 		self.assertEqual(segments.segmentlist([segments.segment(-10, 5)]), segments.segmentlist([segments.segment(-10,10)]) - segments.segmentlist([segments.segment(5,15)]))
 
 		self.assertEqual(segments.segmentlist([segments.segment(0,5), segments.segment(45,50)]), segments.segmentlist([segments.segment(0,10), segments.segment(20,30), segments.segment(40,50)]) - segments.segmentlist([segments.segment(5, 45)]))
-		self.assertEqual(segments.segmentlist([segments.segment(-5,5)]), segments.segmentlist([segments.segment(-5,5)]) - segments.segmentlist([segments.segment(0,0)]))
 
 	def test__invert__(self):
 		self.assertEqual(segments.segmentlist([segments.segment(-segments.infinity(), segments.infinity())]), ~segments.segmentlist([]))
