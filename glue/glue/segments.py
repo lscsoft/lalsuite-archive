@@ -664,8 +664,9 @@ class segmentlist(list):
 			while j < n and hi >= self[j][0]:
 				hi = max(hi, self[j][1])
 				j += 1
-			self[i] = segment(lo, hi)
-			i += 1
+			if lo != hi:
+				self[i] = segment(lo, hi)
+				i += 1
 		del self[i : ]
 		return self
 
