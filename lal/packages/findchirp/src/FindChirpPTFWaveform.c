@@ -579,7 +579,7 @@ XLALFindChirpPTFWaveform(
     if ( errcode != GSL_SUCCESS )
     {
       XLALPrintError( "XLAL Error: GSL ODE integrator failure" );
-      errcode = XLAL_EFAULT;
+      errcode = XLAL_EFAILED;
       break;
     }
 
@@ -615,7 +615,7 @@ XLALFindChirpPTFWaveform(
         else
         {  
           XLALPrintError( "XLAL Error: NaN in PTF dynamical variables" );
-          errcode = XLAL_EFAULT;    
+          errcode = XLAL_EFAILED;    
           break;
         }   
 
@@ -630,7 +630,7 @@ XLALFindChirpPTFWaveform(
         else
         {   
           XLALPrintError( "XLAL Error: NaN in PTF dynamical variables" );
-          errcode = XLAL_EFAULT;    
+          errcode = XLAL_EFAILED;    
           break;
         }   
       }
