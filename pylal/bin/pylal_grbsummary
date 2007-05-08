@@ -249,7 +249,7 @@ def call_query_dq(segfile, files):
     ifos, start, dur = ifos_start_dur_from_files(files)
 
     args = ["pylal_query_dq", "--segfile=%s" % segfile,
-        "-d H1_dq_segments.txt", "-d H2_dq_segments.txt", # XXX: Remove me!!
+        #"-d H1_dq_segments.txt", "-d H2_dq_segments.txt", # XXX: Remove me!!
         ]
 
     for ifo in ifos:
@@ -300,12 +300,13 @@ def _sire_by_ifo(inspiral_glob, cluster_time_ms=None, injection_glob=None,
 
     args = ["lalapps_sire", "--data-type=all_data"]
     if cluster_time_ms is not None:
-        args.extend(["--cluster-algorithm=snr",
-                     "--cluster-time=%d" % cluster_time_ms])
+        args.append("--cluster-time=%d" % cluster_time_ms)
+        args.append("--cluster-algorithm=snr")
+        
     if injection_glob is not None:
         injection_files = glob.glob(injection_glob)
         assert len(injection_files) == len(inspiral_files)
-        args += ["--injection-window=%d" % injection_window_ms]
+        args.append("--injection-window=%d" % injection_window_ms)
     else:  # no injection files
         injection_files = itertools.repeat(None)  # endless stream of None
 
@@ -314,18 +315,18 @@ def _sire_by_ifo(inspiral_glob, cluster_time_ms=None, injection_glob=None,
         tempargs = ["--glob=\"%s\"" % f]
 
         # handle injections
-        if inj is not None: tempargs += ["--injection-file=%s" % inj]
+        if inj is not None: tempargs.append("--injection-file=%s" % inj)
 
         # determine output file
         basedir, ifos, tag, extratag, start, dur, ext = filename_to_tuple(f)
         output_file = tuple_to_filename((basedir, ifos, "SIRE", extratag, start, dur, ext))
-        tempargs += ["--output=%s" % output_file]
+        tempargs.append("--output=%s" % output_file)
 
         # make the call
         make_external_call(" ".join(args + tempargs))
 
         # record output file
-        output_files += [output_file]
+        output_files.append(output_file)
     return output_files
 
 def call_coire(thinca_glob, cluster_time_ms=None, injection_glob=None,
@@ -339,8 +340,11 @@ def call_coire(thinca_glob, cluster_time_ms=None, injection_glob=None,
     # common to all coire calls
     args = ["lalapps_coire", "--data-type=all_data"]
     if cluster_time_ms is not None:
-        args += ["--coinc-stat=snrsq"]
-        args += ["--cluster-time=%d" % cluster_time_ms]
+        args.append("--cluster-time=%d" % cluster_time_ms)
+        if is_second_stage(thinca_files[0]):
+            args.append("--coinc-stat=snrsq")
+        else:
+            args.append("--coinc-stat=effective_snrsq")
     if injection_glob is not None:
         injection_files = glob.glob(injection_glob)
         assert len(injection_files) == len(thinca_files)
@@ -413,7 +417,8 @@ def call_plotinspiral(inspiral_caches, vetofile=None, figure_name=None,
 
     for g in inspiral_caches:
         print "* Running plotinspiral on the files in the glob %s" % g
-        make_external_call(" ".join(args + ["--input=%s" % g]))
+        tempargs = ["--input=%s" % g]
+        make_external_call(" ".join(args + tempargs))
 
 def call_plotthinca(thinca_file, vetofile=None, figure_name=None):
     """
@@ -777,6 +782,11 @@ entirely on second stage inspiral and thinca outputs.</p>
     Figure %d: H1_H2_ethinca_vs_snr
     <br>
     <span style="font-size: 90%% ;">Left: H1, Right: H2</span></div>
+</div></div>
+<div class="clearfix"><div class="figurebox">
+    <a href="%s_H1_H2_ethinca_vs_combined_effective_snr.png"><img src="%s_H1_H2_ethinca_vs_combined_effective_snr.png" alt="%s_H1_H2_ethinca_vs_combined_effective_snr.png" width="300" height="225"></a>
+    <div class="figurecaption">
+    Figure %d: H1_H2_ethinca_vs_combined_effective_snr</div>
 </div></div>
 """
         # substitute the figure name as many times as necessary
