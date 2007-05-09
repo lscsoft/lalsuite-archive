@@ -23,6 +23,57 @@ from glue.ligolw import lsctables
 from glue.ligolw import utils
 from pylal import CoincInspiralUtils
 
+##############################################################################
+# function to read in a list of files and extract the simInspiral tables
+# and sngl_inspiral tables
+##############################################################################
+def readFiles(fileGlob,statistic=None):
+  """
+  read in the Sngl and SimInspiralTables from a list of files
+  if Sngls are found, construct coincs, add injections (if any)
+  also return Sims (if any)
+  @param fileGlob: glob of input files
+  @param statistic: statistic to use in creating coincs
+  """
+  #if fileGlob is empty return empty structures
+  if not fileGlob:
+    if opts.verbose:
+      print "Warning: No glob specified, returning empty structures..."
+    return None, CoincInspiralUtils.coincInspiralTable()
+
+  # if there aren't any files globbed exit
+  fList = glob.glob(fileGlob)
+  if not fList:
+    print >>sys.stderr, "The glob for " + fileGlob + " returned no files"
+    sys.exit(1)
+
+  sims = None
+  coincs = None
+  for thisFile in fList:
+    doc = utils.load_filename(thisFile)
+    # extract the sim inspiral table
+    try:
+      simInspiralTable = \
+          table.get_table(doc, lsctables.SimInspiralTable.tableName)
+      if sims: sims.extend(simInspiralTable)
+      else: sims = simInspiralTable
+    except: simInspiralTable = None
+
+    # extract the sngl inspiral table, construct coincs
+    try: snglInspiralTable = \
+      table.get_table(doc, lsctables.SnglInspiralTable.tableName)
+    except: snglInspiralTable = None
+    if snglInspiralTable:
+      coincInspiralTable = \
+        CoincInspiralUtils.coincInspiralTable(snglInspiralTable,statistic)
+      if simInspiralTable:
+        coincInspiralTable.add_sim_inspirals(simInspiralTable)
+      if coincs: coincs.extend(coincInspiralTable)
+      else: coincs = coincInspiralTable
+  return sims,coincs
+
+
+
 #############################################################################
 # function to set up directories
 #############################################################################
