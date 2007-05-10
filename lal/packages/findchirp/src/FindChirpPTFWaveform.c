@@ -460,7 +460,8 @@ XLALFindChirpPTFWaveform(
 /* </lalVerbatim> */
 {
   static const char* func = "XLALFindChirpPTFWaveform";
-  UINT4 i, len, N;
+  UINT4 i, len;
+  UINT4 N = PTFphi->length;
   INT4 errcode = 0;
   double f_min = tmplt->fLower;
   double m1 = tmplt->mass1;
@@ -559,11 +560,11 @@ XLALFindChirpPTFWaveform(
     PTFomega_2_3->data[i]    = (float) (pow( omega, 2.0/3.0 ));
     PTFphi->data[i]          = (float) (Phi);
     PTFe1->data[i]           = (float) (e1x);
-    PTFe1->data[len + i]     = (float) (e1y);
-    PTFe1->data[2 * len + i] = (float) (e1z);
+    PTFe1->data[N + i]     = (float) (e1y);
+    PTFe1->data[2 * N + i] = (float) (e1z);
     PTFe2->data[i]           = (float) (e2x);
-    PTFe2->data[len + i]     = (float) (e2y);
-    PTFe2->data[2 * len + i] = (float) (e2z);     
+    PTFe2->data[N + i]     = (float) (e2y);
+    PTFe2->data[2 * N + i] = (float) (e2z);     
 
     /* advance the time (which is in units of total mass) */
     t = i * step;
@@ -671,6 +672,25 @@ XLALFindChirpPTFWaveform(
   /* shift the waveform so that the coalescence time */
   /* corresponds to the end of the segment           */
   len = N - i;
+
+  /* Move the waveform at the end of the segment  */
+  memmove( PTFomega_2_3->data + len, PTFomega_2_3->data, i * sizeof(double) );
+  memmove( PTFphi->data + len, PTFphi->data, i * sizeof(double) );
+  memmove( PTFe1->data + len, PTFe1->data, i * sizeof(double) );
+  memmove( PTFe1->data + N + len, PTFe1->data + N, i * sizeof(double) );
+  memmove( PTFe1->data + 2 * N + len, PTFe1->data + 2 * N, i * sizeof(double) );
+  memmove( PTFe2->data + len, PTFe2->data, i * sizeof(double) );
+  memmove( PTFe2->data + N + len, PTFe2->data + N, i * sizeof(double) );
+  memmove( PTFe2->data + 2 * N + len, PTFe2->data + 2 * N, i * sizeof(double) );
+  /* Set the waveform to zero at the beginning of the segment */
+  memset ( PTFomega_2_3->data, 0, len * sizeof(double));
+  memset ( PTFphi->data, 0, len * sizeof(double));
+  memset ( PTFe1->data, 0, len * sizeof(double));
+  memset ( PTFe1->data + N , 0, len * sizeof(double));
+  memset ( PTFe1->data + 2 * N, 0, len * sizeof(double));
+  memset ( PTFe2->data, 0, len * sizeof(double));
+  memset ( PTFe2->data + N, 0, len * sizeof(double));
+  memset ( PTFe2->data + 2 * N, 0, len * sizeof(double));
 
   /* the GSL success code is probably the same as LAL's but just in case... */
   if ( errcode == GSL_SUCCESS ) 
