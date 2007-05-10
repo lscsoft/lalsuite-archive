@@ -29,6 +29,8 @@ $Id$
 #include <lal/Date.h>
 #include <lal/AVFactories.h>
 #include <lal/FindChirp.h>
+#include <lal/LALInspiral.h>
+#include <lal/FindChirp.h>
 
 double rint(double x);
 
@@ -36,21 +38,31 @@ NRCSID (FINDCHIRPPTFFILTERC, "$Id$");
 
 /* LAPACK function for the calculation of the eigenvalues of a NxN matrix */
 int
-XLALFindChirpFindEigenvalues (
-    CHAR JOBVL, CHAR JOBVR, INT4 N, REAL4* A, 
-    INT4 LDA, REAL4* WR, REAL4* WI, REAL4* VL, 
-    INT4 LDVL, REAL4* VR, INT4 LDVR, REAL4* WORK, 
-    INT4 LWORK, INT4* INFO)
-{   
+XLALFindChirpFindEigenvalues ( REAL4* WR, REAL4* WI, REAL4* A)
+{  
+  INT4 errcode = 0;
+  INT4 INFO = 0;
+  REAL4 vr[25], vl[25], work[25];
+  CHAR  n     = 'N';
+  INT4  N     = 5;
+  INT4  M     = 1;
+  INT4  lwork = 25;
+  
   extern void sgeev_ ( CHAR* JOBVLp, CHAR* JOBVRp, INT4* Np, REAL4* A, 
       INT4* LDAp, REAL4* WR, REAL4* WI, REAL4* VL, 
       INT4* LDVLp, REAL4* VR, INT4* LDVRp, REAL4* WORK, 
       INT4* LWORKp, INT4* INFOp);
 
-  sgeev_ ( &JOBVL, &JOBVR, &N, A, &LDA, WR, WI, VL, &LDVL, VR, &LDVR, WORK, 
-      &LWORK, INFO);
+  sgeev_ ( &n, &n, &N, A, &N, WR, WI, vl, &M, vr, &M, work, 
+      &lwork, &INFO);
 
-  return 0;
+  if ( INFO != 0)
+  {
+    XLALPrintError( "Eigenvalue evaluation error: sgeev_ function filed with error %d\n", INFO);
+    errcode = XLAL_EFAILED;
+  }
+  
+  return errcode;
 }
 
 /* <lalVerbatim file="FindChirpPTFFilterCP"> */
@@ -64,6 +76,7 @@ LALFindChirpPTFFilterSegment (
 /* </lalVerbatim> */
 {
   UINT4                 i, j, k, l, kmax;
+  UINT4                 errcode;
   UINT4                 numPoints;
   UINT4                 deltaEventIndex;
   UINT4                 ignoreIndex;
@@ -76,10 +89,33 @@ LALFindChirpPTFFilterSegment (
   COMPLEX8Vector        qVec;
 
   /* Variables needed for the eigenvalues finding LAPACK routine */
-  CHAR  n; 
-  INT4  info;
-  REAL4 wr[5], wi[5], vl[25], vr[25], work[25];
-  n = 'N';
+  REAL4 wr[5], wi[5];
+
+  /*
+   *
+   * point local pointers to input and output pointers
+   *
+   */
+
+  /* number of points in a segment */
+  numPoints = params->PTFqVec->vectorLength;
+
+  /* workspace vectors */
+  snr = params->PTFsnrVec->data;
+  qtilde = params->qtildeVec->data;
+  PTFq   = params->PTFqVec->data;
+  qVec.length = numPoints;
+
+  /* template and data */
+  inputData = input->segment->data->data->data;
+  PTFQtilde = input->fcTmplt->PTFQtilde->data;
+
+  /* number of points and frequency cutoffs */
+  deltaT = params->deltaT;
+  deltaF = 1.0 / ( (REAL4) params->deltaT * (REAL4) numPoints );
+  kmax = input->fcTmplt->tmplt.fFinal / deltaF < numPoints/2 ? 
+    input->fcTmplt->tmplt.fFinal / deltaF : numPoints/2;
+
 
   INITSTATUS( status, "LALFindChirpPTFFilter", FINDCHIRPPTFFILTERC );
   ATTATCHSTATUSPTR( status );
@@ -138,32 +174,6 @@ LALFindChirpPTFFilterSegment (
       FINDCHIRPH_EAPRX, FINDCHIRPH_MSGEAPRX );
   ASSERT( input->segment->approximant == FindChirpPTF, status,
       FINDCHIRPH_EAPRX, FINDCHIRPH_MSGEAPRX );
-
-  /*
-   *
-   * point local pointers to input and output pointers
-   *
-   */
-
-  /* number of points in a segment */
-  numPoints = params->PTFqVec->vectorLength;
-
-  /* workspace vectors */
-  snr = params->PTFsnrVec->data;
-  qtilde = params->qtildeVec->data;
-  PTFq   = params->PTFqVec->data;
-  qVec.length = numPoints;
-
-  /* template and data */
-  inputData = input->segment->data->data->data;
-  PTFQtilde = input->fcTmplt->PTFQtilde->data;
-
-  /* number of points and frequency cutoffs */
-  deltaT = params->deltaT;
-  deltaF = 1.0 / ( (REAL4) params->deltaT * (REAL4) numPoints );
-  kmax = input->fcTmplt->tmplt.fFinal / deltaF < numPoints/2 ? 
-    input->fcTmplt->tmplt.fFinal / deltaF : numPoints/2;
-
 
   /*
    *
@@ -293,10 +303,11 @@ LALFindChirpPTFFilterSegment (
     }  
 
     /* find max eigenvalue and store it in snr vector */
-    info = 0;
-    XLALFindChirpFindEigenvalues( n, n, 5, PTFMatrix, 5, wr, wi, vl, 1, 
-        vr, 1, work, 25, &info );
-    if (info != 0) fprintf (stderr, "Eigenvalues failure with error %d\n", info);
+    errcode = XLALFindChirpFindEigenvalues( wr, wi, PTFMatrix);
+    if ( errcode != XLAL_SUCCESS )
+    {
+      ABORT( status, FINDCHIRPH_EIGEN, FINDCHIRPH_MSGEIGEN );
+    }
 
     if (wi[0] == 0) 
       snr[k] = wr[0];
