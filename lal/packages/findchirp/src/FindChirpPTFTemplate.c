@@ -66,8 +66,19 @@ LALFindChirpPTFTemplate (
     )
 /* </lalVerbatim> */
 {
-  /* declare variables here */
   UINT4 errcode;
+  /* local variables */
+  UINT4 i, j, len;
+  REAL4 phi, omega_2_3, e1x, e1y, e1z, e2x, e2y, e2z, sqrtoftwo, 
+        onebysqrtoftwo, onebysqrtofsix;
+  REAL4Vector Q[5];
+  COMPLEX8Vector Qtilde[5];
+
+  sqrtoftwo      = sqrt(2.0);
+  onebysqrtoftwo = 1.0 / sqrtoftwo;
+  onebysqrtofsix = 1.0 / sqrt(6.0);
+  len = params->PTFphi->length;
+
 
   INITSTATUS( status, "LALFindChirpPTFTemplate", FINDCHIRPPTFTEMPLATEC );
   ATTATCHSTATUSPTR( status );
@@ -130,19 +141,7 @@ LALFindChirpPTFTemplate (
   fcTmplt->tmplt.tC = 25.0; /* length of template in seconds */
   fcTmplt->tmplt.fFinal = 1000.0; /* upper freq of template in Hz */
 
-  /* local variables */
-  UINT4 i, j, len;
-  REAL4 phi, omega_2_3, e1x, e1y, e1z, e2x, e2y, e2z, sqrtoftwo, 
-        onebysqrtoftwo, onebysqrtofsix;
-  REAL4Vector Q[5];
-  COMPLEX8Vector Qtilde[5];
-
-  sqrtoftwo      = sqrt(2.0);
-  onebysqrtoftwo = 1.0 / sqrtoftwo;
-  onebysqrtofsix = 1.0 / sqrt(6.0);
-  len = params->PTFphi->length;
-
-  /* Point the dummy variables Q and Qtilde to the actual output structures */
+ /* Point the dummy variables Q and Qtilde to the actual output structures */
   for ( i = 0; i < 5; ++i )
   {
     Q[i].length      = len;
@@ -151,14 +150,16 @@ LALFindChirpPTFTemplate (
     Qtilde[i].data   = fcTmplt->PTFQtilde->data + i * (len / 2 + 1) ;
   }  
 
-  /* call the waveform function */
-#if 0
-  errcode = XLALFindChirpPTFWaveform();
+
+  /* call the waveform generation function */
+
+  errcode = XLALFindChirpPTFWaveform( params->PTFphi, params->PTFomega_2_3,
+                                      params->PTFe1, params->PTFe2, tmplt,
+                                      params->deltaT);
   if ( errcode != XLAL_SUCCESS )
   {
     ABORT( status, FINDCHIRPH_EPTFW, FINDCHIRPH_MSGEPTFW );
   }
-#endif
 
   /* evaluate the Q^I factors from the dynamical variables */
   for( i = 0; i < len; ++i)
@@ -218,6 +219,17 @@ LALFindChirpPTFNormalize(
   COMPLEX8     *wtilde      = NULL;
   COMPLEX8     *PTFQtilde   = NULL;
 
+  /* wtilde contains 1/S_n(f) (up to dynamic range issues) */
+  wtilde    = params->wtildeVec->data;
+  PTFQtilde = fcTmplt->PTFQtilde->data;
+  PTFB      = fcTmplt->PTFB->data;
+  len       = params->wtildeVec->length; 
+  deltaT    = fcSeg->deltaT;
+  deltaF    = 1.0 / ( (REAL4) deltaT * (REAL4) len);
+  fmin      = fcTmplt->tmplt.fLower;
+  kmin      = fmin / deltaF > 1 ?  fmin / deltaF : 1;
+
+
   INITSTATUS( status, "LALFindChirpPTFNormalize", FINDCHIRPPTFTEMPLATEC );
   ATTATCHSTATUSPTR( status );
 
@@ -240,16 +252,6 @@ LALFindChirpPTFNormalize(
   {
     ABORT( status, FINDCHIRPH_EMAPX, FINDCHIRPH_MSGEMAPX );
   }
-
-  /* wtilde contains 1/S_n(f) (up to dynamic range issues) */
-  wtilde    = params->wtildeVec->data;
-  PTFQtilde = fcTmplt->PTFQtilde->data;
-  PTFB      = fcTmplt->PTFB->data;
-  len       = params->wtildeVec->length; 
-  deltaT    = fcSeg->deltaT;
-  deltaF    = 1.0 / ( (REAL4) deltaT * (REAL4) len);
-  fmin      = fcTmplt->tmplt.fLower;
-  kmin      = fmin / deltaF > 1 ?  fmin / deltaF : 1;
 
 
   /* output is B_{IJ}^{-1} */
