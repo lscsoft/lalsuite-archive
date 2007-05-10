@@ -127,6 +127,7 @@ NRCSID (FINDCHIRPH, "$Id$");
 #define FINDCHIRPH_EBCVC 25
 #define FINDCHIRPH_EMAPX 26
 #define FINDCHIRPH_EPTFW 27
+#define FINDCHIRPH_EIGEN 28
 
 #define FINDCHIRPH_MSGENULL "Null pointer"
 #define FINDCHIRPH_MSGENNUL "Non-null pointer"
@@ -152,6 +153,7 @@ NRCSID (FINDCHIRPH, "$Id$");
 #define FINDCHIRPH_MSGEBCVC "BCVC code: thetav not in [-pi, pi]."
 #define FINDCHIRPH_MSGEMAPX "Mismatch in waveform approximant"
 #define FINDCHIRPH_MSGEPTFW "Error generating PTF waveform"
+#define FINDCHIRPH_MSGEIGEN "Error computing eigenvalues"
 
 /* </lalErrTable> */
 
