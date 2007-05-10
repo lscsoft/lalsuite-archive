@@ -209,6 +209,24 @@ def pickle_from_param(elem, name):
 	return pickle.loads(str(param.get_pyvalue(elem, u"pickle:%s" % name)))
 
 
+def yaml_to_param(obj, name):
+	"""
+	Return the top-level element of a document sub-tree containing the
+	YAML serialization of a Python object.
+	"""
+	import yaml
+	return param.from_pyvalue(u"yaml:%s" % name, unicode(yaml.dump(obj)))
+
+
+def yaml_from_param(elem, name):
+	"""
+	Retrieve a YAMLed Python object from the document tree rooted at
+	elem.
+	"""
+	import yaml
+	return yaml.load(param.get_pyvalue(elem, u"yaml:%s" % name))
+
+
 #
 # =============================================================================
 #
