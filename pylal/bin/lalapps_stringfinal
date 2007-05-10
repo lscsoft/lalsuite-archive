@@ -134,7 +134,7 @@ WHERE
 
 	def finish(self, filename, verbose = False):
 		self.sngl_burst_table.sort(lambda a, b: cmp((a.ifo, abs(a.amplitude)), (b.ifo, abs(b.amplitude))))
-		utils.write_filename(self.xmldoc, filename, verbose = verbose, gz = (filename or "stdout")[-3:] == ".gz")
+		utils.write_filename(self.xmldoc, filename, verbose = verbose, gz = (filename or "stdout").endswith(".gz"))
 
 
 #
@@ -506,7 +506,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
 	connection = sqlite3.connect(":memory:")
 	dbtables.DBTable_set_connection(connection)
-	xmldoc = utils.load_filename(filename, options.verbose, gz = filename[-3:] == ".gz")
+	xmldoc = utils.load_filename(filename, options.verbose, gz = filename.endswith(".gz"))
 	database = SnglBurstUtils.CoincDatabase().summarize(xmldoc, options.live_time_program, options.verbose)
 	for n, plot in enumerate(plots):
 		if options.verbose:

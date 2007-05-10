@@ -481,7 +481,7 @@ options, filenames = parse_command_line()
 
 
 for filename in filenames:
-	xmldoc = utils.load_filename(filename, options.verbose, gz = filename[-3:] == ".gz")
+	xmldoc = utils.load_filename(filename, options.verbose, gz = (filename or "stdin").endswith(".gz"))
 	xmldoc = ligolw_bucut(xmldoc, options)
-	utils.write_filename(xmldoc, filename, options.verbose, gz = filename[-3:] == ".gz")
+	utils.write_filename(xmldoc, filename, options.verbose, gz = (filename or "stdout").endswith(".gz"))
 	xmldoc.unlink()

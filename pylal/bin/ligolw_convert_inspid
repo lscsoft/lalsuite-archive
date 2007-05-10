@@ -547,7 +547,7 @@ for filename in filenames:
 	# read file
 	#
 
-	xmldoc = load_filename(filename, options.int_to_ilwd, verbose = options.verbose, gz = (filename or "stdin")[-3:] == ".gz")
+	xmldoc = load_filename(filename, options.int_to_ilwd, verbose = options.verbose, gz = (filename or "stdin").endswith(".gz"))
 
 	#
 	# is the document a "found injections" list?
@@ -584,4 +584,4 @@ for filename in filenames:
 	# write file
 	#
 
-	utils.write_filename(xmldoc, filename, verbose = options.verbose, gz = (filename or "stdout")[-3:] == ".gz")
+	utils.write_filename(xmldoc, filename, verbose = options.verbose, gz = (filename or "stdout").endswith(".gz"))

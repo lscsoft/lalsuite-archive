@@ -260,4 +260,4 @@ print >>sys.stderr, "Non-injection average event rate = %g events / time slide" 
 
 
 likelihood_control = ligolw_burca_tailor.gen_likelihood_control(stats.distributions)
-utils.write_filename(likelihood_control, options.output, verbose = options.verbose, gz = (options.output or "stdout")[-3:] == ".gz")
+utils.write_filename(likelihood_control, options.output, verbose = options.verbose, gz = (options.output or "stdout").endswith(".gz"))

@@ -235,4 +235,4 @@ def ligolw_segments(xmldoc, options):
 options, filenames = parse_command_line()
 
 
-utils.write_filename(ligolw_segments(new_doc(), options), options.output, verbose = options.verbose, gz = (options.output or "stdout")[-3:] == ".gz")
+utils.write_filename(ligolw_segments(new_doc(), options), options.output, verbose = options.verbose, gz = (options.output or "stdout").endswith(".gz"))

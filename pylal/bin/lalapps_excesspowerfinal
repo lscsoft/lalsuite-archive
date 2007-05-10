@@ -297,7 +297,7 @@ WHERE
 		""", (contents.bb_definer_id, time_slide_id))))
 
 	def finish(self, filename, verbose = False):
-		utils.write_filename(self.xmldoc, filename, verbose = verbose, gz = (filename or "stdout")[-3:] == ".gz")
+		utils.write_filename(self.xmldoc, filename, verbose = verbose, gz = (filename or "stdout").endswith(".gz"))
 
 
 #

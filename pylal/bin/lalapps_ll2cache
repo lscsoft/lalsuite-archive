@@ -123,7 +123,7 @@ def column_value(table, column):
 for pattern in patterns:
 	for filename in glob.glob(pattern):
 		# load document and extract search summary table
-		doc = utils.load_filename(filename, options.verbose, gz = filename[-3:] == ".gz")
+		doc = utils.load_filename(filename, options.verbose, gz = filename.endswith(".gz"))
 		searchsumm = table.get_table(doc, lsctables.SearchSummaryTable.tableName)
 
 		# extract process_ids for the requested program
