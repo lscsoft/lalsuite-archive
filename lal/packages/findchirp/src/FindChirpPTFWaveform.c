@@ -682,6 +682,7 @@ XLALFindChirpPTFWaveform(
   memmove( PTFe2->data + len, PTFe2->data, i * sizeof(double) );
   memmove( PTFe2->data + N + len, PTFe2->data + N, i * sizeof(double) );
   memmove( PTFe2->data + 2 * N + len, PTFe2->data + 2 * N, i * sizeof(double) );
+
   /* Set the waveform to zero at the beginning of the segment */
   memset ( PTFomega_2_3->data, 0, len * sizeof(double));
   memset ( PTFphi->data, 0, len * sizeof(double));
