@@ -157,7 +157,7 @@ options, urls = parse_command_line()
 
 
 for url in urls:
-	doc = utils.load_url(url, verbose = options.verbose, gz = (url or "stdin")[-3:] == ".gz")
+	doc = utils.load_url(url, verbose = options.verbose, gz = (url or "stdin").endswith(".gz"))
 	table.InterningRowBuilder.strings.clear()
 	for table_elem in doc.getElements(lambda e: (e.tagName == ligolw.Table.tagName)):
 		for n, row in enumerate(table_elem):

@@ -189,7 +189,7 @@ if options.add_lfn_table:
 #
 
 
-utils.write_filename(xmldoc, options.output, verbose = options.verbose, gz = (options.output or "stdout")[-3:] == ".gz")
+utils.write_filename(xmldoc, options.output, verbose = options.verbose, gz = (options.output or "stdout").endswith(".gz"))
 
 
 #

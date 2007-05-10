@@ -123,7 +123,7 @@ def insert(filenames, preserve_ids = True, verbose = False):
 		# input)
 		if verbose:
 			print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
-		doc = utils.load_filename(filename, verbose = verbose, gz = (filename or "stdin")[-3:] == ".gz")
+		doc = utils.load_filename(filename, verbose = verbose, gz = (filename or "stdin").endswith(".gz"))
 
 		# update references to row IDs
 		if not preserve_ids:
@@ -151,7 +151,7 @@ def insert(filenames, preserve_ids = True, verbose = False):
 def extract(filename, verbose = False):
 	doc = ligolw.Document()
 	doc.appendChild(dbtables.DBTable_get_xml())
-	utils.write_filename(doc, filename, gz = (filename or "stdout")[-3:] == ".gz", verbose = verbose)
+	utils.write_filename(doc, filename, gz = (filename or "stdout").endswith(".gz"), verbose = verbose)
 
 
 #

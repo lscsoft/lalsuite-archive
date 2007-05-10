@@ -221,7 +221,7 @@ options, filenames = parse_command_line()
 for n, filename in enumerate(filenames):
 	if options.verbose:
 		print >>sys.stderr, "%d/%d: " % (n + 1, len(filenames))
-	doc = utils.load_filename(filename, options.verbose, gz = (filename or "stdin")[-3:] == ".gz")
+	doc = utils.load_filename(filename, options.verbose, gz = (filename or "stdin").endswith(".gz"))
 	table.InterningRowBuilder.strings.clear()
 	if options.verbose:
 		print >>sys.stderr, "processing"
@@ -229,5 +229,5 @@ for n, filename in enumerate(filenames):
 		RemoveColumns(doc, options.delete_column)
 	if options.delete_element:
 		RemoveElements(doc, options.delete_element)
-	utils.write_filename(doc, filename, options.verbose, gz = (filename or "stdout")[-3:] == ".gz")
+	utils.write_filename(doc, filename, options.verbose, gz = (filename or "stdout").endswith(".gz"))
 	doc.unlink()
