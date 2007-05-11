@@ -6,8 +6,8 @@ import numpy
 from pylal import Fr
 
 class test_Fr(unittest.TestCase):
-    def test_default_roundtrip(self):
-        """ test call with default values """
+    def test_1d_default_roundtrip(self):
+        """ roundtrip test call with default values """
         a = Fr.frgetvect1d("./test.dat","Adc1")
         Fr.frputvect('writetest.gwf', [{'name':'Adc1', 'data':a[0],
             'start':a[1], 'dx':a[3], 'kind':'ADC', 'x_unit':a[4],
@@ -16,8 +16,8 @@ class test_Fr(unittest.TestCase):
         self.assert_(numpy.alltrue(a[0] == b[0]))
         self.assert_(numpy.alltrue(a[1:] == b[1:]))
 
-    def test_keywords_roundtrip(self):
-        """ test call with keyword arguments """
+    def test_1d_keywords_roundtrip(self):
+        """ roundtrip test call with keyword arguments """
         a = Fr.frgetvect1d("./test.dat", "Adc1", span=1)
         Fr.frputvect('writetest.gwf', [{'name':'Adc1', 'data':a[0],
         'start':a[1], 'dx':a[3], 'kind':'ADC', 'x_unit':a[4],
@@ -26,7 +26,8 @@ class test_Fr(unittest.TestCase):
         self.assert_(numpy.alltrue(a[0] == b[0]))
         self.assert_(numpy.alltrue(a[1:] == b[1:]))
 
-    def test_two_channels_roundtrip(self):
+    def test_1d_two_channels_roundtrip(self):
+        """ roundtrip test call with two channels in a frame """
         a = Fr.frgetvect1d("./test.dat","Adc1")
         Fr.frputvect('writetest.gwf', [{'name':'Adc1', 'data':a[0],
         'start':a[1], 'dx':a[3], 'kind':'ADC', 'x_unit':a[4],
