@@ -182,6 +182,7 @@ class CoincTables(object):
 			coincmap.table_name = ilwd.ILWDTableName(event.event_id)
 			coincmap.event_id = event.event_id
 			self.coincmaptable.append(coincmap)
+		return coinc
 
 
 #
