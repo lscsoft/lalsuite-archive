@@ -13,6 +13,7 @@ from types import *
 import matplotlib
 matplotlib.use('Agg')
 import operator
+from UserDict import UserDict
 
 from pylab import *
 from glue import segments
@@ -22,6 +23,94 @@ from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from pylal import CoincInspiralUtils
+from glue import pipeline
+from glue import lal
+
+
+########## CLASS TO WRITE LAL CACHE FROM HIPE OUTPUT #########################
+class getCache(UserDict):
+  """
+  An instance of a lal cache
+  """
+  def __init__(self, options):
+    UserDict.__init__(self)
+    self.dir = os.listdir(options.cache_path)
+    self.options = options
+    self.types = ['TMPLTBANK', 'TRIGBANK', 'INSPIRAL-', \
+                 'INSPIRAL_', 'THINCA-', 'THINCA_']
+    self.oNames = ['bank.cache', 'trigbank.cache', 'first_inspiral.cache', \
+         'second_inspiral.cache', 'first_thinca.cache', 'second_thinca.cache']
+    self.nameMaps = map(None, self.oNames, self.types)
+    self.ifoTypes = ['H1','H2','L1','H1H2','H1L1','H2L1','H1H2L1']
+
+  def ifoDict(self):
+    return {'H1':[],'H2':[],'L1':[],'H1H2':[], \
+                    'H1L1':[],'H2L1':[],'H1H2L1':[]}
+
+  def getCacheType(self, type):
+    self[type] = []
+    p = re.compile(type)
+    m = re.compile("-")
+    x = re.compile(".xml")
+    for fname in  self.dir:
+      if p.search(fname):
+        ifo = m.split(fname)[0]
+        start = m.split(fname)[-2]
+        dur = x.split(m.split(fname)[-1])
+        cache_path = os.path.abspath(self.options.cache_path)
+        try:
+          entry = lal.CacheEntry(ifo+" "+self.options.science_run+" " \
+              +start+" "+dur[0]+" "+"file://localhost"
+              +cache_path+"/"+fname)
+          self[type].append(entry)
+        except:
+          pass
+
+  def getCacheAll(self):
+    for type in self.types:
+      self.getCacheType(type)
+
+  def writeCacheType(self,oName,type):
+    cName = open(oName,'w')
+    for fname in self[type]:
+      cName.write(str(fname)+"\n")
+    cName.close()
+
+  def writeCacheAll(self):
+    for oName, type in self.nameMaps:
+      self.writeCacheType(str(oName),type)
+
+  def filesMatchingGPS(self, time, type):
+    cacheSubSet = self.ifoDict()
+    for cache in self[type]:
+      for ifo in self.ifoTypes:
+       try:
+         start = eval(str(cache).split()[2])
+         end = start + eval(str(cache).split()[3])
+         if ( (end >= time[ifo]) and (start <= time[ifo]) ):
+           cacheSubSet[ifo].append(cache)
+       except:
+         pass
+    return cacheSubSet
+
+  def getProcessParamsFromCache(self, subCache, time):
+    process = self.ifoDict()
+    for ifo in subCache:
+      for f in subCache[ifo]:
+        doc = utils.load_filename(f.path(),None)
+        proc = table.get_table(doc, lsctables.ProcessParamsTable.tableName)
+        for row in proc:
+          if str(row.param).find("--gps-start-time") >= 0:
+             start = eval(row.value)
+          if str(row.param).find("--gps-end-time") >= 0:
+             end = eval(row.value)
+          try:
+            if ( (end >= time[ifo]) and (start <= time[ifo]) ):
+              process[ifo] = proc
+              break
+          except: pass
+    return process
+    
 
 ##############################################################################
 # function to read in a list of files and extract the simInspiral tables
@@ -268,7 +357,6 @@ def getfollowuptrigs(opts,coincs=None,missed=None):
       fuList = followUpList()
       fuList.add_coincs(ckey)
       fuList.add_page(opts.page)
-      print fuList.page
       try:
         getattr(ckey,'H1')
         fuList.gpsTime["H1"] = (float(getattr(ckey,'H1').end_time_ns)/1000000000)+float(getattr(ckey,'H1').end_time)
