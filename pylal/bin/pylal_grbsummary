@@ -402,7 +402,8 @@ def call_plotinspiral(inspiral_caches, vetofile=None, figure_name=None,
           stage
     """
     args = ["plotinspiral", "--snr-time", "--log-snr-chisq", "--hist-snr",
-        "--nbins=20"]
+        "--cum-hist-snr", "--hist-chisq", "--cum-hist-snr-chi",
+        "--hist-snr-chi", "--nbins=20", "--log-y"]
 
     if vetofile is not None:
         args += ["--veto-file=%s" % vetofile]
@@ -834,9 +835,7 @@ Figure %d: H1H2_cum_hist_effective_snr</div>
 <div class="clearfix"><div class="figurebox">
     <a href="%s_H1_vs_H2_effective_snr.png"><img src="%s_H1_vs_H2_effective_snr.png" alt="%s_H1_vs_H2_effective_snr.png" width="300" height="225"></a>
     <div class="figurecaption">
-    Figure %d: H1_vs_H2_effective_snr
-    <br>
-    <span style="font-size: 90%% ;">H1_vs_H2_effective_snr</span></div>
+    Figure %d: H1_vs_H2_effective_snr</div>
 </div></div>
 """
         # substitute the figure name as many times as necessary in arbitrary
