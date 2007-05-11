@@ -1,3 +1,18 @@
+#!/usr/bin/env @PYTHONPROG@
+"""
+followup utilities
+
+$Id$
+
+This
+"""
+
+__author__ = 'Chad Hanna <channa@phys.lsu.edu>'
+__date__ = '$Date$'
+__version__ = '$Revision$'[11:-2]
+
+
+
 import sys
 import os
 import copy
