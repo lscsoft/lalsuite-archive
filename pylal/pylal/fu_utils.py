@@ -50,9 +50,11 @@ class getCache(UserDict):
   def getCacheType(self, type):
     self[type] = []
     p = re.compile(type)
+    f = re.compile("FOLLOWUP")
     m = re.compile("-")
     x = re.compile(".xml")
     for fname in  self.dir:
+      if f.search(fname): continue
       if p.search(fname):
         ifo = m.split(fname)[0]
         start = m.split(fname)[-2]
