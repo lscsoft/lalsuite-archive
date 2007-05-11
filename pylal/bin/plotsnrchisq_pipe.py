@@ -28,10 +28,10 @@ def plotsnrchisq(gpsTime,frameFile,ligoName,chisqBins,chisqDelta,outputPath):
     ind1 = len(frameFile) - 30  # this variable is also used in the definition of the plot title
     ind2 = ind1 + 2
     ifoName = frameFile[ind1:ind2]
-    print ifoName
+    # print ifoName
 
     chanString = ifoName + ':' + ligoName + '_SNRSQ_0'
-    print chanString
+    # print chanString
 
     # find the start time of the first channel
     # BE CAREFUL ! it is assumed that the sampling frequency is higher than 200 Hz
@@ -39,7 +39,7 @@ def plotsnrchisq(gpsTime,frameFile,ligoName,chisqBins,chisqDelta,outputPath):
     gpsStart = testOnFirstChannel[3]
     
     # This actually prints only one digit after the .
-    print gpsStart
+    # print gpsStart
 
     # find the channel which contains the data we want to look at
     # BE CAREFUL ! it is assumed that the segment length is 128 s
@@ -48,37 +48,43 @@ def plotsnrchisq(gpsTime,frameFile,ligoName,chisqBins,chisqDelta,outputPath):
     position = int(position)
     chanNumber = str(position)
     chanNameSnr = ifoName + ':' + ligoName + '_SNRSQ_' + chanNumber
-    print chanNameSnr
+    # print chanNameSnr
     chanNameChisq = ifoName + ':' + ligoName + '_CHISQ_' + chanNumber
 
     # now, read the data !!
     # The window width should be an input argument maybe ?
     duration = 2.0
-    startWindow = float(gpsTime) - duration/2.
-    squareSnr_tuple = frgetvect.frgetvect(frameFile,chanNameSnr,startWindow,duration,0)
-    print squareSnr_tuple[0]
+    # startWindow = float(gpsTime) - duration/2.
+    # squareSnr_tuple = frgetvect.frgetvect(frameFile,chanNameSnr,startWindow,duration,0)
 
-    squareChisq_tuple = frgetvect.frgetvect(frameFile,chanNameChisq,startWindow,duration,0)
+    squareSnr_tuple = frgetvect.frgetvect(frameFile,chanNameSnr,-1,2*segmentLength,0)
+    # print squareSnr_tuple[0]
 
+    squareChisq_tuple = frgetvect.frgetvect(frameFile,chanNameChisq,-1,2*segmentLength,0)
+    
+    snr_position = float(gpsTime) - ( float(squareSnr_tuple[3]) + segmentLength*position )
+    chisq_position = float(gpsTime) - ( float(squareChisq_tuple[3]) + segmentLength*position )
+  
     # compute the snr vector
     snr_vector = sqrt(squareSnr_tuple[0])
-    print snr_vector
+    # print snr_vector
     snr_time = squareSnr_tuple[1]
-    print snr_time
+    # print snr_time
 
     # compute the r^2
     rsq_vector = squareChisq_tuple[0]
     chisq_time = squareChisq_tuple[1]
-    print rsq_vector
+    # print rsq_vector
 
     # compute the normalized chisq
     chisqNorm_vector = rsq_vector/(1 + chisqDelta/chisqBins*squareSnr_tuple[0])
-    print chisqNorm_vector
+    # print chisqNorm_vector
     
     
     # Now plot the snr time serie !!
     figure(1)
-    plot(snr_time - duration/2.,snr_vector)
+    plot(snr_time - snr_position,snr_vector)
+    xlim(-duration/2., duration/2.)
     xlabel('time (s)',size='x-large')
     ylabel(r'$\rho$',size='x-large')
     grid(1)
@@ -87,7 +93,8 @@ def plotsnrchisq(gpsTime,frameFile,ligoName,chisqBins,chisqDelta,outputPath):
 
     # Now plot the r^2 time serie !!
     figure(2)
-    plot(chisq_time - duration/2.,rsq_vector)
+    plot(chisq_time - chisq_position,rsq_vector)
+    xlim(-duration/2., duration/2.)
     xlabel('time (s)',size='x-large')
     ylabel(r'$r^2$',size='x-large')
     grid(1)
@@ -96,7 +103,8 @@ def plotsnrchisq(gpsTime,frameFile,ligoName,chisqBins,chisqDelta,outputPath):
 
     # Now plot the normalized chisq time serie !!
     figure(3)
-    plot(chisq_time - duration/2.,chisqNorm_vector)
+    plot(chisq_time - chisq_position,chisqNorm_vector)
+    xlim(-duration/2., duration/2.)
     xlabel('time (s)',size='x-large')
     ylabel(r'$\chi^2 / (p + \delta^2\rho^2)$',size='x-large')
     grid(1)
