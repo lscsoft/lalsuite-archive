@@ -65,7 +65,7 @@ def get_dq_file(ifo, verbose=False):
     Connect to a server and download the dq_segments.txt file for each IFO to
     a temporary file.  The path to this temporary file is returned.
     """
-    if verbose:
+    if verbose >= 2:
         print "Downloading dq_segments.txt for ifo %s" % ifo
 
     dest, info = urllib.urlretrieve(dq_url_pattern % ifo)
