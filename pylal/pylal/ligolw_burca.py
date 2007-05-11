@@ -142,6 +142,28 @@ def dbget_thresholds(connection):
 #
 
 
+def make_multi_burst(events):
+	multiburst = lsctables.MultiBurst()
+
+	# snr = sum of snrs
+	multiburst.snr = sum(event.snr for event in events)
+
+	# duration = snr-weighted average of durations
+	multiburst.duration = sum(event.snr * event.duration for event in events) / multiburst.snr
+
+	# central_freq = snr-weighted average of peak frequencies
+	multiburst.central_freq = sum(event.snr * event.peak_frequency for event in events) / multiburst.snr
+
+	# bandwidth = snr-weighted average of bandwidths
+	multiburst.bandwidth = sum(event.snr * event.bandwidth for event in events) / multiburst.snr
+
+	# confidence = arithmetic mean of confidences
+	multiburst.confidence = sum(event.confidence for event in events) / len(events)
+
+	# done
+	return multiburst
+
+
 class ExcessPowerCoincTables(snglcoinc.CoincTables):
 	def __init__(self, *args):
 		snglcoinc.CoincTables.__init__(self, *args)
@@ -153,31 +175,12 @@ class ExcessPowerCoincTables(snglcoinc.CoincTables):
 			self.multibursttable = lsctables.New(lsctables.MultiBurstTable, ("process_id", "duration", "central_freq", "bandwidth", "snr", "confidence", "coinc_event_id"))
 			xmldoc.childNodes[0].appendChild(self.multibursttable)
 
-
 	def append_coinc(self, process_id, time_slide_id, events):
 		coinc = snglcoinc.CoincTables.append_coinc(self, process_id, time_slide_id, events)
-		multiburst = lsctables.MultiBurst()
+		multiburst = make_multi_burst(events)
 		multiburst.process_id = process_id
 		multiburst.coinc_event_id = coinc.coinc_event_id
-
-		# snr = sum of snrs
-		multiburst.snr = sum(event.snr for event in events)
-
-		# duration = snr-weighted average of durations
-		multiburst.duration = sum(event.snr * event.duration for event in events) / multiburst.snr
-
-		# central_freq = snr-weighted average of peak frequencies
-		multiburst.central_freq = sum(event.snr * event.peak_frequency for event in events) / multiburst.snr
-
-		# bandwidth = snr-weighted average of bandwidths
-		multiburst.bandwidth = sum(event.snr * event.bandwidth for event in events) / multiburst.snr
-
-		# confidence = arithmetic mean of confidences
-		multiburst.confidence = sum(event.confidence for event in events) / len(events)
-
 		self.multibursttable.append(multiburst)
-
-		# done
 		return coinc
 
 
