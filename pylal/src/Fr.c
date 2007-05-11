@@ -309,7 +309,7 @@ static PyObject *frgetvect(PyObject *self, PyObject *args, PyObject *keywds) {
 };
 
 const char frgetvect1ddocstring[] =
-"frgetvect(filename, channel, start=-1, span=-1, verbose=False)\n"
+"frgetvect1d(filename, channel, start=-1, span=-1, verbose=False)\n"
 "\n"
 "1-D version of the multi-dimensional frgetvect.\n"
 "Reads a one-dimensional vector from a Fr file to a numpy array.  Will raise\n"
@@ -323,7 +323,7 @@ const char frgetvect1ddocstring[] =
 "   4) span - span of data in seconds (default = -1)\n"
 "             A value <=0 will return the entirety of the first vector with\n"
 "             a matching channel name.  Defaulting span will force a default\n"
-"             start."
+"             start.\n"
 "   5) verbose - Verbose (True) or silent (False) (default = False)\n"
 "\n"
 "Returned data (in a tuple):\n"
@@ -337,7 +337,6 @@ const char frgetvect1ddocstring[] =
 
 static PyObject *frgetvect1d(PyObject *self, PyObject *args, PyObject *keywds) {
     PyObject *out, *temp, *temp2;
-    Py_ssize_t zero=0, two=2, three=3, four=4;
     
     out = frgetvect(self, args, keywds);
     if (out == NULL) {
@@ -346,26 +345,26 @@ static PyObject *frgetvect1d(PyObject *self, PyObject *args, PyObject *keywds) {
     
     // Check lengths and unpack outputs 3, 4, and 5.  Be paranoid about
     // output 3 only.
-    temp = PyTuple_GetItem(out, two);
+    temp = PyTuple_GetItem(out, (Py_ssize_t) 2);
     if (temp==NULL || PyTuple_Size(temp) != 1) {
         PyErr_SetString(PyExc_ValueError,
                         "frgetvect1d invoked on a multi-dimensional vector");
         Py_DECREF(out);
         return NULL;
     }
-    temp2 = PyTuple_GetItem(temp, zero);
+    temp2 = PyTuple_GetItem(temp, (Py_ssize_t) 0);
     Py_INCREF(temp2);
-    PyTuple_SetItem(out, two, temp2); // Python DECREFs temp and temp2 here
+    PyTuple_SetItem(out, (Py_ssize_t) 2, temp2); // Python DECREFs temp and temp2 here
     
-    temp = PyTuple_GetItem(out, three);
-    temp2 = PyTuple_GetItem(temp, zero);
+    temp = PyTuple_GetItem(out, (Py_ssize_t) 3);
+    temp2 = PyTuple_GetItem(temp, (Py_ssize_t) 0);
     Py_INCREF(temp2);
-    PyTuple_SetItem(out, three, temp2);
+    PyTuple_SetItem(out, (Py_ssize_t) 3, temp2);
     
-    temp = PyTuple_GetItem(out, four);
-    temp2 = PyTuple_GetItem(temp, zero);
+    temp = PyTuple_GetItem(out, (Py_ssize_t) 4);
+    temp2 = PyTuple_GetItem(temp, (Py_ssize_t) 0);
     Py_INCREF(temp2);
-    PyTuple_SetItem(out, four, temp2);
+    PyTuple_SetItem(out, (Py_ssize_t) 4, temp2);
     
     if (PyErr_Occurred()) {
         Py_DECREF(out);
@@ -420,7 +419,7 @@ static PyObject *frputvect(PyObject *self, PyObject *args, PyObject *keywds) {
     FrVect *vect;
     int verbose=0, nData, nBits, type, subType, arrayType;
     double dx, sampleRate, start;
-    const char blank[] = "";
+    char blank[] = "";
     char *filename=NULL, *history=NULL;
     char channel[100], x_unit[100], y_unit[100], kind[100];
     PyObject *temp;
@@ -446,7 +445,7 @@ static PyObject *frputvect(PyObject *self, PyObject *args, PyObject *keywds) {
     FrLibSetLvl(verbose);
     
     if (history == NULL) {
-        history = &blank;
+        history = blank;
     }
     
     /*-------- create frames, create vectors, and fill them. ------*/
