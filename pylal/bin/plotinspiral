@@ -109,6 +109,8 @@ parser.add_option("-x","--x-min",action="store",type="float",\
     default=None, metavar="XMIN",help="set plot xmin to XMIN")
 parser.add_option("-X","--x-max",action="store",type="float",\
     default=None, metavar="XMAX",help="set plot xmax to XMAX")
+parser.add_option("-L", "--log-y", action="store_true", default=False,
+    help="set the y axis to have a log scale")
 
 (opts,args) = parser.parse_args()
 
@@ -188,6 +190,9 @@ fig_num = 0
 if opts.snr_time:
   fig_num += 1
   figure(fig_num)
+  if opts.log_y:
+      ax = subplot(111)
+      ax.set_yscale('log')
   if opts.add_vertical_line:
     axvline(0,linewidth=1, color='r')  
     for idx in range(len(inspTriggers)):
@@ -236,6 +241,9 @@ if opts.log_snr_chisq:
 if opts.cum_hist_snr:
   fig_num += 1
   figure(fig_num)
+  if opts.log_y:
+      ax = subplot(111)
+      ax.set_yscale('log')
   viz.cumhistcol(inspTriggers,'snr',output_name = opts.figure_name)
 
 ###################################
@@ -243,6 +251,9 @@ if opts.cum_hist_snr:
 if opts.hist_snr:
   fig_num += 1
   figure(fig_num)
+  if opts.log_y:
+      ax = subplot(111)
+      ax.set_yscale('log')
   viz.histcol(inspTriggers,'snr',opts.nbins,None,opts.figure_name)
 
 ###################################
@@ -252,6 +263,9 @@ if opts.norm_hist_snr:
     opts.analyzed_time
   fig_num += 1
   figure(fig_num)
+  if opts.log_y:
+      ax = subplot(111)
+      ax.set_yscale('log')
   viz.cumhistcol(inspTriggers,'snr',normalization = max_poss_trigs,\
       output_name = opts.figure_name)
   
@@ -260,6 +274,9 @@ if opts.norm_hist_snr:
 if opts.hist_chisq:
   fig_num += 1
   figure(fig_num)
+  if opts.log_y:
+      ax = subplot(111)
+      ax.set_yscale('log')
   viz.histcol(inspTriggers,'chisq',opts.nbins,None,opts.figure_name)
 
 ###################################
@@ -267,6 +284,9 @@ if opts.hist_chisq:
 if opts.cum_hist_snr_chi:
   fig_num += 1
   figure(fig_num)
+  if opts.log_y:
+      ax = subplot(111)
+      ax.set_yscale('log')
   viz.cumhistcol(inspTriggers,'snr_over_chi',output_name = opts.figure_name)
 
 ###################################
@@ -274,6 +294,9 @@ if opts.cum_hist_snr_chi:
 if opts.hist_snr_chi:
   fig_num += 1
   figure(fig_num)
+  if opts.log_y:
+      ax = subplot(111)
+      ax.set_yscale('log')
   viz.histcol(inspTriggers,'snr_over_chi',opts.nbins,None,opts.figure_name)
 
 ###################################
