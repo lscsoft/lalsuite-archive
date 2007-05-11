@@ -16,55 +16,67 @@ from types import *
 from pylab import *
 from pylal import frgetvect
 from pylal import viz
+from glue import segments
+from glue import segmentsUtils
+from glue.ligolw import ligolw
+from glue.ligolw import table
+from glue.ligolw import lsctables
+from glue.ligolw import utils
+from pylal import CoincInspiralUtils
+from glue import pipeline
+from glue import lal
+
 sys.path.append('@PYTHONLIBDIR@')
 
 
-##############################################################################
-# function to plot the SNR and CHISQ time series
 
-def plotsnrchisq(gpsTime,frameFile,ligoName,chisqBins,chisqDelta,outputPath):
-  
-    # BE CAREFUL ! The length of the frame file itself (without taking into account the path) is supposed to be 30 characters !
-    ind1 = len(frameFile) - 30  # this variable is also used in the definition of the plot title
-    ind2 = ind1 + 2
-    ifoName = frameFile[ind1:ind2]
-    # print ifoName
+def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams):
+    for row in inspProcParams:
+      if row.param == "--channel-name":
+        chanStringBase = row.value
+        ifoName = str(row.value).split(":",1)
+      if row.param == "--segment-length":
+        segLen = eval(row.value)
+      if row.param == "--sample-rate":
+        sampleRate = eval(row.value)
+      if row.param == "--segment-overlap":
+        segOverlap = eval(row.value)
+      if (row.param == "--chisq-delta") or (row.param == "--minimal-match"):
+        chisqDelta = eval(row.value)
+      if row.param =="--chisq-bins":
+        chisqBins = eval(row.value)
 
-    chanString = ifoName + ':' + ligoName + '_SNRSQ_0'
-    # print chanString
-
+    segLenSec = segLen / sampleRate
+    segOverlapSec = segOverlap / sampleRate
+    chanString = chanStringBase + "_SNRSQ_0"
     # find the start time of the first channel
     # BE CAREFUL ! it is assumed that the sampling frequency is higher than 200 Hz
-    testOnFirstChannel = frgetvect.frgetvect(frameFile,chanString,-1,0.01,0)
+    testOnFirstChannel = Fr.frgetvect(frameFile,chanString,-1,0.01,0)
     gpsStart = testOnFirstChannel[3]
-    
-    # This actually prints only one digit after the .
-    # print gpsStart
 
-    # find the channel which contains the data we want to look at
-    # BE CAREFUL ! it is assumed that the segment length is 128 s
-    segmentLength = 128.
-    position = (float(gpsTime) - float(gpsStart) - segmentLength/2.)/segmentLength
+    position = (eval(gpsTime) - eval(gpsStart)) / (segLenSec -2*segOverlapSec)
     position = int(position)
-    chanNumber = str(position)
-    chanNameSnr = ifoName + ':' + ligoName + '_SNRSQ_' + chanNumber
+    chanNumber = str(position-1)
+    chanNameSnr = chanStringBase + "_SNRSQ_" + chanNumber
     # print chanNameSnr
-    chanNameChisq = ifoName + ':' + ligoName + '_CHISQ_' + chanNumber
+    chanNameChisq = chanStringBase + '_CHISQ_' + chanNumber
 
     # now, read the data !!
     # The window width should be an input argument maybe ?
     duration = 2.0
     # startWindow = float(gpsTime) - duration/2.
-    # squareSnr_tuple = frgetvect.frgetvect(frameFile,chanNameSnr,startWindow,duration,0)
+    # squareSnr_tuple = Fr.frgetvect(frameFile,chanNameSnr,startWindow,duration,0)
 
-    squareSnr_tuple = frgetvect.frgetvect(frameFile,chanNameSnr,-1,2*segmentLength,0)
+    squareSnr_tuple = Fr.frgetvect(frameFile,chanNameSnr,-1,segLenSec,0)
     # print squareSnr_tuple[0]
 
-    squareChisq_tuple = frgetvect.frgetvect(frameFile,chanNameChisq,-1,2*segmentLength,0)
-    
-    snr_position = float(gpsTime) - ( float(squareSnr_tuple[3]) + segmentLength*position )
-    chisq_position = float(gpsTime) - ( float(squareChisq_tuple[3]) + segmentLength*position )
-  
+    squareChisq_tuple = Fr.frgetvect(frameFile,chanNameChisq,-1,segLenSec,0)
+
+    snr_position = float(gpsTime) - ( float(squareSnr_tuple[3]) + \
+                   (segLenSec-2*segOverlapSec)*position )
+    chisq_position = float(gpsTime) - ( float(squareChisq_tuple[3]) + \
+                   (segLenSec-2*segOverlapSec)*position )
+
     # compute the snr vector
     snr_vector = sqrt(squareSnr_tuple[0])
     # print snr_vector
@@ -79,8 +91,7 @@ def plotsnrchisq(gpsTime,frameFile,ligoName,chisqBins,chisqDelta,outputPath):
     # compute the normalized chisq
     chisqNorm_vector = rsq_vector/(1 + chisqDelta/chisqBins*squareSnr_tuple[0])
     # print chisqNorm_vector
-    
-    
+
     # Now plot the snr time serie !!
     figure(1)
     plot(snr_time - snr_position,snr_vector)
@@ -88,8 +99,9 @@ def plotsnrchisq(gpsTime,frameFile,ligoName,chisqBins,chisqDelta,outputPath):
     xlabel('time (s)',size='x-large')
     ylabel(r'$\rho$',size='x-large')
     grid(1)
-    title(ifoName + ' trigger: ' + gpsTime)   
-    savefig(ifoName + '_' + str(int(float(gpsTime))) + '_snr.png')
+    title(ifoName + ' trigger: ' + gpsTime)
+    savefig(ifoName + '_' + str(gpsTime).replace(".","_") + '_snr.png')
+
 
     # Now plot the r^2 time serie !!
     figure(2)
@@ -98,8 +110,8 @@ def plotsnrchisq(gpsTime,frameFile,ligoName,chisqBins,chisqDelta,outputPath):
     xlabel('time (s)',size='x-large')
     ylabel(r'$r^2$',size='x-large')
     grid(1)
-    title(ifoName + ' trigger: ' + gpsTime)   
-    savefig(ifoName + '_' + str(int(float(gpsTime))) + '_rsq.png')
+    title(ifoName + ' trigger: ' + gpsTime)
+    savefig(ifoName + '_' + str(gpsTime).replace(".","_")  + '_rsq.png')
 
     # Now plot the normalized chisq time serie !!
     figure(3)
@@ -108,8 +120,10 @@ def plotsnrchisq(gpsTime,frameFile,ligoName,chisqBins,chisqDelta,outputPath):
     xlabel('time (s)',size='x-large')
     ylabel(r'$\chi^2 / (p + \delta^2\rho^2)$',size='x-large')
     grid(1)
-    title(ifoName + ' trigger: ' + gpsTime)   
-    savefig(ifoName + '_' + str(int(float(gpsTime))) + '_chisq.png')
+    title(ifoName + ' trigger: ' + gpsTime)
+    savefig(ifoName + '_' + str(gpsTime).replace(".","_")  + '_chisq.png')
+
+
 
     
 ##############################################################################
@@ -134,14 +148,8 @@ parser.add_option("-t","--gps",action="store",type="string",\
 parser.add_option("-o","--output-path",action="store",type="string",\
     metavar=" PATH",help="use output path PATH")
 
-parser.add_option("-l","--ligo-channel",action="store",type="string",\
-    metavar=" CHANNEL",help="use ligo channel CHANNEL")
-
-parser.add_option("-b","--chisq-dof",action="store",type="float",\
-    metavar=" BINS",help="use chisq bins BINS")
-
-parser.add_option("-d","--chisq-delta",action="store",type="float",\
-    metavar=" DELTA",help="use chisq delta DELTA")
+parser.add_option("-x","--inspiral-xml-file", action="store",type="string", \
+    metavar=" XML",help="use inspiral-file")
 
 
 command_line = sys.argv[1:]
@@ -150,7 +158,7 @@ command_line = sys.argv[1:]
 #################################
 # if --version flagged
 if opts.version:
-  print "$Id: plotsnrchisq.py,v 1.1 2007/04/28 22:23:19 channa Exp $"
+  print "$Id: plotsnrchisq_pipe.py,v 1.2 2007/05/11 07:55:02 romain Exp $"
   sys.exit(0)
 
 #################################
@@ -171,41 +179,8 @@ if not opts.output_path:
   print >> sys.stderr, "Use --output-path PATH to specify location."
   sys.exit(1)
 
-if not opts.ligo_channel:
-  print >> sys.stderr, "No ligo_channel specified."
-  print >> sys.stderr, "Use --ligo-channel CHANNEL to specify location."
-  sys.exit(1)  
+doc = utils.load_filename(opts.inspiral_xml_file,None)
+proc = table.get_table(doc, lsctables.ProcessParamsTable.tableName)
 
-if not opts.chisq_dof:
-  print >> sys.stderr, "No chisq bins specified."
-  print >> sys.stderr, "Use --chisq-dof BINS to specify location."
-  sys.exit(1)
-  
-if not opts.chisq_delta:
-  print >> sys.stderr, "No chisq delta specified."
-  print >> sys.stderr, "Use --chisq-delta DELTA to specify location."
-  sys.exit(1)
+plotsnrchisq(opts.gps,opts.frame_file,opts.output_path,proc)
 
-#################################
-
-# if we want to take as insput a list of gwf files
-
-# frameFileList = open(opts.frame_files_list,"r")
-# frameFiles = []
-# frameFiles = frameFileList.readlines()
-
-# if not len(frameFiles):
-  # print >> sys.stderr, "No frame file found in FILE"
-  # print >> sys.stderr, "Is the first line blank?"
-  # sys.exit(1)
-
-# frameFile = []
-
-# for file in frameFiles:
-  # file = file.replace ( "\n", "" )
-  # print file
-  # frameFile.append(file)
-
-plotsnrchisq(opts.gps,opts.frame_file,opts.ligo_channel,opts.chisq_dof,opts.chisq_delta,opts.output_path)
-
-#################################
