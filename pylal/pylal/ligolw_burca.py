@@ -131,6 +131,59 @@ def dbget_thresholds(connection):
 #
 # =============================================================================
 #
+#                          CoincTables Customizations
+#
+# =============================================================================
+#
+
+
+#
+# For use with excess power.
+#
+
+
+class ExcessPowerCoincTables(snglcoinc.CoincTables):
+	def __init__(self, *args):
+		snglcoinc.CoincTables.__init__(self, *args)
+
+		# find the multi_burst table or create one if not found
+		try:
+			self.multibursttable = table.get_table(xmldoc, lsctables.MultiBurstTable.tableName)
+		except ValueError:
+			self.multibursttable = lsctables.New(lsctables.MultiBurstTable, ("process_id", "duration", "central_freq", "bandwidth", "snr", "confidence", "coinc_event_id"))
+			xmldoc.childNodes[0].appendChild(self.multibursttable)
+
+
+	def append_coinc(self, process_id, time_slide_id, events):
+		coinc = snglcoinc.CoincTables.append_coinc(self, process_id, time_slide_id, events)
+		multiburst = lsctables.MultiBurst()
+		multiburst.process_id = process_id
+		multiburst.coinc_event_id = coinc.coinc_event_id
+
+		# snr = sum of snrs
+		multiburst.snr = sum(event.snr for event in events)
+
+		# duration = snr-weighted average of durations
+		multiburst.duration = sum(event.snr * event.duration for event in events) / multiburst.snr
+
+		# central_freq = snr-weighted average of peak frequencies
+		multiburst.central_freq = sum(event.snr * event.peak_frequency for event in events) / multiburst.snr
+
+		# bandwidth = snr-weighted average of bandwidths
+		multiburst.bandwidth = sum(event.snr * event.bandwidth for event in events) / multiburst.snr
+
+		# confidence = arithmetic mean of confidences
+		multiburst.confidence = sum(event.confidence for event in events) / len(events)
+
+		self.multibursttable.append(multiburst)
+
+		# done
+		return coinc
+
+
+#
+# =============================================================================
+#
 #                            Event List Management
 #
 # =============================================================================
@@ -326,7 +379,7 @@ def StringCoincCompare(a, b, thresholds):
 #
 
 
-def ligolw_burca(xmldoc, comparefunc, **kwargs):
+def ligolw_burca(xmldoc, CoincTables, comparefunc, **kwargs):
 	# add an entry in the process table
 	process = append_process(xmldoc, **kwargs)
 
@@ -334,7 +387,7 @@ def ligolw_burca(xmldoc, comparefunc, **kwargs):
 		print >>sys.stderr, "indexing ..."
 
 	# prepare the coincidence table interface
-	coinc_tables = snglcoinc.CoincTables(xmldoc, [lsctables.SnglBurstTable.tableName])
+	coinc_tables = CoincTables(xmldoc, [lsctables.SnglBurstTable.tableName])
 
 	# cast offsets in time_slide table to LIGOTimeGPS (avoids repeated
 	# conversion when applying the time slide to each trigger)

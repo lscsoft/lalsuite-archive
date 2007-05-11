@@ -211,6 +211,7 @@ options, filenames = parse_command_line()
 if options.coincidence_algorithm == "excesspower":
 	snglcoinc.EventListDict.EventListType = ligolw_burca.ExcessPowerEventList
 	comparefunc = ligolw_burca.ExcessPowerCoincCompare
+	CoincTables = ligolw_burca.ExcessPowerCoincTables
 	options.get_max_segment_gap = ligolw_burca.ExcessPowerMaxSegmentGap
 elif options.coincidence_algorithm == "excesspower2":
 	from pylal import ligolw_burca_tailor
@@ -221,6 +222,7 @@ else:
 	# "stringcusp"
 	snglcoinc.EventListDict.EventListType = ligolw_burca.StringEventList
 	comparefunc = ligolw_burca.StringCoincCompare
+	CoincTables = snglcoinc.CoincTables
 	options.get_max_segment_gap = ligolw_burca.StringMaxSegmentGap
 
 
@@ -258,7 +260,7 @@ for n, filename in enumerate(filenames):
 	#
 
 	if options.coincidence_algorithm in ("excesspower", "stringcusp"):
-		ligolw_burca.ligolw_burca(xmldoc, comparefunc, **options.__dict__)
+		ligolw_burca.ligolw_burca(xmldoc, CoincTables, comparefunc, **options.__dict__)
 	else:
 		# excesspower2
 		ligolw_burca2.ligolw_burca2(xmldoc, likelihood, verbose = options.verbose)
