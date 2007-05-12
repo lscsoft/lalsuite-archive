@@ -703,10 +703,10 @@ if opts.snr_snr or opts.slide_snr:
     if opts.snr_snr:
       viz.plotcoincval(coincTriggers, snglStat, ifo_non_h[0], 
           ifo_non_h[1], 'r+',opts.plot_type)
-          # The color in 'r+' only applies to markerfacecolor, which plotcoincval
-          # removes.  Must set the markeredgecolor on the last dataset in the
-          # current axes.
-          gca().get_lines()[-1].set_markeredgecolor('r')
+      # The color in 'r+' only applies to markerfacecolor, which plotcoincval
+      # removes.  Must set the markeredgecolor on the last dataset in the
+      # current axes.
+      gca().get_lines()[-1].set_markeredgecolor('r')
 
     xlabel(snr + ' ' + ifo_non_h[0], size='x-large')
     ylabel(snr + ' ' + ifo_non_h[1], size='x-large')
