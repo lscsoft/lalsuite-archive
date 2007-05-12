@@ -142,8 +142,10 @@ def dbget_thresholds(connection):
 #
 
 
-def make_multi_burst(events):
+def make_multi_burst(process_id, coinc_event_id, events):
 	multiburst = lsctables.MultiBurst()
+	multiburst.process_id = process_id
+	multiburst.coinc_event_id = coinc_event_id
 
 	# snr = sum of snrs
 	multiburst.snr = sum(event.snr for event in events)
@@ -177,10 +179,7 @@ class ExcessPowerCoincTables(snglcoinc.CoincTables):
 
 	def append_coinc(self, process_id, time_slide_id, events):
 		coinc = snglcoinc.CoincTables.append_coinc(self, process_id, time_slide_id, events)
-		multiburst = make_multi_burst(events)
-		multiburst.process_id = process_id
-		multiburst.coinc_event_id = coinc.coinc_event_id
-		self.multibursttable.append(multiburst)
+		self.multibursttable.append(make_multi_burst(process_id, coinc.coinc_event_id, events))
 		return coinc
 
 
