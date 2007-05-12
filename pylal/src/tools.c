@@ -1,4 +1,5 @@
 #include <Python.h>
+#include <lal/XLALError.h>
 #include <lal/LALStdio.h>
 #include <lal/LIGOMetadataUtils.h>
 #include <lal/CoincInspiralEllipsoid.h>
@@ -392,8 +393,14 @@ static PyObject *PyCalculateEThincaParameter(PyObject *self, PyObject *args) {
 
     XLALPopulateAccuracyParams( accuracyParams );
 
-    /* This is the main call */    
+    /* This is the main call */
     result = (double) XLALCalculateEThincaParameter(c_row1, c_row2, accuracyParams);
+    if (XLAL_IS_REAL8_FAIL_NAN((REAL8) result)) {
+        /* convert XLAL exception to Python exception */
+        XLALClearErrno();
+        PyErr_SetString(PyExc_ValueError, "SnglInspiral triggers are not coincident.");
+        return NULL;
+    }
     
     /* Free temporary memory */
     LALFree(c_row1);
@@ -443,6 +450,12 @@ static PyObject *PyCalculateEThincaParameterExt(PyObject *self, PyObject *args) 
 
     /* This is the main call */    
     result = (double) XLALCalculateEThincaParameter(c_row1, c_row2, accuracyParams);
+    if (XLAL_IS_REAL8_FAIL_NAN((REAL8) result)) {
+        /* convert XLAL exception to Python exception */
+        XLALClearErrno();
+        PyErr_SetString(PyExc_ValueError, "SnglInspiral triggers are not coincident.");
+        return NULL;
+    }
     
     /* Free temporary memory */
     LALFree(c_row1);
