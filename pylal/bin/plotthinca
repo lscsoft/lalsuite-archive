@@ -476,6 +476,10 @@ if opts.snr_snr or opts.slide_snr:
     if opts.ext_trig:
       viz.plotcoincval(offsourceTriggers, snglStat, 'H1', 'H2', \
           'bo',opts.plot_type)
+      # The color in 'bo' only applies to markerfacecolor, which plotcoincval
+      # removes.  Must set the markeredgecolor on the last dataset in the
+      # current axes.
+      gca().get_lines()[-1].set_markeredgecolor('b')
     if opts.snr_snr:
       viz.plotcoincval(coincTriggers, snglStat, 'H1', 'H2', \
           'r+',opts.plot_type)
@@ -509,6 +513,10 @@ if (opts.snr_snr or opts.slide_snr) and opts.mass_dependent:
       if opts.snr_snr:
         viz.plotcoincval(coincTriggersByMass[i], snglStat, 'H1', 'H2', \
             'r+',opts.plot_type)
+        # The color in 'r+' only applies to markerfacecolor, which plotcoincval
+        # removes.  Must set the markeredgecolor on the last dataset in the
+        # current axes.
+        gca().get_lines()[-1].set_markeredgecolor('r')
 
       xlabel(snglStat.replace("_"," ") + ' H1', size='x-large')
       ylabel(snglStat.replace("_"," ") + ' H2', size='x-large')
@@ -691,6 +699,10 @@ if opts.snr_snr or opts.slide_snr:
     if opts.snr_snr:
       viz.plotcoincval(coincTriggers, snglStat, ifo_non_h[0], 
           ifo_non_h[1], 'r+',opts.plot_type)
+          # The color in 'r+' only applies to markerfacecolor, which plotcoincval
+          # removes.  Must set the markeredgecolor on the last dataset in the
+          # current axes.
+          gca().get_lines()[-1].set_markeredgecolor('r')
 
     xlabel(snr + ' ' + ifo_non_h[0], size='x-large')
     ylabel(snr + ' ' + ifo_non_h[1], size='x-large')
@@ -721,6 +733,10 @@ if (opts.snr_snr or opts.slide_snr) and opts.mass_dependent:
       if opts.snr_snr:
         viz.plotcoincval(coincTriggersByMass[i], snglStat, ifo_non_h[0],
             ifo_non_h[1], 'r+',opts.plot_type)
+        # The color in 'r+' only applies to markerfacecolor, which plotcoincval
+        # removes.  Must set the markeredgecolor on the last dataset in the
+        # current axes.
+        gca().get_lines()[-1].set_markeredgecolor('r')
 
       xlabel(snr + ' ' + ifo_non_h[0], size='x-large')
       ylabel(snr + ' ' + ifo_non_h[1], size='x-large')
@@ -755,10 +771,18 @@ if opts.dist_dist:
     if opts.ext_trig:
       viz.plotcoincval(offsourceTriggers, 'eff_distance', 'H1', 'H2', 'bo', \
           opts.plot_type)
+      # The color in 'bo' only applies to markerfacecolor, which plotcoincval
+      # removes.  Must set the markeredgecolor on the last dataset in the
+      # current axes.
+      gca().get_lines()[-1].set_markeredgecolor('b')
 
     if opts.dist_dist:
       viz.plotcoincval(coincTriggers, 'eff_distance', 'H1', 'H2', 'r+', \
           opts.plot_type)
+      # The color in 'r+' only applies to markerfacecolor, which plotcoincval
+      # removes.  Must set the markeredgecolor on the last dataset in the
+      # current axes.
+      gca().get_lines()[-1].set_markeredgecolor('r')
 
     xlabel('eff distance H1 (Mpc)', size='x-large')
     ylabel('eff distance H2 (Mpc)', size='x-large')
@@ -789,6 +813,10 @@ if opts.dist_dist and opts.mass_dependent:
       if opts.dist_dist:
         viz.plotcoincval(coincTriggersByMass[i], 'eff_distance', 'H1', 'H2', \
             'r+', opts.plot_type)
+        # The color in 'ro' only applies to markerfacecolor, which plotcoincval
+        # removes.  Must set the markeredgecolor on the last dataset in the
+        # current axes.
+        gca().get_lines()[-1].set_markeredgecolor('r')
 
       xlabel('eff distance H1 (Mpc)', size='x-large')
       ylabel('eff distance H2 (Mpc)', size='x-large')
