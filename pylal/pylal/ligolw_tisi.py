@@ -303,6 +303,23 @@ def time_slides_vacuum(time_slides, verbose = False):
 	return mapping
 
 
+def time_slide_list_merge(slides1, slides2):
+	"""
+	Merges two lists of offset dictionaries into a single list with
+	no duplicate (equivalent) time slides.
+	"""
+	new = []
+	for offsetdict2 in slides2:
+		for offsetdict1 in slides1:
+			if not time_slide_cmp(offsetdict1, offsetdict2):
+				# these are the same slides, discard
+				break
+		else:
+			# loop completed without finding a match
+			new.append(offsetdict2)
+	return slides1 + new
+
+
 #
 # =============================================================================
 #
