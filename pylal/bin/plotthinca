@@ -146,10 +146,13 @@ parser.add_option("-N","--num-slides",action="store",type="int",default=0,\
     metavar=" NUM_SLIDES",help="number of time slides performed" )
 parser.add_option("-t","--plot-type",action="store",type="string",\
     default="linear",metavar=" PLOT_TYPE", \
-    help="make either linear or log or plots" )
+    help="make either linear or log plots" )
 parser.add_option("-V","--veto-file",action="store",type="string",\
     default=None,metavar=" FNAME",\
-    help="read in segments from FNAME (assumed segwizard format)")
+    help="discard triggers in segments from FNAME (segwizard format)")
+parser.add_option("-v","--offsource-veto-file",action="store",type="string",\
+    default=None,metavar=" FNAME",\
+    help="discard off-source triggers in segments from FNAME (segwizard format)")
 (opts,args) = parser.parse_args()
 
 if opts.plot_type not in ['log', 'linear']:
@@ -357,7 +360,10 @@ offsourceTriggers = None
 if offsourcefiles:
   inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(offsourcefiles)
   # perform the veto
-  if opts.veto_file:
+  if opts.offsource_veto_file:
+    seglist = segmentsUtils.fromsegwizard(open(opts.offsource_veto_file, "r"))
+    inspTriggers = inspTriggers.veto(seglist)
+  elif opts.veto_file:
     seglist = segmentsUtils.fromsegwizard(open(opts.veto_file, "r"))
     inspTriggers = inspTriggers.veto(seglist)
 
@@ -439,27 +445,6 @@ if opts.mass_dependent:
       slideTriggersByMass[i].append( tmp_this_slide )
 
 fig_num = 1
-
-#################################
-# check we have required triggers
-if (opts.snr_time or opts.snr_snr or opts.add_zero_lag) and not coincTriggers:
-  print >>sys.stderr, \
-     "there must be un-vetoed non-time-slide triggers in the glob"
-  sys.exit(1)
-  
-if (opts.ext_trig) and not offsourceTriggers:
-  print >>sys.stderr, \
-     "there must be un-vetoed off-source triggers in the glob"
-  sys.exit(1)
-
-if (opts.slide_snr or opts.slide_dist or opts.plot_slides or opts.hist_slides)\
-    and not slideTriggers:
-  print >>sys.stderr, \
-     "there must be time slide files whose name includes SLIDE in the glob"
-  sys.exit(1)
-
-
-
 
 ################################
 # plot of h1 vs h2 stat
