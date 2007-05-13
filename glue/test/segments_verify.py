@@ -329,6 +329,9 @@ class test_segmentlist(unittest.TestCase):
 			except AssertionError, e:
 				raise AssertionError, str(e) + "\na = " + str(a) + "\nb = " + str(b)
 
+	def testprotract(self):
+		self.assertEqual(segments.segmentlist([segments.segment(0, 20)]), segments.segmentlist([segments.segment(3, 7), segments.segment(13, 17)]).protract(3))
+
 	def testcontract(self):
 		self.assertEqual(segments.segmentlist([segments.segment(0, 20)]), segments.segmentlist([segments.segment(3, 7), segments.segment(13, 17)]).contract(-3))
 
