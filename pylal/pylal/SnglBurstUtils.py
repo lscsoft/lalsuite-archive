@@ -157,7 +157,7 @@ class CoincDatabase(object):
 			if self.sim_burst_table is not None:
 				print >>sys.stderr, "\tinjections: %d" % len(self.sim_burst_table)
 			if self.time_slide_table is not None:
-				print >>sys.stderr, "\ttime slides: %d" % len(self.time_slide_table)
+				print >>sys.stderr, "\ttime slides: %d" % cursor.execute("SELECT COUNT(DISTINCT(time_slide_id)) FROM time_slide").fetchone()[0]
 			if self.bb_definer_id is not None:
 				print >>sys.stderr, "\tburst + burst coincidences: %d" % cursor.execute("SELECT COUNT(*) FROM coinc_event WHERE coinc_def_id = ?", (self.bb_definer_id,)).fetchone()[0]
 			if self.sb_definer_id is not None:
