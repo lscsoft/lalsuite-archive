@@ -267,7 +267,8 @@ class segment(tuple):
 	def __abs__(self):
 		"""
 		Returns the length of the interval represented by the
-		segment.
+		segment.  Requires the bounds to support the subtract
+		operation.
 		"""
 		return self[1] - self[0]
 
@@ -750,10 +751,8 @@ class _offsets(dict):
 		contains only a subset of the keys.
 		"""
 		for key, value in d.iteritems():
-			try:
+			if key in self:
 				self[key] = value
-			except KeyError:
-				pass
 
 	def clear(self):
 		"""
@@ -891,7 +890,7 @@ class segmentlistdict(dict):
 		Return a dictionary of the results of running find() on
 		each of the segmentlists.
 		"""
-		return self.map(lambda l: segmentlist.find(l, seg))
+		return self.map(lambda x: x.find(seg))
 
 	# list-by-list arithmetic
 
@@ -928,6 +927,17 @@ class segmentlistdict(dict):
 
 	def __sub__(self, other):
 		return self.copy().__isub__(other)
+
+	def __ixor__(self, other):
+		for key, value in other.iteritems():
+			if key in self:
+				self[key] ^= value
+			else:
+				self[key] = shallowcopy(value)
+		return self
+
+	def __xor__(self, other):
+		return self.copy().__ixor__(other)
 
 	def __invert__(self):
 		new = self.copy()
@@ -977,6 +987,19 @@ class segmentlistdict(dict):
 		"""
 		for key, value in self.iteritems():
 			if key not in other or not other[key].intersects(value):
+				return False
+		return True
+
+	def all_intersects_all(self, other):
+		"""
+		Returns True if self and other have the same keys, and each
+		segmentlist intersects the corresponding segmentlist in the
+		other;  returns False otherwise.
+		"""
+		if set(self.iterkeys()) != set(other.iterkeys()):
+			return False
+		for key, value in self.iteritems():
+			if not other[key].intersects(value):
 				return False
 		return True
 
@@ -1048,6 +1071,7 @@ class segmentlistdict(dict):
 		Return the intersection of the segmentlists associated with
 		the keys in keys.
 		"""
+		keys = set(keys)
 		if not keys:
 			return segmentlist()
 		seglist = ~segmentlist()
@@ -1061,7 +1085,7 @@ class segmentlistdict(dict):
 		keys in keys.
 		"""
 		seglist = segmentlist()
-		for key in keys:
+		for key in set(keys):
 			seglist |= self[key]
 		return seglist
 
