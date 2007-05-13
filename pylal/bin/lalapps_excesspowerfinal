@@ -47,6 +47,7 @@ from glue.ligolw import lsctables
 from glue.ligolw import dbtables
 from glue.ligolw import utils
 from glue import segments
+from pylal import ligolw_tisi
 from pylal import rate
 from pylal import SimBurstUtils
 from pylal import SnglBurstUtils
@@ -90,9 +91,11 @@ def parse_command_line():
 		description = "%prog performs the final, summary, stages of an upper-limit excess power search for burst-like gravitational waves."
 	)
 	parser.add_option("-b", "--background-glob", metavar = "pattern", default = [], action = "append", help = "Shell filename pattern for non-injection files.")
+	parser.add_option("-c", "--confidence-threshold", metavar = "confidence", help = "Set the coincidence confidence threshold to this value.  Only burst coincidences whose confidence, as recorded in the multi_burst table, is greater than (not equal to) this value will be considered.")
 	parser.add_option("-i", "--injection-glob", metavar = "pattern", default = [], action = "append", help = "Shell filename pattern for injection files.")
 	parser.add_option("-l", "--live-time-program", metavar = "program", default = "lalapps_power", help = "Set the name, as it appears in the process table, of the program whose search summary entries define the search live time (default = \"lalapps_power\")")
 	parser.add_option("--foreground-survivors", metavar = "number", help = "Tune the coincidence likelihood threshold to result in this many survivors being expected in the foreground. (e.g., 0.1)")
+	parser.add_option("--measure-min-confidences", action = "store_true", help = "After thresholds have been determined, rescan all input files for all sngl_burst events surviving the cuts, and measure the lowest surviving confidence by instrument.  Can be used to check that the confidence thresholds set on the pipeline's lalapps_power jobs are not unreasonable.")
 	parser.add_option("--survivors-output", metavar = "filename", help = "Set the name of the XML file to which zero-lag survivors will be written.  Default is to not record zero-lag survivors file (keep the box closed).")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
 	options, filenames = parser.parse_args()
@@ -101,12 +104,56 @@ def parse_command_line():
 		raise ValueError, "missing required --background-glob argument"
 	if not options.injection_glob:
 		raise ValueError, "missing required --injection-glob argument"
+	if options.confidence_threshold is None:
+		raise ValueError, "missing required --confidence-threshold argument"
 	if options.foreground_survivors is None:
 		raise ValueError, "missing required --foreground-survivors argument"
 
+	options.confidence_threshold = float(options.confidence_threshold)
 	options.foreground_survivors = float(options.foreground_survivors)
 
 	return options, (filenames or [None])
+
+
+#
+# =============================================================================
+#
+#           Thing for keeping only the highest values in a sequence
+#
+# =============================================================================
+#
+
+
+class Highest(list):
+	def __init__(self, sequence = [], fraction = 1.0):
+		list.__init__(self, sequence)
+		self.n = list.__len__(self)
+		self.fraction = fraction
+		self.sort(reverse = True)
+		del self[int(self.fraction * self.n):]
+
+	def __len__(self):
+		return self.n
+
+	def append(self, value):
+		hi = list.__len__(self)
+		lo = 0
+		while lo < hi:
+			mid = (lo + hi) // 2
+			if value > self[mid]:
+				hi = mid
+			else:
+				lo = mid + 1
+		self.insert(lo, value)
+		self.n += 1
+		del self[int(self.fraction * self.n):]
+
+	def extend(self, sequence):
+		before = list.__len__(self)
+		list.extend(self, sequence)
+		self.n += list.__len__(self) - before
+		self.sort(reverse = True)
+		del self[int(self.fraction * self.n):]
 
 
 #
@@ -119,29 +166,27 @@ def parse_command_line():
 
 
 class Likelihood_Histogram(object):
-	def __init__(self):
-		self.injection_likelihoods = []
-		self.background_likelihoods = []
-		self.foreground_likelihoods = []
-		self.n_background_time_slides = None
-
-	def count_time_slides(self, contents):
-		#
-		# If not already done, count the number of non-zero-lag
-		# time slides.  Assume all files list the same time slides.
-		#
-
-		if self.n_background_time_slides is None:
-			self.n_background_time_slides = contents.connection.cursor().execute("""SELECT COUNT(DISTINCT time_slide_id) FROM time_slide WHERE offset != 0""").fetchone()[0]
+	def __init__(self, confidence_threshold):
+		self.slides = []
+		self.injection_likelihoods = Highest(fraction = 0.01)
+		self.background_likelihoods = Highest(fraction = 0.01)
+		self.foreground_likelihoods = Highest(fraction = 0.01)
+		self.foreground_rate = rate.Rate(segments.segment(0.0, 1.0), 0.01)
+		self.background_rate = rate.Rate(segments.segment(0.0, 1.0), 0.01)
+		self.injection_rate = rate.Rate(segments.segment(0.0, 1.0), 0.01)
+		self.confidence_threshold = confidence_threshold
 
 	def add_background(self, contents):
 		#
 		# Iterate over non-zero-lag coincidences.
 		#
 
-		for (likelihood,) in contents.connection.cursor().execute("""
-SELECT coinc_event.likelihood FROM
+		for likelihood, confidence in contents.connection.cursor().execute("""
+SELECT coinc_event.likelihood, multi_burst.confidence FROM
 	coinc_event
+	JOIN multi_burst ON (
+		multi_burst.coinc_event_id == coinc_event.coinc_event_id
+	)
 WHERE
 	coinc_event.coinc_def_id == ?
 	AND EXISTS (
@@ -152,16 +197,20 @@ WHERE
 			AND time_slide.offset != 0
 	)
 		""", (contents.bb_definer_id,)):
-			self.background_likelihoods.append(likelihood)
+			self.background_likelihoods.append((likelihood, confidence))
+			self.background_rate[likelihood] += 1.0
 
 	def add_foreground(self, contents):
 		#
 		# Iterate over zero-lag coincidences.
 		#
 
-		for (likelihood,) in contents.connection.cursor().execute("""
-SELECT coinc_event.likelihood FROM
+		for likelihood, confidence in contents.connection.cursor().execute("""
+SELECT coinc_event.likelihood, multi_burst.confidence FROM
 	coinc_event
+	JOIN multi_burst ON (
+		multi_burst.coinc_event_id == coinc_event.coinc_event_id
+	)
 WHERE
 	coinc_event.coinc_def_id == ?
 	AND NOT EXISTS (
@@ -172,7 +221,8 @@ WHERE
 			AND time_slide.offset != 0
 	)
 		""", (contents.bb_definer_id,)):
-			self.foreground_likelihoods.append(likelihood)
+			self.foreground_likelihoods.append((likelihood, confidence))
+			self.foreground_rate[likelihood] += 1.0
 
 	def add_injections(self, contents):
 		#
@@ -180,9 +230,12 @@ WHERE
 		# events identified as being the result of injections.
 		#
 
-		for (likelihood,) in contents.connection.cursor().execute("""
-SELECT coinc_event.likelihood FROM
+		for likelihood, confidence in contents.connection.cursor().execute("""
+SELECT coinc_event.likelihood, multi_burst.confidence FROM
 	coinc_event
+	JOIN multi_burst ON (
+		multi_burst.coinc_event_id == coinc_event.coinc_event_id
+	)
 WHERE
 	coinc_event.coinc_def_id == ?
 	AND NOT EXISTS (
@@ -210,29 +263,21 @@ WHERE
 			AND a.coinc_def_id == ?
 	)
 		""", (contents.bb_definer_id, contents.sb_definer_id)):
-			self.injection_likelihoods.append(likelihood)
+			self.injection_likelihoods.append((likelihood, confidence))
+			self.injection_rate[likelihood] += 1.0
 
 	def finish_non_injections(self):
-		self.foreground_likelihoods.sort(reverse = True)
-		self.background_likelihoods.sort(reverse = True)
-
-		self.foreground_rate = rate.Rate(segments.segment(0.0, 1.0), 0.01)
-		self.background_rate = rate.Rate(segments.segment(0.0, 1.0), 0.01)
-
-		for likelihood in self.foreground_likelihoods:
-			self.foreground_rate[likelihood] += 1.0
-		for likelihood in self.background_likelihoods:
-			self.background_rate[likelihood] += 1.0
-
-		self.foreground_rate.array /= len(self.foreground_likelihoods)
-		self.background_rate.array /= len(self.background_likelihoods)
+		self.foreground_rate.array /= numpy.sum(self.foreground_rate.array)
+		self.background_rate.array /= numpy.sum(self.background_rate.array)
+		self.foreground_rate.filter()
+		self.background_rate.filter()
 
 	def finish_injections(self):
-		self.injection_likelihoods.sort(reverse = True)
-		self.injection_rate = rate.Rate(segments.segment(0.0, 1.0), 0.01)
-		for likelihood in self.injection_likelihoods:
-			self.injection_rate[likelihood] += 1.0
-		self.injection_rate.array /= len(self.injection_likelihoods)
+		self.injection_rate.array /= numpy.sum(self.injection_rate.array)
+		self.injection_rate.filter()
+
+	def get_foreground_above_likelihood_threshold(self, likelihood_threshold):
+		return filter(lambda x: x[0] > likelihood_threshold and x[1] > self.confidence_threshold, self.foreground_likelihoods)
 
 	def find_likelihood_threshold(self, events_per_foreground, foreground_live_time, background_live_time):
 		"""
@@ -244,16 +289,19 @@ WHERE
 		"""
 		#
 		# How many events to retain from the non-zero-lag
-		# coincidences.
+		# coincidences in order to get events_per_foreground
+		# survivors in the foreground, assuming the event rate is
+		# the same in all time slides.
 		#
 
 		n_background = int(round(events_per_foreground * background_live_time / foreground_live_time))
 
 		#
-		# Likelihood that will keep n_background background events.
+		# Likelihood that will keep n_background background events
+		# with confidences greater than or equal to 50.0.
 		#
 
-		return self.background_likelihoods[n_background]
+		return filter(lambda x: x[1] > self.confidence_threshold, self.background_likelihoods)[n_background][0]
 
 
 #
@@ -266,7 +314,9 @@ WHERE
 
 
 class Survivors(object):
-	def __init__(self):
+	def __init__(self, likelihood_threshold, confidence_threshold):
+		self.likelihood_threshold = likelihood_threshold
+		self.confidence_threshold = confidence_threshold
 		self.xmldoc = None
 
 	def add(self, contents):
@@ -276,25 +326,34 @@ class Survivors(object):
 			self.sngl_burst_table = lsctables.New(lsctables.SnglBurstTable, contents.sngl_burst_table.columnnames)
 			self.xmldoc.childNodes[0].appendChild(self.sngl_burst_table)
 
-		time_slide_id = [id for id in contents.time_slide_table.iterkeys() if contents.time_slide_table.is_null(id)]
-		if len(time_slide_id) != 1:
-			raise ValueError, "document does not contain exactly 1 zero-lag time slide (contains %d of them)" % len(time_slide_id)
-		time_slide_id = time_slide_id[0]
-
-		self.sngl_burst_table.extend(map(contents.sngl_burst_table._row_from_cols, contents.connection.cursor().execute("""
+		for sngl_burst in map(contents.sngl_burst_table._row_from_cols, contents.connection.cursor().execute("""
 SELECT sngl_burst.* FROM
 	sngl_burst
-	JOIN coinc_event_map ON (
-		coinc_event_map.event_id == sngl_burst.event_id
-		AND coinc_event_map.table_name == 'sngl_burst'
-	)
-	JOIN coinc_event ON (
-		coinc_event.coinc_event_id == coinc_event_map.coinc_event_id
-	)
 WHERE
-	coinc_event.coinc_def_id == ?
-	AND coinc_event.time_slide_id == ?
-		""", (contents.bb_definer_id, time_slide_id))))
+	sngl_burst.event_id IN (
+		SELECT coinc_event_map.event_id FROM
+			coinc_event_map
+			JOIN coinc_event ON (
+				coinc_event.coinc_event_id == coinc_event_map.coinc_event_id
+			)
+			JOIN multi_burst ON (
+				multi_burst.coinc_event_id == coinc_event.coinc_event_id
+			)
+		WHERE
+			coinc_event_map.table_name == 'sngl_burst'
+			AND coinc_event.coinc_def_id == ?
+			AND coinc_event.likelihood > ?
+			AND multi_burst.confidence > ?
+			AND NOT EXISTS (
+				SELECT * FROM
+					time_slide
+				WHERE
+					time_slide.time_slide_id == coinc_event.time_slide_id
+					AND time_slide.offset != 0
+			)
+	)
+		""", (contents.bb_definer_id, self.likelihood_threshold, self.confidence_threshold))):
+			self.sngl_burst_table.append(sngl_burst)
 
 	def finish(self, filename, verbose = False):
 		utils.write_filename(self.xmldoc, filename, verbose = verbose, gz = (filename or "stdout").endswith(".gz"))
@@ -321,22 +380,25 @@ def Efficiency_hrss_vs_freq_add_contents(self, contents):
 	# now, I'm running fixed networks so this is not a problem, but if
 	# variable configuration networks are adopted in the future, then
 	# this will need to be re-thought.
-	for sim in map(contents.sim_burst_table._row_from_cols, contents.connection.cursor().execute("""
-SELECT sim_burst.* FROM
+	for freq, hrss in contents.connection.cursor().execute("""
+SELECT sim_burst.freq, sim_burst.hrss FROM
 	sim_burst
 WHERE
 	EXISTS (
 		-- Find a zero-lag burst<-->burst coinc containing a burst
 		-- that matches this injection, and whose likelihood is
-		-- above threshold
-		SELECT * FROM
+		-- above likelihood_threshold
+		SELECT coinc_event.coinc_event_id FROM
 			coinc_event
+			JOIN multi_burst ON (
+				multi_burst.coinc_event_id == coinc_event.coinc_event_id
+			)
 			JOIN coinc_event_map AS a ON (
 				a.coinc_event_id == coinc_event.coinc_event_id
+				AND a.table_name == 'sngl_burst'
 			)
 			JOIN coinc_event_map AS b ON (
-				a.table_name == 'sngl_burst'
-				AND b.table_name == 'sngl_burst'
+				b.table_name == 'sngl_burst'
 				AND b.event_id == a.event_id
 			)
 			JOIN coinc_event_map AS c ON (
@@ -347,6 +409,7 @@ WHERE
 		WHERE
 			coinc_event.coinc_def_id == ?
 			AND coinc_event.likelihood > ?
+			AND multi_burst.confidence > ?
 			AND NOT EXISTS (
 				SELECT * FROM
 					time_slide
@@ -355,9 +418,9 @@ WHERE
 					AND time_slide.offset != 0
 			)
 	)
-	""", (contents.bb_definer_id, self.threshold))):
-		self.found_x.append(sim.freq)
-		self.found_y.append(sim.hrss)
+	""", (contents.bb_definer_id, self.likelihood_threshold, 50.0)):
+		self.found_x.append(freq)
+		self.found_y.append(hrss)
 
 
 SimBurstUtils.Efficiency_hrss_vs_freq.add_contents = Efficiency_hrss_vs_freq_add_contents
@@ -378,20 +441,20 @@ def get_background_time_slides(contents):
 	slides.
 	"""
 	time_slides = {}
-	for time_slide_id, in contents.connection.cursor().execute("""
-SELECT DISTINCT(time_slide_id) FROM
+	for id, instrument, offset in contents.connection.cursor().execute("""
+SELECT time_slide_id, instrument, offset FROM
 	time_slide
 WHERE
-	offset != 0
+	time_slide_id IN (
+		SELECT time_slide_id FROM
+			time_slide
+		WHERE
+			offset != 0
+	)
 	"""):
-		time_slides[time_slide_id] = {}
-		for instrument, offset in contents.connection.cursor().execute("""
-SELECT instrument, offset FROM
-	time_slide
-WHERE
-	time_slide_id == ?
-		""", (time_slide_id,)):
-			time_slides[time_slide_id][instrument] = offset
+		if id not in time_slides:
+			time_slides[id] = {}
+		time_slides[id][instrument] = offset
 	return time_slides
 
 
@@ -399,6 +462,7 @@ def zero_lag_livetime(seglists):
 	"""
 	Return the total live time in the zero lag time slide.
 	"""
+	seglists.offsets.clear()
 	return float(abs(seglists.intersection(seglists.keys())))
 
 
@@ -408,7 +472,7 @@ def time_slides_livetime(seglists, time_slides, verbose = False):
 	mappings, compute the live time, and return the sum.
 	"""
 	livetime = 0
-	old_offsets = seglists.offsets
+	old_offsets = {}.update(seglists.offsets)
 	N = len(time_slides)
 	for n, time_slide in enumerate(time_slides):
 		if verbose:
@@ -419,6 +483,62 @@ def time_slides_livetime(seglists, time_slides, verbose = False):
 	if verbose:
 		print >>sys.stderr, "\t100.0%"
 	return livetime
+
+
+#
+# =============================================================================
+#
+#               lalapps_power Confidence Threshold Safety Check
+#
+# =============================================================================
+#
+
+
+def lalapps_power_confidence_safety(filenames, likelihood_threshold, confidence_threshold, verbose = False):
+	"""
+	For each instrument, find the lowest confidence associated with any
+	sngl_burst event surviving the various thresholds.  Used to check
+	that the confidences are too close but also not too much higher
+	than the thresholds set in the lalapps_power jobs.
+	"""
+
+	min_confidence = {}
+
+	for n, filename in enumerate(filenames):
+		if verbose:
+			print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
+		connection = sqlite3.connect(filename)
+
+		for ifo, confidence in connection.cursor().execute("""
+SELECT sngl_burst.ifo, MIN(sngl_burst.confidence) FROM
+	multi_burst
+	JOIN coinc_event ON (
+		coinc_event.coinc_event_id == multi_burst.coinc_event_id
+	)
+	JOIN coinc_event_map ON (
+		coinc_event_map.coinc_event_id == coinc_event.coinc_event_id
+	)
+	JOIN sngl_burst ON (
+		coinc_event_map.table_name == 'sngl_burst'
+		AND coinc_event_map.event_id == sngl_burst.event_id
+	)
+WHERE
+	multi_burst.confidence > ?
+	AND coinc_event.likelihood > ?
+GROUP BY
+	sngl_burst.ifo
+		""", (confidence_threshold, likelihood_threshold)):
+			if ifo not in min_confidence:
+				min_confidence[ifo] = confidence
+			else:
+				min_confidence[ifo] = min(min_confidence[ifo], confidence)
+
+		connection.close()
+
+	if verbose:
+		print >>sys.stderr,
+
+	return min_confidence
 
 
 #
@@ -443,15 +563,11 @@ options, filenames = parse_command_line()
 #
 
 
-if options.survivors_output is not None:
-	survivors = Survivors()
-else:
-	survivors = None
-likelihood_histogram = Likelihood_Histogram()
+likelihood_histogram = Likelihood_Histogram(options.confidence_threshold)
 efficiency = SimBurstUtils.Efficiency_hrss_vs_freq(None, 0.1)
 non_injection_seglists = segments.segmentlistdict()
 injection_seglists = segments.segmentlistdict()
-background_time_slides = None
+background_time_slides = []
 
 
 #
@@ -463,6 +579,7 @@ if options.verbose:
 	print >>sys.stderr, "=== Background & Foreground ==="
 
 filenames = reduce(list.__add__, [glob.glob(g) for g in options.background_glob])
+filenames.sort()
 
 if not len(filenames):
 	raise ValueError, "error:  no background files found"
@@ -482,11 +599,7 @@ for n, filename in enumerate(filenames):
 	# Process database contents.
 	#
 
-	if background_time_slides is None:
-		background_time_slides = get_background_time_slides(database)
-	if survivors is not None:
-		survivors.add(database)
-	likelihood_histogram.count_time_slides(database)
+	background_time_slides = ligolw_tisi.time_slide_list_merge(background_time_slides, get_background_time_slides(database).itervalues())
 	likelihood_histogram.add_foreground(database)
 	likelihood_histogram.add_background(database)
 	non_injection_seglists |= database.seglists
@@ -507,15 +620,54 @@ if options.verbose:
 	print >>sys.stderr, "=== Threshold ==="
 	print >>sys.stderr, "measuring live time ..."
 foreground_live_time = zero_lag_livetime(non_injection_seglists)
-background_live_time = time_slides_livetime(non_injection_seglists, background_time_slides.values())
+background_live_time = time_slides_livetime(non_injection_seglists, background_time_slides)
 
 if options.verbose:
-	print >>sys.stderr, "sorting and binning foreground and background likelihoods ..."
+	print >>sys.stderr, "filtering foreground and background likelihood histograms ..."
 likelihood_histogram.finish_non_injections()
 
 if options.verbose:
 	print >>sys.stderr, "computing likelihood threshold ..."
-efficiency.threshold = threshold = likelihood_histogram.find_likelihood_threshold(options.foreground_survivors, foreground_live_time, background_live_time)
+efficiency.likelihood_threshold = likelihood_threshold = likelihood_histogram.find_likelihood_threshold(options.foreground_survivors, foreground_live_time, background_live_time)
+if options.verbose:
+	print >>sys.stderr, "likelihood threshold = %g" % likelihood_threshold
+
+
+#
+# Retrieve survivors if box is to be opened.
+#
+
+
+if options.survivors_output is not None:
+	if options.verbose:
+		print >>sys.stderr, "retrieving zero-lag survivors ..."
+
+	survivors = Survivors(likelihood_threshold, options.confidence_threshold)
+
+	for n, filename in enumerate(filenames):
+		#
+		# Open the database file.
+		#
+
+		if options.verbose:
+			print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
+		connection = sqlite3.connect(filename)
+		dbtables.DBTable_set_connection(connection)
+		database = SnglBurstUtils.CoincDatabase().summarize(dbtables.DBTable_get_xml(), options.live_time_program, options.verbose)
+
+		#
+		# Process database contents.
+		#
+
+		survivors.add(database)
+
+		#
+		# Done with this file.
+		#
+
+		connection.close()
+else:
+	survivors = None
 
 
 #
@@ -527,6 +679,7 @@ if options.verbose:
 	print >>sys.stderr, "=== Injections =="
 
 filenames = reduce(list.__add__, [glob.glob(g) for g in options.injection_glob])
+filenames.sort()
 
 if not len(filenames):
 	raise ValueError, "error:  no injection files found"
@@ -558,6 +711,21 @@ for n, filename in enumerate(filenames):
 
 
 #
+# Do lalapps_power threshold check.
+#
+
+
+if options.measure_min_confidences:
+	print
+	print "=== Minimum Surviving sngl_burst Confidence By Instrument ==="
+	print
+	filenames = reduce(list.__add__, [glob.glob(g) for g in options.background_glob + options.injection_glob])
+	filenames.sort()
+	for ifo, confidence in lalapps_power_confidence_safety(filenames, likelihood_threshold, confidence_threshold, verbose = options.verbose).items():
+		print "Minimum surviving %s confidence = %g" % (ifo, confidence)
+
+
+#
 # Summary.
 #
 
@@ -576,11 +744,11 @@ print "Number of events in foreground = %d" % len(likelihood_histogram.foregroun
 
 print
 print "=== Threshold ==="
-print "Likelihood threshold for which is expected %g events in foreground = %g" % (options.foreground_survivors, threshold)
+print "Likelihood threshold for which is expected %g events in foreground = %g" % (options.foreground_survivors, likelihood_threshold)
 
 # FIXME: in the future, don't display this until the box is open.
 #if survivors is not None:
-print "Number of foreground events above threshold = %d" % len([x for x in likelihood_histogram.foreground_likelihoods if x > threshold])
+print "Number of foreground events above both likelihood and confidence thresholds = %d" % len(likelihood_histogram.get_foreground_above_likelihood_threshold(likelihood_threshold))
 
 print
 print "Writing plots ..."
