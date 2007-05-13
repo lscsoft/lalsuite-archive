@@ -385,40 +385,39 @@ SELECT sim_burst.freq, sim_burst.hrss FROM
 	sim_burst
 WHERE
 	EXISTS (
-		-- Find a zero-lag burst<-->burst coinc containing a burst
-		-- that matches this injection, and whose likelihood is
-		-- above likelihood_threshold
-		SELECT coinc_event.coinc_event_id FROM
-			coinc_event
-			JOIN multi_burst ON (
-				multi_burst.coinc_event_id == coinc_event.coinc_event_id
+		-- Find a burst<-->burst coinc containing a burst that
+		-- participated in this injection, that was found at the
+		-- same time slide as the injection, and whose likelihood
+		-- and multi_burst confidence are both above threshold
+		SELECT burst_coinc_event.coinc_event_id FROM
+			coinc_event_map AS c
+			JOIN coinc_event AS sim_coinc_event ON (
+				sim_coinc_event.coinc_event_id == c.coinc_event_id
 			)
 			JOIN coinc_event_map AS a ON (
-				a.coinc_event_id == coinc_event.coinc_event_id
+				a.coinc_event_id == c.coinc_event_id
 				AND a.table_name == 'sngl_burst'
 			)
 			JOIN coinc_event_map AS b ON (
 				b.table_name == 'sngl_burst'
 				AND b.event_id == a.event_id
 			)
-			JOIN coinc_event_map AS c ON (
-				c.coinc_event_id == b.coinc_event_id
-				AND c.table_name == 'sim_burst'
-				AND c.event_id == sim_burst.simulation_id
+			JOIN coinc_event AS burst_coinc_event ON (
+				burst_coinc_event.coinc_event_id == b.coinc_event_id
+				AND burst_coinc_event.time_slide_id == sim_coinc_event.time_slide_id
+			)
+			JOIN multi_burst ON (
+				multi_burst.coinc_event_id == burst_coinc_event.coinc_event_id
 			)
 		WHERE
-			coinc_event.coinc_def_id == ?
-			AND coinc_event.likelihood > ?
+			c.table_name == 'sim_burst'
+			AND c.event_id == sim_burst.simulation_id
+			AND sim_coinc_event.coinc_def_id == ?
+			AND burst_coinc_event.coinc_def_id == ?
+			AND burst_coinc_event.likelihood > ?
 			AND multi_burst.confidence > ?
-			AND NOT EXISTS (
-				SELECT * FROM
-					time_slide
-				WHERE
-					time_slide.time_slide_id == coinc_event.time_slide_id
-					AND time_slide.offset != 0
-			)
 	)
-	""", (contents.bb_definer_id, self.likelihood_threshold, 50.0)):
+	""", (contents.sb_definer_id, contents.bb_definer_id, self.likelihood_threshold, self.confidence_threshold)):
 		self.found_x.append(freq)
 		self.found_y.append(hrss)
 
@@ -629,6 +628,7 @@ likelihood_histogram.finish_non_injections()
 if options.verbose:
 	print >>sys.stderr, "computing likelihood threshold ..."
 efficiency.likelihood_threshold = likelihood_threshold = likelihood_histogram.find_likelihood_threshold(options.foreground_survivors, foreground_live_time, background_live_time)
+efficiency.confidence_threshold = options.confidence_threshold
 if options.verbose:
 	print >>sys.stderr, "likelihood threshold = %g" % likelihood_threshold
 
