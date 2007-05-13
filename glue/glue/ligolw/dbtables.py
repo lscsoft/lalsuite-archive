@@ -478,17 +478,29 @@ class TimeSlideTable(DBTable):
 	how_to_index = lsctables.TimeSlideTable.how_to_index
 
 	def __len__(self):
-		return self.cursor.execute("SELECT COUNT(DISTINCT time_slide_id) FROM time_slide").fetchone()[0]
+		raise NotImplementedError
 
-	def __getitem__(self, id):
+	def __getitem__(*args):
+		raise NotImplementedError
+
+	def get_offset_dict(self, id):
 		offsets = {}
 		for instrument, offset in self.cursor.execute("SELECT instrument, offset FROM time_slide WHERE time_slide_id == ?", (id,)):
 			offsets[instrument] = offset
+		if not offsets:
+			raise KeyError, id
 		return offsets
 
+	def get_offsets(self):
+		slides = {}
+		for id, instrument, offset in self.cursor.execute("SELECT time_slide_id, instrument, offset FROM time_slide"):
+			if id not in slides:
+				slides[id] = {}
+			slides[id][instrument] = offset
+		return slides
+
 	def iterkeys(self):
-		for (id,) in self.connection.cursor().execute("SELECT DISTINCT time_slide_id FROM time_slide"):
-			yield id
+		raise NotImplementedError
 
 	def is_null(self, id):
 		return not self.cursor.execute("SELECT EXISTS (SELECT * FROM time_slide WHERE time_slide_id == ? AND offset != 0.0)", (id,)).fetchone()[0]
