@@ -42,7 +42,7 @@ sys.path.append('@PYTHONLIBDIR@')
 
 rc('text', usetex=False)
 
-def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams):
+def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams,tableFile):
  
     rsqThreshold = 0;
 
@@ -140,7 +140,11 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams):
     ylabel(r'snr',size='x-large')
     grid()
     title(ifoName[0] + ' trigger: ' + gpsTime)
-    savefig(ifoName[0] + '_' + str(gpsTime).replace(".","_") + '_snr.png')
+    figName = ifoName[0] + '_' + str(gpsTime).replace(".","_") + '_snr.png')
+    savefig(figName)
+    tableFile = open(container.locallink,'a')
+    table = HTMLTable()
+    table.add_column('<img width=400 src="' + figName +'">','SNR')
 
     figure(11)
     plot(snr_time[int(snr_start):int(snr_stop)],snr_vector[int(snr_start):int(snr_stop)])
@@ -152,7 +156,10 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams):
     ylabel(r'snr',size='x-large')
     grid()
     title(ifoName[0] + ' trigger: ' + gpsTime + ' Zoom')
-    savefig(ifoName[0] + '_' + str(gpsTime).replace(".","_") + '_snr_zoom.png')
+    figName = ifoName[0] + '_' + str(gpsTime).replace(".","_") + '_snr_zoom.png'
+    savefig(figName)
+    table.add_column('<img width=400 src="' + figName +'">','SNR ZOOM')
+    table.write(tableFile)
 
     # Now plot the r^2 time serie !!
     figure(2)
@@ -235,6 +242,9 @@ parser.add_option("-o","--output-path",action="store",type="string",\
 parser.add_option("-x","--inspiral-xml-file", action="store",type="string", \
     metavar=" XML",help="use inspiral-file")
 
+parser.add_option("-p","--output-html-file", action="store",type="string", \
+    metavar=" XML",help="file to append html tables to")
+
 
 command_line = sys.argv[1:]
 (opts,args) = parser.parse_args()
@@ -242,7 +252,7 @@ command_line = sys.argv[1:]
 #################################
 # if --version flagged
 if opts.version:
-  print "$Id: plotsnrchisq_pipe.py,v 1.6 2007/05/14 18:53:58 channa Exp $"
+  print "$Id: plotsnrchisq_pipe.py,v 1.7 2007/05/14 20:33:29 romain Exp $"
   sys.exit(0)
 
 #################################
