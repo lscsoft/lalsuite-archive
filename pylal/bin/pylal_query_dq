@@ -42,6 +42,9 @@ def parse_args():
         help="File containing segments of interest")
     parser.add_option("-o", "--outfile",
         help="Output file; if unspecified, print to stdout")
+    parser.add_option("-n", "--ignore-version", action="append", default=[],
+        dest="ignore_versions",
+        help="Ignore flags of a particular version (repeat option to specify multiple versions)")
     parser.add_option("-v", "--verbose", action="count", default=0,
         help="Print extra information; specify twice for extra verbosity")
     opts, args = parser.parse_args()
@@ -65,16 +68,16 @@ def get_dq_file(ifo, verbose=False):
     Connect to a server and download the dq_segments.txt file for each IFO to
     a temporary file.  The path to this temporary file is returned.
     """
-    if verbose >= 2:
-        print "Downloading dq_segments.txt for ifo %s" % ifo
+    if verbose:
+        print "Downloading %s" % (dq_url_pattern % ifo)
 
     dest, info = urllib.urlretrieve(dq_url_pattern % ifo)
 
-    if verbose:
+    if verbose >= 2:
         print info
     return dest
 
-def fromDQsegments(file, coltype=int, discard_disabled=True):
+def fromDQsegments(file, coltype=int, discard_disabled=True, ignore_versions=[]):
     """
     Given a data quality segment file, return a segmentlistdict containing a
     segmentlist for each DQ flag.  Column 0 is the flag name and channel 1
@@ -82,7 +85,7 @@ def fromDQsegments(file, coltype=int, discard_disabled=True):
     segmentlistdict and columns 2 and 3 will be cast to coltype and used as
     start and end times for segments.
 
-    If use_disabled==True, then check that the enabled flag (column) is >0.
+    If discard_disabled==True, then check that the enabled flag (column) is >0.
     """
     commentpat = re.compile(r"\s*([#;].*)?\Z", re.DOTALL)
     fivecolsegpat = re.compile(r"\A(\w+)\s+([\d]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\Z")
@@ -100,6 +103,8 @@ def fromDQsegments(file, coltype=int, discard_disabled=True):
         except ValueError:
             break
         if discard_disabled and not enabled:
+            continue
+        if tokens[1] in ignore_versions:
             continue
         if name not in d.keys():
             d[name] = segmentlist([])
@@ -120,7 +125,8 @@ if __name__ == "__main__":
     # construct segmentdict
     dq_dict = segmentlistdict({})
     for ifo, dq_file in zip(opts.ifos, opts.dq_segfiles):
-        new_dict = fromDQsegments(open(dq_file))
+        new_dict = fromDQsegments(open(dq_file),
+            ignore_versions=opts.ignore_versions)
 
         # rename flags to keep track of IFO
         for flag,val in new_dict.iteritems():
@@ -156,6 +162,8 @@ if __name__ == "__main__":
     # output information in a useful manner
     if opts.verbose:
         if opts.verbose >= 2:
+            print "These DQ flag versions were ignored: %s" \
+                % str(opts.ignore_versions)
             print "These DQ flags were checked, but were not active in the "\
                 "segment(s) of interest: %s" % ", ".join(nocontrib_flags)
         print "These DQ flags were raised:"
