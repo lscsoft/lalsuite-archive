@@ -49,13 +49,14 @@ class coincInspiralTable:
   of the individual triggers.
   """
   class row(object):
-    __slots__ = ["event_id", "numifos","stat","G1","H1","H2",\
+    __slots__ = ["event_id", "numifos","stat","likelihood","G1","H1","H2",\
                  "L1","T1","V1","sim","rsq","bl"]
     
-    def __init__(self, event_id, numifos = 0, stat = 0 ):
+    def __init__(self, event_id, numifos = 0, stat = 0, likelihood = 0):
       self.event_id = event_id
       self.numifos = numifos
       self.stat = stat
+      self.likelihood = likelihood
       self.rsq=0
       self.bl=0
       
@@ -292,7 +293,7 @@ class coincInspiralTable:
     @param sim_inspiral: a simInspiralTable
     """
     for sim in sim_inspiral:
-      row = coincInspiralTable.row(-1)
+      row = coincInspiralTable.row(-1,stat=-1)
       row.add_sim(sim)
       self.append(row)
 
@@ -426,7 +427,8 @@ class coincInspiralTable:
 
     return numpy.asarray(dsquared)
 
-  def improvedMetricHistogram(self, candidate):
+
+  def getTriggersWithinEpsilon(self, candidate, epsilon):
     """
     Return distance squared between candidate and coincident triggers
     using the following metric
@@ -436,27 +438,46 @@ class coincInspiralTable:
     @param candidate: a coincInspiral describing a candidate
     """
     c_ifos,ifolist = candidate.get_ifos()
-    dsquared = []
+    triggers_within_epsilon = coincInspiralTable()
 
     for trig in self:
       trig_ifos,tmplist = trig.get_ifos()
       tmp_d_squared = 0.0
+      param_counter = 0
       if c_ifos == trig_ifos:
-        trigparamlist = []
-        for ifo in ifolist:
-          trigparam.append(getattr(trig,ifo).get_effective_snr())
-          trigparam.append(getattr(trig,ifo).mchirp)
-          trigparam.append(getattr(trig,ifo).eff_distance)
-        # Ruslan: add ethinca parameters to the array
+        for ifo1 in ifolist: 
+          # distance^2 apart in effective snr
+          c_lambda = getattr(candidate,ifo1).get_effective_snr()
+          t_lambda = getattr(trig,ifo1).get_effective_snr()
+          tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
+          param_counter += 1
 
-        trigparam = numpy.asarray(trigparamlist)
+          # distance^2 apart in mchirp
+          #c_lambda = getattr(candidate,ifo1).mchirp
+          #t_lambda = getattr(trig,ifo1).mchirp
+          #tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
+          #param_counter += 1
 
-        # Ruslan: add a similar thing for candidate which might be at
-        # start of this method.
-        candparam = numpy.asarray([1.0])
+          # distance^2 apart in effective distance
+          c_lambda = getattr(candidate,ifo1).eff_distance
+          t_lambda = getattr(trig,ifo1).eff_distance
+          tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
+          param_counter += 1
 
-      dsquared.append( numpy.sum( numpy.power( \
-          (candparam - trigparam)/candparam,2.0) ) )
+          # distance^2 apart in ethinca
+	  for ifo2 in ifolist:
+            if ifo1 < ifo2:
+              c_lambda = XLALCalculateEThincaParameter(\
+              getattr(candidate,ifo1),\
+              getattr(candidate,ifo2) ) 
+              t_lambda = XLALCalculateEThincaParameter(\
+              getattr(trig,ifo1),\
+              getattr(trig,ifo2) ) 
+              tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
+              param_counter += 1
 
-    return numpy.asarray(dsquared)
+        if ( (tmp_d_squared / float(param_counter)) < epsilon ):
+          triggers_within_epsilon.append(trig)
+
+    return triggers_within_epsilon
 
