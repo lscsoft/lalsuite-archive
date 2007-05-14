@@ -57,6 +57,8 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams):
         chisqDelta = eval(row.value)
       if row.param =="--chisq-bins":
         chisqBins = eval(row.value)
+      if row.param == "--trig-start-time"
+        trigStart = eval(row.value)
 
     segLenSec = segLen / sampleRate
     segOverlapSec = segOverlap / sampleRate
@@ -65,8 +67,13 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams):
     # BE CAREFUL ! it is assumed that the sampling frequency is higher than 200 Hz
     testOnFirstChannel = Fr.frgetvect(frameFile,chanString,-1,0.01,0)
     gpsStart = testOnFirstChannel[1]
-    position = int((eval(gpsTime) - gpsStart) / (segLenSec -segOverlapSec))
-    chanNumber = str(position-1)
+    if (trigStart):
+      trigPosition = int((trigStart - gpsStart) / (segLenSec -segOverlapSec))
+    else: trigPosition = 0
+
+    position = int((eval(gpsTime) - gpsStart) / (segLenSec -segOverlapSec)) \
+               - trigPosition
+    chanNumber = str(position)
     chanNameSnr = chanStringBase + "_SNRSQ_" + chanNumber
     chanNameChisq = chanStringBase + '_CHISQ_' + chanNumber
 
@@ -160,7 +167,7 @@ command_line = sys.argv[1:]
 #################################
 # if --version flagged
 if opts.version:
-  print "$Id: plotsnrchisq_pipe.py,v 1.2 2007/05/11 07:55:02 romain Exp $"
+  print "$Id: plotsnrchisq_pipe.py,v 1.4 2007/05/14 16:11:09 channa Exp $"
   sys.exit(0)
 
 #################################
