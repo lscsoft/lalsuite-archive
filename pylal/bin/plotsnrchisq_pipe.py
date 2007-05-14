@@ -57,7 +57,7 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams):
         chisqDelta = eval(row.value)
       if row.param =="--chisq-bins":
         chisqBins = eval(row.value)
-      if row.param == "--trig-start-time"
+      if row.param == "--trig-start-time":
         trigStart = eval(row.value)
 
     segLenSec = segLen / sampleRate
@@ -167,7 +167,7 @@ command_line = sys.argv[1:]
 #################################
 # if --version flagged
 if opts.version:
-  print "$Id: plotsnrchisq_pipe.py,v 1.4 2007/05/14 16:11:09 channa Exp $"
+  print "$Id: plotsnrchisq_pipe.py,v 1.5 2007/05/14 18:52:45 channa Exp $"
   sys.exit(0)
 
 #################################
