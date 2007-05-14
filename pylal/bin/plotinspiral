@@ -156,9 +156,7 @@ if opts.template_bank:
 
 # apply veto if there is one
 if opts.veto_file:
-  file = open( opts.veto_file , "r")
-  seglist = segmentsUtils.fromsegwizard(file)
-  file.close()
+  seglist = segmentsUtils.fromsegwizard(open(opts.veto_file))
   inspTriggers = inspTriggers.veto(seglist)
   
 max_snr = max(inspTriggers.get_column('snr'))
