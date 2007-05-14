@@ -16,7 +16,6 @@ def getSlots(xml):
 
 def writeXMLparams(trig):
   container = HTMLcontainer(trig,(__name__).replace("fu_",""))
-  print os.getcwd()
   tableFile = open(container.locallink,'w')
   writeIULHeader(tableFile)
   #tableFile = open(container.link,'w')

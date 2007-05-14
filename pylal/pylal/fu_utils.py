@@ -438,10 +438,6 @@ class HTMLcontainer:
     self.name = name.rsplit(".")[-1]
     self.detailpath = ""
     if trig.is_trigs() and not trig.is_found():   
-      print "is trigs"
-      print os.getcwd()
-      print self.name
-      print trig.page 
       os.chdir("followuptrigs")
       try: 
         os.chdir(self.name)
@@ -468,8 +464,6 @@ class HTMLcontainer:
     self.text = "click here"
     self.link = self.detailpath + str(trig.statValue) + "_" + str(trig.eventID) + "_" + self.name + ".html"
     self.locallink = self.localdetailpath + str(trig.statValue) + "_" + str(trig.eventID) + "_" + self.name + ".html"
-    print "link is " + self.link + "\n"
-    print "detail path is " + self.detailpath + "\n"
 
 
 
@@ -501,7 +495,6 @@ def writeHTMLTables(summaryHTMLlist):
                       str(table.eventID) + "_summary.html" ,'w')
     beginSummaryTable(tableFile,table)
     for container in table.containers:
-      print container.link
       writeModule(tableFile, container)
     endSummaryTable(tableFile,table)
     writeIULHeader(tableFile)
