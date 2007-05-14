@@ -155,6 +155,9 @@ class Highest(list):
 		self.sort(reverse = True)
 		del self[int(self.fraction * self.n):]
 
+	def sort(*args):
+		raise NotImplementedError
+
 
 #
 # =============================================================================
@@ -226,8 +229,8 @@ WHERE
 
 	def add_injections(self, contents):
 		#
-		# Iterate over zero-lag coincidences involving one or more
-		# events identified as being the result of injections.
+		# Iterate over coincidences involving one or more events
+		# identified as being the result of injections.
 		#
 
 		for likelihood, confidence in contents.connection.cursor().execute("""
@@ -238,29 +241,23 @@ SELECT coinc_event.likelihood, multi_burst.confidence FROM
 	)
 WHERE
 	coinc_event.coinc_def_id == ?
-	AND NOT EXISTS (
-		SELECT * FROM
-			time_slide
-		WHERE
-			time_slide.time_slide_id == coinc_event.time_slide_id
-			AND time_slide.offset != 0
-	)
 	AND EXISTS (
 		-- Find an injection coinc containing at least one of the
 		-- bursts in this coinc
-		SELECT * FROM
-			coinc_event AS a
-			JOIN coinc_event_map AS b ON (
-				a.coinc_event_id == b.coinc_event_id
+		SELECT sim_coinc_event.coinc_event_id FROM
+			coinc_event AS sim_coinc_event
+			JOIN coinc_event_map AS a ON (
+				a.coinc_event_id == sim_coinc_event.coinc_event_id
+				AND a.table_name == 'sngl_burst'
 			)
-			JOIN coinc_event_map AS c ON (
-				b.event_id == c.event_id
-				AND b.table_name == 'sngl_burst'
-				AND c.table_name == 'sngl_burst'
+			JOIN coinc_event_map AS b ON (
+				b.table_name == 'sngl_burst'
+				AND b.event_id == a.event_id
 			)
 		WHERE
-			c.coinc_event_id == coinc_event.coinc_event_id
-			AND a.coinc_def_id == ?
+			b.coinc_event_id == coinc_event.coinc_event_id
+			AND sim_coinc_event.coinc_def_id == ?
+			AND sim_coinc_event.time_slide_id == coinc_event.time_slide_id
 	)
 		""", (contents.bb_definer_id, contents.sb_definer_id)):
 			self.injection_likelihoods.append((likelihood, confidence))
@@ -471,7 +468,7 @@ def time_slides_livetime(seglists, time_slides, verbose = False):
 	mappings, compute the live time, and return the sum.
 	"""
 	livetime = 0
-	old_offsets = {}.update(seglists.offsets)
+	old_offsets = seglists.offsets.copy()
 	N = len(time_slides)
 	for n, time_slide in enumerate(time_slides):
 		if verbose:
@@ -535,7 +532,7 @@ GROUP BY
 		connection.close()
 
 	if verbose:
-		print >>sys.stderr,
+		print >>sys.stderr
 
 	return min_confidence
 
@@ -721,7 +718,7 @@ if options.measure_min_confidences:
 	print
 	filenames = reduce(list.__add__, [glob.glob(g) for g in options.background_glob + options.injection_glob])
 	filenames.sort()
-	for ifo, confidence in lalapps_power_confidence_safety(filenames, likelihood_threshold, confidence_threshold, verbose = options.verbose).items():
+	for ifo, confidence in lalapps_power_confidence_safety(filenames, likelihood_threshold, options.confidence_threshold, verbose = options.verbose).items():
 		print "Minimum surviving %s confidence = %g" % (ifo, confidence)
 
 
