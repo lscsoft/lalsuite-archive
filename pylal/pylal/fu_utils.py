@@ -104,7 +104,9 @@ class getCache(UserDict):
        try:
          start = eval(str(cache).split()[2])
          end = start + eval(str(cache).split()[3])
-         if ( (end >= time[ifo]) and (start <= time[ifo]) ):
+         cacheIfo = str(cache.split()[0])
+         if ( (end >= time[ifo]) and (start <= time[ifo]) and \
+              cacheIfo == str(ifo) ):
            cacheSubSet[ifo].append(cache)
        except:
          pass
