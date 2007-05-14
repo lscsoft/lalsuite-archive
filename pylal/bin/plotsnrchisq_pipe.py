@@ -43,6 +43,9 @@ sys.path.append('@PYTHONLIBDIR@')
 rc('text', usetex=False)
 
 def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams):
+ 
+    rsqThreshold = 0;
+
     for row in inspProcParams:
       if row.param == "--channel-name":
         chanStringBase = row.value
@@ -57,6 +60,12 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams):
         chisqDelta = eval(row.value)
       if row.param =="--chisq-bins":
         chisqBins = eval(row.value)
+      if row.param == "--snr-threshold":
+        snrThreshold = eval(row.value)
+      if row.param == "--chisq-threshold":
+        chisqThreshold = eval(row.value)
+      if row.param == "--rsq-veto-threshold":
+        rsqThreshold = eval(row.value)
       if row.param == "--trig-start-time":
         trigStart = eval(row.value)
 
@@ -67,6 +76,7 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams):
     # BE CAREFUL ! it is assumed that the sampling frequency is higher than 200 Hz
     testOnFirstChannel = Fr.frgetvect(frameFile,chanString,-1,0.01,0)
     gpsStart = testOnFirstChannel[1]
+
     if (trigStart):
       trigPosition = int((trigStart - gpsStart) / (segLenSec -segOverlapSec))
     else: trigPosition = 0
@@ -74,6 +84,7 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams):
     position = int((eval(gpsTime) - gpsStart) / (segLenSec -segOverlapSec)) \
                - trigPosition
     chanNumber = str(position)
+
     chanNameSnr = chanStringBase + "_SNRSQ_" + chanNumber
     chanNameChisq = chanStringBase + '_CHISQ_' + chanNumber
 
@@ -91,19 +102,39 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams):
                    (segLenSec-segOverlapSec)*position )
     # compute the snr vector
     snr_vector = sqrt(squareSnr_tuple[0])
+    # print squareSnr_tuple
     snr_time = array(range(0, segLen)) * squareSnr_tuple[3][0] - snr_position
-    
-  
+      
     # compute the r^2
     rsq_vector = squareChisq_tuple[0]
-    chisq_time = squareChisq_tuple[1]
+    chisq_time = array(range(0, segLen)) * squareChisq_tuple[3][0] - chisq_position
 
     # compute the normalized chisq
     chisqNorm_vector = rsq_vector/(1 + chisqDelta/chisqBins*squareSnr_tuple[0])
-    # Now plot the snr time serie !!
-    figure(1)
     
-    plot(snr_time,snr_vector)
+    # define the time boundaries of the plot
+    snr_start =  (snr_position - duration/2.) * 1/squareSnr_tuple[3][0]
+    snr_stop = (snr_position + duration/2.) * 1/squareSnr_tuple[3][0]
+	
+    chisq_start =  (chisq_position - duration/2.) * 1/squareChisq_tuple[3][0]
+    chisq_stop = (chisq_position + duration/2.) * 1/squareChisq_tuple[3][0]	
+
+    #prepare the thresholds to be plotted 
+    
+    snrThreshVect = int( duration * 1/squareSnr_tuple[3][0] ) * [snrThreshold]
+    if(chisqThreshold < 100.):	
+    	chisqThreshVect = int( duration * 1/squareChisq_tuple[3][0] ) * [chisqThreshold]
+    if(rsqThreshold > 0 & rsqThreshold < 100.):
+	rsqThreshVect = int( duration * 1/squareChisq_tuple[3][0] ) * [rsqThreshold]
+   
+
+    # Now plot the snr time serie !!
+    
+    figure(1)
+    plot(snr_time[int(snr_start):int(snr_stop)],snr_vector[int(snr_start):int(snr_stop)])
+    hold(1)
+    plot(snr_time[int(snr_start):int(snr_stop)],snrThreshVect)
+    hold(0)
     xlim(-duration/2., duration/2.)
     xlabel('time (s)',size='x-large')
     ylabel(r'snr',size='x-large')
@@ -111,28 +142,72 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams):
     title(ifoName[0] + ' trigger: ' + gpsTime)
     savefig(ifoName[0] + '_' + str(gpsTime).replace(".","_") + '_snr.png')
 
+    figure(11)
+    plot(snr_time[int(snr_start):int(snr_stop)],snr_vector[int(snr_start):int(snr_stop)])
+    hold(1)
+    plot(snr_time[int(snr_start):int(snr_stop)],snrThreshVect)
+    hold(0)
+    xlim(-duration/20., duration/20.)
+    xlabel('time (s)',size='x-large')
+    ylabel(r'snr',size='x-large')
+    grid()
+    title(ifoName[0] + ' trigger: ' + gpsTime + ' Zoom')
+    savefig(ifoName[0] + '_' + str(gpsTime).replace(".","_") + '_snr_zoom.png')
 
     # Now plot the r^2 time serie !!
-    # figure(2)
-    #plot(chisq_time - chisq_position,rsq_vector)
-    #xlim(-duration/2., duration/2.)
-    #xlabel('time (s)',size='x-large')
-    #ylabel(r'$r^2$',size='x-large')
-    #grid(1)
-    #title(ifoName + ' trigger: ' + gpsTime)
-    #savefig(ifoName + '_' + str(gpsTime).replace(".","_")  + '_rsq.png')
+    figure(2)
+    plot(chisq_time[int(chisq_start):int(chisq_stop)],rsq_vector[int(chisq_start):int(chisq_stop)])
+    if(chisqThreshold < 100.):    
+	hold(1)
+    	plot(rsqThreshVect)
+    	hold(0)
+    xlim(-duration/2., duration/2.)
+    xlabel('time (s)',size='x-large')
+    ylabel(r'chisq/p',size='x-large')
+    grid()
+    title(ifoName[0] + ' trigger: ' + gpsTime)
+    savefig(ifoName[0] + '_' + str(gpsTime).replace(".","_")  + '_rsq.png')
+
+    figure(22)
+    plot(chisq_time[int(chisq_start):int(chisq_stop)],rsq_vector[int(chisq_start):int(chisq_stop)])
+    if(chisqThreshold < 100.):
+    	hold(1)
+    	plot(rsqThreshVect)
+    	hold(0)
+    xlim(-duration/20., duration/20.)
+    xlabel('time (s)',size='x-large')
+    ylabel(r'chisq/p',size='x-large')
+    grid()
+    title(ifoName[0] + ' trigger: ' + gpsTime + ' Zoom')
+    savefig(ifoName[0] + '_' + str(gpsTime).replace(".","_")  + '_rsq_zoom.png')
+
 
     # Now plot the normalized chisq time serie !!
-    #figure(3)
-    #plot(chisq_time - chisq_position,chisqNorm_vector)
-    #xlim(-duration/2., duration/2.)
-    #xlabel('time (s)',size='x-large')
-    #ylabel(r'$\chi^2 / (p + \delta^2\rho^2)$',size='x-large')
-    #grid(1)
-    #title(ifoName + ' trigger: ' + gpsTime)
-    #savefig(ifoName + '_' + str(gpsTime).replace(".","_")  + '_chisq.png')
+    figure(3)
+    plot(chisq_time[int(chisq_start):int(chisq_stop)],chisqNorm_vector[int(chisq_start):int(chisq_stop)])
+    if(rsqThreshold > 0 & rsqThreshold < 100.):
+    	hold(1)
+    	plot(chisqThreshVect)
+    	hold(0)
+    xlim(-duration/2., duration/2.)
+    xlabel('time (s)',size='x-large')
+    ylabel(r'chisq / (p + Delta * snrsq)',size='x-large')
+    grid(1)
+    title(ifoName[0] + ' trigger: ' + gpsTime)
+    savefig(ifoName[0] + '_' + str(gpsTime).replace(".","_")  + '_chisq.png')
 
-
+    figure(33)
+    plot(chisq_time[int(chisq_start):int(chisq_stop)],chisqNorm_vector[int(chisq_start):int(chisq_stop)])
+    if(rsqThreshold > 0 & rsqThreshold < 100.):
+    	hold(1)
+    	plot(chisqThreshVect)
+    	hold(0)
+    xlim(-duration/20., duration/20.)
+    xlabel('time (s)',size='x-large')
+    ylabel(r'chisq / (p + Delta * snrsq)',size='x-large')
+    grid(1)
+    title(ifoName[0] + ' trigger: ' + gpsTime + ' Zoom')
+    savefig(ifoName[0] + '_' + str(gpsTime).replace(".","_")  + '_chisq_zoom.png')
 
     
 ##############################################################################
@@ -167,7 +242,7 @@ command_line = sys.argv[1:]
 #################################
 # if --version flagged
 if opts.version:
-  print "$Id: plotsnrchisq_pipe.py,v 1.5 2007/05/14 18:52:45 channa Exp $"
+  print "$Id: plotsnrchisq_pipe.py,v 1.6 2007/05/14 18:53:58 channa Exp $"
   sys.exit(0)
 
 #################################
