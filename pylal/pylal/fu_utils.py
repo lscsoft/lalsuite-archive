@@ -468,9 +468,8 @@ class HTMLcontainer:
     self.text = "click here"
     self.link = self.detailpath + str(trig.statValue) + "_" + str(trig.eventID) + "_" + self.name + ".html"
     self.locallink = self.localdetailpath + str(trig.statValue) + "_" + str(trig.eventID) + "_" + self.name + ".html"
-    print "link is " + self.link
-    print "detail path is " + self.detailpath
-    print "hello"
+    print "link is " + self.link + "\n"
+    print "detail path is " + self.detailpath + "\n"
 
 
 
@@ -561,7 +560,7 @@ def publishToIULGroup(page):
     table.write(indexFile)  
   os.chdir('..')
 
-# First do the found trigs
+# then do trigs
   files = os.chdir('followuptrigs')
   files = os.listdir('.')
   table = HTMLTable()
