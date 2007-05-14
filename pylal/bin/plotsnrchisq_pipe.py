@@ -141,7 +141,7 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams,tableFile):
     grid()
     title(ifoName[0] + ' trigger: ' + gpsTime)
     figName = ifoName[0] + '_' + str(gpsTime).replace(".","_") + '_snr.png'
-    savefig(figName)
+    savefig(outputPath +"/" + figName)
     tableFile = open(container.locallink,'a')
     table = HTMLTable()
     table.add_column('<img width=400 src="' + figName +'">','SNR')
@@ -157,10 +157,13 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams,tableFile):
     grid()
     title(ifoName[0] + ' trigger: ' + gpsTime + ' Zoom')
     figName = ifoName[0] + '_' + str(gpsTime).replace(".","_") + '_snr_zoom.png'
-    savefig(figName)
+    savefig(outputPath +"/" + figName)
     table.add_column('<img width=400 src="' + figName +'">','SNR ZOOM')
     table.write(tableFile)
     tableFile.close()
+
+    ### END CHADS CHANGES ###
+
     
     # Now plot the r^2 time serie !!
     figure(2)
@@ -253,7 +256,7 @@ command_line = sys.argv[1:]
 #################################
 # if --version flagged
 if opts.version:
-  print "$Id: plotsnrchisq_pipe.py,v 1.8 2007/05/14 20:50:19 channa Exp $"
+  print "$Id: plotsnrchisq_pipe.py,v 1.9 2007/05/14 21:28:06 channa Exp $"
   sys.exit(0)
 
 #################################
@@ -276,5 +279,5 @@ if not opts.output_path:
 
 doc = utils.load_filename(opts.inspiral_xml_file,None)
 proc = table.get_table(doc, lsctables.ProcessParamsTable.tableName)
-plotsnrchisq(str(opts.gps),opts.frame_file,opts.output_path,proc)
+plotsnrchisq(str(opts.gps),opts.frame_file,opts.output_path,proc,opts.output_html_file)
 
