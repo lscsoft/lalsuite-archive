@@ -3,25 +3,6 @@ from pylal.fu_utils import *
 ##############################################################################
 # Function to write the xml of the triggers to an HTML table 
 ##############################################################################
-#class HTMLTable:
-#  def __init__(self):
-#    self.columns = []
-#    self.headers = []
-#    
-#  def add_column(self,rows,header):
-#    self.columns.append(rows)
-#    self.headers.append(header)
-#
-#  def write(self,file):
-#    file.write('\n<br><table><tr>')
-#    cnt = 0
-#    for i in self.columns:
-#      file.write('<td><b>'+ self.headers[cnt]+'</b><table>')
-#      cnt +=1
-#      for j in i:
-#        file.write('<tr><td>'+str(j)+'</td></tr>\n')
-#      file.write('</table></td>')
-#    file.write('\n</tr></table><br>\n')
 
 def getSlots(xml):
   values = []
@@ -34,7 +15,7 @@ def getSlots(xml):
   return values
 
 def writeXMLparams(trig):
-  container = HTMLcontainer(trig,__name__)
+  container = HTMLcontainer(trig,(__name__).replace("fu_",""))
   print os.getcwd()
   tableFile = open(container.locallink,'w')
   writeIULHeader(tableFile)

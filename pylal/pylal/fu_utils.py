@@ -488,7 +488,7 @@ def endSummaryTable(file, table):
   file.write('\n</table>')
 
 def writeModule(file, container):
-  file.write('\n<tr><td width=400><font color="red" size=5> MODULE NAME '+
+  file.write('\n<tr><td width=400><font color="red" size=5>'+
              container.name + '</font>')
   file.write('\n<br><a href= "' + container.link + '">' + container.text 
              + "</a></td>")
