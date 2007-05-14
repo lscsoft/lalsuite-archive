@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+import matplotlib
+matplotlib.use('Agg')
 import copy
 import math
 import sys
@@ -14,8 +16,10 @@ import ConfigParser
 import urlparse
 from types import *
 from pylab import *
-from pylal import frgetvect
+sys.path.append('/archive/home/channa/opt/pylal/lib64/python2.4/site-packages')
 from pylal import viz
+from pylal import Fr
+sys.path.append('/archive/home/channa/opt/glue/lib64/python2.4/site-packages')
 from glue import segments
 from glue import segmentsUtils
 from glue.ligolw import ligolw
@@ -26,9 +30,17 @@ from pylal import CoincInspiralUtils
 from glue import pipeline
 from glue import lal
 
+
+#import matplotlib
+#matplotlib.use('Agg')
+#from pylab import *
+#from pylab import *
+#from pylal import viz
+
+
 sys.path.append('@PYTHONLIBDIR@')
 
-
+rc('text', usetex=False)
 
 def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams):
     for row in inspProcParams:
@@ -52,13 +64,10 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams):
     # find the start time of the first channel
     # BE CAREFUL ! it is assumed that the sampling frequency is higher than 200 Hz
     testOnFirstChannel = Fr.frgetvect(frameFile,chanString,-1,0.01,0)
-    gpsStart = testOnFirstChannel[3]
-
-    position = (eval(gpsTime) - eval(gpsStart)) / (segLenSec -2*segOverlapSec)
-    position = int(position)
+    gpsStart = testOnFirstChannel[1]
+    position = int((eval(gpsTime) - gpsStart) / (segLenSec -segOverlapSec))
     chanNumber = str(position-1)
     chanNameSnr = chanStringBase + "_SNRSQ_" + chanNumber
-    # print chanNameSnr
     chanNameChisq = chanStringBase + '_CHISQ_' + chanNumber
 
     # now, read the data !!
@@ -68,60 +77,53 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams):
     # squareSnr_tuple = Fr.frgetvect(frameFile,chanNameSnr,startWindow,duration,0)
 
     squareSnr_tuple = Fr.frgetvect(frameFile,chanNameSnr,-1,segLenSec,0)
-    # print squareSnr_tuple[0]
-
     squareChisq_tuple = Fr.frgetvect(frameFile,chanNameChisq,-1,segLenSec,0)
-
-    snr_position = float(gpsTime) - ( float(squareSnr_tuple[3]) + \
-                   (segLenSec-2*segOverlapSec)*position )
-    chisq_position = float(gpsTime) - ( float(squareChisq_tuple[3]) + \
-                   (segLenSec-2*segOverlapSec)*position )
-
+    snr_position = float(gpsTime) - ( float(squareSnr_tuple[1]) + \
+                   (segLenSec-segOverlapSec)*position )
+    chisq_position = float(gpsTime) - ( float(squareChisq_tuple[1]) + \
+                   (segLenSec-segOverlapSec)*position )
     # compute the snr vector
     snr_vector = sqrt(squareSnr_tuple[0])
-    # print snr_vector
-    snr_time = squareSnr_tuple[1]
-    # print snr_time
-
+    snr_time = array(range(0, segLen)) * squareSnr_tuple[3][0] - snr_position
+    
+  
     # compute the r^2
     rsq_vector = squareChisq_tuple[0]
     chisq_time = squareChisq_tuple[1]
-    # print rsq_vector
 
     # compute the normalized chisq
     chisqNorm_vector = rsq_vector/(1 + chisqDelta/chisqBins*squareSnr_tuple[0])
-    # print chisqNorm_vector
-
     # Now plot the snr time serie !!
     figure(1)
-    plot(snr_time - snr_position,snr_vector)
+    
+    plot(snr_time,snr_vector)
     xlim(-duration/2., duration/2.)
     xlabel('time (s)',size='x-large')
-    ylabel(r'$\rho$',size='x-large')
-    grid(1)
-    title(ifoName + ' trigger: ' + gpsTime)
-    savefig(ifoName + '_' + str(gpsTime).replace(".","_") + '_snr.png')
+    ylabel(r'snr',size='x-large')
+    grid()
+    title(ifoName[0] + ' trigger: ' + gpsTime)
+    savefig(ifoName[0] + '_' + str(gpsTime).replace(".","_") + '_snr.png')
 
 
     # Now plot the r^2 time serie !!
-    figure(2)
-    plot(chisq_time - chisq_position,rsq_vector)
-    xlim(-duration/2., duration/2.)
-    xlabel('time (s)',size='x-large')
-    ylabel(r'$r^2$',size='x-large')
-    grid(1)
-    title(ifoName + ' trigger: ' + gpsTime)
-    savefig(ifoName + '_' + str(gpsTime).replace(".","_")  + '_rsq.png')
+    # figure(2)
+    #plot(chisq_time - chisq_position,rsq_vector)
+    #xlim(-duration/2., duration/2.)
+    #xlabel('time (s)',size='x-large')
+    #ylabel(r'$r^2$',size='x-large')
+    #grid(1)
+    #title(ifoName + ' trigger: ' + gpsTime)
+    #savefig(ifoName + '_' + str(gpsTime).replace(".","_")  + '_rsq.png')
 
     # Now plot the normalized chisq time serie !!
-    figure(3)
-    plot(chisq_time - chisq_position,chisqNorm_vector)
-    xlim(-duration/2., duration/2.)
-    xlabel('time (s)',size='x-large')
-    ylabel(r'$\chi^2 / (p + \delta^2\rho^2)$',size='x-large')
-    grid(1)
-    title(ifoName + ' trigger: ' + gpsTime)
-    savefig(ifoName + '_' + str(gpsTime).replace(".","_")  + '_chisq.png')
+    #figure(3)
+    #plot(chisq_time - chisq_position,chisqNorm_vector)
+    #xlim(-duration/2., duration/2.)
+    #xlabel('time (s)',size='x-large')
+    #ylabel(r'$\chi^2 / (p + \delta^2\rho^2)$',size='x-large')
+    #grid(1)
+    #title(ifoName + ' trigger: ' + gpsTime)
+    #savefig(ifoName + '_' + str(gpsTime).replace(".","_")  + '_chisq.png')
 
 
 
@@ -181,6 +183,5 @@ if not opts.output_path:
 
 doc = utils.load_filename(opts.inspiral_xml_file,None)
 proc = table.get_table(doc, lsctables.ProcessParamsTable.tableName)
-
-plotsnrchisq(opts.gps,opts.frame_file,opts.output_path,proc)
+plotsnrchisq(str(opts.gps),opts.frame_file,opts.output_path,proc)
 
