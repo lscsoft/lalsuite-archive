@@ -550,11 +550,12 @@ def build_indexes(verbose = False):
 	"""
 	cursor = DBTable_get_connection().cursor()
 	for table_name in DBTable_table_names():
-		indexes = TableByName[table_name].how_to_index
-		if verbose and indexes:
-			print >>sys.stderr, "indexing %s table ..." % table_name
-		for index_name, cols in indexes.iteritems():
-			cursor.execute("CREATE INDEX IF NOT EXISTS %s ON %s (%s)" % (index_name, table_name, ",".join(cols)))
+		how_to_index = TableByName[table_name].how_to_index
+		if how_to_index:
+			if verbose:
+				print >>sys.stderr, "indexing %s table ..." % table_name
+			for index_name, cols in how_to_index.iteritems():
+				cursor.execute("CREATE INDEX IF NOT EXISTS %s ON %s (%s)" % (index_name, table_name, ",".join(cols)))
 
 
 #

@@ -445,7 +445,7 @@ class Table(ligolw.Table, list):
 	loadcolumns = None
 	interncolumns = None
 	constraints = None
-	how_to_index = {}
+	how_to_index = None
 	RowType = TableRow
 	ids = None
 
