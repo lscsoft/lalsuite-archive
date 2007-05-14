@@ -80,6 +80,6 @@ for input, files in zip(input_source, filegroups):
     
     print >>opts.outfile, "Total number of slides: %d" % len(lens)
     print >>opts.outfile, "Total time analyzed: %f" % abs(segs)
-    print >>opts.outfile, "Number of %f second segments per slide: %d" % (opts.fold_time, nsegs)
+    print >>opts.outfile, "Number of %f second segments per slide: %f" % (opts.fold_time, nsegs)
     print >>opts.outfile, "Mean coincidences per slide per segment: %f" % lens.mean()
     print >>opts.outfile, "Stdev of mean: %f" % (lens.std() / numpy.sqrt(nsegs))
