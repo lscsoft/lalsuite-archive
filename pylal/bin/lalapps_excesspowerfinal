@@ -129,7 +129,7 @@ class Highest(list):
 		list.__init__(self, sequence)
 		self.n = list.__len__(self)
 		self.fraction = fraction
-		self.sort(reverse = True)
+		list.sort(self, reverse = True)
 		del self[int(self.fraction * self.n):]
 
 	def __len__(self):
@@ -152,10 +152,10 @@ class Highest(list):
 		before = list.__len__(self)
 		list.extend(self, sequence)
 		self.n += list.__len__(self) - before
-		self.sort(reverse = True)
+		list.sort(self, reverse = True)
 		del self[int(self.fraction * self.n):]
 
-	def sort(*args):
+	def sort(*args, **kwargs):
 		raise NotImplementedError
 
 
