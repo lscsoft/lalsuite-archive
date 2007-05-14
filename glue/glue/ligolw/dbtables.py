@@ -484,9 +484,7 @@ class TimeSlideTable(DBTable):
 		raise NotImplementedError
 
 	def get_offset_dict(self, id):
-		offsets = {}
-		for instrument, offset in self.cursor.execute("SELECT instrument, offset FROM time_slide WHERE time_slide_id == ?", (id,)):
-			offsets[instrument] = offset
+		offsets = dict(self.cursor.execute("SELECT instrument, offset FROM time_slide WHERE time_slide_id == ?", (id,)))
 		if not offsets:
 			raise KeyError, id
 		return offsets
