@@ -68,38 +68,34 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams,tableFile):
         rsqThreshold = eval(row.value)
       if row.param == "--trig-start-time":
         trigStart = eval(row.value)
+      if row.param == "--gps-start-time":
+        gpsStart = eval(row.value)
 
     segLenSec = segLen / sampleRate
     segOverlapSec = segOverlap / sampleRate
-    chanString = chanStringBase + "_SNRSQ_0"
-    # find the start time of the first channel
-    # BE CAREFUL ! it is assumed that the sampling frequency is higher than 200 Hz
-    testOnFirstChannel = Fr.frgetvect(frameFile,chanString,-1,0.01,0)
-    gpsStart = testOnFirstChannel[1]
-
+     
     if (trigStart):
-      trigPosition = int((trigStart - gpsStart) / (segLenSec -segOverlapSec))
+      trigPosition = int((trigStart - gpsStart - segOverlapSec ) / (segLenSec -segOverlapSec))
     else: trigPosition = 0
 
-    position = int((eval(gpsTime) - gpsStart) / (segLenSec -segOverlapSec)) \
-               - trigPosition
+    gpsPosition = int((eval(gpsTime) - gpsStart - segOverlapSec/2.) / (segLenSec -segOverlapSec))
+    position = gpsPosition - trigPosition
     chanNumber = str(position)
 
     chanNameSnr = chanStringBase + "_SNRSQ_" + chanNumber
-    chanNameChisq = chanStringBase + '_CHISQ_' + chanNumber
+    chanNameChisq = chanStringBase + "_CHISQ_" + chanNumber
 
     # now, read the data !!
     # The window width should be an input argument maybe ?
     duration = 2.0
-    # startWindow = float(gpsTime) - duration/2.
-    # squareSnr_tuple = Fr.frgetvect(frameFile,chanNameSnr,startWindow,duration,0)
-
+   
     squareSnr_tuple = Fr.frgetvect(frameFile,chanNameSnr,-1,segLenSec,0)
+    
     squareChisq_tuple = Fr.frgetvect(frameFile,chanNameChisq,-1,segLenSec,0)
-    snr_position = float(gpsTime) - ( float(squareSnr_tuple[1]) + \
-                   (segLenSec-segOverlapSec)*position )
-    chisq_position = float(gpsTime) - ( float(squareChisq_tuple[1]) + \
-                   (segLenSec-segOverlapSec)*position )
+
+    snr_position = eval(gpsTime) - (gpsStart + gpsPosition* (segLenSec - segOverlapSec) )
+    chisq_position = snr_position
+    
     # compute the snr vector
     snr_vector = sqrt(squareSnr_tuple[0])
     # print squareSnr_tuple
@@ -107,31 +103,37 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams,tableFile):
       
     # compute the r^2
     rsq_vector = squareChisq_tuple[0]
+
     chisq_time = array(range(0, segLen)) * squareChisq_tuple[3][0] - chisq_position
 
     # compute the normalized chisq
-    chisqNorm_vector = rsq_vector/(1 + chisqDelta/chisqBins*squareSnr_tuple[0])
-    
+    if(chisqBins > 0):
+        chisqNorm_vector = rsq_vector/(1 + chisqDelta/chisqBins*squareSnr_tuple[0])
+    else:
+        chisqNorm_vector = rsq_vector
+        
     # define the time boundaries of the plot
     snr_start =  (snr_position - duration/2.) * 1/squareSnr_tuple[3][0]
     snr_stop = (snr_position + duration/2.) * 1/squareSnr_tuple[3][0]
+    lengthSnr = int(snr_stop) - int(snr_start)
 	
     chisq_start =  (chisq_position - duration/2.) * 1/squareChisq_tuple[3][0]
     chisq_stop = (chisq_position + duration/2.) * 1/squareChisq_tuple[3][0]	
+    lengthChisq = int(chisq_stop) - int(chisq_start) 
 
     #prepare the thresholds to be plotted 
     
-    snrThreshVect = int( duration * 1/squareSnr_tuple[3][0] ) * [snrThreshold]
+    snrThreshVect = lengthSnr * [snrThreshold]
     if(chisqThreshold < 100.):	
-    	chisqThreshVect = int( duration * 1/squareChisq_tuple[3][0] ) * [chisqThreshold]
-    if(rsqThreshold > 0 & rsqThreshold < 100.):
-	rsqThreshVect = int( duration * 1/squareChisq_tuple[3][0] ) * [rsqThreshold]
+    	chisqThreshVect = lengthChisq * [chisqThreshold]
+    if((rsqThreshold > 0) & (rsqThreshold < 100.)):
+	rsqThreshVect = lengthChisq * [rsqThreshold]
    
 
     # Now plot the snr time serie !!
     
     figure(1)
-    plot(snr_time[int(snr_start):int(snr_stop)],snr_vector[int(snr_start):int(snr_stop)])
+    plot(snr_time[int(snr_start):int(snr_stop)],snr_vector[int(snr_start):int(snr_stop)])    
     hold(1)
     plot(snr_time[int(snr_start):int(snr_stop)],snrThreshVect)
     hold(0)
@@ -170,7 +172,7 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams,tableFile):
     plot(chisq_time[int(chisq_start):int(chisq_stop)],rsq_vector[int(chisq_start):int(chisq_stop)])
     if(chisqThreshold < 100.):    
 	hold(1)
-    	plot(rsqThreshVect)
+    	plot(chisq_time[int(chisq_start):int(chisq_stop)],rsqThreshVect)
     	hold(0)
     xlim(-duration/2., duration/2.)
     xlabel('time (s)',size='x-large')
@@ -178,13 +180,14 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams,tableFile):
     grid()
     title(ifoName[0] + ' trigger: ' + gpsTime)
     savefig(ifoName[0] + '_' + str(gpsTime).replace(".","_")  + '_rsq.png')
-
+    	
+    
     figure(22)
     plot(chisq_time[int(chisq_start):int(chisq_stop)],rsq_vector[int(chisq_start):int(chisq_stop)])
     if(chisqThreshold < 100.):
     	hold(1)
-    	plot(rsqThreshVect)
-    	hold(0)
+    	plot(chisq_time[int(chisq_start):int(chisq_stop)],rsqThreshVect)
+        hold(0)
     xlim(-duration/20., duration/20.)
     xlabel('time (s)',size='x-large')
     ylabel(r'chisq/p',size='x-large')
@@ -198,8 +201,8 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams,tableFile):
     plot(chisq_time[int(chisq_start):int(chisq_stop)],chisqNorm_vector[int(chisq_start):int(chisq_stop)])
     if(rsqThreshold > 0 & rsqThreshold < 100.):
     	hold(1)
-    	plot(chisqThreshVect)
-    	hold(0)
+    	plot(chisq_time[int(chisq_start):int(chisq_stop)],chisqThreshVect)
+        hold(0)
     xlim(-duration/2., duration/2.)
     xlabel('time (s)',size='x-large')
     ylabel(r'chisq / (p + Delta * snrsq)',size='x-large')
@@ -211,8 +214,8 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams,tableFile):
     plot(chisq_time[int(chisq_start):int(chisq_stop)],chisqNorm_vector[int(chisq_start):int(chisq_stop)])
     if(rsqThreshold > 0 & rsqThreshold < 100.):
     	hold(1)
-    	plot(chisqThreshVect)
-    	hold(0)
+    	plot(chisq_time[int(chisq_start):int(chisq_stop)],chisqThreshVect)
+        hold(0)
     xlim(-duration/20., duration/20.)
     xlabel('time (s)',size='x-large')
     ylabel(r'chisq / (p + Delta * snrsq)',size='x-large')
@@ -256,7 +259,7 @@ command_line = sys.argv[1:]
 #################################
 # if --version flagged
 if opts.version:
-  print "$Id: plotsnrchisq_pipe.py,v 1.9 2007/05/14 21:28:06 channa Exp $"
+  print "$Id: plotsnrchisq_pipe.py,v 1.10 2007/05/14 21:43:51 channa Exp $"
   sys.exit(0)
 
 #################################
