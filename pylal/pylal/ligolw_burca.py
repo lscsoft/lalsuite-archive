@@ -160,7 +160,9 @@ def make_multi_burst(process_id, coinc_event_id, events):
 	multiburst.bandwidth = sum(event.snr * event.bandwidth for event in events) / multiburst.snr
 
 	# confidence = arithmetic mean of confidences
-	multiburst.confidence = sum(event.confidence for event in events) / len(events)
+	#multiburst.confidence = sum(event.confidence for event in events) / len(events)
+	# confidence = minimum of confidences
+	multiburst.confidence = min(event.confidence for event in events)
 
 	# done
 	return multiburst
