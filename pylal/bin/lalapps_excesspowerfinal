@@ -179,58 +179,38 @@ class Likelihood_Histogram(object):
 		self.injection_rate = rate.Rate(segments.segment(0.0, 1.0), 0.01)
 		self.confidence_threshold = confidence_threshold
 
-	def add_background(self, contents):
+	def add_non_injections(self, contents):
 		#
-		# Iterate over non-zero-lag coincidences.
+		# Iterate over burst<-->burst coincidences.  Assume there
+		# are no injections in this file.
 		#
 
-		for likelihood, confidence in contents.connection.cursor().execute("""
-SELECT coinc_event.likelihood, multi_burst.confidence FROM
+		for likelihood, confidence, is_background in contents.connection.cursor().execute("""
+SELECT coinc_event.likelihood, multi_burst.confidence, EXISTS (
+	SELECT * FROM
+		time_slide
+	WHERE
+		time_slide.time_slide_id == coinc_event.time_slide_id
+		AND time_slide.offset != 0
+) FROM
 	coinc_event
 	JOIN multi_burst ON (
 		multi_burst.coinc_event_id == coinc_event.coinc_event_id
 	)
 WHERE
 	coinc_event.coinc_def_id == ?
-	AND EXISTS (
-		SELECT * FROM
-			time_slide
-		WHERE
-			time_slide.time_slide_id == coinc_event.time_slide_id
-			AND time_slide.offset != 0
-	)
 		""", (contents.bb_definer_id,)):
-			self.background_likelihoods.append((likelihood, confidence))
-			self.background_rate[likelihood] += 1.0
-
-	def add_foreground(self, contents):
-		#
-		# Iterate over zero-lag coincidences.
-		#
-
-		for likelihood, confidence in contents.connection.cursor().execute("""
-SELECT coinc_event.likelihood, multi_burst.confidence FROM
-	coinc_event
-	JOIN multi_burst ON (
-		multi_burst.coinc_event_id == coinc_event.coinc_event_id
-	)
-WHERE
-	coinc_event.coinc_def_id == ?
-	AND NOT EXISTS (
-		SELECT * FROM
-			time_slide
-		WHERE
-			time_slide.time_slide_id == coinc_event.time_slide_id
-			AND time_slide.offset != 0
-	)
-		""", (contents.bb_definer_id,)):
-			self.foreground_likelihoods.append((likelihood, confidence))
-			self.foreground_rate[likelihood] += 1.0
+			if is_background:
+				self.background_likelihoods.append((likelihood, confidence))
+				self.background_rate[likelihood] += 1.0
+			else:
+				self.foreground_likelihoods.append((likelihood, confidence))
+				self.foreground_rate[likelihood] += 1.0
 
 	def add_injections(self, contents):
 		#
-		# Iterate over coincidences involving one or more events
-		# identified as being the result of injections.
+		# Iterate over burst<-->burst coincidences involving one or
+		# more events identified as being the result of injections.
 		#
 
 		for likelihood, confidence in contents.connection.cursor().execute("""
@@ -295,7 +275,8 @@ WHERE
 
 		#
 		# Likelihood that will keep n_background background events
-		# with confidences greater than or equal to 50.0.
+		# with confidences greater than or equal to the confidence
+		# threshold
 		#
 
 		return filter(lambda x: x[1] > self.confidence_threshold, self.background_likelihoods)[n_background][0]
@@ -367,56 +348,62 @@ WHERE
 
 def Efficiency_hrss_vs_freq_add_contents(self, contents):
 	self.num_injections += len(contents.sim_burst_table)
-	coinc_segs = contents.seglists.intersection(contents.seglists.keys())
-	for sim in contents.sim_burst_table:
-		if SimBurstUtils.injection_was_made(sim, coinc_segs, contents.seglists.keys()):
+	instruments = contents.seglists.keys()
+	coinc_segs = contents.seglists.intersection(instruments)
+	# FIXME: careful, the check for a coincidence will find any
+	# coincidence, no matter which instruments participate.  For now,
+	# I'm running fixed networks so this is not a problem, but if
+	# variable configuration networks are adopted in the future, then
+	# this will need to be re-thought to be sure that "found" means
+	# found in the correct set of instruments.
+	for values in contents.connection.cursor().execute("""
+SELECT sim_burst.*, EXISTS (
+	-- Find a burst<-->burst coinc containing a burst that participated
+	-- in this injection, that was found in the same time slide as the
+	-- injection, and whose likelihood and multi_burst confidence are
+	-- both above threshold
+	SELECT burst_coinc_event.coinc_event_id FROM
+		coinc_event_map AS c
+		JOIN coinc_event AS sim_coinc_event ON (
+			sim_coinc_event.coinc_event_id == c.coinc_event_id
+		)
+		JOIN coinc_event_map AS a ON (
+			a.coinc_event_id == c.coinc_event_id
+			AND a.table_name == 'sngl_burst'
+		)
+		JOIN coinc_event_map AS b ON (
+			b.table_name == 'sngl_burst'
+			AND b.event_id == a.event_id
+		)
+		JOIN coinc_event AS burst_coinc_event ON (
+			burst_coinc_event.coinc_event_id == b.coinc_event_id
+			AND burst_coinc_event.time_slide_id == sim_coinc_event.time_slide_id
+		)
+		JOIN multi_burst ON (
+			multi_burst.coinc_event_id == burst_coinc_event.coinc_event_id
+		)
+	WHERE
+		c.table_name == 'sim_burst'
+		AND c.event_id == sim_burst.simulation_id
+		AND sim_coinc_event.coinc_def_id == ?
+		AND burst_coinc_event.coinc_def_id == ?
+		AND burst_coinc_event.likelihood > ?
+		AND multi_burst.confidence > ?
+) FROM
+	sim_burst
+	""", (contents.sb_definer_id, contents.bb_definer_id, self.likelihood_threshold, self.confidence_threshold)):
+		sim = contents.sim_burst_table._row_from_cols(values[:-1])
+		found = values[-1]
+		if found:
 			self.injected_x.append(sim.freq)
 			self.injected_y.append(sim.hrss)
-	# FIXME: careful, the check for a coincidence will find any
-	# coincidence, no matter how many instruments participate.  For
-	# now, I'm running fixed networks so this is not a problem, but if
-	# variable configuration networks are adopted in the future, then
-	# this will need to be re-thought.
-	for freq, hrss in contents.connection.cursor().execute("""
-SELECT sim_burst.freq, sim_burst.hrss FROM
-	sim_burst
-WHERE
-	EXISTS (
-		-- Find a burst<-->burst coinc containing a burst that
-		-- participated in this injection, that was found at the
-		-- same time slide as the injection, and whose likelihood
-		-- and multi_burst confidence are both above threshold
-		SELECT burst_coinc_event.coinc_event_id FROM
-			coinc_event_map AS c
-			JOIN coinc_event AS sim_coinc_event ON (
-				sim_coinc_event.coinc_event_id == c.coinc_event_id
-			)
-			JOIN coinc_event_map AS a ON (
-				a.coinc_event_id == c.coinc_event_id
-				AND a.table_name == 'sngl_burst'
-			)
-			JOIN coinc_event_map AS b ON (
-				b.table_name == 'sngl_burst'
-				AND b.event_id == a.event_id
-			)
-			JOIN coinc_event AS burst_coinc_event ON (
-				burst_coinc_event.coinc_event_id == b.coinc_event_id
-				AND burst_coinc_event.time_slide_id == sim_coinc_event.time_slide_id
-			)
-			JOIN multi_burst ON (
-				multi_burst.coinc_event_id == burst_coinc_event.coinc_event_id
-			)
-		WHERE
-			c.table_name == 'sim_burst'
-			AND c.event_id == sim_burst.simulation_id
-			AND sim_coinc_event.coinc_def_id == ?
-			AND burst_coinc_event.coinc_def_id == ?
-			AND burst_coinc_event.likelihood > ?
-			AND multi_burst.confidence > ?
-	)
-	""", (contents.sb_definer_id, contents.bb_definer_id, self.likelihood_threshold, self.confidence_threshold)):
-		self.found_x.append(freq)
-		self.found_y.append(hrss)
+			self.found_x.append(sim.freq)
+			self.found_y.append(sim.hrss)
+		# FIXME:  this assumes all injections are done at zero lag
+		# (which is correct, for now, but watch out for this)
+		elif SimBurstUtils.injection_was_made(sim, coinc_segs, instruments):
+			self.injected_x.append(sim.freq)
+			self.injected_y.append(sim.hrss)
 
 
 SimBurstUtils.Efficiency_hrss_vs_freq.add_contents = Efficiency_hrss_vs_freq_add_contents
@@ -596,8 +583,7 @@ for n, filename in enumerate(filenames):
 	#
 
 	background_time_slides = ligolw_tisi.time_slide_list_merge(background_time_slides, get_background_time_slides(database).itervalues())
-	likelihood_histogram.add_foreground(database)
-	likelihood_histogram.add_background(database)
+	likelihood_histogram.add_non_injections(database)
 	non_injection_seglists |= database.seglists
 
 	#
