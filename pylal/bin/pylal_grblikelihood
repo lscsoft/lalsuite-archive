@@ -202,6 +202,7 @@ if opts.full_segs and opts.on_source_segs:
   offsourceseglist = fullseglist - onsourceseglist
 
   # make a list of 180s off source segments
+  # segmentrange
   seglist = segments.segmentlist()
   for seg in offsourceseglist:
     sstart = seg[0]
@@ -271,9 +272,11 @@ coincInjTriggers.add_missed_sims( \
     SimInspiralUtils.ReadSimInspiralFromFiles(glob.glob(opts.missed_glob)) )
 
 #####################################################################
-# set up arrays for candidates
-candmass = coincTriggers.getsngls(ifo_list[0]).get_column("mass1")
-canddistance = coincTriggers.getsngls(ifo_list[0]).get_column("eff_distance")
+# Make a few summary plots
+xedges = arange(0,41,2)
+yedges = asarray([0,6,8,10,12,14,16,18,20,30,41])
+foundsq = square(xedges,yedges,coincInjTriggers,"found")
+missedsq = square(xedges,yedges,coincInjTriggers,"missed")
 
 #####################################################################
 # if there are coincident triggers on source
@@ -287,7 +290,7 @@ if coincTriggers:
     # cut out those triggers near to the candidate, and
     # evaulate the p(c|0) based on that
     triggers_within_epsilon = \
-        offsourceTriggers.metricHistogram(candidate, opts.epsilon)
+        offsourceTriggers.getTriggersWithinEpsilon(candidate, opts.epsilon)
 
     for coinc in triggers_within_epsilon:
       end_time = getattr(coinc,ifo_list[0]).end_time
@@ -302,17 +305,15 @@ if coincTriggers:
     # cut out those injection triggers near to the candidate, and
     # evaulate the p(c|signal with lambda) based on that
     injTriggers_within_epsilon = \
-        coincInjTriggers.metricHistogram(candidate, opts.epsilon)
+        coincInjTriggers.getTriggersWithinEpsilon(candidate, opts.epsilon)
 
     print "Number of injections within epsilon: %f" % \
         len(injTriggers_within_epsilon)
 
-    xedges = arange(0,41,10)
-    yedges = arange(0,41,10)
-    foundsq = square(xedges,yedges,injTriggers_within_epsilon,"found")
-    missedsq = square(xedges,yedges,coincInjTriggers,"missed")
+    foundwithinepsilonsq = \
+        square(xedges,yedges,injTriggers_within_epsilon,"found")
 
-    pcsignalsq = 1.0 * foundsq / (missedsq + foundsq + 1.0e-10)
+    pcsignalsq = 1.0 * foundwithinepsilonsq / (missedsq + foundsq + 1.0e-10)
 
 else:
 
@@ -334,10 +335,8 @@ else:
   #
   # number of missed injections with parameters lambda / total number
   # of injections with parameter lambda
-  xedges = arange(0,41,10)
-  yedges = arange(0,41,10)
-  foundsq = square(xedges,yedges,coincInjTriggers,"found")
-  missedsq = square(xedges,yedges,coincInjTriggers,"missed")
+  #foundsq = square(xedges,yedges,coincInjTriggers,"found")
+  #missedsq = square(xedges,yedges,coincInjTriggers,"missed")
 
   pcsignalsq = 1.0 * missedsq / (missedsq + foundsq + 1.0e-10)
 
@@ -360,11 +359,37 @@ hold(True)
 contour(pcsignalsq,extent =[min(xedges),max(xedges),min(yedges),max(yedges)])
 colorbar(IM)
 axis('image')
-axvline(candmass)
-title('Probability Density Function p(S)', size='x-large')
+#axvline(candmass)
+title('p[candidate|h(m1,D)]', size='x-large')
 xlabel("m1 (Msun)", size='x-large' )
 ylabel("D (Mpc)", size='x-large' )
+savefig("pcsignal.ps")
 
+figure()
+palette = cm
+IM=imshow(foundsq+missedsq,origin='lower',extent =[min(xedges),max(xedges),min(yedges),max(yedges)],interpolation='nearest')
+hold(True)
+contour(foundsq+missedsq,extent =[min(xedges),max(xedges),min(yedges),max(yedges)])
+colorbar(IM)
+axis('image')
+#axvline(candmass)
+title('Number of injections made', size='x-large')
+xlabel("m1 (Msun)", size='x-large' )
+ylabel("D (Mpc)", size='x-large' )
+savefig("made-injections.ps")
+
+figure()
+palette = cm
+IM=imshow(foundsq/(foundsq+missedsq),origin='lower',extent =[min(xedges),max(xedges),min(yedges),max(yedges)],interpolation='nearest')
+hold(True)
+contour((foundsq/(foundsq+missedsq+1.0e-10)),extent =[min(xedges),max(xedges),min(yedges),max(yedges)])
+colorbar(IM)
+axis('image')
+#axvline(candmass)
+title('Fraction of injections found', size='x-large')
+xlabel("m1 (Msun)", size='x-large' )
+ylabel("D (Mpc)", size='x-large' )
+savefig("found-fraction.ps")
 
 if opts.show_plot:
   show()
