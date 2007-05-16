@@ -280,7 +280,7 @@ command_line = sys.argv[1:]
 #################################
 # if --version flagged
 if opts.version:
-  print "$Id: plotsnrchisq_pipe.py,v 1.13 2007/05/16 19:32:57 channa Exp $"
+  print "$Id: plotsnrchisq_pipe.py,v 1.14 2007/05/16 19:41:24 channa Exp $"
   sys.exit(0)
 
 #################################
@@ -309,5 +309,6 @@ if not opts.inspiral_xml_file:
 
 doc = utils.load_filename(opts.inspiral_xml_file,None)
 proc = table.get_table(doc, lsctables.ProcessParamsTable.tableName)
-plotsnrchisq(str(opts.gps),opts.frame_file,opts.output_path,proc,opts.output_html_file,opts.page)
+plotsnrchisq(str(opts.gps),opts.frame_file,opts.output_path,proc,opts.output_html_file,opts.image_file,opts.page)
+
 
