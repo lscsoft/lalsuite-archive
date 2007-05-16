@@ -199,7 +199,7 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams,tableFile,imgFile,p
     table.add_column('<img width=400 src="' + page + "/" + outputPath + "/" + figName +'">','CHISQ/P Zoom')
 
     table.write(tableFile)
-    tableFile.close(
+    tableFile.close()
 
     # Now plot the normalized chisq time serie !!
     figure(3)
@@ -280,7 +280,7 @@ command_line = sys.argv[1:]
 #################################
 # if --version flagged
 if opts.version:
-  print "$Id: plotsnrchisq_pipe.py,v 1.11 2007/05/15 04:51:37 romain Exp $"
+  print "$Id: plotsnrchisq_pipe.py,v 1.12 2007/05/16 18:11:07 channa Exp $"
   sys.exit(0)
 
 #################################
