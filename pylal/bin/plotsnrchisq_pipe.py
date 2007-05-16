@@ -17,9 +17,9 @@ import urlparse
 from types import *
 from pylab import *
 sys.path.append('/archive/home/channa/opt/pylal/lib64/python2.4/site-packages')
+sys.path.append('/archive/home/channa/opt/glue/lib64/python2.4/site-packages')
 from pylal import viz
 from pylal import Fr
-sys.path.append('/archive/home/channa/opt/glue/lib64/python2.4/site-packages')
 from glue import segments
 from glue import segmentsUtils
 from glue.ligolw import ligolw
@@ -31,18 +31,11 @@ from glue import pipeline
 from glue import lal
 
 
-#import matplotlib
-#matplotlib.use('Agg')
-#from pylab import *
-#from pylab import *
-#from pylal import viz
-
-
 sys.path.append('@PYTHONLIBDIR@')
 
 rc('text', usetex=False)
 
-def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams,tableFile):
+def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams,tableFile,imgFile,page):
  
     rsqThreshold = 0;
 
@@ -126,7 +119,7 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams,tableFile):
     snrThreshVect = lengthSnr * [snrThreshold]
     if(chisqThreshold < 100.):	
     	chisqThreshVect = lengthChisq * [chisqThreshold]
-    if((rsqThreshold > 0) & (rsqThreshold < 100.)):
+    if((rsqThreshold > 0) and (rsqThreshold < 100.)):
 	rsqThreshVect = lengthChisq * [rsqThreshold]
    
 
@@ -146,7 +139,7 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams,tableFile):
     savefig(outputPath +"/" + figName)
     tableFile = open(container.locallink,'a')
     table = HTMLTable()
-    table.add_column('<img width=400 src="' + figName +'">','SNR')
+    table.add_column('<img width=400 src="' + page + "/" + outputPath + "/" + figName +'">','SNR')
 
     figure(11)
     plot(snr_time[int(snr_start):int(snr_stop)],snr_vector[int(snr_start):int(snr_stop)])
@@ -160,7 +153,10 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams,tableFile):
     title(ifoName[0] + ' trigger: ' + gpsTime + ' Zoom')
     figName = ifoName[0] + '_' + str(gpsTime).replace(".","_") + '_snr_zoom.png'
     savefig(outputPath +"/" + figName)
-    table.add_column('<img width=400 src="' + figName +'">','SNR ZOOM')
+    savefig(outputPath + imgFile)
+    table.add_column('<img width=400 src="' + page + "/" + outputPath + "/" + figName +'">','SNR')
+
+    
     table.write(tableFile)
     tableFile.close()
 
@@ -179,7 +175,12 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams,tableFile):
     ylabel(r'chisq/p',size='x-large')
     grid()
     title(ifoName[0] + ' trigger: ' + gpsTime)
-    savefig(ifoName[0] + '_' + str(gpsTime).replace(".","_")  + '_rsq.png')
+    figName = ifoName[0] + '_' + str(gpsTime).replace(".","_")  + '_rsq.png'
+    savefig(figName)
+    tableFile = open(container.locallink,'a')
+    table = HTMLTable()
+    table.add_column('<img width=400 src="' + page + "/" + outputPath + "/" + figName +'">','CHISQ/P')
+
     	
     
     figure(22)
@@ -193,8 +194,12 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams,tableFile):
     ylabel(r'chisq/p',size='x-large')
     grid()
     title(ifoName[0] + ' trigger: ' + gpsTime + ' Zoom')
-    savefig(ifoName[0] + '_' + str(gpsTime).replace(".","_")  + '_rsq_zoom.png')
+    figName = ifoName[0] + '_' + str(gpsTime).replace(".","_")  + '_rsq_zoom.png'   
+    savefig(figName)
+    table.add_column('<img width=400 src="' + page + "/" + outputPath + "/" + figName +'">','CHISQ/P Zoom')
 
+    table.write(tableFile)
+    tableFile.close(
 
     # Now plot the normalized chisq time serie !!
     figure(3)
@@ -208,7 +213,12 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams,tableFile):
     ylabel(r'chisq / (p + Delta * snrsq)',size='x-large')
     grid(1)
     title(ifoName[0] + ' trigger: ' + gpsTime)
-    savefig(ifoName[0] + '_' + str(gpsTime).replace(".","_")  + '_chisq.png')
+    figName = ifoName[0] + '_' + str(gpsTime).replace(".","_")  + '_chisq.png'
+    savefig(figName)
+    tableFile = open(container.locallink,'a')
+    table = HTMLTable()
+    table.add_column('<img width=400 src="' + page + "/" + outputPath + "/" + figName +'">','CHISQ/(P+delta*SNR^2)')
+
 
     figure(33)
     plot(chisq_time[int(chisq_start):int(chisq_stop)],chisqNorm_vector[int(chisq_start):int(chisq_stop)])
@@ -222,7 +232,11 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams,tableFile):
     grid(1)
     title(ifoName[0] + ' trigger: ' + gpsTime + ' Zoom')
     savefig(ifoName[0] + '_' + str(gpsTime).replace(".","_")  + '_chisq_zoom.png')
+    table.add_column('<img width=400 src="' + page + "/" + outputPath + "/" + figName +'">','CHISQ/(P+delta*SNR^2) Zoom')
 
+    # write all the plots to the web page
+    table.write(tableFile)
+    tableFile.close()
     
 ##############################################################################
 #
@@ -249,8 +263,15 @@ parser.add_option("-o","--output-path",action="store",type="string",\
 parser.add_option("-x","--inspiral-xml-file", action="store",type="string", \
     metavar=" XML",help="use inspiral-file")
 
-parser.add_option("-p","--output-html-file", action="store",type="string", \
+parser.add_option("-c","--output-html-file", action="store",type="string", \
     metavar=" XML",help="file to append html tables to")
+
+parser.add_option("-i","--image-file", action="store",type="string", \
+    metavar=" IMG",help="summary plot file name"
+
+parser.add_option("-p","--page",action="store",type="string",\
+    default="investigations/s5/people/followups/",metavar=" PAGE",\
+    help="web page path (default 'investigations/s5/people/followups/'")
 
 
 command_line = sys.argv[1:]
@@ -259,7 +280,7 @@ command_line = sys.argv[1:]
 #################################
 # if --version flagged
 if opts.version:
-  print "$Id: plotsnrchisq_pipe.py,v 1.10 2007/05/14 21:43:51 channa Exp $"
+  print "$Id: plotsnrchisq_pipe.py,v 1.11 2007/05/15 04:51:37 romain Exp $"
   sys.exit(0)
 
 #################################
@@ -280,7 +301,13 @@ if not opts.output_path:
   print >> sys.stderr, "Use --output-path PATH to specify location."
   sys.exit(1)
 
+if not opts.inspiral_xml_file:
+  print >> sys.stderr, "No inspiral xml file specified."
+  print >> sys.stderr, "Use --inspiral-xml-file XML to specify a file"
+  sys.exit(1)
+
+
 doc = utils.load_filename(opts.inspiral_xml_file,None)
 proc = table.get_table(doc, lsctables.ProcessParamsTable.tableName)
-plotsnrchisq(str(opts.gps),opts.frame_file,opts.output_path,proc,opts.output_html_file)
+plotsnrchisq(str(opts.gps),opts.frame_file,opts.output_path,proc,opts.output_html_file,opts.page)
 
