@@ -267,7 +267,7 @@ parser.add_option("-c","--output-html-file", action="store",type="string", \
     metavar=" XML",help="file to append html tables to")
 
 parser.add_option("-i","--image-file", action="store",type="string", \
-    metavar=" IMG",help="summary plot file name"
+    metavar=" IMG",help="summary plot file name")
 
 parser.add_option("-p","--page",action="store",type="string",\
     default="investigations/s5/people/followups/",metavar=" PAGE",\
@@ -280,7 +280,7 @@ command_line = sys.argv[1:]
 #################################
 # if --version flagged
 if opts.version:
-  print "$Id: plotsnrchisq_pipe.py,v 1.12 2007/05/16 18:11:07 channa Exp $"
+  print "$Id: plotsnrchisq_pipe.py,v 1.13 2007/05/16 19:32:57 channa Exp $"
   sys.exit(0)
 
 #################################
