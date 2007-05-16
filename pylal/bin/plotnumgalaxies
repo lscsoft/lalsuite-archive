@@ -518,6 +518,35 @@ class astroData:
                      self.get_values(col2),edges2) * \
                      self.astro_normalization)
 
+  def print_distance_ng(self, column, edges):
+    """
+    print out the ng versus effective distance for the sources
+    """
+    lumarray = cumsum(self.hist_ng(column,edges))
+    step = edges[1]-edges[0]
+
+    print "# The number of L_10 as a function of horizon distance."
+    print "# The format is:"
+    print "#    Dhorizon Dsensemon NG N1 N6"
+    print "# where"
+    print "# Dhorizon: distance to optimally oriented, located binary"
+    print "# Dsensmon: Dhorizon/sqrt(5.0)"
+    print "# NG: total blue luminosity inside D in unit of L10"
+    print "# N1: no of events detectable in a search with this sensitivity"
+    print "#     based on KKL model 1"
+    print "# N6: no of events detectable in a search with this sensitivity"
+    print "#     based on KKL model 6"
+    for i,e in enumerate(edges):
+      Dhorizon = edges[i]+step
+      Dsensemon = Dhorizon / sqrt(5.0)
+      NsubG = lumarray[i]
+      # normalizations are from XXX
+      Nmodelone = (23.2/1.7) * NsubG / 1.0e6 
+      Nmodelsix = (83.0/1.7) * NsubG / 1.0e6 
+      print "%f\t%f\t%f\t%e\t%e" % \
+          (Dhorizon, Dsensemon, NsubG, Nmodelone, Nmodelsix) 
+
+
   def plot_ng(self, figNum, column, edges, type = 'plot', error = None):
     """
     make a plot of ng vs column
@@ -1401,6 +1430,9 @@ parser.add_option("-l","--cum-log-ng",action="store_true",default=False,\
 parser.add_option("-c","--add-curvefit",action="store_true",default=False,\
     help="add a curve to fit the ng distribution" )
 
+parser.add_option("-P","--print-distance-ng",action="store_true",default=False,\
+    help="print out information about NG within various distances" )
+
 # using injection data
 parser.add_option("-e","--plot-efficiency",action="store_true",default=False,\
     help="make a plot of efficiency vs x-value" )
@@ -1638,6 +1670,15 @@ for astroError in astroErrors.keys() + [None]:
   if opts.plot_2d_ng:
     figNum += 1
     injAstro.plot_2d_ng(figNum,error = astroError)
+
+##############################################################################
+# Print out some useful astrophysical information
+##############################################################################
+
+if opts.print_distance_ng:
+  injAstro.astro.print_distance_ng(injAstro.x_value, injAstro.x_edges())
+
+
 
 ##############################################################################
 # Make plots using found and missed injections
