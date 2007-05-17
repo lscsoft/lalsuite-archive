@@ -69,10 +69,11 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams,tableFileName,imgFi
     segOverlapSec = segOverlap / sampleRate
      
     if (trigStart):
-      trigPosition = int((trigStart - gpsStart + segOverlapSec/2. ) / (segLenSec -segOverlapSec))
+      trigPosition = int((trigStart - gpsStart - segOverlapSec ) / (segLenSec -segOverlapSec))
     else: trigPosition = 0
 
-    gpsPosition = int((eval(gpsTime) - gpsStart + segOverlapSec/2. ) / (segLenSec -segOverlapSec))
+    gpsPosition = int((eval(gpsTime) - gpsStart - segOverlapSec/2. ) / (segLenSec -segOverlapSec))
+    if (trigPosition < 0): trigPosition = 0
     position = gpsPosition - trigPosition
     chanNumber = str(position)
 
@@ -140,7 +141,8 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams,tableFileName,imgFi
     savefig(outputPath +"/" + figName)
     tableFile = open(tableFileName,'a')
     table = HTMLTable()
-    table.add_column('<img width=400 src="' + page + "/" + outputPath + "/" + figName +'">','SNR')
+    rowStr = '<img width=400 src="' + page + "/" + outputPath + "/" + figName +'">'
+    table.add_column([rowStr],'SNR')
 
     figure(11)
     plot(snr_time[int(snr_start):int(snr_stop)],snr_vector[int(snr_start):int(snr_stop)])
@@ -155,7 +157,8 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams,tableFileName,imgFi
     figName = ifoName[0] + '_' + str(gpsTime).replace(".","_") + '_snr_zoom.png'
     savefig(outputPath +"/" + figName)
     savefig(imgFile)
-    table.add_column('<img width=400 src="' + page + "/" + outputPath + "/" + figName +'">','SNR')
+    rowStr = '<img width=400 src="' + page + "/" + outputPath + "/" + figName +'">'
+    table.add_column([rowStr],'SNR')
 
     
     table.write(tableFile)
@@ -180,7 +183,8 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams,tableFileName,imgFi
     savefig(figName)
     tableFile = open(tableFileName,'a')
     table = HTMLTable()
-    table.add_column('<img width=400 src="' + page + "/" + outputPath + "/" + figName +'">','CHISQ/P')
+    rowStr = '<img width=400 src="' + page + "/" + outputPath + "/" + figName +'">'
+    table.add_column([rowStr],'CHISQ/P')
 
     	
     
@@ -197,7 +201,8 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams,tableFileName,imgFi
     title(ifoName[0] + ' trigger: ' + gpsTime + ' Zoom')
     figName = ifoName[0] + '_' + str(gpsTime).replace(".","_")  + '_rsq_zoom.png'   
     savefig(figName)
-    table.add_column('<img width=400 src="' + page + "/" + outputPath + "/" + figName +'">','CHISQ/P Zoom')
+    rowStr = '<img width=400 src="' + page + "/" + outputPath + "/" + figName +'">'
+    table.add_column([rowStr],'CHISQ/P Zoom')
 
     table.write(tableFile)
     tableFile.close()
@@ -218,7 +223,8 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams,tableFileName,imgFi
     savefig(figName)
     tableFile = open(tableFileName,'a')
     table = HTMLTable()
-    table.add_column('<img width=400 src="' + page + "/" + outputPath + "/" + figName +'">','CHISQ/(P+delta*SNR^2)')
+    rowStr = '<img width=400 src="' + page + "/" + outputPath + "/" + figName +'">'
+    table.add_column([rowStr],'CHISQ/(P+delta*SNR^2)')
 
 
     figure(33)
@@ -233,7 +239,8 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams,tableFileName,imgFi
     grid(1)
     title(ifoName[0] + ' trigger: ' + gpsTime + ' Zoom')
     savefig(ifoName[0] + '_' + str(gpsTime).replace(".","_")  + '_chisq_zoom.png')
-    table.add_column('<img width=400 src="' + page + "/" + outputPath + "/" + figName +'">','CHISQ/(P+delta*SNR^2) Zoom')
+    rowStr = '<img width=400 src="' + page + "/" + outputPath + "/" + figName +'">'
+    table.add_column([rowStr],'CHISQ/(P+delta*SNR^2) Zoom')
 
     # write all the plots to the web page
     table.write(tableFile)
