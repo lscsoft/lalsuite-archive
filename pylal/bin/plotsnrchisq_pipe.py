@@ -180,7 +180,7 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams,tableFileName,imgFi
     grid()
     title(ifoName[0] + ' trigger: ' + gpsTime)
     figName = ifoName[0] + '_' + str(gpsTime).replace(".","_")  + '_rsq.png'
-    savefig(figName)
+    savefig(outputPath +"/" + figName) 
     tableFile = open(tableFileName,'a')
     table = HTMLTable()
     rowStr = '<img width=400 src="' + page + "/" + outputPath + "/" + figName +'">'
@@ -200,7 +200,7 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams,tableFileName,imgFi
     grid()
     title(ifoName[0] + ' trigger: ' + gpsTime + ' Zoom')
     figName = ifoName[0] + '_' + str(gpsTime).replace(".","_")  + '_rsq_zoom.png'   
-    savefig(figName)
+    savefig(outputPath +"/" + figName)
     rowStr = '<img width=400 src="' + page + "/" + outputPath + "/" + figName +'">'
     table.add_column([rowStr],'CHISQ/P Zoom')
 
@@ -220,7 +220,7 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams,tableFileName,imgFi
     grid(1)
     title(ifoName[0] + ' trigger: ' + gpsTime)
     figName = ifoName[0] + '_' + str(gpsTime).replace(".","_")  + '_chisq.png'
-    savefig(figName)
+    savefig(outputPath +"/" + figName)
     tableFile = open(tableFileName,'a')
     table = HTMLTable()
     rowStr = '<img width=400 src="' + page + "/" + outputPath + "/" + figName +'">'
@@ -238,7 +238,8 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams,tableFileName,imgFi
     ylabel(r'chisq / (p + Delta * snrsq)',size='x-large')
     grid(1)
     title(ifoName[0] + ' trigger: ' + gpsTime + ' Zoom')
-    savefig(ifoName[0] + '_' + str(gpsTime).replace(".","_")  + '_chisq_zoom.png')
+    figName = ifoName[0] + '_' + str(gpsTime).replace(".","_")  + '_chisq_zoom.png'
+    savefig(outputPath +"/" + figName)
     rowStr = '<img width=400 src="' + page + "/" + outputPath + "/" + figName +'">'
     table.add_column([rowStr],'CHISQ/(P+delta*SNR^2) Zoom')
 
