@@ -20,6 +20,7 @@ sys.path.append('/archive/home/channa/opt/pylal/lib64/python2.4/site-packages')
 sys.path.append('/archive/home/channa/opt/glue/lib64/python2.4/site-packages')
 from pylal import viz
 from pylal import Fr
+from pylal.fu_utils import *
 from glue import segments
 from glue import segmentsUtils
 from glue.ligolw import ligolw
@@ -35,7 +36,7 @@ sys.path.append('@PYTHONLIBDIR@')
 
 rc('text', usetex=False)
 
-def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams,tableFile,imgFile,page):
+def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams,tableFileName,imgFile,page):
  
     rsqThreshold = 0;
 
@@ -68,10 +69,10 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams,tableFile,imgFile,p
     segOverlapSec = segOverlap / sampleRate
      
     if (trigStart):
-      trigPosition = int((trigStart - gpsStart - segOverlapSec ) / (segLenSec -segOverlapSec))
+      trigPosition = int((trigStart - gpsStart + segOverlapSec/2. ) / (segLenSec -segOverlapSec))
     else: trigPosition = 0
 
-    gpsPosition = int((eval(gpsTime) - gpsStart - segOverlapSec/2.) / (segLenSec -segOverlapSec))
+    gpsPosition = int((eval(gpsTime) - gpsStart + segOverlapSec/2. ) / (segLenSec -segOverlapSec))
     position = gpsPosition - trigPosition
     chanNumber = str(position)
 
@@ -137,7 +138,7 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams,tableFile,imgFile,p
     title(ifoName[0] + ' trigger: ' + gpsTime)
     figName = ifoName[0] + '_' + str(gpsTime).replace(".","_") + '_snr.png'
     savefig(outputPath +"/" + figName)
-    tableFile = open(container.locallink,'a')
+    tableFile = open(tableFileName,'a')
     table = HTMLTable()
     table.add_column('<img width=400 src="' + page + "/" + outputPath + "/" + figName +'">','SNR')
 
@@ -153,7 +154,7 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams,tableFile,imgFile,p
     title(ifoName[0] + ' trigger: ' + gpsTime + ' Zoom')
     figName = ifoName[0] + '_' + str(gpsTime).replace(".","_") + '_snr_zoom.png'
     savefig(outputPath +"/" + figName)
-    savefig(outputPath + imgFile)
+    savefig(imgFile)
     table.add_column('<img width=400 src="' + page + "/" + outputPath + "/" + figName +'">','SNR')
 
     
@@ -177,7 +178,7 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams,tableFile,imgFile,p
     title(ifoName[0] + ' trigger: ' + gpsTime)
     figName = ifoName[0] + '_' + str(gpsTime).replace(".","_")  + '_rsq.png'
     savefig(figName)
-    tableFile = open(container.locallink,'a')
+    tableFile = open(tableFileName,'a')
     table = HTMLTable()
     table.add_column('<img width=400 src="' + page + "/" + outputPath + "/" + figName +'">','CHISQ/P')
 
@@ -204,7 +205,7 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams,tableFile,imgFile,p
     # Now plot the normalized chisq time serie !!
     figure(3)
     plot(chisq_time[int(chisq_start):int(chisq_stop)],chisqNorm_vector[int(chisq_start):int(chisq_stop)])
-    if(rsqThreshold > 0 & rsqThreshold < 100.):
+    if(rsqThreshold > 0 and rsqThreshold < 100.):
     	hold(1)
     	plot(chisq_time[int(chisq_start):int(chisq_stop)],chisqThreshVect)
         hold(0)
@@ -215,14 +216,14 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams,tableFile,imgFile,p
     title(ifoName[0] + ' trigger: ' + gpsTime)
     figName = ifoName[0] + '_' + str(gpsTime).replace(".","_")  + '_chisq.png'
     savefig(figName)
-    tableFile = open(container.locallink,'a')
+    tableFile = open(tableFileName,'a')
     table = HTMLTable()
     table.add_column('<img width=400 src="' + page + "/" + outputPath + "/" + figName +'">','CHISQ/(P+delta*SNR^2)')
 
 
     figure(33)
     plot(chisq_time[int(chisq_start):int(chisq_stop)],chisqNorm_vector[int(chisq_start):int(chisq_stop)])
-    if(rsqThreshold > 0 & rsqThreshold < 100.):
+    if(rsqThreshold > 0 and  rsqThreshold < 100.):
     	hold(1)
     	plot(chisq_time[int(chisq_start):int(chisq_stop)],chisqThreshVect)
         hold(0)
@@ -280,7 +281,7 @@ command_line = sys.argv[1:]
 #################################
 # if --version flagged
 if opts.version:
-  print "$Id: plotsnrchisq_pipe.py,v 1.14 2007/05/16 19:41:24 channa Exp $"
+  print "$Id: plotsnrchisq_pipe.py,v 1.12 2007/05/16 18:11:07 channa Exp $"
   sys.exit(0)
 
 #################################
