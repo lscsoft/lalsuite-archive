@@ -138,8 +138,10 @@ LALFindChirpPTFTemplate (
   /* copy the template parameters to the finchirp template structure */
   memcpy( &(fcTmplt->tmplt), tmplt, sizeof(InspiralTemplate) );
   fcTmplt->tmplt.approximant = params->approximant;
-  fcTmplt->tmplt.tC = 25.0; /* length of template in seconds */
-  fcTmplt->tmplt.fFinal = 1000.0; /* upper freq of template in Hz */
+
+  /* XXX delete this line if the low frequency cutoff XXX */
+  /* XXX should be read from the template bank        XXX */
+  fcTmplt->fLower = params->fLow;
 
  /* Point the dummy variables Q and Qtilde to the actual output structures */
   for ( i = 0; i < 5; ++i )
@@ -194,6 +196,10 @@ LALFindChirpPTFTemplate (
     LALForwardRealFFT( status->statusPtr, &Qtilde[i], &Q[i],
         params->fwdPlan);
   }
+
+  /* XXX set this to be the correct values XXX */
+  fcTmplt->tmplt.tC = 25.0; /* length of template in seconds */
+  fcTmplt->tmplt.fFinal = 1000.0; /* upper freq of template in Hz */
 
   /* normal exit */
   DETATCHSTATUSPTR( status );
