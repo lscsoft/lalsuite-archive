@@ -45,7 +45,10 @@ INT64 start, stop;
 
 fprintf(stderr, "Loading segments from file \"%s\"\n", filename);
 fin=fopen(filename, "r");
-if(fin==NULL)return;
+if(fin==NULL) {
+	perror("Could not open file");
+	return;
+	}
 
 while(!feof(fin)){
 	fgets(s, 2000, fin);
