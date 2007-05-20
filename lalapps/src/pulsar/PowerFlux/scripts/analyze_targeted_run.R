@@ -313,7 +313,7 @@ for(i in 1:(dim(BandData)[1])) {
 	
 	ksVetoP <- ksVeto
 	
-	highulFactor <- 1.0/cos(pi/8)
+	highulFactor <- 2.0/cos(pi/8)
 	circulFactor <- 1.0
 	
 	# All sky limits
