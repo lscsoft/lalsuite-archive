@@ -88,6 +88,8 @@ for(skyband in 0:(NBands-1)) {
 CreateQuery<-p("CREATE TABLE ", DataSet, "(Line INTEGER AUTO_INCREMENT")
 LoadQuery<-p("LOAD DATA LOCAL INFILE '", fnout, "' INTO TABLE ", DataSet, " FIELDS TERMINATED BY ' ' OPTIONALLY ENCLOSED BY '\"' LINES TERMINATED BY '\n' IGNORE 1 LINES (")
 
+# "
+
 for(i in 1:length(Types)) {
 	Col<-names(Types)[i]
 
