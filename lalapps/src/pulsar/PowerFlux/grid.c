@@ -685,8 +685,8 @@ if(!strncasecmp(line, "band", 4)) {
 	locate_arg(line, length, 6, &ai, &aj);
 	sscanf(&(line[ai]), "%g", &level2);
 
-	fprintf(stderr, "Marking band (%d <- %d) around (%g, %g) with with cos in [%g, %g]\n", band_to, band_from, ra, dec, level1, level2);
-	fprintf(LOG, "Marking band (%d <- %d) around (%g, %g) with with cos in [%g, %g]\n", band_to, band_from, ra, dec, level1, level2);
+	fprintf(stderr, "Marking band (%d <- %d) around (%g, %g) with cos in [%g, %g]\n", band_to, band_from, ra, dec, level1, level2);
+	fprintf(LOG, "Marking band (%d <- %d) around (%g, %g) with cos in [%g, %g]\n", band_to, band_from, ra, dec, level1, level2);
 
 	x0=cos(ra)*sin(M_PI_2-dec);
 	y0=sin(ra)*sin(M_PI_2-dec);
