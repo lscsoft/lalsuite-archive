@@ -8,6 +8,8 @@ import exceptions
 import glob
 from types import *
 
+import matplotlib
+matplotlib.use('Agg')
 from pylab import *
 from glue import segmentsUtils
 from pylal import viz
@@ -73,6 +75,14 @@ parser.add_option("-X","--x-value",action="append",type="string",\
 parser.add_option("-Y","--y-value",action="append",type="string",\
     default=None, metavar=" TEXT",\
     help="variable to plot on the y-axis. Add 'LOG' at the end to make it a log  axis" )
+parser.add_option("-B","--start-time",action="store",type="int",\
+    default=None, metavar=" TEXT",\
+    help="setting GPS start time" )
+parser.add_option("-E","--end-time",action="store",type="int",\
+    default=None, metavar=" TEXT",\
+    help="setting GPS end time" )
+
+
 
 (opts,args) = parser.parse_args()
 
@@ -204,16 +214,23 @@ if opts.x_value and opts.y_value:
       yval=yval[0:len(yval)-3]
  
     clf()
-    if xlog and not ylog:
-      semilogx(binaries.get_column(xval),\
-             binaries.get_column(yval),'bo')
-    elif not xlog and ylog:
-      semilogy(binaries.get_column(xval), \
-             binaries.get_column(yval),'bo')
-    else:
-      plot(binaries.get_column(xval),\
-         binaries.get_column(yval),'bo')
+    px=binaries.get_column(xval)
+    py=binaries.get_column(yval)
+    if "end_time" in xval:
+      px=[px[i]-opts.start_time for i in range(len(px))]
 
+    if xlog and not ylog:
+      semilogx(px, py, 'bo')
+    elif not xlog and ylog:
+      semilogy(px, py, 'bo')
+    else:
+      plot(px, py, 'bo')
+   
+    if "end_time" in xval:
+      v=axis()
+      print v
+      axis([0, opts.end_time-opts.start_time, v[2], v[3]])
+      print opts.start_time
     xlabel(xval.replace('_','-'))
     ylabel(yval.replace('_','-'))
     titleString=yval+ ' versus '+ xval
