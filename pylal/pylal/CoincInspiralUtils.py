@@ -6,6 +6,7 @@ from glue.ligolw import utils
 from pylal.tools import XLALCalculateEThincaParameter
 import numpy
 
+
 def uniq(list):
   """
   Return the unique items of a list, preserving order.
@@ -392,39 +393,45 @@ class coincInspiralTable:
       if c_ifos == trig_ifos:
         for ifo1 in ifolist: 
           # distance^2 apart in effective snr
-          c_lambda = getattr(candidate,ifo1).get_effective_snr()
-          t_lambda = getattr(trig,ifo1).get_effective_snr()
-          tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
-          param_counter += 1
+#          c_lambda = getattr(candidate,ifo1).get_effective_snr()
+#          t_lambda = getattr(trig,ifo1).get_effective_snr()
+#          tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
+#          param_counter += 1
 
           # distance^2 apart in mchirp
-          c_lambda = getattr(candidate,ifo1).mchirp
-          t_lambda = getattr(trig,ifo1).mchirp
-          tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
-          param_counter += 1
+#          c_lambda = getattr(candidate,ifo1).mchirp
+#          t_lambda = getattr(trig,ifo1).mchirp
+#          tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
+#          param_counter += 1
 
           # distance^2 apart in effective distance
-          c_lambda = getattr(candidate,ifo1).eff_distance
-          t_lambda = getattr(trig,ifo1).eff_distance
-          tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
-          param_counter += 1
+#          c_lambda = getattr(candidate,ifo1).eff_distance
+#          t_lambda = getattr(trig,ifo1).eff_distance
+#          tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
+#          param_counter += 1
 
           # distance^2 apart in ethinca
 	  for ifo2 in ifolist:
             if ifo1 < ifo2:
-              c_lambda = XLALCalculateEThincaParameter(\
+              c_lambda = simpleEThinca(\
               getattr(candidate,ifo1),\
-              getattr(candidate,ifo2) ) 
-              t_lambda = XLALCalculateEThincaParameter(\
+              getattr(candidate,ifo2) )
+              t_lambda = simpleEThinca(\
               getattr(trig,ifo1),\
               getattr(trig,ifo2) ) 
               tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
-              param_counter += 1
+              param_counter+=1
+#              c_lambda = XLALCalculateEThincaParameter(\
+#              getattr(candidate,ifo1),\
+#              getattr(candidate,ifo2) ) 
+#              t_lambda = XLALCalculateEThincaParameter(\
+#              getattr(trig,ifo1),\
+#              getattr(trig,ifo2) ) 
+#              tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
 
-        dsquared.append(tmp_d_squared / float(param_counter))
+        dsquared.append(tmp_d_squared/param_counter)
       else:
-        dsquared.append(-1.0) 
-
+        dsquared.append(-1.0)
     return numpy.asarray(dsquared)
 
 
@@ -447,10 +454,10 @@ class coincInspiralTable:
       if c_ifos == trig_ifos:
         for ifo1 in ifolist: 
           # distance^2 apart in effective snr
-          c_lambda = getattr(candidate,ifo1).get_effective_snr()
-          t_lambda = getattr(trig,ifo1).get_effective_snr()
-          tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
-          param_counter += 1
+          #c_lambda = getattr(candidate,ifo1).get_effective_snr()
+          #t_lambda = getattr(trig,ifo1).get_effective_snr()
+          #tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
+          #param_counter += 1
 
           # distance^2 apart in mchirp
           #c_lambda = getattr(candidate,ifo1).mchirp
@@ -459,20 +466,27 @@ class coincInspiralTable:
           #param_counter += 1
 
           # distance^2 apart in effective distance
-          c_lambda = getattr(candidate,ifo1).eff_distance
-          t_lambda = getattr(trig,ifo1).eff_distance
-          tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
-          param_counter += 1
+          #c_lambda = getattr(candidate,ifo1).eff_distance
+          #t_lambda = getattr(trig,ifo1).eff_distance
+          #tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
+          #param_counter += 1
 
           # distance^2 apart in ethinca
 	  for ifo2 in ifolist:
             if ifo1 < ifo2:
-              c_lambda = XLALCalculateEThincaParameter(\
+              c_lambda = simpleEThinca(\
               getattr(candidate,ifo1),\
-              getattr(candidate,ifo2) ) 
-              t_lambda = XLALCalculateEThincaParameter(\
+              getattr(candidate,ifo2) )
+              t_lambda = simpleEThinca(\
               getattr(trig,ifo1),\
-              getattr(trig,ifo2) ) 
+              getattr(trig,ifo2) )
+
+#              c_lambda = XLALCalculateEThincaParameter(\
+#              getattr(candidate,ifo1),\
+#              getattr(candidate,ifo2) ) 
+#              t_lambda = XLALCalculateEThincaParameter(\
+#              getattr(trig,ifo1),\
+#              getattr(trig,ifo2) ) 
               tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
               param_counter += 1
 
@@ -481,3 +495,41 @@ class coincInspiralTable:
 
     return triggers_within_epsilon
 
+def simpleEThinca(trigger1, trigger2):
+  ''' 
+  Return the distance in parameter space between two inspiral triggers.
+
+  The number returned is only an approximation to the true distance, which is
+  valid whenever the two triggers are nearby. This is a simplified version of
+  the e-thinca parameter.
+
+  d_average=(1/2)[(Gamma(x1)_{ij}(x2-x1)^i(x2-x1)^j)^(1/2) + (Gamma(x2)_{ij}(x2-x1)^i(x2-x1)^j)^(1/2)]
+  @param trigger1, trigger2 are single inspiral triggers.
+  '''
+  #dend_time = (trigger2.end_time - trigger1.end_time) +\
+  #(trigger2.end_time_ns - trigger1.end_time_ns)*10**(-9)
+  #print dend_time
+  dend_time=(trigger2.end_time_ns - trigger1.end_time_ns)*10**(-9)
+
+  dtau0=trigger2.tau0-trigger1.tau0
+  #print dtau0
+
+  dtau3=trigger2.tau3-trigger1.tau3
+  #print dtau3
+
+  delta_x = numpy.array([dend_time, dtau0, dtau3])
+
+  Gamma1 = numpy.array( [[trigger1.Gamma0, trigger1.Gamma1, trigger1.Gamma2],\
+                 [trigger1.Gamma1, trigger1.Gamma3, trigger1.Gamma4],\
+                 [trigger1.Gamma2, trigger1.Gamma4, trigger1.Gamma5]])
+  #print Gamma1
+
+  Gamma2 = numpy.array( [[trigger2.Gamma0, trigger2.Gamma1, trigger2.Gamma2],\
+                 [trigger2.Gamma1, trigger2.Gamma3, trigger2.Gamma4],\
+                 [trigger2.Gamma2, trigger2.Gamma4, trigger2.Gamma5]])
+  #print Gamma2
+
+  average_distance= 0.5*numpy.sqrt(numpy.dot(delta_x, numpy.dot(Gamma1, delta_x))) + \
+                    0.5*numpy.sqrt(numpy.dot(delta_x, numpy.dot(Gamma2, delta_x)))
+
+  return average_distance
