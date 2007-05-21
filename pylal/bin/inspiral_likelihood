@@ -1,0 +1,215 @@
+#!/usr/bin/python
+
+import sys
+import exceptions 
+from optparse import *
+import glob
+
+from glue.ligolw import table
+from glue.ligolw import lsctables
+from glue.ligolw import utils
+from pylal import CoincInspiralUtils
+from pylal import SnglInspiralUtils
+from pylal import SimInspiralUtils
+from pylal.tools import XLALCalculateEThincaParameter
+
+################################################################################
+usage= """
+usage: %prog [options]
+
+Calculate likelihood ratio and assign ranking based on it to each candidate trigger.
+"""
+parser = OptionParser( usage=usage, version="%prog CVS $Id$ " )
+parser.add_option("-z","--zerolag-glob",action="store",type="string",\
+    default=None, metavar=" GLOB",help="GLOB zero lag  thinca files to read" )
+parser.add_option("-s","--slides-glob",action="store",type="string",\
+    default=None, metavar=" GLOB",help="GLOB time slides thinca files to read" )
+parser.add_option("-i","--inj-glob",action="store",type="string",\
+    default=None, metavar=" GLOB",help="GLOB thinca files with injections to read" )
+
+parser.add_option("-S","--statistic",action="store",default='snr',\
+    type="string",\
+    help="choice of statistic used in making plots, valid arguments are: "             "snr (DEFAULT), snr_over_chi, s3_snr_chi_stat, effective_snr, " 
+    "bitten_l, bitten_lsq")
+
+parser.add_option("-e","--epsilon",action="store",type="float",\
+    default=0.3, metavar=" EPSILON", help="radius of the hypersphere in the parameter space that defines closeness of events" )
+
+(opts,args) = parser.parse_args()
+
+#################################### 
+#glob the list of files to read in
+
+# Zero lag  Files
+if opts.zerolag_glob:  
+  zerolagfiles = []      
+  zerolagfiles = glob.glob(opts.zerolag_glob)  
+  if len(zerolagfiles) < 1:    
+    print >>sys.stderr, "The glob for " + opts.zerolag_glob + " returned no files"
+    sys.exit(1)  
+
+# Time slides Files
+if opts.slides_glob:      
+  slidesfiles = []  
+  slidesfiles = glob.glob(opts.slides_glob)  
+  if len(slidesfiles) < 1:    
+    print >>sys.stderr, "The glob for " + opts.slides_glob + " returned no files" 
+    sys.exit(1)    
+   
+ 
+# Injection Files
+if opts.inj_glob:
+  injfiles = []
+  injfiles = glob.glob(opts.inj_glob)
+  if len(injfiles) < 1:
+    print >>sys.stderr, "The glob for " + opts.inj_glob + "returned no files " 
+    sys.exit(1)
+
+# check that statistic is OK:
+if (opts.statistic != 'snr') and (opts.statistic != 'snr_over_chi') \
+    and (opts.statistic != 's3_snr_chi_stat') \
+    and (opts.statistic != 'effective_snr')\
+    and (opts.statistic != 'bitten_lsq')\
+    and (opts.statistic != 'bitten_l'):  
+  print >>sys.stderr, "--statistic must be one of"  
+  print >>sys.stderr, "(snr|snr_over_chi|s3_snr_chi_stat|effective_snr|bitten_l)"
+  sys.exit(1)
+
+statistic = CoincInspiralUtils.coincStatistic( opts.statistic) 
+
+
+###############################################################################
+# read in zero lag coinc triggers
+
+zerolagTriggers = None
+
+zerolagTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(zerolagfiles)
+
+# construct the zero lag coincs 
+zerolagCoincTriggers= \
+CoincInspiralUtils.coincInspiralTable(zerolagTriggers, statistic)
+
+# read in time slides triggers 
+
+slidesTriggers = None
+
+slidesTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(slidesfiles)
+
+# construct the time slides coincs
+slidesCoincTriggers= \
+CoincInspiralUtils.coincInspiralTable(slidesTriggers, statistic)
+
+# read in injections sngl and sim inspirals
+
+injectionTriggers = None
+
+injectionTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(injfiles)
+
+simTriggers = None
+
+simTriggers = SimInspiralUtils.ReadSimInspiralFromFiles(injfiles)   
+
+
+#construct injection coincs and add sim inspirals
+
+injectionCoincTriggers= \
+CoincInspiralUtils.coincInspiralTable(injectionTriggers, statistic)
+
+injectionCoincTriggers.add_sim_inspirals(simTriggers)
+
+
+
+
+
+######################################
+#Experimental area
+
+#counter=0
+#file=open('slidestriggers', 'w')
+#for trigger in slidesCoincTriggers:
+#  ifo, ifolist = trigger.get_ifos()
+#  file.write(str(ifo) + '\n')
+#  counter+=1
+#print str(counter)
+#file.close()
+
+#for candidate in zerolagCoincTriggers:
+#  ethinca=XLALCalculateEThincaParameter(candidate.H1, candidate.L1)
+#  simethinca=CoincInspiralUtils.simpleEThinca(candidate.H1, candidate.L1)
+#  d_tmp1=1.0 - simethinca**2
+#  d_tmp2=1.0 - simethinca**2/4.0
+#  d_tmp3=simethinca**2/4.0
+#  print ethinca, simethinca, d_tmp1, d_tmp2, d_tmp3 
+
+
+
+
+###################################################################################
+# calculate the false alarm probability for each of zerolagCoincTriggers
+# here it is calculated as number of triggers found within epsilon from the candidate
+# divided by the total number of triggers of the same kind as the candidate
+####################################################################################
+FalseProbFile=open('FalseProbFile', 'w')
+for candidate in zerolagCoincTriggers:
+  c_ifos,ifolist=candidate.get_ifos()
+  Ntotal=0
+  for trigger in slidesCoincTriggers:
+    trig_ifos,trig_ifolist=trigger.get_ifos()
+    if c_ifos==trig_ifos:
+      Ntotal+=1
+    
+  slides_within_epsilon =CoincInspiralUtils.coincInspiralTable()   
+  slides_within_epsilon=slidesCoincTriggers.getTriggersWithinEpsilon(candidate, opts.epsilon)
+  
+  nevents = len(slides_within_epsilon) 
+  
+  if Ntotal > 0:
+     FalseProb = float(nevents)/float(Ntotal)
+  else:
+     FalseProb = -1.0
+  
+  print str(candidate.event_id)
+  FalseProbFile.write(str(candidate.event_id) + ' ')
+  ifo, ifolist=candidate.get_ifos()
+  print str(ifo)
+  FalseProbFile.write(str(ifo) + ' ')
+  print str(FalseProb)
+  FalseProbFile.write(str(FalseProb) + '\n')
+
+FalseProbFile.close() 
+
+###############################################################################################
+# calculate the detection probability for each of zerolagTriggers
+# here it is calculated as number of injections found within epsilon from the candidate
+# divided by the total number of injections of the same kind as the candidate
+##############################################################################################
+DetectionProbFile=open('DetectionProbFile', 'w')
+for candidate in zerolagCoincTriggers:
+  c_ifos,ifolist=candidate.get_ifos()
+  Ntotal=0
+  for trigger in injectionCoincTriggers:
+    trig_ifos,trig_ifolist=trigger.get_ifos()
+    if c_ifos==trig_ifos:
+      Ntotal+=1
+
+  injections_within_epsilon =CoincInspiralUtils.coincInspiralTable()
+  injections_within_epsilon=injectionCoincTriggers.getTriggersWithinEpsilon(candidate, opts.epsilon)
+
+  nevents = len(injections_within_epsilon)
+
+  if Ntotal > 0:
+     DetectionProb = float(nevents)/float(Ntotal)
+  else:
+     DetectionProb = -1.0
+
+  print str(candidate.event_id)
+  DetectionProbFile.write(str(candidate.event_id) + ' ')
+  ifo, ifolist=candidate.get_ifos()
+  print str(ifo)
+  DetectionProbFile.write(str(ifo) + ' ')
+  print str(DetectionProb), nevents, Ntotal
+  DetectionProbFile.write(str(DetectionProb) + '\n')
+
+DetectionProbFile.close()
+
+
