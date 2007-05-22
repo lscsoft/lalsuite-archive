@@ -302,7 +302,10 @@ def _sire_by_ifo(inspiral_glob, cluster_time_ms=None, injection_glob=None,
     args = ["lalapps_sire", "--data-type=all_data"]
     if cluster_time_ms is not None:
         args.append("--cluster-time=%d" % cluster_time_ms)
-        args.append("--cluster-algorithm=snr")
+        if is_second_stage(inspiral_files[0]):
+            args.append("--cluster-algorithm=snrsq_over_chisq")
+        else:
+            args.append("--cluster-algorithm=snr")
         
     if injection_glob is not None:
         injection_files = glob.glob(injection_glob)
