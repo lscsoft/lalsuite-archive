@@ -165,6 +165,31 @@ class Confidence(Likelihood):
 		return  math.log(P_bak + (P_inj - P_bak) * self.P_gw) - math.log(P_inj) - math.log(self.P_gw)
 
 
+class LikelihoodRatio(Likelihood):
+	def set_P_gw(self, P):
+		"""
+		Raises NotImplementedError.  The likelihood ratio is
+		computed without using this parameter.
+		"""
+		raise NotImplementedError
+
+	def __call__(self, param_func, events, offsetdict):
+		"""
+		Compute the likelihood ratio that the list of events are
+		the result of a gravitational wave.  The likelihood ratio
+		is the ratio P(inj params) / P(noise params).  The
+		probability that the events are the result of a
+		gravitiational wave is a monotonically increasing function
+		of the likelihood ratio, so ranking events from "most like
+		a gravitational wave" to "least like a gravitational wave"
+		can be performed by calculating the likelihood ratios,
+		which has the advantage of not requiring a prior
+		probability to be provided.
+		"""
+		P_bak, P_inj = self.P(param_func, events, offsetdict)
+		return  P_inj / P_bak
+
+
 #
 # =============================================================================
 #
