@@ -186,8 +186,8 @@ WHERE
 			else:
 				self.axes.plot((offsets[self.x_instrument],), (offsets[self.y_instrument],), "k+")
 
-		self.axes.set_xlim([self.bins.bins.min[0], self.bins.bins.max[0]])
-		self.axes.set_ylim([self.bins.bins.min[1], self.bins.bins.max[1]])
+		self.axes.set_xlim([self.bins.bins().min[0], self.bins.bins().max[0]])
+		self.axes.set_ylim([self.bins.bins().min[1], self.bins.bins().max[1]])
 		self.axes.set_title(r"Coincident Event Rate vs. Instrument Time Offset (Logarithmic Rate Contours)")
 
 

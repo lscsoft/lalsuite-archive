@@ -292,7 +292,7 @@ def render_data_from_bins(dump_file, axes, efficiency, cal_uncertainty, filter_w
 	# extract array of x co-ordinates, and the factor by which x
 	# increases from one sample to the next.
 	(x,) = efficiency.centres()
-	x_factor_per_sample = efficiency.bins.bins[0].delta
+	x_factor_per_sample = efficiency.bins().bins[0].delta
 
 	# compute the efficiency, the slope (units = efficiency per
 	# sample), the y uncertainty (units = efficiency) due to binomial
@@ -300,7 +300,7 @@ def render_data_from_bins(dump_file, axes, efficiency, cal_uncertainty, filter_w
 	# due to the width of the smoothing filter.
 	eff = efficiency.ratio()
 	dydx = slope(numpy.arange(len(x), dtype = "Float64"), eff)
-	yerr = numpy.sqrt(eff * (1 - eff) / efficiency.denominator)
+	yerr = numpy.sqrt(eff * (1 - eff) / efficiency.denominator.array)
 	xerr = numpy.array([filter_width / 2] * len(yerr))
 
 	# compute the net y err (units = efficiency) by (i) multiplying the
@@ -315,7 +315,7 @@ def render_data_from_bins(dump_file, axes, efficiency, cal_uncertainty, filter_w
 	net_xerr = net_yerr / dydx * x_factor_per_sample
 
 	# write the efficiency data to file
-	write_efficiency(dump_file, efficiency.bins, eff, net_yerr, filter_width)
+	write_efficiency(dump_file, efficiency.bins(), eff, net_yerr, filter_width)
 
 	# plot the efficiency curve and uncertainty region
 	patch = patches.Polygon(zip(numpy.concatenate((x, x[::-1])), numpy.concatenate((eff + upper_err(eff, yerr, filter_width / 2), (eff - lower_err(eff, yerr, filter_width / 2))[::-1]))), edgecolor = colour, facecolor = colour, alpha = 0.3)
@@ -330,10 +330,10 @@ def render_data_from_bins(dump_file, axes, efficiency, cal_uncertainty, filter_w
 	axes.axvline(A50, color = colour)
 
 	# print some analysis
-	num_injections = efficiency.denominator.sum()
+	num_injections = efficiency.denominator.array.sum()
 	num_samples = len(efficiency.denominator)
 	print "Bins were %g samples wide, ideal would have been %g" % (filter_width, (num_samples / num_injections / solve(x, dydx, xval = A50)**2.0)**(1.0/3.0))
-	print "Average number of injections in each bin = %g" % efficiency.denominator.mean()
+	print "Average number of injections in each bin = %g" % efficiency.denominator.array.mean()
 
 	return line, A50, A50_err
 
@@ -454,14 +454,13 @@ WHERE
 		# represents the number of injections contributing to each
 		# bin:  make w(0) = 1.0.  note that this factor has no
 		# effect on the efficiency because it is common to the
-		# numerator and denominator arrays, we do this for the
-		# purpose of tracking the Poisson error bars.
+		# numerator and denominator arrays.  we do this for the
+		# purpose of computing the Poisson error bars, which
+		# requires us to know the counts for the bins
 		windowfunc = rate.gaussian_window(self.width)
 		windowfunc /= windowfunc[len(windowfunc) / 2 + 1]
-		rate.filter_array(efficiency.numerator, windowfunc)
-		rate.filter_array(efficiency.denominator, windowfunc)
-		rate.filter_array(efficiency_above_loudest.numerator, windowfunc)
-		rate.filter_array(efficiency_above_loudest.denominator, windowfunc)
+		rate.filter_binned_ratios(efficiency, windowfunc)
+		rate.filter_binned_ratios(efficiency_above_loudest, windowfunc)
 
 		line1, A50, A50_err = render_data_from_bins(file("string_efficiency.dat", "w"), self.axes, efficiency, self.cal_uncertainty, self.width, "k")
 		print "Pipeline's 50%% efficiency point for all detections = %g +/- %g%%\n" % (A50, A50_err * 100)
