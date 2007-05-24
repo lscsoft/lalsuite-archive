@@ -217,12 +217,11 @@ lsctables.CoincMap.__cmp__ = coinc_map___cmp__
 #
 
 
-def ligolw_burca2(xmldoc, likelihood, verbose = False):
+def ligolw_burca2(xmldoc, likelihood_ratio, verbose = False):
 	"""
-	Assigns likelihood values to excess power coincidences.  xmldoc is
-	an XML document tree to process, and likelihood is a Likelihood
-	class instance initialized from a likelihood control file (for
-	example as obtained by calling load_likelihood_control()).
+	Assigns likelihood ratio values to excess power coincidences.
+	xmldoc is an XML document tree to process, and likelihood_ratio is
+	a LikelihoodRatio class instance.
 	"""
 	#
 	# Find document parts.
@@ -256,12 +255,12 @@ def ligolw_burca2(xmldoc, likelihood, verbose = False):
 	coinc_map_table.sort()
 
 	#
-	# Iterate over coincs, assigning likelihoods to burst+burst coincs,
-	# and sim+burst coincs if the document contains them.
+	# Iterate over coincs, assigning likelihood ratios to burst+burst
+	# coincs, and sim+burst coincs if the document contains them.
 	#
 
 	if verbose:
-		print >>sys.stderr, "computing likelihoods ..."
+		print >>sys.stderr, "computing likelihood ratios ..."
 		n_coincs = len(coinc_table)
 
 	for n, coinc in enumerate(coinc_table):
@@ -272,8 +271,8 @@ def ligolw_burca2(xmldoc, likelihood, verbose = False):
 			events = [index[row.event_id] for row in coinc_map_table[bisect.bisect_left(coinc_map_table, coinc):bisect.bisect_right(coinc_map_table, coinc)] if row.table_name == "sngl_burst"]
 			# sort events by instrument name
 			events.sort(lambda a, b: cmp(a.ifo, b.ifo))
-			# compute likelihood
-			coinc.likelihood = likelihood(ligolw_burca_tailor.coinc_params, events, time_slides[coinc.time_slide_id])
+			# compute likelihood ratio
+			coinc.likelihood = likelihood_ratio(ligolw_burca_tailor.coinc_params, events, time_slides[coinc.time_slide_id])
 	if verbose:
 		print >>sys.stderr, "\t100.0%"
 
