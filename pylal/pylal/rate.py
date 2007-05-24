@@ -106,7 +106,7 @@ class _LinBins(_Bins):
 		raise IndexError, x
 
 	def centres(self):
-		return self.min + self.delta * numpy.arange(0.5, self.n + 0.5, 1, "Float64")
+		return self.min + self.delta * (numpy.arange(0, self.n) + 0.5)
 
 
 class _LogBins(_Bins):
@@ -114,14 +114,14 @@ class _LogBins(_Bins):
 	Logarithmically-spaced 1-D bins.  For internal use only.
 	"""
 	def _set_delta(self, min, max, n):
-		self.delta = math.log((float(max) / float(min)) ** (1.0 / n))
+		self.delta = math.log(float(max / min)) / n
 
 	def __getitem__(self, x):
 		if isinstance(x, segments.segment):
 			return slice(self[x[0]], self[x[1]] + 1)
 		if isinstance(x, slice):
 			if x.step is not None:
-				raise NotImplementedError, "slices with steps not yet supported"
+				raise NotImplementedError, x
 			return slice(self[x.start], self[x.stop])
 		if self.min <= x < self.max:
 			return int(math.log(x / self.min) / self.delta)
@@ -131,7 +131,7 @@ class _LogBins(_Bins):
 		raise IndexError, x
 
 	def centres(self):
-		return self.min * numpy.exp(self.delta * numpy.arange(0.5, self.n + 0.5, 1, "Float64"))
+		return self.min * numpy.exp(self.delta * (numpy.arange(0, self.n) + 0.5))
 
 
 class Bins(object):
