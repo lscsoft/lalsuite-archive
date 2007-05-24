@@ -517,7 +517,7 @@ def filter_binned_ratios(ratios, window, cyclic = False):
 	"""
 	Convolve the numerator and denominator of a BinnedRatios instance
 	each with the same window function.  This has the effect of
-	interpolating the ratio of the two betweeen bins where it has been
+	interpolating the ratio of the two between bins where it has been
 	measured, weighting bins by the number of measurements made in
 	each.  For example, consider a 1-dimensional binning, with zeros in
 	the denominator and numerator bins everywhere except in one bin
@@ -525,20 +525,27 @@ def filter_binned_ratios(ratios, window, cyclic = False):
 	undefined everywhere else, where it has not been measured.
 	Convolving both numerator and denominator with a Gaussian window
 	will replace the "delta function" in each with a smooth hill
-	spanning a number of bins, but the same smooth hill will be seen in
-	both the numerator and the denominator bins, and so the ratio of
-	the two is now exactly 1 everywhere the window function had
-	support.  Contrast this to the result of convolving the ratio with
-	a window function.
+	spanning some number of bins.  Since the same smooth hill will be
+	seen in both the numerator and the denominator bins, the ratio of
+	the two is now 1.0 --- the ratio from the bin where a measurement
+	was made --- everywhere the window function had support.  Contrast
+	this to the result of convolving the ratio with a window function.
 
-	Convolving the numerator and denominator bins separately with a
-	window function (what this function does) is normally what you want
-	to be doing.
+	Convolving the numerator and denominator bins separately preserves
+	the integral of each.  In other words the total number of events in
+	each of the denominator and numerator is conserved, only their
+	locations are shuffled about in order to smooth out irregularities
+	in their distributions.  Convolving, instead, the ratios with a
+	window function would preserve the integral of the efficiency,
+	which is probably meaningless.
 
 	Note that you should be using the window functions defined in this
 	module, which are carefully designed to be norm preserving (the
 	integrals of the numerator and denominator bins are preserved), and
 	phase preserving.
+
+	Note, also, that you should apply this function *before* using
+	either of the regularize() methods of the BinnedRatios object.
 	"""
 	filter_array(ratios.numerator, window, cyclic = cyclic)
 	filter_array(ratios.denominator, window, cyclic = cyclic)
@@ -564,20 +571,21 @@ class Rate(BinnedArray):
 		Initialize the bins for the given segment and filter width.
 		"""
 		#
-		# nominal bin size is 1/20th of the filter's width
+		# bin size is 1/20th of the filter's width, but adjusted so
+		# that there is an integer number of bins in the interval
 		#
 
 		BinnedArray.__init__(self, Bins(segment[0], segment[1], int(abs(segment) / (filterwidth / 20.0)) + 1))
 
 		#
-		# determine the true bin size from the integer bin count
-		# and the interval's length (correct for round-off)
+		# determine the true bin size from the final integer bin
+		# count and the interval's length
 		#
 
 		self.binsize = float(abs(segment)) / self.bins.shape[0]
 
 		#
-		# Generate the filter data
+		# generate the filter data
 		#
 
 		self.set_filter(filterwidth, windowfunc)
