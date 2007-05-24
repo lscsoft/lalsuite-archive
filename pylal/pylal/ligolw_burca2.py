@@ -175,16 +175,16 @@ class LikelihoodRatio(Likelihood):
 
 	def __call__(self, param_func, events, offsetdict):
 		"""
-		Compute the likelihood ratio that the list of events are
-		the result of a gravitational wave.  The likelihood ratio
-		is the ratio P(inj params) / P(noise params).  The
-		probability that the events are the result of a
-		gravitiational wave is a monotonically increasing function
-		of the likelihood ratio, so ranking events from "most like
-		a gravitational wave" to "least like a gravitational wave"
-		can be performed by calculating the likelihood ratios,
-		which has the advantage of not requiring a prior
-		probability to be provided.
+		Compute the likelihood ratio for the hypothesis that the
+		list of events are the result of a gravitational wave.  The
+		likelihood ratio is the ratio P(inj params) / P(noise
+		params).  The probability that the events are the result of
+		a gravitiational wave is a monotonically increasing
+		function of the likelihood ratio, so ranking events from
+		"most like a gravitational wave" to "least like a
+		gravitational wave" can be performed by calculating the
+		likelihood ratios, which has the advantage of not requiring
+		a prior probability to be provided.
 		"""
 		P_bak, P_inj = self.P(param_func, events, offsetdict)
 		return  P_inj / P_bak
