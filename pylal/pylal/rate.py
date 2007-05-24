@@ -245,6 +245,9 @@ class BinnedArray(object):
 	def __setitem__(self, coords, val):
 		self.array[self.bins[coords]] = val
 
+	def __len__(self):
+		return len(self.array)
+
 	def __iadd__(self, other):
 		"""
 		Add the contents of another BinnedArray object to this one.
