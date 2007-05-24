@@ -296,13 +296,16 @@ class BinnedRatios(object):
 	array.  The incnumerator() method increments a bin in the numerator
 	by the given weight, and the incdenominator() method increments a
 	bin in the denominator by the given weight.  There are no methods
-	provided for setting or decrementing either, but the arrays can be
-	accessed directly.
+	provided for setting or decrementing either, but the they are
+	accessible as the numerator and denominator attributes, which are
+	both BinnedArray objects.
 	"""
 	def __init__(self, bins):
-		self.bins = bins
-		self.numerator = numpy.zeros(bins.shape, "Float64")
-		self.denominator = numpy.zeros(bins.shape, "Float64")
+		self.numerator = BinnedArray(bins)
+		self.denominator = BinnedArray(bins)
+
+	def bins(self):
+		return self.numerator.bins
 
 	def __iadd__(self, other):
 		"""
@@ -313,36 +316,30 @@ class BinnedRatios(object):
 		identical, but an integer number of the bins in other must
 		fit into each bin in self.
 		"""
-		# identical binning? (fast path)
-		if not cmp(self.bins, other.bins):
+		try:
 			self.numerator += other.numerator
 			self.denominator += other.denominator
-			return self
-		# can other's bins be put into ours?
-		if self.bins.min != other.bins.min or self.bins.max != other.bins.max or False in map(lambda a, b: (b % a) == 0, self.bins.shape, other.bins.shape):
+		except TypeError:
 			raise TypeError, "incompatible binning: %s" % repr(other)
-		for coords in itertools.MultiIter(other.bins.centres):
-			self.numerator[coords] += other.numerator[coords]
-			self.denominator[coords] += other.denominator[coords]
 		return self
 
 	def incnumerator(self, coords, weight = 1.0):
 		"""
 		Add weight to the numerator bin at coords.
 		"""
-		self.numerator[self.bins[coords]] += weight
+		self.numerator[coords] += weight
 
 	def incdenominator(self, coords, weight = 1.0):
 		"""
 		Add weight to the denominator bin at coords.
 		"""
-		self.denominator[self.bins[coords]] += weight
+		self.denominator[coords] += weight
 
 	def ratio(self):
 		"""
 		Compute and return the array of ratios.
 		"""
-		return self.numerator / self.denominator
+		return self.numerator.array / self.denominator.array
 
 	def regularize(self):
 		"""
@@ -353,7 +350,7 @@ class BinnedRatios(object):
 		have had no weight added to them.
 		"""
 		# FIXME: assign to denominator's contents instead
-		self.denominator = numpy.where(self.denominator, self.denominator, 1.0)
+		self.denominator.array = numpy.where(self.denominator.array, self.denominator.array, 1.0)
 		return self
 
 	def logregularize(self, epsilon = 2**-1074):
@@ -364,8 +361,8 @@ class BinnedRatios(object):
 		logarithm of the ratio array to be evaluated without error.
 		"""
 		# FIXME: assign to contents instead
-		self.numerator = numpy.where(self.denominator, self.numerator, epsilon)
-		self.denominator = numpy.where(self.denominator, self.denominator, 1.0)
+		self.numerator.array = numpy.where(self.denominator.array, self.numerator.array, epsilon)
+		self.denominator.array = numpy.where(self.denominator.array, self.denominator.array, 1.0)
 		return self
 
 	def centres(self):
@@ -373,13 +370,13 @@ class BinnedRatios(object):
 		Return a tuple of arrays containing the bin centres for
 		each dimension.
 		"""
-		return self.bins.centres
+		return self.numerator.bins.centres
 
 	def used(self):
 		"""
 		Return the number of bins with non-zero denominator.
 		"""
-		return numpy.sum(numpy.where(self.denominator, 1, 0))
+		return numpy.sum(numpy.where(self.denominator.array, 1, 0))
 
 
 #
@@ -550,8 +547,8 @@ def filter_binned_ratios(ratios, window, cyclic = False):
 	Note, also, that you should apply this function *before* using
 	either of the regularize() methods of the BinnedRatios object.
 	"""
-	filter_array(ratios.numerator, window, cyclic = cyclic)
-	filter_array(ratios.denominator, window, cyclic = cyclic)
+	filter_array(ratios.numerator.array, window, cyclic = cyclic)
+	filter_array(ratios.denominator.array, window, cyclic = cyclic)
 
 
 #
@@ -766,9 +763,8 @@ def binned_ratios_to_xml(ratios, name):
 	Return an XML document tree describing a rate.BinnedRatios object.
 	"""
 	xml = ligolw.LIGO_LW({u"Name": u"%s:pylal_rate_binnedratios" % name})
-	xml.appendChild(bins_to_xml(ratios.bins))
-	xml.appendChild(array.from_array(u"numerator", ratios.numerator))
-	xml.appendChild(array.from_array(u"denominator", ratios.denominator))
+	xml.appendChild(binned_array_to_xml(ratios.numerator, u"numerator"))
+	xml.appendChild(binned_array_to_xml(ratios.denominator, u"denominator"))
 	return xml
 
 
@@ -781,7 +777,8 @@ def binned_ratios_from_xml(xml, name):
 	"""
 	xml, = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.getAttribute(u"Name") == u"%s:pylal_rate_binnedratios" % name]
 	ratios = BinnedRatios(Bins())
-	ratios.bins = bins_from_xml(xml)
-	ratios.numerator = array.get_array(xml, u"numerator").array
-	ratios.denominator = array.get_array(xml, u"denominator").array
+	ratios.numerator = binned_array_from_xml(xml, u"numerator")
+	ratios.denominator = binned_array_from_xml(xml, u"denominator")
+	# normally they share a single Bins instance
+	ratios.denominator.bins = ratios.numerator.bins
 	return ratios
