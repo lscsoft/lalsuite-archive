@@ -1660,16 +1660,6 @@ class CoincDefTable(table.Table):
 	constraints = "PRIMARY KEY (coinc_def_id, table_name)"
 	ids = CoincDefIDs()
 
-	def get_contributors(self, id):
-		"""
-		Return a list of contributing table names for the given ID.
-		"""
-		l = [row.table_name for row in self if row.coinc_def_id == id]
-		if not l:
-			raise KeyError, id
-		l.sort()
-		return l
-
 	def as_dict(self):
 		"""
 		Return a dictionary mapping coinc_def_id to sorted lists of
