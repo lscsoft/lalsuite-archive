@@ -105,15 +105,7 @@ class Efficiency_hrss_vs_freq(object):
 		if window_size > 100:
 			raise ValueError, "smoothing filter too large (not enough injections)"
 
-		# convolve the numerators and denominators with a window
-		# function to smooth the binned data.  the numerators and
-		# denominators are convolved separately because we require
-		# their normalizations to be preserved individually ---
-		# that is we need the integrals of the numerator and
-		# denominator (total number of found injections, and total
-		# number of made injections) to be preserved separately,
-		# not the integral of the efficiency curve (which would be
-		# meaningless).
+		# smooth the efficiency data.
 		rate.filter_binned_ratios(self.efficiency, rate.gaussian_window2d(window_size, window_size))
 
 		# regularize to prevent divide-by-zero errors
