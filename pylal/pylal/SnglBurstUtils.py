@@ -98,7 +98,10 @@ class CoincDatabase(object):
 		cursor = self.connection.cursor()
 
 		# find the tables
-		self.sngl_burst_table = table.get_table(xmldoc, lsctables.SnglBurstTable.tableName)
+		try:
+			self.sngl_burst_table = table.get_table(xmldoc, lsctables.SnglBurstTable.tableName)
+		except ValueError:
+			self.sngl_burst_table = None
 		try:
 			self.sim_burst_table = table.get_table(xmldoc, lsctables.SimBurstTable.tableName)
 		except ValueError:
@@ -117,17 +120,22 @@ class CoincDatabase(object):
 		self.instruments = self.seglists.keys()
 
 		# determine a few coinc_definer IDs
-		try:
-			self.bb_definer_id = self.coinc_def_table.get_coinc_def_id([lsctables.SnglBurstTable.tableName])
-		except KeyError:
+		if self.coinc_def_table is not None:
+			try:
+				self.bb_definer_id = self.coinc_def_table.get_coinc_def_id([lsctables.SnglBurstTable.tableName])
+			except KeyError:
+				self.bb_definer_id = None
+			try:
+				self.sb_definer_id = self.coinc_def_table.get_coinc_def_id([lsctables.SnglBurstTable.tableName, lsctables.SimBurstTable.tableName])
+			except KeyError:
+				self.sb_definer_id = None
+			try:
+				self.sc_definer_id = self.coinc_def_table.get_coinc_def_id([lsctables.CoincTable.tableName, lsctables.SimBurstTable.tableName])
+			except KeyError:
+				self.sc_definer_id = None
+		else:
 			self.bb_definer_id = None
-		try:
-			self.sb_definer_id = self.coinc_def_table.get_coinc_def_id([lsctables.SnglBurstTable.tableName, lsctables.SimBurstTable.tableName])
-		except KeyError:
 			self.sb_definer_id = None
-		try:
-			self.sc_definer_id = self.coinc_def_table.get_coinc_def_id([lsctables.CoincTable.tableName, lsctables.SimBurstTable.tableName])
-		except KeyError:
 			self.sc_definer_id = None
 
 		# verbosity
