@@ -78,28 +78,8 @@ class SnglBurst(lsctables.SnglBurst):
 
 
 class Coinc(lsctables.Coinc):
-	def get_time_slide(self):
-		offsets = {}
-		for instrument, offset in CoincTable.connection.cursor().execute("SELECT instrument, offset FROM time_slide WHERE time_slide_id == ?", (self.time_slide_id,)):
-			offsets[instrument] = offset
-		return offsets
-
 	def is_zero_lag(self):
 		return not CoincTable.connection.cursor().execute("SELECT EXISTS (SELECT * FROM time_slide WHERE time_slide_id == ? AND offset != 0.0)", (self.time_slide_id,)).fetchone()[0]
-
-
-def db_get_time_slides(connection):
-	"""
-	Translate the contents of the time_slide table in the database at
-	the given connection into a dictionary mapping time_slide_id to
-	dictionaryies of instrument->offset mappings.
-	"""
-	offsets = {}
-	for id, in connection.cursor().execute("SELECT DISTINCT time_slide_id FROM time_slide"):
-		offsets[id] = {}
-		for instrument, offset in connection.cursor().execute("SELECT instrument, offset FROM time_slide WHERE time_slide_id == ?", (id,)):
-			offsets[id][instrument] = offset
-	return offsets
 
 
 class CoincDatabase(object):
@@ -138,15 +118,15 @@ class CoincDatabase(object):
 
 		# determine a few coinc_definer IDs
 		try:
-			self.bb_definer_id = self.get_coinc_def_id([lsctables.SnglBurstTable.tableName])
+			self.bb_definer_id = self.coinc_def_table.get_coinc_def_id([lsctables.SnglBurstTable.tableName])
 		except KeyError:
 			self.bb_definer_id = None
 		try:
-			self.sb_definer_id = self.get_coinc_def_id([lsctables.SnglBurstTable.tableName, lsctables.SimBurstTable.tableName])
+			self.sb_definer_id = self.coinc_def_table.get_coinc_def_id([lsctables.SnglBurstTable.tableName, lsctables.SimBurstTable.tableName])
 		except KeyError:
 			self.sb_definer_id = None
 		try:
-			self.sc_definer_id = self.get_coinc_def_id([lsctables.CoincTable.tableName, lsctables.SimBurstTable.tableName])
+			self.sc_definer_id = self.coinc_def_table.get_coinc_def_id([lsctables.CoincTable.tableName, lsctables.SimBurstTable.tableName])
 		except KeyError:
 			self.sc_definer_id = None
 
@@ -166,22 +146,6 @@ class CoincDatabase(object):
 				print >>sys.stderr, "\tinjection + (burst + burst) coincidences: %d" % cursor.execute("SELECT COUNT(*) FROM coinc_event WHERE coinc_def_id = ?", (self.sc_definer_id,)).fetchone()[0]
 
 		return self
-
-	def get_coinc_def_id(self, table_names):
-		"""
-		From a list of table names, return an ID or raise KeyError
-		if no matching ID is found.
-		"""
-		table_names = list(table_names)	# so we can modify it
-		table_names.sort()
-		for (id,) in self.connection.cursor().execute("SELECT DISTINCT coinc_def_id FROM coinc_definer"):
-			l = [table_name for (table_name,) in self.connection.cursor().execute("SELECT table_name FROM coinc_definer WHERE coinc_def_id == ?", (id,))]
-			if not l:
-				raise KeyError, id
-			l.sort()
-			if l == table_names:
-				return id
-		raise KeyError, table_names
 
 	def coinc_select_by_def_id(self, coinc_def_id):
 		for values in self.connection.cursor().execute("SELECT * FROM coinc_event WHERE coinc_def_id == ?", (coinc_def_id,)):
