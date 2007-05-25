@@ -321,8 +321,14 @@ def segmentlist_range(start, stop, period):
 	>>> segmentlist(segmentlist_range(0, 15, 5))
 	[segment(0, 5), segment(5, 10), segment(10, 15)]
 	"""
-	for n in xrange(int((stop - start) / period)):
-		yield segments.segment(start + n * period, start + (n + 1) * period)
+	n = 1
+	b = start
+	while True:
+		a, b = b, start + n * period
+		if b > stop:
+			break
+		yield segments.segment(a, b)
+		n += 1
 
 
 #
