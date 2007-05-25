@@ -512,6 +512,20 @@ class CoincDefTable(DBTable):
 	RowType = lsctables.CoincDefTable.RowType
 	how_to_index = lsctables.CoincDefTable.how_to_index
 
+	def as_dict(self):
+		"""
+		Return a dictionary mapping coinc_def_id to sorted lists of
+		contributing table names.
+		"""
+		d = {}
+		for id, table_name in self.cursor.execute("SELECT coinc_def_id, table_name FROM coinc_definer"):
+			if id not in d:
+				d[id] = []
+			d[id].append(table_name)
+		for l in d.itervalues():
+			l.sort()
+		return d
+
 
 class CoincTable(DBTable):
 	tableName = lsctables.CoincTable.tableName
