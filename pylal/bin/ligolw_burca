@@ -33,11 +33,7 @@ from optparse import OptionParser
 import sys
 
 
-from glue.ligolw import table
 from glue.ligolw import lsctables
-from glue.ligolw import utils
-from pylal import ligolw_burca
-from pylal import llwapp
 from pylal import snglcoinc
 
 
@@ -171,13 +167,159 @@ def parse_command_line():
 #
 # =============================================================================
 #
-#                                    Input
+#                                Stage 1 Burca
 #
 # =============================================================================
 #
 
 
-table.RowBuilder = table.InterningRowBuilder
+def burca1(options, filenames):
+	#
+	# Finish imports.
+	#
+
+
+	from glue.ligolw import utils
+	from pylal import ligolw_burca
+	from pylal import llwapp
+
+
+	#
+	# Use interning row builder to save memory.
+	#
+
+
+	lsctables.table.RowBuilder = lsctables.table.InterningRowBuilder
+
+
+	#
+	# For excesspower and stringcusp methods, select the appropriate
+	# event comparison and book-keeping functions.
+	#
+
+
+	if options.coincidence_algorithm == "excesspower":
+		snglcoinc.EventListDict.EventListType = ligolw_burca.ExcessPowerEventList
+		comparefunc = ligolw_burca.ExcessPowerCoincCompare
+		CoincTables = ligolw_burca.ExcessPowerCoincTables
+		options.get_max_segment_gap = ligolw_burca.ExcessPowerMaxSegmentGap
+	elif options.coincidence_algorithm == "stringcusp":
+		snglcoinc.EventListDict.EventListType = ligolw_burca.StringEventList
+		comparefunc = ligolw_burca.StringCoincCompare
+		CoincTables = snglcoinc.CoincTables
+		options.get_max_segment_gap = ligolw_burca.StringMaxSegmentGap
+	else:
+		raise Exception, "should never get here"
+
+
+	#
+	# Iterate over files.
+	#
+
+
+	for n, filename in enumerate(filenames):
+		#
+		# Load the file.
+		#
+
+		if options.verbose:
+			print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
+		xmldoc = utils.load_filename(filename, options.verbose, gz = (filename or "stdin").endswith(".gz"))
+		lsctables.table.InterningRowBuilder.strings.clear()
+
+		#
+		# Have we already processed it?
+		#
+
+		if llwapp.doc_includes_process(xmldoc, ligolw_burca.process_program_name):
+			if options.verbose:
+				print >>sys.stderr, "warning: %s already processed," % (filename or "stdin"),
+			if not options.force:
+				if options.verbose:
+					print >>sys.stderr, "skipping"
+				continue
+			if options.verbose:
+				print >>sys.stderr, "continuing anyway"
+
+		#
+		# Run coincidence algorithm.
+		#
+
+		ligolw_burca.ligolw_burca(xmldoc, CoincTables, comparefunc, **options.__dict__)
+
+		#
+		# Write back to disk, and clean up.
+		#
+
+		utils.write_filename(xmldoc, filename, options.verbose, gz = (filename or "stdout").endswith(".gz"))
+		xmldoc.unlink()
+
+
+#
+# =============================================================================
+#
+#                                Stage 2 Burca
+#
+# =============================================================================
+#
+
+
+def burca2(options, filenames):
+	#
+	# Finish imports.
+	#
+
+
+	from pysqlite2 import dbapi2 as sqlite3
+
+
+	from glue.ligolw import dbtables
+	from pylal import ligolw_burca_tailor
+	from pylal import ligolw_burca2
+	from pylal import SnglBurstUtils
+
+
+	#
+	# Load likelihood data, and construct a LikelihoodRatio instance.
+	#
+
+
+	likelihood_ratio = ligolw_burca2.LikelihoodRatio(ligolw_burca_tailor.coinc_params_distributions_from_filenames(options.distribution_files, u"ligolw_burca_tailor", verbose = options.verbose).finish())
+
+
+	#
+	# Iterate over files.
+	#
+
+
+	for n, filename in enumerate(filenames):
+		#
+		# Open the file.
+		#
+
+
+		if options.verbose:
+			print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
+		connection = sqlite3.connect(filename)
+		dbtables.DBTable_set_connection(connection)
+		database = SnglBurstUtils.CoincDatabase().summarize(dbtables.DBTable_get_xml(), options.live_time_program, options.verbose)
+
+
+		#
+		# Run likelihood ratio calculation.
+		#
+
+
+		ligolw_burca2.ligolw_burca2(database, likelihood_ratio, verbose = options.verbose)
+
+
+		#
+		# Done with this file.
+		#
+
+
+		connection.commit()
+		connection.close()
 
 
 #
@@ -198,71 +340,11 @@ options, filenames = parse_command_line()
 
 
 #
-# For excesspower and stringcusp methods, select the appropriate event
-# comparison and book-keeping functions.  For excesspower2, load the
-# foreground and background parameter distribution files.
+# Run program
 #
 
 
-if options.coincidence_algorithm == "excesspower":
-	snglcoinc.EventListDict.EventListType = ligolw_burca.ExcessPowerEventList
-	comparefunc = ligolw_burca.ExcessPowerCoincCompare
-	CoincTables = ligolw_burca.ExcessPowerCoincTables
-	options.get_max_segment_gap = ligolw_burca.ExcessPowerMaxSegmentGap
-elif options.coincidence_algorithm == "excesspower2":
-	from pylal import ligolw_burca_tailor
-	from pylal import ligolw_burca2
-	likelihood_ratio = ligolw_burca2.LikelihoodRatio(ligolw_burca_tailor.coinc_params_distributions_from_filenames(options.distribution_files, u"ligolw_burca_tailor", verbose = options.verbose).finish())
+if options.coincidence_algorithm in ("excesspower", "stringcusp"):
+	burca1(options, filenames)
 else:
-	# "stringcusp"
-	snglcoinc.EventListDict.EventListType = ligolw_burca.StringEventList
-	comparefunc = ligolw_burca.StringCoincCompare
-	CoincTables = snglcoinc.CoincTables
-	options.get_max_segment_gap = ligolw_burca.StringMaxSegmentGap
-
-
-#
-# Iterate over files.
-#
-
-
-for n, filename in enumerate(filenames):
-	#
-	# Load the file.
-	#
-
-	if options.verbose:
-		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
-	xmldoc = utils.load_filename(filename, options.verbose, gz = (filename or "stdin").endswith(".gz"))
-	table.InterningRowBuilder.strings.clear()
-
-	#
-	# Have we already processed it?
-	#
-
-	if llwapp.doc_includes_process(xmldoc, ligolw_burca.process_program_name):
-		if options.verbose:
-			print >>sys.stderr, "warning: %s already processed," % (filename or "stdin"),
-		if not options.force:
-			if options.verbose:
-				print >>sys.stderr, "skipping"
-			continue
-		if options.verbose:
-			print >>sys.stderr, "continuing anyway"
-
-	#
-	# Run coincidence algorithm.
-	#
-
-	if options.coincidence_algorithm in ("excesspower", "stringcusp"):
-		ligolw_burca.ligolw_burca(xmldoc, CoincTables, comparefunc, **options.__dict__)
-	else:
-		# excesspower2
-		ligolw_burca2.ligolw_burca2(xmldoc, likelihood_ratio, verbose = options.verbose)
-
-	#
-	# Write back to disk, and clean up.
-	#
-
-	utils.write_filename(xmldoc, filename, options.verbose, gz = (filename or "stdout").endswith(".gz"))
-	xmldoc.unlink()
+	burca2(options, filenames)

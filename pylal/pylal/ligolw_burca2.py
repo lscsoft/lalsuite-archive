@@ -26,22 +26,14 @@
 #
 
 
-import bisect
 import math
 import numpy
 from scipy.interpolate import interpolate
 import sys
 
 
-from glue.ligolw import ligolw
-from glue.ligolw import array
-from glue.ligolw import table
 from glue.ligolw import lsctables
-from glue.ligolw import utils
-from pylal import itertools
 from pylal import ligolw_burca_tailor
-from pylal import llwapp
-from pylal.date import LIGOTimeGPS
 
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -200,59 +192,33 @@ class LikelihoodRatio(Likelihood):
 
 
 #
-# Sorting and bisection search is used for coinc_event_map retrieval in
-# lieu of a look-up table.
-#
-
-
-def coinc_map___cmp__(self, other):
-	return cmp(self.coinc_event_id, other.coinc_event_id)
-
-
-lsctables.CoincMap.__cmp__ = coinc_map___cmp__
-
-
-#
 # Main routine
 #
 
 
-def ligolw_burca2(xmldoc, likelihood_ratio, verbose = False):
+def ligolw_burca2(database, likelihood_ratio, verbose = False):
 	"""
 	Assigns likelihood ratio values to excess power coincidences.
-	xmldoc is an XML document tree to process, and likelihood_ratio is
-	a LikelihoodRatio class instance.
+	database is pylal.SnglBurstUtils.CoincDatabase instance, and
+	likelihood_ratio is a LikelihoodRatio class instance.
 	"""
 	#
 	# Find document parts.
 	#
 
+	if None in (database.coinc_def_table, database.coinc_table, database.time_slide_table):
+		raise ValueError, "database appears to be missing coinc tables"
+
 	if verbose:
 		print >>sys.stderr, "indexing ..."
 
-	definer_ids = set([llwapp.get_coinc_def_id(xmldoc, [lsctables.SnglBurstTable.tableName], create_new = False)])
+	definer_ids = set([database.coinc_def_table.get_coinc_def_id([lsctables.SnglBurstTable.tableName], create_new = False)])
 	try:
-		definer_ids.add(llwapp.get_coinc_def_id(xmldoc, [lsctables.SnglBurstTable.tableName, lsctables.SimBurstTable.tableName], create_new = False))
+		definer_ids.add(database.coinc_def_table.get_coinc_def_id([lsctables.SnglBurstTable.tableName, lsctables.SimBurstTable.tableName], create_new = False))
 	except KeyError:
 		# there appear to be no injections in this file
 		pass
-	time_slides = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName).as_dict()
-	coinc_table = table.get_table(xmldoc, lsctables.CoincTable.tableName)
-
-	#
-	# Index the sngl_burst table.
-	#
-
-	index = {}
-	for row in table.get_table(xmldoc, lsctables.SnglBurstTable.tableName):
-		index[row.event_id] = row
-
-	#
-	# Index the coinc_event_map table.
-	#
-
-	coinc_map_table = table.get_table(xmldoc, lsctables.CoincMapTable.tableName)
-	coinc_map_table.sort()
+	time_slides = database.time_slide_table.as_dict()
 
 	#
 	# Iterate over coincs, assigning likelihood ratios to burst+burst
@@ -263,16 +229,33 @@ def ligolw_burca2(xmldoc, likelihood_ratio, verbose = False):
 		print >>sys.stderr, "computing likelihood ratios ..."
 		n_coincs = len(coinc_table)
 
-	for n, coinc in enumerate(coinc_table):
+	cursor = database.connection.cursor()
+	for n, (coinc_event_id, coinc_def_id, time_slide_id) in enumerate(database.connection.cursor().execute("SELECT coinc_event_id, coinc_def_id, time_slide_id FROM coinc_event")):
 		if verbose and not n % 200:
 			print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / n_coincs),
-		if coinc.coinc_def_id in definer_ids:
-			# retrieve events
-			events = [index[row.event_id] for row in coinc_map_table[bisect.bisect_left(coinc_map_table, coinc):bisect.bisect_right(coinc_map_table, coinc)] if row.table_name == "sngl_burst"]
-			# sort events by instrument name
-			events.sort(lambda a, b: cmp(a.ifo, b.ifo))
+		if coinc_def_id in definer_ids:
+			# retrieve sngl_burst events, sorted by instrument
+			# name
+			events = map(database.sngl_burst_table._row_from_cols, cursor.execute("""
+SELECT sngl_burst.* FROM
+	sngl_burst
+	JOIN coinc_event_map ON (
+		sngl_burst.event_id == coinc_event_map.event_id
+		AND coinc_event_map.table_name == 'sngl_burst'
+	)
+WHERE
+	coinc_event_map.coinc_event_id == ?
+ORDER BY
+	sngl_burst.ifo
+			""", (coinc_event_id,)))
+
 			# compute likelihood ratio
-			coinc.likelihood = likelihood_ratio(ligolw_burca_tailor.coinc_params, events, time_slides[coinc.time_slide_id])
+			cursor.execute("""
+UPDATE coinc_event SET
+	likelihood = ?
+WHERE
+	coinc_event_id == ?
+			""", (likelihood_ratio(ligolw_burca_tailor.coinc_params, events, time_slides[time_slide_id]), coinc_event_id))
 	if verbose:
 		print >>sys.stderr, "\t100.0%"
 
@@ -280,4 +263,4 @@ def ligolw_burca2(xmldoc, likelihood_ratio, verbose = False):
 	# Done
 	#
 
-	return xmldoc
+	return database
