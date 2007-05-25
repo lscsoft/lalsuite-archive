@@ -159,6 +159,7 @@ def parse_command_line():
 
 	if options.distribution_files:
 		options.distribution_files = glob.glob(options.distribution_files)
+		options.distribution_files.sort()
 
 	# success
 	return options, (filenames or [None])
@@ -273,7 +274,6 @@ def burca2(options, filenames):
 	from pysqlite2 import dbapi2 as sqlite3
 
 
-	from glue.ligolw import dbtables
 	from pylal import ligolw_burca_tailor
 	from pylal import ligolw_burca2
 	from pylal import SnglBurstUtils
@@ -285,6 +285,14 @@ def burca2(options, filenames):
 
 
 	likelihood_ratio = ligolw_burca2.LikelihoodRatio(ligolw_burca_tailor.coinc_params_distributions_from_filenames(options.distribution_files, u"ligolw_burca_tailor", verbose = options.verbose).finish())
+
+	
+	#
+	# Finish imports for real this time.
+	#
+
+
+	from glue.ligolw import dbtables
 
 
 	#
@@ -302,7 +310,7 @@ def burca2(options, filenames):
 			print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
 		connection = sqlite3.connect(filename)
 		dbtables.DBTable_set_connection(connection)
-		database = SnglBurstUtils.CoincDatabase().summarize(dbtables.DBTable_get_xml(), options.live_time_program, options.verbose)
+		database = SnglBurstUtils.CoincDatabase().summarize(dbtables.DBTable_get_xml(), options.program, options.verbose)
 
 
 		#
