@@ -526,6 +526,37 @@ class CoincDefTable(DBTable):
 			l.sort()
 		return d
 
+	def get_coinc_def_id(self, table_names, create_new = True):
+		"""
+		Return the coinc_def_id corresponding to coincidences
+		consisting exclusively of events from the given table
+		names.  If no matching coinc_def_id is found, then a new
+		one is created and the ID returned, unless create_new is
+		False in which case the KeyError is raised.
+		"""
+		# sort the contributor table names
+		table_names = list(table_names)
+		table_names.sort()
+
+		# look for the ID
+		for id, names in self.as_dict().iteritems():
+			if names == table_names:
+				# found it
+				return id
+
+		# contributor list not found in table
+		if not create_new:
+			raise KeyError, table_names
+		id = self.sync_ids().next()
+		for name in table_names:
+			row = self.RowType()
+			row.coinc_def_id = id
+			row.table_name = name
+			self.append(row)
+
+		# return new ID
+		return id
+
 
 class CoincTable(DBTable):
 	tableName = lsctables.CoincTable.tableName
