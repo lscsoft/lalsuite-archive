@@ -1684,7 +1684,7 @@ class CoincDefTable(table.Table):
 		one is created and the ID returned, unless create_new is
 		False in which case the KeyError is raised.
 		"""
-		# sort the contribuor table names
+		# sort the contributor table names
 		table_names = list(table_names)
 		table_names.sort()
 
@@ -1699,7 +1699,7 @@ class CoincDefTable(table.Table):
 			raise KeyError, table_names
 		id = self.sync_ids().next()
 		for name in table_names:
-			row = CoincDef()
+			row = self.RowType()
 			row.coinc_def_id = id
 			row.table_name = name
 			self.append(row)
