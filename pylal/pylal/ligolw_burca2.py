@@ -209,9 +209,6 @@ def ligolw_burca2(database, likelihood_ratio, verbose = False):
 	if None in (database.coinc_def_table, database.coinc_table, database.time_slide_table):
 		raise ValueError, "database appears to be missing coinc tables"
 
-	if verbose:
-		print >>sys.stderr, "indexing ..."
-
 	definer_ids = set([database.coinc_def_table.get_coinc_def_id([lsctables.SnglBurstTable.tableName], create_new = False)])
 	try:
 		definer_ids.add(database.coinc_def_table.get_coinc_def_id([lsctables.SnglBurstTable.tableName, lsctables.SimBurstTable.tableName], create_new = False))
@@ -227,7 +224,7 @@ def ligolw_burca2(database, likelihood_ratio, verbose = False):
 
 	if verbose:
 		print >>sys.stderr, "computing likelihood ratios ..."
-		n_coincs = len(coinc_table)
+		n_coincs = len(database.coinc_table)
 
 	cursor = database.connection.cursor()
 	for n, (coinc_event_id, coinc_def_id, time_slide_id) in enumerate(database.connection.cursor().execute("SELECT coinc_event_id, coinc_def_id, time_slide_id FROM coinc_event")):
