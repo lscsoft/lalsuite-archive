@@ -349,7 +349,7 @@ def coincident_process_ids(xmldoc, max_segment_gap, program):
 	# determine which time slides are possible given the instruments in
 	# the search summary table
 	time_slide_table = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
-	timeslides = time_slide_table.get_offsets().values()
+	timeslides = time_slide_table.as_dict().values()
 	for i in xrange(len(timeslides) - 1, -1, -1):
 		for instrument in timeslides[i].iterkeys():
 			if instrument not in seglistdict:

@@ -91,7 +91,7 @@ def get_time_slide_id(xmldoc, time_slide, create_new = None):
 			raise e
 		tisitable = lsctables.New(lsctables.TimeSlideTable)
 		xmldoc.childNodes[0].appendChild(tisitable)
-	for id, offsetdict in tisitable.get_offsets().iteritems():
+	for id, offsetdict in tisitable.as_dict().iteritems():
 		if offsetdict == time_slide:
 			return id
 	# time slide not found in table
@@ -127,7 +127,7 @@ def get_zero_lag_time_slides(xmldoc, instrument_combinations = None):
 
 	# extract zero-lag ID --> offset dictionary mapping
 	zero_lag_offset_dicts = {}
-	for id, offset_dict in table.get_table(xmldoc, lsctables.TimeSlideTable.tableName).get_offsets().iteritems():
+	for id, offset_dict in table.get_table(xmldoc, lsctables.TimeSlideTable.tableName).as_dict().iteritems():
 		for offset in offset_dict.itervalues():
 			if offset != 0:
 				# not zero-lag
@@ -165,6 +165,8 @@ def get_coinc_def_id(xmldoc, table_names, create_new = True):
 		# table not found
 		if not create_new:
 			raise e
+		# FIXME:  doesn't work if the document is stored in a
+		# database.
 		coincdeftable = lsctables.New(lsctables.CoincDefTable)
 		xmldoc.childNodes[0].appendChild(coincdeftable)
 	return coincdeftable.get_coinc_def_id(table_names, create_new = create_new)

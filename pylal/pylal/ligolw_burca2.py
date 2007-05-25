@@ -236,7 +236,7 @@ def ligolw_burca2(xmldoc, likelihood_ratio, verbose = False):
 	except KeyError:
 		# there appear to be no injections in this file
 		pass
-	time_slides = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName).get_offsets()
+	time_slides = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName).as_dict()
 	coinc_table = table.get_table(xmldoc, lsctables.CoincTable.tableName)
 
 	#

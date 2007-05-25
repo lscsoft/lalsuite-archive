@@ -134,7 +134,7 @@ def load_time_slides(filename, verbose = False, gz = False):
 	returned by this function.
 	"""
 	time_slide_table = table.get_table(utils.load_filename(filename, verbose = verbose, gz = (filename or "stdin")[-3:] == ".gz"), lsctables.TimeSlideTable.tableName)
-	time_slides = time_slide_table.get_offsets()
+	time_slides = time_slide_table.as_dict()
 	time_slide_table.sync_ids()
 	return time_slides
 
@@ -255,12 +255,12 @@ def time_slide_cmp(offsetdict1, offsetdict2):
 def time_slides_vacuum(time_slides, verbose = False):
 	"""
 	Given a dictionary mapping time slide IDs to instrument-->offset
-	mappings, for example as returned by the get_offsets() method of
-	the TimeSlideTable class in glue.ligolw.lsctables, construct and
-	return a mapping indicating time slide equivalences.  This can be
-	used to delete redundant time slides from a time slide table, and
-	then also used via the applyKeyMapping() method of
-	glue.ligolw.table.Table instances to update cross references.
+	mappings, for example as returned by the as_dict() method of the
+	TimeSlideTable class in glue.ligolw.lsctables, construct and return
+	a mapping indicating time slide equivalences.  This can be used to
+	delete redundant time slides from a time slide table, and then also
+	used via the applyKeyMapping() method of glue.ligolw.table.Table
+	instances to update cross references.
 
 	Example:
 
