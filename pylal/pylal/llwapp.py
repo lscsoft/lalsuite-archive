@@ -167,21 +167,7 @@ def get_coinc_def_id(xmldoc, table_names, create_new = True):
 			raise e
 		coincdeftable = lsctables.New(lsctables.CoincDefTable)
 		xmldoc.childNodes[0].appendChild(coincdeftable)
-	table_names = list(table_names)
-	table_names.sort()
-	for id, names in coincdeftable.as_dict().iteritems():
-		if names == table_names:
-			return id
-	# contributor list not found in table
-	if not create_new:
-		raise KeyError, table_names
-	id = coincdeftable.sync_ids().next()
-	for name in table_names:
-		row = lsctables.CoincDef()
-		row.coinc_def_id = id
-		row.table_name = name
-		coincdeftable.append(row)
-	return id
+	return coincdeftable.get_coinc_def_id(table_names, create_new = create_new)
 
 
 #
