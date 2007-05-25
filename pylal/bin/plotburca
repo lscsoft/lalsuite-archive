@@ -126,7 +126,7 @@ class RateContours(SnglBurstUtils.BurstPlot):
 	def add_contents(self, contents):
 		if self.tisi_rows is None:
 			# get a list of time slide dictionaries
-			self.tisi_rows = SnglBurstUtils.db_get_time_slides(connection).values()
+			self.tisi_rows = contents.time_slide_table.as_dict().values()
 
 			# find the largest and smallest offsets
 			min_offset, max_offset = time_slides_extent(self.tisi_rows)
@@ -151,7 +151,7 @@ class RateContours(SnglBurstUtils.BurstPlot):
 
 		self.seglists |= contents.seglists
 
-		for x_offset, y_offset in connection.cursor().execute("""
+		for offsets in contents.connection.cursor().execute("""
 SELECT tx.offset, ty.offset FROM
 	coinc_event
 	JOIN time_slide AS tx ON (
@@ -166,7 +166,7 @@ WHERE
 	AND ty.instrument == ?
 		""", (contents.bb_definer_id, self.x_instrument, self.y_instrument)):
 			try:
-				self.bins.incnumerator((x_offset, y_offset))
+				self.bins.incnumerator(offsets)
 			except IndexError:
 				# beyond plot boundaries
 				pass
