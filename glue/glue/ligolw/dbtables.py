@@ -489,13 +489,17 @@ class TimeSlideTable(DBTable):
 			raise KeyError, id
 		return offsets
 
-	def get_offsets(self):
-		slides = {}
+	def as_dict(self):
+		"""
+		Return a ditionary mapping time slide IDs to offset
+		dictionaries.
+		"""
+		d = {}
 		for id, instrument, offset in self.cursor.execute("SELECT time_slide_id, instrument, offset FROM time_slide"):
-			if id not in slides:
-				slides[id] = {}
-			slides[id][instrument] = offset
-		return slides
+			if id not in d:
+				d[id] = {}
+			d[id][instrument] = offset
+		return d
 
 	def iterkeys(self):
 		raise NotImplementedError

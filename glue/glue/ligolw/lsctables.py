@@ -1605,19 +1605,19 @@ class TimeSlideTable(table.Table):
 			raise KeyError, id
 		return d
 
-	def get_offsets(self):
+	def as_dict(self):
 		"""
-		Return a dictionary mapping time slide ID to dictionaries
-		mapping instrument to offset.
+		Return a ditionary mapping time slide IDs to offset
+		dictionaries.
 		"""
-		slides = {}
+		d = {}
 		for row in self:
-			if row.time_slide_id not in slides:
-				slides[row.time_slide_id] = {}
-			if row.instrument in slides[row.time_slide_id]:
+			if row.time_slide_id not in d:
+				d[row.time_slide_id] = {}
+			if row.instrument in d[row.time_slide_id]:
 				raise KeyError, "%s: duplicate instrument %s" % (row.time_slide_id, row.instrument)
-			slides[row.time_slide_id][row.instrument] = row.offset
-		return slides
+			d[row.time_slide_id][row.instrument] = row.offset
+		return d
 
 	def is_null(self, id):
 		"""
