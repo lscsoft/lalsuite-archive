@@ -78,7 +78,7 @@ def parse_command_line():
 	if options.segwizard_segments:
 		options.segs = segmentsUtils.fromsegwizard(file(options.segwizard_segments), coltype = LIGOTimeGPS).coalesce()
 	elif options.gps_segment_list:
-		options.segs = segmentsUtils.from_range_strings(options.gps_segment_list, boundtype = LIGOTimeGPS)
+		options.segs = segmentsUtils.from_range_strings(options.gps_segment_list.split(","), boundtype = LIGOTimeGPS)
 	elif options.gps_start_time and options.gps_end_time:
 		options.segs = segments.segmentlist([segments.segment(LIGOTimeGPS(options.gps_start_time), LIGOTimeGPS(options.gps_end_time))])
 	else:
