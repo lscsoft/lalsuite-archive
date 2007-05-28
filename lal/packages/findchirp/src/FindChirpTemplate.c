@@ -176,6 +176,7 @@ LALFindChirpTemplateInit (
     case FindChirpPTF:
       /* create workspace memory for the time-domain Q vectors */
       outputPtr->PTFQ = XLALCreateVectorSequence( 5, params->numPoints );
+      memset( outputPtr->PTFQ->data, 0, 5 * params->numPoints * sizeof(float) );
       if ( ! outputPtr->PTFQ )
       {
         ABORT( status, FINDCHIRPH_EALOC, FINDCHIRPH_MSGEALOC );
@@ -184,22 +185,26 @@ LALFindChirpTemplateInit (
       /* create workspace for the dynamical variables needed to */
       /* compute the PTF Q(t) vectors                           */
       outputPtr->PTFphi = XLALCreateVector( params->numPoints );
+      memset( outputPtr->PTFphi->data, 0, params->numPoints * sizeof(float) );
       if ( ! outputPtr->PTFphi )
       {
         ABORT( status, FINDCHIRPH_EALOC, FINDCHIRPH_MSGEALOC );
       }
       outputPtr->PTFomega_2_3 = XLALCreateVector( params->numPoints );
+      memset( outputPtr->PTFomega_2_3->data, 0, params->numPoints * sizeof(float) );
       if ( ! outputPtr->PTFomega_2_3 )
       {
         ABORT( status, FINDCHIRPH_EALOC, FINDCHIRPH_MSGEALOC );
       }
       outputPtr->PTFe1 = XLALCreateVectorSequence( 3, params->numPoints );
+      memset( outputPtr->PTFe1->data, 0, 3 * params->numPoints * sizeof(float) );
       if ( ! outputPtr->PTFe1 )
       {
         ABORT( status, FINDCHIRPH_EALOC, FINDCHIRPH_MSGEALOC );
       }
       outputPtr->PTFe2 = XLALCreateVectorSequence( 3, params->numPoints );
-      if ( ! outputPtr->PTFe1 )
+      memset( outputPtr->PTFe2->data, 0, 3 * params->numPoints * sizeof(float) );
+      if ( ! outputPtr->PTFe2 )
       {
         ABORT( status, FINDCHIRPH_EALOC, FINDCHIRPH_MSGEALOC );
       }
