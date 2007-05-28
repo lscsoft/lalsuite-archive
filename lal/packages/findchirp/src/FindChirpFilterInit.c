@@ -133,6 +133,7 @@ LALCreateFindChirpInput (
     }
     
     outputPtr->fcTmplt->PTFB = XLALCreateArrayL( 2, 5, 5 );
+    memset (outputPtr->fcTmplt->PTFB->data, 0, 25 * sizeof(float));
     if ( ! outputPtr->fcTmplt->PTFB )
     {
       ABORT( status, FINDCHIRPH_EALOC, FINDCHIRPH_MSGEALOC );
