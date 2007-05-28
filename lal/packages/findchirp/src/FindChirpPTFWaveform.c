@@ -460,9 +460,11 @@ XLALFindChirpPTFWaveform(
 /* </lalVerbatim> */
 {
   static const char* func = "XLALFindChirpPTFWaveform";
-  UINT4 i, len;
-  UINT4 N = PTFphi->length;
-  INT4 errcode = 0;
+  UINT4  i, len;
+  UINT4  N = PTFphi->length;
+  UINT4  check = PTFe1->length;
+  INT4   errcode = 0;
+  REAL8  deltaF = 1.0 / ( N * deltaT ); 
   double f_min = tmplt->fLower;
   double m1 = tmplt->mass1;
   double m2 = tmplt->mass2;
@@ -525,6 +527,7 @@ XLALFindChirpPTFWaveform(
 
   /* set up initial values for dynamical variables */
   /* in the precessing convention                  */
+
   Phi    = y[0]  = 0.0;
   omega  = y[1]  = f_min / omegam_to_hz;
   S1x    = y[2]  = sqrt( 1 - kappa * kappa ) * pn_params.mag_S1 ;
@@ -543,6 +546,7 @@ XLALFindChirpPTFWaveform(
   /* start computing the waveform we use a while() loop which we   */
   /* break out of when one of three possible temination conditions */
   /* or two error conditions is reached                            */
+  
   i = 0; 
   t = 0;
   while ( 1 )
@@ -560,11 +564,11 @@ XLALFindChirpPTFWaveform(
     PTFomega_2_3->data[i]    = (float) (pow( omega, 2.0/3.0 ));
     PTFphi->data[i]          = (float) (Phi);
     PTFe1->data[i]           = (float) (e1x);
-    PTFe1->data[N + i]     = (float) (e1y);
-    PTFe1->data[2 * N + i] = (float) (e1z);
+    PTFe1->data[N + i]       = (float) (e1y);
+    PTFe1->data[2 * N + i]   = (float) (e1z);
     PTFe2->data[i]           = (float) (e2x);
-    PTFe2->data[N + i]     = (float) (e2y);
-    PTFe2->data[2 * N + i] = (float) (e2z);     
+    PTFe2->data[N + i]       = (float) (e2y);
+    PTFe2->data[2 * N + i]   = (float) (e2z);     
 
     /* advance the time (which is in units of total mass) */
     t = i * step;
@@ -615,7 +619,8 @@ XLALFindChirpPTFWaveform(
         }  
         else
         {  
-          XLALPrintError( "XLAL Error: NaN in PTF dynamical variables" );
+          fprintf(stderr,"cycle %d\n",i);
+          XLALPrintError( "XLAL Error: NaN in PTF dynamical variables\n" );
           errcode = XLAL_EFAILED;    
           break;
         }   
@@ -630,7 +635,8 @@ XLALFindChirpPTFWaveform(
         }  
         else
         {   
-          XLALPrintError( "XLAL Error: NaN in PTF dynamical variables" );
+          fprintf(stderr,"cycle %d\n",i);
+          XLALPrintError( "XLAL Error: NaN in PTF dynamical variables\n" );
           errcode = XLAL_EFAILED;    
           break;
         }   
@@ -669,29 +675,25 @@ XLALFindChirpPTFWaveform(
   gsl_odeiv_control_free( solver_control );
   gsl_odeiv_step_free( solver_step );
 
+  /* Set the lengtih of the template and final freqency */
+  tmplt->tC     = deltaT * i;
+  tmplt->fFinal = f_min + deltaF * i;
+  
   /* shift the waveform so that the coalescence time */
   /* corresponds to the end of the segment           */
   len = N - i;
-
+  
   /* Move the waveform at the end of the segment  */
-  memmove( PTFomega_2_3->data + len, PTFomega_2_3->data, i * sizeof(double) );
-  memmove( PTFphi->data + len, PTFphi->data, i * sizeof(double) );
-  memmove( PTFe1->data + len, PTFe1->data, i * sizeof(double) );
-  memmove( PTFe1->data + N + len, PTFe1->data + N, i * sizeof(double) );
-  memmove( PTFe1->data + 2 * N + len, PTFe1->data + 2 * N, i * sizeof(double) );
-  memmove( PTFe2->data + len, PTFe2->data, i * sizeof(double) );
-  memmove( PTFe2->data + N + len, PTFe2->data + N, i * sizeof(double) );
-  memmove( PTFe2->data + 2 * N + len, PTFe2->data + 2 * N, i * sizeof(double) );
+  memmove( PTFomega_2_3->data + len, PTFomega_2_3->data, i * sizeof(float) );
+  memmove( PTFphi->data + len, PTFphi->data, i * sizeof(float) );
+  memmove( PTFe1->data + len, PTFe1->data, (2 * N + i) * sizeof(float) );
+  memmove( PTFe2->data + len, PTFe2->data, (2 * N + i) * sizeof(float) );
 
   /* Set the waveform to zero at the beginning of the segment */
-  memset ( PTFomega_2_3->data, 0, len * sizeof(double));
-  memset ( PTFphi->data, 0, len * sizeof(double));
-  memset ( PTFe1->data, 0, len * sizeof(double));
-  memset ( PTFe1->data + N , 0, len * sizeof(double));
-  memset ( PTFe1->data + 2 * N, 0, len * sizeof(double));
-  memset ( PTFe2->data, 0, len * sizeof(double));
-  memset ( PTFe2->data + N, 0, len * sizeof(double));
-  memset ( PTFe2->data + 2 * N, 0, len * sizeof(double));
+  memset ( PTFomega_2_3->data, 0, len * sizeof(float));
+  memset ( PTFphi->data, 0, len * sizeof(float));
+  memset ( PTFe1->data, 0, len * sizeof(float));
+  memset ( PTFe2->data, 0, len * sizeof(float));
 
   /* the GSL success code is probably the same as LAL's but just in case... */
   if ( errcode == GSL_SUCCESS ) 
