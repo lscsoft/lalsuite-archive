@@ -81,7 +81,7 @@ LALFindChirpPTFFilterSegment (
   UINT4                 deltaEventIndex;
   UINT4                 ignoreIndex;
   UINT4                 haveEvent   = 0;
-  REAL4                 deltaT, sum, temp, PTFMatrix[25];
+  REAL4                 deltaT, sum, temp, PTFMatrix[25], r, s, x, y;
   REAL8                 deltaF;
   REAL4                 snrThresh      = 0;
   REAL4                *snr            = NULL;
@@ -175,6 +175,8 @@ LALFindChirpPTFFilterSegment (
   ASSERT( input->segment->approximant == FindChirpPTF, status,
       FINDCHIRPH_EAPRX, FINDCHIRPH_MSGEAPRX );
 
+  fprintf(stderr,"LALFindChirpPTFFilterSegment called\n");
+  
   /*
    *
    * compute viable search regions in the snrsq vector
@@ -225,8 +227,7 @@ LALFindChirpPTFFilterSegment (
         ignoreIndex, numPoints - ignoreIndex );
     LALInfo( status, infomsg );
   }
-
-
+  
   /*
    *
    * compute the PTF filter statistic
@@ -249,15 +250,15 @@ LALFindChirpPTFFilterSegment (
     /* qtilde positive frequency, not DC or nyquist */
     for ( k = 1; k < kmax; ++k )
     {
-      REAL4 r = inputData[k].re;
-      REAL4 s = inputData[k].im;
-      REAL4 x = PTFQtilde[i * (numPoints / 2 + 1) + k].re;
-      REAL4 y = 0 - PTFQtilde[i * (numPoints / 2 + 1) + k].im; /* cplx conj */
+      r = inputData[k].re;
+      s = inputData[k].im;
+      x = PTFQtilde[i * (numPoints / 2 + 1) + k].re;
+      y = 0 - PTFQtilde[i * (numPoints / 2 + 1) + k].im; /* cplx conj */
 
       qtilde[k].re = r*x - s*y;
       qtilde[k].im = r*y + s*x;
     }
-
+    
     qVec.data = params->PTFqVec->data + (i * params->PTFqVec->vectorLength);
 
     /* inverse fft to get q */
@@ -276,17 +277,17 @@ LALFindChirpPTFFilterSegment (
       for ( j = 0; j < i + 1; ++j )
       {  
         params->PTFA->data[5 * i + j] = PTFq[i * numPoints + k].re * 
-          PTFq[j * numPoints + k].re +
-          PTFq[i * numPoints + k].im * 
-          PTFq[j * numPoints + k].im;
+                                        PTFq[j * numPoints + k].re +
+                                        PTFq[i * numPoints + k].im * 
+                                        PTFq[j * numPoints + k].im;
         params->PTFA[5 * j + i] = params->PTFA[i + 5 * j];
       }  
     }  
     /* multiply by PTFBinverse to obtain AB^(-1) */
 
     LALSMatrixMultiply(status->statusPtr, 
-        params->PTFMatrix, params->PTFA, 
-        input->fcTmplt->PTFBinverse);
+                       params->PTFMatrix, params->PTFA, 
+                       input->fcTmplt->PTFBinverse);
     CHECKSTATUSPTR( status );
 
     /* Transpose PTFMatrix and store it into the corresponding local variable:
