@@ -22,9 +22,9 @@ from pylal import SnglInspiralUtils
 # handle user input
 parser = optparse.OptionParser(usage=__doc__, version="%prog CVS $Id$ ")
 parser.add_option("-g", "--glob", action="append",
-    help="glob of thinca slide files to read")
+    help="glob of zero-lag thinca or thinca slide files to read")
 parser.add_option("-i", "--input", action="append",
-    help="lal cache of thinca slide files to read")
+    help="lal cache of zero-lag thinca or thinca slide files to read")
 parser.add_option("-o", "--outfile", default="stdout",
     help="write results to output file (default: stdout)")
 parser.add_option("-V", "--veto-file",
@@ -68,18 +68,18 @@ for input, files in zip(input_source, filegroups):
     coincTable = CoincInspiralUtils.coincInspiralTable(triggers, dummy_stat)
     
     # count coincs per slide
-    lens = numpy.array([len(coincTable.getslide(x)) \
-                        for x in range(-10,0)+range(1,11)])
+    counts = numpy.array([len(coincTable.getslide(x)) \
+                        for x in coincTable.get_slide_numbers()])
     
     # count coincs per slide per fold time
     if opts.fold_time is not None:
         nsegs = abs(segs) / opts.fold_time
-        lens = lens / nsegs  # in-place wouldn't upcast to float
     else:
         nsegs = 1.
     
-    print >>opts.outfile, "Total number of slides: %d" % len(lens)
+    print >>opts.outfile, "Total number of slides: %d" % len(counts)
     print >>opts.outfile, "Total time analyzed: %f" % abs(segs)
     print >>opts.outfile, "Number of %f second segments per slide: %f" % (opts.fold_time, nsegs)
-    print >>opts.outfile, "Mean coincidences per slide per segment: %f" % lens.mean()
-    print >>opts.outfile, "Stdev of mean: %f" % (lens.std() / numpy.sqrt(nsegs))
+    print >>opts.outfile, "Total number of coincidences: %d" % counts.sum()
+    print >>opts.outfile, "Mean coincidences per slide per segment: %f" % (counts.mean() / nsegs)
+    print >>opts.outfile, "Stdev of mean: %f" % (counts.std() / (numpy.sqrt(nsegs) * nsegs))
