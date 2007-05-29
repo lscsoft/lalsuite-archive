@@ -204,7 +204,8 @@ def filename_to_tuple(path):
 
     name, ext = p.splitext(name)
     name, ext2 = p.splitext(name)
-    ext += ext2  # in case we have double-extensions like .xml.gz
+    ext = ext2 + ext  # in case we have double-extensions like .xml.gz
+    del ext2
 
     ifos, tag, start, dur = name.split('-')
 
