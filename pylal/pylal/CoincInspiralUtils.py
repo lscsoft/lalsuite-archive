@@ -164,7 +164,18 @@ class coincInspiralTable:
     if descending:
       stat_list.reverse()
     self.rows = [coinc for (stat,coinc) in stat_list]
-    
+
+  def get_slide_numbers(self):
+    """
+    Return all the slides numbers present in the table.
+    """
+    nums = uniq(map(lambda c: (c.event_id % 1000000000) // 100000, self.rows))
+    for i,num in enumerate(nums):
+      if num > 5000:
+        nums[i] = 5000 - num
+    nums.sort()
+    return nums
+
   def getslide(self, slide_num):
     """
     Return the triggers with a specific slide number.
