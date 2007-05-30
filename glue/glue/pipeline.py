@@ -17,6 +17,7 @@ import random
 import md5
 import math
 import urlparse
+import stat
 
 def s2play(t):
   """
@@ -968,6 +969,29 @@ class CondorDAG:
       self.write_abstract_dag()
     else:
       self.write_concrete_dag()
+
+  def write_script(self):
+    """
+    Write the workflow to a script (.sh instead of .dag).
+    
+    Assuming that parents were added to the DAG before their children,
+    dependencies should be handled correctly.
+    """
+    if not self.__dag_file_path:
+      raise CondorDAGError, "No path for DAG file"
+    try:
+      outfilename = self.__dag_file_path.replace(".dag", ".sh")
+      outfile = open(outfilename, "w")
+    except:
+      raise CondorDAGError, "Cannot open file " + self.__dag_file_path
+
+    for node in self.__nodes:
+        outfile.write("# Job %s\n" % node.get_name())
+        outfile.write("%s %s\n\n" % (node.job().get_executable(),
+            node.get_cmd_line()))
+    outfile.close()
+    
+    os.chmod(outfilename, os.stat(outfilename)[0] | stat.S_IEXEC)
 
 
 class AnalysisJob:
