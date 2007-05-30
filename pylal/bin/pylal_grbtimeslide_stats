@@ -82,4 +82,4 @@ for input, files in zip(input_source, filegroups):
     print >>opts.outfile, "Number of %f second segments per slide: %f" % (opts.fold_time, nsegs)
     print >>opts.outfile, "Total number of coincidences: %d" % counts.sum()
     print >>opts.outfile, "Mean coincidences per slide per segment: %f" % (counts.mean() / nsegs)
-    print >>opts.outfile, "Stdev of mean: %f" % (counts.std() / (numpy.sqrt(nsegs) * nsegs))
+    print >>opts.outfile, "Stdev of trials: %f" % (counts.std() / nsegs)
