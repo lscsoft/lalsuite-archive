@@ -19,6 +19,7 @@ import optparse
 import os
 import os.path as p
 import re
+import socket
 import sys
 import time
 import urlparse
@@ -612,6 +613,7 @@ class GRBSummaryDoc(object):
 <div class="realbody">
 
 <h1>%(title)s</h1>
+<center>%(author)s</center>
 <center>%(timestamp)s</center>
 
 <!-- End generic header -->
@@ -629,6 +631,7 @@ class GRBSummaryDoc(object):
         self.params = {}
         self.params["title"] = "GRB Summary"
         self.params["timestamp"] = time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime())
+        self.params["author"] = "%s@%s" % (os.environ["USER"], socket.gethostname())
 
         # take whatever information is known up front
         self.params.update(kwargs)
@@ -757,7 +760,7 @@ class GRBSummaryDoc(object):
         self.sections.append(GRBSummarySection("%s_inspiral" % figure_name,
             "%s Inspiral Summary" % figure_name, section_text))
 
-    def add_section_thinca(self, figure_name):
+    def add_section_thinca(self, figure_name, summary_stat_file=None):
         """
         Present the most-looked-at thinca plots.
         """
@@ -768,8 +771,14 @@ class GRBSummaryDoc(object):
         #     <br>
         #     <span style="font-size: 90%% ;">H1_vs_H2_effective_snr</span></div>
         # </div></div>
+        section_text = ""
+        if summary_stat_file is not None:
+            section_text += """
+<div class="clearfix"><div class="codebox">
+%s</div></div>
+            """ % (open(summary_stat_file).read())
         
-        section_text = """
+        section_text += """
 <p>The following plots describe the zero-lag, second coincidence output.</p>
 
 <div class="clearfix"><div class="figurebox">
@@ -983,12 +992,17 @@ if __name__ == "__main__":
         # add coincs, handling inspid business; overwrite input file
         new_thinca_file = call_ligolw_add(thinca_cache)
 
+        # summary stats
+        slide_summary_stat_file = call_timeslide_stats(new_thinca_file,
+            opts.on_source_segfile)
+
         # plot
         if opts.figure_name is not None:
             # off source plots
             call_plotthinca(new_thinca_file, opts.on_source_segfile,
                 "%s_off" % opts.figure_name)
-            summary_doc.add_section_thinca("%s_off" % opts.figure_name)
+            summary_doc.add_section_thinca("%s_off" % opts.figure_name,
+                slide_summary_stat_file)
             
             call_plotethinca(new_thinca_file, opts.on_source_segfile,
                 "%s_off" % opts.figure_name)
