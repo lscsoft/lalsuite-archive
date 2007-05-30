@@ -20,6 +20,7 @@ from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
+import pylal.itertools
 from pylal import CoincInspiralUtils
 from pylal import SnglInspiralUtils
 
@@ -214,54 +215,22 @@ f_name = opts.figure_name
 if opts.cluster_window and f_name:
   f_name += '_clust_' + str(opts.cluster_window) + 'sec'
 
-ifo_list = []
-ifo_non_h = []
-if opts.g1_triggers:
-  ifo_list.append('G1')
-  ifo_non_h.append('G1')
-if opts.h1_triggers:
-  ifo_list.append('H1')
-if opts.h2_triggers:
-  ifo_list.append('H2')
-if opts.l1_triggers:
-  ifo_list.append('L1')
-  ifo_non_h.append('L1')
+#######################################################
+# determine IFOs and IFO combos in play
+
+ifo_list = [ifo for ifo in ("G1", "H1", "H2", "L1") \
+            if getattr(opts, "%s_triggers" % ifo.lower())]
+ifo_non_h = [ifo for ifo in ifo_list if ifo[0] != "H"]
 
 ifo_coincs = []
-# two ifo
-for ifo1 in ifo_list:
-  for ifo2 in ifo_list:
-    if ifo1 < ifo2:
-      ifo_coincs.append([ifo1, ifo2])
-      
-# three ifo
-for ifo1 in ifo_list:
-  for ifo2 in ifo_list:
-    for ifo3 in ifo_list:
-      if ifo1 < ifo2 and ifo2 < ifo3:
-        ifo_coincs.append([ifo1, ifo2, ifo3])
-        
-# four ifo
-for ifo1 in ifo_list:
-  for ifo2 in ifo_list:
-    for ifo3 in ifo_list:
-      for ifo4 in ifo_list:
-        if ifo1 < ifo2 and ifo2 < ifo3 and ifo3 < ifo4:
-          ifo_coincs.append([ifo1, ifo2, ifo3, ifo4])
+for num_ifos in range(2, len(ifo_list) + 1):
+  ifo_coincs.extend(list(pylal.itertools.choices(ifo_list, num_ifos)))
 
 #######################################################
 # turn the mass range from a string to a list of floats
 
-if opts.mass_range:
-  mass_range = []
-  mass_range_string = ''
-  for i in range(len(opts.mass_range)):
-    if opts.mass_range[i] in ['0','1','2','3','4','5','6','7','8','9','.']:
-      mass_range_string += opts.mass_range[i]
-    elif opts.mass_range[i] == ',':
-      mass_range.append(float(mass_range_string))
-      mass_range_string = ''
-  mass_range.append(float(mass_range_string))
+if opts.mass_range is not None:
+  mass_range = [float(s) for s in opts.mass_range.split(",") if s != ""]
 
 ###################################
 # glob the list of files to read in
@@ -270,9 +239,8 @@ if opts.mass_range:
 if opts.glob is not None or opts.input is not None:
   if opts.glob is not None:
     allfiles = []
-    gl_pats = opts.glob.split(" ")
-    for gl in gl_pats:
-      allfiles += glob.glob(gl)
+    for gl in opts.glob.split(" "):
+      allfiles.extend(glob.glob(gl))
   elif opts.input is not None:
     allfiles = [lal.CacheEntry(line).path() for line in open(opts.input)]
 
@@ -293,11 +261,10 @@ if opts.glob is not None or opts.input is not None:
 # Off Source Files
 if opts.off_source_glob:  
   allfiles = []
-  gl_pats = opts.off_source_glob.split(" ")
-  for gl in gl_pats:
-    allfiles += glob.glob(gl)
+  for gl in opts.off_source_glob.split(" "):
+    allfiles.extend(glob.glob(gl))
 
-  if len(allfiles) < 1:
+  if len(allfiles) == 0:
     print >>sys.stderr, "The glob for " + opts.off_source_glob + \
         " returned no files"
     sys.exit(1)
@@ -374,22 +341,6 @@ if offsourcefiles:
   # cluster them
   if opts.cluster_window:
     offsourceTriggers = offsourceTriggers.cluster(opts.cluster_window)
-
-  if not opts.max_snr:
-    if inspTriggers:
-      xhigh = max( inspTriggers.get_column(snglStat) )
-    else:
-      xhigh = 50.0
-  else:
-    xhigh = opts.max_snr + 1
-
-  if not opts.min_snr:
-    if inspTriggers:
-      xlow = min( inspTriggers.get_column(snglStat) )
-    else:
-      xlow = 1.0
-  else:
-    xlow = opts.min_snr
 else:
   offsourceTriggers = None
 
