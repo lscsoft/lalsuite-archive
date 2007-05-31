@@ -140,7 +140,7 @@ setup(
 		Extension(
 			"pylal.xlal.date",
 			["src/xlal/date.c"],
-			include_dirs = lal_pkg_config.incdirs,
+			include_dirs = lal_pkg_config.incdirs + [numpy_get_include()],
 			libraries = lal_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs,
 			runtime_library_dirs = lal_pkg_config.libdirs
