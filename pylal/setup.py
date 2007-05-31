@@ -2,6 +2,7 @@
 # 
 # setup for pylal
 
+
 import os
 from distutils.core import setup, Extension
 from distutils.command import install
@@ -9,6 +10,7 @@ from distutils.command import sdist
 from distutils import log
 from sys import version_info
 from numpy.lib.utils import get_include as numpy_get_include
+
 
 class PkgConfig(object):
 	def __init__(self, names):
@@ -18,78 +20,80 @@ class PkgConfig(object):
 		self.libdirs = map(stripfirsttwo, os.popen("pkg-config --libs-only-L %s" % names).read().split())
 		self.incdirs = map(stripfirsttwo, os.popen("pkg-config --cflags-only-I %s" % names).read().split())
 
+
 full_lal_pkg_config = PkgConfig("lal lalframe lalmetaio lalsupport")
 lal_pkg_config = PkgConfig("lal")
 
-def remove_root(path,root):
-  if root:
-    return os.path.normpath(path).replace(os.path.normpath(root),"")
-  else:
-    return os.path.normpath(path)
+
+def remove_root(path, root):
+	if root:
+		return os.path.normpath(path).replace(os.path.normpath(root), "")
+	return os.path.normpath(path)
+
 
 class pylal_install(install.install):
-  def run(self):
+	def run(self):
+		# create the user env scripts
+		if self.install_purelib == self.install_platlib:
+			pylal_pythonpath = self.install_purelib
+		else:
+			pylal_pythonpath = self.install_platlib + ":" + self.install_purelib
 
-    # create the user env scripts
-    if self.install_purelib == self.install_platlib:
-      pylal_pythonpath = self.install_purelib
-    else:
-      pylal_pythonpath = self.install_platlib + ":" + self.install_purelib
+		pylal_prefix = remove_root(self.prefix, self.root)
+		pylal_install_scripts = remove_root(self.install_scripts, self.root)
+		pylal_pythonpath = remove_root(pylal_pythonpath, self.root)
+		pylal_install_platlib = remove_root(self.install_platlib, self.root)
 
-    pylal_prefix = remove_root(self.prefix,self.root)
-    pylal_install_scripts = remove_root(self.install_scripts,self.root)
-    pylal_pythonpath = remove_root(pylal_pythonpath,self.root)
-    pylal_install_platlib = remove_root(self.install_platlib,self.root)
-    
-    log.info("creating pylal-user-env.sh script")
-    env_file = open(os.path.join('etc','pylal-user-env.sh'),'w')
-    print >> env_file, "# Source this file to access PYLAL"
-    print >> env_file, "PYLAL_PREFIX=" + pylal_prefix
-    print >> env_file, "export PYLAL_PREFIX"
-    print >> env_file, "PATH=" + pylal_install_scripts + ":${PATH}"
-    print >> env_file, "PYTHONPATH=" + pylal_pythonpath + ":${PYTHONPATH}"
-    print >> env_file, "LD_LIBRARY_PATH=" + pylal_install_platlib + ":${LD_LIBRARY_PATH}"
-    print >> env_file, "DYLD_LIBRARY_PATH=" + pylal_install_platlib + ":${DYLD_LIBRARY_PATH}"
-    print >> env_file, "export PATH PYTHONPATH LD_LIBRARY_PATH DYLD_LIBRARY_PATH"
-    env_file.close()
+		log.info("creating pylal-user-env.sh script")
+		env_file = open(os.path.join("etc", "pylal-user-env.sh"), "w")
+		print >> env_file, "# Source this file to access PYLAL"
+		print >> env_file, "PYLAL_PREFIX=" + pylal_prefix
+		print >> env_file, "export PYLAL_PREFIX"
+		print >> env_file, "PATH=" + pylal_install_scripts + ":${PATH}"
+		print >> env_file, "PYTHONPATH=" + pylal_pythonpath + ":${PYTHONPATH}"
+		print >> env_file, "LD_LIBRARY_PATH=" + pylal_install_platlib + ":${LD_LIBRARY_PATH}"
+		print >> env_file, "DYLD_LIBRARY_PATH=" + pylal_install_platlib + ":${DYLD_LIBRARY_PATH}"
+		print >> env_file, "export PATH PYTHONPATH LD_LIBRARY_PATH DYLD_LIBRARY_PATH"
+		env_file.close()
 
-    log.info("creating pylal-user-env.csh script")
-    env_file = open(os.path.join('etc','pylal-user-env.csh'),'w')
-    print >> env_file, "# Source this file to access PYLAL"
-    print >> env_file, "setenv PYLAL_PREFIX " + pylal_prefix
-    print >> env_file, "setenv PATH " + pylal_install_scripts + ":${PATH}"
-    print >> env_file, "if ( $?PYTHONPATH ) then"
-    print >> env_file, "  setenv PYTHONPATH " + pylal_pythonpath + ":${PYTHONPATH}"
-    print >> env_file, "else"
-    print >> env_file, "  setenv PYTHONPATH " + pylal_pythonpath
-    print >> env_file, "endif"
-    print >> env_file, "if ( $?LD_LIBRARY_PATH ) then"
-    print >> env_file, "  setenv LD_LIBRARY_PATH " + pylal_install_platlib + ":${LD_LIBRARY_PATH}"
-    print >> env_file, "else"
-    print >> env_file, "  setenv LD_LIBRARY_PATH " + pylal_install_platlib
-    print >> env_file, "endif"
-    print >> env_file, "if ( $?DYLD_LIBRARY_PATH ) then"
-    print >> env_file, "  setenv DYLD_LIBRARY_PATH " + pylal_install_platlib + ":${DYLD_LIBRARY_PATH}"
-    print >> env_file, "else"
-    print >> env_file, "  setenv DYLD_LIBRARY_PATH " + pylal_install_platlib
-    print >> env_file, "endif"
-    env_file.close()
+		log.info("creating pylal-user-env.csh script")
+		env_file = open(os.path.join("etc", "pylal-user-env.csh"), "w")
+		print >> env_file, "# Source this file to access PYLAL"
+		print >> env_file, "setenv PYLAL_PREFIX " + pylal_prefix
+		print >> env_file, "setenv PATH " + pylal_install_scripts + ":${PATH}"
+		print >> env_file, "if ( $?PYTHONPATH ) then"
+		print >> env_file, "  setenv PYTHONPATH " + pylal_pythonpath + ":${PYTHONPATH}"
+		print >> env_file, "else"
+		print >> env_file, "  setenv PYTHONPATH " + pylal_pythonpath
+		print >> env_file, "endif"
+		print >> env_file, "if ( $?LD_LIBRARY_PATH ) then"
+		print >> env_file, "  setenv LD_LIBRARY_PATH " + pylal_install_platlib + ":${LD_LIBRARY_PATH}"
+		print >> env_file, "else"
+		print >> env_file, "  setenv LD_LIBRARY_PATH " + pylal_install_platlib
+		print >> env_file, "endif"
+		print >> env_file, "if ( $?DYLD_LIBRARY_PATH ) then"
+		print >> env_file, "  setenv DYLD_LIBRARY_PATH " + pylal_install_platlib + ":${DYLD_LIBRARY_PATH}"
+		print >> env_file, "else"
+		print >> env_file, "  setenv DYLD_LIBRARY_PATH " + pylal_install_platlib
+		print >> env_file, "endif"
+		env_file.close()
 
-    # now run the installer
-    install.install.run(self)
+		# now run the installer
+		install.install.run(self)
+
 
 class pylal_sdist(sdist.sdist):
-  def run(self):
-    # remove the automatically generated user env scripts
-    for script in [ 'pylal-user-env.sh', 'pylal-user-env.csh' ]:
-      log.info( 'removing ' + script )
-      try:
-        os.unlink(os.path.join('etc',script))
-      except:
-        pass
+	def run(self):
+		# remove the automatically generated user env scripts
+		for script in ["pylal-user-env.sh", "pylal-user-env.csh"]:
+			log.info("removing " + script )
+			try:
+				os.unlink(os.path.join("etc", script))
+			except:
+				pass
 
-    # now run sdist
-    sdist.sdist.run(self)
+		# now run sdist
+		sdist.sdist.run(self)
 
 
 setup(
@@ -100,38 +104,59 @@ setup(
 	description = "LSC Graphics Toolkit",
 	url = "http://www.lsc-group.phys.uwm.edu/daswg/",
 	license = "See file LICENSE",
-	packages = ["pylal", "pylal.xlal"],
-        cmdclass = { 'install' : pylal_install, 'sdist' : pylal_sdist },
+	packages = [
+		"pylal",
+		"pylal.xlal"
+	],
+        cmdclass = {
+		"install": pylal_install,
+		"sdist": pylal_sdist
+	},
 	ext_modules = [
-		Extension("pylal.support", ["src/support.c"],
+		Extension(
+			"pylal.support",
+			["src/support.c"],
 			include_dirs = full_lal_pkg_config.incdirs,
 			libraries = full_lal_pkg_config.libs,
 			library_dirs = full_lal_pkg_config.libdirs,
-			runtime_library_dirs = full_lal_pkg_config.libdirs),
-                Extension("pylal.Fr", ["src/Fr.c"],
-                        include_dirs = full_lal_pkg_config.incdirs + [numpy_get_include()],
+			runtime_library_dirs = full_lal_pkg_config.libdirs
+		),
+		Extension(
+			"pylal.Fr",
+			["src/Fr.c"],
+			include_dirs = full_lal_pkg_config.incdirs + [numpy_get_include()],
 			libraries = full_lal_pkg_config.libs,
 			library_dirs = full_lal_pkg_config.libdirs,
-			runtime_library_dirs = full_lal_pkg_config.libdirs),
-		Extension("pylal.tools", ["src/tools.c"],
-			include_dirs = lal_pkg_config.incdirs,
-                        libraries = lal_pkg_config.libs,
-                        library_dirs = lal_pkg_config.libdirs,
-                        runtime_library_dirs = lal_pkg_config.libdirs),
-		Extension("pylal.xlal.date", ["src/xlal/date.c"],
+			runtime_library_dirs = full_lal_pkg_config.libdirs
+		),
+		Extension(
+			"pylal.tools",
+			["src/tools.c"],
 			include_dirs = lal_pkg_config.incdirs,
 			libraries = lal_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs),
-		Extension("pylal.xlal.inject", ["src/xlal/inject.c"],
+			runtime_library_dirs = lal_pkg_config.libdirs
+		),
+		Extension(
+			"pylal.xlal.date",
+			["src/xlal/date.c"],
+			include_dirs = lal_pkg_config.incdirs,
+			libraries = lal_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs
+		),
+		Extension(
+			"pylal.xlal.inject",
+			["src/xlal/inject.c"],
 			include_dirs = lal_pkg_config.incdirs + [numpy_get_include()],
 			libraries = lal_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs)
+			runtime_library_dirs = lal_pkg_config.libdirs
+		)
 	],
 	scripts = [
-                os.path.join("bin", "followup.py"),
-	        os.path.join("bin", "plotbank"),
+		os.path.join("bin", "followup.py"),
+		os.path.join("bin", "plotbank"),
 		os.path.join("bin", "plotbinj"),
 		os.path.join("bin", "plotburca"),
 		os.path.join("bin", "plotburca2"),
@@ -145,7 +170,7 @@ setup(
 		os.path.join("bin", "upperlimit.py"),
 		os.path.join("bin", "write_iul_page"),
 		os.path.join("bin", "lalapps_compute_posterior"),
-	        os.path.join("bin", "plotinjnum"),
+		os.path.join("bin", "plotinjnum"),
 		os.path.join("bin", "plotinspiral"),
 		os.path.join("bin", "plotinspinj"),
 		os.path.join("bin", "plotinspdiff"),
@@ -155,9 +180,9 @@ setup(
 		os.path.join("bin", "plotcoincseglength"),
 		os.path.join("bin", "plotthinca"),
 		os.path.join("bin", "pylal_grblikelihood"),
-        os.path.join("bin", "pylal_grbsummary"),
-        os.path.join("bin", "pylal_grbtimeslide_stats"),
-        os.path.join("bin", "pylal_query_dq"),
+		os.path.join("bin", "pylal_grbsummary"),
+		os.path.join("bin", "pylal_grbtimeslide_stats"),
+		os.path.join("bin", "pylal_query_dq"),
 		os.path.join("bin", "plotethinca"),
 		os.path.join("bin", "plotwindow"),
 		os.path.join("bin", "plotcoincwindow"),
@@ -173,7 +198,7 @@ setup(
 		os.path.join("bin", "lalapps_path2cache"),
 		os.path.join("bin", "lalapps_pire"),
 		os.path.join("bin", "lalapps_stringfinal"),
-        os.path.join("bin", "ligolw_add_inspiral"),
+		os.path.join("bin", "ligolw_add_inspiral"),
 		os.path.join("bin", "ligolw_binjfind"),
 		os.path.join("bin", "ligolw_bucluster"),
 		os.path.join("bin", "ligolw_bucut"),
@@ -185,9 +210,8 @@ setup(
 		os.path.join("bin", "ligolw_sicluster"),
 		os.path.join("bin", "ligolw_tisi")
 	],
-        data_files = [ ('etc',[
-                os.path.join('etc','pylal-user-env.sh'),
-                os.path.join('etc','pylal-user-env.csh')
-        ] ) ]
-
+	data_files = [ ("etc", [
+		os.path.join("etc", "pylal-user-env.sh"),
+		os.path.join("etc", "pylal-user-env.csh")
+	] ) ]
 )
