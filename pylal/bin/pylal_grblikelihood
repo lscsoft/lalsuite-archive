@@ -1,33 +1,51 @@
-#!/usr/bin/python
+#!/usr/bin/env python
+#
+# Copyright (C) 2007  Patrick Brady
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 2 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+#
 
-# $Id$
-__author__ = "Patrick Brady <patrick@gravity.phys.uwm.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
+from __future__ import division  # float division for integers
 
 import sys
 import os
-from optparse import *
-import re
-import exceptions
+import optparse
 import glob
-import pylab
-from types import *
+
+import numpy
+numpy.seterr('raise')  # throw an exception on floating point errors
 
 from glue import segments
 from glue import segmentsUtils
-from glue.ligolw import ligolw
-from glue.ligolw import table
-from glue.ligolw import lsctables
-from glue.ligolw import utils
+import pylal.itertools
 from pylal import CoincInspiralUtils
 from pylal import SnglInspiralUtils
 from pylal import SimInspiralUtils
 
+__author__ = "Patrick Brady <patrick@gravity.phys.uwm.edu>"
+__version__ = "$Revision$"[11:-2]
+__date__ = "$Date$"[7:-2]
+
 ##############################################################################
 # helper functions
 def square_axis():
-  tmpv = asarray(axis())
+  """
+  Reshape the current axes to be the minimum possible window that is square
+  and captures all of the data points.
+  """
+  tmpv = axis()
   xmax = max([tmpv[1], tmpv[3]])
   xmin = min([tmpv[0], tmpv[2]])
   axis([xmin, xmax, xmin, xmax])
@@ -35,229 +53,185 @@ def square_axis():
 ##############################################################################
 # Define a Square Array
 ##############################################################################
-def square(xedges,yedges,coincTriggers,simtypeflag):
+def square(xedges, yedges, coincTriggers, simtypeflag):
   """
-  generate a square array with from xdata and ydata with the edges specified
-  by xedges and yedges.  Can rescale the entries by lum_weight
+  Histogram coincTriggers in the mass1-distance plane.
+
   @param xdata:  array of data for parameter x
   @param xedges: bin boundaries for parameter x
   @param ydata:  array of data for parameter y
   @param yedges: bin boundaries for parameter y
-  @param lum_weight: rescaling factor for the histogram
+  @param coincTriggers: data to histogram
+  @param simtypeflag: "missed" or "found"
   """
-  ng_x_y = zeros((len(yedges),len(xedges)),'d')
+  ng_x_y = zeros(shape=(len(yedges), len(xedges)), dtype=int)
   xstep = xedges[1] - xedges[0]
   ystep = yedges[1] - yedges[0]
-  
-  for coinc in coincTriggers:  
-    if ( (simtypeflag == "found" and coinc.stat >= 0) or\
-      (simtypeflag == "missed" and coinc.stat < 0) ):
+
+  for coinc in coincTriggers:
+    if ((simtypeflag == "found" and coinc.stat >= 0) or\
+        (simtypeflag == "missed" and coinc.stat < 0)):
       xdata = coinc.sim.mass1
       ydata = coinc.sim.distance
-      k = int((xdata-xedges[0])/xstep)
-      l = int((ydata-yedges[0])/ystep)
-    
-      if (k>=0 and k<len(xedges)) and (l>=0 and l<len(yedges)):
-        ng_x_y[l][k] += 1.0
+      k = int((xdata-xedges[0]) / xstep)
+      l = int((ydata-yedges[0]) / ystep)
+
+      if (k >= 0 and k < len(xedges)) and (l >= 0 and l < len(yedges)):
+        ng_x_y[l][k] += 1
 
   return ng_x_y
-  
 
 ##############################################################################
-usage = """
-usage: %prog [options] 
+usage = """%prog [options]
 
 GRB Likelihood calculation
 
-We attempt to compute the posterior distribution 
+We attempt to compute the posterior distribution
 
 p[ h(lambda) | c ]
 
 where c is the event candidate and h(lambda) is a signal with
-parameters lambda. 
-
+parameters lambda.
 """
 
-parser = OptionParser( usage=usage, version="%prog CVS $Id$ " )
-parser.add_option("-g","--on-source-glob",action="store",type="string",\
-    default=None, metavar=" GLOB",help="GLOB on-source thinca files to read" )
-parser.add_option("-m","--missed-glob",action="store",type="string",\
-    default=None, metavar=" GLOB",help="GLOB missed injection files to read" )
-parser.add_option("-u","--found-glob",action="store",type="string",\
-    default=None, metavar=" GLOB",help="GLOB found injection files to read" )
-parser.add_option("-e","--epsilon",action="store",type="float",\
-    default=0, metavar=" EPSILON",help="if metric distance squared > EPSILON, discard" )
-parser.add_option("-n","--ntrials",action="store",type="float",\
-    default=0, metavar=" NTRIALS",help="number off source segments" )
-parser.add_option("-f","--figure-name",action="store",type="string",\
-    default=None, metavar=" FNAME",\
-    help="generate png figures with name FNAME-fig.png" )
-parser.add_option("-x","--min-snr",action="store",type="float",\
-    default=0, metavar=" MIN_SNR",help="minimum value of snr on plot" )
-parser.add_option("-X","--max-snr",action="store",type="float",\
-    default=0, metavar=" MAX_SNR",help="maximum value of snr on plot" )
-parser.add_option("-s","--show-plot",action="store_true",default=False,\
-    help="display the figures on the terminal" )
-parser.add_option("-v","--verbose",action="store_true",default=False,\
-    help="verbose debugging output" )
-parser.add_option("-B","--h1-triggers",action="store_true",default=False,\
-    help="input files contain triggers from H1" )
-parser.add_option("-C","--h2-triggers",action="store_true",default=False,\
-    help="input files contain triggers from H2" )
-parser.add_option("-D","--l1-triggers",action="store_true",default=False,\
-    help="input files contain triggers from L1" )
-parser.add_option("-E","--g1-triggers",action="store_true",default=False,\
-    help="input files contain triggers from G1" )
-parser.add_option("-S","--statistic",action="store",default='snr',\
-    type="string",\
-    help="choice of statistic used in making plots, valid arguments are: "
-         "snr (DEFAULT), snr_over_chi, s3_snr_chi_stat, effective_snr, " 
-         "bitten_l, bitten_lsq") 
-parser.add_option("-V","--veto-file",action="store",type="string",\
-    default=None,metavar=" FNAME",\
-    help="read in segments from FNAME (assumed segwizard format)")
-parser.add_option("-F","--full-segs",action="store",type="string",\
-    default=None,metavar=" FNAME",\
-    help="read in segments from FNAME (assumed segwizard format)")
-parser.add_option("-O","--on-source-segs",action="store",type="string",\
-    default=None,metavar=" FNAME",\
-    help="read in segments from FNAME (assumed segwizard format)")
+parser = optparse.OptionParser(usage=usage, version="%prog CVS $Id$ ")
+parser.add_option("-g", "--on-source-glob",
+  help="GLOB on-source thinca files to read")
+parser.add_option("-m", "--missed-glob",
+  help="GLOB missed injection files to read")
+parser.add_option("-u", "--found-glob",
+  help="GLOB found injection files to read")
+parser.add_option("-e", "--epsilon", type="float", default=0.,
+  help="if metric distance squared > EPSILON, discard")
+parser.add_option("-n", "--ntrials", type="int", default=0,
+  help="number off source segments")
+parser.add_option("-f", "--figure-name",
+  help="generate png figures with name FNAME-fig.png")
+parser.add_option("-x", "--min-snr", type="float",
+  help="minimum value of snr on plot")
+parser.add_option("-X", "--max-snr", type="float",
+  help="maximum value of snr on plot")
+parser.add_option("-s", "--show-plot", action="store_true", default=False,
+  help="display the figures on the terminal")
+parser.add_option("-v", "--verbose", action="store_true", default=False,
+  help="verbose debugging output")
+parser.add_option("-B", "--h1-triggers",action="store_true", default=False,\
+  help="input files contain triggers from H1")
+parser.add_option("-C", "--h2-triggers",action="store_true", default=False,\
+  help="input files contain triggers from H2")
+parser.add_option("-D", "--l1-triggers",action="store_true", default=False,\
+  help="input files contain triggers from L1")
+parser.add_option("-E", "--g1-triggers",action="store_true", default=False,\
+  help="input files contain triggers from G1")
+parser.add_option("-S", "--statistic", default='snr',
+  help="choice of statistic used in making plots, valid arguments are: "
+       "snr (DEFAULT), snr_over_chi, s3_snr_chi_stat, effective_snr, "
+       "bitten_l, bitten_lsq")
+parser.add_option("-V","--veto-file",
+  help="read in segments from FNAME (assumed segwizard format)")
+parser.add_option("-F","--full-segs",
+  help="read in segments from FNAME (assumed segwizard format)")
+parser.add_option("-O","--on-source-segs",
+  help="read in segments from FNAME (assumed segwizard format)")
 
 (opts,args) = parser.parse_args()
 
-if not opts.on_source_glob:
+if opts.on_source_glob is None:
   print >>sys.stderr, "Must specify a GLOB of on-source files to read"
   print >>sys.stderr, "Enter 'plotthinca --help' for usage"
   sys.exit(1)
 
-# check that statistic is OK:
-if (opts.statistic != 'snr') and (opts.statistic != 'snr_over_chi') \
-    and (opts.statistic != 's3_snr_chi_stat') \
-    and (opts.statistic != 'effective_snr')\
-    and (opts.statistic != 'bitten_lsq')\
-    and (opts.statistic != 'bitten_l'):
-  print >>sys.stderr, "--statistic must be one of"
-  print >>sys.stderr, "(snr|snr_over_chi|s3_snr_chi_stat|effective_snr|bitten_l)"
+if (opts.full_segs is None) or (opts.on_source_segs is None):
+  print >>sys.stderr, "There must be full-segs and on-source-segs"
   sys.exit(1)
 
-snglStat=opts.statistic 	 
+# check that statistic is OK:
+if opts.statistic not in ('snr', 'snr_over_chi', 's3_snr_chi_stat',
+    'effective_snr', 'bitten_l', 'bitten_lsq'):
+  print >>sys.stderr, "--statistic must be one of"
+  print >>sys.stderr, "(snr|snr_over_chi|s3_snr_chi_stat|effective_snr|bitten_l|bitten_lsq)"
+  sys.exit(1)
+
+snglStat = opts.statistic
 
 # Change to Agg back-end if show() will not be called
 if not opts.show_plot:
   import matplotlib
   matplotlib.use('Agg')
 from pylab import *
-from pylal import viz
+rc('axes', titlesize='x-large', labelsize='x-large')
+rc('text', usetex=True)
 
-statistic = CoincInspiralUtils.coincStatistic( opts.statistic )
-    
-plotsymbols = ['r+','bx','ko','g1']
-hanfordsym = ['b+','bx','r1']
-addsym = ['k+','kx','k1']
+#####################################################################
+# initialize some basic information
 
-xlow = 20
-xhigh = 0
-f_name = opts.figure_name
+statistic = CoincInspiralUtils.coincStatistic(opts.statistic)
 
-ifo_list = []
-ifo_non_h = []
-if opts.g1_triggers:
-  ifo_list.append('G1')
-  ifo_non_h.append('G1')
-if opts.h1_triggers:
-  ifo_list.append('H1')
-if opts.h2_triggers:
-  ifo_list.append('H2')
-if opts.l1_triggers:
-  ifo_list.append('L1')
-  ifo_non_h.append('L1')
+ifo_list = [ifo for ifo in ("G1", "H1", "H2", "L1") \
+            if getattr(opts, "%s_triggers" % ifo.lower())]
 
-ifo_coincs = []
-# two ifo
-for ifo1 in ifo_list:
-  for ifo2 in ifo_list:
-    if ifo1 < ifo2:
-      ifo_coincs.append([ifo1, ifo2])
-      
-# three ifo
-for ifo1 in ifo_list:
-  for ifo2 in ifo_list:
-    for ifo3 in ifo_list:
-      if ifo1 < ifo2 and ifo2 < ifo3:
-        ifo_coincs.append([ifo1, ifo2, ifo3])
-        
-# four ifo
-for ifo1 in ifo_list:
-  for ifo2 in ifo_list:
-    for ifo3 in ifo_list:
-      for ifo4 in ifo_list:
-        if ifo1 < ifo2 and ifo2 < ifo3 and ifo3 < ifo4:
-          ifo_coincs.append([ifo1, ifo2, ifo3, ifo4])
+ifo_combos = []
+for num_ifos in range(2, len(ifo_list) + 1):
+  ifo_combos.extend(list(pylal.itertools.choices(ifo_list, num_ifos)))
 
 #####################################################################
 # Read in all the segment lists
-if opts.full_segs and opts.on_source_segs:
-  fullseglist = segmentsUtils.fromsegwizard(file( opts.full_segs ))
-  onsourceseglist = segmentsUtils.fromsegwizard(file( opts.on_source_segs ))
-  offsourceseglist = fullseglist - onsourceseglist
+fullseglist = segmentsUtils.fromsegwizard(open(opts.full_segs))
+onsourceseglist = segmentsUtils.fromsegwizard(open(opts.on_source_segs))
 
-  # make a list of 180s off source segments
-  # segmentrange
-  seglist = segments.segmentlist()
-  for seg in offsourceseglist:
-    sstart = seg[0]
-    while sstart < seg[1]:
-      seglist.append(segments.segment(sstart, sstart+180))
-      sstart += 180
+# take padding into account
+fullseglist &= segments.segmentlist([fullseglist.extent().contract(72)])
 
-  if opts.verbose:
-    print "The number of trial segments is %i" % len(seglist)
+# take veto into account
+if opts.veto_file:
+  vetolist = segmentsUtils.fromsegwizard(open(opts.veto_file))
+  fullseglist -= vetolist
 
-else:
-  print >>sys.stderr, "There must be full-segs and on-source-segs"
-  sys.exit(1)
+# define off-source segments
+offsourceseglist = fullseglist - onsourceseglist
 
+# make a list of 180s off source segments
+seglist = segments.segmentlist()
+for seg in offsourceseglist:
+  seglist.extend(segmentsUtils.segmentlist_range(seg[0], seg[1], 180))
+
+if opts.verbose:
+  print "The number of trial segments is %i" % len(seglist)
 
 #####################################################################
-# read in triggers and construct on and off source list
-inspTriggers = None
-coincTriggers = None
-offsourceTriggers = None
-
-coincfiles = glob.glob( opts.on_source_glob)
+# read in triggers
+coincfiles = glob.glob(opts.on_source_glob)
 inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(coincfiles)
+
 # perform the veto
 if opts.veto_file:
-  seglist = segmentsUtils.fromsegwizard(file( opts.veto_file ))
-  inspTriggers = inspTriggers.veto(seglist)
-    
+  inspTriggers = inspTriggers.veto(vetolist)
+
 # construct the off source listing
 offsourceTriggers = CoincInspiralUtils.coincInspiralTable(\
-    inspTriggers.veto(onsourceseglist),statistic)
+    inspTriggers.veto(onsourceseglist), statistic)
 
 # construct the coincs
-#coincTriggers = CoincInspiralUtils.coincInspiralTable(\
-    #inspTriggers.veto(offsourceseglist),statistic)
+# coincTriggers = CoincInspiralUtils.coincInspiralTable(\
+#     inspTriggers.veto(offsourceseglist),statistic)
 coincTriggers = CoincInspiralUtils.coincInspiralTable()
 coincTriggers.append(offsourceTriggers[4])
 
-if not opts.max_snr:
-  if inspTriggers:
-    xhigh = max( inspTriggers.get_column(snglStat) )
+if opts.max_snr is None:
+  if len(inspTriggers) > 0:
+    xhigh = max(inspTriggers.get_column(snglStat))
   else:
     xhigh = 50.0
 else:
   xhigh = opts.max_snr + 1
 
-if not opts.min_snr:
-  if inspTriggers:
-    xlow = min( inspTriggers.get_column(snglStat) )
+if opts.min_snr is None:
+  if len(inspTriggers) > 0:
+    xlow = min(inspTriggers.get_column(snglStat))
   else:
     xlow = 1.0
 else:
   xlow = opts.min_snr
-
-fig_num = 1
 
 #####################################################################
 # read in the missed and found files
@@ -272,20 +246,18 @@ coincInjTriggers.add_missed_sims( \
     SimInspiralUtils.ReadSimInspiralFromFiles(glob.glob(opts.missed_glob)) )
 
 #####################################################################
-# Make a few summary plots
-xedges = arange(0,41,2)
-yedges = asarray([0,6,8,10,12,14,16,18,20,30,41])
-foundsq = square(xedges,yedges,coincInjTriggers,"found")
-missedsq = square(xedges,yedges,coincInjTriggers,"missed")
+# histogram triggers in mass1-distance space
+xedges = arange(0, 41, 2)
+yedges = asarray([0, 6, 8, 10, 12, 14, 16, 18, 20, 30, 41])
+foundsq = square(xedges, yedges, coincInjTriggers, "found")
+missedsq = square(xedges, yedges, coincInjTriggers, "missed")
 
 #####################################################################
 # if there are coincident triggers on source
 if coincTriggers:
-
   # loop over each candidate
   for candidate in coincTriggers:
-
-    fa_array = zeros(len(seglist))
+    fa_array = zeros(len(seglist), dtype=int)
 
     # cut out those triggers near to the candidate, and
     # evaulate the p(c|0) based on that
@@ -293,14 +265,14 @@ if coincTriggers:
         offsourceTriggers.getTriggersWithinEpsilon(candidate, opts.epsilon)
 
     for coinc in triggers_within_epsilon:
-      end_time = getattr(coinc,ifo_list[0]).end_time
-      fa_array[seglist.find(end_time)] = 1.0
-  
-    if opts.verbose: print fa_array
-    pczero = sum(fa_array) / float(len(seglist))
-  
-    print "p(c|0) = %f" % pczero
+      # index by end time of alphabetically first IFO in coinc
+      end_time = getattr(coinc, coinc.get_ifos()[1][0]).end_time
+      fa_array[seglist.find(end_time)] = 1
 
+    if opts.verbose: print fa_array
+    pczero = fa_array.sum() / len(seglist)
+
+    print "p(c|0) = %f" % pczero
 
     # cut out those injection triggers near to the candidate, and
     # evaulate the p(c|signal with lambda) based on that
@@ -311,23 +283,22 @@ if coincTriggers:
         len(injTriggers_within_epsilon)
 
     foundwithinepsilonsq = \
-        square(xedges,yedges,injTriggers_within_epsilon,"found")
+        square(xedges, yedges, injTriggers_within_epsilon, "found")
 
-    pcsignalsq = 1.0 * foundwithinepsilonsq / (missedsq + foundsq + 1.0e-10)
-
+    pcsignalsq = foundwithinepsilonsq / (missedsq + foundsq + 1.0e-10)
 else:
-
   # p(no triggers | no signal )
   #
   # number of segments without a trigger / total number of segments
-  tmparray = zeros(len(seglist))
+  tmparray = zeros(len(seglist), dtype=int)
 
-  end_time = offsourceTriggers.getsngls(ifo_list[0]).get_column("end_time")
-  for i, e in enumerate(end_time):
-    tmparray[seglist.find(e)] = 1.0
+  for coinc in offsourceTriggers:
+    # index by end time of alphabetically first IFO in coinc
+    end_time = getattr(coinc, coinc.get_ifos()[1][0]).end_time
+    tmparray[seglist.find(end_time)] = 1
 
   if opts.verbose: print tmparray
-  pczero = 1.0 - sum(tmparray) / float(len(seglist))
+  pczero = 1.0 - tmparray.sum() / len(seglist)
 
   print "p(c|0) = %f" % pczero
 
@@ -335,60 +306,64 @@ else:
   #
   # number of missed injections with parameters lambda / total number
   # of injections with parameter lambda
-  #foundsq = square(xedges,yedges,coincInjTriggers,"found")
-  #missedsq = square(xedges,yedges,coincInjTriggers,"missed")
+  pcsignalsq = missedsq / (missedsq + foundsq + 1.0e-10)
 
-  pcsignalsq = 1.0 * missedsq / (missedsq + foundsq + 1.0e-10)
-
-  pcsignal = 1.0*sum(sum(missedsq)) / ( sum(sum(missedsq)) + sum(sum(foundsq)) )
+  pcsignal = missedsq.sum() / (missedsq.sum() + foundsq.sum())
   print "p(c|h) = %f" % pcsignal
 
-  
+#####################################################################
+# generate plots
+
+im_extent = [min(xedges), max(xedges), min(yedges), max(yedges)]
+
 #figure()
-##imshow(pcsignalsq,origin='lower')
+##imshow(pcsignalsq, origin='lower')
 #hold(True)
-#IC=contourf(xedges,yedges,pcsignalsq)
-#xlabel("m1 (Msun)", size='x-large' )
-#ylabel("D (Mpc)", size='x-large' )
+#IC = contourf(xedges, yedges, pcsignalsq)
+#xlabel(r"$m_1 (M_\odot)$")
+#ylabel(r"$D (\mathrm{Mpc})$")
 #colorbar(IC)
 
 figure()
 palette = cm
-IM=imshow(pcsignalsq,origin='lower',extent =[min(xedges),max(xedges),min(yedges),max(yedges)],interpolation='nearest')
+IM = imshow(pcsignalsq, origin='lower', extent=im_extent,
+  interpolation='nearest')
 hold(True)
-contour(pcsignalsq,extent =[min(xedges),max(xedges),min(yedges),max(yedges)])
+contour(pcsignalsq, extent=im_extent)
 colorbar(IM)
 axis('image')
 #axvline(candmass)
-title('p[candidate|h(m1,D)]', size='x-large')
-xlabel("m1 (Msun)", size='x-large' )
-ylabel("D (Mpc)", size='x-large' )
+title(r'$p[\mathrm{candidate}|h(m_1,D)]$')
+xlabel(r"$m_1 (M_\odot)$")
+ylabel(r"$D (\mathrm{Mpc})$")
 savefig("pcsignal.ps")
 
 figure()
 palette = cm
-IM=imshow(foundsq+missedsq,origin='lower',extent =[min(xedges),max(xedges),min(yedges),max(yedges)],interpolation='nearest')
+IM = imshow(foundsq + missedsq, origin='lower', extent=im_extent,
+  interpolation='nearest')
 hold(True)
-contour(foundsq+missedsq,extent =[min(xedges),max(xedges),min(yedges),max(yedges)])
+contour(foundsq + missedsq, extent=im_extent)
 colorbar(IM)
 axis('image')
 #axvline(candmass)
-title('Number of injections made', size='x-large')
-xlabel("m1 (Msun)", size='x-large' )
-ylabel("D (Mpc)", size='x-large' )
+title('Number of injections made')
+xlabel(r"$m_1 (M_\odot)$")
+ylabel(r"$D (\mathrm{Mpc})$")
 savefig("made-injections.ps")
 
 figure()
 palette = cm
-IM=imshow(foundsq/(foundsq+missedsq),origin='lower',extent =[min(xedges),max(xedges),min(yedges),max(yedges)],interpolation='nearest')
+IM = imshow(foundsq / (foundsq + missedsq + 1.0e-10), origin='lower',
+  extent=im_extent, interpolation='nearest')
 hold(True)
-contour((foundsq/(foundsq+missedsq+1.0e-10)),extent =[min(xedges),max(xedges),min(yedges),max(yedges)])
+contour(foundsq / (foundsq + missedsq + 1.0e-10), extent=im_extent)
 colorbar(IM)
 axis('image')
 #axvline(candmass)
-title('Fraction of injections found', size='x-large')
-xlabel("m1 (Msun)", size='x-large' )
-ylabel("D (Mpc)", size='x-large' )
+title('Fraction of injections found')
+xlabel(r"$m_1 (M_\odot)$")
+ylabel(r"$D (\mathrm{Mpc})$")
 savefig("found-fraction.ps")
 
 if opts.show_plot:
