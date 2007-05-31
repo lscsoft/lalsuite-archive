@@ -522,7 +522,7 @@ def call_timeslide_stats(slide_file, veto_file=None):
     print "* Running pylal_grbtimeslide_stats"
 
     args = ["pylal_grbtimeslide_stats", "--glob=%s" % slide_file,
-        "--fold-time=180", "--padding-seconds=72"]
+        "--fold-time=180"]
 
     if veto_file is not None:
         args += ["--veto-file=%s" % veto_file]
