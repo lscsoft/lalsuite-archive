@@ -32,8 +32,7 @@
 #include <time.h>
 #include <lal/Date.h>
 #include <lal/TimeDelay.h>
-#include <lal/DetectorSite.h>
-#include <lal/DetResponse.h>
+
 
 #define MODULE_NAME "pylal.xlal.date"
 
@@ -730,82 +729,6 @@ static PyObject *pylal_XLALArrivalTimeDiff(PyObject *self, PyObject *args)
 }
 
 
-static PyObject *pylal_XLALTimeDelay(PyObject *self, PyObject *args) {
-    /* Takes a bunch of informations (like time and sky location)
-       and calculates the time delay between two detectors */
-    
-  static LALStatus status;
-  double gps, alpha, delta;
-  char* detName1=NULL;
-  char* detName2=NULL;
-  LALDetector detector1, detector2;
-  LIGOTimeGPS  timeGPS;
-  LALGPSandAcc timeAcc;    
-  LALPlaceAndGPS* site1;
-  LALPlaceAndGPS* site2;
-  SkyPosition skysource;
-  TwoDetsTimeAndASource* sourceDets;
-  double delay;
-
-  /* parsing arguments */
-  if (! PyArg_ParseTuple(args, "dddss", &gps, &alpha, &delta, &detName1, &detName2))
-    return NULL;
-  
-  site1     = (LALPlaceAndGPS*)LALMallocShort( sizeof(LALPlaceAndGPS ));
-  site2     = (LALPlaceAndGPS*)LALMallocShort( sizeof(LALPlaceAndGPS ));
-  sourceDets= (TwoDetsTimeAndASource*)LALMallocShort( sizeof(TwoDetsTimeAndASource));
-  
-  /* get detector */
-  if ( !strcmp(detName1, "H1") ) {
-    detector1=lalCachedDetectors[LALDetectorIndexLHODIFF];
-  } else if ( !strcmp(detName1, "H2") ) {
-    detector1=lalCachedDetectors[LALDetectorIndexLHODIFF]; 
-  } else if ( !strcmp(detName1, "L1") ) {
-    detector1=lalCachedDetectors[LALDetectorIndexLLODIFF];
-  } else if ( !strcmp(detName1, "G1") ) {
-    detector1=lalCachedDetectors[LALDetectorIndexGEO600DIFF];
-  } else if ( !strcmp(detName1, "V1") ) {
-    detector1=lalCachedDetectors[LALDetectorIndexVIRGODIFF];
-  }
-  if ( !strcmp(detName2, "H1") ) {
-    detector2=lalCachedDetectors[LALDetectorIndexLHODIFF];
-  } else if ( !strcmp(detName2, "H2") ) {
-    detector2=lalCachedDetectors[LALDetectorIndexLHODIFF]; 
-  } else if ( !strcmp(detName2, "L1") ) {
-    detector2=lalCachedDetectors[LALDetectorIndexLLODIFF];
-  } else if ( !strcmp(detName2, "G1") ) {
-    detector2=lalCachedDetectors[LALDetectorIndexGEO600DIFF];
-  } else if ( !strcmp(detName2, "V1") ) {
-    detector2=lalCachedDetectors[LALDetectorIndexVIRGODIFF];
-  }
-
-  /* set the time */
-  XLALFloatToGPS( &timeGPS, gps);
-  timeAcc.gps      = timeGPS;
-  timeAcc.accuracy = LALLEAPSEC_STRICT;  
-
-  /* set the detectors and the time */
-  site1->p_detector = &detector1;
-  site1->p_gps      = &timeGPS;
-  site2->p_detector = &detector2;
-  site2->p_gps      = &timeGPS;
-
-  /* set the sky position */
-  skysource.longitude = alpha*LAL_PI_180;
-  skysource.latitude  = delta*LAL_PI_180;
-  skysource.system    = COORDINATESYSTEM_EQUATORIAL;
-  
-  /* put all together */
-  sourceDets->p_det_and_time1 = site1;
-  sourceDets->p_det_and_time2 = site2;
-  sourceDets->p_source        = &skysource;  
- 
-  /* now finally after all this chunk: do the calculation... */
-  LALTimeDelay( &status, &delay, sourceDets );
-
-  return Py_BuildValue("d", delay);
-}
-
 /*
  * ============================================================================
  *
@@ -826,14 +749,6 @@ static struct PyMethodDef module_methods[] = {
 	{"XLALLeapSecondsUTC", pylal_XLALLeapSecondsUTC, METH_VARARGS, NULL},
 	{"XLALModifiedJulianDay", pylal_XLALModifiedJulianDay, METH_VARARGS, NULL},
 	{"XLALUTCToGPS", pylal_XLALUTCToGPS, METH_VARARGS, NULL},
-  {"XLALTimeDelay", pylal_XLALTimeDelay,METH_VARARGS,\
-   "XLALTimeDelay(gps, alpha, delta, det1, det2)\n"
-   "\n"
-   "Calculates the time delay for two given detectors (names, like 'H1')\n"
-   "and for a given sky location (alpha, delta) [degree] \n"
-   "and a given gps time (as double). The returned value is the\n " 
-   "time delay in seconds.\n"
-   "Example: XLALTimeDelay(854378604.780, 11.089, 42.308, 'H1','L1' )"    },
 	{NULL,}
 };
 
