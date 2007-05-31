@@ -105,6 +105,10 @@ parser.add_option("-e", "--epsilon", type="float", default=0.,
   help="if metric distance squared > EPSILON, discard")
 parser.add_option("-n", "--ntrials", type="int", default=0,
   help="number off source segments")
+parser.add_option("-l", "--loudest-event-cut", action="store_true",
+  default=False, help="evaluate probabilities with a loudest-event cut")
+parser.add_option("-c", "--min-loudest-event-stat", type="float",
+  help="if there are no candidates, use this as the loudest event statistic")
 parser.add_option("-f", "--figure-name",
   help="generate png figures with name FNAME-fig.png")
 parser.add_option("-x", "--min-snr", type="float",
@@ -246,6 +250,25 @@ coincInjTriggers.add_missed_sims( \
     SimInspiralUtils.ReadSimInspiralFromFiles(glob.glob(opts.missed_glob)) )
 
 #####################################################################
+# do loudest event cut
+if opts.loudest_event_cut:
+  # determine loudest event statistic
+  if len(coincTriggers) > 0:
+    loudest_stat = coincTriggers.getstat().max()
+  else:
+    loudest_stat = opts.min_loudest_event_stat
+
+  # trim off-source candidate list
+  lt, eq, gt = offsourceTriggers.partition_by_stat(loudest_stat)
+  offsourceTriggers = gt
+  offsourceTriggers.extend(eq.rows)
+
+  # mark found injections with smaller stat as missed
+  for coinc in coincInjTriggers:
+    if coinc.stat < loudest_stat:
+      coinc.stat = -1
+
+#####################################################################
 # histogram triggers in mass1-distance space
 xedges = arange(0, 41, 2)
 yedges = asarray([0, 6, 8, 10, 12, 14, 16, 18, 20, 30, 41])
@@ -254,7 +277,7 @@ missedsq = square(xedges, yedges, coincInjTriggers, "missed")
 
 #####################################################################
 # if there are coincident triggers on source
-if coincTriggers:
+if coincTriggers and not opts.loudest_event_cut:
   # loop over each candidate
   for candidate in coincTriggers:
     fa_array = zeros(len(seglist), dtype=int)
@@ -290,6 +313,7 @@ else:
   # p(no triggers | no signal )
   #
   # number of segments without a trigger / total number of segments
+  # this is also the correct branch to take for the loudest-event analysis
   tmparray = zeros(len(seglist), dtype=int)
 
   for coinc in offsourceTriggers:
@@ -308,7 +332,7 @@ else:
   # of injections with parameter lambda
   pcsignalsq = missedsq / (missedsq + foundsq + 1.0e-10)
 
-  pcsignal = missedsq.sum() / (missedsq.sum() + foundsq.sum())
+  pcsignal = missedsq.sum() / (missedsq.sum() + foundsq.sum() + 1.0e-10)
   print "p(c|h) = %f" % pcsignal
 
 #####################################################################
