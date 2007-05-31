@@ -184,10 +184,7 @@ def SlidesIter(slides):
 	"""
 	instruments = slides.keys()
 	for slide in itertools.MultiIter(slides.values()):
-		offsetdict = {}
-		for instrument, offset in zip(instruments, slide):
-			offsetdict[instrument] = offset
-		yield offsetdict
+		yield dict(zip(instruments, slide))
 
 
 def RowsFromOffsetDict(offsetdict, time_slide_id, process):
