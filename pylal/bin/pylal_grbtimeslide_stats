@@ -32,8 +32,6 @@ parser.add_option("-V", "--veto-file",
     help="segwizard file with times to ignore")
 parser.add_option("-t", "--fold-time", type="float",
     help="express result in terms of segments of length FOLD_TIME")
-parser.add_option("-p", "--padding-seconds", type="int", default=0,
-    help="number of seconds to trim from beginning and end of off-source seg (default=0)")
 (opts,args) = parser.parse_args()
 
 if opts.glob is None and opts.input is None:
@@ -60,10 +58,7 @@ for input, files in zip(input_source, filegroups):
     # read triggers and segments
     triggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(files)
     segs = segmentsUtils.fromfilenames(files)
-    
-    # trim padding
-    segs &= segmentlist([segs.extent().contract(opts.padding_seconds)])
-    
+
     # veto triggers
     if opts.veto_file is not None:
         veto_segs = segmentsUtils.fromsegwizard(open(opts.veto_file))
@@ -73,9 +68,6 @@ for input, files in zip(input_source, filegroups):
         # re-quantize on fold_time
         t = opts.fold_time
         segs = segmentlist([segment(a, a + ((b-a)//t)*t) for a,b in segs])
-    
-    print veto_segs
-    print segs
     
     # reconstruct coincidences
     coincTable = CoincInspiralUtils.coincInspiralTable(triggers, dummy_stat)
