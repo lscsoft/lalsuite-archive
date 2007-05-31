@@ -326,6 +326,29 @@ class coincInspiralTable:
         simInspirals.append(coinc.sim)
     
     return simInspirals
+    
+  def partition_by_stat(self, threshold):
+    """
+    Return (triggers with stat < threshold,
+            triggers with stat == threshold,
+            triggers with stat > threshold).
+
+    The set of (stat == threshold) is of zero measure, but often, as when
+    doing something like the loudest event statistic, the threshold is taken
+    from a coinc in self.
+    """
+    stats = self.getstat()
+
+    lesser_coincs = coincInspiralTable(stat=self.stat)
+    lesser_coincs.extend([self[i] for i in (stats < threshold)])
+
+    equal_coincs = coincInspiralTable(stat=self.stat)
+    equal_coincs.extend([self[i] for i in (stats == threshold)])
+
+    greater_coincs = coincInspiralTable(stat=self.stat)
+    greater_coincs.extend([self[i] for i in (stats > threshold)])
+
+    return lesser_coincs, equal_coincs, greater_coincs
 
   def getTotalMass(self,mLow,mHigh):
     """
