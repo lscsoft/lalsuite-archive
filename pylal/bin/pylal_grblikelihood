@@ -143,18 +143,18 @@ parser.add_option("-O","--on-source-segs",
 if opts.on_source_glob is None:
   print >>sys.stderr, "Must specify a GLOB of on-source files to read"
   print >>sys.stderr, "Enter 'plotthinca --help' for usage"
-  sys.exit(1)
+  sys.exit(2)
 
 if (opts.full_segs is None) or (opts.on_source_segs is None):
   print >>sys.stderr, "There must be full-segs and on-source-segs"
-  sys.exit(1)
+  sys.exit(2)
 
 # check that statistic is OK:
 if opts.statistic not in ('snr', 'snr_over_chi', 's3_snr_chi_stat',
     'effective_snr', 'bitten_l', 'bitten_lsq'):
   print >>sys.stderr, "--statistic must be one of"
   print >>sys.stderr, "(snr|snr_over_chi|s3_snr_chi_stat|effective_snr|bitten_l|bitten_lsq)"
-  sys.exit(1)
+  sys.exit(2)
 
 # check plot type; strip leading periods
 opts.figure_type = opts.figure_type.strip(".")
