@@ -109,10 +109,8 @@ parser.add_option("-l", "--loudest-event-cut", action="store_true",
   default=False, help="evaluate probabilities with a loudest-event cut")
 parser.add_option("-c", "--min-loudest-event-stat", type="float",
   help="if there are no candidates, use this as the loudest event statistic")
-parser.add_option("-f", "--figure-name",
-  help="generate png figures with name FNAME-fig.png")
-parser.add_option("-P", "--figtype",
-  help="generate figures with of this type (e.g. ps or png")
+parser.add_option("-P", "--figure-type", default="ps",
+  help="generate figures with this extension (e.g. ps or png")
 parser.add_option("-x", "--min-snr", type="float",
   help="minimum value of snr on plot")
 parser.add_option("-X", "--max-snr", type="float",
@@ -158,7 +156,9 @@ if opts.statistic not in ('snr', 'snr_over_chi', 's3_snr_chi_stat',
   print >>sys.stderr, "(snr|snr_over_chi|s3_snr_chi_stat|effective_snr|bitten_l|bitten_lsq)"
   sys.exit(1)
 
-snglStat = opts.statistic
+# check plot type; strip leading periods
+opts.figure_type = opts.figure_type.strip(".")
+assert opts.figure_type in ("png", "ps", "eps", "svg")
 
 # Change to Agg back-end if show() will not be called
 if not opts.show_plot:
@@ -205,7 +205,7 @@ if opts.verbose:
   print "The number of trial segments is %i" % len(seglist)
 
 #####################################################################
-# read in triggers
+# read in on-source triggers
 coincfiles = glob.glob(opts.on_source_glob)
 inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(coincfiles)
 
@@ -225,7 +225,7 @@ coincTriggers.append(offsourceTriggers[4])
 
 if opts.max_snr is None:
   if len(inspTriggers) > 0:
-    xhigh = max(inspTriggers.get_column(snglStat))
+    xhigh = max(inspTriggers.get_column(opts.statistic))
   else:
     xhigh = 50.0
 else:
@@ -233,7 +233,7 @@ else:
 
 if opts.min_snr is None:
   if len(inspTriggers) > 0:
-    xlow = min(inspTriggers.get_column(snglStat))
+    xlow = min(inspTriggers.get_column(opts.statistic))
   else:
     xlow = 1.0
 else:
@@ -362,7 +362,7 @@ axis('image')
 title(r'$p[\mathrm{candidate}|h(m_1,D)]$')
 xlabel(r"$m_1 (M_\odot)$")
 ylabel(r"$D (\mathrm{Mpc})$")
-savefig("pcsignal."+opts.figtype)
+savefig("pcsignal.%s" % opts.figure_type)
 
 figure()
 palette = cm
@@ -376,7 +376,7 @@ axis('image')
 title('Number of injections made')
 xlabel(r"$m_1 (M_\odot)$")
 ylabel(r"$D (\mathrm{Mpc})$")
-savefig("made-injections."+opts.figtype)
+savefig("made-injections.%s"  % opts.figure_type)
 
 figure()
 palette = cm
@@ -390,7 +390,7 @@ axis('image')
 title('Fraction of injections found')
 xlabel(r"$m_1 (M_\odot)$")
 ylabel(r"$D (\mathrm{Mpc})$")
-savefig("found-fraction."+opts.figtype)
+savefig("found-fraction.%s" % opts.figure_type)
 
 if opts.show_plot:
   show()
