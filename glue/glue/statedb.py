@@ -126,6 +126,7 @@ class StateSegmentDatabase:
     self.state_vec['H2'] = {}
     self.state_vec['L1'] = {}
     self.state_vec['G1'] = {}
+    self.state_vec['V1'] = {}
     self.lfn_id = None
     self.run = run
     self.framereg = re.compile(r'^([A-Za-z]+)\-(\w+)\-(\d+)\-(\d+)\.gwf$')
