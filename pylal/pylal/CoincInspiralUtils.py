@@ -381,13 +381,13 @@ class coincInspiralTable:
     stats = self.getstat()
 
     lesser_coincs = coincInspiralTable(stat=self.stat)
-    lesser_coincs.extend([self[i] for i in (stats < threshold)])
+    lesser_coincs.extend([self[i] for i in (stats < threshold).nonzero()[0]])
 
     equal_coincs = coincInspiralTable(stat=self.stat)
-    equal_coincs.extend([self[i] for i in (stats == threshold)])
+    equal_coincs.extend([self[i] for i in (stats == threshold).nonzero()[0]])
 
     greater_coincs = coincInspiralTable(stat=self.stat)
-    greater_coincs.extend([self[i] for i in (stats > threshold)])
+    greater_coincs.extend([self[i] for i in (stats > threshold).nonzero()[0]])
 
     return lesser_coincs, equal_coincs, greater_coincs
 
