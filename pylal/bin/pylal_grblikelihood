@@ -111,6 +111,8 @@ parser.add_option("-c", "--min-loudest-event-stat", type="float",
   help="if there are no candidates, use this as the loudest event statistic")
 parser.add_option("-f", "--figure-name",
   help="generate png figures with name FNAME-fig.png")
+parser.add_option("-P", "--figtype",
+  help="generate figures with of this type (e.g. ps or png")
 parser.add_option("-x", "--min-snr", type="float",
   help="minimum value of snr on plot")
 parser.add_option("-X", "--max-snr", type="float",
@@ -360,7 +362,7 @@ axis('image')
 title(r'$p[\mathrm{candidate}|h(m_1,D)]$')
 xlabel(r"$m_1 (M_\odot)$")
 ylabel(r"$D (\mathrm{Mpc})$")
-savefig("pcsignal.ps")
+savefig("pcsignal."+opts.figtype)
 
 figure()
 palette = cm
@@ -374,7 +376,7 @@ axis('image')
 title('Number of injections made')
 xlabel(r"$m_1 (M_\odot)$")
 ylabel(r"$D (\mathrm{Mpc})$")
-savefig("made-injections.ps")
+savefig("made-injections."+opts.figtype)
 
 figure()
 palette = cm
@@ -388,7 +390,7 @@ axis('image')
 title('Fraction of injections found')
 xlabel(r"$m_1 (M_\odot)$")
 ylabel(r"$D (\mathrm{Mpc})$")
-savefig("found-fraction.ps")
+savefig("found-fraction."+opts.figtype)
 
 if opts.show_plot:
   show()
