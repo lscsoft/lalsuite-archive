@@ -51,6 +51,20 @@ __version__ = "$Revision$"[11:-2]
 #
 # =============================================================================
 #
+#                                Error Messages
+#
+# =============================================================================
+#
+
+
+def write_error_lines(lines):
+	for line in lines:
+		print >>sys.stderr, "LSCdataFindcheck: error:", line
+
+
+#
+# =============================================================================
+#
 #                                 Command Line
 #
 # =============================================================================
@@ -65,6 +79,7 @@ def parse_command_line():
 	parser.add_option("--gps-segment-list", metavar = "start:end[,start:end]...", help = "Check this list of segments.")
 	parser.add_option("--dagman-return", metavar = "value", default = 0, help = "Set $RETURN value from dagman.")
 	parser.add_option("--stat", action = "store_true", default = False, help = "Test that files exist and are accessible.")
+	parser.add_option("-v", "--verbose", action = "store_true", default = False, help = "Be verbose.")
 	options, filenames = parser.parse_args()
 
 	if options.dagman_return:
@@ -83,7 +98,7 @@ def parse_command_line():
 		options.segs = segments.segmentlist([segments.segment(LIGOTimeGPS(options.gps_start_time), LIGOTimeGPS(options.gps_end_time))])
 	else:
 		# should not get here
-		raise ValueError, "oops, script error"
+		raise ValueError, "oops, script error: please report to author"
 
 	return options, (filenames or [None])
 
@@ -91,7 +106,7 @@ def parse_command_line():
 try:
 	options, filenames = parse_command_line()
 except ValueError, e:
-	print >>sys.stderr, "LSCdataFindcheck: error: %s" % str(e)
+	write_error_lines([str(e)])
 	sys.exit(1)
 
 
@@ -112,13 +127,12 @@ except ValueError, e:
 # --dagman-return command line option.  In a Condor .dag file, the post
 # script's command line options should include "--dagman-return $RETURN".
 # dagman will replace "$RETURN" with the ASCII representation of the
-# LSCdataFind's return code, which this program will the return as its
-# result.
+# LSCdataFind's return code, which this program then returns as its result.
 #
 
 
 if options.dagman_return:
-	print >>sys.stderr, "LSCdataFindcheck: error: dag job execution failed"
+	write_error_lines(["dag job execution failed"])
 	sys.exit(options.dagman_return)
 
 
@@ -152,24 +166,19 @@ for filename in filenames:
 
 	seglist = segments.segmentlist([c.segment for c in cache]).coalesce()
 	if options.segs - seglist:
-		print >>sys.stderr, "LSCdataFindcheck: error: %s does not span %s: missing %s" % (filename or "stdin", str(options.segs), str(options.segs - seglist))
+		write_error_lines(["%s does not span:" % (filename or "stdin"), options.segs, "missing:", options.segs - seglist])
 		sys.exit(1)
 
 	#
 	# check that the files spanning the desired segment(s) are
-	# accessible (only local files are tested)
+	# accessible.  only local files that intersect the requested
+	# segmentlist are tested
 	#
 
 	if options.stat:
-		badpaths = []
-		for c in cache:
-			if not (options.segs.intersects_segment(c.segment) and c.host().lower() in ("", "localhost")):
-				# not local, or don't need it
-				continue
-			if not os.access(c.path(), os.R_OK):
-				badpaths.append(c.path())
+		badpaths = [c.path() for c in cache if options.segs.intersects_segment(c.segment) and c.host().lower() in ("", "localhost") and not os.access(c.path(), os.R_OK)]
 		if badpaths:
-			print >>sys.stderr, "LSCdataFindcheck: error: %s lists inaccessible files %s" % (filename, badpaths)
+			write_error_lines(["%s lists inaccessible files:" % (filename or "stdin"), badpaths])
 			sys.exit(1)
 
 #
