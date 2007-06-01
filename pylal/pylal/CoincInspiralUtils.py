@@ -6,6 +6,8 @@ from glue.ligolw import utils
 from pylal.tools import XLALCalculateEThincaParameter
 import numpy
 
+########################################
+# helper functions
 
 def uniq(list):
   """
@@ -14,6 +16,45 @@ def uniq(list):
   """
   temp_dict = {}
   return [temp_dict.setdefault(e,e) for e in list if e not in temp_dict]
+
+def simpleEThinca(trigger1, trigger2):
+  ''' 
+  Return the distance in parameter space between two inspiral triggers.
+
+  The number returned is only an approximation to the true distance, which is
+  valid whenever the two triggers are nearby. This is a simplified version of
+  the e-thinca parameter.
+
+  d_average=(1/2)[(Gamma(x1)_{ij}(x2-x1)^i(x2-x1)^j)^(1/2) + (Gamma(x2)_{ij}(x2-x1)^i(x2-x1)^j)^(1/2)]
+  @param trigger1, trigger2 are single inspiral triggers.
+  '''
+  #dend_time = (trigger2.end_time - trigger1.end_time) +\
+  #(trigger2.end_time_ns - trigger1.end_time_ns)*10**(-9)
+  #print dend_time
+  dend_time=(trigger2.end_time_ns - trigger1.end_time_ns)*10**(-9)
+
+  dtau0=trigger2.tau0-trigger1.tau0
+  #print dtau0
+
+  dtau3=trigger2.tau3-trigger1.tau3
+  #print dtau3
+
+  delta_x = numpy.array([dend_time, dtau0, dtau3])
+
+  Gamma1 = numpy.array( [[trigger1.Gamma0, trigger1.Gamma1, trigger1.Gamma2],\
+                 [trigger1.Gamma1, trigger1.Gamma3, trigger1.Gamma4],\
+                 [trigger1.Gamma2, trigger1.Gamma4, trigger1.Gamma5]])
+  #print Gamma1
+
+  Gamma2 = numpy.array( [[trigger2.Gamma0, trigger2.Gamma1, trigger2.Gamma2],\
+                 [trigger2.Gamma1, trigger2.Gamma3, trigger2.Gamma4],\
+                 [trigger2.Gamma2, trigger2.Gamma4, trigger2.Gamma5]])
+  #print Gamma2
+
+  average_distance= 0.5*numpy.sqrt(numpy.dot(delta_x, numpy.dot(Gamma1, delta_x))) + \
+                    0.5*numpy.sqrt(numpy.dot(delta_x, numpy.dot(Gamma2, delta_x)))
+
+  return average_distance
 
 ########################################
 class coincStatistic:
@@ -408,6 +449,19 @@ class coincInspiralTable:
     
     return numpy.asarray(ethinca)
 
+  def getSimpleEThincaValues(self, ifos):
+    """
+    Return simple ethinca values for the coincidences of the ifo pair ifos.
+    
+    For coincs that do not have both ifos specified, return 0.0.
+    """
+    ethinca = numpy.zeros(len(self), dtype=float)
+    for i,coinc in enumerate(self):
+      if hasattr(coinc, ifos[0]) and hasattr(coinc, ifos[1]):
+        ethinca[i] = simpleEThinca(getattr(coinc, ifos[0]),
+                                   getattr(coinc, ifos[1]))
+    return ethinca
+
   def metricHistogram(self, candidate):
     """
     Return distance squared between candidate and coincident triggers
@@ -529,41 +583,3 @@ class coincInspiralTable:
 
     return triggers_within_epsilon
 
-def simpleEThinca(trigger1, trigger2):
-  ''' 
-  Return the distance in parameter space between two inspiral triggers.
-
-  The number returned is only an approximation to the true distance, which is
-  valid whenever the two triggers are nearby. This is a simplified version of
-  the e-thinca parameter.
-
-  d_average=(1/2)[(Gamma(x1)_{ij}(x2-x1)^i(x2-x1)^j)^(1/2) + (Gamma(x2)_{ij}(x2-x1)^i(x2-x1)^j)^(1/2)]
-  @param trigger1, trigger2 are single inspiral triggers.
-  '''
-  #dend_time = (trigger2.end_time - trigger1.end_time) +\
-  #(trigger2.end_time_ns - trigger1.end_time_ns)*10**(-9)
-  #print dend_time
-  dend_time=(trigger2.end_time_ns - trigger1.end_time_ns)*10**(-9)
-
-  dtau0=trigger2.tau0-trigger1.tau0
-  #print dtau0
-
-  dtau3=trigger2.tau3-trigger1.tau3
-  #print dtau3
-
-  delta_x = numpy.array([dend_time, dtau0, dtau3])
-
-  Gamma1 = numpy.array( [[trigger1.Gamma0, trigger1.Gamma1, trigger1.Gamma2],\
-                 [trigger1.Gamma1, trigger1.Gamma3, trigger1.Gamma4],\
-                 [trigger1.Gamma2, trigger1.Gamma4, trigger1.Gamma5]])
-  #print Gamma1
-
-  Gamma2 = numpy.array( [[trigger2.Gamma0, trigger2.Gamma1, trigger2.Gamma2],\
-                 [trigger2.Gamma1, trigger2.Gamma3, trigger2.Gamma4],\
-                 [trigger2.Gamma2, trigger2.Gamma4, trigger2.Gamma5]])
-  #print Gamma2
-
-  average_distance= 0.5*numpy.sqrt(numpy.dot(delta_x, numpy.dot(Gamma1, delta_x))) + \
-                    0.5*numpy.sqrt(numpy.dot(delta_x, numpy.dot(Gamma2, delta_x)))
-
-  return average_distance
