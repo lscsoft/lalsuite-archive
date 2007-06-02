@@ -29,7 +29,6 @@ A collection of utilities to assist in writing applications that manipulate
 data in LIGO Light-Weight XML format.
 """
 
-import bisect
 import os
 import pickle
 import socket
@@ -334,18 +333,6 @@ def smallest_enclosing_seg(a, b):
 	Return the smallest segment that contains both a and b.
 	"""
 	return segments.segment(min(a[0], b[0]), max(a[1], b[1]))
-
-
-def bisect_contains(array, val):
-	"""
-	Uses a bisection search to determine if val is in array.  Returns
-	True or False.  NOTE:  this is going to be removed, use Python sets
-	instead.
-	"""
-	try:
-		return array[bisect.bisect_left(array, val)] == val
-	except IndexError:
-		return False
 
 
 def get_coincident_segmentlistdict(seglistdict, offsetdictlist):
