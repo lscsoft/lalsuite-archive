@@ -355,7 +355,6 @@ class DBTable(table.Table):
 
 	def unlink(self):
 		table.Table.unlink(self)
-		#self.cursor.execute("DROP TABLE " + self.dbtablename)
 		self.cursor = None
 
 	def applyKeyMapping(self):
@@ -366,7 +365,7 @@ class DBTable(table.Table):
 		"""
 		assignments = []
 		for colname in [colname for coltype, colname in zip(self.dbcolumntypes, self.dbcolumnnames) if coltype in types.IDTypes and (self.ids is None or colname != self.ids.column_name)]:
-			assignments.append(" %s = (SELECT new FROM _idmap_ WHERE old == %s)" % (colname, colname))
+			assignments.append("%s = (SELECT new FROM _idmap_ WHERE old == %s)" % (colname, colname))
 		if not assignments:
 			# table has no columns to update
 			return
@@ -376,7 +375,7 @@ class DBTable(table.Table):
 		# 64 bit integer, so the only way it will wrap is if
 		# somebody sets it to a very high number manually.  This
 		# library does not do that, so I don't bother checking.
-		statement = "UPDATE " + self.dbtablename + " SET" + ",".join(assignments) + " WHERE ROWID > %d" % self.last_maxrowid
+		statement = "UPDATE " + self.dbtablename + " SET " + ", ".join(assignments) + " WHERE ROWID > %d" % self.last_maxrowid
 		self.cursor.execute(statement)
 		self.last_maxrowid = self.maxrowid() or 0
 
@@ -403,12 +402,7 @@ class ProcessTable(DBTable):
 		Return a set of the process IDs from rows whose program
 		string equals the given program.
 		"""
-		return set([id for (id,) in self.cursor.execute("""
-			SELECT process_id FROM
-				process
-			WHERE
-				program == ?
-		""", (program,))])
+		return set([id for (id,) in self.cursor.execute("SELECT process_id FROM process WHERE program == ?", (program,))])
 
 
 class ProcessParamsTable(DBTable):
@@ -443,12 +437,10 @@ class SearchSummaryTable(DBTable):
 		seglistdict = segments.segmentlistdict()
 		for row in self:
 			if process_ids is None or row.process_id in process_ids:
-				for ifo in row.ifos.split(","):
-					if ifo in seglistdict:
-						seglistdict[ifo].append(row.get_out())
-					else:
-						seglistdict[ifo] = segments.segmentlist([row.get_out()])
-		return seglistdict.coalesce()
+				ifos = row.ifos.split(",")
+				segs = map(segments.segmentlist, [[row.get_out()]] * len(ifos))
+				seglistdict |= segments.segmentlistdict(zip(ifos, segs))
+		return seglistdict
 
 
 class SnglBurstTable(DBTable):

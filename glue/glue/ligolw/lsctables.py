@@ -337,12 +337,10 @@ class SearchSummaryTable(table.Table):
 		seglistdict = segments.segmentlistdict()
 		for row in self:
 			if process_ids is None or row.process_id in process_ids:
-				for ifo in row.ifos.split(","):
-					if ifo in seglistdict:
-						seglistdict[ifo].append(row.get_out())
-					else:
-						seglistdict[ifo] = segments.segmentlist([row.get_out()])
-		return seglistdict.coalesce()
+				ifos = row.ifos.split(",")
+				segs = map(segments.segmentlist, [[row.get_out()]] * len(ifos))
+				seglistdict |= segments.segmentlistdict(zip(ifos, segs))
+		return seglistdict
 
 
 class SearchSummary(object):
