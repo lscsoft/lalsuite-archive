@@ -33,9 +33,7 @@ Excess power upper limit final result tool.
 """
 
 
-import bisect
 import glob
-import math
 import numpy
 from optparse import OptionParser
 from pysqlite2 import dbapi2 as sqlite3
@@ -349,7 +347,7 @@ def Efficiency_hrss_vs_freq_add_contents(self, contents):
 	# I'm running fixed networks so this is not a problem, but if
 	# variable configuration networks are adopted in the future, then
 	# this will need to be re-thought to be sure that "found" means
-	# found in the correct set of instruments.
+	# "found in the correct set of instruments".
 	for values in contents.connection.cursor().execute("""
 SELECT sim_burst.*, EXISTS (
 	-- Find a burst<-->burst coinc containing a burst that participated
