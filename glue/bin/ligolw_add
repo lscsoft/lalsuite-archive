@@ -37,6 +37,7 @@ from optparse import OptionParser
 import sys
 import os
 
+
 from glue.lal import CacheEntry
 from glue.ligolw.utils import ligolw_add
 from glue.ligolw import ligolw
@@ -110,21 +111,22 @@ def make_lfn_table(doc, pathname, start_time = None, end_time = None, comment = 
 	"""
 	Generate an LFN table for a document.
 	"""
+	for lfn_table in lsctables.getTablesByType(doc, lsctables.LfnTable):
+		lfn_table.sync_ids()
 	cols = ["process_id", "lfn_id", "name"]
-	if start_time != None:
+	if start_time is not None:
 		cols.append("start_time")
-	if end_time != None:
+	if end_time is not None:
 		cols.append("end_time")
-	if comment != None:
+	if comment is not None:
 		cols.append("comment")
 	lfn_table = lsctables.New(lsctables.LfnTable, cols)
 	name = os.path.basename(pathname)
-	ids = lsctables.LfnIDs()
 	for process_table in lsctables.getTablesByType(doc, lsctables.ProcessTable):
 		for pid in process_table.getColumnByName("process_id"):
 			row = lsctables.Lfn()
 			row.process_id = pid
-			row.lfn_id = ids.next()
+			row.lfn_id = lfn_table.ids.next()
 			row.name = name
 			row.start_time = start_time
 			row.end_time = end_time
