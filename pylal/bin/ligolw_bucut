@@ -59,7 +59,7 @@ def parse_command_line():
 	parser = OptionParser(
 		version = "%prog CVS $Id$",
 		usage = "%prog [options] [file [file ...]]",
-		description = "Removes sngl_burst events from XML files according to a variety of criteria.  Files named on the command line are read one-by-one, and over-written with the new files.  If no files are named on the command line, input is read from stdin and written to stdout.  Any file whose name ends in \".gz\" is assumed to be gzip compressed.  Note that, for the most part, this program does not understand coincidence information, and so running it on files that have been processed by, say, burca or binjfind can lead to broken coincidence tables."
+		description = "Removes sngl_burst events from XML files according to a variety of criteria.  Files named on the command line are read one-by-one, and over-written with the new files.  If no files are named on the command line, input is read from stdin and written to stdout.  Any file whose name ends in \".gz\" is assumed to be gzip compressed.  Note that, for the most part, this program does not understand coincidence information, and so if an injection or burst event is removed that participates in a coincidence, this program simply deletes the entire coincidence as well (before applying the --coinc-only cut)."
 	)
 	parser.add_option("--coinc-only", action = "store_true", help = "Discard events that are not participating in a coincident event.")
 	parser.add_option("--comment", metavar = "text", default = "", help = "Set the comment string to be recorded in the process table for this job (default = \"\").")
@@ -117,7 +117,6 @@ class DocContents(object):
 		#
 
 		self.outsegs = llwapp.segmentlistdict_fromsearchsummary(xmldoc, program)
-		self.outseg = self.outsegs.extent_all()
 
 		#
 		# Find the sngl_burst table
@@ -148,11 +147,9 @@ class DocContents(object):
 
 		try:
 			self.coinctable = table.get_table(xmldoc, lsctables.CoincTable.tableName)
-		except:
-			self.coinctable = []
-		try:
 			self.coincmaptable = table.get_table(xmldoc, lsctables.CoincMapTable.tableName)
 		except:
+			self.coinctable = []
 			self.coincmaptable = []
 		self.make_coinceventids()
 
@@ -161,7 +158,7 @@ class DocContents(object):
 		#
 
 		try:
-			self.vetosegs = segments.segmentlist([row.get() for row in table.get_table(xmldoc, lsctables.SegmentTable.tableName) if row.get_active()]).coalesce()
+			self.vetosegs = segments.segmentlist(row.get() for row in table.get_table(xmldoc, lsctables.SegmentTable.tableName) if row.get_active()).coalesce()
 		except:
 			self.vetosegs = segments.segmentlist()
 
@@ -360,28 +357,24 @@ def keep_this_sngl_burst(burst, options):
 
 def remove_events_by_parameters(contents, options):
 	deleted_ids = set()
-	i = 0
-	while i < len(contents.snglbursttable):
+	for i in xrange(len(contents.snglbursttable) - 1, -1, -1):
 		burst = contents.snglbursttable[i]
 		if burst.process_id in contents.process_ids and not keep_this_sngl_burst(burst, options):
 			ids.add(burst.event_id)
 			del contents.snglbursttable[i]
-		else:
-			i += 1
 	return deleted_ids
 
 
 def remove_non_coincidences(contents):
-	i = 0
-	while i < len(contents.snglbursttable):
+	for i in xrange(len(contents.snglbursttable) - 1, -1, -1):
 		burst = contents.snglbursttable[i]
 		if burst.process_id in contents.process_ids and not contents.is_coinc_event(burst):
 			del contents.snglbursttable[i]
-		else:
-			i += 1
 
 
 def keep_this_injection(sim, outsegs):
+	# FIXME: is this faster?
+	#return True in (sim.get_peak(instrument) in seglist for instrument, seglist in outsegs.iteritems())
 	for instrument, seglist in outsegs.iteritems():
 		if sim.get_peak(instrument) in seglist:
 			return True
@@ -389,36 +382,26 @@ def keep_this_injection(sim, outsegs):
 
 
 def remove_injections_by_segment(contents):
-	i = 0
-	while i < len(contents.simbursttable):
+	for i in xrange(len(contents.simbursttable) - 1, -1, -1):
 		if not keep_this_injection(contents.simbursttable[i], contents.outsegs):
 			del contents.simbursttable[i]
-		else:
-			i += 1
 
 
 def clean_coinc_tables(contents, removed_ids):
-	# FIXME:  this only works on the output of burca, not the output of
-	# binjfind.  In the case of binjfind, deleting a trigger doesn't
-	# neccessarily invalidate the coincidences in which it occurs since
-	# the injection is still coincident with the remaining events.
-	# If *all* of the events in an injection coincidence get deleted,
-	# only then should the injection be marked as not found (by
-	# deleting the coincidence).
 	# remove dangling coinc_event_map rows
 	removed_coincs = set()
-	for i in range(len(contents.coincmaptable) - 1, -1, -1):
+	for i in xrange(len(contents.coincmaptable) - 1, -1, -1):
 		if contents.coincmaptable[i].event_id in removed_ids:
 			removed_coincs.add(contents.coincmaptable[i].coinc_event_id)
 			del contents.coincmaptable[i]
 
 	# remove broken coinc_event rows
-	for i in range(len(contents.coinctable) - 1, -1, -1):
+	for i in xrange(len(contents.coinctable) - 1, -1, -1):
 		if contents.coinctable[i].coinc_event_id in removed_coincs:
 			del contents.coinctable[i]
 
 	# remove dangling coinc_event_map rows
-	for i in range(len(contents.coincmaptable) - 1, -1, -1):
+	for i in xrange(len(contents.coincmaptable) - 1, -1, -1):
 		if contents.coincmaptable[i].coinc_event_id in removed_coincs:
 			del contents.coincmaptable[i]
 
@@ -462,7 +445,8 @@ def ligolw_bucut(doc, options):
 
 	apply_filters(contents, options, options.verbose)
 
-	llwapp.append_search_summary(doc, process, inseg = contents.outseg, outseg = contents.outseg, nevents = len(contents.snglbursttable))
+	seg = contents.outsegs.extent_all()
+	llwapp.append_search_summary(doc, process, inseg = seg, outseg = seg, nevents = len(contents.snglbursttable))
 	llwapp.set_process_end_time(process)
 
 	return doc
