@@ -29,6 +29,7 @@
 import sys
 
 
+from glue import segments
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from pylal import llwapp
@@ -105,6 +106,13 @@ def add_ms_columns(sngl_burst_table):
 #
 # =============================================================================
 #
+
+
+def smallest_enclosing_seg(a, b):
+	"""
+	Return the smallest segment that contains both a and b.
+	"""
+	return segments.segment(min(a[0], b[0]), max(a[1], b[1]))
 
 
 #
@@ -208,14 +216,14 @@ def ExcessPowerClusterFunc(a, b):
 	# bands of the two original events
 	#
 
-	a.set_band(llwapp.smallest_enclosing_seg(a.get_band(), b.get_band()))
+	a.set_band(smallest_enclosing_seg(a.get_band(), b.get_band()))
 
 	#
 	# The cluster's time interval is the smallest interval containing
 	# the intervals of the two original events
 	#
 
-	a.set_period(llwapp.smallest_enclosing_seg(a.get_period(), b.get_period()))
+	a.set_period(smallest_enclosing_seg(a.get_period(), b.get_period()))
 
 	#
 	# Success

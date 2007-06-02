@@ -16,6 +16,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+
 #
 # =============================================================================
 #
@@ -24,15 +25,18 @@
 # =============================================================================
 #
 
+
 """
 A collection of utilities to assist in writing applications that manipulate
 data in LIGO Light-Weight XML format.
 """
 
+
 import os
 import pickle
 import socket
 import time
+
 
 from glue import segments
 from glue.ligolw import ligolw
@@ -41,6 +45,7 @@ from glue.ligolw import param
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from pylal.date import XLALUTCToGPS
+
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
@@ -326,13 +331,6 @@ def append_search_summary(doc, process, shared_object = "standalone", lalwrapper
 #
 # =============================================================================
 #
-
-
-def smallest_enclosing_seg(a, b):
-	"""
-	Return the smallest segment that contains both a and b.
-	"""
-	return segments.segment(min(a[0], b[0]), max(a[1], b[1]))
 
 
 def get_coincident_segmentlistdict(seglistdict, offsetdictlist):
