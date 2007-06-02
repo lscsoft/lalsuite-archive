@@ -107,11 +107,12 @@ def parse_command_line():
 #
 
 
-def make_lfn_table(doc, pathname, start_time = None, end_time = None, comment = None):
+def add_lfn_table(xmldoc, pathname, start_time = None, end_time = None, comment = None):
 	"""
-	Generate an LFN table for a document.
+	Update the LFN table in the document, adding it if needed.
 	"""
-	for lfn_table in lsctables.getTablesByType(doc, lsctables.LfnTable):
+	lfn_table = None
+	for lfn_table in lsctables.getTablesByType(xmldoc, lsctables.LfnTable):
 		lfn_table.sync_ids()
 	cols = ["process_id", "lfn_id", "name"]
 	if start_time is not None:
@@ -120,9 +121,17 @@ def make_lfn_table(doc, pathname, start_time = None, end_time = None, comment = 
 		cols.append("end_time")
 	if comment is not None:
 		cols.append("comment")
-	lfn_table = lsctables.New(lsctables.LfnTable, cols)
+	if lfn_table is None:
+		# didn't find an LFN table, add one
+		lfn_table = lsctables.New(lsctables.LfnTable, cols)
+		xmldoc.getElementsByTagName(ligolw.LIGO_LW.tagName)[0].appendChild(lfn_table)
+	else:
+		# already has an LFN table, are the cols OK?
+		cols = [col for col in cols if col not in lfn_table.columnnames]
+		if cols:
+			raise Exception, "document already contains an LFN table, but is missing columns %s" % ", ".join(cols)
 	name = os.path.basename(pathname)
-	for process_table in lsctables.getTablesByType(doc, lsctables.ProcessTable):
+	for process_table in lsctables.getTablesByType(xmldoc, lsctables.ProcessTable):
 		for pid in process_table.getColumnByName("process_id"):
 			row = lsctables.Lfn()
 			row.process_id = pid
@@ -183,7 +192,7 @@ xmldoc = ligolw_add.ligolw_add(ligolw.Document(), urls, non_lsc_tables_ok = opti
 if options.add_lfn_table:
 	if not options.output:
 		raise Exception, "cannot add LFN table when no output filename is given"
-	xmldoc.getElementsByTagName(ligolw.LIGO_LW.tagName)[0].appendChild(make_lfn_table(xmldoc, options.output, options.lfn_start_time, options.lfn_end_time, options.lfn_comment))
+	add_lfn_table(xmldoc, options.output, options.lfn_start_time, options.lfn_end_time, options.lfn_comment)
 
 
 #
