@@ -1617,6 +1617,38 @@ class TimeSlideTable(table.Table):
 			d[row.time_slide_id][row.instrument] = row.offset
 		return d
 
+	def get_time_slide_id(self, offsetdict, create_new = None):
+		"""
+		Return the time_slide_id corresponding to the time slide
+		described by offsetdict, a dictionary of instrument/offset
+		pairs.  If no matching time_slide_id is found, then
+		KeyError is raised.  If, however, the optional create_new
+		argument is set to an lsctables.Process object (or any
+		other object with a process_id attribute), then new rows
+		are added to the table to describe the desired time slide,
+		and the ID of the new rows is returned.
+		"""
+		# look for the ID
+		for id, slide in self.as_dict().iteritems():
+			if offsetdict == slide:
+				# found it
+				return id
+
+		# time slide not found in table
+		if create_new is None:
+			raise KeyError, offsetdict
+		id = self.sync_ids().next()
+		for instrument, offset in offsetdict.iteritems():
+			row = self.RowType()
+			row.process_id = create_new.process_id
+			row.time_slide_id = id
+			row.instrument = instrument
+			row.offset = offset
+			self.append(row)
+
+		# return new ID
+		return id
+
 	def is_null(self, id):
 		"""
 		Test that a time slide ID identifies an all-zero time
