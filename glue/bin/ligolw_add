@@ -34,8 +34,8 @@ Add (merge) LIGO LW XML files containing LSC tables.
 
 
 from optparse import OptionParser
-import sys
 import os
+import sys
 
 
 from glue.lal import CacheEntry
@@ -111,6 +111,12 @@ def update_lfn_table(xmldoc, pathname, start_time = None, end_time = None, comme
 	"""
 	Update the LFN table in the document, adding it if needed.
 	"""
+	# Python 2.3 compatibility
+	try:
+		set
+	except NameError:
+		from sets import Set as set
+	# determine the columns required by the user
 	cols = ["process_id", "lfn_id", "name"]
 	if start_time is not None:
 		cols.append("start_time")
@@ -118,9 +124,14 @@ def update_lfn_table(xmldoc, pathname, start_time = None, end_time = None, comme
 		cols.append("end_time")
 	if comment is not None:
 		cols.append("comment")
+	# look for an existing LFN table.  while at it, sync the ID
+	# generator and collect the process IDs that already have entries
+	# in the tables
 	lfn_table = None
+	existing_pids = set()
 	for lfn_table in lsctables.getTablesByType(xmldoc, lsctables.LfnTable):
 		lfn_table.sync_ids()
+		existing_pids.update(lfn_table.getColumnByName("process_id"))
 	if lfn_table is None:
 		# didn't find an LFN table, add one
 		lfn_table = lsctables.New(lsctables.LfnTable, cols)
@@ -130,8 +141,14 @@ def update_lfn_table(xmldoc, pathname, start_time = None, end_time = None, comme
 		if set(cols) != set(lfn_table.columnnames):
 			raise Exception, "document contains an LFN table with columns %s, but columns %s are required" % (", ".join(lfn_table.columnnames), ", ".join(cols))
 	pathname = os.path.basename(pathname)
+	# add a row to the LFN table for every process in every process
+	# table
 	for process_table in lsctables.getTablesByType(xmldoc, lsctables.ProcessTable):
 		for pid in process_table.getColumnByName("process_id"):
+			if pid in existing_pids:
+				# LFN table already has an entry for this
+				# one, ignore
+				continue
 			row = lsctables.Lfn()
 			row.process_id = pid
 			row.lfn_id = lfn_table.ids.next()
