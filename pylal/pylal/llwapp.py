@@ -91,21 +91,7 @@ def get_time_slide_id(xmldoc, time_slide, create_new = None):
 			raise e
 		tisitable = lsctables.New(lsctables.TimeSlideTable)
 		xmldoc.childNodes[0].appendChild(tisitable)
-	for id, offsetdict in tisitable.as_dict().iteritems():
-		if offsetdict == time_slide:
-			return id
-	# time slide not found in table
-	if create_new is None:
-		raise KeyError, time_slide
-	id = tisitable.sync_ids().next()
-	for instrument, offset in time_slide.iteritems():
-		row = lsctables.TimeSlide()
-		row.process_id = create_new.process_id
-		row.time_slide_id = id
-		row.instrument = instrument
-		row.offset = offset
-		tisitable.append(row)
-	return id
+	return tisitable.get_time_slide_id(offsetdict, create_new = create_new)
 
 
 def get_zero_lag_time_slides(xmldoc, instrument_combinations = None):
@@ -133,14 +119,9 @@ def get_zero_lag_time_slides(xmldoc, instrument_combinations = None):
 				# not zero-lag
 				break
 		else:
-			# loop exited normally (all offsets == 0)
-			zero_lag_offset_dicts[id] = offset_dict
-
-	# remove unwanted instrument combinations
-	if instrument_combinations is not None:
-		for id, offset_dict in zero_lag_offset_dicts.items():
-			if set(offset_dict.keys()) not in instrument_combinations:
-				del zero_lag_offset_dicts[id]
+			# loop exited normally --> all offsets == 0
+			if instrument_combinations is None or set(offset_dict.keys()) in instrument_combinations:
+				zero_lag_offset_dicts[id] = offset_dict
 
 	# done
 	return zero_lag_offset_dicts
