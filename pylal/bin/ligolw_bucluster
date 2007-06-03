@@ -33,7 +33,6 @@ import sys
 
 
 from glue.lal import CacheEntry
-from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from pylal import ligolw_bucluster
@@ -93,11 +92,11 @@ def parse_command_line():
 
 
 #
-# Enable column interning
+# Use interning row builder to save memory.
 #
 
 
-table.RowBuilder = table.InterningRowBuilder
+lsctables.table.RowBuilder = lsctables.table.InterningRowBuilder
 
 
 #
@@ -114,7 +113,7 @@ options, filenames = parse_command_line()
 
 for filename in filenames:
 	xmldoc = utils.load_filename(filename, options.verbose, gz = (filename or "stdin").endswith(".gz"))
-	table.InterningRowBuilder.strings.clear()
+	lsctables.table.InterningRowBuilder.strings.clear()
 	xmldoc, changed = ligolw_bucluster.ligolw_bucluster(xmldoc, **options.__dict__)
 	if changed:
 		utils.write_filename(xmldoc, filename, options.verbose, gz = (filename or "stdout").endswith(".gz"))
