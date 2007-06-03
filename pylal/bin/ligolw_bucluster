@@ -29,7 +29,6 @@
 
 
 from optparse import OptionParser
-import sys
 
 
 from glue.lal import CacheEntry
@@ -77,7 +76,7 @@ def parse_command_line():
 		raise ValueError, "unrecognized --cluster-algorithm %s" % options.cluster_algorithm
 
 	for cache in options.input_cache:
-		filenames += [c.path() for c in map(CacheEntry, file(cache))]
+		filenames += [CacheEntry(line).path() for line in file(cache)]
 
 	return options, (filenames or [None])
 
