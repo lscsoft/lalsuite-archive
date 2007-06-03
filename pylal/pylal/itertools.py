@@ -16,6 +16,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+
 #
 # =============================================================================
 #
@@ -23,6 +24,7 @@
 #
 # =============================================================================
 #
+
 
 """
 A collection of iteration utilities.
@@ -41,45 +43,27 @@ __date__ = "$Date$"[7:-2]
 # =============================================================================
 #
 
-class MultiIter(object):
+
+def MultiIter(*lists):
 	"""
-	An iterator class for iterating over the elements of multiple lists
-	simultaneously.  An instance of the class is initialized with a
-	list of lists.  A call to next() returns a list of elements, one
-	from each of the lists.  Subsequent calls to next() iterate over
-	all combinations of elements from the lists.
+	An generator for iterating over the elements of multiple lists
+	simultaneously.  With N lists given as input, the output sequence
+	consists of all possible N-element lists containing one element
+	from each of the input lists.
 
 	Example:
 
-	>>> x = MultiIter([[0, 1, 2], [10, 11, 12]])
+	>>> x = MultiIter([0, 1, 2], [10, 11])
 	>>> list(x)
-	[[0, 10], [1, 10], [2, 10], [0, 11], [1, 11], [2, 11], [0, 12], [1,
-	12], [2, 12]]
+	[[0, 10], [1, 10], [2, 10], [0, 11], [1, 11], [2, 11]]
 	"""
-	def __init__(self, lists):
-		self.lists = tuple(lists)
-		self.index = [0] * len(lists)
-		self.length = tuple(map(len, lists))
-		self.stop = 0 in self.length
-
-	def __len__(self):
-		return reduce(int.__mul__, self.length)
-
-	def __iter__(self):
-		return self
-
-	def next(self):
-		if self.stop:
-			raise StopIteration
-		l = map(lambda l, i: l[i], self.lists, self.index)
-		for i in xrange(len(self.index)):
-			self.index[i] += 1
-			if self.index[i] < self.length[i]:
-				break
-			self.index[i] = 0
-		else:
-			self.stop = True
-		return l
+	if lists:
+		head = lists[0]
+		for t in MultiIter(*lists[1:]):
+			for h in head:
+				yield [h] + t
+	else:
+		yield []
 
 
 def choices(vals, n):

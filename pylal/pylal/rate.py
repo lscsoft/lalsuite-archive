@@ -262,7 +262,7 @@ class BinnedArray(object):
 		# can other's bins be put into ours?
 		if self.bins.min != other.bins.min or self.bins.max != other.bins.max or False in map(lambda a, b: (b % a) == 0, self.bins.shape, other.bins.shape):
 			raise TypeError, "incompatible binning: %s" % repr(other)
-		for coords in itertools.MultiIter(other.bins.centres):
+		for coords in itertools.MultiIter(*other.bins.centres):
 			self[coords] += other[coords]
 		return self
 

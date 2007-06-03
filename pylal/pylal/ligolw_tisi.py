@@ -183,7 +183,7 @@ def SlidesIter(slides):
 	0}]
 	"""
 	instruments = slides.keys()
-	for slide in itertools.MultiIter(slides.values()):
+	for slide in itertools.MultiIter(*slides.values()):
 		yield dict(zip(instruments, slide))
 
 

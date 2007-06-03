@@ -405,7 +405,7 @@ def Level1Iterator(eventlists, comparefunc, instruments, thresholds):
 	shortestinst = instruments.pop(shortest)
 	thresholds = map(lambda inst: thresholds[(shortestinst, inst)], instruments)
 	for n, event in enumerate(shortestlist):
-		yield n, length, event, itertools.MultiIter(map(lambda eventlist, threshold: eventlist.get_coincs(event, threshold, comparefunc), eventlists, thresholds))
+		yield n, length, event, itertools.MultiIter(*map(lambda eventlist, threshold: eventlist.get_coincs(event, threshold, comparefunc), eventlists, thresholds))
 
 
 def mutually_coincident(events, comparefunc, thresholds):
