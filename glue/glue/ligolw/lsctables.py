@@ -741,6 +741,21 @@ class SnglInspiralTable(table.Table):
 				keep.append(row)
 		return keep
 	
+	def vetoed(self, seglist):
+		"""
+		Return the inverse of what veto returns, i.e., return the triggers
+		that lie within a given seglist.
+		"""
+		vetoed = table.new_from_template(self)
+		keep = table.new_from_template(self)
+		for row in self:
+			time = row.get_end()
+			if time in seglist:
+				vetoed.append(row)
+			else:
+				keep.append(row)
+		return vetoed
+	
 	def getslide(self,slide_num):
 		"""
 		Return the triggers with a specific slide number.
