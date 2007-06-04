@@ -57,13 +57,13 @@ def MultiIter(*lists):
 	>>> list(x)
 	[[0, 10], [1, 10], [2, 10], [0, 11], [1, 11], [2, 11]]
 	"""
-	if lists:
+	if len(lists) > 0:
 		head = lists[0]
 		for t in MultiIter(*lists[1:]):
 			for h in head:
 				yield [h] + t
 	else:
-		yield []
+		yield lists
 
 
 def choices(vals, n):
@@ -80,9 +80,9 @@ def choices(vals, n):
 		yield vals
 	elif n > 1:
 		for i in xrange(len(vals) - n + 1):
+			v = [vals[i]]
 			for c in choices(vals[i+1:], n - 1):
-				c.insert(0, vals[i])
-				yield c
+				yield v + c
 	elif n == 1:
 		for v in vals:
 			yield [v]
