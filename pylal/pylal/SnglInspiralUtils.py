@@ -25,10 +25,12 @@
 #
 
 from pylal.date import LIGOTimeGPS
+from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
-from glue.ligolw import utils
+from glue.ligolw.utils import ligolw_add
+
 #
 # =============================================================================
 #
@@ -38,34 +40,32 @@ from glue.ligolw import utils
 #
 
 
-def ReadSnglInspiralFromFiles(fileList, mangle_event_id = False):
+def ReadSnglInspiralFromFiles(fileList, mangle_event_id=False, verbose=False):
   """
-  Read the snglInspiral tables from a list of files
+  Read the SnglInspiralTables from a list of files
+
   @param fileList: list of input files
+  @param mangle_event_id: ID remapping is necessary in cases where multiple
+    files might have event_id collisions (ex: exttrig injections)
+  @param verbose: print ligolw_add progress
   """
-  snglInspiralTriggers = None
-  ncoincs = 0
-  for thisFile in fileList:
-    doc = utils.load_filename(thisFile, gz=(thisFile or "stdin").endswith(".gz"))
-    # extract the sngl inspiral table
-    try: snglInspiralTable = \
-      table.get_table(doc, lsctables.SnglInspiralTable.tableName)
-    except: snglInspiralTable = None
+  # turn on ID remapping if necessary
+  if mangle_event_id:
+    lsctables.SnglInspiralTable.ids = lsctables.SnglInspiralIDs_old()
 
-    # if there is an inspiral table, update the event_id to make sure
-    # they are unique across all input files
-    if snglInspiralTable and mangle_event_id:
-      row_dict = {}
-      for trig in snglInspiralTable:  # N
-        if trig.event_id not in row_dict: # log_2 N
-          ncoincs += 1
-          row_dict[trig.event_id] = ReassignEventId(trig, ncoincs)
-        trig.event_id = row_dict[trig.event_id]
+  # ligolw_add will merge all tables, which is overkill, but merge time is
+  # much less than I/O time.
+  xmldoc = ligolw_add.ligolw_add(ligolw.Document(), fileList, verbose=verbose)
 
-    if snglInspiralTriggers and snglInspiralTable: 
-      snglInspiralTriggers.extend(snglInspiralTable)
-    elif not snglInspiralTriggers:
-      snglInspiralTriggers = snglInspiralTable
+  # extract the SnglInspiral table
+  try:
+    snglInspiralTriggers = table.get_table(xmldoc, \
+      lsctables.SnglInspiralTable.tableName)
+  except:
+    snglInspiralTriggers = None
+
+  # return ID remapping to its normal state (off)
+  lsctables.SnglInspiralTable.ids = None
 
   return snglInspiralTriggers
 
@@ -101,32 +101,3 @@ def CompareSnglInspiral(a, b, twindow = LIGOTimeGPS(0)):
     return 0
   else:
     return cmp(a.get_end(), b.get_end())
-
-#
-# =============================================================================
-#
-#                                  Those damn event ids
-#
-# =============================================================================
-#
-
-def DisectEventId(eventid):
-  """
-  return the three pieces of the event id
-  """
-  x = eventid // 1000000000
-  slidenum = (eventid % 1000000000) // 100000
-  y = eventid % 100000
-
-  return x,slidenum,y
-
-def ReassignEventId(a, newid):
-  """
-  Applies a new event id based on the new id, but preserving the time
-  slide information.  Ugh.  This is a hack.  FIXME!  Please.
-  """
-  newx = 100000000 + (newid // 100000)
-  newy = newid % 100000
-  x,slidenum,y = DisectEventId(a.event_id)
-  return (1000000000 * newx + slidenum * 100000 + newy)
-
