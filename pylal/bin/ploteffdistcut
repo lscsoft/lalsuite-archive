@@ -8,7 +8,6 @@ import exceptions
 import glob
 from types import *
 
-from pylab import *
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
@@ -17,7 +16,6 @@ from glue.ligolw import utils
 from pylal import SnglInspiralUtils
 from pylal import SimInspiralUtils
 from pylal import CoincInspiralUtils
-from pylal import viz
 
 ##############################################################################
 def disterr(coinc_table, ifo_list, use_avg):
@@ -154,6 +152,13 @@ if opts.slide_glob and not opts.num_slides:
   sys.exit(1)
   
 stat = CoincInspiralUtils.coincStatistic(opts.statistic)
+
+# if we're not displaying a plot, don't require an X server
+if not opts.show_plot:
+  import matplotlib
+  matplotlib.use("Agg")
+from pylab import *
+from pylal import viz
 
 #####################################
 # glob the input files
