@@ -198,7 +198,6 @@ setup(
 		os.path.join("bin", "lalapps_path2cache"),
 		os.path.join("bin", "lalapps_pire"),
 		os.path.join("bin", "lalapps_stringfinal"),
-		os.path.join("bin", "ligolw_add_inspiral"),
 		os.path.join("bin", "ligolw_binjfind"),
 		os.path.join("bin", "ligolw_bucluster"),
 		os.path.join("bin", "ligolw_bucut"),
