@@ -12,6 +12,7 @@ from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
+from glue.segmentsUtils import fromsegwizard
 
 from pylal import SnglInspiralUtils
 from pylal import SimInspiralUtils
@@ -75,6 +76,9 @@ parser.add_option("-g","--inj-glob",action="store",type="string",\
 
 parser.add_option("-G","--slide-glob",action="store",type="string",\
     default=None, metavar=" GLOB",help="GLOB of thinca files to read" )
+
+parser.add_option("-V", "--veto-file", metavar=" VETO_FILE",
+    help="file of segments in which to veto triggers (segwizard format)")
 
 parser.add_option("-L","--cluster-window",action="store",type="int",default=0,\
     metavar=" SEC", help="length of time over which to cluster triggers" )
@@ -176,6 +180,10 @@ if opts.slide_glob:
   slideFiles = glob.glob(opts.slide_glob)
   inspSlide = SnglInspiralUtils.ReadSnglInspiralFromFiles(slideFiles)
   
+  if opts.veto_file is not None:
+    veto_segs = fromsegwizard(open(opts.veto_file))
+    inspSlide = inspSlide.veto(veto_segs)
+
   if opts.num_slides > 0:
     slide_num = range(1 , opts.num_slides + 1)
     slide_num.extend(range(-opts.num_slides, 0))
@@ -220,7 +228,10 @@ if opts.dist_snr:
   # plot the slides
   if opts.slide_glob:
     semilogx(slide_snr, slide_error, 'b+', markersize=12,markeredgewidth=1)
-    leg.append('slide')
+    if opts.num_slides > 0:
+      leg.append('slide')
+    else: # opts.num_slides == 0
+      leg.append('background')
   # plot the injections
   semilogx(inj_snr, inj_error, 'rx', markersize=12,markeredgewidth=1)
   leg.append('inj')
@@ -230,7 +241,6 @@ if opts.dist_snr:
     semilogx(x, opts.kappa + opts.epsilon/x,'k',linewidth=1)
     leg.append('cut')
   xlim(min(x),max(x))
-  ylim(0,1)
   xticks(fontsize=opts.font_size)
   yticks(fontsize=opts.font_size)
   xlabel('snr of trigger',fontsize=opts.font_size)
@@ -258,7 +268,6 @@ if opts.dist_hist:
   yticks(fontsize=opts.font_size)
   xlabel('fractional difference in eff. distance',fontsize=opts.font_size)
   ylabel('normalized #',fontsize=opts.font_size)
-  xlim(0,1)
   ylim(ymin=0)
   if opts.figure_name:
     savefig(opts.figure_name + "_eff_dist_hist.png")
