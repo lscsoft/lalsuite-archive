@@ -19,42 +19,47 @@ def uniq(list):
 
 def simpleEThinca(trigger1, trigger2):
   ''' 
-  Return the distance in parameter space between two inspiral triggers.
+  Return the e-thinca corresponding to the distance in  parameter space between two inspiral triggers.
 
-  The number returned is only an approximation to the true distance, which is
-  valid whenever the two triggers are nearby. This is a simplified version of
-  the e-thinca parameter.
+  The average distance defined below  is only an approximation to the true distance and is
+  valid whenever two triggers are nearby. The simplified version of
+  the e-thinca parameter is calculated based on that definition of the distance.
 
   d_average=(1/2)[(Gamma(x1)_{ij}(x2-x1)^i(x2-x1)^j)^(1/2) + (Gamma(x2)_{ij}(x2-x1)^i(x2-x1)^j)^(1/2)]
+  then
+  simple_ethinca= d_average^2/4  
+  
   @param trigger1, trigger2 are single inspiral triggers.
   '''
   #dend_time = (trigger2.end_time - trigger1.end_time) +\
   #(trigger2.end_time_ns - trigger1.end_time_ns)*10**(-9)
-  #print dend_time
-  dend_time=(trigger2.end_time_ns - trigger1.end_time_ns)*10**(-9)
+  #FIX ME end_time for time slides is poorly defined, we should sort it out
+  dend_time = (trigger2.end_time_ns - trigger1.end_time_ns)*10**(-9)
 
-  dtau0=trigger2.tau0-trigger1.tau0
-  #print dtau0
+  dtau0 = trigger2.tau0-trigger1.tau0
+  
 
-  dtau3=trigger2.tau3-trigger1.tau3
-  #print dtau3
+  dtau3 = trigger2.tau3-trigger1.tau3
+  
 
   delta_x = numpy.array([dend_time, dtau0, dtau3])
 
   Gamma1 = numpy.array( [[trigger1.Gamma0, trigger1.Gamma1, trigger1.Gamma2],\
                  [trigger1.Gamma1, trigger1.Gamma3, trigger1.Gamma4],\
                  [trigger1.Gamma2, trigger1.Gamma4, trigger1.Gamma5]])
-  #print Gamma1
+  
 
   Gamma2 = numpy.array( [[trigger2.Gamma0, trigger2.Gamma1, trigger2.Gamma2],\
                  [trigger2.Gamma1, trigger2.Gamma3, trigger2.Gamma4],\
                  [trigger2.Gamma2, trigger2.Gamma4, trigger2.Gamma5]])
-  #print Gamma2
+  
 
-  average_distance= 0.5*numpy.sqrt(numpy.dot(delta_x, numpy.dot(Gamma1, delta_x))) + \
+  average_distance = 0.5*numpy.sqrt(numpy.dot(delta_x, numpy.dot(Gamma1, delta_x))) + \
                     0.5*numpy.sqrt(numpy.dot(delta_x, numpy.dot(Gamma2, delta_x)))
 
-  return average_distance
+  simple_ethinca = (average_distance**2)/4.0
+
+  return simple_ethinca
 
 ########################################
 class coincStatistic:
@@ -462,65 +467,6 @@ class coincInspiralTable:
                                    getattr(coinc, ifos[1]))
     return ethinca
 
-  def metricHistogram(self, candidate):
-    """
-    Return distance squared between candidate and coincident triggers
-    using the following metric
-
-    d^2 = ( 1/n ) * sum_i ( |cparam_i - trigparam_i|^2 / cparam_i^2 )
-
-    @param candidate: a coincInspiral describing a candidate
-    """
-    c_ifos,ifolist = candidate.get_ifos()
-    dsquared = []
-
-    for trig in self:
-      trig_ifos,tmplist = trig.get_ifos()
-      tmp_d_squared = 0.0
-      param_counter = 0
-      if c_ifos == trig_ifos:
-        for ifo1 in ifolist: 
-          # distance^2 apart in effective snr
-#          c_lambda = getattr(candidate,ifo1).get_effective_snr()
-#          t_lambda = getattr(trig,ifo1).get_effective_snr()
-#          tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
-#          param_counter += 1
-
-          # distance^2 apart in mchirp
-#          c_lambda = getattr(candidate,ifo1).mchirp
-#          t_lambda = getattr(trig,ifo1).mchirp
-#          tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
-#          param_counter += 1
-
-          # distance^2 apart in effective distance
-#          c_lambda = getattr(candidate,ifo1).eff_distance
-#          t_lambda = getattr(trig,ifo1).eff_distance
-#          tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
-#          param_counter += 1
-
-          # distance^2 apart in ethinca
-	  for ifo2 in ifolist:
-            if ifo1 < ifo2:
-              c_lambda = simpleEThinca(\
-              getattr(candidate,ifo1),\
-              getattr(candidate,ifo2) )
-              t_lambda = simpleEThinca(\
-              getattr(trig,ifo1),\
-              getattr(trig,ifo2) ) 
-              tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
-              param_counter+=1
-#              c_lambda = XLALCalculateEThincaParameter(\
-#              getattr(candidate,ifo1),\
-#              getattr(candidate,ifo2) ) 
-#              t_lambda = XLALCalculateEThincaParameter(\
-#              getattr(trig,ifo1),\
-#              getattr(trig,ifo2) ) 
-#              tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
-
-        dsquared.append(tmp_d_squared/param_counter)
-      else:
-        dsquared.append(-1.0)
-    return numpy.asarray(dsquared)
 
 
   def getTriggersWithinEpsilon(self, candidate, epsilon):
