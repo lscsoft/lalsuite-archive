@@ -154,25 +154,25 @@ class coincInspiralTable:
     self.sngl_table = inspTriggers
     self.sim_table = None
     self.rows = []
-    if not inspTriggers:
+    if inspTriggers is None:
       return
 
-    # At present, coincidence is recorded by coire by over-writing event_ids.
+    # At present, coincidence is recorded by thinca by over-writing event_ids.
     # The event_ids uniquely label coincidences now, rather than triggers.
-    # This is formally O(N log_2 N).
     row_dict = {}
     unique_id_list = []
-    for trig in inspTriggers:  # N
-      if trig.event_id not in row_dict: # log_2 N
-        unique_id_list += [trig.event_id]
-        row_dict[trig.event_id] = self.row(trig.event_id)
-      row_dict[trig.event_id].add_trig(trig, stat)
+    for trig in inspTriggers:
+      event_id = trig.event_id
+      if event_id not in row_dict:
+        unique_id_list.append(event_id)
+        row_dict[event_id] = self.row(event_id)
+      row_dict[event_id].add_trig(trig, stat)
 
-    # make sure that there are at least twos ifo in each coinc; restore order
+    # make sure that there are at least two ifos in each coinc; restore order
     pruned_rows = [row_dict[k] for k in unique_id_list \
       if row_dict[k].numifos > 1]
 
-    self.rows = pruned_rows      
+    self.rows = pruned_rows
     
   def __len__(self):
     return len(self.rows)
