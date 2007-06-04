@@ -108,8 +108,8 @@ parser.add_option("-b","--dist-snr",action="store_true",default=False,\
 parser.add_option("-c","--dist-hist",action="store_true",default=False,\
     help="histogram of distance accuracy" )
 
-parser.add_option("-N","--num-slides",action="store",type="int",default=0,\
-    metavar=" NUM_SLIDES",help="number of time slides performed" )
+parser.add_option("-N","--num-slides",action="store",type="int",\
+    metavar=" NUM_SLIDES",help="number of time slides performed (0 for zero-lag)" )
 
 parser.add_option("-t","--plot-type",action="store",type="string",\
     default="linear",metavar=" PLOT_TYPE", \
@@ -146,7 +146,7 @@ if not opts.ifoa or not opts.ifob:
   print >> sys.stderr, "Enter 'ploteffdistcut --help' for usage"
   sys.exit(1)
 
-if opts.slide_glob and not opts.num_slides:
+if opts.slide_glob and opts.num_slides is None:
   print >> sys.stderr, "--num-slides must be set if --slide-glob is specified"
   print >> sys.stderr, "Enter 'ploteffdistcut --help' for usage"
   sys.exit(1)
@@ -175,9 +175,12 @@ for file in injFiles:
 if opts.slide_glob:
   slideFiles = glob.glob(opts.slide_glob)
   inspSlide = SnglInspiralUtils.ReadSnglInspiralFromFiles(slideFiles)
-
-  slide_num = range(1 , opts.num_slides + 1)
-  slide_num.extend(range(-opts.num_slides, 0))
+  
+  if opts.num_slides > 0:
+    slide_num = range(1 , opts.num_slides + 1)
+    slide_num.extend(range(-opts.num_slides, 0))
+  else:
+    slide_num = [0]
 
   slideTriggers = CoincInspiralUtils.coincInspiralTable(stat=stat)
   for slide in slide_num:
