@@ -62,19 +62,24 @@ class getCache(UserDict):
     return {'H1':[],'H2':[],'L1':[],'H1H2':[], \
                     'H1L1':[],'H2L1':[],'H1H2L1':[]}
 
-  def getCacheType(self, type):
+  def getCacheType(self, type, cp=None):
     self[type] = []
     p = re.compile(type)
     f = re.compile("FOLLOWUP")
     m = re.compile("-")
     x = re.compile(".xml")
-    for fname in  self.dir:
+    try:
+      dir = os.listdir(string.strip(cp.get('hipe-cache',type)))
+      cache_path = os.path.abspath(string.strip(cp.get('hipe-cache',type)))
+    except:
+      dir = self.dir
+      cache_path = os.path.abspath(self.options.cache_path)
+    for fname in dir:
       if f.search(fname): continue
       if p.search(fname):
         ifo = m.split(fname)[0]
         start = m.split(fname)[-2]
         dur = x.split(m.split(fname)[-1])
-        cache_path = os.path.abspath(self.options.cache_path)
         try:
           entry = lal.CacheEntry(ifo+" "+self.options.science_run+" " \
               +start+" "+dur[0]+" "+"file://localhost"
@@ -83,9 +88,9 @@ class getCache(UserDict):
         except:
           pass
 
-  def getCacheAll(self):
+  def getCacheAll(self,cp=None):
     for type in self.types:
-      self.getCacheType(type)
+      self.getCacheType(type,cp)
 
   def writeCacheType(self,oName,type):
     cName = open(oName,'w')
@@ -295,15 +300,14 @@ def coire(opts,fList,iList=None):
 ##############################################################################
 # function to extract the statistic information
 ##############################################################################
-def getstatistic(opts):
+def getstatistic(stat, bla, blb):
 
-  if opts.statistic == "effective_snrsq":
+  if stat == "effective_snrsq":
     newstat = "effective_snr"
   else:
-    newstat = opts.statistic
+    newstat = stat
 
-  statistic=CoincInspiralUtils.coincStatistic( newstat, opts.bitten_l_a,
-                                               opts.bitten_l_b)
+  statistic=CoincInspiralUtils.coincStatistic( newstat, bla, blb )
   return statistic
 
 
@@ -359,7 +363,7 @@ class followUpList:
 #############################################################################
 # Function to return the follow up list of coinc triggers
 #############################################################################
-def getfollowuptrigs(opts,coincs=None,missed=None):
+def getfollowuptrigs(numtrigs,page,coincs=None,missed=None):
 
   followups = []
 
@@ -375,7 +379,7 @@ def getfollowuptrigs(opts,coincs=None,missed=None):
     for ckey in coincs:
       fuList = followUpList()
       fuList.add_coincs(ckey)
-      fuList.add_page(opts.page)
+      fuList.add_page(page)
       try:
         getattr(ckey,'H1')
         fuList.gpsTime["H1"] = (float(getattr(ckey,'H1').end_time_ns)/1000000000)+float(getattr(ckey,'H1').end_time)
@@ -402,7 +406,7 @@ def getfollowuptrigs(opts,coincs=None,missed=None):
       except: fuList.gpsTime["T1"] = None
       followups.append(fuList)
       numTrigs += 1
-      if numTrigs >= opts.num_trigs:
+      if numTrigs >= numtrigs:
         break
 
   # the missed stuff doesnt work yet!!!
