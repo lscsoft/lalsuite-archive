@@ -42,7 +42,7 @@ __date__ = "$Date$"[7:-2]
     
 
 
-def response( gpsTime, ra_deg, dec_deg, iota_deg, psi_deg, det ):
+def response( gpsTime, ra_rad, de_rad, iota_rad, psi_rad, det ):
 
   """
   Calculates the antenna factors for a detector 'det' (e.g. 'H1')
@@ -53,12 +53,15 @@ def response( gpsTime, ra_deg, dec_deg, iota_deg, psi_deg, det ):
   The returned values are: (f-plus, f-cross, f-average, q-value). 
   Example: antenna.response( 854378604.780, 11.089, 42.308, 0, 0, 'H1' )
   """
+  
+  # check the input arguments
+  if gpsTime<600000000 or gpsTime>1000000000:
+    print >>sys.stderr, "ERROR. gps time %d not within reasonable range."\
+          % (gpsTime)
+    sys.exit(1)
 
-  # convert degree to radians
-  ra_rad  = ra_deg * pi / 180.0
-  dec_rad = dec_deg * pi / 180.0
-  iota_rad= iota_deg * pi / 180.0
-  psi_rad = psi_deg * pi / 180.0
+  if det1 == det2:
+    return 0.0
   
   # calculate GMST if the GPS time
   gps=date.LIGOTimeGPS( gpsTime )
@@ -98,3 +101,46 @@ def response( gpsTime, ra_deg, dec_deg, iota_deg, psi_deg, det ):
 
   # output
   return f_plus, f_cross, f_ave, f_q
+
+
+
+def timeDelay( gpsTime, ra_rad, de_rad, det1, det2 ):
+  """
+  Calculates the time delay in seconds between the detectors
+  'det1' and 'det2' (e.g. 'H1') for a sky location at (ra_rad, de_rad)
+  [radians] and time 'gpsTime'.
+  Example:  print antenna.timeDelay( gps, ra, dec, 'H1','L1')
+  0.00136794353104
+  """
+
+  # check the input arguments
+  if gpsTime<600000000 or gpsTime>1000000000:
+    print >>sys.stderr, "ERROR. gps time %d not within reasonable range."\
+          % (gpsTime)
+    sys.exit(1)
+
+  if ra_rad<0.0 or ra_rad> 2*pi:
+    print >>sys.stderr, "ERROR. ra_rad=%d not within reasonable range."\
+          % (ra_rad)
+    sys.exit(1)
+
+  if de_rad<-pi or de_rad> pi:
+    print >>sys.stderr, "ERROR. de_rad=%d not within reasonable range."\
+          % (de_rad)
+    sys.exit(1)
+    
+  if det1 == det2:
+    return 0.0
+  
+  gps = date.LIGOTimeGPS("854378604.780")
+
+  # create detector-name map
+  detMap = {'H1': 'LHO_4k', 'H2': 'LHO_2k', 'L1': 'LLO_4k',
+            'G1': 'GEO_600', 'V1': 'VIRGO', 'T1': 'TAMA_300'}
+  
+  x1 = inject.cached_detector[detMap[det1]].location
+  x2 = inject.cached_detector[detMap[det2]].location
+  timedelay=date.XLALArrivalTimeDiff(list(x1), list(x2), ra_rad, de_rad, gps)
+
+  return timedelay
+  
