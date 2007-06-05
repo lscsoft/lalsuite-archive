@@ -141,6 +141,10 @@ LALFindChirpPTFTemplate (
   /* XXX delete this line if the low frequency cutoff XXX */
   /* XXX should be read from the template bank        XXX */
   tmplt->fLower = fcTmplt->tmplt.fLower = params->fLow;
+ 
+  /* Zero out the Q and Qtilde vectors */
+  memset( params->PTFQ->data, 0, N * sizeof(REAL4) );
+  memset( fcTmplt->PTFQtilde->data, 0, (N /2 + 1) * sizeof(COMPLEX8) );
   
  /* Point the dummy variables Q and Qtilde to the actual output structures */
   for ( i = 0; i < 5; ++i )
@@ -270,6 +274,10 @@ LALFindChirpPTFNormalize(
    *
    */
 
+  /* Zero out the element sof matrix B and Binverse*/
+  memset( fcTmplt->PTFB->data, 0, 25 * sizeof(REAL4) ); 
+  memset( fcTmplt->PTFBinverse->data, 0, 25 * sizeof(REAL4) );
+  
   /* Compute B_ij from Qtilde_i and Qtilde_j */
   for( i = 0; i < 5; ++i )
   {
