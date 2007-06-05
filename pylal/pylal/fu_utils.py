@@ -441,7 +441,7 @@ class summaryHTMLTable:
 
 class HTMLcontainer:
 
-  def __init__(self,trig,name):
+  def __init__(self,trig,name,alt_web=None):
     # The missed injections dont work yet!!!
     self.name = name.rsplit(".")[-1]
     self.detailpath = ""
@@ -470,8 +470,10 @@ class HTMLcontainer:
     self.image = self.detailpath + str(trig.statValue) + "_" + str(trig.eventID) + "_" + self.name + ".png"
     self.localimage = self.localdetailpath + str(trig.statValue) + "_" + str(trig.eventID) + "_" + self.name + ".png" 
     self.text = "click here"
-    self.link = self.detailpath + str(trig.statValue) + "_" + str(trig.eventID) + "_" + self.name + ".html"
-    self.locallink = self.localdetailpath + str(trig.statValue) + "_" + str(trig.eventID) + "_" + self.name + ".html"
+    if alt_web: name = alt_web
+    else: name = self.name
+    self.link = self.detailpath + str(trig.statValue) + "_" + str(trig.eventID) + "_" + name + ".html"
+    self.locallink = self.localdetailpath + str(trig.statValue) + "_" + str(trig.eventID) + "_" + name + ".html"
 
 
 
