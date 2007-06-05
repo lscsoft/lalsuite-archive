@@ -179,7 +179,7 @@ if opts.veto_file is not None:
 else:
   veto_segs = segmentlist()
 
-# quantize live time
+# quantize live time; treat discards as an effective veto
 if opts.quantization_time is not None:
   full_segs = fromfilenames(injFiles)
   T = opts.quantization_time
@@ -190,7 +190,7 @@ if opts.quantization_time is not None:
 for file in injFiles:
   inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles([file])
 
-  if opts.veto_file is not None:
+  if (opts.veto_file is not None) or (opts.quantization_time is not None):
       inspTriggers = inspTriggers.veto(veto_segs)
 
   injTrig = CoincInspiralUtils.coincInspiralTable(inspTriggers,stat)
@@ -203,7 +203,7 @@ if opts.slide_glob:
   slideFiles = glob.glob(opts.slide_glob)
   inspSlide = SnglInspiralUtils.ReadSnglInspiralFromFiles(slideFiles)
   
-  if opts.veto_file is not None:
+  if (opts.veto_file is not None) or (opts.quantization_time is not None):
     inspSlide = inspSlide.veto(veto_segs)
 
   if opts.num_slides > 0:
