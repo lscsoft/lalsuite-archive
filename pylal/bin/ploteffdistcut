@@ -12,19 +12,20 @@ from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
-from glue.segmentsUtils import fromsegwizard
+from glue.segments import segment, segmentlist
+from glue.segmentsUtils import fromsegwizard, fromfilenames
 
 from pylal import SnglInspiralUtils
 from pylal import SimInspiralUtils
 from pylal import CoincInspiralUtils
 
 ##############################################################################
-def disterr(coinc_table, ifo_list, use_avg):
+def disterr(coinc_table, ifo_list, use_avg, statistic):
 
   ifoa_dist = coinc_table.getsngls(ifo_list[0]).get_column('eff_distance')
   ifob_dist = coinc_table.getsngls(ifo_list[1]).get_column('eff_distance')
-  ifoa_snr = coinc_table.getsngls(ifo_list[0]).get_column('snr')
-  ifob_snr = coinc_table.getsngls(ifo_list[1]).get_column('snr')
+  ifoa_snr = coinc_table.getsngls(ifo_list[0]).get_column(statistic)
+  ifob_snr = coinc_table.getsngls(ifo_list[1]).get_column(statistic)
 
   ifoa_sigma = coinc_table.getsngls(ifo_list[0]).get_column('sigmasq')
   ifob_sigma = coinc_table.getsngls(ifo_list[0]).get_column('sigmasq')
@@ -79,6 +80,9 @@ parser.add_option("-G","--slide-glob",action="store",type="string",\
 
 parser.add_option("-V", "--veto-file", metavar=" VETO_FILE",
     help="file of segments in which to veto triggers (segwizard format)")
+
+parser.add_option("-T", "--quantization-time", type="int",
+    help="quantize live time on this time period")
 
 parser.add_option("-L","--cluster-window",action="store",type="int",default=0,\
     metavar=" SEC", help="length of time over which to cluster triggers" )
@@ -168,8 +172,27 @@ from pylal import viz
 # glob the input files
 injFiles = glob.glob(opts.inj_glob)
 injTriggers = CoincInspiralUtils.coincInspiralTable(stat=stat)
+
+# decide vetoes beforehand
+if opts.veto_file is not None:
+  veto_segs = fromsegwizard(open(opts.veto_file))
+else:
+  veto_segs = segmentlist()
+
+# quantize live time
+if opts.quantization_time is not None:
+  full_segs = fromfilenames(injFiles)
+  T = opts.quantization_time
+  naive_live_time = full_segs - veto_segs
+  live_time = [segment(s[0], s[0] + (abs(s)//T)*T) for s in naive_live_time]
+  veto_segs = full_segs - live_time
+
 for file in injFiles:
   inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles([file])
+
+  if opts.veto_file is not None:
+      inspTriggers = inspTriggers.veto(veto_segs)
+
   injTrig = CoincInspiralUtils.coincInspiralTable(inspTriggers,stat)
   injTrig = injTrig.coincinclude([opts.ifoa,opts.ifob])
   if opts.cluster_window:
@@ -181,7 +204,6 @@ if opts.slide_glob:
   inspSlide = SnglInspiralUtils.ReadSnglInspiralFromFiles(slideFiles)
   
   if opts.veto_file is not None:
-    veto_segs = fromsegwizard(open(opts.veto_file))
     inspSlide = inspSlide.veto(veto_segs)
 
   if opts.num_slides > 0:
@@ -213,11 +235,11 @@ if opts.slide_glob:
 #######################################################################
 # extract the information from the tables
 [inj_snr,inj_error] = disterr(injTriggers,[opts.ifoa,opts.ifob], \
-    opts.use_avg_distance)
+    opts.use_avg_distance, opts.statistic)
 
 if opts.slide_glob:
   [slide_snr,slide_error] = disterr(slideTriggers,[opts.ifoa,opts.ifob], \
-      opts.use_avg_distance)
+      opts.use_avg_distance, opts.statistic)
 
 
 #######################################################################
@@ -243,7 +265,8 @@ if opts.dist_snr:
   xlim(min(x),max(x))
   xticks(fontsize=opts.font_size)
   yticks(fontsize=opts.font_size)
-  xlabel('snr of trigger',fontsize=opts.font_size)
+  xlabel('%s of trigger' % opts.statistic.replace("_", r"\_"),
+    fontsize=opts.font_size)
   ylabel('fractional difference in eff. distance',fontsize=opts.font_size)
   legend(leg)
   if opts.figure_name:  
@@ -267,7 +290,7 @@ if opts.dist_hist:
   xticks(fontsize=opts.font_size)
   yticks(fontsize=opts.font_size)
   xlabel('fractional difference in eff. distance',fontsize=opts.font_size)
-  ylabel('normalized #',fontsize=opts.font_size)
+  ylabel(r'normalized \#',fontsize=opts.font_size)
   ylim(ymin=0)
   if opts.figure_name:
     savefig(opts.figure_name + "_eff_dist_hist.png")
