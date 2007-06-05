@@ -60,9 +60,6 @@ def response( gpsTime, ra_rad, de_rad, iota_rad, psi_rad, det ):
           % (gpsTime)
     sys.exit(1)
 
-  if det1 == det2:
-    return 0.0
-  
   # calculate GMST if the GPS time
   gps=date.LIGOTimeGPS( gpsTime )
   gmst_rad = date.XLALGreenwichMeanSiderealTime(gps)
@@ -88,7 +85,7 @@ def response( gpsTime, ra_rad, de_rad, iota_rad, psi_rad, det ):
   response = inject.cached_detector[detector].response
 
   # actual computation of antenna factors
-  f_plus, f_cross = inject.XLALComputeDetAMResponse(response, ra_rad, dec_rad,
+  f_plus, f_cross = inject.XLALComputeDetAMResponse(response, ra_rad, de_rad,
                                                     psi_rad, gmst_rad)
 
   f_ave=sqrt( (f_plus*f_plus + f_cross*f_cross)/2.0 );
