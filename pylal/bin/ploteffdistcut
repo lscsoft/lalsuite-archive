@@ -255,13 +255,13 @@ if opts.dist_snr:
   leg = []
   # plot the slides
   if opts.slide_glob:
-    semilogx(slide_snr, slide_error, 'b+', markersize=12,markeredgewidth=1)
+    semilogx(slide_snr, slide_error, 'b+')
     if opts.num_slides > 0:
       leg.append('slide')
     else: # opts.num_slides == 0
       leg.append('background')
   # plot the injections
-  semilogx(inj_snr, inj_error, 'rx', markersize=12,markeredgewidth=1)
+  semilogx(inj_snr, inj_error, 'rx')
   leg.append('inj')
   
   x = arange(int(min(inj_snr)), int(max(inj_snr)) + 2)
@@ -269,11 +269,8 @@ if opts.dist_snr:
     semilogx(x, opts.kappa + opts.epsilon/x,'k',linewidth=1)
     leg.append('cut')
   xlim(min(x),max(x))
-  xticks(fontsize=opts.font_size)
-  yticks(fontsize=opts.font_size)
-  xlabel('%s of trigger' % opts.statistic.replace("_", r"\_"),
-    fontsize=opts.font_size)
-  ylabel('fractional difference in eff. distance',fontsize=opts.font_size)
+  xlabel('%s of trigger' % opts.statistic.replace("_", r"\_"))
+  ylabel('fractional difference in eff. distance')
   legend(leg)
   grid(True)
   if opts.figure_name:  
@@ -296,8 +293,8 @@ if opts.dist_hist:
     axvline(opts.kappa,linewidth=2,color='k')
   xticks(fontsize=opts.font_size)
   yticks(fontsize=opts.font_size)
-  xlabel('fractional difference in eff. distance',fontsize=opts.font_size)
-  ylabel(r'normalized \#',fontsize=opts.font_size)
+  xlabel('fractional difference in eff. distance')
+  ylabel(r'normalized \#')
   ylim(ymin=0)
   if opts.figure_name:
     savefig(opts.figure_name + "_eff_dist_hist.png")
