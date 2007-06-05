@@ -47,7 +47,7 @@ XLALFindChirpFindEigenvalues ( REAL4* WR, REAL4* WI, REAL4* A)
   INT4  N     = 5;
   INT4  M     = 1;
   INT4  lwork = 25;
-  
+
   extern void sgeev_ ( CHAR* JOBVLp, CHAR* JOBVRp, INT4* Np, REAL4* A, 
       INT4* LDAp, REAL4* WR, REAL4* WI, REAL4* VL, 
       INT4* LDVLp, REAL4* VR, INT4* LDVRp, REAL4* WORK, 
@@ -61,7 +61,7 @@ XLALFindChirpFindEigenvalues ( REAL4* WR, REAL4* WI, REAL4* A)
     XLALPrintError( "Eigenvalue evaluation error: sgeev_ function filed with error %d\n", INFO);
     errcode = XLAL_EFAILED;
   }
-  
+
   return errcode;
 }
 
@@ -176,7 +176,7 @@ LALFindChirpPTFFilterSegment (
       FINDCHIRPH_EAPRX, FINDCHIRPH_MSGEAPRX );
 
   fprintf(stderr,"LALFindChirpPTFFilterSegment called\n");
-  
+
   /*
    *
    * compute viable search regions in the snrsq vector
@@ -227,7 +227,7 @@ LALFindChirpPTFFilterSegment (
         ignoreIndex, numPoints - ignoreIndex );
     LALInfo( status, infomsg );
   }
-  
+
   /*
    *
    * compute the PTF filter statistic
@@ -235,9 +235,11 @@ LALFindChirpPTFFilterSegment (
    */
 
 
-  /* clear the snr output vector */
+  /* clear the snr output vector and workspace*/
   memset( params->PTFsnrVec->data, 0, 
       params->PTFsnrVec->length * sizeof(REAL4) );
+  memset( params->PTFqVec->data, 0, 
+      params->PTFqVec->length * sizeof(COMPLEX8) );
 
   for ( i = 0; i < params->PTFqVec->length; ++i )
   {
@@ -258,7 +260,7 @@ LALFindChirpPTFFilterSegment (
       qtilde[k].re = r*x - s*y;
       qtilde[k].im = r*y + s*x;
     }
-    
+
     qVec.data = params->PTFqVec->data + (i * params->PTFqVec->vectorLength);
 
     /* inverse fft to get q */
@@ -269,25 +271,28 @@ LALFindChirpPTFFilterSegment (
 
   /* now we have PTFqVec which contains <s|Q^I_0> + i <s|Q^I_\pi/2> */
 
-  /* construct A */
-  for ( k = 0; k < numPoints; ++i ) /* beginning of main loop over time */
+
+  for ( k = 0; k < numPoints; ++k ) /* beginning of main loop over time */
   {  
+    /* Set PTFMatrxi elements to zero */
+    memset(params->PTFMatrix->data, 0, 25 * sizeof(REAL4) );
+    /* construct A */
     for ( i = 0; i < 5; ++i )
     {  
       for ( j = 0; j < i + 1; ++j )
       {  
         params->PTFA->data[5 * i + j] = PTFq[i * numPoints + k].re * 
-                                        PTFq[j * numPoints + k].re +
-                                        PTFq[i * numPoints + k].im * 
-                                        PTFq[j * numPoints + k].im;
-        params->PTFA[5 * j + i] = params->PTFA[i + 5 * j];
+          PTFq[j * numPoints + k].re +
+          PTFq[i * numPoints + k].im * 
+          PTFq[j * numPoints + k].im;
+        params->PTFA[5 * j + i] = params->PTFA[ 5 * i + j];
       }  
     }  
     /* multiply by PTFBinverse to obtain AB^(-1) */
 
     LALSMatrixMultiply(status->statusPtr, 
-                       params->PTFMatrix, params->PTFA, 
-                       input->fcTmplt->PTFBinverse);
+        params->PTFMatrix, params->PTFA, 
+        input->fcTmplt->PTFBinverse);
     CHECKSTATUSPTR( status );
 
     /* Transpose PTFMatrix and store it into the corresponding local variable:
@@ -295,9 +300,9 @@ LALFindChirpPTFFilterSegment (
      * Fortran column-wise format
      */ 
 
-    for ( i = 0; i < 25; ++i ) 
+    for ( i = 0; i < 5; ++i ) 
     {
-      for ( j = 0; j < 25; ++j )
+      for ( j = 0; j < 5; ++j )
       {  
         PTFMatrix[i + 5 * j] = params->PTFMatrix->data[j + 5 * i];
       }
@@ -305,6 +310,7 @@ LALFindChirpPTFFilterSegment (
 
     /* find max eigenvalue and store it in snr vector */
     errcode = XLALFindChirpFindEigenvalues( wr, wi, PTFMatrix);
+
     if ( errcode != XLAL_SUCCESS )
     {
       ABORT( status, FINDCHIRPH_EIGEN, FINDCHIRPH_MSGEIGEN );
@@ -324,6 +330,7 @@ LALFindChirpPTFFilterSegment (
       } 
     }
   } /* End of main loop over time */
+
 
   fprintf( stderr, "Ptf filtering data segment\n" );
 
