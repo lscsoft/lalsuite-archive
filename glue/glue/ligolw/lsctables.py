@@ -1474,23 +1474,28 @@ class Segment(object):
 		Return True if the segment is active, False if the segment
 		is inactive and None if neither is the case.
 		"""
-		if self.active > 0:
+		if self.active == 1:
 			return True
-		if self.active < 0:
+		if self.active == 0:
 			return False
-		return None
+		if self.active is None:
+			return None
+		raise ValueError, self.active
 
 	def set_active(self, active):
 		"""
 		Sets the segment to active if active is True, to inactive
 		if active if False, and undefined if active is None.
 		"""
-		if active is None:
-			self.active = 0
-		elif active:
+		if active:
+			# Anything that is "True" --> 1
 			self.active = 1
+		elif active is None:
+			# None --> None
+			self.active = None
 		else:
-			self.active = -1
+			# Antyhing that is "False" except None --> 0
+			self.active = 0
 		return self
 
 
