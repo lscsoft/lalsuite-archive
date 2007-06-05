@@ -133,7 +133,6 @@ LALCreateFindChirpInput (
     }
     
     outputPtr->fcTmplt->PTFB = XLALCreateArrayL( 2, 5, 5 );
-    memset (outputPtr->fcTmplt->PTFB->data, 0, 25 * sizeof(float));
     if ( ! outputPtr->fcTmplt->PTFB )
     {
       ABORT( status, FINDCHIRPH_EALOC, FINDCHIRPH_MSGEALOC );
@@ -233,7 +232,6 @@ LALDestroyFindChirpInput (
    *
    */
 
-
   /* local pointer to output */
   outputPtr = *output;
 
@@ -267,10 +265,14 @@ LALDestroyFindChirpInput (
   if ( outputPtr->fcTmplt->PTFQtilde )
   {
     XLALDestroyCOMPLEX8VectorSequence( outputPtr->fcTmplt->PTFQtilde );
-  }	  
+  }
   if ( outputPtr->fcTmplt->PTFBinverse )
   {
     XLALDestroyArray( outputPtr->fcTmplt->PTFBinverse );
+  }	  
+  if ( outputPtr->fcTmplt->PTFB )
+  {
+    XLALDestroyArray( outputPtr->fcTmplt->PTFB );
   }	  
   
   /* destroy the chirp template structure */
@@ -426,6 +428,18 @@ LALFindChirpFilterInit (
     outputPtr->PTFqVec = 
       XLALCreateCOMPLEX8VectorSequence ( 5, params->numPoints );
     if ( ! outputPtr->PTFqVec )
+    {
+      ABORT( status, FINDCHIRPH_EALOC, FINDCHIRPH_MSGEALOC );
+    }
+
+    outputPtr->PTFA = XLALCreateArrayL( 2, 5, 5 );
+    if ( ! outputPtr->PTFA )
+    {
+      ABORT( status, FINDCHIRPH_EALOC, FINDCHIRPH_MSGEALOC );
+    }
+    
+    outputPtr->PTFMatrix = XLALCreateArrayL( 2, 5, 5 );
+    if ( ! outputPtr->PTFMatrix )
     {
       ABORT( status, FINDCHIRPH_EALOC, FINDCHIRPH_MSGEALOC );
     }
@@ -874,6 +888,7 @@ LALFindChirpFilterFinalize (
 /* </lalVerbatim> */
 {
   FindChirpFilterParams        *outputPtr;
+  UINT4 i,j;
 
   INITSTATUS( status, "LALFindChirpFilterFinalize", FINDCHIRPFILTERINITC );
   ATTATCHSTATUSPTR( status );
@@ -908,7 +923,7 @@ LALFindChirpFilterFinalize (
    *
    */
 
-
+   fprintf(stderr,"I am inside FilterFinalize\n");
   /* destroy plan for optimal filter */
   LALDestroyComplexFFTPlan( status->statusPtr, &(outputPtr->invPlan) );
   CHECKSTATUSPTR( status );
@@ -919,17 +934,36 @@ LALFindChirpFilterFinalize (
     LALCDestroyVector( status->statusPtr, &(outputPtr->qVec) );
     CHECKSTATUSPTR( status );
   }
+  
 
   /* destroy the PTF memory */
+  fprintf(stderr,"Start freeing PTF...\n");
   if ( outputPtr->PTFqVec )
   {
     XLALDestroyCOMPLEX8VectorSequence( outputPtr->PTFqVec );
   }
+  fprintf(stderr,"I freed PTFqVec\n");
   if ( outputPtr->PTFsnrVec )
   {
     XLALDestroyVector( outputPtr->PTFsnrVec );
   }
+  fprintf(stderr,"I freed PTFsnrVec\n");
+  if ( outputPtr->PTFA )
+  {
+    fprintf(stderr,"I try and delete A...\n");
+    XLALDestroyArray( outputPtr->PTFA );
+    fprintf(stderr,"done!\n");
+  }
+  fprintf(stderr,"I freed PTFA\n");
+  if ( outputPtr->PTFMatrix )
+  {
+    XLALDestroyArray( outputPtr->PTFMatrix );
+  }
+  fprintf(stderr,"I freed PTFMatrix\n");
 
+  fprintf(stderr,"I think I freed PTF\n");
+  
+  /* BCV */
   if (outputPtr->qVecBCV) 
   { 
     LALCDestroyVector( status->statusPtr, &(outputPtr->qVecBCV) );
@@ -949,9 +983,9 @@ LALFindChirpFilterFinalize (
   }
 
   /* destroy workspace vector for optimal filter: freq domain */
+  fprintf(stderr,"is the problem here?\n");
   LALCDestroyVector( status->statusPtr, &(outputPtr->qtildeVec) );
-  CHECKSTATUSPTR( status );
-
+  
   if  (outputPtr->qtildeVecBCV) 
   { 
     LALCDestroyVector( status->statusPtr, &(outputPtr->qtildeVecBCV) );
@@ -977,6 +1011,7 @@ LALFindChirpFilterFinalize (
     CHECKSTATUSPTR( status );
   }
 
+  fprintf(stderr,"destroyed workspace for chisq filter\n");
 
   /*
    *
@@ -1011,6 +1046,7 @@ LALFindChirpFilterFinalize (
     LALFree( outputPtr->rhosqVec );
   }    
 
+  fprintf(stderr,"destroyed rhosq\n");
   if ( outputPtr->cVec )
   {
     LALCDestroyVector( status->statusPtr, &(outputPtr->cVec->data) );
@@ -1019,6 +1055,7 @@ LALFindChirpFilterFinalize (
     LALFree( outputPtr->cVec );
   }    
 
+  fprintf(stderr,"destroyed cVec\n");
 
   /*
    *
