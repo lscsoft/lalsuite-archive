@@ -222,6 +222,10 @@ def setupdirs():
     os.chdir('..')
   except: os.mkdir("followupmissed")
 
+  try:
+    os.chdir("logs")
+    os.chdir('..')
+  except: os.mkdir("logs")
 
 #############################################################################
 # function to return the number of slides in a file (as a string)
