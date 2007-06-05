@@ -13,6 +13,19 @@ from pylab    import *
 params =  {'text.usetex': True }
 rcParams.update(params)
 
+
+def square_axis(axes=None):
+  """
+  Expands the x- and y-limits on the given axes so that they are equal
+  (defaults to the current axes).
+  """
+  if axes is None:
+    axes = gca()
+  tmpv = axes.axis()
+  xmax = max([tmpv[1], tmpv[3]])
+  xmin = min([tmpv[0], tmpv[2]])
+  axes.axis([xmin, xmax, xmin, xmax])
+
 def simpleplot(*args):
   if len(args)==3:
       mytable, col1, col2 = args
@@ -27,7 +40,6 @@ def simpleplot(*args):
   ylabel(col2.replace("_"," "), size='x-large')
   title(col1.replace("_"," ") + ' v ' + col2.replace("_"," "))
   grid(True)
-
 
 #######################################################################
 # function to read in a column from a given table 
