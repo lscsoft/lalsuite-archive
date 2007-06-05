@@ -39,18 +39,6 @@ __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
 
 ##############################################################################
-# helper functions
-def square_axis():
-  """
-  Reshape the current axes to be the minimum possible window that is square
-  and captures all of the data points.
-  """
-  tmpv = axis()
-  xmax = max([tmpv[1], tmpv[3]])
-  xmin = min([tmpv[0], tmpv[2]])
-  axis([xmin, xmax, xmin, xmax])
-
-##############################################################################
 # Define a Square Array
 ##############################################################################
 def square(xedges, yedges, coincTriggers, simtypeflag):
