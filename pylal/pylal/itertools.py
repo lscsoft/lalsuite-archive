@@ -63,7 +63,7 @@ def MultiIter(*lists):
 			for h in head:
 				yield [h] + t
 	else:
-		yield lists
+		yield []
 
 
 def choices(vals, n):
