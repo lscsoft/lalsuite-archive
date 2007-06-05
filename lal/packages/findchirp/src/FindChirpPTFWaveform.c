@@ -547,6 +547,12 @@ XLALFindChirpPTFWaveform(
   /* break out of when one of three possible temination conditions */
   /* or two error conditions is reached                            */
   
+  /* Zero out the dynamical variables so they don't contain garbage */
+  memset ( PTFomega_2_3->data, 0, N * sizeof(REAL4));
+  memset ( PTFphi->data, 0, N * sizeof(REAL4));
+  memset ( PTFe1->data, 0, 3 * N * sizeof(REAL4));
+  memset ( PTFe2->data, 0, 3 * N * sizeof(REAL4));
+  
   i = 0; 
   t = 0;
   while ( 1 )
@@ -684,16 +690,16 @@ XLALFindChirpPTFWaveform(
   len = N - i;
   
   /* Move the waveform at the end of the segment  */
-  memmove( PTFomega_2_3->data + len, PTFomega_2_3->data, i * sizeof(float) );
-  memmove( PTFphi->data + len, PTFphi->data, i * sizeof(float) );
-  memmove( PTFe1->data + len, PTFe1->data, (2 * N + i) * sizeof(float) );
-  memmove( PTFe2->data + len, PTFe2->data, (2 * N + i) * sizeof(float) );
+  memmove( PTFomega_2_3->data + len, PTFomega_2_3->data, i * sizeof(REAL4) );
+  memmove( PTFphi->data + len, PTFphi->data, i * sizeof(REAL4) );
+  memmove( PTFe1->data + len, PTFe1->data, (2 * N + i) * sizeof(REAL4) );
+  memmove( PTFe2->data + len, PTFe2->data, (2 * N + i) * sizeof(REAL4) );
 
   /* Set the waveform to zero at the beginning of the segment */
-  memset ( PTFomega_2_3->data, 0, len * sizeof(float));
-  memset ( PTFphi->data, 0, len * sizeof(float));
-  memset ( PTFe1->data, 0, len * sizeof(float));
-  memset ( PTFe2->data, 0, len * sizeof(float));
+  memset ( PTFomega_2_3->data, 0, len * sizeof(REAL4));
+  memset ( PTFphi->data, 0, len * sizeof(REAL4));
+  memset ( PTFe1->data, 0, len * sizeof(REAL4));
+  memset ( PTFe2->data, 0, len * sizeof(REAL4));
 
   /* the GSL success code is probably the same as LAL's but just in case... */
   if ( errcode == GSL_SUCCESS ) 
