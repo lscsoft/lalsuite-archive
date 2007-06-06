@@ -74,14 +74,14 @@ parser.add_option("-A","--statistic",action="store",default='snr',\
     help="choice of statistic used in making plots, valid arguments are:"  "snr (DEFAULT), snr_over_chi, s3_snr_chi_stat, effective_snr, "
     "bitten_l, bitten_lsq")
 
-parser.add_option("-P","--ifo-first",action="store",default=None,\
+parser.add_option("-P","--param",action="store",default=None,\
     type="string",\
     help="First ifo in double coincidence")
 
 
-parser.add_option("-R","--ifo-second",action="store",default=None,\
+parser.add_option("-R","--ifo",action="store",default=None,\
     type="string",\
-    help="First ifo in double coincidence")
+    help="Single ifo for which parameters to be plotted")
 
 
 
@@ -163,10 +163,13 @@ def coinc_params_func(events, timeslide = 0):
         mapping instrument to offset, e.g. {"H1": 0, "H2: 0, "L1": 10}.
         """
 
-        eff_snr = events.get_effective_snr()
-
+        H1_eff_snr = events.get_effective_snr()
+        H2_eff_snr = events.get_effective_snr()
+        L1_eff_snr = events.get_effective_snr()
         return {
-                "H1_eff_snr": eff_snr
+                "H1_eff_snr": H1_eff_snr,
+                "H2_eff_snr": H2_eff_snr,
+                "L1_eff_snr": L1_eff_snr 
         }
 
 
@@ -176,7 +179,7 @@ statistic = CoincInspiralUtils.coincStatistic(opts.statistic)
 # read in zero lag coinc triggers
 
 zerolagTriggers = None
-zerolagTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(zerolagfiles)
+zerolagTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(zerolagfiles, mangle_event_id = True)
 
 # construct the zero lag coincs
 zerolagCoincTriggers= \
@@ -185,7 +188,7 @@ CoincInspiralUtils.coincInspiralTable(zerolagTriggers, statistic)
 # read in time slides triggers
 
 slidesTriggers = None
-slidesTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(slidesfiles)
+slidesTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(slidesfiles, mangle_event_id = True)
 
 # construct the time slides coincs
 slidesCoincs= \
@@ -193,11 +196,11 @@ CoincInspiralUtils.coincInspiralTable(slidesTriggers, statistic)
 
 # read in the injection files
 injectionTriggers = None
-injectionTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(foundfiles)
+injectionTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(foundfiles, mangle_event_id = True)
 
 # contruct the injection coincs
 InjectionCoincs = CoincInspiralUtils.coincInspiralTable(injectionTriggers, statistic)
-
+Masscoincs =  CoincInspiralUtils.coincInspiralTable(injectionTriggers,statistic).getChirpMass(1.0,3.0)
 
 ################################################################################
 #
@@ -214,8 +217,8 @@ InjectionCoincs = CoincInspiralUtils.coincInspiralTable(injectionTriggers, stati
 ##############################################################################
 
 
-ifos = [opts.ifo_first, opts.ifo_second]
-ifos.sort()
+#ifos = [opts.ifo_first, opts.ifo_second]
+#ifos.sort()
 
 #Ethinca_Injections = InjectionCoincs.coincinclude(ifos).getEThincaValues(ifos)     
 #Ethinca_Slides = slidesCoincs.coincinclude(ifos).getEthincaValues(ifos)
@@ -224,7 +227,9 @@ ifos.sort()
 ###############################################################################
 
 distributions = ligolw_burca_tailor.CoincParamsDistributions(
-        H1_eff_snr = (segments.segment(0.0, 50.0), 0.5))
+        H1_eff_snr = (segments.segment(0.0, 50.0), 0.5),
+        H2_eff_snr = (segments.segment(0.0,50.0), 0.5),
+        L1_eff_snr = (segments.segment(0.0,50.0),0.5))
 
 timeslide = 0
 
@@ -234,27 +239,45 @@ timeslide = 0
 ############################################################################
 
 
-x_inj_eff_snr = []
+x_inj_param = []
 for coincs in InjectionCoincs:
-    if hasattr(coincs, "H1"):
+  
+  if opts.statistic == 'effective_snr' and opts.ifo == "H1" and hasattr(coincs, "H1"):
         distributions.add_injection(coinc_params_func, coincs.H1, timeslide)
-        x_inj_eff_snr.append(coincs.H1.get_effective_snr())
+        x_inj_param.append(coincs.H1.get_effective_snr())
+ 
+  elif  opts.statistic == 'effective_snr' and opts.ifo == "H2" and hasattr(coincs, "H2"):
+        distributions.add_injection(coinc_params_func, coincs.H2, timeslide)
+        x_inj_param.append(coincs.H2.get_effective_snr())
 
-X_inj_snr = asarray(x_inj_eff_snr)
+  elif  opts.statistic == 'effective_snr' and opts.ifo == "L1" and hasattr(coincs, "L1"):
+        distributions.add_injection(coinc_params_func, coincs.L1, timeslide)
+        x_inj_param.append(coincs.L1.get_effective_snr())
+
+
+X_inj_param = asarray(x_inj_param)
 #############################################################################   
 #Constructions of effective snr arrays for background
 #############################################################################
 
-x_back_eff_snr = []
+x_back_param = []
 for coincs in slidesCoincs:
-    if hasattr(coincs, "H1"):
-        distributions.add_background(coinc_params_func, coincs.H1, timeslide)
-        x_back_eff_snr.append(coincs.H1.get_effective_snr())
+  
+  if opts.statistic == 'effective_snr' and opts.ifo == "H1" and hasattr(coincs, "H1"):
+        distributions.add_injection(coinc_params_func, coincs.H1, timeslide)
+        x_back_param.append(coincs.H1.get_effective_snr())
+
+  elif  opts.statistic == 'effective_snr' and opts.ifo == "H2" and hasattr(coincs, "H2"):
+        distributions.add_injection(coinc_params_func, coincs.H2, timeslide)
+        x_back_param.append(coincs.H2.get_effective_snr())
+
+  elif  opts.statistic == 'effective_snr' and opts.ifo == "L1" and hasattr(coincs, "L1"):
+        distributions.add_injection(coinc_params_func, coincs.L1, timeslide)
+        x_back_param.append(coincs.L1.get_effective_snr())
 
 
-
-
-X_back_snr = asarray(x_back_eff_snr)
+  
+X_back_param = asarray(x_back_param)
 
 ############################################################################
 
@@ -270,12 +293,12 @@ distributions.finish()
 
 p = arange(0, 50.0, 0.5)
 title('Injections')
-X_Inj_norm = hist(X_inj_snr,p)[0]*1.0/max(hist(X_back_snr,p)[0])
+X_Inj_norm = hist(X_inj_param,p)[0]*1.0/max(hist(X_back_param,p)[0])
 clf()
 
 
 title('Background')
-X_Back_norm = hist(X_back_snr,p)[0]*1.0/max(hist(X_back_snr,p)[0])
+X_Back_norm = hist(X_back_param,p)[0]*1.0/max(hist(X_back_param,p)[0])
 clf()
 
 
@@ -283,7 +306,7 @@ bar(p, X_Inj_norm,color='r')
 hold(True)
 bar(p, X_Back_norm,color='k')
 figure()
-xlabel('Effective_snr')
+xlabel('Effective_snr' + " " + str(opts.ifo))
 #figure()
 ##########################################################################
 # Reload X nd Y parameters
@@ -291,20 +314,36 @@ xlabel('Effective_snr')
 
 #distributions.background_rates.keys()
 
+if opts.statistic == 'effective_snr' and opts.ifo == "H1":
+  x_inj = distributions.injection_rates["H1_eff_snr"].xvals()
+  y_inj = distributions.injection_rates["H1_eff_snr"].array
 
-x_inj = distributions.injection_rates["H1_eff_snr"].xvals()
-y_inj = distributions.injection_rates["H1_eff_snr"].array
+elif opts.statistic == 'effective_snr' and opts.ifo == "H2":
+  x_inj = distributions.injection_rates["H2_eff_snr"].xvals()
+  y_inj = distributions.injection_rates["H2_eff_snr"].array
 
-plot(x_inj, y_inj, "r-")
-
+elif  opts.statistic == 'effective_snr' and opts.ifo == "L1":
+  x_inj = distributions.injection_rates["L1_eff_snr"].xvals()
+  y_inj = distributions.injection_rates["L1_eff_snr"].array
 
 #########################################################################
 
-x_back = distributions.background_rates["H1_eff_snr"].xvals()
-y_back = distributions.background_rates["H1_eff_snr"].array
+if opts.statistic == 'effective_snr' and opts.ifo == "H1":
+  x_back = distributions.background_rates["H1_eff_snr"].xvals()
+  y_back = distributions.background_rates["H1_eff_snr"].array
+  
+elif opts.statistic == 'effective_snr' and opts.ifo == "H2":
+  x_back = distributions.background_rates["H2_eff_snr"].xvals()
+  y_back = distributions.background_rates["H2_eff_snr"].array
+  
+
+elif opts.statistic == 'effective_snr' and opts.ifo == "L1":
+  x_back = distributions.background_rates["L1_eff_snr"].xvals()
+  y_back = distributions.background_rates["L1_eff_snr"].array
 
 
 plot(x_back, y_back, "k-")
-xlabel('Effective_snr')
+xlabel('Effective_snr' + " " + str(opts.ifo))
+  
 ########################################################################
 show()
