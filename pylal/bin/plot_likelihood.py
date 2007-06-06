@@ -227,9 +227,9 @@ Masscoincs =  CoincInspiralUtils.coincInspiralTable(injectionTriggers,statistic)
 ###############################################################################
 
 distributions = ligolw_burca_tailor.CoincParamsDistributions(
-        H1_eff_snr = (segments.segment(0.0, 50.0), 0.5),
-        H2_eff_snr = (segments.segment(0.0,50.0), 0.5),
-        L1_eff_snr = (segments.segment(0.0,50.0),0.5))
+        H1_eff_snr = (segments.segment(0.0, 50.0), 1.0),
+        H2_eff_snr = (segments.segment(0.0,50.0), 1.0),
+        L1_eff_snr = (segments.segment(0.0,50.0),1.0))
 
 timeslide = 0
 
@@ -264,15 +264,15 @@ x_back_param = []
 for coincs in slidesCoincs:
   
   if opts.statistic == 'effective_snr' and opts.ifo == "H1" and hasattr(coincs, "H1"):
-        distributions.add_injection(coinc_params_func, coincs.H1, timeslide)
+        distributions.add_background(coinc_params_func, coincs.H1, timeslide)
         x_back_param.append(coincs.H1.get_effective_snr())
 
   elif  opts.statistic == 'effective_snr' and opts.ifo == "H2" and hasattr(coincs, "H2"):
-        distributions.add_injection(coinc_params_func, coincs.H2, timeslide)
+        distributions.add_background(coinc_params_func, coincs.H2, timeslide)
         x_back_param.append(coincs.H2.get_effective_snr())
 
   elif  opts.statistic == 'effective_snr' and opts.ifo == "L1" and hasattr(coincs, "L1"):
-        distributions.add_injection(coinc_params_func, coincs.L1, timeslide)
+        distributions.add_background(coinc_params_func, coincs.L1, timeslide)
         x_back_param.append(coincs.L1.get_effective_snr())
 
 
@@ -305,9 +305,8 @@ clf()
 bar(p, X_Inj_norm,color='r')
 hold(True)
 bar(p, X_Back_norm,color='k')
-figure()
 xlabel('Effective_snr' + " " + str(opts.ifo))
-#figure()
+figure()
 ##########################################################################
 # Reload X nd Y parameters
 ##########################################################################
@@ -342,7 +341,7 @@ elif opts.statistic == 'effective_snr' and opts.ifo == "L1":
   y_back = distributions.background_rates["L1_eff_snr"].array
 
 
-plot(x_back, y_back, "k-")
+plot(x_inj, y_inj, "r-", x_back, y_back, "k-")
 xlabel('Effective_snr' + " " + str(opts.ifo))
   
 ########################################################################
