@@ -464,7 +464,7 @@ XLALFindChirpPTFWaveform(
   UINT4  N = PTFphi->length;
   UINT4  check = PTFe1->length;
   INT4   errcode = 0;
-  REAL8  deltaF = 1.0 / ( N * deltaT ); 
+  REAL8  deltaF = 1.0 / ( (REAL8) N * deltaT ); 
   double f_min = tmplt->fLower;
   double m1 = tmplt->mass1;
   double m2 = tmplt->mass2;
@@ -682,8 +682,8 @@ XLALFindChirpPTFWaveform(
   gsl_odeiv_step_free( solver_step );
 
   /* Set the lengtih of the template and final freqency */
-  tmplt->tC     = deltaT * i;
-  tmplt->fFinal = f_min + deltaF * i;
+  tmplt->tC     = deltaT * (REAL8) i;
+  tmplt->fFinal = f_min + deltaF * (REAL8) i;
   
   /* shift the waveform so that the coalescence time */
   /* corresponds to the end of the segment           */
