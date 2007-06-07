@@ -143,8 +143,8 @@ LALFindChirpPTFTemplate (
   tmplt->fLower = fcTmplt->tmplt.fLower = params->fLow;
  
   /* Zero out the Q and Qtilde vectors */
-  memset( params->PTFQ->data, 0, N * sizeof(REAL4) );
-  memset( fcTmplt->PTFQtilde->data, 0, (N /2 + 1) * sizeof(COMPLEX8) );
+  memset( params->PTFQ->data, 0, 5 * N * sizeof(REAL4) );
+  memset( fcTmplt->PTFQtilde->data, 0, 5 * (N /2 + 1) * sizeof(COMPLEX8) );
   
  /* Point the dummy variables Q and Qtilde to the actual output structures */
   for ( i = 0; i < 5; ++i )
@@ -224,7 +224,7 @@ LALFindChirpPTFNormalize(
 {
   UINT4         i, j, k, kmin, len;
   REAL4         deltaT, fmin;
-  REAL4         deltaF;
+  REAL8         deltaF;
   REAL4        *det         = NULL;
   REAL4        *PTFB        = NULL; 
   COMPLEX8     *wtilde      = NULL;
@@ -236,10 +236,10 @@ LALFindChirpPTFNormalize(
   PTFB      = fcTmplt->PTFB->data;
   len       = params->wtildeVec->length; 
   deltaT    = fcSeg->deltaT;
-  deltaF    = 1.0 / ( deltaT * 2 * (len - 1) );
+  deltaF    = 1.0 / ( deltaT * 2 * ( (REAL4)len - 1) );
   fmin      = fcTmplt->tmplt.fLower;
   kmin      = fmin / deltaF > 1 ?  fmin / deltaF : 1;
-
+  
   INITSTATUS( status, "LALFindChirpPTFNormalize", FINDCHIRPPTFTEMPLATEC );
   ATTATCHSTATUSPTR( status );
 
