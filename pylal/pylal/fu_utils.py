@@ -49,7 +49,7 @@ class getCache(UserDict):
   """
   def __init__(self, options):
     UserDict.__init__(self)
-    self.dir = os.listdir(options.cache_path)
+    self.dir = os.listdir(os.getcwd)
     self.options = options
     self.types = ['TMPLTBANK', 'TRIGBANK', 'INSPIRAL-', \
                  'INSPIRAL_', 'THINCA-', 'THINCA_']
