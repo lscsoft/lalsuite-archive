@@ -82,7 +82,7 @@ LALFindChirpPTFFilterSegment (
   UINT4                 ignoreIndex;
   UINT4                 haveEvent   = 0;
   REAL4                 deltaT, sum, temp, PTFMatrix[25], r, s, x, y;
-  REAL8                 deltaF;
+  REAL4                 deltaF;
   REAL4                 snrThresh      = 0;
   REAL4                *snr            = NULL;
   COMPLEX8             *PTFQtilde, *qtilde, *PTFq, *inputData;
@@ -99,7 +99,6 @@ LALFindChirpPTFFilterSegment (
 
   /* number of points in a segment */
   numPoints = params->PTFqVec->vectorLength;
-
   /* workspace vectors */
   snr = params->PTFsnrVec->data;
   qtilde = params->qtildeVec->data;
@@ -111,11 +110,12 @@ LALFindChirpPTFFilterSegment (
   PTFQtilde = input->fcTmplt->PTFQtilde->data;
 
   /* number of points and frequency cutoffs */
-  deltaT = params->deltaT;
-  deltaF = 1.0 / ( (REAL4) params->deltaT * (REAL4) numPoints );
+  deltaT = (REAL4) params->deltaT;
+  deltaF = 1.0 / ( params->deltaT * (REAL4) numPoints );
   kmax = input->fcTmplt->tmplt.fFinal / deltaF < numPoints/2 ? 
     input->fcTmplt->tmplt.fFinal / deltaF : numPoints/2;
-
+ 
+  fprintf(stderr,"N,k_max=%d,%d\n",numPoints,kmax);
 
   INITSTATUS( status, "LALFindChirpPTFFilter", FINDCHIRPPTFFILTERC );
   ATTATCHSTATUSPTR( status );
@@ -234,14 +234,12 @@ LALFindChirpPTFFilterSegment (
    *
    */
 
-
   /* clear the snr output vector and workspace*/
   memset( params->PTFsnrVec->data, 0, 
       params->PTFsnrVec->length * sizeof(REAL4) );
-  memset( params->PTFqVec->data, 0, 
-      params->PTFqVec->length * sizeof(COMPLEX8) );
-
-  for ( i = 0; i < params->PTFqVec->length; ++i )
+  memset( params->PTFqVec->data, 0, 5 * numPoints * sizeof(COMPLEX8) );
+  
+  for ( i = 0; i < 5; ++i )
   {
 
     /* compute qtilde using data and Qtilde */
