@@ -84,6 +84,10 @@ parser.add_option("-R","--ifo",action="store",default=None,\
     help="Single ifo for which parameters to be plotted")
 
 
+parser.add_option("-C","--coincs",action="store",default=None,\
+    type="string",\
+    help="Coincs for doubles")
+""
 
 (opts,args) = parser.parse_args()
 
@@ -151,17 +155,24 @@ if (opts.statistic != 'snr') and (opts.statistic != 'snr_over_chi') \
   sys.exit(1)
 
 ###############################################################################
+# List of ifos 
+
+ifos = ["H1","H2","L1"]
+
+if opts.coincs == "H1H2":
+  ifolist  = ("H1","H2")
+elif opts.coincs == "H1L1":
+  ifolist = ("H1","L1")
+elif opts.coincs == "H2L1":
+  ifolist = ("H2","L1")
 
 
-def coinc_params_func(events, timeslide = 0):
-        """
-        @events is a list of glue.ligolw.lsctables.SnglInspiral objects
-        that, together, form the "coincidence".
-        @timeslide is some thing of your own design used to describe the
-        time offsets that need to be applied to the triggers.  For me, a
-        "timeslide" is universally represented as a Python dictionary
-        mapping instrument to offset, e.g. {"H1": 0, "H2: 0, "L1": 10}.
-        """
+
+
+###############################################################################
+
+
+def single_params_func(events, timeslide = 0):
 
         H1_eff_snr = events.get_effective_snr()
         H2_eff_snr = events.get_effective_snr()
@@ -170,6 +181,17 @@ def coinc_params_func(events, timeslide = 0):
                 "H1_eff_snr": H1_eff_snr,
                 "H2_eff_snr": H2_eff_snr,
                 "L1_eff_snr": L1_eff_snr 
+        }
+
+def double_params_func(events, timeslides = 0):
+        
+        H1H2_eff_snr = events.get_effective_snr()
+        H1L1_eff_snr = events.get_effective_snr()
+        H2L1_eff_snr = events.get_effective_snr()
+        return {
+                "H1H2_eff_snr": H1H2_eff_snr,
+                "H1L1_eff_snr": H1L1_eff_snr,
+                "H2L1_eff_snr": H2L1_eff_snr
         }
 
 
@@ -185,22 +207,46 @@ zerolagTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(zerolagfiles, mang
 zerolagCoincTriggers= \
 CoincInspiralUtils.coincInspiralTable(zerolagTriggers, statistic)
 
-# read in time slides triggers
-
 slidesTriggers = None
 slidesTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(slidesfiles, mangle_event_id = True)
 
-# construct the time slides coincs
+# construct the time slides coincs for single.
 slidesCoincs= \
 CoincInspiralUtils.coincInspiralTable(slidesTriggers, statistic)
+
+
+# Construct the time slides for double in triple times.
+if opts.coincs == "H1H2":
+  H1H2_slides_Coincs = CoincInspiralUtils.coincInspiralTable(slidesTriggers, statistic).coincinclude(ifolist)
+  
+if opts.coincs == "H1L1": 
+  H1L1_slides_Coincs = CoincInspiralUtils.coincInspiralTable(slidesTriggers, statistic).coinctype(ifolist)
+
+if opts.coincs == "H2L1":
+  H2L1_slides_Coincs = CoincInspiralUtils.coincInspiralTable(slidesTriggers, statistic).coinctype(ifolist)
+
+
 
 # read in the injection files
 injectionTriggers = None
 injectionTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(foundfiles, mangle_event_id = True)
 
-# contruct the injection coincs
+# contruct the injection coincs for double in tripe times.
+
+if opts.coincs == "H1H2":
+  H1H2_Inj_Coincs = CoincInspiralUtils.coincInspiralTable(injectionTriggers, statistic).coincinclude(ifolist)
+  for coinc in H1H2_Inj_Coincs:
+     print coinc
+
+if opts.coincs == "H1L1":
+  H1L1_Inj_Coincs = CoincInspiralUtils.coincInspiralTable(injectionTriggers, statistic).coinctype(ifolist)
+
+if opts.coincs == "H2L1":
+  H2L1_Inj_Coincs = CoincInspiralUtils.coincInspiralTable(injectionTriggers, statistic).coinctype(ifolist)
+
+# Construct coincs for singles.
+
 InjectionCoincs = CoincInspiralUtils.coincInspiralTable(injectionTriggers, statistic)
-Masscoincs =  CoincInspiralUtils.coincInspiralTable(injectionTriggers,statistic).getChirpMass(1.0,3.0)
 
 ################################################################################
 #
@@ -229,7 +275,10 @@ Masscoincs =  CoincInspiralUtils.coincInspiralTable(injectionTriggers,statistic)
 distributions = ligolw_burca_tailor.CoincParamsDistributions(
         H1_eff_snr = (segments.segment(0.0, 50.0), 1.0),
         H2_eff_snr = (segments.segment(0.0,50.0), 1.0),
-        L1_eff_snr = (segments.segment(0.0,50.0),1.0))
+        L1_eff_snr = (segments.segment(0.0,50.0),1.0),
+        H1H2_eff_snr = (segments.segment(0.0, 50.0), 1.0),
+        H1L1_eff_snr = (segments.segment(0.0, 50.0), 1.0),
+        H2L1_eff_snr = (segments.segment(0.0, 50.0), 1.0))
 
 timeslide = 0
 
@@ -243,19 +292,26 @@ x_inj_param = []
 for coincs in InjectionCoincs:
   
   if opts.statistic == 'effective_snr' and opts.ifo == "H1" and hasattr(coincs, "H1"):
-        distributions.add_injection(coinc_params_func, coincs.H1, timeslide)
+        distributions.add_injection(single_params_func, coincs.H1, timeslide)
         x_inj_param.append(coincs.H1.get_effective_snr())
  
   elif  opts.statistic == 'effective_snr' and opts.ifo == "H2" and hasattr(coincs, "H2"):
-        distributions.add_injection(coinc_params_func, coincs.H2, timeslide)
+        distributions.add_injection(single_params_func, coincs.H2, timeslide)
         x_inj_param.append(coincs.H2.get_effective_snr())
 
   elif  opts.statistic == 'effective_snr' and opts.ifo == "L1" and hasattr(coincs, "L1"):
-        distributions.add_injection(coinc_params_func, coincs.L1, timeslide)
+        distributions.add_injection(single_params_func, coincs.L1, timeslide)
         x_inj_param.append(coincs.L1.get_effective_snr())
-
-
+  
+  if opts.statistic == 'effective_snr' and opts.coincs == "H1H2" and hasattr(coincs, "H1"):
+        print True
+        distributions.add_injection(double_params_func, coincs.H1, timeslide)
+        x_inj_param.append(coincs.H1.get_effective_snr())
+  else:
+        print False
+ 
 X_inj_param = asarray(x_inj_param)
+
 #############################################################################   
 #Constructions of effective snr arrays for background
 #############################################################################
@@ -264,15 +320,15 @@ x_back_param = []
 for coincs in slidesCoincs:
   
   if opts.statistic == 'effective_snr' and opts.ifo == "H1" and hasattr(coincs, "H1"):
-        distributions.add_background(coinc_params_func, coincs.H1, timeslide)
+        distributions.add_background(single_params_func, coincs.H1, timeslide)
         x_back_param.append(coincs.H1.get_effective_snr())
 
   elif  opts.statistic == 'effective_snr' and opts.ifo == "H2" and hasattr(coincs, "H2"):
-        distributions.add_background(coinc_params_func, coincs.H2, timeslide)
+        distributions.add_background(single_params_func, coincs.H2, timeslide)
         x_back_param.append(coincs.H2.get_effective_snr())
 
   elif  opts.statistic == 'effective_snr' and opts.ifo == "L1" and hasattr(coincs, "L1"):
-        distributions.add_background(coinc_params_func, coincs.L1, timeslide)
+        distributions.add_background(single_params_func, coincs.L1, timeslide)
         x_back_param.append(coincs.L1.get_effective_snr())
 
 
