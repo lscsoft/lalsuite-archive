@@ -3,6 +3,7 @@
  * File Name: FindChirpFilterInit.c
  *
  * Author: Brown, D. A., BCV-Modifications by Messaritaki E.
+    fprintf(stderr,"PTFsnrVec->length=%d\n",outputPtr->PTFsnrVec->length);
  * 
  * Revision: $Id$
  * 
@@ -741,8 +742,11 @@ LALFindChirpFilterInit (
         TRY( LALDestroyVector( status->statusPtr, &(outputPtr->chisqVec) ), 
             status ); 
       }
-      TRY( LALCDestroyVector( status->statusPtr, &(outputPtr->qtildeVec) ),
-          status );
+      if ( outputPtr->qtildeVec )
+      {  
+        TRY( LALCDestroyVector( status->statusPtr, &(outputPtr->qtildeVec) ),
+            status );
+      }
       if ( outputPtr->qtildeVecBCV )
       {
         TRY( LALCDestroyVector( status->statusPtr, &(outputPtr->qtildeVecBCV)), 
@@ -758,8 +762,11 @@ LALFindChirpFilterInit (
         TRY( LALCDestroyVector( status->statusPtr, 
               &(outputPtr->qtildeVecBCVSpin2)), status );
       }
-      TRY( LALCDestroyVector( status->statusPtr, &(outputPtr->qVec) ), 
-          status );
+      if ( outputPtr->qVec )
+      {
+        TRY( LALCDestroyVector( status->statusPtr, &(outputPtr->qVec) ), 
+            status );
+      }
       if ( outputPtr->qVecBCV)
       {
         TRY( LALCDestroyVector( status->statusPtr, &(outputPtr->qVecBCV) ),
@@ -812,8 +819,11 @@ LALFindChirpFilterInit (
         TRY( LALDestroyVector( status->statusPtr, &(outputPtr->chisqVec) ), 
             status ); 
       }
-      TRY( LALCDestroyVector( status->statusPtr, &(outputPtr->qtildeVec) ),
-          status );
+      if ( outputPtr->qtildeVec )
+      {  
+        TRY( LALCDestroyVector( status->statusPtr, &(outputPtr->qtildeVec) ),
+            status );
+      }
       if ( outputPtr->rhosqVec )
       {
         TRY( LALDestroyVector( status->statusPtr, &(outputPtr->rhosqVec->data)),
@@ -984,8 +994,11 @@ LALFindChirpFilterFinalize (
 
   /* destroy workspace vector for optimal filter: freq domain */
   fprintf(stderr,"is the problem here?\n");
-  LALCDestroyVector( status->statusPtr, &(outputPtr->qtildeVec) );
-  
+  if (outputPtr->qtildeVec)
+  {  
+    LALCDestroyVector( status->statusPtr, &(outputPtr->qtildeVec) ) ;
+    CHECKSTATUSPTR( status );
+  }  
   if  (outputPtr->qtildeVecBCV) 
   { 
     LALCDestroyVector( status->statusPtr, &(outputPtr->qtildeVecBCV) );
