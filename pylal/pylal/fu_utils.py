@@ -82,8 +82,7 @@ class getCache(UserDict):
         dur = x.split(m.split(fname)[-1])
         scirun = string.strip(cp.get('hipe-cache','science-run'))
         entry = lal.CacheEntry(ifo+" " + scirun + " " \
-              +start+" "+dur[0]+" "+"file://localhost"
-              +cache_path+"/"+fname)
+              +start+" "+dur[0]+" "+"file://localhost" +cache_path+"/"+fname)
         self[type].append(entry)
 
   def getCacheAll(self,cp=None):
