@@ -80,11 +80,12 @@ class getCache(UserDict):
         ifo = m.split(fname)[0]
         start = m.split(fname)[-2]
         dur = x.split(m.split(fname)[-1])
-        scirun = string.strip(cp.get('hipe-cache','science-run'))
-        entry = lal.CacheEntry(ifo+" " + scirun + " " \
-              +start+" "+dur[0]+" "+"file://localhost" +cache_path+"/"+fname)
-        self[type].append(entry)
-
+        try:
+          scirun = string.strip(cp.get('hipe-cache','science-run'))
+          tmpentry = ifo+" "+scirun+" "+start+" "+dur[0]+" "+"file://localhost" +cache_path+"/"+fname
+          entry = lal.CacheEntry(tmpentry)
+          self[type].append(entry)
+        except: pass
   def getCacheAll(self,cp=None):
     for type in self.types:
       self.getCacheType(type,cp)
