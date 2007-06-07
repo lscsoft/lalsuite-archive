@@ -224,7 +224,7 @@ LALFindChirpFilterSegment (
   inputData = input->segment->data->data->data;
   tmpltSignal = input->fcTmplt->data->data;
   deltaT = params->deltaT;
-  deltaF = 1.0 / ( (REAL4) params->deltaT * (REAL4) numPoints );
+  deltaF = 1.0 / ( (REAL8) params->deltaT * (REAL8) numPoints );
   kmax = input->fcTmplt->tmplt.fFinal / deltaF < numPoints/2 ? 
     input->fcTmplt->tmplt.fFinal / deltaF : numPoints/2;
 
