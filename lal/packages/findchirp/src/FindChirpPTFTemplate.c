@@ -223,8 +223,7 @@ LALFindChirpPTFNormalize(
 /* </lalVerbatim> */
 {
   UINT4         i, j, k, kmin, len;
-  REAL4         deltaT, fmin;
-  REAL8         deltaF;
+  REAL4         fmin, deltaT, deltaF;
   REAL4        *det         = NULL;
   REAL4        *PTFB        = NULL; 
   COMPLEX8     *wtilde      = NULL;
@@ -235,7 +234,7 @@ LALFindChirpPTFNormalize(
   PTFQtilde = fcTmplt->PTFQtilde->data;
   PTFB      = fcTmplt->PTFB->data;
   len       = params->wtildeVec->length; 
-  deltaT    = fcSeg->deltaT;
+  deltaT    = (REAL4) fcSeg->deltaT;
   deltaF    = 1.0 / ( deltaT * 2 * ( (REAL4)len - 1) );
   fmin      = fcTmplt->tmplt.fLower;
   kmin      = fmin / deltaF > 1 ?  fmin / deltaF : 1;
