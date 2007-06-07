@@ -64,6 +64,10 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams,tableFileName,imgFi
         trigStart = eval(row.value)
       if row.param == "--gps-start-time":
         gpsStart = eval(row.value)
+      if row.param == "--low-frequency-cutoff":
+        flow = eval(row.value)
+      if row.param == "--dynamic-range-exponent":
+        dynRange = eval(row.value)
 
     segLenSec = segLen / sampleRate
     segOverlapSec = segOverlap / sampleRate
@@ -79,15 +83,16 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams,tableFileName,imgFi
 
     chanNameSnr = chanStringBase + "_SNRSQ_" + chanNumber
     chanNameChisq = chanStringBase + "_CHISQ_" + chanNumber
+    chanNamePSD = chanStringBase + "_PSD"
 
     # now, read the data !!
     # The window width should be an input argument maybe ?
     duration = 2.0
    
     squareSnr_tuple = Fr.frgetvect(frameFile,chanNameSnr,-1,segLenSec,0)
-    
     squareChisq_tuple = Fr.frgetvect(frameFile,chanNameChisq,-1,segLenSec,0)
-
+    PSD_tuple = Fr.frgetvect(frameFile,chanNamePSD,-1,segLenSec*8,0)
+    #print PSD_tuple
     snr_position = eval(gpsTime) - (gpsStart + gpsPosition* (segLenSec - segOverlapSec) )
     chisq_position = snr_position
     
@@ -95,7 +100,13 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams,tableFileName,imgFi
     snr_vector = sqrt(squareSnr_tuple[0])
     # print squareSnr_tuple
     snr_time = array(range(0, segLen)) * squareSnr_tuple[3][0] - snr_position
-      
+#    print dynRange
+    # compute PSD freq vector
+    ASD_vector = PSD_tuple[0] / (float(pow(2,int(dynRange))))
+    ASD_freq = array(range(0, len(ASD_vector))) * PSD_tuple[3][0] 
+    #print len(ASD_vector)
+    #print len(ASD_freq)
+     
     # compute the r^2
     rsq_vector = squareChisq_tuple[0]
 
@@ -123,7 +134,23 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams,tableFileName,imgFi
     	chisqThreshVect = lengthChisq * [chisqThreshold]
     if((rsqThreshold > 0) and (rsqThreshold < 100.)):
 	rsqThreshVect = lengthChisq * [rsqThreshold]
-   
+  
+    # plot the PSD
+    figure(4)
+    loglog(ASD_freq,ASD_vector)
+    xlabel('freq (Hz)', size='x-large')
+    ylabel(r'PSD',size='x-large')
+    xlim(flow, ASD_freq[-1])
+    title(ifoName[0] + ' trigger: ' + gpsTime)
+    figName = ifoName[0] + '_' + str(gpsTime).replace(".","_") + '_ASD.png'
+    savefig(outputPath +"/" + figName)
+    tableFile = open(tableFileName,'a')
+    table = HTMLTable()
+    rowStr = '<img width=800 src="' + page + "/" + outputPath + "/" + figName +'">'
+    table.add_column([rowStr],'ASD')
+    table.write(tableFile)
+    tableFile.close()
+
 
     # Now plot the snr time serie !!
     
