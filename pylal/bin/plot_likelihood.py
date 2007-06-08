@@ -14,6 +14,7 @@ import ConfigParser
 import string
 import fileinput
 import linecache
+import math
 
 from glue.ligolw import table
 from glue.ligolw import lsctables
@@ -184,15 +185,25 @@ def single_params_func(events, timeslide = 0):
         }
 
 def double_params_func(events, timeslides = 0):
-        
-        H1H2_eff_snr = events.get_effective_snr()
-        H1L1_eff_snr = events.get_effective_snr()
-        H2L1_eff_snr = events.get_effective_snr()
-        return {
-                "H1H2_eff_snr": H1H2_eff_snr,
-                "H1L1_eff_snr": H1L1_eff_snr,
+       
+        if hasattr(events, "H1") and hasattr(events, "H2"): 
+          H1H2_eff_snr = math.sqrt((events.H1.get_effective_snr())**2 + (events.H2.get_effective_snr())**2)
+          return {
+                "H1H2_eff_snr": H1H2_eff_snr
+          }
+
+         
+        elif hasattr(events, "H1") and hasattr(events, "L1"):
+          H1L1_eff_snr = math.sqrt((events.H1.get_effective_snr())**2 + (events.L1.get_effective_snr())**2)
+          return {
+                "H1L1_eff_snr": H1L1_eff_snr
+          }
+
+        elif hasattr(events, "H2") and hasattr(events, "L1"):
+          H2L1_eff_snr = math.sqrt((events.H2.get_effective_snr())**2 + (events.L1.get_effective_snr())**2)
+          return {
                 "H2L1_eff_snr": H2L1_eff_snr
-        }
+          }
 
 
 statistic = CoincInspiralUtils.coincStatistic(opts.statistic)
@@ -235,8 +246,6 @@ injectionTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(foundfiles, mang
 
 if opts.coincs == "H1H2":
   H1H2_Inj_Coincs = CoincInspiralUtils.coincInspiralTable(injectionTriggers, statistic).coincinclude(ifolist)
-  for coinc in H1H2_Inj_Coincs:
-     print coinc
 
 if opts.coincs == "H1L1":
   H1L1_Inj_Coincs = CoincInspiralUtils.coincInspiralTable(injectionTriggers, statistic).coinctype(ifolist)
@@ -290,6 +299,9 @@ timeslide = 0
 
 x_inj_param = []
 for coincs in InjectionCoincs:
+#############################################################################
+# For Single ifos
+#############################################################################
   
   if opts.statistic == 'effective_snr' and opts.ifo == "H1" and hasattr(coincs, "H1"):
         distributions.add_injection(single_params_func, coincs.H1, timeslide)
@@ -302,16 +314,24 @@ for coincs in InjectionCoincs:
   elif  opts.statistic == 'effective_snr' and opts.ifo == "L1" and hasattr(coincs, "L1"):
         distributions.add_injection(single_params_func, coincs.L1, timeslide)
         x_inj_param.append(coincs.L1.get_effective_snr())
-  
-  if opts.statistic == 'effective_snr' and opts.coincs == "H1H2" and hasattr(coincs, "H1"):
-        print True
-        distributions.add_injection(double_params_func, coincs.H1, timeslide)
-        x_inj_param.append(coincs.H1.get_effective_snr())
-  else:
-        print False
- 
-X_inj_param = asarray(x_inj_param)
 
+##############################################################################
+# For double in Double times
+##############################################################################
+  
+  if opts.statistic == 'effective_snr' and opts.coincs == "H1H2" and hasattr(coincs, "H1") and hasattr(coincs, "H2"):
+        distributions.add_injection(double_params_func, coincs,timeslide)
+        x_inj_param.append(math.sqrt((coincs.H1.get_effective_snr())**2 + (coincs.H2.get_effective_snr())**2))
+     
+  elif opts.statistic == 'effective_snr' and opts.coincs == "H1L1" and hasattr(coincs, "H1") and hasattr(coincs, "L1"):
+        distributions.add_injection(double_params_func, coincs,timeslide)
+        x_inj_param.append(math.sqrt((coincs.H1.get_effective_snr())**2 + (coincs.L1.get_effective_snr())**2))
+
+  elif opts.statistic == 'effective_snr' and opts.coincs == "H2L1" and hasattr(coincs, "H2") and hasattr(coincs, "L1"):     
+        distributions.add_injection(double_params_func, coincs,timeslide)
+        x_inj_param.append(math.sqrt((coincs.H2.get_effective_snr())**2 + (coincs.L1.get_effective_snr())**2))
+          
+X_inj_param = asarray(x_inj_param)
 #############################################################################   
 #Constructions of effective snr arrays for background
 #############################################################################
@@ -326,26 +346,40 @@ for coincs in slidesCoincs:
   elif  opts.statistic == 'effective_snr' and opts.ifo == "H2" and hasattr(coincs, "H2"):
         distributions.add_background(single_params_func, coincs.H2, timeslide)
         x_back_param.append(coincs.H2.get_effective_snr())
-
+  
   elif  opts.statistic == 'effective_snr' and opts.ifo == "L1" and hasattr(coincs, "L1"):
         distributions.add_background(single_params_func, coincs.L1, timeslide)
         x_back_param.append(coincs.L1.get_effective_snr())
 
+#############################################################################
+# Doubles in Triple times
+#############################################################################
+
+  if opts.statistic == 'effective_snr' and opts.coincs == "H1H2" and hasattr(coincs, "H1") and hasattr(coincs, "H2"):
+        distributions.add_injection(double_params_func, coincs,timeslide)
+        x_back_param.append(math.sqrt((coincs.H1.get_effective_snr())**2 + (coincs.H2.get_effective_snr())**2))
+
+  elif opts.statistic == 'effective_snr' and opts.coincs == "H1L1" and hasattr(coincs, "H1") and hasattr(coincs, "L1"):
+        distributions.add_injection(double_params_func, coincs,timeslide)
+        x_back_param.append(math.sqrt((coincs.H1.get_effective_snr())**2 + (coincs.L1.get_effective_snr())**2))
+
+  elif opts.statistic == 'effective_snr' and opts.coincs == "H2L1" and hasattr(coincs, "H2") and hasattr(coincs, "L1"):
+        distributions.add_injection(double_params_func, coincs,timeslide)
+        x_back_param.append(math.sqrt((coincs.H2.get_effective_snr())**2 + (coincs.L1.get_effective_snr())**2))
+
 
   
 X_back_param = asarray(x_back_param)
-
-############################################################################
-
+#############################################################################
 # Finish Smoothening of the Data using Gaussian Filter
-###########################################################################
+#############################################################################
 xmldoc = ligolw_burca_tailor.gen_likelihood_control(distributions)
 utils.write_filename(xmldoc, "distributions.xml")   
 
 distributions.finish()
-##########################################################################
+#3###########################################################################
 # Construction of Histrogram
-#########################################################################
+#############################################################################
 
 p = arange(0, 50.0, 0.5)
 title('Injections')
@@ -357,17 +391,12 @@ title('Background')
 X_Back_norm = hist(X_back_param,p)[0]*1.0/max(hist(X_back_param,p)[0])
 clf()
 
-
-bar(p, X_Inj_norm,color='r')
-hold(True)
-bar(p, X_Back_norm,color='k')
-xlabel('Effective_snr' + " " + str(opts.ifo))
-figure()
 ##########################################################################
 # Reload X nd Y parameters
 ##########################################################################
 
-#distributions.background_rates.keys()
+# For Singles
+##########################################################################
 
 if opts.statistic == 'effective_snr' and opts.ifo == "H1":
   x_inj = distributions.injection_rates["H1_eff_snr"].xvals()
@@ -386,7 +415,8 @@ elif  opts.statistic == 'effective_snr' and opts.ifo == "L1":
 if opts.statistic == 'effective_snr' and opts.ifo == "H1":
   x_back = distributions.background_rates["H1_eff_snr"].xvals()
   y_back = distributions.background_rates["H1_eff_snr"].array
-  
+  print "y_back", y_back
+
 elif opts.statistic == 'effective_snr' and opts.ifo == "H2":
   x_back = distributions.background_rates["H2_eff_snr"].xvals()
   y_back = distributions.background_rates["H2_eff_snr"].array
@@ -396,9 +426,68 @@ elif opts.statistic == 'effective_snr' and opts.ifo == "L1":
   x_back = distributions.background_rates["L1_eff_snr"].xvals()
   y_back = distributions.background_rates["L1_eff_snr"].array
 
+########################################################################
+# For doubles in Triple times.
+########################################################################
 
-plot(x_inj, y_inj, "r-", x_back, y_back, "k-")
-xlabel('Effective_snr' + " " + str(opts.ifo))
+if opts.statistic == 'effective_snr' and opts.coincs == "H1H2":
+  x_inj = distributions.injection_rates["H1H2_eff_snr"].xvals()
+  y_inj = distributions.injection_rates["H1H2_eff_snr"].array
+
+elif opts.statistic == 'effective_snr' and opts.coincs == "H1L1":
+  x_inj = distributions.injection_rates["H1L1_eff_snr"].xvals()
+  y_inj = distributions.injection_rates["H1L1_eff_snr"].array
+
+  print "x_inj", x_inj, "y_inj", y_inj
+
+elif opts.statistic == 'effective_snr' and opts.coincs == "H2L1":
+  x_inj = distributions.injection_rates["H2L1_eff_snr"].xvals()
+  y_inj = distributions.injection_rates["H2L1_eff_snr"].array
+
+########################################################################
+# Adding time slides.
+########################################################################
+
+if opts.statistic == 'effective_snr' and opts.coincs == "H1H2":
+  x_back = distributions.background_rates["H1H2_eff_snr"].xvals()
+  y_back = distributions.background_rates["H1H2_eff_snr"].array
+
+elif opts.statistic == 'effective_snr' and opts.coincs == "H1L1":
+  x_back = distributions.background_rates["H1L1_eff_snr"].xvals()
+  y_back = distributions.background_rates["H1L1_eff_snr"].array
+
+  
+elif opts.statistic == 'effective_snr' and opts.coincs == "H2L1":
+  x_back = distributions.background_rates["H2L1_eff_snr"].xvals()
+  y_back = distributions.background_rates["H2L1_eff_snr"].array
+
+########################################################################
+# Plottings routines
+########################################################################
+
+if (opts.ifo == "H1" or opts.ifo == "H2" or opts.ifo == "L1"):
+  plot(x_inj, y_inj, "r-", x_back, y_back, "k-")
+  xlabel('Effective_snr' + " " + str(opts.ifo))
+  figure()
+  bar(p, X_Inj_norm,color='r')
+  hold(True)
+  bar(p, X_Back_norm,color='k')
+  hold(True)
+  xlabel('Effective_snr' + " " + str(opts.ifo))
+
+
+
+if (opts.coincs == "H1H2" or opts.coincs == "H1L1" or opts.coincs == "H2L1"):
+  plot(x_inj, y_inj, "r", x_back, y_back, "k-")
+  xlabel('Combined_snr' + " " + str(opts.coincs))
+  figure()
+  bar(p, X_Inj_norm,color='r')
+  hold(True)
+  bar(p, X_Back_norm,color='k')
+  hold(True)
+  xlabel('Combined_snr' + " " + str(opts.coincs))
+
+
   
 ########################################################################
 show()
