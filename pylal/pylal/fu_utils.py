@@ -368,7 +368,6 @@ class followUpList:
 def getfollowuptrigs(numtrigs,page,coincs=None,missed=None):
 
   followups = []
-
   if coincs:
     sim = None
     try:
@@ -379,6 +378,9 @@ def getfollowuptrigs(numtrigs,page,coincs=None,missed=None):
     else: coincs.sort()
     numTrigs = 0
     for ckey in coincs:
+      numTrigs += 1
+      if numTrigs > eval(numtrigs):
+        break
       fuList = followUpList()
       fuList.add_coincs(ckey)
       fuList.add_page(page)
@@ -407,9 +409,6 @@ def getfollowuptrigs(numtrigs,page,coincs=None,missed=None):
         fuList.gpsTime["T1"] = (float(getattr(ckey,'T1').end_time_ns)/1000000000)+float(getattr(ckey,'T1').end_time)
       except: fuList.gpsTime["T1"] = None
       followups.append(fuList)
-      numTrigs += 1
-      if numTrigs >= numtrigs:
-        break
 
   # the missed stuff doesnt work yet!!!
   if missed:
