@@ -102,7 +102,9 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams,tableFileName,imgFi
     snr_time = array(range(0, segLen)) * squareSnr_tuple[3][0] - snr_position
 #    print dynRange
     # compute PSD freq vector
-    ASD_vector = PSD_tuple[0] / (float(pow(2,int(dynRange))))
+    if dynRange != 0:
+      ASD_vector = PSD_tuple[0] / (float(pow(2,int(dynRange))))
+    else: ASD_vector = PSD_tuple[0]
     ASD_freq = array(range(0, len(ASD_vector))) * PSD_tuple[3][0] 
     #print len(ASD_vector)
     #print len(ASD_freq)
