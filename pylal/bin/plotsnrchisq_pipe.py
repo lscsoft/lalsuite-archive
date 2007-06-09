@@ -50,7 +50,7 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams,tableFileName,imgFi
         sampleRate = eval(row.value)
       if row.param == "--segment-overlap":
         segOverlap = eval(row.value)
-      if (row.param == "--chisq-delta") or (row.param == "--minimal-match"):
+      if (row.param == "--chisq-delta"):
         chisqDelta = eval(row.value)
       if row.param =="--chisq-bins":
         chisqBins = eval(row.value)
