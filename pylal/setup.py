@@ -193,6 +193,7 @@ setup(
 		os.path.join("bin", "plottisi"),
 		os.path.join("bin", "s3_statistic"),
 		os.path.join("bin", "hipecoire"),
+		os.path.join("bin", "inspiral_likelihood"),
 		os.path.join("bin", "lalapps_excesspowerfinal"),
 		os.path.join("bin", "lalapps_ll2cache"),
 		os.path.join("bin", "lalapps_path2cache"),

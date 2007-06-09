@@ -488,8 +488,14 @@ class coincInspiralTable:
       if c_ifos == trig_ifos:
         for ifo1 in ifolist: 
           # distance^2 apart in effective snr
-          c_lambda = getattr(candidate,ifo1).get_effective_snr()
-          t_lambda = getattr(trig,ifo1).get_effective_snr()
+          c_lambda = getattr(candidate,ifo1).snr
+          t_lambda = getattr(trig,ifo1).snr
+          tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
+          param_counter += 1
+
+          # distance^2 apart in effective snr
+          c_lambda = getattr(candidate,ifo1).chisq
+          t_lambda = getattr(trig,ifo1).chisq
           tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
           param_counter += 1
 
