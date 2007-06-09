@@ -488,39 +488,32 @@ class coincInspiralTable:
       if c_ifos == trig_ifos:
         for ifo1 in ifolist: 
           # distance^2 apart in effective snr
-          #c_lambda = getattr(candidate,ifo1).get_effective_snr()
-          #t_lambda = getattr(trig,ifo1).get_effective_snr()
-          #tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
-          #param_counter += 1
+          c_lambda = getattr(candidate,ifo1).get_effective_snr()
+          t_lambda = getattr(trig,ifo1).get_effective_snr()
+          tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
+          param_counter += 1
 
           # distance^2 apart in mchirp
-          #c_lambda = getattr(candidate,ifo1).mchirp
-          #t_lambda = getattr(trig,ifo1).mchirp
-          #tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
-          #param_counter += 1
+          c_lambda = getattr(candidate,ifo1).mchirp
+          t_lambda = getattr(trig,ifo1).mchirp
+          tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
+          param_counter += 1
 
           # distance^2 apart in effective distance
-          #c_lambda = getattr(candidate,ifo1).eff_distance
-          #t_lambda = getattr(trig,ifo1).eff_distance
-          #tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
-          #param_counter += 1
+          c_lambda = getattr(candidate,ifo1).eff_distance
+          t_lambda = getattr(trig,ifo1).eff_distance
+          tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
+          param_counter += 1
 
           # distance^2 apart in ethinca
 	  for ifo2 in ifolist:
             if ifo1 < ifo2:
               c_lambda = simpleEThinca(\
-              getattr(candidate,ifo1),\
-              getattr(candidate,ifo2) )
+                getattr(candidate,ifo1),\
+                getattr(candidate,ifo2) )
               t_lambda = simpleEThinca(\
-              getattr(trig,ifo1),\
-              getattr(trig,ifo2) )
-
-#              c_lambda = XLALCalculateEThincaParameter(\
-#              getattr(candidate,ifo1),\
-#              getattr(candidate,ifo2) ) 
-#              t_lambda = XLALCalculateEThincaParameter(\
-#              getattr(trig,ifo1),\
-#              getattr(trig,ifo2) ) 
+                getattr(trig,ifo1),\
+                getattr(trig,ifo2) )
               tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
               param_counter += 1
 
