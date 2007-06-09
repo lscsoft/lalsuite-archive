@@ -18,7 +18,8 @@ import numpy
 usage= """
 usage: %prog [options]
 
-Calculate likelihood ratio and assign ranking based on it to each candidate trigger.
+Calculate likelihood ratio and assign ranking based on it to each 
+candidate trigger.
 """
 parser = OptionParser( usage=usage, version="%prog CVS $Id$ " )
 parser.add_option("-z","--zerolag-glob",action="store",type="string",\
