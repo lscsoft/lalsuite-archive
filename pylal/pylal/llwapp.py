@@ -157,25 +157,27 @@ def get_coinc_def_id(xmldoc, table_names, create_new = True):
 	return coincdeftable.get_coinc_def_id(table_names, create_new = create_new)
 
 
-def segmenttable_get_by_description(xmldoc, description, active = True):
+def segmenttable_get_by_name(xmldoc, name, active = True):
 	"""
-	Return a segmentlistdict, indexed by instrument, of the active
-	segments from the segment table whose description matches that
-	given.  The optional active parameter can be set to False to
-	retrieve the inactive segments, instead.
+	Retrieve the segments whose activity flag and name match those
+	given.  The result is a segmentlistdict indexed by instrument.  The
+	default is to retrieve "active" segments, but the optional active
+	argument can be set to False or None to retrieve inactive or
+	undefined segments, respectively, instead.
 	"""
 	def_table = table.get_table(xmldoc, lsctables.SegmentDefTable.tableName)
 	seg_table = table.get_table(xmldoc, lsctables.SegmentTable.tableName)
 	map_table = table.get_table(xmldoc, lsctables.SegmentDefMapTable.tableName)
 
-	# segment_def_id --> instrument name mapping
-	def_ids = dict([(row.segment_def_id, row.ifos) for row in def_table if row.comment == description])
+	# segment_def_id --> instrument name mapping constructed from
+	# segment_definer entries bearing the correct name
+	def_ids = dict([(row.segment_def_id, row.ifos) for row in def_table if row.name == name])
 
-	# segment_id --> instrument name mapping
+	# segment_id --> instrument name mapping constructed from
+	# segment_def_map entries bearing segment_def_ids from above
 	seg_ids = dict([(row.segment_id, def_ids[row.segment_def_id]) for row in map_table if row.segment_def_id in def_ids])
 
 	result = segments.segmentlistdict()
-
 	for row in seg_table:
 		if row.get_active() == active and row.segment_id in seg_ids:
 			instrument = seg_ids[row.segment_id]
