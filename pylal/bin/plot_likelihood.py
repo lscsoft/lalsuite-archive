@@ -163,11 +163,13 @@ ifos = ["H1","H2","L1"]
 if opts.coincs == "H1H2":
   ifolist  = ("H1","H2")
 elif opts.coincs == "H1L1":
-  ifolist = ("H1","L1")
+  ifolist = ("H1","L1")events.get_column("h_end_time")
 elif opts.coincs == "H2L1":
   ifolist = ("H2","L1")
 
-
+###############################################################################
+# Extract column of interest from the SnglInspiralTable
+###############################################################################
 
 
 ###############################################################################
@@ -178,10 +180,12 @@ def single_params_func(events, timeslide = 0):
         H1_eff_snr = events.get_effective_snr()
         H2_eff_snr = events.get_effective_snr()
         L1_eff_snr = events.get_effective_snr()
+        end_time = events.get_column("end_time")
         return {
                 "H1_eff_snr": H1_eff_snr,
                 "H2_eff_snr": H2_eff_snr,
                 "L1_eff_snr": L1_eff_snr 
+                "end_time": end_time
         }
 
 def double_params_func(events, timeslides = 0):
@@ -281,10 +285,12 @@ InjectionCoincs = CoincInspiralUtils.coincInspiralTable(injectionTriggers, stati
 #print Ethinca_Slides
 ###############################################################################
 
+
 distributions = ligolw_burca_tailor.CoincParamsDistributions(
         H1_eff_snr = (segments.segment(0.0, 50.0), 1.0),
         H2_eff_snr = (segments.segment(0.0,50.0), 1.0),
         L1_eff_snr = (segments.segment(0.0,50.0),1.0),
+        end_time = (segments.segment(0.0,50.0),1.0)
         H1H2_eff_snr = (segments.segment(0.0, 50.0), 1.0),
         H1L1_eff_snr = (segments.segment(0.0, 50.0), 1.0),
         H2L1_eff_snr = (segments.segment(0.0, 50.0), 1.0))
@@ -437,8 +443,6 @@ if opts.statistic == 'effective_snr' and opts.coincs == "H1H2":
 elif opts.statistic == 'effective_snr' and opts.coincs == "H1L1":
   x_inj = distributions.injection_rates["H1L1_eff_snr"].xvals()
   y_inj = distributions.injection_rates["H1L1_eff_snr"].array
-
-  print "x_inj", x_inj, "y_inj", y_inj
 
 elif opts.statistic == 'effective_snr' and opts.coincs == "H2L1":
   x_inj = distributions.injection_rates["H2L1_eff_snr"].xvals()
