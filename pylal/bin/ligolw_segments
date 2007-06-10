@@ -69,12 +69,16 @@ def parse_command_line():
 		description = "Utility for manipulating segment lists in XML form.  At the moment, all this can do is convert segment lists in segwizard format to XML representations."
 	)
 	parser.add_option("--comment", metavar = "text", default = "", help = "Set comment string in process and segment_definer tables.")
+	parser.add_option("--name", metavar = "text", default = "", help = "When inserting new segments, use this the name string in the definer table to this (default = \"\").")
 	parser.add_option("-o", "--output", metavar = "filename", help = "Write output to this file (default = stdout).  If the file name ends in \".gz\", it will be gzip compressed.")
-	parser.add_option("--segwizard", metavar = "instrument=filename", default = [], action = "append", help = "Read list of active segments from segwizard file, coalesce and insert into output.  Can be given more than once to specify multiple segwizard inputs, one each for different instruments.")
+	parser.add_option("--insert-from-segwizard", metavar = "instrument=filename", default = [], action = "append", help = "Read list of active segments from segwizard file, coalesce and insert into output.  Can be given more than once to specify multiple segwizard inputs, one each for different instruments.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
 
-	options.segwizard = dict([argument.split("=") for argument in options.segwizard])
+	if filenames and len(filenames) > 1 and options.output:
+		raise ValueError, "setting --output with multiple input files causes data loss"
+
+	options.insert_from_segwizard = dict([argument.split("=") for argument in options.insert_from_segwizard])
 
 	return options, (filenames or [None])
 
@@ -100,6 +104,14 @@ def new_doc():
 	return xmldoc
 
 
+def load_doc(filename, verbose = False, gz = False):
+	xmldoc = utils.load_filename(filename, verbose = verbose, gz = gz)
+	# check that it has the required tables:
+	for t in (lsctables.ProcessTable, lsctables.ProcessParamsTable, lsctables.SegmentDefTable, lsctables.SegmentTable, lsctables.SegmentDefMapTable):
+		table.get_table(xmldoc, t.tableName)
+	return xmldoc
+
+
 #
 # =============================================================================
 #
@@ -113,10 +125,14 @@ def append_process(xmldoc, options):
 	process = llwapp.append_process(xmldoc, program = "ligolw_segments", version = __version__, cvs_repository = "lscsoft", cvs_entry_time = __date__, comment = options.comment)
 
 	params = []
-	if options.output != None:
+	if options.output is not None:
 		params += [("--output", "lstring", options.output)]
-	for item in options.segwizard.iteritems():
-		params += [("--segwizard", "lstring", "=".join(item))]
+	for item in options.insert_from_segwizard.iteritems():
+		params += [("--insert-from-segwizard", "lstring", "=".join(item))]
+	if options.name is not None:
+		params += [("--name", "lstring", options.name)]
+	if options.comment is not None:
+		params += [("--comment", "lstring", options.comment)]
 	llwapp.append_process_params(xmldoc, process, params)
 
 	return process
@@ -141,7 +157,7 @@ def segment_def(ifos, name, comment, ids, process):
 	return row
 
 
-def segment_table_rows(active, inactive, ids, process):
+def segment_table_rows(active, inactive, unknown, ids, process):
 	if active.intersects(inactive):
 		raise ValueError, "active and inactive intersect"
 
@@ -161,6 +177,17 @@ def segment_table_rows(active, inactive, ids, process):
 		row.process_id = process.process_id
 		row.set(seg)
 		row.active = 0
+		rows.append(row)
+
+	# "unknown" segments
+	# FIXME:  note, glue.ligolw I/O library does not yet understand
+	# None values, so if you use this you likely will be unable to
+	# write your document to a file
+	for seg in unknown:
+		row = lsctables.Segment()
+		row.process_id = process.process_id
+		row.set(seg)
+		row.active = None
 		rows.append(row)
 
 	# sort by time
@@ -192,16 +219,16 @@ def seg_def_map(seg, seg_def, ids, process):
 #
 
 
-def add_from_segwizard(segdeftable, segtable, segdefmaptable, filename, instrument, process):
-	segdef = segment_def(instrument, "segwizard", options.comment, segdeftable.ids, process)
+def insert_from_segwizard(segdeftable, segtable, segdefmaptable, filename, instrument, name, comment, process):
+	segdef = segment_def(instrument, name, comment, segdeftable.ids, process)
 	segdeftable.append(segdef)
 	active_segs = segmentsUtils.fromsegwizard(file(filename), coltype = LIGOTimeGPS).coalesce()
-	for seg in segment_table_rows(active_segs, segments.segmentlist(), segtable.ids, process):
+	for seg in segment_table_rows(active_segs, segments.segmentlist(), segments.segmentlist(), segtable.ids, process):
 		segtable.append(seg)
 		segdefmaptable.append(seg_def_map(seg, segdef, segdefmaptable.ids, process))
 
 
-def ligolw_segments(xmldoc, options):
+def ligolw_segments(xmldoc, process, segwizard = {}, name = "", comment = "", verbose = False):
 	segdeftable = table.get_table(xmldoc, lsctables.SegmentDefTable.tableName)
 	segdeftable.sync_ids()
 
@@ -211,14 +238,10 @@ def ligolw_segments(xmldoc, options):
 	segdefmaptable = table.get_table(xmldoc, lsctables.SegmentDefMapTable.tableName)
 	segdefmaptable.sync_ids()
 
-	process = append_process(xmldoc, options)
-
-	for instrument, filename in options.segwizard.iteritems():
-		if options.verbose:
-			print >>sys.stderr, "reading %s ..." % filename
-		add_from_segwizard(segdeftable, segtable, segdefmaptable, filename, instrument, process)
-
-	llwapp.set_process_end_time(process)
+	for instrument, filename in segwizard.iteritems():
+		if verbose:
+			print >>sys.stderr, "reading %s for %s ..." % (filename, instrument)
+		insert_from_segwizard(segdeftable, segtable, segdefmaptable, filename, instrument, name, comment, process)
 
 	return xmldoc
 
@@ -232,7 +255,42 @@ def ligolw_segments(xmldoc, options):
 #
 
 
+#
+# Parse command line.
+#
+
+
 options, filenames = parse_command_line()
 
 
-utils.write_filename(ligolw_segments(new_doc(), options), options.output, verbose = options.verbose, gz = (options.output or "stdout").endswith(".gz"))
+for filename in filenames:
+	#
+	# Load document.
+	#
+
+
+	if filename is not None:
+		xmldoc = load_doc(filename, verbose = options.verbose, gz = filename.endswith(".gz"))
+	else:
+		xmldoc = new_doc()
+
+
+	#
+	# Run whatever.
+	#
+
+
+	process = append_process(xmldoc, options)
+	xmldoc = ligolw_segments(xmldoc, process = process, segwizard = options.insert_from_segwizard, name = options.name, comment = options.comment, verbose = options.verbose)
+	llwapp.set_process_end_time(process)
+
+
+	#
+	# Write output.
+	#
+
+
+	if options.output:
+		utils.write_filename(xmldoc, options.output, verbose = options.verbose, gz = options.output.endswith(".gz"))
+	else:
+		utils.write_filename(xmldoc, filename, verbose = options.verbose, gz = (filename or "stdout").endswith(".gz"))
