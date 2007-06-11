@@ -80,31 +80,42 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams,tableFileName,imgFi
     if (trigPosition < 0): trigPosition = 0
     position = gpsPosition - trigPosition
     chanNumber = str(position)
-
-    chanNameSnr = chanStringBase + "_SNRSQ_" + chanNumber
-    chanNameChisq = chanStringBase + "_CHISQ_" + chanNumber
     chanNamePSD = chanStringBase + "_PSD"
 
     # now, read the data !!
     # The window width should be an input argument maybe ?
     duration = 2.0
-   
+    chanNums = range(16)
+    print chanNums  
+    # figure out what the hell is in this file
+    for chan in chanNums:
+      chanNameSnr = chanStringBase + "_SNRSQ_" + str(chan)
+      try: squareSnr_tuple = Fr.frgetvect(frameFile,chanNameSnr,-1,segLenSec,0)
+      except: break
+
+    if position == 1: chan -= 1
+    if position == 0: chan -= 2
+    chanNameSnr = chanStringBase + "_SNRSQ_" + str(chan)
+    chanNameChisq = chanStringBase + "_CHISQ_" + str(chan)
     squareSnr_tuple = Fr.frgetvect(frameFile,chanNameSnr,-1,segLenSec,0)
     squareChisq_tuple = Fr.frgetvect(frameFile,chanNameChisq,-1,segLenSec,0)
     PSD_tuple = Fr.frgetvect(frameFile,chanNamePSD,-1,segLenSec*8,0)
     #print PSD_tuple
     snr_position = eval(gpsTime) - (gpsStart + gpsPosition* (segLenSec - segOverlapSec) )
     chisq_position = snr_position
-    
+        
     # compute the snr vector
     snr_vector = sqrt(squareSnr_tuple[0])
     # print squareSnr_tuple
     snr_time = array(range(0, segLen)) * squareSnr_tuple[3][0] - snr_position
 #    print dynRange
     # compute PSD freq vector
-    if dynRange != 0:
-      ASD_vector = PSD_tuple[0] / (float(pow(2,int(dynRange))))
-    else: ASD_vector = PSD_tuple[0]
+#    if dynRange != 0:
+#      print dynRange
+#      print 'doing division'
+#      ASD_vector = PSD_tuple[0] / (float(pow(2,int(dynRange))))
+#    else: 
+    ASD_vector = PSD_tuple[0]
     ASD_freq = array(range(0, len(ASD_vector))) * PSD_tuple[3][0] 
     #print len(ASD_vector)
     #print len(ASD_freq)
@@ -318,7 +329,7 @@ command_line = sys.argv[1:]
 #################################
 # if --version flagged
 if opts.version:
-  print "$Id: plotsnrchisq_pipe.py,v 1.12 2007/05/16 18:11:07 channa Exp $"
+  print "$Id:$"
   sys.exit(0)
 
 #################################
