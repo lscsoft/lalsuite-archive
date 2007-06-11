@@ -152,7 +152,7 @@ LALFindChirpPTFTemplate (
     Q[i].length      = N;
     Qtilde[i].length = N / 2 + 1;
     Q[i].data        = params->PTFQ->data + (i * N);
-    Qtilde[i].data   = fcTmplt->PTFQtilde->data + i * (N / 2 + 1) ;
+    Qtilde[i].data   = fcTmplt->PTFQtilde->data + (i * (N / 2 + 1)) ;
   }  
 
 
@@ -236,7 +236,7 @@ LALFindChirpPTFNormalize(
   len       = params->wtildeVec->length; 
   deltaT    = (REAL4) fcSeg->deltaT;
   deltaF    = 1.0 / ( deltaT * 2 * ( (REAL4)len - 1) );
-  fmin      = fcTmplt->tmplt.fLower;
+  fmin      = (REAL4) fcTmplt->tmplt.fLower;
   kmin      = fmin / deltaF > 1 ?  fmin / deltaF : 1;
   
   INITSTATUS( status, "LALFindChirpPTFNormalize", FINDCHIRPPTFTEMPLATEC );
@@ -293,7 +293,6 @@ LALFindChirpPTFNormalize(
       PTFB[5 * i + j] *= 4.0 * deltaF ;
       /* Use the symmetry of B */
       PTFB[5 * j + i] = PTFB[5 * i + j];
-      fprintf(stderr,"B_%d_%d=%e,B_%d_%d=%e\n",i,j,fcTmplt->PTFB->data[i*5+j],j,i,fcTmplt->PTFB->data[i+5*j]);
     }    
   }  
  
