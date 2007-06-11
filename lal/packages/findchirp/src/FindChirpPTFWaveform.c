@@ -462,7 +462,6 @@ XLALFindChirpPTFWaveform(
   static const char* func = "XLALFindChirpPTFWaveform";
   UINT4  i, len;
   UINT4  N = PTFphi->length;
-  UINT4  check = PTFe1->length;
   INT4   errcode = 0;
   REAL8  deltaF = 1.0 / ( (REAL8) N * deltaT ); 
   double f_min = tmplt->fLower;
