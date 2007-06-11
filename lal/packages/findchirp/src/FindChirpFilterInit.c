@@ -933,7 +933,6 @@ LALFindChirpFilterFinalize (
    *
    */
 
-   fprintf(stderr,"I am inside FilterFinalize\n");
   /* destroy plan for optimal filter */
   LALDestroyComplexFFTPlan( status->statusPtr, &(outputPtr->invPlan) );
   CHECKSTATUSPTR( status );
@@ -947,31 +946,22 @@ LALFindChirpFilterFinalize (
   
 
   /* destroy the PTF memory */
-  fprintf(stderr,"Start freeing PTF...\n");
   if ( outputPtr->PTFqVec )
   {
     XLALDestroyCOMPLEX8VectorSequence( outputPtr->PTFqVec );
   }
-  fprintf(stderr,"I freed PTFqVec\n");
   if ( outputPtr->PTFsnrVec )
   {
     XLALDestroyVector( outputPtr->PTFsnrVec );
   }
-  fprintf(stderr,"I freed PTFsnrVec\n");
   if ( outputPtr->PTFA )
   {
-    fprintf(stderr,"I try and delete A...\n");
     XLALDestroyArray( outputPtr->PTFA );
-    fprintf(stderr,"done!\n");
   }
-  fprintf(stderr,"I freed PTFA\n");
   if ( outputPtr->PTFMatrix )
   {
     XLALDestroyArray( outputPtr->PTFMatrix );
   }
-  fprintf(stderr,"I freed PTFMatrix\n");
-
-  fprintf(stderr,"I think I freed PTF\n");
   
   /* BCV */
   if (outputPtr->qVecBCV) 
