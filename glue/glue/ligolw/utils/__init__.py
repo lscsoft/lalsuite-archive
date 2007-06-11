@@ -209,11 +209,11 @@ def write_filename(xmldoc, filename, verbose = False, gz = False):
 	>>> utils.write_filename(xmldoc, "data.xml")
 	"""
 	# initialize SIGTERM trap
-	global __llwapp_write_filename_got_sigterm
-	__llwapp_write_filename_got_sigterm = False
+	global __llwapp_write_filename_got_sig
+	__llwapp_write_filename_got_sig = []
 	def newsigterm(signum, frame):
-		global __llwapp_write_filename_got_sigterm
-		__llwapp_write_filename_got_sigterm = True
+		global __llwapp_write_filename_got_sig
+		__llwapp_write_filename_got_sig.append(signum)
 	oldsigterm = signal.getsignal(signal.SIGTERM)
 	signal.signal(signal.SIGTERM, newsigterm)
 
@@ -232,5 +232,5 @@ def write_filename(xmldoc, filename, verbose = False, gz = False):
 	# restore original SIGTERM handler, and report the signal if it was
 	# received
 	signal.signal(signal.SIGTERM, oldsigterm)
-	if __llwapp_write_filename_got_sigterm:
-		raise IOTrappedSignal(signal.SIGTERM)
+	if __llwapp_write_filename_got_sig:
+		raise IOTrappedSignal(__llwapp_write_filename_got_sig.pop())
