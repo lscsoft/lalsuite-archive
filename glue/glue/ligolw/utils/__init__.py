@@ -192,30 +192,32 @@ def write_filename(xmldoc, filename, verbose = False, gz = False):
 	doing so if verbose is True.  The output data is gzip compressed on
 	the fly if gz is True.
 	
-	This function traps SIGTERM during the write process, and it does
-	this by temporarily installing its own signal handler in place of
-	the current handler.  This is done to prevent Condor eviction
-	during the write process.  If a SIGTERM is trapped, then when the
-	write process has successfully concluded, the last thing this
-	function does is raise IOTrappedSignal.  This is the only condition
+	This function traps SIGTERM and SIGTSTP during the write process,
+	and it does this by temporarily installing its own signal handlers
+	in place of the current handlers.  This is done to prevent Condor
+	eviction during the write process.  If a signal is trapped, then
+	when the write process has successfully concluded, the last thing
+	this function does is raise IOTrappedSignal, with the most-recently
+	trapped signal number as the argument.  This is the only condition
 	in which this function will raise that exception, so calling code
-	that wishes its own SIGTERM handler to be executed can arrange for
-	that to happen by trapping the IOTrappedSignal exception, and then
-	manually running its own handler.
+	that wishes its own handler to be executed can arrange for that to
+	happen by trapping the IOTrappedSignal exception.
 
 	Example:
 
 	>>> from glue.ligolw import utils
 	>>> utils.write_filename(xmldoc, "data.xml")
 	"""
-	# initialize SIGTERM trap
+	# initialize SIGTERM and SIGTSTP trap
 	global __llwapp_write_filename_got_sig
 	__llwapp_write_filename_got_sig = []
 	def newsigterm(signum, frame):
 		global __llwapp_write_filename_got_sig
 		__llwapp_write_filename_got_sig.append(signum)
-	oldsigterm = signal.getsignal(signal.SIGTERM)
-	signal.signal(signal.SIGTERM, newsigterm)
+	oldhandlers = {}
+	for sig in (signal.SIGTERM, signal.SIGTSTP):
+		oldhandlers[sig] = signal.getsignal(sig)
+		signal.signal(sig, newsigterm)
 
 	# write the document
 	if verbose:
@@ -228,9 +230,11 @@ def write_filename(xmldoc, filename, verbose = False, gz = False):
 		fileobj = gzip.GzipFile(mode = "wb", fileobj = fileobj)
 	fileobj = codecs.EncodedFile(fileobj, "unicode_internal", "utf_8")
 	xmldoc.write(fileobj)
+	fileobj.flush()
 
-	# restore original SIGTERM handler, and report the signal if it was
-	# received
-	signal.signal(signal.SIGTERM, oldsigterm)
+	# restore original handlers, and report the most recently trapped
+	# signal if any were
+	for sig, oldhandler in oldhandlers.iteritems():
+		signal.signal(sig, oldhandler)
 	if __llwapp_write_filename_got_sig:
 		raise IOTrappedSignal(__llwapp_write_filename_got_sig.pop())
