@@ -82,7 +82,7 @@ LALFindChirpPTFFilterSegment (
   UINT4                 ignoreIndex;
   UINT4                 haveEvent   = 0;
   REAL4                 deltaT, sum, temp, PTFMatrix[25], r, s, x, y;
-  REAL4                 deltaF;
+  REAL4                 deltaF, fFinal;
   REAL4                 snrThresh      = 0;
   REAL4                *snr            = NULL;
   COMPLEX8             *PTFQtilde, *qtilde, *PTFq, *inputData;
@@ -111,11 +111,9 @@ LALFindChirpPTFFilterSegment (
 
   /* number of points and frequency cutoffs */
   deltaT = (REAL4) params->deltaT;
-  deltaF = 1.0 / ( params->deltaT * (REAL4) numPoints );
-  kmax = input->fcTmplt->tmplt.fFinal / deltaF < numPoints/2 ? 
-    input->fcTmplt->tmplt.fFinal / deltaF : numPoints/2;
- 
-  fprintf(stderr,"N,k_max=%d,%d\n",numPoints,kmax);
+  deltaF = 1.0 / ( deltaT * (REAL4) numPoints );
+  fFinal = (REAL4) input->fcTmplt->tmplt.fFinal;
+  kmax =  fFinal / deltaF < numPoints/2 ? fFinal / deltaF : numPoints/2;
 
   INITSTATUS( status, "LALFindChirpPTFFilter", FINDCHIRPPTFFILTERC );
   ATTATCHSTATUSPTR( status );
@@ -235,8 +233,7 @@ LALFindChirpPTFFilterSegment (
    */
 
   /* clear the snr output vector and workspace*/
-  memset( params->PTFsnrVec->data, 0, 
-      params->PTFsnrVec->length * sizeof(REAL4) );
+  memset( params->PTFsnrVec->data, 0, numPoints * sizeof(REAL4) );
   memset( params->PTFqVec->data, 0, 5 * numPoints * sizeof(COMPLEX8) );
   
   for ( i = 0; i < 5; ++i )
@@ -259,7 +256,7 @@ LALFindChirpPTFFilterSegment (
       qtilde[k].im = r*y + s*x;
     }
 
-    qVec.data = params->PTFqVec->data + (i * params->PTFqVec->vectorLength);
+    qVec.data = params->PTFqVec->data + (i * numPoints);
 
     /* inverse fft to get q */
     LALCOMPLEX8VectorFFT( status->statusPtr, &qVec, params->qtildeVec, 
@@ -273,19 +270,22 @@ LALFindChirpPTFFilterSegment (
   for ( k = 0; k < numPoints; ++k ) /* beginning of main loop over time */
   {  
     /* Set PTFMatrxi elements to zero */
+    memset(params->PTFA->data, 0 , 25 * sizeof(REAL4));
     memset(params->PTFMatrix->data, 0, 25 * sizeof(REAL4) );
     /* construct A */
+    
     for ( i = 0; i < 5; ++i )
     {  
       for ( j = 0; j < i + 1; ++j )
-      {  
+      { 
         params->PTFA->data[5 * i + j] = PTFq[i * numPoints + k].re * 
-          PTFq[j * numPoints + k].re +
-          PTFq[i * numPoints + k].im * 
-          PTFq[j * numPoints + k].im;
-        params->PTFA[5 * j + i] = params->PTFA[ 5 * i + j];
+                                        PTFq[j * numPoints + k].re +
+                                        PTFq[i * numPoints + k].im * 
+                                        PTFq[j * numPoints + k].im;
+        params->PTFA->data[5 * j + i] = params->PTFA->data[ 5 * i + j]; 
       }  
-    }  
+    } 
+    
     /* multiply by PTFBinverse to obtain AB^(-1) */
 
     LALSMatrixMultiply(status->statusPtr, 
@@ -362,7 +362,6 @@ LALFindChirpPTFFilterSegment (
 #endif
     fprintf( stderr, "found events!\n" );
   }
-
 
   /* normal exit */
   DETATCHSTATUSPTR( status );
