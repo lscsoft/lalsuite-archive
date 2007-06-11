@@ -163,7 +163,7 @@ ifos = ["H1","H2","L1"]
 if opts.coincs == "H1H2":
   ifolist  = ("H1","H2")
 elif opts.coincs == "H1L1":
-  ifolist = ("H1","L1")events.get_column("h_end_time")
+  ifolist = ("H1","L1")
 elif opts.coincs == "H2L1":
   ifolist = ("H2","L1")
 
@@ -180,12 +180,11 @@ def single_params_func(events, timeslide = 0):
         H1_eff_snr = events.get_effective_snr()
         H2_eff_snr = events.get_effective_snr()
         L1_eff_snr = events.get_effective_snr()
-        end_time = events.get_column("end_time")
+     
         return {
                 "H1_eff_snr": H1_eff_snr,
                 "H2_eff_snr": H2_eff_snr,
-                "L1_eff_snr": L1_eff_snr 
-                "end_time": end_time
+                "L1_eff_snr": L1_eff_snr, 
         }
 
 def double_params_func(events, timeslides = 0):
@@ -290,7 +289,6 @@ distributions = ligolw_burca_tailor.CoincParamsDistributions(
         H1_eff_snr = (segments.segment(0.0, 50.0), 1.0),
         H2_eff_snr = (segments.segment(0.0,50.0), 1.0),
         L1_eff_snr = (segments.segment(0.0,50.0),1.0),
-        end_time = (segments.segment(0.0,50.0),1.0)
         H1H2_eff_snr = (segments.segment(0.0, 50.0), 1.0),
         H1L1_eff_snr = (segments.segment(0.0, 50.0), 1.0),
         H2L1_eff_snr = (segments.segment(0.0, 50.0), 1.0))
@@ -387,13 +385,10 @@ distributions.finish()
 # Construction of Histrogram
 #############################################################################
 
-p = arange(0, 50.0, 0.5)
-title('Injections')
+p = arange(0, 50.0, 1.0)
 X_Inj_norm = hist(X_inj_param,p)[0]*1.0/max(hist(X_back_param,p)[0])
 clf()
 
-
-title('Background')
 X_Back_norm = hist(X_back_param,p)[0]*1.0/max(hist(X_back_param,p)[0])
 clf()
 
@@ -471,26 +466,36 @@ elif opts.statistic == 'effective_snr' and opts.coincs == "H2L1":
 
 if (opts.ifo == "H1" or opts.ifo == "H2" or opts.ifo == "L1"):
   plot(x_inj, y_inj, "r-", x_back, y_back, "k-")
+  title('Normalised Distribution of Background and Injections')
+  legend(("Inj","Back"),loc=0)
   xlabel('Effective_snr' + " " + str(opts.ifo))
+  ylabel('Counts')
   figure()
   bar(p, X_Inj_norm,color='r')
   hold(True)
   bar(p, X_Back_norm,color='k')
-  hold(True)
+  legend(("Inj","Back"))
+  title('Normalised histogram of Background and Injections')
   xlabel('Effective_snr' + " " + str(opts.ifo))
-
+  ylabel('Counts')
 
 
 if (opts.coincs == "H1H2" or opts.coincs == "H1L1" or opts.coincs == "H2L1"):
   plot(x_inj, y_inj, "r", x_back, y_back, "k-")
+  title('Normalised Distribution of Background and Injections')
+  legend(("Inj","Back"),loc=0)
   xlabel('Combined_snr' + " " + str(opts.coincs))
+  ylabel('Counts')
   figure()
   bar(p, X_Inj_norm,color='r')
   hold(True)
+  legend("Inj")
   bar(p, X_Back_norm,color='k')
   hold(True)
+  legend("Back",loc = 0)
+  title('Normalised histogram of Background and Injections')
   xlabel('Combined_snr' + " " + str(opts.coincs))
-
+  ylabel('Counts')
 
   
 ########################################################################
