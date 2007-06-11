@@ -157,13 +157,18 @@ def get_coinc_def_id(xmldoc, table_names, create_new = True):
 	return coincdeftable.get_coinc_def_id(table_names, create_new = create_new)
 
 
-def segmenttable_get_by_name(xmldoc, name, active = True):
+def segmenttable_get_by_name(xmldoc, name, activity = True):
 	"""
-	Retrieve the segments whose activity flag and name match those
+	Retrieve the segments whose name and activity flag match those
 	given.  The result is a segmentlistdict indexed by instrument.  The
-	default is to retrieve "active" segments, but the optional active
+	default is to retrieve "active" segments, but the optional activity
 	argument can be set to False or None to retrieve inactive or
 	undefined segments, respectively, instead.
+
+	Note that when retrieving "undefined" segments, the response is the
+	list of segments explicitly indicated as undefined in the segment
+	table.  The union of the "active", "inactive", and "undefined"
+	segments need not be [-infinity, +infinity).
 	"""
 	def_table = table.get_table(xmldoc, lsctables.SegmentDefTable.tableName)
 	seg_table = table.get_table(xmldoc, lsctables.SegmentTable.tableName)
@@ -177,14 +182,17 @@ def segmenttable_get_by_name(xmldoc, name, active = True):
 	# segment_def_map entries bearing segment_def_ids from above
 	seg_ids = dict([(row.segment_id, def_ids[row.segment_def_id]) for row in map_table if row.segment_def_id in def_ids])
 
+	# retrieve semgments bearing segment_ids from above, and insert
+	# into a dictionary indexed by instrument
 	result = segments.segmentlistdict()
 	for row in seg_table:
-		if row.get_active() == active and row.segment_id in seg_ids:
+		if row.get_active() == activity and row.segment_id in seg_ids:
 			instrument = seg_ids[row.segment_id]
 			if instrument not in result:
 				result[instrument] = segments.segmentlist()
 			result[instrument].append(row.get())
 
+	# return the coalesced segment lists
 	return result.coalesce()
 
 
