@@ -230,8 +230,17 @@ def insert_from_segwizard(segdeftable, segtable, segdefmaptable, filename, instr
 
 def ligolw_segments(xmldoc, process, segwizard = {}, name = "", comment = "", verbose = False):
 	#
+	# Did the document change?
+	#
+
+
+	changed = False
+
+
+	#
 	# Find tables, and reset ID generators
 	#
+
 
 	segdeftable = table.get_table(xmldoc, lsctables.SegmentDefTable.tableName)
 	segdeftable.ids.set_next(0)
@@ -245,20 +254,25 @@ def ligolw_segments(xmldoc, process, segwizard = {}, name = "", comment = "", ve
 	segdefmaptable.ids.set_next(0)
 	segdefmaptable.sync_ids()
 
+
 	#
 	# Insert segwizard format file contents
 	#
+
 
 	for instrument, filename in segwizard.iteritems():
 		if verbose:
 			print >>sys.stderr, "reading %s for %s ..." % (filename, instrument)
 		insert_from_segwizard(segdeftable, segtable, segdefmaptable, filename, instrument, name, comment, process)
+		changed = True
+
 
 	#
 	# Done
 	#
 
-	return xmldoc
+
+	return xmldoc, changed
 
 
 #
@@ -296,7 +310,7 @@ for filename in filenames:
 
 
 	process = append_process(xmldoc, options)
-	xmldoc = ligolw_segments(xmldoc, process = process, segwizard = options.insert_from_segwizard, name = options.name, comment = options.comment, verbose = options.verbose)
+	xmldoc, changed = ligolw_segments(xmldoc, process = process, segwizard = options.insert_from_segwizard, name = options.name, comment = options.comment, verbose = options.verbose)
 	llwapp.set_process_end_time(process)
 
 
