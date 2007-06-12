@@ -279,8 +279,8 @@ offsource_std = std(cum_dist_offsource)
 clf()
 figure()
 hold(True)
-semilogy(bins,cum_dist_zero+0.0001,'r^',markerfacecolor="b",markersize=12)
-semilogy(bins,offsource_mean, 'r+', markersize=12)
+semilogy(bins**2,cum_dist_zero+0.0001,'r^',markerfacecolor="b",markersize=12)
+semilogy(bins**2,offsource_mean, 'r+', markersize=12)
 offsource_min = []
 for i in range( len(offsource_mean) ):
   offsource_min.append( max(offsource_mean[i] - offsource_std[i], 0.0001) )
