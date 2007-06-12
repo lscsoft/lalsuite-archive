@@ -103,6 +103,8 @@ parser.add_option("-x", "--min-snr", type="float",
   help="minimum value of snr on plot")
 parser.add_option("-X", "--max-snr", type="float",
   help="maximum value of snr on plot")
+parser.add_option("-o", "--open-box", action="store_true", default=False,
+  help="run with the open box")
 parser.add_option("-s", "--show-plot", action="store_true", default=False,
   help="display the figures on the terminal")
 parser.add_option("-v", "--verbose", action="store_true", default=False,
@@ -164,9 +166,7 @@ statistic = CoincInspiralUtils.coincStatistic(opts.statistic)
 ifo_list = [ifo for ifo in ("G1", "H1", "H2", "L1") \
             if getattr(opts, "%s_triggers" % ifo.lower())]
 
-ifo_combos = []
-for num_ifos in range(2, len(ifo_list) + 1):
-  ifo_combos.extend(list(pylal.itertools.choices(ifo_list, num_ifos)))
+ifo_combos = CoincInspiralUtils.get_ifo_combos(ifo_list)
 
 #####################################################################
 # Read in all the segment lists
@@ -206,10 +206,12 @@ offsourceTriggers = CoincInspiralUtils.coincInspiralTable(\
     inspTriggers.veto(onsourceseglist), statistic)
 
 # construct the coincs
-# coincTriggers = CoincInspiralUtils.coincInspiralTable(\
-#     inspTriggers.veto(offsourceseglist),statistic)
-coincTriggers = CoincInspiralUtils.coincInspiralTable()
-coincTriggers.append(offsourceTriggers[4])
+if opts.open_box:
+  coincTriggers = CoincInspiralUtils.coincInspiralTable(\
+      inspTriggers.veto(offsourceseglist),statistic)
+else:
+  coincTriggers = CoincInspiralUtils.coincInspiralTable()
+  coincTriggers.append(offsourceTriggers[0])
 
 if opts.max_snr is None:
   if len(inspTriggers) > 0:
@@ -309,7 +311,8 @@ else:
   for coinc in offsourceTriggers:
     # index by end time of alphabetically first IFO in coinc
     end_time = getattr(coinc, coinc.get_ifos()[1][0]).end_time
-    tmparray[seglist.find(end_time)] = 1
+    if end_time in seglist:
+      tmparray[seglist.find(end_time)] = 1
 
   if opts.verbose: print tmparray
   pczero = 1.0 - tmparray.sum() / len(seglist)
