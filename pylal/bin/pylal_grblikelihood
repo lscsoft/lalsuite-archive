@@ -260,6 +260,7 @@ else:
 #####################################################################
 # make the plot background and foreground
 nbins=20
+ds=0.5*8.0/20.0
 bins = arange(4.0, 12.0, 8.0/20.0)
 [zero_dist,bin,info] = hist(coincTriggers.getstat(),bins)
 zero_dist = concatenate( (zeros(1),zero_dist) )
