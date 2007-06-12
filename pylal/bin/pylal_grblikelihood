@@ -231,9 +231,16 @@ else:
 
 #####################################################################
 # make the plot background and foreground
-figure()
 bins = arange(20.0, 120.0, 5)
-[zero_dist,bin,info] = hist(offsourceTriggers.getstat(),bins)
+[zero_dist,bin,info] = hist(coincTriggers.getstat(),bins)
+zero_dist = concatenate( (zeros(1),zero_dist) )
+cum_dist_zero = sum(zero_dist)-cumsum(zero_dist[0:bin.size])
+[offsource_dist,bin,info] = hist(offsourceTriggers.getstat(),bins)
+offsource_dist = concatenate( (zeros(1),offsource_dist) )
+cum_dist_off = sum(offsource_dist)-cumsum(offsource_dist[0:bin.size])
+clf()
+figure()
+semilogy(xvals,cum_dist_zero+0.0001,'r^',markerfacecolor="b",markersize=12)
 xlabel(r"Effective SNR")
 ylabel(r"Expected number of events")
 savefig("snr_dist.%s" % opts.figure_type)
