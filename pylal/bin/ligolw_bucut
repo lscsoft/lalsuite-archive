@@ -311,6 +311,7 @@ def remove_non_coincidences(contents):
 def remove_skipped_injections(contents):
 	ids = set()
 	for i in xrange(len(contents.simbursttable) - 1, -1, -1):
+		sim = contents.simbursttable[i]
 		if True not in (sim.get_peak(instrument) in seglist for instrument, seglist in contents.outsegs.iteritems()):
 			ids.add(sim.simulation_id)
 			del contents.simbursttable[i]
