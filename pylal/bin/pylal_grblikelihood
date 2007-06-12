@@ -239,7 +239,7 @@ zero_dist = concatenate( (zeros(1),zero_dist) )
 cum_dist_zero = numpy.sum(zero_dist)-cumsum(zero_dist[0:bin.size])
 cum_dist_offsource = []
 for seg in seglist:
-  offsourcetrial = getTriggersInSegment(seg) 
+  offsourcetrial = offsourceTriggers.getTriggersInSegment(seg) 
   [num_offsource,bin,info] = hist(offsourcetrial.getstat(),bins)
   num_offsource = concatenate( (zeros(1),num_offsource) )
   cum_offsource = sum(num_offsource)-cumsum(num_offsource[0:bin.size])
