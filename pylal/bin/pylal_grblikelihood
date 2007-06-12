@@ -285,11 +285,11 @@ offsource_min = []
 for i in range( len(offsource_mean) ):
   offsource_min.append( max(offsource_mean[i] - offsource_std[i], 0.0001) )
   offsource_mean[i] = max(offsource_mean[i], 0.0001)
-semilogy(bins,asarray(offsource_mean), 'r+', markersize=12)
 tmpx,tmpy = makesteps(bins,offsource_min,offsource_mean+offsource_std)
 p=fill((tmpx-ds)*(tmpx-ds),tmpy, facecolor='y')
 setp(p, alpha=0.3)
-xlabel(r"Effective SNR")
+axis([20.0,120.0,0.001,10.0])
+xlabel(r"$\rho_{\mathrm{eff}}^2$")
 ylabel(r"Expected number of events")
 savefig("snr_dist.%s" % opts.figure_type)
 
