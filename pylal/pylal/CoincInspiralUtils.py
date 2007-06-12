@@ -4,6 +4,7 @@ from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from pylal.tools import XLALCalculateEThincaParameter
+import pylal.itertools
 import numpy
 
 ########################################
@@ -16,6 +17,13 @@ def uniq(list):
   """
   temp_dict = {}
   return [temp_dict.setdefault(e,e) for e in list if e not in temp_dict]
+
+def get_ifo_combos(ifo_list):
+  ifo_combos = []
+  for num_ifos in range(2, len(ifo_list) + 1):
+    ifo_combos.extend(list(pylal.itertools.choices(ifo_list, num_ifos)))
+
+  return ifo_combos
 
 def simpleEThinca(trigger1, trigger2):
   ''' 
