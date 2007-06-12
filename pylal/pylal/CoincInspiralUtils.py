@@ -1,4 +1,5 @@
 import sys
+from glue import segments
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
@@ -535,4 +536,18 @@ class coincInspiralTable:
           triggers_within_epsilon.append(trig)
 
     return triggers_within_epsilon
+
+  def getTriggersInSegment(self, segment):
+    """
+    Return triggers with time of trigger within segment; always use
+    alphabetically first ifo
+    """
+    triggers_within_segment = coincInspiralTable()
+
+    for trig in self:
+      end_time = getattr(trig, trig.get_ifos()[1][0]).end_time
+      if end_time in segment:
+        triggers_within_segment.append(trig)
+
+    return triggers_within_segment
 
