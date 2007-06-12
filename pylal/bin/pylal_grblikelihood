@@ -230,6 +230,18 @@ else:
   xlow = opts.min_snr
 
 #####################################################################
+# make the plot background and foreground
+figure()
+bins = arange(20.0, 120.0, 5)
+[zero_dist,bin,info] = hist(offsourceTriggers.getstat(),bins)
+xlabel(r"Effective SNR")
+ylabel(r"Expected number of events")
+savefig("snr_dist.%s" % opts.figure_type)
+
+
+  
+
+#####################################################################
 # read in the missed and found files
 injTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(\
     glob.glob(opts.found_glob) )
