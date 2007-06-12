@@ -69,6 +69,33 @@ def square(xedges, yedges, coincTriggers, simtypeflag):
 
   return ng_x_y
 
+#############################################################################
+# make steps so that fill will work properly
+"""
+Function to create an array of steps suitable for filling between.
+"""
+def makesteps(x,y1,y2):
+  xnew=[]
+  y1new=[y1[0]]
+  y2new=[y2[0]]
+  for i in arange(x.size-1):
+    xnew.append(x[i])
+    xnew.append(x[i+1])
+    y1new.append(y1[i])
+    y1new.append(y1[i+1])
+    y2new.append(y2[i])
+    y2new.append(y2[i+1])
+  xnew.append(x[-1])
+
+  tmpx=asarray(xnew)
+  tmpy1=asarray(y1new)
+  tmpy2=asarray(y2new)
+  xnew=concatenate((tmpx,tmpx[::-1]))
+  ynew=concatenate((tmpy1,tmpy2[::-1]))
+
+  return xnew,ynew
+
+
 ##############################################################################
 usage = """%prog [options]
 
@@ -252,12 +279,12 @@ clf()
 figure()
 hold(True)
 semilogy(bins,cum_dist_zero+0.0001,'r^',markerfacecolor="b",markersize=12)
-semilogy(bins,cum_dist_off/numtrials, 'r+', markersize=12)
+semilogy(bins,offsource_mean, 'r+', markersize=12)
 offsource_min = []
 for i in range( len(offsource_mean) ):
   offsource_min.append( max(offsource_mean[i] - offsource_std[i], 0.0001) )
   offsource_mean[i] = max(offsource_mean[i], 0.0001)
-semilogy(xvals,asarray(offsource_mean), 'r+', markersize=12)
+semilogy(bins,asarray(offsource_mean), 'r+', markersize=12)
 tmpx,tmpy = makesteps(bins,offsource_min,offsource_mean+offsource_std)
 p=fill((tmpx-ds)*(tmpx-ds),tmpy, facecolor='y')
 setp(p, alpha=0.3)
