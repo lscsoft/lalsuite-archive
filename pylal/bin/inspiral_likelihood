@@ -66,7 +66,7 @@ parser.add_option("-N","--numslides", action="store",type="int",\
 
 # Plotting options
 
-parser.add_option("-P","--plot",action="store_true",\
+parser.add_option("-P","--plot-simethinca",action="store_true",\
     default=False, help ="Shows the plot of simple ethinca param for different coincs")
 
 parser.add_option("-V","--verbose",action="store_true",default=False,\
@@ -95,8 +95,6 @@ ifo_combos = []
 for num_ifos in range(2, len(ifo_list) + 1):
   ifo_combos.extend(list(pylal.itertools.choices(ifo_list, num_ifos)))
 
-
-print ifo_combos
 
 ####################################################################
 #glob the list of files to read in
@@ -336,48 +334,58 @@ for candidate in zerolagCoincTriggers:
       
 FalseProbFile.close()
 
-if opts.plot:
- 
+if opts.plot_simethinca:
   
-  slides_simethinca = CoincInspiralUtils.coincInspiralTable(slidesTriggers, statistic).coinctype(["H1","L1"]).\
-  getSimpleEThincaValues(["H1","L1"])
+  for ifo in ifo_combos:
+    x = arange(0,10,0.01)
+    z = sin(x)
+    y = cos(x)
+    if opts.verbose:
+      print " The plots of simple ethinca parameter will be for following ifo pairs", ifo
+      
+    slides_simethinca = CoincInspiralUtils.coincInspiralTable(slidesTriggers, statistic).coinctype(ifo).\
+    getSimpleEThincaValues(ifo)
   
-  inj_simethinca  = CoincInspiralUtils.coincInspiralTable(injectionTriggers, statistic).coinctype(["H1","L1"]).\
-  getSimpleEThincaValues(["H1","L1"])
+    inj_simethinca  = CoincInspiralUtils.coincInspiralTable(injectionTriggers, statistic).coinctype(ifo).\
+    getSimpleEThincaValues(ifo)
 
   
-
-  if len(slides_simethinca):
-    x_param = hist(slides_simethinca)[1]
-    clf()
-    y_param = hist(slides_simethinca)[0]
-    clf()
-    y_slide_norm = y_param*1.0/sum(y_param)
-    plot(x_param,y_slide_norm,"r-")
     
-    figure()  
-    
-    
-    
- 
+    if len(slides_simethinca):
+      y_param = hist(slides_simethinca)[0]
+      clf()
+      x_slide_param = hist(slides_simethinca)[1]
+      clf()
+      y_slide_norm = y_param*1.0/max(y_param)
+      
+    #plot(x_slide_param,y_slide_norm,"r")
+    #hold(True)
   
-  if len(inj_simethinca):
-    y_param = hist(inj_simethinca)[0]
-    clf()
-    x_param = hist(slides_simethinca)[1]
-    clf()
-    y_inj_norm = y_param*1.0/sum(y_param)
-    plot(x_param,y_inj_norm,"k-")
-
   
-  xlabel('Simple Ethinca for H1 L1 coincs within epsilon')
-  ylabel('Counts')
 
+           
+    if len(inj_simethinca):
+      y_param = hist(inj_simethinca)[0]
+      clf()
+      x_inj_param = hist(inj_simethinca)[1]
+      clf()
+      y_inj_norm = y_param*1.0/max(y_param)
+      
+    
+    plot(x_slide_param,y_slide_norm,"r")
+    figure()
+    plot(x_inj_param,y_inj_norm,"k")
+    legend(("Inj","Back"))
+    xlabel('Simple Ethinca for' + str(ifo) + 'injections')
+    ylabel('Counts')
+     
+    
+  
   if opts.figure_name:
     savefig(opts.figure_name + "_" + "SimpleEthinca")
 
-if opts.show:
-  show()
+  if opts.show:
+    show()
 
 
 
