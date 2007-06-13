@@ -13,6 +13,8 @@ from pylal import SnglInspiralUtils
 from pylal import SimInspiralUtils
 from pylal.tools import XLALCalculateEThincaParameter
 
+from pylab import*
+import pylal.itertools
 import numpy
 ################################################################################
 usage= """
@@ -21,6 +23,9 @@ usage: %prog [options]
 Calculate likelihood ratio and assign ranking based on it to each 
 candidate trigger.
 """
+###############################################################################
+# Options to read in Input
+###############################################################################
 parser = OptionParser( usage=usage, version="%prog CVS $Id$ " )
 parser.add_option("-z","--zerolag-glob",action="store",type="string",\
     default=None, metavar=" GLOB",help="GLOB zero lag  thinca files to read" )
@@ -28,6 +33,24 @@ parser.add_option("-s","--slides-glob",action="store",type="string",\
     default=None, metavar=" GLOB",help="GLOB time slides thinca files to read" )
 parser.add_option("-i","--inj-glob",action="store",type="string",\
     default=None, metavar=" GLOB",help="GLOB thinca files with injections to read" )
+
+
+# Options to select ifo types.
+
+parser.add_option("-B", "--h1-triggers",action="store_true", default=False,\
+  help="input files contain triggers from H1")
+
+parser.add_option("-C", "--h2-triggers",action="store_true", default=False,\
+  help="input files contain triggers from H2")
+
+parser.add_option("-D", "--l1-triggers",action="store_true", default=False,\
+  help="input files contain triggers from L1")
+
+parser.add_option("-E", "--g1-triggers",action="store_true", default=False,\
+  help="input files contain triggers from G1")
+
+
+# Options to select paramters for calculation of p(c|0), p(c|h) and likelihood ratio. 
 
 parser.add_option("-S","--statistic",action="store",default='snr',\
     type="string",\
@@ -40,9 +63,42 @@ parser.add_option("-e","--epsilon",action="store",type="float",\
 parser.add_option("-N","--numslides", action="store",type="int",\
     default = 0, metavar="NUMSLIDES", help="number of time slides performed, must match the corresponding parameter from the .ini file" )
 
+
+# Plotting options
+
+parser.add_option("-P","--plot",action="store_true",\
+    default=False, help ="Shows the plot of simple ethinca param for different coincs")
+
+parser.add_option("-V","--verbose",action="store_true",default=False,\
+    help="print additional information when running" )
+
+parser.add_option("-F","--figure-name",action="store",\
+    help="Save Figure" )
+
+parser.add_option("-o","--show",action="store_true",default=False,\
+    help="Display the plots on the screen" )
+
+
+
+
 (opts,args) = parser.parse_args()
 
-#################################### 
+#######################################################################
+# Construct IFO pairs
+
+statistic = CoincInspiralUtils.coincStatistic(opts.statistic)
+
+ifo_list = [ifo for ifo in ("G1", "H1", "H2", "L1") \
+            if getattr(opts, "%s_triggers" % ifo.lower())]
+
+ifo_combos = []
+for num_ifos in range(2, len(ifo_list) + 1):
+  ifo_combos.extend(list(pylal.itertools.choices(ifo_list, num_ifos)))
+
+
+print ifo_combos
+
+####################################################################
 #glob the list of files to read in
 
 # Zero lag  Files
@@ -99,6 +155,12 @@ zerolagTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(zerolagfiles,mangl
 # construct the zero lag coincs 
 zerolagCoincTriggers= \
 CoincInspiralUtils.coincInspiralTable(zerolagTriggers, statistic)
+
+# construct zero lag coincs of type:
+
+#zerolagCoincType = CoincInspiralUtils.coincInspiralTable(zerolagTriggers, statistic).coinctype(["H1","L1"])
+#print zerolagCoincType
+
 
 # read in time slides triggers 
 
@@ -173,8 +235,8 @@ for candidate in zerolagCoincTriggers:
       Ntotal_noise+=1
     
   slides_within_epsilon =CoincInspiralUtils.coincInspiralTable()   
-  slides_within_epsilon=slidesCoincTriggers.getTriggersWithinEpsilon(candidate, opts.epsilon)
-  
+  slides_within_epsilon=slidesCoincTriggers.getTriggersWithinEpsilon(candidate, opts.epsilon) 
+ 
   nevents_noise = len(slides_within_epsilon) 
   
   if Ntotal_noise > 0:
@@ -182,11 +244,14 @@ for candidate in zerolagCoincTriggers:
   else:
      FalseProb = -1.0
   # writing the false alarm probability into the file
-  print str(candidate.event_id)
+  if opts.verbose:
+    print str(candidate.event_id)
   FalseProbFile.write(str(candidate.event_id) + ' ')
-  print str(c_ifos)
+  if opts.verbose:
+    print str(c_ifos)
   FalseProbFile.write(str(c_ifos) + ' ')
-  print str(FalseProb), nevents_noise, Ntotal_noise
+  if opts.verbose:
+    print str(FalseProb), nevents_noise, Ntotal_noise
   FalseProbFile.write(str(FalseProb) + '\n')
 
   # calculating the detection probability for each of zerolagTriggers
@@ -209,7 +274,8 @@ for candidate in zerolagCoincTriggers:
   #writing the detection alarm probability into  the file
   DetectionProbFile.write(str(candidate.event_id) + ' ')
   DetectionProbFile.write(str(c_ifos) + ' ')
-  print str(DetectionProb), nevents_inj, Ntotal_inj
+  if opts.verbose:
+    print str(DetectionProb), nevents_inj, Ntotal_inj
   DetectionProbFile.write(str(DetectionProb) + '\n')
 
   # Calculating likelihood ration
@@ -220,7 +286,8 @@ for candidate in zerolagCoincTriggers:
   # writing the likelihood ration into the file
   LikelihoodFile.write(str(candidate.event_id) + ' ')
   LikelihoodFile.write(str(c_ifos) + ' ')
-  print str(Likelihood)
+  if opts.verbose:
+    print str(Likelihood)
   LikelihoodFile.write(str(Likelihood) + '\n')
 
 
@@ -255,15 +322,69 @@ for candidate in zerolagCoincTriggers:
   FalseAlarmProb = sum(slide_array)/float(2*Nslides)
   
   # writing the false alarm probability into the file
-  print str(candidate.event_id)
+  if opts.verbose:
+    print str(candidate.event_id)
   FalseAlarmProbFile.write(str(candidate.event_id) + ' ')
   c_ifos,ifolist = candidate.get_ifos()
-  print str(c_ifos)
+  if opts.verbose:
+    print str(c_ifos)
   FalseAlarmProbFile.write(str(c_ifos) + ' ')
-  print str(FalseAlarmProb), sum(slide_array), 2*Nslides
+  if opts.verbose:
+    print str(FalseAlarmProb), sum(slide_array), 2*Nslides
   FalseAlarmProbFile.write(str(FalseAlarmProb) + '\n')
     
       
 FalseProbFile.close()
+
+if opts.plot:
+ 
+  
+  slides_simethinca = CoincInspiralUtils.coincInspiralTable(slidesTriggers, statistic).coinctype(["H1","L1"]).\
+  getSimpleEThincaValues(["H1","L1"])
+  
+  inj_simethinca  = CoincInspiralUtils.coincInspiralTable(injectionTriggers, statistic).coinctype(["H1","L1"]).\
+  getSimpleEThincaValues(["H1","L1"])
+
+  
+
+  if len(slides_simethinca):
+    x_param = hist(slides_simethinca)[1]
+    clf()
+    y_param = hist(slides_simethinca)[0]
+    clf()
+    y_slide_norm = y_param*1.0/sum(y_param)
+    plot(x_param,y_slide_norm,"r-")
+    
+    figure()  
+    
+    
+    
+ 
+  
+  if len(inj_simethinca):
+    y_param = hist(inj_simethinca)[0]
+    clf()
+    x_param = hist(slides_simethinca)[1]
+    clf()
+    y_inj_norm = y_param*1.0/sum(y_param)
+    plot(x_param,y_inj_norm,"k-")
+
+  
+  xlabel('Simple Ethinca for H1 L1 coincs within epsilon')
+  ylabel('Counts')
+
+  if opts.figure_name:
+    savefig(opts.figure_name + "_" + "SimpleEthinca")
+
+if opts.show:
+  show()
+
+
+
+
+
+
+
+
 
 
