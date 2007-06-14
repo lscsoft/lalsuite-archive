@@ -356,29 +356,24 @@ if opts.plot_simethinca:
       clf()
       x_slide_param = hist(slides_simethinca)[1]
       clf()
-      y_slide_norm = y_param*1.0/max(y_param)
+      y_slide_norm = y_param*1.0/sum(y_param)
       
-    #plot(x_slide_param,y_slide_norm,"r")
-    #hold(True)
-  
-  
-
-           
+ 
+            
     if len(inj_simethinca):
       y_param = hist(inj_simethinca)[0]
       clf()
       x_inj_param = hist(inj_simethinca)[1]
       clf()
-      y_inj_norm = y_param*1.0/max(y_param)
-      
-    
-    plot(x_slide_param,y_slide_norm,"r")
-    figure()
-    plot(x_inj_param,y_inj_norm,"k")
+      y_inj_norm = y_param*1.0/sum(y_param)
+        
+    bar(x_slide_param,y_slide_norm,width=0.25,color="r")
+    hold(True) 
+    bar(x_inj_param,y_inj_norm,width=0.25,color="k")
     legend(("Inj","Back"))
     xlabel('Simple Ethinca for' + str(ifo) + 'injections')
     ylabel('Counts')
-     
+    figure()
     
   
   if opts.figure_name:
