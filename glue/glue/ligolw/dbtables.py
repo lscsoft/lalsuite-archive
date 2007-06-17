@@ -604,6 +604,15 @@ class CoincMapTable(DBTable):
 	how_to_index = lsctables.CoincMapTable.how_to_index
 
 
+class MultiBurstTable(DBTable):
+	tableName = lsctables.MultiBurstTable.tableName
+	validcolumns = lsctables.MultiBurstTable.validcolumns
+	constraints = lsctables.MultiBurstTable.constraints
+	ids = lsctables.MultiBurstTable.ids
+	RowType = lsctables.MultiBurstTable.RowType
+	how_to_index = lsctables.MultiBurstTable.how_to_index
+
+
 #
 # =============================================================================
 #
@@ -652,7 +661,8 @@ TableByName = {
 	table.StripTableName(TimeSlideTable.tableName): TimeSlideTable,
 	table.StripTableName(CoincDefTable.tableName): CoincDefTable,
 	table.StripTableName(CoincTable.tableName): CoincTable,
-	table.StripTableName(CoincMapTable.tableName): CoincMapTable
+	table.StripTableName(CoincMapTable.tableName): CoincMapTable,
+	table.StripTableName(MultiBurstTable.tableName): MultiBurstTable
 }
 
 
