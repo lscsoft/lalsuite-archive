@@ -197,10 +197,16 @@ WHERE
 		""", (contents.bb_definer_id,)):
 			if is_background:
 				self.background_eff_confidences.append(effective_confidence(likelihood, confidence))
-				self.background_rate[likelihood] += 1.0
+				try:
+					self.background_rate[likelihood] += 1.0
+				except IndexError:
+					pass
 			else:
 				self.foreground_eff_confidences.append(effective_confidence(likelihood, confidence))
-				self.foreground_rate[likelihood] += 1.0
+				try:
+					self.foreground_rate[likelihood] += 1.0
+				except IndexError:
+					pass
 
 	def add_injections(self, contents):
 		#
@@ -236,7 +242,10 @@ WHERE
 	)
 		""", (contents.bb_definer_id, contents.sb_definer_id)):
 			self.injection_eff_confidences.append(effective_confidence(likelihood, confidence))
-			self.injection_rate[likelihood] += 1.0
+			try:
+				self.injection_rate[likelihood] += 1.0
+			except IndexError:
+				pass
 
 	def finish_non_injections(self):
 		self.foreground_rate.array /= numpy.sum(self.foreground_rate.array)
