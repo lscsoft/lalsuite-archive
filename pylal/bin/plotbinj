@@ -69,7 +69,7 @@ def parse_command_line():
 	if options.plot:
 		options.plot = map(int, options.plot)
 	else:
-		options.plot = range(7)
+		options.plot = range(8)
 
 
 	return options, (filenames or [None])
@@ -334,6 +334,53 @@ class RecoveredTimeOffset(SnglBurstUtils.BurstPlot):
 #
 # =============================================================================
 #
+#                          Recovered Frequency Offset
+#
+# =============================================================================
+#
+
+
+class RecoveredFrequencyOffset(SnglBurstUtils.BurstPlot):
+	def __init__(self, instrument, interval, width):
+		SnglBurstUtils.BurstPlot.__init__(self, "Offset (Hz)", "Triggers per Unit Offset")
+		self.instrument = instrument
+		self.found = 0
+		self.offsets = rate.Rate(interval, width)
+		self.best = rate.Rate(interval, width)
+
+	def add_contents(self, contents):
+		for coinc in contents.coinc_select_by_def_id(contents.sb_definer_id):
+			self.found += 1
+			best_conf = 0.0
+			best_df = None
+			sim = list(contents.coinc_sim_bursts(coinc))[0]
+			for burst in contents.coinc_sngl_bursts(coinc):
+				df = burst.peak_frequency - sim.freq
+				try:
+					self.offsets[df] += 1.0
+				except IndexError:
+					# outside plot range
+					pass
+				if burst.confidence > best_conf:
+					best_conf = burst.confidence
+					best_df = df
+			if best_df is not None:
+				try:
+					self.best[best_df] += 1.0
+				except IndexError:
+					# outside plot range
+					pass
+
+	def finish(self):
+		self.axes.set_title("Trigger Peak Frequency - Injection Centre Frequency\n(%d Found Injections)" % self.found)
+		self.axes.plot(self.offsets.xvals(), self.offsets.filter(), "k")
+		self.axes.plot(self.best.xvals(), self.best.filter(), "r")
+		self.axes.legend(["All matching triggers", "Highest confidence match"])
+
+
+#
+# =============================================================================
+#
 #                                     Plot
 #
 # =============================================================================
@@ -348,7 +395,8 @@ def new_plots(instrument, plots):
 		TriggerCountHistogram(instrument),
 		RecoveredVsInjectedhrss(instrument),
 		RecoveredPerInjectedhrssVsFreq(instrument),
-		RecoveredTimeOffset(instrument, segments.segment(-0.075, +0.075), 0.002)
+		RecoveredTimeOffset(instrument, segments.segment(-0.075, +0.075), 0.002),
+		RecoveredFrequencyOffset(instrument, segments.segment(-50.0, +50.0), .5)
 	]
 	return [l[i] for i in plots]
 
