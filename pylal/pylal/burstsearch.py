@@ -54,7 +54,7 @@ __version__ = "$Revision$"[11:-2]
 
 class TimingParameters(object):
 	"""
-	A place-holder class to hold timing parameter values.
+	A class to hold timing parameter values.
 	"""
 	pass
 
@@ -65,7 +65,7 @@ def XLALEPGetTimingParameters(window_length, max_tile_length, tile_stride_fracti
 	initialized from some input parameter values.
 	"""
 	#
-	# init TimingParameters object
+	# initialize TimingParameters object
 	#
 
 	params = TimingParameters()
@@ -80,9 +80,9 @@ def XLALEPGetTimingParameters(window_length, max_tile_length, tile_stride_fracti
 	#
 
 	if psd_length is None:
-		params.update(__XLALEPGetTimingParameters(window_length, max_tile_length, tile_stride_fraction))
+		params.__dict__.update(__XLALEPGetTimingParameters(window_length, max_tile_length, tile_stride_fraction))
 	else:
-		params.update(__XLALEPGetTimingParameters(window_length, max_tile_length, tile_stride_fraction, psd_length))
+		params.__dict__.update(__XLALEPGetTimingParameters(window_length, max_tile_length, tile_stride_fraction, psd_length))
 
 	#
 	# done
