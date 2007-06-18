@@ -63,11 +63,18 @@ parser.add_option("-e","--epsilon",action="store",type="float",\
 parser.add_option("-N","--numslides", action="store",type="int",\
     default = 0, metavar="NUMSLIDES", help="number of time slides performed, must match the corresponding parameter from the .ini file" )
 
+parser.add_option("-k","--kappa", action="store",type="int",\
+    default = 0, metavar="KAPPA", help="The value of kappa to be supplied to perform distance cut" )
 
 # Plotting options
 
 parser.add_option("-P","--plot-simethinca",action="store_true",\
     default=False, help ="Shows the plot of simple ethinca param for different coincs")
+
+
+parser.add_option("-p","--plot-distcut",action="store_true",\
+    default=False, help ="Shows the plot of effective distance difference based on distance cut")
+
 
 parser.add_option("-V","--verbose",action="store_true",default=False,\
     help="print additional information when running" )
@@ -95,6 +102,29 @@ ifo_combos = []
 for num_ifos in range(2, len(ifo_list) + 1):
   ifo_combos.extend(list(pylal.itertools.choices(ifo_list, num_ifos)))
 
+
+####################################################################
+# Define Distance cut
+
+def distcut(coinc_a, coinc_b, kappa):
+  dist_cut_array
+  for i in range(len(coinc_a)):
+        dist_cut = abs( coinc_a[i] -  coinc_b[i] )*2.0/(coinc_a[i] +  coinc_b[i] )
+        if (dist_cut < kappa):
+           dist_cut_array.append(abs(coinc_a[i] -  coinc_b[i] ))
+  return dist_cut_array
+
+###################################################################
+# Define Normalisation
+
+def Norm(Unormalised_array):
+  y_param = hist(Unormalised_array)[0]
+  clf()
+  x_norm = hist(Unormalised_array)[1]
+  clf()
+  y_norm = y_param*1.0/sum(y_param)
+
+  return (x_norm, y_norm)
 
 ####################################################################
 #glob the list of files to read in
@@ -337,9 +367,6 @@ FalseProbFile.close()
 if opts.plot_simethinca:
   
   for ifo in ifo_combos:
-    x = arange(0,10,0.01)
-    z = sin(x)
-    y = cos(x)
     if opts.verbose:
       print " The plots of simple ethinca parameter will be for following ifo pairs", ifo
       
@@ -352,34 +379,67 @@ if opts.plot_simethinca:
   
     
     if len(slides_simethinca):
-      y_param = hist(slides_simethinca)[0]
-      clf()
-      x_slide_param = hist(slides_simethinca)[1]
-      clf()
-      y_slide_norm = y_param*1.0/sum(y_param)
-      
- 
+      x_slide = norm(slides_simethinca)[0]      
+      y_slide = norm(slides_simethinca)[1]
             
     if len(inj_simethinca):
-      y_param = hist(inj_simethinca)[0]
-      clf()
-      x_inj_param = hist(inj_simethinca)[1]
-      clf()
-      y_inj_norm = y_param*1.0/sum(y_param)
-        
-    bar(x_slide_param,y_slide_norm,width=0.25,color="r")
+      x_inj = norm(inj_simethinca)[0]
+      y_inj = norm(inj_simethinca)[1]  
+      
+    bar(x_slide,y_slide,width=0.25,color="r")
     hold(True) 
-    bar(x_inj_param,y_inj_norm,width=0.25,color="k")
+    bar(x_inj,y_inj,width=0.25,color="k")
     legend(("Injections","Background"))
     xlabel('Simple Ethinca for' + str(ifo) + 'injections')
     ylabel('Probability (density)')
     figure()
     
   
-  if opts.figure_name:
-    savefig(opts.figure_name + "_" + "SimpleEthinca")
+    if opts.figure_name:
+      fig.savefig(str(ifo) + "_" + opts.figure_name)
 
-  if opts.show:
+
+if opts.plot_distcut:
+   
+  for ifo in ifo_combos:
+    if len(ifo) > 2:
+      pass
+    else:
+      slides_dist_a =  CoincInspiralUtils.coincInspiralTable(slidesTriggers, statistic).coinctype(ifo).\
+                        getsngls(ifo[0]).get_column('eff_distance')
+      slides_dist_b =  CoincInspiralUtils.coincInspiralTable(slidesTriggers, statistic).coinctype(ifo).\
+                        getsngls(ifo[1]).get_column('eff_distance')
+      inj_dist_a = CoincInspiralUtils.coincInspiralTable(injectionTriggers, statistic).coinctype(ifo).\
+                        getsngls(ifo[0]).get_column('eff_distance')
+      inj_dist_b = CoincInspiralUtils.coincInspiralTable(injectionTriggers, statistic).coinctype(ifo).\
+                        getsngls(ifo[1]).get_column('eff_distance')
+
+    slides_dist_cut = distcut( slides_dist_a, slides_dist_b, opts.kappa)
+    inj_dist_cut = distcut( inj_dist_a, inj_dist_b, opts.kappa)
+
+    if len(slides_dist_cut):
+      x_slide = norm(slides_dist_cut)[0]  
+      y_slide = norm(slides_dist_cut)[1]
+   
+    if len(inj_dist_cut ):
+      x_inj = norm( inj_dist_cut)[0]
+      y_inj = norm(inj_dist_cut)[1]
+
+    bar(x_slide,y_slide,width=0.25,color="r")
+    hold(True)
+    bar(x_inj,y_inj,width=0.25,color="k")
+    legend(("Injections","Background"))
+    xlabel('Effective distance differences for' + str(ifo) + 'injections')
+    ylabel('Probability (density)')
+    figure()
+    
+    if opts.figure_name:
+      fig.savefig(str(ifo) + "_" + opts.figure_name)
+
+     
+
+ 
+if opts.show:
     show()
 
 
