@@ -133,7 +133,7 @@ REAL4         BBHfrac = 0.35;      /* fraction of injections which are BBH */
 
 REAL4         bnsSnrMean = 9.0;  /* mean single ifo snr of bns injection */
 REAL4         bnsSnrStd = 0.5;   /* std of single ifo snr of bns injection */
-REAL4         snrMean = 12.0;    /* mean single ifo snr of injection */
+REAL4         snrMean = 10.0;    /* mean single ifo snr of injection */
 REAL4         snrStd  = 1.0;     /* std of single ifo snr of injection */
 /* snrs assume detectors at design     */
 REAL4Vector  *normalDev;         /* vector to store normally distributed vars*/
