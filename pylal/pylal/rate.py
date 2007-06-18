@@ -399,7 +399,7 @@ def gaussian_window(bins):
 	return numpy.exp(-numpy.arange(-10 * int(bins), 10 * int(bins) + 1, 1, "Float64")**2.0 / (2.0 * bins**2.0)) / math.sqrt(2.0 * math.pi) / bins
 
 	# equivalent, using LAL window function as back-end
-	#from pylal.xlal import window
+	#from pylal import window
 	#if bins <= 0:
 	#	raise ValueError, bins
 	#l = 20 * int(bins / 2.0)
@@ -427,7 +427,7 @@ def tophat_window(bins):
 	return numpy.ones(bins, "Float64") / bins
 
 	# equivalent, using LAL window function as back-end
-	#from pylal.xlal import window
+	#from pylal import window
 	#if bins <= 0:
 	#	raise ValueError, bins
 	#w = window.XLALCreateRectangularREAL8Window(int(bins / 2) * 2 + 1)
