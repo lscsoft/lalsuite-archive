@@ -94,7 +94,9 @@ static PyObject *pylal_REAL8Window___getattr__(PyObject *self, char *name)
 	pylal_REAL8Window *window = (pylal_REAL8Window *) self;
 
 	if(!strcmp(name, "sumofsquares"))
-		return PyInt_FromLong(window->window->sumofsquares);
+		return PyFloat_FromDouble(window->window->sumofsquares);
+	if(!strcmp(name, "sum"))
+		return PyFloat_FromDouble(window->window->sum);
 	if(!strcmp(name, "data")) {
 		npy_intp dims[] = {window->window->data->length};
 		return PyArray_SimpleNewFromData(1, dims, NPY_FLOAT64, window->window->data->data);
