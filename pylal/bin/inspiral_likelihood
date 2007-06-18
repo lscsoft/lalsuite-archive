@@ -370,9 +370,9 @@ if opts.plot_simethinca:
     bar(x_slide_param,y_slide_norm,width=0.25,color="r")
     hold(True) 
     bar(x_inj_param,y_inj_norm,width=0.25,color="k")
-    legend(("Inj","Back"))
+    legend(("Injections","Background"))
     xlabel('Simple Ethinca for' + str(ifo) + 'injections')
-    ylabel('Counts')
+    ylabel('Probability (density)')
     figure()
     
   
