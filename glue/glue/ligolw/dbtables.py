@@ -613,6 +613,33 @@ class MultiBurstTable(DBTable):
 	how_to_index = lsctables.MultiBurstTable.how_to_index
 
 
+class SegmentTable(DBTable):
+	tableName = lsctables.SegmentTable.tableName
+	validcolumns = lsctables.SegmentTable.validcolumns
+	constraints = lsctables.SegmentTable.constraints
+	ids = lsctables.SegmentTable.ids
+	RowType = lsctables.SegmentTable.RowType
+	how_to_index = lsctables.SegmentTable.how_to_index
+
+
+class SegmentDefMapTable(DBTable):
+	tableName = lsctables.SegmentDefMapTable.tableName
+	validcolumns = lsctables.SegmentDefMapTable.validcolumns
+	constraints = lsctables.SegmentDefMapTable.constraints
+	ids = lsctables.SegmentDefMapTable.ids
+	RowType = lsctables.SegmentDefMapTable.RowType
+	how_to_index = lsctables.SegmentDefMapTable.how_to_index
+
+
+class SegmentDefTable(DBTable):
+	tableName = lsctables.SegmentDefTable.tableName
+	validcolumns = lsctables.SegmentDefTable.validcolumns
+	constraints = lsctables.SegmentDefTable.constraints
+	ids = lsctables.SegmentDefTable.ids
+	RowType = lsctables.SegmentDefTable.RowType
+	how_to_index = lsctables.SegmentDefTable.how_to_index
+
+
 #
 # =============================================================================
 #
@@ -662,7 +689,10 @@ TableByName = {
 	table.StripTableName(CoincDefTable.tableName): CoincDefTable,
 	table.StripTableName(CoincTable.tableName): CoincTable,
 	table.StripTableName(CoincMapTable.tableName): CoincMapTable,
-	table.StripTableName(MultiBurstTable.tableName): MultiBurstTable
+	table.StripTableName(MultiBurstTable.tableName): MultiBurstTable,
+	table.StripTableName(SegmentTable.tableName): SegmentTable,
+	table.StripTableName(SegmentDefMapTable.tableName): SegmentDefMapTable,
+	table.StripTableName(SegmentDefTable.tableName): SegmentDefTable
 }
 
 
