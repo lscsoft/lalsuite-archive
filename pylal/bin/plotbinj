@@ -395,7 +395,7 @@ def new_plots(instrument, plots):
 		TriggerCountHistogram(instrument),
 		RecoveredVsInjectedhrss(instrument),
 		RecoveredPerInjectedhrssVsFreq(instrument),
-		RecoveredTimeOffset(instrument, segments.segment(-0.075, +0.075), 0.002),
+		RecoveredTimeOffset(instrument, segments.segment(-0.06, +0.06), 0.0003),
 		RecoveredFrequencyOffset(instrument, segments.segment(-50.0, +50.0), .5)
 	]
 	return [l[i] for i in plots]
