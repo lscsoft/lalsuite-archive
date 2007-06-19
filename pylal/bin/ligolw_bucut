@@ -318,11 +318,11 @@ def remove_skipped_injections(contents):
 	return ids
 
 
-def clean_coinc_tables(contents, removed_burst_ids):
+def clean_coinc_tables(contents, removed_ids):
 	# remove dangling coinc_event_map rows
 	removed_coinc_ids = set()
 	for i in xrange(len(contents.coincmaptable) - 1, -1, -1):
-		if contents.coincmaptable[i].event_id in removed_burst_ids:
+		if contents.coincmaptable[i].event_id in removed_ids:
 			removed_coinc_ids.add(contents.coincmaptable[i].coinc_event_id)
 			del contents.coincmaptable[i]
 
@@ -340,6 +340,11 @@ def clean_coinc_tables(contents, removed_burst_ids):
 	for i in xrange(len(contents.multibursttable) - 1, -1, -1):
 		if contents.multibursttable[i].coinc_event_id in removed_coinc_ids:
 			del contents.multibursttable[i]
+
+	# recurse (e.g., removes injection coincs that point to the
+	# coinc_events that got deleted)
+	if removed_coinc_ids:
+		clean_coinc_tables(contents, removed_coinc_ids)
 
 
 #
