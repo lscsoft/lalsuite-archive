@@ -79,8 +79,8 @@ parser.add_option("-p","--plot-distcut",action="store_true",\
 parser.add_option("-V","--verbose",action="store_true",default=False,\
     help="print additional information when running" )
 
-parser.add_option("-F","--figure-name",action="store",\
-    help="Save Figure" )
+parser.add_option("-F","--figure-name",action="store", type = "string",\
+    default = None, metavar = "NAME", help="saves figure with NAME.png" )
 
 parser.add_option("-o","--show",action="store_true",default=False,\
     help="Display the plots on the screen" )
@@ -389,11 +389,9 @@ if opts.plot_simethinca:
       legend([slide_val[0],inj_val[0]],['Backgorund','Injections'],loc = 0)
       xlabel('Simple Ethinca for' + '_' + str(ifo[0]) + '_' + str(ifo[1]) + '_' + 'injections')
       ylabel('Probability (density)')
-      figure()
-  
       if opts.figure_name:
-        savefig(opts.figure_name + "_" + str(ifo[0]) + '_' + str(ifo[1]))
-
+        savefig(opts.figure_name + "_" + str(ifo[0]) + '_' + str(ifo[1]) + '.png')
+      figure()
 
 if opts.plot_distcut:
    
@@ -429,13 +427,11 @@ if opts.plot_distcut:
       hold(True)
       inj_val =  bar(x_inj,y_inj,width=0.05,color="k")
       legend([slide_val[0],inj_val[0]],["Injections","Background"],loc=0)
-      xlabel('eff_dist_difference' + '_' + str(ifo[0]) + "_" + str(ifo[1]) + '_' + 'injections')
+      xlabel('eff_dist_difference' + '_' + str(ifo[0]) + "_" + str(ifo[1]) + '_' + 'injections' + '.png')
       ylabel('Probability (density)')
-      figure()
-    
       if opts.figure_name:
         savefig(opts.figure_name + "_" + str(ifo[0]) + "_" + str(ifo[1]) )
-
+      figure()
 
  
 if opts.show:
