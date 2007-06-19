@@ -438,7 +438,7 @@ class RateVsConfidence(SnglBurstUtils.BurstPlot):
 		self.axes.loglog()
 
 	def add_contents(self, contents):
-		for time_slide_id in contents.time_slide_table.iterkeys():
+		for time_slide_id in contents.time_slide_table.as_dict().iterkeys():
 			if contents.time_slide_table.is_null(time_slide_id):
 				bins = self.foreground
 				self.foreground_segs.append(contents.seglists[self.instrument])
@@ -507,7 +507,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 
 	for n, plot in zip(options.plot, plots):
 		if options.verbose:
-			print >>sys.stderr, "adding to burca plot %d..." % n
+			print >>sys.stderr, "adding to burca plot %d ..." % n
 		plot.add_contents(database)
 
 	connection.close()
@@ -519,10 +519,10 @@ format = "%%s%%0%dd.%%s" % (int(math.log10(max(options.plot) or 1)) + 1)
 while len(plots):
 	filename = format % (options.base, options.plot[n], options.format)
 	if options.verbose:
-		print >>sys.stderr, "finishing plot %d..." % options.plot[n]
+		print >>sys.stderr, "finishing plot %d ..." % options.plot[n]
 	plots[0].finish()
 	if options.verbose:
-		print >>sys.stderr, "writing %s..." % filename
+		print >>sys.stderr, "writing %s ..." % filename
 	plots[0].fig.savefig(filename)
 	del plots[0]
 	n += 1
