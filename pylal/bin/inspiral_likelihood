@@ -76,6 +76,10 @@ parser.add_option("-p","--plot-distcut",action="store_true",\
     default=False, help ="Shows the plot of effective distance difference based on distance cut")
 
 
+parser.add_option("-M","--plot-mchirp",action="store_true",\
+    default=False, help ="Shows the plot of chirp mass difference based on distance cut")
+
+
 parser.add_option("-V","--verbose",action="store_true",default=False,\
     help="print additional information when running" )
 
@@ -434,8 +438,52 @@ if opts.plot_distcut:
       figure()
 
  
+
+if opts.plot_mchirp:
+
+  for ifo in ifo_combos:
+    if len(ifo) > 2:
+      pass
+    else:
+      slides_dist_a =  CoincInspiralUtils.coincInspiralTable(slidesTriggers, statistic).coinctype(ifo).\
+                        getsngls(ifo[0]).get_column('mchirp')
+      slides_dist_b =  CoincInspiralUtils.coincInspiralTable(slidesTriggers, statistic).coinctype(ifo).\
+                        getsngls(ifo[1]).get_column('mchirp')
+      inj_dist_a = CoincInspiralUtils.coincInspiralTable(injectionTriggers, statistic).coinctype(ifo).\
+                        getsngls(ifo[0]).get_column('mchirp')
+      inj_dist_b = CoincInspiralUtils.coincInspiralTable(injectionTriggers, statistic).coinctype(ifo).\
+                        getsngls(ifo[1]).get_column('mchirp')
+
+      print "Plots generated for following", ifo
+
+
+      slides_dist_cut = distcut( slides_dist_a, slides_dist_b)
+
+      inj_dist_cut = distcut( inj_dist_a, inj_dist_b)
+
+
+      if len(slides_dist_cut):
+        (y_slide, x_slide) = normalized_hist(slides_dist_cut)
+
+      if len(inj_dist_cut ):
+        (y_inj, x_inj) = normalized_hist(inj_dist_cut)
+
+
+      slide_val = bar(x_slide,y_slide,width=0.05,color="r")
+      hold(True)
+      inj_val =  bar(x_inj,y_inj,width=0.05,color="k")
+      legend([slide_val[0],inj_val[0]],["Injections","Background"],loc=0)
+      xlabel('chirp_mass_difference' + '_' + str(ifo[0]) + "_" + str(ifo[1]) + '_' + 'injections' + '.png')
+      ylabel('Probability (density)')
+      if opts.figure_name:
+        savefig(opts.figure_name + "_" + str(ifo[0]) + "_" + str(ifo[1]) )
+      figure()
+
+
+
+
 if opts.show:
-    show()
+  show()
 
 
 
