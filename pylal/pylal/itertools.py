@@ -30,6 +30,10 @@
 A collection of iteration utilities.
 """
 
+
+import math
+
+
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
@@ -89,4 +93,131 @@ def choices(vals, n):
 	else:
 		# n < 1
 		raise ValueError, n
+
+
+#
+# =============================================================================
+#
+#           Thing for keeping only the highest values in a sequence
+#
+# =============================================================================
+#
+
+
+class Highest(list):
+	"""
+	A class for use when you need to collect the largest in a very long
+	sequence of things, too long a sequence to hold in memory all at
+	once and sort.  This class behaves like a list, in fact it is a
+	Python list, but one that stores only some fixed fraction of all
+	items that have been added to it.  The list is always ordered, so
+	the insert() and __setitem__() methods are not supported, only
+	append() and extend().
+
+	Example:
+
+	>>> import random
+	>>> l = Highest(fraction = 0.0002)
+	>>> for i in range(10000):
+	...	l.append(random.random())
+	...
+	>>> l
+	[0.99999998092197417, 0.99955052111790088]
+	>>> len(l)
+	10000
+
+	Notes:
+
+	- Because the list contains a fixed fraction of the total number of
+	  elements, but the length must be an integer, there are times when
+	  appending one additional element causes the number of elements
+	  retained in the list to increase by 1.  When this occurs, the new
+	  element is always the one just added, even if it is smaller than
+	  elements that have previously been discarded.  To mitigate this
+	  effect, a "guard" element is retained, so the actual number of
+	  elements retained is equal to the desired fraction of the total
+	  plus 1.  However, pathological input sets can always be
+	  constructed that defeats the mechanism, for example
+
+	>>> l = Highest(fraction = 0.5)
+	>>> l.append(1)
+	>>> l.append(1)
+	>>> l.append(.125)
+	>>> l.append(.125)
+	>>> l.append(.125)
+	>>> l.append(.125)
+	>>> l.append(.125)
+	>>> l
+	[1, 0.125, 0.125, 0.125]
+
+	  These are not the four highest elements in the sequence, nor are
+	  the first three even the three highest elements (discarding the
+	  guard element).
+
+	- What is true is that the first N elements are guaranteed to be
+	  correct where N is the smallest number of elements that have ever
+	  been in the list.  In the example above, after the first append()
+	  l has just 1 element in it, and so only ever the first element
+	  can be guaranteed to be correct (which is the case).  If you will
+	  require to know, without error, the 100 highest values in the
+	  sequence, then you must be sure to initialize the list with at
+	  least 100/fraction elements from the sequence.
+	"""
+	def __init__(self, sequence = [], fraction = 1.0):
+		list.__init__(self, sequence)
+		self.n = list.__len__(self)
+		self.fraction = fraction
+		list.sort(self, reverse = True)
+		del self[int(math.ceil(self.fraction * self.n)) + 1:]
+
+	def __len__(self):
+		return self.n
+
+	def append(self, value):
+		hi = list.__len__(self)
+		lo = 0
+		while lo < hi:
+			mid = (lo + hi) // 2
+			if value > self[mid]:
+				hi = mid
+			else:
+				lo = mid + 1
+		list.insert(self, lo, value)
+		self.n += 1
+		del self[int(math.ceil(self.fraction * self.n)) + 1:]
+
+	def extend(self, sequence):
+		before = list.__len__(self)
+		list.extend(self, sequence)
+		self.n += list.__len__(self) - before
+		list.sort(self, reverse = True)
+		del self[int(math.ceil(self.fraction * self.n)) + 1:]
+
+	#
+	# Stubs to prevent bugs
+	#
+
+	def __setitem__(*args, **kwargs):
+		raise NotImplementedError
+
+	def reverse(*args, **kwargs):
+		raise NotImplementedError
+
+	def remove(*args, **kwargs):
+		raise NotImplementedError
+
+	def pop(*args, **kwargs):
+		raise NotImplementedError
+
+	def insert(*args, **kwargs):
+		raise NotImplementedError
+
+	def index(*args, **kwargs):
+		raise NotImplementedError
+
+	def count(*args, **kwargs):
+		raise NotImplementedError
+
+	def sort(*args, **kwargs):
+		raise NotImplementedError
 

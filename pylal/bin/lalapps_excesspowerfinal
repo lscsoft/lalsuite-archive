@@ -40,11 +40,12 @@ from pysqlite2 import dbapi2 as sqlite3
 import sys
 
 
+from glue import segments
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import dbtables
 from glue.ligolw import utils
-from glue import segments
+from pylal import itertools
 from pylal import ligolw_tisi
 from pylal import rate
 from pylal import SimBurstUtils
@@ -114,50 +115,6 @@ def parse_command_line():
 #
 # =============================================================================
 #
-#           Thing for keeping only the highest values in a sequence
-#
-# =============================================================================
-#
-
-
-class Highest(list):
-	def __init__(self, sequence = [], fraction = 1.0):
-		list.__init__(self, sequence)
-		self.n = list.__len__(self)
-		self.fraction = fraction
-		list.sort(self, reverse = True)
-		del self[int(self.fraction * self.n):]
-
-	def __len__(self):
-		return self.n
-
-	def append(self, value):
-		hi = list.__len__(self)
-		lo = 0
-		while lo < hi:
-			mid = (lo + hi) // 2
-			if value > self[mid]:
-				hi = mid
-			else:
-				lo = mid + 1
-		self.insert(lo, value)
-		self.n += 1
-		del self[int(self.fraction * self.n):]
-
-	def extend(self, sequence):
-		before = list.__len__(self)
-		list.extend(self, sequence)
-		self.n += list.__len__(self) - before
-		list.sort(self, reverse = True)
-		del self[int(self.fraction * self.n):]
-
-	def sort(*args, **kwargs):
-		raise NotImplementedError
-
-
-#
-# =============================================================================
-#
 #                           Likelihood Book-Keeping
 #
 # =============================================================================
@@ -168,7 +125,7 @@ class Likelihood_Histogram(object):
 	def __init__(self):
 		self.slides = []
 		self.injection_eff_confidences = []
-		self.background_eff_confidences = Highest(fraction = 0.01)
+		self.background_eff_confidences = itertools.Highest(fraction = 0.01)
 		self.foreground_eff_confidences = []
 		self.foreground_rate = rate.Rate(segments.segment(0.0, 1.0), 0.01)
 		self.background_rate = rate.Rate(segments.segment(0.0, 1.0), 0.01)
