@@ -77,17 +77,11 @@ class SnglBurst(lsctables.SnglBurst):
 		return segments.segment(start, start + self.duration)
 
 
-class Coinc(lsctables.Coinc):
-	def is_zero_lag(self):
-		return not CoincTable.connection.cursor().execute("SELECT EXISTS (SELECT * FROM time_slide WHERE time_slide_id == ? AND offset != 0.0)", (self.time_slide_id,)).fetchone()[0]
-
-
 class CoincDatabase(object):
 	def __init__(self):
 		from glue.ligolw import dbtables
 		self.connection = dbtables.DBTable_get_connection()
 		dbtables.SnglBurstTable.RowType = SnglBurst
-		dbtables.CoincTable.RowType = Coinc
 
 	def summarize(self, xmldoc, live_time_program, verbose = False):
 		"""
@@ -243,6 +237,14 @@ WHERE
 			coinc_event_map.table_name == 'sngl_burst'
 			AND coinc_event.coinc_def_id == ?
 	)
+	-- Get only zero-lag events (? why ?  I can't remember ...)
+	AND NOT EXISTS (
+		SELECT * FROM
+			time_slide
+		WHERE
+			time_slide_id == coinc_event.time_slide_id
+			AND offset != 0.0
+	)
 EXCEPT SELECT DISTINCT coinc_event_map.event_id FROM
 	coinc_event_map
 	JOIN coinc_event ON (
@@ -252,9 +254,8 @@ WHERE
 	coinc_event_map.table_name == 'coinc_event'
 	AND coinc_event.coinc_def_id == ?
 		""", (self.bb_definer_id, self.sb_definer_id, self.sc_definer_id)):
-			row = self.coinc_table[id]
-			if row.is_zero_lag():
-				yield row
+			yield self.coinc_table[id]
+
 
 	def found_injections(self, instrument):
 		"""

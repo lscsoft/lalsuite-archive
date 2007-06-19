@@ -245,7 +245,7 @@ class ConfidenceContours(SnglBurstUtils.BurstPlot):
 			# looking for
 			return
 		for coinc in contents.coinc_select_by_def_id(contents.bb_definer_id):
-			if coinc.is_zero_lag():
+			if contents.time_slide_table.is_null(coinc.time_slide_id):
 				self.n_foreground += 1
 				x, y = self.coords(contents.coinc_sngl_bursts(coinc))
 				try:
@@ -350,7 +350,7 @@ class ConfidenceContourProjection(SnglBurstUtils.BurstPlot):
 		for coinc in contents.coinc_select_by_def_id(contents.bb_definer_id):
 			bursts = contents.coinc_sngl_bursts(coinc)
 			x, y = self.coords(bursts)
-			if coinc.is_zero_lag():
+			if contents.time_slide_table.is_null(coinc.time_slide_id):
 				self.n_foreground += 1
 				try:
 					self.foreground_bins[x, y] += 1
