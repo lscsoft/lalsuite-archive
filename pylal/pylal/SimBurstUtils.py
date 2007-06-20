@@ -29,6 +29,8 @@
 import numpy
 
 
+from pylal import date
+from pylal import inject
 from pylal import rate
 from pylal import SnglBurstUtils
 
@@ -53,6 +55,38 @@ def injection_was_made(sim, seglist, instruments):
 	lie within the segment list.
 	"""
 	return False not in map(lambda i: sim.get_peak(i) in seglist, instruments)
+
+
+#
+# =============================================================================
+#
+#                            h_{rss} in Instrument
+#
+# =============================================================================
+#
+
+
+def hrss_in_instrument(sim, instrument):
+	if sim.coordinates != "EQUATORIAL":
+		raise ValueError, sim.coordinates
+	detector = inject.cached_detector[{
+		"H1": "LHO_4k",
+		"H2": "LHO_2k",
+		"L1": "LLO_4k"
+	}[instrument]]
+	gps = {
+		"H1": date.LIGOTimeGPS(sim.h_peak_time, sim.h_peak_time_ns),
+		"H2": date.LIGOTimeGPS(sim.h_peak_time, sim.h_peak_time_ns),
+		"L1": date.LIGOTimeGPS(sim.l_peak_time, sim.l_peak_time_ns)
+	}[instrument]
+	fplus, fcross = inject.XLALComputeDetAMResponse(
+		detector.response,
+		sim.longitude,	# ra
+		sim.latitude,	# dec
+		sim.polarization,
+		date.XLALGreenwichMeanSiderealTime(gps)
+	)
+	return abs(fplus) * sim.hrss
 
 
 #
@@ -84,10 +118,10 @@ class Efficiency_hrss_vs_freq(object):
 		for sim in contents.sim_burst_table:
 			if injection_was_made(sim, contents.seglists[self.instrument], [self.instrument]):
 				self.injected_x.append(sim.freq)
-				self.injected_y.append(sim.hrss)
+				self.injected_y.append(hrss_in_instrument(sim, self.instrument))
 		for sim in contents.found_injections(self.instrument):
 			self.found_x.append(sim.freq)
-			self.found_y.append(sim.hrss)
+			self.found_y.append(hrss_in_instrument(sim, self.instrument))
 
 	def finish(self):
 		self.efficiency = rate.BinnedRatios(rate.Bins(min(self.injected_x), max(self.injected_x), 256, min(self.injected_y), max(self.injected_y), 256, spacing = ["log", "log"]))
