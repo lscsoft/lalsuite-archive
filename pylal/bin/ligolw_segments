@@ -219,13 +219,13 @@ def seg_def_map(seg, seg_def, ids, process):
 #
 
 
-def insert_from_segwizard(segdeftable, segtable, segdefmaptable, filename, instrument, name, comment, process):
-	segdef = segment_def(instrument, name, comment, segdeftable.ids, process)
-	segdeftable.append(segdef)
-	active_segs = segmentsUtils.fromsegwizard(file(filename), coltype = LIGOTimeGPS).coalesce()
-	for seg in segment_table_rows(active_segs, segments.segmentlist(), segments.segmentlist(), segtable.ids, process):
-		segtable.append(seg)
-		segdefmaptable.append(seg_def_map(seg, segdef, segdefmaptable.ids, process))
+def insert_from_segwizard(filename, segdef, segtable, segdefmaptable, process):
+	active = segmentsUtils.fromsegwizard(file(filename), coltype = LIGOTimeGPS).coalesce()
+	inactive = segments.segmentlist()
+	unknown = segments.segmentlist()
+	for row in segment_table_rows(active, inactive, unknown, segtable.ids, process):
+		segtable.append(row)
+		segdefmaptable.append(seg_def_map(row, segdef, segdefmaptable.ids, process))
 
 
 def ligolw_segments(xmldoc, process, segwizard = {}, name = "", comment = "", verbose = False):
@@ -246,9 +246,11 @@ def ligolw_segments(xmldoc, process, segwizard = {}, name = "", comment = "", ve
 	segdeftable.ids.set_next(0)
 	segdeftable.sync_ids()
 
+
 	segtable = table.get_table(xmldoc, lsctables.SegmentTable.tableName)
 	segtable.ids.set_next(0)
 	segtable.sync_ids()
+
 
 	segdefmaptable = table.get_table(xmldoc, lsctables.SegmentDefMapTable.tableName)
 	segdefmaptable.ids.set_next(0)
@@ -263,7 +265,30 @@ def ligolw_segments(xmldoc, process, segwizard = {}, name = "", comment = "", ve
 	for instrument, filename in segwizard.iteritems():
 		if verbose:
 			print >>sys.stderr, "reading %s for %s ..." % (filename, instrument)
-		insert_from_segwizard(segdeftable, segtable, segdefmaptable, filename, instrument, name, comment, process)
+
+
+		#
+		# Create a segment definition for this list
+		#
+
+
+		segdef = segment_def(instrument, name, comment, segdeftable.ids, process)
+		segdeftable.append(segdef)
+
+
+		#
+		# Insert the rows
+		#
+
+
+		insert_from_segwizard(filename, segdef, segtable, segdefmaptable, process)
+
+
+		#
+		# Done
+		#
+
+
 		changed = True
 
 
