@@ -44,6 +44,7 @@ from scipy.signal import signaltools
 
 from glue import segments
 from pylal import itertools
+from pylal import window
 
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -395,16 +396,9 @@ def gaussian_window(bins):
 	"""
 	if bins <= 0:
 		raise ValueError, bins
-	bins /= 2.0	# half-width
-	return numpy.exp(-numpy.arange(-10 * int(bins), 10 * int(bins) + 1, 1, "Float64")**2.0 / (2.0 * bins**2.0)) / math.sqrt(2.0 * math.pi) / bins
-
-	# equivalent, using LAL window function as back-end
-	#from pylal import window
-	#if bins <= 0:
-	#	raise ValueError, bins
-	#l = 20 * int(bins / 2.0)
-	#w = window.XLALCreateGaussREAL8Window(l + 1, l / float(bins))
-	#return w.data / w.sum
+	l = 20 * int(bins / 2.0)
+	w = window.XLALCreateGaussREAL8Window(l + 1, l / float(bins))
+	return w.data / w.sum
 
 
 def gaussian_window2d(bins_x, bins_y):
@@ -423,15 +417,8 @@ def tophat_window(bins):
 	"""
 	if bins <= 0:
 		raise ValueError, bins
-	bins = int(bins / 2) * 2 + 1
-	return numpy.ones(bins, "Float64") / bins
-
-	# equivalent, using LAL window function as back-end
-	#from pylal import window
-	#if bins <= 0:
-	#	raise ValueError, bins
-	#w = window.XLALCreateRectangularREAL8Window(int(bins / 2) * 2 + 1)
-	#return w.data / w.sum
+	w = window.XLALCreateRectangularREAL8Window(int(bins / 2.0) * 2 + 1)
+	return w.data / w.sum
 
 
 def tophat_window2d(bins_x, bins_y):
