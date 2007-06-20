@@ -144,11 +144,11 @@ class AmplVsFreqScatter(SnglBurstUtils.BurstPlot):
 		self.num_injections += len(contents.sim_burst_table)
 		for sim in contents.sim_burst_table:
 			self.injected_x.append(sim.freq)
-			self.injected_y.append(sim.hrss)
+			self.injected_y.append(SimBurstUtils.hrss_in_instrument(sim, self.instrument))
 		if contents.coinc_table is not None:
 			for sim in contents.missed_injections(self.instrument):
 				self.missed_x.append(sim.freq)
-				self.missed_y.append(sim.hrss)
+				self.missed_y.append(SimBurstUtils.hrss_in_instrument(sim, self.instrument))
 
 	def finish(self):
 		self.axes.plot(self.injected_x, self.injected_y, "k+")
@@ -204,7 +204,7 @@ WHERE
 
 class RecoveredVsInjectedhrss(SnglBurstUtils.BurstPlot):
 	def __init__(self, instrument):
-		SnglBurstUtils.BurstPlot.__init__(self, r"Injected $h_{\mathrm{rss}}$", r"Recovered $h_{\mathrm{rss}}^{\mathrm{ms}}$")
+		SnglBurstUtils.BurstPlot.__init__(self, r"Injected $h_{\mathrm{rss}}$", r"Recovered $h_{\mathrm{rss}}$")
 		self.axes.loglog()
 		self.fig.set_size_inches(8, 8)
 		self.instrument = instrument
@@ -213,8 +213,8 @@ class RecoveredVsInjectedhrss(SnglBurstUtils.BurstPlot):
 		self.y = []
 
 	def add_contents(self, contents):
-		for injected, recovered in contents.connection.cursor().execute("""
-SELECT sim_burst.hrss, sngl_burst.ms_hrss FROM
+		for values in contents.connection.cursor().execute("""
+SELECT sim_burst.*, sngl_burst.ms_hrss FROM
 	sim_burst
 	JOIN coinc_event_map AS a ON (
 		a.table_name == 'sim_burst'
@@ -230,8 +230,10 @@ SELECT sim_burst.hrss, sngl_burst.ms_hrss FROM
 WHERE
 	sngl_burst.ifo == ?
 		""", (self.instrument,)):
+			sim = contents.sim_burst_table._row_from_cols(values[:-1])
+			recovered = values[-1]
 			self.found += 1
-			self.x.append(injected)
+			self.x.append(SimBurstUtils.hrss_in_instrument(sim, self.instrument))
 			self.y.append(recovered)
 
 	def finish(self):
@@ -248,7 +250,7 @@ WHERE
 
 class RecoveredPerInjectedhrssVsFreq(SnglBurstUtils.BurstPlot):
 	def __init__(self, instrument):
-		SnglBurstUtils.BurstPlot.__init__(self, r"$f_{\mathrm{injected}}$", r"$\frac{\mathrm{Recovered}\ h_{\mathrm{rss}}^{\mathrm{ms}}}{\mathrm{Injected}\ h_{\mathrm{rss}}^{\mathrm{ms}}}$")
+		SnglBurstUtils.BurstPlot.__init__(self, r"$f_{\mathrm{injected}}$", r"$\frac{\mathrm{Recovered}\ h_{\mathrm{rss}}}{\mathrm{Injected}\ h_{\mathrm{rss}}}$")
 		self.axes.loglog()
 		self.fig.set_size_inches(8, 8)
 		self.instrument = instrument
@@ -257,8 +259,8 @@ class RecoveredPerInjectedhrssVsFreq(SnglBurstUtils.BurstPlot):
 		self.y = []
 
 	def add_contents(self, contents):
-		for injected, recovered, f in contents.connection.cursor().execute("""
-SELECT sim_burst.hrss, sngl_burst.ms_hrss, sim_burst.freq FROM
+		for values in contents.connection.cursor().execute("""
+SELECT sim_burst.*, sngl_burst.ms_hrss FROM
 	sim_burst
 	JOIN coinc_event_map AS a ON (
 		a.table_name == 'sim_burst'
@@ -274,9 +276,11 @@ SELECT sim_burst.hrss, sngl_burst.ms_hrss, sim_burst.freq FROM
 WHERE
 	sngl_burst.ifo == ?
 		""", (self.instrument,)):
+			sim = contents.sim_burst_table._row_from_cols(values[:-1])
+			recovered = values[-1]
 			self.found += 1
-			self.x.append(f)
-			self.y.append(recovered / injected)
+			self.x.append(sim.freq)
+			self.y.append(recovered / SimBurstUtils.hrss_in_instrument(sim, self.instrument))
 
 	def finish(self):
 		self.axes.plot(self.x, self.y, "k+")
