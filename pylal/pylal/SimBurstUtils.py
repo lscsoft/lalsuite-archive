@@ -67,6 +67,12 @@ def injection_was_made(sim, seglist, instruments):
 
 
 def hrss_in_instrument(sim, instrument):
+	"""
+	Given an injection and an instrument, compute and return the h_rss
+	of the injection as should be observed in the instrument.  That is,
+	project the waveform onto the instrument, and return the integrated
+	strain squared.
+	"""
 	if sim.coordinates != "EQUATORIAL":
 		raise ValueError, sim.coordinates
 	detector = inject.cached_detector[{
@@ -104,8 +110,9 @@ def hrss_in_instrument(sim, instrument):
 
 
 class Efficiency_hrss_vs_freq(object):
-	def __init__(self, instrument, error):
+	def __init__(self, instrument, hrss_func, error):
 		self.instrument = instrument
+		self.hrss_func = hrss_func
 		self.error = error
 		self.num_injections = 0
 		self.injected_x = []
@@ -118,10 +125,10 @@ class Efficiency_hrss_vs_freq(object):
 		for sim in contents.sim_burst_table:
 			if injection_was_made(sim, contents.seglists[self.instrument], [self.instrument]):
 				self.injected_x.append(sim.freq)
-				self.injected_y.append(hrss_in_instrument(sim, self.instrument))
+				self.injected_y.append(self.hrss_func(sim, self.instrument))
 		for sim in contents.found_injections(self.instrument):
 			self.found_x.append(sim.freq)
-			self.found_y.append(hrss_in_instrument(sim, self.instrument))
+			self.found_y.append(self.hrss_func(sim, self.instrument))
 
 	def finish(self):
 		self.efficiency = rate.BinnedRatios(rate.Bins(min(self.injected_x), max(self.injected_x), 256, min(self.injected_y), max(self.injected_y), 256, spacing = ["log", "log"]))
