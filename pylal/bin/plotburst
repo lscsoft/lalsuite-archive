@@ -418,7 +418,7 @@ class TimeFrequencyPlane(SnglBurstUtils.BurstPlot):
 
 def new_plots(ifo, plots):
 	l = (
-		RateVsPeakFreq(ifo, segments.segment(70, 2118), 16),
+		RateVsPeakFreq(ifo, segments.segment(70, 2118), 4),
 		Durations(ifo),
 		Delays(ifo, 0.25, 20),
 		RateVsSNR(ifo),
