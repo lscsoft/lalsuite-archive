@@ -77,6 +77,7 @@
 "  [--stdev-mass2 MSTD]     set the standard deviation for mass2 if \n"\
 "                           MDISTR=gaussian\n"\
 "  [--output NAME]          set the output filename \n"\
+"  [write-compress]         write compressed xml files\n"\
 "\n"
 
 RCSID( "$Id$" );
@@ -138,6 +139,8 @@ gsl_rng * rngR;
 char *massFileName = NULL;
 char *sourceFileName = NULL;
 char *outputFileName = NULL;
+
+UINT4 outCompress = 0;
 
 float mwLuminosity = -1;
 
@@ -857,6 +860,7 @@ int main( int argc, char *argv[] )
     {"enable-milkyway",         required_argument, 0,                'M'},
     {"disable-milkyway",              no_argument, 0,                'D'},
     {"output",                  required_argument, 0,                'P'},
+    {"write-compress",                no_argument, &outCompress,      1 },
     {"lal-eff-dist",                  no_argument, &lalEffDist,       1 },
     {"ilwd",                          no_argument, &ilwd,             1 },
     {0, 0, 0, 0}
@@ -1574,10 +1578,20 @@ int main( int argc, char *argv[] )
   memset( &xmlfp, 0, sizeof(LIGOLwXMLStream) );
 
 
-  if ( userTag )
+  if ( userTag && outCompress )
+  {
+    LALSnprintf( fname, sizeof(fname), "HL-INJECTIONS_%d_%s-%d-%d.xml.gz",
+        rand_seed, userTag, gpsStartTime, gpsEndTime - gpsStartTime );
+  }
+  else if ( userTag && !outCompress )
   {
     LALSnprintf( fname, sizeof(fname), "HL-INJECTIONS_%d_%s-%d-%d.xml", 
         rand_seed, userTag, gpsStartTime, gpsEndTime - gpsStartTime );
+  }
+  else if ( !userTag && outCompress )
+  {
+    LALSnprintf( fname, sizeof(fname), "HL-INJECTIONS_%d-%d-%d.xml.gz",
+        rand_seed, gpsStartTime, gpsEndTime - gpsStartTime );
   }
   else
   {
@@ -1592,7 +1606,7 @@ int main( int argc, char *argv[] )
 
   if ( ! ilwd )
   {
-    LAL_CALL( LALOpenLIGOLwXMLFile( &status, &xmlfp, fname), &status );
+    LAL_CALL( LALOpenLIGOLwXMLFile( &status, &xmlfp, fname ), &status );
 
     LAL_CALL( LALGPSTimeNow ( &status, &(proctable.processTable->end_time),
           &accuracy ), &status );

@@ -65,6 +65,7 @@ RCSID( "$Id$" );
 "  --core-radius A          set the galactic core radius to A kpc (8.5)\n"\
 "  --flatten-halo Q         set the halo flattening parameter to Q (1)\n"\
 "  --halo-radius RMAX       set the maximum halo radius to RMAX kpc (50)\n"\
+"  --write-compress         write a compressed xml file\n"\
 "\n"
 
 /* all units are in kpc since this is what GalacticInspiralParamStruc expects */
@@ -163,12 +164,14 @@ int main( int argc, char *argv[] )
   ProcessParamsTable   *this_proc_param;
   SimInspiralTable     *this_inj = NULL;
   LIGOLwXMLStream       xmlfp;
+  UINT4                 outCompress = 0;
 
   /* getopt arguments */
   struct option long_options[] =
   {
     {"help",                    no_argument,       0,                'h'},
     {"verbose",                 no_argument,       &vrbflg,           1 },
+    {"write-compress",          no_argument,       &outCompress,      1 },
     {"gps-start-time",          required_argument, 0,                'a'},
     {"gps-end-time",            required_argument, 0,                'b'},
     {"time-step",               required_argument, 0,                't'},
@@ -483,10 +486,22 @@ int main( int argc, char *argv[] )
   injections.simInspiralTable = NULL;
 
   /* create the output file name */
-  if ( userTag )
+  if ( userTag && outCompress )
+  {
+    LALSnprintf( fname, sizeof(fname), "HL-INJECTIONS_%d_%s-%d-%d.xml.gz",
+        randSeed, userTag, gpsStartTime.gpsSeconds,
+        gpsEndTime.gpsSeconds - gpsStartTime.gpsSeconds );
+  }
+  else if ( userTag && !outCompress )
   {
     LALSnprintf( fname, sizeof(fname), "HL-INJECTIONS_%d_%s-%d-%d.xml", 
         randSeed, userTag, gpsStartTime.gpsSeconds, 
+        gpsEndTime.gpsSeconds - gpsStartTime.gpsSeconds );
+  }
+  else if ( !userTag && outCompress )
+  {
+    LALSnprintf( fname, sizeof(fname), "HL-INJECTIONS_%d-%d-%d.xml.gz",
+        randSeed, gpsStartTime.gpsSeconds,
         gpsEndTime.gpsSeconds - gpsStartTime.gpsSeconds );
   }
   else
@@ -608,7 +623,7 @@ int main( int argc, char *argv[] )
 
   /* open the xml file */
   memset( &xmlfp, 0, sizeof(LIGOLwXMLStream) );
-  LAL_CALL( LALOpenLIGOLwXMLFile( &status, &xmlfp, fname), &status );
+  LAL_CALL( LALOpenLIGOLwXMLFile( &status, &xmlfp, fname ), &status );
 
   /* write the process table */
   LALSnprintf( proctable.processTable->ifos, LIGOMETA_IFOS_MAX, "H1H2L1" );
