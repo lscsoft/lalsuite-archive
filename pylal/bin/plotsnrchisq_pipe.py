@@ -16,8 +16,8 @@ import ConfigParser
 import urlparse
 from types import *
 from pylab import *
-sys.path.append('/archive/home/channa/opt/pylal/lib64/python2.4/site-packages')
-sys.path.append('/archive/home/channa/opt/glue/lib64/python2.4/site-packages')
+# sys.path.append('/archive/home/channa/opt/pylal/lib64/python2.4/site-packages')
+# sys.path.append('/archive/home/channa/opt/glue/lib64/python2.4/site-packages')
 from pylal import viz
 from pylal import Fr
 from pylal.fu_utils import *
@@ -81,22 +81,23 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams,tableFileName,imgFi
     position = gpsPosition - trigPosition
     chanNumber = str(position)
     chanNamePSD = chanStringBase + "_PSD"
-
+    
     # now, read the data !!
     # The window width should be an input argument maybe ?
     duration = 2.0
-    chanNums = range(16)
-    print chanNums  
+    # chanNums = range(16)
+      
     # figure out what the hell is in this file
-    for chan in chanNums:
-      chanNameSnr = chanStringBase + "_SNRSQ_" + str(chan)
-      try: squareSnr_tuple = Fr.frgetvect(frameFile,chanNameSnr,-1,segLenSec,0)
-      except: break
+    # for chan in chanNums:
+      # chanNameSnr = chanStringBase + "_SNRSQ_" + str(chan)
+      # try: squareSnr_tuple = Fr.frgetvect(frameFile,chanNameSnr,-1,segLenSec,0)
+      # except: break
 
-    if position == 1: chan -= 1
-    if position == 0: chan -= 2
-    chanNameSnr = chanStringBase + "_SNRSQ_" + str(chan)
-    chanNameChisq = chanStringBase + "_CHISQ_" + str(chan)
+    # if position == 1: chan -= 1
+    # if position == 0: chan -= 2
+    
+    chanNameSnr = chanStringBase + "_SNRSQ_" + chanNumber
+    chanNameChisq = chanStringBase + "_CHISQ_" + chanNumber
     squareSnr_tuple = Fr.frgetvect(frameFile,chanNameSnr,-1,segLenSec,0)
     squareChisq_tuple = Fr.frgetvect(frameFile,chanNameChisq,-1,segLenSec,0)
     PSD_tuple = Fr.frgetvect(frameFile,chanNamePSD,-1,segLenSec*8,0)
@@ -329,7 +330,7 @@ command_line = sys.argv[1:]
 #################################
 # if --version flagged
 if opts.version:
-  print "$Id:$"
+  print "$Id: plotsnrchisq_pipe.py,v 1.22 2007/06/11 14:46:22 channa Exp $"
   sys.exit(0)
 
 #################################
