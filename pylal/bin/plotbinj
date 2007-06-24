@@ -114,7 +114,7 @@ class FreqVsTime(SnglBurstUtils.BurstPlot):
 	def finish(self):
 		self.axes.plot(self.injected_x, self.injected_y, "k+")
 		if not options.made_only:
-			self.axes.plot(self.missed_x, self.missed_y, "ro")
+			self.axes.plot(self.missed_x, self.missed_y, "rx")
 		for seg in ~self.seglist & segments.segmentlist([segments.segment(self.axes.get_xlim())]):
 			self.axes.axvspan(float(seg[0]), float(seg[1]), facecolor = "k", alpha = 0.2)
 		self.axes.set_ylim([min(self.injected_y), max(self.injected_y)])
@@ -155,7 +155,7 @@ class HrssVsFreqScatter(SnglBurstUtils.BurstPlot):
 	def finish(self):
 		self.axes.plot(self.injected_x, self.injected_y, "k+")
 		if not options.made_only:
-			self.axes.plot(self.missed_x, self.missed_y, "ro")
+			self.axes.plot(self.missed_x, self.missed_y, "rx")
 		self.axes.set_xlim([min(self.injected_x), max(self.injected_x)])
 		self.axes.set_ylim([min(self.injected_y), max(self.injected_y)])
 		self.axes.set_title("Injection Amplitude vs. Frequency\n(%d Injections)" % self.num_injections)
@@ -214,10 +214,11 @@ class RecoveredVsInjectedhrss(SnglBurstUtils.BurstPlot):
 		self.found = 0
 		self.x = []
 		self.y = []
+		self.c = []
 
 	def add_contents(self, contents):
 		for values in contents.connection.cursor().execute("""
-SELECT sim_burst.*, sngl_burst.ms_hrss FROM
+SELECT sim_burst.*, sngl_burst.peak_frequency, sngl_burst.ms_hrss FROM
 	sim_burst
 	JOIN coinc_event_map AS a ON (
 		a.table_name == 'sim_burst'
@@ -233,16 +234,20 @@ SELECT sim_burst.*, sngl_burst.ms_hrss FROM
 WHERE
 	sngl_burst.ifo == ?
 		""", (self.instrument,)):
-			sim = contents.sim_burst_table._row_from_cols(values[:-1])
-			recovered = values[-1]
+			sim = contents.sim_burst_table._row_from_cols(values[:-2])
+			hrss_rec = values[-1]
+			freq_rec = values[-2]
 			self.found += 1
 			self.x.append(self.hrss_func(sim, self.instrument))
-			self.y.append(recovered)
+			self.y.append(hrss_rec)
+			self.c.append(math.log(freq_rec))
 
 	def finish(self):
-		self.axes.plot(self.x, self.y, "k+")
-		xmin, xmax = self.axes.get_xlim()
-		ymin, ymax = self.axes.get_ylim()
+		self.axes.scatter(self.x, self.y, c = self.c, s = 16)
+		#xmin, xmax = self.axes.get_xlim()
+		#ymin, ymax = self.axes.get_ylim()
+		xmin, xmax = min(self.x), max(self.x)
+		ymin, ymax = min(self.y), max(self.y)
 		xmin = ymin = min(xmin, ymin)
 		xmax = ymax = max(xmax, ymax)
 		self.axes.set_xlim([xmin, xmax])
@@ -261,10 +266,11 @@ class RecoveredPerInjectedhrssVsFreq(SnglBurstUtils.BurstPlot):
 		self.found = 0
 		self.x = []
 		self.y = []
+		self.c = []
 
 	def add_contents(self, contents):
 		for values in contents.connection.cursor().execute("""
-SELECT sim_burst.*, sngl_burst.ms_hrss FROM
+SELECT sim_burst.*, sngl_burst.peak_frequency, sngl_burst.ms_hrss FROM
 	sim_burst
 	JOIN coinc_event_map AS a ON (
 		a.table_name == 'sim_burst'
@@ -280,15 +286,18 @@ SELECT sim_burst.*, sngl_burst.ms_hrss FROM
 WHERE
 	sngl_burst.ifo == ?
 		""", (self.instrument,)):
-			sim = contents.sim_burst_table._row_from_cols(values[:-1])
-			recovered = values[-1]
+			sim = contents.sim_burst_table._row_from_cols(values[:-2])
+			hrss_rec = values[-1]
+			freq_rec = values[-2]
 			self.found += 1
 			self.x.append(sim.freq)
-			self.y.append(recovered / self.hrss_func(sim, self.instrument))
+			self.y.append(hrss_rec / self.hrss_func(sim, self.instrument))
+			self.c.append(math.log(freq_rec))
 
 	def finish(self):
-		self.axes.plot(self.x, self.y, "k+")
+		self.axes.scatter(self.x, self.y, c = self.c, s = 16)
 		self.axes.set_xlim([min(self.x), max(self.x)])
+		self.axes.set_ylim([min(self.y), max(self.y)])
 		self.axes.set_title(r"Ratio of Recovered to Injected $h_{\mathrm{rss}}$ vs.\ Frequency (%d Found Injections)" % self.found)
 
 
