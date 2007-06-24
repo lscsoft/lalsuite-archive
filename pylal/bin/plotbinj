@@ -73,7 +73,7 @@ def parse_command_line():
 	if options.plot:
 		options.plot = map(int, options.plot)
 	else:
-		options.plot = range(8)
+		options.plot = range(9)
 
 
 	return options, (filenames or [None])
@@ -250,9 +250,9 @@ WHERE
 		ymin, ymax = min(self.y), max(self.y)
 		xmin = ymin = min(xmin, ymin)
 		xmax = ymax = max(xmax, ymax)
+		self.axes.plot([xmin, xmax], [ymin, ymax], "k-")
 		self.axes.set_xlim([xmin, xmax])
 		self.axes.set_ylim([ymin, ymax])
-		self.axes.plot([xmin, xmax], [ymin, ymax], "k-")
 		self.axes.set_title(r"Recovered $h_{\mathrm{rss}}$ vs.\ Injected $h_{\mathrm{rss}}$ (%d Found Injections)" % self.found)
 
 
@@ -398,6 +398,65 @@ class RecoveredFrequencyOffset(SnglBurstUtils.BurstPlot):
 #
 # =============================================================================
 #
+#                       Recovered vs. Injected Frequency
+#
+# =============================================================================
+#
+
+
+class RecoveredVsInjectedFreq(SnglBurstUtils.BurstPlot):
+	def __init__(self, instrument, hrss_func):
+		SnglBurstUtils.BurstPlot.__init__(self, "Injected Frequency (Hz)", "Recovered Frequency (Hz)")
+		self.axes.loglog()
+		self.fig.set_size_inches(8, 8)
+		self.instrument = instrument
+		self.hrss_func = hrss_func
+		self.found = 0
+		self.x = []
+		self.y = []
+		self.c = []
+
+	def add_contents(self, contents):
+		for values in contents.connection.cursor().execute("""
+SELECT sim_burst.*, sngl_burst.peak_frequency, sngl_burst.ms_hrss FROM
+	sim_burst
+	JOIN coinc_event_map AS a ON (
+		a.table_name == 'sim_burst'
+		AND a.event_id == sim_burst.simulation_id
+	)
+	JOIN coinc_event_map AS b ON (
+		b.coinc_event_id == a.coinc_event_id
+	)
+	JOIN sngl_burst ON (
+		b.table_name == 'sngl_burst'
+		AND b.event_id == sngl_burst.event_id
+	)
+WHERE
+	sngl_burst.ifo == ?
+		""", (self.instrument,)):
+			sim = contents.sim_burst_table._row_from_cols(values[:-2])
+			hrss_rec = values[-1]
+			freq_rec = values[-2]
+			self.found += 1
+			self.x.append(sim.freq)
+			self.y.append(freq_rec)
+			self.c.append(math.log(hrss_rec / self.hrss_func(sim, self.instrument)))
+
+	def finish(self):
+		self.axes.scatter(self.x, self.y, c = self.c, s = 16)
+		xmin, xmax = min(self.x), max(self.x)
+		ymin, ymax = min(self.y), max(self.y)
+		xmin = ymin = min(xmin, ymin)
+		xmax = ymax = max(xmax, ymax)
+		self.axes.plot([xmin, xmax], [ymin, ymax], "k-")
+		self.axes.set_xlim([xmin, xmax])
+		self.axes.set_ylim([ymin, ymax])
+		self.axes.set_title(r"Recovered Frequency vs.\ Injected Frequency (%d Found Injections)" % self.found)
+
+
+#
+# =============================================================================
+#
 #                                     Plot
 #
 # =============================================================================
@@ -418,7 +477,8 @@ def new_plots(instrument, hrss_func, plots):
 		RecoveredVsInjectedhrss(instrument, hrss_func),
 		RecoveredPerInjectedhrssVsFreq(instrument, hrss_func),
 		RecoveredTimeOffset(instrument, segments.segment(-0.06, +0.06), 0.0003),
-		RecoveredFrequencyOffset(instrument, segments.segment(-50.0, +50.0), .5)
+		RecoveredFrequencyOffset(instrument, segments.segment(-50.0, +50.0), .5),
+		RecoveredVsInjectedFreq(instrument, hrss_func)
 	)
 	return [l[i] for i in plots]
 
