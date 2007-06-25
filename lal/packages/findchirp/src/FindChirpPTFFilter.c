@@ -75,14 +75,14 @@ LALFindChirpPTFFilterSegment (
     )
 /* </lalVerbatim> */
 {
-  UINT4                 i, j, k, l, kmax;
+  UINT4                 i, j, k, l, kmax, kmin;
   UINT4                 errcode;
   UINT4                 numPoints;
   UINT4                 deltaEventIndex;
   UINT4                 ignoreIndex;
   UINT4                 haveEvent   = 0;
   REAL4                 deltaT, sum, temp, PTFMatrix[25], r, s, x, y;
-  REAL4                 deltaF, fFinal;
+  REAL4                 deltaF, fFinal, norm, fmin, length;
   REAL4                 snrThresh      = 0;
   REAL4                *snr            = NULL;
   COMPLEX8             *PTFQtilde, *qtilde, *PTFq, *inputData;
@@ -107,13 +107,16 @@ LALFindChirpPTFFilterSegment (
 
   /* template and data */
   inputData = input->segment->data->data->data;
+  length    = input->segment->data->data->length;
   PTFQtilde = input->fcTmplt->PTFQtilde->data;
 
   /* number of points and frequency cutoffs */
   deltaT = (REAL4) params->deltaT;
   deltaF = 1.0 / ( deltaT * (REAL4) numPoints );
   fFinal = (REAL4) input->fcTmplt->tmplt.fFinal;
+  fmin   = (REAL4) input->fcTmplt->tmplt.fLower;
   kmax =  fFinal / deltaF < numPoints/2 ? fFinal / deltaF : numPoints/2;
+  kmin =  fmin / deltaF > 1.0 ? fmin/ deltaF : 1;
 
   INITSTATUS( status, "LALFindChirpPTFFilter", FINDCHIRPPTFFILTERC );
   ATTATCHSTATUSPTR( status );
@@ -245,15 +248,15 @@ LALFindChirpPTFFilterSegment (
         params->qtildeVec->length * sizeof(COMPLEX8) );
 
     /* qtilde positive frequency, not DC or nyquist */
-    for ( k = 1; k < kmax; ++k )
+    for ( k = kmin; k < length - 1 ; ++k )
     {
       r = inputData[k].re;
       s = inputData[k].im;
       x = PTFQtilde[i * (numPoints / 2 + 1) + k].re;
       y = 0 - PTFQtilde[i * (numPoints / 2 + 1) + k].im; /* cplx conj */
 
-      qtilde[k].re = r*x - s*y;
-      qtilde[k].im = r*y + s*x;
+      qtilde[k].re = 2 * (r*x - s*y);
+      qtilde[k].im = 2 * (r*y + s*x);
     }
 
     qVec.data = params->PTFqVec->data + (i * numPoints);
@@ -265,7 +268,6 @@ LALFindChirpPTFFilterSegment (
   }
 
   /* now we have PTFqVec which contains <s|Q^I_0> + i <s|Q^I_\pi/2> */
-
 
   for ( k = 0; k < numPoints; ++k ) /* beginning of main loop over time */
   {  
@@ -315,20 +317,50 @@ LALFindChirpPTFFilterSegment (
     }
 
     if (wi[0] == 0) 
-      snr[k] = wr[0];
+      temp = wr[0];
     else
-      snr[k] = 0.0;
+      temp = 0.0;
 
     for ( i = 1; i < 5; ++i )
     {
       if ( wi[i] == 0) 
       {  
-        if ( (temp = wr[i]) > snr[k] ) 
-          snr[k] = temp;                
+        if ( wr[i] > temp ) temp = wr[i];        
       } 
     }
+    snr[k] = 2 * sqrt(temp) / (REAL4) numPoints;
+    
   } /* End of main loop over time */
 
+
+   /* 
+   *
+   * calculate signal to noise squared 
+   *
+   */
+
+
+  /* if full snrsq vector is required, set it to zero */
+  if ( params->rhosqVec )
+    memset( params->rhosqVec->data->data, 0, numPoints * sizeof( REAL4 ) );
+
+  /* normalised snr threhold */
+/*   modqsqThresh = params->rhosqThresh / norm; */
+
+  /* if full snrsq vector is required, store the snrsq */
+  if ( params->rhosqVec ) 
+  {
+    memcpy( params->rhosqVec->name, input->segment->data->name,
+        LALNameLength * sizeof(CHAR) );
+    memcpy( &(params->rhosqVec->epoch), &(input->segment->data->epoch), 
+        sizeof(LIGOTimeGPS) );
+    params->rhosqVec->deltaT = input->segment->deltaT;
+
+    for ( j = 0; j < numPoints; ++j )
+    {
+      params->rhosqVec->data->data[j] =  snr[j] * snr[j];
+    }
+  }
 
   fprintf( stderr, "Ptf filtering data segment\n" );
 
