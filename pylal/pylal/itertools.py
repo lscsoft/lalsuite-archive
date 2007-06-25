@@ -50,7 +50,7 @@ __date__ = "$Date$"[7:-2]
 
 def MultiIter(*lists):
 	"""
-	An generator for iterating over the elements of multiple lists
+	A generator for iterating over the elements of multiple lists
 	simultaneously.  With N lists given as input, the output sequence
 	consists of all possible N-element lists containing one element
 	from each of the input lists.
@@ -77,14 +77,15 @@ def choices(vals, n):
 
 	Example:
 
-	>>> list(choices(["a", "b", "c"], 2))
+	>>> x = choices(["a", "b", "c"], 2)
+	>>> list(x)
 	[['a', 'b'], ['a', 'c'], ['b', 'c']]
 	"""
 	if n == len(vals):
 		yield vals
 	elif n > 1:
-		for i in xrange(len(vals) - n + 1):
-			v = [vals[i]]
+		for i, v in enumerate(vals[:1 - n]):
+			v = [v]
 			for c in choices(vals[i+1:], n - 1):
 				yield v + c
 	elif n == 1:
