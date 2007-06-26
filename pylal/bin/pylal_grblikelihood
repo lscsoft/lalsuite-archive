@@ -367,7 +367,6 @@ if opts.loudest_event_cut:
 dx=(opts.max_mass-opts.min_mass)/opts.bins_mass
 xedges = arange( opts.min_mass, opts.max_mass, dx )
 dy=(opts.max_distance-opts.min_distance)/opts.bins_distance
-dy=20.5/8.0
 yedges = arange( opts.min_distance, opts.max_distance, dy )
 foundsq = square(xedges, yedges, coincInjTriggers, "found")
 missedsq = square(xedges, yedges, coincInjTriggers, "missed")
