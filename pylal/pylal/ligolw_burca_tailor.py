@@ -43,6 +43,7 @@ from pylal import itertools
 from pylal import ligolw_burca
 from pylal import llwapp
 from pylal import rate
+from pylal import SimBurstUtils
 from pylal.date import LIGOTimeGPS
 
 
@@ -302,7 +303,7 @@ class Stats(object):
 		pass
 
 
-	def _add_injections(self, param_func, events, timeslide):
+	def _add_injections(self, param_func, sim, events, timeslide):
 		pass
 
 
@@ -364,12 +365,23 @@ WHERE
 
 	def add_injections(self, database):
 		# iterate over burst<-->injection coincs
-		for (coinc_event_id,) in database.connection.cursor().execute("""
-SELECT coinc_event_id FROM
+		for values in database.connection.cursor().execute("""
+SELECT sim_burst.*, coinc_event.coinc_event_id FROM
 	coinc_event
+	JOIN coinc_event_map ON (
+		coinc_event_map.coinc_event_id == coinc_event.coinc_event_id
+	)
+	JOIN sim_burst ON (
+		coinc_event_map.table_name == 'sim_burst'
+		AND coinc_event_map.event_id == sim_burst.simulation_id
+	)
 WHERE
 	coinc_def_id == ?
 		""", (database.sb_definer_id,)):
+			# retrieve the injection and the coinc_event_id
+			sim = database.sim_burst_table._row_from_cols(values[:-1])
+			coinc_event_id = values[-1]
+
 			# retrieve the list of the sngl_bursts in this
 			# coinc, and their time slide dictionary
 			events = []
@@ -401,7 +413,7 @@ WHERE
 				offsetdict[event.ifo] = values[-1]
 
 			# pass the events to whatever wants them
-			self._add_injections(coinc_params, events, offsetdict)
+			self._add_injections(coinc_params, sim, events, offsetdict)
 
 	def finish(self):
 		pass
@@ -425,7 +437,7 @@ class ScatterStats(Stats):
 			prefix = "%s_%s_" % (event1.ifo, event2.ifo)
 			self.scatter.add_background(params[prefix + "dt"], params[prefix + "df"])
 
-	def _add_injections(self, param_func, events, offsetdict):
+	def _add_injections(self, param_func, sim, events, offsetdict):
 		params = param_func(events, offsetdict)
 		for event1, event2 in itertools.choices(events, 2):
 			if event1.ifo == event2.ifo:
@@ -453,7 +465,7 @@ class CovarianceStats(Stats):
 		items.sort()
 		self.covariance.add_background([value for name, value in items])
 
-	def _add_injections(self, param_func, events, offsetdict):
+	def _add_injections(self, param_func, sim, events, offsetdict):
 		params = param_func(events, offsetdict)
 		items = params.items()
 		items.sort()
@@ -475,12 +487,13 @@ class DistributionsStats(Stats):
 		"H1_L1_dh": 1.0 / 9,
 		"H2_L1_dh": 1.0 / 9,
 		"H1_H2_dt": 1.0 / 300,
-		"H1_L1_dt": 1.0 / 75,
-		"H2_L1_dt": 1.0 / 75
+		"H1_L1_dt": 1.0 / 300, # was 1.0 / 75
+		"H2_L1_dt": 1.0 / 300  # was 1.0 / 75
 	}
 
-	def __init__(self, thresholds):
+	def __init__(self, max_hrss_ratio, thresholds):
 		Stats.__init__(self, thresholds)
+		self.max_hrss_ratio = max_hrss_ratio
 		# careful, the intervals have to be unpacked in the order
 		# in which they were packed by dbget_thresholds(); also
 		# each instrument pair must list the instruments in
@@ -502,7 +515,10 @@ class DistributionsStats(Stats):
 	def _add_background(self, param_func, events, offsetdict):
 		self.distributions.add_background(param_func, events, offsetdict)
 
-	def _add_injections(self, param_func, events, offsetdict):
+	def _add_injections(self, param_func, sim, events, offsetdict):
+		# remove events whose h_rss differs from the correct value
+		# by more than a factor of max_hrss_ratio.
+		events = [sngl_burst for sngl_burst in events if 1.0 / self.max_hrss_ratio <= sngl_burst.ms_hrss / SimBurstUtils.hrss_in_instrument(sim, sngl_burst.ifo) <= self.max_hrss_ratio]
 		self.distributions.add_injection(param_func, events, offsetdict)
 
 	def finish(self):

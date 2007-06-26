@@ -63,6 +63,7 @@ def parse_command_line():
 	)
 	parser.add_option("-b", "--background-glob", metavar = "pattern", default = [], action = "append", help = "Shell filename pattern for non-injection files.")
 	parser.add_option("-i", "--injection-glob", metavar = "pattern", default = [], action = "append", help = "Shell filename pattern for injection files.")
+	parser.add_option("--max-hrss-ratio", metavar = "ratio", default = "4.0", help = "When measuring the distribution of coincidence parameters associated with injections, discard any sngl_burst events from the coincs whose measured h_rss differs from the correct value for that instrument by more than this factor.  This helps ensure that the injection distributions are not being measured from accidentals.  Default = 4.0")
 	parser.add_option("-o", "--output", metavar = "filename", default = None, help = "Set the name of the likelihood control file to write (default = stdout).")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
@@ -71,6 +72,8 @@ def parse_command_line():
 		raise ValueError, "missing required --background-glob argument"
 	if not options.injection_glob:
 		raise ValueError, "missing required --injection-glob argument"
+
+	options.max_hrss_ratio = float(options.max_hrss_ratio)
 
 	return options, (filenames or [None])
 
@@ -159,7 +162,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 	#
 
 	if stats is None:
-		stats = ligolw_burca_tailor.DistributionsStats(ligolw_burca_tailor.dbget_thresholds(connection))
+		stats = ligolw_burca_tailor.DistributionsStats(options.max_hrss_ratio, ligolw_burca_tailor.dbget_thresholds(connection))
 
 	#
 	# Record statistics.
@@ -207,7 +210,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 	#
 
 	if stats is None:
-		stats = ligolw_burca_tailor.DistributionsStats(ligolw_burca_tailor.dbget_thresholds(connection))
+		stats = ligolw_burca_tailor.DistributionsStats(options.max_hrss_ratio, ligolw_burca_tailor.dbget_thresholds(connection))
 
 	#
 	# Record statistics.
