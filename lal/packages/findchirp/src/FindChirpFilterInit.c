@@ -983,7 +983,6 @@ LALFindChirpFilterFinalize (
   }
 
   /* destroy workspace vector for optimal filter: freq domain */
-  fprintf(stderr,"is the problem here?\n");
   if (outputPtr->qtildeVec)
   {  
     LALCDestroyVector( status->statusPtr, &(outputPtr->qtildeVec) ) ;
@@ -1049,7 +1048,8 @@ LALFindChirpFilterFinalize (
     LALFree( outputPtr->rhosqVec );
   }    
 
-  fprintf(stderr,"destroyed rhosq\n");
+  fprintf(stderr,"destroyed rhosq\n");  
+ 
   if ( outputPtr->cVec )
   {
     LALCDestroyVector( status->statusPtr, &(outputPtr->cVec->data) );
