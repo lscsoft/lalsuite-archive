@@ -95,19 +95,28 @@ def makesteps(x,y1,y2):
 
   return xnew,ynew
 
-#
-# Average
-#
-def simple_smooth(a,n):
-  newa = []
-  newa.append(a[0])
-  for i in arange(len(a)-n):
-    newa.append(mean(a[i:i+n]))
+#######################################################################
+# make a smooth contour at the specified confidence
+def get_smooth_contour(xedges,yedges,pcsignalsq,confidence,width=3.0): 	 #
+  clevel=zeros(len(xedges))
+  dy = yedges[1]-yedges[0] 
+  for i in arange(len(xedges)):
+    found = 0
+    for j in arange(len(yedges)):
+      if pcsignalsq[j,i]>confidence and not found: 
+        slope=(yedges[j]-yedges[j-1])/(pcsignalsq[j,i]-pcsignalsq[j-1,i])
+        clevel[i]=dy+yedges[j-1] + (confidence-pcsignalsq[j-1,i])*slope
+        found = 1 
+      if pcsignalsq[j,i]<confidence and found: 
+        found = 0 	 
 
-  for i in arange(n-1):
-    newa.append(a[-(i+1)])
-
-  return asarray(newa)
+  gauss = exp( - 0.5 * ( ( xedges - mean( xedges ) ) / width )**2  )\
+    / sqrt( 2.0 * pi ) / width
+  yarray= convolve(asarray(clevel),gauss,mode=1) 	 
+  yarray = clevel[0] * yarray / yarray[0] 	 
+  tmpx,tmpy = makesteps(xedges,zeros(len(xedges)),yarray) 	 
+ 	 
+  return tmpx,tmpy,yarray
 
 
 ##############################################################################
