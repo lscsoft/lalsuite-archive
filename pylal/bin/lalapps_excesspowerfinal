@@ -92,7 +92,7 @@ def parse_command_line():
 	parser.add_option("-b", "--background-glob", metavar = "pattern", default = [], action = "append", help = "Shell filename pattern for non-injection files.")
 	parser.add_option("-i", "--injection-glob", metavar = "pattern", default = [], action = "append", help = "Shell filename pattern for injection files.")
 	parser.add_option("-l", "--live-time-program", metavar = "program", default = "lalapps_power", help = "Set the name, as it appears in the process table, of the program whose search summary entries define the search live time (default = \"lalapps_power\")")
-	parser.add_option("--confidence-contour-slope", metavar = "slope", default = "-16.5", help = "Set the slope of the confidence-likelihood joint contours on which the final cut thresholds (default = -16.5).")
+	parser.add_option("--confidence-contour-slope", metavar = "slope", default = "-23.0", help = "Set the slope of the confidence-likelihood joint contours on which the final cut thresholds (default = -23.0).")
 	parser.add_option("--foreground-survivors", metavar = "number", help = "Tune the coincidence likelihood threshold to result in this many survivors being expected in the foreground. (e.g., 0.1)")
 	parser.add_option("--measure-min-confidences", action = "store_true", help = "After thresholds have been determined, rescan all input files for all sngl_burst events surviving the cuts, and measure the lowest surviving confidence by instrument.  Can be used to check that the confidence thresholds set on the pipeline's lalapps_power jobs are not unreasonable.")
 	parser.add_option("--survivors-output", metavar = "filename", help = "Set the name of the XML file to which zero-lag survivors will be written.  Default is to not record zero-lag survivors file (keep the box closed).")
@@ -134,9 +134,14 @@ class Likelihood_Histogram(object):
 	def add_non_injections(self, contents):
 		#
 		# Iterate over burst<-->burst coincidences.  Assume there
-		# are no injections in this file.
+		# are no injections in this file.  Note how the background
+		# effective confidences are first accumulated in a separate
+		# list, which is then appended to the real list.  This
+		# lowers the chances of the Highest class making a mistake.
+		# See the comments about this in the itertools module.
 		#
 
+		background_eff_confidences = []
 		for likelihood, confidence, is_background in contents.connection.cursor().execute("""
 SELECT coinc_event.likelihood, multi_burst.confidence, EXISTS (
 	SELECT * FROM
@@ -153,7 +158,7 @@ WHERE
 	coinc_event.coinc_def_id == ?
 		""", (contents.bb_definer_id,)):
 			if is_background:
-				self.background_eff_confidences.append(effective_confidence(likelihood, confidence))
+				background_eff_confidences.append(effective_confidence(likelihood, confidence))
 				try:
 					self.background_rate[likelihood] += 1.0
 				except IndexError:
@@ -164,6 +169,7 @@ WHERE
 					self.foreground_rate[likelihood] += 1.0
 				except IndexError:
 					pass
+		self.background_eff_confidences.extend(background_eff_confidences)
 
 	def add_injections(self, contents):
 		#
@@ -510,18 +516,23 @@ def effective_confidence(likelihood, confidence, m = options.confidence_contour_
 	#
 	#    log10 likelihood = m log10 confidence + log10 b
 	#
-	# where m ~= -16.5.  b parameterizes the family of curves, and can
-	# be interpreted as an "effective confidence".  Injections are
-	# found to have high "b" values, and noise low "b" values.  Given a
-	# likelihood and confidence pair,
+	# where m ~= -23.0.  b (the y-intercept) parameterizes the family
+	# of curves, and can be interpreted as an "effective confidence".
+	# Injections are found to have high "b" values, and noise low "b"
+	# values.  Given a likelihood and confidence pair,
 	#
 	#    b = likelihood * confidence^-m
+	#
+	# This function is defined here, after parsing the command line,
+	# because it's inconvenient to pass the slope into SQLite and then
+	# back out again, so instead it gets programmed here as the default
+	# value for the paramter.
 
 	return likelihood * confidence**(-m)
 
 
 likelihood_histogram = Likelihood_Histogram()
-efficiency = SimBurstUtils.Efficiency_hrss_vs_freq(None, 0.1)
+efficiency = SimBurstUtils.Efficiency_hrss_vs_freq(None, (lambda sim, instrument: sim.hrss), 0.1)
 non_injection_seglists = segments.segmentlistdict()
 injection_seglists = segments.segmentlistdict()
 background_time_slides = []
