@@ -673,16 +673,24 @@ XLALFindChirpPTFWaveform(
     if ( (dE_dt = stpn_orbital_energy( omega, pn_params.LNhat_dot_S1,
             0, 0, m1, m2, chi1, 0, orbital_energy_coeffs )) >= 0 ) break;
 
+    /* If all check are ok set the final frequency */
+    tmplt->fFinal = omega * omegam_to_hz;
+    
+  
   } /* end of evolution while ( 1 ) loop */
-
+    
   /* free the memory used by the ode solver */
   gsl_odeiv_evolve_free( solver_evolve );
   gsl_odeiv_control_free( solver_control );
   gsl_odeiv_step_free( solver_step );
 
-  /* Set the lengtih of the template and final freqency */
+  /* free the memory used for the pn coefficients */
+  XLALDestroyREAL4Vector( orbital_energy_coeffs );
+  XLALDestroyREAL4Vector( pn_params.orbital );
+  XLALDestroyREAL4Vector( pn_params.spin);
+
+  /* Set the length of the template */
   tmplt->tC     = deltaT * (REAL8) i;
-  tmplt->fFinal = f_min + deltaF * (REAL8) i;
   
   /* shift the waveform so that the coalescence time */
   /* corresponds to the end of the segment           */
