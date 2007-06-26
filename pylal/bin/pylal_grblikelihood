@@ -260,8 +260,8 @@ else:
 #####################################################################
 # make the plot background and foreground
 nbins=20
-ds=0.5*8.0/20.0
-bins = arange(4.0, 12.0, 8.0/20.0)
+ds=0.5*6.0/20.0
+bins = arange(4.0, 10.0, 6.0/20.0)
 [zero_dist,bin,info] = hist(coincTriggers.getstat(),bins)
 zero_dist = concatenate( (zeros(1),zero_dist) )
 cum_dist_zero = numpy.sum(zero_dist)-cumsum(zero_dist[0:bin.size])
@@ -288,13 +288,10 @@ for i in range( len(offsource_mean) ):
 tmpx,tmpy = makesteps(bins,offsource_min,offsource_mean+offsource_std)
 p=fill((tmpx-ds)*(tmpx-ds),tmpy, facecolor='y')
 setp(p, alpha=0.3)
-axis([20.0,120.0,0.001,10.0])
+axis([20.0,80.0,0.001,10.0])
 xlabel(r"$\rho_{\mathrm{eff}}^2$")
 ylabel(r"Expected number of events")
 savefig("snr_dist.%s" % opts.figure_type)
-
-
-  
 
 #####################################################################
 # read in the missed and found files
@@ -329,8 +326,8 @@ if opts.loudest_event_cut:
 
 #####################################################################
 # histogram triggers in mass1-distance space
-xedges = arange(0, 41, 2)
-yedges = asarray([0, 6, 8, 10, 12, 14, 16, 18, 20, 30, 41])
+xedges = arange(1.0, 40.0, 39.0/13.0)
+yedges = arange(0.5, 20.0, 20.5/13.0)
 foundsq = square(xedges, yedges, coincInjTriggers, "found")
 missedsq = square(xedges, yedges, coincInjTriggers, "missed")
 
