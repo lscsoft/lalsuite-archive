@@ -95,28 +95,19 @@ def makesteps(x,y1,y2):
 
   return xnew,ynew
 
-#######################################################################
-# make a smooth contour at the specified confidence
-def get_smooth_contour(xedges,yedges,pcsignalsq,confidence,width=3.0):
-  clevel=zeros(len(xedges))
-  dy = yedges[1]-yedges[0]
-  for i in arange(len(xedges)):
-    found = 0
-    for j in arange(len(yedges)):
-      if pcsignalsq[j,i]>confidence and not found:
-        slope=(yedges[j]-yedges[j-1])/(pcsignalsq[j,i]-pcsignalsq[j-1,i])
-        clevel[i]=dy+yedges[j-1] + (confidence-pcsignalsq[j-1,i])*slope
-        found = 1
-      if pcsignalsq[j,i]<confidence and found:
-        found = 0
-      
-  gauss = exp( - 0.5 * ( ( xedges - mean( xedges ) ) / width )**2  )\
-      / sqrt( 2.0 * pi ) / width
-  yarray= convolve(asarray(clevel),gauss,mode=1)
-  yarray = clevel[0] * yarray / yarray[0]
-  tmpx,tmpy = makesteps(xedges,zeros(len(xedges)),yarray)
+#
+# Average
+#
+def simple_smooth(a,n):
+  newa = []
+  newa.append(a[0])
+  for i in arange(len(a)-n):
+    newa.append(mean(a[i:i+n]))
 
-  return tmpx,tmpy,yarray
+  for i in arange(n-1):
+    newa.append(a[-(i+1)])
+
+  return asarray(newa)
 
 
 ##############################################################################
@@ -177,6 +168,20 @@ parser.add_option("-F","--full-segs",
   help="read in segments from FNAME (assumed segwizard format)")
 parser.add_option("-O","--on-source-segs",
   help="read in segments from FNAME (assumed segwizard format)")
+parser.add_option("-N", "--nbins", type="float", default=20,\
+  help="number of bins")
+parser.add_option("-a", "--min-mass", type="float", default=0.5,\
+  help="minimum value for the mass range")
+parser.add_option("-b", "--max-mass", type="float", default=20.0,\
+  help="maximum value for the mass range")
+parser.add_option("-d", "--bins-mass", type="float", default=8.0,\
+  help="number of bins for the mass range")
+parser.add_option("-f", "--min-distance", type="float", default=1.0,\
+  help="minimum value for the distance range")
+parser.add_option("-i", "--max-distance", type="float", default=20.0,\
+  help="maximum value for the distance range")
+parser.add_option("-j", "--bins-distance", type="float",default=13.0,\
+  help="number of bins for the distance range")
 
 (opts,args) = parser.parse_args()
 
@@ -282,9 +287,9 @@ else:
 
 #####################################################################
 # make the plot background and foreground
-nbins=20
-ds=0.5*6.0/20.0
-bins = arange(4.0, 10.0, 6.0/20.0)
+delta=xhigh-xlow
+ds=0.5*delta/opts.nbins
+bins = arange( xlow, xhigh, delta/opts.nbins)
 [zero_dist,bin,info] = hist(coincTriggers.getstat(),bins)
 zero_dist = concatenate( (zeros(1),zero_dist) )
 cum_dist_zero = numpy.sum(zero_dist)-cumsum(zero_dist[0:bin.size])
@@ -296,7 +301,7 @@ for seg in seglist:
   cum_offsource = sum(num_offsource)-cumsum(num_offsource[0:bin.size])
   cum_dist_offsource.append(cum_offsource)
 cum_dist_offsource = reshape(array(cum_dist_offsource), \
-      (len(seglist),nbins))
+      (len(seglist),opts.nbins))
 offsource_mean = mean(cum_dist_offsource)
 offsource_std = std(cum_dist_offsource)
 clf()
@@ -311,12 +316,10 @@ for i in range( len(offsource_mean) ):
 tmpx,tmpy = makesteps(bins,offsource_min,offsource_mean+offsource_std)
 p=fill((tmpx-ds)*(tmpx-ds),tmpy, facecolor='y')
 setp(p, alpha=0.3)
-axis([20.0,80.0,0.001,10.0])
+axis([ xlow*xlow, xhigh*xhigh, 0.001, 10.0])
 xlabel(r"$\rho_{\mathrm{eff}}^2$")
 ylabel(r"Expected number of events")
 savefig("snr_dist.%s" % opts.figure_type)
-
-
   
 
 #####################################################################
@@ -352,8 +355,11 @@ if opts.loudest_event_cut:
 
 #####################################################################
 # histogram triggers in mass1-distance space
-xedges = arange(1.0,40.0,39.0/13.0)
-yedges = arange(0.5,20.0,20.5/8.0)
+dx=(opts.max_mass-opts.min_mass)/opts.bins_mass
+xedges = arange( opts.min_mass, opts.max_mass, dx )
+dy=(opts.max_distance-opts.min_distance)/opts.bins_distance
+dy=20.5/8.0
+yedges = arange( opts.min_distance, opts.max_distance, dy )
 foundsq = square(xedges, yedges, coincInjTriggers, "found")
 missedsq = square(xedges, yedges, coincInjTriggers, "missed")
 
@@ -362,7 +368,7 @@ missedsq = square(xedges, yedges, coincInjTriggers, "missed")
 if coincTriggers and not opts.loudest_event_cut:
   # loop over each candidate
   for candidate in coincTriggers:
-    fa_array = zeros(len(seglist), dtype=int)
+    tmparray = zeros(len(seglist), dtype=int)
 
     # cut out those triggers near to the candidate, and
     # evaulate the p(c|0) based on that
@@ -372,10 +378,11 @@ if coincTriggers and not opts.loudest_event_cut:
     for coinc in triggers_within_epsilon:
       # index by end time of alphabetically first IFO in coinc
       end_time = getattr(coinc, coinc.get_ifos()[1][0]).end_time
-      fa_array[seglist.find(end_time)] = 1
+      if end_time in seglist:
+        tmparray[seglist.find(end_time)] = 1
 
-    if opts.verbose: print fa_array
-    pczero = fa_array.sum() / len(seglist)
+    if opts.verbose: print tmparray
+    pczero = tmparray.sum() / len(seglist)
 
     print "p(c|0) = %f" % pczero
 
@@ -438,7 +445,7 @@ IM = imshow(pcsignalsq, origin='lower', extent=im_extent,
 hold(True)
 contour(pcsignalsq, extent=im_extent)
 colorbar(IM)
-axis('image')
+axis('tight')
 #axvline(candmass)
 title(r'$p[\mathrm{candidate}|h(m_2,D)]$')
 xlabel(r"$m_2 (M_\odot)$")
@@ -452,7 +459,7 @@ IM = imshow(foundsq + missedsq, origin='lower', extent=im_extent,
 hold(True)
 contour(foundsq + missedsq, extent=im_extent)
 colorbar(IM)
-axis('image')
+axis('tight')
 #axvline(candmass)
 title('Number of injections made')
 xlabel(r"$m_2 (M_\odot)$")
@@ -466,7 +473,7 @@ IM = imshow(foundsq / (foundsq + missedsq + 1.0e-10), origin='lower',
 hold(True)
 contour(foundsq / (foundsq + missedsq + 1.0e-10), extent=im_extent)
 colorbar(IM)
-axis('image')
+axis('tight')
 #axvline(candmass)
 title('Fraction of injections found')
 xlabel(r"$m_2 (M_\odot)$")
@@ -474,16 +481,54 @@ ylabel(r"$D (\mathrm{Mpc})$")
 savefig("found-fraction.%s" % opts.figure_type)
 
 figure()
-tmpx,tmpy,yarray = get_smooth_contour(xedges,yedges,pcsignalsq,0.1)
-p=fill(tmpx,tmpy, facecolor='y')
-setp(p, alpha=0.3)
+tenpercent=zeros(len(xedges))
+dy = yedges[1]-yedges[0]
+for i in arange(len(xedges)):
+  found = 0
+  for j in arange(len(yedges)):
+    if pcsignalsq[j,i]>0.09 and not found:
+      slope=(yedges[j]-yedges[j-1])/(pcsignalsq[j,i]-pcsignalsq[j-1,i])
+      tenpercent[i]=dy+yedges[j-1] + (0.09-pcsignalsq[j-1,i])*slope
+      found = 1
+    if pcsignalsq[j,i]<0.09 and found:
+      found = 0
+    
+width=3.0
+gauss = exp( - 0.5 * ((xedges-mean(xedges))/width)**2  ) / sqrt(2.0 * pi) / width
+yarray= convolve(asarray(tenpercent),gauss,mode=1)
+yarray = tenpercent[0] * yarray / yarray[0]
+tmpx,tmpy = makesteps(xedges,zeros(len(xedges)),yarray)
+ds=0.5*(xedges[1]-xedges[0])
+p1=fill((tmpx),tmpy, facecolor='y')
+setp(p1, alpha=0.3)
 plot(xedges,yarray,ls='steps',lw=2,color='k')
-p=fill(xedges,yarray, facecolor='k')
-setp(p, alpha=0.1)
+
+twentypercent=zeros(len(xedges))
+dy = yedges[1]-yedges[0]
+for i in arange(len(xedges)):
+  found = 0
+  for j in arange(len(yedges)):
+    if pcsignalsq[j,i]>0.3 and not found:
+      slope=(yedges[j]-yedges[j-1])/(pcsignalsq[j,i]-pcsignalsq[j-1,i])
+      twentypercent[i]=dy+yedges[j-1] + (0.3-pcsignalsq[j-1,i])*slope
+      found = 1
+    if pcsignalsq[j,i]<0.3 and found:
+      found = 0
+    
+width=3.0
+gauss = exp( - 0.5 * ((xedges-mean(xedges))/width)**2  ) / sqrt(2.0 * pi) / width
+yarray= convolve(asarray(twentypercent),gauss,mode=1)
+yarray = twentypercent[0] * yarray / yarray[0]
+tmpx,tmpy = makesteps(xedges,zeros(len(xedges)),yarray)
+ds=0.5*(xedges[1]-xedges[0])
+p2=fill((tmpx),tmpy, facecolor='k')
+setp(p2, alpha=0.1)
+plot(xedges,yarray,ls='steps',lw=2,color='k')
 hold(True)
-axis([0.0, max(xedges), 0.0, 20.0])
+axis([0.0, max(xedges), 0.0, max(yedges)])
 xlabel(r"$m_2 (M_\odot)$")
 ylabel(r"$D (\mathrm{Mpc})$")
+legend((p2, p1), ('50\% exclusion area','10\% exclusion area'), loc="lower right")
 savefig("pcsignal-slice.%s" % opts.figure_type)
 
 if opts.show_plot:
