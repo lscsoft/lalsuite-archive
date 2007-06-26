@@ -73,7 +73,7 @@ def parse_command_line():
 	if options.plot:
 		options.plot = map(int, options.plot)
 	else:
-		options.plot = range(9)
+		options.plot = range(10)
 
 
 	return options, (filenames or [None])
@@ -258,7 +258,7 @@ WHERE
 
 class RecoveredPerInjectedhrssVsFreq(SnglBurstUtils.BurstPlot):
 	def __init__(self, instrument, hrss_func):
-		SnglBurstUtils.BurstPlot.__init__(self, r"$f_{\mathrm{injected}}$", r"$\frac{\mathrm{Recovered}\ h_{\mathrm{rss}}}{\mathrm{Injected}\ h_{\mathrm{rss}}}$")
+		SnglBurstUtils.BurstPlot.__init__(self, r"$f_{\mathrm{injected}}$ (Hz)", r"$\frac{\mathrm{Recovered}\ h_{\mathrm{rss}}}{\mathrm{Injected}\ h_{\mathrm{rss}}}$")
 		self.axes.loglog()
 		self.fig.set_size_inches(8, 8)
 		self.instrument = instrument
@@ -299,6 +299,52 @@ WHERE
 		self.axes.set_xlim([min(self.x), max(self.x)])
 		self.axes.set_ylim([min(self.y), max(self.y)])
 		self.axes.set_title(r"Ratio of Recovered to Injected $h_{\mathrm{rss}}$ vs.\ Frequency (%d Found Injections)" % self.found)
+
+
+class RecoveredPerInjectedhrssVsBandwidth(SnglBurstUtils.BurstPlot):
+	def __init__(self, instrument, hrss_func):
+		SnglBurstUtils.BurstPlot.__init__(self, r"$\Delta f_{\mathrm{recovered}}$ (Hz)", r"$\frac{\mathrm{Recovered}\ h_{\mathrm{rss}}}{\mathrm{Injected}\ h_{\mathrm{rss}}}$")
+		self.axes.loglog()
+		self.fig.set_size_inches(8, 8)
+		self.instrument = instrument
+		self.hrss_func = hrss_func
+		self.found = 0
+		self.x = []
+		self.y = []
+		self.c = []
+
+	def add_contents(self, contents):
+		for values in contents.connection.cursor().execute("""
+SELECT sim_burst.*, sngl_burst.bandwidth, sngl_burst.peak_frequency, sngl_burst.ms_hrss FROM
+	sim_burst
+	JOIN coinc_event_map AS a ON (
+		a.table_name == 'sim_burst'
+		AND a.event_id == sim_burst.simulation_id
+	)
+	JOIN coinc_event_map AS b ON (
+		b.coinc_event_id == a.coinc_event_id
+	)
+	JOIN sngl_burst ON (
+		b.table_name == 'sngl_burst'
+		AND b.event_id == sngl_burst.event_id
+	)
+WHERE
+	sngl_burst.ifo == ?
+		""", (self.instrument,)):
+			sim = contents.sim_burst_table._row_from_cols(values[:-3])
+			hrss_rec = values[-1]
+			freq_rec = values[-2]
+			bandwidth = values[-3]
+			self.found += 1
+			self.x.append(bandwidth)
+			self.y.append(hrss_rec / self.hrss_func(sim, self.instrument))
+			self.c.append(math.log(freq_rec))
+
+	def finish(self):
+		self.axes.scatter(self.x, self.y, c = self.c, s = 16)
+		self.axes.set_xlim([min(self.x), max(self.x)])
+		self.axes.set_ylim([min(self.y), max(self.y)])
+		self.axes.set_title(r"Ratio of Recovered to Injected $h_{\mathrm{rss}}$ vs.\ Recovered Bandwidth (%d Found Injections)" % self.found)
 
 
 #
@@ -406,7 +452,7 @@ class RecoveredFrequencyOffset(SnglBurstUtils.BurstPlot):
 
 class RecoveredVsInjectedFreq(SnglBurstUtils.BurstPlot):
 	def __init__(self, instrument, hrss_func):
-		SnglBurstUtils.BurstPlot.__init__(self, "Injected Frequency (Hz)", "Recovered Frequency (Hz)")
+		SnglBurstUtils.BurstPlot.__init__(self, r"$f_{\mathrm{injected}}$ (Hz)", r"$f_{\mathrm{recovered}}$ (Hz)")
 		self.axes.loglog()
 		self.fig.set_size_inches(8, 8)
 		self.instrument = instrument
@@ -476,6 +522,7 @@ def new_plots(instrument, hrss_func, plots):
 		TriggerCountHistogram(instrument),
 		RecoveredVsInjectedhrss(instrument, hrss_func),
 		RecoveredPerInjectedhrssVsFreq(instrument, hrss_func),
+		RecoveredPerInjectedhrssVsBandwidth(instrument, hrss_func),
 		RecoveredTimeOffset(instrument, segments.segment(-0.06, +0.06), 0.0003),
 		RecoveredFrequencyOffset(instrument, segments.segment(-50.0, +50.0), .5),
 		RecoveredVsInjectedFreq(instrument, hrss_func)
