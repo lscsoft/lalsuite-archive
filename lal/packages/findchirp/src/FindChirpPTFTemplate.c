@@ -222,8 +222,8 @@ LALFindChirpPTFNormalize(
     )
 /* </lalVerbatim> */
 {
-  UINT4         i, j, k, kmin, len;
-  REAL4         fmin, deltaT, deltaF;
+  UINT4         i, j, k, kmin, len, kmax;
+  REAL4         fmin, deltaT, deltaF, fFinal;
   REAL4        *det         = NULL;
   REAL4        *PTFB        = NULL; 
   COMPLEX8     *wtilde      = NULL;
@@ -233,11 +233,13 @@ LALFindChirpPTFNormalize(
   wtilde    = params->wtildeVec->data;
   PTFQtilde = fcTmplt->PTFQtilde->data;
   PTFB      = fcTmplt->PTFB->data;
-  len       = params->wtildeVec->length; 
+  len       = params->wtildeVec->length;
   deltaT    = (REAL4) fcSeg->deltaT;
   deltaF    = 1.0 / ( deltaT * 2 * ( (REAL4)len - 1) );
   fmin      = (REAL4) fcTmplt->tmplt.fLower;
   kmin      = fmin / deltaF > 1 ?  fmin / deltaF : 1;
+  fFinal    = (REAL4) fcTmplt->tmplt.fFinal;
+  kmax      = fFinal / deltaF < (len - 1) ? fFinal / deltaF : (len - 1);
   
   INITSTATUS( status, "LALFindChirpPTFNormalize", FINDCHIRPPTFTEMPLATEC );
   ATTATCHSTATUSPTR( status );
@@ -282,7 +284,7 @@ LALFindChirpPTFNormalize(
   {
     for ( j = 0; j < i + 1; ++j )
     {  
-      for ( k = kmin; k < len ; ++k )
+      for ( k = kmin; k < kmax ; ++k )
       {  
         PTFB[5 * i + j] += (PTFQtilde[k + i * len].re * 
                             PTFQtilde[k + j * len].re +
