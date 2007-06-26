@@ -248,7 +248,7 @@ LALFindChirpPTFFilterSegment (
         params->qtildeVec->length * sizeof(COMPLEX8) );
 
     /* qtilde positive frequency, not DC or nyquist */
-    for ( k = kmin; k < length - 1 ; ++k )
+    for ( k = kmin; k < kmax ; ++k )
     {
       r = inputData[k].re;
       s = inputData[k].im;
@@ -283,7 +283,7 @@ LALFindChirpPTFFilterSegment (
         params->PTFA->data[5 * i + j] = PTFq[i * numPoints + k].re * 
                                         PTFq[j * numPoints + k].re +
                                         PTFq[i * numPoints + k].im * 
-                                        PTFq[j * numPoints + k].im;
+                                        PTFq[j * numPoints + k].im ;
         params->PTFA->data[5 * j + i] = params->PTFA->data[ 5 * i + j]; 
       }  
     } 
