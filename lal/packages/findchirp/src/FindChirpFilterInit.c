@@ -3,7 +3,6 @@
  * File Name: FindChirpFilterInit.c
  *
  * Author: Brown, D. A., BCV-Modifications by Messaritaki E.
-    fprintf(stderr,"PTFsnrVec->length=%d\n",outputPtr->PTFsnrVec->length);
  * 
  * Revision: $Id$
  * 
@@ -445,7 +444,7 @@ LALFindChirpFilterInit (
       ABORT( status, FINDCHIRPH_EALOC, FINDCHIRPH_MSGEALOC );
     }
 
-    outputPtr->PTFsnrVec = XLALCreateVector( params->numPoints );
+    outputPtr->PTFsnrVec = XLALCreateCOMPLEX8Vector( params->numPoints );
     if ( ! outputPtr->PTFsnrVec )
     {
       ABORT( status, FINDCHIRPH_EALOC, FINDCHIRPH_MSGEALOC );
@@ -952,7 +951,7 @@ LALFindChirpFilterFinalize (
   }
   if ( outputPtr->PTFsnrVec )
   {
-    XLALDestroyVector( outputPtr->PTFsnrVec );
+    XLALDestroyCOMPLEX8Vector( outputPtr->PTFsnrVec );
   }
   if ( outputPtr->PTFA )
   {

@@ -136,6 +136,8 @@ LALFindChirpStoreEvent (
   thisEvent->tau5    = (REAL4) input->fcTmplt->tmplt.t5;
   thisEvent->ttotal  = (REAL4) input->fcTmplt->tmplt.tC;
   thisEvent->f_final = (REAL4) input->fcTmplt->tmplt.fFinal;
+  thisEvent->kappa   = (REAL4) input->fcTmplt->tmplt.kappa;
+  thisEvent->chi     = (REAL4) input->fcTmplt->tmplt.chi;
 
   /* We can now memcpy the 10 metric co-efficients */
   memcpy (thisEvent->Gamma, input->fcTmplt->tmplt.Gamma, 10*sizeof(REAL4));

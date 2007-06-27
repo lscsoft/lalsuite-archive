@@ -120,6 +120,11 @@ LALFindChirpClusterEvents (
           "FindChirpSPtwoPN" );
       break;
 
+    case FindChirpPTF:
+      LALSnprintf( searchName, LIGOMETA_SEARCH_MAX * sizeof(CHAR),
+          "FindChirpPTFthreePointFivePN" );
+      break;
+
     default:
       ABORT( status, FINDCHIRPH_EUAPX, FINDCHIRPH_MSGEUAPX );
       break;

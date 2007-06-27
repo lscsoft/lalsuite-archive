@@ -84,9 +84,10 @@ LALFindChirpPTFFilterSegment (
   REAL4                 deltaT, sum, temp, PTFMatrix[25], r, s, x, y;
   REAL4                 deltaF, fFinal, norm, fmin, length;
   REAL4                 snrThresh      = 0;
-  REAL4                *snr            = NULL;
+  COMPLEX8             *snr            = NULL;
   COMPLEX8             *PTFQtilde, *qtilde, *PTFq, *inputData;
   COMPLEX8Vector        qVec;
+  FindChirpBankVetoData clusterInput;
 
   /* Variables needed for the eigenvalues finding LAPACK routine */
   REAL4 wr[5], wi[5];
@@ -163,7 +164,7 @@ LALFindChirpPTFFilterSegment (
   ASSERT( input->fcTmplt, status, FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
   ASSERT( input->segment, status, FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
 
-  /* make sure that the filter has been niitialized for the correct */
+  /* make sure that the filter has been initialized for the correct */
   /* approximant                                                    */
   if ( params->approximant != FindChirpPTF )
   {
@@ -269,7 +270,7 @@ LALFindChirpPTFFilterSegment (
 
   /* now we have PTFqVec which contains <s|Q^I_0> + i <s|Q^I_\pi/2> */
 
-  for ( k = 0; k < numPoints; ++k ) /* beginning of main loop over time */
+  for ( j = 0; j < numPoints; ++j ) /* beginning of main loop over time */
   {  
     /* Set PTFMatrxi elements to zero */
     memset(params->PTFA->data, 0 , 25 * sizeof(REAL4));
@@ -278,13 +279,13 @@ LALFindChirpPTFFilterSegment (
     
     for ( i = 0; i < 5; ++i )
     {  
-      for ( j = 0; j < i + 1; ++j )
+      for ( l = 0; l < i + 1; ++l )
       { 
-        params->PTFA->data[5 * i + j] = PTFq[i * numPoints + k].re * 
-                                        PTFq[j * numPoints + k].re +
-                                        PTFq[i * numPoints + k].im * 
-                                        PTFq[j * numPoints + k].im ;
-        params->PTFA->data[5 * j + i] = params->PTFA->data[ 5 * i + j]; 
+        params->PTFA->data[5 * i + l] = PTFq[i * numPoints + j].re * 
+                                        PTFq[l * numPoints + j].re +
+                                        PTFq[i * numPoints + j].im * 
+                                        PTFq[l * numPoints + j].im ;
+        params->PTFA->data[5 * l + i] = params->PTFA->data[ 5 * i + l]; 
       }  
     } 
     
@@ -302,9 +303,9 @@ LALFindChirpPTFFilterSegment (
 
     for ( i = 0; i < 5; ++i ) 
     {
-      for ( j = 0; j < 5; ++j )
+      for ( l = 0; l < 5; ++l )
       {  
-        PTFMatrix[i + 5 * j] = params->PTFMatrix->data[j + 5 * i];
+        PTFMatrix[i + 5 * l] = params->PTFMatrix->data[l + 5 * i];
       }
     }  
 
@@ -328,12 +329,14 @@ LALFindChirpPTFFilterSegment (
         if ( wr[i] > temp ) temp = wr[i];        
       } 
     }
-    snr[k] = 2 * sqrt(temp) / (REAL4) numPoints;
+
+    snr[j].re = 2.0 * sqrt(temp) / (REAL4) numPoints;
+    snr[j].im = 0;
     
   } /* End of main loop over time */
 
 
-   /* 
+  /* 
    *
    * calculate signal to noise squared 
    *
@@ -343,9 +346,6 @@ LALFindChirpPTFFilterSegment (
   /* if full snrsq vector is required, set it to zero */
   if ( params->rhosqVec )
     memset( params->rhosqVec->data->data, 0, numPoints * sizeof( REAL4 ) );
-
-  /* normalised snr threhold */
-/*   modqsqThresh = params->rhosqThresh / norm; */
 
   /* if full snrsq vector is required, store the snrsq */
   if ( params->rhosqVec ) 
@@ -358,11 +358,10 @@ LALFindChirpPTFFilterSegment (
 
     for ( j = 0; j < numPoints; ++j )
     {
-      params->rhosqVec->data->data[j] =  snr[j] * snr[j];
+      params->rhosqVec->data->data[j] =  snr[j].re * snr[j].re;
     }
   }
 
-  fprintf( stderr, "Ptf filtering data segment\n" );
 
   /*
    *
@@ -371,29 +370,23 @@ LALFindChirpPTFFilterSegment (
    */
 
 
-  /* look for an event in the filter output */
-  for ( j = ignoreIndex; j < numPoints - ignoreIndex; ++j )
-  {
-    /* if snrsq exceeds threshold at any point */
-    if ( snr[j] > snrThresh )
-    {
-      haveEvent = 1;        /* mark segment to have events    */
-      break;
-    }
-  }
+  clusterInput.length = 1; /* do not do the bank veto */
+  clusterInput.qVecArray = NULL;
+  clusterInput.fcInputArray = NULL;
+  clusterInput.ccMat = NULL;
+  clusterInput.normMat = NULL;
+  clusterInput.spec = NULL;
+  clusterInput.resp = NULL;
 
-  /* search the SNR vector for events */
-  /* process events in the filter output */
-  if ( haveEvent )
-  {
-#if 0
-    LALFindChirpClusterEvents( status->statusPtr, eventList, input,
-        params, q, kmax, numPoints, ignoreIndex, 
-        norm, modqsqThresh, chisqThreshFac, numChisqBins, searchName );
-    CHECKSTATUSPTR( status );
-#endif
-    fprintf( stderr, "found events!\n" );
-  }
+  /* cluster events searches the qVec for events */
+  params->qVec = params->PTFsnrVec;
+  input->fcTmplt->norm = 1.0;
+
+  LALFindChirpClusterEvents( status->statusPtr, eventList, 
+      input, params, &clusterInput, 0 );
+  CHECKSTATUSPTR( status );
+
+  params->qVec = NULL;
 
   /* normal exit */
   DETATCHSTATUSPTR( status );
