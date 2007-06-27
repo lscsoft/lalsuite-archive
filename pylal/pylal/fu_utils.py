@@ -122,10 +122,16 @@ class getCache(UserDict):
         doc = utils.load_filename(f.path(),None)
         proc = table.get_table(doc, lsctables.ProcessParamsTable.tableName)
         for row in proc:
-          if str(row.param).find("--gps-start-time") >= 0:
+          if str(row.param).find("--trig-start-time") > 0:
              start = eval(row.value)
-          if str(row.param).find("--gps-end-time") >= 0:
+          else:
+             if str(row.param).find("--gps-start-time") >= 0:
+                start = eval(row.value)
+          if str(row.param).find("--trig-end-time") > 0:
              end = eval(row.value)
+          else:
+             if str(row.param).find("--gps-end-time") >= 0:
+                end = eval(row.value)
           try:
             if ( (end >= time[ifo]) and (start <= time[ifo]) ):
               process[ifo] = proc
