@@ -348,6 +348,81 @@ class CondorDAGJob(CondorJob):
       self.__have_var_args = 1
 
 
+class CondorDAGManJob:
+  """
+  Condor DAGMan job class. Appropriate for setting up DAGs to run within a
+  DAG.
+  """
+  def __init__(self, dag):
+    """
+    dag = the condor dag file to run
+    """
+    self.__dag = dag
+    self.__options = {} 
+    self.__notification = None
+    self.__sub_file_path = dag + ".condor.sub" 
+
+  def add_opt(self, opt, value):
+    """
+    Add a command line option to the executable. The order that the arguments
+    will be appended to the command line is not guaranteed, but they will
+    always be added before any command line arguments. The name of the option
+    is prefixed with double hyphen and the program is expected to parse it
+    with getopt_long().
+    @param opt: command line option to add.
+    @param value: value to pass to the option (None for no argument).
+    """
+    self.__options[opt] = value
+
+  def get_opts(self):
+    """
+    Return the dictionary of opts for the job.
+    """
+    return self.__options
+
+  def set_notification(self, value):
+    """
+    Set the email address to send notification to.
+    @param value: email address or never for no notification.
+    """
+    self.__notification = value
+
+  def set_sub_file(self, path):
+    """
+    Set the name of the file to write the Condor submit file to when
+    write_sub_file() is called.
+    @param path: path to submit file.
+    """
+    self.__sub_file_path = path
+
+  def get_sub_file(self):
+    """
+    Get the name of the file which the Condor submit file will be
+    written to when write_sub_file() is called.
+    """
+    return self.__sub_file_path
+
+  def write_sub_file(self):
+    """
+    Write a submit file for this Condor job.
+    """
+    command = "condor_submit_dag -no_submit -usedagdir "
+
+    if self.__options.keys():
+      for c in self.__options.keys():
+        if self.__options[c]:
+          command +=  ' -' + c + ' ' + self.__options[c] 
+        else:
+          command += ' -' + c 
+
+    command += self.__dag
+
+    stdin, out, err = os.popen3(command)
+    pid, status = os.wait()
+
+    if status != 0:
+      raise CondorSubmitError, command + " failed."
+
 
 class CondorDAGNode:
   """
@@ -360,8 +435,10 @@ class CondorDAGNode:
     """
     @param job: the CondorJob that this node corresponds to.
     """
-    if not isinstance(job, CondorDAGJob):
-      raise CondorDAGNodeError, "A DAG node must correspond to a Condor DAG job"
+    if not isinstance(job, CondorDAGJob) and \
+        not isinstance(job,CondorDAGManJob):
+      raise CondorDAGNodeError, \
+          "A DAG node must correspond to a Condor DAG job or Condor DAGMan job"
     self.__name = None
     self.__job = job
     self.__pre_script = None
@@ -769,7 +846,8 @@ class CondorDAG:
     """
     if not isinstance(node, CondorDAGNode):
       raise CondorDAGError, "Nodes must be class CondorDAGNode or subclass"
-    node.set_log_file(self.__log_file_path)
+    if not isinstance(node.job(), CondorDAGManJob):
+      node.set_log_file(self.__log_file_path)
     self.__nodes.append(node)
     if self.__integer_node_names:
       node.set_name(str(self.__node_count))
