@@ -237,11 +237,9 @@ if stats is None:
 
 
 #
-# Post-process and generate plots.
+# Summarize and write likelihood data.
 #
 
-
-stats.finish()
 
 print >>sys.stderr, "=== Summary ==="
 print >>sys.stderr, "Non-injection average event rate = %g events / time slide" % (float(stats.n_background_events) / stats.n_time_slides)
@@ -250,16 +248,6 @@ print >>sys.stderr, "Non-injection average event rate = %g events / time slide" 
 #print >>sys.stderr, str(stats.covariance.inj_cov)
 #print >>sys.stderr, "Background normalized covariance matrix ="
 #print >>sys.stderr, str(stats.covariance.bak_cov)
-
-#fig = plot_Scatter(stats.scatter)
-#fig.gca().set_xlabel(r"$(t_{\mathrm{%s}} - t_{\mathrm{%s}}) / \left< \Delta t \right>$" % ("H1", "H2"))
-#fig.gca().set_ylabel(r"$(f_{\mathrm{%s}} - f_{\mathrm{%s}}) / \left< \Delta f \right>$" % ("H1", "H2"))
-#fig.savefig("ligolw_burca_tailor_2.png")
-
-
-#
-# Write likelihood control file for second ligolw_burca pass.
-#
 
 
 likelihood_control = ligolw_burca_tailor.gen_likelihood_control(stats.distributions)
