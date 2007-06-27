@@ -22,6 +22,7 @@ from glue.segments import segmentlist
 def current_version(on, off):
   n1=len(on)
   n2=len(off)
+  ALL_VALID=segmentlist([])
   print "n1="+repr(n1)+" n2="+repr(n2)
   valid=range(0,n1)
   VALID=range(0,n1)
@@ -46,9 +47,11 @@ def current_version(on, off):
   return [ON,OFF]
 #####################################################################
 def correct4injections(inj,on,off):
-  print "In correct4injections"
   on=on+[['Injection',0,inj]]
-  off=off+[['Injection',0,segmentlist([inj.extent()])-inj]]
+  try:
+    off=off+[['Injection',0,segmentlist([inj.extent()])-inj]]
+  except:
+    return [segmentlist([]),segmentlist([])]
   return [on,off]
 #####################################################################
 # Parse command line options.
@@ -142,29 +145,38 @@ sqlj += "segment_def_map.segment_def_cdb = segment_definer.creator_db "
 
 #####################################################################
 # Loop over interferometers to get the various segments.
-for ifo in ['H1','H2','L1']:
+for ifo in ['V1','G1','H1','H2','L1']:
   # create the names of the segment files
   seg_file['Science'] = os.path.join( seg_path, ifo, 'science_segments')
   seg_file['Injection'] = os.path.join( seg_path, ifo, 'injection_segments')
   seg_file['DataQual'] = os.path.join( seg_path, ifo, 'dq_segments')
 
   # get the segments which derive from the interferometer state vector
-  for segtype in ['Science', 'Injection']:
+  for segtype in ['Science', 'Injection', 'STATEVEC.5.12']:
+    if(ifo=='V1' or ifo=='G1'):
+      injections=segmentlist([])
+    if(segtype=='STATEVEC.5.12' and ifo!='V1'):
+      continue
+    segtype1=segtype
+    if(segtype=='STATEVEC.5.12'):
+      segtype='Science'
     # open the output files
     seg_fh = open(seg_file[segtype] + '.' + time_str + '.txt', 'w')
 
     # construct the sql to perform the query
     if verbose: print "querying database for ifo %s, state %s" % (ifo, segtype)
-    if segtype is 'Science':
+    if(segtype is 'Science'):
       sql = "SELECT segment.start_time, segment.end_time, segment.segnum FROM "
     else:
       sql = "SELECT segment.start_time, segment.end_time, 0 FROM "
     sql += sqlj + "AND segment.end_time < %d " % midnight_gps
-    sql += "AND segment_definer.run = '%s' " % configuration['run']
+    if(ifo!='V1'):
+      sql += "AND segment_definer.run = '%s' " % configuration['run']
     sql += "AND segment_definer.ifos = '%s' " % ifo
-    sql += "AND segment_definer.name = '%s' " % segtype
+    sql += "AND segment_definer.name = '%s' " % segtype1
     sql += "AND segment_definer.version = 0 " ####
     sql += "ORDER BY segment.start_time ASC FOR READ ONLY"
+    print sql
     curs.execute(sql)
     result = curs.fetchall()
 
@@ -176,12 +188,16 @@ for ifo in ['H1','H2','L1']:
     # put each segment number into a different segment list
     ret_segs_dict = {}
     for r in result:
+      if(ifo=='V1'):
+        segnum_key=0
+      else:
+        segnum_key=r[2]
       try:
-        ret_segs_dict[r[2]].append(segment(r[0],r[1]))
+        ret_segs_dict[segnum_key].append(segment(r[0],r[1]))
       except KeyError:
-        ret_segs_dict[r[2]] = segmentlist()
-        ret_segs_dict[r[2]].append(segment(r[0],r[1]))
-
+        ret_segs_dict[segnum_key] = segmentlist()
+        ret_segs_dict[segnum_key].append(segment(r[0],r[1]))
+    print ret_segs_dict
     # print the header to the file
     print >> seg_fh, "# %s" % configuration['dbname']
     print >> seg_fh, "# %d" % midnight_gps
@@ -195,17 +211,35 @@ for ifo in ['H1','H2','L1']:
       for s in ret_segs_dict[r]:
         print >> seg_fh, str(r) + ' ' + str(s[0]) + ' ' + str(s[1]) + \
           ' ' + str(s[1] - s[0])
-    if segtype is 'Injection':
+    if segtype is 'Injection' and ifo!='V1' and ifo!='G1':
       injections=ret_segs_dict[0]
     # close the file
     seg_fh.flush()
     seg_fh.close()
 
+  if(ifo=='V1' or ifo=='G1'):
+    # update the symbolic links
+    if verbose: print "creating symbolic links"
+    for k in seg_file.keys():
+      symlink_name = seg_file[k] + '.txt'
+      try:
+        os.unlink(symlink_name)
+      except:
+        pass
+      os.symlink(seg_file[k] + '.' + time_str + '.txt', symlink_name)
+    seg_fh = open(seg_file['DataQual'] + '.' + time_str + '.txt', 'w')
+    print >> seg_fh, "# %s" % configuration['dbname']
+    print >> seg_fh, "# %d" % midnight_gps
+    print >> seg_fh, "# name version gps_start_time gps_end_time active"  
+    seg_fh.flush()
+    sys.stdout.flush()
+    continue
+
   # get all the data quality segments into a single file
   seg_fh = open(seg_file['DataQual'] + '.' + time_str + '.txt', 'w')
 
-  print "injections="
-  print injections
+#  print "injections="
+#  print injections
 
   # get the a list of non-statevec data quality quality segments
   if verbose: print "fetching list of data quality segments"
@@ -237,11 +271,7 @@ for ifo in ['H1','H2','L1']:
     if(dq[0]!=prev_type):
       print "prev_type="+prev_type
       if(prev_type == 'Injection'):
-        print "Here?"
         [ON_SEGS,OFF_SEGS]=correct4injections(injections,ON_SEGS, OFF_SEGS)
-        print "corrected injections"
-        print ON_SEGS
-        print OFF_SEGS
         sys.stdout.flush()
       [ON,OFF]=current_version(ON_SEGS,OFF_SEGS)
       for s in ON:
@@ -291,9 +321,6 @@ for ifo in ['H1','H2','L1']:
 
   if(dq[0] is 'Injection'):
     [ON_SEGS,OFF_SEGS]=correct4injections(injections,ON_SEGS, OFF_SEGS)
-    print "corrected injections"
-    print ON_SEGS
-    print OFF_SEGS
     sys.stdout.flush()
   [ON,OFF]=current_version(ON_SEGS,OFF_SEGS)
   for s in ON:
