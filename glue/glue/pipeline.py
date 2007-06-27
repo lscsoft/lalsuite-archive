@@ -192,7 +192,7 @@ class CondorJob:
     """
     return self.__short_options
 
-  def add_ini_opts(self, cp, section):
+  def add_ini_opts(self, cp, section, doZip=False):
     """
     Parse command line options from a given section in an ini file and
     pass to the executable.
@@ -202,6 +202,8 @@ class CondorJob:
     for opt in cp.options(section):
       arg = string.strip(cp.get(section,opt))
       self.__options[opt] = arg
+    if doZip:
+      self.__options['write-compress'] = None
 
   def set_notification(self, value):
     """
