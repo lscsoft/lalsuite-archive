@@ -30,6 +30,7 @@
 
 import glob
 import math
+import numpy
 from optparse import OptionParser
 import sys
 
@@ -76,6 +77,19 @@ def parse_command_line():
 #
 # =============================================================================
 #
+
+
+def add_to_plot(axes, red_rate, black_rate, plottype):
+	if plottype == "P":
+		axes.plot(numpy.compress(black_rate.array > 0, black_rate.xvals()), numpy.compress(black_rate.array > 0, black_rate.array), "k")
+		axes.plot(numpy.compress(red_rate.array > 0, red_rate.xvals()), numpy.compress(red_rate.array > 0, red_rate.array), "r")
+	elif plottype == "LR":
+		axes.plot(numpy.compress((red_rate.array > 0) & (black_rate > 0), black_rate.xvals()), numpy.compress((red_rate.array > 0) & (black_rate > 0), red_rate.array / black_rate.array), "k")
+
+	ymin, ymax = axes.get_ylim()
+	if ymax / ymin > 1e7:
+		ymin = ymax / 1e7
+		axes.set_ylim((ymin, ymax))
 
 
 #
@@ -154,35 +168,19 @@ def plot_coinc_params(distributions, plottype):
 		prefix = "%s_%s_" % pair
 		red_rate = distributions.injection_rates[prefix + "dt"]
 		black_rate = distributions.background_rates[prefix + "dt"]
-		if plottype == "P":
-			dt_axes.plot(red_rate.xvals(), red_rate.array, "r")
-			dt_axes.plot(black_rate.xvals(), black_rate.array, "k")
-		elif plottype == "LR":
-			dt_axes.plot(black_rate.xvals(), red_rate.array / black_rate.array, "k")
+		add_to_plot(dt_axes, red_rate, black_rate, plottype)
 
 		red_rate = distributions.injection_rates[prefix + "df"]
 		black_rate = distributions.background_rates[prefix + "df"]
-		if plottype == "P":
-			df_axes.plot(red_rate.xvals(), red_rate.array, "r")
-			df_axes.plot(black_rate.xvals(), black_rate.array, "k")
-		elif plottype == "LR":
-			df_axes.plot(black_rate.xvals(), red_rate.array / black_rate.array, "k")
+		add_to_plot(df_axes, red_rate, black_rate, plottype)
 
 		red_rate = distributions.injection_rates[prefix + "dh"]
 		black_rate = distributions.background_rates[prefix + "dh"]
-		if plottype == "P":
-			dh_axes.plot(red_rate.xvals(), red_rate.array, "r")
-			dh_axes.plot(black_rate.xvals(), black_rate.array, "k")
-		elif plottype == "LR":
-			dh_axes.plot(black_rate.xvals(), red_rate.array / black_rate.array, "k")
+		add_to_plot(dh_axes, red_rate, black_rate, plottype)
 
 		red_rate = distributions.injection_rates[prefix + "dband"]
 		black_rate = distributions.background_rates[prefix + "dband"]
-		if plottype == "P":
-			dband_axes.plot(red_rate.xvals(), red_rate.array, "r")
-			dband_axes.plot(black_rate.xvals(), black_rate.array, "k")
-		elif plottype == "LR":
-			dband_axes.plot(black_rate.xvals(), red_rate.array / black_rate.array, "k")
+		add_to_plot(dband_axes, red_rate, black_rate, plottype)
 
 	#
 	# Done.
@@ -204,7 +202,9 @@ options, filenames = parse_command_line()
 
 
 if options.likelihood_control:
-	distributions = ligolw_burca_tailor.coinc_params_distributions_from_filenames(glob.glob(options.likelihood_control), "ligolw_burca_tailor", verbose = options.verbose)
+	filenames = glob.glob(options.likelihood_control)
+	filenames.sort()
+	distributions = ligolw_burca_tailor.coinc_params_distributions_from_filenames(filenames, "ligolw_burca_tailor", verbose = options.verbose)
 	distributions.finish()
 	if options.verbose:
 		print >>sys.stderr, "writing ligolw_burca_tailor.png ..."
