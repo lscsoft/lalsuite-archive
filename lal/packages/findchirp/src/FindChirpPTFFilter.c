@@ -370,13 +370,14 @@ LALFindChirpPTFFilterSegment (
    */
 
 
-  clusterInput.length = 1; /* do not do the bank veto */
-  clusterInput.qVecArray = NULL;
+  clusterInput.length       = 1; /* do not do the bank veto */
+  clusterInput.qVecArray    = NULL;
   clusterInput.fcInputArray = NULL;
-  clusterInput.ccMat = NULL;
-  clusterInput.normMat = NULL;
-  clusterInput.spec = NULL;
-  clusterInput.resp = NULL;
+  clusterInput.ccMat        = NULL;
+  clusterInput.normMat      = NULL;
+  clusterInput.spec         = NULL;
+  clusterInput.resp         = NULL;
+  params->ignoreIndex       = ignoreIndex;
 
   /* cluster events searches the qVec for events */
   params->qVec = params->PTFsnrVec;
