@@ -82,8 +82,7 @@ static void pylal_REAL8Window___del__(PyObject *self)
 {
 	pylal_REAL8Window *window = (pylal_REAL8Window *) self;
 
-	if(window->window)
-		XLALDestroyREAL8Window(window->window);
+	XLALDestroyREAL8Window(window->window);
 
 	self->ob_type->tp_free(self);
 }
