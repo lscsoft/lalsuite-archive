@@ -99,7 +99,15 @@ static PyObject *pylal_REAL8Window___getattr__(PyObject *self, char *name)
 		return PyFloat_FromDouble(window->window->sum);
 	if(!strcmp(name, "data")) {
 		npy_intp dims[] = {window->window->data->length};
-		return PyArray_SimpleNewFromData(1, dims, NPY_FLOAT64, window->window->data->data);
+		PyObject *array = PyArray_SimpleNewFromData(1, dims, NPY_FLOAT64, window->window->data->data);
+		if(array) {
+			/* incref self to prevent data from disappearing
+			 * while array is still in use, and tell numpy to
+			 * decref self when the array is deallocated */
+			Py_INCREF(self);
+			PyArray_BASE(array) = self;
+		}
+		return array;
 	}
 	PyErr_SetString(PyExc_AttributeError, name);
 	return NULL;
