@@ -12,6 +12,31 @@ from pylal import SimInspiralUtils
 from pylal import SnglInspiralUtils
 from pylal import tools
 
+
+#######################################################
+## massesToTau
+#######################################################
+
+def convertMassesToTau( flower, m1, m2 ):
+  """
+  Convert the given masses to the appropriate values of tau0 and tau3.
+  Algorithm stolen from LALInspiralParameterCalc in inspiral/LALInspiralParameterCalc.c
+  """
+  piFl 	= pi *flower
+  MTSUN=4.925e-6
+  
+  eta = m1*m2/power(m1+m2,2)
+  if eta>0.25:
+    eta-=1.0e-10
+    
+  totalMass= (m1+m2) * MTSUN
+  
+  tau0 	= 5.0/(256.0*eta*power(totalMass,5.0/3.0)*power(piFl,8.0/3.0));  
+  tau3 	= pi/(8.0*eta*power(totalMass,2.0/3.0)*power(piFl,5.0/3.0));
+
+  return tau0, tau3
+
+
 ##############################################################################
 ## class grbCoireTable
 ##############################################################################
@@ -149,14 +174,18 @@ class grbCoireTable:
     found = None
     if snglInspiralTable:
 
+      #print snglInspiralTable
+      #print len(snglInspiralTable)
+      #sys.exit(0)
+
       # create the coincidences and add the sim-table
       found = CoincInspiralUtils.coincInspiralTable(
         snglInspiralTable, self.statistic )
 
       # check the equality of sim-tables and trigger-tables
       if len( sims ) != len( found ):
-        print >> sys.stderr, "The sim_inspiral table and the sngl_inspiral"\
-              " table mus have same sizes!"
+        print >> sys.stderr, "The sim_inspiral table and the coinc_inspiral"\
+              " table must have same sizes!"
         sys.exit(1)
 
 
@@ -579,7 +608,7 @@ class grbCoireTable:
       xValueMarked=self.getSimList( xvalue, self.markedF )
       yValueMarked=self.getSimList( yvalue, self.markedF )      
       plot(xValueMarked, yValueMarked, 'ko',markersize=15,
-           markerfacecolor=None, markeredgewidth=2, markeredgecolor='m')
+           markerfacecolor=None, markeredgewidth=2, markeredgecolor='k')
       hold(True)
       leg.append('marked found')
 
@@ -587,8 +616,8 @@ class grbCoireTable:
     if len(self.markedM)>0:
       xValueMarked=self.getSimList( xvalue, self.markedM ,"MISSED")
       yValueMarked=self.getSimList( yvalue, self.markedM ,"MISSED" )      
-      plot(xValueMarked, yValueMarked, 'mo',markersize=15,
-           markerfacecolor=None, markeredgewidth=2, markeredgecolor='m')
+      plot(xValueMarked, yValueMarked, 'go',markersize=15,
+           markerfacecolor=None, markeredgewidth=2, markeredgecolor='g')
       hold(True)
       leg.append('marked missed')
 
@@ -672,7 +701,8 @@ class grbCoireTable:
 
     # include the errors in this plot
     mc = sqrt(found_inj * (all_inj - found_inj) / (all_inj**3 + 1e-5))
-    fit,errors = errorbar(edges,eff,mc,fmt=None,ecolor='r',linewidth=2)
+    print len(edges), len(eff), len(mc)
+    fit= errorbar(edges,eff,mc,fmt=None,ecolor='r',linewidth=2)
     
     xlabel( value, size='x-large')
     ylabel( "efficiency", size='x-large')
@@ -709,9 +739,9 @@ class grbCoireTable:
             % (i+1, sim.distance, sim.eff_dist_l, sim.eff_dist_h, sim.mass1, \
                sim.mass2, sim.mchirp, sim.eta, sim.polarization, sim.inclination, endtime)
       else:
-        s= "<tr><td>%2d</td><td> %6.2f </td><td> %6.2f</td><td> %6.2f</td><td> "\
-           "%6.2f</td><td> %6.2f</td><td> %5.3f</td><td> %6.2f</td><td> "\
-           "%6.2f</td><td> </td></tr>" \
+        s= "<tr><td> %4d </td><td> %6.2f </td><td> %6.2f </td><td> %6.2f </td><td> "\
+           "%6.2f </td><td> %6.2f </td><td> %5.3f </td><td> %6.2f </td><td> "\
+           "%6.2f </td><td> </td></tr>" \
             % (i+1, sim.distance, sim.eff_dist_h, sim.mass1, sim.mass2, \
                sim.mchirp, sim.eta, sim.inclination, endtime)
 
