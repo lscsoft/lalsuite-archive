@@ -146,7 +146,7 @@ def coinc_params(events, offsetdict):
 		if name not in params or abs(params[name]) > abs(dt):
 			params[name] = dt
 
-		df = (event1.peak_frequency - event2.peak_frequency) / ((event1.ms_bandwidth + event2.ms_bandwidth) / 2)
+		df = (event1.peak_frequency - event2.peak_frequency) / ((event1.peak_frequency + event2.peak_frequency) / 2)
 		name = prefix + "df"
 		if name not in params or abs(params[name]) > abs(df):
 			params[name] = df
@@ -276,6 +276,29 @@ class Covariance(object):
 	def finish(self):
 		self.bak_cov = covariance_normalize(stats.cov(self.bak_observations))
 		self.inj_cov = covariance_normalize(stats.cov(self.inj_observations))
+
+
+#
+# =============================================================================
+#
+#                               Injection Filter
+#
+# =============================================================================
+#
+
+
+def good_injection_matches(sim, events, max_hrss_ratio):
+	"""
+	Return a list of the sngl_burst events from the events list that
+	are "good" matches for the sim_burst.  binjfind will any only thing
+	that happens to be at the same time and frequency of an injection,
+	but we want to teach the Bayesian coincidence filter what a "good"
+	found injection looks like.  So we remove poor reconstructions from
+	the event list to show it what we're really looking for.
+	"""
+	return [sngl_burst for sngl_burst in events if
+		(1.0 / max_hrss_ratio <= sngl_burst.ms_hrss / SimBurstUtils.hrss_in_instrument(sim, sngl_burst.ifo) <= max_hrss_ratio)
+	]
 
 
 #
@@ -480,15 +503,15 @@ class DistributionsStats(Stats):
 		"H1_H2_dband": 1.0 / 25,
 		"H1_L1_dband": 1.0 / 25,
 		"H2_L1_dband": 1.0 / 25,
-		"H1_H2_df": 1.0 / 60,
-		"H1_L1_df": 1.0 / 60,
-		"H2_L1_df": 1.0 / 60,
-		"H1_H2_dh": 1.0 / 150,
+		"H1_H2_df": 1.0 / 360,
+		"H1_L1_df": 1.0 / 360,
+		"H2_L1_df": 1.0 / 360,
+		"H1_H2_dh": 1.0 / 200,
 		"H1_L1_dh": 1.0 / 9,
 		"H2_L1_dh": 1.0 / 9,
 		"H1_H2_dt": 1.0 / 300,
-		"H1_L1_dt": 1.0 / 300, # was 1.0 / 75
-		"H2_L1_dt": 1.0 / 300  # was 1.0 / 75
+		"H1_L1_dt": 1.0 / 300,
+		"H2_L1_dt": 1.0 / 300
 	}
 
 	def __init__(self, max_hrss_ratio, thresholds):
@@ -518,7 +541,7 @@ class DistributionsStats(Stats):
 	def _add_injections(self, param_func, sim, events, offsetdict):
 		# remove events whose h_rss differs from the correct value
 		# by more than a factor of max_hrss_ratio.
-		events = [sngl_burst for sngl_burst in events if 1.0 / self.max_hrss_ratio <= sngl_burst.ms_hrss / SimBurstUtils.hrss_in_instrument(sim, sngl_burst.ifo) <= self.max_hrss_ratio]
+		events = good_injection_matches(sim, events, self.max_hrss_ratio)
 		self.distributions.add_injection(param_func, events, offsetdict)
 
 	def finish(self):
