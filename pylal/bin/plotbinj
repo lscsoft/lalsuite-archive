@@ -211,7 +211,7 @@ class RecoveredVsInjectedhrss(SnglBurstUtils.BurstPlot):
 		self.fig.set_size_inches(8, 8)
 		self.instrument = instrument
 		self.hrss_func = hrss_func
-		self.found = 0
+		self.matches = 0
 		self.x = []
 		self.y = []
 		self.c = []
@@ -237,7 +237,7 @@ WHERE
 			sim = contents.sim_burst_table._row_from_cols(values[:-2])
 			hrss_rec = values[-1]
 			freq_rec = values[-2]
-			self.found += 1
+			self.matches += 1
 			self.x.append(self.hrss_func(sim, self.instrument))
 			self.y.append(hrss_rec)
 			self.c.append(math.log(freq_rec))
@@ -253,7 +253,7 @@ WHERE
 		self.axes.plot([xmin, xmax], [ymin, ymax], "k-")
 		self.axes.set_xlim([xmin, xmax])
 		self.axes.set_ylim([ymin, ymax])
-		self.axes.set_title(r"Recovered $h_{\mathrm{rss}}$ vs.\ Injected $h_{\mathrm{rss}}$ (%d Found Injections)" % self.found)
+		self.axes.set_title(r"Recovered $h_{\mathrm{rss}}$ vs.\ Injected $h_{\mathrm{rss}}$ (%d Events Matching Injections)" % self.matches)
 
 
 class RecoveredPerInjectedhrssVsFreq(SnglBurstUtils.BurstPlot):
@@ -263,7 +263,7 @@ class RecoveredPerInjectedhrssVsFreq(SnglBurstUtils.BurstPlot):
 		self.fig.set_size_inches(8, 8)
 		self.instrument = instrument
 		self.hrss_func = hrss_func
-		self.found = 0
+		self.matches = 0
 		self.x = []
 		self.y = []
 		self.c = []
@@ -289,7 +289,7 @@ WHERE
 			sim = contents.sim_burst_table._row_from_cols(values[:-2])
 			hrss_rec = values[-1]
 			freq_rec = values[-2]
-			self.found += 1
+			self.matches += 1
 			self.x.append(sim.freq)
 			self.y.append(hrss_rec / self.hrss_func(sim, self.instrument))
 			self.c.append(math.log(freq_rec))
@@ -298,7 +298,7 @@ WHERE
 		self.axes.scatter(self.x, self.y, c = self.c, s = 16)
 		self.axes.set_xlim([min(self.x), max(self.x)])
 		self.axes.set_ylim([min(self.y), max(self.y)])
-		self.axes.set_title(r"Ratio of Recovered to Injected $h_{\mathrm{rss}}$ vs.\ Frequency (%d Found Injections)" % self.found)
+		self.axes.set_title(r"Ratio of Recovered to Injected $h_{\mathrm{rss}}$ vs.\ Frequency (%d Events Matching Injections)" % self.matches)
 
 
 class RecoveredPerInjectedhrssVsBandwidth(SnglBurstUtils.BurstPlot):
@@ -308,7 +308,7 @@ class RecoveredPerInjectedhrssVsBandwidth(SnglBurstUtils.BurstPlot):
 		self.fig.set_size_inches(8, 8)
 		self.instrument = instrument
 		self.hrss_func = hrss_func
-		self.found = 0
+		self.matches = 0
 		self.x = []
 		self.y = []
 		self.c = []
@@ -335,7 +335,7 @@ WHERE
 			hrss_rec = values[-1]
 			freq_rec = values[-2]
 			bandwidth = values[-3]
-			self.found += 1
+			self.matches += 1
 			self.x.append(bandwidth)
 			self.y.append(hrss_rec / self.hrss_func(sim, self.instrument))
 			self.c.append(math.log(freq_rec))
@@ -344,7 +344,7 @@ WHERE
 		self.axes.scatter(self.x, self.y, c = self.c, s = 16)
 		self.axes.set_xlim([min(self.x), max(self.x)])
 		self.axes.set_ylim([min(self.y), max(self.y)])
-		self.axes.set_title(r"Ratio of Recovered to Injected $h_{\mathrm{rss}}$ vs.\ Recovered Bandwidth (%d Found Injections)" % self.found)
+		self.axes.set_title(r"Ratio of Recovered to Injected $h_{\mathrm{rss}}$ vs.\ Recovered Bandwidth (%d Events Matching Injections)" % self.matches)
 
 
 #
@@ -457,7 +457,7 @@ class RecoveredVsInjectedFreq(SnglBurstUtils.BurstPlot):
 		self.fig.set_size_inches(8, 8)
 		self.instrument = instrument
 		self.hrss_func = hrss_func
-		self.found = 0
+		self.matches = 0
 		self.x = []
 		self.y = []
 		self.c = []
@@ -483,7 +483,7 @@ WHERE
 			sim = contents.sim_burst_table._row_from_cols(values[:-2])
 			hrss_rec = values[-1]
 			freq_rec = values[-2]
-			self.found += 1
+			self.matches += 1
 			self.x.append(sim.freq)
 			self.y.append(freq_rec)
 			self.c.append(math.log(hrss_rec / self.hrss_func(sim, self.instrument)))
@@ -497,7 +497,7 @@ WHERE
 		self.axes.plot([xmin, xmax], [ymin, ymax], "k-")
 		self.axes.set_xlim([xmin, xmax])
 		self.axes.set_ylim([ymin, ymax])
-		self.axes.set_title(r"Recovered Frequency vs.\ Injected Frequency (%d Found Injections)" % self.found)
+		self.axes.set_title(r"Recovered Frequency vs.\ Injected Frequency (%d Events Matching Injections)" % self.matches)
 
 
 #
