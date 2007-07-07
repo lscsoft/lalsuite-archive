@@ -211,7 +211,7 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams,tableFileName,imgFi
     # Now plot the r^2 time serie !!
     figure(2)
     plot(chisq_time[int(chisq_start):int(chisq_stop)],rsq_vector[int(chisq_start):int(chisq_stop)])
-    if(chisqThreshold < 100.):    
+    if((rsqThreshold > 0) and (rsqThreshold < 100.)):    
 	hold(1)
     	plot(chisq_time[int(chisq_start):int(chisq_stop)],rsqThreshVect)
     	hold(0)
@@ -231,7 +231,7 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams,tableFileName,imgFi
     
     figure(22)
     plot(chisq_time[int(chisq_start):int(chisq_stop)],rsq_vector[int(chisq_start):int(chisq_stop)])
-    if(chisqThreshold < 100.):
+    if((rsqThreshold > 0) and (rsqThreshold < 100.)):
     	hold(1)
     	plot(chisq_time[int(chisq_start):int(chisq_stop)],rsqThreshVect)
         hold(0)
@@ -251,7 +251,7 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams,tableFileName,imgFi
     # Now plot the normalized chisq time serie !!
     figure(3)
     plot(chisq_time[int(chisq_start):int(chisq_stop)],chisqNorm_vector[int(chisq_start):int(chisq_stop)])
-    if(rsqThreshold > 0 and rsqThreshold < 100.):
+    if chisqThreshold < 100.:
     	hold(1)
     	plot(chisq_time[int(chisq_start):int(chisq_stop)],chisqThreshVect)
         hold(0)
@@ -270,7 +270,7 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams,tableFileName,imgFi
 
     figure(33)
     plot(chisq_time[int(chisq_start):int(chisq_stop)],chisqNorm_vector[int(chisq_start):int(chisq_stop)])
-    if(rsqThreshold > 0 and  rsqThreshold < 100.):
+    if chisqThreshold < 100.:
     	hold(1)
     	plot(chisq_time[int(chisq_start):int(chisq_stop)],chisqThreshVect)
         hold(0)
