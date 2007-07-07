@@ -107,6 +107,11 @@ class getCache(UserDict):
         test_file = 1
         doc = utils.load_filename(cache.path(),None)
         proc = table.get_table(doc, lsctables.ProcessParamsTable.tableName)
+        # this is a temporary hack to handle the "-userTag" bug in some xml files...
+        for row in proc:
+          if str(row.param).find("-userTag") >= 0:
+            row.param = "--user-tag"
+        #end of the hack
         break
     if test_file == 0:
       print "could not find the requested file name " + fileName + " in the list of hipe cache files"
@@ -157,7 +162,11 @@ class getCache(UserDict):
           if str(row.param).find("--sample-rate") >= 0:
              sampleRate = eval(row.value)
           if str(row.param).find("--ifo-tag") >= 0:
-             ifoTag = row.value        
+             ifoTag = row.value
+          # this is a temporary hack to handle the "-userTag" bug in some xml files...
+          if str(row.param).find("-userTag") >= 0:
+             row.param = "--user-tag"
+          # end of the hack...     
         if sampleRate > 0.:
            segOverlapSec = segOverlap / sampleRate
         else:
@@ -692,7 +701,7 @@ def publishOnHydra(page):
   #directory... ;)
   os.system('scp -r index.html followuptrigs followupfound followupmissed ' +
             'hydra.phys.uwm.edu:/home/htdocs/uwmlsc/root/'+
-            'ligovirgo/cbc/protected/projects/s5/followup/blind-test-070607/.')
+            'ligovirgo/cbc/protected/projects/s5/followup/HighMassCBC/Stage2-EThinca-0.5000/TripleCoincZerolag/.')
 
 ##############################################################################
 # Function to publish the web tree
