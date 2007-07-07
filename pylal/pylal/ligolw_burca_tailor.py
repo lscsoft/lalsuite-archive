@@ -287,7 +287,7 @@ class Covariance(object):
 #
 
 
-def good_injection_matches(sim, events, max_hrss_ratio):
+def good_injection_matches(sim, events, max_hrss_ratio, max_frequency_ratio):
 	"""
 	Return a list of the sngl_burst events from the events list that
 	are "good" matches for the sim_burst.  binjfind will any only thing
@@ -298,6 +298,8 @@ def good_injection_matches(sim, events, max_hrss_ratio):
 	"""
 	return [sngl_burst for sngl_burst in events if
 		(1.0 / max_hrss_ratio <= sngl_burst.ms_hrss / SimBurstUtils.hrss_in_instrument(sim, sngl_burst.ifo) <= max_hrss_ratio)
+		and
+		(1.0 / max_frequency_ratio <= sngl_burst.peak_frequency / sim.freq <= max_frequency_ratio)
 	]
 
 
@@ -514,9 +516,10 @@ class DistributionsStats(Stats):
 		"H2_L1_dt": 1.0 / 300
 	}
 
-	def __init__(self, max_hrss_ratio, thresholds):
+	def __init__(self, max_hrss_ratio, max_frequency_ratio, thresholds):
 		Stats.__init__(self, thresholds)
 		self.max_hrss_ratio = max_hrss_ratio
+		self.max_frequency_ratio = max_frequency_ratio
 		# careful, the intervals have to be unpacked in the order
 		# in which they were packed by dbget_thresholds(); also
 		# each instrument pair must list the instruments in
@@ -541,7 +544,7 @@ class DistributionsStats(Stats):
 	def _add_injections(self, param_func, sim, events, offsetdict):
 		# remove events whose h_rss differs from the correct value
 		# by more than a factor of max_hrss_ratio.
-		events = good_injection_matches(sim, events, self.max_hrss_ratio)
+		events = good_injection_matches(sim, events, self.max_hrss_ratio, self.max_frequency_ratio)
 		self.distributions.add_injection(param_func, events, offsetdict)
 
 	def finish(self):
