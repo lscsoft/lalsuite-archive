@@ -100,6 +100,19 @@ class getCache(UserDict):
     for oName, type in self.nameMaps:
       self.writeCacheType(str(oName),type)
 
+  def getProcessParamsFromMatchingFile(self, fileName, type):
+    test_file = 0
+    for cache in self[type]:
+      if str(cache).find(fileName) >= 0:
+        test_file = 1
+        doc = utils.load_filename(cache.path(),None)
+        proc = table.get_table(doc, lsctables.ProcessParamsTable.tableName)
+        break
+    if test_file == 0:
+      print "could not find the requested file name " + fileName + " in the list of hipe cache files"
+
+    return proc
+
   def filesMatchingGPS(self, time, type):
     cacheSubSet = self.ifoDict()
     for cache in self[type]:
@@ -115,28 +128,51 @@ class getCache(UserDict):
          pass
     return cacheSubSet
 
-  def getProcessParamsFromCache(self, subCache, time):
+  def getProcessParamsFromCache(self, subCache, tag, time):
     process = self.ifoDict()
+    #print subcache
     for ifo in subCache:
+      print ifo
       for f in subCache[ifo]:
+        print f
         doc = utils.load_filename(f.path(),None)
         proc = table.get_table(doc, lsctables.ProcessParamsTable.tableName)
+        trigStart = 0
+        trigEnd = 0
+        gpsStart = 0
+        gpsEnd = 0
+        segOverlap = 0.
+	sampleRate = 0.
         for row in proc:
-          if str(row.param).find("--trig-start-time") > 0:
-             start = eval(row.value)
-          else:
-             if str(row.param).find("--gps-start-time") >= 0:
-                start = eval(row.value)
-          if str(row.param).find("--trig-end-time") > 0:
-             end = eval(row.value)
-          else:
-             if str(row.param).find("--gps-end-time") >= 0:
-                end = eval(row.value)
-          try:
-            if ( (end >= time[ifo]) and (start <= time[ifo]) ):
-              process[ifo] = proc
-              break
-          except: pass
+          if str(row.param).find("--trig-start-time") >= 0:
+             trigStart = eval(row.value)
+          if str(row.param).find("--gps-start-time") >= 0:
+             gpsStart = eval(row.value)
+          if str(row.param).find("--trig-end-time") >= 0:
+             trigEnd = eval(row.value)
+          if str(row.param).find("--gps-end-time") >= 0:
+             gpsEnd = eval(row.value)
+          if str(row.param).find("--segment-overlap") >= 0:
+             segOverlap = eval(row.value)
+          if str(row.param).find("--sample-rate") >= 0:
+             sampleRate = eval(row.value)
+          if str(row.param).find("--ifo-tag") >= 0:
+             ifoTag = row.value        
+        if sampleRate > 0.:
+           segOverlapSec = segOverlap / sampleRate
+        else:
+           segOverlapSec = 0.
+        if trigStart == 0:
+	   start = gpsStart + segOverlapSec/2.
+        else:
+           start = trigStart
+        if trigEnd == 0:
+           end = gpsEnd - segOverlapSec/2.
+        else:
+           end = trigEnd
+        if ( (end >= time[ifo]) and (start <= time[ifo]) and (ifoTag == tag) ):
+           process[ifo] = proc
+           print 'success'
     return process
     
 
@@ -156,7 +192,7 @@ def readFiles(fileGlob,statistic=None):
   if not fileGlob:
     if opts.verbose:
       print "Warning: No glob specified, returning empty structures..."
-    return None, CoincInspiralUtils.coincInspiralTable()
+    return None, CoincInspiralUtils.coincInspiralTable(), None
 
   # if there aren't any files globbed exit
   fList = glob.glob(fileGlob)
@@ -166,6 +202,7 @@ def readFiles(fileGlob,statistic=None):
 
   sims = None
   coincs = None
+  search = None
   for thisFile in fList:
     doc = utils.load_filename(thisFile)
     # extract the sim inspiral table
@@ -179,15 +216,23 @@ def readFiles(fileGlob,statistic=None):
     # extract the sngl inspiral table, construct coincs
     try: snglInspiralTable = \
       table.get_table(doc, lsctables.SnglInspiralTable.tableName)
-    except: snglInspiralTable = None
+    except: 
+      snglInspiralTable = None
+      searchSumTable = None
     if snglInspiralTable:
       coincInspiralTable = \
         CoincInspiralUtils.coincInspiralTable(snglInspiralTable,statistic)
       if simInspiralTable:
         coincInspiralTable.add_sim_inspirals(simInspiralTable)
-      if coincs: coincs.extend(coincInspiralTable)
-      else: coincs = coincInspiralTable
-  return sims,coincs
+      # extract the search_summary table only if a sngl inspiral table is found
+      searchSumTable = table.get_table(doc,lsctables.SearchSummaryTable.tableName)
+      if coincs: 
+        coincs.extend(coincInspiralTable)
+        search.extend(searchSumTable)         
+      else: 
+        coincs = coincInspiralTable
+        search = searchSumTable    
+  return sims,coincs,search
 
 
 
@@ -331,6 +376,8 @@ class followUpList:
   def __init__(self,Coincs = None, Missed = None ):
     self.gpsTime = {"H1" : None, "H2" : None, "L1" : None,
                   "G1" : None, "V1" : None, "T1" : None}
+    self.ifoList = '' # added to construct a new field in "followups", see function getfollowuptrigs
+    self.ifoTag = ''
     self.coincs = Coincs
     self.missed = Missed
     self.eventID = None
@@ -338,6 +385,7 @@ class followUpList:
     self.page = None
     self.summarydir = None
     self.summarypage = None
+
   def add_coincs(self,Coincs):
     setattr(self,"coincs",Coincs)
     self.eventID = Coincs.event_id
@@ -371,7 +419,7 @@ class followUpList:
 #############################################################################
 # Function to return the follow up list of coinc triggers
 #############################################################################
-def getfollowuptrigs(numtrigs,page,coincs=None,missed=None):
+def getfollowuptrigs(numtrigs,page,coincs=None,missed=None,search=None):
 
   followups = []
   if coincs:
@@ -393,33 +441,56 @@ def getfollowuptrigs(numtrigs,page,coincs=None,missed=None):
       try:
         getattr(ckey,'H1')
         fuList.gpsTime["H1"] = (float(getattr(ckey,'H1').end_time_ns)/1000000000)+float(getattr(ckey,'H1').end_time)
+        fuList.ifoList = fuList.ifoList + 'H1' # at present time, it is used only to get the first relevant ifo
       except: fuList.gpsTime["H1"] = None
       try:
         getattr(ckey,'H2')
         fuList.gpsTime["H2"] = (float(getattr(ckey,'H2').end_time_ns)/1000000000)+float(getattr(ckey,'H2').end_time)
+        fuList.ifoList = fuList.ifoList + 'H2'
       except: fuList.gpsTime["H2"] = None
       try:
         getattr(ckey,'L1')
         fuList.gpsTime["L1"] = (float(getattr(ckey,'L1').end_time_ns)/1000000000)+float(getattr(ckey,'L1').end_time)
+        fuList.ifoList = fuList.ifoList + 'L1'
       except: fuList.gpsTime["L1"] = None
       try:
         getattr(ckey,'G1')
         fuList.gpsTime["G1"] = (float(getattr(ckey,'G1').end_time_ns)/1000000000)+float(getattr(ckey,'G1').end_time)
+        fuList.ifoList = fuList.ifoList + 'G1'
       except: fuList.gpsTime["G1"] = None
       try:
         getattr(ckey,'V1')
         fuList.gpsTime["V1"] = (float(getattr(ckey,'V1').end_time_ns)/1000000000)+float(getattr(ckey,'V1').end_time)
+        fuList.ifoList = fuList.ifoList + 'V1'
       except: fuList.gpsTime["V1"] = None
       try:
         getattr(ckey,'T1')
         fuList.gpsTime["T1"] = (float(getattr(ckey,'T1').end_time_ns)/1000000000)+float(getattr(ckey,'T1').end_time)
+        fuList.ifoList = fuList.ifoList + 'T1'
       except: fuList.gpsTime["T1"] = None
-      followups.append(fuList)
 
+      # now, find the ifoTag associated with the triggers, using the search summary tables...
+      if fuList.ifoList:
+        firstIfo = fuList.ifoList[0:2]
+        triggerTime = fuList.gpsTime[firstIfo]
+        print str(triggerTime)
+        for chunk in search:
+          in_start_time = float(chunk.in_start_time)
+          in_start_time_ns = float(chunk.in_start_time_ns)/1000000000
+          #in_end_time = float(chunk.in_end_time)
+          #in_end_time_ns = float(chunk.in_end_time_ns)/1000000000
+          #out_start_time = float(chunk.out_start_time)
+          #out_start_time_ns = float(chunk.out_start_time_ns)/1000000000
+          out_end_time = float(chunk.out_end_time)
+          out_end_time_ns = float(chunk.out_end_time_ns)/1000000000
+          # make sure this logic is correct
+          if ( (triggerTime >= (in_start_time+in_start_time_ns)) and (triggerTime <= (out_end_time+out_end_time_ns)) ):
+            fuList.ifoTag = chunk.ifos
+            break 
+      followups.append(fuList)
   # the missed stuff doesnt work yet!!!
   if missed:
     followups
-
   return followups
 
 #############################################################################
@@ -533,7 +604,95 @@ class HTMLTable:
       file.write('</table></td>')
     file.write('\n</tr></table><br>\n')
 
+##############################################################################
+# Function to publish the web tree
+##############################################################################
+def publishOnHydra(page):
+  indexFile = open("index.html","w")
+  patt = re.compile('.*summary.html')
+  
+  # First do the found injections
+  files = os.chdir('followupfound')
+  files = os.listdir('.')
+  table = HTMLTable()
+  fList = []
+  stat = []
+  ID = []
+  if files:
+    for f in files:
+      temp = patt.match(f)
+      if temp:
+        fList.append((float(temp.group().rsplit('_')[0]), \
+                  temp.group().rsplit('_')[1]))
+    indexFile.write('<h3>Found Injection follow ups</h3>\n')
+    sortedF = sorted(fList,key=operator.itemgetter(0),reverse=False)
+    for i in sortedF:
+      stat.append(str(i[0]))
+      ID.append('<a href="' +page+ '/followupfound/'+str(i[0])+'_'+str(i[1])+
+                '_summary.html">'+i[1]+'</a>')
+    table.add_column(stat,'Stat Value')
+    table.add_column(ID,'ID')
+    table.write(indexFile)  
+  os.chdir('..')
 
+# then do trigs
+  files = os.chdir('followuptrigs')
+  files = os.listdir('.')
+  table = HTMLTable()
+  fList = []
+  stat = []
+  ID = []
+  if files:
+    for f in files:
+      temp = patt.match(f)
+      if temp:
+        fList.append((float(temp.group().rsplit('_')[0]), \
+                  temp.group().rsplit('_')[1]))
+    indexFile.write('<h3>Found Trigger follow ups</h3>\n')
+    sortedF = sorted(fList,key=operator.itemgetter(0),reverse=False)
+    for i in sortedF:
+      stat.append(str(i[0]))
+      ID.append('<a href="' +page+ '/followuptrigs/'+str(i[0])+'_'+str(i[1])+
+                '_summary.html">'+i[1]+'</a>')
+    table.add_column(stat,'Stat Value')
+    table.add_column(ID,'ID')
+    table.write(indexFile)
+  os.chdir('..')
+
+
+
+#  # Then do the triggers 
+#  files = os.chdir('followuptrigs')
+#  files = os.listdir('.')
+#  table = HTMLTable()
+#  fList = []
+#  stat = []
+#  ID = []
+#  if files:
+#    for f in files:
+#      temp = patt.match(f)
+#      if temp:
+#        fList.append((float(temp.group().rsplit('_')[0]), \
+#                  temp.group().rsplit('_')[1]))
+#    indexFile.write('<h3>Trigger follow ups</h3>\n')
+#    sortedF = sorted(fList,key=operator.itemgetter(0),reverse=True)
+#    for i in sortedF:
+#      stat.append(str(i[0]))
+#      ID.append('<a href="' +page+ '/followuptrigs/'+str(i[0])+'_'+str(i[1])+
+#                '_summary.html">'+i[1]+'</a>')    
+#    table.add_column(stat,'Stat Value')
+#    table.add_column(ID,'ID')
+#    table.write(indexFile)
+#  
+#  os.chdir('..')
+
+  writeIULHeader(indexFile)
+  indexFile.close()
+  #This needs to be done so that it doesn't keep writing over this 
+  #directory... ;)
+  os.system('scp -r index.html followuptrigs followupfound followupmissed ' +
+            'hydra.phys.uwm.edu:/home/htdocs/uwmlsc/root/'+
+            'ligovirgo/cbc/protected/projects/s5/followup/blind-test-070607/.')
 
 ##############################################################################
 # Function to publish the web tree
