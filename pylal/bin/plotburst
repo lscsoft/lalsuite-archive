@@ -92,42 +92,42 @@ options, filenames = parse_command_line()
 #
 
 
-def snglburst_init(self, attrs):
-	table.Table.__init__(self, attrs)
-	self.nevents = {}
-	self.start_time = {}
-	self.duration = {}
-	self.peak_time = {}
-	self.peak_freq = {}
-	self.bandwidth = {}
-	self.lo_freq = {}
-	self.snr = {}
-	self.confidence = {}
+class Summary(object):
+	def __init__(self):
+		self.nevents = {}
+		self.start_time = {}
+		self.duration = {}
+		self.peak_time = {}
+		self.peak_freq = {}
+		self.bandwidth = {}
+		self.lo_freq = {}
+		self.snr = {}
+		self.confidence = {}
 
 
 def snglburst_append(self, row):
-	if row.ifo not in self.nevents:
-		self.nevents[row.ifo] = 0
-		self.start_time[row.ifo] = []
-		self.duration[row.ifo] = []
-		self.peak_time[row.ifo] = []
-		self.peak_freq[row.ifo] = []
-		self.bandwidth[row.ifo] = []
-		self.lo_freq[row.ifo] = []
-		self.snr[row.ifo] = []
-		self.confidence[row.ifo] = []
-	self.nevents[row.ifo] += 1
-	self.start_time[row.ifo].append(date.LIGOTimeGPS(row.start_time, row.start_time_ns))
-	self.duration[row.ifo].append(row.duration)
-	self.peak_time[row.ifo].append(date.LIGOTimeGPS(row.peak_time, row.peak_time_ns))
-	self.peak_freq[row.ifo].append(row.peak_frequency)
-	self.bandwidth[row.ifo].append(row.bandwidth)
-	self.lo_freq[row.ifo].append(row.central_freq - row.bandwidth / 2.0)
-	self.snr[row.ifo].append(row.snr)
-	self.confidence[row.ifo].append(row.confidence)
+	global summary
+	if row.ifo not in summary.nevents:
+		summary.nevents[row.ifo] = 0
+		summary.start_time[row.ifo] = []
+		summary.duration[row.ifo] = []
+		summary.peak_time[row.ifo] = []
+		summary.peak_freq[row.ifo] = []
+		summary.bandwidth[row.ifo] = []
+		summary.lo_freq[row.ifo] = []
+		summary.snr[row.ifo] = []
+		summary.confidence[row.ifo] = []
+	summary.nevents[row.ifo] += 1
+	summary.start_time[row.ifo].append(date.LIGOTimeGPS(row.start_time, row.start_time_ns))
+	summary.duration[row.ifo].append(row.duration)
+	summary.peak_time[row.ifo].append(date.LIGOTimeGPS(row.peak_time, row.peak_time_ns))
+	summary.peak_freq[row.ifo].append(row.peak_frequency)
+	summary.bandwidth[row.ifo].append(row.bandwidth)
+	summary.lo_freq[row.ifo].append(row.central_freq - row.bandwidth / 2.0)
+	summary.snr[row.ifo].append(row.snr)
+	summary.confidence[row.ifo].append(row.confidence)
 
 
-lsctables.SnglBurstTable.__init__ = snglburst_init
 lsctables.SnglBurstTable.append = snglburst_append
 
 
@@ -373,6 +373,27 @@ class TimeFrequencyPlane(SnglBurstUtils.BurstPlot):
 #
 # =============================================================================
 #
+#                                  Load Data
+#
+# =============================================================================
+#
+
+
+summary = Summary()
+seglists = segments.segmentlistdict()
+
+
+for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose, reverse = True)):
+	if options.verbose:
+		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
+	xmldoc = utils.load_filename(filename, options.verbose, gz = filename.endswith(".gz"))
+	seglists |= llwapp.segmentlistdict_fromsearchsummary(xmldoc, "lalapps_power")
+	xmldoc.unlink()
+
+
+#
+# =============================================================================
+#
 #                                     Plot
 #
 # =============================================================================
@@ -392,48 +413,17 @@ def new_plots(ifo, plots):
 	)
 	return [l[i] for i in plots]
 
-plots = {}
-for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose, reverse = True)):
-	if options.verbose:
-		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
-	xmldoc = utils.load_filename(filename, options.verbose, gz = filename.endswith(".gz"))
 
-	seglists = llwapp.segmentlistdict_fromsearchsummary(xmldoc, "lalapps_power")
-	sngl_burst_table = table.get_table(xmldoc, lsctables.SnglBurstTable.tableName)
-
-	for ifo in seglists.keys():
-		if ifo not in plots:
-			plots[ifo] = new_plots(ifo, options.plot)
-		if ifo not in sngl_burst_table.nevents:
-			continue
-		for plotnum, plot in zip(options.plot, plots[ifo]):
-			if options.verbose:
-				print >>sys.stderr, "adding to %s plot %d ..." % (ifo, plotnum)
-			plot.add_contents(sngl_burst_table, seglists)
-	xmldoc.unlink()
-
-
-#
-# =============================================================================
-#
-#                                    Output
-#
-# =============================================================================
-#
-
-
-# delete the plots as we go to save memory
-
-for ifo in plots:
-	n = 0
+for ifo in summary.nevents.keys():
 	format = "%%s%s_%%0%dd.%%s" % (ifo, int(math.log10(max(options.plot) or 1)) + 1)
-	while len(plots[ifo]):
-		filename = format % (options.base, options.plot[n], options.format)
+	for plotnum, plot in zip(options.plot, new_plots(ifo, options.plot)):
+		filename = format % (options.base, plotnum, options.format)
 		if options.verbose:
-			print >>sys.stderr, "finishing %s plot %d ..." % (ifo, options.plot[n])
-		plots[ifo][0].finish()
+			print >>sys.stderr, "adding to %s plot %d ..." % (ifo, plotnum)
+		plot.add_contents(summary, seglists)
+		if options.verbose:
+			print >>sys.stderr, "finishing %s plot %d ..." % (ifo, plotnum)
+		plot.finish()
 		if options.verbose:
 			print >>sys.stderr, "writing %s ..." % filename
-		plots[ifo][0].fig.savefig(filename)
-		del plots[ifo][0]
-		n += 1
+		plot.fig.savefig(filename)
