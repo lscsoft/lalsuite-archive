@@ -588,7 +588,10 @@ tagInspiralCoarseBankIn
   REAL8                         etamin;         
   REAL8				betaMin;
   REAL8				betaMax;
-
+  REAL8                         chiMin;
+  REAL8                         chiMax; 
+  REAL8                         kappaMin;
+  REAL8                         kappaMax;
   REAL8FrequencySeries          shf;
 
   INT4                          iflso;          
