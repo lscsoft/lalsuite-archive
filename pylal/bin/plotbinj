@@ -523,7 +523,7 @@ def new_plots(instrument, hrss_func, plots):
 		RecoveredVsInjectedhrss(instrument, hrss_func),
 		RecoveredPerInjectedhrssVsFreq(instrument, hrss_func),
 		RecoveredPerInjectedhrssVsBandwidth(instrument, hrss_func),
-		RecoveredTimeOffset(instrument, segments.segment(-0.06, +0.06), 0.0003),
+		RecoveredTimeOffset(instrument, segments.segment(-0.03, +0.03), 0.00015),
 		RecoveredFrequencyOffset(instrument, segments.segment(-50.0, +50.0), .5),
 		RecoveredVsInjectedFreq(instrument, hrss_func)
 	)
