@@ -137,51 +137,28 @@ class getCache(UserDict):
     process = self.ifoDict()
     #print subcache
     for ifo in subCache:
-      print ifo
       for f in subCache[ifo]:
-        print f
         doc = utils.load_filename(f.path(),None)
         proc = table.get_table(doc, lsctables.ProcessParamsTable.tableName)
-        trigStart = 0
-        trigEnd = 0
-        gpsStart = 0
-        gpsEnd = 0
-        segOverlap = 0.
-	sampleRate = 0.
-        for row in proc:
-          if str(row.param).find("--trig-start-time") >= 0:
-             trigStart = eval(row.value)
-          if str(row.param).find("--gps-start-time") >= 0:
-             gpsStart = eval(row.value)
-          if str(row.param).find("--trig-end-time") >= 0:
-             trigEnd = eval(row.value)
-          if str(row.param).find("--gps-end-time") >= 0:
-             gpsEnd = eval(row.value)
-          if str(row.param).find("--segment-overlap") >= 0:
-             segOverlap = eval(row.value)
-          if str(row.param).find("--sample-rate") >= 0:
-             sampleRate = eval(row.value)
+        for row in proc:          
           if str(row.param).find("--ifo-tag") >= 0:
              ifoTag = row.value
-          # this is a temporary hack to handle the "-userTag" bug in some xml files...
+          # this is a hack to handle the "-userTag" string in some xml files...
           if str(row.param).find("-userTag") >= 0:
              row.param = "--user-tag"
           # end of the hack...     
-        if sampleRate > 0.:
-           segOverlapSec = segOverlap / sampleRate
-        else:
-           segOverlapSec = 0.
-        if trigStart == 0:
-	   start = gpsStart + segOverlapSec/2.
-        else:
-           start = trigStart
-        if trigEnd == 0:
-           end = gpsEnd - segOverlapSec/2.
-        else:
-           end = trigEnd
-        if ( (end >= time[ifo]) and (start <= time[ifo]) and (ifoTag == tag) ):
-           process[ifo] = proc
-           print 'success'
+        
+        if ifoTag == tag:
+          search = table.get_table(doc, lsctables.SearchSummaryTable.tableName)
+          for row in search:
+            out_start_time = float(row.out_start_time)
+            out_start_time_ns = float(row.out_start_time_ns)/1000000000
+            out_end_time = float(row.out_end_time)
+            out_end_time_ns = float(row.out_end_time_ns)/1000000000
+            if ( (time[ifo] >= (out_start_time+out_start_time_ns)) and (time[ifo] <= (out_end_time+out_end_time_ns)) ):
+              process[ifo] = proc
+              break
+
     return process
     
 
@@ -482,18 +459,12 @@ def getfollowuptrigs(numtrigs,page,coincs=None,missed=None,search=None):
       if fuList.ifoList:
         firstIfo = fuList.ifoList[0:2]
         triggerTime = fuList.gpsTime[firstIfo]
-        print str(triggerTime)
         for chunk in search:
-          in_start_time = float(chunk.in_start_time)
-          in_start_time_ns = float(chunk.in_start_time_ns)/1000000000
-          #in_end_time = float(chunk.in_end_time)
-          #in_end_time_ns = float(chunk.in_end_time_ns)/1000000000
-          #out_start_time = float(chunk.out_start_time)
-          #out_start_time_ns = float(chunk.out_start_time_ns)/1000000000
+          out_start_time = float(chunk.out_start_time)
+          out_start_time_ns = float(chunk.out_start_time_ns)/1000000000
           out_end_time = float(chunk.out_end_time)
           out_end_time_ns = float(chunk.out_end_time_ns)/1000000000
-          # make sure this logic is correct
-          if ( (triggerTime >= (in_start_time+in_start_time_ns)) and (triggerTime <= (out_end_time+out_end_time_ns)) ):
+          if ( (triggerTime >= (out_start_time+out_start_time_ns)) and (triggerTime <= (out_end_time+out_end_time_ns)) ):
             fuList.ifoTag = chunk.ifos
             break 
       followups.append(fuList)
