@@ -672,7 +672,7 @@ def publishOnHydra(page):
   #directory... ;)
   os.system('scp -r index.html followuptrigs followupfound followupmissed ' +
             'hydra.phys.uwm.edu:/home/htdocs/uwmlsc/root/'+
-            'ligovirgo/cbc/protected/projects/s5/followup/HighMassCBC/Stage2-EThinca-0.5000/TripleCoincZerolag/.')
+            page + '.')
 
 ##############################################################################
 # Function to publish the web tree
