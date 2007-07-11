@@ -1,3 +1,22 @@
+/*
+*  Copyright (C) 2007 David Churches, B.S. Sathyaprakash, Duncan Brown
+*
+*  This program is free software; you can redistribute it and/or modify
+*  it under the terms of the GNU General Public License as published by
+*  the Free Software Foundation; either version 2 of the License, or
+*  (at your option) any later version.
+*
+*  This program is distributed in the hope that it will be useful,
+*  but WITHOUT ANY WARRANTY; without even the implied warranty of
+*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+*  GNU General Public License for more details.
+*
+*  You should have received a copy of the GNU General Public License
+*  along with with program; see the file COPYING. If not, write to the
+*  Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+*  MA  02111-1307  USA
+*/
+
 /*  <lalVerbatim file="LALInspiralFrequency3CV">
 
 Author: Sathyaprakash, B. S.
@@ -233,7 +252,7 @@ LALInspiralFrequency3_6PN (
              + ak->fta3*theta3
              + ak->fta4*theta4
              + ak->fta5*theta5
-             + (ak->fta6 + ak->ftl6*log(2.*theta))*theta6);
+             + (ak->fta6 + ak->ftl6*log(td))*theta6);
   DETATCHSTATUSPTR(status);
   RETURN(status);
 }
@@ -269,7 +288,7 @@ LALInspiralFrequency3_7PN (
              + ak->fta3*theta3
              + ak->fta4*theta4
              + ak->fta5*theta5
-             + (ak->fta6 + ak->ftl6*log(theta))*theta6
+             + (ak->fta6 + ak->ftl6*log(td))*theta6
              + ak->fta7*theta7);
   DETATCHSTATUSPTR(status);
   RETURN(status);
