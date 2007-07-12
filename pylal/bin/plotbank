@@ -29,9 +29,12 @@ Generates plots showing the sngl_inspiral mass paramters contain in a file
 """
 
 parser = OptionParser( usage=usage, version="" )
-parser.add_option("-g","--glob",action="store",type="string",\
-    default=None, metavar=" GLOB",\
-    help="GLOB of xml files with sngl_inspiral tables to read" )
+parser.add_option("-T","--template-bank",action="store",type="string",\
+    default=None, metavar="TMPLT",\
+    help="Read the list of sngl_inspirals from the template banks" )
+parser.add_option("-I","--inspiral-glob",action="store",type="string",\
+    default=None, metavar=" INSP",\
+    help="Read the list of sngl_inspirals from the inspirals" )
 parser.add_option("-f","--figure-name",action="store",type="string",\
     default=None, metavar=" FNAME",\
     help="generate png figures with name FNAME-fig.png" )
@@ -56,17 +59,27 @@ parser.add_option("-s","--show-plot",action="store_true",default=False,\
 
 (opts,args) = parser.parse_args()
 
-if opts.glob:
-  file = glob.glob(opts.glob)
+if opts.template_bank:
+  file_template = glob.glob(opts.template_bank)
 else:
-  print >>sys.stderr, "Must specify a glob of files"
+  print >>sys.stderr, "Must specify a glob of template bank files"
   sys.exit(1)
+
+
+if opts.inspiral_glob:
+  file_inspiral = glob.glob(opts.inspiral_glob)
+else:
+  print >>sys.stderr, "Must specify a glob of Inspirals"
+  sys.exit(1)
+
+
 
 if not (opts.m1_m2 or opts.mchirp_eta or opts.tau0_tau3):
   print >>sys.stderr, "Must specify --m1-m2, --mchirp-eta, or --tau0-tau3"
   sys.exit(1)
 
-templates = SnglInspiralUtils.ReadSnglInspiralFromFiles(file)
+templates = SnglInspiralUtils.ReadSnglInspiralFromFiles(file_template)
+inspirals = SnglInspiralUtils.ReadSnglInspiralFromFiles(file_inspiral)
 
 if opts.get_bins:
   n_lines = opts.get_bins
@@ -99,8 +112,11 @@ if opts.m1_m2:
   fig_num += 1
   figure(fig_num)
   plot(templates.get_column('mass1'),templates.get_column('mass2'),'bx')
+  hold(True)
+  plot(inspirals.get_column('mass1'),inspirals.get_column('mass2'),'ko')
+  legend(('templates','triggers'))
   grid()
-  title(file[0])
+  title('mass1 and mass2 plot for templates and triggers')
   xlabel('mass1')
   ylabel('mass2')
 
