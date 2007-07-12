@@ -68,9 +68,9 @@ else:
 
 if opts.inspiral_glob:
   file_inspiral = glob.glob(opts.inspiral_glob)
+  inspirals = SnglInspiralUtils.ReadSnglInspiralFromFiles(file_inspiral)
 else:
-  print >>sys.stderr, "Must specify a glob of Inspirals"
-  sys.exit(1)
+  pass
 
 
 
@@ -79,7 +79,7 @@ if not (opts.m1_m2 or opts.mchirp_eta or opts.tau0_tau3):
   sys.exit(1)
 
 templates = SnglInspiralUtils.ReadSnglInspiralFromFiles(file_template)
-inspirals = SnglInspiralUtils.ReadSnglInspiralFromFiles(file_inspiral)
+
 
 if opts.get_bins:
   n_lines = opts.get_bins
@@ -112,11 +112,15 @@ if opts.m1_m2:
   fig_num += 1
   figure(fig_num)
   plot(templates.get_column('mass1'),templates.get_column('mass2'),'bx')
-  hold(True)
-  plot(inspirals.get_column('mass1'),inspirals.get_column('mass2'),'ko')
-  legend(('templates','triggers'))
+  if opts.inspiral_glob:
+    hold(True)
+    plot(inspirals.get_column('mass1'),inspirals.get_column('mass2'),'ko')
+    legend(('templates','triggers'))
+  else:
+    legend('templates')
+    
   grid()
-  title('mass1 and mass2 plot for templates and triggers')
+  title('mass1 and mass2')
   xlabel('mass1')
   ylabel('mass2')
 
@@ -126,20 +130,34 @@ if opts.mchirp_eta:
   fig_num += 1
   figure(fig_num)
   plot(templates.get_column('mchirp'),templates.get_column('eta'),'bx')
+  if opts.inspiral_glob:
+    hold(True)
+    plot(inspirals.get_column('mchirp'),inspirals.get_column('eta'),'ko')
+    legend(('templates','triggers'))
+  else:
+    legend('templates')
+  
   grid()
-  title(file[0])
+  title('mchirp and eta')
   xlabel('mchirp')
   ylabel('eta')
+
 
 if opts.tau0_tau3:
   fig_num += 1
   figure(fig_num)
   plot(templates.get_column('tau0'),templates.get_column('tau3'),'bx', \
     [3.628166],[1.292681],'r1')
+  if opts.inspiral_glob:
+    hold(True)
+    plot(inspirals.get_column('tau0'),inspirals.get_column('tau3'),'kx')
+    legend(('templates',' ','triggers'))
+  else:
+    legend('templates')
   grid()
   if opts.x_lim and opts.y_lim:
     axis([0.0,opts.x_lim,0.0,opts.y_lim])
-  title(file[0])
+  title('tau0 and tau3')
   xlabel('tau0')
   ylabel('tau3')
   if opts.figure_name:
