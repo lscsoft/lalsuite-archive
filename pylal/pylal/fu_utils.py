@@ -53,6 +53,9 @@ class getCache(UserDict):
     self.options = options
     self.types = ['TMPLTBANK', 'TRIGBANK', 'INSPIRAL-', \
                  'INSPIRAL_', 'THINCA-', 'THINCA_']
+    self.iniNames = ['tmpltbank-path', 'trigbank-path', 'first-inspiral-path', \
+         'second-inspiral-path', 'first-coinc-path', 'second-coinc-path']
+    self.iniNameMaps = map(None, self.iniNames, self.types)
     self.oNames = ['bank.cache', 'trigbank.cache', 'first_inspiral.cache', \
          'second_inspiral.cache', 'first_thinca.cache', 'second_thinca.cache']
     self.nameMaps = map(None, self.oNames, self.types)
@@ -62,15 +65,15 @@ class getCache(UserDict):
     return {'H1':[],'H2':[],'L1':[],'H1H2':[], \
                     'H1L1':[],'H2L1':[],'H1H2L1':[]}
 
-  def getCacheType(self, type, cp=None):
+  def getCacheType(self, iniName, type, cp=None):
     self[type] = []
     p = re.compile(type)
     f = re.compile("FOLLOWUP")
     m = re.compile("-")
     x = re.compile(".xml")
     try:
-      dir = os.listdir(string.strip(cp.get('hipe-cache',type)))
-      cache_path = os.path.abspath(string.strip(cp.get('hipe-cache',type)))
+      dir = os.listdir(string.strip(cp.get('hipe-cache',iniName)))
+      cache_path = os.path.abspath(string.strip(cp.get('hipe-cache',iniName)))
     except:
       dir = self.dir
       cache_path = os.path.abspath(self.options.cache_path)
@@ -87,8 +90,8 @@ class getCache(UserDict):
           self[type].append(entry)
         except: pass
   def getCacheAll(self,cp=None):
-    for type in self.types:
-      self.getCacheType(type,cp)
+    for iniName, type in self.iniNameMaps:
+      self.getCacheType(iniName,type,cp)
 
   def writeCacheType(self,oName,type):
     cName = open(oName,'w')
