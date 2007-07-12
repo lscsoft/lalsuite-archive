@@ -29,12 +29,12 @@ Generates plots showing the sngl_inspiral mass paramters contain in a file
 """
 
 parser = OptionParser( usage=usage, version="" )
-parser.add_option("-T","--template-bank",action="store",type="string",\
+parser.add_option("-T","--template-glob",action="store",type="string",\
     default=None, metavar="TMPLT",\
-    help="Read the list of sngl_inspirals from the template banks" )
+    help="Glob the list of sngl_inspirals from the template banks" )
 parser.add_option("-I","--inspiral-glob",action="store",type="string",\
     default=None, metavar=" INSP",\
-    help="Read the list of sngl_inspirals from the inspirals" )
+    help="Glob the list of sngl_inspirals from the inspirals" )
 parser.add_option("-f","--figure-name",action="store",type="string",\
     default=None, metavar=" FNAME",\
     help="generate png figures with name FNAME-fig.png" )
@@ -59,7 +59,7 @@ parser.add_option("-s","--show-plot",action="store_true",default=False,\
 
 (opts,args) = parser.parse_args()
 
-if opts.template_bank:
+if opts.template_glob:
   file_template = glob.glob(opts.template_bank)
 else:
   print >>sys.stderr, "Must specify a glob of template bank files"
