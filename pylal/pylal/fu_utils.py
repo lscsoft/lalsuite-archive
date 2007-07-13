@@ -103,6 +103,30 @@ class getCache(UserDict):
     for oName, type in self.nameMaps:
       self.writeCacheType(str(oName),type)
 
+  def getProcessParamsFromMatchingFileInCache(self, fileName, cacheString):
+    test_file = 0
+    cacheFile = open(cacheString,"r")
+    cacheContent = []
+    cacheContent = cacheFile.readlines()
+    for line in cacheContent:
+      if line.find(fileName) >= 0:
+        test_file = 1
+        stringLine = line.split()[0:5]
+        tmpLine = stringLine[0] + ' ' + stringLine[1] + ' ' + stringLine[2] + ' ' + stringLine[3] + ' ' + stringLine[4]
+        cache = lal.CacheEntry(tmpLine)
+        doc = utils.load_filename(cache.path(),None)
+        proc = table.get_table(doc, lsctables.ProcessParamsTable.tableName)
+        # this is a temporary hack to handle the "-userTag" bug in some xml files...
+        for row in proc:
+          if str(row.param).find("-userTag") >= 0:
+            row.param = "--user-tag"
+        #end of the hack
+        break
+    if test_file == 0:
+      print "could not find the requested file name " + fileName + " in the list of hipe cache files"
+
+    return proc
+
   def getProcessParamsFromMatchingFile(self, fileName, type):
     test_file = 0
     for cache in self[type]:
@@ -121,6 +145,27 @@ class getCache(UserDict):
 
     return proc
 
+  def filesMatchingGPSinCache(self, time, cacheString):
+    cacheSubSet = self.ifoDict()   
+    cacheFile = open(cacheString,"r")
+    cacheContent = []
+    cacheContent = cacheFile.readlines()
+    for line in cacheContent:
+      for ifo in self.ifoTypes:
+        try:
+          stringLine = line.split()[0:5]
+          start = eval(stringLine[2])
+          end = start + eval(stringLine[3])
+          cacheIfo = stringLine[0]
+          if ( (end >= time[ifo]) and (start <= time[ifo]) and (cacheIfo == ifo)
+):
+            tmpLine = stringLine[0] + ' ' + stringLine[1] + ' ' + stringLine[2] + ' ' + stringLine[3] + ' ' + stringLine[4]
+            cache = lal.CacheEntry(tmpLine)
+            cacheSubSet[ifo].append(cache)
+        except:
+          pass
+    return cacheSubSet
+
   def filesMatchingGPS(self, time, type):
     cacheSubSet = self.ifoDict()
     for cache in self[type]:
@@ -129,7 +174,7 @@ class getCache(UserDict):
          start = eval(str(cache).split()[2])
          end = start + eval(str(cache).split()[3])
          cacheIfo = str(cache).split()[0]
-         #print cacheIfo
+         print cacheIfo
          if ( (end >= time[ifo]) and (start <= time[ifo]) and (cacheIfo == ifo) ):
            cacheSubSet[ifo].append(cache)
        except:
@@ -138,8 +183,8 @@ class getCache(UserDict):
 
   def getProcessParamsFromCache(self, subCache, tag, time):
     process = self.ifoDict()
-    #print subcache
     for ifo in subCache:
+      #print ifo
       for f in subCache[ifo]:
         doc = utils.load_filename(f.path(),None)
         proc = table.get_table(doc, lsctables.ProcessParamsTable.tableName)
