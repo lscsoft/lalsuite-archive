@@ -325,11 +325,12 @@ for i in range( len(offsource_mean) ):
 tmpx,tmpy = makesteps(bins,offsource_min,offsource_mean+offsource_std)
 p=fill((tmpx)*(tmpx),tmpy, facecolor='y')
 setp(p, alpha=0.3)
-axis([ xlow*xlow, xhigh*xhigh, 0.001, 10.0])
+grid(True)
+axis([ xlow*xlow, (xhigh-2*ds)*(xhigh-2*ds), 0.001, 10.0])
 xlabel(r"$\rho_{\mathrm{eff}}^2$")
 ylabel(r"Expected number of events")
 savefig("snr_dist.%s" % opts.figure_type)
-  
+
 
 #####################################################################
 # read in the missed and found files
