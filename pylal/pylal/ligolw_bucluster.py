@@ -137,8 +137,6 @@ def ExcessPowerPostFunc(sngl_burst_table, offset):
 	"""
 	Restore peak times to absolute LIGOTimeGPS values.
 	"""
-	if not len(sngl_burst_table):
-		return
 	for row in sngl_burst_table:
 		row.set_peak(offset + row.peak_time)
 
@@ -262,34 +260,28 @@ def ClusterSnglBurstTable(sngl_burst_table, testfunc, clusterfunc, bailoutfunc =
 	The return value is True if the sngl_burst table was modified, and
 	False if it was not.
 	"""
-	# enter loop
 	table_changed = False
-	did_cluster = True
-	while did_cluster:
-		did_cluster = False
-
+	outer_did_cluster = True
+	while outer_did_cluster:
+		outer_did_cluster = False
 		if bailoutfunc is not None:
 			sngl_burst_table.sort(testfunc)
-
-		# loop over the candidates from the end of the list
-		# backwards;  both loops are done in reverse to reduce the
-		# memory copies needed when candidates are removed from the
-		# list
-		for i in xrange(len(sngl_burst_table) - 2, -1, -1):
-			# determine the range of candidates to be compared
-			# to the current
-			# FIXME: make sure all the corner cases are right
-			if bailoutfunc is not None:
-				for end in xrange(i + 1, len(sngl_burst_table)):
-					if bailoutfunc(sngl_burst_table[i], sngl_burst_table[end]):
-						break
-			else:
-				end = len(sngl_burst_table)
-			# loop through the comparisons in reverse
-			for j in xrange(end - 1, i, -1):
-				if not testfunc(sngl_burst_table[i], sngl_burst_table[j]):
-					clusterfunc(sngl_burst_table[i], sngl_burst_table.pop(j))
-					table_changed = did_cluster = True
+		i = 0
+		while i < len(sngl_burst_table):
+			a = sngl_burst_table[i]
+			j = i + 1
+			inner_did_cluster = False
+			while j < len(sngl_burst_table):
+				b = sngl_burst_table[j]
+				if testfunc(a, b):
+					clusterfunc(a, sngl_burst_table.pop(j))
+					table_changed = outer_did_cluster = inner_did_cluster = True
+				elif bailoutfunc is not None and bailoutfunc(a, b):
+					break
+				else:
+					j += 1
+			if not inner_did_cluster:
+				i += 1
 	return table_changed
 
 
