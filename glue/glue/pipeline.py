@@ -779,6 +779,13 @@ class CondorDAGNode:
 
     return cmd
     
+  def finalize(self):
+    """
+    The finalize method of a node is called before the node is
+    finally added to the DAG and can be overridden to do any last
+    minute clean up (such as setting extra command line arguments)
+    """
+    pass
 
 
 class CondorDAG:
@@ -801,6 +808,7 @@ class CondorDAG:
     self.__nodes = []
     self.__integer_node_names = 0
     self.__node_count = 0
+    self.__nodes_finalized = 0
 
   def is_dax(self):
     """
@@ -860,6 +868,9 @@ class CondorDAG:
     Write all the submit files used by the dag to disk. Each submit file is
     written to the file name set in the CondorJob.
     """
+    if not self.__nodes_finalized:
+      for node in self.__nodes:
+        node.finalize()
     if not self.is_dax():
       for job in self.__jobs:
         job.write_sub_file()
@@ -1043,6 +1054,9 @@ class CondorDAG:
     """
     Write either a dag or a dax.
     """
+    if not self.__nodes_finalized:
+      for node in self.__nodes:
+        node.finalize()
     if self.is_dax():
       self.write_abstract_dag()
     else:
