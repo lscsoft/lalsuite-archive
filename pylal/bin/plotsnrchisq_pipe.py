@@ -36,7 +36,7 @@ sys.path.append('@PYTHONLIBDIR@')
 
 rc('text', usetex=False)
 
-def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams,tableFileName,imgFile,page):
+def plotsnrchisq(gpsTime,frameFile,outputPath,outputPath2,inspProcParams,tableFileName,tableFileName2,imgFile,imgFile2,page):
  
     rsqThreshold = 0;
 
@@ -156,14 +156,14 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,inspProcParams,tableFileName,imgFi
     ylabel(r'PSD',size='x-large')
     xlim(flow, ASD_freq[-1])
     title(ifoName[0] + ' trigger: ' + gpsTime)
-    figName = ifoName[0] + '_' + str(gpsTime).replace(".","_") + '_ASD.png'
-    savefig(outputPath +"/" + figName)
-    tableFile = open(tableFileName,'a')
+    figName = ifoName[0] + '_' + str(gpsTime).replace(".","_") + '_PSD.png'
+    savefig(outputPath2 +"/" + figName)
+    tableFile2 = open(tableFileName2,'a')
     table = HTMLTable()
-    rowStr = '<img width=800 src="' + page + "/" + outputPath + "/" + figName +'">'
-    table.add_column([rowStr],'ASD')
-    table.write(tableFile)
-    tableFile.close()
+    rowStr = '<img width=800 src="' + page + "/" + outputPath2 + "/" + figName +'">'
+    table.add_column([rowStr],'PSD')
+    table.write(tableFile2)
+    tableFile2.close()
 
 
     # Now plot the snr time serie !!
@@ -308,7 +308,10 @@ parser.add_option("-t","--gps",action="store",type="string",\
     metavar=" GPS",help="use gps time GPS")
 
 parser.add_option("-o","--output-path",action="store",type="string",\
-    metavar=" PATH",help="use output path PATH")
+    metavar=" PATH",help="use output path PATH for snr and chisq plots")
+
+parser.add_option("-O","--output-path2",action="store",type="string",\
+    metavar=" PATH",help="use output path PATH for calibrated spectrum")
 
 parser.add_option("-x","--inspiral-xml-file", action="store",type="string", \
     metavar=" XML",help="use inspiral-file")
@@ -316,8 +319,14 @@ parser.add_option("-x","--inspiral-xml-file", action="store",type="string", \
 parser.add_option("-c","--output-html-file", action="store",type="string", \
     metavar=" XML",help="file to append html tables to")
 
+parser.add_option("-C","--output-html-file2", action="store",type="string", \
+    metavar=" XML",help="file to append html tables to (for PSD)")
+
 parser.add_option("-i","--image-file", action="store",type="string", \
     metavar=" IMG",help="summary plot file name")
+
+parser.add_option("-I","--image-file2", action="store",type="string", \
+    metavar=" IMG",help="summary plot file name for PSD")
 
 parser.add_option("-p","--page",action="store",type="string",\
     default="investigations/s5/people/followups/",metavar=" PAGE",\
@@ -347,8 +356,13 @@ if not opts.gps:
   sys.exit(1)
 
 if not opts.output_path:
-  print >> sys.stderr, "No output path time specified."
+  print >> sys.stderr, "No output path specified."
   print >> sys.stderr, "Use --output-path PATH to specify location."
+  sys.exit(1)
+
+if not opts.output_path2:
+  print >> sys.stderr, "No output path specified for PSD."
+  print >> sys.stderr, "Use --output-path2 PATH to specify location."
   sys.exit(1)
 
 if not opts.inspiral_xml_file:
@@ -359,6 +373,7 @@ if not opts.inspiral_xml_file:
 
 doc = utils.load_filename(opts.inspiral_xml_file,None)
 proc = table.get_table(doc, lsctables.ProcessParamsTable.tableName)
-plotsnrchisq(str(opts.gps),opts.frame_file,opts.output_path,proc,opts.output_html_file,opts.image_file,opts.page)
+
+plotsnrchisq(str(opts.gps),opts.frame_file,opts.output_path,opts.output_path2,proc,opts.output_html_file,opts.output_html_file2,opts.image_file,opts.image_file2,opts.page)
 
 
