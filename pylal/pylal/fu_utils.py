@@ -467,8 +467,8 @@ def getfollowuptrigs(numtrigs,page,coincs=None,missed=None,search=None):
       sim = isinstance(coincs[0].sim,lsctables.SimInspiral)
     except: pass
     if sim: 
-      coincs.sort(True) # This does an ascending sort instead for found inj
-    else: coincs.sort(False)
+      coincs.sort(False) # This does an ascending sort instead for found inj
+    else: coincs.sort()
     numTrigs = 0
     for ckey in coincs:
       numTrigs += 1
