@@ -263,7 +263,7 @@ coincfiles = glob.glob(opts.on_source_glob)
 inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(coincfiles)
 
 # perform the veto
-if opts.veto_file:
+if inspTriggers and opts.veto_file:
   inspTriggers = inspTriggers.veto(vetolist)
 
 # construct the off source listing
@@ -299,8 +299,29 @@ else:
 delta=xhigh-xlow
 ds=0.5*delta/opts.nbins
 bins = arange( xlow, xhigh, delta/opts.nbins)
+
+# build the histogram. The return values are
+#   the count per bin
+#   the bin (lower) edges
+#   the patches
+# Note: the matplotlib hist function assumes that these are the lower
+# edges of the bins. I have not looked into the code yet to confirm
+# how it handles that last bin. Since all other bins are equally
+# spaced, this doesn't really matter for us.
 [zero_dist,bin,info] = hist(coincTriggers.getstat(),bins)
+
+# add a zero to the beginning of the array containing count; this
+# method is so that the cumulative distribution is plotted correctly
+# as we'll see...
 zero_dist = concatenate( (zeros(1),zero_dist) )
+
+# construct the cumulative distribution. Here's what is done:
+#   * sum up the total count - unaffected by the zeros(1) added above
+#   * subtract from that the cumulative sum of the modified array
+#   * the first element of the new array is the total number of events
+#   above threshold
+#   * note that the cumsum only creates an array with the same length as
+#   bins
 cum_dist_zero = numpy.sum(zero_dist)-cumsum(zero_dist[0:bin.size])
 cum_dist_offsource = []
 for seg in seglist:
@@ -308,22 +329,29 @@ for seg in seglist:
   [num_offsource,bin,info] = hist(offsourcetrial.getstat(),bins)
   num_offsource = concatenate( (zeros(1),num_offsource) )
   cum_offsource = sum(num_offsource)-cumsum(num_offsource[0:bin.size])
+  # adds a row to the cum_dist_offsource
   cum_dist_offsource.append(cum_offsource)
-cum_dist_offsource = reshape(array(cum_dist_offsource), \
-      (len(seglist),opts.nbins))
+#cum_dist_offsource = reshape(array(cum_dist_offsource), \
+      #(len(seglist),opts.nbins))
+
+# takes the mean over rows for each column
 offsource_mean = mean(cum_dist_offsource)
+# takes the std over rows for each column
 offsource_std = std(cum_dist_offsource)
 clf()
 figure()
 hold(True)
-semilogy((bins-ds)**2,cum_dist_zero+0.0001,'r^',markerfacecolor="b",markersize=12)
-semilogy((bins-ds)**2,offsource_mean, 'r+', markersize=12)
+semilogy((bins+ds)**2,cum_dist_zero+0.0001,'r^',markerfacecolor="b",markersize=12)
+semilogy((bins+ds)**2,offsource_mean, 'r+', markersize=12)
+
+# The following loop is needed to make the plot nice when making
+# logarithmic filled regions.
 offsource_min = []
 for i in range( len(offsource_mean) ):
   offsource_min.append( max(offsource_mean[i] - offsource_std[i], 0.0001) )
   offsource_mean[i] = max(offsource_mean[i], 0.0001)
 tmpx,tmpy = makesteps(bins,offsource_min,offsource_mean+offsource_std)
-p=fill((tmpx)*(tmpx),tmpy, facecolor='y')
+p=fill(tmpx**2,tmpy, facecolor='y')
 setp(p, alpha=0.3)
 grid(True)
 axis([ xlow*xlow, (xhigh-2*ds)*(xhigh-2*ds), 0.001, 10.0])
