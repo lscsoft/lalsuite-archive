@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#!/usr/bin/python
 
 # $Id$
 __author__ = "Drew Keppel <keppel_d@ligo.caltech.edu>"
@@ -14,7 +14,6 @@ import glob
 from types import *
 
 #import operator
-from pylab import *
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from pylal import SnglInspiralUtils
@@ -59,8 +58,14 @@ parser.add_option("-s","--show-plot",action="store_true",default=False,\
 
 (opts,args) = parser.parse_args()
 
+# Now, use the Agg backend if it's unnecessary to call plot(), then do imports
+if not opts.show_plot:
+  import matplotlib
+  matplotlib.use('Agg')
+from pylab import *
+
 if opts.template_glob:
-  file_template = glob.glob(opts.template_bank)
+  file_template = glob.glob(opts.template_glob)
 else:
   print >>sys.stderr, "Must specify a glob of template bank files"
   sys.exit(1)
@@ -125,6 +130,8 @@ if opts.m1_m2:
   ylabel('mass2')
 
   print len(templates)
+  if opts.figure_name:
+    savefig(opts.figure_name + '_' + 'm1_and_m2' + '.png')
 
 if opts.mchirp_eta:
   fig_num += 1
@@ -141,6 +148,9 @@ if opts.mchirp_eta:
   title('mchirp and eta')
   xlabel('mchirp')
   ylabel('eta')
+
+  if opts.figure_name:
+    savefig(opts.figure_name + '_' + 'mchirp_and_eta' + '.png')
 
 
 if opts.tau0_tau3:
@@ -161,7 +171,7 @@ if opts.tau0_tau3:
   xlabel('tau0')
   ylabel('tau3')
   if opts.figure_name:
-    savefig(opts.figure_name + '.png')
+    savefig(opts.figure_name + '_tau0_and_tau3' + '.png')
 
 if opts.inj_time:
   injTemplates = [[],[]]
@@ -214,4 +224,3 @@ if opts.show_plot:
 
 #for i in range(len(x_bins)):
 #  x_bins[i] /= float(n_names)
-
