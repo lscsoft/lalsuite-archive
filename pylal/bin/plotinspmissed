@@ -10,12 +10,10 @@ __date__ = "$Date$"[7:-2]
 import sys, os, re, glob, exceptions
 from types    import *
 from optparse import *
-from pylab    import *
 from matplotlib.ticker import FormatStrFormatter
 from glue import segments
 from glue import segmentsUtils
 
-from pylal import viz
 from pylal import SnglInspiralUtils
 from pylal import SimInspiralUtils
 
@@ -98,6 +96,13 @@ parser.add_option("-q","--y-max",action="store",type="float",\
     help="set the y max range to YMAX")
 
 (opts,args) = parser.parse_args()
+
+# Change to Agg back-end if show() will not be called
+if not opts.show_plot:
+  import matplotlib
+  matplotlib.use('Agg')
+from pylab import *
+from pylal import viz
 
 # check at least one trig file was specified
 if not args:
