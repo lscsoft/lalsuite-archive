@@ -45,7 +45,23 @@ __version__ = "$Revision$"[11:-2]
 #
 # =============================================================================
 #
+#                                Look-up Tables
+#
+# =============================================================================
+#
+
+
+name_to_prefix = dict([(detector.name, detector.prefix) for detector in cached_detector.itervalues()])
+
+
+prefix_to_name = dict([(detector.prefix, detector.name) for detector in cached_detector.itervalues()])
+
+
+#
+# =============================================================================
+#
 #                              Function Wrappers
 #
 # =============================================================================
 #
+
