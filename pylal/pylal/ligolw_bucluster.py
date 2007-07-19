@@ -273,7 +273,7 @@ def ClusterSnglBurstTable(sngl_burst_table, testfunc, clusterfunc, bailoutfunc =
 			inner_did_cluster = False
 			while j < len(sngl_burst_table):
 				b = sngl_burst_table[j]
-				if testfunc(a, b):
+				if not testfunc(a, b):
 					clusterfunc(a, sngl_burst_table.pop(j))
 					table_changed = outer_did_cluster = inner_did_cluster = True
 				elif bailoutfunc is not None and bailoutfunc(a, b):
