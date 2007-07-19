@@ -435,3 +435,26 @@ class CacheEntry(object):
 			d[instrument] = segments.segmentlist([self.segment])
 		return d
 
+class Cache(list):
+	"""
+	An object representing a LAL cache file. Currently it is possible to
+	add anything to a Cache. This method should check that the thing you
+	are adding is a CacheEntry and throw and error if it is not.
+	"""
+	def write(self,filename):
+		"""
+		write a cache object to filename as a lal cache file
+		"""
+		fp = open(filename,'w')
+		for entry in self:
+			print >>fp, str(entry)
+		fp.close()
+
+	def write_as_txt(self,filename):
+		"""
+		write a cache object to filename as a plain text pfn file
+		"""
+		fp = open(filename,'w')
+		for entry in self:
+			print >>fp, entry.path()
+		fp.close()
