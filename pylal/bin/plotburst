@@ -94,38 +94,30 @@ options, filenames = parse_command_line()
 
 class Summary(object):
 	def __init__(self):
-		self.nevents = {}
-		self.start_time = {}
-		self.duration = {}
-		self.peak_time = {}
-		self.peak_freq = {}
-		self.bandwidth = {}
-		self.lo_freq = {}
-		self.snr = {}
-		self.confidence = {}
+		self.nevents = 0
+		self.start_time = []
+		self.duration = []
+		self.peak_time = []
+		self.peak_freq = []
+		self.bandwidth = []
+		self.lo_freq = []
+		self.snr = []
+		self.confidence = []
 
 
 def snglburst_append(self, row):
 	global summary
-	if row.ifo not in summary.nevents:
-		summary.nevents[row.ifo] = 0
-		summary.start_time[row.ifo] = []
-		summary.duration[row.ifo] = []
-		summary.peak_time[row.ifo] = []
-		summary.peak_freq[row.ifo] = []
-		summary.bandwidth[row.ifo] = []
-		summary.lo_freq[row.ifo] = []
-		summary.snr[row.ifo] = []
-		summary.confidence[row.ifo] = []
-	summary.nevents[row.ifo] += 1
-	summary.start_time[row.ifo].append(date.LIGOTimeGPS(row.start_time, row.start_time_ns))
-	summary.duration[row.ifo].append(row.duration)
-	summary.peak_time[row.ifo].append(date.LIGOTimeGPS(row.peak_time, row.peak_time_ns))
-	summary.peak_freq[row.ifo].append(row.peak_frequency)
-	summary.bandwidth[row.ifo].append(row.bandwidth)
-	summary.lo_freq[row.ifo].append(row.central_freq - row.bandwidth / 2.0)
-	summary.snr[row.ifo].append(row.snr)
-	summary.confidence[row.ifo].append(row.confidence)
+	if row.ifo not in summary:
+		summary[row.ifo] = Summary()
+	summary[row.ifo].nevents += 1
+	summary[row.ifo].start_time.append(date.LIGOTimeGPS(row.start_time, row.start_time_ns))
+	summary[row.ifo].duration.append(row.duration)
+	summary[row.ifo].peak_time.append(date.LIGOTimeGPS(row.peak_time, row.peak_time_ns))
+	summary[row.ifo].peak_freq.append(row.peak_frequency)
+	summary[row.ifo].bandwidth.append(row.bandwidth)
+	summary[row.ifo].lo_freq.append(row.central_freq - row.bandwidth / 2.0)
+	summary[row.ifo].snr.append(row.snr)
+	summary[row.ifo].confidence.append(row.confidence)
 
 
 lsctables.SnglBurstTable.append = snglburst_append
@@ -150,9 +142,9 @@ class ConfidenceVsTime(SnglBurstUtils.BurstPlot):
 		self.axes.semilogy()
 
 	def add_contents(self, contents, seglists):
-		self.nevents += contents.nevents[self.ifo]
-		self.x.extend(map(float, contents.peak_time[self.ifo]))
-		self.y.extend(contents.confidence[self.ifo])
+		self.nevents += contents[self.ifo].nevents
+		self.x.extend(map(float, contents[self.ifo].peak_time))
+		self.y.extend(contents[self.ifo].confidence)
 		self.seglist |= seglists[self.ifo]
 
 	def finish(self):
@@ -180,9 +172,9 @@ class ConfidenceVsFrequencyScatter(SnglBurstUtils.BurstPlot):
 		self.axes.semilogy()
 
 	def add_contents(self, contents, seglists):
-		self.nevents += contents.nevents[self.ifo]
-		self.x.extend(contents.peak_freq[self.ifo])
-		self.y.extend(contents.confidence[self.ifo])
+		self.nevents += contents[self.ifo].nevents
+		self.x.extend(contents[self.ifo].peak_freq)
+		self.y.extend(contents[self.ifo].confidence)
 
 	def finish(self):
 		self.axes.set_title("Trigger Confidence vs. Peak Frequency\n(%d Triggers)" % self.nevents)
@@ -206,8 +198,8 @@ class RateVsPeakFreq(SnglBurstUtils.BurstPlot):
 		self.rate = rate.Rate(interval, width)
 
 	def add_contents(self, contents, seglists):
-		self.nevents += contents.nevents[self.ifo]
-		for f in contents.peak_freq[self.ifo]:
+		self.nevents += contents[self.ifo].nevents
+		for f in contents[self.ifo].peak_freq:
 			self.rate[f] += 1.0
 
 	def finish(self):
@@ -234,8 +226,8 @@ class Durations(SnglBurstUtils.BurstPlot):
 		self.bins = {}
 
 	def add_contents(self, contents, seglists):
-		self.nevents += contents.nevents[self.ifo]
-		for dt in contents.duration[self.ifo]:
+		self.nevents += contents[self.ifo].nevents
+		for dt in contents[self.ifo].duration:
 			if dt not in self.bins:
 				self.bins[dt] = 0
 			self.bins[dt] += 1
@@ -264,8 +256,8 @@ class Delays(SnglBurstUtils.BurstPlot):
 		self.axes.semilogy()
 
 	def add_contents(self, contents, seglists):
-		self.nevents += contents.nevents[self.ifo]
-		peaks = list(contents.peak_time[self.ifo])
+		self.nevents += contents[self.ifo].nevents
+		peaks = list(contents[self.ifo].peak_time)
 		peaks.sort()
 		for i in xrange(1, len(peaks)):
 			dt = float(peaks[i] - peaks[i - 1])
@@ -304,8 +296,8 @@ class RateVsSNR(SnglBurstUtils.BurstPlot):
 		self.axes.loglog()
 
 	def add_contents(self, contents, seglists):
-		self.nevents += contents.nevents[self.ifo]
-		self.x.extend(contents.snr[self.ifo])
+		self.nevents += contents[self.ifo].nevents
+		self.x.extend(contents[self.ifo].snr)
 		self.seglist |= seglists[self.ifo]
 
 	def finish(self):
@@ -333,8 +325,8 @@ class RateVsConfidence(SnglBurstUtils.BurstPlot):
 		self.axes.loglog()
 
 	def add_contents(self, contents, seglists):
-		self.nevents += contents.nevents[self.ifo]
-		self.x.extend(contents.confidence[self.ifo])
+		self.nevents += contents[self.ifo].nevents
+		self.x.extend(contents[self.ifo].confidence)
 		self.seglist |= seglists[self.ifo]
 
 	def finish(self):
@@ -360,8 +352,8 @@ class TimeFrequencyPlane(SnglBurstUtils.BurstPlot):
 		self.seglist = segments.segmentlist()
 
 	def add_contents(self, contents, seglists):
-		self.nevents += contents.nevents[self.ifo]
-		viz.tfplot(numpy.array(map(float, contents.start_time[self.ifo])), numpy.array(contents.duration[self.ifo]), numpy.array(contents.lo_freq[self.ifo]), numpy.array(contents.bandwidth[self.ifo]), numpy.log(numpy.array(contents.confidence[self.ifo])), axes = self.axes)
+		self.nevents += contents[self.ifo].nevents
+		viz.tfplot(numpy.array(map(float, contents[self.ifo].start_time)), numpy.array(contents[self.ifo].duration), numpy.array(contents[self.ifo].lo_freq), numpy.array(contents[self.ifo].bandwidth), numpy.log(numpy.array(contents[self.ifo].confidence)), axes = self.axes)
 		self.seglist |= seglists[self.ifo]
 
 	def finish(self):
@@ -379,7 +371,7 @@ class TimeFrequencyPlane(SnglBurstUtils.BurstPlot):
 #
 
 
-summary = Summary()
+summary = {}
 seglists = segments.segmentlistdict()
 
 
@@ -387,7 +379,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
 	xmldoc = utils.load_filename(filename, options.verbose, gz = filename.endswith(".gz"))
-	seglists |= llwapp.segmentlistdict_fromsearchsummary(xmldoc, "lalapps_power")
+	seglists |= llwapp.segmentlistdict_fromsearchsummary(xmldoc, "lalapps_power").coalesce()
 	xmldoc.unlink()
 
 
@@ -414,7 +406,7 @@ def new_plots(ifo, plots):
 	return [l[i] for i in plots]
 
 
-for ifo in summary.nevents.keys():
+for ifo in summary.keys():
 	format = "%%s%s_%%0%dd.%%s" % (ifo, int(math.log10(max(options.plot) or 1)) + 1)
 	for plotnum, plot in zip(options.plot, new_plots(ifo, options.plot)):
 		filename = format % (options.base, plotnum, options.format)
