@@ -401,16 +401,26 @@ SELECT
 	sim_burst.*,
 	burst_coinc_event.coinc_event_id
 FROM
-	coinc_event AS burst_coinc_event
+	sim_burst
+	JOIN coinc_event AS burst_coinc_event
 	JOIN coinc_event AS sim_coinc_event ON (
 		sim_coinc_event.time_slide_id == burst_coinc_event.time_slide_id
 	)
-	JOIN sim_burst
+	JOIN coinc_event_map AS c ON (
+		-- Each injection can result in at most 1 associated entry
+		-- in the coinc_event table, so doing this join in the
+		-- outer select will not result in any injections being
+		-- counted more than once.
+		c.coinc_event_id == sim_coinc_event.coinc_event_id
+		AND c.table_name == 'sim_burst'
+		AND c.event_id == sim_burst.simulation_id
+	)
 WHERE
 	burst_coinc_event.coinc_def_id == ?
 	AND sim_coinc_event.coinc_def_id == ?
 	AND EXISTS (
-		-- Find a three-way link through the coinc_event_map table
+		-- Find a two-way link from the sim coinc to the burst
+		-- coinc through the coinc_event_map table
 		SELECT
 			*
 		FROM
@@ -420,14 +430,9 @@ WHERE
 				AND b.table_name == 'sngl_burst'
 				AND b.event_id == a.event_id
 			)
-			JOIN coinc_event_map AS c ON (
-				c.table_name == 'sim_burst'
-				AND c.coinc_event_id == b.coinc_event_id
-			)
 		WHERE
 			a.coinc_event_id == burst_coinc_event.coinc_event_id
 			AND b.coinc_event_id == sim_coinc_event.coinc_event_id
-			AND c.event_id == sim_burst.simulation_id
 	)
 		""", (database.bb_definer_id, database.sb_definer_id)):
 			# retrieve the injection and the coinc_event_id
