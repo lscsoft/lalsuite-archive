@@ -458,3 +458,14 @@ class Cache(list):
 		for entry in self:
 			print >>fp, entry.path()
 		fp.close()
+
+	def to_segmentlistdict(self):
+		"""
+		Return a segmentlistdict object describing the instruments
+		and times spanned by the entries in this Cache.  The return
+		value is coalesced.
+		"""
+		d = segments.segmentlistdict()
+		for entry in self:
+			d |= self.to_segmentlistdict()
+		return d
