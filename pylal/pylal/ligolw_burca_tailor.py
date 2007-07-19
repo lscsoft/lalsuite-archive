@@ -141,7 +141,7 @@ def coinc_params(events, offsetdict):
 		# more than one event from a given instrument, the smallest
 		# deltas are recorded
 
-		dt = float(event1.get_peak() + offsetdict[event1.ifo] - event2.get_peak() - offsetdict[event2.ifo]) / ((event1.ms_duration + event2.ms_duration) / 2)
+		dt = float(event1.get_peak() + offsetdict[event1.ifo] - event2.get_peak() - offsetdict[event2.ifo])
 		name = prefix + "dt"
 		if name not in params or abs(params[name]) > abs(dt):
 			params[name] = dt
@@ -160,6 +160,11 @@ def coinc_params(events, offsetdict):
 		name = prefix + "dband"
 		if name not in params or abs(params[name]) > abs(dband):
 			params[name] = dband
+
+		ddur = (event1.ms_duration - event2.ms_duration) / ((event1.ms_duration + event2.ms_duration) / 2)
+		name = prefix + "ddur"
+		if name not in params or abs(params[name]) > abs(ddur):
+			params[name] = ddur
 
 	return params
 
@@ -389,20 +394,42 @@ WHERE
 
 
 	def add_injections(self, database):
-		# iterate over burst<-->injection coincs
+		# iterate over burst<-->burst coincs in which at least one
+		# burst was identified as being the result of an injection
 		for values in database.connection.cursor().execute("""
-SELECT sim_burst.*, coinc_event.coinc_event_id FROM
-	coinc_event
-	JOIN coinc_event_map ON (
-		coinc_event_map.coinc_event_id == coinc_event.coinc_event_id
+SELECT
+	sim_burst.*,
+	burst_coinc_event.coinc_event_id
+FROM
+	coinc_event AS burst_coinc_event
+	JOIN coinc_event AS sim_coinc_event ON (
+		sim_coinc_event.time_slide_id == burst_coinc_event.time_slide_id
 	)
-	JOIN sim_burst ON (
-		coinc_event_map.table_name == 'sim_burst'
-		AND coinc_event_map.event_id == sim_burst.simulation_id
-	)
+	JOIN sim_burst
 WHERE
-	coinc_def_id == ?
-		""", (database.sb_definer_id,)):
+	burst_coinc_event.coinc_def_id == ?
+	AND sim_coinc_event.coinc_def_id == ?
+	AND EXISTS (
+		-- Find a three-way link through the coinc_event_map table
+		SELECT
+			*
+		FROM
+			coinc_event_map AS a
+			JOIN coinc_event_map AS b ON (
+				a.table_name == 'sngl_burst'
+				AND b.table_name == 'sngl_burst'
+				AND b.event_id == a.event_id
+			)
+			JOIN coinc_event_map AS c ON (
+				c.table_name == 'sim_burst'
+				AND c.coinc_event_id == b.coinc_event_id
+			)
+		WHERE
+			a.coinc_event_id == burst_coinc_event.coinc_event_id
+			AND b.coinc_event_id == sim_coinc_event.coinc_event_id
+			AND c.event_id == sim_burst.simulation_id
+	)
+		""", (database.bb_definer_id, database.sb_definer_id)):
 			# retrieve the injection and the coinc_event_id
 			sim = database.sim_burst_table._row_from_cols(values[:-1])
 			coinc_event_id = values[-1]
@@ -505,15 +532,18 @@ class DistributionsStats(Stats):
 		"H1_H2_dband": 1.0 / 25,
 		"H1_L1_dband": 1.0 / 25,
 		"H2_L1_dband": 1.0 / 25,
+		"H1_H2_ddur": 1.0 / 25,
+		"H1_L1_ddur": 1.0 / 25,
+		"H2_L1_ddur": 1.0 / 25,
 		"H1_H2_df": 1.0 / 360,
 		"H1_L1_df": 1.0 / 360,
 		"H2_L1_df": 1.0 / 360,
 		"H1_H2_dh": 1.0 / 200,
 		"H1_L1_dh": 1.0 / 9,
 		"H2_L1_dh": 1.0 / 9,
-		"H1_H2_dt": 1.0 / 300,
-		"H1_L1_dt": 1.0 / 300,
-		"H2_L1_dt": 1.0 / 300
+		"H1_H2_dt": 1.0 / 7000,
+		"H1_L1_dt": 1.0 / 7000,
+		"H2_L1_dt": 1.0 / 7000
 	}
 
 	def __init__(self, max_hrss_ratio, max_frequency_ratio, thresholds):
@@ -534,6 +564,8 @@ class DistributionsStats(Stats):
 			name = "%s_%s_dh" % pair
 			rate_args[name] = (dhinterval, self.filter_widths[name])
 			name = "%s_%s_dband" % pair
+			rate_args[name] = (segments.segment(-2.0, 2.0), self.filter_widths[name])
+			name = "%s_%s_ddur" % pair
 			rate_args[name] = (segments.segment(-2.0, 2.0), self.filter_widths[name])
 		self.distributions = CoincParamsDistributions(**rate_args)
 
