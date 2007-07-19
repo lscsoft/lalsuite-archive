@@ -810,6 +810,19 @@ class CondorDAG:
     self.__node_count = 0
     self.__nodes_finalized = 0
 
+  def get_nodes(self):
+    """
+    Return a list containing all the nodes in the DAG
+    """
+    return self.__nodes
+  
+  def get_jobs(self):
+    """
+    Return a list containing all the jobs in the DAG
+    """
+    return self.__jobs
+
+
   def is_dax(self):
     """
     Returns true if this DAG is really a DAX
