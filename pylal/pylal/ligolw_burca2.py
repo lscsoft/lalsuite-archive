@@ -218,8 +218,9 @@ def ligolw_burca2(database, likelihood_ratio, verbose = False):
 	time_slides = database.time_slide_table.as_dict()
 
 	#
-	# Iterate over coincs, assigning likelihood ratios to burst+burst
-	# coincs, and sim+burst coincs if the document contains them.
+	# Iterate over all coincs, assigning likelihood ratios to
+	# burst+burst coincs, and sim+burst coincs if the document contains
+	# them.
 	#
 
 	if verbose:
