@@ -80,5 +80,5 @@ def light_travel_time(instrument1, instrument2):
 	"""
 	# c in free space = 299792458 m / s
 	# FIXME: from where can I import that constant?
-	dx = cached_detector[prefix_to_name[instrument1]].location - cached_detector[prefix_to_name[instrument2]]
+	dx = cached_detector[prefix_to_name[instrument1]].location - cached_detector[prefix_to_name[instrument2]].location
 	return math.sqrt((dx * dx).sum()) / 299792458
