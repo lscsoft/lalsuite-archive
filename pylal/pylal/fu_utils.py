@@ -456,9 +456,27 @@ class followUpList:
     self.page = page
 
 #############################################################################
+# Function to generate a trigbank xml file
+#############################################################################
+def generateXMLfile(ckey,ifo,gpsTime):
+
+  xmldoc = ligolw.Document()
+  xmldoc.appendChild(ligolw.LIGO_LW())
+
+  process_params_table = lsctables.New(lsctables.ProcessParamsTable)
+  xmldoc.childNodes[-1].appendChild(process_params_table) 
+
+  sngl_inspiral_table = lsctables.New(lsctables.SnglInspiralTable)
+  xmldoc.childNodes[-1].appendChild(sngl_inspiral_table)
+  trig = getattr(ckey,ifo)
+  sngl_inspiral_table.append(trig) 
+
+  utils.write_filename(xmldoc, ifo + '-TRIGBANK_FOLLOWUP_' + gpsTime + ".xml", verbose = True, gz = False)   
+
+#############################################################################
 # Function to return the follow up list of coinc triggers
 #############################################################################
-def getfollowuptrigs(numtrigs,page,coincs=None,missed=None,search=None):
+def getfollowuptrigs(numtrigs,page,coincs=None,missed=None,search=None,trigbank_test=None):
 
   followups = []
   if coincs:
@@ -481,31 +499,49 @@ def getfollowuptrigs(numtrigs,page,coincs=None,missed=None,search=None):
         getattr(ckey,'H1')
         fuList.gpsTime["H1"] = (float(getattr(ckey,'H1').end_time_ns)/1000000000)+float(getattr(ckey,'H1').end_time)
         fuList.ifoList = fuList.ifoList + 'H1' # at present time, it is used only to get the first relevant ifo
+        if trigbank_test:
+          try: generateXMLfile(ckey,'H1',str(fuList.gpsTime["H1"])) 
+          except: print "the trigBank xml file could not be generated for H1 " + str(fuList.eventID)
       except: fuList.gpsTime["H1"] = None
       try:
         getattr(ckey,'H2')
         fuList.gpsTime["H2"] = (float(getattr(ckey,'H2').end_time_ns)/1000000000)+float(getattr(ckey,'H2').end_time)
         fuList.ifoList = fuList.ifoList + 'H2'
+        if trigbank_test:
+          try: generateXMLfile(ckey,'H2',str(fuList.gpsTime["H2"]))
+          except: print "the trigBank xml file could not be generated for H2 " + str(fuList.eventID)
       except: fuList.gpsTime["H2"] = None
       try:
         getattr(ckey,'L1')
         fuList.gpsTime["L1"] = (float(getattr(ckey,'L1').end_time_ns)/1000000000)+float(getattr(ckey,'L1').end_time)
         fuList.ifoList = fuList.ifoList + 'L1'
+        if trigbank_test:
+          try: generateXMLfile(ckey,'L1',str(fuList.gpsTime["L1"]))
+          except: print "the trigBank xml file could not be generated for L1 " + str(fuList.eventID)
       except: fuList.gpsTime["L1"] = None
       try:
         getattr(ckey,'G1')
         fuList.gpsTime["G1"] = (float(getattr(ckey,'G1').end_time_ns)/1000000000)+float(getattr(ckey,'G1').end_time)
         fuList.ifoList = fuList.ifoList + 'G1'
+        if trigbank_test:
+          try: generateXMLfile(ckey,'G1',str(fuList.gpsTime["G1"]))
+          except: print "the trigBank xml file could not be generated for G1 " + str(fuList.eventID)
       except: fuList.gpsTime["G1"] = None
       try:
         getattr(ckey,'V1')
         fuList.gpsTime["V1"] = (float(getattr(ckey,'V1').end_time_ns)/1000000000)+float(getattr(ckey,'V1').end_time)
         fuList.ifoList = fuList.ifoList + 'V1'
+        if trigbank_test:
+          try: generateXMLfile(ckey,'V1',str(fuList.gpsTime["V1"]))
+          except: print "the trigBank xml file could not be generated for V1 " + str(fuList.eventID)
       except: fuList.gpsTime["V1"] = None
       try:
         getattr(ckey,'T1')
         fuList.gpsTime["T1"] = (float(getattr(ckey,'T1').end_time_ns)/1000000000)+float(getattr(ckey,'T1').end_time)
         fuList.ifoList = fuList.ifoList + 'T1'
+        if trigbank_test:
+          try: generateXMLfile(ckey,'T1',str(fuList.gpsTime["T1"]))
+          except: print "the trigBank xml file could not be generated for T1 " + str(fuList.eventID)
       except: fuList.gpsTime["T1"] = None
 
       # now, find the ifoTag associated with the triggers, using the search summary tables...
@@ -682,7 +718,7 @@ def publishOnHydra(page):
         fList.append((float(temp.group().rsplit('_')[0]), \
                   temp.group().rsplit('_')[1]))
     indexFile.write('<h3>Found Trigger follow ups</h3>\n')
-    sortedF = sorted(fList,key=operator.itemgetter(0),reverse=False)
+    sortedF = sorted(fList,key=operator.itemgetter(0),reverse=True)
     for i in sortedF:
       stat.append(str(i[0]))
       ID.append('<a href="' +page+ '/followuptrigs/'+str(i[0])+'_'+str(i[1])+
