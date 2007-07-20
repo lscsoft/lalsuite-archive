@@ -117,7 +117,7 @@ def plot_coinc_params(distributions, plottype):
 	#
 
 	size = 12.0
-	n_vert = 4
+	n_vert = 5
 	fig.set_size_inches(size * n_horiz / n_vert, size / ((1 + math.sqrt(5)) / 2))
 
 	#
@@ -140,26 +140,31 @@ def plot_coinc_params(distributions, plottype):
 		df_axes = fig.add_axes((left, 1 * height + vlabel_allowance + border, width, height - vlabel_allowance - 2 * border))
 		dh_axes = fig.add_axes((left, 2 * height + vlabel_allowance + border, width, height - vlabel_allowance - 2 * border))
 		dband_axes = fig.add_axes((left, 3 * height + vlabel_allowance + border, width, height - vlabel_allowance - 2 * border))
+		ddur_axes = fig.add_axes((left, 4 * height + vlabel_allowance + border, width, height - vlabel_allowance - 2 * border))
 
 		dt_axes.semilogy()
 		df_axes.semilogy()
 		dh_axes.semilogy()
 		dband_axes.semilogy()
+		ddur_axes.semilogy()
 
-		dt_axes.set_xlabel(r"$(t_{\mathrm{%s}} - t_{\mathrm{%s}}) / \left< \Delta t \right>$" % pair)
+		dt_axes.set_xlabel(r"$t_{\mathrm{%s}} - t_{\mathrm{%s}}$ (s)" % pair)
 		df_axes.set_xlabel(r"$(f_{\mathrm{%s}} - f_{\mathrm{%s}}) / \left< f \right>$" % pair)
 		dh_axes.set_xlabel(r"$({h_{\mathrm{rss}}}_{\mathrm{%s}} - {h_{\mathrm{rss}}}_{\mathrm{%s}}) / \left< h_{\mathrm{rss}} \right>$" % pair)
 		dband_axes.set_xlabel(r"$(\Delta f_{\mathrm{%s}} - \Delta f_{\mathrm{%s}}) / \left< \Delta f \right>$" % pair)
+		ddur_axes.set_xlabel(r"$(\Delta t_{\mathrm{%s}} - \Delta t_{\mathrm{%s}}) / \left< \Delta t \right>$" % pair)
 		#if plottype == "P":
 		#	dt_axes.set_ylabel(r"$P$")
 		#	df_axes.set_ylabel(r"$P$")
 		#	dh_axes.set_ylabel(r"$P$")
 		#	dband_axes.set_ylabel(r"$P$")
+		#	ddur_axes.set_ylabel(r"$P$")
 		#elif plottype == "LR":
 		#	dt_axes.set_ylabel(r"$\Lambda$")
 		#	df_axes.set_ylabel(r"$\Lambda$")
 		#	dh_axes.set_ylabel(r"$\Lambda$")
 		#	dband_axes.set_ylabel(r"$\Lambda$")
+		#	ddur_axes.set_ylabel(r"$\Lambda$")
 
 		#
 		# Plot the data on them.
@@ -181,6 +186,10 @@ def plot_coinc_params(distributions, plottype):
 		red_rate = distributions.injection_rates[prefix + "dband"]
 		black_rate = distributions.background_rates[prefix + "dband"]
 		add_to_plot(dband_axes, red_rate, black_rate, plottype)
+
+		red_rate = distributions.injection_rates[prefix + "ddur"]
+		black_rate = distributions.background_rates[prefix + "ddur"]
+		add_to_plot(ddur_axes, red_rate, black_rate, plottype)
 
 	#
 	# Done.
