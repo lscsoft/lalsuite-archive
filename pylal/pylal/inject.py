@@ -34,6 +34,9 @@ rather than importing xlal.inject directly.
 """
 
 
+import math
+
+
 from xlal.inject import *
 
 
@@ -65,3 +68,17 @@ prefix_to_name = dict([(detector.prefix, detector.name) for detector in cached_d
 # =============================================================================
 #
 
+
+def light_travel_time(instrument1, instrument2):
+	"""
+	Compute and return the time required for light to travel through
+	free space the distance separating the two instruments.  The inputs
+	are two instrument prefixes (e.g., "H1"), and the result is
+	returned in seconds.  Note how this differs from LAL's
+	XLALLightTravelTime() function, which takes two detector objects as
+	input, and returns the time truncated to integer nanoseconds.
+	"""
+	# c in free space = 299792458 m / s
+	# FIXME: from where can I import that constant?
+	dx = cached_detector[prefix_to_name[instrument1]].location - cached_detector[prefix_to_name[instrument2]]
+	return math.sqrt((dx * dx).sum()) / 299792458
