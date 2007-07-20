@@ -8,9 +8,7 @@ import exceptions
 import glob
 from types import *
 
-from pylab import *
 from glue import segmentsUtils
-from pylal import viz
 from pylal import SimInspiralUtils
 
 
@@ -77,6 +75,12 @@ parser.add_option("-x","--title-text",action="store",type="string",\
 
 (opts,args) = parser.parse_args()
 
+# Change to Agg back-end if show() will not be called
+if not opts.show_plot:
+  import matplotlib
+  matplotlib.use('Agg')
+from pylab import *
+from pylal import viz
 
 # glob the list of files to read in
 missedfiles = glob.glob(opts.glob_missed);

@@ -13,7 +13,6 @@ import exceptions
 import glob
 from types import *
 
-from pylab import *
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from pylal import SimInspiralUtils
@@ -47,6 +46,12 @@ parser.add_option("-s","--show-plot",action="store_true",default=False,\
     help="display the figures on the terminal" )
 
 (opts,args) = parser.parse_args()
+
+# Change to Agg back-end if show() will not be called
+if not opts.show_plot:
+  import matplotlib
+  matplotlib.use('Agg')
+from pylab import *
 
 if opts.found_glob:
   foundFiles = glob.glob(opts.found_glob)
