@@ -27,7 +27,6 @@
 
 
 import bisect
-import math
 import sys
 
 
@@ -43,11 +42,6 @@ from pylal.date import LIGOTimeGPS
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
-
-
-# speed of light in free space (m / s)
-
-C = 299792458
 
 
 #
@@ -341,18 +335,14 @@ def ExcessPowerCoincCompare(a, b, thresholds):
 	dt, df, dhrss = thresholds
 
 	# add light tavel time to dt
-	dx = inject.cached_detector[inject.prefix_to_name[a.ifo]].location - inject.cached_detector[inject.prefix_to_name[b.ifo]]
-	dt += math.sqrt((dx * dx).sum()) / C
+	dt += inject.light_travel_time(a.ifo, b.ifo)
 
 	# convert fractional deltas to absolute deltas
 	df = df * (a.peak_frequency + b.peak_frequency) / 2
 	dhrss = dhrss * (a.ms_hrss + b.ms_hrss) / 2
 
-	# test for coincidence
-	coincident = abs(float(a.get_peak() - b.get_peak())) <= dt and abs(a.peak_frequency - b.peak_frequency) <= df and abs(a.ms_hrss - b.ms_hrss) <= dhrss
-
-	# return result
-	return not coincident
+	# return False if events are coincident, True if they aren't
+	return abs(float(a.get_peak() - b.get_peak())) > dt or abs(a.peak_frequency - b.peak_frequency) > df or abs(a.ms_hrss - b.ms_hrss) > dhrss
 
 
 def StringCoincCompare(a, b, thresholds):
