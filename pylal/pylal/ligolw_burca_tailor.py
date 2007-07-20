@@ -39,6 +39,7 @@ from glue.ligolw import param
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
+from pylal import inject
 from pylal import itertools
 from pylal import ligolw_burca
 from pylal import llwapp
@@ -295,7 +296,7 @@ class Covariance(object):
 def good_injection_matches(sim, events, max_hrss_ratio, max_frequency_ratio):
 	"""
 	Return a list of the sngl_burst events from the events list that
-	are "good" matches for the sim_burst.  binjfind will any only thing
+	are "good" matches for the sim_burst.  binjfind will any old thing
 	that happens to be at the same time and frequency of an injection,
 	but we want to teach the Bayesian coincidence filter what a "good"
 	found injection looks like.  So we remove poor reconstructions from
@@ -563,7 +564,7 @@ class DistributionsStats(Stats):
 		rate_args = {}
 		for pair, (dtinterval, dfinterval, dhinterval) in thresholds.items():
 			name = "%s_%s_dt" % pair
-			rate_args[name] = (dtinterval, self.filter_widths[name])
+			rate_args[name] = (dtinterval.protract(inject.light_travel_time(*pair) / 2), self.filter_widths[name])
 			name = "%s_%s_df" % pair
 			rate_args[name] = (dfinterval, self.filter_widths[name])
 			name = "%s_%s_dh" % pair
@@ -580,7 +581,9 @@ class DistributionsStats(Stats):
 
 	def _add_injections(self, param_func, sim, events, offsetdict):
 		# remove events whose h_rss differs from the correct value
-		# by more than a factor of max_hrss_ratio.
+		# by more than a factor of max_hrss_ratio, and whose
+		# frequency differs from the correct value by more than a
+		# factor of max_frequency_ratio.
 		events = good_injection_matches(sim, events, self.max_hrss_ratio, self.max_frequency_ratio)
 		self.distributions.add_injection(param_func, events, offsetdict)
 
