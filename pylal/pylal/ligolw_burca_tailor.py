@@ -564,7 +564,7 @@ class DistributionsStats(Stats):
 		rate_args = {}
 		for pair, (dtinterval, dfinterval, dhinterval) in thresholds.items():
 			name = "%s_%s_dt" % pair
-			rate_args[name] = (dtinterval.protract(inject.light_travel_time(*pair) / 2), self.filter_widths[name])
+			rate_args[name] = (dtinterval.protract(inject.light_travel_time(*pair)), self.filter_widths[name])
 			name = "%s_%s_df" % pair
 			rate_args[name] = (dfinterval, self.filter_widths[name])
 			name = "%s_%s_dh" % pair
