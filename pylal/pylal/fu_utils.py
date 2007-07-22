@@ -145,6 +145,18 @@ class getCache(UserDict):
 
     return proc
 
+#  def filesMatchingGPSinDir(self, gpsTime, dir)
+#    fileList = os.listdir(dir)
+#    cacheList = []
+#    for line in fileList:
+#      try:
+#        start = eval(line.split('-')[2])
+#        end = eval((line.split('-')[3]).split('.')[0])
+#        if ( (end >= gpsTime) and (start <= gpsTime) and () ):
+#          cacheList.append(line)
+#      except: pass
+#    return cacheList 
+
   def filesMatchingGPSinCache(self, time, cacheString):
     cacheSubSet = self.ifoDict()   
     cacheFile = open(cacheString,"r")
@@ -314,6 +326,11 @@ def setupdirs():
     os.chdir("datafind_cache")
     os.chdir('..')
   except: os.mkdir("datafind_cache")
+
+#  try:
+#    os.chdir("hoft_qscan_cache")
+#    os.chdir('..')
+#  except: os.mkdir("hoft_qscan_cache")
 
 #############################################################################
 # function to return the number of slides in a file (as a string)
