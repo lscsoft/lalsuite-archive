@@ -146,7 +146,7 @@ parser.add_option("-n", "--ntrials", type="int", default=0,
 parser.add_option("-l", "--loudest-event-cut", action="store_true",
   default=False, help="evaluate probabilities with a loudest-event cut")
 parser.add_option("-c", "--min-loudest-event-stat", type="float",
-  help="if there are no candidates, use this as the loudest event statistic")
+    default=0.0, help="if there are no candidates, use this as the loudest event statistic")
 parser.add_option("-P", "--figure-type", default="ps",
   help="generate figures with this extension (e.g. ps or png")
 parser.add_option("-x", "--min-snr", type="float",
@@ -219,8 +219,13 @@ if not opts.show_plot:
   import matplotlib
   matplotlib.use('Agg')
 from pylab import *
-rc('axes', titlesize='x-large', labelsize='x-large')
-rc('text', usetex=True)
+params = {'backend': 'ps',
+'axes.labelsize': 16,
+'text.fontsize': 16,
+'xtick.labelsize': 14,
+'ytick.labelsize': 14,
+'text.usetex': True}
+rcParams.update(params)
 
 #####################################################################
 # initialize some basic information
@@ -331,6 +336,8 @@ for seg in seglist:
   cum_offsource = sum(num_offsource)-cumsum(num_offsource[0:bin.size])
   # adds a row to the cum_dist_offsource
   cum_dist_offsource.append(cum_offsource)
+
+cum_dist_offsource = array(cum_dist_offsource)
 #cum_dist_offsource = reshape(array(cum_dist_offsource), \
       #(len(seglist),opts.nbins))
 
@@ -338,6 +345,10 @@ for seg in seglist:
 offsource_mean = mean(cum_dist_offsource)
 # takes the std over rows for each column
 offsource_std = std(cum_dist_offsource)
+
+####################################################################
+# Plot the standard histogram of expected number of events based on
+# the off source times.
 clf()
 figure()
 hold(True)
@@ -358,6 +369,15 @@ axis([ xlow*xlow, (xhigh-2*ds)*(xhigh-2*ds), 0.001, 10.0])
 xlabel(r"$\rho_{\mathrm{eff}}^2$")
 ylabel(r"Expected number of events")
 savefig("snr_dist.%s" % opts.figure_type)
+
+#####################################################################
+# Plot the number of events in each off-source segment
+figure()
+plot(arange(cum_dist_offsource),sum(cum_dist_offsource,1))
+grid(True)
+xlabel(r"Off-source segment")
+ylabel(r"Number of triggers")
+savefig("triggers_per_offsource.%s" % opts.figure_type)
 
 
 #####################################################################
