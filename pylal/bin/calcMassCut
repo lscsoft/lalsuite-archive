@@ -18,8 +18,8 @@ from pylal import CoincInspiralUtils
 ##############################################################################
 usage = """usage: %prog [options]
 
-Program to calculate the mass region for triggers given a mass region for
-injections and the found injections.
+Program to calculate the mass region in template space needed to make an
+upper limit on a mass region in injection space.
 
 """
 parser = optparse.OptionParser( usage=usage, version="%prog CVS $Id$")
