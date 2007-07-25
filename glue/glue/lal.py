@@ -441,6 +441,13 @@ class Cache(list):
 	add anything to a Cache. This method should check that the thing you
 	are adding is a CacheEntry and throw and error if it is not.
 	"""
+	def read(self,filename):
+		"""
+		read in a cache object from filename
+		"""
+		c = [CacheEntry(line) for line in open(filename)]
+		return Cache(c)
+
 	def write(self,filename):
 		"""
 		write a cache object to filename as a lal cache file
@@ -469,3 +476,31 @@ class Cache(list):
 		for entry in self:
 			d |= self.to_segmentlistdict()
 		return d
+
+	def sieve(self,ifos=None,description=None,segment=None):
+		"""
+		Return a Cache object with those CacheEntries that match a
+		given pattern. The sieve will return a cache filtered to
+		contain for the ifos, description, and which overlap the
+		segment.
+		"""
+		c=self
+
+		if ifos:
+			c=[entry for entry in c if (re.match(ifos,entry.observatory))]
+
+		if description:
+			c=[entry for entry in c if (re.match(description,entry.description))]
+
+		if segment:
+			c=[entry for entry in c if (not entry.segment.disjoint(segment))]
+
+		return Cache(c)
+
+	def pfnlist(self):
+		"""
+		Return a list of physical file names.
+		"""
+		return [entry.path() for entry in self]
+
+
