@@ -1,0 +1,215 @@
+#!/usr/bin/python
+
+# $Id$
+__author__ = "Drew Keppel <drew.keppel@ligo.org>"
+__version__ = "$Revision$"[11:-2]
+__date__ = "$Date$"[7:-2]
+
+
+import sys, os, re, exceptions, glob, optparse, itertools
+from types import *
+
+from glue.ligolw import lsctables
+
+from pylal import SimInspiralUtils
+from pylal import SnglInspiralUtils
+from pylal import CoincInspiralUtils
+
+##############################################################################
+usage = """usage: %prog [options]
+
+Program to calculate the mass region for triggers given a mass region for
+injections and the found injections.
+
+"""
+parser = optparse.OptionParser( usage=usage, version="%prog CVS $Id$")
+
+parser.add_option("-g","--glob",action="store",type="string",\
+  default=[], metavar=" GLOB",help="GLOB of found injections files to read" )
+parser.add_option("-I", "--input", help="read thinca filenames from input file")
+
+parser.add_option("-t","--mass-type",action="store",type="string",
+    default=None,metavar=" TYPE",
+    help="type of mass region to use (mtotal|mchirp)")
+parser.add_option("-m","--m-low",action="store",type="float",
+    default=False,metavar=" MASS",
+    help="the lower bound on the mass for injections" )
+parser.add_option("-M","--m-hi",action="store",type="float",
+    default=False,metavar=" MASS",
+    help="the upper bound on the mass for injections" )
+
+parser.add_option("-p","--mass-mass",action="store_true",default=False,
+    help="make the recovered mass vs. injected mass plot" )
+parser.add_option("-P","--hist-mass-error",action="store_true",default=False,
+    help="make a histogram of the mass error" )
+parser.add_option("-n","--num-bins",action="store",type='int',\
+  default=20, metavar=" NUM",\
+  help="number of bins used in histogram" )
+parser.add_option("-f","--figure-name",action="store",type="string",
+    default=None,metavar=" FNAME",
+    help="generate png figures with name FNAME-fig.png")
+parser.add_option("-s","--show-plot",action="store_true",default=False,
+    help="display the figures on the terminal" )
+
+(opts,args) = parser.parse_args()
+
+###############################
+# check for necessary arguments
+if not opts.glob and not opts.input:
+  print >>sys.stderr, "Must specify a --glob of files or --input file to read"
+  print >>sys.stderr, "Enter 'plotthinca --help' for usage"
+  sys.exit(1)
+
+if not opts.mass_type == 'mchirp' and not opts.mass_type == 'mtotal':
+  print >>sys.stderr, "Must specify --mass-type as either mtotal or mchirp"
+  sys.exit(1)
+
+###########################################
+# read files in from the glob or input file
+fList = []
+if opts.glob is not None:
+    fList += glob.glob(opts.glob)
+if opts.input is not None:
+    fList += [lal.CacheEntry(line).path() for line in open(opts.input)]
+if len(fList) < 1:
+  print >>sys.stderr, "The glob for " + opts.glob + " returned no files"
+  sys.exit(1)
+
+#####################################################################
+# Do the pylab import in such a way that doesn't require an X display
+# if show() won't be invoked.
+if not opts.show_plot:
+  import matplotlib
+  matplotlib.use('Agg')
+from pylab import *
+from pylal import viz
+rc('text', usetex=True)
+
+##################################################
+# import CoincInspiral table and SimInspiral table
+statistic = CoincInspiralUtils.coincStatistic( "snr" )
+injDict = {}
+injDict["sngl_inspiral"] = SnglInspiralUtils.ReadSnglInspiralFromFiles(fList)
+injDict["coincs"] = \
+     CoincInspiralUtils.coincInspiralTable(injDict["sngl_inspiral"], statistic)
+injDict["sim_inspiral"] = SimInspiralUtils.ReadSimInspiralFromFiles(fList)
+
+##############################################################################
+# only keep CoincInspiral and SimInspiral entries within injection mass region
+injSet = {}
+injSet["rec_mass"] = []
+injSet["inj_mass"] = []
+if opts.mass_type == 'mtotal':
+  for idx in range(len(injDict["sim_inspiral"])):
+    if opts.m_low <= injDict["sim_inspiral"].get_column("total_mass")[idx] \
+        and injDict["sim_inspiral"].get_column("total_mass")[idx] < opts.m_hi:
+      injSet["inj_mass"].append(float(injDict["sim_inspiral"].\
+          get_column("total_mass")[idx]))
+      combo,ifos = injDict["coincs"][idx].get_ifos()
+      massRecovered = 0.0
+      for ifo in ifos:
+        massRecovered += getattr(injDict["coincs"][idx],ifo).mass1 + \
+                         getattr(injDict["coincs"][idx],ifo).mass2
+      massRecovered /= len(ifos)
+      injSet["rec_mass"].append(massRecovered)
+elif opts.mass_type == 'mchirp':
+  for idx in range(len(injDict["sim_inspiral"])):
+    if opts.m_low <= injDict["sim_inspiral"].get_column("mchirp")[idx] \
+        and injDict["sim_inspiral"].get_column("mchirp")[idx] < opts.m_hi:
+      injSet["inj_mass"].append(float(injDict["sim_inspiral"].\
+          get_column("mchirp")[idx]))
+      combo,ifos = injDict["coincs"][idx].get_ifos()
+      massRecovered = 0.0
+      for ifo in ifos:
+        massRecovered += getattr(injDict["coincs"][idx],ifo).mchirp
+      massRecovered /= len(ifos)
+      injSet["rec_mass"].append(massRecovered)
+
+###################################
+# calculate the fraction mass error
+massError = (array(injSet["rec_mass"]) - array(injSet["inj_mass"])) / \
+             array(injSet["inj_mass"])
+sigmaMassError = std(massError)
+meanMassError = mean(massError)
+
+##########################################################################
+# recalculate after getting rid of outliers greater than 5 sigma from mean
+# do this until sigma changes by less than 10%
+newSigmaMassError = sigmaMassError
+newMeanMassError = meanMassError
+while True:
+  tmpMassError = []
+  for idx in range(len(massError)):
+    if abs(massError[idx] - newMeanMassError) < newMeanMassError + \
+        5.0*newSigmaMassError:
+      tmpMassError.append(massError[idx])
+  oldSigmaMassError = newSigmaMassError
+  oldMeanMassError = newMeanMassError
+  newSigmaMassError = std(tmpMassError)
+  newMeanMassError = mean(tmpMassError)
+  if (oldSigmaMassError - newSigmaMassError)/oldSigmaMassError < 0.1:
+    break
+
+sigmaMassError = newSigmaMassError
+meanMassError = newMeanMassError
+
+###############################################################
+# convert this into a minimum and maximum mass in trigger space
+minMass = max(0.0,opts.m_low*(1 - 4.0*sigmaMassError + min(0.0,meanMassError)))
+maxMass = opts.m_hi*(1 + 4.0*sigmaMassError + max(0.0,meanMassError))
+
+minString = 'The minimum ' + opts.mass_type + ' should be: ' + str(minMass)
+maxString = 'The maximum ' + opts.mass_type + ' should be: ' + str(maxMass)
+
+print minString
+print maxString
+
+##############################################
+# infinite sequence of integers, starting at 1
+plot_num = itertools.count(1)
+
+##################################
+# plot recovered vs. injected mass
+if opts.mass_mass:
+  figure(plot_num.next())
+  plot(injSet["inj_mass"], injSet["rec_mass"],'rx')
+  hold(True)
+  axvline(x=opts.m_low, linewidth=2, color='b')
+  axvline(x=opts.m_hi, linewidth=2, color='b')
+  axhline(y=minMass, linewidth=2, color='r')
+  axhline(y=maxMass, linewidth=2, color='r')
+  xlim(xmin=int(opts.m_low)-1.0,xmax=int(opts.m_hi)+1.0)
+  ylim(ymin=int(minMass)-1.0,ymax=int(maxMass)+1.0)
+  if opts.mass_type == 'mtotal':
+    ylabel('Recovered $M_{total}$ $(M_{\odot})$',size='x-large')
+    xlabel('Injected $M_{total}$ $(M_{\odot})$',size='x-large')
+  elif opts.mass_type == 'mchirp':
+    ylabel('Recovered $M_{chirp}$ $(M_{\odot})$',size='x-large')
+    xlabel('Injected $M_{chirp}$ $(M_{\odot})$',size='x-large')
+  if opts.figure_name:
+    savefig(opts.figure_name + '_inj_vs_rec_' + opts.mass_type + '.png')
+
+####################################
+# histogram of fractional mass error
+if opts.hist_mass_error:
+  figure(plot_num.next())
+  massErrorMax = max(massError)
+  massErrorMin = min(massError)
+  y,x,patches = hist(massError,bins=opts.num_bins)
+  bar(x,y,width=(massErrorMax - massErrorMin)/opts.num_bins)
+  hold(True)
+  normalization = ((massErrorMax - massErrorMin)/opts.num_bins)* \
+                  len(massError)/(2.0*pi*sigmaMassError**2.0)**(0.5)
+  x_gauss = array(range(501))*(massErrorMax - massErrorMin)/500.0 + massErrorMin
+  y_gauss = normalization*exp(-(x_gauss - meanMassError)**2.0/ \
+                               (2.0*sigmaMassError**2.0))
+  plot(x_gauss,y_gauss,'k',linewidth=2)
+  axvline(x=5.0*sigmaMassError + meanMassError, linewidth=2, color='r')
+  axvline(x=-5.0*sigmaMassError + meanMassError, linewidth=2, color='r')
+  ylabel('$\#$',size='x-large')
+  xlabel('Fractional Mass Error',size='x-large') 
+  if opts.figure_name:
+    savefig(opts.figure_name + '_frac_mass_error_hist.png')
+
+if opts.show_plot:
+  show()
