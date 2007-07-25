@@ -10,6 +10,7 @@ from types import *
 
 from pylal import SnglInspiralUtils
 from pylal import SimInspiralUtils
+from pylal import SearchSummaryUtils
 from glue import lal
 from glue import segments
 from glue import segmentsUtils
@@ -63,7 +64,7 @@ parser.add_option("-s","--show-plot",action="store_true",default=False,\
 parser.add_option("-z","--snr-time",action="store_true",default=False,\
     help="make a plot of snr vs time" )
 parser.add_option("-y","--add-vertical-line",action="store",default=None,\
-    metavar=" GPS_TIME",type="int",\
+    metavar=" GPS_TIME",type="float",\
     help="add a vertical line at GPS_TIME to the snr vs time plot" )
 parser.add_option("-a","--snr-chisq",action="store_true",default=False,\
     help="make a plot of snr vs chisq" )
@@ -111,6 +112,12 @@ parser.add_option("-X","--x-max",action="store",type="float",\
     default=None, metavar="XMAX",help="set plot xmax to XMAX")
 parser.add_option("-L", "--log-y", action="store_true", default=False,
     help="set the y axis to have a log scale")
+parser.add_option("-M","--missed-inj",action="store",type="string",\
+    default=None, metavar=" FILE",
+    help="file containing missed nearby injection")
+parser.add_option("","--min-distance",action="store",type="float",\
+    default=None, metavar="EFFDIST",
+    help="only look at missed injections closer than EFFDIST")
 
 (opts,args) = parser.parse_args()
 
@@ -127,6 +134,12 @@ if opts.glob is None and opts.input is None:
 if opts.norm_hist_snr and not opts.analyzed_time:
   print >>sys.stderr, "to make the normalized cumulative histogram"
   print >>sys.stderr, "the --analyzed-time must be specified"
+  sys.exit(1)
+
+if opts.missed_inj and not opts.min_distance:
+  print >>sys.stderr, "both a missed injections file and a maximum"
+  print >>sys.stderr, "distance should be specified when following"
+  print >>sys.stderr, "up nearby missed injections"
   sys.exit(1)
 
 # Now, use the Agg backend if it's unnecessary to call plot(), then do imports
@@ -158,7 +171,37 @@ if opts.template_bank:
 if opts.veto_file:
   seglist = segmentsUtils.fromsegwizard(open(opts.veto_file))
   inspTriggers = inspTriggers.veto(seglist)
-  
+
+# determine missed injection file
+if opts.missed_inj:
+  anlayzedsegs = SearchSummaryUtils.GetSegListFromSearchSummaries(trigFiles)
+
+  inspDict = {}
+  inspDict["ifo"] = inspTriggers[0].ifo
+  missedDict = {}
+
+  missedDict["sim_inspiral"] = SimInspiralUtils.ReadSimInspiralFromFiles(\
+      [ opts.missed_inj ])
+  missedDict["mis_time"] = viz.readcol(missedDict["sim_inspiral"], \
+    "end_time", inspDict["ifo"] )
+  missedDict["mis_dist"] = viz.readcol(missedDict["sim_inspiral"], "eff_dist", \
+    inspDict["ifo"] )
+
+  followupMissed = {}
+  followupMissed["mis_time"] = []
+  followupMissed["mis_triggers"] = []
+  x = segments.segmentlistdict()
+  x["anlayzedsegs"] = segments.segmentlist(anlayzedsegs[inspDict["ifo"]])
+  for i in range(len(missedDict["mis_time"])):
+    if missedDict["mis_dist"][i] < opts.min_distance:
+      thisSegment = segments.segment(missedDict["mis_time"][i] - 10,
+                                     missedDict["mis_time"][i] + 10)
+      x["missedSeg"] = segments.segmentlist([thisSegment])
+      x["overlapSeg"] = x.intersection(["missedSeg", "anlayzedsegs"])
+      followupMissed["mis_time"].append(missedDict["mis_time"][i])
+      followupMissed["mis_triggers"].append(
+          inspTriggers.veto(x["overlapSeg"].__invert__()))
+
 max_snr = max(inspTriggers.get_column('snr'))
 min_snr = min(inspTriggers.get_column('snr'))
 snr_range = arange( min_snr, max_snr, (max_snr - min_snr)/100  )
@@ -184,6 +227,20 @@ if opts.funky_threshold:
 
 fig_num = 0
 ###################################
+# plot of snr vs time for missed injections
+if opts.missed_inj:
+  for injTime,triggers in zip(followupMissed["mis_time"],
+       followupMissed["mis_triggers"]):
+    fig_num += 1
+    figure(fig_num)
+    axvline(injTime - int(injTime), linewidth=1, color='r')
+    for idx in range(len(triggers)):
+      triggers[idx].end_time = triggers[idx].end_time - int(injTime)
+    viz.plot_a_v_b(triggers,'end_time','snr','seconds','kx',\
+                   output_name = opts.figure_name + '_' + str(int(injTime)),\
+                   x_min=opts.x_min,x_max=opts.x_max)
+
+###################################
 # plot of snr vs time
 if opts.snr_time:
   fig_num += 1
@@ -192,10 +249,11 @@ if opts.snr_time:
     ax = subplot(111)
     ax.set_yscale('log')
   if opts.add_vertical_line:
-    axvline(0,linewidth=1, color='r')  
+    axvline(opts.add_vertical_line - int(opts.add_vertical_line), \
+            linewidth=1, color='r')  
     for idx in range(len(inspTriggers)):
       inspTriggers[idx].end_time = inspTriggers[idx].end_time \
-                                   - opts.add_vertical_line
+                                   - int(opts.add_vertical_line)
     viz.plot_a_v_b(inspTriggers,'end_time','snr','seconds','kx',\
                    output_name = opts.figure_name,x_min=opts.x_min,\
                    x_max=opts.x_max)
