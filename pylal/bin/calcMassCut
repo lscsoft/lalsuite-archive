@@ -150,19 +150,19 @@ while True:
   if (oldSigmaMassError - newSigmaMassError)/oldSigmaMassError < 0.1:
     break
 
-sigmaMassError = newSigmaMassError
-meanMassError = newMeanMassError
+sigmaMassError = oldSigmaMassError
+meanMassError = oldMeanMassError
 
 ###############################################################
 # convert this into a minimum and maximum mass in trigger space
 minMass = max(0.0,opts.m_low*(1 - 4.0*sigmaMassError + min(0.0,meanMassError)))
 maxMass = opts.m_hi*(1 + 4.0*sigmaMassError + max(0.0,meanMassError))
 
-minString = 'The minimum ' + opts.mass_type + ' should be: ' + str(minMass)
-maxString = 'The maximum ' + opts.mass_type + ' should be: ' + str(maxMass)
-
-print minString
-print maxString
+ print "# %s\t%s\t%s\t%s\t%s" % \
+       ("Mass Type", "Min Mass Inj", "Max Mass Inj", "Min Mass Tmplt",
+        "Max Mass Tmplt")
+ print "  %s\t%f\t%f\t%f\t%f" % \
+       (opts.mass_type, opts.m_low, opts.m_hi, minMass, maxMass)
 
 ##############################################
 # infinite sequence of integers, starting at 1
