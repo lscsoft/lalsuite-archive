@@ -1319,6 +1319,77 @@ def tfplot(*args, **kwargs):
   a.add_collection(collection)
   return collection
 
+######################################################################
+def plotCont( dataX, dataY, dataZ ):
+  """
+  Function to make a contour plot given 3-dimensional data
+  in each direction in x and y, and the height data in z.
+  The plot will only be created, not saved into a file.
+  
+  @param dataX: data for the x-dimension
+  @param dataY: data for the y-dimension
+  @param dataZ: data for the z-dimension (height)
+  """
+  def getTicks(minVal, maxVal, n):
+
+    Delta=maxVal-minVal
+    Delta+=Delta/float(n-1)
+    pot=int(log10(Delta))-1
+    DeltaReduced=Delta/pow(10, pot)
+    deltaApprox=DeltaReduced/5.0
+    if deltaApprox<1.5:
+      delta=1.0
+    elif deltaApprox<3.0:
+      delta=2.0
+    else:
+      delta=5.0
+      
+    delta*=pow(10,pot)
+    nTicks=int(Delta/delta+1.0000000001)
+    tickPos= arange( 0,101, 100.0/float(nTicks-1) )
+    tickLabel=[minVal + i*delta for i in range(nTicks)]
+    return tickPos, tickLabel
+  
+  # let numpy not interfer with something else
+  import numpy
+  
+  if len(dataX) != len(dataY) or len(dataX) != len(dataZ):
+    raise ValueError, 'Input data must have same length'
+
+  # get the dimensions
+  n=len(numpy.unique(dataX))
+  m=len(numpy.unique(dataY))
+
+  minX=min(dataX)
+  maxX=max(dataX)  
+  minY=min(dataY)
+  maxY=max(dataY)
+
+  # create the plotting matrix
+  matrix = zeros( (m,n), float )
+
+  # and fill the matrix
+  c=0
+  for i in range(m):
+    for j in range(n):
+      matrix[j][i]=dataZ[c]
+      c=c+1
+
+  # create the plot
+  clf()
+  contourf(matrix)
+  colorbar()
+
+  # set the axes
+  ax = gca()
+  [xtick, xlabel]=getTicks(minX, maxX, n)
+  ax.set_xticks( xtick )
+  ax.set_xticklabels( xlabel )
+  [ytick, ylabel]=getTicks(minY, maxY, m)
+  ax.set_yticks( ytick )
+  ax.set_yticklabels( ylabel )
+  
+  
 
 ######################################################################
 def main():
