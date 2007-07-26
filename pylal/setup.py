@@ -183,6 +183,7 @@ setup(
 		os.path.join("bin", "plotlalseries"),
 		os.path.join("bin", "plotsiminspiral"),
 		os.path.join("bin", "plotnumgalaxies"),
+                os.path.join("bin", "calcMassCut"),
 		os.path.join("bin", "upperlimit.py"),
 		os.path.join("bin", "write_iul_page"),
 		os.path.join("bin", "lalapps_compute_posterior"),
