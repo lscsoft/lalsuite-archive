@@ -369,8 +369,8 @@ WHERE
 SELECT sngl_burst.*, time_slide.offset FROM
 	sngl_burst
 	JOIN coinc_event_map ON (
-		coinc_event_map.event_id == sngl_burst.event_id
-		AND coinc_event_map.table_name == 'sngl_burst'
+		coinc_event_map.table_name == 'sngl_burst'
+		AND coinc_event_map.event_id == sngl_burst.event_id
 	)
 	JOIN coinc_event ON (
 		coinc_event.coinc_event_id == coinc_event_map.coinc_event_id
@@ -381,6 +381,8 @@ SELECT sngl_burst.*, time_slide.offset FROM
 	)
 WHERE
 	coinc_event.coinc_event_id == ?
+ORDER BY
+	sngl_burst.ifo
 			""", (coinc_event_id,)):
 				# reconstruct the event
 				event = database.sngl_burst_table._row_from_cols(values[:-1])
@@ -420,8 +422,8 @@ WHERE
 	burst_coinc_event.coinc_def_id == ?
 	AND sim_coinc_event.coinc_def_id == ?
 	AND EXISTS (
-		-- Find a two-way link from the sim coinc to the burst
-		-- coinc through the coinc_event_map table
+		-- Find a link from the sim coinc to the burst coinc
+		-- through the coinc_event_map table
 		SELECT
 			*
 		FROM
@@ -448,8 +450,8 @@ WHERE
 SELECT sngl_burst.*, time_slide.offset FROM
 	sngl_burst
 	JOIN coinc_event_map ON (
-		coinc_event_map.event_id == sngl_burst.event_id
-		AND coinc_event_map.table_name == 'sngl_burst'
+		coinc_event_map.table_name == 'sngl_burst'
+		AND coinc_event_map.event_id == sngl_burst.event_id
 	)
 	JOIN coinc_event ON (
 		coinc_event.coinc_event_id == coinc_event_map.coinc_event_id
@@ -460,6 +462,8 @@ SELECT sngl_burst.*, time_slide.offset FROM
 	)
 WHERE
 	coinc_event.coinc_event_id == ?
+ORDER BY
+	sngl_burst.ifo
 			""", (coinc_event_id,)):
 				# reconstruct the burst events
 				event = database.sngl_burst_table._row_from_cols(values[:-1])
@@ -535,18 +539,18 @@ class CovarianceStats(Stats):
 
 class DistributionsStats(Stats):
 	filter_widths = {
-		"H1_H2_dband": 1.0 / 25,
-		"H1_L1_dband": 1.0 / 25,
-		"H2_L1_dband": 1.0 / 25,
-		"H1_H2_ddur": 1.0 / 25,
-		"H1_L1_ddur": 1.0 / 25,
-		"H2_L1_ddur": 1.0 / 25,
-		"H1_H2_df": 1.0 / 360,
-		"H1_L1_df": 1.0 / 360,
-		"H2_L1_df": 1.0 / 360,
+		"H1_H2_dband": 1.0 / 200,
+		"H1_L1_dband": 1.0 / 200,
+		"H2_L1_dband": 1.0 / 200,
+		"H1_H2_ddur": 1.0 / 200,
+		"H1_L1_ddur": 1.0 / 200,
+		"H2_L1_ddur": 1.0 / 200,
+		"H1_H2_df": 1.0 / 400,
+		"H1_L1_df": 1.0 / 400,
+		"H2_L1_df": 1.0 / 400,
 		"H1_H2_dh": 1.0 / 200,
-		"H1_L1_dh": 1.0 / 9,
-		"H2_L1_dh": 1.0 / 9,
+		"H1_L1_dh": 1.0 / 200,
+		"H2_L1_dh": 1.0 / 200,
 		"H1_H2_dt": 1.0 / 7000,
 		"H1_L1_dt": 1.0 / 7000,
 		"H2_L1_dt": 1.0 / 7000
