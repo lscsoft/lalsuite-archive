@@ -1334,7 +1334,7 @@ def plotCont( dataX, dataY, dataZ ):
 
     Delta=maxVal-minVal
     Delta+=Delta/float(n-1)
-    pot=int(log10(Delta))-1
+    pot=int(log10(Delta)+0.000001)-1
     DeltaReduced=Delta/pow(10, pot)
     deltaApprox=DeltaReduced/5.0
     if deltaApprox<1.5:
