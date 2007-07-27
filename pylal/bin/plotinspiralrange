@@ -19,19 +19,51 @@ def readFiles(fList):
   @param fList:       list of input files
   """
   output = {}
+  massOutput = {}
   if not fList:
     return output
   for thisFile in fList:
+    massNum = 0
     doc = ligolw.Document()
     # read in SummValueTable
     ligolw.make_parser(ligolw.PartialLIGOLWContentHandler(doc, \
         isSummValue)).parse(file(thisFile))
     for row in doc.childNodes[0]:
       if row.name == 'inspiral_effective_distance':
-        if not output.has_key(row.ifo):
-          output[row.ifo] = lsctables.New(lsctables.SummValueTable)
-        output[row.ifo].append(row)
-  return output
+        if (row.comment == '1.40_1.40_8.00') or (row.comment == '1.4_1.4_8'):
+          if not output.has_key(row.ifo):
+            output[row.ifo] = lsctables.New(lsctables.SummValueTable)
+          output[row.ifo].append(row)
+    for row in doc.childNodes[0]:
+      if row.name == 'inspiral_effective_distance':
+        if not massOutput.has_key(row.ifo):
+          massOutput[row.ifo] = [lsctables.New(lsctables.SummValueTable)]
+        if len(massOutput[row.ifo]) < massNum + 1:
+          massOutput[row.ifo].append(lsctables.New(lsctables.SummValueTable))
+        massOutput[row.ifo][massNum].append(row)
+        massNum += 1
+  return output,massOutput
+
+def stairs(xVal,yVal):
+  """
+  takes in x and y values you want to plot using stairs
+  and returns the necessary values to use with plot()
+  """
+  xLen = 2*(len(xVal))
+  for i in range(xLen):
+    if i == 0:
+      xStairs = [xVal[0]]
+      yStairs = [yVal[0]]
+    elif i == xLen-1:
+      xStairs.append(xVal[len(xVal)-1])
+      yStairs.append(yVal[len(yVal)-1])
+    elif not i%2:
+      xStairs.append(mean(xVal[i/2-1],xVal[i/2]))
+      yStairs.append(yVal[i/2])
+    else:
+      xStairs.append(mean(xVal[(i-1)/2],xVal[(i+1)/2]))
+      yStairs.append(yVal[(i-1)/2])
+  return xStairs,yStairs
 #################################################################
 
 #################################################################
@@ -61,16 +93,25 @@ parser.add_option("-s","--show-plot",action="store_true",default=False,\
     help="display the figures on the terminal" )
 
 parser.add_option("-m","--range-min",action="store",type="float",\
-    metavar="MIN", help="minimum value on range plots", default=0 )
+    metavar="MIN", help="minimum value on range plots", default=-1 )
 
 parser.add_option("-M","--range-max",action="store",type="float",\
-    metavar="MAX", help="maximum value on range plots", default=0 )
+    metavar="MAX", help="maximum value on range plots", default=-1 )
 
 parser.add_option("-a","--range-vs-time",action="store_true",\
     default=False,help="make a plot of range vs time" )
 
 parser.add_option("-b","--range-hist",action="store_true",\
     default=False,help="make a histogram of the range" )
+
+parser.add_option("--range-mass",action="store_true",\
+    default=False,help="make a plot of the range vs total mass" )
+
+parser.add_option("--mass-min",action="store",type="float",\
+    metavar="MIN", help="minimum x-value on mass plots", default=-1 )
+
+parser.add_option("--mass-max",action="store",type="float",\
+    metavar="MAX", help="maximum x-value on mass plots", default=-1 )
 
 parser.add_option("-t","--plot-type",action="store",type="string",\
     default="linear",metavar=" PLOT_TYPE", \
@@ -99,7 +140,7 @@ else:
 
 #######################################################################
 # Read in the summ values from the inspirals
-inspiralSumm = readFiles(inspiralFiles)
+inspiralSumm,massInspiralSumm = readFiles(inspiralFiles)
 
 colors = {'G1':'k','H1':'r','H2':'b','L1':'g'}
 
@@ -108,18 +149,30 @@ colors = {'G1':'k','H1':'r','H2':'b','L1':'g'}
 if opts.range_vs_time:
   figure(1)
   for ifo in inspiralSumm.keys():
-    range = inspiralSumm[ifo].getColumnByName('value').asarray()
+    Range = inspiralSumm[ifo].getColumnByName('value').asarray()
+    startTimeSec = inspiralSumm[ifo].getColumnByName('start_time').asarray()
+    if ifo == 'H1':
+      for i in range(len(startTimeSec)):
+        if (startTimeSec[i] >= 835044014) \
+           and (startTimeSec[i] < 843942254):
+          Range[i] = Range[i]/1.16
+        elif (startTimeSec[i] >= 843942254) \
+            and (startTimeSec[i] < 999999999):
+          Range[i] = Range[i]/1.20
     startTime = viz.timeindays(inspiralSumm[ifo].getColumnByName('start_time').asarray())
     style = colors[ifo] + 'x'
     if opts.plot_type == 'linear':
-      plot(startTime, range, style, label=ifo,\
+      plot(startTime, Range, style, label=ifo,\
           markersize=12, markeredgewidth=1)
     elif opts.plot_type == 'log':
-      semilogy(startTime, range, style, label=ifo,\
+      semilogy(startTime, Range, style, label=ifo,\
           markersize=12, markeredgewidth=1)
-  
+  leg=legend()
+  ltext=leg.get_texts()
+  setp(ltext, fontsize='x-large')
   xlabel('Days after start of run', size='x-large')
   ylabel('Inspiral Horizon distance (Mpc)', size='x-large')
+  grid()
   if opts.figure_name:
     savefig(opts.figure_name + "_range_plot.png")
 
@@ -127,7 +180,7 @@ if opts.range_vs_time:
 # Make histogram of range values
 if opts.range_hist:
   figure(2)
-  if not opts.range_min or not opts.range_max:
+  if opts.range_min < 0 or opts.range_max < 0:
     print >>sys.stderr, \
         "Must specify --range-min and --range-max for range hist"
     sys.exit(1)
@@ -146,23 +199,91 @@ if opts.range_hist:
 
   num = {}
   for ifo in inspiralSumm.keys():
-    range = inspiralSumm[ifo].getColumnByName('value').asarray()
+    Range = inspiralSumm[ifo].getColumnByName('value').asarray()
+    startTimeSec = inspiralSumm[ifo].getColumnByName('start_time').asarray()
+    if ifo == 'H1':
+      for i in range(len(startTimeSec)):
+        if (startTimeSec[i] >= 835044014) \
+           and (startTimeSec[i] < 843942254):
+          Range[i] = Range[i]/1.16
+        elif (startTimeSec[i] >= 843942254) \
+            and (startTimeSec[i] < 999999999):
+          Range[i] = Range[i]/1.20
     style = colors[ifo]
-    [num[ifo],bins,blah] = hist(range,bins)
+    print ifo,mean(Range)
+    [num[ifo],bins,blah] = hist(Range,bins)
 
   clf()
   for ifo in inspiralSumm.keys():
     if opts.plot_type == 'log':
       semilogx(bins,num[ifo], colors[ifo], linewidth=2, label=ifo)
     elif opts.plot_type == 'linear':
-      plot(bins,num[ifo], colors[ifo], linewidth=2, label=ifo)
+      stairsX,stairsY = stairs(bins,num[ifo])
+      plot(stairsX, stairsY, colors[ifo], linewidth=2, label=ifo)
 
-  legend()
+  leg=legend()
+  ltext=leg.get_texts()
+  setp(ltext, fontsize='x-large')
   xlim(opts.range_min, opts.range_max)
+  xticks(fontsize='x-large')
+  yticks(fontsize='x-large')
   xlabel('Inspiral Horizon distance (Mpc)', size='x-large')
-  ylabel('Number of blocks', size='x-large')
+  ylabel('Number of 2048 sec. blocks', size='x-large')
+  grid()
   if opts.figure_name:
     savefig(opts.figure_name + "_range_hist.png")
+
+#######################################################################
+# Make plot of mean range vs total mass
+
+if opts.range_mass:
+  figure(3)
+  mass = {}
+  massRange = {}
+  massRangeError = {}
+  for ifo in massInspiralSumm.keys():
+    if not mass.has_key(ifo):
+      mass[ifo] = []
+      massRange[ifo] = []
+      massRangeError[ifo] = []
+    for massNum in range(len(massInspiralSumm[ifo])):
+      Range = massInspiralSumm[ifo][massNum].getColumnByName('value').asarray()
+      startTimeSec = massInspiralSumm[ifo][massNum].getColumnByName('start_time').asarray()
+      if ifo == 'H1':
+        for i in range(len(startTimeSec)):
+          if (startTimeSec[i] >= 835044014) \
+             and (startTimeSec[i] < 843942254):
+            Range[i] = Range[i]/1.16
+          elif (startTimeSec[i] >= 843942254) \
+             and (startTimeSec[i] < 999999999):
+            Range[i] = Range[i]/1.20
+      mass[ifo].append(2*(massNum+1))
+      massRange[ifo].append(mean(Range))
+      massRangeError[ifo].append(std(Range))
+    print ifo
+    print mass[ifo][4],massRange[ifo][4]
+    print mass[ifo][9],massRange[ifo][9]
+    errorbar(mass[ifo], massRange[ifo], massRangeError[ifo], \
+      fmt='x', color=colors[ifo], label=ifo)
+  currentAxes = axis()
+  Axes = [currentAxes[0],currentAxes[1],currentAxes[2],currentAxes[3]]
+  if opts.mass_max > 0:
+    Axes[1] = opts.mass_max
+  if opts.mass_min > 0:
+    Axes[0] = opts.mass_min
+  axis(Axes)
+  lines=gca().get_lines()
+  leg=legend(loc='upper left')
+  ltext=leg.get_texts()
+  setp(lines, linewidth=2, markeredgewidth=2, markersize=10)
+  setp(ltext, fontsize='x-large')
+  xticks(fontsize='x-large')
+  yticks(fontsize='x-large')
+  xlabel('Total Mass ($M_\odot$)', size='x-large')
+  ylabel('Inspiral Horizon distance (Mpc)', size='x-large')
+  grid()
+  if opts.figure_name:
+    savefig(opts.figure_name + "_range_mass.png")
 
 if opts.show_plot:
   show()  
