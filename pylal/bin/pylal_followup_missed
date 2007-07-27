@@ -157,7 +157,7 @@ for missed in coireVetoMissedCache:
     
     numFoundInCoire += check_coire(missed, coireFound)
 
-    if ( check_sire(missed, sireVetoFoundInj, sireVetoFoundTrig, True) > 2 ):
+    if ( check_sire(missed, sireVetoFoundInj, sireVetoFoundTrig, True) > 1 ):
         numFoundInInspiralVeto += 1
 
   print 
