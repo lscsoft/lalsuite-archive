@@ -77,12 +77,14 @@ def readCoincInspiralFromFiles(fileList,statistic=None):
   if Sngls are found, construct coincs, add injections (if any)
   also return Sims (if any)
   @param fileList: list of input files
-  @param statistic: statistic to use in creating coincs
+  @param statistic: instance of coincStatistic, to use in creating coincs
   """
   if not fileList:
     return coincInspiralTable(), None
 
-  if not (isinstance(statistic,coincStatistic)
+  if not (isinstance(statistic,coincStatistic)):
+    raise TypeError, "invalid statistic, must be coincStatistic"
+
   sims = None
   coincs = None
 
