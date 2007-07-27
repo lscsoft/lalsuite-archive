@@ -34,6 +34,7 @@ Excess power upper limit final result tool.
 
 
 import glob
+import math
 import numpy
 from optparse import OptionParser
 from pysqlite2 import dbapi2 as sqlite3
@@ -94,7 +95,6 @@ def parse_command_line():
 	parser.add_option("-l", "--live-time-program", metavar = "program", default = "lalapps_power", help = "Set the name, as it appears in the process table, of the program whose search summary entries define the search live time (default = \"lalapps_power\")")
 	parser.add_option("--confidence-contour-slope", metavar = "slope", default = "-35.0", help = "Set the slope of the confidence-likelihood joint contours on which the final cut thresholds (default = -35.0).")
 	parser.add_option("--foreground-survivors", metavar = "number", help = "Tune the coincidence likelihood threshold to result in this many survivors being expected in the foreground. (e.g., 0.1)")
-	parser.add_option("--measure-min-confidences", action = "store_true", help = "After thresholds have been determined, rescan all input files for all sngl_burst events surviving the cuts, and measure the lowest surviving confidence by instrument.  Can be used to check that the confidence thresholds set on the pipeline's lalapps_power jobs are not unreasonable.")
 	parser.add_option("--survivors-output", metavar = "filename", help = "Set the name of the XML file to which zero-lag survivors will be written.  Default is to not record zero-lag survivors file (keep the box closed).")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
 	options, filenames = parser.parse_args()
@@ -143,13 +143,17 @@ class Likelihood_Histogram(object):
 
 		background_eff_confidences = []
 		for likelihood, confidence, is_background in contents.connection.cursor().execute("""
-SELECT coinc_event.likelihood, multi_burst.confidence, EXISTS (
-	SELECT * FROM
-		time_slide
-	WHERE
-		time_slide.time_slide_id == coinc_event.time_slide_id
-		AND time_slide.offset != 0
-) FROM
+SELECT
+	coinc_event.likelihood,
+	multi_burst.confidence,
+	EXISTS (
+		SELECT * FROM
+			time_slide
+		WHERE
+			time_slide.time_slide_id == coinc_event.time_slide_id
+			AND time_slide.offset != 0
+	)
+FROM
 	coinc_event
 	JOIN multi_burst ON (
 		multi_burst.coinc_event_id == coinc_event.coinc_event_id
@@ -178,7 +182,10 @@ WHERE
 		#
 
 		for likelihood, confidence in contents.connection.cursor().execute("""
-SELECT coinc_event.likelihood, multi_burst.confidence FROM
+SELECT
+	coinc_event.likelihood,
+	multi_burst.confidence
+FROM
 	coinc_event
 	JOIN multi_burst ON (
 		multi_burst.coinc_event_id == coinc_event.coinc_event_id
@@ -270,7 +277,9 @@ class Survivors(object):
 			self.xmldoc.childNodes[0].appendChild(self.sngl_burst_table)
 
 		for sngl_burst in map(contents.sngl_burst_table._row_from_cols, contents.connection.cursor().execute("""
-SELECT sngl_burst.* FROM
+SELECT
+	sngl_burst.*
+FROM
 	sngl_burst
 WHERE
 	sngl_burst.event_id IN (
@@ -321,38 +330,41 @@ def Efficiency_hrss_vs_freq_add_contents(self, contents):
 	# this will need to be re-thought to be sure that "found" means
 	# "found in the correct set of instruments".
 	for values in contents.connection.cursor().execute("""
-SELECT sim_burst.*, EXISTS (
-	-- Find a burst<-->burst coinc containing a burst that participated
-	-- in this injection, that was found in the same time slide as the
-	-- injection, and whose likelihood and multi_burst confidence are
-	-- both above threshold
-	SELECT burst_coinc_event.coinc_event_id FROM
-		coinc_event_map AS c
-		JOIN coinc_event AS sim_coinc_event ON (
-			sim_coinc_event.coinc_event_id == c.coinc_event_id
-		)
-		JOIN coinc_event_map AS a ON (
-			a.coinc_event_id == c.coinc_event_id
-			AND a.table_name == 'sngl_burst'
-		)
-		JOIN coinc_event_map AS b ON (
-			b.table_name == 'sngl_burst'
-			AND b.event_id == a.event_id
-		)
-		JOIN coinc_event AS burst_coinc_event ON (
-			burst_coinc_event.coinc_event_id == b.coinc_event_id
-			AND burst_coinc_event.time_slide_id == sim_coinc_event.time_slide_id
-		)
-		JOIN multi_burst ON (
-			multi_burst.coinc_event_id == burst_coinc_event.coinc_event_id
-		)
-	WHERE
-		c.table_name == 'sim_burst'
-		AND c.event_id == sim_burst.simulation_id
-		AND sim_coinc_event.coinc_def_id == ?
-		AND burst_coinc_event.coinc_def_id == ?
-		AND effective_confidence(burst_coinc_event.likelihood, multi_burst.confidence) > ?
-) FROM
+SELECT
+	sim_burst.*,
+	EXISTS (
+		-- Find a burst<-->burst coinc containing a burst that
+		-- participated in this injection, that was found in the
+		-- same time slide as the injection, and whose effective
+		-- confidence is above threshold
+		SELECT burst_coinc_event.coinc_event_id FROM
+			coinc_event_map AS c
+			JOIN coinc_event AS sim_coinc_event ON (
+				sim_coinc_event.coinc_event_id == c.coinc_event_id
+			)
+			JOIN coinc_event_map AS a ON (
+				a.coinc_event_id == c.coinc_event_id
+				AND a.table_name == 'sngl_burst'
+			)
+			JOIN coinc_event_map AS b ON (
+				b.table_name == 'sngl_burst'
+				AND b.event_id == a.event_id
+			)
+			JOIN coinc_event AS burst_coinc_event ON (
+				burst_coinc_event.coinc_event_id == b.coinc_event_id
+				AND burst_coinc_event.time_slide_id == sim_coinc_event.time_slide_id
+			)
+			JOIN multi_burst ON (
+				multi_burst.coinc_event_id == burst_coinc_event.coinc_event_id
+			)
+		WHERE
+			c.table_name == 'sim_burst'
+			AND c.event_id == sim_burst.simulation_id
+			AND sim_coinc_event.coinc_def_id == ?
+			AND burst_coinc_event.coinc_def_id == ?
+			AND effective_confidence(burst_coinc_event.likelihood, multi_burst.confidence) > ?
+	)
+FROM
 	sim_burst
 	""", (contents.sb_definer_id, contents.bb_definer_id, self.confidence_threshold)):
 		sim = contents.sim_burst_table._row_from_cols(values[:-1])
@@ -388,7 +400,11 @@ def get_background_time_slides(contents):
 	"""
 	time_slides = {}
 	for id, instrument, offset in contents.connection.cursor().execute("""
-SELECT time_slide_id, instrument, offset FROM
+SELECT
+	time_slide_id,
+	instrument,
+	offset
+FROM
 	time_slide
 WHERE
 	time_slide_id IN (
@@ -434,62 +450,6 @@ def time_slides_livetime(seglists, time_slides, verbose = False):
 #
 # =============================================================================
 #
-#               lalapps_power Confidence Threshold Safety Check
-#
-# =============================================================================
-#
-
-
-def lalapps_power_confidence_safety(filenames, confidence_threshold, verbose = False):
-	"""
-	For each instrument, find the lowest confidence associated with any
-	sngl_burst event surviving the various thresholds.  Used to check
-	that the confidences are too close but also not too much higher
-	than the thresholds set in the lalapps_power jobs.
-	"""
-
-	min_confidence = {}
-
-	for n, filename in enumerate(filenames):
-		if verbose:
-			print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
-		connection = sqlite3.connect(filename)
-		connection.create_function("effective_confidence", 2, effective_confidence)
-
-		for ifo, confidence in connection.cursor().execute("""
-SELECT sngl_burst.ifo, MIN(sngl_burst.confidence) FROM
-	multi_burst
-	JOIN coinc_event ON (
-		coinc_event.coinc_event_id == multi_burst.coinc_event_id
-	)
-	JOIN coinc_event_map ON (
-		coinc_event_map.coinc_event_id == coinc_event.coinc_event_id
-	)
-	JOIN sngl_burst ON (
-		coinc_event_map.table_name == 'sngl_burst'
-		AND coinc_event_map.event_id == sngl_burst.event_id
-	)
-WHERE
-	effective_confidence(coinc_event.likelihood, multi_burst.confidence) > ?
-GROUP BY
-	sngl_burst.ifo
-		""", (confidence_threshold,)):
-			if ifo not in min_confidence:
-				min_confidence[ifo] = confidence
-			else:
-				min_confidence[ifo] = min(min_confidence[ifo], confidence)
-
-		connection.close()
-
-	if verbose:
-		print >>sys.stderr
-
-	return min_confidence
-
-
-#
-# =============================================================================
-#
 #                                     Main
 #
 # =============================================================================
@@ -507,6 +467,11 @@ options, filenames = parse_command_line()
 #
 # Set up book-keeping tools.
 #
+# The effective_confidence() function is defined here, after parsing the
+# command line, because it's inconvenient to pass the slope into SQLite and
+# then back out again, so instead it gets programmed here as the default
+# value for the paramter.
+#
 
 
 def effective_confidence(likelihood, confidence, m = options.confidence_contour_slope):
@@ -523,12 +488,15 @@ def effective_confidence(likelihood, confidence, m = options.confidence_contour_
 	#
 	#    b = likelihood * confidence^-m
 	#
-	# This function is defined here, after parsing the command line,
-	# because it's inconvenient to pass the slope into SQLite and then
-	# back out again, so instead it gets programmed here as the default
-	# value for the paramter.
+	# This function computes and returns ln b
 
-	return likelihood * confidence**(-m)
+	if likelihood <= 0:
+		# log() doesn't like 0.  On machines on which Python uses
+		# IEEE-compliant double-precision floats, this number is
+		# returned as -inf, otherwise it should surely be negative
+		# enough to ensure that this coinc is not retained.
+		return -1e400
+	return math.log(likelihood) - m * math.log(confidence)
 
 
 likelihood_histogram = Likelihood_Histogram()
@@ -678,21 +646,6 @@ for n, filename in enumerate(filenames):
 	#
 
 	connection.close()
-
-
-#
-# Do lalapps_power threshold check.
-#
-
-
-if options.measure_min_confidences:
-	print
-	print "=== Minimum Surviving sngl_burst Confidence By Instrument ==="
-	print
-	filenames = reduce(list.__add__, [glob.glob(g) for g in options.background_glob + options.injection_glob])
-	filenames.sort()
-	for ifo, confidence in lalapps_power_confidence_safety(filenames, likelihood_threshold, verbose = options.verbose).items():
-		print "Minimum surviving %s confidence = %g" % (ifo, confidence)
 
 
 #
