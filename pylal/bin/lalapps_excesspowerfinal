@@ -321,8 +321,7 @@ WHERE
 
 def Efficiency_hrss_vs_freq_add_contents(self, contents):
 	self.num_injections += len(contents.sim_burst_table)
-	instruments = contents.seglists.keys()
-	coinc_segs = contents.seglists.intersection(instruments)
+	coinc_segs = contents.seglists.intersection(contents.instruments)
 	# FIXME: careful, the check for a coincidence will find any
 	# coincidence, no matter which instruments participate.  For now,
 	# I'm running fixed networks so this is not a problem, but if
@@ -376,7 +375,7 @@ FROM
 			self.found_y.append(sim.hrss)
 		# FIXME:  this assumes all injections are done at zero lag
 		# (which is correct, for now, but watch out for this)
-		elif SimBurstUtils.injection_was_made(sim, coinc_segs, instruments):
+		elif SimBurstUtils.injection_was_made(sim, coinc_segs, contents.instruments):
 			self.injected_x.append(sim.freq)
 			self.injected_y.append(sim.hrss)
 
