@@ -18,7 +18,7 @@ def check_sire(inj, sire_inj, sire_trig):
   """
   trigs = lsctables.New(lsctables.SimInspiralTable)
 
-  for i in len(sireFoundInj):
+  for i in range(len(sireFoundInj)):
     if (missed.geocent_end_time == sireFoundInj[i].geocent_end_time) and \
         (missed.geocent_end_time_ns == sireFoundInj[i].geocen_end_time_ns):
       trigs.append(sireFoundTrig[i])
@@ -112,7 +112,7 @@ sireVetoFoundTrig = SnglInspiralUtils.ReadSnglInspiralFromFiles(
 
 for missed in coireVetoMissedCache:
   missedFile = missed.observatory + "-" + missed.description
-  print "Checking missed injections from" + missedFile
+  print "Checking missed injections from " + missedFile
 
   doc = utils.load_filename(missed.path())
   try: missedInj = table.get_table(doc, lsctables.SimInspiralTable.tableName)
