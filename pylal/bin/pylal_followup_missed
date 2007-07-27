@@ -82,7 +82,7 @@ parser.add_option("-c", "--intermediate-cache", action = "store", \
 
 # get the missed injections
 outputCache = lal.Cache(map(lal.CacheEntry, open( opts.output_cache ) ))
-coireVetoCache = lal.Cache([c for c in outputCache if 
+coireVetoMissedCache = lal.Cache([c for c in outputCache if 
   ("COIRE_INJECTIONS" in c.description) and ("MISSED" in c.description) ]) 
 
 # get the intermediate found injections
@@ -110,7 +110,7 @@ sireVetoFoundTrig = SnglInspiralUtils.ReadSnglInspiralFromFiles(
     sireVetoCache.pfnlist())
 
 
-for missed in missedCache:
+for missed in coireVetoMissedCache:
   missedFile = missed.observatory + "-" + missed.description
   print "Checking missed injections from" + missedFile
 
