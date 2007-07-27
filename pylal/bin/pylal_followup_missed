@@ -11,25 +11,44 @@ from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 
+def print_inj(inj):
+  print
+  print "Injection details:"
+  print "m1\t m2\t end_time\t distance\t eff_dist_h\t eff_dist_l"
+  print str(inj.mass1) + "\t" + str(inj.mass2) + "\t" \
+      + str(inj.geocent_end_time + 1e-9 * inj.geocent_end_time_ns) + "\t" + \
+      str(inj.distance) + "\t" + str(inj.eff_dist_h) + "\t" + \
+      str(inj.eff_dist_l)
+
+
 ##############################################################################
-def check_sire(inj, sire_inj, sire_trig):
+def check_sire(inj, sire_inj, sire_trig, veto = False):
   """
   check whether a given injection was found in sire and report the details
   """
+  global inj_printed
   trigs = lsctables.New(lsctables.SimInspiralTable)
 
   for i in range(len(sireFoundInj)):
     if (missed.geocent_end_time == sireFoundInj[i].geocent_end_time) and \
-        (missed.geocent_end_time_ns == sireFoundInj[i].geocen_end_time_ns):
+        (missed.geocent_end_time_ns == sireFoundInj[i].geocent_end_time_ns):
       trigs.append(sireFoundTrig[i])
 
   if len(trigs) > 1:
-    print "This injection was found in " + str(len(trigs)) + " detectors"
+    if not inj_printed: 
+      print_inj(inj)
+      inj_printed = True
+
+    print "This injection was found in " + str(len(trigs)) + " detectors",
+    if veto: print " in the inspiral veto stage"
+    else: print " in the inspiral stage"
     print "ifo\t snr\t m1\t m2\t end_time\t eff_dist"
+
     for trig in trigs:
-      print trig.ifo + "\t" + str(trig.m1) + "\t" + str(trig.m2) + "\t" + \
-          str(trig.end_time + 1e-9 * trig.end_time_ns) + "\t" + \
-          trig.eff_distance
+      print trig.ifo + "\t" + str(trig.snr) + "\t" + str(trig.mass1) + \
+          "\t" + str(trig.mass2) + "\t" \
+          + str(trig.end_time + 1e-9 * trig.end_time_ns) + "\t" + \
+          str(trig.eff_distance)
 
   return len(trigs)
 
@@ -38,21 +57,26 @@ def check_coire(inj, coire_coinc):
   """
   check whether a given injection was found in sire and report the details
   """
+  global inj_printed
   for coinc in coire_coinc:
     if (missed.geocent_end_time == coinc.sim.geocent_end_time) and \
-        (missed.geocent_end_time_ns == coinc.sim.geocen_end_time_ns):
+        (missed.geocent_end_time_ns == coinc.sim.geocent_end_time_ns):
+      if not inj_printed: 
+        print_inj(inj)
+        inj_printed = True
 
       print "This injection was found in coincidence in " + \
-          str(coire.numifos) + " detectors"
+          str(coinc.numifos) + " detectors"
 
       print "ifo\t snr\t m1\t m2\t end_time\t eff_dist"
 
       for ifo in ["G1", "H1", "H2", "L1", "T1", "V1"]:
         if hasattr(coinc, ifo):
           trig = getattr(coinc, ifo)
-          print trig.ifo + "\t" + str(trig.m1) + "\t" + str(trig.m2) + "\t" + \
-              str(trig.end_time + 1e-9 * trig.end_time_ns) + "\t" + \
-              trig.eff_distance
+          print trig.ifo + "\t" + str(trig.snr) + "\t" + str(trig.mass1) + \
+              "\t" + str(trig.mass2) + \
+              "\t" + str(trig.end_time + 1e-9 * trig.end_time_ns) + "\t" + \
+              str(trig.eff_distance)
 
       return 1
 
@@ -109,9 +133,9 @@ sireVetoFoundInj = SimInspiralUtils.ReadSimInspiralFromFiles(
 sireVetoFoundTrig = SnglInspiralUtils.ReadSnglInspiralFromFiles( 
     sireVetoCache.pfnlist())
 
-
 for missed in coireVetoMissedCache:
   missedFile = missed.observatory + "-" + missed.description
+  print 
   print "Checking missed injections from " + missedFile
 
   doc = utils.load_filename(missed.path())
@@ -125,19 +149,20 @@ for missed in coireVetoMissedCache:
   numFoundInInspiralVeto = 0
 
   for missed in missedInj:
-    
+    inj_printed = False
+
     numifo = check_sire(missed, sireFoundInj, sireFoundTrig) 
     if numifo == 1: numFoundInOneIfo += 1
     elif numifo > 1: numFoundInInspiral += 1
     
     numFoundInCoire += check_coire(missed, coireFound)
 
-    if ( check_sire(missed, sireVetoFoundInj, sireVetoFoundTrig) > 2 ):
+    if ( check_sire(missed, sireVetoFoundInj, sireVetoFoundTrig, True) > 2 ):
         numFoundInInspiralVeto += 1
 
+  print 
   print "Summary: "
-  print "Total missed injections in " + missedFile.split("-")[0] + ": " + \
-      + str(numInj)
+  print "Total missed injections in " + missedFile + " is " + str(numInj)
   print "Number found in one ifo at inspiral stage: " + str(numFoundInOneIfo)
   print "Number found in two or more ifos at inspiral stage: " + \
       str(numFoundInInspiral)
