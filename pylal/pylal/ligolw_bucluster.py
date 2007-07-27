@@ -115,6 +115,18 @@ def smallest_enclosing_seg(a, b):
 	return segments.segment(min(a[0], b[0]), max(a[1], b[1]))
 
 
+def weighted_average_seg(seg1, weight1, seg2, weight2):
+	"""
+	Return the segment whose start and ends are the weighted averages
+	of the star and ends of the two input segments, using the two
+	weights given.
+	"""
+	# The formulae are a little funny because they need to work with
+	# LIGOTimeGPS objects which don't like being multiplied by large
+	# numbers.
+	return segments.segment(seg1[0] + weight2 * float(seg2[0] - seg1[0]) / (weight1 + weight2), seg1[1] + weight2 * float(seg2[1] - seg1[1]) / (weight1 + weight2))
+
+
 #
 # "excess power" clustering algorithm
 #
@@ -173,8 +185,8 @@ def ExcessPowerClusterFunc(a, b):
 	#
 
 	if b.ms_confidence > a.ms_confidence:
-		a.set_ms_period(b.get_ms_period())
-		a.set_ms_band(b.get_ms_band())
+		a.set_ms_period(weighted_average_seg(a.get_ms_period(), a.snr, b.get_ms_period(), b.snr))
+		a.set_ms_band(weighted_average_seg(a.get_ms_band(), a.snr, b.get_ms_band(), b.snr))
 		a.ms_hrss = b.ms_hrss
 		a.ms_snr = b.ms_snr
 		a.ms_confidence = b.ms_confidence
@@ -328,6 +340,19 @@ def ligolw_bucluster(doc, **kwargs):
 	#
 
 	process = append_process(doc, **kwargs)
+
+	#
+	# Remove all H2 triggers intersecting the frequency band
+	# 1138.586956521739 Hz -- 1216.0326086956522 Hz
+	#
+	# FIXME:  put this into the excess power pipeline, correctly
+	#
+
+	bad_band = segments.segment(1138.586956521739, 1216.0326086956522)
+	for i in xrange(len(sngl_burst_table) - 1, -1, -1):
+		a = sngl_burst_table[i]
+		if a.ifo == "H2" and a.get_band().intersects(bad_band):
+			del sngl_burst_table[i]
 
 	#
 	# Preprocess candidates
