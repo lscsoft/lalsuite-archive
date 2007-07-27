@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#!/usr/bin/python
 
 # $Id$
 __author__ = "Drew Keppel <keppel_d@ligo.caltech.edu>"
@@ -13,6 +13,7 @@ import exceptions
 import glob
 from types import *
 
+from pylab import *
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from pylal import SimInspiralUtils
@@ -47,12 +48,6 @@ parser.add_option("-s","--show-plot",action="store_true",default=False,\
 
 (opts,args) = parser.parse_args()
 
-# Change to Agg back-end if show() will not be called
-if not opts.show_plot:
-  import matplotlib
-  matplotlib.use('Agg')
-from pylab import *
-
 if opts.found_glob:
   foundFiles = glob.glob(opts.found_glob)
 else:
@@ -78,7 +73,7 @@ for file in foundFiles:
   for coinc in fileCoincTriggers:
     coincTriggers.append(coinc)
 
-missed = [[],[],[]]
+missed = [[],[],[],[]]
 for file in missedFiles:
   file = [file]
   simMissed = SimInspiralUtils.ReadSimInspiralFromFiles(file)
@@ -86,18 +81,23 @@ for file in missedFiles:
     missed[0].append(sim.mchirp)
     missed[1].append(sim.end_time_gmst)
     missed[2].append(sim.eff_dist_h)
+    missed[3].append(sim.eff_dist_h*(2.8*.25**(3.0/5.0)/sim.mchirp)**(5.0/6.0))
 
-doubles = [[],[],[]]
-triples = [[],[],[]]
+doubles = [[],[],[],[]]
+triples = [[],[],[],[]]
 for coinc in coincTriggers:
   if coinc.numifos == 2:
     doubles[0].append(coinc.sim.mchirp)
     doubles[1].append(coinc.sim.end_time_gmst)
     doubles[2].append(coinc.sim.eff_dist_h)
+    doubles[3].append(coinc.sim.eff_dist_h* \
+                      (2.8*.25**(3.0/5.0)/coinc.sim.mchirp)**(5.0/6.0))
   if coinc.numifos == 3:
     triples[0].append(coinc.sim.mchirp)
     triples[1].append(coinc.sim.end_time_gmst)
     triples[2].append(coinc.sim.eff_dist_h)
+    triples[3].append(coinc.sim.eff_dist_h* \
+                      (2.8*.25**(3.0/5.0)/coinc.sim.mchirp)**(5.0/6.0))
 
 figure(1)
 semilogy(triples[0],triples[2],'bx',doubles[0],doubles[2],'cx',missed[0],missed[2],'rx')
@@ -118,6 +118,16 @@ ylabel('eff_dist',size='x-large')
 legend(('triples','doubles','missed'),loc=0)
 if opts.figure_name:
    savefig(opts.figure_name + '_missed_found_vs_end_time.png')
+
+figure(3)
+semilogy(triples[0],triples[3],'bx',doubles[0],doubles[3],'cx',missed[0],missed[3],'rx')
+grid()
+title('Found and Missed Injections')
+xlabel('mchirp',size='x-large')
+ylabel('chirp_dist',size='x-large')
+legend(('triples','doubles','missed'),loc=0)
+if opts.figure_name:
+  savefig(opts.figure_name + '_missed_found_chirp_dist_vs_mchirp.png')
 
 if opts.show_plot:
   show()
