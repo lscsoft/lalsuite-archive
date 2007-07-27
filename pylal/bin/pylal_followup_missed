@@ -1,0 +1,145 @@
+#!/usr/bin/python
+
+from optparse import *
+import exceptions
+
+from pylal import SnglInspiralUtils
+from pylal import SimInspiralUtils
+from pylal import CoincInspiralUtils
+from glue import lal
+from glue.ligolw import table
+from glue.ligolw import lsctables
+from glue.ligolw import utils
+
+##############################################################################
+def check_sire(inj, sire_inj, sire_trig):
+  """
+  check whether a given injection was found in sire and report the details
+  """
+  trigs = lsctables.New(lsctables.SimInspiralTable)
+
+  for i in len(sireFoundInj):
+    if (missed.geocent_end_time == sireFoundInj[i].geocent_end_time) and \
+        (missed.geocent_end_time_ns == sireFoundInj[i].geocen_end_time_ns):
+      trigs.append(sireFoundTrig[i])
+
+  if len(trigs) > 1:
+    print "This injection was found in " + str(len(trigs)) + " detectors"
+    print "ifo\t snr\t m1\t m2\t end_time\t eff_dist"
+    for trig in trigs:
+      print trig.ifo + "\t" + str(trig.m1) + "\t" + str(trig.m2) + "\t" + \
+          str(trig.end_time + 1e-9 * trig.end_time_ns) + "\t" + \
+          trig.eff_distance
+
+  return len(trigs)
+
+##############################################################################
+def check_coire(inj, coire_coinc):
+  """
+  check whether a given injection was found in sire and report the details
+  """
+  for coinc in coire_coinc:
+    if (missed.geocent_end_time == coinc.sim.geocent_end_time) and \
+        (missed.geocent_end_time_ns == coinc.sim.geocen_end_time_ns):
+
+      print "This injection was found in coincidence in " + \
+          str(coire.numifos) + " detectors"
+
+      print "ifo\t snr\t m1\t m2\t end_time\t eff_dist"
+
+      for ifo in ["G1", "H1", "H2", "L1", "T1", "V1"]:
+        if hasattr(coinc, ifo):
+          trig = getattr(coinc, ifo)
+          print trig.ifo + "\t" + str(trig.m1) + "\t" + str(trig.m2) + "\t" + \
+              str(trig.end_time + 1e-9 * trig.end_time_ns) + "\t" + \
+              trig.eff_distance
+
+      return 1
+
+  return 0
+
+##############################################################################
+usage = """The code will examine why injections were missed.  
+Provide the output and intermediate cache from an injection run of 
+lalapps_inspiral_hipe.  The code will then look to see if any of the 
+injections which are missed at the end of the pipeline were found at
+the inspiral, coire or inspiral veto stages and print out the relevant
+parameters for the triggers.
+"""
+
+parser = OptionParser( usage )
+
+parser.add_option("-C", "--output-cache", action = "store", \
+    type = "string", default = None, metavar = " CACHE", \
+    help = "cache of output from the inspiral hipe injections")
+parser.add_option("-c", "--intermediate-cache", action = "store", \
+    type = "string", default = None, metavar = " CACHE", \
+    help = "cache of intermediate data from the inspiral hipe injections")
+
+
+(opts,args) = parser.parse_args()
+##############################################################################
+
+# get the missed injections
+outputCache = lal.Cache(map(lal.CacheEntry, open( opts.output_cache ) ))
+coireVetoCache = lal.Cache([c for c in outputCache if 
+  ("COIRE_INJECTIONS" in c.description) and ("MISSED" in c.description) ]) 
+
+# get the intermediate found injections
+interCache = lal.Cache(map(lal.CacheEntry, open( opts.intermediate_cache ) ))
+foundCache= lal.Cache([c for c in interCache if "FOUND" in c.description])
+coireCache = lal.Cache([c for c in foundCache if "COIRE" in c.description])
+sireCache = lal.Cache([c for c in foundCache if ("SIRE" in c.description) \
+    and not (c.observatory in c.description) ])
+sireVetoCache = lal.Cache([c for c in foundCache if ("SIRE" in c.description) \
+    and (c.observatory in c.description) ])
+
+# read the sire found
+sireFoundInj = SimInspiralUtils.ReadSimInspiralFromFiles(sireCache.pfnlist())
+sireFoundTrig = SnglInspiralUtils.ReadSnglInspiralFromFiles( 
+    sireCache.pfnlist())
+
+# read the coire found
+coireFound, sims = CoincInspiralUtils.readCoincInspiralFromFiles(
+    coireCache.pfnlist(),coincStatistic("snr"))
+
+# read the sire veto found
+sireVetoFoundInj = SimInspiralUtils.ReadSimInspiralFromFiles(
+    sireVetoCache.pfnlist())
+sireVetoFoundTrig = SnglInspiralUtils.ReadSnglInspiralFromFiles( 
+    sireVetoCache.pfnlist())
+
+
+for missed in missedCache:
+  missedFile = missed.observatory + "-" + missed.description
+  print "Checking missed injections from" + missedFile
+
+  doc = utils.load_filename(missed.path())
+  try: missedInj = table.get_table(doc, lsctables.SimInspiralTable.tableName)
+  except: missedInj = [] 
+  
+  numInj = len(missedInj)
+  numFoundInOneIfo = 0
+  numFoundInInspiral = 0
+  numFoundInCoire = 0 
+  numFoundInInspiralVeto = 0
+
+  for missed in missedInj:
+    
+    numifo = check_sire(missed, sireFoundInj, sireFoundTrig) 
+    if numifo == 1: numFoundInOneIfo += 1
+    elif numifo > 1: numFoundInInspiral += 1
+    
+    numFoundInCoire += check_coire(missed, coireFound)
+
+    if ( check_sire(missed, sireVetoFoundInj, sireVetoFoundTrig) > 2 ):
+        numFoundInInspiralVeto += 1
+
+  print "Summary: "
+  print "Total missed injections in " + missedFile.split("-")[0] + ": " + \
+      + str(numInj)
+  print "Number found in one ifo at inspiral stage: " + str(numFoundInOneIfo)
+  print "Number found in two or more ifos at inspiral stage: " + \
+      str(numFoundInInspiral)
+  print "Number found at coire stage: " + str(numFoundInCoire)
+  print "Number found at inspiral veto stage: " + str(numFoundInInspiralVeto)
