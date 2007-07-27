@@ -136,7 +136,9 @@ parser.add_option("-Z","--zero-lag-playground",action="store_true",\
     default=False,\
     help="scale number of bkg triggers in slide plots by 600/6370")
 parser.add_option("-k","--snr-dist",action="store_true",default=False,\
-    help="plot distribution of snr" )
+    help="plot distribution of combined statistic" )
+parser.add_option("-K","--snr-hist",action="store_true",default=False,\
+    help="plot histogram of combined statistic" )
 parser.add_option("-m","--mass-dependent",action="store_true",default=False,\
     help="sort triggers by mass range" )
 parser.add_option("-M","--mass-range",action="store",type="string",\
@@ -936,6 +938,18 @@ if (opts.hist_slides or opts.plot_slides) and opts.mass_dependent:
 
 ################################################
 # make histogram of stat distribution
+if opts.snr_hist:
+  figure(fig_num)
+  fig_num += 1
+
+  viz.histstat(coincTriggers, slideTriggers, None, opts.min_snr, \
+      opts.max_snr, opts.nbins, statistic.name)
+  xlim(xmin=opts.min_snr**2.0)
+  xlim(xmax=opts.max_snr**2.0)
+  grid(True)
+  if f_name:
+    savefig(f_name + "_hist_" + statistic.name + ".png")
+
 if opts.snr_dist:
   figure(fig_num) 
   fig_num += 1
@@ -948,7 +962,7 @@ if opts.snr_dist:
   if f_name:  
     savefig(f_name + "_cum_hist_" + statistic.name + ".png")
 
-  
+
 
   for ifos in ifo_coincs:
     figure(fig_num) 
