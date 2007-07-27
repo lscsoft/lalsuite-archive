@@ -70,6 +70,45 @@ def simpleEThinca(trigger1, trigger2):
 
   return simple_ethinca
 
+
+def readCoincInspiralFromFiles(fileList,statistic=None):
+  """
+  read in the Sngl and SimInspiralTables from a list of files
+  if Sngls are found, construct coincs, add injections (if any)
+  also return Sims (if any)
+  @param fileList: list of input files
+  @param statistic: statistic to use in creating coincs
+  """
+  if not fileList:
+    return coincInspiralTable(), None
+
+  if not (isinstance(statistic,coincStatistic)
+  sims = None
+  coincs = None
+
+  for thisFile in fileList:
+    doc = utils.load_filename(thisFile)
+    # extract the sim inspiral table
+    try: 
+      simInspiralTable = \
+          table.get_table(doc, lsctables.SimInspiralTable.tableName)
+      if sims: sims.extend(simInspiralTable)
+      else: sims = simInspiralTable
+    except: simInspiralTable = None
+
+    # extract the sngl inspiral table, construct coincs
+    try: snglInspiralTable = \
+      table.get_table(doc, lsctables.SnglInspiralTable.tableName)
+    except: snglInspiralTable = None
+    if snglInspiralTable:
+      coincFromFile = coincInspiralTable(snglInspiralTable,statistic)
+      if simInspiralTable: 
+        coincFromFile.add_sim_inspirals(simInspiralTable) 
+      if coincs: coincs.extend(coincFromFile)
+      else: coincs = coincFromFile
+  return coincs, sims
+
+
 ########################################
 class coincStatistic:
   """
@@ -521,7 +560,7 @@ class coincInspiralTable:
           param_counter += 1
 
           # distance^2 apart in ethinca
-	  for ifo2 in ifolist:
+          for ifo2 in ifolist:
             if ifo1 < ifo2:
               c_lambda = simpleEThinca(\
                 getattr(candidate,ifo1),\
