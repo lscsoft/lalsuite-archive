@@ -83,32 +83,6 @@ def parse_command_line():
 #
 # =============================================================================
 #
-#                                 Bookkeeping
-#
-# =============================================================================
-#
-
-
-#
-# Make a plot from a scatter object
-#
-
-
-def plot_Scatter(scatter):
-	fig = SnglBurstUtils.figure.Figure()
-	SnglBurstUtils.FigureCanvas(fig)
-	fig.set_size_inches(10.0, 10.0 / ((1 + math.sqrt(5)) / 2))
-	axes = fig.gca()
-	axes.set_title(r"Parameter Reconstruction Independence")
-	axes.plot(scatter.inj_x, scatter.inj_y, "r+")
-	axes.plot(scatter.bak_x, scatter.bak_y, "k+")
-	axes.legend(["Injections", "Accidentals"])
-	return fig
-
-
-#
-# =============================================================================
-#
 #                                     Main
 #
 # =============================================================================
@@ -129,6 +103,7 @@ options, filenames = parse_command_line()
 
 
 stats = None
+instruments = set()
 
 
 #
@@ -157,6 +132,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 	#
 
 	database = SnglBurstUtils.CoincDatabase().summarize(dbtables.DBTable_get_xml(), "lalapps_power", options.verbose)
+	instruments |= database.instruments
 
 	#
 	# If not already done, recover the --thresholds arguments, and
@@ -205,6 +181,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 	#
 
 	database = SnglBurstUtils.CoincDatabase().summarize(dbtables.DBTable_get_xml(), "lalapps_power", options.verbose)
+	instruments |= database.instruments
 
 	#
 	# If not already done, recover the --thresholds arguments, and
