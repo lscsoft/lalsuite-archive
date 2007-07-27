@@ -1343,10 +1343,11 @@ def plotCont( dataX, dataY, dataZ ):
       delta=2.0
     else:
       delta=5.0
-      
+
+
     delta*=pow(10,pot)
     nTicks=int(Delta/delta+1.0000000001)
-    tickPos= arange( 0,101, 100.0/float(nTicks-1) )
+    tickPos= arange(nTicks+1)* float(n-1)/float(nTicks-1)
     tickLabel=[minVal + i*delta for i in range(nTicks)]
     return tickPos, tickLabel
   
@@ -1370,8 +1371,8 @@ def plotCont( dataX, dataY, dataZ ):
 
   # and fill the matrix
   c=0
-  for i in range(m):
-    for j in range(n):
+  for i in range(n):
+    for j in range(m):
       matrix[j][i]=dataZ[c]
       c=c+1
 
@@ -1388,6 +1389,7 @@ def plotCont( dataX, dataY, dataZ ):
   [ytick, ylabel]=getTicks(minY, maxY, m)
   ax.set_yticks( ytick )
   ax.set_yticklabels( ylabel )
+  axis('tight')
   
   
 
