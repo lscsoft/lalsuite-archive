@@ -101,7 +101,7 @@ sireFoundTrig = SnglInspiralUtils.ReadSnglInspiralFromFiles(
 
 # read the coire found
 coireFound, sims = CoincInspiralUtils.readCoincInspiralFromFiles(
-    coireCache.pfnlist(),coincStatistic("snr"))
+    coireCache.pfnlist(), CoincInspiralUtils.coincStatistic("snr"))
 
 # read the sire veto found
 sireVetoFoundInj = SimInspiralUtils.ReadSimInspiralFromFiles(
