@@ -413,7 +413,8 @@ FROM
 		-- Each injection can result in at most 1 associated entry
 		-- in the coinc_event table, so doing this join in the
 		-- outer select will not result in any injections being
-		-- counted more than once.
+		-- counted more than once (and it hugely increases the
+		-- speed of the query).
 		c.coinc_event_id == sim_coinc_event.coinc_event_id
 		AND c.table_name == 'sim_burst'
 		AND c.event_id == sim_burst.simulation_id
@@ -482,36 +483,6 @@ ORDER BY
 
 
 #
-# Scatter plot data
-#
-
-
-class ScatterStats(Stats):
-	def __init__(self, thresholds):
-		Stats.__init__(self, thresholds)
-		self.scatter = Scatter()
-
-	def _add_background(self, param_func, events, offsetdict):
-		params = param_func(events, offsetdict)
-		for event1, event2 in itertools.choices(events, 2):
-			if event1.ifo == event2.ifo:
-				continue
-			prefix = "%s_%s_" % (event1.ifo, event2.ifo)
-			self.scatter.add_background(params[prefix + "dt"], params[prefix + "df"])
-
-	def _add_injections(self, param_func, sim, events, offsetdict):
-		params = param_func(events, offsetdict)
-		for event1, event2 in itertools.choices(events, 2):
-			if event1.ifo == event2.ifo:
-				continue
-			prefix = "%s_%s_" % (event1.ifo, event2.ifo)
-			self.scatter.add_injection(params[prefix + "dt"], params[prefix + "df"])
-
-	def finish(self):
-		self.scatter.finish()
-
-
-#
 # Covariance data
 #
 
@@ -574,11 +545,10 @@ class DistributionsStats(Stats):
 			name = "%s_%s_dh" % pair
 			rate_args[name] = (dhinterval, self.filter_widths[name])
 			name = "%s_%s_dband" % pair
-			rate_args[name] = (segments.segment(-2.0, 2.0), self.filter_widths[name])
+			rate_args[name] = (segments.segment(-2.0, +2.0), self.filter_widths[name])
 			name = "%s_%s_ddur" % pair
-			rate_args[name] = (segments.segment(-2.0, 2.0), self.filter_widths[name])
+			rate_args[name] = (segments.segment(-2.0, +2.0), self.filter_widths[name])
 		self.distributions = CoincParamsDistributions(**rate_args)
-
 
 	def _add_background(self, param_func, events, offsetdict):
 		self.distributions.add_background(param_func, events, offsetdict)
