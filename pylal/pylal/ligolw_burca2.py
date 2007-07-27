@@ -179,6 +179,19 @@ class LikelihoodRatio(Likelihood):
 		a prior probability to be provided.
 		"""
 		P_bak, P_inj = self.P(param_func, events, offsetdict)
+		if P_bak == 0 and P_inj == 0:
+			# this can happen.  "correct" answer is 0, not NaN,
+			# because if a tuple of events has been found in a
+			# region of parameter space where the probability
+			# of an injection occuring is 0 then there is no
+			# way this is an injection.  there is also,
+			# aparently, no way it's a noise event, but that's
+			# irrelevant because we are supposed to be
+			# computing something that is a monotonically
+			# increasing function of the probability that an
+			# event tuple is a gravitational wave, which is 0
+			# in this part of the parameter space.
+			return 0
 		return  P_inj / P_bak
 
 
@@ -238,8 +251,8 @@ def ligolw_burca2(database, likelihood_ratio, verbose = False):
 SELECT sngl_burst.* FROM
 	sngl_burst
 	JOIN coinc_event_map ON (
-		sngl_burst.event_id == coinc_event_map.event_id
-		AND coinc_event_map.table_name == 'sngl_burst'
+		coinc_event_map.table_name == 'sngl_burst'
+		AND sngl_burst.event_id == coinc_event_map.event_id
 	)
 WHERE
 	coinc_event_map.coinc_event_id == ?
