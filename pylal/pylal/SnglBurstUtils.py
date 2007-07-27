@@ -42,6 +42,11 @@ from matplotlib import figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 import re
 import sys
+# Python 2.3 compatibility
+try:
+	set
+except NameError:
+	from sets import Set as set
 
 from glue import segments
 from glue.ligolw import table
@@ -111,7 +116,7 @@ class CoincDatabase(object):
 
 		# get the segment lists
 		self.seglists = llwapp.segmentlistdict_fromsearchsummary(xmldoc, live_time_program)
-		self.instruments = self.seglists.keys()
+		self.instruments = set(self.seglists.keys())
 
 		# determine a few coinc_definer IDs
 		if self.coinc_def_table is not None:
