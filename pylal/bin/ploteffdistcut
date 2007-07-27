@@ -29,7 +29,7 @@ def disterr(coinc_table, ifo_list, use_avg, statistic):
   ifob_snr = coinc_table.getsngls(ifo_list[1]).get_column(statistic)
 
   ifoa_sigma = coinc_table.getsngls(ifo_list[0]).get_column('sigmasq')
-  ifob_sigma = coinc_table.getsngls(ifo_list[0]).get_column('sigmasq')
+  ifob_sigma = coinc_table.getsngls(ifo_list[1]).get_column('sigmasq')
 
   if use_avg:
     denoma = (ifoa_dist + ifob_dist) / 2.0
@@ -57,15 +57,13 @@ usage = """
 Function to test the efficiency of an effective distance cut.  The
 function reads in triggers from injections and time slides.  It clusters
 the injection triggers (so as to have only one trigger coincident with
-each injection).  Then, we calculate the fractional distance error.  The
-"true distance" is the observed distance in the ifo with the greater
-range (obtained from the sigmasq column in the sngl inspiral table).
-The proposed distance cut is specified using the values kappa and
+each injection).  Then, we calculate the symmetric fractional distance
+error.  The proposed distance cut is specified using the values kappa and
 epsilon.  We require:
 
-|D_obs - D_true|     epsilon
- --------------  =   -------  + kappa.
-     D_true          rho_obs
+   |D_IFOA - D_IFOB|     epsilon
+2 * ---------------  =   -------  + kappa.
+   |D_IFOA + D_IFOB|     rho_obs
 """
 
 parser = OptionParser( usage )
@@ -117,6 +115,9 @@ parser.add_option("-b","--dist-snr",action="store_true",default=False,\
 parser.add_option("-c","--dist-hist",action="store_true",default=False,\
     help="histogram of distance accuracy" )
 
+parser.add_option("-C","--snr-hist",action="store_true",default=False,\
+    help="histogram of snr" )
+
 parser.add_option("-d", "--dist-dist", action="store_true", default=False,
     help="plot IFOB effective distance vs IFOA effective distance")
 
@@ -158,7 +159,7 @@ if not opts.ifoa or not opts.ifob:
   print >> sys.stderr, "Enter 'ploteffdistcut --help' for usage"
   sys.exit(1)
 
-if opts.slide_glob and (opts.num_slides is None or opts.num_slides > 0):
+if opts.slide_glob and (opts.num_slides is None or not opts.num_slides > 0):
   print >> sys.stderr, "--num-slides must be set if --slide-glob is specified"
   print >> sys.stderr, "Enter 'ploteffdistcut --help' for usage"
   sys.exit(1)
@@ -231,9 +232,9 @@ if opts.slide_glob:
         this_slide["coinc_trigs"].coincinclude([opts.ifoa,opts.ifob])
 
     # cluster triggers
-    #if opts.cluster_window:
-    #  this_slide["coinc_trigs"] = \
-    #    this_slide["coinc_trigs"].cluster(opts.cluster_window)  
+    if opts.cluster_window:
+      this_slide["coinc_trigs"] = \
+        this_slide["coinc_trigs"].cluster(opts.cluster_window)  
     
     # add slide to list
     slideTriggers.extend(this_slide["coinc_trigs"])
@@ -247,11 +248,12 @@ if opts.slide_glob:
   [slide_snr,slide_error] = disterr(slideTriggers,[opts.ifoa,opts.ifob], \
       opts.use_avg_distance, opts.statistic)
 
-
+figNum = 0
 #######################################################################
 # plot of distance accuracy vs snr
 if opts.dist_snr:
-  figure(1)
+  figNum += 1
+  figure(figNum)
   leg = []
   # plot the slides
   if opts.slide_glob:
@@ -263,15 +265,18 @@ if opts.dist_snr:
   # plot the injections
   semilogx(inj_snr, inj_error, 'rx')
   leg.append('inj')
-  
+
   x = arange(int(min(inj_snr)), int(max(inj_snr)) + 2)
+  fit_y = 2.0*abs(16.0/5.5 - 32.0/x)/(16.0/5.5 + 32.0/x)
+  semilogx(x,fit_y,'k',linewidth=2)
+  leg.append('fit')
   if opts.kappa or opts.epsilon:
     semilogx(x, opts.kappa + opts.epsilon/x,'k',linewidth=1)
     leg.append('cut')
   xlim(min(x),max(x))
   xlabel('%s of trigger' % opts.statistic.replace("_", r"\_"))
   ylabel('fractional difference in eff. distance')
-  legend(leg)
+  legend(leg, loc='best')
   grid(True)
   if opts.figure_name:  
     savefig(opts.figure_name + "_eff_dist_cut.png")
@@ -279,7 +284,8 @@ if opts.dist_snr:
 #######################################################################
 # histogram of distance accuracy
 if opts.dist_hist:
-  figure(2)
+  figNum += 1
+  figure(figNum)
   if opts.slide_glob:
     [slide_num,slide_bin,junk] = hist(slide_error,bins=20)
     slide_num = slide_num/float(sum(slide_num))
@@ -300,9 +306,53 @@ if opts.dist_hist:
     savefig(opts.figure_name + "_eff_dist_hist.png")
 
 #######################################################################
+# histogram of snr
+if opts.snr_hist:
+  figNum += 1
+  figure(figNum)
+  if opts.slide_glob:
+    [slide_num,slide_bin,junk] = hist(log(slide_snr)/log(10.),bins=20)
+    slide_num = slide_num/float(sum(slide_num))
+  [inj_num,inj_bin,junk] = hist(log(inj_snr)/log(10.),bins=20)
+  inj_num = inj_num/float(sum(inj_num))
+  clf()
+  if opts.slide_glob:
+    bar(slide_bin,slide_num,slide_bin[1]-slide_bin[0],color='b')
+  bar(inj_bin,inj_num,inj_bin[1]-inj_bin[0],color='r')
+  xticks(fontsize=opts.font_size)
+  yticks(fontsize=opts.font_size)
+  xlabel('log(snr,base=10)')
+  ylabel(r'normalized \#')
+  snr_max = int(max(log(inj_snr)/log(10.))) + 2
+  snr_min = int(min(log(inj_snr)/log(10.)))
+  if opts.slide_glob:
+    snr_max = max(int(max(log(slide_snr)/log(10.))) + 2,snr_max)
+    snr_min = min(int(min(log(slide_snr)/log(10.))),snr_min)
+  ylim(ymin=0)
+  xlim(snr_min,snr_max)
+  if opts.figure_name:
+    savefig(opts.figure_name + "_snr_hist.png")
+
+  figNum += 1
+  figure(figNum)
+  bar(inj_bin,inj_num,inj_bin[1]-inj_bin[0],color='r')
+  if opts.slide_glob:
+    bar(slide_bin,slide_num,slide_bin[1]-slide_bin[0],color='b')
+  xticks(fontsize=opts.font_size)
+  yticks(fontsize=opts.font_size)
+  xlabel('log(snr,base=10)')
+  ylabel(r'normalized \#')
+  ylim(ymin=0)
+  xlim(snr_min,snr_max)
+  if opts.figure_name:
+    savefig(opts.figure_name + "_hist_snr.png")
+
+
+#######################################################################
 # effective distance vs effective distance plot
 if opts.dist_dist:
-  fig = figure(3)
+  figNum += 1
+  fig = figure(figNum)
   fig.clear()
   ax = fig.add_subplot(111)
   ax.grid(True)
