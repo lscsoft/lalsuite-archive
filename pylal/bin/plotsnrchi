@@ -132,6 +132,11 @@ triggers can be made.  Three such plots are available:
 
 8) Histograms as a function of the statistic given above.  Called with
    --hist-stat.
+
+A plot of snr vs rsq can also be made for a glob of triggers that are read in.
+If the --rsq-VETO-OPTIONS are used, it will show the triggers cut by that veto
+in a different color than those kept by that veto. Injections are also plotted
+if specified.
 """
 
 parser = OptionParser( usage )
@@ -180,6 +185,17 @@ parser.add_option("-d","--denominator-variable",action="store",type="float",\
 parser.add_option("-n","--nbins",action="store",type="int",default=20,\
     metavar=" NBINS", help="number of bins for the histogram plots" )
 
+parser.add_option("-r","--snr-rsq",action="store_true",default=False,\
+    help="make a plot of snr vs rsq" )
+parser.add_option("","--rsq-threshold",action="store",type="float",\
+    default=0,metavar="SEC",help="set rsq veto duration threshold to SEC" )
+parser.add_option("","--rsq-max-snr",action="store",type="float",\
+    default=0,metavar="MAXSNR",help="set rsq veto maximum snr to MAXSNR" )
+parser.add_option("","--rsq-coeff",action="store",type="float",\
+    default=10,metavar="COEFF",help="set rsq veto coefficient to COEFF" )
+parser.add_option("","--rsq-pow",action="store",type="float",\
+    default=0,metavar="POW",help="set rsq veto power to POW" )
+
 (opts,args) = parser.parse_args()
 
 # if --version flagged
@@ -217,6 +233,10 @@ if (opts.hist_stat or opts.hist_snr or opts.hist_snr_chi) and not \
 ###################################
 # input triggers
 inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(trigFiles)
+rsq = inspTriggers.get_column('rsqveto_duration')
+for i in range(len(rsq)):
+  rsq[i] += 0.00001
+max_rsq = max(rsq)
 # input injections:
 inj_snr = None
 inj_chisq = None
@@ -224,6 +244,10 @@ if opts.inj_glob:
   injTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(injFiles)
   inj_snr = injTriggers.get_column('snr')
   inj_chisq = injTriggers.get_column('chisq')
+  inj_rsq = injTriggers.get_column('rsqveto_duration')
+  for i in range(len(inj_rsq)):
+    inj_rsq[i] += 0.00001
+  max_rsq = max(max_rsq,max(inj_rsq))
 
 
 ###################################
@@ -305,6 +329,65 @@ if opts.trig_contour or opts.trig_contour_lines or opts.contour_lines \
   v = 10**v
   v = concatenate( (v,zeros(1)) )
 
+###################################
+# calculate rsq cut line amd sort triggers
+if opts.snr_rsq and (opts.rsq_threshold and opts.rsq_max_snr):
+  if opts.rsq_coeff and opts.rsq_pow:
+    rsq_cut_line_x = [min_snr, opts.rsq_max_snr, opts.rsq_max_snr, max_snr]
+    rsq_cut_line_y = [opts.rsq_threshold, opts.rsq_threshold,\
+                      opts.rsq_coeff*(opts.rsq_max_snr)**opts.rsq_pow,\
+                      opts.rsq_coeff*(max_snr)**opts.rsq_pow]
+  else:
+    rsq_cut_line_x = [min_snr, opts.rsq_max_snr, opts.rsq_max_snr]
+    rsq_cut_line_y = [opts.rsq_threshold, opts.rsq_threshold,max_rsq]
+
+  snr_cut = []
+  rsq_cut = []
+  snr_kept = []
+  rsq_kept = []
+  for i in range(len(snr)):
+    if snr[i] < opts.rsq_max_snr:
+      if rsq[i] > opts.rsq_threshold:
+        snr_cut.append(snr[i])
+        rsq_cut.append(rsq[i])
+      else:
+        snr_kept.append(snr[i])
+        rsq_kept.append(rsq[i])
+    elif opts.rsq_coeff and opts.rsq_pow:
+      if rsq[i] > opts.rsq_coeff*(snr[i])**opts.rsq_pow:
+        snr_cut.append(snr[i])
+        rsq_cut.append(rsq[i])
+      else:
+        snr_kept.append(snr[i])
+        rsq_kept.append(rsq[i])
+    else:
+      snr_kept.append(snr[i])
+      rsq_kept.append(rsq[i])
+
+  if opts.inj_glob:
+    inj_snr_cut = []
+    inj_rsq_cut = []
+    inj_snr_kept = []
+    inj_rsq_kept = []
+    for i in range(len(inj_snr)):
+      if inj_snr[i] < opts.rsq_max_snr:
+        if inj_rsq[i] > opts.rsq_threshold:
+          inj_snr_cut.append(inj_snr[i])
+          inj_rsq_cut.append(inj_rsq[i])
+        else:
+          inj_snr_kept.append(inj_snr[i])
+          inj_rsq_kept.append(inj_rsq[i])
+      elif opts.rsq_coeff and opts.rsq_pow:
+        if inj_rsq[i] > opts.rsq_coeff*(inj_snr[i])**opts.rsq_pow:
+          inj_snr_cut.append(inj_snr[i])
+          inj_rsq_cut.append(inj_rsq[i])
+        else:
+          inj_snr_kept.append(inj_snr[i])
+          inj_rsq_kept.append(inj_rsq[i])
+      else:
+        inj_snr_kept.append(inj_snr[i])
+        inj_rsq_kept.append(inj_rsq[i])
+
 fig_num = 0
 ###################################
 # plot of snr vs chisq
@@ -312,10 +395,10 @@ if opts.snr_chisq:
   fig_num +=1
   figure(fig_num)
   
-  if opts.inj_glob: 
-    viz.plot_a_v_b(injTriggers,'snr','chisq','loglog','r+')
-  hold(True)
   viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','kx')
+  hold(True)
+  if opts.inj_glob:
+    viz.plot_a_v_b(injTriggers,'snr','chisq','loglog','r+')
 
   xlim(min_snr, max_snr)
   ylim(min_chisq, max_chisq)
@@ -531,6 +614,37 @@ if opts.hist_stat:
     ylabel('pdf', size='x-large')
     if opts.figure_name:
       savefig(opts.figure_name + '_const_den_efficiency.png')
+
+###################################
+# plot of snr vs rsq
+if opts.snr_rsq and (opts.rsq_threshold and opts.rsq_max_snr):
+  fig_num +=1
+  figure(fig_num)
+
+  loglog(snr_kept,rsq_kept,'kx',snr_cut,rsq_cut,'bx')
+  hold(True)
+  if opts.inj_glob:
+    loglog(inj_snr_kept,inj_rsq_kept,'r+',inj_snr_cut,inj_rsq_cut,'m+')
+  loglog(rsq_cut_line_x,rsq_cut_line_y,'k',linewidth=2)
+
+  xlim(min_snr, max_snr)
+  ylim(1e-4, 10)
+  if opts.figure_name:
+    savefig(opts.figure_name + '_snr_rsq.png')
+
+elif opts.snr_rsq:
+  fig_num +=1
+  figure(fig_num)
+
+  loglog(snr,rsq,'kx')
+  hold(True)
+  if opts.inj_glob:
+    loglog(inj_snr,inj_rsq,'r+')
+
+  xlim(min_snr, max_snr)
+  ylim(1e-4, 10)
+  if opts.figure_name:
+    savefig(opts.figure_name + '_snr_rsq.png')
 
 
 if opts.show_plot:
