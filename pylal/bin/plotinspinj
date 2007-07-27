@@ -74,6 +74,8 @@ parser.add_option("-q","--chirp-snr",action="store_true",default=False,\
     help="plot of chirp mass accuracy vs snr" )
 parser.add_option("-C","--chirp-axis",action="store",type="float",\
     default=0, metavar=" M_SUN",help="width of chirp mass accuracy in plots" )
+parser.add_option("","--mchirp-mchirp",action="store_true",default=False,\
+    help="plot of injected vs recovered mchirp" )
 
 parser.add_option("-e","--plot-eta",action="store_true",default=False,\
     help="plot the eta accuracy" )
@@ -109,6 +111,11 @@ parser.add_option("", "--ethinca-vs-diff", dest="ethinca_vs_diff", \
     help="plot maximum ethinca parameter for which "\
     "the trigger's ellipse encloses the true injection params "\
     "vs difference in given column between injection and trigger")
+parser.add_option("", "--ethinca-vs-snr", action="store_true", \
+    default=False, help="plot minimum ethinca parameter for which "\
+    "the trigger's ellipse encloses the true injection params "\
+    "vs the inverse of the snr of the trigger")
+
 parser.add_option("", "--log-x", action="store_true", default=False,\
     help="plot the x-axis on a log scale (only implemented for ethinca "
     " plots)")
@@ -131,7 +138,7 @@ parser.add_option("-s","--show-plot",action="store_true",default=False,\
     help="display the figures on the terminal" )
 parser.add_option("-n","--nbins",action="store",type="int",default=10,\
     metavar=" NBINS", help="number of bins for the histogram plots (default 10)" )
-parser.add_option("-f","--fig-name",action="store",type="string",\
+parser.add_option("-f","--figure-name",action="store",type="string",\
     default=None, metavar=" FNAME",\
     help="generate png figures with name FNAME-fig.png" ) 
 parser.add_option("-x","--title-text",action="store",type="string",\
@@ -214,6 +221,19 @@ plot_colors = ['r', 'b', 'k', 'g', 'y']
 
 # infinite sequence of integers, starting at 1
 plot_num = itertools.count(1)
+#####################################
+# plot of injected vs detected mchirp
+if opts.mchirp_mchirp:
+  figure(plot_num.next())
+  hold(True)
+  sym=0
+  for injSet in injSets:
+    viz.plotval(injSet['sim_inspiral'], injSet['sngl_inspiral'],\
+                'mchirp', 'lin', plot_symbols[sym] )
+    sym+=1
+  viz.labelval('mchirp', '$M_{\odot}$', [0,0,0,0],'Injected','Recovered',\
+    tags,opts.title_text, opts.figure_name)
+
 ################################
 # plot of mchirp error vs mchirp
 if opts.plot_mchirp:
@@ -226,7 +246,7 @@ if opts.plot_mchirp:
     sym+=1
   viz.labeldiff('mchirp', '$M_{\odot}$', \
       [0,0,-opts.chirp_axis,opts.chirp_axis],\
-      tags,opts.title_text, opts.fig_name)
+      tags,opts.title_text, opts.figure_name)
   
 ###############################  
 # histogram of chirp mass error
@@ -240,7 +260,7 @@ if opts.hist_mchirp:
                  [-opts.chirp_axis,opts.chirp_axis])
     sym+=1
   viz.labelhistdiff('mchirp', 'hist', '$M_{\odot}$', tags, opts.title_text,\
-                    opts.fig_name)
+                    opts.figure_name)
   
  
 ################################
@@ -254,7 +274,7 @@ if opts.plot_eta:
                  'eta', 'linear', plot_symbols[sym])
     sym+=1
   viz.labeldiff('eta', None, [0,0,-opts.eta_axis,opts.eta_axis],\
-    tags,opts.title_text, opts.fig_name) 
+    tags,opts.title_text, opts.figure_name) 
  
  
 ###############################  
@@ -269,7 +289,7 @@ if opts.hist_eta:
                  [-opts.eta_axis,opts.eta_axis])
     sym+=1
   viz.labelhistdiff('eta', 'hist', None, tags, opts.title_text, \
-                    opts.fig_name)
+                    opts.figure_name)
 
 
 ################################
@@ -283,7 +303,7 @@ if opts.plot_time:
                  'end_time', 'linear', plot_symbols[sym] )
     sym+=1
   viz.labeldiff('end_time', 'days', [0,0,-opts.time_axis,opts.time_axis],\
-    tags,opts.title_text, opts.fig_name) 
+    tags,opts.title_text, opts.figure_name) 
 
 
 ###############################  
@@ -298,7 +318,7 @@ if opts.hist_time:
                  [-opts.time_axis,opts.time_axis])
     sym+=1
   viz.labelhistdiff('end_time', 'hist', 'seconds', tags, opts.title_text, \
-                    opts.fig_name)
+                    opts.figure_name)
 
 
 ################################
@@ -312,7 +332,7 @@ if opts.plot_dist:
                      'eff_dist', 'log', plot_symbols[sym] )
     sym+=1
   viz.labelfracdiff('eff_dist', 'Mpc', [0,0,-opts.dist_axis,opts.dist_axis],\
-    tags,opts.title_text, opts.fig_name) 
+    tags,opts.title_text, opts.figure_name) 
 
 ###############################  
 # histogram of dist error
@@ -326,7 +346,7 @@ if opts.hist_dist:
                  [-opts.dist_axis,opts.dist_axis])
     sym+=1
   viz.labelhistdiff('eff_dist', 'frac_hist', 'Mpc', tags, opts.title_text, \
-                    opts.fig_name)
+                    opts.figure_name)
 
 #######################################
 # plot of injected vs detected distamce    
@@ -339,7 +359,7 @@ if opts.dist_dist:
                 'eff_dist', 'log', plot_symbols[sym] )
     sym+=1
   viz.labelval('eff_dist', 'Mpc', [0,0,0,0],'Injected','Recovered',\
-    tags,opts.title_text, opts.fig_name) 
+    tags,opts.title_text, opts.figure_name) 
 
 ################################
 # plot of mchirp error vs eff_dist
@@ -353,7 +373,7 @@ if opts.chirp_dist:
     sym+=1
   viz.labeldiffa_vs_b('mchirp', 'eff_dist','$M_{\odot}','Mpc', \
     [0,0,-opts.chirp_axis,opts.chirp_axis], tags, opts.title_text,\
-    opts.fig_name)
+    opts.figure_name)
 
 ################################
 # plot of mchirp error vs mchirp
@@ -367,7 +387,7 @@ if opts.time_dist:
     sym+=1
   viz.labeldiffa_vs_b('end_time', 'eff_dist','$M_{\odot}$','Mpc', \
     [0,0,-opts.time_axis,opts.time_axis], tags, opts.title_text,\
-    opts.fig_name)
+    opts.figure_name)
 
 
 ################################
@@ -382,7 +402,7 @@ if opts.chirp_snr:
     sym+=1
   viz.labeldiffa_vs_b('mchirp', 'snr','$M_{\odot}$',None, \
     [0,0,-opts.chirp_axis,opts.chirp_axis], tags, opts.title_text,\
-    opts.fig_name)
+    opts.figure_name)
 
 
 ################################
@@ -397,7 +417,7 @@ if opts.time_snr:
     sym+=1
   viz.labeldiffa_vs_b('end_time', 'snr','seconds',None, \
     [0,0,-opts.time_axis,opts.time_axis], tags, opts.title_text,\
-    opts.fig_name)
+    opts.figure_name)
 
 ################################
 # plot of eta error vs snr
@@ -411,7 +431,7 @@ if opts.eta_snr:
     sym+=1
   viz.labeldiffa_vs_b('eta', 'snr',None,None, \
     [0,0,-opts.eta_axis,opts.eta_axis], tags, opts.title_text,\
-    opts.fig_name)
+    opts.figure_name)
 
 ################################
 # plot of ethinca parameter vs the difference between any parameter's
@@ -450,9 +470,47 @@ for ethinca_vs_diff in opts.ethinca_vs_diff:
     if opts.title_text is not None:
       ax.set_title(opts.title_text, size='x-large', weight='bold')
     
-    if opts.fig_name:
+    if opts.figure_name:
       fig.savefig('%s_ethinca_vs_%s_accuracy.png' % \
-        (opts.fig_name, ethinca_vs_diff))
+        (opts.figure_name, ethinca_vs_diff))
+    if not opts.show_plot:
+      close()
+
+# Plot of ethinca values vs snr
+if opts.ethinca_vs_snr:
+  fig = figure(plot_num.next())
+  ax = fig.add_subplot(111)
+  ax.grid(True)
+  for injSet,symb in zip(injSets, plot_symbols):
+    table1 = injSet['sim_inspiral']
+    table2 = injSet['sngl_inspiral']
+
+    # Print first row of table1
+    # print [(k, table1[0].__getattribute__(k)) for k in table1.columnnames]
+
+    # Print first row of table2
+    # print [(k, table2[0].__getattribute__(k)) for k in table2.columnnames]
+
+    col_a = viz.readcol(table2, 'snr')
+
+    col_b = [ethinca_param(sim, sngl) for sim, sngl in zip(table1, table2)]
+
+    ax.plot(col_a, col_b, symb)
+
+    if opts.log_x:
+      ax.set_xscale('log')
+    if opts.log_y:
+      ax.set_yscale('log')
+
+    ax.set_xlabel('snr', size='x-large')
+    ax.set_ylabel('ethinca-parameter', size='x-large')
+
+    if opts.title_text is not None:
+      ax.set_title(opts.title_text, size='x-large', weight='bold')
+
+    if opts.figure_name:
+      fig.savefig('%s_ethinca_vs_snr.png' % \
+        (opts.figure_name))
     if not opts.show_plot:
       close()
 
@@ -483,8 +541,8 @@ if opts.hist_ethinca:
   if opts.title_text is not None:
     ax.set_title(opts.title_text, size='x-large', weight='bold')
   
-  if opts.fig_name:
-    fig.savefig(opts.fig_name + "_inj-trig_ethinca_hist.png")
+  if opts.figure_name:
+    fig.savefig(opts.figure_name + "_inj-trig_ethinca_hist.png")
   if not opts.show_plot:
     close()
 
