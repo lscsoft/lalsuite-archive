@@ -81,11 +81,11 @@ def coire(data_type,input,ifos,trigs=None,long_clust=False):
   """
 
   if trigs:
-    output = trigs + "/" + trigs + "-THINCA"
+    output = trigs + "/" + trigs + "-COIRE"
     if data_type == "slide": output += "_SLIDE"
     output += "_in_" + ifos
   else:
-    output = ifos + "-THINCA" 
+    output = ifos + "-COIRE" 
     if data_type == "slide": output += "_SLIDE"
  
   if long_clust:
@@ -114,7 +114,10 @@ def coire(data_type,input,ifos,trigs=None,long_clust=False):
                " --missed-injections " + missed    
   if trigs:
     command += " --coinc-cut " + trigs
-    
+  if opts.mass_cut:
+    command += " --mass-cut " + opts.mass_cut + \
+               " --mass-range-low " + opts.mass_range_low + \
+               " --mass-range-high " + opts.mass_range_high
   if opts.cluster_time or long_clust:
     command += " --coinc-stat " + opts.coinc_stat
     if long_clust:
@@ -141,10 +144,10 @@ def plotthinca(trigs = None):
   @param trigs: trigger type (if None, keep all)
   """
   if trigs:
-    glob_files = trigs + "/" + trigs + "-THINCA*.xml"
+    glob_files = trigs + "/" + trigs + "-COIRE*.xml"
     fname = trigs + "/" + opts.figure_name
   else:
-    glob_files = "*-THINCA*.xml"
+    glob_files = "*-COIRE*.xml"
     fname = opts.figure_name
     
   if len(opts.vetoes):
@@ -195,11 +198,11 @@ def s3_statistic(trigs = None):
         " --allow-h2-l1" 
 
   if "zero" in analyze:
-    command += " --zero-glob '" + trigs + "-THINCA" + extra + "*.xml'" + \
+    command += " --zero-glob '" + trigs + "-COIRE" + extra + "*.xml'" + \
                " --zero-stat"  
 
   if "slide" in analyze:
-    command += " --slide-glob '" + trigs + "-THINCA_SLIDE" + extra + "*.xml'" +\
+    command += " --slide-glob '" + trigs + "-COIRE_SLIDE" + extra + "*.xml'" +\
                " --slide-dist" + \
                " --slide-stat" + \
                " --num-slides " + opts.num_slides
@@ -208,8 +211,8 @@ def s3_statistic(trigs = None):
                  " --slide-zero-stat " 
 
   if "inj" in analyze:
-    command += " --inj-glob '" + trigs + "-THINCA" + extra + "*FOUND.xml'" + \
-            " --missed-glob '" + trigs + "-THINCA" + extra + "*MISSED.xml'" + \
+    command += " --inj-glob '" + trigs + "-COIRE" + extra + "*FOUND.xml'" + \
+            " --missed-glob '" + trigs + "-COIRE" + extra + "*MISSED.xml'" + \
                " --inj-stat" + \
                " --efficiency"
     for ifo in ifo_list:
@@ -257,8 +260,8 @@ parser.add_option("-a","--trig-path",action="store",type="string",\
     default='', metavar=" DIR",help="directory containing the triggers" )
 
 # general options
-parser.add_option("-f","--ifo", action="append", type="string",\
-    dest="ifos",help="data from this ifo has been analyzed")
+parser.add_option("-f","--ifo", action="append", type="string", \
+    metavar=" IFO", dest="ifos",help="data from this ifo has been analyzed")
 
 parser.add_option("-t","--test",action="store_true",default=False,\
     help="test code, don't run executables")
@@ -339,6 +342,9 @@ parser.add_option("-G","--l1-bittenl-b",action="store",\
 parser.add_option("-j","--second-coinc",action="store_true",default=False,\
     help="specify that the input comes from second coinc (default = false)")
 
+parser.add_option("-o","--clustered-files",action="store_true",default=False,\
+    help="specify that the input comes from clustered files (default = false)")
+
 parser.add_option("-k","--veto-file",action="append",type="string",\
     dest="vetoes",metavar=" VETOES",\
     help="specify a veto file to be used, appropriate ifo taken from file name")
@@ -355,7 +361,17 @@ parser.add_option("-y","--rsq-coeff",action="store",default=None,\
 
 parser.add_option("-z","--rsq-pow",action="store",default=None,\
     metavar=" RSQ_POW",help="power for which to apply the r-squared veto")
-    
+
+parser.add_option("-J","--mass-cut",action="store",type="string",\
+    default=None,metavar=" MASS_TYPE",\
+    help="keep only triggers in mass range of type MASS_TYPE (mchirp|mtotal)")
+
+parser.add_option("-K","--mass-range-low",action="store",default=None,\
+    metavar=" LOW_MASS",help="lower bound on mass range")
+
+parser.add_option("-L","--mass-range-high",action="store",default=None,\
+    metavar=" HIGH_MASS",help="upper bound on mass range")
+
 # plotting options
 parser.add_option("-p","--num-bins",action="store",type="string",\
     default="20", metavar=" NBINS",\
@@ -371,19 +387,19 @@ parser.add_option("-r","--s3-stat",action="store",type="string",\
 
 # executables
 parser.add_option("-b","--coire",action="store",type="string",\
-    default="lalapps_coire", metavar=" COIRE",
+    default="lalapps_coire", metavar=" EXEC",
     help="coire executable (default = lalapps_coire" )
 
 parser.add_option("-l","--sire",action="store",type="string",\
-    default="lalapps_sire", metavar=" SIRE",\
+    default="lalapps_sire", metavar=" EXEC",\
     help="sire executable (default = lalapps_sire)" )
 
 parser.add_option("-n","--s3-statistic",action="store",type="string",\
-    default="s3_statistic", metavar=" SIRE",\
+    default="s3_statistic", metavar=" EXEC",\
     help="plotting executable (default = s3_statistic)" )
 
 parser.add_option("-m","--plotthinca",action="store",type="string",\
-    default="plotthinca", metavar=" SIRE",\
+    default="plotthinca", metavar=" EXEC",\
     help="plotting executable (default = plotthinca)" )
 
 (opts,args) = parser.parse_args()
@@ -396,29 +412,41 @@ if not opts.ifos:
   print >> sys.stderr, "Must specify at least two ifos using --ifo"
   sys.exit(1)
 
-if (opts.rsq_threshold and not opts.rsq_max_snr) or \
-    (not opts.rsq_threshold and opts.rsq_max_snr):
+if (opts.rsq_threshold or opts.rsq_max_snr) and \
+    not (opts.rsq_threshold and opts.rsq_max_snr):
   print >> sys.stderr, \
       "Must specify either both --rsq-max-snr and --rsq-threshold or neither"
   sys.exit(1)
 
-if (opts.rsq_pow and not opts.rsq_coeff) or \
-    (not opts.rsq_pow and opts.rsq_coeff):
+if (opts.rsq_pow or opts.rsq_coeff) and \
+    not (opts.rsq_pow and opts.rsq_coeff):
   print >> sys.stderr, \
       "Must specify either both --rsq-pow and --rsq-coeff or neither"
   sys.exit(1)
 
-if (opts.rsq_pow and not opts.rsq_threshold):
+if (opts.rsq_pow or opts.rsq_coeff) and \
+    not (opts.rsq_max_snr and opts.rsq_threshold):
   print >> sys.stderr, \
       "Must specify --rsq-max-snr and --rsq-threshold " + \
       "if rsq-pow and --rsq-coeff are given"
-
+  sys.exit(1)
 
 if opts.num_slides and opts.injection_file:
   print >> sys.stderr, "Cannot do slides and injections together"
   print >> sys.stderr, "Specify at most one of --num-slides, --injection-file"
   sys.exit(1)
-  
+
+if (opts.mass_cut or opts.mass_range_low or opts.mass_range_high) and \
+    not (opts.mass_cut and opts.mass_range_low and opts.mass_range_high):
+  print >> sys.stderr, \
+      "Must specify --mass-cut, --mass-range-low, and --mass-range-high " + \
+      "if any are given"
+
+if opts.mass_cut and \
+    not (opts.mass_cut == 'mtotal' or opts.mass_cut == 'mchirp'):
+  print >> sys.stderr, "--mass-cut must be one of (mtotal|mchirp)"
+  sys.exit(1)
+
 opts.ifos.sort()
   
 # data description
@@ -462,8 +490,15 @@ for data_type in analyze:
       ifos = "".join(ifo_list)
     
       # set input file name
-      input = opts.trig_path + '/' + ifos + "-THINCA"
-      if data_type == "slide": input += "_SLIDE" 
+      input = opts.trig_path + '/' + ifos 
+      if opts.clustered_files:
+        input += "-COIRE"
+      else:
+        input += "-THINCA"
+      if data_type == "slide":
+        input += "_SLIDE" 
+      if data_type == "inj" and opts.clustered_files:
+        input += "_INJECTIONS_*_FOUND"
       if opts.second_coinc:
         input += "_" + ifos
       if opts.usertag:
@@ -494,8 +529,15 @@ for data_type in analyze:
       if data_type == "slide": input += "_SLIDE"
       input += ".xml"
     else:
-      input = opts.trig_path + '/' + ifos + "-THINCA" 
-      if data_type == "slide": input += "_SLIDE"
+      input = opts.trig_path + '/' + ifos
+      if opts.clustered_files:
+        input += "-COIRE"
+      else:
+        input += "-THINCA"
+      if data_type == "slide":
+        input += "_SLIDE"
+      if data_type == "inj" and opts.clustered_files:
+        input += "_INJECTIONS_*_FOUND"
       if opts.second_coinc:
         input += "_" + ifos
       if opts.usertag:
