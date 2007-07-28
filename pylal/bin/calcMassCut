@@ -28,13 +28,13 @@ parser.add_option("-g","--glob",action="store",type="string",\
   default=[], metavar=" GLOB",help="GLOB of found injections files to read" )
 parser.add_option("-I", "--input", help="read thinca filenames from input file")
 
-parser.add_option("-t","--mass-type",action="store",type="string",
+parser.add_option("-t","--mass-cut",action="store",type="string",
     default=None,metavar=" TYPE",
     help="type of mass region to use (mtotal|mchirp)")
-parser.add_option("-m","--m-low",action="store",type="float",
+parser.add_option("-m","--mass-range-low",action="store",type="float",
     default=False,metavar=" MASS",
     help="the lower bound on the mass for injections" )
-parser.add_option("-M","--m-hi",action="store",type="float",
+parser.add_option("-M","--mass-range-high",action="store",type="float",
     default=False,metavar=" MASS",
     help="the upper bound on the mass for injections" )
 
@@ -60,8 +60,8 @@ if not opts.glob and not opts.input:
   print >>sys.stderr, "Enter 'plotthinca --help' for usage"
   sys.exit(1)
 
-if not opts.mass_type == 'mchirp' and not opts.mass_type == 'mtotal':
-  print >>sys.stderr, "Must specify --mass-type as either mtotal or mchirp"
+if not opts.mass_cut == 'mchirp' and not opts.mass_cut == 'mtotal':
+  print >>sys.stderr, "Must specify --mass-cut as either mtotal or mchirp"
   sys.exit(1)
 
 ###########################################
@@ -99,10 +99,12 @@ injDict["sim_inspiral"] = SimInspiralUtils.ReadSimInspiralFromFiles(fList)
 injSet = {}
 injSet["rec_mass"] = []
 injSet["inj_mass"] = []
-if opts.mass_type == 'mtotal':
+if opts.mass_cut == 'mtotal':
   for idx in range(len(injDict["sim_inspiral"])):
-    if opts.m_low <= injDict["sim_inspiral"].get_column("total_mass")[idx] \
-        and injDict["sim_inspiral"].get_column("total_mass")[idx] < opts.m_hi:
+    if opts.mass_range_low <= \
+        injDict["sim_inspiral"].get_column("total_mass")[idx] \
+        and injDict["sim_inspiral"].get_column("total_mass")[idx] < \
+        opts.mass_range_high:
       injSet["inj_mass"].append(float(injDict["sim_inspiral"].\
           get_column("total_mass")[idx]))
       combo,ifos = injDict["coincs"][idx].get_ifos()
@@ -112,10 +114,11 @@ if opts.mass_type == 'mtotal':
                          getattr(injDict["coincs"][idx],ifo).mass2
       massRecovered /= len(ifos)
       injSet["rec_mass"].append(massRecovered)
-elif opts.mass_type == 'mchirp':
+elif opts.mass_cut == 'mchirp':
   for idx in range(len(injDict["sim_inspiral"])):
-    if opts.m_low <= injDict["sim_inspiral"].get_column("mchirp")[idx] \
-        and injDict["sim_inspiral"].get_column("mchirp")[idx] < opts.m_hi:
+    if opts.mass_range_low <= injDict["sim_inspiral"].get_column("mchirp")[idx] \
+        and injDict["sim_inspiral"].get_column("mchirp")[idx] < \
+        opts.mass_range_high:
       injSet["inj_mass"].append(float(injDict["sim_inspiral"].\
           get_column("mchirp")[idx]))
       combo,ifos = injDict["coincs"][idx].get_ifos()
@@ -155,14 +158,16 @@ meanMassError = oldMeanMassError
 
 ###############################################################
 # convert this into a minimum and maximum mass in trigger space
-minMass = max(0.0,opts.m_low*(1 - 4.0*sigmaMassError + min(0.0,meanMassError)))
-maxMass = opts.m_hi*(1 + 4.0*sigmaMassError + max(0.0,meanMassError))
+minMass = max(0.0,opts.mass_range_low*\
+                  (1 - 4.0*sigmaMassError + min(0.0,meanMassError)))
+maxMass = opts.mass_range_high*(1 + 4.0*sigmaMassError + max(0.0,meanMassError))
 
- print "# %s\t%s\t%s\t%s\t%s" % \
-       ("Mass Type", "Min Mass Inj", "Max Mass Inj", "Min Mass Tmplt",
-        "Max Mass Tmplt")
- print "  %s\t%f\t%f\t%f\t%f" % \
-       (opts.mass_type, opts.m_low, opts.m_hi, minMass, maxMass)
+print "[coireMassCut]"
+print "mass-cut = %s" % (opts.mass_cut)
+print ";inj-mass-range-low = %f" % (opts.mass_range_low)
+print ";inj-mass-range-high = %f" % (opts.mass_range_high)
+print "mass-range-low = %f" % (minMass)
+print "mass-range-high = %f" % (maxMass)
 
 ##############################################
 # infinite sequence of integers, starting at 1
@@ -174,20 +179,20 @@ if opts.mass_mass:
   figure(plot_num.next())
   plot(injSet["inj_mass"], injSet["rec_mass"],'rx')
   hold(True)
-  axvline(x=opts.m_low, linewidth=2, color='b')
-  axvline(x=opts.m_hi, linewidth=2, color='b')
+  axvline(x=opts.mass_range_low, linewidth=2, color='b')
+  axvline(x=opts.mass_range_high, linewidth=2, color='b')
   axhline(y=minMass, linewidth=2, color='r')
   axhline(y=maxMass, linewidth=2, color='r')
-  xlim(xmin=int(opts.m_low)-1.0,xmax=int(opts.m_hi)+1.0)
+  xlim(xmin=int(opts.mass_range_low)-1.0,xmax=int(opts.mass_range_high)+1.0)
   ylim(ymin=int(minMass)-1.0,ymax=int(maxMass)+1.0)
-  if opts.mass_type == 'mtotal':
+  if opts.mass_cut == 'mtotal':
     ylabel('Recovered $M_{total}$ $(M_{\odot})$',size='x-large')
     xlabel('Injected $M_{total}$ $(M_{\odot})$',size='x-large')
-  elif opts.mass_type == 'mchirp':
+  elif opts.mass_cut == 'mchirp':
     ylabel('Recovered $M_{chirp}$ $(M_{\odot})$',size='x-large')
     xlabel('Injected $M_{chirp}$ $(M_{\odot})$',size='x-large')
   if opts.figure_name:
-    savefig(opts.figure_name + '_inj_vs_rec_' + opts.mass_type + '.png')
+    savefig(opts.figure_name + '_inj_vs_rec_' + opts.mass_cut + '.png')
 
 ####################################
 # histogram of fractional mass error
