@@ -13,7 +13,7 @@ from pylal import SnglInspiralUtils
 from pylal import SimInspiralUtils
 from pylal.tools import XLALCalculateEThincaParameter
 
-from pylab import*
+#from pylab import*
 import pylal.itertools
 import numpy
 ################################################################################
@@ -38,16 +38,16 @@ parser.add_option("-i","--inj-glob",action="store",type="string",\
 # Options to select ifo types.
 
 parser.add_option("-B", "--h1-triggers",action="store_true", default=False,\
-  help="input files contain triggers from H1")
+    help="input files contain triggers from H1")
 
 parser.add_option("-C", "--h2-triggers",action="store_true", default=False,\
-  help="input files contain triggers from H2")
+    help="input files contain triggers from H2")
 
 parser.add_option("-D", "--l1-triggers",action="store_true", default=False,\
-  help="input files contain triggers from L1")
+    help="input files contain triggers from L1")
 
 parser.add_option("-E", "--g1-triggers",action="store_true", default=False,\
-  help="input files contain triggers from G1")
+    help="input files contain triggers from G1")
 
 
 # Options to select paramters for calculation of p(c|0), p(c|h) and likelihood ratio. 
@@ -206,11 +206,7 @@ if opts.inj_glob:
     sys.exit(1)
 
 # check that statistic is OK:
-if (opts.statistic != 'snr') and (opts.statistic != 'snr_over_chi') \
-    and (opts.statistic != 's3_snr_chi_stat') \
-    and (opts.statistic != 'effective_snr')\
-    and (opts.statistic != 'bitten_lsq')\
-    and (opts.statistic != 'bitten_l'):  
+if opts.statistic not in ('snr', 'snr_over_chi', 's3_snr_chi_stat', 'effective_snr', 'bitten_lsq', 'bitten_l'):
   print >>sys.stderr, "--statistic must be one of"  
   print >>sys.stderr, "(snr|snr_over_chi|s3_snr_chi_stat|effective_snr|bitten_l)"
   sys.exit(1)
@@ -303,122 +299,92 @@ injectionCoincTriggers.add_sim_inspirals(simTriggers)
 
 if opts.likelihood:
 
-  FalseProbFile=open('FalseProbFile', 'w')
-  DetectionProbFile=open('DetectionProbFile', 'w')
+  BackgroundFractionFile=open('BackgroundFraction', 'w')
   LikelihoodFile=open('Likelihood', 'w')
-  
+  Nslides=opts.numslides
   for candidate in zerolagCoincTriggers:
     c_ifos,ifolist=candidate.get_ifos()
-    #calculating the false alarm probability
-    Ntotal_noise=0
-    Ntotal_inj=0
-    for trigger in slidesCoincTriggers:
-      trig_ifos,trig_ifolist=trigger.get_ifos()
-      if c_ifos==trig_ifos:
-        Ntotal_noise+=1
-    
-    slides_within_epsilon =CoincInspiralUtils.coincInspiralTable()   
-    slides_within_epsilon=slidesCoincTriggers.getTriggersWithinEpsilon(candidate, opts.epsilon) 
- 
-    nevents_noise = len(slides_within_epsilon) 
-  
-    if Ntotal_noise > 0:
-       FalseProb = float(nevents_noise)/float(Ntotal_noise)
-    else:
-       FalseProb = -1.0
-    # writing the false alarm probability into the file
-    if opts.verbose:
-      print str(candidate.event_id)
-    FalseProbFile.write(str(candidate.event_id) + ' ')
-    if opts.verbose:
-      print str(c_ifos)
-    FalseProbFile.write(str(c_ifos) + ' ')
-    if opts.verbose:
-      print str(FalseProb), nevents_noise, Ntotal_noise
-    FalseProbFile.write(str(FalseProb) + '\n')
-
-    # calculating the detection probability for each of zerolagTriggers
-    Ntotal_inj=0
-    for trigger in injectionCoincTriggers:
-      trig_ifos,trig_ifolist=trigger.get_ifos()
-      if c_ifos==trig_ifos:
-        Ntotal_inj+=1
-
-    injections_within_epsilon =CoincInspiralUtils.coincInspiralTable()
-    injections_within_epsilon=injectionCoincTriggers.getTriggersWithinEpsilon(candidate, opts.epsilon)
-  
-    nevents_inj = len(injections_within_epsilon)
-
-    if Ntotal_inj > 0:
-       DetectionProb = float(nevents_inj)/float(Ntotal_inj)
-    else:
-       DetectionProb = 0.0
-
-    #writing the detection alarm probability into  the file
-    DetectionProbFile.write(str(candidate.event_id) + ' ')
-    DetectionProbFile.write(str(c_ifos) + ' ')
-    if opts.verbose:
-      print str(DetectionProb), nevents_inj, Ntotal_inj
-    DetectionProbFile.write(str(DetectionProb) + '\n')
-
-    # Calculating likelihood ration
-    if FalseProb > 0: 
-      Likelihood = DetectionProb/FalseProb
-    else:
-      Likelihood = -1.0 
-    # writing the likelihood ration into the file
-    LikelihoodFile.write(str(candidate.event_id) + ' ')
-    LikelihoodFile.write(str(c_ifos) + ' ')
-    if opts.verbose:
-      print str(Likelihood)
-    LikelihoodFile.write(str(Likelihood) + '\n')
-
-
-  FalseProbFile.close()
-  DetectionProbFile.close()
-  LikelihoodFile.close()
-
-
-###########################################################################################################
-# Calculate the False alarm probability treating each time slide as a separate trial
-##########################################################################################################
-  FalseAlarmProbFile=open('FalseAlarmProbFile', 'w')
-  Nslides=opts.numslides
-
-  for candidate in zerolagCoincTriggers:
+    # calculating the false alarm probability
     slide_array=numpy.zeros(2*Nslides)
-    slides_within_epsilon = CoincInspiralUtils.coincInspiralTable()
     slides_within_epsilon = slidesCoincTriggers.getTriggersWithinEpsilon(candidate, opts.epsilon)
 
     for slide in range(1, Nslides+1):
       #slideTrigger_forward = CoincInspiralUtils.coincInspiralTable()
       #slideTriggers_backward = CoincInspiralUtils.coincInspiralTable()
-      slideTrigger_forward = None
-      slideTriggers_backward = None
       slideTriggers_forward = slides_within_epsilon.getslide(slide)
       slideTriggers_backward = slides_within_epsilon.getslide(-slide)
       if len(slideTriggers_forward) >= 1:
-        slide_array[slide - 1]=1.0
+        slide_array[slide - 1] = 1.0
       if len(slideTriggers_backward) >= 1:
-        slide_array[Nslides-1+slide]=1.0
+        slide_array[Nslides-1+slide] = 1.0
 
     FalseAlarmProb = sum(slide_array)/float(2*Nslides)
-  
-    # writing the false alarm probability into the file
-    if opts.verbose:
-      print str(candidate.event_id)
-    FalseAlarmProbFile.write(str(candidate.event_id) + ' ')
-    c_ifos,ifolist = candidate.get_ifos()
-    if opts.verbose:
-      print str(c_ifos)
-    FalseAlarmProbFile.write(str(c_ifos) + ' ')
-    if opts.verbose:
-      print str(FalseAlarmProb), sum(slide_array), 2*Nslides
-    FalseAlarmProbFile.write(str(FalseAlarmProb) + '\n')
-    
-      
-  FalseProbFile.close()
 
+    # calculating the detection probability for each of zerolagTriggers
+    Ntotal_inj=0
+    for trigger in injectionCoincTriggers:
+      trig_ifos,trig_ifolist = trigger.get_ifos()
+      if c_ifos == trig_ifos:
+        Ntotal_inj += 1
+
+    injections_within_epsilon = injectionCoincTriggers.getTriggersWithinEpsilon(candidate, opts.epsilon)
+  
+    nevents_inj = len(injections_within_epsilon)
+
+    if Ntotal_inj > 0:
+      DetectionProb = float(nevents_inj) / float(Ntotal_inj)
+    else:
+      DetectionProb = 0.0
+
+    # Calculating likelihood ratio
+    if FalseAlarmProb > 0: 
+      Likelihood = DetectionProb / FalseAlarmProb
+    else:
+      Likelihood = -1.0 
+
+    if opts.verbose:
+      print str(Likelihood)
+
+    #calculating BackgroundFraction - the fraction of background triggers within epsilon distance from the given candidate
+    #of all background triggers in all of the timeslides
+    Ntotal_noise=0
+    for trigger in slidesCoincTriggers:
+      trig_ifos,trig_ifolist=trigger.get_ifos()
+      if c_ifos==trig_ifos:
+        Ntotal_noise+=1
+
+    slides_within_epsilon =CoincInspiralUtils.coincInspiralTable()
+    slides_within_epsilon=slidesCoincTriggers.getTriggersWithinEpsilon(candidate, opts.epsilon)
+
+    nevents_noise = len(slides_within_epsilon)
+
+    if Ntotal_noise > 0:
+       BackgroundFraction = float(nevents_noise)/float(Ntotal_noise)
+    else:
+       BackgroundFraction = -1.0
+
+    # Calculating the ratio of DetectionProb to BackgroundFraction
+    if BackgroundFraction > 0:
+      DetectionBackgroundRatio= DetectionProb/BackgroundFraction
+    else:
+      DetectionBackgroundRatio = -1.0
+
+    if opts.verbose:
+      print str(DetectionBackgroundRatio)
+
+    # writing the false alarm probability, the detection probability and the likelihood ration into file
+    LikelihoodFile.write('%d\t%s\t%e\t%e\t%e\n' % (candidate.event_id, c_ifos, FalseAlarmProb, DetectionProb, Likelihood))
+
+    # writing the BackgroundFraction, DetectionProb and DetectionBackgroundRatio  into file
+    
+    BackgroundFractionFile.write('%d\t%s\t%e\t%e\t%e\n' % (candidate.event_id, c_ifos, BackgroundFraction, DetectionProb,\
+    DetectionBackgroundRatio))
+   
+
+
+ 
+  LikelihoodFile.close()
+  BackgroundFractionFile.close()
 ###################################################################################
 # Plot the various parameters for time slides and injections
 ###################################################################################
