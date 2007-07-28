@@ -32,9 +32,11 @@ import glob
 import math
 from optparse import OptionParser
 from pysqlite2 import dbapi2 as sqlite3
+import string
 import sys
 
 
+from glue import segments
 from glue.ligolw import dbtables
 from glue.ligolw import utils
 from pylal import ligolw_burca_tailor
@@ -44,6 +46,9 @@ from pylal import SnglBurstUtils
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
+
+
+T010150_letters = set(string.ascii_lowercase + string.ascii_uppercase + string.digits + "_+#")
 
 
 #
@@ -66,6 +71,7 @@ def parse_command_line():
 	parser.add_option("--max-hrss-ratio", metavar = "ratio", default = "4.0", help = "When measuring the distribution of coincidence parameters associated with injections, discard any sngl_burst events from the coincs whose measured h_rss differs from the correct value for that instrument by more than this factor.  This helps ensure that the injection distributions are not being measured from accidentals.  Default = 4.0")
 	parser.add_option("--max-frequency-ratio", metavar = "ratio", default = "2.0", help = "When measuring the distribution of coincidence parameters associated with injections, discard any sngl_burst events from the coincs whose measured peak frequency differs from the correct value by more than this factor.  This helps ensure that the injection distributions are not being measured from accidentals.  Default = 2.0")
 	parser.add_option("-o", "--output", metavar = "filename", default = None, help = "Set the name of the likelihood control file to write (default = stdout).")
+	parser.add_option("--T010150", metavar = "description", default = None, help = "Write the output to a file whose name is compatible with the file name format in LIGO-T010150-00-E, \"Naming Convention for Frame Files which are to be Processed by LDAS\".  The description string will be used to form the second field in the file name.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
 
@@ -73,6 +79,13 @@ def parse_command_line():
 		raise ValueError, "missing required --background-glob argument"
 	if not options.injection_glob:
 		raise ValueError, "missing required --injection-glob argument"
+	if options.T010150 is not None:
+		if options.output is not None:
+			raise ValueError, "cannot set both --T010150 and --output"
+		if options.T010150 == "":
+			options.T010150 = "EXCESSPOWER_LIKELIHOOD"
+		elif set(options.T010150) - T010150_letters:
+			raise ValueError, "invalid description \"%s\"" % options.T010150
 
 	options.max_hrss_ratio = float(options.max_hrss_ratio)
 	options.max_frequency_ratio = float(options.max_frequency_ratio)
@@ -104,6 +117,7 @@ options, filenames = parse_command_line()
 
 stats = None
 instruments = set()
+segs = segments.segmentlist()
 
 
 #
@@ -133,6 +147,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 
 	database = SnglBurstUtils.CoincDatabase().summarize(dbtables.DBTable_get_xml(), "lalapps_power", options.verbose)
 	instruments |= database.instruments
+	segs |= database.seglists.union(database.instruments)
 
 	#
 	# If not already done, recover the --thresholds arguments, and
@@ -182,6 +197,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 
 	database = SnglBurstUtils.CoincDatabase().summarize(dbtables.DBTable_get_xml(), "lalapps_power", options.verbose)
 	instruments |= database.instruments
+	segs |= database.seglists.union(database.instruments)
 
 	#
 	# If not already done, recover the --thresholds arguments, and
@@ -216,12 +232,9 @@ if stats is None:
 
 
 #
-# Summarize and write likelihood data.
+# Output.
 #
 
-
-print >>sys.stderr, "=== Summary ==="
-print >>sys.stderr, "Non-injection average event rate = %g events / time slide" % (float(stats.n_background_events) / stats.n_time_slides)
 
 #print >>sys.stderr, "Injection normalized covariance matrix ="
 #print >>sys.stderr, str(stats.covariance.inj_cov)
@@ -229,5 +242,18 @@ print >>sys.stderr, "Non-injection average event rate = %g events / time slide" 
 #print >>sys.stderr, str(stats.covariance.bak_cov)
 
 
+def T010150_basename(instruments, description, seglist):
+	instruments = list(instruments)
+	instruments.sort()
+	seg = seglist.extent()
+	return "%s-%s-%s-%s" % ("+".join(instruments), description, str(seg[0]), str(abs(seg)))
+
+
+if options.T010150:
+	filename = T010150_basename(instruments, options.T010150, segs) + ".xml.gz"
+else:
+	filename = options.output
+
+
 likelihood_control = ligolw_burca_tailor.gen_likelihood_control(stats.distributions)
-utils.write_filename(likelihood_control, options.output, verbose = options.verbose, gz = (options.output or "stdout").endswith(".gz"))
+utils.write_filename(likelihood_control, filename, verbose = options.verbose, gz = (filename or "stdout").endswith(".gz"))
