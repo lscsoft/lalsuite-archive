@@ -75,6 +75,9 @@ parser.add_option("-R","--results-dir",action="store",type="string",\
 parser.add_option("-s","--skip-setup",action="store_true",default=False,\
     help="skip setup stage, i.e. mkdirs, copy files, run inspinj")
 
+parser.add_option("","--calc-mass-cut",action="store_true",default=False,\
+    help="enable the mass cut options in [calcMassCut]")
+
 parser.add_option("-p","--skip-population",action="store_true",default=False,\
     help="skip population generation")
 
@@ -112,7 +115,10 @@ parser.add_option("-z","--output-to-file",action="store_true",\
 
 # hierarchy pipeline
 parser.add_option("-j","--second-coinc",action="store_true",default=False,\
-    help="use the second stage thinca files as input")
+    help="specify that the input comes from second stage thinca files")
+
+parser.add_option("","--clustered-files",action="store_true",default=False,\
+    help="specify that the input comes from clustered files")
 
 (opts,args) = parser.parse_args()
 
@@ -140,6 +146,7 @@ masses = cp.items("massdata")
 stat_options = cp.items("statistic")
 analyzedtimes = cp.items("analyzedtimes")
 coire_options = cp.items("coire")
+calcmasscut_options = cp.items("calcmasscut")
 plotthinca_options=cp.items("plotthinca")
 png_options = cp.items("plotnumgalaxies")
 png_y_options = cp.items("plotnumgalaxies-y")
@@ -217,14 +224,83 @@ if not opts.skip_population:
     os.system( command )
 
 #######################################################################
+# calculate the mass cut to apply
+#######################################################################
+if opts.calc_mass_cut:
+  print "** Calculating the mass cut to apply"
+  os.chdir(MYRESULTSDIR)
+  mkdirsafe( MYRESULTSDIR + "/calc_mass_cut" )
+  for mydir in glob.glob( "injections*" ):
+    print "** Processing " + mydir
+    mkdirsafe( MYRESULTSDIR + "/calc_mass_cut/" + mydir )
+    injectionfile=glob.glob(MYRESULTSDIR + "/" + mydir + "/HL-INJECTIONS*.xml")
+    injFileName = os.path.basename( injectionfile[0] )
+    command = "lalapps_injcut --injection-file " + injectionfile[0]
+    for opt in calcmasscut_options:
+      command += " --"+opt[0]+" "+opt[1]
+    command +=  " --output " + MYRESULTSDIR + "/calc_mass_cut/" + mydir +\
+        "/" + injFileName
+    if opts.test:
+      print command + "\n"
+    else:
+      os.system( command )
+    if not injectionfile:
+      print "ERROR in coireinj: No injection-file (HL*.xml) \
+          in the injections-directory. Exiting..."
+      sys.exit(1)
+    command = "hipecoire --trig-path " + MYRESULTSDIR + "/" + mydir +\
+        " --ifo H1 --ifo H2 --ifo L1 --injection-file " + injectionfile[0] +\
+        " --injection-window 50 --coinc-stat " + stat_dict["statistic"]
+    if stat_dict["statistic"][-3:] == "snr":
+      # coire takes "snrsq"/"effective_snrsq"
+      command += "sq"
+    if "bitten_l" in stat_dict["statistic"]:
+      command += " --h1-bittenl-a " + stat_dict["bittenl_a"] + \
+          " --h1-bittenl-b " + stat_dict["bittenl_b"] + \
+          " --h2-bittenl-a " + stat_dict["bittenl_a"] + \
+          " --h2-bittenl-b " + stat_dict["bittenl_b"] + \
+          " --l1-bittenl-a " + stat_dict["bittenl_a"] + \
+          " --l1-bittenl-b " + stat_dict["bittenl_b"]
+    if not opts.no_veto:
+      command+=" --veto-file " + MYRESULTSDIR + "/h1veto.list" + \
+          " --veto-file " + MYRESULTSDIR + "/h2veto.list" + \
+          " --veto-file " + MYRESULTSDIR + "/l1veto.list"
+    if opts.second_coinc:
+      command += " --second-coinc "
+    if opts.clustered_files:
+      command += " --clustered-files"
+    for opt in coire_options:
+       command+=" --"+opt[0]+" "+opt[1]
+    if opts.test:
+      print command + "\n"
+    else:
+      os.chdir( MYRESULTSDIR + "/calc_mass_cut/" + mydir )
+      os.system( command )
+      os.chdir( MYRESULTSDIR + "/calc_mass_cut/" )
+
+  command = "calcMassCut --glob 'injections*/H*FOUND.xml'"
+  for opt in calcmasscut_options:
+    command += " --"+opt[0]+" "+opt[1]
+  command += " --mass-mass --hist-mass-error --figure-name injections"
+  command += " > massCut.ini"
+  if opts.test:
+    print command + "\n"
+  else:
+    os.system( command )
+    cp = ConfigParser.ConfigParser()
+    cp.read(MYRESULTSDIR + "/calc_mass_cut/massCut.ini")
+    coireMassCut_options = cp.items("coireMassCut")
+
+#######################################################################
 # sire and coire full data
 #######################################################################
 if not opts.skip_coiredata:
   print "** Processing full data set"
+  mkdirsafe( MYRESULTSDIR + "/hipecoire/full_data" )
   command = "hipecoire --trig-path " + MYRESULTSDIR + \
-      "/full_data/ --ifo H1 --ifo H2 --ifo L1 " + \
-      "--num-slides 50 " + \
-      "--cluster-infinity --coinc-stat " + stat_dict["statistic"]
+      "/full_data/ --ifo H1 --ifo H2 --ifo L1" + \
+      " --num-slides 50" + \
+      " --cluster-infinity --coinc-stat " + stat_dict["statistic"]
   if stat_dict["statistic"][-3:] == "snr":
     # coire takes "snrsq"/"effective_snrsq"
     command += "sq"
@@ -236,17 +312,21 @@ if not opts.skip_coiredata:
         " --l1-bittenl-a "+stat_dict["bittenl_a"] + \
         " --l1-bittenl-b "+stat_dict["bittenl_b"] 
   if not opts.no_veto:
-    command+=" --veto-file " + MYRESULTSDIR + "/h1veto.list " + \
-        " --veto-file " + MYRESULTSDIR + "/h2veto.list " + \
+    command+=" --veto-file " + MYRESULTSDIR + "/h1veto.list" + \
+        " --veto-file " + MYRESULTSDIR + "/h2veto.list" + \
         " --veto-file " + MYRESULTSDIR + "/l1veto.list"
   if opts.second_coinc:
-    command += " --second-coinc "
+    command += " --second-coinc"
+  if opts.clustered_files:
+    command += " --clustered-files"
   for opt in coire_options:
-       command+=" --"+opt[0]+" "+opt[1]
+    command+=" --"+opt[0]+" "+opt[1]
+  if opts.calc_mass_cut and not opts.test:
+    for opt in coireMassCut_options:
+      command+=" --"+opt[0]+" "+opt[1]
   if opts.test:
     print command + "\n"
   else:
-    mkdirsafe( MYRESULTSDIR + "/hipecoire/full_data" )
     os.chdir( MYRESULTSDIR + "/hipecoire/full_data" )
     os.system( command )
     
@@ -256,21 +336,20 @@ if not opts.skip_coiredata:
       for file in glob.glob("full_data/H*SLIDE*.xml"):
         tmpdest = os.path.splitext( os.path.basename(file) )
         symlinksafe( file, tmpdest[0] + "_slides.xml" )
-      for file in ( glob.glob("full_data/H*THINCA_CLUST*.xml") + \
-          glob.glob("full_data/H*THINCA_LOUDEST*.xml") ):
+      for file in ( glob.glob("full_data/H*COIRE_CLUST*.xml") + \
+          glob.glob("full_data/H*COIRE_LOUDEST*.xml") ):
         tmpdest = os.path.splitext( os.path.basename(file) )
         symlinksafe( file, tmpdest[0] + "_zero.xml" )
     else:
-      for file in ( glob.glob("full_data/H???-THINCA_SLIDE*.xml") + \
+      for file in ( glob.glob("full_data/H???-COIRE_SLIDE*.xml") + \
           glob.glob("full_data/H1*/H1*SLIDE_in_H1H2L1*.xml") ):
         tmpdest = os.path.splitext( os.path.basename(file) )
         symlinksafe( file, tmpdest[0] + "_slides.xml" )
-      for file in ( glob.glob("full_data/H???-THINCA_CLUST*.xml") + \
-          glob.glob("full_data/H???-THINCA_LOUDEST*.xml") + \
-          glob.glob("full_data/H1*/H1*-*THINCA_in_H1H2L1*.xml") ):
+      for file in ( glob.glob("full_data/H???-COIRE_CLUST*.xml") + \
+          glob.glob("full_data/H???-COIRE_LOUDEST*.xml") + \
+          glob.glob("full_data/H1*/H1*-*COIRE_in_H1H2L1*.xml") ):
         tmpdest = os.path.splitext( os.path.basename(file) )
         symlinksafe( file, tmpdest[0] + "_zero.xml" )
-
 
 #######################################################################
 # sire and coire injections
@@ -282,13 +361,21 @@ if not opts.skip_coireinj:
   os.chdir(MYRESULTSDIR)
   for mydir in glob.glob( "injections*" ):
     print "** Processing " + mydir
-    injectionfile=glob.glob( MYRESULTSDIR + "/" + mydir + "/HL-INJECTIONS*.xml")
+    mkdirsafe( MYRESULTSDIR + "/hipecoire/" + mydir )
+    injectionfile=glob.glob(MYRESULTSDIR + "/" + mydir + "/HL-INJECTIONS*.xml")
+    injFileName = os.path.basename( injectionfile[0] )
+    if opts.calc_mass_cut:
+      symlinksafe( injectionfile[0], MYRESULTSDIR + "/hipecoire/" + mydir +\
+          "/" + injFileName )
+    else:
+      symlinksafe( injectionfile[0], MYRESULTSDIR + "/hipecoire/" + mydir +\
+          "/" + injFileName )
     if not injectionfile:
       print "ERROR in coireinj: No injection-file (HL*.xml) \
           in the injections-directory. Exiting..."
       sys.exit(1)
     command = "hipecoire --trig-path " + MYRESULTSDIR + "/" + mydir +\
-        " --ifo H1 --ifo H2 --ifo L1 --injection-file " + injectionfile[0] +\
+        " --ifo H1 --ifo H2 --ifo L1 --injection-file " + injFileName +\
         " --injection-window 10 --coinc-stat " + stat_dict["statistic"]
     if stat_dict["statistic"][-3:] == "snr":
       # coire takes "snrsq"/"effective_snrsq"
@@ -301,18 +388,22 @@ if not opts.skip_coireinj:
           " --l1-bittenl-a " + stat_dict["bittenl_a"] + \
           " --l1-bittenl-b " + stat_dict["bittenl_b"] 
     if not opts.no_veto:
-      command+=" --veto-file " + MYRESULTSDIR + "/h1veto.list " + \
-          " --veto-file " + MYRESULTSDIR + "/h2veto.list " + \
+      command+=" --veto-file " + MYRESULTSDIR + "/h1veto.list" + \
+          " --veto-file " + MYRESULTSDIR + "/h2veto.list" + \
           " --veto-file " + MYRESULTSDIR + "/l1veto.list"
     if opts.second_coinc:
-      command += " --second-coinc "
+      command += " --second-coinc"
+    if opts.clustered_files:
+      command += " --clustered-files"
     for opt in coire_options:
-       command+=" --"+opt[0]+" "+opt[1]
+      command+=" --"+opt[0]+" "+opt[1]
+    if opts.calc_mass_cut and not opts.test:
+      for opt in coireMassCut_options:
+        command+=" --"+opt[0]+" "+opt[1]
     if opts.test:
       print command + "\n"
     else:
-      mkdirsafe( MYRESULTSDIR + "/hipecoire/" + mydir )
-      os.chdir( MYRESULTSDIR + "/hipecoire/" + mydir ) 
+      os.chdir( MYRESULTSDIR + "/hipecoire/" + mydir )
       os.system( command )
       os.chdir( MYRESULTSDIR + "/hipecoire/" )
       for file in glob.glob( mydir + "/H*FOUND.xml"):
@@ -322,9 +413,6 @@ if not opts.skip_coireinj:
         tmpdest = os.path.splitext( os.path.basename(file) )
         symlinksafe( file, tmpdest[0] + "_" + mydir + ".xml" )
       os.chdir(MYRESULTSDIR)
-
-
-
 
 #######################################################################
 # plotthinca step
@@ -364,9 +452,9 @@ if not opts.skip_png:
           "--slide-glob '" + MYRESULTSDIR + "/hipecoire/H*LOUDEST*slides.xml' "\
           + "--zero-glob '" + MYRESULTSDIR + "/hipecoire/H*LOUDEST*zero.xml' "\
           + "--found-glob '" + MYRESULTSDIR + "/hipecoire/" \
-          + times[0].upper() + "-THINCA*FOUND*.xml' " \
+          + times[0].upper() + "-COIRE*FOUND*.xml' " \
           + "--missed-glob '" + MYRESULTSDIR + "/hipecoire/" \
-          + times[0].upper() + "-THINCA*MISSED*.xml' " \
+          + times[0].upper() + "-COIRE*MISSED*.xml' " \
           + "--source-file '" + MYRESULTSDIR + "/inspsrcs.new' " \
           + "--injection-glob '" + MYRESULTSDIR + pop + \
           "' --figure-name " + times[0].upper() + \
