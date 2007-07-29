@@ -91,7 +91,7 @@ def parse_command_line():
 	parser.add_option("-b", "--background-glob", metavar = "pattern", default = [], action = "append", help = "Shell filename pattern for non-injection files.")
 	parser.add_option("-i", "--injection-glob", metavar = "pattern", default = [], action = "append", help = "Shell filename pattern for injection files.")
 	parser.add_option("-l", "--live-time-program", metavar = "program", default = "lalapps_power", help = "Set the name, as it appears in the process table, of the program whose search summary entries define the search live time (default = \"lalapps_power\")")
-	parser.add_option("--foreground-survivors", metavar = "number", help = "Tune the coincidence likelihood threshold to result in this many survivors being expected in the foreground. (e.g., 0.1)")
+	parser.add_option("--foreground-survivors", metavar = "number", type = "float", help = "Tune the coincidence likelihood threshold to result in this many survivors being expected in the foreground. (e.g., 0.1)")
 	parser.add_option("--survivors-output", metavar = "filename", help = "Set the name of the XML file to which zero-lag survivors will be written.  Default is to not record zero-lag survivors file (keep the box closed).")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
 	options, filenames = parser.parse_args()
@@ -102,8 +102,6 @@ def parse_command_line():
 		raise ValueError, "missing required --injection-glob argument"
 	if options.foreground_survivors is None:
 		raise ValueError, "missing required --foreground-survivors argument"
-
-	options.foreground_survivors = float(options.foreground_survivors)
 
 	return options, (filenames or [None])
 
@@ -121,9 +119,9 @@ class Confidence_Likelihood_Histogram(object):
 	def __init__(self, confidence_range, likelihood_range):
 		self.confidence_range = confidence_range
 		self.likelihood_range = likelihood_range
-		self.background_bins = rate.BinnedArray(rate.Bins(confidence_range[0], confidence_range[1], 500, likelihood_range[0], likelihood_range[1], 500, spacing = ["log", "log"]))
+		self.background_bins = rate.BinnedArray(rate.Bins(confidence_range[0], confidence_range[1], 201, likelihood_range[0], likelihood_range[1], 201, spacing = ["log", "log"]))
 		self.background_extra = 0
-		self.foreground_bins = rate.BinnedArray(rate.Bins(confidence_range[0], confidence_range[1], 500, likelihood_range[0], likelihood_range[1], 500, spacing = ["log", "log"]))
+		self.foreground_bins = rate.BinnedArray(rate.Bins(confidence_range[0], confidence_range[1], 201, likelihood_range[0], likelihood_range[1], 201, spacing = ["log", "log"]))
 		self.foreground_extra = 0
 		self.filter = rate.gaussian_window2d(5, 5)
 
@@ -156,20 +154,19 @@ WHERE
 				try:
 					self.background_bins[(confidence, likelihood)] += 1
 				except IndexError:
-					if likelihood > self.likelihood_range[0]:
+					if confidence > self.confidence_range[1] or likelihood > self.likelihood_range[1]:
 						self.background_extra += 1
 			else:
 				try:
 					self.foreground_bins[(confidence, likelihood)] += 1
 				except IndexError:
-					if likelihood > self.likelihood_range[0]:
+					if confidence > self.confidence_range[1] or likelihood > self.likelihood_range[1]:
 						self.foreground_extra += 1
 
 	def finish_non_injections(self):
-		rate.filter_array(self.background_bins, self.filter)
-		rate.filter_array(self.foreground_bins, self.filter)
+		rate.filter_array(self.background_bins.array, self.filter)
 
-	def find_confidence_threshold(self, events_per_foreground, foreground_live_time, background_live_time):
+	def find_confidence_threshold(self, events_per_foreground, foreground_live_time, background_live_time, verbose = False):
 		"""
 		Given the desired average number of events per foreground
 		live time, determine the likelihood threshold to cut
@@ -184,7 +181,7 @@ WHERE
 		# the same in all time slides.
 		#
 
-		n_background = int(round(events_per_foreground * background_live_time / foreground_live_time))
+		n_background = events_per_foreground * background_live_time / foreground_live_time
 
 		#
 		# Contour is initially the boundary of the binned region.
@@ -200,9 +197,9 @@ WHERE
 		edge = []
 		xcoords, ycoords = self.background_bins.centres()
 		for x in xcoords:
-			edge += [(x, ycoords[0]), (x, ycoords[-1])]
+			edge += [(x, ycoords[-1])]
 		for y in ycoords:
-			edge += [(xcoords[0], y), (xcoords[-1], y)]
+			edge += [(xcoords[-1], y)]
 		edge.sort(lambda a, b: cmp(self.background_bins[a], self.background_bins[b]), reverse = True)
 
 		#
@@ -212,28 +209,17 @@ WHERE
 		#
 
 		n_keepers = self.background_extra
-		while n_keepers < n_background:
-			x, y = edge.pop()
-			self.keepers[(x, y)] = 1
-			if not self.keepers[(x - 1, y - 1)]:
-				edge += [(x - 1, y - 1)]
-			if not self.keepers[(x - 1, y    )]:
-				edge += [(x - 1, y    )]
-			if not self.keepers[(x - 1, y + 1)]:
-				edge += [(x - 1, y + 1)]
-			if not self.keepers[(x    , y - 1)]:
-				edge += [(x    , y - 1)]
-			if not self.keepers[(x    , y + 1)]:
-				edge += [(x    , y + 1)]
-			if not self.keepers[(x + 1, y - 1)]:
-				edge += [(x + 1, y - 1)]
-			if not self.keepers[(x + 1, y - 1)]:
-				edge += [(x + 1, y - 1)]
-			if not self.keepers[(x + 1, y - 1)]:
-				edge += [(x + 1, y - 1)]
+		while edge and n_keepers < n_background:
+			xy = edge.pop()
+			n_keepers += self.background_bins[xy]
+			self.keepers[xy] = 1
+			i, j = self.keepers.bins[xy]
+			edge += [(x, y) for x in xcoords[max(i - 1, 0) : i + 1] for y in ycoords[max(j - 1, 0) : j + 1] if (x, y) not in edge and not self.keepers[(x, y)]]
 			edge.sort(lambda a, b: cmp(self.background_bins[a], self.background_bins[b]), reverse = True)
-
-		return self.background_eff_confidences[n_background]
+			if verbose:
+				print >>sys.stderr, "\t%g / %g\r" % (n_keepers, n_background),
+		if verbose:
+			print >>sys.stderr, "\n"
 
 
 #
@@ -448,7 +434,7 @@ options, filenames = parse_command_line()
 #
 
 
-likelihood_histogram = Confidence_Likelihood_Histogram(segments.segment(7.0, 30.0), segments.segment(1.0, 1e13))
+likelihood_histogram = Confidence_Likelihood_Histogram(segments.segment(6.0, 25.0), segments.segment(1e-5, 1e13))
 efficiency = SimBurstUtils.Efficiency_hrss_vs_freq(None, (lambda sim, instrument: sim.hrss), 0.1)
 non_injection_seglists = segments.segmentlistdict()
 injection_seglists = segments.segmentlistdict()
@@ -507,19 +493,19 @@ foreground_live_time = zero_lag_livetime(non_injection_seglists)
 background_live_time = time_slides_livetime(non_injection_seglists, background_time_slides)
 
 if options.verbose:
-	print >>sys.stderr, "filtering foreground and background likelihood histograms ..."
+	print >>sys.stderr, "filtering background likelihood histograms ..."
 likelihood_histogram.finish_non_injections()
 
 if options.verbose:
 	print >>sys.stderr, "computing effective confidence threshold ..."
-likelihood_histogram.find_confidence_threshold(options.foreground_survivors, foreground_live_time, background_live_time)
+likelihood_histogram.find_confidence_threshold(options.foreground_survivors, foreground_live_time, background_live_time, verbose = options.verbose)
 
 
 def is_a_keeper(likelihood, confidence, likelihood_histogram = likelihood_histogram):
 	try:
-		return boolean(likelihood_histogram.keepers[(confidence, likelihood)])
+		return bool(likelihood_histogram.keepers[(confidence, likelihood)])
 	except IndexError:
-		return likelihood > likelihood_histogram.likelihood_range[0]
+		return confidence > likelihood_histogram.confidence_range[1] or likelihood > likelihood_histogram.likelihood_range[1]
 
 
 #
@@ -608,8 +594,9 @@ for n, filename in enumerate(filenames):
 efficiency.finish()
 
 n_background = likelihood_histogram.background_extra + likelihood_histogram.background_bins.array.sum()
-n_foreground = likelihood_histogram.foreground_extra + likelihood_histogram.foreground_bins.array.sum()
-n_survivors = likelihood_histogram.foreground_extra + numpy.where(likelihood_histogram.keepers.array, likelihood_histogram.foreground_bins.array, 0)
+# FIXME:  make the underlying arrays ints
+n_foreground = likelihood_histogram.foreground_extra + int(likelihood_histogram.foreground_bins.array.sum())
+n_survivors = likelihood_histogram.foreground_extra + int(numpy.where(likelihood_histogram.keepers.array, likelihood_histogram.foreground_bins.array, 0).sum())
 
 print
 print "=== Summary ==="
