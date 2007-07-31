@@ -203,7 +203,16 @@ parser.add_option("-L","--l-calibration",action="store",type="float",
 parser.add_option("-w","--waveform-systematic",action="store",type="float",
     default=None, metavar=" WAV",
     help="systematic errors in waveform, rescale distances by D->(1+WAV)*D")
+
+parser.add_option("-k","--known-distance",action="store",type="float",
+    default=None, metavar=" KD",
+    help="Distance at which GRB is thought to be")
     
+parser.add_option("-r","--known-distance-error",action="store",type="float",
+    default=None, metavar=" KDE",
+    help="Error in known distance")
+    
+   
 
 
 (opts,args) = parser.parse_args()
@@ -446,6 +455,16 @@ foundsq = square(xedges, yedges, coincInjTriggers, "found", calibration=distance
 missedsq = square(xedges, yedges, coincInjTriggers, "missed", calibration=distance_correction)
 
 #####################################################################
+# if the known-distance option is on
+if opts.known_distance:
+  dmin = opts.known_distance - opts.known_distance_error
+  dmax = opts.known_distance + opts.known_distance_error
+  kdyedges = arange( dmin, dmax, dmax-dmin )
+  kdfoundsq = square(xedges, kdyedges, coincInjTriggers, "found", calibration=distance_correction)
+  kdmissedsq = square(xedges, kdyedges, coincInjTriggers, "missed", calibration=distance_correction)
+
+
+#####################################################################
 # if there are coincident triggers on source
 if coincTriggers and not opts.loudest_event_cut:
   # loop over each candidate
@@ -508,6 +527,18 @@ else:
        (missedsq + foundsq + 1.0e-10) )
 
   pcsignalsq = min( 1.0, pcsignalsq + mcerrorsq )
+
+  if opts.known_distance:
+    kdpcsignalsq = kdmissedsq / (kdmissedsq + kdfoundsq + 1.0e-10)
+
+    kdmcerrorsq = sqrt( kdpcsignalsq * ( 1.0 - kdpcsignalsq ) /\
+        (kdmissedsq + kdfoundsq + 1.0e-10) )
+  
+    kdpcsignalsq = min( 1.0, kdpcsignalsq + kdmcerrorsq )
+
+    print kdpcsignalsq
+
+    print "The max, known distance p(c|h) is %e" % max(kdpcsignalsq)
 
   pcsignal = missedsq.sum() / (missedsq.sum() + foundsq.sum() + 1.0e-10)
   print "p(c|h) = %f" % pcsignal
