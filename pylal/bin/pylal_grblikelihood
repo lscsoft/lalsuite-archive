@@ -192,11 +192,11 @@ parser.add_option("-i", "--max-distance", type="float", default=20.0,\
 parser.add_option("-j", "--bins-distance", type="float",default=13.0,\
   help="number of bins for the distance range")
 # efficiency errors
-parser.add_option("-C","--h-calibration",action="store",type="float",
+parser.add_option("-H","--h-calibration",action="store",type="float",
     default=None,metavar=" H_CAL",
     help="systematic error in h calibration, rescale distances D->(1+/-CAL)*D")
     
-parser.add_option("-D","--l-calibration",action="store",type="float",
+parser.add_option("-L","--l-calibration",action="store",type="float",
     default=None,metavar=" L_CAL",
     help="systematic error in y calibration, rescale distances D->(1+/-CAL)*D")
     
