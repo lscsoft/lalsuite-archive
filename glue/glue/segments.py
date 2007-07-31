@@ -352,7 +352,7 @@ class segment(tuple):
 		can be another segment or an object of the same type as the
 		bounds of self (a scalar).
 		"""
-		if type(other) == segment:
+		if isinstance(other, segment):
 			return (self[0] <= other[0]) and (self[1] >= other[1])
 		else:
 			return self[0] <= other < self[1]
