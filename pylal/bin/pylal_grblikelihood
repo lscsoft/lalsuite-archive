@@ -526,7 +526,7 @@ else:
   mcerrorsq = sqrt( pcsignalsq * ( 1.0 - pcsignalsq ) /\
        (missedsq + foundsq + 1.0e-10) )
 
-  pcsignalsq = min( 1.0, pcsignalsq + mcerrorsq )
+  pcsignalsq =  pcsignalsq + mcerrorsq
 
   if opts.known_distance:
     kdpcsignalsq = kdmissedsq / (kdmissedsq + kdfoundsq + 1.0e-10)
