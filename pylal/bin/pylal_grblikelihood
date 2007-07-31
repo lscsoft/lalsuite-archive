@@ -507,7 +507,7 @@ else:
   mcerrorsq = sqrt( pcsignalsq * ( 1.0 - pcsignalsq ) /\
        (missedsq + foundsq + 1.0e-10) )
 
-  pcsignalsq = min( 1.0, pcsignalsq - mcerrorsq )
+  pcsignalsq = min( 1.0, pcsignalsq + mcerrorsq )
 
   pcsignal = missedsq.sum() / (missedsq.sum() + foundsq.sum() + 1.0e-10)
   print "p(c|h) = %f" % pcsignal
