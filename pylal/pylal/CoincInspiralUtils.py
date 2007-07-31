@@ -43,8 +43,9 @@ def simpleEThinca(trigger1, trigger2):
   #dend_time = (trigger2.end_time - trigger1.end_time) +\
   #(trigger2.end_time_ns - trigger1.end_time_ns)*10**(-9)
   #FIX ME end_time for time slides is poorly defined, we should sort it out
-  dend_time = (trigger2.end_time_ns - trigger1.end_time_ns)*10**(-9)
+  #dend_time = (trigger2.end_time_ns - trigger1.end_time_ns)*10**(-9)
 
+  dend_time = 0
   dtau0 = trigger2.tau0-trigger1.tau0
   
 
@@ -52,7 +53,7 @@ def simpleEThinca(trigger1, trigger2):
   
 
   delta_x = numpy.array([dend_time, dtau0, dtau3])
-
+  
   Gamma1 = numpy.array( [[trigger1.Gamma0, trigger1.Gamma1, trigger1.Gamma2],\
                  [trigger1.Gamma1, trigger1.Gamma3, trigger1.Gamma4],\
                  [trigger1.Gamma2, trigger1.Gamma4, trigger1.Gamma5]])
@@ -61,13 +62,12 @@ def simpleEThinca(trigger1, trigger2):
   Gamma2 = numpy.array( [[trigger2.Gamma0, trigger2.Gamma1, trigger2.Gamma2],\
                  [trigger2.Gamma1, trigger2.Gamma3, trigger2.Gamma4],\
                  [trigger2.Gamma2, trigger2.Gamma4, trigger2.Gamma5]])
-  
+ 
 
   average_distance = 0.5*numpy.sqrt(numpy.dot(delta_x, numpy.dot(Gamma1, delta_x))) + \
                     0.5*numpy.sqrt(numpy.dot(delta_x, numpy.dot(Gamma2, delta_x)))
 
   simple_ethinca = (average_distance**2)/4.0
-
   return simple_ethinca
 
 
