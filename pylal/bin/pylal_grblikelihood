@@ -41,7 +41,7 @@ __date__ = "$Date$"[7:-2]
 ##############################################################################
 # Define a Square Array
 ##############################################################################
-def square(xedges, yedges, coincTriggers, simtypeflag):
+def square(xedges, yedges, coincTriggers, simtypeflag, calibration=1.0):
   """
   Histogram coincTriggers in the mass1-distance plane.
 
@@ -60,7 +60,7 @@ def square(xedges, yedges, coincTriggers, simtypeflag):
     if ((simtypeflag == "found" and coinc.stat >= 0) or\
         (simtypeflag == "missed" and coinc.stat < 0)):
       xdata = coinc.sim.mass1
-      ydata = coinc.sim.distance
+      ydata = coinc.sim.distance * calibration
       k = int((xdata-xedges[0]) / xstep)
       l = int((ydata-yedges[0]) / ystep)
 
@@ -191,6 +191,20 @@ parser.add_option("-i", "--max-distance", type="float", default=20.0,\
   help="maximum value for the distance range")
 parser.add_option("-j", "--bins-distance", type="float",default=13.0,\
   help="number of bins for the distance range")
+# efficiency errors
+parser.add_option("-C","--h-calibration",action="store",type="float",
+    default=None,metavar=" H_CAL",
+    help="systematic error in h calibration, rescale distances D->(1+/-CAL)*D")
+    
+parser.add_option("-D","--l-calibration",action="store",type="float",
+    default=None,metavar=" L_CAL",
+    help="systematic error in y calibration, rescale distances D->(1+/-CAL)*D")
+    
+parser.add_option("-w","--waveform-systematic",action="store",type="float",
+    default=None, metavar=" WAV",
+    help="systematic errors in waveform, rescale distances by D->(1+WAV)*D")
+    
+
 
 (opts,args) = parser.parse_args()
 
@@ -373,7 +387,13 @@ savefig("snr_dist.%s" % opts.figure_type)
 #####################################################################
 # Plot the number of events in each off-source segment
 figure()
-plot(arange(cum_dist_offsource),sum(cum_dist_offsource,1))
+trigsperoffsource=cum_dist_offsource[:,0]
+offsourceindex=arange(len(trigsperoffsource))
+plot(offsourceindex,trigsperoffsource,'ro')
+hold(True)
+plot(offsourceindex,mean(trigsperoffsource)+0.0*offsourceindex,'b',lw='2')
+plot(offsourceindex,mean(trigsperoffsource)+std(trigsperoffsource)+0.0*offsourceindex,'g',lw='2')
+plot(offsourceindex,mean(trigsperoffsource)-std(trigsperoffsource)+0.0*offsourceindex,'g',lw='2')
 grid(True)
 xlabel(r"Off-source segment")
 ylabel(r"Number of triggers")
@@ -417,8 +437,13 @@ dx=(opts.max_mass-opts.min_mass)/opts.bins_mass
 xedges = arange( opts.min_mass, opts.max_mass, dx )
 dy=(opts.max_distance-opts.min_distance)/opts.bins_distance
 yedges = arange( opts.min_distance, opts.max_distance, dy )
-foundsq = square(xedges, yedges, coincInjTriggers, "found")
-missedsq = square(xedges, yedges, coincInjTriggers, "missed")
+distance_correction = 1.0
+if opts.h_calibration:
+  distance_correction = 1.0 - opts.h_calibration
+if opts.l_calibration:
+  distance_correction = min( 1.0 - opts.l_calibration, distance_correction )
+foundsq = square(xedges, yedges, coincInjTriggers, "found", calibration=distance_correction)
+missedsq = square(xedges, yedges, coincInjTriggers, "missed", calibration=distance_correction)
 
 #####################################################################
 # if there are coincident triggers on source
@@ -452,7 +477,7 @@ if coincTriggers and not opts.loudest_event_cut:
         len(injTriggers_within_epsilon)
 
     foundwithinepsilonsq = \
-        square(xedges, yedges, injTriggers_within_epsilon, "found")
+        square(xedges, yedges, injTriggers_within_epsilon, "found", calibration=distance_correction)
 
     pcsignalsq = foundwithinepsilonsq / (missedsq + foundsq + 1.0e-10)
 else:
@@ -478,6 +503,11 @@ else:
   # number of missed injections with parameters lambda / total number
   # of injections with parameter lambda
   pcsignalsq = missedsq / (missedsq + foundsq + 1.0e-10)
+
+  mcerrorsq = sqrt( pcsignalsq * ( 1.0 - pcsignalsq ) /\
+       (missedsq + foundsq + 1.0e-10) )
+
+  pcsignalsq = min( 1.0, pcsignalsq - mcerrorsq )
 
   pcsignal = missedsq.sum() / (missedsq.sum() + foundsq.sum() + 1.0e-10)
   print "p(c|h) = %f" % pcsignal
@@ -541,17 +571,17 @@ figure()
 tmpx,tmpy,yarray = get_smooth_contour(xedges,yedges,pcsignalsq,0.1)
 p1=fill(tmpx,tmpy, facecolor='y')
 setp(p1, alpha=0.5)
-tmpx,tmpy,yarray = get_smooth_contour(xedges,yedges,pcsignalsq,0.15)
+tmpx,tmpy,yarray = get_smooth_contour(xedges,yedges,pcsignalsq,0.25)
 p2=fill(tmpx,tmpy, facecolor='k')
 setp(p2, alpha=0.3)
-tmpx,tmpy,yarray = get_smooth_contour(xedges,yedges,pcsignalsq,0.20)
+tmpx,tmpy,yarray = get_smooth_contour(xedges,yedges,pcsignalsq,0.50)
 p3=fill(tmpx,tmpy, facecolor='k')
 setp(p3, alpha=0.1)
 hold(True)
 axis([opts.min_mass, max(xedges), 0.0, max(yedges)])
 xlabel(r"$m_2 (M_\odot)$")
 ylabel(r"$D (\mathrm{Mpc})$")
-legend((p3, p2, p1), ('80\% exclusion area','85\% exclusion area','90\% exclusion area'), loc="lower right")
+legend((p3, p2, p1), ('50\% exclusion area','75\% exclusion area','90\% exclusion area'), loc="lower right")
 savefig("pcsignal-slice.%s" % opts.figure_type)
 
 if opts.show_plot:
