@@ -13,7 +13,7 @@ from pylal import SnglInspiralUtils
 from pylal import SimInspiralUtils
 from pylal.tools import XLALCalculateEThincaParameter
 
-#from pylab import*
+from pylab import*
 import pylal.itertools
 import numpy
 ################################################################################
@@ -94,7 +94,11 @@ parser.add_option("-F","--figure-name",action="store", type = "string",\
 parser.add_option("-o","--show",action="store_true",default=False,\
     help="Display the plots on the screen" )
 
+parser.add_option("-b","--slide-bins",action="store",type="int",\
+    default=10, metavar="BINS", help="Number of bins in the histogram of background")
 
+parser.add_option("-j","--injection-bins",action="store",type="int",\
+    default=10, metavar="BINS", help="Number of bins in the histogram of injections")
 
 
 (opts,args) = parser.parse_args()
@@ -102,15 +106,11 @@ parser.add_option("-o","--show",action="store_true",default=False,\
 ######################################################################
 # Construct IFO pairs
 
-statistic = CoincInspiralUtils.coincStatistic(opts.statistic)
 
 ifo_list = [ifo for ifo in ("G1", "H1", "H2", "L1") \
             if getattr(opts, "%s_triggers" % ifo.lower())]
 
-ifo_combos = []
-for num_ifos in range(2, len(ifo_list) + 1):
-  ifo_combos.extend(list(pylal.itertools.choices(ifo_list, num_ifos)))
-
+ifo_combos = CoincInspiralUtils.get_ifo_combos(ifo_list)
 
 ########################################################################
 # Class to hold slides and triggers and generate relevant plots.
@@ -123,7 +123,7 @@ def distcut(coinc_a,coinc_b):
 
 def normalized_hist(Unormalised_array, bins=None):
   if bins:
-    (y_param, x_param, patches) = hist(Unormalised_array,bins)
+    (y_param, x_param, patches) = hist(Unormalised_array, bins)
   else:
     (y_param, x_param, patches) = hist(Unormalised_array)
   clf()
@@ -137,14 +137,14 @@ class plotdata:
     range of parameters. """
 
 
-  def plotroutine(self, ifos, coinc_a, coinc_b, param):
+  def plotroutine(self, ifos, coinc_a, coinc_b, param, slide_bins, inj_bins):
     for ifo in ifos:
       if len(ifo) > 2: 
         pass
       else:     
         if param == 'simethinca':
           coinc_a_sim = coinc_a.coinctype(ifo).getSimpleEThincaValues(ifo)
-          coinc_b_sim = coinc_a.coinctype(ifo).getSimpleEThincaValues(ifo)
+          coinc_b_sim = coinc_b.coinctype(ifo).getSimpleEThincaValues(ifo)
         else:
           coinc_a_fir = coinc_a.coinctype(ifo).getsngls(ifo[0]).get_column(param)
           coinc_a_sec = coinc_a.coinctype(ifo).getsngls(ifo[1]).get_column(param)
@@ -153,26 +153,25 @@ class plotdata:
  
          
         if param == 'simethinca':
-          (y_slide, x_slide) = normalized_hist(coinc_a_sim)
-          (y_inj, x_inj) = normalized_hist(coinc_b_sim)
-          
+          (y_slide, x_slide) = normalized_hist(coinc_a_sim, slide_bins)
+          (y_inj, x_inj) = normalized_hist(coinc_b_sim, inj_bins)
         else: 
           dist_cut_a = distcut(coinc_a_fir,coinc_a_sec)
           dist_cut_b = distcut(coinc_b_fir,coinc_b_sec)
 
           if len(dist_cut_a):
-            (y_slide, x_slide) = normalized_hist(dist_cut_a)
+            (y_slide, x_slide) = normalized_hist(dist_cut_a, slide_bins)
          
           if len(dist_cut_b):
-            (y_inj, x_inj) = normalized_hist(dist_cut_b)
+            (y_inj, x_inj) = normalized_hist(dist_cut_b, inj_bins)
 
 
-        slide_val = bar(x_slide,y_slide,width=0.05,color="k")
+        slide_val = bar(x_slide,y_slide,width=(x_slide[1]-x_slide[0]),color="k")
         hold(True)
-        inj_val =  bar(x_inj,y_inj,width=0.05,color="r")
+        inj_val =  bar(x_inj,y_inj,width=(x_inj[1]-x_inj[0]),color="r")
         legend([inj_val[0],slide_val[0]],["Injections","Background"],loc=0)
         xlabel(str(param) + '_' + 'difference' + '_' + str(ifo[0]) + '_' + str(ifo[1]))
-        savefig(str(param) + "_" + str(ifo[0]) + "_" + str(ifo[1]) )
+        savefig(str(param) + "_" + str(ifo[0]) + "_" +  str(ifo[1]) )
         figure()
         
 
@@ -281,13 +280,19 @@ injectionCoincTriggers.add_sim_inspirals(simTriggers)
 #print str(counter)
 #file.close()
 
-#for candidate in zerolagCoincTriggers:
-#  ethinca=XLALCalculateEThincaParameter(candidate.H1, candidate.L1)
-#  simethinca=CoincInspiralUtils.simpleEThinca(candidate.H1, candidate.L1)
-#  d_tmp1=1.0 - simethinca**2
-#  d_tmp2=1.0 - simethinca**2/4.0
-#  d_tmp3=simethinca**2/4.0
-#  print ethinca, simethinca, d_tmp1, d_tmp2, d_tmp3 
+#for candidate in slidesCoincTriggers:
+  #  ethinca=XLALCalculateEThincaParameter(candidate.H1, candidate.L1)
+  #c_ifo, ifolist = candidate.get_ifos()
+  #if c_ifo=='H1L1':
+  #  simethinca = CoincInspiralUtils.simpleEThinca(candidate.H1, candidate.L1)
+  #  if simethinca > 100.0:
+  #    CoincInspiralUtils.simpleEThinca(candidate.H1, candidate.L1)
+  #    print simethinca
+
+  #  d_tmp1=1.0 - simethinca**2
+  #  d_tmp2=1.0 - simethinca**2/4.0
+  #  d_tmp3=simethinca**2/4.0
+  #print simethinca
 
 
 
@@ -391,13 +396,13 @@ if opts.likelihood:
 
 
 if opts.plot_simethinca:
-  plotdata().plotroutine(ifo_combos,slidesCoincTriggers,injectionCoincTriggers,'simethinca')
+  plotdata().plotroutine(ifo_combos,slidesCoincTriggers,injectionCoincTriggers,'simethinca', opts.slide_bins, opts.injection_bins)
 
 if opts.plot_distcut:
-  plotdata().plotroutine(ifo_combos,slidesCoincTriggers,injectionCoincTriggers,'eff_distance')
+  plotdata().plotroutine(ifo_combos,slidesCoincTriggers,injectionCoincTriggers,'eff_distance', opts.slide_bins, opts.injection_bins)
 
 if opts.plot_mchirp:
-  plotdata().plotroutine(ifo_combos,slidesCoincTriggers,injectionCoincTriggers,'mchirp')
+  plotdata().plotroutine(ifo_combos,slidesCoincTriggers,injectionCoincTriggers,'mchirp', opts.slide_bins, opts.injection_bins)
    
     
 if opts.show:
