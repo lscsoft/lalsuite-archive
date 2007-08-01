@@ -208,12 +208,6 @@ parser.add_option("-k","--known-distance",action="store",type="float",
     default=None, metavar=" KD",
     help="Distance at which GRB is thought to be")
     
-parser.add_option("-r","--known-distance-error",action="store",type="float",
-    default=None, metavar=" KDE",
-    help="Error in known distance")
-    
-   
-
 
 (opts,args) = parser.parse_args()
 
@@ -455,16 +449,6 @@ foundsq = square(xedges, yedges, coincInjTriggers, "found", calibration=distance
 missedsq = square(xedges, yedges, coincInjTriggers, "missed", calibration=distance_correction)
 
 #####################################################################
-# if the known-distance option is on
-if opts.known_distance:
-  dmin = opts.known_distance - opts.known_distance_error
-  dmax = opts.known_distance + opts.known_distance_error
-  kdyedges = arange( dmin, dmax, dmax-dmin )
-  kdfoundsq = square(xedges, kdyedges, coincInjTriggers, "found", calibration=distance_correction)
-  kdmissedsq = square(xedges, kdyedges, coincInjTriggers, "missed", calibration=distance_correction)
-
-
-#####################################################################
 # if there are coincident triggers on source
 if coincTriggers and not opts.loudest_event_cut:
   # loop over each candidate
@@ -529,16 +513,12 @@ else:
   pcsignalsq =  pcsignalsq + mcerrorsq
 
   if opts.known_distance:
-    kdpcsignalsq = kdmissedsq / (kdmissedsq + kdfoundsq + 1.0e-10)
+    for i in arange(len(yedges)-1):
+      if (yedges[i]-opts.known_distance)*(yedges[i+1]-opts.known_distance) <= 0:
+        distindex = i
 
-    kdmcerrorsq = sqrt( kdpcsignalsq * ( 1.0 - kdpcsignalsq ) /\
-        (kdmissedsq + kdfoundsq + 1.0e-10) )
-  
-    kdpcsignalsq = min( 1.0, kdpcsignalsq + kdmcerrorsq )
-
-    print kdpcsignalsq
-
-    print "The max, known distance p(c|h) is %e" % max(kdpcsignalsq)
+    print pcsignalsq[distindex,:]
+    print "The max, known distance p(c|h) is %e" % max(pcsignalsq[distindex,:])
 
   pcsignal = missedsq.sum() / (missedsq.sum() + foundsq.sum() + 1.0e-10)
   print "p(c|h) = %f" % pcsignal
@@ -601,18 +581,21 @@ savefig("found-fraction.%s" % opts.figure_type)
 figure()
 tmpx,tmpy,yarray = get_smooth_contour(xedges,yedges,pcsignalsq,0.1)
 p1=fill(tmpx,tmpy, facecolor='y')
-setp(p1, alpha=0.5)
+setp(p1, alpha=0.4)
 tmpx,tmpy,yarray = get_smooth_contour(xedges,yedges,pcsignalsq,0.25)
 p2=fill(tmpx,tmpy, facecolor='k')
 setp(p2, alpha=0.3)
 tmpx,tmpy,yarray = get_smooth_contour(xedges,yedges,pcsignalsq,0.50)
 p3=fill(tmpx,tmpy, facecolor='k')
-setp(p3, alpha=0.1)
+setp(p3, alpha=0.2)
+tmpx,tmpy,yarray = get_smooth_contour(xedges,yedges,pcsignalsq,0.75)
+p4=fill(tmpx,tmpy, facecolor='y')
+setp(p4, alpha=0.1)
 hold(True)
 axis([opts.min_mass, max(xedges), 0.0, max(yedges)])
 xlabel(r"$m_2 (M_\odot)$")
 ylabel(r"$D (\mathrm{Mpc})$")
-legend((p3, p2, p1), ('50\% exclusion area','75\% exclusion area','90\% exclusion area'), loc="lower right")
+legend((p4, p3, p2, p1), ('25\% exclusion area','50\% exclusion area','75\% exclusion area','90\% exclusion area'), loc="lower right")
 savefig("pcsignal-slice.%s" % opts.figure_type)
 
 if opts.show_plot:
