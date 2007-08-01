@@ -117,7 +117,6 @@ LALInspiralBankGeneration(
     {
       for( kappacnt = 0; kappacnt < 4; kappacnt++ )
       {
-        fprintf(stderr,"kappacnt=%d\n",kappacnt);
         for( cnt = 0; cnt < *ntiles; cnt++ )
         {
           bank = bank->next = (SnglInspiralTable *) LALCalloc( 1, sizeof(
@@ -132,7 +131,6 @@ LALInspiralBankGeneration(
           bank->mtotal  = coarseList[cnt].params.totalMass;
           bank->eta     = coarseList[cnt].params.eta;
           bank->kappa   = kappa[kappacnt];
-          fprintf(stderr,"kappa[%d]=%e\n",kappacnt,kappa[kappacnt]);
           bank->chi     = chi[chicnt];
           bank->tau0    = coarseList[cnt].params.t0;
           bank->tau2    = coarseList[cnt].params.t2;

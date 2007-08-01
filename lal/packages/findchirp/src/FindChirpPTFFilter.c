@@ -31,39 +31,13 @@ $Id$
 #include <lal/FindChirp.h>
 #include <lal/LALInspiral.h>
 #include <lal/FindChirp.h>
+#include <gsl/gsl_eigen.h>
+#include <gsl/gsl_errno.h>
+#include <gsl/gsl_math.h>
 
 double rint(double x);
 
 NRCSID (FINDCHIRPPTFFILTERC, "$Id$");
-
-/* LAPACK function for the calculation of the eigenvalues of a NxN matrix */
-int
-XLALFindChirpFindEigenvalues ( REAL4* WR, REAL4* WI, REAL4* A)
-{  
-  INT4 errcode = 0;
-  INT4 INFO = 0;
-  REAL4 vr[25], vl[25], work[25];
-  CHAR  n     = 'N';
-  INT4  N     = 5;
-  INT4  M     = 1;
-  INT4  lwork = 25;
-
-  extern void sgeev_ ( CHAR* JOBVLp, CHAR* JOBVRp, INT4* Np, REAL4* A, 
-      INT4* LDAp, REAL4* WR, REAL4* WI, REAL4* VL, 
-      INT4* LDVLp, REAL4* VR, INT4* LDVRp, REAL4* WORK, 
-      INT4* LWORKp, INT4* INFOp);
-
-  sgeev_ ( &n, &n, &N, A, &N, WR, WI, vl, &M, vr, &M, work, 
-      &lwork, &INFO);
-
-  if ( INFO != 0)
-  {
-    XLALPrintError( "Eigenvalue evaluation error: sgeev_ function filed with error %d\n", INFO);
-    errcode = XLAL_EFAILED;
-  }
-
-  return errcode;
-}
 
 /* <lalVerbatim file="FindChirpPTFFilterCP"> */
 void
@@ -76,21 +50,18 @@ LALFindChirpPTFFilterSegment (
 /* </lalVerbatim> */
 {
   UINT4                 i, j, k, l, kmax, kmin;
-  UINT4                 errcode;
+  UINT4                 errcode = 0;
   UINT4                 numPoints;
   UINT4                 deltaEventIndex;
   UINT4                 ignoreIndex;
   UINT4                 haveEvent   = 0;
-  REAL4                 deltaT, sum, temp, PTFMatrix[25], r, s, x, y;
+  REAL4                 deltaT, sum, max_eigen, r, s, x, y;
   REAL4                 deltaF, fFinal, norm, fmin, length;
   REAL4                 snrThresh      = 0;
   COMPLEX8             *snr            = NULL;
   COMPLEX8             *PTFQtilde, *qtilde, *PTFq, *inputData;
   COMPLEX8Vector        qVec;
   FindChirpBankVetoData clusterInput;
-
-  /* Variables needed for the eigenvalues finding LAPACK routine */
-  REAL4 wr[5], wi[5];
 
   /*
    *
@@ -119,6 +90,15 @@ LALFindChirpPTFFilterSegment (
   kmax =  fFinal / deltaF < numPoints/2 ? fFinal / deltaF : numPoints/2;
   kmin =  fmin / deltaF > 1.0 ? fmin/ deltaF : 1;
 
+  /* Define variables and allocate memory needed for gsl function */
+  gsl_eigen_nonsymm_workspace *workspace = gsl_eigen_nonsymm_alloc ( 5 );
+  gsl_matrix                  *PTFMatrix = gsl_matrix_alloc( 5, 5 );
+  gsl_vector_complex          *eigenvalues = gsl_vector_complex_alloc( 5 );
+  gsl_complex                  eval;
+
+  /* Set parameters for the gsl function */
+  gsl_eigen_nonsymm_params( 0, 1, workspace);
+  
   INITSTATUS( status, "LALFindChirpPTFFilter", FINDCHIRPPTFFILTERC );
   ATTATCHSTATUSPTR( status );
 
@@ -272,11 +252,11 @@ LALFindChirpPTFFilterSegment (
 
   for ( j = 0; j < numPoints; ++j ) /* beginning of main loop over time */
   {  
-    /* Set PTFMatrxi elements to zero */
+    /* Set PTFMatrix elements to zero */
     memset(params->PTFA->data, 0 , 25 * sizeof(REAL4));
-    memset(params->PTFMatrix->data, 0, 25 * sizeof(REAL4) );
-    /* construct A */
+    gsl_matrix_set_zero( PTFMatrix );
     
+    /* construct A */
     for ( i = 0; i < 5; ++i )
     {  
       for ( l = 0; l < i + 1; ++l )
@@ -296,41 +276,34 @@ LALFindChirpPTFFilterSegment (
         input->fcTmplt->PTFBinverse);
     CHECKSTATUSPTR( status );
 
-    /* Transpose PTFMatrix and store it into the corresponding local variable:
-     * the input to the LAPACK eigenvalues finding routine must be in 
-     * Fortran column-wise format
-     */ 
-
+    /* Construct the gsl matrix to be used by gsl_eigen_nonsymm */
     for ( i = 0; i < 5; ++i ) 
     {
       for ( l = 0; l < 5; ++l )
-      {  
-        PTFMatrix[i + 5 * l] = params->PTFMatrix->data[l + 5 * i];
+      {
+        gsl_matrix_set(PTFMatrix, i, l, params->PTFMatrix->data[5 * i + l]);
       }
-    }  
-
-    /* find max eigenvalue and store it in snr vector */
-    errcode = XLALFindChirpFindEigenvalues( wr, wi, PTFMatrix);
-
-    if ( errcode != XLAL_SUCCESS )
-    {
-      ABORT( status, FINDCHIRPH_EIGEN, FINDCHIRPH_MSGEIGEN );
     }
-
-    if (wi[0] == 0) 
-      temp = wr[0];
-    else
-      temp = 0.0;
-
-    for ( i = 1; i < 5; ++i )
+     
+    /* find max eigenvalue and store it in snr vector */
+    errcode = gsl_eigen_nonsymm ( PTFMatrix, eigenvalues, workspace); 
+    if ( errcode != GSL_SUCCESS )
     {
-      if ( wi[i] == 0) 
+      fprintf(stderr,"GSL eigenvalue error: singular matrix at time step %d\n",j);
+      break;
+    }
+    
+    max_eigen = 0.0;
+    for ( i = 0; i < 5; ++i )
+    {
+      eval = gsl_vector_complex_get( eigenvalues, i );
+      if ( GSL_IMAG( eval ) == 0) 
       {  
-        if ( wr[i] > temp ) temp = wr[i];        
+        if ( GSL_REAL( eval ) > max_eigen ) max_eigen = GSL_REAL( eval );        
       } 
     }
-
-    snr[j].re = 2.0 * sqrt(temp) / (REAL4) numPoints;
+    
+    snr[j].re = 2.0 * sqrt(max_eigen) / (REAL4) numPoints;
     snr[j].im = 0;
     
   } /* End of main loop over time */
@@ -389,6 +362,11 @@ LALFindChirpPTFFilterSegment (
 
   params->qVec = NULL;
 
+  /* Free gsl allocated memory */
+  gsl_matrix_free( PTFMatrix );
+  gsl_eigen_nonsymm_free( workspace );
+  gsl_vector_complex_free( eigenvalues );
+  
   /* normal exit */
   DETATCHSTATUSPTR( status );
   RETURN( status );
