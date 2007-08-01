@@ -172,7 +172,7 @@ if not opts.show_plot:
   matplotlib.use("Agg")
 from pylab import *
 rc("font", size=opts.font_size)
-rc("line", markersize=12, markeredgewidth=1)
+rc("lines", markersize=12, markeredgewidth=1)
 from pylal import viz
 
 #####################################
