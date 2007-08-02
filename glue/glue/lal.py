@@ -490,7 +490,7 @@ class Cache(list):
 			c=[entry for entry in c if (re.match(ifos,entry.observatory))]
 
 		if description:
-			c=[entry for entry in c if (re.match(description,entry.description))]
+			c=[entry for entry in c if (re.search(description,entry.description))]
 
 		if segment:
 			c=[entry for entry in c if (not entry.segment.disjoint(segment))]
