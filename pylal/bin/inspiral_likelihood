@@ -265,10 +265,9 @@ if opts.injection_cache_file:
   injfiles = []
   for cache_file in list_cache_files:
     trigCache = lal.Cache().read(cache_file)
-    entrylist = trigCache.sieve(description = 'COIRE').pfnlist()
-    for entry in entrylist:
-      if re.search('FOUND', entry):
-        injfiles.append(entry) 
+    trigCache1 = trigCache.sieve(description = 'COIRE')
+    trigCache2 = trigCache1.sieve(description = 'FOUND')
+    injfiles += trigCache2.pfnlist()
     
   print injfiles
   if len(injfiles) < 1:
