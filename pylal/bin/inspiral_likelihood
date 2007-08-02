@@ -4,7 +4,9 @@ import sys
 import exceptions 
 from optparse import *
 import glob
+import re
 
+from glue import lal
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
@@ -34,6 +36,10 @@ parser.add_option("-s","--slides-glob",action="store",type="string",\
 parser.add_option("-i","--inj-glob",action="store",type="string",\
     default=None, metavar=" GLOB",help="GLOB thinca files with injections to read" )
 
+parser.add_option("-c","--zerolag-cache-file",action="store",type="string",\
+    default=None, metavar="ZEROLAGCACHEFILE",help="name of the cache file including the path" )
+parser.add_option("-I","--injection-cache-file",action="store",type="string",\
+    default=None, metavar="INJECTIONCACHEFILE",help="name of the injection cache files including the path given as a string with comma delimeters" )
 
 # Options to select ifo types.
 
@@ -117,8 +123,7 @@ ifo_combos = CoincInspiralUtils.get_ifo_combos(ifo_list)
 ########################################################################
 def distcut(coinc_a,coinc_b):
     
-  dist_cut_array = []
-  dist_cut_array.append((coinc_a -  coinc_b)*2.0/(coinc_a +  coinc_b))
+  dist_cut_array=(coinc_b -  coinc_a)*2.0/(coinc_a +  coinc_b)
   return dist_cut_array
 
 def normalized_hist(Unormalised_array, bins=None):
@@ -137,50 +142,158 @@ class plotdata:
     range of parameters. """
 
 
-  def plotroutine(self, ifos, coinc_a, coinc_b, param, slide_bins, inj_bins):
-    for ifo in ifos:
-      if len(ifo) > 2: 
-        pass
-      else:     
-        if param == 'simethinca':
-          coinc_a_sim = coinc_a.coinctype(ifo).getSimpleEThincaValues(ifo)
-          coinc_b_sim = coinc_b.coinctype(ifo).getSimpleEThincaValues(ifo)
-        else:
-          coinc_a_fir = coinc_a.coinctype(ifo).getsngls(ifo[0]).get_column(param)
-          coinc_a_sec = coinc_a.coinctype(ifo).getsngls(ifo[1]).get_column(param)
-          coinc_b_fir = coinc_b.coinctype(ifo).getsngls(ifo[0]).get_column(param)
-          coinc_b_sec = coinc_b.coinctype(ifo).getsngls(ifo[1]).get_column(param)
- 
-         
-        if param == 'simethinca':
-          (y_slide, x_slide) = normalized_hist(coinc_a_sim, slide_bins)
-          (y_inj, x_inj) = normalized_hist(coinc_b_sim, inj_bins)
-        else: 
-          dist_cut_a = distcut(coinc_a_fir,coinc_a_sec)
-          dist_cut_b = distcut(coinc_b_fir,coinc_b_sec)
-
-          if len(dist_cut_a):
-            (y_slide, x_slide) = normalized_hist(dist_cut_a, slide_bins)
-         
-          if len(dist_cut_b):
-            (y_inj, x_inj) = normalized_hist(dist_cut_b, inj_bins)
-
-
-        slide_val = bar(x_slide,y_slide,width=(x_slide[1]-x_slide[0]),color="k")
-        hold(True)
-        inj_val =  bar(x_inj,y_inj,width=(x_inj[1]-x_inj[0]),color="r")
-        legend([inj_val[0],slide_val[0]],["Injections","Background"],loc=0)
-        xlabel(str(param) + '_' + 'difference' + '_' + str(ifo[0]) + '_' + str(ifo[1]))
-        savefig(str(param) + "_" + str(ifo[0]) + "_" +  str(ifo[1]) )
-        figure()
+  def plotroutine(self, ifos, coinc_slides, coinc_inj, param, slide_bins, inj_bins):
+    """ 
+    Function that makes histograms of a given parameter for injections and timeslides
+    @params: ifos a list whose elements are the lists of ifos such as ['H1', 'H2']
+    @params: coinc_a, coinc_b are instances of CoincInspiralUtils.CoincInspiralTable() class that contain
+    time slide and injection triggers respectively
+    @params: param is a name of the parameter to be plotted
+    if param is 'simethinca' the histograms of its value are produced for each pair of interferometers
+    otherwise the histogram of (param(ifo2)-param(ifo1))*2/(param(ifo2) + param(ifo1)) are produced
+    @params: slide_bins and inj_bins are number of bins in the histogram for time slides and injections respectively
+    """ 
         
+    for ifolist in ifos:
+      for i in range(len(ifolist)):
+        for j in range(len(ifolist)):
+          if i < j:
+            hist_check_slides = 1
+            hist_check_inj = 1
+	    if param == 'simethinca':
+              coinc_slides_sim = coinc_slides.coinctype(ifolist).getSimpleEThincaValues([ifolist[i], ifolist[j]])
+	      coinc_inj_sim = coinc_inj.coinctype(ifolist).getSimpleEThincaValues([ifolist[i], ifolist[j]])
+
+              if len(coinc_slides_sim) > 1:  
+	        (y_slide, x_slide) = normalized_hist(coinc_slides_sim, slide_bins)
+              else:
+                hist_check_slides = 0
+
+              if len(coinc_inj_sim) > 1:  
+	        (y_inj, x_inj) = normalized_hist(coinc_inj_sim, inj_bins)
+              else:
+                hist_check_inj = 0
+
+	    else:
+	      coinc_slides_fir = coinc_slides.coinctype(ifolist).getsngls(ifolist[i]).get_column(param)
+	      coinc_slides_sec = coinc_slides.coinctype(ifolist).getsngls(ifolist[j]).get_column(param)
+	      coinc_inj_fir = coinc_inj.coinctype(ifolist).getsngls(ifolist[i]).get_column(param)
+              coinc_inj_sec = coinc_inj.coinctype(ifolist).getsngls(ifolist[j]).get_column(param)
+              dist_cut_slide = distcut(coinc_slides_fir, coinc_slides_sec)
+	      dist_cut_inj = distcut(coinc_inj_fir, coinc_inj_sec)
+  
+	      if len(dist_cut_slide) > 1:
+	        (y_slide, x_slide) = normalized_hist(dist_cut_slide, slide_bins)
+              else:
+                hist_check_slides = 0 
+ 
+	      if len(dist_cut_inj) > 1:
+	        (y_inj, x_inj) = normalized_hist(dist_cut_inj, inj_bins)
+              else:
+                hist_check_inj = 0  
+            
+            if (hist_check_slides == 1) and (hist_check_inj == 1): 
+              slide_val = bar(x_slide,y_slide,width=(x_slide[1]-x_slide[0]),color="k")
+	      hold(True)
+              inj_val = bar(x_inj,y_inj,width=(x_inj[1]-x_inj[0]),color="r")
+	      legend([inj_val[0],slide_val[0]],["Injections","Background"],loc=0)
+              coinc_label=''
+	      for ifo in ifolist:
+	        coinc_label+=ifo
+              if param == 'simethinca':
+	        xlabel(coinc_label + ':' + ' ' + str(param) + ' ' + str(ifolist[i]) + '-' + str(ifolist[j]))
+	        savefig(coinc_label + '-' + str(param) + "_" + str(ifolist[i]) + "_" +  str(ifolist[j]) )
+              else:
+	        xlabel(coinc_label + ':' + ' ' +  str(param) + ' ' + 'difference' + ' ' + str(ifolist[i]) + '-' + str(ifolist[j]))
+	        savefig(coinc_label + '-' + str(param) + "_" + str(ifolist[i]) + "_" +  str(ifolist[j]) )
+	      figure()
+            else:
+              if hist_check_slides == 1:
+                slide_val = bar(x_slide,y_slide,width=(x_slide[1]-x_slide[0]),color="k")
+                legend([slide_val[0]],["Background"],loc=0)
+                coinc_label=''
+                for ifo in ifolist:
+                  coinc_label+=ifo
+                if param == 'simethinca':
+                  xlabel(coinc_label + ':' + ' ' +  str(param)  + ' ' +  str(ifolist[i]) + '-' + str(ifolist[j]))
+                  savefig(coinc_label + '-' + str(param) + "_" + str(ifolist[i]) + "_" +  str(ifolist[j]) )
+                else:
+                  xlabel(coinc_label + ':' + ' ' +  str(param) + ' ' + 'difference' + ' ' + str(ifolist[i]) + '-' + str(ifolist[j]))
+                  savefig(coinc_label + '-' + str(param) + "_" + str(ifolist[i]) + "_" +  str(ifolist[j]) )
+                figure()
+              else:
+                if hist_check_inj == 1:
+                  inj_val = bar(x_inj,y_inj,width=(x_inj[1]-x_inj[0]),color="r")
+                  legend([inj_val[0]],["Injections"],loc=0)
+                  coinc_label=''
+                  for ifo in ifolist:
+                    coinc_label+=ifo
+                  if param == 'simethinca':
+                    xlabel(coinc_label + ':' + ' ' +  str(param)  + ' ' +  str(ifolist[i]) + '-' + str(ifolist[j]))
+                    savefig(coinc_label + '-' + str(param) + "_" + str(ifolist[i]) + "_" +  str(ifolist[j]) )
+                  else:
+                    xlabel(coinc_label + ':' + ' ' + str(param) + ' ' + 'difference' + ' ' + str(ifolist[i]) + '-' + str(ifolist[j]))
+                    savefig(coinc_label + '-' + str(param) + "_" + str(ifolist[i]) + "_" +  str(ifolist[j]) )
+                  figure()
+ 
+
+###############################################################################################
+# read in the zero lag  and time slides cache file
+if opts.zerolag_cache_file:
+  trigCache = lal.Cache().read(opts.zerolag_cache_file)
+  slides_cache = trigCache.sieve(description = 'COIRE_SLIDE')
+  zero_lag_cache = trigCache.sieve(description = 'COIRE_H')
+  # zero lag files
+  zerolagfiles = []
+  zerolagfiles = zero_lag_cache.pfnlist()
+  print zerolagfiles
+  if len(zerolagfiles) < 1:
+    print >>sys.stderr, "The " +  opts.zerolag_cache_file +  " contains no files zero lag files"
+    sys.exit(1)
+
+  # time slides files  
+  slidesfiles = []
+  slidesfiles =  slides_cache.pfnlist()
+  print slidesfiles
+  if len(zerolagfiles) < 1:
+    print >>sys.stderr, "The " + opts.zerolag_cache_file  + " contains no time slides files "
+    sys.exit(1)
+# read in the injections cache file
+
+if opts.injection_cache_file:
+  list_cache_files=opts.injection_cache_file.split(",")
+  injfiles = []
+  for cache_file in list_cache_files:
+    trigCache = lal.Cache().read(cache_file)
+    entrylist = trigCache.sieve(description = 'COIRE').pfnlist()
+    for entry in entrylist:
+      if re.search('FOUND', entry):
+        injfiles.append(entry) 
+    
+  print injfiles
+  if len(injfiles) < 1:
+    print >>sys.stderr, "The " + opts.injection_cache_file  + " contain(s) no injection files "
+    sys.exit(1)
+ 
+
+   
+    
+
+
+
+
+
+
+
+
+
 
 
 ####################################################################
 #glob the list of files to read in
 
 # Zero lag  Files
-if opts.zerolag_glob:  
+if opts.zerolag_glob:
   zerolagfiles = []      
   zerolagfiles = glob.glob(opts.zerolag_glob)  
   if len(zerolagfiles) < 1:    
