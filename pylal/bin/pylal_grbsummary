@@ -159,6 +159,8 @@ def write_lal_cache(cache_file, filenames):
         cache_file = open(cache_file, 'w')
     for f in filenames:
         basedir, ifos, tag, extratag, start, dur, ext = filename_to_tuple(f)
+        if not basedir or basedir == ".":
+            f = os.path.join(os.environ["PWD"], f)
         url = urlparse.urljoin("file://localhost", f)
         cache_file.write(' '.join([ifos, 'GRB', str(start), str(dur), url]) + '\n')
 
@@ -226,19 +228,23 @@ def tuple_to_filename(tup):
     Return reconstructed filename from a tuple of (basedir, ifos, tag,
     extratag, start, duration, extension)
     """
-    return "%s/%s-%s%s-%d-%d%s" % tup
+    if tup[0] == "":
+        tup = list(tup)
+        tup[0] += "."
+    return "%s/%s-%s%s-%d-%d%s" % tuple(tup)
 
 def lal_cache_name_from_files(files):
     """
     Return a good name for a lal cache containing these files.
-    We assume that all files share basedir, tag, and extension.
+    We assume that all files share tag and extension.
+    Place the LAL cache in the local directory.
     """
     if files is None or len(files) == 0:
         return
     basedir, ifos, tag, extratag, start, dur, ext = filename_to_tuple(files[0])
     ifolist, start, dur = ifos_start_dur_from_files(files)
 
-    return tuple_to_filename((basedir, "".join(ifolist), tag, extratag, start, dur, ".input"))
+    return tuple_to_filename(("", "".join(ifolist), tag, extratag, start, dur, ".input"))
 
 ##############################################################################
 # Call external programs
@@ -262,13 +268,13 @@ def call_query_dq(segfile, files):
     basedir, ifos, tag, extratag, start, dur, ext = filename_to_tuple(files[0])
     ifolist, start, dur = ifos_start_dur_from_files(files)
 
-    dq_mask_file = tuple_to_filename((basedir, ifos, "DQ_VETO_MASK", extratag,
+    dq_mask_file = tuple_to_filename(("", ifos, "DQ_VETO_MASK", extratag,
         start, dur, ".txt"))
     args.append("--outfile=%s" % dq_mask_file)
 
     # grab stdout, as well
     args.append("--verbose")
-    dq_info_file = tuple_to_filename((basedir, ifos, "DQ_INFO", extratag,
+    dq_info_file = tuple_to_filename(("", ifos, "DQ_INFO", extratag,
         start, dur, ".txt"))
     args.append("> %s" % dq_info_file)
 
@@ -325,7 +331,7 @@ def _sire_by_ifo(inspiral_glob, cluster_time_ms=None, injection_glob=None,
 
         # determine output file
         basedir, ifos, tag, extratag, start, dur, ext = filename_to_tuple(f)
-        output_file = tuple_to_filename((basedir, ifos, "SIRE", extratag, start, dur, ext))
+        output_file = tuple_to_filename(("", ifos, "SIRE", extratag, start, dur, ext))
         tempargs.append("--output=%s" % output_file)
 
         # make the call
@@ -371,7 +377,7 @@ def call_coire(thinca_glob, cluster_time_ms=None, injection_glob=None,
 
         # determine output file
         basedir, ifos, tag, extratag, start, dur, ext = filename_to_tuple(f)
-        output_file = tuple_to_filename((basedir, ifos, "COIRE", extratag, start, dur, ext))
+        output_file = tuple_to_filename(("", ifos, "COIRE", extratag, start, dur, ext))
         tempargs += ["--output=%s" % output_file]
 
         # make the call
@@ -393,7 +399,7 @@ def call_ligolw_add(thinca_cache):
 
     # output file
     basedir, ifos, tag, extratag, start, dur, ext = filename_to_tuple(thinca_cache)
-    output_file = tuple_to_filename((basedir, ifos, tag, extratag, start, dur, ".xml"))
+    output_file = tuple_to_filename(("", ifos, tag, extratag, start, dur, ".xml"))
     args += ["--output=%s" % output_file]
 
     make_external_call(" ".join(args))
@@ -468,7 +474,7 @@ def call_plotethinca(thinca_file, vetofile=None, figure_name=None):
 
     args = ["plotethinca", "--ethinca-vs-stat", "--x-value=snr",
         "--x-value=mchirp", "--x-value=eta", "--hist",
-        "--glob=%s" % thinca_file, "--num-bins=20",]
+        "--inj-glob=%s" % thinca_file, "--num-bins=20",]
 
     for ifo in ["".join(ifos[2*i:2*i+2]) for i in range(len(ifos)//2)]:
         args += ["--ifo=%s" % ifo]
@@ -529,7 +535,7 @@ def call_timeslide_stats(slide_file, veto_file=None):
 
     # determine output name
     basedir, ifos, tag, extratag, start, dur, ext = filename_to_tuple(slide_file)
-    outname = tuple_to_filename((basedir, ifos, "SLIDE_STATS", extratag, start,
+    outname = tuple_to_filename(("", ifos, "SLIDE_STATS", extratag, start,
         dur, ".txt"))
     args.append("--outfile=%s" % outname)
 
