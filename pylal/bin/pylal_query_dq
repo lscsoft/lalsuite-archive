@@ -40,6 +40,8 @@ def parse_args():
         help="Discover what DQ flags were active at a point in time")
     parser.add_option("-s", "--segfile",
         help="File containing segments of interest")
+    parser.add_option("-f", "--flagfile",
+        help="File containing data quality flags of interest")
     parser.add_option("-o", "--outfile",
         help="Output file; if unspecified, print to stdout")
     parser.add_option("-n", "--ignore-version", action="append", default=[],
@@ -89,8 +91,8 @@ def fromDQsegments(file, coltype=int, discard_disabled=True, ignore_versions=[])
     """
     commentpat = re.compile(r"\s*([#;].*)?\Z", re.DOTALL)
     fivecolsegpat = re.compile(r"\A(\w+)\s+([\d]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\Z")
-
     d = segmentlistdict({})
+
     for line in file:
         line = commentpat.split(line)[0]
         if not len(line):
@@ -111,6 +113,30 @@ def fromDQsegments(file, coltype=int, discard_disabled=True, ignore_versions=[])
         d[name].append(seg)
     return d
 
+def generate_veto_segments(seg_dict, veto_file, verbose):
+    """
+    Generate a list of veto segments from a segment dictionary and a list
+    of vetoes.  Each line in the veto file should contain the flag name and 
+    the windows to be added to the start and end times.
+    """
+    veto_dict = segmentlistdict({})
+    if verbose > 1:
+        print "Keeping segments for the following flags:"
+
+    for line in veto_file:
+        line = line.split()
+        flag = line[0]
+        if verbose > 1: print flag + ", ",
+        window = [int(line[1]), int(line[2])]
+        # FIXME: For now we assume that we want the v99 flags
+        segs = segmentlist([segment(s[0]+window[0], s[1]+window[1]) 
+                for s in seg_dict[flag + "_v99"]])
+        veto_dict[flag] = segs
+
+    if verbose >1: print "  done"
+
+    return veto_dict
+ 
 ##############################################################################
 # Main
 ##############################################################################
@@ -131,6 +157,11 @@ if __name__ == "__main__":
         # rename flags to keep track of IFO
         for flag,val in new_dict.iteritems():
             dq_dict["%s:%s" % (ifo, flag)] = val
+
+    # keep only flags in the flagfile, expand/contract according to windows
+    if opts.flagfile is not None:
+        dq_dict = generate_veto_segments(dq_dict, open(opts.flagfile), 
+                opts.verbose)
 
     # do math; remove everything not in the segfile segments
     if opts.segfile is not None:
