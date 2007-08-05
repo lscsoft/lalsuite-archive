@@ -121,6 +121,16 @@ def plot_coinc_params(distributions, plottype):
 	fig.set_size_inches(size * n_horiz / n_vert, size / ((1 + math.sqrt(5)) / 2))
 
 	#
+	# Plot layout.
+	#
+
+	vlabel_allowance = .05
+	hlabel_allowance = .03
+	border = .007
+	width = 1.0 / n_horiz - hlabel_allowance - 2 * border
+	height = 1.0 / n_vert
+
+	#
 	# Iterate over instrument pairs.
 	#
 
@@ -129,12 +139,7 @@ def plot_coinc_params(distributions, plottype):
 		# Construct the axes for this instrument pair.
 		#
 
-		vlabel_allowance = .05
-		hlabel_allowance = .03
-		border = .007
 		left = float(i) / n_horiz + hlabel_allowance + border
-		width = 1.0 / n_horiz - hlabel_allowance - 2 * border
-		height = 1.0 / n_vert
 
 		dt_axes = fig.add_axes((left, 0 * height + vlabel_allowance + border, width, height - vlabel_allowance - 2 * border))
 		df_axes = fig.add_axes((left, 1 * height + vlabel_allowance + border, width, height - vlabel_allowance - 2 * border))
