@@ -84,7 +84,7 @@ def add_to_plot(axes, red_rate, black_rate, plottype):
 		axes.plot(numpy.compress(black_rate.array > 0, black_rate.xvals()), numpy.compress(black_rate.array > 0, black_rate.array), "k")
 		axes.plot(numpy.compress(red_rate.array > 0, red_rate.xvals()), numpy.compress(red_rate.array > 0, red_rate.array), "r")
 	elif plottype == "LR":
-		axes.plot(numpy.compress((red_rate.array > 0) & (black_rate > 0), black_rate.xvals()), numpy.compress((red_rate.array > 0) & (black_rate > 0), red_rate.array / black_rate.array), "k")
+		axes.plot(numpy.compress((red_rate.array > 0) & (black_rate.array > 0), black_rate.xvals()), numpy.compress((red_rate.array > 0) & (black_rate.array > 0), red_rate.array / black_rate.array), "k")
 
 	ymin, ymax = axes.get_ylim()
 	if ymax / ymin > 1e6:
