@@ -85,11 +85,14 @@ def make_interp(x, y):
 	# the end of the x co-ordinate array (the parameters are still in
 	# the bin, but in the outer half), meanwhile the scipy interpolator
 	# insists on only interpolating (go figger) so it throws an error
-	# when such an event is encountered.
+	# when such an event is encountered.  Note that because the y
+	# values are assumed to be probabilities they cannot be negative
+	# but that constraint is not imposed here so it must be imposed
+	# elsewhere.
+
 	x = numpy.hstack((x[0] + (x[0] - x[1]), x, x[-1] + (x[-1] - x[-2])))
 	y = numpy.hstack((y[0] + (y[0] - y[1]), y, y[-1] + (y[-1] - y[-2])))
 
-	# construct interpolator
 	return interpolate.interp1d(x, y)
 
 
@@ -117,11 +120,16 @@ class Likelihood(object):
 		P_injection = 1.0
 		for name, value in param_func(events, offsetdict).iteritems():
 			try:
-				P_b = self.background_rates[name](value)[0]
-				P_i = self.injection_rates[name](value)[0]
+				# the interpolators might return negative
+				# values for the probabilities.  the
+				# constraint that probabilities be
+				# non-negative is imposed here.
+				P_b = max(0, self.background_rates[name](value)[0])
+				P_i = max(0, self.injection_rates[name](value)[0])
 			except ValueError:
 				# param value is outside an interpolator
-				# domain, skip
+				# domain, so skip on the reasoning that
+				# this parameter provides no information
 				continue
 			P_background *= P_b
 			P_injection *= P_i
@@ -240,14 +248,15 @@ def ligolw_burca2(database, likelihood_ratio, verbose = False):
 		print >>sys.stderr, "computing likelihood ratios ..."
 		n_coincs = len(database.coinc_table)
 
+
 	cursor = database.connection.cursor()
-	for n, (coinc_event_id, coinc_def_id, time_slide_id) in enumerate(database.connection.cursor().execute("SELECT coinc_event_id, coinc_def_id, time_slide_id FROM coinc_event")):
+	for n, (coinc_event_id, time_slide_id) in enumerate(database.connection.cursor().execute("SELECT coinc_event_id, time_slide_id FROM coinc_event WHERE coinc_def_id IN (%s)" % ", ".join(["\"%s\"" % str(id) for id in definer_ids]))):
 		if verbose and not n % 200:
 			print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / n_coincs),
-		if coinc_def_id in definer_ids:
-			# retrieve sngl_burst events, sorted by instrument
-			# name
-			events = map(database.sngl_burst_table._row_from_cols, cursor.execute("""
+
+		# retrieve sngl_burst events, sorted by instrument
+		# name
+		events = map(database.sngl_burst_table._row_from_cols, cursor.execute("""
 SELECT sngl_burst.* FROM
 	sngl_burst
 	JOIN coinc_event_map ON (
@@ -258,15 +267,15 @@ WHERE
 	coinc_event_map.coinc_event_id == ?
 ORDER BY
 	sngl_burst.ifo
-			""", (coinc_event_id,)))
+		""", (coinc_event_id,)))
 
-			# compute likelihood ratio
-			cursor.execute("""
+		# compute likelihood ratio
+		cursor.execute("""
 UPDATE coinc_event SET
 	likelihood = ?
 WHERE
 	coinc_event_id == ?
-			""", (likelihood_ratio(ligolw_burca_tailor.coinc_params, events, time_slides[time_slide_id]), coinc_event_id))
+		""", (likelihood_ratio(ligolw_burca_tailor.coinc_params, events, time_slides[time_slide_id]), coinc_event_id))
 	if verbose:
 		print >>sys.stderr, "\t100.0%"
 
