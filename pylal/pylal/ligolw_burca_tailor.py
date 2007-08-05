@@ -510,12 +510,12 @@ class CovarianceStats(Stats):
 
 class DistributionsStats(Stats):
 	filter_widths = {
-		"H1_H2_dband": 1.0 / 200,
-		"H1_L1_dband": 1.0 / 200,
-		"H2_L1_dband": 1.0 / 200,
-		"H1_H2_ddur": 1.0 / 200,
-		"H1_L1_ddur": 1.0 / 200,
-		"H2_L1_ddur": 1.0 / 200,
+		"H1_H2_dband": 1.0 / 400,
+		"H1_L1_dband": 1.0 / 400,
+		"H2_L1_dband": 1.0 / 400,
+		"H1_H2_ddur": 1.0 / 400,
+		"H1_L1_ddur": 1.0 / 400,
+		"H2_L1_ddur": 1.0 / 400,
 		"H1_H2_df": 1.0 / 400,
 		"H1_L1_df": 1.0 / 400,
 		"H2_L1_df": 1.0 / 400,
