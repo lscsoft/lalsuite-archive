@@ -378,7 +378,7 @@ def get_coincident_segmentlistdict(seglistdict, offsetdictlist):
 	and a set of time slides to apply to those segment lists, what
 	segments do I need to keep in the original lists so that I have all
 	the segments that will participate in a coincidence analysis done
-	over those time slides?
+	over those time slides?"
 
 	This function constructs and returns a segmentlistdict object that,
 	for each key in seglistdict, contains the segments from the
