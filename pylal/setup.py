@@ -226,7 +226,8 @@ setup(
 		os.path.join("bin", "ligolw_segments"),
 		os.path.join("bin", "ligolw_sschunk"),
 		os.path.join("bin", "ligolw_sicluster"),
-		os.path.join("bin", "ligolw_tisi")
+		os.path.join("bin", "ligolw_tisi"),
+		os.path.join("bin", "ligolw_veto")
 	],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),
