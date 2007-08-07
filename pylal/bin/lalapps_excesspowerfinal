@@ -450,7 +450,7 @@ SELECT
 FROM
 	sim_burst
 	""", (contents.sb_definer_id, contents.bb_definer_id)):
-		sim = contents.sim_burst_table._row_from_cols(values[:-1])
+		sim = contents.sim_burst_table._row_from_cols(values)
 		found = values[-1]
 		if found:
 			self.injected_x.append(sim.freq)
