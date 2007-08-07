@@ -687,7 +687,7 @@ class injData:
     """
     get efficiency vs column, above given threshold
     """
-    all_inj = histng(self.get_values(column,0), edges)
+    all_inj = histng(self.get_values(column,-2), edges)
     found_inj = histng(self.get_values(column,threshold), edges)
     return found_inj / (all_inj + 1e-5)
 
@@ -695,7 +695,7 @@ class injData:
     """
     get mc errors for column, above given threshold
     """
-    all_inj = histng(self.get_values(column,0), edges)
+    all_inj = histng(self.get_values(column,-2), edges)
     found_inj = histng(self.get_values(column,threshold), edges)
     return sqrt(found_inj * (all_inj - found_inj) / (all_inj**3 + 1e-5))
 
@@ -703,7 +703,7 @@ class injData:
     """
     get errors for column, above given threshold
     """
-    all_val = self.get_values(column,0)
+    all_val = self.get_values(column,-2)
     found_val = self.get_values(column,threshold)
     if "dist" in column and \
         (error == "Waveform" or error[0].lower() == column[-1]):
@@ -769,7 +769,7 @@ class injData:
     """
     get efficiency vs columns, above given threshold
     """
-    all_inj = self.hist_2d_inj(col1,edges1,col2,edges2,0)
+    all_inj = self.hist_2d_inj(col1,edges1,col2,edges2,-2)
     found_inj = self.hist_2d_inj(col1,edges1,col2,edges2,threshold)
     return found_inj / (all_inj + 1e-5)
 
@@ -777,7 +777,7 @@ class injData:
     """
     get mc errors for columns, above given threshold
     """
-    all_inj = self.hist_2d_inj(col1,edges1,col2,edges2,0)
+    all_inj = self.hist_2d_inj(col1,edges1,col2,edges2,-2)
     found_inj = self.hist_2d_inj(col1,edges1,col2,edges2,threshold)
     return sqrt(found_inj * (all_inj - found_inj) / (all_inj**3 + 1e-5))
 
@@ -788,7 +788,7 @@ class injData:
     all = {}
     found = {}
     for col in [col1, col2]:
-      all[col] = self.get_values(col,0)
+      all[col] = self.get_values(col,-2)
       found[col] = self.get_values(col,threshold)
       if "dist" in col and (error == "Waveform" or error[0].lower() == col[-1]):
         # apply the correction
