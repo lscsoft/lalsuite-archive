@@ -234,9 +234,8 @@ SELECT sim_burst.*, sngl_burst.peak_frequency, sngl_burst.ms_hrss FROM
 WHERE
 	sngl_burst.ifo == ?
 		""", (self.instrument,)):
-			sim = contents.sim_burst_table._row_from_cols(values[:-2])
-			hrss_rec = values[-1]
-			freq_rec = values[-2]
+			sim = contents.sim_burst_table._row_from_cols(values)
+			freq_rec, hrss_rec = values[-2:]
 			self.matches += 1
 			self.x.append(self.hrss_func(sim, self.instrument))
 			self.y.append(hrss_rec)
@@ -286,9 +285,8 @@ SELECT sim_burst.*, sngl_burst.peak_frequency, sngl_burst.ms_hrss FROM
 WHERE
 	sngl_burst.ifo == ?
 		""", (self.instrument,)):
-			sim = contents.sim_burst_table._row_from_cols(values[:-2])
-			hrss_rec = values[-1]
-			freq_rec = values[-2]
+			sim = contents.sim_burst_table._row_from_cols(values)
+			freq_rec, hrss_rec = values[-2:]
 			self.matches += 1
 			self.x.append(sim.freq)
 			self.y.append(hrss_rec / self.hrss_func(sim, self.instrument))
@@ -331,10 +329,8 @@ SELECT sim_burst.*, sngl_burst.bandwidth, sngl_burst.peak_frequency, sngl_burst.
 WHERE
 	sngl_burst.ifo == ?
 		""", (self.instrument,)):
-			sim = contents.sim_burst_table._row_from_cols(values[:-3])
-			hrss_rec = values[-1]
-			freq_rec = values[-2]
-			bandwidth = values[-3]
+			sim = contents.sim_burst_table._row_from_cols(values)
+			bandwidth, freq_rec, hrss_rec = values[-3:]
 			self.matches += 1
 			self.x.append(bandwidth)
 			self.y.append(hrss_rec / self.hrss_func(sim, self.instrument))
@@ -480,9 +476,8 @@ SELECT sim_burst.*, sngl_burst.peak_frequency, sngl_burst.ms_hrss FROM
 WHERE
 	sngl_burst.ifo == ?
 		""", (self.instrument,)):
-			sim = contents.sim_burst_table._row_from_cols(values[:-2])
-			hrss_rec = values[-1]
-			freq_rec = values[-2]
+			sim = contents.sim_burst_table._row_from_cols(values)
+			freq_rec, hrss_rec = values[-2:]
 			self.matches += 1
 			self.x.append(sim.freq)
 			self.y.append(freq_rec)

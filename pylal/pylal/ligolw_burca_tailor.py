@@ -385,7 +385,7 @@ ORDER BY
 	sngl_burst.ifo
 			""", (coinc_event_id,)):
 				# reconstruct the event
-				event = database.sngl_burst_table._row_from_cols(values[:-1])
+				event = database.sngl_burst_table._row_from_cols(values)
 
 				# add to list
 				events.append(event)
@@ -440,7 +440,7 @@ WHERE
 	)
 		""", (database.bb_definer_id, database.sb_definer_id)):
 			# retrieve the injection and the coinc_event_id
-			sim = database.sim_burst_table._row_from_cols(values[:-1])
+			sim = database.sim_burst_table._row_from_cols(values)
 			coinc_event_id = values[-1]
 
 			# retrieve the list of the sngl_bursts in this
@@ -467,7 +467,7 @@ ORDER BY
 	sngl_burst.ifo
 			""", (coinc_event_id,)):
 				# reconstruct the burst events
-				event = database.sngl_burst_table._row_from_cols(values[:-1])
+				event = database.sngl_burst_table._row_from_cols(values)
 
 				# add to list
 				events.append(event)

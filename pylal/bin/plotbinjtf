@@ -102,7 +102,7 @@ def time_freq_plot(database, instrument, sim):
 	# find triggers from the desired instrument that are coincident
 	# with the injection, and iterate over them in order from least to
 	# most confident
-	for values in database.connection.cursor().execute("""
+	for burst in map(database.sngl_burst_table._row_from_cols, database.connection.cursor().execute("""
 SELECT sngl_burst.* FROM
 	sngl_burst
 	JOIN coinc_event_map AS a ON (
@@ -118,8 +118,7 @@ WHERE
 	AND b.event_id == ?
 ORDER BY
 	sngl_burst.confidence ASC
-	""", (instrument, sim.simulation_id)):
-		burst = database.sngl_burst_table._row_from_cols(values)
+	""", (instrument, sim.simulation_id))):
 		match_ids.append(burst.event_id)
 
 		# Add time-frequency tile to collection
@@ -194,7 +193,7 @@ ORDER BY
 	# find triggers from the desired instrument that are near the
 	# injection, and iterate over them in order from least to most
 	# confident
-	for values in database.connection.cursor().execute("""
+	for burst in map(database.sngl_burst_table._row_from_cols, database.connection.cursor().execute("""
 SELECT * FROM
 	sngl_burst
 WHERE
@@ -203,9 +202,7 @@ WHERE
 	AND central_freq BETWEEN ? AND ?
 ORDER BY
 	sngl_burst.confidence ASC
-	""", (instrument, int(sim.get_peak(instrument) - 2), int(sim.get_peak(instrument) + 2), sim.freq - 300, sim.freq + 300)):
-		burst = database.sngl_burst_table._row_from_cols(values)
-
+	""", (instrument, int(sim.get_peak(instrument) - 2), int(sim.get_peak(instrument) + 2), sim.freq - 300, sim.freq + 300))):
 		# Add time-frequency tile to collection
 		tmin = float(burst.get_start() - sim.get_peak(instrument))
 		tmax = float(burst.get_start() + burst.duration - sim.get_peak(instrument))
