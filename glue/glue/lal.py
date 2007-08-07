@@ -387,7 +387,7 @@ class CacheEntry(object):
 		Returns a string, with the format of a line in a LAL cache,
 		containing the contents of this cache entry.
 		"""
-		if self.segment != None:
+		if self.segment is not None:
 			start = self.segment[0]
 			duration = abs(self.segment)
 		else:
