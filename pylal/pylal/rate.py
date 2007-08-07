@@ -694,13 +694,11 @@ def bins_from_xml(xml):
 	from it.
 	"""
 	xml = table.get_table(xml, BinsTable.tableName)
-	args = [None] * 3 * len(xml)
-	kwargs = {}
-	kwargs["spacing"] = [None] * len(xml)
+	xml.sort(lambda a, b: cmp(a.order, b.order))
+	args = [None] * 3 * (len(xml) and xml[-1].order)
+	kwargs = {"spacing" : [None] * (len(xml) and xml[-1].order)}
 	for row in xml:
-		args[row.order * 3 + 0] = row.min
-		args[row.order * 3 + 1] = row.max
-		args[row.order * 3 + 2] = row.n
+		args[row.order * 3 : row.order * 3 + 3] = row.min, row.max, row.n
 		kwargs["spacing"][row.order] = row.type
 	if None in args:
 		raise ValueError, "incomplete bin spec: %s" % str(args)
