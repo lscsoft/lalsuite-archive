@@ -96,6 +96,59 @@ def choices(vals, n):
 		raise ValueError, n
 
 
+def uniq(iterable):
+	"""
+	Yield the unique items of an iterable, preserving order.
+	http://mail.python.org/pipermail/tutor/2002-March/012930.html
+
+	Example:
+
+	>>> x = uniq([0, 0, 2, 6, 2, 0, 5])
+	>>> list(x)
+	[0, 2, 6, 5]
+	"""
+	temp_dict = {}
+	for e in iterable:
+		if e not in temp_dict:
+			yield temp_dict.setdefault(e, e)
+
+
+#
+# =============================================================================
+#
+#    any() and all() are built-ins in Python 2.5, but I don't want to wait.
+#
+# =============================================================================
+#
+
+
+try:
+	any = any
+	all = all
+except NameError:
+	# These short-circuit, returning as soon as the return value can be
+	# determined.  These are a factor of a few slower than Python 2.5's
+	# implementation.
+	def any(S):
+		"""
+		any(iterable) -> bool
+
+		Return True if bool(x) is True for any x in the iterable.
+		"""
+		for x in S:
+			if x: return True
+		return False
+	def all(S):
+		"""
+		all(iterable) -> bool
+
+		Return True if bool(x) is True for all values x in the iterable.
+		"""
+		for x in S:
+			if not x: return False
+		return True
+
+
 #
 # =============================================================================
 #
