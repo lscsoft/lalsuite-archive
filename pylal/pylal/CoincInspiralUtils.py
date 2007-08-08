@@ -198,6 +198,12 @@ class coincInspiralTable:
           ifolist_in_coinc.append(ifo)
 
       return ifos,ifolist_in_coinc
+    
+    def _get_slide_num(self):
+      slide_num = (self.event_id % 1000000000) // 100000
+      if slide_num > 5000: slide_num = 5000 - slide_num
+      return slide_num
+    slide_num = property(fget=_get_slide_num)
   
   def __init__(self, inspTriggers = None, stat = None):
     """
@@ -265,10 +271,7 @@ class coincInspiralTable:
     """
     Return all the slides numbers present in the table.
     """
-    nums = uniq(map(lambda c: (c.event_id % 1000000000) // 100000, self.rows))
-    for i,num in enumerate(nums):
-      if num > 5000:
-        nums[i] = 5000 - num
+    nums = uniq([c.slide_num for c in self.rows])
     nums.sort()
     return nums
 
@@ -279,12 +282,7 @@ class coincInspiralTable:
     """
     slide_coincs = coincInspiralTable(stat=self.stat)
     slide_coincs.sngl_table = self.sngl_table
-    if slide_num < 0:
-      slide_num = 5000 - slide_num
-    for coinc in self.rows:
-      if ( (coinc.event_id % 1000000000) // 100000 ) == slide_num:
-        slide_coincs.rows.append(coinc)
-     
+    slide_coincs.extend([c for c in self.rows if c.slide_num == slide_num])
     return slide_coincs 
 
   def coincinclude(self, ifolist):

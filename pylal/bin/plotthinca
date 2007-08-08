@@ -25,14 +25,6 @@ from pylal import CoincInspiralUtils
 from pylal import SnglInspiralUtils
 
 ##############################################################################
-# helper functions
-def square_axis():
-  tmpv = asarray(axis())
-  xmax = max([tmpv[1], tmpv[3]])
-  xmin = min([tmpv[0], tmpv[2]])
-  axis([xmin, xmax, xmin, xmax])
-
-##############################################################################
 usage = """
 usage: %prog [options] 
 
@@ -438,7 +430,7 @@ if opts.snr_snr or opts.slide_snr:
       xlim(xmax=opts.max_snr)
       ylim(ymax=opts.max_snr)
     else:
-      square_axis()
+      viz.square_axis()
     if f_name:
       savefig(f_name + "_H1_vs_H2_" + snglStat + ".png")
 
@@ -471,7 +463,7 @@ if (opts.snr_snr or opts.slide_snr) and opts.mass_dependent:
         xlim(xmax=opts.max_snr)
         ylim(ymax=opts.max_snr)
       else:
-        square_axis()
+        viz.square_axis()
       if f_name:
         savefig(f_name + "_H1_vs_H2_" + snglStat + str(mass_range[i]) \
           + "_" + str(mass_range[i+1]) +".png")
@@ -546,7 +538,7 @@ if opts.snr_snr or opts.slide_snr:
         xlim(xmax=opts.max_snr)
         ylim(ymax=opts.max_snr)
       else:
-        square_axis()
+        viz.square_axis()
       if f_name:
         savefig(f_name + "_H_vs_" + ifo + "_" + snglStat + ".png")
 
@@ -620,7 +612,7 @@ if (opts.snr_snr or opts.slide_snr) and opts.mass_dependent:
           xlim(xmax=opts.max_snr)
           ylim(ymax=opts.max_snr)
         else:
-          square_axis()
+          viz.square_axis()
         if f_name:
           savefig(f_name + "_H_vs_" + ifo + "_" + snglStat + \
             str(mass_range[i]) + "_" + str(mass_range[i+1]) + ".png")
@@ -657,7 +649,7 @@ if opts.snr_snr or opts.slide_snr:
       xlim(xmax=opts.max_snr)
       ylim(ymax=opts.max_snr)
     else:
-      square_axis()
+      viz.square_axis()
     if f_name:
       savefig(f_name + "_" + ifo_non_h[0] + "_vs_" + ifo_non_h[1] + "_" +\
           snglStat + ".png")
@@ -692,7 +684,7 @@ if (opts.snr_snr or opts.slide_snr) and opts.mass_dependent:
         xlim(xmax=opts.max_snr)
         ylim(ymax=opts.max_snr)
       else:
-        square_axis()
+        viz.square_axis()
       if f_name:
         savefig(f_name + "_" + ifo_non_h[0] + "_vs_" + ifo_non_h[1] + "_" + \
           snglStat + str(mass_range[i]) + "_" + str(mass_range[i+1]) + ".png")
@@ -737,7 +729,7 @@ if opts.dist_dist:
       xlim(xmax=opts.max_snr)
       ylim(ymax=opts.max_snr)
     else:
-      square_axis()
+      viz.square_axis()
     if f_name:
       savefig(f_name + "_H1_vs_H2_dist.png")
 
@@ -772,7 +764,7 @@ if opts.dist_dist and opts.mass_dependent:
         xlim(xmax=opts.max_snr)
         ylim(ymax=opts.max_snr)
       else:
-        square_axis()
+        viz.square_axis()
       if f_name:
         savefig(f_name + "_H1_vs_H2_dist" + str(mass_range[i]) + "_" + \
           str(mass_range[i+1]) + ".png")
