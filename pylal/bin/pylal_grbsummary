@@ -863,8 +863,8 @@ class GRBSummaryDoc(object):
 """ % (open(slide_summary_stat_file).read())
 
         section_text += """
-<p>The following plots describe timeslides in found in coincidence from the
-second stage of the pipeline.</p>
+<p>The following plots describe coincidences found in second stage
+timeslides of the pipeline.</p>
 
 <div class="clearfix"><div class="figurebox">
     <a href="%s_H1H2_cum_hist_effective_snr.png"><img src="%s_H1H2_cum_hist_effective_snr.png" alt="%s_H1H2_cum_hist_effective_snr.png" width="300" height="225"></a>
@@ -991,12 +991,15 @@ if __name__ == "__main__":
         else:
             thinca_files = glob.glob(opts.thinca_glob)
 
-        # write lal cache
-        thinca_cache = lal_cache_name_from_files(thinca_files)
-        write_lal_cache(thinca_cache, thinca_files)
+        if len(thinca_files) > 1:
+            # write lal cache
+            thinca_cache = lal_cache_name_from_files(thinca_files)
+            write_lal_cache(thinca_cache, thinca_files)
 
-        # add coincs, handling inspid business; overwrite input file
-        new_thinca_file = call_ligolw_add(thinca_cache)
+            # add coincs, handling inspid business; overwrite input file
+            new_thinca_file = call_ligolw_add(thinca_cache)
+        else:
+            new_thinca_file = thinca_files[0]
 
         # summary stats
         slide_summary_stat_file = call_timeslide_stats(new_thinca_file,
@@ -1040,14 +1043,18 @@ if __name__ == "__main__":
                 opts.injection_glob, opts.injection_window_ms,
                 opts.num_slides)
         else:
-            slide_files = glob.glob(slide_glob)
+            slide_files = glob.glob(opts.slide_glob)
 
-        # write lal cache
-        slide_cache = lal_cache_name_from_files(slide_files)
-        write_lal_cache(slide_cache, slide_files)
+        
+        if len(slide_files) > 1:
+            # write lal cache
+            slide_cache = lal_cache_name_from_files(slide_files)
+            write_lal_cache(slide_cache, slide_files)
 
-        # add coincs, handling inspid business; overwrite input file
-        new_slide_file = call_ligolw_add(slide_cache)
+            # add coincs, handling inspid business; overwrite input file
+            new_slide_file = call_ligolw_add(slide_cache)
+        else:
+            new_slide_file = slide_files[0]
 
         # summary stats
         slide_summary_stat_file = call_timeslide_stats(new_slide_file,
