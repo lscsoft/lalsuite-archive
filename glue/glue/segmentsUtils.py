@@ -16,6 +16,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+
 #
 # =============================================================================
 #
@@ -24,14 +25,17 @@
 # =============================================================================
 #
 
+
 """
 This module provides additional utilities for use with segments.segmentlist
 objects.
 """
 
+
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __date__ = "$Date$"[7:-2]
 __version__ = "$Revision$"[11:-2]
+
 
 import re
 import segments
@@ -92,7 +96,7 @@ def fromlalcache(cachefile, coltype = int):
 	type coltype, which should raise ValueError if it cannot convert
 	its string argument.
 	"""
-	return segments.segmentlist([c.segment for c in map(lambda l: lal.CacheEntry(l, coltype = coltype), cachefile)])
+	return segments.segmentlist([lal.CacheEntry(l, coltype = coltype).segment for l in cachefile])
 
 
 #
@@ -127,7 +131,6 @@ def fromsegwizard(file, coltype=int, strict=True):
 		line = commentpat.split(line)[0]
 		if not len(line):
 			continue
-
 		try:
 			[tokens] = fourcolsegpat.findall(line)
 			num = int(tokens[0])
@@ -229,25 +232,19 @@ def from_range_strings(ranges, boundtype = int):
 	for i, range in enumerate(ranges):
 		parts = range.split(":")
 		if len(parts) == 1:
-			try:
-				parts[0] = boundtype(parts[0])
-			except ValueError:
-				raise ValueError, range
-			segs[i] = segments.segment(parts[0], parts[0])
+			parts = boundtype(parts[0])
+			segs[i] = segments.segment(parts, parts)
 			continue
 		if len(parts) != 2:
 			raise ValueError, range
-		try:
-			if parts[0] == "":
-				parts[0] = segments.NegInfinity
-			else:
-				parts[0] = boundtype(parts[0])
-			if parts[1] == "":
-				parts[1] = segments.PosInfinity
-			else:
-				parts[1] = boundtype(parts[1])
-		except ValueError:
-			raise ValueError, range
+		if parts[0] == "":
+			parts[0] = segments.NegInfinity
+		else:
+			parts[0] = boundtype(parts[0])
+		if parts[1] == "":
+			parts[1] = segments.PosInfinity
+		else:
+			parts[1] = boundtype(parts[1])
 		segs[i] = segments.segment(parts[0], parts[1])
 
 	# success
@@ -298,6 +295,7 @@ def to_range_strings(seglist):
 # =============================================================================
 #
 
+
 def S2playground(extent):
 	"""
 	Return a segmentlist identifying the S2 playground times within the
@@ -339,6 +337,7 @@ def segmentlist_range(start, stop, period):
 # =============================================================================
 #
 
+
 def Fold(seglist1, seglist2):
 	"""
 	An iterator that generates the results of taking the intersection
@@ -347,12 +346,19 @@ def Fold(seglist1, seglist2):
 	to the start of the corresponding segment in seglist2.  See also
 	the segmentlist_range() function.
 
+	This has use in applications that wish to convert ranges of values
+	to ranges relative to epoch boundaries.  Below, a list of time
+	intervals in hours is converted to a sequence of daily interval
+	lists with times relative to midnight.
+
 	Example:
 
 	>>> from glue.segments import *
-	>>> x = segmentlist([segment(0, 13), segment(14, 20)])
-	>>> segmentlist(Fold(x, segmentlist_range(0, 20, 10)))
-	[[segment(0, 10)], [segment(0, 3), segment(4, 10)]]
+	>>> x = segmentlist([segment(0, 13), segment(14, 20), segment(22, 36)])
+	>>> for y in Fold(x, segmentlist_range(0, 48, 24)): print y
+	...
+	[segment(0, 13), segment(14, 20), segment(22, 24)]
+	[segment(0, 12)]
 	"""
 	for seg in seglist2:
 		yield (seglist1 & segments.segmentlist([seg])).shift(-seg[0])
