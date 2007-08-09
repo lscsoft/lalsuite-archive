@@ -231,18 +231,33 @@ if opts.statistic not in ('snr', 'snr_over_chi', 's3_snr_chi_stat',
 opts.figure_type = opts.figure_type.strip(".")
 assert opts.figure_type in ("png", "ps", "eps", "svg")
 
+##############################################################################
+# Set up plots
+
 # Change to Agg back-end if show() will not be called
 if not opts.show_plot:
   import matplotlib
   matplotlib.use('Agg')
 from pylab import *
-params = {'backend': 'ps',
-'axes.labelsize': 16,
-'text.fontsize': 16,
-'xtick.labelsize': 14,
-'ytick.labelsize': 14,
-'text.usetex': True}
-rcParams.update(params)
+rc('text', usetex=True)
+
+# Adapted from http://www.scipy.org/Cookbook/Matplotlib/LaTeX_Examples
+if opts.figure_type in ("ps", "eps"):
+  fig_width_pt = 245.26653  # Get this from LaTeX using \showthe\columnwidth
+  inches_per_pt = 1.0/72.27               # Convert pt to inch
+  golden_mean = (sqrt(5)-1.0)/2.0         # Aesthetic ratio
+  fig_width = fig_width_pt*inches_per_pt  # width in inches
+  fig_height = fig_width*golden_mean      # height in inches
+  fig_size =  [fig_width, fig_height]
+  
+  params = {'backend': 'ps',
+  'font.size': 10,
+  'axes.labelsize': 10,
+  'text.fontsize': 10,
+  'xtick.labelsize': 8,
+  'ytick.labelsize': 8,
+  'figure.figsize': fig_size}
+  rcParams.update(params)
 
 #####################################################################
 # initialize some basic information
@@ -368,6 +383,8 @@ offsource_std = std(cum_dist_offsource)
 # the off source times.
 clf()
 figure()
+if opts.figure_type in ("ps", "eps"):
+  axes([0.127,0.21,0.95-0.128,0.95-0.24])
 hold(True)
 semilogy((bins+ds)**2,cum_dist_zero+0.0001,'r^',markerfacecolor="b",markersize=12)
 semilogy((bins+ds)**2,offsource_mean, 'r+', markersize=12)
@@ -384,23 +401,25 @@ setp(p, alpha=0.3)
 grid(True)
 axis([ xlow*xlow, (xhigh-2*ds)*(xhigh-2*ds), 0.001, 10.0])
 xlabel(r"$\rho_{\mathrm{eff}}^2$")
-ylabel(r"Expected number of events")
+ylabel(r"Expected \# of events")
 savefig("snr_dist.%s" % opts.figure_type)
 
 #####################################################################
 # Plot the number of events in each off-source segment
-figure()
-trigsperoffsource=cum_dist_offsource[:,0]
-offsourceindex=arange(len(trigsperoffsource))
-plot(offsourceindex,trigsperoffsource,'ro')
-hold(True)
-plot(offsourceindex,mean(trigsperoffsource)+0.0*offsourceindex,'b',lw='2')
-plot(offsourceindex,mean(trigsperoffsource)+std(trigsperoffsource)+0.0*offsourceindex,'g',lw='2')
-plot(offsourceindex,mean(trigsperoffsource)-std(trigsperoffsource)+0.0*offsourceindex,'g',lw='2')
-grid(True)
-xlabel(r"Off-source segment")
-ylabel(r"Number of triggers")
-savefig("triggers_per_offsource.%s" % opts.figure_type)
+# figure()
+# if opts.figure_type in ("ps", "eps"):
+#  axes([0.125,0.2,0.95-0.125,0.95-0.22])
+# trigsperoffsource=cum_dist_offsource[:,0]
+# offsourceindex=arange(len(trigsperoffsource))
+# plot(offsourceindex,trigsperoffsource,'ro')
+# hold(True)
+# plot(offsourceindex,mean(trigsperoffsource)+0.0*offsourceindex,'b',lw='2')
+# plot(offsourceindex,mean(trigsperoffsource)+std(trigsperoffsource)+0.0*offsourceindex,'g',lw='2')
+# plot(offsourceindex,mean(trigsperoffsource)-std(trigsperoffsource)+0.0*offsourceindex,'g',lw='2')
+# grid(True)
+# xlabel(r"Off-source segment")
+# ylabel(r"Number of triggers")
+# savefig("triggers_per_offsource.%s" % opts.figure_type)
 
 
 #####################################################################
@@ -453,10 +472,10 @@ missedsq = square(xedges, yedges, coincInjTriggers, "missed", calibration=distan
 if coincTriggers and not opts.loudest_event_cut:
   # loop over each candidate
   for candidate in coincTriggers:
-    tmparray = zeros(len(seglist), dtype=int)
+    found_array = zeros(len(seglist), dtype=int)
 
     # cut out those triggers near to the candidate, and
-    # evaulate the p(c|0) based on that
+    # evaluate the p(c|0) based on that
     triggers_within_epsilon = \
         offsourceTriggers.getTriggersWithinEpsilon(candidate, opts.epsilon)
 
@@ -464,11 +483,12 @@ if coincTriggers and not opts.loudest_event_cut:
       # index by end time of alphabetically first IFO in coinc
       end_time = getattr(coinc, coinc.get_ifos()[1][0]).end_time
       if end_time in seglist:
-        tmparray[seglist.find(end_time)] = 1
+        found_array[seglist.find(end_time)] = 1
 
-    if opts.verbose: print tmparray
-    pczero = tmparray.sum() / len(seglist)
+    if opts.verbose: print found_array
+    pczero = found_array.sum() / len(seglist)
 
+    # c refers to *this* candidate
     print "p(c|0) = %f" % pczero
 
     # cut out those injection triggers near to the candidate, and
@@ -484,21 +504,22 @@ if coincTriggers and not opts.loudest_event_cut:
 
     pcsignalsq = foundwithinepsilonsq / (missedsq + foundsq + 1.0e-10)
 else:
-  # p(no triggers | no signal )
+  # p( triggers | no signal )
   #
   # number of segments without a trigger / total number of segments
   # this is also the correct branch to take for the loudest-event analysis
-  tmparray = zeros(len(seglist), dtype=int)
+  found_array = zeros(len(seglist), dtype=int)
 
   for coinc in offsourceTriggers:
     # index by end time of alphabetically first IFO in coinc
     end_time = getattr(coinc, coinc.get_ifos()[1][0]).end_time
     if end_time in seglist:
-      tmparray[seglist.find(end_time)] = 1
+      found_array[seglist.find(end_time)] = 1
 
-  if opts.verbose: print tmparray
-  pczero = 1.0 - tmparray.sum() / len(seglist)
+  if opts.verbose: print found_array
+  pczero = 1.0 - found_array.sum() / len(seglist)
 
+  # c refers to *any* candidate
   print "p(c|0) = %f" % pczero
 
   # p(no triggers | signal with parameters lambda)
@@ -528,15 +549,19 @@ else:
 
 im_extent = [min(xedges), max(xedges), min(yedges), max(yedges)]
 
-#figure()
-##imshow(pcsignalsq, origin='lower')
-#hold(True)
-#IC = contourf(xedges, yedges, pcsignalsq)
-#xlabel(r"$m_2 (M_\odot)$")
-#ylabel(r"$D (\mathrm{Mpc})$")
-#colorbar(IC)
+# figure()
+# if opts.figure_type in ("ps", "eps"):
+#  axes([0.125,0.2,0.95-0.125,0.95-0.22])
+# #imshow(pcsignalsq, origin='lower')
+# hold(True)
+# IC = contourf(xedges, yedges, pcsignalsq)
+# xlabel(r"$m_2 (M_\odot)$")
+# ylabel(r"$D (\mathrm{Mpc})$")
+# colorbar(IC)
 
 figure()
+if opts.figure_type in ("ps", "eps"):
+  axes([0.125,0.2,0.95-0.125,0.95-0.22])
 palette = cm
 IM = imshow(pcsignalsq, origin='lower', extent=im_extent,
   interpolation='nearest')
@@ -551,6 +576,8 @@ ylabel(r"$D (\mathrm{Mpc})$")
 savefig("pcsignal.%s" % opts.figure_type)
 
 figure()
+if opts.figure_type in ("ps", "eps"):
+  axes([0.125,0.2,0.95-0.125,0.95-0.22])
 palette = cm
 IM = imshow(foundsq + missedsq, origin='lower', extent=im_extent,
   interpolation='nearest')
@@ -565,6 +592,8 @@ ylabel(r"$D (\mathrm{Mpc})$")
 savefig("made-injections.%s"  % opts.figure_type)
 
 figure()
+if opts.figure_type in ("ps", "eps"):
+  axes([0.125,0.2,0.95-0.125,0.95-0.22])
 palette = cm
 IM = imshow(foundsq / (foundsq + missedsq + 1.0e-10), origin='lower',
   extent=im_extent, interpolation='nearest')
@@ -579,23 +608,23 @@ ylabel(r"$D (\mathrm{Mpc})$")
 savefig("found-fraction.%s" % opts.figure_type)
 
 figure()
-tmpx,tmpy,yarray = get_smooth_contour(xedges,yedges,pcsignalsq,0.1)
-p1=fill(tmpx,tmpy, facecolor='y')
-setp(p1, alpha=0.4)
-tmpx,tmpy,yarray = get_smooth_contour(xedges,yedges,pcsignalsq,0.25)
-p2=fill(tmpx,tmpy, facecolor='k')
-setp(p2, alpha=0.3)
-tmpx,tmpy,yarray = get_smooth_contour(xedges,yedges,pcsignalsq,0.50)
-p3=fill(tmpx,tmpy, facecolor='k')
-setp(p3, alpha=0.2)
+if opts.figure_type in ("ps", "eps"):
+  axes([0.125,0.2,0.95-0.125,0.95-0.22])
 tmpx,tmpy,yarray = get_smooth_contour(xedges,yedges,pcsignalsq,0.75)
-p4=fill(tmpx,tmpy, facecolor='y')
-setp(p4, alpha=0.1)
+p1=fill(tmpx,tmpy, facecolor=(0.75, 0.75, 0.75), label='25\% exclusion')
+tmpx,tmpy,yarray = get_smooth_contour(xedges,yedges,pcsignalsq,0.50)
+p2=fill(tmpx,tmpy, facecolor=(0.5, 0.5, 0.5), label='50\% exclusion')
+tmpx,tmpy,yarray = get_smooth_contour(xedges,yedges,pcsignalsq,0.25)
+p3=fill(tmpx,tmpy, facecolor=(0.25, 0.25, 0.25), label='75\% exclusion')
+tmpx,tmpy,yarray = get_smooth_contour(xedges,yedges,pcsignalsq,0.1)
+p4=fill(tmpx,tmpy, facecolor=(0.1, 0.1, 0.1), label='90\% exclusion')
+
 hold(True)
 axis([opts.min_mass, max(xedges), 0.0, max(yedges)])
 xlabel(r"$m_2 (M_\odot)$")
 ylabel(r"$D (\mathrm{Mpc})$")
-legend((p4, p3, p2, p1), ('25\% exclusion area','50\% exclusion area','75\% exclusion area','90\% exclusion area'), loc="lower right")
+if opts.figure_type not in ("ps", "eps"):
+  legend(loc="lower right")
 savefig("pcsignal-slice.%s" % opts.figure_type)
 
 if opts.show_plot:
