@@ -53,11 +53,14 @@ def checkSummaryLength(inputPath): # used for debugging only
   storeLength = open(outputPath,'w')
 
   listDir = os.listdir(inputPath)
+  listDir.sort()
+  counter = 0
   for dir in listDir:
     try:
       summary = open(inputPath + "/" + dir + "/summary.txt","r")
       summary_length = len(summary.readlines())
-      storeLength.write(inputPath + "/" + dir + "/summary.txt" + "\t" + str(summary_length) + "\n")
+      counter = counter + 1
+      storeLength.write(str(counter) + "\t" + dir + "\t" + str(summary_length) + "\n")
     except:
       print >> sys.stderr, "could not check file length for" + inputPath + "/" + dir + "/summary.txt"
       continue
