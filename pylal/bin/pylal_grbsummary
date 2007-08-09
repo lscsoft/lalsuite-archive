@@ -134,8 +134,8 @@ def ifos_start_dur_from_files(files):
     # IFOs
     ifocombos = set([p.split(name)[1].split('-')[0] for name in files])
     ifo_char_stream = chain(*(imap(iter, ifocombos)))
-    ifo_stream = imap(lambda cs: "%s%s" % (cs[0], cs[1]),
-                      izip(ifo_char_stream, ifo_char_stream))
+    ifo_stream = imap(lambda site, num: "%s%s" % (site, num),
+                      ifo_char_stream, ifo_char_stream)
     ifos = list(set(ifo_stream))
     ifos.sort()
 
