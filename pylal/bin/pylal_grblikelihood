@@ -286,13 +286,13 @@ if opts.veto_file:
 offsourceseglist = fullseglist - onsourceseglist
 
 # make a list of 180s off source segments
-seglist = segments.segmentlist()
+trial_segs = segments.segmentlist()
 for seg in offsourceseglist:
-  seglist.extend(segmentsUtils.segmentlist_range(seg[0], seg[1], 180))
+  trial_segs.extend(segmentsUtils.segmentlist_range(seg[0], seg[1], 180))
 
 if opts.verbose:
-  print "The number of trial segments is %i" % len(seglist)
-numtrials = len(seglist)
+  print "The number of trial segments is %i" % len(trial_segs)
+numtrials = len(trial_segs)
 
 #####################################################################
 # read in on-source triggers
@@ -303,9 +303,9 @@ inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(coincfiles)
 if inspTriggers and opts.veto_file:
   inspTriggers = inspTriggers.veto(vetolist)
 
-# construct the off source listing
+# construct the off source listing, including vetoes and quantization
 offsourceTriggers = CoincInspiralUtils.coincInspiralTable(\
-    inspTriggers.veto(onsourceseglist), statistic)
+    inspTriggers.veto((~trial_segs).coalesce()), statistic)
 
 # construct the coincs
 if opts.open_box:
@@ -361,7 +361,7 @@ zero_dist = concatenate( (zeros(1),zero_dist) )
 #   bins
 cum_dist_zero = numpy.sum(zero_dist)-cumsum(zero_dist[0:bin.size])
 cum_dist_offsource = []
-for seg in seglist:
+for seg in trial_segs:
   offsourcetrial = offsourceTriggers.getTriggersInSegment(seg) 
   [num_offsource,bin,info] = hist(offsourcetrial.getstat(),bins)
   num_offsource = concatenate( (zeros(1),num_offsource) )
@@ -371,7 +371,7 @@ for seg in seglist:
 
 cum_dist_offsource = array(cum_dist_offsource)
 #cum_dist_offsource = reshape(array(cum_dist_offsource), \
-      #(len(seglist),opts.nbins))
+      #(len(trial_segs),opts.nbins))
 
 # takes the mean over rows for each column
 offsource_mean = mean(cum_dist_offsource)
@@ -472,7 +472,7 @@ missedsq = square(xedges, yedges, coincInjTriggers, "missed", calibration=distan
 if coincTriggers and not opts.loudest_event_cut:
   # loop over each candidate
   for candidate in coincTriggers:
-    found_array = zeros(len(seglist), dtype=int)
+    found_array = zeros(len(trial_segs), dtype=int)
 
     # cut out those triggers near to the candidate, and
     # evaluate the p(c|0) based on that
@@ -482,11 +482,11 @@ if coincTriggers and not opts.loudest_event_cut:
     for coinc in triggers_within_epsilon:
       # index by end time of alphabetically first IFO in coinc
       end_time = getattr(coinc, coinc.get_ifos()[1][0]).end_time
-      if end_time in seglist:
-        found_array[seglist.find(end_time)] = 1
+      if end_time in trial_segs:
+        found_array[trial_segs.find(end_time)] = 1
 
     if opts.verbose: print found_array
-    pczero = found_array.sum() / len(seglist)
+    pczero = found_array.sum() / len(trial_segs)
 
     # c refers to *this* candidate
     print "p(c|0) = %f" % pczero
@@ -508,16 +508,16 @@ else:
   #
   # number of segments without a trigger / total number of segments
   # this is also the correct branch to take for the loudest-event analysis
-  found_array = zeros(len(seglist), dtype=int)
+  found_array = zeros(len(trial_segs), dtype=int)
 
   for coinc in offsourceTriggers:
     # index by end time of alphabetically first IFO in coinc
     end_time = getattr(coinc, coinc.get_ifos()[1][0]).end_time
-    if end_time in seglist:
-      found_array[seglist.find(end_time)] = 1
+    if end_time in trial_segs:
+      found_array[trial_segs.find(end_time)] = 1
 
   if opts.verbose: print found_array
-  pczero = 1.0 - found_array.sum() / len(seglist)
+  pczero = 1.0 - found_array.sum() / len(trial_segs)
 
   # c refers to *any* candidate
   print "p(c|0) = %f" % pczero
