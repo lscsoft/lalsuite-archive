@@ -45,12 +45,32 @@ from glue.ligolw import lsctables
 from glue.ligolw import utils
 
 ##############################################################################
+# function to check the length of the summary files (for debugging)
+
+def checkSummaryLength(inputPath): # used for debugging only
+
+  outputPath = string.strip(cp.get('background-output','output-path')) + '/' + 'qscan_length.txt'
+  storeLength = open(outputPath,'w')
+
+  listDir = os.listdir(inputPath)
+  for dir in listDir:
+    try:
+      summary = open(inputPath + "/" + dir + "/summary.txt","r")
+      summary_length = len(summary.readlines())
+      storeLength.write(inputPath + "/" + dir + "/summary.txt" + "\t" + str(summary_length) + "\n")
+    except:
+      print >> sys.stderr, "could not check file length for" + inputPath + "/" + dir + "/summary.txt"
+      continue
+  storeLength.close()
+
+##############################################################################
 # class to read qscan summary files
 
 class readSummaryFiles:
 
   def __init__(self):
     self.table = {'channel_name':[],'peak_time':[],'peak_frequency':[],'peak_q':[],'peak_significance':[],'peak_amplitude':[],'qscan_id':[]}
+
 
   def getAuxChannels(self,inputPath):
     id = 0
@@ -121,7 +141,7 @@ def saveHistogramSignificance(chan,cp,z_dist,bin):
   store = open(histoFilePath,'w')
   for i,z in enumerate(z_dist):
     store.write(str(z) + '\t' + str(bin[i]) + '\n')
-
+  store.close()
 
 def readHistogramSignificance(chan,cp):
   
@@ -137,6 +157,7 @@ def readHistogramSignificance(chan,cp):
 
   if not testOpenFile:
     histoFileList = histoFile.readlines()
+    histoFile.close()
     if not len(histoFileList):
       print >> sys.stderr, 'The file ' + histoFilePath + ' is empty !'
     else:
@@ -187,6 +208,9 @@ parser.add_option("-v", "--version",action="store_true",default=False,\
 parser.add_option("-f", "--config-file",action="store",type="string",\
     metavar=" FILE",help="ini file")
 
+parser.add_option("-l", "--check-length",action="store_true",\
+    default=False,help="check the length of the summary txt files")
+
 parser.add_option("-z", "--make-z-distribution",action="store_true",\
     default=False,help="compute the z distributions")
 
@@ -207,10 +231,10 @@ if not opts.config_file:
   print >> sys.stderr, "Use --config-file FILE to specify location"
   sys.exit(1)
 
-if not opts.plot_z_distribution and not opts.make_z_distribution:
+if not opts.plot_z_distribution and not opts.make_z_distribution and not opts.check_length:
   print >> sys.stderr, "No step of the pipeline specified"
   print >> sys.stderr, "Please specify at least one of"
-  print >> sys.stderr, "--make-z-distribution, --plot-z-distribution"
+  print >> sys.stderr, "--make-z-distribution, --plot-z-distribution, --check-length"
   sys.exit(1)
 
 #################### READ IN THE CONFIG (.ini) FILE ########################
@@ -224,6 +248,7 @@ if len(string.strip(cp.get('qscan-summary','channel-list'))) > 0:
   channelFile = open(string.strip(cp.get('qscan-summary','channel-list')),'r')
   channel_list = []
   channel_list = channelFile.readlines()
+  channelFile.close()
   if not len(channel_list):
     print >> sys.stderr, "No channel found in the channel_list file"
     print >> sys.stderr, "Is the first line blank?"
@@ -231,6 +256,10 @@ if len(string.strip(cp.get('qscan-summary','channel-list'))) > 0:
   channelList = []
   for chan in channel_list:
     channelList.append(string.strip(chan))
+
+# Check the summary length
+if opts.check_length:
+  checkSummaryLength(string.strip(cp.get('qscan-summary','input-path')))
 
 # Read the qscan summary files and hold the information in memory
 if opts.make_z_distribution:
