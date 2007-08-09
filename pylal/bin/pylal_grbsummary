@@ -14,7 +14,6 @@ __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
 
 import glob
-import itertools
 import optparse
 import os
 import os.path as p
@@ -23,6 +22,7 @@ import socket
 import sys
 import time
 import urlparse
+from itertools import *
 
 from glue import lal
 from glue.ligolw import table
@@ -49,8 +49,7 @@ def get_options():
     parser.add_option("-o", "--on-source-segfile",
         help="segfile containing the on-source segment")
     parser.add_option("-O", "--off-source-segfile",
-        help="segfile containing the off-source segments (the file will be "\
-        "created if it does not exist)")
+        help="this option is ignored; retained for backwards compatibility")
 
     # mode parameters - their presence turns on a feature
     parser.add_option("-d", "--dq-file", help="get data quality mask from file")
@@ -97,9 +96,6 @@ def get_options():
     if opts.on_source_segfile is None:
         print >>sys.stderr, "Error: Must specify --on-source-segfile"
         sys.exit(2)
-    if opts.off_source_segfile is None:
-        print >>sys.stderr, "Error: Must specify --off-source-segfile"
-        sys.exit(2)
     if opts.slide_glob is not None and opts.num_slides is None:
         print >>sys.stderr, "Error: If slide-glob is specified, num-slide "\
             "must also be specified."
@@ -136,11 +132,12 @@ def ifos_start_dur_from_files(files):
     files
     """
     # IFOs
-    ifocombos = CoincInspiralUtils.uniq([p.split(name)[1].split('-')[0] for \
-        name in files])
-    ifos = CoincInspiralUtils.uniq(reduce(list.__add__,
-        [["".join(ifocombo[2*i:2*i+2]) for i in range(len(ifocombo)//2)] \
-        for ifocombo in ifocombos], []))
+    ifocombos = set([p.split(name)[1].split('-')[0] for name in files])
+    ifo_char_stream = chain(*(imap(iter, ifocombos)))
+    ifo_stream = imap(lambda cs: "%s%s" % (cs[0], cs[1]),
+                      izip(ifo_char_stream, ifo_char_stream))
+    ifos = list(set(ifo_stream))
+    ifos.sort()
 
     # start time and duration
     time_coverage = segmentsUtils.fromfilenames(files).extent()
@@ -160,14 +157,14 @@ def write_lal_cache(cache_file, filenames):
     for f in filenames:
         basedir, ifos, tag, extratag, start, dur, ext = filename_to_tuple(f)
         if not basedir or basedir == ".":
-            f = os.path.join(os.environ["PWD"], f)
-        url = urlparse.urljoin("file://localhost", f)
+            basedir = os.environ["PWD"]
+        url = os.path.join(os.path.join("file://localhost", basedir), f)
         cache_file.write(' '.join([ifos, 'GRB', str(start), str(dur), url]) + '\n')
 
 def read_lal_cache(input_file):
     """
     Read a list of files from the file input_file.  If we are passed a file
-    object, read from it.  Else, create a new one.
+    object, read from it.  Else, create from filename.
     """
     if not hasattr(input_file, 'read'):
         input_file = open(input_file, 'r')
@@ -320,7 +317,7 @@ def _sire_by_ifo(inspiral_glob, cluster_time_ms=None, injection_glob=None,
         assert len(injection_files) == len(inspiral_files)
         args.append("--injection-window=%d" % injection_window_ms)
     else:  # no injection files
-        injection_files = itertools.repeat(None)  # endless stream of None
+        injection_files = repeat(None)  # endless stream of None
 
     output_files = []
     for f, inj in zip(inspiral_files, injection_files):
@@ -362,7 +359,7 @@ def call_coire(thinca_glob, cluster_time_ms=None, injection_glob=None,
         assert len(injection_files) == len(thinca_files)
         args += ["--injection-window=%d" % injection_window_ms]
     else:  # no injection files
-        injection_files = itertools.repeat(None)  # endless stream of None
+        injection_files = repeat(None)  # endless stream of None
 
     # determine per-call options
     output_files = []
@@ -643,7 +640,7 @@ class GRBSummaryDoc(object):
         self.params.update(kwargs)
 
         # set up a figure numberer
-        self.figure_nums = itertools.count(1)
+        self.figure_nums = count(1)
 
     def add_section_intro(self):
         intro_text = """
@@ -910,50 +907,50 @@ if __name__ == "__main__":
     summary_doc = GRBSummaryDoc(title=("%s Summary" % opts.figure_name))
 
     # load segments
-    if not p.exists(opts.off_source_segfile) or (opts.dq_file is not None) \
-        or opts.query_dq:
+    if (opts.dq_file is not None) or opts.query_dq:
         full_segs = segmentsUtils.fromsegwizard(open(opts.full_segfile))
+        full_segs.coalesce()
         on_source_segs = segmentsUtils.fromsegwizard(open(opts.on_source_segfile))
         off_source_segs = full_segs - on_source_segs
 
-    # create an off-source segfile if necessary
-    if not p.exists(opts.off_source_segfile):
-        print "Writing an off-source segfile"
-        segmentsUtils.tosegwizard(open(opts.off_source_segfile, 'w'),
-            off_source_segs)
-
-    # add segment information to summary
+    # add basic segment information to summary
     summary_doc.add_section_segments(opts.full_segfile, opts.on_source_segfile)
 
     # data quality; either read from a given file or query from CIT daily dump
     dq_mask = segments.segmentlist([])
     if opts.dq_file is not None:
         dq_mask |= segmentsUtils.fromsegwizard(open(opts.dq_file))
-        print "dq_mask: %s" % dq_mask
         dq_mask_file = opts.dq_file
         dq_info_file = opts.dq_file
-    if opts.query_dq:
+    elif opts.query_dq:
         dq_mask_file, dq_info_file = call_query_dq(opts.full_segfile,
             reduce(lambda a,b: a+b, [glob.glob(g) for g in opts.inspiral_globs]) \
             or glob.glob(opts.thinca_files) or glob.glob(opts.slides_files))
         dq_mask |= segmentsUtils.fromsegwizard(open(dq_mask_file))
-
-    if (opts.dq_file is not None) or opts.query_dq:
-        # mask all flagged times (on_source_segs used as veto for off-source)
-        on_source_segs |= dq_mask
-        off_source_segs |= dq_mask
-
-        # create veto files that will get used for post-processing
-        opts.on_source_segfile = "%s_onsource_mask.txt" % opts.figure_name
-        segmentsUtils.tosegwizard(open(opts.on_source_segfile, "w"), on_source_segs)
-        opts.off_source_segfile = "%s_offsource_mask.txt" % opts.figure_name
-        segmentsUtils.tosegwizard(open(opts.off_source_segfile, "w"), off_source_segs)
-
-        # add data quality information to summary
-        summary_doc.add_section_dataquality(dq_info_file)
     else:
         dq_mask_file = None
 
+    # mask all flagged times (on_source_segs used as veto for off-source)
+    on_source_mask = off_source_segs | dq_mask
+    
+    # create veto files that will get used for post-processing
+    on_source_maskfile = "%s_onsource_mask.txt" % opts.figure_name
+    segmentsUtils.tosegwizard(open(on_source_maskfile, "w"), on_source_mask)
+    
+    # set aside on-source times
+    off_source_mask = on_source_segs | dq_mask
+    
+    # quantize off-source
+    off_source = segments.segmentlist(chain(*[segmentsUtils.segmentlist_range(a, b, 180) for a,b in (full_segs - off_source_mask)]))
+    off_source_mask = full_segs - off_source
+    
+    # create veto files that will get used for post-processing
+    off_source_maskfile = "%s_offsource_mask.txt" % opts.figure_name
+    segmentsUtils.tosegwizard(open(off_source_maskfile, "w"), off_source_mask)
+
+    # add data quality information to summary
+    summary_doc.add_section_dataquality(dq_info_file)
+    
     # inspiral
     if opts.inspiral_globs is not None:
         # sire together as necessary
@@ -971,13 +968,13 @@ if __name__ == "__main__":
 
         # plot each inspiral file
         if opts.figure_name is not None:
-            call_plotinspiral(inspiral_caches, opts.on_source_segfile,
+            call_plotinspiral(inspiral_caches, off_source_maskfile,
                 "%s_off" % opts.figure_name, opts.chisq_threshold,
                 opts.chisq_delta, opts.chisq_bins)
             summary_doc.add_section_inspiral("%s_off" % opts.figure_name)
 
             if opts.analyze_onsource:
-                call_plotinspiral(inspiral_caches, opts.off_source_segfile,
+                call_plotinspiral(inspiral_caches, on_source_maskfile,
                     "%s_on" % opts.figure_name, opts.chisq_threshold,
                     opts.chisq_delta, opts.chisq_bins)
                 summary_doc.add_section_inspiral("%s_on" % opts.figure_name)
@@ -1003,33 +1000,33 @@ if __name__ == "__main__":
 
         # summary stats
         slide_summary_stat_file = call_timeslide_stats(new_thinca_file,
-            opts.on_source_segfile)
+            off_source_maskfile)
 
         # plot
         if opts.figure_name is not None:
             # off source plots
-            call_plotthinca(new_thinca_file, opts.on_source_segfile,
+            call_plotthinca(new_thinca_file, off_source_maskfile,
                 "%s_off" % opts.figure_name)
             summary_doc.add_section_thinca("%s_off" % opts.figure_name,
                 slide_summary_stat_file)
             
-            call_plotethinca(new_thinca_file, opts.on_source_segfile,
+            call_plotethinca(new_thinca_file, off_source_maskfile,
                 "%s_off" % opts.figure_name)
             summary_doc.add_section_ethinca("%s_off" % opts.figure_name)
 
             if opts.analyze_onsource:
                 # on source
-                call_plotthinca(new_thinca_file, opts.off_source_segfile,
+                call_plotthinca(new_thinca_file, on_source_maskfile,
                     "%s_on" % opts.figure_name)
                 summary_doc.add_section_thinca("%s_on" % opts.figure_name)
                 
-                call_plotethinca(new_thinca_file, opts.off_source_segfile,
+                call_plotethinca(new_thinca_file, on_source_maskfile,
                     "%s_on" % opts.figure_name)
                 summary_doc.add_section_ethinca("%s_on" % opts.figure_name)
                 
                 # off source with on source overlaid
-                call_plotthinca(new_thinca_file, opts.on_source_segfile,
-                    "%s_off+on" % opts.figure_name, opts.off_source_segfile)
+                call_plotthinca(new_thinca_file, off_source_maskfile,
+                    "%s_off+on" % opts.figure_name, on_source_maskfile)
                 summary_doc.add_section_thinca("%s_off+on" % opts.figure_name)
                 
     else:
@@ -1058,13 +1055,13 @@ if __name__ == "__main__":
 
         # summary stats
         slide_summary_stat_file = call_timeslide_stats(new_slide_file,
-            opts.on_source_segfile)
+            off_source_maskfile)
 
         # plot
         if opts.figure_name is not None:
             # off source
             call_plotthincaslide(new_slide_file, opts.num_slides,
-                opts.on_source_segfile, "%s_slide_off" % opts.figure_name)
+                off_source_maskfile, "%s_slide_off" % opts.figure_name)
             summary_doc.add_section_slide("%s_slide_off" % opts.figure_name,
                 slide_summary_stat_file)
 
@@ -1072,7 +1069,7 @@ if __name__ == "__main__":
                 # all slides with zero-lag on-source overlaid
                 call_plotthincaslide(new_slide_file, opts.num_slides,
                     dq_mask_file, "%s_slide_all+zero_lag_on" % opts.figure_name,
-                    new_thinca_file, opts.off_source_segfile)
+                    new_thinca_file, on_source_maskfile)
                 summary_doc.add_section_slide("%s_slide_all+zero_lag_on" \
                     % opts.figure_name, slide_summary_stat_file)
 
