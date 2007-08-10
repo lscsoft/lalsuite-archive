@@ -29,7 +29,9 @@ numpy.seterr('raise')  # throw an exception on floating point errors
 
 from glue import segments
 from glue import segmentsUtils
+from glue.ligolw import lsctables
 import pylal.itertools
+import pylal.date
 from pylal import CoincInspiralUtils
 from pylal import SnglInspiralUtils
 from pylal import SimInspiralUtils
@@ -37,6 +39,17 @@ from pylal import SimInspiralUtils
 __author__ = "Patrick Brady <patrick@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
+
+##############################################################################
+# Speed hack
+##############################################################################
+"""
+lal.LIGOTimeGPS is horrifically slow.  Replace its use with the C version
+from pylal.date.  This speeds up vetoes by an order of magnitude or so,
+about 10\% of the total run time of this program in my tests.
+"""
+
+lsctables.lal.LIGOTimeGPS = pylal.date.LIGOTimeGPS
 
 ##############################################################################
 # Define a Square Array
@@ -406,20 +419,20 @@ savefig("snr_dist.%s" % opts.figure_type)
 
 #####################################################################
 # Plot the number of events in each off-source segment
-# figure()
-# if opts.figure_type in ("ps", "eps"):
-#  axes([0.125,0.2,0.95-0.125,0.95-0.22])
-# trigsperoffsource=cum_dist_offsource[:,0]
-# offsourceindex=arange(len(trigsperoffsource))
-# plot(offsourceindex,trigsperoffsource,'ro')
-# hold(True)
-# plot(offsourceindex,mean(trigsperoffsource)+0.0*offsourceindex,'b',lw='2')
-# plot(offsourceindex,mean(trigsperoffsource)+std(trigsperoffsource)+0.0*offsourceindex,'g',lw='2')
-# plot(offsourceindex,mean(trigsperoffsource)-std(trigsperoffsource)+0.0*offsourceindex,'g',lw='2')
-# grid(True)
-# xlabel(r"Off-source segment")
-# ylabel(r"Number of triggers")
-# savefig("triggers_per_offsource.%s" % opts.figure_type)
+figure()
+if opts.figure_type in ("ps", "eps"):
+ axes([0.125,0.2,0.95-0.125,0.95-0.22])
+trigsperoffsource=cum_dist_offsource[:,0]
+offsourceindex=arange(len(trigsperoffsource))
+plot(offsourceindex,trigsperoffsource,'ro')
+hold(True)
+plot(offsourceindex,mean(trigsperoffsource)+0.0*offsourceindex,'b',lw='2')
+plot(offsourceindex,mean(trigsperoffsource)+std(trigsperoffsource)+0.0*offsourceindex,'g',lw='2')
+plot(offsourceindex,mean(trigsperoffsource)-std(trigsperoffsource)+0.0*offsourceindex,'g',lw='2')
+grid(True)
+xlabel(r"Off-source segment")
+ylabel(r"Number of triggers")
+savefig("triggers_per_offsource.%s" % opts.figure_type)
 
 
 #####################################################################
@@ -534,12 +547,17 @@ else:
   pcsignalsq =  pcsignalsq + mcerrorsq
 
   if opts.known_distance:
-    for i in arange(len(yedges)-1):
-      if (yedges[i]-opts.known_distance)*(yedges[i+1]-opts.known_distance) <= 0:
-        distindex = i
+    kd_yedges = [opts.known_distance-1e-6,
+                 opts.known_distance+1e-6]
+    kd_foundsq = square(xedges, kd_yedges, coincInjTriggers, "found")
+    kd_missedsq = square(xedges, kd_yedges, coincInjTriggers, "missed")
+    kd_pcsignalsq = kd_missedsq / (kd_missedsq + kd_foundsq + 1.0e-10)
+    kd_mcerrorsq = sqrt( kd_pcsignalsq * (1.0 - kd_pcsignalsq) /\
+         (kd_missedsq + kd_foundsq + 1.0e-10))
+    kd_pcsignalsq += kd_mcerrorsq
 
-    print pcsignalsq[distindex,:]
-    print "The max, known distance p(c|h) is %e" % max(pcsignalsq[distindex,:])
+    print "The known distance p(0|h) per mass bin are", kd_pcsignalsq[0, :]
+    print "The max, known distance p(c|h) is %e" % kd_pcsignalsq[0, :].max()
 
   pcsignal = missedsq.sum() / (missedsq.sum() + foundsq.sum() + 1.0e-10)
   print "p(c|h) = %f" % pcsignal
