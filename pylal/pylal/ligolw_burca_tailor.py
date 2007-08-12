@@ -640,6 +640,8 @@ def gen_likelihood_control(coinc_params_distributions):
 
 	node.appendChild(coinc_params_distributions_to_xml(coinc_params_distributions, u"ligolw_burca_tailor"))
 
+	llwapp.set_process_end_time(process)
+
 	return xmldoc
 
 
