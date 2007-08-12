@@ -324,8 +324,7 @@ def good_injection_matches(sim, events, max_hrss_ratio, max_frequency_ratio):
 
 
 class Stats(object):
-	def __init__(self, thresholds):
-		self.thresholds = thresholds
+	def __init__(self):
 		self.n_time_slides = None
 		self.n_background_events = 0
 
@@ -488,8 +487,8 @@ ORDER BY
 
 
 class CovarianceStats(Stats):
-	def __init__(self, thresholds):
-		Stats.__init__(self, thresholds)
+	def __init__(self):
+		Stats.__init__(self)
 		self.covariance = Covariance()
 
 	def _add_background(self, param_func, events, offsetdict):
@@ -528,7 +527,7 @@ class DistributionsStats(Stats):
 	}
 
 	def __init__(self, max_hrss_ratio, max_frequency_ratio, thresholds):
-		Stats.__init__(self, thresholds)
+		Stats.__init__(self)
 		self.max_hrss_ratio = max_hrss_ratio
 		self.max_frequency_ratio = max_frequency_ratio
 		# careful, the intervals have to be unpacked in the order
