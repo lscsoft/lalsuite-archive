@@ -637,12 +637,14 @@ p3=fill(tmpx,tmpy, facecolor=(0.25, 0.25, 0.25), label='75\% exclusion')
 tmpx,tmpy,yarray = get_smooth_contour(xedges,yedges,pcsignalsq,0.1)
 p4=fill(tmpx,tmpy, facecolor=(0.1, 0.1, 0.1), label='90\% exclusion')
 
-hold(True)
+if opts.known_distance is not None:
+  axhline(y=opts.known_distance, color='r', label='_nolegend_')
+
 axis([opts.min_mass, max(xedges), 0.0, max(yedges)])
 xlabel(r"$m_2 (M_\odot)$")
 ylabel(r"$D (\mathrm{Mpc})$")
 if opts.figure_type not in ("ps", "eps"):
-  legend(loc="lower right")
+  legend(loc="upper right")
 savefig("pcsignal-slice.%s" % opts.figure_type)
 
 if opts.show_plot:
