@@ -271,10 +271,20 @@ def good_injection_matches(sim, events, max_hrss_ratio, max_frequency_ratio):
 
 class Stats(object):
 	def _add_background(self, param_func, events, timeslide):
+		"""
+		A subclass should provide an override of this method to do
+		whatever it needs to do with a tuple of coincidence events
+		identified as "background".
+		"""
 		pass
 
 
 	def _add_injections(self, param_func, sim, events, timeslide):
+		"""
+		A subclass should provide an override of this method to do
+		whatever it needs to do with a tuple of coincidence events
+		identified as "injection".
+		"""
 		pass
 
 
@@ -429,8 +439,8 @@ def covariance_normalize(c):
 
 
 class Covariance(Stats):
-	def __init__(self, *args):
-		Stats.__init__(self, *args)
+	def __init__(self):
+		Stats.__init__(self)
 		self.bak_observations = []
 		self.inj_observations = []
 
@@ -455,6 +465,12 @@ class Covariance(Stats):
 
 
 class DistributionsStats(Stats):
+	"""
+	A subclass of the Stats class used to populate a
+	CoincParamsDistribution instance with the data from the outputs of
+	ligolw_burca and ligolw_binjfind.
+	"""
+
 	filter_widths = {
 		"H1_H2_dband": 1.0 / 400,
 		"H1_L1_dband": 1.0 / 400,
