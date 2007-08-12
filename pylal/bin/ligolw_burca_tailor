@@ -64,12 +64,12 @@ def parse_command_line():
 	parser = OptionParser(
 		version = "%prog CVS $Id$",
 		usage = "%prog [options] -i|--injection-glob pattern -b|--background-glob pattern",
-		description = "%prog analyzes a collection of SQLite3 database files containing ligolw_burca outputs, and measures probability distributions for a variety of parameters computed from the coincidences therein.  The distributions are written to a likelihood data file in XML format, which can be used by ligolw_burca in a second pass to assign likelihoods to each coincidence.  The command line arguments are used to provide shell path patterns for the files to obtain injection data from, and the files to obtain background data from."
+		description = "%prog analyzes a collection of SQLite3 database files containing ligolw_burca outputs, and measures probability distributions for a variety of parameters computed from the coincidences therein.  The distributions are written to a likelihood data file in XML format, which can be used by ligolw_burca in a second pass to assign likelihoods to each coincidence.  The command line arguments are used to provide shell path patterns for the files from which to obtain injection and backgroun coincidences."
 	)
 	parser.add_option("-b", "--background-glob", metavar = "pattern", default = [], action = "append", help = "Shell filename pattern for non-injection files.")
 	parser.add_option("-i", "--injection-glob", metavar = "pattern", default = [], action = "append", help = "Shell filename pattern for injection files.")
-	parser.add_option("--max-hrss-ratio", metavar = "ratio", default = "4.0", help = "When measuring the distribution of coincidence parameters associated with injections, discard any sngl_burst events from the coincs whose measured h_rss differs from the correct value for that instrument by more than this factor.  This helps ensure that the injection distributions are not being measured from accidentals.  Default = 4.0")
-	parser.add_option("--max-frequency-ratio", metavar = "ratio", default = "2.0", help = "When measuring the distribution of coincidence parameters associated with injections, discard any sngl_burst events from the coincs whose measured peak frequency differs from the correct value by more than this factor.  This helps ensure that the injection distributions are not being measured from accidentals.  Default = 2.0")
+	parser.add_option("--max-hrss-ratio", metavar = "ratio", type = "float", default = 4.0, help = "When measuring the distribution of coincidence parameters associated with injections, discard any sngl_burst events from the coincs whose measured h_rss differs from the correct value for that instrument by more than this factor.  This helps ensure that the injection distributions are not being measured from accidentals.  Default = 4.0")
+	parser.add_option("--max-frequency-ratio", metavar = "ratio", type = "float", default = 2.0, help = "When measuring the distribution of coincidence parameters associated with injections, discard any sngl_burst events from the coincs whose measured peak frequency differs from the correct value by more than this factor.  This helps ensure that the injection distributions are not being measured from accidentals.  Default = 2.0")
 	parser.add_option("-o", "--output", metavar = "filename", default = None, help = "Set the name of the likelihood control file to write (default = stdout).")
 	parser.add_option("--T010150", metavar = "description", default = None, help = "Write the output to a file whose name is compatible with the file name format described in LIGO-T010150-00-E, \"Naming Convention for Frame Files which are to be Processed by LDAS\".  The description string will be used to form the second field in the file name.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
@@ -86,9 +86,6 @@ def parse_command_line():
 			options.T010150 = "EXCESSPOWER_LIKELIHOOD"
 		elif set(options.T010150) - T010150_letters:
 			raise ValueError, "invalid description \"%s\"" % options.T010150
-
-	options.max_hrss_ratio = float(options.max_hrss_ratio)
-	options.max_frequency_ratio = float(options.max_frequency_ratio)
 
 	return options, (filenames or [None])
 
@@ -117,7 +114,7 @@ options, filenames = parse_command_line()
 
 stats = None
 instruments = set()
-segs = segments.segmentlist()
+segs = segments.segmentlistdict()
 
 
 #
@@ -147,7 +144,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 
 	database = SnglBurstUtils.CoincDatabase().summarize(dbtables.DBTable_get_xml(), "lalapps_power", options.verbose)
 	instruments |= database.instruments
-	segs |= database.seglists.union(database.instruments)
+	segs |= database.seglists
 
 	#
 	# If not already done, recover the --thresholds arguments, and
@@ -197,7 +194,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 
 	database = SnglBurstUtils.CoincDatabase().summarize(dbtables.DBTable_get_xml(), "lalapps_power", options.verbose)
 	instruments |= database.instruments
-	segs |= database.seglists.union(database.instruments)
+	segs |= database.seglists
 
 	#
 	# If not already done, recover the --thresholds arguments, and
@@ -242,10 +239,10 @@ if stats is None:
 #print >>sys.stderr, str(stats.covariance.bak_cov)
 
 
-def T010150_basename(instruments, description, seglist):
+def T010150_basename(instruments, description, seglists):
 	instruments = list(instruments)
 	instruments.sort()
-	seg = seglist.extent()
+	seg = seglists.extent_all()
 	return "%s-%s-%s-%s" % ("+".join(instruments), description, str(seg[0]), str(abs(seg)))
 
 
