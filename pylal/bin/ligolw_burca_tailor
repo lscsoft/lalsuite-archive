@@ -37,10 +37,12 @@ import sys
 
 
 from glue import segments
+from glue import lal
 from glue.ligolw import dbtables
 from glue.ligolw import utils
 from pylal import ligolw_burca_tailor
 from pylal import SnglBurstUtils
+from pylal.date import LIGOTimeGPS
 
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -63,10 +65,12 @@ T010150_letters = set(string.ascii_lowercase + string.ascii_uppercase + string.d
 def parse_command_line():
 	parser = OptionParser(
 		version = "%prog CVS $Id$",
-		usage = "%prog [options] -i|--injection-glob pattern -b|--background-glob pattern",
-		description = "%prog analyzes a collection of SQLite3 database files containing ligolw_burca outputs, and measures probability distributions for a variety of parameters computed from the coincidences therein.  The distributions are written to a likelihood data file in XML format, which can be used by ligolw_burca in a second pass to assign likelihoods to each coincidence.  The command line arguments are used to provide shell path patterns for the files from which to obtain injection and backgroun coincidences."
+		usage = "%prog [options] <-i|--injection-glob pattern | --injection-cache filename> <-b|--background-glob pattern | --background-cache filename> [filename ...]",
+		description = "%prog analyzes a collection of SQLite3 database files containing ligolw_burca outputs, and measures probability distributions for a variety of parameters computed from the coincidences therein.  The distributions are written to a likelihood data file in XML format, which can be used by ligolw_burca for the excesspower2 algorithm in which a second pass assigns likelihoods to each coincidence.  The command line arguments are used to provide shell patterns for the files from which to obtain injection and backgroun coincidences.  If file names are given on the command line following the arguments, then likelihood data is loaded from those files and added to the output."
 	)
+	parser.add_option("--background-cache", metavar = "filename", default = [], action = "append", help = "Filename for LAL cache of non-injection files.")
 	parser.add_option("-b", "--background-glob", metavar = "pattern", default = [], action = "append", help = "Shell filename pattern for non-injection files.")
+	parser.add_option("--injection-cache", metavar = "filename", default = [], action = "append", help = "Filename for LAL cache of injection files.")
 	parser.add_option("-i", "--injection-glob", metavar = "pattern", default = [], action = "append", help = "Shell filename pattern for injection files.")
 	parser.add_option("--max-hrss-ratio", metavar = "ratio", type = "float", default = 4.0, help = "When measuring the distribution of coincidence parameters associated with injections, discard any sngl_burst events from the coincs whose measured h_rss differs from the correct value for that instrument by more than this factor.  This helps ensure that the injection distributions are not being measured from accidentals.  Default = 4.0")
 	parser.add_option("--max-frequency-ratio", metavar = "ratio", type = "float", default = 2.0, help = "When measuring the distribution of coincidence parameters associated with injections, discard any sngl_burst events from the coincs whose measured peak frequency differs from the correct value by more than this factor.  This helps ensure that the injection distributions are not being measured from accidentals.  Default = 2.0")
@@ -75,10 +79,11 @@ def parse_command_line():
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
 
-	if not options.background_glob:
-		raise ValueError, "missing required --background-glob argument"
-	if not options.injection_glob:
-		raise ValueError, "missing required --injection-glob argument"
+	if not filenames:
+		if not options.background_glob and not options.background_cache:
+			raise ValueError, "missing required --background-glob or --background-cache argument"
+		if not options.injection_glob and not options.injection_cache:
+			raise ValueError, "missing required --injection-glob or --injection-cache argument"
 	if options.T010150 is not None:
 		if options.output is not None:
 			raise ValueError, "cannot set both --T010150 and --output"
@@ -87,7 +92,7 @@ def parse_command_line():
 		elif set(options.T010150) - T010150_letters:
 			raise ValueError, "invalid description \"%s\"" % options.T010150
 
-	return options, (filenames or [None])
+	return options, filenames
 
 
 #
@@ -125,7 +130,7 @@ segs = segments.segmentlistdict()
 if options.verbose:
 	print >>sys.stderr, "=== Background ==="
 
-filenames = reduce(list.__add__, [glob.glob(g) for g in options.background_glob])
+filenames = [f for g in options.background_glob for f in glob.glob(g)] + [lal.CacheEntry(line, coltype = LIGOTimeGPS).path() for f in options.background_cache for line in file(f)]
 
 for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose, reverse = True)):
 	#
@@ -175,7 +180,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 if options.verbose:
 	print >>sys.stderr, "=== Injections ==="
 
-filenames = reduce(list.__add__, [glob.glob(g) for g in options.injection_glob])
+filenames = [f for g in options.injection_glob for f in glob.glob(g)] + [lal.CacheEntry(line, coltype = LIGOTimeGPS).path() for f in options.injection_cache for line in file(f)]
 
 for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose, reverse = True)):
 	#
