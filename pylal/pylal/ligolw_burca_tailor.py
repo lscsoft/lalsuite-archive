@@ -231,60 +231,6 @@ class CoincParamsDistributions(object):
 
 
 #
-# Scatter plot data
-#
-
-
-class Scatter(object):
-	def __init__(self):
-		self.bak_x = []
-		self.bak_y = []
-		self.inj_x = []
-		self.inj_y = []
-
-	def add_background(self, x, y):
-		self.bak_x.append(x)
-		self.bak_y.append(y)
-
-	def add_injection(self, x, y):
-		self.inj_x.append(x)
-		self.inj_y.append(y)
-
-	def finish(self):
-		pass
-
-
-#
-# Covariance matrix
-#
-
-
-def covariance_normalize(c):
-	"""
-	Normalize a covariance matrix so that the variances (diagonal
-	elements) are 1.
-	"""
-	std_dev = numpy.sqrt(numpy.diagonal(c))
-	return c / numpy.outer(std_dev, std_dev)
-
-
-class Covariance(object):
-	def __init__(self):
-		self.bak_observations = []
-		self.inj_observations = []
-
-	def add_background(self, *args):
-		self.bak_observations.append(args)
-
-	def add_injection(self, *args):
-		self.inj_observations.append(args)
-
-	def finish(self):
-		self.bak_cov = covariance_normalize(stats.cov(self.bak_observations))
-		self.inj_cov = covariance_normalize(stats.cov(self.inj_observations))
-
-
-#
 # =============================================================================
 #
 #                               Injection Filter
@@ -469,29 +415,43 @@ ORDER BY
 
 
 #
-# Covariance data
+# Covariance matrix
 #
 
 
-class CovarianceStats(Stats):
-	def __init__(self):
-		Stats.__init__(self)
-		self.covariance = Covariance()
+def covariance_normalize(c):
+	"""
+	Normalize a covariance matrix so that the variances (diagonal
+	elements) are 1.
+	"""
+	std_dev = numpy.sqrt(numpy.diagonal(c))
+	return c / numpy.outer(std_dev, std_dev)
+
+
+class Covariance(Stats):
+	def __init__(self, *args):
+		Stats.__init__(self, *args)
+		self.bak_observations = []
+		self.inj_observations = []
 
 	def _add_background(self, param_func, events, offsetdict):
-		params = param_func(events, offsetdict)
-		items = params.items()
+		items = param_func(events, offsetdict).items()
 		items.sort()
-		self.covariance.add_background([value for name, value in items])
+		self.bak_observations.append(tuple([value for name, value in items]))
 
 	def _add_injections(self, param_func, sim, events, offsetdict):
-		params = param_func(events, offsetdict)
-		items = params.items()
+		items = param_func(events, offsetdict).items()
 		items.sort()
-		self.covariance.add_injection([value for name, value in items])
+		self.inj_observations.append(tuple([value for name, value in items]))
 
 	def finish(self):
-		self.covariance.finish()
+		self.bak_cov = covariance_normalize(stats.cov(self.bak_observations))
+		self.inj_cov = covariance_normalize(stats.cov(self.inj_observations))
+
+
+#
+# Parameter distributions
+#
 
 
 class DistributionsStats(Stats):
