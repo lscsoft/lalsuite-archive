@@ -182,7 +182,7 @@ def segmenttable_get_by_name(xmldoc, name, activity = True):
 	# segment_def_map entries bearing segment_def_ids from above
 	seg_ids = dict([(row.segment_id, def_ids[row.segment_def_id]) for row in map_table if row.segment_def_id in def_ids])
 
-	# retrieve semgments bearing segment_ids from above, and insert
+	# retrieve segments bearing segment_ids from above, and insert
 	# into a dictionary indexed by instrument
 	result = segments.segmentlistdict()
 	for row in seg_table:
