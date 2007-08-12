@@ -324,11 +324,6 @@ def good_injection_matches(sim, events, max_hrss_ratio, max_frequency_ratio):
 
 
 class Stats(object):
-	def __init__(self):
-		self.n_time_slides = None
-		self.n_background_events = 0
-
-
 	def _add_background(self, param_func, events, timeslide):
 		pass
 
@@ -338,11 +333,6 @@ class Stats(object):
 
 
 	def add_background(self, database):
-		# count the number of time slides (assume all input files
-		# list the exact same time slides, so only do this once)
-		if self.n_time_slides is None:
-			self.n_time_slides = database.connection.cursor().execute("""SELECT COUNT(DISTINCT time_slide_id) FROM time_slide""").fetchone()[0]
-
 		# iterate over non-zero-lag burst<-->burst coincs
 		for (coinc_event_id,) in database.connection.cursor().execute("""
 SELECT coinc_event_id FROM
@@ -357,9 +347,6 @@ WHERE
 			AND time_slide.offset != 0
 	)
 		""", (database.bb_definer_id,)):
-			# add 1 to the count of background coincs
-			self.n_background_events += 1
-
 			# retrieve the list of the sngl_bursts in this
 			# coinc, and their time slide dictionary
 			events = []
