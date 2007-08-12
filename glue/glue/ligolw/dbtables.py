@@ -343,8 +343,8 @@ class DBTable(table.Table):
 
 	def _row_from_cols(self, values):
 		"""
-		Given a tuple or list of values in the order of columns in
-		the database, construct and return a row object.  This is a
+		Given an iterable of values in the order of columns in the
+		database, construct and return a row object.  This is a
 		convenience function for turning the results of database
 		queries into Python objects.
 		"""
@@ -697,6 +697,18 @@ TableByName = {
 
 
 #
+# The database-backed table implementation requires there to be no more
+# than one table of each name in the document.  Some documents require
+# multiple tables with the same name, and those tables cannot be stored in
+# the database.  Use this list to set which tables are not to be stored in
+# the database.
+#
+
+
+NonDBTableNames = []
+
+
+#
 # =============================================================================
 #
 #                               Content Handler
@@ -710,8 +722,13 @@ TableByName = {
 #
 
 
+__parent_startTable = ligolw.LIGOLWContentHandler.startTable
+
+
 def startTable(self, attrs):
 	name = table.StripTableName(attrs[u"Name"])
+	if name in map(table.StripTableName, NonDBTableNames):
+		return __parent_startTable(self, attrs)
 	if name in TableByName:
 		return TableByName[name](attrs)
 	return DBTable(attrs)
