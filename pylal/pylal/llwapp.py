@@ -263,7 +263,7 @@ def append_process(doc, program = "", version = "", cvs_repository = "", cvs_ent
 	process.cvs_entry_time = XLALUTCToGPS(time.strptime(cvs_entry_time, "%Y/%m/%d %H:%M:%S")).seconds
 	process.comment = comment
 	process.is_online = int(is_online)
-	process.node = socket.gethostbyaddr(socket.gethostname())[0]
+	process.node = socket.gethostname()
 	process.username = os.environ["LOGNAME"]
 	process.unix_procid = os.getpid()
 	process.start_time = XLALUTCToGPS(time.gmtime()).seconds
