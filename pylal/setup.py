@@ -148,7 +148,15 @@ setup(
 		Extension(
 			"pylal.xlal.inject",
 			["src/xlal/inject.c"],
-			include_dirs = lal_pkg_config.incdirs + [numpy_get_include()],
+			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal"],
+			libraries = lal_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs
+		),
+		Extension(
+			"pylal.xlal.tools",
+			["src/xlal/tools.c"],
+			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal"],
 			libraries = lal_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs,
 			runtime_library_dirs = lal_pkg_config.libdirs
