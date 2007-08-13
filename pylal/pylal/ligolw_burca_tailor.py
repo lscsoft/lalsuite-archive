@@ -562,16 +562,14 @@ def coinc_params_distributions_from_xml(xml, name):
 	return c, process_id
 
 
-def coinc_params_distributions_from_filenames(filenames, name, verbose = False):
-	result = CoincParamsDistributions()
-	seglists = segments.segmentlistdict()
-	for filename in filenames:
-		xmldoc = utils.load_filename(filename, verbose = verbose, gz = (filename or "stdin").endswith(".gz"))
-		c, process_id = coinc_params_distributions_from_xml(xmldoc, name)
-		result += c
-		if process_id is not None:
-			seglists |= table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName).get_out_segmentlistdict([process_id])
-		xmldoc.unlink()
+def coinc_params_distributions_from_filename(filename, name, verbose = False):
+	xmldoc = utils.load_filename(filename, verbose = verbose, gz = (filename or "stdin").endswith(".gz"))
+	result, process_id = coinc_params_distributions_from_xml(xmldoc, name)
+	if process_id is not None:
+		seglists = table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName).get_out_segmentlistdict([process_id])
+	else:
+		seglists = segments.segmentlistdict()
+	xmldoc.unlink()
 	return result, seglists
 
 

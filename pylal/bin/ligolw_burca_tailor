@@ -122,28 +122,15 @@ options, filenames = parse_command_line()
 
 
 if filenames is not None:
-	# The _from_filenames() function doesn't know about the database
-	# engine operating behind the scenes, and so does not know it needs
-	# to erase the contents of some tables before moving on to each new
-	# document.  The resulting ID collisions are worked-around by
-	# temporarily setting a conflict resolution clause on the affected
-	# tables.  This is not done permanently because the constraints
-	# normally act as a document consistency check.
-	old_constraints = {
-		dbtables.lsctables.ProcessTable: dbtables.lsctables.ProcessTable.constraints
-	}
-	for cls in old_constraints.keys():
-		cls.constraints = cls.constraints + " ON CONFLICT REPLACE"
-
-	# load the data
-	connection = sqlite3.connect(":memory:")
-	dbtables.DBTable_set_connection(connection)
-	extra_data, segs = ligolw_burca_tailor.coinc_params_distributions_from_filenames(filenames, u"ligolw_burca_tailor", verbose = options.verbose)
-	connection.close()
-
-	# restore the table constraints
-	for cls in old_constraints.keys():
-		cls.constraints = old_constraints[cls]
+	extra_data = ligolw_burca_tailor.CoincParamsDistributions()
+	segs = segments.segmentlistdict()
+	for filename in filenames:
+		connection = sqlite3.connect(":memory:")
+		dbtables.DBTable_set_connection(connection)
+		c, s = ligolw_burca_tailor.coinc_params_distributions_from_filename(filename, u"ligolw_burca_tailor", verbose = options.verbose)
+		extra_data += c
+		segs |= s
+		connection.close()
 else:
 	extra_data, segs = None, segments.segmentlistdict()
 

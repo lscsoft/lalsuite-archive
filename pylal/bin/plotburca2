@@ -35,6 +35,7 @@ from optparse import OptionParser
 import sys
 
 
+from glue import segments
 from pylal import ligolw_burca_tailor
 from pylal import SnglBurstUtils
 
@@ -219,7 +220,12 @@ options, filenames = parse_command_line()
 if options.likelihood_control:
 	filenames = glob.glob(options.likelihood_control)
 	filenames.sort()
-	distributions, seglists = ligolw_burca_tailor.coinc_params_distributions_from_filenames(filenames, "ligolw_burca_tailor", verbose = options.verbose)
+	distributions = ligolw_burca_tailor.CoincParamsDistributions()
+	seglists = segments.segmentlistdict()
+	for filename in filenames:
+		c, s = ligolw_burca_tailor.coinc_params_distributions_from_filename(filename, "ligolw_burca_tailor", verbose = options.verbose)
+		distributions += c
+		seglists |= s
 	distributions.finish()
 	if options.verbose:
 		print >>sys.stderr, "writing ligolw_burca_tailor.png ..."
