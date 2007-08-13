@@ -34,7 +34,6 @@ import sys
 
 
 from glue import lal
-from glue.ligolw import lsctables
 from pylal import snglcoinc
 from pylal.date import LIGOTimeGPS
 
@@ -170,6 +169,7 @@ def burca1(options, filenames):
 	#
 
 
+	from glue.ligolw import lsctables
 	from glue.ligolw import utils
 	from pylal import ligolw_burca
 	from pylal import llwapp
@@ -255,6 +255,36 @@ def burca1(options, filenames):
 #
 
 
+def load_likelihood_data(cache, seglists, verbose = False):
+	# The _from_filenames() function doesn't know about the database
+	# engine operating behind the scenes, and so does not know it needs
+	# to erase the contents of some tables before moving on to each new
+	# document.  The resulting ID collisions are worked-around by
+	# temporarily setting a conflict resolution clause on the affected
+	# tables.  This is not done permanently because the constraints
+	# normally act as a document consistency check.
+	old_constraints = {
+		dbtables.lsctables.ProcessTable: dbtables.lsctables.ProcessTable.constraints
+	}
+	for cls in old_constraints.keys():
+		cls.constraints = cls.constraints + " ON CONFLICT REPLACE"
+
+	# load the data
+	connection = sqlite3.connect(":memory:")
+	dbtables.DBTable_set_connection(connection)
+	coinc_params_distributions, ignored = ligolw_burca_tailor.coinc_params_distributions_from_filenames([c.path() for c in cache if c.to_segmentlistdict().intersects(seglists)], u"ligolw_burca_tailor", verbose = verbose)
+	coinc_params_distributions.finish()
+	likelihood_ratio = ligolw_burca2.LikelihoodRatio(coinc_params_distributions)
+	connection.close()
+
+	# restore the table constraints
+	for cls in old_constraints.keys():
+		cls.constraints = old_constraints[cls]
+
+	# done
+	return likelihood_ratio
+
+
 def burca2(options, filenames):
 	#
 	# Finish imports.
@@ -296,9 +326,7 @@ def burca2(options, filenames):
 		#
 
 
-		coinc_params_distributions, ignored = ligolw_burca_tailor.coinc_params_distributions_from_filenames([c.path() for c in options.likelihood_cache if c.to_segmentlistdict().intersects(database.seglists)], u"ligolw_burca_tailor", verbose = options.verbose)
-		coinc_params_distributions.finish()
-		likelihood_ratio = ligolw_burca2.LikelihoodRatio(coinc_params_distributions)
+		likelihood_ratio = load_likelihood_data(options.likelihood_cache, database.seglists, verbose = options.verbose)
 
 
 		#
