@@ -35,6 +35,7 @@ import re
 import sys
 from xml.sax.saxutils import escape as xmlescape
 
+
 import ligolw
 import types
 
@@ -125,10 +126,7 @@ def from_pyvalue(name, value, comment = None):
 	Convenience wrapper for new_param() that constructs a Param element
 	from an instance of a Python builtin type.
 	"""
-	# We have to remember to remove quotes from string formats.  See
-	# the comment below.
-	llwtype = types.FromPyType[value.__class__]
-	return new_param(name, llwtype, types.ToFormat[llwtype].strip(u"\"") % value, comment = comment)
+	return new_param(name, types.FromPyType[value.__class__], value, comment = comment)
 
 
 def get_pyvalue(xml, name):
@@ -169,8 +167,8 @@ def get_pyvalue(xml, name):
 
 class Param(ligolw.Param):
 	"""
-	High-level Param element.  The parsed value is stored in the pcdata
-	attribute.
+	High-level Param element.  The value is stored in the pcdata
+	attribute as the native Python type rather than as a string.
 	"""
 	def __init__(self, *attrs):
 		"""
@@ -191,10 +189,10 @@ class Param(ligolw.Param):
 				raise ElementError, "invalid child %s for %s" % (c.tagName, self.tagName)
 			c.write(file, indent + ligolw.Indent)
 		if self.pcdata:
-			# FIXME:  does this satisfactorily preserve precision
-			# in floating point values?
+			# we have to strip quote characters from string
+			# formats (see comment above)
 			file.write(indent + ligolw.Indent)
-			file.write(xmlescape(unicode(self.pcdata)))
+			file.write(xmlescape(types.ToFormat[self.getAttribute("Type")].strip(u"\"") % self.pcdata))
 			file.write(u"\n")
 		file.write(self.end_tag(indent) + u"\n")
 
