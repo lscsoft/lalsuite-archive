@@ -537,8 +537,9 @@ class DistributionsStats(Stats):
 #
 
 
-def coinc_params_distributions_to_xml(coinc_params_distributions, name):
+def coinc_params_distributions_to_xml(process, coinc_params_distributions, name):
 	xml = ligolw.LIGO_LW({u"Name": u"%s:pylal_ligolw_burca_tailor_coincparamsdistributions" % name})
+	xml.appendChild(param.from_pyvalue(u"process_id", process.process_id))
 	for name, rateobj in coinc_params_distributions.background_rates.iteritems():
 		xml.appendChild(rate.rate_to_xml(rateobj, "background:%s" % name))
 	for name, rateobj in coinc_params_distributions.injection_rates.iteritems():
@@ -548,19 +549,29 @@ def coinc_params_distributions_to_xml(coinc_params_distributions, name):
 
 def coinc_params_distributions_from_xml(xml, name):
 	xml, = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.getAttribute(u"Name") == u"%s:pylal_ligolw_burca_tailor_coincparamsdistributions" % name]
+	try:
+		process_id = param.get_pyvalue(xml, u"process_id")
+	except ValueError:
+		warnings.warn("obsolete document:  no process_id Param element found in CoincParamsDistributions sub-tree.")
+		process_id = None
 	names = [elem.getAttribute("Name").split(":")[1] for elem in xml.childNodes if elem.getAttribute("Name")[:11] == "background:"]
 	c = CoincParamsDistributions()
 	for name in names:
 		c.background_rates[name] = rate.rate_from_xml(xml, "background:%s" % name)
 		c.injection_rates[name] = rate.rate_from_xml(xml, "injection:%s" % name)
-	return c
+	return c, process_id
 
 
 def coinc_params_distributions_from_filenames(filenames, name, verbose = False):
-	c = CoincParamsDistributions()
+	result = CoincParamsDistributions()
+	seglists = segments.segmentlistdict()
 	for filename in filenames:
-		c += coinc_params_distributions_from_xml(utils.load_filename(filename, verbose = verbose, gz = (filename or "stdin")[-3:] == ".gz"), name)
-	return c
+		xmldoc = utils.load_filename(filename, verbose = verbose, gz = (filename or "stdin").endswith(".gz"))
+		c, process_id = coinc_params_distributions_from_xml(xmldoc, name)
+		result += c
+		if process_id is not None:
+			seglists |= table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName).get_out_segmentlistdict([process_id])
+	return result, seglists
 
 
 #
@@ -606,7 +617,7 @@ def gen_likelihood_control(coinc_params_distributions, seglists = None):
 	else:
 		llwapp.append_search_summary(xmldoc, process, ifos = "+".join(seglists.keys()), inseg = seglists.extent_all(), outseg = seglists.extent_all())
 
-	node.appendChild(coinc_params_distributions_to_xml(coinc_params_distributions, u"ligolw_burca_tailor"))
+	node.appendChild(coinc_params_distributions_to_xml(process, coinc_params_distributions, u"ligolw_burca_tailor"))
 
 	llwapp.set_process_end_time(process)
 
