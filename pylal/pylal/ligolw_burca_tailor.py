@@ -539,7 +539,7 @@ class DistributionsStats(Stats):
 
 def coinc_params_distributions_to_xml(process, coinc_params_distributions, name):
 	xml = ligolw.LIGO_LW({u"Name": u"%s:pylal_ligolw_burca_tailor_coincparamsdistributions" % name})
-	xml.appendChild(param.from_pyvalue(u"process_id", process.process_id))
+	xml.appendChild(param.new_param(u"process_id", u"ilwd:char", process.process_id))
 	for name, rateobj in coinc_params_distributions.background_rates.iteritems():
 		xml.appendChild(rate.rate_to_xml(rateobj, "background:%s" % name))
 	for name, rateobj in coinc_params_distributions.injection_rates.iteritems():
