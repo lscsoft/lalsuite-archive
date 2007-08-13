@@ -571,6 +571,7 @@ def coinc_params_distributions_from_filenames(filenames, name, verbose = False):
 		result += c
 		if process_id is not None:
 			seglists |= table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName).get_out_segmentlistdict([process_id])
+		xmldoc.unlink()
 	return result, seglists
 
 
