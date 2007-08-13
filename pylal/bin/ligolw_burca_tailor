@@ -113,13 +113,23 @@ options, filenames = parse_command_line()
 
 
 #
+# Load pre-computed likelihood data.
+#
+
+
+if filenames is not None:
+	extra_data, segs = ligolw_burca_tailor.coinc_params_distributions_from_filenames(filenames, u"ligolw_burca_tailor", verbose = options.verbose)
+else:
+	extra_data, segs = None, segments.segmentlistdict()
+
+
+#
 # Clear the statistics book-keeping object.
 #
 
 
 stats = None
 instruments = set()
-segs = segments.segmentlistdict()
 
 
 #
@@ -153,7 +163,9 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 
 	#
 	# If not already done, recover the --thresholds arguments, and
-	# construct a stats book-keeping object.
+	# construct a DistributionsStats instance to populate a
+	# CoincParamsDistributions book-keeping object from the information
+	# in the input files.
 	#
 
 	if stats is None:
@@ -203,7 +215,9 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 
 	#
 	# If not already done, recover the --thresholds arguments, and
-	# construct a stats book-keeping object.
+	# construct a DistributionsStats instance to populate a
+	# CoincParamsDistributions book-keeping object from the information
+	# in the input files.
 	#
 
 	if stats is None:
@@ -223,25 +237,26 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 
 
 #
-# Did we process any files?
+# Do we have any data?
 #
 
 
-if stats is None:
+if stats is None and extra_data is None:
 	if options.verbose:
 		print >>sys.stderr, "warning:  no input files!"
 	sys.exit()
+elif stats is None and extra_data is not None:
+	coinc_params_distributions = extra_data
+elif stats is not None and extra_data is None:
+	coinc_params_distributions = stats.distributions
+else:
+	coinc_params_distributions = stats.distributions
+	coinc_params_distributions += extra_data
 
 
 #
 # Output.
 #
-
-
-#print >>sys.stderr, "Injection normalized covariance matrix ="
-#print >>sys.stderr, str(stats.covariance.inj_cov)
-#print >>sys.stderr, "Background normalized covariance matrix ="
-#print >>sys.stderr, str(stats.covariance.bak_cov)
 
 
 def T010150_basename(instruments, description, seglists):
@@ -257,5 +272,5 @@ else:
 	filename = options.output
 
 
-likelihood_control = ligolw_burca_tailor.gen_likelihood_control(stats.distributions)
-utils.write_filename(likelihood_control, filename, verbose = options.verbose, gz = (filename or "stdout").endswith(".gz"))
+xmldoc = ligolw_burca_tailor.gen_likelihood_control(coinc_params_distributions, seglists)
+utils.write_filename(xmldoc, filename, verbose = options.verbose, gz = (filename or "stdout").endswith(".gz"))
