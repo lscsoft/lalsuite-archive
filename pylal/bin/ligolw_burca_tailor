@@ -127,8 +127,8 @@ if filenames is not None:
 	# to erase the contents of some tables before moving on to each new
 	# document.  The resulting ID collisions are worked-around by
 	# temporarily setting a conflict resolution clause on the affected
-	# tables.  This is not done permanently because it normally acts as
-	# a document consistency check.
+	# tables.  This is not done permanently because the constraints
+	# normally act as a document consistency check.
 	old_constraints = {
 		dbtables.lsctables.ProcessTable: dbtables.lsctables.ProcessTable.constraints
 	}
