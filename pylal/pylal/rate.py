@@ -695,8 +695,8 @@ def bins_from_xml(xml):
 	"""
 	xml = table.get_table(xml, BinsTable.tableName)
 	xml.sort(lambda a, b: cmp(a.order, b.order))
-	args = [None] * 3 * (len(xml) and xml[-1].order)
-	kwargs = {"spacing" : [None] * (len(xml) and xml[-1].order)}
+	args = [None] * 3 * (len(xml) and (xml[-1].order + 1))
+	kwargs = {"spacing" : [None] * (len(xml) and (xml[-1].order + 1))}
 	for row in xml:
 		args[row.order * 3 : row.order * 3 + 3] = row.min, row.max, row.n
 		kwargs["spacing"][row.order] = row.type
