@@ -430,10 +430,14 @@ class CacheEntry(object):
 		Return a segmentlistdict object describing the instruments
 		and time spanned by this CacheEntry.
 		"""
-		d = segments.segmentlistdict()
-		for instrument in self.observatory.split(","):
-			d[instrument] = segments.segmentlist([self.segment])
-		return d
+		if "," in self.observatory:
+			instruments = self.observatory.split(",")
+		elif "+" in self.observatory:
+			instruments = self.observatory.split("+")
+		else:
+			instruments = [self.observatory]
+		return segments.segmentlistdict([(instrument, segments.segmentlist([self.segment])) for instrument in instruments])
+
 
 class Cache(list):
 	"""
