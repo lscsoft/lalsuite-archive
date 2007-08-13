@@ -29,6 +29,7 @@
 import numpy
 from scipy.stats import stats
 from xml import sax
+import warnings
 
 
 from glue import segments
@@ -592,13 +593,18 @@ def append_process(xmldoc, **kwargs):
 #
 
 
-def gen_likelihood_control(coinc_params_distributions):
+def gen_likelihood_control(coinc_params_distributions, seglists = None):
 	xmldoc = ligolw.Document()
 	node = xmldoc.appendChild(ligolw.LIGO_LW())
 
 	node.appendChild(lsctables.New(lsctables.ProcessTable))
 	node.appendChild(lsctables.New(lsctables.ProcessParamsTable))
+	node.appendChild(lsctables.New(lsctables.SearchSummaryTable))
 	process = append_process(xmldoc, comment = u"")
+	if seglists is None:
+		warnings.warn("gen_likelihood_control() now has a seglists argument, please update your code.")
+	else:
+		llwapp.append_search_summary(xmldoc, process, ifos = "+".join(seglists.keys()), inseg = seglists.extent_all(), outseg = seglists.extent_all())
 
 	node.appendChild(coinc_params_distributions_to_xml(coinc_params_distributions, u"ligolw_burca_tailor"))
 
