@@ -48,14 +48,6 @@
 
 
 /*
- * Forward references
- */
-
-
-static PyTypeObject pylal_LALDetector_Type;
-
-
-/*
  * Member access
  */
 
@@ -83,7 +75,7 @@ static struct PyMemberDef pylal_LALDetector_members[] = {
  */
 
 
-static PyTypeObject pylal_LALDetector_Type = {
+PyTypeObject pylal_LALDetector_Type = {
 	PyObject_HEAD_INIT(NULL)
 	.tp_basicsize = sizeof(pylal_LALDetector),
 	.tp_doc = "LALDetector structure",

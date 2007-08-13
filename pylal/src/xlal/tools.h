@@ -42,6 +42,14 @@
 
 
 /*
+ * Type
+ */
+
+
+extern PyTypeObject pylal_LALDetector_Type;
+
+
+/*
  * Structure
  */
 
