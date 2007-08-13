@@ -317,15 +317,17 @@ class SearchSummaryTable(table.Table):
 		rows with matching IDs are included otherwise all rows are
 		included.
 		"""
-		seglistdict = segments.segmentlistdict()
+		seglists = segments.segmentlistdict()
 		for row in self:
 			if process_ids is None or row.process_id in process_ids:
-				for ifo in row.ifos.split(","):
-					if ifo in seglistdict:
-						seglistdict[ifo].append(row.get_in())
-					else:
-						seglistdict[ifo] = segments.segmentlist([row.get_in()])
-		return seglistdict.coalesce()
+				if "," in row.ifos:
+					ifos = row.ifos.split(",")
+				elif "+" in row.ifos:
+					ifos = row.ifos.split("+")
+				else:
+					ifos = [row.ifos]
+				seglists |= segments.segmentlistdict([(ifo, segments.segmentlist([row.get_in()])) for ifo in ifos])
+		return seglists
 
 	def get_out_segmentlistdict(self, process_ids = None):
 		"""
@@ -334,13 +336,17 @@ class SearchSummaryTable(table.Table):
 		rows with matching IDs are included otherwise all rows are
 		included.
 		"""
-		seglistdict = segments.segmentlistdict()
+		seglists = segments.segmentlistdict()
 		for row in self:
 			if process_ids is None or row.process_id in process_ids:
-				ifos = row.ifos.split(",")
-				segs = map(segments.segmentlist, [[row.get_out()]] * len(ifos))
-				seglistdict |= segments.segmentlistdict(zip(ifos, segs))
-		return seglistdict
+				if "," in row.ifos:
+					ifos = row.ifos.split(",")
+				elif "+" in row.ifos:
+					ifos = row.ifos.split("+")
+				else:
+					ifos = [row.ifos]
+				seglists |= segments.segmentlistdict([(ifo, segments.segmentlist([row.get_out()])) for ifo in ifos])
+		return seglists
 
 
 class SearchSummary(object):
