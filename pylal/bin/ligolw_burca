@@ -296,7 +296,9 @@ def burca2(options, filenames):
 		#
 
 
-		likelihood_ratio = ligolw_burca2.LikelihoodRatio(ligolw_burca_tailor.coinc_params_distributions_from_filenames([c.path() for c in options.likelihood_cache if c.to_segmentlistdict().intersects(database.seglists)], u"ligolw_burca_tailor", verbose = options.verbose).finish())
+		coinc_params_distributions, ignored = ligolw_burca_tailor.coinc_params_distributions_from_filenames([c.path() for c in options.likelihood_cache if c.to_segmentlistdict().intersects(database.seglists)], u"ligolw_burca_tailor", verbose = options.verbose)
+		coinc_params_distributions.finish()
+		likelihood_ratio = ligolw_burca2.LikelihoodRatio(coinc_params_distributions)
 
 
 		#

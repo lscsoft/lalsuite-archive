@@ -218,7 +218,7 @@ options, filenames = parse_command_line()
 if options.likelihood_control:
 	filenames = glob.glob(options.likelihood_control)
 	filenames.sort()
-	distributions = ligolw_burca_tailor.coinc_params_distributions_from_filenames(filenames, "ligolw_burca_tailor", verbose = options.verbose)
+	distributions, seglists = ligolw_burca_tailor.coinc_params_distributions_from_filenames(filenames, "ligolw_burca_tailor", verbose = options.verbose)
 	distributions.finish()
 	if options.verbose:
 		print >>sys.stderr, "writing ligolw_burca_tailor.png ..."
