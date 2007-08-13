@@ -34,6 +34,7 @@ import numpy
 from optparse import OptionParser
 import sys
 
+
 from pylal import ligolw_burca_tailor
 from pylal import SnglBurstUtils
 
@@ -222,7 +223,7 @@ if options.likelihood_control:
 	distributions.finish()
 	if options.verbose:
 		print >>sys.stderr, "writing ligolw_burca_tailor.png ..."
-	plot_coinc_params(distributions, options.plot).savefig("ligolw_burca_tailor.png")
+	plot_coinc_params(distributions, options.plot).savefig("ligolw_burca_tailor-%d-%d.png" % (int(seglists.extent_all()[0]), int(abs(seglists.extent_all()))))
 	sys.exit()
 
 
