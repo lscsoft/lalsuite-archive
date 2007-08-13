@@ -552,7 +552,7 @@ def coinc_params_distributions_from_xml(xml, name):
 	try:
 		process_id = param.get_pyvalue(xml, u"process_id")
 	except ValueError:
-		warnings.warn("obsolete document:  no process_id Param element found in CoincParamsDistributions sub-tree.")
+		warnings.warn("obsolete document:  no process_id Param element found in CoincParamsDistributions sub-tree.  please update your code and re-construct this document.")
 		process_id = None
 	names = [elem.getAttribute("Name").split(":")[1] for elem in xml.childNodes if elem.getAttribute("Name")[:11] == "background:"]
 	c = CoincParamsDistributions()
