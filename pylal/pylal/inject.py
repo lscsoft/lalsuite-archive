@@ -37,6 +37,7 @@ rather than importing xlal.inject directly.
 import math
 
 
+from xlal.tools import *
 from xlal.inject import *
 
 
