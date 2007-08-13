@@ -283,6 +283,11 @@ else:
 # Output.
 #
 
+# FIXME:  remove this when all likelihood documents floating around have
+# valid live-time data in them
+if not segs:
+	segs = segments.segmentlistdict({"": segments.segmentlist([segments.segment(LIGOTimeGPS(0), LIGOTimeGPS(0))])})
+
 
 def T010150_basename(instruments, description, seglists):
 	instruments = list(instruments)
@@ -297,5 +302,5 @@ else:
 	filename = options.output
 
 
-xmldoc = ligolw_burca_tailor.gen_likelihood_control(coinc_params_distributions, seglists)
+xmldoc = ligolw_burca_tailor.gen_likelihood_control(coinc_params_distributions, segs)
 utils.write_filename(xmldoc, filename, verbose = options.verbose, gz = (filename or "stdout").endswith(".gz"))
