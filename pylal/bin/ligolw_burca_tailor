@@ -41,6 +41,7 @@ from glue import lal
 from glue.ligolw import dbtables
 from glue.ligolw import utils
 from pylal import ligolw_burca_tailor
+from pylal import rate
 from pylal import SnglBurstUtils
 from pylal.date import LIGOTimeGPS
 
@@ -51,6 +52,9 @@ __date__ = "$Date$"[7:-2]
 
 
 T010150_letters = set(string.ascii_lowercase + string.ascii_uppercase + string.digits + "_+#")
+
+
+dbtables.NonDBTableNames.append(rate.BinsTable.tableName)
 
 
 #
@@ -118,7 +122,10 @@ options, filenames = parse_command_line()
 
 
 if filenames is not None:
+	connection = sqlite3.connect(":memory:")
+	dbtables.DBTable_set_connection(connection)
 	extra_data, segs = ligolw_burca_tailor.coinc_params_distributions_from_filenames(filenames, u"ligolw_burca_tailor", verbose = options.verbose)
+	connection.close()
 else:
 	extra_data, segs = None, segments.segmentlistdict()
 
