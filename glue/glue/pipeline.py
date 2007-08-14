@@ -367,8 +367,7 @@ class CondorDAGManJob:
     Add a command line option to the executable. The order that the arguments
     will be appended to the command line is not guaranteed, but they will
     always be added before any command line arguments. The name of the option
-    is prefixed with double hyphen and the program is expected to parse it
-    with getopt_long().
+    is prefixed with single hyphen.
     @param opt: command line option to add.
     @param value: value to pass to the option (None for no argument).
     """
@@ -414,6 +413,7 @@ class CondorDAGManJob:
           command +=  ' -' + c + ' ' + self.__options[c] 
         else:
           command += ' -' + c 
+      command += ' '
 
     command += self.__dag
 
