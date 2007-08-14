@@ -347,7 +347,7 @@ def populate_coinc_event_sngls(xmldoc):
 	#
 
 	for event_id, events in itertools.groupby(sngl_inspiral, lambda row: row.event_id):
-		events = list(events)
+		events = tuple(events)
 		if len(events) < 2:
 			# not a coincidence, just a single
 			continue
@@ -436,7 +436,7 @@ def populate_coinc_event_sims(xmldoc):
 	#
 
 	for (event_id, events), sim in itertools.izip(itertools.groupby(sngl_inspiral, lambda row: row.event_id), sim_inspiral):
-		events = list(events)
+		events = tuple(events)
 
 		#
 		# build a coinc_event
