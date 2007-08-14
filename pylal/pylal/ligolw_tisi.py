@@ -60,7 +60,11 @@ def parse_slidespec(slidespec):
 	Accepts a string in the format
 	instrument=first:last:step[,first:last:step]...  and returns the
 	tuple (instrument, [offset1, offset2, ....]) where the offsets are
-	the sorted list of unique numbers described by the ranges.
+	the sorted list of unique numbers described by the ranges.  A range
+	with a positive step describes the offsets (first + n * step) where
+	n is an integer such that first <= offset <= last.  A range with a
+	negative step describes the offsets (first + n * step) where n is
+	an integer such that last <= offset <= first.
 
 	Example:
 
@@ -88,7 +92,10 @@ def parse_slidespec(slidespec):
 		i = 0
 		while True:
 			x = first + i * step
-			if x > last:
+			if step > 0:
+				if not (first <= x <= last):
+					break
+			elif not (last <= x <= first):
 				break
 			offsets.add(x)
 			i += 1
