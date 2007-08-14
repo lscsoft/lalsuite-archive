@@ -27,6 +27,11 @@
 
 
 import sys
+# Python 2.3 compatibility
+try:
+	set
+except NameError:
+	from sets import Set as set
 
 
 from glue.ligolw import table
@@ -55,7 +60,7 @@ def parse_slidespec(slidespec):
 	Accepts a string in the format
 	instrument=first:last:step[,first:last:step]...  and returns the
 	tuple (instrument, [offset1, offset2, ....]) where the offsets are
-	the sorted list of numbers described by the ranges.
+	the sorted list of unique numbers described by the ranges.
 
 	Example:
 
@@ -67,27 +72,27 @@ def parse_slidespec(slidespec):
 		instrument, rangespec = slidespec.split("=")
 	except ValueError:
 		raise ValueError, "cannot parse time slide \"%s\"" % slidespec
-	offsets = []
-	for range in rangespec.strip().split(","):
+	offsets = set()
+	for range in rangespec.split(","):
 		try:
-			first, last, step = map(float, range.strip().split(":"))
+			first, last, step = map(float, range.split(":"))
 		except ValueError:
 			raise ValueError, "malformed range \"%s\" in \"%s\"" % (range, rangespec)
 		if step == 0:
 			if first != last:
 				raise ValueError, "divide by zero in range \"%s\"" % range
-			offsets.append(first)
+			offsets.add(first)
 			continue
 		if (last - first) / step < 0.0:
 			raise ValueError, "step has wrong sign in range \"%s\"" % range
 		i = 0
 		while True:
-			offsets.append(first + i * step)
-			if offsets[-1] >= last:
-				if offsets[-1] > last:
-					del offsets[-1]
+			x = first + i * step
+			if x > last:
 				break
+			offsets.add(x)
 			i += 1
+	offsets = list(offsets)
 	offsets.sort()
 	return instrument.strip(), offsets
 
@@ -216,7 +221,7 @@ def time_slide_cmp(offsetdict1, offsetdict2):
 	"""
 	Compare two offset dictionaries mapping instrument --> offset.  The
 	dictionaries compare as equal (return value is 0) if the relative
-	offsets are all equal.
+	offsets (not absolute offsets) are all equal.
 
 	Example:
 
