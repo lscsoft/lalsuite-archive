@@ -131,18 +131,30 @@ def get_zero_lag_time_slides(xmldoc, instrument_combinations = None):
 	return zero_lag_offset_dicts
 
 
-def get_coinc_def_id(xmldoc, table_names, create_new = True):
+def get_coinc_def_id(xmldoc, table_names, description = None, create_new = True):
 	"""
 	Return the coinc_def_id corresponding to coincidences consisting
 	exclusively of events from the given table names.  If no matching
-	coinc_def_id is found, then a new one is created and the ID
-	returned.  If the document does not contain a coinc_definer table,
-	then one is added, a new coind_def_id created, and the ID returned.
-	If, however, create_new is False, and for any reason the ID isn't
-	found then ValueError is raised if the reason is that the document
-	doesn't contain exactly 1 coinc_definer table, or KeyError is
-	raised if the reason is that the table doesn't contain the desired
-	coinc definition.
+	coinc_def_id is found, then the default behaviour is to create a
+	new one initialized to the given table names and return the new ID.
+	If the document does not contain a coinc_definer table, then the
+	default behaviour is to add one, create a new coinc_def_id
+	initialized to the given table names, and return the new ID.
+
+	If, however, the optional create_new parameter is False, and for
+	any reason the ID isn't found then ValueError is raised if the
+	reason is that the document doesn't contain a coinc_definer table,
+	or KeyError is raised if the reason is that the table doesn't
+	contain the desired coinc definition.
+
+	If the optional description string is not None, then the retrieved
+	coinc_def_id's description must match this string and KeyError will
+	be raised if it does not.  If a new coinc_def_id is created, then
+	it will be given this description (the default is "").
+
+	If more than one coinc_def_id matches the given list of table names
+	(and the optional description if provided), then the first matching
+	ID is returned.
 	"""
 	try:
 		coincdeftable = table.get_table(xmldoc, lsctables.CoincDefTable.tableName)
@@ -154,7 +166,7 @@ def get_coinc_def_id(xmldoc, table_names, create_new = True):
 		# database.
 		coincdeftable = lsctables.New(lsctables.CoincDefTable)
 		xmldoc.childNodes[0].appendChild(coincdeftable)
-	return coincdeftable.get_coinc_def_id(table_names, create_new = create_new)
+	return coincdeftable.get_coinc_def_id(table_names, description = description, create_new = create_new)
 
 
 def segmenttable_get_by_name(xmldoc, name, activity = True):
