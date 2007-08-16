@@ -172,8 +172,8 @@ def make_multi_burst(process_id, coinc_event_id, events):
 
 
 class ExcessPowerCoincTables(snglcoinc.CoincTables):
-	def __init__(self, xmldoc, contributor_table_names, description = description):
-		snglcoinc.CoincTables.__init__(self, xmldoc, contributor_table_names, description = description)
+	def __init__(self, xmldoc, contributor_table_names):
+		snglcoinc.CoincTables.__init__(self, xmldoc, contributor_table_names)
 
 		# find the multi_burst table or create one if not found
 		try:
@@ -376,7 +376,7 @@ def StringCoincCompare(a, b, thresholds):
 #
 
 
-def ligolw_burca(xmldoc, CoincTables, comparefunc, coinc_description = None, **kwargs):
+def ligolw_burca(xmldoc, CoincTables, comparefunc, **kwargs):
 	# add an entry in the process table
 	process = append_process(xmldoc, **kwargs)
 
@@ -384,7 +384,7 @@ def ligolw_burca(xmldoc, CoincTables, comparefunc, coinc_description = None, **k
 		print >>sys.stderr, "indexing ..."
 
 	# prepare the coincidence table interface
-	coinc_tables = CoincTables(xmldoc, [lsctables.SnglBurstTable.tableName], description = coinc_description)
+	coinc_tables = CoincTables(xmldoc, [lsctables.SnglBurstTable.tableName])
 
 	# cast offsets in time_slide table to LIGOTimeGPS (avoids repeated
 	# conversion when applying the time slide to each trigger)

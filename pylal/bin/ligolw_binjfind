@@ -96,12 +96,6 @@ def parse_command_line():
 options, filenames = parse_command_line()
 
 
-coinc_description = {
-	"stringcusp": "stringcusp sim",
-	"excesspower": "excesspower sim"
-}[options.match_algorithm]
-
-
 #
 # loop over files
 #
@@ -120,6 +114,6 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 			continue
 		if options.verbose:
 			print >>sys.stderr, "continuing by --force"
-	ligolw_binjfind.ligolw_binjfind(xmldoc, coinc_description = coinc_description, **options.__dict__)
+	ligolw_binjfind.ligolw_binjfind(xmldoc, **options.__dict__)
 	utils.write_filename(xmldoc, filename, options.verbose, gz = (filename or "stdout").endswith(".gz"))
 	xmldoc.unlink()

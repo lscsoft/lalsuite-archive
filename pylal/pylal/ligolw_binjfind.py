@@ -97,7 +97,7 @@ class DocContents(object):
 	"""
 	A wrapper interface to the XML document.
 	"""
-	def __init__(self, xmldoc, process, coinc_description):
+	def __init__(self, xmldoc, process):
 		#
 		# locate the sngl_burst and sim_burst tables
 		#
@@ -127,7 +127,7 @@ class DocContents(object):
 		# doesn't have one
 		#
 
-		self.sb_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, [lsctables.SnglBurstTable.tableName, lsctables.SimBurstTable.tableName], description = coinc_description)
+		self.sb_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, [lsctables.SnglBurstTable.tableName, lsctables.SimBurstTable.tableName])
 
 		#
 		# get coinc_def_id's for sngl_burst <--> sngl_burst, and
@@ -404,7 +404,7 @@ def add_sim_coinc_coinc(contents, process, sim, coinc_events):
 #
 
 
-def ligolw_binjfind(xmldoc, coinc_description = None, **kwargs):
+def ligolw_binjfind(xmldoc, **kwargs):
 	#
 	# Add process metadata to document.
 	#
@@ -417,7 +417,7 @@ def ligolw_binjfind(xmldoc, coinc_description = None, **kwargs):
 
 	if kwargs["verbose"]:
 		print >>sys.stderr, "indexing ..."
-	contents = DocContents(xmldoc, process, coinc_description = coinc_description)
+	contents = DocContents(xmldoc, process)
 	N = len(contents.simbursttable)
 
 	#

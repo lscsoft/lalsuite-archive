@@ -194,13 +194,11 @@ def burca1(options, filenames):
 		comparefunc = ligolw_burca.ExcessPowerCoincCompare
 		CoincTables = ligolw_burca.ExcessPowerCoincTables
 		options.get_max_segment_gap = ligolw_burca.ExcessPowerMaxSegmentGap
-		coinc_description = "excesspower coincs"
 	elif options.coincidence_algorithm == "stringcusp":
 		snglcoinc.EventListDict.EventListType = ligolw_burca.StringEventList
 		comparefunc = ligolw_burca.StringCoincCompare
 		CoincTables = snglcoinc.CoincTables
 		options.get_max_segment_gap = ligolw_burca.StringMaxSegmentGap
-		coinc_description = "stringcusp coincs"
 	else:
 		raise Exception, "should never get here"
 
@@ -238,7 +236,7 @@ def burca1(options, filenames):
 		# Run coincidence algorithm.
 		#
 
-		ligolw_burca.ligolw_burca(xmldoc, CoincTables, comparefunc, coinc_description = coinc_description, **options.__dict__)
+		ligolw_burca.ligolw_burca(xmldoc, CoincTables, comparefunc, **options.__dict__)
 
 		#
 		# Write back to disk, and clean up.
