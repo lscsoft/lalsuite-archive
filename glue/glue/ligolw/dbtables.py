@@ -584,6 +584,7 @@ class CoincDefTable(DBTable):
 			row = self.RowType()
 			row.coinc_def_id = id
 			row.table_name = name
+			row.description = u""
 			self.append(row)
 
 		# return new ID

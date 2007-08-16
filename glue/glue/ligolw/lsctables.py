@@ -1711,7 +1711,8 @@ class CoincDefTable(table.Table):
 	tableName = "coinc_definer:table"
 	validcolumns = {
 		"coinc_def_id": "ilwd:char",
-		"table_name": "char_v"
+		"table_name": "char_v",
+		"description": "lstring"
 	}
 	constraints = "PRIMARY KEY (coinc_def_id, table_name)"
 	ids = CoincDefIDs()
@@ -1758,6 +1759,7 @@ class CoincDefTable(table.Table):
 			row = self.RowType()
 			row.coinc_def_id = id
 			row.table_name = name
+			row.description = u""
 			self.append(row)
 
 		# return new ID
