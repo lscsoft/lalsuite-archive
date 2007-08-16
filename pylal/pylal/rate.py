@@ -139,7 +139,7 @@ class Bins(object):
 	"""
 	Multi-dimensional co-ordinate binning.  An instance of this object
 	is used to convert a tuple of co-ordinates into a tuple of array
-	indeces, thereby allowing the contents of an array object to be
+	indices, thereby allowing the contents of an array object to be
 	accessed with real-valued coordinates.  When creating a Bins
 	object, the arguments describe the range along each co-ordinate
 	direction, and the number of bins.  The arguments come in groups of
@@ -183,9 +183,12 @@ class Bins(object):
 		self.shape = tuple([b.n for b in self.bins])
 		self.centres = tuple([b.centres() for b in self.bins])
 
+	def __call__(self, *args):
+		return self[args]
+
 	def __getitem__(self, coords):
 		"""
-		Return the indeces corresponding to the tuple of
+		Return the indices corresponding to the tuple of
 		co-ordinates, coords.  Note that a the co-ordinates must be
 		a tuple even if there is only 1 dimension.  Each
 		co-ordinate can be a single number, a Python slice object,
