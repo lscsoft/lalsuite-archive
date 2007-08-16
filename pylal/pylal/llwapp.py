@@ -131,7 +131,7 @@ def get_zero_lag_time_slides(xmldoc, instrument_combinations = None):
 	return zero_lag_offset_dicts
 
 
-def get_coinc_def_id(xmldoc, table_names, description = None, create_new = True):
+def get_coinc_def_id(xmldoc, table_names, create_new = True):
 	"""
 	Return the coinc_def_id corresponding to coincidences consisting
 	exclusively of events from the given table names.  If no matching
@@ -146,15 +146,6 @@ def get_coinc_def_id(xmldoc, table_names, description = None, create_new = True)
 	reason is that the document doesn't contain a coinc_definer table,
 	or KeyError is raised if the reason is that the table doesn't
 	contain the desired coinc definition.
-
-	If the optional description string is not None, then the retrieved
-	coinc_def_id's description must match this string and KeyError will
-	be raised if it does not.  If a new coinc_def_id is created, then
-	it will be given this description (the default is "").
-
-	If more than one coinc_def_id matches the given list of table names
-	(and the optional description if provided), then the first matching
-	ID is returned.
 	"""
 	try:
 		coincdeftable = table.get_table(xmldoc, lsctables.CoincDefTable.tableName)
@@ -166,7 +157,7 @@ def get_coinc_def_id(xmldoc, table_names, description = None, create_new = True)
 		# database.
 		coincdeftable = lsctables.New(lsctables.CoincDefTable)
 		xmldoc.childNodes[0].appendChild(coincdeftable)
-	return coincdeftable.get_coinc_def_id(table_names, description = description, create_new = create_new)
+	return coincdeftable.get_coinc_def_id(table_names, create_new = create_new)
 
 
 def segmenttable_get_by_name(xmldoc, name, activity = True):
