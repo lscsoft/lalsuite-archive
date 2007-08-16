@@ -558,17 +558,13 @@ class CoincDefTable(DBTable):
 			l.sort()
 		return d
 
-	def get_coinc_def_id(self, table_names, description = None, create_new = True):
+	def get_coinc_def_id(self, table_names, create_new = True):
 		"""
 		Return the coinc_def_id corresponding to coincidences
 		consisting exclusively of events from the given table
 		names.  If no matching coinc_def_id is found, then a new
 		one is created and the ID returned, unless create_new is
-		False in which case the KeyError is raised.  If the
-		optional description parameter is not None, then the
-		coinc_def_id must have this description, or it will be
-		given this description if a new one is created (the default
-		is "" when creating a new one).
+		False in which case the KeyError is raised.
 		"""
 		# sort the contributor table names
 		table_names = list(table_names)
@@ -576,22 +572,19 @@ class CoincDefTable(DBTable):
 
 		# look for the ID
 		for id, names in self.as_dict().iteritems():
-			if names == table_names and (description is None or self.get_description(id) == description):
-				# found requested table names with correct
-				# description
+			if names == table_names:
+				# found it
 				return id
 
 		# contributor list not found in table
 		if not create_new:
-			if description is None:
-				raise KeyError, table_names
-			raise KeyError, (table_names, description)
+			raise KeyError, table_names
 		id = self.sync_ids().next()
 		for name in table_names:
 			row = self.RowType()
 			row.coinc_def_id = id
 			row.table_name = name
-			row.description = description or u""
+			row.description = u""
 			self.append(row)
 
 		# return new ID
