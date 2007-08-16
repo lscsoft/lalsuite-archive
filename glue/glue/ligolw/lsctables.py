@@ -1765,6 +1765,23 @@ class CoincDefTable(table.Table):
 		# return new ID
 		return id
 
+	def get_description(self, coinc_def_id):
+		"""
+		Get the description string for the given coinc_def_id.
+		"""
+		for row in self:
+			if row.coinc_def_id == coinc_def_id:
+				return row.description
+		raise KeyError, coinc_def_id
+
+	def set_description(self, coinc_def_id, description):
+		"""
+		Set the description string for the given coinc_def_id.
+		"""
+		for row in self:
+			if row.coinc_def_id == coinc_def_id:
+				row.description = description
+
 
 class CoincDef(object):
 	__slots__ = CoincDefTable.validcolumns.keys()
