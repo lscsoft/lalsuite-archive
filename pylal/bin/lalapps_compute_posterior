@@ -15,15 +15,7 @@ import ConfigParser
 import random
 from types import *
 
-from pylab import *
 from glue import segmentsUtils
-
-
-#####################################################################
-# use tex labels
-params =  {'text.usetex': True }
-rcParams.update(params)
-
 
 #####################################################################
 # function to read in and populate information about each time
@@ -56,7 +48,7 @@ def get_png_array(data,time):
   param = {}
   param["mlo"]           = data[0]
   param["mhi"]           = data[1]
-  param["ng"]            = data[2]
+  param["ng"]            = max(data[2],1e-7)
   param["ngprime"]       = data[3]
   param["pb"]            = data[4]
   param["pbprime"]       = data[5]
@@ -184,6 +176,9 @@ parser.add_option("-d","--dr",action="store",type="float",\
 parser.add_option("-n","--ntrials",action="store",type="int",\
     default=1000, metavar=" NTRIALS", \
     help="number of trials for marginalization over errors" ) 
+parser.add_option("-R","--mass-region-type",action="store",type="string",\
+    default="none", metavar=" TYPE", \
+    help="type of mass regions for rate vs mass plot" )
 
 # plotting details
 parser.add_option("-F","--figure-name",action="store",type="string",\
@@ -212,6 +207,17 @@ if (len(opts.galaxies_file)-len(opts.observation_time)):
       str(len(opts.galaxies_file)) + \
       "  number of observation times (-t):" + str(len(opts.observation_time))
   sys.exit(0)
+
+#####################################################################
+# Do the pylab import in such a way that doesn't require an X display
+# if show() won't be invoked.
+if not opts.show_plot:
+  import matplotlib
+  matplotlib.use('Agg')
+from pylab import *
+if not opts.show_plot:
+  rc('text', usetex=True)
+
 
 ###########################################################################
 # each time-type has a different file which can have parameters for a
@@ -247,10 +253,10 @@ for bin in range(massBins):
     rateprior = ones([int(maxrate/dr)])/maxrate
   else:
     print >> sys.stderr, "--prior must be one of uniform or fromfile"
-  
+
   # calculate the rate
-  ngt = 0
-  ngprimet = 0
+  ngt = 0.0
+  ngprimet = 0.0
   for epoch in range(nepochs):
     data = png_matrix[epoch][bin]
     ngt += data["ng"] * data["tobs"]
@@ -333,7 +339,7 @@ for bin in range(massBins):
   if opts.figure_name:
     if massBins > 1:
       outputName = opts.figure_name + "-" + str(data["mlo"]) + "-" + \
-          str(data["mhi"]) + "-mtotal" 
+          str(data["mhi"])
     else:
       outputName = opts.figure_name
 
@@ -345,7 +351,7 @@ for bin in range(massBins):
   figure()
   plot(rate,nomarginpost,rate,marginpost,linewidth=2)
   legend(('posterior','marginalized posterior'))
-  xlabel('Rate per L10 per yr', size='x-large')
+  xlabel('Rate / yr / $L_{10}$', size='x-large')
   ylabel('Probability', size='x-large')
   title('Posterior on the rate')
   grid()
@@ -365,7 +371,7 @@ for bin in range(massBins):
   figure()
   semilogy(rate,1.0-cumnomarginpost, rate,1.0-cummarginpost,linewidth=2)
   legend(('posterior','marginalized posterior'))
-  xlabel('Rate per L10 per yr', size='x-large')
+  xlabel('Rate / yr / $L_{10}$', size='x-large')
   ylabel('Cumulative Probability', size='x-large')
   title('Cumulative posterior on the rate')
   grid()
@@ -374,7 +380,7 @@ for bin in range(massBins):
 
   if opts.figure_name:
     savefig( outputName + "-posterior-cdf.png")
-  
+ 
   # print out the upper limit based on 90% confidence
   confLevel=0.9
 
@@ -417,21 +423,24 @@ if (massBins > 1):
   # plot the unmarginalized upper limit
   x,y=makesteps(ularray,opts.ymax,k=2)
 
-  p=fill(x,y, facecolor='k')
+  p=fill(x,y, facecolor='0.8')
   setp(p, alpha=0.2)
   ylim(opts.ymin,opts.ymax)
 
   # plot the marginalized upper limit
   x,y=makesteps(ularray,opts.ymax,k=3)
-  p=fill(x,y, facecolor='k')
+  p=fill(x,y, facecolor='0.5')
   setp(p, alpha=0.4)
 
   ylim(opts.ymin,opts.ymax)
   xlim(min(ularray[:,0]), max(ularray[:,1]))
   legend(('','unmarginalized','marginalized'),loc='lower left')
-  xlabel('Total mass (Msun)', size='x-large')
-  ylabel('Rate / yr / L$_{10}$', size='x-large')
-  title('Rate versus mass')
+  if opts.mass_region_type == "totalmass":
+    xlabel('Total Mass $(M_{\odot})$', size='x-large')
+  if opts.mass_region_type == "componentmass":
+    xlabel('Black Hole Mass $(M_{\odot})$', size='x-large')
+  ylabel('Rate / yr / $L_{10}$', size='x-large')
+  title('Rate versus Mass')
   grid(True)
 
   if opts.figure_name:

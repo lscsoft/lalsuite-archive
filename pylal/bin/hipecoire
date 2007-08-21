@@ -118,6 +118,9 @@ def coire(data_type,input,ifos,trigs=None,long_clust=False):
     command += " --mass-cut " + opts.mass_cut + \
                " --mass-range-low " + opts.mass_range_low + \
                " --mass-range-high " + opts.mass_range_high
+  if opts.mass_cut == 'mcomp':
+    command += " --mass2-range-low " + opts.mass2_range_low + \
+               " --mass2-range-high " + opts.mass2_range_high
   if opts.cluster_time or long_clust:
     command += " --coinc-stat " + opts.coinc_stat
     if long_clust:
@@ -364,13 +367,19 @@ parser.add_option("-z","--rsq-pow",action="store",default=None,\
 
 parser.add_option("-J","--mass-cut",action="store",type="string",\
     default=None,metavar=" MASS_TYPE",\
-    help="keep only triggers in mass range of type MASS_TYPE (mchirp|mtotal)")
+    help="keep only triggers in mass range of type MASS_TYPE (mchirp|mtotal|mcomp)")
 
 parser.add_option("-K","--mass-range-low",action="store",default=None,\
     metavar=" LOW_MASS",help="lower bound on mass range")
 
 parser.add_option("-L","--mass-range-high",action="store",default=None,\
     metavar=" HIGH_MASS",help="upper bound on mass range")
+
+parser.add_option("-M","--mass2-range-low",action="store",default=None,\
+    metavar=" LOW_MASS",help="lower bound on mass2 range")
+
+parser.add_option("-N","--mass2-range-high",action="store",default=None,\
+    metavar=" HIGH_MASS",help="upper bound on mass2 range")
 
 # plotting options
 parser.add_option("-p","--num-bins",action="store",type="string",\
@@ -443,9 +452,16 @@ if (opts.mass_cut or opts.mass_range_low or opts.mass_range_high) and \
       "if any are given"
 
 if opts.mass_cut and \
-    not (opts.mass_cut == 'mtotal' or opts.mass_cut == 'mchirp'):
-  print >> sys.stderr, "--mass-cut must be one of (mtotal|mchirp)"
+    not (opts.mass_cut == 'mtotal' or opts.mass_cut == 'mchirp' \
+         or opts.mass_cut == 'mcomp'):
+  print >> sys.stderr, "--mass-cut must be one of (mtotal|mchirp|mcomp)"
   sys.exit(1)
+
+if opts.mass_cut == 'mcomp' \
+    and not (opts.mass2_range_low and opts.mass2_range_high):
+  print >> sys.stderr, \
+      "Must specify --mass2-range-low and --mass2-range-high " + \
+      "if --mass-cut given as mcomp"
 
 opts.ifos.sort()
   

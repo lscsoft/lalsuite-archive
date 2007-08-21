@@ -150,8 +150,11 @@ def massCut (sim_table, m_low, m_high):
   for entry in sim_table:
     mass1 = getattr(entry,'mass1')
     mass2 = getattr(entry,'mass2')
-    mtotal = mass1 + mass2
-    if (mtotal > m_low) and (mtotal < m_high):
+    if opts.population_type == "componentmass":
+      mass = mass1
+    else:
+      mass = mass1 + mass2
+    if (mass > m_low) and (mass < m_high):
       tmpTable.append(entry)
 
   return tmpTable
@@ -173,8 +176,11 @@ def injMassCut (coinc_table, m_low, m_high):
     event_id = getattr(entry, 'event_id')
     mass1 = getattr(sim, 'mass1')
     mass2 = getattr(sim, 'mass2')
-    mtotal = mass1 + mass2
-    if (mtotal > m_low) and (mtotal < m_high):
+    if opts.population_type == "componentmass":
+      mass = mass1
+    else:
+      mass = mass1 + mass2
+    if (mass > m_low) and (mass < m_high):
       tmpTable.append(entry)
       for trig in coinc_table.sngl_table:
         if trig.event_id == event_id:
@@ -779,7 +785,7 @@ class injData:
     """
     all_inj = self.hist_2d_inj(col1,edges1,col2,edges2,-2)
     found_inj = self.hist_2d_inj(col1,edges1,col2,edges2,threshold)
-    return sqrt(found_inj * (all_inj - found_inj) / (all_inj**3 + 1e-5))
+    return sqrt(found_inj* (all_inj - found_inj) / (all_inj**3 + 1e-5))
 
   def error_2d(self,col1,edges1,col2,edges2,error,threshold):
     """
@@ -847,10 +853,10 @@ class injData:
     """
     figure(figNum)
     mc_2d = self.mc_2d(col1, edges1, col2, edges2, threshold)
-    V = arange(0,mc_2d.max(),mc_2d.max()/40)
+    V = arange(0,max(mc_2d.max(),0.01),max(mc_2d.max(),0.01)/40)
     MC=contourf(edges1,edges2,mc_2d + 0.5 * V[1],V)
     hold(True)
-    V = arange(0,mc_2d.max(),mc_2d.max()/10)
+    V = arange(0,max(mc_2d.max(),0.01),max(mc_2d.max(),0.01)/10)
     contour(edges1,edges2,mc_2d,V,colors='k',linewidths=1)
     xlabel(col1, size='x-large')
     ylabel(col2, size='x-large')
@@ -1179,8 +1185,9 @@ plotnumgalaxies [options]
   ----------------------------------------------------------------------------
   An astrophysical population distribution can be specified with:
   --source-file:     A list of source galaxies (such as inspsrcs.dat)
-  --injection-glob:  A glob of xml files of sim inspirals, generated with the
+  --population-glob:  A glob of xml files of sim inspirals, generated with the
                      source file given above.
+  --population-type: The population's mass distrubtion type
                      
   The injections can be cut to keep only those in the relevant times, if a 
   --segment-file is specified.
@@ -1271,9 +1278,13 @@ parser.add_option("-V","--verbose",action="store_true",default=False,\
 parser.add_option("-S","--source-file",action="store",type="string",\
     default=None,metavar=" SOURCES",help="full path to source file")
 
-parser.add_option("-I","--injection-glob",action="store",type="string",\
+parser.add_option("-I","--population-glob",action="store",type="string",\
     default=None,metavar=" INJ_GLOB",\
     help="GLOB of files containing astrophysically distributed injections")
+
+parser.add_option("--population-type",action="store",type="string",\
+    default="gaussian",metavar=" TYPE",\
+    help="The population's mass distrubtion type")
 
 parser.add_option("-G","--segment-file",action="store",type="string",\
     default=None,metavar=" SEG_LIST",help="full path to segment file")
@@ -1311,19 +1322,16 @@ parser.add_option("-J","--num-slides",action="store",type="int",\
 
 # mass cut
 parser.add_option("-L","--m-low",action="store",type="float",default=None,\
-    metavar=" M_LOW", 
-    help="low mass threshold in mass cut" )
+    metavar=" M_LOW",help="low mass threshold in mass cut" )
 
 parser.add_option("-H","--m-high",action="store",type="float",default=None,\
-    metavar=" M_HIGH", 
-    help="high mass threshold in mass cut" )
+    metavar=" M_HIGH",help="high mass threshold in mass cut" )
 
 parser.add_option("-A","--m-dm",action="store",type="float",default=None,\
-    metavar=" M_DM", 
-    help="steps in mass for mass cut" )
+    metavar=" M_DM",help="steps in mass for mass cut" )
 
 parser.add_option("--cut-inj-by-mass",action="store",type="int",default=1,\
-                  help="cut injections by mass in addition to sources" )
+    help="cut injections by mass in addition to sources" )
 
 # efficiency errors
 parser.add_option("-C","--h-calibration",action="store",type="float",
@@ -1495,7 +1503,7 @@ if (opts.plot_ng or opts.cum_log_ng or opts.hist_ng or opts.cumulative_ng or \
     opts.plot_ng_vs_stat or opts.plot_2d_ng_vs_stat):
   astroPlots = True
   # check at least one injection file was specified
-  if not opts.injection_glob:
+  if not opts.population_glob:
     print >>sys.stderr, "Must specify a GLOB of injection files to read"
     print >>sys.stderr, "Enter 'plotnumgalaxies --help' for usage"
     sys.exit(1)
@@ -1610,7 +1618,7 @@ injAstro = injAstroData(opts.x_value, opts.y_value, opts.nbins, \
 if astroPlots:
   if opts.verbose:
     print "\nReading the astrophysical injections"
-  injAstro.add_astro_data(opts.injection_glob, opts.source_file, \
+  injAstro.add_astro_data(opts.population_glob, opts.source_file, \
       opts.distance_error, opts.magnitude_error)
 
   if opts.verbose:
@@ -1717,15 +1725,23 @@ for i in range(len(massedges)-1):
   injAstro.astro.mass_cut(massedges[i],massedges[i+1])
   if opts.cut_inj_by_mass and injAstro.inj:
     injAstro.inj.mass_cut(massedges[i],massedges[i+1])
-    print "Restricting to total mass of injections from " + \
-        str(massedges[i]) + " to " + str(massedges[i+1])
+    if opts.population_type == "totalmass":
+      print "Restricting to total mass of injections from " + \
+          str(massedges[i]) + " to " + str(massedges[i+1])
+    elif opts.population_type == "componentmass":
+      print "Restricting to component mass1 of injections from " + \
+          str(massedges[i]) + " to " + str(massedges[i+1])
   else:
     print "Warning: not restricting masses of injections" 
   resultDict["mlo"]=massedges[i]
   resultDict["mhi"] = massedges[i+1]
   if len(massedges) > 2:
-    print "Restricting to total mass of sources between " + str(massedges[i]) \
-         + " and " + str(massedges[i+1])
+    if opts.population_type == "totalmass":
+      print "Restricting to total mass of sources between " + \
+          str(massedges[i]) + " and " + str(massedges[i+1])
+    elif opts.population_type == "componentmass":
+      print "Restricting to component mass1 of sources between " + \
+          str(massedges[i]) + " and " + str(massedges[i+1])
 
   
   ##############################################################################
