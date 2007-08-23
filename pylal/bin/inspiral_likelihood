@@ -18,6 +18,8 @@ from pylal.tools import XLALCalculateEThincaParameter
 from pylab import*
 import pylal.itertools
 import numpy
+numpy.seterr("raise")
+
 ################################################################################
 usage= """
 usage: %prog [options]
@@ -86,9 +88,20 @@ parser.add_option("-M","--plot-mchirp",action="store_true",\
     default=False, help ="Shows the plot of chirp mass difference based on distance cut")
 
 
+parser.add_option("-t","--scatter-plot",action="store_true",\
+    default=False, help ="Shows the scatter plot Detection probability vs. False alarm probability of zero lag candidates only ")
 
-parser.add_option("-L","--likelihood",action="store_true",\
-    default=False, help ="Calculates the Likelihood for different IFOs and writes them in a file.")
+parser.add_option("-a","--scatter-all-plot",action="store_true",\
+    default=False, help ="Shows the scatter plot Detection probability vs. False alarm probability of all coincidences")
+
+parser.add_option("-Y","--inj-vs-slides-hist",action="store_true",\
+    default=False, help ="Shows the injections vs. time slides likelihood histogram")
+
+
+
+
+parser.add_option("-L","--likelihood",action="store", type="string",\
+    default='zerolag-candidates-only', help ="Must be zerolag-candidates-only or full-likelihood-analysis. Calculates the Likelihood for either zero lag candidates only or for zero lag, injections and timeslides triggers, respectively")
 
 
 parser.add_option("-V","--verbose",action="store_true",default=False,\
@@ -105,6 +118,13 @@ parser.add_option("-b","--slide-bins",action="store",type="int",\
 
 parser.add_option("-j","--injection-bins",action="store",type="int",\
     default=10, metavar="BINS", help="Number of bins in the histogram of injections")
+
+parser.add_option("-x","--bins-cumhist", action="store",type="int",\
+    default=10, metavar="BINS", help="Number of bins in the combined statistic histogram of foreground vs. background")
+
+parser.add_option("-y","--bins-inj-vs-slides", action="store",type="int",\
+    default=10, metavar="BINS", help="Number of bins in the injections vs. time slides likelihood histogram")
+
 
 
 (opts,args) = parser.parse_args()
@@ -126,14 +146,25 @@ def distcut(coinc_a,coinc_b):
   dist_cut_array=(coinc_b -  coinc_a)*2.0/(coinc_a +  coinc_b)
   return dist_cut_array
 
-def normalized_hist(Unormalised_array, bins=None):
-  if bins:
-    (y_param, x_param, patches) = hist(Unormalised_array, bins)
-  else:
-    (y_param, x_param, patches) = hist(Unormalised_array)
+def normalized_hist(Unormalised_array, bins=10):
+  (y_param, x_param, patches) = hist(Unormalised_array, bins)
   clf()
   y_norm = y_param*1.0/sum(y_param)
   return (y_norm, x_param)
+
+
+
+def cum_hist(likelihood, bins):
+
+  likelihood_cleared = numpy.compress(numpy.greater(likelihood, -1.0), likelihood)
+  (y, x, patches) = hist(likelihood_cleared, bins)
+  clf()     
+  x_middle = numpy.zeros(len(x))
+  bin_size = x[1] - x[0]
+  for i in range(len(x)):
+    x_middle[i] = x[i] + 0.5*bin_size
+  cumhist = y[::-1].cumsum()[::-1]
+  return cumhist, x_middle
 
 
 class plotdata:
@@ -236,6 +267,171 @@ class plotdata:
                     savefig(coinc_label + '-' + str(param) + "_" + str(ifolist[i]) + "_" +  str(ifolist[j]) )
                   figure()
  
+  def triple_scatter_plot(self, p0_zerolag, pc_zerolag, p0_injections, pc_injections, p0_background, pc_background, prefix='False_Alarm_Probability'):
+    """
+    Function that makes scattering plot of zerolag candidate triggers, injections and background triggers in
+    Detection probability, p(h|c), and False Alarm Probability, p(0|c), space. The points plotted are (p(0), p(c)). 
+    """
+
+    v = [-0.1, 1.1, -0.1, 1.1]
+    axis(v)
+    l1 = plot(p0_zerolag, pc_zerolag, marker='o', linestyle='None', color='g', scalex=False, scaley=False)
+    hold(True)
+    l2 = plot(p0_injections, pc_injections, marker='x', linestyle='None', color='r', scalex=False, scaley=False)
+    hold(True)
+    l3 = plot(p0_background, pc_background, marker='x', linestyle='None', color='k',scalex=False, scaley=False)
+    xlabel(prefix + ', p(c|0)')
+    ylabel('Detection Probability, p(c|h)')
+    legend((l1, l2, l3), ('zerolag candidates', 'found injections', 'background events'))
+    savefig('All_DetectProb_vs_' + prefix)
+    figure()
+
+  def scatter_plot(self, p0, pc):
+    v = [-0.1, 1.1, -0.1, 1.1]
+    axis(v)
+    plot(p0, pc, marker='o', linestyle='None', color='g',scalex=False, scaley=False)
+    xlabel('False Alarm Probability, p(c|0)')
+    ylabel('Detection Probability, p(c|h)')
+    savefig('zerolag_DetectProb_vs_FalseAlarmProb')
+    figure()
+  
+
+
+
+  def plot_cumhist(self, statistic_foreground, sigma, expect, x_middle, postfix, label_x='likelihood'):
+
+    coord = gca()
+    coord.set_yscale('log')
+    l1 = plot(x_middle, statistic_foreground, marker='o', linestyle='None', color='g')
+    hold(True)
+    xerr = (x_middle[1] - x_middle[0]) / 2.0
+    l2 = errorbar(x_middle, expect, sigma, xerr, marker='o', color='k',linestyle='None', ecolor='b')  
+    grid(True)
+    xlabel(label_x)
+    ylabel('number of events')
+    legend('Combined statistic '+ postfix)
+    legend((l1,l2),('foreground', 'background'))
+    savefig('Combined_statistic' + postfix)
+    figure()
+ 
+  def plot_likelihood(self, likelihood_foreground, bins, prefix, label_x='likelihood'):   
+    likelihood_foreground_cleared = numpy.compress(numpy.greater(likelihood_foreground, -1.0), likelihood_foreground)
+    (y_foreground, x_foreground, patches) = hist(likelihood_foreground_cleared, bins)
+    clf()
+    x_middle = numpy.zeros(len(x_foreground))
+    bin_size = x_foreground[1] - x_foreground[0]
+    for i in range(len(x_foreground)):
+      x_middle[i] = x_foreground[i] + 0.5*bin_size 
+    
+    statistic_foreground = y_foreground[::-1].cumsum()[::-1]
+    ylim(ymin=-1)
+    l1 = semilogy(x_middle, statistic_foreground, marker='o', linestyle='None', color='g', label=prefix)
+    grid(True)
+    xlabel(label_x)
+    ylabel('number of events')
+    legend()
+    savefig(prefix+'_statistic')
+    figure()
+
+  def inj_vs_slides_hist(self, likelihood_foreground, likelihood_background, bins, prefix='likelihood'):
+
+    likelihood_foreground_cleared = numpy.compress(numpy.greater(likelihood_foreground, -1.0), likelihood_foreground)
+    likelihood_background_cleared = numpy.compress(numpy.greater(likelihood_background, -1.0), likelihood_background)
+    max_foreground = max(likelihood_foreground_cleared)
+    max_background = max(likelihood_background_cleared)
+    min_foreground = min(likelihood_foreground_cleared)
+    min_background = min(likelihood_background_cleared)
+    if max_foreground > max_background:
+      max_global = max_foreground
+    else:
+      max_global = max_background
+    if min_foreground > min_background:
+      min_global = min_foreground
+    else:
+      min_global = min_background
+
+    range_hist = max_global - min_global
+    step = range_hist/bins 
+    bin_array=numpy.arange(min_global, max_global, step)
+
+    (y_foreground, x_foreground) = normalized_hist(likelihood_foreground, bin_array)
+    (y_background, x_background) = normalized_hist(likelihood_background, bin_array)
+    bar(x_foreground + step/2.0, y_foreground, width=step/2.0, color='r')
+    hold(True)
+    bar(x_background, y_background, width=step/2.0 , color='k')
+    xlim(min_global, max_global)
+    xlabel(prefix)
+    savefig(prefix+'inj_vs_slides_hist')
+    figure()
+ 
+ 
+ 
+   
+     
+############################################################################################
+# Class that does essential calculations for likelihood ratio
+#############################################################################################
+class likelihood:
+
+  def false_alarm_prob(self, candidate, backgroundTriggers, Nslides, epsilon):
+    c_ifos,ifolist=candidate.get_ifos()
+    # calculating the false alarm probability
+    slide_array=numpy.zeros(2*Nslides)
+    slides_within_epsilon = backgroundTriggers.getTriggersWithinEpsilon(candidate,epsilon)
+
+    for slide in range(1, Nslides+1):
+      #slideTrigger_forward = CoincInspiralUtils.coincInspiralTable()
+      #slideTriggers_backward = CoincInspiralUtils.coincInspiralTable()
+      slideTriggers_forward = slides_within_epsilon.getslide(slide)
+      slideTriggers_backward = slides_within_epsilon.getslide(-slide)
+      if len(slideTriggers_forward) >= 1:
+        slide_array[slide - 1] = 1.0
+      if len(slideTriggers_backward) >= 1:
+        slide_array[Nslides-1+slide] = 1.0
+
+    FalseAlarmProb = sum(slide_array)/float(2*Nslides)
+    return FalseAlarmProb
+
+  def detection_prob(self, candidate, foregroundTriggers, epsilon):
+    Ntotal_inj=0
+    for trigger in foregroundTriggers:
+      trig_ifos,trig_ifolist = trigger.get_ifos()
+      if c_ifos == trig_ifos:
+        Ntotal_inj += 1
+
+    injections_within_epsilon = foregroundTriggers.getTriggersWithinEpsilon(candidate, epsilon)
+
+    nevents_inj = len(injections_within_epsilon)
+
+    if Ntotal_inj > 0:
+      DetectionProb = float(nevents_inj) / float(Ntotal_inj)
+    else:
+      DetectionProb = 0.0
+    return DetectionProb
+
+  def background_fraction(self, candidate, backgroundTriggers, epsilon):
+    Ntotal_noise=0
+    for trigger in backgroundTriggers:
+      trig_ifos,trig_ifolist = trigger.get_ifos()
+      if c_ifos == trig_ifos:
+        Ntotal_noise+=1
+
+    slides_within_epsilon =CoincInspiralUtils.coincInspiralTable()
+    slides_within_epsilon=backgroundTriggers.getTriggersWithinEpsilon(candidate, epsilon)
+
+    nevents_noise = len(slides_within_epsilon)
+
+    if Ntotal_noise > 0:
+       BackgroundFraction = float(nevents_noise)/float(Ntotal_noise)
+    else:
+       #BackgroundFraction = -1.0
+       BackgroundFraction = 0.0
+    return BackgroundFraction
+
+
+
+
+
 
 ###############################################################################################
 # read in the zero lag  and time slides cache file
@@ -248,7 +444,7 @@ if opts.zerolag_cache_file:
   zerolagfiles = zero_lag_cache.pfnlist()
   print zerolagfiles
   if len(zerolagfiles) < 1:
-    print >>sys.stderr, "The " +  opts.zerolag_cache_file +  " contains no files zero lag files"
+    print >>sys.stderr, "The " +  opts.zerolag_cache_file +  "contains no zero lag files"
     sys.exit(1)
 
   # time slides files  
@@ -256,7 +452,7 @@ if opts.zerolag_cache_file:
   slidesfiles =  slides_cache.pfnlist()
   print slidesfiles
   if len(zerolagfiles) < 1:
-    print >>sys.stderr, "The " + opts.zerolag_cache_file  + " contains no time slides files "
+    print >>sys.stderr, "The " + opts.zerolag_cache_file  + "contains no time slides files "
     sys.exit(1)
 # read in the injections cache file
 
@@ -326,6 +522,14 @@ if opts.statistic not in ('snr', 'snr_over_chi', 's3_snr_chi_stat', 'effective_s
 if opts.numslides == 0:
   print >> sys.stderr, "--numslides must be specified"
   sys.exit(1)
+
+# check if the correct option for likelihood calculation is given
+
+if opts.likelihood not in ['zerolag-candidates-only', 'zerolag-vs-background', 'injections-vs-background']:
+  print  >> sys.stderr, "--likelihood  must be equal to one of 'zerolag-candidates-only', 'zerolag-vs-background', 'injections-vs-background' "
+  sys.exit(1)
+ 
+
 
 
 statistic = CoincInspiralUtils.coincStatistic( opts.statistic) 
@@ -407,101 +611,210 @@ injectionCoincTriggers.add_sim_inspirals(simTriggers)
   #print simethinca
 
 
-
-
-###################################################################################
-# calculate the likelihood ratio for each of zerolagCoincTriggers
-####################################################################################
-
-
-if opts.likelihood:
-
-  BackgroundFractionFile=open('BackgroundFraction', 'w')
-  LikelihoodFile=open('Likelihood', 'w')
-  Nslides=opts.numslides
-  for candidate in zerolagCoincTriggers:
-    c_ifos,ifolist=candidate.get_ifos()
-    # calculating the false alarm probability
-    slide_array=numpy.zeros(2*Nslides)
-    slides_within_epsilon = slidesCoincTriggers.getTriggersWithinEpsilon(candidate, opts.epsilon)
-
-    for slide in range(1, Nslides+1):
-      #slideTrigger_forward = CoincInspiralUtils.coincInspiralTable()
-      #slideTriggers_backward = CoincInspiralUtils.coincInspiralTable()
-      slideTriggers_forward = slides_within_epsilon.getslide(slide)
-      slideTriggers_backward = slides_within_epsilon.getslide(-slide)
-      if len(slideTriggers_forward) >= 1:
-        slide_array[slide - 1] = 1.0
-      if len(slideTriggers_backward) >= 1:
-        slide_array[Nslides-1+slide] = 1.0
-
-    FalseAlarmProb = sum(slide_array)/float(2*Nslides)
-
-    # calculating the detection probability for each of zerolagTriggers
-    Ntotal_inj=0
-    for trigger in injectionCoincTriggers:
-      trig_ifos,trig_ifolist = trigger.get_ifos()
-      if c_ifos == trig_ifos:
-        Ntotal_inj += 1
-
-    injections_within_epsilon = injectionCoincTriggers.getTriggersWithinEpsilon(candidate, opts.epsilon)
+############################################################################################################
+# Likelihood calculation
+###########################################################################################################
+##########################################################################################
+# calculate likelihood for zero lag candidates only 
+#########################################################################################
+if opts.likelihood == 'zerolag-candidates-only':
+  BackgroundFractionFile = open('BackgroundFraction_tmp', 'w')
+  LikelihoodFile = open('Likelihood_tmp', 'w')
   
-    nevents_inj = len(injections_within_epsilon)
-
-    if Ntotal_inj > 0:
-      DetectionProb = float(nevents_inj) / float(Ntotal_inj)
-    else:
-      DetectionProb = 0.0
-
+  size_zerolag = len(zerolagCoincTriggers)
+  FalseAlarmProb_array = numpy.zeros(size_zerolag)
+  DetectionProb_array = numpy.zeros(size_zerolag)
+  BackgroundFraction_array = numpy.zeros(size_zerolag)
+  Likelihood = numpy.zeros(size_zerolag)
+  DetectionBackgroundRatio = numpy.zeros(size_zerolag)
+  i = 0
+  for candidate in zerolagCoincTriggers:
+    c_ifos,ifolist = candidate.get_ifos()
+    FalseAlarmProb_array[i] = likelihood().false_alarm_prob(candidate, slidesCoincTriggers, opts.numslides, opts.epsilon)
+    DetectionProb_array[i] = likelihood().detection_prob(candidate, injectionCoincTriggers, opts.epsilon)
+    BackgroundFraction_array[i] = likelihood().background_fraction(candidate, slidesCoincTriggers, opts.epsilon)
     # Calculating likelihood ratio
-    if FalseAlarmProb > 0: 
-      Likelihood = DetectionProb / FalseAlarmProb
+    if FalseAlarmProb_array[i] > 0:
+      Likelihood[i] = DetectionProb_array[i] / FalseAlarmProb_array[i]
     else:
-      Likelihood = -1.0 
-
-    if opts.verbose:
-      print str(Likelihood)
-
-    #calculating BackgroundFraction - the fraction of background triggers within epsilon distance from the given candidate
-    #of all background triggers in all of the timeslides
-    Ntotal_noise=0
-    for trigger in slidesCoincTriggers:
-      trig_ifos,trig_ifolist=trigger.get_ifos()
-      if c_ifos==trig_ifos:
-        Ntotal_noise+=1
-
-    slides_within_epsilon =CoincInspiralUtils.coincInspiralTable()
-    slides_within_epsilon=slidesCoincTriggers.getTriggersWithinEpsilon(candidate, opts.epsilon)
-
-    nevents_noise = len(slides_within_epsilon)
-
-    if Ntotal_noise > 0:
-       BackgroundFraction = float(nevents_noise)/float(Ntotal_noise)
-    else:
-       BackgroundFraction = -1.0
-
+      Likelihood[i] = -1.0
+     
     # Calculating the ratio of DetectionProb to BackgroundFraction
-    if BackgroundFraction > 0:
-      DetectionBackgroundRatio= DetectionProb/BackgroundFraction
+    if BackgroundFraction_array[i] > 0:
+      DetectionBackgroundRatio[i]= DetectionProb_array[i]/BackgroundFraction_array[i]
     else:
-      DetectionBackgroundRatio = -1.0
-
-    if opts.verbose:
-      print str(DetectionBackgroundRatio)
-
-    # writing the false alarm probability, the detection probability and the likelihood ration into file
-    LikelihoodFile.write('%d\t%s\t%e\t%e\t%e\n' % (candidate.event_id, c_ifos, FalseAlarmProb, DetectionProb, Likelihood))
-
-    # writing the BackgroundFraction, DetectionProb and DetectionBackgroundRatio  into file
+      DetectionBackgroundRatio[i] = -1.0
     
-    BackgroundFractionFile.write('%d\t%s\t%e\t%e\t%e\n' % (candidate.event_id, c_ifos, BackgroundFraction, DetectionProb,\
-    DetectionBackgroundRatio))
-   
+    if opts.verbose:
+      print candidate.event_id, c_ifos, FalseAlarmProb_array[i], DetectionProb_array[i], Likelihood[i]
+    # writing the false alarm probability, the detection probability and the likelihood ration into file
+    LikelihoodFile.write('%d\t%s\t%e\t%e\t%e\n' % (candidate.event_id, c_ifos, FalseAlarmProb_array[i], DetectionProb_array[i], Likelihood[i]))
+    
+    if opts.verbose:
+      print candidate.event_id, c_ifos, BackgroundFraction_array[i], DetectionProb_array[i], DetectionBackgroundRatio[i]
+    # writing the BackgroundFraction, DetectionProb and DetectionBackgroundRatio  into file
+    BackgroundFractionFile.write('%d\t%s\t%e\t%e\t%e\n' % (candidate.event_id, c_ifos, BackgroundFraction_array[i], DetectionProb_array[i],\
+    DetectionBackgroundRatio[i]))
+    i+=1
 
-
- 
   LikelihoodFile.close()
   BackgroundFractionFile.close()
+###########################################################################################
+# calculate likelihood for zero lag, injections and time slides coincidences
+##########################################################################################
+if opts.likelihood == 'zerolag-vs-background' or opts.likelihood == 'injections-vs-background':
+
+
+
+  # calculating false alarm probability, detection probability and likelihood for zero lag coincs
+  size_zerolag = len(zerolagCoincTriggers)
+  p0_zerolag_array = numpy.zeros(size_zerolag)
+  pc_zerolag_array = numpy.zeros(size_zerolag)
+  bf_zerolag_array = numpy.zeros(size_zerolag)
+  Likelihood_zerolag = numpy.zeros(size_zerolag) 
+  DetectionBackgroundRatio_zerolag = numpy.zeros(size_zerolag)
+  
+  if opts.verbose:
+    print "zero lag coincs"
+  i = 0
+  for candidate in zerolagCoincTriggers:
+    c_ifos,ifolist = candidate.get_ifos()
+    p0_zerolag_array[i] = likelihood().false_alarm_prob(candidate, slidesCoincTriggers, opts.numslides, opts.epsilon)
+    pc_zerolag_array[i] = likelihood().detection_prob(candidate, injectionCoincTriggers, opts.epsilon)
+    bf_zerolag_array[i] = likelihood().background_fraction(candidate, slidesCoincTriggers, opts.epsilon)
+    # Calculating likelihood ratio
+    if p0_zerolag_array[i] > 0:
+      Likelihood_zerolag[i] = pc_zerolag_array[i] / p0_zerolag_array[i]
+    else:
+      Likelihood_zerolag[i] = -1.0
+
+    # Calculating the ratio of DetectionProb to BackgroundFraction
+    if bf_zerolag_array[i] > 0:
+      DetectionBackgroundRatio_zerolag[i]= pc_zerolag_array[i] / bf_zerolag_array[i]
+    else:
+      DetectionBackgroundRatio_zerolag[i] = -1.0
+    
+    if opts.verbose:
+      print i, candidate.event_id, c_ifos, p0_zerolag_array[i], bf_zerolag_array[i], pc_zerolag_array[i], Likelihood_zerolag[i], DetectionBackgroundRatio_zerolag[i] 
+    i+=1
+
+
+  
+
+  
+  (statistic_foreground_zerolag_LKH, x_middle_foreground_zerolag_LKH) = cum_hist(Likelihood_zerolag, opts.bins_cumhist)
+  (statistic_foreground_zerolag_DBR, x_middle_foreground_zerolag_DBR) = cum_hist(DetectionBackgroundRatio_zerolag, opts.bins_cumhist)
+
+  # calculating false alarm probability, detection probability and likelihood  for injections
+  size_inj = len(injectionCoincTriggers)
+  p0_inj_array = numpy.zeros(size_inj)
+  pc_inj_array = numpy.zeros(size_inj)
+  bf_inj_array = numpy.zeros(size_inj)
+  Likelihood_inj = numpy.zeros(size_inj)
+  DetectionBackgroundRatio_inj = numpy.zeros(size_inj)
+
+  if opts.verbose:
+    print "injections coincs"
+
+  i = 0
+  for candidate in injectionCoincTriggers:
+    c_ifos,ifolist = candidate.get_ifos()
+    p0_inj_array[i] = likelihood().false_alarm_prob(candidate, slidesCoincTriggers, opts.numslides, opts.epsilon)
+    pc_inj_array[i] = likelihood().detection_prob(candidate, injectionCoincTriggers, opts.epsilon)
+    bf_inj_array[i] = likelihood().background_fraction(candidate, slidesCoincTriggers, opts.epsilon)
+    # Calculating likelihood ratio
+    if p0_inj_array[i] > 0:
+      Likelihood_inj[i] = pc_inj_array[i] / p0_inj_array[i]
+    else:
+      Likelihood_inj[i] = -1.0
+
+    # Calculating the ratio of DetectionProb to BackgroundFraction
+    if bf_inj_array[i] > 0:
+      DetectionBackgroundRatio_inj[i]= pc_inj_array[i]/bf_inj_array[i]
+    else:
+      DetectionBackgroundRatio_inj[i] = -1.0
+
+    if opts.verbose:
+      print i, candidate.event_id, c_ifos, p0_inj_array[i], bf_inj_array[i], pc_inj_array[i], Likelihood_inj[i], DetectionBackgroundRatio_inj[i]
+    i+=1
+
+  (statistic_foreground_inj_LKH, x_middle_foreground_inj_LKH) = cum_hist(Likelihood_inj, opts.bins_cumhist)
+  (statistic_foreground_inj_DBR, x_middle_foreground_inj_DBR) = cum_hist(DetectionBackgroundRatio_inj, opts.bins_cumhist)
+
+
+  # calculating  the binning to be used for background 
+  if opts.likelihood == 'zerolag-vs-background':
+    # calculating  the binning to be used for background 
+    bins_slide = x_middle_foreground_zerolag_LKH - (x_middle_foreground_zerolag_LKH[1]-x_middle_foreground_zerolag_LKH[0])
+    bins_DBR = x_middle_foreground_zerolag_DBR - (x_middle_foreground_zerolag_DBR[1]-x_middle_foreground_zerolag_DBR[0])
+  if opts.likelihood == 'injections-vs-background':
+    bins_slide = x_middle_foreground_inj_LKH - (x_middle_foreground_inj_LKH[1]-x_middle_foreground_inj_LKH[0])
+    bins_DBR = x_middle_foreground_inj_DBR - (x_middle_foreground_inj_DBR[1]-x_middle_foreground_inj_DBR[0])
+
+
+  # calculating false alarm probability, detection probability and likelihood  for timeslides
+  size_slides = len(slidesCoincTriggers)
+  p0_slides_array = numpy.zeros(size_slides)
+  pc_slides_array = numpy.zeros(size_slides)
+  bf_slides_array = numpy.zeros(size_slides)
+  Likelihood_slides = numpy.zeros(size_slides)
+  
+  average_likelihood = numpy.zeros(opts.bins_cumhist)
+  average_sqr_likelihood = numpy.zeros(opts.bins_cumhist)
+  average_DBR = numpy.zeros(opts.bins_cumhist)
+  average_sqr_DBR = numpy.zeros(opts.bins_cumhist)
+
+
+  DetectionBackgroundRatio_slides = numpy.zeros(size_slides)
+  if opts.verbose:
+    print "time slides coincs"
+  i = 0
+  range_slides = range(-opts.numslides, opts.numslides + 1)
+  range_slides.remove(0)
+  for slide in range_slides:
+    slideTriggers = slidesCoincTriggers.getslide(slide)
+    Likelihood_tmp = numpy.zeros(len(slideTriggers))
+    DetectionBackgroundRatio_tmp = numpy.zeros(len(slideTriggers))
+    j = 0
+    for candidate in slideTriggers:
+      c_ifos,ifolist = candidate.get_ifos()
+      p0_slides_array[i] = likelihood().false_alarm_prob(candidate, slidesCoincTriggers, opts.numslides, opts.epsilon)
+      pc_slides_array[i] = likelihood().detection_prob(candidate, injectionCoincTriggers, opts.epsilon)
+      bf_slides_array[i] = likelihood().background_fraction(candidate, slidesCoincTriggers, opts.epsilon)
+      # Calculating likelihood ratio
+      if p0_slides_array[i] > 0:
+        Likelihood_slides[i] = pc_slides_array[i] / p0_slides_array[i]
+      else:
+        Likelihood_slides[i] = -1.0
+      Likelihood_tmp[j] = Likelihood_slides[i]
+      # Calculating the ratio of DetectionProb to BackgroundFraction
+      if bf_slides_array[i] > 0:
+        DetectionBackgroundRatio_slides[i]= pc_slides_array[i]/bf_slides_array[i]
+      else:
+        DetectionBackgroundRatio_slides[i] = -1.0
+      DetectionBackgroundRatio_tmp[j] = DetectionBackgroundRatio_slides[i]
+
+
+      if opts.verbose:
+        print i, candidate.event_id,  c_ifos, p0_slides_array[i], bf_slides_array[i], pc_slides_array[i], Likelihood_slides[i], DetectionBackgroundRatio_slides[i]
+      i+=1
+      j+=1
+
+    (cumhist_slide, x_middle_slide_LKH) = cum_hist(Likelihood_tmp, bins_slide)
+    average_likelihood +=cumhist_slide
+    average_sqr_likelihood +=cumhist_slide**2
+
+    (cumhist_slide, x_middle_slide_DBR) = cum_hist(DetectionBackgroundRatio_tmp, bins_DBR)
+    average_DBR +=cumhist_slide
+    average_sqr_DBR +=cumhist_slide**2
+
+  sigma_likelihood = numpy.sqrt((average_sqr_likelihood / (2 * opts.numslides)) - (average_likelihood/(2 * opts.numslides))**2)
+  expect_likelihood = average_likelihood / (2 * opts.numslides)
+
+  sigma_DBR = numpy.sqrt((average_sqr_DBR / (2 * opts.numslides)) - (average_DBR/(2 * opts.numslides))**2)
+  expect_DBR = average_DBR / (2 * opts.numslides)
+
+
 ###################################################################################
 # Plot the various parameters for time slides and injections
 ###################################################################################
@@ -515,8 +828,41 @@ if opts.plot_distcut:
 
 if opts.plot_mchirp:
   plotdata().plotroutine(ifo_combos,slidesCoincTriggers,injectionCoincTriggers,'mchirp', opts.slide_bins, opts.injection_bins)
-   
-    
+
+if opts.scatter_plot:
+  plotdata().scatter_plot(FalseAlarmProb_array, DetectionProb_array)
+
+if opts.scatter_all_plot:
+  plotdata().triple_scatter_plot(p0_zerolag_array, pc_zerolag_array, p0_inj_array, pc_inj_array, p0_slides_array, pc_slides_array)
+  plotdata().triple_scatter_plot(bf_zerolag_array, pc_zerolag_array, bf_inj_array, pc_inj_array, bf_slides_array, pc_slides_array, 'Background_Fraction')
+
+
+
+if opts.likelihood == 'zerolag-candidates-only':
+  plotdata().plot_likelihood(Likelihood, opts.bins_cumhist)
+  plotdata().plot_likelihood(DetectionBackgroundRatio, opts.bins_cumhist, label_x='DBR')   
+elif  opts.likelihood == 'zerolag-vs-background':
+  postfix = 'zerolag_vs_background'
+  plotdata().plot_cumhist(statistic_foreground_zerolag_LKH, sigma_likelihood, expect_likelihood, x_middle_slide_LKH, postfix)
+  postfix = 'zerolag_vs_background' + '_DBR'
+  plotdata().plot_cumhist(statistic_foreground_zerolag_DBR, sigma_DBR, expect_DBR, x_middle_slide_DBR, postfix, label_x='DBR')
+  plotdata().plot_likelihood(Likelihood_zerolag, opts.bins_cumhist, 'Zerolag')
+  plotdata().plot_likelihood(DetectionBackgroundRatio_zerolag, opts.bins_cumhist, 'Zerolag', label_x='DBR')
+  if opts.inj_vs_slides_hist:
+     plotdata().inj_vs_slides_hist(Likelihood_inj, Likelihood_slides, opts.bins_inj_vs_slides)
+     plotdata().inj_vs_slides_hist(DetectionBackgroundRatio_inj, DetectionBackgroundRatio_slides, opts.bins_inj_vs_slides, prefix='DBR')
+elif opts.likelihood == 'injections-vs-background':
+  postfix = 'injections_vs_background' 
+  plotdata().plot_cumhist(statistic_foreground_inj_LKH, sigma_likelihood, expect_likelihood, x_middle_slide_LKH, postfix)
+  postfix = 'injections_vs_background' + '_DBR'
+  plotdata().plot_cumhist(statistic_foreground_inj_DBR, sigma_DBR, expect_DBR, x_middle_slide_DBR, postfix, label_x='DBR')
+  plotdata().plot_likelihood(Likelihood_inj, opts.bins_cumhist, 'Injections')
+  plotdata().plot_likelihood(DetectionBackgroundRatio_inj, opts.bins_cumhist, 'Injections', label_x='DBR')
+  if opts.inj_vs_slides_hist:
+     plotdata().inj_vs_slides_hist(Likelihood_inj, Likelihood_slides, opts.bins_inj_vs_slides)
+     plotdata().inj_vs_slides_hist(DetectionBackgroundRatio_inj, DetectionBackgroundRatio_slides, opts.bins_inj_vs_slides, prefix='DBR')
+
+ 
 if opts.show:
   show()
 
