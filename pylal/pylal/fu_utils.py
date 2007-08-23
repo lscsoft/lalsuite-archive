@@ -39,8 +39,8 @@ from glue.ligolw import lsctables
 from glue.ligolw import utils
 from pylal import CoincInspiralUtils
 from glue import pipeline
+from glue.lal import *
 from glue import lal
-
 
 ########## CLASS TO WRITE LAL CACHE FROM HIPE OUTPUT #########################
 class getCache(UserDict):
@@ -71,6 +71,7 @@ class getCache(UserDict):
     f = re.compile("FOLLOWUP")
     m = re.compile("-")
     x = re.compile(".xml")
+    g = re.compile(".gz")
     try:
       dir = os.listdir(string.strip(cp.get('hipe-cache',iniName)))
       cache_path = os.path.abspath(string.strip(cp.get('hipe-cache',iniName)))
@@ -80,12 +81,15 @@ class getCache(UserDict):
     for fname in dir:
       if f.search(fname): continue
       if p.search(fname):
-        ifo = m.split(fname)[0]
-        start = m.split(fname)[-2]
-        dur = x.split(m.split(fname)[-1])
+        fnamebis =  g.split(fname)[0]
+        ifo = m.split(fnamebis)[0]
+        tag = m.split(fnamebis)[1]
+        start = m.split(fnamebis)[-2]
+        dur = x.split(m.split(fnamebis)[-1])
         try:
-          scirun = string.strip(cp.get('hipe-cache','science-run'))
-          tmpentry = ifo+" "+scirun+" "+start+" "+dur[0]+" "+"file://localhost" +cache_path+"/"+fname
+          # scirun = string.strip(cp.get('hipe-cache','science-run'))
+          # tmpentry = ifo+" "+scirun+" "+start+" "+dur[0]+" "+"file://localhost" +cache_path+"/"+fname
+          tmpentry = ifo+" "+tag+" "+start+" "+dur[0]+" "+"file://localhost" +cache_path+"/"+fname
           entry = lal.CacheEntry(tmpentry)
           self[type].append(entry)
         except: pass
@@ -93,57 +97,59 @@ class getCache(UserDict):
     for iniName, type in self.iniNameMaps:
       self.getCacheType(iniName,type,cp)
 
-  def writeCacheType(self,oName,type):
-    cName = open(oName,'w')
+  def writeCacheType(self,oName,type,cName):
+    #cName = open(oName,'w')
     for fname in self[type]:
       cName.write(str(fname)+"\n")
+    #cName.close()
+
+  def writeCacheAll(self,outputfile):
+    cName = open(outputfile,'w')
+    for oName, type in self.nameMaps:
+      self.writeCacheType(str(oName),type,cName)
     cName.close()
 
-  def writeCacheAll(self):
-    for oName, type in self.nameMaps:
-      self.writeCacheType(str(oName),type)
+#  def getProcessParamsFromMatchingFileInCache(self, fileName, cacheString):
+#    test_file = 0
+#    cacheFile = open(cacheString,"r")
+#    cacheContent = []
+#    cacheContent = cacheFile.readlines()
+#    for line in cacheContent:
+#      if line.find(fileName) >= 0:
+#        test_file = 1
+#        stringLine = line.split()[0:5]
+#        tmpLine = stringLine[0] + ' ' + stringLine[1] + ' ' + stringLine[2] + ' ' + stringLine[3] + ' ' + stringLine[4]
+#        cache = lal.CacheEntry(tmpLine)
+#        doc = utils.load_filename(cache.path(),None)
+#        proc = table.get_table(doc, lsctables.ProcessParamsTable.tableName)
+#        # this is a temporary hack to handle the "-userTag" bug in some xml files...
+#        for row in proc:
+#          if str(row.param).find("-userTag") >= 0:
+#            row.param = "--user-tag"
+#        #end of the hack
+#        break
+#    if test_file == 0:
+#      print "could not find the requested file name " + fileName + " in the list of hipe cache files"
+#
+#    return proc
 
-  def getProcessParamsFromMatchingFileInCache(self, fileName, cacheString):
-    test_file = 0
-    cacheFile = open(cacheString,"r")
-    cacheContent = []
-    cacheContent = cacheFile.readlines()
-    for line in cacheContent:
-      if line.find(fileName) >= 0:
-        test_file = 1
-        stringLine = line.split()[0:5]
-        tmpLine = stringLine[0] + ' ' + stringLine[1] + ' ' + stringLine[2] + ' ' + stringLine[3] + ' ' + stringLine[4]
-        cache = lal.CacheEntry(tmpLine)
-        doc = utils.load_filename(cache.path(),None)
-        proc = table.get_table(doc, lsctables.ProcessParamsTable.tableName)
-        # this is a temporary hack to handle the "-userTag" bug in some xml files...
-        for row in proc:
-          if str(row.param).find("-userTag") >= 0:
-            row.param = "--user-tag"
-        #end of the hack
-        break
-    if test_file == 0:
-      print "could not find the requested file name " + fileName + " in the list of hipe cache files"
-
-    return proc
-
-  def getProcessParamsFromMatchingFile(self, fileName, type):
-    test_file = 0
-    for cache in self[type]:
-      if str(cache).find(fileName) >= 0:
-        test_file = 1
-        doc = utils.load_filename(cache.path(),None)
-        proc = table.get_table(doc, lsctables.ProcessParamsTable.tableName)
-        # this is a temporary hack to handle the "-userTag" bug in some xml files...
-        for row in proc:
-          if str(row.param).find("-userTag") >= 0:
-            row.param = "--user-tag"
-        #end of the hack
-        break
-    if test_file == 0:
-      print "could not find the requested file name " + fileName + " in the list of hipe cache files"
-
-    return proc
+#  def getProcessParamsFromMatchingFile(self, fileName, type):
+#    test_file = 0
+#    for cache in self[type]:
+#      if str(cache).find(fileName) >= 0:
+#        test_file = 1
+#        doc = utils.load_filename(cache.path(),None)
+#        proc = table.get_table(doc, lsctables.ProcessParamsTable.tableName)
+#        # this is a temporary hack to handle the "-userTag" bug in some xml files...
+#        for row in proc:
+#          if str(row.param).find("-userTag") >= 0:
+#            row.param = "--user-tag"
+#        #end of the hack
+#        break
+#    if test_file == 0:
+#      print "could not find the requested file name " + fileName + " in the list of hipe cache files"
+#
+#    return proc
 
 #  def filesMatchingGPSinDir(self, gpsTime, dir)
 #    fileList = os.listdir(dir)
@@ -155,50 +161,87 @@ class getCache(UserDict):
 #        if ( (end >= gpsTime) and (start <= gpsTime) and () ):
 #          cacheList.append(line)
 #      except: pass
-#    return cacheList 
+#    return cacheList
 
-  def filesMatchingGPSinCache(self, time, cacheString):
-    cacheSubSet = self.ifoDict()   
-    cacheFile = open(cacheString,"r")
-    cacheContent = []
-    cacheContent = cacheFile.readlines()
-    for line in cacheContent:
+  def getListFromCache(self,cache):
+    list = []
+    for ifo in cache:
+      list = list + cache[ifo].pfnlist()
+    return list
+
+  def filesMatchingGPSinCache(self, cacheString, time=None, cacheType=None):
+    cacheSubSet = self.ifoDict()
+    cache = Cache()
+    try: 
+      cacheList = cache.read(cacheString)
+      cacheListTest = 0   
+    except: 
+      print >> sys.stderr, "could not open the file " + cacheString
+      cacheListTest = 1
+    if not cacheListTest:
       for ifo in self.ifoTypes:
         try:
-          stringLine = line.split()[0:5]
-          start = eval(stringLine[2])
-          end = start + eval(stringLine[3])
-          cacheIfo = stringLine[0]
-          if ( (end >= time[ifo]) and (start <= time[ifo]) and (cacheIfo == ifo)
-):
-            tmpLine = stringLine[0] + ' ' + stringLine[1] + ' ' + stringLine[2] + ' ' + stringLine[3] + ' ' + stringLine[4]
-            cache = lal.CacheEntry(tmpLine)
-            cacheSubSet[ifo].append(cache)
+          if time:
+            seg1 = segments.segment(time[ifo],time[ifo]+1)
+            seg2 = segments.segment(time[ifo]-1,time[ifo])
+          else:
+            seg1 = None
+            seg2 = None
+          list = cacheList.sieve(ifo,cacheType,seg1)
+          list = list.sieve(None,None,seg2)
+          cacheSubSet[ifo] = list
         except:
-          pass
-    return cacheSubSet
+          continue
+    return(cacheSubSet)
 
-  def filesMatchingGPS(self, time, type):
-    cacheSubSet = self.ifoDict()
-    for cache in self[type]:
-      for ifo in self.ifoTypes:
-       try:
-         start = eval(str(cache).split()[2])
-         end = start + eval(str(cache).split()[3])
-         cacheIfo = str(cache).split()[0]
-         print cacheIfo
-         if ( (end >= time[ifo]) and (start <= time[ifo]) and (cacheIfo == ifo) ):
-           cacheSubSet[ifo].append(cache)
-       except:
-         pass
-    return cacheSubSet
+
+#  def filesMatchingGPSinCache(self, time, cacheString, cacheType):
+#    cacheSubSet = self.ifoDict()
+#    try:
+#      cacheFile = open(cacheString,"r")
+#    except:
+#      print >> sys.stderr, "could not open the file " + cacheString
+#    cacheContent = []
+#    cacheContent = cacheFile.readlines()
+#    for line in cacheContent:
+#      for ifo in self.ifoTypes:
+#        try:
+#          stringLine = line.split()[0:5]
+#          start = eval(stringLine[2])
+#          end = start + eval(stringLine[3])
+#          cacheIfo = stringLine[0]
+#          if ( (end >= time[ifo]) and (start <= time[ifo]) and (cacheIfo == ifo)):
+#            tmpLine = stringLine[0] + ' ' + stringLine[1] + ' ' + stringLine[2] + ' ' + stringLine[3] + ' ' + stringLine[4]
+#            cache = lal.CacheEntry(tmpLine)
+#            cacheSubSet[ifo].append(cache)
+#        except:
+#          pass
+#    return cacheSubSet
+
+#  def filesMatchingGPS(self, time, type):
+#    cacheSubSet = self.ifoDict()
+#    for cache in self[type]:
+#      for ifo in self.ifoTypes:
+#       try:
+#         start = eval(str(cache).split()[2])
+#         end = start + eval(str(cache).split()[3])
+#         cacheIfo = str(cache).split()[0]
+#         print cacheIfo
+#         if ( (end >= time[ifo]) and (start <= time[ifo]) and (cacheIfo == ifo) ):
+#           cacheSubSet[ifo].append(cache)
+#       except:
+#         pass
+#    return cacheSubSet
 
   def getProcessParamsFromCache(self, subCache, tag, time):
     process = self.ifoDict()
     for ifo in subCache:
-      #print ifo
       for f in subCache[ifo]:
-        doc = utils.load_filename(f.path(),None)
+        path = f.path()
+        extension = path.split('.')[len(path.split('.'))-1]
+        if extension == 'gz': gz = True
+        else: gz = False
+        doc = utils.load_filename(path,False,gz)
         proc = table.get_table(doc, lsctables.ProcessParamsTable.tableName)
         for row in proc:          
           if str(row.param).find("--ifo-tag") >= 0:
@@ -279,7 +322,6 @@ def readFiles(fileGlob,statistic=None):
         coincs = coincInspiralTable
         search = searchSumTable    
   return sims,coincs,search
-
 
 
 #############################################################################
@@ -432,7 +474,8 @@ class followUpList:
   def __init__(self,Coincs = None, Missed = None ):
     self.gpsTime = {"H1" : None, "H2" : None, "L1" : None,
                   "G1" : None, "V1" : None, "T1" : None}
-    self.ifoList = '' # added to construct a new field in "followups", see function getfollowuptrigs
+    self.ifos = '' # added to construct a new field in "followups", see function getfollowuptrigs
+    self.ifolist_in_coinc = None
     self.ifoTag = ''
     self.coincs = Coincs
     self.missed = Missed
@@ -446,6 +489,7 @@ class followUpList:
     setattr(self,"coincs",Coincs)
     self.eventID = Coincs.event_id
     self.statValue = Coincs.stat
+    self.ifos, self.ifolist_in_coinc = Coincs.get_ifos()
     if self.is_trigs():
       self.summarydir = "followuptrigs"
     if self.is_found():
@@ -486,9 +530,10 @@ def generateXMLfile(ckey,ifo,gpsTime):
   sngl_inspiral_table = lsctables.New(lsctables.SnglInspiralTable)
   xmldoc.childNodes[-1].appendChild(sngl_inspiral_table)
   trig = getattr(ckey,ifo)
-  sngl_inspiral_table.append(trig) 
+  sngl_inspiral_table.append(trig)
 
-  utils.write_filename(xmldoc, ifo + '-TRIGBANK_FOLLOWUP_' + gpsTime + ".xml", verbose = True, gz = False)   
+  fileName = ifo + '-TRIGBANK_FOLLOWUP_' + gpsTime + ".xml"
+  utils.write_filename(xmldoc, fileName, verbose = True, gz = False)   
 
 #############################################################################
 # Function to return the follow up list of coinc triggers
@@ -515,7 +560,6 @@ def getfollowuptrigs(numtrigs,page,coincs=None,missed=None,search=None,trigbank_
       try:
         getattr(ckey,'H1')
         fuList.gpsTime["H1"] = (float(getattr(ckey,'H1').end_time_ns)/1000000000)+float(getattr(ckey,'H1').end_time)
-        fuList.ifoList = fuList.ifoList + 'H1' # at present time, it is used only to get the first relevant ifo
         if trigbank_test:
           try: generateXMLfile(ckey,'H1',str(fuList.gpsTime["H1"])) 
           except: print "the trigBank xml file could not be generated for H1 " + str(fuList.eventID)
@@ -523,7 +567,6 @@ def getfollowuptrigs(numtrigs,page,coincs=None,missed=None,search=None,trigbank_
       try:
         getattr(ckey,'H2')
         fuList.gpsTime["H2"] = (float(getattr(ckey,'H2').end_time_ns)/1000000000)+float(getattr(ckey,'H2').end_time)
-        fuList.ifoList = fuList.ifoList + 'H2'
         if trigbank_test:
           try: generateXMLfile(ckey,'H2',str(fuList.gpsTime["H2"]))
           except: print "the trigBank xml file could not be generated for H2 " + str(fuList.eventID)
@@ -531,7 +574,6 @@ def getfollowuptrigs(numtrigs,page,coincs=None,missed=None,search=None,trigbank_
       try:
         getattr(ckey,'L1')
         fuList.gpsTime["L1"] = (float(getattr(ckey,'L1').end_time_ns)/1000000000)+float(getattr(ckey,'L1').end_time)
-        fuList.ifoList = fuList.ifoList + 'L1'
         if trigbank_test:
           try: generateXMLfile(ckey,'L1',str(fuList.gpsTime["L1"]))
           except: print "the trigBank xml file could not be generated for L1 " + str(fuList.eventID)
@@ -539,7 +581,6 @@ def getfollowuptrigs(numtrigs,page,coincs=None,missed=None,search=None,trigbank_
       try:
         getattr(ckey,'G1')
         fuList.gpsTime["G1"] = (float(getattr(ckey,'G1').end_time_ns)/1000000000)+float(getattr(ckey,'G1').end_time)
-        fuList.ifoList = fuList.ifoList + 'G1'
         if trigbank_test:
           try: generateXMLfile(ckey,'G1',str(fuList.gpsTime["G1"]))
           except: print "the trigBank xml file could not be generated for G1 " + str(fuList.eventID)
@@ -547,7 +588,6 @@ def getfollowuptrigs(numtrigs,page,coincs=None,missed=None,search=None,trigbank_
       try:
         getattr(ckey,'V1')
         fuList.gpsTime["V1"] = (float(getattr(ckey,'V1').end_time_ns)/1000000000)+float(getattr(ckey,'V1').end_time)
-        fuList.ifoList = fuList.ifoList + 'V1'
         if trigbank_test:
           try: generateXMLfile(ckey,'V1',str(fuList.gpsTime["V1"]))
           except: print "the trigBank xml file could not be generated for V1 " + str(fuList.eventID)
@@ -555,15 +595,14 @@ def getfollowuptrigs(numtrigs,page,coincs=None,missed=None,search=None,trigbank_
       try:
         getattr(ckey,'T1')
         fuList.gpsTime["T1"] = (float(getattr(ckey,'T1').end_time_ns)/1000000000)+float(getattr(ckey,'T1').end_time)
-        fuList.ifoList = fuList.ifoList + 'T1'
         if trigbank_test:
           try: generateXMLfile(ckey,'T1',str(fuList.gpsTime["T1"]))
           except: print "the trigBank xml file could not be generated for T1 " + str(fuList.eventID)
       except: fuList.gpsTime["T1"] = None
 
       # now, find the ifoTag associated with the triggers, using the search summary tables...
-      if fuList.ifoList:
-        firstIfo = fuList.ifoList[0:2]
+      if fuList.ifolist_in_coinc:
+        firstIfo = fuList.ifolist_in_coinc[0]
         triggerTime = fuList.gpsTime[firstIfo]
         for chunk in search:
           out_start_time = float(chunk.out_start_time)
@@ -780,93 +819,3 @@ def publishOnHydra(page):
             'hydra.phys.uwm.edu:/home/htdocs/uwmlsc/root/'+
             page + '.')
 
-##############################################################################
-# Function to publish the web tree
-##############################################################################
-def publishToIULGroup(page):
-  indexFile = open("index.html","w")
-  patt = re.compile('.*summary.html')
-  
-  # First do the found injections
-  files = os.chdir('followupfound')
-  files = os.listdir('.')
-  table = HTMLTable()
-  fList = []
-  stat = []
-  ID = []
-  if files:
-    for f in files:
-      temp = patt.match(f)
-      if temp:
-        fList.append((float(temp.group().rsplit('_')[0]), \
-                  temp.group().rsplit('_')[1]))
-    indexFile.write('<h3>Found Injection follow ups</h3>\n')
-    sortedF = sorted(fList,key=operator.itemgetter(0),reverse=False)
-    for i in sortedF:
-      stat.append(str(i[0]))
-      ID.append('<a href="' +page+ '/followupfound/'+str(i[0])+'_'+str(i[1])+
-                '_summary.html">'+i[1]+'</a>')
-    table.add_column(stat,'Stat Value')
-    table.add_column(ID,'ID')
-    table.write(indexFile)  
-  os.chdir('..')
-
-# then do trigs
-  files = os.chdir('followuptrigs')
-  files = os.listdir('.')
-  table = HTMLTable()
-  fList = []
-  stat = []
-  ID = []
-  if files:
-    for f in files:
-      temp = patt.match(f)
-      if temp:
-        fList.append((float(temp.group().rsplit('_')[0]), \
-                  temp.group().rsplit('_')[1]))
-    indexFile.write('<h3>Found Trigger follow ups</h3>\n')
-    sortedF = sorted(fList,key=operator.itemgetter(0),reverse=False)
-    for i in sortedF:
-      stat.append(str(i[0]))
-      ID.append('<a href="' +page+ '/followuptrigs/'+str(i[0])+'_'+str(i[1])+
-                '_summary.html">'+i[1]+'</a>')
-    table.add_column(stat,'Stat Value')
-    table.add_column(ID,'ID')
-    table.write(indexFile)
-  os.chdir('..')
-
-
-
-#  # Then do the triggers 
-#  files = os.chdir('followuptrigs')
-#  files = os.listdir('.')
-#  table = HTMLTable()
-#  fList = []
-#  stat = []
-#  ID = []
-#  if files:
-#    for f in files:
-#      temp = patt.match(f)
-#      if temp:
-#        fList.append((float(temp.group().rsplit('_')[0]), \
-#                  temp.group().rsplit('_')[1]))
-#    indexFile.write('<h3>Trigger follow ups</h3>\n')
-#    sortedF = sorted(fList,key=operator.itemgetter(0),reverse=True)
-#    for i in sortedF:
-#      stat.append(str(i[0]))
-#      ID.append('<a href="' +page+ '/followuptrigs/'+str(i[0])+'_'+str(i[1])+
-#                '_summary.html">'+i[1]+'</a>')    
-#    table.add_column(stat,'Stat Value')
-#    table.add_column(ID,'ID')
-#    table.write(indexFile)
-#  
-#  os.chdir('..')
-
-  writeIULHeader(indexFile)
-  indexFile.close()
-  #This needs to be done so that it doesn't keep writing over this 
-  #directory... ;)
-  os.system('scp -r index.html followuptrigs followupfound followupmissed ' +
-            'hydra.phys.uwm.edu:/home/htdocs/uwmlsc/root/iulgroup/'+
-            'investigations/s5/people/followups/.')
-  
