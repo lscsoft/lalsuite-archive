@@ -541,7 +541,7 @@ class coincInspiralTable:
           tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
           param_counter += 1
 
-          # distance^2 apart in effective snr
+          # distance^2 apart in chi squared
           c_lambda = getattr(candidate,ifo1).chisq
           t_lambda = getattr(trig,ifo1).chisq
           tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
@@ -568,7 +568,14 @@ class coincInspiralTable:
               t_lambda = simpleEThinca(\
                 getattr(trig,ifo1),\
                 getattr(trig,ifo2) )
-              tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
+              # check if the ethinca parameter of the candidate is not zero
+              if c_lambda > 0.0:
+                sEThinca_scale = c_lambda
+              else:
+                sEThinca_scale = 0.5
+              #tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
+              # FIX ME! We need to make a choice for the sEThinca_scale that sets the scale for SimpleEThinca parameter 
+              tmp_d_squared += ((c_lambda - t_lambda) / sEThinca_scale)**2
               param_counter += 1
 
         if ( (tmp_d_squared / float(param_counter)) < epsilon ):
