@@ -28,7 +28,6 @@ from pylal import CoincInspiralUtils
 from pylal import SnglInspiralUtils
 from pylal import SearchSummaryUtils
 from pylal import itertools as pylal_itertools
-from numpy import histogram
 
 
 ##############################################################################
@@ -95,7 +94,7 @@ parser.add_option("","--injection-window",action="store",type="float",\
     help="injection window used for found injections" )
 parser.add_option("","--ifo-times",action="store",type="string",\
   default=None,metavar="IFOS",\
-  help="Which ifo times are being looked at (e.g. H1H2L1)" )
+  help="Which ifo times are being looked at for slides (e.g. H1H2L1)" )
 parser.add_option("-V","--veto-file",action="store",type="string",\
   default=None,metavar=" FNAME",\
   help="read in segments from FNAME (assumed segwizard format)")
@@ -110,9 +109,9 @@ if len(opts.ifo_list) < 2:
   sys.exit(1)
 
 if opts.slide_glob or opts.slide_input:
-  if not opts.num_slides:
-    print >>sys.stderr, "--num-slides must be specified if"
-    print >>sys.stderr, "--slide-glob or --slide-input are"
+  if not opts.num_slides or not opts.ifo_times:
+    print >>sys.stderr, "--num-slides and --ifo-times must be specified if"
+    print >>sys.stderr, "working with time slides"
     sys.exit(1)
 
 # If show() is not required, use Agg backend to prevent X display dependency
@@ -120,8 +119,10 @@ if not opts.show_plot:
   import matplotlib
   matplotlib.use('Agg')
 from pylab import *
-from pylal import viz
+from numpy import histogram
 rc('font', size='x-large')
+if not opts.show_plot:
+  rc('text', usetex=True)
 
 bins = [i/opts.num_bins for i in range(opts.num_bins+1)]
 
@@ -368,7 +369,6 @@ for ifos in pylal_itertools.choices(opts.ifo_list, 2):
     if opts.inj_glob:
       y_list, x_list = zip(*[histogram(eps, bins=opts.num_bins,
           range=[0, ep_max]) for eps in ethinca_list])
-
       n = len(x_list)
       for i, x, y, color in zip(range(n), x_list, y_list, color_list):
         x += 0.1*i*ep_max/opts.num_bins  # Introduce some stagger
