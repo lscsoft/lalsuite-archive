@@ -14,7 +14,6 @@ from glue.ligolw import ligolw, table as tab, lsctables, utils
 
 from pylal import SnglInspiralUtils, SimInspiralUtils
 from pylal.tools import XLALEThincaParameterForInjection as ethinca_param
-from numpy import histogram
 
 ##############################################################################
 usage = """usage: %prog [options] file1 (file2 file3)
@@ -173,6 +172,7 @@ if not opts.show_plot:
   matplotlib.use('Agg')
 from pylab import *
 from pylal import viz
+from numpy import histogram
 rc('text', usetex=True)
 
 # get veto segment list
