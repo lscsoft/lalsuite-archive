@@ -36,7 +36,11 @@ databases.
 
 from optparse import OptionParser
 import os
-from pysqlite2 import dbapi2 as sqlite3
+try:
+	import sqlite3
+except NameError:
+	# pre 2.5.x
+	from pysqlite2 import dbapi2 as sqlite3
 import shutil
 import sys
 import tempfile
