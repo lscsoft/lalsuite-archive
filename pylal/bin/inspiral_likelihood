@@ -142,11 +142,24 @@ ifo_combos = CoincInspiralUtils.get_ifo_combos(ifo_list)
 # Class to hold slides and triggers and generate relevant plots.
 ########################################################################
 def distcut(coinc_a,coinc_b):
-    
+  '''
+  Return the numpy array -  the relative difference of two one-dimensional arrays, 
+  presumably of the same length, weighted by their average.
+  @param coinc_a, coincb: numpy arrays of equal length. 
+  '''        
   dist_cut_array=(coinc_b -  coinc_a)*2.0/(coinc_a +  coinc_b)
   return dist_cut_array
 
 def normalized_hist(Unormalised_array, bins=10):
+  '''
+  Return normalized histogram; 
+  y_norm is a numpy array containing normilized number of events in the corresponding bin;
+  x_norm is a numpy array containing bins (namely left side, limit of each bin).
+  @param Unormalized_array: numpy array containing the quatities for which the histogram will be generated.
+  The length of the array defines the total number of the events - normalization.
+  @param bins: either integer that sets the number of bins in the histogram or a numpy array containing bins.
+  '''  
+  
   (y_param, x_param, patches) = hist(Unormalised_array, bins)
   clf()
   y_norm = y_param*1.0/sum(y_param)
@@ -155,8 +168,17 @@ def normalized_hist(Unormalised_array, bins=10):
 
 
 def cum_hist(likelihood, bins):
-
+  '''
+  Function that generates the histogram of the cumulative (e.g. likelihood) statistic histogram.
+  Return cumulative histogram; cumhist is a numpy array each entry of which is equal to the total number of the events
+  contained in the bins to the right (in increasing order) of the current one;
+  x_middle is a numpy array that defines the bins by their middle point.
+  @param likelihood: the array to be binned that contains  statistic (e.g. likelihood) calculated for each coinc (event).
+  @param bins: either integer that sets the number of bins in the histogram or a numpy array containing bins.
+  '''  
+  # get rid of events with likelihood = -1
   likelihood_cleared = numpy.compress(numpy.greater(likelihood, -1.0), likelihood)
+
   (y, x, patches) = hist(likelihood_cleared, bins)
   clf()     
   x_middle = numpy.zeros(len(x))
@@ -168,21 +190,22 @@ def cum_hist(likelihood, bins):
 
 
 class plotdata:
-
-  """ Class to do plotting of time slides and injections for
-    range of parameters. """
+  """
+   Class containing various plotting routines.
+  """
 
 
   def plotroutine(self, ifos, coinc_slides, coinc_inj, param, slide_bins, inj_bins):
     """ 
-    Function that makes histograms of a given parameter for injections and timeslides
-    @params: ifos a list whose elements are the lists of ifos such as ['H1', 'H2']
-    @params: coinc_a, coinc_b are instances of CoincInspiralUtils.CoincInspiralTable() class that contain
-    time slide and injection triggers respectively
-    @params: param is a name of the parameter to be plotted
+    Function that makes histograms of a relative difference of a given parameter (or of parameter itself in case of simple ethinca)
+    in  each pair of ifos specified. It does it for both injections and timeslides.
+    @param  ifos:  a list whose elements are the lists of ifos such as ['H1', 'H2'].
+    @param  coinc_a, coinc_b:  are instances of CoincInspiralUtils.CoincInspiralTable() class that contain
+    time slide and injection triggers respectively.
+    @params param: is a name of the parameter to be plotted.
     if param is 'simethinca' the histograms of its value are produced for each pair of interferometers
     otherwise the histogram of (param(ifo2)-param(ifo1))*2/(param(ifo2) + param(ifo1)) are produced
-    @params: slide_bins and inj_bins are number of bins in the histogram for time slides and injections respectively
+    @param slide_bins, inj_bins:  are number of bins in the histogram for time slides and injections respectively
     """ 
         
     for ifolist in ifos:
@@ -270,7 +293,7 @@ class plotdata:
   def triple_scatter_plot(self, p0_zerolag, pc_zerolag, p0_injections, pc_injections, p0_background, pc_background, prefix='False_Alarm_Probability'):
     """
     Function that makes scattering plot of zerolag candidate triggers, injections and background triggers in
-    Detection probability, p(h|c), and False Alarm Probability, p(0|c), space. The points plotted are (p(0), p(c)). 
+    Detection probability, p(h|c), and False Alarm Probability, p(0|c), space. The coordinates of points plotted are {p(c|0), p(c|h)}. 
     """
 
     v = [-0.1, 1.1, -0.1, 1.1]
@@ -287,6 +310,10 @@ class plotdata:
     figure()
 
   def scatter_plot(self, p0, pc):
+    ''' 
+    Makes a scatter plot of points {p(c|0, p(c|h)}
+    '''
+  
     v = [-0.1, 1.1, -0.1, 1.1]
     axis(v)
     plot(p0, pc, marker='o', linestyle='None', color='g',scalex=False, scaley=False)
@@ -299,7 +326,17 @@ class plotdata:
 
 
   def plot_cumhist(self, statistic_foreground, sigma, expect, x_middle, postfix, label_x='likelihood'):
-
+    ''' 
+    Plots the cumulative histogram (cum_hist)  of foreground (injections or zerolag candidates)  and background 
+    (time slides). The entries in the latter are  normalized by the number of time slides performed. In addition, 
+    the one sigma variance of the cumulative histogram  of  the time slides is plotted.
+    @param statistic_foreground: an array containing the cum_hist values of the foreground
+    @param sigma: an array containing the variance of the cum_hist for time slides
+    @param expect: an array containing the cum_hist values of the background (time slides)
+    @param x_middle: an array containing the central positions of the bins used to generate given cum_hist histograms.
+    @param postfix: a string that sets the ending of the figure name
+    @poram label_x: a string to label x axes.
+    '''       
     coord = gca()
     coord.set_yscale('log')
     l1 = plot(x_middle, statistic_foreground, marker='o', linestyle='None', color='g')
@@ -314,7 +351,14 @@ class plotdata:
     savefig('Combined_statistic' + postfix)
     figure()
  
-  def plot_likelihood(self, likelihood_foreground, bins, prefix, label_x='likelihood'):   
+  def plot_likelihood(self, likelihood_foreground, bins, prefix, label_x='likelihood'):
+    '''
+    Plots a single cum_hist histogram.
+    @param likelihood: an array that contains the statistic (e.g. likelihood) calculated for each event.
+    @param bins: either integer that sets the number of bins in the histogram or a numpy array containing bins.
+    @param prefix: a string that sets the begining of the figure name.
+    @param label_x: a string to label x axes.
+    '''      
     likelihood_foreground_cleared = numpy.compress(numpy.greater(likelihood_foreground, -1.0), likelihood_foreground)
     (y_foreground, x_foreground, patches) = hist(likelihood_foreground_cleared, bins)
     clf()
@@ -334,6 +378,14 @@ class plotdata:
     figure()
 
   def inj_vs_slides_hist(self, likelihood_foreground, likelihood_background, bins, prefix='likelihood'):
+    ''' 
+    Plots normilzed histograms of statistic for injections and time slides.
+    @param likelihood_foreground: an array that contains the statistic (e.g. likelihood) calculated for each event of the foreground (injections).
+    @param likelihood_foreground: an array that contains the statistic (e.g. likelihood) calculated for each event of the background (time slides).
+    @param bins: either integer that sets the number of bins in the histogram or a numpy array containing bins.
+    @param prefix: a string that sets the begining of the figure name and a label for x axes.
+    '''
+
 
     likelihood_foreground_cleared = numpy.compress(numpy.greater(likelihood_foreground, -1.0), likelihood_foreground)
     likelihood_background_cleared = numpy.compress(numpy.greater(likelihood_background, -1.0), likelihood_background)
@@ -361,7 +413,7 @@ class plotdata:
     bar(x_background, y_background, width=step/2.0 , color='k')
     xlim(min_global, max_global)
     xlabel(prefix)
-    savefig(prefix+'inj_vs_slides_hist')
+    savefig(prefix+'_inj_vs_slides_hist')
     figure()
  
  
@@ -372,8 +424,21 @@ class plotdata:
 # Class that does essential calculations for likelihood ratio
 #############################################################################################
 class likelihood:
+  '''
+  Class containing the essential functions for likelihood analysis such as the detection probability,
+  false alarm probability etc...
+  '''
 
   def false_alarm_prob(self, candidate, backgroundTriggers, Nslides, epsilon):
+    '''
+    Return false alarm probability of a candidate.
+    @param candidate: a row of a CoincInspiralTable that represents a coincidence (candidate) for which
+    the false alarm probability should be calculated.
+    @param backgroundTriggers: an instance of CoincInspiralTable() class that contains the background coincs.
+    @param Nslides: number of timeslides performed.
+    @param epsilon: parameter that defines coarse-graining (binning) of the parameter space. More precisely, 
+    it is the radius of the hyper-ball in the paramater space centered  at  the candidate.
+    ''' 
     c_ifos,ifolist=candidate.get_ifos()
     # calculating the false alarm probability
     slide_array=numpy.zeros(2*Nslides)
@@ -392,7 +457,15 @@ class likelihood:
     FalseAlarmProb = sum(slide_array)/float(2*Nslides)
     return FalseAlarmProb
 
-  def detection_prob(self, candidate, foregroundTriggers, epsilon):
+  def detection_prob(self, candidate, foregroundTriggers, epsilon): 
+    '''
+    Return the detection probability of a candidate.
+    @param candidate: a row of a CoincInspiralTable that represents a coincidence (candidate) for which
+    the detection probability should be calculated.
+    @param foregroundTriggers: an instance of CoincInspiralTable() class that contains the foreground events (found injections).
+    @param epsilon: parameter that defines coarse-graining (binning) of the parameter space. More precisely, 
+    it is the radius of the hyper-ball in the paramater space centered  at  the candidate.
+    '''
     Ntotal_inj=0
     for trigger in foregroundTriggers:
       trig_ifos,trig_ifolist = trigger.get_ifos()
@@ -410,6 +483,14 @@ class likelihood:
     return DetectionProb
 
   def background_fraction(self, candidate, backgroundTriggers, epsilon):
+    '''
+    Return the fraction of backgorund events that lies within  epsilon ball of the candidate.
+    @param candidate: a row of a CoincInspiralTable that represents a coincidence (candidate) for which
+    the background_fraction should be calculated.
+    @param backgroundTriggers: an instance of CoincInspiralTable() class that contains the background events.
+    @param epsilon: the parameter that defines coarse-graining (binning) of the parameter space. More precisely, 
+    it is the radius of the hyper-ball in the paramater space centered  at  the candidate.
+    '''
     Ntotal_noise=0
     for trigger in backgroundTriggers:
       trig_ifos,trig_ifolist = trigger.get_ifos()
@@ -839,25 +920,25 @@ if opts.scatter_all_plot:
 
 
 if opts.likelihood == 'zerolag-candidates-only':
-  plotdata().plot_likelihood(Likelihood, opts.bins_cumhist)
-  plotdata().plot_likelihood(DetectionBackgroundRatio, opts.bins_cumhist, label_x='DBR')   
+  plotdata().plot_likelihood(Likelihood, opts.bins_cumhist, prefix='likelihood_zerolag')
+  plotdata().plot_likelihood(DetectionBackgroundRatio, opts.bins_cumhist, prefix='DBR_zerolag',label_x='DBR')   
 elif  opts.likelihood == 'zerolag-vs-background':
-  postfix = 'zerolag_vs_background'
+  postfix = '_zerolag_vs_background'
   plotdata().plot_cumhist(statistic_foreground_zerolag_LKH, sigma_likelihood, expect_likelihood, x_middle_slide_LKH, postfix)
-  postfix = 'zerolag_vs_background' + '_DBR'
+  postfix = '_zerolag_vs_background' + '_DBR'
   plotdata().plot_cumhist(statistic_foreground_zerolag_DBR, sigma_DBR, expect_DBR, x_middle_slide_DBR, postfix, label_x='DBR')
-  plotdata().plot_likelihood(Likelihood_zerolag, opts.bins_cumhist, 'Zerolag')
-  plotdata().plot_likelihood(DetectionBackgroundRatio_zerolag, opts.bins_cumhist, 'Zerolag', label_x='DBR')
+  plotdata().plot_likelihood(Likelihood_zerolag, opts.bins_cumhist, prefix='likelihood_zerolag')
+  plotdata().plot_likelihood(DetectionBackgroundRatio_zerolag, opts.bins_cumhist, prefix='DBR_zerolag', label_x='DBR')
   if opts.inj_vs_slides_hist:
      plotdata().inj_vs_slides_hist(Likelihood_inj, Likelihood_slides, opts.bins_inj_vs_slides)
      plotdata().inj_vs_slides_hist(DetectionBackgroundRatio_inj, DetectionBackgroundRatio_slides, opts.bins_inj_vs_slides, prefix='DBR')
 elif opts.likelihood == 'injections-vs-background':
-  postfix = 'injections_vs_background' 
+  postfix = '_injections_vs_background' 
   plotdata().plot_cumhist(statistic_foreground_inj_LKH, sigma_likelihood, expect_likelihood, x_middle_slide_LKH, postfix)
-  postfix = 'injections_vs_background' + '_DBR'
+  postfix = '_injections_vs_background' + '_DBR'
   plotdata().plot_cumhist(statistic_foreground_inj_DBR, sigma_DBR, expect_DBR, x_middle_slide_DBR, postfix, label_x='DBR')
-  plotdata().plot_likelihood(Likelihood_inj, opts.bins_cumhist, 'Injections')
-  plotdata().plot_likelihood(DetectionBackgroundRatio_inj, opts.bins_cumhist, 'Injections', label_x='DBR')
+  plotdata().plot_likelihood(Likelihood_inj, opts.bins_cumhist, prefix='likelihood_injections')
+  plotdata().plot_likelihood(DetectionBackgroundRatio_inj, opts.bins_cumhist, prefix='DBR_injections', label_x='DBR')
   if opts.inj_vs_slides_hist:
      plotdata().inj_vs_slides_hist(Likelihood_inj, Likelihood_slides, opts.bins_inj_vs_slides)
      plotdata().inj_vs_slides_hist(DetectionBackgroundRatio_inj, DetectionBackgroundRatio_slides, opts.bins_inj_vs_slides, prefix='DBR')
