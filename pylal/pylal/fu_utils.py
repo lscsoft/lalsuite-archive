@@ -264,6 +264,30 @@ class getCache(UserDict):
 
     return process
     
+##############################################################################
+# function to read a file containing a list of strings
+##############################################################################
+def listFromFile(fileName):
+  list = []
+  try:
+    file = open(fileName,"r")
+  except:
+    print >> sys.stderr, "could not open file " + fileName
+    return list
+  list_in_file = file.readlines()
+  if not len(list_in_file):
+    print >> sys.stderr, "No lines found in file " + fileName
+    print >> sys.stderr, "Is the first line blank ?"
+    return list
+  for line in list_in_file:
+    list.append(string.strip(line))
+  return list
+
+def stringToFloatList(listin):
+  listout = []
+  for line in listin:
+    listout.append(float(line))
+  return listout
 
 ##############################################################################
 # function to read in a list of files and extract the simInspiral tables
