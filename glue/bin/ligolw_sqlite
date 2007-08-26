@@ -38,7 +38,7 @@ from optparse import OptionParser
 import os
 try:
 	import sqlite3
-except NameError:
+except ImportError:
 	# pre 2.5.x
 	from pysqlite2 import dbapi2 as sqlite3
 import shutil
@@ -177,7 +177,7 @@ options, filenames = parse_command_line()
 
 will_write_to_file = (options.extract is None) or (filenames != [None])
 will_replace_file = will_write_to_file and options.replace is True
-will_use_work_space = will_write_to_file and options.work_space is not None
+will_use_tmp_space = will_write_to_file and options.tmp_space is not None
 database_exists = os.access(options.database, os.F_OK)
 
 
@@ -199,8 +199,8 @@ def truncate_if_exists(filename, verbose = False):
 			print >>sys.stderr, "done."
 
 
-if will_use_work_space:
-	target = tempfile.mkstemp(suffix = ".sqlite", dir = options.work_space)
+if will_use_tmp_space:
+	target = tempfile.mkstemp(suffix = ".sqlite", dir = options.tmp_space)
 	if will_replace_file:
 		# truncate database if it exists so that if this job fails
 		# the user won't think the database file is valid
