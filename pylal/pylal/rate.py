@@ -239,9 +239,9 @@ class BinnedArray(object):
 
 	Note that even for 1 dimensional arrays the index must be a tuple.
 	"""
-	def __init__(self, bins):
+	def __init__(self, bins, dtype = numpy.float64):
 		self.bins = bins
-		self.array = numpy.zeros(bins.shape, "Float64")
+		self.array = numpy.zeros(bins.shape, dtype = dtype)
 
 	def __getitem__(self, coords):
 		return self.array[self.bins[coords]]
@@ -304,9 +304,9 @@ class BinnedRatios(object):
 	accessible as the numerator and denominator attributes, which are
 	both BinnedArray objects.
 	"""
-	def __init__(self, bins):
-		self.numerator = BinnedArray(bins)
-		self.denominator = BinnedArray(bins)
+	def __init__(self, bins, dtype = numpy.float64):
+		self.numerator = BinnedArray(bins, dtype = dtype)
+		self.denominator = BinnedArray(bins, dtype = dtype)
 
 	def bins(self):
 		return self.numerator.bins
@@ -327,13 +327,13 @@ class BinnedRatios(object):
 			raise TypeError, "incompatible binning: %s" % repr(other)
 		return self
 
-	def incnumerator(self, coords, weight = 1.0):
+	def incnumerator(self, coords, weight = 1):
 		"""
 		Add weight to the numerator bin at coords.
 		"""
 		self.numerator[coords] += weight
 
-	def incdenominator(self, coords, weight = 1.0):
+	def incdenominator(self, coords, weight = 1):
 		"""
 		Add weight to the denominator bin at coords.
 		"""
@@ -354,7 +354,7 @@ class BinnedRatios(object):
 		have had no weight added to them.
 		"""
 		# FIXME: assign to denominator's contents instead
-		self.denominator.array = numpy.where(self.denominator.array, self.denominator.array, 1.0)
+		self.denominator.array = numpy.where(self.denominator.array, self.denominator.array, 1)
 		return self
 
 	def logregularize(self, epsilon = 2**-1074):
@@ -366,7 +366,7 @@ class BinnedRatios(object):
 		"""
 		# FIXME: assign to contents instead
 		self.numerator.array = numpy.where(self.denominator.array, self.numerator.array, epsilon)
-		self.denominator.array = numpy.where(self.denominator.array, self.denominator.array, 1.0)
+		self.denominator.array = numpy.where(self.denominator.array, self.denominator.array, 1)
 		return self
 
 	def centres(self):
