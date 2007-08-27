@@ -283,8 +283,7 @@ class BinnedArray(object):
 		effect of allowing the logarithm of the array to be
 		evaluated without error.
 		"""
-		# FIXME:  assign to array's contents instead
-		self.array = numpy.where(self.array > 0, self.array, epsilon)
+		self.array[self.array <= 0] = epsilon
 		return self
 
 	def used(self):
@@ -353,8 +352,7 @@ class BinnedRatios(object):
 		evaluated without error, returning zeros in those bins that
 		have had no weight added to them.
 		"""
-		# FIXME: assign to denominator's contents instead
-		self.denominator.array = numpy.where(self.denominator.array, self.denominator.array, 1)
+		self.denominator.array[self.denominator.array == 0] = 1
 		return self
 
 	def logregularize(self, epsilon = 2**-1074):
@@ -364,9 +362,8 @@ class BinnedRatios(object):
 		float epsilon.  This has the effect of allowing the
 		logarithm of the ratio array to be evaluated without error.
 		"""
-		# FIXME: assign to contents instead
-		self.numerator.array = numpy.where(self.denominator.array, self.numerator.array, epsilon)
-		self.denominator.array = numpy.where(self.denominator.array, self.denominator.array, 1)
+		self.numerator.array[self.denominator.array == 0] = epsilon
+		self.denominator.array[self.denominator.array == 0] = 1
 		return self
 
 	def centres(self):
