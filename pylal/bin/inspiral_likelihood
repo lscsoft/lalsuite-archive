@@ -517,7 +517,7 @@ class likelihood:
 ###############################################################################################
 # read in the zero lag  and time slides cache file
 if opts.zerolag_cache_file:
-  trigCache = lal.Cache().read(opts.zerolag_cache_file)
+  trigCache = lal.Cache.fromfile(open(opts.zerolag_cache_file))
   slides_cache = trigCache.sieve(description = 'COIRE_SLIDE')
   zero_lag_cache = trigCache.sieve(description = 'COIRE_H')
   # zero lag files
@@ -541,7 +541,7 @@ if opts.injection_cache_file:
   list_cache_files=opts.injection_cache_file.split(",")
   injfiles = []
   for cache_file in list_cache_files:
-    trigCache = lal.Cache().read(cache_file)
+    trigCache = lal.Cache.fromfile(open(cache_file))
     trigCache1 = trigCache.sieve(description = 'COIRE')
     trigCache2 = trigCache1.sieve(description = 'FOUND')
     injfiles += trigCache2.pfnlist()
