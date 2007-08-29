@@ -171,9 +171,8 @@ class getCache(UserDict):
 
   def filesMatchingGPSinCache(self, cacheString, time=None, cacheType=None):
     cacheSubSet = self.ifoDict()
-    cache = Cache()
     try: 
-      cacheList = cache.read(cacheString)
+      cacheList = Cache.fromfile(open(cacheString))
       cacheListTest = 0   
     except: 
       print >> sys.stderr, "could not open the file " + cacheString
