@@ -445,30 +445,44 @@ class Cache(list):
 	add anything to a Cache. This method should check that the thing you
 	are adding is a CacheEntry and throw and error if it is not.
 	"""
-	def read(self,filename):
+	entry_class = CacheEntry
+	
+	def fromfile(cls, fileobj, coltype=LIGOTimeGPS):
 		"""
-		read in a cache object from filename
+		Return a Cache object whose entries are read from an open file.
 		"""
-		c = [CacheEntry(line) for line in open(filename)]
-		return Cache(c)
+		c = [cls.entry_class(line, coltype=coltype) for line in fileobj]
+		return cls(c)
+	fromfile = classmethod(fromfile)
 
-	def write(self,filename):
+	def fromfilenames(cls, filenames, coltype=LIGOTimeGPS):
 		"""
-		write a cache object to filename as a lal cache file
+		Read Cache objects from the files named and concatenate the results into a
+		single Cache.
+		
+		See pylal.itertools.uniq if you require uniqueness.
 		"""
-		fp = open(filename,'w')
+		cache = cls()
+		for filename in filenames:
+			cache.extend(cls.fromfile(open(filename), coltype=coltype))
+		return cache
+	fromfilenames = classmethod(fromfilenames)
+
+	def tofile(self, fileobj):
+		"""
+		write a cache object to the fileobj as a lal cache file
+		"""
 		for entry in self:
-			print >>fp, str(entry)
-		fp.close()
+			print >>fileobj, str(entry)
+		fileobj.close()
 
-	def write_as_txt(self,filename):
+	def topfnfile(self, fileobj):
 		"""
 		write a cache object to filename as a plain text pfn file
 		"""
-		fp = open(filename,'w')
 		for entry in self:
-			print >>fp, entry.path()
-		fp.close()
+			print >>fileobj, entry.path()
+		fileobj.close()
 
 	def to_segmentlistdict(self):
 		"""
@@ -478,7 +492,7 @@ class Cache(list):
 		"""
 		d = segments.segmentlistdict()
 		for entry in self:
-			d |= self.to_segmentlistdict()
+			d |= entry.to_segmentlistdict()
 		return d
 
 	def sieve(self,ifos=None,description=None,segment=None):
