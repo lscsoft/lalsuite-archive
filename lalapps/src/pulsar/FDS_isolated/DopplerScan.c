@@ -66,10 +66,13 @@
 
 #define INDEX_f1_f1	PMETRIC_INDEX(3,3)
 
-/* all-sky skyregion string, with exact boundaries */
+/* all-sky skyregion string, with boundaries staying away ~3e-7 rad from 
+ * the coordinate-boundaries to avoid numerical difficulties. 
+ * If you want to use get closer, specify the exact polygon to --skyRegion.
+ */
 #define DELTA_0     "-1.570796)"
 #define DELTA_1     " 1.570796)"
-#define ALPHA_0     "(1e-6, "
+#define ALPHA_0     "(3e-7, "
 #define ALPHA_1     "(6.283185, "
 
 #define SKYREGION_ALLSKY  ALPHA_0 DELTA_0 "," ALPHA_1 DELTA_0 "," ALPHA_1 DELTA_1 "," ALPHA_0 DELTA_1
@@ -899,19 +902,20 @@ buildFlatSkyGrid (LALStatus *status,
 
 } /* buildFlatSkyGrid */
 
-
-/*----------------------------------------------------------------------
- *
- * (approx.) isotropic grid with cells of fixed solid-angle dAlpha x dDelta
- *
- *----------------------------------------------------------------------*/
+/** we push in the starting point from the lower-left boundary by this amount
+ * (both x and y) to avoid spurious clipping of boundary points
+ */
+#define EPS_BOUNDARY 1e-10
+/** Construct an (approxitmately) isotropic grid with cells of (roughly) 
+ * fixed solid-angle dAlpha x dDelta 
+ */
 void
 buildIsotropicSkyGrid (LALStatus *status, DopplerSkyGrid **skyGrid, const SkyRegion *skyRegion, REAL8 dAlpha, REAL8 dDelta)
 {
   SkyPosition thisPoint;
   DopplerSkyGrid head = empty_DopplerSkyGrid;  /* empty head to start grid-list */
   DopplerSkyGrid *node = NULL;
-  REAL8 step_Alpha, step_Delta, cos_Delta;
+  REAL8 step_Alpha, step_Delta;
 
   INITSTATUS( status, "buildIsotropicSkyGrid", DOPPLERSCANC );
 
@@ -923,9 +927,11 @@ buildIsotropicSkyGrid (LALStatus *status, DopplerSkyGrid **skyGrid, const SkyReg
     goto done;
 
   thisPoint = skyRegion->lowerLeft;	/* start from lower-left corner */
+  thisPoint.longitude += EPS_BOUNDARY;
+  thisPoint.latitude  += EPS_BOUNDARY;
 
-  step_Delta = dDelta;	/* Delta step-size is fixed */
-  cos_Delta = fabs(cos (thisPoint.latitude));
+  step_Delta = dDelta;					/* Delta step-size is fixed */
+  step_Alpha = dAlpha / fabs(cos (thisPoint.latitude));	/* Alpha stepsize depends on Delta */
 
   node = &head;		/* start our grid with an empty head */
 
@@ -944,15 +950,14 @@ buildIsotropicSkyGrid (LALStatus *status, DopplerSkyGrid **skyGrid, const SkyReg
 	  node->Alpha = thisPoint.longitude;
 	  node->Delta = thisPoint.latitude;
 	} /* if pointInPolygon() */
-      
-      step_Alpha = dAlpha / cos_Delta;	/* Alpha stepsize depends on Delta */
 
       thisPoint.longitude += step_Alpha;
+
       if (thisPoint.longitude > skyRegion->upperRight.longitude)
 	{
 	  thisPoint.longitude = skyRegion->lowerLeft.longitude;
 	  thisPoint.latitude += step_Delta;	
-	  cos_Delta = fabs (cos (thisPoint.latitude));
+	  step_Alpha = dAlpha / fabs(cos (thisPoint.latitude));	/* update Alpha stepsize to new Delta */
 	} 
 
       /* this it the break-condition: are we done yet? */
