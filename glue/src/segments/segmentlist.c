@@ -606,13 +606,13 @@ static PyObject *__and__(PyObject *self, PyObject *other)
 
 	/* error checking on size functions not required */
 	if(PyList_GET_SIZE(self) >= PySequence_Size(other)) {
-		self = (PyObject *) segments_SegmentList_New(&segments_SegmentList_Type, self);
+		self = (PyObject *) segments_SegmentList_New(self->ob_type, self);
 		if(self) {
 			new = PyNumber_InPlaceAnd(self, other);
 			Py_DECREF(self);
 		}
 	} else {
-		other = (PyObject *) segments_SegmentList_New(&segments_SegmentList_Type, other);
+		other = (PyObject *) segments_SegmentList_New(self->ob_type, other);
 		if(other) {
 			new = PyNumber_InPlaceAnd(other, self);
 			Py_DECREF(other);
@@ -765,13 +765,13 @@ static PyObject *__or__(PyObject *self, PyObject *other)
 
 	/* error checking on size functions not required */
 	if(PyList_GET_SIZE(self) >= PySequence_Size(other)) {
-		self = (PyObject *) segments_SegmentList_New(&segments_SegmentList_Type, self);
+		self = (PyObject *) segments_SegmentList_New(self->ob_type, self);
 		if(self) {
 			new = PyNumber_InPlaceOr(self, other);
 			Py_DECREF(self);
 		}
 	} else {
-		other = (PyObject *) segments_SegmentList_New(&segments_SegmentList_Type, other);
+		other = (PyObject *) segments_SegmentList_New(self->ob_type, other);
 		if(other) {
 			new = PyNumber_InPlaceOr(other, self);
 			Py_DECREF(other);
@@ -982,7 +982,7 @@ static PyObject *__isub__(PyObject *self, PyObject *other)
 static PyObject *__sub__(PyObject *self, PyObject *other)
 {
 	PyObject *new = NULL;
-	self = (PyObject *) segments_SegmentList_New(&segments_SegmentList_Type, self);
+	self = (PyObject *) segments_SegmentList_New(self->ob_type, self);
 	if(self) {
 		new = PyNumber_InPlaceSubtract(self, other);
 		Py_DECREF(self);
@@ -1004,7 +1004,7 @@ static PyObject *__invert__(PyObject *self)
 	if(n < 0)
 		return NULL;
 
-	new = (PyObject *) segments_SegmentList_New(&segments_SegmentList_Type, NULL);
+	new = (PyObject *) segments_SegmentList_New(self->ob_type, NULL);
 	if(!new)
 		return NULL;
 

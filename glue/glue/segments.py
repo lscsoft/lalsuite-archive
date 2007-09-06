@@ -305,7 +305,7 @@ class segment(tuple):
 		if (self[1] <= other[0]) or (self[0] >= other[1]):
 			# self and other don't intersect
 			raise ValueError, other
-		return tuple.__new__(segment, (max(self[0], other[0]), min(self[1], other[1])))
+		return tuple.__new__(self.__class__, (max(self[0], other[0]), min(self[1], other[1])))
 
 	def __or__(self, other):
 		"""
@@ -316,7 +316,7 @@ class segment(tuple):
 		if (self[1] < other[0]) or (self[0] > other[1]):
 			# self and other are disjoint
 			raise ValueError, other
-		return tuple.__new__(segment, (min(self[0], other[0]), max(self[1], other[1])))
+		return tuple.__new__(self.__class__, (min(self[0], other[0]), max(self[1], other[1])))
 
 	# addition is union
 	__add__ = __or__
@@ -334,8 +334,8 @@ class segment(tuple):
 			# result is not exactly 1 segment
 			raise ValueError, other
 		if self[0] < other[0]:
-			return tuple.__new__(segment, (self[0], other[0]))
-		return tuple.__new__(segment, (other[1], self[1]))
+			return tuple.__new__(self.__class__, (self[0], other[0]))
+		return tuple.__new__(self.__class__, (other[1], self[1]))
 
 	# check for proper intersection and subsetness
 
@@ -355,7 +355,7 @@ class segment(tuple):
 		otherwise other is compared to the bounds of self as a
 		scalar.
 		"""
-		if isinstance(other, segment):
+		if isinstance(other, self.__class__):
 			return (self[0] <= other[0]) and (self[1] >= other[1])
 		else:
 			return self[0] <= other < self[1]
@@ -367,21 +367,21 @@ class segment(tuple):
 		Move both the start and the end of the segment a distance x
 		away from the other.
 		"""
-		return segment(self[0] - x, self[1] + x)
+		return self.__class__(self[0] - x, self[1] + x)
 
 	def contract(self, x):
 		"""
 		Move both the start and the end of the segment a distance x
 		towards the the other.
 		"""
-		return segment(self[0] + x, self[1] - x)
+		return self.__class__(self[0] + x, self[1] - x)
 
 	def shift(self, x):
 		"""
 		Return a new segment by adding x to the upper and lower
 		bounds of this segment.
 		"""
-		return tuple.__new__(segment, (self[0] + x, self[1] + x))
+		return tuple.__new__(self.__class__, (self[0] + x, self[1] + x))
 
 
 #
@@ -506,8 +506,8 @@ class segmentlist(list):
 		This operation is O(n).
 		"""
 		if len(self) >= len(other):
-			return segmentlist(self).__iand__(other)
-		return segmentlist(other).__iand__(self)
+			return self.__class__(self).__iand__(other)
+		return self.__class__(other).__iand__(self)
 
 	def __ior__(self, other):
 		"""
@@ -545,8 +545,8 @@ class segmentlist(list):
 		reordered to attempt to use the O(m log n) case.
 		"""
 		if len(self) >= len(other):
-			return segmentlist(self).__ior__(other)
-		return segmentlist(other).__ior__(self)
+			return self.__class__(self).__ior__(other)
+		return self.__class__(other).__ior__(self)
 
 	def __xor__(self, other):
 		"""
@@ -598,7 +598,7 @@ class segmentlist(list):
 		Return the difference between the segmentlist and another.
 		This operation is O(n).
 		"""
-		return segmentlist(self).__isub__(other)
+		return self.__class__(self).__isub__(other)
 
 	def __invert__(self):
 		"""
@@ -606,8 +606,8 @@ class segmentlist(list):
 		list.  This operation is O(n).
 		"""
 		if not len(self):
-			return segmentlist([segment(NegInfinity, PosInfinity)])
-		l = segmentlist()
+			return self.__class__([segment(NegInfinity, PosInfinity)])
+		l = self.__class__()
 		if self[0][0] > NegInfinity:
 			l.append(segment(NegInfinity, self[0][0]))
 		last = self[0][1]
@@ -1036,7 +1036,7 @@ class segmentlistdict(dict):
 		preserved.
 		"""
 		keys = set(keys)
-		new = segmentlistdict()
+		new = self.__class__()
 		intersection = self.intersection(keys)
 		for key in keys:
 			dict.__setitem__(new, key, shallowcopy(intersection))

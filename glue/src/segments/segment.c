@@ -212,7 +212,7 @@ static PyObject *__and__(PyObject *self, PyObject *other)
 	}
 	Py_INCREF(a);
 	Py_INCREF(b);
-	return segments_Segment_New(&segments_Segment_Type, a, b);
+	return segments_Segment_New(self->ob_type, a, b);
 }
 
 
@@ -243,7 +243,7 @@ static PyObject *__or__(PyObject *self, PyObject *other)
 	}
 	Py_INCREF(a);
 	Py_INCREF(b);
-	return segments_Segment_New(&segments_Segment_Type, a, b);
+	return segments_Segment_New(self->ob_type, a, b);
 }
 
 
@@ -274,7 +274,7 @@ static PyObject *__sub__(PyObject *self, PyObject *other)
 	}
 	Py_INCREF(a);
 	Py_INCREF(b);
-	return segments_Segment_New(&segments_Segment_Type, a, b);
+	return segments_Segment_New(self->ob_type, a, b);
 }
 
 
@@ -293,8 +293,8 @@ static PyObject *protract(PyObject *self, PyObject *delta)
 		return NULL;
 	}
 	if(PyObject_Compare(a, b) <= 0)
-		return segments_Segment_New(&segments_Segment_Type, a, b);
-	return segments_Segment_New(&segments_Segment_Type, b, a);
+		return segments_Segment_New(self->ob_type, a, b);
+	return segments_Segment_New(self->ob_type, b, a);
 }
 
 
@@ -308,8 +308,8 @@ static PyObject *contract(PyObject *self, PyObject *delta)
 		return NULL;
 	}
 	if(PyObject_Compare(a, b) <= 0)
-		return segments_Segment_New(&segments_Segment_Type, a, b);
-	return segments_Segment_New(&segments_Segment_Type, b, a);
+		return segments_Segment_New(self->ob_type, a, b);
+	return segments_Segment_New(self->ob_type, b, a);
 }
 
 
@@ -322,7 +322,7 @@ static PyObject *shift(PyObject *self, PyObject *delta)
 		Py_DECREF(b);
 		return NULL;
 	}
-	return segments_Segment_New(&segments_Segment_Type, a, b);
+	return segments_Segment_New(self->ob_type, a, b);
 }
 
 
