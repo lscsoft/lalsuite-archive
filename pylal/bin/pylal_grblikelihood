@@ -23,6 +23,7 @@ import sys
 import os
 import optparse
 import glob
+import re
 
 import numpy
 numpy.seterr('raise')  # throw an exception on floating point errors
@@ -110,18 +111,15 @@ def makesteps(x,y1,y2):
 
 #######################################################################
 # make a smooth contour at the specified confidence
-def get_smooth_contour(xedges,yedges,pcsignalsq,confidence,width=3.0): 	 #
+def get_smooth_contour(xedges,yedges,pcsignalsq,confidence,width=3.0):
   clevel=zeros(len(xedges))
   dy = yedges[1]-yedges[0] 
   for i in arange(len(xedges)):
-    found = 0
     for j in arange(len(yedges)):
-      if pcsignalsq[j,i]>confidence and not found: 
+      if pcsignalsq[j,i]>confidence: 
         slope=(yedges[j]-yedges[j-1])/(pcsignalsq[j,i]-pcsignalsq[j-1,i])
         clevel[i]=dy+yedges[j-1] + (confidence-pcsignalsq[j-1,i])*slope
-        found = 1 
-      if pcsignalsq[j,i]<confidence and found: 
-        found = 0 	 
+        break
 
   gauss = exp( - 0.5 * ( ( xedges - mean( xedges ) ) / width )**2  )\
     / sqrt( 2.0 * pi ) / width
@@ -277,8 +275,14 @@ if opts.figure_type in ("ps", "eps"):
 
 statistic = CoincInspiralUtils.coincStatistic(opts.statistic)
 
-ifo_list = [ifo for ifo in ("G1", "H1", "H2", "L1") \
-            if getattr(opts, "%s_triggers" % ifo.lower())]
+pat = re.compile(r"^(\w\d)_triggers")
+ifo_list = [opt[:2].upper() for opt in opts.__dict__ \
+            if (pat.match(opt) is not None) and getattr(opts, opt)]
+
+# ifo_list = [ifo for ifo in ("G1", "H1", "H2", "L1") \
+#             if getattr(opts, "%s_triggers" % ifo.lower())]
+
+print ifo_list
 
 ifo_combos = CoincInspiralUtils.get_ifo_combos(ifo_list)
 
@@ -542,8 +546,8 @@ else:
   pcsignalsq = missedsq / (missedsq + foundsq + 1.0e-10)
 
   mcerrorsq = sqrt( pcsignalsq * ( 1.0 - pcsignalsq ) /\
-       (missedsq + foundsq + 1.0e-10) )
-
+         (missedsq + foundsq + 1.0e-10) )
+  
   pcsignalsq =  pcsignalsq + mcerrorsq
 
   if opts.known_distance:
