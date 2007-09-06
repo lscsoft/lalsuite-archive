@@ -43,12 +43,23 @@ from glue.ligolw import lsctables
 from glue.ligolw import ilwd
 from glue.ligolw import utils
 from pylal import llwapp
+from pylal import date
 
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
 
+
+##############################################################################
+# Speed hack
+##############################################################################
+"""
+lal.LIGOTimeGPS is horrifically slow.  Replace its use with the C version
+from pylal.date.
+"""
+
+lsctables.lal.LIGOTimeGPS = date.LIGOTimeGPS
 
 #
 # =============================================================================
@@ -168,15 +179,10 @@ def load_filename(filename, int_to_ilwd, verbose = False, gz = False):
 
 def sngl_inspiral_int_to_ilwd(xmldoc):
 	#
-	# find the summ_value table
+	# find the summ_value table, then add and populate a summ_value_id column
 	#
 
 	summ_value = table.get_table(xmldoc, lsctables.SummValueTable.tableName)
-
-	#
-	# add and populate a summ_value_id column
-	#
-
 	try:
 		summ_value.appendColumn("summ_value_id")
 	except ValueError:
@@ -185,6 +191,20 @@ def sngl_inspiral_int_to_ilwd(xmldoc):
 	else:
 		for row in summ_value:
 			row.summ_value_id = summ_value.ids.next()
+
+	#
+	# find the summvars table, then add and populate a summvar_id column
+	#
+	summvars = table.get_table(xmldoc, lsctables.SearchSummVarsTable.tableName)
+	try:
+		summvars.appendColumn("search_summvar_id")
+	except ValueError:
+		# already has one
+		pass
+	else:
+		for row in summvars:
+			row.search_summvar_id = summvars.ids.next()
+
 
 	#
 	# find the sngl_inspiral table
@@ -484,20 +504,6 @@ def populate_coinc_event_sims(xmldoc):
 
 def depopulate_sngl_inspiral(xmldoc):
 	#
-	# how to test if two sngl_inspirals are the same event
-	#
-
-	def compare_sngl_inspirals(event1, event2):
-		# FIXME: how are two inspiral events defined to be the same?
-		return (
-			cmp(event1.ifo, event2.ifo) or
-			cmp(event1.end_time, event2.end_time) or
-			cmp(event1.end_time_ns, event2.end_time_ns) or
-			cmp(event1.mass1, event2.mass1) or
-			cmp(event1.mass2, event2.mass2)
-		)
-
-	#
 	# find the sngl_inspiral table
 	#
 
@@ -510,19 +516,16 @@ def depopulate_sngl_inspiral(xmldoc):
 	#
 	# delete duplicates, recording replacement event_ids
 	#
-
+	trigger_id_dict = {}
 	id_mapping = {}
-	i = 0
-	while i < len(sngl_inspiral):
-		j = i + 1
-		while j < len(sngl_inspiral):
-			if not compare_sngl_inspirals(sngl_inspiral[i], sngl_inspiral[j]):
-				id_mapping[sngl_inspiral[j].event_id] = sngl_inspiral[i].event_id
-				del sngl_inspiral[j]
-			else:
-				j += 1
-		i += 1
+	for i, trigger in enumerate(sngl_inspiral):
+		if trigger in trigger_id_dict:
+			id_mapping[trigger.event_id] = trigger_id_dict[trigger]
+			del sngl_inspiral[i]
+		else:
+			trigger_id_dict[trigger] = trigger.event_id
 
+	print id_mapping
 	#
 	# update coinc_event_map table
 	#
