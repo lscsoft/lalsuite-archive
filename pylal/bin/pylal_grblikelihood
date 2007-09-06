@@ -224,7 +224,7 @@ if not opts.show_plot:
   import matplotlib
   matplotlib.use('Agg')
 from pylab import *
-from viz import makesteps
+from pylal.viz import makesteps
 rc('text', usetex=True)
 
 # Adapted from http://www.scipy.org/Cookbook/Matplotlib/LaTeX_Examples
