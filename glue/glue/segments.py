@@ -348,9 +348,12 @@ class segment(tuple):
 
 	def __contains__(self, other):
 		"""
-		Return True if other is wholly contained in self.  other
-		can be another segment or an object of the same type as the
-		bounds of self (a scalar).
+		Return True if other is wholly contained in self.  If other
+		is an instance of the segment class or an instance of a
+		subclass of segment then it is treated as an interval whose
+		upper and lower bounds must not be outside of self,
+		otherwise other is compared to the bounds of self as a
+		scalar.
 		"""
 		if isinstance(other, segment):
 			return (self[0] <= other[0]) and (self[1] >= other[1])
@@ -479,9 +482,9 @@ class segmentlist(list):
 	def find(self, item):
 		"""
 		Return the smallest i such that i is the index of an
-		element that wholly contains the given segment.  Raises
-		ValueError if no such element exists.  Does not require the
-		segmentlist to be coalesced.
+		element that wholly contains item.  Raises ValueError if no
+		such element exists.  Does not require the segmentlist to
+		be coalesced.
 		"""
 		for i, seg in enumerate(self):
 			if item in seg:
@@ -857,10 +860,8 @@ class segmentlistdict(dict):
 		Return a dictionary of the results of func applied to each
 		of the segmentlist objects in self.
 		"""
-		d = {}
-		for key, value in self.iteritems():
-			d[key] = func(value)
-		return d
+		# FIXME: use generator expressions in >= 2.4
+		return dict([(key, func(value)) for key, value in self.iteritems()])
 
 	def __abs__(self):
 		"""
@@ -885,12 +886,12 @@ class segmentlistdict(dict):
 		# FIXME: use generator expressions in >= 2.4
 		return segment(min([seg[0] for seg in segs]), max([seg[1] for seg in segs]))
 
-	def find(self, seg):
+	def find(self, item):
 		"""
 		Return a dictionary of the results of running find() on
 		each of the segmentlists.
 		"""
-		return self.map(lambda x: x.find(seg))
+		return self.map(lambda x: x.find(item))
 
 	# list-by-list arithmetic
 
@@ -1052,6 +1053,9 @@ class segmentlistdict(dict):
 		keys are considered.  Keys not represented in both segment
 		lists are ignored.  If keys is None (the default) then all
 		segment lists are considered.
+
+		This method is equivalent to the intersects() method, but
+		without requiring the keys to match.
 		"""
 		keys1 = set(self.iterkeys())
 		keys2 = set(other.iterkeys())
@@ -1060,9 +1064,9 @@ class segmentlistdict(dict):
 			keys1 &= keys
 			keys2 &= keys
 		for key1 in keys1:
-			l1 = self[key1]
+			l = self[key1]
 			for key2 in keys2:
-				if l1.intersects(other[key2]):
+				if l.intersects(other[key2]):
 					return True
 		return False
 
