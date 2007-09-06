@@ -798,6 +798,19 @@ class SnglInspiral(object):
 		y = self.event_id % 100000
 		return x, slidenum, y
 
+	# FIXME: how are two inspiral events defined to be the same?
+	def __eq__(self, other):
+		return not (
+			cmp(self.ifo, other.ifo) or
+			cmp(self.end_time, other.end_time) or
+			cmp(self.end_time_ns, other.end_time_ns) or
+			cmp(self.mass1, other.mass1) or
+			cmp(self.mass2, other.mass2)
+		)
+		
+	def __hash__(self):
+		return hash((self.ifo, self.end_time, self.end_time_ns, self.mass1, self.mass2))
+
 
 SnglInspiralTable.RowType = SnglInspiral
 
