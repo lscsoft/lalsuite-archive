@@ -455,7 +455,6 @@ class SnglBurstTable(DBTable):
 	RowType = lsctables.SnglBurstTable.RowType
 	how_to_index = lsctables.SnglBurstTable.how_to_index
 
-
 class SimBurstTable(DBTable):
 	tableName = lsctables.SimBurstTable.tableName
 	validcolumns = lsctables.SimBurstTable.validcolumns
@@ -464,6 +463,21 @@ class SimBurstTable(DBTable):
 	RowType = lsctables.SimBurstTable.RowType
 	how_to_index = lsctables.SimBurstTable.how_to_index
 
+class SnglInspiralTable(DBTable):
+	tableName = lsctables.SnglInspiralTable.tableName
+	validcolumns = lsctables.SnglInspiralTable.validcolumns
+	constraints = lsctables.SnglInspiralTable.constraints
+	ids = lsctables.SnglInspiralTable.ids
+	RowType = lsctables.SnglInspiralTable.RowType
+	how_to_index = lsctables.SnglInspiralTable.how_to_index
+
+class SimInspiralTable(DBTable):
+	tableName = lsctables.SimInspiralTable.tableName
+	validcolumns = lsctables.SimInspiralTable.validcolumns
+	constraints = lsctables.SimInspiralTable.constraints
+	ids = lsctables.SimInspiralTable.ids
+	RowType = lsctables.SimInspiralTable.RowType
+	how_to_index = lsctables.SimInspiralTable.how_to_index
 
 class TimeSlideTable(DBTable):
 	tableName = lsctables.TimeSlideTable.tableName
@@ -702,6 +716,8 @@ TableByName = {
 	table.StripTableName(SearchSummaryTable.tableName): SearchSummaryTable,
 	table.StripTableName(SnglBurstTable.tableName): SnglBurstTable,
 	table.StripTableName(SimBurstTable.tableName): SimBurstTable,
+	table.StripTableName(SnglInspiralTable.tableName): SnglInspiralTable,
+	table.StripTableName(SimInspiralTable.tableName): SimInspiralTable,
 	table.StripTableName(TimeSlideTable.tableName): TimeSlideTable,
 	table.StripTableName(CoincDefTable.tableName): CoincDefTable,
 	table.StripTableName(CoincTable.tableName): CoincTable,
