@@ -255,24 +255,27 @@ class DBTable(table.Table):
 		table.Table.__init__(self, *attrs)
 		self.dbtablename = table.StripTableName(self.getAttribute(u"Name"))
 		try:
-			# copy metadata from lsctables
+			# try to find info in lsctables module
 			cls = lsctables.TableByName[self.dbtablename]
+		except KeyError:
+			# unknown table
+			pass
+		else:
+			# copy metadata from lsctables
 			self.tableName = cls.tableName
 			self.validcolumns = cls.validcolumns
 			self.constraints = cls.constraints
 			self.ids = cls.ids
 			self.RowType = cls.RowType
 			self.how_to_index = cls.how_to_index
-		except KeyError:
-			# unknown table
-			pass
 		if self.connection is None:
 			raise ligolw.ElementError, "connection attribute not set"
 		self.cursor = self.connection.cursor()
 
 	def _end_of_columns(self):
 		table.Table._end_of_columns(self)
-		# dbcolumnnames and types have the "not loaded" columns removed
+		# dbcolumnnames and types have the "not loaded" columns
+		# removed
 		if self.loadcolumns is not None:
 			self.dbcolumnnames = [name for name in self.columnnames if name in self.loadcolumns]
 			self.dbcolumntypes = [name for i, name in enumerate(self.columntypes) if self.columnnames[i] in self.loadcolumns]
