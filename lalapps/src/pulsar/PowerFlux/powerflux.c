@@ -95,7 +95,7 @@ if(a<1)a=1;
 if(b<1)b=1;
 r=calloc(a,b);
 while(r==NULL){
-	fprintf(stderr,"Could not allocate %ld chunks of %ld bytes each (%ld bytes total)\n",a,b,a*b);
+	fprintf(stderr,"Could not allocate %ld chunks of %ld bytes each (%ld bytes total), current memory usage %ld\n",a,b,a*b, MEMUSAGE);
 	if(i>10)exit(-1);
 	sleep(10);
 	r=calloc(a,b);

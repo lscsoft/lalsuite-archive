@@ -1,5 +1,5 @@
 PACKAGE=\"powerflux\"
-VERSION=1.4.17-64
+VERSION=1.4.18-64
 LALROOT=./../../../../
 LALROOT=/opt/lscsoft/lal/
 LALINCLUDE=-I$(LALROOT)/include/
@@ -10,6 +10,7 @@ OPTFLAGS=-O6 -mmmx -msse -mcpu=i686
 OPTFLAGS=-O6 -march=i686 -funroll-loops
 OPTFLAGS=-O6 -msse2 -march=i686 -funroll-loops
 OPTFLAGS=-O6 -march=opteron -funroll-loops -fno-stack-protector
+OPTFLAGS=-O -march=opteron -fno-stack-protector
 #OPTFLAGS=-O6 -msse2 -funroll-loops -fno-stack-protector
 CFLAGS=-Wall -g $(OPTFLAGS) -DPACKAGE=$(PACKAGE) -DVERSION=\"$(VERSION)\" \
 	$(LALINCLUDE)
@@ -235,27 +236,54 @@ test5: powerflux
 		--fake-orientation=0.5 --fake-ra=5.785685 --fake-dec=-1.563849
 
 test5c: powerflux
-	./powerflux --dataset=random2.dst -f 720000 -n 501 \
+	./powerflux --dataset=random3.dst -f 180002 -n 501 \
 		--ephemeris-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
 		--averaging-mode=matched --do-cutoff=1 --lock-file=test.lock \
 		--subtract-background=0 --ks-test=1 --filter-lines=0 \
 		--spindown-start=0.0 --spindown-step=2e-8 --spindown-count=1 \
 		--dump-candidates=0 \
 		--dump-points=0 \
-		--sky-marks-file=all_sky_marks_1.txt \
+		--sky-marks-file=all_sky_marks.txt \
 	        --earth-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/earth05-09.dat \
         	--sun-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/sun05-09.dat  \
- 		--focus-dec=$(DEC) --focus-ra=$(RA) --focus-radius=0.5e2 \
- 		--fake-ref-time=793154935 \
- 		--fake-ra=$(RA) --fake-dec=$(DEC) --fake-freq=200.10027777 --fake-strain=10e-24 \
- 		--fake-spindown=2e-10 --fake-iota=1.57 --fake-psi=0.0 \
-		--max-candidates=10000 --skymap-resolution-ratio=1
+		--max-candidates=10000 --skymap-resolution-ratio=1 \
+  		--focus-dec=$(DEC) --focus-ra=$(RA) --focus-radius=0.5e2 
+
+#  		--fake-ref-time=793154935 \
+#  		--fake-ra=$(RA) --fake-dec=$(DEC) --fake-freq=200.10027777 --fake-strain=10e-24 \
+#  		--fake-spindown=2e-10 --fake-iota=1.57 --fake-psi=0.0 \
 
 
 # 		--write-dat=NONE \
 #		--write-png=NONE \
 # 		--write-png=\(.\*bands\|.\*strain.\*\|high.\*\|S.\*\|Median.\*\|weight.\*\|max_dx.\*\)\\.png$$ \
 #		--dump-data=input.dat \
+
+test_bench_one: powerflux
+	./powerflux --dataset=random3.dst -f 180005 -n 501 \
+		--ephemeris-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
+		--averaging-mode=one --do-cutoff=1 \
+		--subtract-background=1 --ks-test=1 --filter-lines=1 \
+		--spindown-start=0.0 --spindown-step=2e-8 --spindown-count=1 \
+		--dump-candidates=0 \
+		--dump-points=0 \
+		--sky-marks-file=all_sky_marks.txt \
+	        --earth-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/earth05-09.dat \
+        	--sun-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/sun05-09.dat  \
+		--max-candidates=10000 --skymap-resolution-ratio=1 \
+
+test_bench_matched: powerflux
+	./powerflux --dataset=random3.dst -f 180007 -n 501 \
+		--ephemeris-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
+		--averaging-mode=matched --do-cutoff=1 \
+		--subtract-background=1 --ks-test=1 --filter-lines=1 \
+		--spindown-start=0.0 --spindown-step=2e-8 --spindown-count=1 \
+		--dump-candidates=0 \
+		--dump-points=0 \
+		--sky-marks-file=all_sky_marks.txt \
+	        --earth-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/earth05-09.dat \
+        	--sun-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/sun05-09.dat  \
+		--max-candidates=10000 --skymap-resolution-ratio=1 \
 
 
 test.H1.inj.1: powerflux

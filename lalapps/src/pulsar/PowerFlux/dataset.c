@@ -954,35 +954,17 @@ fprintf(stderr, "Output dataset summary data\n");
 for(i=0;i<d_free;i++)output_dataset_info(&(datasets[i]));
 }
 
-static int get_geo_range(DATASET *d, char *filename, long startbin, long count, float *re, float *im, INT64 *gps)
+static int get_geo_range(DATASET *d, char *filename, FILE *fin, long startbin, long count, float *re, float *im, INT64 *gps)
 {
-FILE *fin;
 REAL8 a, timebase;
 INT4 b, bin_start, nbins;
 REAL4 *tmp;
 float factor;
 long i;
-long retries;
-errno=0;
-retries=0;
-while((fin=fopen(filename,"r"))==NULL) {
-	//if((fin==NULL) && (errno==ENOENT))return -1; /* no such file */
-	fprintf(stderr,"Error opening file \"%s\":", filename);
-	perror("");
-	retries++;
-	sleep(1);
-	}
-if(retries>0) { 
-	fprintf(stderr, "Successfully opened file \"%s\"\n", filename);
-	}
+
 /* read header */	
 /* Key */
-a=0.0;
-fread(&a, sizeof(a), 1, fin);
-if(a!=1.0){
-	fprintf(stderr,"Cannot read file \"%s\": wrong endianness\n", filename);
-	return -1;
-	}
+
 /* gps */
 fread(&b, sizeof(b), 1, fin);
 *gps=b;
@@ -1032,9 +1014,84 @@ for(i=0;i<count;i++){
 		}
 	}
 free(tmp);
-fclose(fin);
 return 0;
 }
+
+typedef struct {
+	INT4 gps_sec;
+	INT4 gps_nsec;
+	REAL8 tbase;
+	INT4 first_frequency_index;
+	INT4 nsamples;
+	UINT8 crc64;
+	CHAR detector[2];
+	CHAR padding[2];
+	INT4 comment_length;
+	} SFTv2_header2;
+
+static int get_sftv2_range(DATASET *d, char *filename, FILE *fin, long startbin, long count, float *re, float *im, INT64 *gps)
+{
+REAL8 a, timebase;
+INT4 b, bin_start, nbins;
+REAL4 *tmp;
+float factor;
+long i;
+SFTv2_header2 ht;
+/* read header */	
+
+fread(&ht, sizeof(ht), 1, fin);
+
+/* fprintf(stderr, "%s gps=%d nsamples=%d\n", filename, ht.gps_sec, ht.nsamples); */
+
+*gps=ht.gps_sec;
+
+if(!check_intervals(d->segment_list, *gps)){
+	fclose(fin);
+	return -1;
+	}
+if(check_intervals(d->veto_segment_list, *gps)>0){
+	fclose(fin);
+	return -1;
+	}
+
+
+/* timebase */
+timebase=ht.tbase;
+bin_start=ht.first_frequency_index;
+nbins=ht.nsamples;
+
+tmp=do_alloc(count*2, sizeof(*tmp));
+
+fseek(fin, ht.comment_length+(startbin-bin_start)*8,SEEK_CUR);
+if(fread(tmp,4,count*2,fin)<count*2){
+	fprintf(stderr,"Not enough data in file \"%s\" gps=%lld.\n",filename,*gps);
+	free(tmp);
+	fclose(fin);
+	return -1;
+	}
+/* reverse normalization applied to geo format files */
+if(timebase < 0) {
+	fprintf(stderr,"** Timebase is negative, ERROR !\n");
+	fprintf(LOG,"** Timebase is negative, ERROR !\n");
+	exit(-1);
+	} else {
+	factor=(0.5*1800.0*16384.0)/(args_info.strain_norm_factor_arg*nbins); /* use fixed normalization for 1800 sec SFTs .. */
+	factor=16384.0/args_info.strain_norm_factor_arg; /* fixed normalization for v2 SFTs ? */
+	}
+for(i=0;i<count;i++){
+	re[i]=tmp[2*i]*factor;
+	im[i]=tmp[2*i+1]*factor;
+	if(!isfinite(re[i]) || !isfinite(im[i])) {
+		free(tmp);
+		fprintf(stderr, "Infinite value encountered in file \"%s\"\n", filename);
+		return -2;
+		}
+	}
+free(tmp);
+/* return length of this record - so we can seek to the next header */
+return (48+ht.nsamples*8+ht.comment_length);
+}
+
 
 static void expand_sft_array(DATASET *d, int count)
 {
@@ -1061,15 +1118,65 @@ d->gps=p;
 
 static void add_file(DATASET *d, char *filename)
 {
-if(d->free>=d->size) {
-	expand_sft_array(d, 1);
+FILE *fin;
+REAL8 a;
+long i;
+long retries;
+long header_offset;
+errno=0;
+retries=0;
+while((fin=fopen(filename,"r"))==NULL) {
+	//if((fin==NULL) && (errno==ENOENT))return -1; /* no such file */
+	fprintf(stderr,"Error opening file \"%s\":", filename);
+	perror("");
+	retries++;
+	sleep(1);
 	}
-d->gps[d->free]=0;
-if(!get_geo_range(d, filename, d->first_bin, d->nbins, &(d->re[d->free*d->nbins]), &(d->im[d->free*d->nbins]), &(d->gps[d->free]))) {
-	/* fprintf(stderr, "Loaded file %s (%lld)\n", filename, d->gps[d->free]); */
-	d->free++;
-	} else {
-	fprintf(stderr, "Skipped file %s (%lld)\n", filename, d->gps[d->free]);
+if(retries>0) {
+	fprintf(stderr, "Successfully opened file \"%s\"\n", filename);
+	}
+/* read header */
+header_offset=0;
+while(1) {
+	/* find header */
+	fseek(fin, header_offset, SEEK_SET);
+	if(ftell(fin)!=header_offset) {
+		/* no header to find */
+		if(!header_offset) {
+			fprintf(stderr, "Error seeking to start of file %s !!\n", filename);
+			exit(-1);
+			}
+		return;
+		}
+
+	if(d->free>=d->size) {
+		expand_sft_array(d, 1);
+		}
+	d->gps[d->free]=0;
+
+	/* Key */
+	a=0.0;
+	fread(&a, sizeof(a), 1, fin);
+	if(a==1.0) {
+		i=get_geo_range(d, filename, fin,  d->first_bin, d->nbins, &(d->re[d->free*d->nbins]), &(d->im[d->free*d->nbins]), &(d->gps[d->free]));
+		fclose(fin);
+		if(!i)d->free++;
+			else fprintf(stderr, "Skipped file %s (%lld)\n", filename, d->gps[d->free]);
+		return;
+		} else
+	if(a==2.0) {
+		i=get_sftv2_range(d, filename, fin,  d->first_bin, d->nbins, &(d->re[d->free*d->nbins]), &(d->im[d->free*d->nbins]), &(d->gps[d->free]));
+		if(i<0) {
+			fclose(fin);
+			fprintf(stderr,"Cannot read file \"%s\": wrong endianness or invalid data\n", filename);
+			return;
+			}
+		header_offset+=i;
+		d->free++;
+		} else {
+		if(!header_offset)fprintf(stderr,"Cannot read file \"%s\": wrong endianness or invalid data\n", filename);
+		return;
+		}
 	}
 }
 
