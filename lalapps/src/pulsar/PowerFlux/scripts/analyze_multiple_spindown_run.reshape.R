@@ -83,7 +83,7 @@ for(i in NBands:(NBands+length(CompositeBands)-1)) {
 rownames(BandData)<-BandData[,'Name']
 
 
-Fields<-c("LogFile", "band", "spindown", "hist_residuals_max", "masked", "cputime", "median")
+Fields<-c("band", "spindown", "hist_residuals_max", "masked", "cputime", "median")
 for(i in 0: (NBands-1)) {
 	MAXFields<-c(p("max_dx_snr_", i),
 		p("max_dx_freq_", i),
@@ -105,7 +105,6 @@ for(i in 0: (NBands-1)) {
 
 #data<-dbGetQuery(con, p("SELECT ", p(Fields, collapse=", ")," FROM ", DataSet, " WHERE Band>50 GROUP BY band, spindown ORDER BY band, spindown"))
 data<-dbGetQuery(con, p("SELECT ", p(Fields, collapse=", ")," FROM ", DataSet, " GROUP BY band, spindown"))
-data[,'Instance']<-as.integer(gsub(".*/output/([^/]*)/.*", "\\1", as.character(data[,'LogFile'])))
 
 BandVars<-data.frame(prefix=c("max_dx_snr_", "max_dx_freq_", "ks_hist_", "max_high_ul_band_", "max_band_", "max_band_", "max_ratio_"),
 		     suffix=c("", "", "_3", "_2", "_5", "_6", "_3"))
@@ -216,6 +215,47 @@ FancyMap <- function(UL, title="", levels=NULL, f0=NULL, f1=NULL) {
 dir.create(output_dir)	
 
 #
+# Describe loaded dataset
+# 
+
+Log<-file(paste(output_dir, "/report.log", sep=""), "w")
+cat("Dataset loaded from table", DataSet, "\n", file=Log)
+
+
+BandCounts<-aggregate(data.frame(Count=rep(1, dim(data)[1])), data[,'band', drop=FALSE], sum)
+BandCounts[,'Incomplete']<- BandCounts[,'Count']<max(BandCounts[,'Count'], na.rm=TRUE)
+BandCounts[,'band']<-as.numeric(as.character(BandCounts[,'band']))
+BandCounts<-BandCounts[order(BandCounts[,'band']),,drop=FALSE]
+N<-dim(BandCounts)[1]
+Step<-median(BandCounts[2:N,'band']-BandCounts[1:(N-1), 'band'])
+AllBands<-seq(from=BandCounts[1,'band'], to=BandCounts[N,'band'], by=Step)
+
+cat("First band:", BandCounts[1,'band'], "\n", file=Log)
+cat("Last band:", BandCounts[N,'band'], "\n", file=Log)
+cat("The following bands are incomplete:", paste(BandCounts[BandCounts[,'Incomplete'], 'band'], collapse=", "), "\n", file=Log)
+X<-paste(setdiff(AllBands, BandCounts[,'band']), collapse=", ")
+if(X=="")X<-"NONE"
+cat("The following bands are missing:", X, "\n", file=Log)
+
+LogFiles<-dbGetQuery(con, p("SELECT DISTINCT LogFile FROM ", DataSet))
+Instances<-as.integer(gsub(".*/output/([^/]*)/.*", "\\1", LogFiles[,1]))
+
+cat("First instance:", min(Instances), "\n", file=Log)
+cat("Last instance:", max(Instances), "\n", file=Log)
+Missing<-sort(setdiff(seq(from=min(Instances), to=max(Instances), by=1), Instances))
+X<- paste(Missing, collapse=", ")
+if(X=="")X<-"NONE"
+cat("The following instances are missing:", X, "\n", file=Log)
+if(length(Missing)>0) {
+	cat("--------- missing.dag -------------\n", file=Log)
+	cat(paste("JOB A", Missing, " condor\nVARS A", Missing, " PID=\"", Missing, "\"\n", sep="", collapse="\n"), file=Log)
+	cat("-----------------------------------\n", file=Log)
+	}
+
+
+close(Log)
+
+#
 # Compute time estimates
 #
 #plot(band[,4],cputime[,3], xlab="Frequency", ylab="seconds", main="Compute time")
@@ -236,9 +276,9 @@ start_plot("timing")
 plot(Freq, data[,'cputime']/3600.0, xlab="Frequency", ylab="hours", main="Compute time")
 dev.off()
 
-start_plot("instance_timing")
-plot(data[,"Instance"], data[,'cputime']/3600.0, xlab="Instance", ylab="hours", main="Compute time")
-dev.off()
+#start_plot("instance_timing")
+#plot(data[,"Instance"], data[,'cputime']/3600.0, xlab="Instance", ylab="hours", main="Compute time")
+#dev.off()
 
 #CPUDays<-sum(cputime[,3]/(3600.0*5.0*24.0))
 #
