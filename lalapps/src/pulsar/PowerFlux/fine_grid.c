@@ -1541,6 +1541,8 @@ void fine_grid_stage(void)
 {
 int pi,i,j, k,m, last_pi;
 double a,b;
+struct timeval start_time, end_time, last_time;
+double delta, delta_avg;
 
 clear_polarization_arrays();
 
@@ -1558,6 +1560,8 @@ for(i=0;i<useful_bins*fine_grid->nbands;i++){
 	}
 	
 fprintf(stderr,"Main loop: %d patches to process.\n", patch_grid->npoints);
+gettimeofday(&start_time, NULL);
+last_time=start_time;
 last_pi=0;
 for(pi=0;pi<patch_grid->npoints;pi++){
 	if(patch_grid->band[pi]<0)continue;
@@ -1597,7 +1601,17 @@ for(pi=0;pi<patch_grid->npoints;pi++){
 	make_unified_limits(pi);
 
 	if(pi>last_pi+99) {
-		fprintf(stderr,"%d ",pi);
+		gettimeofday(&end_time, NULL);
+		//fprintf(stderr,"%d ",pi);
+
+		delta=end_time.tv_sec-last_time.tv_sec+(end_time.tv_usec-last_time.tv_usec)*1e-6;
+		if(fabs(delta)==0.0)delta=1.0;
+
+		delta_avg=end_time.tv_sec-start_time.tv_sec+(end_time.tv_usec-start_time.tv_usec)*1e-6;
+		if(fabs(delta_avg)==0.0)delta_avg=1.0;
+
+		fprintf(stderr, "%d patches computed, rate %f current, %f avg\n", pi, (pi-last_pi)/(delta), pi/delta_avg);
+		last_time=end_time;
 		last_pi=pi;
 		}
 	/* for debugging only: */
@@ -1605,11 +1619,16 @@ for(pi=0;pi<patch_grid->npoints;pi++){
 	if(pi>300)break;
 	#endif
 	}
-/* 146m59.347s  146m49.450s 
-   124m29.298s  124m17.621s
-*/
+
+gettimeofday(&end_time, NULL);
+
+delta=end_time.tv_sec-last_time.tv_sec+(end_time.tv_usec-last_time.tv_usec)*1e-6;
+if(fabs(delta)==0.0)delta=1.0;
 
 fprintf(stderr,"%d\n",pi);
+
+fprintf(stderr, "Patch speed: %f\n", (pi-last_pi)/delta);
+fprintf(LOG, "Patch speed: %f\n", (pi-last_pi)/delta);
 
 fprintf(stderr, "Power cache hits: %lld\n", power_cache.total_hits);
 fprintf(stderr, "Power cache misses: %lld\n", power_cache.total_misses);
