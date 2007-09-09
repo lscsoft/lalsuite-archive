@@ -246,9 +246,18 @@ Missing<-sort(setdiff(seq(from=min(Instances), to=max(Instances), by=1), Instanc
 X<- paste(Missing, collapse=", ")
 if(X=="")X<-"NONE"
 cat("The following instances are missing:", X, "\n", file=Log)
-if(length(Missing)>0) {
-	cat("--------- missing.dag -------------\n", file=Log)
-	cat(paste("JOB A", Missing, " condor\nVARS A", Missing, " PID=\"", Missing, "\"\n", sep="", collapse="\n"), file=Log)
+
+IncompleteLogFiles<-dbGetQuery(con, p("SELECT DISTINCT LogFile FROM ", DataSet, " WHERE cputime IS NULL"))
+Incomplete<-as.integer(gsub(".*/output/([^/]*)/.*", "\\1", IncompleteLogFiles[,1]))
+X<- paste(Incomplete, collapse=", ")
+if(X=="")X<-"NONE"
+cat("The following instances are incomplete:", X, "\n", file=Log)
+
+Todo<-sort(unique(c(Missing, Incomplete)))
+
+if(length(Todo)>0) {
+	cat("--------- todo.dag -------------\n", file=Log)
+	cat(paste("JOB A", Todo, " condor\nVARS A", Todo, " PID=\"", Todo, "\"\n", sep="", collapse="\n"), file=Log)
 	cat("-----------------------------------\n", file=Log)
 	}
 
