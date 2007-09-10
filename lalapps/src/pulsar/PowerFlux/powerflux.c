@@ -26,6 +26,8 @@
 #include <gsl/gsl_rng.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/time.h>
+#include <sys/resource.h>
 
 #include "global.h"
 #include "hookup.h"
@@ -39,6 +41,7 @@
 #include "dataset.h"
 #include "candidates.h"
 #include "util.h"
+#include "jobs.h"
 
 extern int ntotal_polarizations, nlinear_polarizations;
 extern POLARIZATION *polarizations;
@@ -159,12 +162,25 @@ int main(int argc, char *argv[])
 RGBPic *p;
 PLOT *plot;
 char s[20000];
+struct rlimit rl;
 
 /* INIT stage */
 
 time(&start_time);
 
 fprintf(stderr, "Initial memory: %g MB\n", (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
+
+if(getrlimit(RLIMIT_AS, &rl)<0) {
+	perror("Could not obtain virtual memory limit:");
+	} else {
+	fprintf(stderr, "Virtual memory limits soft=%ld hard=%ld\n", rl.rlim_cur, rl.rlim_max);
+	}
+
+if(getrlimit(RLIMIT_DATA, &rl)<0) {
+	perror("Could not obtain data segment limit:");
+	} else {
+	fprintf(stderr, "Data segment limits soft=%ld hard=%ld\n", rl.rlim_cur, rl.rlim_max);
+	}
 
 if(cmdline_parser(argc, argv, &args_info))exit(-1);
 if(args_info.config_given)
@@ -228,9 +244,12 @@ if(gethostname(s, 19999)>=0){
 	fprintf(LOG, "node: unknown\n");
 	}
 
+init_threads(args_info.num_threads_arg);
+init_jobs();
 init_hookup();
 init_statistics();
 tabulate_hann_filter7();
+init_power_cache();
 do_CutOff=args_info.do_cutoff_arg;
 
 if(args_info.earth_ephemeris_given){

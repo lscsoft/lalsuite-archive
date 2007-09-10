@@ -25,6 +25,7 @@
 #include "global.h"
 #include "polarization.h"
 #include "cmdline.h"
+#include "jobs.h"
 
 
 extern struct gengetopt_args_info args_info;
@@ -39,11 +40,15 @@ int ntotal_polarizations=-1, nlinear_polarizations=-1;
 
 POLARIZATION_RESULTS *polarization_results=NULL;
 
+int max_cruncher_threads=-2;
+ACCUMULATION_ARRAYS **aar=NULL;
+
 
 void init_polarizations0()
 {
 int i, nderived=1;
 float a;
+
 
 nlinear_polarizations=args_info.nlinear_polarizations_arg;;
 ntotal_polarizations=nlinear_polarizations+nderived;
@@ -107,6 +112,7 @@ polarization_results[nlinear_polarizations+0].conjugate=1;
 fprintf(stderr,"\t%s %f %f\n",polarization_results[nlinear_polarizations+0].name,
 	polarization_results[nlinear_polarizations+0].plus_factor, 
 	polarization_results[nlinear_polarizations+0].cross_factor);
+
 }
 
 void init_polarizations1(POLARIZATION *polarizations, SKY_GRID_TYPE *AM_coeffs_plus, SKY_GRID_TYPE *AM_coeffs_cross, long AM_coeffs_size)
@@ -134,31 +140,7 @@ for(i=0;i<ntotal_polarizations;i++) {
 
 void allocate_polarization_arrays(void)
 {
-long total,i;
-
-total=ntotal_polarizations*sizeof(*polarization_results[0].fine_grid_sum);
-
-#ifdef COMPUTE_SIGMA
-total+=ntotal_polarizations*sizeof(*polarization_results[0].fine_grid_sq_sum);
-#endif
-
-#ifdef WEIGHTED_SUM
-total+=ntotal_polarizations*sizeof(*polarization_results[0].fine_grid_sum);
-#else
-total+=ntotal_polarizations*sizeof(*polarization_results[0].fine_grid_count);
-#endif
-
-if(args_info.compute_betas_arg){
-	fprintf(LOG,"Compute betas: true\n");
-	} else {
-	fprintf(LOG,"Compute betas: false\n");
-	}
-
-
-fprintf(stderr, "Allocating accumulation arrays: %.1f KB\n", 
-	(stored_fine_bins*useful_bins*total)/(1024.0));
-fprintf(LOG, "Accumulation set size: %f KB\n", 
-	(stored_fine_bins*useful_bins*total)/(1024.0));
+int i;
 	
 fprintf(stderr, "Skymap arrays size: %.1f MB\n", ntotal_polarizations*(11.0+2.0*args_info.compute_betas_arg)*fine_grid->npoints*sizeof(SUM_TYPE)/(1024.0*1024.0));
 fprintf(LOG, "Skymap arrays size: %f MB\n", ntotal_polarizations*(11.0+2.0*args_info.compute_betas_arg)*fine_grid->npoints*sizeof(SUM_TYPE)/(1024.0*1024.0));
@@ -166,22 +148,12 @@ fprintf(LOG, "Skymap arrays size: %f MB\n", ntotal_polarizations*(11.0+2.0*args_
 fprintf(stderr, "Spectral plot arrays size: %.1f KB\n", ntotal_polarizations*7.0*useful_bins*fine_grid->nbands*sizeof(SUM_TYPE)/1024.0);
 fprintf(LOG, "Spectral plot arrays size: %f KB\n", ntotal_polarizations*7.0*useful_bins*fine_grid->nbands*sizeof(SUM_TYPE)/1024.0);
 		
-for(i=0;i<ntotal_polarizations;i++){
-	/* Accumulation arrays */
-	polarization_results[i].fine_grid_sum=do_alloc(stored_fine_bins*useful_bins,sizeof(*polarization_results[i].fine_grid_sum));
-	#ifdef COMPUTE_SIGMA
-	polarization_results[i].fine_grid_sq_sum=do_alloc(stored_fine_bins*useful_bins,sizeof(*polarization_results[i].fine_grid_sq_sum));
-	#endif
-
+for(i=0;i<ntotal_polarizations;i++) {
 
 	#ifdef WEIGHTED_SUM
-	polarization_results[i].fine_grid_weight=do_alloc(stored_fine_bins*useful_bins,sizeof(*polarization_results[i].fine_grid_weight));
-	
-	polarization_results[i].skymap.total_weight=do_alloc(fine_grid->npoints,sizeof(*polarization_results[i].fine_grid_weight));
+	polarization_results[i].skymap.total_weight=do_alloc(fine_grid->npoints,sizeof(*polarization_results[i].skymap.total_weight));
 	#else
-	polarization_results[i].fine_grid_count=do_alloc(stored_fine_bins*useful_bins,sizeof(*polarization_results[i].fine_grid_count));
-	
-	polarization_results[i].skymap.total_count=do_alloc(fine_grid->npoints,sizeof(*polarization_results[i].fine_grid_count));
+	polarization_results[i].skymap.total_count=do_alloc(fine_grid->npoints,sizeof(*polarization_results[i].skymap.total_count));
 	#endif
 
 	/* Output arrrays - skymaps*/
@@ -216,6 +188,10 @@ for(i=0;i<ntotal_polarizations;i++){
 
 	}
 
+max_cruncher_threads=get_max_threads();
+
+aar=do_alloc(max_cruncher_threads, sizeof(*aar));
+for(i=0;i<max_cruncher_threads;i++)aar[i]=new_accumulation_arrays();
 }
 
 void free_polarization_arrays(void)
@@ -223,20 +199,10 @@ void free_polarization_arrays(void)
 int i;
 #define FREE(var) { free(var); var=NULL; }
 for(i=0;i<ntotal_polarizations;i++){
-	/* Accumulation arrays */
-	FREE(polarization_results[i].fine_grid_sum);
-	#ifdef COMPUTE_SIGMA
-	FREE(polarization_results[i].fine_grid_sq_sum);
-	#endif
-
 
 	#ifdef WEIGHTED_SUM
-	FREE(polarization_results[i].fine_grid_weight);
-	
 	FREE(polarization_results[i].skymap.total_weight);
 	#else
-	FREE(polarization_results[i].fine_grid_count);
-	
 	FREE(polarization_results[i].skymap.total_count);
 	#endif
 
@@ -270,6 +236,15 @@ for(i=0;i<ntotal_polarizations;i++){
 	FREE(polarization_results[i].spectral_plot.dx_ra);
 	FREE(polarization_results[i].spectral_plot.max_mask_ratio);
 	}
+
+for(i=0;i<max_cruncher_threads;i++) {
+	free_accumulation_arrays(aar[i]);
+	aar[i]=NULL;
+	}
+free(aar);
+aar=NULL;
+
+max_cruncher_threads=-2;
 }
 
 void clear_polarization_arrays(void)
@@ -311,23 +286,110 @@ for(i=0;i<ntotal_polarizations;i++){
 	}
 }
 
-void clear_accumulation_arrays(void)
+ACCUMULATION_ARRAYS * new_accumulation_arrays(void)
+{
+ACCUMULATION_ARRAYS *r;
+long total,i;
+
+r=do_alloc(ntotal_polarizations, sizeof(*r));
+
+
+total=ntotal_polarizations*sizeof(*r[0].fine_grid_sum);
+
+#ifdef COMPUTE_SIGMA
+total+=ntotal_polarizations*sizeof(*r[0].fine_grid_sq_sum);
+#endif
+
+#ifdef WEIGHTED_SUM
+total+=ntotal_polarizations*sizeof(*r[0].fine_grid_sum);
+#else
+total+=ntotal_polarizations*sizeof(*r[0].fine_grid_count);
+#endif
+
+if(args_info.compute_betas_arg){
+	fprintf(LOG,"Compute betas: true\n");
+	} else {
+	fprintf(LOG,"Compute betas: false\n");
+	}
+
+
+fprintf(stderr, "Allocating accumulation arrays: %.1f KB\n", 
+	(stored_fine_bins*useful_bins*total)/(1024.0));
+fprintf(LOG, "Accumulation set size: %f KB\n", 
+	(stored_fine_bins*useful_bins*total)/(1024.0));
+
+
+for(i=0;i<ntotal_polarizations;i++){
+	/* Accumulation arrays */
+	r[i].fine_grid_sum=do_alloc(stored_fine_bins*useful_bins,sizeof(*r[i].fine_grid_sum));
+	#ifdef COMPUTE_SIGMA
+	r[i].fine_grid_sq_sum=do_alloc(stored_fine_bins*useful_bins,sizeof(*r[i].fine_grid_sq_sum));
+	#endif
+
+
+	#ifdef WEIGHTED_SUM
+	r[i].fine_grid_weight=do_alloc(stored_fine_bins*useful_bins,sizeof(*r[i].fine_grid_weight));
+	#else
+	r[i].fine_grid_count=do_alloc(stored_fine_bins*useful_bins,sizeof(*r[i].fine_grid_count));
+	#endif
+	}
+return(r);
+}
+
+void free_accumulation_arrays(ACCUMULATION_ARRAYS *r)
+{
+int i;
+#define FREE(var) { free(var); var=NULL; }
+for(i=0;i<ntotal_polarizations;i++){
+	/* Accumulation arrays */
+	FREE(r[i].fine_grid_sum);
+	#ifdef COMPUTE_SIGMA
+	FREE(r[i].fine_grid_sq_sum);
+	#endif
+
+
+	#ifdef WEIGHTED_SUM
+	FREE(r[i].fine_grid_weight);
+	#else
+	FREE(r[i].fine_grid_count);
+	#endif
+	}
+free(r);
+}
+
+ACCUMULATION_ARRAYS *get_thread_accumulation_arrays(int thread_id)
+{
+/* Reserve -1 thread_id for main program, get_max_threads always returns one more than have been spawned */
+thread_id++;
+if(thread_id<0) {
+	fprintf(stderr, "Aieee ! - thread id is smaller than -1\n");
+	exit(-1);
+ 	}
+if(thread_id>=max_cruncher_threads) {
+	fprintf(stderr, "Aieee ! - thread id is too large (%d), maximum is %d\n", thread_id, max_cruncher_threads);
+	exit(-1);
+ 	}
+return(aar[thread_id]);
+}
+
+void clear_accumulation_arrays(ACCUMULATION_ARRAYS *r)
 {
 long i,k;
 
 for(k=0;k<ntotal_polarizations;k++){
 	for(i=0;i<stored_fine_bins*useful_bins;i++){
-		polarization_results[k].fine_grid_sum[i]=0.0;
+		r[k].fine_grid_sum[i]=0.0;
 		
 		#ifdef COMPUTE_SIGMA
-		polarization_results[k].fine_grid_sq_sum[i]=0.0;
+		r[k].fine_grid_sq_sum[i]=0.0;
 		#endif
 
 		#ifdef WEIGHTED_SUM	
-		polarization_results[k].fine_grid_weight[i]=0.0;
+		r[k].fine_grid_weight[i]=0.0;
 		#else	
-		polarization_results[k].fine_grid_count[i]=0;
+		r[k].fine_grid_count[i]=0;
 		#endif
 		}
 	}
 }
+

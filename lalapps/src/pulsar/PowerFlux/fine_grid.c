@@ -37,6 +37,7 @@
 #include "dataset.h"
 #include "candidates.h"
 #include "util.h"
+#include "jobs.h"
 
 extern POLARIZATION_RESULTS *polarization_results;
 extern int nlinear_polarizations, ntotal_polarizations;
@@ -71,7 +72,7 @@ int stored_fine_bins=0;
 int max_shift=0, min_shift=0;
 
 
-SUM_TYPE  *circ_ul, *circ_ul_freq;  /* lower (over polarizations) accumulation limits */
+SUM_TYPE  *accum_circ_ul, *accum_circ_ul_freq;  /* lower (over polarizations) accumulation limits */
 SUM_TYPE *skymap_circ_ul, *skymap_circ_ul_freq; /* skymaps */
 SUM_TYPE *spectral_plot_circ_ul; /* spectral plots */
 
@@ -89,9 +90,9 @@ float lower_limit_comp;
 
 /* single bin version */
 
-void (*process_patch)(DATASET *d, int pol_index, int pi, int k, float CutOff);
+void (*process_patch)(int thread_id, DATASET *d, ACCUMULATION_ARRAYS *ar, int pol_index, int pi, int k, float CutOff);
 
-static void process_patch1(DATASET *d, int pol_index, int pi, int k, float CutOff)
+static void process_patch1(int thread_id, DATASET *d, ACCUMULATION_ARRAYS *ar, int pol_index, int pi, int k, float CutOff)
 {
 int i,kk,b,b0,b1,n,offset;
 int bin_shift;
@@ -101,6 +102,7 @@ SUM_TYPE *sum,*sq_sum;
 float *p;
 float doppler;
 float f_plus, f_cross, beta1, beta2;
+ACCUMULATION_ARRAYS *aa=&(ar[pol_index]);
 POLARIZATION_RESULTS *pr=&(polarization_results[pol_index]);
 POLARIZATION *pl=&(d->polarizations[pol_index]);
 
@@ -164,9 +166,9 @@ for(i=0,kk=super_grid->first_map[pi];kk>=0;kk=super_grid->list_map[kk],i++)
 			}
 		#endif
 		
-		sum=&(pr->fine_grid_sum[b0-side_cut+bin_shift+useful_bins*i]);
+		sum=&(aa->fine_grid_sum[b0-side_cut+bin_shift+useful_bins*i]);
 		#ifdef COMPUTE_SIGMA
-		sq_sum=&(pr->fine_grid_sq_sum[b0-side_cut+bin_shift+useful_bins*i]);
+		sq_sum=&(aa->fine_grid_sq_sum[b0-side_cut+bin_shift+useful_bins*i]);
 		#endif
 		p=&(d->power[k*nbins+b0]);
 		
@@ -194,13 +196,13 @@ for(i=0,kk=super_grid->first_map[pi];kk>=0;kk=super_grid->list_map[kk],i++)
 			if(b>=b1)continue;
 			offset=b-side_cut+bin_shift+useful_bins*i;
 			/* prime array pointers */
-			sum=&(pr->fine_grid_sum[offset]);
+			sum=&(aa->fine_grid_sum[offset]);
 			p=&(d->power[k*nbins+b]);
 
 			#ifdef WEIGHTED_SUM
-			pr->fine_grid_weight[offset]+=w;
+			aa->fine_grid_weight[offset]+=w;
 			#else
-			pr->fine_grid_count[offset]++;
+			aa->fine_grid_count[offset]++;
 			#endif
 			
 			#ifdef WEIGHTED_SUM
@@ -220,7 +222,7 @@ for(i=0,kk=super_grid->first_map[pi];kk>=0;kk=super_grid->list_map[kk],i++)
 
 /* three bin version */
 
-static void process_patch3(DATASET *d, int pol_index, int pi, int k, float CutOff)
+static void process_patch3(int thread_id, DATASET *d, ACCUMULATION_ARRAYS *ar, int pol_index, int pi, int k, float CutOff)
 {
 int i,kk,b,b0,b1,n,offset;
 int bin_shift;
@@ -230,6 +232,7 @@ SUM_TYPE *sum,*sq_sum;
 float *p;
 float doppler;
 float f_plus, f_cross, beta1, beta2;
+ACCUMULATION_ARRAYS *aa=&(ar[pol_index]);
 POLARIZATION_RESULTS *pr=&(polarization_results[pol_index]);
 POLARIZATION *pl=&(d->polarizations[pol_index]);
 
@@ -292,7 +295,7 @@ for(i=0,kk=super_grid->first_map[pi];kk>=0;kk=super_grid->list_map[kk],i++)
 			}
 		#endif
 		
-		sum=&(pr->fine_grid_sum[b0-side_cut+bin_shift+useful_bins*i]);
+		sum=&(aa->fine_grid_sum[b0-side_cut+bin_shift+useful_bins*i]);
 		#ifdef COMPUTE_SIGMA
 		sq_sum=&(pr->fine_grid_sq_sum[b0-side_cut+bin_shift+useful_bins*i]);
 		#endif
@@ -322,13 +325,13 @@ for(i=0,kk=super_grid->first_map[pi];kk>=0;kk=super_grid->list_map[kk],i++)
 			if(b>=b1)continue;
 			offset=b-side_cut+bin_shift+useful_bins*i;
 			/* prime array pointers */
-			sum=&(pr->fine_grid_sum[offset]);
+			sum=&(aa->fine_grid_sum[offset]);
 			p=&(d->power[k*nbins+b]);
 
 			#ifdef WEIGHTED_SUM
-			pr->fine_grid_weight[offset]+=w;
+			aa->fine_grid_weight[offset]+=w;
 			#else
-			pr->fine_grid_count[offset]++;
+			aa->fine_grid_count[offset]++;
 			#endif
 			
 			#ifdef WEIGHTED_SUM
@@ -358,19 +361,29 @@ struct {
 	int hits;
 	long long total_hits;
 	long long total_misses;
-	} power_cache = {
-	d: NULL,
-	segment: -1,
-	power: NULL,
-	shift: NULL,
-	free: 0,
-	size: 0,
-	hits: 0,
-	total_hits: 0,
-	total_misses: 0
-	};
+	} * power_cache;
 
-float *get_matched_power(float shift, DATASET *d, int k)
+void init_power_cache(void) 
+{
+int i;
+
+power_cache=do_alloc(get_max_threads(), sizeof(*power_cache));
+
+for(i=0;i<get_max_threads();i++) {
+	power_cache[i].d=NULL;
+	power_cache[i].d=NULL;
+	power_cache[i].segment=-1;
+	power_cache[i].power=NULL;
+	power_cache[i].shift=NULL;
+	power_cache[i].free=0;
+	power_cache[i].size=0;
+	power_cache[i].hits=0;
+	power_cache[i].total_hits=0;
+	power_cache[i].total_misses=0;
+	}
+}
+
+float *get_matched_power(int thread_id, float shift, DATASET *d, int k)
 {
 float *bin_re, *bin_im;
 int i, m, bin_shift;
@@ -378,40 +391,46 @@ float filter[7];
 float *power;
 float x, y;
 
-if( (power_cache.d!=d) || power_cache.segment!=k) {
-	power_cache.d=d;
-	power_cache.segment=k;
-	power_cache.free=0;
-	if(power_cache.size==0) {
-		power_cache.size=100;
-		power_cache.power=do_alloc(power_cache.size, sizeof(*power_cache.power));
-		power_cache.shift=do_alloc(power_cache.size, sizeof(*power_cache.shift));
-		for(i=0;i<power_cache.size;i++) {
-			power_cache.power[i]=do_alloc(nbins-2*side_cut, sizeof(**power_cache.power));
+thread_id++;
+if(thread_id<0) {
+	fprintf(stderr, "Aieee ! - thread id is smaller than -1\n");
+	exit(-1);
+ 	}
+
+if( (power_cache[thread_id].d!=d) || power_cache[thread_id].segment!=k) {
+	power_cache[thread_id].d=d;
+	power_cache[thread_id].segment=k;
+	power_cache[thread_id].free=0;
+	if(power_cache[thread_id].size==0) {
+		power_cache[thread_id].size=100;
+		power_cache[thread_id].power=do_alloc(power_cache[thread_id].size, sizeof(*power_cache[thread_id].power));
+		power_cache[thread_id].shift=do_alloc(power_cache[thread_id].size, sizeof(*power_cache[thread_id].shift));
+		for(i=0;i<power_cache[thread_id].size;i++) {
+			power_cache[thread_id].power[i]=do_alloc(nbins-2*side_cut, sizeof(**power_cache[thread_id].power));
 			}
 		}
 	}
 
-for(m=0;m<power_cache.free;m++) {
+for(m=0;m<power_cache[thread_id].free;m++) {
 	/* There is no difference in SNR between 0.01 and 0.05, while
            there are substantial savings in run time (at least 14%) */
-	if(fabs(power_cache.shift[m]-shift)<0.05) {
-		power_cache.hits++;
-		return(power_cache.power[m]);
+	if(fabs(power_cache[thread_id].shift[m]-shift)<0.05) {
+		power_cache[thread_id].hits++;
+		return(power_cache[thread_id].power[m]);
 		}
 	}
-power_cache.total_misses++;
-power_cache.total_hits+=power_cache.hits+1;
-power_cache.hits=0;
-m=power_cache.free;
-power_cache.free++;
+power_cache[thread_id].total_misses++;
+power_cache[thread_id].total_hits+=power_cache[thread_id].hits+1;
+power_cache[thread_id].hits=0;
+m=power_cache[thread_id].free;
+power_cache[thread_id].free++;
 
-if(m>=power_cache.size) {
+if(m>=power_cache[thread_id].size) {
 	fprintf(stderr, "Aieee ! power cache overflowed\n");
 	exit(-1);
 	}
 
-power_cache.shift[m]=shift;
+power_cache[thread_id].shift[m]=shift;
 
 bin_shift=rintf(shift);
 
@@ -420,7 +439,7 @@ bin_im=&(d->im[k*nbins+side_cut+bin_shift]);
 
 tabulated_fill_hann_filter7(filter, (shift-bin_shift));
 
-power=power_cache.power[m];
+power=power_cache[thread_id].power[m];
 
 for(i=nbins-2*side_cut;i>0;i--) {
 	
@@ -433,10 +452,10 @@ for(i=nbins-2*side_cut;i>0;i--) {
 	power++;
 	}
 
-return(power_cache.power[m]);
+return(power_cache[thread_id].power[m]);
 }
 
-static void process_patch_matched(DATASET *d, int pol_index, int pi, int k, float CutOff)
+static void process_patch_matched(int thread_id, DATASET *d, ACCUMULATION_ARRAYS *ar, int pol_index, int pi, int k, float CutOff)
 {
 int i,kk,b,b0,b1,n,offset;
 int bin_shift;
@@ -446,6 +465,7 @@ SUM_TYPE *sum,*sq_sum;
 float *power;
 float doppler;
 float f_plus, f_cross, beta1, beta2;
+ACCUMULATION_ARRAYS *aa=&(ar[pol_index]);
 POLARIZATION_RESULTS *pr=&(polarization_results[pol_index]);
 POLARIZATION *pl=&(d->polarizations[pol_index]);
 float shift;
@@ -510,12 +530,12 @@ for(i=0,kk=super_grid->first_map[pi];kk>=0;kk=super_grid->list_map[kk],i++)
 			}
 		#endif
 		
-		sum=&(pr->fine_grid_sum[useful_bins*i]);
+		sum=&(aa->fine_grid_sum[useful_bins*i]);
 		#ifdef COMPUTE_SIGMA
-		sq_sum=&(pr->fine_grid_sq_sum[useful_bins*i]);
+		sq_sum=&(aa->fine_grid_sq_sum[useful_bins*i]);
 		#endif
 
-		power=get_matched_power(shift, d, k);
+		power=get_matched_power(thread_id, shift, d, k);
 
 		/* cycle over bins */
 		for(b=b0;b<b1;b++) {
@@ -585,13 +605,17 @@ free_RGBPic(p);
 
 int float_cmp(float *a, float *b);
 
-void make_limits(POLARIZATION_RESULTS *pol, int pi)
+void make_limits(int thread_id, POLARIZATION_RESULTS *pol, ACCUMULATION_ARRAYS *ar, int pi)
 {
 SUM_TYPE M, S,dx;
 SUM_TYPE a,b,c;
 SUM_TYPE *tmp=NULL;
 int i,j,k,offset,band;
 NORMAL_STATS nstats;
+SUM_TYPE *circ_ul, *circ_ul_freq;
+
+circ_ul=&(accum_circ_ul[stored_fine_bins*useful_bins*(thread_id+1)]);
+circ_ul_freq=&(accum_circ_ul[stored_fine_bins*useful_bins*(thread_id+1)]);
 
 /* allocate on stack, for speed */
 tmp=alloca(useful_bins*sizeof(*tmp));
@@ -613,7 +637,7 @@ for(i=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[o
 
 	/* figure out offset to put results into */
 
-	memcpy(tmp,pol->fine_grid_sum+i*useful_bins,useful_bins*sizeof(*tmp));
+	memcpy(tmp, ar->fine_grid_sum+i*useful_bins,useful_bins*sizeof(*tmp));
 	/* compute correlations - for diagnostics only */
 	a=0.0;
 	b=0.0;
@@ -690,7 +714,7 @@ for(i=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[o
 	pol->skymap.max_upper_limit[offset]=0;
 	
 	for(k=0;k<useful_bins;k++){
-		dx=(pol->fine_grid_sum[i*useful_bins+k]-M)/S;		
+		dx=(ar->fine_grid_sum[i*useful_bins+k]-M)/S;		
 		a=upper_limit95(dx)*S;
 		if(a>pol->skymap.max_upper_limit[offset]) {
 			pol->skymap.max_upper_limit[offset]=a;
@@ -728,9 +752,9 @@ for(i=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[o
 			}
 			
 		#ifdef WEIGHTED_SUM
-		a=pol->fine_grid_weight[i*useful_bins+k]/pol->skymap.total_weight[offset];
+		a=ar->fine_grid_weight[i*useful_bins+k]/pol->skymap.total_weight[offset];
 		#else
-		a=pol->fine_grid_count[i*useful_bins+k]/pol->skymap.total_count[offset];
+		a=ar->fine_grid_count[i*useful_bins+k]/pol->skymap.total_count[offset];
 		#endif
 
 		if(a>pol->spectral_plot.max_mask_ratio[k+band*useful_bins]){
@@ -741,12 +765,17 @@ for(i=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[o
 
 }
 
-void make_unified_limits(int pi)
+void make_unified_limits(int thread_id, int pi)
 {
 int i, offset;
 int band, k;
 SUM_TYPE a,b,c;
-for(i=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[offset],i++){
+SUM_TYPE *circ_ul, *circ_ul_freq;
+
+circ_ul=&(accum_circ_ul[stored_fine_bins*useful_bins*(thread_id+1)]);
+circ_ul_freq=&(accum_circ_ul[stored_fine_bins*useful_bins*(thread_id+1)]);
+
+for(i=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[offset],i++) {
 
         band=fine_grid->band[offset];
 	if(band<0)continue;
@@ -793,14 +822,16 @@ if(fine_grid->max_n_dec<800){
 
 plot=make_plot(p->width, p->height);
 
-#define OUTPUT_SKYMAP(format, field)	{\
-	snprintf(s,19999, "%s" format ".png", subinstance_name, pol->name); \
-	if(clear_name_png(s)){ \
-		plot_grid_f(p, fine_grid, pol->skymap.field, 1); \
-		RGBPic_dump_png(s, p); \
+#define OUTPUT_SKYMAP(format, field)	{ \
+	if(pol->skymap.field!=NULL) { \
+		snprintf(s,19999, "%s" format ".png", subinstance_name, pol->name); \
+		if(clear_name_png(s)){ \
+			plot_grid_f(p, fine_grid, pol->skymap.field, 1); \
+			RGBPic_dump_png(s, p); \
+			} \
+		snprintf(s,19999, "%s" format ".dat", subinstance_name, pol->name); \
+		dump_floats(s, pol->skymap.field, fine_grid->npoints, 1); \
 		} \
-	snprintf(s,19999, "%s" format ".dat", subinstance_name, pol->name); \
-	dump_floats(s, pol->skymap.field, fine_grid->npoints, 1); \
 	}
 
 OUTPUT_SKYMAP("%s_weight", total_weight);
@@ -1334,7 +1365,7 @@ free(skymap_high_ul);
 free(freq_f);
 }
 
-void compute_mean(int pi)
+void compute_mean(int thread_id, ACCUMULATION_ARRAYS *ar, int pi)
 {
 SUM_TYPE a,c;
 int i,k,m;
@@ -1360,24 +1391,24 @@ for(k=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[o
 		    for(i=0;i<useful_bins;i++){
 
 			#ifdef WEIGHTED_SUM		
-			if(polarization_results[m].fine_grid_weight[i+k*useful_bins]>polarization_results[m].skymap.max_sub_weight[offset]){
-				polarization_results[m].skymap.max_sub_weight[offset]=polarization_results[m].fine_grid_weight[i+k*useful_bins];
+			if(ar[m].fine_grid_weight[i+k*useful_bins]>polarization_results[m].skymap.max_sub_weight[offset]){
+				polarization_results[m].skymap.max_sub_weight[offset]=ar[m].fine_grid_weight[i+k*useful_bins];
 				}
 	
-			c=(polarization_results[m].skymap.total_weight[offset]-polarization_results[m].fine_grid_weight[i+k*useful_bins]);
+			c=(polarization_results[m].skymap.total_weight[offset]-ar[m].fine_grid_weight[i+k*useful_bins]);
 			#else
-			c=(polarization_results[m].skymap.total_count[offset]-polarization_results[m].fine_grid_count[i+k*useful_bins]);
+			c=(polarization_results[m].skymap.total_count[offset]-ar[m].fine_grid_count[i+k*useful_bins]);
 			#endif
 			if(c>0){
-				a=polarization_results[m].fine_grid_sum[i+k*useful_bins];
+				a=ar[m].fine_grid_sum[i+k*useful_bins];
 				#ifdef COMPUTE_SIGMA
-				b=polarization_results[m].fine_grid_sq_sum[i+k*useful_bins];
+				b=ar[m].fine_grid_sq_sum[i+k*useful_bins];
 				#endif
 		
-				polarization_results[m].fine_grid_sum[i+k*useful_bins]=a/c;
+				ar[m].fine_grid_sum[i+k*useful_bins]=a/c;
 
 				#ifdef COMPUTE_SIGMA
-				polarization_results[m].fine_grid_sq_sum[i+k*useful_bins]=sqrt((b*polarization_results[m].fine_grid_count[i+k*useful_bins]-a)/c);
+				ar[m].fine_grid_sq_sum[i+k*useful_bins]=sqrt((b*ar[m].fine_grid_count[i+k*useful_bins]-a)/c);
 				#endif
 				}
 			}
@@ -1386,7 +1417,7 @@ for(k=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[o
 	}
 }
 
-void compute_mean_no_lines(int pi)
+void compute_mean_no_lines(int thread_id, ACCUMULATION_ARRAYS *ar, int pi)
 {
 SUM_TYPE a,c;
 int i,k,offset,m;
@@ -1410,15 +1441,15 @@ for(k=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[o
 				}
 
 			for(i=0;i<useful_bins;i++){
-				a=polarization_results[m].fine_grid_sum[i+k*useful_bins];
+				a=ar[m].fine_grid_sum[i+k*useful_bins];
 				#ifdef COMPUTE_SIGMA
-				b=polarization_results[m].fine_grid_sq_sum[i+k*useful_bins];
+				b=ar[m].fine_grid_sq_sum[i+k*useful_bins];
 				#endif
 		
-				polarization_results[m].fine_grid_sum[i+k*useful_bins]=a/c;
+				ar[m].fine_grid_sum[i+k*useful_bins]=a/c;
 
 				#ifdef COMPUTE_SIGMA
-				polarization_results[m].fine_grid_sq_sum[i+k*useful_bins]=sqrt((b*polarization_results[m].fine_grid_count[i+k*useful_bins]-a)/c);
+				ar[m].fine_grid_sq_sum[i+k*useful_bins]=sqrt((b*ar[m].fine_grid_count[i+k*useful_bins]-a)/c);
 				#endif
 				}
 			}
@@ -1513,8 +1544,8 @@ stored_fine_bins=super_grid->max_npatch;
 
 allocate_polarization_arrays();
 
-circ_ul=do_alloc(stored_fine_bins*useful_bins, sizeof(*circ_ul));
-circ_ul_freq=do_alloc(stored_fine_bins*useful_bins, sizeof(*circ_ul_freq));
+accum_circ_ul=do_alloc(stored_fine_bins*useful_bins*get_max_threads(), sizeof(*accum_circ_ul));
+accum_circ_ul_freq=do_alloc(stored_fine_bins*useful_bins*get_max_threads(), sizeof(*accum_circ_ul_freq));
 skymap_circ_ul=do_alloc(fine_grid->npoints, sizeof(*skymap_circ_ul));
 skymap_circ_ul_freq=do_alloc(fine_grid->npoints, sizeof(*skymap_circ_ul_freq));
 spectral_plot_circ_ul=do_alloc(useful_bins*fine_grid->nbands, sizeof(*spectral_plot_circ_ul));
@@ -1528,13 +1559,60 @@ free_polarization_arrays();
 
 #define FREE(var) { free(var); var=NULL; }
 
-FREE(circ_ul);
-FREE(circ_ul_freq);
+FREE(accum_circ_ul);
+FREE(accum_circ_ul_freq);
 FREE(skymap_circ_ul);
 FREE(skymap_circ_ul_freq);
 FREE(spectral_plot_circ_ul);
 FREE(max_dx);
 FREE(max_dx_polarization_index);
+}
+
+void fine_grid_cruncher(int thread_id, void *data)
+{
+ACCUMULATION_ARRAYS *ar;
+int i, j, k, m;
+double a, b;
+int pi=(long)data;
+SUM_TYPE *circ_ul, *circ_ul_freq;
+
+circ_ul=&(accum_circ_ul[stored_fine_bins*useful_bins*(thread_id+1)]);
+circ_ul_freq=&(accum_circ_ul[stored_fine_bins*useful_bins*(thread_id+1)]);
+
+ar=get_thread_accumulation_arrays(thread_id);
+
+clear_accumulation_arrays(ar);
+
+/* loop over datasets */
+for(j=0;j<d_free;j++) {
+
+	/* process single patch */
+	for(k=0;k<datasets[j].free;k++){
+		a=datasets[j].expTMedians[k];
+		
+		for(m=0;m<ntotal_polarizations;m++) {
+			b=datasets[j].polarizations[m].patch_CutOff[pi];
+			/* process polarization */
+			if(!do_CutOff || (b*a*AM_response(k, patch_grid, pi, datasets[j].polarizations[m].AM_coeffs)<4))
+				process_patch(thread_id, &(datasets[j]), ar, m, pi, k, b*sqrt(a));
+			}
+		}
+	
+	}
+/* compute means */
+if(0)compute_mean_no_lines(thread_id, ar, pi);
+	else compute_mean(thread_id, ar, pi);
+	
+for(i=0;i<stored_fine_bins*useful_bins;i++){
+	circ_ul[i]=1.0e23; /* Sufficiently large number, 
+				even for SFTs done with 
+				make_fake_data */
+	}
+/* compute upper limits */
+for(i=0;i<ntotal_polarizations;i++){
+	make_limits(thread_id, &(polarization_results[i]), &(ar[i]), pi);
+	}
+make_unified_limits(thread_id, pi);
 }
 
 void fine_grid_stage(void)
@@ -1563,81 +1641,40 @@ fprintf(stderr,"Main loop: %d patches to process.\n", patch_grid->npoints);
 gettimeofday(&start_time, NULL);
 last_time=start_time;
 last_pi=0;
-for(pi=0;pi<patch_grid->npoints;pi++){
+for(pi=0;pi<patch_grid->npoints;pi++) {
 	if(patch_grid->band[pi]<0)continue;
 	if(super_grid->first_map[pi]<0)continue;
 
-	clear_accumulation_arrays();	
+	submit_job(fine_grid_cruncher, (void *)((long)pi));
 
-	/* loop over datasets */
-	for(j=0;j<d_free;j++) {
-
-		/* process single patch */
-		for(k=0;k<datasets[j].free;k++){
-			a=datasets[j].expTMedians[k];
-			
-			for(m=0;m<ntotal_polarizations;m++) {
-				b=datasets[j].polarizations[m].patch_CutOff[pi];
-				/* process polarization */
-				if(!do_CutOff || (b*a*AM_response(k, patch_grid, pi, datasets[j].polarizations[m].AM_coeffs)<4))
-					process_patch(&(datasets[j]), m, pi, k, b*sqrt(a));
-				}
-			}
-		
-		}
-	/* compute means */
-	if(0)compute_mean_no_lines(pi);
-		else compute_mean(pi);
-		
-	for(i=0;i<stored_fine_bins*useful_bins;i++){
-		circ_ul[i]=1.0e23; /* Sufficiently large number, 
-		                     even for SFTs done with 
-				     make_fake_data */
-		}
-	/* compute upper limits */
-	for(i=0;i<ntotal_polarizations;i++){
-		make_limits(&(polarization_results[i]), pi);
-		}
-	make_unified_limits(pi);
-
-	if(pi>last_pi+99) {
-		gettimeofday(&end_time, NULL);
-		//fprintf(stderr,"%d ",pi);
-
-		delta=end_time.tv_sec-last_time.tv_sec+(end_time.tv_usec-last_time.tv_usec)*1e-6;
-		if(fabs(delta)==0.0)delta=1.0;
-
-		delta_avg=end_time.tv_sec-start_time.tv_sec+(end_time.tv_usec-start_time.tv_usec)*1e-6;
-		if(fabs(delta_avg)==0.0)delta_avg=1.0;
-
-		fprintf(stderr, "%d patches computed, rate %f current, %f avg\n", pi, (pi-last_pi)/(delta), pi/delta_avg);
-		last_time=end_time;
-		last_pi=pi;
-		}
-	/* for debugging only: */
+	/* For debugging only: */
 	#if 0
 	if(pi>300)break;
 	#endif
 	}
+
+while(do_single_job(-1));
+
+wait_for_all_done();
 
 gettimeofday(&end_time, NULL);
 
 delta=end_time.tv_sec-last_time.tv_sec+(end_time.tv_usec-last_time.tv_usec)*1e-6;
 if(fabs(delta)==0.0)delta=1.0;
 
-fprintf(stderr,"%d\n",pi);
-
 fprintf(stderr, "Patch speed: %f\n", (pi-last_pi)/delta);
 fprintf(LOG, "Patch speed: %f\n", (pi-last_pi)/delta);
 
-fprintf(stderr, "Power cache hits: %lld\n", power_cache.total_hits);
-fprintf(stderr, "Power cache misses: %lld\n", power_cache.total_misses);
-
-fprintf(LOG, "Power cache hits: %lld\n", power_cache.total_hits);
-fprintf(LOG, "Power cache misses: %lld\n", power_cache.total_misses);
-
-/* reset power cache */
-power_cache.free=0;
+for(i=0;i<get_max_threads();i++) {
+	fprintf(stderr, "Power cache %d hits: %lld\n", i, power_cache[i].total_hits);
+	fprintf(stderr, "Power cache %d misses: %lld\n", i, power_cache[i].total_misses);
+	
+	fprintf(LOG, "Power cache %d hits: %lld\n", i, power_cache[i].total_hits);
+	fprintf(LOG, "Power cache %d misses: %lld\n", i, power_cache[i].total_misses);
+	
+	/* reset power cache */
+	power_cache[i].free=0;
+	}
 
 fprintf(LOG,"Maximum bin shift: %d\n", max_shift);
 fprintf(LOG,"Minimum bin shift: %d\n", min_shift);

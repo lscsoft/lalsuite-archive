@@ -418,28 +418,230 @@ fprintf(fout, "candidate%s: \"%s\" %d %d %d %g %d %d %g %g %g %f %f %f %f %f %f 
 
 #define SNR_FORMULA SNR_FORMULA1
 
+typedef struct {
+	/* Precomputed quantities and input parameters */
+	CANDIDATE *cand;
+	float *e;
+	float a_plus;
+	float a_cross;
+	float a_plus_sq;
+	float a_cross_sq;
+	float p_proj;
+	float c_proj;
+	int remainder;
+	int divisor;
+
+	/* Accumulation variables */
+	double demod_signal_sum[2*WINDOW+1];
+	double signal_sum[2*WINDOW+1];
+	double signal_sq_sum[2*WINDOW+1];
+	double cov_sum[2*WINDOW+1];
+	struct {
+		double re;
+		double im;
+		} phase_sum[2*WINDOW+1];
+
+
+	double total_weight;
+	double response_sum;
+	double response_sq_sum;
+	double response_weight;
+	double total_demod_weight;
+	double total_demod_weight2;
+	double ifo_freq;
+	double ifo_freq_sq;
+
+	int error;
+	} COMPUTE_SCORES_DATA;
+
+void compute_scores_cruncher(int thread_id, COMPUTE_SCORES_DATA *csd)
+{
+int b0, b1, j, k, b, b_max;
+int *signal_bin;
+float *bin_re, *bin_im;
+double *response;
+double *mismatch;
+DATASET *d;
+POLARIZATION *pl;
+float a, f_plus, f_cross, f_plus_sq, f_cross_sq, doppler;
+double f, x, y, demod_weight, power, weight;
+float filter[7];
+float spindown=csd->cand->spindown;
+float frequency=csd->cand->frequency;
+
+for(j=0;j<d_free;j++) {
+	d=&(datasets[j]);
+	//pl=&(d->polarizations[cand->max_dx_polarization_index]);	
+	pl=&(d->polarizations[0]);	
+	
+	response=do_alloc(d->free, sizeof(*response));
+	signal_bin=do_alloc(d->free, sizeof(*signal_bin));
+	mismatch=do_alloc(d->free, sizeof(*mismatch));
+
+	b0=nbins;
+	b1=-1;
+		
+	/* process single SFTs */
+	for(k=0;k<d->free;k++) {
+
+		/* skip sfts of other units */
+		if((k % csd->divisor)!=csd->remainder)continue;
+
+		/* Get amplitude response */
+		#if 0
+		a_plus=F_plus(k, fine_grid, index, pl->AM_coeffs);
+		a_cross=F_plus(k, fine_grid, index, pl->conjugate->AM_coeffs);
+		
+		response[k]=pl->plus_factor*a_plus*a_plus+pl->cross_factor*a_cross*a_cross;
+		#else 
+
+		f_plus=F_plus_coeff(k, csd->e, pl->AM_coeffs);
+		f_cross=F_plus_coeff(k, csd->e, pl->conjugate->AM_coeffs);
+
+// 		f_plus_sq=f_plus*f_plus;
+// 		f_cross_sq=f_cross*f_cross;
+// 
+// 		a=f_plus*a_plus+f_cross*a_cross;
+// 		response[k]=0.25*((f_plus_sq+f_cross_sq)*(a_plus_sq+a_cross_sq)+(f_plus_sq-f_cross_sq)*(a_plus_sq-a_cross_sq)*p_proj+2.0*f_plus*f_cross*(a_plus_sq-a_cross_sq))*c_proj;
+
+		a=f_plus*csd->p_proj+f_cross*csd->c_proj;
+		f_cross=f_cross*csd->p_proj-f_plus*csd->c_proj;
+		f_plus=a;
+
+		f_plus_sq=f_plus*f_plus;
+		f_cross_sq=f_cross*f_cross;
+
+		//response[k]=0.25*((f_plus_sq+f_cross_sq)*(a_plus_sq+a_cross_sq)+(f_plus_sq-f_cross_sq)*(a_plus_sq-a_cross_sq));
+		response[k]=f_plus_sq*csd->a_plus_sq+f_cross_sq*csd->a_cross_sq;
+		#endif
+
+		doppler=csd->e[0]*d->detector_velocity[3*k+0]+
+			csd->e[1]*d->detector_velocity[3*k+1]+
+			csd->e[2]*d->detector_velocity[3*k+2];
+
+		f=frequency+frequency*doppler+spindown*(d->gps[k]-spindown_start+d->coherence_time*0.5);
+
+		signal_bin[k]=rintf(1800.0*f-first_bin);
+		mismatch[k]=1800.0*f-first_bin-signal_bin[k];
+
+		if((signal_bin[k]<b0))b0=signal_bin[k];
+		if((signal_bin[k]>b1))b1=signal_bin[k];
+
+		}
+
+	if( (b0<0) || (b1>=nbins)) {
+		csd->error=-1;
+		return;
+		}
+	//fprintf(stderr, "b0=%d b1=%d\n", b0, b1);
+
+	for(k=0;k<d->free;k++) {
+
+		/* skip sfts of other units */
+		if((k % csd->divisor)!=csd->remainder)continue;
+
+		/* skip SFTs with low weight */
+		//if(d->expTMedians[k]*d->weight*response[k]<0.05)continue;
+
+		/* power_cor computation */
+		weight=d->expTMedians[k]*d->weight;
+		csd->response_sum+=response[k]*weight;
+		csd->response_sq_sum+=response[k]*response[k]*weight;
+		csd->response_weight+=weight;
+
+		demod_weight=weight*response[k];
+		csd->total_demod_weight2+=demod_weight;
+		csd->total_demod_weight+=demod_weight*response[k];
+
+		bin_re=&(d->re[k*nbins+signal_bin[k]-WINDOW]);
+		bin_im=&(d->im[k*nbins+signal_bin[k]-WINDOW]);
+
+		f=signal_bin[k]+mismatch[k];
+		csd->ifo_freq+=f*demod_weight;
+		csd->ifo_freq_sq+=f*f*demod_weight;
+
+		fill_hann_filter7(filter, mismatch[k]);
+
+		for(b=0; b< (2*WINDOW+1); b++) {
+			x=bin_re[-3]*filter[0]+bin_re[-2]*filter[1]+bin_re[-1]*filter[2]+bin_re[0]*filter[3]+bin_re[1]*filter[4]+bin_re[2]*filter[5]+bin_re[3]*filter[6];
+			y=bin_im[-3]*filter[0]+bin_im[-2]*filter[1]+bin_im[-1]*filter[2]+bin_im[0]*filter[3]+bin_im[1]*filter[4]+bin_im[2]*filter[5]+bin_im[3]*filter[6];
+
+			power=x*x+y*y;
+			#if 1
+			csd->signal_sum[b]+=power*weight;
+			csd->signal_sq_sum[b]+=power*power*weight;
+			csd->cov_sum[b]+=power*response[k]*weight;
+			#endif
+
+			csd->demod_signal_sum[b]+=power*demod_weight;
+			bin_re++;
+			bin_im++;
+			}
+		}
+		
+	/* phase computation */
+	#if 0
+	for(k=1;k< (d->free-1);k++) {
+	
+	
+		/* skip SFT with asymmetric gaps */
+		if(d->gps[k]-d->gps[k-1]!=d->gps[k+1]-d->gps[k])continue;
+
+		/* skip SFTs with low weight */
+		if(d->expTMedians[k]<0.01 || d->expTMedians[k-1]<0.01 || d->expTMedians[k+1]<0.01)continue;
+	
+		weight=((response[k-1]*d->expTMedians[k-1]+2*response[k]*d->expTMedians[k]+response[k+1]*d->expTMedians[k+1])*d->weight);
+		csd->total_weight+=weight;
+	
+		p0=&(d->bin[(k-1)*nbins+signal_bin[k-1]-WINDOW]);
+		p1=&(d->bin[k*nbins+signal_bin[k]-WINDOW]);
+		p2=&(d->bin[(k+1)*nbins+signal_bin[k+1]-WINDOW]);
+
+		for(b=0; b< (2*WINDOW+1); b++) {
+			x=sqrt(p0[b].re*p0[b].re+p0[b].im*p0[b].im);
+			y=sqrt(p1[b].re*p1[b].re+p1[b].im*p1[b].im);
+
+			w.re=(p0[b].re*p1[b].re+p0[b].im*p1[b].im)/(x*y);
+			w.im=(p0[b].re*p1[b].im-p0[b].im*p1[b].re)/(x*y);
+
+			x=sqrt(p2[b].re*p2[b].re+p2[b].im*p2[b].im);
+			z.re=(p2[b].re*p1[b].re+p2[b].im*p1[b].im)/(x*y);
+			z.im=(p2[b].re*p1[b].im-p2[b].im*p1[b].re)/(x*y);
+			
+			csd->phase_sum[b].re+=weight*(w.re*z.re-w.im*z.im);
+			csd->phase_sum[b].im+=weight*(w.im*z.re+w.re*z.im);
+			}
+		}
+	#endif
+		
+	free(response);
+	free(signal_bin);
+	free(mismatch);
+	response=NULL;
+	signal_bin=NULL;
+	mismatch=NULL;
+	}
+}
+
 void compute_scores(CANDIDATE *cand, int debug)
 {
 float doppler;
-DATASET *d;
 int index=cand->point_index;
 float spindown=cand->spindown;
 float frequency=cand->frequency;
-int b0, b1, j, k, b, b_max;
-float a, coherence_score, power_cor, a_plus, a_cross, a_plus_sq, a_cross_sq, f_plus, f_cross, f_plus_sq, f_cross_sq;
-POLARIZATION *pl;
-double weight, total_weight, *response, *mismatch, f, x, y, *demod_signal_sum, *signal_sum, *signal_sq_sum, response_sum, response_sq_sum, response_weight, demod_weight, total_demod_weight, total_demod_weight2, *cov_sum, power, mean_power, mean_power_sq, power_sd;
+int b0, b1, i, j, k, b, b_max;
+float a, coherence_score, power_cor, a_plus, a_cross, a_plus_sq, a_cross_sq;
+double weight, total_weight, *response, *mismatch, f, x, y, *demod_signal_sum, *signal_sum, *signal_sq_sum, response_sum, response_sq_sum, response_weight, total_demod_weight, total_demod_weight2, *cov_sum, power, mean_power, mean_power_sq, power_sd;
 int window=WINDOW;
 int search_window=SEARCH_WINDOW;
-int *signal_bin;
-float *bin_re, *bin_im;
-float e[26];
 float p_proj, c_proj;
-float filter[7];
+float e[26];
 struct {
 	double re;
 	double im;
 	} *phase_sum;
+int n_units;
+COMPUTE_SCORES_DATA *units;
 
 total_weight=0;
 response_sq_sum=0.0;
@@ -481,63 +683,52 @@ cand->ifo_freq=0.0;
 cand->ifo_freq_sd=0.0;
 
 /* loop over datasets */
-for(j=0;j<d_free;j++) {
-	d=&(datasets[j]);
-	//pl=&(d->polarizations[cand->max_dx_polarization_index]);	
-	pl=&(d->polarizations[0]);	
-	
-	response=do_alloc(d->free, sizeof(*response));
-	signal_bin=do_alloc(d->free, sizeof(*signal_bin));
-	mismatch=do_alloc(d->free, sizeof(*mismatch));
+n_units=get_max_threads();
+units=do_alloc(n_units, sizeof(*units));
 
-	b0=nbins;
-	b1=-1;
-		
-	/* process single SFTs */
-	for(k=0;k<d->free;k++) {
-		/* Get amplitude response */
-		#if 0
-		a_plus=F_plus(k, fine_grid, index, pl->AM_coeffs);
-		a_cross=F_plus(k, fine_grid, index, pl->conjugate->AM_coeffs);
-		
-		response[k]=pl->plus_factor*a_plus*a_plus+pl->cross_factor*a_cross*a_cross;
-		#else 
+for(i=0;i<n_units;i++) {
+	units[i].e=e;
+	units[i].a_plus=a_plus;
+	units[i].a_cross=a_cross;
+	units[i].a_plus_sq=a_plus_sq;
+	units[i].a_cross_sq=a_cross_sq;
+	units[i].p_proj=p_proj;
+	units[i].c_proj=c_proj;
 
-		f_plus=F_plus_coeff(k, e, pl->AM_coeffs);
-		f_cross=F_plus_coeff(k, e, pl->conjugate->AM_coeffs);
 
-// 		f_plus_sq=f_plus*f_plus;
-// 		f_cross_sq=f_cross*f_cross;
-// 
-// 		a=f_plus*a_plus+f_cross*a_cross;
-// 		response[k]=0.25*((f_plus_sq+f_cross_sq)*(a_plus_sq+a_cross_sq)+(f_plus_sq-f_cross_sq)*(a_plus_sq-a_cross_sq)*p_proj+2.0*f_plus*f_cross*(a_plus_sq-a_cross_sq))*c_proj;
-
-		a=f_plus*p_proj+f_cross*c_proj;
-		f_cross=f_cross*p_proj-f_plus*c_proj;
-		f_plus=a;
-
-		f_plus_sq=f_plus*f_plus;
-		f_cross_sq=f_cross*f_cross;
-
-		//response[k]=0.25*((f_plus_sq+f_cross_sq)*(a_plus_sq+a_cross_sq)+(f_plus_sq-f_cross_sq)*(a_plus_sq-a_cross_sq));
-		response[k]=f_plus_sq*a_plus_sq+f_cross_sq*a_cross_sq;
-		#endif
-
-		doppler=e[0]*d->detector_velocity[3*k+0]+
-			e[1]*d->detector_velocity[3*k+1]+
-			e[2]*d->detector_velocity[3*k+2];
-
-		f=frequency+frequency*doppler+spindown*(d->gps[k]-spindown_start+d->coherence_time*0.5);
-
-		signal_bin[k]=rintf(1800.0*f-first_bin);
-		mismatch[k]=1800.0*f-first_bin-signal_bin[k];
-
-		if((signal_bin[k]<b0))b0=signal_bin[k];
-		if((signal_bin[k]>b1))b1=signal_bin[k];
-
+	for(b=0;b<2*window+1;b++) {
+		units[i].phase_sum[b].re=0.0;
+		units[i].phase_sum[b].im=0.0;
+		units[i].signal_sum[b]=0.0;
+		units[i].signal_sq_sum[b]=0.0;
+		units[i].cov_sum[b]=0.0;
+		units[i].demod_signal_sum[b]=0.0;
 		}
+	units[i].total_weight=0.0;
+	units[i].response_sq_sum=0.0;
+	units[i].response_sum=0.0;
+	units[i].response_weight=0.0;
+	units[i].total_demod_weight=0.0;
+	units[i].total_demod_weight2=0.0;
 
-	if( (b0<0) || (b1>=nbins)) {
+	units[i].ifo_freq=0.0;
+	units[i].ifo_freq_sq=0.0;
+
+	units[i].cand=cand;
+
+	units[i].remainder=i;
+	units[i].divisor=n_units;
+	units[i].error=0;
+
+	submit_job(compute_scores_cruncher, &(units[i]));
+	}
+
+while(do_single_job(-1));
+
+wait_for_all_done();
+
+for(i=0;i<n_units;i++) {
+	if(units[i].error) {
 		/* we are outside loaded bin range */
 		fprintf(stderr, "b0=%d b1=%d\n", b0, b1);
 		cand->coherence_score=-1.0;
@@ -549,90 +740,26 @@ for(j=0;j<d_free;j++) {
 		cand->ifo_freq_sd=-1;
 		return;
 		}
-	//fprintf(stderr, "b0=%d b1=%d\n", b0, b1);
 
-	for(k=0;k<d->free;k++) {
-		/* skip SFTs with low weight */
-		//if(d->expTMedians[k]*d->weight*response[k]<0.05)continue;
-
-		/* power_cor computation */
-		weight=d->expTMedians[k]*d->weight;
-		response_sum+=response[k]*weight;
-		response_sq_sum+=response[k]*response[k]*weight;
-		response_weight+=weight;
-
-		demod_weight=weight*response[k];
-		total_demod_weight2+=demod_weight;
-		total_demod_weight+=demod_weight*response[k];
-
-		bin_re=&(d->re[k*nbins+signal_bin[k]-window]);
-		bin_im=&(d->im[k*nbins+signal_bin[k]-window]);
-
-		f=signal_bin[k]+mismatch[k];
-		cand->ifo_freq+=f*demod_weight;		
-		cand->ifo_freq_sd+=f*f*demod_weight;		
-
-		fill_hann_filter7(filter, mismatch[k]);
-
-		for(b=0; b< (2*window+1); b++) {
-			x=bin_re[-3]*filter[0]+bin_re[-2]*filter[1]+bin_re[-1]*filter[2]+bin_re[0]*filter[3]+bin_re[1]*filter[4]+bin_re[2]*filter[5]+bin_re[3]*filter[6];
-			y=bin_im[-3]*filter[0]+bin_im[-2]*filter[1]+bin_im[-1]*filter[2]+bin_im[0]*filter[3]+bin_im[1]*filter[4]+bin_im[2]*filter[5]+bin_im[3]*filter[6];
-
-			power=x*x+y*y;
-			#if 1
-			signal_sum[b]+=power*weight;
-			signal_sq_sum[b]+=power*power*weight;
-			cov_sum[b]+=power*response[k]*weight;
-			#endif
-
-			demod_signal_sum[b]+=power*demod_weight;
-			bin_re++;
-			bin_im++;
-			}
+	for(b=0;b<2*window+1;b++) {
+		phase_sum[b].re+=units[i].phase_sum[b].re;
+		phase_sum[b].im+=units[i].phase_sum[b].im;
+		signal_sum[b]+=units[i].signal_sum[b];
+		signal_sq_sum[b]+=units[i].signal_sq_sum[b];
+		cov_sum[b]+=units[i].cov_sum[b];
+		demod_signal_sum[b]+=units[i].demod_signal_sum[b];
 		}
-		
-	/* phase computation */
-	#if 0
-	for(k=1;k< (d->free-1);k++) {
-	
-	
-		/* skip SFT with asymmetric gaps */
-		if(d->gps[k]-d->gps[k-1]!=d->gps[k+1]-d->gps[k])continue;
+	total_weight+=units[i].total_weight;
+	response_sq_sum+=units[i].response_sq_sum;
+	response_sum+=units[i].response_sum;
+	response_weight+=units[i].response_weight;
+	total_demod_weight+=units[i].total_demod_weight;
+	total_demod_weight2+=units[i].total_demod_weight2;
 
-		/* skip SFTs with low weight */
-		if(d->expTMedians[k]<0.01 || d->expTMedians[k-1]<0.01 || d->expTMedians[k+1]<0.01)continue;
-	
-		weight=((response[k-1]*d->expTMedians[k-1]+2*response[k]*d->expTMedians[k]+response[k+1]*d->expTMedians[k+1])*d->weight);
-		total_weight+=weight;
-	
-		p0=&(d->bin[(k-1)*nbins+signal_bin[k-1]-window]);
-		p1=&(d->bin[k*nbins+signal_bin[k]-window]);
-		p2=&(d->bin[(k+1)*nbins+signal_bin[k+1]-window]);
-
-		for(b=0; b< (2*window+1); b++) {
-			x=sqrt(p0[b].re*p0[b].re+p0[b].im*p0[b].im);
-			y=sqrt(p1[b].re*p1[b].re+p1[b].im*p1[b].im);
-
-			w.re=(p0[b].re*p1[b].re+p0[b].im*p1[b].im)/(x*y);
-			w.im=(p0[b].re*p1[b].im-p0[b].im*p1[b].re)/(x*y);
-
-			x=sqrt(p2[b].re*p2[b].re+p2[b].im*p2[b].im);
-			z.re=(p2[b].re*p1[b].re+p2[b].im*p1[b].im)/(x*y);
-			z.im=(p2[b].re*p1[b].im-p2[b].im*p1[b].re)/(x*y);
-			
-			phase_sum[b].re+=weight*(w.re*z.re-w.im*z.im);
-			phase_sum[b].im+=weight*(w.im*z.re+w.re*z.im);
-			}
-		}
-	#endif
-		
-	free(response);
-	free(signal_bin);
-	free(mismatch);
-	response=NULL;
-	signal_bin=NULL;
-	mismatch=NULL;
+	cand->ifo_freq+=units[i].ifo_freq;		
+	cand->ifo_freq_sd+=units[i].ifo_freq_sq;		
 	}
+
 
 //fprintf(stderr, "total_weight=%g\n", total_weight);
 
@@ -715,6 +842,7 @@ if(cand->strain>0)
 	else
 	cand->strain_err=1;
 
+free(units);
 free(phase_sum);
 free(signal_sum);
 free(signal_sq_sum);
@@ -1260,62 +1388,53 @@ if(cand->strain>0)
 
 }
 
-static void compute_matched_snr(SCORE_AUX_DATA *ad, CANDIDATE *cand, int debug)
+typedef struct {
+	double demod_signal_sum_d[(2*WINDOW+1)*2];
+	double total_demod_weight;
+	SCORE_AUX_DATA *ad;
+	CANDIDATE *cand;
+	int remainder;
+	int divisor;
+	int error;
+	} MATCHED_SNR_UNIT;
+
+static void compute_matched_snr_cruncher(int thread_id, MATCHED_SNR_UNIT *msu)
 {
-DATASET *d;
-float spindown=cand->spindown;
-float frequency=cand->frequency;
-int j, k, b, b_max;
-double weight, f, total_demod_weight, mean_power, mean_power_sq, power_sd;
+float demod_signal_sum[(2*WINDOW+1)*2], power, *pout, demod_weight, x, y;
 float *response;
 float *doppler;
 int signal_bin;
-float demod_signal_sum[(2*WINDOW+1)*2], power, *pout, demod_weight, x, y;
-double demod_signal_sum_d[(2*WINDOW+1)*2];
+int j, k, b;
+DATASET *d;
 float *bin_re, *bin_im;
 float mismatch;
-float filter[7];
 int count;
+double f, weight;
+float filter[7];
+float spindown=msu->cand->spindown;
+float frequency=msu->cand->frequency;
 
-if((ad->valid & (VALID_RESPONSE | VALID_DOPPLER))!=(VALID_RESPONSE | VALID_DOPPLER)) {
-	cand->strain=-1;
-	cand->snr=-1;
-	cand->f_max=cand->frequency;
-	fprintf(stderr, "compute_snr: score_aux_data is not valid\n");
-	return;
-	}
-
-total_demod_weight=0.0;
-
-for(b=0;b<(2*WINDOW+1);b++) {
-	demod_signal_sum[b]=0.0;
-	demod_signal_sum_d[b]=0.0;
-	}
-
-
-cand->ifo_freq=0.0;
-cand->ifo_freq_sd=0.0;
-
-// fprintf(stderr, "(1) spindown =%g\n", spindown);
-
-/* loop over datasets */
 for(j=0;j<d_free;j++) {
 	d=&(datasets[j]);
 
-	response=&(ad->response[ad->offset[j]]);
-	doppler=&(ad->doppler[ad->offset[j]]);
+	response=&(msu->ad->response[msu->ad->offset[j]]);
+	doppler=&(msu->ad->doppler[msu->ad->offset[j]]);
 
 	count=0;
 
 	for(k=0;k<d->free;k++) {
+		/* skip SFTs not summed by this unit */
+		if((k % msu->divisor)!=msu->remainder)continue;
+
 		/* skip SFTs with low weight */
 		if(d->expTMedians[k]<0.05)continue;
+
 
 		/* power_cor computation */
 		weight=d->expTMedians[k]*d->weight;
 
 		demod_weight=weight*response[k];
-		total_demod_weight+=demod_weight*response[k];
+		msu->total_demod_weight+=demod_weight*response[k];
 
 
 		f=frequency+frequency*doppler[k]+spindown*(d->gps[k]-spindown_start+d->coherence_time*0.5);
@@ -1328,10 +1447,7 @@ for(j=0;j<d_free;j++) {
 		fill_hann_filter7(filter, mismatch);
 
 		if((signal_bin<WINDOW+3) || (signal_bin+WINDOW+3>=nbins)) {
-			fprintf(stderr, "Attempting to sample signal outside loaded band, aborting\n");
-			cand->snr=-1;
-			cand->strain=-1;
-			cand->strain_err=1;
+			msu->error=-1;
 			return;
 			}
 
@@ -1355,15 +1471,86 @@ for(j=0;j<d_free;j++) {
 		count++;
 		if(count>100) {
 			for(b=0; b< (2*WINDOW+1); b++) {
-				demod_signal_sum_d[b]+=demod_signal_sum[b];
+				msu->demod_signal_sum_d[b]+=demod_signal_sum[b];
 				demod_signal_sum[b]=0.0;
 				}
 			count=0;
 			}
 		}
 	for(b=0; b< (2*WINDOW+1); b++) {
-		demod_signal_sum_d[b]+=demod_signal_sum[b];
+		msu->demod_signal_sum_d[b]+=demod_signal_sum[b];
 		demod_signal_sum[b]=0.0;
+		}
+	}
+}
+
+static void compute_matched_snr(SCORE_AUX_DATA *ad, CANDIDATE *cand, int debug)
+{
+float spindown=cand->spindown;
+float frequency=cand->frequency;
+int i, j, k, b, b_max;
+double weight, f, total_demod_weight, mean_power, mean_power_sq, power_sd;
+float *response;
+float *doppler;
+int signal_bin;
+float demod_signal_sum[(2*WINDOW+1)*2], power, *pout, demod_weight, x, y;
+double demod_signal_sum_d[(2*WINDOW+1)*2];
+int count;
+MATCHED_SNR_UNIT *units;
+int n_units;
+
+if((ad->valid & (VALID_RESPONSE | VALID_DOPPLER))!=(VALID_RESPONSE | VALID_DOPPLER)) {
+	cand->strain=-1;
+	cand->snr=-1;
+	cand->f_max=cand->frequency;
+	fprintf(stderr, "compute_snr: score_aux_data is not valid\n");
+	return;
+	}
+
+
+cand->ifo_freq=0.0;
+cand->ifo_freq_sd=0.0;
+
+// fprintf(stderr, "(1) spindown =%g\n", spindown);
+
+/* loop over datasets */
+n_units=get_max_threads();
+units=alloca(n_units*sizeof(*units));
+
+for(i=0;i<n_units;i++) {
+	for(j=0;j<2*(2*WINDOW+1);j++)units[i].demod_signal_sum_d[j]=0.0;
+	units[i].total_demod_weight=0;
+	units[i].ad=ad;
+	units[i].cand=cand;
+	units[i].remainder=i;
+	units[i].divisor=n_units;
+	units[i].error=0;
+	
+	submit_job(compute_matched_snr_cruncher, &(units[i]));
+	}
+
+total_demod_weight=0.0;
+
+for(b=0;b<(2*WINDOW+1);b++) {
+	demod_signal_sum_d[b]=0.0;
+	}
+
+while(do_single_job(-1));
+
+wait_for_all_done();
+
+for(i=0;i<n_units;i++) {
+	if(units[i].error) {
+		fprintf(stderr, "Attempting to sample signal outside loaded band, aborting\n");
+		cand->snr=-1;
+		cand->strain=-1;
+		cand->strain_err=1;
+		return;
+		}
+	total_demod_weight+=units[i].total_demod_weight;
+	
+	for(b=0;b<2*WINDOW+1;b++) {
+		demod_signal_sum_d[b]+=units[i].demod_signal_sum_d[b];
 		}
 	}
 

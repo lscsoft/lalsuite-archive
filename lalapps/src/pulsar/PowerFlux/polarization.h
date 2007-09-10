@@ -41,6 +41,14 @@ typedef struct S_POLARIZATION {
 	} POLARIZATION;
 
 typedef struct {
+	/* intermediate results: these arrays have stored_fine_bins*useful_bins entries */
+	SUM_TYPE *fine_grid_sum;
+	SUM_TYPE *fine_grid_sq_sum;
+	SUM_TYPE *fine_grid_weight;
+	COUNT_TYPE *fine_grid_count;
+	} ACCUMULATION_ARRAYS;
+
+typedef struct {
 	char *name;
 
 	float orientation;
@@ -52,12 +60,6 @@ typedef struct {
 
 	int conjugate;
 
-	/* intermediate results: these arrays have stored_fine_bins*useful_bins entries */
-	SUM_TYPE *fine_grid_sum;
-	SUM_TYPE *fine_grid_sq_sum;
-	SUM_TYPE *fine_grid_weight;
-	COUNT_TYPE *fine_grid_count;
-	
 	/* results - sky maps, projection along frequency */
 	/* these arrays have fine_grid->npoints entries */
 	struct {
@@ -185,6 +187,10 @@ void init_polarizations1(POLARIZATION *polarizations, SKY_GRID_TYPE *AM_coeffs_p
 void allocate_polarization_arrays(void);
 void free_polarization_arrays(void);
 void clear_polarization_arrays(void);
-void clear_accumulation_arrays(void);
+
+ACCUMULATION_ARRAYS *new_accumulation_arrays(void);
+void free_accumulation_arrays(ACCUMULATION_ARRAYS *);
+ACCUMULATION_ARRAYS *get_thread_accumulation_arrays(int thread_id);
+void clear_accumulation_arrays(ACCUMULATION_ARRAYS *);
 
 #endif

@@ -1,5 +1,5 @@
 PACKAGE=\"powerflux\"
-VERSION=1.4.18-64
+VERSION=1.4.19-64
 LALROOT=./../../../../
 LALROOT=/opt/lscsoft/lal/
 LALINCLUDE=-I$(LALROOT)/include/
@@ -17,7 +17,7 @@ CFLAGS=-Wall -g $(OPTFLAGS) -DPACKAGE=$(PACKAGE) -DVERSION=\"$(VERSION)\" \
 CC=gcc $(CFLAGS)
 
 OBJS=cmdline.o rastermagic.o hookup.o fine_grid.o lines.o grid.o powerflux.o  \
-	png.o polarization.o intervals.o statistics.o dataset.o candidates.o util.o
+	png.o polarization.o intervals.o statistics.o dataset.o candidates.o util.o 
 
 FILES=sky_marks.txt all_sky_marks_*.txt
 
@@ -52,7 +52,7 @@ DEC=0
 #
 none:
 
-all: powerflux.hydra
+all: powerflux-condor
 
 
 test1: powerflux
@@ -149,8 +149,8 @@ test4a: powerflux.dyn
 		--write-dat=NONE --write-png=NONE \
 	)
 
-test4b: powerflux.hydra
-	valgrind --tool=memcheck --error-limit=no ./powerflux.hydra --input-format=Power -i /home/volodya/LIGO/S2/S2.L1.op/power.L1. -f $(BAND) -n 501 \
+test4b: powerflux-condor
+	valgrind --tool=memcheck --error-limit=no ./powerflux-condor --input-format=Power -i /home/volodya/LIGO/S2/S2.L1.op/power.L1. -f $(BAND) -n 501 \
 		--ephemeris-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
 		--detector=LLO --three-bins=0 --do-cutoff=0\
 		 --focus-ra=2.2 --focus-dec=0.3 --focus-radius=0.1 \
@@ -176,8 +176,8 @@ test4c: powerflux.dyn
 #		 --write-dat=NONE --write-png=ul\.png\$ \
 
 
-test4d: powerflux.hydra
-	valgrind --tool=memcheck --error-limit=no  --leak-check=full ./powerflux.hydra --dataset=$(DATASET) -f $(BAND) -n 501 \
+test4d: powerflux-condor
+	valgrind --tool=memcheck --error-limit=no  --leak-check=full ./powerflux-condor --dataset=$(DATASET) -f $(BAND) -n 501 \
 		--ephemeris-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
 		--three-bins=0 --do-cutoff=1 --lock-file=test.lock \
 		--subtract-background=1 --ks-test=1 --filter-lines=1 \
@@ -188,7 +188,7 @@ test4d: powerflux.hydra
 		--write-dat=NONE \
 		--write-png=(Median.*|ul)\\.png\\$$ 
 
-#./powerflux.hydra --input-format=Power --dataset=test.dst -f $(BAND) -n 501 \
+#./powerflux-condor --input-format=Power --dataset=test.dst -f $(BAND) -n 501 \
 # 		--ephemeris-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
 # 		--detector=LHO --three-bins=0 --do-cutoff=0 \
 # 		--subtract-background=0 --ks-test=1 --filter-lines=0 \
@@ -235,8 +235,8 @@ test5: powerflux
 		--fake-strain=0.3e-22 --config=test_conf --resolution-ratio=1.0 \
 		--fake-orientation=0.5 --fake-ra=5.785685 --fake-dec=-1.563849
 
-test5c: powerflux
-	./powerflux --dataset=random3.dst -f 180002 -n 501 \
+test5c: powerflux-mt
+	./powerflux-mt --dataset=random.dst -f 180002 -n 501 \
 		--ephemeris-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
 		--averaging-mode=matched --do-cutoff=1 --lock-file=test.lock \
 		--subtract-background=0 --ks-test=1 --filter-lines=0 \
@@ -259,8 +259,8 @@ test5c: powerflux
 # 		--write-png=\(.\*bands\|.\*strain.\*\|high.\*\|S.\*\|Median.\*\|weight.\*\|max_dx.\*\)\\.png$$ \
 #		--dump-data=input.dat \
 
-test_bench_one: powerflux
-	./powerflux --dataset=random3.dst -f 180005 -n 501 \
+test_bench_one: powerflux-mt
+	./powerflux-mt --dataset=random3.dst -f 180005 -n 501 \
 		--ephemeris-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
 		--averaging-mode=one --do-cutoff=1 \
 		--subtract-background=1 --ks-test=1 --filter-lines=1 \
@@ -271,9 +271,10 @@ test_bench_one: powerflux
 	        --earth-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/earth05-09.dat \
         	--sun-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/sun05-09.dat  \
 		--max-candidates=10000 --skymap-resolution-ratio=1 \
+		--num-threads=2
 
-test_bench_matched: powerflux
-	./powerflux --dataset=random3.dst -f 180007 -n 501 \
+test_bench_matched: powerflux-mt
+	./powerflux-mt --dataset=random3.dst -f 180007 -n 501 \
 		--ephemeris-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
 		--averaging-mode=matched --do-cutoff=1 \
 		--subtract-background=1 --ks-test=1 --filter-lines=1 \
@@ -284,6 +285,7 @@ test_bench_matched: powerflux
 	        --earth-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/earth05-09.dat \
         	--sun-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/sun05-09.dat  \
 		--max-candidates=10000 --skymap-resolution-ratio=1 \
+		--num-threads=2
 
 
 test.H1.inj.1: powerflux
@@ -311,18 +313,24 @@ WL=-Wl,--rpath -Wl,/home/volodya/LIGO/LAL/support-lib/.libs -Wl,--rpath -Wl,/hom
 dat2skymap: grid.o rastermagic.o dat2skymap.o png.o
 	$(CC) grid.o rastermagic.o dat2skymap.o png.o -o dat2skymap -static $(LDFLAGS)
 
-powerflux: $(OBJS)
-	$(CC) $(OBJS) -o powerflux -static $(LDFLAGS) -lgsl -lgslcblas -lm
+powerflux: $(OBJS) jobs.o
+	$(CC) $(OBJS) jobs.o -o powerflux -static $(LDFLAGS) -lgsl -lgslcblas -lm
+	ls -l powerflux
+
+powerflux-mt: $(OBJS) jobs-mt.o
+	$(CC) $(OBJS) jobs-mt.o -o powerflux-mt -static $(LDFLAGS) -lgsl -lgslcblas -lm -lpthread
 	ls -l powerflux
 
 powerflux.dyn: $(OBJS)
 	$(CC) $(OBJS) -o powerflux.dyn $(LDFLAGS) -lgsl -lgslcblas
 	ls -l powerflux.dyn
 
-powerflux.hydra: $(OBJS)
-	 condor_compile $(CC) $(OBJS) -o powerflux.hydra -static $(LDFLAGS) -lgsl -lgslcblas -lm
-	ls -l powerflux.hydra
-	
+powerflux-condor: $(OBJS)
+	 condor_compile $(CC) $(OBJS) -o powerflux-condor -static $(LDFLAGS) -lgsl -lgslcblas -lm
+	ls -l powerflux-condor
+
+jobs-mt.o: jobs.c jobs.h
+	$(CC) $(CFLAGS) -DLINUX_THREADS -c jobs.c -o jobs-mt.o
 
 test_rm: test_rm.c rastermagic.o
 	$(CC) test_rm.c rastermagic.o -lm -o test_rm
@@ -333,22 +341,25 @@ cmdline.c: powerflux.ggo
 clean:
 	rm -f core *.bck *.o
 
-upload: powerflux.hydra
-	globus-scp -C powerflux.hydra hydra.phys.uwm.edu:PowerFlux/powerflux.$(VERSION)
+upload: powerflux-condor
+	globus-scp -C powerflux-condor hydra.phys.uwm.edu:PowerFlux/powerflux-condor.$(VERSION)
+	globus-scp -C powerflux-mt hydra.phys.uwm.edu:PowerFlux/powerflux-mt.$(VERSION)
 	globus-scp -C $(FILES) hydra.phys.uwm.edu:PowerFlux/
 	
-upload.g: powerflux.hydra
-	scp -C powerflux.hydra gallatin.physics.lsa.umich.edu:PowerFlux/powerflux.$(VERSION)
+upload.g: powerflux-condor
+	scp -C powerflux-condor gallatin.physics.lsa.umich.edu:PowerFlux/powerflux-condor.$(VERSION)
+	scp -C powerflux-mt gallatin.physics.lsa.umich.edu:PowerFlux/powerflux-mt.$(VERSION)
 	scp -C $(FILES) gallatin.physics.lsa.umich.edu:PowerFlux/
 	
-upload.h: powerflux.hydra
-	globus-scp -C powerflux.hydra ldas-grid.ligo-wa.caltech.edu:PowerFlux/powerflux.$(VERSION)
+upload.h: powerflux-condor
+	globus-scp -C powerflux-condor ldas-grid.ligo-wa.caltech.edu:PowerFlux/powerflux-condor.$(VERSION)
 	globus-scp -C $(FILES) ldas-grid.ligo-wa.caltech.edu:PowerFlux/
 
-upload.l: powerflux.hydra
-	globus-scp -C powerflux.hydra ldas-grid.ligo-la.caltech.edu:PowerFlux/powerflux.$(VERSION)
+upload.l: powerflux-condor
+	globus-scp -C powerflux-condor ldas-grid.ligo-la.caltech.edu:PowerFlux/powerflux-condor.$(VERSION)
 	globus-scp -C $(FILES) ldas-grid.ligo-la.caltech.edu:PowerFlux/
 
-upload.c: powerflux.hydra
-	globus-scp -C powerflux.hydra ldas-grid.ligo.caltech.edu:PowerFlux/powerflux.$(VERSION)
+upload.c: powerflux-condor powerflux-mt
+	globus-scp -C powerflux-condor ldas-grid.ligo.caltech.edu:PowerFlux/powerflux-condor.$(VERSION)
+	globus-scp -C powerflux-mt ldas-grid.ligo.caltech.edu:PowerFlux/powerflux-mt.$(VERSION)
 	globus-scp -C $(FILES) ldas-grid.ligo.caltech.edu:PowerFlux/
