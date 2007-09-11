@@ -264,7 +264,7 @@ class getCache(UserDict):
     return process
     
 ##############################################################################
-# function to read a file containing a list of strings
+# function to read/write a list of strings in a file
 ##############################################################################
 def listFromFile(fileName):
   list = []
@@ -282,10 +282,22 @@ def listFromFile(fileName):
     list.append(string.strip(line))
   return list
 
+def saveRandomTimes(timeList,fileName):
+  file = open(fileName,"w")
+  for time in timeList:
+    file.write(time + '\n')
+  file.close()
+
 def stringToFloatList(listin):
   listout = []
   for line in listin:
     listout.append(float(line))
+  return listout
+
+def floatToStringList(listin):
+  listout = []
+  for line in listin:
+    listout.append(repr(line))
   return listout
 
 ##############################################################################
