@@ -331,6 +331,18 @@ for bin in range(massBins):
   # normalize the distributions
   nomarginpost  /= sum(nomarginpost)
   marginpost /= sum(marginpost)
+
+  # check that we have neglible probability at max rate
+  lastidx = len(nomarginpost)-1
+  ratio = nomarginpost[lastidx]/max(nomarginpost)
+  eps = 1e-4;
+
+  if ratio > eps:
+    print >>sys.stderr, "non neglible probability of obtaining maximum rate"
+    print >>sys.stderr, "90% confidence upper limit may be wrong"
+    print >>sys.stderr, "ratio of p(max_rate) to max(p(rate)) = %f" % ratio
+    print >>sys.stderr, "reduce this ratio to <%f by increasing max-rate" % eps
+    sys.exit(0)
   
   if opts.verbose:
     print "unmarginalized value at R=0 is %f" %  (nomarginpost[0])
