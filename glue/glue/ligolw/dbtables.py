@@ -148,6 +148,7 @@ def DBTable_idmap_get_new(old, ids):
 # SQL parsing
 #
 
+
 _sql_create_table_pattern = re.compile(r"CREATE\s+TABLE\s+(?P<name>\w+)\s*\((?P<coldefs>.*)\)")
 _sql_coldef_pattern = re.compile(r"\s*(?P<name>\w+)\s+(?P<type>\w+)[^,]*")
 
