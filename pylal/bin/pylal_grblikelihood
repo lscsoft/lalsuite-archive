@@ -84,25 +84,73 @@ def square(xedges, yedges, coincTriggers, simtypeflag, calibration=1.0):
   return ng_x_y
 
 #######################################################################
-# make a smooth contour at the specified confidence
-def get_smooth_contour(xedges,yedges,pcsignalsq,confidence,width=3.0):
+def get_contour(xedges, yedges, pcsignalsq, confidence,
+                do_smooth_contour=False, width=3.0):
+  """
+  Return the vertices of a polygon bounding the region with
+  pcsignalsq < confidence.  This is performed conservatively.  We assume
+  uniform, linear spacing.  Optionally, smooth the contour with a 1-D Gaussian
+  with a sigma of width.
+  """
   clevel=zeros(len(xedges))
-  dy = yedges[1]-yedges[0] 
+  dy = yedges[1]-yedges[0]
+  centers = asarray(yedges) + dy/2
   for i in arange(len(xedges)):
     for j in arange(len(yedges)):
       if pcsignalsq[j,i]>confidence: 
-        slope=(yedges[j]-yedges[j-1])/(pcsignalsq[j,i]-pcsignalsq[j-1,i])
-        clevel[i]=dy+yedges[j-1] + (confidence-pcsignalsq[j-1,i])*slope
+        slope = dy / (pcsignalsq[j, i] - pcsignalsq[j-1, i])
+        clevel[i] = centers[j-1] + (confidence-pcsignalsq[j-1,i])*slope
         break
 
-  gauss = exp( - 0.5 * ( ( xedges - mean( xedges ) ) / width )**2  )\
-    / sqrt( 2.0 * pi ) / width
-  yarray= convolve(asarray(clevel),gauss,mode=1) 	 
-  yarray = clevel[0] * yarray / yarray[0] 	 
+  if do_smooth_contour:
+    gauss = exp( - 0.5 * ( ( xedges - mean( xedges ) ) / width )**2  )\
+      / sqrt( 2.0 * pi ) / width
+    yarray= convolve(asarray(clevel),gauss,mode=1) 	 
+    yarray = clevel[0] * yarray / yarray[0]
+  else:
+    yarray = clevel
+  
   tmpx,tmpy = makesteps(xedges,zeros(len(xedges)),yarray) 	 
- 	 
+
   return tmpx,tmpy,yarray
 
+class FitError(Exception):
+    pass
+
+def fit_sigmoids(xedges, yedges, image, new_yedges=None):
+    """
+    Apply a (logistic) sigmoid fit to each mass slice and return a replacement
+    pcsignalsq, sampled on the grid new_yedges.  If new_yedges is None,
+    the output will be sampled on yedges.
+    """
+    # make sure that we understand the image orientation
+    assert image.shape[0] == len(yedges)
+    assert image.shape[1] == len(xedges)
+    
+    from scipy import optimize
+    
+    # logistic sigmoid function
+    fit_func = lambda p, x: (1 + tanh(p[0]*(x-p[1])/2)) / 2
+    err_func = lambda p, x, y: fit_func(p, x) - y
+    
+    # initial guess
+    p0 = [0.1, 15]
+    
+    # fit and resample
+    output = zeros((len(new_yedges), len(xedges)), dtype=float)
+    for i in xrange(len(xedges)):
+        vals = image[:, i]
+        
+        # HACK: fill in gaps at the top; anything is better than 0
+        ind = (vals == 0)  # find zeros
+        ind[:len(vals)//2] = False  # ignore bottom half
+        vals[ind] = 1  # set to 1
+        
+        p1, success = optimize.leastsq(err_func, p0[:], args=(yedges, vals))
+        if not success:
+            raise FitError, "sigmoid fit did not converge"
+        output[:, i] = fit_func(p1, new_yedges)
+    return output
 
 ##############################################################################
 usage = """%prog [options]
@@ -192,7 +240,14 @@ parser.add_option("-w","--waveform-systematic",action="store",type="float",
 parser.add_option("-k","--known-distance",action="store",type="float",
     default=None, metavar=" KD",
     help="Distance at which GRB is thought to be")
-    
+
+parser.add_option("-y", "--fit-sigmoid", action="store_true", default=False,
+  help="for each mass bin, fit a logistic sigmoid to the 1-D probability" \
+       " distribution in distance")
+parser.add_option("-Y", "--fit-oversample-factor", type=float, default=1.0,
+  help="after fit parameters have been found, resample the distance a factor "\
+       "of FIT_OVERSAMPLE_FACTOR more finely")
+
 
 (opts,args) = parser.parse_args()
 
@@ -541,6 +596,10 @@ else:
 
 im_extent = [min(xedges), max(xedges), min(yedges), max(yedges)]
 
+new_yedges = linspace(yedges[0], yedges[-1], opts.fit_oversample_factor*(len(yedges)-1)+1)
+if opts.fit_sigmoid:
+  pcsignalsq = fit_sigmoids(xedges, yedges, pcsignalsq, new_yedges)
+
 # figure()
 # if opts.figure_type in ("ps", "eps"):
 #  axes([0.125,0.2,0.95-0.125,0.95-0.22])
@@ -602,19 +661,19 @@ savefig("found-fraction.%s" % opts.figure_type)
 figure()
 if opts.figure_type in ("ps", "eps"):
   axes([0.125,0.2,0.95-0.125,0.95-0.22])
-tmpx,tmpy,yarray = get_smooth_contour(xedges,yedges,pcsignalsq,0.75)
+tmpx,tmpy,yarray = get_contour(xedges,new_yedges,pcsignalsq,0.75)
 p1=fill(tmpx,tmpy, facecolor=(0.75, 0.75, 0.75), label='25\% exclusion')
-tmpx,tmpy,yarray = get_smooth_contour(xedges,yedges,pcsignalsq,0.50)
+tmpx,tmpy,yarray = get_contour(xedges,new_yedges,pcsignalsq,0.50)
 p2=fill(tmpx,tmpy, facecolor=(0.5, 0.5, 0.5), label='50\% exclusion')
-tmpx,tmpy,yarray = get_smooth_contour(xedges,yedges,pcsignalsq,0.25)
+tmpx,tmpy,yarray = get_contour(xedges,new_yedges,pcsignalsq,0.25)
 p3=fill(tmpx,tmpy, facecolor=(0.25, 0.25, 0.25), label='75\% exclusion')
-tmpx,tmpy,yarray = get_smooth_contour(xedges,yedges,pcsignalsq,0.1)
+tmpx,tmpy,yarray = get_contour(xedges,new_yedges,pcsignalsq,0.1)
 p4=fill(tmpx,tmpy, facecolor=(0.1, 0.1, 0.1), label='90\% exclusion')
 
 if opts.known_distance is not None:
   axhline(y=opts.known_distance, color='r', label='_nolegend_')
 
-axis([opts.min_mass, max(xedges), 0.0, max(yedges)])
+axis(im_extent)
 xlabel(r"$m_2 (M_\odot)$")
 ylabel(r"$D (\mathrm{Mpc})$")
 if opts.figure_type not in ("ps", "eps"):
