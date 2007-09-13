@@ -92,7 +92,7 @@ def get_contour(xedges, yedges, pcsignalsq, confidence,
   uniform, linear spacing.  Optionally, smooth the contour with a 1-D Gaussian
   with a sigma of width.
   """
-  clevel=zeros(len(xedges))
+  clevel=zeros(len(xedges), dtype=float)
   dy = yedges[1]-yedges[0]
   centers = asarray(yedges) + dy/2
   for i in arange(len(xedges)):
@@ -110,7 +110,7 @@ def get_contour(xedges, yedges, pcsignalsq, confidence,
   else:
     yarray = clevel
   
-  tmpx,tmpy = makesteps(xedges,zeros(len(xedges)),yarray) 	 
+  tmpx,tmpy = makesteps(xedges, zeros(len(xedges), dtype=float), yarray) 	 
 
   return tmpx,tmpy,yarray
 
@@ -446,6 +446,9 @@ xlabel(r"$\rho_{\mathrm{eff}}^2$")
 ylabel(r"Expected \# of events")
 savefig("snr_dist.%s" % opts.figure_type)
 
+if not opts.show_plot:
+  close()
+
 #####################################################################
 # Plot the number of events in each off-source segment
 figure()
@@ -463,6 +466,8 @@ xlabel(r"Off-source segment")
 ylabel(r"Number of triggers")
 savefig("triggers_per_offsource.%s" % opts.figure_type)
 
+if not opts.show_plot:
+  close()
 
 #####################################################################
 # read in the missed and found files
@@ -594,7 +599,7 @@ else:
 #####################################################################
 # generate plots
 
-im_extent = [min(xedges), max(xedges), min(yedges), max(yedges)]
+im_extent = [min(xedges), max(xedges)+dx, min(yedges), max(yedges)+dy]
 
 new_yedges = linspace(yedges[0], yedges[-1], opts.fit_oversample_factor*(len(yedges)-1)+1)
 if opts.fit_sigmoid:
@@ -626,6 +631,10 @@ xlabel(r"$m_2 (M_\odot)$")
 ylabel(r"$D (\mathrm{Mpc})$")
 savefig("pcsignal.%s" % opts.figure_type)
 
+if not opts.show_plot:
+  close()
+
+
 figure()
 if opts.figure_type in ("ps", "eps"):
   axes([0.125,0.2,0.95-0.125,0.95-0.22])
@@ -642,6 +651,10 @@ xlabel(r"$m_2 (M_\odot)$")
 ylabel(r"$D (\mathrm{Mpc})$")
 savefig("made-injections.%s"  % opts.figure_type)
 
+if not opts.show_plot:
+  close()
+
+
 figure()
 if opts.figure_type in ("ps", "eps"):
   axes([0.125,0.2,0.95-0.125,0.95-0.22])
@@ -657,6 +670,10 @@ title('Fraction of injections found')
 xlabel(r"$m_2 (M_\odot)$")
 ylabel(r"$D (\mathrm{Mpc})$")
 savefig("found-fraction.%s" % opts.figure_type)
+
+if not opts.show_plot:
+  close()
+
 
 figure()
 if opts.figure_type in ("ps", "eps"):
@@ -679,6 +696,10 @@ ylabel(r"$D (\mathrm{Mpc})$")
 if opts.figure_type not in ("ps", "eps"):
   legend(loc="upper right")
 savefig("pcsignal-slice.%s" % opts.figure_type)
+
+if not opts.show_plot:
+  close()
+
 
 if opts.show_plot:
   show()
