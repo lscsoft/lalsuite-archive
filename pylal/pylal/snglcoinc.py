@@ -123,7 +123,7 @@ class CoincTables(object):
 	def __init__(self, xmldoc, contributor_table_names, description = None):
 		# get the coinc_def_id for coincidences involving the given
 		# list of contributing tables
-		self.coinc_def_id = llwapp.get_coinc_def_id(xmldoc, contributor_table_names, description = description)
+		self.coinc_def_id = llwapp.get_coinc_def_id(xmldoc, contributor_table_names)
 
 		# find the coinc table or create one if not found
 		try:
