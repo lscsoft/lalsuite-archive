@@ -200,7 +200,7 @@ def truncate_if_exists(filename, verbose = False):
 
 
 if will_use_tmp_space:
-	target = tempfile.mkstemp(suffix = ".sqlite", dir = options.tmp_space)
+	target = tempfile.mkstemp(suffix = ".sqlite", dir = options.tmp_space)[1]
 	if will_replace_file:
 		# truncate database if it exists so that if this job fails
 		# the user won't think the database file is valid
@@ -262,7 +262,7 @@ connection.close()
 #
 
 
-if will_use_workspace:
+if will_use_tmp_space:
 	if options.verbose:
 		print >>sys.stderr, "moving %s to %s ..." % (target, options.database)
 	shutil.move(target, options.database)
