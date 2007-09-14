@@ -26,6 +26,9 @@ sys.path.append('@PYTHONLIBDIR@')
 ##############################################################################
 # import the modules we need to build the pipeline
 from glue import pipeline
+from glue import lal
+from glue import segments
+from glue import segmentsUtils
 
 ###### GENERIC CLASSES TO HELP WEBIFY A CONDOR DAG OUTPUT ####################
 ##############################################################################
@@ -35,7 +38,7 @@ class webTheJob:
   def __init__(self):
     pass
 
-  def setupJobWeb(self, name, tag_base):
+  def setupJobWeb(self, name, tag_base=None):
     self.name = name
     try: 
        os.mkdir(name)
@@ -53,7 +56,7 @@ class webTheNode:
   def __init__(self):
     pass
 
-  def setupNodeWeb(self, job, id, page, passItAlong=True):
+  def setupNodeWeb(self, job, id, passItAlong=True, page=None):
     self.add_macro("macroid", id)
     self.outputFileName = job.outputPath + job.name + '-'+ id
     if passItAlong:
@@ -128,29 +131,47 @@ class plotSNRCHISQNode(pipeline.CondorDAGNode,webTheNode):
 
 class qscanDataFindJob(pipeline.LSCDataFindJob):
   
-  def __init__(self, cache_dir, log_dir, config_file):
-    pipeline.LSCDataFindJob.__init(self, cache_dir, log_dir, config_file)
+  def __init__(self, cache_dir, log_dir, config_file, source):
+    pipeline.LSCDataFindJob.__init__(self, cache_dir, log_dir, config_file)
+    if source == 'futrig':
+      self.setup_cacheconv()
+
+  def setup_cacheconv():
+    # create a shell script to call convertlalcache.pl if the value of $RETURN is 0
+    convert_script = open('cacheconv.sh','w')
+    convert_script.write("""#!/bin/bash
+    if [ ${1} -ne 0 ] ; then
+      exit 1
+    else
+      %s ${2} ${3}
+    fi
+    """ % string.strip(cp.get('condor','convertcache')))
+    convert_script.close()
+    os.chmod('cacheconv.sh',0755)
 
 class qscanDataFindNode(pipeline.LSCDataFindNode):
  
-  def __init__(self, job):
-    pipeline.LSCDataFindNode(self,job,source,
-                             type=None,cp=None,trig=None,ifo=None)
+  def __init__(self, job, source, type, cp, time, ifo):
+    pipeline.LSCDataFindNode.__init__(self,job)
     if source == 'futrig':
-      self.setup_fu_trig(cp, trig, ifo, type)
+      self.outputFileName = self.setup_fu_trig(cp, time, ifo, type)
 
-  def setup_fu_trig(self, cp, trig, ifo, type):
+  def setup_fu_trig(self, cp, time, ifo, type):
     # 1s is substracted to the expected startTime to make sure the window
     # will be large enough. This is to be sure to handle the rouding to the
     # next sample done by qscan.
     self.q_time = cp.getint(type,'search-time-range')/2
     self.set_observatory(ifo[0])
-    self.set_start(int( trig.gpsTime[ifo] - self.q_time - 1))
-    self.set_end(int( trig.gpsTime[ifo] + self.q_time + 1))
-    self.set_type( cp.get(type, ifo + '_type' ))
-
-
-
+    self.set_start(int( time - self.q_time - 1))
+    self.set_end(int( time + self.q_time + 1))
+    if cp.has_option(type, ifo + '_type'): 
+      self.set_type( cp.get(type, ifo + '_type' ))
+    else:
+      self.set_type( cp.get(type, 'type' ))
+    lalCache = self.get_output()
+    qCache = lalCache.rstrip("cache") + "qcache"
+    self.set_post_script("cacheconv.sh $RETURN %s %s" %(lalCache,qCache) )
+    return(qCache)    
 
 ##############################################################################
 # qscan class for qscan jobs
@@ -165,8 +186,8 @@ class qscanJob(pipeline.CondorDAGJob, webTheJob):
     self.__executable = string.strip(cp.get('condor','qscan'))
     self.__universe = "vanilla"
     pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
-    self.setupJobWeb(self.__name__,tag_base)
-
+    #self.setupJobWeb(self.__name__,tag_base)
+    self.setupJobWeb(tag_base)
 
 class qscanLiteJob(pipeline.CondorDAGJob, webTheJob):
   """
@@ -178,8 +199,8 @@ class qscanLiteJob(pipeline.CondorDAGJob, webTheJob):
     self.__executable = string.strip(cp.get('condor','qscanlite'))
     self.__universe = "vanilla"
     pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
-    self.setupJobWeb(self.__name__,tag_base)
-
+    #self.setupJobWeb(self.__name__,tag_base)
+    self.setupJobWeb(tag_base)
 
 ##############################################################################
 # qscan class for background qscan Node
@@ -194,12 +215,13 @@ class qscanBgNode(pipeline.CondorDAGNode,webTheNode):
     """
     pipeline.CondorDAGNode.__init__(self,job)
     self.add_var_arg(repr(time))
-    qscanConfig = string.strip(cp.get(name[1], ifo[0] + 'config-file'))
+    qscanConfig = string.strip(cp.get(name[1], ifo + 'config-file'))
     self.add_file_arg(qscanConfig)
     self.add_file_arg(qcache)
     self.add_var_arg(string.strip(cp.get(name[1], ifo + 'output')))
-    self.setupNodeWeb(job,self.id,page,False)
-
+    self.id = ifo + repr(time)
+    #self.setupNodeWeb(job,self.id,page,False)
+    self.setupNodeWeb(job,self.id,False)
 
 ##############################################################################
 # qscan class for qscan Node
@@ -214,27 +236,15 @@ class qscanNode(pipeline.CondorDAGNode,webTheNode):
     """
     pipeline.CondorDAGNode.__init__(self,job)
     self.add_var_arg(repr(time))
-    if name == 'HOFT_QSCAN':
-      sectionName = 'qscan-hoft'
-      qscanConfig = string.strip(cp.get(sectionName, ifo + 'config-file'))
-    if name == 'SEIS_QSCAN':
-      sectionName = 'qscan-seismic'
-      qscanConfig = string.strip(cp.get(sectionName, ifo[0] + 'config-file'))
-    if name == 'QSCAN':
-      sectionName = 'qscan'
-      qscanConfig = string.strip(cp.get(sectionName, ifo[0] + 'config-file'))
+    qscanConfig = string.strip(cp.get(name[1], ifo + 'config-file'))
     self.add_file_arg(qscanConfig)
     self.add_file_arg(qcache)
-    self.setupNodeWeb(job,self.id,page,False)
-    if (ifo == 'H1') or (ifo == 'H2'):
-      Houtput = string.strip(cp.get(sectionName,'Houtput'))
-      self.add_var_arg(Houtput)
-      self.outputFileName = Houtput + '/' + repr(time) # redirect output name
-    if (ifo == 'L1'):
-      Loutput = string.strip(cp.get(sectionName,'Loutput'))
-      self.add_var_arg(Loutput)
-      self.outputFileName = Loutput + '/' + repr(time) # redirect output name
-
+    output = string.strip(cp.get(name[1], ifo + 'output'))
+    self.add_var_arg(output)
+    #self.setupNodeWeb(job,self.id,page,False)
+    self.id = ifo + repr(time)
+    self.setupNodeWeb(job,self.id,False)
+    self.outputFileName = output + '/' + repr(time) # redirect output name
 
 
 ################ TRIG BANK FROM SIRE FILE CONDOR DAG JOB ######################
