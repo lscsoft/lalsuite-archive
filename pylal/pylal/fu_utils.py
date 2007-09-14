@@ -109,59 +109,6 @@ class getCache(UserDict):
       self.writeCacheType(str(oName),type,cName)
     cName.close()
 
-#  def getProcessParamsFromMatchingFileInCache(self, fileName, cacheString):
-#    test_file = 0
-#    cacheFile = open(cacheString,"r")
-#    cacheContent = []
-#    cacheContent = cacheFile.readlines()
-#    for line in cacheContent:
-#      if line.find(fileName) >= 0:
-#        test_file = 1
-#        stringLine = line.split()[0:5]
-#        tmpLine = stringLine[0] + ' ' + stringLine[1] + ' ' + stringLine[2] + ' ' + stringLine[3] + ' ' + stringLine[4]
-#        cache = lal.CacheEntry(tmpLine)
-#        doc = utils.load_filename(cache.path(),None)
-#        proc = table.get_table(doc, lsctables.ProcessParamsTable.tableName)
-#        # this is a temporary hack to handle the "-userTag" bug in some xml files...
-#        for row in proc:
-#          if str(row.param).find("-userTag") >= 0:
-#            row.param = "--user-tag"
-#        #end of the hack
-#        break
-#    if test_file == 0:
-#      print "could not find the requested file name " + fileName + " in the list of hipe cache files"
-#
-#    return proc
-
-#  def getProcessParamsFromMatchingFile(self, fileName, type):
-#    test_file = 0
-#    for cache in self[type]:
-#      if str(cache).find(fileName) >= 0:
-#        test_file = 1
-#        doc = utils.load_filename(cache.path(),None)
-#        proc = table.get_table(doc, lsctables.ProcessParamsTable.tableName)
-#        # this is a temporary hack to handle the "-userTag" bug in some xml files...
-#        for row in proc:
-#          if str(row.param).find("-userTag") >= 0:
-#            row.param = "--user-tag"
-#        #end of the hack
-#        break
-#    if test_file == 0:
-#      print "could not find the requested file name " + fileName + " in the list of hipe cache files"
-#
-#    return proc
-
-#  def filesMatchingGPSinDir(self, gpsTime, dir)
-#    fileList = os.listdir(dir)
-#    cacheList = []
-#    for line in fileList:
-#      try:
-#        start = eval(line.split('-')[2])
-#        end = eval((line.split('-')[3]).split('.')[0])
-#        if ( (end >= gpsTime) and (start <= gpsTime) and () ):
-#          cacheList.append(line)
-#      except: pass
-#    return cacheList
 
   def getListFromCache(self,cache):
     list = []
@@ -193,44 +140,6 @@ class getCache(UserDict):
           continue
     return(cacheSubSet)
 
-
-#  def filesMatchingGPSinCache(self, time, cacheString, cacheType):
-#    cacheSubSet = self.ifoDict()
-#    try:
-#      cacheFile = open(cacheString,"r")
-#    except:
-#      print >> sys.stderr, "could not open the file " + cacheString
-#    cacheContent = []
-#    cacheContent = cacheFile.readlines()
-#    for line in cacheContent:
-#      for ifo in self.ifoTypes:
-#        try:
-#          stringLine = line.split()[0:5]
-#          start = eval(stringLine[2])
-#          end = start + eval(stringLine[3])
-#          cacheIfo = stringLine[0]
-#          if ( (end >= time[ifo]) and (start <= time[ifo]) and (cacheIfo == ifo)):
-#            tmpLine = stringLine[0] + ' ' + stringLine[1] + ' ' + stringLine[2] + ' ' + stringLine[3] + ' ' + stringLine[4]
-#            cache = lal.CacheEntry(tmpLine)
-#            cacheSubSet[ifo].append(cache)
-#        except:
-#          pass
-#    return cacheSubSet
-
-#  def filesMatchingGPS(self, time, type):
-#    cacheSubSet = self.ifoDict()
-#    for cache in self[type]:
-#      for ifo in self.ifoTypes:
-#       try:
-#         start = eval(str(cache).split()[2])
-#         end = start + eval(str(cache).split()[3])
-#         cacheIfo = str(cache).split()[0]
-#         print cacheIfo
-#         if ( (end >= time[ifo]) and (start <= time[ifo]) and (cacheIfo == ifo) ):
-#           cacheSubSet[ifo].append(cache)
-#       except:
-#         pass
-#    return cacheSubSet
 
   def getProcessParamsFromCache(self, subCache, tag, time):
     process = self.ifoDict()
@@ -328,7 +237,10 @@ def readFiles(fileGlob,statistic=None):
   coincs = None
   search = None
   for thisFile in fList:
-    doc = utils.load_filename(thisFile)
+    extension = thisFile.split('.')[len(thisFile.split('.'))-1]
+    if extension == 'gz': gz = True
+    else: gz = False
+    doc = utils.load_filename(thisFile,False,gz)
     # extract the sim inspiral table
     try:
       simInspiralTable = \
