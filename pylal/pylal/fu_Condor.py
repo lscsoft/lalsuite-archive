@@ -202,26 +202,6 @@ class qscanLiteJob(pipeline.CondorDAGJob, webTheJob):
     #self.setupJobWeb(self.__name__,tag_base)
     self.setupJobWeb(tag_base)
 
-##############################################################################
-# qscan class for background qscan Node
-
-class qscanBgNode(pipeline.CondorDAGNode,webTheNode):
-  """
-  Runs an instance of a qscan job
-  """
-  def __init__(self,job,time,cp,qcache,ifo,name):
-    """
-    job = A CondorDAGJob that can run an instance of qscan.
-    """
-    pipeline.CondorDAGNode.__init__(self,job)
-    self.add_var_arg(repr(time))
-    qscanConfig = string.strip(cp.get(name[1], ifo + 'config-file'))
-    self.add_file_arg(qscanConfig)
-    self.add_file_arg(qcache)
-    self.add_var_arg(string.strip(cp.get(name[1], ifo + 'output')))
-    self.id = ifo + repr(time)
-    #self.setupNodeWeb(job,self.id,page,False)
-    self.setupNodeWeb(job,self.id,False)
 
 ##############################################################################
 # qscan class for qscan Node
@@ -230,7 +210,7 @@ class qscanNode(pipeline.CondorDAGNode,webTheNode):
   """
   Runs an instance of a qscan job
   """
-  def __init__(self,job,time,cp,trig,qcache,ifo,name,qFlag):
+  def __init__(self,job,time,cp,qcache,ifo,name,trig=None,qFlag=None):
     """
     job = A CondorDAGJob that can run an instance of qscan.
     """
@@ -244,8 +224,20 @@ class qscanNode(pipeline.CondorDAGNode,webTheNode):
     #self.setupNodeWeb(job,self.id,page,False)
     self.id = ifo + repr(time)
     self.setupNodeWeb(job,self.id,False)
-    self.outputFileName = output + '/' + repr(time) # redirect output name
 
+    #get the absolute output path whatever the path might be in the ini file
+    currentPath = os.path.abspath('.')
+    try:
+      os.chdir(output)
+      absoutput = os.path.abspath('.')
+      os.chdir(currentPath)
+    except:
+      print >> sys.stderr, 'invalid path for qscan output in the ini file'
+      sys.exit(1)
+    self.outputName = absoutput + '/' + repr(time) # redirect output name
+    
+    #prepare the string for the output cache
+    self.outputCache = repr(time) + '\t' + name[1] + '\t' + ifo + '\t' + self.outputName
 
 ################ TRIG BANK FROM SIRE FILE CONDOR DAG JOB ######################
 def inspiralFollowup(inspJob, procParams, triggerTime, bankFile, injFile):
