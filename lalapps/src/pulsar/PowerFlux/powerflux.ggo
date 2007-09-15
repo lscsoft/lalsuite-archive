@@ -1,6 +1,6 @@
 purpose "Powerflux analysis program"
 
-option "config"		c "configuration file (in gengetopt format) to pass parameters" string no
+option "config"		c "configuration file (in gengetopt format) to pass parameters" string multiple no
 
 option "label"		- "arbitrary string to be printed in the beginning of PowerFlux log file" string no
 

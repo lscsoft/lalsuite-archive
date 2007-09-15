@@ -26,8 +26,10 @@ struct gengetopt_args_info
 {
   const char *help_help; /* Print help and exit help description.  */
   const char *version_help; /* Print version and exit help description.  */
-  char * config_arg;	/* configuration file (in gengetopt format) to pass parameters.  */
-  char * config_orig;	/* configuration file (in gengetopt format) to pass parameters original value given at command line.  */
+  char ** config_arg;	/* configuration file (in gengetopt format) to pass parameters.  */
+  char ** config_orig;	/* configuration file (in gengetopt format) to pass parameters original value given at command line.  */
+  int config_min; /* configuration file (in gengetopt format) to pass parameters's minimum occurreces */
+  int config_max; /* configuration file (in gengetopt format) to pass parameters's maximum occurreces */
   const char *config_help; /* configuration file (in gengetopt format) to pass parameters help description.  */
   char * label_arg;	/* arbitrary string to be printed in the beginning of PowerFlux log file.  */
   char * label_orig;	/* arbitrary string to be printed in the beginning of PowerFlux log file original value given at command line.  */
@@ -250,7 +252,7 @@ struct gengetopt_args_info
   
   int help_given ;	/* Whether help was given.  */
   int version_given ;	/* Whether version was given.  */
-  int config_given ;	/* Whether config was given.  */
+  unsigned int config_given ;	/* Whether config was given.  */
   int label_given ;	/* Whether label was given.  */
   int sky_grid_given ;	/* Whether sky-grid was given.  */
   int skymap_orientation_given ;	/* Whether skymap-orientation was given.  */

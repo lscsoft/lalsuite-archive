@@ -162,6 +162,7 @@ int main(int argc, char *argv[])
 RGBPic *p;
 PLOT *plot;
 char s[20000];
+int i;
 struct rlimit rl;
 
 /* INIT stage */
@@ -183,8 +184,9 @@ if(getrlimit(RLIMIT_DATA, &rl)<0) {
 	}
 
 if(cmdline_parser(argc, argv, &args_info))exit(-1);
-if(args_info.config_given)
-	if(cmdline_parser_configfile(args_info.config_arg, &args_info, 0, 0, 0))exit(-1);
+
+for(i=0;i<args_info.config_given;i++)
+	if(cmdline_parser_configfile(args_info.config_arg[i], &args_info, 0, 0, 0))exit(-1);
 
 if(!args_info.dataset_given){
 	fprintf(stderr,"** You must specify dataset description file (--dataset)\n");

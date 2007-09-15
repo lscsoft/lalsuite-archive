@@ -115,6 +115,8 @@ void clear_args (struct gengetopt_args_info *args_info);
 static int
 cmdline_parser_internal (int argc, char * const *argv, struct gengetopt_args_info *args_info, int override, int initialize, int check_required, const char *additional_error);
 
+static int
+cmdline_parser_required2 (struct gengetopt_args_info *args_info, const char *prog_name, const char *additional_error);
 struct line_list
 {
   char * string_arg;
@@ -139,6 +141,13 @@ free_cmd_list(void)
     }
 }
 
+
+struct string_list
+{
+  char * arg;
+  char *orig;
+  struct string_list * next;
+};
 
 static char *
 gengetopt_strdup (const char *s);
@@ -373,6 +382,8 @@ void init_args_info(struct gengetopt_args_info *args_info)
   args_info->help_help = gengetopt_args_info_help[0] ;
   args_info->version_help = gengetopt_args_info_help[1] ;
   args_info->config_help = gengetopt_args_info_help[2] ;
+  args_info->config_min = -1;
+  args_info->config_max = -1;
   args_info->label_help = gengetopt_args_info_help[3] ;
   args_info->sky_grid_help = gengetopt_args_info_help[4] ;
   args_info->skymap_orientation_help = gengetopt_args_info_help[5] ;
@@ -482,13 +493,26 @@ static void
 cmdline_parser_release (struct gengetopt_args_info *args_info)
 {
   
+  unsigned int i;
   if (args_info->config_arg)
     {
+      for (i = 0; i < args_info->config_given; ++i)
+        {
+          if (args_info->config_arg [i])
+            {
+              free (args_info->config_arg [i]); /* free previous argument */
+              args_info->config_arg [i] = 0;
+            }
+          if (args_info->config_orig [i])
+            {
+              free (args_info->config_orig [i]); /* free previous argument */
+              args_info->config_orig [i] = 0;
+            }
+        }
+      if (args_info->config_arg [0])
+        free (args_info->config_arg [0]); /* free default string */
       free (args_info->config_arg); /* free previous argument */
       args_info->config_arg = 0;
-    }
-  if (args_info->config_orig)
-    {
       free (args_info->config_orig); /* free previous argument */
       args_info->config_orig = 0;
     }
@@ -981,13 +1005,16 @@ cmdline_parser_file_save(const char *filename, struct gengetopt_args_info *args_
   if (args_info->version_given) {
     fprintf(outfile, "%s\n", "version");
   }
-  if (args_info->config_given) {
-    if (args_info->config_orig) {
-      fprintf(outfile, "%s=\"%s\"\n", "config", args_info->config_orig);
-    } else {
-      fprintf(outfile, "%s\n", "config");
+  if (args_info->config_orig)
+    {
+      for (i = 0; i < args_info->config_given; ++i)
+        {
+          if (args_info->config_orig [i])
+            {
+              fprintf(outfile, "%s=\"%s\"\n", "config", args_info->config_orig [i]);
+            }
+        }
     }
-  }
   if (args_info->label_given) {
     if (args_info->label_orig) {
       fprintf(outfile, "%s=\"%s\"\n", "label", args_info->label_orig);
@@ -1528,6 +1555,139 @@ gengetopt_strdup (const char *s)
   return result;
 }
 
+static char *
+get_multiple_arg_token(const char *arg)
+{
+  char *tok, *ret;
+  size_t len, num_of_escape;
+  int i, j;
+
+  if (!arg)
+    return NULL;
+
+  tok = strchr (arg, ',');
+  num_of_escape = 0;
+
+  /* make sure it is not escaped */
+  while (tok)
+    {
+      if (*(tok-1) == '\\')
+        {
+          /* find the next one */
+          tok = strchr (tok+1, ',');
+          ++num_of_escape;
+        }
+      else
+        break;
+    }
+
+  if (tok)
+    len = (size_t)(tok - arg + 1);
+  else
+    len = strlen (arg) + 1;
+
+  len -= num_of_escape;
+
+  ret = (char *) malloc (len);
+
+  i = 0;
+  j = 0;
+  while (arg[i] && (j < len-1))
+    {
+      if (arg[i] == '\\')
+        ++i;
+
+      ret[j++] = arg[i++];
+    }
+
+  ret[len-1] = '\0';
+
+  return ret;
+}
+
+static char *
+get_multiple_arg_token_next(const char *arg)
+{
+  char *tok;
+
+  if (!arg)
+    return NULL;
+
+  tok = strchr (arg, ',');
+
+  /* make sure it is not escaped */
+  while (tok)
+    {
+      if (*(tok-1) == '\\')
+        {
+          /* find the next one */
+          tok = strchr (tok+1, ',');
+        }
+      else
+        break;
+    }
+
+  if (! tok || strlen(tok) == 1)
+    return 0;
+
+  return tok+1;
+}
+
+static int
+check_multiple_option_occurrences(const char *prog_name, unsigned int option_given, int min, int max, const char *option_desc);
+
+int
+check_multiple_option_occurrences(const char *prog_name, unsigned int option_given, int min, int max, const char *option_desc)
+{
+  int error = 0;
+
+  if (option_given && ! (min < 0 && max < 0))
+    {
+      if (min >= 0 && max >= 0)
+        {
+          if (min == max)
+            {
+              /* specific occurrences */
+              if (option_given != min)
+                {
+                  fprintf (stderr, "%s: %s option occurrences must be %d\n",
+                    prog_name, option_desc, min);
+                  error = 1;
+                }
+            }
+          else if (option_given < min
+              || option_given > max)
+            {
+              /* range occurrences */
+              fprintf (stderr, "%s: %s option occurrences must be between %d and %d\n",
+                prog_name, option_desc, min, max);
+              error = 1;
+            }
+        }
+      else if (min >= 0)
+        {
+          /* at least check */
+          if (option_given < min)
+            {
+              fprintf (stderr, "%s: %s option occurrences must be at least %d\n",
+                prog_name, option_desc, min);
+              error = 1;
+            }
+        }
+      else if (max >= 0)
+        {
+          /* at most check */
+          if (option_given > max)
+            {
+              fprintf (stderr, "%s: %s option occurrences must be at most %d\n",
+                prog_name, option_desc, max);
+              error = 1;
+            }
+        }
+    }
+    
+  return error;
+}
 static void
 reset_group_injection(struct gengetopt_args_info *args_info);
 
@@ -1568,14 +1728,44 @@ cmdline_parser2 (int argc, char * const *argv, struct gengetopt_args_info *args_
 int
 cmdline_parser_required (struct gengetopt_args_info *args_info, const char *prog_name)
 {
-  return EXIT_SUCCESS;
+  int result = EXIT_SUCCESS;
+
+  if (cmdline_parser_required2(args_info, prog_name, NULL) > 0)
+    result = EXIT_FAILURE;
+
+  if (result == EXIT_FAILURE)
+    {
+      cmdline_parser_free (args_info);
+      exit (EXIT_FAILURE);
+    }
+  
+  return result;
+}
+
+int
+cmdline_parser_required2 (struct gengetopt_args_info *args_info, const char *prog_name, const char *additional_error)
+{
+  int error = 0;
+
+  /* checks for required options */
+  if (check_multiple_option_occurrences(prog_name, args_info->config_given, args_info->config_min, args_info->config_max, "'--config' ('-c')"))
+     error = 1;
+  
+  
+  /* checks for dependences among options */
+
+  return error;
 }
 
 int
 cmdline_parser_internal (int argc, char * const *argv, struct gengetopt_args_info *args_info, int override, int initialize, int check_required, const char *additional_error)
 {
   int c;	/* Character of the parsed option.  */
+  char *multi_token, *multi_next; /* for multiple options */
 
+  int i;        /* Counter */
+
+  struct string_list * config_list = NULL,* config_new = NULL;
   int error = 0;
   struct gengetopt_args_info local_args_info;
 
@@ -1693,21 +1883,28 @@ cmdline_parser_internal (int argc, char * const *argv, struct gengetopt_args_inf
           exit (EXIT_SUCCESS);
 
         case 'c':	/* configuration file (in gengetopt format) to pass parameters.  */
-          if (local_args_info.config_given)
+          local_args_info.config_given++;
+        
+          multi_token = get_multiple_arg_token(optarg);
+          multi_next = get_multiple_arg_token_next (optarg);
+        
+          while (1)
             {
-              fprintf (stderr, "%s: `--config' (`-c') option given more than once%s\n", argv[0], (additional_error ? additional_error : ""));
-              goto failure;
+              config_new = (struct string_list *) malloc (sizeof (struct string_list));
+              config_new->next = config_list;
+              config_list = config_new;
+              config_new->arg = gengetopt_strdup (multi_token);
+              config_new->orig = multi_token;
+        
+              if (multi_next)
+                {
+                  multi_token = get_multiple_arg_token(multi_next);
+                  multi_next = get_multiple_arg_token_next (multi_next);
+                  local_args_info.config_given++;
+                }
+              else
+                break;
             }
-          if (args_info->config_given && ! override)
-            continue;
-          local_args_info.config_given = 1;
-          args_info->config_given = 1;
-          if (args_info->config_arg)
-            free (args_info->config_arg); /* free previous string */
-          args_info->config_arg = gengetopt_strdup (optarg);
-          if (args_info->config_orig)
-            free (args_info->config_orig); /* free previous string */
-          args_info->config_orig = gengetopt_strdup (optarg);
           break;
 
         case 's':	/* dataset file.  */
@@ -3230,7 +3427,29 @@ cmdline_parser_internal (int argc, char * const *argv, struct gengetopt_args_inf
     }
   
 
+  if (local_args_info.config_given && config_list)
+    {
+      struct string_list *tmp;
+      args_info->config_arg = (char * *) realloc (args_info->config_arg, (args_info->config_given + local_args_info.config_given) * sizeof (char *));
+      args_info->config_orig = (char **) realloc (args_info->config_orig, (args_info->config_given + local_args_info.config_given) * sizeof (char *));
+      for (i = (local_args_info.config_given - 1); i >= 0; --i)
+        {
+          tmp = config_list;
+          args_info->config_arg [i + args_info->config_given] = config_list->arg;
+          args_info->config_orig [i + args_info->config_given] = config_list->orig;
+          config_list = config_list->next;
+          free (tmp);
+        }
+    }
+  
 
+  args_info->config_given += local_args_info.config_given;
+  local_args_info.config_given = 0;
+  
+  if (check_required)
+    {
+      error += cmdline_parser_required2 (args_info, argv[0], additional_error);
+    }
 
   cmdline_parser_release (&local_args_info);
 
@@ -3240,6 +3459,18 @@ cmdline_parser_internal (int argc, char * const *argv, struct gengetopt_args_inf
   return 0;
 
 failure:
+  if (config_list)
+    {
+      struct string_list *tmp;
+      while (config_list)
+        {
+          tmp = config_list;
+          free (config_list->arg);
+          free (config_list->orig);
+          config_list = config_list->next;
+          free (tmp);
+        }
+    }
   
   cmdline_parser_release (&local_args_info);
   return (EXIT_FAILURE);
