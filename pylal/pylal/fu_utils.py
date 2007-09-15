@@ -171,7 +171,34 @@ class getCache(UserDict):
               break
 
     return process
-    
+ 
+##############################################################################
+# class to handle qscan cache file
+##############################################################################
+
+class qscanCache(UserDict):
+
+  def __init__(self):
+    self.fileName = 'qscan-output.cache'
+    self.list=[]
+    self.columns = ['gps','tag','ifo','pathToQscanDir']
+
+  def addLine(self,node):
+    self.list.append(node.outputCache)
+
+  def writeCache(self):
+    if len(self.list) > 0:
+      print >> sys.stderr, '.......Overwriting ' + self.fileName
+      file = open(self.fileName,'w')
+      file.write('### QSCAN CACHE FILE ###')
+      for field in self.columns:
+        file.write('#' + field + '\n')
+      for line in self.list:
+        file.write(line + '\n')
+      file.close()
+    else: pass
+
+
 ##############################################################################
 # function to read/write a list of strings in a file
 ##############################################################################
