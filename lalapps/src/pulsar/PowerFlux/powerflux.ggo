@@ -24,6 +24,7 @@ option "enable-dataset-locking"	- "set to 1 to enable dataset level locking"	int
 option "dataset"	s "dataset file" string no
 option "input-format"   - "format of input files (GEO, SFT, Power)" string default="GEO" no 
 option "dump-data"	- "file to output loaded SFT data into, for testing" string no
+option "dump-sftv2"	- "directory to output loaded data, together with dataset description" string no
 option "output" 	o "output directory" string no
 
 option "ephemeris-path" - "path to detresponse program from lalapps" string no
@@ -92,4 +93,6 @@ option "output-initial" - "write initial candidates into log file" int default="
 option "output-optimized" - "write optimized (second pass) candidates into log file" int default="0" no
 
 option "extended-test" - "Perform extended self test" int default="0" no
+
+option "num-threads"  - "Use that many threads for computation" int default="-1" no
 

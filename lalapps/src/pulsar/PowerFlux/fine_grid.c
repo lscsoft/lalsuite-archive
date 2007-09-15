@@ -25,6 +25,8 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/time.h>
+#include <time.h>
 #include <string.h>
 
 #include "global.h"
@@ -151,7 +153,8 @@ for(i=0,kk=super_grid->first_map[pi];kk>=0;kk=super_grid->list_map[kk],i++)
 		#ifdef WEIGHTED_SUM
 		w2=d->expTMedians[k]*d->weight/mod;
 		w=w2/mod;
-		pr->skymap.total_weight[kk]+=w;
+		//pr->skymap.total_weight[kk]+=w;
+		aa->total_weight[i]+=w;
 	
 		if(args_info.compute_betas_arg){
 			pr->skymap.beta1[kk]+=w*beta1;
@@ -280,7 +283,8 @@ for(i=0,kk=super_grid->first_map[pi];kk>=0;kk=super_grid->list_map[kk],i++)
 		#ifdef WEIGHTED_SUM
 		w2=d->expTMedians[k]*d->weight/mod;
 		w=w2/(3.0*mod);
-		pr->skymap.total_weight[kk]+=w;
+		//pr->skymap.total_weight[kk]+=w;
+		aa->total_weight[i]+=w;
 
 		if(args_info.compute_betas_arg){
 			pr->skymap.beta1[kk]+=w*beta1;
@@ -515,7 +519,8 @@ for(i=0,kk=super_grid->first_map[pi];kk>=0;kk=super_grid->list_map[kk],i++)
 		#ifdef WEIGHTED_SUM
 		w2=d->expTMedians[k]*d->weight/mod;
 		w=w2/mod;
-		pr->skymap.total_weight[kk]+=w;
+		//pr->skymap.total_weight[kk]+=w;
+		aa->total_weight[i]+=w;
 	
 		if(args_info.compute_betas_arg){
 			pr->skymap.beta1[kk]+=w*beta1;
@@ -1375,6 +1380,7 @@ for(k=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[o
 	
 	for(m=0;m<ntotal_polarizations;m++){
 		polarization_results[m].skymap.max_sub_weight[offset]=0.0;
+		polarization_results[m].skymap.total_weight[offset]=ar[m].total_weight[k];
 
 		#ifdef WEIGHTED_SUM		
 		c=(polarization_results[m].skymap.total_weight[offset]);
@@ -1426,6 +1432,7 @@ for(k=0,offset=super_grid->first_map[pi];offset>=0;offset=super_grid->list_map[o
 
 	for(m=0;m<ntotal_polarizations;m++){
 		polarization_results[m].skymap.max_sub_weight[offset]=0.0;
+		polarization_results[m].skymap.total_weight[offset]=ar[m].total_weight[k];
 		
 		#ifdef WEIGHTED_SUM		
 		c=(polarization_results[m].skymap.total_weight[offset]);
@@ -1587,7 +1594,7 @@ clear_accumulation_arrays(ar);
 for(j=0;j<d_free;j++) {
 
 	/* process single patch */
-	for(k=0;k<datasets[j].free;k++){
+	for(k=0;k<datasets[j].free;k++) {
 		a=datasets[j].expTMedians[k];
 		
 		for(m=0;m<ntotal_polarizations;m++) {
@@ -1596,9 +1603,17 @@ for(j=0;j<d_free;j++) {
 			if(!do_CutOff || (b*a*AM_response(k, patch_grid, pi, datasets[j].polarizations[m].AM_coeffs)<4))
 				process_patch(thread_id, &(datasets[j]), ar, m, pi, k, b*sqrt(a));
 			}
+
+		/* accumulate intermediate results */
+		if((k % 100)==0) {
+			update_d_accumulation_arrays(ar);
+			}
 		}
 	
 	}
+
+finalize_accumulation_arrays(ar);
+
 /* compute means */
 if(0)compute_mean_no_lines(thread_id, ar, pi);
 	else compute_mean(thread_id, ar, pi);
@@ -1608,6 +1623,8 @@ for(i=0;i<stored_fine_bins*useful_bins;i++){
 				even for SFTs done with 
 				make_fake_data */
 	}
+
+
 /* compute upper limits */
 for(i=0;i<ntotal_polarizations;i++){
 	make_limits(thread_id, &(polarization_results[i]), &(ar[i]), pi);
@@ -1653,9 +1670,13 @@ for(pi=0;pi<patch_grid->npoints;pi++) {
 	#endif
 	}
 
-while(do_single_job(-1));
-
+k=0;
+while(do_single_job(-1)) {
+	if(k % 100 == 0)fprintf(stderr, "% 3.1f ", jobs_done_ratio()*100);
+	k++;
+	}
 wait_for_all_done();
+fprintf(stderr, "\n");
 
 gettimeofday(&end_time, NULL);
 

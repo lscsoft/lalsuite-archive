@@ -1075,7 +1075,6 @@ if(timebase < 0) {
 	fprintf(LOG,"** Timebase is negative, ERROR !\n");
 	exit(-1);
 	} else {
-	factor=(0.5*1800.0*16384.0)/(args_info.strain_norm_factor_arg*nbins); /* use fixed normalization for 1800 sec SFTs .. */
 	factor=16384.0/args_info.strain_norm_factor_arg; /* fixed normalization for v2 SFTs ? */
 	}
 for(i=0;i<count;i++){
@@ -1336,7 +1335,18 @@ if(!strncasecmp(line, "directory", 9)) {
 	locate_arg(line, length, 1, &ai, &aj);
 	d_read_directory(&(datasets[d_free-1]), &(line[ai]), aj-ai);
 	} else 
-if(!strncasecmp(line, "weight", 8)) {
+if(!strncasecmp(line, "file", 4)) {
+	char *s;
+	locate_arg(line, length, 1, &ai, &aj);
+
+	s=do_alloc(aj-ai+1, 1);
+	memcpy(s, &(line[ai]), aj-ai);
+	s[aj-ai]=0;
+
+	add_file(&(datasets[d_free-1]), s);
+	free(s);
+	} else 
+if(!strncasecmp(line, "weight", 6)) {
 	locate_arg(line, length, 1, &ai, &aj);
 	datasets[d_free-1].weight=atof(&(line[ai]));
 	} else 
@@ -1734,7 +1744,7 @@ a=datasets_normalizing_weight();
 for(i=0;i<d_free;i++){
 	d=&(datasets[i]);
 	b=a*exp(M_LN10*d->TMedian); 
-	d->weight*=b*b;
+	d->weight/=b*b;
 	}
 }
 
@@ -1977,6 +1987,97 @@ for(i=0;i<d_free;i++) {
 		}
 	}
 fclose(fout);
+}
+
+void sftv2_dump_datasets(char *directory) 
+{
+FILE *fout;
+FILE *fdst;
+int i,j,k;
+DATASET *d;
+float x,y;
+char filename[1000];
+char *path;
+double key=2.0;
+SFTv2_header2 sfth;
+
+fprintf(stderr, "Dumping datasets into %s\n", directory);
+mkdir(directory, ~0);
+
+path=do_alloc(strlen(directory)+30, 1);
+sprintf(path, "%s/dataset.dst", directory);
+fdst=fopen(path, "w");
+
+if(fdst==NULL) {
+	perror(path);
+	free(path);
+	return;
+	}
+free(path);
+
+for(i=0;i<d_free;i++) {
+	d=&(datasets[i]);
+
+	if(d->free<1)continue;
+
+	snprintf(filename+1, 999, "-%s-%lld-%lld.sft", d->name, d->gps[0], (d->gps[d->free-1]-d->gps[0]+1800));
+	if(!strcasecmp(d->detector, "LHO"))filename[0]='H';
+		else
+	if(!strcasecmp(d->detector, "LLO"))filename[0]='L';
+		else filename[0]='u';
+
+	fprintf(stderr, "\twriting %s\n", filename);
+
+	fprintf(fdst, "new_dataset \"%s\"\n", d->name);
+	fprintf(fdst, "detector \"%s\"\n\n", d->detector);
+	fprintf(fdst, "# weight %f\n", d->weight);
+	fprintf(fdst, "# firstbin %d\n", d->first_bin);
+	fprintf(fdst, "# nbins %d\n", d->nbins);
+	fprintf(fdst, "# gps_start %lld\n", d->gps[0]);
+	fprintf(fdst, "# gps_stop %lld\n\n", d->gps[d->free-1]);
+
+	path=do_alloc(strlen(directory)+strlen(filename)+2, 1);
+	sprintf(path, "%s/%s", directory, filename);
+
+	fprintf(fdst, "file \"%s\"\n\n", path);
+
+	fout=fopen(path, "w");
+	if(fout==NULL) {
+		perror(path);
+		fclose(fdst);
+		free(path);
+		return;
+		}
+	free(path);
+
+	for(j=0;j<d->free;j++) {
+
+		key=2.0;
+		sfth.gps_sec=d->gps[j];
+		sfth.gps_nsec=0;
+		sfth.tbase=d->coherence_time;
+		sfth.first_frequency_index=d->first_bin;
+		sfth.nsamples=d->nbins;
+		sfth.crc64=0;
+		sfth.detector[0]=filename[0];
+		sfth.detector[1]='1'; /* TODO: we can't tell H2 from H1 here */
+		sfth.padding[0]=0;
+		sfth.padding[1]=0;
+		sfth.comment_length=0;
+
+		fwrite(&key, sizeof(key), 1, fout);
+		fwrite(&sfth, sizeof(sfth), 1, fout);
+
+		for(k=0;k<d->nbins;k++) {
+			x=d->re[j*d->nbins+k]*args_info.strain_norm_factor_arg/(16384.0);
+			y=d->im[j*d->nbins+k]*args_info.strain_norm_factor_arg/(16384.0);
+			fwrite(&x, sizeof(x), 1, fout);
+			fwrite(&y, sizeof(y), 1, fout);
+			}
+		}
+	fclose(fout);
+	}
+fclose(fdst);
 }
 
 void fake_dataset_test(void)

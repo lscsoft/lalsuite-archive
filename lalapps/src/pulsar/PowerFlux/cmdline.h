@@ -86,6 +86,9 @@ struct gengetopt_args_info
   char * dump_data_arg;	/* file to output loaded SFT data into, for testing.  */
   char * dump_data_orig;	/* file to output loaded SFT data into, for testing original value given at command line.  */
   const char *dump_data_help; /* file to output loaded SFT data into, for testing help description.  */
+  char * dump_sftv2_arg;	/* directory to output loaded data, together with dataset description.  */
+  char * dump_sftv2_orig;	/* directory to output loaded data, together with dataset description original value given at command line.  */
+  const char *dump_sftv2_help; /* directory to output loaded data, together with dataset description help description.  */
   char * output_arg;	/* output directory.  */
   char * output_orig;	/* output directory original value given at command line.  */
   const char *output_help; /* output directory help description.  */
@@ -267,6 +270,7 @@ struct gengetopt_args_info
   int dataset_given ;	/* Whether dataset was given.  */
   int input_format_given ;	/* Whether input-format was given.  */
   int dump_data_given ;	/* Whether dump-data was given.  */
+  int dump_sftv2_given ;	/* Whether dump-sftv2 was given.  */
   int output_given ;	/* Whether output was given.  */
   int ephemeris_path_given ;	/* Whether ephemeris-path was given.  */
   int earth_ephemeris_given ;	/* Whether earth-ephemeris was given.  */

@@ -41,12 +41,20 @@ typedef struct S_POLARIZATION {
 	} POLARIZATION;
 
 typedef struct {
+	/* intermediate results: this array has stored_fine_bins entries */
+	SUM_TYPE *total_weight;
 	/* intermediate results: these arrays have stored_fine_bins*useful_bins entries */
 	SUM_TYPE *fine_grid_sum;
 	SUM_TYPE *fine_grid_sq_sum;
 	SUM_TYPE *fine_grid_weight;
 	COUNT_TYPE *fine_grid_count;
+
+		/* double variants of the same structure - for intermediate accumulation */
+	double *total_weight_d;
+	double *fine_grid_sum_d;
+
 	} ACCUMULATION_ARRAYS;
+
 
 typedef struct {
 	char *name;
@@ -192,5 +200,24 @@ ACCUMULATION_ARRAYS *new_accumulation_arrays(void);
 void free_accumulation_arrays(ACCUMULATION_ARRAYS *);
 ACCUMULATION_ARRAYS *get_thread_accumulation_arrays(int thread_id);
 void clear_accumulation_arrays(ACCUMULATION_ARRAYS *);
+void update_d_accumulation_arrays(ACCUMULATION_ARRAYS *r);
+void finalize_accumulation_arrays(ACCUMULATION_ARRAYS *r);
+
+/* How to use:
+
+      ar=new_accumulation_arrays()
+
+      loop {
+          clear_accumulation_arrays()
+               loop {
+                   compute and add 
+                   periodically update_d_accumulation_arrays()
+                    }
+          finalize_accumulation_arrays()
+          Use results
+          }
+     free_accumulation_arrays() 
+*/
+
 
 #endif

@@ -321,7 +321,11 @@ fprintf(LOG, "Accumulation set size: %f KB\n",
 
 for(i=0;i<ntotal_polarizations;i++){
 	/* Accumulation arrays */
+	r[i].total_weight=do_alloc(stored_fine_bins,sizeof(*r[i].total_weight));
+	r[i].total_weight_d=do_alloc(stored_fine_bins,sizeof(*r[i].total_weight_d));
+
 	r[i].fine_grid_sum=do_alloc(stored_fine_bins*useful_bins,sizeof(*r[i].fine_grid_sum));
+	r[i].fine_grid_sum_d=do_alloc(stored_fine_bins*useful_bins,sizeof(*r[i].fine_grid_sum_d));
 	#ifdef COMPUTE_SIGMA
 	r[i].fine_grid_sq_sum=do_alloc(stored_fine_bins*useful_bins,sizeof(*r[i].fine_grid_sq_sum));
 	#endif
@@ -342,7 +346,10 @@ int i;
 #define FREE(var) { free(var); var=NULL; }
 for(i=0;i<ntotal_polarizations;i++){
 	/* Accumulation arrays */
+	FREE(r[i].total_weight);
+	FREE(r[i].total_weight_d);
 	FREE(r[i].fine_grid_sum);
+	FREE(r[i].fine_grid_sum_d);
 	#ifdef COMPUTE_SIGMA
 	FREE(r[i].fine_grid_sq_sum);
 	#endif
@@ -377,8 +384,14 @@ void clear_accumulation_arrays(ACCUMULATION_ARRAYS *r)
 long i,k;
 
 for(k=0;k<ntotal_polarizations;k++){
+	for(i=0;i<stored_fine_bins;i++){
+		r[k].total_weight[i]=0.0;
+		r[k].total_weight_d[i]=0.0;
+		}
+
 	for(i=0;i<stored_fine_bins*useful_bins;i++){
 		r[k].fine_grid_sum[i]=0.0;
+		r[k].fine_grid_sum_d[i]=0.0;
 		
 		#ifdef COMPUTE_SIGMA
 		r[k].fine_grid_sq_sum[i]=0.0;
@@ -393,3 +406,36 @@ for(k=0;k<ntotal_polarizations;k++){
 	}
 }
 
+void update_d_accumulation_arrays(ACCUMULATION_ARRAYS *r)
+{
+long i,k;
+
+for(k=0;k<ntotal_polarizations;k++){
+	for(i=0;i<stored_fine_bins;i++){
+		r[k].total_weight_d[i]+=r[k].total_weight[i];
+		r[k].total_weight[i]=0.0;
+		}
+
+	for(i=0;i<stored_fine_bins*useful_bins;i++){
+		r[k].fine_grid_sum_d[i]+=r[k].fine_grid_sum[i];
+		r[k].fine_grid_sum[i]=0.0;
+		}
+	}
+}
+
+void finalize_accumulation_arrays(ACCUMULATION_ARRAYS *r)
+{
+long i,k;
+
+for(k=0;k<ntotal_polarizations;k++){
+	for(i=0;i<stored_fine_bins;i++){
+		r[k].total_weight_d[i]+=r[k].total_weight[i];
+		r[k].total_weight[i]=r[k].total_weight_d[i];
+		}
+
+	for(i=0;i<stored_fine_bins*useful_bins;i++){
+		r[k].fine_grid_sum_d[i]+=r[k].fine_grid_sum[i];
+		r[k].fine_grid_sum[i]=r[k].fine_grid_sum_d[i];
+		}
+	}
+}

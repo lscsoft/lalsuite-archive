@@ -509,11 +509,16 @@ if(args_info.dump_data_given) {
 	dump_datasets(args_info.dump_data_arg);
 	}
 
+
 if(nsegments==0){
 	fprintf(stderr,"ERROR: no input data found !\n");
 	return -1;
 	}
 post_init_datasets();
+
+if(args_info.dump_sftv2_given) {
+	sftv2_dump_datasets(args_info.dump_sftv2_arg);
+	}
 
 fprintf(LOG,"nsegments : %d\n", nsegments);
 

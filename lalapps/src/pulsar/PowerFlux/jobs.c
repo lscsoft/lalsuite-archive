@@ -267,6 +267,11 @@ thread_cond_broadcast(&wait_for_more_jobs_condition);
 thread_mutex_unlock(&jobs_mutex);
 }
 
+float jobs_done_ratio(void)
+{
+return((1.0*jobs_done)/jobs_submitted);
+}
+
 void print_jobs_stats(void)
 {
 fprintf(stderr,"jobs_submitted=%ld jobs_done=%ld\n", jobs_submitted, jobs_done);

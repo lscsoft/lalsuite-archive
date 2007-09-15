@@ -1,5 +1,5 @@
 PACKAGE=\"powerflux\"
-VERSION=1.4.19-64
+VERSION=1.4.20-64
 LALROOT=./../../../../
 LALROOT=/opt/lscsoft/lal/
 LALINCLUDE=-I$(LALROOT)/include/
@@ -325,8 +325,8 @@ powerflux.dyn: $(OBJS)
 	$(CC) $(OBJS) -o powerflux.dyn $(LDFLAGS) -lgsl -lgslcblas
 	ls -l powerflux.dyn
 
-powerflux-condor: $(OBJS)
-	 condor_compile $(CC) $(OBJS) -o powerflux-condor -static $(LDFLAGS) -lgsl -lgslcblas -lm
+powerflux-condor: $(OBJS) jobs.o
+	 condor_compile $(CC) $(OBJS) jobs.o -o powerflux-condor -static $(LDFLAGS) -lgsl -lgslcblas -lm
 	ls -l powerflux-condor
 
 jobs-mt.o: jobs.c jobs.h
