@@ -230,7 +230,7 @@ if(!bypass_lowpass_filter && (lowpass_filter_f>0) && (lowpass_filter_a > 0)){
 		}
 	}
 
-if(!bypass_first_window){
+if(!bypass_first_window) {
 	fprintf(stderr,"Applying Hann window to input data\n");
 	for(i=0;i<total_samples;i++)data[i]*=0.5*(1.0-cos((2.0*M_PI*i)/total_samples));
 	window_sum=0.5;
