@@ -1174,6 +1174,7 @@ while(1) {
 		d->free++;
 		} else {
 		if(!header_offset)fprintf(stderr,"Cannot read file \"%s\": wrong endianness or invalid data\n", filename);
+		fclose(fin);
 		return;
 		}
 	}
