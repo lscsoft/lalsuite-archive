@@ -95,8 +95,13 @@ def get_contour(xedges, yedges, pcsignalsq, confidence,
   clevel=zeros(len(xedges), dtype=float)
   dy = yedges[1]-yedges[0]
   centers = asarray(yedges) + dy/2
-  for i in arange(len(xedges)):
-    for j in arange(len(yedges)):
+  
+  # derive an exclusion distance for each mass bin
+  for i in xrange(len(xedges)):
+    # start the distance loop at 1 to handle a threshold crossing in the first
+    # (index 0) bin; in this case, the code as written will correctly
+    # extrapolate, rather than interpolate.
+    for j in xrange(1, len(yedges)):
       if pcsignalsq[j,i]>confidence: 
         slope = dy / (pcsignalsq[j, i] - pcsignalsq[j-1, i])
         clevel[i] = centers[j-1] + (confidence-pcsignalsq[j-1,i])*slope
@@ -127,6 +132,15 @@ def fit_sigmoids(xedges, yedges, image, new_yedges=None):
     assert image.shape[0] == len(yedges)
     assert image.shape[1] == len(xedges)
     
+    if new_yedges is None:
+      new_yedges = yedges
+    
+    old_dy = yedges[1] - yedges[0]
+    new_dy = new_yedges[1] - new_yedges[0]
+    
+    old_centers = yedges + old_dy / 2
+    new_centers = new_yedges + new_dy / 2
+    
     from scipy import optimize
     
     # logistic sigmoid function
@@ -146,10 +160,12 @@ def fit_sigmoids(xedges, yedges, image, new_yedges=None):
         ind[:len(vals)//2] = False  # ignore bottom half
         vals[ind] = 1  # set to 1
         
-        p1, success = optimize.leastsq(err_func, p0[:], args=(yedges, vals))
+        p1, success = optimize.leastsq(err_func, p0[:], args=(old_centers, vals))
         if not success:
             raise FitError, "sigmoid fit did not converge"
-        output[:, i] = fit_func(p1, new_yedges)
+        
+        # sample at the prescribed distances
+        output[:, i] = fit_func(p1, new_centers)
     return output
 
 ##############################################################################
@@ -213,15 +229,15 @@ parser.add_option("-O","--on-source-segs",
 parser.add_option("-N", "--nbins", type="float", default=20,\
   help="number of bins")
 parser.add_option("-a", "--min-mass", type="float", default=0.5,\
-  help="minimum value for the mass range")
+  help="minimum value for the mass range in solar masses")
 parser.add_option("-b", "--max-mass", type="float", default=20.0,\
-  help="maximum value for the mass range")
+  help="maximum value for the mass range in solar masses")
 parser.add_option("-d", "--bins-mass", type="float", default=8.0,\
   help="number of bins for the mass range")
 parser.add_option("-f", "--min-distance", type="float", default=1.0,\
-  help="minimum value for the distance range")
+  help="minimum value for the distance range in Mpc")
 parser.add_option("-i", "--max-distance", type="float", default=20.0,\
-  help="maximum value for the distance range")
+  help="maximum value for the distance range in Mpc")
 parser.add_option("-j", "--bins-distance", type="float",default=13.0,\
   help="number of bins for the distance range")
 # efficiency errors
@@ -239,7 +255,10 @@ parser.add_option("-w","--waveform-systematic",action="store",type="float",
 
 parser.add_option("-k","--known-distance",action="store",type="float",
     default=None, metavar=" KD",
-    help="Distance at which GRB is thought to be")
+    help="Distance at which GRB is thought to be in Mpc")
+parser.add_option("-K", "--kd-epsilon", type="float", default=1e-6,
+  help="for the known-distance calculation, accept injections at distances "\
+       "in the range [KD - KD_EPSILON, KD + KD_EPSILON] (default: %default)")
 
 parser.add_option("-y", "--fit-sigmoid", action="store_true", default=False,
   help="for each mass bin, fit a logistic sigmoid to the 1-D probability" \
@@ -458,9 +477,9 @@ trigsperoffsource=cum_dist_offsource[:,0]
 offsourceindex=arange(len(trigsperoffsource))
 plot(offsourceindex,trigsperoffsource,'ro')
 hold(True)
-plot(offsourceindex,mean(trigsperoffsource)+0.0*offsourceindex,'b',lw='2')
-plot(offsourceindex,mean(trigsperoffsource)+std(trigsperoffsource)+0.0*offsourceindex,'g',lw='2')
-plot(offsourceindex,mean(trigsperoffsource)-std(trigsperoffsource)+0.0*offsourceindex,'g',lw='2')
+plot(offsourceindex,mean(trigsperoffsource)+0.0*offsourceindex,'b',lw=2)
+plot(offsourceindex,mean(trigsperoffsource)+std(trigsperoffsource)+0.0*offsourceindex,'g',lw=2)
+plot(offsourceindex,mean(trigsperoffsource)-std(trigsperoffsource)+0.0*offsourceindex,'g',lw=2)
 grid(True)
 xlabel(r"Off-source segment")
 ylabel(r"Number of triggers")
@@ -581,8 +600,8 @@ else:
   pcsignalsq =  pcsignalsq + mcerrorsq
 
   if opts.known_distance:
-    kd_yedges = [opts.known_distance-1e-6,
-                 opts.known_distance+1e-6]
+    kd_yedges = [opts.known_distance-opts.kd_epsilon,
+                 opts.known_distance+opts.kd_epsilon]
     kd_foundsq = square(xedges, kd_yedges, coincInjTriggers, "found")
     kd_missedsq = square(xedges, kd_yedges, coincInjTriggers, "missed")
     kd_pcsignalsq = kd_missedsq / (kd_missedsq + kd_foundsq + 1.0e-10)
@@ -690,7 +709,7 @@ p4=fill(tmpx,tmpy, facecolor=(0.1, 0.1, 0.1), label='90\% exclusion')
 if opts.known_distance is not None:
   axhline(y=opts.known_distance, color='r', label='_nolegend_')
 
-axis(im_extent)
+axis([min(xedges), max(xedges)+dx, 0, max(yedges)+dy])
 xlabel(r"$m_2 (M_\odot)$")
 ylabel(r"$D (\mathrm{Mpc})$")
 if opts.figure_type not in ("ps", "eps"):
