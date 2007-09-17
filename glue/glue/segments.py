@@ -566,7 +566,8 @@ class segmentlist(list):
 	def __isub__(self, other):
 		"""
 		Replace the segmentlist with the difference between itself
-		and another.  This operation is O(n).
+		and another.  For lists of length m and n respectively,
+		this operation is O(n + m).
 		"""
 		if not other:
 			return self
