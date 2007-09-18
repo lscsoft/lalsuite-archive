@@ -70,6 +70,7 @@ def parse_command_line():
 		options.prefunc = ligolw_bucluster.ExcessPowerPreFunc
 		options.postfunc = ligolw_bucluster.ExcessPowerPostFunc
 		options.testfunc = ligolw_bucluster.ExcessPowerTestFunc
+		options.sortfunc = ligolw_bucluster.ExcessPowerSortFunc
 		options.bailoutfunc = ligolw_bucluster.ExcessPowerBailoutFunc
 		options.clusterfunc = ligolw_bucluster.ExcessPowerClusterFunc
 	else:

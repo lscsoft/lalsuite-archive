@@ -153,6 +153,14 @@ def ExcessPowerPostFunc(sngl_burst_table, offset):
 		row.set_peak(offset + row.peak_time)
 
 
+def ExcessPowerSortFunc(a, b):
+	"""
+	Orders a and b by ifo, then by channel, then by search, then by
+	start time.
+	"""
+	return cmp(a.ifo, b.ifo) or cmp(a.channel, b.channel) or cmp(a.search, b.search) or cmp(a.get_start(), b.get_start())
+
+
 def ExcessPowerBailoutFunc(a, b):
 	"""
 	Orders a and b by ifo, then by channel, then by search, then by
@@ -251,7 +259,7 @@ def ExcessPowerClusterFunc(a, b):
 #
 
 
-def ClusterSnglBurstTable(sngl_burst_table, testfunc, clusterfunc, bailoutfunc = None):
+def ClusterSnglBurstTable(sngl_burst_table, testfunc, clusterfunc, sortfunc = None, bailoutfunc = None):
 	"""
 	Cluster the candidates in the sngl_burst table.  testfunc will be
 	passed a pair in random order, and must return 0 (or False) if they
@@ -259,15 +267,11 @@ def ClusterSnglBurstTable(sngl_burst_table, testfunc, clusterfunc, bailoutfunc =
 	candidates in random order, and must modify the contents of the
 	first so as to be a "cluster" of the two.
 
-	If bailoutfunc is not None, the candidates will be sorted into
-	"increasing" order using testfunc as a comparison operator, and
+	If sortfunc and bailoutfunc are both not None (if one is provided
+	the other must be as well), the candidates will be sorted into
+	"increasing" order using sortfunc as a comparison operator, and
 	then only pairs of candidates for which bailoutfunc returns 0 (or
-	False) will be considered for clustering.  When used this way,
-	testfunc must return a numeric result indicating the sort order of
-	the two candidates it has been passed:  >0 if the first is
-	"greater" than the second, <0 if the first is "less" than the
-	second, and 0 if the order does not matter (like a subtraction
-	operator).
+	False) will be considered for clustering.
 
 	The return value is True if the sngl_burst table was modified, and
 	False if it was not.
@@ -276,8 +280,8 @@ def ClusterSnglBurstTable(sngl_burst_table, testfunc, clusterfunc, bailoutfunc =
 	outer_did_cluster = True
 	while outer_did_cluster:
 		outer_did_cluster = False
-		if bailoutfunc is not None:
-			sngl_burst_table.sort(testfunc)
+		if sortfunc is not None:
+			sngl_burst_table.sort(sortfunc)
 		i = 0
 		while i < len(sngl_burst_table):
 			a = sngl_burst_table[i]
@@ -288,7 +292,7 @@ def ClusterSnglBurstTable(sngl_burst_table, testfunc, clusterfunc, bailoutfunc =
 				if not testfunc(a, b):
 					clusterfunc(a, sngl_burst_table.pop(j))
 					table_changed = outer_did_cluster = inner_did_cluster = True
-				elif bailoutfunc is not None and bailoutfunc(a, b):
+				elif (sortfunc is not None) and bailoutfunc(a, b):
 					break
 				else:
 					j += 1
@@ -369,7 +373,7 @@ def ligolw_bucluster(doc, **kwargs):
 	if kwargs["verbose"]:
 		print >>sys.stderr, "clustering ..."
 
-	table_changed = ClusterSnglBurstTable(sngl_burst_table, kwargs["testfunc"], kwargs["clusterfunc"], kwargs["bailoutfunc"])
+	table_changed = ClusterSnglBurstTable(sngl_burst_table, kwargs["testfunc"], kwargs["clusterfunc"], sortfunc = kwargs["sortfunc"], bailoutfunc = kwargs["bailoutfunc"])
 
 	#
 	# Postprocess candidates
