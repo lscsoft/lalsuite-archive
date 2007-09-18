@@ -74,8 +74,8 @@ def New(Type, columns = None):
 
 	Example:
 
-	>>> import lsctables
-	>>> new = lsctables.New(lsctables.ProcessTable)
+	>>> tbl = New(ProcessTable)
+	>>> tbl.write()
 	"""
 	new = Type(sax.xmlreader.AttributesImpl({u"Name": Type.tableName}))
 	colnamefmt = u":".join(Type.tableName.split(":")[:-1]) + u":%s"
