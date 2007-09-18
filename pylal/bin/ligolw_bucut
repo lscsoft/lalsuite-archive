@@ -158,15 +158,6 @@ class DocContents(object):
 			self.coincmaptable = []
 			self.multibursttable = []
 
-		#
-		# Extract the to-be-vetoed segment list, or make a fake one
-		#
-
-		try:
-			self.vetosegs = segments.segmentlist(row.get() for row in table.get_table(xmldoc, lsctables.SegmentTable.tableName) if row.get_active()).coalesce()
-		except:
-			self.vetosegs = segments.segmentlist()
-
 
 #
 # =============================================================================
