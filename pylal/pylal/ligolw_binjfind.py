@@ -138,10 +138,11 @@ class DocContents(object):
 
 		try:
 			self.bb_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, [lsctables.SnglBurstTable.tableName], create_new = False)
-			self.sc_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, [lsctables.CoincTable.tableName, lsctables.SimBurstTable.tableName])
 		except KeyError:
 			self.bb_coinc_def_id = None
 			self.sc_coinc_def_id = None
+		else:
+			self.sc_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, [lsctables.CoincTable.tableName, lsctables.SimBurstTable.tableName])
 
 		#
 		# get coinc table, create one if needed
@@ -171,24 +172,27 @@ class DocContents(object):
 		# burst coincs.
 		#
 
-		self.coinc_peak_time_window = 0
+		# index sngl_burst table
 		index = {}
 		for row in self.snglbursttable:
 			index[row.event_id] = row
-		for row in self.coincmaptable:
-			if row.table_name == table.StripTableName(lsctables.SnglBurstTable.tableName):
-				if row.coinc_event_id not in index:
-					index[row.coinc_event_id] = []
-				index[row.coinc_event_id].append(index[row.event_id])
+		# find IDs of burst<-->burst coincs
 		self.index = {}
 		for coinc in self.coinctable:
 			if (coinc.coinc_def_id == self.bb_coinc_def_id) and (coinc.time_slide_id in zero_lag_time_slides):
-				# sort bursts by their peak times
-				index[coinc.coinc_event_id].sort(lambda a, b: cmp(a.peak_time, b.peak_time) or cmp(a.peak_time_ns, b.peak_time_ns))
-				# store in coinc index
-				self.index[coinc] = tuple(index[coinc.coinc_event_id])
-				# update coinc peak time window
-				self.coinc_peak_time_window = max(self.coinc_peak_time_window, float(self.index[coinc][-1].get_peak() - self.index[coinc][0].get_peak()))
+				self.index[coinc.coinc_event_id] = []
+		# construct event list for each burst<-->burst coinc
+		sngl_burst_table_name = table.StripTableName(lsctables.SnglBurstTable.tableName)
+		for row in self.coincmaptable:
+			if (row.table_name == sngl_burst_table_name) and (row.coinc_event_id in self.index):
+				self.index[row.coinc_event_id].append(index[row.event_id])
+		# sort each event list by peak time, convert to tuples for
+		# speed, and find peak time window
+		self.coinc_peak_time_window = 0
+		for id, events in self.index.iteritems():
+			events.sort(lambda a, b: cmp(a.peak_time, b.peak_time) or cmp(a.peak_time_ns, b.peak_time_ns))
+			self.index[id] = tuple(events)
+			self.coinc_peak_time_window = max(self.coinc_peak_time_window, float(events[-1].get_peak() - events[0].get_peak()))
 
 		#
 		# sort sngl_burst table by peak time
@@ -369,6 +373,10 @@ def find_coinc_matches(contents, sim, comparefunc):
 	Return a list of the burst<-->burst coincs in which all burst
 	events match sim.
 	"""
+	# the first half of the conditional is a speed hack to reduce the
+	# number of times the real test, which is costly, needs to be run.
+	# perhaps imap() could be used instead of map to provide a simpler
+	# early bail out
 	return [coinc for coinc, bursts in contents.index.iteritems() if (abs(float(bursts[0].get_peak() - sim.get_geocent_peak())) <= contents.coinc_peak_time_window) and True not in map(lambda burst: comparefunc(sim, burst), bursts)]
 
 
