@@ -189,7 +189,7 @@ class DocContents(object):
 		# sort each event list by peak time, convert to tuples for
 		# speed, and find peak time window
 		self.coinc_peak_time_window = 0
-		for id, events in self.index.iteritems():
+		for id, events in list(self.index.items()):
 			events.sort(lambda a, b: cmp(a.peak_time, b.peak_time) or cmp(a.peak_time_ns, b.peak_time_ns))
 			self.index[id] = tuple(events)
 			self.coinc_peak_time_window = max(self.coinc_peak_time_window, float(events[-1].get_peak() - events[0].get_peak()))
@@ -377,17 +377,17 @@ def find_coinc_matches(contents, sim, comparefunc):
 	# number of times the real test, which is costly, needs to be run.
 	# perhaps imap() could be used instead of map to provide a simpler
 	# early bail out
-	return [coinc for coinc, bursts in contents.index.iteritems() if (abs(float(bursts[0].get_peak() - sim.get_geocent_peak())) <= contents.coinc_peak_time_window) and True not in map(lambda burst: comparefunc(sim, burst), bursts)]
+	return [coinc_event_id for coinc_event_id, bursts in contents.index.iteritems() if (abs(float(bursts[0].get_peak() - sim.get_geocent_peak())) <= contents.coinc_peak_time_window) and True not in map(lambda burst: comparefunc(sim, burst), bursts)]
 
 
-def add_sim_coinc_coinc(contents, process, sim, coinc_events):
+def add_sim_coinc_coinc(contents, process, sim, coinc_event_ids):
 	"""
 	Create a coinc_event in the coinc table, and add arcs in the
 	coinc_event_map table linking the sim_burst row and the list of
 	coinc_event rows to the new coinc_event row.
 	"""
 	coinc = contents.new_coinc(process, contents.sc_coinc_def_id)
-	coinc.nevents = len(coinc_events)
+	coinc.nevents = len(coinc_event_ids)
 
 	coincmap = lsctables.CoincMap()
 	coincmap.coinc_event_id = coinc.coinc_event_id
@@ -395,11 +395,11 @@ def add_sim_coinc_coinc(contents, process, sim, coinc_events):
 	coincmap.event_id = sim.simulation_id
 	contents.coincmaptable.append(coincmap)
 
-	for event in coinc_events:
+	for coinc_event_id in coinc_event_ids:
 		coincmap = lsctables.CoincMap()
 		coincmap.coinc_event_id = coinc.coinc_event_id
-		coincmap.table_name = ilwd.ILWDTableName(event.coinc_event_id)
-		coincmap.event_id = event.coinc_event_id
+		coincmap.table_name = ilwd.ILWDTableName(coinc_event_id)
+		coincmap.event_id = coinc_event_id
 		contents.coincmaptable.append(coincmap)
 
 
