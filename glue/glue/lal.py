@@ -31,7 +31,7 @@ __version__ = "$Revision$"
 
 import re
 import urlparse
-
+import os
 from glue import segments
 
 
@@ -520,5 +520,20 @@ class Cache(list):
 		Return a list of physical file names.
 		"""
 		return [entry.path() for entry in self]
-
-
+        def check(self):
+          '''
+          Runs through the entries of the Cache() object and checks each entry
+          if the file which it points to exists or not. If the file does exist then 
+          it adds the entry to the Cache() object containing found files, otherwise it
+          adds the entry to the Cache() object containing all entries that are missing. 
+          It returns both in the follwing order: Cache_Found, Cache_Missed.
+          '''  
+          c_found = []
+          c_missed = []
+          for entry in self:
+            if os.path.isfile(entry.path()):
+              c_found.append(entry)
+            else:
+              c_missed.append(entry)
+          return Cache(c_found), Cache(c_missed)
+          
