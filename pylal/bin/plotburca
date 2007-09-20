@@ -47,12 +47,13 @@ from pylal import date
 from pylal import rate
 from pylal import SnglBurstUtils
 from pylal.xlal import inject
+from pylal.xlal import tools
 
 
-inject.cached_detector.update({
-	"H1": inject.cached_detector["LHO_4k"],
-	"H2": inject.cached_detector["LHO_2k"],
-	"L1": inject.cached_detector["LLO_4k"]
+tools.cached_detector.update({
+	"H1": tools.cached_detector["LHO_4k"],
+	"H2": tools.cached_detector["LHO_2k"],
+	"L1": tools.cached_detector["LLO_4k"]
 })
 
 
@@ -212,7 +213,7 @@ def magnitude_b(burst):
 	# galactic core, J2000
 	ra, dec = 2.0318570464121519, -0.50628171572274738
 	gmst = date.XLALGreenwichMeanSiderealTime(date.LIGOTimeGPS(burst.peak_time, burst.peak_time_ns))
-	fplus, fcross = inject.XLALComputeDetAMResponse(inject.cached_detector[burst.ifo].response, ra, dec, 0.0, gmst)
+	fplus, fcross = inject.XLALComputeDetAMResponse(tools.cached_detector[burst.ifo].response, ra, dec, 0.0, gmst)
 	return (burst.ms_hrss**2.0 / (fplus**2.0 + fcross**2.0))**0.5
 
 
