@@ -383,6 +383,12 @@ class segment(tuple):
 		"""
 		return tuple.__new__(self.__class__, (self[0] + x, self[1] + x))
 
+	def duration(self):
+		"""
+		Returns the duration of the segment
+		"""
+		return float(self[1] - self[0])
+
 
 #
 # =============================================================================
@@ -708,6 +714,14 @@ class segmentlist(list):
 			self[i] = self[i].shift(x)
 		return self
 
+	def duration(self):
+		"""
+		Return the duration of the segmentlist
+		"""
+		tmptime = 0.0
+		for seg in self:
+			tmptime += seg.duration()
+		return tmptime
 
 #
 # =============================================================================
