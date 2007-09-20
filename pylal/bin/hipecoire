@@ -51,7 +51,7 @@ def sire(data_type,input,ifos,ifo=None):
           
   command = opts.sire + \
     " --glob '" + input + "'" + \
-    " --output " + output + ".xml" + \
+    " --output " + output + ".xml.gz" + \
     " --summary " + output + ".txt" + \
     " --data-type all_data"
   if ifo:  
@@ -98,12 +98,12 @@ def coire(data_type,input,ifos,trigs=None,long_clust=False):
   if opts.stat_threshold:
     output += "_THRESH_" + str(opts.stat_threshold)
   if data_type == "inj":
-    missed = output + "_MISSED.xml"
+    missed = output + "_MISSED.xml.gz"
     output += "_FOUND"
 
   command = opts.coire + \
         " --glob '" + input + "'" +\
-        " --output " + output +".xml" +\
+        " --output " + output +".xml.gz" +\
         " --summary " + output + ".txt" +\
         " --data-type " + data[data_type]
   if data_type == "slide":
@@ -118,7 +118,7 @@ def coire(data_type,input,ifos,trigs=None,long_clust=False):
     command += " --mass-cut " + opts.mass_cut + \
                " --mass-range-low " + opts.mass_range_low + \
                " --mass-range-high " + opts.mass_range_high
-  if opts.mass_cut == 'mcomp':
+  if opts.mass2_range_high >= 0 and opts.mass2_range_low >= 0:
     command += " --mass2-range-low " + opts.mass2_range_low + \
                " --mass2-range-high " + opts.mass2_range_high
   if opts.cluster_time or long_clust:
@@ -147,10 +147,10 @@ def plotthinca(trigs = None):
   @param trigs: trigger type (if None, keep all)
   """
   if trigs:
-    glob_files = trigs + "/" + trigs + "-COIRE*.xml"
+    glob_files = trigs + "/" + trigs + "-COIRE*.xml.gz"
     fname = trigs + "/" + opts.figure_name
   else:
-    glob_files = "*-COIRE*.xml"
+    glob_files = "*-COIRE*.xml.gz"
     fname = opts.figure_name
     
   if len(opts.vetoes):
@@ -201,11 +201,12 @@ def s3_statistic(trigs = None):
         " --allow-h2-l1" 
 
   if "zero" in analyze:
-    command += " --zero-glob '" + trigs + "-COIRE" + extra + "*.xml'" + \
+    command += " --zero-glob '" + trigs + "-COIRE" + extra + "*.xml.gz'" + \
                " --zero-stat"  
 
   if "slide" in analyze:
-    command += " --slide-glob '" + trigs + "-COIRE_SLIDE" + extra + "*.xml'" +\
+    command += " --slide-glob '" + trigs + "-COIRE_SLIDE" + extra + \
+               "*.xml.gz'" + \
                " --slide-dist" + \
                " --slide-stat" + \
                " --num-slides " + opts.num_slides
@@ -214,8 +215,10 @@ def s3_statistic(trigs = None):
                  " --slide-zero-stat " 
 
   if "inj" in analyze:
-    command += " --inj-glob '" + trigs + "-COIRE" + extra + "*FOUND.xml'" + \
-            " --missed-glob '" + trigs + "-COIRE" + extra + "*MISSED.xml'" + \
+    command += " --inj-glob '" + trigs + "-COIRE" + extra + \
+               "*FOUND.xml.gz'" + \
+               " --missed-glob '" + trigs + "-COIRE" + extra + \
+               "*MISSED.xml.gz'" + \
                " --inj-stat" + \
                " --efficiency"
     for ifo in ifo_list:
@@ -375,10 +378,10 @@ parser.add_option("-K","--mass-range-low",action="store",default=None,\
 parser.add_option("-L","--mass-range-high",action="store",default=None,\
     metavar=" HIGH_MASS",help="upper bound on mass range")
 
-parser.add_option("-M","--mass2-range-low",action="store",default=None,\
+parser.add_option("-M","--mass2-range-low",action="store",default=-1,\
     metavar=" LOW_MASS",help="lower bound on mass2 range")
 
-parser.add_option("-N","--mass2-range-high",action="store",default=None,\
+parser.add_option("-N","--mass2-range-high",action="store",default=-1,\
     metavar=" HIGH_MASS",help="upper bound on mass2 range")
 
 # plotting options
@@ -463,6 +466,12 @@ if opts.mass_cut == 'mcomp' \
       "Must specify --mass2-range-low and --mass2-range-high " + \
       "if --mass-cut given as mcomp"
 
+if (opts.mass2_range_low >= 0 or opts.mass2_range_high >= 0) \
+    and not (opts.mass2_range_low >= 0 and opts.mass2_range_high >= 0):
+  print >> sys.stderr, \
+      "Must specify both --mass2-range-low and --mass2-range-high " + \
+      "if one is specified"
+
 opts.ifos.sort()
   
 # data description
@@ -519,7 +528,7 @@ for data_type in analyze:
         input += "_" + ifos
       if opts.usertag:
         input += "_" + opts.usertag
-      input += "-*.xml"
+      input += "-*.xml.gz"
 
       # perform vetoes for each ifo
       for ifo in ifo_list:
@@ -529,7 +538,7 @@ for data_type in analyze:
       # perform sire to put all triggers back in one file
       input = "sires/*-SIRE_in_" + ifos + "_VETO"
       if data_type == "slide": input += "_SLIDE"
-      input += ".xml"
+      input += ".xml.gz"
     
       command = sire(data_type,input,ifos)
       if not opts.plots_only: commands.append(command)
@@ -543,7 +552,7 @@ for data_type in analyze:
     if opts.vetoes:
       input = "sires/" + ifos + "-SIRE_VETO"
       if data_type == "slide": input += "_SLIDE"
-      input += ".xml"
+      input += ".xml.gz"
     else:
       input = opts.trig_path + '/' + ifos
       if opts.clustered_files:
@@ -558,13 +567,13 @@ for data_type in analyze:
         input += "_" + ifos
       if opts.usertag:
         input += "_" + opts.usertag
-      input += "-*.xml"
+      input += "-*.xml.gz"
 
     ###################################
     # do a single coire on all triggers
     command,output = coire(data_type,input,ifos)
     if not opts.plots_only: commands.append(command)
-    input = output + ".xml"
+    input = output + ".xml.gz"
 
     if opts.cluster_infinity:
       command,output_inf = \
@@ -582,7 +591,7 @@ for data_type in analyze:
       if not opts.plots_only: commands.append(command)
   
       if opts.cluster_infinity:
-        trig_input = trig_out + ".xml"
+        trig_input = trig_out + ".xml.gz"
         command,output_inf = \
             coire(data_type,trig_input,ifos,trigs,opts.cluster_infinity)
         if not opts.plots_only: commands.append(command)
