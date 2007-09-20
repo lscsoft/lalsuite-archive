@@ -38,7 +38,7 @@ parser.add_option("-M","--mass-range-high",action="store",type="float",
     default=False,metavar=" MASS",
     help="the upper bound on the mass for injections" )
 parser.add_option("-q","--mass2-range-low",action="store",type="float",
-    default=False,metavar=" MASS",
+    default=1.0,metavar=" MASS",
     help="the lower bound on the mass2 for injections" )
 parser.add_option("-Q","--mass2-range-high",action="store",type="float",
     default=False,metavar=" MASS",
@@ -91,166 +91,229 @@ if not opts.show_plot:
   matplotlib.use('Agg')
 from pylab import *
 from pylal import viz
-rc('text', usetex=True)
+if not opts.show_plot:
+  rc('text', usetex=True)
+
+#######################################################################
+# Calculate the minimum and maximum values of Mchirp and eta to be kept
+if opts.mass_cut == 'mtotal':
+  McMin = (opts.mass2_range_low*(opts.mass_range_low-opts.mass2_range_low)/\
+           (opts.mass_range_low**2.0))**(0.6)*opts.mass_range_low
+  McMax = 0.25**(0.6)*opts.mass_range_high
+elif opts.mass_cut == 'mcomp':
+  McMin = (opts.mass_range_low*opts.mass2_range_low)**(0.6)*\
+          (opts.mass_range_low+opts.mass2_range_low)**(-0.2)
+  McMax = (opts.mass_range_high*opts.mass2_range_high)**(0.6)*\
+          (opts.mass_range_high+opts.mass2_range_high)**(-0.2)
+  etaMin = (opts.mass_range_high*opts.mass2_range_low)/\
+            ((opts.mass_range_high+opts.mass2_range_low)**2.0)
+  etaMax = (opts.mass_range_low*opts.mass2_range_high)/\
+            ((opts.mass_range_low+opts.mass2_range_high)**2.0)
+elif opts.mass_cut == 'mchirp':
+  McMin = opts.mass_range_low
+  McMax = opts.mass_range_high
 
 ##################################################
 # import CoincInspiral table and SimInspiral table
 statistic = CoincInspiralUtils.coincStatistic( "snr" )
-injDict = {}
-injDict["sngl_inspiral"] = SnglInspiralUtils.ReadSnglInspiralFromFiles(fList)
-injDict["coincs"] = \
-     CoincInspiralUtils.coincInspiralTable(injDict["sngl_inspiral"], statistic)
-injDict["sim_inspiral"] = SimInspiralUtils.ReadSimInspiralFromFiles(fList)
+injDict = []
+for file,idx in zip(fList,range(len(fList))):
+  injDict.append({})
+  injDict[idx]["sngl_inspiral"] = \
+      SnglInspiralUtils.ReadSnglInspiralFromFiles([file])
+  injDict[idx]["coincs"] = \
+      CoincInspiralUtils.coincInspiralTable(injDict[idx]["sngl_inspiral"],
+                                            statistic)
+  injDict[idx]["sim_inspiral"] = \
+      SimInspiralUtils.ReadSimInspiralFromFiles([file])
 
 ##############################################################################
 # only keep CoincInspiral and SimInspiral entries within injection mass region
-
 injSet = {}
-injSet["rec_mass"] = []
-injSet["inj_mass"] = []
+injSet["rec_mchirp"] = []
+injSet["inj_mchirp"] = []
+injSet["rec_eta"] = []
+injSet["inj_eta"] = []
+injSet["rec_mass1"] = []
+injSet["inj_mass1"] = []
 injSet["rec_mass2"] = []
 injSet["inj_mass2"] = []
 if opts.mass_cut == 'mtotal':
-  for idx in range(len(injDict["sim_inspiral"])):
-    if opts.mass_range_low <= \
-        injDict["sim_inspiral"].get_column("total_mass")[idx] \
-        and injDict["sim_inspiral"].get_column("total_mass")[idx] < \
-        opts.mass_range_high:
-      injSet["inj_mass"].append(float(injDict["sim_inspiral"].\
-          get_column("total_mass")[idx]))
-      combo,ifos = injDict["coincs"][idx].get_ifos()
-      massRecovered = 0.0
-      for ifo in ifos:
-        massRecovered += getattr(injDict["coincs"][idx],ifo).mass1 + \
-                         getattr(injDict["coincs"][idx],ifo).mass2
-      massRecovered /= len(ifos)
-      injSet["rec_mass"].append(massRecovered)
+  for jdx in range(len(fList)):
+    for idx in range(len(injDict[jdx]["sim_inspiral"])):
+      if opts.mass_range_low <= \
+          injDict[jdx]["sim_inspiral"].get_column("total_mass")[idx] \
+          and injDict[jdx]["sim_inspiral"].get_column("total_mass")[idx] < \
+          opts.mass_range_high:
+        injSet["inj_mchirp"].append(float(injDict[jdx]["sim_inspiral"].\
+            get_column("mchirp")[idx]))
+        injSet["inj_mass1"].append(max(float(injDict[jdx]["sim_inspiral"].\
+            get_column("mass1")[idx]),
+            float(injDict[jdx]["sim_inspiral"].\
+            get_column("mass2")[idx])))
+        injSet["inj_mass2"].append(min(float(injDict[jdx]["sim_inspiral"].\
+            get_column("mass1")[idx]),
+            float(injDict[jdx]["sim_inspiral"].\
+            get_column("mass2")[idx])))
+        combo,ifos = injDict[jdx]["coincs"][idx].get_ifos()
+        mchirpRecovered = 0.0
+        mass1Recovered = 0.0
+        mass2Recovered = 0.0
+        for ifo in ifos:
+          mchirpRecovered += getattr(injDict[jdx]["coincs"][idx],ifo).mchirp
+          mass1Recovered += getattr(injDict[jdx]["coincs"][idx],ifo).mass1
+          mass2Recovered += getattr(injDict[jdx]["coincs"][idx],ifo).mass2
+        mchirpRecovered /= len(ifos)
+        mass1Recovered /= len(ifos)
+        mass2Recovered /= len(ifos)
+        injSet["rec_mchirp"].append(mchirpRecovered)
+        injSet["rec_mass1"].append(mass1Recovered)
+        injSet["rec_mass2"].append(mass2Recovered)
 elif opts.mass_cut == 'mchirp':
-  for idx in range(len(injDict["sim_inspiral"])):
-    if opts.mass_range_low <= injDict["sim_inspiral"].get_column("mchirp")[idx] \
-        and injDict["sim_inspiral"].get_column("mchirp")[idx] < \
-        opts.mass_range_high:
-      injSet["inj_mass"].append(float(injDict["sim_inspiral"].\
-          get_column("mchirp")[idx]))
-      combo,ifos = injDict["coincs"][idx].get_ifos()
-      massRecovered = 0.0
-      for ifo in ifos:
-        massRecovered += getattr(injDict["coincs"][idx],ifo).mchirp
-      massRecovered /= len(ifos)
-      injSet["rec_mass"].append(massRecovered)
+  for jdx in range(len(fList)):
+    for idx in range(len(injDict[jdx]["sim_inspiral"])):
+      if opts.mass_range_low <= \
+          injDict[jdx]["sim_inspiral"].get_column("mchirp")[idx] \
+          and injDict[jdx]["sim_inspiral"].get_column("mchirp")[idx] < \
+          opts.mass_range_high:
+        injSet["inj_mchirp"].append(float(injDict[jdx]["sim_inspiral"].\
+            get_column("mchirp")[idx]))
+        combo,ifos = injDict[jdx]["coincs"][idx].get_ifos()
+        mchirpRecovered = 0.0
+        for ifo in ifos:
+          mchirpRecovered += getattr(injDict[jdx]["coincs"][idx],ifo).mchirp
+        mchirpRecovered /= len(ifos)
+        injSet["rec_mchirp"].append(mchirpRecovered)
 elif opts.mass_cut == 'mcomp':
-  for idx in range(len(injDict["sim_inspiral"])):
-    if (opts.mass_range_low <= \
-        injDict["sim_inspiral"].get_column("mass1")[idx] \
-        < opts.mass_range_high \
-        and opts.mass2_range_low <= \
-        injDict["sim_inspiral"].get_column("mass2")[idx] \
-        < opts.mass2_range_high ) \
-        or (opts.mass2_range_low <= \
-        injDict["sim_inspiral"].get_column("mass1")[idx] \
-        < opts.mass2_range_high \
-        and opts.mass_range_low <= \
-         injDict["sim_inspiral"].get_column("mass2")[idx] \
-         < opts.mass_range_high ):
-      injSet["inj_mass"].append(max(float(injDict["sim_inspiral"].\
-          get_column("mass1")[idx]),
-          float(injDict["sim_inspiral"].\
-          get_column("mass2")[idx])))
-      injSet["inj_mass2"].append(min(float(injDict["sim_inspiral"].\
-          get_column("mass1")[idx]),
-          float(injDict["sim_inspiral"].\
-          get_column("mass2")[idx])))
-      combo,ifos = injDict["coincs"][idx].get_ifos()
-      mass1Recovered = 0.0
-      mass2Recovered = 0.0
-      for ifo in ifos:
-        mass1Recovered += getattr(injDict["coincs"][idx],ifo).mass1
-        mass2Recovered += getattr(injDict["coincs"][idx],ifo).mass2
-      mass1Recovered /= len(ifos)
-      mass2Recovered /= len(ifos)
-      injSet["rec_mass"].append(mass1Recovered)
-      injSet["rec_mass2"].append(mass2Recovered)
+  for jdx in range(len(fList)):
+    for idx in range(len(injDict[jdx]["sim_inspiral"])):
+      if (opts.mass_range_low <= \
+          injDict[jdx]["sim_inspiral"].get_column("mass1")[idx] \
+          < opts.mass_range_high \
+          and opts.mass2_range_low <= \
+          injDict[jdx]["sim_inspiral"].get_column("mass2")[idx] \
+          < opts.mass2_range_high ) \
+          or (opts.mass2_range_low <= \
+          injDict[jdx]["sim_inspiral"].get_column("mass1")[idx] \
+          < opts.mass2_range_high \
+          and opts.mass_range_low <= \
+           injDict[jdx]["sim_inspiral"].get_column("mass2")[idx] \
+           < opts.mass_range_high ):
+        injSet["inj_mchirp"].append(float(injDict[jdx]["sim_inspiral"].\
+            get_column("mchirp")[idx]))
+        injSet["inj_eta"].append(float(injDict[jdx]["sim_inspiral"].\
+            get_column("eta")[idx]))
+        injSet["inj_mass1"].append(max(float(injDict[jdx]["sim_inspiral"].\
+            get_column("mass1")[idx]),
+            float(injDict[jdx]["sim_inspiral"].\
+            get_column("mass2")[idx])))
+        injSet["inj_mass2"].append(min(float(injDict[jdx]["sim_inspiral"].\
+            get_column("mass1")[idx]),
+            float(injDict[jdx]["sim_inspiral"].\
+            get_column("mass2")[idx])))
+        combo,ifos = injDict[jdx]["coincs"][idx].get_ifos()
+        mchirpRecovered = 0.0
+        etaRecovered = 0.0
+        mass1Recovered = 0.0
+        mass2Recovered = 0.0
+        for ifo in ifos:
+          mchirpRecovered += getattr(injDict[jdx]["coincs"][idx],ifo).mchirp
+          etaRecovered += getattr(injDict[jdx]["coincs"][idx],ifo).eta
+          mass1Recovered += getattr(injDict[jdx]["coincs"][idx],ifo).mass1
+          mass2Recovered += getattr(injDict[jdx]["coincs"][idx],ifo).mass2
+        mchirpRecovered /= len(ifos)
+        etaRecovered /= len(ifos)
+        mass1Recovered /= len(ifos)
+        mass2Recovered /= len(ifos)
+        injSet["rec_mchirp"].append(mchirpRecovered)
+        injSet["rec_eta"].append(etaRecovered)
+        injSet["rec_mass1"].append(mass1Recovered)
+        injSet["rec_mass2"].append(mass2Recovered)
 
 ###################################
 # calculate the fraction mass error
-massError = (array(injSet["rec_mass"]) - array(injSet["inj_mass"])) / \
-             array(injSet["inj_mass"])
-sigmaMassError = std(massError)
-meanMassError = mean(massError)
+mchirpError = (array(injSet["rec_mchirp"]) - array(injSet["inj_mchirp"])) / \
+              array(injSet["inj_mchirp"])
+sigmaMchirpError = std(mchirpError)
+meanMchirpError = mean(mchirpError)
 if opts.mass_cut == 'mcomp':
-  mass2Error = (array(injSet["rec_mass2"]) - array(injSet["inj_mass2"])) / \
-               array(injSet["inj_mass2"])
-  sigmaMass2Error = std(mass2Error)
-  meanMass2Error = mean(mass2Error)
+  etaError = (array(injSet["rec_eta"]) - array(injSet["inj_eta"])) / \
+             array(injSet["inj_eta"])
+  sigmaEtaError = std(etaError)
+  meanEtaError = mean(etaError)
 
 ##########################################################################
 # recalculate after getting rid of outliers greater than 5 sigma from mean
 # do this until sigma changes by less than 10%
-newSigmaMassError = sigmaMassError
-newMeanMassError = meanMassError
-oldSigmaMassError = newSigmaMassError
-oldMeanMassError = newMeanMassError
+newSigmaMchirpError = sigmaMchirpError
+newMeanMchirpError = meanMchirpError
+oldSigmaMchirpError = newSigmaMchirpError
+oldMeanMchirpError = newMeanMchirpError
 while True:
-  tmpMassError = []
-  for idx in range(len(massError)):
-    if abs(massError[idx] - newMeanMassError) < newMeanMassError + \
-        5.0*newSigmaMassError:
-      tmpMassError.append(massError[idx])
-  oldSigmaMassError = newSigmaMassError
-  oldMeanMassError = newMeanMassError
-  newSigmaMassError = std(tmpMassError)
-  newMeanMassError = mean(tmpMassError)
-  if (oldSigmaMassError - newSigmaMassError)/oldSigmaMassError < 0.1:
+  tmpMchirpError = []
+  for idx in range(len(mchirpError)):
+    if abs(mchirpError[idx] - newMeanMchirpError) < newMeanMchirpError + \
+        5.0*newSigmaMchirpError:
+      tmpMchirpError.append(mchirpError[idx])
+  oldSigmaMchirpError = newSigmaMchirpError
+  oldMeanMchirpError = newMeanMchirpError
+  newSigmaMchirpError = std(tmpMchirpError)
+  newMeanMchirpError = mean(tmpMchirpError)
+  if (oldSigmaMchirpError - newSigmaMchirpError)/oldSigmaMchirpError < 0.1:
     break
 
-sigmaMassError = oldSigmaMassError
-meanMassError = oldMeanMassError
+sigmaMchirpError = oldSigmaMchirpError
+meanMchirpError = oldMeanMchirpError
 
 if opts.mass_cut == 'mcomp':
-  newSigmaMass2Error = sigmaMass2Error
-  newMeanMass2Error = meanMass2Error
-  oldSigmaMass2Error = newSigmaMass2Error
-  oldMeanMass2Error = newMeanMass2Error
+  newSigmaEtaError = sigmaEtaError
+  newMeanEtaError = meanEtaError
+  oldSigmaEtaError = newSigmaEtaError
+  oldMeanEtaError = newMeanEtaError
   while True:
-    tmpMass2Error = []
-    for idx in range(len(mass2Error)):
-      if abs(mass2Error[idx] - newMeanMass2Error) < newMeanMass2Error + \
-          5.0*newSigmaMass2Error:
-        tmpMass2Error.append(mass2Error[idx])
-    oldSigmaMass2Error = newSigmaMass2Error
-    oldMeanMass2Error = newMeanMass2Error
-    newSigmaMass2Error = std(tmpMass2Error)
-    newMeanMass2Error = mean(tmpMass2Error)
-    if (oldSigmaMass2Error - newSigmaMass2Error)/oldSigmaMass2Error < 0.1:
+    tmpEtaError = []
+    for idx in range(len(etaError)):
+      if abs(etaError[idx] - newMeanEtaError) < newMeanEtaError + \
+          5.0*newSigmaEtaError:
+        tmpEtaError.append(etaError[idx])
+    oldSigmaEtaError = newSigmaEtaError
+    oldMeanEtaError = newMeanEtaError
+    newSigmaEtaError = std(tmpEtaError)
+    newMeanEtaError = mean(tmpEtaError)
+    if (oldSigmaEtaError - newSigmaEtaError)/oldSigmaEtaError < 0.1:
       break
 
-  sigmaMass2Error = oldSigmaMass2Error
-  meanMass2Error = oldMeanMass2Error
+  sigmaEtaError = oldSigmaEtaError
+  meanEtaError = oldMeanEtaError
 
 ###############################################################
 # convert this into a minimum and maximum mass in trigger space
-minMass = max(0.0,opts.mass_range_low*\
-                  (1 - 4.0*sigmaMassError + min(0.0,meanMassError)))
-maxMass = opts.mass_range_high*(1 + 4.0*sigmaMassError + max(0.0,meanMassError))
+minMchirp = max(0.0,McMin*\
+                    (1 - 4.0*sigmaMchirpError + min(0.0,meanMchirpError)))
+maxMchirp = McMax*(1 + 4.0*sigmaMchirpError + max(0.0,meanMchirpError))
 
 if opts.mass_cut == 'mcomp':
-  minMass2 = max(0.0,opts.mass2_range_low*\
-                  (1 - 4.0*sigmaMass2Error + min(0.0,meanMass2Error)))
-  maxMass2 = opts.mass2_range_high*\
-                  (1 + 4.0*sigmaMass2Error + max(0.0,meanMass2Error))
+  minEta = max(0.0,etaMin*(1 - 4.0*sigmaEtaError + min(0.0,meanEtaError)))
+  maxEta = etaMax*(1 + 4.0*sigmaEtaError + max(0.0,meanEtaError))
+else:
+  minEta = 0.01
+  maxEta = 0.25
 
 print "[coireMassCut]"
-print "mass-cut = %s" % (opts.mass_cut)
-print ";inj-mass-range-low = %f" % (opts.mass_range_low)
-print ";inj-mass-range-high = %f" % (opts.mass_range_high)
+print "mass-cut = mchirp"
 if opts.mass_cut == 'mcomp':
+  print ";inj-mass1-range-low = %f" % (opts.mass_range_low)
+  print ";inj-mass1-range-high = %f" % (opts.mass_range_high)
   print ";inj-mass2-range-low = %f" % (opts.mass2_range_low)
   print ";inj-mass2-range-high = %f" % (opts.mass2_range_high)
-print "mass-range-low = %f" % (minMass)
-print "mass-range-high = %f" % (maxMass)
+else:
+  print ";inj-mass-range-low = %f" % (opts.mass_range_low)
+  print ";inj-mass-range-high = %f" % (opts.mass_range_high)
+print "mass-range-low = %f" % (minMchirp)
+print "mass-range-high = %f" % (maxMchirp)
 if opts.mass_cut == 'mcomp':
-  print "mass2-range-low = %f" % (minMass2)
-  print "mass2-range-high = %f" % (maxMass2)
+  print "mass2-range-low = %f" % (minEta)
+  print "mass2-range-high = %f" % (maxEta)
 
 ##############################################
 # infinite sequence of integers, starting at 1
@@ -258,26 +321,67 @@ plot_num = itertools.count(1)
 
 #############################################
 # plot recovered and injected mass2 vs. mass1
-if opts.mass_cut == 'mcomp' and opts.mass_mass:
+if opts.mass_mass and (opts.mass_cut == 'mcomp' or opts.mass_cut == 'mtotal'):
   figure(plot_num.next())
-  xInjBox = [opts.mass_range_low, opts.mass_range_high,
-             opts.mass_range_high, opts.mass_range_low, opts.mass_range_low]
-  yInjBox = [opts.mass2_range_low, opts.mass2_range_low,
-             opts.mass2_range_high, opts.mass2_range_high, opts.mass2_range_low]
-  xRecBox = [minMass, maxMass, maxMass, minMass, minMass]
-  yRecBox = [minMass2, minMass2, maxMass2, maxMass2, minMass2]
-  plot(xInjBox, yInjBox, 'r', xRecBox, yRecBox, 'b', linewidth=2)
+  if opts.mass_cut == 'mcomp':
+    xInjBox = [opts.mass_range_low, opts.mass_range_high,
+               opts.mass_range_high, opts.mass_range_low, opts.mass_range_low]
+    yInjBox = [opts.mass2_range_low, opts.mass2_range_low,
+               opts.mass2_range_high, opts.mass2_range_high,
+               opts.mass2_range_low]
+  elif opts.mass_cut == 'mtotal':
+    xInjBox = [opts.mass_range_low-1., opts.mass_range_high-1.,
+               opts.mass_range_high/2., opts.mass_range_low/2.,
+               opts.mass_range_low-1.]
+    yInjBox = [1, 1, opts.mass_range_high/2., opts.mass_range_low/2., 1]
+  xRecBox = []
+  yRecBox = []
+  dMchirp = (maxMchirp - minMchirp)/100.
+  dEta = (maxEta - minEta)/100.
+  for idx in range(101):
+    mchirp = minMchirp + float(idx)*dMchirp
+    eta = max(minEta,0.02)
+    m1 = mchirp/2.*(eta**(-0.6) + (eta**(-1.2) - 4.*eta**(-0.2))**(0.5))
+    m2 = mchirp/2.*(eta**(-0.6) - (eta**(-1.2) - 4.*eta**(-0.2))**(0.5))
+    xRecBox.append(m1)
+    yRecBox.append(m2)
+  for idx in range(101):
+    mchirp = maxMchirp
+    eta = max(min(minEta + float(idx)*dEta,0.25),0.02)
+    m1 = mchirp/2.*(eta**(-0.6) + (eta**(-1.2) - 4.*eta**(-0.2))**(0.5))
+    m2 = mchirp/2.*(eta**(-0.6) - (eta**(-1.2) - 4.*eta**(-0.2))**(0.5))
+    xRecBox.append(m1)
+    yRecBox.append(m2)
+  for idx in range(101):
+    mchirp = maxMchirp - float(idx)*dMchirp
+    eta = max(min(maxEta,0.25),0.02)
+    m1 = mchirp/2.*(eta**(-0.6) + (eta**(-1.2) - 4.*eta**(-0.2))**(0.5))
+    m2 = mchirp/2.*(eta**(-0.6) - (eta**(-1.2) - 4.*eta**(-0.2))**(0.5))
+    xRecBox.append(m1)
+    yRecBox.append(m2)
+  for idx in range(101):
+    mchirp = minMchirp
+    eta = max(min(maxEta - float(idx)*dEta,0.25),0.02)
+    m1 = mchirp/2.*(eta**(-0.6)+(eta**(-1.2)-4.*eta**(-0.2))**(0.5))
+    m2 = mchirp/2.*(eta**(-0.6)-(eta**(-1.2)-4.*eta**(-0.2))**(0.5))
+    xRecBox.append(m1)
+    yRecBox.append(m2)
+
+  xBank = [1, 34, 17.5, 1]
+  yBank = [1, 1, 17.5, 1]
+  plot(xInjBox, yInjBox, 'r', xRecBox, yRecBox, 'b', xBank, yBank, 'k',
+       linewidth=2)
   hold(True)
-  plot(injSet["inj_mass"], injSet["inj_mass2"], 'rx',
-       injSet["rec_mass"], injSet["rec_mass2"], 'b+')
-  min_mass1 = min(min(injSet["inj_mass"]),min(injSet["rec_mass"]))
-  max_mass1 = max(max(injSet["inj_mass"]),max(injSet["rec_mass"]))
+  plot(injSet["inj_mass1"], injSet["inj_mass2"], 'rx',
+       injSet["rec_mass1"], injSet["rec_mass2"], 'b+')
+  min_mass1 = min(min(injSet["inj_mass1"]),min(injSet["rec_mass1"]))
+  max_mass1 = max(max(injSet["inj_mass1"]),max(injSet["rec_mass1"]))
   min_mass2 = min(min(injSet["inj_mass2"]),min(injSet["rec_mass2"]))
   max_mass2 = max(max(injSet["inj_mass2"]),max(injSet["rec_mass2"]))
   xlim(xmin=int(min(min(xRecBox),min_mass1))-1.0,
        xmax=int(max(max(xRecBox),max_mass1))+1.0)
   ylim(ymin=int(min(min(yRecBox),min_mass2))-1.0,
-       ymax=int(max(max(yRecBox),max_mass2))+1.0)
+       ymax=int(max(max(max(yRecBox),max(yBank)),max_mass2))+1.0)
   xlabel('$m_{1}$ $(M_{\odot})$', size='x-large')
   ylabel('$m_{2}$ $(M_{\odot})$', size='x-large')
   legend(('injected', 'recovered'), loc='upper right')
@@ -288,85 +392,78 @@ if opts.mass_cut == 'mcomp' and opts.mass_mass:
 # plot recovered vs. injected mass
 if opts.mass_mass:
   figure(plot_num.next())
-  plot(injSet["inj_mass"], injSet["rec_mass"],'rx')
+  plot(injSet["inj_mchirp"], injSet["rec_mchirp"],'rx')
   hold(True)
-  axvline(x=opts.mass_range_low, linewidth=2, color='b')
-  axvline(x=opts.mass_range_high, linewidth=2, color='b')
-  axhline(y=minMass, linewidth=2, color='r')
-  axhline(y=maxMass, linewidth=2, color='r')
-  xlim(xmin=int(opts.mass_range_low)-1.0,xmax=int(opts.mass_range_high)+1.0)
-  ylim(ymin=int(minMass)-1.0,
-       ymax=max(int(maxMass)+1.0,int(max(injSet["rec_mass"]))+1.0))
-  if opts.mass_cut == 'mtotal':
-    ylabel('Recovered $M_{total}$ $(M_{\odot})$',size='x-large')
-    xlabel('Injected $M_{total}$ $(M_{\odot})$',size='x-large')
-  elif opts.mass_cut == 'mchirp':
-    ylabel('Recovered $M_{chirp}$ $(M_{\odot})$',size='x-large')
-    xlabel('Injected $M_{chirp}$ $(M_{\odot})$',size='x-large')
-  elif opts.mass_cut == 'mcomp':
-    ylabel('Recovered $M_{comp1}$ $(M_{\odot})$',size='x-large')
-    xlabel('Injected $M_{comp1}$ $(M_{\odot})$',size='x-large')
+  axvline(x=McMin, linewidth=2, color='b')
+  axvline(x=McMax, linewidth=2, color='b')
+  axhline(y=minMchirp, linewidth=2, color='r')
+  axhline(y=maxMchirp, linewidth=2, color='r')
+  xlim(xmin=int(McMin)-1.0,xmax=int(McMax)+1.0)
+  ylim(ymin=int(minMchirp)-1.0,
+       ymax=max(int(maxMchirp)+1.0,int(max(injSet["rec_mchirp"]))+1.0))
+  ylabel('Recovered $M_{chirp}$ $(M_{\odot})$',size='x-large')
+  xlabel('Injected $M_{chirp}$ $(M_{\odot})$',size='x-large')
   if opts.figure_name:
-    savefig(opts.figure_name + '_inj_vs_rec_' + opts.mass_cut + '.png')
+    savefig(opts.figure_name + '_inj_vs_rec_mchirp.png')
 
 if opts.mass_cut == 'mcomp' and opts.mass_mass:
   figure(plot_num.next())
-  plot(injSet["inj_mass2"], injSet["rec_mass2"],'rx')
+  plot(injSet["inj_eta"], injSet["rec_eta"],'rx')
   hold(True)
-  axvline(x=opts.mass2_range_low, linewidth=2, color='b')
-  axvline(x=opts.mass2_range_high, linewidth=2, color='b')
-  axhline(y=minMass2, linewidth=2, color='r')
-  axhline(y=maxMass2, linewidth=2, color='r')
-  xlim(xmin=int(opts.mass2_range_low)-1.0,xmax=int(opts.mass2_range_high)+1.0)
-  ylim(ymin=int(minMass2)-1.0,
-       ymax=max(int(maxMass2)+1.0,int(max(injSet["rec_mass2"]))+1.0))
-  ylabel('Recovered $M_{comp2}$ $(M_{\odot})$',size='x-large')
-  xlabel('Injected $M_{comp2}$ $(M_{\odot})$',size='x-large')
+  axvline(x=etaMin, linewidth=2, color='b')
+  axvline(x=etaMax, linewidth=2, color='b')
+  axhline(y=minEta, linewidth=2, color='r')
+  axhline(y=maxEta, linewidth=2, color='r')
+  xlim(xmin=int(etaMin)-0.1,xmax=int(etaMax)+0.1)
+  ylim(ymin=int(minEta)-0.1,ymax=int(max(maxEta,max(injSet["rec_eta"])))+0.1)
+  ylabel('Recovered $\eta$',size='x-large')
+  xlabel('Injected $\eta$',size='x-large')
   if opts.figure_name:
-    savefig(opts.figure_name + '_inj_vs_rec_' + opts.mass_cut + '2.png')
+    savefig(opts.figure_name + '_inj_vs_rec_eta.png')
 
 ####################################
 # histogram of fractional mass error
 if opts.hist_mass_error:
   figure(plot_num.next())
-  massErrorMax = max(massError)
-  massErrorMin = min(massError)
-  y,x,patches = hist(massError,bins=opts.num_bins)
-  bar(x,y,width=(massErrorMax - massErrorMin)/opts.num_bins)
+  mchirpErrorMax = max(mchirpError)
+  mchirpErrorMin = min(mchirpError)
+  y,x,patches = hist(mchirpError,bins=opts.num_bins)
+  bar(x,y,width=(mchirpErrorMax - mchirpErrorMin)/opts.num_bins)
   hold(True)
-  normalization = ((massErrorMax - massErrorMin)/opts.num_bins)* \
-                  len(massError)/(2.0*pi*sigmaMassError**2.0)**(0.5)
-  x_gauss = array(range(501))*(massErrorMax - massErrorMin)/500.0 + massErrorMin
-  y_gauss = normalization*exp(-(x_gauss - meanMassError)**2.0/ \
-                               (2.0*sigmaMassError**2.0))
+  normalization = ((mchirpErrorMax - mchirpErrorMin)/opts.num_bins)* \
+                  len(mchirpError)/(2.0*pi*sigmaMchirpError**2.0)**(0.5)
+  x_gauss = array(range(501))*(mchirpErrorMax - mchirpErrorMin)/500.0 + \
+            mchirpErrorMin
+  y_gauss = normalization*exp(-(x_gauss - meanMchirpError)**2.0/ \
+                               (2.0*sigmaMchirpError**2.0))
   plot(x_gauss,y_gauss,'k',linewidth=2)
-  axvline(x=5.0*sigmaMassError + meanMassError, linewidth=2, color='r')
-  axvline(x=-5.0*sigmaMassError + meanMassError, linewidth=2, color='r')
+  axvline(x=5.0*sigmaMchirpError + meanMchirpError, linewidth=2, color='r')
+  axvline(x=-5.0*sigmaMchirpError + meanMchirpError, linewidth=2, color='r')
   ylabel('$\#$',size='x-large')
-  xlabel('Fractional Mass Error',size='x-large') 
+  xlabel('Fractional $M_{chirp}$ Error',size='x-large') 
   if opts.figure_name:
-    savefig(opts.figure_name + '_frac_mass_error_hist.png')
+    savefig(opts.figure_name + '_frac_mchirp_error_hist.png')
 
 if opts.mass_cut == 'mcomp' and opts.hist_mass_error:
   figure(plot_num.next())
-  mass2ErrorMax = max(mass2Error)
-  mass2ErrorMin = min(mass2Error)
-  y,x,patches = hist(mass2Error,bins=opts.num_bins)
-  bar(x,y,width=(mass2ErrorMax - mass2ErrorMin)/opts.num_bins)
+  etaErrorMax = max(etaError)
+  etaErrorMin = min(etaError)
+  y,x,patches = hist(etaError,bins=opts.num_bins)
+  bar(x,y,width=(etaErrorMax - etaErrorMin)/opts.num_bins)
   hold(True)
-  normalization = ((mass2ErrorMax - mass2ErrorMin)/opts.num_bins)* \
-                  len(mass2Error)/(2.0*pi*sigmaMass2Error**2.0)**(0.5)
-  x_gauss = array(range(501))*(mass2ErrorMax - mass2ErrorMin)/500.0 + \
-                  mass2ErrorMin
-  y_gauss = normalization*exp(-(x_gauss - meanMass2Error)**2.0/ \
-                               (2.0*sigmaMass2Error**2.0))
+  normalization = ((etaErrorMax - etaErrorMin)/opts.num_bins)* \
+                  len(etaError)/(2.0*pi*sigmaEtaError**2.0)**(0.5)
+  x_gauss = array(range(501))*(etaErrorMax - etaErrorMin)/500.0 + \
+                  etaErrorMin
+  y_gauss = normalization*exp(-(x_gauss - meanEtaError)**2.0/ \
+                               (2.0*sigmaEtaError**2.0))
   plot(x_gauss,y_gauss,'k',linewidth=2)
-  axvline(x=5.0*sigmaMass2Error + meanMass2Error, linewidth=2, color='r')
-  axvline(x=-5.0*sigmaMass2Error + meanMass2Error, linewidth=2, color='r')
+  axvline(x=5.0*sigmaEtaError + meanEtaError, linewidth=2, color='r')
+  axvline(x=-5.0*sigmaEtaError + meanEtaError, linewidth=2, color='r')
   ylabel('$\#$',size='x-large')
-  xlabel('Fractional Mass2 Error',size='x-large')
+  xlabel('Fractional $\eta$ Error',size='x-large')
   if opts.figure_name:
-    savefig(opts.figure_name + '_frac_mass2_error_hist.png')
+    savefig(opts.figure_name + '_frac_eta_error_hist.png')
 
 if opts.show_plot:
   show()
