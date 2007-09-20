@@ -223,10 +223,11 @@ if not opts.skip_population:
   if dist_dict["gaussian"]:
     print "** Generating the population with Gaussian mass distribution **"
     command = "lalapps_inspinj" + \
-    " --user-tag GAUSSIANMASS" +\
+      " --user-tag GAUSSIANMASS" + \
       " --source-file inspsrcs.new" + \
       " --gps-start-time 793130413 --gps-end-time 795679213" + \
-      " --time-step 8.000000e+00"
+      " --time-step 8.000000e+00" + \
+      " --write-compress"
     for opt in gaussianmass_options:
       command += " --" + opt[0] + " " + opt[1]
     for opt in inspinj_options:
@@ -239,10 +240,11 @@ if not opts.skip_population:
   if dist_dict["totalmass"]:
     print "** Generating the population with uniform total mass distribution **"
     command = "lalapps_inspinj" + \
-      " --user-tag TOTALMASS" +\
+      " --user-tag TOTALMASS" + \
       " --source-file inspsrcs.new" + \
       " --gps-start-time 793130413 --gps-end-time 795679213" + \
-      " --time-step 8.000000e+00"
+      " --time-step 8.000000e+00" + \
+      " --write-compress"
     for opt in totalmass_options:
       command += " --" + opt[0] + " " + opt[1]
     for opt in inspinj_options:
@@ -255,10 +257,11 @@ if not opts.skip_population:
   if dist_dict["componentmass"]:
     print "** Generating the population with uniform component mass distribution **"
     command = "lalapps_inspinj" + \
-      " --user-tag COMPONENTMASS" +\
+      " --user-tag COMPONENTMASS" + \
       " --source-file inspsrcs.new" + \
       " --gps-start-time 793130413 --gps-end-time 795679213" + \
-      " --time-step 8.000000e+00"
+      " --time-step 8.000000e+00" + \
+      " --write-compress"
     for opt in componentmass_options:
       command += " --" + opt[0] + " " + opt[1]
     for opt in inspinj_options:
@@ -278,7 +281,8 @@ if not opts.skip_calcmasscut:
   for mydir in glob.glob( "injections*" ):
     print "** Processing " + mydir
     mkdirsafe( MYRESULTSDIR + "/calc_mass_cut/" + mydir )
-    injectionfile=glob.glob(MYRESULTSDIR + "/" + mydir + "/HL-INJECTIONS*.xml")
+    injectionfile=glob.glob(MYRESULTSDIR + "/" + mydir +\
+        "/HL-INJECTIONS*.xml.gz")
     injFileName = os.path.basename( injectionfile[0] )
     command = "lalapps_injcut --injection-file " + injectionfile[0]
     for opt in calcmasscut_options:
@@ -290,7 +294,7 @@ if not opts.skip_calcmasscut:
     else:
       os.system( command )
     if not injectionfile:
-      print "ERROR in coireinj: No injection-file (HL*.xml) \
+      print "ERROR in coireinj: No injection-file (HL*.xml.gz) \
           in the injections-directory. Exiting..."
       sys.exit(1)
     command = "hipecoire --trig-path " + MYRESULTSDIR + "/" + mydir +\
@@ -325,7 +329,7 @@ if not opts.skip_calcmasscut:
       os.system( command )
       os.chdir( MYRESULTSDIR + "/calc_mass_cut/" )
 
-  command = "calcMassCut --glob 'injections*/H*FOUND.xml'"
+  command = "calcMassCut --glob 'injections*/H*FOUND.xml.gz'"
   for opt in calcmasscut_options:
     command += " --"+opt[0]+" "+opt[1]
   command += " --mass-mass --hist-mass-error --figure-name injections"
@@ -380,23 +384,27 @@ if not opts.skip_coiredata:
     # link to the files needed for the upper limit
     os.chdir( MYRESULTSDIR + "/hipecoire" )
     if not opts.remove_h2l1:
-      for file in glob.glob("full_data/H*SLIDE*.xml"):
-        tmpdest = os.path.splitext( os.path.basename(file) )
-        symlinksafe( file, tmpdest[0] + "_slides.xml" )
-      for file in ( glob.glob("full_data/H*COIRE_CLUST*.xml") + \
-          glob.glob("full_data/H*COIRE_LOUDEST*.xml") ):
-        tmpdest = os.path.splitext( os.path.basename(file) )
-        symlinksafe( file, tmpdest[0] + "_zero.xml" )
+      for file in glob.glob("full_data/H*SLIDE*.xml.gz"):
+        tmpdest = os.path.splitext( os.path.splitext( \
+            os.path.basename(file) )[0] )
+        symlinksafe( file, tmpdest[0] + "_slides.xml.gz" )
+      for file in ( glob.glob("full_data/H*COIRE_CLUST*.xml.gz") + \
+          glob.glob("full_data/H*COIRE_LOUDEST*.xml.gz") ):
+        tmpdest = os.path.splitext( os.path.splitext( \
+            os.path.basename(file) )[0] )
+        symlinksafe( file, tmpdest[0] + "_zero.xml.gz" )
     else:
-      for file in ( glob.glob("full_data/H???-COIRE_SLIDE*.xml") + \
-          glob.glob("full_data/H1*/H1*SLIDE_in_H1H2L1*.xml") ):
-        tmpdest = os.path.splitext( os.path.basename(file) )
-        symlinksafe( file, tmpdest[0] + "_slides.xml" )
-      for file in ( glob.glob("full_data/H???-COIRE_CLUST*.xml") + \
-          glob.glob("full_data/H???-COIRE_LOUDEST*.xml") + \
-          glob.glob("full_data/H1*/H1*-*COIRE_in_H1H2L1*.xml") ):
-        tmpdest = os.path.splitext( os.path.basename(file) )
-        symlinksafe( file, tmpdest[0] + "_zero.xml" )
+      for file in ( glob.glob("full_data/H???-COIRE_SLIDE*.xml.gz") + \
+          glob.glob("full_data/H1*/H1*SLIDE_in_H1H2L1*.xml.gz") ):
+        tmpdest = os.path.splitext( os.path.splitext( \
+            os.path.basename(file) )[0] )
+        symlinksafe( file, tmpdest[0] + "_slides.xml.gz" )
+      for file in ( glob.glob("full_data/H???-COIRE_CLUST*.xml.gz") + \
+          glob.glob("full_data/H???-COIRE_LOUDEST*.xml.gz") + \
+          glob.glob("full_data/H1*/H1*-*COIRE_in_H1H2L1*.xml.gz") ):
+        tmpdest = os.path.splitext( os.path.splitext( \
+            os.path.basename(file) )[0] )
+        symlinksafe( file, tmpdest[0] + "_zero.xml.gz" )
 
 #######################################################################
 # sire and coire injections
@@ -411,15 +419,15 @@ if not opts.skip_coireinj:
     mkdirsafe( MYRESULTSDIR + "/hipecoire/" + mydir )
     if not opts.skip_calcmasscut:
       injectionfile=glob.glob(MYRESULTSDIR + "/calc_mass_cut/" + mydir +\
-          "/HL-INJECTIONS*.xml")
+          "/HL-INJECTIONS*.xml.gz")
     else:
       injectionfile=glob.glob(MYRESULTSDIR + "/" + mydir +\
-          "/HL-INJECTIONS*.xml")
+          "/HL-INJECTIONS*.xml.gz")
     injFileName = os.path.basename( injectionfile[0] )
     symlinksafe( injectionfile[0], MYRESULTSDIR + "/hipecoire/" + mydir +\
         "/" + injFileName )
     if not injectionfile:
-      print "ERROR in coireinj: No injection-file (HL*.xml) \
+      print "ERROR in coireinj: No injection-file (HL*.xml.gz) \
           in the injections-directory. Exiting..."
       sys.exit(1)
     command = "hipecoire --trig-path " + MYRESULTSDIR + "/" + mydir +\
@@ -456,12 +464,14 @@ if not opts.skip_coireinj:
       os.chdir( MYRESULTSDIR + "/hipecoire/" + mydir )
       os.system( command )
       os.chdir( MYRESULTSDIR + "/hipecoire/" )
-      for file in glob.glob( mydir + "/H*FOUND.xml"):
-        tmpdest = os.path.splitext( os.path.basename(file) )
-        symlinksafe( file, tmpdest[0] + "_" + mydir + ".xml" )
-      for file in glob.glob( mydir + "/H*MISSED.xml"):
-        tmpdest = os.path.splitext( os.path.basename(file) )
-        symlinksafe( file, tmpdest[0] + "_" + mydir + ".xml" )
+      for file in glob.glob( mydir + "/H*FOUND.xml.gz"):
+        tmpdest = os.path.splitext( os.path.splitext( \
+            os.path.basename(file) )[0] )
+        symlinksafe( file, tmpdest[0] + "_" + mydir + ".xml.gz" )
+      for file in glob.glob( mydir + "/H*MISSED.xml.gz"):
+        tmpdest = os.path.splitext( os.path.splitext( \
+            os.path.basename(file) )[0] )
+        symlinksafe( file, tmpdest[0] + "_" + mydir + ".xml.gz" )
       os.chdir(MYRESULTSDIR)
 
 #######################################################################
@@ -494,13 +504,13 @@ popdistr={}
 if dist_dict["gaussian"]:
   popdistr["gaussian"] = {}
   popdistr["gaussian"]["file"] = \
-      "/HL-INJECTIONS_1_GAUSSIANMASS-793130413-2548800.xml"
+      "/HL-INJECTIONS_1_GAUSSIANMASS-793130413-2548800.xml.gz"
   popdistr["gaussian"]["popType"] = "gaussian"
   popdistr["gaussian"]["useMassInfo"] = 0
 if dist_dict["totalmass"]:
   popdistr["totalmass"] = {}
   popdistr["totalmass"]["file"] = \
-      "/HL-INJECTIONS_1_TOTALMASS-793130413-2548800.xml"
+      "/HL-INJECTIONS_1_TOTALMASS-793130413-2548800.xml.gz"
   popdistr["totalmass"]["popType"] = "totalmass"
   popdistr["totalmass"]["useMassInfo"] = 1
   popdistr["totalmass"]["min-mass"] = tmass_dict["min-mtotal"]
@@ -508,7 +518,7 @@ if dist_dict["totalmass"]:
 if dist_dict["componentmass"]:
   popdistr["componentmass"] = {}
   popdistr["componentmass"]["file"] = \
-      "/HL-INJECTIONS_1_COMPONENTMASS-793130413-2548800.xml"
+      "/HL-INJECTIONS_1_COMPONENTMASS-793130413-2548800.xml.gz"
   popdistr["componentmass"]["popType"] = "componentmass"
   popdistr["componentmass"]["useMassInfo"] = 1
   popdistr["componentmass"]["min-mass"] = cmass_dict["min-mass1"]
@@ -521,14 +531,16 @@ if not opts.skip_png:
       print "running plotnumgalaxies for " + times[0].upper() + \
           " using population from " + pop
       command = "plotnumgalaxies " + \
-          "--slide-glob '" + MYRESULTSDIR + "/hipecoire/H*LOUDEST*slides.xml' "\
-          + "--zero-glob '" + MYRESULTSDIR + "/hipecoire/H*LOUDEST*zero.xml' "\
-          + "--found-glob '" + MYRESULTSDIR + "/hipecoire/" \
-          + times[0].upper() + "-COIRE*FOUND*.xml' " \
-          + "--missed-glob '" + MYRESULTSDIR + "/hipecoire/" \
-          + times[0].upper() + "-COIRE*MISSED*.xml' " \
-          + "--source-file '" + MYRESULTSDIR + "/inspsrcs.new' " \
-          + "--population-glob '" + MYRESULTSDIR + pop + \
+          "--slide-glob '" + MYRESULTSDIR + \
+          "/hipecoire/H*LOUDEST*slides.xml.gz' " + \
+          "--zero-glob '" + MYRESULTSDIR + \
+          "/hipecoire/H*LOUDEST*zero.xml.gz' " + \
+          "--found-glob '" + MYRESULTSDIR + "/hipecoire/" + \
+          times[0].upper() + "-COIRE*FOUND*.xml.gz' " + \
+          "--missed-glob '" + MYRESULTSDIR + "/hipecoire/" + \
+          times[0].upper() + "-COIRE*MISSED*.xml.gz' " + \
+          "--source-file '" + MYRESULTSDIR + "/inspsrcs.new' " + \
+          "--population-glob '" + MYRESULTSDIR + pop + \
           "' --figure-name " + times[0].upper() + \
           " --plot-cum-loudest --plot-pdf-loudest" + \
           " --num-slides 30 --statistic " + stat_dict["statistic"] +\
