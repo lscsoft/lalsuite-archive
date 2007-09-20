@@ -119,9 +119,7 @@ setup(
 			include_dirs = full_lal_pkg_config.incdirs,
 			libraries = full_lal_pkg_config.libs,
 			library_dirs = full_lal_pkg_config.libdirs,
-			runtime_library_dirs = full_lal_pkg_config.libdirs,
-            extra_link_args=['-arch', 'i386'],
-            extra_compile_args=['-arch', 'i386'],
+			runtime_library_dirs = full_lal_pkg_config.libdirs
 		),
 		Extension(
 			"pylal.Fr",
@@ -129,9 +127,7 @@ setup(
 			include_dirs = full_lal_pkg_config.incdirs + [numpy_get_include()],
 			libraries = full_lal_pkg_config.libs,
 			library_dirs = full_lal_pkg_config.libdirs,
-			runtime_library_dirs = full_lal_pkg_config.libdirs,
-            extra_link_args=['-arch', 'i386'], 
-            extra_compile_args=['-arch', 'i386'],
+			runtime_library_dirs = full_lal_pkg_config.libdirs
 		),
 		Extension(
 			"pylal.tools",
@@ -139,9 +135,7 @@ setup(
 			include_dirs = lal_pkg_config.incdirs,
 			libraries = lal_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs,
-            extra_link_args=['-arch', 'i386'],
-            extra_compile_args=['-arch', 'i386'],
+			runtime_library_dirs = lal_pkg_config.libdirs
 		),
 		Extension(
 			"pylal.xlal.date",
@@ -149,9 +143,7 @@ setup(
 			include_dirs = lal_pkg_config.incdirs + [numpy_get_include()],
 			libraries = lal_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs,
-            extra_link_args=['-arch', 'i386'],
-            extra_compile_args=['-arch', 'i386'],
+			runtime_library_dirs = lal_pkg_config.libdirs
 		),
 		Extension(
 			"pylal.xlal.inject",
@@ -159,9 +151,7 @@ setup(
 			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal"],
 			libraries = lal_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs,
-            extra_link_args=['-arch', 'i386'],
-            extra_compile_args=['-arch', 'i386'],
+			runtime_library_dirs = lal_pkg_config.libdirs
 		),
 		Extension(
 			"pylal.xlal.tools",
@@ -169,9 +159,7 @@ setup(
 			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal"],
 			libraries = lal_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs,
-            extra_link_args=['-arch', 'i386'],
-            extra_compile_args=['-arch', 'i386'],
+			runtime_library_dirs = lal_pkg_config.libdirs
 		),
 		Extension(
 			"pylal.xlal.window",
@@ -179,9 +167,7 @@ setup(
 			include_dirs = lal_pkg_config.incdirs + [numpy_get_include()],
 			libraries = lal_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs,
-            extra_link_args=['-arch', 'i386'],
-            extra_compile_args=['-arch', 'i386'],
+			runtime_library_dirs = lal_pkg_config.libdirs
 		),
 		Extension(
 			"pylal.xlal.burstsearch",
@@ -189,9 +175,7 @@ setup(
 			include_dirs = lal_pkg_config.incdirs + [numpy_get_include()],
 			libraries = lal_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs,
-            extra_link_args=['-arch', 'i386'],
-            extra_compile_args=['-arch', 'i386'],
+			runtime_library_dirs = lal_pkg_config.libdirs
 		)
 	],
 	scripts = [
@@ -247,7 +231,6 @@ setup(
 		os.path.join("bin", "ligolw_bucut"),
 		os.path.join("bin", "ligolw_burca"),
 		os.path.join("bin", "ligolw_burca_tailor"),
-		os.path.join("bin", "ligolw_convert_inspid"),
 		os.path.join("bin", "ligolw_cafe"),
 		os.path.join("bin", "ligolw_segments"),
 		os.path.join("bin", "ligolw_sschunk"),
