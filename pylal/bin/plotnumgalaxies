@@ -151,7 +151,7 @@ def massCut (sim_table, m_low, m_high):
     mass1 = getattr(entry,'mass1')
     mass2 = getattr(entry,'mass2')
     if opts.population_type == "componentmass":
-      mass = mass1
+      mass = max(mass1,mass2)
     else:
       mass = mass1 + mass2
     if (mass > m_low) and (mass < m_high):
@@ -177,7 +177,7 @@ def injMassCut (coinc_table, m_low, m_high):
     mass1 = getattr(sim, 'mass1')
     mass2 = getattr(sim, 'mass2')
     if opts.population_type == "componentmass":
-      mass = mass1
+      mass = max(mass1,mass2)
     else:
       mass = mass1 + mass2
     if (mass > m_low) and (mass < m_high):
@@ -211,7 +211,7 @@ def readFiles(fileGlob,statistic=None):
   sims = None
   coincs = None
   for thisFile in fList:
-    doc = utils.load_filename(thisFile)
+    doc = utils.load_filename(thisFile, gz = (thisFile[-3:] == '.gz') )
     # extract the sim inspiral table
     try: 
       simInspiralTable = \
