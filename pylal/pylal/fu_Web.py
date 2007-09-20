@@ -12,48 +12,6 @@ __date__ = '$Date$'
 __version__ = '$Revision$'[11:-2]
 
 
-
-import sys
-import os
-import copy
-import re
-import exceptions
-import glob
-import fileinput
-import linecache
-import string
-import random
-from optparse import *
-from types import *
-import matplotlib
-matplotlib.use('Agg')
-import operator
-from UserDict import UserDict
-
-from pylab import *
-from glue import segments
-from glue import segmentsUtils
-from glue.ligolw import ligolw
-from glue.ligolw import table
-from glue.ligolw import lsctables
-from glue.ligolw import utils
-from pylal import CoincInspiralUtils
-from glue import pipeline
-from glue.lal import *
-from glue import lal
-
-class followupIO:
-  """
-  Class to unify the output of follow up programs run within the followup
-  dag
-  """
-
-  def __init__(self, webPage):
-    self.webPage = followupWebPage(webPage)
-    self.summaryPlot = None 
-    self.summaryHTML = None
-
-
 # Think of a web/wiki page as an object that has organized content
 # The organization of this content is simple in this case, the content can
 # be organized by sections, subsections, or it can be a free for all.
@@ -64,9 +22,9 @@ class followupIO:
 class Content:
   
   def __init__(self):
-     self.contentList = []
-     self.table = []
-     #self.root = ''
+    self.contentList = []
+    self.table = []
+    #self.root = ''
 
   def link(self,link,text):
     thisLink = Link(link,text)
@@ -100,31 +58,52 @@ class Content:
 
 
 
-
+#Add sub pages and provide slick mechanism for writing the whole tree!?!
+#this will help with the followup dag web generation...
+# ADD CONCEPT OF RELATIVE PATH TO GIVE MORE FLEXIBILITY TO DIRECTORY STRUCTURE
 class WebPage(Content):
   """ 
   Class to store the web page output of a followup program
   """
-  def __init__(self,title,root=''):
+  def __init__(self,title,filename,root=''):
     #Content will be written before sections, which themselves may have content
     self.contentList = []
     self.table = []
     self.section = []
     self.title = title
     self.root = root
+    self.subPage = []
+    self.filename = filename
 
   def appendSection(self,heading):
     number = len(self.section)
-    self.section.append( Section( heading,number,self.root ) )
+    self.section.append( Section( heading,number,self.root ) )  
 
-  def write(self,file,type):
-    self.writeHeader(file,type)
-    self.writeTitle(file,type)
-    self.writeTableOfContents(file,type)
+  
+  def appendSubPage(self,title, file, root=''):
+    self.subPage.append(WebPage(title, file, root))
+
+  def linkNewSubPage(self,title,file, text='', root=''):
+    if text:
+      self.link(root+file,text)
+    else:
+      self.link(root+file, title)
+    self.appendSubPage(title,file, root)
+
+
+  def write(self,type):
+    self.writeHeader(self.file,type)
+    self.writeTitle(self.file,type)
+    self.writeTableOfContents(self.file,type)
+    # first do the content in this page
     for content in self.contentList:
-      content.write(file,type)
+      content.write(self.file,type)
     for section in self.section:
-      section.write(file,type)
+      section.write(self.file,type)
+    # now do the sub pages recursively
+    for page in self.subPage:
+      page.cleanWrite(type)
+    
 
   def writeTitle(self, file, type):
     if type == 'IUL':
@@ -153,10 +132,11 @@ class WebPage(Content):
       TOC = List(sectionTOC)
       TOC.write(file,type)
           
-  def cleanWrite(self, filename, type):
-    file = open(filename,'w')
-    self.write(file, type)          
-    file.close()
+#  def cleanWrite(self, filename, type):
+  def cleanWrite(self,type):
+    self.file = open(self.filename,'w')
+    self.write(type)          
+    self.file.close()
 
 # This class shouldn't really be used without a webpage as it's parent
 class Section(Content):
@@ -352,13 +332,17 @@ class Break:
 ## TEST PROGRAM
 ###########################
 
-testPage = WebPage("This web page made itself","http://www.lsc-group.phys.uwm.edu/iulgroup/investigations/s5/people/channa/fu_Web/")
+testPage = WebPage("This web page made itself",'index.html',"http://www.lsc-group.phys.uwm.edu/iulgroup/investigations/s5/people/channa/fu_Web/")
+testPage.linkNewSubPage("This web page made itself",'index2.html',"click here!","http://www.lsc-group.phys.uwm.edu/iulgroup/investigations/s5/people/channa/fu_Web/")
 testPage.appendSection("What is up with fu_Web.py?")
 testPage.section[0].appendSubSection("motivation for fu_Web.py")
 testPage.section[0].subSection[0].text("fu_Web.py is a module in pylal that allows for a simple web output scheme.  It provides a standard way for a developer to produce simple web pages within their codes - for example this page")
 testPage.section[0].appendSubSection("theory of fu_Web.py")
 testPage.section[0].subSection[1].text("We need a simple formalism to abstract simple web design to make presenting information easier.  fu_Web.py provides organization with the hope that it will facilitate the conveyance of important results")
 testPage.section[0].subSection[1].text("Web.py is made to allow flexible write methods that can turn the same code into HTML, Wiki, (Latex - if your a masochist) [of course right now it is only HTML]")
+testPage.section[0].appendSubSection("WHERE DO I GET IT ?!!")
+testPage.section[0].subSection[2].link("http://www.lsc-group.phys.uwm.edu/cgi-bin/cvs/viewcvs.cgi/pylal/pylal/fu_Web.py?cvsroot=lscsoft", "TRY HERE!")
+
 testPage.appendSection("Using fu_Web.py")
 
 testPage.section[1].appendSubSection("It's good for more than just follow-ups!")
@@ -392,4 +376,4 @@ testPage.appendSection("Next Steps")
 testPage.section[2].text("I hope that people will begin to code using this set of classes, and furthermore will start to improve it.")
 testPage.section[2].text("The next major step is to integrate this into the followup pipeline.  I'll need to write a parser/metadata output generator for the pipeline so that each step can talk back to the code that writes the final web page")
 
-testPage.cleanWrite('index.html', 'IUL')
+testPage.cleanWrite('IUL')
