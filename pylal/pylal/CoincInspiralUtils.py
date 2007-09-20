@@ -597,3 +597,12 @@ class coincInspiralTable:
 
     return triggers_within_segment
 
+  def get_spin_mag(self, objectnumber):
+    """
+    Return the spin magnitude of each of the injections (missed or found)
+    for each coinc.
+    """
+    sim_table = lsctables.New(lsctables.SimInspiralTable)
+    sim_table.extend([c.sim for c in self.rows])
+    
+    return sim_table.get_spin_mag(objectnumber)
