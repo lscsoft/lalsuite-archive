@@ -503,7 +503,7 @@ plots = new_plots(options.plot)
 
 for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose, reverse = True)[options.skip:]):
 	if options.verbose:
-		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames) - options.skip),
+		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames) - options.skip, filename)
 
 	connection = sqlite3.connect(filename)
 	dbtables.DBTable_set_connection(connection)
