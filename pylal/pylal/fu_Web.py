@@ -70,18 +70,22 @@ class WebPage(Content):
     self.contentList = []
     self.table = []
     self.section = []
+    self.lastSection = None
     self.title = title
     self.root = root
     self.subPage = []
+    self.lastPage = None
     self.filename = filename
 
   def appendSection(self,heading):
     number = len(self.section)
-    self.section.append( Section( heading,number,self.root ) )  
+    self.section.append( Section( heading,number,self.root ) ) 
+    self.lastSection = self.section[number] 
 
   
   def appendSubPage(self,title, file, root=''):
     self.subPage.append(WebPage(title, file, root))
+    self.lastPage = self.subPage[len(self.subPage)]
 
   def linkNewSubPage(self,title,file, text='', root=''):
     if text:
@@ -147,6 +151,7 @@ class Section(Content):
     self.contentList = []
     self.table = []
     self.subSection = []
+    self.lastSub = None
     self.heading = heading
     self.secNumber = secNumber 
     self.toclink = root + '#section' + str(self.secNumber)
@@ -155,6 +160,7 @@ class Section(Content):
   def appendSubSection(self,heading):
     number = len(self.subSection)
     self.subSection.append( SubSection( heading,self.secNumber,number, self.root ) )
+    self.lastSub = self.subSection[number]
 
   def write(self,file,type):
     self.writeSectionHeader(file,type)

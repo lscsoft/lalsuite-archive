@@ -198,7 +198,83 @@ class qscanCache(UserDict):
       file.close()
     else: pass
 
+##############################################################################
+# Function to get qscan background. 
+##############################################################################
 
+def getQscanBackgroundTimes(cp, opts, ifo, dq_url_pattern, segFile):
+    times = []
+  
+    if cp.has_option('background-qscan-times',ifo+'range'):
+      rangeString = string.strip(cp.get('background-qscan-times',ifo+'range'))
+    else:
+      rangeString = ''
+    if cp.has_option('background-qscan-times',ifo+'segment-list'):
+      segmentListFile = string.strip(cp.get('background-qscan-times',ifo+'segment-list'))
+    else:
+      segmentListFile = ''
+    if cp.has_option('background-qscan-times',ifo+'time-list'):
+      timeListFile = string.strip(cp.get('background-qscan-times',ifo+'time-list'))
+    else:
+      timeListFile = ''
+
+    if len(rangeString) == 0 and len(segmentListFile) == 0 and len(timeListFile) == 0:
+      print "No qscan background specified for " + ifo
+    else:
+
+      # Generate the list of science segments (excluding cat 1 vetoes) if a time range is provided in the ini file
+      if not len(rangeString) == 0:
+        epochStart = rangeString.split(',')[0]
+        epochEnd = rangeString.split(',')[1]
+        opts.gps_start_time = int(epochStart)
+        opts.gps_end_time = int(epochEnd)
+        opts.use_available_data = False
+        opts.run_data_quality = False
+        # overwrite the ini file if the field "analyze" in section [segments] exist...
+        cp.set("segments", "analyze", "Science")
+
+        inspiralutils.findSegmentsToAnalyze(cp,opts,ifo,dq_url_pattern,segFile)
+        segmentListFile = segFile[ifo]
+
+      # Use the segment list if provided, and generate a list of random times
+      if not len(segmentListFile) == 0:
+        segmentList = pipeline.ScienceData()
+        segmentMin = cp.getint('background-qscan-times','segment-min-len')
+        segmentList.read(segmentListFile,segmentMin)
+        segmentListLength = segmentList.__len__()
+        segmentListStart = segmentList.__getitem__(1).start()
+        segmentListEnd = segmentList.__getitem__(segmentListLength - 1).end()
+
+        seed = cp.getint('background-qscan-times','random-seed')
+        statistics = cp.getint('background-qscan-times','background-statistics')
+
+        random.seed(seed)
+        counter = 0
+        times = []
+
+        while counter < statistics:
+          gps = float(segmentListStart) + float(segmentListEnd - segmentListStart)*random.random()
+          testList = copy.deepcopy(segmentList)
+          secondList = [pipeline.ScienceSegment(tuple([0,int(gps),int(gps)+1,1]))]        
+          if testList.intersection(secondList):
+            times.append(gps)
+            counter = counter + 1
+          else:
+            continue
+        # Save the list of times in a file (for possibly re-using it later)
+        timeList = floatToStringList(times)
+        fileName = "timeList-" + ifo + "-" + repr(seed) + "-" + repr(statistics) + "-" + repr(segmentListStart) + "-" + repr(segmentListEnd) + ".txt"
+        saveRandomTimes(timeList,fileName)
+
+      # Use the time-list file if provided
+      if len(segmentListFile) == 0 and not len(timeListFile) == 0:
+        timeList = listFromFile(timeListFile)
+        if not timeList:
+          print >> sys.stderr, "the list of times in file " + timeListFile + " could not be found"
+          sys.exit(1)
+        times = stringToFloatList(timeList)
+
+    return times
 ##############################################################################
 # function to read/write a list of strings in a file
 ##############################################################################
