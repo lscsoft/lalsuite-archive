@@ -171,7 +171,7 @@ class getCache(UserDict):
               break
 
     return process
- 
+
 ##############################################################################
 # class to handle qscan cache file
 ##############################################################################
@@ -197,6 +197,16 @@ class qscanCache(UserDict):
         file.write(line + '\n')
       file.close()
     else: pass
+
+def readCache(fileName,type):
+  qscanList = []
+  cacheList = listFromFile(fileName)
+  for line in cacheList:
+    qscanType = line.split('\t')[1]
+    if type == qscanType.split('-')[0]:
+      qscanList.append(line.split('\t')[-1])
+    else: continue
+  return qscanList
 
 ##############################################################################
 # Function to get qscan background. 
@@ -275,6 +285,7 @@ def getQscanBackgroundTimes(cp, opts, ifo, dq_url_pattern, segFile):
         times = stringToFloatList(timeList)
 
     return times
+
 ##############################################################################
 # function to read/write a list of strings in a file
 ##############################################################################
@@ -291,7 +302,9 @@ def listFromFile(fileName):
     print >> sys.stderr, "Is the first line blank ?"
     return list
   for line in list_in_file:
-    list.append(string.strip(line))
+    if not line[0] == '#':
+      list.append(string.strip(line))
+    else: pass
   return list
 
 def saveRandomTimes(timeList,fileName):
