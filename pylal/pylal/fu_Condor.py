@@ -29,7 +29,7 @@ from glue import pipeline
 from glue import lal
 from glue import segments
 from glue import segmentsUtils
-from pylal.fuWeb import *
+from pylal.fu_Web import *
 from lalapps import inspiral
 
 ###### GENERIC CLASSES TO HELP WEBIFY A CONDOR DAG OUTPUT ####################
