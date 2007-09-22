@@ -198,12 +198,24 @@ class qscanCache(UserDict):
       file.close()
     else: pass
 
-def readCache(fileName,type):
+def getPathFromCache(fileName,type,ifo=None,time=None):
   qscanList = []
   cacheList = listFromFile(fileName)
+  if len(cacheList) == 0:
+    return qscanList
   for line in cacheList:
-    qscanType = line.split('\t')[1]
-    if type == qscanType.split('-')[0]:
+    test_line = True
+    if not re.search(type,line.split('\t')[1]):
+      test_line = False
+    if ifo:
+      if not ifo == line.split('\t')[2]):
+        test_line = False
+      else: pass
+    if time:
+      if not time == line.split('\t')[0]):
+        test_line = False
+      else: pass
+    if test_line:
       qscanList.append(line.split('\t')[-1])
     else: continue
   return qscanList
@@ -297,6 +309,7 @@ def listFromFile(fileName):
     print >> sys.stderr, "could not open file " + fileName
     return list
   list_in_file = file.readlines()
+  file.close()
   if not len(list_in_file):
     print >> sys.stderr, "No lines found in file " + fileName
     print >> sys.stderr, "Is the first line blank ?"
