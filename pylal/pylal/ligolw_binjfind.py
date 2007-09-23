@@ -186,12 +186,14 @@ class DocContents(object):
 		for row in self.coincmaptable:
 			if (row.table_name == sngl_burst_table_name) and (row.coinc_event_id in self.index):
 				self.index[row.coinc_event_id].append(index[row.event_id])
+		del index
 		# sort each event list by peak time, convert to tuples for
 		# speed, and find peak time window
 		self.coinc_peak_time_window = 0
-		for id, events in self.index.items():
+		for coinc_event_id in self.index.keys():
+			events = self.index[coinc_event_id]
 			events.sort(lambda a, b: cmp(a.peak_time, b.peak_time) or cmp(a.peak_time_ns, b.peak_time_ns))
-			self.index[id] = tuple(events)
+			self.index[coinc_event_id] = tuple(events)
 			self.coinc_peak_time_window = max(self.coinc_peak_time_window, float(events[-1].get_peak() - events[0].get_peak()))
 
 		#
