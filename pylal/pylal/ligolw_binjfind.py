@@ -189,7 +189,7 @@ class DocContents(object):
 		# sort each event list by peak time, convert to tuples for
 		# speed, and find peak time window
 		self.coinc_peak_time_window = 0
-		for id, events in list(self.index.items()):
+		for id, events in self.index.items():
 			events.sort(lambda a, b: cmp(a.peak_time, b.peak_time) or cmp(a.peak_time_ns, b.peak_time_ns))
 			self.index[id] = tuple(events)
 			self.coinc_peak_time_window = max(self.coinc_peak_time_window, float(events[-1].get_peak() - events[0].get_peak()))
