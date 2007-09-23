@@ -84,6 +84,23 @@ def parse_command_line():
 #
 # =============================================================================
 #
+#                                    Input
+#
+# =============================================================================
+#
+
+
+#
+# Use interning row builder to save memory.
+#
+
+
+ligolw_binjfind.table.RowBuilder = ligolw_binjfind.table.InterningRowBuilder
+
+
+#
+# =============================================================================
+#
 #                                     Main
 #
 # =============================================================================
@@ -107,6 +124,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
 	xmldoc = utils.load_filename(filename, options.verbose, gz = (filename or "stdin").endswith(".gz"))
+	ligolw_binjfind.table.InterningRowBuilder.strings.clear()
 	if llwapp.doc_includes_process(xmldoc, "ligolw_binjfind"):
 		if options.verbose:
 			print >>sys.stderr, "warning: %s already processed," % (filename or "stdin"),
