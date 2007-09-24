@@ -69,6 +69,7 @@ class webTheNode:
     if passItAlong:
       self.add_var_opt("output-web-file",self.webFileName)
       self.add_var_opt("output-path",job.outputPath)
+      self.add_var_opt("page-rel-path",job.relPath)
       self.add_var_opt("page", page)
     if content: self.writeContent(content)
       
@@ -100,6 +101,43 @@ class webTheDAG:
   def writeDAGWeb(self,type):
     self.webPage.cleanWrite(type)
   
+  def appendSection(self,name):
+    self.webPage.appendSection(name)
+    inifile = name.replace(" ","_").replace("@","-").replace("=",'-') + '.ini'
+    file = open(inifile,'a')
+    file.close()
+    talkback = talkBack(inifile)
+    talkback.read()
+    self.webPage.lastSection.appendTable(1,2,0,600)
+
+    if talkback.summaryText:
+      self.webPage.lastSection.lastTable.row[0].cell[0].linebreak()
+      self.webPage.lastSection.lastTable.row[0].cell[0].text(talkback.summaryText)
+    if talkback.summaryPlot:
+      self.webPage.lastSection.lastTable.row[0].cell[1].image(talkback.summaryPlot)
+    if talkback.summaryPlotCaption:
+      self.webPage.lastSection.lastTable.row[0].cell[1].linebreak()
+      self.webPage.lastSection.lastTable.row[0].cell[1].text(talkback.summaryPlotCaption)
+
+  def appendSubSection(self,name):
+    self.webPage.lastSection.appendSubSection(name)
+    inifile = name.replace(" ","_").replace("@","-").replace("=",'-') + '.ini'
+    file = open(inifile,'a')
+    file.close()
+    talkback = talkBack(inifile)
+    talkback.read()
+    self.webPage.lastSection.lastSub.appendTable(1,2,0,600)
+
+    if talkback.summaryText:
+      self.webPage.lastSection.lastSub.lastTable.row[0].cell[0].linebreak()
+      self.webPage.lastSection.lastSub.lastTable.row[0].cell[0].text(talkback.summaryText)
+    if talkback.summaryPlot:
+      self.webPage.lastSection.lastSub.lastTable.row[0].cell[1].image(talkback.summaryPlot)
+    if talkback.summaryPlotCaption:
+      self.webPage.lastSection.lastSub.lastTable.row[0].cell[1].linebreak()
+      self.webPage.lastSection.lastSub.lastTable.row[0].cell[1].text(talkback.summaryPlotCaption)
+
+
 
 ###### WRAPPER FOR CONDOR DAG - TO MAKE THE FOLLOWUP DAG WEBIFIABLE ###########
 ###############################################################################
