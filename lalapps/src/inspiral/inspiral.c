@@ -1,22 +1,3 @@
-/*
-*  Copyright (C) 2007 Andres C. Rodriguez, Stas Babak, Badri Krishnan, Sukanta Bose, Chad Hanna, Darren Woods, Alexander Dietz, Drew Keppel, Duncan Brown, Eirini Messaritaki, Gareth Jones, Jolien Creighton, Patrick Brady, Anand Sengupta, Stephen Fairhurst, Craig Robinson , Sean Seader, Thomas Cokelaer
-*
-*  This program is free software; you can redistribute it and/or modify
-*  it under the terms of the GNU General Public License as published by
-*  the Free Software Foundation; either version 2 of the License, or
-*  (at your option) any later version.
-*
-*  This program is distributed in the hope that it will be useful,
-*  but WITHOUT ANY WARRANTY; without even the implied warranty of
-*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-*  GNU General Public License for more details.
-*
-*  You should have received a copy of the GNU General Public License
-*  along with with program; see the file COPYING. If not, write to the
-*  Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston,
-*  MA  02111-1307  USA
-*/
-
 /*----------------------------------------------------------------------- 
  * 
  * File Name: inspiral.c
@@ -77,8 +58,6 @@
 #include <lal/FindChirpPTF.h>
 #include <lal/FindChirpChisq.h>
 #include <lal/LALTrigScanCluster.h>
-#include <lal/NRWaveIO.h>
-#include <lal/NRWaveInject.h>
 
 RCSID( "$Id$" );
 
@@ -212,8 +191,6 @@ Clustering clusterMethod;               /* chosen clustering algorithm  */
 REAL4 clusterWindow     = -1;           /* cluster over time window     */  
 Approximant approximant;                /* waveform approximant         */
 CHAR *approximantName   = NULL;         /* waveform approximant name    */
-Order order;                            /* pN order of waveform         */
-CHAR *orderName = NULL;                 /* pN order of the waveform     */
 INT4 bcvConstraint      = 0;            /* constraint BCV filter        */
 INT4 flagFilterInjOnly  = -1;           /* flag for filtering inj. only */ 
 
@@ -230,14 +207,13 @@ REAL4 rsqVetoPow        = -1;           /* r^2 veto power               */
 /* generic simulation parameters */
 enum { unset, urandom, user } randSeedType = unset;    /* sim seed type */
 INT4  randomSeed        = 0;            /* value of sim rand seed       */
-REAL4 gaussVar          = 64.0;         /* variance of gaussian noise   */
-INT4  whiteGaussian     = 0;            /* make input data gaussian     */
+REAL4 gaussVar          = 64.0;         /* variance of Gaussian noise   */
+INT4  whiteGaussian     = 0;            /* make input data Gaussian     */
 INT4  unitResponse      = 0;            /* set the response to unity    */
 INT4  colorSpec         = 0;            /* set the spectrum for colored */ 
-                                        /* gaussian noise               */    
+                                        /* Gaussian noise               */    
 INT4  coloredGaussian   = 0;            /* generate colored Gaussian    */
                                         /* noise                        */
-
 /* template bank simulation params */
 INT4  bankSim           = 0;            /* number of template bank sims */
 CHAR *bankSimFileName   = NULL;         /* file contining sim_inspiral  */
@@ -255,7 +231,6 @@ UINT4 ccFlag = 0;
 CHAR  *userTag          = NULL;         /* string the user can tag with */
 CHAR  *ifoTag           = NULL;         /* string to tag parent IFOs    */
 CHAR   fileName[FILENAME_MAX];          /* name of output files         */
-UINT4  outCompress      = 0;
 INT4   maximizationInterval = 0;        /* Max over template in this    */ 
                                         /* maximizationInterval Nanosec */ 
                                         /* interval                     */
@@ -263,7 +238,7 @@ trigScanType trigScanMethod = trigScanNone;
                                         /* Switch for clustering        */
                                         /* triggers in template         */
                                         /* parameters and end time      */
-REAL8  trigScanDeltaEndTime = -1.0;      /* Use this interval (msec)     */
+REAL8  trigScanDeltaEndTime = 0.0;      /* Use this interval (msec)     */
                                         /* over trigger end time while  */
                                         /* using trigScanCluster        */
 REAL8  trigScanMetricScalingFac = -1.0;     
@@ -288,15 +263,6 @@ int    writeRhosq       = 0;            /* write rhosq time series      */
 int    writeChisq       = 0;            /* write chisq time series      */
 int    writeCData       = 0;            /* write complex time series c  */
 
-
-/* numerical relativity injection variables */
-CHAR *numrelMetaFile    = NULL;            /* name of file with nr meta info */
-CHAR *numrelDataDir     = NULL;            /* name of dir with nr waveform   */
-INT4 numrelModeLo = -1;                     /* lowest value of l to inject    */
-INT4 numrelModeHi = -1;                     /* highest values of l to inject  */
-NRWaveMetaData thisMetaData;           /* single NR wave metadata struct */
-NumRelInjectParams nrPar;
-NRWaveCatalog nrCatalog;               /* NR wave metadata struct        */
 
 /* other command line args */
 CHAR comment[LIGOMETA_COMMENT_MAX];     /* process param comment        */
@@ -411,6 +377,7 @@ int main( int argc, char *argv[] )
 
   /* template bank simulation variables */
   UINT4 bankSimCutLowIndex = 0;
+  UINT4 bankSimCutHighIndex = 0;
   INT4  bankSimCount = 0;
   REAL4 matchNorm = 0;
   SnglInspiralTable  *loudestEventHead = NULL;
@@ -487,7 +454,7 @@ int main( int argc, char *argv[] )
       PROGRAM_NAME );
   filtertable.filterTable->start_time = gpsStartTime.gpsSeconds;
   LALSnprintf( filtertable.filterTable->filter_name, LIGOMETA_COMMENT_MAX,
-      "%s%s", approximantName, orderName );
+      "%stwoPN", approximantName );
 
   /* fill the comment, if a user has specified on, or leave it blank */
   if ( ! *comment )
@@ -504,8 +471,10 @@ int main( int argc, char *argv[] )
   }
 
   /* put the name of the search in the search_summary comment */ 
+  /* XXX note twoPN is hardwires and should be changed if we modify the    */
+  /* code to allow different PN orders to be specified on the command line */
   LALSnprintf( searchsumm.searchSummaryTable->comment, LIGOMETA_COMMENT_MAX,
-       "%s%s", approximantName, orderName );
+      "%stwoPN", approximantName );
 
   /* set the name of the output file */
   if ( userTag && ifoTag )
@@ -557,6 +526,7 @@ int main( int argc, char *argv[] )
 
   /* create the dynamic range exponent */
   dynRange = pow( 2.0, dynRangeExponent );
+
 
   /*
    *
@@ -906,11 +876,11 @@ int main( int argc, char *argv[] )
         &status );
   }
 
-  /* replace the input data with gaussian noise if necessary */
+  /* replace the input data with Gaussian noise if necessary */
   if ( whiteGaussian )
   {
     if ( vrbflg ) fprintf( stdout, 
-        "setting input data to white gaussian noise with variance %e... ", 
+        "setting input data to white Gaussian noise with variance %e... ", 
         gaussVar );
     memset( chan.data->data, 0, chan.data->length * sizeof(REAL4) );
     LAL_CALL( LALNormalDeviates( &status, chan.data, randParams ), &status );
@@ -924,7 +894,7 @@ int main( int argc, char *argv[] )
     if ( writeRawData ) outFrame = fr_add_proc_REAL4TimeSeries( outFrame, 
         &chan, "ct", "RAW_GAUSSIAN" );
   }
-
+  
   /* replace data with colored Gaussian noise if requested */
   if ( coloredGaussian )
   {
@@ -939,7 +909,7 @@ int main( int argc, char *argv[] )
     INT4              kmin           = strainHighPassFreq / deltaF > 1 ? 
                                        strainHighPassFreq / deltaF : 1 ;
     
-    if ( vrbflg ) fprintf( stdout, "Replacing data with colored Gaussian noise" );
+    if ( vrbflg ) fprintf( stdout, "replacing data with colored Gaussian noise...." );
 
     /* Generate white Gaussian noise with unit variance */
 
@@ -1022,14 +992,15 @@ int main( int argc, char *argv[] )
     LALDestroyRealFFTPlan( &status, &invPlan);
   }
 
+  
   /*
    *
    * generate the response function for the requested time
    *
    */
 
-
   /* create storage for the response function */
+  
   memset( &resp, 0, sizeof(COMPLEX8FrequencySeries) );
   LAL_CALL( LALCCreateVector( &status, &(resp.data), numPoints / 2 + 1 ), 
       &status );
@@ -1126,7 +1097,7 @@ int main( int argc, char *argv[] )
   if ( unitResponse )
   {
     /* replace the response function with unity if */
-    /* we are filtering white gaussian noise             */
+    /* we are filtering white Gaussian noise             */
     if ( vrbflg ) fprintf( stdout, "setting response to unity... " );
     for ( k = 0; k < resp.data->length; ++k )
     {
@@ -1138,7 +1109,6 @@ int main( int argc, char *argv[] )
     if ( writeResponse ) outFrame = fr_add_proc_COMPLEX8FrequencySeries( 
         outFrame, &resp, "strain/ct", "RESPONSE_UNITY" );
   }
-
   if (specType == 3 | specType == 4)
   {
     /* replace the response function with 1/dynRange if we are using the */
@@ -1149,6 +1119,7 @@ int main( int argc, char *argv[] )
       resp.data->data[k].re = (REAL4) (1.0 / dynRange);
       resp.data->data[k].im = 0.0;
     }
+    if ( vrbflg ) fprintf( stdout, "done\n" );
     if ( writeResponse ) outFrame = fr_add_proc_COMPLEX8FrequencySeries( 
         outFrame, &resp, "strain/ct", "RESPONSE_UNITY" );
   }
@@ -1334,7 +1305,7 @@ int main( int argc, char *argv[] )
         if ( whiteGaussian )
         {
           /* replace the response function with unity if */
-          /* we are filtering gaussian noise             */
+          /* we are filtering white Gaussian noise             */
           if ( vrbflg ) fprintf( stdout, "setting response to unity... " );
           for ( k = 0; k < injResp.data->length; ++k )
           {
@@ -1366,33 +1337,8 @@ int main( int argc, char *argv[] )
         LALSnprintf( chan.name, LALNameLength * sizeof(CHAR), "ZENITH" );
       }
 
-      if (bankSimParams.approx == NumRel) 
-      {
-
-	/* get catalog of numrel waveforms from metadata file */
-	LAL_CALL( LALNRDataFind( &status, &nrCatalog, numrelDataDir, numrelMetaFile ),
-		  &status );
-
-	nrPar.modeLlo = numrelModeLo;
-	nrPar.modeLhi = numrelModeHi;
-	nrPar.nrCatalog = &nrCatalog;
-	nrPar.ifo = ifo;
-	nrPar.dynRange = dynRange;
-	
-	LAL_CALL(LALDriveNRInject( &status, &chan, injections, &nrPar), &status);
-
-	/* clear memory */
-	LALFree( nrCatalog.data );
-
-	if( numrelMetaFile ) free ( numrelMetaFile );
-	if( numrelDataDir) free  ( numrelDataDir );
-
-      }
-      else
-      {
-	LAL_CALL( LALFindChirpInjectSignals( &status, &chan, injections, 
-					       injRespPtr ), &status );
-      }
+      LAL_CALL( LALFindChirpInjectSignals( &status, &chan, injections, 
+            injRespPtr ), &status );
       LALSnprintf( chan.name,  LALNameLength * sizeof(CHAR), "%s", tmpChName );
 
       if ( vrbflg ) fprintf( stdout, "injected %d signals from %s into %s\n", 
@@ -1656,16 +1602,15 @@ int main( int argc, char *argv[] )
   LAL_CALL( LALDestroyREAL4Window( &status, &(avgSpecParams.window) ), 
       &status );
   strcpy( spec.name, chan.name );
-
+  
   if ( specType == 2 )
   {
     /* multiply the unit power spectrum by the variance to get the white psd */
-    REAL4 gaussVarSq = gaussVar * gaussVar;
+    REAL4 gaussVarSq = gaussVar * gaussVar ;
     for ( k = 0; k < spec.data->length; ++k )
     {
       spec.data->data[k] *= 2.0 * gaussVarSq * (REAL4) inputDeltaT;
     }
-
     if ( vrbflg ) 
       fprintf( stdout, "set psd to constant value = %e\n", spec.data->data[0] );
   }
@@ -1676,7 +1621,6 @@ int main( int argc, char *argv[] )
                            strainHighPassFreq / spec.deltaF : 1 ;
     REAL8 sim_psd_value, sim_psd_freq;
     LALLIGOIPsd( NULL, &sim_psd_value, strainHighPassFreq );
-    
     for ( k = 0; k < k_min; ++k )
     {
       spec.data->data[k] = (REAL4) (9.0e-46 * sim_psd_value * dynRange * 
@@ -1817,7 +1761,6 @@ int main( int argc, char *argv[] )
   fcTmpltParams->deltaT = chan.deltaT;
   fcTmpltParams->fLow = fLow;
   fcTmpltParams->reverseChirpBank = reverseChirpBank;
-  fcTmpltParams->order = order;
 
   /* initialize findchirp filter functions */
   LAL_CALL( LALFindChirpFilterInit( &status, &fcFilterParams, fcInitParams ), 
@@ -1954,9 +1897,17 @@ int main( int argc, char *argv[] )
     {
       if ( vrbflg ) fprintf( stdout,
           "computing minimal match normalization... " );
-
+      /* compute the bankSimCutHighIndex based on the fFinal variable stored in bankSim. */
+      if ( (UINT4)(thisSimInspiral->f_final / spec.deltaF) < fcDataParams->wtildeVec->length )
+      {
+	bankSimCutHighIndex = (UINT4)(thisSimInspiral->f_final / spec.deltaF);
+      }
+      else
+      {
+	bankSimCutHighIndex = fcDataParams->wtildeVec->length;
+      }
       matchNorm = XLALFindChirpBankSimSignalNorm( fcDataParams, fcSegVec, 
-          bankSimCutLowIndex );
+          bankSimCutLowIndex, bankSimCutHighIndex );
 	
       if ( vrbflg ) fprintf( stdout, "%e\n", matchNorm );
     }
@@ -2109,48 +2060,44 @@ int main( int argc, char *argv[] )
      */
     
     /* only sort the bank if doing bank veto */
-
-    if (!bankSimCount) /*just doing this once is fine*/
-    {
-      if (subBankSize > 1)   
-          bankHead = XLALFindChirpSortTemplates( bankHead, numTmplts );
+    if (subBankSize > 1)   
+        bankHead = XLALFindChirpSortTemplates( bankHead, numTmplts );
  
-      if ( vrbflg ) fprintf( stdout, 
+    if ( vrbflg ) fprintf( stdout, 
         "splitting bank in to subbanks of size ~ %d\n", subBankSize );
     
-      subBankHead = XLALFindChirpCreateSubBanks( &maxSubBankSize,
+    subBankHead = XLALFindChirpCreateSubBanks( &maxSubBankSize,
         subBankSize, numTmplts, bankHead );
 
-      if ( vrbflg ) fprintf( stdout, "maximum subbank size = %d\n", 
+    if ( vrbflg ) fprintf( stdout, "maximum subbank size = %d\n", 
         maxSubBankSize );
 
-      bankVetoData.length = maxSubBankSize;
+    bankVetoData.length = maxSubBankSize;
 
-      /* free the existing qVec structure so that we can use the bankveto one */
-      XLALDestroyCOMPLEX8Vector( fcFilterParams->qVec );
-      fcFilterParams->qVec = NULL;
+    /* free the existing qVec structure so that we can use the bankveto one */
+    XLALDestroyCOMPLEX8Vector( fcFilterParams->qVec );
+    fcFilterParams->qVec = NULL;
 
-      /* create an array of fcFilterInput structs */
-      bankVetoData.qVecArray = (COMPLEX8Vector **)
-        LALCalloc( bankVetoData.length, sizeof(COMPLEX8Vector*) );
-      bankVetoData.fcInputArray = (FindChirpFilterInput **)
-        LALCalloc( bankVetoData.length, sizeof(FindChirpFilterInput*) );
-      /* create ccMat for bank veto */
-      bankVetoData.ccMat = 
-        XLALCreateVector( bankVetoData.length * bankVetoData.length );
-      /* bankVetoData.normMat = XLALCreateVector( bankVetoData.length ); */
+    /* create an array of fcFilterInput structs */
+    bankVetoData.qVecArray = (COMPLEX8Vector **)
+      LALCalloc( bankVetoData.length, sizeof(COMPLEX8Vector*) );
+    bankVetoData.fcInputArray = (FindChirpFilterInput **)
+      LALCalloc( bankVetoData.length, sizeof(FindChirpFilterInput*) );
+    /* create ccMat for bank veto */
+    bankVetoData.ccMat = 
+      XLALCreateVector( bankVetoData.length * bankVetoData.length );
+    /* bankVetoData.normMat = XLALCreateVector( bankVetoData.length ); */
    
-      /* point to response and spectrum */
-      bankVetoData.spec = spec.data;
-      bankVetoData.resp = resp.data;
+    /* point to response and spectrum */
+    bankVetoData.spec = spec.data;
+    bankVetoData.resp = resp.data;
      
-      for ( i = 0; i < bankVetoData.length; ++i )
-      {
-        bankVetoData.qVecArray[i] = 
-          XLALCreateCOMPLEX8Vector( fcInitParams->numPoints );
-        LAL_CALL( LALCreateFindChirpInput( &status, 
-              &(bankVetoData.fcInputArray[i]), fcInitParams ), &status );
-      }
+    for ( i = 0; i < bankVetoData.length; ++i )
+    {
+      bankVetoData.qVecArray[i] = 
+        XLALCreateCOMPLEX8Vector( fcInitParams->numPoints );
+      LAL_CALL( LALCreateFindChirpInput( &status, 
+            &(bankVetoData.fcInputArray[i]), fcInitParams ), &status );
     }
 
     /*
@@ -2515,7 +2462,7 @@ int main( int argc, char *argv[] )
         if (ccFlag && (subBankCurrent->subBankSize > 1) && analyseTag)
         {
           if (vrbflg) fprintf(stderr, "doing ccmat\n");
-          XLALBankVetoCCMat( &bankVetoData, subBankCurrent, fcDataParams,
+          XLALBankVetoCCMat( &bankVetoData, subBankCurrent,
           dynRange, fLow, spec.deltaF, chan.deltaT);
           ccFlag = 0;
           /*char filename[10];
@@ -2839,30 +2786,15 @@ int main( int argc, char *argv[] )
   memset( &results, 0, sizeof(LIGOLwXMLStream) );
   if ( outputPath[0] )
   {
-    if ( outCompress )
-    {
-      LALSnprintf( fname, FILENAME_MAX * sizeof(CHAR), "%s/%s.xml.gz",
-          outputPath, fileName );
-    }
-    else
-    {
-      LALSnprintf( fname, FILENAME_MAX * sizeof(CHAR), "%s/%s.xml",
-          outputPath, fileName );
-    }
+    LALSnprintf( fname, FILENAME_MAX * sizeof(CHAR), "%s/%s.xml", 
+        outputPath, fileName );
   }
   else
   {
-    if ( outCompress )
-    {
-      LALSnprintf( fname, FILENAME_MAX * sizeof(CHAR), "%s.xml.gz", fileName );
-    }
-     else
-    {
-      LALSnprintf( fname, FILENAME_MAX * sizeof(CHAR), "%s.xml", fileName );
-    }
+    LALSnprintf( fname, FILENAME_MAX * sizeof(CHAR), "%s.xml", fileName );
   }
   if ( vrbflg ) fprintf( stdout, "writing XML data to %s...\n", fname );
-  LAL_CALL( LALOpenLIGOLwXMLFile( &status, &results, fname ), &status );
+  LAL_CALL( LALOpenLIGOLwXMLFile( &status, &results, fname), &status );
 
   /* write the process table */
   if ( vrbflg ) fprintf( stdout, "  process table...\n" );
@@ -3135,7 +3067,6 @@ int main( int argc, char *argv[] )
   }
   if ( condenseIn )  LALFree( condenseIn );
   if ( approximantName) free( approximantName );
-  if ( orderName )     free( orderName );
   if ( calCacheName )  free( calCacheName );
   if ( frInCacheName ) free( frInCacheName );
   if ( frInType )      free( frInType );
@@ -3218,7 +3149,7 @@ LALSnprintf( this_proc_param->value, LIGOMETA_VALUE_MAX, format, ppvalue );
 "  --high-pass-order O          set the order of the high pass filter to O\n"\
 "  --high-pass-attenuation A    set the attenuation of the high pass filter to A\n"\
 "  --spectrum-type TYPE         use PSD estimator TYPE\n"\
-"                                 (mean|median|gaussian|white|LIGO|AdvLIGO)\n"\
+"                               (mean|median|white|gaussian|LIGO|AdvLIGO)\n"\
 "                               TYPE 'gaussian' is equivalent to 'white' - deprecated option\n"\
 "\n"\
 "  --segment-length N           set data segment length to N points\n"\
@@ -3232,9 +3163,7 @@ LALSnprintf( this_proc_param->value, LIGOMETA_VALUE_MAX, format, ppvalue );
 "  --approximant APPROX         set approximant of the waveform to APPROX\n"\
 "                               (FindChirpSP|BCV|BCVC|BCVSpin|TaylorT1|TaylorT2|\n"\
 "                                  TaylorT3|PadeT1|EOB|GeneratePPN|FindChirpPTF)\n"\
-"  --order ORDER                set the pN order of the waveform to ORDER\n"\
-"                               (twoPN|twoPointFivePN|threePN|threePointFivePN|\n"\
-"                                  pseudoFourPN)\n"\
+"\n"\
 "  --snr-threshold RHO          set signal-to-noise threshold to RHO\n"\
 "  --chisq-bins P               set number of chisq veto bins to P\n"\
 "  --chisq-delta DELTA          set chisq delta parameter to DELTA\n"\
@@ -3266,7 +3195,6 @@ LALSnprintf( this_proc_param->value, LIGOMETA_VALUE_MAX, format, ppvalue );
 "  --enable-output              write the results to a LIGO LW XML file\n"\
 "  --output-mask MASK           write the output sngl_inspiral table\n"\
 "                                 with optional MASK (bns|bcv)\n"\
-"  --write-compress             write a compressed xml file\n"\
 "  --disable-output             do not write LIGO LW XML output file\n"\
 "  --trig-start-time SEC        only output triggers after GPS time SEC\n"\
 "  --trig-end-time SEC          only output triggers before GPS time SEC\n"\
@@ -3285,11 +3213,7 @@ LALSnprintf( this_proc_param->value, LIGOMETA_VALUE_MAX, format, ppvalue );
 "  --disable-bank-sim-max       do not maximize the match over the bank\n"\
 "  --sim-approximant APX        set approximant of the injected waveform to APX\n"\
 "                                 (TaylorT1|TaylorT2|TaylorT3|PadeT1|EOB|\n"\
-"                                  GeneratePPN|FrameFile|NumRel)\n"\
-"  --numrel-data-dir NRDir      directory where numerical waveforms are located\n"\
-"  --numrel-meta-file NRMeta    Numerical relativity waveform metadata file\n"\
-"  --numrel-modelo  modeLo      Lowest numerical relativity mode to inject\n"\
-"  --numrel-modehi  modeHi      Highest numerical relativity mode to inject\n"\
+"                                  GeneratePPN|FrameFile)\n"\
 "  --sim-frame-file F           read the bank sim waveform from frame named F\n"\
 "  --sim-frame-channel C        read the bank sim waveform from frame channel C\n"\
 "  --sim-minimum-mass M         set minimum mass of bank injected signal to M\n"\
@@ -3316,7 +3240,6 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
     /* these options set a flag */
     {"verbose",                 no_argument,       &vrbflg,           1 },
     {"enable-output",           no_argument,       &enableOutput,     1 },
-    {"write-compress",          no_argument,       &outCompress,      1 },
     {"disable-output",          no_argument,       &enableOutput,     0 },
     {"disable-high-pass",       no_argument,       &highPass,         0 },
     {"inject-overhead",         no_argument,       &injectOverhead,   1 },
@@ -3357,7 +3280,6 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
     {"chisq-bins",              required_argument, 0,                'o'},
     {"calibration-cache",       required_argument, 0,                'p'},
     {"approximant",             required_argument, 0,                'F'},
-    {"order",                   required_argument, 0,                '^'},
     {"snr-threshold",           required_argument, 0,                'q'},
     {"chisq-threshold",         required_argument, 0,                'r'},
     {"resample-filter",         required_argument, 0,                'R'},
@@ -3374,16 +3296,11 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
     {"slide-time-ns",           required_argument, 0,                'Y'},
     {"bank-simulation",         required_argument, 0,                'K'},
     {"sim-approximant",         required_argument, 0,                'L'},
-    {"numrel-data-dir",         required_argument, 0,                '{'},
-    {"numrel-meta-file",        required_argument, 0,                '}'},
-    {"numrel-modelo",           required_argument, 0,                '='},
-    {"numrel-modehi",           required_argument, 0,                '+'},
     {"random-seed",             required_argument, 0,                'J'},
     {"sim-minimum-mass",        required_argument, 0,                'U'},
     {"sim-maximum-mass",        required_argument, 0,                'W'},
-    {"gaussian-noise",          required_argument, 0,                'G'},
     {"white-gaussian",          required_argument, 0,                'G'},
-    {"colored-gaussian",        required_argument, 0,                '.'},
+    {"gaussian-noise",          required_argument, 0,                'G'},
     {"checkpoint-path",         required_argument, 0,                'N'},
     {"output-path",             required_argument, 0,                'O'},
     {"debug-level",             required_argument, 0,                'z'},
@@ -3411,6 +3328,7 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
     {"rsq-veto-coeff",          required_argument, 0,                '['},
     {"rsq-veto-pow",            required_argument, 0,                ']'},
     {"bank-veto-subbank-size",  required_argument, 0,                ','},
+    {"colored-gaussian",        required_argument, 0,                '.'},
     /* frame writing options */
     {"write-raw-data",          no_argument,       &writeRawData,     1 },
     {"write-filter-data",       no_argument,       &writeFilterData,  1 },
@@ -3424,13 +3342,8 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
   int c;
   INT4 haveDynRange = 0;
   INT4 haveApprox = 0;
-  INT4 haveOrder = 0;
   INT4 haveClusterMethod = 0;
   INT4 haveBankSimApprox = 0;
-  INT4 haveNumRelDir = 0;
-  INT4 haveNumRelMeta = 0;
-  INT4 haveNumRelModeLo = 0;
-  INT4 haveNumRelModeHi = 0; 
   ProcessParamsTable *this_proc_param = procparams.processParamsTable;
   LALStatus             status = blank_status;
 
@@ -3451,7 +3364,7 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
     c = getopt_long_only( argc, argv, 
         "-A:B:C:D:E:F:G:H:I:J:K:L:M:N:O:P:Q:R:S:T:U:VW:X:Y:Z:"
         "a:b:c:d:e:f:g:hi:j:k:l:m:n:o:p:q:r:s:t:u:v:w:x:y:z:"
-        "0:1::2:3:4:567:8:9:*:>:<:(:):[:],:{:}:+:=:^:",
+        "0:1::2:3:4:567:8:9:*:>:<:(:):[:],:.:",
         long_options, &option_index );
 
     /* detect the end of the options */
@@ -3812,7 +3725,7 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
         {
           specType = 2;
           fprintf( stderr,
-              "WARNING: replacing psd with white gaussian spectrum\n" );
+              "WARNING: replacing psd with white Gaussian spectrum\n" );
         }
         else if ( ! strcmp( "LIGO", optarg ) )
         {
@@ -3832,7 +3745,7 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
         {
           fprintf( stderr, "invalid argument to --%s:\n"
               "unknown power spectrum type: "
-              "%s (must be mean, median, gaussian, white, LIGO or AdvLIGO)\n",
+              "%s (must be mean, median, gaussian, white, LIGO or AdvLIGO)\n", 
               long_options[option_index].name, optarg );
           exit( 1 );
         }
@@ -3977,43 +3890,6 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
           exit( 1 );
         }
         haveApprox = 1;
-        ADD_PROCESS_PARAM( "string", "%s", optarg );
-        break;
-
-      case '^':
-        /* create storage for the order name */
-        optarg_len = strlen( optarg ) + 1;
-        orderName = (CHAR *) calloc( optarg_len, sizeof(CHAR));
-        memcpy( orderName, optarg, optarg_len );
-        if ( ! strcmp( "twoPN", optarg ) )
-        {
-          order = twoPN;
-        }
-        else if ( ! strcmp( "twoPointFivePN", optarg ) )
-        {
-          order = twoPointFivePN;
-        }
-        else if ( ! strcmp( "threePN", optarg ) )
-        {
-          order = threePN;
-        }
-        else if ( ! strcmp( "threePointFivePN", optarg ) )
-        {
-          order = threePointFivePN;
-        }
-        else if ( ! strcmp( "pseudoFourPN", optarg ) )
-        {
-          order = pseudoFourPN;
-        }
-        else
-        {
-          fprintf( stderr, "invalid argument to --%s:\n"
-              "unknown order specified: "
-              "%s (must be one of twoPN, twoPointFivePN, threePN, threePointFivePN, pseudoFourPN)\n", 
-              long_options[option_index].name, optarg );
-          exit( 1 );
-        }
-        haveOrder = 1;
         ADD_PROCESS_PARAM( "string", "%s", optarg );
         break;
 
@@ -4226,69 +4102,17 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
         {
           bankSimParams.approx = FrameFile;
         }
-	else if ( ! strcmp( "NumRel", optarg ) )
-	{
-	  bankSimParams.approx = NumRel;
-	}
         else
         {
           fprintf( stderr, "invalid argument to --%s:\n"
               "unknown order specified: %s\n(must be one of TaylorT1, "
-              "TaylorT2, TaylorT3, PadeT1, EOB, GeneratePPN, FrameFile, NumRel)\n", 
+              "TaylorT2, TaylorT3, PadeT1, EOB, GeneratePPN, FrameFile)\n", 
               long_options[option_index].name, optarg );
           exit( 1 );
         }
         haveBankSimApprox = 1;
         ADD_PROCESS_PARAM( "string", "%s", optarg );
         break;
-
-      case '{':
-        optarg_len = strlen( optarg ) + 1;
-	numrelDataDir = (CHAR *) calloc( optarg_len, sizeof(CHAR) );
-	memcpy( numrelDataDir, optarg, optarg_len );
-	haveNumRelDir = 1;
-	break;
-
-      case '}':
-        optarg_len = strlen( optarg ) + 1;
-	numrelMetaFile = (CHAR *) calloc( optarg_len, sizeof(CHAR) );
-	memcpy( numrelMetaFile, optarg, optarg_len );
-	haveNumRelMeta = 1;
-	break;
-
-      case '=':
-	numrelModeLo = (INT4)atoi( optarg );
-        if ( numrelModeLo < 2 )
-        {
-          fprintf( stderr, "invalid argument to --%s:\n"
-              "l value must be greater than 1: "
-              "(%d specified) \n",
-              long_options[option_index].name, numrelModeLo );
-          exit( 1 );
-        }
-	haveNumRelModeLo = 1;
-	break;
-
-      case '+':
-	numrelModeHi = (INT4)atoi( optarg );
-        if ( numrelModeHi < 2 )
-        {
-          fprintf( stderr, "invalid argument to --%s:\n"
-              "l value must be greater than 1: "
-              "(%d specified) \n",
-              long_options[option_index].name, numrelModeHi );
-          exit( 1 );
-        }
-	else if ( numrelModeHi < numrelModeLo )
-	{
-          fprintf( stderr, "invalid argument to --%s:\n"
-              "--numrel-modelhi value must be greater or equal than --numrel-modelo: "
-              "(%d specified for modehi) \n",
-              long_options[option_index].name, numrelModeHi );
-          exit( 1 );
-	}
-	haveNumRelModeHi = 1;
-	break;
 
       case 'J':
         if ( ! strcmp( "urandom", optarg ) )
@@ -4335,7 +4159,7 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
         if ( gaussVar < 0 )
         {
           fprintf( stderr, "invalid argument to --%s:\n"
-              "variance of gaussian noise must be >= 0: "
+              "variance of white Gaussian noise must be >= 0: "
               "(%f specified)\n",
               long_options[option_index].name, gaussVar );
           exit( 1 );
@@ -4344,7 +4168,7 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
         whiteGaussian = 1;
         unitResponse = 1;
         fprintf( stderr,
-            "WARNING: replacing input data with white gaussian noise\n"
+            "WARNING: replacing input data with white Gaussian noise\n"
             "WARNING: replacing response function with unity\n" );
         break;
 
@@ -4354,7 +4178,7 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
         {
           colorSpec = 3;
           fprintf( stderr,
-              "WARNING: replacing input data with colored Gaussian noise: " 
+              "WARNING: replacing input data with colored Gaussian noise:" 
               "psd = Initial LIGO\n");
         }
         else if ( ! strcmp( "AdvLIGO", optarg ) )
@@ -4837,8 +4661,63 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
         gpsStartTime.gpsSeconds, gpsEndTime.gpsSeconds );
     exit( 1 );
   }
-
-  /* check trigger generation time is within input time */
+  
+  /* check that specType is either LIGO or advLIGO for colored Gaussian noise
+   */
+  if (coloredGaussian)
+  { 
+    if (whiteGaussian)
+    {
+      fprintf( stderr, "cannot specify options --white-gaussian (or" 
+          " --gaussian-noise) and --colored-gaussian at the same time;"
+          " spectrum must be either white" 
+          " or colored \n");
+      exit( 1 );
+    }
+ 
+    if (specType == 2)
+    {
+      fprintf( stderr, "--spectrum-type cannot be white for " 
+                        "colored Gaussian noise: specify either LIGO, "
+                        "AdvLIGO, mean or median\n");
+      exit( 1 );
+    }
+    if (specType == 3 && colorSpec == 4) 
+    {
+      fprintf(stderr,"Error: if "
+        "--colored-gaussian is AdvLIGO --spectrum-type cannot be LIGO\n");
+      exit( 1 );
+    }
+    if (specType == 4 && colorSpec == 3) 
+    {
+      fprintf(stderr,"Error: if "
+        "--colored-gaussian is LIGO --spectrum-type cannot be AdvLIGO\n");
+      exit( 1 );
+    }
+    /* check that strain high pass parameters have been specified */
+    if ( strainHighPassFreq < 0 )
+    {
+      fprintf( stderr, 
+          "--strain-high-pass-freq must be specified for simulated colored " 
+          "Gaussian noise\n" );
+      exit( 1 );
+    }
+    if ( strainHighPassOrder < 0 )
+    {
+      fprintf( stderr, 
+          "--strain-high-pass-order must be specified for simulated colored " 
+          "Gaussian noise \n" );
+      exit( 1 );
+    }
+    if ( strainHighPassAtten < 0 )
+    {
+      fprintf( stderr, 
+          "--strain-high-pass-atten must be specified for simulated colored "
+          "Gaussian noise\n" );
+      exit( 1 );
+    }
+  }
+      /* check trigger generation time is within input time */
   if ( trigStartTimeNS )
   {
     if ( trigStartTimeNS < gpsStartTimeNS )
@@ -5024,14 +4903,6 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
     exit( 1 );
   }
 
-  /* check that the pN order is specified */
-  if ( ! haveOrder )
-  {
-    fprintf( stderr, "--order must be specified\n" );
-    exit( 1 );
-  }
-
-
   /* check that a channel has been requested and fill the ifo */
   if ( ! fqChanName )
   {
@@ -5171,71 +5042,14 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
     LALSnprintf( this_proc_param->value, LIGOMETA_VALUE_MAX, " " );
   }
 
-  /* check that a random seed for gaussian noise generation has been given */
-  if ( (whiteGaussian || coloredGaussian ) && randSeedType == unset )
+  /* check that a random seed for Gaussian noise generation has been given */
+  if ( (whiteGaussian || coloredGaussian) && randSeedType == unset )
   {
     fprintf( stderr, "--random-seed must be specified if "
-     "--white-gaussian, --colored-gaussian or --gaussian-noise are given\n" );
+        "--white-gaussian (--gaussian-noise) or --colored-gaussian are given\n" );
     exit( 1 );
   }
 
-  
-  if (coloredGaussian)
-  {
-    /* check that --white-gaussian has not been specified */
-    if (whiteGaussian)
-    {
-      fprintf( stderr, "cannot specify options --white-gaussian (or "
-          " --gaussian-noise) and --colored-gaussian at the same time;" 
-          " spectrum must be either white or colored \n");
-      exit( 1 );
-    }
- 
-    /* check that specType is either LIGO or advLIGO for colored Gaussian noise
-     */
-    if (specType == 2)
-    {
-      fprintf( stderr, "--spectrum-type cannot be white for " 
-                        "colored Gaussian noise: specify either LIGO, "
-                        "AdvLIGO, mean or median\n");
-      exit( 1 );
-    }
-    if (specType == 3 && colorSpec == 4) 
-    {
-      fprintf(stderr,"Error: if "
-        "--colored-gaussian is AdvLIGO --spectrum-type cannot be LIGO\n");
-      exit( 1 );
-    }
-    if (specType == 4 && colorSpec == 3) 
-    {
-      fprintf(stderr,"Error: if "
-        "--colored-gaussian is LIGO --spectrum-type cannot be AdvLIGO\n");
-      exit( 1 );
-    }
-     /* check that strain high pass parameters have been specified */
-    if ( strainHighPassFreq < 0 )
-    {
-      fprintf( stderr, 
-          "--strain-high-pass-freq must be specified for simulated colored " 
-          "Gaussian noise\n" );
-      exit( 1 );
-    }
-    if ( strainHighPassOrder < 0 )
-    {
-      fprintf( stderr, 
-          "--strain-high-pass-order must be specified for simulated colored " 
-          "Gaussian noise \n" );
-      exit( 1 );
-    }
-    if ( strainHighPassAtten < 0 )
-    {
-      fprintf( stderr, 
-          "--strain-high-pass-atten must be specified for simulated colored "
-          "Gaussian noise\n" );
-      exit( 1 );
-    }
-  }
-  
   /* check the bank simulation parameters */
   if ( bankSim )
   {
@@ -5451,31 +5265,6 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
       exit( 1 );
     }
   }
-
-  /* check if the NR-dependent parameters are set */
-      if (bankSimParams.approx == NumRel) 
-      {
- 	  if ( ! haveNumRelDir )
-	    {
-	      fprintf( stderr, "--numrel-data-dir must be specified when --sim-approximant is NumRel\n" );
-	      exit( 1 );
-	    }
-   	  if ( ! haveNumRelMeta )
-	    {
-	      fprintf( stderr, "--numrel-meta-file must be specified when --sim-approximant is NumRel\n" );
-	      exit( 1 );
-	    }
- 	  if ( ! haveNumRelModeLo )
-	    {
-	      fprintf( stderr, "--numrel-modelo must be specified when --sim-approximant is NumRel\n" );
-	      exit( 1 );
-	    }
- 	  if ( ! haveNumRelModeHi )
-	    {
-	      fprintf( stderr, "--numrel-modehi must be specified when --sim-approximant is NumRel\n" );
-	      exit( 1 );
-	    }
-      }
 
   return 0;
 }
