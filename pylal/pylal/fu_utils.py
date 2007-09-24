@@ -41,13 +41,14 @@ from pylal import CoincInspiralUtils
 from glue import pipeline
 from glue.lal import *
 from glue import lal
+from lalapps import inspiralutils
 
 ########## CLASS TO WRITE LAL CACHE FROM HIPE OUTPUT #########################
 class getCache(UserDict):
   """
   An instance of a lal cache
   """
-  def __init__(self, options):
+  def __init__(self, options,cp, currentPath):
     UserDict.__init__(self)
     self.dir = os.listdir(os.getcwd())
     self.options = options
@@ -60,6 +61,19 @@ class getCache(UserDict):
          'second_inspiral.cache', 'first_thinca.cache', 'second_thinca.cache']
     self.nameMaps = map(None, self.oNames, self.types)
     self.ifoTypes = ['H1','H2','L1','H1H2','H1L1','H2L1','H1H2L1']
+
+    if options.generate_fu_cache:
+      print >> sys.stderr, "\nOption --generate-fu-cache is specified, it overwrites the hipe cache files  which already exist"
+      cache.getCacheAll(cp)
+      cache.writeCacheAll('fu_hipe.cache')
+      print >> sys.stderr, "\nHIPE CACHE FILE WRITTEN TO: fu_hipe.cache"
+    try:
+      os.chdir("cache")
+      os.chdir(currentPath)
+    except:
+      os.symlink(string.strip(cp.get('hipe-cache','hipe-cache-path')), 'cache')
+
+
 
   def ifoDict(self):
     return {'H1':[],'H2':[],'L1':[],'H1H2':[], \
@@ -93,9 +107,11 @@ class getCache(UserDict):
           entry = lal.CacheEntry(tmpentry)
           self[type].append(entry)
         except: pass
+
   def getCacheAll(self,cp=None):
     for iniName, type in self.iniNameMaps:
       self.getCacheType(iniName,type,cp)
+
 
   def writeCacheType(self,oName,type,cName):
     #cName = open(oName,'w')
@@ -172,6 +188,52 @@ class getCache(UserDict):
 
     return process
 
+  def processFollowupCache(self, cp, opts, trig):
+    if cp.has_option('hipe-cache','hipe-intermediate-cache'):
+      intermediateCache = string.strip(cp.get('hipe-cache','hipe-intermediate-cache'))
+    else:
+      intermediateCache = ''
+    if opts.generate_fu_cache or len(intermediateCache) == 0:
+      cacheFile = 'fu_hipe.cache'
+    else:
+      cacheFile = intermediateCache
+
+    try:
+      inspiral_process_params = self.getProcessParamsFromCache( \
+                     self.filesMatchingGPSinCache(cacheFile,\
+                     trig.gpsTime, "INSPIRAL_"), \
+                     trig.ifoTag, trig.gpsTime)
+    except:
+      print "couldn't get inspiral process params for " + str(trig.eventID)
+      inspiral_process_params = []
+    return inspiral_process_params
+
+  def readTriggerFiles(self,cp):
+
+    # Since we are continuing get useful stuff from the ini file.
+    if cp.has_option('triggers','hipe-output-cache'):
+      triggerCacheString = string.strip(cp.get('triggers','hipe-output-cache'))
+    else:
+      triggerCacheString = ''
+    if cp.has_option('triggers','triggers-tag'):
+      triggerTag = string.strip(cp.get('triggers','triggers-tag'))
+    else:
+      triggerTag = ''
+
+    if len(triggerCacheString) == 0 or len(triggerTag) == 0:
+      xml_glob = string.strip(cp.get('triggers','xml-glob'))
+    else:
+      triggerCache = self.filesMatchingGPSinCache(triggerCacheString,None,triggerTag)
+      triggerList = self.getListFromCache(triggerCache)
+      xml_glob = triggerList[0]
+
+    numtrigs = string.strip(cp.get('triggers','num-trigs'))
+    statistic =  string.strip(cp.get('triggers','statistic'))
+    bla =  string.strip(cp.get('triggers','bitten-l-a'))
+    blb =  string.strip(cp.get('triggers','bitten-l-b'))
+    found, coincs, search = readFiles(xml_glob,getstatistic(statistic,bla,blb))
+    return numtrigs, found, coincs, search
+
 ##############################################################################
 # class to handle qscan cache file
 ##############################################################################
@@ -208,11 +270,11 @@ def getPathFromCache(fileName,type,ifo=None,time=None):
     if not re.search(type,line.split('\t')[1]):
       test_line = False
     if ifo:
-      if not ifo == line.split('\t')[2]):
+      if not ifo == line.split('\t')[2]:
         test_line = False
       else: pass
     if time:
-      if not time == line.split('\t')[0]):
+      if not time == line.split('\t')[0]:
         test_line = False
       else: pass
     if test_line:

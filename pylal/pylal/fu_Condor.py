@@ -49,6 +49,7 @@ class webTheJob:
     self.tag_base = tag_base
     self.add_condor_cmd('environment',"KMP_LIBRARY=serial;MKL_SERIAL=yes")
     self.set_sub_file(name+'.sub')
+    self.relPath = name + '/'
     self.outputPath = os.getcwd() + '/' + name + '/'
     self.set_stdout_file(self.outputPath+'/logs/'+name+'-$(macroid).out')
     self.set_stderr_file(self.outputPath+'/logs/'+name+'-$(macroid).err')
@@ -58,13 +59,35 @@ class webTheNode:
   def __init__(self):
     pass
 
-  def setupNodeWeb(self, job, id, passItAlong=True, page=None):
-    self.add_macro("macroid", id)
-    self.outputFileName = job.outputPath + job.name + '-'+ id
+  def setupNodeWeb(self, job, passItAlong=True, content=None, page=None,webOverride=None):
+    self.add_macro("macroid", self.id)
+    self.webFileName = job.outputPath + self.id + '.html'
+    if page:
+      self.webLink = page+'/'+job.relPath+self.id+'.html'
+    if webOverride:
+      self.webLink = webOverride
     if passItAlong:
-      self.add_var_opt("output-web-file",self.outputFileName)
+      self.add_var_opt("output-web-file",self.webFileName)
       self.add_var_opt("output-path",job.outputPath)
       self.add_var_opt("page", page)
+    if content: self.writeContent(content)
+      
+  def writeContent(self,content):
+    self.talkBack = talkBack(self.webFileName)
+    self.talkBack.read()
+    content.appendTable(1,2,0,600)
+    content.lastTable.row[0].cell[0].link(self.webLink,self.friendlyName)
+    if self.talkBack.summaryText:
+      content.lastTable.row[0].cell[0].linebreak()
+      content.lastTable.row[0].cell[0].text(self.talkBack.summaryText)
+    if self.talkBack.summaryPlot:
+      content.lastTable.row[0].cell[1].image(self.talkBack.summaryPlot)
+    if self.talkBack.summaryPlotCaption:
+      content.lastTable.row[0].cell[1].linebreak()
+      content.lastTable.row[0].cell[1].text(self.talkBack.summaryPlotCaption)
+
+#    content.linebreak(1)
+
 
 class webTheDAG:
  
@@ -72,8 +95,10 @@ class webTheDAG:
     pass
 
   def setupDAGWeb(self,title,filename,root=""):
-    self.webPage = webPage(title,filename,root)
+    self.webPage = WebPage(title,filename,root)
     
+  def writeDAGWeb(self,type):
+    self.webPage.cleanWrite(type)
   
 
 ###### WRAPPER FOR CONDOR DAG - TO MAKE THE FOLLOWUP DAG WEBIFIABLE ###########
@@ -90,25 +115,54 @@ class followUpDAG(pipeline.CondorDAG, webTheDAG):
     fh.close()
     pipeline.CondorDAG.__init__(self,logfile)
     self.set_dag_file(self.basename)
+    self.jobsDict = {}
  
-  def addCacheNode(node):
+  def addNode(self, node,jobType):
+    try: 
+      self.jobsDict[jobType] = self.jobsDict[jobType] + 1
+    except: 
+      self.jobsDict[jobType] = 1
     self.add_node(node)
-    # do cache file stuff here
 
-  def addWebNode(node):
-    self.add_node(node)
-    # do cache file stuff here
+  def printNodeCounts(self):
+    for jobs in self.jobsDict:
+      print "\nFound " + str(self.jobsDict[jobs]) + " " + str(jobs) + " Jobs"
+ 
+  def writeAll(self, type='IUL'):
+    self.printNodeCounts()
+    print "\n\n.......Writing DAG"
+    self.write_sub_files()
+    self.write_dag()
+    self.writeDAGWeb(type)
+    print "\n\n  Created a DAG file which can be submitted by executing"
+    print "    condor_submit_dag " + self.get_dag_file()
+    print """\n  from a condor submit machine
+  Before submitting the dag, you must execute
 
-  def addCacheAndWebNode(node):
-    self.add_node(node)
-    # do cache file stuff here
+    export _CONDOR_DAGMAN_LOG_ON_NFS_IS_ERROR=FALSE
+
+  If you are running LSCdataFind jobs, do not forget to initialize your grid
+  proxy certificate on the condor submit machine by running the commands
+
+    unset X509_USER_PROXY
+    grid-proxy-init -hours 72
+
+  Enter your pass phrase when prompted. The proxy will be valid for 72 hours.
+  If you expect the LSCdataFind jobs to take longer to complete, increase the
+  time specified in the -hours option to grid-proxy-init. You can check that
+  the grid proxy has been sucessfully created by executing the command:
+
+    grid-cert-info -all -file /tmp/x509up_u`id -u`
+
+  This will also give the expiry time of the proxy."""
+
 
 
 #### A CLASS TO DO FOLLOWUP INSPIRAL JOBS ####################################
 ###############################################################################
 class followUpInspNode(inspiral.InspiralNode):
   
-  def init(inspJob, procParams, ifo, trig, cp,opts,dag, inspJobCnt):    
+  def __init__(self, inspJob, procParams, ifo, trig, cp,opts,dag):    
     try: 
       injFile = self.checkInjections(cp)
       bankFile = ifo + '-TRIGBANK_FOLLOWUP_' + str(trig.gpsTime[ifo]) + '.xml'
@@ -137,8 +191,7 @@ class followUpInspNode(inspiral.InspiralNode):
       # the output_file_name is required by the child job (plotSNRCHISQNode)
       self.output_file_name = self.inputIfo + "-INSPIRAL_" + self.__ifotag + "_" + self.__usertag + "-" + self.__start + "-" + str(int(self.__end)-int(self.__start)) + ".xml"
       if opts.inspiral:
-        dag.add_node(self)
-        inspJobCnt+=1
+        dag.addNode(self,'inspiral')
       self.validNode = True
     except:
       self.validNode = False
@@ -164,6 +217,7 @@ class plotSNRCHISQJob(pipeline.CondorDAGJob,webTheJob):
   def __init__(self, options, cp, tag_base='PLOT_FOLLOWUP'):
     """
     """
+    self.__name__ = 'plotSNRCHISQJob'
     self.__executable = string.strip(cp.get('condor','plotsnrchisq'))
     self.__universe = "vanilla"
     pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
@@ -177,18 +231,20 @@ class plotSNRCHISQNode(pipeline.CondorDAGNode,webTheNode):
   """
   Runs an instance of a plotSNRCHISQ followup job
   """
-  def __init__(self,job,time,fileName,trig,page,dag, inspiralNode,opts,plotJobCnt,prev_plotnode):
+  def __init__(self,job,ifo,fileName,trig,page,dag, inspiralNode,opts,prev_plotnode):
     """
     job = A CondorDAGJob that can run an instance of plotSNRCHISQ followup.
     """
+    time = trig.gpsTime[ifo]
+    self.friendlyName = 'Plot SNR/CHISQ/PSD'
     try:
       pipeline.CondorDAGNode.__init__(self,job)
       self.output_file_name = ""
       self.add_var_opt("frame-file",fileName.replace(".xml",".gwf"))
       self.add_var_opt("gps",time)
       self.add_var_opt("inspiral-xml-file",fileName)
-      self.id = str(trig.statValue) + '_' + str(trig.eventID)
-      self.setupNodeWeb(job,self.id,page)
+      self.id = job.name + '-' + ifo + '-' + str(trig.statValue) + '_' + str(trig.eventID)
+      self.setupNodeWeb(job,True, dag.webPage.lastSection.lastSub,page)
       try: 
         if inspiralNode.validNode: self.add_parent(inspiralNode)
       except: pass
@@ -196,8 +252,7 @@ class plotSNRCHISQNode(pipeline.CondorDAGNode,webTheNode):
         if self.idCheck(prev_plotNode): self.add_parent(prev_plotNode)
       except: pass
       if opts.plots:
-        dag.add_node(self)
-        plotJobCnt+=1
+        dag.addNode(self,self.friendlyName)
         prev_plotNode = self
       self.validNode = True
     except: 
@@ -236,7 +291,7 @@ class qscanDataFindJob(pipeline.LSCDataFindJob):
 
 class qscanDataFindNode(pipeline.LSCDataFindNode):
  
-  def __init__(self, job, source, type, cp, time, ifo, opts,  prev_dNode, dag, dataJobCnt):
+  def __init__(self, job, source, type, cp, time, ifo, opts,  prev_dNode, dag):
     try:
       pipeline.LSCDataFindNode.__init__(self,job)
       if source == 'futrig':
@@ -246,8 +301,7 @@ class qscanDataFindNode(pipeline.LSCDataFindNode):
       except: pass
 
       if opts.datafind:
-        dag.add_node(self)
-        dataJobCnt+=1
+        dag.addNode(self,'qscan data find')
         prev_dNode = self
       self.validNode = True
     except:
@@ -309,10 +363,12 @@ class qscanNode(pipeline.CondorDAGNode,webTheNode):
   """
   Runs an instance of a qscan job
   """
-  def __init__(self,job,time,cp,qcache,ifo,name, opts, d_node, dag, qscanBgJobCnt, datafindCommand, qscanCommand, trig=None,qFlag=None):
+  def __init__(self,job,time,cp,qcache,ifo,name, opts, d_node, dag, datafindCommand, qscanCommand, trig=None,qFlag=None):
     """
     job = A CondorDAGJob that can run an instance of qscan.
     """
+    page = string.strip(cp.get('output','page'))
+    self.friendlyName = name
     try:
       pipeline.CondorDAGNode.__init__(self,job)
       self.add_var_arg(repr(time))
@@ -322,8 +378,9 @@ class qscanNode(pipeline.CondorDAGNode,webTheNode):
       output = string.strip(cp.get(name, ifo + 'output'))
       self.add_var_arg(output)
       self.id = ifo + repr(time)
-      self.setupNodeWeb(job,self.id,False)
-
+      #try to extract web output from the ini file, else ignore it
+      try: self.setupNodeWeb(job,False,dag.webPage.lastSection.lastSub,page,string.strip(cp.get(name,ifo+'web'))+repr(time))
+      except: self.setupNodeWeb(job,False) 
       #get the absolute output path whatever the path might be in the ini file
       currentPath = os.path.abspath('.')
       try:
@@ -345,8 +402,7 @@ class qscanNode(pipeline.CondorDAGNode,webTheNode):
       except: pass
 
       if eval('opts.' + qscanCommand):
-        dag.add_node(self)
-        qscanBgJobCnt+=1
+        dag.addNode(self,self.friendlyName)
       self.validNode = True
     except: 
       self.validNode = False

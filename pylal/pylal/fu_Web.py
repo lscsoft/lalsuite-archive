@@ -11,19 +11,45 @@ __author__ = 'Chad Hanna <channa@phys.lsu.edu>'
 __date__ = '$Date$'
 __version__ = '$Revision$'[11:-2]
 
+import ConfigParser
 
-# Think of a web/wiki page as an object that has organized content
-# The organization of this content is simple in this case, the content can
-# be organized by sections, subsections, or it can be a free for all.
-# All content however will be held inside of a table.  There can be of course
-# many tables for each web page.  This makes sense since
-# any thing one would want to write can be made in a one cell table.  This
-# extra layer helps make presentation uniform and coding easier.  
+class talkBack:
+
+  def __init__(self,outputWebFile):
+    self.fileName = outputWebFile.replace('html','ini')
+    self.summaryPlot = ''
+    self.summaryPlotCaption = ''
+    self.summaryText = ''
+  def addSummaryPlot(self,plot,caption):
+    self.summaryPlot = plot
+    self.summaryPlotCaption = caption
+  def addSummaryText(self,text):
+    self.summaryText = text
+
+  def write(self):
+    file = open(self.fileName,'w')
+    file.write('[talkBack]\n')
+    file.write('\nsummaryPlot='+self.summaryPlot)
+    file.write('\nsummaryPlotCaption='+self.summaryPlotCaption)
+    file.write('\nsummaryText='+self.summaryText)
+    file.close()
+ 
+  def read(self):
+    cp = ConfigParser.ConfigParser()
+    cp.read(self.fileName)
+    try: self.summaryPlot = cp.get('talkBack','summaryPlot')
+    except: pass
+    try: self.summaryPlotCaption = cp.get('talkBack','summaryPlotCaption')
+    except: pass
+    try: self.summaryText = cp.get('talkBack','summaryText')
+    except: pass
+
 class Content:
   
   def __init__(self):
     self.contentList = []
     self.table = []
+    self.lastTable = None
     #self.root = ''
 
   def link(self,link,text):
@@ -55,6 +81,8 @@ class Content:
     thisTable = Table(rows,columns,border,width,number,self.root)
     self.contentList.append(thisTable)
     self.table.append(thisTable)
+    self.lastTable  = self.table[number]
+
 
 
 
@@ -327,7 +355,7 @@ class Image:
 
 class Break:
 
-  def __init(self, times = 1):
+  def __init__(self, times = 1):
     self.times = range(times)
 
   def write(self, file, type):
