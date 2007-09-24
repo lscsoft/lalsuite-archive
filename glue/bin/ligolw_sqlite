@@ -35,15 +35,12 @@ databases.
 
 
 from optparse import OptionParser
-import os
 try:
 	import sqlite3
 except ImportError:
 	# pre 2.5.x
 	from pysqlite2 import dbapi2 as sqlite3
-import shutil
 import sys
-import tempfile
 
 
 from glue.lal import CacheEntry
@@ -84,13 +81,13 @@ def parse_command_line():
 	parser = OptionParser(
 		version = "%prog CVS $Id$",
 		usage = "%prog -d|--database filename [options] [xml ...]",
-		description = "Transfers data between LIGO Light Weight XML files and SQLite database files.  The contents of the XML files listed on the command line will be inserted, in order, into the SQLite database file identified by the --database argument.  If --extract is given on the command line, then the database contents will be converted to XML and written to the given file.  Input XML files ending in .gz will be gzip-decompressed while being read, and if the filename given via --extract ends in .gz then it will be gzip-compressed when written."
+		description = "Transfers data between LIGO Light Weight XML files and SQLite database files.  The contents of the XML files listed on the command line will be inserted, in order, into the SQLite database file identified by the --database argument.  If the database exists, the files' contents will be added to it, otherwise a new database file is created.  If --extract is given on the command line, then the database contents will be converted to XML and written to the given file.  Input XML files ending in .gz will be gzip-decompressed while being read, and if the filename given via --extract ends in .gz then it will be gzip-compressed when written."
 	)
 	parser.add_option("-d", "--database", metavar = "filename", help = "Use the SQLite3 database named filename (required).")
 	parser.add_option("-i", "--input-cache", metavar = "filename", action = "append", default = [], help = "Get XML files to insert from the LAL cache named filename.")
 	parser.add_option("-p", "--preserve-ids", action = "store_true", help = "Preserve row IDs from the XML in the database.  The default is to assign new IDs to prevent collisisions.  Inserts will fail if collisions occur.")
 	parser.add_option("-r", "--replace", action = "store_true", help = "If the database file already exists, over-write it instead of inserting into it.")
-	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while constructing the database file.  The database file will be constructed in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.  If the database file already exists, and the input files' contents are to be added to it instead of replacing it, then the existing file will be copied into the temporary work space before inserts are started.")
+	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	parser.add_option("-x", "--extract", metavar = "filename", default = None, help = "Extract database contents to the given XML file, \"-\" == stdout (extraction is done after any inserts).")
 	options, filenames = parser.parse_args()
@@ -178,7 +175,6 @@ options, filenames = parse_command_line()
 will_write_to_file = (options.extract is None) or (filenames != [None])
 will_replace_file = will_write_to_file and options.replace is True
 will_use_tmp_space = will_write_to_file and options.tmp_space is not None
-database_exists = os.access(options.database, os.F_OK)
 
 
 #
@@ -186,35 +182,7 @@ database_exists = os.access(options.database, os.F_OK)
 #
 
 
-def truncate_if_exists(filename, verbose = False):
-	if os.access(filename, os.F_OK):
-		if verbose:
-			print >>sys.stderr, "%s exists, truncating ..." % filename
-		try:
-			fd = os.open(filename, os.O_WRONLY | os.O_TRUNC)
-		except:
-			raise e, "cannot truncate %s" % filename
-		os.close(fd)
-		if verbose:
-			print >>sys.stderr, "done."
-
-
-if will_use_tmp_space:
-	target = tempfile.mkstemp(suffix = ".sqlite", dir = options.tmp_space)[1]
-	if will_replace_file:
-		# truncate database if it exists so that if this job fails
-		# the user won't think the database file is valid
-		truncate_if_exists(options.database, verbose = options.verbose)
-	elif database_exists:
-		# need to copy existing database to work space for new
-		# inserts
-		if options.verbose:
-			print >>sys.stderr, "copying %s to %s ...", (options.database, target)
-		shutil.copy(options.database, target)
-else:
-	target = options.database
-	if will_replace_file:
-		truncate_if_exists(target, verbose = options.verbose)
+target = dbtables.get_connection_filename(options.database, tmp_path = will_use_tmp_space and options.tmp_space, replace_file = will_replace_file, verbose = options.verbose)
 
 connection = sqlite3.connect(target)
 dbtables.DBTable_set_connection(connection)
@@ -262,10 +230,7 @@ connection.close()
 #
 
 
-if will_use_tmp_space:
-	if options.verbose:
-		print >>sys.stderr, "moving %s to %s ..." % (target, options.database)
-	shutil.move(target, options.database)
+dbtables.put_connection_filename(options.database, target, verbose = options.verbose)
 
 
 if options.verbose:

@@ -39,8 +39,11 @@ I'm still figuring out how this should work.
 """
 
 
+import os
 import re
+import shutil
 import sys
+import tempfile
 from xml.sax.xmlreader import AttributesImpl
 # Python 2.3 compatibility
 try:
@@ -89,6 +92,55 @@ def DBTable_commit():
 	Run commit on the DBTable class' connection.
 	"""
 	DBTable.connection.commit()
+
+
+def get_connection_filename(filename, tmp_path = None, replace_file = False, verbose = False):
+	"""
+	Experimental utility code for moving database files to a
+	(presumably local) working location for improved performance and
+	reduced fileserver load.  The API is not stable, don't use unless
+	you're prepared to track changes.
+	"""
+	def truncate(filename, verbose = False):
+		if verbose:
+			print >>sys.stderr, "%s exists, truncating ..." % filename
+		try:
+			fd = os.open(filename, os.O_WRONLY | os.O_TRUNC)
+		except:
+			raise e, "cannot truncate %s" % filename
+		os.close(fd)
+		if verbose:
+			print >>sys.stderr, "done."
+
+	database_exists = os.access(filename, os.F_OK)
+
+	if tmp_path:
+		target = tempfile.mkstemp(suffix = ".sqlite", dir = tmp_path)[1]
+		if database_exists:
+			if replace_file:
+				# truncate database so that if this job
+				# fails the user won't think the database
+				# file is valid
+				truncate(filename, verbose = verbose)
+			else:
+				# need to copy existing database to work
+				# space for new inserts
+				if verbose:
+					print >>sys.stderr, "copying %s to %s ..." % (filename, target)
+				shutil.copy(filename, target)
+	else:
+		target = filename
+		if database_exists and replace_file:
+			truncate(target, verbose = verbose)
+
+	return target
+
+
+def put_connection_filename(filename, working_filename, verbose = False):
+	if working_filename != filename:
+		if verbose:
+			print >>sys.stderr, "moving %s to %s ..." % (working_filename, filename)
+		shutil.move(working_filename, filename)
 
 
 #
