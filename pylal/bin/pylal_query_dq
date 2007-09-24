@@ -125,6 +125,7 @@ def generate_veto_segments(seg_dict, veto_file, verbose):
 
     for line in veto_file:
         line = line.split()
+        if len(line) == 0: continue
         flag = line[0]
         if verbose > 1: print flag + ", ",
         window = [int(line[1]), int(line[2])]
