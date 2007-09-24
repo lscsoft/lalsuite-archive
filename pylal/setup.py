@@ -216,6 +216,7 @@ setup(
 		os.path.join("bin", "ploteffdistcut"),
 		os.path.join("bin", "plotefficiency"),
 		os.path.join("bin", "plotsnrchi"),
+                os.path.join("bin", "plotsnrchisq_pipe.py"),
 		os.path.join("bin", "plotinsppop"),
 		os.path.join("bin", "plottisi"),
 		os.path.join("bin", "s3_statistic"),
