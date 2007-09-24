@@ -169,7 +169,6 @@ def burca1(options, filenames):
 	#
 
 
-	from glue.ligolw import lsctables
 	from glue.ligolw import utils
 	from pylal import ligolw_burca
 	from pylal import llwapp
@@ -180,7 +179,7 @@ def burca1(options, filenames):
 	#
 
 
-	lsctables.table.RowBuilder = lsctables.table.InterningRowBuilder
+	ligolw_burca.table.RowBuilder = ligolw_burca.table.InterningRowBuilder
 
 
 	#
@@ -216,7 +215,7 @@ def burca1(options, filenames):
 		if options.verbose:
 			print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
 		xmldoc = utils.load_filename(filename, options.verbose, gz = (filename or "stdin").endswith(".gz"))
-		lsctables.table.InterningRowBuilder.strings.clear()
+		ligolw_burca.table.InterningRowBuilder.strings.clear()
 
 		#
 		# Have we already processed it?
