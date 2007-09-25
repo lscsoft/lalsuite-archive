@@ -62,6 +62,7 @@ class webTheNode:
   def setupNodeWeb(self, job, passItAlong=True, content=None, page=None,webOverride=None):
     self.add_macro("macroid", self.id)
     self.webFileName = job.outputPath + self.id + '.html'
+    self.jobName = job.name
     if page:
       self.webLink = page+'/'+job.relPath+self.id+'.html'
     if webOverride:
@@ -96,7 +97,13 @@ class webTheDAG:
     pass
 
   def setupDAGWeb(self,title,filename,root=""):
+    self.page = root
     self.webPage = WebPage(title,filename,root)
+    self.webDirs = {}
+    try:
+       os.mkdir('DAGWeb')
+    except: pass
+      
     
   def writeDAGWeb(self,type):
     self.webPage.cleanWrite(type)
@@ -104,9 +111,9 @@ class webTheDAG:
   def appendSection(self,name):
     self.webPage.appendSection(name)
     inifile = name.replace(" ","_").replace("@","-").replace("=",'-') + '.ini'
-    file = open(inifile,'a')
+    file = open('DAGWeb/'+inifile,'a')
     file.close()
-    talkback = talkBack(inifile)
+    talkback = talkBack('DAGWeb/'+inifile)
     talkback.read()
     self.webPage.lastSection.appendTable(1,2,0,600)
 
@@ -122,9 +129,9 @@ class webTheDAG:
   def appendSubSection(self,name):
     self.webPage.lastSection.appendSubSection(name)
     inifile = name.replace(" ","_").replace("@","-").replace("=",'-') + '.ini'
-    file = open(inifile,'a')
+    file = open('DAGWeb/'+inifile,'a')
     file.close()
-    talkback = talkBack(inifile)
+    talkback = talkBack('DAGWeb/'+inifile)
     talkback.read()
     self.webPage.lastSection.lastSub.appendTable(1,2,0,600)
 
@@ -137,7 +144,24 @@ class webTheDAG:
       self.webPage.lastSection.lastSub.lastTable.row[0].cell[1].linebreak()
       self.webPage.lastSection.lastSub.lastTable.row[0].cell[1].text(talkback.summaryPlotCaption)
 
+  def addNode(self, node,jobType):
+    try:
+      self.jobsDict[jobType] = self.jobsDict[jobType] + 1
+      self.webDirs[node.jobName] = node.jobName
+    except:
+      self.jobsDict[jobType] = 1
+    self.add_node(node)
 
+
+  def publishToHydra(self):
+    dirStr = ''
+    for dir in self.webDirs:
+      dirStr += dir + ' '
+    dirStr = 'rsync -vrz '+dirStr+' DAGWeb index.html '
+    print dirStr
+    os.system(dirStr+'hydra.phys.uwm.edu:/home/htdocs/uwmlsc/root/.'+self.page)
+
+    
 
 ###### WRAPPER FOR CONDOR DAG - TO MAKE THE FOLLOWUP DAG WEBIFIABLE ###########
 ###############################################################################
@@ -155,13 +179,6 @@ class followUpDAG(pipeline.CondorDAG, webTheDAG):
     self.set_dag_file(self.basename)
     self.jobsDict = {}
  
-  def addNode(self, node,jobType):
-    try: 
-      self.jobsDict[jobType] = self.jobsDict[jobType] + 1
-    except: 
-      self.jobsDict[jobType] = 1
-    self.add_node(node)
-
   def printNodeCounts(self):
     for jobs in self.jobsDict:
       print "\nFound " + str(self.jobsDict[jobs]) + " " + str(jobs) + " Jobs"
@@ -198,13 +215,21 @@ class followUpDAG(pipeline.CondorDAG, webTheDAG):
 
 #### A CLASS TO DO FOLLOWUP INSPIRAL JOBS ####################################
 ###############################################################################
-class followUpInspNode(inspiral.InspiralNode):
+class followUpInspJob(inspiral.InspiralJob,webTheJob):
+  def __init__(self,cp):
+    inspiral.InspiralJob.__init__(self,cp)
+    self.name = 'followUpInspJob'
+    self.setupJobWeb(self.name)
+    
+
+class followUpInspNode(inspiral.InspiralNode,webTheNode):
   
   def __init__(self, inspJob, procParams, ifo, trig, cp,opts,dag):    
-    try: 
+   
+    try:
+      inspiral.InspiralNode.__init__(self, inspJob) 
       injFile = self.checkInjections(cp)
       bankFile = ifo + '-TRIGBANK_FOLLOWUP_' + str(trig.gpsTime[ifo]) + '.xml'
-      inspiral.InspiralNode.__init__(self, inspJob)
       self.add_var_opt("write-snrsq","")
       self.add_var_opt("write-chisq","")
       self.add_var_opt("write-spectrum","")
@@ -228,9 +253,12 @@ class followUpInspNode(inspiral.InspiralNode):
 
       # the output_file_name is required by the child job (plotSNRCHISQNode)
       self.output_file_name = self.inputIfo + "-INSPIRAL_" + self.__ifotag + "_" + self.__usertag + "-" + self.__start + "-" + str(int(self.__end)-int(self.__start)) + ".xml"
+      self.id =  self.inputIfo + "-INSPIRAL_" + self.__ifotag + "_" + self.__usertag + "-" + self.__start + "-" + str(int(self.__end)-int(self.__start))
+      self.setupNodeWeb(inspJob)
       if opts.inspiral:
         dag.addNode(self,'inspiral')
-      self.validNode = True
+        self.validNode = True
+      else: self.validNode = False
     except:
       self.validNode = False
       print "couldn't add inspiral job for " + str(ifo) + "@ "+ str(trig.gpsTime[ifo])
@@ -286,13 +314,14 @@ class plotSNRCHISQNode(pipeline.CondorDAGNode,webTheNode):
       try: 
         if inspiralNode.validNode: self.add_parent(inspiralNode)
       except: pass
-      try: 
-        if self.idCheck(prev_plotNode): self.add_parent(prev_plotNode)
-      except: pass
+      #try: 
+      #  if self.idCheck(prev_plotNode): self.add_parent(prev_plotNode)
+      #except: pass
       if opts.plots:
         dag.addNode(self,self.friendlyName)
         prev_plotNode = self
-      self.validNode = True
+        self.validNode = True
+      else: self.validNode = False
     except: 
       self.validNode = False
       print "couldn't add plot job for " + str(ifo) + "@ "+ str(trig.gpsTime[ifo])
@@ -307,14 +336,16 @@ class plotSNRCHISQNode(pipeline.CondorDAGNode,webTheNode):
 ############### QSCAN CLASSES #################################################
 ###############################################################################
 
-class qscanDataFindJob(pipeline.LSCDataFindJob):
+class qscanDataFindJob(pipeline.LSCDataFindJob,webTheJob):
   
   def __init__(self, cache_dir, log_dir, config_file, source):
     pipeline.LSCDataFindJob.__init__(self, cache_dir, log_dir, config_file)
     if source == 'futrig':
-      self.setup_cacheconv()
+      self.setup_cacheconv(config_file)
+    self.name = 'qscanDataFindJob'
+    self.setupJobWeb(self.name)
 
-  def setup_cacheconv():
+  def setup_cacheconv(self,cp):
     # create a shell script to call convertlalcache.pl if the value of $RETURN is 0
     convert_script = open('cacheconv.sh','w')
     convert_script.write("""#!/bin/bash
@@ -327,11 +358,13 @@ class qscanDataFindJob(pipeline.LSCDataFindJob):
     convert_script.close()
     os.chmod('cacheconv.sh',0755)
 
-class qscanDataFindNode(pipeline.LSCDataFindNode):
+class qscanDataFindNode(pipeline.LSCDataFindNode,webTheNode):
  
   def __init__(self, job, source, type, cp, time, ifo, opts,  prev_dNode, dag):
     try:
       pipeline.LSCDataFindNode.__init__(self,job)
+      self.id = str(ifo) + '-' + repr(time) + '-' + str(type) + 'datafind'
+      self.setupNodeWeb(job)
       if source == 'futrig':
         self.outputFileName = self.setup_fu_trig(cp, time, ifo, type)
       try:
@@ -341,7 +374,8 @@ class qscanDataFindNode(pipeline.LSCDataFindNode):
       if opts.datafind:
         dag.addNode(self,'qscan data find')
         prev_dNode = self
-      self.validNode = True
+        self.validNode = True
+      else: self.validNode = False
     except:
       self.validNode = False
       print >> sys.stderr, "could not set up the datafind jobs for " + type
@@ -441,7 +475,8 @@ class qscanNode(pipeline.CondorDAGNode,webTheNode):
 
       if eval('opts.' + qscanCommand):
         dag.addNode(self,self.friendlyName)
-      self.validNode = True
+        self.validNode = True
+      else: self.validNode = False
     except: 
       self.validNode = False
       print >> sys.stderr, "could not set up the background qscan jobs"

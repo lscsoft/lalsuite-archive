@@ -146,10 +146,11 @@ class WebPage(Content):
       file.write('<%method title>' + self.title + '</%method>\n')
       file.write('<%method headline>' + self.title + '</%method>\n')
       file.write('<%method cvsid>$Id$</%method>\n')
+      #file.write('<h1>'+self.title+'</h1>\n')
  
   def writeTableOfContents(self,file,type):
     if type == 'IUL':
-      file.write('<h3 id="toc">Table of contents</h3>\n') 
+      file.write('<h3 id="fuwebtoc">Table of contents</h3>\n') 
       sectionTOC  = [] 
 
       for section in self.section:
@@ -200,7 +201,7 @@ class Section(Content):
   def writeSectionHeader(self,file,type):
     if type == 'IUL':
       file.write('<h3 id="section'+str(self.secNumber)+'">'+str(self.secNumber)+'.  ' + self.heading+'\n')
-      file.write('<a href="'+self.root+'#toc">[Back to TOC]</a></h3>\n')
+      file.write('<a href="'+self.root+'#fuwebtoc">[Back to TOC]</a></h3>\n')
       
 # This class shouldn't really be used without a section as its parent, which
 # itself has a webpage as its parent
@@ -225,7 +226,7 @@ class SubSection(Content):
   def writeSubSectionHeader(self,file,type):
     if type == 'IUL':
       file.write('<h4 id="subsection'+str(self.secNumber)+'.'+str(self.subNumber)+'">'+str(self.secNumber)+'.'+str(self.subNumber)+'.  '+self.heading+'\n')
-      file.write('<a href="'+self.root+'#toc">[Back to TOC]</a></h4>\n')
+      file.write('<a href="'+self.root+'#fuwebtoc">[Back to TOC]</a></h4>\n')
 
 
 
