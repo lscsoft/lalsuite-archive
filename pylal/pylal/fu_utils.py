@@ -278,7 +278,11 @@ def getPathFromCache(fileName,type,ifo=None,time=None):
         test_line = False
       else: pass
     if test_line:
-      qscanList.append(line.split('\t')[-1])
+      path = line.split('\t')[-1]
+      time = line.split('\t')[0]
+      type = line.split('\t')[1]
+      ifo = line.split('\t')[2]
+      qscanList.append([path,time,type,ifo])
     else: continue
   return qscanList
 
@@ -465,6 +469,15 @@ def readFiles(fileGlob,statistic=None):
 #############################################################################
 # function to set up directories
 #############################################################################
+
+def createdir(currentDir,newDir):
+  try:
+    os.chdir(newDir)
+    os.chdir(currentDir)
+  except:
+    os.mkdir(newDir)
+
+
 def setupdirs():
 
   try:
@@ -506,11 +519,6 @@ def setupdirs():
     os.chdir("datafind_cache")
     os.chdir('..')
   except: os.mkdir("datafind_cache")
-
-#  try:
-#    os.chdir("hoft_qscan_cache")
-#    os.chdir('..')
-#  except: os.mkdir("hoft_qscan_cache")
 
 #############################################################################
 # function to return the number of slides in a file (as a string)
