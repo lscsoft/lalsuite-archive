@@ -201,7 +201,7 @@ def DBTable_idmap_get_new(old, ids):
 #
 
 
-_sql_create_table_pattern = re.compile(r"CREATE\s+TABLE\s+(?P<name>\w+)\s*\((?P<coldefs>.*)\)")
+_sql_create_table_pattern = re.compile(r"CREATE\s+TABLE\s+(?P<name>\w+)\s*\((?P<coldefs>.*)\)", re.IGNORECASE)
 _sql_coldef_pattern = re.compile(r"\s*(?P<name>\w+)\s+(?P<type>\w+)[^,]*")
 
 
@@ -223,8 +223,8 @@ def DBTable_column_info(table_name):
 	columns for the given table.
 	"""
 	statement, = DBTable.connection.cursor().execute("SELECT sql FROM sqlite_master WHERE type == 'table' AND name == ?", (table_name,)).fetchone()
-	coldefs = re.match(_sql_create_table_pattern, statement.upper()).groupdict()["coldefs"]
-	return [(coldef.groupdict()["name"].lower(), coldef.groupdict()["type"]) for coldef in re.finditer(_sql_coldef_pattern, coldefs) if coldef.groupdict()["name"] not in ("PRIMARY", "UNIQUE", "CHECK")]
+	coldefs = re.match(_sql_create_table_pattern, statement).groupdict()["coldefs"]
+	return [(coldef.groupdict()["name"], coldef.groupdict()["type"]) for coldef in re.finditer(_sql_coldef_pattern, coldefs) if coldef.groupdict()["name"] not in ("PRIMARY", "UNIQUE", "CHECK")]
 
 
 def DBTable_get_xml():
@@ -744,7 +744,11 @@ def build_indexes(verbose = False):
 	"""
 	cursor = DBTable_get_connection().cursor()
 	for table_name in DBTable_table_names():
-		how_to_index = TableByName[table_name].how_to_index
+		try:
+			# FIXME:  figure out how to do this extensibly
+			how_to_index = TableByName[table_name].how_to_index
+		except KeyError:
+			continue
 		if how_to_index:
 			if verbose:
 				print >>sys.stderr, "indexing %s table ..." % table_name
