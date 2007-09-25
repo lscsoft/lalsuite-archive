@@ -87,7 +87,7 @@ static PyObject *pylal_XLALComputeDetAMResponse(PyObject *self, PyObject *args)
 
 
 static struct PyMethodDef methods[] = {
-	{"XLALComputeDetAMResponse", pylal_XLALComputeDetAMResponse, METH_VARARGS, NULL},
+	{"XLALComputeDetAMResponse", pylal_XLALComputeDetAMResponse, METH_VARARGS, "Compute the F_{+} and F_{\\times} amplitude response factors for a gravitational wave antenna.\n\nExample:\n\n>>> from xlal.tools import cached_detector\n>>> resp = cached_detector[\"LHO_4k\"].response\n>>> ra, dec = 0.0, 0.0\n>>> psi = 0.0\n>>> gmst = 0.0\n>>> fp, fc = XLALComputeDetAMResponse(resp, ra, dec, psi, gmst)"},
 	{NULL,}
 };
 
