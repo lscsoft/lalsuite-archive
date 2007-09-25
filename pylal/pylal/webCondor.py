@@ -115,7 +115,15 @@ class webTheNode:
     if self.talkBack.summaryPlotCaption:
       content.lastTable.row[0].cell[1].linebreak()
       content.lastTable.row[0].cell[1].text(self.talkBack.summaryPlotCaption)
+ 
+  def set_id(self, id):
+    self.id = id
+  
+  def validate(self):
+    self.validNode = True
 
+  def invalidate(self):
+    self.validNode = False
 
 class webTheDAG:
   """
@@ -193,4 +201,35 @@ class webTheDAG:
     print dirStr
     os.system(dirStr+'hydra.phys.uwm.edu:/home/htdocs/uwmlsc/root/.'+self.page)
 
+  def printNodeCounts(self):
+    for jobs in self.jobsDict:
+      print "\nFound " + str(self.jobsDict[jobs]) + " " + str(jobs) + " Jobs"
+
+  def writeAll(self, type='IUL'):
+    self.printNodeCounts()
+    print "\n\n.......Writing DAG"
+    self.write_sub_files()
+    self.write_dag()
+    self.writeDAGWeb(type)
+    print "\n\n  Created a DAG file which can be submitted by executing"
+    print "    condor_submit_dag " + self.get_dag_file()
+    print """\n  from a condor submit machine
+  Before submitting the dag, you must execute
+
+    export _CONDOR_DAGMAN_LOG_ON_NFS_IS_ERROR=FALSE
+
+  If you are running LSCdataFind jobs, do not forget to initialize your grid
+  proxy certificate on the condor submit machine by running the commands
+
+    unset X509_USER_PROXY
+    grid-proxy-init -hours 72
+
+  Enter your pass phrase when prompted. The proxy will be valid for 72 hours.
+  If you expect the LSCdataFind jobs to take longer to complete, increase the
+  time specified in the -hours option to grid-proxy-init. You can check that
+  the grid proxy has been sucessfully created by executing the command:
+
+    grid-cert-info -all -file /tmp/x509up_u`id -u`
+
+  This will also give the expiry time of the proxy."""
 
