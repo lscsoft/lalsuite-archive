@@ -36,16 +36,26 @@ from lalapps import inspiral
 ##############################################################################
 
 class webTheJob:
-  
+  """
+  webTheJob is a class intended to be inherited by a class that subclasses
+  the condor DAG Job.  It is useful for setting up a standard structure to
+  webify the output of a dag.  You'll want to use webTheNode and webTheDAG
+  for your condor subclasses too. 
+  """
+ 
   def __init__(self):
     pass
 
   def setupJobWeb(self, name, tag_base=None):
+    # Give this job a name.  Then make directories for the log files and such
+    # This name is important since these directories will be included in
+    # the web tree.
     self.name = name
     try: 
        os.mkdir(name)
        os.mkdir(name+'/logs')
     except: pass
+    # Set up the usual stuff and name the log files appropriately
     self.tag_base = tag_base
     self.add_condor_cmd('environment',"KMP_LIBRARY=serial;MKL_SERIAL=yes")
     self.set_sub_file(name+'.sub')
@@ -55,18 +65,30 @@ class webTheJob:
     self.set_stderr_file(self.outputPath+'/logs/'+name+'-$(macroid).err')
 
 class webTheNode:
+  """
+  webTheNode is a class intended to be inherited by a class that subclasses
+  the condor DAG Node .  It is useful for setting up a standard structure to
+  webify the output of a dag.  You'll want to use webTheJob and webTheDAG
+  for your condor subclasses too. 
+  """
 
   def __init__(self):
     pass
 
   def setupNodeWeb(self, job, passItAlong=True, content=None, page=None,webOverride=None):
+    # setup the node id
     self.add_macro("macroid", self.id)
+    # determine the output web file name for the job
     self.webFileName = job.outputPath + self.id + '.html'
     self.jobName = job.name
     if page:
       self.webLink = page+'/'+job.relPath+self.id+'.html'
     if webOverride:
       self.webLink = webOverride
+    # standardize the I/O for executables that themselves write web pages.
+    # this is great for developers since they can in some sense treat
+    # the DAG as a black box for their executable.   They just have to 
+    # comply with these few command line arguments to tie everything together
     if passItAlong:
       self.add_var_opt("output-web-file",self.webFileName)
       self.add_var_opt("output-path",job.outputPath)
@@ -75,10 +97,16 @@ class webTheNode:
     if content: self.writeContent(content)
       
   def writeContent(self,content):
+    # The talkBack class is a way for the users job to provide information
+    # back to the DAG web.  It is done through the reading and writing of
+    # a config file (.ini) that has the same naming convention as the
+    # web file
     self.talkBack = talkBack(self.webFileName)
     self.talkBack.read()
     content.appendTable(1,2,0,600)
     content.lastTable.row[0].cell[0].link(self.webLink,self.friendlyName)
+    # Each time the dag is generated it checks for the existance of the
+    # appropriate config file to include the contents in the web page
     if self.talkBack.summaryText:
       content.lastTable.row[0].cell[0].linebreak()
       content.lastTable.row[0].cell[0].text(self.talkBack.summaryText)
@@ -88,10 +116,14 @@ class webTheNode:
       content.lastTable.row[0].cell[1].linebreak()
       content.lastTable.row[0].cell[1].text(self.talkBack.summaryPlotCaption)
 
-#    content.linebreak(1)
-
 
 class webTheDAG:
+  """
+  webTheDAG is a class intended to be inherited by a class that subclasses
+  the condor DAG Node .  It is useful for setting up a standard structure to
+  webify the output of a dag.  You'll want to use webTheJob and webTheDAG
+  for your condor subclasses too. 
+  """
  
   def __init__(self):
     pass
