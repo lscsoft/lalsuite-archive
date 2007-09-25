@@ -278,11 +278,11 @@ def getPathFromCache(fileName,type,ifo=None,time=None):
         test_line = False
       else: pass
     if test_line:
-      path = line.split('\t')[-1]
-      time = line.split('\t')[0]
-      type = line.split('\t')[1]
-      ifo = line.split('\t')[2]
-      qscanList.append([path,time,type,ifo])
+      path_output = line.split('\t')[-1]
+      time_output = line.split('\t')[0]
+      type_output = line.split('\t')[1]
+      ifo_output = line.split('\t')[2]
+      qscanList.append([path_output,time_output,type_output,ifo_output])
     else: continue
   return qscanList
 
