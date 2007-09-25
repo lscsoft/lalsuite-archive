@@ -52,8 +52,8 @@ def iscoalesced(l):
 	"""
 	Return True if the segmentlist l is coalesced.
 	"""
-	for i in xrange(len(l) - 1):
-		if l[i][1] >= l[i + 1][0]:
+	for a, b in zip(l, l[1:]):
+		if a[1] >= b[0]:
 			return False
 	return True
 
@@ -299,7 +299,7 @@ class test_segmentlist(unittest.TestCase):
 			c = a | b
 			try:
 				# make sure c is coalesced
-				self.assertEqual(True, iscoalesced(c))
+				self.assertTrue(iscoalesced(c))
 				# make sure c contains all of a
 				self.assertEqual(a, c & a)
 				# make sure c contains all of b
@@ -317,7 +317,7 @@ class test_segmentlist(unittest.TestCase):
 			try:
 				# c contains nothing that can be found in
 				# the intersection of a and b
-				self.assertEqual(False, c.intersects(a & b))
+				self.assertFalse(c.intersects(a & b))
 				# c contains nothing that cannot be found
 				# in either a or b
 				self.assertEqual(segments.segmentlist([]), c - a - b)
@@ -343,11 +343,11 @@ class test_segmentlist(unittest.TestCase):
 			d = a & b
 			try:
 				if len(c):
-					self.assertEqual(False, c.intersects(b))
+					self.assertFalse(c.intersects(b))
 				if len(d):
-					self.assertEqual(True, d.intersects(a))
-					self.assertEqual(True, d.intersects(b))
-					self.assertEqual(True, a.intersects(b))
+					self.assertTrue(d.intersects(a))
+					self.assertTrue(d.intersects(b))
+					self.assertTrue(a.intersects(b))
 			except AssertionError, e:
 				raise AssertionError, str(e) + "\na = " + str(a) + "\nb = " + str(b)
 
@@ -356,9 +356,9 @@ class test_segmentlist(unittest.TestCase):
 			a = random_uncoalesced_list(random.randint(1, algebra_listlength))
 			b = segments.segmentlist(a[:]).coalesce()
 			try:
-				self.assertEqual(True, iscoalesced(b))
+				self.assertTrue(iscoalesced(b))
 				for seg in a:
-					self.assertEqual(True, seg in b)
+					self.assertTrue(seg in b)
 				for seg in a:
 					b -= segments.segmentlist([seg])
 				self.assertEqual(b, segments.segmentlist([]))
