@@ -28,7 +28,7 @@ from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from pylal import CoincInspiralUtils
-from pylal import fu_Web
+from pylal import webUtils
 from glue import pipeline
 from glue import lal
 
@@ -70,8 +70,8 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,pageRelPath,inspProcParams,tableFi
       if row.param == "--dynamic-range-exponent":
         dynRange = eval(row.value)
 
-    webPage = fu_Web.WebPage("Plot SNR / CHISQ / PSD for " + ifoName[0] + " @ " + str(trigStart),tableFileName, page)
-    talkBack = fu_Web.talkBack(tableFileName)
+    webPage = webUtils.WebPage("Plot SNR / CHISQ / PSD for " + ifoName[0] + " @ " + str(trigStart),tableFileName, page+'/'+pageRelPath)
+    talkBack = webUtils.talkBack(tableFileName)
 
 
     segLenSec = segLen / sampleRate
@@ -324,7 +324,7 @@ command_line = sys.argv[1:]
 #################################
 # if --version flagged
 if opts.version:
-  print "$Id: plotsnrchisq_pipe.py,v 1.26 2007/09/24 18:38:58 channa Exp $"
+  print "$Id: plotsnrchisq_pipe.py,v 1.27 2007/09/24 23:59:19 channa Exp $"
   sys.exit(0)
 
 #################################
