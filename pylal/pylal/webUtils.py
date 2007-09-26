@@ -60,9 +60,13 @@ class Content:
     thisVerbatim = Verbatim(text)
     self.contentList.append(thisVerbatim)
 
-  def text(self,text):
-    thisText = Text(text)
+  def text(self,text,type='',color=''):
+    thisText = Text(text,type,color)
     self.contentList.append(thisText)
+
+#  def text(self,text):
+#    thisText = Text(text)
+#    self.contentList.append(thisText)
 
   def list(self,list):
     thisList = List(list)
@@ -107,7 +111,7 @@ class WebPage(Content):
 
   def appendSection(self,heading):
     number = len(self.section)
-    self.section.append( Section( heading,number,self.root ) ) 
+    self.section.append( Section( heading,number,self.filename,self.root ) ) 
     self.lastSection = self.section[number] 
 
   
@@ -176,19 +180,20 @@ class Section(Content):
   """
   Class to store a section of a webpage
   """
-  def __init__(self,heading,secNumber,root=''):
+  def __init__(self,heading,secNumber,filename,root=''):
     self.contentList = []
     self.table = []
     self.subSection = []
     self.lastSub = None
     self.heading = heading
     self.secNumber = secNumber 
-    self.toclink = root + '#section' + str(self.secNumber)
+    self.toclink = root + '/'+filename.split('/')[-1]+'#section' + str(self.secNumber)
     self.root = root
+    self.filename  = filename
 
   def appendSubSection(self,heading):
     number = len(self.subSection)
-    self.subSection.append( SubSection( heading,self.secNumber,number, self.root ) )
+    self.subSection.append( SubSection( heading,self.secNumber,number, self.filename,self.root ) )
     self.lastSub = self.subSection[number]
 
   def write(self,file,type):
@@ -201,7 +206,7 @@ class Section(Content):
   def writeSectionHeader(self,file,type):
     if type == 'IUL':
       file.write('<h2 id="section'+str(self.secNumber)+'">'+str(self.secNumber)+'.  ' + self.heading+'\n')
-      file.write('<a href="'+self.root+'#fuwebtoc">[Back to TOC]</a></h2>\n')
+      file.write('<a href="'+self.root+'/'+file.name.split('/')[-1]+'#fuwebtoc">[Back to TOC]</a></h2>\n')
       
 # This class shouldn't really be used without a section as its parent, which
 # itself has a webpage as its parent
@@ -209,14 +214,15 @@ class SubSection(Content):
   """
   Class to store a subsection of a webpage
   """
-  def __init__(self,heading,secNumber,subNumber, root=''):
+  def __init__(self,heading,secNumber,subNumber, filename,root=''):
     self.contentList = []
     self.table = []
     self.heading = heading
     self.secNumber = secNumber
     self.subNumber = subNumber
     self.root = root
-    self.toclink = root + '#subsection' + str(self.secNumber) + '.' + str(self.subNumber)
+    self.filename = filename
+    self.toclink = root + '/'+filename.split('/')[-1]+'#subsection' + str(self.secNumber) + '.' + str(self.subNumber)
 
   def write(self,file,type):
     self.writeSubSectionHeader(file,type)
@@ -226,7 +232,7 @@ class SubSection(Content):
   def writeSubSectionHeader(self,file,type):
     if type == 'IUL':
       file.write('<h3 id="subsection'+str(self.secNumber)+'.'+str(self.subNumber)+'">'+str(self.secNumber)+'.'+str(self.subNumber)+'.  '+self.heading+'\n')
-      file.write('<a href="'+self.root+'#fuwebtoc">[Back to TOC]</a></h3>\n')
+      file.write('<a href="'+self.root+'/'+file.name.split('/')[-1]+'#fuwebtoc">[Back to TOC]</a></h3>\n')
 
 
 
@@ -253,7 +259,7 @@ class Table:
       file.write('<table border=' + str(self.border)+' width='+str(self.width)+'>\n')
       for row in self.row:
         row.write(file,type)
-      file.write('</table><br>\n')
+      file.write('</table>\n')
 
 # You shouldn't need to use this class - best to use Table
 class Row:
@@ -312,16 +318,46 @@ class Verbatim:
       file.write('\n<br><pre>' + self.text + '</pre><br>\n')
 
 
+#class Text:
+#  
+#  def __init__(self,text):
+#    self.text = text
+# 
+#  def write(self, file, type):
+#    if type == 'IUL':
+#      file.write('<p>')
+#      file.write(self.text)
+#      file.write('</p>\n')
+
 class Text:
-  
-  def __init__(self,text):
+
+  def __init__(self,text,type='',color=''):
     self.text = text
- 
+    self.color = color
+    self.type = type
+
   def write(self, file, type):
     if type == 'IUL':
       file.write('<p>')
+      if self.color:
+        file.write('<font color=' + self.color + '>')
+      if self.type:
+        if isinstance(self.type, str):
+          file.write('<'+self.type+'>')
+        if isinstance(self.type, list):
+          for i in self.type:
+            file.write('<'+i+'>')
       file.write(self.text)
+      if self.type:
+        if isinstance(self.type, str):
+          file.write('</'+self.type+'>')
+        if isinstance(self.type, list):
+          for i in self.type:
+            file.write('</'+i+'>')
+      if self.color:
+        file.write('</font>')
       file.write('</p>\n')
+
 
 class List:
  

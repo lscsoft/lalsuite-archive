@@ -164,7 +164,7 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,pageRelPath,inspProcParams,tableFi
     figName = ifoName[0] + '_' + str(gpsTime).replace(".","_") + '_PSD.png'
     savefig(outputPath +"/" + figName)
     webPage.appendSection("Power Spectral Density")
-    webPage.lastSection.image(pageRelPath + '/' + figName,page+'/'+pageRelPath + '/' + figName)   
+    webPage.lastSection.image('/' + figName, page+'/'+pageRelPath + '/' + figName)   
 
 
     # Now plot the snr time serie !!
@@ -182,7 +182,7 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,pageRelPath,inspProcParams,tableFi
     figName = ifoName[0] + '_' + str(gpsTime).replace(".","_") + '_snr.png'
     savefig(outputPath +"/" + figName)
     webPage.appendSection("SNR time series")
-    webPage.lastSection.image(pageRelPath + '/' + figName,page+'/'+pageRelPath + '/' + figName)
+    webPage.lastSection.image('/' + figName,page+'/'+pageRelPath + '/' + figName)
 
     figure(11)
     plot(snr_time[int(snr_start):int(snr_stop)],snr_vector[int(snr_start):int(snr_stop)])
@@ -197,7 +197,7 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,pageRelPath,inspProcParams,tableFi
     figName = ifoName[0] + '_' + str(gpsTime).replace(".","_") + '_snr_zoom.png'
     savefig(outputPath +"/" + figName)
     webPage.appendSection("SNR time series (zoom)")
-    webPage.lastSection.image(pageRelPath + '/' + figName,page+'/'+pageRelPath + '/' + figName)
+    webPage.lastSection.image('/' + figName,page+'/'+pageRelPath + '/' + figName)
     talkBack.addSummaryPlot(pageRelPath+'/'+figName,'SNR time series (zoom)')
 
     ### END CHADS CHANGES ###
@@ -218,7 +218,7 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,pageRelPath,inspProcParams,tableFi
     figName = ifoName[0] + '_' + str(gpsTime).replace(".","_")  + '_rsq.png'
     savefig(outputPath +"/" + figName) 
     webPage.appendSection("r squared time series")
-    webPage.lastSection.image(pageRelPath + '/' + figName,page+'/'+pageRelPath + '/' + figName)
+    webPage.lastSection.image('/' + figName,page+'/'+pageRelPath + '/' + figName)
 
     
     figure(22)
@@ -235,7 +235,7 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,pageRelPath,inspProcParams,tableFi
     figName = ifoName[0] + '_' + str(gpsTime).replace(".","_")  + '_rsq_zoom.png'   
     savefig(outputPath +"/" + figName)
     webPage.appendSection("r squared time series (zoom)")
-    webPage.lastSection.image(pageRelPath + '/' + figName,page+'/'+pageRelPath + '/' + figName)
+    webPage.lastSection.image('/' + figName,page+'/'+pageRelPath + '/' + figName)
 
     # Now plot the normalized chisq time serie !!
     figure(3)
@@ -252,7 +252,7 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,pageRelPath,inspProcParams,tableFi
     figName = ifoName[0] + '_' + str(gpsTime).replace(".","_")  + '_chisq.png'
     savefig(outputPath +"/" + figName)
     webPage.appendSection("SNR weighted r squared time series")    
-    webPage.lastSection.image(pageRelPath + '/' + figName,page+'/'+pageRelPath + '/' + figName)
+    webPage.lastSection.image('/' + figName,page+'/'+pageRelPath + '/' + figName)
     
     figure(33)
     plot(chisq_time[int(chisq_start):int(chisq_stop)],chisqNorm_vector[int(chisq_start):int(chisq_stop)])
@@ -268,7 +268,7 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,pageRelPath,inspProcParams,tableFi
     figName = ifoName[0] + '_' + str(gpsTime).replace(".","_")  + '_chisq_zoom.png'
     savefig(outputPath +"/" + figName)
     webPage.appendSection("SNR weighted r squared time series (zoom)")        
-    webPage.lastSection.image(pageRelPath + '/' + figName,page+'/'+pageRelPath + '/' + figName)
+    webPage.lastSection.image('/' + figName,page+'/'+pageRelPath + '/' + figName)
 
     webPage.cleanWrite('IUL')
     talkBack.write()
@@ -324,7 +324,7 @@ command_line = sys.argv[1:]
 #################################
 # if --version flagged
 if opts.version:
-  print "$Id: plotsnrchisq_pipe.py,v 1.27 2007/09/24 23:59:19 channa Exp $"
+  print "$Id: plotsnrchisq_pipe.py,v 1.28 2007/09/25 22:48:46 channa Exp $"
   sys.exit(0)
 
 #################################

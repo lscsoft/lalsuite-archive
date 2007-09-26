@@ -103,7 +103,7 @@ class webTheNode:
     # web file
     self.talkBack = talkBack(self.webFileName)
     self.talkBack.read()
-    content.appendTable(1,2,0,600)
+    content.appendTable(1,2,0,700)
     content.lastTable.row[0].cell[0].link(self.webLink,self.friendlyName)
     # Each time the dag is generated it checks for the existance of the
     # appropriate config file to include the contents in the web page
@@ -155,7 +155,7 @@ class webTheDAG:
     file.close()
     talkback = talkBack('DAGWeb/'+inifile)
     talkback.read()
-    self.webPage.lastSection.appendTable(1,2,0,600)
+    self.webPage.lastSection.appendTable(1,2,0,700)
 
     if talkback.summaryText:
       self.webPage.lastSection.lastTable.row[0].cell[0].linebreak()
@@ -173,7 +173,7 @@ class webTheDAG:
     file.close()
     talkback = talkBack('DAGWeb/'+inifile)
     talkback.read()
-    self.webPage.lastSection.lastSub.appendTable(1,2,0,600)
+    self.webPage.lastSection.lastSub.appendTable(1,2,0,700)
 
     if talkback.summaryText:
       self.webPage.lastSection.lastSub.lastTable.row[0].cell[0].linebreak()
