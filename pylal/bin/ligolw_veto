@@ -65,6 +65,8 @@ def parse_command_line():
 		usage = "%prog [options] --veto-segments-db=filename files ...",
 		description = "%prog probably does something..."
 	)
+	parser.add_option("--no-vacuum", action = "store_true", default = False, help = "Don't vacuum the database after vetos.  Vacuuming reduces the database size and improves the efficiency of indices, but can take a while so you might want to skip it.")
+	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
 	parser.add_option("--veto-segments-db", metavar = "filename", help = "Load veto segments from this SQLite DB file (required).")
 	parser.add_option("--veto-segments-name", metavar = "name", default = "sngl_burst_veto", help = "Use the segment lists named this to define the veto times (default = \"sngl_burst_veto\").")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
@@ -120,7 +122,7 @@ def apply_excess_power_veto(contents, veto_segs, verbose = False):
 	#
 
 	if verbose:
-		print >>sys.stderr, "applying excess power event veto strategy ..."
+		print >>sys.stderr, "applying excess power event veto strategy:"
 		print >>sys.stderr, "\tremoving vetoed burst <--> burst coincs ..."
 	cursor.execute("""
 DELETE FROM
@@ -299,7 +301,11 @@ for n, filename in enumerate(filenames):
 	if options.verbose:
 		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename),
 
-	connection = sqlite3.connect(filename)
+	working_filename = dbtables.get_connection_filename(filename, tmp_path = options.tmp_space, verbose = options.verbose)
+
+	connection = sqlite3.connect(working_filename)
+	connection.execute("PRAGMA synchronous = OFF;")
+	connection.execute("PRAGMA temp_store_directory = '%s';" % dbtables.tempfile.gettempdir())
 	dbtables.DBTable_set_connection(connection)
 
 	#
@@ -321,13 +327,15 @@ for n, filename in enumerate(filenames):
 	if options.verbose:
 		print >>sys.stderr, "committing ..."
 	connection.commit()
-	if options.verbose:
-		print >>sys.stderr, "vacuuming ..."
-	connection.cursor().execute("VACUUM;")
-	if options.verbose:
-		print >>sys.stderr, "done (%s)." % filename
+	if not options.no_vacuum:
+		if options.verbose:
+			print >>sys.stderr, "vacuuming ..."
+		connection.cursor().execute("VACUUM;")
 	connection.close()
 	del database, connection
+	dbtables.put_connection_filename(filename, working_filename, verbose = options.verbose)
+	if options.verbose:
+		print >>sys.stderr, "done (%s)." % filename
 
 
 #
