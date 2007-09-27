@@ -154,17 +154,18 @@ class webTheDAG:
     file = open('DAGWeb/'+inifile,'a')
     file.close()
     talkback = talkBack('DAGWeb/'+inifile)
-    talkback.read()
-    self.webPage.lastSection.appendTable(1,2,0,700)
+    talkback.readAppend(self.webPage.lastSection)
+#    talkback.read()
+#    self.webPage.lastSection.appendTable(1,2,0,700)
 
-    if talkback.summaryText:
-      self.webPage.lastSection.lastTable.row[0].cell[0].linebreak()
-      self.webPage.lastSection.lastTable.row[0].cell[0].text(talkback.summaryText)
-    if talkback.summaryPlot:
-      self.webPage.lastSection.lastTable.row[0].cell[1].image(talkback.summaryPlot)
-    if talkback.summaryPlotCaption:
-      self.webPage.lastSection.lastTable.row[0].cell[1].linebreak()
-      self.webPage.lastSection.lastTable.row[0].cell[1].text(talkback.summaryPlotCaption)
+#    if talkback.summaryText:
+#      self.webPage.lastSection.lastTable.row[0].cell[0].linebreak()
+#      self.webPage.lastSection.lastTable.row[0].cell[0].text(talkback.summaryText)
+#    if talkback.summaryPlot:
+#      self.webPage.lastSection.lastTable.row[0].cell[1].image(talkback.summaryPlot)
+#    if talkback.summaryPlotCaption:
+#      self.webPage.lastSection.lastTable.row[0].cell[1].linebreak()
+#      self.webPage.lastSection.lastTable.row[0].cell[1].text(talkback.summaryPlotCaption)
 
   def appendSubSection(self,name):
     self.webPage.lastSection.appendSubSection(name)
@@ -172,17 +173,18 @@ class webTheDAG:
     file = open('DAGWeb/'+inifile,'a')
     file.close()
     talkback = talkBack('DAGWeb/'+inifile)
-    talkback.read()
-    self.webPage.lastSection.lastSub.appendTable(1,2,0,700)
+    talkback.readAppend(self.webPage.lastSection.lastSub)
+#    talkback.read()
+#    self.webPage.lastSection.lastSub.appendTable(1,2,0,700)
 
-    if talkback.summaryText:
-      self.webPage.lastSection.lastSub.lastTable.row[0].cell[0].linebreak()
-      self.webPage.lastSection.lastSub.lastTable.row[0].cell[0].text(talkback.summaryText)
-    if talkback.summaryPlot:
-      self.webPage.lastSection.lastSub.lastTable.row[0].cell[1].image(talkback.summaryPlot)
-    if talkback.summaryPlotCaption:
-      self.webPage.lastSection.lastSub.lastTable.row[0].cell[1].linebreak()
-      self.webPage.lastSection.lastSub.lastTable.row[0].cell[1].text(talkback.summaryPlotCaption)
+#    if talkback.summaryText:
+#      self.webPage.lastSection.lastSub.lastTable.row[0].cell[0].linebreak()
+#      self.webPage.lastSection.lastSub.lastTable.row[0].cell[0].text(talkback.summaryText)
+#    if talkback.summaryPlot:
+#      self.webPage.lastSection.lastSub.lastTable.row[0].cell[1].image(talkback.summaryPlot)
+#    if talkback.summaryPlotCaption:
+#      self.webPage.lastSection.lastSub.lastTable.row[0].cell[1].linebreak()
+#      self.webPage.lastSection.lastSub.lastTable.row[0].cell[1].text(talkback.summaryPlotCaption)
 
   def addNode(self, node,jobType):
     try:

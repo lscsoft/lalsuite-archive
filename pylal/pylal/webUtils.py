@@ -13,39 +13,8 @@ __version__ = '$Revision$'[11:-2]
 
 import ConfigParser
 
-class talkBack:
-
-  def __init__(self,outputWebFile):
-    self.fileName = outputWebFile.replace('html','ini')
-    self.summaryPlot = ''
-    self.summaryPlotCaption = ''
-    self.summaryText = ''
-  def addSummaryPlot(self,plot,caption):
-    self.summaryPlot = plot
-    self.summaryPlotCaption = caption
-  def addSummaryText(self,text):
-    self.summaryText = text
-
-  def write(self):
-    file = open(self.fileName,'w')
-    file.write('[talkBack]\n')
-    file.write('\nsummaryPlot='+self.summaryPlot)
-    file.write('\nsummaryPlotCaption='+self.summaryPlotCaption)
-    file.write('\nsummaryText='+self.summaryText)
-    file.close()
- 
-  def read(self):
-    cp = ConfigParser.ConfigParser()
-    cp.read(self.fileName)
-    try: self.summaryPlot = cp.get('talkBack','summaryPlot')
-    except: pass
-    try: self.summaryPlotCaption = cp.get('talkBack','summaryPlotCaption')
-    except: pass
-    try: self.summaryText = cp.get('talkBack','summaryText')
-    except: pass
-
 class Content:
-  
+
   def __init__(self):
     self.contentList = []
     self.table = []
@@ -64,10 +33,6 @@ class Content:
     thisText = Text(text,type,color)
     self.contentList.append(thisText)
 
-#  def text(self,text):
-#    thisText = Text(text)
-#    self.contentList.append(thisText)
-
   def list(self,list):
     thisList = List(list)
     self.contentList.append(thisList)
@@ -79,7 +44,7 @@ class Content:
   def linebreak(self, times = 1):
     thisBreak = Break(times)
     self.contentList.append(thisBreak)
- 
+
   def appendTable(self,rows,columns,border=0,width=800):
     number = len(self.table)
     thisTable = Table(rows,columns,border,width,number,self.root)
@@ -88,6 +53,78 @@ class Content:
     self.lastTable  = self.table[number]
 
 
+# Currently the write/read methods for talkBack don't work for lists or tables.
+class talkBack(Content):
+
+  def __init__(self,outputWebFile):
+    self.fileName = outputWebFile.replace('html','ini')
+    self.summaryPlot = ''
+    self.summaryPlotCaption = ''
+    self.summaryText = ''
+    self.contentList = []
+  def addSummaryPlot(self,plot,caption):
+    self.summaryPlot = plot
+    self.summaryPlotCaption = caption
+  def addSummaryText(self,text):
+    self.summaryText = text
+
+  def write(self):
+    file = open(self.fileName,'w')
+    file.write('[talkBack]\n')
+    file.write('\nsummaryPlot='+self.summaryPlot)
+    file.write('\nsummaryPlotCaption='+self.summaryPlotCaption)
+    file.write('\nsummaryText='+self.summaryText)
+    for content in range(contentList):
+      contentList[content].write(file, 'talkBack',content)
+    file.close()
+ 
+  def read(self):
+    cp = ConfigParser.ConfigParser()
+    cp.read(self.fileName)
+    try: self.summaryPlot = cp.get('talkBack','summaryPlot')
+    except: pass
+    try: self.summaryPlotCaption = cp.get('talkBack','summaryPlotCaption')
+    except: pass
+    try: self.summaryText = cp.get('talkBack','summaryText')
+    except: pass
+
+  #append talkback stuff to a valid webpage class (or section/subsection/table)
+  def readAppend(self,webpage):
+    cp = ConfigParser.ConfigParser()
+    cp.read(self.fileName)
+    for section in cp.sections():
+      if section.endswith('Link'):
+        try: link = cp.get(section,'link')
+        except: pass
+        try: text = cp.get(section,'text')
+        except: pass
+        webpage.link(link,text)
+      if section.endswith('Text'):
+        type = None
+        color = None
+        try: text = cp.get(section,'text')
+        except: pass
+        try: type = cp.get(section,'type')
+        except: pass
+        try: color = cp.get(section,'color')
+        except: pass
+        webpage.text(text,type,color)
+      if section.endswith('Verbatim'):
+        try: text = cp.get(section,'text')
+        except: pass
+        webpage.verbatim(text)
+      if section.endswith('Image'):
+        try: link = cp.get(section,'link')
+        except: link=None
+        try: image = cp.get(section,'image')
+        except: pass
+        try: width = cp.get(section,'width')
+        except: width = 400
+        webpage.image(image,link,width)
+      if section.endswith('Linebreak'):
+        try: times = cp.get(section,'linebreak')
+        except: pass
+        webpage.linebreak(times)
 
 
 #Add sub pages and provide slick mechanism for writing the whole tree!?!
@@ -304,30 +341,26 @@ class Link:
     self.link = link
     self.text = text
 
-  def write(self, file, type):
+  def write(self, file, type, number=0):
     if type == 'IUL':
       file.write('<a href="' + self.link + '">' + self.text + '</a>')
+
+    if type == 'talkBack':
+      file.write('['+str(number)+'.Link]\n')
+      file.write('link='+self.link+'\n')
+      file.write('text='+self.text+'\n')
       
 class Verbatim:
 
   def __init__(self, text):
     self.text = text
 
-  def write(self, file, type):
+  def write(self, file, type,number=0):
     if type == 'IUL':
       file.write('\n<br><pre>' + self.text + '</pre><br>\n')
-
-
-#class Text:
-#  
-#  def __init__(self,text):
-#    self.text = text
-# 
-#  def write(self, file, type):
-#    if type == 'IUL':
-#      file.write('<p>')
-#      file.write(self.text)
-#      file.write('</p>\n')
+    if type == 'talkBack':
+      file.write('['+str(number)+'.Verbatim]\n')
+      file.write('text='+self.text+'\n')
 
 class Text:
 
@@ -336,7 +369,7 @@ class Text:
     self.color = color
     self.type = type
 
-  def write(self, file, type):
+  def write(self, file, type,number =0):
     if type == 'IUL':
       file.write('<p>')
       if self.color:
@@ -357,7 +390,17 @@ class Text:
       if self.color:
         file.write('</font>')
       file.write('</p>\n')
-
+    if type==('talkBack'): 
+      file.write('['+str(number)+'.Text]\n')
+      if self.type:
+        if isinstance(self.type, str):
+          file.write('type='+self.type+'\n')
+        if isinstance(self.type, list):
+          iStr = ''
+          for i in self.type:
+            iStr += i+',' 
+          file.write('type='+iStr[0:-1]+'\n')
+      if self.color: file.write('color='+self.color+'\n') 
 
 class List:
  
@@ -367,7 +410,7 @@ class List:
     # remember this expects a list of lists!
     self.list = list
   
-  def write(self, file, type):
+  def write(self, file, type,number=0):
     if type == 'IUL':
       file.write('<ol>\n')
       for item in self.list:
@@ -376,27 +419,39 @@ class List:
           element.write(file,type)
         file.write('\n')
       file.write('</ol>\n')
-
+      
 class Image:
 
   def __init__(self,image,root,link=None,width=400):
     self.link = link
     self.image = root+image
     self.width = width
-  def write(self, file, type):
+  def write(self, file, type, number = 0):
     if type == 'IUL':
       if self.link:
         file.write('<a href="'+self.link+'"><img src="'+self.image+'" width = '+str(self.width)+'></a>')
       else: 
         file.write('<img src="'+self.image+'" width = '+str(self.width)+'>')   
 
+    if type == 'talkBack':
+      file.write('['+str(number)+'.Image]\n')
+      file.write('image='+self.image+'\n')
+      if self.link: file.write('link='+self.link+'\n')
+      if self.width: file.write('width='+self.width+'\n')
+
+    
 class Break:
 
   def __init__(self, times = 1):
     self.times = range(times)
 
-  def write(self, file, type):
+  def write(self, file, type,number=0):
     if type == 'IUL':
       for time in self.times:
         file.write('<br>')
+    if type == 'talkBack':
+      file.write('['+str(number)+'.Linebreak]\n')
+      file.write('times='+self.times+'\n')
+
+
     
