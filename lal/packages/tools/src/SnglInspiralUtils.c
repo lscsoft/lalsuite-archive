@@ -2196,4 +2196,100 @@ INT4 XLALCountSnglInspiral( SnglInspiralTable *head )
   return length;
 }
 
+/* <lalVerbatim file="SnglInspiralUtilsCP"> */
+SnglInspiralTable *
+XLALMassCut(
+    SnglInspiralTable         *eventHead,
+    char                      *massCut,
+    REAL4                      massRangeLow,
+    REAL4                      massRangeHigh,
+    REAL4                      mass2RangeLow,
+    REAL4                      mass2RangeHigh
+    )
+/* </lalVerbatim> */
+{
+  SnglInspiralTable    *inspiralEventList = NULL;
+  SnglInspiralTable    *thisEvent = NULL;
+  SnglInspiralTable    *prevEvent = NULL;
+
+  REAL4 massParam;
+  REAL4 mass2Param;
+  INT4 numTriggers;
+  INT4 massBOOL;
+
+  /* Remove all the triggers which are not of the desired type */
+
+  numTriggers = 0;
+  thisEvent = eventHead;
+
+  while ( thisEvent )
+  {
+    SnglInspiralTable *tmpEvent = thisEvent;
+    thisEvent = thisEvent->next;
+    massParam = 0;
+    mass2Param = 0;
+
+    if ( ! strcmp(massCut,"mchirp") )
+    {
+      massParam = tmpEvent->mchirp;
+    }
+    else if ( ! strcmp(massCut,"mtotal") )
+    {
+      massParam = tmpEvent->mass1 + tmpEvent->mass2;
+    }
+    else if ( ! strcmp(massCut,"mcomp") )
+    {
+      massParam = tmpEvent->mass1;
+      mass2Param = tmpEvent->mass2;
+    }
+
+    if ( ! strcmp(massCut,"mcomp") )
+    {
+      if ( ( massParam >= massRangeLow ) && ( massParam < massRangeHigh ) &&
+           ( mass2Param >= mass2RangeLow ) && ( mass2Param < mass2RangeHigh ) )
+      {
+        massBOOL = 1;
+      }
+      else
+      {
+        massBOOL = 0;
+      }
+    }
+    else
+    {
+      if ( ( massParam >= massRangeLow ) && ( massParam < massRangeHigh ) )
+      {
+        massBOOL = 1;
+      }
+      else
+      {
+        massBOOL = 0;
+      }
+    }
+
+    if ( massBOOL )
+    {
+      /* keep this trigger */
+      if ( ! inspiralEventList  )
+      {
+        inspiralEventList = tmpEvent;
+      }
+      else
+      {
+        prevEvent->next = tmpEvent;
+      }
+      tmpEvent->next = NULL;
+      prevEvent = tmpEvent;
+      ++numTriggers;
+    }
+    else
+    {
+      /* discard this template */
+      XLALFreeSnglInspiral ( &tmpEvent );
+    }
+  }
+
+  eventHead = inspiralEventList;
+  return(eventHead);
+}
 
