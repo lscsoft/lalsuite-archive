@@ -145,7 +145,6 @@ else:
 
 
 stats = None
-instruments = set()
 
 
 #
@@ -174,7 +173,6 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 	#
 
 	database = SnglBurstUtils.CoincDatabase().summarize(dbtables.DBTable_get_xml(), "lalapps_power", options.verbose)
-	instruments |= database.instruments
 	segs |= database.seglists
 
 	#
@@ -226,7 +224,6 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 	#
 
 	database = SnglBurstUtils.CoincDatabase().summarize(dbtables.DBTable_get_xml(), "lalapps_power", options.verbose)
-	instruments |= database.instruments
 	segs |= database.seglists
 
 	#
@@ -280,15 +277,15 @@ if not segs:
 	segs = segments.segmentlistdict({"": segments.segmentlist([segments.segment(LIGOTimeGPS(0), LIGOTimeGPS(0))])})
 
 
-def T010150_basename(instruments, description, seglists):
-	instruments = list(instruments)
+def T010150_basename(description, seglists):
+	instruments = seglists.keys()
 	instruments.sort()
 	seg = seglists.extent_all()
 	return "%s-%s-%s-%s" % ("+".join(instruments), description, str(seg[0]), str(abs(seg)))
 
 
 if options.T010150:
-	filename = T010150_basename(instruments, options.T010150, segs) + ".xml.gz"
+	filename = T010150_basename(options.T010150, segs) + ".xml.gz"
 else:
 	filename = options.output
 
