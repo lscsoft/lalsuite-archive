@@ -157,8 +157,6 @@ for pattern in patterns:
 		else:
 			try:
 				description = column_value(searchsumm, "comment", process_ids).strip()
-				if not description:
-					raise ValueError, "description column is empty"
 			except ValueError, e:
 				raise ValueError, "%s: %s" % (filename, str(e))
 
