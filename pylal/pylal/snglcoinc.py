@@ -386,15 +386,15 @@ def Level1Iterator(eventlists, comparefunc, instruments, thresholds):
 
 	tick:  a progress indicator whose value is in the range [0, ticks)
 	ticks:  the upper bound for tick
-	event:  a burst event
+	event:  an event
 	ntuples:  see below
 
 	ntuples is (yet) another generator that produces a sequence of
-	lists of burst events.  Each list of burst events, when event is
-	added to it, constitutes a potential coincidence with exactly one
-	event from each instrument.  Each event in the list is guaranteed
-	to be coincident with event, but the mutual coincidence of the
-	events in the list has not yet been established.
+	lists of events.  Each list of events, when event is added to it,
+	constitutes a potential coincidence with exactly one event from
+	each instrument.  Each event in the list is guaranteed to be
+	coincident with event, but the mutual coincidence of the events in
+	the list has not yet been established.
 	"""
 	instruments = list(instruments)	# so we can safely modify it
 	eventlists = map(eventlists.__getitem__, instruments)
