@@ -340,9 +340,9 @@ class SearchSummaryTable(table.Table):
 		for row in self:
 			if process_ids is None or row.process_id in process_ids:
 				if "," in row.ifos:
-					ifos = map(str.strip, row.ifos.split(","))
+					ifos = [ifo.strip() for ifo in row.ifos.split(",")]
 				elif "+" in row.ifos:
-					ifos = map(str.strip, row.ifos.split("+"))
+					ifos = [ifo.strip() for ifo in row.ifos.split("+")]
 				else:
 					ifos = [row.ifos]
 				seglists |= segments.segmentlistdict([(ifo, segments.segmentlist([row.get_out()])) for ifo in ifos])
