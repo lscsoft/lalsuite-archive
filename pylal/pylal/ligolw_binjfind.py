@@ -206,11 +206,16 @@ class DocContents(object):
 		# set the window for bursts_near_peaktime()
 		#
 
+		# find the largest difference between the peak time of an
+		# injection at the geocenter, and the peak time of an
+		# injection at either of the Hanford and Livingston sites,
+		# and double it
+		self.burst_peak_time_window = 0
+		for row in self.simbursttable:
+			self.burst_peak_time_window = max(self.burst_peak_time_window, abs(float(row.get_geocent_peak() - row.get_peak("H"))), abs(float(row.get_geocent_peak() - row.get_peak("L"))))
 		if len(self.snglbursttable):
-			self.burst_peak_time_window = max(self.snglbursttable.getColumnByName("duration"))
-		else:
-			# max() doesn't like empty sequences
-			self.burst_peak_time_window = 0.0
+			# add the duration of the longest burst trigger
+			self.burst_peak_time_window += max(self.snglbursttable.getColumnByName("duration"))
 
 		#
 		# set the window for identifying coincs near a peak time
