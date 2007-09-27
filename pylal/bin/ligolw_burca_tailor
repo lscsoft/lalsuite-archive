@@ -28,8 +28,6 @@
 #
 
 
-import glob
-import math
 from optparse import OptionParser
 try:
 	import sqlite3
@@ -41,13 +39,10 @@ import sys
 
 
 from glue import segments
-from glue import lal
 from glue.ligolw import dbtables
 from glue.ligolw import utils
 from pylal import ligolw_burca_tailor
-from pylal import rate
 from pylal import SnglBurstUtils
-from pylal.date import LIGOTimeGPS
 
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -58,7 +53,7 @@ __date__ = "$Date$"[7:-2]
 T010150_letters = set(string.ascii_lowercase + string.ascii_uppercase + string.digits + "_+#")
 
 
-dbtables.NonDBTableNames.append(rate.BinsTable.tableName)
+dbtables.NonDBTableNames.append(ligolw_burca_tailor.rate.BinsTable.tableName)
 
 
 #
@@ -73,25 +68,18 @@ dbtables.NonDBTableNames.append(rate.BinsTable.tableName)
 def parse_command_line():
 	parser = OptionParser(
 		version = "%prog CVS $Id$",
-		usage = "%prog [options] <-i|--injection-glob pattern | --injection-cache filename> <-b|--background-glob pattern | --background-cache filename> [filename ...]",
+		usage = "%prog [options] [filename ...]",
 		description = "%prog analyzes a collection of SQLite3 database files containing ligolw_burca outputs, and measures probability distributions for a variety of parameters computed from the coincidences therein.  The distributions are written to a likelihood data file in XML format, which can be used by ligolw_burca for the excesspower2 algorithm in which a second pass assigns likelihoods to each coincidence.  The command line arguments are used to provide shell patterns for the files from which to obtain injection and backgroun coincidences.  If file names are given on the command line following the arguments, then likelihood data is loaded from those files and added to the output."
 	)
-	parser.add_option("--background-cache", metavar = "filename", default = [], action = "append", help = "Filename for LAL cache of non-injection files.")
-	parser.add_option("-b", "--background-glob", metavar = "pattern", default = [], action = "append", help = "Shell filename pattern for non-injection files.")
-	parser.add_option("--injection-cache", metavar = "filename", default = [], action = "append", help = "Filename for LAL cache of injection files.")
-	parser.add_option("-i", "--injection-glob", metavar = "pattern", default = [], action = "append", help = "Shell filename pattern for injection files.")
+	parser.add_option("--add-from", metavar = "filename", default = [], action = "append", help = "Also add likelihood data from this XML file.")
 	parser.add_option("--max-hrss-ratio", metavar = "ratio", type = "float", default = 4.0, help = "When measuring the distribution of coincidence parameters associated with injections, discard any sngl_burst events from the coincs whose measured h_rss differs from the correct value for that instrument by more than this factor.  This helps ensure that the injection distributions are not being measured from accidentals.  Default = 4.0")
 	parser.add_option("--max-frequency-ratio", metavar = "ratio", type = "float", default = 2.0, help = "When measuring the distribution of coincidence parameters associated with injections, discard any sngl_burst events from the coincs whose measured peak frequency differs from the correct value by more than this factor.  This helps ensure that the injection distributions are not being measured from accidentals.  Default = 2.0")
 	parser.add_option("-o", "--output", metavar = "filename", default = None, help = "Set the name of the likelihood control file to write (default = stdout).")
+	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
 	parser.add_option("--T010150", metavar = "description", default = None, help = "Write the output to a file whose name is compatible with the file name format described in LIGO-T010150-00-E, \"Naming Convention for Frame Files which are to be Processed by LDAS\".  The description string will be used to form the second field in the file name.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
 
-	if not filenames:
-		if not options.background_glob and not options.background_cache:
-			raise ValueError, "missing required --background-glob or --background-cache argument"
-		if not options.injection_glob and not options.injection_cache:
-			raise ValueError, "missing required --injection-glob or --injection-cache argument"
 	if options.T010150 is not None:
 		if options.output is not None:
 			raise ValueError, "cannot set both --T010150 and --output"
@@ -125,10 +113,10 @@ options, filenames = parse_command_line()
 #
 
 
-if filenames is not None:
+if options.add_from:
 	extra_data = ligolw_burca_tailor.CoincParamsDistributions()
 	segs = segments.segmentlistdict()
-	for filename in filenames:
+	for filename in options.add_from:
 		connection = sqlite3.connect(":memory:")
 		dbtables.DBTable_set_connection(connection)
 		c, s = ligolw_burca_tailor.coinc_params_distributions_from_filename(filename, u"ligolw_burca_tailor", verbose = options.verbose)
@@ -136,7 +124,8 @@ if filenames is not None:
 		segs |= s
 		connection.close()
 else:
-	extra_data, segs = None, segments.segmentlistdict()
+	extra_data = None
+	segs = segments.segmentlistdict()
 
 
 #
@@ -148,24 +137,22 @@ stats = None
 
 
 #
-# Iterate over non-injection files
+# Iterate over files
 #
 
 
-if options.verbose:
-	print >>sys.stderr, "=== Background ==="
-
-filenames = [f for g in options.background_glob for f in glob.glob(g)] + [lal.CacheEntry(line, coltype = LIGOTimeGPS).path() for f in options.background_cache for line in file(f)]
-
-for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose, reverse = True)):
+for n, filename in enumerate(filenames):
 	#
 	# Open the database file.
 	#
 
 	if options.verbose:
-		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename),
+		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
 
-	connection = sqlite3.connect(filename)
+	working_filename = dbtables.get_connection_filename(filename, tmp_path = options.tmp_space, verbose = options.verbose)
+	connection = sqlite3.connect(working_filename)
+	connection.execute("PRAGMA synchronous = OFF;")
+	connection.execute("PRAGMA temp_store_directory = '%s';" % dbtables.tempfile.gettempdir()) 
 	dbtables.DBTable_set_connection(connection)
 
 	#
@@ -186,67 +173,21 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 		stats = ligolw_burca_tailor.DistributionsStats(options.max_hrss_ratio, options.max_frequency_ratio, ligolw_burca_tailor.dbget_thresholds(connection))
 
 	#
-	# Record statistics.
+	# Record statistics.  Assume all files with sim_burst tables are
+	# the outputs of injection runs, and other aren't.
 	#
 
-	stats.add_background(database)
-
-	#
-	# Clean up.
-	#
-
-	del database, connection
-
-
-#
-# Iterate over injection files.
-#
-
-
-if options.verbose:
-	print >>sys.stderr, "=== Injections ==="
-
-filenames = [f for g in options.injection_glob for f in glob.glob(g)] + [lal.CacheEntry(line, coltype = LIGOTimeGPS).path() for f in options.injection_cache for line in file(f)]
-
-for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose, reverse = True)):
-	#
-	# Open the database file.
-	#
-
-	if options.verbose:
-		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename),
-
-	connection = sqlite3.connect(filename)
-	dbtables.DBTable_set_connection(connection)
-
-	#
-	# Summarize the database.
-	#
-
-	database = SnglBurstUtils.CoincDatabase().summarize(dbtables.DBTable_get_xml(), "lalapps_power", options.verbose)
-	segs |= database.seglists
-
-	#
-	# If not already done, recover the --thresholds arguments, and
-	# construct a DistributionsStats instance to populate a
-	# CoincParamsDistributions book-keeping object from the information
-	# in the input files.
-	#
-
-	if stats is None:
-		stats = ligolw_burca_tailor.DistributionsStats(options.max_hrss_ratio, options.max_frequency_ratio, ligolw_burca_tailor.dbget_thresholds(connection))
-
-	#
-	# Record statistics.
-	#
-
-	stats.add_injections(database)
+	if database.sim_burst_table is None:
+		stats.add_background(database)
+	else:
+		stats.add_injections(database)
 
 	#
 	# Clean up.
 	#
 
 	del database, connection
+	dbtables.discard_connection_filename(filename, working_filename, verbose = options.verbose)
 
 
 #
@@ -270,11 +211,6 @@ else:
 #
 # Output.
 #
-
-# FIXME:  remove this when all likelihood documents floating around have
-# valid live-time data in them
-if not segs:
-	segs = segments.segmentlistdict({"": segments.segmentlist([segments.segment(LIGOTimeGPS(0), LIGOTimeGPS(0))])})
 
 
 def T010150_basename(description, seglists):
