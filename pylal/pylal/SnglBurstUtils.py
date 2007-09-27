@@ -121,15 +121,15 @@ class CoincDatabase(object):
 		# determine a few coinc_definer IDs
 		if self.coinc_def_table is not None:
 			try:
-				self.bb_definer_id = self.coinc_def_table.get_coinc_def_id([lsctables.SnglBurstTable.tableName])
+				self.bb_definer_id = self.coinc_def_table.get_coinc_def_id([lsctables.SnglBurstTable.tableName], create_new = False)
 			except KeyError:
 				self.bb_definer_id = None
 			try:
-				self.sb_definer_id = self.coinc_def_table.get_coinc_def_id([lsctables.SnglBurstTable.tableName, lsctables.SimBurstTable.tableName])
+				self.sb_definer_id = self.coinc_def_table.get_coinc_def_id([lsctables.SnglBurstTable.tableName, lsctables.SimBurstTable.tableName], create_new = False)
 			except KeyError:
 				self.sb_definer_id = None
 			try:
-				self.sc_definer_id = self.coinc_def_table.get_coinc_def_id([lsctables.CoincTable.tableName, lsctables.SimBurstTable.tableName])
+				self.sc_definer_id = self.coinc_def_table.get_coinc_def_id([lsctables.CoincTable.tableName, lsctables.SimBurstTable.tableName], create_new = False)
 			except KeyError:
 				self.sc_definer_id = None
 		else:
