@@ -37,6 +37,7 @@ RCSID("$Id$");
 #define CVS_REVISION "$Revision$"
 #define CVS_SOURCE "$Source$"
 #define CVS_DATE "$Date$"
+#define CVS_NAME_STRING "$Name$"
 
 #define ADD_PROCESS_PARAM( pptype, format, ppvalue ) \
   this_proc_param = this_proc_param->next = (ProcessParamsTable *) \
@@ -80,10 +81,12 @@ static void print_usage(char *program)
       "  --data-type          datatype specify the data type, must be one of\n"\
       "                                (playground_only|exclude_play|all_data)\n"\
       "\n"\
-      "  --mass-cut           masstype keep only triggers in mass range of type\n"\
-      "                                (mchirp|mtotal)\n"\
-      "  --mass-range-low     lowmass  lower bound on mass range\n"\
-      "  --mass-range-high    highmass upper bound on mass range\n"\
+      " [--mass-cut]          masstype keep only triggers in mass range of type\n"\
+      "                                (mchirp|mtotal|mcomp)\n"\
+      " [--mass-range-low]    lowmass  lower bound on mass range\n"\
+      " [--mass-range-high]   highmass upper bound on mass range\n"\
+      " [--mass2-range-low]    lowmass  lower bound on mass2 range for mcomp\n"\
+      " [--mass2-range-high]   highmass upper bound on mass2 range for mcomp\n"\
       "\n"\
       " [--discard-ifo]       ifo      discard all triggers from ifo\n"\
       " [--coinc-cut]         ifos     only keep triggers from IFOS\n"\
@@ -154,6 +157,8 @@ int main( int argc, char *argv[] )
   char *massCut = NULL;
   REAL4 massRangeLow = -1;
   REAL4 massRangeHigh = -1;
+  REAL4 mass2RangeLow = -1;
+  REAL4 mass2RangeHigh = -1;
 
   UINT8 triggerInputTimeNS = 0;
 
@@ -273,6 +278,9 @@ int main( int argc, char *argv[] )
       {"mass-cut",                required_argument,      0,              'M'},
       {"mass-range-low",          required_argument,      0,              'q'},
       {"mass-range-high",         required_argument,      0,              'Q'},
+      {"mass2-range-low",         required_argument,      0,              'r'},
+      {"mass2-range-high",        required_argument,      0,              'R'},
+
       {0, 0, 0, 0}
     };
     int c;
@@ -378,7 +386,8 @@ int main( int argc, char *argv[] )
       case 'V':
         fprintf( stdout, "Coincident Inspiral Reader and Injection Analysis\n"
             "Steve Fairhurst\n"
-            "CVS Version: " CVS_ID_STRING "\n" );
+            "CVS Version: " CVS_ID_STRING "\n" 
+            "CVS Tag: " CVS_NAME_STRING "\n" );
         exit( 0 );
         break;
 
@@ -524,11 +533,11 @@ int main( int argc, char *argv[] )
         {
           fprintf( stdout, "invalid argument to --%s:\n"
               "custer window must be > 0: "
-              "(%lld specified)\n",
+              "(%ld specified)\n",
               long_options[option_index].name, cluster_dt );
           exit( 1 );
         }
-        ADD_PROCESS_PARAM( "int", "%lld", cluster_dt );
+        ADD_PROCESS_PARAM( "int", "%ld", cluster_dt );
         /* convert cluster time from ms to ns */
         cluster_dt *= 1000000LL;
         break;
@@ -564,7 +573,7 @@ int main( int argc, char *argv[] )
         {
           fprintf( stdout, "invalid argument to --%s:\n"
               "injection coincidence window must be >= 0: "
-              "(%lld specified)\n",
+              "(%ld specified)\n",
               long_options[option_index].name, injectWindowNS );
           exit( 1 );
         }
@@ -591,14 +600,23 @@ int main( int argc, char *argv[] )
 
       case 'q':
         massRangeLow = atof(optarg);
-      ADD_PROCESS_PARAM( "float", "%s", optarg);
+        ADD_PROCESS_PARAM( "float", "%s", optarg);
         break;
 
       case 'Q':
         massRangeHigh = atof(optarg);
-      ADD_PROCESS_PARAM( "float", "%s", optarg);
+        ADD_PROCESS_PARAM( "float", "%s", optarg);
         break;
 
+      case 'r':
+        mass2RangeLow = atof(optarg);
+        ADD_PROCESS_PARAM( "float", "%s", optarg);
+        break;
+
+      case 'R':
+        mass2RangeHigh = atof(optarg);
+        ADD_PROCESS_PARAM( "float", "%s", optarg);
+        break;
 
       case '?':
         exit( 1 );
@@ -709,14 +727,31 @@ int main( int argc, char *argv[] )
 
   if ( massCut && ( massRangeLow >= massRangeHigh ) )
   {
-    fprintf( stderr, "--mass-range-low must be greater than "
+    fprintf( stderr, "--mass-range-low must be less than "
         "--mass-range-high\n" );
     exit( 1 );
   }
 
-  if ( massCut && strcmp( "mchirp", massCut ) && strcmp("mtotal", massCut) )
+  if ( massCut && ( ! strcmp( "mcomp", massCut ) ) &&
+       ( mass2RangeLow < 0 || mass2RangeHigh <0 ) )
   {
-    fprintf( stderr, "--mass-cut must be either mchirp or mtotal\n" );
+    fprintf( stderr, "--mass2-range-low and --mass2-rang-high \n"
+        "must be specified if using --mass-cut mcomp\n" );
+    exit( 1 );
+  }
+
+  if ( massCut && ( ! strcmp( "mcomp", massCut ) ) &&
+       mass2RangeLow >= mass2RangeHigh )
+  {
+    fprintf( stderr, "--mass2-range-low must be less than "
+        "--mass2-range-high\n" );
+    exit( 1 );
+  }
+
+  if ( massCut && strcmp( "mchirp", massCut ) &&
+       strcmp("mtotal", massCut) && strcmp( "mcomp", massCut ) )
+  {
+    fprintf( stderr, "--mass-cut must be either mchirp, mtotal, or mcomp\n" );
     exit( 1 );
   }
  
@@ -909,8 +944,8 @@ int main( int argc, char *argv[] )
     {
       numFileCoincs = XLALCountCoincInspiral( coincFileHead );
 
-      coincFileHead = XLALMeanMassCut( coincFileHead,
-          massCut, massRangeLow, massRangeHigh );
+      coincFileHead = XLALMeanMassCut( coincFileHead, massCut,
+          massRangeLow, massRangeHigh, mass2RangeLow, mass2RangeHigh);
       /* count the triggers, scroll to end of list */
       numFileCoincs = XLALCountCoincInspiral( coincFileHead );
 
