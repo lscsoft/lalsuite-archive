@@ -40,6 +40,7 @@ RCSID("$Id$");
 #define CVS_REVISION "$Revision$"
 #define CVS_SOURCE "$Source$"
 #define CVS_DATE "$Date$"
+#define CVS_NAME_STRING "$Name$"
 
 #define ADD_PROCESS_PARAM( pptype, format, ppvalue ) \
   this_proc_param = this_proc_param->next = (ProcessParamsTable *) \
@@ -89,6 +90,12 @@ static void print_usage(char *program)
       "\n"\
       "Cuts and Vetos:\n"\
       " [--ifo-cut]       ifo         only keep triggers from specified ifo\n"\
+      " [--mass-cut]      masstype    keep only triggers in mass range of type\n"\
+      "                                (mchirp|mtotal|mcomp)\n"\
+      " [--mass-range-low] lowmass    lower bound on mass range\n"\
+      " [--mass-range-high] highmass  upper bound on mass range\n"\
+      " [--mass2-range-low] lowmass   lower bound on mass2 range\n"\
+      " [--mass2-range-high] highmass upper bound on mass2 range\n"\
       " [--snr-threshold] snr_star    discard all triggers with snr less than snr_star\n"\
       " [--rsq-threshold] rsq_thresh  discard all triggers whose rsqveto_duration\n"\
       "                               exceeds rsq_thresh\n"\
@@ -146,6 +153,11 @@ int main( int argc, char *argv[] )
   char *missedFileName = NULL;
   char **inFileNameList;
   char line[MAX_PATH];
+  char *massCut = NULL;
+  REAL4 massRangeLow = -1;
+  REAL4 massRangeHigh = -1;
+  REAL4 mass2RangeLow = -1;
+  REAL4 mass2RangeHigh = -1;
   REAL4 snrStar = -1;
   REAL4 rsqVetoThresh = -1;
   REAL4 rsqMaxSnr     = -1;
@@ -181,6 +193,7 @@ int main( int argc, char *argv[] )
   int                   numEvents = 0;
   int                   numEventsKept = 0;
   int                   numEventsInIFO = 0;
+  int                   numEventsInMassRange = 0;
   int                   numEventsAboveSNRThresh = 0;
   int                   numEventsBelowRsqThresh = 0;
   int                   numEventsSurvivingVeto = 0;
@@ -260,6 +273,11 @@ int main( int argc, char *argv[] )
       {"injection-file",          required_argument,      0,              'I'},
       {"injection-window",        required_argument,      0,              'T'},
       {"missed-injections",       required_argument,      0,              'm'},
+      {"mass-cut",                required_argument,      0,              'M'},
+      {"mass-range-low",          required_argument,      0,              'q'},
+      {"mass-range-high",         required_argument,      0,              'Q'},
+      {"mass2-range-low",         required_argument,      0,              'u'},
+      {"mass2-range-high",        required_argument,      0,              'Q'},
       {0, 0, 0, 0}
     };
     int c;
@@ -269,7 +287,7 @@ int main( int argc, char *argv[] )
     size_t optarg_len;
 
     c = getopt_long_only ( argc, argv, 
-        "c:d:g:hi:j:k:m:o:r:s:t:v:zC:DH:I:R:ST:VZ:", 
+        "c:d:g:hi:j:k:m:o:q:r:s:t:v:u:z:C:D:HI:M:Q:R:S:T:U:VZ:", 
         long_options, &option_index );
 
     /* detect the end of the options */
@@ -335,7 +353,8 @@ int main( int argc, char *argv[] )
       case 'V':
         fprintf( stdout, "Single Inspiral Reader and Injection Analysis\n"
             "Patrick Brady, Duncan Brown and Steve Fairhurst\n"
-            "CVS Version: " CVS_ID_STRING "\n" );
+            "CVS Version: " CVS_ID_STRING "\n"
+            "CVS Tag: " CVS_NAME_STRING "\n" );
         exit( 0 );
         break;
 
@@ -496,7 +515,7 @@ int main( int argc, char *argv[] )
         {
           fprintf( stdout, "invalid argument to --%s:\n"
               "custer window must be > 0: "
-              "(%lld specified)\n",
+              "(%ld specified)\n",
               long_options[option_index].name, cluster_dt );
           exit( 1 );
         }
@@ -535,7 +554,7 @@ int main( int argc, char *argv[] )
         {
           fprintf( stdout, "invalid argument to --%s:\n"
               "injection coincidence window must be >= 0: "
-              "(%lld specified)\n",
+              "(%ld specified)\n",
               long_options[option_index].name, injectWindowNS );
           exit( 1 );
         }
@@ -550,6 +569,34 @@ int main( int argc, char *argv[] )
         missedFileName = (CHAR *) calloc( optarg_len, sizeof(CHAR));
         memcpy( missedFileName, optarg, optarg_len );
         ADD_PROCESS_PARAM( "string", "%s", optarg );
+        break;
+
+      case 'M':
+        /* create storage for the missed injection file name */
+        optarg_len = strlen( optarg ) + 1;
+        massCut = (CHAR *) calloc( optarg_len, sizeof(CHAR));
+        memcpy( massCut, optarg, optarg_len );
+        ADD_PROCESS_PARAM( "string", "%s", optarg );
+        break;
+
+      case 'q':
+        massRangeLow = atof(optarg);
+        ADD_PROCESS_PARAM( "float", "%s", optarg);
+        break;
+
+      case 'Q':
+        massRangeHigh = atof(optarg);
+        ADD_PROCESS_PARAM( "float", "%s", optarg);
+        break;
+
+      case 'u':
+        mass2RangeLow = atof(optarg);
+        ADD_PROCESS_PARAM( "float", "%s", optarg);
+        break;
+
+      case 'U':
+        mass2RangeHigh = atof(optarg);
+        ADD_PROCESS_PARAM( "float", "%s", optarg);
         break;
 
       case '?':
@@ -662,6 +709,45 @@ int main( int argc, char *argv[] )
   {
     fprintf( stderr, "--injection-file must be specified if "
         "--injection-coincidence is given\n" );
+    exit( 1 );
+  }
+
+  /* check that we have all the options to do a mass cut */
+  if ( ( massCut || massRangeLow >= 0 || massRangeHigh >= 0 ) &&
+       ! ( massCut && massRangeLow >= 0 && massRangeHigh >= 0 ) )
+  {
+    fprintf( stderr, "--mass-cut, --mass-range-low, and --mass-rang-high "
+        "must all be used together\n" );
+    exit( 1 );
+  }
+
+  if ( massCut && ( massRangeLow >= massRangeHigh ) )
+  {
+    fprintf( stderr, "--mass-range-low must be less than "
+        "--mass-range-high\n" );
+    exit( 1 );
+  }
+
+  if ( massCut && ( ! strcmp( "mcomp", massCut ) ) &&
+       ( mass2RangeLow < 0 || mass2RangeHigh <0 ) )
+  {
+    fprintf( stderr, "--mass2-range-low and --mass2-rang-high \n"
+        "must be specified if using --mass-cut mcomp\n" );
+    exit( 1 );
+  }
+
+  if ( massCut && ( ! strcmp( "mcomp", massCut ) ) &&
+       mass2RangeLow >= mass2RangeHigh )
+  {
+    fprintf( stderr, "--mass2-range-low must be less than "
+        "--mass2-range-high\n" );
+    exit( 1 );
+  }
+
+  if ( massCut && strcmp( "mchirp", massCut ) &&
+       strcmp("mtotal", massCut) && strcmp( "mcomp", massCut ) )
+  {
+    fprintf( stderr, "--mass-cut must be either mchirp, mtotal, or mcomp\n" );
     exit( 1 );
   }
 
@@ -820,6 +906,20 @@ int main( int argc, char *argv[] )
       if ( vrbflg ) fprintf( stdout, 
           "Have %d from ifo %s\n", numFileTriggers, ifoName );
       numEventsInIFO += numFileTriggers;
+    }
+
+    /* Do mass cut */
+    if ( massCut )
+    {
+      inspiralFileList = XLALMassCut( inspiralFileList, massCut,
+          massRangeLow, massRangeHigh, mass2RangeLow, mass2RangeHigh );
+      /* count the triggers */
+      numFileTriggers = XLALCountSnglInspiral( inspiralFileList );
+
+      if ( vrbflg ) fprintf( stdout,
+          "Kept %d triggers in mass range %f to %f\n", numFileTriggers,
+            massRangeLow, massRangeHigh );
+      numEventsInMassRange += numFileTriggers;
     }
     
     /*  Do snr cut */
@@ -1151,6 +1251,12 @@ int main( int argc, char *argv[] )
           numEventsInIFO );
     }
 
+
+    if ( massCut )
+    {
+      fprintf( fp, "number of triggers in mass range %f to %f: %d \n",
+           massRangeLow, massRangeHigh, numEventsInMassRange );
+    }
 
     if ( snrStar > 0 )
     {
