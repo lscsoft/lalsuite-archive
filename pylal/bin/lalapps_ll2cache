@@ -39,6 +39,11 @@ import glob
 from optparse import OptionParser
 import os
 import sys
+# Python 2.3 compatibility
+try:
+	set
+except NameError:
+	from sets import Set as set
 
 from glue.lal import CacheEntry
 from glue import segments
@@ -104,19 +109,20 @@ utils.ContentHandler = ContentHandler
 # =============================================================================
 #
 
-def column_value(table, column):
+
+def column_value(search_summary_table, column, process_ids = None):
 	"""
 	Scan a column in a table element, checking that all rows have the
 	same value, and return that value.
 	"""
-	if options.program:
-		vals = [getattr(row, column) for row in table if row.process_id in process_ids]
+	if process_ids is None:
+		vals = search_summary_table.getColumnByName(column)
 	else:
-		vals = table.getColumnByName(column)
+		vals = [getattr(row, column) for row in search_summary_table if row.process_id in process_ids]
 	value = vals[0]
 	for v in vals:
 		if v != value:
-			raise ValueError, "%s: not all rows have the same value for \"%s\"" % (table.tableName, column)
+			raise ValueError, "%s: not all search_summary rows have the same value for \"%s\"" % column
 	return value
 
 
@@ -127,45 +133,40 @@ for pattern in patterns:
 		searchsumm = table.get_table(doc, lsctables.SearchSummaryTable.tableName)
 
 		# extract process_ids for the requested program
-		process_ids = []
 		if options.program:
-			for row in table.get_table(doc, lsctables.ProcessTable.tableName):
-				if row.program == options.program:
-					process_ids.append(row.process_id)
+			process_ids = table.get_table(doc, lsctables.ProcessTable.tableName).get_ids_by_program(options.program)
+		else:
+			process_ids = None
+
+		# extract segment lists
+		seglists = searchsumm.get_out_segmentlistdict(process_ids)
 
 		# extract observatory
 		if options.observatory:
 			observatory = options.observatory
 		else:
-			try:
-				observatory = column_value(searchsumm, "ifos").strip()
-				if not observatory:
-					raise ValueError, "observatory column is empty"
-			except ValueError, e:
-				raise ValueError, "%s: %s" % (filename, str(e))
+			observatory = seglists.keys()
+			observatory.sort()
+			observatory = "+".join(observatory)
+			if not observatory:
+				raise ValueError, "%s: observatory column is empty" % filename
 
 		# extract description
 		if options.description:
 			description = options.description
 		else:
 			try:
-				description = column_value(searchsumm, "comment").strip()
+				description = column_value(searchsumm, "comment", process_ids).strip()
 				if not description:
 					raise ValueError, "description column is empty"
 			except ValueError, e:
 				raise ValueError, "%s: %s" % (filename, str(e))
 
-		# extract segment
-		if options.program:
-			segment = segments.segmentlist([row.get_out() for row in searchsumm if row.process_id.program == options.program]).extent()
-		else:
-			segment = searchsumm.get_outlist().extent()
-
 		# set URL
 		url = "file://localhost" + os.path.abspath(filename)
 
 		# write cache entry
-		print >>options.output, str(CacheEntry(observatory, description, segment, url))
+		print >>options.output, str(CacheEntry(observatory, description, seglists.extent_all(), url))
 
 		# allow garbage collection
 		doc.unlink()
