@@ -227,9 +227,10 @@ if options.likelihood_control:
 		distributions += c
 		seglists |= s
 	distributions.finish()
+	filename = "ligolw_burca_tailor-%d-%d.png" % (int(seglists.extent_all()[0]), int(abs(seglists.extent_all())))
 	if options.verbose:
-		print >>sys.stderr, "writing ligolw_burca_tailor.png ..."
-	plot_coinc_params(distributions, options.plot).savefig("ligolw_burca_tailor-%d-%d.png" % (int(seglists.extent_all()[0]), int(abs(seglists.extent_all()))))
+		print >>sys.stderr, "writing %s ..." % filename
+	plot_coinc_params(distributions, options.plot).savefig(filename)
 	sys.exit()
 
 
