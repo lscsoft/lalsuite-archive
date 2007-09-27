@@ -245,6 +245,171 @@ XLALSimInspiralInSearchedData(
 }  
 
 
+/* <lalVerbatim file="SimInspiralUtilsCP"> */
+int
+XLALSimInspiralChirpMassCut(
+    SimInspiralTable   **eventHead,
+    REAL4                minChirpMass,
+    REAL4                maxChirpMass
+    )
+/* </lalVerbatim> */
+{
+  SimInspiralTable    *inspiralEventList = NULL;
+  SimInspiralTable    *thisEvent = NULL;
+  SimInspiralTable    *prevEvent = NULL;
+
+  INT4 numInj;
+
+  /* Remove all the triggers which are not of the desired type */
+
+  numInj = 0;
+  thisEvent = *eventHead;
+
+  while ( thisEvent )
+  {
+    SimInspiralTable *tmpEvent = thisEvent;
+    thisEvent = thisEvent->next;
+
+    if ( ( tmpEvent->mchirp >= minChirpMass ) &&
+         ( tmpEvent->mchirp < maxChirpMass ) )
+    {
+      /* keep this trigger */
+      if ( ! inspiralEventList  )
+      {
+        inspiralEventList = tmpEvent;
+      }
+      else
+      {
+        prevEvent->next = tmpEvent;
+      }
+      tmpEvent->next = NULL;
+      prevEvent = tmpEvent;
+      ++numInj;
+    }
+    else
+    {
+      /* discard this template */
+      XLALFreeSimInspiral ( &tmpEvent );
+    }
+  }
+
+  *eventHead = inspiralEventList;
+
+  return(numInj);
+}
+
+
+/* <lalVerbatim file="SimInspiralUtilsCP"> */
+int
+XLALSimInspiralCompMassCut(
+    SimInspiralTable   **eventHead,
+    REAL4                minCompMass,
+    REAL4                maxCompMass,
+    REAL4                minCompMass2,
+    REAL4                maxCompMass2
+    )
+/* </lalVerbatim> */
+{
+  SimInspiralTable    *inspiralEventList = NULL;
+  SimInspiralTable    *thisEvent = NULL;
+  SimInspiralTable    *prevEvent = NULL;
+
+  INT4 numInj;
+
+  /* Remove all the triggers which are not of the desired type */
+
+  numInj = 0;
+  thisEvent = *eventHead;
+
+  while ( thisEvent )
+  {
+    SimInspiralTable *tmpEvent = thisEvent;
+    thisEvent = thisEvent->next;
+
+    if ( ( tmpEvent->mass1 >= minCompMass ) &&
+         ( tmpEvent->mass1 < maxCompMass ) &&
+         ( tmpEvent->mass2 >= minCompMass2 ) &&
+         ( tmpEvent->mass2 < maxCompMass2 ) )
+    {
+      /* keep this trigger */
+      if ( ! inspiralEventList  )
+      {
+        inspiralEventList = tmpEvent;
+      }
+      else
+      {
+        prevEvent->next = tmpEvent;
+      }
+      tmpEvent->next = NULL;
+      prevEvent = tmpEvent;
+      ++numInj;
+    }
+    else
+    {
+      /* discard this template */
+      XLALFreeSimInspiral ( &tmpEvent );
+    }
+  }
+
+  *eventHead = inspiralEventList;
+
+  return(numInj);
+}
+
+
+/* <lalVerbatim file="SimInspiralUtilsCP"> */
+int
+XLALSimInspiralTotalMassCut(
+    SimInspiralTable   **eventHead,
+    REAL4                minTotalMass,
+    REAL4                maxTotalMass
+    )
+/* </lalVerbatim> */
+{
+  SimInspiralTable    *inspiralEventList = NULL;
+  SimInspiralTable    *thisEvent = NULL;
+  SimInspiralTable    *prevEvent = NULL;
+
+  INT4 numInj;
+
+  /* Remove all the triggers which are not of the desired type */
+
+  numInj = 0;
+  thisEvent = *eventHead;
+
+  while ( thisEvent )
+  {
+    SimInspiralTable *tmpEvent = thisEvent;
+    thisEvent = thisEvent->next;
+
+    if ( ( (tmpEvent->mass1 + tmpEvent->mass2) >= minTotalMass ) &&
+         ( (tmpEvent->mass1 + tmpEvent->mass2) < maxTotalMass ) )
+    {
+      /* keep this trigger */
+      if ( ! inspiralEventList  )
+      {
+        inspiralEventList = tmpEvent;
+      }
+      else
+      {
+        prevEvent->next = tmpEvent;
+      }
+      tmpEvent->next = NULL;
+      prevEvent = tmpEvent;
+      ++numInj;
+    }
+    else
+    {
+      /* discard this template */
+      XLALFreeSimInspiral ( &tmpEvent );
+    }
+  }
+
+  *eventHead = inspiralEventList;
+
+  return(numInj);
+}
+
 
 /* <lalVerbatim file="SimInspiralUtilsCP"> */
 void
