@@ -57,23 +57,21 @@ if not opts.missed_cache:
    print >>sys.stderr, "The option --missed-cache must be specified "
    sys.exit(1)
 
+ 
 
 
-
-
-
-AllCache = lal.Cache().read(opts.cache_file)
+AllCache = lal.Cache().fromfile(open(opts.cache_file))
 if opts.sieve_pattern:
   PatternCache = AllCache.sieve(description = opts.sieve_pattern)
 else:
   PatternCache = AllCache
-PatternCache_Found, PatternCache_Missed = PatternCache.check()
+PatternCache_Found, PatternCache_Missed = PatternCache.checkfilesexist()
 Found_list = []
 Found_list = PatternCache_Found.pfnlist()
 
 Missed_list = []
 Missed_list = PatternCache_Missed.pfnlist()
 
-PatternCache_Found.write(opts.found_cache)
-PatternCache_Missed.write(opts.missed_cache)
+PatternCache_Found.tofile(open(opts.found_cache, 'w'))
+PatternCache_Missed.tofile(open(opts.missed_cache, 'w'))
 
