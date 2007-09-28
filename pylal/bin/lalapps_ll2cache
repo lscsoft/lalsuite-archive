@@ -18,6 +18,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+
 #
 # =============================================================================
 #
@@ -26,14 +27,12 @@
 # =============================================================================
 #
 
+
 """
 Build a LAL cache from a list of LIGO LW XML files containing search
 summary tables.
 """
 
-__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
 
 import glob
 from optparse import OptionParser
@@ -45,12 +44,18 @@ try:
 except NameError:
 	from sets import Set as set
 
+
 from glue.lal import CacheEntry
-from glue import segments
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
+
+
+__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__version__ = "$Revision$"[11:-2]
+__date__ = "$Date$"[7:-2]
+
 
 #
 # =============================================================================
@@ -60,23 +65,34 @@ from glue.ligolw import utils
 # =============================================================================
 #
 
+
 def parse_command_line():
-	parser = OptionParser(version = "%prog CVS $Id$")
-	parser.add_option("--description", metavar = "DESCRIPTION", help = "set all descriptions to DESCRIPTION")
-	parser.add_option("--observatory", metavar = "OBSERVATORY", help = "set all observatories to OBSERVATORY")
-	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
-	parser.add_option("-o", "--output", metavar = "filename", help = "set output file (default = stdout)")
-	parser.add_option("-p", "--program", metavar = "name", help = "obtain start and durations from search summary entries corresponding to the given program (default = whatever is there)")
-	options, patterns = parser.parse_args()
+	parser = OptionParser(
+		version = "%prog CVS $Id$",
+		usage = "%prog [options] filenames ...",
+		description = "Generates a LAL format cache file describing a collection of LIGO light-weight XML files.  The cache is constructed by parsing the search_summary table in each file to extract the instruments and time each file spans.  To allow long file lists to be processed, the filenames are interpreted as shell patterns (wildcard expansion is performed)."
+	)
+	parser.add_option("--description", metavar = "string", help = "Set all descriptions to this string.")
+	parser.add_option("--observatory", metavar = "string", help = "Set all observatories to this string.")
+	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
+	parser.add_option("-o", "--output", metavar = "filename", help = "Set output file (default = stdout).")
+	parser.add_option("-p", "--program", metavar = "name", help = "Obtain start and durations from search summary entries corresponding to the given program (default = whatever is there).")
+	options, filenames = parser.parse_args()
 
 	if options.output:
 		options.output = file(options.output, "w")
 	else:
 		options.output = sys.stdout
 
-	return options, patterns
+	if filenames is None:
+		filenames = []
+	else:
+		filenames = reduce(list.__add__, [glob.glob(g) for g in filenames])
 
-options, patterns = parse_command_line()
+	return options, filenames
+
+
+options, filenames = parse_command_line()
 
 
 #
@@ -87,16 +103,17 @@ options, patterns = parse_command_line()
 # =============================================================================
 #
 
-def element_filter(name, attrs):
-	"""
-	Return True if name & attrs describe a search summary table or a
-	process table.
-	"""
-	return lsctables.IsTableProperties(lsctables.SearchSummaryTable, name, attrs) or lsctables.IsTableProperties(lsctables.ProcessTable, name, attrs)
 
 class ContentHandler(ligolw.PartialLIGOLWContentHandler):
-	def __init__(self, doc):
-		ligolw.PartialLIGOLWContentHandler.__init__(self, doc, element_filter)
+	def __init__(self, xmldoc):
+		def element_filter(name, attrs):
+			"""
+			Return True if name & attrs describe a search summary table or a
+			process table.
+			"""
+			return lsctables.IsTableProperties(lsctables.SearchSummaryTable, name, attrs) or lsctables.IsTableProperties(lsctables.ProcessTable, name, attrs)
+		ligolw.PartialLIGOLWContentHandler.__init__(self, xmldoc, element_filter)
+
 
 utils.ContentHandler = ContentHandler
 
@@ -110,61 +127,51 @@ utils.ContentHandler = ContentHandler
 #
 
 
-def column_value(search_summary_table, column, process_ids = None):
-	"""
-	Scan a column in a table element, checking that all rows have the
-	same value, and return that value.
-	"""
-	if process_ids is None:
-		vals = search_summary_table.getColumnByName(column)
+for filename in filenames:
+	# load document and extract search summary table
+	xmldoc = utils.load_filename(filename, verbose = options.verbose, gz = filename.endswith(".gz"))
+	searchsumm = table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName)
+
+	# extract process_ids for the requested program
+	if options.program:
+		process_ids = table.get_table(xmldoc, lsctables.ProcessTable.tableName).get_ids_by_program(options.program)
 	else:
-		vals = [getattr(row, column) for row in search_summary_table if row.process_id in process_ids]
-	value = vals[0]
-	for v in vals:
-		if v != value:
-			raise ValueError, "%s: not all search_summary rows have the same value for \"%s\"" % column
-	return value
+		process_ids = None
 
+	# extract segment lists
+	seglists = searchsumm.get_out_segmentlistdict(process_ids)
+	if not seglists:
+		raise ValueError, "%s: no matching rows found in search summary table" % filename
 
-for pattern in patterns:
-	for filename in glob.glob(pattern):
-		# load document and extract search summary table
-		doc = utils.load_filename(filename, options.verbose, gz = filename.endswith(".gz"))
-		searchsumm = table.get_table(doc, lsctables.SearchSummaryTable.tableName)
+	# extract observatory
+	if options.observatory:
+		observatory = options.observatory
+	else:
+		observatory = seglists.keys()
+		observatory.sort()
+		observatory = "+".join(observatory)
+		if not observatory:
+			raise ValueError, "%s: observatory column is empty" % filename
 
-		# extract process_ids for the requested program
-		if options.program:
-			process_ids = table.get_table(doc, lsctables.ProcessTable.tableName).get_ids_by_program(options.program)
+	# extract description
+	if options.description:
+		description = options.description
+	else:
+		if process_ids is None:
+			description = set(search_summary_table.getColumnByName("comment"))
 		else:
-			process_ids = None
+			description = set([row.comment for row in search_summary_table if row.process_id in process_ids])
+		if len(description) < 1:
+			raise ValueError, "%s: no matching rows found in search summary table" % filename
+		if len(description) > 1:
+			raise ValueError, "%s: comments in matching rows of search summary table are not identical" % (filename, column)
+		description = description.pop()
 
-		# extract segment lists
-		seglists = searchsumm.get_out_segmentlistdict(process_ids)
+	# set URL
+	url = "file://localhost" + os.path.abspath(filename)
 
-		# extract observatory
-		if options.observatory:
-			observatory = options.observatory
-		else:
-			observatory = seglists.keys()
-			observatory.sort()
-			observatory = "+".join(observatory)
-			if not observatory:
-				raise ValueError, "%s: observatory column is empty" % filename
+	# write cache entry
+	print >>options.output, str(CacheEntry(observatory, description, seglists.extent_all(), url))
 
-		# extract description
-		if options.description:
-			description = options.description
-		else:
-			try:
-				description = column_value(searchsumm, "comment", process_ids).strip()
-			except ValueError, e:
-				raise ValueError, "%s: %s" % (filename, str(e))
-
-		# set URL
-		url = "file://localhost" + os.path.abspath(filename)
-
-		# write cache entry
-		print >>options.output, str(CacheEntry(observatory, description, seglists.extent_all(), url))
-
-		# allow garbage collection
-		doc.unlink()
+	# allow garbage collection
+	xmldoc.unlink()
