@@ -92,9 +92,6 @@ def parse_command_line():
 	return options, filenames
 
 
-options, filenames = parse_command_line()
-
-
 #
 # =============================================================================
 #
@@ -127,13 +124,16 @@ utils.ContentHandler = ContentHandler
 #
 
 
+options, filenames = parse_command_line()
+
+
 for filename in filenames:
 	# load document and extract search summary table
 	xmldoc = utils.load_filename(filename, verbose = options.verbose, gz = filename.endswith(".gz"))
 	searchsumm = table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName)
 
 	# extract process_ids for the requested program
-	if options.program:
+	if options.program is not None:
 		process_ids = table.get_table(xmldoc, lsctables.ProcessTable.tableName).get_ids_by_program(options.program)
 	else:
 		process_ids = None
@@ -150,8 +150,6 @@ for filename in filenames:
 		observatory = seglists.keys()
 		observatory.sort()
 		observatory = "+".join(observatory)
-		if not observatory:
-			raise ValueError, "%s: observatory column is empty" % filename
 
 	# extract description
 	if options.description:
