@@ -347,7 +347,7 @@ def ligolw_bucluster(doc, **kwargs):
 
 	#
 	# Remove all H2 triggers intersecting the frequency band
-	# 1138.586956521739 Hz -- 1216.0326086956522 Hz
+	# 1138.6 Hz -- 1216.0 Hz
 	#
 	# FIXME:  put this into the excess power pipeline, correctly
 	#
