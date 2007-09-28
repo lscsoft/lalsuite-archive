@@ -143,6 +143,13 @@ def put_connection_filename(filename, working_filename, verbose = False):
 		shutil.move(working_filename, filename)
 
 
+def discard_connection_filename(filename, working_filename, verbose = False):
+	if working_filename != filename:
+		if verbose:
+			print >>sys.stderr, "removing %s ..." % working_filename
+		os.remove(working_filename)
+
+
 #
 # =============================================================================
 #
