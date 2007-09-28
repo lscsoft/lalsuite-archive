@@ -158,13 +158,13 @@ for filename in filenames:
 		description = options.description
 	else:
 		if process_ids is None:
-			description = set(search_summary_table.getColumnByName("comment"))
+			description = set(searchsumm.getColumnByName("comment"))
 		else:
-			description = set([row.comment for row in search_summary_table if row.process_id in process_ids])
+			description = set([row.comment for row in searchsumm if row.process_id in process_ids])
 		if len(description) < 1:
 			raise ValueError, "%s: no matching rows found in search summary table" % filename
 		if len(description) > 1:
-			raise ValueError, "%s: comments in matching rows of search summary table are not identical" % (filename, column)
+			raise ValueError, "%s: comments in matching rows of search summary table are not identical" % filename
 		description = description.pop()
 
 	# set URL
