@@ -470,11 +470,17 @@ FROM
 
 
 def burst_matches_injection(h_peak, h_peak_ns, l_peak, l_peak_ns, start, start_ns, duration, ifo):
+	# a burst "matches an injection" if it lies within 2 s of the
+	# injection.  in other words, for the purpose of efficiency
+	# measurements an injection will have been said to be recovered if
+	# a triple coincident event survives to the end of the pipeline
+	# with at least one burst in the coinc lieing within 2 s of the
+	# injection.
 	start = LIGOTimeGPS(start, start_ns)
 	if ifo in ("H1", "H2"):
-		return LIGOTimeGPS(h_peak, h_peak_ns) in segments.segment(start, start + duration).protract(0.5)
+		return LIGOTimeGPS(h_peak, h_peak_ns) in segments.segment(start, start + duration).protract(2)
 	elif ifo in ("L1",):
-		return LIGOTimeGPS(l_peak, l_peak_ns) in segments.segment(start, start + duration).protract(0.5)
+		return LIGOTimeGPS(l_peak, l_peak_ns) in segments.segment(start, start + duration).protract(2)
 	raise ValueError, ifo
 
 
@@ -519,7 +525,7 @@ SELECT
 FROM
 	sim_burst
 	""", (contents.bb_definer_id,)):
-		sim = contents.sim_burst_table._row_from_cols(values[:-1])
+		sim = contents.sim_burst_table._row_from_cols(values)
 		found = values[-1]
 		if found:
 			self.injected_x.append(sim.freq)
