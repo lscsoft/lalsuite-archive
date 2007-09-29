@@ -33,7 +33,7 @@ from optparse import OptionParser
 import sys
 
 
-from glue import lal
+from glue.lal import CacheEntry
 from pylal import snglcoinc
 from pylal.date import LIGOTimeGPS
 
@@ -120,7 +120,8 @@ def parse_command_line():
 	parser.add_option("-f", "--force", action = "store_true", help = "Process document even if it has already been processed.")
 	parser.add_option("-p", "--program", metavar = "name", help = "Set the name of the program that generated the events as it appears in the process table.  The program name is used to extract live time information from the search summary tables in the input files.")
 	parser.add_option("-a", "--coincidence-algorithm", metavar = "[excesspower|excesspower2|stringcusp]", default = None, help = "Select the coincidence test algorithm to use.")
-	parser.add_option("-l", "--likelihood-cache", metavar = "path", default = None, help = "Set the path to a LAL cache describing a collection of likelihood data files from which to obtain coincidence parameter distribution functions for the excesspower2 coincidence test.  The distribution data from all files is summed to construct a single set of distribution functions. (use ligolw_burca_tailor to generate these files)")
+	parser.add_option("--likelihood-data", metavar = "filename", default = [], action = "append", help = "Read likelihood data from this XML file.  (use ligolw_burca_tailor to generate these files)")
+	parser.add_option("--likelihood-data-cache", metavar = "filename", help = "Read likelihood data from the XML files described by this LAL cache.  For each trigger file, the live time of the trigger file is established and all likelihood data files whose segments intersect the trigger file's live time are loaded and merged into a single distribution data set.  (use ligolw_burca_tailor to generate these files)")
 	parser.add_option("-t", "--thresholds", metavar = "inst1,inst2=threshold1[,threshold2,...]", action = "append", default = [], help = "Set the coincidence algorithm's thresholds for an instrument pair.  For excesspower the threshold format is dt,df,dhrss.  For stringcusp the threshold format is dt.  One set of thresholds must be provided for each instrument combination that will be compared")
 	parser.add_option("--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
 	# FIXME:  split this next one into two arguments
@@ -137,9 +138,12 @@ def parse_command_line():
 	if options.coincidence_algorithm not in ("excesspower", "excesspower2", "stringcusp"):
 		raise ValueError, "unrecognized --coincidence-algorithm %s" % options.coincidence_algorithm
 	if options.coincidence_algorithm == "excesspower2":
-		if options.likelihood_cache is None:
-			raise ValueError, "missing required argument --likelihood-cache"
-		options.likelihood_cache = [lal.CacheEntry(line, coltype = LIGOTimeGPS) for line in file(options.likelihood_cache)]
+		if (not options.likelihood_data) and options.likelihood_data_cache is None:
+			raise ValueError, "must set one of --likelihood-data or --likelihood-data-cache"
+		if options.likelihood_data and options.likelihood_data_cache is not None:
+			raise ValueError, "cannot set both --likelihood-data and --likelihood-data-cache"
+		if options.likelihood_data_cache:
+			options.likelihood_data_cache = [CacheEntry(line, coltype = LIGOTimeGPS) for line in file(options.likelihood_data_cache)]
 	else:
 		if options.program is None:
 			raise ValueError, "missing required argument --program"
@@ -277,9 +281,9 @@ def burca2(options, filenames):
 	dbtables.NonDBTableNames.append(ligolw_burca_tailor.rate.BinsTable.tableName)
 
 
-	def load_likelihood_data(cache, seglists, verbose = False):
+	def load_likelihood_data(filenames, verbose = False):
 		coinc_params_distributions = ligolw_burca_tailor.CoincParamsDistributions()
-		for filename in [c.path() for c in cache if c.to_segmentlistdict().intersects(seglists)]:
+		for filename in filenames:
 			connection = sqlite3.connect(":memory:")
 			dbtables.DBTable_set_connection(connection)
 			c, ignored = ligolw_burca_tailor.coinc_params_distributions_from_filename(filename, u"ligolw_burca_tailor", verbose = verbose)
@@ -315,7 +319,10 @@ def burca2(options, filenames):
 		#
 
 
-		likelihood_ratio = load_likelihood_data(options.likelihood_cache, database.seglists, verbose = options.verbose)
+		if options.likelihood_data_cache:
+			likelihood_ratio = load_likelihood_data([c.path() for c in options.likelihood_data_cache if c.to_segmentlistdict().intersects(database.seglists)], verbose = options.verbose)
+		else:
+			likelihood_ratio = load_likelihood_data(options.likelihood_data, verbose = options.verbose)
 
 
 		#
