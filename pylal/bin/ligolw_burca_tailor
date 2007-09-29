@@ -123,7 +123,9 @@ segs = segments.segmentlistdict()
 
 if options.add_from:
 	extra_data = ligolw_burca_tailor.CoincParamsDistributions()
-	for filename in options.add_from:
+	for n, filename in enumerate(options.add_from):
+		if options.verbose:
+			print >>sys.stderr, "%d/%d: " % (n + 1, len(options.add_from)),
 		connection = sqlite3.connect(":memory:")
 		dbtables.DBTable_set_connection(connection)
 		c, s = ligolw_burca_tailor.coinc_params_distributions_from_filename(filename, u"ligolw_burca_tailor", verbose = options.verbose)
