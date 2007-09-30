@@ -12,6 +12,67 @@ __date__ = '$Date$'
 __version__ = '$Revision$'[11:-2]
 
 import ConfigParser
+import os,re # added for cacheStructure
+
+##############################################################################
+# Cachefying class
+##############################################################################
+
+class cacheStructure(object):
+
+  def __init__(self):
+    self.mainCache = {}
+
+  def appendCache(self,cacheType,outputPath=None):
+    try:
+      self.mainCache.keys().index(cacheType)
+    except:
+      self.mainCache[cacheType] = [[],outputPath]
+      self.mainCache[cacheType][0].append('### ' + cacheType + ' CACHE FILE ###\n')
+
+  def appendSubCache(self,cacheType,cacheEntry):
+    self.mainCache[cacheType][0].append(cacheEntry)
+
+  def writeCache(self):
+    if len(self.mainCache) > 0:
+      mainFile = open('main.cache','w')
+      for subcache in self.mainCache.items():
+        fileName = self.fillMainCache(subcache,mainFile)
+        if len(subcache[1][0]) > 1:
+          cache_file = open(fileName,'w')
+          for cacheEntry in subcache[1][0]:
+            cache_file.write(cacheEntry)
+          cache_file.close()
+      mainFile.close()
+    else: pass
+
+  def fillMainCache(self,subcache,fileToWrite):
+    fileNames = []
+    if subcache[1][1]:
+      fileName = subcache[1][1] + subcache[0] + '.cache'
+    else:
+      fileName = subcache[0] + '.cache'
+    if subcache[1][1]:
+      self.getCacheList(fileNames,subcache[1][1])
+    try:
+      fileNames.index(fileName)
+    except:
+      if len(subcache[1][0]) > 1:
+        fileNames.append(fileName)
+    for file in fileNames:
+      fileToWrite.write(subcache[0] + ' ' + file + '\n') 
+    return fileName
+
+  def getCacheList(self,list,inputdir):
+    list_files = os.listdir(inputdir)
+    for element in list_files:
+      if re.search('.cache',element):
+        list.append(inputdir + element)
+      else: pass
+
+##############################################################################
+# The webifying stuff starts here
+##############################################################################
 
 class Content:
 
@@ -74,8 +135,8 @@ class talkBack(Content):
     file.write('\nsummaryPlot='+self.summaryPlot)
     file.write('\nsummaryPlotCaption='+self.summaryPlotCaption)
     file.write('\nsummaryText='+self.summaryText)
-    for content in range(contentList):
-      contentList[content].write(file, 'talkBack',content)
+    for content in range(len(self.contentList)):
+      self.contentList[content].write(file, 'talkBack',content)
     file.close()
  
   def read(self):
