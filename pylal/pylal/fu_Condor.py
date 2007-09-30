@@ -57,16 +57,15 @@ class followUpInspJob(inspiral.InspiralJob,webTheJob):
     inspiral.InspiralJob.__init__(self,cp)
     self.name = 'followUpInspJob'
     self.setupJobWeb(self.name)
-    
+
 
 class followUpInspNode(inspiral.InspiralNode,webTheNode):
   
   def __init__(self, inspJob, procParams, ifo, trig, cp,opts,dag):    
-   
     try:
       inspiral.InspiralNode.__init__(self, inspJob) 
-      injFile = self.checkInjections(cp)
-      bankFile = ifo + '-TRIGBANK_FOLLOWUP_' + str(trig.gpsTime[ifo]) + '.xml'
+      injFile = self.checkInjections(cp)      
+      bankFile = 'trigTemplateBank/' + ifo + '-TRIGBANK_FOLLOWUP_' + str(trig.gpsTime[ifo]) + '.xml.gz'
       self.add_var_opt("write-snrsq","")
       self.add_var_opt("write-chisq","")
       self.add_var_opt("write-spectrum","")
@@ -87,12 +86,20 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
         if param == 'gps-start-time': self.__start = value
         if param == 'ifo-tag': self.__ifotag = value
         if param == 'channel-name': self.inputIfo = value[0:2]
+        if param == 'write-compress': 
+          extension = '.xml.gz'
+        else:
+          extension = '.xml'
 
       # the output_file_name is required by the child job (plotSNRCHISQNode)
-      self.output_file_name = self.inputIfo + "-INSPIRAL_" + self.__ifotag + "_" + self.__usertag + "-" + self.__start + "-" + str(int(self.__end)-int(self.__start)) + ".xml"
+      self.output_file_name = inspJob.outputPath + self.inputIfo + "-INSPIRAL_" + self.__ifotag + "_" + self.__usertag + "-" + self.__start + "-" + str(int(self.__end)-int(self.__start)) + extension
 
       self.set_id(self.inputIfo + "-INSPIRAL_" + self.__ifotag + "_" + self.__usertag + "-" + self.__start + "-" + str(int(self.__end)-int(self.__start)))
-      self.setupNodeWeb(inspJob)
+
+      self.outputCache = ifo + ' ' + 'INSPIRAL' + ' ' + str(self.__start) + ' ' + str(int(self.__end)-int(self.__start)) + ' ' + self.output_file_name  + '\n' + ifo + ' ' + 'INSPIRAL-FRAME' + ' ' + str(self.__start) + ' ' + str(int(self.__end)-int(self.__start)) + ' ' + self.output_file_name.replace(extension,".gwf") + '\n'
+
+      self.setupNodeWeb(inspJob,False,None,None,None,dag.cache)
+      self.add_var_opt("output-path",inspJob.outputPath)
 
       if opts.inspiral:
         dag.addNode(self,'inspiral')
@@ -136,7 +143,7 @@ class plotSNRCHISQNode(pipeline.CondorDAGNode,webTheNode):
   """
   Runs an instance of a plotSNRCHISQ followup job
   """
-  def __init__(self,job,ifo,fileName,trig,page,dag, inspiralNode,opts,prev_plotnode):
+  def __init__(self,job,ifo,fileName,trig,page,dag,inspiralNode,opts,prev_plotnode):
     """
     job = A CondorDAGJob that can run an instance of plotSNRCHISQ followup.
     """
@@ -149,7 +156,7 @@ class plotSNRCHISQNode(pipeline.CondorDAGNode,webTheNode):
       self.add_var_opt("gps",time)
       self.add_var_opt("inspiral-xml-file",fileName)
       self.id = job.name + '-' + ifo + '-' + str(trig.statValue) + '_' + str(trig.eventID)
-      self.setupNodeWeb(job,True, dag.webPage.lastSection.lastSub,page)
+      self.setupNodeWeb(job,True, dag.webPage.lastSection.lastSub,page,None,dag.cache)
       try: 
         if inspiralNode.validNode: self.add_parent(inspiralNode)
       except: pass
@@ -176,17 +183,22 @@ class plotSNRCHISQNode(pipeline.CondorDAGNode,webTheNode):
 ###############################################################################
 
 class qscanDataFindJob(pipeline.LSCDataFindJob,webTheJob):
-  
-  def __init__(self, cache_dir, log_dir, config_file, source):
-    pipeline.LSCDataFindJob.__init__(self, cache_dir, log_dir, config_file)
+
+  def __init__(self, config_file, source):
+    self.name = 'qscanDataFindJob'
+    # unfortunately the logs directory has to be created before we call LSCDataFindJob
+    try:
+      os.mkdir(self.name)
+      os.mkdir(self.name + '/logs')
+    except: pass
+    pipeline.LSCDataFindJob.__init__(self, self.name, self.name + '/logs', config_file)
     if source == 'futrig':
       self.setup_cacheconv(config_file)
-    self.name = 'qscanDataFindJob'
-    self.setupJobWeb(self.name)
+    self.setupJobWeb(self.name) # this will overwrite the stdout and stderr set up by LSCDataFindJob
 
   def setup_cacheconv(self,cp):
     # create a shell script to call convertlalcache.pl if the value of $RETURN is 0
-    convert_script = open('cacheconv.sh','w')
+    convert_script = open(self.name + '/cacheconv.sh','w')
     convert_script.write("""#!/bin/bash
     if [ ${1} -ne 0 ] ; then
       exit 1
@@ -195,32 +207,32 @@ class qscanDataFindJob(pipeline.LSCDataFindJob,webTheJob):
     fi
     """ % string.strip(cp.get('condor','convertcache')))
     convert_script.close()
-    os.chmod('cacheconv.sh',0755)
+    os.chmod(self.name + '/cacheconv.sh',0755)
 
 class qscanDataFindNode(pipeline.LSCDataFindNode,webTheNode):
  
-  def __init__(self, job, source, type, cp, time, ifo, opts,  prev_dNode, dag):
+  def __init__(self, job, source, type, cp, time, ifo, opts, dag, prev_dNode, datafindCommand):
     try:
       pipeline.LSCDataFindNode.__init__(self,job)
-      self.id = str(ifo) + '-' + repr(time) + '-' + str(type) + 'datafind'
-      self.setupNodeWeb(job)
+      self.id = str(ifo) + '-' + repr(time) + '-' + str(type)
+      self.setupNodeWeb(job,False,None,None,None,dag.cache)
       if source == 'futrig':
-        self.outputFileName = self.setup_fu_trig(cp, time, ifo, type)
+        self.outputFileName = self.setup_fu_trig(job, cp, time, ifo, type)
       try:
-        if prev_dNode and opts.datafind: dNode.add_parent(prev_dNode)
+        if prev_dNode and eval('opts.' + datafindCommand):
+          self.add_parent(prev_dNode)
       except: pass
 
-      if opts.datafind:
+      if eval('opts.' + datafindCommand):
         dag.addNode(self,'qscan data find')
-        prev_dNode = self
-        self.validNode
+        self.validNode = True
       else: self.validNode = False
     except:
       self.validNode = False
       print >> sys.stderr, "could not set up the datafind jobs for " + type
 
-    
-  def setup_fu_trig(self, cp, time, ifo, type):
+
+  def setup_fu_trig(self, job, cp, time, ifo, type):
     # 1s is substracted to the expected startTime to make sure the window
     # will be large enough. This is to be sure to handle the rouding to the
     # next sample done by qscan.
@@ -234,8 +246,8 @@ class qscanDataFindNode(pipeline.LSCDataFindNode,webTheNode):
       self.set_type( cp.get(type, 'type' ))
     lalCache = self.get_output()
     qCache = lalCache.rstrip("cache") + "qcache"
-    self.set_post_script("cacheconv.sh $RETURN %s %s" %(lalCache,qCache) )
-    return(qCache)    
+    self.set_post_script(job.name + "/cacheconv.sh $RETURN %s %s" %(lalCache,qCache) )
+    return(qCache)
 
 ##############################################################################
 # qscan class for qscan jobs
@@ -280,6 +292,7 @@ class qscanNode(pipeline.CondorDAGNode,webTheNode):
     """
     page = string.strip(cp.get('output','page'))
     self.friendlyName = name
+
     try:
       pipeline.CondorDAGNode.__init__(self,job)
       self.add_var_arg(repr(time))
@@ -288,10 +301,8 @@ class qscanNode(pipeline.CondorDAGNode,webTheNode):
       self.add_file_arg(qcache)
       output = string.strip(cp.get(name, ifo + 'output'))
       self.add_var_arg(output)
-      self.id = ifo + repr(time)
-      #try to extract web output from the ini file, else ignore it
-      try: self.setupNodeWeb(job,False,dag.webPage.lastSection.lastSub,page,string.strip(cp.get(name,ifo+'web'))+repr(time))
-      except: self.setupNodeWeb(job,False) 
+      self.id = ifo + '-' + name + '-' + repr(time)
+
       #get the absolute output path whatever the path might be in the ini file
       currentPath = os.path.abspath('.')
       try:
@@ -302,10 +313,14 @@ class qscanNode(pipeline.CondorDAGNode,webTheNode):
         print >> sys.stderr, 'invalid path for qscan output in the ini file'
         sys.exit(1)
       self.outputName = absoutput + '/' + repr(time) # redirect output name
-    
+
       #prepare the string for the output cache
-      self.outputCache = repr(time) + '\t' + name + '\t' + ifo + '\t' + self.outputName
-    
+      self.outputCache = ifo + ' ' + name + ' ' + repr(time) + ' ' + self.outputName + '\n'
+
+      #try to extract web output from the ini file, else ignore it
+      try: self.setupNodeWeb(job,False,dag.webPage.lastSection.lastSub,page,string.strip(cp.get(name,ifo+'web'))+repr(time),dag.cache)
+      except: self.setupNodeWeb(job,False,None,None,None,dag.cache) 
+
       # only add a parent if it exists
       try:
         if d_node.validNode and eval('opts.' + datafindCommand):
@@ -318,7 +333,7 @@ class qscanNode(pipeline.CondorDAGNode,webTheNode):
       else: self.validNode = False
     except: 
       self.validNode = False
-      print >> sys.stderr, "could not set up the background qscan jobs"
+      print >> sys.stderr, "could not set up the qscan job for " + self.id
 
 
 
