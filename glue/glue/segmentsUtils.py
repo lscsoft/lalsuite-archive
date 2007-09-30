@@ -287,6 +287,18 @@ def to_range_strings(seglist):
 	return ranges
 
 
+def segmentlistdict_to_short_string(seglists):
+	return "/".join(["%s=%s" % (str(key), ",".join(to_range_strings(value))) for key, value in seglists.items()])
+
+
+def segmentlistdict_from_short_string(s):
+	d = segments.segmentlistdict()
+	for token in s.strip().split("/"):
+		key, ranges = token.strip().split("=")
+		d[key.strip()] = from_range_strings(ranges.strip().split(","))
+	return d
+
+
 #
 # =============================================================================
 #
