@@ -20,6 +20,8 @@
 #ifndef __UTIL_H__
 #define __UTIL_H__
 
+void condor_safe_sleep(int seconds);
+
 /* locate argument number arg in the character line of length length */
 void locate_arg(char *line, int length, int arg, int *arg_start, int *arg_stop);
 float hann_response(float delta);

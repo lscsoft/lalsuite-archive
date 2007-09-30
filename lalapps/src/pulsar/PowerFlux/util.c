@@ -21,6 +21,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
+#include <sys/select.h>
 
 #include <gsl/gsl_sf_trig.h>
 
@@ -28,6 +29,14 @@
 #include "util.h"
 
 extern FILE *LOG;
+
+void condor_safe_sleep(int seconds)
+{
+struct timeval timeout;
+timeout.tv_sec=seconds;
+timeout.tv_usec=1;
+select(0, NULL, NULL, NULL, &timeout);
+}
 
 void locate_arg(char *line, int length, int arg, int *arg_start, int *arg_stop)
 {

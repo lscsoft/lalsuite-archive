@@ -113,7 +113,7 @@ while(fcntl(lock_file, F_SETLK, &fl)<0){
 		fprintf(stderr, "Waiting for lock: %s\n", strerror(errno));
 		i=0;
 		}
-	spin_wait(10);
+	condor_safe_sleep(10);
 	i++;
 	}
 }
@@ -1129,7 +1129,7 @@ while((fin=fopen(filename,"r"))==NULL) {
 	fprintf(stderr,"Error opening file \"%s\":", filename);
 	perror("");
 	retries++;
-	sleep(1);
+	condor_safe_sleep(1);
 	}
 if(retries>0) {
 	fprintf(stderr, "Successfully opened file \"%s\"\n", filename);
@@ -1200,7 +1200,7 @@ while((d=opendir(s))==NULL) {
 	int errsv=errno;
 	fprintf(stderr, "Error reading directory %s: %s\n", s, strerror(errsv));
 	retries++;
-	sleep(1);
+	condor_safe_sleep(1);
 	}
 if(retries>0) {
 	fprintf(stderr, "Successfully opened directory %s\n", s);

@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <fenv.h>
 #include <unistd.h>
 #include <time.h>
 #include <string.h>
@@ -100,7 +101,7 @@ r=calloc(a,b);
 while(r==NULL){
 	fprintf(stderr,"Could not allocate %ld chunks of %ld bytes each (%ld bytes total), current memory usage %ld\n",a,b,a*b, MEMUSAGE);
 	if(i>10)exit(-1);
-	sleep(10);
+	condor_safe_sleep(10);
 	r=calloc(a,b);
 	i++;
 	}
@@ -168,6 +169,8 @@ struct rlimit rl;
 /* INIT stage */
 
 time(&start_time);
+
+fedisableexcept(FE_ALL_EXCEPT);
 
 fprintf(stderr, "Initial memory: %g MB\n", (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
 
