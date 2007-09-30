@@ -75,7 +75,7 @@ class webTheNode:
   def __init__(self):
     pass
 
-  def setupNodeWeb(self, job, passItAlong=True, content=None, page=None,webOverride=None):
+  def setupNodeWeb(self, job, passItAlong=False, content=None, page=None,webOverride=None,cache=None):
     # setup the node id
     self.add_macro("macroid", self.id)
     # determine the output web file name for the job
@@ -95,6 +95,16 @@ class webTheNode:
       self.add_var_opt("page-rel-path",job.relPath)
       self.add_var_opt("page", page)
     if content: self.writeContent(content)
+    if cache:
+      cache.appendCache(job.name,job.outputPath)
+      try:
+        if self.outputCache:
+          cache.appendSubCache(job.name,self.outputCache)
+      except: pass
+      if passItAlong:
+        output_cache = self.id.replace('-',' ') + ' ' + self.webFileName + '\n' + self.id.replace('-',' ') + ' ' + self.webFileName.replace('html','ini') + '\n'
+
+        cache.appendSubCache(job.name,output_cache)
 
   def writeContent(self,content):
     # The talkBack class is a way for the users job to provide information
@@ -140,6 +150,7 @@ class webTheDAG:
     self.page = root
     self.webPage = WebPage(title,filename,root)
     self.webDirs = {}
+    self.cache = cacheStructure()
     try:
        os.mkdir('DAGWeb')
     except: pass
@@ -147,6 +158,7 @@ class webTheDAG:
 
   def writeDAGWeb(self,type):
     self.webPage.cleanWrite(type)
+    self.cache.writeCache()
 
   def appendSection(self,name):
     self.webPage.appendSection(name)
