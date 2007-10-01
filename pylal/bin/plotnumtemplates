@@ -124,15 +124,13 @@ else:
  
 
 if opts.input_file:
-  trig = lal.Cache().read(opts.input_file)
+  trig = lal.Cache().fromfile(open(opts.input_file))
   if not trig:
     print >>sys.stderr, "Must supply a list of input files"
     sys.exit(1) 
   else:
-    tmpltbankFiles = trig.sieve(description = "TMPLTBANK").pfnlist()
-    print len(tmpltbankFiles)
-    trigbankFiles = trig.sieve(description = "TRIGBANK").pfnlist()
-    print len(trigbankFiles)
+    tmpltbankFiles = trig.sieve(description = "TMPLTBANK").checkfilesexist()[0].pfnlist()
+    trigbankFiles = trig.sieve(description = "TRIGBANK").checkfilesexist()[0].pfnlist()
 #######################################################################
 # Read in the search summaries from the template banks
 
