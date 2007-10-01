@@ -12,10 +12,9 @@ import re
 import exceptions
 import glob
 from types import *
-
-from pylab import *
 from glue.ligolw import ligolw
 from glue.ligolw import table
+from glue import lal
 from pylal import SimInspiralUtils
 from pylal import SnglInspiralUtils
 from pylal import CoincInspiralUtils
@@ -43,19 +42,39 @@ parser.add_option("-S","--statistic",action="store",default='snr',\
     type="string",\
     help="choice of statistic used in making plots, valid arguments are: "
           "snr (DEFAULT), snr_over_chi, s3_snr_chi_stat, effective_snr,")
+parser.add_option("-I","--input-file",action="store",type="string",\
+    default=None, metavar=" GLOB",\
+    help="GLOB of MISSED injection files to read" )
+parser.add_option("-i","--ifo-type",action="store",type="string",\
+    default=None,  help="selects the ifo type for sieve for" )
 parser.add_option("-s","--show-plot",action="store_true",default=False,\
     help="display the figures on the terminal" )
 
 (opts,args) = parser.parse_args()
 
+if not opts.show_plot:
+  import matplotlib
+  matplotlib.use('Agg')
+from pylab import *
+from pylal import viz
+
+
+
+
 if opts.found_glob:
   foundFiles = glob.glob(opts.found_glob)
+elif opts.input_file:
+  files =  lal.Cache().fromfile(open(opts.input_file)).sieve(ifos=opts.ifo_type, ifoexactmatch=True)
+  foundFiles = files.sieve(description= "FOUND").checkfilesexist()[0].pfnlist()
 else:
   print >>sys.stderr, "Must specify a glob of FOUND injections"
   sys.exit(1)
 
 if opts.missed_glob:
    missedFiles = glob.glob(opts.missed_glob)
+elif opts.input_file:
+   files =  lal.Cache().fromfile(open(opts.input_file)).sieve(ifos=opts.ifo_type, ifoexactmatch=True)
+   missedFiles = files.sieve(description="MISSED" ).checkfilesexist()[0].pfnlist()
 else:
   print >>sys.stderr, "Must specify a glob of MISSED injections"
   sys.exit(1)
@@ -65,7 +84,7 @@ coincTriggers = CoincInspiralUtils.coincInspiralTable()
 for file in foundFiles:
   file = [file]
   simFound = SimInspiralUtils.ReadSimInspiralFromFiles(file)
-  inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(file)
+  inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(file,mangle_event_id=True)
   # construct the coincs
   fileCoincTriggers = \
     CoincInspiralUtils.coincInspiralTable(inspTriggers,statistic)
