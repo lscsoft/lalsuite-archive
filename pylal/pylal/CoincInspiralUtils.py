@@ -127,6 +127,9 @@ class coincStatistic:
     self.rsq=0
     self.bl=0
 
+  def __str__(self):
+    return self.name
+
   def get_bittenl(self, bl, snr ):
     blx=self.a*snr-self.b
     if bl==0:    
