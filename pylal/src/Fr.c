@@ -179,14 +179,7 @@ static PyObject *frgetvect(PyObject *self, PyObject *args, PyObject *keywds) {
     }
     
     /*-------------- get vector --------------------------*/
-    if (span > 0) {  // All is normal
-        vect = FrFileIGetVect(iFile, channel, start, span);
-    } else {
-        /* span is <= 0.  Find the vector in the first frame and return the
-           whole thing.  What else would be intelligent to do? */
-        frame = FrameRead(iFile);
-        vect = FrameFindVect(frame, channel);
-    }
+    vect = FrFileIGetVect(iFile, channel, start, span);
     
     if(verbose > 0) FrVectDump(vect, stdout, verbose);
     if(vect == NULL){
