@@ -143,7 +143,7 @@ class plotSNRCHISQNode(pipeline.CondorDAGNode,webTheNode):
   """
   Runs an instance of a plotSNRCHISQ followup job
   """
-  def __init__(self,job,ifo,fileName,trig,page,dag,inspiralNode,opts,prev_plotnode):
+  def __init__(self,job,ifo,fileName,trig,page,dag,inspiralNode,opts):
     """
     job = A CondorDAGJob that can run an instance of plotSNRCHISQ followup.
     """
@@ -160,23 +160,13 @@ class plotSNRCHISQNode(pipeline.CondorDAGNode,webTheNode):
       try: 
         if inspiralNode.validNode: self.add_parent(inspiralNode)
       except: pass
-      #try: 
-      #  if self.idCheck(prev_plotNode): self.add_parent(prev_plotNode)
-      #except: pass
       if opts.plots:
         dag.addNode(self,self.friendlyName)
-        prev_plotNode = self
         self.validate()
       else: self.invalidate()
     except: 
       self.invalidate()
       print "couldn't add plot job for " + str(ifo) + "@ "+ str(trig.gpsTime[ifo])
-
-  
-  def idCheck(self, prev_plotNode):
-    if (self.id == prev_plotNode.id) and prev_plotNode.validNode: return True
-    else: return False
-
 
 
 ############### QSCAN CLASSES #################################################
