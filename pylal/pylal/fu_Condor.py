@@ -349,10 +349,10 @@ class FrCheckNode(pipeline.CondorDAGNode,webTheNode):
   """
   def __init__(self, FrCheckJob, procParams, ifo, trig, cp,opts,dag):
 
-     for row in procParams:
-        param = row.param.strip("-")
-        value = row.value
-        if param == 'frame-cache': cacheFile = value 
+    for row in procParams:
+      param = row.param.strip("-")
+      value = row.value
+      if param == 'frame-cache': cacheFile = value 
 
     self.friendlyName = 'Frame Check'
 
