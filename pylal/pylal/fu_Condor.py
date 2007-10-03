@@ -325,7 +325,51 @@ class qscanNode(pipeline.CondorDAGNode,webTheNode):
       self.validNode = False
       print >> sys.stderr, "could not set up the qscan job for " + self.id
 
+###############################################################################
+# FrCheck Jobs and Nodes
+
+class FrCheckJob(pipeline.CondorDAGJob, webTheJob):
+  """
+  A followup job for checking frames
+  """
+  def __init__(self, options, cp, tag_base='FRCHECK'):
+    """
+    """
+    self.__name__ = 'FrCheckJob'
+    self.__executable = string.strip(cp.get('condor','frame_check'))
+    self.__universe = "vanilla"
+    pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+    self.add_condor_cmd('getenv','True')
+    self.setupJobWeb(self.__name__,tag_base)
 
 
+class FrCheckNode(pipeline.CondorDAGNode,webTheNode):
+  """
+  Runs an instance of a FrCheck followup job
+  """
+  def __init__(self, FrCheckJob, procParams, ifo, trig, cp,opts,dag):
 
+     for row in procParams:
+        param = row.param.strip("-")
+        value = row.value
+        if param == 'frame-cache': cacheFile = value 
+
+    self.friendlyName = 'Frame Check'
+
+    try:
+      pipeline.CondorDAGNode.__init__(self,FrCheckJob)
+      self.add_var_opt("frame-cache", cacheFile)
+      self.add_var_opt("frame-check-executable", string.strip(cp.get('frameCheck','executable')))
+
+      self.id = job.name + '-' + ifo + '-' + str(trig.statValue) + '_' + str(trig.eventID)
+      self.setupNodeWeb(job,True, dag.webPage.lastSection.lastSub,page,None,dag.cache)
+      if opts.frame_check:
+        dag.addNode(self,self.friendlyName)
+        self.validate()
+      else: self.invalidate()
+    except:
+      self.invalidate()
+      print "couldn't add frame check job for " + str(ifo) + "@ "+ str(trig.gpsTime[ifo])
+
+    
 

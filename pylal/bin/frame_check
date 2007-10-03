@@ -7,6 +7,8 @@ import os
 import sys
 from pylal.webUtils import *
 from optparse import *
+from glue import lal
+
 
 usage = """ %prog [options]
 """
@@ -16,7 +18,7 @@ parser = OptionParser( usage )
 parser.add_option("-v","--version",action="store_true",default=False,\
     help="display version information and exit")
 
-parser.add_option("-f","--frame-file",action="store",type="string",\
+parser.add_option("-f","--frame-cache",action="store",type="string",\
     metavar=" FILE",help="use frame files list FILE")
 
 parser.add_option("-F","--frame-check-executable",action="store",type="string",\
@@ -52,7 +54,7 @@ if not opts.frame_check_executable:
   print >> sys.stderr, "Use executable EXEC to specify the frame checker."
   sys.exit(1)
 
-if not opts.frame_file:
+if not opts.frame_cache:
   print >> sys.stderr, "No frame file specified."
   print >> sys.stderr, "Use --frame-file FILE to specify location."
   sys.exit(1)
@@ -67,16 +69,24 @@ if not opts.page_rel_path:
   print >> sys.stderr, "Use --page-rel-path PATH to specify location."
   sys.exit(1)
 
-cmd = opts.frame_check_executable + ' -i ' + opts.frame_file
+# FIX THIS TO HANDLE CACHE FILES!!!!
 
-
-frCheckOutput = os.popen(cmd)
+cacheFile = open(opts.frame_cache,'r')
+lalCache = lal.Cache()
+myCache = lalCache.fromfile(cacheFile)
 
 talk = talkBack(opts.output_web_file)
+web = WebPage('my title',opts.output_web_file)
 
-for line in  frCheckOutput.readlines():
-  talk.text(line)
+for entry in myCache:
+  cmd = opts.frame_check_executable + ' -i  '  + entry.path()
+  frCheckOutput = os.popen(cmd)
+  for line in  frCheckOutput.readlines():
+    talk.text(line)
+    web.text(line)
 
+    
+web.cleanWrite('IUL')
 talk.write()
 
 
