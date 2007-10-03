@@ -134,7 +134,7 @@ class talkBack(Content):
     file.write('[talkBack]\n')
     file.write('\nsummaryPlot='+self.summaryPlot)
     file.write('\nsummaryPlotCaption='+self.summaryPlotCaption)
-    file.write('\nsummaryText='+self.summaryText)
+    file.write('\nsummaryText='+self.summaryText+'\n')
     for content in range(len(self.contentList)):
       self.contentList[content].write(file, 'talkBack',content)
     file.close()
@@ -451,6 +451,7 @@ class Text:
       if self.color:
         file.write('</font>')
       file.write('</p>\n')
+
     if type==('talkBack'): 
       file.write('['+str(number)+'.Text]\n')
       if self.type:
@@ -462,6 +463,7 @@ class Text:
             iStr += i+',' 
           file.write('type='+iStr[0:-1]+'\n')
       if self.color: file.write('color='+self.color+'\n') 
+      file.write('text='+self.text +'\n')
 
 class List:
  
@@ -504,15 +506,16 @@ class Image:
 class Break:
 
   def __init__(self, times = 1):
-    self.times = range(times)
+    self.times = times
+    self.timesList = range(times)
 
   def write(self, file, type,number=0):
     if type == 'IUL':
-      for time in self.times:
+      for time in self.timesList:
         file.write('<br>')
     if type == 'talkBack':
       file.write('['+str(number)+'.Linebreak]\n')
-      file.write('times='+self.times+'\n')
+      file.write('times='+str(self.times)+'\n')
 
 
     
