@@ -282,48 +282,47 @@ class qscanNode(pipeline.CondorDAGNode,webTheNode):
     """
     page = string.strip(cp.get('output','page'))
     self.friendlyName = name
+    self.id = ifo + '-' + name + '-' + repr(time)
 
+    pipeline.CondorDAGNode.__init__(self,job)
+    self.add_var_arg(repr(time))
+    qscanConfig = string.strip(cp.get(name, ifo + 'config-file'))
+    self.add_file_arg(qscanConfig)
+    self.add_file_arg(qcache)
+    output = string.strip(cp.get(name, ifo + 'output'))
+    self.add_var_arg(output)
+
+    #get the absolute output path whatever the path might be in the ini file
+    currentPath = os.path.abspath('.')
     try:
-      pipeline.CondorDAGNode.__init__(self,job)
-      self.add_var_arg(repr(time))
-      qscanConfig = string.strip(cp.get(name, ifo + 'config-file'))
-      self.add_file_arg(qscanConfig)
-      self.add_file_arg(qcache)
-      output = string.strip(cp.get(name, ifo + 'output'))
-      self.add_var_arg(output)
-      self.id = ifo + '-' + name + '-' + repr(time)
+      os.chdir(output)
+      absoutput = os.path.abspath('.')
+      os.chdir(currentPath)
+    except:
+      print >> sys.stderr, 'invalid path for qscan output in the ini file'
+      sys.exit(1)
+    self.outputName = absoutput + '/' + repr(time) # redirect output name
 
-      #get the absolute output path whatever the path might be in the ini file
-      currentPath = os.path.abspath('.')
-      try:
-        os.chdir(output)
-        absoutput = os.path.abspath('.')
-        os.chdir(currentPath)
-      except:
-        print >> sys.stderr, 'invalid path for qscan output in the ini file'
-        sys.exit(1)
-      self.outputName = absoutput + '/' + repr(time) # redirect output name
+    #prepare the string for the output cache
+    self.outputCache = ifo + ' ' + name + ' ' + repr(time) + ' ' + self.outputName + '\n'
 
-      #prepare the string for the output cache
-      self.outputCache = ifo + ' ' + name + ' ' + repr(time) + ' ' + self.outputName + '\n'
+    #try to extract web output from the ini file, else ignore it
+    try: self.setupNodeWeb(job,False,dag.webPage.lastSection.lastSub,page,string.strip(cp.get(name,ifo+'web'))+repr(time),dag.cache)
+    except: self.setupNodeWeb(job,False,None,None,None,dag.cache) 
 
-      #try to extract web output from the ini file, else ignore it
-      try: self.setupNodeWeb(job,False,dag.webPage.lastSection.lastSub,page,string.strip(cp.get(name,ifo+'web'))+repr(time),dag.cache)
-      except: self.setupNodeWeb(job,False,None,None,None,dag.cache) 
+    # only add a parent if it exists
+    try:
+      if d_node.validNode and eval('opts.' + datafindCommand):
+        self.add_parent(d_node)
+    except: pass
 
-      # only add a parent if it exists
-      try:
-        if d_node.validNode and eval('opts.' + datafindCommand):
-          self.add_parent(d_node)
-      except: pass
-
-      if eval('opts.' + qscanCommand):
-        dag.addNode(self,self.friendlyName)
-        self.validNode = True
-      else: self.validNode = False
-    except: 
-      self.validNode = False
-      print >> sys.stderr, "could not set up the qscan job for " + self.id
+    if eval('opts.' + qscanCommand):
+      dag.addNode(self,self.friendlyName)
+      self.validNode = True
+    else: self.validNode = False
+ #   except: 
+ #     self.validNode = False
+ #     print >> sys.stderr, "could not set up the qscan job for " + self.id
 
 ###############################################################################
 # FrCheck Jobs and Nodes
@@ -356,20 +355,20 @@ class FrCheckNode(pipeline.CondorDAGNode,webTheNode):
 
     self.friendlyName = 'Frame Check'
 
-    try:
-      pipeline.CondorDAGNode.__init__(self,FrCheckJob)
-      self.add_var_opt("frame-cache", cacheFile)
-      self.add_var_opt("frame-check-executable", string.strip(cp.get('frameCheck','executable')))
+    
+    pipeline.CondorDAGNode.__init__(self,FrCheckJob)
+    self.add_var_opt("frame-cache", cacheFile)
+    self.add_var_opt("frame-check-executable", string.strip(cp.get('frameCheck','executable')))
 
-      self.id = job.name + '-' + ifo + '-' + str(trig.statValue) + '_' + str(trig.eventID)
-      self.setupNodeWeb(job,True, dag.webPage.lastSection.lastSub,page,None,dag.cache)
-      if opts.frame_check:
-        dag.addNode(self,self.friendlyName)
-        self.validate()
-      else: self.invalidate()
-    except:
-      self.invalidate()
-      print "couldn't add frame check job for " + str(ifo) + "@ "+ str(trig.gpsTime[ifo])
+    self.id = FrCheckJob.name + '-' + ifo + '-' + str(trig.statValue) + '_' + str(trig.eventID)
+    self.setupNodeWeb(FrCheckJob,True, dag.webPage.lastSection.lastSub,dag.page,None,dag.cache)
+    if opts.frame_check:
+      dag.addNode(self,self.friendlyName)
+      self.validate()
+    else: self.invalidate()
+#    except:
+#      self.invalidate()
+#      print "couldn't add frame check job for " + str(ifo) + "@ "+ str(trig.gpsTime[ifo])
 
     
 
