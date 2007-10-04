@@ -1,5 +1,11 @@
 #!/usr/bin/python
 
+__version__ = "$Revision$"
+__name__ = "plotinspiralrange"
+__id__ = "$Id"
+
+# $Source$
+
 import sys
 import glob
 from optparse import *
@@ -32,12 +38,11 @@ def writeProcessParams(page, command_line):
   """
   function to write out the process params that the code was called with
   """
-  page.p("Figures produced with plotinspiralrange invoked with arguments:") 
-  text = ""
+  text = "Figures produced with "+ __name__+__id__+" invoked with arguments:\n\n"+ __name__
 
   for arg in command_line:
-    if arg[0] == '-' and text:
-      text += "\n"
+#    if arg[0] == '-' and text:
+#      text += " "
     text += " " +  arg
   page.pre( text )
   return page
@@ -50,9 +55,13 @@ def readFiles(fList):
   """
   output = {}
   massOutput = {}
+  count=0
   if len(fList) == 0:
     return output
   for thisFile in fList:
+    if opts.verbose:
+      print str(count)+"/"+str(len(fList))
+    count =count+1
     massNum = 0
     doc = utils.load_filename(thisFile, gz = thisFile.endswith(".gz"))
     for row in doc.childNodes[0]:
@@ -162,6 +171,10 @@ parser.add_option("-f","--figure-name",action="store",type="string",\
 parser.add_option("-W","--html-output",action="store",type="string",\
     default=None, metavar=" HTML",\
     help="generate an html page containing the plots")
+
+parser.add_option("-v","--verbose",action="store_true",\
+    default=False,help="print information" )
+
 
 command_line = sys.argv[1:]
 (opts,args) = parser.parse_args()
