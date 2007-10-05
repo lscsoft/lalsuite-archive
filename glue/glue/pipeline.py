@@ -1008,10 +1008,12 @@ class CondorDAG:
         
         # loop through all filenames looking for them in the command
         # line so that they can be replaced appropriately by xml tags
+        node_file_dict = {}
         for f in node.get_input_files():
-          xml = '<filename file="%s" />' % f
-          cmd_line = cmd_line.replace(f, xml)
+          node_file_dict[f] = 1
         for f in node.get_output_files():      
+          node_file_dict[f] = 1
+        for f in node_file_dict.keys()
           xml = '<filename file="%s" />' % f
           cmd_line = cmd_line.replace(f, xml)
 
