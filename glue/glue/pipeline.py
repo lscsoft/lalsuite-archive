@@ -1013,7 +1013,7 @@ class CondorDAG:
           node_file_dict[f] = 1
         for f in node.get_output_files():      
           node_file_dict[f] = 1
-        for f in node_file_dict.keys()
+        for f in node_file_dict.keys():
           xml = '<filename file="%s" />' % f
           cmd_line = cmd_line.replace(f, xml)
 
