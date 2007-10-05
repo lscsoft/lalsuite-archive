@@ -114,6 +114,7 @@ class webTheNode:
     self.talkBack = talkBack(self.webFileName)
     self.talkBack.read()
     content.appendTable(1,2,0,700)
+    self.webTable = content.lastTable;
     content.lastTable.row[0].cell[0].link(self.webLink,self.friendlyName)
     # Each time the dag is generated it checks for the existance of the
     # appropriate config file to include the contents in the web page
