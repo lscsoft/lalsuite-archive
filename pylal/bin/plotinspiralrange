@@ -2,7 +2,7 @@
 
 __version__ = "$Revision$"
 __name__ = "plotinspiralrange"
-__id__ = "$Id"
+__Id__ = "$Id"
 
 # $Source$
 
@@ -38,11 +38,9 @@ def writeProcessParams(page, command_line):
   """
   function to write out the process params that the code was called with
   """
-  text = "Figures produced with "+ __name__+__id__+" invoked with arguments:\n\n"+ __name__
-
+  text = "Figures produced with "+ __name__+", "+__version__[1:len(__version__)-1]+", invoked with arguments:\n\n"+ __name__
+ 
   for arg in command_line:
-#    if arg[0] == '-' and text:
-#      text += " "
     text += " " +  arg
   page.pre( text )
   return page
@@ -207,7 +205,7 @@ if opts.html_output:
   page = markup.page()
   title = "Inspiral Range Plots"
   page.init(title=title)
-  page.h2(title)
+#  page.h2(title)
   fnames = []
 
 #######################################################################
@@ -291,9 +289,9 @@ if opts.range_hist:
 
 if opts.html_output and len(fnames):
   page.img( src = fnames, width = 400)
-  comment = \
-      "Inspiral Horizon Distance for a (1.4,1.4) solar mass system with SNR=8"
-  page.p(comment)
+#  comment = \
+#      "Inspiral Horizon Distance for a (1.4,1.4) solar mass system with SNR=8"
+#  page.p(comment)
 
 #######################################################################
 # Make plot of mean range vs total mass
