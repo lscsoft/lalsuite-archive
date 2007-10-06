@@ -1,4 +1,9 @@
 #!/usr/bin/python
+__version__ = "$Revision$"
+__name__ = "plotnumtemplates"
+__Id__ = "$Id"
+
+# $Source$
 
 import sys
 import glob
@@ -19,6 +24,18 @@ def isSearchSumm(name, attrs):
 def isProcess(name, attrs):
   return lsctables.IsTableProperties(lsctables.ProcessTable, name, attrs)
 
+def writeProcessParams(page, command_line):
+  """
+  function to write out the process params that the code was called with
+  """
+  text = "Figures produced with "+ __name__+", "+__version__[1:len(__version__)-1]+", invoked with arguments:\n\n"+ __name__
+
+  for arg in command_line:
+    text += " " +  arg
+  page.pre( text )
+  return page
+
+
 def readFiles(fList):
   """
   read in the SimInspiralTables from a list of files
@@ -27,8 +44,12 @@ def readFiles(fList):
   output = {}
   if not fList:
     return output
+  count = 0
   for thisFile in fList:
     fileobj = file(thisFile)
+    count = count+1
+    if opts.verbose is True:
+      print '...reading ' +  str(count)+'/'+str(len(fList))
     if thisFile.endswith(".gz"):
       fileobj = gzip.GzipFile(mode = "rb", fileobj=fileobj)
     else:
@@ -69,7 +90,11 @@ Usage: plotnumtemplates [options]
 """
 
 ##############################################################################
-parser = OptionParser( usage )
+parser = OptionParser( usage=usage, \
+    version= "%prog CVS\n" +
+    "$Id$\n" +
+    "$Name$\n")
+
     
 parser.add_option("-t","--tmplt-glob",action="store",type="string",\
     default=None,metavar="TMPLT",\
@@ -79,8 +104,7 @@ parser.add_option("-T","--trig-glob",action="store",type="string",\
     default=None,metavar="TRIG",\
     help="glob for files containing the string TRIG")
 
-
-parser.add_option("-I","--input-file",action="store",type="string",\
+parser.add_option("-C","--cache-file",action="store",type="string",\
     default=None,metavar="INPUT",\
     help="supply a bunch of TMPLT files or TRIG files")
 
@@ -94,6 +118,14 @@ parser.add_option("-f","--figure-name",action="store",type="string",\
 parser.add_option("-p","--print-numbers",action="store_true",default=False,\
     help="prints each number on the screen" )
 
+parser.add_option("-W","--html-output",action="store_true",\
+    default=False, metavar=" HTML",\
+    help="generate a html page containing the plots")
+
+parser.add_option("-v","--verbose",action="store_true",default=False,\
+    help="prints verbose information" )
+
+command_line = sys.argv[1:]
 (opts,args) = parser.parse_args()
 
 if not opts.show_plot:
@@ -123,20 +155,23 @@ else:
   trigbankFiles = None
  
 
-if opts.input_file:
-  trig = lal.Cache().fromfile(open(opts.input_file))
+if opts.cache_file:
+  trig = lal.Cache().fromfile(open(opts.cache_file))
   if not trig:
     print >>sys.stderr, "Must supply a list of input files"
     sys.exit(1) 
   else:
     tmpltbankFiles = trig.sieve(description = "TMPLTBANK").checkfilesexist()[0].pfnlist()
     trigbankFiles = trig.sieve(description = "TRIGBANK").checkfilesexist()[0].pfnlist()
+
 #######################################################################
 # Read in the search summaries from the template banks
 
-
+print 'Reading files...' + str(len(tmpltbankFiles))
 tmpltSumm = readFiles(tmpltbankFiles)
+print 'Reading files...' + str(len(trigbankFiles))
 trigSumm  = readFiles(trigbankFiles)
+print 'done'
 colors = {'G1':'k','H1':'r','H2':'b','L1':'g'}
 
 
@@ -148,6 +183,7 @@ for ifo in tmpltSumm.keys():
       markersize=12, markeredgewidth=1)
   if opts.print_numbers:
     print "Number of templates for :" +ifo+ str(startTime) +" " + str(numTemplates)
+
 
 for ifo in trigSumm.keys():
   numTrigs = trigSumm[ifo].getColumnByName('nevents').asarray()
@@ -162,8 +198,36 @@ xlabel('Days after start of run', size='x-large')
 ylabel('Number of templates', size='x-large')
 legend()
 grid("on")
+
+fname=""
 if opts.figure_name:
-  savefig(opts.figure_name + ".png")
+  fname=__name__+"_"+opts.figure_name + ".png"
+  savefig(fname)
+  savefig(__name__+"_"+opts.figure_name + ".eps")
+
+# Initialise the html output if needed
+if opts.html_output is True:
+  try:
+    import markup
+    from markup import oneliner as e
+  except:
+    raise ImportError("Require markup.py to generate the html page")
+
+  if not opts.figure_name: opts.figure_name = ""
+  html_file = file(__name__+"_"+opts.figure_name+".html", "w")
+  page = markup.page()
+  title = "Template Bank Size"
+  page.init(title=title)
+  
+  if len(fname)>0:
+    page.img(src=fname, width="400", border="2", \
+        alt="Variation in template bank and triggered template bank sizes")
+
+  page = writeProcessParams(page, command_line)
+  html_file.write(page(False))
+  html_file.close()
+
+
 
 if opts.show_plot:
   show()  
