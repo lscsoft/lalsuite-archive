@@ -206,7 +206,7 @@ if opts.html_output is True:
     raise ImportError("Require markup.py to generate the html page")
 
   if not opts.figure_name: opts.figure_name = opts.html_output.rstrip(".html")
-  html_file = file(__name__+"_"+opts.figure_name+"html", "w")
+  html_file = file(__name__+"_"+opts.figure_name+".html", "w")
   page = markup.page()
   title = "Inspiral Range Plots"
   page.init(title=title)
