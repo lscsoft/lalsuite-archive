@@ -58,7 +58,7 @@ def readFiles(fList):
     return output
   for thisFile in fList:
     if opts.verbose:
-      print str(count)+"/"+str(len(fList))
+      print str(count)+"/"+str(len(fList))+" " + thisFile
     count =count+1
     massNum = 0
     doc = utils.load_filename(thisFile, gz = thisFile.endswith(".gz"))
@@ -166,9 +166,9 @@ parser.add_option("-f","--figure-name",action="store",type="string",\
     default=None, metavar=" FNAME",\
     help="generate png figures with name FNAME-fig.png" )
 
-parser.add_option("-W","--html-output",action="store",type="string",\
-    default=None, metavar=" HTML",\
-    help="generate an html page containing the plots")
+parser.add_option("-W","--html-output",action="store_true",\
+    default=False, metavar=" HTML",\
+    help="generate a html page containing the plots")
 
 parser.add_option("-v","--verbose",action="store_true",\
     default=False,help="print information" )
@@ -186,6 +186,9 @@ if opts.inspiral_glob:
 if opts.cache_file:
   inspiralFiles += [lal.CacheEntry(line).path() \
       for line in open(opts.cache_file) if "INSPIRAL" in line]
+if opts.cache_file:
+  inspiralFiles += [lal.CacheEntry(line).path() \
+      for line in open(opts.cache_file) if "TMPLTBANK" in line]
 
 #######################################################################
 # Read in the summ values from the inspirals
@@ -193,7 +196,9 @@ inspiralSumm,massInspiralSumm = readFiles(inspiralFiles)
 
 colors = {'G1':'k','H1':'r','H2':'b','L1':'g','V1':'m'}
 
-if opts.html_output:
+fnames=[]
+# Initialise the html output if needed
+if opts.html_output is True:
   try:
     import markup
     from markup import oneliner as e
@@ -201,12 +206,11 @@ if opts.html_output:
     raise ImportError("Require markup.py to generate the html page")
 
   if not opts.figure_name: opts.figure_name = opts.html_output.rstrip(".html")
-  html_file = file(opts.html_output, "w")
+  html_file = file(__name__+"_"+opts.figure_name+"html", "w")
   page = markup.page()
   title = "Inspiral Range Plots"
   page.init(title=title)
 #  page.h2(title)
-  fnames = []
 
 #######################################################################
 # Make plot of range vs time
@@ -233,8 +237,9 @@ if opts.range_vs_time:
   if opts.figure_name:
     fname = opts.figure_name + "_range_plot.png"
     savefig(fname)
-  if opts.html_output:
-    fnames.append(fname)
+    if opts.html_output is True:
+      page.img( src = fname, width = 400, \
+	 alt="Histograms of Horizon Distance for a (1.4,1.4) solar mass system with SNR=8", border="2")
 
 
 #######################################################################
@@ -285,12 +290,10 @@ if opts.range_hist:
   if opts.figure_name:
     fname = opts.figure_name + "_range_hist.png"
     savefig(fname)
-    fnames.append(fname)
-
-if opts.html_output and len(fnames):
-  page.img( src = fnames, width = 400)
-#  comment = \
-#      "Inspiral Horizon Distance for a (1.4,1.4) solar mass system with SNR=8"
+    if opts.html_output is True:
+      page.img( src = fname, width = 400, \
+	 alt="""Inspiral Horizon Distance for a (1.4,1.4) solar 
+	 mass system with SNR=8""", border="2")
 #  page.p(comment)
 
 #######################################################################
@@ -338,11 +341,9 @@ if opts.range_mass:
   if opts.figure_name:
     fname = opts.figure_name + "_range_mass.png"
     savefig(fname)
-  if opts.html_output and len(fnames):
-    page.p("Inspiral Horizon distance")
-  page.img( src = fnames, width = 400)
-  comment = "Inspiral Horizon Distance vs Mass at SNR=8"
-  page.p(comment)
+    if opts.html_output is True:
+      page.img( src = fname, width = 400, \
+	alt="Inspiral Horizon Distance vs Mass at SNR=8" ,border="2")
 
 if opts.html_output:
   page = writeProcessParams(page, command_line)
