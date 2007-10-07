@@ -2,7 +2,6 @@
 
 __version__ = "$Revision$"
 __name__ = "plotnumtriggers"
-__NAME__ = "$Name $"
 __Id__ = "$Id$"
 
 import sys
@@ -123,6 +122,8 @@ parser.add_option("-W","--html-output",action="store_true",\
 parser.add_option("-v","--verbose",action="store_true",default=False,\
     help="prints verbose information" )
 
+parser.add_option("-L", "--log-y", action="store_true", default=False,
+    help="set the y axis to have a log scale")
 
 
 command_line = sys.argv[1:]
@@ -187,8 +188,14 @@ for ifo in inspiralSumm.keys():
   numTriggers = inspiralSumm[ifo].getColumnByName('nevents').asarray()
   startTime = viz.timeindays(inspiralSumm[ifo].getColumnByName('out_start_time').asarray())
   style = colors[ifo] + 'x'
-  plot(startTime, numTriggers, style, label=ifo+' inspiral',\
-      markersize=12, markeredgewidth=1)
+  
+  if opts.log_y is True:
+    semilogy(startTime, numTriggers, style, label=ifo+' inspiral',\
+        markersize=12, markeredgewidth=1)
+  else:
+    plot(startTime, numTriggers, style, label=ifo+' inspiral',\
+        markersize=12, markeredgewidth=1)
+
   if opts.print_numbers:
     print "Number of triggers for :" +ifo+ str(startTime) +" " + str(numTemplates)
 
@@ -197,8 +204,13 @@ for ifo in inspiralSecondSumm.keys():
   numTrigs = inspiralSecondSumm[ifo].getColumnByName('nevents').asarray()
   startTime = viz.timeindays(inspiralSecondSumm[ifo].getColumnByName('out_start_time').asarray())
   style = colors[ifo] + 'o'
-  plot(startTime, numTrigs, style, label=ifo+' inspiral second',\
-      markersize=12, markeredgewidth=1)
+  if opts.log_y is True:
+    semilogy(startTime, numTrigs, style, label=ifo+' inspiral second',\
+        markersize=12, markeredgewidth=1)
+  else:
+    plot(startTime, numTrigs, style, label=ifo+' inspiral second',\
+        markersize=12, markeredgewidth=1)
+
   if opts.print_numbers:
     print "Number of trigges (second stage) for :" +ifo+ str(startTime) +" " + str(numTrigs)
 
@@ -209,7 +221,7 @@ grid("on")
 
 
 if opts.figure_name:
-  fname=__name__+"_"+opts.figure_name+"_nevents_first_inspiral.png" 
+  fname=__name__+"_"+opts.figure_name+".png" 
   savefig(fname)
   savefig(__name__+"_"+opts.figure_name + ".eps")
 
