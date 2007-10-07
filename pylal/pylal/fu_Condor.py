@@ -168,7 +168,6 @@ class plotSNRCHISQNode(pipeline.CondorDAGNode,webTheNode):
       self.invalidate()
       print "couldn't add plot job for " + str(ifo) + "@ "+ str(trig.gpsTime[ifo])
 
-
 ############### QSCAN CLASSES #################################################
 ###############################################################################
 
@@ -307,8 +306,10 @@ class qscanNode(pipeline.CondorDAGNode,webTheNode):
     self.outputCache = ifo + ' ' + name + ' ' + repr(time) + ' ' + self.outputName + '\n'
 
     #try to extract web output from the ini file, else ignore it
-    try: self.setupNodeWeb(job,False,dag.webPage.lastSection.lastSub,page,string.strip(cp.get(name,ifo+'web'))+repr(time),dag.cache)
-    except: self.setupNodeWeb(job,False,None,None,None,dag.cache) 
+    try:
+      self.setupNodeWeb(job,False,dag.webPage.lastSection.lastSub,page,string.strip(cp.get(name,ifo+'web'))+repr(time),dag.cache)
+    except: 
+      self.setupNodeWeb(job,False,None,None,None,dag.cache) 
 
     # only add a parent if it exists
     try:
@@ -323,6 +324,88 @@ class qscanNode(pipeline.CondorDAGNode,webTheNode):
  #   except: 
  #     self.validNode = False
  #     print >> sys.stderr, "could not set up the qscan job for " + self.id
+
+
+##############################################################################
+# analyse qscan class: the job
+
+class analyseQscanJob(pipeline.CondorDAGJob, webTheJob):
+  """
+  A followup analyseQscan job to interprete the qscans
+  """
+  def __init__(self,options,cp,tag_base='ANALYSE_QSCAN'):
+    self.__name__ = 'analyseQscanJob'
+    self.__executable = string.strip(cp.get('condor','analyseQscan'))
+    self.__universe = "vanilla"
+    pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+    self.add_condor_cmd('getenv','True')
+    self.setupJobWeb(self.__name__,tag_base)
+
+##############################################################################
+# analyse qscan class: the node
+
+class analyseQscanNode(pipeline.CondorDAGNode,webTheNode):
+  """
+  Runs an instance of a followup analyseQscan job
+  """
+  def __init__(self,job,time,ifo,name,foregroundCache,backgroundCache,cp,opts,dag,command):
+    """
+    job = A CondorDAGJob that can run an instance of analyseQscan followup.
+    """
+    page = string.strip(cp.get('output','page'))
+    self.friendlyName = 'analyse ' + name
+    self.id = ifo + '-' + name + '-' + repr(time)
+
+    try:
+      pipeline.CondorDAGNode.__init__(self,job)
+      if cp.has_option('analyse-qscan','generate-qscan-xml'):
+        self.add_var_opt('generate-qscan-xml','')
+      self.add_var_opt('z-threshold',cp.getfloat('analyse-qscan','z-threshold'))
+      if cp.has_option('analyse-qscan','plot-z-distribution'):
+        self.add_var_opt('plot-z-distribution','')
+        self.add_var_opt('z-min',cp.getfloat('analyse-qscan','z-min'))
+        self.add_var_opt('z-max',cp.getfloat('analyse-qscan','z-max'))
+        self.add_var_opt('z-bins',cp.getfloat('analyse-qscan','z-bins'))
+      if cp.has_option('analyse-qscan','plot-dt-distribution'):
+        self.add_var_opt('plot-dt-distribution','')
+        self.add_var_opt('dt-min',cp.getfloat('analyse-qscan','dt-min'))
+        self.add_var_opt('dt-max',cp.getfloat('analyse-qscan','dt-max'))
+        self.add_var_opt('dt-bins',cp.getfloat('analyse-qscan','dt-bins'))
+      if cp.has_option('analyse-qscan','plot-z-scattered'):
+        self.add_var_opt('plot-z-scattered','')
+      if cp.has_option('analyse-qscan','plot-z-scattered') or cp.has_option('analyse-qscan','plot-dt-distribution'):
+        self.add_var_opt('ref-channel',cp.get('analyse-qscan','ref-channel'))
+      self.add_var_opt('qscan-id',name + '_' + ifo + '_' + repr(time)) 
+
+      self.add_var_opt('qscan-cache-foreground',foregroundCache)
+      self.add_var_opt('qscan-cache-background',backgroundCache)
+
+      self.setupNodeWeb(job,True,None,page,None,dag.cache)
+
+      # get the table of the qscan job associated to this trigger
+      for node in dag.get_nodes():
+        if isinstance(node,qscanNode):
+          if node.id == self.id:
+            # link the analyseQscan output page to the qscan table
+            node.webTable.row[0].cell[0].linebreak()
+            node.webTable.row[0].cell[0].link(self.webLink,"qscan background vs qscan foreground")
+            break      
+
+      for node in dag.get_nodes():
+        if isinstance(node,qscanNode): 
+          if node.validNode:
+            if node.friendlyName == name or \
+            node.friendlyName.replace('background','foreground') == name:
+              self.add_parent(node)
+
+      if eval('opts.' + command):
+        dag.addNode(self,self.friendlyName)
+        self.validNode = True
+      else: self.validNode = False
+
+    except:
+      self.validNode = False
+      print "couldn't add " + name + " analyseQscan job for " + ifo + "@ "+ repr(time)
 
 ###############################################################################
 # FrCheck Jobs and Nodes
@@ -369,6 +452,7 @@ class FrCheckNode(pipeline.CondorDAGNode,webTheNode):
 #    except:
 #      self.invalidate()
 #      print "couldn't add frame check job for " + str(ifo) + "@ "+ str(trig.gpsTime[ifo])
+
 
     
 
