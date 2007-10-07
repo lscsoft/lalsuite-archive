@@ -1,4 +1,4 @@
-#!/usr/bin/env @PYTHONPROG@
+#!/usr/bin/env python
 """
 Something
 
@@ -15,19 +15,20 @@ __version__ = '$Revision$'[11:-2]
 # import standard modules and append the lalapps prefix to the python path
 
 #import matplotlib
-#matplotlib.use('Agg')
 
-import matplotlib.cm
+import matplotlib
+matplotlib.use('Agg')
+
 from matplotlib.patches     import Patch
 from matplotlib.axes        import Axes
 from matplotlib.collections import PolyCollection
 from matplotlib.colors      import normalize, Colormap
+from pylab import *
 
 import sys, getopt, os, copy, math
 import socket, time
 import re, string
 from optparse import *
-from pylab import *
 import tempfile
 import ConfigParser
 import urlparse
@@ -43,13 +44,15 @@ from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
+from pylal.webUtils import *
+from pylal.fu_utils import *
 
 ##############################################################################
 # function to check the length of the summary files (for debugging)
 
-def checkSummaryLength(inputPath): # used for debugging only
+def checkSummaryLength(opts,inputPath): # used for debugging only
 
-  outputPath = string.strip(cp.get('output','output-path')) + '/' + 'qscan_length.txt'
+  outputPath = opts.output_path + '/' + 'qscan_length.txt'
   storeLength = open(outputPath,'w')
 
   listDir = os.listdir(inputPath)
@@ -69,33 +72,103 @@ def checkSummaryLength(inputPath): # used for debugging only
 ##############################################################################
 # class to read qscan summary files
 
+def getQscanTable(opts,type):
+
+  summary = readSummaryFiles()
+
+  if eval("opts.qscan_cache_" + type):
+    qscanList = getPathFromCache(eval("opts.qscan_cache_" + type),type)
+  else:
+    try:
+      inputPath = eval("opts." + type + "_input_path")
+      qscanList = parseDirectoryList(inputPath)
+    except:
+      print >> sys.stderr, "cannot get input path for " + type
+      print >> sys.stderr, "specify at least one of the following options:"
+      print >> sys.stderr, "--qscan-cache, --" + type + "-input-path"
+      sys.exit(1)
+
+  table = summary.parseQscanList(qscanList)
+
+  # perform a sanity check
+  if not (len(table['channel_name']) == len(table['qscan_dir'])):
+    print >> sys.stderr, "the length of channel_name does not match the length of qscan_dir in the " + type + " table"
+    print >> sys.stderr, "check for data corruption in the qscan summary files in the " + type + " table"
+    sys.exit(1)
+
+  return table
+
+def parseDirectoryList(inputPath):
+  list = []
+  listDir = os.listdir(inputPath)
+  for dir in listDir:
+    inputDir = inputPath + '/' + dir
+    #list.append([inputDir])
+    list.append([inputDir,None,None,None])
+  return list
+
 class readSummaryFiles:
 
   def __init__(self):
-    self.table = {'channel_name':[],'peak_time':[],'peak_frequency':[],'peak_q':[],'peak_significance':[],'peak_amplitude':[],'qscan_time':[]}
+    self.table = {'type':[],'ifo':[],'qscan_time':[],'qscan_dir':[],'channel_name':[],'peak_time':[],'peak_frequency':[],'peak_q':[],'peak_significance':[],'peak_amplitude':[]}
+    self.paramList = ['channel_name','peak_time','peak_frequency','peak_q','peak_significance','peak_amplitude']
+    self.paramNames = ['channelName','peakTime','peakFrequency','peakQ','peakSignificance','peakAmplitude']
+    self.paramMaps = map(None,self.paramList,self.paramNames)
 
+  def extractFromTable(self,inputTable,type=None,ifo=None,path=None):
+    tableLength = len(inputTable['channel_name'])
+    table = inputTable
+    if path:
+      table = self.extractParam('qscan_dir',path,table,tableLength)
+    if ifo:
+      table = self.extractParam('ifo',ifo,table,tableLength)
+    if type:
+      table = self.extractParam('type',type,table,tableLength)
+    return table
 
-  def getAuxChannels(self,inputPath):
-    #id = 0
-    listDir = os.listdir(inputPath)
-    for dir in listDir:
-      try:
-        doc = utils.load_filename(inputPath + "/" + dir + "/summary.xml")
-        qscanTable = table.get_table(doc, "qscan:summary:table")
-      except: 
-        print >> sys.stderr, "failed to read" + inputPath + "/" + dir + "/summary.xml"
-        continue
-      for channel in qscanTable:
-        self.table['channel_name'].append(channel.channelName)
-        self.table['peak_time'].append(channel.peakTime)
-        self.table['peak_frequency'].append(channel.peakFrequency)
-        self.table['peak_q'].append(channel.peakQ)
-        self.table['peak_significance'].append(channel.peakSignificance)
-        self.table['peak_amplitude'].append(channel.peakAmplitude)
-	self.table['qscan_time'].append(dir)
-        #self.table['qscan_id'].append(id)
-      #id = id+1
-    return self.table      
+  def extractParam(self,param,param_value,inputTable,tableLength):
+    intermediateTable = {'type':[],'ifo':[],'qscan_time':[],'qscan_dir':[],'channel_name':[],'peak_time':[],'peak_frequency':[],'peak_q':[],'peak_significance':[],'peak_amplitude':[]}
+    ind_j = 0
+    n_param = inputTable[param].count(param_value)
+    for i in range(0,n_param,1):
+      ind_j = ind_j + inputTable[param][ind_j:tableLength].index(param_value)
+      for parameter in self.paramMaps:
+        intermediateTable[parameter[0]].append(inputTable[parameter[0]][ind_j])
+      intermediateTable['qscan_dir'].append(inputTable['qscan_dir'][ind_j])
+      intermediateTable['type'].append(inputTable['type'][ind_j])
+      intermediateTable['ifo'].append(inputTable['ifo'][ind_j])
+      intermediateTable['qscan_time'].append(inputTable['qscan_time'][ind_j])
+      ind_j = ind_j + 1
+    return intermediateTable
+
+  def parseQscanList(self,list):
+    for subList in list:
+      intermediate_table = self.getAuxChannels(subList)
+      for param in self.paramMaps:
+        self.table[param[0]] = self.table[param[0]] + intermediate_table[param[0]] 
+      self.table['qscan_dir'] = self.table['qscan_dir'] + intermediate_table['qscan_dir']
+      self.table['type'] = self.table['type'] + intermediate_table['type']
+      self.table['qscan_time'] = self.table['qscan_time'] + intermediate_table['qscan_time']
+      self.table['ifo'] = self.table['ifo'] + intermediate_table['ifo']
+    return self.table
+
+  def getAuxChannels(self,inputList):
+    intermediateTable = {'type':[],'ifo':[],'qscan_time':[],'qscan_dir':[],'channel_name':[],'peak_time':[],'peak_frequency':[],'peak_q':[],'peak_significance':[],'peak_amplitude':[]}
+    try:
+      doc = utils.load_filename(inputList[0] + "/summary.xml")
+      qscanTable = table.get_table(doc, "qscan:summary:table")
+    except:
+      print >> sys.stderr, "failed to read" + inputList[0] + "/summary.xml"
+      return intermediateTable
+    for channel in qscanTable:
+      for param in self.paramMaps:
+        intermediateTable[param[0]].append(eval('channel.' + param[1]))
+      intermediateTable['qscan_dir'].append(inputList[0])
+      #if len(inputList) == 4:
+      intermediateTable['qscan_time'].append(inputList[1])
+      intermediateTable['type'].append(inputList[2])
+      intermediateTable['ifo'].append(inputList[3])
+    return intermediateTable
 
 ##############################################################################
 # functions to compute and plot histograms
@@ -123,56 +196,88 @@ def buildChannelList(table,channel,param1,param2=None):
   return dict
 
 
-def printChannelList(table,channel,param1,param2): # for debugging only
+def printChannelList(opts,table,channel,param1,param2): # for debugging only
 
   chan_dict = buildChannelList(table,channel,param1,param2)
   fileName = channel.split(':')[0] + '_' + channel.split(':')[1] + '_' + param1 + '_' + param2 + '.txt'
-  filePath = string.strip(cp.get('output','output-path')) + '/' + fileName
+  filePath = opts.output_path + '/' + fileName
   store = open(filePath,'w')
   for i,value in enumerate(chan_dict[param1]):
     store.write(str(value) + '\t' + str(chan_dict[param2][i]) + '\n')
   store.close()
 
+def printDeltatList(opts,table,channel,param1,thr1,thr2): # for debugging only
 
-def computeDeltaT(table,chan,cp):
+  chan_dict = buildChannelList(table,channel,param1,'qscan_dir')
+  fileName1 = channel.split(':')[0] + '_' + channel.split(':')[1] + '_deltaT_in.txt'
+  filePath1 = opts.output_path + '/' + fileName1
+  store1 = open(filePath1,'w')
+  fileName2 = channel.split(':')[0] + '_' + channel.split(':')[1] + '_deltaT_out.txt'
+  filePath2 = opts.output_path + '/' + fileName2
+  store2 = open(filePath2,'w')
+  for i,value in enumerate(chan_dict[param1]):
+    chan_directory = chan_dict['qscan_dir'][i]
+    chan_central_time = chan_directory.split('/')[-1]
+    dt = value - float(chan_central_time)
+    if abs(dt) < thr1:
+      store1.write(str(dt) + '\t' + chan_central_time + '\n')
+    if abs(dt) > thr2:
+      store2.write(str(dt) + '\t' + chan_central_time + '\n')
+  store1.close()
+  store2.close()
+
+
+def computeDeltaT(table,chan,opts,ifo):
   dt_list = []
   
-  if cp.has_option('dt-distribution','t-reference'):
-    if len(string.strip(cp.get('dt-distribution','t-reference'))) > 0:
-      darm_dict = buildChannelList(table,string.strip(cp.get('dt-distribution','t-reference')),'peak_time','qscan_time')
+  if opts.ref_dt:
+    if ifo:
+      refChannel = ifo + ':' + opts.ref_channel
+    else:
+      refChannel = opts.ref_channel
+    darm_dict = buildChannelList(table,refChannel,'peak_time','qscan_dir')
 
-  chan_dict = buildChannelList(table,chan,'peak_time','qscan_time')  
+  chan_dict = buildChannelList(table,chan,'peak_time','qscan_dir')  
 
   for i,time in enumerate(chan_dict['peak_time']):
     if time > 0.0:
-      if not cp.has_option('dt-distribution','t-reference') or \
-      (cp.has_option('dt-distribution','t-reference') and \
-      len(string.strip(cp.get('dt-distribution','t-reference'))) == 0):
-        dt = time - float(chan_dict['qscan_time'][i])
+      if not opts.ref_dt:
+        chan_directory = chan_dict['qscan_dir'][i]
+        chan_central_time = chan_directory.split('/')[-1]
+        dt = time - float(chan_central_time)
         dt_list.append(dt)
       else:
         if len(darm_dict['peak_time']) > 0:
           try: 
-            indx_ref = darm_dict['qscan_time'].index(chan_dict['qscan_time'][i])
+            indx_ref = darm_dict['qscan_dir'].index(chan_dict['qscan_dir'][i])
             if float(darm_dict['peak_time'][indx_ref]) > 0.0:
               dt = time - float(darm_dict['peak_time'][indx_ref])
               dt_list.append(dt)
           except:
-            print >> sys.stderr, 'GW channel could not be found in qscan ' + chan_dict['qscan_time'][i]
+            print >> sys.stderr, 'GW channel could not be found in qscan ' + chan_dict['qscan_dir'][i]
             continue
 
   return dt_list
 
 
-def makeHistogram(list,distribution,chan,cp):
+def makeHistogram(list,distribution,opts,percentiles=None,candidate=None):
+
+  parameter = distribution.split('-')[0]
 
   # set up the bin boundaries for the histogram
-  min_val = eval(cp.get(distribution,'min'))
-  max_val = eval(cp.get(distribution,'max'))
-  nbins = eval(cp.get(distribution,'nbins'))
+  min_val = eval('opts.' + parameter + '_min')
+  max_val = eval('opts.' + parameter + '_max')
+  nbins = eval('opts.' + parameter + '_bins')  
+
+  if percentiles:
+    max_percentile = float( int(percentiles[2]) ) + 1.0
+    max_val = max(max_val,max_percentile)
+  if candidate:
+    max_val = max(max_val,candidate)
 
   step = (float(max_val) - float(min_val))/float(nbins)
-  bins = arange(min_val, max_val, step)
+
+  bins = arange(min_val - step/2., max_val + step/2., step)
 
   if len(list):
     # compute the histogram values
@@ -181,76 +286,151 @@ def makeHistogram(list,distribution,chan,cp):
 
   return dist,bin
 
+def findPercentile(list,percentile):
+  list.sort()
+  index = int(percentile * len(list))
+  return list[index - 1]
 
-def selectSignificance(table,chan,cp):
+def findPercentileForDt(list,percentile):
+  list.sort()
+  index = int( (1-percentile) * len(list)) +1
+  return list[index - 1]
+
+def absList(list):
+  newList = []
+  for element in list:
+    newList.append(abs(element))
+  return newList
+
+def computeRank(list,threshold):
+  counter = 0
+  for element in list:
+    if element < threshold:
+      counter = counter + 1
+  rank = float(counter) / float(len(list))
+  return rank
+
+def computeRankForDt(list,threshold):
+  counter = 0
+  for element in list:
+    if abs(element) > threshold:
+      counter = counter + 1
+  rank = float(counter) / float(len(list))
+  return rank
+
+def getAuxVsDarmList(table,chan,opts,ifo=None):
+  AuxList = []
+  DarmList = []
+  chan_dict = buildChannelList(table,chan,'peak_significance','qscan_dir')
+  if ifo:
+    refChannel = ifo + ':' + opts.ref_channel
+  else:
+    refChannel = opts.ref_channel
+  darm_dict = buildChannelList(table,refChannel,'peak_significance','qscan_dir')
+  for i,z in enumerate(chan_dict['peak_significance']):
+    if z > opts.z_threshold:
+      try:
+        indx_ref = darm_dict['qscan_dir'].index(chan_dict['qscan_dir'][i])
+      except:
+        print >> sys.stderr, "GW channel could not be found in qscan " + chan_dict['qscan_dir'][i]
+        continue
+      if darm_dict['peak_significance'][indx_ref] > 0.0:
+        AuxList.append(z)
+        DarmList.append(darm_dict['peak_significance'][indx_ref])
+  return AuxList,DarmList
+
+
+def selectSignificance(table,chan,opts):
 
   z_list = []
   chan_dict = buildChannelList(table,chan,'peak_significance')
 
   for z in chan_dict['peak_significance']:
-    if z > eval(cp.get('z-distribution','z-threshold')):
+    if z > opts.z_threshold:
      z_list.append(z)
 
   return z_list
 
 
-def saveHistogramSignificance(chan,cp,z_dist,bin):
-     
-  histoFileName = chan.split(':')[0] + '_' + chan.split(':')[1] + '_z_distribution.txt'
-  histoFilePath = string.strip(cp.get('output','output-path')) + '/' + histoFileName
-  store = open(histoFilePath,'w')
-  for i,z in enumerate(z_dist):
-    store.write(str(z) + '\t' + str(bin[i]) + '\n')
-  store.close()
+def makeScatteredPlot(chan,opts,distribution,list11,list12,list21,list22,list31,list32,figNumber,output=None):
+  parameter = distribution.split('-')[0]
+  figure(figNumber)
 
-def readHistogramSignificance(chan,cp):
-  
-  testOpenFile = 0
-  histoFileList = []
+  ax = subplot(111)
+  ax.set_xscale('log')
+  ax.set_yscale('log')
 
-  histoFileName = chan.split(':')[0] + '_' + chan.split(':')[1] + '_z_distribution.txt'
-  histoFilePath = string.strip(cp.get('output','output-path')) + '/' + histoFileName
-  try:  histoFile = open(histoFilePath,'r')
-  except: 
-    print >> sys.stderr, 'could not open ' + histoFilePath
-    testOpenFile = 1
+  ax.scatter(list11,list12,s=16,c='b',marker='o')
+  ax.scatter(list21,list22,s=16,c='r',marker='d')
+  ax.scatter(list31,list32,s=20,c='g',marker='8')
 
-  if not testOpenFile:
-    histoFileList = histoFile.readlines()
-    histoFile.close()
-    if not len(histoFileList):
-      print >> sys.stderr, 'The file ' + histoFilePath + ' is empty !'
-    else:
-      histoList = []
-      binList = []
-      for bin in histoFileList:
-        bin_temp = string.strip(bin)
-        histoList.append(eval(bin_temp.split('\t')[0]))
-        binList.append(eval(bin_temp.split('\t')[1]))
+  grid()
+  xlabel('Z in ' + chan,size='x-large')
+  ylabel('Z in ' + 'DARM_ERR',size='x-large')
+  title('Background versus foreground for channel: ' + chan)
 
-  return histoList,binList
+  lim = max(max(list11),max(list12),max(list21),max(list22),max(list31),max(list32))
+  ax.set_xlim(1e0, lim*2)
+  ax.set_ylim(1e0, lim*2)
+
+  figName = chan.split(':')[0] + '-' + chan.split(':')[1] + '-' + parameter + '-scatter.png'
+
+  if output:
+    figFileName = output + '/' + figName
+  else:
+    figFileName = opts.output_path + '/' + figName
+  savefig(figFileName)
+
+  return figName  
 
 
-def plotHistogram(chan,cp,distribution,histoList,binList,figNumber):
+def plotHistogram(chan,opts,distribution,histoList,binList,figNumber,percentiles=None,candidate=None,candidateRank=None,output=None):
 
   parameter = distribution.split('-')[0]
       
   step = binList[1] - binList[0]
   counter = sum(histoList)
-        
+
+  xlimInf = min(binList)
+  if candidate and not parameter == 'dt':
+    xlimSup = max(max(binList),candidate + 2.0)
+  else:
+    xlimSup = max(binList)
+
   figure(figNumber)
   # semilogy(bins + step/2., z_dist+0.0001, 'r^',markerfacecolor="b",markersize=12)
   # plot(bins + step/2., z_dist)
   bar(binList, histoList, width=step, bottom=0)
+
+  if percentiles:
+    axvline(x=percentiles[0], ymin=0, ymax=max(histoList), color='g', label='50th percentile', linewidth=2, linestyle='--')
+    axvline(x=percentiles[1], ymin=0, ymax=max(histoList), color='m', label='90th percentile', linewidth=2, linestyle='--')
+    axvline(x=percentiles[2], ymin=0, ymax=max(histoList), color='r', label='97th percentile', linewidth=2, linestyle='--')
+    if parameter == 'dt':
+      axvline(x=-percentiles[0], ymin=0, ymax=max(histoList), color='g', label='50th percentile', linewidth=2, linestyle='--')
+      axvline(x=-percentiles[1], ymin=0, ymax=max(histoList), color='m', label='90th percentile', linewidth=2, linestyle='--')
+      axvline(x=-percentiles[2], ymin=0, ymax=max(histoList), color='r', label='97th percentile', linewidth=2, linestyle='--')
+
+  if candidate:
+    axvline(x=candidate, ymin=0, ymax=max(histoList), color='k', label='candidate value (%s percentile)' % (candidateRank), linewidth=2, linestyle='-')
+
+  xlim(xlimInf,xlimSup)
 
   xlabel(parameter + ' value',size='large')
   # ylabel(r'#',size='x-large')
   grid()  
   title("Histogram of the " + parameter + " value for " + chan + ', Statistics = ' + str(counter))
 
-  figName = chan.split(':')[0] + '_' + chan.split(':')[1] + '_' + parameter + '_distribution.png'
-  figFileName = string.strip(cp.get('output','output-path')) + '/' + figName
+  figName = chan.split(':')[0] + '-' + chan.split(':')[1] + '-' + parameter + '-distribution.png'
+
+  if output:
+    figFileName = output + '/' + figName
+  else:
+    figFileName = opts.output_path + '/' + figName
   savefig(figFileName) 
+
+  return figName
+
 
 ##############################################################################
 #
@@ -267,23 +447,82 @@ parser = OptionParser( usage )
 parser.add_option("-v", "--version",action="store_true",default=False,\
     help="print version information and exit")
 
-parser.add_option("-f", "--config-file",action="store",type="string",\
-    metavar=" FILE",help="ini file")
+parser.add_option("-i", "--qscan-id",action="store",type="string",default=None,\
+    metavar=" ID",help="id of the qscan to be investigated (provided by followup_pipe)")
 
-parser.add_option("-l", "--check-length",action="store_true",\
-    default=False,help="check the length of the summary txt files")
+parser.add_option("-C", "--qscan-cache-foreground",action="store",type="string",default=None, metavar=" FILE",help="qscan cache file for foreground (generated by followup_pipe)")
 
-parser.add_option("-c", "--create-param-list",action="store_true",\
-    default=False,help="create .txt files containing the list of parameters for each channel (for debugging only)")
+parser.add_option("-j", "--qscan-cache-background",action="store",type="string",default=None, metavar=" FILE",help="qscan cache file for background (generated by followup_pipe)")
 
-parser.add_option("-z", "--make-z-distribution",action="store_true",\
-    default=False,help="compute the z distributions")
+parser.add_option("-k", "--background-input-path",action="store",type="string",\
+    metavar=" PATH",help="background input path (do not specify the gps times)")
+
+parser.add_option("-f", "--foreground-input-path",action="store",type="string",\
+    metavar=" PATH",help="foreground input path (specify the gps time)")
+
+parser.add_option("-o", "--output-path",action="store",type="string",\
+    metavar=" PATH",help="output path")
+
+parser.add_option("-p", "--page",action="store",type="string",\
+    metavar=" URL",help="location of the web page")
+
+parser.add_option("-R", "--page-rel-path",action="store",type="string",\
+    default=None,metavar=" URL",help="relative path")
+
+parser.add_option("-w", "--output-web-file",action="store",type="string",\
+    default=None,metavar=" URL",help="location of the sub web page")
+
+parser.add_option("-B", "--process-background-only",action="store_true",\
+    default=False,help="only compute the background distributions (does not followup any candidate)")
+
+parser.add_option("-g", "--generate-qscan-xml",action="store_true",\
+    default=False,help="Generate qscan xml file")
+
+parser.add_option("-L", "--channel-list",action="store",type="string",\
+    metavar=" FILE",help="list of channels to process if no foreground is investigated")
 
 parser.add_option("-Z", "--plot-z-distribution",action="store_true",\
     default=False,help="plot the z distributions")
 
+parser.add_option("-z", "--z-threshold",action="store",type="float",\
+    metavar=" VALUE",help="disregard triggers below this threshold")
+
+parser.add_option("-m", "--z-min",action="store",type="float",\
+    metavar=" VALUE",help="minimum z value to be plotted")
+
+parser.add_option("-M", "--z-max",action="store",type="float",\
+    metavar=" VALUE",help="maximum z value to be plotted")
+
+parser.add_option("-x", "--z-bins",action="store",type="float",\
+    metavar=" VALUE",help="number of bins to use in z histogram")
+
+parser.add_option("-r", "--ref-channel",action="store",type="string",\
+    metavar=" VALUE",help="channel to be used as reference (for delta t calculation or scattered plots)")
+
 parser.add_option("-T", "--plot-dt-distribution",action="store_true",\
     default=False,help="plot the delta t distributions")
+
+parser.add_option("-t", "--ref-dt",action="store_true",default=False,\
+    help="use ref-channel for dt calculation")
+
+parser.add_option("-n", "--dt-min",action="store",type="float",\
+    metavar=" VALUE",help="minimum dt value to be plotted")
+
+parser.add_option("-N", "--dt-max",action="store",type="float",\
+    metavar=" VALUE",help="maximum dt value to be plotted")
+
+parser.add_option("-y", "--dt-bins",action="store",type="float",\
+    metavar=" VALUE",help="number of bins to use in dt histogram")
+
+parser.add_option("-S", "--plot-z-scattered",action="store_true",\
+    default=False,help="plot auxiliary channel versus Darm significance")
+
+parser.add_option("-l", "--check-length",action="store_true",\
+    default=False,help="check the length of the summary txt files (for debugging only)")
+
+parser.add_option("-c", "--create-param-list",action="store_true",\
+    default=False,help="create .txt files containing the list of parameters for each channel (for debugging only)")
+
 
 command_line = sys.argv[1:]
 (opts,args) = parser.parse_args()
@@ -294,100 +533,232 @@ if opts.version:
 
 ####################### SANITY CHECKS #####################################
 
-if not opts.config_file:
-  print >> sys.stderr, "No configuration file specified."
-  print >> sys.stderr, "Use --config-file FILE to specify location"
-  sys.exit(1)
-
-if not opts.plot_z_distribution and not opts.make_z_distribution and not opts.check_length and not opts.plot_dt_distribution and not opts.make_dt_distribution and not opts.create_param_list:
-  print >> sys.stderr, "No step of the pipeline specified"
-  print >> sys.stderr, "Please specify at least one of"
-  print >> sys.stderr, "--make-z-distribution, --plot-z-distribution"
-  print >> sys.stderr, "--plot-dt-distribution"
-  print >> sys.stderr, "--check-length, --create-param-list"
-  sys.exit(1)
-
-#################### READ IN THE CONFIG (.ini) FILE ########################
-cp = ConfigParser.ConfigParser()
-cp.read(opts.config_file)
 
 ################# NOW START THE REAL WORK ##################################
 
+# initialize some variables
+figNumber = 0
+currentDir = os.path.abspath('.')
+
 # Get the list of qscan channels to be analyzed (should become optional later...). The script needs to be improved to follow this behavior: if the text file is not specified in the configuration file, then all the channels found in the summary files should be analyzed...
-if len(string.strip(cp.get('qscan-summary','channel-list'))) > 0:
-  channelFile = open(string.strip(cp.get('qscan-summary','channel-list')),'r')
-  channel_list = []
-  channel_list = channelFile.readlines()
-  channelFile.close()
-  if not len(channel_list):
-    print >> sys.stderr, "No channel found in the channel_list file"
-    print >> sys.stderr, "Is the first line blank?"
+
+if opts.process_background_only:
+  channelList = listFromFile(opts.channel_list)
+  if len(channelList) == 0:
+    print >> sys.stderr, "channel list not found"
     sys.exit(1)
-  channelList = []
-  for chan in channel_list:
-    channelList.append(string.strip(chan))
 
 # Check the summary length
 if opts.check_length:
-  checkSummaryLength(string.strip(cp.get('qscan-summary','input-path')))
+  checkSummaryLength(opts,opts.background_input_path)
 
 
 # Read the qscan summary files and hold the information in memory
-if opts.make_z_distribution or opts.plot_dt_distribution:
-  summaryFiles = readSummaryFiles()
-  qscanTable = summaryFiles.getAuxChannels(string.strip(cp.get('qscan-summary','input-path')))
+if opts.generate_qscan_xml:
+  backgroundTable = getQscanTable(opts,"background")
+  if not opts.process_background_only:
+    foregroundTable = getQscanTable(opts,"foreground")
 
-  # perform a sanity check
-  if not (len(qscanTable['channel_name']) == len(qscanTable['qscan_time'])):
-    print >> sys.stderr, "the length of channel_name does not match the length of qscan_time"
-    print >> sys.stderr, "check for data corruption in the qscan summary files"
-    sys.exit(1)
- 
-  # Display the list of parameters for each channel
-  if opts.create_param_list:
-    for channel in channelList:
-      printChannelList(qscanTable,channel,'peak_time','qscan_time')
-      printChannelList(qscanTable,channel,'peak_significance','qscan_time')
 
-if len(string.strip(cp.get('qscan-summary','channel-list'))) > 0:
+# analyse candidate qscan (loop over all the channels which have triggered at the time of the candidate)
+if not opts.process_background_only:
   
-  figNumber = 0
+  if opts.qscan_id:
+    id = opts.qscan_id
+    type = id.split('_')[0]
+    try:
+      ifo = id.split('_')[1]
+    except:
+      ifo = None
+    try:
+      time_string = id.split('_')[2]
+    except:
+      time_string = None
+
+    if opts.qscan_cache_foreground:
+      candidates_path = getPathFromCache(opts.qscan_cache_foreground,type,ifo,time_string)
+    else:
+      print >> sys.stderr, "Please specify the option --qscan-cache= FILE"
+      print >> sys.stderr, "This option is required when using --qscan-id= ID"
+      sys.exit(1)
+  else:
+    candidates_path = parseDirectoryList(opts.foreground_input_path)
+
+  for candidate in candidates_path :
+
+    # get output url and create output directory
+    output_url = opts.page + '/' + opts.page_rel_path
+    outputdir = opts.output_path
+
+    if candidate[2]:
+      output_url = output_url + candidate[2] + '/'
+      outputdir = outputdir + candidate[2] + '/'
+      createdir(outputdir)
+    if candidate[3]:
+      output_url = output_url + candidate[3] + '/'
+      outputdir = outputdir + candidate[3] + '/'
+      createdir(outputdir)      
+    if candidate[1]:
+      candidate_time = candidate[1]
+    else:
+      candidate_time = candidate[0].split('/')[-1]
+    output_url = output_url + candidate_time + '/'
+    outputdir = outputdir + candidate_time + '/'
+    createdir(outputdir)
+
+    # extract the information about the candidate in the foreground table
+    candidateSummary = readSummaryFiles()
+    candidateTable = candidateSummary.extractFromTable(foregroundTable,candidate[2],candidate[3],candidate[0])
+
+    # extract the information about the foreground for this specific type and ifo
+    if candidate[2] or candidate[3]:
+      foregroundSummary = readSummaryFiles()
+      foregroundSubTable = foregroundSummary.extractFromTable(foregroundTable,candidate[2],candidate[3],None)
+    else:
+      foregroundSubTable = foregroundTable
+
+    # extract the information about the background for this specific type and ifo
+    if candidate[2] or candidate[3]:
+      backgroundSummary = readSummaryFiles()
+      backgroundSubTable = backgroundSummary.extractFromTable(backgroundTable,candidate[2].replace('foreground','background'),candidate[3],None)
+    else:
+      backgroundSubTable = backgroundTable
+
+    # compute number of channels with significance above threshold in candidate qscan
+    candidate_counter = 0
+    for channel in candidateTable['channel_name']:
+      z = selectSignificance(candidateTable,channel,opts)
+      if len(z) > 0:
+        candidate_counter = candidate_counter + 1
+
+    if opts.output_web_file and opts.page_rel_path:
+      webpage = WebPage("Comparison Foreground/Background versus Candidate",opts.output_web_file, opts.page + '/' + opts.page_rel_path)
+      talkback = talkBack(opts.output_web_file)
+    else:
+      webpage = WebPage("Comparison Foreground/Background versus Candidate",outputdir + "index.html",output_url)
+    n_rows = candidate_counter + 1
+    n_cols = 4
+    webpage.appendTable(n_rows,3,1)
+    webpage.table[0].row[0].cell[0].text("Channel")
+    webpage.table[0].row[0].cell[1].text("z significance")
+    webpage.table[0].row[0].cell[2].text("dt (peak-time - central time)")
+
+    row_number = 0
+    for i,channel in enumerate(candidateTable['channel_name']):
+      # check that the qscan parameters are not zero for this channel
+      zCandidate = candidateTable['peak_significance'][i]
+      timeCandidate = candidateTable['qscan_time'][i]
+      tpeakCandidate = candidateTable['peak_time'][i]
+      if zCandidate == 0.0:
+        continue
+      # first check that the channel is found in the background
+      try:
+        backgroundSubTable['channel_name'].index(channel)
+      except:
+        continue
+      if opts.plot_z_distribution:
+        zList = selectSignificance(backgroundSubTable,channel,opts)
+        z_candidate_rank = computeRank(zList,zCandidate)
+        print channel
+
+        # be careful: the function findPercentile is currently dangerous, as it sorts the list... this is the reason for the deepcopy
+        listTempo = copy.deepcopy(zList)
+        percentile_50th = findPercentile(listTempo,0.50)
+        percentile_90th = findPercentile(listTempo,0.90)
+        percentile_97th = findPercentile(listTempo,0.97)
+        percentiles = [percentile_50th,percentile_90th,percentile_97th]
+
+        try:
+          zHisto,zBin = makeHistogram(zList,"z-distribution",opts,percentiles,zCandidate)
+        except:
+          print >> sys.stderr, 'could not make the z histogram for channel ' + channel
+          print "zlist:"
+          print zList
+          print percentiles
+          print zCandidate
+          continue
+
+        figNumber = figNumber + 1
+        zFigure = plotHistogram(channel,opts,'z-distribution',zHisto,zBin,figNumber,percentiles,zCandidate,z_candidate_rank,outputdir)
+
+      #if opts.plot_z_scattered and not channel=='H1:LSC-DARM_ERR' :
+      if opts.plot_z_scattered:
+        aux_list_back,darm_list_back = getAuxVsDarmList(backgroundSubTable,channel,opts,candidate[3])
+        aux_list_fore,darm_list_fore = getAuxVsDarmList(foregroundSubTable,channel,opts,candidate[3])
+        aux_list_cand,darm_list_cand = getAuxVsDarmList(candidateTable,channel,opts,candidate[3])
+        figNumber = figNumber + 1
+        scatteredFigure = makeScatteredPlot(channel,opts,'z-distribution',aux_list_back,darm_list_back,aux_list_fore,darm_list_fore,aux_list_cand,darm_list_cand,figNumber,outputdir)
+
+      if opts.plot_dt_distribution:
+        dtList = computeDeltaT(backgroundSubTable,channel,opts,candidate[3])
+
+        dtCandidate = tpeakCandidate - float(timeCandidate)
+        dt_candidate_rank = computeRankForDt(dtList,abs(dtCandidate))
+
+        absoluteList = absList(dtList)
+        dtpercentile_50th = findPercentileForDt(absoluteList,0.50)
+        dtpercentile_90th = findPercentileForDt(absoluteList,0.90)
+        dtpercentile_97th = findPercentileForDt(absoluteList,0.97)
+        dtpercentiles = [dtpercentile_50th,dtpercentile_90th,dtpercentile_97th]
+
+        try:
+          dtHisto,dtBin = makeHistogram(dtList,'dt-distribution',opts)
+        except:
+          print >> sys.stderr, 'could not make the dt histogram for channel ' + channel
+          continue
+        figNumber = figNumber + 1
+        dtFigure = plotHistogram(channel,opts,'dt-distribution',dtHisto,dtBin,figNumber,dtpercentiles,dtCandidate,dt_candidate_rank,outputdir)
+
+      #append the html page
+      row_number = row_number + 1
+      webpage.table[0].row[row_number].cell[0].text(channel)
+      if opts.plot_z_distribution:
+        webpage.table[0].row[row_number].cell[1].text('background median = ' + '%.3f' % percentiles[0])
+        webpage.table[0].row[row_number].cell[1].text('Z = ' + '%.3f' % zCandidate)
+        webpage.table[0].row[row_number].cell[1].text('Rank=' + '%.3f' % z_candidate_rank)
+        webpage.table[0].row[row_number].cell[1].link(output_url + '/' + zFigure,"Z distribution,")
+      if opts.plot_z_scattered:
+        webpage.table[0].row[row_number].cell[1].link(output_url + '/' + scatteredFigure,"Scattered plot")
+      if opts.plot_dt_distribution:
+        webpage.table[0].row[row_number].cell[2].text('background median = ' + '%.3f' % dtpercentiles[0])
+        webpage.table[0].row[row_number].cell[2].text('dt = ' + '%.4f' % dtCandidate)
+        webpage.table[0].row[row_number].cell[2].text('Rank=' + '%.3f' % dt_candidate_rank)
+        webpage.table[0].row[row_number].cell[2].link(output_url + '/' + dtFigure,"Delta t distribution")
+
+    webpage.cleanWrite('IUL')
+    if opts.output_web_file and opts.page_rel_path:
+      talkback.write()
+
+# Display the list of parameters for each channel
+if opts.create_param_list:
+  for channel in channelList:
+    #printChannelList(opts,backgroundTable,channel,'peak_time','qscan_time')
+    #printChannelList(opts,backgroundTable,channel,'peak_significance','qscan_time')
+    printDeltatList(opts,backgroundTable,channel,'peak_time',0.01,0.49)
+
+
+if opts.process_background_only:
   
   # prepare and plot the distribution of delta t
-  if (opts.plot_dt_distribution):
+  if opts.plot_dt_distribution:
     for channel in channelList:
-      dtList = computeDeltaT(qscanTable,channel,cp)
+      dtList = computeDeltaT(backgroundTable,channel,opts,None)
       try:
-        dtHisto,dtBin = makeHistogram(dtList,'dt-distribution',channel,cp)
+        dtHisto,dtBin = makeHistogram(dtList,'dt-distribution',opts)
       except:
-        print >> sys,stderr, 'could not make the dt histogram for channel ' + channel 
+        print >> sys.stderr, 'could not make the dt histogram for channel ' + channel 
         continue
       figNumber = figNumber + 1
-      plotHistogram(channel,cp,'dt-distribution',dtHisto,dtBin,figNumber)
- 
-  # prepare and plot the distribution of significance
-  if (opts.make_z_distribution or opts.plot_z_distribution):
-    for channel in channelList:
-      if opts.make_z_distribution:
-        zList = selectSignificance(qscanTable,channel,cp)
-        try:
-          zHisto,zBin = makeHistogram(zList,'z-distribution',channel,cp)
-        except:
-          print >> sys,stderr, 'could not make the z histogram for channel ' + channel
-          continue
-        saveHistogramSignificance(channel,cp,zHisto,zBin)
-        if opts.plot_z_distribution:
-          figNumber = figNumber + 1
-          plotHistogram(channel,cp,'z-distribution',zHisto,zBin,figNumber)
-         
-      if opts.plot_z_distribution and not opts.make_z_distribution:
-        try: 
-          zHisto,zBin = readHistogramSignificance(channel,cp)
-          testReadHisto = 0
-        except: 
-          print 'failed to read the txt file containing information for ' + channel + ' z background'
-          testReadHisto = 1
-        if not testReadHisto:
-          figNumber = figNumber + 1
-          plotHistogram(channel,cp,'z-distribution',zHisto,zBin,figNumber)
+      plotHistogram(channel,opts,'dt-distribution',dtHisto,dtBin,figNumber)
 
+  # prepare and plot the distribution of significance
+  if opts.plot_z_distribution:
+    for channel in channelList:
+      zList = selectSignificance(backgroundTable,channel,opts)
+      try:
+        zHisto,zBin = makeHistogram(zList,'z-distribution',opts)
+      except:
+        print >> sys.stderr, 'could not make the z histogram for channel ' + channel
+        continue
+      figNumber = figNumber + 1
+      plotHistogram(channel,opts,'z-distribution',zHisto,zBin,figNumber)
