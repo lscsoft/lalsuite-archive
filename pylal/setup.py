@@ -179,7 +179,7 @@ setup(
 		)
 	],
 	scripts = [
-		os.path.join("bin", "followup.py"),
+                os.path.join("bin", "analyseQscan.py"),
 		os.path.join("bin", "plotbank"),
 		os.path.join("bin", "plotbinj"),
 		os.path.join("bin", "plotburca"),
