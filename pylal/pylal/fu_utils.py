@@ -236,30 +236,8 @@ class getCache(UserDict):
 
 
 ##############################################################################
-# class to handle qscan cache file
+# functions to parse qscan cache files (used in analyseQscan)
 ##############################################################################
-
-class qscanCache(UserDict):
-
-  def __init__(self):
-    self.fileName = 'qscan-output.cache'
-    self.list=[]
-    self.columns = ['gps','tag','ifo','pathToQscanDir']
-
-  def addLine(self,node):
-    self.list.append(node.outputCache)
-
-  def writeCache(self):
-    if len(self.list) > 0:
-      print >> sys.stderr, '.......Overwriting ' + self.fileName
-      file = open(self.fileName,'w')
-      file.write('### QSCAN CACHE FILE ###')
-      for field in self.columns:
-        file.write('#' + field + '\n')
-      for line in self.list:
-        file.write(line + '\n')
-      file.close()
-    else: pass
 
 def getPathFromCache(fileName,type,ifo=None,time=None):
   qscanList = []
@@ -268,24 +246,38 @@ def getPathFromCache(fileName,type,ifo=None,time=None):
     return qscanList
   for line in cacheList:
     test_line = True
-    if not re.search(type,line.split('\t')[1]):
+    if not re.search(type,line.split(' ')[1]):
       test_line = False
     if ifo:
-      if not ifo == line.split('\t')[2]:
+      if not ifo == line.split(' ')[0]:
         test_line = False
       else: pass
     if time:
-      if not time == line.split('\t')[0]:
+      if not time == line.split(' ')[2]:
         test_line = False
       else: pass
     if test_line:
-      path_output = line.split('\t')[-1]
-      time_output = line.split('\t')[0]
-      type_output = line.split('\t')[1]
-      ifo_output = line.split('\t')[2]
+      path_output = line.split(' ')[-1]
+      time_output = line.split(' ')[2]
+      type_output = line.split(' ')[1]
+      ifo_output = line.split(' ')[0]
       qscanList.append([path_output,time_output,type_output,ifo_output])
     else: continue
   return qscanList
+
+##############################################################################
+# class for qscan intermediate table
+##############################################################################
+
+class QscanIntermediateTable(table.Table):
+  tableName = "qscan:intermediate:table"
+  validcolumns = {
+    "type": "lstring",
+    "param": "lstring",
+    "ifo": "lstring",
+    "qscan_time": "lstring",
+    "qscan_dir": "lstring",
+  }
 
 ##############################################################################
 # Function to get qscan background. 
@@ -471,12 +463,11 @@ def readFiles(fileGlob,statistic=None):
 # function to set up directories
 #############################################################################
 
-def createdir(currentDir,newDir):
+def createdir(newDir):
   try:
-    os.chdir(newDir)
-    os.chdir(currentDir)
-  except:
     os.mkdir(newDir)
+  except:
+    pass
 
 
 def setupdirs():
