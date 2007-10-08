@@ -62,7 +62,8 @@ class followUpInspJob(inspiral.InspiralJob,webTheJob):
 class followUpInspNode(inspiral.InspiralNode,webTheNode):
   
   def __init__(self, inspJob, procParams, ifo, trig, cp,opts,dag):    
-    try:
+    if 1:
+    #try:
       inspiral.InspiralNode.__init__(self, inspJob) 
       injFile = self.checkInjections(cp)      
       bankFile = 'trigTemplateBank/' + ifo + '-TRIGBANK_FOLLOWUP_' + str(trig.gpsTime[ifo]) + '.xml.gz'
@@ -84,7 +85,8 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
         self.add_var_opt(param,value)
         if param == 'gps-end-time': self.__end = value
         if param == 'gps-start-time': self.__start = value
-        if param == 'ifo-tag': self.__ifotag = value
+        if param == 'ifo-tag':
+          self.__ifotag = value
         if param == 'channel-name': self.inputIfo = value[0:2]
         if param == 'write-compress': 
           extension = '.xml.gz'
@@ -105,7 +107,8 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
         dag.addNode(self,'inspiral')
         self.validate()
       else: self.invalidate()
-    except:
+    else:
+    #except:
       self.invalidate()
       print "couldn't add inspiral job for " + str(ifo) + "@ "+ str(trig.gpsTime[ifo])
 
@@ -368,8 +371,8 @@ class analyseQscanNode(pipeline.CondorDAGNode,webTheNode):
         self.add_var_opt('z-bins',cp.getfloat('analyse-qscan','z-bins'))
       if cp.has_option('analyse-qscan','plot-dt-distribution'):
         self.add_var_opt('plot-dt-distribution','')
-        self.add_var_opt('dt-min',cp.getfloat('analyse-qscan','dt-min'))
-        self.add_var_opt('dt-max',cp.getfloat('analyse-qscan','dt-max'))
+        self.add_var_opt('dt-min',cp.getfloat('analyse-qscan',command + '-dt-min'))
+        self.add_var_opt('dt-max',cp.getfloat('analyse-qscan',command + '-dt-max'))
         self.add_var_opt('dt-bins',cp.getfloat('analyse-qscan','dt-bins'))
       if cp.has_option('analyse-qscan','plot-z-scattered'):
         self.add_var_opt('plot-z-scattered','')
