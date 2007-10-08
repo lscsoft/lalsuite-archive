@@ -33,15 +33,37 @@
 \listoffigures
 \chapter{Coding Conventions}
 \section{General}
+The executables should contain some standard code at the beginning of the document such
+as
+\begin{verbatim}
+__version__ = "$Revision$"
+__date__ = "$Date$"[7:-2]
+__id__ = "$Id$"
+__name__="plotthinca"
+\end{verbatim}
+so that the version, and Id can be used within the document if needed.
+
+\section{Naming conventions}
+The output file should be 
+
+\begin{verbatim}
+<executable name>_<usertag>_<figure name>-<GPS start time>-<duration>.png
+<executable name>_<usertag>-<GPS start time>-<duration>.html
+<executable name>_<usertag>-<GPS start time>-<duration>.cache
+\end{verbatim}
+
+Where, executable name is defined by the variable \prog{\_\_name\_\_} (see above)
+
+
+
 
 \section{arguments}
 The authors should try to use the following convention for the optional
 argument as much as possible
 \begin{description}
-\item[\textit{--cache-file}] to be used to provide a cache file
-\item[\textit{--figure-name}] a tag to be used for naming the output figures.
-The figure name will therefore have a name such as
-<program\_name>\_<opts.figure\_name>\_<whatever is in your program>.png
+\item[\progarg{--cache-file}] to be used to provide a cache file
+\item[\textit{--figure-name}] a tag to be used for naming the output figures
+(see Naming conventions).
 \item[\textit{--verbose}] Be verbose
 
 
