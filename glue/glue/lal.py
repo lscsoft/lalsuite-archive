@@ -493,23 +493,28 @@ class Cache(list):
 			d |= entry.to_segmentlistdict()
 		return d
 
-	def sieve(self,ifos=None,description=None,segment=None):
+	def sieve(self, ifos=None, description=None, segment=None,
+		exact_match=False):
 		"""
-		Return a Cache object with those CacheEntries that match a
-		given pattern. The sieve will return a cache filtered to
-		contain for the ifos, description, and which overlap the
-		segment.
+		Return a Cache object with those CacheEntries that contain the
+		given inputs (overlap, in the case of segment).  If
+		exact_match is True, then non-None ifos, description, and
+		segment patterns must match exactly.
 		"""
-		c=self
+		if exact_match:
+			string_cmp = str.__eq__
+			segment_cmp = segments.segment.__eq__
+		else:
+			string_cmp = str.__contains__
+			segment_cmp = segments.segment.intersects
 
-		if ifos:
-			c=[entry for entry in c if (re.match(ifos,entry.observatory))]
-
-		if description:
-			c=[entry for entry in c if (re.search(description,entry.description))]
-
-		if segment:
-			c=[entry for entry in c if (not entry.segment.disjoint(segment))]
+		c = self
+		if ifos is not None:
+			c = [entry for entry in c if string_cmp(entry.observatory, ifos)]
+		if description is not None:
+			c = [entry for entry in c if string_cmp(entry.description, description)]
+		if segment is not None:
+			c = [entry for entry in c if segment_cmp(entry.segment, segment)]
 
 		return self.__class__(c)
 
