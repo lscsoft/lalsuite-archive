@@ -190,7 +190,7 @@ def makesteps(x,y1,y2):
 # function to plot the col1 vs col2 from the table
 def plot_a_v_b(table, col_name_a, col_name_b, plot_type = 'linear', 
   plot_sym = 'kx', plot_label = None, output_name = None, ifo = None,
-  x_min = None, x_max = None):
+  x_min = None, x_max = None, y_min = None, y_max = None):
   """
   function to plot the values of col_name_a vs col_name_b from the table
 
@@ -204,6 +204,8 @@ def plot_a_v_b(table, col_name_a, col_name_b, plot_type = 'linear',
   @param ifo: Name of ifo
   @param x_min: Minimum value of x axis
   @param x_max: Maximum value of x axis
+  @param y_min: Minimum value of y axis
+  @param y_max: Maximum value of y axis
   """
   if not ifo and len(table):
     if ("ifo" in table.validcolumns.keys()):
@@ -256,6 +258,11 @@ def plot_a_v_b(table, col_name_a, col_name_b, plot_type = 'linear',
   if x_max:
     xlim(xmax=x_max)
     
+  if y_min:
+    ylim(ymin=y_min)
+  if y_max:
+    ylim(ymax=y_max)
+
   if output_name:
     if ifo:
       output_name += '_' + ifo
@@ -724,10 +731,8 @@ def cumhistcol(table1, col_name, plot_type = 'logy', normalization=None, \
     plot(data_sort, y_data,'k-',linewidth=1)
 
 
-  if xlimit[0]:
-    xmin(xlimit[0])
-  if xlimit[1]:
-    xmax(xlimit[1])
+  if xlimit[0] and  xlimit[1]:
+    xlim(xlimit)
 
   xlabel(col_name.replace("_"," "), size='x-large')
   
