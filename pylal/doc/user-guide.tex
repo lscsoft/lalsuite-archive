@@ -31,9 +31,25 @@
 \tableofcontents
 \listoftables
 \listoffigures
+\chapter{Coding Conventions}
+\section{General}
+
+\section{arguments}
+The authors should try to use the following convention for the optional
+argument as much as possible
+\begin{description}
+\item[\textit{--cache-file}] to be used to provide a cache file
+\item[\textit{--figure-name}] a tag to be used for naming the output figures.
+The figure name will therefore have a name such as
+<program\_name>\_<opts.figure\_name>\_<whatever is in your program>.png
+\item[\textit{--verbose}] Be verbose
+
+
+\end{description}
 
 \chapter{Burst Tools}
-
 \include{ligolw_binjfind}
+\chapter{Inspiral Tools}
+\include{plotnumtemplates}
 
 \end{document}
