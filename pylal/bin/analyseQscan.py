@@ -587,7 +587,10 @@ if not opts.process_background_only:
   for candidate in candidates_path :
 
     # get output url and create output directory
-    output_url = opts.page + '/' + opts.page_rel_path
+    if opts.page_rel_path:
+      output_url = opts.page + '/' + opts.page_rel_path
+    else:
+      output_url = opts.page + '/'
     outputdir = opts.output_path
 
     if candidate[2]:
