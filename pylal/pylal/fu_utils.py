@@ -64,8 +64,8 @@ class getCache(UserDict):
 
     if options.generate_fu_cache:
       print >> sys.stderr, "\nOption --generate-fu-cache is specified, it overwrites the hipe cache files  which already exist"
-      cache.getCacheAll(cp)
-      cache.writeCacheAll('fu_hipe.cache')
+      self.getCacheAll(cp)
+      self.writeCacheAll('fu_hipe.cache')
       print >> sys.stderr, "\nHIPE CACHE FILE WRITTEN TO: fu_hipe.cache"
     try:
       os.chdir("cache")
