@@ -359,6 +359,11 @@ class analyseQscanNode(pipeline.CondorDAGNode,webTheNode):
     self.friendlyName = 'analyse ' + name
     self.id = ifo + '-' + name + '-' + repr(time)
 
+    nameList = name.split('-')[1:len(name.split('-'))]
+    shortName = ''
+    for word in nameList:
+      shortName = shortName + word + '-'
+
     try:
       pipeline.CondorDAGNode.__init__(self,job)
       if cp.has_option('analyse-qscan','generate-qscan-xml'):
@@ -371,8 +376,8 @@ class analyseQscanNode(pipeline.CondorDAGNode,webTheNode):
         self.add_var_opt('z-bins',cp.getfloat('analyse-qscan','z-bins'))
       if cp.has_option('analyse-qscan','plot-dt-distribution'):
         self.add_var_opt('plot-dt-distribution','')
-        self.add_var_opt('dt-min',cp.getfloat('analyse-qscan',command + '-dt-min'))
-        self.add_var_opt('dt-max',cp.getfloat('analyse-qscan',command + '-dt-max'))
+        self.add_var_opt('dt-min',cp.getfloat('analyse-qscan',shortName + 'dt-min'))
+        self.add_var_opt('dt-max',cp.getfloat('analyse-qscan',shortName + 'dt-max'))
         self.add_var_opt('dt-bins',cp.getfloat('analyse-qscan','dt-bins'))
       if cp.has_option('analyse-qscan','plot-z-scattered'):
         self.add_var_opt('plot-z-scattered','')
