@@ -1,4 +1,9 @@
 #!/usr/bin/python
+__version__ = "$Revision$"
+__name__ = "plotinspiral"
+__Id__ = "$Id$"
+
+# $Source$
 
 import sys
 import os
@@ -48,85 +53,125 @@ The plots are
 7)  Cumulative Histogram of snr/chi values
 """
 
-parser = OptionParser( usage )
-parser.add_option("-v","--version",action="store_true",default=False,\
-    help="display version information " )
-parser.add_option("-f","--figure-name",action="store",type="string",\
-    default=None,metavar=" FNAME",\
-    help="generate png figures with name FNAME-fig.png")
-parser.add_option("-g","--glob",action="store",type="string",\
-    default=None, metavar=" GLOB",help="GLOB of trigger files to read" )
-parser.add_option("-i", "--input", help="read trigger filenames from input file")
-parser.add_option("-t","--title",action="store",type="string",default=None,\
-    metavar=" STRING",help="title string for plots")
-parser.add_option("-s","--show-plot",action="store_true",default=False,\
-    help="display the figures on the terminal" )
-parser.add_option("-z","--snr-time",action="store_true",default=False,\
-    help="make a plot of snr vs time" )
-parser.add_option("-y","--add-vertical-line",action="store",default=None,\
-    metavar=" GPS_TIME",type="float",\
-    help="add a vertical line at GPS_TIME to the snr vs time plot" )
+parser = OptionParser( usage=usage,
+    version= "%prog CVS\n" +
+    "$Id$\n" )
+
+
+
 parser.add_option("-a","--snr-chisq",action="store_true",default=False,\
     help="make a plot of snr vs chisq" )
-parser.add_option("-b","--log-snr-chisq",action="store_true",default=False,\
-    help="make a log plot of snr vs chisq" )
-parser.add_option("-C","--chisq-threshold",action="store",type="float",\
-    metavar=" CHISQ_THRESH",\
-    help="specify the chisq threshold (so we can add to plot)" )
-parser.add_option("-D","--chisq-delta",action="store",type="float",\
-    metavar=" CHISQ_DELTA", help="specify the delta param for the chisq " )
-parser.add_option("-B","--chisq-bins",action="store",type="int",\
-    metavar=" CHISQ_BINS", help="specify the number of chisq bins")
-parser.add_option("-c","--cum-hist-snr",action="store_true",default=False,\
-    help="cumulative histogram of the snr" )
-parser.add_option("-d","--hist-snr",action="store_true",default=False,\
-    help="histogram of the snr" )
-parser.add_option("-e","--norm-hist-snr",action="store_true",default=False,\
-    help="normalized cumulative histogram of the snr" )
-parser.add_option("-j","--hist-chisq",action="store_true",default=False,\
-    help="histogram of the chisq values" )
-parser.add_option("-k","--cum-hist-snr-chi",action="store_true",default=False,\
-    help="cumulative histogram of snr/chi" )
-parser.add_option("-l","--hist-snr-chi",action="store_true",default=False,\
-    help="histogram of snr/chi" )
-parser.add_option("-n","--nbins",action="store",type="int",default=10,\
-    metavar=" NBINS", help="number of bins for the histogram plots" )
-parser.add_option("-m","--maximization-interval",action="store",\
-    type="int",default=10,\
-    metavar=" MAX_INT", help="maximization interval used (in ms)" )
-parser.add_option("-T","--analyzed-time",action="store",type="int",\
-    metavar=" SECONDS", help="amount of time analyzed" )
-parser.add_option("-V","--veto-file",action="store",type="string",\
-    default=None,metavar=" FNAME",\
-    help="read in segments from FNAME (assumed segwizard format)")
+
 parser.add_option("-A","--funky-threshold",action="store",type="float",\
     metavar=" FUNKY_THRESH",\
     help="specify the funky stat threshold (so we can add to plot)" )
+
+parser.add_option("-b","--log-snr-chisq",action="store_true",default=False,\
+    help="make a log plot of snr vs chisq" )
+
+parser.add_option("-C","--chisq-threshold",action="store",type="float",\
+    metavar=" CHISQ_THRESH",\
+    help="specify the chisq threshold (so we can add to plot)" )
+
+parser.add_option("-D","--chisq-delta",action="store",type="float",\
+    metavar=" CHISQ_DELTA", help="specify the delta param for the chisq " )
+
+parser.add_option("-B","--chisq-bins",action="store",type="int",\
+    metavar=" CHISQ_BINS", help="specify the number of chisq bins")
+
+parser.add_option("-c","--cum-hist-snr",action="store_true",default=False,\
+    help="cumulative histogram of the snr" )
+
+parser.add_option("-d","--hist-snr",action="store_true",default=False,\
+    help="histogram of the snr" )
+
+parser.add_option("-e","--norm-hist-snr",action="store_true",default=False,\
+    help="normalized cumulative histogram of the snr" )
+
+parser.add_option("-E","--figure-name",action="store",type="string",\
+    default=None,metavar=" FNAME",\
+    help="generate png figures with name FNAME-fig.png")
+
+parser.add_option("-f","--add-vertical-line",action="store",default=None,\
+    metavar=" GPS_TIME",type="float",\
+    help="add a vertical line at GPS_TIME to the snr vs time plot" )
+
 parser.add_option("-F","--funky-offset",action="store",type="float",\
     metavar=" FUNKY_OFFSET", help="specify the offset in funky stat " )
-parser.add_option("-p","--template-bank",action="store",type="string",\
-    default=None, metavar=" FILE",help="name of a template bank file")
-parser.add_option("-x","--x-min",action="store",type="float",\
-    default=None, metavar="XMIN",help="set plot xmin to XMIN")
-parser.add_option("-X","--x-max",action="store",type="float",\
-    default=None, metavar="XMAX",help="set plot xmax to XMAX")
+
+parser.add_option("-g","--glob",action="store",type="string",\
+    default=None, metavar=" GLOB",help="GLOB of trigger files to read" )
+
+parser.add_option("-i", "--cache-file", help="read trigger filenames from input file")
+
+parser.add_option("-j","--hist-chisq",action="store_true",default=False,\
+    help="histogram of the chisq values" )
+
+parser.add_option("-k","--cum-hist-snr-chi",action="store_true",default=False,\
+    help="cumulative histogram of snr/chi" )
+
+parser.add_option("-l","--hist-snr-chi",action="store_true",default=False,\
+    help="histogram of snr/chi" )
+
 parser.add_option("-L", "--log-y", action="store_true", default=False,
     help="set the y axis to have a log scale")
+
 parser.add_option("-M","--missed-inj",action="store",type="string",\
-    default=None, metavar=" FILE",
-    help="file containing missed nearby injection")
+    default=None, metavar=" FILE",help="missed inejction file")
+
+parser.add_option("-m","--maximization-interval",action="store",\
+    type="int",default=10,\
+    metavar=" MAX_INT", help="maximization interval used (in ms)" )
+
+parser.add_option("-n","--nbins",action="store",type="int",default=10,\
+    metavar=" NBINS", help="number of bins for the histogram plots" )
+
+parser.add_option("-T","--analyzed-time",action="store",type="int",\
+    metavar=" SECONDS", help="amount of time analyzed" )
+
+parser.add_option("-p","--template-bank",action="store",type="string",\
+    default=None, metavar=" FILE",help="name of a template bank file")
+
+parser.add_option("-s","--show-plot",action="store_true",default=False,\
+    help="display the figures on the terminal" )
+
+parser.add_option("-t","--title",action="store",type="string",default=None,\
+    metavar=" STRING",help="title string for plots")
+
+parser.add_option("-x","--x-min",action="store",type="float",\
+    default=None, metavar="XMIN",help="set plot xmin to XMIN")
+
+parser.add_option("-X","--x-max",action="store",type="float",\
+    default=None, metavar="XMAX",help="set plot xmax to XMAX")
+
+parser.add_option("-y","--y-min",action="store",type="float",\
+    default=None, metavar="YMIN",help="set plot xmin to YMIN")
+
+parser.add_option("-Y","--y-max",action="store",type="float",\
+    default=None, metavar="YMAX",help="set plot xmax to YMAX")
+
 parser.add_option("","--min-distance",action="store",type="float",\
     default=None, metavar="EFFDIST",
     help="only look at missed injections closer than EFFDIST")
 
+#parser.add_option("-v","--version",action="store_true",\
+#    default=None,metavar="VERSION",  help="get version")
+
+parser.add_option("-V","--veto-file",action="store",type="string",\
+    default=None,metavar=" FNAME",\
+    help="read in segments from FNAME (assumed segwizard format)")
+
+parser.add_option("-W","--html-output",action="store_true",\
+    default=False, metavar=" HTML",\
+    help="generate a html page containing the plots")
+
+parser.add_option("-z","--snr-time",action="store_true",default=False,\
+    help="make a plot of snr vs time" )
+
 (opts,args) = parser.parse_args()
 
-# if --version flagged
-if opts.version:
-  sys.exit(0)
-
 # check at least one trig file was specified
-if opts.glob is None and opts.input is None:
+if opts.glob is None and opts.cache_file is None:
   print >>sys.stderr, "Must specify a GLOB of files to read or a LAL cache"
   print >>sys.stderr, "Enter 'plotinspiral --help' for usage"
   sys.exit(1)
@@ -153,14 +198,16 @@ from pylal import viz
 trigFiles = []
 if opts.glob is not None:
     trigFiles += glob.glob(opts.glob)
-if opts.input is not None:
-    trigFiles += [lal.CacheEntry(line).path() for line in open(opts.input)]
+if opts.cache_file is not None:
+    trigFiles += [lal.CacheEntry(line).path() for line in open(opts.cache_file)]
 if not len(trigFiles):
   print >>sys.stderr, "There are no files in your glob and/or lal cache"
   sys.exit(1)
-
+print >>sys.stderr, "There are " + str(len(trigFiles))+" files in your glob and/or lal cache"
 # an instance of the snglInspiralTable
+print "reading files ..."
 inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(trigFiles)
+print "done"
 plotsymbols= ['r+','bx','ko']
 
 # read in the template bank if supplied
@@ -174,7 +221,7 @@ if opts.veto_file:
 
 # determine missed injection file
 if opts.missed_inj:
-  anlayzedsegs = SearchSummaryUtils.GetSegListFromSearchSummaries(trigFiles)
+  analyzedsegs = SearchSummaryUtils.GetSegListFromSearchSummaries(trigFiles)
 
   inspDict = {}
   inspDict["ifo"] = inspTriggers[0].ifo
@@ -191,13 +238,13 @@ if opts.missed_inj:
   followupMissed["mis_time"] = []
   followupMissed["mis_triggers"] = []
   x = segments.segmentlistdict()
-  x["anlayzedsegs"] = segments.segmentlist(anlayzedsegs[inspDict["ifo"]])
+  x["analyzedsegs"] = segments.segmentlist(analyzedsegs[inspDict["ifo"]])
   for i in range(len(missedDict["mis_time"])):
     if missedDict["mis_dist"][i] < opts.min_distance:
       thisSegment = segments.segment(missedDict["mis_time"][i] - 10,
                                      missedDict["mis_time"][i] + 10)
       x["missedSeg"] = segments.segmentlist([thisSegment])
-      x["overlapSeg"] = x.intersection(["missedSeg", "anlayzedsegs"])
+      x["overlapSeg"] = x.intersection(["missedSeg", "analyzedsegs"])
       followupMissed["mis_time"].append(missedDict["mis_time"][i])
       followupMissed["mis_triggers"].append(
           inspTriggers.veto(x["overlapSeg"].__invert__()))
@@ -236,8 +283,10 @@ if opts.missed_inj:
     axvline(injTime - int(injTime), linewidth=1, color='r')
     for idx in range(len(triggers)):
       triggers[idx].end_time = triggers[idx].end_time - int(injTime)
+
+    outputname = __name__+"_"+opts.figure_name
     viz.plot_a_v_b(triggers,'end_time','snr','seconds','kx',\
-                   output_name = opts.figure_name + '_' + str(int(injTime)),\
+                   output_name = outputname + '_' + str(int(injTime)),\
                    x_min=opts.x_min,x_max=opts.x_max)
 
 ###################################
@@ -254,12 +303,15 @@ if opts.snr_time:
     for idx in range(len(inspTriggers)):
       inspTriggers[idx].end_time = inspTriggers[idx].end_time \
                                    - int(opts.add_vertical_line)
+    outputname = __name__+"_"+opts.figure_name
+    print outputname
     viz.plot_a_v_b(inspTriggers,'end_time','snr','seconds','kx',\
-                   output_name = opts.figure_name,x_min=opts.x_min,\
-                   x_max=opts.x_max)
+                   output_name = outputname,x_min=opts.x_min,\
+                   x_max=opts.x_max, y_min=opts.y_min, y_max=opts.y_max)
   else:
+    outputname = __name__+"_"+opts.figure_name
     viz.plot_a_v_b(inspTriggers,'end_time','snr','linear','kx',\
-                   output_name = opts.figure_name)
+                   output_name = outputname, y_min=opts.y_min, y_max=opts.y_max)
 
 ###################################
 # plot of snr vs chisq
@@ -273,7 +325,8 @@ if opts.snr_chisq:
     plot(snr_range, s3_snr_chi_stat, 'r-')
     hold(True)
     
-  viz.plot_a_v_b(inspTriggers,'snr','chisq','linear','kx',output_name = opts.figure_name)
+  outputname = __name__+"_"+opts.figure_name
+  viz.plot_a_v_b(inspTriggers,'snr','chisq','linear','kx',output_name = outputname)
 
 ###################################
 # plot of snr vs chisq
@@ -287,6 +340,7 @@ if opts.log_snr_chisq:
     loglog(snr_range, s3_snr_chi_stat, 'r-')
     hold(True)
     
+  outputname = __name__+"_"+opts.figure_name
   viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','kx',output_name = opts.figure_name)
 
 ###################################
@@ -297,7 +351,20 @@ if opts.cum_hist_snr:
   if opts.log_y:
     ax = subplot(111)
     ax.set_yscale('log')
-  viz.cumhistcol(inspTriggers,'snr',output_name = opts.figure_name)
+  outputname = __name__+"_"+opts.figure_name
+
+
+  # we use y_lim and y_max of the snr for the xlimit of the snr histogram 
+  if opts.y_min and opts.y_max:
+    xlimits = [opts.y_min, opts.y_max]
+  else :
+    xlimits=[0,0]
+
+  if opts.log_y is True:
+    viz.cumhistcol(inspTriggers,'snr',output_name = outputname , plot_type='loglog', xlimit=xlimits)
+  else:
+    viz.cumhistcol(inspTriggers,'snr',output_name = outputname, xlimit=xlimits)
+
 
 ###################################
 # histogram of snr
@@ -307,7 +374,8 @@ if opts.hist_snr:
   if opts.log_y:
     ax = subplot(111)
     ax.set_yscale('log')
-  viz.histcol(inspTriggers,'snr',opts.nbins,None,opts.figure_name)
+  outputname = __name__+"_"+opts.figure_name
+  viz.histcol(inspTriggers,'snr',opts.nbins,None,outputname)
 
 ###################################
 # normalized histogram of snr
@@ -319,8 +387,9 @@ if opts.norm_hist_snr:
   if opts.log_y:
     ax = subplot(111)
     ax.set_yscale('log')
+  outputname = __name__+"_"+opts.figure_name
   viz.cumhistcol(inspTriggers,'snr',normalization = max_poss_trigs,\
-      output_name = opts.figure_name)
+      output_name = outputname)
   
 ###################################
 # histogram of chisq values
@@ -330,7 +399,8 @@ if opts.hist_chisq:
   if opts.log_y:
     ax = subplot(111)
     ax.set_yscale('log')
-  viz.histcol(inspTriggers,'chisq',opts.nbins,None,opts.figure_name)
+  outputname = __name__+"_"+opts.figure_name
+  viz.histcol(inspTriggers,'chisq',opts.nbins,None,outputname)
 
 ###################################
 # cumulative histogram of snr
@@ -340,7 +410,8 @@ if opts.cum_hist_snr_chi:
   if opts.log_y:
     ax = subplot(111)
     ax.set_yscale('log')
-  viz.cumhistcol(inspTriggers,'snr_over_chi',output_name = opts.figure_name)
+  outputname = __name__+"_"+opts.figure_name
+  viz.cumhistcol(inspTriggers,'snr_over_chi',output_name = outputname)
 
 ###################################
 # histogram of snr
@@ -350,16 +421,18 @@ if opts.hist_snr_chi:
   if opts.log_y:
     ax = subplot(111)
     ax.set_yscale('log')
-  viz.histcol(inspTriggers,'snr_over_chi',opts.nbins,None,opts.figure_name)
+  outputname = __name__+"_"+opts.figure_name
+  viz.histcol(inspTriggers,'snr_over_chi',opts.nbins,None,output_name=outputname)
 
 ###################################
 # plot the template bank and overlay the triggers
 if opts.template_bank:
   fig_num += 1
   figure(fig_num)
+  outputname = __name__+"_"+opts.figure_name
   viz.plot_a_v_b(tmpltbank,'mass1','mass2','linear',plot_sym = 'rx')
   viz.plot_a_v_b(inspTriggers,'mass1','mass2','linear',plot_sym = 'ro',\
-      output_name = opts.figure_name)
+      output_name = outputname)
 
 if opts.show_plot:
   show()
