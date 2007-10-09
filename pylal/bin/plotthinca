@@ -1,9 +1,10 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 
 # $Id$
 __author__ = "Stephen Fairhurst <sfairhur@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
+__name__="plotthinca"
 
 import sys
 import os
@@ -23,6 +24,7 @@ from glue.ligolw import utils
 import pylal.itertools
 from pylal import CoincInspiralUtils
 from pylal import SnglInspiralUtils
+
 
 ##############################################################################
 usage = """
@@ -122,6 +124,10 @@ parser.add_option("-i","--hist-slides",action="store_true",default=False,\
     help="plot histograms of number of triggers in time slides")
 parser.add_option("-j","--plot-slides",action="store_true",default=False,\
     help="plot of number of triggers vs slide number")
+parser.add_option("-J","--gps-start-time",action="store",default="",\
+    help="gps start tiem used in the figure and output file names")
+parser.add_option("-P","--duration",action="store",default="",\
+    help="gps start tiem used in the figure and output file names")
 parser.add_option("-z","--add-zero-lag",action="store_true",default=False,\
     help="add the zero lag info to slide plots")
 parser.add_option("-Z","--zero-lag-playground",action="store_true",\
@@ -228,8 +234,6 @@ if opts.mass_range is not None:
 
 ###################################
 # glob the list of files to read in
-
-# On source
 if opts.glob is not None or opts.input is not None:
   if opts.glob is not None:
     allfiles = []
@@ -251,6 +255,15 @@ if opts.glob is not None or opts.input is not None:
       slidefiles.append(file)
     else:
       coincfiles.append(file)
+slidefiles = []
+coincfiles = []
+offsourcefiles = []
+
+for file in allfiles:
+  if 'SLIDE' in file:
+    slidefiles.append(file)
+  else:
+    coincfiles.append(file)
 
 # Off Source Files
 if opts.off_source_glob:  
@@ -432,7 +445,8 @@ if opts.snr_snr or opts.slide_snr:
     else:
       viz.square_axis()
     if f_name:
-      savefig(f_name + "_H1_vs_H2_" + snglStat + ".png")
+      savefig(__name__ +"_"+ opts.figure_name + "_H1_vs_H2_" + snglStat + "-"\
+	+opts.gps_start_time + "-"+opts.duration+".png")
 
 if (opts.snr_snr or opts.slide_snr) and opts.mass_dependent:
   for i in range(len(mass_range)-1):
@@ -465,8 +479,8 @@ if (opts.snr_snr or opts.slide_snr) and opts.mass_dependent:
       else:
         viz.square_axis()
       if f_name:
-        savefig(f_name + "_H1_vs_H2_" + snglStat + str(mass_range[i]) \
-          + "_" + str(mass_range[i+1]) +".png")
+        savefig(__name__ +"_"+ opts.figure_name + "_H1_vs_H2_" + snglStat +str(mass_range[i]) \
+          + "_" + str(mass_range[i+1]) +"-"+ opts.gps_start_time + "-"+opts.duration+".png")
 
 ################################
 # plot of hanford vs other snr
@@ -540,7 +554,8 @@ if opts.snr_snr or opts.slide_snr:
       else:
         viz.square_axis()
       if f_name:
-        savefig(f_name + "_H_vs_" + ifo + "_" + snglStat + ".png")
+        savefig(__name__ + "_"+opts.figure_name + "_H_vs_" + ifo +"_" +snglStat + "-"\
+	+opts.gps_start_time + "-"+opts.duration+".png")
 
 if (opts.snr_snr or opts.slide_snr) and opts.mass_dependent:
   for i in range(len(mass_range)-1):
@@ -614,8 +629,9 @@ if (opts.snr_snr or opts.slide_snr) and opts.mass_dependent:
         else:
           viz.square_axis()
         if f_name:
-          savefig(f_name + "_H_vs_" + ifo + "_" + snglStat + \
-            str(mass_range[i]) + "_" + str(mass_range[i+1]) + ".png")
+          savefig(__name__ +"_"+ opts.figure_name + "_H_vs_" + ifo +"_"+ snglStat + "-"+\
+              str(mass_range[i]) + "_" + str(mass_range[i+1]) + \
+              +"-"+opts.gps_start_time + "-"+opts.duration+".png")
 
 
 ################################
@@ -651,8 +667,8 @@ if opts.snr_snr or opts.slide_snr:
     else:
       viz.square_axis()
     if f_name:
-      savefig(f_name + "_" + ifo_non_h[0] + "_vs_" + ifo_non_h[1] + "_" +\
-          snglStat + ".png")
+      savefig(__name__ +"_"+ opts.figure_name + "_" + ifo_non_h[0] +"_vs_" +ifo_non_h[1] + "-"\
+          +snglStat+ "-"+opts.gps_start_time + "-"+opts.duration+".png")
 
 if (opts.snr_snr or opts.slide_snr) and opts.mass_dependent:
   for i in range(len(mass_range)-1):
@@ -686,9 +702,9 @@ if (opts.snr_snr or opts.slide_snr) and opts.mass_dependent:
       else:
         viz.square_axis()
       if f_name:
-        savefig(f_name + "_" + ifo_non_h[0] + "_vs_" + ifo_non_h[1] + "_" + \
-          snglStat + str(mass_range[i]) + "_" + str(mass_range[i+1]) + ".png")
-
+        savefig(__name__ +"_"+ opts.figure_name + "_" + ifo_non_h[0] +"_vs_" +ifo_non_h[1] + "-"\
+            +snglStat + str(mass_range[i]) + "_" + str(mass_range[i+1]) +\
+            "-"+opts.gps_start_time + "-"+opts.duration+".png")
 
 ################################
 # plot of h1 vs h2 eff dist
@@ -731,7 +747,8 @@ if opts.dist_dist:
     else:
       viz.square_axis()
     if f_name:
-      savefig(f_name + "_H1_vs_H2_dist.png")
+        savefig(__name__ +"_"+ opts.figure_name + "_" + "_H1_vs_H2_dist"\
+            "-"+opts.gps_start_time + "-"+opts.duration+".png")
 
 if opts.dist_dist and opts.mass_dependent:
   for i in range(len(mass_range)-1):
@@ -766,8 +783,8 @@ if opts.dist_dist and opts.mass_dependent:
       else:
         viz.square_axis()
       if f_name:
-        savefig(f_name + "_H1_vs_H2_dist" + str(mass_range[i]) + "_" + \
-          str(mass_range[i+1]) + ".png")
+        savefig(__name__ +"_"+ opts.figure_name + "_" + "_H1_vs_H2_dist_"+str(mass_range[i])\
+            +"_"+str(mass_range[i+1])+"-"+opts.gps_start_time + "-"+opts.duration+".png")
 
 
 ####################################
@@ -798,7 +815,8 @@ if opts.snr_time:
       ylim(ymax=opts.max_snr)
     
   if f_name:
-    savefig(f_name + '_' + snglStat + "_vs_time.png")
+    savefig(__name__ +"_"+ opts.figure_name + "_" + snglStat\
+        +"_vs_time-"+opts.gps_start_time + "-"+opts.duration+".png")
 
 if opts.snr_time and opts.mass_dependent:
   for i in range(len(mass_range)-1):
@@ -829,8 +847,11 @@ if opts.snr_time and opts.mass_dependent:
         ylim(ymax=opts.max_snr)
 
     if f_name:
-      savefig(f_name + '_' + snglStat + "_vs_time" + str(mass_range[i]) + \
-        "_" + str(mass_range[i+1]) + ".png")
+      savefig(__name__ +"_"+ opts.figure_name + "_" + snglStat + \
+          "_vs_time-"+ str(mass_range[i]) +   "_" + str(mass_range[i+1]) + \
+          "-"+opts.gps_start_time + "-"+opts.duration+".png")
+
+
 
 ################################################
 # make plot/hist of number of triggers per slide
@@ -845,14 +866,16 @@ if opts.hist_slides or opts.plot_slides:
     fig_num += 1
     viz.histslides(slideTriggers,coincTrigs,scalebkg=opts.zero_lag_playground)
     if f_name:
-      savefig(f_name + "_hist_slide_trigs.png")
+      savefig(__name__ +"_"+ opts.figure_name + "_hist_slide_trigs" + \
+          "-"+opts.gps_start_time + "-"+opts.duration+".png")
 
   if opts.plot_slides:
     figure(fig_num)
     fig_num += 1
     viz.plotslides(slideTriggers,coincTrigs,scalebkg=opts.zero_lag_playground)
     if f_name:
-      savefig(f_name + "_plot_slide_trigs.png")
+      savefig(__name__ + "_"+opts.figure_name + "_plot_slide_trigs" + \
+          "-"+opts.gps_start_time + "-"+opts.duration+".png")
 
   for ifos in ifo_coincs:
     if opts.hist_slides:
@@ -860,10 +883,11 @@ if opts.hist_slides or opts.plot_slides:
       fig_num += 1
       viz.histslides(slideTriggers,coincTrigs,ifos)
       if f_name:
-        output_name = f_name + '_'
+        output_name=__name__ +"_"+ opts.figure_name+"_" 
         for ifo in ifos:
           output_name += ifo
-        output_name += "_hist_slide_trigs.png"
+        output_name += "_hist_slide_trigs"
+        output_name += "-" + opts.gps_start_time + "-" + opts.duration +".png"
         savefig(output_name)
 
     if opts.plot_slides:
@@ -871,10 +895,11 @@ if opts.hist_slides or opts.plot_slides:
       fig_num += 1
       viz.plotslides(slideTriggers,coincTrigs,ifos)
       if f_name:
-        output_name = f_name + '_'
+        output_name=__name__ + "_"+opts.figure_name +"_"
         for ifo in ifos:
           output_name += ifo
-        output_name += "_plot_slide_trigs.png"
+        output_name += "_plot_slide_trigs"
+        output_name += "-"+opts.gps_start_time + "-"+opts.duration+".png"
         savefig(output_name)
 
 if (opts.hist_slides or opts.plot_slides) and opts.mass_dependent:
@@ -890,8 +915,9 @@ if (opts.hist_slides or opts.plot_slides) and opts.mass_dependent:
       viz.histslides(slideTriggersByMass[i],coincTrigs, \
         scalebkg=opts.zero_lag_playground)
       if f_name:
-        savefig(f_name + "_hist_slide_trigs" + str(mass_range[i]) + "_" + \
-          str(mass_range[i+1]) + ".png")
+        savefig(__name__ + "_" +opts.figure_name+ "_hist_slide_trigs" + \
+            str(mass_range[i]) + "_" +  str(mass_range[i+1]) + \
+            "-"+opts.gps_start_time + "-"+opts.duration+".png")
       
     if opts.plot_slides:
       figure(fig_num)
@@ -899,8 +925,9 @@ if (opts.hist_slides or opts.plot_slides) and opts.mass_dependent:
       viz.plotslides(slideTriggersByMass[i],coincTrigs, \
         scalebkg=opts.zero_lag_playground)
       if f_name:
-        savefig(f_name + "_plot_slide_trigs" + str(mass_range[i]) + "_" + \
-          str(mass_range[i+1]) + ".png")
+        savefig(__name__ + "_" +opts.figure_name+ "_plot_slide_trigs" + \
+            str(mass_range[i]) + "_" +     str(mass_range[i+1]) + \
+            "-"+opts.gps_start_time + "-"+opts.duration+".png")
      
     for ifos in ifo_coincs:
       if opts.hist_slides:
@@ -908,11 +935,12 @@ if (opts.hist_slides or opts.plot_slides) and opts.mass_dependent:
         fig_num += 1
         viz.histslides(slideTriggersByMass[i],coincTrigs,ifos)
         if f_name:
-          output_name = f_name + '_'
+          output_name = __name__ + "_" +opts.figure_name+"_"
+          
           for ifo in ifos:
             output_name += ifo 
-          output_name += "_hist_slide_trigs" + str(mass_range[i]) + "_" + \
-            str(mass_range[i+1]) + ".png"
+          output_name += "_hist_slide_trigs" + str(mass_range[i]) +\
+              "-"+opts.gps_start_time + "-"+opts.duration+".png"
           savefig(output_name)
 
       if opts.plot_slides:
@@ -920,11 +948,12 @@ if (opts.hist_slides or opts.plot_slides) and opts.mass_dependent:
         fig_num += 1
         viz.plotslides(slideTriggersByMass[i],coincTrigs,ifos)
         if f_name:
-          output_name = f_name + '_'
+          output_name = __name__ + "_" +opts.figure_name+"_"
+          
           for ifo in ifos:
             output_name += ifo
           output_name += "_plot_slide_trigs" + str(mass_range[i]) + "_" + \
-            str(mass_range[i+1]) + ".png"
+            str(mass_range[i+1]) +"-"+opts.gps_start_time + "-"+opts.duration+".png"
           savefig(output_name)
 
 
@@ -940,7 +969,8 @@ if opts.snr_hist:
   xlim(xmax=opts.max_snr**2.0)
   grid(True)
   if f_name:
-    savefig(f_name + "_hist_" + statistic.name + ".png")
+    savefig(__name__ + "_" +opts.figure_name+ "_hist_" + \
+         statistic.name +"-"+opts.gps_start_time + "-"+opts.duration+".png")
 
 if opts.snr_dist:
   figure(fig_num) 
@@ -952,9 +982,8 @@ if opts.snr_dist:
   ylim(ymax=20)
   grid(True)
   if f_name:  
-    savefig(f_name + "_cum_hist_" + statistic.name + ".png")
-
-
+    savefig(__name__ + "_" +opts.figure_name+ "_cum_hist_" + \
+         statistic.name +"-"+opts.gps_start_time + "-"+opts.duration+".png")
 
   for ifos in ifo_coincs:
     figure(fig_num) 
@@ -962,10 +991,11 @@ if opts.snr_dist:
     viz.cumhiststat(coincTriggers, slideTriggers, ifos, opts.min_snr, \
         opts.max_snr, opts.nbins, statistic.name)
     if f_name:
-      output_name = f_name + '_'
+      output_name =__name__ + "_" +opts.figure_name+ "_" 
       for ifo in ifos:
         output_name += ifo
-      output_name += "_cum_hist_" + statistic.name + ".png"
+      output_name += "_cum_hist_" + statistic.name +"-"+opts.gps_start_time \
+          + "-"+opts.duration+".png"
       savefig(output_name)
 
 if opts.snr_dist and opts.mass_dependent:
@@ -978,8 +1008,9 @@ if opts.snr_dist and opts.mass_dependent:
     ylim(ymin=1.0e-01)
     ylim(ymax=20)
     if f_name:
-      savefig(f_name + "_cum_hist_" + statistic.name + str(mass_range[i]) + \
-        "_" + str(mass_range[i+1]) + ".png")
+      savefig(__name__+"_"+opt.figure_name + "_cum_hist_" + statistic.name +
+          str(mass_range[i]) + "_" + str(mass_range[i+1]) + "-"+opts.gps_start_time \
+          + "-"+opts.duration+".png")
 
 
 
@@ -989,11 +1020,12 @@ if opts.snr_dist and opts.mass_dependent:
       viz.cumhiststat(coincTriggersByMass[i], slideTriggersByMass[i], ifos, \
         opts.min_snr, opts.max_snr, opts.nbins, statistic.name)
       if f_name:
-        output_name = f_name + '_'
+        output_name = __name__ + '_'+opts.figure_name + "_"
         for ifo in ifos:
           output_name += ifo
-        output_name += "_cum_hist_" + statistic.name + str(mass_range[i]) + \
-          "_" + str(mass_range[i+1]) + ".png"
+        output_name += "_cum_hist_" + statistic.name + str(mass_range[i]) \
+            + "_" + str(mass_range[i+1]) + "-"+opts.gps_start_time \
+            + "-"+opts.duration+".png"
         savefig(output_name)
 
 
