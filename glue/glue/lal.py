@@ -430,9 +430,9 @@ class CacheEntry(object):
 		Return a segmentlistdict object describing the instruments
 		and time spanned by this CacheEntry.
 		"""
-		if observatory and "," in self.observatory:
+		if self.observatory and "," in self.observatory:
 			instruments = self.observatory.split(",")
-		elif observatory and "+" in self.observatory:
+		elif self.observatory and "+" in self.observatory:
 			instruments = self.observatory.split("+")
 		else:
 			instruments = [self.observatory]
