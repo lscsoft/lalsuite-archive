@@ -78,7 +78,7 @@ If the zero lag data only contains playground, the number of triggers in the
 parser = OptionParser( usage=usage, version="%prog CVS $Id$ " )
 parser.add_option("-g","--glob",action="store",type="string",\
     default=None, metavar=" GLOB",help="GLOB of thinca files to read" )
-parser.add_option("-I", "--input", help="read thinca filenames from input file")
+parser.add_option("-I", "--input", help="read thinca filenames from cache input file")
 parser.add_option("-o","--off-source-glob",action="store",type="string",\
     default=None, metavar=" GLOB",help="GLOB off-source thinca files to read" )
 parser.add_option("-E","--ext-trig",action="store_true",default=False,\
@@ -154,6 +154,20 @@ parser.add_option("-V","--veto-file",action="store",type="string",\
 parser.add_option("-v","--offsource-veto-file",action="store",type="string",\
     default=None,metavar=" FNAME",\
     help="discard off-source triggers in segments from FNAME (segwizard format)")
+#############################################
+#options added for plotting dag
+#############################################
+parser.add_option("","--cache-description", action="store",type="string",\
+    default="COIRE_", metavar="CACHEDESCRIPTION", help="description pattern the cache entries will be sieved with" )
+
+parser.add_option("","--add-description", action="store",type="string",\
+    default="SLIDE", metavar="ADDDESCRIPTION", help="additional description pattern the cache entries will be sieved with" )
+
+parser.add_option("","--ifo-times",action="store",type="string",\
+    default=None,metavar="IFOS",\
+    help="Which ifo times are being looked at for slides (e.g. H1H2L1)" )
+
+
 (opts,args) = parser.parse_args()
 
 if opts.plot_type not in ['log', 'linear']:
@@ -239,13 +253,44 @@ if opts.glob is not None or opts.input is not None:
     allfiles = []
     for gl in opts.glob.split(" "):
       allfiles.extend(glob.glob(gl))
+    if len(allfiles) < 1:
+      print >>sys.stderr, "The glob for " + opts.glob + " returned no files" 
+      sys.exit(1)
+
+    slidefiles = []
+    coincfiles = []
+    offsourcefiles = []
+
+    for file in allfiles:
+      if 'SLIDE' in file:
+        slidefiles.append(file)
+      else:
+        coincfiles.append(file)
+
   elif opts.input is not None:
-    allfiles = [lal.CacheEntry(line).path() for line in open(opts.input)]
+    allfilesCache = lal.Cache.fromfile(open(opts.input))    
+    allfiles = []
+    allfiles = allfilesCache.sieve(ifos=opts.ifo_times, exact_match=True).sieve(description = opts.cache_description).pfnlist()
+    if len(allfiles) < 1:
+      print >>sys.stderr, "The file" + opts.input + " contains no" + opts.cache_description + " files"
+      sys.exit(1)
 
-  if len(allfiles) < 1:
-    print >>sys.stderr, "The glob for " + opts.glob + " returned no files"
-    sys.exit(1)
+    offsourcefiles = []
+    slidefiles = []
+    coincfiles = []
+    slidefiles = allfilesCache.sieve(ifos=opts.ifo_times, exact_match=True).sieve(description = (opts.cache_description + opts.add_description)).pfnlist()
 
+    for file in allfiles:
+      if file not in slidefiles:
+        coincfiles.append(file)
+
+
+<<<<<<< plotthinca
+        
+    
+
+  
+=======
   slidefiles = []
   coincfiles = []
   offsourcefiles = []
@@ -264,6 +309,7 @@ for file in allfiles:
     slidefiles.append(file)
   else:
     coincfiles.append(file)
+>>>>>>> 1.52
 
 # Off Source Files
 if opts.off_source_glob:  
