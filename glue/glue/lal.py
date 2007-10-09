@@ -388,8 +388,8 @@ class CacheEntry(object):
 		containing the contents of this cache entry.
 		"""
 		if self.segment is not None:
-			start = self.segment[0]
-			duration = abs(self.segment)
+			start = str(self.segment[0])
+			duration = str(abs(self.segment))
 		else:
 			start = "-"
 			duration = "-"
@@ -436,7 +436,7 @@ class CacheEntry(object):
 			instruments = self.observatory.split("+")
 		else:
 			instruments = [self.observatory]
-		return segments.segmentlistdict([(instrument, segments.segmentlist([self.segment])) for instrument in instruments])
+		return segments.segmentlistdict([(instrument, segments.segmentlist(self.segment is not None and [self.segment] or [])) for instrument in instruments])
 
 
 class Cache(list):
