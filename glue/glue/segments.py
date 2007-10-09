@@ -843,10 +843,31 @@ class segmentlistdict(dict):
 		Return a copy of the segmentlistdict object.  The return
 		value is a new object with a new offsets attribute, with
 		references to the original keys, and shallow copies of the
-		segment lists.  In summary, modifications made to the
-		offset dictionary or segmentlists in the object returned by
-		this method will not affect the original, but without using
-		much memory until such modifications are made.
+		segment lists.  Modifications made to the offset dictionary
+		or segmentlists in the object returned by this method will
+		not affect the original, but without using much memory
+		until such modifications are made.
+
+		More details.  There are two "built-in" ways to create a
+		working copy of a segmentlist object.  The first is to
+		initialize a new object from an existing one with
+
+		>>> new = segmentlistdict(old)
+
+		This creates a working copy of the dictionary, but not of
+		its contents.  That is, this creates new with references to
+		the segmentlists in old, so changes to the segmentlists in
+		either new or old are reflected in both.  The second method
+		is
+
+		>>> new = old.copy()
+
+		This creates a working copy of the dictionary and of the
+		segmentlists, but with references to the segment objects in
+		the original segmentlists.  Since segments are immutable,
+		this effectively creates a completely independent working
+		copy but without the memory cost of a full duplication of
+		the data.
 		"""
 		new = self.__class__()
 		for key, value in self.iteritems():
