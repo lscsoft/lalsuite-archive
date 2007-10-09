@@ -218,7 +218,7 @@ if opts.inspiral_glob:
 if opts.cache_file:
   inspiralFiles += [lal.CacheEntry(line).path() \
       for line in open(opts.cache_file) if "INSPIRAL" in line]
-if opts.cache_file:
+if opts.cache_file and opts.range_mass:
   inspiralFiles += [lal.CacheEntry(line).path() \
       for line in open(opts.cache_file) if "TMPLTBANK" in line]
 
