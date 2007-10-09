@@ -284,33 +284,6 @@ if opts.glob is not None or opts.input is not None:
       if file not in slidefiles:
         coincfiles.append(file)
 
-
-<<<<<<< plotthinca
-        
-    
-
-  
-=======
-  slidefiles = []
-  coincfiles = []
-  offsourcefiles = []
-
-  for file in allfiles:
-    if 'SLIDE' in file:
-      slidefiles.append(file)
-    else:
-      coincfiles.append(file)
-slidefiles = []
-coincfiles = []
-offsourcefiles = []
-
-for file in allfiles:
-  if 'SLIDE' in file:
-    slidefiles.append(file)
-  else:
-    coincfiles.append(file)
->>>>>>> 1.52
-
 # Off Source Files
 if opts.off_source_glob:  
   allfiles = []
