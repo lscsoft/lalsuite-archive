@@ -100,6 +100,23 @@ parser.add_option("-V","--veto-file",action="store",type="string",\
   help="read in segments from FNAME (assumed segwizard format)")
 parser.add_option("-s","--show-plot",action="store_true",default=False,\
   help="display the figures on the terminal" )
+#############################################
+#options added for plotting dag
+#############################################
+parser.add_option("", "--cache-file", action="store", type="string", default=None, metavar="CACHEFILE",\
+    help="output cache file for injections, zerolag or playground  COIRE(THINCA) files")
+
+parser.add_option("","--cache-description", action="store",type="string",\
+    metavar="CACHEDESCRIPTION", default="COIRE_", help="description pattern the cache entries will be sieved with" )
+
+parser.add_option("","--add-description", action="store",type="string",\
+    metavar="ADDDESCRIPTION", default="SLIDE", help="additional description pattern the cache entries will be sieved with" )
+
+
+parser.add_option("","--time-slides", action="store_true", default=False,\
+    help="add time slides to the plots" )
+
+
 
 (opts,args) = parser.parse_args()
 
@@ -126,12 +143,32 @@ if not opts.show_plot:
 
 bins = [i/opts.num_bins for i in range(opts.num_bins+1)]
 
+if opts.cache_file  is not None:
+  allfilesCache = lal.Cache.fromfile(open(opts.cache_file))
+  cache_allfilelist = []
+  cache_allfilelist = allfilesCache.sieve(ifos = opts.ifo_times, exact_match = True).sieve(description = opts.cache_description).pfnlist()
+  if len(cache_allfilelist) < 1:
+    print >>sys.stderr, "The file" + opts.cache_file + " contains no" + opts.cache_description + " files"
+    sys.exit(1)
+
+  cache_slidefilelist = []
+  cache_coincfilelist = []
+  cache_slidefilelist = allfilesCache.sieve(ifos = opts.ifo_times, exact_match = True).sieve(description = (opts.cache_description + opts.add_description)).pfnlist()
+
+  for file in cache_allfilelist:
+    if file not in cache_slidefilelist:
+      cache_coincfilelist.append(file)
+  
+ 
+
+
+
 filelists = [glob.glob(g) for g in opts.inj_glob] + \
-  [[lal.CacheEntry(line).path() for line in open(f)] for f in opts.inj_input]
-if opts.slide_glob or opts.slide_input:
+  [[lal.CacheEntry(line).path() for line in open(f)] for f in opts.inj_input] + [cache_coincfilelist]
+if opts.slide_glob or opts.slide_input or opts.time_slides:
   slidefilelists = [glob.glob(g) for g in opts.slide_glob] + \
       [[lal.CacheEntry(line).path() for line in open(f)] \
-      for f in opts.slide_input]
+      for f in opts.slide_input] + [cache_slidefilelist]
 else:
   slidefilelists = []
 statistic = CoincInspiralUtils.coincStatistic(opts.statistic)
@@ -260,10 +297,10 @@ for ifos in pylal_itertools.choices(opts.ifo_list, 2):
               markeredgewidth=1, markersize=6)
 
       grid(True)
-      if opts.inj_glob:
+      if coincTriggersList:
         if len(ethincaVals) == 0 or max(ethincaVals) < 1:
           ylim((0,1))
-      elif opts.slide_glob:
+      elif slideTriggersList:
         if len(ethincaSlideVals) == 0 or max(ethincaSlideVals) < 1:
           ylim((0,1))
       xlabel("%s %s" % (ifo, col.replace('_', r'\_')))
@@ -299,10 +336,10 @@ for ifos in pylal_itertools.choices(opts.ifo_list, 2):
             markeredgewidth=1, markersize=6)
 
     grid(True)
-    if opts.inj_glob:
+    if coincTriggersList:
       if len(ethincaVals) == 0 or max(ethincaVals) < 1:
         ylim((0,1))
-    elif opts.slide_glob:
+    elif slideTriggersList:
       if len(ethincaSlideVals) == 0 or max(ethincaSlideVals) < 1:
         ylim((0,1))
     xlabel("Combined %s" % opts.statistic.replace('_', r'\_'))
@@ -320,24 +357,24 @@ for ifos in pylal_itertools.choices(opts.ifo_list, 2):
     figure(figure_numbers.next())
     stat_max = max([max([y.stat for y in x]) for x in coincs_list+slides_list \
         if len(x)] + [0.1])
-    if opts.inj_glob:
+    if coincTriggersList:
       xVals = [[x.stat for x in coincs] for coincs in coincs_list]
       y_list, x_list = zip(*[histogram(xVal, bins=opts.num_bins,
           range=[0, stat_max]) for xVal in xVals])
       n = len(x_list)
 
-    if opts.slide_glob:
+    if slideTriggersList:
       xSlideVals = [[x.stat for x in slides] for slides in slides_list]
       y_list, x_list = zip(*[histogram(xSlideVal, bins=opts.num_bins,
           range=[0, stat_max]) for xSlideVal in xSlideVals])
-      if not opts.inj_glob:
+      if not coincTriggersList:
         n = len(x_list)
       for i, x, y, color in zip(range(n), x_list, y_list, color_slide_list):
         x += 0.1*i*stat_max/opts.num_bins  # Introduce some stagger
         y[len(y)-1] = 0
         bar(x, y, color=color, width=(1-0.1*n)*stat_max/opts.num_bins)
 
-    if opts.inj_glob:
+    if coincTriggersList:
       hold(True)
       xVals = [[x.stat for x in coincs] for coincs in coincs_list]
       y_list, x_list = zip(*[histogram(xVal, bins=opts.num_bins,
@@ -366,18 +403,18 @@ for ifos in pylal_itertools.choices(opts.ifo_list, 2):
     # Histogram all datasets with the same bins
     ep_max = max([max(eps) for eps in ethinca_list+ethinca_slide_list \
         if len(eps)] + [0.1])
-    if opts.inj_glob:
+    if coincTriggersList:
       y_list, x_list = zip(*[histogram(eps, bins=opts.num_bins,
           range=[0, ep_max]) for eps in ethinca_list])
       n = len(x_list)
       for i, x, y, color in zip(range(n), x_list, y_list, color_list):
         x += 0.1*i*ep_max/opts.num_bins  # Introduce some stagger
         bar(x, y, color=color, width=(1-0.1*n)*ep_max/opts.num_bins)
-    if opts.slide_glob:
+    if slideTriggersList:
       hold(True)
       y_list, x_list = zip(*[histogram(eps, bins=opts.num_bins,
           range=[0, ep_max]) for eps in ethinca_slide_list])
-      if opts.inj_glob:
+      if coincTriggersList:
         normalization = opts.injection_window*numInjections/ \
                (2.0*opts.num_slides*slideTimeAnalyzed)
       else:
