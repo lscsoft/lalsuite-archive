@@ -34,19 +34,6 @@ class ContentHandler(ligolw.PartialLIGOLWContentHandler):
 utils.ContentHandler = ContentHandler
 
 
-def writeProcessParams(page, command_line): 
-  """
-  function to write out the process params that the code was called with
-  """
-  text = "Figures produced with "+ __name__+", " + \
-     +__version__[1:len(__version__)-1]+", invoked with arguments:\n\n"+ \
-     __name__ 
-
-  for arg in command_line:
-    text += " " +  arg
-  page.pre( text )
-  return page
-
 
 def readFiles(fList):
   """
@@ -128,12 +115,10 @@ parser.add_option("-I","--inspiral-glob",action="store",type="string",\
     default=None,metavar="INSP",\
     help="glob for files containing the string INSP")
     
-parser.add_option("-C","--cache-file",action="store",type="string",\
+parser.add_option("-c","--cache-file",action="store",type="string",\
     default=None,metavar="CACHE",\
     help="name of cache file with details if inspiral files")
 
-parser.add_option("-s","--show-plot",action="store_true",default=False,\
-    help="display the figures on the terminal" )
 
 parser.add_option("-m","--range-min",action="store",type="float",\
     metavar="MIN", help="minimum value on range plots", default=-1 )
@@ -161,16 +146,37 @@ parser.add_option("-t","--plot-type",action="store",type="string",\
     help="make either linear or log or plots" )
 
 parser.add_option("-n","--nbins",action="store",type="int",\
-    metavar="NBINS", help="number of bins for range hist (default 100)",
+    metavar="NBINS", help="number of bins for range hist (default 100)", \
     default=100)
 
-parser.add_option("-f","--figure-name",action="store",type="string",\
-    default=None, metavar=" FNAME",\
-    help="generate png figures with name FNAME-fig.png" )
+parser.add_option("-u","--user-tag",action="store",type="string",\
+    default=None, metavar=" USERTAG",\
+    help="add user-tag to output file names" )
+
+parser.add_option("-F","--save-plots",action="store_true",\
+    default=False, help="save the figures which were generated")
+
+parser.add_option("-s","--show-plots",action="store_true",default=False,\
+    help="display the figures on the terminal" )
 
 parser.add_option("-W","--html-output",action="store_true",\
-    default=False, metavar=" HTML",\
+    default=False, help="generate a html page containing the plots")
+
+parser.add_option("-C","--output-cache",action="store_true",\
+    default=False, metavar=" OUT_CACHE",\
     help="generate a html page containing the plots")
+
+parser.add_option("-i","--ifos",action="store",\
+    default="", type="string", metavar=" IFOS",\
+    help="used in file naming only")
+
+parser.add_option("-S","--gps-start-time",action="store",\
+    default=None, type="int", metavar=" START",\
+    help="GPS start time of the analyzed data")
+
+parser.add_option("-E","--gps-end-time",action="store",\
+    default=None, type="int", metavar=" END",\
+    help="GPS end time of the analyzed data")
 
 parser.add_option("-v","--verbose",action="store_true",\
     default=False,help="print information" )
@@ -179,7 +185,31 @@ parser.add_option("-v","--verbose",action="store_true",\
 command_line = sys.argv[1:]
 (opts,args) = parser.parse_args()
 
-fig_num = 0
+#######################################################################
+# cache specific stuff
+if opts.gps_start_time and not opts.gps_end_time or \
+    opts.gps_end_time and not opts.gps_start_time:
+  raise ValueError, \
+      "must specify none or both of --gps-start-time, --gps-end-time"
+
+if opts.output_cache:
+  if not opts.gps_start_time: raise ValueError, \
+      "must specify --gps-start-time if writing an output-cache"
+  if not opts.ifos: raise ValueError, \
+      "must specify --ifos if writing an output-cache"
+
+# set up the output name
+if opts.gps_start_time:
+  ending = "-" + str(opts.gps_start_time) + "-" + \
+      str(opts.gps_end_time - opts.gps_start_time)
+else: 
+  ending = ""
+
+output = ""
+if opts.ifos: output = opts.ifos + "-"
+output += __name__.strip("pylal_").upper()
+if opts.user_tag: output += "_" + opts.user_tag 
+
 #######################################################################
 # identify the inspiral files
 inspiralFiles = []
@@ -198,7 +228,7 @@ inspiralSumm,massInspiralSumm = readFiles(inspiralFiles)
 
 colors = {'G1':'k','H1':'r','H2':'b','L1':'g','V1':'m'}
 
-fnames=[]
+outputFiles=[]
 # Initialise the html output if needed
 if opts.html_output is True:
   try:
@@ -207,12 +237,13 @@ if opts.html_output is True:
   except: 
     raise ImportError("Require markup.py to generate the html page")
 
-  if not opts.figure_name: opts.figure_name = opts.html_output.rstrip(".html")
-  html_file = file(__name__+"_"+opts.figure_name+".html", "w")
+  opts.save_plots = True
+  html_fname = output + ending + ".html"
+  outputFiles.append(html_fname)
+  html_file = file(html_fname,"w")
   page = markup.page()
   title = "Inspiral Range Plots"
   page.init(title=title)
-#  page.h2(title)
 
 #######################################################################
 # Make plot of range vs time
@@ -236,12 +267,13 @@ if opts.range_vs_time:
   xlabel('Days after start of run', size='x-large')
   ylabel('Inspiral Horizon distance (Mpc)', size='x-large')
   grid()
-  if opts.figure_name:
-    fname = opts.figure_name + "_range_plot.png"
+  if opts.save_plots:
+    fname = output + "_RANGE_PLOT" + ending + ".png"
     savefig(fname)
+    outputFiles.append(fname)
     if opts.html_output is True:
       page.img( src = fname, width = 400, \
-	 alt="Histograms of Horizon Distance for a (1.4,1.4) solar mass system with SNR=8", border="2")
+         alt="Histograms of Horizon Distance for a (1.4,1.4) solar mass system with SNR=8", border="2")
 
 
 #######################################################################
@@ -289,14 +321,14 @@ if opts.range_hist:
   xlabel('Inspiral Horizon distance (Mpc)', size='x-large')
   ylabel('Number of 2048 sec. blocks', size='x-large')
   grid()
-  if opts.figure_name:
-    fname = opts.figure_name + "_range_hist.png"
+  if opts.save_plots:
+    fname = output + "_RANGE_HIST" + ending + ".png"
     savefig(fname)
+    outputFiles.append(fname)
     if opts.html_output is True:
       page.img( src = fname, width = 400, \
-	 alt="""Inspiral Horizon Distance for a (1.4,1.4) solar 
-	 mass system with SNR=8""", border="2")
-#  page.p(comment)
+         alt="""Inspiral Horizon Distance for a (1.4,1.4) solar 
+         mass system with SNR=8""", border="2")
 
 #######################################################################
 # Make plot of mean range vs total mass
@@ -340,17 +372,25 @@ if opts.range_mass:
   xlabel('Total Mass ($M_\odot$)', size='x-large')
   ylabel('Inspiral Horizon distance (Mpc)', size='x-large')
   grid()
-  if opts.figure_name:
-    fname = opts.figure_name + "_range_mass.png"
+  if opts.save_plots:
+    fname = output + "_RANGE_MASS" + ending + ".png"
     savefig(fname)
+    outputFiles.append(fname)
     if opts.html_output is True:
       page.img( src = fname, width = 400, \
-	alt="Inspiral Horizon Distance vs Mass at SNR=8" ,border="2")
+        alt="Inspiral Horizon Distance vs Mass at SNR=8" ,border="2")
 
 if opts.html_output:
-  page = writeProcessParams(page, command_line)
+  from pylal import InspiralUtils
+  page = InspiralUtils.WriteProcessParams(page, __name__, __version__,
+      command_line)
   html_file.write(page(False))
   html_file.close()
 
-if opts.show_plot:
+if opts.output_cache:
+  from pylal import InspiralUtils
+  cache = InspiralUtils.GenerateCache(outputFiles)
+  cache.tofile(open(output + "_CACHE" + ending + ".cache","w"))
+
+if opts.show_plots:
   show()  
