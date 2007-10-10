@@ -160,7 +160,8 @@ def merge_compatible_tables(elem):
 					raise ValueError, "document contains %s tables with incompatible columns" % dest.getAttribute("Name")
 				# and the have the same columns
 				# copy src rows to dest
-				map(dest.append, src)
+				for row in src:
+					dest.append(row)
 				# unlink src from parent
 				if src.parentNode is not None:
 					src.parentNode.removeChild(src)
