@@ -74,6 +74,9 @@ It is strongly recommended that
 #include <lal/LALStdio.h>
 #include <lal/FileIO.h>
 
+
+NRCSID (FILEIOC,"$Id$");
+
 #define STR( x ) #x
 #define XSTR( x ) STR( x )
 #define INFOMSG( msg, file ) ( ( lalDebugLevel & LALINFO ) ? \
@@ -359,7 +362,7 @@ char * XLALFileGets( char * s, int size, LALFILE *file )
 	return c;
 }
 
-int XLALFilePuts( char * s, LALFILE *file )
+int XLALFilePuts( const char * s, LALFILE *file )
 {
 	static const char *func = "XLALFilePuts";
 	if ( ! file )
