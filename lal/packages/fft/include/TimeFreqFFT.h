@@ -1,3 +1,22 @@
+/*
+*  Copyright (C) 2007 Duncan Brown, Jolien Creighton, Kipp Cannon, Patrick Brady, Tania Regimbau
+*
+*  This program is free software; you can redistribute it and/or modify
+*  it under the terms of the GNU General Public License as published by
+*  the Free Software Foundation; either version 2 of the License, or
+*  (at your option) any later version.
+*
+*  This program is distributed in the hope that it will be useful,
+*  but WITHOUT ANY WARRANTY; without even the implied warranty of
+*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+*  GNU General Public License for more details.
+*
+*  You should have received a copy of the GNU General Public License
+*  along with with program; see the file COPYING. If not, write to the
+*  Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+*  MA  02111-1307  USA
+*/
+
 /**** <lalVerbatim file="TimeFreqFFTHV">
  * $Id$
  **** </lalVerbatim> */
@@ -89,16 +108,6 @@ NRCSID( TIMEFREQFFTH, "$Id$" );
 
 /**** </lalErrTable> */
 
-/* XXX this should be removed XXX */
-typedef struct tagRealDFTParams
-{
-  WindowType               windowType;
-  REAL4Vector              *window;
-  REAL4                    sumofsquares;
-  RealFFTPlan              *plan;
-}
-RealDFTParams;
-
 /* <lalLaTeX>
 \subsection*{Types}
 
@@ -175,17 +184,6 @@ AverageSpectrumParams;
  * \newpage\input{TimeFreqFFTC}
  * \newpage\input{TimeFreqFFTTestC}
  **** </lalLaTeX> */
-
-/* XXX this should be removed XXX */
-void
-LALCreateRealDFTParams ( 
-        LALStatus                         *status, 
-        RealDFTParams                  **dftParams, 
-        LALWindowParams                   *params,
-        INT2                           sign
-        );
-
-/* XXX this should be removed XXX */
 
 /*
  *
@@ -296,14 +294,6 @@ REAL4TimeSeries *XLALREAL4Convolution(
     REAL4TimeSeries             *transfer
     );
 
-
-
-
-void
-LALDestroyRealDFTParams (
-        LALStatus                        *status, 
-        RealDFTParams                 **dftParams
-        );
 
 void
 LALTimeFreqRealFFT(
