@@ -1,3 +1,22 @@
+/*
+*  Copyright (C) 2007 Duncan Brown, Jolien Creighton, Patrick Brady, Reinhard Prix, Tania Regimbau, John Whelan
+*
+*  This program is free software; you can redistribute it and/or modify
+*  it under the terms of the GNU General Public License as published by
+*  the Free Software Foundation; either version 2 of the License, or
+*  (at your option) any later version.
+*
+*  This program is distributed in the hope that it will be useful,
+*  but WITHOUT ANY WARRANTY; without even the implied warranty of
+*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+*  GNU General Public License for more details.
+*
+*  You should have received a copy of the GNU General Public License
+*  along with with program; see the file COPYING. If not, write to the
+*  Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+*  MA  02111-1307  USA
+*/
+
 /**** <lalVerbatim file="TimeFreqFFTCV">
  * $Id$
  **** </lalVerbatim> */
@@ -155,111 +174,6 @@
 #include <lal/RngMedBias.h>
 
 NRCSID( TIMEFREQFFTC, "$Id$" );
-
-
-/******** <lalVerbatim file="CreateRealDFTParamsCP"> ********/
-void
-LALCreateRealDFTParams ( 
-                     LALStatus                         *status, 
-                     RealDFTParams                  **dftParams, 
-                     LALWindowParams                   *params,
-                     INT2                           sign
-		     )
-/******** </lalVerbatim> ********/
-{
-  INITSTATUS (status, "LALCreateRealDFTParams", TIMEFREQFFTC);
-  ATTATCHSTATUSPTR (status);
-
-  /* 
-   * Check return structure: dftParams should point to a valid pointer
-   * which should not yet point to anything.
-   *
-   */
-  ASSERT (dftParams, status, TIMEFREQFFTH_ENULL, TIMEFREQFFTH_MSGENULL); 
-  ASSERT (*dftParams == NULL, status, TIMEFREQFFTH_EALLOC, 
-          TIMEFREQFFTH_MSGEALLOC);
-
-
-  ASSERT (params, status, TIMEFREQFFTH_ENULL, TIMEFREQFFTH_MSGENULL);  
-
-  ASSERT (params->length > 0, status, TIMEFREQFFTH_EPOSARG, 
-          TIMEFREQFFTH_MSGEPOSARG);
-
-  ASSERT( (sign==1) || (sign==-1), status, TIMEFREQFFTH_EINCOMP,
-          TIMEFREQFFTH_MSGEINCOMP);
-
-  /*  Assign memory for *dftParams and check allocation */
-  if ( !( *dftParams = (RealDFTParams *) LALMalloc(sizeof(RealDFTParams)) ) ){
-    ABORT (status, TIMEFREQFFTH_EMALLOC, TIMEFREQFFTH_MSGEMALLOC);
-  }
-  
-  /* fill in some values */
-  (*dftParams)->window = NULL;
-  (*dftParams)->plan = NULL;
-
-  if(sign==1)
-    {
-      /* Estimate the FFT plan */
-      LALCreateForwardRealFFTPlan (status->statusPtr, &((*dftParams)->plan), 
-                              params->length, 0);
-    }
-  else
-    {
-      /* Estimate the FFT plan */
-      LALCreateReverseRealFFTPlan (status->statusPtr, &((*dftParams)->plan), 
-                              params->length, 0);
-    }
-  CHECKSTATUSPTR (status);
-
-  LALSCreateVector (status->statusPtr, &((*dftParams)->window), params->length);
-  CHECKSTATUSPTR (status);
-
-  LALWindow (status->statusPtr, ((*dftParams)->window), params);
-  CHECKSTATUSPTR (status);
-
-  (*dftParams)->sumofsquares = params->sumofsquares;
-  (*dftParams)->windowType = params->type;
-  
-  /* Normal exit */
-  DETATCHSTATUSPTR (status);
-  RETURN (status);
-}
-
-/******** <lalVerbatim file="DestroyRealDFTParamsCP"> ********/
-void
-LALDestroyRealDFTParams (
-		      LALStatus                 *status, 
-		      RealDFTParams          **dftParams
-		      )
-/******** </lalVerbatim> ********/
-{
-  INITSTATUS (status, "LALDestroyRealDFTParams", TIMEFREQFFTC);
-  ATTATCHSTATUSPTR (status);
-
-  /* make sure that arguments are not null */
-  ASSERT (dftParams, status, TIMEFREQFFTH_ENULL, TIMEFREQFFTH_MSGENULL);
-  ASSERT (*dftParams, status, TIMEFREQFFTH_ENULL, TIMEFREQFFTH_MSGENULL);
-
-  /* make sure that data pointed to is non-null */
-  ASSERT ((*dftParams)->plan, status, TIMEFREQFFTH_ENULL, 
-          TIMEFREQFFTH_MSGENULL); 
-  ASSERT ((*dftParams)->window, status, TIMEFREQFFTH_ENULL, 
-          TIMEFREQFFTH_MSGENULL); 
-
-  /* Ok, now let's free allocated storage */
-  LALSDestroyVector (status->statusPtr, &((*dftParams)->window));
-  CHECKSTATUSPTR (status);
-  LALDestroyRealFFTPlan (status->statusPtr, &((*dftParams)->plan));
-  CHECKSTATUSPTR (status);
-  LALFree ( *dftParams );      /* free DFT parameters structure itself */
-
-  *dftParams = NULL;	       /* make sure we don't point to freed struct */
-
-  /* Normal exit */
-  DETATCHSTATUSPTR (status);
-  RETURN (status);
-}
-
 
 
 /*
