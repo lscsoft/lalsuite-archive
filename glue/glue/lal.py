@@ -524,7 +524,7 @@ class Cache(list):
 		"""
 		return [entry.path() for entry in self]
 
-	def check(self):
+	def checkfilesexist(self):
 		'''
 		Runs through the entries of the Cache() object and checks each entry
 		if the file which it points to exists or not. If the file does exist then 
