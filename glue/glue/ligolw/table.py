@@ -328,11 +328,19 @@ class InterningRowBuilder(tokenizer.RowBuilder):
 	"interning" hints provided by table definitions, and attempts to
 	replace the values of row attributes associated with interned
 	columns with references to shared instances of those values.  This
-	results in a slight reduction in memory use.  The values are stored
-	in a dictionary that is shared between all instances of this class,
-	and which survives forever.  Note that nothing is ever
-	"uninterned", which is likely to be a problem for many users except
-	in special cases.
+	results in a reduction in memory use which is small for most
+	documents, but can be subtantial when dealing with poorly-designed
+	tables containing large volumes of repeated information.
+	
+	The values are stored in a dictionary that is shared between all
+	instances of this class, and which survives forever.  Nothing is
+	ever naturally "uninterned", so the string dictionary grows without
+	bound as more documents are processed.  This can be a problem in
+	some use cases, and the work-around is to run
+
+	>>> InterningRowBuilder.strings.clear()
+
+	to reset the dictionary and appropriate points in the application.
 	"""
 	strings = {}
 	def append(self, tokens):
