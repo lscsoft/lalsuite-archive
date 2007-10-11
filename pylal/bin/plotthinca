@@ -815,23 +815,24 @@ if opts.snr_time:
   sym = 0
   for ifo in ifo_list:
     ifoTrigs = coincTriggers.getsngls(ifo)
-    if opts.plot_type == 'linear':
-      plot_type = 'linear'
-    elif opts.plot_type == 'log':
-      plot_type = 'logy'
+    if ifoTrigs:
+      if opts.plot_type == 'linear':
+        plot_type = 'linear'
+      elif opts.plot_type == 'log':
+        plot_type = 'logy'
       
-    viz.plot_a_v_b(ifoTrigs, 'end_time', snglStat, plot_type, \
-        plotsymbols[sym])
-    legend(ifo_list,2)
-    title( snglStat.replace("_"," ") + ' vs end time' )
-    xlabel('end time (days into run)',size='x-large')
-    ylabel(snglStat.replace("_"," "),size='x-large')
-    grid(True)
-    sym += 1
-    if opts.min_snr:
-      ylim(ymin=opts.min_snr)
-    if opts.max_snr:
-      ylim(ymax=opts.max_snr)
+      viz.plot_a_v_b(ifoTrigs, 'end_time', snglStat, plot_type, \
+          plotsymbols[sym])
+      legend(ifo_list,2)
+      title( snglStat.replace("_"," ") + ' vs end time' )
+      xlabel('end time (days into run)',size='x-large')
+      ylabel(snglStat.replace("_"," "),size='x-large')
+      grid(True)
+      sym += 1
+      if opts.min_snr:
+        ylim(ymin=opts.min_snr)
+      if opts.max_snr:
+        ylim(ymax=opts.max_snr)
     
   if f_name:
     savefig(__name__ +"_"+ opts.figure_name + "_" + snglStat\
@@ -845,25 +846,26 @@ if opts.snr_time and opts.mass_dependent:
     sym = 0
     for ifo in ifo_list:
       ifoTrigs = coincTriggersByMass[i].getsngls(ifo)
-      if opts.plot_type == 'linear':
-        plot_type = 'linear'
-      elif opts.plot_type == 'log':
-        plot_type = 'logy'
+      if ifoTrigs:
+        if opts.plot_type == 'linear':
+          plot_type = 'linear'
+        elif opts.plot_type == 'log':
+          plot_type = 'logy'
 
-      viz.plot_a_v_b(ifoTrigs, 'end_time', snglStat, plot_type, \
-          plotsymbols[sym])
-      legend(ifo_list,2)
-      title( snglStat.replace("_"," ") + ' vs end time \n' + \
-        'mass range ' + str(mass_range[i]) + ' to ' + \
-        str(mass_range[i+1]))
-      xlabel('end time (days into run)',size='x-large')
-      ylabel(snglStat.replace("_"," "),size='x-large')
-      grid(True)
-      sym += 1
-      if opts.min_snr:
-        ylim(ymin=opts.min_snr)
-      if opts.max_snr:
-        ylim(ymax=opts.max_snr)
+        viz.plot_a_v_b(ifoTrigs, 'end_time', snglStat, plot_type, \
+            plotsymbols[sym])
+        legend(ifo_list,2)
+        title( snglStat.replace("_"," ") + ' vs end time \n' + \
+          'mass range ' + str(mass_range[i]) + ' to ' + \
+          str(mass_range[i+1]))
+        xlabel('end time (days into run)',size='x-large')
+        ylabel(snglStat.replace("_"," "),size='x-large')
+        grid(True)
+        sym += 1
+        if opts.min_snr:
+          ylim(ymin=opts.min_snr)
+        if opts.max_snr:
+          ylim(ymax=opts.max_snr)
 
     if f_name:
       savefig(__name__ +"_"+ opts.figure_name + "_" + snglStat + \
