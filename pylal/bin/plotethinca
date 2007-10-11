@@ -83,11 +83,11 @@ parser.add_option("-n","--num-bins",action="store",type='int',\
   help="number of bins used in histogram" )
 parser.add_option("-N","--num-slides",action="store",type="int",default=0,\
     metavar="NUM_SLIDES",help="number of time slides performed" )
-parser.add_option("","--H1-slide-time",action="store",type="int",default=0,\
+parser.add_option("","--h1-slide-time",action="store",type="int",default=0,\
     metavar="SEC",help="time slid for H1 per slide number" )
-parser.add_option("","--H2-slide-time",action="store",type="int",default=10,\
+parser.add_option("","--h2-slide-time",action="store",type="int",default=10,\
     metavar="SEC",help="time slid for H2 per slide number" )
-parser.add_option("","--L1-slide-time",action="store",type="int",default=5,\
+parser.add_option("","--l1-slide-time",action="store",type="int",default=5,\
     metavar="SEC",help="time slid for L1 per slide number" )
 parser.add_option("","--injection-window",action="store",type="float",\
     default=None,metavar="SEC",\
@@ -217,9 +217,9 @@ if slidefilelists:
 
     for slide in slide_num:
 
-      dtH1 = slide * opts.H1_slide_time
-      dtH2 = slide * opts.H2_slide_time
-      dtL1 = slide * opts.L1_slide_time
+      dtH1 = slide * opts.h1_slide_time
+      dtH2 = slide * opts.h2_slide_time
+      dtL1 = slide * opts.l1_slide_time
 
       this_slide = {}
       this_slide["slide_num"] = slide
