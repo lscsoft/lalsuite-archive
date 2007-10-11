@@ -43,8 +43,8 @@ parser.add_option("-S","--statistic",action="store",default='snr',\
     help="choice of statistic used in making plots, valid arguments are: "
           "snr (DEFAULT), snr_over_chi, s3_snr_chi_stat, effective_snr,")
 parser.add_option("-I","--input-file",action="store",type="string",\
-    default=None, metavar=" GLOB",\
-    help="GLOB of MISSED injection files to read" )
+    default=None, metavar=" INPUT",\
+    help="input file to read Cache file" )
 parser.add_option("-i","--ifo-type",action="store",type="string",\
     default=None,  help="selects the ifo type for sieve for" )
 parser.add_option("-s","--show-plot",action="store_true",default=False,\
@@ -64,7 +64,7 @@ from pylal import viz
 if opts.found_glob:
   foundFiles = glob.glob(opts.found_glob)
 elif opts.input_file:
-  files =  lal.Cache().fromfile(open(opts.input_file)).sieve(ifos=opts.ifo_type, ifoexactmatch=True)
+  files =  lal.Cache.fromfile(open(opts.input_file)).sieve(ifos=opts.ifo_type, exact_match=True)
   foundFiles = files.sieve(description= "FOUND").checkfilesexist()[0].pfnlist()
 else:
   print >>sys.stderr, "Must specify a glob of FOUND injections"
@@ -73,7 +73,7 @@ else:
 if opts.missed_glob:
    missedFiles = glob.glob(opts.missed_glob)
 elif opts.input_file:
-   files =  lal.Cache().fromfile(open(opts.input_file)).sieve(ifos=opts.ifo_type, ifoexactmatch=True)
+   files =  lal.Cache.fromfile(open(opts.input_file)).sieve(ifos=opts.ifo_type, exact_match=True)
    missedFiles = files.sieve(description="MISSED" ).checkfilesexist()[0].pfnlist()
 else:
   print >>sys.stderr, "Must specify a glob of MISSED injections"
