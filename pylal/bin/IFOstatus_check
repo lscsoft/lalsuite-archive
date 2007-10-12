@@ -34,7 +34,7 @@ parser.add_option("-D","--dataFind-executable",action="store",type="string",\
 parser.add_option("-g","--gps-time",action="store",type="string",\
     metavar=" GPS",help="use gps GPS to check trends")
 
-parser.add_option("-g","--ifo",action="store",type="string",\
+parser.add_option("-i","--ifo",action="store",type="string",\
     metavar=" IFO",help="use gps IFO to check trends")
 
 ## standard webTheNode arguments
