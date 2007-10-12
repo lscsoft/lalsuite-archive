@@ -75,8 +75,8 @@ def square(xedges, yedges, coincTriggers, simtypeflag, calibration=1.0):
         (simtypeflag == "missed" and coinc.stat < 0)):
       xdata = coinc.sim.mass1
       ydata = coinc.sim.distance * calibration
-      k = int((xdata-xedges[0]) / xstep)
-      l = int((ydata-yedges[0]) / ystep)
+      k = int((xdata-xedges[0]) // xstep)
+      l = int((ydata-yedges[0]) // ystep)
 
       if (k >= 0 and k < len(xedges)) and (l >= 0 and l < len(yedges)):
         ng_x_y[l][k] += 1
@@ -597,7 +597,7 @@ else:
   mcerrorsq = sqrt( pcsignalsq * ( 1.0 - pcsignalsq ) /\
          (missedsq + foundsq + 1.0e-10) )
   
-  pcsignalsq =  pcsignalsq + 1.6*mcerrorsq
+  pcsignalsq =  pcsignalsq + 1.28*mcerrorsq
 
   if opts.known_distance:
     kd_yedges = [opts.known_distance-opts.kd_epsilon,
@@ -607,7 +607,7 @@ else:
     kd_pcsignalsq = kd_missedsq / (kd_missedsq + kd_foundsq + 1.0e-10)
     kd_mcerrorsq = sqrt( kd_pcsignalsq * (1.0 - kd_pcsignalsq) /\
          (kd_missedsq + kd_foundsq + 1.0e-10))
-    kd_pcsignalsq += 1.6*kd_mcerrorsq
+    kd_pcsignalsq += 1.28*kd_mcerrorsq
 
     print "The known distance p(0|h) per mass bin are", kd_pcsignalsq[0, :]
     print "The max, known distance p(c|h) is %e" % kd_pcsignalsq[0, :].max()
@@ -618,7 +618,7 @@ else:
 #####################################################################
 # generate plots
 
-im_extent = [min(xedges), max(xedges)+dx, min(yedges), max(yedges)+dy]
+im_extent = [min(xedges), max(xedges), min(yedges), max(yedges)]
 
 new_yedges = linspace(yedges[0], yedges[-1], opts.fit_oversample_factor*(len(yedges)-1)+1)
 if opts.fit_sigmoid:
@@ -707,9 +707,10 @@ tmpx,tmpy,yarray = get_contour(xedges,new_yedges,pcsignalsq,0.1)
 p4=fill(tmpx,tmpy, facecolor=(0.1, 0.1, 0.1), label='90\% exclusion')
 
 if opts.known_distance is not None:
-  axhline(y=opts.known_distance, color='r', label='_nolegend_')
+  axhline(y=opts.known_distance, color=(0.75, 0.75, 0.75), linewidth=2,
+    label='_nolegend_')
 
-axis([min(xedges), max(xedges)+dx, 0, max(yedges)+dy])
+axis([min(xedges), max(xedges), 0, max(yedges)])
 xlabel(r"$m_2 (M_\odot)$")
 ylabel(r"$D (\mathrm{Mpc})$")
 if opts.figure_type not in ("ps", "eps"):
