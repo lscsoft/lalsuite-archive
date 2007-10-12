@@ -17,8 +17,8 @@ from glue import lal
 from pylab import *
 
 from pylal import viz
-
-
+from pylal import date
+from pylal import xlal
 usage = """ %prog [options]
 """
 
@@ -28,8 +28,8 @@ parser.add_option("-v","--version",action="store_true",default=False,\
     help="display version information and exit")
 
 ## ADD OPTIONS FOR DATA TYPES, OBSERVATORIES ETC..!!!
-parser.add_option("-D","--dataFind-executable",action="store",type="string",\
-    metavar=" EXEC",help="use EXEC to check the call LSCdataFind query")
+#parser.add_option("-D","--dataFind-executable",action="store",type="string",\
+#    metavar=" EXEC",help="use EXEC to check the call LSCdataFind query")
 
 parser.add_option("-g","--gps-time",action="store",type="string",\
     metavar=" GPS",help="use gps GPS to check trends")
@@ -72,7 +72,66 @@ if not opts.page_rel_path:
   print >> sys.stderr, "Use --page-rel-path PATH to specify location."
   sys.exit(1)
 
+talk = talkBack(opts.output_web_file)
 
+gps = xlal.date.LIGOTimeGPS(opts.gps_time)
+gpsplus = xlal.date.LIGOTimeGPS(str(int(opts.gps_time)+86400))
+gpsminus = xlal.date.LIGOTimeGPS(str(int(opts.gps_time)-86400))
+
+utc = xlal.date.XLALGPSToUTC(gps)
+
+if utc[1] < 10: month = '0'+str(utc[1])
+else: month = str(utc[1])
+
+if utc[2] < 10: day = '0'+str(utc[2])
+else: day = str(utc[2])
+
+plotURL = 'http://blue.ligo-wa.caltech.edu/scirun/S5/DailyStatistics/'
+plotLink = 'Summary' + '_' + str(utc[0]) + '_' + month+day+'_' + opts.ifo.lower()+'.pdf' 
+talk.link(plotLink,plotLink)
+
+plot = os.popen('wget '+plotURL+plotLink)
+for line in plot:
+  print line
+
+
+utc = xlal.date.XLALGPSToUTC(gpsplus)
+if utc[1] < 10: month = '0'+str(utc[1])
+else: month = str(utc[1])
+
+if utc[2] < 10: day = '0'+str(utc[2])
+else: day = str(utc[2])
+
+plotURL = 'http://blue.ligo-wa.caltech.edu/scirun/S5/DailyStatistics/'
+plotLink = 'Summary' + '_' + str(utc[0]) + '_' + month+day+'_' + opts.ifo.lower()+'.pdf'
+talk.link(plotLink,plotLink)
+
+plot = os.popen('wget '+plotURL+plotLink)
+for line in plot:
+  print line
+
+utc = xlal.date.XLALGPSToUTC(gpsminus)
+if utc[1] < 10: month = '0'+str(utc[1])
+else: month = str(utc[1])
+
+if utc[2] < 10: day = '0'+str(utc[2])
+else: day = str(utc[2])
+
+plotURL = 'http://blue.ligo-wa.caltech.edu/scirun/S5/DailyStatistics/'
+plotLink = 'Summary' + '_' + str(utc[0]) + '_' + month+day+'_' + opts.ifo.lower()+'.pdf'
+talk.link(plotLink,plotLink)
+
+plot = os.popen('wget '+plotURL+plotLink)
+for line in plot:
+  print line
+
+
+talk.write()
+
+sys.exit(0)
+
+#################### OLD CODE #########################################
+# DO SENSE MON PLOTS
 if opts.ifo == 'H1' or opts.ifo == 'H2':
   command = opts.dataFind_executable + ' --observatory=H --type=SenseMonitor_H1_M --gps-start-time ' + opts.gps_time + ' --gps-end-time ' + opts.gps_time + ' --lal-cache --url-type=file'
 
@@ -84,8 +143,8 @@ SenseMoncacheFile = os.popen(command)
 lalCache = lal.Cache()
 myCache = lalCache.fromfile(SenseMoncacheFile)
 
-talk = talkBack(opts.output_web_file)
-web = WebPage('my title',opts.output_web_file)
+#talk = talkBack(opts.output_web_file)
+#web = WebPage('my title',opts.output_web_file)
 
 for entry in myCache:
   print entry.path()
@@ -96,5 +155,25 @@ for entry in myCache:
 
 #web.cleanWrite('IUL')
 #talk.write()
+
+### Do Seismic plots
+if opts.ifo == 'H1' or opts.ifo == 'H2':
+  command = opts.dataFind_executable + ' --observatory=H --type=Seis_Blrms_M --gps-start-time ' + opts.gps_time + ' --gps-end-time ' + opts.gps_time + ' --lal-cache --url-type=file'
+
+else:
+  command = opts.dataFind_executable + ' --observatory=L --type=Seis_Blrms_M --gps-start-time ' + opts.gps_time + ' --gps-end-time ' + opts.gps_time + ' --lal-cache --url-type=file'
+
+seiscacheFile = os.popen(command)
+
+lalCache = lal.Cache()
+myCache = lalCache.fromfile(seiscacheFile)
+
+for entry in myCache:
+  print entry.path()
+  #sensMon = Fr.frgetvect(entry.path(),opts.ifo+':DMT-SNSM_EFFECTIVE_RANGE_MPC.mean')
+  #figure(1)
+  #plot(sensMon[0])
+  #savefig(opts.ifo+'sensemon'+opts.gps_time+'.png')
+
 
 
