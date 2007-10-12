@@ -130,50 +130,6 @@ talk.write()
 
 sys.exit(0)
 
-#################### OLD CODE #########################################
-# DO SENSE MON PLOTS
-if opts.ifo == 'H1' or opts.ifo == 'H2':
-  command = opts.dataFind_executable + ' --observatory=H --type=SenseMonitor_H1_M --gps-start-time ' + opts.gps_time + ' --gps-end-time ' + opts.gps_time + ' --lal-cache --url-type=file'
-
-else:
-  command = opts.dataFind_executable + ' --observatory=L --type=SenseMonitor_H1_M --gps-start-time ' + opts.gps_time + ' --gps-end-time ' + opts.gps_time + ' --lal-cache --url-type=file'
-
-SenseMoncacheFile = os.popen(command)
-
-lalCache = lal.Cache()
-myCache = lalCache.fromfile(SenseMoncacheFile)
-
-#talk = talkBack(opts.output_web_file)
-#web = WebPage('my title',opts.output_web_file)
-
-for entry in myCache:
-  print entry.path()
-  sensMon = Fr.frgetvect(entry.path(),opts.ifo+':DMT-SNSM_EFFECTIVE_RANGE_MPC.mean') 
-  figure(1)
-  plot(sensMon[0])  
-  savefig(opts.ifo+'sensemon'+opts.gps_time+'.png')
-
-#web.cleanWrite('IUL')
-#talk.write()
-
-### Do Seismic plots
-if opts.ifo == 'H1' or opts.ifo == 'H2':
-  command = opts.dataFind_executable + ' --observatory=H --type=Seis_Blrms_M --gps-start-time ' + opts.gps_time + ' --gps-end-time ' + opts.gps_time + ' --lal-cache --url-type=file'
-
-else:
-  command = opts.dataFind_executable + ' --observatory=L --type=Seis_Blrms_M --gps-start-time ' + opts.gps_time + ' --gps-end-time ' + opts.gps_time + ' --lal-cache --url-type=file'
-
-seiscacheFile = os.popen(command)
-
-lalCache = lal.Cache()
-myCache = lalCache.fromfile(seiscacheFile)
-
-for entry in myCache:
-  print entry.path()
-  #sensMon = Fr.frgetvect(entry.path(),opts.ifo+':DMT-SNSM_EFFECTIVE_RANGE_MPC.mean')
-  #figure(1)
-  #plot(sensMon[0])
-  #savefig(opts.ifo+'sensemon'+opts.gps_time+'.png')
 
 
 
