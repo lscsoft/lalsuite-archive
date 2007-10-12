@@ -1,0 +1,84 @@
+#!/usr/bin/python
+__author__ = "Chad Hanna"
+__version__ = "$Revision$"[11:-2]
+__date__ = "$Date$"[7:-2]
+
+import os
+import sys
+from pylal.webUtils import *
+from pylal import Fr
+from optparse import *
+from glue import lal
+
+
+usage = """ %prog [options]
+"""
+
+parser = OptionParser( usage )
+
+parser.add_option("-v","--version",action="store_true",default=False,\
+    help="display version information and exit")
+
+## ADD OPTIONS FOR DATA TYPES, OBSERVATORIES ETC..!!!
+parser.add_option("-D","--dataFind-executable",action="store",type="string",\
+    metavar=" EXEC",help="use EXEC to check the call LSCdataFind query")
+
+parser.add_option("-g","--gps-time",action="store",type="string",\
+    metavar=" GPS",help="use gps GPS to check the frame files")
+
+## standard webTheNode arguments
+parser.add_option("-o","--output-path",action="store",type="string",\
+    metavar=" PATH",help="use output path PATH for snr and chisq plots")
+
+parser.add_option("-O","--page-rel-path",action="store",type="string",\
+    metavar=" PATH",help="use output path relative to page")
+
+parser.add_option("-c","--output-web-file", action="store",type="string", \
+    metavar=" FILE",help="file to append html tables to")
+
+parser.add_option("-p","--page",action="store",type="string",\
+    default="investigations/s5/people/followups/",metavar=" PAGE",\
+    help="web page path (default 'investigations/s5/people/followups/'")
+
+command_line = sys.argv[1:]
+(opts,args) = parser.parse_args()
+
+if opts.version:
+  print "$Id$"
+  sys.exit(0)
+
+
+#################################
+# Sanity check of input arguments
+
+if not opts.output_path:
+  print >> sys.stderr, "No output path specified."
+  print >> sys.stderr, "Use --output-path PATH to specify location."
+  sys.exit(1)
+
+if not opts.page_rel_path:
+  print >> sys.stderr, "No relative path specified"
+  print >> sys.stderr, "Use --page-rel-path PATH to specify location."
+  sys.exit(1)
+
+
+# THIS IS AN EXAMPLE FIX THIS!! (to be more general)
+opts.dataFind_executable and opts.gps_time:
+
+command = opts.dataFind_executable + ' --observatory=H --type=SenseMonitor_H1_M --gps-start-time ' + opts.gps_time + ' --gps-end-time ' + opts.gps_time + ' --lal-cache --url-type=file'
+
+SenseMoncacheFile = os.popen(command)
+
+lalCache = lal.Cache()
+myCache = lalCache.fromfile(cacheFile)
+
+talk = talkBack(opts.output_web_file)
+web = WebPage('my title',opts.output_web_file)
+
+for entry in myCache:
+  sensMon = Fr.frgetvect(entry.path()) 
+    
+#web.cleanWrite('IUL')
+#talk.write()
+
+
