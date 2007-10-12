@@ -1162,6 +1162,7 @@ class AnalysisNode(CondorDAGNode):
     self.__trig_end = 0
     self.__ifo = None
     self.__ifo_tag = None
+    self.__usertag = None
     self.__input = None
     self.__output = None
     self.__calibration = None
@@ -1321,6 +1322,20 @@ class AnalysisNode(CondorDAGNode):
     Returns the IFO tag string
     """
     return self.__ifo_tag
+
+  def set_user_tag(self,usertag):
+    """
+    Set the user tag that is passed to the analysis code.
+    @param user_tag: the user tag to identify the job
+    """
+    self.__user_tag = usertag
+    self.add_var_opt('user-tag', usertag)
+ 
+  def get_user_tag(self):
+    """
+    Returns the usertag string
+    """
+    return self.__usertag
 
   def set_cache(self,file):
     """
