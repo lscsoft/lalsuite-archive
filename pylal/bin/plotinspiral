@@ -102,7 +102,21 @@ parser.add_option("-F","--funky-offset",action="store",type="float",\
 parser.add_option("-g","--glob",action="store",type="string",\
     default=None, metavar=" GLOB",help="GLOB of trigger files to read" )
 
-parser.add_option("-i", "--cache-file", help="read trigger filenames from input file")
+parser.add_option("-i", "--cache-file",action="store",type="string",   
+    default=None,metavar="CACHE-FILE", \
+    help="read trigger filenames from cache file")
+
+parser.add_option("-q", "--cache-description",action="store",type="string",\
+    default=None, metavar="CACHE_DESCRIPTION", \
+    help="read a file of a particular description  from cache file" )
+
+parser.add_option("", "--cache-missedfile",action="store",type="string",\
+    default=None,metavar="CACHE_MISSEDFILE", \
+    help="read a missed file from cache file" )
+
+parser.add_option("", "--ifo-type",action="store",type="string",\
+    default=None, metavar="IFO_TYPE", \
+    help="sieve ifos according to ifo type" )
 
 parser.add_option("-j","--hist-chisq",action="store_true",default=False,\
     help="histogram of the chisq values" )
@@ -199,9 +213,9 @@ trigFiles = []
 if opts.glob is not None:
     trigFiles += glob.glob(opts.glob)
 if opts.cache_file is not None:
-    trigFiles += [lal.CacheEntry(line).path() for line in open(opts.cache_file)]
+    trigFiles  = lal.Cache.fromfile(open(opts.cache_file)).sieve(ifos=opts.ifo_type, exact_match=True).sieve(description = opts.cache_description).checkfilesexist()[0].pfnlist()
 if not len(trigFiles):
-  print >>sys.stderr, "There are no files in your glob and/or lal cache"
+  print >>sys.stderr, "There are no files in your glob and/or cache"
   sys.exit(1)
 print >>sys.stderr, "There are " + str(len(trigFiles))+" files in your glob and/or lal cache"
 # an instance of the snglInspiralTable
@@ -212,7 +226,8 @@ plotsymbols= ['r+','bx','ko']
 
 # read in the template bank if supplied
 if opts.template_bank:
-  tmpltbank=SnglInspiralUtils.ReadSnglInspiralFromFiles([ opts.template_bank ])
+  tmpltfiles = lal.Cache.fromfile(open(opts.cache_file)).sieve(description = "TMPLTBANK").checkfilesexist()[0].pfnlist() 
+  tmpltbank = SnglInspiralUtils.ReadSnglInspiralFromFiles([ opts.template_bank ] + tmpltfiles) 
 
 # apply veto if there is one
 if opts.veto_file:
@@ -221,6 +236,7 @@ if opts.veto_file:
 
 # determine missed injection file
 if opts.missed_inj:
+  lal.Cache.fromfile(open(opts.cache_missedfile)).sieve(ifos=opts.ifo_times, exact_match=True).sieve(description = "MISSED").checkfilesexist()[0].pfnlist()
   analyzedsegs = SearchSummaryUtils.GetSegListFromSearchSummaries(trigFiles)
 
   inspDict = {}
