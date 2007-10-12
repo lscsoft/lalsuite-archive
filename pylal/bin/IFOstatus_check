@@ -5,10 +5,18 @@ __date__ = "$Date$"[7:-2]
 
 import os
 import sys
+
+import matplotlib
+matplotlib.use('Agg')
+
 from pylal.webUtils import *
 from pylal import Fr
 from optparse import *
 from glue import lal
+
+from pylab import *
+
+from pylal import viz
 
 
 usage = """ %prog [options]
@@ -62,22 +70,23 @@ if not opts.page_rel_path:
   sys.exit(1)
 
 
-# THIS IS AN EXAMPLE FIX THIS!! (to be more general)
-opts.dataFind_executable and opts.gps_time:
 
 command = opts.dataFind_executable + ' --observatory=H --type=SenseMonitor_H1_M --gps-start-time ' + opts.gps_time + ' --gps-end-time ' + opts.gps_time + ' --lal-cache --url-type=file'
 
 SenseMoncacheFile = os.popen(command)
 
 lalCache = lal.Cache()
-myCache = lalCache.fromfile(cacheFile)
+myCache = lalCache.fromfile(SenseMoncacheFile)
 
 talk = talkBack(opts.output_web_file)
 web = WebPage('my title',opts.output_web_file)
 
 for entry in myCache:
-  sensMon = Fr.frgetvect(entry.path()) 
-    
+  print entry.path()
+  sensMon = Fr.frgetvect(entry.path(),'H1:DMT-SNSM_EFFECTIVE_RANGE_MPC.mean') 
+  figure(1)
+  plot(sensMon[0])  
+  savefig('test.png')
 #web.cleanWrite('IUL')
 #talk.write()
 
