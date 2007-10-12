@@ -77,8 +77,9 @@ if not opts.page_rel_path:
   sys.exit(1)
 
 
+# THIS ONLY DOES HANFORD - IT IS AN EXAMPLE FIX THIS!! (to be general)
 if opts.dataFind_executable and opts.gps_time:
-  command = opts.dataFind_executable + ' --observatory=H,L --type=RDS_R_L1, --gps-start-time ' + opts.gps_time + ' --gps-end-time ' + opts.gps_time + ' --lal-cache --url-type=file'
+  command = opts.dataFind_executable + ' --observatory=H --type=RDS_R_L1 --gps-start-time ' + opts.gps_time + ' --gps-end-time ' + opts.gps_time + ' --lal-cache --url-type=file'
   cacheFile = os.popen(command)
 else:
   cacheFile = open(opts.frame_cache,'r')
