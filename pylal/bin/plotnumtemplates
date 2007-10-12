@@ -125,6 +125,9 @@ parser.add_option("-W","--html-output",action="store_true",\
 parser.add_option("-v","--verbose",action="store_true",default=False,\
     help="prints verbose information" )
 
+parser.add_option("-F","--format",action="store",type="string",default=None,\
+    help="saves the figures depending on the format, either .png or .eps" )
+
 command_line = sys.argv[1:]
 (opts,args) = parser.parse_args()
 
@@ -201,9 +204,11 @@ grid("on")
 
 fname=""
 if opts.figure_name:
-  fname=__name__+"_"+opts.figure_name + ".png"
-  savefig(fname)
-  savefig(__name__+"_"+opts.figure_name + ".eps")
+  if opts.format == ".eps":
+    savefig(__name__+"_"+opts.figure_name + ".eps")
+  elif opts.format == ".png": 
+    fname=__name__+"_"+opts.figure_name + ".png"
+    savefig(fname)
 
 # Initialise the html output if needed
 if opts.html_output is True:
