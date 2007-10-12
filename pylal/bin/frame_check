@@ -79,7 +79,7 @@ if not opts.page_rel_path:
 
 if opts.dataFind_executable and opts.gps_time:
   command = opts.dataFind_executable + ' --observatory=H,L --type=RDS_R_L1, --gps-start-time ' + opts.gps_time + ' --gps-end-time ' + opts.gps_time + ' --lal-cache --url-type=file'
-  cacheFile = popen(command)
+  cacheFile = os.popen(command)
 else:
   cacheFile = open(opts.frame_cache,'r')
 
