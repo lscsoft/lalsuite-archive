@@ -461,6 +461,32 @@ class FrCheckNode(pipeline.CondorDAGNode,webTheNode):
 #      self.invalidate()
 #      print "couldn't add frame check job for " + str(ifo) + "@ "+ str(trig.gpsTime[ifo])
 
-
+class IFOstatus_checkJob(pipeline.CondorDAGJob, webTheJob):
+  """
+  A followup job for downloading summary plots
+  """
+  def __init__(self, options, cp, tag_base='IFOSTATUS'):
+    self.__name__ = 'IFOstatus_checkJob'
+    self.__executable = string.strip(cp.get('condor','IFOstatus_check'))
+    self.__universe = "local"
+    pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+    self.add_condor_cmd('getenv','True')
+    self.setupJobWeb(self.__name__,tag_base)
     
+class IFOstatus_checkNode(pipeline.CondorDAGNode,webTheNode):
+  """
+  Runs an instance of a FrCheck followup job
+  """
+  def __init__(self, IFOstatus_checkJob, ifo, trig, cp,opts,dag):
+
+    self.friendlyName = 'IFO status summary plots'
+    pipeline.CondorDAGNode.__init__(self,IFOstatus_checkJob)
+    self.add_var_opt("ifo", ifo)
+    self.add_var_opt("gps-time", trig.gpsTime[ifo])
+    self.id = IFOstatus_checkJob.name + '-' + str(ifo) + '-' + str(trig.statValue) + '_' + str(trig.eventID)
+    self.setupNodeWeb(IFOstatus_checkJob,True, dag.webPage.lastSection.lastSub,dag.page,None,dag.cache)
+    if opts.ifo_status_check:
+      dag.addNode(self,self.friendlyName)
+      self.validate()
+    else: self.invalidate()
 

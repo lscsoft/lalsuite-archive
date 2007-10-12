@@ -216,6 +216,8 @@ setup(
 		os.path.join("bin", "ploteffdistcut"),
 		os.path.join("bin", "plotefficiency"),
 		os.path.join("bin", "plotsnrchi"),
+                os.path.join("bin", "frame_check"),
+                os.path.join("bin", "IFOstatus_check"),
                 os.path.join("bin", "plotsnrchisq_pipe"),
 		os.path.join("bin", "plotinsppop"),
 		os.path.join("bin", "plottisi"),
