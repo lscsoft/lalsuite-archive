@@ -82,12 +82,14 @@ if opts.dataFind_executable and opts.gps_time:
   command = opts.dataFind_executable + ' --observatory=H --type=RDS_R_L1 --gps-start-time ' + opts.gps_time + ' --gps-end-time ' + opts.gps_time + ' --lal-cache --url-type=file'
   cacheFile = os.popen(command)
   command = opts.dataFind_executable + ' --observatory=L --type=RDS_R_L1 --gps-start-time ' + opts.gps_time + ' --gps-end-time ' + opts.gps_time + ' --lal-cache --url-type=file'
-  cacheFile += os.popen(command)
+  cacheFile2 = os.popen(command)
 else:
   cacheFile = open(opts.frame_cache,'r')
+  cacheFile2 = None
 
 lalCache = lal.Cache()
 myCache = lalCache.fromfile(cacheFile)
+if cacheFile2: myCache += lalCache.fromfile(cacheFile2)
 
 talk = talkBack(opts.output_web_file)
 web = WebPage('my title',opts.output_web_file)
