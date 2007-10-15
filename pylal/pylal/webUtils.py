@@ -303,7 +303,7 @@ class Section(Content):
   
   def writeSectionHeader(self,file,type):
     if type == 'IUL':
-      file.write('<h2 id="section'+str(self.secNumber)+'">'+str(self.secNumber)+'.  ' + self.heading+'\n')
+      file.write('<h2 id="section'+str(self.secNumber)+'">'+str(self.secNumber+1)+'.  ' + self.heading+'\n')
       file.write('<a href="'+self.root+'/'+file.name.split('/')[-1]+'#fuwebtoc">[Back to TOC]</a></h2>\n')
       
 # This class shouldn't really be used without a section as its parent, which
@@ -329,7 +329,7 @@ class SubSection(Content):
 
   def writeSubSectionHeader(self,file,type):
     if type == 'IUL':
-      file.write('<h3 id="subsection'+str(self.secNumber)+'.'+str(self.subNumber)+'">'+str(self.secNumber)+'.'+str(self.subNumber)+'.  '+self.heading+'\n')
+      file.write('<h3 id="subsection'+str(self.secNumber)+'.'+str(self.subNumber+1)+'">'+str(self.secNumber)+'.'+str(self.subNumber)+'.  '+self.heading+'\n')
       file.write('<a href="'+self.root+'/'+file.name.split('/')[-1]+'#fuwebtoc">[Back to TOC]</a></h3>\n')
 
 
