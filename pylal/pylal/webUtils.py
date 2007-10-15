@@ -329,7 +329,7 @@ class SubSection(Content):
 
   def writeSubSectionHeader(self,file,type):
     if type == 'IUL':
-      file.write('<h3 id="subsection'+str(self.secNumber)+'.'+str(self.subNumber+1)+'">'+str(self.secNumber)+'.'+str(self.subNumber)+'.  '+self.heading+'\n')
+      file.write('<h3 id="subsection'+str(self.secNumber+1)+'.'+str(self.subNumber+1)+'">'+str(self.secNumber)+'.'+str(self.subNumber)+'.  '+self.heading+'\n')
       file.write('<a href="'+self.root+'/'+file.name.split('/')[-1]+'#fuwebtoc">[Back to TOC]</a></h3>\n')
 
 
