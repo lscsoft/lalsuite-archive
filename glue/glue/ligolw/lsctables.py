@@ -656,6 +656,8 @@ class SnglInspiralTable(table.Table):
 		"mchirp": "real_4",
 		"mtotal": "real_4",
 		"eta": "real_4",
+		"kappa": "real_4",
+		"chi": "real_4",
 		"tau0": "real_4",
 		"tau2": "real_4",
 		"tau3": "real_4",
