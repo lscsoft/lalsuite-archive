@@ -8,11 +8,9 @@ import exceptions
 import glob
 from types import *
 
-from pylab import *
-from pylal import viz
 from pylal import SnglInspiralUtils
 from pylal import SimInspiralUtils
-
+from glue import lal
 ##############################################################################
 def plotvarlines(snr_range, var):
   loglog(snr_range, 15*snr_range**4 / (snr_range**2 + 0  ), 'm-',linewidth=1)
@@ -195,6 +193,18 @@ parser.add_option("","--rsq-coeff",action="store",type="float",\
     default=10,metavar="COEFF",help="set rsq veto coefficient to COEFF" )
 parser.add_option("","--rsq-pow",action="store",type="float",\
     default=0,metavar="POW",help="set rsq veto power to POW" )
+#options added for plotting dag
+parser.add_option("", "--inj-cache-files", action="store", type="string", default=None, metavar="INJCACHEFILE",\
+    help="list of cache files for injections given as a string with comma delimeters")
+parser.add_option("", "--zerolag-cache-file", action="store", type="string", default=None, metavar="ZEROLAGCACHEFILE",\
+    help="cache file for zero-lag")
+
+parser.add_option("","--cache-description", action="store",type="string",\
+    default="SIRE_", metavar="CACHEDESCRIPTION", help="description pattern the cache entries  will be sieved with" )
+parser.add_option("","--inj-cache-description", action="store",type="string",\
+    default="FOUND", metavar="INJDESCRIPTION", help="additional description pattern for injections  the cache entries will be sieved with" )
+parser.add_option("","--single-ifo",action="store",type="string",\
+  default=None,metavar="IFOS", help="ifo" )
 
 (opts,args) = parser.parse_args()
 
@@ -203,21 +213,39 @@ if opts.version:
   sys.exit(0)
 
 # check at least one trig file was specified
-if not opts.glob:
-  print >>sys.stderr, "Must specify a GLOB of files to read"
+if not opts.glob and  not opts.zerolag_cache_file:
+  print >>sys.stderr, "Must specify a GLOB of files to read or a cache input file"
   print >>sys.stderr, "Enter 'plotsnrchi --help' for usage"
   sys.exit(1)
 
-trigFiles = glob.glob(opts.glob)
-if not len(trigFiles):
-  print >>sys.stderr, "The glob for " + opts.glob + " returned no files"
-  sys.exit(1)
+if opts.glob:
+  trigFiles = glob.glob(opts.glob)
+  if not len(trigFiles):
+    print >>sys.stderr, "The glob for " + opts.glob + " returned no files"
+    sys.exit(1)
+
+else:
+  zerolagAllCache = lal.Cache.fromfile(open(opts.zerolag_cache_file))
+  trigFiles = zerolagAllCache.sieve(ifos = opts.single_ifo, exact_match = True).sieve(description = opts.cache_description).pfnlist()
+  if not len(trigFiles):
+    print >>sys.stderr, opts.zerolag_cache_file + " contains no files with " + opts.cache_description + " description"
+    sys.exit(1)
 
 if opts.inj_glob:
   injFiles = glob.glob(opts.inj_glob)
   if not len(injFiles):
     print >>sys.stderr, "The glob for " + opts.inj_glob + " returned no files"
     sys.exit(1)
+elif opts.inj_cache_files:
+  cachefileslist =  opts.inj_cache_files.split(",")
+  injFiles = []
+  for cachefile in cachefileslist:
+    injCache = lal.Cache.fromfile(open(cachefile))
+    injFiles.extend(injCache.sieve(ifos = opts.single_ifo, exact_match = True).sieve(description = opts.cache_description).sieve(description = opts.inj_cache_description).pfnlist())
+  if not len(injFiles):
+    print >>sys.stderr, opts.inj_cache_files + " contains no files with " + opts.cache_description +  inj_cache_description + " description"
+    sys.exit(1)
+
  
 if not opts.denominator_constant and not opts.denominator_variable:
   print >>sys.stderr, "One of --denominator-constant CONST or"
@@ -225,10 +253,17 @@ if not opts.denominator_constant and not opts.denominator_variable:
   sys.exit(1)
 
 if (opts.hist_stat or opts.hist_snr or opts.hist_snr_chi) and not \
-    opts.inj_glob:
+    (opts.inj_glob or opts.inj_cache_files):
   print >>sys.stderr, "Must specify an INJ_GLOB if you want to do one of"
   print >>sys.stderr, "--hist-snr, --hist-snr-chi --hist-stat"
   sys.exit(1)
+
+if not opts.show_plot:
+  import matplotlib
+  matplotlib.use('Agg')
+from pylab import *
+from pylal import viz
+
    
 ###################################
 # input triggers
@@ -240,7 +275,7 @@ max_rsq = max(rsq)
 # input injections:
 inj_snr = None
 inj_chisq = None
-if opts.inj_glob:
+if opts.inj_glob or opts.inj_cache_files:
   injTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(injFiles)
   inj_snr = injTriggers.get_column('snr')
   inj_chisq = injTriggers.get_column('chisq')
@@ -255,7 +290,7 @@ if opts.inj_glob:
 nevents = len(inspTriggers)
 snr = inspTriggers.get_column('snr')
 
-if opts.inj_glob:
+if opts.inj_glob or opts.inj_cache_files:
   max_snr = max(inj_snr)
 else:
   max_snr = max(snr)
@@ -364,7 +399,7 @@ if opts.snr_rsq and (opts.rsq_threshold and opts.rsq_max_snr):
       snr_kept.append(snr[i])
       rsq_kept.append(rsq[i])
 
-  if opts.inj_glob:
+  if opts.inj_glob or opts.inj_cache_files:
     inj_snr_cut = []
     inj_rsq_cut = []
     inj_snr_kept = []
@@ -397,7 +432,7 @@ if opts.snr_chisq:
   
   viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','kx')
   hold(True)
-  if opts.inj_glob:
+  if injTriggers:
     viz.plot_a_v_b(injTriggers,'snr','chisq','loglog','r+')
 
   xlim(min_snr, max_snr)
@@ -623,7 +658,7 @@ if opts.snr_rsq and (opts.rsq_threshold and opts.rsq_max_snr):
 
   loglog(snr_kept,rsq_kept,'kx',snr_cut,rsq_cut,'bx')
   hold(True)
-  if opts.inj_glob:
+  if opts.inj_glob or opts.inj_cache_files:
     loglog(inj_snr_kept,inj_rsq_kept,'r+',inj_snr_cut,inj_rsq_cut,'m+')
   loglog(rsq_cut_line_x,rsq_cut_line_y,'k',linewidth=2)
 
@@ -638,7 +673,7 @@ elif opts.snr_rsq:
 
   loglog(snr,rsq,'kx')
   hold(True)
-  if opts.inj_glob:
+  if opts.inj_glob or opts.inj_cache_files:
     loglog(inj_snr,inj_rsq,'r+')
 
   xlim(min_snr, max_snr)
