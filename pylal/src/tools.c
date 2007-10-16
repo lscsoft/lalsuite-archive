@@ -398,17 +398,18 @@ static PyObject *PyCalculateEThincaParameter(PyObject *self, PyObject *args) {
 
     /* This is the main call */
     result = (double) XLALCalculateEThincaParameter(c_row1, c_row2, accuracyParams);
+    
+    /* Free temporary memory */
+    LALFree(c_row1);
+    LALFree(c_row2);
+    LALFree(accuracyParams);
+    
     if (XLAL_IS_REAL8_FAIL_NAN((REAL8) result)) {
         /* convert XLAL exception to Python exception */
         XLALClearErrno();
         PyErr_SetString(PyExc_ValueError, "SnglInspiral triggers are not coincident.");
         return NULL;
     }
-    
-    /* Free temporary memory */
-    LALFree(c_row1);
-    LALFree(c_row2);
-    LALFree(accuracyParams);
     
     return Py_BuildValue("d", result);
 }
@@ -453,18 +454,19 @@ static PyObject *PyCalculateEThincaParameterExt(PyObject *self, PyObject *args) 
 
     /* This is the main call */    
     result = (double) XLALCalculateEThincaParameter(c_row1, c_row2, accuracyParams);
-    if (XLAL_IS_REAL8_FAIL_NAN((REAL8) result)) {
-        /* convert XLAL exception to Python exception */
-        XLALClearErrno();
-        PyErr_SetString(PyExc_ValueError, "SnglInspiral triggers are not coincident.");
-        return NULL;
-    }
     
     /* Free temporary memory */
     LALFree(c_row1);
     LALFree(c_row2);
     LALFree(accuracyParams);
     LALFree(gpstime);
+
+    if (XLAL_IS_REAL8_FAIL_NAN((REAL8) result)) {
+        /* convert XLAL exception to Python exception */
+        XLALClearErrno();
+        PyErr_SetString(PyExc_ValueError, "SnglInspiral triggers are not coincident.");
+        return NULL;
+    }
     
     return Py_BuildValue("d", result);
 }
