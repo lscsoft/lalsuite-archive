@@ -168,7 +168,7 @@ def makesteps(x,y1,y2):
   xnew=[]
   y1new=[y1[0]]
   y2new=[y2[0]]
-  for i in arange(x.size-1):
+  for i in arange(size(x)-1):
     xnew.append(x[i])
     xnew.append(x[i+1])
     y1new.append(y1[i])
@@ -519,6 +519,93 @@ def labeldiffa_vs_b(col_name_a, col_name_b, units_a=None, units_b=None,
   if output_name:
     output_name += '_' + col_name_a + '_vs_' + col_name_b + '_accuracy.png'
     savefig(output_name)
+
+############################################################################
+# function to plot the fractional difference between values of 'col_name_a' in
+# two tables, table1 and table2 against the values of 'col_name_b' in table1
+def plotfracdiffa_vs_b(table1, table2, col_name_a, col_name_b, \
+    plot_type = 'linear', plot_sym = 'kx'):
+  """
+  function to plot the difference if col_name_a in two tables against the
+  value of col_name_b in table1.
+
+  @param table1: metaDataTable
+  @param table2: metaDataTable
+  @param col_name_a: name of column to plot difference of on y-axis
+  @param col_name_b: name of column to plot on x-axis
+  @param plot_type: either 'linear' or 'log' plot on x-axis
+  @param plot_sym: the symbol to use when plotting
+  """
+
+  [tmpvar1, tmpvar2, ifo ] = readcolfrom2tables(table1, table2, col_name_a)
+
+  diff_a = 2.*(tmpvar2 - tmpvar1)/(tmpvar2 + tmpvar1)
+  col_b = readcol(table1, col_name_b, ifo )
+
+  if 'time' in col_name_b:
+    col_b = timeindays(col_b)
+
+  if plot_type == 'linear':
+    plot(col_b, diff_a,plot_sym,markersize=12,markerfacecolor=None,
+      markeredgewidth=1)
+  elif plot_type == 'log':
+    semilogx(col_b, diff_a,plot_sym,markersize=12,markerfacecolor=None,
+      markeredgewidth=1)
+
+
+#################################################################
+# function to label above plot
+def labelfracdiffa_vs_b(col_name_a, col_name_b, units_a=None, units_b=None,
+  axis=[0,0,0,0], leg = None, title_text = None, output_name = None):
+  """
+  function to label the output of plotfracdiffa_vs_b
+
+  @param col_name_a: name of column to plot
+  @param col_name_b: name of column to plot
+  @param units_a: the units of column a
+  @param units_b: the units of column b
+  @param axis: axis limits [xmin,xmax,ymin,ymax].  If both min and max of x or
+               y is zero then that axis is not set.
+  @param leg: legend to add to plot
+  @param title_text: text to add at start of title
+  @param output_name: used in naming output file
+  """
+
+  if units_b:
+    xlabel(col_name_b.replace("_"," ") + ' (' + units_b +')', size='x-large')
+  else:
+    xlabel(col_name_b.replace("_"," "), size='x-large')
+
+  ylabel(col_name_a.replace("_"," ") + ' fractional difference', \
+      size='x-large')
+
+  xticks(fontsize='x-large')
+  yticks(fontsize='x-large')
+
+  if axis[0] or axis[1]:
+    xlim(axis[0], axis[1])
+
+  if axis[2] or axis[3]:
+    ylim(axis[2], axis[3])
+
+  if leg:
+    legend(leg)
+
+  grid(True)
+
+  if title_text:
+    title(title_text + ' ' + col_name_a.replace("_"," ") + \
+        ' Fractional Accuracy vs ' + \
+        col_name_b.replace("_"," "), \
+        size='x-large', weight='bold')
+  else:
+    title(col_name_a.replace("_"," ") + ' Fractional Accuracy vs ' + \
+        col_name_b.replace("_"," "),
+        size='x-large',weight='bold')
+
+  if output_name:
+    output_name += '_' + col_name_a + '_vs_' + col_name_b + '_frac_accuracy.png'
+    savefig(output_name)
  
 ###################################################
 # function to plot the value of 'col_name' in table1 vs its
@@ -829,7 +916,7 @@ def cumhiststat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
   if trigs:
     [zero_dist,bin,info] = hist(snr,bins)
     zero_dist = concatenate( (zeros(1),zero_dist) )
-    cum_dist_zero = sum(zero_dist)-cumsum(zero_dist[0:bin.size])
+    cum_dist_zero = sum(zero_dist)-cumsum(zero_dist[0:size(bin)])
 
   # hist of the slides:
   if slide_trigs:  
@@ -838,7 +925,7 @@ def cumhiststat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
     for slide_snr in slide_snr_list:
       [num_slide,bin,info] = hist(slide_snr,bins)
       num_slide = concatenate( (zeros(1),num_slide) )
-      cum_slide = sum(num_slide)-cumsum(num_slide[0:bin.size])
+      cum_slide = sum(num_slide)-cumsum(num_slide[0:size(bin)])
       cum_dist_slide.append(cum_slide)
     cum_dist_slide = reshape(array(cum_dist_slide), \
       (len(slide_snr_list),nbins))
@@ -883,6 +970,123 @@ def cumhiststat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
  
   title(title_text, size='x-large')
 
+######################################################################
+# function to make a histogram of the coinc inspiral statistic
+def histstat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
+  max_val = None, nbins = 20, stat=None):
+  """
+  function to plot a histogram of the snr of coincident events
+  in the zero lag and times slides
+
+  @param trigs: coincInspiralTable
+  @param slide_trigs: dictionary of time slide triggers
+  @param ifolist: list of ifos
+  @param min_val: minimum of snr to be plotted
+  @param max_val: maximum of snr to be plotted
+  @param nbins: number of bins to use in histogram
+  @param stat: the statistic being used
+  """
+
+  hold(False)
+
+  # read in zero lag triggers
+  if trigs:
+    if ifolist:
+      trigs = trigs.coinctype(ifolist)
+    snr = trigs.getstat()
+    if len(snr):
+      if not min_val:
+        min_val = min(snr)
+      if not max_val:
+        max_val = max(snr)
+
+  # read in slide triggers
+  if slide_trigs:
+    slide_min = 0
+    slide_max = 0
+
+    slide_snr_list = []
+    for this_slide in slide_trigs:
+      if ifolist:
+        slide = this_slide['coinc_trigs'].coinctype(ifolist)
+      else:
+        slide = this_slide['coinc_trigs']
+
+      slide_snr = slide.getstat()
+      slide_snr_list.append(slide_snr)
+
+      if len(slide_snr):
+        slide_max = max(slide_max, max(slide_snr))
+        slide_min = min(slide_min, min(slide_snr))
+
+    if not min_val:
+      min_val = slide_min
+    if not max_val:
+      max_val = slide_max
+
+  # set up the bin boundaries
+  if not max_val:
+    max_val = 10.
+  if not min_val:
+    min_val = 5.
+
+  step = (max_val - min_val)/nbins
+  bins = arange(min_val, max_val, step)
+
+  # hist of the zero lag:
+  if trigs:
+    [zero_dist,bin,info] = hist(snr,bins)
+    hist_zero = zero_dist
+
+  # hist of the slides:
+  if slide_trigs:
+    slide_dist = []
+    hist_slide = []
+    for slide_snr in slide_snr_list:
+      [num_slide,bin,info] = hist(slide_snr,bins)
+      hist_slide.append(num_slide)
+    hist_slide = reshape(array(hist_slide), \
+      (len(slide_snr_list),nbins))
+    slide_mean = mean(hist_slide)
+    slide_std = std(hist_slide)
+
+  if "bitten_l" in stat:
+     xvals=bins
+  else:
+     xvals=bins*bins;
+
+  clf()
+  hold(True)
+  # plot zero lag
+  if trigs and len(trigs):
+    semilogy(xvals,hist_zero+0.0001,'r^',markerfacecolor="b",\
+        markersize=12)
+
+  # plot time slides
+  ds=step/2
+  if slide_trigs and len(slide_snr_list):
+    slide_min = []
+    for i in range( len(slide_mean) ):
+      slide_min.append( max(slide_mean[i] - slide_std[i], 0.0001) )
+      slide_mean[i] = max(slide_mean[i], 0.0001)
+    semilogy(xvals,asarray(slide_mean), 'r+', markersize=12)
+    tmpx,tmpy = makesteps(bins,slide_min,slide_mean+slide_std)
+    if "bitten_l" in stat:
+       p=fill((tmpx-ds),tmpy, facecolor='y')
+    else:
+       p=fill((tmpx-ds)*(tmpx-ds),tmpy, facecolor='y')
+    setp(p, alpha=0.3)
+
+  xlab='Statistic'
+  xlabel(r'Combined ' + xlab, size='x-large')
+  ylabel('Number of events', size='x-large')
+  title_text = 'Histogram of Number of events vs Statistic'
+  if ifolist:
+    title_text += ' for '
+    for ifo in ifolist:
+      title_text += ifo + ' '
+
+  title(title_text, size='x-large')
 
 ######################################################################
 # function to determine the efficiency as a function of distance
@@ -1141,7 +1345,6 @@ def histslides(slide_trigs, zerolag_trigs = None, ifolist = None, scalebkg = Non
   @param zerolag_trigs: coincInspiralTable
   @param ifolist: list of ifos
   """
-
   nevents = []
   slides = []
   for slide in slide_trigs:
@@ -1151,7 +1354,7 @@ def histslides(slide_trigs, zerolag_trigs = None, ifolist = None, scalebkg = Non
       nevents.append( len(slide["coinc_trigs"]) )
       
     slides.append(slide["slide_num"])
- 
+
   mean_events = mean(nevents)
   std_events = std(nevents)
 
