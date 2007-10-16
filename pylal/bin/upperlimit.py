@@ -152,6 +152,7 @@ stat_options = cp.items("statistic")
 analyzedtimes = cp.items("analyzedtimes")
 coire_options = cp.items("coire")
 coireinj_options = cp.items("coireinj")
+coiredata_options = cp.items("coiredata")
 calcmasscut_options = cp.items("calcmasscut")
 plotthinca_options=cp.items("plotthinca")
 png_options = cp.items("plotnumgalaxies")
@@ -187,6 +188,11 @@ for opt in componentmass_options:
 mass_dict=dict()
 for opt in masses:
     mass_dict[opt[0]]=opt[1]
+
+# convert the coiredata options into a dictionary
+coiredata_dict=dict()
+for opt in coiredata_options:
+    coiredata_dict[opt[0]]=opt[1]
 
 #######################################################################
 # do the set up
@@ -281,13 +287,13 @@ if not opts.skip_calcmasscut:
   for mydir in glob.glob( "injections*" ):
     print "** Processing " + mydir
     mkdirsafe( MYRESULTSDIR + "/calc_mass_cut/" + mydir )
-    injectionfile=glob.glob(MYRESULTSDIR + "/" + mydir +\
+    injectionfile=glob.glob(MYRESULTSDIR + "/" + mydir + \
         "/HL-INJECTIONS*.xml.gz")
     injFileName = os.path.basename( injectionfile[0] )
     command = "lalapps_injcut --injection-file " + injectionfile[0]
     for opt in calcmasscut_options:
-      command += " --"+opt[0]+" "+opt[1]
-    command +=  " --output " + MYRESULTSDIR + "/calc_mass_cut/" + mydir +\
+      command += " --" + opt[0] + " " + opt[1]
+    command +=  " --output " + MYRESULTSDIR + "/calc_mass_cut/" + mydir + \
         "/" + injFileName
     if opts.test:
       print command + "\n"
@@ -297,8 +303,8 @@ if not opts.skip_calcmasscut:
       print "ERROR in coireinj: No injection-file (HL*.xml.gz) \
           in the injections-directory. Exiting..."
       sys.exit(1)
-    command = "hipecoire --trig-path " + MYRESULTSDIR + "/" + mydir +\
-        " --ifo H1 --ifo H2 --ifo L1 --injection-file " + injectionfile[0] +\
+    command = "hipecoire --trig-path " + MYRESULTSDIR + "/" + mydir + \
+        " --ifo H1 --ifo H2 --ifo L1 --injection-file " + injectionfile[0] + \
         " --coinc-stat " + stat_dict["statistic"]
     if stat_dict["statistic"][-3:] == "snr":
       # coire takes "snrsq"/"effective_snrsq"
@@ -317,7 +323,7 @@ if not opts.skip_calcmasscut:
           " --veto-file " + MYRESULTSDIR + "/h2veto.list" + \
           " --veto-file " + MYRESULTSDIR + "/l1veto.list"
     if opts.second_coinc:
-      command += " --second-coinc "
+      command += " --second-coinc"
     if opts.clustered_files:
       command += " --clustered-files"
     for opt in coire_options:
@@ -331,7 +337,7 @@ if not opts.skip_calcmasscut:
 
   command = "calcMassCut --glob 'injections*/H*FOUND.xml.gz'"
   for opt in calcmasscut_options:
-    command += " --"+opt[0]+" "+opt[1]
+    command += " --" + opt[0] + " " + opt[1]
   command += " --mass-mass --hist-mass-error --figure-name injections"
   command += " > massCut.ini"
   if opts.test:
@@ -350,7 +356,6 @@ if not opts.skip_coiredata:
   mkdirsafe( MYRESULTSDIR + "/hipecoire/full_data" )
   command = "hipecoire --trig-path " + MYRESULTSDIR + \
       "/full_data/ --ifo H1 --ifo H2 --ifo L1" + \
-      " --num-slides 30" + \
       " --cluster-infinity --coinc-stat " + stat_dict["statistic"]
   if stat_dict["statistic"][-3:] == "snr":
     # coire takes "snrsq"/"effective_snrsq"
@@ -370,6 +375,8 @@ if not opts.skip_coiredata:
     command += " --second-coinc"
   if opts.clustered_files:
     command += " --clustered-files"
+  for opt in coiredata_options:
+    command += " --" + opt[0] + " " + opt[1]
   for opt in coire_options:
     command += " --" + opt[0] + " " + opt[1]
   if not opts.skip_calcmasscut and not opts.test:
@@ -418,20 +425,20 @@ if not opts.skip_coireinj:
     print "** Processing " + mydir
     mkdirsafe( MYRESULTSDIR + "/hipecoire/" + mydir )
     if not opts.skip_calcmasscut:
-      injectionfile=glob.glob(MYRESULTSDIR + "/calc_mass_cut/" + mydir +\
+      injectionfile=glob.glob(MYRESULTSDIR + "/calc_mass_cut/" + mydir + \
           "/HL-INJECTIONS*.xml.gz")
     else:
-      injectionfile=glob.glob(MYRESULTSDIR + "/" + mydir +\
+      injectionfile=glob.glob(MYRESULTSDIR + "/" + mydir + \
           "/HL-INJECTIONS*.xml.gz")
     injFileName = os.path.basename( injectionfile[0] )
-    symlinksafe( injectionfile[0], MYRESULTSDIR + "/hipecoire/" + mydir +\
+    symlinksafe( injectionfile[0], MYRESULTSDIR + "/hipecoire/" + mydir + \
         "/" + injFileName )
     if not injectionfile:
       print "ERROR in coireinj: No injection-file (HL*.xml.gz) \
           in the injections-directory. Exiting..."
       sys.exit(1)
-    command = "hipecoire --trig-path " + MYRESULTSDIR + "/" + mydir +\
-        " --ifo H1 --ifo H2 --ifo L1 --injection-file " + injFileName +\
+    command = "hipecoire --trig-path " + MYRESULTSDIR + "/" + mydir + \
+        " --ifo H1 --ifo H2 --ifo L1 --injection-file " + injFileName + \
         " --coinc-stat " + stat_dict["statistic"]
     if stat_dict["statistic"][-3:] == "snr":
       # coire takes "snrsq"/"effective_snrsq"
@@ -446,7 +453,7 @@ if not opts.skip_coireinj:
     for opt in coireinj_options:
       command += " --" + opt[0] + " " + opt[1]
     if not opts.no_veto:
-      command+=" --veto-file " + MYRESULTSDIR + "/h1veto.list" + \
+      command += " --veto-file " + MYRESULTSDIR + "/h1veto.list" + \
           " --veto-file " + MYRESULTSDIR + "/h2veto.list" + \
           " --veto-file " + MYRESULTSDIR + "/l1veto.list"
     if opts.second_coinc:
@@ -480,10 +487,11 @@ if not opts.skip_coireinj:
 if not opts.skip_plotthinca:
   print "running plotthinca to generate foreground/background plots"
   # generate the background/foreground number of events plot
-  command = "plotthinca --glob '" + MYRESULTSDIR + "/hipecoire/*CLUST*zero* " \
-      + MYRESULTSDIR + "/hipecoire/*CLUST*slides*' " + \
-      "--plot-slides --num-slides 30 " \
-      "--figure-name 'summary' --add-zero-lag --snr-dist"+\
+  command = "plotthinca --glob '" +\
+      MYRESULTSDIR + "/hipecoire/*CLUST*zero* " + \
+      MYRESULTSDIR + "/hipecoire/*CLUST*slides*'" + \
+      " --plot-slides --num-slides " + coiredata_dict["num-slides"] + \
+      " --figure-name 'summary' --add-zero-lag --snr-dist" + \
       " --statistic " + stat_dict["statistic"]
   for opt in plotthinca_options:
     command+=" --"+opt[0]+" "+opt[1]
@@ -530,48 +538,49 @@ if not opts.skip_png:
     for times in analyzedtimes:
       print "running plotnumgalaxies for " + times[0].upper() + \
           " using population from " + pop
-      command = "plotnumgalaxies " + \
-          "--slide-glob '" + MYRESULTSDIR + \
-          "/hipecoire/H*LOUDEST*slides.xml.gz' " + \
-          "--zero-glob '" + MYRESULTSDIR + \
-          "/hipecoire/H*LOUDEST*zero.xml.gz' " + \
-          "--found-glob '" + MYRESULTSDIR + "/hipecoire/" + \
-          times[0].upper() + "-COIRE*FOUND*.xml.gz' " + \
-          "--missed-glob '" + MYRESULTSDIR + "/hipecoire/" + \
-          times[0].upper() + "-COIRE*MISSED*.xml.gz' " + \
-          "--source-file '" + MYRESULTSDIR + "/inspsrcs.new' " + \
-          "--population-glob '" + MYRESULTSDIR + pop + \
+      command = "plotnumgalaxies" + \
+          " --slide-glob '" + MYRESULTSDIR + \
+          "/hipecoire/H*LOUDEST*slides.xml.gz'" + \
+          " --zero-glob '" + MYRESULTSDIR + \
+          "/hipecoire/H*LOUDEST*zero.xml.gz'" + \
+          " --found-glob '" + MYRESULTSDIR + "/hipecoire/" + \
+          times[0].upper() + "-COIRE*FOUND*.xml.gz'" + \
+          " --missed-glob '" + MYRESULTSDIR + "/hipecoire/" + \
+          times[0].upper() + "-COIRE*MISSED*.xml.gz'" + \
+          " --source-file '" + MYRESULTSDIR + "/inspsrcs.new'" + \
+          " --population-glob '" + MYRESULTSDIR + pop + \
           "' --figure-name " + times[0].upper() + \
           " --plot-cum-loudest --plot-pdf-loudest" + \
-          " --num-slides 30 --statistic " + stat_dict["statistic"] +\
+          " --num-slides " + coiredata_dict["num-slides"] + \
+          " --statistic " + stat_dict["statistic"] + \
           " --plot-efficiency"
       if  "bitten_l" in stat_dict["statistic"]:
         command += " --bittenl_a " + stat_dict["bittenl_a"] + \
             " --bittenl_b "+stat_dict["bittenl_b"]
       for opt in png_options:
-        command+=" --"+opt[0]+" "+opt[1]
+        command += " --" + opt[0] + " " + opt[1]
       if times[0].upper() == "H1H2":
-        command +=  " --plot-ng --plot-efficiency --cum-search-ng " \
-            + "--plot-ng-vs-stat"
+        command +=  " --plot-ng --plot-efficiency --cum-search-ng" + \
+            " --plot-ng-vs-stat"
       else:
-        command += " --axes-square --plot-2d-ng "\
-            + "--plot-effcontour --cum-search-2d-ng "\
-            + "--plot-2d-ng-vs-stat"
+        command += " --axes-square --plot-2d-ng" + \
+            " --plot-effcontour --cum-search-2d-ng" + \
+            " --plot-2d-ng-vs-stat"
         for opt in png_y_options:
-          command+=" --" + opt[0] + " " + opt[1]
-      command+=" --population-type " + popdistr[key]["popType"]
+          command += " --" + opt[0] + " " + opt[1]
+      command += " --population-type " + popdistr[key]["popType"]
       if not popdistr[key]["popType"] == "gaussian":
-        command+=" --m-low " + popdistr[key]["min-mass"] + \
+        command += " --m-low " + popdistr[key]["min-mass"] + \
             " --m-high " + popdistr[key]["max-mass"] + \
             " --m-dm " + mass_dict["m-dm"] + " --cut-inj-by-mass " + \
             mass_dict["cut-inj-by-mass"]
       if opts.output_to_file:
-        command+=" > png-output-" + times[0].upper() + ".log"
+        command += " > png-output-" + times[0].upper() + ".log"
       if opts.test:
         print command + "\n"
       else:
-        dir=MYRESULTSDIR + "/plotnumgalaxies/" + times[0].upper()
-        dir=dir+"_"+popdistr[key]["popType"]
+        dir = MYRESULTSDIR + "/plotnumgalaxies/" + times[0].upper()
+        dir = dir + "_" + popdistr[key]["popType"]
         mkdirsafe( dir )
         os.chdir( dir )
         os.system( command )
@@ -580,20 +589,20 @@ if not opts.skip_png:
 # calculate upper limit
 #######################################################################
 if not opts.skip_upper_limit:
-  secondsInAYear=31556736.0
+  secondsInAYear = 31556736.0
   for key in popdistr:
-    pop=popdistr[key]["popType"]
+    pop = popdistr[key]["popType"]
     print
     print "** Computing the upper limit for " + pop + " population"
     command = "lalapps_compute_posterior"
     for times in analyzedtimes:
-      command+=" -f "+times[0].upper()
-      command+="_"+pop
-      command+="/png-output.ini -t "+ str(float(times[1])/secondsInAYear)
-    command+=" --figure-name "+pop
+      command += " -f " + times[0].upper()
+      command += "_" + pop
+      command += "/png-output.ini -t " + str(float(times[1])/secondsInAYear)
+    command += " --figure-name " + pop
     for opt in posterior_options:
-       command+=" --"+opt[0]+" "+opt[1]
-    command+=" --mass-region-type "+pop
+       command += " --" + opt[0] + " " + opt[1]
+    command += " --mass-region-type " + pop
     if opts.output_to_file:
       command += " > ul-output-" + pop.lower() + ".log"
     if opts.test:
