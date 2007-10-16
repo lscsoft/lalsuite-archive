@@ -394,8 +394,13 @@ class slideZeroData:
     if self.zero_loudest:
       x = arange(len(self.snr_array))
       axvline(self.zero_loudest,linewidth=2,color='r',label="zero lag")
-      p_b = 0.5 * (slidePDF[max(x[self.snr_array < self.zero_loudest])] + \
-                   slidePDF[min(x[self.snr_array > self.zero_loudest])] )
+      if max(self.snr_array) < self.zero_loudest:
+        p_b = 0.5 * (slidePDF[-1] + slidePDF[-2])
+      elif min(self.snr_array) > self.zero_loudest:
+        p_b = 0.5 * (slidePDF[0] + slidePDF[1])
+      else:
+        p_b = 0.5 * (slidePDF[max(x[self.snr_array < self.zero_loudest])] + \
+                     slidePDF[min(x[self.snr_array > self.zero_loudest])] )
       print 'pdf p_b at loudest event is %.2f' % p_b
     legend()
     if figureName:
@@ -1144,8 +1149,13 @@ def plot_ng_vs_stat(injAstro, slideZero, figNum, integrate, figName = None,
   if not slideZero.zero_loudest:
     return 0
   else:
-    ngArray = ngArray[ (snrArray > (slideZero.zero_loudest - snrStep)) & \
-        (snrArray < (slideZero.zero_loudest + snrStep)) ]
+    if max(snrArray) < (slideZero.zero_loudest):
+      ngArray = [ngArray[-2],ngArray[-1]]
+    elif min(snrArray) > (slideZero.zero_loudest):
+      ngArray = [ngArray[0],ngArray[1]]
+    else:
+      ngArray = ngArray[ (snrArray > (slideZero.zero_loudest - snrStep)) & \
+          (snrArray < (slideZero.zero_loudest + snrStep)) ]
     ngPrime = ( ngArray[0] - ngArray[1]) / snrStep
     return ngPrime
 
