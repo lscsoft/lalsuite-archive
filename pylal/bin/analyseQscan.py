@@ -360,14 +360,23 @@ def makeScatteredPlot(chan,opts,distribution,list11,list12,list21,list22,list31,
   ax.set_xscale('log')
   ax.set_yscale('log')
 
-  ax.scatter(list11,list12,s=16,c='b',marker='o')
-  ax.scatter(list21,list22,s=16,c='r',marker='d')
-  ax.scatter(list31,list32,s=20,c='g',marker='8')
+  p1 = plot(list11,list12,linestyle='None', marker='o',\
+               markerfacecolor='k', markeredgecolor='k',\
+               markersize=4, markeredgewidth=0)
+
+  p2 = plot(list21,list22,linestyle='None', marker='v',\
+               markerfacecolor='r', markeredgecolor='r',\
+               markersize=4, markeredgewidth=0)
+
+  p3 = plot(list31,list32,linestyle='None', marker='s',\
+               markerfacecolor='r', markeredgecolor='r',\
+               markersize=8, markeredgewidth=0)
 
   grid()
   xlabel('Z in ' + chan,size='x-large')
   ylabel('Z in ' + 'DARM_ERR',size='x-large')
   title('Background versus foreground for channel: ' + chan)
+  legend((p1,p2,p3),('background','foreground','candidate'),loc = 'upper right')
 
   lim = max(max(list11),max(list12),max(list21),max(list22),max(list31),max(list32))
   ax.set_xlim(1e0, lim*2)
@@ -403,16 +412,22 @@ def plotHistogram(chan,opts,distribution,histoList,binList,figNumber,percentiles
   bar(binList, histoList, width=step, bottom=0)
 
   if percentiles:
-    axvline(x=percentiles[0], ymin=0, ymax=max(histoList), color='g', label='50th percentile', linewidth=2, linestyle='--')
-    axvline(x=percentiles[1], ymin=0, ymax=max(histoList), color='m', label='90th percentile', linewidth=2, linestyle='--')
-    axvline(x=percentiles[2], ymin=0, ymax=max(histoList), color='r', label='97th percentile', linewidth=2, linestyle='--')
+    line1 = axvline(x=percentiles[0], ymin=0, ymax=max(histoList), color='g', label='50th percentile', linewidth=2, linestyle='--')
+    line2 = axvline(x=percentiles[1], ymin=0, ymax=max(histoList), color='m', label='90th percentile', linewidth=2, linestyle='--')
+    line3 = axvline(x=percentiles[2], ymin=0, ymax=max(histoList), color='r', label='97th percentile', linewidth=2, linestyle='--')
     if parameter == 'dt':
       axvline(x=-percentiles[0], ymin=0, ymax=max(histoList), color='g', label='50th percentile', linewidth=2, linestyle='--')
       axvline(x=-percentiles[1], ymin=0, ymax=max(histoList), color='m', label='90th percentile', linewidth=2, linestyle='--')
       axvline(x=-percentiles[2], ymin=0, ymax=max(histoList), color='r', label='97th percentile', linewidth=2, linestyle='--')
 
   if candidate:
-    axvline(x=candidate, ymin=0, ymax=max(histoList), color='k', label='candidate value (%s percentile)' % (candidateRank), linewidth=2, linestyle='-')
+    line0 = axvline(x=candidate, ymin=0, ymax=max(histoList), color='k', label='candidate value (%s percentile)' % (candidateRank), linewidth=2, linestyle='-')
+
+  if percentiles and candidate:
+    legend((line0,line1,line2,line3),('candidate','50%','90%','97%'),loc = 'upper right')
+
+  if percentiles and not candidate:
+    legend((line1,line2,line3),('50%','90%','97%'),loc = 'upper right')
 
   xlim(xlimInf,xlimSup)
 
@@ -420,6 +435,8 @@ def plotHistogram(chan,opts,distribution,histoList,binList,figNumber,percentiles
   # ylabel(r'#',size='x-large')
   grid()  
   title("Histogram of the " + parameter + " value for " + chan + ', Statistics = ' + str(counter))
+
+  
 
   figName = chan.split(':')[0] + '-' + chan.split(':')[1] + '-' + parameter + '-distribution.png'
 
@@ -675,10 +692,6 @@ if not opts.process_background_only:
           zHisto,zBin = makeHistogram(zList,"z-distribution",opts,percentiles,zCandidate)
         except:
           print >> sys.stderr, 'could not make the z histogram for channel ' + channel
-          print "zlist:"
-          print zList
-          print percentiles
-          print zCandidate
           continue
 
         figNumber = figNumber + 1
