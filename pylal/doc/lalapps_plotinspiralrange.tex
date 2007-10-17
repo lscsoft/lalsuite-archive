@@ -56,9 +56,15 @@ plotinspiralrange\_usertag\_figurename-gpsstart-duration
 {\includegraphics[width=0.30\textwidth]{./plotinspiralrange_playground_range_mass-849974770-2419200.png}}
 \caption{\label{fig:lalapps_plotinspiralrange} test}
 \end{figure}
+\end{mansection}
 
-
-
+\begin{mansection}{Examples}
+\begin{verbatim}
+~/opt/pylal/bin/lalapps_plotinspiralrange --cache-file  test.cache   -f
+playground --range-min 1 --range-max 40 --n 50 --range-vs-time --range-hist
+--verbose -a -b --range-mass --gps-start-time 849974770 --gps-end-time
+852393970  --output-cache --output-html --output-path playground --help
+\end{verbatim}
 \end{mansection}
 
 
