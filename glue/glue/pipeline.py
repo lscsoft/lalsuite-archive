@@ -1291,17 +1291,14 @@ class AnalysisNode(CondorDAGNode):
 
   def set_ifo(self,ifo):
     """
-    Set the channel name to analyze and add a calibration file for that
-    channel. The name of the ifo is prepended to the channel name obtained
+    Set the ifo name to analyze. If the channel name for the job is defined,
+    then the name of the ifo is prepended to the channel name obtained
     from the job configuration file and passed with a --channel-name option.
-    A calibration file is obtained from the ini file and passed with a 
-    --calibration-cache option.
     @param ifo: two letter ifo code (e.g. L1, H1 or H2).
     """
     self.__ifo = ifo
-    self.add_var_opt('channel-name', ifo + ':' + self.job().channel())
-    #if not self.__calibration and self.__ifo and self.__start > 0:
-    #   self.calibration()
+    if self.job().channel():
+      self.add_var_opt('channel-name', ifo + ':' + self.job().channel())
 
   def get_ifo(self):
     """
