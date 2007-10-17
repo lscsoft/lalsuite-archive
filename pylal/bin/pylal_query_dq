@@ -22,7 +22,7 @@ __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"
 
 dq_url_pattern = "http://ldas-cit.ligo.caltech.edu/segments/S5/%s/dq_segments.txt"
-all_ifos = ('H1', 'H2', 'G1', 'L1', 'V2')
+all_ifos = ('H1', 'H2', 'G1', 'L1', 'V1')
 
 ##############################################################################
 # Utility functions
