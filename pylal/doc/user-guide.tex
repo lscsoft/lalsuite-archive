@@ -53,15 +53,25 @@ The output file should be
 Where, executable name is defined by the variable \prog{\_\_name\_\_} (see above)
 
 
-\section{arguments}
-The authors should try to use the following convention for the optional
-argument as much as possible
+\section{Optional arguments}
+The are numerous options available in the pylal plotting functions. Some of
+them should be standarize. In particular, we identify the following options,
+which should be present in the list of avaialable options :
+
 \begin{description}
-\item[\progarg{--cache-file}] to be used to provide a cache file
+\item[\progarg{--output-cache}] to be used to provide a cache file
+\item[\progarg{--output-html}] to be used to provide a cache file
+\item[\progarg{--output-path}] to be used to provide a cache file
+\item[\progarg{--gps-start-time}] to be used to provide a cache file
+\item[\progarg{--gps-end-time}] to be used to provide a cache file
 \item[\progarg{--figure-name}] a tag to be used for naming the output figures
 (see Naming conventions).
 \item[\progarg{--verbose}] Be verbose
 \end{description}
+
+There are others option, which could be standarize such as the one related to
+globing or input cache file.
+
 
 \section{TODO}
 sort the list of arguments by alphabetical order.
@@ -72,5 +82,6 @@ sort the list of arguments by alphabetical order.
 \include{ligolw_binjfind}
 \chapter{Inspiral Tools}
 \include{plotnumtemplates}
+\include{lalapps_plotinspiralrange}
 
 \end{document}

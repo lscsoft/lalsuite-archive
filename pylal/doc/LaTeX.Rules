@@ -148,7 +148,7 @@
 
 DVI_FILE  := $(DOCUMENT).dvi
 PDF_FILE  := $(DOCUMENT).pdf
-PS_FILE   := $(DOCUMENT).ps
+PNG_FILE  := $(DOCUMENT).pnngPS_FILE   := $(DOCUMENT).ps
 LOF_FILE  := $(shell "ls" $(DOCUMENT).lof 2>/dev/null)
 LOT_FILE  := $(shell "ls" $(DOCUMENT).lot 2>/dev/null)
 TOC_FILE  := $(shell "ls" $(DOCUMENT).toc 2>/dev/null)
