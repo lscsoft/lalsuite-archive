@@ -277,7 +277,7 @@ if opts.range_vs_time:
     text ="Inspiral horizon distance for a (1.4,1.4)"+\
       " solar mass system with SNR=8"
     page.a(e.img(src = [opts.output_path +fname], width = 400, \
-        alt=text, border="2"), title=text)
+        alt=text, border="2"), title=text, href=[opts.output_path + fname])
   if opts.output_cache:
     output_name.append(fname)
 
@@ -334,7 +334,7 @@ if opts.range_hist:
     text = "Histogram of inspiral horizon distance for a (1.4,1.4) solar "+\
       "mass system with SNR = 8"
     page.a(e.img( src =[opts.output_path + fname], width = 400, \
-	 alt=text, border="2"), title=text)
+	 alt=text, border="2"), title=text, href=[opts.output_path + fname])
   if opts.output_cache:
     output_name.append(fname)
 
@@ -388,7 +388,7 @@ if opts.range_mass:
     text = "Inspiral Horizon Distance versus Mass "+\
       "at a SNR = 8"
     page.a(e.img( src =[opts.output_path + fname], width = 400, \
-	 alt=text, border="2"), title=text)
+	 alt=text, border="2"), title=text, href=[opts.output_path + fname])
   if opts.output_cache:
     output_name.append(fname)
 
