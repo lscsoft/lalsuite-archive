@@ -344,7 +344,7 @@ WHERE
 		max_density = math.log(self.coinc_injection_bins.array.max())
 		self.axes.contour(xcoords, ycoords, numpy.transpose(numpy.log(self.coinc_injection_bins.array)), [max_density - n for n in xrange(0, 10, 1)], cmap = matplotlib.cm.Blues)
 
-		# plot coincident injection contours
+		# plot incomplete coincident injection contours
 		max_density = math.log(self.incomplete_coinc_injection_bins.array.max())
 		self.axes.contour(xcoords, ycoords, numpy.transpose(numpy.log(self.incomplete_coinc_injection_bins.array)), [max_density - n for n in xrange(0, 10, 1)], cmap = matplotlib.cm.Greens)
 
@@ -482,7 +482,7 @@ WHERE
 		max_density = math.log(self.coinc_injection_bins.array.max())
 		self.axes.contour(xcoords, ycoords, numpy.transpose(numpy.log(self.coinc_injection_bins.array)), [max_density - n for n in xrange(0, 10, 1)], cmap = matplotlib.cm.Blues)
 
-		# plot coincident injection contours
+		# plot incomplete coincident injection contours
 		max_density = math.log(self.incomplete_coinc_injection_bins.array.max())
 		self.axes.contour(xcoords, ycoords, numpy.transpose(numpy.log(self.incomplete_coinc_injection_bins.array)), [max_density - n for n in xrange(0, 10, 1)], cmap = matplotlib.cm.Greens)
 
