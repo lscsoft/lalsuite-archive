@@ -365,7 +365,8 @@ class RecoveredTimeOffset(SnglBurstUtils.BurstPlot):
 		self.best = rate.Rate(interval, width)
 
 	def add_contents(self, contents):
-		for coinc in contents.coinc_select_by_def_id(contents.sb_definer_id):
+		for values in contents.cursor().execute("SELECT * FROM coinc_event WHERE coinc_def_id == ?", (contents.sb_definer_id,)):
+			coinc = contents.coinc_event_table._row_from_cols(values)
 			self.found += 1
 			best_conf = 0.0
 			best_dt = None
@@ -412,7 +413,8 @@ class RecoveredFrequencyOffset(SnglBurstUtils.BurstPlot):
 		self.best = rate.Rate(interval, width)
 
 	def add_contents(self, contents):
-		for coinc in contents.coinc_select_by_def_id(contents.sb_definer_id):
+		for values in contents.cursor().execute("SELECT * FROM coinc_event WHERE coinc_def_id == ?", (contents.sb_definer_id,)):
+			coinc = contents.coinc_event_table._row_from_cols(values)
 			self.found += 1
 			best_conf = 0.0
 			best_df = None
