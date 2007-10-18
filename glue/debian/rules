@@ -35,7 +35,7 @@ install : build
 	dh_testroot
 	dh_clean -k
 	dh_installdirs
-	python setup.py install --prefix=debian/python-glue/usr
+	python setup.py install --prefix=debian/python-glue/usr --install-data=debian/python-glue/
 
 
 # Must not depend on anything. This is to be called by
