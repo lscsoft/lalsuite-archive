@@ -227,29 +227,6 @@ WHERE
 		""", (self.bb_definer_id, self.sb_definer_id, self.sc_definer_id)):
 			yield self.coinc_table[id]
 
-	def found_injections(self, instrument):
-		"""
-		Iterate over found injections.
-		"""
-		for values in self.connection.cursor().execute("""
-SELECT DISTINCT sim_burst.* FROM
-	sim_burst
-	JOIN coinc_event_map AS a ON (
-		sim_burst.simulation_id == a.event_id
-		AND a.table_name == 'sim_burst'
-	)
-	JOIN coinc_event_map AS b ON (
-		a.coinc_event_id == b.coinc_event_id
-		AND b.table_name == 'sngl_burst'
-	)
-	JOIN sngl_burst ON (
-		b.event_id == sngl_burst.event_id
-	)
-WHERE
-	sngl_burst.ifo == ?
-		""", (instrument,)):
-			yield self.sim_burst_table._row_from_cols(values)
-
 
 #
 # =============================================================================

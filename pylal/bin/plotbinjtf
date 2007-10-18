@@ -44,6 +44,7 @@ from glue import segments
 from glue.ligolw import dbtables
 from glue.ligolw import utils
 from pylal import llwapp
+from pylal import SimBurstUtils
 from pylal import SnglBurstUtils
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -268,7 +269,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 	dbtables.DBTable_set_connection(connection)
 	database = SnglBurstUtils.CoincDatabase().summarize(dbtables.DBTable_get_xml(), "lalapps_power", options.verbose)
 	for instrument in database.instruments:
-		for sim in database.found_injections(instrument):
+		for sim in SimBurstUtils.found_injections(database, instrument):
 			plotname = "%s%d_%s.%s" % (options.base, sim.get_peak(instrument).seconds, instrument, options.format)
 			if options.verbose:
 				print >>sys.stderr, "--> %s" % plotname

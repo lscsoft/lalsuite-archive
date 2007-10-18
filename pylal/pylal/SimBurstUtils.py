@@ -98,6 +98,36 @@ def hrss_in_instrument(sim, instrument):
 #
 # =============================================================================
 #
+#                        Iterate Over Found Injections
+#
+# =============================================================================
+#
+
+
+def found_injections(contents, instrument):
+	for values in contents.connection.cursor().execute("""
+SELECT DISTINCT sim_burst.* FROM
+	sim_burst
+	JOIN coinc_event_map AS a ON (
+		sim_burst.simulation_id == a.event_id
+		AND a.table_name == 'sim_burst'
+	)
+	JOIN coinc_event_map AS b ON (
+		a.coinc_event_id == b.coinc_event_id
+		AND b.table_name == 'sngl_burst'
+	)
+	JOIN sngl_burst ON (
+		b.event_id == sngl_burst.event_id
+	)
+WHERE
+	sngl_burst.ifo == ?
+	""", (instrument,)):
+		yield self.sim_burst_table._row_from_cols(values)
+
+
+#
+# =============================================================================
+#
 #                             Efficiency Contours
 #
 # =============================================================================
@@ -126,7 +156,7 @@ class Efficiency_hrss_vs_freq(object):
 			if injection_was_made(sim, contents.seglists[self.instrument], [self.instrument]):
 				self.injected_x.append(sim.freq)
 				self.injected_y.append(self.hrss_func(sim, self.instrument))
-		for sim in contents.found_injections(self.instrument):
+		for sim in found_injections(contents, self.instrument):
 			self.found_x.append(sim.freq)
 			self.found_y.append(self.hrss_func(sim, self.instrument))
 
