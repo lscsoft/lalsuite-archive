@@ -116,7 +116,7 @@ def from_array(name, array, dim_names = None):
 	Construct a LIGO Light Weight XML Array document subtree from a
 	numpy array object.
 	"""
-	doc = Array({u"Name": "%s:array" % name, u"Type": types.FromNumPyType[str(array.dtype)]})
+	doc = Array({u"Name": u"%s:array" % name, u"Type": types.FromNumPyType[str(array.dtype)]})
 	s = list(array.shape)
 	s.reverse()
 	for n, dim in enumerate(s):
@@ -152,27 +152,18 @@ def get_array(xmldoc, name):
 #
 
 
-class IndexIter(object):
-	def __init__(self, shape):
-		self.shape = shape
-		self.index = [0] * len(shape)
-		self.stop = 0 in shape
-
-	def __iter__(self):
-		return self
-
-	def next(self):
-		if self.stop:
-			raise StopIteration
-		result = tuple(self.index)
-		for i in xrange(len(self.index)):
-			self.index[i] += 1
-			if self.index[i] < self.shape[i]:
-				break
-			self.index[i] = 0
-		else:
-			self.stop = True
-		return result
+def IndexIter(shape):
+	# Adapted from Nick F.'s MultiIter generator in pylal
+	if len(shape) > 1:
+		head = shape[0]
+		for t in IndexIter(shape[1:]):
+			for h in xrange(head):
+				yield (h,) + t
+	elif len(shape) == 1:
+		for h in xrange(shape[0]):
+			yield (h,)
+	else:
+		yield ()
 
 
 class ArrayStream(ligolw.Stream):
