@@ -443,17 +443,15 @@ class RateVsConfidence(SnglBurstUtils.BurstPlot):
 		self.axes.loglog()
 
 	def add_contents(self, contents):
-		for time_slide_id in contents.time_slide_table.as_dict().keys():
-			if contents.time_slide_table.is_null(time_slide_id):
-				bins = self.foreground
-				self.foreground_segs.append(contents.seglists[self.instrument])
-			else:
+		for time_slide_id, not_zero_lag in contents.connection.cursor().execute("SELECT DISTINCT( time_slide.time_slide_id ), EXISTS ( SELECT * FROM time_slide AS a WHERE a.time_slide_id == time_slide.time_slide_id AND a.offset != 0 ) FROM time_slide"):
+			if not_zero_lag:
 				bins = self.background
 				self.background_segs.append(contents.seglists[self.instrument])
-			for values in contents.connection.cursor().execute("SELECT * FROM coinc_event WHERE time_slide_id == ?", (time_slide_id,)):
+			else:
+				bins = self.foreground
+				self.foreground_segs.append(contents.seglists[self.instrument])
+			for values in contents.connection.cursor().execute("SELECT * FROM coinc_event WHERE time_slide_id == ? AND coinc_def_id == ?", (time_slide_id, contents.bb_definer_id)):
 				coinc = contents.coinc_table._row_from_cols(values)
-				if coinc.coinc_def_id != contents.bb_definer_id:
-					continue
 				for burst in contents.coinc_sngl_bursts(coinc):
 					if burst.ifo == self.instrument:
 						bins.append(burst.confidence)
