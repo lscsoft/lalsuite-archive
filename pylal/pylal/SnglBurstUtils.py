@@ -154,19 +154,6 @@ class CoincDatabase(object):
 
 		return self
 
-	def coinc_sim_bursts(self, coinc):
-		for values in self.connection.cursor().execute("""
-SELECT sim_burst.* FROM
-	sim_burst
-	JOIN coinc_event_map ON (
-		sim_burst.simulation_id == coinc_event_map.event_id
-		AND coinc_event_map.table_name == 'sim_burst'
-	)
-WHERE
-	coinc_event_map.coinc_event_id == ?
-		""", (coinc.coinc_event_id,)):
-			yield self.sim_burst_table._row_from_cols(values)
-
 	def coinc_sngl_bursts(self, coinc):
 		for values in self.connection.cursor().execute("""
 SELECT sngl_burst.* FROM
