@@ -286,15 +286,30 @@ WHERE
 					# not on plot axes
 					pass
 		if contents.sc_definer_id:
-			for values in contents.connection.cursor().execute("SELECT * FROM coinc_event WHERE coinc_def_id == ?", (contents.sc_definer_id,)):
+			# this query assumes each injection can match at
+			# most 1 coinc
+			for values in contents.connection.cursor().execute("""
+SELECT
+	coinc_event.*
+FROM
+	coinc_event AS sim_coinc
+	JOIN coinc_event_map ON (
+		coinc_event_map.coinc_event_id == sim_coinc.coinc_event_id
+	)
+	JOIN coinc_event ON (
+		coinc_event_map.table_name == 'coinc_event'
+		AND coinc_event_map.event_id == coinc_event.coinc_event_id
+	)
+WHERE
+	sim_coinc.coinc_def_id == ?
+			""", (contents.sc_definer_id,)):
 				coinc = contents.coinc_event_table._row_from_cols(values)
 				self.n_injections += 1
-				for coinc in contents.coinc_coincs(coinc):
-					try:
-						self.coinc_injection_bins[self.coords(contents.coinc_sngl_bursts(coinc))] += 1
-					except IndexError:
-						# not on plot axes
-						pass
+				try:
+					self.coinc_injection_bins[self.coords(contents.coinc_sngl_bursts(coinc))] += 1
+				except IndexError:
+					# not on plot axes
+					pass
 		for coinc in contents.incomplete_injection_coincs():
 			try:
 				self.incomplete_coinc_injection_bins[self.coords(contents.coinc_sngl_bursts(coinc))] += 1
@@ -409,15 +424,30 @@ WHERE
 					# not on plot axes
 					pass
 		if contents.sc_definer_id:
-			for values in contents.connection.cursor().execute("SELECT * FROM coinc_event WHERE coinc_def_id == ?", (contents.sc_definer_id,)):
+			# this query assumes each injection can match at
+			# most 1 coinc
+			for values in contents.connection.cursor().execute("""
+SELECT
+	coinc_event.*
+FROM
+	coinc_event AS sim_coinc
+	JOIN coinc_event_map ON (
+		coinc_event_map.coinc_event_id == sim_coinc.coinc_event_id
+	)
+	JOIN coinc_event ON (
+		coinc_event_map.table_name == 'coinc_event'
+		AND coinc_event_map.event_id == coinc_event.coinc_event_id
+	)
+WHERE
+	sim_coinc.coinc_def_id == ?
+			""", (contents.sc_definer_id,)):
 				coinc = contents.coinc_event_table._row_from_cols(values)
 				self.n_injections += 1
-				for coinc in contents.coinc_coincs(coinc):
-					try:
-						self.coinc_injection_bins[self.coords(contents.coinc_sngl_bursts(coinc))] += 1
-					except IndexError:
-						# not on plot axes
-						pass
+				try:
+					self.coinc_injection_bins[self.coords(contents.coinc_sngl_bursts(coinc))] += 1
+				except IndexError:
+					# not on plot axes
+					pass
 		for coinc in contents.incomplete_injection_coincs():
 			try:
 				self.incomplete_coinc_injection_bins[self.coords(contents.coinc_sngl_bursts(coinc))] += 1

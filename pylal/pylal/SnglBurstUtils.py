@@ -167,19 +167,6 @@ WHERE
 		""", (coinc.coinc_event_id,)):
 			yield self.sngl_burst_table._row_from_cols(values)
 
-	def coinc_coincs(self, coinc):
-		for values in self.connection.cursor().execute("""
-SELECT coinc_event.* FROM
-	coinc_event
-	JOIN coinc_event_map ON (
-		coinc_event.coinc_event_id == coinc_event_map.event_id
-		AND coinc_event_map.table_name == 'coinc_event'
-	)
-WHERE
-	coinc_event_map.coinc_event_id == ?
-		""", (coinc.coinc_event_id,)):
-			yield self.coinc_table._row_from_cols(values)
-
 	def incomplete_injection_coincs(self):
 		# determine burst <--> burst coincidences for which at
 		# least one burst, *but not all*, was identified as an
