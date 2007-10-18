@@ -133,13 +133,17 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 					import errno
 					import time
 					if e.errno == errno.ENOSPC:
-						# no space left on device, sleep and try again
+						if verbose:
+							print >>sys.stderr, "warning: no space left on device, sleeping and trying again ..."
 						time.sleep(10)
+						if verbose:
+							print >>sys.stderr, "copying %s to %s ..." % (filename, target)
 						try:
 							shutil.copy(filename, target)
 						except IOError, e:
 							if e.errno == errno.ENOSPC:
-								# fall back to using original file
+								if verbose:
+									print >>sys.stderr, "warning: no space left on device: working with original file"
 								os.remove(target)
 								target = filename
 							else:
