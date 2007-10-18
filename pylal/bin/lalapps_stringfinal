@@ -507,6 +507,7 @@ else:
 for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose, reverse = True)):
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
+	# FIXME:  this needs to be updated to work with SQLite files as input
 	connection = sqlite3.connect(":memory:")
 	dbtables.DBTable_set_connection(connection)
 	xmldoc = utils.load_filename(filename, options.verbose, gz = filename.endswith(".gz"))
