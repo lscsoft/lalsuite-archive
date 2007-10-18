@@ -124,10 +124,29 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 				truncate(filename, verbose = verbose)
 			else:
 				# need to copy existing database to work
-				# space for new inserts
+				# space for modifications
 				if verbose:
 					print >>sys.stderr, "copying %s to %s ..." % (filename, target)
-				shutil.copy(filename, target)
+				try:
+					shutil.copy(filename, target)
+				except IOError, e:
+					import errno
+					import time
+					if e.errno == errno.ENOSPC:
+						# no space left on device, sleep and try again
+						time.sleep(10)
+						try:
+							shutil.copy(filename, target)
+						except IOError, e:
+							if e.errno == errno.ENOSPC:
+								# fall back to using original file
+								os.remove(target)
+								target = filename
+							else:
+								raise e
+
+					else:
+						raise e
 	else:
 		target = filename
 		if database_exists and replace_file:
