@@ -158,10 +158,6 @@ class CoincDatabase(object):
 		for values in self.connection.cursor().execute("SELECT * FROM coinc_event WHERE coinc_def_id == ?", (coinc_def_id,)):
 			yield self.coinc_table._row_from_cols(values)
 
-	def coinc_select_by_time_slide_id(self, time_slide_id):
-		for values in self.connection.cursor().execute("SELECT * FROM coinc_event WHERE time_slide_id == ?", (time_slide_id,)):
-			yield self.coinc_table._row_from_cols(values)
-
 	def coinc_sim_bursts(self, coinc):
 		for values in self.connection.cursor().execute("""
 SELECT sim_burst.* FROM
