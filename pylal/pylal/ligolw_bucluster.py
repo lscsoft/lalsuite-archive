@@ -352,11 +352,11 @@ def ligolw_bucluster(doc, **kwargs):
 	# FIXME:  put this into the excess power pipeline, correctly
 	#
 
-	bad_band = segments.segment(1138.586956521739, 1216.0326086956522)
-	for i in xrange(len(sngl_burst_table) - 1, -1, -1):
-		a = sngl_burst_table[i]
-		if a.ifo == "H2" and a.get_band().intersects(bad_band):
-			del sngl_burst_table[i]
+	#bad_band = segments.segment(1138.586956521739, 1216.0326086956522)
+	#for i in xrange(len(sngl_burst_table) - 1, -1, -1):
+	#	a = sngl_burst_table[i]
+	#	if a.ifo == "H2" and a.get_band().intersects(bad_band):
+	#		del sngl_burst_table[i]
 
 	#
 	# Preprocess candidates
