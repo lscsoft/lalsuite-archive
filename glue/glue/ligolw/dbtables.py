@@ -347,6 +347,7 @@ class DBTable(table.Table):
 			# copy metadata from lsctables
 			self.tableName = cls.tableName
 			self.validcolumns = cls.validcolumns
+			self.loadcolumns = cls.loadcolumns
 			self.constraints = cls.constraints
 			self.ids = cls.ids
 			self.RowType = cls.RowType
