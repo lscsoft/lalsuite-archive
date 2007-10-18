@@ -311,7 +311,7 @@ def burca2(options, filenames):
 		connection.execute("PRAGMA synchronous = OFF;")
 		connection.execute("PRAGMA temp_store_directory = '%s';" % dbtables.tempfile.gettempdir())
 		dbtables.DBTable_set_connection(connection)
-		database = SnglBurstUtils.CoincDatabase().summarize(dbtables.DBTable_get_xml(), options.program, options.verbose)
+		database = SnglBurstUtils.CoincDatabase().summarize(options.program, options.verbose)
 
 
 		#

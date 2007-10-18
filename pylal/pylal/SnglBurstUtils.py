@@ -87,8 +87,9 @@ class CoincDatabase(object):
 		from glue.ligolw import dbtables
 		self.connection = dbtables.DBTable_get_connection()
 		dbtables.SnglBurstTable.RowType = SnglBurst
+		self.xmldoc = dbtables.DBTable_get_xml()
 
-	def summarize(self, xmldoc, live_time_program, verbose = False):
+	def summarize(self, live_time_program, verbose = False):
 		"""
 		Compute and record some summary information about the
 		database.  Call this after all the data has been inserted,
@@ -98,24 +99,24 @@ class CoincDatabase(object):
 
 		# find the tables
 		try:
-			self.sngl_burst_table = table.get_table(xmldoc, lsctables.SnglBurstTable.tableName)
+			self.sngl_burst_table = table.get_table(self.xmldoc, lsctables.SnglBurstTable.tableName)
 		except ValueError:
 			self.sngl_burst_table = None
 		try:
-			self.sim_burst_table = table.get_table(xmldoc, lsctables.SimBurstTable.tableName)
+			self.sim_burst_table = table.get_table(self.xmldoc, lsctables.SimBurstTable.tableName)
 		except ValueError:
 			self.sim_burst_table = None
 		try:
-			self.coinc_def_table = table.get_table(xmldoc, lsctables.CoincDefTable.tableName)
-			self.coinc_table = table.get_table(xmldoc, lsctables.CoincTable.tableName)
-			self.time_slide_table = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
+			self.coinc_def_table = table.get_table(self.xmldoc, lsctables.CoincDefTable.tableName)
+			self.coinc_table = table.get_table(self.xmldoc, lsctables.CoincTable.tableName)
+			self.time_slide_table = table.get_table(self.xmldoc, lsctables.TimeSlideTable.tableName)
 		except ValueError:
 			self.coinc_def_table = None
 			self.coinc_table = None
 			self.time_slide_table = None
 
 		# get the segment lists
-		self.seglists = llwapp.segmentlistdict_fromsearchsummary(xmldoc, live_time_program)
+		self.seglists = llwapp.segmentlistdict_fromsearchsummary(self.xmldoc, live_time_program)
 		self.instruments = set(self.seglists.keys())
 
 		# determine a few coinc_definer IDs
@@ -152,10 +153,12 @@ class CoincDatabase(object):
 			if self.sc_definer_id is not None:
 				print >>sys.stderr, "\tinjection + (burst + burst) coincidences: %d" % cursor.execute("SELECT COUNT(*) FROM coinc_event WHERE coinc_def_id = ?", (self.sc_definer_id,)).fetchone()[0]
 
+		# done
 		return self
 
-	def coinc_sngl_bursts(self, coinc):
-		for values in self.connection.cursor().execute("""
+
+def coinc_sngl_bursts(contents, coinc):
+	for values in contents.connection.cursor().execute("""
 SELECT sngl_burst.* FROM
 	sngl_burst
 	JOIN coinc_event_map ON (
@@ -164,8 +167,8 @@ SELECT sngl_burst.* FROM
 	)
 WHERE
 	coinc_event_map.coinc_event_id == ?
-		""", (coinc.coinc_event_id,)):
-			yield self.sngl_burst_table._row_from_cols(values)
+	""", (coinc.coinc_event_id,)):
+		yield contents.sngl_burst_table._row_from_cols(values)
 
 
 #

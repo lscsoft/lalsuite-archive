@@ -267,7 +267,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
 	connection = sqlite3.connect(filename)
 	dbtables.DBTable_set_connection(connection)
-	database = SnglBurstUtils.CoincDatabase().summarize(dbtables.DBTable_get_xml(), "lalapps_power", options.verbose)
+	database = SnglBurstUtils.CoincDatabase().summarize("lalapps_power", options.verbose)
 	for instrument in database.instruments:
 		for sim in SimBurstUtils.found_injections(database, instrument):
 			plotname = "%s%d_%s.%s" % (options.base, sim.get_peak(instrument).seconds, instrument, options.format)
