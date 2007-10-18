@@ -204,6 +204,57 @@ WHERE
 # =============================================================================
 #
 
+def incomplete_injection_coincs(contents):
+	# determine burst <--> burst coincidences for which at least one
+	# burst, *but not all*, was identified as an injection;  these are
+	# places in the data where an injection was done, a coincident
+	# event was seen, but where, later, the injection was not found to
+	# match all events in the coincidence;  these perhaps indicate
+	# power leaking from the injection into nearby tiles, or accidental
+	# coincidence of a marginal injection with near-by noise, etc, and
+	# so although they aren't "bang-on" reconstructions of injections
+	# they are nevertheless injections that are found and survive a
+	# coincidence cut.
+	for values in contents.connection.cursor().execute("""
+SELECT
+	bb_coinc_event.*
+FROM
+	coinc_event AS bb_coinc_event
+WHERE
+	bb_coinc_event.coinc_def_id == ?
+	AND EXISTS (
+		SELECT
+			*
+		FROM
+			coinc_event AS sb_coinc_event
+			JOIN coinc_event_map AS a ON (
+				a.coinc_event_id == sb_coinc_event.coinc_event_id
+				AND a.table_name == 'sngl_burst'
+			)
+			JOIN coinc_event_map AS b ON (
+				b.table_name == 'sngl_burst'
+				AND b.event_id == a.event_id
+			)
+		WHERE
+			sb_coinc_event.coinc_def_id == ?
+			AND b.coinc_event_id == bb_coinc_event.coinc_event_id
+			AND sb_coinc_event.time_slide_id == bb_coinc_event.time_slide_id
+	)
+EXCEPT
+	SELECT
+		c.event_id
+	FROM
+		coinc_event_map AS c
+		JOIN coinc_event AS sc_coinc_event ON (
+			c.coinc_event_id == sc_coinc_event.coinc_event_id
+			AND c.table_name == 'coinc_event'
+		)
+	WHERE
+		sc_coinc_event.coinc_def_id == ?
+		AND sc_coinc_event.time_slide_id == bb_coinc_event.time_slide_id
+	""", (contents.bb_definer_id, contents.sb_definer_id, contents.sc_definer_id)):
+		yield contents.coinc_table._row_from_cols(values)
+
 
 def magnitude_a(burst):
 	return burst.ms_hrss
@@ -310,7 +361,7 @@ WHERE
 				except IndexError:
 					# not on plot axes
 					pass
-		for coinc in contents.incomplete_injection_coincs():
+		for coinc in incomplete_injection_coincs(contents):
 			try:
 				self.incomplete_coinc_injection_bins[self.coords(contents.coinc_sngl_bursts(coinc))] += 1
 			except IndexError:
@@ -448,7 +499,7 @@ WHERE
 				except IndexError:
 					# not on plot axes
 					pass
-		for coinc in contents.incomplete_injection_coincs():
+		for coinc in incomplete_injection_coincs(contents):
 			try:
 				self.incomplete_coinc_injection_bins[self.coords(contents.coinc_sngl_bursts(coinc))] += 1
 			except IndexError:

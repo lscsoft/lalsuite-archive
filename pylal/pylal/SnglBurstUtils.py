@@ -167,66 +167,6 @@ WHERE
 		""", (coinc.coinc_event_id,)):
 			yield self.sngl_burst_table._row_from_cols(values)
 
-	def incomplete_injection_coincs(self):
-		# determine burst <--> burst coincidences for which at
-		# least one burst, *but not all*, was identified as an
-		# injection;  these are places in the data where an
-		# injection was done, a coincident event was seen, but
-		# where, later, the injection was not found to match all
-		# events in the coincidence;  these perhaps indicate power
-		# leaking from the injection into nearby tiles, or
-		# accidental coincidence of a marginal injection with
-		# near-by noise, etc, and so although they aren't "bang-on"
-		# reconstructions of injections they are nevertheless
-		# injections that are found and survive a coincidence cut.
-		#
-		# the select inside the first select finds a list of the
-		# burst event_ids that were marked as coincident with an
-		# injection; the outer select finds a list of the
-		# burst+burst coinc_event_ids pointing to at least one of
-		# those bursts;  the except clause removes coinc_event_ids
-		# for which all bursts were marked as injections;  the
-		# result is a list of all coinc_event_ids for burst+burst
-		# coincidences in which at least 1 but not all burst events
-		# was identified as an injection
-		for (id,) in self.connection.cursor().execute("""
-SELECT DISTINCT coinc_event.coinc_event_id FROM
-	coinc_event
-	JOIN coinc_event_map ON (
-		coinc_event.coinc_event_id == coinc_event_map.coinc_event_id
-	)
-WHERE
-	coinc_event.coinc_def_id == ?
-	AND coinc_event_map.table_name == 'sngl_burst'
-	AND coinc_event_map.event_id IN (
-		SELECT DISTINCT coinc_event_map.event_id FROM
-			coinc_event_map
-			JOIN coinc_event ON (
-				coinc_event_map.coinc_event_id == coinc_event.coinc_event_id
-			)
-		WHERE
-			coinc_event_map.table_name == 'sngl_burst'
-			AND coinc_event.coinc_def_id == ?
-	)
-	-- Get only zero-lag events (? why ?  I can't remember ...)
-	AND NOT EXISTS (
-		SELECT * FROM
-			time_slide
-		WHERE
-			time_slide_id == coinc_event.time_slide_id
-			AND offset != 0.0
-	)
-EXCEPT SELECT DISTINCT coinc_event_map.event_id FROM
-	coinc_event_map
-	JOIN coinc_event ON (
-		coinc_event_map.coinc_event_id == coinc_event.coinc_event_id
-	)
-WHERE
-	coinc_event_map.table_name == 'coinc_event'
-	AND coinc_event.coinc_def_id == ?
-		""", (self.bb_definer_id, self.sb_definer_id, self.sc_definer_id)):
-			yield self.coinc_table[id]
-
 
 #
 # =============================================================================
