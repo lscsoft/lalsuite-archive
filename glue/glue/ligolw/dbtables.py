@@ -102,6 +102,9 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 	you're prepared to track changes.
 	"""
 	def truncate(filename, verbose = False):
+		"""
+		For internal use only.
+		"""
 		if verbose:
 			print >>sys.stderr, "%s exists, truncating ..." % filename
 		try:
@@ -115,7 +118,8 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 	database_exists = os.access(filename, os.F_OK)
 
 	if tmp_path:
-		target = tempfile.mkstemp(suffix = ".sqlite", dir = tmp_path)[1]
+		fd, target = tempfile.mkstemp(suffix = ".sqlite", dir = tmp_path)
+		os.close(fd)
 		if database_exists:
 			if replace_file:
 				# truncate database so that if this job
