@@ -100,6 +100,7 @@ def parse_command_line():
 	parser.add_option("--foreground-survivors", metavar = "number", type = "float", help = "Tune the coincidence likelihood threshold to result in this many survivors being expected in the foreground. (e.g., 0.1)")
 	parser.add_option("--confidence-contour-slope", metavar = "slope", type = "float", default = -49.0, help = "Set the slope of the confidence-likelihood joint contours on which the final cut thresholds (default = -49.0).")
 	parser.add_option("--survivors-output", metavar = "filename", help = "Set the name of the XML file to which zero-lag survivors will be written.  Default is to not record zero-lag survivors file (keep the box closed).")
+	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
 	options, filenames = parser.parse_args()
 
@@ -656,9 +657,10 @@ for n, filename in enumerate(filenames):
 
 	if options.verbose:
 		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
-	connection = sqlite3.connect(filename)
+	working_filename = dbtables.get_connection_filename(filename, tmp_path = options.tmp_space, verbose = options.verbose)
+	connection = sqlite3.connect(working_filename)
 	dbtables.DBTable_set_connection(connection)
-	database = SnglBurstUtils.CoincDatabase().summarize(dbtables.DBTable_get_xml(), options.live_time_program, options.verbose)
+	database = SnglBurstUtils.CoincDatabase().summarize(options.live_time_program, options.verbose)
 
 	#
 	# Process database contents.
@@ -673,6 +675,11 @@ for n, filename in enumerate(filenames):
 	#
 
 	connection.close()
+	database.xmldoc.unlink()
+	del database
+	del connection
+	dbtables.discard_connection_filename(filename, working_filename, verbose = options.verbose)
+	dbtables.DBTable_set_connection(None)
 
 
 #
@@ -713,10 +720,11 @@ if options.survivors_output is not None:
 
 		if options.verbose:
 			print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
-		connection = sqlite3.connect(filename)
+		working_filename = dbtables.get_connection_filename(filename, tmp_path = options.tmp_space, verbose = options.verbose)
+		connection = sqlite3.connect(working_filename)
 		connection.create_function("is_a_keeper", 2, is_a_keeper)
 		dbtables.DBTable_set_connection(connection)
-		database = SnglBurstUtils.CoincDatabase().summarize(dbtables.DBTable_get_xml(), options.live_time_program, options.verbose)
+		database = SnglBurstUtils.CoincDatabase().summarize(options.live_time_program, options.verbose)
 
 		#
 		# Process database contents.
@@ -729,6 +737,11 @@ if options.survivors_output is not None:
 		#
 
 		connection.close()
+		database.xmldoc.unlink()
+		del database
+		del connection
+		dbtables.discard_connection_filename(filename, working_filename, verbose = options.verbose)
+		dbtables.DBTable_set_connection(None)
 else:
 	survivors = None
 
@@ -754,10 +767,11 @@ for n, filename in enumerate(filenames):
 
 	if options.verbose:
 		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
-	connection = sqlite3.connect(filename)
+	working_filename = dbtables.get_connection_filename(filename, tmp_path = options.tmp_space, verbose = options.verbose)
+	connection = sqlite3.connect(working_filename)
 	connection.create_function("is_a_keeper", 2, likelihood_histogram.is_a_keeper)
 	dbtables.DBTable_set_connection(connection)
-	database = SnglBurstUtils.CoincDatabase().summarize(dbtables.DBTable_get_xml(), options.live_time_program, options.verbose)
+	database = SnglBurstUtils.CoincDatabase().summarize(options.live_time_program, options.verbose)
 
 	#
 	# Process database contents.
@@ -771,6 +785,11 @@ for n, filename in enumerate(filenames):
 	#
 
 	connection.close()
+	database.xmldoc.unlink()
+	del database
+	del connection
+	dbtables.discard_connection_filename(filename, working_filename, verbose = options.verbose)
+	dbtables.DBTable_set_connection(None)
 
 
 #
