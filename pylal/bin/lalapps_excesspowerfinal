@@ -675,11 +675,7 @@ for n, filename in enumerate(filenames):
 	#
 
 	connection.close()
-	database.xmldoc.unlink()
-	del database
-	del connection
 	dbtables.discard_connection_filename(filename, working_filename, verbose = options.verbose)
-	dbtables.DBTable_set_connection(None)
 
 
 #
@@ -737,11 +733,7 @@ if options.survivors_output is not None:
 		#
 
 		connection.close()
-		database.xmldoc.unlink()
-		del database
-		del connection
 		dbtables.discard_connection_filename(filename, working_filename, verbose = options.verbose)
-		dbtables.DBTable_set_connection(None)
 else:
 	survivors = None
 
@@ -785,11 +777,7 @@ for n, filename in enumerate(filenames):
 	#
 
 	connection.close()
-	database.xmldoc.unlink()
-	del database
-	del connection
 	dbtables.discard_connection_filename(filename, working_filename, verbose = options.verbose)
-	dbtables.DBTable_set_connection(None)
 
 
 #
