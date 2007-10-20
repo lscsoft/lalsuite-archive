@@ -212,6 +212,13 @@ parser.add_option("","--single-ifo",action="store",type="string",\
 if opts.version:
   sys.exit(0)
 
+if not opts.show_plot:
+  import matplotlib
+  matplotlib.use('Agg')
+from pylab import *
+from pylal import viz
+
+
 # check at least one trig file was specified
 if not opts.glob and  not opts.zerolag_cache_file:
   print >>sys.stderr, "Must specify a GLOB of files to read or a cache input file"
