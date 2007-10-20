@@ -167,6 +167,10 @@ parser.add_option("","--ifo-times",action="store",type="string",\
     default=None,metavar="IFOS",\
     help="Which ifo times are being looked at for slides (e.g. H1H2L1)" )
 
+parser.add_option("","--match",action="store",type="string",\
+    default=None,metavar="MATCH",\
+    help="To sieve exactly according to a pattern, if its set True" )
+
 
 (opts,args) = parser.parse_args()
 
@@ -270,7 +274,7 @@ if opts.glob is not None or opts.input is not None:
   elif opts.input is not None:
     allfilesCache = lal.Cache.fromfile(open(opts.input))    
     allfiles = []
-    allfiles = allfilesCache.sieve(ifos=opts.ifo_times, exact_match=True).sieve(description = opts.cache_description).pfnlist()
+    allfiles = allfilesCache.sieve(ifos=opts.ifo_times, exact_match=True).sieve(description = opts.cache_description, exact_match=opts.match).pfnlist()
     if len(allfiles) < 1:
       print >>sys.stderr, "The file" + opts.input + " contains no" + opts.cache_description + " files"
       sys.exit(1)
