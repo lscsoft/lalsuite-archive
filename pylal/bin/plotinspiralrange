@@ -9,8 +9,8 @@ __Id__ = "$Id"
 import sys
 import glob
 from optparse import *
-from pylab import *
-from pylal import viz
+#from pylab import *
+#from pylal import viz
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
@@ -173,22 +173,38 @@ parser.add_option("-W","--html-output",action="store_true",\
 parser.add_option("-v","--verbose",action="store_true",\
     default=False,help="print information" )
 
+parser.add_option("","--cache-description",action="store",type="string",\
+    default=None,metavar="CACHE-DESCRIPTION",\
+    help="sieve a cache file according to the description")
+
+parser.add_option("","--ifo-type",action="store",type="string",\
+    default=None,metavar="IFO_TYPE",\
+    help="sieve a cache file according to a particular ifo type")
+
 
 command_line = sys.argv[1:]
 (opts,args) = parser.parse_args()
 
 fig_num = 0
+
+if not opts.show_plot:
+  import matplotlib
+  matplotlib.use('Agg')
+from pylab import *
+from pylal import viz
+
 #######################################################################
 # identify the inspiral files
 inspiralFiles = []
 if opts.inspiral_glob:
   inspiralFiles += glob.glob(opts.inspiral_glob)
 if opts.cache_file:
-  inspiralFiles += [lal.CacheEntry(line).path() \
-      for line in open(opts.cache_file) if "INSPIRAL" in line]
-if opts.cache_file:
-  inspiralFiles += [lal.CacheEntry(line).path() \
-      for line in open(opts.cache_file) if "TMPLTBANK" in line]
+  inspiralFiles = lal.Cache.fromfile(open(opts.cache_file)).sieve(ifos=opts.ifo_type,description=opts.cache_description).\
+  checkfilesexist()[0].pfnlist()
+#      for line in open(opts.cache_file) if "INSPIRAL" in line]
+#if opts.cache_file:
+#  inspiralFiles += [lal.CacheEntry(line).path() \
+#      for line in open(opts.cache_file) if "TMPLTBANK" in line]
 
 #######################################################################
 # Read in the summ values from the inspirals
