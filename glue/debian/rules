@@ -60,6 +60,7 @@ clean:
 #	-$(MAKE) clean
 	-python setup.py clean
 	rm -rf build
+	rm etc/glue-user-env*.sh
 	
 	dh_clean 
 
