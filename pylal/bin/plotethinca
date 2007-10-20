@@ -117,6 +117,9 @@ parser.add_option("","--time-slides", action="store_true", default=False,\
     help="add time slides to the plots" )
 
 
+parser.add_option("","--match", action="store", default=None,type="string",\
+    metavar="MATCH",help="sieves exactly to a given pattern, if set True" )
+
 
 (opts,args) = parser.parse_args()
 
@@ -146,7 +149,7 @@ bins = [i/opts.num_bins for i in range(opts.num_bins+1)]
 if opts.cache_file  is not None:
   allfilesCache = lal.Cache.fromfile(open(opts.cache_file))
   cache_allfilelist = []
-  cache_allfilelist = allfilesCache.sieve(ifos = opts.ifo_times, exact_match = True).sieve(description = opts.cache_description).pfnlist()
+  cache_allfilelist = allfilesCache.sieve(ifos = opts.ifo_times, exact_match = True).sieve(description = opts.cache_description, exact_match=opts.match).pfnlist()
   if len(cache_allfilelist) < 1:
     print >>sys.stderr, "The file" + opts.cache_file + " contains no" + opts.cache_description + " files"
     sys.exit(1)
