@@ -1,3 +1,9 @@
+python-glue (1.15-2+cvs20071019) testing; urgency=low
+
+  * CVS update
+
+ -- Steffen Grunewald <steffen.grunewald@aei.mpg.de>  Sat, 20 Oct 2007 12:15:00 +0200
+
 python-glue (1.15-1) testing; urgency=low
 
   * Initial release of 1.15
