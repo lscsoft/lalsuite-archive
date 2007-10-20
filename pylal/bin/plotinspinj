@@ -11,11 +11,19 @@ from types import *
 
 from glue import segmentsUtils
 from glue.ligolw import ligolw, table as tab, lsctables, utils
+from glue import lal
 
 from pylal import SnglInspiralUtils, SimInspiralUtils
 from pylal.tools import XLALEThincaParameterForInjection as ethinca_param
 
 ##############################################################################
+
+def filestrip(file):
+  x = file[0].rfind('_')
+  y = file[0].rfind('-8')
+  return file[0][x+1:y]
+#############################################################################
+
 usage = """usage: %prog [options] file1 (file2 file3)
 
 Inspiral Injection Plotting Functions
@@ -146,24 +154,38 @@ parser.add_option("-x","--title-text",action="store",type="string",\
 parser.add_option("-V","--veto-file",action="store",type="string",\
     default=None,metavar=" FNAME",\
     help="read in segments from FNAME (assumed segwizard format)")
-
+parser.add_option("","--cache-file",action="store",type="string",\
+    default=None, metavar=" CACHE-FILE",help=" reads the cache file as an input" )
+parser.add_option("","--cache-description",action="store",type="string",\
+    default=None, metavar=" CACHE-DESCRIPTION",help=" sieves a file of a particular description" )
+parser.add_option("","--ifo-type",action="store",type="string",\
+    default=None, metavar=" IFO-TYPE",help=" sieves a file according to ifo type" )
 (opts,args) = parser.parse_args()
 
 # check at least one trig file was specified
-if not args:
-  print >>sys.stderr, "a trig-file must be specified"
-  print >>sys.stderr, "Enter 'plotinspinj --help' for usage"
-  sys.exit(1)
+if opts.cache_file:
+  injGlobs = lal.Cache.fromfile(open(opts.cache_file)).sieve(ifos=opts.ifo_type, description = opts.cache_description). \
+  sieve(description="FOUND").checkfilesexist()[0].pfnlist()
+  
+  tags = []
+  for inj  in injGlobs:
+    tags.append(filestrip(inj))
 
-injGlobs = args
+else:
+  if not args:
+    print >>sys.stderr, "a trig-file must be specified"
+    print >>sys.stderr, "Enter 'plotinspinj --help' for usage"
+    sys.exit(1)
 
-tags = []
-if opts.tag1:
-  tags.append(opts.tag1)
-  if opts.tag2:
-    tags.append(opts.tag2)
-    if opts.tag3:
-      tags.append(opts.tag3)
+  injGlobs = args
+
+  tags = []
+  if opts.tag1:
+    tags.append(opts.tag1)
+    if opts.tag2:
+      tags.append(opts.tag2)
+      if opts.tag3:
+        tags.append(opts.tag3)
 
 # Do the pylab import in such a way that doesn't require an X display
 # if show() won't be invoked.
