@@ -1,0 +1,128 @@
+#!/usr/bin/make -f
+# -*- makefile -*-
+
+# Uncomment this to turn on verbose mode.
+#export DH_VERBOSE=1
+
+# This has to be exported to make some magic below work.
+export DH_OPTIONS
+
+# These are used for cross-compiling and for saving the configure script
+# from having to guess our platform (since we know it already)
+DEB_HOST_GNU_TYPE   ?= $(shell dpkg-architecture -qDEB_HOST_GNU_TYPE)
+DEB_BUILD_GNU_TYPE  ?= $(shell dpkg-architecture -qDEB_BUILD_GNU_TYPE)
+
+
+ifeq (,$(findstring nostrip,$(DEB_BUILD_OPTIONS)))
+	INSTALL_PROGRAM += -s
+endif
+
+# I want to change this back some day
+#PACKAGE=glue
+PACKAGE = pylal
+
+# old location (RedHat style)
+#PREFIX = /opt/lscsoft/glue
+#DATAPREFIX = /opt/lscsoft
+
+# new location (Debian style)
+PREFIX = /usr
+#DATAPREFIX = /
+
+
+configure: configure-stamp
+configure-stamp:
+	dh_testdir
+	# Add here commands to configure the package.
+
+	touch configure-stamp
+
+
+build: build-stamp
+
+build-stamp: configure-stamp 
+	dh_testdir
+
+	# Add here commands to compile the package.
+#	$(MAKE)
+	python setup.py build
+
+	touch $@
+
+
+clean:
+	dh_testdir
+	dh_testroot
+	rm -f build-stamp configure-stamp
+
+	# Add here commands to clean up after the build process.
+#	-$(MAKE) clean
+	-python setup.py clean
+	-rm -rf build
+	-rm -f etc/pylal-user-env.*sh
+	
+	dh_clean 
+
+
+install: build
+	dh_testdir
+	dh_testroot
+	dh_clean -k 
+	dh_installdirs
+
+	# Add here commands to install the package into debian/glue.
+#	$(MAKE) DESTDIR=$(CURDIR)/debian/glue install
+#	python setup.py install --prefix=debian/python-glue/usr --install-data=debian/python-glue/
+# will put bogus path settinhs into glue-user-env.*
+#	python setup.py install --prefix=/usr --install-data=/
+# will not install anything
+	mkdir -p debian/$(PACKAGE)/usr/share/doc/$(PACKAGE)
+	python -d setup.py install \
+	    --root=$(CURDIR)/debian/$(PACKAGE) \
+	    --prefix=${PREFIX} \
+	    --install-data=${DATAPREFIX} \
+	    --record=debian/$(PACKAGE)/usr/share/doc/$(PACKAGE)/INSTALLED_FILES
+
+
+# Must not depend on anything. This is to be called by
+# binary in another 'make' thread.
+# Build architecture-dependent files here.
+binary-arch: build install
+# We have nothing to do by default.
+
+# Build architecture-independent files here.
+binary-indep: build install
+	dh_testdir
+	dh_testroot
+	dh_installchangelogs 
+	dh_installdocs
+	dh_installexamples
+#	dh_install
+#	dh_installmenu
+#	dh_installdebconf	
+#	dh_installlogrotate
+#	dh_installemacsen
+#	dh_installpam
+#	dh_installmime
+#	dh_python
+#	dh_installinit
+#	dh_installcron
+#	dh_installinfo
+	dh_installman
+	dh_link
+	dh_strip
+	dh_compress 
+	dh_fixperms
+#	dh_perl
+	dh_makeshlibs
+	dh_installdeb
+	dh_shlibdeps
+	dh_gencontrol
+	dh_md5sums
+	dh_builddeb
+
+# Build architecture dependant packages using the common target.
+#binary :  install
+#	$(MAKE) -f debian/rules DH_OPTIONS=-a binary-common
+binary: binary-indep binary-arch
+.PHONY: build clean binary-indep binary-arch binary install configure

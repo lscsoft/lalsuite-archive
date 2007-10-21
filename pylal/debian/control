@@ -1,0 +1,12 @@
+Source: pylal
+Section: unknown
+Priority: extra
+Maintainer: Steffen Grunewald <steffen.grunewald@aei.mpg.de>
+Build-Depends: debhelper (>= 5)
+Standards-Version: 3.7.2
+
+Package: pylal
+Architecture: all
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Python LAL add-ons
+ <insert long description, indented with spaces>
