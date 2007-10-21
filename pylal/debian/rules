@@ -27,7 +27,7 @@ PACKAGE = pylal
 
 # new location (Debian style)
 PREFIX = /usr
-#DATAPREFIX = /
+DATAPREFIX = /
 
 
 configure: configure-stamp
@@ -77,6 +77,8 @@ install: build
 #	python setup.py install --prefix=/usr --install-data=/
 # will not install anything
 	mkdir -p debian/$(PACKAGE)/usr/share/doc/$(PACKAGE)
+	mkdir -p etc
+	PYLAL_LOCATION=/ \
 	python -d setup.py install \
 	    --root=$(CURDIR)/debian/$(PACKAGE) \
 	    --prefix=${PREFIX} \
