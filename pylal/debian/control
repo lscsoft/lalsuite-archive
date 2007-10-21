@@ -7,6 +7,6 @@ Standards-Version: 3.7.2
 
 Package: pylal
 Architecture: all
-Depends: ${shlibs:Depends}, ${misc:Depends}
+Depends: ${shlibs:Depends}, ${misc:Depends}, python-matplotlib, python-numpy, python-numpy-dev
 Description: Python LAL add-ons
  <insert long description, indented with spaces>
