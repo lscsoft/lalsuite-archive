@@ -122,7 +122,7 @@ SELECT DISTINCT sim_burst.* FROM
 WHERE
 	sngl_burst.ifo == ?
 	""", (instrument,)):
-		yield self.sim_burst_table._row_from_cols(values)
+		yield contents.sim_burst_table._row_from_cols(values)
 
 
 #
