@@ -417,7 +417,7 @@ class DBTable(table.Table):
 		Replacement for the standard append() method.  This version
 		performs on the fly row ID reassignment, and so also
 		performs the function of the updateKeyMapping() method.
-		SQL does not permit the PRIMARY KEY of a row to be
+		SQLite does not permit the PRIMARY KEY of a row to be
 		modified, so it needs to be done prior to insertion.  This
 		method is intended for internal use only.
 		"""
