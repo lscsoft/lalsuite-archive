@@ -97,8 +97,8 @@ class LinearBins(Bins):
 	"""
 	Linearly-spaced 1-D bins.  For internal use only.
 	"""
-	def __init__(*args):
-		Bins.__init__(*args)
+	def __init__(self, min, max, n):
+		Bins.__init__(self, min, max, n)
 		self.delta = float(max - min) / n
 
 	def __getitem__(self, x):
@@ -123,8 +123,8 @@ class LogarithmicBins(Bins):
 	"""
 	Logarithmically-spaced 1-D bins.  For internal use only.
 	"""
-	def __init__(*args):
-		Bins.__init__(*args)
+	def __init__(self, min, max, n):
+		Bins.__init__(self, min, max, n)
 		self.delta = math.log(float(max / min)) / n
 
 	def __getitem__(self, x):
@@ -145,7 +145,7 @@ class LogarithmicBins(Bins):
 		return self.min * numpy.exp(self.delta * (numpy.arange(0, self.n) + 0.5))
 
 
-class NDBins(object):
+class NDBins(tuple):
 	"""
 	Multi-dimensional co-ordinate binning.  An instance of this object
 	is used to convert a tuple of co-ordinates into a tuple of array
@@ -159,7 +159,7 @@ class NDBins(object):
 
 	Example:
 	
-	>>> b = NDBins(1, 25, 3, 1, 25, 3, spacing = ["lin", "log"])
+	>>> b = NDBins((LinearBins(1, 25, 3), LogarithmicBins(1, 25, 3)))
 	>>> b[1, 1]
 	(0, 0)
 	>>> b[1.5, 1]
@@ -175,23 +175,12 @@ class NDBins(object):
 	>>> b.centres
 	(array([  5.,  13.,  21.]), array([  1.70997595,   5.,  14.62008869]))
 	"""
-	def __init__(self, *args, **kwargs):
-		if len(args) % 3:
-			raise TypeError, "arguments must be min,max,n[,min,max,n]..."
-		spacing = kwargs.get("spacing", ["lin"] * (len(args) / 3))
-		if len(spacing) != len(args) / 3:
-			raise ValueError, spacing
-		it = iter(args)
-		# FIXME: don't construct the intermediate lists when we
-		# no longer care about Python 2.3 compatibility.
-		self.bins = tuple([{
-			"lin": LinearBins,
-			"log": LogarithmicBins
-		}[s](it.next(), it.next(), it.next()) for s in spacing])
-		self.min = tuple([b.min for b in self.bins])
-		self.max = tuple([b.max for b in self.bins])
-		self.shape = tuple([b.n for b in self.bins])
-		self.centres = tuple([b.centres() for b in self.bins])
+	def __init__(self, *args):
+		tuple.__init__(self, *args)
+		self.min = tuple([b.min for b in self])
+		self.max = tuple([b.max for b in self])
+		self.shape = tuple([b.n for b in self])
+		self.centres = tuple([b.centres() for b in self])
 
 	def __call__(self, *args):
 		return self[args]
@@ -207,18 +196,9 @@ class NDBins(object):
 		segments is that a slice is exclusive of the upper bound
 		while a segment is inclusive of the upper bound.
 		"""
-		if len(coords) != len(self.bins):
+		if len(coords) != len(self):
 			raise ValueError, "dimension mismatch"
-		return tuple(map(lambda b, c: b[c], self.bins, coords))
-
-	def __cmp__(self, other):
-		"""
-		Return 0 if the Bins objects are "compatible", meaning they
-		have the same upper and lower bounds, the same number of
-		bins, and the same bin spacing (linear, logarithmic, etc.).
-		Return non-zero otherwise.
-		"""
-		return reduce(int.__or__, map(cmp, self.bins, other.bins))
+		return tuple(map(lambda b, c: b[c], self, coords))
 
 
 #
@@ -239,7 +219,7 @@ class BinnedArray(object):
 
 	Example:
 
-	>>> x = BinnedArray(NDBins(0, 10, 5))
+	>>> x = BinnedArray(NDBins((LinearBins(0, 10, 5),)))
 	>>> x.array
 	array([ 0.,  0.,  0.,  0.,  0.])
 	>>> x[0,] += 1
@@ -587,7 +567,7 @@ class Rate(BinnedArray):
 		# that there is an integer number of bins in the interval
 		#
 
-		BinnedArray.__init__(self, NDBins(segment[0], segment[1], int(abs(segment) / (filterwidth / 20.0)) + 1))
+		BinnedArray.__init__(self, NDBins((LinearBins(segment[0], segment[1], int(abs(segment) / (filterwidth / 20.0)) + 1),)))
 
 		#
 		# determine the true bin size from the final integer bin
@@ -705,14 +685,15 @@ def bins_from_xml(xml):
 	"""
 	xml = table.get_table(xml, BinsTable.tableName)
 	xml.sort(lambda a, b: cmp(a.order, b.order))
-	args = [None] * 3 * (len(xml) and (xml[-1].order + 1))
-	kwargs = {"spacing" : [None] * (len(xml) and (xml[-1].order + 1))}
+	binnings = [None] * (len(xml) and (xml[-1].order + 1))
 	for row in xml:
-		args[row.order * 3 : row.order * 3 + 3] = row.min, row.max, row.n
-		kwargs["spacing"][row.order] = row.type
-	if None in args:
-		raise ValueError, "incomplete bin spec: %s" % str(args)
-	return NDBins(*args, **kwargs)
+		binnings[row.order] = {
+			"lin": LinearBins,
+			"log": LogarithmicBins
+		}[row.type](row.min, row.max, row.n)
+	if None in binnings:
+		raise ValueError, "incomplete bin spec"
+	return NDBins(binnings)
 
 
 def binned_array_to_xml(binnedarray, name):
