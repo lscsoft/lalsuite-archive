@@ -127,9 +127,9 @@ class old_Confidence_Likelihood_Histogram(object):
 	def __init__(self, confidence_range, likelihood_range):
 		self.confidence_range = confidence_range
 		self.likelihood_range = likelihood_range
-		self.background_bins = rate.BinnedArray(rate.Bins(confidence_range[0], confidence_range[1], 201, likelihood_range[0], likelihood_range[1], 201, spacing = ["log", "log"]))
+		self.background_bins = rate.BinnedArray(rate.NDBins(confidence_range[0], confidence_range[1], 201, likelihood_range[0], likelihood_range[1], 201, spacing = ["log", "log"]))
 		self.background_extra = 0
-		self.foreground_bins = rate.BinnedArray(rate.Bins(confidence_range[0], confidence_range[1], 201, likelihood_range[0], likelihood_range[1], 201, spacing = ["log", "log"]))
+		self.foreground_bins = rate.BinnedArray(rate.NDBins(confidence_range[0], confidence_range[1], 201, likelihood_range[0], likelihood_range[1], 201, spacing = ["log", "log"]))
 		self.foreground_extra = 0
 		self.filter = rate.gaussian_window2d(5, 5)
 
