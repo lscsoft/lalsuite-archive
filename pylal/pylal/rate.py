@@ -61,11 +61,20 @@ __date__ = "$Date$"[7:-2]
 #
 
 
-class _Bins(object):
+class Bins(object):
 	"""
-	Parent class for 1-D bins.  For internal use only.
+	Parent class for 1-D bins.  This class is not intended to be used
+	directly, but to be subclassed for use in real bins classes.
 	"""
 	def __init__(self, min, max, n):
+		"""
+		Initialize a Bins instance.  The three arguments are the
+		minimum and maximum of the values spanned by the bins, and
+		the number of bins to place between them.  Subclasses may
+		require additional arguments.
+		"""
+		# convenience code to do some common initialization and
+		# input checking
 		if type(n) != int:
 			raise TypeError, n
 		if max <= min:
@@ -73,23 +82,23 @@ class _Bins(object):
 		self.min = min
 		self.max = max
 		self.n = n
-		self._set_delta(min, max, n)
 
 	def __cmp__(self, other):
 		return cmp((type(self), self.min, self.max, self.n), (type(other), other.min, other.max, other.n))
 
-	def _set_delta(self, min, max, n):
-		raise NotImplementedError
-
 	def __getitem__(self, x):
 		raise NotImplementedError
 
+	def centres(self):
+		raise NotImplementedError
 
-class _LinBins(_Bins):
+
+class LinearBins(Bins):
 	"""
 	Linearly-spaced 1-D bins.  For internal use only.
 	"""
-	def _set_delta(self, min, max, n):
+	def __init__(*args):
+		Bins.__init__(*args)
 		self.delta = float(max - min) / n
 
 	def __getitem__(self, x):
@@ -110,11 +119,12 @@ class _LinBins(_Bins):
 		return self.min + self.delta * (numpy.arange(0, self.n) + 0.5)
 
 
-class _LogBins(_Bins):
+class LogarithmicBins(Bins):
 	"""
 	Logarithmically-spaced 1-D bins.  For internal use only.
 	"""
-	def _set_delta(self, min, max, n):
+	def __init__(*args):
+		Bins.__init__(*args)
 		self.delta = math.log(float(max / min)) / n
 
 	def __getitem__(self, x):
@@ -135,7 +145,7 @@ class _LogBins(_Bins):
 		return self.min * numpy.exp(self.delta * (numpy.arange(0, self.n) + 0.5))
 
 
-class Bins(object):
+class NDBins(object):
 	"""
 	Multi-dimensional co-ordinate binning.  An instance of this object
 	is used to convert a tuple of co-ordinates into a tuple of array
@@ -149,7 +159,7 @@ class Bins(object):
 
 	Example:
 	
-	>>> b = Bins(1, 25, 3, 1, 25, 3, spacing = ["lin", "log"])
+	>>> b = NDBins(1, 25, 3, 1, 25, 3, spacing = ["lin", "log"])
 	>>> b[1, 1]
 	(0, 0)
 	>>> b[1.5, 1]
@@ -175,8 +185,8 @@ class Bins(object):
 		# FIXME: don't construct the intermediate lists when we
 		# no longer care about Python 2.3 compatibility.
 		self.bins = tuple([{
-			"lin": _LinBins,
-			"log": _LogBins
+			"lin": LinearBins,
+			"log": LogarithmicBins
 		}[s](it.next(), it.next(), it.next()) for s in spacing])
 		self.min = tuple([b.min for b in self.bins])
 		self.max = tuple([b.max for b in self.bins])
@@ -229,7 +239,7 @@ class BinnedArray(object):
 
 	Example:
 
-	>>> x = BinnedArray(Bins(0, 10, 5))
+	>>> x = BinnedArray(NDBins(0, 10, 5))
 	>>> x.array
 	array([ 0.,  0.,  0.,  0.,  0.])
 	>>> x[0,] += 1
@@ -577,7 +587,7 @@ class Rate(BinnedArray):
 		# that there is an integer number of bins in the interval
 		#
 
-		BinnedArray.__init__(self, Bins(segment[0], segment[1], int(abs(segment) / (filterwidth / 20.0)) + 1))
+		BinnedArray.__init__(self, NDBins(segment[0], segment[1], int(abs(segment) / (filterwidth / 20.0)) + 1))
 
 		#
 		# determine the true bin size from the final integer bin
@@ -677,8 +687,8 @@ def bins_to_xml(bins):
 		row = xml.RowType()
 		row.order = order
 		row.type = {
-			_LinBins: "lin",
-			_LogBins: "log"
+			LinearBins: "lin",
+			LogarithmicBins: "log"
 		}[bin.__class__]
 		row.min = bin.min
 		row.max = bin.max
@@ -702,7 +712,7 @@ def bins_from_xml(xml):
 		kwargs["spacing"][row.order] = row.type
 	if None in args:
 		raise ValueError, "incomplete bin spec: %s" % str(args)
-	return Bins(*args, **kwargs)
+	return NDBins(*args, **kwargs)
 
 
 def binned_array_to_xml(binnedarray, name):
@@ -723,7 +733,7 @@ def binned_array_from_xml(xml, name):
 	therein.
 	"""
 	xml, = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.getAttribute(u"Name") == u"%s:pylal_rate_binnedarray" % name]
-	binnedarray = BinnedArray(Bins())
+	binnedarray = BinnedArray(NDBins())
 	binnedarray.bins = bins_from_xml(xml)
 	binnedarray.array = array.get_array(xml, u"array").array
 	return binnedarray
@@ -776,7 +786,7 @@ def binned_ratios_from_xml(xml, name):
 	therein.
 	"""
 	xml, = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.getAttribute(u"Name") == u"%s:pylal_rate_binnedratios" % name]
-	ratios = BinnedRatios(Bins())
+	ratios = BinnedRatios(NDBins())
 	ratios.numerator = binned_array_from_xml(xml, u"numerator")
 	ratios.denominator = binned_array_from_xml(xml, u"denominator")
 	# normally they share a single Bins instance
