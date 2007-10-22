@@ -63,8 +63,9 @@ __date__ = "$Date$"[7:-2]
 
 class Bins(object):
 	"""
-	Parent class for 1-D bins.  This class is not intended to be used
-	directly, but to be subclassed for use in real bins classes.
+	Parent class for 1-dimensional binnings.  This class is not
+	intended to be used directly, but to be subclassed for use in real
+	bins classes.
 	"""
 	def __init__(self, min, max, n):
 		"""
@@ -75,7 +76,7 @@ class Bins(object):
 		"""
 		# convenience code to do some common initialization and
 		# input checking
-		if type(n) != int:
+		if not isinstance(n, int):
 			raise TypeError, n
 		if max <= min:
 			raise ValueError, (min, max)
@@ -87,6 +88,14 @@ class Bins(object):
 		return cmp((type(self), self.min, self.max, self.n), (type(other), other.min, other.max, other.n))
 
 	def __getitem__(self, x):
+		"""
+		Convert a co-ordinate into a bin index.  The co-ordinate
+		can be a single number, a Python slice instance, or a
+		glue.segments.segment instance.  The difference between
+		co-ordinate ranges given as slices and ranges given as
+		segments is that a slice is exclusive of the upper bound
+		while a segment is inclusive of the upper bound.
+		"""
 		raise NotImplementedError
 
 	def centres(self):
@@ -95,7 +104,21 @@ class Bins(object):
 
 class LinearBins(Bins):
 	"""
-	Linearly-spaced 1-D bins.  For internal use only.
+	Linearly-spaced bins.  There are n bins of equal size, the first
+	bin starts on the lower bound and the last bin ends on the upper
+	bound inclusively.
+
+	Example:
+
+	>>> x = LinearBins(1.0, 25.0, 3)
+	>>> x[1]
+	0
+	>>> x[1.5]
+	0
+	>>> x[10]
+	1
+	>>> x[25]
+	2
 	"""
 	def __init__(self, min, max, n):
 		Bins.__init__(self, min, max, n)
@@ -121,7 +144,20 @@ class LinearBins(Bins):
 
 class LogarithmicBins(Bins):
 	"""
-	Logarithmically-spaced 1-D bins.  For internal use only.
+	Logarithmically-spaced bins.  There are n bins, each of whose upper
+	and lower bounds differ by the same factor.  The first bin starts
+	on the lower bound, and the last bin ends on the upper bound
+	inclusively.
+
+	Example:
+
+	>>> x = LogarithmicBins(1.0, 25.0, 3)
+	>>> x[1]
+	0
+	>>> x[5]
+	1
+	>>> x[25]
+	2
 	"""
 	def __init__(self, min, max, n):
 		Bins.__init__(self, min, max, n)
@@ -148,31 +184,32 @@ class LogarithmicBins(Bins):
 class NDBins(tuple):
 	"""
 	Multi-dimensional co-ordinate binning.  An instance of this object
-	is used to convert a tuple of co-ordinates into a tuple of array
-	indices, thereby allowing the contents of an array object to be
-	accessed with real-valued coordinates.  When creating a Bins
-	object, the arguments describe the range along each co-ordinate
-	direction, and the number of bins.  The arguments come in groups of
-	three, one for each direction.  An optional keyword argument is
-	used to set the spacing of the bins to linear or logarithmic in
-	each of the directions independantly.
+	is used to convert a tuple of co-ordinates into a tuple of bin
+	indices.  This can be used to allow the contents of an array object
+	to be accessed with real-valued coordinates.
+
+	NDBins is a subclass of the tuple builtin, and is initialized with
+	an iterable of instances of subclasses of Bins.  Each Bins subclass
+	instance describes the binning to apply in the corresponding
+	co-ordinate direction, and the number of them sets the dimensions
+	of the binning.
 
 	Example:
 	
-	>>> b = NDBins((LinearBins(1, 25, 3), LogarithmicBins(1, 25, 3)))
-	>>> b[1, 1]
+	>>> x = NDBins((LinearBins(1, 25, 3), LogarithmicBins(1, 25, 3)))
+	>>> x[1, 1]
 	(0, 0)
-	>>> b[1.5, 1]
+	>>> x[1.5, 1]
 	(0, 0)
-	>>> b[10, 1]
+	>>> x[10, 1]
 	(1, 0)
-	>>> b[1, 5]
+	>>> x[1, 5]
 	(0, 1)
-	>>> b[1, 1:5]
+	>>> x[1, 1:5]
 	(0, slice(0, 1, None))
-	>>> b[1, segment(1, 5)]
+	>>> x[1, segment(1, 5)]
 	(0, slice(0, 2, None))
-	>>> b.centres
+	>>> x.centres
 	(array([  5.,  13.,  21.]), array([  1.70997595,   5.,  14.62008869]))
 	"""
 	def __init__(self, *args):
@@ -182,23 +219,32 @@ class NDBins(tuple):
 		self.shape = tuple([b.n for b in self])
 		self.centres = tuple([b.centres() for b in self])
 
-	def __call__(self, *args):
-		return self[args]
-
 	def __getitem__(self, coords):
 		"""
-		Return the indices corresponding to the tuple of
-		co-ordinates, coords.  Note that a the co-ordinates must be
-		a tuple even if there is only 1 dimension.  Each
-		co-ordinate can be a single number, a Python slice object,
-		or a glue.segments.segment object.  The difference between
-		co-ordinate ranges given as slices and ranges given as
-		segments is that a slice is exclusive of the upper bound
-		while a segment is inclusive of the upper bound.
+		When coords is a tuple, it is interpreted as an
+		N-dimensional co-ordinate which is converted to an N-tuple
+		of bin indices by the Bins subclass instances in this
+		object.  Otherwise coords is interpeted as an index into
+		the tuple, and the corresponding Bins subclass instance is
+		returned.
+
+		Example:
+
+		>>> x[1, 1]
+		(0, 0)
+		>>> x[1]
+		<pylal.rate.LinearBins object at 0xb5cfa9ac>
+
+		When used to convert co-ordinates to bin indices, each
+		co-ordinate can be anything the corresponding Bins subclass
+		instance will accept.
 		"""
-		if len(coords) != len(self):
-			raise ValueError, "dimension mismatch"
-		return tuple(map(lambda b, c: b[c], self, coords))
+		if isinstance(coords, tuple):
+			if len(coords) != len(self):
+				raise ValueError, "dimension mismatch"
+			return tuple(map(lambda b, c: b[c], self, coords))
+		else:
+			return tuple.__getitem__(self, coords)
 
 
 #
@@ -212,7 +258,7 @@ class NDBins(tuple):
 
 class BinnedArray(object):
 	"""
-	A convenience wrapper, using the Bins class to provide access to
+	A convenience wrapper, using the NDBins class to provide access to
 	the elements of an array object.  Technical reasons preclude
 	providing a subclass of the array object, so the array data is made
 	available as the "array" attribute of this class.
@@ -457,17 +503,17 @@ def tophat_window2d(bins_x, bins_y):
 def filter_array(a, window, cyclic = False):
 	"""
 	Filter an array using the window function.  The transformation is
-	done in place.  If cyclic = True, then the data is assumed to be
-	periodic in each dimension, otherwise the data is assumed to be 0
-	outside of its domain of definition.  The window function must have
-	an odd number of samples in each dimension;  this is done so that
-	it is always clear which sample is at the window's centre, which
-	helps prevent phase errors.  If the window function's size exceeds
-	that of the data in one or more dimensions, the largest allowed
-	central portion of the window function in the affected dimensions
-	will be used.  This is done silently;  to determine if window
-	function truncation will occur, check for yourself that your window
-	function is smaller than your data in all directions.
+	done in place.  If cyclic = True, then the data are assumed to be
+	periodic in each dimension, otherwise the data are assumed to be 0
+	outside of their domain of definition.  The window function must
+	have an odd number of samples in each dimension;  this is done so
+	that it is always clear which sample is at the window's centre,
+	which helps prevent phase errors.  If the window function's size
+	exceeds that of the data in one or more dimensions, the largest
+	allowed central portion of the window function in the affected
+	dimensions will be used.  This is done silently;  to determine if
+	window function truncation will occur, check for yourself that your
+	window function is smaller than your data in all directions.
 	"""
 	# check that the window and the data have the same number of
 	# dimensions
