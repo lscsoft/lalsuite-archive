@@ -437,7 +437,7 @@ WHERE
 		min_amplitude = self.all[0].hpeak * self.amplitude_factor
 		max_amplitude = self.all[-1].hpeak * self.amplitude_factor
 
-		bins = rate.NDBins(min_amplitude, max_amplitude, 400, spacing = ["log"])
+		bins = rate.NDBins((rate.LogarithmicBins(min_amplitude, max_amplitude, 400),))
 		efficiency = rate.BinnedRatios(bins)
 		efficiency_above_loudest = rate.BinnedRatios(bins)
 		for sim in self.found:
