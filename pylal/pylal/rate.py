@@ -85,6 +85,8 @@ class Bins(object):
 		self.n = n
 
 	def __cmp__(self, other):
+		if not isinstance(other, type(self)):
+			return -1
 		return cmp((type(self), self.min, self.max, self.n), (type(other), other.min, other.max, other.n))
 
 	def __getitem__(self, x):
