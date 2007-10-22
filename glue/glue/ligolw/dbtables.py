@@ -275,8 +275,8 @@ def DBTable_get_xml():
 			cls = TableByName[table_name]
 		except KeyError:
 			cls = DBTable
-		table_elem = cls(AttributesImpl({u"Name": table_name + ":table"}))
-		colnamefmt = table_name + ":%s"
+		table_elem = cls(AttributesImpl({u"Name": u"%s:table" % table_name}))
+		colnamefmt = u"%s:%%s" % table_name
 		for column_name, column_type in DBTable_column_info(table_elem.dbtablename):
 			if table_elem.validcolumns is not None:
 				# use the pre-defined column type
@@ -284,11 +284,10 @@ def DBTable_get_xml():
 			else:
 				# guess the column type
 				column_type = types.FromSQLiteType[column_type]
-			column_name = colnamefmt % column_name
-			table_elem.appendChild(table.Column(AttributesImpl({u"Name": column_name, u"Type": column_type})))
+			table_elem.appendChild(table.Column(AttributesImpl({u"Name": colnamefmt % column_name, u"Type": column_type})))
 
 		table_elem._end_of_columns()
-		table_elem.appendChild(table.TableStream(AttributesImpl({u"Name": table_name + ":table"})))
+		table_elem.appendChild(table.TableStream(AttributesImpl({u"Name": u"%s:table" % table_name})))
 		ligo_lw.appendChild(table_elem)
 	return ligo_lw
 
@@ -340,6 +339,8 @@ class DBTable(table.Table):
 		Initialize
 		"""
 		table.Table.__init__(self, *attrs)
+		if self.connection is None:
+			raise ligolw.ElementError, "connection attribute not set"
 		self.dbtablename = table.StripTableName(self.getAttribute(u"Name"))
 		try:
 			# try to find info in lsctables module
@@ -356,8 +357,6 @@ class DBTable(table.Table):
 			self.ids = cls.ids
 			self.RowType = cls.RowType
 			self.how_to_index = cls.how_to_index
-		if self.connection is None:
-			raise ligolw.ElementError, "connection attribute not set"
 		self.cursor = self.connection.cursor()
 
 	def _end_of_columns(self):
@@ -402,10 +401,10 @@ class DBTable(table.Table):
 		return self.cursor.execute("SELECT MAX(ROWID) FROM %s" % self.dbtablename).fetchone()[0]
 
 	def __len__(self):
-		return self.cursor.execute("SELECT COUNT(*) FROM " + self.dbtablename).fetchone()[0]
+		return self.cursor.execute("SELECT COUNT(*) FROM %s" % self.dbtablename).fetchone()[0]
 
 	def __iter__(self):
-		for values in self.connection.cursor().execute("SELECT * FROM " + self.dbtablename):
+		for values in self.connection.cursor().execute("SELECT * FROM %s" % self.dbtablename):
 			yield self._row_from_cols(values)
 
 	def _append(self, row):
