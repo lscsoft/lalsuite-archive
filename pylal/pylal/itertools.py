@@ -48,49 +48,54 @@ __date__ = "$Date$"[7:-2]
 #
 
 
-def MultiIter(*lists):
+def MultiIter(*sequences):
 	"""
-	A generator for iterating over the elements of multiple lists
-	simultaneously.  With N lists given as input, the output sequence
-	consists of all possible N-element lists containing one element
-	from each of the input lists.
+	A generator for iterating over the elements of multiple sequences
+	simultaneously.  With N sequences given as input, the generator
+	yields all possible distinct N-tuples that contain one element from
+	each of the input sequences.
 
 	Example:
 
 	>>> x = MultiIter([0, 1, 2], [10, 11])
 	>>> list(x)
-	[[0, 10], [1, 10], [2, 10], [0, 11], [1, 11], [2, 11]]
+	[(0, 10), (1, 10), (2, 10), (0, 11), (1, 11), (2, 11)]
+
+	The elements in each tuple are in the order of the input sequences,
+	and the left-most input sequence is iterated over first.
 	"""
-	if len(lists) > 0:
-		head = lists[0]
-		for t in MultiIter(*lists[1:]):
+	if len(sequences) > 0:
+		head = sequences[0]
+		for t in MultiIter(*sequences[1:]):
 			for h in head:
-				yield [h] + t
+				yield (h,) + t
 	else:
-		yield []
+		yield ()
 
 
 def choices(vals, n):
 	"""
-	Iterate over all choices of n elements from the list vals.  In each
-	result returned, the original order of the values is preserved.
+	A generator for iterating over all choices of n elements from the
+	input sequence vals.  In each result returned, the original order
+	of the values is preserved.
 
 	Example:
 
 	>>> x = choices(["a", "b", "c"], 2)
 	>>> list(x)
-	[['a', 'b'], ['a', 'c'], ['b', 'c']]
+	[('a', 'b'), ('a', 'c'), ('b', 'c')]
 	"""
 	if n == len(vals):
-		yield vals
+		yield tuple(vals)
 	elif n > 1:
-		for i, v in enumerate(vals[:1 - n]):
-			v = [v]
-			for c in choices(vals[i+1:], n - 1):
+		n -= 1
+		for i, v in enumerate(vals[:-n]):
+			v = (v,)
+			for c in choices(vals[i+1:], n):
 				yield v + c
 	elif n == 1:
 		for v in vals:
-			yield [v]
+			yield (v,)
 	else:
 		# n < 1
 		raise ValueError, n
