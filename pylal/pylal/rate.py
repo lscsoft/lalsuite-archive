@@ -711,7 +711,7 @@ def bins_to_xml(bins):
 	rate.Bins instance bins.
 	"""
 	xml = lsctables.New(BinsTable)
-	for order, bin in enumerate(bins.bins):
+	for order, bin in enumerate(bins):
 		row = xml.RowType()
 		row.order = order
 		row.type = {
