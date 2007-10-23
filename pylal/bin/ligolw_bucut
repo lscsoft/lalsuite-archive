@@ -104,6 +104,23 @@ def parse_command_line():
 #
 # =============================================================================
 #
+#                                    Input
+#
+# =============================================================================
+#
+
+
+#
+# Use interning row builder to save memory.
+#
+
+
+lsctables.table.RowBuilder = lsctables.table.InterningRowBuilder
+
+
+#
+# =============================================================================
+#
 #                                 Preparation
 #
 # =============================================================================
@@ -482,6 +499,7 @@ else:
 
 for filename in filenames:
 	xmldoc = utils.load_filename(filename, options.verbose, gz = (filename or "stdin").endswith(".gz"))
+	lsctables.table.InterningRowBuilder.strings.clear()
 	xmldoc = ligolw_bucut(xmldoc, options, veto_segments = veto_segments, program = options.program, verbose = options.verbose)
 	utils.write_filename(xmldoc, filename, options.verbose, gz = (filename or "stdout").endswith(".gz"))
 	xmldoc.unlink()
