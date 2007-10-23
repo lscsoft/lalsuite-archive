@@ -435,7 +435,6 @@ def CoincidentNTuples(eventlists, comparefunc, instruments, thresholds, verbose 
 			print >>sys.stderr, "\t%.1f%%\r" % (100.0 * tick / ticks),
 		for ntuple in ntuples:
 			if mutually_coincident(ntuple, comparefunc, thresholds):
-				ntuple.append(event)
-				yield ntuple
+				yield ntuple + (event,)
 	if verbose:
 		print >>sys.stderr, "\t100.0%"
