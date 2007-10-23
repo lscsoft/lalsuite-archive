@@ -208,7 +208,7 @@ def ExcessPowerMaxSegmentGap(xmldoc, thresholds):
 	power coincidence test.
 	"""
 	# largest delta t allowed in a coincidence
-	max_dt = max([abs(dt) for dt, df, dhrss in thresholds.itervalues()])
+	max_dt = max([abs(dt) + inject.light_travel_time(a, b) for (a, b), (dt, df, dhrss) in thresholds.items()])
 
 	# double for safety
 	return 2 * max_dt
@@ -238,9 +238,19 @@ class ExcessPowerEventList(snglcoinc.EventList):
 			event.set_peak(event.get_peak() + delta)
 
 	def get_coincs(self, event_a, threshold, comparefunc):
-		dt = threshold[0]
+		# max allowed delta t between event_a and an event in this
+		# list
+		dt = threshold[0] + inject.light_travel_time(event_a.ifo, self.ifo)
+
+		# translate to the minimum and maximum allowed peak times
+		# for events in this list
 		min_peak = event_a.get_peak() - dt
 		max_peak = event_a.get_peak() + dt
+
+		# extract the subset of events from this list that pass
+		# coincidence with event_a (use bisection searches for the
+		# minimum and maximum allowed peak times to quickly
+		# identify a subset of the full list)
 		return [event_b for event_b in self[bisect.bisect_left(self, min_peak) : bisect.bisect_right(self, max_peak)] if not comparefunc(event_a, event_b, threshold)]
 
 
