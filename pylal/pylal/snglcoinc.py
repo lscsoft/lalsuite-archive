@@ -207,8 +207,9 @@ class EventList(list):
 	indeed they probably should not be unless you know what you're
 	doing.
 	"""
-	def __init__(self):
+	def __init__(self, ifo):
 		self.offset = LIGOTimeGPS(0)
+		self.ifo = ifo
 
 	def make_index(self):
 		"""
@@ -285,7 +286,7 @@ class EventListDict(dict):
 		for event in event_table:
 			if event.process_id in process_ids:
 				if event.ifo not in self:
-					self[event.ifo] = self.EventListType()
+					self[event.ifo] = self.EventListType(event.ifo)
 				self[event.ifo].append(event)
 		for l in self.itervalues():
 			l.make_index()
