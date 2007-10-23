@@ -1,12 +1,12 @@
-Source: python-glue
-Section: python
+Source: glue
+Section: lscsoft
 Priority: optional
 Maintainer: Kipp Cannon <kipp@gravity.phys.uwm.edu>
 Build-Depends: python (>= 2.4)
 Standards-Version: 3.6.0
 
-Package: python-glue
-Architecture: any
+Package: glue
+Architecture: all
 Depends: python (>= 2.4)
 Recommends: python-numpy (>= 1.0), python-xml, python-pysqlite2 (>= 2.2), libsqlite3-0 (>= 3.3)
 Description: Grid LSC User Environment
