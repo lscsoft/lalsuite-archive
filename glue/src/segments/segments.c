@@ -45,7 +45,7 @@ void init__segments(void)
 	 * Initialize module
 	 */
 
-	PyObject *module = Py_InitModule3(MODULE_NAME, NULL, "infinity and segment classes.");
+	PyObject *module = Py_InitModule3(MODULE_NAME, NULL, "C implementations of the infinity, segment, and segmentlist classes from the segments module.");
 
 	/*
 	 * Create infinity class
