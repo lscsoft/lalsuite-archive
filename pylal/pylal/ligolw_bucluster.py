@@ -118,7 +118,7 @@ def smallest_enclosing_seg(a, b):
 def weighted_average_seg(seg1, weight1, seg2, weight2):
 	"""
 	Return the segment whose start and ends are the weighted averages
-	of the star and ends of the two input segments, using the two
+	of the start and ends of the two input segments, using the two
 	weights given.
 	"""
 	# The formulae are a little funny because they need to work with
