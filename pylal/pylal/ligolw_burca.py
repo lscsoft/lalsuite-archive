@@ -207,14 +207,8 @@ def ExcessPowerMaxSegmentGap(xmldoc, thresholds):
 	Determine the maximum allowed segment gap for use with the excess
 	power coincidence test.
 	"""
-	# longest duration among events
-	max_duration = max(table.get_table(xmldoc, lsctables.SnglBurstTable.tableName).getColumnByName("duration"))
-
-	# loosest relative threshold
-	max_dt = max([t[0] for t in thresholds.itervalues()])
-
-	# convert to absolute threshold
-	max_dt = max_dt * max_duration
+	# largest delta t allowed in a coincidence
+	max_dt = max([abs(dt) for dt, df, dhrss in thresholds.itervalues()])
 
 	# double for safety
 	return 2 * max_dt
@@ -260,8 +254,8 @@ def StringMaxSegmentGap(xmldoc, thresholds):
 	Determine the maximum allowed segment gap for use with the string
 	coincidence test.
 	"""
-	# loosest threshold
-	max_dt = max([t[0] for t in thresholds.itervalues()])
+	# largest delta t allowed in a coincidence
+	max_dt = max([abs(dt) for dt, kappa, epsilon in thresholds.itervalues()])
 
 	# double for safety
 	return 2 * max_dt
