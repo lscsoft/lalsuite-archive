@@ -65,10 +65,12 @@ def MultiIter(*sequences):
 	and the left-most input sequence is iterated over first.
 	"""
 	if len(sequences) > 0:
-		head = sequences[0]
+		# FIXME:  experiment with a generator expression in Python
+		# >= 2.5
+		head = [(x,) for x in sequences[0]]
 		for t in MultiIter(*sequences[1:]):
 			for h in head:
-				yield (h,) + t
+				yield h + t
 	else:
 		yield ()
 
