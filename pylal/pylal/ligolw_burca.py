@@ -229,7 +229,6 @@ class ExcessPowerEventList(snglcoinc.EventList):
 		"""
 		# sort by peak time
 		self.sort(lambda a, b: cmp(a.peak_time, b.peak_time) or cmp(a.peak_time_ns, b.peak_time_ns))
-		self.max_duration = LIGOTimeGPS(max([event.duration for event in self]))
 
 	def _add_offset(self, delta):
 		"""
@@ -239,8 +238,9 @@ class ExcessPowerEventList(snglcoinc.EventList):
 			event.set_peak(event.get_peak() + delta)
 
 	def get_coincs(self, event_a, threshold, comparefunc):
-		min_peak = event_a.get_peak() - threshold[0] * self.max_duration
-		max_peak = event_a.get_peak() + threshold[0] * self.max_duration
+		dt = threshold[0]
+		min_peak = event_a.get_peak() - dt
+		max_peak = event_a.get_peak() + dt
 		return [event_b for event_b in self[bisect.bisect_left(self, min_peak) : bisect.bisect_right(self, max_peak)] if not comparefunc(event_a, event_b, threshold)]
 
 
