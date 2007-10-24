@@ -4,6 +4,7 @@ __version__ = "$Revision$"
 __date__ = "$Date$"
 __name__ = "plotinspiralrange"
 __Id__ = "$Id$"
+__title__ = "Inspiral Range Plots"
 
 # $Source$
 
@@ -11,8 +12,6 @@ __Id__ = "$Id$"
 """
 Inspiral range plotting tool for TMPLTBANK/INSPIRAL files
 """
-
-__title__ = "Inspiral Range Plots"
 
 import sys
 import glob
@@ -26,30 +25,37 @@ from glue import lal
 
 
 #######################################################################
-class ContentHandler(ligolw.PartialLIGOLWContentHandler):
-  def __init__(self, xmldoc):
-    """
-    New content handler that only reads in the SummValue table
-    """
-    def element_filter(name, attrs):
-      """
-      Return True if name and attrs describe a SummValueTable
-      """
-      return lsctables.IsTableProperties(lsctables.SummValueTable, name, attrs) 
-    ligolw.PartialLIGOLWContentHandler.__init__(self, xmldoc, element_filter)
+#class ContentHandler(ligolw.PartialLIGOLWContentHandler):
+#  def __init__(self, xmldoc):
+#    """
+#    New content handler that only reads in the SummValue table
+#    """
+#    def element_filter(name, attrs):
+#      """
+#      Return True if name and attrs describe a SummValueTable
+#      """
+#      return lsctables.IsTableProperties(lsctables.SummValueTable, name, attrs) 
+#    ligolw.PartialLIGOLWContentHandler.__init__(self, xmldoc, element_filter)
 
-utils.ContentHandler = ContentHandler
+#utils.ContentHandler = ContentHandler
 
 
 def writeProcessParams(page, command_line): 
   """
-  function to write out the process params that the code was called with
+  Add the command line argument and version to the HTML document
+  @param page: the html document
+  @param command_line : the command line to be parsed
+  @return page : the input page appended with the command line argument
   """
-  text = "Figures produced with "+ __name__+", "+__version__[1:len(__version__)-1]+", invoked with arguments:\n\n"+ __name__
- 
+  text = "Figures produced with "+ __name__+", "\
+      +__version__[1:len(__version__)-1]+", invoked with arguments:\n\n"+\
+       __name__
+  # parse the command line argument
   for arg in command_line:
     text += " " +  arg
+  # and print it in the html page
   page.pre( text )
+
   return page
 
 
@@ -60,13 +66,14 @@ def readFiles(fList):
   """
   output = {}
   massOutput = {}
-  count=0
+  count = 0
   if len(fList) == 0:
     return output
+
   for thisFile in fList:
-    if opts.verbose:
+    if opts.verbose is True:
       print str(count)+"/"+str(len(fList))+" " + thisFile
-    count =count+1
+    count = count+1
     massNum = 0
     doc = utils.load_filename(thisFile, gz = thisFile.endswith(".gz"))
     for row in doc.childNodes[0]:
@@ -83,7 +90,8 @@ def readFiles(fList):
           massOutput[row.ifo].append(lsctables.New(lsctables.SummValueTable))
         massOutput[row.ifo][massNum].append(row)
         massNum += 1
-  return output,massOutput
+
+  return output, massOutput
 
 
 def stairs(xVal,yVal):
@@ -105,11 +113,14 @@ def stairs(xVal,yVal):
     else:
       xStairs.append(mean(xVal[(i-1)/2],xVal[(i+1)/2]))
       yStairs.append(yVal[(i-1)/2])
+
   return xStairs,yStairs
 
 def create_output_name(opts):
   """
-  
+  Create the suffix and prefix used for the naming convention.
+  @param  opts : the user arguments (user_tag, gps_end_time 
+	and gps_start_time are used)
   """
   if not opts.user_tag: 
     prefix = opts.ifo_time +"-"+ __name__ + "_"
@@ -124,7 +135,11 @@ def create_output_name(opts):
 
 def init_page( opts):
   """
-
+  Load the markup module, and initialise the HTML document if the opts 
+  argument contains enable_ouput option.
+  @param  opts : the user arguments 
+  @return page : the HTML document
+  @return extra : the onliner (see markup.py documentation)
   """
   # Initialise the html output file
   if opts.enable_output is True:
@@ -142,9 +157,12 @@ def init_page( opts):
     
   return page, extra
 
-def plotinspiralrange_histogram(opts, figure_number):
+def plotinspiralrange_histogram(opts):
   """
-
+  Create the histogram of the inspiral range for each ifo available 
+  
+  @param  opts : the user arguments 
+  @return fname : the HTML document
   """
   
   prefix, suffix = create_output_name(opts)
@@ -201,9 +219,9 @@ def plotinspiralrange_histogram(opts, figure_number):
   else:
     fname = []
   
-  return fname, figure_number
+  return fname
 
-def plotinspiralrange_range_versus_time(opts, figure_number):
+def plotinspiralrange_range_versus_time(opts):
   """
  
   """
@@ -239,9 +257,9 @@ def plotinspiralrange_range_versus_time(opts, figure_number):
   else:
     fname = []
   
-  return fname, figure_number
+  return fname
    
-def plotinspiralrange_range_versus_total_mass(opts, figure_number):
+def plotinspiralrange_range_versus_total_mass(opts):
   """
   
   """
@@ -296,7 +314,7 @@ def plotinspiralrange_range_versus_total_mass(opts, figure_number):
   else:
     fname = []
   
-  return fname, figure_number
+  return fname
 
 def get_filelist(opts):
   """
@@ -451,7 +469,7 @@ if opts.range_vs_time is True:
   text ="Inspiral horizon distance for a (1.4,1.4)"+\
       " solar mass system with SNR=8"
   # -- the plot itself --
-  fname,figure_number = plotinspiralrange_range_versus_time(opts, figure_number)
+  fname = plotinspiralrange_range_versus_time(opts)
 
   # -- save results in output files --
   if opts.enable_output is True:
@@ -469,7 +487,7 @@ if opts.range_hist is True:
   text = "Histogram of inspiral horizon distance for a (1.4,1.4) solar "+\
       "mass system with SNR = 8"
   # -- the plot itself --
-  fname,figure_number = plotinspiralrange_histogram(opts, figure_number)
+  fname = plotinspiralrange_histogram(opts)
   
   # -- save results in output files --
   if opts.enable_output is True:
@@ -489,7 +507,7 @@ if opts.range_mass is True:
   text = "Inspiral Horizon Distance versus Mass "+\
       "at a SNR = 8"
   # -- the plot itself --
-  fname,figure_number = plotinspiralrange_range_versus_total_mass(opts, figure_number)
+  fname = plotinspiralrange_range_versus_total_mass(opts)
   # -- save results in output files --
 
   if opts.enable_output is True:
