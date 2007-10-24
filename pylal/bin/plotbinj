@@ -656,19 +656,19 @@ for instrument in plots:
 	n = 0
 	format = "%%s%s_%%0%dd.%%s" % (instrument, int(math.log10(max(options.plot) or 1)) + 1)
 	while len(plots[instrument]):
+		plot = plots[instrument].pop(0)
 		filename = format % (options.base, options.plot[n], options.format)
 		if options.verbose:
 			print >>sys.stderr, "finishing %s plot %d ..." % (instrument, options.plot[n])
 		try:
-			plots[instrument][0].finish()
+			plot.finish()
 		except SnglBurstUtils.BurstPlotError, e:
 			print >>sys.stderr, "can't finish %s plot %d: %s" % (instrument, options.plot[n], str(e))
 		else:
 			if options.verbose:
 				print >>sys.stderr, "writing %s ..." % filename
-			if isinstance(plots[instrument][0], SimBurstUtils.Efficiency_hrss_vs_freq):
-				SimBurstUtils.plot_Efficiency_hrss_vs_freq(plots[instrument][0]).savefig(filename)
+			if isinstance(plot, SimBurstUtils.Efficiency_hrss_vs_freq):
+				SimBurstUtils.plot_Efficiency_hrss_vs_freq(plot).savefig(filename)
 			else:
-				plots[instrument][0].fig.savefig(filename)
-		del plots[instrument][0]
+				plot.fig.savefig(filename)
 		n += 1
