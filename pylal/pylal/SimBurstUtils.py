@@ -153,9 +153,9 @@ class Efficiency_hrss_vs_freq(object):
 		self.found_y = []
 
 	def add_contents(self, contents):
-		self.num_injections += len(contents.sim_burst_table)
 		for sim in contents.sim_burst_table:
 			if injection_was_made(sim, contents.seglists[self.instrument], [self.instrument]):
+				self.num_injections += 1
 				self.injected_x.append(sim.freq)
 				self.injected_y.append(self.hrss_func(sim, self.instrument))
 		for sim in found_injections(contents, self.instrument):
@@ -174,12 +174,12 @@ class Efficiency_hrss_vs_freq(object):
 		# the square root translates that into the window's length
 		# on a side in bins.
 		bins_per_inj = self.efficiency.used() / float(self.num_injections)
-		window_size = (bins_per_inj / self.error**2)**0.5
-		if window_size > 100:
+		self.window_size_x = self.window_size_y = (bins_per_inj / self.error**2)**0.5
+		if self.window_size_x > 100 or self.window_size_y > 100:
 			raise ValueError, "smoothing filter too large (not enough injections)"
 
 		# smooth the efficiency data.
-		rate.filter_binned_ratios(self.efficiency, rate.gaussian_window2d(window_size, window_size))
+		rate.filter_binned_ratios(self.efficiency, rate.gaussian_window2d(self.window_size_x, self.window_size_y))
 
 		# regularize to prevent divide-by-zero errors
 		self.efficiency.regularize()
@@ -194,6 +194,6 @@ def plot_Efficiency_hrss_vs_freq(efficiency):
 
 	xcoords, ycoords = efficiency.efficiency.centres()
 	zvals = efficiency.efficiency.ratio()
-	cset = plot.axes.contour(xcoords, ycoords, numpy.transpose(zvals), [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9])
-	plot.axes.set_title(r"Injection Detection Efficiency (%d Injections, Contours at 10\%% Intervals, %g\%% Uncertainty)" % (efficiency.num_injections, 100 * efficiency.error))
+	cset = plot.axes.contour(xcoords, ycoords, numpy.transpose(zvals), (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9))
+	plot.axes.set_title(r"%s Injection Detection Efficiency (%d Injections, Contours at 10\%% Intervals, %g\%% Uncertainty)" % (efficiency.instrument, efficiency.num_injections, 100 * efficiency.error))
 	return plot.fig
