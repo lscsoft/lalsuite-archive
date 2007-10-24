@@ -652,6 +652,20 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 	dbtables.discard_connection_filename(filename, working_filename, verbose = options.verbose)
 
 
+# compute the binning for the efficiency contour plots
+def make_binning(plots):
+	plots = [plot for instrument in plots.keys() for plot in plots[instrument] if isinstance(plot, SimBurstUtils.Efficiency_hrss_vs_freq)]
+	if not plots:
+		return None
+	minx = min([min(plot.injected_x) for plot in plots])
+	maxx = max([max(plot.injected_x) for plot in plots])
+	miny = min([min(plot.injected_y) for plot in plots])
+	maxy = max([max(plot.injected_y) for plot in plots])
+	return rate.NDBins((rate.LogarithmicBins(minx, maxx, 256), rate.LogarithmicBins(miny, maxy, 256)))
+
+binning = make_binning(plots)
+
+
 # delete the plots as we go to save memory
 efficiencies = []
 for instrument in plots:
@@ -663,17 +677,19 @@ for instrument in plots:
 		if options.verbose:
 			print >>sys.stderr, "finishing %s plot %d ..." % (instrument, options.plot[n])
 		try:
-			plot.finish()
+			if isinstance(plot, SimBurstUtils.Efficiency_hrss_vs_freq):
+				plot.finish(binning = binning)
+				efficiencies.append(plot)
+				fig = SimBurstUtils.plot_Efficiency_hrss_vs_freq(plot)
+			else:
+				plot.finish()
+				fig = plot.fig
 		except SnglBurstUtils.BurstPlotError, e:
 			print >>sys.stderr, "can't finish %s plot %d: %s" % (instrument, options.plot[n], str(e))
 		else:
 			if options.verbose:
 				print >>sys.stderr, "writing %s ..." % filename
-			if isinstance(plot, SimBurstUtils.Efficiency_hrss_vs_freq):
-				efficiencies.append(plot)
-				SimBurstUtils.plot_Efficiency_hrss_vs_freq(plot).savefig(filename)
-			else:
-				plot.fig.savefig(filename)
+			fig.savefig(filename)
 		n += 1
 
 

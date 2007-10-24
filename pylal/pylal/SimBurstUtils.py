@@ -162,8 +162,14 @@ class Efficiency_hrss_vs_freq(object):
 			self.found_x.append(sim.freq)
 			self.found_y.append(self.hrss_func(sim, self.instrument))
 
-	def finish(self):
-		self.efficiency = rate.BinnedRatios(rate.NDBins((rate.LogarithmicBins(min(self.injected_x), max(self.injected_x), 256), rate.LogarithmicBins(min(self.injected_y), max(self.injected_y), 256))))
+	def finish(self, binning = None):
+		if binning is None:
+			minx, maxx = min(self.injected_x), max(self.injected_x)
+			miny, maxy = min(self.injected_y), max(self.injected_y)
+			binning = rate.NDBins((rate.LogarithmicBins(minx, maxx, 256), rate.LogarithmicBins(miny, maxy, 256)))
+
+		self.efficiency = rate.BinnedRatios(binning)
+
 		map(self.efficiency.incdenominator, zip(self.injected_x, self.injected_y))
 		map(self.efficiency.incnumerator, zip(self.found_x, self.found_y))
 
