@@ -29,6 +29,7 @@
 
 
 import math
+import numpy
 from optparse import OptionParser
 try:
 	import sqlite3
@@ -652,6 +653,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 
 
 # delete the plots as we go to save memory
+efficiencies = []
 for instrument in plots:
 	n = 0
 	format = "%%s%s_%%0%dd.%%s" % (instrument, int(math.log10(max(options.plot) or 1)) + 1)
@@ -668,7 +670,43 @@ for instrument in plots:
 			if options.verbose:
 				print >>sys.stderr, "writing %s ..." % filename
 			if isinstance(plot, SimBurstUtils.Efficiency_hrss_vs_freq):
+				efficiencies.append(plot)
 				SimBurstUtils.plot_Efficiency_hrss_vs_freq(plot).savefig(filename)
 			else:
 				plot.fig.savefig(filename)
 		n += 1
+
+
+def plot_multi_Efficiency_hrss_vs_freq(efficiencies):
+	plot = SnglBurstUtils.BurstPlot("Frequency (Hz)", r"$h_{\mathrm{rss}}$")
+	plot.axes.loglog()
+
+	e = efficiencies[0]
+	xcoords, ycoords = e.efficiency.centres()
+	zvals = e.efficiency.ratio()
+	for e in efficiencies[1:]:
+		other_xcoords, other_ycoords = e.efficiency.centres()
+		if (xcoords != other_xcoords).any() or (ycoords != other_ycoords).any():
+			# binnings don't match, can't compute product of
+			# efficiencies
+			raise ValueError, "binning mismatch"
+		zvals *= e.efficiency.ratio()
+
+	instruments = [e.instrument for e in efficiencies]
+	instruments.sort()
+	instruments = "+".join(instruments)
+
+	cset = plot.axes.contour(xcoords, ycoords, numpy.transpose(zvals), (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9))
+
+	plot.axes.set_title(r"%s Estimated Injection Detection Efficiency (Contours at 10\%% Intervals)" % instruments)
+
+	return plot.fig
+
+if efficiencies:
+	if options.verbose:
+		print >>sys.stderr, "computing theoretical coincident detection efficiency ..."
+	fig = plot_multi_Efficiency_hrss_vs_freq(efficiencies)
+	filename = "%scoincidence.png" % options.base
+	if options.verbose:
+		print >>sys.stderr, "writing %s ..." % filename
+	fig.savefig(filename)
