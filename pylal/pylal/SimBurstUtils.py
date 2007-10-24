@@ -70,8 +70,8 @@ def hrss_in_instrument(sim, instrument):
 	"""
 	Given an injection and an instrument, compute and return the h_rss
 	of the injection as should be observed in the instrument.  That is,
-	project the waveform onto the instrument, and return the integrated
-	strain squared.
+	project the waveform onto the instrument, and return the root
+	integrated strain squared.
 	"""
 	if sim.coordinates != "EQUATORIAL":
 		raise ValueError, sim.coordinates
@@ -106,7 +106,9 @@ def hrss_in_instrument(sim, instrument):
 
 def found_injections(contents, instrument):
 	for values in contents.connection.cursor().execute("""
-SELECT DISTINCT sim_burst.* FROM
+SELECT
+	DISTINCT sim_burst.*
+FROM
 	sim_burst
 	JOIN coinc_event_map AS a ON (
 		sim_burst.simulation_id == a.event_id
