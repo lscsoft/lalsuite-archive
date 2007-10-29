@@ -101,35 +101,53 @@ def response( gpsTime, ra_rad, de_rad, iota_rad, psi_rad, det ):
 
 
 
-def timeDelay( gpsTime, ra_rad, de_rad, det1, det2 ):
+def timeDelay( gpsTime, rightAscension, declination, unit, det1, det2 ):
   """
+  timeDelay( gpsTime, rightAscension, declination, unit, det1, det2 )
+  
   Calculates the time delay in seconds between the detectors
-  'det1' and 'det2' (e.g. 'H1') for a sky location at (ra_rad, de_rad)
-  [radians] and time 'gpsTime'.
-  Example:  print antenna.timeDelay( gps, ra, dec, 'H1','L1')
-  0.00136794353104
+  'det1' and 'det2' (e.g. 'H1') for a sky location at (rightAscension
+  and declination) which must be given in certain units
+  ('radians' or 'degree'). The time is passes as GPS time.
+  A positive time delay means the GW arrives first at 'det2', then at 'det1'.
+  
+  Example:
+    antenna.timeDelay( 877320548.000, 355.084,31.757, 'degree','H1','L1')
+    0.0011604683260994519
+
+  Given these values, the signal arrives first at detector L1,
+  and 1.16 ms later at H2
   """
 
   # check the input arguments
-  if gpsTime<600000000 or gpsTime>1000000000:
+  if gpsTime<600000000 or gpsTime>2000000000:
     print >>sys.stderr, "ERROR. gps time %d not within reasonable range."\
           % (gpsTime)
     sys.exit(1)
 
+  if unit =='radians':
+    ra_rad = rightAscension
+    de_rad = declination
+  elif unit =='degree':
+    ra_rad = rightAscension/180.0*pi
+    de_rad = declination/180.0*pi
+
+  # check input values
   if ra_rad<0.0 or ra_rad> 2*pi:
-    print >>sys.stderr, "ERROR. ra_rad=%d not within reasonable range."\
-          % (ra_rad)
+    print >>sys.stderr, "ERROR. right ascension=%f "\
+          "not within reasonable range."\
+          % (rightAscension)
     sys.exit(1)
 
   if de_rad<-pi or de_rad> pi:
-    print >>sys.stderr, "ERROR. de_rad=%d not within reasonable range."\
-          % (de_rad)
+    print >>sys.stderr, "ERROR. declination=%f not within reasonable range."\
+          % (declination)
     sys.exit(1)
     
   if det1 == det2:
     return 0.0
   
-  gps = date.LIGOTimeGPS("854378604.780")
+  gps = date.LIGOTimeGPS( gpsTime )
 
   # create detector-name map
   detMap = {'H1': 'LHO_4k', 'H2': 'LHO_2k', 'L1': 'LLO_4k',
