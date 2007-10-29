@@ -215,6 +215,11 @@ FancyMap <- function(UL, title="", levels=NULL, f0=NULL, f1=NULL) {
 dir.create(output_dir)	
 
 #
+# Output raw data file
+#
+write.csv(data, paste(output_dir, "/raw_data.csv", sep=""), col.names=TRUE, row.names=FALSE)
+
+#
 # Describe loaded dataset
 # 
 
@@ -331,6 +336,15 @@ for(i in 1:dim(BandData)[1]) {
 		cat("no data for skyband", skyband, "\n");
 		next
 		}
+
+	write.csv(data.frame(
+		Frequency=Freq,
+		Spindown=data[,'spindown'],
+		UpperLimit=pulsarUL,
+		Line60=as.integer(!no60hz),
+		LineWandering=as.integer(highResMaxReduced),
+		KSVeto= as.integer(!ksVetoP)),
+			paste(output_dir, "/data_", BandName, ".csv", sep=""), col.names=TRUE, row.names=FALSE)
 	
 	#
 	# Histogram of detected strength
