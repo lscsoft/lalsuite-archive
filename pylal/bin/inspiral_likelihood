@@ -103,7 +103,7 @@ parser.add_option("-Y","--inj-vs-slides-hist",action="store_true",\
 
 
 parser.add_option("-L","--likelihood",action="store", type="string",\
-    default='zerolag-candidates-only', help ="Must be zerolag-candidates-only or full-likelihood-analysis. Calculates the Likelihood for either zero lag candidates only or for zero lag, injections and timeslides triggers, respectively")
+    default=None, help ="Must be zerolag-candidates-only or full-likelihood-analysis. Calculates the Likelihood for either zero lag candidates only or for zero lag, injections and timeslides triggers, respectively")
 
 
 parser.add_option("-V","--verbose",action="store_true",default=False,\
@@ -618,7 +618,7 @@ if opts.numslides == 0:
 
 # check if the correct option for likelihood calculation is given
 
-if opts.likelihood not in ['zerolag-candidates-only', 'zerolag-vs-background', 'injections-vs-background']:
+if opts.likelihood not in [None, 'zerolag-candidates-only', 'zerolag-vs-background', 'injections-vs-background']:
   print  >> sys.stderr, "--likelihood  must be equal to one of 'zerolag-candidates-only', 'zerolag-vs-background', 'injections-vs-background' "
   sys.exit(1)
  
