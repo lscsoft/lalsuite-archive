@@ -15,7 +15,7 @@ from pylal import SnglInspiralUtils
 from pylal import SimInspiralUtils
 from pylal.tools import XLALCalculateEThincaParameter
 
-from pylab import*
+#from pylab import*
 import pylal.itertools
 import numpy
 numpy.seterr("raise")
@@ -87,6 +87,8 @@ parser.add_option("-p","--plot-distcut",action="store_true",\
 parser.add_option("-M","--plot-mchirp",action="store_true",\
     default=False, help ="Shows the plot of chirp mass difference based on distance cut")
 
+parser.add_option("-m","--plot-chisq",action="store_true",\
+    default=False, help ="Shows the plot of chi squared  difference based on distance cut")
 
 parser.add_option("-t","--scatter-plot",action="store_true",\
     default=False, help ="Shows the scatter plot Detection probability vs. False alarm probability of zero lag candidates only ")
@@ -515,6 +517,16 @@ class likelihood:
 
 
 ###############################################################################################
+
+if not opts.show:
+  import matplotlib
+  matplotlib.use('Agg')
+from pylab import *
+from pylal import viz
+
+
+
+
 # read in the zero lag  and time slides cache file
 if opts.zerolag_cache_file:
   trigCache = lal.Cache.fromfile(open(opts.zerolag_cache_file))
@@ -745,7 +757,12 @@ if opts.likelihood == 'zerolag-candidates-only':
 ##########################################################################################
 if opts.likelihood == 'zerolag-vs-background' or opts.likelihood == 'injections-vs-background':
 
-
+  BackgroundFractionFile_zerolag = open('BackgroundFraction_zerolag', 'w')
+  LikelihoodFile_zerolag = open('Likelihood_zerolag', 'w')
+  BackgroundFractionFile_inj = open('BackgroundFraction_inj', 'w')
+  LikelihoodFile_inj = open('Likelihood_zerolag_inj', 'w')
+  BackgroundFractionFile_slides = open('BackgroundFraction_slides', 'w')
+  LikelihoodFile_zerolag_slides = open('Likelihood_zerolag_slides', 'w')
 
   # calculating false alarm probability, detection probability and likelihood for zero lag coincs
   size_zerolag = len(zerolagCoincTriggers)
@@ -775,10 +792,18 @@ if opts.likelihood == 'zerolag-vs-background' or opts.likelihood == 'injections-
     else:
       DetectionBackgroundRatio_zerolag[i] = -1.0
     
+    # writing the false alarm probability, the detection probability and the likelihood ratio for zerolag events  into file      
+    LikelihoodFile_zerolag.write('%d\t%s\t%e\t%e\t%e\n' % (candidate.event_id, c_ifos, p0_zerolag_array[i], pc_zerolag_array[i], Likelihood_zerolag[i]))
+    # writing the BackgroundFraction, DetectionProb and DetectionBackgroundRatio for zerolag  into file
+    BackgroundFractionFile_zerolag.write('%d\t%s\t%e\t%e\t%e\n' % (candidate.event_id, c_ifos, bf_zerolag_array[i], pc_zerolag_array[i],\
+    DetectionBackgroundRatio_zerolag[i]))
+
     if opts.verbose:
       print i, candidate.event_id, c_ifos, p0_zerolag_array[i], bf_zerolag_array[i], pc_zerolag_array[i], Likelihood_zerolag[i], DetectionBackgroundRatio_zerolag[i] 
     i+=1
 
+  LikelihoodFile_zerolag.close()
+  BackgroundFractionFile_zerolag.close()
 
   
 
@@ -814,10 +839,19 @@ if opts.likelihood == 'zerolag-vs-background' or opts.likelihood == 'injections-
       DetectionBackgroundRatio_inj[i]= pc_inj_array[i]/bf_inj_array[i]
     else:
       DetectionBackgroundRatio_inj[i] = -1.0
+    
+    # writing the false alarm probability, the detection probability and the likelihood ratio for injections into file
+    LikelihoodFile_inj.write('%d\t%s\t%e\t%e\t%e\n' % (candidate.event_id, c_ifos, p0_inj_array[i], pc_inj_array[i], Likelihood_inj[i]))
+    # writing the BackgroundFraction, DetectionProb and DetectionBackgroundRatio for injections into file
+    BackgroundFractionFile_zerolag.write('%d\t%s\t%e\t%e\t%e\n' % (candidate.event_id, c_ifos, bf_inj_array[i], pc_inj_array[i],\
+    DetectionBackgroundRatio_inj[i]))
 
     if opts.verbose:
       print i, candidate.event_id, c_ifos, p0_inj_array[i], bf_inj_array[i], pc_inj_array[i], Likelihood_inj[i], DetectionBackgroundRatio_inj[i]
     i+=1
+    
+  LikelihoodFile_inj.close()
+  BackgroundFractionFile_inj.close()
 
   (statistic_foreground_inj_LKH, x_middle_foreground_inj_LKH) = cum_hist(Likelihood_inj, opts.bins_cumhist)
   (statistic_foreground_inj_DBR, x_middle_foreground_inj_DBR) = cum_hist(DetectionBackgroundRatio_inj, opts.bins_cumhist)
@@ -874,13 +908,19 @@ if opts.likelihood == 'zerolag-vs-background' or opts.likelihood == 'injections-
       else:
         DetectionBackgroundRatio_slides[i] = -1.0
       DetectionBackgroundRatio_tmp[j] = DetectionBackgroundRatio_slides[i]
-
+     
+      # writing the false alarm probability, the detection probability and the likelihood ratio for time slides into file
+      LikelihoodFile_slides.write('%d\t%s\t%e\t%e\t%e\n' % (candidate.event_id, c_ifos, p0_slides_array[i], pc_slides_array[i], Likelihood_slides[i]))
+      # writing the BackgroundFraction, DetectionProb and DetectionBackgroundRatio for time slides into file
+      BackgroundFractionFile_slides.write('%d\t%s\t%e\t%e\t%e\n' % (candidate.event_id, c_ifos, bf_slides_array[i], pc_slides_array[i],\
+      DetectionBackgroundRatio_slides[i]))
+ 
 
       if opts.verbose:
         print i, candidate.event_id,  c_ifos, p0_slides_array[i], bf_slides_array[i], pc_slides_array[i], Likelihood_slides[i], DetectionBackgroundRatio_slides[i]
       i+=1
       j+=1
-
+    
     (cumhist_slide, x_middle_slide_LKH) = cum_hist(Likelihood_tmp, bins_slide)
     average_likelihood +=cumhist_slide
     average_sqr_likelihood +=cumhist_slide**2
@@ -894,8 +934,9 @@ if opts.likelihood == 'zerolag-vs-background' or opts.likelihood == 'injections-
 
   sigma_DBR = numpy.sqrt((average_sqr_DBR / (2 * opts.numslides)) - (average_DBR/(2 * opts.numslides))**2)
   expect_DBR = average_DBR / (2 * opts.numslides)
-
-
+  
+  LikelihoodFile_slides.close()
+  BackgroundFractionFile_slides.close()
 ###################################################################################
 # Plot the various parameters for time slides and injections
 ###################################################################################
@@ -909,6 +950,10 @@ if opts.plot_distcut:
 
 if opts.plot_mchirp:
   plotdata().plotroutine(ifo_combos,slidesCoincTriggers,injectionCoincTriggers,'mchirp', opts.slide_bins, opts.injection_bins)
+
+if opts.plot_chisq:
+  plotdata().plotroutine(ifo_combos,slidesCoincTriggers,injectionCoincTriggers,'chisq', opts.slide_bins, opts.injection_bins)
+
 
 if opts.scatter_plot:
   plotdata().scatter_plot(FalseAlarmProb_array, DetectionProb_array)
