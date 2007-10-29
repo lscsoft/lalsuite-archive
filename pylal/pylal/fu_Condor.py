@@ -519,6 +519,8 @@ class mcmcNode(pipeline.CondorDAGNode,webTheNode):
   """
   def __init__(self, mcmcJob, procParams, ifo, trig, cp,opts,dag):
 
+    time_margin = string.strip(cp.get('mcmc','prior-coal-time-marg'))
+
     self.friendlyName = 'MCMC followup'
     pipeline.CondorDAGNode.__init__(self,mcmcJob)
 
@@ -535,18 +537,20 @@ class mcmcNode(pipeline.CondorDAGNode,webTheNode):
     self.add_var_opt("channel-name", channel) # must be STRAIN ?
     # THIS COALESCENCE TIME INFO IS AD HOC AND NEEDS TO BE IMPROVED
     self.add_var_opt("prior-coal-time-mean", str(trig.gpsTime[ifo]))
-    self.add_var_opt("prior-coal-time-marg","0.01") # what should this be?
+    self.add_var_opt("prior-coal-time-marg",time_margin) # what should this be?
     self.add_var_opt("random-seed-one", str(trig.gpsTime[ifo]).split('.')[0][5:9])
     self.add_var_opt("random-seed-two", str(trig.gpsTime[ifo]).split('.')[1])
     mass1 = getattr(trig.coincs,ifo).mass1
     mass2 = getattr(trig.coincs,ifo).mass2
     dist = getattr(trig.coincs,ifo).eff_distance
     snr = getattr(trig.coincs,ifo).snr
+    duration = getattr(trig.coincs,ifo).template_duration
     # THE DIST LIMITS ARE AD HOC THIS NEEDS TO BE FIXED
     # THESE CAN HAVE LARGE SYSTEMATIC ERRORS THAT WILL NOT
-    # BE CAPTURED BY THIS RIGHT???
-    dist10 = 1.0/math.sqrt((snr*snr+2.0*1.65)/snr/snr)*dist
-    dist90 = 1.0/math.sqrt((snr*snr-2.0*1.65)/snr/snr)*dist
+    # BE CAPTURED BY THIS RIGHT??? I am using two sigma instead of 
+    # 1.65 which would be right for the 10/90 !!
+    dist10 = 1.0/math.sqrt((snr*snr+2.0*2.0)/snr/snr)*dist
+    dist90 = 1.0/math.sqrt((snr*snr-2.0*2.0)/snr/snr)*dist
     # THE MASS LIMITS ARE AD HOC THIS NEEDS TO BE FIXED
     if mass1 < mass2:
       self.add_var_opt("prior-lower-mass", str(mass1*0.9) )
@@ -556,6 +560,7 @@ class mcmcNode(pipeline.CondorDAGNode,webTheNode):
       self.add_var_opt("prior-upper-mass", str(mass1*1.1) )
     self.add_var_opt("prior-distance-10", str(dist10))
     self.add_var_opt("prior-distance-90", str(dist90))
+    self.add_var_opt("before-coal-time", str(duration))
     
     ########################################################################
     # GET THE FRAME FILE INFO - THIS NEEDS TO BE CHANGED !!!
