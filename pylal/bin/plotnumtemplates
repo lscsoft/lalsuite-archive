@@ -175,8 +175,7 @@ tmpltSumm = readFiles(tmpltbankFiles)
 print 'Reading files...' + str(len(trigbankFiles))
 trigSumm  = readFiles(trigbankFiles)
 print 'done'
-colors = {'G1':'k','H1':'r','H2':'b','L1':'g'}
-
+colors = {'G1':'k','H1':'r','H2':'b','L1':'g','V1':'m'}
 
 for ifo in tmpltSumm.keys():
   numTemplates = tmpltSumm[ifo].getColumnByName('nevents').asarray()
