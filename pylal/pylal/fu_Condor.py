@@ -118,10 +118,15 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
       self.setupNodeWeb(inspJob,False,None,None,None,dag.cache)
       self.add_var_opt("output-path",inspJob.outputPath)
 
-      if opts.inspiral:
+      if opts.inspiral and type == 'plot':
         dag.addNode(self,'inspiral')
         self.validate()
       else: self.invalidate()
+      if opts.inspiral_head and type == 'head':
+        dag.addNode(self,'inspiral-head')
+        self.validate()
+      else: self.invalidate()
+
     else:
     #except:
       self.invalidate()
