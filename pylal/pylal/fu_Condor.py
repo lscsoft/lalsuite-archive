@@ -58,8 +58,8 @@ class followUpInspJob(inspiral.InspiralJob,webTheJob):
     inspiral.InspiralJob.__init__(self,cp)
     self.name = 'followUpInspJob' + type
     self.setupJobWeb(self.name)
-    if type == 'head'
-    self.__executable = string.strip(cp.get('condor','inspiral_head'))
+    if type == 'head':
+      self.__executable = string.strip(cp.get('condor','inspiral_head'))
 
 
 class followUpInspNode(inspiral.InspiralNode,webTheNode):
@@ -81,13 +81,17 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
 
       self.set_user_tag("FOLLOWUP_" + str(trig.gpsTime[ifo]))
       self.__usertag = "FOLLOWUP_" + str(trig.gpsTime[ifo])
-      if injFile: self.set_injections( injFile )
+      if injFile: 
+        self.set_injections( injFile )
       
       skipParams = ['minimal-match', 'user-tag', 'injection-file', 'trig-start-time', 'trig-end-time']
-      if type == 'plot': skipParams.append('bank-file')
-      if type == 'head': 
-        self.add_var_opt("bank-veto-subbank-size", string.strip(cp.get('inspiral-head','bank-veto-subbank-size'))
-        self.add_var_opt("order", string.strip(cp.get('inspiral-head','order'))
+
+      if (type == 'plot'): 
+        skipParams.append('bank-file')
+
+      if (type == 'head'): 
+        self.add_var_opt("bank-veto-subbank-size", string.strip(cp.get('inspiral-head','bank-veto-subbank-size')))
+        self.add_var_opt("order", string.strip(cp.get('inspiral-head','order')))
 
       for row in procParams:
         param = row.param.strip("-")
