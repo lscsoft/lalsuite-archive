@@ -54,30 +54,40 @@ class followUpDAG(pipeline.CondorDAG, webTheDAG):
 #### A CLASS TO DO FOLLOWUP INSPIRAL JOBS ####################################
 ###############################################################################
 class followUpInspJob(inspiral.InspiralJob,webTheJob):
-  def __init__(self,cp):
+  def __init__(self,cp,type='plot'):
     inspiral.InspiralJob.__init__(self,cp)
-    self.name = 'followUpInspJob'
+    self.name = 'followUpInspJob' + type
     self.setupJobWeb(self.name)
+    if type == 'head'
+    self.__executable = string.strip(cp.get('condor','inspiral_head'))
 
 
 class followUpInspNode(inspiral.InspiralNode,webTheNode):
   
-  def __init__(self, inspJob, procParams, ifo, trig, cp,opts,dag):    
+  def __init__(self, inspJob, procParams, ifo, trig, cp,opts,dag, type='plot'):    
     if 1:
     #try:
       inspiral.InspiralNode.__init__(self, inspJob) 
       injFile = self.checkInjections(cp)      
-      bankFile = 'trigTemplateBank/' + ifo + '-TRIGBANK_FOLLOWUP_' + str(trig.gpsTime[ifo]) + '.xml.gz'
-      self.add_var_opt("write-snrsq","")
-      self.add_var_opt("write-chisq","")
-      self.add_var_opt("write-spectrum","")
-      self.set_bank(bankFile)
+
+      if type == 'plot':
+        bankFile = 'trigTemplateBank/' + ifo + '-TRIGBANK_FOLLOWUP_' + str(trig.gpsTime[ifo]) + '.xml.gz'
+        self.add_var_opt("write-snrsq","")
+        self.add_var_opt("write-chisq","")
+        self.add_var_opt("write-spectrum","")
+        self.set_bank(bankFile)
+        self.set_trig_start( int(trig.gpsTime[ifo]) - 1)
+        self.set_trig_end( int(trig.gpsTime[ifo]) + 1 )
+
       self.set_user_tag("FOLLOWUP_" + str(trig.gpsTime[ifo]))
       self.__usertag = "FOLLOWUP_" + str(trig.gpsTime[ifo])
-      self.set_trig_start( int(trig.gpsTime[ifo]) - 1)
-      self.set_trig_end( int(trig.gpsTime[ifo]) + 1 )
       if injFile: self.set_injections( injFile )
-      skipParams = ['minimal-match', 'bank-file', 'user-tag', 'injection-file', 'trig-start-time', 'trig-end-time']
+      
+      skipParams = ['minimal-match', 'user-tag', 'injection-file', 'trig-start-time', 'trig-end-time']
+      if type == 'plot': skipParams.append('bank-file')
+      if type == 'head': 
+        self.add_var_opt("bank-veto-subbank-size", string.strip(cp.get('inspiral-head','bank-veto-subbank-size'))
+        self.add_var_opt("order", string.strip(cp.get('inspiral-head','order'))
 
       for row in procParams:
         param = row.param.strip("-")
