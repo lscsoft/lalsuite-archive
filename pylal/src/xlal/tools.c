@@ -107,11 +107,10 @@ PyTypeObject pylal_LALDetector_Type = {
 static PyObject *make_cached_detectors(void)
 {
 	PyObject *cached_detector = PyDict_New();
-	pylal_LALDetector *new;
 	int i;
 
 	for(i = 0; i < LALNumCachedDetectors; i++) {
-		new = (pylal_LALDetector *) _PyObject_New(&pylal_LALDetector_Type);
+		pylal_LALDetector *new = (pylal_LALDetector *) _PyObject_New(&pylal_LALDetector_Type);
 		memcpy(&new->detector, &lalCachedDetectors[i], sizeof(new->detector));
 		{
 		npy_intp dims[] = {3};

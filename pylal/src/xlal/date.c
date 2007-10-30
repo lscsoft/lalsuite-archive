@@ -543,21 +543,25 @@ static PyObject *pylal_XLALINT8NSToGPS(PyObject *self, PyObject *args)
  */
 
 
-static void struct_tm_python_to_c(struct tm *tm)
+static struct tm *struct_tm_python_to_c(struct tm *tm)
 {
 	tm->tm_year -= 1900;
 	tm->tm_mon -= 1;
 	tm->tm_wday = (tm->tm_wday + 8) % 7;
 	tm->tm_yday -= 1;
+
+	return tm;
 }
 
 
-static void struct_tm_c_to_python(struct tm *tm)
+static struct tm *struct_tm_c_to_python(struct tm *tm)
 {
 	tm->tm_year += 1900;
 	tm->tm_mon += 1;
 	tm->tm_wday = (tm->tm_wday + 6) % 7;
 	tm->tm_yday += 1;
+
+	return tm;
 }
 
 
@@ -587,10 +591,8 @@ static PyObject *pylal_XLALLeapSecondsUTC(PyObject *self, PyObject *args)
 	if(!PyArg_ParseTuple(args, "(iiiiiiiii):XLALLeapSecondsUTC", &utc.tm_year, &utc.tm_mon, &utc.tm_mday, &utc.tm_hour, &utc.tm_min, &utc.tm_sec, &utc.tm_wday, &utc.tm_yday, &utc.tm_isdst))
 		return NULL;
 
-	struct_tm_python_to_c(&utc);
-
 	/* int */
-	return PyInt_FromLong(XLALLeapSecondsUTC(&utc));
+	return PyInt_FromLong(XLALLeapSecondsUTC(struct_tm_python_to_c(&utc)));
 }
 
 
@@ -629,8 +631,7 @@ static PyObject *pylal_XLALUTCToGPS(PyObject *self, PyObject *args)
 	if(!PyArg_ParseTuple(args, "(iiiiiiiii):XLALUTCToGPS", &utc.tm_year, &utc.tm_mon, &utc.tm_mday, &utc.tm_hour, &utc.tm_min, &utc.tm_sec, &utc.tm_wday, &utc.tm_yday, &utc.tm_isdst))
 		return NULL;
 
-	struct_tm_python_to_c(&utc);
-	XLALGPSSet(&gps, XLALUTCToGPS(&utc), 0);
+	XLALGPSSet(&gps, XLALUTCToGPS(struct_tm_python_to_c(&utc)), 0);
 
 	/* LIGOTimeGPS */
 	return pylal_LIGOTimeGPS_New(gps);
@@ -650,10 +651,8 @@ static PyObject *pylal_XLALJulianDay(PyObject *self, PyObject *args)
 	if(!PyArg_ParseTuple(args, "(iiiiiiiii):XLALJulianDay", &utc.tm_year, &utc.tm_mon, &utc.tm_mday, &utc.tm_hour, &utc.tm_min, &utc.tm_sec, &utc.tm_wday, &utc.tm_yday, &utc.tm_isdst))
 		return NULL;
 
-	struct_tm_python_to_c(&utc);
-
 	/* float */
-	return PyFloat_FromDouble(XLALJulianDay(&utc));
+	return PyFloat_FromDouble(XLALJulianDay(struct_tm_python_to_c(&utc)));
 }
 
 
@@ -665,10 +664,8 @@ static PyObject *pylal_XLALModifiedJulianDay(PyObject *self, PyObject *args)
 	if(!PyArg_ParseTuple(args, "(iiiiiiiii):XLALModifiedJulianDay", &utc.tm_year, &utc.tm_mon, &utc.tm_mday, &utc.tm_hour, &utc.tm_min, &utc.tm_sec, &utc.tm_wday, &utc.tm_yday, &utc.tm_isdst))
 		return NULL;
 
-	struct_tm_python_to_c(&utc);
-
 	/* int */
-	return PyInt_FromLong(XLALModifiedJulianDay(&utc));
+	return PyInt_FromLong(XLALModifiedJulianDay(struct_tm_python_to_c(&utc)));
 }
 
 
