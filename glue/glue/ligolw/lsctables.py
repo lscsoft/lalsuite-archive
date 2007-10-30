@@ -922,6 +922,7 @@ class MultiInspiralTable(table.Table):
 		"inclination": "real_4",
 		"polarization": "real_4",
 		"event_id": "ilwd:char",
+		"null_statistic": "real_4",
 		"h1quad_re": "real_4",
 		"h1quad_im": "real_4",
 		"h2quad_re": "real_4",
