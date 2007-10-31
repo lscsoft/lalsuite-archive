@@ -124,54 +124,6 @@ def dbget_thresholds(connection):
 
 
 #
-# How to compute coincidence parameters from burst events
-#
-
-
-def coinc_params(events, offsetdict):
-	params = {}
-	events.sort(lambda a, b: cmp(a.ifo, b.ifo))
-	for event1, event2 in itertools.choices(events, 2):
-		if event1.ifo == event2.ifo:
-			# a coincidence is parameterized only by
-			# inter-instrument deltas
-			continue
-
-		prefix = "%s_%s_" % (event1.ifo, event2.ifo)
-
-		# in each of the following, if the list of events contains
-		# more than one event from a given instrument, the smallest
-		# deltas are recorded
-
-		dt = float(event1.get_peak() + offsetdict[event1.ifo] - event2.get_peak() - offsetdict[event2.ifo])
-		name = prefix + "dt"
-		if name not in params or abs(params[name]) > abs(dt):
-			params[name] = dt
-
-		df = (event1.peak_frequency - event2.peak_frequency) / ((event1.peak_frequency + event2.peak_frequency) / 2)
-		name = prefix + "df"
-		if name not in params or abs(params[name]) > abs(df):
-			params[name] = df
-
-		dh = (event1.ms_hrss - event2.ms_hrss) / ((event1.ms_hrss + event2.ms_hrss) / 2)
-		name = prefix + "dh"
-		if name not in params or abs(params[name]) > abs(dh):
-			params[name] = dh
-
-		dband = (event1.ms_bandwidth - event2.ms_bandwidth) / ((event1.ms_bandwidth + event2.ms_bandwidth) / 2)
-		name = prefix + "dband"
-		if name not in params or abs(params[name]) > abs(dband):
-			params[name] = dband
-
-		ddur = (event1.ms_duration - event2.ms_duration) / ((event1.ms_duration + event2.ms_duration) / 2)
-		name = prefix + "ddur"
-		if name not in params or abs(params[name]) > abs(ddur):
-			params[name] = ddur
-
-	return params
-
-
-#
 # A class for measuring 1-D parameter distributions
 #
 
