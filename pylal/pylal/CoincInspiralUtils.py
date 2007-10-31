@@ -4,6 +4,7 @@ from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
+from pylal.inject import light_travel_time
 from pylal.tools import XLALCalculateEThincaParameter
 import pylal.itertools
 import numpy
@@ -37,10 +38,13 @@ def simpleEThinca(trigger1, trigger2):
   d_average=(1/2)[(Gamma(x1)_{ij}(x2-x1)^i(x2-x1)^j)^(1/2) + (Gamma(x2)_{ij}(x2-x1)^i(x2-x1)^j)^(1/2)]
   then simple_ethinca= d_average^2/4  
   
-  @param trigger1: are single inspiral triggers.
-  @param trigger2: are single inspiral triggers.
+  @param trigger1: is a single inspiral triggers.
+  @param trigger2: is a single inspiral triggers.
   """ 
-  
+  #dend_time = (trigger2.end_time - trigger1.end_time) + (trigger2.end_time_ns - trigger1.end_time_ns)*10**(-9)
+
+  # HACK
+  #dend_time = numpy.sign(dend_time)*max(0.0, abs(dend_time) - light_travel_time(trigger1.ifo, trigger2.ifo))
   #dend_time = (trigger2.end_time - trigger1.end_time) +\
   #(trigger2.end_time_ns - trigger1.end_time_ns)*10**(-9)
   #FIX ME end_time for time slides is poorly defined, we should sort it out
