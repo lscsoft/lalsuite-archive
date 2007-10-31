@@ -91,6 +91,8 @@ plotLink = 'Summary' + '_' + str(utc[0]) + '_' + month+day+'_' + opts.ifo.lower(
 talk.link(plotLink,plotLink)
 
 plot = os.popen('wget '+plotURL+plotLink)
+os.system('cp '+ plotLink + ' ' + opts.output_path + '/.')
+
 for line in plot:
   print line
 
@@ -107,6 +109,8 @@ plotLink = 'Summary' + '_' + str(utc[0]) + '_' + month+day+'_' + opts.ifo.lower(
 talk.link(plotLink,plotLink)
 
 plot = os.popen('wget '+plotURL+plotLink)
+os.system('cp '+ plotLink + ' ' + opts.output_path + '/.')
+
 for line in plot:
   print line
 
@@ -122,6 +126,9 @@ plotLink = 'Summary' + '_' + str(utc[0]) + '_' + month+day+'_' + opts.ifo.lower(
 talk.link(plotLink,plotLink)
 
 plot = os.popen('wget '+plotURL+plotLink)
+os.system('cp '+ plotLink + ' ' + opts.output_path + '/.')
+
+
 for line in plot:
   print line
 
